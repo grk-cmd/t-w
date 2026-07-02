@@ -1,0 +1,62 @@
+{
+  "name": "together-working",
+  "version": "0.1.0",
+  "description": "책상 위에 사는 데스크톱 컴패니언",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "release": "electron-builder --publish always"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "active-win": "^8.2.1",
+    "electron-updater": "^6.1.7",
+    "firebase": "^12.15.0",
+    "uiohook-napi": "^1.5.2"
+  },
+  "build": {
+    "appId": "com.togetherworking.app",
+    "productName": "Together Working",
+    "asar": true,
+    "files": [
+      "main.js",
+      "preload.js",
+      "app/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/uiohook-napi/**/*",
+      "node_modules/active-win/**/*",
+      "**/*.node"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "grk-cmd",
+        "repo": "t-w"
+      }
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "${productName}-Setup-${version}.exe"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomCode": {
+        ".read": true,
+        ".write": true,
+        "$memberId": {
+          ".validate": "newData.hasChildren(['name', 'state'])"
+        }
+      }
+    },
+    "licenses": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

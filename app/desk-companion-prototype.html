@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Desk Companion — 멀티 좌석 프로토타입</title>
+<style>
+  :root{
+    /* ===== Win98 레트로 팔레트 ===== */
+    --win-face:#C0C0C0;        /* 기본 베젤 면(패널/버튼 배경) */
+    --win-face-2:#D4D0C8;      /* 살짝 밝은 베젤 면(윈도 XP 클래식과 절충) */
+    --win-hi:#FFFFFF;          /* 베젤 밝은 면(위/왼쪽) */
+    --win-lo:#808080;          /* 베젤 어두운 면(아래/오른쪽) */
+    --win-lo-2:#000000;        /* 베젤 제일 바깥 어두운 선 */
+    --win-title-a:#000080;     /* 타이틀바 그라데이션 시작(네이비) */
+    --win-title-b:#1084D0;     /* 타이틀바 그라데이션 끝(하늘) */
+    --win-ink:#000000;         /* 기본 텍스트 */
+    --win-ink-soft:#444444;    /* 보조 텍스트 */
+    --win-select:#000080;      /* 선택 강조(리스트 선택 등) */
+    --win-select-bg:#DFE8F6;   /* 선택된 카드 배경 */
+    --win-accent:#008080;      /* 포인트(청록) — 데스크톱 배경톤과 맞춤, 강조 텍스트용 */
+    --win-error:#B5624A;       /* 에러/경고 */
+
+    /* 기존 변수명 유지(하위 호환) — 전부 Win98 팔레트로 매핑해서 기존 CSS 규칙들도 자동으로 새 스타일을 받음 */
+    --cream:var(--win-face); --cream-2:var(--win-face-2);
+    --sage:var(--win-title-b); --sage-d:var(--win-title-a);
+    --wood:var(--win-lo); --terra:var(--win-error); --pink:var(--win-select-bg);
+    --ink:var(--win-ink); --ink-soft:var(--win-ink-soft);
+    --panel:var(--win-face); --shadow:rgba(0,0,0,.35);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;overflow:hidden;}
+  body{font-family:Tahoma,'MS Sans Serif',sans-serif;color:var(--ink);font-size:12px;
+    background:var(--win-accent);
+    -webkit-font-smoothing:antialiased;}
+
+  /* ===== Win98 공통 베젤 유틸리티 =====
+     .win98raised : 툭 튀어나온 베젤(버튼/패널 기본)
+     .win98sunken : 안으로 들어간 베젤(입력창/미리보기 영역)
+     .win98pressed: 눌린 상태(버튼 active) */
+  .win98raised{
+    border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    background:var(--win-face);
+    border-radius:0 !important;
+  }
+  .win98sunken{
+    border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    box-shadow: inset 1px 1px 0 var(--win-lo-2);
+    background:#fff;
+    border-radius:0 !important;
+  }
+  .win98pressed{
+    border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2) !important;
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2) !important;
+  }
+  .win98titlebar{
+    background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));
+    color:#fff; font-size:11px; font-weight:bold;
+    padding:4px 5px 4px 7px;
+    display:flex; align-items:center; justify-content:space-between;
+    font-family:Tahoma,'MS Sans Serif',sans-serif;
+  }
+  .win98titlebtns{ display:flex; gap:2px; }
+  .win98titlebtn{
+    width:17px; height:15px;
+    border:1px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    background:var(--win-face); color:#000;
+    font-size:9px; font-weight:bold;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+  }
+
+  /* Win98은 둥근 모서리·블러·부드러운 그림자가 없음 — 기존 요소들의 해당 속성을 전역으로 무력화.
+     (개별 win98 유틸리티 클래스의 box-shadow는 베젤 표현이라 여기서 안 건드림 — 아래는 border-radius/backdrop-filter만) */
+  *{ border-radius:0 !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important; }
+  #scene{position:fixed;right:18px;bottom:18px;display:block;border-radius:14px;}
+  /* === 데스크탑(Electron) 투명 모드 === */
+  body.desktop{background:transparent !important;}
+  body.desktop::after{display:none !important;}
+  body.desktop .badge{display:none !important;}
+  body.desktop #scene{left:0;top:0;right:auto;bottom:auto;width:100vw;height:100vh;border-radius:0;}
+  /* 런처/생성기가 열려있을 때(=config 창 크기)는 캐릭터 캔버스를 숨김 — 안 그러면 작은 창 뒤로 캐릭터가 계속 그려져 삐져나와 보임 */
+  body.desktop.config #scene{display:none;}
+  body.desktop.runmode .panel{display:none !important;}
+  /* 런처·생성기 열렸을 때 뒤에 비치는 좌석편집 패널 숨김 (데스크톱은 다른 방식으로 편집 UI 제공 예정) */
+  body.desktop .panel{display:none !important;}
+  /* 런처·생성기 배경(전체 덮는 크림 그라데이션)을 투명하게 → 카드/모달만 보이게 */
+  body.desktop #launcher{background:transparent !important;}
+  body.desktop #creatorOverlay{background:transparent !important;}
+  /* 데스크톱: 카드/모달 뒤 그림자 제거 (투명 창이라 그림자가 어색) */
+  body.desktop .lc-card{box-shadow:none !important;}
+  body.desktop #creatorModal{box-shadow:none !important;}
+  /* 데스크톱: 각종 팝업의 어두운 딤 배경을 투명하게 (팝업 카드만 보이게) */
+  body.desktop #codeOverlay,
+  body.desktop #raceOverlay,
+  body.desktop #friendPicker,
+  body.desktop #exportOverlay,
+  body.desktop #glbEncOverlay,
+  body.desktop #glbLoadOverlay,
+  body.desktop #assetGenOverlay,
+  body.desktop #assetImpOverlay,
+  body.desktop #inviteOverlay,
+  body.desktop #commGenOverlay,
+  body.desktop #commImpOverlay,
+  body.desktop #partRegOverlay{background:transparent !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}
+  #deskBar{display:none;position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:60;
+    gap:6px;padding:5px 8px;border-radius:0 0 12px 12px;background:rgba(74,63,53,.32);backdrop-filter:blur(6px);
+    opacity:0;transition:opacity .18s;align-items:center;}
+  body.desktop.runmode #deskBar{display:flex;}
+  #deskBar:hover{opacity:1;}
+  #deskBar .grip{cursor:move;color:#fff;font-size:13px;letter-spacing:2px;padding:0 4px;-webkit-app-region:drag;}
+  #deskBar button{-webkit-app-region:no-drag;border:none;background:rgba(255,255,255,.85);border-radius:8px;
+    width:24px;height:24px;font-size:13px;cursor:pointer;line-height:1;}
+  #deskBar button:hover{background:#fff;}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:2;opacity:.05;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");}
+
+  .panel{position:fixed;left:22px;top:22px;z-index:5;width:300px;max-width:calc(100vw - 44px);
+    background:var(--panel);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1.5px solid rgba(201,165,123,.35);border-radius:22px;padding:18px 18px 16px;
+    box-shadow:0 14px 40px var(--shadow), inset 0 1px 0 rgba(255,255,255,.6);
+    max-height:calc(100vh - 44px);overflow-y:auto;}
+  .panel h1{font-family:'Fredoka',sans-serif;font-weight:600;font-size:17px;display:flex;align-items:center;gap:8px;margin-bottom:3px;}
+  .panel .sub{font-size:11.5px;color:var(--ink-soft);font-weight:600;margin-bottom:14px;}
+
+  .seclabel{font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--ink-soft);margin:0 2px 8px;opacity:.8;}
+
+  .seats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+  .seats .seat{width:34px;height:34px;border-radius:10px;border:1.5px solid rgba(201,165,123,.4);
+    background:rgba(255,255,255,.6);font-family:'Fredoka',sans-serif;font-weight:600;font-size:14px;color:var(--ink);
+    cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;}
+  .seats .seat:hover{background:#fff;}
+  .seats .seat.sel{background:var(--sage);color:#fff;border-color:var(--sage-d);box-shadow:0 4px 12px rgba(122,154,104,.35);}
+  .seats .add,.seats .del{background:rgba(217,142,115,.14);border-color:rgba(217,142,115,.4);color:var(--terra);font-size:16px;}
+  .seats .add:hover,.seats .del:hover{background:rgba(217,142,115,.25);}
+
+  .statebar{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.55);border:1px solid rgba(201,165,123,.3);
+    border-radius:14px;padding:10px 13px;margin-bottom:14px;}
+  .dot{width:13px;height:13px;border-radius:50%;flex:none;box-shadow:0 0 0 4px rgba(157,186,138,.18);transition:.3s;}
+  .statebar .label{font-family:'Fredoka',sans-serif;font-weight:500;font-size:15px;}
+  .statebar .auto-tag{margin-left:auto;font-size:10px;font-weight:800;color:var(--sage-d);background:rgba(157,186,138,.18);padding:3px 7px;border-radius:7px;}
+  .statebar .auto-tag.manual{color:var(--terra);background:rgba(217,142,115,.16);}
+
+  .modelbox{background:rgba(255,255,255,.5);border:1.5px dashed rgba(201,165,123,.55);border-radius:13px;padding:11px 12px;margin-bottom:12px;}
+  .filebtns{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px;}
+  .filebtns label,.filebtns button{text-align:center;font-family:'Nunito',sans-serif;font-weight:700;font-size:11px;cursor:pointer;
+    background:var(--sage);color:#fff;border:none;border-radius:10px;padding:9px 6px;transition:.15s;}
+  .filebtns label:hover,.filebtns button:hover{background:var(--sage-d);}
+  .filebtns .reset{background:rgba(255,255,255,.7);color:var(--ink-soft);border:1.5px solid rgba(201,165,123,.4);}
+  .modelinfo{font-size:11px;color:var(--ink-soft);line-height:1.5;}
+  .modelinfo b{color:var(--ink);}
+  .sliders{display:none;margin-top:10px;}
+  .sliders.on{display:block;}
+  .slider{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11px;color:var(--ink-soft);font-weight:700;}
+  .slider span{width:34px;flex:none;}
+  .slider input{flex:1;accent-color:var(--sage-d);}
+
+  .btns{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:10px;}
+  .btns button{font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;color:var(--ink);cursor:pointer;
+    background:rgba(255,255,255,.6);border:1.5px solid rgba(201,165,123,.4);border-radius:11px;padding:9px 4px;transition:.15s;}
+  .btns button:hover{background:#fff;transform:translateY(-1px);}
+  .btns button.active{background:var(--sage);color:#fff;border-color:var(--sage-d);}
+  .btns .auto{grid-column:span 3;background:rgba(217,142,115,.14);border-color:rgba(217,142,115,.4);color:var(--terra);}
+  .btns .auto.active{background:var(--terra);color:#fff;border-color:var(--terra);}
+
+  .hint{font-size:11px;line-height:1.55;color:var(--ink-soft);background:rgba(255,255,255,.4);border-radius:11px;padding:9px 11px;}
+  .hint b{color:var(--ink);font-weight:800;}
+
+  .badge{position:fixed;top:20px;right:22px;z-index:5;font-family:'Fredoka',sans-serif;font-weight:500;font-size:12px;color:var(--ink-soft);
+    background:var(--panel);backdrop-filter:blur(10px);border:1.5px solid rgba(201,165,123,.35);border-radius:30px;padding:7px 15px;box-shadow:0 8px 24px var(--shadow);}
+
+  #dropOverlay{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;
+    background:rgba(157,186,138,.18);backdrop-filter:blur(3px);border:4px dashed var(--sage-d);}
+  #dropOverlay.on{display:flex;}
+  #dropOverlay div{font-family:'Fredoka',sans-serif;font-size:22px;color:var(--sage-d);background:rgba(255,255,255,.85);padding:22px 34px;border-radius:18px;}
+
+  #decorOverlay{position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.35);}
+  #decorOverlay.on{display:flex;}
+  #decorModal{width:620px;max-width:calc(100vw - 40px);max-height:calc(100vh - 56px);
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    overflow:hidden;display:flex;flex-direction:column;}
+  .decor-top{display:flex;align-items:center;justify-content:space-between;padding:5px 6px 5px 8px;
+    background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));cursor:move;-webkit-app-region:drag;}
+  .decor-top h2{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;}
+  .decor-top button{width:17px;height:15px;font-size:11px;font-weight:bold;line-height:1;cursor:pointer;-webkit-app-region:no-drag;
+    background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:#000;}
+  .decor-top button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  .decor-body{display:flex;min-height:0;}
+  .decor-left{position:relative;width:250px;flex:none;background:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:14px;
+    border-right:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);}
+  #previewCanvas{width:222px;height:300px;}
+  #creatorPreview{cursor:crosshair;}
+  .cp-arrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:26px;height:40px;font-size:20px;font-weight:bold;cursor:pointer;
+    background:none;border:none;box-shadow:none;color:rgba(0,0,0,.55);opacity:1;display:flex;align-items:center;justify-content:center;}
+  .cp-arrow:active{color:#000;transform:translateY(-50%) scale(.9);}
+  .cp-arrow.l{left:8px;} .cp-arrow.r{right:8px;}
+  .cp-arrow.u,.cp-arrow.d{top:auto;left:50%;transform:translateX(-50%);width:40px;height:26px;}
+  .cp-arrow.u{top:8px;} .cp-arrow.d{bottom:8px;}
+  .cp-arrow.u:active,.cp-arrow.d:active{transform:translateX(-50%) scale(.9);}
+  #cpReset{position:absolute;left:8px;bottom:8px;z-index:4;width:28px;height:28px;font-size:14px;line-height:1;cursor:pointer;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);
+    display:flex;align-items:center;justify-content:center;}
+  #cpReset:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);transform:none;}
+
+  /* 도장 떠 있는 미리보기 (Z=확정 박기, ESC=취소) */
+  #stampOverlay{position:absolute;z-index:5;pointer-events:none;transform-origin:50% 50%;}
+  #stampOverlayImg{display:block;width:100%;height:100%;opacity:.78;outline:1.5px dashed #c9a36a;outline-offset:-1px;pointer-events:auto;cursor:move;user-select:none;-webkit-user-drag:none;}
+  .stamp-handle{position:absolute;width:12px;height:12px;background:#fff;border:1.5px solid #c9a36a;border-radius:50%;pointer-events:auto;box-shadow:0 1px 3px rgba(120,95,60,.3);}
+  .stamp-h-tl{left:-6px;top:-6px;cursor:nwse-resize;}
+  .stamp-h-tr{right:-6px;top:-6px;cursor:nesw-resize;}
+  .stamp-h-bl{left:-6px;bottom:-6px;cursor:nesw-resize;}
+  .stamp-h-br{right:-6px;bottom:-6px;cursor:nwse-resize;}
+  .stamp-h-rot{left:50%;top:-26px;margin-left:-6px;background:#c9a36a;border-color:#fff;cursor:grab;}
+  .stamp-h-rot:active{cursor:grabbing;}
+  .stamp-rot-stem{position:absolute;left:50%;top:-20px;width:1.5px;height:14px;margin-left:-0.75px;background:#c9a36a;pointer-events:none;}
+  .stamp-h-reset{position:absolute;right:-30px;top:-30px;width:22px;height:22px;background:#fff;border:1.5px solid #c9a36a;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#9a8a72;font-size:13px;line-height:1;cursor:pointer;pointer-events:auto;box-shadow:0 2px 6px rgba(120,95,60,.2);user-select:none;transition:.13s;}
+  .stamp-h-reset:hover{background:#fffdf6;color:#6f6253;transform:rotate(-40deg);}
+  .mini-reset{margin-left:8px;min-width:30px;height:26px;border:none;border-radius:8px;background:rgba(201,165,123,.22);color:var(--sage-d);font-size:14px;cursor:pointer;flex:none;}
+  .mini-reset:hover{background:rgba(201,165,123,.42);}
+  .mini-reset.wide{width:auto;padding:6px 14px;margin:8px 0 0;font-size:12px;align-self:flex-start;}
+  .decor-gear{position:absolute;top:10px;right:10px;z-index:3;width:30px;height:30px;border-radius:9px;border:none;
+    background:rgba(255,255,255,.88);color:var(--ink-soft);font-size:15px;cursor:pointer;box-shadow:0 2px 8px var(--shadow);}
+  .decor-gear:hover{background:#fff;color:var(--ink);}
+  .decor-gmenu{position:absolute;top:44px;right:10px;z-index:4;display:none;flex-direction:column;background:var(--panel);
+    border:1.5px solid rgba(201,165,123,.4);border-radius:10px;overflow:hidden;box-shadow:0 10px 26px var(--shadow);}
+  .decor-gmenu.on{display:flex;}
+  .decor-gmenu button{font-family:'Nunito',sans-serif;font-weight:700;font-size:12.5px;color:var(--ink);background:none;border:none;padding:9px 26px 9px 16px;cursor:pointer;text-align:left;white-space:nowrap;}
+  .decor-gmenu button:hover{background:rgba(157,186,138,.18);}
+  .decor-gmenu button#decorDel{color:var(--terra);}
+  .item-adj{width:222px;display:flex;flex-direction:column;gap:5px;}
+  .adj-hint{font-size:10.5px;color:var(--ink-soft);font-weight:700;text-align:center;opacity:.85;margin-bottom:2px;}
+  .adj-row{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--ink-soft);}
+  .adj-row span{width:28px;flex:none;}
+  .adj-row input{flex:1;accent-color:var(--sage-d);}
+  .adj-axes{display:flex;gap:5px;margin:-1px 0 1px 36px;}
+  .adj-axes button{flex:1;font-family:'Nunito',sans-serif;font-weight:700;font-size:10.5px;color:var(--ink-soft);
+    background:rgba(255,255,255,.6);border:1.5px solid rgba(201,165,123,.4);border-radius:8px;padding:4px 2px;cursor:pointer;}
+  .adj-axes button.on{background:var(--sage);color:#fff;border-color:var(--sage-d);}
+  .decor-right{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0;}
+  .decor-cats{display:flex;gap:6px;}
+  .decor-cats button{flex:1;font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;color:var(--ink);
+    background:rgba(255,255,255,.6);border:1.5px solid rgba(201,165,123,.4);border-radius:10px;padding:8px 2px;cursor:pointer;}
+  .decor-cats button.active{background:var(--sage);color:#fff;border-color:var(--sage-d);}
+  .decor-items{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;overflow-y:auto;padding-right:2px;}
+  .decor-items .it{aspect-ratio:1.3;border-radius:14px;border:1.5px solid rgba(201,165,123,.4);background:rgba(255,255,255,.7);
+    cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:700;color:var(--ink-soft);transition:.12s;text-align:center;}
+  .decor-items .it:hover{background:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(120,95,60,.12);}
+  .decor-items .it.equipped{border-color:var(--sage-d);background:rgba(157,186,138,.22);color:var(--sage-d);}
+  .decor-items .it .gl{font-size:26px;line-height:1;}
+  .decor-items .it.upload{color:var(--terra);border-style:dashed;}
+
+  #launcher{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
+    background:var(--win-accent);}
+  #launcher.on{display:flex;}
+  .lc-card.dimmed{ filter:grayscale(.5) brightness(.75); pointer-events:none; }
+  .lc-card{position:relative;width:320px;max-width:92vw;padding:14px 18px 18px;
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);}
+  .lc-bar{display:flex;align-items:center;justify-content:space-between;height:22px;margin:-14px -18px 12px;padding:0 6px;
+    background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
+  .lc-bar:before{content:'🖥️ TogetherWorking';color:#fff;font-size:11px;font-weight:bold;padding-left:2px;}
+  .lc-win{font-size:10px;color:#fff;letter-spacing:1px;opacity:1;user-select:none;display:flex;gap:2px;cursor:default;}
+  .lc-bar{cursor:move;-webkit-app-region:drag;}
+  .lc-bar .win98titlebtn{-webkit-app-region:no-drag;}
+  .lc-gear{position:absolute;top:32px;right:18px;z-index:3;width:26px;height:26px;border:2px solid;
+    border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    background:var(--win-face);color:var(--ink);font-size:13px;cursor:pointer;}
+  .lc-gear:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  .lc-stage{display:flex;align-items:center;gap:4px;margin:2px 0 14px;}
+  .lc-arrow{flex:none;width:26px;height:54px;font-size:16px;font-weight:bold;cursor:pointer;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);opacity:1;}
+  .lc-arrow:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  .lc-preview-wrap{position:relative;flex:1;height:228px;overflow:hidden;
+    background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Cg fill='%23d8d8d8'%3E%3Cpath d='M8 2l1 4 4 1-4 1-1 4-1-4-4-1 4-1z'/%3E%3Cpath d='M28 18l0.8 3 3 0.8-3 0.8-0.8 3-0.8-3-3-0.8 3-0.8z'/%3E%3Ccircle cx='32' cy='6' r='1'/%3E%3Ccircle cx='4' cy='30' r='1'/%3E%3Ccircle cx='20' cy='34' r='1.2'/%3E%3C/g%3E%3C/svg%3E");
+    background-repeat:repeat;
+    border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    box-shadow: inset 1px 1px 0 var(--win-lo-2);}
+  #lcPreview{width:100%;height:100%;cursor:pointer;display:block;}
+  .lc-bubble{position:absolute;top:12px;left:50%;transform:translateX(-50%) scale(.6);opacity:0;transition:.18s;
+    background:#FFFFE1;color:#000;font-family:Tahoma,sans-serif;font-weight:normal;font-size:12px;padding:4px 10px;
+    border:1px solid #000;pointer-events:none;z-index:2;}
+  .lc-bubble:after{content:none;}
+  .lc-preview-wrap.show-go .lc-bubble{opacity:1;transform:translateX(-50%) scale(1);}
+  .lc-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    color:var(--ink-soft);font-weight:bold;font-size:13px;text-align:center;pointer-events:none;}
+  .lc-empty span{font-size:11px;font-weight:normal;opacity:.8;}
+  .lc-count{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:bold;color:var(--ink);
+    background:var(--win-face);padding:2px 10px;border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);}
+  .lc-btn{display:block;width:100%;margin-top:9px;font-family:Tahoma,sans-serif;font-weight:bold;font-size:13px;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    padding:8px;cursor:pointer;transition:none;}
+  .lc-btn:hover:not(:disabled){background:var(--win-face-2);}
+  .lc-btn:active:not(:disabled){border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);transform:none;}
+  .lc-btn.ghost{background:var(--win-face);color:var(--ink);}
+  .lc-btn.ghost:hover:not(:disabled){background:var(--win-face-2);}
+  .lc-btn:disabled{opacity:.5;cursor:default;}
+  .lc-menu{position:absolute;top:60px;right:18px;z-index:4;display:none;flex-direction:column;background:var(--win-face);
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 2px 2px 0 rgba(0,0,0,.3);}
+  .lc-menu.on{display:flex;}
+  .lc-menu button{font-family:Tahoma,sans-serif;font-weight:normal;font-size:12px;color:var(--ink);background:none;border:none;padding:6px 20px 6px 12px;cursor:pointer;text-align:left;white-space:nowrap;}
+  .lc-menu button:hover{background:var(--win-select);color:#fff;}
+  .lc-menu button#lcDelete{color:var(--terra);}
+  .lc-menu button#lcDelete:hover{color:#fff;}
+
+  .toast{position:fixed;bottom:42px;left:50%;transform:translateX(-50%) translateY(18px);z-index:60;opacity:0;transition:.25s;
+    background:#FFFFE1;color:#000;font-weight:normal;font-size:12px;padding:8px 16px;pointer-events:none;
+    border:1px solid #000;box-shadow:2px 2px 0 rgba(0,0,0,.3);font-family:Tahoma,sans-serif;}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  #codeOverlay{position:fixed;inset:0;z-index:56;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
+  #codeOverlay.on{display:flex;}
+  #codeModal,#exportModal,#glbEncModal,#glbLoadModal,#assetGenModal,#assetImpModal,#inviteModal{width:420px;max-width:92vw;padding:0 18px 18px;
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);}
+  #codeModal h2,#exportModal h2,#glbEncModal h2,#glbLoadModal h2,#assetGenModal h2,#assetImpModal h2,#inviteModal h2{
+    font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0 -18px 14px;padding:5px 8px;
+    background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
+  #codeModal p,#exportModal p,#glbEncModal p,#glbLoadModal p,#assetGenModal p,#assetImpModal p,#inviteModal p{font-size:11px;color:var(--ink-soft);font-weight:normal;margin:0 0 12px;}
+  .code-box{width:100%;box-sizing:border-box;height:84px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    box-shadow: inset 1px 1px 0 var(--win-lo-2);padding:8px 10px;font-size:11px;color:var(--ink);background:#fff;margin-bottom:10px;resize:vertical;font-family:'Courier New',monospace;word-break:break-all;}
+  #codeText,#exportText{width:100%;height:120px;resize:none;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    box-shadow: inset 1px 1px 0 var(--win-lo-2);padding:8px;font-family:'Courier New',monospace;font-size:11px;color:var(--ink);background:#fff;box-sizing:border-box;}
+  .file-in{display:block;width:100%;box-sizing:border-box;font-size:12px;font-weight:normal;color:var(--ink);margin-bottom:10px;}
+  .code-btns{display:flex;gap:8px;margin-top:12px;}
+  .code-btns button{flex:1;font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;cursor:pointer;padding:7px;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);}
+  .code-btns button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  #codeOk{} #codeCancel{}
+  .code-pass{width:100%;box-sizing:border-box;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    box-shadow: inset 1px 1px 0 var(--win-lo-2);padding:8px 10px;font-size:12px;font-weight:normal;color:var(--ink);background:#fff;margin-bottom:10px;}
+  #exportOverlay,#glbEncOverlay,#glbLoadOverlay,#assetGenOverlay,#assetImpOverlay,#inviteOverlay,#commGenOverlay,#partRegOverlay{position:fixed;inset:0;z-index:57;display:none;align-items:center;justify-content:center;background:none;pointer-events:none;}
+  #exportOverlay.on,#glbEncOverlay.on,#glbLoadOverlay.on,#assetGenOverlay.on,#assetImpOverlay.on,#inviteOverlay.on,#commGenOverlay.on,#partRegOverlay.on{display:flex;}
+  #exportModal,#glbEncModal,#glbLoadModal,#assetGenModal,#assetImpModal,#inviteModal,#commGenModal,#partRegModal{pointer-events:auto;}
+  #exportOverlay .code-btns{margin-top:10px;}
+  .lc-foot{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:11px;flex-wrap:wrap;}
+  .lc-foot button{font-family:Tahoma,sans-serif;font-weight:normal;font-size:10px;color:var(--win-select);background:none;border:none;cursor:pointer;text-decoration:underline;}
+  .lc-foot button:hover{color:var(--ink);}
+  .lc-foot span{color:var(--ink-soft);opacity:.6;font-size:10px;}
+
+  #creatorOverlay{position:fixed;inset:0;z-index:55;display:none;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.35);}
+  #creatorOverlay.on{display:flex;}
+  #creatorModal{width:680px;max-width:calc(100vw - 40px);max-height:calc(100vh - 56px);
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    overflow:hidden;display:flex;flex-direction:column;}
+  #creatorPreview{width:222px;height:300px;}
+  .creator-right{flex:1;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0;}
+  .cr-tabs{display:flex;gap:4px;}
+  .cr-tabs button{flex:1;font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);padding:7px;cursor:pointer;}
+  .cr-tabs button.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
+  .cr-steps{display:flex;gap:4px;}
+  /* Win95 그룹박스 스타일 — 참고 이미지의 "Button configuration" 프레임 형태 */
+  .cr-groupbox{position:relative;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    margin-top:14px;padding:16px 12px 12px;}
+  .cr-groupbox-label{position:absolute;top:-9px;left:10px;background:var(--win-face);padding:0 5px;
+    font-size:11px;font-weight:bold;color:var(--ink);}
+  .skin-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;padding:4px 0;}
+  .skin-row .skin-sw{width:26px;height:26px;border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);cursor:pointer;padding:0;position:relative;}
+  .skin-row .skin-sw.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  .skin-row .skin-sw.on::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:14px;font-weight:bold;text-shadow:0 0 2px #000,0 0 2px #000;}
+  .skin-light{display:none;flex-direction:column;gap:6px;padding:10px 12px 2px;margin-top:8px;
+    border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face-2);}
+  .skin-light .light-title{font-size:11px;font-weight:bold;letter-spacing:1px;color:var(--ink-soft);text-align:center;}
+  .skin-light label{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ink-soft);}
+  .skin-light label .lh{font-size:10px;color:var(--ink-soft);width:54px;}
+  .skin-light label .lv{font-size:11px;font-weight:bold;color:var(--ink-soft);font-variant-numeric:tabular-nums;width:34px;text-align:right;flex:none;}
+  /* Win98 스타일 슬라이더 — 얇은 홈 라인 + 각진 베젤 손잡이 (참고 이미지 스타일) */
+  input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:20px;cursor:pointer;margin:0;padding:0;}
+  input[type=range]::-webkit-slider-runnable-track{height:2px;background:#000;box-shadow:0 1px 0 var(--win-hi);border:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:20px;margin-top:-9px;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);cursor:pointer;}
+  input[type=range]::-webkit-slider-thumb:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  input[type=range]::-moz-range-track{height:2px;background:#000;box-shadow:0 1px 0 var(--win-hi);border:none;}
+  input[type=range]::-moz-range-thumb{width:14px;height:20px;border-radius:0;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);cursor:pointer;}
+  .skin-light input[type=range]{flex:1;}
+
+
+  .cr-steps span{flex:1;text-align:center;font-family:Tahoma,sans-serif;font-weight:bold;font-size:10.5px;color:var(--ink-soft);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);padding:6px 4px;}
+  .cr-steps span.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);color:var(--ink);}
+  .cr-steps span.done{background:#dfe8f6;color:var(--win-select);}
+  /* #crSteps(1피부~4색상)만 진짜 파일탭 스타일로 — 이미지 참고(위가 붙은 탭 + 아래 그룹박스와 하나로 이어짐) */
+  #crSteps{gap:2px;margin-bottom:-2px;position:relative;z-index:2;}
+  #crSteps span{border-bottom:none;padding:6px 10px;font-size:11px;}
+  #crSteps span.on{background:var(--win-face);border-color:var(--win-hi) var(--win-lo-2) transparent var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);
+    padding-top:5px;margin-top:-1px;}
+  #crSteps span:not(.on){opacity:.85;}
+  #crSteps + .cr-groupbox{margin-top:11px;border-top:2px solid;border-top-color:var(--win-lo);position:relative;z-index:1;}
+  .cr-hint{font-size:11px;font-weight:bold;color:var(--ink-soft);text-align:center;}
+  .cr-nav{display:flex;gap:8px;margin-top:auto;}
+  .cr-nav button{flex:1;font-family:Tahoma,sans-serif;font-weight:bold;font-size:12.5px;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);padding:9px;cursor:pointer;}
+  .cr-nav button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  .cr-nav button.ghost{background:var(--win-face);color:var(--ink);}
+  .cr-nav button:disabled{opacity:.45;cursor:default;}
+
+  #charCtx{position:fixed;z-index:42;display:none;flex-direction:column;
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 2px 2px 0 rgba(0,0,0,.3);
+    overflow:hidden;min-width:120px;}
+  #charCtx.on{display:flex;}
+  #charCtx .ctx-head{display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:11px;font-weight:bold;color:#fff;
+    background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
+  #charCtx button{font-family:Tahoma,sans-serif;font-weight:normal;font-size:12px;color:var(--ink);background:none;border:none;
+    padding:7px 12px;cursor:pointer;text-align:left;}
+  #charCtx button:hover{background:var(--win-select);color:#fff;}
+  #charCtx button#ctxDelete{color:var(--win-error);}
+  #charCtx button#ctxDelete:hover{color:#fff;}
+
+  #friendPicker{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
+  #friendPicker.on{display:flex;}
+  .fp-card{background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    padding:0;max-width:92vw;}
+  .fp-card h2{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0 0 14px;padding:5px 8px;text-align:left;
+    background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
+  .fp-grid{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;padding:0 18px 18px;}
+  .fp-item{width:96px;border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    padding:8px;cursor:pointer;background:var(--win-face);text-align:center;}
+  .fp-item:hover{background:var(--win-face-2);}
+  .fp-item canvas{width:80px;height:80px;background:repeating-conic-gradient(#ececec 0% 25%,#fff 0% 50%) 50%/12px 12px;}
+  .fp-item.new{display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--win-select);font-weight:bold;font-size:13px;min-height:96px;}
+  .fp-item span{display:block;font-size:11px;font-weight:normal;color:var(--ink-soft);margin-top:4px;}
+  .fp-cancel{display:block;margin:0 18px 18px;font-family:Tahoma,sans-serif;font-weight:normal;font-size:11px;color:var(--win-select);background:none;border:none;cursor:pointer;text-decoration:underline;}
+  #drawCanvas{width:100%;max-width:240px;aspect-ratio:1;align-self:center;
+    border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo); box-shadow: inset 1px 1px 0 var(--win-lo-2);
+    cursor:crosshair;background:repeating-conic-gradient(#ececec 0% 25%, #fff 0% 50%) 50%/16px 16px;touch-action:none;}
+  .cr-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;font-weight:bold;color:var(--ink-soft);}
+  .cr-swatches{display:flex;gap:4px;}
+  .cr-swatches .sw{width:18px;height:18px;border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);cursor:pointer;}
+  .cr-swatches .sw.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  .cr-tools button{font-weight:bold;font-size:11px;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);padding:4px 8px;cursor:pointer;}
+  .cr-tools button.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
+  .cr-tools input[type=color]{width:24px;height:22px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);cursor:pointer;background:none;padding:0;}
+  .cr-colors{display:flex;flex-direction:column;gap:10px;font-size:12px;font-weight:bold;color:var(--ink);align-items:flex-start;}
+  .cr-colors input[type=color]{width:36px;height:24px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);cursor:pointer;background:none;padding:0;}
+  .cr-done{font-family:Tahoma,sans-serif;font-weight:bold;font-size:13px;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);padding:10px;cursor:pointer;margin-top:auto;}
+  .cr-done:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+
+  /* 종족 선택창 */
+  #raceOverlay{position:fixed;inset:0;z-index:55;display:none;align-items:center;justify-content:center;background:none;pointer-events:none;}
+  #raceOverlay #raceModal{pointer-events:auto;}
+  #raceOverlay.on{display:flex;}
+  #raceModal{width:540px;max-width:92vw;padding:0;
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);}
+  #raceModal h2{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0 0 16px;text-align:left;padding:5px 8px;
+    display:flex;align-items:center;justify-content:space-between;
+    background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
+  .race-grid{display:flex;gap:14px;padding:0 22px;}
+  .race-card{position:relative;flex:1;background:var(--win-face);
+    border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    padding:14px 10px 14px;display:flex;flex-direction:column;align-items:center;cursor:pointer;overflow:hidden;}
+  .race-card:hover{background:var(--win-face-2);}
+  .race-card:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  .race-card .race-preview{width:100%;height:160px;display:flex;align-items:center;justify-content:center;background:#fff;
+    border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo); box-shadow: inset 1px 1px 0 var(--win-lo-2);}
+  .race-card canvas{display:block;}
+  .race-card .race-label{font-family:Tahoma,sans-serif;font-weight:bold;font-size:14px;color:var(--ink);margin-top:8px;}
+  .race-card.disabled{cursor:not-allowed;}
+  .race-card.disabled:hover{background:var(--win-face);}
+  .race-card.disabled .race-preview{filter:grayscale(1) opacity(.65);}
+  .race-card .race-underwork{position:absolute;left:-14%;right:-14%;top:46%;transform:rotate(-11deg);
+    background:var(--win-error);color:#fff;font-family:Tahoma,sans-serif;font-weight:bold;font-size:13px;text-align:center;padding:5px 0;letter-spacing:1px;}
+  .race-close{display:block;margin:14px 22px 0;font-family:Tahoma,sans-serif;font-weight:normal;font-size:11px;color:var(--win-select);background:none;border:none;cursor:pointer;text-decoration:underline;}
+  .race-close:hover{color:var(--ink);}
+
+  /* ===== 본인 활동 상태 칩 + 🎨 꾸미기 버튼 (자기 캐릭터 발 밑) ===== */
+  #myStatusChip{position:fixed;z-index:55;pointer-events:auto;transition:opacity .18s ease;display:flex;align-items:flex-start;gap:4px;}
+  #myChipCollapseBtn{
+    width:18px;height:26px;flex:none;font-size:10px;font-weight:bold;color:var(--ink);cursor:pointer;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    display:flex;align-items:center;justify-content:center;
+  }
+  #myChipCollapseBtn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  #myChipGroup{display:flex;gap:6px;align-items:center;position:relative;
+    transition:opacity .2s ease, transform .2s ease;}
+  #myWardrobeBtn + #myFocusGearBtn{margin-left:-2px;}
+  #myStatusChip.collapsed #myChipGroup{opacity:0;transform:scale(.9);pointer-events:none;}
+  #myStatusChip.collapsed #myChipCollapseBtn{transform:scaleX(-1);}
+  /* 콤보박스(드롭다운) 스타일 — 좌측 텍스트 필드(sunken) + 우측 화살표 버튼(raised), 참고 이미지 스타일 */
+  #myStatusChipBtn{
+    display:inline-flex;align-items:stretch;height:26px;cursor:pointer;font-family:Tahoma,sans-serif;
+  }
+  #myStatusChipBtn .cb-field{
+    display:flex;align-items:center;gap:6px;padding:0 8px;min-width:88px;
+    background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    box-shadow: inset 1px 1px 0 var(--win-lo-2);
+    font-weight:bold;font-size:11.5px;color:var(--ink);border-right:none;
+  }
+  #myStatusChipBtn .cb-arrow{
+    width:18px;flex:none;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+  }
+  #myStatusChipBtn:active .cb-arrow{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  #myStatusChipBtn .dot{width:8px;height:8px;border-radius:50%;background:#9dba8a;box-shadow:0 0 0 1px #000;flex:none;}
+  /* 🎨 꾸미기 / ⚙ 설정 버튼 — 세그먼트(붙은 듀얼 버튼) 스타일, 참고 이미지처럼 나란히 붙임 */
+  #myWardrobeBtn,#myFocusGearBtn{
+    width:28px;height:26px;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    color:var(--ink);font-size:13px;cursor:pointer;line-height:1;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  #myWardrobeBtn{border-right:none;}
+  #myWardrobeBtn:active,#myFocusGearBtn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  #myFocusGearBtn.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
+
+  /* 캐릭터 머리 위 설정 패널 (톱니바퀴 클릭 시) */
+  #focusSettingsPanel{position:fixed;z-index:58;transform:translate(-50%,-100%);
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    padding:0;min-width:260px;display:none;font-family:Tahoma,sans-serif;}
+  #focusSettingsPanel.on{display:block;}
+  #focusSettingsPanel .fs-titlebar{font-size:11px;font-weight:bold;color:#fff;padding:5px 8px;margin-bottom:10px;
+    background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
+  #focusSettingsPanel .fs-body{padding:0 12px 12px;}
+  #focusSettingsPanel .fs-back{background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    color:var(--ink);font-size:11px;font-weight:bold;cursor:pointer;padding:4px 10px;margin-bottom:10px;}
+  #focusSettingsPanel .fs-back:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  #focusSettingsPanel .fs-label{font-size:11px;font-weight:bold;color:var(--ink);margin:8px 0 6px;}
+  #focusSettingsPanel .fs-slots{display:flex;gap:6px;flex-wrap:wrap;}
+  #focusSettingsPanel .fs-slot{width:50px;height:50px;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-size:10px;color:var(--ink-soft);cursor:pointer;gap:2px;position:relative;overflow:hidden;}
+  #focusSettingsPanel .fs-slot:hover{background:var(--win-face-2);}
+  #focusSettingsPanel .fs-slot.filled{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);
+    background:var(--win-select-bg);color:var(--ink);font-weight:bold;}
+  #focusSettingsPanel .fs-slot .fs-num{font-size:9px;color:var(--ink-soft);position:absolute;top:2px;left:4px;}
+  #focusSettingsPanel .fs-slot .fs-x{position:absolute;top:-2px;right:-2px;width:15px;height:15px;
+    background:var(--win-error);color:#fff;border:1px solid #000;font-size:9px;line-height:13px;text-align:center;font-weight:bold;display:none;}
+  #focusSettingsPanel .fs-slot.filled:hover .fs-x{display:block;}
+  #focusSettingsPanel .fs-slot .fs-name{font-size:9px;line-height:1.15;text-align:center;word-break:break-all;padding:0 3px;}
+  #focusSettingsPanel input[type=range]{width:100%;}
+  #focusSettingsPanel .fs-move-btn{width:100%;margin-top:10px;padding:8px;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    color:var(--ink);font-weight:bold;font-size:12px;cursor:pointer;font-family:inherit;}
+  #focusSettingsPanel .fs-move-btn:active,#focusSettingsPanel .fs-move-btn.active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
+  #focusSettingsPanel .fs-hint{font-size:10.5px;color:var(--ink-soft);line-height:1.5;margin-top:6px;}
+  #focusSettingsPanel .fs-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;}
+  #focusSettingsPanel .fs-toggle-row span{font-size:11px;color:var(--ink);}
+  #focusSettingsPanel .fs-toggle-btn{padding:4px 10px;font-size:11px;font-weight:bold;cursor:pointer;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);}
+  #focusSettingsPanel .fs-toggle-btn.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
+  /* 모니터 선택 버튼들 */
+  #focusSettingsPanel .fs-monitors{display:flex;gap:6px;flex-wrap:wrap;}
+  #focusSettingsPanel .fs-mon-btn{padding:5px 10px;font-size:11px;font-weight:bold;cursor:pointer;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);}
+  #focusSettingsPanel .fs-mon-btn.current{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
+
+  /* 상태 메뉴 — 콤보박스 드롭다운처럼 세로 리스트 + 스크롤. 기본은 칩 아래, 화면 하단 근접 시 위로 플립. */
+  #myStatusMenu{
+    position:absolute;top:calc(100% + 2px);left:0;
+    display:flex;flex-direction:column;
+    background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    box-shadow: inset 1px 1px 0 var(--win-lo-2), 2px 2px 0 rgba(0,0,0,.3);
+    min-width:150px;max-height:180px;overflow-y:auto;pointer-events:none;opacity:0;
+    transition:opacity .15s ease;
+  }
+  #myStatusMenu.flip-up{top:auto;bottom:calc(100% + 2px);}
+  #myStatusMenu:not(.hidden){pointer-events:auto;opacity:1;}
+  #myStatusMenu .stItem{
+    display:flex;align-items:center;gap:6px;width:100%;
+    font-family:Tahoma,sans-serif;font-weight:normal;font-size:11.5px;color:var(--ink);
+    background:none;border:none;padding:5px 8px;cursor:pointer;text-align:left;
+  }
+  #myStatusMenu .stItem:hover{background:var(--win-select);color:#fff;}
+  #myStatusMenu .stItem.active{background:var(--win-select-bg);font-weight:bold;}
+  #myStatusMenu .stItem .dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px;box-shadow:0 0 0 1px #000;}
+
+  /* ===== 캐릭터 꾸미기 사이드 패널 (모자/안경/옷/헤어/날개/손) =====
+     — 콘텐츠(#wardrobeContent)와 컨테이너(#wardrobePanel) 분리. Electron 단계에서 컨테이너만 모달로 갈아끼움. */
+  #wardrobePanel{
+    position:fixed;top:50%;right:16px;transform:translate(120%, -50%);
+    width:320px;max-height:calc(100vh - 80px);
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    z-index:54;display:flex;flex-direction:column;overflow:hidden;
+    transition:transform .32s cubic-bezier(.34,1.56,.64,1);
+  }
+  #wardrobePanel.on{transform:translate(0, -50%);}
+  .wd-top{display:flex;align-items:center;justify-content:space-between;padding:5px 6px 5px 8px;flex:0 0 auto;
+    background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
+  .wd-top h2{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0;}
+  .wd-top button{width:17px;height:15px;font-size:11px;font-weight:bold;line-height:1;cursor:pointer;
+    background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:#000;padding:0;}
+  .wd-top button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  #wardrobeContent{padding:14px;overflow:auto;flex:1 1 auto;}
+  .wd-empty{color:var(--ink-soft);font-size:12px;text-align:center;padding:36px 12px;line-height:1.7;}
+  .wd-empty .ic{font-size:26px;display:block;margin-bottom:10px;opacity:.7;}
+  /* 카테고리 섹션 */
+  .wd-cat{margin-bottom:16px;}
+  .wd-cat:last-child{margin-bottom:4px;}
+  .wd-cat-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+  .wd-cat-head h3{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:var(--ink);margin:0;display:flex;align-items:center;gap:6px;}
+  .wd-add{background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    color:var(--ink-soft);font-size:10px;padding:2px 7px;cursor:pointer;font-weight:bold;}
+  .wd-add:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  .wd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  .wd-card{position:relative;aspect-ratio:1;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;font-size:22px;overflow:hidden;}
+  .wd-card:hover{background:var(--win-face-2);}
+  .wd-card.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
+  .wd-card .nm{font-size:9px;color:var(--ink-soft);max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.1;}
+  .wd-card.none-card{font-size:11px;color:var(--ink-soft);}
+  .wd-card-x{position:absolute;top:-2px;right:-2px;width:16px;height:16px;
+    background:var(--win-error);color:#fff;border:1px solid #000;font-size:10px;line-height:14px;text-align:center;cursor:pointer;font-weight:bold;z-index:2;}
+
+  /* 파츠 조정 패널 (카드 우클릭 시 펼침) */
+  .wd-adj{grid-column:1 / -1;background:var(--win-face-2);
+    border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);box-shadow: inset 1px 1px 0 var(--win-lo-2);
+    padding:10px;margin-top:2px;display:flex;flex-direction:column;gap:8px;}
+  .wd-adj-row{display:flex;align-items:center;gap:6px;}
+  .wd-adj-lab{font-size:10.5px;color:var(--ink-soft);width:34px;flex-shrink:0;font-weight:bold;}
+  .wd-adj-row input[type=range]{flex:1;}
+  .wd-adj-reset{font-size:10px;padding:2px 6px;cursor:pointer;color:var(--ink);flex-shrink:0;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);}
+  .wd-adj-reset:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  .wd-adj-axis{display:flex;gap:2px;margin-left:4px;flex-shrink:0;}
+  .wd-adj-axis button{padding:2px 6px;font-size:10px;font-weight:bold;cursor:pointer;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);}
+  .wd-adj-axis button.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
+  .wd-adj-pos{display:grid;grid-template-columns:28px 28px 28px;grid-template-rows:28px 28px;gap:3px;justify-content:center;align-items:center;margin-top:2px;}
+  .wd-adj-pos button{aspect-ratio:1;font-size:12px;color:var(--ink);cursor:pointer;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);}
+  .wd-adj-pos button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  .wd-adj-pos-row{display:flex;align-items:center;gap:10px;justify-content:center;}
+  .wd-adj-pos-row .wd-adj-reset{font-size:10px;}
+
+  /* +/- 스텝 버튼 + 값 표시 */
+  .wd-adj-step{width:24px;height:24px;font-size:13px;color:var(--ink);font-weight:bold;cursor:pointer;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+    display:inline-flex;align-items:center;justify-content:center;user-select:none;-webkit-user-select:none;touch-action:none;}
+  .wd-adj-step:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  .wd-adj-val{display:inline-block;min-width:44px;text-align:center;font-family:'Courier New',monospace;font-size:11px;color:var(--ink);
+    background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);box-shadow: inset 1px 1px 0 var(--win-lo-2);
+    padding:3px 5px;}
+</style>
+</head>
+
+<body>
+<canvas id="scene"></canvas>
+
+<!-- 본인 활동 상태 칩 (자기 캐릭터 발 밑에 따라다님) -->
+<div id="myStatusChip" style="display:none;">
+  <div id="myChipGroup">
+  <div id="myStatusChipBtn" role="button">
+    <span class="cb-field"><span class="dot" id="myStatusDot"></span><span class="lbl" id="myStatusLabel">온라인</span></span>
+    <span class="cb-arrow">▾</span>
+  </div>
+  <button id="myWardrobeBtn" type="button" title="꾸미기">🎨</button>
+  <button id="myFocusGearBtn" type="button" title="설정">⚙️</button>
+  </div>
+  <button id="myChipCollapseBtn" type="button" title="접기/펼치기">◀</button>
+  <div id="myStatusMenu" class="hidden">
+    <button class="stItem" data-st=""><span class="dot" style="background:#9dba8a"></span>온라인</button>
+    <button class="stItem" data-st="meal"><span class="dot" style="background:#e89b7d"></span>🍚 밥 먹는 중</button>
+    <button class="stItem" data-st="away"><span class="dot" style="background:#9aa0a8"></span>😶‍🌫️ 자리비움</button>
+    <button class="stItem" data-st="grind"><span class="dot" style="background:#e07a55"></span>🔥 빡일중</button>
+    <button class="stItem" data-st="gaming"><span class="dot" style="background:#8a8ec9"></span>🎮 게임 중</button>
+  </div>
+</div>
+
+<!-- 캐릭터 머리 위 설정 패널 (⚙ 클릭 시) -->
+<div id="focusSettingsPanel">
+  <div class="fs-titlebar">⚙️ 설정</div>
+  <div class="fs-body">
+  <button class="fs-back" id="fsBackBtn" type="button">← 런처로 돌아가기</button>
+  <div class="fs-label">포커싱 어플 <span style="font-weight:normal;color:var(--ink-soft);">— 등록된 앱을 쓸 때만 반응해요</span></div>
+  <div class="fs-slots" id="fsSlots"></div>
+  <div class="fs-label" id="fsMonitorLabel" style="display:none;">모니터 선택 <span style="font-weight:normal;color:var(--ink-soft);">— 캐릭터를 표시할 화면</span></div>
+  <div class="fs-monitors" id="fsMonitors" style="display:none;"></div>
+  <div class="fs-label">캐릭터 크기</div>
+  <input type="range" id="fsSizeSlider" min="0.6" max="1.6" step="0.02" value="1">
+  <button class="fs-move-btn" id="fsMoveBtn" type="button">📍 프로그램 이동</button>
+  <div class="fs-hint" id="fsMoveHint" style="display:none;">캐릭터가 마우스를 따라다녀요. 원하는 위치에서 <b>클릭</b>하면 확정!</div>
+  <div class="fs-label">화면 표시</div>
+  <div class="fs-toggle-row">
+    <span>이모지 반응 (💤♥💫)</span>
+    <button class="fs-toggle-btn" id="fsEmojiToggle" type="button">켜짐</button>
+  </div>
+  <div class="fs-toggle-row">
+    <span>저해상도(도트) 렌더</span>
+    <button class="fs-toggle-btn" id="fsDotToggle" type="button">꺼짐</button>
+  </div>
+  </div>
+</div>
+<!-- 캐릭터 꾸미기 사이드 패널 (4-1 골격 단계 — 콘텐츠는 4-2부터 채움) -->
+<div id="wardrobePanel">
+  <div class="wd-top">
+    <h2>🎨 꾸미기</h2>
+    <button id="wardrobeClose" type="button" title="닫기">×</button>
+  </div>
+  <div id="wardrobeContent">
+    <div class="wd-empty">
+      <span class="ic">🧺</span>
+      아직 등록된 파츠가 없어요.<br>
+      관리자 모드에서 모자·안경·옷·헤어·날개·손 파츠를<br>추가하면 여기에 카테고리별로 나타나요.
+    </div>
+  </div>
+</div>
+
+<div id="deskBar"><span class="grip" title="드래그해서 이동">⠿</span><button id="deskGear" title="런처 / 설정">⚙</button><button id="deskHide" title="잠깐 숨기기">–</button></div>
+<div class="badge">멀티 좌석 프로토타입</div>
+<div id="dropOverlay"><div>선택한 좌석에 .glb / .dcc / 이미지 드롭 🪴</div></div>
+
+<div id="decorOverlay">
+  <div id="decorModal">
+    <div class="decor-top"><h2>꾸미기 · <span id="decorSeatLabel">좌석</span></h2><button id="decorClose">×</button></div>
+    <div class="decor-body">
+      <div class="decor-left">
+        <canvas id="previewCanvas"></canvas>
+        <button class="decor-gear" id="decorGear" title="수정 / 삭제">&#9881;</button>
+        <div class="decor-gmenu" id="decorGmenu"><button id="decorEdit">수정</button><button id="decorDel">삭제</button></div>
+        <div class="item-adj" id="itemAdj">
+          <div class="adj-hint">방향키 ←→ 좌우 · ↑↓ 앞뒤 이동</div>
+          <div class="adj-row"><span>높이</span><input id="aiY" type="range" min="-0.6" max="0.6" step="0.01" value="0"></div>
+          <div class="adj-row"><span>회전</span><input id="aiRot" type="range" min="-3.14" max="3.14" step="0.01" value="0"></div>
+          <div class="adj-axes" id="rotAxes"><button data-ax="x">X축</button><button data-ax="y" class="on">Y축</button><button data-ax="z">Z축</button></div>
+          <div class="adj-row"><span>크기</span><input id="aiScale" type="range" min="0.3" max="2.5" step="0.01" value="1"></div>
+        </div>
+      </div>
+      <div class="decor-right">
+        <div class="decor-cats" id="decorCats">
+          <button data-cat="all" class="active">전체</button>
+          <button data-cat="hair">헤어</button>
+          <button data-cat="clothes">옷</button>
+          <button data-cat="accessory">악세사리</button>
+        </div>
+        <div class="decor-items" id="decorItems"></div>
+        <input id="decorUpload" type="file" accept=".glb" hidden>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="launcher" class="on">
+  <div class="lc-card">
+    <div class="lc-bar" id="lcTitlebar">
+      <span class="lc-win">
+      <span class="win98titlebtn" id="lcCloseBtn" title="닫기">&times;</span>
+      </span>
+    </div>
+    <button class="lc-gear" id="lcGear" title="수정 / 삭제">&#9881;</button>
+    <div class="lc-menu" id="lcGearMenu">
+      <button id="lcEdit">수정</button><button id="lcExport">복제 코드 만들기</button><button id="lcDelete">삭제</button>
+    </div>
+    <div class="lc-stage">
+      <button class="lc-arrow" id="lcPrev">&#9664;</button>
+      <div class="lc-preview-wrap">
+        <div class="lc-bubble" id="lcBubble">Go!</div>
+        <canvas id="lcPreview"></canvas>
+        <div class="lc-empty" id="lcEmpty">빈 슬롯<span>아래 버튼으로 캐릭터를 채우세요</span></div>
+        <div class="lc-count" id="lcCount">(1/3)</div>
+      </div>
+      <button class="lc-arrow" id="lcNext">&#9654;</button>
+    </div>
+    <button class="lc-btn" id="lcCreate">캐릭터 생성</button>
+    <button class="lc-btn ghost" id="lcInvite">👥 친구 초대 / 함께하기</button>
+    <button class="lc-btn ghost" id="lcLoad">캐릭터 불러오기</button>
+    <div style="display:flex;gap:6px;margin-top:8px;">
+      <button id="lcLicenseBtn" style="flex:1;background:none;border:none;
+        font-family:Tahoma,sans-serif;font-size:11px;color:var(--ink-soft);cursor:pointer;padding:4px;">
+        <span id="lcLicenseLbl">🔑 라이선스 등록</span>
+      </button>
+      <button id="lcNameBtn" style="flex:1;background:none;border:none;
+        font-family:Tahoma,sans-serif;font-size:11px;color:var(--ink-soft);cursor:pointer;padding:4px;">
+        👤 이름 설정
+      </button>
+    </div>
+    <div class="lc-foot"><button id="lcGlbEnc" class="admin-only">🔒 기존 캐릭터 수정</button><span class="admin-only">·</span><button id="lcGlbLoad" class="admin-only">암호화 GLB 불러오기</button><span class="admin-only">·</span><button id="lcAssetGen" class="admin-only">📦 책상·아이템 코드 만들기</button><span class="admin-only">·</span><button id="lcCommissionGen" class="admin-only">🎁 커미션 캐릭터 등록</button><span class="admin-only">·</span><button id="lcLicenseGen" class="admin-only">🎟️ 라이선스 키 발급</button><span class="admin-only">·</span><button id="lcAdBannerEdit" class="admin-only">📢 광고 배너 편집</button></div>
+
+    <!-- 광고 배너 — 관리자가 이미지+링크 등록하면 표시, 없으면 자동 숨김 -->
+    <a id="lcAdBanner" href="#" target="_blank" style="display:none;margin-top:10px;width:100%;
+      background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+      box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
+      overflow:hidden;">
+      <img id="lcAdBannerImg" style="width:100%;display:block;" src="">
+    </a>
+  </div>
+</div>
+
+<!-- 라이선스 등록 모달 -->
+<div id="licenseOverlay" style="position:fixed;inset:0;z-index:59;display:none;align-items:center;justify-content:center;
+  background:none;pointer-events:none;">
+  <div id="licenseModalBox" style="width:320px;max-width:90vw;pointer-events:auto;
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);">
+    <div style="font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🔑 라이선스 등록</div>
+    <div style="padding:14px;">
+    <p style="margin:0 0 12px;font-size:11px;color:var(--ink-soft);line-height:1.5;">
+      전달받은 라이선스 키를 입력하면 🎨 꾸미기 기능이 열려요.
+    </p>
+    <div id="licenseActiveBox" style="display:none;background:var(--win-select-bg);
+      border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+      padding:8px 10px;margin-bottom:10px;font-size:11.5px;color:var(--ink);">
+      ✅ 라이선스가 등록되어 있어요.
+      <button id="licenseDeactivateBtn" style="display:block;margin-top:6px;background:none;border:none;
+        color:var(--win-error);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">이 기기에서 라이선스 해제</button>
+    </div>
+    <input id="licenseKeyInput" type="text" placeholder="XXXX-XXXX-XXXX-XXXX"
+      style="width:100%;padding:7px 8px;box-sizing:border-box;
+      background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+      box-shadow: inset 1px 1px 0 var(--win-lo-2);
+      font-family:'Courier New',monospace;font-size:12px;margin-bottom:10px;">
+    <div id="licenseErrorMsg" style="display:none;color:var(--win-error);font-size:11px;margin:-4px 0 8px;"></div>
+    <button id="licenseSubmitBtn" class="lc-btn" style="margin-top:0;">확인</button>
+    <button id="licenseCancelBtn" class="lc-btn ghost">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 관리자 비밀번호 입력 모달 (window.prompt 대체 — Electron 투명창에서 시스템 prompt가 불안정해서) -->
+<div id="adminPassOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  background:none;pointer-events:none;">
+  <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:280px;max-width:90vw;font-family:Tahoma,sans-serif;">
+    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🔧 관리자 비밀번호</div>
+    <div style="padding:14px;">
+    <input id="adminPassInput" type="password" placeholder="비밀번호"
+      style="width:100%;padding:7px 8px;box-sizing:border-box;
+      background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+      box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;margin-bottom:10px;">
+    <div id="adminPassErr" style="display:none;color:var(--win-error);font-size:11px;margin:-4px 0 8px;">비밀번호가 틀려요</div>
+    <button id="adminPassOk" class="lc-btn" style="margin-top:0;">확인</button>
+    <button id="adminPassCancel" class="lc-btn ghost">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 라이선스 키 생성 모달 (관리자 전용) -->
+<div id="licenseGenOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  background:none;pointer-events:none;">
+  <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:340px;max-width:90vw;font-family:Tahoma,sans-serif;">
+    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🎟️ 라이선스 키 발급</div>
+    <div style="padding:14px;">
+    <label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">구매자 메모(선택, 나만 봄)</label>
+    <input id="licenseGenNote" type="text" placeholder="예: 트위터 @xxxx 님, 커미션 3번"
+      style="width:100%;padding:7px 8px;box-sizing:border-box;
+      background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+      box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:10px;">
+    <button id="licenseGenBtn" class="lc-btn" style="margin-top:0;">새 키 발급</button>
+    <div id="licenseGenResult" style="display:none;margin-top:12px;background:var(--win-select-bg);
+      border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:10px 12px;">
+      <div style="font-size:11px;color:var(--ink-soft);margin-bottom:4px;">발급된 키 (구매자에게 전달):</div>
+      <div id="licenseGenKeyText" style="font-family:'Courier New',monospace;font-size:13px;font-weight:bold;color:var(--ink);
+        user-select:all;cursor:pointer;" title="클릭해서 선택"></div>
+      <button id="licenseGenCopyBtn" style="margin-top:6px;background:none;border:none;color:var(--win-select);font-size:11px;
+        cursor:pointer;text-decoration:underline;padding:0;">복사하기</button>
+    </div>
+    <div style="margin-top:14px;border-top:2px solid var(--win-lo);padding-top:10px;">
+      <div style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;">발급된 키 목록</div>
+      <div id="licenseGenList" style="max-height:140px;overflow-y:auto;font-size:11px;color:var(--ink-soft);"></div>
+    </div>
+    <button id="licenseGenClose" class="lc-btn ghost" style="margin-top:12px;">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 광고 배너 편집 모달 (관리자 전용) -->
+<div id="adBannerOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  background:none;pointer-events:none;">
+  <div style="pointer-events:auto;width:320px;max-width:90vw;
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);">
+    <div style="font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">📢 광고 배너 편집</div>
+    <div style="padding:14px;">
+      <label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">이미지 URL (비우면 배너 숨김)</label>
+      <input id="adBannerImgInput" type="text" placeholder="https://..."
+        style="width:100%;padding:7px 8px;box-sizing:border-box;margin-bottom:10px;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11px;">
+      <label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">클릭 시 이동할 링크</label>
+      <input id="adBannerLinkInput" type="text" placeholder="https://..."
+        style="width:100%;padding:7px 8px;box-sizing:border-box;margin-bottom:12px;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11px;">
+      <button id="adBannerSaveBtn" class="lc-btn" style="margin-top:0;">저장</button>
+      <button id="adBannerCloseBtn" class="lc-btn ghost">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 사용자 이름 설정 모달 -->
+<div id="userNameOverlay" style="position:fixed;inset:0;z-index:59;display:none;align-items:center;justify-content:center;
+  background:none;pointer-events:none;">
+  <div style="pointer-events:auto;width:280px;max-width:90vw;
+    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);">
+    <div style="font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">👤 이름 설정</div>
+    <div style="padding:14px;">
+      <p style="margin:0 0 10px;font-size:11px;color:var(--ink-soft);line-height:1.5;">투게더룸에서 다른 사람에게 보일 이름이에요.</p>
+      <input id="userNameInput" type="text" placeholder="이름 입력" maxlength="12"
+        style="width:100%;padding:7px 8px;box-sizing:border-box;margin-bottom:12px;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+      <button id="userNameSaveBtn" class="lc-btn" style="margin-top:0;">저장</button>
+      <button id="userNameCloseBtn" class="lc-btn ghost">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div id="creatorOverlay">
+  <div id="creatorModal">
+    <div class="decor-top"><h2>캐릭터 만들기</h2><button id="creatorClose">×</button></div>
+    <div class="decor-body">
+      <div class="decor-left">
+        <canvas id="creatorPreview"></canvas>
+        <div id="stampOverlay" style="display:none;">
+          <img id="stampOverlayImg" draggable="false">
+          <div class="stamp-handle stamp-h-tl"></div>
+          <div class="stamp-handle stamp-h-tr"></div>
+          <div class="stamp-handle stamp-h-bl"></div>
+          <div class="stamp-handle stamp-h-br"></div>
+          <div class="stamp-handle stamp-h-rot" title="회전"></div>
+          <div class="stamp-rot-stem"></div>
+          <div class="stamp-h-reset" title="크기·회전 초기화">↺</div>
+        </div>
+        <button class="cp-arrow l" id="cpLeft" title="왼쪽으로 15°">&#9664;</button>
+        <button class="cp-arrow r" id="cpRight" title="오른쪽으로 15°">&#9654;</button>
+        <button class="cp-arrow u" id="cpUp" title="위로 올리기">&#9650;</button>
+        <button class="cp-arrow d" id="cpDown" title="아래로 내리기">&#9660;</button>
+        <button id="cpReset" title="카메라 각도 초기화">↺</button>
+      </div>
+      <div class="creator-right">
+        <div class="cr-steps" id="crStages" style="font-weight:700;">
+          <span class="on" data-stg="0">캐릭터 세팅</span><span data-stg="1">책상 세팅</span><span data-stg="2">좌석 세팅</span>
+        </div>
+        <div id="charStage">
+        <div class="cr-steps" id="crSteps" style="font-size:11px;opacity:.85;"><span class="on">1 피부</span><span>2 표정</span><span>3 감은눈</span><span>4 색상</span></div>
+        <div class="cr-groupbox">
+          <span class="cr-groupbox-label" id="crHint">피부색을 골라주세요</span>
+          <div class="skin-row" id="skinRow"></div>
+        </div>
+        <div class="cr-tools" id="crTools">
+          <span class="cr-swatches" id="brushColors"></span>
+          <input id="brushCustom" type="color" value="#333333" title="브러시 색">
+          <label>굵기<input id="brushSize" type="range" min="2" max="34" value="9" style="width:58px;vertical-align:middle;"></label>
+          <button id="symBtn" title="좌우 대칭">&#8651; 대칭</button>
+          <button id="undoBtn" title="되돌리기 (Ctrl+Z)">↶ 되돌리기</button>
+          <button id="eraserBtn">지우개</button><button id="clearBtn">지우기</button>
+          <button id="stampBtn" title="이미지 도장 (Z)">이미지</button>
+          <button id="blinkResetBtn" title="표정을 다시 복사" style="display:none;">⟳ 표정 복사</button>
+        </div>
+        <div id="stampPanel" style="display:none;gap:6px;align-items:center;margin-top:4px;flex-wrap:wrap;font-size:11px;">
+          <input id="stampFile" type="file" accept="image/*" style="display:none;">
+          <button id="stampLoad" style="padding:3px 8px;">📁 불러오기</button>
+          <img id="stampThumb" style="display:none;width:28px;height:28px;border:1px solid #c9a37b66;border-radius:6px;object-fit:contain;background:#fff;">
+          <button id="stampApply" style="padding:3px 8px;display:none;" title="여기에 찍기 (Enter)">✓ 찍기</button>
+          <button id="stampCancel" style="padding:3px 8px;display:none;" title="취소 (ESC)">✕ 취소</button>
+          <span id="stampHint" style="color:var(--ink-soft);">이미지 위치를 잡아 Enter 또는 ✓ 찍기 · Z=모드 켜기/끄기</span>
+        </div>
+        <div id="penHint" style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;margin:4px 2px -2px;opacity:.85;">
+          ✏ 우클릭으로 색 추출 · <b>Delete</b>로 전체 지우기 · <b>C</b> 지우개 · <b>X</b> 대칭 · <b>Z</b> 도장모드 · <b>Enter</b> 찍기 · <b>Ctrl+Shift+Z</b> 다시
+        </div>
+        <div class="cr-colors" id="crColors" style="display:none;"><label>상의 <input id="topColor" type="color" value="#9dba8a"></label>
+          <label>하의 <input id="botColor" type="color" value="#d98e73"></label></div>
+        </div>
+
+        <div id="deskStage" style="display:none;">
+          <div style="display:flex;align-items:baseline;gap:10px;margin:4px 0 8px;">
+            <b style="font-size:19px;">책상</b>
+            <button id="deskAddCode" class="ghost admin-only" style="font-size:12px;padding:2px 0;border:none;background:none;color:#8a8a8a;">+ 코드로 추가하기</button></div>
+          <div class="skin-row" id="crDeskRow" style="gap:10px;"></div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="font-size:13px;color:#555;">책상 색</span>
+            <input id="deskColor" type="color" value="#c9a36a" style="width:46px;height:26px;border-radius:13px;border:1px solid #0002;padding:0;cursor:pointer;"></div>
+          <div class="slider on" style="margin-top:8px;max-width:300px;"><span style="width:auto;">책상 크기</span><input id="deskScale" type="range" min="0.3" max="0.9" step="0.01" value="0.7"><button id="deskScaleReset" class="mini-reset" title="기본 크기로">↺</button></div>
+          <hr style="border:none;border-top:1px solid #0001;margin:16px 0;">
+          <div style="display:flex;align-items:baseline;gap:10px;margin:4px 0 8px;">
+            <b style="font-size:19px;">아이템</b>
+            <button id="itemAddCode" class="ghost admin-only" style="font-size:12px;padding:2px 0;border:none;background:none;color:#8a8a8a;">+ 코드로 추가하기</button></div>
+          <div class="skin-row" id="crItemRow" style="gap:10px;"></div>
+          <div id="crItemPos" style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:13px;color:#555;">위치조작
+            <button class="ghost" data-d="up">▲</button><button class="ghost" data-d="down">▼</button>
+            <button class="ghost" data-d="left">◀</button><button class="ghost" data-d="right">▶</button>
+            <button class="ghost" id="crItemBigger">＋</button><button class="ghost" id="crItemSmaller">－</button>
+            <button class="ghost" id="crItemRemove">빼기</button></div>
+        </div>
+
+        <div id="seatStage" style="display:none;">
+          <div class="cr-hint">데스크 위 캐릭터의 크기·높이·앞뒤·회전을 맞춰요</div>
+          <div class="sliders on">
+            <div class="slider"><span>크기</span><input id="crScale" type="range" min="0.4" max="1" step="0.01" value="0.7"><button class="mini-reset" data-rs="s" title="크기 초기화">↺</button></div>
+            <div class="slider"><span>앞뒤</span><input id="crZ" type="range" min="-1" max="1" step="0.01" value="0"><button class="mini-reset" data-rs="z" title="앞뒤 초기화">↺</button></div>
+            <div class="slider"><span>회전</span><input id="crRot" type="range" min="-3.14" max="3.14" step="0.01" value="0"><button class="mini-reset" data-rs="rot" title="회전 초기화">↺</button></div>
+          </div>
+        </div>
+        <div class="cr-nav">
+          <button id="crPrev" class="ghost">← 이전</button>
+          <button id="crNext">다음 →</button>
+          <button id="crDone" style="display:none;">완성 → 저장</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="codeOverlay">
+  <div id="codeModal">
+    <h2>캐릭터 불러오기</h2>
+    <p>전달받은 복제 코드와 비밀번호를 입력해 주세요.</p>
+    <input id="codePass" class="code-pass" type="text" placeholder="비밀번호" autocomplete="off">
+    <textarea id="codeText" placeholder="여기에 복제 코드 붙여넣기"></textarea>
+    <div class="code-btns"><button id="codeCancel">취소</button><button id="codeOk">불러오기</button></div>
+  </div>
+</div>
+
+<div id="exportOverlay">
+  <div id="exportModal">
+    <h2>복제 코드 만들기</h2>
+    <p>비밀번호를 정해 코드를 생성하세요. <b>코드와 비밀번호를 함께</b> 전달하면 상대가 불러올 수 있어요.</p>
+    <input id="exportPass" class="code-pass" type="text" placeholder="비밀번호 입력" autocomplete="off">
+    <div class="code-btns"><button id="exportGen">코드 생성</button></div>
+    <textarea id="exportText" placeholder="여기에 복제 코드가 생성됩니다" readonly></textarea>
+    <div class="code-btns"><button id="exportCancel">닫기</button><button id="exportCopy">복사</button></div>
+  </div>
+</div>
+
+
+<div id="glbEncOverlay">
+  <div id="glbEncModal">
+    <h2>GLB 암호화 (판매용)</h2>
+    <p>커스텀 캐릭터 GLB를 비밀번호로 암호화해 <b>.dcc</b> 파일로 저장해요. 파일과 비밀번호를 함께 전달하세요.</p>
+    <input id="glbEncFile" class="file-in" type="file" accept=".glb">
+    <input id="glbEncPass" class="code-pass" type="text" placeholder="비밀번호 입력" autocomplete="off">
+    <div class="code-btns"><button id="glbEncCancel">닫기</button><button id="glbEncGo">암호화 파일 저장</button></div>
+  </div>
+</div>
+
+<div id="glbLoadOverlay">
+  <div id="glbLoadModal">
+    <h2>암호화 GLB 불러오기</h2>
+    <p>전달받은 암호화 파일(<b>.dcc</b>)과 비밀번호로 캐릭터를 불러와요.</p>
+    <input id="glbLoadFile" class="file-in" type="file" accept=".dcc,.glb">
+    <input id="glbLoadPass" class="code-pass" type="text" placeholder="비밀번호 입력" autocomplete="off">
+    <div class="code-btns"><button id="glbLoadCancel">닫기</button><button id="glbLoadGo">불러오기</button></div>
+  </div>
+</div>
+
+<div id="assetGenOverlay">
+  <div id="assetGenModal">
+    <h2>책상·아이템 코드 만들기 (판매용)</h2>
+    <p>커스텀 <b>책상</b> 또는 <b>아이템</b> GLB를 비밀번호로 암호화해 <b>코드</b>로 만들어요. 코드와 비밀번호를 함께 전달하세요.</p>
+    <select id="assetGenKind" class="code-pass"><option value="item">아이템 (책상 위 소품)</option><option value="desk">책상</option></select>
+    <input id="assetGenName" class="code-pass" type="text" placeholder="이름 (예: 선인장)" autocomplete="off">
+    <select id="assetGenIcon" class="code-pass">
+      <option value="">아이콘 없음 (기본 폴백)</option>
+      <optgroup label="가구">
+        <option>🪑</option><option>🛋</option><option>🛏</option><option>🚪</option><option>🪟</option><option>🪞</option><option>🖼</option>
+      </optgroup>
+      <optgroup label="식물">
+        <option>🌱</option><option>🌿</option><option>🌵</option><option>🌳</option><option>🌲</option><option>🌷</option><option>🌻</option><option>🌹</option><option>🌺</option><option>🪴</option>
+      </optgroup>
+      <optgroup label="음료·음식">
+        <option>☕</option><option>🍵</option><option>🍺</option><option>🍷</option><option>🥤</option><option>🍰</option><option>🍩</option><option>🍪</option><option>🍎</option><option>🧋</option>
+      </optgroup>
+      <optgroup label="디지털">
+        <option>💻</option><option>🖥</option><option>📱</option><option>⌨</option><option>🖱</option><option>🕹</option><option>📷</option><option>🎧</option><option>🎮</option>
+      </optgroup>
+      <optgroup label="책·문구">
+        <option>📚</option><option>📖</option><option>📝</option><option>✏</option><option>📎</option><option>📌</option><option>🖊</option><option>🗂</option>
+      </optgroup>
+      <optgroup label="장식">
+        <option>🕯</option><option>💡</option><option>🎈</option><option>🎀</option><option>🌟</option><option>⭐</option><option>✨</option><option>💎</option>
+      </optgroup>
+      <optgroup label="동물">
+        <option>🐱</option><option>🐶</option><option>🐰</option><option>🐻</option><option>🐼</option><option>🐸</option><option>🦊</option><option>🐧</option>
+      </optgroup>
+      <optgroup label="기타">
+        <option>🎁</option><option>🎨</option><option>🎭</option><option>🎵</option><option>⚽</option><option>🏆</option><option>🌈</option><option>❤</option>
+      </optgroup>
+    </select>
+    <input id="assetGenFile" class="file-in" type="file" accept=".glb">
+    <input id="assetGenPass" class="code-pass" type="text" placeholder="비밀번호 입력" autocomplete="off">
+    <textarea id="assetGenOut" class="code-box" readonly placeholder="여기에 코드가 생성돼요" style="display:none;"></textarea>
+    <div class="code-btns"><button id="assetGenCancel">닫기</button><button id="assetGenGo">코드 생성</button><button id="assetGenCopy" style="display:none;">복사</button></div>
+  </div>
+</div>
+
+<div id="commGenOverlay">
+  <div id="commGenModal" style="background:#fffdf6;border-radius:18px;padding:22px 24px;max-width:460px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 12px 40px rgba(74,63,53,.3);">
+    <h2 style="margin:0 0 4px;font-family:'Fredoka',sans-serif;font-size:18px;color:#4a3f35;">🎁 커미션 캐릭터 등록</h2>
+    <p style="margin:0 0 14px;font-size:12px;color:#7a6b5d;line-height:1.5;">완성형 캐릭터(GLB + 표정 + 감은눈)를 비밀번호로 암호화해 코드로 만들어요. 고객은 받은 코드로 캐릭터를 바로 등록하고 책상 세팅만 합니다.</p>
+    <div style="font-size:11.5px;color:#8a7a6c;background:#f5edd9;padding:8px 10px;border-radius:8px;margin-bottom:10px;line-height:1.5;">
+      <b>zip 구성</b>: <code>character.glb</code> · <code>face.png</code> · <code>blink.png</code> &nbsp;(2MB 한도, PNG 자동 512리사이즈)
+    </div>
+    <input id="commGenName" class="code-pass" type="text" placeholder="캐릭터 이름 (예: 거북이)" autocomplete="off">
+    <input id="commGenFile" class="file-in" type="file" accept=".zip">
+    <input id="commGenPass" class="code-pass" type="text" placeholder="비밀번호 입력" autocomplete="off">
+    <textarea id="commGenOut" class="code-box" readonly placeholder="여기에 코드가 생성돼요" style="display:none;"></textarea>
+    <div class="code-btns"><button id="commGenCancel">닫기</button><button id="commGenGo">코드 생성</button><button id="commGenCopy" style="display:none;">복사</button></div>
+  </div>
+</div>
+
+<div id="partRegOverlay">
+  <div id="partRegModal" style="background:#fffdf6;border-radius:18px;padding:22px 24px;max-width:420px;width:90%;box-shadow:0 12px 40px rgba(74,63,53,.3);">
+    <h2 style="margin:0 0 4px;font-family:'Fredoka',sans-serif;font-size:18px;color:#4a3f35;">🎨 <span id="partRegCatLabel">파츠</span> 등록</h2>
+    <p style="margin:0 0 14px;font-size:12px;color:#7a6b5d;line-height:1.5;">캐릭터에 부착할 GLB 파츠를 등록해요. 부착 위치에 맞춰 모델링된 GLB를 올려주세요. (1MB 한도)</p>
+    <input id="partRegName" class="code-pass" type="text" placeholder="이름 (예: 밀짚모자)" autocomplete="off">
+    <select id="partRegIcon" class="code-pass">
+      <option value="">아이콘 자동 (카테고리 기본)</option>
+      <optgroup label="모자·머리">
+        <option>🎩</option><option>🧢</option><option>👒</option><option>🎓</option><option>👑</option><option>⛑</option><option>🪖</option>
+      </optgroup>
+      <optgroup label="안경·얼굴">
+        <option>👓</option><option>🕶</option><option>🥽</option><option>🎭</option>
+      </optgroup>
+      <optgroup label="날개·등">
+        <option>🪽</option><option>🦋</option><option>🎒</option><option>🪂</option>
+      </optgroup>
+      <optgroup label="손·소품">
+        <option>🤚</option><option>✋</option><option>🌂</option><option>🗡</option><option>🪄</option><option>🍭</option><option>🎈</option><option>📖</option>
+      </optgroup>
+      <optgroup label="옷">
+        <option>👕</option><option>👔</option><option>👗</option><option>👚</option><option>🧥</option><option>👘</option><option>👖</option><option>🩳</option><option>🦺</option>
+      </optgroup>
+      <optgroup label="기타">
+        <option>⭐</option><option>✨</option><option>🌟</option><option>💎</option><option>🎀</option><option>❤</option>
+      </optgroup>
+    </select>
+    <input id="partRegFile" class="file-in" type="file" accept=".glb">
+    <div class="code-btns"><button id="partRegCancel">닫기</button><button id="partRegGo">등록</button></div>
+  </div>
+</div>
+
+<div id="assetImpOverlay">
+  <div id="assetImpModal">
+    <h2 id="assetImpTitle">코드로 추가하기</h2>
+    <p>전달받은 <b>코드</b>와 비밀번호를 붙여넣어 책상/아이템을 추가해요.</p>
+    <textarea id="assetImpCode" class="code-box" placeholder="DCK1... 코드 붙여넣기"></textarea>
+    <input id="assetImpPass" class="code-pass" type="text" placeholder="비밀번호 입력" autocomplete="off">
+    <div class="code-btns"><button id="assetImpCancel">닫기</button><button id="assetImpGo">추가</button></div>
+  </div>
+</div>
+
+<div id="inviteOverlay">
+  <div id="inviteModal">
+    <h2>👥 방 만들기/참여하기</h2>
+    <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 4명)</p>
+    <div id="inviteIdle">
+      <button class="lc-btn" id="inviteCreate" style="margin-bottom:8px;">방 만들기 (코드 생성)</button>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;">
+        <input id="inviteCode" class="code-pass" style="margin-bottom:0;flex:1;" type="text" placeholder="방 코드 입력 (예: COZY-7Q2K)" autocomplete="off">
+        <button class="lc-btn ghost" id="inviteJoin" style="width:auto;padding:10px 14px;">참여</button>
+      </div>
+    </div>
+    <div id="inviteActive" style="display:none;">
+      <p style="margin-bottom:6px;">연결된 방: <b id="inviteRoomLbl">—</b> <span id="inviteFriendCnt" style="color:var(--ink-soft);"></span></p>
+      <button class="lc-btn ghost" id="inviteLeave" style="margin-bottom:6px;">연결 끊기</button>
+    </div>
+    <div class="code-btns"><button id="inviteClose">닫기</button></div>
+  </div>
+</div>
+
+<div id="raceOverlay">
+  <div id="raceModal">
+    <h2><span>캐릭터 선택하기</span><button class="win98titlebtn" id="raceCancel" title="닫기">&times;</button></h2>
+    <div class="race-grid">
+      <div class="race-card" id="raceHuman" title="인간 캐릭터 만들기">
+        <div class="race-preview"><canvas id="raceHumanCv" style="width:160px;height:160px;"></canvas></div>
+        <div class="race-label">인간</div>
+      </div>
+      <div class="race-card disabled" id="raceAnimal" aria-disabled="true" title="준비중">
+        <div class="race-preview">
+          <svg viewBox="0 0 120 132" width="130" height="143" aria-hidden="true">
+            <g fill="#b9ad9a">
+              <!-- 두 귀 -->
+              <ellipse cx="38" cy="22" rx="11" ry="16"/>
+              <ellipse cx="82" cy="22" rx="11" ry="16"/>
+              <!-- 머리 -->
+              <circle cx="60" cy="50" r="30"/>
+              <!-- 몸 -->
+              <ellipse cx="60" cy="104" rx="36" ry="24"/>
+            </g>
+          </svg>
+        </div>
+        <div class="race-label">동물</div>
+        <div class="race-underwork">공사중…</div>
+      </div>
+    </div>
+    <button class="race-close" id="raceCommCode" style="margin:10px 22px 16px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);text-decoration:none;padding:6px 10px;">+ 코드 입력하기 (커미션 캐릭터)</button>
+    <div id="raceCommCodePanel" style="display:none;margin:8px 22px 18px;padding:10px;
+      background:var(--win-face-2); border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo); box-shadow: inset 1px 1px 0 var(--win-lo-2);">
+      <p style="margin:0 0 8px;font-size:11px;color:var(--ink-soft);line-height:1.5;">전달받은 <b>커미션 코드</b>와 <b>비밀번호</b>를 붙여넣어 캐릭터를 등록해요.</p>
+      <textarea id="commImpCode" class="code-box" placeholder="DCM1... 코드 붙여넣기" style="height:64px;margin-bottom:8px;"></textarea>
+      <input id="commImpPass" class="code-pass" type="text" placeholder="비밀번호 입력" autocomplete="off" style="margin-bottom:8px;">
+      <div class="code-btns" style="margin-top:0;"><button id="commImpCancel">닫기</button><button id="commImpGo">캐릭터 등록</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="friendPicker">
+  <div class="fp-card">
+    <h2>책상에 추가할 친구</h2>
+    <div class="fp-grid" id="fpGrid"></div>
+    <button class="fp-cancel" id="fpCancel">취소</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="panel">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">
+    <button class="reset" id="toLauncher" style="flex:0 0 auto;">← 런처</button>
+    <h1 id="appTitle" style="margin:0;">🪴 책상 친구들</h1>
+  </div>
+  <div class="sub" id="appSub">좌우 드래그로 순서 변경 · 클릭으로 쓰다듬</div>
+
+  <div class="seclabel">좌석</div>
+  <div class="seats" id="seats"></div>
+  <div class="slider" style="margin-bottom:14px;"><span>크기</span><input id="sZoom" type="range" min="0.5" max="2" step="0.01" value="1"></div>
+
+  <div class="statebar">
+    <span class="dot" id="dot"></span>
+    <span class="label" id="stateLabel">평소</span>
+    <span class="auto-tag" id="autoTag">자동</span>
+  </div>
+
+  <div id="seatEditor">
+  <div class="seclabel">좌석 세팅 — 크기·높이·앞뒤·회전</div>
+  <div class="modelbox">
+    <div class="filebtns" id="devFiles">
+      <label>캐릭터 GLB<input id="glbInput" type="file" accept=".glb,.dcc" hidden></label>
+      <label>책상 GLB<input id="deskInput" type="file" accept=".glb" hidden></label>
+      <label>눈감음 텍스처<input id="texInput" type="file" accept="image/*" hidden></label>
+      <button class="reset" id="resetBtn">기본으로</button>
+    </div>
+    <div class="modelinfo" id="modelInfo">기본 도형 캐릭터. <b>.glb 드롭</b>으로 교체.</div>
+    <div class="sliders" id="sliders">
+      <div class="slider"><span>크기</span><input id="sScale" type="range" min="0.1" max="8" step="0.01" value="1"></div>
+      <div class="slider"><span>높이</span><input id="sY" type="range" min="-1.5" max="1.5" step="0.01" value="0"></div>
+      <div class="slider"><span>앞뒤</span><input id="sZ" type="range" min="-1.5" max="1.5" step="0.01" value="0"></div>
+      <div class="slider"><span>회전</span><input id="sRot" type="range" min="0" max="6.28" step="0.01" value="3.14"></div>
+    </div>
+  </div>
+  </div>
+
+  <div id="statePrev" class="admin-only">
+  <div class="seclabel">상태 미리보기 (관리자)</div>
+  <div class="btns" id="btns">
+    <button data-s="idle">평소</button><button data-s="pet">쓰다듬</button><button data-s="focus">활동중</button>
+    <button data-s="sleep">잠듦</button>
+    <button class="auto active" data-s="auto">↺ 자동 모드</button>
+  </div>
+  </div>
+
+  <div class="hint" id="devHint"><b>좌우로 끌면</b> 순서 변경, <b>짧게 클릭</b>하면 쓰다듬, <b>우클릭</b>하면 꾸미기(헤어·옷·악세사리).
+    업로드/슬라이더는 <b>선택된 좌석</b>(초록 탭)에 적용돼요.</div>
+  <div class="hint" id="runHint" style="display:none"><b>짧게 클릭</b>하면 쓰다듬을 수 있어요. 꾸미기·좌석 세팅은 <b>런처의 ⚙</b>에서 캐릭터별로 편집해요.</div>
+</div>
+
+<script src="vendor/three/three.min.js"></script>
+<script src="vendor/three/GLTFLoader.js"></script>
+<script src="vendor/three/DRACOLoader.js"></script>
+<script src="vendor/three/SkeletonUtils.js"></script>
+<script src="vendor/jszip.min.js"></script>
+<script src="parts/base-glb.js"></script>
+<script src="parts/skin-data.js"></script>
+<!-- 투게더룸(Firebase Realtime Database) — 이 기능은 인터넷 연결이 필요해서 공식 CDN(gstatic) ESM을 사용.
+     window.firebaseReady(Promise)로 app.js가 준비 여부를 기다릴 수 있게 함. -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getDatabase, ref, set, update, remove, onValue, off, onDisconnect, serverTimestamp, get, runTransaction
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  import { firebaseConfig } from "./parts/firebase-config.js";
+
+  const fbApp = initializeApp(firebaseConfig);
+  const db = getDatabase(fbApp);
+
+  let _roomRef = null, _roomListener = null, _myMemberRef = null, _fbHeartbeat = null;
+
+  window.firebaseAPI = {
+    // 방 접속 — 내 정보를 rooms/{room}/{memberId}에 쓰고, 같은 방 전체를 실시간 구독.
+    joinRoom(room, me, onChange) {
+      const memberId = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      _myMemberRef = ref(db, `rooms/${room}/${memberId}`);
+      set(_myMemberRef, { name: me.name, def: me.def, state: me.state, userStatus: me.userStatus||null, lastSeen: serverTimestamp() });
+      onDisconnect(_myMemberRef).remove();   // 연결 끊기면 자동 삭제
+
+      _roomRef = ref(db, `rooms/${room}`);
+      _roomListener = onValue(_roomRef, snap => {
+        const all = snap.val() || {};
+        delete all[memberId];
+        const now = Date.now(); const STALE_MS = 5*60*1000;
+        const friends = {};
+        for(const id in all){
+          const m = all[id];
+          if(m && m.lastSeen && (now - m.lastSeen) < STALE_MS) friends[id] = m;
+          else if(m && !m.lastSeen) friends[id] = m;
+        }
+        onChange(friends);
+      });
+
+      if(_fbHeartbeat) clearInterval(_fbHeartbeat);
+      _fbHeartbeat = setInterval(()=>{ if(_myMemberRef) update(_myMemberRef, { lastSeen: serverTimestamp() }); }, 30000);
+      return memberId;
+    },
+    updateMe(payload){ if(_myMemberRef) update(_myMemberRef, { ...payload, lastSeen: serverTimestamp() }); },
+    leaveRoom(){
+      if(_roomRef && _roomListener) off(_roomRef, 'value', _roomListener);
+      if(_myMemberRef) remove(_myMemberRef);
+      if(_fbHeartbeat) { clearInterval(_fbHeartbeat); _fbHeartbeat=null; }
+      _roomRef=null; _roomListener=null; _myMemberRef=null;
+    },
+
+    // ---- 라이선스 (관리자 직접 발급 방식) ----
+    // licenses/{key} = { valid:true, note, createdAt, redeemedAt|null, redeemedBy|null(기기 식별용, 선택) }
+
+    // 관리자: 새 라이선스 키 발급. key는 호출부(app.js)에서 랜덤 생성해 넘김.
+    async createLicense(key, note){
+      await set(ref(db, `licenses/${key}`), { valid:true, note: note||'', createdAt: serverTimestamp(), redeemedAt:null });
+      return { ok:true };
+    },
+
+    // 관리자: 발급된 키 전체 목록 조회 (최근 것부터 보여주려면 app.js에서 정렬)
+    async listLicenses(){
+      const snap = await get(ref(db, 'licenses'));
+      return snap.val() || {};
+    },
+
+    // 사용자: 키 검증 + 등록(redeemed 처리). 이미 등록된 키도 "같은 기기 재설치" 허용을 위해 valid하면 통과시킴.
+    async redeemLicense(key){
+      try{
+        const snap = await get(ref(db, `licenses/${key}`));
+        const data = snap.val();
+        if(!data) return { ok:false, reason:'존재하지 않는 라이선스 키예요' };
+        if(data.valid === false) return { ok:false, reason:'비활성화된 라이선스 키예요' };
+        // 처음 등록되는 거면 redeemedAt 기록(통계용, 재사용 막지는 않음 — 재설치 시나리오 고려)
+        if(!data.redeemedAt){
+          await update(ref(db, `licenses/${key}`), { redeemedAt: serverTimestamp() });
+        }
+        return { ok:true };
+      }catch(e){
+        return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요', offline:true };
+      }
+    },
+
+    // ---- 파츠 카탈로그 (관리자가 등록한 꾸미기 파츠를 모든 사용자에게 자동 배포) ----
+    // catalog/parts/{id} = { cat, name, icon, glb(base64), createdAt }
+    // 배포 후에도 관리자가 새 파츠를 등록/삭제하면 이미 설치된 사용자들에게도 실시간으로 반영됨(앱 재시작 불필요).
+
+    // 관리자: 새 파츠를 카탈로그에 등록
+    async publishPart(id, data){
+      await set(ref(db, `catalog/parts/${id}`), { ...data, createdAt: serverTimestamp() });
+      return { ok:true };
+    },
+    // 관리자: 카탈로그에서 파츠 제거
+    async unpublishPart(id){
+      await remove(ref(db, `catalog/parts/${id}`));
+      return { ok:true };
+    },
+    // 전체 사용자: 카탈로그를 실시간 구독. 최초 접속 시 즉시 1회 호출 + 이후 변경(추가/삭제)마다 다시 호출됨.
+    // onChange({id:{cat,name,icon,glb,createdAt}, ...}) — 콜백은 항상 "현재 카탈로그 전체 스냅샷"을 받음.
+    subscribeCatalogParts(onChange){
+      const r = ref(db, 'catalog/parts');
+      onValue(r, snap => onChange(snap.val() || {}));
+      return () => off(r, 'value');
+    }
+  };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+<script src="parts/app.js"></script>
+</body>
+</html>
