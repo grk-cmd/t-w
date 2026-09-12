@@ -1,6 +1,6 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 2 (`sim-sysinput.js` 입수 반영) · 근거: `handoff-mac-runtime.md` §3-①
+작성: 2026-09-12 · 개정 4 (실기기 첫 실행 반영) · 근거: `handoff-mac-runtime.md` §3-①
 대상: `sim-*.js` 51개 + `smoke.js` + `audit.py` = **53개**
 
 ★ 개정 1 에서 "52개 + 2 = 54" 라고 적었던 것은 **세다 틀린 것이다.** 프로젝트 사본의
@@ -210,24 +210,59 @@ node checks/run.js --keep     스테이징을 안 지우고 경로를 알려 준
 MODULE_NOT_FOUND · "못 찾음" 으로 끝난 검사는 **`원본 없음` 으로 따로 센다.** 규칙이 깨진
 검사는 반드시 요약 줄을 찍고 끝나므로 이 둘은 안 섞인다.
 
-### 지금 이 저장소에서 돌린 결과 (`main.js`·`overlay-win.js`·`sysinput-win.js` 만 있는 상태)
+### 첫 기준선 — 실기기 (Windows · `C:\Users\seo\Desktop\tw`)
 
 ```
 정본 대조   53개 전부 일치
-검사 53개 · 초록 5 · 빨강 2 · 원본없음 46 · 건너뜀 0
-빨강: sim-overlay-gap.js (19·7·4) · sim-overlay-layered.js (15·5·4)   ← §4-②
-없는 원본: app.js · desk-companion-prototype.html · firebase-database-rules.json
-          firebase-init.js · purikura-net.js · togetherland-ui-mockup.html
+검사 53개 · 초록 7 · 빨강 3 · 원본없음 43
+빨강: sim-overlay-gap.js (19·7·4) · sim-overlay-layered.js (20·5·4) · audit.py(*)
+없는 원본: app.js · firebase-init.js · purikura-net.js · togetherland-ui-mockup.html
 ```
 
-★ **빨강 2개가 §4-② 의 그 둘이다.** 그 밖에는 없다. `app/` 을 커밋하면 원본없음 46개가
-살아나고, 그때 나오는 숫자가 이 저장소의 첫 진짜 기준선이 된다.
+★ 빨강 둘이 §4-② 의 그 둘이다. `sim-overlay-layered.js` 가 20·5·4 로 나온 것은
+`preload.js` · `desk-companion-prototype.html` 이 있어서 건너뛴 항목이 줄어든 것이다 —
+**빨강 개수 5 는 그대로다.** §2 표의 24·5·4 에는 `app.js` 가 더 있어야 닿는다.
+
+(*) `audit.py` 는 러너 쪽 문제였다 — 아래 §6.
+
+## 6. 실기기에서 드러난 것 — 러너 고침
+
+### ① `.gitattributes` ★ 안 넣으면 정본 대조가 통째로 무너진다
+
+커밋할 때 `LF will be replaced by CRLF` 경고가 53줄 떴다. Windows 의 `core.autocrlf` 다.
+**다음 체크아웃·클론에서 바이트가 달라지므로 §3 해시가 전부 어긋난다.** 한 글자도 안 고쳤는데
+러너가 53개 전부 "판이 다르다" 로 빨개지고, 그러면 이 표는 경고가 아니라 잡음이 된다.
+
+루트에 `.gitattributes` 를 두고 `checks/** -text` 로 변환을 껐다.
+`text eol=lf` 가 아니라 `-text` 인 이유는 그 파일 주석에 적어 뒀다.
+
+### ② `audit.py` 가 가짜 빨강이었다
+
+`python` 의 stdout 기본 인코딩이 Windows 에서 cp949 라 한글이 깨져서 왔다. 깨지니까
+"…있는 폴더에서 실행하세요" 라는 제 말이 안 읽혔고, 러너가 `원본 없음` 으로 못 갈라
+빨강으로 셌다. `PYTHONIOENCODING=utf-8` · `PYTHONUTF8=1` 을 주고 돌린다.
+
+### ③ `app.js` 가 한 층 더 깊이 있다
+
+스테이징은 루트와 `app/` 를 **한 층**만 펼친다. `app/` 보다 깊은 자리에 있으면 평면에
+안 올라와 43개가 통째로 `원본 없음` 이 된다. 없다고 확인된 원본만 저장소에서 찾아
+평면으로 끌어올리게 했다. 어디서 끌어왔는지 한 줄 찍는다.
+
+⚠️ 같은 이름이 둘 이상 나오면 **고르지 않고 알려만 준다.** 어느 쪽이 진짜인지는 러너가
+판단할 일이 아니다 — 잘못 고르면 초록이 거짓이 된다.
+
+### ④ "전부 통과 ✅" 로 끝내는 검사
+
+`sim-town-32.js` · `sim-village-addr.js` 등은 `통과 N · 실패 N` 요약 줄을 안 찍는다.
+종료코드만 남아 `종료코드 0` 으로 보였다. 이제 `전부 통과` 로 찍는다.
 
 ---
 
-## 6. 그 외 확인한 것
+## 7. 그 외
 
 - `.gitignore` — 스테이징은 **저장소 밖**(OS 임시 폴더)이라 넣을 것이 없다.
   `oauth-config.js` · `app/parts/firebase-config.js` 는 별건으로 확인할 것(§3-⑤ 푸시 차단).
 - `package.json build.files` 는 **허용 목록**이라 `checks/` 는 애초에 설치본에 안 실린다.
   뺄 것이 없다. `scripts.check` 만 더했다.
+- **`app/` 을 커밋하면** 원본없음 43개가 살아난다. 그때 나오는 숫자가 진짜 기준선이고,
+  ⑥ 은 그 뒤다.

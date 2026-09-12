@@ -138,22 +138,64 @@ function stage(){
   return dir;
 }
 
+/* ── 깊은 곳에 있는 원본 끌어올리기 ────────────────────────────────────────
+   스테이징은 루트와 `app/` 를 **한 층**만 펼친다. 원본이 `app/` 보다 더 깊이 있으면
+   (`app/js/app.js` 같은) 하위 폴더째로 올라가 평면에는 안 보인다 — 검사는 "없다" 고 한다.
+   ⚠️ 폴더 구조를 여기서 가정하지 않는다. **없다고 확인된 것만** 찾아서 올린다.
+     둘 이상 나오면 고르지 않고 알려만 준다 — 어느 쪽이 진짜인지는 이 파일이 판단할 일이 아니다. */
+function findDeep(dir, name, out, depth){
+  if (depth > 6) return out;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })){
+    if (SKIP.has(e.name)) continue;
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) findDeep(p, name, out, depth + 1);
+    else if (e.name === name) out.push(p);
+  }
+  return out;
+}
+
+function hoist(dir){
+  const still = [], notes = [];
+  for (const name of CORE){
+    if (fs.existsSync(path.join(dir, name))) continue;
+    let hits = [];
+    try { hits = findDeep(ROOT, name, [], 0); } catch (_){}
+    if (hits.length === 1){
+      fs.cpSync(hits[0], path.join(dir, name));
+      notes.push(`  ✓ ${name} — ${path.relative(ROOT, hits[0])} 에서 끌어올림`);
+    } else if (hits.length > 1){
+      still.push(name);
+      notes.push(`  ? ${name} — ${hits.length}곳에 있다. 어느 것인지 정해 줄 것: `
+        + hits.map(h => path.relative(ROOT, h)).join(' · '));
+    } else {
+      still.push(name);
+    }
+  }
+  return { still, notes };
+}
+
 /* ── 한 개 돌리기 ──────────────────────────────────────────────────────────
    ⚠️ 종료 코드만 보면 안 된다. 검사들은 0=통과 · 1=실패 · 2=검사못함 을 쓰는데,
-     "원본을 못 찾음" 도 2 로 나온다. 요약 줄을 같이 읽어야 그 둘이 갈린다. */
+     "원본을 못 찾음" 도 그 코드로 나온다. 출력을 같이 읽어야 그 둘이 갈린다. */
 function runOne(file, cwd){
   const py = file.endsWith('.py');
+  /* ⚠️ Windows 에서 python 의 stdout 기본 인코딩이 cp949 라 한글이 깨져서 온다. 깨지면
+     "원본이 없다" 는 제 말(아래 blocked 판정)이 안 읽혀서 **가짜 빨강**이 된다. 강제한다. */
+  const env = py ? Object.assign({}, process.env, { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }) : process.env;
   const tries = py ? [['python3', [file]], ['python', [file]]] : [[process.execPath, [file]]];
   let r = null;
   for (const [cmd, a] of tries){
-    r = spawnSync(cmd, a, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    r = spawnSync(cmd, a, { cwd, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     if (!r.error) break;
   }
   if (r && r.error) return { file, skipped: true, note: py ? 'python 없음' : String(r.error.message) };
   const out = (r.stdout || '') + (r.stderr || '');
   const sum = [...out.matchAll(/통과\s*(\d+)\s*·\s*실패\s*(\d+)(?:\s*·\s*검사못함\s*(\d+))?/g)].pop();
+  /* 요약 줄 대신 "전부 통과 ✅" 하나로 끝내는 검사가 있다(sim-town-32 · sim-village-addr 등).
+     종료코드만 보면 ✓ 는 맞지만 몇 개를 봤는지가 안 남아서, 조용한 초록과 구분이 안 된다. */
+  const allPass = !sum && r.status === 0 && /전부 통과/.test(out);
   return {
-    file, code: r.status, out,
+    file, code: r.status, out, allPass,
     pass: sum ? +sum[1] : null, fail: sum ? +sum[2] : null, huh: sum && sum[3] ? +sum[3] : 0,
   };
 }
@@ -185,8 +227,9 @@ say(`\n── 스테이징`);
 let dir;
 try { dir = stage(); }
 catch (err){ say('  ✗ 스테이징 실패 — ' + (err && err.message)); process.exit(2); }
-const absent = CORE.filter(f => !fs.existsSync(path.join(dir, f)));
 say(`  · ${dir}`);
+const { still: absent, notes } = hoist(dir);
+for (const n of notes) say(n);
 if (absent.length){
   say(`  ? 원본 없음: ${absent.join(' · ')}`);
   say('    ★ 그 원본을 읽는 검사는 아래에서 `원본 없음` 으로 빠진다 — 빨강으로 세지 않는다.');
@@ -215,6 +258,7 @@ for (const f of files){
   r.want = hit ? path.basename(hit) : null;
   const mark = r.blocked ? '·' : (r.fail > 0 ? '✗' : (r.fail === 0 || r.code === 0) ? '✓' : '?');
   const score = r.blocked ? `원본 없음${r.want ? ' — ' + r.want : ''}`
+    : r.allPass ? '전부 통과'
     : r.pass === null ? `종료코드 ${r.code}`
     : `${r.pass} · ${r.fail}${r.huh ? ' · ' + r.huh : ''}`;
   say(`  ${mark}    ${f.padEnd(26)} ${score}`);
