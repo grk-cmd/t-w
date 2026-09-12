@@ -30,6 +30,7 @@
       "preload.js",
       "overlay-win.js",
       "sysinput-win.js",
+      "oauth-config.js",
       "app/**/*"
     ],
     "asarUnpack": [
