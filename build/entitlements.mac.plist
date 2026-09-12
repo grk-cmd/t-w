@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  hardenedRuntime 을 켜면 이 파일이 반드시 있어야 한다 (package.json build.mac.entitlements).
+
+  · allow-jit / allow-unsigned-executable-memory
+      Electron(V8)이 실행 시점에 코드를 만든다. 이 둘이 없으면 앱이 시작하자마자 죽는다.
+  · disable-library-validation
+      uiohook-napi · node-window-manager 의 .node 바이너리는 우리 인증서로 서명돼 있지 않다.
+      이게 없으면 네이티브 로드가 막히고, 그게 곧 sysinput-win.js 의 require 실패 경로가 된다.
+  · automation.apple-events
+      창 목록·활성 창 조회가 자동화 권한을 타는 경로를 열어 둔다.
+
+  ⚠️ 접근성(Accessibility)·화면 기록은 entitlement 로 못 연다. TCC 권한 대화상자라서
+     실행 중에 사용자가 허용해야 하고, 거부했을 때의 동작은 실기기에서만 볼 수 있다
+     (핸드오프 §7-2). 여기서 해결되는 문제가 아니다.
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.automation.apple-events</key>
+  <true/>
+</dict>
+</plist>

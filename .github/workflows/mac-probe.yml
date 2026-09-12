@@ -1,0 +1,88 @@
+# ═══ 🍎 mac-probe — Mac 첫 실측 ════════════════════════════════════════════
+# [2026-09-12] 이 저장소가 Mac 을 처음 밟아 보는 자리다. handoff-platform-split.md ⑤.
+#
+# ★ 목적은 "빌드 성공"이 아니라 **어디서 갈리는지 한 자리에서 보는 것**이다.
+#   그래서 단계를 굵게 넷으로 쪼갰다. 빨간 단계 번호 하나가 곧 진단이다:
+#     ① npm ci            → node-window-manager@2.2.4 의 .mm 이 최신 SDK 에 붙는가 (§0-②)
+#     ② 네이티브 로드      → 컴파일은 됐는데 못 여는 경우를 ① 과 가른다
+#     ③ iconutil          → 손으로 조립한 icns 를 애플 정품 도구 것으로 덮는다
+#     ④ electron-builder  → arm64 와 x64 를 **따로** 돌린다
+#
+# ⚠️ arm64 와 x64 를 matrix 로 나눈 이유: 무료 러너는 arm64 다. x64 는 교차 컴파일이라
+#   uiohook-napi(프리빌드 동봉)는 넘어가도 node-window-manager(소스 컴파일)는 모른다.
+#   한 잡에 묶으면 x64 가 죽을 때 arm64 결과까지 같이 잃는다. fail-fast 도 꺼 둔다.
+#
+# ⚠️ 서명하지 않는다(CSC_IDENTITY_AUTO_DISCOVERY=false). Apple Developer 계정이 없으니
+#   켜 두면 서명 단계에서 죽어서 ①②③ 이 멀쩡한지조차 못 본다. 서명·공증은 §8 의 일이고,
+#   여기서 나온 아티팩트는 **열면 "손상되었습니다"가 뜨는 게 정상이다.** 붙는지만 본다.
+#
+# ⚠️ 수동 실행 전용(workflow_dispatch)이다. push 마다 돌리면 분을 태운다.
+#   GitHub → Actions → mac-probe → Run workflow 로 돌린다.
+
+name: mac-probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: macOS ${{ matrix.arch }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false          # ★ 한쪽이 죽어도 다른 쪽 결과는 끝까지 본다
+      matrix:
+        arch: [arm64, x64]
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 실패했을 때 "어느 macOS·어느 SDK 였나"를 나중에 못 물어본다. 먼저 남긴다.
+      - name: 환경 기록
+        run: |
+          sw_vers
+          echo "러너 아키텍처: $(uname -m)   목표 아키텍처: ${{ matrix.arch }}"
+          xcodebuild -version || true
+          echo "SDK: $(xcrun --show-sdk-version || true)"
+          node -v && npm -v && python3 -V
+
+      - name: ① npm ci  ★ 여기가 첫 관문
+        run: npm ci
+
+      - name: ② 네이티브 모듈이 실제로 열리는가
+        run: |
+          node -e "require('uiohook-napi'); console.log('uiohook-napi 로드 OK')"
+          node -e "const {windowManager} = require('node-window-manager'); console.log('node-window-manager 로드 OK', typeof windowManager.getWindows)"
+
+      # 손으로 조립한 icns 는 구조만 검증했지 macOS 에서 열어 본 적이 없다.
+      # 정품 도구 결과로 덮어쓰고, 원본은 남겨 크기를 대조한다(둘이 많이 다르면 조립이 틀린 것).
+      - name: ③ icns 를 iconutil 로 다시 조립
+        run: |
+          cp build/icon.icns build/icon.handmade.icns
+          iconutil -c icns build/icon.iconset -o build/icon.icns
+          ls -l build/icon.icns build/icon.handmade.icns
+          rm build/icon.handmade.icns
+
+      - name: ④ electron-builder (${{ matrix.arch }})
+        run: npx electron-builder --mac --${{ matrix.arch }} --publish never
+
+      - name: 결과물 목록
+        if: always()
+        run: ls -lR dist || echo "dist 없음 — ④ 이전에서 멈췄다"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mac-${{ matrix.arch }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          if-no-files-found: warn

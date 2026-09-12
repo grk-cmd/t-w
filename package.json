@@ -1,7 +1,7 @@
 {
   "name": "together-working",
-  "version": "0.1.0",
-  "description": "책상 위에 사는 데스크톱 컴패니언",
+  "version": "0.9.5",
+  "description": "\ucc45\uc0c1 \uc704\uc5d0 \uc0ac\ub294 \ub370\uc2a4\ud06c\ud1b1 \ucef4\ud328\ub2c8\uc5b8",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -16,9 +16,9 @@
     "electron-builder": "^24.13.3"
   },
   "dependencies": {
-    "active-win": "^8.2.1",
     "electron-updater": "^6.1.7",
     "firebase": "^12.15.0",
+    "node-window-manager": "^2.2.4",
     "uiohook-napi": "^1.5.2"
   },
   "build": {
@@ -28,11 +28,13 @@
     "files": [
       "main.js",
       "preload.js",
+      "overlay-win.js",
+      "sysinput-win.js",
       "app/**/*"
     ],
     "asarUnpack": [
       "node_modules/uiohook-napi/**/*",
-      "node_modules/active-win/**/*",
+      "node_modules/node-window-manager/**/*",
       "**/*.node"
     ],
     "directories": {
@@ -46,9 +48,40 @@
         "repo": "t-w"
       }
     ],
-    "win": {
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {
