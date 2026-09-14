@@ -197,29 +197,69 @@ if(!IS_MAC){
 
 /* ══ 4. A안 반증 — 실행파일 basename 이 **실제로** 충돌하는가 ═══════════════
    §7-① 이 A 를 실측 없이 탈락시킨 근거다. 러너에 깔린 실제 앱으로 그 근거를 세운다.
-   ⚠️ 충돌이 0 이면 A 가 옳다는 뜻이 **아니다** — 이 러너 표본에 일렉트론 앱이 없었다는 뜻이다.
-     그때는 ? 로 떨어뜨린다. 표본이 말 안 해 주는 것을 말한 것으로 치지 않는다. */
+
+   ★★ [2026-09-15 정정 — 첫 CI 가 이 절의 조건이 틀렸다고 알려 줬다]
+     처음에 이 절은 **「번들 id 충돌 0건」**을 조건으로 박았고, 첫 실행에서 빨갛게 나왔다:
+       `com.apple.dt.xcode = Xcode.app / Xcode_26.0.app / … (15개)`
+     러너에 Xcode 15 판본이 나란히 깔려 있었던 것이다. **코드는 정확했다** — 같은 앱의 다른
+     판본이니 번들 id 가 같은 것이 맞다. 틀린 것은 조건이었다.
+   ⇒ 그 조건은 **두 가지 다른 일을 한 덩어리로 묶고 있었다.**
+       ・서로 다른 앱이 한 키로 뭉친다        ← 진짜 위험. C 가 막으려던 것
+       ・같은 앱의 여러 판본이 한 키를 쓴다   ← **의도된 동작.** 「Xcode 에서 3시간」을 세는 것이
+                                              목적이지 「Xcode 26.4 에서 3시간」이 아니다
+   ⇒ 지켜야 할 명제는 「C 는 충돌이 없다」가 아니라
+     **「C 가 만든 충돌은 전부 A 도 만든 충돌이다」** — 즉 C 가 A 보다 나쁜 자리가 없다.
+     한 번들 id 그룹 안에 **basename 이 서로 다른 것이 섞여 있으면**, A 는 갈라 놓았을 둘을
+     C 가 합친 것이라 그때가 진짜 빨강이다.
+   ⚠️ **검사를 초록으로 만들려고 조건을 무르게 푼 것이 아니다.** 무르게 푸는 것이었다면
+     idDup 항목을 지웠을 것이다. 지우지 않고 **더 정확한 것으로 바꿨다** — 위 진짜 위험은
+     여전히 빨강으로 잡힌다. 이 구분이 흐려지면 다음 사람이 이 줄을 근거로 조건을 또 푼다. */
 say('\n── 4. A안(실행파일 basename)이 실제 표본에서 충돌한다');
 if(!IS_MAC || samples.length < MIN_SAMPLE){
   huh('표본이 없어 못 센다');
 } else {
-  const byBase = new Map(), byId = new Map();
-  for(const s of samples){
-    const b = path.basename(s.exe).toLowerCase();
-    byBase.set(b, (byBase.get(b) || []).concat(path.basename(s.appDir)));
-    const i = s.oracle.toLowerCase();
-    byId.set(i, (byId.get(i) || []).concat(path.basename(s.appDir)));
+  const rows = samples.map(s => ({
+    app:  path.basename(s.appDir),
+    base: path.basename(s.exe).toLowerCase(),
+    id:   s.oracle.toLowerCase(),
+  }));
+  const group = (key) => {
+    const m = new Map();
+    for(const r of rows) m.set(r[key], (m.get(r[key]) || []).concat(r));
+    return [...m.entries()].filter(([, v]) => v.length > 1);
+  };
+  const short = (v) => v.slice(0, 3).map(r => r.app).join('/') + (v.length > 3 ? ` 외 ${v.length - 3}` : '');
+  const baseDup = group('base');
+  const idDup   = group('id');
+
+  /* 한 번들 id 그룹 안에 basename 이 둘 이상이면 = A 가 갈라 놓았을 것을 C 가 합쳤다. */
+  const worse = idDup.filter(([, v]) => new Set(v.map(r => r.base)).size > 1);
+  chk(worse.length === 0,
+    '★ C 가 A 보다 나쁜 자리가 0곳 — 실제 ' + worse.length + '곳'
+    + (worse.length ? ': ' + worse.map(([k, v]) => k + '=' + short(v)).join(' | ') : ''));
+
+  /* 나머지 번들 id 충돌은 **같은 앱의 여러 판본**이다. 빨강이 아니라 재료로 찍는다.
+     ⚠️ 위 worse 에 걸린 그룹은 여기서 뺀다 — 진짜 위험을 「의도된 동작」 줄에 같이 실으면
+       빨강 옆에서 그 빨강을 변명하는 줄이 된다. */
+  const benign = idDup.filter(g => !worse.includes(g));
+  if(benign.length){
+    say('  · 같은 앱의 여러 판본이 한 키를 쓰는 그룹 ' + benign.length + '개 — '
+      + benign.map(([k, v]) => k + '×' + v.length).slice(0, 3).join(' | ')
+      + '  (의도된 동작이다)');
   }
-  const baseDup = [...byBase.entries()].filter(([, v]) => v.length > 1);
-  const idDup   = [...byId.entries()].filter(([, v]) => v.length > 1);
-  chk(idDup.length === 0,
-    '★ 번들 id 는 충돌 0건 — 실제 ' + idDup.length + '건'
-    + (idDup.length ? ': ' + idDup.map(([k, v]) => k + '=' + v.join('/')).slice(0, 3).join(' | ') : ''));
+
+  /* ★ A 가 뭉치는데 C 는 가르는 자리 — 여기가 A 탈락의 **실증**이다.
+     Xcode 처럼 양쪽 다 뭉치는 것은 근거가 못 된다. C 만 가르는 것이 나와야 뜻이 있다. */
+  const idOf = new Map(rows.map(r => [r.app, r.id]));
+  const splitByC = baseDup.filter(([, v]) => new Set(v.map(r => idOf.get(r.app))).size > 1);
   if(baseDup.length === 0){
-    huh('basename 충돌이 이 표본에는 0건 — A 가 옳다는 뜻이 아니라 표본에 일렉트론 앱이 없다는 뜻이다');
+    huh('basename 충돌이 이 표본에는 0건 — A 가 옳다는 뜻이 아니라 표본이 그랬다는 뜻이다');
+  } else if(splitByC.length === 0){
+    huh('basename 충돌 ' + baseDup.length + '건이 전부 C 에서도 뭉친다 — A 탈락의 실증이 아니다');
   } else {
-    ok('★ basename 은 ' + baseDup.length + '건 충돌 — '
-      + baseDup.map(([k, v]) => k + '=' + v.join('/')).slice(0, 3).join(' | '));
+    ok('★ A 는 뭉치는데 C 는 가르는 자리 ' + splitByC.length + '곳 — '
+      + splitByC.map(([k, v]) => k + '=' + short(v)).slice(0, 3).join(' | ')
+      + '  ← A 탈락의 실증이다');
   }
 }
 

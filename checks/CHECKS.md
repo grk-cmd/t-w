@@ -159,7 +159,7 @@
 ```
 run.js                         502줄   caa9905d902f
 tools/trapscan.js              267줄   71a7d91b4979
-tools/mac-bundleid-probe.js    331줄   fc94275ba727
+tools/mac-bundleid-probe.js    371줄   c4d9329ea431
 CHECKS.md           (이 파일 · 자기 해시는 안 적는다)
 ```
 
