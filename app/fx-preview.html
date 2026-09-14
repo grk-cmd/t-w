@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가챠 파츠 이펙트 — 디자인 미리보기</title>
+<style>
+  :root{
+    --stock:#EDEFEE;
+    --panel:#FFFFFF;
+    --rule:#C7CED1;
+    --rule-soft:#E2E7E8;
+    --ink:#171D22;
+    --ink2:#5B656D;
+    --ink3:#8A939A;
+    --plum:#57377E;
+    --plum-soft:#EFE9F6;
+    --live:#D5457F;
+    --sans:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Segoe UI','Malgun Gothic','Noto Sans KR',sans-serif;
+    --mono:ui-monospace,'SF Mono','Cascadia Mono',Menlo,Consolas,'D2Coding','Noto Sans Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--stock);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 72px}
+
+  /* ---- header ---- */
+  .eyebrow{
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--plum);display:flex;align-items:center;gap:10px;margin:0 0 10px;
+  }
+  .eyebrow::after{content:"";flex:1;height:1px;background:var(--rule)}
+  h1{
+    font-size:clamp(26px,4.2vw,40px);line-height:1.14;letter-spacing:-.022em;
+    font-weight:800;margin:0 0 10px;
+  }
+  h1 em{font-style:normal;color:var(--plum)}
+  .lede{max-width:62ch;color:var(--ink2);margin:0 0 22px;font-size:15px}
+  .lede b{color:var(--ink);font-weight:650}
+
+  /* ---- layout ---- */
+  .rig{display:grid;grid-template-columns:minmax(0,1fr) 322px;gap:18px;align-items:start}
+  @media (max-width:900px){ .rig{grid-template-columns:minmax(0,1fr)} }
+
+  /* ---- stage ---- */
+  .stage-shell{
+    background:var(--panel);border:1px solid var(--rule);border-radius:4px;
+    padding:12px;position:relative;
+  }
+  .stage{
+    position:relative;width:100%;aspect-ratio:4/3;border-radius:2px;overflow:hidden;
+    background:#2B303B;
+  }
+  @media (max-width:560px){ .stage{aspect-ratio:1/1} }
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .stage.dotty canvas{image-rendering:pixelated}
+  .paper{position:absolute;inset:0}
+  .paper.wp-day{background:linear-gradient(170deg,#BFD4E6 0%,#DCE7EE 46%,#EFE7DA 100%)}
+  .paper.wp-night{background:radial-gradient(120% 90% at 70% 8%,#3B4560 0%,#232838 55%,#14161F 100%)}
+  .paper.wp-busy{
+    background:
+      radial-gradient(60% 45% at 22% 26%,rgba(255,214,120,.55),transparent 60%),
+      radial-gradient(55% 50% at 78% 34%,rgba(120,220,200,.45),transparent 62%),
+      repeating-linear-gradient(52deg,#4A5D6E 0 22px,#54697B 22px 44px);
+  }
+  .desk-line{position:absolute;left:0;right:0;bottom:0;height:26%;background:linear-gradient(to bottom,rgba(20,24,30,.10),rgba(20,24,30,.30))}
+
+  /* corner ticks — calibration frame */
+  .tick{position:absolute;width:13px;height:13px;border:0 solid rgba(255,255,255,.62);pointer-events:none}
+  .tick.tl{top:7px;left:7px;border-top-width:1px;border-left-width:1px}
+  .tick.tr{top:7px;right:7px;border-top-width:1px;border-right-width:1px}
+  .tick.bl{bottom:7px;left:7px;border-bottom-width:1px;border-left-width:1px}
+  .tick.br{bottom:7px;right:7px;border-bottom-width:1px;border-right-width:1px}
+
+  /* world-unit ruler — the signature */
+  .ruler{position:absolute;top:0;bottom:0;left:0;width:96px;pointer-events:none;opacity:.9}
+  .ruler .r-tick{position:absolute;left:8px;height:0;border-top:1px solid rgba(255,255,255,.34);width:26px}
+  .ruler .r-tick.major{width:44px;border-top-color:rgba(255,255,255,.62)}
+  .ruler .r-lab{
+    position:absolute;left:10px;transform:translateY(-100%);
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.04em;color:rgba(255,255,255,.72);
+    text-shadow:0 1px 2px rgba(0,0,0,.5);white-space:nowrap;
+  }
+  .ruler.off{display:none}
+
+  .hud{
+    position:absolute;left:10px;bottom:10px;
+    font-family:var(--mono);font-size:10.5px;line-height:1.65;letter-spacing:.02em;
+    color:rgba(255,255,255,.82);text-shadow:0 1px 2px rgba(0,0,0,.55);pointer-events:none;
+  }
+  .hud b{color:#fff;font-weight:600}
+  .hud .dim{color:rgba(255,255,255,.5)}
+  .badge{
+    position:absolute;right:10px;top:10px;display:flex;gap:6px;align-items:center;
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:rgba(255,255,255,.85);background:rgba(12,14,18,.42);
+    border:1px solid rgba(255,255,255,.22);border-radius:2px;padding:4px 8px;
+  }
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--live);box-shadow:0 0 0 3px rgba(213,69,127,.22)}
+  .dot.idle{background:rgba(255,255,255,.45);box-shadow:none}
+
+  .wp-row{display:flex;gap:6px;margin-top:10px;align-items:center;flex-wrap:wrap}
+  .wp-row .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);margin-right:2px}
+
+  /* ---- controls ---- */
+  .panel{background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:14px}
+  .panel + .panel{margin-top:14px}
+  .sec{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink2);border-bottom:2px solid var(--plum);padding-bottom:6px;margin:0 0 12px;
+    display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+  }
+  .sec span{color:var(--ink3);letter-spacing:.02em;text-transform:none;font-size:10px}
+
+  .kinds{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px}
+  .kind{
+    display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 4px 8px;
+    border:1px solid var(--rule-soft);border-radius:3px;background:#FBFCFC;cursor:pointer;
+    font-size:12px;color:var(--ink2);transition:border-color .12s,background .12s,color .12s;
+  }
+  .kind .gl{font-size:19px;line-height:1.1}
+  .kind .mo{font-family:var(--mono);font-size:9px;letter-spacing:.08em;color:var(--ink3)}
+  .kind:hover{border-color:var(--plum);background:#fff}
+  .kind[aria-pressed="true"]{background:var(--plum-soft);border-color:var(--plum);color:var(--plum);font-weight:650}
+  .kind[aria-pressed="true"] .mo{color:var(--plum)}
+
+  .field{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0}
+  .field + .field{border-top:1px solid var(--rule-soft)}
+  .field label{font-size:13px;color:var(--ink)}
+  .field .hint{display:block;font-size:11px;color:var(--ink3);line-height:1.35;margin-top:1px}
+  .seg{display:flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden;flex:none}
+  .seg button{
+    border:0;background:#fff;color:var(--ink2);font-family:var(--sans);font-size:12px;
+    padding:5px 9px;cursor:pointer;
+  }
+  .seg button + button{border-left:1px solid var(--rule)}
+  .seg button[aria-pressed="true"]{background:var(--plum);color:#fff}
+  input[type=range]{width:118px;accent-color:var(--plum)}
+  .num{font-family:var(--mono);font-size:12px;color:var(--ink);min-width:44px;text-align:right}
+
+  .sw-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+  .sw{width:26px;height:26px;border-radius:3px;border:1px solid rgba(0,0,0,.16);cursor:pointer;padding:0}
+  .sw[aria-pressed="true"]{outline:2px solid var(--plum);outline-offset:2px}
+  .sw.auto{background:#fff;font-size:10px;font-family:var(--mono);color:var(--ink2);width:auto;padding:0 8px}
+
+  .toggles{display:flex;flex-direction:column;gap:2px}
+  .tg{display:flex;align-items:flex-start;gap:8px;padding:7px 0;cursor:pointer}
+  .tg + .tg{border-top:1px solid var(--rule-soft)}
+  .tg input{margin:3px 0 0;accent-color:var(--plum);flex:none}
+  .tg .t{font-size:13px}
+  .tg .h{font-size:11px;color:var(--ink3);line-height:1.4}
+
+  /* ---- readout ---- */
+  .readout{margin-top:18px;background:#1C222A;border-radius:4px;padding:14px 16px;position:relative;overflow:auto}
+  .readout pre{
+    margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.75;color:#D8E0E6;white-space:pre;
+  }
+  .readout .c{color:#7C8A96}
+  .readout .s{color:#F0A6C8}
+  .readout .n{color:#93D3C0}
+  .copy{
+    position:absolute;top:10px;right:10px;background:transparent;border:1px solid rgba(255,255,255,.28);
+    color:rgba(255,255,255,.78);font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+    text-transform:uppercase;padding:5px 9px;border-radius:2px;cursor:pointer;
+  }
+  .copy:hover{border-color:#fff;color:#fff}
+
+  /* ---- notes ---- */
+  .notes{margin-top:26px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+  .note{background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:13px 14px}
+  .note h3{margin:0 0 6px;font-size:14px;letter-spacing:-.01em}
+  .note p{margin:0;font-size:12.5px;color:var(--ink2);line-height:1.6}
+  .note code{font-family:var(--mono);font-size:11.5px;background:var(--plum-soft);color:var(--plum);padding:1px 4px;border-radius:2px}
+  .note .tagline{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);display:block;margin-bottom:4px}
+
+  .foot{margin-top:26px;border-top:1px solid var(--rule);padding-top:12px;font-size:12px;color:var(--ink3)}
+  .fail{
+    position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;
+    padding:24px;color:#fff;font-size:13px;line-height:1.6;background:#20242E;
+  }
+  .fail.on{display:flex}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--plum);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){ .dot{box-shadow:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">가챠 파츠 이펙트 · 착수 전 디자인 확인</p>
+  <h1>파츠를 끼면 <em>화면에서 무엇이 도는가</em></h1>
+  <p class="lede">
+    실제 씬과 같은 방식으로 그렸다 — <b>캔버스 텍스처 한 장 + THREE.Sprite + 시간 기반 움직임</b>.
+    PNG도 GLB도 쓰지 않았고, 셰이더도 <code>THREE.Points</code>도 없다. 캐릭터는 치수만 맞춘 대역이다
+    (키 1.45 · 반폭 0.30 · 렌즈 34°). 여기서 정한 값이 그대로 <b>rec.fx / fxEvery / fxMode / fxAnchor</b>가 된다.
+  </p>
+
+  <div class="rig">
+    <!-- STAGE -->
+    <div class="stage-shell">
+      <div class="stage" id="stage">
+        <div class="paper wp-day" id="paper"></div>
+        <div class="desk-line"></div>
+        <canvas id="gl"></canvas>
+        <div class="ruler" id="ruler"></div>
+        <i class="tick tl"></i><i class="tick tr"></i><i class="tick bl"></i><i class="tick br"></i>
+        <div class="badge"><i class="dot" id="livedot"></i><span id="badgeTxt">burst</span></div>
+        <div class="hud" id="hud"></div>
+        <div class="fail" id="fail">
+          three.js를 불러오지 못했다.<br>인터넷에 연결하거나, 이 파일을 프로젝트 폴더
+          (<code>vendor/three/three.min.js</code> 옆)에 두고 열면 된다.
+        </div>
+      </div>
+      <div class="wp-row">
+        <span class="k">바탕화면</span>
+        <div class="seg" id="wpSeg">
+          <button data-wp="wp-day" aria-pressed="true">밝음</button>
+          <button data-wp="wp-night" aria-pressed="false">어두움</button>
+          <button data-wp="wp-busy" aria-pressed="false">복잡함</button>
+        </div>
+        <span style="font-size:11.5px;color:var(--ink3)">투명 오버레이라 바탕화면 위에서 읽히는지가 진짜 판정이다.</span>
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div>
+      <div class="panel">
+        <p class="sec">이펙트 종류 <span id="kindNote"></span></p>
+        <div class="kinds" id="kinds"></div>
+      </div>
+
+      <div class="panel">
+        <p class="sec">파츠에 저장될 값</p>
+        <div class="field">
+          <label for="modeSeg">모드<span class="hint">burst는 주기마다 뿌리고 끝, loop는 상시 순환</span></label>
+          <div class="seg" id="modeSeg">
+            <button data-mode="burst">burst</button>
+            <button data-mode="loop">loop</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="every">주기 <span class="hint">loop 모드에서는 무시된다</span></label>
+          <span style="display:flex;align-items:center;gap:8px">
+            <input type="range" id="every" min="3" max="60" step="1" value="30">
+            <span class="num" id="everyN">30초</span>
+          </span>
+        </div>
+        <div class="field">
+          <label for="anchorSeg">기준점<span class="hint">머리 위 · 발밑 · 몸통 가운데</span></label>
+          <div class="seg" id="anchorSeg">
+            <button data-anchor="head">head</button>
+            <button data-anchor="body">body</button>
+            <button data-anchor="feet">feet</button>
+          </div>
+        </div>
+        <div class="field" style="align-items:flex-start">
+          <label>색<span class="hint">중복 4개로 열리는 색상 변경을 연출까지 확장</span></label>
+          <div class="sw-row" id="swatches"></div>
+        </div>
+        <div class="field">
+          <label>주기를 기다리지 않고<span class="hint">30초 설정이라도 지금 한 번 본다</span></label>
+          <div class="seg"><button id="fireNow" style="padding:6px 12px">지금 터뜨리기</button></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <p class="sec">상황 확인</p>
+        <div class="toggles">
+          <label class="tg"><input type="checkbox" id="tgSeats"><span><span class="t">좌석 3개로 보기</span><span class="h">주기마다 랜덤 오프셋이 들어가 동시에 안 터진다</span></span></label>
+          <label class="tg"><input type="checkbox" id="tgDot"><span><span class="t">도트 렌더 모드</span><span class="h">스프라이트에도 NearestFilter를 직접 걸어야 걸린다</span></span></label>
+          <label class="tg"><input type="checkbox" id="tgLegacy"><span><span class="t">이전 버전으로 보기 (A/B)</span><span class="h">흰 테두리 한 겹 + 프린지 보정 없음. 밝은 바탕에서 왜 어두웠는지 비교용</span></span></label>
+          <label class="tg"><input type="checkbox" id="tgAway"><span><span class="t">자리비움(반투명)</span><span class="h">결정 4 — 아예 안 터뜨린다</span></span></label>
+          <label class="tg"><input type="checkbox" id="tgBlur"><span><span class="t">포커스 없음</span><span class="h">결정 5 — 완전 정지. 풀고 복귀할 때 안 튀는지 보라</span></span></label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- READOUT -->
+  <div class="readout">
+    <button class="copy" id="copyBtn">복사</button>
+    <pre id="rec"></pre>
+  </div>
+
+  <!-- NOTES -->
+  <div class="notes" id="notes"></div>
+
+  <p class="foot">
+    이 파일은 미리보기 전용이다 — <code>app.js</code>에 아무것도 안 건드린다.
+    화면 아래쪽 스크립트의 <code>FX_KINDS</code> · <code>fxTexture()</code> · <code>updateSeatFx()</code> 세 덩어리가
+    그대로 옮겨갈 부분이다.
+  </p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.128.0/three.min.js"></script>
+<script>
+  if(!window.THREE){
+    var s=document.createElement('script');
+    s.src='vendor/three/three.min.js';
+    s.onload=function(){ if(window.boot) window.boot(); };
+    s.onerror=function(){ document.getElementById('fail').classList.add('on'); };
+    document.currentScript.after(s);
+  }
+</script>
+<script>
+/* =========================================================================
+   이펙트 미리보기 — 실제 씬에 옮길 때 이 파일에서 가져갈 것은 아래 3덩어리
+   (1) FX_KINDS  (2) fxTexture()  (3) spawnFx()/updateSeatFx()
+   ========================================================================= */
+
+/* 같은 꽃잎을 다른 각도에서 본 4장. 원본 CSS 스프라이트시트의 비율을 그대로 옮겼다 —
+   45×20(거의 옆면) · 42×22 · 37×24 · 26×34(정면). 한 장만 돌리면 이 느낌이 안 난다. */
+const PETAL_SHAPES = [
+  {w:1.000, h:0.444},   // 45×20 — 거의 옆면
+  {w:0.933, h:0.489},   // 42×22
+  {w:0.822, h:0.533},   // 37×24
+  {w:0.578, h:0.756}    // 26×34 — 정면. 세로가 더 길다
+];
+
+/* ---------- (1) 종류 정의 : 텍스처 한 장 + 움직임 규칙 하나 ---------- */
+const FX_KINDS = {
+  petal:{
+    label:'벚꽃', glyph:'🌸', mode:'burst', count:12, life:3.8, size:0.13,
+    color:0xFFC2D8, additive:false, sway:0.13, swaySpd:1.5, spin:2.0,
+    shapes:PETAL_SHAPES,            // 스프라이트마다 4종 중 하나를 뽑는다
+    lifeVar:0.34,                   // 낙하 속도 편차 ±34% — 같이 우수수 떨어지지 않게
+    yVar:0.60,                      // 시작 높이 편차(월드 단위) — 머리 위 한 줄에서 안 나온다
+    stagger:2.6,                    // 12장을 2.6초에 걸쳐 뿌린다
+    note:'각도가 다른 4장이 섞여 떨어진다. 흔들리는 방향으로 기울고, 옆면이 될 때 납작해진다.'
+  },
+  bubble:{
+    label:'버블', glyph:'🫧', mode:'loop', count:6, life:3.3, size:0.155,
+    color:0xBAEDF1, additive:false, sway:0.05, swaySpd:1.1, spin:0,
+    spawn:'sides',                  // 가운데가 아니라 캐릭터 좌우에서 번갈아 올라온다
+    pop:3,                          // 터질 때 갈아끼울 텍스처 프레임 수 (스프라이트는 안 늘어난다)
+    note:'맺혀서 뜨고 → 가속해서 오르고 → 쪼그라들며 물방울이 튄다. 좌우 번갈아.'
+  },
+  snow:{
+    label:'눈', glyph:'❄️', mode:'burst', count:12, life:4.4, size:0.085,
+    color:0xFFFFFF, additive:false, sway:0.07, swaySpd:0.9, spin:0,
+    lifeVar:0.30, yVar:0.50, stagger:2.8,
+    note:'벚꽃과 코드가 같다 — 텍스처와 상수만 다르다.'
+  },
+  sparkle:{
+    label:'반짝임', glyph:'✨', mode:'burst', count:12, life:0.75, size:0.19,
+    color:0xFFF0BE, additive:true, sway:0, swaySpd:0, spin:0.6,
+    note:'제자리에서 커졌다 작아진다. 유일한 가산 합성 — 색을 진하게 주면 흰색으로 날아간다.'
+  },
+  heart:{
+    label:'하트', glyph:'💗', mode:'burst', count:12, life:3.0, size:0.125,
+    color:0xFF9DB6, additive:false, sway:0.09, swaySpd:1.2, spin:0.35,
+    lifeVar:0.22, stagger:1.4,
+    note:'몸통에서 위로 천천히. 주기를 길게 잡을수록 값이 산다.'
+  }
+};
+
+/* ---------- (2) 텍스처 : 전부 캔버스로 그린다 (흰색 + 알파, 색은 재질에서 입힌다) ---------- */
+const _fxTexCache = {};
+function fxTexture(kind, nearest, legacy){
+  const key = kind + (nearest ? ':n' : ':l') + (legacy ? ':old' : '');
+  if(_fxTexCache[key]) return _fxTexCache[key];
+  const S = 128;                       // 정사각 기본. 꽃잎만 아래에서 캔버스 비율을 다시 잡는다
+  const cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const c = cv.getContext('2d');
+  c.clearRect(0,0,S,S);
+
+  if(kind.indexOf('petal') === 0){
+    /* 캔버스 자체를 변형 비율로 만들고 같은 형태를 넣는다 → 늘어나지 않고 '각도가 다른 꽃잎'이 된다.
+       ⚠️ PNG 스프라이트시트를 쓰지 않았다 — 남의 에셋이고, 배포 경로가 하나 늘어난다(§4-7). */
+    const sh = PETAL_SHAPES[+(kind.slice(5) || 2)] || PETAL_SHAPES[2];
+    const vertical = sh.h > sh.w;
+    const long = 128, short = Math.round(128 * Math.min(sh.w, sh.h) / Math.max(sh.w, sh.h));
+    cv.width  = vertical ? short : long;
+    cv.height = vertical ? long : short;
+    const W = cv.width, H = cv.height;
+    c.clearRect(0,0,W,H);
+
+    // 길이 방향 px(0→1), 폭 방향 py(0→1). vertical 이면 두 축을 맞바꿔 긴 축에 꽃잎을 눕힌다
+    const M = (px,py) => vertical ? [py*W, px*H] : [px*W, py*H];
+    const path = () => {
+      const pt = [[0.03,0.50],[0.17,0.05],[0.62,0.01],[0.93,0.29],[0.79,0.50],[0.93,0.71],[0.62,0.99],[0.17,0.95]];
+      const q = pt.map(a => M(a[0],a[1]));
+      c.beginPath();
+      c.moveTo(q[0][0],q[0][1]);
+      c.bezierCurveTo(q[1][0],q[1][1], q[2][0],q[2][1], q[3][0],q[3][1]);
+      c.quadraticCurveTo(q[4][0],q[4][1], q[5][0],q[5][1]);        // 끝 홈
+      c.bezierCurveTo(q[6][0],q[6][1], q[7][0],q[7][1], q[0][0],q[0][1]);
+      c.closePath();
+    };
+
+    const g0 = M(0.02,0.5), g1 = M(1.0,0.5);
+    const g = c.createLinearGradient(g0[0],g0[1],g1[0],g1[1]);
+    g.addColorStop(0,'rgba(255,255,255,0.62)');                    // 뿌리는 살짝 어둡게(색을 입히면 진한 분홍)
+    g.addColorStop(0.42,'rgba(255,255,255,1)');
+    g.addColorStop(1,'rgba(255,255,255,0.86)');
+    c.fillStyle = g; path(); c.fill();
+
+    c.save(); path(); c.clip();                                    // 안쪽만 칠한다
+    const r0 = M(0.06,0.5), rr = c.createRadialGradient(r0[0],r0[1],0, r0[0],r0[1], long*0.34);
+    rr.addColorStop(0,'rgba(124,124,124,0.40)');                   // 뿌리 그늘 — 중성 회색
+    rr.addColorStop(1,'rgba(124,124,124,0)');
+    c.fillStyle = rr; c.fillRect(0,0,W,H);
+    const v0 = M(0.16,0.5), v1 = M(0.86,0.5);                      // 잎맥
+    c.strokeStyle='rgba(255,255,255,0.42)'; c.lineWidth = Math.max(1.5, short*0.045);
+    c.beginPath(); c.moveTo(v0[0],v0[1]); c.lineTo(v1[0],v1[1]); c.stroke();
+    c.restore();
+
+    c.strokeStyle='rgba(118,118,118,0.28)';                        // 얇은 윤곽 — 중성 회색 — 밝은 바탕에서 사라지지 않게
+    c.lineWidth = Math.max(1.2, short*0.035);
+    path(); c.stroke();
+  }
+  else if(kind === 'bubble' && legacy){
+    /* 예전 그림 — 흰 테두리 하나. 어두운 바탕에서만 읽힌다(A/B 비교용) */
+    const g = c.createRadialGradient(S*0.5,S*0.5,S*0.10, S*0.5,S*0.5,S*0.46);
+    g.addColorStop(0,'rgba(255,255,255,0.05)');
+    g.addColorStop(0.72,'rgba(255,255,255,0.13)');
+    g.addColorStop(0.93,'rgba(255,255,255,0.55)');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    c.fillStyle=g; c.beginPath(); c.arc(S*0.5,S*0.5,S*0.46,0,6.2832); c.fill();
+    c.strokeStyle='rgba(255,255,255,0.85)'; c.lineWidth=2.4;
+    c.beginPath(); c.arc(S*0.5,S*0.5,S*0.42,0,6.2832); c.stroke();
+    c.fillStyle='rgba(255,255,255,0.92)';
+    c.beginPath(); c.ellipse(S*0.36,S*0.33,S*0.085,S*0.055,-0.6,0,6.2832); c.fill();
+  }
+  else if(kind === 'bubble'){
+    /* CSS 원본의 inset box-shadow 3겹 — 위쪽이 가장 밝은 흰 림 / 얇은 테두리 / 안쪽 발광.
+       ★ 어두운 부분은 반드시 '중성 회색'으로. 파란기 도는 회색으로 그리면 색을 입힐 때 탁해진다. */
+    const g = c.createRadialGradient(S*0.44,S*0.42,S*0.06, S*0.5,S*0.5,S*0.47);
+    g.addColorStop(0,'rgba(255,255,255,0.20)');
+    g.addColorStop(0.55,'rgba(255,255,255,0.15)');
+    g.addColorStop(0.84,'rgba(255,255,255,0.34)');
+    g.addColorStop(0.965,'rgba(255,255,255,0.52)');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    c.fillStyle=g; c.beginPath(); c.arc(S*0.5,S*0.5,S*0.47,0,6.2832); c.fill();
+
+    c.strokeStyle='rgba(112,112,112,0.26)'; c.lineWidth=2.4;      // 윤곽 — 중성 회색
+    c.beginPath(); c.arc(S*0.5,S*0.5,S*0.452,0,6.2832); c.stroke();
+    c.strokeStyle='rgba(255,255,255,0.72)'; c.lineWidth=3.4;      // 테두리 전체
+    c.beginPath(); c.arc(S*0.5,S*0.5,S*0.414,0,6.2832); c.stroke();
+    c.strokeStyle='rgba(255,255,255,1)'; c.lineWidth=3.8;         // 위쪽이 가장 밝다
+    c.beginPath(); c.arc(S*0.5,S*0.5,S*0.414,-2.62,-0.52); c.stroke();
+    c.strokeStyle='rgba(255,255,255,0.44)'; c.lineWidth=2.4;      // 아래쪽 반사광
+    c.beginPath(); c.arc(S*0.5,S*0.5,S*0.345,0.60,1.80); c.stroke();
+
+    c.save();                                                     // 크리스프 글린트
+    c.translate(S*0.355,S*0.318); c.rotate(-0.785);
+    c.fillStyle='rgba(255,255,255,1)';
+    c.beginPath(); c.ellipse(0,0,S*0.10,S*0.052,0,0,6.2832); c.fill();
+    c.restore();
+  }
+  else if(kind.indexOf('pop') === 0){
+    /* 터지는 순간 — 방사 물방울 7개. CSS 원본의 :nth-child 물방울들을 한 장에 굽는다.
+       스프라이트를 7개 더 만들면 좌석당 예산(loop 6장)이 깨진다 → 프레임 3장을 갈아끼운다. */
+    const F = [
+      {r0:0.17, r1:0.33, w:4.2, ring:0.185, a:0.95},
+      {r0:0.28, r1:0.45, w:3.0, ring:0,     a:0.80},
+      {r0:0.38, r1:0.50, w:2.1, ring:0,     a:0.42}
+    ][+kind.slice(3)] || {r0:0.3,r1:0.45,w:3,ring:0,a:0.8};
+    c.translate(S*0.5, S*0.5);
+    if(F.ring){                                                  // 첫 프레임엔 쪼그라든 껍질이 남아 있다
+      c.strokeStyle='rgba(255,255,255,'+(F.a*0.75)+')'; c.lineWidth=3.4;
+      c.beginPath(); c.arc(0,0,S*F.ring,0,6.2832); c.stroke();
+    }
+    for(let i=0;i<7;i++){
+      const th = (Math.PI*2/7)*i - Math.PI/2;
+      const x0 = Math.cos(th)*S*F.r0, y0 = Math.sin(th)*S*F.r0;
+      const x1 = Math.cos(th)*S*F.r1, y1 = Math.sin(th)*S*F.r1;
+      c.lineCap='round';
+      c.strokeStyle='rgba(112,112,112,'+(F.a*0.26)+')'; c.lineWidth=F.w+2.4;   // 중성 회색 그늘
+      c.beginPath(); c.moveTo(x0,y0); c.lineTo(x1,y1); c.stroke();
+      c.strokeStyle='rgba(255,255,255,'+F.a+')'; c.lineWidth=F.w;
+      c.beginPath(); c.moveTo(x0,y0); c.lineTo(x1,y1); c.stroke();
+    }
+    c.setTransform(1,0,0,1,0,0);
+  }
+  else if(kind === 'snow'){
+    const g = c.createRadialGradient(S*0.5,S*0.5,0, S*0.5,S*0.5,S*0.44);
+    g.addColorStop(0,'rgba(255,255,255,1)');
+    g.addColorStop(0.35,'rgba(255,255,255,0.85)');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    c.fillStyle=g; c.fillRect(0,0,S,S);
+  }
+  else if(kind === 'sparkle'){
+    const g = c.createRadialGradient(S*0.5,S*0.5,0, S*0.5,S*0.5,S*0.30);
+    g.addColorStop(0,'rgba(255,255,255,0.95)');
+    g.addColorStop(0.5,'rgba(255,255,255,0.22)');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    c.fillStyle=g; c.fillRect(0,0,S,S);
+    c.translate(S*0.5,S*0.5);
+    for(let i=0;i<4;i++){                                       // 십자 광채 + 사선 짧게
+      const long = (i%2===0), r = long ? S*0.48 : S*0.26, w = long ? S*0.055 : S*0.035;
+      const gg = c.createLinearGradient(0,0,0,-r);
+      gg.addColorStop(0,'rgba(255,255,255,0.95)');
+      gg.addColorStop(1,'rgba(255,255,255,0)');
+      c.fillStyle=gg;
+      c.beginPath(); c.moveTo(-w,0); c.quadraticCurveTo(0,-r*0.55,0,-r);
+      c.quadraticCurveTo(0,-r*0.55,w,0); c.closePath(); c.fill();
+      c.rotate(Math.PI/2);
+      if(i===1) c.rotate(Math.PI/4);
+    }
+    c.setTransform(1,0,0,1,0,0);
+  }
+  else if(kind === 'heart'){
+    c.fillStyle='rgba(255,255,255,0.95)';
+    c.beginPath();
+    c.moveTo(S*0.5,S*0.86);
+    c.bezierCurveTo(S*0.02,S*0.55, S*0.14,S*0.14, S*0.5,S*0.32);
+    c.bezierCurveTo(S*0.86,S*0.14, S*0.98,S*0.55, S*0.5,S*0.86);
+    c.closePath(); c.fill();
+    c.fillStyle='rgba(255,255,255,0.55)';                        // 하이라이트
+    c.beginPath(); c.ellipse(S*0.34,S*0.40,S*0.075,S*0.05,-0.5,0,6.2832); c.fill();
+  }
+
+  const t = new THREE.CanvasTexture(cv);
+  /* ★ 밝은 바탕에서 스프라이트가 회색빛으로 어두워 보이는 원인 —
+     캔버스 텍스처는 알파 0인 픽셀의 RGB가 검정이라, 보간할 때 흰색과 검정이 섞여 테두리에 검은 띠가 생긴다
+     (프린지). 어두운 바탕에서는 안 보이고 밝은 바탕에서만 보인다.
+     텍스처를 미리 곱해서 올리고(premultiplyAlpha) 합성식도 프리멀티플라이드용으로 바꾸면 사라진다.
+     ⚠️ 기존 addGlowSprite 는 가산 합성이라 이 문제가 안 났다 — 벚꽃·눈·하트도 전부 해당된다. */
+  t.premultiplyAlpha = !legacy;
+  /* ⚠️ 도트 모드는 나중에 만든 스프라이트에 자동으로 안 걸린다(applyDotTextureFilter 는 isMesh 만 본다).
+     생성 시점에 직접 넣는다. */
+  t.minFilter = t.magFilter = nearest ? THREE.NearestFilter : THREE.LinearFilter;
+  t.generateMipmaps = !nearest;
+  _fxTexCache[key] = t;
+  return t;
+}
+
+/* 스프라이트 한 장이 쓸 텍스처 — 변형이 있는 종류는 뽑은 변형을 따라간다 */
+function spriteTex(kind, p){
+  return fxTexture(FX_KINDS[kind].shapes ? kind + (p.shape || 0) : kind, S.dot, S.legacy);
+}
+
+/* CSS cubic-bezier 두 개를 옮긴 것 — 등속으로 올리면 이 느낌이 안 난다 */
+const easeOutCirc = t => Math.sqrt(1 - (t-1)*(t-1));
+
+/* 프리멀티플라이드 알파용 합성식 — 검은 프린지 없이 정상/가산 합성을 낸다 */
+function applyFxBlend(mat, additive, legacy){
+  if(legacy){
+    mat.blending = additive ? THREE.AdditiveBlending : THREE.NormalBlending;
+    return;
+  }
+  mat.blending = THREE.CustomBlending;
+  mat.blendEquation = THREE.AddEquation;
+  mat.blendSrc = THREE.OneFactor;
+  mat.blendDst = additive ? THREE.OneFactor : THREE.OneMinusSrcAlphaFactor;
+}
+
+/* ---------- 상태 ---------- */
+const S = {
+  kind:'petal', mode:'burst', every:30, anchor:'head',
+  color:null,            // null = 종류 기본색
+  seats:1, dot:false, away:false, blur:false, legacy:false
+};
+const CHAR = { topY:1.45, halfW:0.30 };
+const MAX_SPRITES = 12;
+
+let renderer, scene, camera, seats = [], pausedAt = 0;
+const clockNow = () => performance.now() / 1000;
+
+/* ---------- 대역 캐릭터 ---------- */
+function makeStandIn(){
+  const g = new THREE.Group();
+  const skin = new THREE.MeshStandardMaterial({color:0xF6E3D2, roughness:.85, metalness:0});
+  const cloth = new THREE.MeshStandardMaterial({color:0x7C8FB8, roughness:.9, metalness:0});
+  const dark = new THREE.MeshStandardMaterial({color:0x2A2F3A, roughness:.7, metalness:0});
+
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.245,0.30,0.62,24), cloth);
+  body.position.y = 0.32; g.add(body);
+  const hip = new THREE.Mesh(new THREE.SphereGeometry(0.30,20,14), cloth);
+  hip.position.y = 0.16; hip.scale.set(1,0.62,1); g.add(hip);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.335,26,20), skin);
+  head.position.y = 1.00; g.add(head);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.345,26,20,0,6.2832,0,1.5), dark);
+  hair.position.y = 1.01; g.add(hair);
+  const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.075,12,10), dark);
+  tuft.position.set(0.03,1.38,0.02); g.add(tuft);
+  for(const sx of [-1,1]){
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.042,12,10), dark);
+    eye.position.set(0.115*sx, 0.99, 0.305); g.add(eye);
+    const arm = new THREE.Mesh(new THREE.SphereGeometry(0.09,12,10), cloth);
+    arm.position.set(0.30*sx, 0.42, 0); arm.scale.set(0.8,1.5,0.8); g.add(arm);
+  }
+  g.traverse(o => { if(o.isMesh){ o.castShadow = true; } });
+  return g;
+}
+
+function makeSeat(x){
+  const group = new THREE.Group();
+  group.position.x = x;
+  scene.add(group);
+  const seat = {
+    group, char:makeStandIn(),
+    _lastOp:1,
+    _fx:{ sprites:[], nextAt:0, running:false }
+  };
+  group.add(seat.char);
+  // 스프라이트 풀 — 미리 만들어 두고 재사용한다
+  for(let i=0;i<MAX_SPRITES;i++){
+    const mat = new THREE.SpriteMaterial({ transparent:true, depthWrite:false, depthTest:true });
+    const sp = new THREE.Sprite(mat);
+    sp.visible = false; sp.renderOrder = 880;
+    group.add(sp);
+    seat._fx.sprites.push({ sp, alive:false, t0:0, x0:0, y0:0, z0:0, ph:0, spin:0, drift:1 });
+  }
+  return seat;
+}
+
+/* ---------- (3) 발사 · 갱신 ---------- */
+function fxColor(kind){
+  const def = FX_KINDS[kind];
+  const col = new THREE.Color(S.color != null ? S.color : def.color);
+  if(def.additive && S.color != null){
+    // 가산 합성은 진한 색을 주면 흰색으로 날아간다 — 채도·밝기를 낮춰 쓴다
+    const hsl = {}; col.getHSL(hsl);
+    col.setHSL(hsl.h, hsl.s*0.45, Math.min(hsl.l, 0.60));
+  }
+  return col;
+}
+function anchorY(){
+  return S.anchor === 'head' ? CHAR.topY * 1.02
+       : S.anchor === 'body' ? CHAR.topY * 0.52
+       : 0.04;
+}
+function spawnFx(seat, n, now, stagger){
+  const def = FX_KINDS[S.kind];
+  const pool = seat._fx.sprites;
+  const tex = fxTexture(S.kind, S.dot, S.legacy);
+  const col = fxColor(S.kind);
+  let launched = 0;
+  for(let i=0;i<pool.length && launched<n;i++){
+    const p = pool[i];
+    if(p.alive) continue;
+    p.alive = true;
+    p.t0 = now + (stagger ? Math.random()*stagger : 0);
+    if(def.spawn === 'sides'){
+      // 좌우 번갈아 — 한쪽만 몰리면 캐릭터가 기울어 보인다
+      seat._fx.side = -(seat._fx.side || 1);
+      p.out = seat._fx.side;
+      p.x0 = p.out * CHAR.halfW * (1.05 + Math.random()*0.40);
+      p.y0 = anchorY() + (Math.random()*2-1) * 0.16;
+      p.z0 = (Math.random()*2-1) * 0.10;
+    } else {
+      p.out = 0;
+      p.x0 = (Math.random()*2-1) * CHAR.halfW * (def.yVar ? 2.1 : 1.7);
+      p.y0 = anchorY() + Math.random() * (def.yVar || 0.14) - (def.yVar ? 0 : 0.07);
+      p.z0 = (Math.random()*2-1) * 0.22;
+    }
+    p.ph = Math.random() * 6.2832;
+    p.spin = (Math.random()*2-1) * def.spin;
+    p.drift = 0.8 + Math.random()*0.45;
+    p.lifeK = 1 + (Math.random()*2-1) * (def.lifeVar || 0);   // 장마다 다른 속도
+    p.swayK = 0.65 + Math.random()*0.80;                      // 장마다 다른 흔들림 주기
+    if(def.shapes){
+      p.shape = Math.floor(Math.random() * def.shapes.length);
+      p.tumble = 1.3 + Math.random()*1.6;      // 뒤집히는 빠르기
+      p.rot0 = Math.random() * 6.2832;
+    }
+    p.frame = -1;
+    p.sp.material.map = def.shapes ? spriteTex(S.kind, p) : tex;
+    p.sp.material.color.copy(col);
+    applyFxBlend(p.sp.material, def.additive, S.legacy);
+    p.sp.material.needsUpdate = true;
+    p.sp.visible = false;   // 첫 갱신에서 켠다(stagger 대기)
+    launched++;
+  }
+  return launched;
+}
+
+function updateSeatFx(seat, now){
+  const def = FX_KINDS[S.kind];
+  const fx = seat._fx;
+  const opSeat = seat._lastOp;                    // ⚠️ setSeatOpacity 는 스프라이트를 안 훑는다 — 직접 곱한다
+  const stopped = S.away || S.blur;               // 결정 4·5
+
+  // 발사 스케줄
+  if(!stopped){
+    if(S.mode === 'loop'){
+      let aliveN = 0;
+      for(const p of fx.sprites) if(p.alive) aliveN++;
+      if(aliveN < def.count && now >= fx.nextAt){
+        spawnFx(seat, 1, now, 0);
+        fx.nextAt = now + (def.life / def.count) * (0.7 + Math.random()*0.6);
+      }
+    } else {
+      if(now >= fx.nextAt){
+        spawnFx(seat, def.count, now, def.stagger || 0.9);
+        fx.nextAt = now + S.every;
+      }
+    }
+  }
+
+  let live = 0;
+  for(const p of fx.sprites){
+    if(!p.alive) continue;
+    const t = now - p.t0;
+    if(t < 0){ p.sp.visible = false; live++; continue; }
+    const life = def.life * (p.lifeK || 1);        // 스프라이트마다 다른 수명 = 다른 속도
+    const u = t / life;                            // 0 → 1  (★ dt 누적이 아니라 절대 시간)
+    if(u >= 1){ p.alive = false; p.sp.visible = false; continue; }
+    live++;
+
+    let x = p.x0, y = p.y0, z = p.z0, sc = def.size, a = 1;
+    let scX = 0, scY = 0, rot = null;
+    const swayU = Math.sin(t*def.swaySpd*1.7*(p.swayK || 1) + p.ph);
+    const sway = swayU * def.sway;
+
+    if(S.kind === 'petal'){
+      /* 3단 — ① 뿌려지며 살짝 솟는다 ② 흔들리며 내려온다 ③ 발밑에서 속도가 죽으며 스러진다 */
+      const P1 = 0.11, P2 = 0.80;
+      const fall = Math.min((CHAR.topY*1.05) * p.drift, Math.max(0.18, p.y0));
+      let e;
+      if(u < P1){
+        const q = u/P1, k = easeOutCirc(q);
+        e = -0.055 * k;                       // 솟는다
+        a = Math.min(1, q*3.0);               // 빨리 불투명해진다
+      } else if(u < P2){
+        const q = (u-P1)/(P2-P1);
+        e = -0.055 + 0.855 * (0.72*q + 0.28*q*q);   // 거의 등속, 아주 살짝 가속
+        a = 1;
+      } else {
+        const q = (u-P2)/(1-P2);
+        e = 0.80 + 0.20 * easeOutCirc(q);     // 저항받아 느려진다
+        a = (q < 0.6) ? 1 : (1 - (q-0.6)/0.4);   // 끝의 40%에서만 사라진다
+      }
+      y = p.y0 - fall * e;
+      x = p.x0 + sway;
+      /* 뒤집힘 — 옆면이 될 때 납작해진다. 4종 변형과 겹쳐서 각도가 계속 바뀌는 것처럼 보인다 */
+      const flip = Math.abs(Math.cos(t*p.tumble + p.ph));
+      const sh = def.shapes[p.shape || 0], k = def.size * 1.5;
+      scX = sh.w * k * (0.22 + 0.78*flip);
+      scY = sh.h * k;
+      rot = p.rot0 + p.spin*t*0.30 + swayU*0.42;   // 흔들리는 방향으로 기운다
+      if(u < P1){ const q = u/P1; scX *= 0.4+0.6*q; scY *= 0.4+0.6*q; }
+    }
+    else if(S.kind === 'snow'){
+      // 바닥(y=0) 아래로는 안 내려가게 — feet 기준점일 때도 자연스럽다
+      const fall = Math.min((CHAR.topY*1.05) * p.drift, Math.max(0.18, p.y0));
+      y = p.y0 - fall * (u*0.86 + u*u*0.14);
+      x = p.x0 + sway;
+      a = Math.min(1, u/0.10) * Math.min(1, (1-u)/0.22);
+    }
+    else if(S.kind === 'bubble'){
+      /* 3단 — ① 맺혀서 부풀며 뜬다(감속) ② 가속해서 오른다 ③ 쪼그라들며 물방울이 튄다 */
+      const P1 = 0.24, P2 = 0.84;
+      const rise = (CHAR.topY*1.05) * p.drift;
+      let e;                                        // 올라간 비율 0→1
+      if(u < P1){
+        const q = u/P1, k = easeOutCirc(q);
+        e  = 0.20 * k;
+        sc = def.size * (0.30 + 0.72*k);            // 맺히면서 커진다
+        a  = Math.min(1, q*1.5);
+      } else if(u < P2){
+        const q = (u-P1)/(P2-P1);
+        e  = 0.20 + 0.80 * (0.34*q + 0.66*q*q);     // 뒤로 갈수록 빨라진다
+        sc = def.size * (1.02 + 0.10*q);
+        a  = 1 - q*0.15;
+      } else {
+        const q = (u-P2)/(1-P2);                    // ③ 터짐
+        e  = 1 + 0.02*q;
+        // 껍질이 쪼그라드는 건 텍스처가 한다(pop0의 고리 반지름이 버블 테두리보다 훨씬 작다).
+        // 스케일은 물방울이 바깥으로 퍼지는 몫만 담당한다.
+        sc = def.size * (0.92 + 1.10*q);
+        a  = Math.pow(1-q, 0.9);
+        const fr = Math.min(def.pop-1, Math.floor(q*def.pop));
+        if(p.frame !== fr){ p.frame = fr; p.sp.material.map = fxTexture('pop'+fr, S.dot, S.legacy); }
+      }
+      if(u <= P2 && p.frame !== -1){                // 다시 껍질로 되돌린다(풀 재사용)
+        p.frame = -1; p.sp.material.map = fxTexture('bubble', S.dot, S.legacy);
+      }
+      y = p.y0 + rise * e;
+      x = p.x0 + sway * (u < P2 ? 1 : 0.2) + (p.out || 0) * 0.13 * Math.min(u, P2);
+    }
+    else if(S.kind === 'sparkle'){
+      const s = Math.sin(u*Math.PI);
+      sc = def.size * (0.35 + s*0.75);
+      a = s;
+      y = p.y0 + u*0.06;
+    }
+    else if(S.kind === 'heart'){
+      y = p.y0 + (CHAR.topY*0.62) * p.drift * u;
+      x = p.x0 + sway;
+      sc = def.size * (0.7 + 0.3*Math.min(1,u*3));
+      a = Math.min(1, u/0.12) * Math.min(1, (1-u)/0.30);
+    }
+
+    p.sp.position.set(x, y, z);
+    if(scX) p.sp.scale.set(scX, scY, 1);        // 꽃잎은 가로세로가 다르다
+    else    p.sp.scale.set(sc, sc, sc);
+    p.sp.material.rotation = (rot !== null) ? rot : p.spin * t;
+    p.sp.material.opacity = a * opSeat;             // 좌석 투명도를 직접 곱한다
+    p.sp.visible = a > 0.005 && opSeat > 0.02;
+  }
+  fx.running = live > 0;
+  return live;
+}
+
+/* ---------- 씬 ---------- */
+function boot(){
+  if(!window.THREE || renderer) return;
+  const cv = document.getElementById('gl');
+  renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true, alpha:true, premultipliedAlpha:false});
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(34, 1, 0.1, 100);   // 앱과 같은 렌즈
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a94a6, 0.95));
+  const key = new THREE.DirectionalLight(0xffffff, 0.75);
+  key.position.set(2.2, 4, 3); scene.add(key);
+
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(0.42, 28),
+    new THREE.MeshBasicMaterial({color:0x0b0f16, transparent:true, opacity:0.16, depthWrite:false})
+  );
+  shadow.rotation.x = -Math.PI/2; shadow.position.y = 0.004;
+
+  seats = [makeSeat(0)];
+  const sh = shadow.clone(); seats[0].group.add(sh); seats[0].shadow = sh;
+  layout();
+  resize();
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(frame);
+}
+window.boot = boot;
+
+function layout(){
+  if(!scene) return;
+  const want = S.seats;
+  while(seats.length < want){
+    const s = makeSeat(0);
+    const sh = new THREE.Mesh(
+      new THREE.CircleGeometry(0.42, 28),
+      new THREE.MeshBasicMaterial({color:0x0b0f16, transparent:true, opacity:0.16, depthWrite:false})
+    );
+    sh.rotation.x = -Math.PI/2; sh.position.y = 0.004; s.group.add(sh); s.shadow = sh;
+    seats.push(s);
+  }
+  while(seats.length > want){
+    const s = seats.pop();
+    scene.remove(s.group);
+  }
+  const now = clockNow();
+  seats.forEach((s,i) => {
+    s.group.position.x = want === 1 ? 0 : (i-1) * 1.35;
+    s.group.position.z = want === 1 ? 0 : (i===1 ? 0.25 : 0);
+    s.group.rotation.y = want === 1 ? 0 : (i-1) * -0.22;
+    // 좌석마다 랜덤 오프셋 — 8명이 같은 순간에 터지면 프레임이 튄다
+    s._fx.nextAt = now + Math.random() * (S.mode === 'loop' ? 1.2 : Math.min(S.every, 6));
+    for(const p of s._fx.sprites){ p.alive = false; p.sp.visible = false; }
+  });
+  camera.position.set(0, want === 1 ? 1.02 : 1.15, want === 1 ? 3.9 : 5.6);
+  camera.lookAt(0, want === 1 ? 0.82 : 0.86, 0);
+}
+
+function resize(){
+  if(!renderer) return;
+  const st = document.getElementById('stage');
+  const w = st.clientWidth, h = st.clientHeight;
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+  renderer.setPixelRatio(S.dot ? 0.42 : Math.min(devicePixelRatio, 2));
+  renderer.setSize(w, h, false);
+}
+
+/* 눈금자 — 월드 높이를 화면에 투영한다. 파티클 크기를 캐릭터 키로 판단하기 위한 것 */
+const RULER_TICKS = [
+  {y:0,    lab:'0.00  발밑'},
+  {y:0.50, lab:'0.50'},
+  {y:1.00, lab:'1.00'},
+  {y:1.45, lab:'1.45  머리'}
+];
+function drawRuler(){
+  const el = document.getElementById('ruler');
+  if(S.seats !== 1){ el.classList.add('off'); return; }
+  el.classList.remove('off');
+  const st = document.getElementById('stage');
+  const h = st.clientHeight;
+  if(el.childElementCount !== RULER_TICKS.length*2){
+    el.innerHTML = RULER_TICKS.map((t,i) =>
+      '<i class="r-tick'+(i===0||i===RULER_TICKS.length-1?' major':'')+'" data-i="'+i+'"></i>' +
+      '<span class="r-lab" data-i="'+i+'">'+t.lab+'</span>').join('');
+  }
+  const v = new THREE.Vector3();
+  RULER_TICKS.forEach((t,i) => {
+    v.set(-0.62, t.y, 0).project(camera);
+    const py = (1 - v.y) * 0.5 * h;
+    el.querySelector('.r-tick[data-i="'+i+'"]').style.top = py.toFixed(1)+'px';
+    el.querySelector('.r-lab[data-i="'+i+'"]').style.top = (py-2).toFixed(1)+'px';
+  });
+}
+
+/* ---------- 프레임 ---------- */
+let _pauseStart = 0;
+function frame(){
+  requestAnimationFrame(frame);
+  if(!renderer) return;
+  const now = clockNow();
+
+  // 포커스 없음 = 완전 정지. 정지한 만큼 nextAt 과 살아있는 스프라이트의 t0 를 함께 민다
+  if(S.blur){
+    if(!_pauseStart) _pauseStart = now;
+    renderer.render(scene, camera);
+    hud(0, now);
+    return;
+  }
+  if(_pauseStart){
+    const gap = now - _pauseStart; _pauseStart = 0;
+    for(const s of seats){
+      s._fx.nextAt += gap;
+      for(const p of s._fx.sprites) if(p.alive) p.t0 += gap;
+    }
+  }
+
+  const targetOp = S.away ? 0.35 : 1;
+  let live = 0;
+  for(const s of seats){
+    s._lastOp += (targetOp - s._lastOp) * 0.12;
+    s.char.traverse(o => {
+      if(o.isMesh && o.material){ o.material.transparent = true; o.material.opacity = s._lastOp; }
+    });
+    if(s.shadow) s.shadow.material.opacity = 0.16 * s._lastOp;
+    live += updateSeatFx(s, now);
+  }
+  drawRuler();
+  renderer.render(scene, camera);
+  hud(live, now);
+}
+
+function hud(live, now){
+  const def = FX_KINDS[S.kind];
+  const el = document.getElementById('hud');
+  const cap = S.seats * (S.mode === 'loop' ? def.count : MAX_SPRITES);
+  let nextTxt;
+  if(S.blur) nextTxt = '<span class="dim">정지</span>';
+  else if(S.away) nextTxt = '<span class="dim">자리비움 — 안 터뜨림</span>';
+  else if(S.mode === 'loop') nextTxt = '상시 순환';
+  else {
+    const t = Math.max(0, Math.min(...seats.map(s => s._fx.nextAt)) - now);
+    nextTxt = '다음 <b>' + t.toFixed(1) + 's</b>';
+  }
+  el.innerHTML =
+    '스프라이트 <b>' + live + '</b><span class="dim"> / 상한 ' + cap + '</span><br>' +
+    nextTxt + '<br>' +
+    '<span class="dim">좌석 ' + S.seats + ' · ' + (S.dot ? 'nearest' : 'linear') +
+    ' · 투명도 ' + (seats[0] ? seats[0]._lastOp.toFixed(2) : '1.00') + '</span>';
+  const d = document.getElementById('livedot');
+  d.className = 'dot' + (live > 0 ? '' : ' idle');
+  document.getElementById('badgeTxt').textContent = def.label + ' · ' + S.mode;
+}
+
+/* ---------- UI ---------- */
+const SWATCHES = [null, 0xBAEDF1, 0xFFB3C7, 0x9BD7FF, 0xBFF0C8, 0xFFD98A, 0xC7B2FF];
+
+function buildUI(){
+  // 종류
+  const kEl = document.getElementById('kinds');
+  kEl.innerHTML = Object.keys(FX_KINDS).map(k =>
+    '<button class="kind" data-kind="'+k+'" aria-pressed="'+(k===S.kind)+'">' +
+    '<span class="gl">'+FX_KINDS[k].glyph+'</span>' +
+    '<span>'+FX_KINDS[k].label+'</span>' +
+    '<span class="mo">'+FX_KINDS[k].mode+'</span></button>').join('');
+  kEl.addEventListener('click', e => {
+    const b = e.target.closest('.kind'); if(!b) return;
+    S.kind = b.dataset.kind;
+    S.mode = FX_KINDS[S.kind].mode;               // 종류의 기본 모드로 따라간다
+    if(S.kind === 'heart' || S.kind === 'bubble') S.anchor = 'body';
+    else if(S.kind === 'sparkle') S.anchor = 'body';
+    else S.anchor = 'head';
+    resetSeats(); syncUI();
+  });
+
+  // 색
+  const sw = document.getElementById('swatches');
+  sw.innerHTML = SWATCHES.map((c,i) => c === null
+    ? '<button class="sw auto" data-i="'+i+'" aria-pressed="true">기본</button>'
+    : '<button class="sw" data-i="'+i+'" aria-pressed="false" style="background:#'+c.toString(16).padStart(6,'0')+'"></button>'
+  ).join('');
+  sw.addEventListener('click', e => {
+    const b = e.target.closest('.sw'); if(!b) return;
+    S.color = SWATCHES[+b.dataset.i];
+    resetSeats(); syncUI();
+  });
+
+  document.getElementById('modeSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    S.mode = b.dataset.mode; resetSeats(); syncUI();
+  });
+  document.getElementById('anchorSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    S.anchor = b.dataset.anchor; resetSeats(); syncUI();
+  });
+  document.getElementById('every').addEventListener('input', e => {
+    S.every = +e.target.value; resetSeats(); syncUI();
+  });
+  document.getElementById('wpSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if(!b) return;
+    document.getElementById('paper').className = 'paper ' + b.dataset.wp;
+    [...e.currentTarget.children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  });
+
+  document.getElementById('tgSeats').addEventListener('change', e => { S.seats = e.target.checked ? 3 : 1; layout(); resize(); syncUI(); });
+  document.getElementById('tgDot').addEventListener('change', e => {
+    S.dot = e.target.checked;
+    document.getElementById('stage').classList.toggle('dotty', S.dot);
+    // 이미 살아있는 스프라이트에도 필터를 다시 걸어준다 — 실제 코드에서도 이 경로가 하나 필요하다
+    for(const s of seats) for(const p of s._fx.sprites){
+      p.frame = -1; p.sp.material.map = spriteTex(S.kind, p); p.sp.material.needsUpdate = true;
+    }
+    resize(); syncUI();
+  });
+  document.getElementById('tgLegacy').addEventListener('change', e => {
+    S.legacy = e.target.checked; resetSeats(); syncUI();
+  });
+  document.getElementById('tgAway').addEventListener('change', e => { S.away = e.target.checked; syncUI(); });
+  document.getElementById('tgBlur').addEventListener('change', e => { S.blur = e.target.checked; syncUI(); });
+
+  document.getElementById('fireNow').addEventListener('click', () => { resetSeats(); });
+
+  document.getElementById('copyBtn').addEventListener('click', e => {
+    const txt = document.getElementById('rec').innerText;
+    navigator.clipboard && navigator.clipboard.writeText(txt);
+    e.target.textContent = '복사됨'; setTimeout(() => e.target.textContent = '복사', 1400);
+  });
+
+  // 종류별 메모
+  document.getElementById('notes').innerHTML = Object.keys(FX_KINDS).map(k => {
+    const d = FX_KINDS[k];
+    return '<div class="note"><span class="tagline">'+k+' · '+d.mode+'</span>' +
+      '<h3>'+d.glyph+' '+d.label+'</h3><p>'+d.note+'</p></div>';
+  }).join('') +
+  '<div class="note"><span class="tagline">꽃잎 4종</span><h3>한 장을 돌리면 안 된다</h3>' +
+  '<p>같은 꽃잎을 다른 각도에서 본 4장을 섞는다. 캔버스 <b>비율 자체를 다르게</b> 굽고 스프라이트 스케일도 ' +
+  '가로세로를 따로 준다. PNG 시트는 안 썼다 — 남의 에셋이고 배포 경로가 늘어난다.</p></div>' +
+  '<div class="note"><span class="tagline">터지는 순간</span><h3>물방울 7개를 한 장에 굽는다</h3>' +
+  '<p>스프라이트를 7개 더 붙이면 좌석당 6장 예산이 42장이 된다. 대신 방사 물방울을 텍스처 3프레임으로 구워두고 ' +
+  '터질 때 <code>material.map</code>만 갈아끼운다 — <b>스프라이트 수는 그대로</b>다.</p></div>' +
+  '<div class="note"><span class="tagline">색 규칙</span><h3>그늘은 반드시 중성 회색으로</h3>' +
+  '<p>재질 색은 곱셈으로 입혀진다. 회색 × 아쿠아 = 어두운 아쿠아라서 색조가 유지되지만, 파란기 도는 회색으로 ' +
+  '그늘을 그리면 색조가 틀어져 탁해진다. 텍스처는 <b>흰색과 중성 회색으로만</b> 그리고 색은 전부 재질에 맡긴다.</p></div>' +
+  '<div class="note"><span class="tagline">만들면서 나온 것</span><h3>정지 중엔 t0도 같이 밀어야 한다</h3>' +
+  '<p>포커스가 없을 때 <code>nextAt</code>만 미루면, 복귀 순간 날아가던 꽃잎들의 수명이 이미 지나 있어 한꺼번에 증발한다. ' +
+  '살아있는 스프라이트의 <code>t0</code>도 정지한 만큼 밀어야 안 튄다. 핸드오프 §3-1에 없던 한 줄.</p></div>';
+
+  syncUI();
+}
+
+function resetSeats(){
+  if(!seats.length) return;
+  const now = clockNow();
+  for(const s of seats){
+    for(const p of s._fx.sprites){ p.alive = false; p.sp.visible = false; }
+    s._fx.nextAt = now + Math.random() * (S.mode === 'loop' ? 0.8 : 0.4);
+  }
+}
+
+function syncUI(){
+  document.querySelectorAll('.kind').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.kind === S.kind)));
+  document.querySelectorAll('#modeSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === S.mode)));
+  document.querySelectorAll('#anchorSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.anchor === S.anchor)));
+  document.querySelectorAll('#swatches .sw').forEach(b => b.setAttribute('aria-pressed', String(SWATCHES[+b.dataset.i] === S.color)));
+  document.getElementById('every').value = S.every;
+  document.getElementById('every').disabled = (S.mode === 'loop');
+  document.getElementById('everyN').textContent = S.mode === 'loop' ? '—' : S.every + '초';
+  const def = FX_KINDS[S.kind];
+  document.getElementById('kindNote').textContent = def.mode === 'loop' ? '기본 loop' : '기본 burst';
+
+  const q = v => '<span class="s">\''+v+'\'</span>';
+  const n = v => '<span class="n">'+v+'</span>';
+  document.getElementById('rec').innerHTML =
+    "rec.fx       = " + q(S.kind) + "\n" +
+    "rec.fxEvery  = " + n(S.mode === 'loop' ? 0 : S.every) + (S.mode === 'loop' ? '   <span class="c">// loop 는 무시</span>' : '') + "\n" +
+    "rec.fxMode   = " + q(S.mode) + "\n" +
+    "rec.fxAnchor = " + q(S.anchor) + "\n" +
+    (S.color != null
+      ? "<span class=\"c\">// 색 연동 켬 — 파츠 xf.color.col1 을 따라간다" + (def.additive ? " (가산이라 채도 낮춰 적용)" : "") + "</span>\n"
+      : "<span class=\"c\">// 색은 종류 기본값 — 1차 판에서는 여기까지만 해도 된다</span>\n") +
+    "<span class=\"c\">// 좌석당 " + (S.mode === 'loop' ? def.count + '장 상시' : def.count + '장 · ' + S.every + '초마다') +
+    " · 수명 " + def.life + "s</span>";
+}
+
+buildUI();
+if(window.THREE) boot();
+</script>
+</body>
+</html>

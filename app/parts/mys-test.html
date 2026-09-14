@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>미스테리au 단독 테스트</title>
+<!--
+  ★ 이 파일의 목적 = 마이홈(desk-companion-prototype.html)을 띄우지 않고 mystery-au.js만 굴려보는 것.
+    firebase도, 말랑이도, 바탕화면도 없다. window.MYHOME_DESKTOP 을 흉내만 낸다.
+
+  ★ 두는 곳
+    mystery-au.js 와 같은 폴더, 또는 그 상위 폴더(parts/mystery-au.js 구조)에 둔다.
+    로더가 두 경로를 다 시도한다.
+
+  ★ 브라우저에서 그냥 열면 된다(file:// 로 동작).
+    ⚠ 저장은 localStorage 를 쓰고 키가 실제 게임과 같은 tw.mys.v1 이다.
+      같은 브라우저에서 실제 게임도 쓰고 있으면 요원 데이터가 섞인다.
+      섞이는 게 싫으면 시크릿 창에서 열 것.
+
+  ★ 파티 봇
+    왼쪽 [파티 · 봇] 칸에서 코드를 만들고 [＋ 봇] 을 누르면 가짜 파티원이 방에 앉는다.
+    게임이 검증기용으로 열어둔 MYSTERY_AU._puppet 자리다.
+    ⚠ 루프백(같은 창 안에서만 도는 전송선)이다. 여기서 통과해도 실기기 파티가 되는 것은 아니다 —
+      그건 MYS_NET 에 RTDB 어댑터가 꽂힌 마이홈에서 두 대로 확인해야 한다.
+
+  ★ 이 파일은 실제 릴리스에 넣지 않는다. 검사용이다.
+-->
+<style>
+  :root{ --mys-fs:13px; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:#161b26; color:#c8d2e4;
+        font-family:'D2Coding',Consolas,'맑은 고딕',monospace; font-size:13px; }
+  .wrap{ display:flex; gap:14px; padding:14px; align-items:flex-start; flex-wrap:wrap; }
+  .panel{ width:250px; flex-shrink:0; background:#1d2333; border:1px solid #38445e;
+          padding:10px 11px; }
+  .panel h1{ font-size:14px; margin:0 0 3px; font-weight:normal; color:#eaf0fb; }
+  .panel .sub{ font-size:11px; color:#7b8aa8; margin-bottom:10px; }
+  .panel fieldset{ border:1px solid #38445e; margin:0 0 9px; padding:7px 8px; }
+  .panel legend{ font-size:11px; color:#8fa8d4; padding:0 4px; }
+  .row{ display:flex; align-items:center; gap:6px; margin-bottom:5px; }
+  .row label{ width:52px; flex-shrink:0; font-size:12px; }
+  .row input[type=range]{ flex:1; min-width:0; }
+  .row .v{ width:20px; text-align:right; color:#7fe0ee; font-size:12px; }
+  .row input[type=number]{ width:56px; background:#0e1421; border:1px solid #4a6bb0;
+    color:#eaf0fb; font-family:inherit; font-size:12px; padding:2px 4px; }
+  button{ font-family:inherit; font-size:12px; padding:4px 8px; cursor:pointer;
+    background:#2b4a8c; border:1px solid #6f92d8; color:#f0f4fb; }
+  button.q{ background:#243149; border-color:#4a6bb0; }
+  button:disabled{ opacity:.4; cursor:default; }
+  .btns{ display:flex; flex-wrap:wrap; gap:5px; }
+  .stat{ font-size:11px; line-height:1.7; color:#9fb0cc; }
+  .stat b{ color:#7fe0ee; font-weight:normal; }
+  .note{ font-size:10.5px; color:#6f7d99; line-height:1.6; margin-top:8px; }
+  .row input[type=text]{ flex:1; min-width:0; background:#0e1421; border:1px solid #4a6bb0;
+    color:#eaf0fb; font-family:inherit; font-size:12px; padding:2px 4px; text-transform:uppercase; }
+  .chk{ display:block; font-size:11px; color:#9fb0cc; margin-top:4px; cursor:pointer; }
+  .chk input{ vertical-align:-1px; margin-right:4px; }
+
+  /* ── 마이홈 창 흉내 ──
+     mystery-au.js 의 CSS 가 #mysWin .adv-titlebar / #mysWin .mhd-win-body 를 노리므로
+     그 구조를 정확히 맞춰준다. 색은 게임 CSS 가 덮어쓴다. */
+  #stage{ width:760px; max-width:100%; }
+  .mhd-win{ border:1px solid #38445e; margin-bottom:10px; }
+  .adv-titlebar{ display:flex; align-items:center; justify-content:space-between;
+    padding:4px 7px; background:#2a3550; color:#f0f4fb; }
+  .adv-titlebar span{ font-size:12px; }
+  .adv-titlebar button{ padding:0 6px; background:transparent; border:1px solid #6f92d8; }
+  .mhd-win-body{ height:530px; overflow:hidden; }
+  #desk{ display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
+  #toast{ position:fixed; left:50%; bottom:18px; transform:translateX(-50%);
+    background:#0e1421; border:1px solid #6f92d8; color:#eaf0fb; padding:6px 12px;
+    font-size:12px; display:none; z-index:99; }
+  #err{ color:#f0b46a; font-size:12px; padding:10px 14px; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="panel">
+    <h1>미스테리au 테스트</h1>
+    <div class="sub">mystery-au.js 단독 실행</div>
+
+    <fieldset>
+      <legend>적성</legend>
+      <div class="row"><label>관찰</label><input type="range" id="s_obsv" min="0" max="15" value="0"><span class="v" id="v_obsv">0</span></div>
+      <div class="row"><label>감식</label><input type="range" id="s_anly" min="0" max="15" value="0"><span class="v" id="v_anly">0</span></div>
+      <div class="row"><label>심문</label><input type="range" id="s_intr" min="0" max="15" value="0"><span class="v" id="v_intr">0</span></div>
+      <div class="row"><label>잠행</label><input type="range" id="s_infl" min="0" max="15" value="0"><span class="v" id="v_infl">0</span></div>
+      <div class="btns">
+        <button class="q" id="preset_min">하한(감식6 심문5)</button>
+        <button class="q" id="preset_max">전부 9</button>
+        <button class="q" id="preset_zero">전부 0</button>
+      </div>
+      <div class="note">여기서 바꾼 값은 다음 판정부터 적용됩니다(화면은 즉시 안 바뀝니다).</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>집중 레벨</legend>
+      <div class="row"><label>레벨</label><input type="number" id="focus" min="1" max="300" value="180"></div>
+      <div class="note">총 포인트 = min(50, 10 + 레벨/5). 등급 표시에만 영향.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>사건</legend>
+      <div class="btns">
+        <button id="start">착수</button>
+        <button class="q" id="abandon">포기</button>
+      </div>
+      <div class="btns" style="margin-top:5px">
+        <button class="q" id="ending">⏩ 엔딩 보기(지목 직후부터)</button>
+      </div>
+      <div class="note">엔딩 보기 = 착수 → 단서 전부 획득 → 마지막 단계 → 정답 지목까지 한 번에.
+        그날 밤 · 체포 · 제이미 영 · 지부장 · 정리 순으로 흐릅니다. 지도를 눌러 넘기세요.
+        ⚠ 진행 중이던 사건은 버려집니다. 대사만 보려고 만든 버튼입니다.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>요원 · 오염도</legend>
+      <div class="row"><label>오염도</label><input type="range" id="taint" min="0" max="100" value="0"><span class="v" id="v_taint">0</span></div>
+      <div class="btns">
+        <button class="q" id="t_zero">0</button>
+        <button class="q" id="t_cap">90(상한)</button>
+        <button class="q" id="swap">🔁 요원 교대</button>
+      </div>
+      <div class="note">오염도가 상한(튜토리얼 90)에 닿으면 그 요원은 활동 중지됩니다. 교대하면 단서·위치를 그대로 이어받습니다.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>파티 · 봇</legend>
+      <div class="row"><label>코드</label><input type="text" id="pcode" maxlength="6" placeholder="ABC123"></div>
+      <div class="btns">
+        <button class="q" id="p_new">코드 만들기</button>
+        <button class="q" id="p_join">참가</button>
+        <button class="q" id="p_leave">나가기</button>
+      </div>
+      <div class="btns" style="margin-top:5px">
+        <button class="q" id="p_ready">내 레디</button>
+        <button class="q" id="p_lock">확정</button>
+        <button class="q" id="p_unlock">수정</button>
+      </div>
+      <hr style="border:0;border-top:1px solid #38445e;margin:8px 0">
+      <div class="btns">
+        <button id="b_add">＋ 봇</button>
+        <button class="q" id="b_ready">봇 레디</button>
+        <button class="q" id="b_lock">봇 확정</button>
+        <button class="q" id="b_start">봇 착수</button>
+        <button class="q" id="b_drop">봇 전부 퇴장</button>
+      </div>
+      <div class="row" style="margin-top:6px"><label style="width:auto">심문 적성</label>
+        <input type="number" id="b_intr" min="0" max="15" value="6"></div>
+      <label class="chk"><input type="checkbox" id="b_lead"> 봇을 파티장으로 (id 사전순 앞)</label>
+      <label class="chk"><input type="checkbox" id="b_follow" checked> 봇이 나를 따라온다(지도 마커)</label>
+      <label class="chk"><input type="checkbox" id="b_auto" checked> 심문 레디를 자동으로 누른다</label>
+      <label class="chk"><input type="checkbox" id="b_nocase"> 봇이 선행 사건을 못 깼다</label>
+      <label class="chk"><input type="checkbox" id="b_busy"> 봇이 다른 사건 진행 중</label>
+      <div class="note">봇은 루프백(같은 창 안) 전송선에 앉는 가짜 파티원입니다.
+        절차·마커·레디·권한 승계까지는 여기서 확인되지만 <b>실기기 파티는 확인되지 않습니다</b> —
+        그건 MYS_NET 에 RTDB 어댑터가 꽂힌 마이홈에서 두 대로 해야 합니다.</div>
+      <div class="stat" id="botlog" style="margin-top:6px">—</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>상태</legend>
+      <div class="stat" id="stat">—</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>저장</legend>
+      <div class="btns"><button class="q" id="reset">tw.mys.v1 삭제 후 새로고침</button></div>
+    </fieldset>
+
+    <div class="note">
+      방향키 = 이동 · Enter/Space = 조사 · 칸 클릭 = 이동<br>
+      잠긴 문은 그 칸을 누르면 여는 시도를 합니다.
+    </div>
+  </div>
+
+  <div id="stage">
+    <div id="desk"></div>
+    <div id="envwrap"></div>
+    <div id="err"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ── 게임이 기대하는 바깥 세계 스텁 ─────────────────────────────── */
+window.getMyUserId  = function(){ return 'local-test-uid'; };
+window.getFocusLevel = function(){
+  var n = parseInt((document.getElementById('focus')||{}).value, 10);
+  return isNaN(n) ? 1 : n;
+};
+var _tT = null;
+window.toast = function(m){
+  var t = document.getElementById('toast');
+  t.textContent = m; t.style.display = 'block';
+  if(_tT) clearTimeout(_tT);
+  _tT = setTimeout(function(){ t.style.display = 'none'; }, 2200);
+};
+/* firebaseAPI 는 일부러 안 만든다 — mysUploadPng 가 dataURL 폴백으로 떨어져
+   서버 없이도 이미지 등록이 동작한다(용량이 커서 여러 장은 못 담는다). */
+
+/* ── window.MYHOME_DESKTOP 흉내 ────────────────────────────────── */
+var _ready = [], _wins = {}, _closers = {};
+window.MYHOME_DESKTOP = {
+  onReady: function(fn){ _ready.push(fn); },
+  desktop: function(){ return document.getElementById('stage'); },
+  isVisiting: function(){ return false; },
+
+  createWindow: function(o){
+    var w = document.createElement('div');
+    w.className = 'mhd-win'; w.id = o.id; w.style.display = 'none';
+    var bar = document.createElement('div');
+    bar.className = 'adv-titlebar';
+    var t = document.createElement('span'); t.textContent = o.title || o.id;
+    var x = document.createElement('button'); x.type = 'button'; x.textContent = '✕';
+    x.onclick = function(){ window.MYHOME_DESKTOP.closeWindow(o.id); };
+    bar.appendChild(t); bar.appendChild(x);
+    var body = document.createElement('div'); body.className = 'mhd-win-body';
+    w.appendChild(bar); w.appendChild(body);
+    document.getElementById('stage').appendChild(w);
+    _wins[o.id] = w; _closers[o.id] = o.onClose || null;
+    return body;
+  },
+  openWindow: function(id){
+    /* 실제 데스크톱은 창을 겹쳐 띄우지만, 테스트에서는 하나만 보이게 한다 —
+       두 창이 동시에 보이면 어느 쪽이 방향키를 먹는지 헷갈린다. */
+    Object.keys(_wins).forEach(function(k){ _wins[k].style.display = (k === id) ? 'block' : 'none'; });
+  },
+  closeWindow: function(id){
+    if(_wins[id]) _wins[id].style.display = 'none';
+    if(_closers[id]) try{ _closers[id](); }catch(e){}
+  },
+  addFolder: function(o){
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'q';
+    b.textContent = (o.icon || '📁') + ' ' + (o.label || o.id)
+                  + (o.slot != null ? ' [' + o.slot + '칸]' : '');
+    b.onclick = function(){ if(o.onOpen) o.onOpen(); };
+    document.getElementById('desk').appendChild(b);
+  },
+  removeFolder: function(){},
+  addEnvMenu: function(o){
+    var wrap = document.createElement('div');
+    wrap.className = 'row';
+    var lb = document.createElement('label');
+    lb.style.width = 'auto'; lb.textContent = o.label || o.id;
+    var sel = document.createElement('select');
+    sel.style.background = '#0e1421'; sel.style.color = '#eaf0fb';
+    sel.style.border = '1px solid #4a6bb0'; sel.style.fontFamily = 'inherit';
+    (o.items || []).forEach(function(it){
+      var op = document.createElement('option');
+      op.value = it.value; op.textContent = it.label; sel.appendChild(op);
+    });
+    try{ if(o.get) sel.value = o.get(); }catch(e){}
+    sel.onchange = function(){
+      var v = sel.value; var n = Number(v);
+      if(o.onSelect) o.onSelect(isNaN(n) ? v : n);
+    };
+    wrap.appendChild(lb); wrap.appendChild(sel);
+    document.getElementById('envwrap').appendChild(wrap);
+  }
+};
+
+/* ── mystery-au.js 로드 (parts/ 안에 있어도 찾는다) ──────────────── */
+function loadGame(paths, i){
+  i = i || 0;
+  if(i >= paths.length){
+    document.getElementById('err').innerHTML =
+      '✗ mystery-au.js 를 찾지 못했습니다.<br>찾아본 곳: ' + paths.join(' · ') +
+      '<br>이 html 을 mystery-au.js 와 같은 폴더(또는 그 상위)에 두세요.';
+    return;
+  }
+  var s = document.createElement('script');
+  /* ★ 캐시 무효화. 이게 없으면 파일을 갈아끼워도 브라우저가 옛 js 를 그대로 쓴다.
+     "고쳤는데 화면이 그대로"의 대부분이 이것이다. */
+  s.src = paths[i] + '?v=' + Date.now();
+  s.onload = boot;
+  s.onerror = function(){ loadGame(paths, i + 1); };
+  document.head.appendChild(s);
+}
+function boot(){
+  /* 게임이 onReady 로 넘긴 콜백, 그리고 먼저 로드된 경우의 대기열을 모두 흘려보낸다 */
+  var pend = (window._MHD_PENDING || []).slice();
+  window._MHD_PENDING = [];
+  var all = _ready.concat(pend);
+  _ready = [];
+  all.forEach(function(fn){
+    try{ fn(window.MYHOME_DESKTOP); }
+    catch(e){
+      document.getElementById('err').textContent = '✗ 부팅 중 예외: ' + e.message;
+      console.error(e);
+    }
+  });
+  bindPanel();
+  tick();
+}
+loadGame(['mystery-au.js', 'parts/mystery-au.js', './parts/mystery-au.js']);
+
+/* ── 조작 패널 ─────────────────────────────────────────────────── */
+var PATHS = ['obsv', 'anly', 'intr', 'infl'];
+function API(){ return window.MYSTERY_AU; }
+function applyStats(){
+  var a = API(); if(!a || !a._setStat) return;
+  PATHS.forEach(function(p){
+    var n = parseInt(document.getElementById('s_' + p).value, 10) || 0;
+    document.getElementById('v_' + p).textContent = n;
+    a._setStat(p, n);
+  });
+}
+function setSliders(v){
+  PATHS.forEach(function(p){ document.getElementById('s_' + p).value = v[p]; });
+  applyStats();
+}
+function bindPanel(){
+  PATHS.forEach(function(p){
+    document.getElementById('s_' + p).addEventListener('input', applyStats);
+  });
+  document.getElementById('preset_min').onclick  = function(){ setSliders({obsv:0, anly:6, intr:5, infl:0}); };
+  document.getElementById('preset_max').onclick  = function(){ setSliders({obsv:9, anly:9, intr:9, infl:9}); };
+  document.getElementById('preset_zero').onclick = function(){ setSliders({obsv:0, anly:0, intr:0, infl:0}); };
+  document.getElementById('start').onclick = function(){
+    applyStats();
+    var a = API(); if(!a) return;
+    var ids = a.cases ? a.cases() : [];
+    if(!ids.length) return toast('사건 데이터가 없습니다');
+    a.startCase(ids[0]);
+    window.MYHOME_DESKTOP.openWindow('mysWin');
+  };
+  document.getElementById('abandon').onclick = function(){
+    var a = API(); if(a && a.abandonCase) a.abandonCase();
+  };
+  /* ⏩ 엔딩 보기 — 지목이 맞은 직후부터를 그 자리에서 띄운다.
+     ★ 종결 대사를 고치는 동안 매번 사건을 완주할 수는 없다. 스크립트를 손볼 때
+       바로 눈으로 확인하려고 둔 지름길이다.
+     ⚠ 정답을 여기 박아두지 않는다. 마지막 단계의 answer 를 데이터에서 읽는다 —
+       박아두면 답을 바꾼 날 이 버튼만 조용히 어긋난다. */
+  document.getElementById('ending').onclick = function(){
+    var a = API(); if(!a) return;
+    var ids = a.cases ? a.cases() : [];
+    if(!ids.length) return toast('사건 데이터가 없습니다');
+    var id = ids[0], C = a._caseData(id);
+    applyStats();
+    a.abandonCase();
+    a.startCase(id);
+    /* 브리핑을 흘려보낸다 — 안 그러면 종결 장면이 그 뒤에 줄을 서서 45줄을 눌러야 한다 */
+    for(var i = 0; i < 200 && a._scene(); i++) a._sceneNext();
+    var f = a.getField();
+    if(!f) return toast('착수에 실패했습니다');
+    f.stage = (C.stages || []).length;
+    f.got = (C.spots || []).map(function(s){ return s.id; });
+    a._forceField(f);
+    a._setTaint(0);
+    var last = (C.stages || [])[(C.stages || []).length - 1] || {};
+    a._accuse(last.answer);
+    window.MYHOME_DESKTOP.openWindow('mysWin');
+    toast('지목 직후 — 지도를 눌러 대사를 넘기세요');
+  };
+  var tr = document.getElementById('taint');
+  tr.addEventListener('input', function(){
+    document.getElementById('v_taint').textContent = tr.value;
+    var a = API(); if(a && a._setTaint) a._setTaint(parseInt(tr.value, 10) || 0);
+  });
+  document.getElementById('t_zero').onclick = function(){ tr.value = 0; tr.dispatchEvent(new Event('input')); };
+  document.getElementById('t_cap').onclick  = function(){ tr.value = 90; tr.dispatchEvent(new Event('input')); };
+  document.getElementById('swap').onclick   = function(){ var a = API(); if(a && a._swap) a._swap(); };
+  document.getElementById('reset').onclick = function(){
+    try{ localStorage.removeItem('tw.mys.v1'); }catch(e){}
+    location.reload();
+  };
+  bindParty();
+  /* 첫 진입 시 저장된 적성을 슬라이더에 올린다 */
+  var a = API(), ag = a && a.getAgent ? a.getAgent(0) : null;
+  if(ag && ag.alloc) PATHS.forEach(function(p){
+    document.getElementById('s_' + p).value = ag.alloc[p] | 0;
+    document.getElementById('v_' + p).textContent = ag.alloc[p] | 0;
+  });
+}
+/* ── 파티 · 봇 ────────────────────────────────────────────────────────
+   ★ 봇은 게임이 검증기용으로 열어둔 _puppet 자리에 앉는 가짜 파티원이다.
+     같은 창 안에서만 도는 루프백 전송선을 그대로 쓰므로 firebase 가 필요 없다.
+   ⚠ 그래서 여기서 통과해도 '실기기 파티가 된다'는 뜻은 아니다. 여기서 보는 것은
+     절차다 — 인사·정원·레디·확정·동반 착수·심문 게이트·권한 승계.
+   ⚠ 봇은 판정을 하지 않는다. 게임이 보낸 것에 반응만 한다. 봇이 대신 판단하기 시작하면
+     "봇 화면에서는 되는데 사람 화면에서는 안 된다"를 잡을 수 없게 된다. */
+var BOTS = [], BOT_SEQ = 0, BOT_LOG = [];
+function botLog(m){
+  BOT_LOG.push(m);
+  if(BOT_LOG.length > 8) BOT_LOG = BOT_LOG.slice(-8);
+  document.getElementById('botlog').innerHTML = BOT_LOG.map(function(x){
+    return x.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  }).join('<br>');
+}
+function botRoom(){ var a = API(), s = a && a.netState ? a.netState() : null; return s; }
+/* 파티장은 살아 있는 id 중 사전순 첫 번째다 — 게임과 같은 규칙으로 센다.
+   ⚠ 여기서 다르게 세면 "봇은 자기가 파티장인 줄 아는데 화면은 아니라고 한다"가 된다. */
+function botIsLeader(bot){
+  var s = botRoom(); if(!s) return false;
+  var ids = [s.me].concat(BOTS.map(function(b){ return b.id; })).sort();
+  return ids[0] === bot.id;
+}
+function botPos(bot){
+  bot.p.send({ t:'pos', name:bot.name,
+    intr: parseInt(document.getElementById('b_intr').value, 10) || 0,
+    pos: bot.pos, flags: [], stage: 0,
+    cleared: document.getElementById('b_nocase').checked ? [] : ['CASE-001'],
+    busy: !!document.getElementById('b_busy').checked });
+}
+function botPump(bot){
+  var box = bot.p.inbox();
+  for(; bot.cur < box.length; bot.cur++){
+    var m = box[bot.cur];
+    if(m.t === 'hi'){
+      /* ★ 문지기는 파티장이다. 잠긴 방이면 파티장인 봇이 돌려보낸다 —
+         각자 알아서 판단하면 사람마다 정원이 다르게 세어진다. */
+      if(botIsLeader(bot) && bot.locked && !m.re){
+        bot.p.send({ t:'deny', to:m.from, why:'이미 결성된 파티다' });
+        botLog(bot.name + ' → ' + m.from + ' 문전박대(잠김)');
+        continue;
+      }
+      /* 되인사는 한 번만. 안 그러면 인사가 무한히 오간다. */
+      if(!m.re){ bot.p.send({ t:'hi', re:true, name:bot.name }); botPos(bot); }
+    }
+    else if(m.t === 'pos'){
+      if(document.getElementById('b_follow').checked && m.pos) bot.pos = m.pos;
+    }
+    else if(m.t === 'plock'){
+      bot.locked = !!m.on;
+      if(!bot.locked) bot.ready = false;             // 수정하면 레디가 풀린다
+      botLog(bot.name + ' ← ' + (m.on ? '파티 확정' : '파티 수정(레디 풀림)'));
+    }
+    else if(m.t === 'deny' && m.to === bot.id){ botLog(bot.name + ' 입장 거부 — ' + (m.why||'')); botDrop(bot); return; }
+    else if(m.t === 'start'){ bot.pos = ''; botLog(bot.name + ' ← 동반 착수 ' + (m.caseId||'')); botPos(bot); }
+    else if(m.t === 'gate'){
+      botLog(bot.name + ' ← 심문 준비 ' + (m.name||''));
+      if(document.getElementById('b_auto').checked){
+        bot.p.send({ t:'ready', spot:m.spot });
+        botLog(bot.name + ' → 레디');
+      }
+    }
+    else if(m.t === 'stage') botLog(bot.name + ' ← 단계 ' + m.n);
+    else if(m.t === 'door')  botLog(bot.name + ' ← 문 열림 ' + (m.name||m.at||''));
+    else if(m.t === 'scene') botLog(bot.name + ' ← 장면 ' + (m.who||''));
+    else if(m.t === 'bye')   botLog(bot.name + ' ← 누가 나갔다');
+  }
+  botPos(bot);                                       // 하트비트 — 끊기면 35초 뒤 명단에서 빠진다
+}
+function botDrop(bot){
+  if(bot.timer) clearInterval(bot.timer);
+  try{ bot.p.send({ t:'bye' }); }catch(e){}
+  try{ bot.p.drop(); }catch(e){}
+  BOTS = BOTS.filter(function(b){ return b !== bot; });
+}
+function botDropAll(){ BOTS.slice().forEach(botDrop); botLog('봇 전부 퇴장'); }
+function botAdd(){
+  var s = botRoom();
+  if(!s) return toast('먼저 파티에 들어가세요');
+  if(BOTS.length >= 4) return toast('정원은 나 포함 5명입니다');
+  var a = API();
+  BOT_SEQ++;
+  /* id 앞글자로 파티장 자리를 정한다 — 게임은 사전순 첫 번째를 파티장으로 본다.
+     내 id 는 local-test-uid('l') 이므로 a… 면 봇이, z… 면 내가 파티장이다. */
+  var id   = (document.getElementById('b_lead').checked ? 'a' : 'z') + '-bot' + BOT_SEQ;
+  var name = '봇' + BOT_SEQ;
+  var bot  = { id:id, name:name, p:a._puppet(s.room, id, name), cur:0, pos:'', ready:false, locked:false, timer:0 };
+  BOTS.push(bot);
+  bot.p.send({ t:'hi', name:name });
+  botPos(bot);
+  bot.timer = setInterval(function(){ botPump(bot); }, 900);
+  botLog(name + ' 착석 — 방 ' + s.room + ' · id ' + id + (botIsLeader(bot) ? ' (파티장)' : ''));
+}
+function botAll(fn){ if(!BOTS.length) return toast('봇이 없습니다'); BOTS.forEach(fn); }
+function bindParty(){
+  var code = document.getElementById('pcode');
+  document.getElementById('p_new').onclick = function(){
+    var a = API(); if(!a) return;
+    code.value = a.netNewCode();
+    a.netCode(code.value);
+    botLog('코드 ' + code.value + ' 로 방을 열었다');
+  };
+  document.getElementById('p_join').onclick  = function(){ var a = API(); if(a) a.netCode(code.value); };
+  document.getElementById('p_leave').onclick = function(){ var a = API(); if(a) a.netPartyLeave(); botDropAll(); };
+  document.getElementById('p_ready').onclick = function(){ var a = API(); if(a) a.netReady(); };
+  document.getElementById('p_lock').onclick  = function(){ var a = API(); if(a) a.netLock(); };
+  document.getElementById('p_unlock').onclick= function(){ var a = API(); if(a) a.netUnlock(); };
+
+  document.getElementById('b_add').onclick   = botAdd;
+  document.getElementById('b_drop').onclick  = botDropAll;
+  document.getElementById('b_ready').onclick = function(){
+    botAll(function(b){ b.ready = !b.ready; b.p.send({ t:'lready', on:b.ready }); });
+    botLog('봇 레디 ' + (BOTS[0] && BOTS[0].ready ? '켬' : '끔'));
+  };
+  document.getElementById('b_lock').onclick  = function(){
+    botAll(function(b){
+      if(!botIsLeader(b)) return;
+      b.locked = !b.locked; b.p.send({ t:'plock', on:b.locked });
+      botLog(b.name + ' → 파티 ' + (b.locked ? '확정' : '수정'));
+    });
+    if(!BOTS.some(botIsLeader)) toast('봇이 파티장이 아닙니다');
+  };
+  document.getElementById('b_start').onclick = function(){
+    var a = API(); if(!a) return;
+    var ids = a.cases ? a.cases() : [];
+    if(!ids.length) return toast('사건 데이터가 없습니다');
+    botAll(function(b){
+      if(!botIsLeader(b)) return;
+      b.p.send({ t:'start', caseId:ids[0] });
+      botLog(b.name + ' → 동반 착수 ' + ids[0]);
+    });
+    if(!BOTS.some(botIsLeader)) toast('봇이 파티장이 아닙니다');
+  };
+}
+
+function tick(){
+  var a = API(), out = '—';
+  if(a){
+    var f = a.getField ? a.getField() : null;
+    var ag = a.getAgent ? a.getAgent(0) : null;
+    var fl = a._agentFlags ? a._agentFlags() : null;
+    out = '슬롯 <b>' + (fl ? fl.slot : '-') + '</b> · 등급 <b>' + (a.rankOf ? (a.rankOf(ag) || '-') : '-') + '</b><br>'
+        + '오염도 <b>' + (a._taint ? a._taint() : 0) + '</b>'
+        + (fl && fl.lost ? ' <b>LOST</b>' : (fl && fl.suspended ? ' <b>활동중지</b>' : '')) + '<br>'
+        + '굴림 대기 <b>' + (a._pending && a._pending() ? a._pending().label : '없음') + '</b><br>'
+        + (f ? ('사건 <b>' + f.caseId + '</b><br>단계 <b>' + f.stage + '</b><br>'
+                + '위치 <b>' + f.pos + '</b><br>단서 <b>' + (f.got || []).length + '</b><br>'
+                + '열린 문 <b>' + (f.opened || []).length + '</b><br>'
+                + '둘러본 칸 <b>' + (f.looked || []).length + '</b>')
+             : '사건 <b>착수 전</b>');
+    /* 파티는 게임이 보는 그대로를 찍는다 — 봇이 세는 것과 어긋나면 그게 곧 버그다 */
+    var pt = a.netParty ? a.netParty() : null, st = a.netState ? a.netState() : null;
+    out += '<br>파티 <b>' + (pt
+      ? pt.code + ' ' + pt.size + '/' + pt.max + (pt.locked ? ' 결성' : '')
+        + (pt.allReady ? ' 전원레디' : '') + ' · 파티장 '
+        + (st && st.isLeader ? '나' : (st ? st.leader : '-'))
+      : '없음') + '</b>';
+    var blk = a._startBlock ? a._startBlock((a.cases ? a.cases() : [])[0] || '') : '';
+    if(blk) out += '<br>착수 막힘 <b>' + blk + '</b>';
+  }
+  document.getElementById('stat').innerHTML = out;
+  setTimeout(tick, 400);
+}
+</script>
+</body>
+</html>
