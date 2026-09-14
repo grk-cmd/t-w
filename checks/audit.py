@@ -37,6 +37,23 @@ for _ext, _attr in (('firebase-init.js', ' type="module"'), ('mys-net-bind.js', 
 
 app_lines = app.split('\n')
 
+
+def _strip_js_comments(s):
+    """주석 제거(가드용 근사) — /*...*/ 블록과 // 줄주석. http:// 는 보존."""
+    s = re.sub(r'/\*.*?\*/', '', s, flags=re.S)
+    s = re.sub(r'(?<!:)//.*', '', s)
+    return s
+
+
+# ── 🧹 주석 걷어낸 app.js — 「코드에 있는가」를 묻는 검사는 반드시 이쪽을 볼 것 ──────────
+# [경위] 이 파일은 여태 원문(app)에 정규식을 걸었다. 그런데 app.js 주석에는 **하지 말라고
+#   적어 둔 코드**가 그대로 인용돼 있다. 실제로 검사 2 의 옛 앵커 `closest('#myStatusChip')`
+#   는 지금 app.js 전체에서 **37079번 줄 주석 안에만** 있다. 옛 정규식을 조금만 느슨하게
+#   풀면 그 주석에 걸려 «찾았다»가 되고, 검사가 아무것도 안 지키면서 초록이 된다.
+#   (같은 함정을 `sim-purikura-deco.js` 가 한 번 밟았다 — 핸드오프 §5-③-④.)
+# ⚠️ 이 정의를 아래로 다시 내리지 말 것. 검사 2 가 여기 있는 값을 쓴다.
+app_code = _strip_js_comments(app)
+
 # ── 검사 1: ID 연결 ─────────────────────────────────────────────
 section('검사 1 · JS 참조 ID가 HTML에 존재하는가')
 js_ids = set(re.findall(r"getElementById\(['\"]([\w-]+)['\"]\)", app))
@@ -61,32 +78,122 @@ else:
 
 # ── 검사 2: 마우스 통과 화이트리스트 ────────────────────────────
 section('검사 2 · 화이트리스트에 빠진 창 (클릭 뚫림)')
-wl_m = re.search(r"closest\('(#myStatusChip[^']+)'\)", app)
-if not wl_m:
-    problems.append('검사2: 화이트리스트 closest() 호출을 찾지 못함 — 코드 구조 변경?')
-    print('  ⚠️ 화이트리스트 자체를 못 찾음')
+"""
+[이 검사가 지키는 것]
+  run 모드(전체화면 투명 오버레이)에서 클릭을 받을 UI 목록은 `app.js` 의 **UI_HIT_SEL 한 곳**뿐이다.
+  거기 없는 창은 화면에 보여도 커서를 올리는 순간 클릭이 뒤 창으로 뚫린다.
+  ⇒ 「HTML 에 run 모드에서 뜨는 창인데 UI_HIT_SEL 에 없는 것」을 찾는다.
+
+[2026-09-13 재설계 — 옛 판은 세 군데가 한꺼번에 낡아 있었다]
+  ① 앵커  옛 정규식 `closest\\('(#myStatusChip[^']+)'\\)` 는 목록이 closest() 인자로 **인라인**돼
+     있던 시절의 것이다. 지금은 `const UI_HIT_SEL` 로 빠졌고 소비자가 둘이다
+     (`_pointHitsInteractive` 의 closest · `_uiRegions()` 의 querySelectorAll).
+     ⇒ **이름으로 잡는다.** ★ 「#myStatusChip 으로 시작하는 목록」으로 잡지 말 것 —
+       주석을 다 걷어낸 코드에도 그런 문자열이 **둘**이다(`FS_KEEP_OPEN_SEL` 의 첫 항목과 이것).
+  ② 수집  `#id{...position:fixed` 는 **붙여 쓴 단일 선택자만** 잡는다. 실물에는
+     `#a, #b { ... }` 로 묶인 규칙이 많아 exportOverlay·partRegOverlay·inviteOverlay 등
+     **11개를 통째로 놓쳤다.** ⇒ 블록 단위로 뜯어 선택자에 든 id 를 전부 센다.
+  ③ 덮임  옛 판은 «화이트리스트 조상이 HTML 에서 4000자 앞에 있는가» 라는 **글자 거리**로
+     쟀다. 결론이 우연히 맞았을 뿐 근거가 전부 틀렸다 — myStatusMenu 가 #gachaDrawOverlay 에,
+     friendPicker 가 #raceOverlay 에 덮였다고 나왔다(실제 조상은 #myStatusChip · 없음).
+     ⇒ **DOM 조상으로 판정한다.** §5-① 의 「인접 앵커」와 같은 부류였다.
+
+★ 옛 판은 이름 필터('Overlay'/'Win'/'Modal'/'Gate')까지 걸어서, 앵커만 고쳐도 후보가 **0개**였다.
+  «통과 ✅» 가 찍히는데 잰 것이 없는 상태다. 이름으로 거르지 않는다.
+
+⚠️ 닮은 목록이 `app.js` 에 다섯 더 있다 — 7920 `FS_KEEP_OPEN_SEL`(설정창 바깥클릭 예외) ·
+  8373 `OPEN_MODAL_SEL` · 8495(꾸미기창 바깥클릭) · 8505 `modalOpen` · 30209 `bindLauncherDim`.
+  **전부 클릭 통과 화이트리스트가 아니다.** 앵커를 옮길 일이 생기면 먼저 이 줄을 읽을 것.
+"""
+_wl_m = re.search(r"const\s+UI_HIT_SEL\s*=\s*'([^']+)'", app_code)
+if not _wl_m:
+    problems.append('검사2: UI_HIT_SEL 정의를 찾지 못함 — 개명·이동됐다면 이 검사도 같이 고칠 것')
+    print('  ⚠️ UI_HIT_SEL 정의 자체를 못 찾음 (위 주석의 「닮은 목록 다섯」으로 옮기지 말 것)')
 else:
-    wl_ids = set(re.findall(r'#([\w-]+)', wl_m.group(1)))
-    overlays = set(re.findall(r'#([\w-]+)\{[^}]*position:fixed', html))
-    missing = []
-    for o in sorted(overlays - wl_ids):
-        if not ('Overlay' in o or 'Win' in o or 'Modal' in o or 'Gate' in o):
-            continue
-        pos = html.find(f'id="{o}"')
-        covered = False
-        for anc in wl_ids:
-            a = html.find(f'id="{anc}"')
-            if a != -1 and a < pos:
-                if pos - a < 4000 and f'id="{o}"' in html[a:a+12000]:
-                    covered = True; break
-        if not covered:
-            missing.append(o)
+    _sel = [x.strip() for x in _wl_m.group(1).split(',') if x.strip()]
+    wl_ids = set(x[1:] for x in _sel if x.startswith('#'))
+    wl_cls = set(x[1:] for x in _sel if x.startswith('.'))
+    # ⚠️ 클래스 항목을 버리지 말 것 — 목록 57개 중 9개가 class 다(.toast·.seat-ctx-backdrop 등).
+    #    옛 판의 `#([\w-]+)` 는 이 아홉을 통째로 못 봤다.
+
+    # ── HTML 을 한 번 훑어 id → (조상, class) 를 만든다. 덮임 판정의 유일한 근거다.
+    from html.parser import HTMLParser as _HP
+    _VOID = {'br','img','input','hr','meta','link','source','path','circle','rect',
+             'use','col','area','base','embed','track','wbr'}
+    class _Anc(_HP):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.st = []; self.anc = {}; self.cls = {}
+        def _reg(self, d):
+            i = d.get('id')
+            if i and i not in self.anc:
+                self.anc[i] = [x for x in self.st if x]; self.cls[i] = d.get('class', '')
+        def handle_starttag(self, t, a):
+            d = dict(a); self._reg(d)
+            if t not in _VOID: self.st.append(d.get('id'))
+        def handle_startendtag(self, t, a): self._reg(dict(a))
+        def handle_endtag(self, t):
+            if t not in _VOID and self.st: self.st.pop()
+    _P = _Anc(); _P.feed(html)
+    # 태그가 안 맞으면 조상이 어긋나 **가짜 통과**가 난다. 그 경우엔 조용히 넘어가지 않는다.
+    if _P.st:
+        problems.append('검사2: HTML 태그가 안 닫혀 조상 판정을 믿을 수 없다 (잔여 %d)' % len(_P.st))
+        print('  ⚠️ 태그 짝이 안 맞는다 — 덮임 판정을 믿지 말 것 (잔여 %d)' % len(_P.st))
+
+    # ── 후보 수집 = ⓐ position:fixed 규칙 ∪ ⓑ body.desktop 에서 따로 손본 것
+    #    ⓑ 를 더하는 이유: run 모드에서 뜨는 모달은 딤 배경을 투명하게 만드는 그 그룹이
+    #    사실상의 정의다. ⓐ 만 보면 그 그룹에 있는데 fixed 를 다른 규칙에서 받는 창을 놓친다.
+    # ⚠️ **<style> 안만 본다. 그리고 CSS 주석을 먼저 걷는다.**
+    #    문서 전체에 `([^{}]+)\{([^}]*)\}` 를 걸면 <script> 의 JS 중괄호까지 규칙으로 읽고,
+    #    무엇보다 규칙 앞의 `/* … */` 주석이 **선택자로 붙어 들어온다.** 실제로 그 상태에서
+    #    「머리 위 이름표 … 텍스트」 주석 때문에 #seatLabelsLayer 가, 「채팅·커스텀 상태 입력창」
+    #    주석 때문에 #myChatBox·#myStatusMenu 가 통과 껍데기로 잘못 면제됐다. 또 주석이다.
+    _css = re.sub(r'/\*.*?\*/', '', '\n'.join(
+        re.findall(r'<style[^>]*>(.*?)</style>', html, re.S | re.I)), flags=re.S)
+    _cand = set(); _pe_none = set(); _pe_live = set()
+    for _s, _b in re.findall(r'([^{}]+)\{([^}]*)\}', _css):
+        _ids = set(re.findall(r'#([\w-]+)', _s))
+        if not _ids: continue
+        # 후보 = ⓐ position:fixed ∪ ⓑ body.desktop 에서 따로 손본 것
+        if re.search(r'position\s*:\s*fixed', _b) or 'body.desktop' in _s:
+            _cand |= _ids
+        # 껍데기는 elementFromPoint 에 애초에 안 걸린다. 단 **한 규칙만 보고 정하지 않는다** —
+        # `#myChatBox{pointer-events:none}` 뒤에 `#myChatBox:not(.hidden){pointer-events:auto}`
+        # 가 오면 열렸을 때는 클릭을 받는다. 그런 id 는 껍데기가 아니다.
+        _pm = re.search(r'pointer-events\s*:\s*([\w-]+)', _b)
+        if _pm:
+            (_pe_none if _pm.group(1) == 'none' else _pe_live).__ior__(_ids)
+    _pe_none -= _pe_live
+
+    # 명시 예외 — 왜 빠지는지를 여기 적어 둔다. 늘릴 때는 반드시 이유를 같이 적을 것.
+    _EXEMPT = {
+        'scene': '3D 캔버스 — 화이트리스트가 아니라 레이캐스트가 판정한다',
+    }
+
+    missing, notes = [], []
+    for o in sorted(_cand - wl_ids):
+        anc = _P.anc.get(o)
+        if anc is None:
+            continue                                   # HTML 에 요소가 없다 = 검사 1 소관(유령 id)
+        if [x for x in anc if x in wl_ids]:
+            continue                                   # 화이트리스트 조상이 있다 — closest() 가 잡는다
+        if set(_P.cls.get(o, '').split()) & wl_cls:
+            continue                                   # 자기 class 가 목록에 있다
+        if o in _EXEMPT:
+            notes.append('%s — %s' % (o, _EXEMPT[o])); continue
+        if o in _pe_none:
+            notes.append('%s — pointer-events:none (클릭이 통과하는 껍데기)' % o); continue
+        missing.append(o)
+
+    for n in notes:
+        print('  · 예외: #%s' % n)
     if missing:
         for m in missing:
-            problems.append(f'검사2: #{m} 화이트리스트 누락 — 그 창에서 클릭이 뒤로 뚫림')
-            print(f'  ⚠️ #{m} — 화이트리스트에 추가 필요')
+            problems.append('검사2: #%s 화이트리스트 누락 — 그 창이 뜨면 클릭이 뒤로 뚫림' % m)
+            print('  ⚠️ #%s — UI_HIT_SEL 에 추가 필요' % m)
     else:
-        print('  통과 ✅')
+        print('  통과 ✅  (검사 대상 %d개 · 화이트리스트 id %d · class %d)'
+              % (len(_cand), len(wl_ids), len(wl_cls)))
 
 # ── 검사 3: runTransaction null-캐시 함정 ──────────────────────
 section('검사 3 · runTransaction null-캐시 함정')
@@ -126,9 +233,26 @@ for _f in ('app.js','animal.js','mallang.js','main.js','preload.js'):
     _lets  |= set(re.findall(r'\b(?:let|var)\s*\[([^\]]*)\]', _src)) and set(
               n.strip() for grp in re.findall(r'\b(?:let|var)\s*\[([^\]]*)\]', _src) for n in grp.split(','))
     _lets  |= set(n.strip() for grp in re.findall(r'\b(?:let|var)\s*\{([^}]*)\}', _src) for n in grp.split(','))
-    for _n in (_consts - _lets):
-        for _m in re.finditer(r'(?<![\w$.])' + re.escape(_n) + r'\s*(\+=|-=|\*=|/=|\+\+|--)', _src):
-            _creassign.append(_f + ':' + str(_src[:_m.start()].count('\n')+1) + ' — ' + _n)
+    """ ⏱ [2026-09-13] **이름마다 한 바퀴 → 파일마다 한 바퀴로 뒤집었다.**
+        옛 판은 `_consts - _lets` 의 이름 하나하나마다 1.9MB 원문을 처음부터 다시 훑었다.
+        app.js 의 스캔 대상이 2,361개라 그만큼 반복했고, 실측 **약 93초**가 여기서 났다.
+        (이전 문서 §1-③ 의 「검사 6 이 약 90초」가 이것이다. 실기기에서 audit.py 가 기본
+         60초 상한에 잘려 **결과를 아예 못 보던** 원인도 이 한 군데다.)
+        ⇒ 한 바퀴에 «식별자 + 재대입 연산자» 를 전부 모으고 이름은 집합으로 거른다.
+          **판정은 옛 판과 완전히 같다** — 앞의 `(?<![\\w$.])` 를 그대로 두었으므로
+          `obj.AAA++`(속성) 와 `xAAA--`(더 긴 이름) 는 여전히 안 걸리고, `let` 로 선언된
+          이름도 그대로 빠진다. 0.077초. 일부러 `const AAA=1; AAA+=2;` 를 심어 대조했다.
+        ⚠️ 줄 번호를 `_src[:m.start()].count('\\n')` 로 세지 말 것 — 적중이 많은 날
+          그 슬라이스만으로 다시 느려진다. 앞쪽 줄바꿈 위치를 미리 깔고 이분탐색한다. """
+    _nl = [0]
+    for _i, _ch in enumerate(_src):
+        if _ch == '\n': _nl.append(_i + 1)
+    import bisect as _bisect
+    _names = _consts - _lets
+    for _m in re.finditer(r'(?<![\w$.])([A-Za-z_$][\w$]*)\s*(\+=|-=|\*=|/=|\+\+|--)', _src):
+        _n = _m.group(1)
+        if _n not in _names: continue
+        _creassign.append(_f + ':' + str(_bisect.bisect_right(_nl, _m.start())) + ' — ' + _n)
 if _creassign:
     print("  재대입 발견:", ', '.join(_creassign[:8]))
     problems.append('검사6: const 재대입 — 실행 시 TypeError로 앱이 죽습니다: ' + _creassign[0])
@@ -160,12 +284,7 @@ else:
 # ═══════════════════════════════════════════════════════════════
 import json as _json
 
-def _strip_js_comments(s):
-    """주석 제거(가드용 근사) — /*...*/ 블록과 // 줄주석. http:// 는 보존."""
-    s = re.sub(r'/\*.*?\*/', '', s, flags=re.S)
-    s = re.sub(r'(?<!:)//.*', '', s)
-    return s
-
+# _strip_js_comments 는 파일 위(app_lines 바로 아래)로 옮겼다 — 검사 2 가 먼저 쓴다.
 html_code = _strip_js_comments(html)
 
 # ── 검사 7: DB 규칙 정합성 ─────────────────────────────────────

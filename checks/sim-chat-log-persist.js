@@ -43,11 +43,40 @@ chk(!!flagDecl && flagDecl[1] === 'true', '\u2605 지금 켜져 있다 (false �
 chk((HTML.match(/KEEP_CHAT_LOG_ON_EMPTY/g) || []).length >= 3,
     '두 청소 자리가 **같은** 상수를 읽는다 (한쪽만 고치면 나머지 한쪽이 계속 지운다)');
 
-// 모든 chatLog 삭제 호출이 플래그 뒤에 있는가 — 조건 없는 삭제가 하나라도 남으면 실패
-const delLines = HTML.split('\n')
+/* 🗑 **사람이 눌러서 지우는 자리는 세지 않는다.**
+   방장이 [대화 기록 삭제]를 누르면 도는 `clearChatLog` 가 그것이다(확인창은 app.js 의
+   `_chatDelOpen` · `_chatDelRun`). 이 검사가 막으려는 것은 «아무도 없으니 지운다»는 **자동**
+   청소지, 사람이 뜻을 밝힌 삭제가 아니다 — 여기를 플래그로 막으면 그 버튼이 조용히 죽는다.
+
+   ★ 2026-09 에 이 자리가 늘어 검사가 빨개졌다. 코드가 샌 게 아니라 **검사가 낡은 것**이었다.
+     (핸드오프 `handoff-checks-baseline.md` §3-④ 의 «검사가 낡은 것인지 코드가 샌 것인지» 가
+      이것이다.)
+   ⚠️ 이름을 늘릴 때는 **사람의 행동에서 시작하는 경로인지** 확인하고 늘릴 것. 자동 청소를
+     여기에 적으면 이 검사가 지키는 것이 통째로 사라진다. */
+const BY_HAND = ['clearChatLog'];
+const lineAt = (i) => HTML.slice(0, i).split('\n').length;
+const handRanges = [];
+for (const name of BY_HAND) {
+  const i = HTML.indexOf(name + '(');
+  if (i < 0) continue;
+  let d = 0;
+  for (let k = HTML.indexOf('{', i); k < HTML.length; k++) {
+    if (HTML[k] === '{') d++;
+    else if (HTML[k] === '}' && --d === 0) { handRanges.push([lineAt(i), lineAt(k)]); break; }
+  }
+}
+const byHand = (n) => handRanges.some(([a, b]) => n >= a && n <= b);
+
+// 모든 chatLog 삭제 호출이 플래그 뒤에 있는가 — 조건 없는 **자동** 삭제가 하나라도 남으면 실패
+const allDel = HTML.split('\n')
   .map((l, i) => ({ n: i + 1, l }))
   .filter(o => /remove\(ref\(db,\s*`rooms\/\$\{[^`]*\}\/chatLog`\)\)/.test(o.l));
-chk(delLines.length === 2, 'chatLog 를 지우는 자리는 둘 그대로다 (찾은 수: ' + delLines.length + ')');
+const handDel = allDel.filter(o => byHand(o.n));
+const delLines = allDel.filter(o => !byHand(o.n));
+chk(handDel.length === BY_HAND.length,
+    '사람이 눌러 지우는 자리는 ' + BY_HAND.length + '곳 그대로다 (찾은 수: ' + handDel.length
+    + ') — 여기는 막지 않는다');
+chk(delLines.length === 2, '자동으로 지우는 자리는 둘 그대로다 (찾은 수: ' + delLines.length + ')');
 delLines.forEach(o => {
   chk(/KEEP_CHAT_LOG_ON_EMPTY/.test(o.l) || /if\s*\(\s*!KEEP_CHAT_LOG_ON_EMPTY/.test(o.l)
       || /!_otherAlive && !KEEP_CHAT_LOG_ON_EMPTY/.test(HTML.split('\n')[o.n - 3] || '')

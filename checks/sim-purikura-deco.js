@@ -24,6 +24,43 @@ const say = console.log;
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 
+/* 주석을 걷어낸 본문. **「없어야 한다」 검사는 반드시 이쪽을 본다** — app.js 주석에는
+   하지 말라고 적어 둔 코드 조각이 그대로 인용돼 있어서(`v = pose + 4 같은 것`), 원문을 훑으면
+   그 경고문 자체에 걸려 «되살아났다»고 오판한다. 실제로 2026-09-13 에 그렇게 헛짚었다. */
+const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+
+/* ── 본문 떼기 ─────────────────────────────────────────────────────────────
+   ★ **글자 수 창(`[\s\S]{0,2900}`)과 «바로 붙어 있어야 한다» 앵커를 쓰지 않는다.**
+     2026-09-13 에 이 파일이 9건 빨강이었는데 코드는 한 줄도 안 틀렸었다. 셋이 원인이었다:
+       ① `function _pkCloneChar(seat)` 로 시그니처를 박아 뒀는데 실물이 `(seat, out)` 이 됐다
+          — 그 한 줄에서 5건이 줄줄이 떨어졌다.
+       ② `CHAR_H * grow / h` 가 함수 시작에서 2980자째인데 창이 2920 이었다. 60자 차이다.
+       ③ `classList.add('deco'); }\n  _pkClampWin()` 처럼 **인접**을 요구했는데 사이에
+          주석 여덟 줄이 들어왔다. 호출은 멀쩡히 있다.
+     셋 다 사람이 주석 한 줄을 더 쓰면 어긋나는 종류다(핸드오프 `handoff-checks-stale.md` §5-①).
+   ⇒ 중괄호를 세어 **본문을 통째로** 뗀다. 인자는 세지 않는다. */
+const bodyAt = (s, i) => {
+  const b = s.indexOf('{', i);
+  if (b < 0) return '';
+  let d = 0;
+  for (let k = b; k < s.length; k++) {
+    if (s[k] === '{') d++;
+    else if (s[k] === '}' && --d === 0) return s.slice(i, k + 1);
+  }
+  return s.slice(i);
+};
+/* 인자 목록을 안 본다 — 인자가 하나 늘어도 같은 함수다. */
+const fnBody = (name, s) => {
+  const m = new RegExp('function\\s+' + name + '\\s*\\(').exec(s || SRC);
+  return m ? bodyAt(s || SRC, m.index) : '';
+};
+/* idx 를 감싸는 가장 가까운 함수의 본문. 「이 줄 뒤에 그 호출이 있는가」를 인접이 아니라
+   **같은 함수 안인가**로 본다. */
+const enclosingBody = (s, idx) => {
+  const head = s.lastIndexOf('\nfunction ', idx);
+  return head < 0 ? '' : bodyAt(s, head + 1);
+};
+
 /* 꾸미기 덩이만 잘라 본다 — app.js 다른 곳의 통신을 보고 «있다»고 오판하지 않기 위해서다. */
 const DECO = (function(){
   const a = SRC.indexOf('function _pkOpenDeco(');
@@ -317,8 +354,14 @@ say('· §6 실기기에서 잡은 것 — 창 옮기기 · 프레임 미리보�
   chk(/function _pkClampWin\(\)/.test(SRC) &&
       /addEventListener\('resize', \(\)=>\{ if\(PK\.open\) _pkClampWin\(\)/.test(SRC),
       '★ 화면 밖으로 나간 창을 데려온다 (창 크기가 바뀌면 «창이 사라졌다»가 된다)');
-  chk(/classList\.add\('deco'\); \}\n  _pkClampWin\(\)/.test(SRC),
-      '★ 꾸미기로 넓어질 때 다시 가둔다 (600 → 840px 라 오른쪽이 화면 밖으로 나간다)');
+  {
+    /* 인접(`}\n  _pkClampWin()`)을 요구하면 사이에 주석 한 줄만 들어와도 어긋난다 —
+       실제로 그렇게 빨개졌다. 「꾸미기를 켠 그 함수가 다시 가두는가」로 본다. */
+    const iDeco = SRC.indexOf("classList.add('deco')");
+    const decoFn = iDeco < 0 ? '' : enclosingBody(SRC, iDeco);
+    chk(!!decoFn && /_pkClampWin\(\)/.test(decoFn),
+        '★ 꾸미기로 넓어질 때 다시 가둔다 (600 → 840px 라 오른쪽이 화면 밖으로 나간다)');
+  }
   chk(!/localStorage[\s\S]{0,80}_pkWinPos|_lsSet\([^)]*pkWin/.test(SRC),
       '창 위치를 저장하지 않는다 (세션 동안만 — 폭이 두 가지라 옛 위치가 어긋난다)');
   chk(/escRegisterWindow\(\{[\s\S]{0,200}key:'purikura'/.test(SRC) &&
@@ -349,7 +392,7 @@ say('· §6 실기기에서 잡은 것 — 창 옮기기 · 프레임 미리보�
   chk(!!posefn && !/g\.scale|g\.position\.y/.test(posefn[0]),
       '★ 연출이 보정 겹(g)의 크기·높이를 안 건드린다 — 건드리면 화면이 하얗게 빈다');
   /* 🐾 동물만 배율을 하나 더 곱한다(계층의 ANIMAL_H) — 나머지는 그대로 1.7 이다. */
-  chk(/function _pkCloneChar[\s\S]{0,2900}CHAR_H \* grow \/ h/.test(SRC),
+  chk(/CHAR_H \* grow \/ h/.test(fnBody('_pkCloneChar')),
       '키를 1.7 로 맞추는 계산은 그대로다 (동물만 배율이 한 번 더 곱해진다)');
   chk(/charDef && seat\.charDef\.animal\) \? _pkP\(\)\.ANIMAL_H : 1/.test(SRC),
       '🐾 동물 여부는 charDef.animal 로 본다 (실행 화면과 같은 표시를 쓴다)');
@@ -441,7 +484,8 @@ say('· §8 복제 — userData 의 순환 구조에 걸려 넘어지지 않는�
   chk(node.userData === keep, '★ 되돌리면 원본이 그대로다 (안 되돌리면 실행 화면 파츠가 애니메이션을 잃는다)');
 
   /* 소스 쪽 — 떼어놓기·되돌리기가 실제로 그 모양인지 본다. */
-  const cl = /function _pkCloneChar\(seat\)\{[\s\S]*?\n  if\(!g\) return null;/.exec(SRC);
+  const clBody = fnBody('_pkCloneChar');
+  const cl = clBody ? [clBody] : null;
   chk(!!cl, '_pkCloneChar 를 찾았다');
   chk(!!cl && /const stash = \[\];/.test(cl[0]) && /o\.userData = \{\};/.test(cl[0]),
       '★ 복제 직전에 userData 를 떼어놓는다');
@@ -655,9 +699,18 @@ say('· §11 자세 — 기본은 팔 내림, 포즈는 둘');
   chk(!!ap && /c\.armBase/.test(ap[0]) && /ANIMAL_HAND_REST/.test(SRC),
       '★ 팔 기본각을 좌석에서 가져온다 (동물은 사람과 값이 다르다)');
 
-  /* ② 포즈는 둘뿐. 셋·넷은 키에서 사라졌다. */
-  chk(/k==='1' \|\| k==='2';/.test(SRC) && !/k==='3'\|\|k==='4'/.test(SRC),
-      "★ 포즈 키가 1·2 뿐이다 (3·4 는 없앴다)");
+  /* ② 포즈는 둘뿐. 셋·넷은 «포즈»가 아니다.
+     ⚠️ `_pkOwns` 의 목록으로 세면 안 된다 — 그건 «우리가 먹는 키» 지 포즈 목록이 아니다.
+       키 3 은 눈 감기(blink)라 그 목록에 정당하게 들어 있고, 그것 때문에 이 줄이 빨개졌었다.
+       포즈인지 아닌지는 **me.pose 에 값을 넣는 자리**가 가른다. */
+  /* ⚠️ `=` 하나만 보면 `me.pose === +e.key` 라는 **비교**까지 세어진다. 대입만 센다. */
+  const poseSets = (CODE.match(/me\.pose\s*=(?!=)/g) || []).length;
+  chk(/if\(e\.key === '1' \|\| e\.key === '2'\)\{/.test(CODE) && poseSets === 1
+      && !/e\.key === '4'/.test(CODE),
+      "★ 포즈 키가 1·2 뿐이다 (3 은 눈 감기라 값이 따로다 · 4 는 없다 · 대입 자리 "
+      + poseSets + '곳)');
+  chk(!/pose\s*\+\s*4/.test(CODE),
+      '  눈 감기를 pose 값에 끼워 보내지 않는다 (옛 클라이언트가 엉뚱한 포즈로 접는다 — app.js 주석의 경고)');
   chk(/e\.key === '1' \|\| e\.key === '2'/.test(SRC),
       '1·2 만 포즈로 받는다');
   chk(/\(me\.pose === \+e\.key\) \? 0 : \+e\.key/.test(SRC),

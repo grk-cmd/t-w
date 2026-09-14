@@ -24,6 +24,25 @@
  *        **주석을 걷어낸 본문**을 봐야 한다. 반대로 근거·경고 보존 검사는 원문을 본다.
  * ─────────────────────────────────────────────────────────────────────────────
  *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * [단계 자동 판정 — 2026-09-13 추가]
+ *   `overlay-win.js` 가 없으면 **분리 전**으로 보고 main.js 에서 전부 찾는다.
+ *   있으면 **분리 후**로 보고, 찾는 자리를 셋으로 나눈다:
+ *     ① 레이어드 알파의 **본체**(알파·켬값·적용함수·상태) → `overlay-win.js` 에서만 찾고,
+ *        main.js 에는 **0곳**이기를 요구한다. 옮긴 것이지 복사한 게 아니다.
+ *     ② 설정 파일·IPC·토글 핸들러 → main.js 그대로. 이건 분리 대상이 아니었다.
+ *     ③ 근거·경고 **주석** → 두 파일의 합집합. 주석은 "어느 파일이 그 동작을 갖는가"와
+ *        무관하고, 분리하며 어느 쪽에 붙여도 목적(다음 사람이 원문을 찾는다)이 달성된다.
+ *   이음매에서 이름이 바뀐다: 모듈 안은 `_applyOverlayLayered`, 밖에서는 `overlay.applyLayered`.
+ *   그래서 호출 자리는 **파사드 이름**으로 센다(APPLY_FACADE).
+ *
+ *   ⚠️⚠️ **이 장치는 지난 분리가 무사했다는 증명이 아니다.**
+ *     `sim-sysinput.js` 는 쪼개기 **전에** 만들어져서 같은 파일이 양쪽 단계에서 초록인 것을
+ *     보고 "동작 변경 0" 을 말할 수 있었다. 오버레이는 분리가 이미 끝났고 분리 전 main.js 가
+ *     남아 있지 않다 — 즉 여기서 볼 수 있는 것은 **분리 후 초록 하나뿐**이다.
+ *     이 파일은 앞으로의 개명·재이동을 잡는 그물이지, 지난 이사의 영수증이 아니다.
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
  * ⚠️ 성공해서 기본 동작으로 올릴 때는 이 파일도 **같이** 고칠 것. 3절(기본 꺼짐)이
  *    통째로 뜻이 바뀌고, 6절(걷어낼 자리)이 실제 작업 목록이 된다.
  *
@@ -53,6 +72,22 @@ if (src == null) { say('? main.js 를 못 찾음 — main.js 가 있는 폴더�
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 const code = stripComments(src);
 
+/* ── 단계 자동 판정 ───────────────────────────────────────────────────────
+   ⚠️ 분리 전은 **정상 단계**지 "못 찾은 상태"가 아니다. 여기서 huh() 를 부르면 안 된다. */
+const ovlSrc  = readIf('overlay-win.js');
+const SPLIT   = ovlSrc != null;
+const ovlCode = SPLIT ? stripComments(ovlSrc) : '';
+
+/* ① 본체가 사는 곳 */
+const laySrc  = SPLIT ? ovlSrc  : src;
+const layCode = SPLIT ? ovlCode : code;
+/* ③ 주석 근거 — 두 파일 합집합 */
+const bothSrc  = SPLIT ? (src  + '\n' + ovlSrc)  : src;
+const bothCode = SPLIT ? (code + '\n' + ovlCode) : code;
+
+say('── 단계: ' + (SPLIT ? '분리 후 (overlay-win.js 있음)' : '분리 전 (main.js 단일)'));
+say('');
+
 /* ── 심볼 이름 후보 — 개명하면 **맨 앞에** 추가할 것 ───────────────────────── */
 const ALPHA_NAMES = ['OVERLAY_LAYERED_ALPHA'];
 const ON_NAMES    = ['OVERLAY_LAYERED_ALPHA_ON'];
@@ -63,27 +98,29 @@ const IPC_GET     = 'companion:getLabVideo';
 const IPC_SET     = 'companion:setLabVideo';
 const UI_ROW      = 'progLabVideoRow';
 const UI_BTN      = 'progLabVideoToggle';
+/* 분리 후 이음매 이름 — main.js 는 모듈 안의 이름을 모른다. 개명하면 맨 앞에 추가할 것. */
+const APPLY_FACADE = ['applyLayered'];
 
-const findName = (cands, re) => cands.find(n => re(n).test(code)) || null;
+const findName = (cands, re) => cands.find(n => re(n).test(layCode)) || null;
 const alphaName = findName(ALPHA_NAMES, n => new RegExp('(?:const|let|var)\\s+' + n + '\\s*='));
 const onName    = findName(ON_NAMES,    n => new RegExp('(?:const|let|var)\\s+' + n + '\\s*='));
 /* ⚠️ `code.includes('function ' + n)` 로 찾으면 `_applyOverlayLayeredV2` 같은 **접두어 개명**에
    그대로 걸려서, 드리프트가 `?`(검사 못함) 가 아니라 `✗`(깨짐) 으로 잘못 보고된다.
    그러면 main.js 를 멀쩡히 고친 사람이 "내가 뭘 깼나" 하고 헛수고한다. 경계를 붙일 것. */
-const applyFn   = APPLY_FNS.find(n => new RegExp('function\\s+' + n + '\\s*\\(').test(code)) || null;
+const applyFn   = APPLY_FNS.find(n => new RegExp('function\\s+' + n + '\\s*\\(').test(layCode)) || null;
 const stateName = findName(STATE_NAMES, n => new RegExp('(?:const|let|var)\\s+' + n + '\\s*='));
 
 /* 선언에서 초기값만 뽑는다 — 함수 슬라이스를 vm 으로 돌리면 electron 의존이 섞여 죽는다. */
 const initOf = (name) => {
   if (!name) return null;
-  const m = code.match(new RegExp('(?:const|let|var)\\s+' + name + '\\s*=\\s*([^;\\n]+)'));
+  const m = layCode.match(new RegExp('(?:const|let|var)\\s+' + name + '\\s*=\\s*([^;\\n]+)'));
   if (!m) return null;
   const v = Number(String(m[1]).trim());
   return isFinite(v) ? v : null;
 };
 const alphaInit = initOf(alphaName);
 const onValue   = initOf(onName);
-const applyBody = applyFn ? (code.match(new RegExp('function\\s+' + applyFn + '[\\s\\S]*?\\n\\}')) || [null])[0] : null;
+const applyBody = applyFn ? (layCode.match(new RegExp('function\\s+' + applyFn + '[\\s\\S]*?\\n\\}')) || [null])[0] : null;
 
 /* ══ 1. 알파 값 — 이 갈래가 성립하는 조건 자체 ════════════════════════════ */
 say('── 1. 알파 값이 판정 조건을 만족하는가 (0 < alpha < 255)');
@@ -96,7 +133,7 @@ say('── 1. 알파 값이 판정 조건을 만족하는가 (0 < alpha < 255)'
     /* 값을 낮춰도 판정은 똑같이 걸리고 캐릭터만 흐려진다. 문턱이 아니라 표식이다. */
     chk(onValue >= 240, '켬 값이 240 이상이다 — 현재 ' + onValue + ' (더 낮춰도 효과는 같고 캐릭터만 흐려진다)');
   }
-  chk(/255/.test(src) && /alpha\s*<\s*255|alpha < 255/.test(src),
+  chk(/255/.test(bothSrc) && /alpha\s*<\s*255|alpha < 255/.test(bothSrc),
     '판정 원문(alpha < 255)이 주석에 남아 있다 — 이게 없으면 252 가 "왜 이 숫자냐"가 된다');
 }
 
@@ -111,12 +148,33 @@ say('\n── 2. ★ 기본이 꺼짐인가 (미검증 갈래를 전원에게 �
     chk(alphaInit === 0, '★ 기본값이 0(꺼짐)이다 — 현재 ' + alphaInit
       + ' (기본으로 올리기로 했다면 이 검사도 같이 고칠 것)');
   }
-  chk(/실기기/.test(src) && /미검증|검증 전/.test(src),
+  chk(/실기기/.test(bothSrc) && /미검증|검증 전/.test(bothSrc),
     '"실기기 미검증"이 주석에 남아 있다 — 이 한 줄이 기본값을 지킨다');
-  chk(/electron#40515/.test(src),
+  chk(/electron#40515/.test(bothSrc),
     '★ 반대 위험(우리 창이 검어짐) 이슈 번호가 남아 있다 — 제보가 오면 여기부터 본다');
-  chk(/let\s+' + '/.test('') || new RegExp('let\\s+' + (alphaName || 'OVERLAY_LAYERED_ALPHA')).test(code),
+  chk(new RegExp('let\\s+' + (alphaName || 'OVERLAY_LAYERED_ALPHA')).test(layCode),
     '알파가 const 가 아니라 let 이다 — 토글이 런타임에 바꿔야 한다');
+}
+
+/* ══ 2-b. ★ 분리 후 경계 — 본체가 main.js 에 남아 있지 않은가 ═══════════
+   이사는 "옮기는 것"이지 "복사하는 것"이 아니다. main.js 에 한 벌 더 남아 있으면
+   둘 중 하나만 고쳐지는 날이 오고, 그때 어느 쪽이 도는지 아무도 모른다.
+   ⚠️ 분리 전에는 이 절이 통째로 뜻이 없다 — 건너뛰되 `?` 가 아니라 `·` 다. */
+if (!SPLIT) {
+  say('\n── 2-b. 분리 후 경계');
+  skip('아직 overlay-win.js 가 없다 — 분리 후에는 main.js 쪽이 0곳이어야 한다는 검사가 돈다');
+} else {
+  say('\n── 2-b. ★ 분리 후 경계 (본체가 main.js 에 남아 있지 않은가)');
+  for (const [label, n] of [['알파', alphaName], ['켬 값', onName], ['상태', stateName]]) {
+    if (!n) continue;
+    chk(!new RegExp('(?:const|let|var)\\s+' + n + '\\s*=').test(code),
+      '  ' + label + '(' + n + ') 선언이 main.js 에 없다');
+  }
+  if (applyFn) chk(!new RegExp('function\\s+' + applyFn + '\\s*\\(').test(code),
+    '  적용 함수(' + applyFn + ') 정의가 main.js 에 없다');
+  /* main.js 가 모듈을 실제로 들여오는가 — 안 들여오면 위 0곳은 "기능이 빠진 것"과 구분이 안 된다. */
+  chk(/require\(\s*['"]\.\/overlay-win(?:\.js)?['"]\s*\)/.test(code),
+    '★ main.js 가 overlay-win.js 를 들여온다 (0곳이 "빠진 것"이 아니라 "옮긴 것"임을 이 줄이 가른다)');
 }
 
 /* ══ 3. 거는 함수 — 안전장치와 끄는 길 ═══════════════════════════════════ */
@@ -135,7 +193,7 @@ say('\n── 3. 알파를 거는 함수');
     if (stateName == null) huh('  상태 변수를 못 찾음 — 후보: ' + STATE_NAMES.join(' / '));
     else chk(new RegExp(stateName).test(applyBody) && /_diagLog/.test(applyBody),
       '실제로 걸렸는지를 진단 로그에 남긴다 — 옛 빌드/꺼진 빌드를 로그로 가른다');
-    chk(/try\s*\{[\s\S]*?catch/.test(code.match(/function\s+_setOpacitySafe[\s\S]*?\n\}/)?.[0] || applyBody),
+    chk(/try\s*\{[\s\S]*?catch/.test(layCode.match(/function\s+_setOpacitySafe[\s\S]*?\n\}/)?.[0] || applyBody),
       'setOpacity 실패를 삼키지 않고 상태로 돌려준다 — 조용한 실패는 진단을 막는다');
   }
 }
@@ -143,18 +201,41 @@ say('\n── 3. 알파를 거는 함수');
 /* ══ 4. ★ 호출 자리 — 주기 호출이 §2-1(setBounds 폭풍)을 재현한다 ════════ */
 say('\n── 4. ★ 부르는 자리가 둘뿐인가 (스타일 변경 자체가 재계산 훅이다)');
 {
+  /* ★ 이음매에서 이름이 갈린다 — 모듈 안은 `_applyOverlayLayered`, 밖에서는 `overlay.applyLayered`.
+     둘 다 "부르는 것"이다. 분리 후에 모듈 안 이름만 세면 호출 2곳이 통째로 안 보인다. */
+  const faceName = SPLIT
+    ? (APPLY_FACADE.find(n => new RegExp('\\.' + n + '\\s*\\(').test(code)) || null)
+    : applyFn;
   if (!applyFn) huh('적용 함수를 못 찾아 호출 자리를 셀 수 없음');
+  else if (SPLIT && !faceName) huh('이음매 이름을 못 찾음 — 후보: overlay.' + APPLY_FACADE.join(' / overlay.')
+    + ' (개명했다면 APPLY_FACADE 맨 앞에 추가)');
   else {
-    const calls = (code.match(new RegExp(applyFn + '\\s*\\(', 'g')) || []).length;
-    /* 정의 1 + 호출 2(부팅 · 토글 조작). 셋 다 사람이 부르는 자리다. */
-    chk(calls === 3, '★ 호출 자리가 2곳이다(정의 1 + 호출 2) — 실제 ' + (calls - 1)
+    const callRe = SPLIT ? '\\.' + faceName : applyFn;
+    /* 분리 전에는 정의와 호출이 한 파일에 있어 정의 1 을 뺀다.
+       분리 후에는 호출이 main.js 에만, 정의가 모듈에만 있어 뺄 것이 없다. */
+    const calls = (code.match(new RegExp(callRe + '\\s*\\(', 'g')) || []).length - (SPLIT ? 0 : 1);
+    chk(calls === 2, '★ 부르는 자리가 2곳이다(부팅 · 토글) — 실제 ' + calls
       + '곳. 늘었다면 주기 호출이 아닌지 확인할 것');
-    chk(new RegExp(applyFn + "\\s*\\(\\s*'부팅'").test(code), '  부팅 때 한 번 건다');
-    chk(new RegExp('setLabVideo[\\s\\S]{0,400}?' + applyFn).test(code), '  토글 조작 때 다시 건다');
-    /* 타이머 안에서 부르면 핸드오프4 §4-2(906회/30분)·§2-1(417회/9분) 을 우리 손으로 재현한다. */
-    const inTimer = new RegExp('set(?:Interval|Timeout)\\([\\s\\S]{0,300}?' + applyFn).test(code);
+    chk(new RegExp(callRe + "\\s*\\(\\s*'부팅'").test(code), '  부팅 때 한 번 건다');
+    /* ★ 글자 수 창(`{0,400}`)을 쓰지 않는다 — 주석 몇 줄이 늘면 그대로 어긋난다.
+       핸들러 본문을 중괄호로 떼어 본다(핸드오프 §5-① · gap 4절과 같은 방식). */
+    const iSet = code.indexOf(IPC_SET);
+    let setBody = '';
+    if (iSet >= 0) {
+      const b = code.indexOf('{', iSet);
+      let d = 0;
+      for (let k = b; b >= 0 && k < code.length; k++) {
+        if (code[k] === '{') d++;
+        else if (code[k] === '}' && --d === 0) { setBody = code.slice(iSet, k + 1); break; }
+      }
+    }
+    chk(new RegExp(callRe).test(setBody), '  토글 조작 때 다시 건다');
+    /* 타이머 안에서 부르면 핸드오프4 §4-2(906회/30분)·§2-1(417회/9분) 을 우리 손으로 재현한다.
+       ⚠️ 주기 호출은 **모듈 안쪽에서도** 생길 수 있다 — 그래서 이 둘만 두 파일을 다 본다. */
+    const anyCall = '(?:' + applyFn + '|\\.' + (faceName || APPLY_FACADE[0]) + ')';
+    const inTimer = new RegExp('set(?:Interval|Timeout)\\([\\s\\S]{0,300}?' + anyCall).test(bothCode);
     chk(!inTimer, '★ 타이머 안에서 부르지 않는다 — 주기 호출은 고치려던 깜빡임을 만든다');
-    chk(!new RegExp('setIgnoreMouseEvents[\\s\\S]{0,300}?' + applyFn).test(code),
+    chk(!new RegExp('setIgnoreMouseEvents[\\s\\S]{0,300}?' + anyCall).test(bothCode),
       '★ setIgnoreMouseEvents 왕복마다 다시 부르지 않는다 — 한 번이면 layered_ 가 유지한다');
   }
 }
@@ -188,7 +269,7 @@ say('\n── 6. ★ 토글이 아래틈(갭)을 건드리지 않는가');
       '★ 토글이 창 크기를 만지지 않는다 — 크기 변경은 §2-1 폭주의 입구다');
     chk(/saveSettings\(\)/.test(mSetIpc[0]), '토글 상태가 파일에 저장된다 — 재시작해도 유지돼야 A/B 가 성립한다');
   }
-  chk(/알파만/.test(src), '"알파만 바꾼다"가 주석에 못박혀 있다');
+  chk(/알파만/.test(bothSrc), '"알파만 바꾼다"가 주석에 못박혀 있다');
 }
 
 /* ══ 7. 토글 통로 4단 — 하나만 끊겨도 "눌러도 반응 없는 버튼"이 된다 ════ */
@@ -238,13 +319,13 @@ say('\n── 7. 토글 통로 4단 (main IPC → preload → HTML → app.js)')
 /* ══ 8. 되살아나면 안 되는 것 (핸드오프6 §8) ═════════════════════════════ */
 say('\n── 8. 폐기된 갈래가 되살아나지 않았는가');
 {
-  chk(!/setFocusable\(\s*false\s*\)/.test(code),
+  chk(!/setFocusable\(\s*false\s*\)/.test(bothCode),
     '★ NOACTIVATE(setFocusable(false))가 없다 — IME 가 원리적으로 죽는다. 폐기됨');
-  chk(!/setSkipTaskbar\(\s*true\s*\)/.test(code),
+  chk(!/setSkipTaskbar\(\s*true\s*\)/.test(bothCode),
     '★ setSkipTaskbar(true) 가 없다 — flashFrame(초대 알림)과 Alt+Tab 이 함께 죽는다');
-  chk(!/WS_EX_TOOLWINDOW/.test(code),
+  chk(!/WS_EX_TOOLWINDOW/.test(bothCode),
     'TOOLWINDOW 를 코드에서 쓰지 않는다 — 같은 이유다(주석의 설명은 남아 있어도 된다)');
-  chk(!/🧪/.test(code), '실험 표시(🧪) 잔재가 없다 — 폐기된 칸이 위험해진 이유가 그것이었다');
+  chk(!/🧪/.test(bothCode), '실험 표시(🧪) 잔재가 없다 — 폐기된 칸이 위험해진 이유가 그것이었다');
 }
 
 /* ══ 9. 성공했을 때 걷어낼 자리 목록 — 토글은 영구물이 아니다 ═══════════ */
@@ -252,19 +333,20 @@ say('\n── 9. 마이그레이션 재료 (성공하면 지운다)');
 {
   /* 한 번 내보낸 토글은 켜 둔 사용자가 생겨 나중에 지우기 어려워진다. 폐기된 🧪 칸이
      정확히 그 이유로 위험해졌다. 그래서 "어디를 지울지"를 지금 적어 둔다. */
-  chk(/성공하면 지운다|기본 동작으로 올리/.test(src),
+  chk(/성공하면 지운다|기본 동작으로 올리/.test(bothSrc),
     '★ "성공하면 지운다"가 주석에 남아 있다 — 토글을 영구물로 오해하지 않게 한다');
-  chk(/preload/.test(src) && /app\.js/.test(src),
+  chk(/preload/.test(bothSrc) && /app\.js/.test(bothSrc),
     '  걷어낼 자리(preload·app.js·IPC)가 주석에 열거돼 있다');
-  chk(/setOpacity/.test(src) && /layered_/.test(src),
+  chk(/setOpacity/.test(bothSrc) && /layered_/.test(bothSrc),
     '  왜 setOpacity 한 번이면 되는지(layered_)가 남아 있다 — 이게 없으면 주기 호출로 되돌아간다');
-  chk(/IsWindowVisibleAndFullyOpaque/.test(src),
+  chk(/IsWindowVisibleAndFullyOpaque/.test(bothSrc),
     '  판정 함수 이름이 남아 있다 — 다음 사람이 원문을 다시 찾을 수 있다');
 }
 
 say('');
 say('통과 ' + pass + ' · 실패 ' + fail + ' · 검사못함 ' + unknown + (skipped ? ' · 건너뜀 ' + skipped : ''));
-if (unknown) say('  ? 는 심볼이 개명·이동됐다는 뜻이다. main.js 를 고쳤다면 **이 파일도 같이 고칠 것.**');
+if (unknown) say('  ? 는 심볼이 개명·이동됐다는 뜻이다. '
+  + (SPLIT ? 'overlay-win.js · main.js' : 'main.js') + ' 를 고쳤다면 **이 파일도 같이 고칠 것.**');
 if (fail)    say('  ✗ 는 지켜야 할 것이 깨진 것이다.');
 if (!fail && !unknown) say('  ✓ 전부 통과');
 /* 종료 코드: 1=실패, 2=검사못함. 2 를 0 으로 만들면 이 파일도 조용히 죽는다. */

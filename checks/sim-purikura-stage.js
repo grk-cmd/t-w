@@ -24,6 +24,25 @@ const say = console.log;
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 
+/* ── 함수 본문 떼어내기 ────────────────────────────────────────────────────
+   ★ 「A 뒤 N 글자 안에 B 가 있는가」로 보지 않는다. 그 창은 **주석 한 줄에 밀린다** —
+     2026-09 에 `openPurikura … watchQuota` 가 1800 창을 2322자로 넘겨 빨개졌는데 코드는
+     멀쩡했다. 중괄호를 세어 본문 전체를 떼면 거리와 무관해지고, 동시에 «다른 함수에 있는
+     같은 이름»을 잘못 세는 일도 없어진다.
+   ⚠️ 못 찾으면 빈 문자열을 준다 — 부르는 쪽이 ✗ 로 떨어지므로 조용히 통과하지는 않는다. */
+const _bodies = {};
+function bodyOf(name){
+  if (_bodies[name] !== undefined) return _bodies[name];
+  const i = SRC.indexOf('function ' + name + '(');
+  if (i < 0) return (_bodies[name] = '');
+  let d = 0;
+  for (let k = SRC.indexOf('{', i); k < SRC.length; k++){
+    if (SRC[k] === '{') d++;
+    else if (SRC[k] === '}' && --d === 0) return (_bodies[name] = SRC.slice(i, k + 1));
+  }
+  return (_bodies[name] = '');
+}
+
 say('=== 📷 스티커사진 촬영 창 + 무대 검사 ===');
 say('');
 
@@ -90,12 +109,24 @@ say('· §2 인원 — 허용한 조합에 4명이 실제로 서는가');
   const overP2 = (P.MAX_SLOTS - capP2) / P.MAX_SLOTS * 100;
   chk(overP2 > 30, '★ 세로 2컷은 4명이 ' + overP2.toFixed(0) + '% 겹친다 — 뺀 이유가 그대로다');
 
-  /* 최근접에서 머리가 잘리는 것은 **의도**다. 잘리지 않게 되면 카메라 값이 바뀐 것이므로 알려야 한다. */
-  const f = P.focalPx('p',4), st = P.stageSize('p',4);
-  const headY = st.h/2 + (P.CAM_HEIGHT - P.CHAR_H) * (f / P.CAM_NEAR);
-  chk(headY < 0, '★ 최근접에서 머리가 화면 위로 나간다 (' + Math.round(-headY) + 'px) — 시안 v9 가 정한 클로즈업이다');
-  chk(P.CAM_FOV === 34 && P.CAM_HEIGHT === 1.32 && P.CAM_NEAR === 0.90 && P.CAM_FAR === 5.4,
-      '카메라 확정값이 그대로다 (34° · 1.32 · 0.90 · 5.4)');
+  /* 최근접에서 머리가 잘리는 것은 **의도**다. 잘리지 않게 되면 카메라 값이 바뀐 것이므로 알려야 한다.
+     ★ 재는 식을 여기 다시 적지 않는다. `projY` 가 「무엇이 잘리는가」의 유일한 출처이고,
+       화면(THREE)도 그것을 쓴다 — 검사기가 따로 계산하면 각을 바꿨을 때 한쪽만 고쳐져서
+       **검사는 통과하는데 사진에서만 머리가 잘린다**(purikura-net.js `projY` 주석).
+     ⚠️ 2026-09 에 실제로 그 일이 났다. 예전 식은 `st.h/2 + (CAM_HEIGHT-CHAR_H)*f/CAM_NEAR` 로
+       **기울기(CAM_PITCH)가 없었다.** 각이 0 → 16° 로 바뀌자 +136px(머리가 화면 안)이라는
+       틀린 답을 내고 빨개졌다. 실제로는 -64px 로 나가 있었다. */
+  const headY = P.projY('p', 4, P.CHAR_H, P.CAM_NEAR);
+  /* ⚠️ 부호를 뒤집어 찍지 말 것. 예전 줄은 실패할 때도 `(-136px)` 로 찍혀서 «136px 나갔는데
+     왜 빨간가» 로 읽혔다 — 실제로는 +136px, 즉 **화면 안에** 있어서 빨간 것이었다. */
+  chk(headY < 0, '★ 최근접에서 머리가 화면 위로 나간다 ('
+      + (headY < 0 ? Math.round(-headY) + 'px 나감' : '안 나감 — 화면 안쪽 ' + Math.round(headY) + 'px')
+      + ') — 클로즈업은 의도다');
+  /* ⚠️ 여기에 **CAM_PITCH 가 빠져 있었다.** 각이 0 에서 16 으로 바뀌는 동안 이 줄은 아무 말도
+     안 했다 — 못 박는 목록에 없는 값은 조용히 움직인다. 값을 늘리면 반드시 여기에도 적을 것. */
+  chk(P.CAM_FOV === 35 && P.CAM_HEIGHT === 1.65 && P.CAM_PITCH === 16
+      && P.CAM_NEAR === 0.45 && P.CAM_FAR === 5.4,
+      '카메라 확정값이 그대로다 (35° · 1.65 · 16° · 0.45 · 5.4 — 시안 purikura-design-camera-v2-3d)');
 }
 say('');
 
@@ -181,8 +212,9 @@ say('· §4 소스 — 창·키·캡처·업로드의 규약');
       '★ 입력칸에 포커스가 있으면 키를 안 가져간다 (안 그러면 어디서도 글자를 못 친다)');
   chk(/escRegisterWindow\(\{[\s\S]{0,200}key:'purikura'/.test(SRC),
       '촬영 창이 ESC 사다리에 태워져 있다');
-  chk(/state === 'shooting'\)\{ toast\('촬영이 끝나면/.test(SRC),
-      '★ 촬영 중에는 창이 안 닫힌다 (방장이 나가면 남은 사람의 카운트다운이 안 끝난다)');
+  chk(/state === 'shooting'[\s\S]{0,160}return false/.test(bodyOf('closePurikura'))
+      && /PK\.cutIdx >= 0 \|\| PK\.frozen/.test(bodyOf('closePurikura')),
+      '★ 세는 중에는 창이 안 닫힌다 (방장이 나가면 남은 사람의 카운트다운이 안 끝난다)');
 
   /* ⑤ 업로드 실패를 dataURL 로 삼키면 RTDB 다운로드 단가가 40배가 된다. */
   const up = /async pkUploadFrame\([\s\S]*?\n    \},/.exec(INIT);
@@ -193,10 +225,13 @@ say('· §4 소스 — 창·키·캡처·업로드의 규약');
   const fr = RULES.rules.rooms['$room']._photo.frames['$i']['.validate'];
   chk(/https/.test(fr), '규칙도 frames 에 https URL 만 받는다 (두 겹으로 막는다)');
 
-  /* ⑥ 정원 구독은 창이 열려 있는 동안만. 전원 상시 구독이면 월 9원이 528원이 된다. */
-  chk(/openPurikura[\s\S]{0,1800}watchQuota\(/.test(SRC),
+  /* ⑥ 정원 구독은 창이 열려 있는 동안만. 전원 상시 구독이면 월 9원이 528원이 된다.
+     ⚠️ 예전에는 `openPurikura[\s\S]{0,1800}watchQuota\(` 처럼 **글자 수로 창을 잡았다.**
+       주석이 늘자 2322자로 벌어져 빨개졌는데, 코드는 한 글자도 안 틀렸다(2026-09).
+       글자 수는 사람이 주석 한 줄을 더 쓰는 것만으로 어긋난다 — 함수 본문을 통째로 본다. */
+  chk(/watchQuota\(/.test(bodyOf('openPurikura')),
       '★ watchQuota 는 촬영 창을 연 사람만 건다 (전원 상시 구독이면 월 9원 → 528원)');
-  chk(/closePurikura[\s\S]{0,900}unwatchQuota/.test(SRC),
+  chk(/unwatchQuota/.test(bodyOf('closePurikura')),
       '창을 닫을 때 정원 구독을 해제한다');
 
   /* ⑦ HTML 쪽 — 세 겹의 순서와 시작 z. */

@@ -321,8 +321,15 @@ if (failed) {
   say('✗ ' + failed.where + ' 실행 중단 — 앱이 안 켜집니다');
   say(stack);
   if (noisy.length) say('\n--- 중단 직전 로그 ' + Math.min(5, noisy.length) + '줄 ---\n' + noisy.slice(-5).join('\n'));
+  say('✗ 실패 1건');
   process.exit(1);
 }
-say('✓ 부팅 스모크 통과 — ' + FILE + ' 최상위와 부팅 이벤트가 끝까지 실행됨'
+/* ⚠️ 마지막 줄은 러너가 읽는다(run.js 의 PASS_LINE·FAIL_LINE). 설명은 윗줄, 판정만 끝줄.
+     옛 판은 `✓ 부팅 스모크 통과 —…` 라 「전부 통과」가 없어 `종료코드 0` 으로 찍혔다.
+   ★ 이 아래는 **290줄 `/* ── 실행` 표식보다 뒤**다. 이 파일을 읽는 검사 19개는 전부
+     그 표식 앞에서 잘라 스텁만 쓰므로 여기를 고쳐도 그쪽은 안 움직인다.
+     ⚠️ 거꾸로 **표식 앞은 한 줄도 건드리지 말 것** — 19개가 통째로 흔들린다. */
+say('  ' + FILE + ' 최상위와 부팅 이벤트가 끝까지 실행됨'
   + ' (getElementById ' + EL_CACHE.size + '개 · 로그 ' + noisy.length + '줄)');
+say('전부 통과 ✅');
 process.exit(0);

@@ -259,5 +259,9 @@ chk(/🙋 <b>\$\{_chatEsc\(/.test(SRC),
     '★ req.name 이 이스케이프를 거친다 (licenseRequests 는 .write:true 다)');
 
 say('');
-if (fail){ say('✗ ' + fail + '건 실패'); process.exit(1); }
-say('✓ 통과 — 읽는 쪽 sanitize 가 걸려 있고, 속성값 보간 두 곳이 사라졌다');
+/* ⚠️ 마지막 줄은 러너가 읽는다 — run.js 의 FAIL_LINE 은 **줄 전체가 그 말일 때만**,
+     PASS_LINE 은 `전부 통과` 라는 말로 가른다. 설명은 윗줄에 두고 판정만 마지막에 남긴다.
+     옛 판은 `✗ N건 실패` · `✓ 통과 —…` 였는데 둘 다 그 틀에 안 맞아 종료코드로만 갈렸다. */
+if (fail){ say('✗ 실패 ' + fail + '건'); process.exit(1); }
+say('  읽는 쪽 sanitize 가 걸려 있고, 속성값 보간 두 곳이 사라졌다');
+say('전부 통과 ✅');

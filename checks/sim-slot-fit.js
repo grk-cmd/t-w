@@ -146,10 +146,18 @@ function cut(name){
   throw new Error(name + ' 의 끝을 못 찾음');
 }
 
-/* §1 이 읽은 치수 그대로 가짜 DOM 을 만든다 — 숫자를 여기 다시 적지 않는다 */
+/* §1 이 읽은 치수 그대로 가짜 DOM 을 만든다 — 숫자를 여기 다시 적지 않는다
+   ⚠️ 좌표는 브라우저처럼 **패널 기준**으로 준다. `offsetLeft` 는 위치를 가진 가장 가까운
+     조상(설정 패널) 기준이라, 줄(strip)도 칸도 0 이 아니라 `ORIGIN` 에서 시작한다.
+   ★ 줄을 0 에서 시작한다고 두면 `_fsRevealSlot` 의 `box.offsetLeft - strip.offsetLeft` 가
+     «없는 것과 같은» 뺄셈이 되어, **그 뺄셈이 통째로 사라져도 이 검사가 초록으로 남는다.**
+     반대로 뺄셈이 있는 지금 코드를 0 기준으로 재면 `strip.offsetLeft` 가 undefined 라
+     좌표가 NaN 이 되어 «창을 안 움직인다»는 **가짜 빨강**이 난다 — 실제로 그렇게 4건이
+     빨갛게 떠 있었다(2026-09). 두 방향 다 여기서 갈린다. */
+const ORIGIN = bodyPad + arrowW + rowGap;
 function makeStrip(n){
   const boxes = [];
-  for (let i = 0; i < n; i++) boxes.push({ offsetLeft: i * (slotW + slotGap), offsetWidth: slotW });
+  for (let i = 0; i < n; i++) boxes.push({ offsetLeft: ORIGIN + i * (slotW + slotGap), offsetWidth: slotW });
   const arrows = [
     { dataset: { dir: '-1' }, style: {}, disabled: false },
     { dataset: { dir: '1'  }, style: {}, disabled: false },
@@ -160,7 +168,7 @@ function makeStrip(n){
                scrollWidth: n ? (n * slotW + (n - 1) * slotGap) : 0,
                classList: { contains: c => c === 'fs-slotvp' },
                parentElement: row };
-  const strip = { id: 'fsCharSlots', children: boxes, parentElement: vp };
+  const strip = { id: 'fsCharSlots', offsetLeft: ORIGIN, children: boxes, parentElement: vp };
   return { strip, vp, row, arrows };
 }
 
@@ -168,9 +176,22 @@ const D = { current: null, getElementById(id){ return (D.current && id === 'fsCh
 const R = new Function('document', cut('_fsRevealSlot') + '\n' + cut('_fsSyncSlotNav')
   + '\n;return {_fsRevealSlot, _fsSyncSlotNav};')(D);
 
+/* 칸이 창 안에 있는가. ⚠️ `scrollLeft` 는 **줄 기준**이고 `offsetLeft` 는 패널 기준이라,
+   재기 전에 줄의 시작점을 빼서 같은 자로 맞춘다 — 안 맞추면 항상 ORIGIN 만큼 어긋난다. */
+function seen(S, b){
+  const left = b.offsetLeft - S.strip.offsetLeft;
+  return left >= S.vp.scrollLeft - 0.5
+      && left + b.offsetWidth <= S.vp.scrollLeft + S.vp.clientWidth + 0.5;
+}
+
 function open(n, cur){
   D.current = makeStrip(n);
   R._fsRevealSlot('fsCharSlots', cur);
+  /* 브라우저는 `scrollLeft` 를 [0, scrollWidth - clientWidth] 로 **잘라서** 받는다.
+     안 자르면 창 밖으로 밀린 상태가 그대로 남아, 실제로는 안 나는 빨강이 여기서 난다.
+     자르는 자리는 반드시 sync **앞**이다 — 화살표 켬/끔이 이 값을 보고 갈린다. */
+  const max = Math.max(0, D.current.vp.scrollWidth - D.current.vp.clientWidth);
+  D.current.vp.scrollLeft = Math.max(0, Math.min(D.current.vp.scrollLeft, max));
   R._fsSyncSlotNav('fsCharSlots');
   return D.current;
 }
@@ -179,8 +200,7 @@ function open(n, cur){
 {
   const S = open(MAX, MAX - 1);
   const b = S.strip.children[MAX - 1];
-  const visible = b.offsetLeft >= S.vp.scrollLeft - 0.5
-               && b.offsetLeft + b.offsetWidth <= S.vp.scrollLeft + S.vp.clientWidth + 0.5;
+  const visible = seen(S, b);
   chk(visible, '★ ' + MAX + '번 칸을 쓰던 상태로 열면 그 칸이 창 안에 있다 (scrollLeft '
       + S.vp.scrollLeft + ')');
   chk(S.arrows[1].disabled, '   끝까지 밀린 상태라 ▶ 가 꺼진다');
@@ -200,9 +220,7 @@ function open(n, cur){
   let unreachable = [];
   for (let i = 0; i < MAX; i++){
     const S = open(MAX, i), b = S.strip.children[i];
-    const ok = b.offsetLeft >= S.vp.scrollLeft - 0.5
-            && b.offsetLeft + b.offsetWidth <= S.vp.scrollLeft + S.vp.clientWidth + 0.5;
-    if (!ok) unreachable.push(i + 1);
+    if (!seen(S, b)) unreachable.push(i + 1);
   }
   chk(unreachable.length === 0, '★ ' + MAX + '칸 전부가 창 안으로 들어온다'
       + (unreachable.length ? ' — 못 닿는 칸: ' + unreachable.join(',') : ''));

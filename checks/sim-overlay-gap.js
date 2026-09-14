@@ -52,6 +52,29 @@ if (!fs.existsSync(SRC)) {
 }
 const src = fs.readFileSync(SRC, 'utf8');
 
+/* ── 단계 자동 판정 [2026-09-13] ───────────────────────────────────────────
+   `overlay-win.js` 가 없으면 **분리 전**(main.js 단일), 있으면 **분리 후**로 본다.
+   ⚠️ 분리 전은 정상 단계지 "못 찾은 상태"가 아니다 — 여기서 huh() 를 부르면 안 된다.
+
+   갭은 layered 와 달리 **코드를 떼어 실제로 평가**한다(아래 vm). 그래서 "어느 파일에서
+   뗄지"를 먼저 정해야 한다 — 상수·헬퍼는 통째로 모듈로 갔으므로 분리 후에는 모듈에서 뗀다.
+   반대로 **크기를 정하는 자리**(4절)는 main.js 에 그대로 남아 모듈 함수를 부르므로,
+   세는 것은 두 파일의 합집합이다. 정의 1 이 모듈에, 호출 3 이 main.js 에 있다.
+
+   ⚠️⚠️ 이 장치는 지난 분리가 무사했다는 증명이 아니다 — 분리 전 main.js 가 남아 있지 않아
+     **분리 후 초록 하나만** 볼 수 있다. 앞으로의 개명·재이동을 잡는 그물이다.
+     (`sim-sysinput.js` 는 쪼개기 전에 만들어져 양쪽 단계를 다 보았다. 이 파일은 그게 안 된다.) */
+const OVL = path.join(__dirname, 'overlay-win.js');
+const ovlSrc = fs.existsSync(OVL) ? fs.readFileSync(OVL, 'utf8') : null;
+const SPLIT  = ovlSrc != null;
+/* 상수·헬퍼의 본체가 사는 곳 */
+const gapSrc = SPLIT ? ovlSrc : src;
+/* 근거 주석·잔재·호출 자리 — 두 파일 합집합 */
+const bothSrc = SPLIT ? (src + '\n' + ovlSrc) : src;
+
+say('── 단계: ' + (SPLIT ? '분리 후 (overlay-win.js 있음)' : '분리 전 (main.js 단일)'));
+say('');
+
 /* ── 상수·헬퍼만 떼어 평가한다 (electron 을 안 부르는 순수 구간) ─────────────
    ★ 이름 후보를 여러 개 받는다. 새 이름은 **앞에** 붙일 것. */
 const GAP_NAMES = ['OVERLAY_GAP_PHYSICAL_PX', 'OVERLAY_BOTTOM_GAP', 'OVERLAY_GAP_PX'];
@@ -61,11 +84,11 @@ const GAPFOR_FN = 'overlayGapFor';
 
 let gapName = null, from = -1;
 for (const n of GAP_NAMES) {
-  const i = src.search(new RegExp('(?:const|let|var)\\s+' + n + '\\s*='));
+  const i = gapSrc.search(new RegExp('(?:const|let|var)\\s+' + n + '\\s*='));
   if (i >= 0) { gapName = n; from = i; break; }
 }
-const hIdx = src.indexOf('function ' + HEIGHT_FN);
-const to = hIdx >= 0 ? src.indexOf('\n', hIdx) : -1;
+const hIdx = gapSrc.indexOf('function ' + HEIGHT_FN);
+const to = hIdx >= 0 ? gapSrc.indexOf('\n', hIdx) : -1;
 
 let G = null;
 if (from < 0) {
@@ -73,7 +96,7 @@ if (from < 0) {
 } else if (to < 0) {
   huh('function ' + HEIGHT_FN + ' 을 못 찾음 — 개명됐다면 HEIGHT_FN 을 고칠 것');
 } else {
-  const slice = src.slice(from, to);
+  const slice = gapSrc.slice(from, to);
   const maxName = MAX_NAMES.find(n => new RegExp('(?:const|let|var)\\s+' + n).test(slice)) || null;
   try {
     const ctx = {};
@@ -97,6 +120,8 @@ const display = (sf) => ({ scaleFactor: sf });
    원문을 그대로 훑으면 "되살아났다"고 오탐한다. 반대로 7절(근거 주석 보존)은 원문을 봐야 한다. */
 const stripComments = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 const code = stripComments(src);
+/* 잔재 검사(6절)는 두 파일 어디서 되살아나도 잡아야 한다. */
+const bothCode = SPLIT ? (code + '\n' + stripComments(ovlSrc)) : code;
 
 say('── 1. 틈이 실제로 있는가 (이게 0 이면 증상이 그대로 돌아온다)');
 if (!G) huh('상수를 못 읽어 1절 전체를 건너뜀');
@@ -159,28 +184,48 @@ say('\n── 4. run 크기를 정하는 자리가 **전부** 이 함수를 거�
   /* ★ 이게 이 파일의 핵심 검사다. 크기를 정하는 자리가 여럿이라, 한 곳만 고치면
      **모니터를 옮기거나 배율을 바꾸는 순간** 원래 크기로 돌아가 증상이 조용히 재발한다.
      그때 사용자에게는 "어떨 때는 되고 어떨 때는 안 된다"로 보여서 원인을 찾기가 가장 어렵다. */
-  const bare = src.match(/setBounds\(\s*\{[^}]*height:\s*wa\.height\s*[,}]/g) || [];
+  const bare = bothSrc.match(/setBounds\(\s*\{[^}]*height:\s*wa\.height\s*[,}]/g) || [];
   chk(bare.length === 0, '★ 작업영역 높이를 그대로 쓰는 run 크기 지정이 하나도 없다' +
       (bare.length ? ' — ' + bare.length + '곳 남음' : ''));
-  const viaHelper = (src.match(new RegExp(HEIGHT_FN + '\\(', 'g')) || []).length;
+  /* ★ 분리 후에는 정의가 모듈에, 호출이 main.js 에 있다. 한 파일만 세면 어느 쪽을 세든 모자란다. */
+  const viaHelper = (bothSrc.match(new RegExp(HEIGHT_FN + '\\(', 'g')) || []).length;
   chk(viaHelper >= 4, HEIGHT_FN + ' 를 거치는 자리 ' + viaHelper + '곳 (정의 1 + 호출 3 이상)');
 
-  /* 크기를 정하는 자리 셋. 하나라도 빠지면 그 경로에서만 조용히 재발한다. */
+  /* 크기를 정하는 자리 셋. 하나라도 빠지면 그 경로에서만 조용히 재발한다.
+     ⚠️ 첫 등장만 보면 안 된다 — 그 자리가 주석이거나 선언이면 본체를 놓친다. 등장 **전부**를 본다.
+     ★ 두 파일을 합쳐 뒤지면 안 된다. `setConfigMode` 는 overlay-win.js 주석에도 나오고,
+       합집합으로 풀었더니 **main.js 의 호출을 통째로 지워도 초록**이었다(2026-09-13 변이 시험).
+       크기를 정하는 자리는 호출자 쪽 일이고 호출자는 main.js 다 — 여기만 본다.
+     ★ **글자 수 창(`{0,2500}`)을 쓰지 않는다.** 2500자로 잡았더니 `setConfigMode` 핸들러가
+       55줄 뒤에서 `overlay.runOverlayHeight` 를 멀쩡히 부르는데도 ✗ 로 떨어졌다 —
+       코드는 한 글자도 안 틀렸고 주석이 길어졌을 뿐이다(핸드오프 §5-① 의 그 함정).
+       ⇒ 중괄호를 세어 **본문을 통째로** 뗀다. */
+  const bodyFrom = (s, i) => {
+    const b = s.indexOf('{', i);
+    if (b < 0 || b - i > 400) return s.slice(i, i + 2500);   // 블록이 아니면 옛 방식으로 되돌린다
+    let d = 0;
+    for (let k = b; k < s.length; k++) {
+      if (s[k] === '{') d++;
+      else if (s[k] === '}' && --d === 0) return s.slice(i, k + 1);
+    }
+    return s.slice(i);
+  };
   for (const [where, label] of [
     ['setConfigMode',           'setConfigMode(런처 ↔ 실행 전환)'],
     ['moveToDisplay',           'moveToDisplay(모니터 변경)'],
     ['display-metrics-changed', 'display-metrics-changed(해상도·배율 변경)'],
   ]) {
-    if (!src.includes(where)) {
-      huh(label + ' 자리를 못 찾음 — 사라진 것이면 ✗ 다. 개명된 것이면 이 목록을 고칠 것');
-      continue;
+    let found = false, viaIt = false;
+    for (let i = src.indexOf(where); i >= 0; i = src.indexOf(where, i + 1)) {
+      found = true;
+      if (new RegExp(HEIGHT_FN + '\\(').test(bodyFrom(src, i))) { viaIt = true; break; }
     }
-    const seg = src.slice(src.indexOf(where), src.indexOf(where) + 2500);
-    chk(new RegExp(HEIGHT_FN + '\\(').test(seg), label + ' 가 ' + HEIGHT_FN + ' 를 거친다');
+    if (!found) { huh(label + ' 자리를 못 찾음 — 사라진 것이면 ✗ 다. 개명된 것이면 이 목록을 고칠 것'); continue; }
+    chk(viaIt, label + ' 가 ' + HEIGHT_FN + ' 를 거친다');
   }
 
   /* 같은 값으로 다시 부르는 것 자체가 크로미움의 가려짐 재계산 훅이다(핸드오프4 §4-2, 906회/30분). */
-  chk(/_winAlreadyIs/.test(src), '같은 상태면 창 조작을 생략하는 억제(_winAlreadyIs)가 살아 있다');
+  chk(/_winAlreadyIs/.test(bothSrc), '같은 상태면 창 조작을 생략하는 억제(_winAlreadyIs)가 살아 있다');
   /* 억제는 "요청값 ↔ OS 가 돌려준 값"을 짝으로 기억해야 성립한다. 크기를 정하는 자리마다
      _noteApplied 를 같이 불러야 하고, 빠뜨리면 그 경로에서만 조용히 폭주한다. */
   const notes = (code.match(/_noteApplied\(/g) || []).length - 1;   // 정의 자신 제외
@@ -192,9 +237,11 @@ say('\n── 5. 빌드 없이 조절하는 통로가 남아 있는가');
 {
   chk(/data\.overlayBottomGap/.test(src), 'loadSettings 가 overlayBottomGap 을 읽는다 — 제보자에게 "이 숫자만 바꿔 보세요"가 가능해야 한다');
   chk(/overlayBottomGap\s*:/.test(src), 'saveSettings 가 overlayBottomGap 을 쓴다 — 안 쓰면 다음 저장 때 유저 설정이 사라진다');
-  chk(/물리 /.test(src), '진단 로그가 DIP 가 아니라 **물리 픽셀**을 남긴다 — 의미 있는 값은 이쪽이다');
-  chk(/목표 물리/.test(src), '로그에 목표치가 같이 찍힌다 — 실제값과 목표를 한 줄에서 대조할 수 있다');
-  chk(/틈이 없다/.test(src), '물리 0px 일 때 경고가 붙는다 — 이 줄 하나로 "OS 가 크기를 깎았다"가 갈린다');
+  /* ★ 진단 로그 세 줄은 분리 때 모듈로 따라갔다 — 설정 통로(위 둘)는 main.js 에 남았다.
+     한쪽 기준으로 몰면 반드시 절반이 틀린다. */
+  chk(/물리 /.test(bothSrc), '진단 로그가 DIP 가 아니라 **물리 픽셀**을 남긴다 — 의미 있는 값은 이쪽이다');
+  chk(/목표 물리/.test(bothSrc), '로그에 목표치가 같이 찍힌다 — 실제값과 목표를 한 줄에서 대조할 수 있다');
+  chk(/틈이 없다/.test(bothSrc), '물리 0px 일 때 경고가 붙는다 — 이 줄 하나로 "OS 가 크기를 깎았다"가 갈린다');
 }
 
 say('\n── 5-2. 📄 설정 파일이 없는 사람도 진단할 수 있는가');
@@ -246,10 +293,10 @@ say('\n── 6. 실험 하네스가 남아 있지 않은가');
     [/_ovSetMode|OV_MODES|__ovBadge/,          '모드 전환·배지'],
     [/__ovNoFloater|__ovFreeze|__ovDeadClick/, '렌더러 실험 전역'],
     [/🧪/,                                     '실험 표시(🧪)'],
-  ]) chk(!pat.test(code), name + ' 흔적 없음');
+  ]) chk(!pat.test(bothCode), name + ' 흔적 없음');
 
   /* NOACTIVATE 는 IME 가 원리적으로 죽어서 폐기됐다. 되살아나면 한/영 전환이 통째로 사라진다. */
-  chk(!/setFocusable\s*\(\s*false\s*\)/.test(code), 'NOACTIVATE 실험(setFocusable(false))이 되살아나지 않았다');
+  chk(!/setFocusable\s*\(\s*false\s*\)/.test(bothCode), 'NOACTIVATE 실험(setFocusable(false))이 되살아나지 않았다');
 
   const APP = path.join(__dirname, 'app.js');
   if (!fs.existsSync(APP)) skip('app.js 가 옆에 없어 렌더러 쪽 실험 흔적은 건너뜀 (프로젝트 폴더에서 돌리면 검사된다)');
@@ -263,14 +310,33 @@ say('\n── 7. 되돌리는 길·근거가 주석에 남아 있는가');
 {
   /* 이 절은 코드가 아니라 **다음 사람**을 지킨다. 근거가 지워지면 갭은 "쓸데없어 보이는 상수"가 되고,
      누군가 반드시 0 으로 되돌린다. 실제로 한 번 그렇게 됐다. */
-  chk(/electron#49024/.test(src), '★ 근거 이슈 번호가 주석에 남아 있다');
-  chk(/창모드/.test(src), '남은 구멍(창모드 상대 창에는 안 듣는다)이 주석에 적혀 있다');
-  chk(new RegExp(gapName || 'OVERLAY_GAP').test(src), '값이 상수 하나로 모여 있다 — 고칠 때 여기만 본다');
+  chk(/electron#49024/.test(bothSrc), '★ 근거 이슈 번호가 주석에 남아 있다');
+  chk(/창모드/.test(bothSrc), '남은 구멍(창모드 상대 창에는 안 듣는다)이 주석에 적혀 있다');
+  chk(new RegExp(gapName || 'OVERLAY_GAP').test(bothSrc), '값이 상수 하나로 모여 있다 — 고칠 때 여기만 본다');
+}
+
+/* ══ 8. ★ 분리 후 경계 — 본체가 main.js 에 남아 있지 않은가 ══════════════
+   이사는 "옮기는 것"이지 "복사하는 것"이 아니다. 두 벌이 되면 둘 중 하나만 고쳐지는 날이 오고,
+   그때 어느 쪽이 도는지 아무도 모른다. ⚠️ 분리 전에는 뜻이 없는 절이다 — `?` 가 아니라 `·`. */
+if (!SPLIT) {
+  say('\n── 8. 분리 후 경계');
+  skip('아직 overlay-win.js 가 없다 — 분리 후에는 main.js 쪽이 0곳이어야 한다는 검사가 돈다');
+} else {
+  say('\n── 8. ★ 분리 후 경계 (본체가 main.js 에 남아 있지 않은가)');
+  if (gapName) chk(!new RegExp('(?:const|let|var)\\s+' + gapName + '\\s*=').test(code),
+    '  갭 상수(' + gapName + ') 선언이 main.js 에 없다');
+  chk(!new RegExp('function\\s+' + HEIGHT_FN + '\\s*\\(').test(code),
+    '  ' + HEIGHT_FN + ' 정의가 main.js 에 없다 (부르기만 한다)');
+  chk(!new RegExp('function\\s+' + GAPFOR_FN + '\\s*\\(').test(code),
+    '  ' + GAPFOR_FN + ' 정의가 main.js 에 없다');
+  chk(/require\(\s*['"]\.\/overlay-win(?:\.js)?['"]\s*\)/.test(code),
+    '★ main.js 가 overlay-win.js 를 들여온다 (0곳이 "빠진 것"이 아니라 "옮긴 것"임을 이 줄이 가른다)');
 }
 
 say('');
 say('통과 ' + pass + ' · 실패 ' + fail + ' · 검사못함 ' + unknown + (skipped ? ' · 건너뜀 ' + skipped : ''));
-if (unknown) say('  ? 는 심볼이 개명·이동됐다는 뜻이다. main.js 를 고쳤다면 **이 파일도 같이 고칠 것.**');
+if (unknown) say('  ? 는 심볼이 개명·이동됐다는 뜻이다. '
+  + (SPLIT ? 'overlay-win.js · main.js' : 'main.js') + ' 를 고쳤다면 **이 파일도 같이 고칠 것.**');
 if (fail)    say('  ✗ 는 지켜야 할 것이 깨진 것이다.');
 if (!fail && !unknown) say('  ✓ 전부 통과');
 /* 종료 코드: 1=실패, 2=검사못함. 2 를 0 으로 만들면 이 파일이 네 번째로 조용히 죽는다. */
