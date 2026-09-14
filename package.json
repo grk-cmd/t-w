@@ -30,7 +30,9 @@
       "main.js",
       "preload.js",
       "overlay-win.js",
+      "overlay-mac.js",
       "sysinput-win.js",
+      "sysinput-mac.js",
       "oauth-config.js",
       "app/**/*"
     ],

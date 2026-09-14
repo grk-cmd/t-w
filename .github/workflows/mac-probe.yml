@@ -8,6 +8,19 @@
 #     ③ iconutil          → 손으로 조립한 icns 를 애플 정품 도구 것으로 덮는다
 #     ④ electron-builder  → arm64 와 x64 를 **따로** 돌린다
 #
+# ★ [2026-09-15] **잡이 둘이 됐다 — `probe` 와 `keycheck`.** 묻는 것이 다르기 때문이다.
+#     probe    = "**붙는가**" (네이티브가 컴파일되고 설치본이 나오는가)
+#     keycheck = "**판정축이 도는가**" (mac 판정 키가 진짜 번들 id 로 서는가 — handoff §7-①)
+#   ⚠️ keycheck 를 위 ①~④ 사이에 끼우면 안 된다. 저 넷은 arm64·x64 **matrix** 라
+#     같은 검사가 두 번 돌고 빨강도 두 번 뜬다. 판정 키는 아키텍처와 아무 상관이 없다.
+#   ★ 그리고 keycheck 는 **`npm ci` 도 네이티브도 필요 없다.** `sysinput-mac.js` 가 네이티브
+#     둘을 try/catch 로 감쌌고 electron 을 안 부르기 때문이다(핸드오프 §7-⑤ 의 그 감싸기가
+#     여기서 또 값을 한다). 그래서 3분이 아니라 40초 만에 답이 나온다 — **먼저 깨질 것을
+#     먼저 깨뜨린다.** ④ 뒤에 붙였으면 빌드 3분을 기다린 뒤에야 알았을 것이다.
+#   ⚠️ **keycheck 가 초록이어도 ⑥ 은 안 닫힌다.** 이 워크플로가 볼 수 있는 것은 §7-5 의
+#     여덟 중 4번 하나뿐이다. 클릭 통과·권한 대화상자·Spaces 는 TCC 와 사람 눈이 필요하다.
+#     초록을 보고 "맥 다 됐다"로 읽지 말 것 — 그 오독이 이 사안에서 제일 비싸다.
+#
 # ⚠️ arm64 와 x64 를 matrix 로 나눈 이유: 무료 러너는 arm64 다. x64 는 교차 컴파일이라
 #   uiohook-napi(프리빌드 동봉)는 넘어가도 node-window-manager(소스 컴파일)는 모른다.
 #   한 잡에 묶으면 x64 가 죽을 때 arm64 결과까지 같이 잃는다. fail-fast 도 꺼 둔다.
@@ -86,3 +99,37 @@ jobs:
             dist/*.dmg
             dist/*.zip
           if-no-files-found: warn
+
+  # ═══ 🏷️ keycheck — mac 판정 키(번들 id)가 진짜 맥에서 서는가 ═══════════════
+  # [왜 여기인가] handoff-mac-runtime.md §7-5 의 실기기 항목 여덟 개 중 **이것 하나만**
+  #   사람이 필요 없다. 나머지(클릭 통과·권한 대화상자·화면 기록 거부·Spaces)는 TCC 대화상자와
+  #   사람 눈이 있어야 한다. 그 하나를 여기서 닫는다 — 실기기가 생기기 전에 없앨 수 있는
+  #   유일한 미지수다.
+  # ⚠️ matrix 가 아니다. 판정 키 생성은 arm64/x64 와 무관하고, 두 번 돌리면 빨강도 두 번 뜬다.
+  # ⚠️ npm ci 를 안 부른다. 프로브가 읽는 sysinput-mac.js 는 네이티브 둘을 try/catch 로 감쌌고
+  #   electron 을 require 하지 않는다. 의존성 설치는 이 질문에 아무것도 더해 주지 않는다.
+  #   ★ 대신 probe 잡과 **완전히 독립**이라, ① 이 깨져도 이 답은 나온다. 반대도 마찬가지다.
+  keycheck:
+    name: 판정 키 (번들 id)
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 표본이 무엇이었는지 안 남기면 "초록이었는데 왜 실기기에서 다르냐"를 나중에 못 가린다.
+      # ⚠️ 러너에 무엇이 깔려 있는지는 우리가 못 정한다 — 그래서 목록을 찍어 둔다.
+      - name: 환경·표본 기록
+        run: |
+          sw_vers
+          echo "--- /Applications 에 깔린 앱 ---"
+          ls /Applications | head -40
+          echo "--- plutil ---"
+          ls -l /usr/bin/plutil
+          node -v
+
+      - name: 판정 키 검증  ★ handoff-mac-runtime.md §7-①
+        run: node checks/tools/mac-bundleid-probe.js
