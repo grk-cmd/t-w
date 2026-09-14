@@ -260,3 +260,65 @@ try/catch 는 `sysinput-win.js` 로 갔는데 "백신·VC++·asarUnpack" 근거 
 - `WINLIST_SKIP` 의 `explorer.exe` — "게임만 등록이 안 된다" 제보의 그 창.
 - 등록 판정은 `keysOf` 한 통로로만. `.key` `.name` 직접 비교 금지.
 - 클릭 통과(`setIgnoreMouseEvents`)는 uIOhook 커서 폴링과 한 몸 — 모듈로 쪼개지 말 것.
+
+---
+
+## 6. 새 세션을 여는 법 (2026-09-14 신설)
+
+★ 이 표는 원래 `handoff-mac.md` §7 에 있었다. **그 문서는 폐기됐다**(§3-① 참조) —
+틀린 지도였고, 그러면서 이 표까지 같이 사라졌다. 여기가 그 자리다.
+
+### ① 먼저 정할 것 — 갈래가 여기서 갈린다
+
+**Mac 실기기와 Apple Developer Program(연 $99)이 있는가?**
+
+| | 다음 |
+|---|---|
+| **둘 다 있다** | **⑥ 맥 런타임.** §4 가 시작점이다 |
+| 없거나 아직이다 | ⑥ 은 못 연다. 아래 셋 중 하나 |
+
+⑥ 을 못 열 때 갈 수 있는 곳:
+
+- **⑦ `electron@31 → 44`** — 하드웨어 불필요. 그것만으로 한 세션 크기다.
+  ★ `npm audit fix --force` 는 누르지 말 것(§3-④).
+- **`release-notes-2026-09.md` 정리** — 문구가 「갭 확대」가 아니라 **「옛 설정값 자동 승격」**이
+  되어야 한다. `handoff-overlay-video-blackout-4.md` 의 「닫음」 절을 **먼저** 읽을 것 —
+  실제로 제보를 끊은 것은 레이어드 알파였다.
+- **⑥ 설계만** — mac 판정 키 생성 규칙을 무엇으로 할지(번들 id `com.google.Chrome` vs
+  번들 이름). 코드 없이 결정만 가능하다. 근거는 `handoff-platform-split.md` §4-b.
+
+### ② 올릴 것
+
+| 하려는 것 | 올릴 것 |
+|---|---|
+| **⑥ (실기기 있음)** | 이 파일 · `handoff-platform-split.md` · `main.js` · `overlay-win.js` · `sysinput-win.js` · `checks/sim-sysinput.js` · `handoff-overlay-video-blackout-4.md` |
+| ⑥ 설계만 | 이 파일 · `handoff-platform-split.md`(§4-b) |
+| ⑦ electron 갱신 | 이 파일 · `package.json` · `package-lock.json` |
+| 릴리즈노트 | 이 파일 · `release-notes-2026-09.md` · `handoff-overlay-video-blackout-4.md` |
+| 검사 쪽 | `checks/CHECKS.md` + 대상 검사 파일 |
+
+★ **전부 저장소에 있다.** 2026-09-14 커밋으로 핸드오프·검사가 전부 버전 관리 안에 들어왔다 —
+Claude 프로젝트 사본이 아니라 **저장소에서 꺼낸 것**을 올릴 것. 그게 §3-① 의 요점이다.
+
+### ③ 이 세션이 남긴 함정 — 같은 데서 또 걸리지 말 것
+
+- **판본.** 같은 이름의 검사가 여러 판으로 돌아다녔다. 판을 가리는 자리는 `checks/CHECKS.md` §3
+  해시 표 하나뿐이다. `npm run check` 가 돌기 전에 대조하고, 안 맞으면 「위 초록은 근거로 못 쓴다」를
+  찍는다. ⚠️ **`findstr` 로 확인하지 말 것** — 주석이 전부 한글이라 콘솔에서 깨지고 첫 줄에서 끊긴다.
+  `certutil -hashfile <파일> SHA256` 을 쓸 것.
+- **경로.** `app.js` 는 루트가 아니라 **`app/parts/app.js`** 다. 검사들은 평평한 폴더를 가정하므로
+  `checks/run.js` 가 임시 폴더에 한 층으로 모아 돌린다. 2번째 바퀴(`mallang.js`·`purikura-net.js`·
+  `firebase-init.js` 를 깊은 자리에서 끌어올림)는 임시방편이 아니라 **상시 필요한 단계**다.
+- **문서.** 「정본은 저쪽이다」라고 적힌 문서가 가리키는 파일이 실제로 없던 것이 이 모든 일의 시작이었다.
+  ⇒ **문서를 새로 만들기 전에 이 파일에 한 절을 더할 수 없는지 먼저 볼 것.**
+
+### ④ 찾지 말 것 (헛품이다)
+
+- `handoff-mac.md` — **폐기했다.** 내용은 이 파일과 `handoff-platform-split.md` 에 다 있다.
+- `handoff-mac-runtime.md` 를 「못 찾겠다」 — 저장소 루트에 있다. 이 파일이다.
+- `sim-sysinput.js` 의 **「65·0 판」** — `CHECKS.md` §3 이 확인했다. **실물이 나온 적 없다.**
+  지금 정본은 60·0 이다.
+- `sim-char-sheet.js` · `sim-char-slots.js` · `sim-house-layout.js` · `sim-report-gate.js` —
+  투게더랜드 핸드오프가 언급하지만 어디에도 없다. **보류 해제 때 같이 본다**(`CHECKS.md` §11).
+- `togetherland-ui-mockup.html` — 유일한 「원본없음 1」이지만 **메울 구멍이 아니다.** 보류분이다.
+
