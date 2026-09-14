@@ -777,9 +777,18 @@ function startActiveWinPolling(){
         return;
       }
       _activeWinFailStreak = 0;
-      const exeName = path.basename(w.owner.path || w.owner.name || '').toLowerCase();
+      /* ★ [2026-09-15 · ⑥] 이름 규칙은 **반드시 sysinput 모듈을 거친다.**
+           [무엇이 문제였나] ③ 이 procNameOf 를 모듈로 옮겼는데 **여기는 안 바꿨다.**
+             그래서 규칙은 모듈에 있고 판정은 옛 자리에서 돌았다 — 모듈에 무엇을 적어도
+             mac 판정에 닿지 않는 상태였다.
+           [왜 basename 이면 안 되나] mac 에서 일렉트론으로 만든 앱은 실행 파일 이름이
+             죄다 `Electron` 이다(VS Code 등). basename 규칙은 그것들을 **한 키로 뭉친다.**
+         ⇒ 판정은 번들 id(procNameOf), 표시는 번들 이름(displayNameOf). 둘이 갈라졌다.
+         ⚠️ Windows 에서는 두 함수가 같은 문자열을 돌려준다 — 동작 변경 0 이다. */
+      const ownerPath = w.owner.path || w.owner.name || '';
+      const exeName = sysinput.procNameOf(ownerPath);
       if(exeName && exeName !== SELF_EXE){
-        lastForeignWindow = { key: focusKeyOf(exeName), name: exeName, path: w.owner.path || '', title: w.title || '' };
+        lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
       }
       /* ★ 등록 판정은 keysOf 한 통로로만 나간다 — 이름을 직접 비교하지 말 것.
            여기서 `f.name === exeName` 로 되돌리면 mac 에서 조용히 전부 미등록이 된다. */
@@ -1725,9 +1734,11 @@ function createWindow() {
       try{
         const w = await activeWin();
         if(!w || !w.owner) return;
-        const exeName = path.basename(w.owner.path || w.owner.name || '').toLowerCase();
+        /* 이름 규칙은 sysinput 모듈 통로로만 — 근거는 startActiveWinPolling 쪽 주석. */
+        const ownerPath = w.owner.path || w.owner.name || '';
+        const exeName = sysinput.procNameOf(ownerPath);
         if(exeName && exeName !== SELF_EXE){
-          lastForeignWindow = { key: focusKeyOf(exeName), name: exeName, path: w.owner.path || '', title: w.title || '' };
+          lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
         }
       }catch(_){}
     }, 100);
@@ -2354,9 +2365,11 @@ function createWindow() {
       try{
         const w = await activeWin();
         if(w && w.owner){
-          const exeName = path.basename(w.owner.path || w.owner.name || '').toLowerCase();
+          /* 이름 규칙은 sysinput 모듈 통로로만 — 근거는 startActiveWinPolling 쪽 주석. */
+          const ownerPath = w.owner.path || w.owner.name || '';
+          const exeName = sysinput.procNameOf(ownerPath);
           if(exeName && exeName !== SELF_EXE){
-            lastForeignWindow = { key: focusKeyOf(exeName), name: exeName, path: w.owner.path || '', title: w.title || '' };
+            lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
           }
         }
       }catch(_){}
@@ -2367,7 +2380,8 @@ function createWindow() {
       try{
         const w = await activeWin();
         if(w && w.owner){
-          const name = path.basename(w.owner.path || w.owner.name || '').toLowerCase();
+          /* 진단 문구도 판정과 **같은 값**을 보여야 한다 — 다르면 로그를 보고 왜 안 걸렸는지 못 가린다. */
+          const name = sysinput.procNameOf(w.owner.path || w.owner.name || '');
           diag = name === SELF_EXE ? `self-active(${name})` : `foreign-but-null(${name})`;
         } else if(w){
           diag = 'no-owner';
@@ -2401,10 +2415,21 @@ function createWindow() {
   ipcMain.handle('companion:setFocusApp', async (e, idx, appInfo) => {
     if(idx<0 || idx>=FOCUS_APP_SLOTS) return { ok:false, reason:'bad-index' };
     if(!appInfo || !appInfo.name) return { ok:false, reason:'bad-app' };
+    /* ★ [2026-09-15 · ⑥] **키를 `name` 에서 만들지 않는다.**
+         [무엇이 문제였나] mac 에서 `name` 은 이제 표시명(`Google Chrome`)이고 판정축은
+           번들 id(`com.google.chrome`)다. 옛 줄대로 `focusKeyOf(appInfo.name)` 을 쓰면
+           목록에서 고른 슬롯만 `mac:google chrome` 이 되어, 폴링이 만드는
+           `mac:com.google.chrome` 과 **영영 안 맞는다.** 에러는 없고 집중 시간만 0 으로
+           쌓인다 — §4-b 가 없애려던 증상 그대로다.
+       ⇒ 목록 항목이 들고 온 **경로**에서 판정축을 다시 만든다. 경로가 없을 때만 옛 길로 떨어진다.
+       ⚠️ 렌더러는 한 글자도 안 고친다 — listWindows 항목을 그대로 되돌려 주므로 path 가 온다.
+         (listWindows 는 `key` 도 실어 보내지만 여기서 그걸 믿지 않는다. 렌더러를 거쳐 온 값을
+          판정축으로 쓰면, 옛 렌더러가 그 필드를 떨어뜨렸을 때 조용히 빈 키가 된다) */
+    const pickedPath = String(appInfo.path || '');
     focusApps[idx] = {
-      key:   focusKeyOf(appInfo.name),
-      name:  String(appInfo.name).toLowerCase(),
-      path:  String(appInfo.path || ''),
+      key:   pickedPath ? focusKeyOf(sysinput.procNameOf(pickedPath)) : focusKeyOf(appInfo.name),
+      name:  pickedPath ? sysinput.displayNameOf(pickedPath) : String(appInfo.name).toLowerCase(),
+      path:  pickedPath,
       title: String(appInfo.title || ''),
     };
     saveFocusApps();

@@ -11,6 +11,13 @@
      mac 쪽 사정은 이름 규칙부터 다르다(확장자가 없고 공백이 든다 — 핸드오프 §4-b).
      그래서 `procNameOf` 와 `WINLIST_SKIP` 이 main.js 가 아니라 여기에 산다.
      Windows 에서 나온 문자열 규칙이 main.js 에 남으면 그대로 Mac 까지 따라간다.
+   ★ [2026-09-15 · ⑥] **mac 판이 생겼다.** 판정 키 규칙은 번들 id 로 정해졌고
+     (`com.google.chrome`), 그래서 판정명과 표시명이 갈라져 `displayNameOf` 가 늘었다.
+     ⚠️ 이 파일에서 이름을 하나 늘리거나 줄이면 **sysinput-mac.js 도 같이 고칠 것.**
+       main.js 는 어느 쪽이 실렸는지 모르는 채로 부르므로, 어긋나면 한쪽 OS 에서만 죽는다.
+   ⚠️ 그때 «main.js 는 procNameOf 를 부르지 않고 path.basename 을 인라인으로 네 번 쓰고
+     있었다» 는 것이 ⑥ 에서 드러나 같이 고쳐졌다. 되돌리지 말 것 — 되돌리면 이 파일이
+     이름 규칙을 들고 있어도 **판정은 여전히 Windows 규칙으로 돈다.**
 
    ── 활성 창 감지: node-window-manager 기반 ──
      active-win이 이 시스템에서 어느 버전도 동작하지 않아 교체 (8.x는 조용히 undefined 반환,
@@ -71,6 +78,15 @@ function _flushBootLog(){
      그 규칙이 mac 에서 깨지는 것이 핸드오프 §4-b(판정 키)의 출발점이다. */
 function selfProcName(){ return path.basename(process.execPath).toLowerCase(); }
 function procNameOf(p){ return path.basename(p || '').toLowerCase(); }
+/* ★ [2026-09-15 · ⑥] 사람에게 보여 줄 이름. **Windows 에서는 판정명과 같은 문자열이다**
+     (`chrome.exe`) — 그래서 지금까지 이 함수가 없었고, main.js 는 한 값을 두 용도로 썼다.
+   ⚠️ mac 에서 둘이 갈라진다: 판정은 번들 id(`com.google.chrome`), 표시는 번들 이름
+     (`Google Chrome`). 그래서 **mac 판이 생기면서 win 판에도 같은 이름이 필요해졌다** —
+     main.js 는 어느 쪽이 실렸는지 모르는 채로 이 이름을 부른다(§1-④ «똑같은 이름»).
+   ★ 값이 procNameOf 와 같으므로 **Windows 동작은 한 글자도 안 바뀐다.** 이 줄의 목적은
+     기능이 아니라 인터페이스를 맞추는 것이다. 여기서 `.exe` 를 떼는 등 손보지 말 것 —
+     떼는 일은 app.js(표시부)가 이미 하고 있고, 두 곳에서 하면 한 번 더 떼어진다. */
+function displayNameOf(p){ return procNameOf(p); }
 
 /* 📋 셸 계열 — "목록에서 직접 고르기"에서 거르는 창들.
    ⚠️ Windows 실행 파일 이름이다. mac 판은 이 목록을 통째로 다시 써야 한다. */
@@ -165,6 +181,6 @@ module.exports = {
   init,
   startGlobalHooks, stopGlobalHooks,
   getActiveWindow, listWindows,
-  selfProcName, procNameOf,
+  selfProcName, procNameOf, displayNameOf,
   WINLIST_SKIP,
 };
