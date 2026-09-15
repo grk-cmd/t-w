@@ -159,16 +159,18 @@
 ```
 run.js                         502줄   caa9905d902f
 tools/trapscan.js              267줄   71a7d91b4979
-tools/mac-bundleid-probe.js    371줄   c4d9329ea431
+tools/mac-bundleid-probe.js    395줄   4156cb84a422
 CHECKS.md           (이 파일 · 자기 해시는 안 적는다)
 ```
 
 ★ [2026-09-15] `tools/mac-bundleid-probe.js` 가 늘었다 — mac 판정 키(번들 id)가 실제 맥에서
   서는지를 본다(`handoff-mac-runtime.md` §7-①). **`checks/` 바로 밑에 두면 안 된다** —
-  맥이 아닌 곳에서 종료 코드 **2** 라 `listChecks` 가 집는 순간 빨강이 영구히 박힌다.
-  `trapscan.js` 와 정확히 같은 사정이고, 그래서 같은 자리다(§13).
-  ⚠️ 이 파일은 `npm run check` 가 아니라 **`.github/workflows/mac-probe.yml` 의 `keycheck` 잡**이
-    돌린다. 러너에 실제로 깔린 `.app` 을 표본으로 쓰므로 여기서는 돌려 봐야 6·7절만 돈다.
+  `listChecks` 가 집는 순간 검사 개수가 55 가 되고, 윈도우 실기기에서는 **1절(본론)이 못 돌아
+  종료 코드 2** 라 빨강이 박힌다. `trapscan.js` 와 같은 자리인 이유다(§13).
+  ⚠️ **자리의 근거는 종료 코드가 아니라 성격이다.** 이 파일은 `npm run check` 가 돌릴 검사가
+    아니라 **맥에서만 뜻이 있는 도구**다 — 윈도우에서 돌리면 6·7절(합성·정적)만 돈다.
+    종료 코드 규칙은 바뀔 수 있지만(실제로 09-15 에 한 번 바뀌었다) 이 성격은 안 바뀐다.
+  ⚠️ 돌리는 것은 **`.github/workflows/mac-probe.yml` 의 `keycheck` 잡**이다.
 
 ⚠️ **이걸 파이프 표(`| 이름 | 줄 | 해시 |`)로 쓰지 말 것 — 러너가 깨진다.**
 `readManifest`(`run.js:82`)는 **문서 어디에 있든** 그 모양의 줄을 전부 줍고, 이름이
