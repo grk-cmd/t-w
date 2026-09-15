@@ -29,6 +29,15 @@
 #   켜 두면 서명 단계에서 죽어서 ①②③ 이 멀쩡한지조차 못 본다. 서명·공증은 §8 의 일이고,
 #   여기서 나온 아티팩트는 **열면 "손상되었습니다"가 뜨는 게 정상이다.** 붙는지만 본다.
 #
+# ★ [2026-09-15] **⑦ `electron@31 → 44` 를 이 워크플로로 판정한다** (handoff-mac-runtime.md §8).
+#   전제가 둘 바뀌었다 — 둘 다 42 부터의 일이라 31 시절 초록으로는 못 미룬다:
+#     ⓐ **electron 42+ 는 postinstall 이 없다.** `npm ci` 가 바이너리를 안 받고, `npx electron` 첫 실행 때
+#        받는다(지연 다운로드). ① 이 초록이어도 "바이너리가 오는가" 는 아직 안 본 것이다 → **②-b 신설**.
+#     ⓑ 그 다운로드 코드(`@electron/get` 4.x)는 **Node 22.12 이상·ESM 전용**이다. 그래서 probe 잡만
+#        node 20 → 22 다. keycheck 는 electron 을 안 부르니 20 그대로 — 초록인 잡에 변수를 안 얹는다.
+#   ⚠️ 이 워크플로의 초록은 「44 에서도 **붙는다**」까지다. 클릭 통과·훅 해제·오버레이 검어짐은 Windows
+#     실기기의 몫이고 그 목록은 §8-⑤ 다. 여기 초록을 "44 다 됐다" 로 읽지 말 것 — keycheck 때와 같은 오독.
+#
 # ⚠️ 수동 실행 전용(workflow_dispatch)이다. push 마다 돌리면 분을 태운다.
 #   GitHub → Actions → mac-probe → Run workflow 로 돌린다.
 
@@ -56,7 +65,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22        # ★ ⑦: electron 42+ 의 지연 다운로드(@electron/get 4.x)가 Node 22.12+ 를 요구한다
 
       # 실패했을 때 "어느 macOS·어느 SDK 였나"를 나중에 못 물어본다. 먼저 남긴다.
       - name: 환경 기록
@@ -74,6 +83,15 @@ jobs:
         run: |
           node -e "require('uiohook-napi'); console.log('uiohook-napi 로드 OK')"
           node -e "const {windowManager} = require('node-window-manager'); console.log('node-window-manager 로드 OK', typeof windowManager.getWindows)"
+
+      # [⑦] electron 42+ 는 postinstall 이 없어서 ① 이 초록이어도 바이너리는 아직 안 왔다.
+      # `npx electron --version` 이 첫 실행이라 여기서 내려받고, 찍히는 판본이 곧 "락이 44 를 가리키는가" 다.
+      # 창을 안 만드니 러너에서 돈다. 31 이 찍히면 락이 안 갱신된 것 — ④ 로 가기 전에 여기서 멈춘다.
+      - name: ②-b electron 바이너리 지연 다운로드 + 판본
+        run: |
+          V=$(npx electron --version)
+          echo "electron $V"
+          case "$V" in v44.*) ;; *) echo "::error::electron 판본이 44 가 아니다: $V — package-lock.json 이 안 갱신됐다"; exit 1;; esac
 
       # 손으로 조립한 icns 는 구조만 검증했지 macOS 에서 열어 본 적이 없다.
       # 정품 도구 결과로 덮어쓰고, 원본은 남겨 크기를 대조한다(둘이 많이 다르면 조립이 틀린 것).

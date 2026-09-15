@@ -1,6 +1,6 @@
 # 핸드오프 — 플랫폼 분리 ③④⑤ 완료, ⑥ 코드 완료·실측 대기
 
-작성: 2026-09-12 · 갱신 2026-09-14(§3) · **갱신 2026-09-15(§7 — ⑥ 코드)** ·
+작성: 2026-09-12 · 갱신 2026-09-14(§3) · 갱신 2026-09-15(§7 — ⑥ 코드) · **갱신 2026-09-15(§8 — ⑦ electron 44)** ·
 이전 문서: `handoff-platform-split.md`(5판)
 커밋: `2033786` (main) · CI: `mac-probe #2` 초록
 
@@ -12,6 +12,12 @@
 > **mac 판정 키 규칙도 정해졌다(번들 id).** 남은 것은 **실기기 실측 하나뿐**이고,
 > 그 목록과 순서는 **§7** 에 있다. ⑥ 을 이어받는 사람은 §4 가 아니라 **§7 부터** 읽을 것 —
 > §4 는 이제 "시작점" 이 아니라 "그때 무엇을 시작점으로 잡았는가" 의 기록이다.
+>
+> **[2026-09-15] ⑦ `electron@31 → 44` 감사가 끝났다 — §8.** `main.js` 가 부르는 Electron API 를 전수로
+> 32~44 의 깨짐 목록에 맞댔고 **코드 수정이 필요한 자리가 0곳**이다. 바뀐 파일은 `package.json` 한 줄과
+> `mac-probe.yml` 뿐이다. ⚠️ **`package-lock.json` 은 아직 31 이다** — 이 세션은 오프라인이라 락을 못 만들었다.
+> 순서는 §8-④. 그걸 건너뛰고 mac-probe 를 돌리면 ②-b 가 일부러 빨갛게 선다.
+> **[2회차]** `preload.js`·`app.js`·`firebase-init.js` 까지 봤다 — 렌더러 갈래도 0곳. §8-⑥ 의 앞 둘이 닫혔다.
 
 ---
 
@@ -205,6 +211,9 @@ try/catch 는 `sysinput-win.js` 로 갔는데 "백신·VC++·asarUnpack" 근거 
 ★ **`npm audit fix --force` 는 누르지 말 것.** `electron` · `electron-builder` 를 메이저로
 갈아 끼워서 방금 확보한 "맥에서 붙는 조합" 이 깨진다.
 
+★ **[2026-09-15] 진행 — §8.** 감사 끝·`package.json` 반영·락 재생성 대기. `electron-builder` 는
+**24 그대로 둔다**(§8-③). 위 경고는 "둘을 한꺼번에" 에 대한 것이고, §8 은 하나씩 간다.
+
 ### ⑤ ✅ 미커밋 작업물 — **닫혔다 (2026-09-14)**
 
 > **[닫음]** 네 커밋으로 정리했다.
@@ -285,7 +294,8 @@ try/catch 는 `sysinput-win.js` 로 갔는데 "백신·VC++·asarUnpack" 근거 
 
 ⑥ 을 못 열 때 갈 수 있는 곳:
 
-- **⑦ `electron@31 → 44`** — 하드웨어 불필요. 그것만으로 한 세션 크기다.
+- **⑦ `electron@31 → 44`** — 하드웨어 불필요. ~~그것만으로 한 세션 크기다.~~
+  ★ **[2026-09-15] 감사는 끝났다(§8). 남은 것은 락 재생성 → mac-probe → Windows 실기기 §8-⑤ 다.**
   ★ `npm audit fix --force` 는 누르지 말 것(§3-④).
 - **`release-notes-2026-09.md` 정리** — 문구가 「갭 확대」가 아니라 **「옛 설정값 자동 승격」**이
   되어야 한다. `handoff-overlay-video-blackout-4.md` 의 「닫음」 절을 **먼저** 읽을 것 —
@@ -549,3 +559,147 @@ displayNameOf(p) → 'Google Chrome'       ← 표시용. 설정 슬롯·달성�
 - **`PEN_APPS` mac 판** — `main.js` 에 Windows exe 이름으로 남아 있어 mac 에서는 한 번도 안 맞는다.
   §1-④ 가 「재작성」으로 잡아 둔 별건이고, 어떤 앱을 넣을지가 실측 영역이라 ⑥ 에서 손대지 않았다.
   ★ 이제 키가 번들 id 이므로 **목록도 번들 id 로 써야 한다**(`com.celsys.clipstudiopaint` 등).
+
+---
+
+## 8. ⑦ `electron@31 → 44` — 감사 완료 · 락 재생성 대기 (2026-09-15)
+
+> **여기가 ⑦ 의 머리다.** §3-④ 는 "왜 해야 하나" 의 기록이고, 이 절이 "무엇을 봤고 무엇이 남았나" 다.
+> ⚠️ **이 절은 코드를 한 줄도 안 고쳤다.** 고칠 데가 없어서다 — 그게 이 절의 결과다. 대신 아래 ②
+> 표가 "안 고친 근거" 고, 그 표 없이 "44 로 올렸다" 만 남으면 §3-① 과 같은 종류의 문서가 된다.
+>
+> ⚠️ **이 세션은 오프라인이었다.** `npm install` 을 못 돌렸고, 그래서 **`package-lock.json` 은 여전히
+> `electron@31.7.7` 을 가리킨다.** `package.json` 만 `^44.0.0` 이다. 이 둘이 어긋난 채로 `npm ci` 를
+> 부르면 npm 이 거부한다(락과 package.json 불일치) — **먼저 §8-④ 의 1 번.**
+
+### ① 무엇을 봤나 — `main.js` 가 실제로 부르는 Electron API 전수
+
+`main.js` 2900줄에서 `require('electron')` 이 꺼내는 것은 여덟이다:
+`app` `BrowserWindow` **`BrowserView`** `screen` `ipcMain` `shell` `powerMonitor` `dialog`.
+거기에 `electron-updater` 의 `autoUpdater`. 호출을 전부 뽑아 이름별로 세고(`grep -oE`), 32~44 의
+Breaking Changes 문서·각 판 릴리즈 노트에 하나씩 맞댔다. **추정으로 넘긴 항목은 ② 표에 ⚠️ 로 남겼다.**
+
+| 부류 | 쓰는 것 |
+|---|---|
+| 창 옵션 | `frame` `transparent` `alwaysOnTop` `skipTaskbar` `hasShadow` `resizable` `backgroundColor` `icon` · `webPreferences` 는 `preload` `contextIsolation:true` `nodeIntegration:false` `backgroundThrottling:false` `partition` |
+| 창 메서드 | `setIgnoreMouseEvents`(6) `setAlwaysOnTop(…,'screen-saver')`(7) `setBounds`(11) `setOpacity`(3) `flashFrame`(3) `setMinimumSize`(2) |
+| webContents | `send` `on` `executeJavaScript` `loadURL` `setAudioMuted` `setWindowOpenHandler` `setUserAgent` `session.webRequest.onBeforeRequest/onBeforeSendHeaders` `openDevTools` |
+| webContents 이벤트 | `console-message` `did-create-window` `did-finish-load` `dom-ready` `will-navigate` `will-frame-navigate` `will-redirect` `before-input-event` |
+| app | `whenReady` `getPath` `commandLine.appendSwitch`(4) `quit` `exit` `relaunch` `isPackaged` `getVersion` `requestSingleInstanceLock` `set/getLoginItemSettings` · 이벤트 `activate` `before-quit` `second-instance` `session-end` `window-all-closed` |
+| 기타 | `screen.getCursorScreenPoint`(13) `getAllDisplays` `getDisplayNearestPoint` `display-metrics-changed` · `powerMonitor.getSystemIdleTime` · `shell.openExternal/openPath/showItemInFolder` · `dialog.showOpenDialog` |
+| **안 쓰는 것** | `clipboard` `Notification` `nativeImage` `systemPreferences` `desktopCapturer` `protocol` `net` `utilityProcess` `navigationHistory` — **전부 0건.** 44 의 큰 변경 대부분이 여기 산다 |
+
+### ② 32 → 44 깨짐 목록 × 우리 코드 — 대조표
+
+| 판 | 변경 | `main.js` 의 자리 | 판정 |
+|---|---|---|---|
+| 32 | `File.path` 제거 · `navigationHistory` 로 이전 | `main.js` 안 씀 · **`app.js` 의 파일 입력 5곳(8183·10669·13789·14024·14417)은 전부 `FileReader`** — `.path` 안 읽음 | ✓ |
+| 32 | `console-message` 인자가 `(ev, level, message)` → `ev.message` | **2233** — `message` 문자열이면 그걸, 아니면 `ev.message` 를 받는다(2235 주석이 그 근거) | ✓ **이미 둘 다 받는다** |
+| 33 | `document.execCommand("paste")` 폐기 예고 | `app.js` 의 `execCommand` 14곳은 전부 `copy`·`foreColor`·`backColor`·`removeFormat`·`unlink`·`styleWithCSS` — **`paste` 는 0건** | ✓ (2회차 확인) |
+| 34 | Windows 전체화면에서 메뉴바 숨김 | 모든 창이 `frame:false`·메뉴 없음 | ✓ |
+| 35 | `WebRequestFilter.urls: []` 가 "전체" 가 아니게 됨 | **2201·2209** 필터 인자 자체가 없다 | ✓ |
+| 36 | `systemPreferences.isAeroGlassEnabled` 폐기 | 안 씀 | ✓ |
+| 38 | **macOS 11 지원 종료** | — | 설치본 요건 |
+| 40→44 | 렌더러의 `clipboard` 폐기 → **44 에서 제거** | `main.js` 0건 · **`preload.js` 가 꺼내는 것은 `contextBridge`·`ipcRenderer` 둘뿐** · `app.js` 의 `clipboard` 9곳은 전부 **`navigator.clipboard`**(웹 API — 44 가 권하는 바로 그 길) | ✓ (2회차 확인) |
+| 42 | **postinstall 제거 → 지연 다운로드.** `npm ci` 가 바이너리를 안 받고 `npx electron` 첫 실행 때 받는다. `ELECTRON_SKIP_BINARY_DOWNLOAD` 제거 | 워크플로 | ✓ `mac-probe.yml` ②-b 로 흡수 |
+| 42 | `@electron/get` 4.x → **Node ≥ 22.12 · ESM 전용** | 워크플로 | ✓ probe 잡 node 22 |
+| 42 | macOS 알림이 `UNNotification` → **서명 없으면 안 뜸** | `Notification` 0건 | ✓ (서명은 어차피 §8 의 일) |
+| 42 | `clearStorageData({quotas})` 제거 | 안 씀 | ✓ |
+| 43 | 다운로드 기본 폴더 · `nativeImage` sRGB 정규화 · Linux 둥근 모서리 | 안 씀 / Linux 안 함 | ✓ |
+| 44 | **macOS 12 지원 종료 → 최소 macOS 13(Ventura)** | — | **설치본 안내문·릴리즈노트에 적을 것** |
+| 44 | `setLoginItemSettings` 의 `openAsHidden` · `getLoginItemSettings` 의 `openAsHidden/wasOpenedAsHidden/restoreState` 제거 | **2339·2350** — `{openAtLogin, path, args}` 만 넣고 `openAtLogin` 만 읽는다 | ✓ |
+| 44 | Windows ia32 · Linux armv7l 빌드 제거 | `win.target.arch = ["x64"]` | ✓ |
+| 44 | `clipboard` 가 비동기 W3C 꼴로 재설계 | 안 씀 | ✓ |
+| 44 | `select-client-certificate` 의 `webContents` 가 null 일 수 있음 | 안 씀 | ✓ |
+| 44 | ANGLE 정적 링크(`libEGL/libGLESv2` 미동봉) | 건드린 적 없음 | ✓ |
+| 29~ | **`BrowserView` 폐기(deprecated)** — `WebContentsView` 로 | **2167 `new BrowserView` · 2218 `setBrowserView`** | ⚠️ **44 에도 살아 있다**(shim). 경고 한 줄 뜨고 동작한다 — **미교체**, §8-③ |
+| 31→44 | 메인 프로세스 Node **20 → 24** | `fs` `path` `crypto` 만 쓴다 | ✓ |
+| 31→44 | Chromium **126 → 152** | 오버레이 갭 12·레이어드 알파의 실측 근거가 **126 의 가려짐 판정**이다 | ⚠️ **실기기 재실측** — §8-⑤ |
+
+★ **`app.commandLine.appendSwitch` 넷**(`enable-transparent-visuals` · `autoplay-policy` ·
+`disable-backgrounding-occluded-windows` · `disable-renderer-backgrounding`)은 Chromium 스위치라
+Electron 의 깨짐 목록에 안 실린다. 없어진 스위치는 조용히 무시된다 — **죽지는 않지만 효과가 사라졌는지는
+실기기에서만 보인다.** `transparent` 창이 검게 뜨면 첫 번째 것을 의심할 것.
+
+★ **2235 의 주석 «Electron 31은 … 상위 버전은 event.message 로 옮겼다 — 둘 다 받는다»** 는 이 세션이
+쓴 게 아니다. **이미 그 자리에 있었다.** 예전에 누군가 다음 판을 내다보고 심어 둔 것이고, 그 덕에 ⑦ 에서
+고칠 줄이 0 이 됐다. 같은 종류의 «미리 둘 다 받기» 가 다른 곳에도 있는지는 안 봤다.
+
+### ③ 결정 셋 — 근거를 같이 적는다
+
+**ⓐ `electron-builder` 는 24.13.3 그대로 둔다.**
+§3-④ 의 경고는 «둘을 한꺼번에 메이저로» 였다. 하나씩 가면 죽었을 때 어느 쪽인지 안다.
+24 로 44 가 붙을 것이라는 근거는 락에 있다: `app-builder-lib@24.13.3` 의 의존성에 **`node-abi` 가 없다**
+(`@electron/notarize` · `osx-sign` · `universal` 셋뿐). 리빌드는 Go 바이너리(`app-builder-bin`)가
+`node-gyp rebuild --dist-url` 로 직접 돌리므로 ABI 표 갱신이 필요 없다. 그리고 네이티브 둘 다 **N-API** 다
+(`uiohook-napi` = `node-gyp-build` 프리빌드 · `node-window-manager` = `node-addon-api@2` + `node-gyp-build`) —
+Node ABI 가 20→24 로 뛰어도 다시 컴파일할 이유가 없다.
+⇒ ④ 에서 `rebuilding native dependencies` 단계가 죽으면 **그때** 26 을 별도 커밋으로 올린다.
+26 은 `@electron/rebuild` + `node-abi` 로 바뀌어 다른 종류의 문제(ABI 표 판본)가 생기므로 미리 안 간다.
+
+**ⓑ `BrowserView` 는 안 바꾼다.**
+44 문서에 `BrowserView` 페이지가 "Deprecated" 표기로 **아직 있다.** 제거 예고 판본이 없다. 이 세션의 목적은
+«31 의 지원 종료를 벗어나 붙는 조합을 다시 잡는 것» 이고, 뷰 교체는 유튜브 주입(`console-message` 를
+채널로 쓰는 1972~2240)의 동작을 통째로 다시 재야 하는 **별건 크기**다. 경고 한 줄을 안고 간다 — §8-⑥.
+
+**ⓒ mac-probe 는 probe 잡만 node 22.**
+근거는 ② 표의 42 항목. keycheck 는 electron 을 안 부르니 20 그대로 — **초록인 잡에 변수를 안 얹는다**
+(§7-5 가 "검사가 빨간가, 규칙이 빨간가" 를 가르라고 한 그 원칙).
+
+### ④ 순서 — 커밋 단위로
+
+| # | 할 것 | 초록의 모양 | 어디서 |
+|---|---|---|---|
+| 1 | `package.json` 반영본으로 **`npm install`** (`ci` 아님) → `package-lock.json` 갱신 | `npm ls electron` 이 `electron@44.x` · `git diff --stat package-lock.json` 이 electron 과 그 하위(`@electron/get` 4.x 등)만 | 로컬(온라인) |
+| 2 | `npm audit --omit=dev` | 0건 유지(§3-④ 에서 이미 0 이었다 — 44 로 늘면 안 된다) | 로컬 |
+| 3 | `npm start` 첫 실행 — **여기서 바이너리를 받는다**(42+ 지연 다운로드) | `[오버레이] 부팅 …` 로그 · Windows 이면 `레이어드 …` 줄 | **Windows 실기기** |
+| 4 | §8-⑤ 표 | 전부 초록 | Windows 실기기 |
+| 5 | `mac-probe` 수동 실행 | **세 잡 초록 + ②-b 가 `v44.x`** | Actions |
+| 6 | 커밋 하나: `package.json` · `package-lock.json` · `.github/workflows/mac-probe.yml` · 이 문서 | — | — |
+| 7 | `release-notes-2026-09.md` 에 **「macOS 13 이상」** 한 줄 | — | — |
+
+⚠️ **1 을 건너뛰고 5 로 가면 ②-b 가 일부러 빨갛다.** 그건 검사가 일한 것이다(`v31.7.7` 이 찍힌다).
+⚠️ **3·4 를 5 뒤로 미루지 말 것.** mac-probe 는 "붙는가" 만 보고 Windows 는 안 본다. 44 의 실사용자는
+전부 Windows 다.
+
+### ⑤ Windows 실기기 확인 — ⑦ 의 실측
+
+> §7-5 와 같은 원칙: **제일 비싼 미지수를 먼저.** 아래 1·2 가 나쁘면 44 를 못 올린다.
+>
+> ★ **[2026-09-15 실측 — `electron@44.3.0` · Windows · 디스플레이 2개 배율 1.5]** 1·2·3·4·7 초록.
+> 부팅 세 줄(설정 승격·레이어드·화면)이 31 과 같은 모양, 클릭 통과 왕복(`char:me` ↔ `whale.exe`) 동일,
+> BGM 재생·다음곡·음소거 됨, 검어짐 없음, 종료·로그오프 `0x80000003` 없음. §8-④ 1·2 도 닫힘
+> (`npm ls electron` = 44.3.0 · `npm audit --omit=dev` = 0건 — 8건은 전부 빌드 도구 쪽).
+> 새로 뜬 줄 둘, 둘 다 막을 일 아님:
+> - `'console-message' arguments are deprecated` — 2233 이 `ev.message` 를 이미 받는다(§8-② 32 항목의 실물).
+> - `MaxListenersExceededWarning: 11 did-stop-loading listeners` — `main.js` 에 그 이벤트가 없다.
+>   Electron 이 `loadURL()` 프로미스 안에서 붙이는 리스너가 곡 넘김의 `loadURL` 겹침으로 쌓인 것.
+>   **31 에서도 있었는지는 안 가려졌다.** 곡을 넘길수록 느는지 보고, 늘면 §8-⑥ 별건.
+> 5·6·8·9 는 이 실측에서 따로 안 봤다(4 가 초록이라 5·6 은 사실상 같이 본 셈이나 표에는 안 적는다).
+
+| # | 볼 것 | 초록의 모양 | 빨강이면 |
+|---|---|---|---|
+| 1 | **클릭 통과 + 2초 얹기** (`setIgnoreMouseEvents(…,{forward:true})` + uIOhook 커서 폴링, §5 «한 몸») | 캐릭터 위에서 잡히고, 밖에서는 아래 창이 받는다 | Chromium 152 가 `forward` 를 다르게 다루는 것 — 440 의 그 사고가 되살아난 모양. **44 보류** |
+| 2 | **`session-end` 훅 해제** (2857) | 로그오프·종료 때 `0x80000003` 없음 | §5 의 두 번째 줄 그대로 |
+| 3 | uIOhook 로드 (`sysinput-win.js` 의 try/catch) | 부팅 로그에 로드 실패 문구 없음 | N-API 인데 죽으면 프리빌드가 44 의 Node 24 와 안 맞는 것 — `uiohook-napi` 판 확인 |
+| 4 | `node-window-manager` 활성창 판정 | 등록 슬롯 `key` 가 `win:…` 로 선다 | 3 과 같은 갈래 |
+| 5 | **오버레이 검어짐** — 갭 12 · 레이어드 알파 | 유튜브 재생 중 캐릭터가 안 검어진다 | 126 의 가려짐 판정으로 잡은 값이다. 152 에서 다시 재야 하면 `handoff-overlay-video-blackout-4.md` 의 «닫음» 절부터 |
+| 6 | `transparent` 창 | 검은 사각형 없음 | `enable-transparent-visuals` 무시 의심(§8-② 별표) |
+| 7 | BGM `BrowserView` 유튜브 주입 (`TWPL:` 신호) | 재생·다음곡·광고 음소거 | 폐기 경고만 뜨고 동작해야 한다. 동작이 다르면 §8-⑥ 의 별건이 앞당겨진 것 |
+| 8 | 자동 시작 토글 (2331~2353) | 켜고 끄면 시작프로그램에 붙고 떨어진다 | `openAsHidden` 은 안 쓰니 44 제거의 영향은 없어야 한다 |
+| 9 | `autoUpdater` (`electron-updater@6`) | `checking-for-update` 로그 | electron-updater 는 electron 본체와 따로 판을 가진다 — 여기서 죽으면 electron-updater 쪽 |
+
+### ⑥ ⑦ 이 남긴 별건
+
+- ~~**`preload.js` · `app/` 의 `clipboard` 사용 여부**~~ — **닫혔다 (2026-09-15 2회차).** `preload.js` 1행이
+  `require('electron')` 에서 꺼내는 것은 `contextBridge`·`ipcRenderer` 둘뿐이고(`shell` 은 146행 주석에서만
+  나온다 — 실제 호출은 `main.js`), `app.js` 의 `clipboard` 9곳은 전부 `navigator.clipboard` 다.
+  `firebase-init.js` 는 `electron` 을 한 번도 안 부른다(gstatic ESM import 만). ⇒ 렌더러 갈래에 44 가 닿는 자리 없음.
+- **`BrowserView` → `WebContentsView`** — §8-③-ⓑ. 제거 예고가 뜨면 그때 한 세션.
+- **`electron-builder` 24 → 26** — ④ 가 리빌드에서 죽을 때만.
+- ~~**`document.execCommand("paste")`**~~ — **닫혔다 (2회차).** `app.js` 의 14곳 중 `paste` 는 0건. 리치 텍스트
+  툴바(13960~13987)의 `foreColor`·`backColor` 등은 33 의 폐기 대상이 아니다 — 폐기된 것은 **동기 붙여넣기 하나**다.
+- **`enable-transparent-visuals`** — 152 에서도 뜻이 있는지. 없으면 지운다(⑤-6 이 답).
+- **`did-stop-loading` 리스너 누적** — §8-⑤ 실측 메모. 곡 넘김마다 느는 것이 확인되면 BGM `loadURL` 을
+  앞 로드가 끝난 뒤에 부르게 직렬화한다. 44 의 새 증상인지 31 에도 있던 것인지부터 가릴 것.
+- **`app/fx-preview.html` · `app/parts/mys-test.html`** — §3-⑤ 가 «⑦ 이후 정리» 로 미뤄 둔 것. 이제 그 «이후» 다.
