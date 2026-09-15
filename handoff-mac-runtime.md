@@ -707,8 +707,9 @@ Node ABI 가 20→24 로 뛰어도 다시 컴파일할 이유가 없다.
 > «켜도 꺼진 채» 가 됐다. 원인은 2331~2353: set 에는 `path`+`args` 를 넣고 get 은 빈손으로 불러서,
 > Windows 의 `getLoginItemSettings` 가 args 붙은 등록을 못 찾았다. 찌꺼기 줄이 그걸 true 로 가려 주고 있었다.
 > ⇒ `_loginItemOpts()` 하나로 읽기·쓰기를 통일(커밋 `4dcea81`). **설치본은 `undefined` 를 받아 동작 변화 0.**
-> `npm run check` 54개 전후 동일(`sim-sysinput` 60·0). 설치본 쪽 8번(`dist\win-unpacked` 경로로 등록·해제)은
-> 이 수정 뒤에 한 번 더 볼 것.
+> `npm run check` 54개 전후 동일(`sim-sysinput` 60·0).
+> ★ **설치본 쪽 8번도 닫혔다** — `dist\win-unpacked` 앱에서 켜면 `Run` 에 그 경로로 등록, 끄면 값이 사라짐(`reg query` 실측).
+> ⇒ **§8-⑤ 에서 남은 것은 9번(`autoUpdater`) 하나이고, 그건 `--dir` 로는 못 본다 — 0.9.6 릴리즈가 첫 실측이다.**
 
 | # | 볼 것 | 초록의 모양 | 빨강이면 |
 |---|---|---|---|
