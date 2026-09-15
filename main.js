@@ -2328,26 +2328,30 @@ function createWindow() {
   ipcMain.handle('companion:getAppVersion', () => {
     try{ return app.getVersion(); }catch(e){ return null; }
   });
+  // ★ 개발 모드(npm start)에서는 electron.exe를 인자 없이 그냥 등록하면, 시작프로그램으로 실행될 때
+  //   "어떤 앱을 열어야 할지" 몰라서 Electron 기본 안내 화면이 뜸. 앱 폴더 경로를 인자로 명시해서
+  //   실제 우리 앱이 열리게 함. 정식 배포(설치) 버전은 app.isPackaged가 true가 되고, electron.exe
+  //   자체가 우리 앱 실행파일이라 이 처리가 필요 없음(오히려 건드리면 안 됨) — 그래서 개발 모드일
+  //   때만 조건부로 적용.
+  // ⚠️ [2026-09-15] **쓸 때와 읽을 때가 같은 path·args 여야 한다.** Windows 의 getLoginItemSettings 는
+  //   path·args 가 똑같은 등록만 openAtLogin=true 로 친다. 예전엔 set 에만 args 를 넣고 get 은 빈손으로
+  //   불러서, 개발 모드 토글이 "켜도 꺼진 채로" 보였다(등록은 됐는데 못 읽음). 찌꺼기로 남아 있던 인자 없는
+  //   `electron.app.Electron` 레지스트리 줄이 그걸 true 로 가려 주고 있었고, 그 줄을 지우자 드러났다.
+  //   설치본은 path·args 를 안 넣으니 이 함수가 undefined 를 돌려 준다 — 설치본 동작은 한 글자도 안 바뀐다.
+  function _loginItemOpts(){
+    return app.isPackaged ? undefined : { path: process.execPath, args: [path.resolve(__dirname)] };
+  }
   ipcMain.handle('companion:getAutoLaunch', () => {
     try{
-      const s = app.getLoginItemSettings();
+      const s = app.getLoginItemSettings(_loginItemOpts());
       return !!s.openAtLogin;
     }catch(e){ return false; }
   });
   ipcMain.handle('companion:setAutoLaunch', (e, enable) => {
     try{
-      const settings = { openAtLogin: !!enable };
-      // ★ 개발 모드(npm start)에서는 electron.exe를 인자 없이 그냥 등록하면, 시작프로그램으로 실행될 때
-      //   "어떤 앱을 열어야 할지" 몰라서 Electron 기본 안내 화면이 뜸. 앱 폴더 경로를 인자로 명시해서
-      //   실제 우리 앱이 열리게 함. 정식 배포(설치) 버전은 app.isPackaged가 true가 되고, electron.exe
-      //   자체가 우리 앱 실행파일이라 이 처리가 필요 없음(오히려 건드리면 안 됨) — 그래서 개발 모드일
-      //   때만 조건부로 적용.
-      if(!app.isPackaged){
-        settings.path = process.execPath;
-        settings.args = [path.resolve(__dirname)];
-      }
+      const settings = Object.assign({ openAtLogin: !!enable }, _loginItemOpts() || {});
       app.setLoginItemSettings(settings);
-      const s = app.getLoginItemSettings();
+      const s = app.getLoginItemSettings(_loginItemOpts());
       return !!s.openAtLogin;
     }catch(err){ return false; }
   });
