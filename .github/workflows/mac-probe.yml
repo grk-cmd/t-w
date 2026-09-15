@@ -87,11 +87,17 @@ jobs:
       # [⑦] electron 42+ 는 postinstall 이 없어서 ① 이 초록이어도 바이너리는 아직 안 왔다.
       # `npx electron --version` 이 첫 실행이라 여기서 내려받고, 찍히는 판본이 곧 "락이 44 를 가리키는가" 다.
       # 창을 안 만드니 러너에서 돈다. 31 이 찍히면 락이 안 갱신된 것 — ④ 로 가기 전에 여기서 멈춘다.
+      # ⚠️ [mac-probe #3] 첫 판은 빨갰고 **빨간 쪽은 이 검사였다.** 첫 실행은 판본 앞에
+      #   `Downloading Electron binary...` 한 줄을 먼저 찍는데, 그 첫 줄을 판본으로 읽었다.
+      #   ⇒ 다운로드를 먼저 따로 끝내고(`install-electron`), 판본은 **마지막 줄만** 본다.
+      #   ★ 실물은 v44 였다 — 검사를 무르게 푼 것이 아니라 읽는 줄을 바로잡은 것이다(§7-5 와 같은 구분).
       - name: ②-b electron 바이너리 지연 다운로드 + 판본
         run: |
-          V=$(npx electron --version)
-          echo "electron $V"
-          case "$V" in v44.*) ;; *) echo "::error::electron 판본이 44 가 아니다: $V — package-lock.json 이 안 갱신됐다"; exit 1;; esac
+          npx install-electron
+          OUT=$(npx electron --version)
+          echo "$OUT"
+          V=$(printf '%s\n' "$OUT" | tail -n 1)
+          case "$V" in v44.*) echo "electron $V — OK" ;; *) echo "::error::electron 판본이 44 가 아니다: $V — package-lock.json 이 안 갱신됐다"; exit 1;; esac
 
       # 손으로 조립한 icns 는 구조만 검증했지 macOS 에서 열어 본 적이 없다.
       # 정품 도구 결과로 덮어쓰고, 원본은 남겨 크기를 대조한다(둘이 많이 다르면 조립이 틀린 것).
