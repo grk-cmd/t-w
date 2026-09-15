@@ -298,8 +298,11 @@ try/catch 는 `sysinput-win.js` 로 갔는데 "백신·VC++·asarUnpack" 근거 
 - **⑦ `electron@31 → 44`** — 하드웨어 불필요. ~~그것만으로 한 세션 크기다.~~
   ★ **[2026-09-15] 감사는 끝났다(§8). 남은 것은 락 재생성 → mac-probe → Windows 실기기 §8-⑤ 다.**
   ★ `npm audit fix --force` 는 누르지 말 것(§3-④).
-- **`release-notes-2026-09.md` 정리** — 문구가 「갭 확대」가 아니라 **「옛 설정값 자동 승격」**이
-  되어야 한다. `handoff-overlay-video-blackout-4.md` 의 「닫음」 절을 **먼저** 읽을 것 —
+- ~~**`release-notes-2026-09.md` 정리**~~ — ⚠️ **[2026-09-15] 그 파일은 저장소에 없다.** `git ls-files` 0건.
+  §3-① 과 같은 종류(정본이라고 적힌 문서가 가리키는 파일이 없음). **새로 만들지 않았다** — 릴리즈 노트는
+  실제 릴리즈(0.9.6, `npm run release`)의 GitHub Release 본문으로 쓴다. 그때 넣을 두 줄:
+  「옛 설정값 자동 승격」(아래 근거) · **「macOS 13(Ventura) 이상」**(§8).
+  원래 항목: 문구가 「갭 확대」가 아니라 **「옛 설정값 자동 승격」**이 되어야 한다. `handoff-overlay-video-blackout-4.md` 의 「닫음」 절을 **먼저** 읽을 것 —
   실제로 제보를 끊은 것은 레이어드 알파였다.
 - **⑥ 설계만** — mac 판정 키 생성 규칙을 무엇으로 할지(번들 id `com.google.Chrome` vs
   번들 이름). 코드 없이 결정만 가능하다. 근거는 `handoff-platform-split.md` §4-b.
@@ -311,7 +314,7 @@ try/catch 는 `sysinput-win.js` 로 갔는데 "백신·VC++·asarUnpack" 근거 
 | **⑥ (실기기 있음)** | 이 파일 · `handoff-platform-split.md` · `main.js` · `overlay-win.js` · `sysinput-win.js` · `checks/sim-sysinput.js` · `handoff-overlay-video-blackout-4.md` |
 | ⑥ 설계만 | 이 파일 · `handoff-platform-split.md`(§4-b) |
 | ⑦ electron 갱신 | 이 파일 · `package.json` · `package-lock.json` |
-| 릴리즈노트 | 이 파일 · `release-notes-2026-09.md` · `handoff-overlay-video-blackout-4.md` |
+| 릴리즈노트 | 이 파일 · ~~`release-notes-2026-09.md`~~(**없음**, §6-①) · `handoff-overlay-video-blackout-4.md` |
 | 검사 쪽 | `checks/CHECKS.md` + 대상 검사 파일 |
 
 ★ **전부 저장소에 있다.** 2026-09-14 커밋으로 핸드오프·검사가 전부 버전 관리 안에 들어왔다 —
@@ -332,6 +335,8 @@ Claude 프로젝트 사본이 아니라 **저장소에서 꺼낸 것**을 올릴
 ### ④ 찾지 말 것 (헛품이다)
 
 - `handoff-mac.md` — **폐기했다.** 내용은 이 파일과 `handoff-platform-split.md` 에 다 있다.
+- `release-notes-2026-09.md` — **존재한 적이 없다**(2026-09-15 `git ls-files` 0건). 이 문서가 가리키고 있었다.
+  릴리즈 노트는 GitHub Release 본문이 정본이다(§6-①).
 - `handoff-mac-runtime.md` 를 「못 찾겠다」 — 저장소 루트에 있다. 이 파일이다.
 - `sim-sysinput.js` 의 **「65·0 판」** — `CHECKS.md` §3 이 확인했다. **실물이 나온 적 없다.**
   지금 정본은 60·0 이다.
@@ -572,7 +577,7 @@ displayNameOf(p) → 'Google Chrome'       ← 표시용. 설정 슬롯·달성�
 > - **Windows 설치본을 44 로 아직 안 만들었다.** mac-probe 는 맥만 본다. `npm run pack` 한 번으로
 >   NSIS 가 44 위에서 붙는지 보고, 그 설치본으로 §8-⑤ 8·9(자동 시작·`autoUpdater`)를 본다 —
 >   둘 다 `app.isPackaged` 가 true 여야 진짜 경로를 탄다.
-> - `release-notes-2026-09.md` 에 **「macOS 13 이상」**(§8-④ 7번).
+> - ~~`release-notes-2026-09.md` 에~~ **「macOS 13 이상」** — 그 파일은 없다(§6-①). 0.9.6 GitHub Release 본문에 넣는다.
 >
 > **여기가 ⑦ 의 머리였다.** §3-④ 는 "왜 해야 하나" 의 기록이고, 이 절이 "무엇을 봤고 무엇이 남았나" 다.
 > ⚠️ **이 절은 코드를 한 줄도 안 고쳤다.** 고칠 데가 없어서다 — 그게 이 절의 결과다. 대신 아래 ②
@@ -666,7 +671,7 @@ Node ABI 가 20→24 로 뛰어도 다시 컴파일할 이유가 없다.
 | 4 | §8-⑤ 표 | 전부 초록 | Windows 실기기 |
 | 5 | `mac-probe` 수동 실행 | **세 잡 초록 + ②-b 가 `v44.x`** | Actions |
 | 6 | 커밋 하나: `package.json` · `package-lock.json` · `.github/workflows/mac-probe.yml` · 이 문서 | — | — |
-| 7 | `release-notes-2026-09.md` 에 **「macOS 13 이상」** 한 줄 | — | — |
+| 7 | ~~`release-notes-2026-09.md` 에~~ **「macOS 13 이상」** 한 줄 → 파일 없음(§6-①). **0.9.6 GitHub Release 본문**에 | — | 릴리즈 때 |
 
 ⚠️ **1 을 건너뛰고 5 로 가면 ②-b 가 일부러 빨갛다.** 그건 검사가 일한 것이다(`v31.7.7` 이 찍힌다).
 
