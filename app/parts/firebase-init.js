@@ -189,6 +189,7 @@
   let _myPokeRef = null, _myPokeListener = null, _memberId = null, _roomCode = null;
   let _friendListListeners = {};   // {friendId: {profileUnsub, presenceUnsub, bioUnsub, avatarUnsub}} — 각 친구별 실시간 구독 정리용
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
+  let _sessionRef = null, _sessionId = null, _sessionUnsub = null, _sessionLost = false;   // 🖥️ 한 계정 한 기기(claimDeviceSession)
   // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
   /* 🔒 단, **시크릿룸 코드는 기기 밖으로 내보내지 않는다.**
      [왜 화면에서 가리는 게 아니라 여기서 막나] presence 는 친구라면 누구나 읽는 노드다. 화면에서만
@@ -516,6 +517,30 @@
          limitToLast(60) 을 쓰는 이유와 같은 규칙).
        ★ 이름은 여기서 안 읽는다 — 부르는 쪽이 이미 친구 목록의 이름을 갖고 있다.
          profile 을 한 번 더 읽으면 읽기만 늘고, 내가 보는 이름과 어긋날 수도 있다. */
+    /* 🎵 [2026-09-16 제보 4] **내 계정의 프리셋 세 벌 전부** — 계정을 이어받을 때 쓴다.
+       fetchPlaylistOf 는 파도타기용이라 한 벌만 **무작위로** 고른다(_plPickSet). 그걸로 복원하면
+       프리셋 2·3 이 사라지고, 로그아웃이 로컬 목록을 지우게 된 지금은 그게 곧 손실이다.
+       ★ 노드에 sets 가 없는 옛 판(items 만)은 items 를 0번 프리셋으로 돌려준다.
+       @return { sets:[{name, items:[{id,title}]}…], bio, homePublic } | null(노드 없음·읽기 실패) */
+    async fetchMyPlaylistSets(uid){
+      try{
+        const ps = await get(ref(db, `users/${uid}/playlist`));
+        const pv = ps.val();
+        if(!pv) return null;
+        const raw = pv.sets ? Object.values(pv.sets) : null;
+        let sets;
+        if(raw && raw.length){
+          sets = raw.map(s => ({
+            name: (s && typeof s.name === 'string') ? s.name : '',
+            items: (s && s.items) ? Object.values(s.items).filter(x => x && x.id) : [],
+          }));
+        }else{
+          const it = pv.items ? Object.values(pv.items).filter(x => x && x.id) : [];
+          sets = [{ name:'', items: it }];
+        }
+        return { sets, bio: pv.bio ? String(pv.bio) : '', homePublic: !!pv.homePublic };
+      }catch(e){ console.warn('[플레이리스트] 내 프리셋 읽기 실패', e); return null; }
+    },
     async fetchPlaylistOf(uid){
       try{
         const ps = await get(ref(db, `users/${uid}/playlist`));
@@ -621,6 +646,68 @@
         return true;
       }catch(e){ console.warn('[가챠] 소유 반영 실패', e); return false; }
     },
+    /* ===== 🧍 캐릭터 슬롯 (기기 간 동기화 · 2026-09-16 제보 6-b) =====
+         users/{uid}/slots/ts      = 172…   // 마지막으로 바꾼 시각(ms · 서버 시계)
+         users/{uid}/slots/v       = 1
+         users/{uid}/slots/s/{i}   = "{…}"  // 칸 i(0~4)의 def 를 **JSON 문자열**로. 빈 칸은 키가 없다.
+       [왜 문자열인가] def 안의 deskItems·equippedParts·partXfMemory 는 파츠 id 를 키로 쓴다.
+         그걸 RTDB 노드로 펼치면 키에 '.' '#' '$' 가 하나라도 섞이는 순간 쓰기가 거부되고,
+         규칙의 .validate 도 필드마다 다시 써야 한다. 문자열 하나면 규칙 두 줄(길이 상한 +
+         base64 금지)로 끝나고, 앱 쪽 직렬화 규칙이 바뀌어도 규칙 파일은 손댈 게 없다.
+       ⚠️ **그림·GLB 는 절대 여기에 안 실린다.** 얼굴·감은눈·동물 페인트는 방 입장과 같은
+         Storage 파일(roomface_*)의 URL 로, 커미션·커스텀 책상·커스텀 아이템 GLB 는 아래
+         uploadSlotGlb 의 URL 로 바꿔 실린다 — 변환은 전부 app.js `_slotToServerObj` 가 한다.
+         규칙 파일의 `.validate` 가 'data:…;base64' 를 거부하므로, 여기서 새는 dataURL 은
+         조용히 저장되지 않고 **쓰기 전체가 거부**된다(그래서 반환값을 버리면 안 된다).
+       ★ 병합 판정(ts 최신 승 · 연동 pull)은 전부 app.js `syncSlotsToServer` 가 한다.
+         여기는 읽기/쓰기만. 가챠와 같은 자리 나누기다.
+       ★ 통째 set — update 면 진 기기에서 지운 칸이 서버에 그대로 남는다(가챠와 같은 이유).
+       ★ 부팅 때는 ts 만 먼저 읽는다(loadSlotsTs). 슬롯 본문은 얼굴 URL·파츠 목록까지 실려
+         가챠 노드보다 훨씬 크다 — 바뀐 게 없는 부팅에서 그걸 매번 내려받을 이유가 없다. */
+    async loadSlotsTs(uid){
+      try{ const s = await get(ref(db, `users/${uid}/slots/ts`)); return Number(s.val()) || 0; }
+      catch(e){ console.warn('[슬롯] 서버 시각 읽기 실패', e); return null; }   // null = 읽기 실패(0 과 구분)
+    },
+    async loadSlotsRemote(uid){
+      try{
+        const snap = await get(ref(db, `users/${uid}/slots`));
+        const v = snap.val() || {};
+        const s = {};
+        const src = v.s || {};
+        for(const k in src){ if(typeof src[k] === 'string' && src[k]) s[k] = src[k]; }
+        return { s, ts: Number(v.ts) || 0 };
+      }
+      catch(e){ console.warn('[슬롯] 서버 사본 읽기 실패', e); return null; }   // null = 읽기 실패(값 없음과 구분)
+    },
+    async saveSlotsRemote(uid, s, ts){
+      /* 🚧 소유권이 걸린 쓰기 — syncFocusTotal 과 같은 이유로 대기선을 지난다(제보 6).
+         부팅 4.6초 push 가 세션 복원과 경주하면 구글에 묶인 계정은 첫 push 가 조용히 거부된다. */
+      await _whenAuthReady();
+      try{
+        const clean = {};
+        for(const k in (s || {})){
+          if(!/^[0-4]$/.test(k)) continue;
+          if(typeof s[k] !== 'string' || !s[k]) continue;
+          clean[k] = s[k];
+        }
+        await set(ref(db, `users/${uid}/slots`), { v: 1, s: clean, ts: Math.max(0, Math.floor(Number(ts) || 0)) });
+        return true;
+      }catch(e){ console.warn('[슬롯] 서버 반영 실패', e); return false; }
+    },
+    /* 🧍 슬롯에 딸린 GLB(커미션 베이스·커스텀 책상·커스텀 아이템)를 Storage 에.
+       key 는 app.js 가 '종류_내용해시' 로 만든다 — 같은 파일은 같은 경로라 두 번 올라가지 않고,
+       다른 파일은 다른 경로라 서로 덮지 않는다(roomface_* 와 같은 규칙).
+       ⚠️ 카탈로그 GLB(_uploadGlbIfNeeded)와 경로를 나눈다 — 그쪽은 관리자 카탈로그, 이쪽은 개인 파일. */
+    async uploadSlotGlb(userId, key, b64){
+      if(!b64 || typeof b64 !== 'string') return { ok:false, reason:'GLB 가 아니에요' };
+      const safeKey = String(key||'glb').replace(/[^a-zA-Z0-9_.-]/g, '');
+      try{
+        const storageRef = sref(storage, `users/${userId}/slotglb_${safeKey}.glb`);
+        await uploadString(storageRef, b64, 'base64', { cacheControl: STORAGE_CACHE, contentType: 'model/gltf-binary' });
+        const url = await getDownloadURL(storageRef);
+        return { ok:true, url };
+      }catch(e){ console.warn('[슬롯] GLB 업로드 실패', safeKey, e); return { ok:false, reason:'업로드에 실패했어요' }; }
+    },
     /* 🏅 👑달성표 주간 보상 — 추가 뽑기 횟수. users/{uid}/chalBonus (숫자 하나)
        ★ **gacha 노드 안에 두지 않는다.** 바로 위 saveGachaOwned 가 그 노드를 통째로 set 하는데,
          보상을 모르는 **옛 버전 클라이언트**는 {owned, ts} 만 실어 보낸다 — 그 한 번의 쓰기로
@@ -686,6 +773,10 @@
        ⚠️ 값은 절대 줄지 않는다(단조 증가). 서버 값을 낮추는 경로는 여기 없다 — 있어선 안 된다.
        반환: { ok, totalSec } — 합산 후 서버의 최신 누적치(초). */
     async syncFocusTotal(userId, addSec, baselineSec){
+      /* 🚧 [2026-09-15 제보 6] 소유권이 걸린 쓰기다 — setMyProfile 과 같은 이유로 대기선을 지난다.
+         빠져 있었다: 부팅 4초 동기화가 세션 복원과 경주해서, 구글에 묶인 계정은 첫 push 가
+         permission_denied 로 조용히 죽고 다음 10분 주기까지 이 기기의 기록이 서버에 안 갔다. */
+      await _whenAuthReady();
       try{
         const r = ref(db, `users/${userId}/focus/totalSec`);
         const CAP = 999*3600;
@@ -705,7 +796,12 @@
         });
         const v = Number(res && res.snapshot && res.snapshot.val());
         return { ok:true, totalSec: isFinite(v) ? v : want };
-      }catch(e){ return { ok:false, reason: String((e && e.message) || e) }; }
+      }catch(e){
+        const reason = String((e && e.message) || e);
+        /* 거부를 이름 붙여 돌려준다 — 부르는 쪽이 «세션이 풀렸다» 를 가려낼 유일한 근거다. */
+        const denied = /permission[_ ]denied/i.test(reason) || /PERMISSION_DENIED/.test(String(e && e.code || ''));
+        return { ok:false, reason, denied, authed: !!(auth && auth.currentUser) };
+      }
     },
     /* ═══════════ 👑 달성표 (주간 5일 달성) ═══════════
          users/{uid}/chal = { ts, week, kind, cfg, pendingCfg, auto, days, today }
@@ -1528,7 +1624,14 @@
     // 방 접속 — 내 정보를 rooms/{room}/{memberId}에 쓰고, 같은 방 전체를 실시간 구독.
     // onPoked(선택) — 다른 사람이 "내 캐릭터"를 쓰다듬거나 흔들었을 때(poke) 알림받는 콜백.
     joinRoom(room, me, onChange, onPoked) {
-      const memberId = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      /* 🕒 [2026-09-17 제보] memberId 앞부분은 **서버 시계 보정본**(_svNow)으로 만든다.
+           [무엇이 났나] «방에 가만히 있었는데 누가 들어오면 '같은 순간에…자리가 찼어요' 하고 쫓겨난다».
+             정원 초과 자기 퇴장(아래 방 리스너)은 «memberId 오름차순 = 입장순» 으로 늦게 온 사람을 가르는데,
+             앞부분이 각자 PC 의 Date.now 였다. 제보자 시계가 몇 분 앞서 있으면 나중에 들어온 사람의 id 가
+             더 작아서, 방이 찰 때마다 먼저 앉아 있던 제보자가 «늦게 온 사람» 으로 계산된다 — 반복되는 이유다.
+           [대응] 이미 있는 .info/serverTimeOffset 보정(_svNow)을 쓴다. id 형식·정렬 로직·구버전과의 정렬 호환은
+             그대로다(같은 base36 밀리초). 오프셋이 아직 안 왔으면 0 이라 예전과 같다. */
+      const memberId = 'm' + _svNow().toString(36) + Math.random().toString(36).slice(2, 8);
       _memberId = memberId; _roomCode = room;
       _myMemberRef = ref(db, `rooms/${room}/${memberId}`);
       _myMemberData = { name: me.name, def: me.def, state: me.state, userStatus: me.userStatus||null, level: me.level||1, userId: me.userId||null, lic: !!me.lic };
@@ -2057,6 +2160,35 @@
         return { ok:true, mine: !!res.committed, channel, host: (val && val.host) || null };
       }catch(_){ return null; }
     },
+    /* 🩹 [2026-09-16 제보 2] `_meta` 가 **없는** 방의 채널을 되살린다. 있으면 한 글자도 안 건드린다.
+       [무엇이 터졌나] `_meta` 를 지우는 코드는 퇴장 정리(위 _finalCleanup) 한 곳뿐인데, 동시 퇴장 대비
+         **시차 재조회**와 누군가의 재입장이 겹치면 「멤버는 있는데 `_meta` 만 없는」 방이 남는다.
+         그 방은 입장 경로가 «빈 방이면 선점, 아니면 서버 채널을 읽기만» 이라 **아무도 `_meta` 를 다시 안 쓴다.**
+         → 멤버도 방장도 워킹룸으로 떨어지고 영원히 못 돌아온다(실제 제보 방 `COZY-42W5`).
+       [왜 claimEmptyRoom 을 쓰면 안 되나] 그쪽은 `channel` 이 **이미 있어도 덮어쓴다**(빈 방 승격이 그 일이라서).
+         멤버가 있는 방에 그걸 태우면 미보유자가 들어오는 것만으로 남의 투게더룸이 워킹룸이 된다 — 사고가 커진다.
+       ⇒ 이 함수는 **`channel` 이 없을 때만** 쓴다. 트랜잭션이라 서버 값으로 다시 돌므로, 로컬 읽기가
+         실패했거나 그 사이 누가 먼저 되살렸어도 남의 값을 덮지 않는다(그때는 중단하고 그 값을 돌려준다).
+       ★ `openTs` 는 **넣지 않는다.** 이건 «방을 여는 것»이 아니라 «잃어버린 표지를 다시 세우는 것»이라,
+         넣으면 직후에 들어오는 보유자의 정상 선점(claimEmptyRoom 의 justOpened 분기)이 막힌다.
+       반환: { channel, recovered } | null(실패) */
+    async recoverRoomChannel(room, myUserId, licensed){
+      try{
+        let had = false;
+        const res = await runTransaction(ref(db, `rooms/${room}/_meta`), cur => {
+          if(cur && cur.channel){ had = true; return; }   // 이미 있다 — 중단(아무것도 안 쓴다)
+          const meta = cur || {};
+          meta.channel = licensed ? 'togetherroom' : 'workingroom';
+          if(!meta.host && myUserId) meta.host = myUserId;   // 방장이 비었을 때만 — 남의 방장을 뺏지 않는다
+          meta.ts = _svNow();
+          return meta;
+        });
+        const val = res.snapshot ? res.snapshot.val() : null;
+        const channel = (val && val.channel) || null;
+        if(!had && channel) _touchRoomIndex(room, { channel });
+        return { channel, recovered: !had && !!res.committed };
+      }catch(e){ console.warn('[방] 채널 복구 실패', e); return null; }
+    },
     /* ===== 🔒 시크릿룸 (후원자 전용 고정 투게더룸) =====
        secretRooms/{SCRT-XXXX} = { pub:{owner, name, ts}, k }
 
@@ -2234,12 +2366,27 @@
         return { ok: res.committed, meta: res.snapshot ? res.snapshot.val() : null };
       }catch(_){ return { ok:false }; }
     },
+    /* ⚠️ [2026-09-16 제보 2] 이 함수는 «투게더룸»·«워킹룸»·«모름» 셋을 **둘로 뭉갠다** —
+         읽기 실패도, `_meta` 가 아예 없는 것도 전부 `'workingroom'` 이 된다. 그래서 표지를 잃은 방이
+         «정말 워킹룸» 과 구분되지 않았고, 멤버는 조용히 채팅 없는 방에 들어갔다.
+       ⇒ 갈라 보고 싶으면 아래 `getRoomChannelEx` 를 쓸 것. 이 함수는 **옛 호출부 호환으로 남긴다**
+         (구버전 폴백 경로가 아직 부른다). 새 코드에서 이걸 쓰지 말 것. */
     async getRoomChannel(room){
       try{
         const snap = await get(ref(db, `rooms/${room}/_meta`));
         const meta = snap.val();
         return (meta && meta.channel) ? meta.channel : 'workingroom';   // 구버전 방은 무료로 간주
       }catch(_){ return 'workingroom'; }
+    },
+    /* 🩹 셋을 가른 판. { channel:'togetherroom'|'workingroom' } · { channel:null } = 표지 없음 · null = 읽기 실패.
+       «표지 없음» 과 «읽기 실패» 를 굳이 가르는 이유: 전자는 되살려야 하고, 후자는 아무것도 하면 안 된다
+       (네트워크가 나쁜 순간에 남의 투게더룸을 워킹룸으로 되살리면 그게 더 큰 사고다). */
+    async getRoomChannelEx(room){
+      try{
+        const snap = await get(ref(db, `rooms/${room}/_meta`));
+        const meta = snap.val();
+        return { channel: (meta && meta.channel) ? meta.channel : null };
+      }catch(e){ console.warn('[방] 채널 조회 실패', e); return null; }
     },
 
     // ---- 라이선스 (관리자 직접 발급 방식) ----
@@ -3068,6 +3215,53 @@
       }
     },
     async authSignOut(){ if(auth){ try{ await fbSignOut(auth); }catch(_){} } },
+
+    /* ═══════════ 🖥️ 한 계정 한 기기 — users/{uid}/session ═══════════ [2026-09-17 제보 3 · 시안 확정]
+       [제보] 서브 PC 와 기본 PC 둘 다 로그인해 두면 투게더룸·워킹룸에 다중 접속이 된다. 한쪽에 로그인하면
+         다른 쪽은 풀리거나 접속이 막혔으면 한다. 제보 ②(오프라인으로 둔 계정이 온라인으로 뜸)도 같은
+         뿌리다 — presence 는 계정당 한 노드인데 두 기기가 각자 쓰고 각자 onDisconnect 를 건다.
+       [구조] users/{uid}/session = { id, at }. 부팅 때 id 를 새로 뽑아 쓰고 그 노드를 구독한다.
+         내가 쓴 id 가 아닌 값이 오면 **이 기기는 밀려난 것** — 방에서 나오고 presence 쓰기를 멈추고
+         app.js 가 차단 화면을 띄운다. «여기서 계속 쓰기» 는 다시 claim 하는 것이고, 그러면 반대쪽이 밀린다.
+       ★ 로그아웃이 아니다. 로그아웃(_loginDoLogout)은 올리고→검문→지움이 도는 무거운 길이라 원격 신호로
+         돌리면 검문에 걸린 기기가 반쯤 남는다. 밀려난 기기는 신원·소지품 그대로, **방 접속과 presence 만** 놓는다.
+       ★ 로그인 계정만 대상이다. 로그인 없이는 두 기기가 같은 uid 를 가질 일이 없고, 규칙도 auth 로 잠근다.
+       ⚠️ 규칙 파일에 이 블록이 없으면 쓰기가 조용히 거부돼 **지금과 똑같이 둘 다 그대로**다(더 나빠지지 않는다).
+         필요한 규칙:  "session": {
+                       ".write": "root.child('userAuth/'+$uid).exists() && root.child('userAuth/'+$uid).val() === auth.uid",
+                       ".validate": "!newData.exists() || (newData.hasChildren(['id','at']) && ...)" }   ← 실제 문구는 규칙 파일
+       ⚠️ presence 를 여기서 false 로 쓰지 않는다 — 그 노드는 이제 이긴 쪽 것이다. 내 onDisconnect 만 거둔다. */
+    claimDeviceSession(userId, onLost){
+      if(!userId) return Promise.resolve(false);
+      return _whenAuthReady().then(async ()=>{
+        if(!(auth && auth.currentUser)) return false;           // 로그인 안 한 기기 — 대상 아님
+        const myId = 's' + _svNow().toString(36) + Math.random().toString(36).slice(2, 8);
+        _sessionId = myId; _sessionLost = false;
+        if(_sessionUnsub){ try{ _sessionUnsub(); }catch(_){} _sessionUnsub = null; }
+        _sessionRef = ref(db, `users/${userId}/session`);
+        try{ await set(_sessionRef, { id: myId, at: serverTimestamp() }); }
+        catch(e){ console.warn('[세션] 기기 세션 기록 실패(규칙 미배포?) — 다중 접속 차단 없이 계속', e); _sessionRef = null; return false; }
+        _sessionUnsub = onValue(_sessionRef, snap => {
+          const v = snap.val();
+          if(!v || !v.id || v.id === _sessionId || _sessionLost) return;
+          _sessionLost = true;
+          /* presence 를 놓는다 — 내 onDisconnect 가 남아 있으면 내가 꺼질 때 이긴 쪽을 오프라인으로 만든다. */
+          try{ if(_myPresenceRef) onDisconnect(_myPresenceRef).cancel(); }catch(_){}
+          _myPresenceRef = null;
+          try{ if(typeof onLost === 'function') onLost(v); }catch(_){}
+        });
+        return true;
+      });
+    },
+    deviceSessionLost(){ return !!_sessionLost; },
+    /* 로그아웃·연동 해제 때 — 내 것일 때만 지운다(남의 세션을 지우면 그쪽이 밀린다). */
+    async releaseDeviceSession(){
+      if(_sessionUnsub){ try{ _sessionUnsub(); }catch(_){} _sessionUnsub = null; }
+      if(_sessionRef && _sessionId && !_sessionLost){
+        try{ await runTransaction(_sessionRef, cur => (cur && cur.id === _sessionId) ? null : undefined); }catch(_){}
+      }
+      _sessionRef = null; _sessionId = null; _sessionLost = false;
+    },
 
     /* 🔁 결속 고쳐 매기 — 이 구글 계정이 **잘못된 유저 코드**에 묶였을 때의 유일한 출구.
        [왜 데이터를 옮기지 않는가] 마이홈·친구·인박스·방명록은 users/{유저코드} 아래 제자리에

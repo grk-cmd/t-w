@@ -113,13 +113,18 @@ chk(/r\.switched[\s\S]{0,400}(종료|다시 실행)/.test(UI),
     '③ 갈아탄 뒤 안내가 재시작을 말한다');
 chk(/canceled\s*\?\s*''/.test(UI), '⑦ 취소했을 때는 빨간 오류를 띄우지 않는다');
 
-/* 로그아웃이 연동 해제와 **같은 자리**를 지우는가 — 한쪽만 고치면 두 경로가 어긋난다 */
+/* 로그아웃이 연동 해제와 **같은 자리**를 지우는가 — 한쪽만 고치면 두 경로가 어긋난다
+   [2026-09-16 제보 4] 지우는 목록이 함수 본문에서 ACCOUNT_LOCAL_KEYS 한 벌로 옮겨 갔다.
+     예전 판정(«본문에 removeItem(키) 가 있다»)은 그 구조에서 거짓 빨강이 된다 — 목록에 있는지로 본다.
+     상세(소지품·검문)는 sim-account-switch.js 가 본다. */
+const KEYLIST = (SRC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';
 if (F_OUT){
+  chk(F_OUT.includes('_detachAccountLocal'), '로그아웃이 지움 한 벌(_detachAccountLocal)을 부른다');
   ['MY_USER_ID_KEY','INVITE_PASS_KEY','MY_FRIEND_CODE_KEY'].forEach(k =>
-    chk(F_OUT.includes('removeItem(' + k + ')'), '로그아웃이 ' + k + ' 를 지운다'));
+    chk(new RegExp('\\b' + k + '\\b').test(KEYLIST), '로그아웃이 ' + k + ' 를 지운다 (ACCOUNT_LOCAL_KEYS)'));
   chk(F_OUT.includes('authSignOut'), '로그아웃이 Auth 세션도 끊는다');
-  chk(F_OUT.includes('FOCUS_SYNCED_KEY'),
-      '로그아웃이 집중 누적 마크를 맞춘다 (다음 계정으로 증분이 밀려들어가지 않게)');
+  chk(/\bFOCUS_SYNCED_KEY\b/.test(KEYLIST),
+      '로그아웃이 집중 누적 마크를 지운다 (다음 계정으로 증분이 밀려들어가지 않게 — 마크 없음 = 증분 0)');
 }
 /* 부팅 스냅샷은 로그인된 기기에서만 — 조건 없이 돌리면 남의 유저 코드로 쓰기가 나갈 수 있다 */
 chk(/if\(!getMyLoginEmail\(\)\)\s*return/.test(UI),

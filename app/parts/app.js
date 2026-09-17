@@ -743,7 +743,8 @@ function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Obj
     //   p.userData.autoScale(지금 막 새로 계산된 값), savedAdj.scale(이번에 실제로 적용될 최종값)을 비교.
     console.log('[아이템크기-복원]', id, '| holder=', holder===cBase?'생성기':(holder===lHolder?'런처':'실행'),
       '| 저장된 autoScale=', e.autoScale, '| 저장된 adj.scale=', e.adj.scale,
-      '| 지금 계산된 autoScale=', p.userData.autoScale, '| 최종 적용 scale=', savedAdj.scale);
+      '| 지금 계산된 autoScale=', p.userData.autoScale, '| 최종 적용 scale=', savedAdj.scale,
+      '| rot=', savedAdj.rot);   // 🔄 [제보 4] 회전이 저장까지 왔는지 한눈에
     Object.assign(p.userData.adj,savedAdj);applyDeskAdj(p);
     // ★ 런처3-1: 저장된 아이템 색상(colors) 복원 — 그룹별로 material.color/emissive를 갱신.
     //   저장된 colors에 없는 그룹은 원본색(origColor)으로 강제 복원 — 예전에 저장된 색이 남지 않게.
@@ -7979,6 +7980,26 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
   }
   const rwBtn=document.getElementById('fsResetWinPos');
   if(rwBtn) rwBtn.onclick=()=>{ resetAllWinPositions(); };
+  /* 🔍 전체 화면 크기 — 캐릭터와 창을 함께(렌더러 줌) [2026-09-16 제보 3-2 · F-1 · 시안 확정]
+     [경위] Ctrl+Shift++ / Ctrl+- 는 우리 코드에 없는 일렉트론 기본 줌이라 몇 %인지 알 길도 되돌릴 기준도 없었다.
+     ★ 값은 **main.js(applyUiZoom) 한 곳**에만 있다. 이 버튼도 단축키도 Ctrl+휠도 거기로 가고, 바뀐 값은
+       onUiZoom 으로 돌아온다 — 그래서 여기서는 숫자를 «받아서 보여 주기만» 한다(어느 길로 바꿔도 맞는다).
+     ⚠️ 이 줌은 캐릭터 탭의 «화면 크기»(_charScaleMap · 아바타존만)와 다른 값이다. 둘 다 남긴다.
+     ⚠️ 구버전 앱(preload 에 uiZoom 없음)에서는 행을 숨긴다 — 눌러도 아무 일이 없는 버튼을 두지 않는다. */
+  (function initUiZoomRow(){
+    const row = document.getElementById('fsUiZoomRow');
+    if(!row) return;
+    const api = (window.companion && typeof companion.uiZoom === 'function') ? companion : null;
+    if(!api){ row.style.display = 'none'; return; }
+    row.style.display = '';
+    const pct = document.getElementById('fsUiZoomPct');
+    const show = (z) => { if(pct && typeof z === 'number' && isFinite(z)) pct.textContent = Math.round(z * 100) + '%'; };
+    const send = (op) => { try{ Promise.resolve(api.uiZoom(op)).then(show).catch(()=>{}); }catch(_){} };
+    const b = (id, op) => { const el = document.getElementById(id); if(el) el.onclick = () => send(op); };
+    b('fsUiZoomOut', 'out'); b('fsUiZoomIn', 'in'); b('fsUiZoomReset', 'reset');
+    if(typeof api.onUiZoom === 'function') api.onUiZoom(show);
+    send('get');
+  })();
   /* 🪑 좌석 크기 평준화 — 내 화면에서만, 서버에는 안 쓴다(seatEqK 주석 참고). */
   const eqBtn=document.getElementById('fsSeatEqToggle');
   if(eqBtn) eqBtn.onclick=()=>{
@@ -11646,6 +11667,37 @@ function _waitForFirebaseAPI(cb, tries){
      permission_denied 로 떨어진다. 거부는 화면에 아무 표시도 안 남긴다 — 유저에게는
      "이름이 안 바뀐다 / 친구가 사라졌다"로만 보인다.
    ⚠️ 막지 않는다. 알려주기만 한다 — 고치는 방법은 [설정 → 계정]에서 로그인 한 번이다. */
+/* ═══ 🖥️ 한 계정 한 기기 — 밀려난 기기의 처리 [2026-09-17 제보 3 · 시안 확정(왼쪽)] ═══════════════
+   firebase-init.js claimDeviceSession 주석이 구조다. 여기는 «밀려난 뒤 이 기기가 하는 일» 뿐이다:
+     방에서 나온다(doLeaveRoom) · 방 입장을 막는다(startRoom 첫 줄) · 차단 화면을 띄운다.
+   ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. 로그아웃은 사람이 눌러야 도는 길이다(_loginDoLogout).
+   «여기서 계속 쓰기» = 다시 claim → 반대쪽이 이 화면을 본다. «앱 닫기» = quitApp. */
+window._deviceSessionLost = false;
+function _onDeviceSessionLost(){
+  if(window._deviceSessionLost) return;
+  window._deviceSessionLost = true;
+  try{ if(typeof doLeaveRoom === 'function') Promise.resolve(doLeaveRoom()).catch(()=>{}); }catch(_){}
+  const ov = document.getElementById('deviceSessionOverlay');
+  if(ov) ov.style.display = 'flex';
+}
+function _deviceSessionContinueHere(){
+  const ov = document.getElementById('deviceSessionOverlay');
+  if(ov) ov.style.display = 'none';
+  window._deviceSessionLost = false;
+  const myId = getMyUserId();
+  try{
+    if(window.firebaseAPI && firebaseAPI.claimDeviceSession) firebaseAPI.claimDeviceSession(myId, _onDeviceSessionLost);
+    /* presence 재등록 — 밀릴 때 _myPresenceRef 를 놓았으므로 setMyPresenceOnline 의 «중복 등록 방지» 를 지나 다시 건다. */
+    if(window.firebaseAPI && firebaseAPI.setMyPresenceOnline) firebaseAPI.setMyPresenceOnline(myId);
+  }catch(_){}
+}
+{
+  const b1 = document.getElementById('deviceSessionContinue');
+  const b2 = document.getElementById('deviceSessionQuit');
+  if(b1) b1.onclick = _deviceSessionContinueHere;
+  if(b2) b2.onclick = ()=>{ try{ if(window.companion && companion.quitApp) companion.quitApp(); else window.close(); }catch(_){} };
+}
+
 let _ownerWriteWarned = false;
 function _warnOwnerWriteDenied(what, err){
   const denied = String((err && (err.code || err.message)) || '').toLowerCase().includes('permission');
@@ -11661,6 +11713,9 @@ async function initMyHome(){
     const myId = getMyUserId();
     try{
       firebaseAPI.setMyPresenceOnline(myId);
+      /* 🖥️ [2026-09-17 제보 3] 한 계정 한 기기 — 로그인 계정이면 이 기기를 «지금 쓰는 기기» 로 적는다.
+         다른 기기가 나중에 적으면 _onDeviceSessionLost 가 불린다. 규칙 미배포·미로그인이면 false 로 조용히 지나간다. */
+      try{ if(firebaseAPI.claimDeviceSession) firebaseAPI.claimDeviceSession(myId, _onDeviceSessionLost); }catch(_){}
       /* 🧱 쓰기와 구독 사이에 벽을 세운다 — **이 두 줄이 예전에는 맨몸이었다.**
          [경위] 규칙 게시 직후 제보: "구글 연동한 유저만 친구 목록이 통째로 사라진다."
            데이터는 RTDB 에 멀쩡히 살아 있었고 읽기 규칙도 열려 있었다. 사라진 것은 목록이
@@ -14485,65 +14540,77 @@ function _mhBindStickerResize(handle, sid){
   let _mhDsWin=null, _mhDsTab='home';
   window._mhDsClose = ()=>{ try{ if(_mhDsWin && !_mhDsWin.closed) _mhDsWin.close(); }catch(_){} _mhDsWin=null; };
   const DS_HTML = '<!doctype html><html><head><meta charset="utf-8"><style>'+
-    'body{margin:0;overflow:hidden;background:#c0c0c0;font-family:Tahoma,sans-serif;height:100vh;box-sizing:border-box;'+
-    'border:2px solid;border-color:#fff #404040 #404040 #fff;display:flex;flex-direction:column;}'+
-    '#dsTitle{height:22px;margin:2px;padding:0 5px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;'+
-    'background:linear-gradient(90deg,#7a5a10,#c9a227);color:#fff;font-size:11.5px;font-weight:bold;user-select:none;-webkit-app-region:drag;}'+
+    /* 🎨 [2026-09-15 제보 5] 테마 토큰은 applyThemeToChildDoc 가 넣는다(방명록과 같다). 이 창의 타이틀·프리셋 줄은
+       **두 테마 모두 금색** — 유료 표시라 액센트를 안 탄다(--win-title-premium 이 테마별 금색을 정한다). */
+    'html{--ds-body:#d8d8d8;}html[data-theme=bubble]{--ds-body:#FBFCFC;}'+
+    /* [2026-09-16 제보 5 후속] 창 모서리는 **위 두 개만** 둥글다. 자식 창은 BrowserWindow 하나가 통째로 이
+       body 라 아래까지 둥글리면 창 바닥 모서리가 깎여 보인다 — 마이홈 창(본창 안 div)과 같은 인상이 되게 아래는 사각. */
+    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,sans-serif);height:100vh;box-sizing:border-box;'+
+    'border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius,0px) var(--win-radius,0px) 0 0;color:var(--win-ink,#000);display:flex;flex-direction:column;}'+
+    /* [2026-09-16 제보 5 후속 · 시안 A] 플레이리스트 바(#myPlHead)와 같은 문법으로.
+       ① margin 을 뺀다 — 2px 여백이 있으면 창 테두리와 바 사이에 흰 선이 보여 «붙어 있지 않은» 인상이 된다.
+       ② 아래 모서리는 사각(위만 --win-radius-2px). 창 body 가 위만 둥근 것과 짝을 맞춘다.
+       ③ 글씨 흰 그림자 + 바 아래 안쪽 그림자 — 플레이리스트 바의 입체감이 이 두 줄에서 나온다.
+       ⚠️ 기본(각진) 테마에서는 --win-radius 가 0 이라 모서리 값이 전부 0 이 되고, 그림자 두 줄만 남는다.
+         그 두 줄은 본창 타이틀바(.win98titlebar)도 테마와 무관하게 쓰고 있어 어긋나지 않는다. */
+    '#dsTitle{height:22px;padding:4px 5px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-sizing:border-box;'+
+    'background:var(--win-title-premium,linear-gradient(90deg,#7a5a10,#c9a227));color:var(--win-title-premium-ink,#fff);border-radius:max(0px,calc(var(--win-radius,0px) - 2px)) max(0px,calc(var(--win-radius,0px) - 2px)) 0 0;font-size:11.5px;font-weight:bold;user-select:none;-webkit-app-region:drag;'+
+    'text-shadow:0 1px 0 rgba(255,255,255,.5);box-shadow:inset 0 -1px 0 rgba(0,0,0,.10);}'+
     '#dsClose{width:16px;height:14px;font-size:9px;line-height:1;cursor:pointer;padding:0;flex-shrink:0;-webkit-app-region:no-drag;'+
-    'background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff;color:#000;}'+
+    'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);color:var(--win-ink,#000);}'+
     // 👑 디자인 프리셋 줄 — 줄 하나·칸 셋·버튼 하나. 이 창은 항목이 많아 스크롤이 생기므로
     //   위에서 먹는 높이가 곧 비용이다. 27px 안으로 유지할 것.
     '#dsPresets{display:flex;align-items:center;gap:4px;margin:6px 6px 0;padding:4px 6px;flex-shrink:0;'+
-    'background:#e8e4d2;border:1px solid;border-color:#404040 #fff #fff #404040;}'+
+    'background:#e8e4d2;border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#dsPresets .ps-cap{flex:none;font-size:10px;color:#8a6d1f;font-weight:bold;}'+
-    '#dsPresets .ps-tab{flex:1;min-width:0;height:19px;padding:0 4px;font-size:10.5px;cursor:pointer;color:#222;'+
-    'background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff;'+
+    '#dsPresets .ps-tab{flex:1;min-width:0;height:19px;padding:0 4px;font-size:10.5px;cursor:pointer;color:var(--win-ink,#222);'+
+    'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);'+
     'display:flex;align-items:center;justify-content:center;gap:3px;overflow:hidden;white-space:nowrap;}'+
-    '#dsPresets .ps-tab.cur{background:#fff;font-weight:bold;border-color:#404040 #fff #fff #404040;}'+
+    '#dsPresets .ps-tab.cur{background:#fff;font-weight:bold;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#dsPresets .ps-tab.armed{background:#fff;color:#c0392b;font-weight:bold;}'+
     '#dsPresets .ps-dot{width:7px;height:7px;flex:none;border:1px solid #8a8a8a;background:#d8d8d8;}'+
     '#dsPresets .ps-nm{overflow:hidden;text-overflow:ellipsis;}'+
-    '#dsPresets .ps-nm.empty{color:#6b6b6b;font-weight:normal;}'+
-    '#dsPresets .ps-save{flex:none;height:19px;padding:0 7px;font-size:10px;cursor:pointer;color:#222;'+
-    'background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff;display:flex;align-items:center;}'+
+    '#dsPresets .ps-nm.empty{color:var(--win-ink-soft,#6b6b6b);font-weight:normal;}'+
+    '#dsPresets .ps-save{flex:none;height:19px;padding:0 7px;font-size:10px;cursor:pointer;color:var(--win-ink,#222);'+
+    'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);display:flex;align-items:center;}'+
     '#dsPresets .ps-save.armed{color:#c0392b;font-weight:bold;}'+
     '#dsPresets .ps-edin{flex:1;min-width:0;height:19px;padding:0 3px;text-align:center;'+
-    'font-family:Tahoma,sans-serif;font-size:10.5px;color:#222;background:#fff;'+
-    'border:1px solid;border-color:#404040 #fff #fff #404040;}'+
+    'font-family:var(--win-font,Tahoma,sans-serif);font-size:10.5px;color:var(--win-ink,#222);background:#fff;'+
+    'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#dsTabs{display:flex;gap:2px;padding:6px 8px 0;flex-shrink:0;}'+
-    '.ds-tab{font-family:Tahoma,sans-serif;font-size:11px;padding:4px 14px;cursor:pointer;color:#555;'+
-    'background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff;}'+
-    '.ds-tab.on{font-weight:bold;color:#000;background:#fff;}'+
-    '#dsBody{flex:1;min-height:0;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;margin:0 4px;background:#d8d8d8;}'+
+    '.ds-tab{font-family:var(--win-font,Tahoma,sans-serif);font-size:11px;padding:4px 14px;cursor:pointer;color:var(--win-ink-soft,#555);'+
+    'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
+    '.ds-tab.on{font-weight:bold;color:var(--win-ink,#000);background:#fff;}'+
+    '#dsBody{flex:1;min-height:0;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;margin:0 4px;background:var(--ds-body,#d8d8d8);border-radius:var(--win-radius-sm,0px);}'+
     '.ds-group{font-size:10px;color:#8a6d1f;font-weight:bold;margin:6px 0 2px;border-bottom:1px solid #b8a86a;padding-bottom:2px;}'+
-    '.ds-row{display:flex;align-items:center;gap:4px;font-size:11px;color:#222;padding:2px 0;}'+
+    '.ds-row{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--win-ink,#222);padding:2px 0;}'+
     '.ds-row .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'+
-    '.ds-sw{width:24px;height:18px;flex-shrink:0;cursor:pointer;border:1px solid;border-color:#404040 #fff #fff #404040;background:#fff;position:relative;}'+
+    '.ds-sw{width:24px;height:18px;flex-shrink:0;cursor:pointer;border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);background:#fff;position:relative;}'+
     '.ds-sw.none:after{content:"\\2014";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;}'+
-    '.ds-btn{font-family:Tahoma,sans-serif;font-size:10px;height:18px;padding:0 6px;cursor:pointer;flex-shrink:0;color:#222;'+
-    'background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff;}'+
+    '.ds-btn{font-family:var(--win-font,Tahoma,sans-serif);font-size:10px;height:18px;padding:0 6px;cursor:pointer;flex-shrink:0;color:var(--win-ink,#222);'+
+    'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
     '.ds-btn.imgon{background:#dcefd8;font-weight:bold;}'+
     '.ds-imgrow{display:flex;gap:3px;margin:2px 0 4px 12px;}'+
     '.ds-imghint{font-size:9px;color:#8a8578;line-height:1.4;margin:0 0 6px 12px;}'+
-    '.ds-imgrow input{flex:1;min-width:0;font-family:Tahoma,sans-serif;font-size:10px;padding:2px 4px;'+
-    'border:1px solid;border-color:#404040 #fff #fff #404040;}'+
+    '.ds-imgrow input{flex:1;min-width:0;font-family:var(--win-font,Tahoma,sans-serif);font-size:10px;padding:2px 4px;'+
+    'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#dsFoot{display:flex;align-items:center;gap:6px;padding:6px 8px;flex-shrink:0;border-top:1px solid #999;}'+
-    '#dsFoot button{font-family:Tahoma,sans-serif;font-size:11px;padding:3px 12px;cursor:pointer;color:#222;'+
-    'background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;}'+
+    '#dsFoot button{font-family:var(--win-font,Tahoma,sans-serif);font-size:11px;padding:3px 12px;cursor:pointer;color:var(--win-ink,#222);'+
+    'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
     // 컬러 팝업 (opener의 _mhOpenColorPopup이 이 문서에 그려넣음)
-    '.mh-color-pop{position:absolute;background:#c0c0c0;z-index:9999;padding:6px;'+
-    'border:2px solid;border-color:#fff #404040 #404040 #fff;box-shadow:2px 2px 5px rgba(0,0,0,.25);'+
-    'font-family:Tahoma,sans-serif;font-size:10px;color:#333;user-select:none;}'+
-    '.mh-color-pop .lbl{margin:4px 0 2px;color:#555;}'+
+    '.mh-color-pop{position:absolute;background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);z-index:9999;padding:6px;'+
+    'border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);box-shadow:2px 2px 5px rgba(0,0,0,.25);'+
+    'font-family:var(--win-font,Tahoma,sans-serif);font-size:10px;color:var(--win-ink,#333);user-select:none;}'+
+    '.mh-color-pop .lbl{margin:4px 0 2px;color:var(--win-ink-soft,#555);}'+
     '.mh-color-pop .grid{display:grid;grid-template-columns:repeat(8,14px);gap:2px;}'+
     '.mh-color-pop .sw{width:14px;height:14px;cursor:pointer;border:1px solid #999;box-sizing:border-box;}'+
     '.mh-color-pop .sw:hover{outline:1px solid #000;outline-offset:-1px;}'+
     '.mh-color-pop .row{display:flex;gap:2px;align-items:center;}'+
     '.mh-color-pop input[type=color]{width:22px;height:18px;padding:0;border:1px solid #999;cursor:pointer;background:none;}'+
-    '.mh-color-pop .hex{flex:1;min-width:0;font-family:Tahoma,sans-serif;font-size:10px;padding:1px 3px;'+
-    'border:1px solid #404040;background:#fff;color:#222;}'+
-    '.mh-color-pop .reset{margin-left:auto;font-size:10px;padding:1px 6px;cursor:pointer;background:#c0c0c0;'+
-    'border:1px solid;border-color:#fff #404040 #404040 #fff;}'+
+    '.mh-color-pop .hex{flex:1;min-width:0;font-family:var(--win-font,Tahoma,sans-serif);font-size:10px;padding:1px 3px;'+
+    'border:1px solid #404040;background:#fff;color:var(--win-ink,#222);}'+
+    '.mh-color-pop .reset{margin-left:auto;font-size:10px;padding:1px 6px;cursor:pointer;background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);'+
+    'border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
     '</style></head><body>'+
     '<div id="dsTitle"><span>\uD83D\uDC51 \uD504\uB9AC\uBBF8\uC5C4 \uB514\uC790\uC778</span><button id="dsClose">\u2715</button></div>'+
     '<div id="dsPresets"></div>'+
@@ -14851,6 +14918,7 @@ function _mhBindStickerResize(handle, sid){
     if(!_mhDsWin){ toast('디자인 창을 열 수 없어요'); return; }
     const d=_mhDsWin.document;
     d.open(); d.write(DS_HTML); d.close();
+    applyThemeToChildDoc(d);   // 🎨 [제보 5] 방명록과 같은 구조(별도 BrowserWindow)
     d.getElementById('dsClose').onclick=()=>{ try{ _mhDsWin.close(); }catch(_){} };
     d.getElementById('dsDone').onclick=()=>{ commitMyHomePage(true); try{ _mhDsWin.close(); }catch(_){} };
     // ★ confirm()은 Electron 투명 창에서 렌더러를 블로킹한 채 다이얼로그가 안 보여
@@ -15035,23 +15103,38 @@ function _mhBindStickerResize(handle, sid){
     return Array.from(t)[0] || '';
   }
   const GB_HTML = '<!doctype html><html><head><meta charset="utf-8"><style>'+
-    'body{margin:0;overflow:hidden;background:#c0c0c0;font-family:Tahoma,sans-serif;height:100vh;box-sizing:border-box;'+
-    'border:2px solid;border-color:#fff #404040 #404040 #fff;display:flex;flex-direction:column;}'+
-    '#gbTitle{height:22px;margin:2px;padding:0 5px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;'+
-    'background:linear-gradient(90deg,#000080,#1084D0);color:#fff;font-size:11.5px;font-weight:bold;user-select:none;-webkit-app-region:drag;}'+
+    /* 🎨 [2026-09-15 제보 5] 테마 토큰. --win-*·--acc-* 는 창을 열 때 applyThemeToChildDoc 가 메인 문서에서 읽어
+       <style id=twThemeTokens> 로 넣어 준다. 아래는 방명록 **고유색** — 기본 테마는 예전 값 그대로, 버블은 액센트로.
+       모든 var() 에 예전 값을 폴백으로 둬서 토큰이 안 들어와도 옛 모습 그대로다. */
+    'html{--gb-clap:#1440c8;--gb-label:#c0392b;--gb-link:#2a4fa8;--gb-rule:#f2f2f2;--gb-note:#eee;}'+
+    'html[data-theme=bubble]{--gb-clap:var(--acc-d);--gb-label:var(--acc-d);--gb-link:var(--acc-d);--gb-rule:var(--acc-tint);--gb-note:var(--acc-tint);}'+
+    /* 피치·민트는 --acc-d 가 너무 옅어 흰 글씨가 안 읽힌다 — 한 단계 진하게 */
+    'html[data-theme=bubble][data-accent=c4]{--gb-clap:#E39BB5;--gb-label:#C9708F;--gb-link:#C9708F;}'+
+    'html[data-theme=bubble][data-accent=c5]{--gb-clap:#7CC4B0;--gb-label:#5FA894;--gb-link:#5FA894;}'+
+    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,sans-serif);height:100vh;box-sizing:border-box;'+
+    'border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius,0px) var(--win-radius,0px) 0 0;color:var(--win-ink,#000);display:flex;flex-direction:column;}'+
+    /* [2026-09-16 제보 5 후속 · 시안 A] 플레이리스트 바(#myPlHead)와 같은 문법으로.
+       ① margin 을 뺀다 — 2px 여백이 있으면 창 테두리와 바 사이에 흰 선이 보여 «붙어 있지 않은» 인상이 된다.
+       ② 아래 모서리는 사각(위만 --win-radius-2px). 창 body 가 위만 둥근 것과 짝을 맞춘다.
+       ③ 글씨 흰 그림자 + 바 아래 안쪽 그림자 — 플레이리스트 바의 입체감이 이 두 줄에서 나온다.
+       ⚠️ 기본(각진) 테마에서는 --win-radius 가 0 이라 모서리 값이 전부 0 이 되고, 그림자 두 줄만 남는다.
+         그 두 줄은 본창 타이틀바(.win98titlebar)도 테마와 무관하게 쓰고 있어 어긋나지 않는다. */
+    '#gbTitle{height:22px;padding:4px 5px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-sizing:border-box;'+
+    'background:var(--win-title-grad,linear-gradient(90deg,#000080,#1084D0));color:var(--win-title-ink,#fff);border-radius:max(0px,calc(var(--win-radius,0px) - 2px)) max(0px,calc(var(--win-radius,0px) - 2px)) 0 0;font-size:11.5px;font-weight:bold;user-select:none;-webkit-app-region:drag;'+
+    'text-shadow:0 1px 0 rgba(255,255,255,.5);box-shadow:inset 0 -1px 0 rgba(0,0,0,.10);}'+
     '#gbClose{width:16px;height:14px;font-size:9px;line-height:1;cursor:pointer;padding:0;flex-shrink:0;-webkit-app-region:no-drag;'+
-    'background:#c0c0c0;border:1px solid;border-color:#fff #404040 #404040 #fff;color:#000;}'+
-    '#gbBody{flex:1;min-height:0;margin:0 4px 4px;padding:10px;background:#fff;display:flex;flex-direction:column;gap:8px;overflow:hidden;position:relative;}'+
-    '#gbClapBox{width:100%;height:150px;flex-shrink:0;cursor:pointer;overflow:hidden;background:#1440c8;'+
+    'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);color:var(--win-ink,#000);}'+
+    '#gbBody{flex:1;min-height:0;margin:0 4px 4px;padding:10px;background:#fff;display:flex;flex-direction:column;gap:8px;overflow:hidden;position:relative;border-radius:var(--win-radius-sm,0px);}'+
+    '#gbClapBox{width:100%;height:150px;flex-shrink:0;cursor:pointer;overflow:hidden;background:var(--gb-clap,#1440c8);border-radius:var(--win-radius-sm,0px);'+
     'display:flex;align-items:center;justify-content:center;text-align:center;color:#fff;font-size:15px;font-weight:bold;line-height:1.7;}'+
     '#gbClapBox img{width:100%;height:100%;object-fit:contain;background:#fff;display:block;}'+
-    '#gbClapTotal{font-size:14px;font-weight:bold;color:#111;letter-spacing:.5px;flex-shrink:0;}'+
+    '#gbClapTotal{font-size:14px;font-weight:bold;color:var(--win-ink,#111);letter-spacing:.5px;flex-shrink:0;}'+
     '#gbClapRow{display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:6px;}'+
     '#gbClapRight{display:flex;align-items:center;gap:5px;flex-shrink:0;}'+
-    '#gbClapFwLbl{font-size:10px;color:#666;}'+
+    '#gbClapFwLbl{font-size:10px;color:var(--win-ink-soft,#666);}'+
     '#gbClapEmoji{width:34px;text-align:center;font-size:14px;line-height:1.2;padding:2px 0;background:#fff;'+
     'font-family:"Segoe UI Emoji","Apple Color Emoji",Tahoma,sans-serif;'+
-    'border:1px solid;border-color:#404040 #fff #fff #404040;}'+
+    'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     /* 🎆 폭죽 조각 — #gbBody(position:relative) 기준 절대배치. 클릭 지점에서 사방으로 흩어졌다가
        살짝 아래로 떨어지며 사라진다. 조각마다 각도·거리·회전·시간이 다르다(--dx/--dy/--r/--d). */
     '.gb-fw{position:absolute;left:0;top:0;pointer-events:none;z-index:5;will-change:transform,opacity;'+
@@ -15062,27 +15145,27 @@ function _mhBindStickerResize(handle, sid){
     '58%{transform:translate(calc(var(--x) + var(--dx)),calc(var(--y) + var(--dy))) scale(1.1) rotate(var(--r));opacity:1;}'+
     '100%{transform:translate(calc(var(--x) + var(--dx) * 1.16),calc(var(--y) + var(--dy) + 52px)) scale(.85) rotate(var(--r));opacity:0;}'+
     '}'+
-    '#gbImgSet{font-size:10px;color:#2a4fa8;text-decoration:underline;cursor:pointer;}'+
+    '#gbImgSet{font-size:10px;color:var(--gb-link,#2a4fa8);text-decoration:underline;cursor:pointer;}'+
     '.gb-del{margin-left:6px;color:#c0392b;cursor:pointer;font-size:10px;text-decoration:underline;flex-shrink:0;}'+
-    '#gbListLabel{font-size:11px;font-weight:bold;color:#c0392b;border-bottom:1px solid #eee;padding-bottom:3px;flex-shrink:0;}'+
+    '#gbListLabel{font-size:11px;font-weight:bold;color:var(--gb-label,#c0392b);border-bottom:1px solid var(--gb-rule,#eee);padding-bottom:3px;flex-shrink:0;}'+
     '#gbList{flex:1;min-height:60px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;}'+
-    '.gb-row{border-bottom:1px solid #f2f2f2;padding-bottom:5px;}'+
+    '.gb-row{border-bottom:1px solid var(--gb-rule,#f2f2f2);padding-bottom:5px;}'+
     '.gb-head{display:flex;justify-content:space-between;align-items:center;font-size:11px;}'+
-    '.gb-head b{color:#2a4fa8;} .gb-head span{color:#aaa;font-size:9.5px;}'+
-    '.gb-text{font-size:11px;color:#333;margin-top:2px;line-height:1.5;word-break:break-word;}'+
+    '.gb-head b{color:var(--gb-link,#2a4fa8);} .gb-head span{color:#aaa;font-size:9.5px;}'+
+    '.gb-text{font-size:11px;color:var(--win-ink,#333);margin-top:2px;line-height:1.5;word-break:break-word;}'+
     '.gb-empty{color:#999;font-size:10.5px;text-align:center;padding:16px 0;}'+
     /* 📣 창 안 안내줄 — 실패 신호가 부모 창 토스트로만 나가던 것을 여기서도 보여준다.
        외부인 안내(#gbGuestNote)와 같은 자리·같은 테두리를 쓰되 색만 경고색이다. */
     '#gbMsg{display:none;flex-shrink:0;font-size:11px;line-height:1.45;color:#7a2718;background:#fbe6de;'+
-    'border:1px solid;border-color:#404040 #fff #fff #404040;padding:5px 6px;}'+
+    'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);padding:5px 6px;}'+
     '#gbInputRow{display:flex;gap:5px;flex-shrink:0;}'+
     /* 🚪 외부인 안내 — 입력칸 자리에 대신 들어간다. 자리를 비우면 창 아래가 뭉텅 잘린 것처럼 보인다. */
-    '#gbGuestNote{display:none;flex-shrink:0;font-size:10.5px;line-height:1.6;color:#555;'+
-    'text-align:center;padding:6px 4px;background:#eee;border:1px solid;border-color:#404040 #fff #fff #404040;}'+
-    '#gbInput{flex:1;min-width:0;font-family:Tahoma,sans-serif;font-size:11px;padding:4px 6px;'+
-    'border:1px solid;border-color:#404040 #fff #fff #404040;}'+
-    '#gbSubmit{font-size:11px;padding:4px 10px;cursor:pointer;color:#222;background:#c0c0c0;'+
-    'border:1px solid;border-color:#fff #404040 #404040 #fff;}'+
+    '#gbGuestNote{display:none;flex-shrink:0;font-size:10.5px;line-height:1.6;color:var(--win-ink-soft,#555);'+
+    'text-align:center;padding:6px 4px;background:var(--gb-note,#eee);border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
+    '#gbInput{flex:1;min-width:0;font-family:var(--win-font,Tahoma,sans-serif);font-size:11px;padding:4px 6px;'+
+    'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
+    '#gbSubmit{font-size:11px;padding:4px 10px;cursor:pointer;color:var(--win-ink,#222);background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);'+
+    'border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
     '</style></head><body>'+
     '<div id="gbTitle"><span id="gbTitleText">방명록</span><button id="gbClose">\u2715</button></div>'+
     '<div id="gbBody">'+
@@ -15244,6 +15327,7 @@ function _mhBindStickerResize(handle, sid){
     setTimeout(()=>{ try{ _gbWin.focus(); }catch(_){} }, 50);   // 초기 페인트 완료 후 한 번 더 앞으로
     const d=_gbWin.document;
     d.open(); d.write(GB_HTML); d.close();
+    applyThemeToChildDoc(d);   // 🎨 [제보 5] 별도 창 = 별도 document — 메인의 data-theme 이 안 온다
     d.getElementById('gbTitleText').textContent = (_mhViewingUserId ? _mhViewingDisplayName() : getDisplayName())+' 님의 방명록';
     d.getElementById('gbClose').onclick=()=>{ try{ _gbWin.close(); }catch(_){} };
     // ⎋ ESC로도 닫힘(요청사항). 마이홈 클릭으로 닫히는 건 별도 코드가 아니라 main.js의 blur-닫힘이 담당 —
@@ -15345,13 +15429,210 @@ function showChatBubble(seat, text){
   seat.chatBubbleText = String(text).slice(0,140);
   seat.chatBubbleUntil = performance.now() + CHAT_BUBBLE_MS;
 }
+/* ═══════════════ 🌊 채팅 「날리기」 — 흐르는 자막 ═══════════════════════════
+   체크하고 보낸 줄은 말풍선 대신 화면 상단 40% 를 가로질러 흐른다(니코동식).
+
+   ⚠️ **「플라잉체어」와 다른 기능이다.** 저쪽(seat.fly · applyRemoteFly · flyCool ·
+     sim-fly-egg · sim-fly-replay)은 캐릭터를 날리고, 이쪽은 글자를 흘린다. 이름만 겹친다.
+
+   ★ 움직임은 **CSS 애니메이션 하나**뿐이다. rAF 로 옮기지 말 것 — 포커스가 없을 때
+     오버레이 FPS 를 낮추는 구조라(sim-unfocused-fps) rAF 이동은 남의 화면에서 끊긴다.
+     여기 JS 가 하는 일은 «요소를 만들고 animationend 에 지우는 것» 뿐이다.
+   ★ 한 노드 = 마지막 하나. 말풍선과 같은 한계라, 0.5 초 안에 두 번 날리면 앞 줄이 덮인다.
+     chatLog 를 타면 해결되지만 그건 비용 때문에 안 가기로 한 길이라, 보내는 쪽에서
+     연타를 억제하는 것으로 갈음한다(_chatFlySendGate).                                */
+const FLY_BAND_PX    = 600;     // 흐르는 띠의 높이 — 화면 한가운데 기준 위아래 300px
+/* 레인 한 칸 높이 — 글자 크기를 따라간다.
+   27px 글자 × 1.2 줄높이 ≈ 33px, 여기에 테두리가 위아래로 4px 씩 삐져나오고(41px)
+   이모티콘(30px)은 이제 글자보다 작다. 64px 이면 옆 칸을 건드리지 않는다.
+   ⚠️ 글자 크기를 또 바꾸면 **이 값도 같이 바꿀 것.** 한쪽만 키우면 줄이 서로 겹친다
+     (sim-chat-fly §5 가 «레인 ⨉ 칸수가 띠 안에 들어가는가» 로 그 어긋남을 잡는다). */
+const FLY_LANE_PX    = 64;
+const FLY_LANES      = 9;       // 600 ÷ 64 = 9.4 → 9칸(576px). 남는 24px 은 위아래 여백이 된다
+const FLY_JITTER_PX  = 8;       // 레인 안에서 위아래로 흔드는 폭 — 줄이 자로 잰 듯 놓이지 않게
+const FLY_MAX_LIVE   = 30;      // 동시 상한. 넘으면 가장 오래된 것부터 지운다
+/* 🐢 흐르는 속도 — **초당 몇 px 인가.** 「몇 초에 건너간다」가 아니다.
+   [왜 바꿨나] 2026-09-16. 5.5 → 6.5 → 7 → 8.5 초로 네 번 올려도 여전히 빨라 보였다.
+     원인은 시간을 고정한 것이었다: 애니메이션이 「화면 폭 전체를 그 시간 안에 건너가라」는
+     뜻이라, **화면이 넓을수록 같은 초에 더 빨리 지나간다.**
+       목업(1280px · 6.6초) ≈ 224 px/s   ←  적당하다고 정해진 기준
+       실기(1920px · 8.5초) ≈ 270 px/s   ←  초를 올렸는데 더 빨랐다
+       실기(3840px · 8.5초) ≈ 500 px/s   ←  4K 면 목업의 두 배
+     ⚠️ 그래서 같은 방의 두 사람이 **모니터가 다르면 같은 메시지를 다른 속도로 봤다.**
+       한 명은 느긋하게 읽고 한 명은 놓치는데, 서로 왜 그런지 알 길이 없다.
+   ⇒ 속도를 고정하고 시간을 화면 폭에서 역산한다. 어느 화면에서나 눈에 보이는 속도가 같다.
+   ★ 조절할 값이 **이 하나**다. 「조금 느리게」가 필요하면 220 을 200 으로 내리면 되고,
+     그 변화가 모든 모니터에 똑같이 적용된다. 초를 올렸다 내렸다 할 일이 없어진다.
+   ★ 덤 — 모든 줄이 같은 속도라 **뒷줄이 앞줄을 따라잡지 못한다.** 예전엔 긴 글에 시간을
+     더 줘서(FLY_LEN_MS) 줄마다 속도가 달랐고, 같은 레인에서 앞줄을 밀고 들어올 수 있었다. */
+/* ★ 확정값. 220 → 240 → 300 → 320 으로 화면 보고 맞춘 끝에 정했다(2026-09-16).
+   단위가 px/s 라 **모니터가 달라도 눈에 보이는 속도가 같다** — 그것이 이 단위로 바꾼 이유다.
+   ⚠️ px 은 CSS 픽셀이다. OS 배율(125%·200%)이 걸려 있으면 innerWidth 도 글자 크기(27px)도
+     같은 배율로 읽히므로 **둘이 함께 움직인다** — 배율이 달라도 체감은 어긋나지 않는다. */
+const FLY_SPEED_PX_S = 320;
+const FLY_DUR_MIN_MS = 3000;    // 창이 아주 좁을 때 — 너무 휙 지나가지 않게
+const FLY_DUR_MAX_MS = 30000;   // 아주 넓은 화면 + 아주 긴 글 — 하염없이 떠 있지 않게
+const FLY_LANE_GAP   = 900;     // 같은 레인에 다음 글자가 들어가기까지의 최소 간격(ms)
+const FLY_SEND_GAP   = 500;     // 내 연타 억제(ms) — 한 노드가 덮이는 것을 줄인다
+const FLY_COLOR_LEVEL = 200;    // 🎨 글자 색(글로우·무지개) 해금 레벨
+/* 고를 수 있는 색 — HTML 의 .fsw[data-flycolor] 와 **같은 목록**이어야 한다.
+   ⚠️ 받는 쪽이 이 표에 없는 값을 그냥 style 에 꽂으면 안 된다(남이 보낸 문자열이다).
+     그래서 표에 있는 것만 통과시킨다 — 임의 URL 을 안 로드하는 이모티콘 규칙과 같은 태도. */
+const FLY_COLORS = ['#FF4D9B', '#4DC8FF', '#7CFF5B', '#FFD24D', 'rainbow'];
+/* 🔠 글자 크기 — HTML 의 .fsz[data-flysize] · .fly.sz-* 와 **같은 목록**이어야 한다.
+   ★ 'l'(대)이 기본이다. 기본값은 payload 에 안 싣는다(색과 같은 이유 — 안 쓰는 사람의
+     모든 메시지가 그만큼 커진다). 그래서 받는 쪽은 «없으면 대» 로 읽는다.
+   ★ 색과 달리 **레벨 제한이 없다.** 크기는 읽기 편하자고 있는 것이지 치장이 아니다. */
+const FLY_SIZES = ['l', 'm', 's'];
+let _chatFlyOn    = false;      // 체크 상태 — **세션 변수다.** 저장하지 않는다(끄면 초기화):
+                                //   저장하면 다음에 켰을 때 "왜 자꾸 날아가지"가 된다.
+let _chatFlyColor = '';         // '' = 흰 글씨(기본). Lv.200 미만은 항상 ''.
+let _chatFlySize  = 'l';        // 'l'(대) 기본 — 세션 변수다. 색과 같이 저장하지 않는다.
+let _flyLaneFreeAt = [];        // 레인별로 "언제부터 비는가"(ms)
+let _flySentAt = 0;             // 마지막으로 내가 날린 시각
+
+/* 내가 지금 날릴 수 있는가 — 연타 억제. 막힌 줄은 **그냥 말풍선으로 나간다**(안 보내지 않는다).
+   보내기 자체를 막으면 친 글이 사라져서, 잠금·도배 제한이 글을 돌려주는 관례와 어긋난다. */
+function _chatFlySendGate(){
+  const now = Date.now();
+  if(now - _flySentAt < FLY_SEND_GAP) return false;
+  _flySentAt = now;
+  return true;
+}
+/* 🎨 이 색을 인정할 수 있는가. 표에 있고, 레벨이 되면 통과. */
+function _flyColorOk(color, level){
+  if(!color) return '';
+  if((level|0) < FLY_COLOR_LEVEL) return '';
+  return FLY_COLORS.indexOf(String(color)) >= 0 ? String(color) : '';
+}
+/* 🔠 이 크기를 인정할 수 있는가. 표에 있는 것만 통과 — 남이 보낸 문자열을 그대로 class 에
+   붙이면 안 된다(색 쪽 _flyColorOk 와 같은 태도다). 모르는 값은 조용히 기본(대)으로 떨어진다. */
+function _flySizeOk(size){
+  const v = String(size || 'l');
+  return FLY_SIZES.indexOf(v) >= 0 ? v : 'l';
+}
+/* 레인 배정 — **비어 있는 레인 중에서 무작위로** 고른다.
+   ★ 순서대로 돌리면(1→2→3…) 글자가 위에서 아래로 계단처럼 내려가는 게 눈에 보인다.
+     무작위면 띠 안에 흩어져 보이는데, 겹침은 여전히 막힌다 — «빈 칸 중에서» 고르기 때문이다.
+     «완전 무작위 y» 로 하면 두 줄이 1px 차이로 겹쳐 둘 다 못 읽는 순간이 반드시 나온다.
+   ★ 전부 차 있으면 제일 빨리 비는 곳으로 보낸다(버리지 않는다 —
+     안 보이는 것보다 살짝 붙어 흐르는 편이 낫다). */
+function _flyPickLane(now){
+  if(_flyLaneFreeAt.length !== FLY_LANES) _flyLaneFreeAt = new Array(FLY_LANES).fill(0);
+  const free = [];
+  let best = 0;
+  for(let i = 0; i < FLY_LANES; i++){
+    if(_flyLaneFreeAt[i] <= now) free.push(i);
+    if(_flyLaneFreeAt[i] < _flyLaneFreeAt[best]) best = i;
+  }
+  const lane = free.length ? free[Math.floor(Math.random() * free.length)] : best;
+  /* 다음 글자를 언제 받을지 — 앞 글자의 꼬리가 오른쪽 끝을 벗어날 무렵이다.
+     정확한 폭을 재려면 레이아웃을 읽어야 하는데(강제 리플로) 그럴 값이 아니다. 고정 간격이면 충분하다. */
+  _flyLaneFreeAt[lane] = Math.max(now, _flyLaneFreeAt[lane]) + FLY_LANE_GAP;
+  return lane;
+}
+/* 🌊 한 줄을 띄운다.
+   @param seat  보낸 사람의 좌석(이름을 여기서 꺼낸다)
+   @param text  보낸 원문(이모티콘 마커가 들어 있을 수 있다)
+   @param color 인정된 색('' 이면 흰 글씨). **받는 쪽이 이미 레벨을 확인한 값**이다.
+   @param size  'l'(대·기본)·'m'(중)·'s'(소). 모르는 값은 대로 떨어진다. */
+function showFlyText(seat, text, color, size){
+  const layer = document.getElementById('flyLayer');
+  if(!layer || !text) return;
+  /* 이름: 내용 — 형식은 하나로 통일한다. 좌석 색은 쓰지 않는다(이름으로 구분한다).
+     이름은 이름표(setSeatNamePlate)와 같은 출처를 쓴다 — 여기서 다른 이름을 고르면
+     발밑 이름표와 흐르는 글자가 서로 다른 사람처럼 보인다. */
+  const name = (typeof _seatLabelName === 'function') ? _seatLabelName(seat) : '';
+  const body = String(text).slice(0, 140);
+  /* ⚠️ 순서가 중요하다: **이스케이프 먼저, 마커 변환 나중.** 뒤집으면 이스케이프가
+     <img> 를 글자로 만들어 버린다(_officeDemojiHtml 주석과 같은 함정). */
+  let html = (typeof _chatEsc === 'function') ? _chatEsc(body) : String(body);
+  if(typeof _officeDemojiHtml === 'function') html = _officeDemojiHtml(html);
+  const nameHtml = name ? ((typeof _chatEsc==='function' ? _chatEsc(name) : name) + ': ') : '';
+  const inner = nameHtml + html;
+
+  const el = document.createElement('div');
+  const sz = _flySizeOk(size);
+  el.className = 'fly' + (color === 'rainbow' ? ' rainbow' : (color ? ' glow' : ''))
+               + (sz === 'l' ? '' : ' sz-' + sz);   // 대는 기본값이라 클래스가 없다
+  if(color && color !== 'rainbow') el.style.setProperty('--fly-glow', color);
+  /* ⏱ 시간은 **화면 폭 + 글자 폭**을 속도로 나눠 구한다.
+     이 「화면 폭 + 글자 폭」은 CSS 의 `translateX(calc(-100vw - 100%))` 와 **같은 거리다** —
+     100vw = 화면 폭, 100% = 자기 글자 폭. 둘 중 하나만 고치면 속도가 어긋난다
+     (sim-chat-fly §4 가 두 파일을 맞대어 본다).
+   ⚠️ 폭을 재려면 붙인 뒤 offsetWidth 를 읽어야 하고, 그 순간 레이아웃이 한 번 강제된다.
+     **메시지 한 줄당 딱 한 번**이라 괜찮다 — 매 프레임 재는 것과는 다른 이야기다.
+     재는 동안 애니메이션이 이미 돌면 안 되므로, 붙일 때는 꺼 두었다가 시간을 정한 뒤 켠다.
+     길이 보정(옛 FLY_LEN_MS)은 필요 없어졌다 — 긴 글은 자기 폭만큼 거리가 늘어 저절로 오래 걸린다. */
+  el.style.animation = 'none';
+  const now = Date.now();
+  /* 레인 안에서 살짝 흔든다 — 칸에 딱 맞춰 놓으면 줄 간격이 자로 잰 듯 보인다.
+     흔드는 폭이 레인 높이보다 훨씬 작아서 옆 레인을 침범하지 않는다. */
+  const jitter = Math.round((Math.random() * 2 - 1) * FLY_JITTER_PX);
+  el.style.top = Math.max(0, _flyPickLane(now) * FLY_LANE_PX + jitter) + 'px';
+  /* 앞(본체)과 뒤(테두리) 두 겹 — 같은 HTML 을 두 번 넣는다. CSS 주석 참고. */
+  el.innerHTML = '<span class="fly-out" aria-hidden="true">' + inner + '</span>'
+               + '<span class="fly-ink">' + inner + '</span>';
+  el.addEventListener('animationend', ()=>{ try{ el.remove(); }catch(_){} });
+  layer.appendChild(el);
+  // 붙인 뒤에야 폭을 알 수 있다. 여기서 한 번 재고, 시간을 정하고, 애니메이션을 켠다.
+  const travelPx = (window.innerWidth || 1920) + (el.offsetWidth || 0);
+  const dur = Math.min(FLY_DUR_MAX_MS,
+              Math.max(FLY_DUR_MIN_MS, Math.round(travelPx / FLY_SPEED_PX_S * 1000)));
+  el.style.setProperty('--fly-dur', dur + 'ms');
+  el.style.animation = '';   // CSS 의 flyAcross 로 되돌린다 — 이 순간부터 흐른다
+  // 동시 상한 — 넘치면 가장 오래된 것부터. (애니메이션이 끝나면 저절로 빠지므로 평소엔 안 걸린다)
+  while(layer.children.length > FLY_MAX_LIVE){ try{ layer.firstChild.remove(); }catch(_){ break; } }
+}
+/* ☐ 날리기 줄의 표시/상태를 정한다.
+   ★ 호출 자리를 따로 만들지 않는다 — `_chatOffRefreshUI` 가 이미 «창을 열 때»와 «방 메타가
+     바뀔 때» 양쪽에서 불리므로 거기서 같이 부른다(_chatDelRefreshUI 와 같은 관례).
+   ★ 표시 조건은 `_activeChannel === 2` 한 줄 = 투게더룸 + 시크릿룸. 워킹룸에서는 줄째 사라진다. */
+function _chatFlyRefreshUI(){
+  const row = document.getElementById('chatFlyRow');
+  if(!row) return;
+  const on = (window._activeChannel === 2);
+  row.classList.toggle('off', !on);
+  if(!on) return;
+  const chk = document.getElementById('chatFlyChk');
+  if(chk) chk.checked = _chatFlyOn;
+  /* ⚠️ 옛 안내 문구(#chatFlyHint)는 뺐다. 체크박스와 색 고르개 사이를 벌려 놓기만 하고,
+     「날리기」라는 말이 이미 하는 설명을 한 번 더 했다. 되살리지 말 것. */
+  // 🔠 크기 — 레벨 제한이 없으니 고를 수 있는지 여부는 안 본다. 선택 표시만 맞춘다.
+  const szBox = document.getElementById('chatFlySizes');
+  if(szBox) szBox.querySelectorAll('.fsz').forEach(b=>{
+    b.classList.toggle('sel', (b.getAttribute('data-flysize')||'l') === _chatFlySize);
+  });
+  // 🎨 Lv.200 — 미달이면 색 고르개를 **자리째** 뺀다(자물쇠를 보여주지 않는다).
+  const lv = (typeof getFocusLevel === 'function') ? getFocusLevel() : 1;
+  const sw = document.getElementById('chatFlySwatches');
+  if(sw){
+    const okLv = (lv >= FLY_COLOR_LEVEL) || (typeof isAdmin !== 'undefined' && isAdmin);
+    sw.classList.toggle('on', okLv);
+    if(!okLv) _chatFlyColor = '';   // 레벨이 내려갔는데 색만 남는 일이 없게
+    sw.querySelectorAll('.fsw').forEach(b=>{
+      b.classList.toggle('sel', (b.getAttribute('data-flycolor')||'') === _chatFlyColor);
+    });
+  }
+}
+
 // 내가 채팅 전송 — 멀티모드에서만 상대에게 실제로 전송되고, 내 화면에는 항상 즉시 말풍선으로 보여줌.
-function sendMyChat(text){
+/* 🌊 fly 가 참이면 말풍선 대신 «내 화면에도» 날린다 — 니코동 방식. 안 그러면 보낸 사람만
+   자기 글이 안 보여서, 날아갔는지 아닌지를 알 수 없다. */
+function sendMyChat(text, fly, flyColor, flySize){
   // 🚫 채널 개편: 채널2(채팅룸)가 아니면 전송하지 않음 — 투게더룸은 일에 집중.
   if(window._activeChannel !== 2) return;
   text = String(text).trim().slice(0,140);
   if(!text) return;
   const mySeat = findMySeat();
+  if(fly){
+    const lv = (typeof getFocusLevel === 'function') ? getFocusLevel() : 1;
+    const col = _flyColorOk(flyColor, lv);
+    const sz  = _flySizeOk(flySize);
+    if(mySeat && typeof showFlyText === 'function') showFlyText(mySeat, text, col, sz);
+    if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(text, true, col, sz);
+    return;
+  }
   if(mySeat) showChatBubble(mySeat, text);
   if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(text);
 }
@@ -15729,6 +16010,8 @@ function _chatOffRefreshUI(){
        (_onRoomMeta) 양쪽에서 이미 불린다. 별도 함수를 만들어 두 자리에 각각 걸면, 다음에 호출
        지점이 하나 더 생겼을 때 한쪽만 빠져서 "방장인데 버튼이 안 보인다"가 난다. */
   try{ _chatDelRefreshUI(); }catch(_){}
+  // 🌊 날리기 줄도 같은 재료(채널·레벨)로 정해진다 — 호출 자리를 따로 두지 않는 이유는 위와 같다.
+  try{ _chatFlyRefreshUI(); }catch(_){}
 }
 /* ═══ 🗑 대화 기록 삭제 (방장) ══════════════════════════════════════════════
    `rooms/{코드}/chatLog` 를 통째로 지운다. 방 전원이 같은 노드를 구독하므로 **모두의 화면이
@@ -16018,7 +16301,11 @@ function _sendChatWindowMsg(){
   }
   // 1) 말풍선 + 실시간 전파(기존 경로 재사용). 기본 이모티콘만 마커로(말풍선이 이미지로 렌더), 커스텀은 원문 유지.
   const bubbleText = (typeof _applyDefaultEmojiOnly==='function') ? _applyDefaultEmojiOnly(text) : text;
-  if(typeof sendMyChat==='function') sendMyChat(bubbleText);
+  /* 🌊 날리기 — 체크돼 있어도 0.5 초 안에 두 번째면 **그 줄만 말풍선으로** 나간다.
+     한 노드가 마지막 하나만 들고 있어서, 연타하면 앞 줄이 상대 화면에 뜨기도 전에 덮인다.
+     보내기를 막지는 않는다 — 친 글을 잃지 않는 것이 이 창의 관례다(잠금·도배 제한 참고). */
+  const _fly = _chatFlyOn && _chatFlySendGate();
+  if(typeof sendMyChat==='function') sendMyChat(bubbleText, _fly, _fly ? _chatFlyColor : '', _chatFlySize);
   // 2) 대화 기록 저장 — 마커가 든 outText 저장(다른 사람도 이모티콘을 URL로 렌더)
   const room=(typeof Presence!=='undefined' && Presence.roomCode)?Presence.roomCode():null;
   if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
@@ -17409,14 +17696,29 @@ function _pkNeutralPose(seat){
    ⚠️ 계산 방식은 setFromObject 와 **똑같이** 맞춘다(지오메트리 상자를 matrixWorld 로 옮겨 합침).
      여기서 방식을 바꾸면 이 화면만 다른 규칙으로 재게 된다.
    ⚠️ 조상이 하나라도 숨겨져 있으면 뺀다 — placeholder 는 root 하나만 꺼져 있고 그 아래
-     자식들은 visible=true 다. 자기 자신만 보면 안 걸러진다. */
-function _pkVisibleBox(g){
+     자식들은 visible=true 다. 자기 자신만 보면 안 걸러진다.
+   ★ [2026-09-16 제보 5] noParts=true 면 **꾸미기 파츠(`__partWrap_*` 하위)를 뺀다.**
+     [무엇이 틀렸나] 키 1.7 의 분모에 뿔·모자·큰 머리카락이 들어갔다. 파츠가 클수록 상자가 커지고
+       그만큼 더 줄이니 **파츠를 쓰면 캐릭터가 작아진다** — 제보 그대로다. 실행 화면은 같은 이유로
+       measureCharBox 가 파츠 래퍼 하위를 통째로 빼는데, 이 무대만 그 규칙을 안 따르고 있었다.
+     ⚠️ 표식은 **이름**으로 잡는다. _pkCloneChar 가 복제 직전에 userData 를 통째로 떼어놓으므로
+       복제본에는 `__twPartWrap` 도 `rigged` 도 없다. Object3D.copy 가 name 은 베끼므로 이름만 남는다.
+     ⚠️ 파츠 밑의 **스킨드메시는 noParts 와 무관하게 늘 뺀다** — Box3 는 스키닝 전 원시 상자를 재서
+       리깅 파츠는 발 아래로 몇 배씩 뻗은 값이 나온다(measureCharBox 의 _origBind 제외와 같은 이유).
+       몸 자체의 스킨드메시(커미션 모델)는 파츠가 아니므로 그대로 잰다.
+     ★ 그리기는 그대로다 — 측정에서만 빠진다. 모자는 보인다. */
+function _pkVisibleBox(g, noParts){
   g.updateWorldMatrix(true, true);
   const box = new THREE.Box3(), tmp = new THREE.Box3();
   let any = false;
   g.traverse(o=>{
     if(!o.isMesh || !o.geometry) return;
-    for(let p = o; p; p = p.parent) if(p.visible === false) return;
+    let underPart = false;
+    for(let p = o; p; p = p.parent){
+      if(p.visible === false) return;
+      if(typeof p.name === 'string' && p.name.indexOf('__partWrap_') === 0) underPart = true;
+    }
+    if(underPart && (noParts || o.isSkinnedMesh)) return;
     if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
     if(!o.geometry.boundingBox) return;
     tmp.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
@@ -17480,7 +17782,9 @@ function _pkCloneChar(seat, out){
      그대로 딸려오면 무대에서 누운 채로·비스듬히 선 채로 굳는다. 방향은 아래 연출 겹이 정한다. */
   g.rotation.set(0,0,0);
   g.updateWorldMatrix(true,true);
-  const bb = _pkVisibleBox(g);                    // ⚠️ setFromObject 를 쓰면 숨은 placeholder 가 섞인다
+  /* ★ [2026-09-16 제보 5] 키는 **몸만** 잰다(noParts) — 파츠까지 재면 파츠가 클수록 캐릭터가 작아진다.
+     실행 화면(measureCharBox)과 같은 규칙. 파츠 없는 캐릭터는 두 상자가 같으므로 한 픽셀도 안 바뀐다. */
+  const bb = _pkVisibleBox(g, true);              // ⚠️ setFromObject 를 쓰면 숨은 placeholder 가 섞인다
   const h = Math.max(0.2, bb.max.y - bb.min.y);
   /* 🐾 동물은 조금 더 크게 세운다 — 귀 끝까지 1.7 에 맞춰지는 바람에 얼굴과 몸이 사람보다
      작게 남기 때문이다. 배율은 계층(P.ANIMAL_H)이 정한다. 여기에 숫자를 적으면 «무대에서
@@ -17489,8 +17793,13 @@ function _pkCloneChar(seat, out){
   const s = _pkP().CHAR_H * grow / h;
   g.scale.multiplyScalar(s);
   g.updateWorldMatrix(true,true);
-  const bb2 = _pkVisibleBox(g);                   // 발바닥·좌우 중심도 같은 상자에서 나온다
-  g.position.y -= bb2.min.y;
+  const bb2 = _pkVisibleBox(g, true);             // 좌우 중심도 몸 상자에서 — 옆으로 뻗은 파츠에 밀리지 않게
+  /* 🦶 발밑은 «보이는 것 중 가장 아래»에 맞춘다. 욕조·방석처럼 발 아래에 두는 파츠가 있으면 그것이
+     바닥에 닿아야 한다(실행 화면의 FLOOR_SNAP 과 같은 뜻). 발 아래에 파츠가 없으면 두 값이 같다.
+     ⚠️ 상한을 둔다 — 저작이 어긋난 파츠 하나 때문에 캐릭터가 하늘로 뜨는 것 방지(FLOOR_SNAP_MAX 와 같은 이유). */
+  const bbAll = _pkVisibleBox(g, false);
+  const lowest = Math.max(bb2.min.y - _pkP().CHAR_H, Math.min(bb2.min.y, bbAll.min.y));
+  g.position.y -= lowest;
   g.position.x -= (bb2.min.x + bb2.max.x) / 2;
   return g;
 }
@@ -18967,6 +19276,37 @@ function _rollDice(){
     });
   }
   // 이모티콘 버튼 → 패널 토글
+  /* 🌊 날리기 체크 — 상태는 세션 변수 하나(_chatFlyOn)다. 저장하지 않는다(§결정 ④).
+     ⚠️ stopPropagation 이 필요하다 — 이 줄은 #chatWindow 안에 있고, 바깥 클릭 처리가
+       위로 올라온 클릭을 «창 밖을 눌렀다»로 읽는 자리가 있다(다른 버튼들과 같은 관례). */
+  const fchk=document.getElementById('chatFlyChk');
+  if(fchk){
+    fchk.addEventListener('click', e=>{ e.stopPropagation(); });
+    fchk.addEventListener('change', ()=>{ _chatFlyOn = !!fchk.checked; _chatFlyRefreshUI(); });
+  }
+  /* 🔠 크기 단추 — 색 고르개와 같은 방식(위임 하나). 여기엔 레벨 문턱이 없다. */
+  const fszBox=document.getElementById('chatFlySizes');
+  if(fszBox) fszBox.addEventListener('click', e=>{
+    e.stopPropagation();
+    const b=e.target.closest('.fsz'); if(!b) return;
+    _chatFlySize = _flySizeOk(b.getAttribute('data-flysize'));
+    _chatFlyRefreshUI();
+  });
+  /* 🎨 색 고르개 — 한 줄에 여섯 칸뿐이라 위임 하나로 받는다.
+     레벨 판정은 _chatFlyRefreshUI 가 이미 했다(미달이면 이 묶음이 아예 안 보인다).
+     그래도 여기서 한 번 더 본다 — 보이지 않는 요소를 스크립트로 누르는 길이 남기 때문이다. */
+  const fsw=document.getElementById('chatFlySwatches');
+  if(fsw) fsw.addEventListener('click', e=>{
+    e.stopPropagation();
+    const b=e.target.closest('.fsw'); if(!b) return;
+    const lv=(typeof getFocusLevel==='function')?getFocusLevel():1;
+    if(lv < FLY_COLOR_LEVEL && !(typeof isAdmin!=='undefined' && isAdmin)){
+      if(typeof toast==='function') toast('🔒 Lv.'+FLY_COLOR_LEVEL+' 달성 시 색을 고를 수 있어요');
+      return;
+    }
+    _chatFlyColor = b.getAttribute('data-flycolor') || '';
+    _chatFlyRefreshUI();
+  });
   // 🔇 채팅 켜기/끄기 — 시크릿룸 방장만. 권한 판정은 _chatOffToggleClick 안에 있다.
   const coff=document.getElementById('chatOffToggle');
   if(coff) coff.onclick=(e)=>{ e.stopPropagation(); _chatOffToggleClick(); };
@@ -24441,6 +24781,17 @@ function renderCrItems(){
     };
     const card=swThumb(rec.name||'책상', on, rec.icon||'🪑', deleteHandler);
     card.dataset.reorderId = rec.id;   // bindReorderHandle의 elementFromPoint 탐색용
+    /* 🔒 [2026-09-15] 라이선스 전용 책상은 라이선스(isPremium)·관리자가 아니면 **고르지 못한다** —
+       아이템 카드(renderCrItems 아래쪽)와 같은 모양·같은 조건. 예전엔 책상만 여기 게이트가 없어서
+       골라지긴 하는데 실행 화면에서 기본 책상으로 떨어졌다(applyDeskCatalogRefToSeat 의 게이트는
+       '장착 시점에만 막을 것' 이라 적어 두고 정작 장착 자리에 게이트가 없었다). */
+    const deskLocked = !!(rec.licenseOnly && !isPremium && !isAdmin);
+    if(deskLocked){
+      const lock=document.createElement('div'); lock.textContent='🔒'; lock.title='라이선스 보유자 전용';
+      lock.style.cssText='position:absolute;bottom:-4px;right:-4px;font-size:13px;filter:drop-shadow(0 1px 1px #fff);z-index:2;';
+      card.firstChild.appendChild(lock);
+      card.style.opacity='.55';
+    }
     if(isAdmin && rec.fromCatalog){
       const edit=document.createElement('div'); edit.textContent='✎';
       edit.style.cssText='position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:#7ba05b;color:#fff;font-size:11px;line-height:18px;text-align:center;cursor:pointer;box-shadow:0 1px 3px #0003;font-weight:bold;z-index:2;';
@@ -24456,6 +24807,7 @@ function renderCrItems(){
     }
     card.onclick=async()=>{
       if(activeCustomDeskId===rec.id) return;   // 이미 활성
+      if(deskLocked){ toast('🔒 "'+(rec.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요'); return; }   // 🔒 위 주석
       // Storage 이관 후속: rec.glb가 없고 glbUrl만 있으면 Storage에서 fetch
       if(!rec.glb && rec.glbUrl && typeof resolveCatalogGlb==='function'){
         try{ await resolveCatalogGlb(rec); }catch(_){}
@@ -24644,6 +24996,26 @@ document.getElementById('creatorPreview').addEventListener('contextmenu', e=>{
    기존 저장 파이프라인(applyDeskAdj / persistDeskItems)을 그대로 재사용. */
 let itemGizmo=null;
 let itemGizmoMode='translate';
+/* 🔄 [2026-09-15 제보 4] 회전 기즈모 — 미리보기는 되는데 실행 화면에 적용 안 됨.
+   [원인] 저장은 `adj.rot` 하나(Y 축)인데 기즈모는 세 고리(X·Y·Z)를 다 보여 줬고, 저장은 `p.rotation.y` 를
+     그대로 읽었다. 그래서 두 갈래로 새 나갔다:
+       ① X·Z 고리로 돌린 회전 — 미리보기엔 남고 저장엔 자리가 없다(applyDeskAdj 가 (0,rot,0) 으로 복원).
+       ② Y 고리로 90° 를 넘게 돌린 회전 — 오일러(XYZ)는 R_y(120°) 를 (180°, 60°, 180°) 로 분해한다.
+          `rotation.y` 는 60° 를 돌려주고, 복원은 (0, 60°, 0) 이라 **거울상**으로 돌아온다.
+     두 경우 모두 생성기 미리보기(p.rotation 은 그대로)는 맞고, 저장을 거쳐 다시 그리는 실행 화면만 틀린다 —
+     제보 그대로다. 분류 문서의 ① 이 맞았다(축이 다른 데 실린다).
+   [대응] 데이터 모델(`rot` 하나)에 기즈모를 맞춘다:
+     ・회전 모드에서는 Y 고리만 보인다(_applyItemGizmoMode). X·Z 로는 돌릴 수 없으니 ① 이 사라진다.
+     ・저장은 `rotation.y` 가 아니라 쿼터니언을 **YXZ 순서**로 다시 풀어 y 를 읽는다(_itemYaw). 순수 Y 회전이면
+       각도가 그대로(−180°~180°) 나온다 — ② 가 사라진다. 복원(applyDeskAdj)은 그대로 둔다. */
+function _itemYaw(p){
+  try{ return new THREE.Euler().setFromQuaternion(p.quaternion, 'YXZ').y; }catch(_){ return p.rotation.y; }
+}
+function _applyItemGizmoMode(g, mode){
+  g.setMode(mode);
+  const rot = (mode === 'rotate');
+  g.showX = !rot; g.showZ = !rot; g.showY = true;
+}
 function ensureItemGizmo(){
   if(itemGizmo) return itemGizmo;
   if(!cScene || !cCam || !cRenderer) return null;
@@ -24721,7 +25093,7 @@ function ensureItemGizmo(){
         p.userData.adj.x = p.position.x;
         p.userData.adj.y = p.position.y;   // ★ y도 저장 — 책상 위 잠금 없이 자유롭게 위/아래 이동 가능(요청사항)
         p.userData.adj.z = p.position.z;
-        p.userData.adj.rot = p.rotation.y;
+        p.userData.adj.rot = _itemYaw(p);   // 🔄 rotation.y 가 아니다 — 위 [2026-09-15 제보 4]
         p.userData.adj.scale = p.scale.x || 1;
         if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
       }
@@ -24740,7 +25112,7 @@ function attachItemGizmoToActive(){
   // 🪑 아이템을 고르면 책상 위치 모드는 자동으로 꺼진다 — 기즈모가 하나뿐이라 둘 다 켜질 수 없다.
   if(p && deskPosGizOn){ deskPosGizOn = false;
     const b=document.getElementById('deskPosGz'); if(b) b.classList.remove('on'); }
-  if(p){ g.attach(p); g.setMode(itemGizmoMode); g.visible=true; }
+  if(p){ g.attach(p); _applyItemGizmoMode(g, itemGizmoMode); g.visible=true; }
   else { g.detach(); g.visible=false; }
   renderItemColorPanel();   // 런처3-1: 활성 아이템 바뀌면 색상 UI도 갱신
 }
@@ -24801,7 +25173,7 @@ document.querySelectorAll('#crItemPos .cr-gz-mode').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('#crItemPos .cr-gz-mode').forEach(b=>b.classList.toggle('on', b===btn));
     itemGizmoMode = btn.dataset.mode;
-    if(itemGizmo && cBase && cBase.activeDeskItem) itemGizmo.setMode(itemGizmoMode);
+    if(itemGizmo && cBase && cBase.activeDeskItem) _applyItemGizmoMode(itemGizmo, itemGizmoMode);
   });
 });
 /* 🦶 크기 ＋/－ 로 키워서 바닥을 뚫는 경우도 막는다 — 기즈모 드래그와 같은 함수를 쓴다.
@@ -24887,7 +25259,7 @@ function setDeskPosGizmo(on){
   if(deskPosGizOn){
     // 책상을 잡는 동안에는 아이템 선택을 풀어 둔다 — 안 그러면 어느 쪽이 잡힌 건지 화면으로 알 수 없다.
     if(cBase) cBase.activeDeskItem = null;
-    g.attach(cDesk); g.setMode('translate'); g.visible = true;
+    g.attach(cDesk); _applyItemGizmoMode(g, 'translate'); g.visible = true;   // 책상은 이동만 — 세 축 다 보인다
   } else {
     try{ g.detach(); }catch(_){}
     g.visible = false;
@@ -25627,6 +25999,21 @@ async function _inviteConfirmIssue(){
 
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';
 let isPremium = false;
+/* 🔑 [2026-09-15 제보 3] isPremium 은 **이 함수로만** 바꾼다.
+   [증상] 프리미엄 전용 책상이 남에겐 보이고 본인 화면에서만 기본 책상으로 떨어졌다.
+   [원인] 라이선스는 localStorage 에 있고 서버는 계정에 안 묶는다. 그래서 isPremium 이 뒤늦게 바뀌는
+     통로가 셋 있는데(계정 이전 복원 _applyTransferSnapshot 은 키만 저장하고 isPremium 을 안 올렸다 ·
+     온라인 재검증 실패 · 설정에서 활성화/해제), 어느 쪽도 **이미 그려진 내 좌석을 다시 그리지 않았다.**
+     applyDeskCatalogRefToSeat 의 게이트는 그리는 순간의 isPremium 을 보므로, 그 뒤에 true 가 돼도
+     내 책상은 기본 책상인 채 남는다. 남의 화면은 seat.remote 라 게이트를 안 타서 보인다.
+   [대응] 값이 바뀌면 _refreshPremiumGatedUI 가 내 좌석의 책상·아이템을 다시 적용한다. 대입을 흩어 두면
+     그 한 자리만 다시 그리기를 빠뜨린다 — sim-premium-desk.js 가 직접 대입이 0곳인지 센다. */
+function _setPremium(v){
+  v = !!v;
+  if(isPremium === v) return;
+  isPremium = v;
+  _refreshPremiumGatedUI();
+}
 
 function _genLicenseKey(){
   // XXXX-XXXX-XXXX-XXXX 형식, 헷갈리기 쉬운 0/O, 1/I 제외
@@ -25645,7 +26032,7 @@ async function verifyLicense(key){
 function loadLicenseFromStorage(){
   try{
     const key = localStorage.getItem(LICENSE_KEY_STORAGE);
-    if(key){ isPremium = true; _refreshPremiumGatedUI(); return key; }   // 온라인 재검증 전까지는 로컬 저장값 신뢰(오프라인 사용 허용)
+    if(key){ _setPremium(true); return key; }   // 온라인 재검증 전까지는 로컬 저장값 신뢰(오프라인 사용 허용)
   }catch(e){}
   return null;
 }
@@ -25653,21 +26040,35 @@ async function activateLicense(key){
   const r = await verifyLicense(key);
   if(r.ok){
     try{ localStorage.setItem(LICENSE_KEY_STORAGE, key.trim().toUpperCase()); }catch(e){}
-    isPremium = true;
-    _refreshPremiumGatedUI();
+    _setPremium(true);
   }
   return r;
 }
 function deactivateLicense(){
   try{ localStorage.removeItem(LICENSE_KEY_STORAGE); }catch(e){}
-  isPremium = false;
   // 프리미엄이 풀렸는데 커스텀 상태를 쓰고 있었으면 기본 상태로 되돌림
   if(typeof userStatus!=='undefined' && userStatus==='custom' && typeof setUserStatus==='function') setUserStatus(null);
-  _refreshPremiumGatedUI();
+  _setPremium(false);
 }
 /* 프리미엄 여부가 바뀔 때 그에 따라 잠금/해제되는 UI를 다시 그림 (라이선스 검증이 비동기라 나중에 확정됨) */
 function _refreshPremiumGatedUI(){
   if(typeof refreshCustomStatusMenuItem==='function') refreshCustomStatusMenuItem();   // ✨ 커스텀 상태 메뉴 항목
+  /* 🪑 [제보 3] 내 좌석의 책상·아이템을 지금 isPremium 으로 다시 적용 — 근거는 _setPremium 위 주석.
+     charDef 는 손대지 않는다: 게이트가 기본 책상으로 떨어뜨릴 때도 deskCatalogId 를 지우지 않으므로
+     (applyDeskCatalogRefToSeat), 나중에 라이선스가 오면 같은 참조로 원래 책상이 돌아온다.
+     ⚠️ 남의 좌석은 안 건드린다 — 남의 것은 애초에 게이트를 안 탄다(seat.remote). */
+  try{
+    if(typeof seats!=='undefined' && Array.isArray(seats)){
+      seats.forEach(s=>{
+        if(!s || !s.isMe || s.remote || !s.charDef) return;
+        if(s.charDef.deskCatalogId){ applyDeskCatalogRefToSeat(s, s.charDef); }
+        else if(!s.charDef.deskGlb){ applyDeskCatalogRefToSeat(s, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:s.charDef.deskScale, deskLenX:s.charDef.deskLenX, deskColor:s.charDef.deskColor}); }
+        if(s.charDef.deskItems && typeof applyDeskItemsTo==='function') applyDeskItemsTo(s, s.charDef.deskItems);
+      });
+    }
+  }catch(_){}
+  // 생성기가 열려 있으면 책상 카드의 🔒 도 지금 값으로 다시 그린다
+  try{ if(typeof creatorOpen!=='undefined' && creatorOpen && typeof renderCrItems==='function') renderCrItems(); }catch(_){}
 }
 // 앱 시작 시: 로컬에 저장된 키가 있으면 일단 프리미엄으로 간주(오프라인에서도 꾸미기 사용 가능하게),
 // 동시에 백그라운드로 재검증해서 (관리자가 비활성화한 경우 등) 무효화됐으면 조용히 잠금.
@@ -25676,7 +26077,7 @@ function _refreshPremiumGatedUI(){
   if(key){
     // firebaseAPI가 module script 로드 지연으로 아직 없을 수 있으니 준비될 때까지 기다렸다 재검증
     const doVerify = () => verifyLicense(key).then(r=>{
-      if(!r.ok && !r.offline){ isPremium=false; try{localStorage.removeItem(LICENSE_KEY_STORAGE);}catch(e){} }
+      if(!r.ok && !r.offline){ try{localStorage.removeItem(LICENSE_KEY_STORAGE);}catch(e){} _setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
     });
     if(window.firebaseAPI) doVerify();
     else window.addEventListener('firebase-ready', doVerify, { once:true });
@@ -26163,7 +26564,10 @@ function openCreator(mode){
     (async()=>{
       if(src&&src.deskCatalogId){
         const m=savedDesks.find(d=>d.id===src.deskCatalogId);
-        if(m){
+        /* 🔒 [2026-09-15] 라이선스가 빠진 뒤 남은 전용 책상 참조는 생성기에 싣지 않는다 — 실으면 저장 때
+           deskCatalogId 가 다시 굳어 실행 화면에서 매번 기본 책상으로 떨어지는 상태가 이어진다. 기본 책상으로 열린다. */
+        if(m && m.licenseOnly && !isPremium && !isAdmin){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
+        else if(m){
           if(!m.glb && m.glbUrl && typeof resolveCatalogGlb==='function'){
             try{ await resolveCatalogGlb(m); }catch(_){}
           }
@@ -27885,8 +28289,25 @@ const Presence=(()=>{
     // 🏊 새 캐릭터의 얼굴 URL을 준비한 뒤 전송 — 준비 실패해도 dataURL이 함께 가므로 상대 화면은 항상 정상
     ensureRoomFaceUrls(newDef).catch(()=>{}).then(()=>{ if(provider&&provider.update)provider.update(Object.assign(_basePayload(), {def:newDef})); });
   }
-  // 💬 채팅 — 마지막 메시지+타임스탬프만 내 항목에 실어 보냄(대화 기록 저장은 안 함, ts로 "새 메시지" 판별).
-  function sendChat(text){ if(provider&&provider.update) provider.update(Object.assign(_basePayload(), {chat:{text:String(text).slice(0,140),ts:Date.now()}})); }
+  /* 💬 채팅 — 마지막 메시지+타임스탬프만 내 항목에 실어 보냄(대화 기록 저장은 안 함, ts로 "새 메시지" 판별).
+     🌊 fly / flyColor — 「날리기」. 체크하고 보낸 줄은 말풍선 대신 화면을 가로질러 흐른다.
+       ★ 서버 규칙(firebase-database-rules.json 144)은 `chat.text` 만 검사하고 **다른 자식을 막지 않는다** —
+         그래서 이 두 칸은 규칙을 안 고쳐도 통과한다. 고치는 편이 낫긴 하다(README 의 규칙 한 줄 참고).
+       ★ fly 가 거짓이면 **칸 자체를 안 싣는다.** 항상 실으면 안 쓰는 사람의 모든 메시지에
+         `fly:false` 가 붙어 방 payload 가 그만큼 커진다(얼굴 PNG 를 걷어낸 것과 같은 이유).
+       ⚠️ flyColor 는 «보낸 사람이 고른 값»일 뿐 권한이 아니다. Lv.200 판정은 **받는 쪽**에서
+         friends[id].level 로 다시 한다 — 여기서만 막으면 값을 조작해 색을 쓸 수 있다. */
+  function sendChat(text, fly, flyColor, flySize){
+    if(!(provider && provider.update)) return;
+    const chat = { text:String(text).slice(0,140), ts:Date.now() };
+    if(fly){
+      chat.fly = true;
+      if(flyColor) chat.flyColor = String(flyColor).slice(0,16);
+      // 대(l)는 기본값이라 안 싣는다 — 받는 쪽이 «없으면 대» 로 읽는다.
+      if(flySize && flySize !== 'l') chat.flySize = String(flySize).slice(0,2);
+    }
+    provider.update(Object.assign(_basePayload(), { chat }));
+  }
   function stop(){
     const p = (provider && provider.leave) ? Promise.resolve(provider.leave()) : Promise.resolve();
     provider=null; room=null; friends={}; if(onChange)onChange({});
@@ -27915,37 +28336,50 @@ const ROOM_FACE_SEND_DATAURL = false;   // ★ true→false (0.7.0). 얼굴 PNG�
                                        //   Storage URL만 보낸다. 이게 서버 다운로드의 99%였다.
                                        //   되돌리려면 이 값만 true로 바꾸면 즉시 원상복구된다.
 function _quickHash(str){ let h=5381; for(let i=0;i<str.length;i+=7) h=((h<<5)+h+str.charCodeAt(i))>>>0; return h.toString(36)+'.'+str.length; }
+/* 🗂️ 얼굴 업로드 캐시 "{key}:{해시} → URL" — localStorage tw.roomFaceUrls.
+   [2026-09-16] ensureRoomFaceUrls 안에 있던 것을 그대로 밖으로 뺐다. 슬롯 동기화(_slotToServerObj)가
+     **같은 캐시·같은 파일명 규칙**을 쓰기 위해서다 — 방에 한 번이라도 들어간 캐릭터는 얼굴이 이미
+     roomface_{key}_{hash}.png 로 올라가 있으므로, 슬롯을 올릴 때 그 그림은 한 장도 다시 안 올라간다.
+     캐시를 두 벌로 갈랐다면 같은 그림이 두 번 올라갔을 것이다(Class A 요금). 동작은 한 글자도 안 바뀌었다. */
+function _roomFaceCacheLoad(){
+  let st = {}; try{ st = JSON.parse(localStorage.getItem('tw.roomFaceUrls')||'{}'); }catch(_){}
+  if(!st || typeof st !== 'object') st = {};
+  /* 🗂️ 캐시 형태를 "{key}:{해시} → URL" 로 바꾼다.
+     [경위] 예전엔 key 하나당 해시 하나만 기억했다(st.faceHash / st.faceUrl).
+       캐릭터 슬롯이 둘 이상인 사람이 캐릭터를 바꾸면 해시가 어긋나 재업로드되고, 도로 바꾸면
+       또 재업로드됐다 — 슬롯을 오갈 때마다 무한히 PUT 이 나갔다(Cloud Storage Class A 폭증의 정체).
+       파일명이 이미 내용 해시라(roomface_{key}_{hash}.png) 같은 그림은 같은 파일인데도 매번 올린 셈이다.
+     ⚠️ 옛 형태를 여기서 한 번 이관한다 — 안 하면 업데이트 직후 모두가 한 번씩 재업로드한다. */
+  ['face','blink','aBody','aEarL','aEarR','aBlink'].forEach(k=>{
+    if(st[k+'Hash'] && st[k+'Url']){ st[k+':'+st[k+'Hash']] = st[k+'Url']; }
+    delete st[k+'Hash']; delete st[k+'Url'];
+  });
+  // 무한정 쌓이지 않게 상한 — 넘으면 통째로 비운다(다음 장착 때 한 번만 다시 올린다).
+  if(Object.keys(st).length > 60) st = {};
+  return st;
+}
+function _roomFaceCacheSave(st){ try{ localStorage.setItem('tw.roomFaceUrls', JSON.stringify(st)); }catch(_){} }
+/* 그림 한 장 → Storage URL. 캐시(st)에 있으면 업로드 없이 그 URL. 실패·그림 아님 → null.
+   ★ 파일 이름에 '그림 내용 해시'를 넣는다 — 예전엔 users/{uid}/roomface_face.png 처럼
+     캐릭터 구분 없이 한 경로만 써서, 동물을 만들면 그 얼굴(투명 배경)이 인간이 쓰던 파일을
+     그대로 덮어썼다. 캐시가 1년이라 한 번 덮이면 오래 남는다.
+     내용이 같으면 같은 파일, 다르면 다른 파일 → 캐릭터끼리 절대 충돌하지 않고 중복 업로드도 없다. */
+async function _storageFaceUrlOne(uid, st, key, cv){
+  const dataUrl = (cv && typeof cv.toDataURL==='function') ? cv.toDataURL('image/png') : (typeof cv==='string' ? cv : null);
+  if(!dataUrl || !dataUrl.startsWith('data:')) return null;
+  const h = _quickHash(dataUrl);
+  const ck = key + ':' + h;
+  if(st[ck]) return st[ck];   // 이 그림은 전에 올려둔 적이 있다 — 캐릭터를 몇 번 바꿔도 다시 안 올린다
+  const r = await firebaseAPI.uploadRoomFace(uid, key + '_' + h, dataUrl);
+  if(r && r.ok){ st[ck] = r.url; return r.url; }
+  return null;
+}
 async function ensureRoomFaceUrls(def){
   try{
     if(!def || !window.firebaseAPI || !firebaseAPI.uploadRoomFace || typeof getMyUserId!=='function') return def;
     const uid = getMyUserId(); if(!uid) return def;
-    let st = {}; try{ st = JSON.parse(localStorage.getItem('tw.roomFaceUrls')||'{}'); }catch(_){}
-    /* 🗂️ 캐시 형태를 "{key}:{해시} → URL" 로 바꾼다.
-       [경위] 예전엔 key 하나당 해시 하나만 기억했다(st.faceHash / st.faceUrl).
-         캐릭터 슬롯이 둘 이상인 사람이 캐릭터를 바꾸면 해시가 어긋나 재업로드되고, 도로 바꾸면
-         또 재업로드됐다 — 슬롯을 오갈 때마다 무한히 PUT 이 나갔다(Cloud Storage Class A 폭증의 정체).
-         파일명이 이미 내용 해시라(roomface_{key}_{hash}.png) 같은 그림은 같은 파일인데도 매번 올린 셈이다.
-       ⚠️ 옛 형태를 여기서 한 번 이관한다 — 안 하면 업데이트 직후 모두가 한 번씩 재업로드한다. */
-    ['face','blink','aBody','aEarL','aEarR','aBlink'].forEach(k=>{
-      if(st[k+'Hash'] && st[k+'Url']){ st[k+':'+st[k+'Hash']] = st[k+'Url']; }
-      delete st[k+'Hash']; delete st[k+'Url'];
-    });
-    // 무한정 쌓이지 않게 상한 — 넘으면 통째로 비운다(다음 장착 때 한 번만 다시 올린다).
-    if(Object.keys(st).length > 60) st = {};
-    const one = async (key, cv)=>{
-      const dataUrl = (cv && typeof cv.toDataURL==='function') ? cv.toDataURL('image/png') : (typeof cv==='string' ? cv : null);
-      if(!dataUrl || !dataUrl.startsWith('data:')) return null;
-      const h = _quickHash(dataUrl);
-      const ck = key + ':' + h;
-      if(st[ck]) return st[ck];   // 이 그림은 전에 올려둔 적이 있다 — 캐릭터를 몇 번 바꿔도 다시 안 올린다
-      // ★ 파일 이름에 '그림 내용 해시'를 넣는다 — 예전엔 users/{uid}/roomface_face.png 처럼
-      //   캐릭터 구분 없이 한 경로만 써서, 동물을 만들면 그 얼굴(투명 배경)이 인간이 쓰던 파일을
-      //   그대로 덮어썼다. 캐시가 1년이라 한 번 덮이면 오래 남는다.
-      //   내용이 같으면 같은 파일, 다르면 다른 파일 → 캐릭터끼리 절대 충돌하지 않고 중복 업로드도 없다.
-      const r = await firebaseAPI.uploadRoomFace(uid, key + '_' + h, dataUrl);
-      if(r && r.ok){ st[ck] = r.url; return r.url; }
-      return null;
-    };
+    const st = _roomFaceCacheLoad();
+    const one = (key, cv)=> _storageFaceUrlOne(uid, st, key, cv);
     def._faceUrl  = await one('face',  def.face);
     def._blinkUrl = await one('blink', def.blink);
     // 🐾 동물 — 몸·귀·감은눈 페인트(저장 시 dataURL 문자열)도 같은 방식으로 업로드
@@ -27958,7 +28392,7 @@ async function ensureRoomFaceUrls(def){
       def._aEarRBUrl = await one('aEarRB', def.animalEarBlinkR);
       def._aBlinkUrl = await one('aBlink', def.animalBlink);
     }
-    try{ localStorage.setItem('tw.roomFaceUrls', JSON.stringify(st)); }catch(_){}
+    _roomFaceCacheSave(st);
   }catch(_){}
   return def;
 }
@@ -28423,7 +28857,18 @@ function syncFriendSeats(friends){
       //   😊 단, 기본 이모티콘 단독 마커([demoji:id] 하나뿐인 메시지)는 모든 방에서 허용 —
       //   채팅 없는 워킹룸의 가벼운 감정 표현용(상태칩 😊 버튼). 텍스트가 섞이면 여전히 차단(일에 집중).
       const _demojiOnly = /^\s*\[demoji:d\d{2}\]\s*$/.test(String(chat.text||''));
-      if((window._activeChannel === 2 || _demojiOnly) && typeof showChatBubble==='function') showChatBubble(s, chat.text);
+      /* 🌊 날리기 — 보낸 사람이 체크한 줄은 말풍선 대신 화면을 가로지른다.
+         ★ 채널 조건은 `_activeChannel === 2` **한 줄**이다. 시크릿룸은 언제나 투게더룸으로 열리므로
+           (_enterRoom 의 _isSecret 분기 → _channel='togetherroom') 이 한 줄이 곧 "투게더룸+시크릿룸"이다.
+           조건을 늘리지 말 것 — _chatDelRefreshUI 주석과 같은 규칙이고, 늘리면 서로 어긋난다.
+         ★ 워킹룸(채널1)에서는 fly 가 실려 와도 무시하고 아래 기존 분기로 떨어진다.
+           거기서 이모티콘 단독이 아니면 아무것도 안 뜬다 — 「일에 집중」 규약 그대로다.
+         ⚠️ 레벨 확인이 **여기** 있다. 보내는 쪽 체크는 UI 편의일 뿐이고, 실제로 색을 인정할지는
+           방이 다 같이 보고 있는 friends[id].level 로 받는 쪽이 정한다. */
+      if(chat.fly && window._activeChannel === 2 && typeof showFlyText==='function'){
+        showFlyText(s, chat.text, (friends[id].level|0) >= FLY_COLOR_LEVEL ? chat.flyColor : '', chat.flySize);
+      }
+      else if((window._activeChannel === 2 || _demojiOnly) && typeof showChatBubble==='function') showChatBubble(s, chat.text);
     }
   });
   _applyRemoteRides();   // 🐾 친구들의 올라타기·탑쌓기 관계를 좌석에 반영(좌석이 다 만들어진 뒤에)
@@ -28527,6 +28972,7 @@ async function _ensureRoomVersionOk(){
   return true;
 }
 async function startRoom(code){
+  if(window._deviceSessionLost){ toast('다른 기기에서 이 계정을 쓰는 중이에요 — «여기서 계속 쓰기» 를 누르면 이 PC 로 가져와요'); return; }   // 🖥️ 한 계정 한 기기
   if(!(await _ensureRoomVersionOk())) return;   // 🚪 구버전 방 입장 차단(생성·참여·초대수락 공통 길목)
   const myDef=slots[curSlot]||slots.find(Boolean);
   if(!myDef){ toast('먼저 내 캐릭터를 만들어 주세요'); return; }
@@ -28568,6 +29014,14 @@ async function startRoom(code){
         .write:true + 형식 검사뿐이고 _meta.host 도 누구나 덮어쓸 수 있다 — 서버는 인원도 방장도
         지켜주지 않는다(정원 전체가 원래 그렇다). 진짜 보증은 들어간 뒤의 자기 퇴장이다. */
   const _iAmSrOwner = !!(_isSecret && _secretOwner && _secretOwner === getMyUserId());
+  /* 🪪 [2026-09-17 제보 4] 방장이 **내가 버린 uid** 로 적혀 있다 — 관리자가 친구코드로 발급했는데 그 코드가
+       아직 옛 uid 를 가리키던 때다. 방장 판정은 방 전원이 pub.owner 문자열 하나로 같은 계산을 하므로 여기서
+       «나를 방장으로 쳐 주기» 는 안 된다(남의 화면·자기 퇴장 게이트가 나를 손님으로 센다). secretRooms 는
+       발급 열쇠 없이는 못 쓰니 정정도 관리자만 할 수 있다. 그래서 **이유를 말해 준다** — 조용히 «방장이 안 됨»
+       으로 남던 것을 «재발급 요청» 으로 바꾼다. 입장은 손님으로 그대로 된다. */
+  if(_isSecret && _secretOwner && !_iAmSrOwner && typeof _isMyPrevUserId === 'function' && _isMyPrevUserId(_secretOwner)){
+    toast('🔒 이 시크릿룸은 예전 유저 코드(' + _secretOwner + ')로 발급돼 있어요 — 관리자에게 지금 코드 ' + getMyUserId() + ' 로 재발급을 요청해 주세요. 지금은 손님으로 들어가요');
+  }
   //   html 자기 퇴장 게이트가 읽는다 — _meta.host 보다 이르게(입장 전에) 확정되는 값이라 순서 계산이 안 흔들린다.
   window._srOwnerUid = _isSecret ? (_secretOwner || null) : null;
   // ★ 예전엔 정원 체크가 전혀 없어서 화면에 표시되는 한도(MAX_PEOPLE)보다 많은 인원이 그냥 입장은 되고,
@@ -28661,7 +29115,31 @@ async function startRoom(code){
           if(firebaseAPI.setRoomChannel) await firebaseAPI.setRoomChannel(code, _channel, getMyUserId());
         }
       } else {
-        _channel = await firebaseAPI.getRoomChannel(code);   // 사람이 있는 방 — 그 방 채널을 그대로 따른다(방장은 안 건드림)
+        /* 사람이 있는 방 — 그 방 채널을 그대로 따른다(방장은 안 건드림).
+           🩹 [2026-09-16 제보 2] 단, **표지(`_meta.channel`)가 없으면 되살린다.**
+             퇴장 정리의 시차 재조회와 재입장이 겹치면 「멤버는 있는데 `_meta` 만 없는」 방이 남는데,
+             예전에는 여기가 무조건 워킹룸으로 떨어뜨렸고 **아무도 다시 쓰지 않아 영원히 워킹룸**이 됐다
+             (방장이 다시 들어와도 마찬가지 — 제보의 «나갔다 들어오니 저도 안 뜬다»).
+           ⚠️ 되살리는 것은 `recoverRoomChannel` 이다 — `claimEmptyRoom`(빈 방 승격)을 쓰면 **있는 채널도
+             덮어써서** 미보유자가 들어오는 것만으로 남의 투게더룸이 워킹룸이 된다.
+           ⚠️ 읽기 실패(null)면 **아무것도 하지 않고** 워킹룸으로 간다 — 예전과 같은 자리로 떨어지되,
+             그 사이에 표지를 잘못 세우지는 않는다. 네트워크가 나쁜 한 순간에 남의 방을 덮는 것이 더 큰 사고다. */
+        let _ex = null;
+        try{ if(firebaseAPI.getRoomChannelEx) _ex = await firebaseAPI.getRoomChannelEx(code); }catch(_){}
+        if(_ex && _ex.channel){
+          _channel = _ex.channel;
+        } else if(_ex && !_ex.channel && firebaseAPI.recoverRoomChannel){
+          const _iAmLicensed2 = (typeof isPremium!=='undefined' && isPremium) || (typeof isAdmin!=='undefined' && isAdmin);
+          let _rec = null;
+          try{ _rec = await firebaseAPI.recoverRoomChannel(code, getMyUserId(), _iAmLicensed2); }catch(_){}
+          _channel = (_rec && _rec.channel) || 'workingroom';
+          if(_rec && _rec.recovered){
+            console.log('[방] 표지가 없어 채널을 다시 세웠어요 —', code, _channel);
+            if(_channel === 'togetherroom') toast('방 정보가 비어 있어 투게더룸으로 다시 세웠어요 👑');
+          }
+        } else {
+          _channel = await firebaseAPI.getRoomChannel(code);   // 구버전 폴백 · 읽기 실패
+        }
       }
     }
   }catch(_){}
@@ -29110,17 +29588,167 @@ async function _loginDoGoogle(){
      그대로 보게 된다는 뜻이다. 그래서 계정 연동 해제(acctUnlinkYes)와 **같은 자리를 지운다.**
    ★ 예전에 해제가 무서웠던 이유(돌아오려면 유저 코드 22자리와 비밀번호가 필요했다)는
      이제 없다 — 게이트에 구글 버튼이 있어서 클릭 한 번으로 돌아온다. 계정은 서버에 그대로다. */
+/* ═══ 🧹 [2026-09-16 제보 4] 신원을 놓을 때 이 기기에서 지우는 것 — **한 벌뿐이다** ═══════
+   [경위] 로그아웃이 지우던 것은 신원 6개뿐이었다(유저 코드·도장·친추코드·이메일·uid + 마크 정렬).
+     **소지품은 전부 남았다.** 같은 노트북에서 A 가 로그아웃하고 B 가 로그인하자
+       ① A 의 라이선스 키(tw.licenseKey)가 남아 B 에게 프리미엄 창이 떴고
+       ③ A 의 누적 시간이 남아 B 의 스냅샷과 max 로 합쳐져 서버 B 레벨이 1 → 51 로 뛰었고
+       ④ A 가 뽑은 가챠가 B 계정 서버로 올라갔고(연동 pull 이 «저쪽이 비면 로컬을 올린다»)
+       ② A 의 캐릭터(슬롯)가 B 의 프로필 얼굴로 올라갔다.
+     그리고 이번 커밋의 슬롯 동기화가 «로컬이 최신이면 push» 라 슬롯까지 같은 길로 샌다.
+   [원칙] **신원을 놓는 순간 이 기기는 빈 기기가 된다.** 계정에 딸린 것은 전부 지우고, 다시
+     로그인하면 서버에서 받아온다. 로컬에만 있고 서버에 없는 것은 없어야 한다 — 그래서
+     지우기 **전에** 올리고(_acctFlushToServer), 올라갔는지 **확인한 뒤**(_acctPreflight) 지운다.
+   [무엇을 남기나] 기기 설정(테마·창 위치·볼륨·반복·폰트·투명도)과 카탈로그(savedParts·savedDesks)
+     — 계정이 아니라 **이 컴퓨터**의 것이다. 프리셋 캐릭터 만들기 데이터(tw.deskPresets)도 남긴다.
+   ⚠️ 목록을 늘리거나 줄일 때는 «다시 로그인하면 돌아오는가» 를 항목마다 확인할 것.
+     돌아오는 길이 없는 항목을 여기 넣으면 로그아웃이 곧 삭제가 된다. 각 줄 오른쪽에 그 길을 적어 둔다.
+   ★ 로그아웃(_loginDoLogout)과 연동 해제(acctUnlinkYes)가 **둘 다 이 함수 하나**를 부른다.
+     예전에는 «같은 목록» 이라는 주석으로만 묶여 있었고, 그래서 누락이 두 곳에서 똑같이 났다.
+   ★ sim-account-switch.js 가 이 목록을 읽어 «로그아웃 뒤 남은 키» 를 잰다. */
+const ACCOUNT_LOCAL_KEYS = ()=>[
+  /* 신원 */
+  MY_USER_ID_KEY, INVITE_PASS_KEY, MY_FRIEND_CODE_KEY, LOGIN_EMAIL_KEY, LOGIN_UID_KEY,
+  MY_PREV_USER_IDS_KEY,        // «이 기기가 버린 내 uid» — 다음 사람에게는 남의 uid 다(_isMyPrevUserId 가 조건 없이 코드를 가져온다)
+  MY_FRIEND_CODE_PREV_KEY,     // 같은 이유
+  /* 라이선스 — 다시 로그인하면 계정 스냅샷(_applyTransferSnapshot r.license)으로 돌아온다. 없으면 키 재입력. */
+  LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY,
+  /* 누적 시간(레벨 원본) — 스냅샷 focusTotalSec + syncFocusTotalToServer 의 «서버가 크면 받아온다» 가지.
+     ⚠️ FOCUS_SYNCED_KEY 는 **removeItem** 이다. 값을 두면 «마크» 가 되고, 없으면 «한 번도 안 맞춰봄 = 증분 0 · max 바닥만».
+        빈 기기에 마크가 남아 있으면 다음 계정의 첫 동기화가 (0 − 옛마크) 로 꼬인다. */
+  FOCUS_TOTAL_KEY, FOCUS_TODAY_SEC_KEY, FOCUS_TODAY_DATE_KEY, FOCUS_SYNCED_KEY,
+  DANCE_NOTIFIED_KEY, DANCE_REPAIR_KEY,   // 해금 안내 기록 — 수령함이 진짜다(_danceUnlockPending 이 수령함을 보고 중복을 거른다)
+  /* 가챠 — 연동 pull(syncGachaToServer 'transfer','pull') + 부팅 tick 이 서버 것을 받아온다. 보너스는 loadChalBonus. */
+  GACHA_OWNED_KEY, GACHA_TS_KEY, GACHA_BONUS_KEY,
+  /* 달성표 — syncChalToServer 가 서버 ts 가 크면 통째로 받아온다. */
+  CHAL_KEY,
+  /* 캐릭터 슬롯 — 연동 pull(syncSlotsToServer 'transfer','pull'). 업로드 캐시 둘은 users/{uid}/ 경로의 URL 이라
+     **다른 uid 가 물려받으면 남의 Storage 를 가리킨다** — 반드시 같이 지운다. */
+  LS_KEY, SLOTS_TS_KEY, CUR_SLOT_KEY, SLOT_GLB_CACHE_KEY, 'tw.roomFaceUrls',
+  EXTRA_SEAT_KEY,              // 슬롯 번호 목록 — 슬롯이 사라지면 가리키는 곳이 없다
+  /* 플레이리스트 — _restoreOwnedDataAfterTransfer 가 세 벌 전부(fetchMyPlaylistSets) 받아온다.
+     볼륨·반복·미니미·창 위치는 기기 설정이라 남긴다. */
+  'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio',
+  'tw.playlistHomePublic', 'tw.playlistPrivate',
+  /* 프로필·읽음 표시 — 이름은 스냅샷(r.name), 나머지는 새로 쌓이면 된다. */
+  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', MY_AD_BANNER_KEY,
+  BELL_SEEN_KEY, INBOX_BC_READ_KEY, BONK_DAY_KEY,
+];
+/* 접두어로 쌓이는 키(방마다 하나) — 목록에 못 적으므로 여기서 훑는다. */
+const ACCOUNT_LOCAL_KEY_PREFIXES = ['tw_chat_read:', 'tw_chat_join:'];
+
+/* 📤 지우기 전에 올린다 — 이 기기가 마지막으로 쌓은 것(≤10분치 시간·마지막 뽑기·저장한 캐릭터)을
+   서버에 실어 보낸다. 실패는 여기서 판단하지 않는다 — 아래 검문(_acctPreflight)이 결과로 본다.
+   ⚠️ 무한정 기다리지 않는다. 슬롯 push 는 얼굴 업로드가 딸려 있어 느릴 수 있다. */
+const ACCT_FLUSH_TIMEOUT_MS = 8000;
+async function _acctFlushToServer(){
+  const jobs = [];
+  const call = (fn, ...a) => { try{ if(typeof fn === 'function') jobs.push(Promise.resolve(fn(...a))); }catch(_){} };
+  call(typeof syncFocusTotalToServer === 'function' ? syncFocusTotalToServer : null, 'logout');
+  call(typeof syncGachaToServer === 'function' ? syncGachaToServer : null, 'logout');
+  call(typeof syncChalToServer === 'function' ? syncChalToServer : null, 'logout');
+  /* 슬롯은 대기 중인 debounce push 가 있으면 그것부터 흘려보낸다(3초를 기다릴 이유가 없다). */
+  try{ if(typeof _slotsPushTimer !== 'undefined' && _slotsPushTimer){ clearTimeout(_slotsPushTimer); _slotsPushTimer = null; } }catch(_){}
+  call(typeof syncSlotsToServer === 'function' ? syncSlotsToServer : null, 'logout');
+  if(!jobs.length) return;
+  await Promise.race([
+    Promise.allSettled(jobs),
+    new Promise(res => setTimeout(res, ACCT_FLUSH_TIMEOUT_MS)),
+  ]);
+}
+
+/* 🛂 검문 — «로컬에만 있는 소지품» 이 남아 있으면 지우지 않는다.
+   [왜 막는가] 규칙이 거부한 기기(비밀번호 연동만 한 기기 · 세션이 풀린 기기)는 push 가 조용히 실패한다.
+     그 상태로 지우면 로그아웃이 곧 삭제다. 막고 이유를 말하는 쪽이 낫다 — 로그인 한 번이 복구다.
+   ⚠️ 읽기 실패(null)도 «모른다» 이므로 막는다. 네트워크가 없는 한 순간에 지우는 것이 더 큰 사고다.
+   @return { ok:true } | { ok:false, reason:'…' } */
+async function _acctPreflight(uid){
+  const api = window.firebaseAPI;
+  if(!api) return { ok:false, reason:'네트워크 연결이 필요해요' };
+  /* 🧍 캐릭터 — 로컬에 있으면 서버 ts 가 있어야 한다. */
+  try{
+    const hasSlots = (typeof _slotsHasLocal === 'function') && _slotsHasLocal();
+    if(hasSlots && api.loadSlotsTs){
+      const ts = await api.loadSlotsTs(uid);
+      if(!(typeof ts === 'number' && ts > 0)) return { ok:false, reason:'캐릭터를 서버에 올리지 못했어요' };
+    }
+  }catch(_){ return { ok:false, reason:'캐릭터 저장 상태를 확인하지 못했어요' }; }
+  /* 🎰 가챠 — 로컬 보유분이 있으면 서버에도 보유분이 있어야 한다. */
+  try{
+    const mine = (typeof gachaOwned === 'object' && gachaOwned) ? Object.keys(gachaOwned).length : 0;
+    if(mine && api.loadGachaOwned){
+      const srv = await api.loadGachaOwned(uid);
+      if(!srv || !Object.keys(srv.owned || {}).length) return { ok:false, reason:'뽑은 파츠를 서버에 올리지 못했어요' };
+    }
+  }catch(_){ return { ok:false, reason:'파츠 저장 상태를 확인하지 못했어요' }; }
+  /* 🕒 누적 시간 — 마크가 로컬 누적을 따라잡았어야 한다(2분은 왕복 사이에 쌓이는 폭). */
+  try{
+    const total = Math.floor(Number(_focusTotalSec) || 0);
+    if(total > 0){
+      if(!_hasFocusSyncedMark()) return { ok:false, reason:'누적 시간을 서버에 올리지 못했어요' };
+      if(total - _getFocusSyncedMark() > 120) return { ok:false, reason:'누적 시간을 서버에 올리지 못했어요' };
+    }
+  }catch(_){}
+  return { ok:true };
+}
+
+/* 🧹 실제로 지운다 — localStorage 와 **메모리** 둘 다.
+   [왜 메모리까지] 이 뒤 700ms 안에 재시작하지만, 그 사이 beforeunload 가 돈다
+     (syncFocusTotalToServer('quit') · _chalSave). 메모리에 옛 값이 있으면 그 한 번이 지운 키를 도로 쓴다.
+   ⚠️ getMyUserId() 를 부르는 코드가 이 뒤에 돌면 임시 uid 가 하나 생긴다. 그건 이미 설계된 상태다
+     (게이트 주석 «로그아웃 직후 만들어진 임시 유저 코드»). 여기서 막지 않는다. */
+let _acctDetached = false;   // 신원을 놓았다 — 이 뒤로 서버에 올리는 길(syncFocusTotalToServer 등)은 돌지 않는다
+function _wipeAccountLocal(){
+  _acctDetached = true;
+  for(const k of ACCOUNT_LOCAL_KEYS()){ try{ localStorage.removeItem(k); }catch(_){} }
+  try{
+    const drop = [];
+    for(let i = 0; i < localStorage.length; i++){
+      const k = localStorage.key(i);
+      if(k && ACCOUNT_LOCAL_KEY_PREFIXES.some(p => k.startsWith(p))) drop.push(k);
+    }
+    drop.forEach(k => { try{ localStorage.removeItem(k); }catch(_){} });
+  }catch(_){}
+  /* 메모리 — 위 주석 참고. 각 값은 그 모듈의 «빈 기기» 초기값과 같다. */
+  try{ _focusTotalSec = 0; _focusTodaySec = 0; }catch(_){}
+  try{ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; }catch(_){}
+  try{ chalRec = _chalBlank(); _chalDirty = false; }catch(_){}
+  try{ _slotsTs = 0; extraSeatSlots = []; }catch(_){}
+  try{ _plSets = _plBlankSets(); _plCur = 0; _plBio = ''; _plHomePublic = false; _plPrivate = false; _plPubSig = null; }catch(_){}
+  /* isPremium(메모리)은 안 건드린다 — 700ms 뒤 재시작이고, 그 사이 책상을 다시 그릴 이유가 없다.
+     다음 부팅의 initLicense 가 빈 키를 보고 기본으로 시작한다. */
+}
+
+/* 신원 놓기 한 벌 — 올리고 → 검문 → 지운다. 로그아웃·연동 해제가 같이 쓴다.
+   @return { ok:true } | { ok:false, reason } — false 면 **아무것도 안 지웠다.** 부르는 쪽이 이유를 보여준다. */
+async function _detachAccountLocal(){
+  let uid = null; try{ uid = localStorage.getItem(MY_USER_ID_KEY); }catch(_){}
+  if(uid){
+    await _acctFlushToServer();
+    const pf = await _acctPreflight(uid);
+    if(!pf.ok) return pf;
+  }
+  _wipeAccountLocal();
+  /* 🖥️ 기기 세션을 놓는다 — 내 것일 때만 지운다. authSignOut 은 이 뒤(_loginDoLogout)라 아직 쓸 수 있다. */
+  try{ if(window.firebaseAPI && firebaseAPI.releaseDeviceSession) await firebaseAPI.releaseDeviceSession(); }catch(_){}
+  return { ok:true };
+}
+
+/* 로그아웃 — Auth 세션만 끊는 게 아니라 **이 기기의 신원까지 놓는다.**
+   [왜 그렇게까지 하는가] 세션만 끊으면 로컬 유저 코드가 그대로 남아, 로그아웃한 뒤에도
+     그 계정의 마이홈·친구가 계속 보인다. 한 컴퓨터를 나눠 쓸 때 다음 사람이 앞사람 계정을
+     그대로 보게 된다는 뜻이다. 그래서 계정 연동 해제(acctUnlinkYes)와 **같은 자리를 지운다.**
+   ★ 예전에 해제가 무서웠던 이유(돌아오려면 유저 코드 22자리와 비밀번호가 필요했다)는
+     이제 없다 — 게이트에 구글 버튼이 있어서 클릭 한 번으로 돌아온다. 계정은 서버에 그대로다.
+   ★ [2026-09-16 제보 4] 지우는 목록은 ACCOUNT_LOCAL_KEYS 한 벌이다(위). 소지품까지 전부 지운다.
+   ⚠️ 순서: 올리고·검문 **먼저**, signOut 은 **그 뒤**. 거꾸로 하면 세션이 끊긴 상태에서 push 가
+     거부되고, 검문이 그걸 «못 올렸다» 로 읽어 로그아웃이 항상 막힌다.
+   @return { ok, reason } — ok=false 면 세션도 로컬도 그대로다. */
 async function _loginDoLogout(){
+  const r = await _detachAccountLocal();
+  if(!r.ok) return r;
   try{ if(window.firebaseAPI && firebaseAPI.authSignOut) await firebaseAPI.authSignOut(); }catch(_){}
-  try{ localStorage.removeItem(LOGIN_EMAIL_KEY); }catch(_){}
-  try{ localStorage.removeItem(LOGIN_UID_KEY); }catch(_){}
-  /* 아래 네 줄은 계정 연동 해제와 **같은 목록**이다. 한쪽만 고치면 두 경로가 어긋난다. */
-  try{ localStorage.removeItem(MY_USER_ID_KEY); }catch(_){}
-  try{ localStorage.removeItem(INVITE_PASS_KEY); }catch(_){}
-  try{ localStorage.removeItem(MY_FRIEND_CODE_KEY); }catch(_){}
-  /* 🕒 이 기기에 남은 누적 시간은 '로그아웃한 계정'의 것이므로, 다음에 들어올 계정으로
-     증분으로 밀려들어가지 않게 마크를 현재 값으로 맞춘다(delta 0). */
-  try{ localStorage.setItem(FOCUS_SYNCED_KEY, localStorage.getItem(FOCUS_TOTAL_KEY) || '0'); }catch(_){}
+  return { ok:true };
 }
 
 /* 계정 탭 다시 그리기 — 로그인 여부에 따라 두 얼굴. */
@@ -29199,7 +29827,15 @@ function refreshAccountTab(){
     const yes = $('acctLogoutYes');
     if(yes) yes.onclick = async ()=>{
       yes.disabled = true;
-      await _loginDoLogout();
+      const _t = yes.textContent; yes.textContent = '정리 중…';
+      let r; try{ r = await _loginDoLogout(); }catch(_){ r = { ok:false, reason:'로그아웃 중 오류가 났어요' }; }
+      yes.textContent = _t;
+      if(!r || !r.ok){
+        /* 🛂 검문에 걸렸다 — 아무것도 안 지웠다. 이유를 보여주고 버튼을 돌려준다(다시 누르면 다시 올려 본다). */
+        yes.disabled = false;
+        say('⚠️ ' + ((r && r.reason) || '로그아웃하지 못했어요') + ' — 네트워크와 로그인 상태를 확인한 뒤 다시 눌러 주세요.', false);
+        return;
+      }
       const cf = $('acctLogoutConfirm'); if(cf) cf.style.display = 'none';
       const dn = $('acctLogoutDone');    if(dn) dn.style.display = 'block';
       /* 자동으로 껐다 켠다 → 부팅 시 게이트가 돌아 시작 화면이 나온다.
@@ -29406,8 +30042,9 @@ function refreshAccountTab(){
 })();
 
 /* 🔁 신원을 놓은 뒤 앱을 껐다 켠다 — 연동 해제와 로그아웃이 **함께 쓰는 한 자리.**
-   [왜 여기 모으는가] 두 곳이 같은 일을 하는데 따로 쓰면 한쪽만 고쳐진다. 실제로 이 둘은
-     지우는 localStorage 목록도 같아야 한다(_loginDoLogout 주석 참고).
+   [왜 여기 모으는가] 두 곳이 같은 일을 하는데 따로 쓰면 한쪽만 고쳐진다. 지우는 쪽도 이제
+     함수 하나다(_detachAccountLocal · ACCOUNT_LOCAL_KEYS) — 예전엔 주석으로만 «같은 목록» 이었고
+     그래서 두 곳이 똑같이 소지품을 빠뜨렸다(2026-09-16 제보 4).
    [왜 재시작인가] 게이트(checkInviteGate)는 부팅 때 한 번만 도는 검사다. 세션 도중에 신원을
      놓아도 화면은 그대로 남고, 그 상태로 계속 쓰면 getMyUserId() 가 그 자리에서 **새 유저 코드를
      만들어** 아무도 모르는 계정 앞으로 기록이 쌓인다. 껐다 켜야 게이트가 다시 돈다.
@@ -29533,20 +30170,22 @@ function _acctShowMsg(id, text, ok){
       licCopy.textContent='복사됨'; setTimeout(()=>licCopy.textContent='복사',1200);
     };
     const yesBtn=document.getElementById('acctUnlinkYes');
-    if(yesBtn) yesBtn.onclick=()=>{
-      // 로컬 계정 식별자 + 게이트 통과 기록을 지운다 → 다음 실행 때 checkInviteGate가 초대 코드 화면을 띄움.
-      //   · 유저 코드를 새로 발급하지 않는다(게이트에서 초대 코드나 기존 유저 코드로 다시 들어오는 흐름).
-      //   · 친추코드는 이전 계정 소유라 함께 비운다 — 남겨두면 다른 uid의 코드를 계속 들고 있게 됨.
-      //   · 라이선스 키는 유지한다(키 기반이라 계정과 무관, 지워도 재입력하면 그만이라 실익 없음).
-      try{ localStorage.removeItem(MY_USER_ID_KEY); }catch(_){}
-      try{ localStorage.removeItem(INVITE_PASS_KEY); }catch(_){}
-      try{ localStorage.removeItem(MY_FRIEND_CODE_KEY); }catch(_){}
-      /* 🕒 이 기기에 남은 누적 시간은 '해제한 계정'의 것이므로, 다음에 들어올 계정으로
-         **증분으로** 밀려들어가지 않게 마크를 현재 값으로 맞춰 둔다(delta 0).
-         해제 후 새로 쌓는 시간부터 서버에 올라간다.
-         ⚠️ 다만 max 바닥은 남는다 — 다음 계정의 서버 값이 이 기기보다 작으면 끌어올려진다.
-            "레벨이 눈에 띄게 깎이는 일은 없다"를 지키려면 이건 감수해야 하는 쪽이다. */
-      try{ localStorage.setItem(FOCUS_SYNCED_KEY, localStorage.getItem(FOCUS_TOTAL_KEY)||'0'); }catch(_){}
+    if(yesBtn) yesBtn.onclick=async ()=>{
+      /* 🧹 [2026-09-16 제보 4] 지우는 것은 구글 로그아웃과 **같은 함수**(_detachAccountLocal)다.
+         예전에는 여기서 신원 3개만 지우고 «라이선스 키는 유지한다(계정과 무관)» 고 적어 뒀는데,
+         그 키가 남아서 다음 사람에게 프리미엄이 열렸다(제보 ①). 소지품까지 전부 지운다 — 목록과
+         이유는 ACCOUNT_LOCAL_KEYS 에 있다. 라이선스는 다시 들어오면 스냅샷으로 돌아온다.
+         ⚠️ 검문에 걸리면(서버에 못 올린 캐릭터·파츠·시간이 있으면) **아무것도 안 지우고** 이유를 보인다.
+           비밀번호 연동만 한 기기는 쓰기가 거부되는 상태일 수 있다 — 그 사람에게 해제는 곧 삭제였다. */
+      yesBtn.disabled=true;
+      const _t=yesBtn.textContent; yesBtn.textContent='정리 중…';
+      let r; try{ r = await _detachAccountLocal(); }catch(_){ r = { ok:false, reason:'해제 중 오류가 났어요' }; }
+      yesBtn.textContent=_t;
+      if(!r || !r.ok){
+        yesBtn.disabled=false;
+        _acctShowMsg('acctLinkMsg', '⚠️ ' + ((r && r.reason) || '해제하지 못했어요') + ' — 네트워크와 로그인 상태를 확인한 뒤 다시 눌러 주세요.');
+        return;
+      }
       if(confirmBox) confirmBox.style.display='none';
       const done=document.getElementById('acctUnlinkDone'); if(done) done.style.display='block';
       /* 🔁 자동으로 껐다 켠다 — 구글 로그아웃과 **같은 함수**를 쓴다(둘이 어긋나지 않게).
@@ -29615,7 +30254,9 @@ async function _linkNeedsGoogleNote(code){
    userId는 위에서 이미 교체됨. 값이 없는 항목(구버전 등록분)은 건드리지 않아 기존 로컬 값 보존. */
 async function _applyTransferSnapshot(r){
   if(!r) return;
-  try{ if(r.license) localStorage.setItem(LICENSE_KEY_STORAGE, r.license); }catch(_){}
+  /* 🔑 [2026-09-15 제보 3] 키만 저장하고 isPremium 을 안 올리던 자리 — 재시작 전까지 내 전용 책상이 기본으로 보였다.
+     loadLicenseFromStorage 와 같은 태도(로컬 키 = 일단 프리미엄, 재검증은 다음 부팅의 initLicense). */
+  try{ if(r.license){ localStorage.setItem(LICENSE_KEY_STORAGE, r.license); _setPremium(true); } }catch(_){}
   try{
     if(Number.isFinite(r.focusTotalSec) && r.focusTotalSec >= 0){
       /* 🕒 ★ 포커스 누적만은 **덮어쓰지 않는다 — max 다.**
@@ -29681,16 +30322,36 @@ async function _restoreOwnedDataAfterTransfer(){
   const uid = getMyUserId();
   // ── 🎵 플레이리스트
   try{
-    if(window.firebaseAPI && firebaseAPI.fetchPlaylistOf){
+    /* ★ [2026-09-16 제보 4] **세 벌 전부** 받는다(fetchMyPlaylistSets). 예전엔 fetchPlaylistOf 로 한 벌만
+       받아 «지금 고른 프리셋» 에 앉혔는데, 그 함수는 파도타기용이라 벌을 **무작위로** 골랐고
+       나머지 두 벌은 이 기기의 옛 값이 그대로 남았다. 로그아웃이 로컬 목록을 지우게 된 지금은
+       세 벌을 다 받아야 «돌아오면 그대로» 가 성립한다.
+       ⚠️ 구버전 firebaseAPI(fetchMyPlaylistSets 없음)에서는 예전 길(fetchPlaylistOf)로 물러난다. */
+    if(window.firebaseAPI && firebaseAPI.fetchMyPlaylistSets){
+      const r = await firebaseAPI.fetchMyPlaylistSets(uid);   // {sets,bio,homePublic} | null
+      const total = r && Array.isArray(r.sets) ? r.sets.reduce((n, s) => n + ((s && s.items) ? s.items.length : 0), 0) : 0;
+      if(total){
+        /* 서버 항목은 {id, title} 뿐이다 — url 은 _plNormalizeSets 가 id 로 복원한다(부팅 로드와 같은 관문). */
+        _plSets = _plNormalizeSets(r.sets);
+        _plCur = _plSetIdx(_plCur);
+        _plBio = String(r.bio || '').slice(0, PL_BIO_MAX);
+        _plHomePublic = !!r.homePublic;
+        _plSel = -1; _plNow = -1; _plNowSet = _plCur; _plView = null; _plNowView = null;
+        try{ _plSave(); }catch(_){}
+        /* 방금 받아온 것 = 서버와 같은 내용. 지문을 미리 맞춰 _plPublish 의 헛쓰기를 막는다(모양은 _plPublish 와 같다). */
+        _plPubSig = _plPubSigOf(_plSets.map(ps => ({
+          name: String((ps && ps.name) || '').slice(0, PL_TITLE_MAX),
+          items: (((ps && ps.items) || [])).map(x => ({ id:x.id, title:x.title || '' })),
+        })), { bio: _plBio, homePublic: _plHomePublic, private: _plPrivate });
+        if(typeof _plRender === 'function') _plRender();
+      } else if(_plSets.some(ps => ps && ps.items && ps.items.length)){
+        // 저쪽 계정에 사본이 없다 — 이 기기 목록을 새 uid 로 올려서 다음 기기에서도 보이게 한다.
+        _plPubSig = null;
+        if(typeof _plPublish === 'function') _plPublish();
+      }
+    } else if(window.firebaseAPI && firebaseAPI.fetchPlaylistOf){
       const r = await firebaseAPI.fetchPlaylistOf(uid);   // 비어 있으면 null
       if(r && r.items && r.items.length){
-        /* 서버 항목은 {id, title} 뿐이다(publishMyPlaylist 가 그 둘만 올린다).
-           url 은 내 목록 형식에 맞춰 id 로 복원한다 — _plGrab 과 같은 관례.
-           ★ 받아온 목록이 들어가는 곳은 **지금 고른 프리셋**이다. 서버 노드(users/{uid}/playlist)가
-             담고 있는 것이 활성 프리셋의 사본 하나뿐이라, 그것을 되돌려 놓을 자리도 그 하나다.
-             나머지 두 프리셋은 손대지 않는다 — 저쪽 계정 것이 아니므로 덮어쓸 근거가 없고,
-             지우면 이 기기에서만 만든 목록이 조용히 사라진다.
-           ⚠️ 프리셋 셋을 sets 로 올리게 되면(핸드오프 3절) 여기도 세 벌을 받는 쪽으로 함께 고칠 것. */
         const items = r.items.filter(x => x && x.id).slice(0, PL_MAX).map(x => ({
           id: x.id,
           url: 'https://www.youtube.com/watch?v=' + x.id,
@@ -29698,23 +30359,13 @@ async function _restoreOwnedDataAfterTransfer(){
         }));
         _plSets[_plCur].items = items;
         _plSel = -1; _plNow = -1; _plNowSet = _plCur; _plView = null; _plNowView = null;
-        /* ⚠️ 옛 키 거울은 **프리셋 0** 이다(_plSave 와 같은 규약) — 활성 프리셋이 0 이 아니면
-           여기서 tw.playlist 를 직접 쓰면 안 된다. _plSave 하나에 맡긴다. */
         try{ _plSave(); }catch(_){}
-        /* ★ 방금 받아온 것 = 서버와 같은 내용이므로 지문을 미리 맞춰 둔다.
-           안 그러면 _plPublish 가 "바뀌었다"고 보고 똑같은 목록을 한 번 더 올린다.
-           ⚠️ meta 까지 같은 함수(_plPubSigOf)로 만든다 — 예전엔 여기만 meta 를 빼먹어서
-             지문이 영영 안 맞았고, 연동 직후 늘 헛쓰기 한 번이 나갔다. */
-        /* ⚠️ 지문은 _plPublish 와 **똑같은 모양**이어야 한다 — 이제 sets 기준이다.
-           items 로 만들면 영영 안 맞아 연동 직후 헛쓰기가 한 번 나간다(예전에 meta 를
-           빼먹어 그랬던 그 사고와 같은 자리다). */
         _plPubSig = _plPubSigOf(_plSets.map(ps => ({
           name: String((ps && ps.name) || '').slice(0, PL_TITLE_MAX),
           items: (((ps && ps.items) || [])).map(x => ({ id:x.id, title:x.title || '' })),
         })), { bio: _plBio, homePublic: _plHomePublic, private: _plPrivate });
         if(typeof _plRender === 'function') _plRender();
       } else if(_plMine().length){
-        // 저쪽 계정에 사본이 없다 — 이 기기 목록을 새 uid 로 올려서 다음 기기에서도 보이게 한다.
         _plPubSig = null;
         if(typeof _plPublish === 'function') _plPublish();
       }
@@ -29726,6 +30377,12 @@ async function _restoreOwnedDataAfterTransfer(){
     if(typeof syncGachaToServer === 'function') await syncGachaToServer('transfer', 'pull');
     if(typeof _gachaInvOpen === 'function' && _gachaInvOpen() && typeof renderGachaInv === 'function') renderGachaInv();
   }catch(e){ console.warn('[연동] 가챠 복원 실패', e); }
+  // ── 🧍 캐릭터 슬롯 [2026-09-16 제보 6-b] — 가챠와 같은 규칙: 저쪽 계정 것을 ts 안 보고 pull,
+  //    저쪽이 비어 있으면 이 기기 것을 push(로컬에만 캐릭터가 있던 사람의 첫 업로드).
+  //    ★ 파츠(가챠) 다음에 온다 — 받은 캐릭터가 입은 파츠의 보유분이 먼저 맞춰져 있어야 한다.
+  try{
+    if(typeof syncSlotsToServer === 'function') await syncSlotsToServer('transfer', 'pull');
+  }catch(e){ console.warn('[연동] 캐릭터 복원 실패', e); }
 }
 /* 🔗 연동 직후 친추코드 소유자를 새 uid로 되돌린다 — 코드를 유지하는 유일하게 안전한 시점이다.
    이 순간 로컬 코드는 (ㄱ) 옮겨온 계정 자신의 코드이거나 (ㄴ) 이 기기가 방금 버린 자기 코드
@@ -29749,13 +30406,13 @@ async function _claimFriendCodeAfterTransfer(){
 }
 
 /* --- 방 개수 표시(n/상한) + 정원 초과 시 생성 차단 --- */
-/* ★ 채널별 방 개수 상한. 워킹룸(무료) 60 / 투게더룸(프리미엄) 70.
+/* ★ 채널별 방 개수 상한. 워킹룸(무료) 250 / 투게더룸(프리미엄) 250 — [2026-09-17] 60/70 에서 올림.
    ⚠️ 이 상한은 **클라이언트에서만** 검사한다 — firebase-database-rules.json의 rooms/$room 은
       "!newData.exists()"(빈 자리에만 생성)만 보고 개수를 세지 않는다. 서버가 셀 수 없는 구조라서다
       (규칙에서 형제 노드 개수를 세려면 rooms 전체를 읽어야 하는데, 그게 바로 예전에 비용 폭탄을
       냈던 접근이다). 그래서 상한을 늘릴 때 규칙 파일은 손댈 게 없다.
    ※ 화면 표시 기본값도 같이 맞출 것 — desk-companion-prototype.html 의 #chCountWorking/#chCountTogether. */
-const ROOM_LIMITS = { workingroom: 60, togetherroom: 70 };
+const ROOM_LIMITS = { workingroom: 250, togetherroom: 250 };
 const CHANNEL_NAMES = { workingroom: '워킹룸', togetherroom: '투게더룸' };
 function roomLimitOf(channel){ return ROOM_LIMITS[channel] || ROOM_LIMITS.workingroom; }
 const MAX_ROOMS = ROOM_LIMITS.togetherroom;   // 하위호환(참여 전체 카운트 등에서 참조) — 가장 큰 값
@@ -30062,6 +30719,11 @@ async function doLeaveRoom(){
   window._pendingRoomChannel = null;
   window._pendingRoomOpen = false;   // 🎲 방을 나가면 함께 초기화
   window._roomMetaCache = null;
+  /* 🌊 날리기 초기화 — 흐르던 글자는 즉시 걷고 체크도 푼다.
+     ★ 남겨 두면 방을 나간 뒤에도 몇 초 동안 남의 말이 화면을 가로지른다(그 방 사람도 아닌데).
+     ★ 체크가 세션 변수라 다음 방에 그대로 따라붙는데, 방이 바뀌면 끄고 시작하는 편이 맞다. */
+  try{ const _fl=document.getElementById('flyLayer'); if(_fl) _fl.innerHTML=''; }catch(_){}
+  _chatFlyOn = false; _chatFlyColor = ''; _chatFlySize = 'l'; _flyLaneFreeAt = [];
   if(typeof closeChatWindow==='function') closeChatWindow();   // 방 나가면 대화창도 닫음
   refreshInviteUI();
   if(typeof applyExtraSeatForMode==='function') applyExtraSeatForMode();
@@ -31046,11 +31708,25 @@ document.getElementById('licenseGenCopyBtn').onclick=()=>{
         try{ seen = await firebaseAPI.getUserLastSeen(uid); }catch(_){}
         // 조회 실패(null)와 '기록 없음'을 구분하지 않는다 — 둘 다 확인이 필요한 상태다
         const days = (typeof seen === 'number' && seen > 0) ? Math.floor((Date.now() - seen) / 86400000) : null;
-        if(days === null || days >= SR_STALE_DAYS){
+        /* 🪞 [2026-09-17 제보 4] **거울 대조** — users/{uid}/friendCode 가 이 코드와 다르면 의심한다.
+             [왜 lastSeen 만으로 부족한가] 계정 이전 뒤 friendCodes/{코드} 는 옛 uid 를 가리키고, 옛 uid 의
+               lastSeen 은 이전 직전 값으로 남는다. 위 7일 게이트는 그 7일 동안 조용하다 — 그 사이 친구코드로
+               발급하면 pub.owner 가 옛 uid 가 되어 «방장 부여가 안 되는» 제보 그대로다. 되찾기 쪽
+               (_healFriendCodeOwner)도 같은 7일을 기다린다.
+             거울은 코드를 발급·되찾을 때마다 계정에 적히므로(setUserFriendCode), 살아 있는 계정이라면 입력
+               코드와 같다. 다르거나 없으면 «이 코드의 주인이 다른 uid 로 갔거나 아주 옛 계정» 이다.
+             ⚠️ 거울이 생기기 전의 옛 계정도 여기 걸린다 — 그래서 막지 않고 한 번 더 누르게만 한다. */
+        let mirror = undefined;   // undefined = 조회 못 함(경고 안 함) · null = 없음 · 문자열 = 값
+        try{ if(firebaseAPI.getUserFriendCode) mirror = await firebaseAPI.getUserFriendCode(uid); }catch(_){}
+        const mirrorOff = (mirror !== undefined) && (String(mirror || '').toUpperCase() !== code);
+        if(days === null || days >= SR_STALE_DAYS || mirrorOff){
           if(_srStaleArmed !== uid){
             _srStaleArmed = uid;
+            const why = (days === null || days >= SR_STALE_DAYS)
+              ? (days === null ? '접속 기록이 없어요' : days + '일째 접속이 없어요')
+              : ('이 계정에 적힌 친추코드는 ' + (mirror ? mirror : '(없음)') + ' 이에요');
             showMsg('⚠️ 이 친구코드는 ' + uid + (uname ? ' ('+uname+')' : '')
-              + ' 를 가리키는데, ' + (days === null ? '접속 기록이 없어요' : days + '일째 접속이 없어요')
+              + ' 를 가리키는데, ' + why
               + '. 계정 이전으로 코드가 어긋난 계정일 수 있어요 — 후원자에게 유저 코드(u…)를 받아 넣는 편이 안전해요.'
               + ' 그대로 보내려면 같은 버튼을 다시 누르세요.', true);
             btn.disabled=false; return;
@@ -31232,8 +31908,8 @@ function slotToObj(d){return d?{skin:d.skin||0,top:d.top,bot:d.bot,xf:d.xf||null
      (ㄷ) 콘솔에 남긴다. 실패한 칸을 null 로 적으면 loadSlots 의 loadImg 가 실패해
      그 캐릭터가 통째로 사라지므로, null 로 덮는 것은 절대 안 된다. */
 function saveSlots(){
-  let prev = null;
-  try{ prev = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); }catch(_){ prev = null; }
+  let prev = null, prevRaw = null;
+  try{ prevRaw = localStorage.getItem(LS_KEY); prev = JSON.parse(prevRaw || 'null'); }catch(_){ prev = null; }
   /* 🛡️ «비운 채 저장» 허가는 **이번 한 번만** 유효하다 — 여기서 바로 소비한다.
      남겨 두면 그 뒤에 우연히 도는 자동 저장(가챠 정리·책상 아이템 등)까지 함께 통과해 버린다. */
   const _allowBlank = _blankFaceConfirmed; _blankFaceConfirmed = false;
@@ -31269,8 +31945,21 @@ function saveSlots(){
     }
     return o;
   });
-  try{ localStorage.setItem(LS_KEY, JSON.stringify(out)); }
+  /* ☁️ [2026-09-16 제보 6-b] 저장본이 **실제로 달라졌을 때만** 시각을 찍고 서버 push 를 예약한다.
+     saveSlots 는 가챠 정리·책상 아이템 토글 등 수십 군데서 내용 변화 없이도 불린다 — 그때마다
+     ts 를 올리면 부팅마다 이 기기가 «최신»이 되어 다른 기기의 편집을 덮는다(핑퐁의 씨앗).
+     ★ 문자열 비교다. 칸 하나만 달라도 전체가 다르므로 어느 칸이 바뀌었는지는 볼 필요가 없다.
+     ★ 비교 대상은 prevRaw(직전 저장 문자열). 서버에서 받아 적은 직후(_slotsAdoptFromServer)는
+       그 문자열이 곧 서버 내용이라, 되받아 저장해도 «달라짐»이 아니어서 ts 가 안 올라간다 —
+       받은 것을 도로 올리는 핑퐁이 여기서 막힌다. */
+  let _str = null;
+  try{ _str = JSON.stringify(out); }catch(_){ _str = null; }
+  try{ if(_str !== null) localStorage.setItem(LS_KEY, _str); }
   catch(e){ console.warn('[슬롯] 저장 실패', e); }
+  if(_str !== null && _str !== prevRaw){
+    try{ if(typeof _slotsTouch === 'function') _slotsTouch(); }catch(_){}
+    try{ if(typeof _slotsSchedulePush === 'function') _slotsSchedulePush(); }catch(_){}
+  }
   if(_rescued.length){
     console.warn('[슬롯] 🛡️ 빈 그림이 저장되려 해서 막았습니다 — '+_rescued.join(' · ')
       +' / 저장된 원본은 그대로입니다. 화면이 비어 보이면 앱을 다시 켜면 원본이 돌아옵니다.');
@@ -31322,6 +32011,293 @@ async function loadSlots(){let raw;try{raw=localStorage.getItem(LS_KEY);}catch(e
         slots[i]=_d;}}catch(e){ console.warn('[슬롯] '+(i+1)+'번 복원 실패', e); }}
   if(_brokenSlots){ try{ toast('얼굴 이미지를 못 불러온 캐릭터가 있어요 — 저장된 원본은 그대로 지켜뒀어요'); }catch(_){} }
 }
+
+/* ═══ ☁️ 슬롯(캐릭터) 기기 간 동기화 — 2026-09-16 제보 6-b «캐릭터가 집 PC 에 없음» ═══════════
+   [무엇이 없었나] 서버 users/{uid} 에는 gacha(보유 파츠)·playlist·profile·home… 만 있고 **슬롯
+     노드가 없었다.** 슬롯은 localStorage 에만 살아서, 회사에서 뽑은 파츠는 집에 있어도 그걸로
+     만든 캐릭터는 없었다. 고장이 아니라 기능 부재.
+   [모양] users/{uid}/slots = { ts, v:1, s:{ "0":json, … } } — 칸마다 JSON 문자열(firebase-init 주석).
+     ★ 그림·GLB 는 **한 바이트도 RTDB 에 안 실린다.** 얼굴·감은눈·동물 페인트는 방 입장과 같은
+       Storage 파일(roomface_{key}_{hash}.png)의 URL 로, 커미션·커스텀 책상·커스텀 아이템 GLB 는
+       slotglb_{key}.glb 의 URL 로 바꿔 실린다. 같은 그림은 같은 파일이라 재업로드가 없고, 방에
+       한 번이라도 들어간 캐릭터는 얼굴이 이미 올라가 있어 **추가 업로드 0**.
+     ★ thumb(런처 아이콘 3D 스냅샷)은 안 올린다. 받은 기기는 2D 합성 아이콘(makeCharThumbEl 의
+       폴백)으로 보이고, 그 기기에서 한 번 저장하면 다시 찍힌다.
+   [병합 — 결정됨 · 2026-09-16] 가챠와 같은 자리 나누기.
+     · 평소: ts 최신 승 **통째 덮어쓰기**. 슬롯은 순서 있는 편집물이라 칸 단위 max 가 없다.
+     · 연동(계정 이전·구글 로그인 — 둘 다 _restoreOwnedDataAfterTransfer 한 통로): 저쪽 계정 것을
+       ts 안 보고 pull. 저쪽이 비어 있으면 내 것을 push(로컬에만 캐릭터가 있던 사람의 첫 업로드).
+     · (A) 부팅: 서버가 비었고 로컬에 있으면 자동으로 한 번 올린다 — 기존 사용자가 아무것도 안
+       해도 집 PC 가 받게. 서버가 비었을 때만이라 계정당 사실상 한 번이다.
+   [비용]
+     · 읽기: 부팅 1회 + 30분마다 1회, 그것도 **ts 한 값만**(loadSlotsTs). 본문은 ts 가 다를 때만.
+     · 쓰기: 저장본이 실제로 바뀐 saveSlots 뒤 3초 묶음 1회(_slotsSchedulePush). 얼굴 업로드는
+       내용 해시 캐시(tw.roomFaceUrls)를 지나 바뀐 그림만.
+   [_imgBroken] push 는 **메모리 slots 가 아니라 localStorage 원본**을 읽는다. 부팅 때 이미지 복원에
+     실패한 칸은 메모리에 빈 캔버스가 있고 saveSlots 도 그 칸을 건너뛰어 원본을 지키는데, 메모리를
+     올리면 그 빈 캔버스가 서버에 굳는다(핸드오프 §5 주의). 원본을 읽으면 이 예외가 저절로 지켜진다.
+   [시각] 가챠와 같이 서버 시계(_srvNow). **ms ts 에 |0 금지** — 32비트로 잘려 음수가 된다.
+   [적용] 서버 것을 받아 적을 때(_slotsAdoptFromServer) 메모리 slots 도 같이 갈아 끼운다.
+     localStorage 만 바꾸고 메모리를 두면 다음 saveSlots 가 옛 메모리로 원본을 덮고 그걸 더 새
+     ts 로 올려 **다른 기기 편집을 지운다.** 책상 위 좌석은 옛 def 객체를 그대로 붙들고 있으므로
+     재실행하면 바뀐다고 안내한다. 생성기가 열려 있으면 이번 판은 건너뛴다(편집 중인 칸을 뺏지 않는다). */
+const SLOTS_TS_KEY = 'deskFriends.slots.ts';
+const SLOT_GLB_CACHE_KEY = 'tw.slotGlbUrls';
+const SLOTS_SYNC_INTERVAL_MS = 30*60*1000;   // 30분 — ts 한 값 읽기라 가챠(10분)보다 드물어도 된다
+const SLOTS_PUSH_DEBOUNCE_MS = 3000;
+const SLOT_JSON_MAX = 150000;                // 규칙 파일 users/$userId/slots/s/$i .validate 와 같은 값
+const SLOTS_TS_SKEW_TOL_MS = 5*60*1000;      // 가챠 GACHA_TS_SKEW_TOL_MS 와 같은 폭
+let _slotsTs = 0;
+let _slotsSyncing = false, _slotsSyncPending = null, _slotsPushTimer = null;
+function _slotsNow(){ return _srvNow(); }
+function _slotsHasLocal(){
+  try{ const a = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); return Array.isArray(a) && a.some(x => !!x); }
+  catch(_){ return false; }
+}
+/* touch 없음 → 지금(서버 시계)으로 찍는다(이 기기에서 바뀌었다).
+   숫자 → 서버에서 받아온 시각을 그대로 물려받는다. 새로 찍으면 방금 받은 것을 도로 올리는 핑퐁. */
+function _slotsTouch(ts){
+  if(typeof ts === 'number' && ts > 0) _slotsTs = ts;
+  else _slotsTs = _slotsNow();
+  try{ localStorage.setItem(SLOTS_TS_KEY, String(_slotsTs)); }catch(_){}
+}
+/* 시각 부트스트랩 — 가챠와 같은 규칙.
+   · 저장된 시각이 있으면 그대로. · 없는데 캐릭터가 있으면 지금으로(이 노드가 생기기 전부터 로컬에만
+   있던 사람 — 이 기기를 '최신'으로 봐야 올라간다). · 둘 다 없으면 0(새 기기라 서버가 이긴다). */
+try{
+  const _t = parseInt(localStorage.getItem(SLOTS_TS_KEY) || '0', 10);
+  if(_t > 0) _slotsTs = _t;
+  else if(_slotsHasLocal()) _slotsTouch();
+}catch(_){}
+function _slotsSchedulePush(){
+  try{ if(_slotsPushTimer) clearTimeout(_slotsPushTimer); }catch(_){}
+  _slotsPushTimer = setTimeout(()=>{ _slotsPushTimer = null; try{ syncSlotsToServer('save'); }catch(_){} }, SLOTS_PUSH_DEBOUNCE_MS);
+}
+
+/* ── GLB 한 덩이 → Storage URL. 얼굴과 같은 «종류_내용해시» 이름 + localStorage 캐시. ── */
+function _slotGlbCacheLoad(){
+  let st = {}; try{ st = JSON.parse(localStorage.getItem(SLOT_GLB_CACHE_KEY) || '{}'); }catch(_){}
+  if(!st || typeof st !== 'object') st = {};
+  if(Object.keys(st).length > 40) st = {};
+  return st;
+}
+function _slotGlbCacheSave(st){ try{ localStorage.setItem(SLOT_GLB_CACHE_KEY, JSON.stringify(st)); }catch(_){} }
+async function _storageGlbUrlOne(uid, st, key, b64){
+  if(typeof b64 !== 'string' || !b64) return null;
+  const h = _quickHash(b64);
+  const ck = key + ':' + h;
+  if(st[ck]) return st[ck];
+  const r = await firebaseAPI.uploadSlotGlb(uid, key + '_' + h, b64);
+  if(r && r.ok){ st[ck] = r.url; return r.url; }
+  return null;
+}
+/* URL → base64 (GLB 되받기). Storage 는 CORS 허용이라 fetch 가 통한다(말랑이 선물이 같은 길). */
+async function _fetchB64(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  const buf = new Uint8Array(await res.arrayBuffer());
+  let s = '';
+  for(let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+/* URL → PNG dataURL(얼굴 되받기). 방 얼굴과 같은 CORS 로더 — crossOrigin 없이 그리면 캔버스가 오염된다. */
+async function _fetchImgDataUrl(url){
+  const cv = await _roomFaceUrlToCanvas(url);
+  return cv.toDataURL('image/png');
+}
+/* 얼굴 계열 필드 ↔ Storage 키. 방 입장(ensureRoomFaceUrls)과 **같은 키**여야 같은 파일이 된다. */
+const SLOT_IMG_FIELDS = [
+  ['face','face'], ['blink','blink'],
+  ['animalBody','aBody'], ['animalEarPaintL','aEarL'], ['animalEarPaintR','aEarR'],
+  ['animalEarBlinkL','aEarLB'], ['animalEarBlinkR','aEarRB'], ['animalBlink','aBlink'],
+];
+/* 로컬 저장본 한 칸(dataURL·base64 포함) → 서버용(URL 만). 하나라도 못 올리면 null — 얼굴 없는
+   캐릭터를 올려 다른 기기에서 «피부색만 보임»을 만드는 것보다 이번 push 를 접는 쪽이 낫다. */
+async function _slotToServerObj(uid, o, faceSt, glbSt){
+  if(!o) return null;
+  const out = Object.assign({}, o);
+  delete out.thumb; delete out._imgBroken;
+  for(const [field, key] of SLOT_IMG_FIELDS){
+    const v = o[field];
+    delete out[field];
+    if(typeof v !== 'string' || !v) continue;
+    if(!v.startsWith('data:')){ out[field + 'Url'] = v; continue; }   // 이미 URL 인 값은 그대로
+    const url = await _storageFaceUrlOne(uid, faceSt, key, v);
+    if(!url) return null;
+    out[field + 'Url'] = url;
+  }
+  if(typeof o.commGlb === 'string' && o.commGlb){
+    delete out.commGlb;
+    const url = await _storageGlbUrlOne(uid, glbSt, 'comm', o.commGlb);
+    if(!url) return null;
+    out.commGlbUrl = url;
+  }
+  if(typeof o.deskGlb === 'string' && o.deskGlb){
+    delete out.deskGlb;
+    const url = await _storageGlbUrlOne(uid, glbSt, 'desk', o.deskGlb);
+    if(!url) return null;
+    out.deskGlbUrl = url;
+  }
+  if(o.customItems && typeof o.customItems === 'object'){
+    const ci = {};
+    for(const id in o.customItems){
+      const it = o.customItems[id]; if(!it) continue;
+      const rec = Object.assign({}, it);
+      if(typeof it.glb === 'string' && it.glb){
+        delete rec.glb;
+        const url = await _storageGlbUrlOne(uid, glbSt, 'item', it.glb);
+        if(!url) return null;
+        rec.glbUrl = url;
+      }
+      ci[id] = rec;
+    }
+    out.customItems = ci;
+  }
+  /* 파츠 그림(xf.pic)에 dataURL 이 남아 있으면 뺀다 — 방 전송(serializeDefForNetwork)과 같은 안전망.
+     그림은 이 기기 화면엔 그대로 있고, 다음 저장에서 업로드가 되면 URL 로 실린다. */
+  if(out.equippedParts){
+    try{
+      const eq = JSON.parse(JSON.stringify(out.equippedParts));
+      const walk = v => {
+        if(!v || typeof v !== 'object') return;
+        if(Array.isArray(v)){ v.forEach(walk); return; }
+        if(typeof v.pic === 'string' && v.pic.startsWith('data:')) delete v.pic;
+        for(const k in v) walk(v[k]);
+      };
+      walk(eq); out.equippedParts = eq;
+    }catch(_){}
+  }
+  return out;
+}
+/* 서버용 한 칸 → 로컬 저장본(dataURL·base64). loadSlots 가 읽는 모양 그대로 — 그래서 loadSlots 는
+   서버 형식을 몰라도 된다. 얼굴·감은눈은 필수라 못 받으면 던진다(호출부가 이번 적용을 접는다). */
+async function _slotFromServerObj(so){
+  if(!so) return null;
+  const out = Object.assign({}, so);
+  for(const [field] of SLOT_IMG_FIELDS){
+    const u = so[field + 'Url'];
+    delete out[field + 'Url'];
+    if(typeof u !== 'string' || !u) continue;
+    out[field] = await _fetchImgDataUrl(u);
+  }
+  if(typeof out.face !== 'string' || typeof out.blink !== 'string') throw new Error('얼굴·감은눈 URL 이 없음');
+  if(typeof so.commGlbUrl === 'string'){ delete out.commGlbUrl; out.commGlb = await _fetchB64(so.commGlbUrl); }
+  if(typeof so.deskGlbUrl === 'string'){ delete out.deskGlbUrl; out.deskGlb = await _fetchB64(so.deskGlbUrl); }
+  if(so.customItems && typeof so.customItems === 'object'){
+    const ci = {};
+    for(const id in so.customItems){
+      const it = so.customItems[id]; if(!it) continue;
+      const rec = Object.assign({}, it);
+      if(typeof it.glbUrl === 'string'){ delete rec.glbUrl; rec.glb = await _fetchB64(it.glbUrl); }
+      ci[id] = rec;
+    }
+    out.customItems = ci;
+  }
+  out.thumb = null;
+  /* slotToObj 를 한 번 지나 **saveSlots 와 같은 키 순서**로 만든다 — 다음 saveSlots 의 문자열 비교가
+     «안 바뀜»으로 떨어져야 받은 것을 도로 올리지 않는다. */
+  return slotToObj(out);
+}
+/* 서버 사본을 로컬에 받아 적고 메모리 slots 를 갈아 끼운다. 실패하면 아무것도 안 바꾼다. */
+async function _slotsAdoptFromServer(srv){
+  const arr = new Array(CHAR_SLOT_MAX).fill(null);
+  for(let i = 0; i < CHAR_SLOT_MAX; i++){
+    const js = srv.s && srv.s[String(i)];
+    if(!js) continue;
+    let so; try{ so = JSON.parse(js); }catch(e){ throw new Error((i+1) + '번 칸 JSON 깨짐'); }
+    arr[i] = await _slotFromServerObj(so);
+  }
+  let str; try{ str = JSON.stringify(arr); }catch(e){ throw e; }
+  let same = false;
+  try{ same = (localStorage.getItem(LS_KEY) === str); }catch(_){}
+  try{ localStorage.setItem(LS_KEY, str); }catch(e){ throw e; }
+  _slotsTouch(srv.ts || _slotsNow());
+  if(same) return false;                      // 내용은 같고 시각만 뒤처져 있었다 — 화면은 손댈 게 없다
+  for(let i = 0; i < CHAR_SLOT_MAX; i++){ slots[i] = null; _faceEverDrawn[i] = false; _blinkEverDrawn[i] = false; }
+  await loadSlots();
+  try{ if(typeof renderLauncher === 'function') renderLauncher(); }catch(_){}
+  try{ if(typeof renderCharSlots === 'function') renderCharSlots(); }catch(_){}
+  let running = false;
+  try{ const l = document.getElementById('launcher'); running = !(l && l.classList.contains('on')); }catch(_){}
+  try{ toast('☁️ 다른 기기에서 저장한 캐릭터를 받아왔어요' + (running ? ' — 책상 위 캐릭터는 앱을 다시 실행하면 바뀌어요' : '')); }catch(_){}
+  return true;
+}
+/* localStorage 원본 → 서버. 메모리 slots 는 안 본다(_imgBroken 주석). */
+async function _slotsPushToServer(uid){
+  let raw = null;
+  try{ raw = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); }catch(_){ raw = null; }
+  if(!Array.isArray(raw)) raw = [];
+  const faceSt = _roomFaceCacheLoad(), glbSt = _slotGlbCacheLoad();
+  const s = {};
+  for(let i = 0; i < CHAR_SLOT_MAX; i++){
+    const o = raw[i]; if(!o) continue;
+    const so = await _slotToServerObj(uid, o, faceSt, glbSt);
+    _roomFaceCacheSave(faceSt); _slotGlbCacheSave(glbSt);   // 올린 만큼은 실패해도 기억해 둔다
+    if(!so){ console.warn('[슬롯] ' + (i+1) + '번 칸 이미지/GLB 업로드 실패 — 이번 push 를 접습니다'); return false; }
+    const js = JSON.stringify(so);
+    if(js.length > SLOT_JSON_MAX){ console.warn('[슬롯] ' + (i+1) + '번 칸이 너무 큽니다(' + js.length + '자) — 규칙 상한 ' + SLOT_JSON_MAX + '. push 를 접습니다'); return false; }
+    s[String(i)] = js;
+  }
+  if(!_slotsTs) _slotsTouch();
+  const ok = await firebaseAPI.saveSlotsRemote(uid, s, _slotsTs);
+  if(ok === false){ try{ _warnServerWriteDenied('캐릭터'); }catch(_){} }
+  return ok !== false;
+}
+async function syncSlotsToServer(reason, mode){
+  if(_slotsSyncing){
+    if(!_slotsSyncPending || mode === 'pull') _slotsSyncPending = { reason, mode };   // pull 은 다른 모드에 안 덮인다(가챠와 같다)
+    return;
+  }
+  if(!(window.firebaseAPI && firebaseAPI.loadSlotsTs && firebaseAPI.loadSlotsRemote && firebaseAPI.saveSlotsRemote)) return;
+  _slotsSyncing = true;
+  try{
+    const uid = getMyUserId();
+    const hasLocal = _slotsHasLocal();
+    /* 💰 평소에는 ts 한 값만 읽는다. 같으면 본문을 안 내려받고 끝. */
+    let sTs;
+    if(mode === 'pull'){ sTs = null; }
+    else{
+      sTs = await firebaseAPI.loadSlotsTs(uid);
+      if(sTs === null) return;                                  // 읽기 실패 — 아무것도 안 한다
+      if(sTs === _slotsTs && (sTs > 0 || !hasLocal)) return;   // 같다 = 할 일 없음 (둘 다 0 이고 로컬만 있으면 아래에서 올린다)
+    }
+    const _push = async ()=>{ return _slotsPushToServer(uid); };
+    /* 🕒 미래 ts 치유 — 시계가 틀어진 기기가 올린 값이면 정상 기기가 영영 받기만 한다.
+       슬롯은 칸 단위로 합칠 수 없으므로 **이 기기 것을 지금 시각으로 올린다**(계정당 사실상 한 번). */
+    if(typeof sTs === 'number' && sTs > _slotsNow() + SLOTS_TS_SKEW_TOL_MS){
+      if(hasLocal){ _slotsTouch(); await _push(); console.warn('[슬롯] 서버 ts 가 미래(' + new Date(sTs).toISOString() + ')라 이 기기 것으로 정정했습니다'); }
+      return;
+    }
+    if(mode === 'pull'){
+      const srv = await firebaseAPI.loadSlotsRemote(uid);      // {s, ts} | null
+      if(srv === null) return;
+      const sHas = Object.keys(srv.s || {}).length > 0;
+      if(sHas){ await _slotsAdoptFromServer(srv); }
+      else if(hasLocal){ _slotsTouch(); await _push(); }
+      return;
+    }
+    if(sTs > _slotsTs){
+      if(typeof creatorOpen !== 'undefined' && creatorOpen){ console.log('[슬롯] 서버가 최신이지만 생성기가 열려 있어 이번엔 건너뜁니다'); return; }
+      const srv = await firebaseAPI.loadSlotsRemote(uid);
+      if(srv === null) return;
+      if(Number(srv.ts) !== sTs && Number(srv.ts) <= _slotsTs) return;   // 그 사이 바뀌었다 — 다음 판에
+      const sHas = Object.keys(srv.s || {}).length > 0;
+      if(sHas){ await _slotsAdoptFromServer(srv); }
+      else if(hasLocal){ _slotsTouch(); await _push(); }      // 서버 노드는 있는데 비었다(전부 지운 계정)… 로컬을 지우진 않는다
+      else _slotsTouch(sTs);
+    }
+    else if(_slotsTs > sTs){ if(hasLocal) await _push(); }
+    else if(!sTs && hasLocal){ _slotsTouch(); await _push(); }  // (A) 서버 비었고 로컬 있음 → 첫 push
+  }catch(e){ console.warn('[슬롯] 동기화 실패', e); }
+  finally{
+    _slotsSyncing = false;
+    const _pend = _slotsSyncPending; _slotsSyncPending = null;
+    if(_pend){ try{ syncSlotsToServer(_pend.reason, _pend.mode); }catch(_){} }
+  }
+}
+/* 부팅 뒤 1회(가챠 4.2초 다음) + 30분마다. 어느 쪽도 ts 한 값 읽기가 전부다. */
+setTimeout(()=>{ try{ syncSlotsToServer('boot'); }catch(_){} }, 4600);
+setInterval(()=>{ try{ syncSlotsToServer('tick'); }catch(_){} }, SLOTS_SYNC_INTERVAL_MS);
 
 /* --- 복제 코드 (현재 base64. 다음 단계에서 AES 암호화로 교체) --- */
 /* ★ onload 가 떴다고 그림이 있는 것은 아니다 — 잘린 dataURL, 0바이트 PNG 는 브라우저에 따라
@@ -34075,7 +35051,15 @@ function _danceUnlockPending(lv){
   const done = _danceNotifiedSet(), fixed = _danceRepairSet();
   return DANCE_MOVES.filter(def=>{
     if(lv < (def.reqLevel||1)) return false;
-    if(!done.has(def.cmd)) return true;              // 아직 안 보낸 것 — 평소 경로
+    if(!done.has(def.cmd)){
+      /* 아직 안 보낸 것 — 평소 경로. 단 **수령함에 이미 있으면** 보낸 것이다.
+         [2026-09-16 제보 4] 로그아웃이 이 기록(tw.danceNotified)을 지우게 됐다 — 남기면 다음 사람이
+           그 레벨의 안내를 영영 못 받는다. 지우는 대신 여기서 수령함을 한 번 본다: 같은 계정이 돌아오면
+           우편이 이미 있으므로 다시 안 가고, 새 계정이면 없으므로 간다.
+         ⚠️ 수령함이 아직 안 왔으면 예전처럼 보낸다 — 못 받는 쪽이 한 번 더 받는 쪽보다 나쁘다. */
+      if(_myInboxReady && _danceMailExists(def)){ _markDanceNotified(def.cmd); return false; }
+      return true;
+    }
     /* 🩹 구제 — 기록은 '보냄'인데 수령함에 없다. 수령함이 **도착한 뒤에만** 판단한다
        (아직 안 왔으면 빈 객체라 전부 없는 것으로 보여 중복 발송이 된다).
        명령당 한 번만 구제하므로, 우편을 직접 지운 사람에게 반복해서 가지 않는다. */
@@ -35447,6 +36431,48 @@ function applyTheme(){
     root.setAttribute('data-accent', a);
     if(t==='bubble') root.setAttribute('data-theme','bubble'); else root.removeAttribute('data-theme');
   }catch(e){ console.warn('[테마] 적용 실패 — 기본 테마로 둡니다', e); }
+  // 🎨 [제보 5] 열려 있는 방명록·디자인 창에도 — 닫힌 창은 여기서 떨어져 나간다
+  _themeChildDocs = _themeChildDocs.filter(d=>{
+    try{ if(!d.defaultView || d.defaultView.closed) return false; applyThemeToChildDoc(d); return true; }catch(_){ return false; }
+  });
+}
+/* ═══ 🎨 [2026-09-15 제보 5] 테마 「버블」이 마이홈 방명록엔 안 먹음 ═══════════════════════
+   [원인] 방명록·디자인 창은 window.open → main.js setWindowOpenHandler 가 **별도 BrowserWindow** 로 연다.
+     별도 창 = 별도 document 라 메인 <html> 의 data-theme 이 거기까지 안 간다. 게다가 그 창들의 CSS(GB_HTML·
+     DS_HTML)는 색이 전부 하드코딩이라 속성을 걸어도 받을 규칙이 없었다 — 고장이 아니라 구조였다.
+   [대응] 둘 다 메운다.
+     ① GB_HTML·DS_HTML 의 색·모서리·글꼴을 var(--win-*) 로 바꿨다(폴백은 예전 값 — 토큰이 없으면 옛 모습).
+     ② 창을 열 때 이 함수가 메인 문서의 data-theme·data-accent 를 자식 <html> 에 걸고, 토큰 값을
+        getComputedStyle 로 읽어 <style id=twThemeTokens> 로 넣는다. 값을 옮기므로 메인 CSS 와 두 벌이 안 된다.
+     ③ applyTheme 가 열린 창에도 다시 건다(_themeChildDocs) — 창을 띄운 채 테마를 바꿔도 즉시 따라간다.
+   ⚠️ 토큰 목록에 없는 변수는 자식 창에서 var() 폴백으로 떨어진다. 자식 CSS 에 --win-* 를 새로 쓰면 여기도 추가할 것. */
+const THEME_CHILD_TOKENS = [
+  '--win-face','--win-face-2','--win-hi','--win-lo','--win-lo-2','--win-ink','--win-ink-soft','--win-title-ink',
+  '--win-error','--win-radius','--win-radius-sm','--win-radius-el','--win-font','--win-title-grad',
+  '--win-title-premium','--win-title-premium-ink','--win-btn-grad','--win-face-grad','--win-drop','--win-select',
+  '--acc-d','--acc-m','--acc-l','--acc-tint','--acc-brd','--acc-face','--acc-pop',
+];
+let _themeChildDocs = [];
+function _themeChildCss(){
+  const cs = getComputedStyle(document.documentElement);
+  return 'html{' + THEME_CHILD_TOKENS.map(k=>{ const v = cs.getPropertyValue(k).trim(); return v ? (k + ':' + v + ';') : ''; }).join('') + '}';
+}
+function applyThemeToChildDoc(d){
+  try{
+    if(!d || !d.documentElement) return;
+    const root = document.documentElement, h = d.documentElement;
+    const t = root.getAttribute('data-theme'), a = root.getAttribute('data-accent');
+    if(t) h.setAttribute('data-theme', t); else h.removeAttribute('data-theme');
+    if(a) h.setAttribute('data-accent', a); else h.removeAttribute('data-accent');
+    let st = d.getElementById('twThemeTokens');
+    if(!st){
+      st = d.createElement('style'); st.id = 'twThemeTokens';
+      const head = d.head || d.documentElement;
+      head.insertBefore(st, head.firstChild);   // 창 자신의 <style> 보다 앞 — 토큰이 먼저 있어야 var() 가 산다
+    }
+    st.textContent = _themeChildCss();
+    if(_themeChildDocs.indexOf(d) < 0) _themeChildDocs.push(d);
+  }catch(_){}
 }
 function setTheme(t){
   try{
@@ -35628,6 +36654,29 @@ function updateSeatExpBar(seat, level, cells){
      (서버 쪽은 그대로 두어도 동작한다). */
 const FOCUS_SYNCED_KEY = 'tw.focusSyncedSec';   // 마지막으로 서버에 반영한 로컬 누적치(증분의 기준점)
 let _focusSyncing = false;
+/* 🩺 [2026-09-15 제보 6] 동기화 실패를 **보이게** 한다.
+   [경위] 실패는 `return` 한 줄로 삼켜졌다. 그런데 구글에 묶인 계정은 users/{코드}/focus 쓰기에
+     auth.uid 일치가 필요하고, 세션이 풀린 기기(persistence 실패·토큰 갱신 실패)는 그 뒤 모든 push 가
+     조용히 거부된다. 그 기기의 시간이 서버에 안 가니 다른 PC 는 옛 값을 보고(80 → 75 제보),
+     재로그인하면 돌아온다 — 원인이 아니라 증상만 신고되는 구조였다.
+     비밀번호 계정이전 계정은 userAuth 가 없어 이 조건을 안 탄다 → «구글 연동한 뒤로» 가 그래서다.
+   [대응] ① 콘솔에 이유를 남긴다(제보 로그의 근거). ② 거부인데 이 기기가 로그인돼 있어야 할
+     계정(이메일 기억됨)이고 세션이 없으면 **한 번** 안내한다 — 재로그인이 곧 복구다.
+     ③ 부팅 첫 실패는 10분을 기다리지 않고 60초 뒤 한 번 더 — 대기선을 지나도 남는 일시 오류용. */
+let _focusSyncFailStreak = 0, _focusSyncNoticed = false, _focusSyncRetryTimer = null;
+function _focusSyncFailed(reason, r, delta){
+  _focusSyncFailStreak++;
+  const why = (r && r.reason) || '응답 없음';
+  try{ console.warn('[포커스동기화] 실패 (' + reason + ') — ' + why + ' | 못 올린 증분=' + delta + 's | 연속 ' + _focusSyncFailStreak + '회'); }catch(_){}
+  const linked = !!(typeof getMyLoginEmail === 'function' && getMyLoginEmail());
+  if(r && r.denied && linked && !r.authed && !_focusSyncNoticed){
+    _focusSyncNoticed = true;   // 부팅당 한 번
+    try{ toast('🔑 구글 로그인이 풀려 있어요 — 설정 › 계정에서 다시 로그인하면 이 기기의 기록이 서버에 올라가요'); }catch(_){}
+  }
+  if(_focusSyncFailStreak === 1 && !_focusSyncRetryTimer){
+    _focusSyncRetryTimer = setTimeout(()=>{ _focusSyncRetryTimer = null; try{ syncFocusTotalToServer('retry'); }catch(_){} }, 60*1000);
+  }
+}
 /* 마지막으로 서버와 맞춘 값. 지금은 진단용 기록일 뿐 **건너뛰기 판단에 쓰지 않는다** —
    그렇게 썼다가 "안 일하는 기기가 남의 기록을 영영 안 받아온다"가 됐다(아래 주기 타이머 주석). */
 let _focusLastSyncedVal = -1;
@@ -35643,6 +36692,10 @@ async function syncFocusTotalToServer(reason){
   /* ★ uid 가 아직 없으면 조용히 넘긴다 — 예전엔 부팅 4초 시점에 계정이 안 잡혀 있으면
      그 부팅은 통째로 건너뛰고 다음 런처 복귀까지 기회가 없었다. 이제 아래 주기 타이머가
      다음 차례에 그대로 다시 시도한다(max 라 몇 번을 시도해도 안전하다). */
+  /* ⚠️ 신원을 놓은 뒤에는 돌지 않는다. getMyUserId() 는 없으면 **만들어내는** 함수라, 로그아웃이
+     신원을 지운 뒤 beforeunload 의 'quit' 호출이 여기로 오면 임시 uid 를 발급해 그 앞으로 옛 누적을
+     올렸다(2026-09-16 제보 4 를 손보다 발견). 플래그는 _wipeAccountLocal 이 세운다. */
+  if(typeof _acctDetached !== 'undefined' && _acctDetached) return;
   const uid = (typeof getMyUserId==='function') ? getMyUserId() : null;
   if(!uid) return;
   _focusSyncing = true;
@@ -35655,7 +36708,8 @@ async function syncFocusTotalToServer(reason){
     const delta = Math.max(0, Math.floor(mine - mark));
     // 서버: max(서버값 + delta, mine). 두 인자를 같이 보낸다 — 어느 쪽도 상대를 대체하지 않는다.
     const r = await firebaseAPI.syncFocusTotal(uid, delta, mine);
-    if(!r || !r.ok) return;   // 실패 — 마크를 안 옮기므로 다음 차례에 같은 증분을 그대로 재시도
+    if(!r || !r.ok){ _focusSyncFailed(reason, r, delta); return; }   // 실패 — 마크를 안 옮기므로 다음 차례에 같은 증분을 그대로 재시도
+    _focusSyncFailStreak = 0;
     const server = Math.min(capSec, Number(r.totalSec)||0);
     /* ★ 왕복(await) 사이에도 시간은 쌓인다. 그만큼은 아직 서버에 안 올라갔으므로
        마크에 포함시키면 안 된다 — 예전 코드는 왕복 뒤의 현재값을 그대로 마크로 찍어서
@@ -37015,8 +38069,12 @@ if(desktopMode){
          펜 앱으로 막 전환한 직후의 첫 탭들이 정확히 그 구멍으로 샜다. */
       _applyActiveAppState(state);
       /* 📺 offOverlay = 이 클릭이 **오버레이가 없는 모니터**에서 났다(main 이 판단해 실어 보낸다).
-         그때는 forward mousemove 가 안 오는 것이 정상이라 사다리를 돌리면 안 된다 — 아래 __mouseKick 주석. */
-      if(window.__mouseKick) try{ window.__mouseKick(state && state.offOverlay); }catch(_){}
+         그때는 forward mousemove 가 안 오는 것이 정상이라 사다리를 돌리면 안 된다 — 아래 __mouseKick 주석.
+         🛞 [2026-09-17 제보 3-1 · C] **휠(wheel:true)은 사다리를 아예 안 탄다.** 스크롤은 마우스를 안 움직이므로
+           mousemove 가 없는 것이 정상이다 — 그걸 «통로가 죽었다» 로 읽어 1.5초마다 kick3 를 반복한 것이
+           «여백에 커서를 두면 뒤의 크롬이 스크롤이 안 된다» 의 정체였다(main.js _onGlobalWheel 주석에 로그 근거).
+           구버전 main 은 이 필드를 안 보내므로 undefined = 예전처럼 탄다. */
+      if(window.__mouseKick && !(state && state.wheel === true)) try{ window.__mouseKick(state && state.offOverlay); }catch(_){}
       anyInput();   // 자동 자리비움 판정용 — 어떤 앱을 쓰든 입력이 있었다는 사실만 기록
       if(!focusGateSleep){
         activity();
@@ -37052,7 +38110,7 @@ if(desktopMode){
        두 곳에 따로 적어 두면 새 창을 추가할 때 한쪽만 고치게 되고, 그러면 main 과 렌더러가
        서로 다른 것을 보며 싸운다 — 그게 이번 제보의 정체였다(핸드오프5 §1-4).
        ⇒ body 에 붙는 팝업을 새로 만들면 **여기 한 곳에만** 추가하면 된다. */
-    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #inviteGateOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker';
+    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #inviteGateOverlay, #deviceSessionOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker';
     /* 📐 지금 화면에 떠 있는 "우리 창"들의 사각형 — main 에게 보낸다.
 
        [왜 필요한가 — 이번 제보의 뿌리] main 의 회수 안전장치(ⓕ·ⓖ)와 펜 근접 판정은 지금까지

@@ -133,6 +133,14 @@
     --win-select:var(--acc-d, #000080);      /* 선택 강조(리스트 선택 등) */
     --win-select-bg:var(--acc-tint, #DFE8F6);/* 선택된 카드 배경 */
     --win-accent:#008080;      /* 포인트(청록) — 데스크톱 배경톤과 맞춤, 강조 텍스트용 */
+    /* 🌈 날리기 Lv.200 색 중 「무지개」 — 두 테마가 **같은 값을 쓴다.**
+       테마·색상 축을 타지 않는 유일한 색이다: 무지개는 무지개여야 하고, 파스텔로 바꾸면
+       해금의 뜻이 사라진다. 그래서 색상 축(c1~c5) 아래가 아니라 여기 한 곳에 둔다.
+       ⚠️ 토큰으로 빼 둔 이유가 하나 더 있다 — 규칙 본문에 90deg 그라데이션 색을 직접 박으면
+         audit.py 검사 13 이 «테마가 안 닿는 타이틀바 하드코딩» 으로 잡는다(맞는 지적이다:
+         그 규칙만으로는 진짜 타이틀바인지 아닌지 구분할 수 없다). 값을 여기 두고 쓰는 쪽은
+         var() 로만 받는다 — 같은 색을 두 곳에 복사하지 않게 되는 것은 덤이다. */
+    --fly-rainbow:linear-gradient(90deg,#FF4D4D,#FFB84D,#FFF04D,#5BE36A,#4DC8FF,#9B5BFF,#FF5BC8);
     --win-error:#B5624A;       /* 에러/경고 */
 
     /* ===== 🎨 '모양' 토큰 — 테마가 갈아끼우는 값들 =====
@@ -603,6 +611,99 @@
   .chat-profile{width:74px;background:var(--win-face-2);border:2px solid;
     border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:74px;border-radius:var(--win-radius-el) !important;}
+  /* ══════════════════════════════════════════════════════════════════════════
+     🌊 채팅 「날리기」 — 흐르는 자막
+     ─────────────────────────────────────────────────────────────────────────
+     ⚠️ 이름이 「플라잉체어」(app.js 의 seat.fly · applyRemoteFly · flyCool)와 겹쳐 보이지만
+       **완전히 다른 기능**이다. 저쪽은 캐릭터를 날리고, 이쪽은 글자를 흘린다.
+       겹치는 것은 단어뿐이고 코드는 한 줄도 공유하지 않는다 — 고칠 때 섞지 말 것.
+
+     ★ 움직임은 **CSS 애니메이션 하나**로만 만든다. rAF 로 옮기면 안 된다:
+       포커스가 없을 때 오버레이 FPS 가 떨어지도록 되어 있어서(sim-unfocused-fps)
+       rAF 이동은 남의 화면에서 뚝뚝 끊긴다. CSS 애니메이션은 합성기가 돌려서 영향이 없다.
+       JS 가 하는 일은 요소를 만들고 animationend 에 지우는 것뿐이다.
+     ★ 글자는 **검은 테두리 + 흰 글씨**다. 테두리는 뒤에 깐 복제본(::before)이 그린다 —
+       -webkit-text-stroke 만 쓰면 선이 글자 **안쪽**을 파먹어 한글 획이 뭉개진다.
+       그래서 fill 은 앞, stroke 는 뒤. 이 두 겹을 하나로 합치려 하지 말 것.
+     ★ Lv.200 부터 고르는 색(글로우·무지개)도 **검은 테두리를 지우지 않는다.**
+       밝은 장면 위에서 색만 남으면 글자가 통째로 사라진다. */
+  /* 입력칸 바로 아래에 붙는다 — 위 여백 4px 은 툴바(.chat-toolbar)의 아래 여백과 같은 값이다.
+     좌우 여백은 없다: 이제 `.chat-input-col` 안이라 바깥 여백은 `.chat-inputrow` 가 이미 준다. */
+  .chat-flyrow{display:flex;align-items:center;gap:6px;margin:4px 0 0;
+    font-size:11px;color:var(--ink);user-select:none;}
+  /* 채널이 투게더룸/시크릿룸이 아니면 JS 가 이 클래스를 건다(줄째로 사라진다). */
+  .chat-flyrow.off{display:none;}
+  .chat-flyrow label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;}
+  .chat-flyrow input[type=checkbox]{margin:0;cursor:pointer;}
+  /* 🎨 색 고르개 — Lv.200 미만이면 JS 가 display:none 으로 **자리째** 뺀다.
+       자물쇠 아이콘을 두지 않는 이유: 매번 눈에 걸리는데 누를 수는 없다. */
+  /* 🔠 대·중·소 — 날리기 옆의 동그란 단추 셋. 크기는 **누구나** 바꾼다(색만 Lv.200 이다).
+     .off 로 줄째 숨을 때 같이 사라지므로 여기서 따로 감출 것은 없다. */
+  .chat-flysizes{display:inline-flex;align-items:center;gap:3px;margin-left:4px;}
+  .chat-flysizes .fsz{width:17px;height:17px;border-radius:50% !important;box-sizing:border-box;
+    border:1px solid var(--win-lo);background:var(--win-face-2);color:var(--win-ink);
+    display:inline-flex;align-items:center;justify-content:center;
+    font-size:9px;line-height:1;cursor:pointer;padding:0;}
+  .chat-flysizes .fsz.sel{background:var(--win-accent);color:#fff;border-color:var(--win-accent);}
+  html[data-theme="bubble"] .chat-flysizes .fsz{border-color:var(--acc-brd);}
+  html[data-theme="bubble"] .chat-flysizes .fsz.sel{background:var(--acc-m);border-color:var(--acc-d);color:#31383B;}
+  .chat-flyswatches{margin-left:auto;display:none;align-items:center;gap:3px;}
+  .chat-flyswatches.on{display:inline-flex;}
+  .chat-flyswatches .fsw{width:13px;height:13px;box-sizing:border-box;cursor:pointer;
+    border:1px solid var(--win-lo);border-radius:var(--win-radius-sm, 0) !important;}
+  .chat-flyswatches .fsw.sel{outline:2px solid var(--win-accent);outline-offset:1px;}
+  .chat-flyswatches .fsw.rainbow{background:var(--fly-rainbow);}
+  html[data-theme="bubble"] .chat-flyswatches .fsw{border-color:var(--acc-brd);}
+
+  /* 🌊 흐르는 글자가 사는 층.
+     자리 — **화면 한가운데 기준 위아래 300px**(높이 600px). 상단에만 몰리면 눈이 위쪽으로만
+       끌려가고, 같이 보는 영상은 대개 화면 가운데에 있다. 화면이 600px 보다 낮으면
+       min()·max() 가 알아서 화면 안으로 접는다(띠가 화면 밖으로 새지 않는다).
+     ⚠️ 이 띠는 캐릭터·책상 위를 지난다. 상단 40% 였을 때는 안 가렸는데, 가운데로 내리면서
+       가리게 된 것이다 — 일부러 그렇게 한 것이니 «캐릭터를 가린다» 를 사고로 보고 되돌리지 말 것.
+     z-index 61 — 플레이리스트 패널(60)보다 **위**, 창들(70~92)보다 **아래**.
+       · 위: 같이 보는 영상은 BGM 자식창이 패널 뒤에서 비치는 구조라(main.js bgmPositionBehindPlaylist)
+         화면상 60 층에 있다. 61 이어야 그 위로 흐른다.
+       · 아래: 대화창·마이홈·방명록을 글자가 가로지르면 읽던 글이 안 읽힌다. 자막은 배경이다.
+         띠를 가운데로 내리면서 대화창과 겹치는 자리가 늘었는데, 층이 아래라 글자가 창 뒤로 지난다.
+     ⚠️ pointer-events:none 이라 클릭 통과 화이트리스트(_uiRegions)에 **걸리지 않는다** —
+       그래서 이 층을 깔아도 아래 앱 조작은 그대로다. 화이트리스트에 추가하지 말 것:
+       전체화면 사각형이 들어가면 «화면 어느 점에서나 우리 UI» 가 되어 회수 로직이 통째로 죽는다. */
+  #flyLayer{position:fixed;left:0;right:0;z-index:61;
+    height:min(600px, 100vh);top:max(0px, calc(50vh - 300px));
+    overflow:hidden;pointer-events:none;}
+  /* 크기 3단 — 대(기본) 27px · 중 21px · 소 16px.
+     ★ 테두리 굵기도 같이 따라간다. 27px 에 맞춘 4px 을 16px 글자에 그대로 쓰면
+       선이 글자를 먹어 한글 획이 붙어 버린다. 그래서 --fly-stroke 로 같이 내린다.
+     ⚠️ 레인 높이(app.js FLY_LANE_PX)는 **제일 큰 대(27px)에 맞춰져 있다.**
+       한 화면에 세 크기가 섞여 흐르므로 칸은 가장 큰 것을 담을 수 있어야 한다.
+       소를 쓸 때 칸이 헐거워지는 것은 감수한다 — 겹치는 것보다 낫다.
+       여기서 27px 보다 큰 단을 늘리려면 FLY_LANE_PX 도 같이 올릴 것(sim-chat-fly §5 가 맞대어 본다). */
+  .fly{position:absolute;left:100%;white-space:nowrap;pointer-events:none;
+    font:700 27px/1.2 'Malgun Gothic','Apple SD Gothic Neo',sans-serif;color:#fff;
+    --fly-stroke:4px;
+    animation:flyAcross var(--fly-dur,5.5s) linear forwards;}
+  .fly.sz-m{font-size:21px;--fly-stroke:3px;}
+  .fly.sz-s{font-size:16px;--fly-stroke:2px;}
+  /* 앞(글자 본체)과 뒤(테두리) 두 겹. **같은 HTML 을 두 번 넣는다** —
+     ::before + attr(content) 로는 이모티콘 마커가 그림으로 바뀐 줄을 따라갈 수 없다
+     (content 는 글자만 담는다). 두 겹을 한 겹으로 줄이려 하지 말 것. */
+  .fly .fly-ink{position:relative;display:inline-block;}
+  .fly .fly-out{position:absolute;left:0;top:0;display:inline-block;z-index:-1;
+    -webkit-text-stroke:var(--fly-stroke,4px) #000;color:transparent;}
+  .fly.glow .fly-ink{text-shadow:0 0 6px var(--fly-glow,#fff),0 0 10px var(--fly-glow,#fff);}
+  .fly.rainbow .fly-ink{background:var(--fly-rainbow);
+    -webkit-background-clip:text;background-clip:text;color:transparent;}
+  /* 이모티콘 그림이 섞여도 줄이 흔들리지 않게 — 말풍선의 .bubble-demoji 와 같은 규칙. */
+  .fly img{vertical-align:middle;margin:0 1px;}
+  /* 100% = 자기 글자 폭. 화면 폭 + 자기 폭만큼 가면 왼쪽 밖으로 완전히 빠진다. */
+  @keyframes flyAcross{from{transform:translateX(0);}to{transform:translateX(calc(-100vw - 100%));}}
+  /* 움직임을 줄이도록 설정한 사람에게는 흐르지 않고 잠깐 떠 있다 사라진다. */
+  @media (prefers-reduced-motion:reduce){
+    .fly{animation:flyFade var(--fly-dur,5.5s) linear forwards;left:auto;right:6%;}
+    @keyframes flyFade{0%{opacity:0;}10%{opacity:1;}80%{opacity:1;}100%{opacity:0;}}
+  }
+
   /* 이모티콘 창 — 😊 클릭 시 채팅창 옆에 별도 창으로 (chatOverlay 자식 = 클릭통과 화이트리스트 자동 포함) */
   #chatEmojiWin{position:absolute;display:none;width:308px;max-height:340px;
     background:var(--win-face);pointer-events:auto;flex-direction:column;z-index:4;
@@ -1014,11 +1115,15 @@
   .mini-reset{margin-left:8px;min-width:30px;height:26px;border:none;border-radius:8px;background:rgba(201,165,123,.22);color:var(--sage-d);font-size:14px;cursor:pointer;flex:none;}
   .mini-reset:hover{background:rgba(201,165,123,.42);}
   .mini-reset.wide{width:auto;padding:6px 14px;margin:8px 0 0;font-size:12px;align-self:flex-start;}
-  #launcher{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;
+  /* 📐 [2026-09-15 제보 1·2] 창이 카드보다 짧을 수 있다 — main.js 가 런처 창을 작업영역(배율 150% 의
+     1080p 등)에 맞춰 줄이기 때문(_fitConfigRect). 예전 align-items:center 는 넘치는 카드를 위아래 동시에
+     잘라 스크롤도 안 됐다. 세로 센터링은 .lc-card 의 margin:auto 가 대신한다(자리가 남으면 중앙, 넘치면
+     위부터 채우고 #launcher 가 스크롤). ⚠️ align-items:center 를 되돌리면 잘림이 그대로 돌아온다. */
+  #launcher{position:fixed;inset:0;z-index:50;display:none;justify-content:center;overflow-y:auto;overflow-x:hidden;
     background:var(--win-accent);}
   #launcher.on{display:flex;}
   .lc-card.dimmed{ filter:grayscale(.5) brightness(.75); pointer-events:none; }
-  .lc-card{position:relative;width:320px;max-width:92vw;padding:14px 18px 18px;
+  .lc-card{position:relative;width:320px;max-width:92vw;padding:14px 18px 18px;margin:auto;flex:none;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);border-radius:var(--win-radius-el) !important;}
   .lc-bar{display:flex;align-items:center;justify-content:space-between;height:22px;margin:-14px -18px 12px;padding:0 6px;
@@ -4438,9 +4543,24 @@
     <input type="range" id="fsNameplateSize" min="10" max="26" step="1" value="15" style="width:100%;">
     <!-- 🪟 창이 화면 밖으로 나가 안 보일 때의 탈출구. 모니터를 바꾸거나 해상도가 줄면
          저장된 자리가 화면 밖이 되어 "꾸미기 미리보기가 사라졌다"로 보인다. -->
+    <!-- [2026-09-17 시안 확정] 두 행의 부연 문구(«— 안 보이는 창 되돌리기» · «— 캐릭터와 창을 함께»)를 뺐다.
+         ⚠️ 문구를 빼도 패널이 좁으면 버튼이 줄어들며 글자가 세로로 깨진다(제보 스크린샷 «화\n면\n−»). 그래서 버튼에
+         white-space:nowrap · flex-shrink:0 을 두고, −·+ 는 28px 정사각으로 줄였다. 단축키는 title 에 남아 있다. -->
     <div class="fs-toggle-row" style="margin-top:14px;">
-      <span>창 위치 초기화 <span style="font-weight:normal;color:var(--ink-soft);">— 안 보이는 창 되돌리기</span></span>
-      <button class="fs-toggle-btn" id="fsResetWinPos" type="button">되돌리기</button>
+      <span>창 위치 초기화</span>
+      <button class="fs-toggle-btn" id="fsResetWinPos" type="button" style="white-space:nowrap;flex-shrink:0;">되돌리기</button>
+    </div>
+    <!-- 🔍 프로그램 크기 — 캐릭터와 창을 함께(렌더러 줌). 캐릭터 탭의 «화면 크기»(아바타존만)와 다르다.
+         Ctrl+= / Ctrl+- / Ctrl+0 · Ctrl+휠도 같은 값이다(main.js applyUiZoom). 시안 확정 2026-09-16 (F-1) · 이름·정렬 개정 2026-09-17.
+         구버전 앱(companion.uiZoom 없음)에서는 app.js 가 이 행을 숨긴다. -->
+    <div class="fs-toggle-row" id="fsUiZoomRow" style="margin-top:6px;display:none;">
+      <span>프로그램 크기</span>
+      <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+        <button class="fs-toggle-btn" id="fsUiZoomOut" type="button" title="화면 축소 (Ctrl+-)" aria-label="화면 축소" style="white-space:nowrap;width:28px;padding-left:0;padding-right:0;">−</button>
+        <span id="fsUiZoomPct" style="min-width:36px;text-align:center;font-weight:bold;">100%</span>
+        <button class="fs-toggle-btn" id="fsUiZoomIn" type="button" title="화면 확대 (Ctrl+=)" aria-label="화면 확대" style="white-space:nowrap;width:28px;padding-left:0;padding-right:0;">+</button>
+        <button class="fs-toggle-btn" id="fsUiZoomReset" type="button" title="Ctrl+0" style="white-space:nowrap;flex-shrink:0;">초기화</button>
+      </span>
     </div>
   </div>
   <div class="fs-tabpage" id="fsTabSize" style="display:none;">
@@ -5224,6 +5344,29 @@
   </div>
 </div>
 
+<!-- 🖥️ 한 계정 한 기기 — 다른 PC 에서 같은 계정으로 로그인하면 이 PC 가 보는 화면 [2026-09-17 제보 3 · 시안 확정(왼쪽)].
+     초대 게이트와 같은 틀. 뒤를 완전히 가리지는 않는다(캐릭터는 그대로 있고 방 접속만 끊긴 상태) — 배경은 반투명. -->
+<div id="deviceSessionOverlay" style="position:fixed;inset:0;z-index:94;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.35);">
+  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:320px;max-width:92vw;font-family:Tahoma,sans-serif;">
+    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🖥️ 다른 기기에서 사용 중이에요</div>
+    <div style="padding:14px;">
+      <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:12px;">
+        이 계정이 방금 다른 PC에서 로그인됐어요. 투게더워킹은 한 번에 한 기기에서만 쓸 수 있어요.<br>
+        이 PC의 캐릭터·기록은 그대로 두고, 방 접속만 끊었어요.
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button id="deviceSessionContinue" class="lc-btn" style="margin-top:0;flex:1;white-space:nowrap;">여기서 계속 쓰기</button>
+        <button id="deviceSessionQuit" class="lc-btn ghost" style="margin-top:0;flex:1;white-space:nowrap;">앱 닫기</button>
+      </div>
+      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;margin-top:8px;">«여기서 계속 쓰기»를 누르면 반대로 다른 PC가 이 화면을 보게 돼요.</div>
+    </div>
+  </div>
+</div>
+
 <div id="adminPassOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -5737,7 +5880,7 @@
             border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:9px 10px;">
             <p style="margin:0 0 7px;font-size:11.5px;color:var(--win-error);font-weight:bold;line-height:1.5;">정말 로그아웃할까요?</p>
             <p style="margin:0 0 9px;font-size:10.5px;color:var(--ink);line-height:1.6;background:rgba(0,0,0,.05);padding:6px 8px;">
-              계정과 데이터는 <b>지워지지 않아요.</b> 로그아웃하면 <b>앱이 다시 시작되고</b> 시작 화면이 나와요. 거기서 <b>구글 계정으로 로그인</b>하면 그대로 돌아와요.</p>
+              계정과 데이터는 <b>서버에 그대로 남아요.</b> 이 PC에 있던 캐릭터·파츠·기록은 정리되고, 로그아웃하면 <b>앱이 다시 시작되고</b> 시작 화면이 나와요. 거기서 <b>구글 계정으로 로그인</b>하면 서버에서 받아와 그대로 돌아와요.</p>
             <div style="display:flex;gap:6px;">
               <button id="acctLogoutCancel" class="lc-btn" style="margin-top:0;flex:1;">취소</button>
               <button id="acctLogoutYes" class="lc-btn" style="margin-top:0;flex:1;color:#fff;background:var(--win-error);border-color:#d9a294 #6d3527 #6d3527 #d9a294;">로그아웃</button>
@@ -5856,7 +5999,7 @@
 
             <div id="acctUnlinkConfirm" style="display:none;margin-top:9px;">
               <p style="margin:0 0 7px;font-size:11.5px;color:var(--win-error);font-weight:bold;line-height:1.5;">정말 연동을 해제할까요?</p>
-              <p style="margin:0 0 9px;font-size:10.5px;color:var(--ink);line-height:1.6;background:rgba(0,0,0,.05);padding:6px 8px;">계정은 <b>지워지지 않아요.</b> 해제하면 <b>앱이 다시 시작되고</b> 초대 코드 화면이 나와요. 거기서 <b>유저 코드 + 비밀번호</b>로 다시 들어올 수 있어요.</p>
+              <p style="margin:0 0 9px;font-size:10.5px;color:var(--ink);line-height:1.6;background:rgba(0,0,0,.05);padding:6px 8px;">계정은 <b>서버에 그대로 남아요.</b> 이 PC에 있던 캐릭터·파츠·기록은 정리돼요. 해제하면 <b>앱이 다시 시작되고</b> 초대 코드 화면이 나와요. 거기서 <b>유저 코드 + 비밀번호</b>로 다시 들어오면 서버에서 받아와요.</p>
               <div style="display:flex;gap:6px;">
                 <button id="acctUnlinkCancel" class="lc-btn" style="margin-top:0;flex:1;">취소</button>
                 <button id="acctUnlinkYes" class="lc-btn" style="margin-top:0;flex:1;color:#fff;background:var(--win-error);border-color:#d9a294 #6d3527 #6d3527 #d9a294;">해제</button>
@@ -6350,6 +6493,13 @@
   </div>
 </div>
 
+<!-- 🌊 날리기 자막이 흐르는 층 — 화면 상단 40%. 캐릭터·책상은 아래 60% 에 있어 안 가린다.
+     ⚠️ `#chatOverlay` **밖**에 둔다. 안에 넣으면 클릭 통과 화이트리스트가 조상으로 #chatOverlay 를
+       보게 되는데, 이 층은 전체 폭이라 그 순간 «화면 위쪽 어디나 우리 UI» 가 되어 회수 로직이 망가진다.
+       여기 바깥에 두면 pointer-events:none 이라 화이트리스트에 아예 안 걸린다(CSS 주석 참고).
+     ⚠️ 비어 있을 때도 남겨 둔다 — JS 가 매번 만들면 첫 글자가 한 프레임 늦는다. -->
+<div id="flyLayer" aria-hidden="true"></div>
+
 <!-- ★ 프리미엄 대화창 (투게더룸 전용) -->
 <div id="chatOverlay" style="display:none;">
   <div id="chatWindow">
@@ -6414,6 +6564,32 @@
         <!-- ⚠️ 채팅이 꺼지면 placeholder 를 갈아 끼운다(입력칸을 잠그지는 않는다 —
              😊 이모티콘이 이 칸에 /명령어를 꽂아 Enter 로 나가는 구조라 잠그면 이모티콘까지 죽는다). -->
         <input type="text" id="chatInput" class="chat-input" placeholder="메시지 입력 후 Enter" maxlength="500" autocomplete="off">
+        <!-- 🌊 날리기 — 체크하고 보내면 글자가 화면을 가로질러 흐른다(니코동식).
+             ★ 자리: `.chat-input-col` **안**, 입력칸 바로 아래다. 처음엔 `.chat-inputrow` 밖의
+               형제로 뒀는데, 프로필 칸(74px)이 입력칸보다 키가 커서 그 아래로 밀려나
+               입력칸과 이 줄 사이에 빈 띠가 생겼다(2026-09-16 화면 확인).
+               입력 칸 안으로 넣으면 프로필 **옆**에 나란히 서서 그 빈 띠가 사라진다.
+             ⚠️ `.chat-inputrow` 의 직계로 되돌리지 말 것 — 프로필과 같은 줄의 형제가 되어
+               가로로 끼어들면서 입력칸 폭이 줄어든다. 그게 원래 여기 없었던 이유다.
+             ★ 최소화(#chatWindow.min)에서도 남는다 — 최소화가 남기는 것이 바로 이 칸이고,
+               이 줄은 보내기의 일부다. 여기를 숨기면 최소화 상태에서는 날릴 수 없게 된다.
+             ⚠️ 채널 판정은 JS(_chatFlyRefreshUI)가 `.off` 클래스로 한다. 워킹룸에서는 줄째 사라진다. -->
+        <div class="chat-flyrow off" id="chatFlyRow">
+          <label for="chatFlyChk"><input type="checkbox" id="chatFlyChk">날리기</label>
+          <!-- 🔠 글자 크기. 기본은 「대」 — 지금까지 쓰던 크기가 그대로 대다. -->
+          <span class="chat-flysizes" id="chatFlySizes" title="날리는 글자 크기">
+            <button type="button" class="fsz sel" data-flysize="l">대</button><button type="button" class="fsz" data-flysize="m">중</button><button type="button" class="fsz" data-flysize="s">소</button>
+          </span>
+          <!-- 🎨 Lv.200 해금. 흰색이 기본이고, 나머지는 검은 테두리 위에 얹히는 색이다. -->
+          <span class="chat-flyswatches" id="chatFlySwatches" title="날리는 글자 색 (Lv.200)">
+            <span class="fsw sel" data-flycolor=""        style="background:#fff"></span>
+            <span class="fsw"     data-flycolor="#FF4D9B" style="background:#FF4D9B"></span>
+            <span class="fsw"     data-flycolor="#4DC8FF" style="background:#4DC8FF"></span>
+            <span class="fsw"     data-flycolor="#7CFF5B" style="background:#7CFF5B"></span>
+            <span class="fsw"     data-flycolor="#FFD24D" style="background:#FFD24D"></span>
+            <span class="fsw rainbow" data-flycolor="rainbow"></span>
+          </span>
+        </div>
       </div>
       <div class="chat-profile" id="chatProfile">
         <img id="chatProfileImg" style="display:none;width:100%;height:100%;object-fit:cover;" alt="내 프로필">
@@ -6627,7 +6803,7 @@
             <div class="ch-sub">채팅 없이 · 집중</div>
             <div class="ch-name">워킹룸</div>
             <div class="ch-meta">무료 · 최대 8명</div>
-            <div class="ch-count" id="chCountWorking">— / 60</div>
+            <div class="ch-count" id="chCountWorking">— / 250</div>
             <!-- 🎲 랜덤 참여 허용 — 워킹룸 카드에만 둔다. 투게더룸 카드에는 아예 그리지 않는다:
                  라이선스 방에 모르는 사람이 들어오면 안 되고, findRandomRooms 의 채널 필터와 함께 두 겹이 된다.
                  ⚠️ 카드 자체가 '누르면 방 만들기'라, 이 줄의 클릭은 app.js에서 stopPropagation 한다. -->
@@ -6641,7 +6817,7 @@
             <div class="ch-sub" id="chSubTogether">대화하며 · 함께</div>
             <div class="ch-name">투게더룸</div>
             <div class="ch-meta" id="chMetaTogether">라이선스 · 최대 8명</div>
-            <div class="ch-count" id="chCountTogether">— / 70</div>
+            <div class="ch-count" id="chCountTogether">— / 250</div>
           </div>
         </div>
         <!-- 💝 후원 링크 — 프리미엄(투게더룸) 카드 바로 아래. 라이선스가 필요하다는 걸 방금 본 자리라

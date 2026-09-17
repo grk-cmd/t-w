@@ -172,13 +172,50 @@ let savedPos = { launcher: null, creator: null };   // { x, y } | null
 //   sizeToMode가 null을 반환해 "creator로 갈 때 현재 위치 유지" 로직이 깨지고 화면 중앙으로
 //   튀어버리는 문제가 있었음(캐릭터 생성 버튼만 눌러도 이 경로를 타서 재현됨).
 const SIZE_MATCH_TOL = 3;
+/* 📐 [2026-09-15 제보 1·2] 모드별로 **실제로 맞춘 크기**. MODE_SIZE 보다 작을 수 있다 — 아래
+     _fitConfigRect 가 작업영역에 안 들어가는 창을 줄였을 때. sizeToMode 는 이 값도 그 모드로
+     인정해야 한다. 안 그러면 줄어든 런처를 옮겨도 'moved' 가 위치를 안 남기고, creator 진입이
+     «run 에서 왔다» 로 오판해 중앙으로 튄다. */
+const _fittedSize = {};   // mode → { w, h }
 function sizeToMode(w, h){
   const close = (a,b) => Math.abs(a-b) <= SIZE_MATCH_TOL;
-  if (close(w, MODE_SIZE.launcher.w) && close(h, MODE_SIZE.launcher.h)) return 'launcher';
-  if (close(w, MODE_SIZE.creator.w) && close(h, MODE_SIZE.creator.h)) return 'creator';
-  if (close(w, MODE_SIZE.animal.w) && close(h, MODE_SIZE.animal.h)) return 'animal';
-  if (close(w, MODE_SIZE.myhome.w) && close(h, MODE_SIZE.myhome.h)) return 'myhome';
+  for(const m of ['launcher','creator','animal','myhome']){
+    const sz = MODE_SIZE[m], fit = _fittedSize[m];
+    if(!(close(w, sz.w) || (fit && close(w, fit.w)))) continue;
+    if(close(h, sz.h) || (fit && close(h, fit.h))) return m;
+  }
   return null;
+}
+
+/* ═══ 📐 [2026-09-15 제보 1·2] 런처 창이 잘린 채 뜬다 (첫 부팅 · 주모니터 변경) ═══════════
+   [증상] 런처(380×680 고정)가 위 또는 아래가 잘린 채 뜨고, 실행 모드로 들어가면 정상.
+   [원인] 크기가 **작업영역보다 크다.** 1920×1080 을 배율 150% 로 쓰면 화면이 1280×720 DIP 이고
+     작업표시줄을 빼면 680 언저리 아래로 내려간다. 그러면
+       ① 중앙 계산 (wa.height − 680)/2 가 음수 → y 가 작업영역 위로 나가 위가 잘리고,
+       ② 그게 아니어도 OS 가 창 높이를 깎아 아래가 잘린다(_noteApplied 주석의 «OS 가 크기를 깎아도»).
+     주모니터를 배율이 다른 모니터로 바꾸면 같은 조건이 되고, 실행 모드는 전체화면이라 거기서 풀린다.
+     ⚠️ savedPos 는 메모리 변수라 «지난 세션 좌표가 남았다» 는 원인이 아니다 — 첫 부팅은 늘 중앙이다.
+   [대응] 크기를 정하는 자리는 전부 이 함수를 지난다.
+     ・크기: min(MODE_SIZE, 작업영역). 배율이 몇이든 조건은 하나(작업영역 < 창)라 배율별 분기가 없다.
+     ・위치: 기억한 자리가 있으면 그 자리가 **있는 모니터**(getDisplayMatching)의 작업영역 안으로
+       클램프. 사용자가 다른 모니터로 옮겨 둔 자리를 원래 모니터로 끌어오지 않기 위해서다.
+       기억이 없으면 준 display 의 중앙.
+     ・줄인 크기는 _fittedSize 에 남긴다(sizeToMode 가 본다). 작업영역이 다시 커지면 min 이
+       원래 크기를 돌려주므로 따로 복구 코드가 없다.
+   ✅ 받는 쪽: 런처 HTML 이 창보다 긴 카드를 스크롤할 수 있어야 한다(#launcher overflow · .lc-card margin:auto). */
+function _fitConfigRect(mode, sz, display, remembered){
+  let wa = display.workArea;
+  if(remembered){
+    try{ wa = screen.getDisplayMatching({ x: remembered.x, y: remembered.y, width: sz.w, height: sz.h }).workArea; }catch(_){}
+  }
+  const w = Math.min(sz.w, wa.width);
+  const h = Math.min(sz.h, wa.height);
+  let x = remembered ? remembered.x : Math.round(wa.x + (wa.width  - w) / 2);
+  let y = remembered ? remembered.y : Math.round(wa.y + (wa.height - h) / 2);
+  x = Math.max(wa.x, Math.min(x, wa.x + wa.width  - w));
+  y = Math.max(wa.y, Math.min(y, wa.y + wa.height - h));
+  _fittedSize[mode] = { w, h };
+  return { x, y, width: w, height: h };
 }
 
 // run 모드(캐릭터 실행)를 띄울 디스플레이 id. null이면 주 모니터.
@@ -232,6 +269,9 @@ function loadSettings(){
     if(typeof data.overlayLayeredAlpha === 'number' && isFinite(data.overlayLayeredAlpha)){
       overlay.setAlpha(Math.max(0, Math.min(255, Math.round(data.overlayLayeredAlpha))));
     }
+    /* 🔍 전체 화면 크기 — 없거나 깨졌으면 100%. 창이 아직 없을 수 있으므로 값만 들고 있다가
+       createWindow 의 did-finish-load 에서 applyUiZoom 이 실제로 건다. */
+    if(typeof data.uiZoom === 'number' && isFinite(data.uiZoom)) uiZoom = _clampZoom(data.uiZoom);
     /* 🗑️ [2026-08-26] `overlayNoActivate` 는 **읽지 않는다.** 아래 saveSettings 도 안 쓴다.
        NOACTIVATE 실험이 폐기됐기 때문이다(핸드오프5 §7). 옛 파일에 값이 남아 있어도 그냥 무시되고,
        다음 저장 때 키가 사라진다 — 실험을 켠 채로 제보한 사용자가 앱만 새로 받으면 복구된다. */
@@ -242,6 +282,61 @@ function loadSettings(){
      "설정 파일이 왜 없느냐"를 제보로 받아도 **저장을 시도했는데 실패한 것인지, 애초에
      시도조차 안 한 것인지** 구분할 방법이 없었다. 실제로 답은 후자였다(_ensureSettingsFile 주석).
    ⇒ 실패를 로그에 남기고 성공 여부를 돌려준다. 로그는 한 번만 — 매 저장마다 찍으면 로그가 덮인다. */
+/* ═══ 🔍 전체 화면 크기(렌더러 줌) — 한 값 한 통로 [2026-09-16 제보 3-2 · F-1] ═══════════════
+   [경위] 확대/축소 통로가 둘이었다. 설정 › 캐릭터 › 화면 크기는 아바타존만 키우고(app.js _charScaleMap),
+     Ctrl+Shift++ / Ctrl+- 는 **우리 코드에 없는** 일렉트론 기본 메뉴 가속기가 렌더러 전체를 키웠다.
+     그래서 «몇 %인지 알 방법이 없고 되돌릴 기준도 없었다». 팝업이 앞 팝업의 절반만 따라오는 제보(F-2)도
+     이 줌과 좌표계(CSS px ↔ DIP)가 한 번 어긋났을 때 나오는 모양이다.
+   [원칙] **줌은 이 파일의 `applyUiZoom` 한 곳만 바꾼다.** 단축키(before-input-event)·Ctrl+휠(zoom-changed)·
+     설정 버튼(IPC) 셋이 전부 여기로 온다. 기본 줌을 막지 않고 «같은 값에 묶는다» — 되던 것이 계속 되고,
+     숫자는 거짓말을 안 한다. 값은 tw-settings.json 에 저장돼 다음 부팅에 그대로다. 초기화 = 100%.
+   ★ 좌표계: 렌더러는 CSS px 로 살고, 이 파일은 DIP 로 산다. 줌이 z 면 **DIP = CSS × z** 다.
+     · 렌더러 → main (setCharBounds 의 캐릭터 원·창 사각형): 받을 때 × z  (_zoomIn)
+     · main → 렌더러 (_sendHitTest 의 커서 좌표):           보낼 때 ÷ z  (_zoomOut)
+     이 둘을 빼면 줌을 켠 순간 클릭 통과 판정(ⓕ·ⓖ·펜 근접)이 전부 z 배 어긋난다 — 제보 3-1 의 «넓은 영역이
+     클릭을 먹는다» 와 같은 모양이 **줌만으로도** 난다. 채널을 늘리지 않고 값만 환산한다.
+   ⚠️ 모니터별로 나누지 않는다 — `_charScaleMap` 은 아바타존 크기라 모니터마다 다르게 두는 뜻이 있지만,
+     렌더러 줌은 창 하나에 한 값이다(webContents 단위). 나눌 이유가 생기면 그때 키를 늘린다. */
+const UI_ZOOM_MIN = 0.5, UI_ZOOM_MAX = 2.0, UI_ZOOM_STEP = 0.1;
+let uiZoom = 1;
+function _clampZoom(z){
+  const n = Number(z);
+  if(!isFinite(n) || n <= 0) return 1;
+  return Math.round(Math.max(UI_ZOOM_MIN, Math.min(UI_ZOOM_MAX, n)) * 100) / 100;
+}
+/* op: 'in' | 'out' | 'reset' | 숫자(배율) | 'get' */
+function _zoomStep(cur, op){
+  if(op === 'in')    return _clampZoom(cur + UI_ZOOM_STEP);
+  if(op === 'out')   return _clampZoom(cur - UI_ZOOM_STEP);
+  if(op === 'reset') return 1;
+  if(typeof op === 'number') return _clampZoom(op);
+  return _clampZoom(cur);
+}
+function applyUiZoom(op, why){
+  const next = _zoomStep(uiZoom, op);
+  const changed = next !== uiZoom;
+  uiZoom = next;
+  if(mainWindow && !mainWindow.isDestroyed()){
+    try{ mainWindow.webContents.setZoomFactor(uiZoom); }catch(_){}
+    /* 렌더러가 설정 창의 숫자를 맞추게 알려 준다. 구버전 preload(onUiZoom 없음)는 그냥 무시한다. */
+    try{ mainWindow.webContents.send('companion:uiZoom', uiZoom); }catch(_){}
+  }
+  if(changed){ saveSettings(); _diagLog('[줌] ' + Math.round(uiZoom * 100) + '% (' + (why || op) + ')'); }
+  return uiZoom;
+}
+const _zoomIn  = v => v * uiZoom;   // CSS px → DIP
+const _zoomOut = v => v / uiZoom;   // DIP → CSS px
+/* 단축키 — 일렉트론 기본 메뉴의 zoomIn/zoomOut/resetZoom 가속기를 **가로채** 위 한 통로로 보낸다.
+   ⚠️ `input.key` 는 Ctrl+Shift+= 이면 '+', Ctrl+= 이면 '=' 다. 넷 다 잡아야 «되던 조합»이 다 된다.
+   ⚠️ meta(Cmd)도 본다 — mac 판(핸드오프 §4). Alt 가 섞이면 다른 뜻이므로 놔둔다. */
+function _zoomKeyOp(input){
+  if(!input || input.type !== 'keyDown' || !(input.control || input.meta) || input.alt) return null;
+  const k = input.key;
+  if(k === '=' || k === '+' || input.code === 'NumpadAdd') return 'in';
+  if(k === '-' || k === '_' || input.code === 'NumpadSubtract') return 'out';
+  if(k === '0' || input.code === 'Numpad0') return 'reset';
+  return null;
+}
 let _saveFailLogged = false;
 function saveSettings(){
   if(!SETTINGS_PATH) return false;
@@ -253,7 +348,8 @@ function saveSettings(){
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ runDisplayId, runDisplayKey,
       overlayBottomGap: overlay.gap(),
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
-      overlayLayeredAlpha: overlay.alpha() }));
+      overlayLayeredAlpha: overlay.alpha(),
+      uiZoom }));                              // 🔍 전체 화면 크기 — applyUiZoom 만 바꾼다
     _saveFailLogged = false;
     return true;
   }catch(e){
@@ -478,6 +574,28 @@ let _lastIgnoreRequested = false;
      이건 "통과를 설정"한다. 오판해도 다음 마우스 움직임에 즉시 정상 복구된다. */
 let _isConfigMode = true;        // 런처/생성기(작은 창)면 true — 그때는 이 장치를 끈다
 let _lastCharBoundsAt = 0;       // 렌더러 생존 신호를 마지막으로 받은 시각
+let _lastActiveKeyLogged = null; // 🩺 [E] 마지막으로 진단 로그에 적은 활성 창 키 — 바뀔 때만 한 줄
+/* 🩺 [2026-09-17 · E 추가 제보] 전역 훅 **수신 여부**를 앞창별로 1분에 한 줄.
+   [왜] «관리자 권한 게임클라 앞에서 캐릭터는 포커싱인데 타이머가 안 쌓인다» — 활성 창 판정이 죽은 것(sysinput-win.js
+     tasklist 보조 통로로 대응)과 별개로, 관리자 권한 창이 앞에 있으면 **일반 권한 프로세스의 저수준 훅(uIOhook)은
+     UIPI 에 막혀 클릭·키를 못 본다.** 그때 남는 활동 신호는 커서 이동(_reportCursorActivity)뿐이라 키보드만 쓰는
+     게임은 누적이 서고 캐릭터도 idle 로 간다. 로그에 «등록=예 인데 클릭=0 키=0 커서이동>0» 이 찍히면 그 갈래다.
+   ⚠️ 등록 앱이 앞에 있을 때만 적는다 — 그 밖의 시간은 진단 가치가 없고 회전(256KB)만 당긴다.
+   ⚠️ 새 타이머를 만들지 않는다 — 500ms 활성 창 폴링의 finally 에 얹는다(커서 이동 보고와 같은 자리). */
+const INPUT_DIAG_MS = 60 * 1000;
+let _inputDiagAt = 0;
+const _inputDiag = { click: 0, wheel: 0, key: 0, cursor: 0 };
+function _inputDiagTick(now){
+  if(!_inputDiagAt){ _inputDiagAt = now; return; }
+  if(now - _inputDiagAt < INPUT_DIAG_MS) return;
+  _inputDiagAt = now;
+  const c = { ..._inputDiag };
+  _inputDiag.click = _inputDiag.wheel = _inputDiag.key = _inputDiag.cursor = 0;
+  if(!lastActiveState.isFocusedAppRegistered) return;   // 등록 앱 앞에서만 — 위 ⚠️
+  _diagLog('[입력] 앞창=' + (lastActiveState.key || '(없음)') + ' 등록=예 60초 수신 클릭=' + c.click
+    + ' 휠=' + c.wheel + ' 키=' + c.key + ' 커서이동=' + c.cursor
+    + ((c.click + c.wheel + c.key) === 0 ? ' ⚠️훅 미수신' : ''));
+}
 let _forcedPassthrough = false;  // 강제 전환이 걸려 있는 중인지(중복 발동 방지)
 /* ★ 이 시간 이상 생존 신호가 끊기면 '멈췄다'고 본다.
    [4000 → 12000 으로 올린 근거 — 실제 제보 로그]
@@ -704,6 +822,7 @@ function _reportCursorActivity(pt, minPx){
   const now = Date.now();
   if(now - _penActivitySentAt < PEN_ACTIVITY_MIN_MS) return;
   _penActivitySentAt = now;
+  _inputDiag.cursor++;   // 🩺 [입력] 진단 — 훅과 무관한 유일한 활동 신호가 이것이다
   if(mainWindow && !mainWindow.isDestroyed()){
     try{ mainWindow.webContents.send('companion:penActivity'); }catch(_){}
   }
@@ -744,6 +863,9 @@ function _applyForwardOnly(){
 function _sendHitTest(payload){
   if(!mainWindow || mainWindow.isDestroyed()) return;
   const p = payload ? Object.assign({}, payload) : { left: true };
+  /* 🔍 렌더러가 elementFromPoint 에 넣을 좌표다 — DIP 를 CSS px 로(applyUiZoom 주석 ★ 좌표계). */
+  if(typeof p.x === 'number') p.x = _zoomOut(p.x);
+  if(typeof p.y === 'number') p.y = _zoomOut(p.y);
   p.ig = !!_lastIgnoreRequested;                       // ★ 이 한 줄이 이 함수의 존재 이유다
   if(p.pen === undefined) p.pen = !!_penAppActive;
   try{ mainWindow.webContents.send('companion:penHitTest', p); }catch(_){}
@@ -794,6 +916,21 @@ function startActiveWinPolling(){
            여기서 `f.name === exeName` 로 되돌리면 mac 에서 조용히 전부 미등록이 된다. */
       const activeKey = focusKeyOf(exeName);
       const isFocusedAppRegistered = !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey)));
+      /* 🩺 [2026-09-16 제보 1 · E] 활성 창 키가 **바뀔 때마다** 진단 로그에 한 줄 — 콘솔을 못 보는 환경용.
+         [왜] 게임 클라이언트를 등록했는데 카운팅이 안 되는 제보. 목록에 뜨고 등록도 되는데 안 잡히면
+           «등록된 키와 활성 창 키가 서로 다른 문자열» 이 가장 유력하다(런처 exe ≠ 실제 프로세스).
+           이 줄이 있으면 로그 파일에서 `활성=<키>` 와 `등록=[…]` 을 나란히 보고 어긋남을 바로 가른다.
+         ⚠️ 바뀔 때만 적는다 — 폴링이 500ms 라 매번 적으면 로그가 진단을 덮는다(_diagLog 회전 주석). */
+      if(activeKey !== _lastActiveKeyLogged){
+        _lastActiveKeyLogged = activeKey;
+        try{
+          const regKeys = focusApps.map(f => keysOf(f).join('|')).filter(Boolean).join(', ');
+          /* 경로=없음 — 관리자 권한 창이라 sysinput 이 tasklist 이름으로 판정한 경우(sysinput-win.js). */
+          _diagLog('[활성] 활성=' + (activeKey || '(없음)') + ' 등록=' + (isFocusedAppRegistered ? '예' : '아니오')
+            + ' 표시=' + sysinput.displayNameOf(ownerPath) + (w.owner.path ? '' : ' 경로=없음(관리자권한)')
+            + ' | 등록키=[' + regKeys + ']');
+        }catch(_){}
+      }
       // 펜 앱 활성 상태 변화 감지 — 진입/이탈 시 forward 옵션을 즉시 재적용해 태블릿 스무딩을 방해하지 않게.
       const penNow = PEN_APPS.has(exeName);
       // ★ isPenApp을 렌더러까지 실어 보낸다 — 그림 작업은 한 획이 몇 초씩 걸려서
@@ -828,6 +965,7 @@ function startActiveWinPolling(){
            둘이 기준점(_penLastPt)과 전송 간격(PEN_ACTIVITY_MIN_MS)을 공유하므로 겹쳐도
            신호가 두 벌이 되지 않는다. */
       try{ _reportCursorActivity(screen.getCursorScreenPoint(), CURSOR_MOVE_MIN_PX); }catch(_){}
+      try{ _inputDiagTick(Date.now()); }catch(_){}   // 🩺 [입력] 1분에 한 줄 — 선언부 주석 참고
     }
   }, 500);
 }
@@ -1318,13 +1456,15 @@ const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
 
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.workAreaSize;
+  /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
+     예전엔 workAreaSize 만 보고 (0,0) 기준으로 중앙을 잡았다 — 작업표시줄이 위에 있으면 그만큼 어긋난다. */
+  const initRect = _fitConfigRect('launcher', MODE_SIZE.launcher, primaryDisplay, null);
 
   mainWindow = new BrowserWindow({
-    width: CONFIG_WIDTH,        // 시작은 config 모드 크기로 (런처가 먼저 뜨니까)
-    height: CONFIG_HEIGHT,
-    x: Math.round((width - CONFIG_WIDTH) / 2),
-    y: Math.round((height - CONFIG_HEIGHT) / 2),
+    width: initRect.width,      // 시작은 config 모드 크기로 (런처가 먼저 뜨니까)
+    height: initRect.height,
+    x: initRect.x,
+    y: initRect.y,
     icon: APP_ICON,             // 작업표시줄/Alt+Tab 아이콘 — 안 주면 일렉트론 기본 아이콘이 나온다
     transparent: true,
     backgroundColor: '#00000000',
@@ -1369,6 +1509,15 @@ function createWindow() {
     if(frameName && frameName.startsWith('mhGuestbook')){
       const opts = {
         width: 320, height: 560, frame: false, resizable: false,
+        /* ★ [2026-09-16 제보 5 후속] 모서리는 **OS(DWM)에 맡긴다** — 네 모서리 8px.
+             [경위] «버블에서 아래 모서리까지 둥글다»를 고치려고 roundedCorners:false 를 넣어 봤으나,
+               DWM 은 «네 모서리» 아니면 «없음» 두 가지뿐이라 위까지 같이 사각이 됐다(실기기 확인).
+               이 창은 불투명 창이라 페이지 CSS 의 border-radius 는 창 배경색 위에 그려질 뿐 창 모양을
+               못 바꾼다 — 마이홈·플레이리스트가 둥근 것은 그것들이 창이 아니라 **투명한 메인 창 안의 div**
+               이기 때문이다. 위만 둥글게 하려면 이 창도 transparent:true 로 가야 하고, 그건 이 프로젝트에
+               전례가 있는 위험(handoff-overlay-video-blackout-4.md)이라 지금은 안 간다.
+             ⇒ roundedCorners 를 건드리지 않는다(기본값 = OS 라운드). 타이틀바 디자인(여백 제거·그림자·
+               위 모서리)은 그대로 살아 있고, 창 바닥만 OS 가 깎는다. */
         // ★ 실행 모드에선 메인 창이 alwaysOnTop:true라 자식창이 그 뒤로 가려짐 → 방명록 창도 alwaysOnTop 켬
         //   ⚠️ 여기 alwaysOnTop:true 는 기본 단계('floating')다. 메인은 'screen-saver'라 이것만으로는
         //      부족하고, 실제 단계 승격은 did-create-window 에서 setAlwaysOnTop(true,'screen-saver')로 한다.
@@ -1700,7 +1849,17 @@ function createWindow() {
     if (input.type === 'keyDown' && input.key === 'F12') {
       mainWindow.webContents.toggleDevTools();
     }
+    /* 🔍 Ctrl(+Shift)+= / Ctrl+- / Ctrl+0 — 기본 가속기가 먹기 전에 가로채 한 통로로 보낸다(applyUiZoom 주석). */
+    const zop = _zoomKeyOp(input);
+    if(zop){ event.preventDefault(); applyUiZoom(zop, 'key'); }
   });
+  /* 🔍 Ctrl+휠·핀치 — 기본 동작을 막고 같은 통로로. 방향만 온다(값은 우리가 정한다). */
+  mainWindow.webContents.on('zoom-changed', (event, dir) => {
+    event.preventDefault();
+    applyUiZoom(dir === 'in' ? 'in' : 'out', 'wheel');
+  });
+  /* 🔍 저장된 줌을 건다 — 파일 로드가 끝난 뒤가 확실하다(그 전에 걸면 로드가 되돌린다). */
+  mainWindow.webContents.on('did-finish-load', () => { try{ applyUiZoom(uiZoom, 'boot'); }catch(_){} });
 
   mainWindow.on('closed', () => {
     // BGM 자식창을 수동으로 정리 (parent를 안 쓰기 때문에 자동 소멸이 없음)
@@ -1781,6 +1940,17 @@ function createWindow() {
        set 하는 것만으로는 1초 안에 지워진다. 그래서 페이지 전역 __bgmVol 을 두고 루프가 그 값을
        쓰게 한다. 곡이 바뀌면 페이지가 새로 뜨므로, 주입 시점의 bgmVolume 이 초기값으로 박힌다. */
   let bgmVolume = 0.8;
+  /* 🏠 [2026-09-17] 마이홈 BGM 은 **60% 로 줄여서** 튼다. 플레이리스트(playlist 모드)는 슬라이더 값 그대로.
+       [왜] 마이홈에 곡을 걸어 두는 사람은 «배경» 으로 두는 것이라 작업 중 소리가 크다는 요청.
+       [어떻게] bgmVolume 은 **페이지에 심는 값**이고, 슬라이더가 정한 원값은 bgmSliderVol 에 따로 둔다.
+         입력이 바뀌는 두 자리(setBgmVolume IPC · bgmOpen 의 모드 전환)에서 bgmVolume = 원값 × (home 이면 0.6) 로
+         다시 계산한다. 주입부(감시 루프·선점·광고 게이트 7곳)는 한 글자도 안 바뀐다 — sim-pl-loop 가 bgmForcePlay 를
+         오려 «bgmVolume» 만 있는 무대에서 돌리므로, 거기에 새 이름을 두면 그 검사가 깨진다.
+       ⚠️ bgmSliderVol(슬라이더 저장값)은 안 건드린다 — 마이홈에서 60% 로 줄였다고 플레이리스트가 같이 줄면 안 된다. */
+  const HOME_BGM_GAIN = 0.6;
+  let bgmSliderVol = bgmVolume;
+  function bgmRecalcVolume(){ bgmVolume = (bgmMode === 'home') ? Math.round(bgmSliderVol * HOME_BGM_GAIN * 1000) / 1000 : bgmSliderVol; }
+  bgmRecalcVolume();
   /* 🔁 플레이리스트 «한 곡 반복» — true 면 PL 모드에서도 <video>.loop 로 되풀이한다(렌더러가 setBgmLoop 로 정한다).
      [왜] 9/11 제보 「한 곡 반복이 안 넘어가다 멈춘다」. 옛 방식은 곡이 끝날 때마다 **같은 주소를 loadURL** 로
        다시 열었는데, 그때 페이지가 새로 뜨는지가 확인되지 않은 채였다(핸드오프 §1 갈래 ①/②).
@@ -1921,6 +2091,32 @@ function createWindow() {
   // ★ 광고 소리 0초 누출 방지 — 페이지 내 스크립트는 로드 완료 후에야 주입돼서 첫 광고 소리가 잠깐
   //   새는데, Electron의 setAudioMuted(OS 레벨 음소거)를 로드 시작 순간부터 걸어두고 main에서 광고
   //   여부를 250ms마다 물어봐 광고가 아닐 때만 음소거를 풀면 광고 소리가 한 순간도 안 들림.
+  /* ★ [2026-09-16 제보 7 후속 ②] «첫 소리는 맞는데 3초쯤 뒤 한 번 크게 튄다»의 정체.
+       <video>.volume 을 우리가 넣어도 유튜브 플레이어(#movie_player)는 **자기 저장값**(localStorage
+       `yt-player-volume`, 보통 100)을 초기화가 끝나는 시점에 다시 <video> 에 밀어 넣는다. 그 순간이 곡 시작
+       2~3초 뒤이고, 다음 폴(250ms)이 되돌릴 때까지 100% 로 들린다.
+     [그래서] ① dom-ready 에서 `yt-player-volume` 을 우리 값으로 먼저 써 둔다 — 플레이어가 초기화 때 읽는 값이
+       곧 우리 값이 되어 밀어 넣을 것이 없다. ② 플레이어 API(setVolume)가 생기면 그쪽으로도 맞춘다 —
+       <video> 만 고치면 플레이어 내부 상태는 여전히 100 이라 다음 기회에 또 밀어 넣는다. */
+  const BGM_SET_VOL_JS =
+    'function __twSetVol(want){'+
+    '  var v=document.querySelector("video");'+
+    '  if(v){ try{ if(Math.abs(v.volume-want)>0.005) v.volume=want; }catch(_){} }'+
+    '  var p=document.querySelector("#movie_player");'+
+    '  if(p&&typeof p.setVolume==="function"&&typeof p.getVolume==="function"){'+
+    '    try{ var w=Math.round(want*100); if(Math.abs(p.getVolume()-w)>0.5) p.setVolume(w); }catch(_){} }'+
+    '  try{ var now=Date.now(); localStorage.setItem("yt-player-volume", JSON.stringify({data:JSON.stringify({volume:Math.round(want*100),muted:false}),expiration:now+2592000000,creation:now})); }catch(_){}'+
+    '}';
+  /* 🔊 [2026-09-16 제보 7 후속 · «곡 시작에 음량이 확 커졌다 줄어든다»]
+       bgmPrimeVolume(dom-ready) 이 있어도 새 <video> 가 1.0(100%) 으로 **먼저 소리를 내는 틈**이 남는다 —
+       유튜브는 DOMContentLoaded 앞뒤로 플레이어를 띄우고, 게이트 폴은 «광고가 아니다» 하나만 보고
+       음소거를 풀었다. 그래서 첫 250ms~수백 ms 는 100% 로 들리고 그 뒤 __bgmVol 로 떨어졌다.
+     [그래서] 음소거를 푸는 조건에 **«<video> 의 volume 이 기억한 음량과 같다»** 를 더한다. 같아질 때까지는
+       OS 레벨 음소거를 유지하고, 폴 자체가 그 tick 에 음량을 넣어 준다(주입이 늦어도 여기서 잡힌다).
+       <video> 가 아직 없으면 어차피 소리도 없으므로 음소거를 유지해도 잃는 것이 없다.
+     ⚠️ 이 뷰는 유튜브 전용(bgmUrlAllowed)이라 <video> 는 반드시 생긴다 — 다른 도메인을 허용하게 되면
+       이 조건이 «영영 음소거»가 되므로 그때는 도메인별로 갈라야 한다.
+     ⚠️ muted·play 는 여기서도 안 건드린다 — bgmForcePlay 가 주인(위 규칙 그대로). volume 만 본다. */
   let bgmAdPoll = null;
   function bgmStartAdGate(){
     if(!bgmView) return;
@@ -1930,10 +2126,17 @@ function createWindow() {
       if(!bgmView || bgmView.webContents.isDestroyed()){ clearInterval(bgmAdPoll); bgmAdPoll=null; return; }
       bgmView.webContents.executeJavaScript(
         '(function(){var p=document.querySelector("#movie_player,.html5-video-player");'+
-        'return !!((p&&p.classList&&p.classList.contains("ad-showing"))||'+
-        'document.querySelector(".ytp-ad-player-overlay,.ytp-ad-preview-container,.ytp-ad-text"));})()'
-      ).then(isAd=>{
-        if(bgmView && !bgmView.webContents.isDestroyed()) bgmView.webContents.setAudioMuted(!!isAd);
+        'var isAd=!!((p&&p.classList&&p.classList.contains("ad-showing"))||'+
+        'document.querySelector(".ytp-ad-player-overlay,.ytp-ad-preview-container,.ytp-ad-text"));'+
+        'var want=(typeof window.__bgmVol==="number")?window.__bgmVol:'+bgmVolume+';'+
+        BGM_SET_VOL_JS+
+        'var v=document.querySelector("video"); var volOk=false;'+
+        'if(v){ try{ __twSetVol(want); volOk=(Math.abs(v.volume-want)<=0.005); }catch(_){} }'+
+        'return {isAd:isAd, volOk:volOk};})()'
+      ).then(r=>{
+        if(!bgmView || bgmView.webContents.isDestroyed()) return;
+        const isAd = !!(r && r.isAd), volOk = !!(r && r.volOk);
+        bgmView.webContents.setAudioMuted(isAd || !volOk);   // 광고이거나 음량이 아직 안 맞으면 계속 음소거
       }).catch(()=>{});
     }, 250);
   }
@@ -1958,12 +2161,13 @@ function createWindow() {
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
     bgmView.webContents.executeJavaScript(
       '(function(){ window.__bgmVol='+bgmVolume+';'+
+      BGM_SET_VOL_JS+
+      '  __twSetVol(window.__bgmVol);'+   // 저장값을 플레이어 초기화보다 먼저 써 둔다
       // 페이지가 새로 뜨면 이 플래그도 같이 사라진다 — 곡마다 딱 한 벌만 돈다.
       '  if(window.__bgmVolPrimed) return; window.__bgmVolPrimed=true;'+
       '  var n=0, t=setInterval(function(){'+
-      '    var v=document.querySelector("video");'+
-      '    if(v){ try{ if(Math.abs(v.volume-window.__bgmVol)>0.005) v.volume=window.__bgmVol; }catch(_){} }'+
-      '    if(++n>120) clearInterval(t);'+   // 50ms × 120 = 6초. 그 뒤는 bgmForcePlay 가 이어받는다
+      '    __twSetVol(window.__bgmVol);'+
+      '    if(++n>120) clearInterval(t);'+   // 50ms × 120 = 6초. 그 뒤는 bgmForcePlay·광고 게이트가 이어받는다
       '  }, 50); })()'
     ).catch(()=>{});
   }
@@ -2141,6 +2345,7 @@ function createWindow() {
     }
     const modeChanged = (mode !== bgmMode);
     bgmMode = mode;
+    bgmRecalcVolume();   // 🏠 home 이면 60% — 곡이 새로 뜨면서 이 값이 심긴다
     if(bgmWin && !bgmWin.isDestroyed()){
       // 이미 열려있으면 곡만 교체: 유튜브 뷰 URL 바꾸고 타이틀바 텍스트도 갱신
       if(bgmView){ bgmView.webContents.loadURL(url); bgmStartAdGate(); _twplArmRearm(); }   // 곡 변경 시에도 음소거 게이트 재가동
@@ -2301,10 +2506,10 @@ function createWindow() {
   ipcMain.on('companion:setBgmVolume', (e, v) => {
     const n = Math.max(0, Math.min(1, Number(v)));
     if(!isFinite(n)) return;
-    bgmVolume = n;
+    bgmSliderVol = n; bgmRecalcVolume();   // 🏠 home 이면 60% 로 심긴다
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
     bgmView.webContents.executeJavaScript(
-      '(function(){window.__bgmVol='+bgmVolume+'; var v=document.querySelector("video"); if(v){ v.volume='+bgmVolume+'; if('+bgmVolume+'>0) v.muted=false; }})()'
+      '(function(){window.__bgmVol='+bgmVolume+'; '+BGM_SET_VOL_JS+' __twSetVol('+bgmVolume+'); var v=document.querySelector("video"); if(v){ if('+bgmVolume+'>0) v.muted=false; }})()'
     ).catch(()=>{});
   });
   /* 🔁 한 곡 반복 on/off — 렌더러가 곡을 열기 직전과 반복 종류를 바꿀 때 보낸다.
@@ -2341,6 +2546,12 @@ function createWindow() {
   function _loginItemOpts(){
     return app.isPackaged ? undefined : { path: process.execPath, args: [path.resolve(__dirname)] };
   }
+  /* 🔍 설정 › 화면표시 › 전체 화면 크기 — 버튼 셋(−·+·초기화)과 현재 배율 조회가 이 하나로 온다.
+     op: 'in' | 'out' | 'reset' | 'get'. 돌려주는 값은 적용된 배율(1 = 100%). */
+  ipcMain.handle('companion:uiZoom', (e, op) => {
+    if(op === 'get') return uiZoom;
+    return applyUiZoom(op, 'settings');
+  });
   ipcMain.handle('companion:getAutoLaunch', () => {
     try{
       const s = app.getLoginItemSettings(_loginItemOpts());
@@ -2553,12 +2764,12 @@ function createWindow() {
         //   모니터 중앙. 'moved' 핸들러가 sizeToMode('myhome')로 위치를 계속 기록해줌.
         remembered = savedPos.myhome || null;
       }
-      const useX = remembered ? remembered.x : Math.round(waPos.x + (wa.width - sz.w) / 2);
-      const useY = remembered ? remembered.y : Math.round(waPos.y + (wa.height - sz.h) / 2);
+      /* 📐 [2026-09-15 제보 1·2] 크기·위치를 작업영역에 맞춘다 — 근거는 _fitConfigRect 위 주석.
+         예전 «remembered ? 그대로 : 중앙» 은 그 함수 안에 그대로 있다. 여기서 직접 계산으로 되돌리지 말 것. */
+      const cfgRect = _fitConfigRect(MODE_SIZE[mode] ? mode : 'launcher', sz, display, remembered);
       /* 🔁 여기도 같은 억제 — 마이홈이 열려 있는 동안에도 layoutSeats 가 이 IPC 를 계속 보낸다
          (applyDesktopRunClass 는 마이홈이면 mode='myhome' 으로 부른다). 위 savedPos 기록은
          이미 끝난 뒤라 건너뛰어도 위치 기억은 그대로다 — 건너뛰는 것은 창 조작뿐이다. */
-      const cfgRect = { x: useX, y: useY, width: sz.w, height: sz.h };
       let cfgSame = false;
       try{ cfgSame = _winAlreadyIs(cfgRect, false) && mainWindow.isResizable() === false; }catch(_){}
       if(cfgSame){ _ovSkipped++; return; }
@@ -2703,9 +2914,10 @@ function createWindow() {
        읽고 통과로 회수했다 — 즉 **모른다는 말을 확신으로 바꿔** 유령을 만들었다.
        ⇒ 이제 null 로 둔다. `_ptOnOurUI` 는 캐릭터 원을 건너뛰고 창 사각형만 보고,
          ⓖ 의 좌표 분기는 `!_lastCharBounds` 에서 스스로 물러난다(=판단 보류). */
+    /* 🔍 렌더러 좌표는 CSS px 다 — 줌을 곱해 DIP 로 바꿔 둔다(applyUiZoom 주석 ★ 좌표계). 100% 면 그대로다. */
     _lastCharBounds = (bounds.x <= -99999)
       ? null
-      : { x: bounds.x, y: bounds.y, r: Math.max(40, +bounds.r||120) };
+      : { x: _zoomIn(bounds.x), y: _zoomIn(bounds.y), r: _zoomIn(Math.max(40, +bounds.r||120)) };
     _lastCharBoundsAt = Date.now();   // ★ 렌더러 생존 신호 — 위 안전장치가 이 시각을 본다
     /* 🩺 좌표를 못 믿는 구간의 **시작과 끝만** 기록한다. 하트비트는 10Hz 라 매번 남기면
        진단이 진단을 덮는다(로그 회전 주석 참고). 이 두 줄이 다음 조사에서 범인을 지목한다. */
@@ -2731,7 +2943,8 @@ function createWindow() {
       _lastHitWhy = bounds.ignoreWhy; _hitWhyAt = Date.now();   // 🛡️ ⓖ 회수 유예가 보는 사본(위 선언부 주석)
     }
     // 📐 우리 창들의 사각형. 안 보내는 구버전이면 건드리지 않는다(예전처럼 캐릭터만 보게 된다).
-    if(Array.isArray(bounds.regions)) _lastRegions = bounds.regions;
+    if(Array.isArray(bounds.regions))
+      _lastRegions = bounds.regions.map(g => ({ x: _zoomIn(g.x), y: _zoomIn(g.y), w: _zoomIn(g.w), h: _zoomIn(g.h) }));   // 🔍 CSS px → DIP
   });
 
   // 창 이동/리사이즈 시 스크린 좌표 캐시 갱신 — 실제로는 전체화면 오버레이라 거의 안 바뀜.
@@ -2759,8 +2972,27 @@ function createWindow() {
     if(_dmTimer) return;
     _dmTimer = setTimeout(() => {
       _dmTimer = null;
-      if(_isConfigMode) return;
       if(!mainWindow || mainWindow.isDestroyed()) return;
+      /* 📐 [2026-09-15 제보 2] 런처·생성기 상태에서 주모니터나 배율이 바뀌면 지금 자리를 새 작업영역에
+         다시 맞춘다. 예전엔 여기서 그냥 return 이라 실행 모드에 들어갔다 나와야 풀렸다.
+         ⚠️ 갭 재계산(아래 run 분기)과는 다른 일이다 — config 창은 갭과 무관하고, 그래서 setBounds 가
+           헤퍼도 합성을 흔들 뒤 창이 없다. 그래도 같으면 안 건드린다. */
+      if(_isConfigMode){
+        try{
+          const b = mainWindow.getBounds();
+          const m = sizeToMode(b.width, b.height);
+          if(!m) return;
+          const rect = _fitConfigRect(m, MODE_SIZE[m], screen.getDisplayMatching(b), { x: b.x, y: b.y });
+          if(_sameRect(rect, b)) return;
+          mainWindow.setResizable(true);    // 고정 크기 상태로 setBounds 하면 크기가 깎인다 — setConfigMode 와 같은 순서
+          mainWindow.setBounds(rect);
+          mainWindow.setResizable(false);
+          _noteApplied(rect, false);
+          savedPos[m] = { x: rect.x, y: rect.y };
+          _diagLog('[창] 표시설정 변경 — ' + m + ' 창을 작업영역에 다시 맞춤 ' + rect.x + ',' + rect.y + ' ' + rect.width + 'x' + rect.height);
+        }catch(_){}
+        return;
+      }
       try{
         const d = getRunDisplay();
         const wa = d.workArea;
@@ -2810,12 +3042,27 @@ function createWindow() {
      ★ 휠은 한 칸 돌릴 때마다 이벤트가 나와서 빠르게 스크롤하면 초당 수십 개가 된다.
        판정에 필요한 건 '최근에 입력이 있었나' 하나뿐이라 200ms로 솎아낸다. */
   let _lastWheelSentAt = 0;
+  /* 🛞 [2026-09-17 제보 3-1 · C] `wheel:true` 표식을 얹는다 — **휠은 고착 회복 사다리(app.js __mouseKick)를 올리면 안 된다.**
+       [로그가 보여준 것] 제보자 진단 로그의 kick3 212건 중 206건이 커서가 **다른 모니터**에 있을 때(chrome 205건),
+         나머지는 커서가 캐릭터 옆 여백에 **가만히 있을 때** 3초 간격으로 셋(09-15 14:30:56~59, (1327,782) 고정).
+         전부 «크롬을 스크롤하는 중» 이다. 스크롤은 마우스를 안 움직이므로 mousemove 가 3초 없는 것이
+         정상인데, 이 이벤트가 클릭과 같은 채널·같은 모양으로 가서 사다리가 «mousemove 가 죽었다» 로 읽고
+         1.5초마다 3단계(0.8초 클릭받기)를 반복했다 → 그 0.8초마다 투명 전체화면 창이 휠·클릭을 먹는다
+         = «여백에 커서를 두면 뒤의 크롬이 스크롤·클릭이 안 된다» 그대로. 마우스를 움직이면(다른 모니터로
+         갔다 오면) mousemove 가 와서 단계가 0 으로 풀린다 — 제보의 «갔다 오면 풀린다» 도 그것이다.
+       [왜 offOverlay 가 못 막았나] 클릭 쪽(_onGlobalMouseDown)에만 실려 있었다. 휠 페이로드에는 없어서
+         렌더러가 «구버전 main» 으로 읽고 막지 않았다 — 그래서 다른 모니터 스크롤이 206건이다.
+       ⚠️ 새 채널을 파지 않는다 — 필드 하나를 얹는 규약(offOverlay 와 같다). 구버전 렌더러는 무시한다.
+       ⚠️ 휠은 여전히 '활동' 이다(anyInput·activity) — 사다리만 안 탄다. 읽기만 하는 동안 자리비움으로
+         빠지던 구간을 메운 원래 목적은 그대로다. */
   const _onGlobalWheel = (e) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     const now = Date.now();
     if (now - _lastWheelSentAt < 200) return;
     _lastWheelSentAt = now;
-    mainWindow.webContents.send('companion:globalClick', { x: e.x, y: e.y, button: 0, ...lastActiveState });
+    let offOverlay = false;
+    try{ offOverlay = !_ptOnOverlayWindow(screen.getCursorScreenPoint()); }catch(_){}
+    mainWindow.webContents.send('companion:globalClick', { x: e.x, y: e.y, button: 0, ...lastActiveState, wheel: true, offOverlay });
   };
   const _onGlobalKeyDown = (e) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -2835,10 +3082,13 @@ function createWindow() {
      (이 경우 전역 클릭/키 감지가 죽어서 활동 감지·자리비움 판정이 어긋난다) */
   /* ⚠️ 훅 세 개를 거는 것도, start() 를 삼키고 기록하는 것도 모듈 안에서 일어난다.
      여기서 넘기는 것은 위 세 함수뿐이다 — 모듈은 그것을 그대로 건다. */
+  /* 🩺 [2026-09-17 · E] 수신 카운트는 **핸들러 본문 밖**에서 센다 — 세 본문은 sim-wheel-kick 등이 그대로 떼어
+     사막에서 돌리므로 안에 이름을 하나 더 두면 그 검사들이 깨진다. 여기서 감싸면 «훅이 왔다» 는 사실은 같게 세고,
+     본문(판정·offOverlay·IPC)은 한 글자도 안 바뀐다. 휠은 200ms 솎기 앞에서 세어진다 — 수신 여부가 목적이다. */
   sysinput.startGlobalHooks({
-    mousedown: _onGlobalMouseDown,
-    wheel:     _onGlobalWheel,
-    keydown:   _onGlobalKeyDown,
+    mousedown: (e) => { _inputDiag.click++; _onGlobalMouseDown(e); },
+    wheel:     (e) => { _inputDiag.wheel++; _onGlobalWheel(e); },
+    keydown:   (e) => { _inputDiag.key++;   _onGlobalKeyDown(e); },
   });
   app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } });
   /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════

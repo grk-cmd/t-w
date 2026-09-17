@@ -97,6 +97,76 @@ const WINLIST_SKIP = new Set([
   'lockapp.exe','sihost.exe','dwm.exe','widgets.exe','widgetboard.exe',
 ]);
 
+/* ── 🛡️ [2026-09-17 · E 추가 제보] 경로를 못 읽는 창의 이름 — tasklist 보조 통로 ───────
+   [제보] 「관리자 권한 게임 클라이언트를 등록했는데, 캐릭터는 포커싱 포즈인데 **타이머가 안 쌓인다.**
+     창모드도 같다. 브라우저를 눌렀다가 돌아와도 그대로.」
+   [코드로 본 갈래] node-window-manager 의 `path` 는 OpenProcess(PROCESS_QUERY_INFORMATION|VM_READ)
+     + GetModuleFileNameEx 로 읽는다. 우리 앱은 일반 권한이라 **관리자 권한 프로세스는 열지 못해**
+     `path` 가 빈 문자열로 온다. 그러면 여기가 `null` 을 돌려주고 → main.js 폴링이 «활성 창 판정
+     실패» 로 **일찍 return** → `activeAppState` 가 안 나간다 → 렌더러의 `_applyActiveAppState`
+     (누적 tick) 가 500ms 마다 안 돈다 = 타이머 정지. 그런데 커서 이동(_reportCursorActivity)은
+     finally 에서 계속 나가고, 렌더러 상태는 **직전 창(브라우저=등록) 것으로 굳어** 있어 캐릭터는
+     포커싱 포즈 — 제보 그대로다. main.js 폴링 주석의 «관리자 권한으로 뜬 창이 활성일 때 실패»
+     가 바로 이 갈래였다.
+   [대응] 경로는 못 읽어도 **프로세스 id 는 읽힌다**(GetWindowThreadProcessId 는 권한이 안 든다).
+     `tasklist /FO CSV /NH` 는 일반 권한에서도 모든 프로세스의 **이미지 이름**을 준다. 판정 키는
+     basename 소문자(procNameOf)라 이름만으로 충분하다 — 경로 전체는 원래 판정에 안 쓰였다.
+   ★ 돌려주는 모양: `{ owner:{ path:'', name:'game.exe' } }`. path 는 **빈 채로** 둔다 — 못 읽은
+     것을 있는 것처럼 꾸미지 않는다. main.js 는 처음부터 `w.owner.path || w.owner.name` 으로 읽는다.
+   ⚠️ 폴링마다 프로세스를 띄우지 않는다. 한 번의 tasklist 로 pid→이름 표를 통째로 받아 두고,
+     모르는 pid 가 나올 때만 **2초 간격 상한**으로 다시 받는다. 동시 요청은 하나로 합친다.
+     표에도 없는 pid(막 죽은 프로세스)는 30초 동안 다시 묻지 않는다 — 없으면 예전과 같이 null.
+   ⚠️ 출력은 OEM 코드페이지다. 한글 exe 이름은 깨져 들어올 수 있으나 **같은 규칙으로 늘 같게**
+     깨지므로 판정 키(등록 ↔ 활성)는 서로 맞는다. 표시명이 이상하면 이 줄이 이유다.
+   ⚠️ mac 판은 이 통로가 없다 — 번들 id 는 권한과 무관하게 읽힌다. 내보내는 이름은 안 늘었다. */
+const { execFile } = require('child_process');
+const PIDMAP_MIN_MS  = 2000;    // 같은 «모르는 pid» 로 tasklist 를 다시 띄우는 최소 간격
+const PIDMAP_MISS_MS = 30000;   // 표에도 없던 pid 를 다시 묻지 않는 시간
+let _pidMap = new Map();        // pid → 이미지 이름 (tasklist 원문 그대로 · 소문자화는 procNameOf 몫)
+let _pidMapAt = 0;
+let _pidMapBusy = null;         // 진행 중인 tasklist Promise — 겹치는 요청은 여기에 붙는다
+const _pidMiss = new Map();     // pid → 못 찾은 시각
+const _pidTold = new Set();     // 이 통로로 이름을 받은 pid — 진단 로그는 pid 당 한 번
+let _pidMapFailTold = false;
+function _refreshPidMap(){
+  if(_pidMapBusy) return _pidMapBusy;
+  if(Date.now() - _pidMapAt < PIDMAP_MIN_MS) return Promise.resolve(false);
+  _pidMapBusy = new Promise((resolve) => {
+    let done = false;
+    const finish = (ok) => { if(done) return; done = true; _pidMapBusy = null; _pidMapAt = Date.now(); resolve(ok); };
+    try{
+      execFile('tasklist', ['/FO', 'CSV', '/NH'], { windowsHide: true, timeout: 3000, maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
+        if(err){
+          if(!_pidMapFailTold){ _pidMapFailTold = true; _log('tasklist 실패 — 관리자 권한 창 이름 보조 통로 없음: ' + (err && err.message || err)); }
+          finish(false); return;
+        }
+        const m = new Map();
+        for(const line of String(out || '').split(/\r?\n/)){
+          const mm = /^"([^"]+)","(\d+)"/.exec(line);   // "이미지 이름","PID",…
+          if(mm) m.set(Number(mm[2]), mm[1]);
+        }
+        if(m.size) _pidMap = m;
+        finish(true);
+      });
+    }catch(err){
+      if(!_pidMapFailTold){ _pidMapFailTold = true; _log('tasklist 실행 불가: ' + (err && err.message || err)); }
+      finish(false);
+    }
+  });
+  return _pidMapBusy;
+}
+async function _nameByPid(pid){
+  if(!(pid > 0)) return '';
+  const hit = _pidMap.get(pid);
+  if(hit) return hit;
+  const missAt = _pidMiss.get(pid);
+  if(missAt && Date.now() - missAt < PIDMAP_MISS_MS) return '';
+  await _refreshPidMap();
+  const n = _pidMap.get(pid) || '';
+  if(!n) _pidMiss.set(pid, Date.now());
+  return n;
+}
+
 /* ── 활성 창 ─────────────────────────────────────────────────────────────── */
 async function getActiveWindow(){
   if(!windowManager) return null;   // 로드 실패 — 아래 catch 와 같은 답(null)을 낸다
@@ -104,10 +174,18 @@ async function getActiveWindow(){
     const w = windowManager.getActiveWindow();
     if(!w) return null;
     const p = w.path || '';
-    if(!p) return null;
     let title = '';
     try{ title = w.getTitle() || ''; }catch(_){}
-    return { owner: { path: p, name: path.basename(p) }, title };
+    if(p) return { owner: { path: p, name: path.basename(p) }, title };
+    /* 경로가 비었다 — 관리자 권한 창이 앞에 있을 때의 모양(위 주석). 이름만 받아 온다. */
+    const pid = Number(w.processId) || 0;
+    const name = await _nameByPid(pid);
+    if(!name) return null;   // 예전과 같은 답 — main.js 의 실패 streak 로 간다
+    if(!_pidTold.has(pid)){
+      _pidTold.add(pid);
+      _log('[활성] 경로 못 읽음(관리자 권한 창) → tasklist 이름으로 판정: pid=' + pid + ' 이름=' + name);
+    }
+    return { owner: { path: '', name }, title };
   }catch(_){ return null; }
 }
 
@@ -131,16 +209,26 @@ async function listWindows(){
       try{ title = (w.getTitle() || '').trim(); }catch(_){}
       try{ vis = (typeof w.isVisible === 'function') ? w.isVisible() : true; }catch(_){}
       try{ bounds = (typeof w.getBounds === 'function') ? w.getBounds() : null; }catch(_){}
-      if(!p || !vis || !title) continue;
+      if(!vis || !title) continue;
+      /* 🛡️ 경로가 빈 창(관리자 권한)은 예전엔 여기서 통째로 빠졌다 — «목록에 게임이 안 뜬다».
+         getActiveWindow 와 같은 보조 통로로 이름만 받는다. 못 받으면 예전처럼 건너뛴다. */
+      let key = p;
+      if(!p){
+        let n = '';
+        try{ n = await _nameByPid(Number(w.processId) || 0); }catch(_){}
+        if(!n) continue;
+        p = n; key = 'name:' + n.toLowerCase();
+      }
       const name = procNameOf(p);
       if(name === SELF_EXE || WINLIST_SKIP.has(name)) continue;
       // 크기가 0에 가까운 창은 실제 화면에 없는 보조 창(트레이·메시지 전용)이다.
       if(bounds && ((bounds.width|0) < 80 || (bounds.height|0) < 60)) continue;
-      const prev = seen.get(p);
+      const prev = seen.get(key);
       // 같은 exe 가 여러 창이면 제목이 긴 쪽을 남긴다 — 보통 그쪽이 본 창이다.
       if(prev && prev.title.length >= title.length) continue;
-      const item = { name, path: p, title: title.slice(0, 80) };
-      if(prev){ Object.assign(prev, item); } else { seen.set(p, item); out.push(item); }
+      /* path: 경로를 못 읽은 창은 '' — main.js 등록부가 `path || name` 으로 읽는다(getActiveWindow 와 같은 규약). */
+      const item = { name, path: key === p ? p : '', title: title.slice(0, 80) };
+      if(prev){ Object.assign(prev, item); } else { seen.set(key, item); out.push(item); }
     }
   }catch(err){
     return { ok:false, reason:'enum-failed', message: (err && err.message) || String(err) };

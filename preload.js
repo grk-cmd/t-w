@@ -270,6 +270,15 @@ contextBridge.exposeInMainWorld('companion', {
 
   // ---- 자동 시작 (로그인 시 실행) ----
   // 현재 자동 시작이 켜져 있는지 조회: Promise<boolean>
+  // 🔍 전체 화면 크기(렌더러 줌) — 설정 › 화면표시. op: 'in' | 'out' | 'reset' | 'get'. 적용된 배율(1=100%)을 돌려준다.
+  //   단축키(Ctrl+= / Ctrl+- / Ctrl+0)·Ctrl+휠도 main 에서 같은 값으로 모이므로, 어느 길로 바꿔도 onUiZoom 이 온다.
+  // ⚠️ 구버전 앱에는 이 채널이 없다 — 부르는 쪽은 존재 여부를 확인할 것(없으면 행을 숨긴다).
+  uiZoom(op) {
+    return ipcRenderer.invoke('companion:uiZoom', op);
+  },
+  onUiZoom(callback) {
+    ipcRenderer.on('companion:uiZoom', (e, z) => callback(z));
+  },
   getAutoLaunch() {
     return ipcRenderer.invoke('companion:getAutoLaunch');
   },
