@@ -1,7 +1,7 @@
 {
   "name": "together-working",
-  "version": "0.9.6",
-  "description": "\ucc45\uc0c1 \uc704\uc5d0 \uc0ac\ub294 \ub370\uc2a4\ud06c\ud1b1 \ucef4\ud328\ub2c8\uc5b8",
+  "version": "0.9.7",
+  "description": "책상 위에 사는 데스크톱 컴패니언",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
