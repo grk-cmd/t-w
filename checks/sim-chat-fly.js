@@ -64,6 +64,15 @@ chk(/_chatFlyOn\s*&&\s*_chatFlySendGate\(\)/.test(sendWin),
     '★ 보내는 자리에서 체크 상태와 억제를 함께 본다');
 chk(/sendMyChat\(bubbleText,\s*_fly/.test(sendWin),
     '★ 막힌 줄도 sendMyChat 으로는 나간다 (친 글을 잃지 않는다 — 말풍선으로 떨어진다)');
+/* 🏢 [2026-09-17] 회사원 모드 — 보내는 쪽(체크 숨김·fly 안 실음)과 보는 쪽(상대 날리기도 말풍선/라벨로) 둘 다.
+   플라잉체어·효과음과 같은 «보는 사람 기준» 규칙. 켜는 순간 흐르던 글자를 걷고 체크를 푼다. */
+const OFF = /!\(typeof officeMode !== 'undefined' && officeMode\)/;
+chk(OFF.test(sendWin) && sendWin.indexOf('officeMode') < sendWin.indexOf('_chatFlyOn && _chatFlySendGate'), '🏢 보낼 때 회사원 모드면 fly 를 안 싣는다');
+const refreshUi = (SRC.match(/function _chatFlyRefreshUI\(\)[\s\S]*?\n\}/) || [''])[0];
+chk(/const on = \(window\._activeChannel === 2\) && !\(typeof officeMode/.test(refreshUi), '🏢 회사원 모드면 날리기 줄을 숨긴다');
+chk(/chat\.fly && window\._activeChannel === 2 && !\(typeof officeMode !== 'undefined' && officeMode\) && typeof showFlyText/.test(SRC), '🏢 받을 때 회사원 모드면 상대 날리기도 말풍선/라벨로 떨어진다(보는 사람 기준)');
+const offToggle = SRC.slice(SRC.indexOf("document.getElementById('progOfficeModeToggle').onclick"), SRC.indexOf("document.getElementById('progOfficeModeToggle').onclick") + 6000);
+chk(/_fl\.innerHTML=''/.test(offToggle) && /_chatFlyOn = false;/.test(offToggle) && /_chatFlyRefreshUI\(\)/.test(offToggle), '🏢 켜는 순간 흐르던 글자를 걷고 체크를 풀고 줄을 갱신한다');
 
 // chatLog 로 도망가지 않았는가 — 비용 때문에 안 가기로 한 길이다
 chk(!/subscribeChatLog[\s\S]{0,200}fly/.test(SRC),

@@ -1311,6 +1311,29 @@ try{ window.ANIMAL_RUN_SCALE = ANIMAL_RUN_SCALE; }catch(_){}
      크기(userScale)뿐이다. 그래서 평준화를 켜도 동물은 여전히 사람의 40% 로 남는다. */
 let seatEqualizeOn = false;
 try{ seatEqualizeOn = (localStorage.getItem('tw.seatEq') === '1'); }catch(_){}   // 기본 끄기(들쑥날쑥한 것도 재미)
+/* 🎁 꾸미기 파츠 표시 — [2026-09-17 요청] 끄면 **내 화면에서만**, 나 포함 모든 좌석의 꾸미기 파츠(파츠 보관함의 가챠 파츠)가
+   안 보인다. 서버에는 아무것도 안 쓴다(좌석 크기 평준화와 같은 «내 화면 전용» 설정).
+   · 대상: 캐릭터에 붙는 파츠 wrapper(`__twPartWrap`) 전부 — 일반·겹치기·다중 인스턴스. **책상 위(bone:'desk') 카테고리는 제외** — 책상 설정의
+     책상 아이템은 그대로 둔다(요청 범위).
+   · 방법: wrapper.visible 만 내린다. 메시는 안 건드리므로 setSeatOpacity(_prevVisible)와 안 섞이고, 파츠 애니·스티커사진
+     키 계산(wrapper 가 남아 있음)도 그대로다. 끄면 파츠가 숨기던 기본 메시(모자→머리카락 등)는 applyClothVisibility 가
+     «파츠 없음» 으로 계산해 되돌린다 — 안 그러면 모자만 사라진 대머리가 된다. */
+let decoPartsVisible = true;
+try{ decoPartsVisible = (localStorage.getItem('tw.decoParts') !== '0'); }catch(_){}   // 기본 켜기
+function _decoWrapperShow(cat){
+  if(decoPartsVisible) return true;
+  const info = (typeof PART_CATS !== 'undefined' && PART_CATS) ? PART_CATS.find(c => c.cat === cat) : null;
+  return (typeof isDeskPartCat === 'function') ? isDeskPartCat(info) : (!!info && info.bone === 'desk');   // 책상 위는 항상 보인다
+}
+function applyDecoPartsVisibility(seat){
+  if(!seat || !seat.group) return;
+  try{
+    seat.group.traverse(o => {
+      if(!(o.userData && o.userData.__twPartWrap)) return;
+      o.visible = _decoWrapperShow(o.userData.cat);
+    });
+  }catch(_){}
+}
 function seatEqK(seat){
   if(!seatEqualizeOn || !seat || seat.isMe) return 1;
   /* ⚠️ 기준은 **내 주 좌석**이다. 자리추가(isExtra) 좌석도 맞추는 대상에 넣는다 —
@@ -2293,6 +2316,29 @@ const CLICK_SND_VOL  = 0.6;
 const CLICK_SND_SRC  = ['parts/click.mp3', 'click.mp3'];
 const CLICK_SND_POOL = 5;
 const _clickSnd = _mkSndPool('click', CLICK_SND_SRC, CLICK_SND_VOL, CLICK_SND_POOL);
+/* 🔔 채팅 알림음 (2026-09-17 · 시안 확정) — 대화창 [설정] › 알림음.
+   ★ 소리는 셋 중 하나를 고른다. 풀은 **소리마다 하나씩, 여기서 미리** 만든다 — 바로 아래
+     prime 등록이 once:true 라, 나중에 만든 풀은 자동재생 잠금 해제를 못 받아
+     «남의 메시지가 와도 조용하다» 가 된다(때리기에서 이미 겪은 그 증상).
+   ★ 게이트 셋: ① 꺼짐 ② 대화창이 열려 있음(보고 있는 중) ③ 회사원 모드(_mkSndPool.play 안 — 보는 사람 기준).
+   ★ 울리는 자리는 **한 곳**, 상대 채팅이 화면에 뜨는 순간이다(syncFriendSeats 의 말풍선·날리기 분기).
+     friends 에는 내 좌석이 없으므로 내 메시지에는 울리지 않는다.
+   ⚠ 저장은 로컬(tw.chatSfx · tw.chatSfxId) — 글자 크기와 같은 성격이라 서버에 안 올린다.
+   ⚠ 목록의 id 는 HTML #chatSfxList 의 data-sfx 와 같아야 한다. 파일은 app/parts/ 에 둔다. */
+const CHAT_SFX_LIST = [
+  { id:1, label:'알림음 1', srcs:['parts/chat-notify-1.mp3', 'chat-notify-1.mp3'] },
+  { id:2, label:'알림음 2', srcs:['parts/chat-notify-2.mp3', 'chat-notify-2.mp3'] },
+  { id:3, label:'알림음 3', srcs:['parts/chat-notify-3.mp3', 'chat-notify-3.mp3'] },
+];
+const CHAT_SFX_ON_KEY      = 'tw.chatSfx';     // '1' 켜짐 · '0' 꺼짐 · 없음 = 기본값
+const CHAT_SFX_ID_KEY      = 'tw.chatSfxId';
+const CHAT_SFX_DEFAULT_ON  = true;             // 처음 쓰는 사람은 켜진 채로 시작한다
+const CHAT_SFX_DEFAULT_ID  = 1;
+const CHAT_SFX_VOL         = 0.6;              // 클릭음과 같은 눈금(«또렷하게 들리는 정도»)
+const CHAT_SFX_POOL        = 2;                // 두 사람이 거의 동시에 말해도 둘 다 들리게
+const CHAT_SFX_GAP_MS      = 250;              // 이보다 촘촘하면 한 번만 — 여럿이 몰아 치면 귀가 따갑다
+const _chatSfxPools = {};
+CHAT_SFX_LIST.forEach(x=>{ _chatSfxPools[x.id] = _mkSndPool('chat' + x.id, x.srcs, CHAT_SFX_VOL, CHAT_SFX_POOL); });
 try{
   ['pointerdown','keydown'].forEach(ev=>window.addEventListener(ev, ()=>{
     _sndPools.forEach(P=>{ try{ P.prime(); }catch(_){} });
@@ -7952,6 +7998,8 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     if(coBtn){ coBtn.textContent = chipHorizontal?'가로':'세로'; coBtn.classList.toggle('on', chipHorizontal); }
     const eqBtn=document.getElementById('fsSeatEqToggle');
     if(eqBtn){ eqBtn.textContent = seatEqualizeOn?'켜짐':'꺼짐'; eqBtn.classList.toggle('on', seatEqualizeOn); }
+    const dpBtn=document.getElementById('fsDecoPartsToggle');
+    if(dpBtn){ dpBtn.textContent = decoPartsVisible?'켜짐':'꺼짐'; dpBtn.classList.toggle('on', decoPartsVisible); }
   }
   /* 🪟 창 위치 초기화 — 화면 밖으로 나가 안 보이는 창을 되돌린다.
      [경위] "꾸미기창·파츠 보관함 미리보기가 사라졌다"는 제보. 창 자리는 저마다 localStorage 에
@@ -8010,6 +8058,14 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
        이어서 바뀐 책상 폭으로 좌석 간격·카메라 줌까지 다시 잡힌다. 여기서 동기화만 하면
        크기는 바뀌었는데 간격은 옛 폭 그대로라 좌석이 겹치거나 벌어진다. */
     layoutSeats();
+  };
+  /* 🎁 꾸미기 파츠 표시 — 내 화면에서만. 전 좌석(나·친구·추가 좌석)에 바로 적용한다. */
+  const dpBtn=document.getElementById('fsDecoPartsToggle');
+  if(dpBtn) dpBtn.onclick=()=>{
+    decoPartsVisible = !decoPartsVisible;
+    try{ localStorage.setItem('tw.decoParts', decoPartsVisible?'1':'0'); }catch(_){}
+    refreshToggleBtns();
+    try{ seats.forEach(s => applyClothVisibility(s)); }catch(_){}
   };
   const coBtn=document.getElementById('fsChipOrientToggle');
   if(coBtn) coBtn.onclick=()=>{
@@ -11253,7 +11309,7 @@ async function showFriendRequestPopup(onlyIds){
       ov.className = 'friend-req-popup-ov app-popup-ov';
       ov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;pointer-events:auto;';
       const box = document.createElement('div');
-      box.style.cssText = 'width:300px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,sans-serif;';
+      box.style.cssText = 'width:300px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,"Malgun Gothic",sans-serif;';
       box.innerHTML =
         '<div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;">👋 친구 요청</div>' +
         '<div style="padding:16px 14px;color:var(--ink);font-size:12px;line-height:1.6;">' +
@@ -11940,6 +11996,75 @@ function _setChatFontSize(px){
   // 글자가 커지면 스크롤 위치가 어긋나므로 맨 아래로 — 방금 읽던 자리가 화면 밖으로 나가는 게 더 어색하다
   const box = document.getElementById('chatMessages');
   if(box) box.scrollTop = box.scrollHeight;
+}
+
+/* 🔔 채팅 알림음 — 상태·저장·메뉴 표시. 소리 풀과 상수는 효과음 공장 옆(CHAT_SFX_LIST)에 있다. */
+function _chatSfxOn(){
+  let v = null;
+  try{ v = localStorage.getItem(CHAT_SFX_ON_KEY); }catch(_){}
+  return v == null ? CHAT_SFX_DEFAULT_ON : v === '1';
+}
+function _chatSfxId(){
+  let v = null;
+  try{ v = parseInt(localStorage.getItem(CHAT_SFX_ID_KEY), 10); }catch(_){}
+  return CHAT_SFX_LIST.some(x => x.id === v) ? v : CHAT_SFX_DEFAULT_ID;
+}
+/* 🏢 회사원 모드면 알림음은 **꺼진 것으로 보인다.** 저장값(tw.chatSfx)은 건드리지 않는다 —
+   모드를 끄면 사용자가 골라 둔 상태 그대로 돌아온다. 소리 자체는 풀(_mkSndPool.play)이 이미 막는다.
+   ⚠ officeMode 는 파일 뒤쪽의 let 이라 초기화 전에 부르면 typeof 도 던진다 — try 로 감싼다. */
+function _chatSfxOfficeLock(){
+  try{ return !!officeMode; }catch(_){ return false; }
+}
+function _setChatSfxOn(on){
+  try{ localStorage.setItem(CHAT_SFX_ON_KEY, on ? '1' : '0'); }catch(_){}
+  _applyChatSfxUI();
+}
+function _setChatSfxId(id){
+  if(!CHAT_SFX_LIST.some(x => x.id === id)) return;
+  try{ localStorage.setItem(CHAT_SFX_ID_KEY, String(id)); }catch(_){}
+  _applyChatSfxUI();
+}
+/* 메뉴 표시 — 켜짐이면 ✓ 와 소리 목록(● 고른 것), 꺼짐이면 목록을 통째로 숨긴다(시안 B). */
+function _applyChatSfxUI(){
+  const lock = _chatSfxOfficeLock();
+  const on = _chatSfxOn() && !lock, cur = _chatSfxId();
+  const tg = document.getElementById('chatSfxToggle');
+  const c = tg && tg.querySelector('.chk'); if(c) c.textContent = on ? '✓' : '';
+  if(tg){
+    tg.classList.toggle('locked', lock);
+    tg.title = lock ? '회사원 모드에서는 알림음이 꺼져 있어요' : '';
+    const nt = tg.querySelector('.chat-sfx-note'); if(nt) nt.textContent = lock ? '회사원 모드' : '';
+  }
+  const list = document.getElementById('chatSfxList');
+  if(list) list.style.display = on ? '' : 'none';
+  document.querySelectorAll('.chat-sfx-item').forEach(it=>{
+    const k = it.querySelector('.chk');
+    if(k) k.textContent = (parseInt(it.dataset.sfx, 10) === cur) ? '●' : '○';
+  });
+}
+function _chatSfxPreview(id){
+  const P = _chatSfxPools[id];
+  if(P) P.play();
+}
+/* 대화창이 **열려 있는가** — 열려 있으면 알림음을 내지 않는다(2026-09-17 결정 변경).
+   ★ 처음엔 «입력칸에 포커스가 있을 때만» 조용했는데, 창을 띄워 두고 다른 일을 하는 동안에도
+     새 줄은 이미 화면에 보이므로 소리까지 날 이유가 없다고 정리했다. 소리는 창을 닫아 뒀을 때만 난다.
+   ⚠ 최소화(#chatWindow.min)도 «열려 있음» 이다 — 입력줄이 떠 있고, 거기서 치는 중일 수 있다.
+   ⚠ 판정은 #chatOverlay 의 display 하나다. openChatWindow 가 'block', 닫기가 'none' 으로 둔다. */
+function _chatWinOpen(){
+  try{
+    const ov = document.getElementById('chatOverlay');
+    return !!(ov && ov.style.display && ov.style.display !== 'none');
+  }catch(_){ return false; }
+}
+let _chatSfxLast = 0;
+function _chatNotifyIncoming(){
+  if(!_chatSfxOn() || _chatSfxOfficeLock()) return;
+  if(_chatWinOpen()) return;
+  const now = Date.now();
+  if(now - _chatSfxLast < CHAT_SFX_GAP_MS) return;
+  _chatSfxLast = now;
+  _chatSfxPreview(_chatSfxId());   // 회사원 모드 게이트는 풀(_mkSndPool.play) 안에 있다
 }
 
 // ★ 마이홈 4: 리치 텍스트 sanitize / load / count 헬퍼
@@ -14170,7 +14295,7 @@ function _mhBindStickerResize(handle, sid){
     try{ const cs=getComputedStyle(nameEl); fs=cs.fontSize||fs; fw=cs.fontWeight||fw; }catch(_){}
     /* 폭은 #mhNameRow 를 꽉 채운다 — 왼쪽 열(#mhHomeLeft 200px, padding 20px)의 안쪽 160px 이라
        프로필 사진(160px)과 정확히 같은 줄에 선다. px 를 박으면 열 폭이 바뀔 때 혼자 어긋난다. */
-    inp.style.cssText='font-family:Tahoma,sans-serif;font-size:'+fs+';font-weight:'+fw+';'
+    inp.style.cssText='font-family:Tahoma,"Malgun Gothic",sans-serif;font-size:'+fs+';font-weight:'+fw+';'
       + 'width:100%;padding:1px 4px;box-sizing:border-box;';
     nameEl.style.display='none';
     if(editLink) editLink.style.display='none';   // 편집 중엔 링크도 비운다(눌러도 아무 일 없는 버튼을 남기지 않는다)
@@ -14223,7 +14348,7 @@ function _mhBindStickerResize(handle, sid){
     const cur=_myHomeData.postTitle||'';
     const inp=document.createElement('input');
     inp.id='mhPostTitleInput'; inp.type='text'; inp.maxLength=30; inp.value=cur;
-    inp.style.cssText='font-family:Tahoma,sans-serif;font-size:12px;font-weight:bold;width:220px;padding:1px 4px;';
+    inp.style.cssText='font-family:Tahoma,"Malgun Gothic",sans-serif;font-size:12px;font-weight:bold;width:220px;padding:1px 4px;';
     titleSpan.style.display='none';
     if(editBtn) editBtn.style.display='none';   // 편집 중엔 버튼도 비운다(눌러도 아무 일 없는 버튼을 남기지 않는다)
     titleSpan.parentNode.insertBefore(inp, titleSpan);
@@ -14545,7 +14670,7 @@ function _mhBindStickerResize(handle, sid){
     'html{--ds-body:#d8d8d8;}html[data-theme=bubble]{--ds-body:#FBFCFC;}'+
     /* [2026-09-16 제보 5 후속] 창 모서리는 **위 두 개만** 둥글다. 자식 창은 BrowserWindow 하나가 통째로 이
        body 라 아래까지 둥글리면 창 바닥 모서리가 깎여 보인다 — 마이홈 창(본창 안 div)과 같은 인상이 되게 아래는 사각. */
-    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,sans-serif);height:100vh;box-sizing:border-box;'+
+    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);height:100vh;box-sizing:border-box;'+
     'border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius,0px) var(--win-radius,0px) 0 0;color:var(--win-ink,#000);display:flex;flex-direction:column;}'+
     /* [2026-09-16 제보 5 후속 · 시안 A] 플레이리스트 바(#myPlHead)와 같은 문법으로.
        ① margin 을 뺀다 — 2px 여백이 있으면 창 테두리와 바 사이에 흰 선이 보여 «붙어 있지 않은» 인상이 된다.
@@ -14575,10 +14700,10 @@ function _mhBindStickerResize(handle, sid){
     'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);display:flex;align-items:center;}'+
     '#dsPresets .ps-save.armed{color:#c0392b;font-weight:bold;}'+
     '#dsPresets .ps-edin{flex:1;min-width:0;height:19px;padding:0 3px;text-align:center;'+
-    'font-family:var(--win-font,Tahoma,sans-serif);font-size:10.5px;color:var(--win-ink,#222);background:#fff;'+
+    'font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:10.5px;color:var(--win-ink,#222);background:#fff;'+
     'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#dsTabs{display:flex;gap:2px;padding:6px 8px 0;flex-shrink:0;}'+
-    '.ds-tab{font-family:var(--win-font,Tahoma,sans-serif);font-size:11px;padding:4px 14px;cursor:pointer;color:var(--win-ink-soft,#555);'+
+    '.ds-tab{font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:11px;padding:4px 14px;cursor:pointer;color:var(--win-ink-soft,#555);'+
     'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
     '.ds-tab.on{font-weight:bold;color:var(--win-ink,#000);background:#fff;}'+
     '#dsBody{flex:1;min-height:0;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;margin:0 4px;background:var(--ds-body,#d8d8d8);border-radius:var(--win-radius-sm,0px);}'+
@@ -14587,27 +14712,27 @@ function _mhBindStickerResize(handle, sid){
     '.ds-row .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'+
     '.ds-sw{width:24px;height:18px;flex-shrink:0;cursor:pointer;border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);background:#fff;position:relative;}'+
     '.ds-sw.none:after{content:"\\2014";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;}'+
-    '.ds-btn{font-family:var(--win-font,Tahoma,sans-serif);font-size:10px;height:18px;padding:0 6px;cursor:pointer;flex-shrink:0;color:var(--win-ink,#222);'+
+    '.ds-btn{font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:10px;height:18px;padding:0 6px;cursor:pointer;flex-shrink:0;color:var(--win-ink,#222);'+
     'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
     '.ds-btn.imgon{background:#dcefd8;font-weight:bold;}'+
     '.ds-imgrow{display:flex;gap:3px;margin:2px 0 4px 12px;}'+
     '.ds-imghint{font-size:9px;color:#8a8578;line-height:1.4;margin:0 0 6px 12px;}'+
-    '.ds-imgrow input{flex:1;min-width:0;font-family:var(--win-font,Tahoma,sans-serif);font-size:10px;padding:2px 4px;'+
+    '.ds-imgrow input{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:10px;padding:2px 4px;'+
     'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#dsFoot{display:flex;align-items:center;gap:6px;padding:6px 8px;flex-shrink:0;border-top:1px solid #999;}'+
-    '#dsFoot button{font-family:var(--win-font,Tahoma,sans-serif);font-size:11px;padding:3px 12px;cursor:pointer;color:var(--win-ink,#222);'+
+    '#dsFoot button{font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:11px;padding:3px 12px;cursor:pointer;color:var(--win-ink,#222);'+
     'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
     // 컬러 팝업 (opener의 _mhOpenColorPopup이 이 문서에 그려넣음)
     '.mh-color-pop{position:absolute;background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);z-index:9999;padding:6px;'+
     'border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);box-shadow:2px 2px 5px rgba(0,0,0,.25);'+
-    'font-family:var(--win-font,Tahoma,sans-serif);font-size:10px;color:var(--win-ink,#333);user-select:none;}'+
+    'font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:10px;color:var(--win-ink,#333);user-select:none;}'+
     '.mh-color-pop .lbl{margin:4px 0 2px;color:var(--win-ink-soft,#555);}'+
     '.mh-color-pop .grid{display:grid;grid-template-columns:repeat(8,14px);gap:2px;}'+
     '.mh-color-pop .sw{width:14px;height:14px;cursor:pointer;border:1px solid #999;box-sizing:border-box;}'+
     '.mh-color-pop .sw:hover{outline:1px solid #000;outline-offset:-1px;}'+
     '.mh-color-pop .row{display:flex;gap:2px;align-items:center;}'+
     '.mh-color-pop input[type=color]{width:22px;height:18px;padding:0;border:1px solid #999;cursor:pointer;background:none;}'+
-    '.mh-color-pop .hex{flex:1;min-width:0;font-family:var(--win-font,Tahoma,sans-serif);font-size:10px;padding:1px 3px;'+
+    '.mh-color-pop .hex{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:10px;padding:1px 3px;'+
     'border:1px solid #404040;background:#fff;color:var(--win-ink,#222);}'+
     '.mh-color-pop .reset{margin-left:auto;font-size:10px;padding:1px 6px;cursor:pointer;background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);'+
     'border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
@@ -15111,7 +15236,7 @@ function _mhBindStickerResize(handle, sid){
     /* 피치·민트는 --acc-d 가 너무 옅어 흰 글씨가 안 읽힌다 — 한 단계 진하게 */
     'html[data-theme=bubble][data-accent=c4]{--gb-clap:#E39BB5;--gb-label:#C9708F;--gb-link:#C9708F;}'+
     'html[data-theme=bubble][data-accent=c5]{--gb-clap:#7CC4B0;--gb-label:#5FA894;--gb-link:#5FA894;}'+
-    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,sans-serif);height:100vh;box-sizing:border-box;'+
+    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);height:100vh;box-sizing:border-box;'+
     'border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius,0px) var(--win-radius,0px) 0 0;color:var(--win-ink,#000);display:flex;flex-direction:column;}'+
     /* [2026-09-16 제보 5 후속 · 시안 A] 플레이리스트 바(#myPlHead)와 같은 문법으로.
        ① margin 을 뺀다 — 2px 여백이 있으면 창 테두리와 바 사이에 흰 선이 보여 «붙어 있지 않은» 인상이 된다.
@@ -15162,7 +15287,7 @@ function _mhBindStickerResize(handle, sid){
     /* 🚪 외부인 안내 — 입력칸 자리에 대신 들어간다. 자리를 비우면 창 아래가 뭉텅 잘린 것처럼 보인다. */
     '#gbGuestNote{display:none;flex-shrink:0;font-size:10.5px;line-height:1.6;color:var(--win-ink-soft,#555);'+
     'text-align:center;padding:6px 4px;background:var(--gb-note,#eee);border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
-    '#gbInput{flex:1;min-width:0;font-family:var(--win-font,Tahoma,sans-serif);font-size:11px;padding:4px 6px;'+
+    '#gbInput{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:11px;padding:4px 6px;'+
     'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#gbSubmit{font-size:11px;padding:4px 10px;cursor:pointer;color:var(--win-ink,#222);background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);'+
     'border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
@@ -15591,7 +15716,10 @@ function showFlyText(seat, text, color, size){
 function _chatFlyRefreshUI(){
   const row = document.getElementById('chatFlyRow');
   if(!row) return;
-  const on = (window._activeChannel === 2);
+  /* 🏢 회사원 모드면 줄째 숨긴다 — 이 모드는 «지금 당장 화면을 조용하게» 라, 화면을 가로지르는 글자는 그 반대다.
+     플라잉체어·때리기와 달리 버튼을 남기고 토스트로 막지 않는 이유: 체크박스는 «상태» 라 켜 둔 채 모드를 켜면
+     눌러 보기 전엔 모른다. 숨기고, 켜지는 순간 체크도 푼다(아래 토글 핸들러). */
+  const on = (window._activeChannel === 2) && !(typeof officeMode !== 'undefined' && officeMode);
   row.classList.toggle('off', !on);
   if(!on) return;
   const chk = document.getElementById('chatFlyChk');
@@ -16304,7 +16432,7 @@ function _sendChatWindowMsg(){
   /* 🌊 날리기 — 체크돼 있어도 0.5 초 안에 두 번째면 **그 줄만 말풍선으로** 나간다.
      한 노드가 마지막 하나만 들고 있어서, 연타하면 앞 줄이 상대 화면에 뜨기도 전에 덮인다.
      보내기를 막지는 않는다 — 친 글을 잃지 않는 것이 이 창의 관례다(잠금·도배 제한 참고). */
-  const _fly = _chatFlyOn && _chatFlySendGate();
+  const _fly = !(typeof officeMode !== 'undefined' && officeMode) && _chatFlyOn && _chatFlySendGate();   // 🏢 회사원 모드면 안 날린다
   if(typeof sendMyChat==='function') sendMyChat(bubbleText, _fly, _fly ? _chatFlyColor : '', _chatFlySize);
   // 2) 대화 기록 저장 — 마커가 든 outText 저장(다른 사람도 이모티콘을 URL로 렌더)
   const room=(typeof Presence!=='undefined' && Presence.roomCode)?Presence.roomCode():null;
@@ -19201,7 +19329,10 @@ function _rollDice(){
   const viewMenu=document.getElementById('chatViewMenu');
   if(viewMenu){
     viewMenu.addEventListener('click', e=>{ e.stopPropagation(); viewMenu.classList.toggle('open'); viewMenu.classList.contains('open') && _chatCloseMenus(viewMenu); });
-    document.addEventListener('click', ()=> viewMenu.classList.remove('open'));
+    document.addEventListener('click', ()=>{
+      viewMenu.classList.remove('open');
+      const fm = document.getElementById('chatFsMenu'); if(fm) fm.classList.remove('sub-open');
+    });
     document.querySelectorAll('.chat-fs-item').forEach(it=>{
       it.addEventListener('click', e=>{
         e.stopPropagation();
@@ -19209,6 +19340,39 @@ function _rollDice(){
         viewMenu.classList.remove('open');
       });
     });
+    /* 🔔 알림음 — 켬/끔과 소리 고르기는 **메뉴를 닫지 않는다.** 켜자마자 목록이 나타나는 것을 보고,
+       ▷ 로 들어 보며 고를 수 있어야 한다. 모든 줄이 stopPropagation — 안 하면 위 viewMenu 의
+       토글이 받아 메뉴가 닫힌다. */
+    const sfxTg = document.getElementById('chatSfxToggle');
+    if(sfxTg) sfxTg.addEventListener('click', e=>{
+      e.stopPropagation();
+      if(_chatSfxOfficeLock()){ toast('회사원 모드에서는 알림음이 꺼져 있어요'); return; }   // 저장값은 그대로
+      _setChatSfxOn(!_chatSfxOn());
+    });
+    document.querySelectorAll('.chat-sfx-item').forEach(it=>{
+      const id = parseInt(it.dataset.sfx, 10);
+      it.addEventListener('click', e=>{ e.stopPropagation(); _setChatSfxId(id); });
+      const pv = it.querySelector('.chat-sfx-pv');
+      if(pv) pv.addEventListener('click', e=>{ e.stopPropagation(); _chatSfxPreview(id); });   // 듣기만 — 고르지 않는다
+    });
+    /* 🔠 글자 크기 ▶ — 여는 것은 CSS :hover 다. 여기서는 (a) 화면 오른쪽 끝이면 왼쪽으로 뒤집고
+       (b) 눌러도 열리게(.sub-open) 한다. 재는 것은 들어올 때 한 번뿐 — 매번 재면 뒤집힘이 오가며 떨린다. */
+    const fsMenu = document.getElementById('chatFsMenu'), fsSub = document.getElementById('chatFsSub');
+    if(fsMenu && fsSub){
+      fsMenu.addEventListener('mouseenter', ()=>{
+        fsSub.classList.remove('flip');
+        requestAnimationFrame(()=>{
+          try{
+            const r = fsSub.getBoundingClientRect();
+            if(r.width && r.right > window.innerWidth) fsSub.classList.add('flip');
+          }catch(_){}
+        });
+      });
+      fsMenu.addEventListener('click', e=>{
+        e.stopPropagation();
+        if(e.target === fsMenu || !fsSub.contains(e.target)) fsMenu.classList.toggle('sub-open');
+      });
+    }
   }
   /* 🧹 지우기 메뉴 — 설정 옆. 되돌리기(다시 보기)를 같이 둔다: 실제로 지우는 게 아니라
      가리는 것뿐이라 되돌릴 수 있고, 없으면 잘못 눌렀을 때 되돌릴 길이 없는 것처럼 보인다. */
@@ -19221,6 +19385,7 @@ function _rollDice(){
     _ci('chatClearUndo', _chatClearUndo);
   }
   _applyChatFontSize();   // 저장된 값 반영 + ✓ 표시
+  _applyChatSfxUI();      // 🔔 알림음 켜짐/꺼짐 · 고른 소리 표시
   /* 🌫️ 투명도 슬라이더 — input 으로 즉시 반영(끌면서 보인다), change 로 저장.
      매 픽셀마다 localStorage 에 쓰지 않기 위해 둘을 나눠 놨다. */
   const opa=document.getElementById('chatOpacity');
@@ -22747,7 +22912,10 @@ function _unequipClothCat(seat, cat){
      hides가 명시적이면(빈 배열 포함) 그대로 사용, 옛 파츠(hides 자체 없음)만 관례 기본값 fallback. */
 function applyClothVisibility(seat){
   if(!seat) return;
-  const eq = (seat.charDef && seat.charDef.equippedParts) || {};
+  applyDecoPartsVisibility(seat);   // 🎁 꾸미기 파츠 표시 설정 — 부착·해제·좌석 재조립 뒤 늘 이 함수를 지나므로 여기서 같이 맞춘다
+  /* 🎁 꺼짐이면 «파츠 없음» 으로 센다 — 파츠가 숨기던 기본 메시(머리카락·기본 상의)를 되돌리기 위해서다.
+     ⚠️ 책상 위 파츠는 hides 를 안 가지므로 여기서 빼도 달라지는 게 없다. */
+  const eq = (decoPartsVisible ? (seat.charDef && seat.charDef.equippedParts) : null) || {};
   const hidden = { top:false, bottom:false, onepiece:false, cape:false,
                    glasses:false, hat:false, mask:false, wing:false, handL:false, handR:false };
   // eq에 있는 모든 카테고리의 모든 파츠(stackable 배열 포함) 순회
@@ -28865,10 +29033,17 @@ function syncFriendSeats(friends){
            거기서 이모티콘 단독이 아니면 아무것도 안 뜬다 — 「일에 집중」 규약 그대로다.
          ⚠️ 레벨 확인이 **여기** 있다. 보내는 쪽 체크는 UI 편의일 뿐이고, 실제로 색을 인정할지는
            방이 다 같이 보고 있는 friends[id].level 로 받는 쪽이 정한다. */
-      if(chat.fly && window._activeChannel === 2 && typeof showFlyText==='function'){
+      /* 🏢 회사원 모드 — **보는 사람 기준**(플라잉체어·효과음과 같은 규칙). 상대가 날려도 내 화면에선
+           아래 말풍선/한 줄 라벨 분기로 떨어진다. 던진 사람이 회사원 모드가 아니면 그 화면에선 정상으로 날아간다. */
+      let _chatShown = false;
+      if(chat.fly && window._activeChannel === 2 && !(typeof officeMode !== 'undefined' && officeMode) && typeof showFlyText==='function'){
         showFlyText(s, chat.text, (friends[id].level|0) >= FLY_COLOR_LEVEL ? chat.flyColor : '', chat.flySize);
+        _chatShown = true;
       }
-      else if((window._activeChannel === 2 || _demojiOnly) && typeof showChatBubble==='function') showChatBubble(s, chat.text);
+      else if((window._activeChannel === 2 || _demojiOnly) && typeof showChatBubble==='function'){ showChatBubble(s, chat.text); _chatShown = true; }
+      /* 🔔 알림음 — 상대 채팅이 **화면에 뜬 경우에만** 울린다. 워킹룸에서 걸러진 글자처럼 안 뜬 것은 조용하다.
+         ⚠ 여기가 유일한 자리다. chatLog 구독(대화창)에도 걸면 한 줄에 두 번 울린다. */
+      if(_chatShown && typeof _chatNotifyIncoming === 'function') _chatNotifyIncoming();
     }
   });
   _applyRemoteRides();   // 🐾 친구들의 올라타기·탑쌓기 관계를 좌석에 반영(좌석이 다 만들어진 뒤에)
@@ -29366,6 +29541,9 @@ if(document.getElementById('progOfficeModeToggle')){
     if(officeMode){
       try{ if(typeof setFlyAiming === 'function') setFlyAiming(false, true); }catch(_){}
       try{ if(typeof setBonkAiming === 'function') setBonkAiming(false, true); }catch(_){}
+      /* 🌊 날리기 — 흐르던 글자는 즉시 걷고 체크도 푼다(doLeaveRoom 과 같은 정리). 줄은 _chatFlyRefreshUI 가 숨긴다. */
+      try{ const _fl=document.getElementById('flyLayer'); if(_fl) _fl.innerHTML=''; }catch(_){}
+      _chatFlyOn = false;
       /* 📷 떠 있던 스티커사진 창도 접는다 — 못 열게만 막으면 «켜기 전에 열어 둔 창»이 그대로
          남아서 모드의 목적(지금 당장 화면을 조용하게)이 통째로 무너진다.
          ★ force 로 닫는다. 꾸미기 중이었다면 저장 안 한 것이 날아가지만, 이 모드를 누른 사람은
@@ -29383,6 +29561,8 @@ if(document.getElementById('progOfficeModeToggle')){
     _lsSet(OFFICE_MODE_KEY, officeMode?'1':'0');   // ★ 실패하면 여기서 알려준다(조용한 실패 금지)
     refreshOfficeModeUI();
     refreshOfficeChipUI();   // ■ 버튼 툴팁 갱신 + 모드를 끄면 숨김 해제
+    try{ if(typeof _chatFlyRefreshUI === 'function') _chatFlyRefreshUI(); }catch(_){}   // 🌊 날리기 줄 숨김/복귀
+    try{ if(typeof _applyChatSfxUI === 'function') _applyChatSfxUI(); }catch(_){}       // 🔔 알림음 «꺼짐» 표시/복귀
     toast((officeMode ? '회사원 모드가 켜졌어요' : '회사원 모드가 꺼졌어요') + _offNote);
   };
 }
@@ -38947,7 +39127,7 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   ov.className = 'app-popup-ov';   // 마우스 통과 화이트리스트 매칭용
   ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;pointer-events:auto;';
   const box = document.createElement('div');
-  box.style.cssText = 'width:300px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,sans-serif;';
+  box.style.cssText = 'width:300px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,"Malgun Gothic",sans-serif;';
   box.innerHTML =
     '<div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;">🙋 방 초대</div>' +
     '<div style="padding:16px 14px;color:var(--ink);font-size:12px;line-height:1.6;"><b>' + escHtml(fromName) + '</b> 님이 함께하자고 초대했어요.<br>수락하면 그 방으로 이동해요.</div>' +

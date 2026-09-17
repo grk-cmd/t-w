@@ -156,7 +156,12 @@
        모양(모서리·글자색)만 테마를 따라가게 토큰으로 뺐다. */
     --win-title-premium:linear-gradient(90deg,#7a5a10,#c9a227);
     --win-title-premium-ink:#fff;
-    --win-font:Tahoma,'MS Sans Serif',sans-serif;
+    /* 🔤 한글은 **맑은 고딕으로 못 박는다.** Tahoma 에는 한글 글자가 없어서, 한글은 브라우저가 고른
+       대체 폰트로 그려진다. Electron 31 → 44(2026-09-15)에서 그 선택이 바뀌어 기본 테마와 머리 위
+       말풍선의 한글이 다른 모양이 됐다(제보). 대화창은 처음부터 'Malgun Gothic' 을 적어 두어 멀쩡했다.
+       ⚠ 이 파일·app.js·mallang.js 에서 Tahoma 로 시작하는 폰트 목록에는 전부 한글 폰트를 붙인다 —
+         하나라도 빠지면 그 자리만 다시 바뀐다. sim-font-hangul 이 본다. (버블 테마는 돋움이 먼저라 예외 없음) */
+    --win-font:Tahoma,'Malgun Gothic','MS Sans Serif',sans-serif;
     /* 🔢 숫자 전용 — 레벨 배지처럼 작게 찍히는 숫자에만 쓴다.
        Tahoma 는 Verdana 를 좁힌 폰트라 작은 크기에서 3 과 8 의 카운터가 붙어 보인다(제보).
        Consolas 는 코드용이라 숫자 카운터가 크게 뚫려 있어 그 둘이 확실히 갈린다.
@@ -462,7 +467,7 @@
     color:#fff; font-size:11px; font-weight:bold;
     padding:4px 5px 4px 7px;
     display:flex; align-items:center; justify-content:space-between;
-    font-family:Tahoma,'MS Sans Serif',sans-serif;
+    font-family:Tahoma,'Malgun Gothic','MS Sans Serif',sans-serif;
   }
   .win98titlebtns{ display:flex; gap:2px; }
   /* ★ 프리미엄 대화창 */
@@ -509,6 +514,31 @@
   .chat-dropdown-label{padding:4px 12px 2px;font-size:10px;color:var(--ink-soft);white-space:nowrap;cursor:default;}
   /* 현재 선택 표시(✓) 자리 — 폭을 고정해 항목 글자가 좌우로 흔들리지 않게 */
   .chat-dropdown-item .chk{display:inline-block;width:11px;font-weight:bold;}
+  /* 🔔 설정 메뉴 — 알림음 · 글자 크기 ▶ (2026-09-17 시안 확정)
+     ★ 서브메뉴는 **CSS :hover 로만** 연다. 마우스가 부모 줄(.chat-has-sub)에서 서브메뉴로 넘어가도
+       서브메뉴가 그 줄의 **자식**이라 :hover 가 끊기지 않는다 — 그래서 left:100% 로 틈 없이 붙인다.
+       left 에 +2px 같은 여백을 주면 드롭다운 테두리 위에서 :hover 가 풀려 메뉴가 깜빡인다.
+     ★ 화면 오른쪽 끝이면 JS 가 .flip 을 달아 왼쪽으로 연다(열릴 때 한 번만 잰다 — 매 프레임 재면 떨린다).
+     ⚠ 클래스 이름에 fly 를 쓰지 말 것 — 채팅 날리기 전역 .fly 와 부딪힌다(sim-mhd-envsub 사고).
+     ⚠ 서브메뉴도 #chatWindow 의 자식이다 — body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다. */
+  #chatViewDropdown .chat-dropdown-item{display:flex;align-items:center;}
+  .chat-sfx-item{padding-left:22px;}
+  .chat-sfx-pv{margin-left:auto;padding-left:14px;font-size:10px;color:var(--ink-soft);}
+  .chat-dropdown-item:hover .chat-sfx-pv{color:inherit;}
+  .chat-sfx-pv:hover{text-decoration:underline;}
+  /* 🏢 회사원 모드 — 알림음 줄이 «꺼짐» 으로 흐려지고 오른쪽에 이유가 붙는다. 눌러도 안 바뀐다. */
+  #chatSfxToggle.locked,
+  #chatSfxToggle.locked:hover{background:none;color:var(--ink-soft);cursor:default;}
+  .chat-sfx-note{margin-left:auto;padding-left:12px;font-size:10px;}
+  .chat-dropdown-sep{height:0;margin:3px 2px;border-top:1px solid var(--win-lo);border-bottom:1px solid var(--win-hi);}
+  .chat-has-sub{position:relative;}
+  .chat-sub-arrow{margin-left:auto;padding-left:18px;font-size:8px;}
+  .chat-submenu{display:none;position:absolute;left:100%;top:-2px;min-width:96px;z-index:6;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.35));border-radius:var(--win-radius-el) !important;}
+  .chat-submenu.flip{left:auto;right:100%;}
+  .chat-has-sub:hover > .chat-submenu,
+  .chat-has-sub.sub-open > .chat-submenu{display:block;}
   /* 🔇 채팅 켜기/끄기 — 시크릿룸에서만 보인다. 방장은 버튼(눌림), 참여자는 글자만.
      ⚠️ margin-left:auto 는 **이 하나에만** 건다. 여러 항목에 걸면 서로 밀어내
        메뉴가 좌우로 흩어진다(플레이리스트 .lockbar 에서 겪은 그 사고). */
@@ -1074,7 +1104,7 @@
 
   .decor-top{display:flex;align-items:center;justify-content:space-between;padding:5px 6px 5px 8px;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));cursor:move;-webkit-app-region:drag;}
-  .decor-top h2{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;}
+  .decor-top h2{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:#fff;}
   .decor-top button{width:17px;height:15px;font-size:11px;font-weight:bold;line-height:1;cursor:pointer;-webkit-app-region:no-drag;
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:#000;border-radius:var(--win-radius-el) !important;}
@@ -1157,7 +1187,7 @@
     box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
   #lcPreview{width:100%;height:100%;cursor:pointer;display:block;}
   .lc-bubble{position:absolute;top:12px;left:50%;transform:translateX(-50%) scale(.6);opacity:0;transition:.18s;
-    background:#FFFFE1;color:#000;font-family:Tahoma,sans-serif;font-weight:normal;font-size:12px;padding:4px 10px;
+    background:#FFFFE1;color:#000;font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:normal;font-size:12px;padding:4px 10px;
     border:1px solid #000;pointer-events:none;z-index:2;}
   .lc-bubble:after{content:none;}
   .lc-preview-wrap.show-go .lc-bubble{opacity:1;transform:translateX(-50%) scale(1);}
@@ -1174,7 +1204,7 @@
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
   .lc-count{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:bold;color:var(--ink);
     background:var(--win-face);padding:2px 10px;border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
-  .lc-btn{display:block;width:100%;margin-top:9px;font-family:Tahoma,sans-serif;font-weight:bold;font-size:13px;color:var(--ink);
+  .lc-btn{display:block;width:100%;margin-top:9px;font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:13px;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
     padding:8px;cursor:pointer;transition:none;border-radius:var(--win-radius-el) !important;}
@@ -1192,14 +1222,14 @@
     border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 2px 2px 0 rgba(0,0,0,.3);border-radius:var(--win-radius-el) !important;}
   .lc-menu.on{display:flex;}
-  .lc-menu button{font-family:Tahoma,sans-serif;font-weight:normal;font-size:12px;color:var(--ink);background:none;border:none;padding:6px 20px 6px 12px;cursor:pointer;text-align:left;white-space:nowrap;}
+  .lc-menu button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:normal;font-size:12px;color:var(--ink);background:none;border:none;padding:6px 20px 6px 12px;cursor:pointer;text-align:left;white-space:nowrap;}
   .lc-menu button:hover{background:var(--win-select);color:#fff;}
   .lc-menu button#lcDelete{color:var(--terra);}
   .lc-menu button#lcDelete:hover{color:#fff;}
 
   .toast{position:fixed;bottom:42px;left:50%;transform:translateX(-50%) translateY(18px);z-index:60;opacity:0;transition:.25s;
     background:#FFFFE1;color:#000;font-weight:normal;font-size:12px;padding:8px 16px;pointer-events:none;
-    border:1px solid #000;box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.3));font-family:Tahoma,sans-serif;}
+    border:1px solid #000;box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.3));font-family:Tahoma,'Malgun Gothic',sans-serif;}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
   #codeOverlay{position:fixed;inset:0;z-index:56;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
@@ -1208,7 +1238,7 @@
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);border-radius:var(--win-radius-el) !important;}
   #codeModal h2,#exportModal h2,#glbEncModal h2,#glbLoadModal h2,#assetGenModal h2,#assetImpModal h2,#inviteModal h2{
-    font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0 -18px 14px;padding:5px 8px;
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0 -18px 14px;padding:5px 8px;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
   #codeModal p,#exportModal p,#glbEncModal p,#glbLoadModal p,#assetGenModal p,#assetImpModal p,#inviteModal p{font-size:11px;color:var(--ink-soft);font-weight:normal;margin:0 0 12px;}
   .code-box{width:100%;box-sizing:border-box;height:84px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
@@ -1217,7 +1247,7 @@
     box-shadow: inset 1px 1px 0 var(--win-lo-2);padding:8px;font-family:'Courier New',monospace;font-size:11px;color:var(--ink);background:#fff;box-sizing:border-box;border-radius:var(--win-radius-el) !important;}
   .file-in{display:block;width:100%;box-sizing:border-box;font-size:12px;font-weight:normal;color:var(--ink);margin-bottom:10px;}
   .code-btns{display:flex;gap:8px;margin-top:12px;}
-  .code-btns button{flex:1;font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;cursor:pointer;padding:7px;
+  .code-btns button{flex:1;font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;cursor:pointer;padding:7px;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);border-radius:var(--win-radius-el) !important;}
   .code-btns button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -1231,9 +1261,9 @@
     border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     box-shadow: inset 1px 1px 0 var(--win-lo-2);margin-bottom:10px;overflow:hidden;border-radius:var(--win-radius-el) !important;}
   .room-code-prefix{display:flex;align-items:center;padding:0 4px 0 10px;
-    color:var(--win-ink-soft);font-size:12px;font-family:Tahoma,sans-serif;user-select:none;letter-spacing:.5px;flex:none;}
+    color:var(--win-ink-soft);font-size:12px;font-family:Tahoma,'Malgun Gothic',sans-serif;user-select:none;letter-spacing:.5px;flex:none;}
   .room-code-in{flex:1;min-width:0;border:none;outline:none;background:transparent;
-    padding:8px 6px;font-size:12px;font-family:Tahoma,sans-serif;
+    padding:8px 6px;font-size:12px;font-family:Tahoma,'Malgun Gothic',sans-serif;
     color:var(--ink);letter-spacing:2px;text-transform:uppercase;}
   .room-code-in::placeholder{letter-spacing:.5px;color:#a0a0a0;}
   #exportOverlay,#glbEncOverlay,#glbLoadOverlay,#assetGenOverlay,#assetImpOverlay,#inviteOverlay,#commGenOverlay,#partRegOverlay,#deskRegOverlay{position:fixed;inset:0;z-index:57;display:none;align-items:center;justify-content:center;background:none;pointer-events:none;}
@@ -1241,7 +1271,7 @@
   #exportModal,#glbEncModal,#glbLoadModal,#assetGenModal,#assetImpModal,#inviteModal,#commGenModal,#partRegModal,#deskRegModal{pointer-events:auto;}
   #exportOverlay .code-btns{margin-top:10px;}
   .lc-foot{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:11px;flex-wrap:wrap;}
-  .lc-foot button{font-family:Tahoma,sans-serif;font-weight:normal;font-size:10px;color:var(--win-select);background:none;border:none;cursor:pointer;text-decoration:underline;}
+  .lc-foot button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:normal;font-size:10px;color:var(--win-select);background:none;border:none;cursor:pointer;text-decoration:underline;}
   .lc-foot button:hover{color:var(--ink);}
   .lc-foot span{color:var(--ink-soft);opacity:.6;font-size:10px;}
 
@@ -1255,7 +1285,7 @@
   #creatorPreview{width:222px;height:300px;background:#e9e9ec;}
   .creator-right{flex:1;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0;}
   .cr-tabs{display:flex;gap:4px;}
-  .cr-tabs button{flex:1;font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:var(--ink);
+  .cr-tabs button{flex:1;font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);padding:7px;cursor:pointer;border-radius:var(--win-radius-el) !important;}
   .cr-tabs button.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -1294,7 +1324,7 @@
   .skin-light input[type=range]{flex:1;}
 
 
-  .cr-steps span{flex:1;text-align:center;font-family:Tahoma,sans-serif;font-weight:bold;font-size:10.5px;color:var(--ink-soft);
+  .cr-steps span{flex:1;text-align:center;font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:10.5px;color:var(--ink-soft);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);padding:6px 4px;border-radius:var(--win-radius-el) !important;}
   .cr-steps span.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -1310,7 +1340,7 @@
   #crSteps + .cr-groupbox{margin-top:11px;border-top:2px solid;border-top-color:var(--win-lo);position:relative;z-index:1;}
   .cr-hint{font-size:11px;font-weight:bold;color:var(--ink-soft);text-align:center;}
   .cr-nav{display:flex;gap:8px;margin-top:auto;}
-  .cr-nav button{flex:1;font-family:Tahoma,sans-serif;font-weight:bold;font-size:12.5px;color:var(--ink);
+  .cr-nav button{flex:1;font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12.5px;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);padding:9px;cursor:pointer;border-radius:var(--win-radius-el) !important;}
   .cr-nav button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -1327,7 +1357,7 @@
   #charCtx.on{display:flex;}
   #charCtx .ctx-head{display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:11px;font-weight:bold;color:#fff;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
-  #charCtx button{font-family:Tahoma,sans-serif;font-weight:normal;font-size:12px;color:var(--ink);background:none;border:none;
+  #charCtx button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:normal;font-size:12px;color:var(--ink);background:none;border:none;
     padding:7px 12px;cursor:pointer;text-align:left;}
   #charCtx button:hover{background:var(--win-select);color:#fff;}
   #charCtx button#ctxDelete{color:var(--win-error);}
@@ -1338,7 +1368,7 @@
   .fp-card{background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     padding:0;max-width:92vw;border-radius:var(--win-radius-el) !important;}
-  .fp-card h2{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0 0 14px;padding:5px 8px;text-align:left;
+  .fp-card h2{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0 0 14px;padding:5px 8px;text-align:left;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
   .fp-grid{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;padding:0 18px 18px;}
   .fp-item{width:96px;border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -1348,7 +1378,7 @@
   .fp-item canvas{width:80px;height:80px;background:repeating-conic-gradient(#ececec 0% 25%,#fff 0% 50%) 50%/12px 12px;}
   .fp-item.new{display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--win-select);font-weight:bold;font-size:13px;min-height:96px;}
   .fp-item span{display:block;font-size:11px;font-weight:normal;color:var(--ink-soft);margin-top:4px;}
-  .fp-cancel{display:block;margin:0 18px 18px;font-family:Tahoma,sans-serif;font-weight:normal;font-size:11px;color:var(--win-select);background:none;border:none;cursor:pointer;text-decoration:underline;}
+  .fp-cancel{display:block;margin:0 18px 18px;font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:normal;font-size:11px;color:var(--win-select);background:none;border:none;cursor:pointer;text-decoration:underline;}
   #drawCanvas{width:100%;max-width:240px;aspect-ratio:1;align-self:center;
     border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo); box-shadow: inset 1px 1px 0 var(--win-lo-2);
     cursor:crosshair;background:repeating-conic-gradient(#ececec 0% 25%, #fff 0% 50%) 50%/16px 16px;touch-action:none;border-radius:var(--win-radius-el) !important;}
@@ -1368,7 +1398,7 @@
   .cr-tools input[type=color]{width:24px;height:22px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);cursor:pointer;background:none;padding:0;border-radius:var(--win-radius-el) !important;}
   .cr-colors{display:flex;flex-direction:column;gap:10px;font-size:12px;font-weight:bold;color:var(--ink);align-items:flex-start;}
   .cr-colors input[type=color]{width:36px;height:24px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);cursor:pointer;background:none;padding:0;border-radius:var(--win-radius-el) !important;}
-  .cr-done{font-family:Tahoma,sans-serif;font-weight:bold;font-size:13px;color:var(--ink);
+  .cr-done{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:13px;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);padding:10px;cursor:pointer;margin-top:auto;border-radius:var(--win-radius-el) !important;}
   .cr-done:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -1381,7 +1411,7 @@
   #raceModal{width:540px;max-width:92vw;padding:0;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);border-radius:var(--win-radius-el) !important;}
-  #raceModal h2{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0 0 16px;text-align:left;padding:5px 8px;
+  #raceModal h2{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0 0 16px;text-align:left;padding:5px 8px;
     display:flex;align-items:center;justify-content:space-between;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
   .race-grid{display:flex;gap:14px;padding:0 22px;}
@@ -1395,7 +1425,7 @@
   .race-card .race-preview{width:100%;height:160px;display:flex;align-items:center;justify-content:center;background:transparent;
     border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo); box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
   .race-card canvas{display:block;}
-  .race-card .race-label{font-family:Tahoma,sans-serif;font-weight:bold;font-size:14px;color:var(--ink);margin-top:8px;}
+  .race-card .race-label{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:14px;color:var(--ink);margin-top:8px;}
   .race-card.disabled{cursor:not-allowed;}
   .race-card.disabled:hover{background:var(--win-face);}
   .race-card.disabled .race-preview{filter:grayscale(1) opacity(.65);}
@@ -1411,7 +1441,7 @@
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
   .ch-card .ch-emoji{font-size:44px;line-height:1;margin:4px 0 6px;}
   .ch-card .ch-sub{font-size:11px;color:var(--ink-soft);}
-  .ch-card .ch-name{font-family:Tahoma,sans-serif;font-weight:bold;font-size:14px;color:var(--ink);margin-top:8px;}
+  .ch-card .ch-name{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:14px;color:var(--ink);margin-top:8px;}
   .ch-card .ch-meta{font-size:11px;color:var(--ink-soft);margin-top:2px;}
   .ch-card .ch-count{font-size:11px;color:var(--win-ok,#087f23);margin-top:5px;}
   /* 🎲 랜덤 참여 토글 — 베젤(win-hi/win-lo)을 쓰지 않으므로 audit 검사 12 대상이 아니다.
@@ -1430,8 +1460,8 @@
   .ch-card.locked .ch-name,.ch-card.locked .ch-meta,.ch-card.locked .ch-count{color:#909090;}
 
     .race-card .race-underwork{position:absolute;left:-14%;right:-14%;top:46%;transform:rotate(-11deg);
-    background:var(--win-error);color:#fff;font-family:Tahoma,sans-serif;font-weight:bold;font-size:13px;text-align:center;padding:5px 0;letter-spacing:1px;}
-  .race-close{display:block;margin:14px 22px 0;font-family:Tahoma,sans-serif;font-weight:normal;font-size:11px;color:var(--win-select);background:none;border:none;cursor:pointer;text-decoration:underline;}
+    background:var(--win-error);color:#fff;font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:13px;text-align:center;padding:5px 0;letter-spacing:1px;}
+  .race-close{display:block;margin:14px 22px 0;font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:normal;font-size:11px;color:var(--win-select);background:none;border:none;cursor:pointer;text-decoration:underline;}
   .race-close:hover{color:var(--ink);}
 
   /* ===== 머리 위 레벨/이름 이름표 + 말풍선 (DOM) — 저해상도 렌더 영향 안 받음, 텍스트 잘림 없음 ===== */
@@ -1441,7 +1471,7 @@
   }
   .seat-nameplate{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;display:none;
     z-index:1;   /* 말풍선(z-index:2)보다 아래 — 아래 .seat-bubble-dom 주석 참고 */
-    font:bold var(--nameplate-size) Tahoma,"MS Sans Serif",sans-serif;color:#fff;letter-spacing:.3px;
+    font:bold var(--nameplate-size) Tahoma,"Malgun Gothic","MS Sans Serif",sans-serif;color:#fff;letter-spacing:.3px;
     text-shadow:-1.5px 0 rgba(0,0,0,.8),1.5px 0 rgba(0,0,0,.8),0 -1.5px rgba(0,0,0,.8),0 1.5px rgba(0,0,0,.8),
       -1.5px -1.5px rgba(0,0,0,.8),1.5px -1.5px rgba(0,0,0,.8),-1.5px 1.5px rgba(0,0,0,.8),1.5px 1.5px rgba(0,0,0,.8);}
   /* ── ★ 회차 별 (이름표 쪽) ──────────────────────────────────────────────
@@ -1522,7 +1552,7 @@
          더 줄이려면 아트를 6x6(슬라이스 2)으로 다시 그려야 하고, 그러면 계단이 두 칸에서 한 칸이 된다.
        ★ 지금 값은 여백 최소치다: 0 3px → 글자가 바깥 끝에서 떨어지는 거리 = 여백 + 9px = 9px / 12px.
          한 줄짜리 말풍선 전체 높이 39px(글자 15px × 줄간격 1.4 = 21px + 테두리 18px). */
-    background:#FFFFCC;background-clip:padding-box;padding:0 3px;font:bold 15px Tahoma,"MS Sans Serif",sans-serif;
+    background:#FFFFCC;background-clip:padding-box;padding:0 3px;font:bold 15px Tahoma,"Malgun Gothic","MS Sans Serif",sans-serif;
     color:#000;margin-top:-10px;
     /* ⚠️ 여기에는 overflow:hidden 을 절대 두지 말 것. 꼬리(::after)가 말풍선 **바깥**에 그려지므로
        통째로 잘려 사라진다. 줄 수 제한은 아래 .bub-txt(안쪽 요소)가 담당한다. */
@@ -1633,7 +1663,7 @@
          회사원 모드가 아닐 때의 말풍선 높이까지 같이 움직인다. */
     margin-top:-16px;width:max-content;max-width:var(--office-label-max-w,140px);
     white-space:normal;line-height:1.3;
-    font:bold 12px Tahoma,"MS Sans Serif",sans-serif;color:#000;
+    font:bold 12px Tahoma,"Malgun Gothic","MS Sans Serif",sans-serif;color:#000;
     text-shadow:-1.5px 0 rgba(255,255,255,.92),1.5px 0 rgba(255,255,255,.92),0 -1.5px rgba(255,255,255,.92),0 1.5px rgba(255,255,255,.92),
       -1.5px -1.5px rgba(255,255,255,.92),1.5px -1.5px rgba(255,255,255,.92),-1.5px 1.5px rgba(255,255,255,.92),1.5px 1.5px rgba(255,255,255,.92);}
   /* ⚠️ 반전 배치(발밑)에서는 위 margin-top 을 되돌린다 — 그쪽 자리는 JS 가 위 요소의
@@ -1660,7 +1690,7 @@
   .seat-announce{position:absolute;transform:translate(-50%,-100%);display:none;z-index:1;
     width:200px;overflow:hidden;box-sizing:border-box;
     background:linear-gradient(180deg,#ffd54a 0%,#ffb300 100%);border:2px solid #7a5910;border-radius:4px;
-    padding:2px 6px;font:bold 11px Tahoma,"MS Sans Serif",sans-serif;color:#3a2600;
+    padding:2px 6px;font:bold 11px Tahoma,"Malgun Gothic","MS Sans Serif",sans-serif;color:#3a2600;
     box-shadow:0 2px 4px rgba(0,0,0,.35);white-space:nowrap;}
   .seat-announce .marquee{display:inline-block;padding-left:100%;}
   .seat-announce.scrolling .marquee{animation:announceMarquee 12s linear infinite;}
@@ -1684,7 +1714,7 @@
   @keyframes donateShine{from{background-position:0 0;} to{background-position:220% 0;}}
   /* 움직임에 민감한 사용자는 흐르지 않게 — 색은 그대로 남아 링크로 읽힌다 */
   @media (prefers-reduced-motion:reduce){ .donate-shine{animation:none;} }
-  #donateLink{text-decoration:none;cursor:pointer;font:bold 12px Tahoma,"MS Sans Serif",sans-serif;}
+  #donateLink{text-decoration:none;cursor:pointer;font:bold 12px Tahoma,"Malgun Gothic","MS Sans Serif",sans-serif;}
   #donateLink:hover .donate-shine{filter:brightness(1.12);}
   #donateLink:hover{text-decoration:underline;}
   #lcDonateBtn:hover:not(:disabled) .donate-shine{filter:brightness(1.12);}
@@ -1913,7 +1943,7 @@
 
   /* 상태 버튼 — dot 하나만 표시하는 컴팩트 아이콘 (다른 버튼과 동일한 26px 높이) */
   #myStatusChipBtn{
-    width:28px;height:26px;cursor:pointer;font-family:Tahoma,sans-serif;padding:0;
+    width:28px;height:26px;cursor:pointer;font-family:Tahoma,'Malgun Gothic',sans-serif;padding:0;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
     display:flex;align-items:center;justify-content:center;border-radius:var(--win-radius-el) !important;}
@@ -1924,7 +1954,7 @@
 
   /* 채팅·알림·더보기 세로 아이콘 버튼 (공통) */
   #myChatBtn, #myDemojiBtn, #myBellBtn, #myPlBtn, #myChipMoreBtn{
-    width:28px;height:26px;padding:0;font-family:Tahoma,sans-serif;font-size:13px;line-height:1;cursor:pointer;
+    width:28px;height:26px;padding:0;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:13px;line-height:1;cursor:pointer;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
     color:var(--ink);display:inline-flex;align-items:center;justify-content:center;border-radius:var(--win-radius-el) !important;}
@@ -2172,7 +2202,7 @@
   #mhStickerAnimOverlay .box{pointer-events:auto;width:236px;background:var(--win-face);
     border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);border-radius:var(--win-radius-el) !important;}
-  #mhStickerAnimOverlay .ttl{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+  #mhStickerAnimOverlay .ttl{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
   .st-anim-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:10px;}
   .st-anim-grid button{font-size:11px;padding:5px 0;cursor:pointer;background:var(--win-face);
@@ -2201,7 +2231,7 @@
     background:var(--win-face);
     border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);border-radius:var(--win-radius-el) !important;}
-  #mhStickerMgrOverlay .ttl{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+  #mhStickerMgrOverlay .ttl{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));
     display:flex;align-items:center;justify-content:space-between;gap:6px;flex:0 0 auto;}
   #stMgrClose{width:16px;height:14px;font-size:9px;line-height:1;cursor:pointer;padding:0;flex:0 0 auto;color:var(--ink);
@@ -2363,10 +2393,10 @@
   #myDemojiBox .dmBtn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   #myDemojiBox .dmBtn img{max-width:30px;max-height:30px;pointer-events:none;}
   #myChatBox input, #myCustomStatusBox input{
-    flex:1;min-width:0;font-family:Tahoma,sans-serif;font-size:11.5px;padding:4px 6px;
+    flex:1;min-width:0;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11.5px;padding:4px 6px;
     background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
-  #myChatBox span, #myCustomStatusBox span{flex:none;font-size:10px;color:var(--ink-soft);font-family:Tahoma,sans-serif;}
+  #myChatBox span, #myCustomStatusBox span{flex:none;font-size:10px;color:var(--ink-soft);font-family:Tahoma,'Malgun Gothic',sans-serif;}
   /* 커스텀 상태 편집창: 이모지 칸은 좁게 고정 */
   #myCustomStatusBox #myCustomStatusEmo{flex:0 0 34px;width:34px;min-width:34px;text-align:center;padding:4px 2px;}
 
@@ -2374,7 +2404,7 @@
   #focusSettingsPanel{position:fixed;z-index:58;transform:translate(-50%,-100%);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    padding:0;width:300px;box-sizing:border-box;display:none;font-family:Tahoma,sans-serif;border-radius:var(--win-radius-el) !important;}
+    padding:0;width:300px;box-sizing:border-box;display:none;font-family:Tahoma,'Malgun Gothic',sans-serif;border-radius:var(--win-radius-el) !important;}
   #focusSettingsPanel.on{display:block;}
   #focusSettingsPanel .fs-titlebar{font-size:11px;font-weight:bold;color:#fff;padding:5px 8px;margin-bottom:10px;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));
@@ -2622,7 +2652,7 @@
   #myChipGroup #myBellBtn ~ *{position:relative;}
   #myBellBadge{display:none;position:absolute;top:-2px;right:-2px;min-width:13px;height:13px;
     padding:0 2px;box-sizing:border-box;background:var(--win-error);color:#fff;
-    font-family:Tahoma,sans-serif;font-size:8px;font-weight:bold;line-height:13px;text-align:center;
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:8px;font-weight:bold;line-height:13px;text-align:center;
     border:1px solid #000;border-radius:7px;}
   #myBellBadge.on{display:block;}
 
@@ -2632,7 +2662,7 @@
   #myChatBtn{position:relative;}
   #myChatBadge{display:none;position:absolute;top:-4px;left:19px;height:13px;min-width:13px;
     padding:0 3px;box-sizing:border-box;background:var(--win-error);color:#fff;
-    font-family:Tahoma,sans-serif;font-size:8px;font-weight:bold;line-height:11px;text-align:center;
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:8px;font-weight:bold;line-height:11px;text-align:center;
     border:1px solid #000;border-radius:7px;white-space:nowrap;pointer-events:none;}
   #myChatBadge.on{display:block;}
 
@@ -2641,7 +2671,7 @@
     background:var(--win-face);border:2px solid;
     border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    font-family:Tahoma,sans-serif;border-radius:var(--win-radius-el) !important;}
+    font-family:Tahoma,'Malgun Gothic',sans-serif;border-radius:var(--win-radius-el) !important;}
   #bellTitle{display:flex;align-items:center;justify-content:space-between;padding:4px 5px;
     cursor:move;user-select:none;   /* 타이틀바 드래그로 창 이동 (더블클릭 = 원래 자리 복귀) */
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));
@@ -2685,13 +2715,13 @@
 
   /* 텍스트형 클릭 요소 공통 — 박스 없이 글자만 */
   .mh-txtbtn{background:none;border:none;padding:2px 4px;cursor:pointer;
-    font-family:Tahoma,sans-serif;font-size:11px;color:var(--ink);line-height:1.3;}
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;color:var(--ink);line-height:1.3;}
   .mh-txtbtn:hover{color:var(--win-select);text-decoration:underline;}
   .mh-txtbtn:disabled{opacity:.4;cursor:default;text-decoration:none;}
 
   #mhSchedNav{display:flex;align-items:center;gap:6px;margin-bottom:7px;}
   #mhSchedNav button{background:none;border:none;padding:2px 5px;cursor:pointer;
-    font-family:Tahoma,sans-serif;font-size:12px;color:var(--ink-soft);}
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:12px;color:var(--ink-soft);}
   #mhSchedNav button:hover{color:var(--win-select);}
   #mhSchedTitle{flex:1;text-align:center;font-size:13px;font-weight:bold;color:var(--ink);}
   #mhSchedToday{font-size:10px !important;}
@@ -2732,7 +2762,7 @@
 
   /* 일정 입력 — 밑줄 인풋 + 텍스트 버튼 */
   #mhSchedAddRow{display:flex;align-items:center;gap:6px;}
-  #mhSchedAddRow input{flex:1;min-width:0;font-family:Tahoma,sans-serif;font-size:11.5px;
+  #mhSchedAddRow input{flex:1;min-width:0;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11.5px;
     padding:4px 2px;background:none;border:none;border-bottom:1px solid #ccc;color:var(--ink);}
   #mhSchedAddRow input:focus{outline:none;border-bottom-color:var(--win-select);}
   #mhSchedOpts{display:flex;align-items:center;gap:10px;margin-top:5px;font-size:10.5px;color:var(--ink-soft);}
@@ -2853,7 +2883,7 @@
   .mh-dde-body{padding:10px;}
   .mh-dde-lbl{font-size:10px;font-weight:bold;color:var(--ink-soft);margin:6px 0 2px;}
   .mh-dde-lbl:first-child{margin-top:0;}
-  #mhDdayText{width:100%;box-sizing:border-box;font-family:Tahoma,sans-serif;font-size:11px;
+  #mhDdayText{width:100%;box-sizing:border-box;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;
     padding:4px 6px;background:#fff;border:2px solid;
     border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
@@ -2862,14 +2892,14 @@
   /* ★ input은 브라우저 기본 최소 폭(size 속성 기반, 보통 ~150px)을 갖고 있어서
        flex 비율만으로는 줄어들지 않고 모달을 넘침. width:0 + min-width:0 으로 강제 해제. */
   #mhDdayDateRow input{width:0 !important;min-width:0 !important;flex-shrink:1;
-    box-sizing:border-box;font-family:Tahoma,sans-serif;font-size:11px;text-align:center;
+    box-sizing:border-box;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;text-align:center;
     padding:4px 1px;background:#fff;border:2px solid;
     border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
   #mhDdayY{flex:1.5;} #mhDdayM{flex:1;} #mhDdayD{flex:1;}
   .mh-dde-bg{display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
   .mh-dde-bg input[type=color]{width:30px;height:24px;padding:0;border:1px solid #999;cursor:pointer;background:none;}
-  .mh-dde-bg button{font-family:Tahoma,sans-serif;font-size:10px;padding:3px 7px;cursor:pointer;color:var(--ink);
+  .mh-dde-bg button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10px;padding:3px 7px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   #mhDdayImgInfo{font-size:9px;color:#5a8a4a;}
@@ -2881,11 +2911,11 @@
   .mh-dde-opts label{display:flex;align-items:center;gap:4px;cursor:pointer;}
   .mh-dde-opts input[type=checkbox]{width:auto;margin:0;}
   #mhDdayTagBtn{background:none;border:none;padding:0;cursor:pointer;
-    font-family:Tahoma,sans-serif;font-size:10.5px;color:var(--ink-soft);}
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10.5px;color:var(--ink-soft);}
   #mhDdayTagBtn:hover{color:var(--win-select);text-decoration:underline;}
   #mhDdayEditMsg{display:none;font-size:10px;margin-top:6px;}
   .mh-dde-foot{display:flex;gap:5px;justify-content:flex-end;padding:8px 10px;border-top:1px solid #ccc;}
-  .mh-dde-foot button{font-family:Tahoma,sans-serif;font-size:10.5px;padding:4px 11px;cursor:pointer;color:var(--ink);
+  .mh-dde-foot button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10.5px;padding:4px 11px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   .mh-dde-foot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -2902,7 +2932,7 @@
   #mhSchedTagList label{display:flex;align-items:center;gap:5px;padding:3px 2px;font-size:11px;cursor:pointer;color:var(--ink);}
   #mhSchedTagList input{width:auto;margin:0;}
   .mh-tagpop-foot{display:flex;gap:5px;justify-content:flex-end;}
-  .mh-tagpop-foot button{font-family:Tahoma,sans-serif;font-size:10px;padding:4px 10px;cursor:pointer;color:var(--ink);
+  .mh-tagpop-foot button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10px;padding:4px 10px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
 
@@ -2931,7 +2961,7 @@
     border-radius:var(--win-radius-el) !important;}
   #mhBugActions{display:flex;gap:8px;margin-top:12px;justify-content:center;}
   #mhBugActions button, #mhBugEditBtns button{
-    font-family:Tahoma,sans-serif;font-size:12px;font-weight:bold;padding:8px 18px;cursor:pointer;color:var(--ink);
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:12px;font-weight:bold;padding:8px 18px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   #mhBugActions button:active, #mhBugEditBtns button:active{
@@ -2942,7 +2972,7 @@
   #mhBugEditForm{max-width:520px;margin:14px auto 0;}
   .mh-bug-lbl{font-size:11px;font-weight:bold;color:var(--ink-soft);margin:8px 0 3px;}
   #mhBugNoticeInput, #mhBugLinkInput{
-    width:100%;box-sizing:border-box;font-family:Tahoma,sans-serif;font-size:11.5px;padding:6px 8px;
+    width:100%;box-sizing:border-box;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11.5px;padding:6px 8px;
     background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
   #mhBugNoticeInput{height:150px;resize:vertical;line-height:1.6;}
@@ -2967,7 +2997,7 @@
   .mh-req-pend{font-size:9px;color:#7a6a4a;background:#f4efe0;border:1px solid #ddd2b8;
     border-radius:9px;padding:1px 7px;white-space:nowrap;flex-shrink:0;}
   .mh-req input[type="checkbox"]{cursor:pointer;flex-shrink:0;}
-  .mh-req button, #mhFmBar button{font-family:Tahoma,sans-serif;font-size:10px;padding:3px 7px;cursor:pointer;flex-shrink:0;
+  .mh-req button, #mhFmBar button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10px;padding:3px 7px;cursor:pointer;flex-shrink:0;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);border-radius:var(--win-radius-el) !important;}
   .mh-req button:active, #mhFmBar button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -2995,7 +3025,7 @@
   /* 친구 추가 입력줄 — [+ 친구 추가] 버튼을 누르면 펼쳐짐 */
   #mhAddRow{display:none;gap:5px;padding:6px;border-top:1px solid #ccc;background:#fbfbf6;flex-shrink:0;}
   #mhAddRow.on{display:flex;}
-  #mhAddInput{flex:1;min-width:0;font-family:Tahoma,sans-serif;font-size:11px;padding:4px 6px;border:1px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  #mhAddInput{flex:1;min-width:0;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;padding:4px 6px;border:1px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   #mhAddBtn{font-size:11px;padding:4px 10px;cursor:pointer;background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);flex-shrink:0;border-radius:var(--win-radius-el) !important;}
   /* 🔍 Ctrl+F 친구 검색 — 힌트 글자(헤더 오른쪽) + 검색줄(목록 위) + 결과 수 띠.
      ⚠️ 힌트에 cursor:pointer 를 주지 말 것. 버튼이 아니라 "Ctrl+F 를 누르면 된다"는 안내다.
@@ -3005,7 +3035,7 @@
   #mhFriendSearch{display:none;gap:5px;padding:6px;border-bottom:1px solid #ccc;background:#fbfbf6;
     flex-shrink:0;align-items:center;}
   #mhFriendSearch.on{display:flex;}
-  #mhFriendSearchInput{flex:1;min-width:0;font-family:Tahoma,sans-serif;font-size:11px;padding:4px 6px;
+  #mhFriendSearchInput{flex:1;min-width:0;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;padding:4px 6px;
     border:1px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   #mhFriendSearchClear{font-size:11px;color:#888;cursor:pointer;padding:0 4px;flex-shrink:0;}
   #mhFriendHit{display:none;padding:3px 9px;background:#eef4ff;color:#2a4fa8;font-size:10px;
@@ -3039,7 +3069,7 @@
 
   /* 태그 필터 탭 */
   #mhInboxTabs, #mhFmTabs{display:flex;gap:2px;padding:6px 8px 4px;background:var(--win-face-2);border-bottom:1px solid #ccc;flex-shrink:0;}
-  .mh-ibx-tab{background:none;border:none;padding:4px 8px;cursor:pointer;font-family:Tahoma,sans-serif;
+  .mh-ibx-tab{background:none;border:none;padding:4px 8px;cursor:pointer;font-family:Tahoma,'Malgun Gothic',sans-serif;
     font-size:10.5px;color:var(--ink-soft);border-bottom:2px solid transparent;}
   .mh-ibx-tab:hover{color:var(--win-select);}
   .mh-ibx-tab.on{color:var(--ink);font-weight:bold;border-bottom-color:var(--win-select);}
@@ -3094,7 +3124,7 @@
   #mhGiftModal{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;
     width:240px;background:var(--win-face);border:2px solid;
     border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow:var(--win-drop-el, 3px 3px 0 rgba(0,0,0,.35));font-family:Tahoma,sans-serif;border-radius:var(--win-radius-el) !important;}
+    box-shadow:var(--win-drop-el, 3px 3px 0 rgba(0,0,0,.35));font-family:Tahoma,'Malgun Gothic',sans-serif;border-radius:var(--win-radius-el) !important;}
   .mh-gift-head{font-size:12px;font-weight:bold;color:#fff;padding:5px 8px;
     background:linear-gradient(90deg,var(--win-title-a),var(--win-title-b));}
   .mh-gift-body{padding:14px;text-align:center;}
@@ -3102,7 +3132,7 @@
   .mh-gift-soon{font-size:34px;line-height:1;margin-bottom:8px;}
   .mh-gift-msg{font-size:11px;color:var(--ink-soft);line-height:1.7;}
   .mh-gift-foot{display:flex;justify-content:center;padding:8px 10px;border-top:1px solid #ccc;}
-  .mh-gift-foot button{font-family:Tahoma,sans-serif;font-size:10.5px;padding:5px 18px;cursor:pointer;color:var(--ink);
+  .mh-gift-foot button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10.5px;padding:5px 18px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
 
@@ -3110,7 +3140,7 @@
   #mhInboxCompose{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;
     width:320px;background:var(--win-face);border:2px solid;
     border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow:var(--win-drop-el, 3px 3px 0 rgba(0,0,0,.35));font-family:Tahoma,sans-serif;border-radius:var(--win-radius-el) !important;}
+    box-shadow:var(--win-drop-el, 3px 3px 0 rgba(0,0,0,.35));font-family:Tahoma,'Malgun Gothic',sans-serif;border-radius:var(--win-radius-el) !important;}
   .mh-ibc-head{font-size:12px;font-weight:bold;color:#fff;padding:5px 8px;
     background:linear-gradient(90deg,var(--win-title-a),var(--win-title-b));}
   .mh-ibc-body{padding:10px;}
@@ -3119,14 +3149,14 @@
   .mh-ibc-tags{display:flex;gap:10px;font-size:11px;color:var(--ink);}
   .mh-ibc-tags label{display:flex;align-items:center;gap:3px;cursor:pointer;}
   .mh-ibc-tags input{width:auto;margin:0;}
-  #mhInboxComposeTitle, #mhInboxComposeBody{width:100%;box-sizing:border-box;font-family:Tahoma,sans-serif;font-size:11px;
+  #mhInboxComposeTitle, #mhInboxComposeBody{width:100%;box-sizing:border-box;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;
     padding:5px 7px;background:#fff;border:2px solid;
     border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
   #mhInboxComposeBody{height:120px;resize:vertical;line-height:1.5;}
   #mhInboxComposeMsg{display:none;font-size:10px;margin-top:6px;}
   .mh-ibc-foot{display:flex;gap:5px;justify-content:flex-end;padding:8px 10px;border-top:1px solid #ccc;}
-  .mh-ibc-foot button{font-family:Tahoma,sans-serif;font-size:10.5px;padding:5px 12px;cursor:pointer;color:var(--ink);
+  .mh-ibc-foot button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10.5px;padding:5px 12px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   .mh-ibc-foot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -3138,7 +3168,7 @@
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.3));border-radius:var(--win-radius-el) !important;}
   #mhBgMenu.on{display:flex;}
-  #mhBgMenu button{font-family:Tahoma,sans-serif;font-size:11px;text-align:left;padding:6px 12px;background:none;border:none;cursor:pointer;color:var(--ink);}
+  #mhBgMenu button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;text-align:left;padding:6px 12px;background:none;border:none;cursor:pointer;color:var(--ink);}
   #mhBgMenu button:hover{background:var(--win-select);color:#fff;}
   /* 👑 프리미엄 디자인 스튜디오 팝업 */
   #mhDesignOverlay{display:none;position:fixed;inset:0;z-index:95;pointer-events:none;}
@@ -3149,7 +3179,7 @@
   #mhDesignTitle{height:22px;flex-shrink:0;padding:0 6px;display:flex;align-items:center;justify-content:space-between;
     background:var(--win-title-premium);color:var(--win-title-premium-ink);font-size:11.5px;font-weight:bold;user-select:none;}
   #mhDesignTabs{display:flex;gap:2px;padding:6px 8px 0;flex-shrink:0;}
-  .mh-ds-tab{font-family:Tahoma,sans-serif;font-size:11px;padding:4px 14px;cursor:pointer;color:var(--ink-soft);
+  .mh-ds-tab{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;padding:4px 14px;cursor:pointer;color:var(--ink-soft);
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .mh-ds-tab.on{font-weight:bold;color:var(--ink);background:#fff;}
   #mhDesignBody{flex:1;min-height:0;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;}
@@ -3159,11 +3189,11 @@
   .mh-ds-sw{width:24px;height:18px;flex-shrink:0;cursor:pointer;border:1px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     background:#fff;position:relative;}
   .mh-ds-sw.none:after{content:'\2014';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;}
-  .mh-ds-btn{font-family:Tahoma,sans-serif;font-size:10px;height:18px;padding:0 6px;cursor:pointer;flex-shrink:0;color:var(--ink);
+  .mh-ds-btn{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10px;height:18px;padding:0 6px;cursor:pointer;flex-shrink:0;color:var(--ink);
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .mh-ds-btn.imgon{background:#dcefd8;font-weight:bold;}
   #mhDesignFoot{display:flex;align-items:center;gap:6px;padding:6px 8px;flex-shrink:0;border-top:1px solid var(--win-lo);}
-  #mhDesignFoot button{font-family:Tahoma,sans-serif;font-size:11px;padding:3px 12px;cursor:pointer;color:var(--ink);
+  #mhDesignFoot button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;padding:3px 12px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   /* +방명록 남기기 (마이홈 탭 우측 상단) */
   #mhHomeTopRow{position:absolute;top:0;right:0;z-index:5;display:flex;justify-content:flex-end;flex-shrink:0;}
@@ -3176,7 +3206,7 @@
   #mhGuestbookBadge{position:absolute;top:-6px;right:-6px;min-width:16px;height:16px;padding:0 4px;
     background:#e02525;color:#fff;font-size:10px;font-weight:bold;line-height:1;
     border:1px solid #700;border-radius:9px;box-shadow:var(--win-drop-el, 1px 1px 0 rgba(0,0,0,.4));
-    display:flex;align-items:center;justify-content:center;font-family:Tahoma,sans-serif;
+    display:flex;align-items:center;justify-content:center;font-family:Tahoma,'Malgun Gothic',sans-serif;
     animation:mhGbBadgePulse 1.4s ease-in-out infinite;pointer-events:none;}
   #mhGuestbookBadge.hidden{display:none;}
   @keyframes mhGbBadgePulse{0%,100%{transform:scale(1);}50%{transform:scale(1.15);}}
@@ -3229,7 +3259,7 @@
   .mh-gb-text{font-size:11px;color:#333;margin-top:2px;line-height:1.5;word-break:break-word;}
   .mh-gb-empty{color:#999;font-size:10.5px;text-align:center;padding:16px 0;}
   #mhGbInputRow{display:flex;gap:5px;flex-shrink:0;}
-  #mhGbInputRow input{flex:1;min-width:0;font-family:Tahoma,sans-serif;font-size:11px;padding:4px 6px;
+  #mhGbInputRow input{flex:1;min-width:0;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;padding:4px 6px;
     border:1px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   #mhGbInputRow button{font-size:11px;padding:4px 10px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
@@ -3248,7 +3278,7 @@
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   #mhPromptBody{padding:12px;background:var(--win-face);}
   #mhPromptMsg{font-size:11.5px;color:var(--ink);margin-bottom:8px;line-height:1.5;white-space:pre-wrap;}
-  #mhPromptInput{width:100%;font-family:Tahoma,sans-serif;font-size:12px;padding:5px 7px;box-sizing:border-box;
+  #mhPromptInput{width:100%;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:12px;padding:5px 7px;box-sizing:border-box;
     border:1px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);background:#fff;}
   #mhPromptBtns{display:flex;justify-content:flex-end;gap:6px;margin-top:10px;}
   #mhPromptBtns button{font-size:11px;padding:4px 14px;cursor:pointer;color:var(--ink);min-width:64px;
@@ -3272,7 +3302,7 @@
   #mhNameRow b{font-size:13px;}
   .mh-edit-mark{font-size:9.5px;font-weight:normal;color:var(--ink-soft);text-decoration:underline;cursor:pointer;margin-left:4px;}
   /* bio — 패널 배경이 비치도록 투명 + 테두리 없음 (편집 포커스 때만 옅은 안내선) */
-  #mhBioBox{width:100%;font-family:Tahoma,sans-serif;font-size:10.5px;color:#444;border:1px solid transparent;padding:5px;
+  #mhBioBox{width:100%;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10.5px;color:#444;border:1px solid transparent;padding:5px;
     margin-top:5px;min-height:40px;height:auto;background:transparent;overflow-y:auto;flex:0 1 auto;box-sizing:border-box;line-height:1.5;
     outline:none;word-break:break-word;}
   #mhBioBox:focus{border-color:rgba(0,0,0,.12);}
@@ -3323,12 +3353,12 @@
     margin-left:-.5px;background:#3aa06a;}
   /* 회전 중 각도 표시 */
   .mh-sticker-rotlbl{position:absolute;left:50%;top:-42px;transform:translateX(-50%);
-    background:rgba(20,20,20,.85);color:#fff;font-family:Tahoma,sans-serif;font-size:9.5px;
+    background:rgba(20,20,20,.85);color:#fff;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:9.5px;
     padding:2px 6px;display:none;white-space:nowrap;z-index:3;pointer-events:none;}
   .mh-sticker.rotating .mh-sticker-rotlbl{display:block;}
   /* 편집모드 안내 배지 */
   #mhStickerEditHint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);z-index:40;
-    background:rgba(20,20,20,.82);color:#fff;font-family:Tahoma,sans-serif;font-size:10.5px;
+    background:rgba(20,20,20,.82);color:#fff;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10.5px;
     padding:5px 12px;border-radius:3px;pointer-events:none;display:none;white-space:nowrap;}
   #mhStickerEditHint.on{display:block;}
   /* 오른쪽 컬럼 — 목업 실측: 위쪽에만 여백을 주고(핑크박스가 패널 상단보다 아래에서 시작), 아래쪽은 왼쪽 패널과 같은 선에서 flush */
@@ -3345,7 +3375,7 @@
     border-radius:var(--win-radius-el) !important;}
   #mhPostTitle{color:#222;}
   /* 게시글 본문 — 패널 배경이 비치도록 투명 + 테두리 없음 (편집 포커스 때만 옅은 안내선) */
-  #mhPostBox{font-family:Tahoma,sans-serif;font-size:11px;color:#222;line-height:1.5;border:1px solid transparent;
+  #mhPostBox{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;color:#222;line-height:1.5;border:1px solid transparent;
     padding:8px 8px 8px 0;height:112px;flex-shrink:0;box-sizing:border-box;margin-bottom:10px;background:transparent;
     outline:none;overflow-y:auto;word-break:break-word;}
   #mhPostBox:focus{border-color:rgba(0,0,0,.12);}
@@ -3354,12 +3384,12 @@
   /* 리치 텍스트 툴바 (bio/post 공통) */
   .mh-rt-toolbar{display:flex;gap:2px;align-items:center;flex-shrink:0;margin-top:5px;background:var(--win-face);
     border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);padding:2px 3px;flex-wrap:wrap;border-radius:var(--win-radius-el) !important;}
-  .mh-rt-toolbar button{font-family:Tahoma,sans-serif;font-size:11px;min-width:22px;height:20px;padding:0 4px;cursor:pointer;
+  .mh-rt-toolbar button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;min-width:22px;height:20px;padding:0 4px;cursor:pointer;
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .mh-rt-toolbar button:active,.mh-rt-toolbar button.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   .mh-rt-toolbar input[type=color]{width:22px;height:20px;padding:0;border:1px solid #999;cursor:pointer;background:none;}
   /* 글자색/바탕색 버튼: A 글리프만 보이고 클릭 시 팝업 열림 */
-  .mh-rt-colorbtn{width:22px;height:20px;padding:0;cursor:pointer;font-family:Tahoma,sans-serif;font-size:11px;font-weight:bold;
+  .mh-rt-colorbtn{width:22px;height:20px;padding:0;cursor:pointer;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;font-weight:bold;
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     display:inline-flex;align-items:center;justify-content:center;line-height:1;border-radius:var(--win-radius-el) !important;}
   .mh-rt-colorbtn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
@@ -3369,7 +3399,7 @@
   /* 컬러 팝업 */
   .mh-color-pop{position:absolute;background:var(--win-face);z-index:9999;padding:6px;
     border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow:2px 2px 5px rgba(0,0,0,.25);font-family:Tahoma,sans-serif;font-size:10px;color:#333;user-select:none;border-radius:var(--win-radius-el) !important;}
+    box-shadow:2px 2px 5px rgba(0,0,0,.25);font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10px;color:#333;user-select:none;border-radius:var(--win-radius-el) !important;}
   .mh-color-pop .lbl{margin:4px 0 2px;color:#555;}
   .mh-color-pop .grid{display:grid;grid-template-columns:repeat(8,14px);gap:2px;}
   .mh-color-pop .sw{width:14px;height:14px;cursor:pointer;border:1px solid #999;box-sizing:border-box;}
@@ -3380,12 +3410,12 @@
        CSS가 아니라 창 순서 문제였다 → 여는 동안만 topmost를 비켜준다(main.js companion:colorDialog).
        HEX 칸은 그래도 안 뜨는 환경을 위한 우회로다. */
   .mh-color-pop input[type=color]{width:22px;height:18px;padding:0;border:1px solid #999;cursor:pointer;background:none;}
-  .mh-color-pop .hex{flex:1;min-width:0;font-family:Tahoma,sans-serif;font-size:10px;padding:1px 3px;
+  .mh-color-pop .hex{flex:1;min-width:0;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10px;padding:1px 3px;
     background:#fff;color:var(--ink);border:1px solid;
     border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
   .mh-color-pop .reset{margin-left:auto;font-size:10px;padding:1px 6px;cursor:pointer;background:var(--win-face);
     border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
-  .mh-rt-toolbar select{font-family:Tahoma,sans-serif;font-size:11px;height:20px;}
+  .mh-rt-toolbar select{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;height:20px;}
   .mh-rt-sep{width:1px;height:16px;background:#999;margin:0 2px;}
   .mh-rt-count{margin-left:auto;font-size:10px;color:#666;padding-right:4px;}
   .mh-rt-count.over{color:#c0392b;font-weight:bold;}
@@ -3404,7 +3434,7 @@
   .flt-row .flt-label{font-size:11px;color:var(--ink-soft);font-weight:bold;width:52px;text-align:right;flex:none;}
   .flt-row .flt-clock{font-size:15px;line-height:1;flex:none;}
   .flt-row .flt-time{font-size:22px;font-weight:bold;color:var(--ink);
-    font-family:Tahoma,"MS Sans Serif",sans-serif;letter-spacing:1px;}
+    font-family:Tahoma,"Malgun Gothic","MS Sans Serif",sans-serif;letter-spacing:1px;}
   #focusLogOk{margin-top:10px;padding:6px 26px;font-weight:bold;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   #focusLogOk:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
@@ -3620,7 +3650,7 @@
      왼쪽은 .active::before(●) 자리를 남겨야 해서 16px 유지, 마커는 left:5px로 당김. */
   #myStatusMenu .stItem{
     display:flex;align-items:center;gap:8px;width:100%;
-    font-family:Tahoma,sans-serif;font-weight:normal;font-size:11.5px;color:var(--ink);
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:normal;font-size:11.5px;color:var(--ink);
     background:none;border:none;padding:3px 12px 3px 16px;cursor:pointer;text-align:left;
     white-space:nowrap;position:relative;line-height:1.4;
   }
@@ -3649,7 +3679,7 @@
   /* 안쪽 버튼 — 텍스트+아이콘 리스트 항목. 예전 세그먼트 스타일(width:28px,height:26px,border,box-shadow)을 모두 override. */
   #myChipMore button{
     display:flex;align-items:center;gap:8px;width:auto;
-    font-family:Tahoma,sans-serif;font-weight:normal;font-size:11.5px;color:var(--ink);
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:normal;font-size:11.5px;color:var(--ink);
     background:none;border:none;padding:3px 12px 3px 12px;cursor:pointer;text-align:left;
     white-space:nowrap;height:auto;box-shadow:none;line-height:1.4;margin:0;
   }
@@ -3680,7 +3710,7 @@
     display:flex;flex-direction:column;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.35));
-    font-family:Tahoma,sans-serif;color:var(--ink);
+    font-family:Tahoma,'Malgun Gothic',sans-serif;color:var(--ink);
     pointer-events:none;opacity:0;transition:opacity .12s ease;border-radius:var(--win-radius-el) !important;}
   #myPlaylistBox:not(.hidden){pointer-events:auto;opacity:1;}
   /* 타이틀바가 드래그 손잡이다 — 눌러서 끌면 창이 옮겨지고, 그 자리를 기억한다(더블클릭하면 상태칩 옆으로 복귀). */
@@ -3753,7 +3783,7 @@
        넘치면 … 로 자른다. 남의 한마디(.ro)만 레일로 흐른다. */
   #myPlProfile .plpBio{display:block;width:100%;box-sizing:border-box;
     padding:2px 4px;min-height:17px;
-    font-family:Tahoma,sans-serif;font-size:10.5px;line-height:1.5;color:var(--ink);
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10.5px;line-height:1.5;color:var(--ink);
     background:#fff;border:1px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     border-radius:var(--win-radius-el) !important;}
   #myPlProfile .plpBio:not(input){cursor:text;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
@@ -3896,7 +3926,7 @@
   /* 이름을 고치는 동안 .nm 자리를 대신 차지한다(JS 가 갈아끼운다).
      ⚠️ 밑바탕은 항상 흰색이다 — .cur 줄에서 테마색을 그대로 물려받으면 글자가 안 보인다. */
   #myPlSetPick .psRow .edin{flex:1;min-width:0;height:16px;margin:0;padding:0 3px;
-    font-family:Tahoma,sans-serif;font-size:11px;line-height:1;color:var(--ink);
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;line-height:1;color:var(--ink);
     background:#fff;border:1px solid;
     border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     border-radius:var(--win-radius-el) !important;}
@@ -3969,7 +3999,7 @@
        안쪽 18px 가 물리적 상한이다. */
   #myPlaylistBox .plBtn{
     min-width:22px;height:22px;padding:0;margin:0;
-    font-family:Tahoma,sans-serif;font-size:11px;line-height:1;color:var(--ink);cursor:pointer;
+    font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;line-height:1;color:var(--ink);cursor:pointer;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
     display:inline-flex;align-items:center;justify-content:center;gap:3px;
@@ -4115,7 +4145,7 @@
     border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   .wd-pic-row{display:flex;gap:4px;align-items:center;}
   .wd-pic-row.wd-pic-foot{margin-top:2px;}
-  .wd-pic-btn{flex:1;min-width:0;white-space:nowrap;font-size:10px;padding:3px 2px;cursor:pointer;font-family:Tahoma,sans-serif;color:var(--ink);
+  .wd-pic-btn{flex:1;min-width:0;white-space:nowrap;font-size:10px;padding:3px 2px;cursor:pointer;font-family:Tahoma,'Malgun Gothic',sans-serif;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   .wd-pic-btn.on,.wd-pic-btn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -4131,7 +4161,7 @@
   .wd-preview-color-head{font-size:10px;font-weight:bold;color:var(--ink-soft);}
   .wd-top{display:flex;align-items:center;justify-content:space-between;padding:5px 6px 5px 8px;flex:0 0 auto;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));}
-  .wd-top h2{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0;}
+  .wd-top h2{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:#fff;margin:0;}
   .wd-top button{width:17px;height:15px;font-size:11px;font-weight:bold;line-height:1;cursor:pointer;
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:#000;padding:0;border-radius:var(--win-radius-el) !important;}
@@ -4159,7 +4189,7 @@
   .wd-sub-btn.on{font-weight:bold;}
   /* 검은 도트는 원 배경 자체에 radial-gradient로 그림 — absolute 좌표 계산 오차 없이 항상 정중앙 */
   .wd-sub-btn.on::before{background:#fff radial-gradient(circle at center, #000 0 2px, transparent 2.5px);}
-  .wd-tab-btn{font-family:Tahoma,sans-serif;font-size:11px;padding:5px 9px;cursor:pointer;
+  .wd-tab-btn{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;padding:5px 9px;cursor:pointer;
     background:var(--win-face);color:var(--ink);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .wd-tab-btn.on{background:var(--win-face-2);font-weight:bold;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   /* Phase 2 — 기본/커미션 구분선 */
@@ -4167,7 +4197,7 @@
   .wd-divider:first-child{margin-top:0;}
   .wd-divider-line{flex:1;height:1px;background:var(--win-lo);}
   .wd-divider-badge{background:#f0d060;border:1px solid #a08020;padding:0 5px;font-size:9.5px;color:#503010;border-radius:2px;font-weight:bold;}
-  .cr-item-page-btn{font-family:Tahoma,sans-serif;font-size:11px;min-width:22px;padding:3px 6px;cursor:pointer;
+  .cr-item-page-btn{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;min-width:22px;padding:3px 6px;cursor:pointer;
     background:var(--win-face);color:var(--ink);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .cr-item-page-btn.on{background:var(--win-face-2);font-weight:bold;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   .wd-empty{color:var(--ink-soft);font-size:12px;text-align:center;padding:36px 12px;line-height:1.7;}
@@ -4176,7 +4206,7 @@
   .wd-cat{margin-bottom:16px;}
   .wd-cat:last-child{margin-bottom:4px;}
   .wd-cat-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
-  .wd-cat-head h3{font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:var(--ink);margin:0;display:flex;align-items:center;gap:6px;}
+  .wd-cat-head h3{font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:var(--ink);margin:0;display:flex;align-items:center;gap:6px;}
   .wd-cat-head-actions{display:flex;align-items:center;gap:5px;}
   .wd-add-code{background:none;border:none;color:#8a8a8a;font-size:10px;padding:2px 0;cursor:pointer;text-decoration:underline;}
   .wd-add-code:hover{color:#555;}
@@ -4222,7 +4252,7 @@
   .wd-adj-num{font-size:10px;color:var(--ink-soft);width:34px;flex-shrink:0;text-align:right;}
   .wd-adj-swatch{width:22px;height:22px;flex-shrink:0;cursor:pointer;border:1px solid;
     border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
-  .wd-adj-hex{width:64px;flex-shrink:0;font-family:Tahoma,sans-serif;font-size:10.5px;padding:2px 4px;
+  .wd-adj-hex{width:64px;flex-shrink:0;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10.5px;padding:2px 4px;
     border:1px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   .wd-color-palette{position:absolute;z-index:20;margin-top:4px;top:100%;left:0;
     display:flex;flex-direction:column;gap:6px;padding:8px;
@@ -4583,6 +4613,12 @@
       <span>좌석 크기 평준화</span>
       <button class="fs-toggle-btn" id="fsSeatEqToggle" type="button">꺼짐</button>
     </div>
+    <!-- 🎁 꾸미기 파츠 표시 — 내 화면에서만, 나 포함 전 좌석의 가챠 파츠를 숨긴다. 책상 아이템은 그대로. 서버에 안 쓴다. [2026-09-17 시안 확정] -->
+    <div class="fs-toggle-row">
+      <span>꾸미기 파츠 표시</span>
+      <button class="fs-toggle-btn" id="fsDecoPartsToggle" type="button" style="white-space:nowrap;flex-shrink:0;">켜짐</button>
+    </div>
+    <div class="fs-hint" style="margin-top:0;">끄면 내 화면에서만 나와 상대의 꾸미기 파츠가 안 보여요</div>
 
     <div class="fs-label" style="margin-top:14px;">캐릭터 교체</div>
     <!-- 슬롯 5칸이 300px 패널에 안 들어가서 4칸씩 밀어 본다. 창(.fs-slotvp) 안의 줄을 화살표로 굴린다.
@@ -4676,7 +4712,7 @@
     <button id="wardrobeCategoryManageBtn" style="font-size:11px;padding:3px 10px;background:var(--win-face);
       border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
       box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
-      color:var(--ink);font-family:Tahoma,sans-serif;cursor:pointer;">📁 카테고리 관리</button>
+      color:var(--ink);font-family:Tahoma,'Malgun Gothic',sans-serif;cursor:pointer;">📁 카테고리 관리</button>
   </div>
 </div>
 
@@ -5192,16 +5228,16 @@
     <!-- 하단 링크 3개 — 버튼이 늘어나 폭이 빠듯해졌으므로 글자를 줄이고 줄바꿈을 막음(nowrap) -->
     <div style="display:flex;gap:2px;margin-top:8px;justify-content:center;align-items:center;">
       <button id="lcNameBtn" style="background:none;border:none;white-space:nowrap;
-        font-family:Tahoma,sans-serif;font-size:10px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;">
+        font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;">
         🏠 마이홈
       </button>
       <button id="lcProgSettingsBtn" style="background:none;border:none;white-space:nowrap;
-        font-family:Tahoma,sans-serif;font-size:10px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;">
+        font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;">
         ⚙️ 설정
       </button>
       <!-- 🎟️ 초대장 발급 — 남은 장수는 JS(refreshInviteBtn)가 채움. 0장이면 비활성. -->
       <button id="lcInviteIssueBtn" style="background:none;border:none;white-space:nowrap;
-        font-family:Tahoma,sans-serif;font-size:10px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;">
+        font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:10px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;">
         🎟️ 초대장
       </button>
     </div>
@@ -5236,7 +5272,7 @@
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:300px;max-width:92vw;font-family:Tahoma,sans-serif;">
+    width:300px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🎟️ 유저 초대권 지급</div>
     <div style="padding:14px;">
@@ -5249,14 +5285,14 @@
       <div style="font-size:11px;color:var(--ink-soft);margin-bottom:4px;">지급할 초대권 수</div>
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
         <button id="inviteGrantMinus" type="button" style="width:28px;height:26px;padding:0;cursor:pointer;
-          font-family:Tahoma,sans-serif;font-size:13px;font-weight:bold;
+          font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:13px;font-weight:bold;
           background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
           box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);">◀</button>
         <div id="inviteGrantCount" style="min-width:44px;text-align:center;font-size:15px;font-weight:bold;
           padding:5px 0;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
           box-shadow: inset 1px 1px 0 var(--win-lo-2);">1</div>
         <button id="inviteGrantPlus" type="button" style="width:28px;height:26px;padding:0;cursor:pointer;
-          font-family:Tahoma,sans-serif;font-size:13px;font-weight:bold;
+          font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:13px;font-weight:bold;
           background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
           box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);">▶</button>
       </div>
@@ -5277,7 +5313,7 @@
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:320px;max-width:92vw;font-family:Tahoma,sans-serif;">
+    width:320px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));" id="inviteIssuedTitle">🎟️ 초대장 발급</div>
     <div style="padding:14px;">
@@ -5314,7 +5350,7 @@
   background:#3a6ea5;">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:320px;max-width:92vw;font-family:Tahoma,sans-serif;">
+    width:320px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🎟️ 초대 코드 입력</div>
     <div style="padding:14px;">
@@ -5350,7 +5386,7 @@
   background:rgba(0,0,0,.35);">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:320px;max-width:92vw;font-family:Tahoma,sans-serif;">
+    width:320px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🖥️ 다른 기기에서 사용 중이에요</div>
     <div style="padding:14px;">
@@ -5371,7 +5407,7 @@
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:280px;max-width:90vw;font-family:Tahoma,sans-serif;">
+    width:280px;max-width:90vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🔧 관리자 비밀번호</div>
     <div style="padding:14px;">
@@ -5395,7 +5431,7 @@
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:340px;max-width:90vw;font-family:Tahoma,sans-serif;">
+    width:340px;max-width:90vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🎟️ 라이선스 키 발급</div>
     <div style="padding:14px;">
@@ -5475,7 +5511,7 @@
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:340px;max-width:90vw;font-family:Tahoma,sans-serif;">
+    width:340px;max-width:90vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">📣 확성기 공지</div>
     <div style="padding:14px;">
@@ -5501,7 +5537,7 @@
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:420px;max-width:90vw;font-family:Tahoma,sans-serif;">
+    width:420px;max-width:90vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">📰 업데이트 공지 편집</div>
     <div style="padding:14px;">
@@ -5533,7 +5569,7 @@
   background:transparent;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.5);
-    width:440px;max-width:90vw;max-height:80vh;font-family:Tahoma,sans-serif;display:flex;flex-direction:column;">
+    width:440px;max-width:90vw;max-height:80vh;font-family:Tahoma,'Malgun Gothic',sans-serif;display:flex;flex-direction:column;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));display:flex;justify-content:space-between;align-items:center;">
       <span>📰 <span id="updateNoticeViewTitle">업데이트 안내</span></span>
@@ -5555,7 +5591,7 @@
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:460px;max-width:92vw;max-height:88vh;overflow-y:auto;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);font-family:Tahoma,sans-serif;">
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));display:flex;justify-content:space-between;">
       <span>📁 카테고리 관리</span>
@@ -5641,7 +5677,7 @@
   <div style="pointer-events:auto;width:300px;max-width:90vw;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);">
-    <div style="font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+    <div style="font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">⚙️ 게임 설정</div>
     <div style="padding:14px;">
       <label style="display:block;font-size:11px;font-weight:bold;color:var(--ink);margin-bottom:4px;">🐾 동물 캐릭터 해금 레벨</label>
@@ -5660,7 +5696,7 @@
   <div style="pointer-events:auto;width:320px;max-width:90vw;max-height:88vh;overflow-y:auto;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);">
-    <div style="font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+    <div style="font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">📢 광고 배너 편집 (최대 3개, 슬라이드)</div>
     <div style="padding:14px;">
       <div id="adBannerSlot0" style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--win-lo);">
@@ -5714,7 +5750,7 @@
   <div style="pointer-events:auto;width:300px;max-width:90vw;max-height:90vh;overflow-y:auto;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);">
-    <div style="font-family:Tahoma,sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+    <div style="font-family:Tahoma,'Malgun Gothic',sans-serif;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
       background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">⚙️ 프로그램 설정</div>
     <div style="padding:10px 12px 14px;">
       <div class="fs-tabs">
@@ -6032,11 +6068,11 @@
         <button id="crPresetBtn" type="button" title="책상·좌석 프리셋 저장/불러오기"
           style="position:absolute;top:6px;left:6px;z-index:5;padding:4px 8px;font-size:11px;cursor:pointer;
           background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-          font-family:Tahoma,sans-serif;color:var(--ink);">📐 프리셋</button>
+          font-family:Tahoma,'Malgun Gothic',sans-serif;color:var(--ink);">📐 프리셋</button>
         <div id="crPresetPopup" style="display:none;position:absolute;top:34px;left:6px;z-index:6;
           background:var(--win-face);padding:10px;min-width:220px;
           border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-          box-shadow:3px 3px 0 rgba(0,0,0,.35);font-family:Tahoma,sans-serif;">
+          box-shadow:3px 3px 0 rgba(0,0,0,.35);font-family:Tahoma,'Malgun Gothic',sans-serif;">
           <div style="font-size:12px;font-weight:bold;color:var(--ink);margin-bottom:6px;">프리셋 저장/불러오기</div>
           <div id="crPresetSlots" style="display:flex;gap:5px;"></div>
           <div style="font-size:10px;color:#8a8a8a;margin-top:5px;">클릭 = 불러오기 · 우클릭 = 저장/삭제</div>
@@ -6467,7 +6503,7 @@
 
 <!-- 📊 관리자 Total 통계 -->
 <div id="totalStatsOverlay" style="display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:rgba(0,0,0,.35);pointer-events:auto;">
-  <div style="width:320px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,sans-serif;">
+  <div style="width:320px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">
       <span>📊 전체 통계</span>
       <span id="totalStatsClose" class="mh-x" style="cursor:pointer;">✕</span>
@@ -6483,7 +6519,7 @@
 
 <!-- 🙋 친구 초대 — 친구 목록에서 골라 현재 방으로 초대 -->
 <div id="roomInvitePickOverlay" style="display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:none;pointer-events:none;">
-  <div id="roomInvitePickWin" style="width:320px;max-height:70vh;display:flex;flex-direction:column;pointer-events:auto;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,sans-serif;">
+  <div id="roomInvitePickWin" style="width:320px;max-height:70vh;display:flex;flex-direction:column;pointer-events:auto;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div id="roomInvitePickHead" style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;">
       <span>🙋 친구 초대</span>
       <span id="roomInvitePickClose" class="mh-x" style="cursor:pointer;">✕</span>
@@ -6521,11 +6557,24 @@
            body 로 옮기면 run 모드에서 클릭이 뒤로 뚫린다(.mh-color-pop 사고 참고). -->
       <div class="chat-menu-item" id="chatViewMenu">설정
         <div class="chat-dropdown" id="chatViewDropdown">
-          <div class="chat-dropdown-label">글자 크기</div>
-          <div class="chat-dropdown-item chat-fs-item" data-fs="11"><span class="chk"></span>작게</div>
-          <div class="chat-dropdown-item chat-fs-item" data-fs="12"><span class="chk"></span>보통</div>
-          <div class="chat-dropdown-item chat-fs-item" data-fs="14"><span class="chk"></span>크게</div>
-          <div class="chat-dropdown-item chat-fs-item" data-fs="16"><span class="chk"></span>아주 크게</div>
+          <!-- 🔔 알림음 — 누르면 켜짐/꺼짐(✓). 꺼지면 아래 소리 목록이 통째로 사라진다.
+               소리 목록의 data-sfx 는 app.js CHAT_SFX_LIST 의 id 와 같아야 한다(sim-chat-sfx). ▷ = 미리듣기 -->
+          <div class="chat-dropdown-item" id="chatSfxToggle"><span class="chk"></span>알림음<span class="chat-sfx-note"></span></div>
+          <div id="chatSfxList">
+            <div class="chat-dropdown-item chat-sfx-item" data-sfx="1"><span class="chk"></span>알림음 1<span class="chat-sfx-pv" title="미리듣기">▷</span></div>
+            <div class="chat-dropdown-item chat-sfx-item" data-sfx="2"><span class="chk"></span>알림음 2<span class="chat-sfx-pv" title="미리듣기">▷</span></div>
+            <div class="chat-dropdown-item chat-sfx-item" data-sfx="3"><span class="chk"></span>알림음 3<span class="chat-sfx-pv" title="미리듣기">▷</span></div>
+          </div>
+          <div class="chat-dropdown-sep"></div>
+          <!-- 🔠 글자 크기 ▶ — 마우스를 올리면 옆으로 펼쳐진다. 안의 .chat-fs-item 규약은 예전 그대로다. -->
+          <div class="chat-dropdown-item chat-has-sub" id="chatFsMenu"><span class="chk"></span>글자 크기<span class="chat-sub-arrow">▶</span>
+            <div class="chat-submenu" id="chatFsSub">
+              <div class="chat-dropdown-item chat-fs-item" data-fs="11"><span class="chk"></span>작게</div>
+              <div class="chat-dropdown-item chat-fs-item" data-fs="12"><span class="chk"></span>보통</div>
+              <div class="chat-dropdown-item chat-fs-item" data-fs="14"><span class="chk"></span>크게</div>
+              <div class="chat-dropdown-item chat-fs-item" data-fs="16"><span class="chk"></span>아주 크게</div>
+            </div>
+          </div>
         </div>
       </div>
       <!-- 🧹 지우기 — 내 화면에서만 가린다(서버 기록·남의 화면은 그대로). 되돌리기를 같이 둔다.

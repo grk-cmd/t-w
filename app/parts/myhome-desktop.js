@@ -2337,14 +2337,17 @@ const css = `
   #advEnvMenu.on{display:flex;}
   #advEnvMenu button{font-size:10.5px;text-align:left;padding:5px 10px;background:none;border:none;cursor:pointer;}
   #advEnvMenu button:hover{background:#000080;color:#fff;}
-  /* 🔌 외부 앱이 추가한 환경설정 하위메뉴 (MYHOME_DESKTOP.addEnvMenu) */
+  /* 🔌 외부 앱이 추가한 환경설정 하위메뉴 (MYHOME_DESKTOP.addEnvMenu)
+     ⚠️ 펼침 칸 클래스는 **mhd-fly** 다. '.fly' 로 되돌리지 말 것 —
+       desk-companion-prototype.html 에 채팅 「날리기」의 전역 '.fly{animation:flyAcross; pointer-events:none; font:700 27px …}'
+       가 있어서, 이름이 같으면 서브메뉴가 그 애니메이션을 받아 옆으로 흘러가 버린다(2026-09-17 제보). sim-mhd-envsub 가 본다. */
   .mhd-envsub{position:relative;display:flex;flex-direction:column;}
   .mhd-envsub>.hd{display:flex;justify-content:space-between;align-items:center;gap:10px;}
-  .mhd-envsub .fly{display:none;position:absolute;left:100%;bottom:0;z-index:7;background:#c0c0c0;
+  .mhd-envsub .mhd-fly{display:none;position:absolute;left:100%;bottom:0;z-index:7;background:#c0c0c0;
     border:2px solid;border-color:#fff #404040 #404040 #fff;box-shadow:2px 2px 0 rgba(0,0,0,.3);
     flex-direction:column;min-width:104px;}
-  .mhd-envsub.on .fly{display:flex;}
-  .mhd-envsub .fly button.sel::before{content:'· ';}
+  .mhd-envsub.on .mhd-fly{display:flex;}
+  .mhd-envsub .mhd-fly button.sel::before{content:'· ';}
   #advUrlBox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;display:none;
     background:#c0c0c0;border:2px solid;border-color:#fff #404040 #404040 #fff;box-shadow:3px 3px 0 rgba(0,0,0,.35);
     padding:8px;width:78%;}
@@ -3471,8 +3474,8 @@ function mhdMountEnv(e){
   if(document.getElementById(e.subId)) return;
   const sub=h('<div class="mhd-envsub" id="'+e.subId+'">'
     +'<button type="button" class="hd">'+esc(e.label)+'<span>▶</span></button>'
-    +'<div class="fly"></div></div>');
-  const fly=sub.querySelector('.fly');
+    +'<div class="mhd-fly"></div></div>');
+  const fly=sub.querySelector('.mhd-fly');
   (e.items||[]).forEach(it=>{
     const b=h('<button type="button">'+esc(it.label)+'</button>');
     b.dataset.v=String(it.value);
@@ -3495,7 +3498,7 @@ function mhdMountEnv(e){
 function mhdMarkEnv(e){
   const sub=document.getElementById(e.subId); if(!sub) return;
   let cur=null; try{ cur = e.get ? String(e.get()) : null; }catch(_){}
-  sub.querySelectorAll('.fly button').forEach(b=>b.classList.toggle('sel', cur!=null && b.dataset.v===cur));
+  sub.querySelectorAll('.mhd-fly button').forEach(b=>b.classList.toggle('sel', cur!=null && b.dataset.v===cur));
 }
 function mhdMountAllEnv(){ MHD_ENV.forEach(e=>{ try{ mhdMountEnv(e); }catch(err){ console.error('[MYHOME_DESKTOP] env mount 실패', e.id, err); } }); }
 

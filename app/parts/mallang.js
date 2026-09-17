@@ -1003,7 +1003,7 @@
       #mlGiftGrid .ml-gcell img{max-width:100%;max-height:100%;}
       #mlGift .ml-msgrow{margin-top:9px;}
       #mlGift .ml-msgrow label{display:block;font-size:10.5px;color:#333;margin-bottom:3px;}
-      #mlGift .ml-msgrow input{width:100%;box-sizing:border-box;font-family:Tahoma,sans-serif;font-size:11px;padding:3px 4px;
+      #mlGift .ml-msgrow input{width:100%;box-sizing:border-box;font-family:Tahoma,"Malgun Gothic",sans-serif;font-size:11px;padding:3px 4px;
         border:1px solid;border-color:#808080 #fff #fff #808080;background:#fff;}
       #mlGift .ml-msgcnt{font-size:9.5px;color:#666;text-align:right;margin-top:2px;}
     `;

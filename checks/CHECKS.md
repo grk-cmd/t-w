@@ -1,9 +1,20 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 18 (`sim-device-session.js` 신설) · 개정 17 (`sim-room-order.js` 신설) · 개정 16 (`sim-admin-active.js` 신설) · 개정 15 (`sim-wheel-kick.js` 신설) · 개정 14 (`sim-ui-zoom.js` 신설) · 개정 13 (`sim-pk-fit.js` 신설) · 개정 12 (`sim-account-switch.js` 신설 + `sim-google-login.js` 고침) · 개정 11 (`sim-room-channel.js` 신설) · 개정 10 (`sim-slot-sync.js` 신설 + 2026-09-16 세션 검사 5개 등재) · 근거: `handoff-mac-runtime.md` §3-① · `handoff-2026-09-16.md` §5
-대상: `sim-*.js` 67개 + `smoke.js` + `audit.py` = **69개**
+작성: 2026-09-12 · 개정 20 (`sim-mhd-envsub.js` · `sim-font-hangul.js` · `sim-chat-sfx.js` 신설) · 개정 19 (`sim-deco-parts.js` 신설) · 개정 18 (`sim-device-session.js` 신설) · 개정 17 (`sim-room-order.js` 신설) · 개정 16 (`sim-admin-active.js` 신설) · 개정 15 (`sim-wheel-kick.js` 신설) · 개정 14 (`sim-ui-zoom.js` 신설) · 개정 13 (`sim-pk-fit.js` 신설) · 개정 12 (`sim-account-switch.js` 신설 + `sim-google-login.js` 고침) · 개정 11 (`sim-room-channel.js` 신설) · 개정 10 (`sim-slot-sync.js` 신설 + 2026-09-16 세션 검사 5개 등재) · 근거: `handoff-mac-runtime.md` §3-① · `handoff-2026-09-16.md` §5
+대상: `sim-*.js` 71개 + `smoke.js` + `audit.py` = **73개**
+
+**개정 20 에서 한 것 (2026-09-17)**
+- `sim-mhd-envsub.js` 신설·등재 — 마이홈 바탕화면 «환경 설정» 서브메뉴(글자 크기·브금)가 옆으로 흘러가던 사고. 펼침 칸 클래스 `.fly` 가 채팅 날리기 전역 `.fly`(flyAcross) 와 부딪혔다 → `mhd-fly` 로 바꿈 (§26).
+- `sim-font-hangul.js` 신설·등재 — 기본 테마·머리 위 말풍선의 한글 폰트가 바뀐 사고. Electron 31→44 로 한글 대체 폰트가 바뀌었다 → Tahoma 목록마다 Malgun Gothic 을 적었다 (§27).
+- `sim-chat-sfx.js` 신설·등재 — 대화창 설정 «알림음»(3종 · ▷ 미리듣기) · «글자 크기 ▶» 서브메뉴 (§28, handoff-2026-09-17b §3-2).
+- 기준선(저장소 러너) 기대값 **초록 72 · 빨강 0 · 원본없음 1** (73개). 실기기에서 `node checks\run.js` 로 확인할 것.
+
+**개정 19 에서 한 것 (2026-09-17)**
+- `sim-deco-parts.js` 신설·등재 — 설정 › 캐릭터 «꾸미기 파츠 표시» 켜짐/꺼짐(내 화면 전용, 책상 아이템 제외) (§25).
+- 기준선(저장소 러너) **초록 69 · 빨강 0 · 원본없음 1** (70개).
 
 **개정 18 에서 한 것 (2026-09-17)**
+- `sim-chat-fly.js` **고침(350 → 359줄).** 날리기에 회사원 모드 게이트를 넣었다(보내는 쪽 체크 숨김·fly 안 실음 · 보는 쪽 상대 날리기도 말풍선/라벨 · 켜는 순간 정리). 판정 4개 추가, 기존 판정 무변경.
 - `sim-device-session.js` 신설·등재 — 제보 3 «두 PC 다중 접속» 한 계정 한 기기(`users/{uid}/session`) (§24). 제보 ②(오프라인이 온라인으로)도 같은 뿌리.
   규칙 파일(`firebase-database-rules.json`)에 `users/$userId/session` 블록을 넣었다 — **게시해야 켜진다.** 미게시면 쓰기가 거부돼 지금과 같다(더 나빠지지 않음). 검사 1절이 규칙 파일이 있으면 그 블록까지 본다.
 - 기준선 **초록 62 · 빨강 0 · 원본없음 7** (69개).
@@ -82,8 +93,8 @@
 
 | 확인 | 결과 |
 |---|---|
-| 검사 파일 수 | **69개** (§3 · 개정 18 에서 `sim-device-session.js` 신설) |
-| 실기기 한 바퀴 | **초록 62 · 빨강 0 · 원본없음 7 · 시간초과 0** (개정 18 · 원본없음은 `mallang.js` 등 범위 밖) |
+| 검사 파일 수 | **73개** (§3 · 개정 20 에서 `sim-mhd-envsub.js` · `sim-font-hangul.js` · `sim-chat-sfx.js` 신설) |
+| 실기기 한 바퀴 | **초록 72 · 빨강 0 · 원본없음 1 · 시간초과 0** (개정 20 기대값 — 확인 전 · 저장소 러너 기준 — 프로젝트 사본 환경은 원본없음 7) |
 | `sim-sysinput.js` | **입수함.** 받은 것은 §2 표의 **58·1 판**. 6절 한 줄 고쳐 **60·0** |
 | `sysinput-win.js` 를 읽는 검사 | **2개** (`sim-sysinput.js` · `sim-admin-active.js`, 개정 16) |
 | `overlay-win.js` 를 읽는 검사 | **2개** — §4-② 에서 메웠다 (개정 6 까지는 0개였다) |
@@ -141,7 +152,7 @@
 | sim-char-identity.js | 187 | bdad4f71d987 |
 | sim-char-z.js | 224 | 24de011f5c83 |
 | **sim-cfg-fit.js** | 144 | **7d2963e0741d** ← 2026-09-16 (제보 1·2 런처 크기) · 개정 10 등재 |
-| **sim-chat-fly.js** | 350 | **74e022a212b4** ← 2026-09-16 신규 · 같은 날 5차 개정(띠·크기·체크줄·크기 3단·속도 px/s) (§15) |
+| **sim-chat-fly.js** | 359 | **8bd048f24d91** ← 2026-09-17 고침(350→359줄) · 회사원 모드 게이트 판정 4개 추가. 2026-09-16 신규 · 같은 날 5차 개정(띠·크기·체크줄·크기 3단·속도 px/s) (§15) |
 | **sim-chat-log-persist.js** | 148 | **04941c076189** ← 2026-09-13 고친 판 (§8) |
 | **sim-child-theme.js** | 96 | **36e0e6de3ef7** ← 2026-09-16 (제보 5 자식 창 테마) · 개정 10 등재 |
 | sim-chip-chat-ui.js | 111 | 2da628460ae2 |
@@ -199,6 +210,10 @@
 | **sim-admin-active.js** | 154 | **015bbc6e3888** ← 2026-09-17 신규 · E 추가 제보 관리자 권한 창 판정·훅 수신 진단 (§22) |
 | **sim-room-order.js** | 70 | **1cdeb41731a0** ← 2026-09-17 신규 · 제보 2 입장순 서버 시계 · 제보 4 시크릿룸 옛 uid (§23) |
 | **sim-device-session.js** | 124 | **7ea655327444** ← 2026-09-17 신규 · 제보 3 한 계정 한 기기 (§24) |
+| **sim-deco-parts.js** | 66 | **ff0be39664b1** ← 2026-09-17 신규 · 꾸미기 파츠 표시 토글 (§25) |
+| **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** ← 2026-09-17 신규 · 마이홈 환경설정 서브메뉴 클래스 충돌 (§26) |
+| **sim-font-hangul.js** | 49 | **88cd3c70324a** ← 2026-09-17 신규 · Tahoma 목록의 한글 폰트 (§27) |
+| **sim-chat-sfx.js** | 143 | **f66e9c756de8** ← 2026-09-17 신규 · 채팅 알림음 · 글자 크기 서브메뉴 (§28) |
 | sim-win-front.js | 108 | 3611b5c18f21 |
 | sim-win-layers.js | 197 | a004bf67b98a |
 | sim-yard-enter.js | 59 | c323aea595a5 |
@@ -1487,3 +1502,85 @@ main.js 폴링이 «활성 창 판정 실패» 로 일찍 return → `activeAppS
 | 2 | app.js: claim 자리 · 밀림 처리에 로그아웃/지움 호출 없음 · 계속 쓰기 배선 · startRoom 첫 줄 · `_detachAccountLocal` 의 release · UI_HIT_SEL 등록 |
 | 3 | HTML: 숨긴 채 시작 · 버튼 둘 · 시안 문구 · «로그아웃» 이라는 말 없음 |
 
+---
+
+## 25. `sim-deco-parts.js` — 🎁 꾸미기 파츠 표시 켜짐/꺼짐 (2026-09-17 · 개정 19 신규)
+
+**요청** 「설정 › 캐릭터 «좌석 크기 평준화» 아래에 꾸미기 파츠 켜짐/꺼짐. 꺼짐이면 내 화면에서만 나 포함 상대의 꾸미기 파츠가 안 보이게. 파츠 보관함의 가챠 파츠만 — 책상 설정의 책상 아이템은 그대로.」
+
+**구조** `decoPartsVisible`(tw.decoParts, 기본 켜짐). 캐릭터에 붙는 파츠 wrapper(`__twPartWrap`)의 `visible` 만 내린다 — 일반·겹치기·다중 인스턴스 전부.
+책상 위(`bone:'desk'`) 카테고리는 예외. 메시는 안 건드리므로 자리비움(`setSeatOpacity`·`_prevVisible`)과 안 섞이고, 파츠 애니·스티커사진 키 계산도 그대로.
+★ **hides 되돌림** — 꺼짐이면 `applyClothVisibility` 가 «파츠 없음» 으로 계산해 파츠가 숨기던 기본 메시(머리카락·기본 상의)를 되돌린다. 이게 없으면 모자만 사라진 대머리가 된다.
+적용 자리는 `applyClothVisibility` 안 — 부착·해제·좌석 재조립 뒤 늘 지나는 자리라 새로 붙는 파츠도 설정을 따른다. 서버에는 아무것도 안 쓴다.
+
+| 절 | 무엇을 지키나 |
+|---|---|
+| 1 | 기본 켜짐·저장 키 · `_decoWrapperShow`/`applyDecoPartsVisibility` 를 가짜 좌석에서 실행: 꺼짐이면 모자·날개 숨김, 책상 위는 보임, 표식 없는 오브젝트는 안 건드림 |
+| 2 | `applyClothVisibility`: wrapper 적용이 안에 있고 hides 계산 앞 · 꺼짐이면 `eq = {}` · 부착 끝의 기존 호출 줄 유지 |
+| 3 | 토글: 뒤집고 저장 · 전 좌석 재적용 · 서버 쓰기 없음 · refreshToggleBtns · HTML 행이 평준화 바로 아래 · 이름·기본값·안내 |
+
+⚠️ 꾸미기 창 미리보기(`wdPreviewBase`)는 좌석이 아니라 영향 없다 — 뭘 입히는지는 봐야 한다. 스티커사진은 좌석을 복제하므로 꺼진 채 찍으면 파츠 없이 찍힌다(내 화면 설정이 사진에도 따라간다).
+
+---
+
+## 26. `sim-mhd-envsub.js` — 🖥️ 마이홈 «환경 설정» 서브메뉴가 옆으로 흘러감 (2026-09-17 · 개정 20 신규)
+
+**제보** 「마이홈 바탕화면 영역의 환경 설정을 누르고 글자 크기·브금 메뉴에 마우스를 대면 서브메뉴가 막 옆으로 움직인다.」
+
+**원인** `myhome-desktop.js` 의 `addEnvMenu` 펼침 칸 클래스가 `.fly` 였다. `desk-companion-prototype.html` 의 채팅 「날리기」 전역 규칙
+`.fly{position:absolute;left:100%;pointer-events:none;font:700 27px …;animation:flyAcross …}` 가 그대로 얹혀, 펼칠 때마다 서브메뉴가 흐르는 자막처럼 왼쪽 밖으로 날아갔다(클릭도 통과). 날리기가 들어온 뒤부터 난 사고.
+
+**고침** 마이홈 쪽을 `mhd-fly` 로 바꿨다(CSS 3줄 · 마크업 · 셀렉터 2곳). 날리기 쪽 `.fly` 는 `sim-chat-fly` 가 규칙 문자열을 붙잡고 있으므로 건드리지 않는다.
+★ 앞으로 새 UI 에 `fly`·`fsz` 같은 날리기 클래스 이름을 쓰지 말 것 — 전역이다.
+
+| 절 | 무엇을 지키나 |
+|---|---|
+| 1 | myhome-desktop.js 에 맨 `.fly` 셀렉터·`class="fly"` 가 없다 · CSS/마크업/셀렉터/선택 표시가 모두 `mhd-fly` |
+| 2 | 전제: HTML 전역 `.fly` 가 flyAcross·클릭 통과다(이 검사가 지키는 이유가 아직 살아 있는지) |
+
+옛 판에 돌리면 1절 6개가 빨강이 된다(확인함).
+
+---
+
+## 27. `sim-font-hangul.js` — 🔤 기본 테마·말풍선 한글 폰트가 바뀜 (2026-09-17 · 개정 20 신규)
+
+**제보** 「이전에 쓰던 것과 다른 폰트로 바뀐 것 같다」 — 기본 테마와 머리 위 말풍선. 대화창은 그대로.
+
+**원인** 코드의 폰트 값은 9/14 이후 한 번도 안 바뀌었다(`git log -S"--win-font:"` 는 일괄 커밋 `500cf49` 하나뿐). 바뀐 것은 **Electron 31 → 44 (9/15 package.json)** 다.
+Tahoma 에는 한글 글자가 없어서 한글은 브라우저가 고른 대체 폰트로 그려지는데, 그 선택이 바뀌었다. 예전엔 맑은 고딕이었다(app.js 말풍선 주석 「Tahoma→맑은 고딕」).
+대화창(`#chatWindow`)만 멀쩡했던 것은 처음부터 `'Malgun Gothic'` 을 적어 두었기 때문 — 원인을 가르는 대조군이 됐다.
+
+**고침** Tahoma 로 시작하는 폰트 목록마다 Tahoma **바로 뒤**에 Malgun Gothic 을 넣었다 — HTML 111곳(인라인 103 · 규칙 8) · app.js 14곳(자식 창 `var(--win-font,…)` 폴백 포함) · mallang.js 1곳.
+영문은 여전히 Tahoma 가 먼저라 모양이 안 바뀐다. JS 문자열 안은 `"Malgun Gothic"`, HTML 은 `'Malgun Gothic'`(규칙 안 `font:` 줄임형은 원래 따옴표를 따라 `"…"`).
+예외 둘: 버블 테마 `--win-font`(돋움이 먼저라 한글이 이미 정해짐 — 안 건드림) · app.js 15169 이모지 전용 목록.
+자식 창(방명록·디자인)은 `THEME_CHILD_TOKENS` 로 부모의 `--win-font` 값을 받으므로 159행 수정으로 같이 따라온다.
+
+| 절 | 무엇을 지키나 |
+|---|---|
+| 1 | HTML·app.js·(있으면) mallang.js·myhome-desktop.js 의 주석 밖 `font`/`font-family` 선언 중 Tahoma 가 든 것은 전부 한글 폰트(맑은 고딕·돋움)를 함께 적는다 · 이모지 목록 예외 |
+| 2 | 기본 `--win-font` = Tahoma 다음 맑은 고딕 · 버블은 돋움 먼저 · 말풍선 15px · 이름표 · 대화창 |
+
+⚠ 새 UI 에 `font-family:Tahoma,sans-serif` 를 그대로 쓰지 말 것 — 되도록 `var(--win-font)` 를 쓰고, 꼭 적어야 하면 한글 폰트를 붙인다. 옛 판에 돌리면 6개가 빨강(확인함).
+
+---
+
+## 28. `sim-chat-sfx.js` — 🔔 채팅 알림음 · 글자 크기 ▶ (2026-09-17 · 개정 20 신규)
+
+**요청** 대화창 [설정]에 «알림음» 켜짐/꺼짐 — 켜짐이면 소리 3종(알림음 1·알림음 2·알림음 3, ▷ 미리듣기) 줄이 나타나고 꺼짐이면 사라진다. «글자 크기» 를 «글자 크기 ▶» 로 바꿔 마우스를 올리면 옆으로 4단. 시안 승인 후 구현.
+결정: **대화창이 열려 있으면(최소화 포함) 안 울림** — 처음엔 «입력칸 포커스일 때만» 이었다가 커밋 전에 바뀌었다 · ▷ 는 듣기만(고르지 않음) · 기본 켜짐/알림음 1(`CHAT_SFX_DEFAULT_*`).
+
+**구조** 소리 파일은 `app/parts/chat-notify-1~3.mp3`. 풀은 `_mkSndPool` 로 소리마다 하나, **prime 등록보다 먼저** 만든다(once:true — 늦게 만든 풀은 자동재생 잠금이 안 풀린다).
+울리는 자리는 `syncFriendSeats` 의 상대 채팅 분기 한 곳 — 날리기·말풍선이 **실제로 뜬 경우에만**(`_chatShown`). friends 에 내 좌석이 없으니 내 메시지엔 안 울리고, chatLog 구독에는 걸지 않는다(한 줄 두 번 방지).
+게이트: 꺼짐 · `_chatWinOpen()`(#chatOverlay 의 display 가 none 이 아님 — 여는 곳 block · 닫는 곳 closeChatWindow 의 none) · 250ms 간격 · 회사원 모드(풀 안).
+서브메뉴는 **CSS :hover** 로 연다(`.chat-has-sub:hover > .chat-submenu`, `left:100%` 틈 없음). 오른쪽 끝이면 들어올 때 한 번 재서 `.flip`. 눌러도 열린다(`.sub-open`). 알림음 줄은 눌러도 메뉴가 안 닫힌다.
+저장은 로컬 `tw.chatSfx`('1'/'0') · `tw.chatSfxId`.
+🏢 **회사원 모드면 «꺼짐» 으로 보인다**(`_chatSfxOfficeLock`) — ✓ 없음 · 목록 숨김 · 줄 흐림 + «회사원 모드» · 눌러도 안 바뀜(토스트). 저장값은 안 건드려서 모드를 끄면 원래대로. 모드 토글이 `_applyChatSfxUI` 를 다시 부른다.
+
+| 절 | 무엇을 지키나 |
+|---|---|
+| 1 | 가짜 DOM 에서 실행: 기본값 · 잘못된 id · 창이 열려 있으면 포커스와 무관하게 조용 · 창이 닫혀 있으면 울림 · 간격 · 소리 바꾸기 · 꺼짐이면 조용+목록 숨김+✓ 빠짐 · 🏢 회사원 모드면 꺼짐 표시·조용·저장값 유지·끄면 복귀 |
+| 2 | `_mkSndPool` 사용 · prime 등록보다 앞 · new Audio 없음 · 회사원 게이트는 풀 play 안 · 경로 폴백 · (있으면) mp3 세 개 |
+| 3 | 부르는 자리 1곳(수신 분기, 뜬 경우만) · chatLog 구독·sendMyChat 에 없음 · 배선 때 UI 반영 · 🏢 모드 토글이 다시 그림 · 잠긴 동안 저장값 불변 |
+| 4 | data-sfx = 목록 id · ▷ 셋 · 메뉴 이름 알림음 1·2·3 = 목록 label · 4단 그대로 · 4단이 «글자 크기 ▶» 의 자식 서브메뉴 · :hover/left:100% · 베젤 radius · fly 이름 안 씀 · #chatWindow 안 |
+
+실측: 헤드리스 크로미움에서 부모 줄→서브메뉴로 4px 씩 옮겨도 한 번도 안 닫히고, 호버 중 위치가 고정(흔들림 없음)임을 확인. 옛 판에서는 16개 빨강.
