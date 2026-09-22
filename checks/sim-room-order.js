@@ -55,15 +55,18 @@ say('── 2. app.js 시크릿룸 발급 — 거울(users/{uid}/friendCode) 불
   chk(/getUserFriendCode\(uid\)\{/.test(FB), '  firebase-init.js 에 getUserFriendCode 가 있다(있는 API 만 쓴다)');
 }
 
-/* ── 3. 입장 안내 ── */
-say('── 3. app.js startRoom — 옛 uid 로 발급된 내 방이면 재발급 안내');
+/* ── 3. 입장 — «버린 uid» 안내는 걷었다 (개정 56 · 회원가입 설계 §6-⑥) ──
+   예전엔 pub.owner 가 «이 기기가 버린 uid» 면 재발급 안내 토스트를 띄웠다. 그 목록(tw.myPrevUserIds)이 걷혔다 —
+   이 기기의 이전 uid 는 이제 다른 계정이다. 방장 판정은 그대로 pub.owner 문자열 하나로 방 전원이 같은 계산을 한다. */
+say('── 3. app.js startRoom — 방장 판정은 문자열 하나 · «버린 uid» 안내 없음');
 {
-  const i = SRC.indexOf('const _iAmSrOwner = !!(_isSecret && _secretOwner && _secretOwner === getMyUserId());');
-  const after = SRC.slice(i, i + 1500);
-  chk(i >= 0, '_iAmSrOwner 판정을 찾았다');
-  chk(/_isMyPrevUserId\(_secretOwner\)/.test(after) && /재발급을 요청해 주세요/.test(after), '★ pub.owner ∈ 내가 버린 uid → 재발급 안내 토스트');
-  chk(!/_iAmSrOwner = .*_isMyPrevUserId/.test(after), '  방장으로 쳐 주지는 않는다 — 방 전원이 같은 문자열로 판정하므로 혼자 바꾸면 어긋난다');
-  chk(/function _isMyPrevUserId\(uid\)/.test(SRC), '  _isMyPrevUserId 가 있다(tw.myPrevUserIds)');
+  const code = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
+  const i = code.indexOf('const _iAmSrOwner = !!(_isSecret && _secretOwner && _secretOwner === getMyUserId());');
+  const after = code.slice(i, i + 1500);
+  chk(i >= 0, '_iAmSrOwner 판정을 찾았다 (pub.owner === 내 uid 하나)');
+  chk(!/_isMyPrevUserId/.test(code) && !/재발급을 요청해 주세요/.test(after), '★ «버린 uid» 로 방장을 알아보는 갈래가 없다 (개정 56)');
+  chk(!/function _isMyPrevUserId\(|tw\.myPrevUserIds['"]\)\s*\|\|/.test(code), '  _isMyPrevUserId · 버린 uid 목록이 없다');
+  chk(/window\._srOwnerUid = _isSecret \? \(_secretOwner \|\| null\) : null;/.test(after), '  자기 퇴장 게이트가 읽는 방장 값은 그대로');
 }
 
 say('\n결과: 통과 ' + pass + ' · 실패 ' + fail);

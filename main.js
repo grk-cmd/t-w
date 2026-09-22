@@ -162,6 +162,84 @@ autoUpdater.on('download-progress', (p) => sendUpdateStatus('downloading', { per
 autoUpdater.on('update-downloaded', (info) => sendUpdateStatus('downloaded', { version: info.version }));
 autoUpdater.on('error', (e) => sendUpdateStatus('error', { message: String(e && e.message || e) }));
 
+/* ── 🍎 맥은 자동 업데이트를 안 한다 (0.9.7~) ───────────────────────────────
+   맥판은 **애플 서명·공증이 없다.** electron-updater 의 맥 갈래는 서명된 zip + `latest-mac.yml`
+   을 전제로 하므로, 올려 봐야 설치 단계에서 실패한다. 그래서 릴리즈에 맥용 yml 을 아예 안 올리고
+   **dmg 직접 받기**로 간다(arm64 = 애플 실리콘 · x64 = 인텔).
+   ⇒ `checkForUpdates()` 를 맥에서 부르면 켤 때마다 yml 404 로 실패해 'error' 만 쌓인다.
+     아래 `startUpdateCheck()` 가 플랫폼을 갈라 **맥에서는 부르지 않는다.**
+   대신 릴리즈의 최신 태그만 읽어서 새 버전이면 «받으러 가기» 안내를 렌더러에 보낸다 —
+   내려받기·설치는 사용자가 브라우저에서 한다(renderer 의 `#updateReadyBanner` 재활용).
+   ★ 나중에 애플 개발자 프로그램으로 서명·공증을 하면 이 갈래를 지우고 zip + `latest-mac.yml` 을
+     릴리즈에 함께 올리면 원래대로 돌아온다. 지울 곳은 여기와 `startUpdateCheck()` 두 군데뿐. */
+
+/* 릴리즈 주소는 package.json 의 build.publish 에서 읽는다 — 저장소 이름을 여기 또 적으면
+   저장소를 옮길 때 한쪽만 바뀐다(맥 안내만 옛 저장소를 가리키는 조용한 고장). */
+function githubRepoInfo(){
+  try{
+    const pub = require('./package.json').build.publish;
+    const gh = (Array.isArray(pub) ? pub : [pub]).find(p => p && p.provider === 'github');
+    if(gh && gh.owner && gh.repo) return { owner: gh.owner, repo: gh.repo };
+  }catch(_){}
+  return null;
+}
+
+/* '0.9.7' · 'v0.10.0' → 숫자 비교. 자리 수가 다르면 없는 자리를 0 으로 본다.
+   ⚠️ 문자열 비교로 하면 '0.10.0' < '0.9.7' 이 된다 — 두 자리 마이너가 나오는 순간 조용히 틀린다. */
+function isNewerVersion(tag, cur){
+  const pick = (s) => String(s || '').replace(/^v/i, '').split('-')[0].split('.').map(n => parseInt(n, 10) || 0);
+  const a = pick(tag), b = pick(cur);
+  for(let i = 0; i < Math.max(a.length, b.length); i++){
+    const x = a[i] || 0, y = b[i] || 0;
+    if(x !== y) return x > y;
+  }
+  return false;
+}
+
+/* 맥: 최신 릴리즈 태그만 한 번 읽는다. 실패하면 조용히 넘어간다(안내가 없을 뿐, 앱은 그대로 돈다).
+   ⚠️ 주기적으로 다시 읽지 않는다 — 새 타이머를 만들면 그것대로 관리 대상이 하나 는다.
+     켤 때 한 번이면 «새 버전 나왔다» 를 알리기에 충분하다. */
+function checkMacUpdate(){
+  const info = githubRepoInfo();
+  if(!info) return;
+  const opt = {
+    host: 'api.github.com',
+    path: `/repos/${info.owner}/${info.repo}/releases/latest`,
+    headers: { 'User-Agent': 'together-working', 'Accept': 'application/vnd.github+json' },
+    timeout: 8000,
+  };
+  let req;
+  try{
+    req = require('https').get(opt, (res) => {
+      if(res.statusCode !== 200){ res.resume(); return; }
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (c) => { body += c; if(body.length > 262144) req.destroy(); });
+      res.on('end', () => {
+        try{
+          const j = JSON.parse(body);
+          const tag = j && (j.tag_name || j.name);
+          if(!tag || !isNewerVersion(tag, app.getVersion())) return;
+          /* 주소도 응답에서 받은 것만 쓴다(직접 조립하지 않는다). https 가 아니면 안 보낸다 —
+             렌더러는 이 값을 그대로 openBrowser 에 넘긴다. */
+          const url = (j.html_url && /^https:\/\//i.test(j.html_url)) ? j.html_url : null;
+          if(!url) return;
+          sendUpdateStatus('mac-available', { version: String(tag).replace(/^v/i, ''), url });
+        }catch(_){}
+      });
+    });
+  }catch(_){ return; }
+  req.on('timeout', () => { try{ req.destroy(); }catch(_){} });
+  req.on('error', () => {});
+}
+
+/* 업데이트 확인의 **유일한 입구.** 플랫폼 갈래를 여기 한 곳에만 둔다 —
+   호출부에 `process.platform` 을 흩어 놓으면 나중에 한 군데를 빠뜨린다. */
+function startUpdateCheck(){
+  if(process.platform === 'darwin'){ checkMacUpdate(); return; }
+  autoUpdater.checkForUpdates().catch(() => {});
+}
+
 // 사용자가 타이틀바를 드래그해서 옮긴 창 위치 — 모드(launcher/creator)별로 각각 기억해뒀다가
 // 다음에 같은 모드로 돌아올 때 재사용. (run 모드는 항상 화면을 꽉 채우므로 대상 아님)
 let savedPos = { launcher: null, creator: null };   // { x, y } | null
@@ -1908,7 +1986,8 @@ function createWindow() {
   // 창이 뜨고 나서 업데이트 확인 시작 (초기 로딩과 겹치지 않게 살짝 지연).
   // 개발 중(npm start)엔 electron-updater가 "패키징 안 된 앱"이라며 에러를 내는 게 정상이라 무시해도 됨 —
   // 실제 설치된 exe에서만 정상 동작함.
-  setTimeout(() => { autoUpdater.checkForUpdates().catch(() => {}); }, 3000);
+  // 🍎 맥은 autoUpdater 를 안 탄다 — 갈래는 startUpdateCheck() 안에 있다(위 주석).
+  setTimeout(() => { startUpdateCheck(); }, 3000);
 
   // 렌더러가 "지금 재시작해서 설치" 버튼을 눌렀을 때 — 다운로드 완료된 업데이트를 설치하며 앱 재시작
   ipcMain.on('companion:installUpdate', () => { autoUpdater.quitAndInstall(); });

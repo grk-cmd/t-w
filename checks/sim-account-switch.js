@@ -5,6 +5,10 @@
    ・1절: 목록 한 벌 — ACCOUNT_LOCAL_KEYS 에 제보의 다섯 자리가 다 있고, 로그아웃·연동해제 둘 다 같은 함수를 쓴다.
    ・2절: app.js 본문을 떼어 와 돌린다 — 지운 뒤 남은 키 · 기기 설정은 남는다 · 메모리도 비운다 ·
           검문(서버에 못 올린 캐릭터·파츠·시간이 있으면 아무것도 안 지운다 · 읽기 실패도 막는다).
+          ⑧ 🚪 **로그아웃 출구**(§2 제보 1 · 2026-09-20 추가) — 검문이 null(확인 못 함)과 0(거부)을 가르고,
+            첫 실패에서 끝내지 않고 전 항목을 이름·개수로 세고, 8초 상한에 걸린 뒤의 «없다» 는 timeout 이고,
+            force 면 검문에 걸려도 목록 한 벌·메모리 전부 지우고 기기 세션도 놓는다.
+            부르는 쪽은 정적으로 — [그래도 로그아웃] 은 두 번째 실패에서만 열리고 바로 실행한다.
    ・3절: 신원을 놓은 뒤 beforeunload 의 syncFocusTotalToServer('quit') 가 임시 uid 를 만들어 올리지 않는다.
    ・4절: 플레이리스트 세 벌 복원 — fetchMyPlaylistSets(firebase-init) → _restoreOwnedDataAfterTransfer 가 세 벌을 앉힌다.
    ・5절: 춤 해금 안내 — 기록이 지워져도 수령함에 우편이 있으면 다시 안 보낸다(새 계정이면 보낸다).
@@ -38,10 +42,12 @@ function constVal(name){
   const m = SRC.match(new RegExp('\\b' + name + '\\s*=\\s*\'([^\']+)\'')); return m ? m[1] : null;
 }
 const K = {};
-['MY_USER_ID_KEY','INVITE_PASS_KEY','MY_FRIEND_CODE_KEY','LOGIN_EMAIL_KEY','LOGIN_UID_KEY','MY_PREV_USER_IDS_KEY',
+['MY_USER_ID_KEY','INVITE_PASS_KEY','MY_FRIEND_CODE_KEY','LOGIN_EMAIL_KEY','LOGIN_UID_KEY',   // (개정 56) MY_PREV_USER_IDS_KEY 걷음
  'MY_FRIEND_CODE_PREV_KEY','LICENSE_KEY_STORAGE','LICENSE_REQ_ID_KEY','FOCUS_TOTAL_KEY','FOCUS_TODAY_SEC_KEY',
  'FOCUS_TODAY_DATE_KEY','FOCUS_SYNCED_KEY','DANCE_NOTIFIED_KEY','DANCE_REPAIR_KEY','GACHA_OWNED_KEY','GACHA_TS_KEY',
- 'GACHA_BONUS_KEY','CHAL_KEY','LS_KEY','SLOTS_TS_KEY','CUR_SLOT_KEY','SLOT_GLB_CACHE_KEY','EXTRA_SEAT_KEY',
+ 'GACHA_BONUS_KEY','CHAL_KEY','LS_KEY','SLOTS_TS_KEY',
+ 'SLOTS_SEEN_KEY','SLOTS_LOSS_KEY','SLOTS_LASTSYNC_KEY','SLOTS_PUSHFAIL_KEY',   // ★ 2026-09-22 개정 45 — 목록에 들어온 뒤(개정 30~31) 여기 없어 2절이 «?» 로 통째 안 돌았다
+ 'CUR_SLOT_KEY','SLOT_GLB_CACHE_KEY','EXTRA_SEAT_KEY',
  'USER_NAME_KEY','CUSTOM_STATUS_KEY','MY_AD_BANNER_KEY','BELL_SEEN_KEY','INBOX_BC_READ_KEY','BONK_DAY_KEY',
 ].forEach(n => { K[n] = constVal(n); });
 const missingConst = Object.keys(K).filter(n => !K[n]);
@@ -58,15 +64,21 @@ chk(has('GACHA_OWNED_KEY') && has('GACHA_TS_KEY') && has('GACHA_BONUS_KEY'), '�
 chk(has('LS_KEY') && has('SLOTS_TS_KEY'), '② 캐릭터 슬롯 + ts — 남으면 슬롯 동기화가 다음 계정으로 push 한다');
 chk(/'tw\.roomFaceUrls'/.test(listSrc) && has('SLOT_GLB_CACHE_KEY'), '  업로드 캐시 둘 — users/{uid}/ 경로라 다른 uid 가 물려받으면 남의 Storage 를 가리킨다');
 chk(/'tw\.playlistSets'/.test(listSrc) && /'tw\.playlist'/.test(listSrc), '  플레이리스트 세 벌 + 옛 거울');
-chk(has('MY_PREV_USER_IDS_KEY'), '  «버린 uid» 목록 — _isMyPrevUserId 가 조건 없이 코드를 가져오므로 다음 사람에게 남기면 안 된다');
+/* 개정 56 (회원가입 설계 §6-②) — «버린 uid» 목록을 걷었다. 목록에서 빠지고, 예전 판이 남긴 값은 부팅에 한 번 지운다. */
+chk(!/MY_PREV_USER_IDS_KEY/.test(listSrc) && !/\bMY_PREV_USER_IDS_KEY\s*=/.test(SRC), '  «버린 uid» 목록은 걷었다 — 상수도 목록 항목도 없다 (개정 56)');
+chk(/try\{ localStorage\.removeItem\('tw\.myPrevUserIds'\); \}catch\(_\)\{\}/.test(SRC), '  ↳ 예전 판이 남긴 tw.myPrevUserIds 는 부팅에 한 번 지운다');
+chk(has('MY_FRIEND_CODE_PREV_KEY'), '  버린 코드 진단 기록 — 다음 사람에게는 남의 코드다');
 chk(has('CHAL_KEY'), '  달성표');
 chk(!/'tw\.theme'|'tw\.playlistVol'|SAVED_PARTS_KEY|PRESET_KEY/.test(listSrc), '  기기 설정·카탈로그·프리셋은 목록에 없다 (이 컴퓨터의 것)');
 const fOut = grabFn(SRC, '_loginDoLogout', 'async function ') || '';
-const unlinkBlk = grabBlock(SRC, "const yesBtn=document.getElementById('acctUnlinkYes');", "_acctRelaunchAfterDetach(null);") || '';
-chk(/_detachAccountLocal\(\)/.test(fOut), '★ 로그아웃이 _detachAccountLocal 을 부른다');
-chk(/_detachAccountLocal\(\)/.test(unlinkBlk), '★ 연동 해제도 같은 _detachAccountLocal 을 부른다');
-chk(!/removeItem\(LICENSE|removeItem\(MY_USER_ID_KEY/.test(unlinkBlk), '  해제 쪽에 따로 적힌 removeItem 이 없다 (목록이 두 벌이 되는 첫 걸음)');
-chk(!/\/\/\s*·\s*라이선스 키는 유지한다\(키 기반/.test(unlinkBlk), '  옛 주석 «· 라이선스 키는 유지한다(키 기반…)» 이 사라졌다 — 그 한 줄이 제보 ① 이었다');
+chk(/_detachAccountLocal\((opt)?\)/.test(fOut), '★ 로그아웃이 _detachAccountLocal 을 부른다 (§2 이후엔 opt 를 그대로 넘긴다)');
+/* ★ 개정 45(회원가입 설계 개정 16) — 계정 연동 해제(acctUnlinkYes)를 걷었다. 신원을 놓는 입구는 로그아웃 하나다.
+     옛 판정 셋(«해제도 같은 함수» · «해제 쪽 removeItem 없음» · «옛 주석 사라짐»)은 대상이 없어져 아래 둘로 바꿨다. */
+chk(!/getElementById\('acctUnlinkYes'\)/.test(SRC), '★ 연동 해제 입구가 없다 (개정 45 — 로그인(H·K)이 기기 이동을 대신)');
+{
+  const callers = (SRC.match(/_detachAccountLocal\(/g) || []).length - (SRC.match(/function _detachAccountLocal\(/g) || []).length;
+  chk(callers === 1 && /_detachAccountLocal\(opt\)/.test(fOut), '★ _detachAccountLocal 을 부르는 곳은 로그아웃 하나다 (' + callers + '곳) — 지움 목록이 두 벌이 될 입구가 없다');
+}
 {
   const a = fOut.indexOf('_detachAccountLocal'), b = fOut.indexOf('authSignOut');
   chk(a >= 0 && b > a, '★ signOut 은 검문 **뒤** — 앞이면 세션 없는 push 가 거부돼 로그아웃이 늘 막힌다');
@@ -101,6 +113,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     const firebaseAPI = env.apiOn ? {
       loadSlotsTs: async () => { env.calls.push('slotsTs'); return env.slotsTs; },
       loadGachaOwned: async () => { env.calls.push('gacha'); return env.srvGacha; },
+      releaseDeviceSession: async () => { env.calls.push('release'); },
     } : null;
     const window = { firebaseAPI };
     const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' + [
@@ -109,8 +122,10 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       "const syncChalToServer=async(r)=>{ env.calls.push('flush:chal:'+r); };",
       "const syncSlotsToServer=async(r)=>{ env.calls.push('flush:slots:'+r); };",
       "let _slotsPushTimer = env.pushTimer || null; const clearTimeout=()=>{ env.calls.push('clearPushTimer'); };",
-      "const setTimeout=(fn,ms)=>{ return 0; };",
+      "const setTimeout=(fn,ms)=>{ if(env.fastTimeout && typeof fn==='function') fn(); return 0; };",
+      "const _slotsFilledCount=(raw)=>{ try{ const a=JSON.parse(raw||'null'); return Array.isArray(a)?a.filter(Boolean).length:0; }catch(_){ return 0; } };",
       "const _slotsHasLocal=()=>env.localSlots;",
+      "const firebaseAPI = window.firebaseAPI;   /* 본문이 bare 이름으로도 부른다(releaseDeviceSession) */",
       "let gachaOwned = env.gacha; let _gachaTs = 9; let _gachaBonus = 2;",
       "let _focusTotalSec = env.total, _focusTodaySec = 100;",
       "const _hasFocusSyncedMark=()=>env.hasMark; const _getFocusSyncedMark=()=>env.mark;",
@@ -131,7 +146,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     e.LS.setItem(K.LICENSE_KEY_STORAGE, 'LIC-A'); e.LS.setItem(K.FOCUS_TOTAL_KEY, '3600'); e.LS.setItem(K.FOCUS_SYNCED_KEY, '3600');
     e.LS.setItem(K.GACHA_OWNED_KEY, '{"p1":1}'); e.LS.setItem(K.GACHA_TS_KEY, '9'); e.LS.setItem(K.LS_KEY, '[{"skin":1}]');
     e.LS.setItem(K.SLOTS_TS_KEY, '7'); e.LS.setItem('tw.roomFaceUrls', '{"face:h":"https://st/u/A"}'); e.LS.setItem('tw.playlistSets', '[]');
-    e.LS.setItem(K.MY_PREV_USER_IDS_KEY, '["uOld"]'); e.LS.setItem(K.CHAL_KEY, '{}'); e.LS.setItem(K.USER_NAME_KEY, 'A');
+    e.LS.setItem(K.MY_FRIEND_CODE_PREV_KEY, '["MATE-OLD1"]'); e.LS.setItem(K.CHAL_KEY, '{}'); e.LS.setItem(K.USER_NAME_KEY, 'A');
     e.LS.setItem('tw_chat_read:COZY-1', '5'); e.LS.setItem('tw_chat_join:COZY-1', '1');
     /* 기기 설정 — 남아야 한다 */
     e.LS.setItem('tw.theme', 'dark'); e.LS.setItem('tw.playlistVol', '40'); e.LS.setItem('tw.savedParts', '[]'); e.LS.setItem('tw.deskPresets', '[]');
@@ -202,7 +217,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     say('· ⑤ uid 없는 기기(이미 놓았거나 새 기기)');
     e = mkEnv({ slotsTs: 0 }); e.LS.setItem(K.LICENSE_KEY_STORAGE, 'LIC-?');
     r = await e.m.detach();
-    chk(r && r.ok === true && e.calls.length === 0 && e.LS.getItem(K.LICENSE_KEY_STORAGE) === null, '  올릴 곳이 없으니 서버를 안 부르고 지운다');
+    chk(r && r.ok === true && e.calls.filter(c => c !== 'release').length === 0 && e.LS.getItem(K.LICENSE_KEY_STORAGE) === null, '  올릴 곳이 없으니 서버를 안 부르고 지운다(기기 세션 놓기만 — 내 것일 때만 지우는 호출이라 무해)');
 
     /* ⑥ 오프라인 — firebaseAPI 없음 */
     e = mkEnv({ apiOn: false }); fillA(e);
@@ -213,6 +228,43 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     e = mkEnv({ pushTimer: 42 }); fillA(e);
     await e.m.detach();
     chk(e.calls[0] === 'clearPushTimer' || e.calls.indexOf('clearPushTimer') >= 0, '  대기 중인 슬롯 push 타이머를 걷고 바로 올린다');
+
+    /* ⑧ 🚪 [2026-09-20 · §2 제보 1] 출구 — 사유를 가르고, 전 항목을 세고, 강제 갈래는 부르는 쪽이 두 번째에만 연다 */
+    say('· ⑧ 🚪 로그아웃 출구 — 사유 갈래 · 전 항목 · 강제');
+    e = mkEnv({ slotsTs: null }); fillA(e);
+    r = await e.m.detach();
+    chk(r && r.kind === 'unknown' && /확인하지 못했어요/.test(r.reason || ''), '★ 읽기 실패(null)는 «확인하지 못했어요» — 「올리지 못했어요」와 다른 말이다(null 과 0 을 읽는 쪽에서 가른다)');
+    e = mkEnv({ slotsTs: 0 }); fillA(e);
+    r = await e.m.detach();
+    chk(r && r.kind === 'denied' && /올리지 못했어요/.test(r.reason || ''), '★ 서버에 없음(0)은 «올리지 못했어요» (denied)');
+    e = mkEnv({ slotsTs: 0, srvGacha: { owned: {} } }); fillA(e);
+    e.LS.setItem(K.LS_KEY, '[{"skin":1},null,{"skin":2}]');
+    r = await e.m.detach();
+    chk(r && r.items && r.items.length === 2, '★ 첫 실패에서 끝내지 않고 **전 항목**을 센다 (' + (r && r.items ? r.items.length : 0) + '개)');
+    chk(r && r.items && r.items[0].label === '캐릭터 2개' && /뽑은 파츠 1개/.test(r.items[1].label), '  항목에 **이름과 개수**가 있다 — «이 컴퓨터에만 있는 것: 캐릭터 2개 · 뽑은 파츠 1개» (' + (r && r.items ? r.items.map(i => i.label).join(' · ') : '') + ')');
+    chk(e.LS.getItem(K.MY_USER_ID_KEY) === 'uA', '  여전히 아무것도 안 지웠다');
+    e = mkEnv({ slotsTs: 0, fastTimeout: true }); fillA(e);
+    r = await e.m.detach();
+    chk(r && r.kind === 'timeout' && r.timedOut === true, '★ 8초 상한에 걸린 뒤의 «없다» 는 timeout — «아직 올리는 중» 이라고 말할 재료');
+    e = mkEnv({ apiOn: false }); fillA(e);
+    r = await e.m.detach();
+    chk(r && r.kind === 'offline' && r.items && r.items.length >= 1 && /캐릭터/.test(r.items[0].label), '  오프라인이어도 «무엇이 사라지는지» 는 로컬에서 센다');
+    /* 강제 */
+    e = mkEnv({ slotsTs: 0 }); fillA(e);
+    r = await e.m.detach({ force: true });
+    chk(r && r.ok === true, '★ force 면 검문에 걸려도 지운다');
+    chk(e.m.keys().filter(k => e.LS.getItem(k) !== null).length === 0 && e.m.mem().detached === true, '  강제로 지워도 목록 한 벌·메모리 전부 — 반쪽 로그아웃은 없다');
+    chk(e.calls.indexOf('release') >= 0 && e.calls.indexOf('release') > e.calls.indexOf('slotsTs'), '  강제로 지운 뒤에도 기기 세션을 놓는다(releaseDeviceSession) — 안 놓으면 다음 사람이 «다른 기기에서 사용 중» 에 걸린다');
+    chk(e.calls.filter(c => c.startsWith('flush:')).length === 4, '  강제여도 올리기는 한 번 더 해 본다(공짜다)');
+    /* 부르는 쪽 — 정적 */
+    const uiBlk = grabBlock(SRC, "let _logoutFails = 0;", "if(forceBtn) forceBtn.onclick") || '';
+    chk(!!uiBlk && /_logoutFails >= 2\) showForce\(true\)/.test(uiBlk), '★ [그래도 로그아웃] 은 **두 번째 실패에서만** 열린다 — 첫 실패엔 «다시 시도» 뿐');
+    chk(/runLogout\(forceBtn, true\)/.test(uiBlk + 'if(forceBtn) forceBtn.onclick = () => runLogout(forceBtn, true);') && /_loginDoLogout\(force \? \{ force:true \}/.test(uiBlk), '  강제 버튼은 바로 실행한다(확인 한 번 더 없음 — 버튼 자체가 두 번째에만 나온다)');
+    chk(/kind === 'timeout'/.test(uiBlk) && /kind === 'unknown'/.test(uiBlk) && /kind === 'offline'/.test(uiBlk), '  타임아웃·확인 못 함·오프라인·거부가 **다른 문구**다');
+    chk(/resetLogoutBox\(\)/.test(uiBlk) && /lBtn\.onclick[\s\S]{0,80}resetLogoutBox\(\)/.test(uiBlk), '  확인 상자를 열 때마다 횟수·버튼·강제를 처음으로 되돌린다');
+    let html = ''; try{ html = require('fs').readFileSync('desk-companion-prototype.html', 'utf8'); }catch(_){}
+    if(html) chk(/id="acctLogoutForce"[^>]*display:none/.test(html), '  마크업의 [그래도 로그아웃] 은 처음엔 숨겨져 있다(app.js 만 연다)');
+    else huh('desk-companion-prototype.html 없음 — 마크업 검사 생략');
 
     part3(); part4(); part5(); done();
   })().catch(err => { huh('2절 실행 오류: ' + (err && err.stack || err)); part3(); part4(); part5(); done(); });
@@ -230,7 +282,7 @@ function part3(){
   try{
     const env = { minted: 0, calls: 0 };
     const run = new Function('env', 'window', 'localStorage',
-      "const firebaseAPI = window.firebaseAPI; let _acctDetached = env.detached; let _focusSyncing=false; const FOCUS_LEVEL_CAP_HOURS=999; let _focusTotalSec=5000;\n" +
+      "const firebaseAPI = window.firebaseAPI; let _acctDetached = env.detached; let _focusSyncing=false; const FOCUS_LEVEL_CAP_HOURS=999; const FOCUS_TOTAL_CAP_SEC=999*3600; let _focusTotalSec=5000;\n" +
       "const getMyUserId=()=>{ env.minted++; return 'uTMP'; };\n" +
       "const _hasFocusSyncedMark=()=>false, _getFocusSyncedMark=()=>0, _setFocusSyncedMark=()=>{}, _focusSyncFailed=()=>{}, _pushLevelIfChanged=()=>{}, _notifyDanceUnlocks=()=>{}, getFocusLevel=()=>1;\n" +
       "let _focusSyncFailStreak=0, _focusLastSyncedVal=-1; const console={warn(){},log(){}};\n" +

@@ -43,6 +43,7 @@ console.log('\n── 2. 일반 사용자가 계속 할 수 있어야 하는 것
   chk(!!at('licenses/$key/redeemedAt') && at('licenses/$key/redeemedAt')['.validate'] === 'newData.isNumber()', '그 값은 숫자여야 한다');
   chk(w('licenseRequests/$reqId') === true, '라이선스 신청은 누구나 넣을 수 있다');
   chk(r('licenseRequests/$reqId') === true, '신청자는 자기 신청 상태를 볼 수 있다');
+  chk(r('licenses/$key') === true, '키 하나는 누구나 읽는다 — 등록(redeemLicense)·재검증·회수 구독이 키 하나로 읽는다 (개정 55)');
   chk(w('stats/userCount') === true, '누적 이용자 수는 각 클라이언트가 올린다 (줄이지 못하게 validate 가 막는다)');
   chk(/newData\.val\(\) >= data\.val\(\)/.test(at('stats/userCount')['.validate']), '  ↳ 줄이는 쓰기는 거부된다');
 }
@@ -51,6 +52,20 @@ console.log('\n── 3. 새는 곳이 없는가');
 {
   chk(r('licenseRequests') !== true, '신청자 명단 전체 열람은 막혔다 (이름이 담긴 목록이다)');
   chk(isAdmin(r('licenseRequests')), '  ↳ 관리자만 목록을 본다');
+  /* 개정 55 (설계 §9-12): licenses 모음이 .read:true 라 `/licenses.json` 한 번으로 발급된 키 전부가 보였고,
+     등록은 «있고 valid» 만 보므로 그 키로 누구나 프리미엄이 됐다. 모음 읽기는 관리자만 — 키 하나는 위 2절대로 열려 있다. */
+  chk(r('licenses') !== true && isAdmin(r('licenses')), '★ 라이선스 키 목록 전체 열람은 관리자만 (개정 55)');
+  {
+    let fb = ''; try { fb = fs.readFileSync('firebase-init.js', 'utf8'); } catch (_) {}
+    if (!fb) console.log('  ? firebase-init.js 없음 — 모음 읽기 자리 대조 건너뜀');
+    else {
+      const code = fb.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
+      const whole = (code.match(/ref\(db, *'licenses'\)/g) || []).length;
+      const owner = s => { const i = code.indexOf(s); return i < 0 ? '' : code.slice(i, code.indexOf('\n    },', i)); };
+      const inAdmin = (owner('async listLicenses(').match(/ref\(db, *'licenses'\)/g) || []).length + (owner('async getAdminStats(').match(/ref\(db, *'licenses'\)/g) || []).length;
+      chk(whole === 2 && inAdmin === 2, '  ↳ 모음을 읽는 곳은 관리자 통로 둘(listLicenses · getAdminStats)뿐이다 (' + whole + '곳)');
+    }
+  }
   chk(r('admins') === false, '관리자 명단은 앱에서 읽을 수 없다');
   chk(!!at('admins/$uid') && at('admins/$uid')['.write'] === false, '관리자 명단은 앱에서 쓸 수 없다 (콘솔에서만)');
   chk(r('srKey') === false && w('srKey') === false, '시크릿룸 발급 키는 그대로 잠겨 있다');

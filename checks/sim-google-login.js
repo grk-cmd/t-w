@@ -8,10 +8,10 @@
 
    ★ 이 검사가 지키는 규약 일곱
 
-     ① **버리기 전에 적는다.** `_rememberPrevUserId(옛 uid)` 는 반드시 `MY_USER_ID_KEY` 를
-        새 값으로 덮기 **전에** 불려야 한다. 뒤에 부르면 새 uid 를 '버린 uid' 로 적게 되고,
-        다음 부팅에 _healFriendCodeOwner 가 그것을 근거로 지금 쓰는 코드를 회수 대상으로 본다.
-        (app.js MY_PREV_USER_IDS_KEY 주석이 적은 사고 — 친구들이 받아둔 코드가 그 순간 죽는다.)
+     ① **버린 uid 를 적지 않는다 · 기록은 한 입구로.** (개정 56 · 회원가입 설계 §6-②⑦) 예전엔 옛 uid 를
+        `_rememberPrevUserId` 로 적어 두고 그 uid 의 코드·친구 요청을 조건 없이 끌어왔다. 이제 로그인은 확인된
+        계정이라 이 기기의 이전 uid 는 **다른 계정**이다 — 적지 않는다. 새 uid 는 `_setMyUserId` 로만 기록하고,
+        못 쓰면 Auth 세션을 놓고 실패로 돌려준다(«로그인은 됐는데 이 기기는 딴 사람» 을 남기지 않는다).
 
      ② **복원은 한 벌이다.** 로그인은 계정 연동과 같은 `_applyTransferSnapshot` 을 써야 한다.
         따로 만들면 "연동은 플레이리스트가 오는데 로그인은 안 온다" 같은 반쪽이 생긴다.
@@ -54,25 +54,26 @@ say('=== 🔑 구글 로그인 검사 ===');
 say('');
 
 /* ── §1. 마크업 — 계정 탭과 게이트 ─────────────────────────────────── */
-say('· §1 마크업 — 계정 탭이 참조하는 id 가 실제로 있는가');
-['progTabBtnAccount','progTabAccount','acctLoggedIn','acctLoggedOut','acctLoginEmail',
- 'acctGoogleBtn','acctLogoutBtn','acctLogoutConfirm','acctLogoutCancel','acctLogoutYes',
+say('· §1 마크업 — 계정 자리([내 정보 › 계정])가 참조하는 id 가 실제로 있는가');
+/* ★ 개정 45(회원가입 설계 개정 16 · 시안 C4) — 계정 기능의 자리는 [내 정보 › 계정](#miPageAcct) 하나다.
+     설정 › 계정 탭 · 로그인 전 얼굴([구글 계정으로 로그인]) · «연결됨 · 이메일» 상자 · 이전/연동/해제 · 되찾기는 걷었다
+     (로그인은 게이트 H · I · K 가 한다 · 기기 이동은 친구 코드 + 비밀번호 로그인이 대신한다). */
+['lcMyInfo','miPageAcct','acctLoggedIn','acctLogoutBtn','acctLogoutConfirm','acctLogoutCancel','acctLogoutYes',
  'acctLogoutDone','acctLogoutQuit','acctLoginMsg','inviteGateGoogleBtn']
   .forEach(id => chk(HTML.includes('id="' + id + '"'), '#' + id));
-
-/* 이전/연동은 계정 탭으로 **옮겨졌을 뿐** 사라지면 안 된다(구글 계정이 없는 기기의 이사 수단). */
-['acctTransferBtn','acctLinkBtn','acctTransferPanel','acctLinkPanel','acctUnlinkYes']
-  .forEach(id => chk(HTML.includes('id="' + id + '"'), '#' + id + ' 이 남아 있다 (이전/연동 보존)'));
-
-/* 옮겼으므로 시스템 탭에는 없어야 하고, 계정 탭 안에 있어야 한다. */
-const iSys = HTML.indexOf('id="progTabSystem"');
-const iAcc = HTML.indexOf('id="progTabAccount"');
-const iTr  = HTML.indexOf('id="acctTransferBtn"');
-chk(iSys >= 0 && iAcc > iSys, '계정 탭 페이지가 시스템 탭 뒤에 있다');
-chk(iTr > iAcc, '계정 이전/연동이 계정 탭 안으로 옮겨졌다 (시스템 탭에 안 남았다)');
+['progTabBtnAccount','progTabAccount','acctLoggedOut','acctLoginEmail','acctGoogleBtn',
+ 'acctTransferBtn','acctLinkBtn','acctTransferPanel','acctLinkPanel','acctUnlinkYes']
+  .forEach(id => chk(!HTML.includes('id="' + id + '"'), '#' + id + ' 은 걷었다 (개정 45)'));
+{
+  const iAcc = HTML.indexOf('id="miPageAcct"'), iOv = HTML.indexOf('id="lcMyInfo"'), iIn = HTML.indexOf('id="acctLoggedIn"'), iMsg = HTML.indexOf('id="acctLoginMsg"');
+  chk(iOv >= 0 && iAcc > iOv && iIn > iAcc && iMsg > iIn, '로그인 후 얼굴 · 안내 줄이 [내 정보 › 계정] 안에 있다');
+}
 /* 프로그램 정보(버전)는 유저 정보가 아니므로 시스템에 남아야 한다. */
-chk(HTML.indexOf('id="progVersionText"') > iSys && HTML.indexOf('id="progVersionText"') < iAcc,
-    '프로그램 정보(버전)는 시스템 탭에 그대로 남아 있다');
+{
+  const iSys = HTML.indexOf('id="progTabSystem"'), iClose = HTML.indexOf('id="progSettingsCloseBtn"');
+  chk(HTML.indexOf('id="progVersionText"') > iSys && HTML.indexOf('id="progVersionText"') < iClose,
+      '프로그램 정보(버전)는 시스템 탭에 그대로 남아 있다');
+}
 say('');
 
 /* ── §2. app.js — 갈아타는 순서 ────────────────────────────────────── */
@@ -94,10 +95,11 @@ chk(!!F_IN,  '_loginDoGoogle() 을 찾았다');
 chk(!!F_OUT, '_loginDoLogout() 을 찾았다');
 
 if (F_IN){
-  const iRemember = F_IN.indexOf('_rememberPrevUserId');
-  const iSwap     = F_IN.indexOf('setItem(MY_USER_ID_KEY');
-  chk(iRemember >= 0 && iSwap >= 0 && iRemember < iSwap,
-      '① 버린 uid 를 적는 것이 갈아끼우기보다 **먼저** 온다');
+  const F_IN_C = F_IN.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
+  chk(!/_rememberPrevUserId|tw\.myPrevUserIds/.test(F_IN_C) && !/_rememberPrevUserId|_isMyPrevUserId/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '')),
+      '① 버린 uid 를 적지 않는다 — _rememberPrevUserId · _isMyPrevUserId 가 app.js 코드에 없다 (개정 56)');
+  chk(/if\(!_setMyUserId\(r\.userCode\)\)\{[\s\S]{0,200}authSignOut/.test(F_IN_C) && !/setItem\(MY_USER_ID_KEY/.test(F_IN_C),
+      '① 갈아끼우기는 _setMyUserId 하나로 · 못 쓰면 Auth 세션을 놓는다 (설계 §6-⑦ · 개정 56)');
   chk(F_IN.includes('_applyTransferSnapshot'),
       '② 복원이 계정 연동과 같은 _applyTransferSnapshot 을 쓴다');
   chk(!/function\s+_login(Restore|Apply)/.test(SRC),
@@ -129,10 +131,11 @@ if (F_OUT){
 /* 부팅 스냅샷은 로그인된 기기에서만 — 조건 없이 돌리면 남의 유저 코드로 쓰기가 나갈 수 있다 */
 chk(/if\(!getMyLoginEmail\(\)\)\s*return/.test(UI),
     '부팅 스냅샷 올리기가 로그인된 기기에서만 돈다');
-/* 4탭이 전부 전환 목록에 있는가 — 빠지면 그 탭은 눌러도 안 열린다 */
-const TABS = SRC.slice(SRC.indexOf('function setProgSettingsTab('), SRC.indexOf('function setProgSettingsTab(') + 900);
-['license','display','system','account'].forEach(k =>
+/* 3탭이 전부 전환 목록에 있는가 — 빠지면 그 탭은 눌러도 안 열린다. 계정은 개정 45 에서 [내 정보]로 옮겨 없다. */
+const TABS = cutFn(SRC, 'setProgSettingsTab');
+['license','display','system'].forEach(k =>
   chk(TABS.includes("key:'" + k + "'"), '탭 전환 목록에 ' + k + ' 이 있다'));
+chk(!TABS.includes("key:'account'"), '탭 전환 목록에 account 가 없다 (개정 45 — 계정은 [내 정보 › 계정])');
 say('');
 
 /* ── §3. firebase-init.js — 선점과 되돌리기 ────────────────────────── */
@@ -151,6 +154,8 @@ else {
     chk(/authUsers\/\$\{uid\}/.test(body), '이미 묶인 계정이면 그 유저 코드를 그대로 쓴다');
     chk(!/userCode\s*:\s*String\(userCode\)[\s\S]{0,80}v\.userCode/.test(body),
         '기존 결속을 새 유저 코드로 덮어쓰지 않는다');
+    chk(!/\{\s*email\s*\}/.test(body) && !/userCode:String\(userCode\), email/.test(body) && /\{ email: null \}/.test(body),
+        '§9-2 authUsers 에 이메일 거울을 쓰지 않는다 · 예전 판이 남긴 거울은 로그인 때 걷는다 (개정 54)');
   }
   chk(/auth = null/.test(FB) && /catch[\s\S]{0,140}auth = null/.test(FB),
       'auth 초기화가 실패해도 firebaseAPI 는 살아남는다 (앱 본체가 안 죽는다)');
@@ -231,7 +236,7 @@ const probe = `
   login:  _loginDoGoogle,
   logout: _loginDoLogout,
   email:  getMyLoginEmail,
-  MY_USER_ID_KEY, MY_PREV_USER_IDS_KEY, LOGIN_EMAIL_KEY, INVITE_PASS_KEY, MY_FRIEND_CODE_KEY,
+  MY_USER_ID_KEY, LOGIN_EMAIL_KEY, INVITE_PASS_KEY, MY_FRIEND_CODE_KEY,
 };`;
 
 const _log = console.log, _warn = console.warn;
@@ -261,10 +266,13 @@ globalThis.window.firebaseAPI = {
   async authSignOut(){ order.push('signout'); },
 };
 globalThis._applyTransferSnapshot = async r => { order.push('apply:' + (r && r.name)); };
+/* 개정 57 — 갈아타기 전 정리(_switchPrepare)는 sim-signup 14절이 떼어 와 돌린다. 여기서는 **부르는 자리와 순서**만 본다. */
+let prepResult = { ok:true, mode:'none' };
+globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t); return prepResult; };
 
 (async () => {
   ls.setItem(L.MY_USER_ID_KEY, 'uOLDDEVICE0001');
-  ls.removeItem(L.MY_PREV_USER_IDS_KEY);
+  ls.removeItem('tw.myPrevUserIds');
   /* 🔒 게이트를 지난 기기다 — 이 도장이 있어야 결속 자격이 선다(규약 ⑩).
      도장 없는 기기는 §6 에서 따로 본다. */
   ls.setItem(L.INVITE_PASS_KEY, '1');
@@ -274,12 +282,10 @@ globalThis._applyTransferSnapshot = async r => { order.push('apply:' + (r && r.n
   chk(!!r && r.switched === true, '다른 계정이므로 갈아탔다고 알린다 (switched)');
   chk(order[0] === 'auth:ID.TOKEN:uOLDDEVICE0001', '토큰과 **옛** 유저 코드를 함께 넘긴다');
   chk(ls.getItem(L.MY_USER_ID_KEY) === 'uOTHERACCOUNT9', '유저 코드가 그 계정 것으로 바뀌었다');
-  let prev = [];
-  try { prev = JSON.parse(ls.getItem(L.MY_PREV_USER_IDS_KEY) || '[]'); } catch (_) {}
-  chk(prev[0] === 'uOLDDEVICE0001', '① 버린 uid 가 기록됐다 (친추코드 자기치유의 근거)');
-  chk(prev.indexOf('uOTHERACCOUNT9') < 0, '① 새 uid 를 실수로 "버린 것"에 적지 않았다');
-  chk(order[1] === 'fetch:uOTHERACCOUNT9', '갈아탄 **뒤에** 그 계정 스냅샷을 받아온다');
-  chk(order[2] === 'apply:저쪽이름', '받아온 스냅샷이 복원으로 넘어간다');
+  chk(ls.getItem('tw.myPrevUserIds') === null, '① 버린 uid 를 적지 않는다 (개정 56 — 이전 uid 는 다른 계정이다)');
+  chk(order[1] === 'prep:uOLDDEVICE0001:uOTHERACCOUNT9', '★ 갈아타기 **전에** 옛 uid → 새 uid 정리(_switchPrepare)를 부른다 (개정 57)');
+  chk(order[2] === 'fetch:uOTHERACCOUNT9', '갈아탄 **뒤에** 그 계정 스냅샷을 받아온다');
+  chk(order[3] === 'apply:저쪽이름', '받아온 스냅샷이 복원으로 넘어간다');
   chk(L.email() === 'hoya@gmail.com', '이 기기에 계정 이메일이 기록됐다');
 
   /* 같은 계정으로 다시 — 갈아탈 것이 없으니 복원도 돌지 않는다 */
@@ -298,6 +304,27 @@ globalThis._applyTransferSnapshot = async r => { order.push('apply:' + (r && r.n
   chk(ls.getItem(L.MY_USER_ID_KEY) === before, '⑦ 취소는 유저 코드를 건드리지 않는다');
   chk(order.length === 0, '⑦ 취소는 서버를 부르지 않는다');
 
+  /* ① 기록을 못 하면 — 서버가 준 userCode 가 형식에 안 맞는 경우로 흉내 낸다(_setMyUserId 가 거절) */
+  globalThis.window.companion.signInWithGoogle = async () => ({ ok:true, idToken:'ID.TOKEN' });
+  const fa = globalThis.window.firebaseAPI.authSignInWithGoogle;
+  globalThis.window.firebaseAPI.authSignInWithGoogle = async () => ({ ok:true, uid:'AUTHUID', email:'hoya@gmail.com', userCode:'bad code', bound:false });
+  order.length = 0;
+  const r4 = await L.login();
+  chk(!!r4 && !r4.ok && /저장하지 못했어요/.test(r4.reason || ''), '① 이 기기에 uid 를 못 쓰면 실패로 돌려준다');
+  chk(order.includes('signout') && ls.getItem(L.MY_USER_ID_KEY) === before && !L.email(), '① 그때는 Auth 세션과 계정 표시를 놓고, 유저 코드는 그대로다');
+  chk(!order.some(x => /^fetch:|^apply:/.test(x)), '① 복원도 돌지 않는다');
+  /* 정리가 실패하면 — 갈아타지 않는다(개정 57) */
+  globalThis.window.firebaseAPI.authSignInWithGoogle = async () => ({ ok:true, uid:'AUTHUID', email:'hoya@gmail.com', userCode:'uTHIRDACCOUNT7', bound:false });
+  prepResult = { ok:false, reason:'이 PC 의 캐릭터를 올리지 못했어요' };
+  order.length = 0;
+  const r5 = await L.login();
+  chk(!!r5 && !r5.ok && /올리지 못했어요/.test(r5.reason || ''), '★ 정리가 실패하면 실패로 돌려준다 — 이유를 그대로');
+  chk(order.includes('signout') && ls.getItem(L.MY_USER_ID_KEY) === before && !L.email() && !order.some(x => /^fetch:|^apply:/.test(x)),
+      '★ 그때는 uid 를 안 바꾸고 · 세션과 계정 표시를 놓고 · 복원도 안 한다');
+  prepResult = { ok:true, mode:'none' };
+  globalThis.window.firebaseAPI.authSignInWithGoogle = fa;
+  ls.setItem(L.LOGIN_EMAIL_KEY, 'hoya@gmail.com');   // 아래 로그아웃 판정의 전제(로그인된 기기)
+
   /* 로그아웃 — 신원을 놓고, 다음 부팅에 게이트로 돌아간다 */
   await L.logout();
   chk(order.indexOf('signout') >= 0, '로그아웃이 Auth 세션을 끊는다');
@@ -313,11 +340,12 @@ globalThis._applyTransferSnapshot = async r => { order.push('apply:' + (r && r.n
   chk(!!REL, '⑧ 재시작이 한 함수(_acctRelaunchAfterDetach)로 모여 있다');
   chk(!!REL && /onFallback/.test(REL),
       '⑧ 재시작을 못 하는 구버전에서는 수동 종료로 물러난다 (버튼이 죽지 않는다)');
-  /* 두 경로(구글 로그아웃 · 옛 연동 해제)가 **같은 함수**를 쓰는가 — 따로 쓰면 한쪽만 고쳐진다 */
+  /* 신원을 놓는 곳(로그아웃)과 게이트 로그인이 **같은 재시작 함수**를 쓰는가 — 따로 쓰면 한쪽만 고쳐진다.
+     (개정 45: 옛 연동 해제는 걷었다 — 판정 대상에서 뺐다.) */
   chk((SRC.match(/_acctRelaunchAfterDetach\(/g) || []).length >= 3,
-      '⑧ 로그아웃과 연동 해제가 같은 재시작 함수를 쓴다');
-  const UNLINK = SRC.slice(SRC.indexOf("acctUnlinkYes"), SRC.indexOf("acctUnlinkQuit"));
-  chk(/_acctRelaunchAfterDetach/.test(UNLINK), '⑧ 옛 연동 해제도 자동 재시작으로 이어진다');
+      '⑧ 로그아웃과 게이트 로그인이 같은 재시작 함수를 쓴다');
+  chk(/_acctRelaunchAfterDetach\(null\)/.test(UI), '⑧ 로그아웃 완료가 자동 재시작으로 이어진다');
+  chk(!/getElementById\('acctUnlinkYes'\)/.test(SRC), '⑧ 옛 연동 해제 입구는 없다 (개정 45)');
 
   /* ⑨ 게이트에서 계정을 되찾은 판도 자동 재시작이어야 한다 — 게이트 화면에는 종료 버튼이
      없어서, 안내만 띄우면 유저가 앱을 손으로 껐다 켜야 한다(나가는 길은 자동인데 돌아오는
@@ -379,44 +407,19 @@ globalThis._applyTransferSnapshot = async r => { order.push('apply:' + (r && r.n
   say('· §7 되찾기 — 결속만 고치고 데이터는 제자리에 둔다');
   if (!FB){ say('  (firebase-init.js 를 못 찾음 — 건너뜀)'); }
   else {
-    const j = FB.indexOf('async authRebindUserCode(');
-    const rb = j < 0 ? '' : FB.slice(j, FB.indexOf('\n    },', j));
-    chk(!!rb, 'authRebindUserCode() 가 있다');
-    if (rb){
-      chk(/runTransaction\(\s*ref\(db,\s*`userAuth\//.test(rb) && /cur\s*==\s*null\s*\?/.test(rb),
-          '④ 되찾기도 선점을 runTransaction 으로 한다 (빈자리일 때만)');
-      chk(/takenBy/.test(rb),
-          '④ 남의 구글 계정 것이면 거절한다 (코드 문자열만으로 계정을 빼앗지 못한다)');
-      const iClaim = rb.indexOf('runTransaction');
-      const iWrite = rb.indexOf('set(ref(db, `authUsers/');
-      const iFree  = rb.indexOf('remove(ref(db, `userAuth/');
-      chk(iClaim >= 0 && iWrite > iClaim && iFree > iWrite,
-          '순서: 새 코드 선점 → authUsers 갱신 → 옛 코드 놓기 (중간에 끊겨도 다시 부르면 이어진다)');
-      chk(/s\.val\(\)\s*===\s*uid/.test(rb),
-          '옛 코드는 소유자가 나일 때만 놓는다 (남의 선점을 푸는 손이 되지 않게)');
-    }
-    /* 되찾기 UI — 손으로 코드를 넣는 칸을 두지 않는다. 문자열만으로 옮길 수 있으면 그게 통로다. */
-    const REC = SRC.slice(SRC.indexOf("$('acctRecoverGo')"), SRC.indexOf("$('inviteGateGoogleBtn')"));
-    chk(!!REC, '되찾기 처리부를 찾았다');
-    if (REC){
-      chk(/authRebindUserCode[\s\S]{0,600}setItem\(MY_USER_ID_KEY/.test(REC),
-          '서버 결속을 고친 **뒤에** 로컬 신원을 바꾼다 (실패하면 로컬은 그대로)');
-      const iRem = REC.indexOf('_rememberPrevUserId'), iSet = REC.indexOf('setItem(MY_USER_ID_KEY');
-      chk(iRem >= 0 && iSet >= 0 && iRem < iSet,
-          '① 되찾기도 버린 uid 를 갈아끼우기 **전에** 적는다');
-      chk(/_applyTransferSnapshot/.test(REC),
-          '② 되찾기도 같은 복원 함수를 쓴다');
-      chk(/_acctRelaunchAfterDetach/.test(REC),
-          '③ 되찾은 뒤에는 재시작한다 (옛 uid 구독이 살아 있으면 두 계정이 섞인다)');
-    }
+    /* 개정 52 (회원가입 설계 §6-⑧): 결속 고쳐 매기 통로 authRebindUserCode 를 걷었다 — 부르는 곳이 없었고(되찾기 UI 개정 45 걷음),
+       남겨 두면 «유저 코드 문자열 → 결속 교체» 통로가 앱 밖에서라도 불릴 수 있다. 계정 이전 통로 둘(setTransferHash · verifyTransfer)도 같이. */
+    chk(FB.indexOf('async authRebindUserCode(') < 0, '★ firebase-init 에 authRebindUserCode 통로가 없다 (§6-⑧ 걷음)');
+    chk(FB.indexOf('async setTransferHash(') < 0 && FB.indexOf('async verifyTransfer(') < 0, '  계정 이전 통로 둘(setTransferHash · verifyTransfer)도 없다');
+    /* 개정 55 (설계 §9-12): 스냅샷 자리는 accountSnap/{코드}(주인만). 옛 transferData 는 옮기고 지우기만 — 아래 §9 가 돌려 본다. */
+    chk(FB.indexOf('async setAccountSnapshot(') > 0 && FB.indexOf('async fetchAccountSnapshot(') > 0 && /accountSnap\/\$\{userCode\}/.test(FB), '  계정 스냅샷 통로는 남았다 — 자리는 accountSnap/{코드} (개정 55)');
+    /* 되찾기 UI — 개정 45(회원가입 설계 §6-⑤ · 개정 16)에서 걷었다. 결속을 되돌릴 일(구글 로그인의 갈아타기)이
+       게이트(H · K)로 닫혔고, «이 기기가 버린 uid» 로 계정을 옮기는 입구는 남겨 둘수록 통로다.
+       firebase-init 통로 authRebindUserCode 는 §6-⑧ 묶음(개정 52)에서 걷었다(위 판정). */
+    const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '');
+    chk(!/firebaseAPI\.authRebindUserCode/.test(CODE), '되찾기가 authRebindUserCode 를 부르지 않는다 (입구 걷음)');
     ['acctRecoverBtn','acctRecoverBox','acctRecoverList','acctRecoverGo','acctRecoverMsg','acctCurCode','acctCurFriendCode']
-      .forEach(id => chk(HTML.includes('id="' + id + '"'), '#' + id));
-    /* 되찾기는 **로그인한 기기에만** 보여야 한다 — 로그인 안 한 기기엔 고칠 결속이 없고,
-       상시 노출하면 멀쩡한 유저가 눌러서 스스로 계정을 바꾼다. */
-    const iIn = HTML.indexOf('id="acctLoggedIn"'), iRecBtn = HTML.indexOf('id="acctRecoverBtn"');
-    const iMsg = HTML.indexOf('id="acctLoginMsg"');
-    chk(iIn >= 0 && iRecBtn > iIn && iRecBtn < iMsg,
-        '되찾기 구획이 #acctLoggedIn 안에 있다 (로그인한 기기에만 보인다)');
+      .forEach(id => chk(!HTML.includes('id="' + id + '"'), '#' + id + ' 은 걷었다'));
   }
 
   /* ── §8. 규칙 파일 — 서버가 이 흐름을 실제로 허락하는가 ────────────────
@@ -449,7 +452,25 @@ globalThis._applyTransferSnapshot = async r => { order.push('apply:' + (r && r.n
            쓰기 시작하면 여기 아래쪽 목록에 넣을 것 — 안 넣으면 그 기능이 조용히 죽는다. */
       const U = (R.users && R.users.$userId) || {};
       const OWN = /root\.child\('userAuth\/'\+\$userId\)\.val\(\) === auth\.uid/;
-      ['profile','home','presence','friendCode','transferHash','transferData','playlist','gacha',
+      /* ★ 개정 45 — transferHash 는 옛 이전 비밀번호(공개 읽기 · 소금 없는 해시)라 **지우기만** 받는다(아래 따로 본다). */
+      chk(/^!newData\.exists\(\) && /.test(String(U.transferHash && U.transferHash['.write'])) && OWN.test(String(U.transferHash['.write'])),
+          'users/transferHash 는 주인이 지우기만 한다 (새로 쓰지 못한다 · 개정 45)');
+      /* ★ 개정 55 — transferData 도 transferHash 처럼 **지우기만**(공개 자리 · 라이선스 키가 보였다 · 설계 §9-12).
+         스냅샷의 새 자리 accountSnap 은 users 밖(최상위)이라 읽기도 주인만이고, **미결속 코드는 못 쓴다.** */
+      chk(/^!newData\.exists\(\) && /.test(String(U.transferData && U.transferData['.write'])) && OWN.test(String(U.transferData['.write'])) && U.transferData['.validate'] === 'false',
+          'users/transferData 는 주인이 지우기만 한다 (새로 쓰지 못한다 · 개정 55)');
+      {
+        const AS = (R.accountSnap && R.accountSnap.$userId) || {};
+        const OWN_ONLY = "auth != null && root.child('userAuth/'+$userId).val() === auth.uid";
+        chk(R.accountSnap && R.accountSnap['.read'] === undefined && R.accountSnap['.write'] === undefined, 'accountSnap 모음 자체는 아무도 못 읽는다 (목록 없음)');
+        chk(AS['.read'] === OWN_ONLY && AS['.write'] === OWN_ONLY, 'accountSnap/{코드} 는 결속된 주인만 읽고 쓴다 (미결속 갈래 없음)');
+        chk(AS.license && /length <= 40/.test(AS.license['.validate']) && AS.friendCode && /length <= 12/.test(AS.friendCode['.validate'])
+            && AS.name && /length <= 40/.test(AS.name['.validate']) && AS.focusTotalSec && /359640000/.test(AS.focusTotalSec['.validate'])
+            && AS.$other && AS.$other['.validate'] === false && /hasChildren\(\['ts'\]\)/.test(AS['.validate']),
+            '  accountSnap 모양: license ≤40 · name ≤40 · friendCode ≤12 · focusTotalSec 상한 · ts 필수 · 그 밖 거절');
+        chk(!(R.users && R.users.$userId && R.users.$userId.accountSnap), '  users/{코드} 아래에 accountSnap 을 두지 않았다 (거기는 공개 읽기)');
+      }
+      ['profile','home','presence','friendCode','playlist','gacha',
        'chal','emojis','schedule','ddays','focus','secretRoom','advBg','mallang']
         .forEach(k => chk(!!U[k] && OWN.test(String(U[k]['.write'])), 'users/' + k + ' 은 주인만 쓴다'));
       /* 이쪽은 **열려 있어야 한다.** 잠그면 친구 수락·방명록·박수·선물이 조용히 전부 죽는다
@@ -466,6 +487,80 @@ globalThis._applyTransferSnapshot = async r => { order.push('apply:' + (r && r.n
           '아직 안 묶인 코드는 로그인 없이도 쓴다 (기존 유저가 잠기지 않는다)');
       chk(/function warnUnbound|const warnUnbound/.test(SRC) && /authOwnerOf/.test(SRC),
           '묶였는데 로그인 안 한 기기에게 그렇다고 알려준다 (거부가 침묵으로 끝나지 않게)');
+    }
+  }
+
+  /* ── §9. 계정 스냅샷 자리 — accountSnap 으로 옮기기 (설계 §9-12 · 개정 55) ──────────────────
+     firebase-init 의 두 함수와 _acctSnapClean 을 **떼어 와 돌린다**(가짜 get · update).
+     지키는 것: 새 자리에서 읽는다 · 옛 자리만 있으면 옮기고 지운다(값은 이번에 돌려준다) · 새 자리를 못 읽으면 옛 자리로 ·
+               쓸 때는 새 자리 + 옛 자리 지우기를 **한 번의** update 로 · 범위 밖 항목은 그 항목만 뺀다 · 돌려주는 모양은 그대로. */
+  say('');
+  say('· §9 계정 스냅샷 — accountSnap/{코드}(주인만) · 옛 transferData 는 옮기고 지운다');
+  if (!FB){ say('  (firebase-init.js 를 못 찾음 — 건너뜀)'); }
+  else {
+    const grabM = (src, head) => { const i = src.indexOf(head); if (i < 0) return null; let k = src.indexOf('{', i), d = 0;
+      for (; k < src.length; k++){ if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return null; };
+    const fSet = grabM(FB, 'async setAccountSnapshot('), fGet = grabM(FB, 'async fetchAccountSnapshot('), fClean = grabM(FB, 'function _acctSnapClean(');
+    if (!fSet || !fGet || !fClean){ chk(false, '두 함수와 _acctSnapClean 을 찾았다 — 이름이 바뀌었으면 이 절도 같이 고칠 것'); }
+    else {
+      const mk = (data, opts) => {
+        opts = opts || {};
+        const log = [];
+        const at = p => p.split('/').filter(Boolean).reduce((o, k) => (o == null ? undefined : o[k]), data);
+        const put = (p, v) => { const ks = p.split('/').filter(Boolean); let o = data; for (let i = 0; i < ks.length - 1; i++){ o[ks[i]] = o[ks[i]] || {}; o = o[ks[i]]; }
+          if (v === null) delete o[ks[ks.length - 1]]; else o[ks[ks.length - 1]] = JSON.parse(JSON.stringify(v)); };
+        const c = { db: {}, Date: { now: () => 5000 }, Number, JSON, String,
+          ref: (db, p) => ({ p: p || '' }),
+          get: async r => { log.push('get:' + r.p); if (opts.denyNew && /^accountSnap\//.test(r.p)) throw new Error('PERMISSION_DENIED'); const v = at(r.p); return { val: () => (v === undefined ? null : v) }; },
+          update: async (r, patch) => { log.push('update:' + (r.p || '/') + ':' + Object.keys(patch).sort().join(',')); if (opts.denyUpdate) throw new Error('PERMISSION_DENIED'); for (const k in patch) put((r.p ? r.p + '/' : '') + k, patch[k]); } };
+        vm.createContext(c);
+        vm.runInContext(fClean + '\nconst api = {' + fSet + ',' + fGet + '};\nthis.api = api;', c);
+        return { api: c.api, data, log };
+      };
+      /* ① 새 자리에서 읽는다 — 옛 자리는 보지 않는다 */
+      let t = mk({ accountSnap: { U1: { license: 'NEW-KEY', name: '새', friendCode: 'MATE-AAAA', focusTotalSec: 10, ts: 9 } }, users: { U1: { transferData: { license: 'OLD' } } } });
+      let r = await t.api.fetchAccountSnapshot('U1');
+      chk(r.license === 'NEW-KEY' && r.name === '새' && r.friendCode === 'MATE-AAAA' && r.focusTotalSec === 10 && r.ok === true, '★ 새 자리(accountSnap)에서 읽는다');
+      chk(!t.log.some(l => /transferData/.test(l)), '  새 자리가 있으면 옛 자리는 읽지도 않는다');
+      chk(JSON.stringify(Object.keys(r).sort()) === JSON.stringify(['focusTotalSec','friendCode','license','name','ok']), '  돌려주는 모양은 그대로 (_applyTransferSnapshot 무변경)');
+      /* ② 옛 자리만 → 옮기고 지운다 · 값은 이번에 돌려준다 */
+      t = mk({ users: { U2: { transferData: { license: 'OLD-KEY', name: '옛', friendCode: 'MATE-BBBB', focusTotalSec: 7, ts: 3 } } } });
+      r = await t.api.fetchAccountSnapshot('U2');
+      chk(r.license === 'OLD-KEY' && r.name === '옛', '★ 옛 자리만 있으면 그 값으로 복원한다');
+      chk(t.data.accountSnap && t.data.accountSnap.U2 && t.data.accountSnap.U2.license === 'OLD-KEY' && t.data.accountSnap.U2.ts === 3, '★ 옛 값을 새 자리로 옮긴다 (ts 유지)');
+      chk(!t.data.users.U2.transferData, '★ 옛 자리는 지운다 — 공개 자리에 라이선스를 남기지 않는다');
+      chk(t.log.filter(l => /^update:/.test(l)).length === 1 && t.log.some(l => l === 'update:/:accountSnap/U2,users/U2/transferData'), '  옮기기와 지우기는 **한 번의** update (원자적)');
+      /* ③ 새 자리 읽기가 거절되면 옛 자리로 · 옮기기가 거절돼도 값은 돌려준다 */
+      t = mk({ users: { U3: { transferData: { license: 'K3' } } } }, { denyNew: true, denyUpdate: true });
+      r = await t.api.fetchAccountSnapshot('U3');
+      chk(r.license === 'K3', '새 자리를 못 읽어도(결속 어긋남 등) 옛 자리로 복원한다 · 옮기기가 거절돼도 값은 돌려준다');
+      /* ④ 둘 다 없음 → 폴백 */
+      t = mk({ users: { U4: { profile: { name: '프로필' }, friendCode: 'MATE-CCCC' } } });
+      r = await t.api.fetchAccountSnapshot('U4');
+      chk(r.license === null && r.name === '프로필' && r.friendCode === 'MATE-CCCC' && !t.log.some(l => /^update:/.test(l)), '둘 다 없으면 profile · friendCode 폴백 · 쓰기 없음');
+      const n4 = t.log.length;
+      r = await t.api.fetchAccountSnapshot('');
+      chk(r.ok === true && r.license === null && t.log.length === n4, '  빈 코드면 아무것도 읽지 않는다');
+      /* ⑤ 쓰기 — 새 자리 + 옛 자리 지우기 한 번 · 범위 밖 항목만 뺀다 */
+      t = mk({ users: { U5: { transferData: { license: 'OLD' } } } });
+      let w = await t.api.setAccountSnapshot('U5', { license: 'L5', name: 'n'.repeat(50), friendCode: 'TOO-LONG-CODE-X', focusTotalSec: 400000000 });
+      const s5 = t.data.accountSnap && t.data.accountSnap.U5;
+      chk(w.ok === true && s5 && s5.license === 'L5' && s5.ts === 5000, '★ setAccountSnapshot 은 accountSnap/{코드} 에 쓴다 (ts 붙음)');
+      chk(!t.data.users.U5.transferData && t.log.length === 1 && t.log[0] === 'update:/:accountSnap/U5,users/U5/transferData', '★ 같은 update 로 옛 transferData 를 지운다');
+      chk(s5.name.length === 40 && s5.friendCode === null && s5.focusTotalSec === null, '  범위 밖 항목은 그 항목만 뺀다 (이름은 40자로 · 통째 거절 없음)');
+      t = mk({}, { denyUpdate: true });
+      w = await t.api.setAccountSnapshot('U6', { license: 'x' });
+      chk(w.ok === false, '  거절되면 ok:false — 던지지 않는다');
+      chk((await t.api.setAccountSnapshot('', { license: 'x' })).ok === false && (await t.api.setAccountSnapshot('U7', null)).ok === false, '  코드나 값이 없으면 쓰지 않는다');
+      /* ⑥ 함수(functions/index.js moveAccountSnap)와 규칙이 같다 — 떼어 비교(파일이 스테이징에 없으면 건너뜀) */
+      let IDX = null; for (const p of ['functions/index.js', '../functions/index.js', 'index.js']) { try { const t2 = fs.readFileSync(p, 'utf8'); if (/moveAccountSnap/.test(t2)) { IDX = t2; break; } } catch (_) {} }
+      if (IDX){
+        const norm = x => String(x || '').replace(/\/\/.*$/mg, '').replace(/\s+/g, ' ').replace(/^.*?const str/, 'const str').replace(/\}\s*$/, '');
+        chk(norm(grabM(IDX, 'function snapClean(')) === norm(fClean), '  함수 snapClean = 앱 _acctSnapClean (같은 규칙)');
+      } else say('  (functions/index.js 없음 — 함수 쪽 비교는 세션에서 떼어 돌린다)');
+      /* ⑦ 부르는 쪽 — app.js 는 여전히 두 함수만 부르고, transferData 를 직접 만지지 않는다 */
+      const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
+      chk(!/transferData|accountSnap/.test(CODE), '  app.js 코드는 스냅샷 자리를 직접 만지지 않는다 (통로 두 함수뿐)');
     }
   }
 

@@ -79,6 +79,7 @@ function makeStage(listLen){
     console: { warn: m => log.warns.push(String(m)), log(){} },
     setInterval: ()=> 1, clearInterval(){},
     _plNow: 0, _plErrStreak: 0,
+    _plPlaying: true,   // ⏸ [2026-09-20] 감시견이 «사람이 세워 둔 동안» 을 이 값으로 본다 — 아래 §2 마지막 케이스
     _plNowItems: ()=> Array.from({ length: listLen }, (_, i)=>({ id:'v'+i })),
     _plNext: ()=>{ log.next++; },
     _plStop: ()=>{ log.stop++; },
@@ -131,6 +132,20 @@ w = makeStage(5);
 w.st._plWatchReset();
 for(let i=0;i<20;i++){ w.adv(5*SEC); w.st._plWatchBeat('42|180|1'); w.st._plWatchTick(); }  // 일시정지
 chk(w.log.next === 0, '사람이 일시정지한 것은 멈춤으로 세지 않는다');
+
+/* ⏸ [2026-09-20 제보 «가만히 있다가 저절로 재생된다»] 세워 둔 채 하트비트까지 끊긴 경우.
+   주입 루프는 4시간(TWPL_MAX) 뒤에 죽는다 — 세워 둔 동안에도 tick 이 쌓이므로 4시간 세워 두면 신호가 끊긴다.
+   예전엔 그 순간 «진행멈춤» 으로 읽고 다음 곡을 틀었다. */
+w = makeStage(5);
+w.st._plWatchReset();
+for(let i=0;i<6;i++){ w.adv(5*SEC); w.st._plWatchBeat((i*5) + '|180|0'); w.st._plWatchTick(); }   // 30초 재생
+w.st._plPlaying = false;                                                                        // ▐▐
+for(let i=0;i<4;i++){ w.adv(5*SEC); w.st._plWatchBeat('30|180|1'); w.st._plWatchTick(); }       // 세워 둔 채 하트비트 몇 번
+for(let i=0;i<60;i++){ w.adv(60*SEC); w.st._plWatchTick(); }                                    // 그 뒤 1시간 — 하트비트 없음
+chk(w.log.next === 0 && w.log.stop === 0, '★ ▐▐ 로 세워 둔 동안은 하트비트가 끊겨도 넘기지 않는다 — 4시간 뒤 주입 루프가 죽어도 «저절로 재생» 이 없다');
+w.st._plPlaying = true;                                                                         // ▶ 다시
+for(let i=0;i<8 && !w.log.next;i++){ w.adv(5*SEC); w.st._plWatchTick(); }                     // 신호가 정말 없다 (무대의 _plNext 는 되감지 않으므로 첫 넘김에서 멈춘다)
+chk(w.log.next === 1, '  다시 ▶ 를 누른 뒤에 신호가 없으면 그때는 예전처럼 넘긴다(주입이 죽은 페이지는 끝나도 못 알린다)');
 
 w = makeStage(5);
 w.st._plWatchReset(); w.st._plNow = -1;

@@ -41,9 +41,12 @@ const ROOT = path.resolve(__dirname, '..');
 const MANIFEST = path.join(CHECKS, 'CHECKS.md');
 
 /* 스테이징에 올리지 않는 것. `checks` 자신은 따로 복사하므로 여기서 뺀다. */
+/* ★ [2026-09-22 · 개정 44] 'functions' — Cloud Functions 폴더(저장소 루트). 그 안의 node_modules 는 이름이 겹쳐도
+     여기 SKIP 이 **맨 위 한 층만** 보므로 걸러지지 않는다 → 폴더째 빼지 않으면 한 바퀴마다 수만 개를 복사한다.
+     검사가 읽는 원본(렌더러·main)이 그 안에 없으니 빼도 판정은 그대로다. */
 const SKIP = new Set([
   'node_modules', '.git', '.github', 'dist', 'out', 'release',
-  'checks', 'build', '디자인', '.vscode', '.idea',
+  'checks', 'build', '디자인', '.vscode', '.idea', 'functions',
 ]);
 
 /* 검사들이 실제로 읽는 원본 — 없으면 그 검사가 통째로 헛돈다.

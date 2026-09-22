@@ -1,6 +1,6 @@
 {
   "name": "together-working",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "description": "책상 위에 사는 데스크톱 컴패니언",
   "main": "main.js",
   "scripts": {

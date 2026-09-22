@@ -57,11 +57,16 @@
        인라인 스크립트를 써 넣는다. 'unsafe-inline' 을 빼면 폴백 유저가 다시 죽을 수 있고,
        그 고장 역시 웹소켓이 되는 환경에서는 재현되지 않는다. 2단계 검증은 반드시
        "웹소켓이 막힌 회선"(예: 백신 SSL 검사 켜기)에서 한 번 돌려보고 넘어갈 것. -->
+<!-- 🔐 [2026-09-22 · 회원가입 C2] connect-src 에 함수 호스트 `https://asia-southeast1-together-working.cloudfunctions.net` 을 더했다.
+     비밀번호 바꾸기(함수 `changePassword` · 호출형)가 여기로 간다 — 없으면 fetch 가 CSP 에 막혀 «네트워크 오류» 로만 보인다.
+     리전·프로젝트는 parts/firebase-config.js(databaseURL 의 asia-southeast1 · projectId together-working)와 같다.
+     와일드카드(*.cloudfunctions.net)로 넓히지 않았다 — 남의 함수로 나가는 길을 열 이유가 없다.
+     ⚠️ 함수 리전을 바꾸면 이 두 줄과 firebase-init.js FUNCTIONS_REGION 을 같이 바꾼다. -->
 <!-- ▼▼ 1단계 (지금 활성) — script-src 에 'unsafe-inline' 있음 ▼▼ -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://*.appspot.com https://www.gstatic.com https://www.youtube.com; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 
 <!-- ▼▼ 2단계 — 위 줄을 주석 처리하고 이 줄의 주석을 벗기면 'unsafe-inline' 만 빠진다 ▼▼
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://*.appspot.com https://www.gstatic.com https://www.youtube.com; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Desk Companion — 멀티 좌석 프로토타입</title>
@@ -1153,6 +1158,9 @@
     background:var(--win-accent);}
   #launcher.on{display:flex;}
   .lc-card.dimmed{ filter:grayscale(.5) brightness(.75); pointer-events:none; }
+  /* 🪪 [내 정보 › 계정] 에서는 스크롤바를 숨긴다(사용자 요청 · 개정 53) — 휠·끌기 스크롤은 그대로. 클래스는 app.js _miSetTab 이 단다. */
+  #lcMyInfo.mi-noscroll{scrollbar-width:none;}
+  #lcMyInfo.mi-noscroll::-webkit-scrollbar{display:none;width:0;height:0;}
   .lc-card{position:relative;width:320px;max-width:92vw;padding:14px 18px 18px;margin:auto;flex:none;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);border-radius:var(--win-radius-el) !important;}
@@ -5200,10 +5208,17 @@
       <span class="win98titlebtn" id="lcCloseBtn" title="닫기">&times;</span>
       </span>
     </div>
-    <button class="lc-gear" id="lcGear" title="캐릭터 수정 / 캐릭터 삭제">&#9881;</button>
+    <button class="lc-gear" id="lcGear" title="보관함 이동 / 캐릭터 수정 / 캐릭터 삭제">&#9881;</button>
+    <!-- 🧰 시안 G(개정 48): [보관함 이동](되묻지 않음) · [캐릭터 수정] · [복제 코드 만들기] · 구분선 · [휴지통 이동](붉게 · 되묻기).
+         마지막 줄 글자는 스위치·첫 채택에 묶여 app.js _charsDeleteWords 가 정한다(채택 전 «캐릭터 삭제» — 휴지통이 없을 때 그렇게 적으면 되살릴 수 있다고 믿는다). -->
     <div class="lc-menu" id="lcGearMenu">
-      <button id="lcEdit">캐릭터 수정</button><button id="lcExport">복제 코드 만들기</button><button id="lcDelete">캐릭터 삭제</button>
+      <button id="lcToBox">보관함 이동</button><button id="lcEdit">캐릭터 수정</button><button id="lcExport">복제 코드 만들기</button><hr id="lcGearSep" style="border:0;border-top:1px solid var(--win-lo-2);border-bottom:1px solid var(--win-hi);margin:2px 4px;"><button id="lcDelete">캐릭터 삭제</button>
     </div>
+    <!-- 🛟 [2026-09-20 · 3-7-2 A안] 연동 띠 — 캐릭터가 줄어든 것을 **보는 그 자리**(그림 바로 위).
+         내용·표시는 app.js _slotsRenderBand 가 그린다. 토스트와 달리 안 사라지고, [유지하기]로 닫아도
+         계정 탭 › 기기 연동 구획에 남는다. 세 상태: 줄어든 교체(되돌리기 가능) · 백업 없음 · 되돌린 직후. -->
+    <div id="lcSyncBand" style="display:none;margin:5px 3px 0;padding:7px 8px;border:2px solid;
+      border-color:#B5624A #6d3527 #6d3527 #B5624A;background:#F3D9A4;font-size:11px;line-height:1.45;"></div>
     <div class="lc-stage">
       <button class="lc-arrow" id="lcPrev">&#9664;</button>
       <div class="lc-preview-wrap">
@@ -5224,7 +5239,7 @@
          경로였다. 그 역할은 위 후원 버튼이 대신 받는다(항상 클릭 가능하고, 광고 배너와 달리 항상 보인다). -->
     <button class="lc-btn" id="lcCreate" disabled style="display:none;">🚧 공사중</button>
     <button class="lc-btn ghost" id="lcInvite">방 만들기 / 참여하기</button>
-    <button class="lc-btn ghost" id="lcLoad">캐릭터 불러오기</button>
+    <button class="lc-btn ghost" id="lcLoad">내 정보</button>
     <!-- 하단 링크 3개 — 버튼이 늘어나 폭이 빠듯해졌으므로 글자를 줄이고 줄바꿈을 막음(nowrap) -->
     <div style="display:flex;gap:2px;margin-top:8px;justify-content:center;align-items:center;">
       <button id="lcNameBtn" style="background:none;border:none;white-space:nowrap;
@@ -5243,6 +5258,157 @@
     </div>
     <div class="lc-foot"><button id="lcGlbLoad" class="admin-only">암호화 GLB 불러오기</button><span class="admin-only">·</span><button id="lcAssetGen" class="admin-only">📦 책상·아이템 코드 만들기</button><span class="admin-only">·</span><button id="lcCommissionGen" class="admin-only">🎁 커미션 캐릭터 등록</button><span class="admin-only">·</span><button id="lcLicenseGen" class="admin-only">🎟️ 라이선스 키 발급</button><span class="admin-only">·</span><button id="lcAnnounce" class="admin-only">📣 확성기 공지</button><span class="admin-only">·</span><button id="lcUpdateNotice" class="admin-only">📰 업데이트 공지</button><span class="admin-only">·</span><button id="lcCategoryManage" class="admin-only">📁 카테고리 관리</button><span class="admin-only">·</span><button id="lcAdBannerEdit" class="admin-only">📢 광고 배너 편집</button><span class="admin-only">·</span><button id="lcInviteGrant" class="admin-only">🎟️ 유저 초대권 지급</button><span class="admin-only">·</span><button id="lcGameCfg" class="admin-only">⚙️ 게임 설정</button><span class="admin-only">·</span><button id="lcCloseAllRooms" class="admin-only">🛑 전체 방 종료</button><span class="admin-only">·</span><button id="lcCleanGhostRooms" class="admin-only">🧹 유령 방 청소</button></div>
 
+    <!-- 🪪 [내 정보] — 런처 화면이 바뀐다(CHECKS 개정 48 · 사용자 결정 · 시안 «런처 전환»). ◀ 로 런처로 돌아간다.
+         회원가입 설계 §7 B2 · C4 · D · G 를 이 자리로: 작은 머리(사진 · 닉네임 + 레벨 배지 + [수정] · 친구 코드 + [복사]) · 탭 [보관함] [휴지통](숨김 · E) [계정].
+         ★ 보관함 = **보관함에 넣은 캐릭터만**(런처 톱니 [보관함 이동]으로 넣은 것 · 슬롯 캐릭터는 여기 없다) · 줄마다 [슬롯에 올리기] · 개수는 «보관함 (n/20)».
+         ★ 계정 = C4 그대로(로그인 수단·비밀번호 → 기기 연동 → 로그아웃).
+         ⚠️ 카드(.lc-card · position:relative) 안의 겹 페이지다 — 제목줄(22px) 아래를 덮는다. 창·팝업이 아니므로 바깥 클릭 닫기 · 팝업 목록에 넣지 않는다. -->
+    <div id="lcMyInfo" style="display:none;position:absolute;left:0;right:0;top:22px;bottom:0;z-index:6;overflow-y:auto;
+      background:var(--win-face);padding:8px 12px 12px;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+        <button id="miBack" class="lc-btn" type="button" aria-label="런처로" style="width:auto;margin:0;padding:2px 9px;font-size:11px;">&#9664;</button>
+        <b style="font-size:12px;">내 정보</b></div>
+      <div style="display:flex;gap:9px;align-items:center;padding-bottom:9px;border-bottom:1px solid var(--win-lo-2);box-shadow:0 1px 0 var(--win-hi);">
+        <div id="miAvatar" style="width:44px;height:44px;flex-shrink:0;background:var(--win-select-bg);border:1px solid;
+          border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;
+          text-align:center;font-size:9px;line-height:1.3;overflow:hidden;"><!-- 틀은 마이홈 프로필 사진(#mhAvatarBig)과 같은 한 줄 베벨 -->
+          <img id="miAvatarImg" alt="" draggable="false" style="display:none;width:100%;height:100%;object-fit:cover;">
+          <span id="miAvatarPh">사진</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1;">
+          <div id="miNameRow" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+            <span id="miNick" style="font-size:12.5px;font-weight:bold;word-break:break-all;"></span>
+            <span id="miLv"></span><!-- 레벨 배지 — 친구 목록과 같은 .mh-flv(_plFillLv) -->
+            <button id="miNameEdit" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">수정</button></div>
+          <div id="miNameEditRow" style="display:none;align-items:center;gap:4px;">
+            <input id="miNameInput" type="text" maxlength="20" autocomplete="off" style="flex:1;min-width:0;width:100px;padding:2px 5px;box-sizing:border-box;background:#fff;
+              border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);font-size:11px;">
+            <button id="miNameSave" class="lc-btn" type="button" style="width:auto;margin:0;padding:2px 7px;font-size:10.5px;">저장</button>
+            <button id="miNameCancel" class="lc-btn" type="button" style="width:auto;margin:0;padding:2px 7px;font-size:10.5px;">취소</button></div>
+          <div style="display:flex;align-items:center;gap:6px;"><span id="miCode" style="font-size:11px;font-weight:bold;font-family:'Courier New',monospace;letter-spacing:.3px;">—</span>
+            <button id="miCopy" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">복사</button></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:3px;margin:9px 0 0;">
+        <button id="miTabBox" class="mi-tab" type="button" style="flex:1 1 0;font-family:inherit;font-size:11px;color:var(--ink);background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo),inset 1px 1px 0 var(--win-face-2);padding:4px 2px;cursor:pointer;">보관함</button>
+        <button id="miTabAcct" class="mi-tab" type="button" style="flex:1 1 0;font-family:inherit;font-size:11px;color:var(--ink);background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo),inset 1px 1px 0 var(--win-face-2);padding:4px 2px;cursor:pointer;">계정</button>
+        <button id="miTabTrash" class="mi-tab" type="button" style="flex:1 1 0;font-family:inherit;font-size:11px;color:var(--ink);background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo),inset 1px 1px 0 var(--win-face-2);padding:4px 2px;cursor:pointer;display:none;color:#B22222;font-weight:bold;">휴지통</button>
+      </div>
+      <div id="miPageBox" style="padding:9px 0 0;">
+        <!-- 🧺 D2 보관함 가득 참 (개정 51) — 보관함(슬롯 밖) 20 이상일 때만. 문구·체크칸·[선택한 캐릭터 휴지통으로]는 app.js _miRenderBox 가 켠다. -->
+        <div id="miBoxFull" style="display:none;font-size:10.5px;color:#000;line-height:1.55;padding:6px 8px;margin:0 0 6px;background:#FFF4D6;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"><b id="miBoxFullHead"></b><br><span id="miBoxFullText"></span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:6px;">
+          <div class="fs-label" style="margin:0 0 6px;">보관함 (<span id="miBoxCount">0/20</span>)</div>
+          <span id="miBoxPicked" style="display:none;font-size:10.5px;color:var(--ink-soft);"></span></div>
+        <div id="miBoxList" style="display:flex;flex-direction:column;gap:4px;"></div>
+        <div id="miBoxBulk" style="display:none;margin-top:6px;">
+          <button id="miBoxBulkBtn" class="lc-btn" type="button" style="width:100%;margin:0;color:#B22222;font-weight:bold;"></button>
+          <div id="miBoxBulkAsk" style="display:none;margin-top:4px;padding:6px;background:#fff;border:1px solid #B22222;font-size:10.5px;">
+            <div id="miBoxBulkAskText" style="color:#B22222;margin-bottom:5px;"></div>
+            <div style="display:flex;gap:4px;justify-content:flex-end;">
+              <button id="miBoxBulkYes" class="lc-btn" type="button" style="width:auto;margin:0;padding:3px 10px;font-size:10.5px;color:#B22222;">옮기기</button>
+              <button id="miBoxBulkNo" class="lc-btn" type="button" style="width:auto;margin:0;padding:3px 10px;font-size:10.5px;">취소</button></div></div>
+          <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.55;margin-top:6px;">휴지통으로 옮긴 캐릭터는 3일 동안 복원할 수 있어요.</div>
+        </div>
+        <!-- 비었을 때 · 보관함이 아직 안 열렸을 때(계정 연동 첫 채택 전) 한 줄 — app.js _miRenderBox 가 글자를 고른다 -->
+        <div id="miBoxEmpty" style="display:none;font-size:10.5px;color:var(--ink-soft);line-height:1.55;padding:8px;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"></div>
+        <button id="miCodeLoad" class="lc-btn" type="button" style="margin-top:10px;width:100%;">코드로 캐릭터 불러오기</button>
+      </div>
+      <!-- 🗑️ 휴지통 (시안 E · 개정 49) — 옮긴 캐릭터 3일 · 연동 교체로 바뀐 이전 모습 10일. 줄은 app.js _miRenderTrash 가 DOM 으로 만든다.
+           휴지통은 어디서나 붉은색(#B22222 · 설계 §7). 복원은 무조건 보관함으로(20 문턱 — 막히면 #miTrashFull). -->
+      <div id="miPageTrash" style="display:none;padding:9px 0 0;">
+        <div class="fs-label" style="margin:0 0 6px;color:#B22222;">휴지통 (<span id="miTrashCount">0</span>)</div>
+        <div id="miTrashFull" style="display:none;font-size:10.5px;color:#B22222;line-height:1.55;padding:6px 8px;margin:0 0 6px;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">보관함이 가득 찼어요 (<span id="miTrashFullN">20/20</span>)<br><span style="color:var(--ink-soft);">보관함에서 하나를 휴지통으로 옮긴 뒤 복원할 수 있어요.</span></div>
+        <div id="miTrashList" style="display:flex;flex-direction:column;gap:4px;"></div>
+        <div id="miTrashEmpty" style="display:none;font-size:10.5px;color:var(--ink-soft);line-height:1.55;padding:8px;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"></div>
+        <div id="miTrashNote" style="font-size:10.5px;color:var(--ink-soft);line-height:1.55;margin-top:8px;">복원하면 보관함으로 가요. «연동 교체»를 복원하면 지금 모습은 그대로 두고 하나가 더 생겨요.</div>
+      </div>
+      <div id="miPageAcct" style="display:none;padding:10px 0 0;">
+        <!-- 로그인 후 — C4: 로그인 수단 → 비밀번호(C2/C3) → 기기 연동 → [이 컴퓨터에서 로그아웃]. «연결됨 · 이메일» 상자는 C4 에 없어 뺐다(아이디는 로그인 수단 줄의 친구 코드). -->
+        <div id="acctLoggedIn" style="display:none;">
+        <!-- 🔐 C2 · C3 로그인 수단 · 비밀번호 [회원가입 설계 §7-C2·C3 · 개정 14 · 시안 확정]
+             지금 로그인된 계정이 무엇으로 들어오는지(구글 · 친구 코드+비밀번호)를 보이고, 비밀번호를 **만들거나(C3) 바꾼다(C2).**
+             ★ C3 = 구글만 있는 계정(구글로 가입 · 옛 구글 로그인) → 비밀번호 만들기. 함수 없음 — 지금 세션에 `{코드}@tw.local` 을 붙인다.
+             ★ C2 = 비밀번호가 있는 계정 → 비밀번호 바꾸기. **지금 비밀번호를 묻지 않는다** — 로그인된 이 PC 가 본인 증거,
+               함수 `changePassword` 가 ID 토큰을 확인하고 바꾼다((가) · 되찾기 코드 없음). 구글이 없으면 경고 + [연결하기].
+             ★ 모드·글자는 app.js `_acctMethodsRender` 가 채운다. 로그인이 풀린 판(다른 PC 에서 바꿈)은 `acctMOff` 한 줄만.
+             ★ (개정 16) 옛 설정 › 계정 탭에서 [내 정보 › 계정](C4)으로 옮겼다 — 글자·id·로직 그대로. -->
+        <div id="acctMethods" style="display:none;margin-bottom:10px;">
+          <div style="font-size:11px;font-weight:bold;color:var(--ink);margin-bottom:5px;">로그인 수단</div>
+          <div style="background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+            padding:8px 9px;display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--ink);">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="display:flex;align-items:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg><span>구글</span></span>
+              <span id="acctMGoogleOk" style="font-size:10.5px;color:var(--win-ok,#2a7a3f);">연결됨</span>
+              <button id="acctMGoogleLink" class="lc-btn" type="button" style="display:none;width:auto;margin-top:0;padding:3px 9px;font-size:11px;">연결하기</button>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <span style="display:flex;align-items:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg><span>친구 코드 <b id="acctMCode" style="font-family:'Courier New',monospace;">—</b></span></span>
+              <span id="acctMPwState" style="font-size:10.5px;color:var(--ink-soft);">비밀번호 없음</span>
+            </div>
+          </div>
+          <div id="acctMNote" style="display:none;margin-top:6px;font-size:10.5px;color:var(--ink-soft);line-height:1.55;">비밀번호를 만들면 구글 없이도 친구 코드로 로그인할 수 있어요.</div>
+          <div id="acctMWarn" style="display:none;margin-top:6px;font-size:10.5px;color:#B5624A;line-height:1.5;">⚠ 구글이 연결돼 있지 않아요. 이 PC의 로그인이 풀린 채로 비밀번호를 잊으면 계정을 되찾을 수 없어요.</div>
+          <div id="acctPwTitle" style="font-size:11px;font-weight:bold;color:var(--ink);margin:10px 0 5px;">비밀번호 만들기</div>
+          <div style="background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+            padding:9px;display:flex;flex-direction:column;gap:7px;">
+            <label id="acctPwL1" for="acctPw1" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호</label>
+            <input id="acctPw1" type="password" placeholder="6자 이상" maxlength="40" autocomplete="off"
+              style="width:100%;padding:7px 8px;box-sizing:border-box;
+              background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+              box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+            <label id="acctPwL2" for="acctPw2" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호 확인</label>
+            <input id="acctPw2" type="password" placeholder="한 번 더" maxlength="40" autocomplete="off"
+              style="width:100%;padding:7px 8px;box-sizing:border-box;
+              background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+              box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+            <button id="acctPwBtn" class="lc-btn" type="button" style="margin-top:0;width:100%;">비밀번호 만들기</button>
+            <div id="acctPwHint" style="display:none;font-size:10.5px;color:var(--ink-soft);line-height:1.55;">지금 비밀번호는 묻지 않아요 — 이 PC가 로그인돼 있는 것으로 확인해요. 바꾸면 <b>다른 PC는 새 비밀번호로 다시 로그인</b>해야 해요.</div>
+            <div id="acctPwMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
+          </div>
+        </div>
+        <div id="acctMOff" style="display:none;margin-bottom:9px;font-size:10.5px;color:var(--ink-soft);line-height:1.55;">이 PC의 로그인이 풀려 있어요. 앱을 다시 시작하면 로그인 화면이 나와요.</div>
+        <!-- ☁️ [2026-09-20 · 3-7-2 B안 · 개정 16 에서 [내 정보 › 계정]으로 옮김 · C4 순서로 로그아웃 위] 기기 연동 구획 — 지금까지 «연동이 되고 있는가» 를 볼 자리가 없었다.
+             평소엔 마지막 연동 시각·개수 세 줄. 캐릭터가 줄어든 교체가 있었으면 되돌리기 상자,
+             올리기가 실패했으면 그 사유와 [지금 다시 올리기]. ④ 충돌을 [나중에] 로 미뤘으면 [고르기].
+             전부 app.js _slotsRenderAcctSync 가 채운다. -->
+        <div style="margin:4px 0 12px;">
+          <div class="fs-label" style="margin-bottom:6px;">기기 연동</div>
+          <div id="acctSyncBox" style="background:var(--win-select-bg);border:2px solid;
+            border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px 9px;font-size:10.5px;color:var(--ink-soft);line-height:1.5;"></div>
+          <div id="acctSyncFail" style="display:none;margin-top:9px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+            padding:8px 9px;font-size:10px;color:var(--ink);line-height:1.5;"></div>
+          <p id="acctSyncHint" style="margin:7px 0 0;font-size:10px;color:var(--ink-soft);line-height:1.5;">30분마다 저절로 맞춰져요. 다른 컴퓨터에서 캐릭터를 만들면 여기 개수가 먼저 늘어나요.</p>
+        </div>
+        <button id="acctLogoutBtn" class="lc-btn" style="width:100%;margin-top:0;">이 컴퓨터에서 로그아웃</button>
+
+        <!-- 로그아웃 확인 — 계정 연동 해제와 같은 3단계(버튼→확인→종료 안내). -->
+        <div id="acctLogoutConfirm" style="display:none;margin-top:9px;background:var(--win-select-bg);
+          border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:9px 10px;">
+          <p style="margin:0 0 7px;font-size:11.5px;color:var(--win-error);font-weight:bold;line-height:1.5;">정말 로그아웃할까요?</p>
+          <p style="margin:0 0 9px;font-size:10.5px;color:var(--ink);line-height:1.6;background:rgba(0,0,0,.05);padding:6px 8px;">
+            계정과 데이터는 <b>서버에 그대로 남아요.</b> 이 PC에 있던 캐릭터·파츠·기록은 정리되고, 로그아웃하면 <b>앱이 다시 시작되고</b> 시작 화면이 나와요. 거기서 <b>친구 코드나 구글로 로그인</b>하면 서버에서 받아와 그대로 돌아와요.</p>
+          <div style="display:flex;gap:6px;">
+            <button id="acctLogoutCancel" class="lc-btn" style="margin-top:0;flex:1;">취소</button>
+            <button id="acctLogoutYes" class="lc-btn" style="margin-top:0;flex:1;color:#fff;background:var(--win-error);border-color:#d9a294 #6d3527 #6d3527 #d9a294;">로그아웃</button>
+          </div>
+          <!-- 🚪 [2026-09-20 · §2] 강제 갈래 — 검문에 **두 번** 걸린 뒤에만 app.js 가 연다(그 전엔 display:none).
+               누르면 바로 실행. 이 버튼이 보이는 순간 위 acctLoginMsg 에 «이 컴퓨터에만 있는 것» 이 항목별로 적혀 있다. -->
+          <button id="acctLogoutForce" class="lc-btn" style="display:none;margin-top:6px;width:100%;color:#fff;background:var(--win-error);border-color:#d9a294 #6d3527 #6d3527 #d9a294;">그래도 로그아웃</button>
+        </div>
+        <div id="acctLogoutDone" style="display:none;margin-top:9px;background:var(--win-select-bg);
+          border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:9px 10px;">
+          <p style="margin:0 0 9px;font-size:11.5px;color:var(--win-ok,#2a7a3f);font-weight:bold;line-height:1.55;">로그아웃됐어요.</p>
+          <p style="margin:0 0 9px;font-size:10.5px;color:var(--ink);line-height:1.6;">앱을 다시 시작하는 중이에요…</p>
+          <!-- 아래 버튼은 재시작을 못 하는 판(구버전 앱)에서의 물러날 자리다. 자동 재시작이
+               되는 판에서는 이 화면이 잠깐 보였다가 앱이 껐다 켜진다. -->
+          <button id="acctLogoutQuit" class="lc-btn" style="margin-top:0;width:100%;">안 꺼지면 여기를 눌러 종료</button>
+        </div>
+        </div>
+        <!-- 로그인 안 한 PC(오프라인 예외 · 세션 없음) — 옛 [구글 계정으로 로그인] 얼굴은 걷었다. 로그인은 게이트(H · I · K)가 한다. -->
+        <div id="acctNoLogin" style="display:none;font-size:10.5px;color:var(--ink-soft);line-height:1.55;">이 PC는 로그인돼 있지 않아요. 앱을 다시 시작하면 로그인 화면이 나와요.</div>
+        <div id="acctLoginMsg" style="display:none;font-size:11px;margin-top:8px;line-height:1.5;color:var(--win-error);"></div>
+      </div>
+    </div>
     <!-- 광고 배너 — 관리자가 이미지+링크 등록하면 표시, 없으면 자동 숨김 -->
     <a id="lcAdBanner" href="#" target="_blank" style="display:none;margin-top:10px;width:100%;
       background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -5344,38 +5510,252 @@
   </div>
 </div>
 
-<!-- 🎟️ 초대장 게이트 — 앱 시작 시 초대 코드가 없으면 여기서 막힘.
-     INVITE_GATE_ENABLED가 false면 아예 뜨지 않음(개발/테스트 중). 불투명 배경으로 뒤를 완전히 가림. -->
+<!-- 🎟️ 초대 게이트 H — 처음 쓰는 PC(이 기기에 uid 없음)가 보는 첫 화면. [회원가입 설계 §3 · §7-H · 시안 확정]
+     세 문: 초대 코드 [입장하기] · «이미 계정이 있어요» [구글로 로그인] · 친구 코드 + 비밀번호 [친구 코드로 로그인].
+     ★ 세 버튼 같은 크기(전부 lc-btn · ghost 아님). 계정이 있으면 **초대 코드 없이** 들어온다.
+     ★ 옛 «유저 코드(u…) + 이전 비밀번호 = 계정 이전» 줄은 걷었다 — 친구 코드 로그인이 그 자리다(설계 §9 결정 9).
+     INVITE_GATE_ENABLED가 false면 아예 뜨지 않음. 불투명 배경으로 뒤를 완전히 가림. -->
 <div id="inviteGateOverlay" style="position:fixed;inset:0;z-index:95;display:none;align-items:center;justify-content:center;
   background:#3a6ea5;">
-  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+  <div id="inviteGateCard" style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:320px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
+    width:340px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🎟️ 초대 코드 입력</div>
-    <div style="padding:14px;">
-      <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:10px;">
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">초대 코드 입력</div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
+      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.55;">
         투게더워킹은 초대받은 분만 사용할 수 있어요.<br>받으신 초대 코드를 입력해 주세요.
       </div>
+      <label for="inviteGateInput" style="font-size:11px;font-weight:bold;color:var(--ink);">초대 코드</label>
       <input id="inviteGateInput" type="text" placeholder="INVT-XXXX-XXXX" maxlength="24" autocomplete="off"
         style="width:100%;padding:7px 8px;box-sizing:border-box;letter-spacing:1px;
         background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;margin-bottom:10px;">
-      <!-- ★ 계정 이전 — 유저 코드(u로 시작)를 넣으면 나타나는 비밀번호 줄. 초대 코드일 땐 숨김. -->
-      <div id="inviteGatePwRow" style="display:none;margin-bottom:10px;">
-        <div style="font-size:11px;color:var(--ink-soft);margin-bottom:4px;">기존 계정 코드네요 — [계정 이전]에서 정한 비밀번호를 입력하세요.</div>
-        <input id="inviteGatePw" type="password" placeholder="이전 비밀번호" maxlength="40" autocomplete="off"
-          style="width:100%;padding:7px 8px;box-sizing:border-box;
-          background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-          box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
-      </div>
-      <div id="inviteGateMsg" style="display:none;font-size:11px;margin:-4px 0 8px;"></div>
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+      <div id="inviteGateMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
       <button id="inviteGateOk" class="lc-btn" style="margin-top:0;">입장하기</button>
-      <!-- 🔑 새 컴퓨터의 기존 유저를 위한 문 — 유저 코드 22자리를 옮겨 적지 않아도 된다. -->
-      <div style="margin-top:11px;padding-top:9px;border-top:1px solid var(--win-lo-2);">
-        <div style="font-size:10.5px;color:var(--ink-soft);text-align:center;margin-bottom:6px;">쓰던 계정이 있다면</div>
-        <button id="inviteGateGoogleBtn" class="lc-btn ghost" style="margin-top:0;">구글 계정으로 로그인</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
+        <span style="font-size:10.5px;color:var(--ink-soft);">이미 계정이 있어요</span>
+        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
       </div>
+      <button id="inviteGateGoogleBtn" class="lc-btn" style="margin-top:0;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg>
+          <span>구글로 로그인</span>
+        </span>
+      </button>
+      <label for="inviteGateFc" style="font-size:11px;font-weight:bold;color:var(--ink);">친구 코드</label>
+      <input id="inviteGateFc" type="text" placeholder="MATE-XXXX" maxlength="12" autocomplete="off"
+        style="width:100%;padding:7px 8px;box-sizing:border-box;letter-spacing:1px;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+      <label for="inviteGatePw" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호</label>
+      <input id="inviteGatePw" type="password" placeholder="비밀번호" maxlength="40" autocomplete="off"
+        style="width:100%;padding:7px 8px;box-sizing:border-box;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+      <button id="inviteGateFcBtn" class="lc-btn" style="margin-top:0;">친구 코드로 로그인</button>
+      <!-- 두 로그인 문(구글 · 친구 코드)의 안내는 여기 한 줄. 초대 코드 안내는 위 inviteGateMsg. -->
+      <div id="inviteGateLoginMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
+      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.55;border-top:1px solid var(--win-lo);padding-top:8px;">
+        다른 컴퓨터에서 쓰던 계정이면 초대 코드 없이 로그인하면 돼요. 캐릭터와 기록이 그대로 따라와요.
+      </div>
+    </div>
+  </div>
+  <!-- ✍️ A · 계정 만들기 — 초대 코드로 막 들어온 새 사람만(같은 오버레이 안 두 번째 카드). [설계 §3 · §7-A · 시안 확정]
+       새 친구 코드는 **고정 표시**(선점은 [가입하기] 때) · 아이디 입력 칸 없음 · 비밀번호·확인만 · 또는 구글로 가입.
+       가입이 끝나면 #signupDoneOverlay(J · J2)로 넘어간다. -->
+  <div id="signupCard" style="display:none;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:340px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
+    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">계정 만들기</div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
+      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.55;">환영해요! 계정 하나로 집·회사 컴퓨터의 캐릭터가 같이 다녀요.</div>
+      <button id="signupGoogleBtn" class="lc-btn" style="margin-top:0;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg>
+          <span>구글로 가입하기</span>
+        </span>
+      </button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
+        <span style="font-size:10.5px;color:var(--ink-soft);">또는 친구 코드로</span>
+        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
+      </div>
+      <div style="font-size:11px;font-weight:bold;color:var(--ink);">내 아이디 (친구 코드)</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;padding:8px 9px;
+        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
+        <span id="signupCode" style="font-family:'Courier New',monospace;font-weight:bold;font-size:15px;color:#000;">MATE-····</span>
+        <span style="font-size:10.5px;color:var(--ink-soft);">바뀌지 않아요</span>
+      </div>
+      <label for="signupPw" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호</label>
+      <input id="signupPw" type="password" placeholder="6자 이상" maxlength="40" autocomplete="off"
+        style="width:100%;padding:7px 8px;box-sizing:border-box;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+      <label for="signupPw2" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호 확인</label>
+      <input id="signupPw2" type="password" placeholder="한 번 더" maxlength="40" autocomplete="off"
+        style="width:100%;padding:7px 8px;box-sizing:border-box;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+      <div id="signupMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
+      <button id="signupOk" class="lc-btn" style="margin-top:0;">가입하기</button>
+      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.55;border-top:1px solid var(--win-lo);padding-top:8px;">
+        이메일은 받지 않아요. 비밀번호를 잊으면 <b>로그인돼 있는 PC</b>의 [내 정보 › 계정]에서 바꿀 수 있어요.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🪪 I · 친구 코드 가입이 필요해요 — 로그인 안 하고 쓰던 기존 사용자(이 PC 에 uid 있음 · 그 uid 가 아무 계정에도 안 묶임)가 부팅 때 본다.
+     [회원가입 설계 §3 · §7-I · 시안 확정] **닫기 없음** — 가입하거나 구글을 연결해야 앱으로. 오프라인이면 이번엔 안 뜨고 다음 온라인 부팅에 다시.
+     지금 친구 코드가 곧 아이디(고정 표시) · 비밀번호만 정한다. uid 는 그대로라 캐릭터·레벨·친구·마이홈이 바뀌지 않는다.
+     배경은 반투명(뒤의 앱은 그대로 있다 · 시안 rgba(0,0,0,.45)). -->
+<div id="existingSignupOverlay" style="position:fixed;inset:0;z-index:96;display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.45);">
+  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:340px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
+    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">친구 코드 가입이 필요해요</div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
+      <div style="font-size:12px;line-height:1.55;color:var(--ink);">이제 투게더워킹은 계정으로 써요.<br>지금 쓰는 친구 코드가 그대로 <b>아이디</b>가 되고, 비밀번호만 정하면 끝이에요.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;padding:8px 9px;
+        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
+        <span id="exSignupCode" style="font-family:'Courier New',monospace;font-weight:bold;font-size:15px;color:#000;">MATE-····</span>
+        <span style="font-size:10.5px;color:var(--ink-soft);">내 아이디</span>
+      </div>
+      <label for="exSignupPw" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호</label>
+      <input id="exSignupPw" type="password" placeholder="6자 이상" maxlength="40" autocomplete="off"
+        style="width:100%;padding:7px 8px;box-sizing:border-box;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+      <label for="exSignupPw2" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호 확인</label>
+      <input id="exSignupPw2" type="password" placeholder="한 번 더" maxlength="40" autocomplete="off"
+        style="width:100%;padding:7px 8px;box-sizing:border-box;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+      <div id="exSignupMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
+      <button id="exSignupOk" class="lc-btn" style="margin-top:0;">가입하기</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
+        <span style="font-size:10.5px;color:var(--ink-soft);">또는</span>
+        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
+      </div>
+      <button id="exSignupGoogleBtn" class="lc-btn" style="margin-top:0;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg>
+          <span>구글 계정으로 연결하기</span>
+        </span>
+      </button>
+      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;background:#DFE8F6;padding:8px 9px;
+        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
+        캐릭터 · 레벨 · 친구 · 마이홈은 <b>하나도 바뀌지 않아요.</b> 가입하면 다른 컴퓨터에서도 같은 계정으로 쓸 수 있어요.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🎉 J · J2 · 가입 완료 — A(새 사람) · I(기존 사용자)의 가입이 끝나면. [회원가입 설계 §7-J · §4 (가) · 시안 확정 개정 13]
+     J(비밀번호 가입): 아이디 · «로그인돼 있는 PC 에서 바꾸기» 안내 · 경고 · [시작하기] · [구글도 연결하기](보조).
+     J2(구글 가입): 아이디 · «비밀번호는 아직 없어요» · [시작하기]. 되찾기 코드는 없다((가) — 로그인된 PC 에서 바꾼다).
+     [시작하기]: A 는 재시작(uid 가 이 세션에서 처음 정해졌다) · I 는 닫기(uid 그대로). 배경은 부르는 쪽이 정한다(A 불투명 · I 반투명). -->
+<div id="signupDoneOverlay" style="position:fixed;inset:0;z-index:97;display:none;align-items:center;justify-content:center;background:#3a6ea5;">
+  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:340px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
+    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">가입 완료</div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
+      <div id="sdIntro" style="font-size:12px;line-height:1.55;color:var(--ink);">가입됐어요! 이제 이 아이디로 어느 컴퓨터에서든 로그인할 수 있어요.</div>
+      <div style="font-size:11px;font-weight:bold;color:var(--ink);">내 아이디</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;padding:8px 9px;
+        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
+        <span id="sdCode" style="font-family:'Courier New',monospace;font-weight:bold;font-size:15px;color:#000;">MATE-····</span>
+        <span style="font-size:10.5px;color:var(--ink-soft);">친구 코드</span>
+      </div>
+      <div id="sdPwNote" style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;background:#DFE8F6;padding:8px 9px;border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">비밀번호를 잊으면 <b style="color:#000;">로그인돼 있는 PC</b>의 [내 정보 › 계정]에서 새로 바꿀 수 있어요.</div>
+      <div id="sdWarn" style="font-size:10.5px;line-height:1.5;color:#B5624A;">⚠ 구글 연결 없이 비밀번호를 잊으면 계정을 되찾을 수 없어요.<br>구글도 연결해 두면 안전해요.</div>
+      <div id="sdGoogleNote" style="display:none;font-size:10.5px;color:var(--ink-soft);line-height:1.5;background:#DFE8F6;padding:8px 9px;border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">비밀번호는 아직 없어요. 계정 탭에서 비밀번호를 붙이면 구글 없이도 친구 코드로 로그인할 수 있어요.</div>
+      <div id="sdMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
+      <button id="sdStart" class="lc-btn" style="margin-top:0;">시작하기</button>
+      <button id="sdGoogle" class="lc-btn ghost" style="margin-top:0;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg><span>구글도 연결하기</span></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 🧬 F · 캐릭터를 계정에 연동했어요 — [회원가입 설계 §7-F · 시안 F-1 · F-2 확정 · CHECKS 개정 57] 묻지 않는 안내(한 번).
+     I 에서 이미 가입된 구글로 갈아탈 때 이 PC 에만 있던 캐릭터를 그 계정 보관함으로 옮긴 뒤, 재시작하고 첫 채택이 끝나면 뜬다(app.js _charsLinkedMaybeShow).
+     섬네일만(이름 없음) · «개» · 20 이상이면 D2 와 같은 문구 + [보관함 열기]가 기본 버튼. 게이트(96~97)보다 아래. -->
+<style>
+  #charsLinkedOverlay .cl-grid{background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:7px;display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
+  #charsLinkedOverlay .cl-th{aspect-ratio:1;background:#DFE8F6;border:1px solid #9aa9c4;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  #charsLinkedOverlay .cl-th img{width:100%;height:100%;object-fit:cover;display:block;}
+  #charsLinkedOverlay .cl-cnt{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-soft);background:#DFE8F6;padding:6px 8px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);}
+  #charsLinkedOverlay .cl-cnt b{color:#000;}
+  #charsLinkedOverlay .cl-cnt.full{color:#7a2f1b;}
+  #charsLinkedOverlay .cl-cnt.full b{color:#B5624A;}
+</style>
+<div id="charsLinkedOverlay" style="position:fixed;inset:0;z-index:94;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:340px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
+    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">캐릭터를 계정에 연동했어요</div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
+      <div style="display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.55;color:var(--ink);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2a7a3f" stroke-width="2.2" aria-hidden="true" style="flex:none;"><path d="M5 12l5 5 9-10"></path></svg>
+        <span>이 컴퓨터에만 있던 캐릭터 <b id="clCount">0개</b>를 <span id="clCodeWrap">계정 <span id="clCode" style="display:inline-block;font-size:11px;padding:0 6px;border:1px solid #808080;background:#fff;color:#000;"></span> 의 </span><b>보관함으로 옮겼어요.</b></span>
+      </div>
+      <div id="clThumbs" class="cl-grid"></div>
+      <div id="clCnt" class="cl-cnt"><span>보관함 <b id="clBox">0 / 20</b></span><span id="clSplit">0 + 0</span></div>
+      <div id="clFull" style="display:none;font-size:11px;line-height:1.5;color:#7a2f1b;background:#FBE9E4;border:1px solid #B5624A;padding:7px 8px;"></div>
+      <div id="clNote" style="font-size:10.5px;line-height:1.5;color:var(--ink-soft);">아무것도 지워지지 않았어요. 책상에 올리려면 보관함에서 캐릭터를 누르세요.</div>
+      <div style="display:flex;gap:6px;">
+        <button id="clOpen" class="lc-btn ghost" style="margin-top:0;flex:1;">보관함 열기</button>
+        <button id="clOk" class="lc-btn" style="margin-top:0;flex:1;">확인</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 🔐 K · 이 PC는 로그인이 필요해요 — 이 PC 의 uid 가 **이미 계정에 묶였는데** 여기선 그 계정으로 로그인돼 있지 않을 때(부팅 · 게이트 뒤).
+     같은 uid 를 두 PC 에서 쓰던 기존 사용자의 두 번째 PC · 다른 PC 에서 비밀번호를 바꿔 이 PC 로그인이 끊긴 판. [설계 §9-11 · §7-K · 시안 확정 개정 13]
+     **닫기 없음**(로그인 필수) · 오프라인이면 안 뜬다. 아이디는 고정(계정의 친구 코드) → 비밀번호만. -->
+<div id="needLoginOverlay" style="position:fixed;inset:0;z-index:96;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:340px;max-width:92vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
+    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">이 PC는 로그인이 필요해요</div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
+      <div style="font-size:12px;line-height:1.55;color:var(--ink);">이 친구 코드는 이미 계정에 연결돼 있어요. 이 PC에서도 로그인하면 캐릭터와 기록이 그대로 이어져요.</div>
+      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.55;">다른 PC에서 비밀번호를 바꿨다면 새 비밀번호로 로그인해 주세요.</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;padding:8px 9px;
+        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
+        <span id="nlCode" style="font-family:'Courier New',monospace;font-weight:bold;font-size:15px;color:#000;">MATE-····</span>
+        <span style="font-size:10.5px;color:var(--ink-soft);">내 아이디</span>
+      </div>
+      <button id="nlGoogleBtn" class="lc-btn" style="margin-top:0;">
+        <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg><span>구글로 로그인</span></span>
+      </button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
+        <span style="font-size:10.5px;color:var(--ink-soft);">또는 비밀번호로</span>
+        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
+      </div>
+      <label for="nlPw" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호</label>
+      <input id="nlPw" type="password" placeholder="비밀번호" maxlength="40" autocomplete="off"
+        style="width:100%;padding:7px 8px;box-sizing:border-box;
+        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
+      <div id="nlMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
+      <button id="nlFcBtn" class="lc-btn" style="margin-top:0;">친구 코드로 로그인</button>
+      <div style="font-size:10.5px;text-align:right;"><a id="nlForgot" href="#" style="color:var(--win-title-a);">비밀번호를 잊었어요</a></div>
+      <div id="nlForgotBox" style="display:none;font-size:10.5px;color:var(--ink-soft);line-height:1.5;background:#DFE8F6;padding:8px 9px;border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"><b style="color:#000;">비밀번호를 잊었다면</b> — 로그인돼 있는 다른 PC의 [내 정보 › 계정]에서 새 비밀번호로 바꾼 뒤, 여기서 그 비밀번호로 로그인하세요. 구글이 연결돼 있으면 [구글로 로그인]으로 바로 들어올 수 있어요.</div>
     </div>
   </div>
 </div>
@@ -5757,7 +6137,6 @@
         <button class="fs-tab-btn on" id="progTabBtnLicense" type="button">라이선스</button>
         <button class="fs-tab-btn" id="progTabBtnDisplay" type="button">모니터</button>
         <button class="fs-tab-btn" id="progTabBtnSystem" type="button">시스템</button>
-        <button class="fs-tab-btn" id="progTabBtnAccount" type="button">계정</button>
       </div>
 
       <div class="fs-tabpage" id="progTabLicense">
@@ -5885,175 +6264,6 @@
         </p>
       </div>
 
-      <!-- 🔑 계정 탭 — 원래 시스템 탭 안의 '유저 정보' 였다. 계정을 찾으려면 토글 셋을 지나
-           스크롤해야 했기에 떼어냈다. 프로그램 정보(버전)는 유저 정보가 아니라 시스템에 남겼다. -->
-      <div class="fs-tabpage" id="progTabAccount" style="display:none;">
-        <div class="fs-label" style="margin:0 0 6px;">내 계정</div>
-
-        <!-- 로그인 전 -->
-        <div id="acctLoggedOut">
-          <div style="background:var(--win-select-bg);border:2px solid;
-            border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px 9px;margin-bottom:9px;">
-            <div style="font-size:11px;color:var(--ink-soft);">아직 연결된 계정이 없어요</div>
-            <div style="font-size:10px;color:var(--ink-soft);margin-top:3px;line-height:1.5;">지금은 이 컴퓨터에서만 기록이 유지돼요.</div>
-          </div>
-          <button id="acctGoogleBtn" class="lc-btn" style="width:100%;margin-top:0;">구글 계정으로 로그인</button>
-          <p style="margin:8px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.6;">
-            로그인하면 다른 컴퓨터에서도 같은 계정으로 이어서 쓸 수 있어요. 따로 만들 비밀번호는 없어요.</p>
-        </div>
-
-        <!-- 로그인 후 -->
-        <div id="acctLoggedIn" style="display:none;">
-          <div style="background:var(--win-select-bg);border:2px solid;
-            border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px 9px;margin-bottom:9px;">
-            <div style="font-size:10.5px;color:var(--ink-soft);">연결됨</div>
-            <div id="acctLoginEmail" style="font-size:12px;color:var(--ink);font-weight:bold;margin-top:2px;word-break:break-all;"></div>
-          </div>
-          <button id="acctLogoutBtn" class="lc-btn" style="width:100%;margin-top:0;">이 컴퓨터에서 로그아웃</button>
-
-          <!-- 로그아웃 확인 — 계정 연동 해제와 같은 3단계(버튼→확인→종료 안내). -->
-          <div id="acctLogoutConfirm" style="display:none;margin-top:9px;background:var(--win-select-bg);
-            border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:9px 10px;">
-            <p style="margin:0 0 7px;font-size:11.5px;color:var(--win-error);font-weight:bold;line-height:1.5;">정말 로그아웃할까요?</p>
-            <p style="margin:0 0 9px;font-size:10.5px;color:var(--ink);line-height:1.6;background:rgba(0,0,0,.05);padding:6px 8px;">
-              계정과 데이터는 <b>서버에 그대로 남아요.</b> 이 PC에 있던 캐릭터·파츠·기록은 정리되고, 로그아웃하면 <b>앱이 다시 시작되고</b> 시작 화면이 나와요. 거기서 <b>구글 계정으로 로그인</b>하면 서버에서 받아와 그대로 돌아와요.</p>
-            <div style="display:flex;gap:6px;">
-              <button id="acctLogoutCancel" class="lc-btn" style="margin-top:0;flex:1;">취소</button>
-              <button id="acctLogoutYes" class="lc-btn" style="margin-top:0;flex:1;color:#fff;background:var(--win-error);border-color:#d9a294 #6d3527 #6d3527 #d9a294;">로그아웃</button>
-            </div>
-          </div>
-          <div id="acctLogoutDone" style="display:none;margin-top:9px;background:var(--win-select-bg);
-            border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:9px 10px;">
-            <p style="margin:0 0 9px;font-size:11.5px;color:var(--win-ok,#2a7a3f);font-weight:bold;line-height:1.55;">로그아웃됐어요.</p>
-            <p style="margin:0 0 9px;font-size:10.5px;color:var(--ink);line-height:1.6;">앱을 다시 시작하는 중이에요…</p>
-            <!-- 아래 버튼은 재시작을 못 하는 판(구버전 앱)에서의 물러날 자리다. 자동 재시작이
-                 되는 판에서는 이 화면이 잠깐 보였다가 앱이 껐다 켜진다. -->
-            <button id="acctLogoutQuit" class="lc-btn" style="margin-top:0;width:100%;">안 꺼지면 여기를 눌러 종료</button>
-          </div>
-
-          <!-- 🔁 계정 되찾기 — 로그인이 이 기기를 **엉뚱한 유저 코드**로 데려갔을 때의 출구.
-               [왜 로그인 후에만 보이는가] 이 문제는 결속(authUsers)이 잘못됐을 때만 생긴다.
-                 로그인 안 한 기기에는 고칠 결속이 없고, 상시 노출하면 멀쩡한 유저가 눌러서
-                 스스로 계정을 바꿔버린다.
-               [왜 코드를 받아적게 하지 않는가] 갈아타기 직전에 app.js 가 옛 유저 코드를
-                 tw.myPrevUserIds 에 적어둔다. 이미 손에 쥔 값을 22자리 받아적게 할 이유가 없다
-                 (그게 기존 [계정 연동]이 어려웠던 지점이다). -->
-          <div style="margin-top:12px;border-top:1px solid var(--win-lo-2);padding-top:10px;">
-            <div style="font-size:10.5px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:8px;">
-              <span>지금 쓰는 유저 코드</span>
-              <b id="acctCurCode" style="color:var(--ink);font-family:monospace;word-break:break-all;text-align:right;"></b>
-            </div>
-            <div style="font-size:10.5px;color:var(--ink-soft);display:flex;justify-content:space-between;gap:8px;margin-top:3px;">
-              <span>내 친추 코드</span>
-              <b id="acctCurFriendCode" style="color:var(--ink);font-family:monospace;"></b>
-            </div>
-            <button id="acctRecoverBtn" class="lc-btn" style="width:100%;margin-top:9px;">마이홈이 비어 있나요 — 계정 되찾기</button>
-
-            <div id="acctRecoverBox" style="display:none;margin-top:9px;background:var(--win-select-bg);
-              border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:9px 10px;">
-              <p style="margin:0 0 8px;font-size:10.5px;color:var(--ink);line-height:1.6;">
-                이 기기가 <b>예전에 쓰던 계정</b>이 남아 있으면 되돌릴 수 있어요.
-                친구 목록과 친추 코드도 함께 돌아와요.</p>
-              <div id="acctRecoverList" style="font-size:11px;color:var(--ink);"></div>
-              <div id="acctRecoverMsg" style="display:none;font-size:10.5px;margin-top:7px;line-height:1.5;color:var(--win-error);"></div>
-              <button id="acctRecoverGo" class="lc-btn" style="width:100%;margin-top:8px;" disabled>이 계정으로 되돌리기</button>
-              <p style="margin:7px 0 0;font-size:10px;color:var(--ink-soft);line-height:1.6;">
-                되돌리면 구글 계정도 이 유저 코드에 <b>다시 묶여요.</b> 앱을 껐다 켜면 적용돼요.</p>
-            </div>
-          </div>
-        </div>
-
-        <div id="acctLoginMsg" style="display:none;font-size:11px;margin-top:8px;line-height:1.5;color:var(--win-error);"></div>
-
-        <div class="fs-label" style="margin-top:14px;border-top:1px solid var(--win-lo-2);padding-top:12px;">계정 없이 옮기기</div>
-        <p style="margin:0 0 8px;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">구글 계정을 쓰지 않을 때의 예전 방식이에요.</p>
-        <div style="display:flex;gap:6px;">
-          <button id="acctTransferBtn" class="lc-btn" style="flex:1;margin-top:0;">📤 계정 이전</button>
-          <button id="acctLinkBtn" class="lc-btn" style="flex:1;margin-top:0;">📥 계정 연동</button>
-        </div>
-
-        <!-- 🔗 [제거됨] 예전 친추 코드 되찾기 버튼/패널.
-             코드가 바뀌는 경로 자체가 없어져서(app.js _healFriendCodeOwner 의 '내가 버린 uid'
-             처리) 수동 되찾기가 할 일이 남지 않았다. 되살릴 때는 app.js 쪽 주석을 함께 볼 것. -->
-
-        <!-- 계정 이전 패널 (이 기기에서 비밀번호 등록 → 유저 코드 표시) -->
-        <div id="acctTransferPanel" style="display:none;margin-top:10px;background:var(--win-select-bg);
-          border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:9px 10px;">
-          <p style="margin:0 0 7px;font-size:11px;color:var(--ink);line-height:1.5;">연동할 기기에 등록할 <b>비밀번호</b>를 넣어주세요.</p>
-          <p style="margin:0 0 9px;font-size:10px;color:var(--ink-soft);line-height:1.5;background:rgba(0,0,0,.05);padding:6px 8px;">
-            ℹ️ 계정 연동 시 <b>프로필·친구·마이홈·라이선스</b>가 함께 옮겨져요.<br>
-            <b>만든 캐릭터</b>는 각 캐릭터의 <b>복제 코드</b>로 새 기기에서 불러와 주세요.</p>
-          <input id="acctTransferPw" type="password" maxlength="30" placeholder="이전용 비밀번호"
-            style="width:100%;padding:6px 8px;box-sizing:border-box;background:#fff;border:2px solid;
-            border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);font-size:12px;margin-bottom:7px;">
-          <button id="acctTransferSave" class="lc-btn" style="margin-top:0;width:100%;">비밀번호 등록</button>
-          <div id="acctTransferMsg" style="display:none;font-size:11px;margin-top:7px;color:var(--win-error);"></div>
-          <div id="acctCodeBox" style="display:none;margin-top:9px;">
-            <div style="font-size:10.5px;color:var(--ink-soft);margin-bottom:4px;">유저 코드 (연동할 기기에 입력)</div>
-            <div style="display:flex;gap:5px;">
-              <input id="acctCodeText" type="text" readonly
-                style="flex:1;min-width:0;padding:6px 8px;box-sizing:border-box;background:#fff;border:2px solid;
-                border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);font-family:'Courier New',monospace;font-size:12px;">
-              <button id="acctCodeCopy" class="lc-btn" style="margin-top:0;flex:0 0 auto;width:auto;padding:6px 16px;">복사</button>
-            </div>
-            <p style="margin:7px 0 0;font-size:10px;color:var(--win-error);line-height:1.5;">⚠️ 유저 코드와 비밀번호는 비밀번호처럼 다뤄주세요. 둘 다 알면 누구나 이 계정에 접근할 수 있어요.</p>
-          </div>
-        </div>
-
-        <!-- 계정 연동 패널 (새 기기에서 코드+비밀번호 입력) -->
-        <div id="acctLinkPanel" style="display:none;margin-top:10px;background:var(--win-select-bg);
-          border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:9px 10px;">
-          <p style="margin:0 0 7px;font-size:11px;color:var(--ink);line-height:1.5;">옮겨올 계정의 <b>유저 코드</b>와 <b>비밀번호</b>를 입력하세요.</p>
-          <div id="acctLinkForm">
-          <input id="acctLinkCode" type="text" placeholder="유저 코드"
-            style="width:100%;padding:6px 8px;box-sizing:border-box;background:#fff;border:2px solid;
-            border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);font-family:'Courier New',monospace;font-size:12px;margin-bottom:6px;">
-          <input id="acctLinkPw" type="password" maxlength="30" placeholder="비밀번호"
-            style="width:100%;padding:6px 8px;box-sizing:border-box;background:#fff;border:2px solid;
-            border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);font-size:12px;margin-bottom:7px;">
-          <button id="acctLinkSubmit" class="lc-btn" style="margin-top:0;width:100%;">연동</button>
-          </div>
-
-          <!-- 🔓 연동 해제 — 입력한 코드가 '이 기기의 계정'과 같을 때 폼 대신 나타남.
-               해제하면 로컬 계정 식별자와 게이트 통과 기록을 지워서, 재시작 시 초대 코드 화면으로 돌아간다. -->
-          <div id="acctUnlinkBox" style="display:none;">
-            <p style="margin:0 0 7px;font-size:11px;color:var(--ink);line-height:1.55;">입력하신 코드는 <b>이미 이 기기의 계정</b>이에요.<br>연동을 해제하면 <b>초대 코드 입력 화면</b>으로 돌아가요.</p>
-            <div style="font-size:10px;color:var(--ink-soft);margin-bottom:3px;">현재 계정</div>
-            <input id="acctUnlinkCode" type="text" readonly
-              style="width:100%;padding:6px 8px;box-sizing:border-box;background:#fff;border:2px solid;
-              border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);font-family:'Courier New',monospace;font-size:12px;margin-bottom:7px;">
-            <div id="acctUnlinkLicRow" style="display:none;">
-              <div style="font-size:10px;color:var(--ink-soft);margin-bottom:3px;">라이선스 키 — 해제해도 유지돼요</div>
-              <div style="display:flex;gap:5px;margin-bottom:8px;">
-                <input id="acctUnlinkLic" type="text" readonly
-                  style="flex:1;min-width:0;padding:6px 8px;box-sizing:border-box;background:#fff;border:2px solid;
-                  border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);font-family:'Courier New',monospace;font-size:12px;">
-                <button id="acctUnlinkLicCopy" class="lc-btn" style="margin-top:0;flex:0 0 auto;width:auto;padding:6px 14px;">복사</button>
-              </div>
-            </div>
-            <button id="acctUnlinkBtn" class="lc-btn" style="margin-top:0;width:100%;">연동 해제</button>
-
-            <div id="acctUnlinkConfirm" style="display:none;margin-top:9px;">
-              <p style="margin:0 0 7px;font-size:11.5px;color:var(--win-error);font-weight:bold;line-height:1.5;">정말 연동을 해제할까요?</p>
-              <p style="margin:0 0 9px;font-size:10.5px;color:var(--ink);line-height:1.6;background:rgba(0,0,0,.05);padding:6px 8px;">계정은 <b>서버에 그대로 남아요.</b> 이 PC에 있던 캐릭터·파츠·기록은 정리돼요. 해제하면 <b>앱이 다시 시작되고</b> 초대 코드 화면이 나와요. 거기서 <b>유저 코드 + 비밀번호</b>로 다시 들어오면 서버에서 받아와요.</p>
-              <div style="display:flex;gap:6px;">
-                <button id="acctUnlinkCancel" class="lc-btn" style="margin-top:0;flex:1;">취소</button>
-                <button id="acctUnlinkYes" class="lc-btn" style="margin-top:0;flex:1;color:#fff;background:var(--win-error);border-color:#d9a294 #6d3527 #6d3527 #d9a294;">해제</button>
-              </div>
-            </div>
-
-            <div id="acctUnlinkDone" style="display:none;margin-top:9px;">
-              <p style="margin:0 0 9px;font-size:11.5px;color:var(--win-ok,#2a7a3f);font-weight:bold;line-height:1.55;">해제됐어요.</p>
-              <p style="margin:0 0 9px;font-size:10.5px;color:var(--ink);line-height:1.6;">앱을 다시 시작하는 중이에요…</p>
-              <!-- 재시작을 못 하는 판(구버전 앱)에서의 물러날 자리. -->
-              <button id="acctUnlinkQuit" class="lc-btn" style="margin-top:0;width:100%;">안 꺼지면 여기를 눌러 종료</button>
-            </div>
-          </div>
-
-          <div id="acctLinkMsg" style="display:none;font-size:11px;margin-top:7px;color:var(--win-error);"></div>
-        </div>
-      </div>
-
       <button id="progSettingsCloseBtn" class="lc-btn ghost" style="margin-top:12px;width:100%;">닫기</button>
     </div>
   </div>
@@ -6147,6 +6357,15 @@
             <button id="deskAddCode" class="ghost" style="font-size:12px;padding:2px 0;border:none;background:none;color:#8a8a8a;">+ 코드로 추가하기</button>
             <button id="deskRegBtn" class="ghost admin-only" style="font-size:12px;padding:2px 0;border:none;background:none;color:var(--terra,#c0704a);">+ 등록(모두에게 배포)</button></div>
           <div class="skin-row" id="crDeskRow" style="gap:10px;"></div>
+          <!-- 🪑 [2026-09-18] 라이선스 전용 책상을 🎨 꾸미기 › 책상 으로 옮긴 뒤의 안내.
+               표시/숨김은 app.js renderCrItems 가 정한다(전용 책상이 등록돼 있고 관리자가 아닐 때만).
+               ⚠️ 버튼을 두지 않는다 — 꾸미기창은 실행 화면(오버레이)의 창이라 이 작은 창에서는
+                  열 자리가 없다. 여기서 열리는 것처럼 보이면 눌러도 아무 일이 없는 버튼이 된다. -->
+          <div id="crDeskLicenseHint" style="display:none;align-items:center;gap:8px;margin-top:8px;padding:8px 10px;
+               font-size:11.5px;line-height:1.7;color:var(--ink-soft);background:var(--win-face-2);
+               border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
+            <span>🪑 라이선스 전용 책상은 실행 화면의 <b>🎨 꾸미기 › 책상</b>에 있어요.</span>
+          </div>
           <div style="display:flex;align-items:center;gap:10px;margin-top:8px;"><span style="font-size:13px;color:#555;">책상 색</span>
             <input id="deskColor" type="color" value="#c9a36a" style="width:46px;height:26px;border-radius:13px;border:1px solid #0002;padding:0;cursor:pointer;"></div>
           <!-- 🪑 value(기본 크기)는 app.js 의 DESK_SCALE_DEFAULT 와 **같은 값이어야 한다** — 이 값이 곧
@@ -6946,6 +7165,36 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<!-- ⚖️ [2026-09-20 · ④] 슬롯 충돌 대화상자 — 이 기기와 계정이 서로 다르게 바뀌어 어느 쪽도 안 덮고 세워 둔 판.
+     app.js _slotsConflictHandler → _slotsShowConflictDlg 가 채우고 연다. 네이티브 confirm 은 안 쓴다(투명 창에서 안 뜬다). -->
+<div id="slotConflictDlg" style="display:none;position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.35);align-items:center;justify-content:center;">
+  <div style="width:340px;max-width:calc(100% - 24px);background:var(--win-face,#C0C0C0);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2,#D4D0C8);padding:3px;font-family:Tahoma,'Malgun Gothic',sans-serif;">
+    <div style="background:linear-gradient(90deg,#0A246A,#1084D0);padding:3px 4px;font-size:11px;color:#fff;font-weight:bold;">캐릭터가 양쪽에서 바뀌었어요</div>
+    <div style="padding:10px 9px 9px;display:flex;flex-direction:column;gap:9px;">
+      <p style="margin:0;font-size:11px;color:var(--ink);line-height:1.55;">이 컴퓨터와 계정의 캐릭터가 서로 다르게 바뀌어 있어서, 어느 쪽도 덮지 않고 두었어요. 어느 쪽을 쓸지 골라 주세요.</p>
+      <div style="display:flex;gap:6px;">
+        <div style="flex:1 1 0;background:var(--win-select-bg);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px;display:flex;flex-direction:column;gap:4px;">
+          <span style="font-size:10.5px;color:var(--ink-soft);">이 컴퓨터</span>
+          <span id="scdLocalN" style="font-size:16px;color:var(--ink);font-weight:bold;">–</span>
+          <span id="scdLocalAt" style="font-size:10px;color:var(--ink-soft);"></span>
+        </div>
+        <div style="flex:1 1 0;background:var(--win-select-bg);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px;display:flex;flex-direction:column;gap:4px;">
+          <span style="font-size:10.5px;color:var(--ink-soft);">계정 (다른 컴퓨터)</span>
+          <span id="scdServerN" style="font-size:16px;color:var(--ink);font-weight:bold;">–</span>
+          <span id="scdServerAt" style="font-size:10px;color:var(--ink-soft);"></span>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button id="scdKeepServer" class="lc-btn" style="flex:1;margin-top:0;font-size:12px;">다른 PC로 맞추기</button>
+        <button id="scdKeepMine" class="lc-btn" style="flex:1;margin-top:0;font-size:12px;">현재 PC로 맞추기</button>
+      </div>
+      <p style="margin:0;font-size:10px;color:var(--ink);line-height:1.5;background:rgba(0,0,0,.05);padding:5px 7px;">고르지 않은 쪽은 백업으로 남아요. 계정 탭 › 기기 연동에서 되돌릴 수 있어요.</p>
+      <div id="scdMsg" style="display:none;font-size:10.5px;color:var(--win-error);line-height:1.5;"></div>
+      <button id="scdLater" class="lc-btn" style="width:100%;margin-top:0;font-size:11px;">나중에 결정</button>
+    </div>
+  </div>
+</div>
 
 <div class="panel">
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;">

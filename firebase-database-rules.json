@@ -164,8 +164,9 @@
       }
     },
     "licenses": {
-      ".read": true,
+      ".read": "root.child('admins').child(auth.uid).val() === true",
       "$key": {
+        ".read": true,
         ".write": "root.child('admins').child(auth.uid).val() === true",
         ".validate": "newData.hasChildren(['valid','createdAt']) && newData.child('valid').isBoolean() && newData.child('note').val().length <= 100",
         "redeemedAt": {
@@ -256,6 +257,31 @@
         }
       }
     },
+    "accountSnap": {
+      "$userId": {
+        ".read": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid",
+        ".write": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid",
+        ".validate": "newData.hasChildren(['ts'])",
+        "license": {
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "focusTotalSec": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 359640000"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length <= 40"
+        },
+        "friendCode": {
+          ".validate": "newData.isString() && newData.val().length <= 12"
+        },
+        "ts": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
     "userAuth": {
       "$userId": {
         ".read": true,
@@ -283,12 +309,12 @@
           ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 12)"
         },
         "transferHash": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
-          ".validate": "newData.isString() && newData.val().length <= 128"
+          ".write": "!newData.exists() && (!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid)",
+          ".validate": "false"
         },
         "transferData": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
-          ".validate": "(!newData.child('license').exists() || newData.child('license').val().length <= 40)"
+          ".write": "!newData.exists() && (!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid)",
+          ".validate": "false"
         },
         "mallang": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid"
@@ -315,7 +341,7 @@
         },
         "focus": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
-          ".validate": "!newData.child('totalSec').exists() || (newData.child('totalSec').isNumber() && newData.child('totalSec').val() >= 0 && newData.child('totalSec').val() <= 3596400)"
+          ".validate": "!newData.child('totalSec').exists() || (newData.child('totalSec').isNumber() && newData.child('totalSec').val() >= 0 && newData.child('totalSec').val() <= 359640000)"
         },
         "gacha": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
@@ -344,6 +370,57 @@
           "$other": {
             ".validate": false
           }
+        },
+        "slotsPrev": {
+          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          "at": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "ts": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "v": {
+            ".validate": "newData.isNumber()"
+          },
+          "s": {
+            "$i": {
+              ".validate": "$i.matches(/^[0-4]$/) && newData.isString() && newData.val().length <= 150000 && !newData.val().matches(/data:[a-z]+\\/[a-z0-9.+-]+;base64,/)"
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "chars": {
+          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          "$cid": {
+            ".validate": "$cid.matches(/^c[a-z0-9]{6,24}$/) && (newData.hasChild('def') || newData.hasChild('del'))",
+            "def": { ".validate": "newData.isString() && newData.val().length <= 150000 && !newData.val().matches(/data:[a-z]+\\/[a-z0-9.+-]+;base64,/)" },
+            "mtime": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+            "del": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+            "v": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        },
+        "trash": {
+          "$cid": {
+            "$mtime": {
+              ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && !data.exists() && newData.exists()",
+              "def": { ".validate": "newData.isString() && newData.val().length <= 150000 && !newData.val().matches(/data:[a-z]+\\/[a-z0-9.+-]+;base64,/)" },
+              "why": { ".validate": "newData.isString() && (newData.val() === 'overwritten' || newData.val() === 'deleted')" },
+              "at": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+              "$other": { ".validate": false }
+            }
+          }
+        },
+        "charsMeta": {
+          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          "migratedFrom": { ".validate": "newData.isString() && newData.val() === 'slots'" },
+          "migratedAt": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "claimAt": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "ts": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "v": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
         },
         "chalBonus": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",

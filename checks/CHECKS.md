@@ -1,7 +1,294 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 20 (`sim-mhd-envsub.js` · `sim-font-hangul.js` · `sim-chat-sfx.js` 신설) · 개정 19 (`sim-deco-parts.js` 신설) · 개정 18 (`sim-device-session.js` 신설) · 개정 17 (`sim-room-order.js` 신설) · 개정 16 (`sim-admin-active.js` 신설) · 개정 15 (`sim-wheel-kick.js` 신설) · 개정 14 (`sim-ui-zoom.js` 신설) · 개정 13 (`sim-pk-fit.js` 신설) · 개정 12 (`sim-account-switch.js` 신설 + `sim-google-login.js` 고침) · 개정 11 (`sim-room-channel.js` 신설) · 개정 10 (`sim-slot-sync.js` 신설 + 2026-09-16 세션 검사 5개 등재) · 근거: `handoff-mac-runtime.md` §3-① · `handoff-2026-09-16.md` §5
-대상: `sim-*.js` 71개 + `smoke.js` + `audit.py` = **73개**
+작성: 2026-09-12 · 개정 57 (🧬 «다름» · F 캐릭터를 계정에 연동했어요 — 갈아타기 전 정리 _switchPrepare · 안 묶인 옛 uid 캐릭터를 같은 cid 로 새 계정 보관함에 · 남의 계정이면 전부 내려놓음) · 개정 56 (🔗 §6-②③⑥⑧ «버린 uid» 장치 걷음 — 되찾기 갈래 둘 · 로그인 직후 소유자 강제 정정 · migrateFriendRequests · setFriendCodeOwner · 계정에 코드가 없으면 입력한 코드/내려놓기) · 개정 55 (🔐 §9-12 라이선스 공개 읽기 — licenses 목록 관리자만 · 계정 스냅샷 accountSnap/{코드}(주인만) · transferData 지우기만 · 일회용 함수 moveAccountSnap) · 개정 54 (📭 §9-2 authUsers 이메일 거울 중단 · 남은 거울은 로그인 때 걷음) · 개정 53 (🪪 [내 정보 › 계정] 스크롤바 숨김 · [내 정보]에서 런처 X = [내 정보] 닫기) · 개정 52 (🧹 §6-⑧ 옛 통로 걷음 — authRebindUserCode · setTransferHash · verifyTransfer · transferData 스냅샷은 남김) · 개정 51 (🧺 D2 보관함 가득 참 — 20 이상 경고 · 체크칸 · 한꺼번에 휴지통으로) · 개정 50 (🧹 휴지통 청소 예약 함수 `cleanTrash` — functions/index.js · 매일 04:00 서울 · 규칙 무변경) · 개정 49 (🗑️ 휴지통 탭(시안 E) · 탭 순서 보관함 · 계정 · 휴지통 · 보관함 줄 [휴지통 이동](D2 아이콘) · 복원 = 보관함으로 · 연동 교체 복원본 cid 고정 · 기한 지난 줄 숨김) · 개정 48 (🪪 [내 정보] = 런처 화면 전환 · 🧰 톱니 G [보관함 이동] · 보관함 = 넣은 캐릭터만 (n/20) · [슬롯에 올리기] · 🧬 보관함 스위치 켬) · 개정 47 (🪟 [내 정보]를 런처와 별개인 OS 창으로 — 제목줄로 그 창만 이동 · 위치 기억) · 개정 46 (🪪 [내 정보] 다듬기 — 레벨 배지를 친구 목록 배지로 · 사진 틀 테마 · «책상 (N칸)» 표제) · 개정 45 (🪪 [내 정보] 창 — B2 · C4 · D · 런처 [캐릭터 불러오기] → [내 정보] · 설정 › 계정 탭 · 계정 이전/연동/해제 · 계정 되찾기 걷음 · 규칙 transferHash 지우기만) · 개정 44 (🔐 C3 비밀번호 만들기 · C2 비밀번호 바꾸기 — 함수 `changePassword` · 러너가 `functions/` 를 건너뜀) · 개정 43 (🎉 J · J2 가입 완료 · 🔐 K 로그인 필요 — 되찾기 코드 없음 (가)) · 개정 42 (🪞 ⑥ 친구 코드 거울 정정 — 로컬만 · 발급보다 먼저) · 개정 41 (🪪 게이트 I — 기존 사용자 가입 · 묶이지 않은 uid 만 · 지금 코드가 아이디 · uid 그대로) · 개정 40 (🪪 게이트 A — 계정 만들기 · 익명 → 선점 → 비밀번호 연결 → 결속 · 구글 가입 · 끊겨도 이어 감) · 개정 39 (🪪 게이트 H — 초대 게이트 세 문 · 친구 코드 로그인 · 옛 계정 이전 줄 걷음) · 개정 38 (🪪 게이트 첫 조각 — `getMyUserId` 읽기만 · uid 발명·기록 한 곳 · 빈 uid 안전망 · 초대 토큰 · `sim-signup.js` 신설) · 개정 37 (🖼️ 보관함 섬네일 — 섬네일을 Storage 에 올려 thumbUrl · 못 올려도 push 안 접음 · 열쇠에서 제외 · 시안 확정) · 개정 36 (🧬 평상시 동기화 — saveSlots 한 곳에서 cid 로 고침 감지 · 새 마리·휴지통 이동·20 문턱 · charsMeta.ts 로 싸게 받기 · 옛 slots 는 올리기만 · 스위치 꺼짐) · 개정 35 (🧬 이 기기 쪽 첫 채택 — 보관함은 서버 표현 · 책상만 그림 · 묘비 알아보기 · 스위치 꺼짐) · 개정 34 (🧬 이관 조율 — firebase-init chars 통로 다섯 · 서버 이관(스위치 꺼짐) · 콘솔 미리보기 · 규칙 charsMeta.claimAt) · 개정 33 (`sim-chars-migrate.js` 신설 — 🧬 이관 slots → chars 순수 함수 · 회원가입 설계 §5-N-2) · 개정 32 (`sim-chars-merge.js` 신설 — 🧬 캐릭터 단위 병합 순수 함수 + 규칙 chars·trash·charsMeta · 회원가입 설계 §2-4 첫 구현) · 개정 31 (`sim-slot-sync-ui.js` 신설 · ① 서버 이전 한 벌 · ④ 대화상자 — 🛟 3-7-2 시안 확정 적용) · 개정 30 (`sim-slot-conflict.js` 신설 + `sim-slot-sync.js` 준비 3줄 — ⚖️ 양쪽이 다 바뀌면 덮지 않는다) · 개정 29 (`sim-pl-watchdog.js` — ⏸ 세워 둔 동안은 감시견이 넘기지 않는다) · 개정 28 (`sim-account-switch.js` ⑧ — 🚪 로그아웃 출구 · 스텁 한 줄 고쳐 기존 빨강 해소) · 개정 27 (`sim-friend-code-keep.js` 신설 · 🔗 친추코드 유지 + 스냅샷 없이도 소지품 복원) · 개정 26 (`sim-slot-sync.js` ⑪ — 🖼️ 되받기가 그림을 안 바꾼다) · 개정 25 (⑩ — 🔑 내용 해시 전수화) · 개정 24 (⑨ — 🛟 슬롯 덮어쓰기 백업) · 개정 23 (`sim-license-leak.js` 신설 · 전용 자산 접어 두기) · 개정 22 (`sim-focus-cap.js` 신설 · 누적 상한 100회차) · 개정 21 (`sim-mac-update.js` 신설) · 개정 20 (`sim-mhd-envsub.js` · `sim-font-hangul.js` · `sim-chat-sfx.js` 신설) · 개정 19 (`sim-deco-parts.js` 신설) · 개정 18 (`sim-device-session.js` 신설) · 개정 17 (`sim-room-order.js` 신설) · 개정 16 (`sim-admin-active.js` 신설) · 개정 15 (`sim-wheel-kick.js` 신설) · 개정 14 (`sim-ui-zoom.js` 신설) · 개정 13 (`sim-pk-fit.js` 신설) · 개정 12 (`sim-account-switch.js` 신설 + `sim-google-login.js` 고침) · 개정 11 (`sim-room-channel.js` 신설) · 개정 10 (`sim-slot-sync.js` 신설 + 2026-09-16 세션 검사 5개 등재) · 근거: `handoff-mac-runtime.md` §3-① · `handoff-2026-09-16.md` §5
+대상: `sim-*.js` 80개 + `smoke.js` + `audit.py` = **82개** (개정 38 기준 · 개정 33 에서 81 · 개정 32 까지 이 줄이 79 에 멈춰 있었다 — §1 표가 정본)
+
+**개정 57 에서 한 것 (2026-09-22 · 🧬 회원가입 설계 §3 «다름» · §7-F · 설계 개정 25 · 사용자 확정: 시안 F-1 · F-2 · 권고대로 · K 는 로그아웃처럼 전부 내려놓기)**
+- **대조에서 나온 틈(고침):** 로그아웃 없이 다른 계정으로 갈아타는 길(I 의 [구글 계정으로 연결하기] · K 의 다른 계정 로그인)에서 옛 계정의 보관함 · 책상 표(`deskFriends.chars.*`)가 남았다 → 첫 채택이 «이미 채택함» 으로 건너뛰고 평상시 동기화가 옛 계정 캐릭터를 **새 계정 서버에 조용히 올렸다** · 책상 표가 옛 cid 를 가리킨 채 새 계정 칸 그림을 받아, 고치면 옛 cid 에 새 계정 캐릭터가 덮였다. K(한 PC 를 둘이 씀)면 남의 캐릭터 · 집중 시간 · 플레이리스트가 섞였다.
+- `app.js`: `_switchPrepare(before, to)` — 두 로그인(`_loginDoGoogle` · `_loginDoFriendCode`)이 **uid 기록 전에** 부른다 · 실패하면 갈아타지 않는다(세션 · 계정 표시를 놓고 이유를 돌려줌). 갈래 = `userAuth/{before}`: 못 읽음 → 실패 · 다른 계정(K) → 책상 칸 슬롯 백업(uid 대조로 남이 못 줍는다) 뒤 `_wipeAccountLocal`(로그아웃과 같은 목록) · 안 묶임(I) → ① `_charsBoot('switch')` 로 옛 uid 로 끝까지 올림(남은 dirty 가 있으면 실패) ② `_charsLinkPlan`(순수 · 옛 uid 서버의 산 캐릭터를 **같은 cid** 로 · 새 계정 쪽이 같거나 더 새것(묘비 포함)이면 안 옮김 · 묘비 · 모양 틀린 cid 안 옮김) → `saveCharsEntries(새 계정)` ③ 캐릭터 로컬 키 셋만 내려놓음(책상 칸 LS_KEY 는 둔다 — 재시작 뒤 새 계정으로 첫 채택) ④ `tw.charsLinked = { to, cids }`. 나머지(집중 · 플레이리스트)는 예전처럼(같은 사람). `_charsLinkedMaybeShow` — 부팅 `_charsBoot` 가 성공한 뒤 · 표시가 이 uid 것이고 보관함이 열렸을 때만 · 옮긴 것 중 살아 있는 것만 · 섬네일만 · 보관함 N/20 · (그 전 + 옮긴 것) · 20 이상이면 D2 와 같은 문구 + [보관함 열기]가 기본 버튼 · 띄우면 표시를 지운다. `ACCOUNT_LOCAL_KEYS` 에 `'tw.charsLinked'` · `UI_HIT_SEL` 에 `#charsLinkedOverlay`.
+- `desk-companion-prototype.html`: `#charsLinkedOverlay`(z-index 94 · 게이트 아래) — 제목 · 체크 줄 · 섬네일 격자(5열) · 보관함 칸 · 경고 상자 · 안내 줄 · [보관함 열기] [확인]. 시안 F-1 · F-2 그대로.
+- 검사: `sim-signup.js` **14절 신설**(부르는 순서 둘 · 목록 둘 · 부팅 뒤에만 · 마크업 열둘 · «마리» 없음 · `_charsLinkPlan` 셋 · `_switchPrepare` 떼어 와 열한 경우(못 읽음 · 던짐 · K 전부 내려놓음 · I 옮김 · 옛 uid 로 올림 · 캐릭터 키만 · 표시 · 올림 실패 · dirty · 쓰기 실패 · 읽기 실패 · 옮길 것 없음 · 스위치 꺼짐 · 옛 uid 없음) · `_charsLinkedMaybeShow` 떼어 와 F-1 · F-2 · 다른 uid · 채택 전 · 다 지워짐 · 책상에 올라간 것) + 5절 친구 코드 로그인(정리 호출 · 실패 시 안 갈아탐) → **399·0**. `sim-google-login.js` §5(정리를 갈아타기 전에 부름 · 실패 → uid 그대로 · 세션 놓음 · 복원 없음). 이빨(새 판정 × 개정 56 원본): sim-signup 빨강 12 · sim-google-login 5. 전/후(이 사본 · 원본 둘 없음): 초록 70→70 · 빨강 3→3(무관) · 원본없음 9→9 · `audit.py` 전부 통과. 기준선 기대값 **초록 81 · 빨강 0 · 원본없음 1**(sim-signup **399·0**).
+- ⚠️ 실기기: ① 로그인 안 한 PC(가입 I 가 뜨는 PC)에서 [구글 계정으로 연결하기] → 이미 가입된 구글 → 재시작 → 약 5초 뒤 F(섬네일 · N/20). 콘솔 `users/{새 uid}/chars` 에 옛 uid 의 cid 가 같은 값으로 · 옛 uid 쪽은 그대로. [보관함 열기] → [내 정보] › 보관함. ② K PC(다른 계정에 묶인 PC)에서 **다른** 계정으로 로그인 → 재시작 뒤 F 없음 · 그 계정 캐릭터만 · 옛 계정 캐릭터가 새 계정 서버에 없음. ③ 네트워크를 끊고 ① → «읽지 못했어요» · uid 그대로. ④ Storage 규칙이 옛 uid 의 그림 올리기를 막으면 ① 이 «올리지 못했어요» 로 멈춘다 — 그때는 알려 줄 것(규칙 확인).
+
+**개정 56 에서 한 것 (2026-09-22 · 🔗 회원가입 설계 §6-②③④⑥⑧ · 설계 개정 24 · 사용자 확정: 코드 없는 계정 = (가) · `_loginDoGoogle` 갈아타기는 남기고 `_setMyUserId` 로)**
+- 왜: 계정이 없던 시절(한 사람 = 기기마다 uid)의 장치 — 이 기기가 버린 uid 를 적어 두고 그 uid 의 코드·친구 요청을 **조건 없이** 끌어왔다. 이제 로그인은 비밀번호·구글로 확인된 계정이라 이 기기의 이전 uid 는 **다른 계정**(한 PC 를 둘이 쓰면 다른 사람)이다 — 끌어오면 남의 아이디(코드 = 로그인 아이디)와 친구 요청을 가져간다.
+- `app.js`: ② `MY_PREV_USER_IDS_KEY` · `_rememberPrevUserId` · `_isMyPrevUserId` 걷음 + `ACCOUNT_LOCAL_KEYS` 항목 걷음 + 예전 판이 남긴 `tw.myPrevUserIds` 는 로드 때 `removeItem` 한 줄. ③ `_healFriendCodeOwner` — «버린 uid» 되찾기 · 7일 되찾기 갈래 걷음(+`FC_STALE_DAYS`) · 남은 것: 내 것 · 주인 없음 선점 · 그 밖은 그대로 두고 경고. ④ `_loginDoGoogle` 갈아타기는 **남김**(게이트 H·K 의 [구글로 로그인]이 새 PC 에서 계정으로 들어가는 길 — 설계 ④ «블록 전체» 정정) · 버린 uid 기록 걷음 · `setItem(MY_USER_ID_KEY)` → `_setMyUserId`(못 쓰면 Auth 세션·계정 표시를 놓고 실패). `_loginDoFriendCode` 의 버린 uid 기록 걷음 · 복원에 입력한 코드를 넘김. ⑥ 시크릿룸 «버린 uid» 재발급 안내 토스트 걷음(손님 입장 그대로). 설계 «남는 것»: `_claimFriendCodeAfterTransfer`(로그인 직후 로컬 코드 주인을 새 uid 로 **강제로** 바꿈) 걷음 → `_adoptAccountFriendCode`: 계정에 코드 기록이 없으면(스냅샷 · 거울 둘 다 없음) 친구 코드 로그인 = 입력한 코드 · 구글 = 로컬 코드를 내려놓음(다음 부팅 `ensureMyFriendCode` 가 거울 → 첫 발급 · 재발급 아님). 소유권(friendCodes)은 어디서도 안 쓴다. 낡은 주석(transferData 두 곳 · 시크릿룸 7일 한 곳) 정정.
+- `firebase-init.js`: ⑧ `migrateFriendRequests` · `setFriendCodeOwner` 걷음(부르는 곳 없음 · 남의 코드를 가져가는 통로 — 선점은 `registerFriendCode` 트랜잭션뿐) · lastSeen 주석 정정.
+- 검사: `sim-friend-code-keep.js` 머리 · 1절(heal: 내 것 · 선점만 손대고 버린 uid 였던 것 · 오래 조용 · 활동 중인 남은 전부 그대로 · lastSeen 안 읽음) · 2절(로컬 코드 지우는 문장은 `_adoptAccountFriendCode` 한 곳 · 강제 지정·버린 uid·7일 이 코드에 없음 · firebase-init 통로 없음) · 3절(`_adoptAccountFriendCode` 를 떼어 와 (가) 다섯 경우) → **31·0**. `sim-google-login.js` 규약 ① 새로 · §2 ①(버린 uid 없음 · `_setMyUserId` + 실패 시 로그아웃) · §5 런타임(버린 uid 안 적음 · 기록 실패 → 실패·세션 놓음·복원 없음). `sim-account-switch.js` 키 표 · 1절(목록 없음 · 부팅 지움 · 버린 코드 기록은 목록에) · 2절 스텁 → 77·0. `sim-room-order.js` 3절(방장 판정 문자열 하나 · «버린 uid» 안내 없음) → 18·0. `sim-signup.js` 5절 친구 코드 로그인(옛 uid 안 적음 · 입력한 코드를 넘김) → **356·0**. 이빨(새 판정 × 개정 55 app.js): sim-google-login 빨강 8 · sim-signup 3 · sim-account-switch 2 · sim-room-order 2 · sim-friend-code-keep 죽음(종료 2 = 빨강). 전/후(이 사본 · 원본 둘 없음): 초록 70→70 · 빨강 3→3(overlay-win · sysinput-win 없음 — 무관) · 원본없음 9→9 · `audit.py` 전부 통과. 기준선 기대값 **초록 81 · 빨강 0 · 원본없음 1**(sim-signup **356·0**).
+- ⚠️ 실기기: ① 새 PC(또는 로그아웃한 PC)에서 친구 코드로 로그인 → 재시작 뒤 [내 정보] 친구 코드 = 로그인한 코드. ② 구글로 로그인 → 재시작 뒤 친구 코드 = 그 계정 코드(콘솔 `users/{uid}/friendCode` 와 같음). ③ 콘솔 `friendCodes/{이 PC 가 전에 쓰던 코드}.userId` 가 **바뀌지 않았는지**(예전엔 새 uid 로 바뀌었다). ④ F12 `localStorage.getItem('tw.myPrevUserIds')` = null.
+
+**개정 55 에서 한 것 (2026-09-22 · 🔐 회원가입 설계 §9-12 · 설계 개정 23 · 사용자 확정: 자리 accountSnap · 이관 = 일회용 함수 · transferData 잠금은 이번에)**
+- **대조에서 나온 더 큰 구멍:** 규칙 `licenses` 가 모음 자리에 `.read: true` — `/licenses.json` 한 번으로 발급된 키 전부가 보였고, 등록(`redeemLicense`)은 «있고 valid» 만 보므로 그 키로 누구나 프리미엄이 됐다. `transferData.license` 는 그 일부였다.
+- `firebase-database-rules.json`: ① `licenses` `.read` → 관리자만 · `licenses/$key` `.read: true`(키 하나 — 등록 · 재검증 · 회수 구독). 모음을 읽는 곳은 관리자 통로 둘(`listLicenses` · `getAdminStats`)뿐. ② 최상위 `accountSnap/$userId` 신설 — 읽기·쓰기 `auth != null && userAuth/{코드} === auth.uid`(미결속 갈래 없음) · `ts` 필수 · license ≤40 · name ≤40 · friendCode ≤12 · focusTotalSec 0..359640000 · `$other` 거절. ③ `users/$userId/transferData` → **지우기만**(`!newData.exists() &&` · `.validate: "false"` — transferHash 와 같은 모양).
+- `firebase-init.js`: `_acctSnapClean`(규칙 범위 밖 항목은 그 항목만 뺀다) · `setAccountSnapshot` = 루트 update 한 번으로 `accountSnap/{코드}` 쓰기 + `users/{코드}/transferData` null · `fetchAccountSnapshot` = 새 자리 → (없거나 거절) 옛 자리 → 옛 것이 있으면 한 번의 update 로 옮기고 지움(실패해도 값은 돌려줌) → profile · friendCode 폴백. 반환 모양 그대로 → **app.js 무변경**. 관리자 통로 주석 둘(모음 읽기는 관리자만).
+- `functions/index.js`: **일회용** 예약 함수 `moveAccountSnap`(일정 1월 1일 05:00 — 강제 실행으로만 씀) — `listUserIds`(shallow) 재사용 · `userAuth` 한 번 읽기 · 결속 = 옮기고 지움(accountSnap 이 같거나 새것이면 지우기만) · 미결속 = 지우기만 · 객체 아닌 값은 지우지 않고 센다 · 로그는 수만. 러너 밖 — 세션에서 떼어 돌려 **16·0**(결속 옮김 · 새것 안 덮음 · 범위 밖 항목 · 미결속 · 이상값 · 로그에 키 없음 · 멱등 · export · 앱 `_acctSnapClean` 과 같은 규칙).
+- 검사: `sim-google-login.js` §7 통로 판정을 accountSnap 으로 · §8 transferData 지우기만 + accountSnap 규칙 넷 · **§9 신설**(두 함수 + `_acctSnapClean` 떼어 와 돌림 — 새 자리 읽기 · 옛 자리만이면 옮기고 지움 · 한 번의 update · 거절되면 옛 자리 · 폴백 · 쓰기 모양 · 거절 ok:false · 스테이징에 `functions/index.js` 가 있으면 `snapClean` 이 같은지 · app.js 코드가 자리를 직접 안 만짐). `sim-signup.js` 11절 «transferData 그대로» → «지우기만»(355·0). `sim-admin-rules.js` 2절 키 하나 읽기 · 3절 목록 관리자만 + 모음 읽는 자리 둘. 이빨(새 판정 × 개정 54 원본): sim-google-login 빨강 6 · sim-signup 2 · sim-admin-rules 3. 전/후(이 사본 · 원본 둘이 없는 사본): 초록 70→70 · 빨강 3→3(overlay-win · sysinput-win 없음 — 무관) · 원본없음 9→9. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**(sim-signup 355·0).
+- ⚠️ app.js 주석 두 자리(30573 · 31697 «transferData 는 지우지 않는다»)는 낡았다 — 코드와 무관 · 다음에 app.js 를 손댈 때(§4-②) 고친다.
+- ⚠️ **순서(실기기):** ① 규칙 게시 → ② 앱 배포 → ③ `firebase deploy --only functions`(moveAccountSnap 추가) → Cloud Scheduler `firebase-schedule-moveAccountSnap-asia-southeast1` › 강제 실행 → 로그 `[moveAccountSnap] {…moved, deleted, odd, failed, left}` → 한 번 더 실행해 moved·deleted 0 → 다음 배포에서 함수 블록을 걷는다. ③ 을 ② 보다 먼저 하지 말 것(옛 판 로그인이 라이선스 복원을 못 받는다).
+- ⚠️ 옛 판 영향: 부팅 스냅샷 쓰기가 조용히 거절됨(이미 catch) · 옛 판으로 다른 계정에 로그인하면 라이선스만 복원 못 받음(이름 · 코드는 폴백).
+
+**개정 54 에서 한 것 (2026-09-22 · 회원가입 설계 §9-2 권고 «N 에서 쓰기 중단» · 사용자 «할 수 있는 데까지»)**
+- `firebase-init.js` `authSignInWithGoogle`: `authUsers/{authUid}` 에 이메일을 쓰지 않는다(첫 결속 set 에서 뺌 · 거울 갱신 update 걷음). 예전 판이 남긴 `email` 은 **로그인 때 `{ email: null }`** 로 걷는다(규칙 `!newData.exists() ||` 가 받는다). 이메일은 앱에 돌려주기만 한다(이 PC 계정 표시 · 로컬). 가입 결속(`authSignupBind`)은 원래 이메일을 안 썼다(sim-signup 6절). 규칙의 `email` 자리는 §6-⑬(N+2)에서 내린다.
+- 검사: `sim-google-login.js` §3 판정 하나(거울 안 씀 · 로그인 때 걷음). 이빨(새 판정 × 개정 52~53 firebase-init): 빨강 1. 전/후(이 사본) 같음. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
+- ⚠️ 실기기: 구글로 로그인한 PC 에서 로그인 한 번 → 콘솔 `authUsers/{내 authUid}` 에 `email` 이 없는지(있었다면 사라짐) · [내 정보 › 계정] 구글 연결 표시는 그대로.
+
+**개정 53 에서 한 것 (2026-09-22 · 사용자 요청 «계정 화면 스크롤 안 보이게» · 실기기 개정 51~52 완료 — D2 는 실제로 20 이 될 때 다시)**
+- `desk-companion-prototype.html`: `#lcMyInfo.mi-noscroll` — `scrollbar-width:none` · `::-webkit-scrollbar{display:none}`. `app.js` `_miSetTab`: 계정 탭일 때만 그 클래스를 단다. 휠·끌기 스크롤은 그대로(보관함·휴지통 탭은 스크롤바 보임 — 20 줄이 넘을 수 있다).
+- 런처 X(`#lcCloseBtn`): [내 정보]가 열려 있으면 `closeMyInfo()` 만 하고 돌아간다(◀ 와 같음 · 사용자 요청). 한 번 더 누르면 앱 종료. Alt+F4 · 작업 표시줄 닫기는 그대로 종료(OS 창 닫기 · 이 버튼을 안 거친다).
+- 검사: `sim-signup.js` 12절 판정 둘(스크롤바 · X) → 355·0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
+
+**개정 52 에서 한 것 (2026-09-22 · 🧹 회원가입 설계 §6-⑧ · 핸드오프 09-22c §4-③)**
+- `firebase-init.js`: 부르는 곳이 없는 통로 셋을 걷었다 — `authRebindUserCode`(결속 고쳐 매기 · 유일한 호출자였던 되찾기 UI 는 개정 45 에서 걷음) · `setTransferHash` · `verifyTransfer`(계정 이전/연동 · 개정 45 에서 입구 걷음). 자리에 한 줄 주석. ★ **남긴 것:** `setAccountSnapshot` · `fetchAccountSnapshot`(`users/{uid}/transferData` — 로그인 복원 자리) · `migrateFriendRequests`(아직 `_healFriendCodeOwner` 의 «내가 버린 uid» 갈래가 부른다 — §6-③ 과 같이 걷는다) · 규칙(§6-⑬ · N+2).
+- `app.js`: 주석 한 줄(«같이 걷는다» → «걷었다»). 동작 무변경.
+- 검사: `sim-google-login.js` §7 — «authRebindUserCode 가 있다 + 순서 넷» → **«통로 셋이 없다 · 스냅샷 통로는 남았다»**. 이빨(새 판정 × 개정 51 firebase-init): 빨강 2. 5·6·9절(`sim-signup`) 떼어 오기 경계는 걷은 함수를 끝 표시로 쓰지 않아 그대로 — 353·0. 전/후(이 사본): 초록 70→70 · 빨강 3→3 · 원본없음 9→9. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
+- ⚠️ 실기기: 따로 볼 것 없음(부르는 곳이 없던 코드). 로그인한 PC 에서 이름 · 친구 코드 · 라이선스가 그대로인지(스냅샷 통로)만 한 번.
+
+**개정 51 에서 한 것 (2026-09-22 · 🧺 D2 보관함 가득 참 · 캔버스 D2 를 [내 정보] 모양으로 다시 그려 보이고 진행 · 사용자 «보여주고 진행»)**
+- 실기기(개정 48~50) 전부 정상 — 러너 81·0·1 · 규칙 게시 · 함수 둘 · 보관함 이동/슬롯에 올리기 · 휴지통 탭/옮기기/복원/20 상자 · 다른 PC · C2/C3/로그아웃 · `cleanTrash` via shallow · 3777명 · 오류 0.
+- `desk-companion-prototype.html` (보관함 페이지): 노란 경고 `#miBoxFull`(머리 · 글) · 표제 줄 오른쪽 «고른 캐릭터 k» `#miBoxPicked` · 목록 아래 `#miBoxBulk`([선택한 캐릭터 휴지통으로 (k)] · 되묻기 `#miBoxBulkAsk` [옮기기][취소] · «3일 동안 복원»). 처음엔 다 숨김. 캔버스의 «마리» · «슬롯의 캐릭터는 고를 수 없어요»는 뺐다(개정 48 부터 슬롯 캐릭터는 보관함 목록에 없다).
+- `app.js`: `_charsBoxTrashMany(cids)`(조율 블록 · 한 개씩 `_charsBoxTrash` 와 같게 · 못 옮긴 것은 센다) · `_miRenderBoxFull(items)`(보관함(슬롯 밖) ≥ 20 → «보관함이 가득 찼어요 · n/20» · «(n−19)개 이상 휴지통으로 옮겨야 …» — 문턱이 ≥20 이라 19 까지 내려가야 풀린다 · 목록에 없는 고른 것 버림 · 20 아래면 다 접고 비움) · `_miRenderBox` 가 가득 찼을 때만 줄마다 체크칸 · 되묻는 동안 [슬롯에 올리기] 잠금 · 줄 아이콘 되묻기와 한꺼번에 되묻기는 서로 닫는다 · `_miBoxBulkStart`(0개면 토스트) · `_miBoxTrashBulk`(묘비 → 고른 것 비움 → 한 번 동기화 → «휴지통 N») · `closeMyInfo` 가 접는다.
+- 검사: `sim-signup.js` **13절 신설**(자리 열 · 순서 · 처음 숨김 · 글자 · 목록 체크칸 · 배선 · 가짜 DOM 으로 22/20 «3개 이상» · 고른 것 거름 · 되묻기 글자 · 딱 20 «1개 이상» · 19 면 다 접힘 · 안 열린 PC) → **353·0**. `sim-chars-migrate.js` 10절 ⑮-2(한꺼번에 · 슬롯/없는 것 건너뜀 · 동기화 뒤 두 줄) → **165·0**. 이빨(새 판정 × 개정 49~50 판): sim-signup 빨강 18 · sim-chars-migrate 1. 전/후(이 사본): 초록 70→70 · 빨강 3→3(사본에 없는 overlay-win.js·sysinput-win.js) · 원본없음 9→9 · audit 통과. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
+- ⚠️ 실기기: 보관함을 20 으로 채우면 노란 경고 «20/20 · 1개 이상» · 체크칸 → 둘 고르고 [선택한 캐릭터 휴지통으로 (2)] → 되묻기 → [옮기기] → «휴지통으로 옮겼어요 (2)» · 경고가 사라짐 · «휴지통 2». (채우기 번거로우면 20 개가 된 김에 한 번만 확인해도 된다.)
+
+**개정 50 에서 한 것 (2026-09-22 · 🧹 휴지통 청소 · 사용자 결정 «(나) 예약 함수» · 설계 결정 10)**
+- `functions/index.js`: **`cleanTrash`**(onSchedule · `every day 04:00` · Asia/Seoul · 리전은 전역 asia-southeast1 그대로) 추가. 옮김(`deleted`) at + 3일 · 연동 교체(`overwritten`) at + 10일이 **지난** 줄을 사람마다 update(null) 한 번으로 지운다. 기한 값은 앱 `CHARS_TRASH_TTL` 과 같다(앱은 같은 날 화면에서 숨긴다). 모양 틀린 줄은 지우지 않고 센다. 사람 목록은 RTDB REST shallow(uid 만) · 못 받으면 friendCodes ∪ userAuth. `changePassword` 무변경. 규칙 무변경(Admin SDK 는 규칙 밖).
+- 검사: 러너는 `functions/` 를 스테이징하지 않는다(개정 44) → **이 세션에서 떼어 돌림 13·0**(내보내는 것은 함수 둘뿐 · 예약 04:00 서울 · 리전 · 기한 경계(딱 기한이면 지움 = 앱 `until <= now`) · 남김 · 모양 틀린 줄 안 지움 · 앱과 같은 기한 값 · shallow + 토큰 · 한 사람 한 update · 대체 목록 · 한 사람 실패해도 계속). 러너 대상 파일 무변경 — 기준선 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
+- (같은 날 고침) 첫 배포가 «User code failed to load … Timeout after 10000» 으로 멈췄다 — 새로 넣은 맨 위 `require('firebase-admin/database')` 가 CLI 의 10초 읽기 안에 못 끝난 것으로 본다. `cleanTrash` 가 돌 때 읽도록 옮겼다(맨 위 require 는 changePassword 만 있던 판 + 가벼운 scheduler 하나). 세션 검사 13·0 그대로.
+- ⚠️ 배포: `firebase deploy --only functions` — 처음이면 Cloud Scheduler API 를 켜라는 질문에 «예». 콘솔 Functions 목록에 `cleanTrash` · 다음 날 로그 `[cleanTrash] {"via":"shallow",…}` 확인(via 가 fallback 이면 shallow 토큰이 막힌 것 — 동작은 한다).
+
+**개정 49 에서 한 것 (2026-09-22 · 🗑️ 휴지통 탭 · 사용자 확정 «시안 ①~③ · 탭 순서 보관함 · 계정 · 휴지통 · 기한 지난 줄 숨김»)**
+- 대조 먼저(코드 전): 휴지통 전체를 읽는 통로가 없었다(`loadCharsTrashLatest` 는 cid 마다 def 하나 · why/at 없음). 규칙은 바꿀 것 없음 — 읽기는 `users/$userId .read: true` · 복원은 `chars/{cid}` 쓰기. 캔버스 E 보드는 옛 판(되살리기 · 이 모습으로 · 책상에 · 맞바꾸기)이라 설계 개정 7 의 E 글과 개정 48 용어로 시안을 다시 그려 확정받았다.
+- `firebase-init.js`: 통로 **`loadCharsTrashAll(uid)`** — `users/{uid}/trash` 전체를 읽기만 · 모양 거름(cid 모양 · def 문자열 · why 두 값 · at 숫자) · 실패 = null.
+- `app.js` (조율 블록 안 · `_charsDeleteWords` 뒤): `_charsBoxTrash(cid)`(슬롯 밖 항목 → 묘비 `{del, pend}` 만 · 슬롯 캐릭터는 'ondesk' · 대기 줄 없음 — 다음 동기화의 병합이 서버의 마지막 모습을 `deleted` 로 남긴다) · `_charsRestoreCid(cid, mtime)`(**'cr' + 해시** — 같은 줄이면 늘 같은 cid) · `_charsTrashView(trash, box, now)`(순수 — 기한 지난 줄 숨김 · 옮김은 cid 마다 최근 한 줄 · 옮김은 «보관함에 살아 있고 그 줄보다 나중» 이면 접힘 · **연동 교체는 복원본 cid 가 보관함에 있을 때만 접힘**(설계 §2-2 의 한 기준을 그대로 쓰면 원본을 다시 고치는 순간 옛 모습이 사라진다) · 최근 것부터) · `_charsRestore(row)`(20 문턱 → 서버 `saveCharsEntries` 먼저 → 된 뒤에만 로컬 보관함 · 시각은 그 줄 at 보다 뒤 · 이미 있으면 쓰지 않음). [내 정보]: `_miSetTab` 에 trash(`_miTrashOn` = `_charsActive` 일 때만 탭 보임) · `_miTrashLoad`(열 때 · 탭 누를 때 · «휴지통 N») · `_miRenderTrash`(섬네일 · «옮김»/«연동 교체» · «M/D 사라져요» · [복원] 폭 48px) · `_miTrashRestore`(20 이면 붉은 상자 `#miTrashFull` · 버튼은 그대로) · 보관함 줄 끝 붉은 아이콘 `_miTrashIcon`(D2 와 같은 선) → 줄 안 되묻기(`_charsDeleteWords().ask`) · [옮기기] → `_miBoxTrash`(묘비 → 바로 `_charsSync('box-trash')` → 탭 글자 다시). `closeMyInfo` 가 되묻기·상자를 접는다.
+- `desk-companion-prototype.html`: 탭 순서 **보관함 · 계정 · 휴지통**(휴지통 탭은 처음엔 숨김 그대로) · `#miPageTrash`(표제 «휴지통 (n)» 붉게 · `#miTrashFull` · `#miTrashList` · `#miTrashEmpty` · 안내 한 줄).
+- 검사: `sim-chars-migrate.js` **10절 신설**(보관함 줄 → 묘비 · 동기화 뒤 deleted 한 줄 · 꺼짐 무동작 · 복원본 cid · 보일 줄 고르기 여덟 · 복원 — 같은 cid · 연동 교체 하나 더 · 두 번/다른 PC 한 개 · 20 막힘 · 서버 실패 무변경 · 꺼짐) · 6절 통로 판정 하나 · 없는 함수는 return 에 안 넣어 8절이 통째로 죽지 않게 → **163·0**. `sim-signup.js` **12절 신설**(탭 순서 · 붉은 글자 · 페이지 · 안내 글자 · 열림 판정 · 읽기/고르기 · E 줄 · 20 상자 · 보관함 줄 아이콘·되묻기 · 가짜 DOM 그리기) · 11절 휴지통 탭 숨김 판정 문구만 → **330·0**. 이빨(새 판정 × 개정 48 원본): sim-signup 빨강 21 · sim-chars-migrate 2. 전/후 한 바퀴(이 사본 · main.js·preload.js 포함 82개): 초록 70→70 · 빨강 3→3(사본에 없는 overlay-win.js·sysinput-win.js 탓 — 전후 같음) · 원본없음 9→9 · `audit.py` 통과. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
+- ⚠️ 청소 함수(3일 · 10일)는 아직 없다 — 기한 지난 줄은 **화면에서만** 숨고 서버엔 남는다(함수 배포 때 지워짐).
+- ⚠️ 실기기: 보관함 줄 아이콘 → 되묻기 → [옮기기] → 토스트 «휴지통으로 옮겼어요» · [휴지통 1] · [복원] → «보관함으로 복원했어요» · 보관함 (n/20) · 휴지통에서 그 줄이 접힘 · 보관함 20 에서 [복원] → 붉은 상자 · 다른 PC 에서 같은 휴지통.
+
+**개정 48 에서 한 것 (2026-09-22 · 사용자 결정 «런처가 [내 정보]로 바뀐다» · 시안 G · D 바로잡기)**
+- ⚠️ **개정 47(별개 OS 창)은 되돌렸다** — `main.js` 는 개정 46 판(업로드 원본) 그대로 · `_miPopOut`/`_miEl` 없음. 개정 45 의 겹창 `#myInfoOverlay` 도 없다(팝업 목록 여덟에서 뺐다).
+- `desk-companion-prototype.html`: 런처 카드(.lc-card) 안에 겹 페이지 `#lcMyInfo`(제목줄 22px 아래를 덮음 · ◀ `#miBack`) — 작은 머리(사진 44px · 닉네임 + `_plFillLv` 배지 + [수정] · 친구 코드 + [복사]) · 탭 [보관함] [휴지통](숨김) [계정] · **보관함 = 표제 «보관함 (n/20)» + 목록 `#miBoxList` + 빈 줄 `#miBoxEmpty` + [코드로 캐릭터 불러오기]**(슬롯 격자 · «책상» 없음) · 계정 = C4(요소 그대로). 런처 톱니(시안 G): `lcToBox` [보관함 이동] · [캐릭터 수정] · [복제 코드 만들기] · 구분선 `lcGearSep` · [휴지통 이동].
+- `app.js`: `openMyInfo`/`closeMyInfo`(페이지 보이기 · 런처 다시 그림) · `_miBoxItems`(슬롯 표 밖의 산 항목만 · 최근 고친 것부터) · `_miRenderBox`(섬네일 · «마지막 수정 M/D» · [슬롯에 올리기]) · `_miBoxUp`. 🧰 `_charsDeskToBox(i)`(슬롯 표에서만 빼고 당김 · **보관함 항목은 그대로** · 못 올린 고침(dirty)은 `_charsSync('force')` 로 먼저 올리고, 못 올리면 안 옮김) · `_charsBoxToDesk(cid)`(빈 슬롯 첫 칸에 `_slotFromServerObj` 로 받아 앉힘 · 기준 h 지움 · 백업 · loadSlots) · `_charsMoveMsg`(문구 한 벌 · 슬롯 꽉 참 = D3) · `doMoveCurSlotToBox`(보관함 기록이 끝난 뒤에만 칸을 당김 · 자리 추가 번호 같이 · 토스트 «보관함으로 옮겼어요»). **20 = 보관함(슬롯 밖)만**(`_charsBoxOnlyCount` · 사용자 결정 «n/20» — 슬롯 5 + 보관함 20) · 문구 «보관함이 가득 찼어요 (n/20)»(«마리» 뺌). **`CHARS_SYNC_ENABLED = true`** — ⚠️ 규칙(chars · trash · charsMeta)이 게시된 뒤에 배포.
+- 검사: `sim-signup.js` 11절 새로(런처 안 페이지 · 작은 머리 · 보관함 = 슬롯 밖만 · n/20 · 글자에 «책상»·«마리» 없음 · 톱니 G 순서 · 보관함 이동 떼어 와 돌리기 여섯 · 슬롯에 올리기 정적 · 스위치 켬 · 걷은 것 · C4 · transferHash) → **304·0**. `sim-chars-migrate.js` 5절 «스위치 = true»(런타임 치환은 true/false 둘 다 받게) · 8절 ⑤ 20 문턱을 슬롯 밖 기준으로(슬롯 캐릭터 안 셈 · «(20/20)»). `sim-google-login.js` §1 자리 `#lcMyInfo`. 이빨(새 판정 × 개정 46 원본): 빨강 39 · 3 · 2. 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
+- ⚠️ 실기기: ① 콘솔 규칙에 `chars` · `trash` · `charsMeta` 가 있는지 먼저(없으면 게시) ② 부팅 5초 뒤 첫 채택 → 톱니 마지막 줄이 «휴지통 이동» 으로 바뀜 = 보관함 열림 ③ [보관함 이동] → 런처에서 빠짐 · [내 정보 › 보관함 (1/20)] ④ [슬롯에 올리기] → 빈 슬롯에 그림째 ⑤ 다른 PC 에서 같은 보관함.
+
+**개정 47 에서 한 것 (2026-09-22 · 🪟 [내 정보] 별개 창 · 사용자 요청 «런처와 별개 창 · 따로 드래그»)**
+- `main.js`: `setWindowOpenHandler` 에 `myInfo` 갈래(테두리 없음 · 400×640 · resizable 아님 · skipTaskbar · alwaysOnTop · **parent=메인** · `savedMiPos`) · `did-create-window` 에서 'screen-saver' 단계 · 위치 기억(`moved`/`move`) · 메인 최소화 때 닫기. 디자인 스튜디오(`mhDesign`)와 같은 방식. `preload.js` 무변경(window.open 이라 통로가 필요 없다).
+- `app.js`: `_miPopOut`(window.open('', 'myInfo_…') → 본창 `<style>` 복제 + `MI_CHILD_CSS` + `applyThemeToChildDoc` → `#myInfoWin` 조각을 **adoptNode 로 옮겨 심음** · 이벤트 그대로) · `_miReturnNode`(pagehide/beforeunload · 닫기 · 두 번 불려도 됨 → `#myInfoOverlay` 로 되돌림) · `_miEl(id)`(그 창이 떠 있으면 그 창 문서 → 아니면 본창) · 조각 안 요소를 찾는 곳 전부 `_miEl` 로(직접 18곳 + 지역 도우미 8곳 — 도우미는 `typeof _miEl` 가드라 떼어 오는 검사도 그대로 돈다) · 제목줄 `#miTitle` 만 app-region drag(버튼 no-drag) · `_miStepAside`/`_miResume`(코드 불러오기 · 복제 코드 창은 본창에 뜨는데 자식 창이 늘 그 위라 → 잠시 닫고, 그 창이 닫히면 같은 탭으로 다시 연다) · 복사는 그 창의 navigator(포커스 문제) · Esc 로 닫기(이름 칸 제외). 데스크톱 밖이거나 창을 못 열면 예전 겹창으로.
+- 검사: `sim-signup.js` 11절 별개 창 판정 12(main.js 셋은 main.js 가 있을 때만) · 떼어 와 돌리기에 `_miEl`·`_miStepAside` 스텁 · 닮은 목록 세기에서 주석 제외 → **315·0**. 이빨: 개정 46 원본에서 빨강 15. 전/후 한 바퀴(이 사본 · main.js·preload.js 포함): 종료 코드 전부 같음(사본에 없는 overlay-win.js·sysinput-win.js 탓 빨강 셋은 전/후 같음). 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
+- ⚠️ 실기기 확인 거리: 런처 [내 정보] → 별개 창 · 제목줄로 그 창만 이동 · 닫고 다시 열면 옮긴 자리 · 테마(버블/기본) 같음 · 코드 불러오기/복제 코드 → 창이 비켰다가 닫으면 다시 뜸 · 친구 코드 [복사] · 메인 최소화 때 같이 닫힘 · 토스트는 본창에 뜬다(창 뒤에 가릴 수 있음 — 거슬리면 다음에 그 창 안 토스트로).
+
+**개정 46 에서 한 것 (2026-09-22 · 🪪 [내 정보] 다듬기 · 사용자 지적 셋)**
+- 레벨 배지: 시안을 베낀 따로 만든 배지(`#miLvText`)를 걷고 **친구 목록과 같은 `_plFillLv`**(`.mh-flv` + `lvBadgeClass`)로 채운다(`#miLv`).
+- 프로필 사진 틀: 검은 3px 틀 → 마이홈 프로필 사진(`#mhAvatarBig`)과 같은 한 줄 베벨 · 테마 변수만.
+- 보관함 탭 격자 위에 «책상 (N칸)»(시안 D · N 은 `CHAR_SLOT_MAX`) — 보관함(책상 밖) 목록과 섞지 않는다. 목록 · G [보관함 이동]은 `CHARS_SYNC_ENABLED` 뒤.
+- 검사: `sim-signup.js` 11절 판정 셋 → **302·0**. 이빨: 개정 45 원본에서 빨강 3. 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
+
+**개정 45 에서 한 것 (2026-09-22 · 🪪 [내 정보] · 설계 개정 16 · 시안 B2 · C4 · D 확정)**
+- `desk-companion-prototype.html`: `#myInfoOverlay`(z 54 — 런처 50 위 · 생성기/종족 55 · 코드 불러오기 56 · 복제 코드 57 · 설정 59 아래) — 머리(마이홈 프로필 사진 · 닉네임 + Lv + [수정] · 친구 코드 + [복사]) · 탭 [보관함] [휴지통](숨김 · 스위치 때) [계정]. 보관함 = 슬롯 격자(섬네일 + 칸 번호 · **이름 없음 — 사용자 확정**) · 톱니 팝 `#miSlotMenu` · 맨 아래 [코드로 캐릭터 불러오기] · 동기화 한 줄. 계정 = 옛 계정 탭의 `#acctMethods` · 기기 연동 · 로그아웃 3단계를 **C4 순서**(로그인 수단·비밀번호 → 기기 연동 → 로그아웃)로 옮김(id·글자 그대로) · «연결됨 · 이메일» 상자 없음 · 로그인 안 한 PC 는 한 줄 `#acctNoLogin`. **걷음:** 설정 탭 버튼 `progTabBtnAccount` + `#progTabAccount` 통째(로그인 전 얼굴 `acctGoogleBtn` · 유저 코드/친추 코드 줄 · 되찾기 `acctRecover*` · 계정 이전/연동/해제 `acctTransfer*`·`acctLink*`·`acctUnlink*`). 런처 `#lcLoad` 글자 [내 정보]. 로그아웃 확인 문구 «구글 계정으로 로그인» → «친구 코드나 구글로 로그인».
+- `app.js`: `openMyInfo` · `closeMyInfo` · `_miSetTab` · `_miRenderHead`(닉네임 · `getFocusLevel` · 친구 코드) · `_miRenderAvatar`(채팅 창과 같은 순서 · data:image/ · http(s) 만) · `_miNameSave`(**commitUserName 하나**) · `_miCopyCode` · `_miSlotThumb`(thumbUrl → thumb → 얼굴) · `_miRenderBox` · `_miRenderSync` · `_miMenuOpen`/`_miSlotAct`(톱니 세 항목 = 런처와 **같은 함수** — curSlot 을 그 칸으로 옮기고 openCreator · lcExport · doDeleteCurSlot · 되묻기는 메뉴 안 · `_charsDeleteWords`) · `_miCodeLoad`(꽉 차면 옛 토스트 · 아니면 openCodeModal) · `initMyInfoUI`(코드 불러오기·복제 코드 창이 닫히면 보관함 다시 그림). `#lcLoad` → `openMyInfo('box')` · `renderLauncher` 의 `lcLoad.disabled` 토글 삭제. 닮은 목록: `#programSettingsOverlay` 가 있는 7곳 전부에 `#myInfoOverlay` + 바깥 클릭 닫기 짝 `['myInfoOverlay','myInfoClose']`(여기서 연 창 위 클릭은 예외). **걷음:** `setProgSettingsTab` 의 account · 탭 버튼 배선 · `refreshAccountTab` 의 옛 두 얼굴 · `initAccountLoginUI` 의 `acctGoogleBtn` · 되찾기 블록(`recCandidates` · `acctRecoverGo`) · `initAccountTransfer` 통째 · `_acctShowMsg` · `_linkNeedsGoogleNote` · 이전 쪽 `_sha256Hex`(같은 이름 두 벌 — 뒤의 것이 이기고 있었다 → 남은 관리자 쪽 판에 try/catch 를 넣어 동작 같게). **남김:** `initAccountLoginUI` 의 게이트 구글 버튼(`inviteGateGoogleBtn` · `runLogin`) · 부팅 스냅샷 · `warnUnbound`. 없어진 [설정 › 계정]을 가리키던 토스트 넷 → K 문구(«앱을 다시 시작하면 로그인 화면»). `sim-focus-auth.js` 가 보는 «다시 로그인» 은 살렸다.
+- `firebase-database-rules.json`: `users/$userId/transferHash` — `.write` 앞에 `!newData.exists() &&`(주인이 **지우기만**) · `.validate: "false"`. ★ `transferData` 는 **그대로** — 계정 스냅샷(`setAccountSnapshot` · `fetchAccountSnapshot`)의 자리라 로그인 복원이 거기서 라이선스·이름·친구 코드·누적 시간을 받는다(핸드오프 09-22 결정 12 의 «transferData 도 지움» 은 코드 대조로 정정 · 사용자 확인).
+- `firebase-init.js` 무변경 — `setTransferHash` · `verifyTransfer` · `authRebindUserCode` 는 부르는 곳이 없어졌지만 5·6·9절 떼어 오기 경계 때문에 §6-⑧ 묶음에서 같이 걷는다.
+- 검사: `sim-signup.js` 10절 자리 판정을 새 집(`#miPageAcct`)으로 · **11절 신설**(마크업 · 층 · C4 순서 · 걷은 id 19개가 마크업과 app.js 에 없음 · 닮은 목록 개수 · 톱니/코드 불러오기/닉네임 떼어 와 돌리기 · 규칙 transferHash 지우기만 · transferData 그대로) → **299·0**. `sim-google-login.js` §1(걷은 id 는 **없어야** · 새 자리) · 탭 목록 셋 · ⑧(연동 해제 대신 로그아웃 자동 재시작) · §7 되찾기 UI → 걷음 판정 · §8 transferHash 지우기만. `sim-account-switch.js` 1절 해제 판정 셋 → «해제 입구 없음» · «`_detachAccountLocal` 부르는 곳은 로그아웃 하나» 둘. ★ **덤: 2절이 «?» 로 통째 안 돌고 있었다** — `ACCOUNT_LOCAL_KEYS` 에 들어온 `SLOTS_SEEN/LOSS/LASTSYNC/PUSHFAIL_KEY` 가 상수 표(K)에 없어 ReferenceError. 네 개를 넣어 2절이 다시 돈다(**75·0**). 종료 코드는 전에도 0(«?» 는 빨강이 아니다) — 개정 30~31 부터 가려져 있던 구멍. `sim-slot-sync-ui.js` 1절 자리(C4 — 비밀번호 다음 · 로그아웃 앞). 이빨(새 판정 × 개정 44 원본): sim-signup 빨강 40 · sim-google-login 24 · sim-account-switch 2 · sim-slot-sync-ui 1. 전/후 한 바퀴(이 사본 · 82개): 초록 62→62 · 빨강 0→0 · 원본없음 20→20 · `audit.py` 전부 통과. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
+- ⚠️ 실기기 확인 거리: [내 정보] 열기/닫기(바깥 클릭) · 코드 불러오기가 [내 정보] 위에 뜨는지 · 톱니 세 항목 · 닉네임 저장이 방 이름표까지 · 로그아웃 3단계가 새 자리에서 그대로.
+
+**개정 44 에서 한 것 (2026-09-22 · 🔐 C3 · C2 · 설계 개정 14 · 시안 확정)**
+- `desk-companion-prototype.html`: 계정 탭(`#progTabAccount`) › 로그인 후 얼굴(`#acctLoggedIn`) 안, [이 컴퓨터에서 로그아웃] 위에 `#acctMethods`(로그인 수단 · 비밀번호 만들기/바꾸기 한 벌 — 글자는 app.js 가 모드에 맞춰 채움) · `#acctMOff`(세션 풀림 한 줄). 글자는 시안 C2 · C3 그대로. ★ CSP 두 줄(1단계 · 2단계) connect-src 에 함수 호스트 `https://asia-southeast1-together-working.cloudfunctions.net`(와일드카드 아님).
+- `firebase-init.js`: `reauthenticateWithCredential` 들여옴 · `FUNCTIONS_REGION = 'asia-southeast1'`(firebase-config `databaseURL` 과 같은 리전) · `FUNCTIONS_SDK_URL`(10.12.2 · **동적 import** — 머리에 두면 못 받은 날 모듈 전체가 죽는다) · `_providersOf`. 통로 넷을 **`authSignOut` 뒤에**: `authProviders()` · `authLinkPassword(code, pw)`(C3 · 지금 세션에 `{코드}@tw.local` 붙이기 · requires-recent-login → needReauth · 이미 있음 → already · 남의 것 → taken) · `authReauthGoogle(idToken)`(세션 안 바꿈) · `authChangePassword(pw)`(C2 · 함수 `changePassword` 호출형 · not-found = «배포 전» · 성공 뒤 password 제공자 이메일 + 새 비밀번호로 **다시 로그인** · 실패해도 ok · relogged:false).
+- `app.js`: `_acctMethodsMode`(세션 없음 off · 익명 none · 비밀번호 있음 C2(구글 없으면 경고) · 구글만 C3) · `_acctPwCheck` · `_acctPwCode`(C3 아이디 = 계정 거울 → 이 기기 코드, **friendCodes 가 지금 내 uid 일 때만**) · `_acctCreatePassword`(붙이기 → 오래됐으면 구글 창 → 재인증 → 한 번 더) · `_acctChangePassword` · `_acctMethodsRender(keepMsg)` · `initAccountMethodsUI`(버튼 · Enter · C2 구글 [연결하기] = `authLinkGoogle`). `refreshAccountTab` 끝에서 다시 그림.
+- 새 파일 `functions/index.js`(저장소 루트 `functions/` · 러너 밖): `changePassword` — 로그인 필수 · 익명 거절 · 6~128자 · password 제공자 필수 · `updateUser` → `revokeRefreshTokens`. 스텁으로 7 갈래 확인(이 사본 · 러너 검사 아님).
+- `run.js`: `SKIP` 에 `'functions'` — 스테이징이 루트 한 층을 `cpSync(recursive)` 로 통째 복사하는데 SKIP 은 맨 위 이름만 봐서 `functions/node_modules` 를 못 거른다. 판정 무변경(검사가 읽는 원본이 그 안에 없다).
+- 검사: `sim-signup.js` 10절(C3 · C2) → **247·0**. 이빨: 개정 43 판에서 빨강 15. 전/후 한 바퀴(이 사본 · 81개): 종료 코드 전부 같음 · `audit.py` 전부 통과 그대로. 러너 실제 한 바퀴(가짜 저장소 · `functions/node_modules` 둠): 스테이징에 functions 없음 · sim-signup 247·0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
+- ⚠️ 실기기 확인 거리: 구글 계정에 `@tw.local` 비밀번호를 붙일 때 «이메일 바꾸기 전 확인» 정책(operation-not-allowed)에 걸리는지 · 함수 CORS(file:// 에서 부름) · 바꾼 뒤 다른 PC 가 다음 부팅에 K.
+
+**개정 43 에서 한 것 (2026-09-21 · 🎉 J · J2 · 🔐 K · 설계 개정 13 · 시안 확정)**
+- 설계 (가): **되찾기 코드 없음** — 비밀번호를 잊으면 로그인돼 있는 PC 의 [내 정보 › 계정](C2)에서 바꾼다. A 카드 아래 안내 줄도 그렇게 바꿈.
+- `desk-companion-prototype.html`: `#signupDoneOverlay`(z 97 · J/J2 한 카드 · 배경은 부르는 쪽이 정함) · `#needLoginOverlay`(z 96 · 반투명 · **닫기 없음**). 글자는 확정 시안 그대로(J 경고 두 줄은 사용자가 캔버스에서 고친 글자).
+- `firebase-init.js`: `authLinkGoogle(idToken)` — 지금 세션에 구글을 **붙인다**(`linkWithCredential` · 같은 authUid · 이미 남의 것이면 거절).
+- `app.js`: `_showSignupDone`(J · J2 · [시작하기] 에서 풀림 · [구글도 연결하기] = authLinkGoogle) · `_hideSignupDone` · A 의 `done(r, how)` → 완료 화면 → 재시작(이미 가입된 구글이면 완료 화면 없이 재시작) · I 의 가입 → 완료 화면(반투명) → 닫기(재시작 없음). K: `_needLoginNeed`(uid 있음 · `authOwnerOf` 가 문자열 · 지금 세션이 그 authUid 가 아님 · 못 읽으면 쉼 · 아이디 = 계정 거울 → 이 기기 코드) · `_needLoginCheck` · `_showNeedLogin`(구글 = `_loginDoGoogle` · 비밀번호 = `_loginDoFriendCode` · 바뀌면 재시작 · 같으면 닫기 · 잊었어요 = 안내 칸). 부팅: 게이트 → I → (I 가 아니면) K. `UI_HIT_SEL` 에 둘 등록.
+- 검사: `sim-signup.js` 9절(J · J2 · K) · 7절 I 마크업 범위를 «다음 덩어리 머리» 까지로 좁힘(J · K 가 그 사이에 들어와 «닫기 없음» 이 거짓 빨강 — 판정 무변경) → **191·0**. 이빨: 개정 42 판에서 빨강 16. 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
+
+**개정 42 에서 한 것 (2026-09-21 · 🪞 ⑥ 거울 정정 · 설계 개정 12)**
+- `app.js`: `_friendCodeMirrorFix`(계정 거울 `users/{uid}/friendCode` 가 이 기기 코드와 다르고 **그 코드가 지금 내 것일 때만** 로컬 키를 고친다 · friendCodes·거울 쓰기 0 · 비었거나 못 읽으면 아무것도 안 함) · `_fcMirrorChecked`. 부르는 곳은 `ensureMyFriendCode` 첫머리 하나(세션당 한 번) — ★ 발급보다 먼저라, 로컬 코드가 없는 PC 가 새 코드를 뽑아 계정의 진짜 코드를 버리지 않는다.
+- «다름» 자동 연동 + F 는 **이번에 안 넣었다** — 옮길 곳(계정 보관함 `users/{uid}/chars`)이 `CHARS_SYNC_ENABLED = false` · chars 규칙 미게시라 쓰기가 거부된다. 그 사이 «다름» 에서 이 PC 캐릭터는 옛날처럼 슬롯 백업(`SLOTS_BAK_KEY` · 옛 uid 가 meta 에 남음)에 남는다. 순서는 설계 개정 12.
+- 검사: `sim-signup.js` 8절(⑥) · 4절이 떼어 오는 함수에 `_friendCodeMirrorFix`(없는 판은 빈 함수 — 판정 무변경) → **161·0**. 이빨: 개정 41 판에서 8절 정적 빨강 3. 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0 (`sim-friend-code-keep.js` · `sim-google-login.js` 그대로 초록). 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
+
+**개정 41 에서 한 것 (2026-09-21 · 🪪 게이트 I · 설계 개정 11)**
+- `desk-companion-prototype.html`: `#existingSignupOverlay`(z 96 · 반투명 rgba(0,0,0,.45) · **닫기 없음**) — 시안 I 글자 그대로(제목 · 안내 · 내 아이디 고정 표시 · 비밀번호·확인 · [가입하기] · 또는 · [구글 계정으로 연결하기] · «하나도 바뀌지 않아요»).
+- `app.js`: `EXISTING_SIGNUP_ENABLED = true` · `_existingSignupNeed`(uid 있음 · `authOwnerOf(uid)` 가 **null** 일 때만 · undefined(못 읽음) → 이번엔 쉼 · 이미 묶였으면 I 아님) · `_existingSignupCode`(이 기기 코드가 내 것 → 계정 거울이 내 것 → 새 후보) · `_existingSignupDoPassword`(익명 → (내 코드 없을 때만 ③) → ④ → ⑤ 이 uid → 로그인 표시 · 거울 · **계정 스냅샷**(구글 첫 결속과 같은 일)) · `_showExistingSignup`(구글은 `_loginDoGoogle` 그대로 — 바뀌면 재시작). `initInviteGate` 가 초대 게이트 뒤에 `_existingSignupCheck()`. `_signupClaimCode(p, persist)` — I 는 `false`(가입 상태 키 안 씀). ★ `UI_HIT_SEL` 에 `#existingSignupOverlay` 등록.
+- uid 가 **다른 계정에 묶였는데 이 PC 는 로그인 안 한** 판은 I 가 아니다(가입해도 결속에서 거절) — 다루지 않았다. 설계 §9 에 적음.
+- ⚠️ 완료 화면은 A 와 같이 시안 대기 — 안내 한 줄 뒤 닫는다(uid 가 그대로라 재시작 없음).
+- 검사: `sim-signup.js` 7절(I) → **147·0**. 이빨: 개정 40 판에서 빨강 9. 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
+
+**개정 40 에서 한 것 (2026-09-21 · 🪪 게이트 A · 설계 개정 10 · §9-6 (a))**
+- `desk-companion-prototype.html`: 게이트 오버레이 안에 두 번째 카드 `#signupCard`(시안 A 글자 그대로 — 구글로 가입하기 · 또는 친구 코드로 · 내 아이디(고정 표시 `#signupCode`) · 비밀번호·확인 · [가입하기] · 되찾기 코드 안내). H 카드에 `#inviteGateCard`.
+- `firebase-init.js` 가입 통로 셋: `authSignupEnsure(email)`(남은 익명 · 같은 이메일로 승격된 세션은 이어 쓰고, 다른 세션은 놓고 익명) · `authSignupLinkPassword(code, pw)`(④ · 이미 그 이메일이면 성공) · `authSignupBind(uid)`(⑤ · userAuth 선점 runTransaction → authUsers · **이메일 거울 없음** §9-2). 셋 다 다시 불러도 안전.
+- `app.js`: `SIGNUP_PENDING_KEY`(tw.signupPending {uid, code}) · `_signupPendingEnsure`(★ `_inventMyUserId` 를 부르는 **유일한** 자리 — A 를 열 때 가입 상태에만 적고 서버·tw.myUserId 는 안 건드림) · `_signupClaimCode`(보여 준 코드 먼저 · 뺏겼으면 새 후보) · `_signupFinishLocal`(uid·코드·로그인 표시 · 거울 · 초대 마무리 · 도장 · 상태 지움) · `_signupDoPassword`(익명 → ③ → ④ → ⑤) · `_signupDoGoogle`(⑤ → ③ · 이미 가입된 구글이면 그 계정으로). 게이트: 초대 통과 뒤 임시 블록(바로 uid 발명 → 재시작)을 걷고 A 를 연다 · 가입 도중 끊긴 기기는 부팅 때 A 로 곧장.
+- ⚠️ **가입 완료 화면(아이디 · 되찾기 코드 한 번)은 안 만들었다 — 시안에 없는 새 구성이라 시안 먼저.** 지금은 A 의 안내 줄에 «가입됐어요! 내 아이디는 …» 뒤 2.5초 후 재시작. 되찾기 코드(Cloud Function)와 같이 한다.
+- ⚠️ 콘솔: [익명] · [이메일/비밀번호] 로그인을 켜야 A 가 돈다. 규칙 **변경 없음**(userAuth · authUsers · friendCodes 모두 지금 규칙으로 통과).
+- 검사: `sim-signup.js` 6절(A) · 1절 «발명 한 곳» 자리를 `_signupPendingEnsure` 로 → **122·0**. 5절 firebase-init 떼어 오기 끝을 «다음 메서드 머리» 로 좁힘(가입 통로가 그 사이에 들어와 «읽기만» 이 거짓 빨강이 됐다 — 판정 무변경). 이빨: 개정 39 판에서 빨강 14(5절은 그대로 초록). 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
+
+**개정 39 에서 한 것 (2026-09-21 · 🪪 게이트 H · 설계 §7-H 시안 그대로)**
+- `desk-companion-prototype.html` 초대 게이트를 시안 H 로: 제목 «초대 코드 입력» · 초대 코드 [입장하기] · «이미 계정이 있어요» · [구글로 로그인] · 친구 코드 + 비밀번호 [친구 코드로 로그인] · 아래 안내 한 줄. **세 버튼 같은 크기**(셋 다 `lc-btn` · 구글이 ghost 였던 것을 바꿈). id `inviteGateGoogleBtn` · `inviteGatePw` 는 그대로(검사·배선이 이름으로 잡는다) · 새 id `inviteGateFc` · `inviteGateFcBtn` · `inviteGateLoginMsg`. ★ 옛 `inviteGatePwRow`(유저 코드 u… + 이전 비밀번호) 걷음.
+- `app.js`: `_showInviteGate` 의 옛 계정 이전 갈래(isUserCode · verifyTransfer · `setItem(MY_USER_ID_KEY, raw)`) 걷음 — 옛 uid 직접 기록 입구가 넷 → 셋. `_loginDoFriendCode`(서버 userCode 를 `_setMyUserId` 로 채택 · 모양이 틀리면 기록 안 하고 Auth 도 놓음 · 스냅샷 복원 · 도장) · `FRIEND_CODE_LOGIN_RE`(`MATE-` · 옛 `COZY-`). 게이트 배선: 바뀌면 재시작 · 같으면 게이트만 닫음. 구글 문 안내도 `inviteGateLoginMsg` 로.
+- `firebase-init.js`: `authSignInWithFriendCode(code, pw)` — `signInWithEmailAndPassword` 로 `{코드 소문자}@tw.local` · **읽기만**(authUsers 줄 없으면 로그아웃 + 거절). ⚠️ **콘솔에서 [이메일/비밀번호] 로그인을 켜야 한다.** 가입(A · I)이 아직 없어 지금 이 길로 들어올 계정은 없다 — 길만 먼저 놓았다.
+- 계정 탭의 옛 [계정 이전] UI(`initAccountTransfer`)는 **그대로**(설계 §6-⑤ · 화면 단계에서 C 로).
+- 검사: `sim-signup.js` 5절(H) → **76·0**. 이빨: 개정 38 판에서 빨강 11 + 예외(5절). 전/후 한 바퀴(이 사본 · 원본없음 20): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
+
+**개정 38 에서 한 것 (2026-09-21 · 🪪 회원가입 게이트 첫 조각 · 설계 개정 8)**
+- 설계 §9-6 답 (a) 익명 로그인 · §9-9 Blaze 확인. 게이트 순서의 첫 조각: «uid 를 부팅이 아니라 게이트가 정한다».
+- `app.js`: `getMyUserId` **읽기만**(없으면 null · §6-①) · `_inventMyUserId`(uid 를 만드는 한 곳) · `_setMyUserId`(모양 검사 · 새 기록 입구 · 옛 입구 넷 26114·30237·30684·30965 은 H·④⑤ 를 걷을 때 함께) · `ensureMyFriendCode` · 슬롯·가챠 동기화는 uid 없으면 조용히. 초대: `INVITE_TOKEN_KEY` · `_inviteTokenFor`(같은 코드면 같은 토큰) · `_inviteFinishPending` · `checkInviteGate` 가 uid 없으면 곧장 게이트 · 남은 토큰은 부팅마다 마무리. 초대 코드 입장: 토큰으로 소진 → (uid 있으면) 마무리 후 통과 · (없으면) **⏳ 임시** `_inventMyUserId` → `_setMyUserId` → 마무리 → 도장 → **재시작**(A 가입이 들어오면 이 블록이 바뀐다).
+- ★ **왜 재시작인가 — 게이트는 부팅을 막지 않는다**(`initInviteGate` 가 기다리지 않음). 처음 쓰는 PC 는 게이트 뒤에서 마이홈·구독·타이머가 uid 없이 돌았다가 빈 채로 남는다. uid 가 정해지면 다시 띄워 처음부터 제대로 돌게 한다(구글 갈아타기와 같은 결론 · 기존 사용자는 해당 없음).
+- `firebase-init.js`: **빈 uid 안전망** — `ref`·`update`·Storage `ref` 를 별칭으로 들여와 감싼다. 경로에 `null`·`undefined`·빈 세그먼트가 있으면 `_noUid/` 아래로 돌린다(규칙 루트 거부 → 부르는 쪽이 이미 다루는 permission_denied). **던지지 않는다** — 동기 호출이 부팅 IIFE 를 끊으면 게이트까지 못 온다. 다중 경로 update 는 한 줄이라도 걸리면 통째 거절. `redeemInvite(code, token)` 은 `usedBy`·`usedAt` 만 · `finishInviteSignup(code, token, uid)` 신설(usedBy 교체 · `users/{uid}/invite` · `stats/userCount` 를 **한 번**).
+- 규칙 **변경 없음**(`invites .write:true` 그대로 — §9-8).
+- 검사: `sim-signup.js` 신설·등재(§36) → **49·0**. 이빨: 개정 37 판에서 빨강 11(1절에서 멈춤). `sim-focus-sync.js` · `sim-gacha-prune.js` **준비 한 줄씩** — smoke 하네스가 빈 localStorage 로 부팅하는데 예전엔 첫 호출이 uid 를 만들어 줬다. 부팅 **뒤**에 uid 를 심어 `HAD_USER_ID_AT_BOOT` 는 옛날처럼 false · 판정 무변경(고치기 전 빨강 13·3 → 초록).
+- 전/후 한 바퀴(이 사본 · 원본없음 20): 초록 61→62 · 빨강 0→0. 기준선 기대값 **초록 81 · 빨강 0 · 원본없음 1** (82개) — 실기기 확인 전.
+
+**개정 37 에서 한 것 (2026-09-21 · 보관함 섬네일 · 시안 확정)**
+- 시안 확정(설계 개정 7)에서 «보관함은 슬롯 섬네일로 그린다» — 그런데 서버 표현(`_slotToServerObj`)이 `thumb` 을 **빼고** 올려서, 보관함(= 서버 표현)에는 섬네일이 없었다.
+- `app.js`: `_slotToServerObj` 가 섬네일(dataURL)을 얼굴과 같은 통로(`_storageFaceUrlOne` · 키 `thumb`)로 올려 `thumbUrl` 로 싣는다. ★ **못 올려도 push 를 접지 않는다**(얼굴은 접는다) — 받아 둔 URL 이 있으면 그대로, 없으면 빼고. `slotToObj` 는 `thumbUrl` 이 **있을 때만** 싣는다(늘 실으면 모든 기기의 첫 저장이 «달라짐» → 옛 slots ts 가 일제히 올라 ④ 가 뜬다). `loadSlots` 가 옮겨 적는다. `CHARS_KEY_SKIP` 에 `thumbUrl`(K2 가 섬네일 유무로 갈리면 첫 채택에서 괜한 올림·휴지통).
+- 검사: `sim-chars-migrate.js` 9절 신설 → **140·0**(이빨: 개정 36 판 app.js 에서 빨강 4). `sim-slot-sync.js` ① 판정 둘을 새 동작에 맞춤(업로드 6장 = 얼굴·감은눈 4 + 섬네일 2 · thumbUrl 이 URL 로 실림) → **99·0**(이빨: 개정 36 판에서 빨강 2). 기준선 기대값 그대로 **초록 80 · 빨강 0 · 원본없음 1** (81개).
+
+**개정 36 에서 한 것 (2026-09-21 · 평상시 동기화 · 스위치 꺼짐)**
+- `app.js` 조율 블록에 평상시 동기화: `_charsActive`(스위치 **그리고** 첫 채택 끝남 — 채택 전에 훅이 보관함 키를 만들면 첫 채택이 «이미 채택함» 으로 건너뛰어진다) · `_charsAfterSave`(saveSlots 한 곳 · 보관함 항목의 칸 문자열 해시 `h` 를 **cid 로** 맞대 고친 마리만 dirty · `h` 없으면 기준만) · `_charsOnNew` · `_charsTrashMove` · `_charsBoxFull`(20) · `_charsRemapDesk`(백업 되돌리기 뒤 열쇠로 다시 짝짓기) · `_charsPlanSync`(순수) · `_charsSync` · `_charsBoot` · `_charsDeleteWords`.
+- 훅: saveSlots(달라졌을 때) · 생성기 완료(새로 만들 때만) · 커미션 등록 · 복제 코드 · 빈 칸 [＋] · `doDeleteCurSlot`(휴지통 이동 · 문구·토스트) · 런처 톱니 문구 · `restoreSlotsBackup` · `syncSlotsToServer` 첫머리(채택 뒤엔 **올리기만** · 받기·④ 막음) · 계정 이전 · `ACCOUNT_LOCAL_KEYS`(보관함·책상 표·휴지통 대기 줄 · 문자열로) · 로그아웃 flush. 부팅 5.2초 · 30분 배선은 `if(CHARS_SYNC_ENABLED)` 안.
+- ★ **휴지통은 «잃는 것» 만.** 병합의 진 쪽을 전부 남기면 한 기기에서 슬라이더를 움직일 때마다 한 걸음 전 모습이 10일짜리로 쌓인다. overwritten = 이 기기 dirty **그리고** 서버가 `base`(고치기 시작한 서버 시각)에서 움직였을 때만. deleted = 서버 묘비가 이겼으면 이 기기가 고친 것만. 못 올린 고침을 휴지통으로 옮기면 그림째 대기 줄(`deskFriends.chars.trashPend`).
+- `firebase-init.js`: `loadCharsMetaTs` 신설 · `saveCharsEntries` 가 **같은 update 안에서** `charsMeta/ts` 를 찍고 그 값을 돌려준다(경로 키 `chars/{cid}` · 합집합 그대로). 규칙 `charsMeta.ts`(숫자) — 없으면 `$other` 거부에 걸려 **chars 쓰기까지 통째 거부**된다(다중 경로 update 는 한 덩어리).
+- 검사: `sim-chars-migrate.js` 8절 신설 · 6절 판정 셋(update 모양 · ts · 규칙) · 7절 떼어 오기 끝 표식을 `/* ── 🧬 평상시 동기화` 로 → **132·0**. 이빨: 개정 35 판 app.js 에서 빨강 5. 전/후 한 바퀴(원본없음 20 사본): 초록 61→61 · 빨강 0→0. 기준선 기대값 그대로 **초록 80 · 빨강 0 · 원본없음 1** (81개).
+
+**개정 35 에서 한 것 (2026-09-21 · 이 기기 쪽 첫 채택 · 스위치 꺼짐)**
+- 실기기 미리보기 결과(개정 34 의 확인 항목): 그림 URL **21 / 해시 21** · 칸 셋 전부 **K1 · 같음 · 그대로** · 서버 4 · 이 기기 3 → 받음 1. 열쇠 가정이 실데이터에서 맞았다.
+- `app.js` 조율 블록에 `_charsPlanLocalAdopt`(순수 · 짝짓기+병합 → 할 일 목록: box · deskCids · upload · reseat · unseat · pushServer · trashServer · trashLocal) + `_charsLocalAdopt`(그대로 올리고/받고/쓴다). 미리보기에 «첫채택» 줄.
+- ★ **결정: 보관함 로컬 사본(`deskFriends.chars.v1`)은 서버 표현(URL 만 든 문자열).** 그림은 책상 5칸(LS_KEY)에만. 20마리를 그림째 두면 localStorage 한도에 닿는다. 책상 ↔ 보관함은 `deskFriends.chars.desk`(cid ×5) — 칸 def 에 cid 를 넣지 않는다(slotToObj·loadSlots·crDone 이 필드를 하나씩 옮겨 적어 한 곳만 빠져도 조용히 떨어진다).
+- ★ **묘비 알아보기.** 묘비엔 def 가 없어 열쇠가 없다 → 다른 기기에서 지운 마리가 첫 채택에서 **새 cid 로 되살아났다**(7절 첫 판이 잡음). `firebase-init.js loadCharsTrashLatest` 로 휴지통의 마지막 모습을 읽어 묘비에 열쇠를 단다 · 못 읽으면 채택을 미룬다. `_charsFromLocalSlots` 가 열쇠 달린 묘비와도 짝짓는다(«같음» 판정은 산 마리만).
+- 실패하면 **아무것도 안 바꾼다**(칸 하나 못 올림 · 그림 못 받음 · 서버 쓰기 실패). 순서: 서버 → 책상 칸(백업 지남) → 보관함 표(= 채택 완료 표시라 맨 끝).
+- 검사: `sim-chars-migrate.js` 7절 → 82·0. 이빨: 개정 34 판에서 빨강 2(통로 여섯 · 첫 채택 함수). `sim-chars-merge.js` 무변경 35·0.
+- 전/후 한 바퀴(원본없음 8 사본): 초록 73→73 · 빨강 0→0. 기준선 기대값 그대로 **초록 80 · 빨강 0 · 원본없음 1** (81개).
+- **아직 없다(스위치를 켜기 전 필수):** 평상시 동기화 — 칸 고침 → dirty → 올림 · 칸 이동/삭제(27646 당기기 등) → desk 표 갱신 · 새 캐릭터(crDone · importCloneCode) → 새 cid · 주기적 받기.
+
+**개정 34 에서 한 것 (2026-09-21 · 이관 배선 — 서버 쪽 · 스위치 꺼짐)**
+- `firebase-init.js` — chars 통로 다섯: `loadCharsRemote` · `claimCharsMigration`(charsMeta 트랜잭션 · `migratedAt:0` = 진행 중 · 10분 지나면 재선점) · `finishCharsMigration` · `saveCharsEntries`(**update** — 합집합이라 통째 set 금지) · `appendCharsTrash`(**한 줄씩 set** — 잎 규칙 «없을 때만» 이라 한 번에 update 하면 한 줄 때문에 전부 거부 · why 는 두 값만).
+- `app.js` — 이관 조율 블록(이관 순수 함수 바로 뒤): `_charsServerMigrate(uid)`(첫 이관 = 선점한 기기만 · 되돌이 = `slots.ts` 가 도장·계정별 기록보다 나중일 때) · `charsMigrateDryRun()`(콘솔 · **읽기만** · 실데이터로 짝짓기·병합·그림 URL 해시 추출 수를 찍는다). **`CHARS_SYNC_ENABLED = false`** · 부팅에서 안 부른다 · uid 는 캐시만(`getMyUserId` 안 씀).
+- 규칙 — `charsMeta.claimAt`(숫자) 한 줄 추가(미게시 블록이라 옛 클라이언트 영향 없음).
+- 검사 — `sim-chars-migrate.js` 5절(스텁 서버로 조율 실행) · 6절(통로 · 규칙) 추가 → 61·0. 이빨: 개정 33 app.js 에서 빨강 1(조율 블록 없음). `sim-chars-merge.js` 1절 «아직 아무도 안 부른다» → «조율 블록 밖에서는 아무도 안 부른다» (35·0).
+- 서버 URL 모양 확인: `firebase-init.js uploadRoomFace` 가 `users/{uid}/roomface_{종류}_{해시}.png` 로 짓는다 — 열쇠 정규식과 맞는다. 픽스처를 실제 경로 모양으로 바꿨다.
+- 전/후 한 바퀴(`firebase-init.js` 까지 있는 사본 · 원본없음 8): **초록 73→73 · 빨강 0→0 · 원본없음 8→8.** 기준선(저장소 러너) 기대값 그대로 **초록 80 · 빨강 0 · 원본없음 1** (81개).
+
+**개정 33 에서 한 것 (2026-09-21 · 회원가입 설계 §10-4 둘째 조각 — 이관)**
+- 🧬 **이관 순수 함수 둘 + 열쇠** (`app.js` · `_charsMerge` 블록 **바로 뒤** · **아직 아무도 안 부른다**). `_charsFromServerSlots(slots, slotsPrev, chars)` → `{add, upd, deskCids}` · `_charsFromLocalSlots(localDefs, localTs, serverChars, serverDeskCids)` → `{local, deskCids, fresh}` · `_charsKeys(def)` → `{k1, k2}`.
+- ★ **설계 §5-N-2 의 «`_charIdentityFingerprint` 로 맞춘다» 를 쓰지 않았다.** 그 지문은 같은 표현끼리 비교용이라 로컬(dataURL)과 서버(Storage URL)의 같은 마리가 다르게 나온다 — 그대로면 이관 첫 부팅에 5마리가 10마리가 된다. 그림은 **내용 해시**(로컬 `_quickHash` · 서버 URL 이름 속 `h2…`)로 본다. 설계 문서 §5-N-2 를 같이 고쳤다.
+- ★ **K2 가 칸을 가른다.** 5칸 저장본은 시각이 통째 하나라 어느 칸을 고쳤는지 모른다. 첫 판은 짝지은 마리 전부에 localTs 를 달아 **안 고친 네 칸이 서버 본을 휴지통에 밀어 넣었다** — 새 검사 3절이 잡았다. 그림을 뺀 나머지(K2)가 같으면 서버 시각을 달아 병합이 «같음» 으로 떨어진다.
+- `sim-chars-migrate.js` 신설·등재 (§35) — 38·0. 이빨: 원본 app.js 에서 빨강 1(블록 없음). `sim-chars-merge.js` 는 새 app.js 에서 그대로 35·0(떼어 오기 범위 밖에 붙였다).
+- 규칙 파일 **변경 없음**. 전/후 한 바퀴(원본 일곱 없는 리눅스 사본): 초록 62→63 · 빨강 2→2(`audit.py` · `sim-chat-log-persist.js` — 둘 다 `firebase-init.js` 부재 · 전후 출력 동일) · 원본없음 16→16.
+- 기준선(저장소 러너) 기대값 **초록 80 · 빨강 0 · 원본없음 1** (81개).
+
+**개정 32 에서 한 것 (2026-09-20 · 회원가입 설계 B안 첫 구현)**
+- 🧬 **`_charsMerge` 순수 함수** (`app.js` · 슬롯 동기화 블록 끝 · **아직 아무도 안 부른다**). `design-signup-2026-09-20.md` §2-4 표 그대로 — 합집합 · 같은 cid 는 mtime 큰 쪽 · 삭제는 묘비 · 진 쪽 산 마리는 trash · 서버 미래 mtime 은 지금으로 찍어 올림. 순서는 설계 §10-4(병합 함수 · 검사 먼저 → 이관 → 게이트 → 화면). `_charsNewId`(cid 모양 `c[a-z0-9]{6,24}`) · 콘솔 출구 `window._charsMerge`.
+- `firebase-database-rules.json` — `users/$userId` 아래 **`chars` · `trash` · `charsMeta` 블록 추가(추가만 · `slots`·`slotsPrev` 그대로 = 이관 창)**. `chars/$cid.def` 검증은 `slots.s.$i` 것을 복사. ★ `trash` 는 **잎(`$cid/$mtime`)에 `.write` 를 두고 `!data.exists() && newData.exists()`** — 부모에 `.write` 를 주면 자식으로 내려와서 삭제를 못 막는다(Firebase 규칙은 허용이 상속된다). 게시는 N 배포 직전(옛 클라이언트에 무해).
+- `sim-chars-merge.js` 신설·등재 (§34) — 1절 실행(§2-4 다섯 줄 · 3-7 재현 6마리 · 되감기 · 미래 mtime · 지우는 갈래 없음 · 불변) · 2절 규칙. 이빨: 원본 app.js 에서 빨강 1(블록 없음).
+- 결정 기록: 슬롯 이관 규칙(`sim-slot-conflict.js` 1절 «이관» 판정) **유지** — 근거는 설계 §8-1. 코드 변경 없음.
+- 기준선(저장소 러너) 기대값 **초록 79 · 빨강 0 · 원본없음 1** (80개). 프로젝트 사본(원본없음 8)에서 전/후: 초록 71→72 · 빨강 0→0.
+
+**개정 31 에서 한 것 (2026-09-20)**
+- 🛟 **3-7-2 시안 확정 → 적용.** 캔버스 «3-7-2 시안» 의 다섯 보드(B안 평상시·줄어든 교체 · A안 띠·세 상태 · ④ 대화상자)를 그대로 옮겼다. 문구는 시안의 마지막 판(`캐릭터가 연동됐어요.` · `유지하기` · `백업을 남기지 못했어요` · `다른 PC(N개)로 맞추기` / `현재 PC(M개)로 맞추기` · `나중에 결정`). **«되돌릴 수 있는 기한 — 다음 연동 전까지» 줄은 뺐다** — 백업은 연동으로 사라지지 않고 되돌리기가 곧 맞바꾸기라 기한이 없다(시안에 남아 있던 내 오류).
+- `desk-companion-prototype.html` — 세 자리: `#lcSyncBand`(런처 · 그림 바로 위) · 계정 탭 «기기 연동» 구획(`#acctSyncBox` · `#acctSyncFail` · `#acctSyncHint`) · `#slotConflictDlg`(전역 오버레이 · `scd*`).
+- `app.js` — 기록 셋(`SLOTS_LOSS_KEY` · `SLOTS_LASTSYNC_KEY` · `SLOTS_PUSHFAIL_KEY` · 전부 `ACCOUNT_LOCAL_KEYS`) · `_slotsRenderBand` / `_slotsRenderAcctSync` / `_slotsShowConflictDlg` · `_slotsConflictHandler` 에 대화상자 꽂음 · 줄어든 교체의 토스트가 «바뀌었어요 — 되돌릴 수 있어요» · 올리기 실패 세 갈래가 사유를 남김 · [지금 다시 올리기] · 시안에 없던 것 하나: ④ 를 [나중에 결정] 로 미룬 사람을 위해 구획에 «양쪽에서 바뀌어 연동을 멈춰 뒀어요 · [어느 쪽을 쓸지 고르기]» 를 두었다(없으면 돌아올 길이 없다).
+- ① **서버 이전 한 벌** — `firebase-init.js`: `saveSlotsRemote` 가 **칸을 줄이는 쓰기면 본 쓰기 전에** `users/{uid}/slotsPrev` 에 덮이는 것을 남긴다(덮는 쪽은 무엇을 덮는지 모른다 — 아는 건 서버 앞의 이 함수뿐) · `saveSlotsPrevRemote`(④ 'mine' 판에서 조건 없이) · `loadSlotsPrevRemote`. 더 많은 prev 는 안 덮는다(로컬 백업 ③ 규칙과 같다). `firebase-database-rules.json` 에 `slotsPrev` 블록(`slots` 와 같은 .write·validate + `at`) — **게시해야 켜진다.** 미게시면 남기기가 거부되고 본 쓰기는 그대로(더 나빠지지 않음). `app.js` `restoreSlotsPrevRemote` — [되돌리기] 는 로컬 백업 먼저, 없으면 이것.
+- `sim-slot-sync-ui.js` 신설·등재 (§33) — 마크업 세 자리 · 배선 · 문구(시안) · 기한 줄 없음. `sim-slot-conflict.js` **고침(250줄)** — §1 «UI 안 꽂음» 판정을 «대화상자 꽂힘» 으로 뒤집고 1-b 절(① firebase-init·규칙) 추가. `sim-slot-sync.js` **고침(471줄)** — ⑨ 의 «문구 안 건드렸다(시안 대기)» 판정 하나를 새 문구 판정으로. 판정 의도는 그대로(시안 뒤에 바꾸기로 한 그 자리).
+- `audit.py` 검사19 에 두 번 걸렸다(속성값 보간) — 검사를 안 느슨하게 하고 머리글·버튼을 갈래별 글자 리터럴로 바꿨다.
+- 기준선(저장소 러너) 기대값 **초록 78 · 빨강 0 · 원본없음 1** (79개). 프로젝트 사본(firebase-init·규칙 있음, main.js 등 없음 · 원본없음 20)에서 전/후: 초록 57→59 · 빨강 0→0.
+
+**개정 30 에서 한 것 (2026-09-20)**
+- `sim-slot-conflict.js` 신설·등재 — ⚖️ **제보 3-7 후속 ④ «양쪽이 다 바뀌었으면 어느 쪽도 덮지 않는다»** (§32). 3-7 의 순서는 「서버를 본 적 없는 회사 PC(1칸)가 ts 가 크다는 이유로 집 PC(5칸) 위에 올리고, 집 PC 가 그것을 받았다」였다. ts 큰 쪽이 이기는 규칙으로는 «본 적 없음» 과 «나중에 켜짐» 을 가를 수 없다.
+- 고친 것 — `SLOTS_SEEN_KEY`(«내가 마지막으로 맞춰 본 서버 시각») 하나. 받아 적으면 서버 ts, 올려서 서버가 내 ts 가 되면 내 ts. 서버 ≠ seen **이고** 로컬 ≠ seen 일 때만 충돌 — 그때는 쓰기도 받기도 안 하고 `_slotsConflict` 에 기록한다. 한쪽만 움직인 판은 예전 갈래(ts 큰 쪽)가 그대로 처리한다(그 경우 ts 큰 쪽 = 움직인 쪽). 출구는 콘솔 `slotsConflictInfo()` · `resolveSlotsConflict('mine'|'server')`. **대화상자는 안 붙였다** — UI 가 새로 생기므로 시안 뒤. `_slotsConflictHandler` 자리만 비워 두었다.
+- ⚠️ **이관 규칙 — 결정 필요했고 조용한 쪽을 골랐다.** seen 키가 없던 기기(개정 전)는 「지금 ts 를 본 것」으로 친다. 반대(«본 적 없음»)로 두면 개정 전에 갈라져 있던 기기를 한 번은 잡지만, ts 만 어긋난 멀쩡한 기기까지 전부 묻고 그 대화상자가 아직 없어서 **연동이 멎는다.** 개정 전 갈라진 기기는 로컬 백업(3-7-1)이 받친다. 대화상자가 붙은 뒤 이 규칙을 되짚을 것.
+- `sim-slot-sync.js` **고침(471줄).** ②·③·⑤ 의 준비에 `e.m.seen(…)` 한 줄씩 — 그 셋은 「이미 맞춰 본 기기」를 전제하는 시나리오인데 준비가 seen 을 안 심어서 ④ 충돌 감지에 잡혀 섰다(거짓 빨강 · ② 는 예외로 통째 죽었다). 하네스 반환에 `seen · seenTs · conflict` 를 typeof 로 받아 개정 전 app.js 에서도 같은 결과(3·4절 86 통과). 판정은 한 글자도 안 바꿨다.
+- ① 서버 이전 한 벌(`saveSlotsPrevRemote`)은 **firebase-init.js 와 규칙 파일이 이 세션에 없어** app.js 쪽 자리만 두었다 — `keep-mine` 이 덮기 전에 있으면 부르고 없으면 건너뛴다. 다음 세션: `users/{uid}/slotsPrev` 로 `slots` 를 그대로 복사하는 함수 + 규칙 블록(`slots` 와 같은 .write · ts 숫자 · s/$i 같은 validate) · `sim-slot-conflict.js` 에 firebase-init 절 추가.
+- 기준선(저장소 러너) 기대값 **초록 77 · 빨강 0 · 원본없음 1** (78개). 프로젝트 사본(원본없음 29)에서 전/후 비교: 초록 46→47 · 빨강 2→2(둘 다 방 청소 · 이 판과 무관 · main.js 없는 환경 탓인지 실기기에서 확인).
+
+**개정 29 에서 한 것 (2026-09-20)**
+- `sim-pl-watchdog.js` §2 에 케이스 둘 — ⏸ **제보 «실행 화면 플레이리스트가 가만히 있다가 저절로 재생된다».** 원인은 `_plWatchTick` 이 **일시정지 상태를 보지 않는 것.** 하트비트가 오는 동안은 `_plWatchBeat` 의 paused 갈래가 지켜 주지만, 하트비트가 **끊기면** 그 보호가 없다. 주입 루프(main.js `bgmForcePlay`)는 `TWPL_MAX`(4시간) 뒤에 죽는데 세워 둔 동안에도 tick 이 쌓이므로, **▐▐ 로 4시간 세워 두면 신호가 끊기고 → 감시견이 «진행멈춤» → `_plNext()` → 다음 곡이 저절로 난다.**
+- 고친 것 한 줄 — `_plWatchTick` 이 `_plPlaying === false` 면 판정하지 않는다(`_plWatchMoveAt` 만 갱신). 다시 ▶ 를 누르면 그때부터 예전처럼 — 주입이 죽은 페이지는 끝나도 못 알리므로 그때의 «신호없음/진행멈춤» 은 맞는 넘김이다.
+- ⚠️ main.js 는 안 건드렸다. 세워 둔 동안 `n` 을 안 세게 하면 더 낫지만(4시간 상한이 «재생 4시간» 이 된다) 그건 네이티브 쪽 판이라 다음에. 지금 고침만으로 «저절로 재생» 은 없다.
+- ⚠️ 다른 «저절로 재생» 하나는 **설계다** — BGM 창 안에서(유튜브 자체 버튼) 멈추면 0.5초 안에 다시 튼다(`v.paused && !__bgmPaused → play()`). 유튜브가 스스로 멈추는 것(자동재생 차단·«계속 시청?»)을 되살리는 장치라, 앱의 ▐▐ 만이 «사람이 세운 것» 이다. 바꾸려면 결정이 필요하다.
+- 무대(§1~3 `makeStage`)에 `_plPlaying: true` 를 더했다 — 감시견이 이 값을 읽게 됐으므로. §5 는 실물 `_plPlayNow` 가 true 로 세워 그대로.
+- 패치본 **46 통과** / 원본 2 실패. 검사 파일 수 그대로 **77개**.
+- 기준선 기대값 **초록 76 · 빨강 0 · 원본없음 1** (77개).
+
+**개정 28 에서 한 것 (2026-09-20)**
+- `sim-account-switch.js` 에 **⑧ 절 추가** — 🚪 **§2 제보 1 «로그아웃이 안 된다» 최소판.** 검문(`_acctPreflight`)에 걸리면 같은 한 줄이 계속 떴고, 막히는 원인이 계속되면 영원히 못 나갔다 — 하필 로그아웃이 «로그인 문구가 계속 뜬다» 의 복구 수단이었다(`handoff-2026-09-18c.md` §1 · `d.md` §2 정정).
+- **고친 것 셋.** ① `_acctFlushToServer` 가 8초 상한에 걸렸는지 돌려준다. ② `_acctPreflight` 가 **첫 실패에서 끝내지 않고 전 항목을 이름·개수로 센다**(«캐릭터 2개 · 뽑은 파츠 1개 · 누적 시간 8분»), **null 과 0 을 가른다**(읽기 실패 = «확인하지 못했어요» · 서버에 없음 = «올리지 못했어요» — firebase-init 규약은 그대로, 읽는 쪽에서), `kind` 를 준다(offline · unknown · timeout · denied). ③ `_detachAccountLocal({ force })` — 검문에 걸려도 지운다. 강제여도 올리기는 한 번 더 해 보고, 기기 세션도 놓는다.
+- **부르는 쪽(계정 탭).** 사유별 문구(시안 A-2) · 첫 실패엔 [다시 시도] 뿐 · **두 번째 실패에서만** [그래도 로그아웃] 이 열리고 «이 컴퓨터에만 있는 것» 을 항목별로 적는다(시안 A-3) · 누르면 **바로 실행**(확인 한 번 더 없음 — 결정) · 확인 상자를 열 때마다 처음으로. 마크업에 `#acctLogoutForce`(처음엔 `display:none`) 한 줄.
+- ⚠️ **스텁 한 줄을 고쳐 기존 빨강이 사라졌다.** 3절 스텁이 개정 22 이전 이름(`FOCUS_LEVEL_CAP_HOURS`)만 정의하고 있어 `syncFocusTotalToServer` 가 `FOCUS_TOTAL_CAP_SEC` 에서 죽었다 — 개정 22 부터 이 검사는 실기기에서도 **59·1** 이었을 것이다(§1 표의 «빨강 0» 은 그동안 맞지 않았다). 스텁에 `FOCUS_TOTAL_CAP_SEC` 을 더했다. 검사 로직은 안 바꿨다.
+- 또 하나: `_detachAccountLocal()` → `(opt)` 로 바뀌어 정적 판정 정규식을 `\((opt)?\)` 로 넓혔고, 2절 env 에 `firebaseAPI` bare 이름·`_slotsFilledCount`·`releaseDeviceSession` 스텁·`fastTimeout` 옵션을 더했다. ⑤ 의 «서버를 안 부른다» 판정에서 `release` 는 제외(내 것일 때만 지우는 호출이라 무해 — 예전에도 불렸는데 스텁이 없어 조용히 실패했을 뿐).
+- 패치본 **76 통과 · 0 실패** / 원본(패치 전) **13 실패**. 검사 파일 수 그대로 **77개**.
+- 기준선(저장소 러너) 기대값 **초록 76 · 빨강 0 · 원본없음 1** (77개) — 이번엔 정말 빨강 0 이어야 한다.
+
+**개정 27 에서 한 것 (2026-09-20)**
+- `sim-friend-code-keep.js` **신설·등재** (§31) — 두 가지를 한 파일에 둔다. 둘 다 «계정 연동 뒤에 이 기기가 어떻게 되는가» 라서다.
+- 🔗 **제보 3-2 «친추코드가 계속 새로 발급된다».** `_healFriendCodeOwner` 의 마지막 갈래(소유자가 «내가 버린 uid 가 아니고 아직 활동 중»이면 로컬 코드를 지우고 새로 발급)가 원인이었다. 그 갈래로 떨어지는 대표 사례가 **같은 사람의 다른 PC** — 회사 PC 의 uid 는 어제도 접속했으니 «활동 중인 남» 으로 보였다. **[2026-09-20 결정] 자동 재발급을 하지 않는다.** 처음 발급된 코드가 유지된다. 소유권은 손대지 않는다(빼앗으면 두 기기가 매 부팅 서로 되찾는 핑퐁). 결정에 이름을 붙였다 — `FC_NEVER_REISSUE`(문서이지 스위치가 아니다). 사용자가 직접 바꾸는 UI 는 이미 없었고(개정 12 때 제거), 이제 **로컬 코드를 지우는 문장은 app.js 에 없다** — 지우는 자리는 로그아웃(`ACCOUNT_LOCAL_KEYS`)뿐.
+  ⚠️ 대가: 정말 남이 쓰는 코드를 들고 있는 드문 경우엔 그 코드로 온 친구 요청이 남에게 간다. uid 가 계정으로 바뀌는 회원가입에서 원인 자체가 사라진다 — 그때까지의 결정이다.
+- 📥 **제보 3-1 «연동했는데 캐릭터·파츠·곡이 하나도 안 따라온다».** `_applyTransferSnapshot` 첫 줄 `if(!r) return` 이 스냅샷(이름·라이선스·친추코드·집중초)이 없으면 **소지품 복원까지** 통째로 건너뛰었다. 스냅샷은 첫 결속·비밀번호 등록 때만 쓰이므로 그 이전 판에서 묶인 계정은 스냅샷이 없다. 부르는 쪽이 넷(로그인·연동·되찾기·부팅 게이트)이라 **함수 안에서** 갈랐다 — 스냅샷 부분만 `if(r)` 안으로, `_claimFriendCodeAfterTransfer` · `_restoreOwnedDataAfterTransfer` · `syncFocusTotalToServer('transfer')` 는 있든 없든 돈다.
+- 검사는 두 함수를 **떼어 와 실행한다.** 1절 `_healFriendCodeOwner` 다섯 갈래(내 것·주인 없음·버린 uid·오래 조용함·**활동 중인 남**) — 앞 넷은 예전 그대로고 마지막에서 코드가 남는다. 3절 `_applyTransferSnapshot` — 스냅샷 null 이어도 셋이 돌고 이름·라이선스·집중초는 안 건드린다 · 스냅샷 있으면 예전과 같다 · 집중초 max.
+- 패치본 **26 통과 · 0 실패** / 원본(패치 전) **16 통과 · 10 실패**. 검사 파일 수 **77개**.
+- 기준선(저장소 러너) 기대값 **초록 76 · 빨강 0 · 원본없음 1** (77개).
+
+**개정 26 에서 한 것 (2026-09-18)**
+- `sim-slot-sync.js` 에 **⑪ 절 신설** — 🖼️ **제보 3-7 (다) «동물 캐릭터 얼굴 텍스처가 밀려 보인다».** 원인은 `_roomFaceUrlToCanvas` 한 줄이었다: 캔버스는 늘 512(`CANVAS_SZ`)인데 그림은 **원래 크기 그대로 (0,0)** 에 그려졌다. 512 보다 크면 오른쪽·아래가 **잘리고**, 작으면 왼쪽 위 **구석에 몰린다.** 그 조각이 UV 전체에 펴 발려 «밀린» 모습이 된다.
+- 공유 코드로 들어온 텍스처는 `CODE_TEX_SIZE = 256` 이라 정확히 **1/4 구석**에 몰렸다. 사람 얼굴·감은눈은 512 라 멀쩡했던 것도 이것으로 갈린다 — 제보자가 보내준 `roomface_blink_*.png` 가 512 였던 것과 어긋나지 않는다.
+- ★ **방에서는 멀쩡하고 런처·커마에서만 깨진다**는 제보 사진이 결정적이었다. 방은 `animalBodyUrl` 을 텍스처로 직접 로드하고(app.js 28910 주석), 슬롯 되받기만 이 512 캔버스를 거친다.
+- **고친 자리 둘.** `_fetchImgDataUrl` 은 캔버스를 **아예 안 거친다** — 바이트를 그대로 옮긴다(`_fetchB64` 와 같은 방식, 재인코딩이 없어 화질도 안 깎인다). `_roomFaceUrlToCanvas` 는 캔버스를 **그림의 원래 크기**로 잡는다(크기를 못 읽으면 예전처럼 512).
+- ⚠️ 이미 잘린 채 저장된 캐릭터는 이 수정만으로 안 돌아온다 — **서버 원본은 온전하므로** 고친 판으로 한 번 다시 받아오면 복구된다.
+- ⑪ 절이 잰다: 되받기에 `_roomFaceUrlToCanvas` 가 안 쓰인다 · 256·1024 가 그 크기로 돌아온다 · 그림은 (0,0)에 원래 크기, 캔버스가 거기 맞춘다 · 크기를 못 읽으면 512 · 되받은 dataURL 이 **한 바이트도 안 변한다** · 되받으며 아무 데도 그리지 않는다 · **실패는 던진다**(빈 그림이 저장되면 안 된다).
+- ⚠️ 검사 스텁도 같이 바뀌었다 — `D()` 의 본문이 이제 **진짜 base64** 여야 한다(되받기가 디코드·인코드를 한 바퀴 돈다). 알파벳 밖 글자가 섞이면 왕복에서 값이 달라져 엉뚱한 판정이 깨진다.
+- 패치본 **99 통과 · 0 실패** / 원본(패치 전) **60 통과 · 18 실패**. 검사 파일 수는 그대로 **76개**(신설 없음).
+- 기준선(저장소 러너) 기대값 **초록 75 · 빨강 0 · 원본없음 1** (76개) — 개정 23~25 와 같다.
+
+**개정 25 에서 한 것 (2026-09-18)**
+- `sim-slot-sync.js` 에 **⑩ 절 신설** — 🔑 **제보 3-7 (나) «집에서 켜니 커마 그래픽이 깨져 있다».** `_quickHash` 는 **곧 파일 이름**이다(`roomface_{key}_{h}.png` · `pic_{h}` · GLB `{key}_{h}`). 그런데 dataURL 을 **7글자마다 한 번씩(1/7)** 만 보고 나머지 6/7 은 해시에 안 넣었다 — 표본이 같으면 다른 그림이 **같은 파일에 덮어써지고**, 캐시(`st[ck]`)가 같은 키라 재업로드도 안 돼 **영구적**이었다.
+- `_quickHash` 를 **전수 스캔**으로 바꿨다(djb2 + FNV-1a 두 누산기 = 64비트 + 길이, 접두어 `h2`). 5 MB base64 에서 32 ms — 업로드 직전 한 번뿐이라 체감되지 않는다. ⑩ 절이 「옛 해시로는 같던 두 그림」을 실제로 들고 와 새 해시가 가르는지 잰다.
+- ⚠️ **구분 기호를 쓰지 않는다.** `uploadRoomFace` 가 파일 이름에서 `[^a-zA-Z0-9_-]` 를 전부 지운다 — 옛 `{해시}.{길이}` 는 점이 지워진 채 올라가서(제보 자료의 `roomface_face_2irv4n63142.png` 가 그 모습), `ab.1234` 와 `ab1.234` 가 **같은 파일 이름**이 되는 길이 열려 있었다. 두 누산기를 36진수 **7자리 고정폭**으로 적어 경계를 자리로 정했다. ⑩ 절이 「정제기를 통과해도 값이 안 변한다 + 정제 뒤에도 두 그림의 이름이 다르다」를 잰다.
+- ⚠️ 접두어 `h2` 는 **옛 이름과 겹치지 않기 위한 것**이다. 겹치면 새 이름이 옛 충돌 파일을 그대로 물려받아 고친 것이 없어진다. 대신 **모두가 그림마다 한 번씩 다시 올린다**(Class A 1회) — 피할 수 없다. 옛 키로 URL 을 물려주는 «비용 0» 경로는 **일부러 안 만들었다**: 옛 해시가 같다는 것은 「그림이 같다」가 아니라서, 그 길로 가면 이 제보가 그대로 재현된다. ⑩ 절이 「업로더가 새 키 하나만 본다」를 박아 둔다.
+- ⚠️ 그 비용을 **두 번** 치르지 않게 `_roomFaceCacheLoad` 가 상한(60)을 넘을 때 **구형 항목부터** 버린다 — 전환기엔 한 그림이 두 칸을 차지해 상한에 금방 닿는데, 예전처럼 통째로 비우면 방금 올린 새 파일까지 잊고 전원이 또 올린다. ⑩ 절이 이 짝을 함께 잰다.
+- `uploadPartPic` 이 얼굴과 **같은 캐시 로더/세이버**를 쓴다. 예전엔 같은 저장 키(`tw.roomFaceUrls`)를 직접 읽고 넘치면 **방금 것 하나만 남기고 전부 버려서**, 파츠 그림 한 장이 얼굴 URL 을 통째로 날렸다.
+- ⚠️ 옛 이름으로 올라간 파일은 Storage 에 **그대로 남는다**(참조만 끊긴다). 지우는 것은 별건 — 아직 옛 URL 을 들고 있는 남의 기기·서버 슬롯이 있다.
+- 패치본 **90 통과 · 0 실패** / 원본(패치 전) **57 통과 · 12 실패**. 검사 파일 수는 그대로 **76개**(신설 없음).
+- 기준선(저장소 러너) 기대값 **초록 75 · 빨강 0 · 원본없음 1** (76개) — 개정 23·24 와 같다.
+
+**개정 24 에서 한 것 (2026-09-18)**
+- `sim-slot-sync.js` 에 **⑨ 절 신설** — 🛟 **제보 3-7 «집 PC 의 캐릭터 5개가 회사 PC 의 1개로 덮였다».** `_slotsAdoptFromServer` 는 병합이 아니라 **통째 교체**인데(`syncSlotsToServer` 주석: 「슬롯은 칸 단위로 합칠 수 없으므로」) 덮기 전에 **되돌릴 자리가 없었다** (`handoff-2026-09-18d.md` §3-7).
+- **덮기 직전 저장본을 한 벌** `deskFriends.slots.bak` 에 남긴다(+ `…bak.meta` 에 몇 칸→몇 칸·어느 계정·언제). 콘솔 출구 둘 — `slotsBackupInfo()` · `restoreSlotsBackup()`.
+- ⚠️ **요점은 «안 남기는 경우» 다.** 백업은 한 벌이라 아무 때나 갈아 끼우면 잃은 것을 덮는다 — ① 로컬이 비었으면 ② 바뀌는 게 없으면(같은 내용으로 pull 이 또 도는 길) ③ 이미 있는 백업이 더 많은 칸이면 **안 남긴다.** ⑨ 절이 이 셋을 각각 잰다.
+- ⚠️ 되돌리기는 **맞바꾸기**다(한 번 더 부르면 도로 돌아온다) + 되돌린 뒤 `_slotsTouch()` 로 시각을 찍는다. **안 찍으면 다음 동기화가 서버 것으로 또 덮어 30분 뒤에 사라진다** — 되돌리기가 반쪽이 되는 자리라 검사가 이 짝을 묶는다.
+- ⚠️ `SLOTS_BAK_KEY` 는 `ACCOUNT_LOCAL_KEYS` 에 **일부러 안 넣었다.** 그 목록의 규칙은 「다시 로그인하면 돌아오는 것만」인데 백업은 정의상 **서버에 없는 것**이라, 넣으면 로그아웃이 곧 삭제가 된다(목록 위 ⚠️ 가 금지하는 바로 그것). 남의 캐릭터를 주워 가는 길은 `restoreSlotsBackup` 의 **uid 대조**로 막는다 — ⑨ 절이 「목록에 없다 + 근거가 그 자리에 적혀 있다 + 다른 계정이면 거부」 셋을 함께 잰다. **빠뜨린 것으로 보고 넣지 말 것.**
+- ★ **화면 문구는 안 건드렸다.** «☁️ 다른 기기에서 저장한 캐릭터를 받아왔어요» 는 그대로고, 칸이 줄면 `console.warn` 만 남긴다. 문구 개정과 [되돌리기] 버튼은 제보 3-7 할 것 2 — **UI 가 새로 생기므로 시안을 받은 뒤**에 한다. ⑨ 절이 「이번 단계에서 토스트가 안 바뀌었다」를 박아 둔다(다음 사람이 시안 없이 손대면 빨강).
+- ⚠️ 백업이 실패해도(용량) **채택을 막지 않는다.** 백업 탓에 본문 쓰기가 막히면 백업을 물리고 한 번만 다시 적는다 — 백업이 「캐릭터가 안 따라온다」를 새로 만들면 안 된다.
+- 패치본 **76 통과 · 0 실패** / 원본(패치 전) **54 통과 · 1 실패**(⑨ 게이트만 빨강 — ①~⑧ 은 계속 읽힌다). 검사 파일 수는 그대로 **76개**(신설 없음).
+- 기준선(저장소 러너) 기대값 **초록 75 · 빨강 0 · 원본없음 1** (76개) — 개정 23 과 같다.
+
+**개정 23 에서 한 것 (2026-09-18)**
+- `sim-license-leak.js` 신설·등재 — 🪑 **제보 2 «라이선스 없는 친구에게 전용 책상이 보인다».** 게이트(`applyDeskCatalogRefToSeat` · `equipDeskItem`)가 그리기만 막고 저장·전파는 안 막아서, `charDef.deskCatalogId` 가 `serializeDefForNetwork` 를 타고 방으로 나가고 받는 쪽은 `seat.remote` 라 게이트 없이 그렸다 (`handoff-2026-09-18c.md` §2).
+- **지우지 않고 접어 둔다.** `deskCatalogId` → `deskLicenseHold` · `deskItems[id]` → `deskItemsLicenseHold[id]` 로 옮겨 적고 전송 payload 에서 뺀다. 라이선스가 켜지면 `restoreLicenseHeldAssets` 가 조정값까지 그대로 되돌린다. ⚠️ **접기와 되돌리기는 한 쌍**이다 — 한쪽만 가면 라이선스를 등록해도 책상이 안 돌아온다(2절이 그 짝을 묶는다).
+- 판정 재료는 카탈로그 레코드(`savedDesks`·`savedItems`)의 `licenseOnly` 뿐이라 **카탈로그가 도착하기 전에는 아무것도 안 한다.** 조회 실패를 「전용 아님」으로도 「전용」으로도 단정하지 않는 것은 `pruneUnownedGachaParts` 의 관례를 그대로 따른 것이다.
+- 입구 넷을 막았다 — 공유 코드 불러오기(저장 **전**) · 슬롯 복원 · 프리셋(`licenseOnly:false` 를 박던 자리) · 책상/아이템 카탈로그 도착. 아이템 장착 게이트는 `def.licenseOnly` 만 보던 것을 `savedItems` 레코드도 보게 고쳤다(캐릭터에 딸려온 사본이 `licenseOnly:false` 로 덮던 자리).
+- **A안 이전** — 라이선스 전용 책상을 **🎨 꾸미기 › 책상** 탭으로 옮겼다. 5단계에는 무료 책상만 남는다(⚠️ **관리자는 예외** — 등록·검수·순서 재배치 손잡이가 그 카드에만 있다). 꾸미기창은 열 때 통째로 라이선스 게이트라, **전용 책상만** 옮겨야 미보유자가 잃는 것이 없다 — 무료 책상까지 옮기면 미보유자가 책상을 아예 못 고르는 회귀가 된다.
+- ⚠️ 그 탭은 `PART_CATS` 에 **넣지 않았다**(`WD_DESK_TAB` 가상 탭). 같은 그룹의 «책상 위»(`deskitem`)는 `bone:'desk'` 표식만으로 파츠 배관을 그대로 타지만, 책상 **본체**는 `swapDeskVisual` 로 `seat.desk` 를 갈아 끼우는 다른 모델이다. 넣으면 파츠 등록 UI·카테고리 상한·`catEquippedIds`·`applyClothVisibility` 가 전부 가짜 카테고리를 센다.
+- 꾸미기창의 책상 변경은 `charDef` 에 **바로 쓴다** — `_commitWdDraftNow` 는 `equippedParts`·`partXfMemory` 만 커밋하므로 덮이지 않는다. 6절이 그 전제를 지킨다(커밋이 책상 필드를 건드리기 시작하면 빨강).
+- ⚠️ **위조 방어가 아니다.** 라이선스는 localStorage 에 있고 계정에 안 묶인다 — 이것은 «남은 저장값 청소» 이고, 서버 규칙으로 막는 일과 섞지 말 것(5절이 그 선을 본다).
+- ★ 알림 없음(2026-09-18 결정) — 못 쓰는 것을 원래대로 되돌리는 일이라 토스트를 띄우지 않는다. 대신 `console.warn` 을 남긴다. `pruneUnownedGachaParts` 가 토스트를 띄우는 것과 **일부러 다르다.**
+- 기준선(저장소 러너) 기대값 **초록 75 · 빨강 0 · 원본없음 1** (76개).
+
+**개정 22 에서 한 것 (2026-09-18)**
+- `sim-focus-cap.js` 신설·등재 — 🕒 **누적 상한과 레벨 상한을 갈랐다.** `FOCUS_LEVEL_CAP_HOURS`(999) 하나가 「레벨을 999 에서 접는 것」과 「누적 초를 999시간에서 멈추는 것」 두 몫을 하고 있어서 회차(★)의 재료가 안 쌓였다 (§30 · `handoff-level-tiers.md` §3-1-b).
+- 누적 상한을 **100회차(99,900시간 = 359,640,000초)** 로 열었다. 같은 값이 세 파일에 있다 — `app.js` · `firebase-init.js` `syncFocusTotal` · 규칙 파일 `users/$userId/focus`. ⚠️ **규칙을 게시해야 켜진다**(서버가 낮으면 잘리는 게 아니라 쓰기가 통째로 거부된다).
+- **레벨 표시는 999 에서 접힌 채 그대로 둔다.** 별(`lv-star`)을 붙이는 단계가 오기 전에 모듈로로 바꾸면 999 를 넘긴 사람이 별 없이 Lv.1 로 보인다. 4절이 그 짝을 묶는다(한쪽만 가면 빨강).
+- 기준선(저장소 러너) 기대값 **초록 74 · 빨강 0 · 원본없음 1** (75개).
+
+**개정 21 에서 한 것 (2026-09-18)**
+- `sim-mac-update.js` 신설·등재 — 🍎 맥은 서명·공증이 없어 `autoUpdater` 가 설치까지 못 간다. 맥에서 `checkForUpdates()` 를 아예 안 부르고, 릴리즈 최신 태그만 읽어 «받으러 가기» 안내(기존 `#updateReadyBanner` 재활용)로 간다 (§29 · `handoff-2026-09-18b.md` §2).
+- `main.js` 를 읽는 검사가 하나 늘었다(`sim-sysinput` · `sim-overlay-*` · `sim-keysof-twin` · `sim-ui-zoom` · `sim-admin-active` 와 나란히).
+- ★ 이 갈래는 **윈도우 한 바퀴로는 못 지킨다** — 맥 갈래가 통째로 사라져도 윈도우는 초록이다. 그래서 검사가 `process.platform` 을 갈아 끼워 **실행해서** 가른다(1절).
+- 기준선(저장소 러너) 기대값 **초록 73 · 빨강 0 · 원본없음 1** (74개). 실기기에서 `node checks\run.js` 로 확인할 것.
 
 **개정 20 에서 한 것 (2026-09-17)**
 - `sim-mhd-envsub.js` 신설·등재 — 마이홈 바탕화면 «환경 설정» 서브메뉴(글자 크기·브금)가 옆으로 흘러가던 사고. 펼침 칸 클래스 `.fly` 가 채팅 날리기 전역 `.fly`(flyAcross) 와 부딪혔다 → `mhd-fly` 로 바꿈 (§26).
@@ -93,8 +380,8 @@
 
 | 확인 | 결과 |
 |---|---|
-| 검사 파일 수 | **73개** (§3 · 개정 20 에서 `sim-mhd-envsub.js` · `sim-font-hangul.js` · `sim-chat-sfx.js` 신설) |
-| 실기기 한 바퀴 | **초록 72 · 빨강 0 · 원본없음 1 · 시간초과 0** (개정 20 기대값 — 확인 전 · 저장소 러너 기준 — 프로젝트 사본 환경은 원본없음 7) |
+| 검사 파일 수 | **82개** (§3 · 개정 38 에서 `sim-signup.js` 신설 · 개정 33 에서 `sim-chars-migrate.js` 신설 · 개정 32 에서 `sim-chars-merge.js` 신설 · 개정 31 에서 `sim-slot-sync-ui.js` 신설 · 개정 30 에서 `sim-slot-conflict.js` 신설 · 개정 27 에서 `sim-friend-code-keep.js` 신설 · 개정 24~26 은 `sim-slot-sync.js` 에 ⑨·⑩·⑪ 절 추가) |
+| 실기기 한 바퀴 | **초록 76 · 빨강 0 · 원본없음 1 · 시간초과 0** (개정 29 기대값 — 개정 22~27 의 «빨강 0» 은 `sim-account-switch.js` 스텁 탓에 실제로는 빨강 1 이었을 것, 개정 28 에서 해소 — 확인 전 · 저장소 러너 기준 — 프로젝트 사본 환경은 원본없음 7) |
 | `sim-sysinput.js` | **입수함.** 받은 것은 §2 표의 **58·1 판**. 6절 한 줄 고쳐 **60·0** |
 | `sysinput-win.js` 를 읽는 검사 | **2개** (`sim-sysinput.js` · `sim-admin-active.js`, 개정 16) |
 | `overlay-win.js` 를 읽는 검사 | **2개** — §4-② 에서 메웠다 (개정 6 까지는 0개였다) |
@@ -146,8 +433,8 @@
 |---|---|---|
 | **audit.py** | 795 | **541f57f6b482** ← 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) |
 | **smoke.js** | 335 | **d6e4720de7f6** ← 2026-09-14 판정 줄 (§10) |
-| **sim-account-switch.js** | 331 | **6cb72d8bdc41** ← 2026-09-16 신규 · 제보 4 계정 전환 소지품 정리 (§18) |
-| sim-admin-rules.js | 93 | 5084b714ba93 |
+| **sim-account-switch.js** | 383 | **9fa214200956** ← 2026-09-16 신규 · 제보 4 계정 전환 소지품 정리 (§18) · 2026-09-20 ⑧ 로그아웃 출구 + 스텁 고침 (개정 28) · **2026-09-22 연동 해제 걷음 · 2절 상수 표에 슬롯 기록 키 넷(가려져 있던 2절 되살림) (개정 45)** · **개정 56 버린 uid 목록 걷음** |
+| **sim-admin-rules.js** | 108 | **47ffd6a836ab** ← **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | sim-char-foot.js | 141 | 9f0e32d97ac7 |
 | sim-char-identity.js | 187 | bdad4f71d987 |
 | sim-char-z.js | 224 | 24de011f5c83 |
@@ -167,15 +454,17 @@
 | sim-fly-egg.js | 258 | fcfe7bf07c6b |
 | sim-fly-replay.js | 160 | 2bdaa91d9741 |
 | **sim-focus-auth.js** | 90 | **58a1ca1bdfad** ← 2026-09-16 (제보 6 포커스 auth) · 개정 10 등재 |
-| sim-focus-sync.js | 168 | c293c5aae09e |
+| **sim-focus-sync.js** | 172 | **5eac3ccdef75** ← 개정 38 준비 한 줄(uid 심기 · 판정 무변경) |
 | sim-friend-manage.js | 262 | 780d6dc97b68 |
-| sim-gacha-prune.js | 158 | 777354d77f58 |
+| **sim-gacha-prune.js** | 162 | **11e728f770b9** ← 개정 38 준비 한 줄(uid 심기 · 판정 무변경) |
 | sim-gacha-race.js | 120 | 85100a1126c6 |
 | sim-ghost-cache-sync.js | 273 | 356d2cabc722 |
-| **sim-google-login.js** | 479 | **193d71d97fa2** ← 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) |
+| **sim-friend-code-keep.js** | 217 | **ab254584ef33** ← 2026-09-20 신규 · 제보 3-2 친추코드 유지 + 제보 3-1 스냅샷 없이도 소지품 복원 (§31 · 개정 27) · **개정 56 되찾기 갈래 걷음 · 계정에 코드 없을 때 (가)** |
+| **sim-google-login.js** | 574 | **95d3347776f0** ← 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) · **2026-09-22 계정 자리 [내 정보] · 이전/연동/해제·되찾기 걷음 · transferHash 지우기만 (개정 45)** · **개정 48 #lcMyInfo** · **개정 52 §7 통로 걷음** · **개정 54 §3 이메일 거울** · **개정 55 §8 transferData 지우기만 · accountSnap 규칙 · §9 스냅샷 자리** · **개정 56 ① 버린 uid 안 적음 · _setMyUserId** · **개정 57 §5 갈아타기 전 정리 순서 · 실패** |
 | sim-invite-gate.js | 99 | 98990b71a1f1 |
 | **sim-item-rot.js** | 85 | **039eb445cd61** ← 2026-09-16 (제보 4 아이템 회전) · 개정 10 등재 |
 | **sim-keysof-twin.js** | 366 | **774c29848a37** ← 2026-09-14 신규 (§14) |
+| **sim-license-leak.js** | 287 | **7aebf0d3b8cf** ← 2026-09-18 신규 · 제보 2 전용 자산 접어 두기 + 전파 차단 + 꾸미기창 이전 (개정 23) |
 | **sim-mh-sanitize.js** | 267 | **f226838724f9** ← 2026-09-14 판정 줄 (§10) |
 | sim-myhome-steps.js | 126 | 25373df649b5 |
 | sim-mys-play.js | 1153 | 7bb7fabc4432 |
@@ -186,7 +475,7 @@
 | sim-pl-grab-pick.js | 181 | d8019ac073af |
 | sim-pl-loop.js | 357 | 23a8df9f75be |
 | sim-pl-next.js | 166 | 698df7a65fd0 |
-| sim-pl-watchdog.js | 392 | 193d4fd3c476 |
+| **sim-pl-watchdog.js** | 407 | **fc5f49085405** ← 2026-09-20 ⏸ 세워 둔 동안은 안 넘긴다 (개정 29) |
 | **sim-premium-desk.js** | 95 | **09a46d98032e** ← 2026-09-16 (제보 3 프리미엄 책상) · 개정 10 등재 |
 | sim-publish-fields.js | 198 | 67aef987d9f9 |
 | **sim-purikura-deco.js** | 947 | **dcfee3c1d4aa** ← 2026-09-13 고친 판 (§4-③) |
@@ -200,7 +489,12 @@
 | sim-seat-eq.js | 79 | d42385d8e6a4 |
 | **sim-seat-opacity.js** | 247 | **9d9cf1cc71f5** ← 2026-09-14 app.js 본문 직접 사용 (§12) |
 | **sim-slot-fit.js** | 245 | **8b03e512185b** ← 2026-09-13 고친 판 (§8) |
-| **sim-slot-sync.js** | 269 | **ed3ebe1b9141** ← 2026-09-16 신규 · 제보 6-b 슬롯 동기화 (§16) |
+| **sim-slot-sync.js** | 471 | **7148d95df54b** ← **2026-09-21 ① 섬네일 판정 둘 (개정 37)** · 2026-09-16 신규 · 제보 6-b 슬롯 동기화 (§16) · 2026-09-18 ⑨ 백업 (개정 24) · ⑩ 내용 해시 (개정 25) · ⑪ 되받기 (개정 26) · **2026-09-20 준비 3줄 seen (개정 30)** · **⑨ 문구 판정 (개정 31)** |
+| **sim-slot-conflict.js** | 250 | **c80571d9a3da** ← 2026-09-20 신규 · ⚖️ 충돌 감지 (§32) · **1-b ① · 대화상자 (개정 31)** |
+| **sim-slot-sync-ui.js** | 81 | **51eac40f1206** ← 2026-09-20 신규 · 🛟 3-7-2 연동 UI (§33) · **2026-09-22 구획 자리 C4 (개정 45)** |
+| **sim-chars-merge.js** | 133 | **130ef30e74b9** ← 2026-09-20 신규 · 🧬 캐릭터 단위 병합 (§34) · **2026-09-21 «조율 블록 밖» 판정 (개정 34)** |
+| **sim-chars-migrate.js** | 753 | **100b7b2ef518** ← 2026-09-21 신규 · 🧬 이관 slots → chars (§35) · 5·6절 조율 (개정 34) · 7절 첫 채택 (개정 35) · 8절 평상시 동기화 (개정 36) · **9절 섬네일 (개정 37)** · **개정 48 스위치 켬 · 20 = 슬롯 밖** · **10절 휴지통 (개정 49 · 51 한꺼번에)** |
+| **sim-signup.js** | 1282 | **40ab3542442b** ← 2026-09-21 신규 · 🪪 회원가입 게이트 (§36) · 1~4절 첫 조각 (개정 38) · 5절 H (개정 39) · 6절 A (개정 40) · 7절 I (개정 41) · 8절 ⑥ (개정 42) · 9절 J·J2·K (개정 43) · **10절 C3·C2 (개정 44)** · **11절 [내 정보] (개정 45)** · **개정 46 배지·틀·책상 표제** · **개정 47 별개 창** · **개정 48 11절 새로** · **12절 휴지통 (개정 49)** · **13절 D2 (개정 51)** · **개정 55 11절 transferData 지우기만** · **개정 56 친구 코드 로그인 입력 코드** · **14절 «다름» · F (개정 57)** |
 | **sim-sysinput.js** | 367 | **03256a7a7bbf** ← 이번에 고친 판 |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 125 | **f862afb67318** ← 2026-09-17 고침(122→125줄) · 행 이름 «프로그램 크기»·부연 문구 제거·−/+ 한 글자 버튼(시안 확정) — 옛 판정은 거짓 빨강. 2026-09-16 신규 · 제보 3-2 F-1 렌더러 줌 (§20) |
@@ -208,12 +502,14 @@
 | sim-village-addr.js | 53 | f72ef601abbb |
 | **sim-wheel-kick.js** | 93 | **484c163ce10e** ← 2026-09-17 신규 · 제보 3-1 C 휠·사다리 (§21) |
 | **sim-admin-active.js** | 154 | **015bbc6e3888** ← 2026-09-17 신규 · E 추가 제보 관리자 권한 창 판정·훅 수신 진단 (§22) |
-| **sim-room-order.js** | 70 | **1cdeb41731a0** ← 2026-09-17 신규 · 제보 2 입장순 서버 시계 · 제보 4 시크릿룸 옛 uid (§23) |
+| **sim-room-order.js** | 73 | **83038de5b540** ← 2026-09-17 신규 · 제보 2 입장순 서버 시계 · 제보 4 시크릿룸 옛 uid (§23) · **개정 56 3절 버린 uid 안내 걷음** |
 | **sim-device-session.js** | 124 | **7ea655327444** ← 2026-09-17 신규 · 제보 3 한 계정 한 기기 (§24) |
 | **sim-deco-parts.js** | 66 | **ff0be39664b1** ← 2026-09-17 신규 · 꾸미기 파츠 표시 토글 (§25) |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** ← 2026-09-17 신규 · 마이홈 환경설정 서브메뉴 클래스 충돌 (§26) |
 | **sim-font-hangul.js** | 49 | **88cd3c70324a** ← 2026-09-17 신규 · Tahoma 목록의 한글 폰트 (§27) |
 | **sim-chat-sfx.js** | 143 | **f66e9c756de8** ← 2026-09-17 신규 · 채팅 알림음 · 글자 크기 서브메뉴 (§28) |
+| **sim-mac-update.js** | 210 | **0b92fe4103b4** ← 2026-09-18 신규 · 맥은 autoUpdater 를 안 탄다 · 받으러 가기 안내 (§29) |
+| **sim-focus-cap.js** | 174 | **1a12b53f312c** ← 2026-09-18 신규 · 누적 상한 100회차 · 레벨 상한과 분리 (§30) |
 | sim-win-front.js | 108 | 3611b5c18f21 |
 | sim-win-layers.js | 197 | a004bf67b98a |
 | sim-yard-enter.js | 59 | c323aea595a5 |
@@ -237,7 +533,7 @@
 해시만 여기 적는다. 검사 개수(54)에는 안 넣는다.
 
 ```
-run.js                         502줄   caa9905d902f
+run.js                         505줄   366119e193b6   ← 2026-09-22 SKIP 에 functions (개정 44)
 tools/trapscan.js              267줄   71a7d91b4979
 tools/mac-bundleid-probe.js    395줄   4156cb84a422
 CHECKS.md           (이 파일 · 자기 해시는 안 적는다)
@@ -1348,11 +1644,24 @@ node sim-keysof-twin.js --selftest    변이 9종 주입 → 전부 잡힘 · �
 | 1 | `firebase-init.js` — `loadSlotsTs`(ts 한 값) · `loadSlotsRemote` · `saveSlotsRemote`(auth 대기선 뒤 통째 set) · `uploadSlotGlb` | 정적 |
 | 2 | 규칙 파일 `users/$userId/slots` — gacha 와 같은 `.write` · 칸 문자열 150000자 상한 · `data:…;base64,` 거부 | JSON 읽어 대조 |
 | 3 | 병합 진리표 — ① 서버 비움+로컬 있음 → 부팅 자동 push(결정 A) ② 서버 최신 → adopt(localStorage·메모리·ts) + 되저장 핑퐁 0 ③ 로컬 최신 → push ④ 연동 pull ⑤ 생성기 열림 → 건너뜀 ⑥ `_imgBroken` 칸은 원본이 올라감 ⑦ saveSlots 는 바뀐 저장만 ts·push | app.js 본문을 떼어 스텁 위에서 실행 |
+| 3-⑪ | 🖼️ **되받기**(개정 26) — 되받기가 캔버스를 안 거친다 · 256·1024 가 그 크기로 돌아온다 · dataURL 이 한 바이트도 안 변한다 · 크기를 못 읽으면 512 · 실패는 던진다 | 실행 |
+| 3-⑩ | 🔑 **내용 해시**(개정 25) — 옛 해시로 충돌하던 두 그림이 다른 파일 이름을 받는다 · 결정적 · 접두어 `h2` · 상한을 넘으면 구형부터 버린다 · 업로더는 새 키 하나만 본다 · `uploadPartPic` 도 같은 캐시 | 실행 |
+| 3-⑨ | 🛟 **덮어쓰기 백업**(개정 24) — 덮기 직전 저장본 한 벌 · «안 남기는 경우» 셋(빈 로컬·같은 내용·더 큰 백업) · 되돌리기는 맞바꾸기 + `_slotsTouch()` · uid 대조 · 백업 실패해도 채택은 돈다 · **토스트는 그대로** | 실행 |
 | 4 | 배선 — `_restoreOwnedDataAfterTransfer` 가 가챠 pull 다음에 슬롯 pull · 부팅 4.6초 · 30분 주기 · 방 입장과 같은 얼굴 캐시/키 | 정적 |
 
 ★ 서버 페이로드에 dataURL·thumb·GLB 원문이 한 바이트도 없다는 것을 3-①·② 가 실제 문자열로 본다.
 ★ 스텁의 `_quickHash` 는 7칸 간격 표본이라, 검사용 dataURL 은 태그를 문자열 전체에 펼쳐야 서로 다른
   그림으로 잡힌다(`D()` 주석). 접미사만 다르게 만들면 같은 파일로 합쳐져 업로드 수가 안 맞는다.
+
+★ **⑨ (개정 24 · 제보 3-7).** 이 검사가 원래 지키던 것은 「받아오는가」였고, 제보 3-7 은 「받아오면서
+  **덮는다**」였다 — 같은 함수의 반대쪽 얼굴이라 같은 파일에 두었다(새 검사를 만들면 둘이 따로 늙는다).
+  ⚠️ 백업의 적은 «백업이 없는 것» 이 아니라 «백업이 방금 덮인 것» 이다. 5칸을 잃은 그 기기에서 같은
+  내용으로 pull 이 한 번만 더 돌아도 백업이 1칸으로 갈아 끼워지면 아무것도 못 되돌린다 — ⑨ 가 그
+  두 길(같은 내용 재채택 · 더 작은 값으로의 교체)을 각각 막아 둔다.
+  ⚠️ `_quickHash` 충돌(제보 3-7 (나) 그래픽 밀림)은 **개정 25 에서 ⑩ 으로 들어왔다.** 확정 자료(`faceUrl`
+  대조)를 기다리지 않고 고친 이유: 표본 1/7 로 파일 이름을 만드는 것은 그 제보와 무관하게 틀렸고,
+  고치는 값(전수 스캔)이 5 MB 에 32 ms 다. 자료가 오면 **그 제보가 이 원인이었는지**만 가려진다 —
+  고칠 것이 더 생기지는 않는다.
 
 ---
 
@@ -1584,3 +1893,152 @@ Tahoma 에는 한글 글자가 없어서 한글은 브라우저가 고른 대체
 | 4 | data-sfx = 목록 id · ▷ 셋 · 메뉴 이름 알림음 1·2·3 = 목록 label · 4단 그대로 · 4단이 «글자 크기 ▶» 의 자식 서브메뉴 · :hover/left:100% · 베젤 radius · fly 이름 안 씀 · #chatWindow 안 |
 
 실측: 헤드리스 크로미움에서 부모 줄→서브메뉴로 4px 씩 옮겨도 한 번도 안 닫히고, 호버 중 위치가 고정(흔들림 없음)임을 확인. 옛 판에서는 16개 빨강.
+
+---
+
+## 29. `sim-mac-update.js` — 🍎 맥은 autoUpdater 를 타지 않는다 (2026-09-18 · 개정 21 신규)
+
+**상황** 0.9.7 맥판은 **애플 서명·공증이 없다.** electron-updater 의 맥 갈래는 서명된 zip + `latest-mac.yml` 을 전제로 하므로, 올려 봐야 설치 단계에서 실패한다. 그래서 맥은 릴리즈의 **dmg 직접 받기**로 간다(arm64 = 애플 실리콘 · x64 = 인텔).
+
+**문제** `main.js` 의 `autoUpdater.checkForUpdates()` 에 플랫폼 구분이 없었다. 맥에서는 yml 이 없어 **켤 때마다 확인이 실패**하고 `sendUpdateStatus('error')` 가 돈다.
+★ 다만 **화면에 뜨지는 않았다** — 렌더러 수신부는 `error` 를 `console.warn` 으로만 남기고 배너는 `downloaded` 에서만 띄운다(`handoff-2026-09-18b.md` §2 의 「화면에 뜬다」는 과장이었다). 실제 증상은 켤 때마다의 헛된 네트워크 확인과 콘솔 경고다.
+
+**고침** 갈래를 `startUpdateCheck()` **한 자리**에 모았다 — 맥이면 `checkForUpdates()` 를 아예 안 부르고 `checkMacUpdate()` 로 간다. 맥 갈래는 GitHub releases 의 최신 태그만 **켤 때 한 번** 읽어(새 주기 없음) 새 버전이면 `'mac-available'` 을 렌더러에 보내고, 렌더러는 **기존 `#updateReadyBanner` 를 그대로 재활용**해 버튼만 «지금 재시작» → «받으러 가기»(`companion.openBrowser` = `shell.openExternal`)로 바꾼다. 새 창을 안 만들었으므로 시안이 필요 없다(규칙 3).
+저장소 이름은 `package.json` 의 `build.publish` 에서 읽는다 — 코드에 박으면 저장소를 옮길 때 맥 안내만 옛 주소를 가리킨다.
+★ 나중에 애플 개발자 프로그램(연 99달러)으로 서명·공증을 하면 되돌린다. 지울 곳은 `checkMacUpdate()` 와 `startUpdateCheck()` 두 군데뿐이고, 그때는 zip + `latest-mac.yml` 을 릴리즈에 함께 올려야 한다.
+
+| 절 | 무엇을 지키나 |
+|---|---|
+| 1 | `checkForUpdates()` 호출이 한 곳뿐 · 그 자리가 `startUpdateCheck()` 안 · 부르는 자리가 그 함수를 쓴다 · **가짜 `process` 로 실행해서** darwin 이면 안 부르고 `checkMacUpdate()` 로 가며 win32 는 예전 그대로임을 확인 |
+| 2 | 맥 갈래가 `'mac-available'` 만 보내고 `quitAndInstall` 을 안 부른다 · 새 창·새 주기 없음 · 주소는 응답의 `html_url` 에서 받고 https 확인 · 저장소 이름을 안 박았다 · `isNewerVersion` 을 **실행해서** `0.10.0 > 0.9.7` 을 확인(문자열 비교면 여기서 뒤집힌다) |
+| 3 | 렌더러가 `'mac-available'` 을 처리하고 기존 배너로 간다 · 맥 전용 오버레이 신설 없음 · **가짜 DOM 으로 버튼을 눌러** 맥은 `openBrowser`(설치 안 함) · 윈도우는 `installUpdate`(브라우저 안 엶) |
+| 4 | `companion:openBrowser` → `shell.openExternal` 통로 · `updateStatus` 통로 · `build.publish` 의 github owner·repo |
+
+**이빨 확인(실측)** 0.9.7 판(고치기 전)에 돌리면 **21개 빨강**. 갈래 한 줄(`process.platform === 'darwin'` 분기)만 지우면 **2개 빨강** — 1절이 그 한 줄을 정확히 집는다.
+
+⚠️ 맥 안내는 **네트워크가 막히거나 GitHub 이 답을 안 주면 조용히 아무것도 안 한다.** 그게 의도다 — 켤 때마다 «확인 실패» 를 띄우면 지금 고치려는 그 잡음이 모양만 바뀌어 돌아온다.
+
+---
+
+## 30. `sim-focus-cap.js` — 🕒 누적 상한과 레벨 상한은 다른 값이다 (2026-09-18 · 개정 22 신규)
+
+**경위** 회차(999를 채우면 ★ 하나 + 레벨 1부터)를 붙이려는데 **재료가 안 쌓이고 있었다.** `FOCUS_LEVEL_CAP_HOURS`(999) 하나가 두 몫을 했다 — 레벨을 999에서 접는 것과, **누적 초 자체를 999시간에서 멈추는 것.** 그래서 999시간을 채운 사람은 그 뒤로 기록이 늘지 않았다.
+★ 리셋 방식은 **안 된다**(§3-1-b). 서버 병합이 `max(서버+증분, 로컬)` 단조 증가라 누적을 0으로 내려도 다음 동기화가 즉시 되돌린다. 그 단조성은 실제 데이터 유실 사고를 막으려고 넣은 것이라 건드리면 그 사고가 되살아난다. ⇒ **회차는 저장하지 않고 파생시킨다**(`floor(누적/999시간)`).
+
+**고침** 상한을 둘로 갈랐다.
+
+| 상수 | 값 | 쓰는 곳 |
+|---|---|---|
+| `FOCUS_LEVEL_CAP_HOURS` | 999 | 레벨 숫자 · 경험치 바 (예전 그대로) |
+| `FOCUS_CYCLE_SEC` | 999시간 | 회차 한 바퀴 |
+| `FOCUS_CYCLE_CAP` | 100 | 열어 둔 회차 수 |
+| `FOCUS_TOTAL_CAP_SEC` | **359,640,000초(99,900시간)** | 적립 · 서버 동기화 · 규칙 `.validate` |
+
+같은 값이 **세 파일**에 있다: `app.js` · `firebase-init.js` `syncFocusTotal` 의 `CAP` · 규칙 파일 `users/$userId/focus`.
+⚠️ **규칙을 게시해야 켜진다.** 서버 쪽이 낮으면 값이 잘리는 게 아니라 `permission_denied` 로 **쓰기가 통째로 거부**되어 그 기기의 기록이 서버에 안 간다.
+⚠️ 상한을 아예 없애지 않은 이유: 규칙의 `.validate` 가 **조작된 큰 값이 랭킹 1위에 앉는 것**을 막는 유일한 자리다(핸드오프 B §1-4와 같은 이유).
+
+**이번 단계에서 일부러 안 한 것 — 레벨 표시는 999에서 접힌 채다.** 그릇만 키웠다. 누적이 원천이라 표시를 나중에 붙여도 그동안 쌓인 몫이 **소급해서** 회차로 보인다. 반대로 레벨을 먼저 모듈로로 바꾸면 999를 넘긴 사람이 **별 없이 Lv.1** 로 떨어져 보인다 — 4절이 그 짝을 묶어 둔다(한쪽만 가면 빨강).
+
+| 절 | 무엇을 지키나 |
+|---|---|
+| 1 | 상한 상수 셋이 있고, 회차 한 바퀴 = 999시간 · 누적 = 한 바퀴 × 회차 수 · 누적 > 레벨 · 안전 정수 |
+| 2 | **떼어서 실행** — 999시간에서 한 시간 더 일하면 1000시간이 된다(예전엔 멈췄다) · 상한에서는 멈춘다 · 레벨은 998시간에 999이고 5000시간에도 999 · 적립·동기화에 옛 모양(`FOCUS_LEVEL_CAP_HOURS*3600`)이 없다 |
+| 3 | app.js · `firebase-init.js` 의 `CAP` · 규칙의 `totalSec` 상한이 **같은 값** · (생기면) 랭킹 `sec` 상한도 같은 값 |
+| 4 | 레벨 모듈로와 별 붙이기가 **함께** 간다 — 지금은 둘 다 없다 |
+
+**이빨 확인(실측)** 고치기 전 판에 돌리면 **7개 빨강**. 규칙 파일만 옛 값(3,596,400)으로 되돌리면 **1개 빨강** — 3절이 「게시 안 함」을 정확히 집는다.
+
+**남은 것(다음 단계)** 별 문자열(`☆`=1회 · `★`=2회 · 6자 접기) · `--pre-c` 를 좌석 요소에 얹기 · 배지/이름표/바에 클래스 붙이기 · 하트비트에 회차·색 필드.
+⚠️ **색 고르는 자리(설정? 마이홈?)가 아직 안 정해졌고, 없는 UI 를 새로 만드는 일이다 — 코드보다 시안이 먼저다(규칙 3).**
+
+## 31. `sim-friend-code-keep.js` — 🔗 친추코드는 처음 것이 유지된다 · 스냅샷 없이도 소지품은 온다 (2026-09-20 · 개정 27 신규)
+
+| 절 | 무엇을 | 방식 |
+|---|---|---|
+| 1 | `_healFriendCodeOwner` 다섯 갈래 — 내 것·주인 없음·버린 uid·오래 조용함은 예전 그대로(되찾기 = 코드 유지), **활동 중인 남의 코드**일 때 로컬 코드가 남고·새로 뽑지 않고·소유권도 안 빼앗고·토스트가 없다 · 세션당 한 번 · «이 기기가 쓰던 코드» 기록 | 실행 |
+| 2 | 정적 — `removeItem(MY_FRIEND_CODE_KEY)` 가 app.js 에 없다 · `FC_NEVER_REISSUE` · 재발급 토스트 호출 없음 · 마크업에 재발급·바꾸기 버튼 없음 | 정적 |
+| 3 | `_applyTransferSnapshot` — null 이어도 친추코드 정정 → 소지품 → 집중초 셋이 그 순서로 돈다 · null 이면 이름·라이선스·집중초·로컬 코드는 안 건드린다 · 있으면 예전과 같다 · 집중초 max | 실행 |
+
+★ **친추코드 재발급을 없앤 이유는 «같은 사람의 다른 PC» 다.** 활동 판정(7일)은 «버려진 uid 인가» 를 가르려는 것이었는데, 두 PC 를 번갈아 쓰면 어느 쪽 uid 도 버려진 적이 없다. 그 판정이 「남」이라고 답하는 순간 코드가 바뀌었고, 친구들이 적어 둔 코드가 죽었다. 재발급을 안 해서 생기는 손해(드문 «진짜 남의 코드» 경우)보다 훨씬 컸다.
+⚠️ 소유권은 그대로 둔다. 활동 중인 소유자의 것을 빼앗으면 두 기기가 매 부팅 서로 되찾는 핑퐁이 된다(`_healFriendCodeOwner` 머리 주석). 되돌아가지 말 것.
+⚠️ 3-1 은 «없어질 코드» 지만 지금 고쳤다 — 회원가입(uid = 계정)이 나오기 전까지 매일 나는 사고라서다. 회원가입에서 `_applyTransferSnapshot` 자체가 사라지면 이 절도 같이 내린다.
+
+## 32. `sim-slot-conflict.js` — ⚖️ 양쪽이 다 바뀌면 덮지 않는다 (2026-09-20 · 개정 30 신규)
+
+| 절 | 무엇을 | 방식 |
+|---|---|---|
+| 1 | `SLOTS_SEEN_KEY` 가 `SLOTS_TS_KEY` 바로 옆(`ACCOUNT_LOCAL_KEYS` · 계정 정리 한 줄) · 이관 규칙(없으면 지금 ts) · 충돌 = serverMoved && localDirty · 감지가 ts 갈래 **앞** · 콘솔 출구 둘 · UI 안 꽂음 | 정적 |
+| 2 | ① 3-7 재현 — 본 적 없는 1칸 기기가 5칸 위에 올리려 하면 쓰기 0·받기 0·경고 1·충돌 기록·핸들러 전달, 다음 판도 조용, 집 PC 는 무손실 ② 한쪽만 움직인 판(빈 새 기기 받기 · 내가 고침 → 올림 · 남이 올림 → 받음 · 줄어든 받기는 백업 남김) ③ `'server'` 는 받고 백업 남음 · `'mine'` 은 올리고 `saveSlotsPrevRemote` 가 있으면 먼저 부름 · 그 밖 값 거부 ④ 충돌인데 계정이 비었으면 올림 ⑤ pull 은 충돌 안 봄 ⑥ 거부된 쓰기는 seen 안 찍음 | 실행 |
+
+★ **왜 ts 큰 쪽이 아니라 seen 인가.** 3-7 에서 회사 PC 의 ts 가 컸던 것은 «나중에 저장했기 때문» 이지 «집 PC 의 5칸을 보고 나서 고쳤기 때문» 이 아니다. 후자만이 덮어도 되는 근거다. seen 은 그 둘을 가른다.
+⚠️ 충돌이면 **멎는다.** 대화상자가 붙기 전까지 그 기기는 콘솔로만 풀린다 — 그래서 이관 규칙을 조용한 쪽으로 두었다(개정 30 머리). 대화상자(시안 `3-7-2 시안` 캔버스) 가 붙으면 `_slotsConflictHandler` 에 꽂고, 그때 «본 적 없음» 이관으로 바꿀지 되짚을 것.
+⚠️ 이건 4번(캐릭터 단위 저장 ②③)의 **앞부분**이다. 칸 단위로 쓰게 되면 «양쪽이 다 바뀜» 중 다른 칸을 건드린 경우는 충돌에서 빠지고, 같은 칸만 남는다. 그때 이 검사의 ① 은 «같은 칸» 으로 좁혀 다시 쓴다.
+
+## 33. `sim-slot-sync-ui.js` — 🛟 3-7-2 연동 UI: 띠 · 기기 연동 구획 · 충돌 대화상자 (2026-09-20 · 개정 31 신규)
+
+| 절 | 무엇을 | 방식 |
+|---|---|---|
+| 1 | 마크업 — `#lcSyncBand` 가 `lc-stage` 바로 위(숨김) · 계정 탭 «기기 연동» 이 로그아웃 상자 다음·되찾기 앞 · `#slotConflictDlg` 전역 오버레이와 `scd*` id 여덟 · 버튼 순서(다른 PC 왼쪽) · 시안 문구 · 네이티브 confirm 없음 | 정적 |
+| 2 | 배선 — `renderLauncher` → 띠 · `refreshAccountTab` → 구획 · adopt 가 손실 기록(from·to·bak) · push 세 갈래가 실패 사유 · 성공이 지움 · 읽기 실패·«같음» 도 마지막 연동에 · 기록 셋이 `ACCOUNT_LOCAL_KEYS`(백업 키는 여전히 밖) · [유지하기]·[닫기]·[확인] 은 접기만 · [지금 다시 올리기] 는 ts 안 찍음 · [고르기] 가 대화상자 다시 열기 · 되돌리면 «되돌린 직후» 기록 | 정적 |
+| 3 | 문구 — 띠 세 상태 · 평상시 · 줄어든 교체 · 올리기 실패 · 분실 토스트 · **«되돌릴 수 있는 기한» 없음** | 정적 |
+
+★ 띠와 구획은 **같은 기록**(`SLOTS_LOSS_KEY`)을 읽는다. 띠를 [유지하기] 로 닫으면 `dismissed` 가 되어 구획에서도 접힌다 — 두 자리가 다른 말을 하지 않는다.
+⚠️ [지금 다시 올리기] 가 `_slotsTouch` 를 부르면 안 된다 — 실패한 push 는 이미 «로컬 ts > seen» 이라 다음 동기화가 그 갈래로 다시 간다. 새로 찍으면 서버가 그 사이 바뀌었을 때 ④ 가 잡을 판을 놓친다.
+⚠️ 되돌리기의 두 번째 출구(`restoreSlotsPrevRemote`)는 규칙 파일이 **게시된 뒤**에만 값이 있다. 게시 전엔 첫 출구(로컬 백업)만 산다.
+
+## 34. `sim-chars-merge.js` — 🧬 캐릭터 단위 병합: 합집합 · 묘비 · 휴지통 (2026-09-20 · 개정 32 신규)
+
+| 절 | 무엇을 | 방식 |
+|---|---|---|
+| 1 | `_charsMerge` 본문을 떼어 와 돌린다 — ① 설계 §2-4 표 다섯 줄(한쪽만 · 같음 · 산 vs 산 양방향 · 산 vs 묘비 양방향 + 되살림) ② 3-7 재현(A 5 · 오프라인 B 1 → 6 · trash 0 · 다음 판 A 는 1만 받음) ③ 되감기(묘비가 이기면 def 는 trash `deleted`) ④ 미래 mtime(한 시간 → 정정·push·pull · 1분은 허용 · 묘비도) ⑤ 지우는 갈래 없음(merged = 합집합 · 본문에 delete/remove 없음) ⑥ 입력 불변 · cid 모양 · 콘솔 출구 · **아직 아무도 안 부른다** | 실행 |
+| 2 | 규칙 — `chars` .write 가 slots 와 같은 소유 식 · cid 모양 · def 또는 del · def 검증 = `slots.s.$i` · `$other` 거부 · **`trash` 는 잎에서 붙이기만** · why 두 값 · `charsMeta` · **`slots`·`slotsPrev` 아직 있음** | 정적 |
+
+★ **왜 순수 함수부터인가.** 설계 §10-4 — 병합 규칙이 곧 3-7 의 해답이고, 스텁 없이 돌릴 수 있는 유일한 조각이다. 이관(§5-N-2)·게이트(§3)·화면(§7 시안 뒤)은 전부 이 함수를 부르는 쪽이다.
+⚠️ `trash` 의 `.write` 를 부모(`trash` 노드)로 올리지 말 것 — Firebase 규칙은 허용이 아래로 내려와서 잎의 `!data.exists()` 가 무력해진다. 2절 ★ 가 그것을 집는다.
+★ 개정 34 부터 1절 «아직 아무도 안 부른다» 는 «**이관 조율 블록 밖에서는** 아무도 안 부른다» 다 — 부르는 자리는 콘솔 미리보기(`charsMigrateDryRun`) 하나. 블록 범위는 `const CHARS_SYNC_ENABLED` ~ `try{ window.charsMigrateDryRun`.
+⚠️ 이 함수가 실제로 불리기 시작하면(§5-N) `sim-slot-conflict.js` ①·`sim-slot-sync-ui.js` 는 폐기 대상이다(설계 §6-⑨·⑫). 그 전까지는 둘 다 산다 — 이관 창 동안 `slots` 쓰기가 남기 때문.
+
+## 35. `sim-chars-migrate.js` — 🧬 이관 slots → chars: 열쇠 두 벌 · 1:1 · 아무도 안 잃음 (2026-09-21 · 개정 33 신규)
+
+| 절 | 무엇을 | 방식 |
+|---|---|---|
+| 1 | `_charsKeys` — 로컬(dataURL) ↔ 서버(URL)의 같은 마리가 같은 K1 · 치장만 고치면 K1 같고 K2 다름 · 다른 그림은 K1 다름 · 해시 없는 옛 URL 은 K2 로 맞음 · 캔버스 얼굴은 해시 없음 · 깨진 입력은 null · 0/false/없음 동일 | 실행 |
+| 2 | `_charsFromServerSlots` — 첫 이관 5→5(규칙 cid 모양 · def 는 slots 문자열 그대로) · 같은 문자열 두 칸 → cid 둘 · slotsPrev 에만 있는 1마리 → 6번째(책상 밖) · ★ 두 번째 기기 → 새 cid 0 · 되돌이(치장 고침 → upd · 새 마리 → add · 빠진 칸은 무동작 · 옛 slots.ts 면 무동작) · 묘비와 짝(나중이면 되살림 · 먼저면 무동작 · 어느 쪽도 새 cid 없음) | 실행 |
+| 3 | `_charsFromLocalSlots` + `_charsMerge` — ★ 안 고친 기기 push·pull·trash 0 · ★ 3-7 재현 6마리 · 고친 칸만 이김(★ K2 가 칸을 가른다) · 서버가 고쳤으면 pull + 옛 모습 trash · ★ 한 번도 못 올린 기기도 안 잃음 · 옛 URL 중복 0 · 1:1 · 입력 불변 | 실행 |
+| 4 | 정적 — 조율 블록 밖에서는 아무도 안 부른다 · 병합 블록 뒤 · 이관 블록이 병합을 안 부른다 · 콘솔 출구 둘 · 본문에 localStorage/firebaseAPI 없음 | 정적 |
+| 5 | 조율(개정 34) — ★ 스위치 false · ★ 부팅에서 안 부름 · uid 캐시만 · ★ 미리보기 읽기만 · 스텁 서버 실행: 스위치 꺼짐 = 선점·쓰기 0 · ★ 두 기기 동시 → 한 기기만 6마리 · 도장 · 세 번째 기기 무동작 · ★ 되돌이 upd 1 add 1 · 계정별 기록 · 기록 없어도 멱등 · 쓰기 실패 → 진행 중 · ★ 10분 뒤 재선점 · 미리보기 표 | 실행 |
+| 6 | firebase-init — 통로 일곱(개정 35 `loadCharsTrashLatest` · 개정 36 `loadCharsMetaTs`) · ★ 선점 트랜잭션 · ★ chars 는 update(경로 키 `chars/{cid}`) · ★ 같은 update 안에 `charsMeta/ts` · 휴지통 한 줄씩 · why 두 값 · 규칙 `claimAt` · `ts` · 휴지통 why 두 값 | 정적 |
+| 7 | 첫 채택(개정 35) — 계획: ★ 안 고친 기기 0 · 실기기 재현(서버 4/이 기기 3 → 보관함 4 · 책상 3) · ★ 3-7 · 고침 · ★ 바꿔 앉힘 · 열쇠 없는 묘비는 되살아남(경고 줄) · 열쇠 달린 묘비 → 내림 · 미래 시각. 조율: 스위치 · ★ 못 올리면 무변경 · ★ 보관함 서버 표현 · ★ 보관함에 dataURL 없음 · 두 번째 무동작 · 그림 못 받으면 무변경 · ★ 바꿔 앉힘 · 휴지통 못 읽으면 미룸 · ★ 지운 마리 내림 · 쓰기 순서 · 백업 | 실행 |
+| 8 | 평상시 동기화(개정 36) — ① 스위치 꺼짐 = 훅 무동작·옛 문구 · ★ ② 채택 전 = 보관함 키를 안 만든다 · ★ ③ 기준 없으면 기준만(안 달라진 저장에서도) · 고친 cid 만 dirty(base · 열쇠) · ★ ③-b 백업 되돌리기 → 열쇠로 다시 짝짓기 · ★ ④ 휴지통 이동 = 묘비 + 책상 표 당김 · ★ 당기기는 고침 아님 · ⑤ 새 마리 · 20 문턱(묘비 안 셈) · ★ ⑥ ts 같으면 본문 0 · 올림 · 휴지통 0 · ★ ⑦ 바꿔 앉힘(기준 비움) · ★ ⑧ 내림 · ★ ⑨ 양쪽 고침 → overwritten · ★ ⑩ 못 올림·쓰기 실패·못 받음 = 무변경 · ⑪ 도중 바뀜 · ⑫ 생성기 · ⑬ 30분 = ts 만 · ★ ⑭ 못 올린 고침 휴지통. 배선(정적): saveSlots 한 곳 · 당기기 전 · 새 마리 넷 · ★ 옛 slots 첫머리 올리기만 · 백업 · 로그아웃 · ★ 부팅 배선은 스위치 안 | 실행 · 정적 |
+| 9 | 섬네일(개정 37) — ★ thumbUrl 은 K1·K2 밖 · ★ 섬네일 → thumbUrl · dataURL 0 · ★ 섬네일만 실패 → push 안 접고 받아 둔 URL · 없으면 빼고 · 받아 앉힌 칸은 URL 그대로 · 얼굴 실패는 여전히 null · ★ slotToObj 는 있을 때만 · loadSlots 옮겨 적기 | 실행 · 정적 |
+
+★ **떼어 오기 범위.** 이 검사는 `const CHARS_KEY_SCALARS` ~ `try{ window._charsFromServerSlots` 를 떼고, 병합 블록 · `_quickHash` · `SLOT_IMG_FIELDS` 를 같이 넣어 돌린다. `sim-chars-merge.js` 의 범위(`const CHARS_SKEW_TOL_MS` ~ `try{ window._charsMerge`)와 겹치지 않게 **그 뒤에** 붙였다 — 4절 둘째 줄이 집는다.
+⚠️ 이관 블록 주석에 병합 함수 이름 + 여는 괄호를 쓰지 말 것 — `sim-chars-merge.js` 의 «아직 아무도 안 부른다» 가 주석까지 센다(원문 대상). 4절 셋째 줄이 같은 것을 이쪽에서 본다.
+⚠️ **서버 URL 이름 속 해시** — 개정 34 에서 `firebase-init.js` 로 경로 모양(`users/{uid}/roomface_{종류}_{해시}.png` · GLB 는 `slotglb_…glb`)을 확인하고 픽스처를 맞췄다. 실데이터는 콘솔 `charsMigrateDryRun()` 의 «그림URL 전체 / 해시꺼냄» 두 수로 본다 — 다르면 옛 이름이 섞여 K2 가 받고 있다(분실 아님 · 중복 위험).
+⚠️ 서버 이관은 **한 기기만** — 개정 34 의 `claimCharsMigration`(charsMeta 트랜잭션). 5절 ② 가 두 기기 동시를 돌린다. 선점한 기기가 쓰다 꺼지면 `migratedAt:0` 으로 남고 10분 뒤 다른 기기가 다시 잡는다(④).
+⚠️ **`CHARS_SYNC_ENABLED` 를 켜는 것은 규칙 게시(`charsMeta.ts` 포함 · 개정 36) 뒤.** 이 기기 쪽 조율(첫 채택 개정 35 · 평상시 개정 36)은 들어왔다. 5절 첫 줄이 false 를 본다 — 켜는 세션은 그 줄을 같이 바꿀 것.
+⚠️ 8절은 조율 블록을 `new Function` 으로 돌린다 — 평상시 블록의 **맨 윗단**(함수 밖)에 부작용(setTimeout · DOM)을 두지 말 것. 배선은 블록 밖(`try{ window.charsMigrateDryRun` 다음 줄)에 `if(CHARS_SYNC_ENABLED)` 로 둔다.
+
+## 36. `sim-signup.js` — 🪪 회원가입 게이트: uid 는 게이트가 정한다 (2026-09-21 · 개정 38 신규)
+
+설계 `design-signup-2026-09-20.md` §8 의 그 파일. 게이트를 조각마다 넣으며 절을 늘린다.
+
+| 절 | 무엇을 | 방식 |
+|---|---|---|
+| 1 | ★ `getMyUserId` 본문에 setItem·생성 없음 · uid 모양 생성은 app.js 한 곳(`_inventMyUserId`) · ★ 부르는 곳도 하나이고 `_showInviteGate` 안 · `redeemInvite` 둘째 인자 ≠ `getMyUserId()` · 토큰으로 부름 · firebase-init 이 ref·update·Storage ref 를 감싼다 · ★ `redeemInvite` 가 users/·stats/ 에 안 씀 · `finishInviteSignup` 있음 | 정적 |
+| 2 | `_noUidPath` — 정상 경로 그대로 · 'null' 로 시작하는 이름은 무사 · users/null · undefined · '//' → `_noUid/` · https:// 무사 · ref/sref 돌림 · 루트 ref 그대로 · ★ 다중 경로 update 한 줄이라도 걸리면 통째 거절 | 실행(떼어 오기) |
+| 3 | 초대 토큰(스텁 서버) — 소진 = usedBy 토큰 · ★ users/ 쓰기 0 · 카운터 그대로 · 같은 토큰 재시도 통과 · 다른 토큰 거절 · 빈 토큰 거절 · 남의 토큰 마무리 무변경 · ★ 마무리 = usedBy uid · invite 0장 · 카운터 +1 · ★ 두 번 불러도 카운터 한 번 · users/ 아래 토큰 키 0 · 없는 코드 | 실행(떼어 오기) |
+| 4 | app.js — ★ 빈 기기 null · 부르기만 해선 안 씀 · 발명 모양 · 만들기만 해선 안 기록 · `_setMyUserId` 거절 셋 · ★ uid 없으면 친구 코드 안 뽑음 · 토큰 모양 · 같은 코드 같은 토큰 · 다른 코드 새 토큰 · ★ uid 없으면 마무리 안 부름 · 실패 → 토큰 남김 · 성공 → 지움 | 실행(떼어 오기) |
+| 5 | H(개정 39) — 세 문 글자·순서 · ★ 셋 다 lc-btn · ★ 옛 이전 줄 없음(마크업·게이트 본문) · 구글 안내 줄 · 친구 코드 모양 · `_loginDoFriendCode`: 틀림 무기록 · ★ 새 PC switched · uid·도장·로그인 키·스냅샷 · 같은 uid 재시작 없음 · 갈아탐 · ★ 모양 틀린 userCode 거절 + 로그아웃 · firebase-init 통로: ★ 읽기만 · 이메일 모양 · ★ 줄 없으면 로그아웃 · 오류 문구 둘 | 정적 · 실행(떼어 오기) |
+| 6 | A(개정 40) — 시안 글자 · ★ 아이디 고정 표시 · 오버레이 안 · 발명은 `_signupPendingEnsure` 만 · ★ 끊긴 가입 → 부팅 때 A · 임시 블록 없음 · 실행: ★ 열기만 해선 서버·uid 0 · ★ 순서 익명 → 선점 → 연결 → 결속 → 거울 → 마무리 · uid·코드·로그인 표시·도장 · ★ 뺏긴 코드 → 새 코드 · ★ ④ 끊김 → 같은 uid·코드로 이어 끝남 · Auth 중복 → 새 코드 · 익명 꺼짐 · 결속 실패 · ★ 구글 가입 · ★ 이미 가입된 구글 · 창 닫음 · firebase-init: ★ 익명 이어 쓰기 · 승격 세션 · ★ 남의 세션 놓기 · 익명 꺼짐 · ★ 승격 authUid 그대로 · 한 번만 · taken · 약한 비밀번호 · ★ 결속 · 이메일 거울 없음 · 남의 것 거절 | 정적 · 실행(떼어 오기) |
+| 7 | I(개정 41) — 시안 글자 · 고정 표시 · ★ 닫기 없음 · 반투명 · ★ UI_HIT_SEL 등록 · 게이트 뒤 판정 · 스위치 · 판정: uid 없음 · 꺼짐 · ★ 못 읽음 · ★ 이미 묶임 → 안 띄움 · ★ 묶이지 않음 → 이 기기 코드 · 거울 코드 · 새 후보 · 못 읽음 · 가입: ★ 순서(선점 없음) · ★ 이 uid 결속 · uid 그대로 · 로그인 표시 · 상태 키 없음 · 선점·뺏김 · ★ persist=false · 결속 실패 | 정적 · 실행(떼어 오기) |
+| 8 | ⑥(개정 42) — ★ ensureMyFriendCode 첫머리(발급보다 먼저) · 부르는 곳 하나 · ★ 본문에 쓰기 없음 · 실행: ★ 다르고 내 것 → 로컬만 · ★ 쓰기 0 · ★ 남의 것 → 그대로 · 비었음 · 같음(주인 안 물음) · 못 읽음 둘 · uid 없음 · ★ 로컬 코드 없는 PC 는 거울을 따르고 발급 안 함 · 세션당 한 번 · 거울도 없으면 발급 | 정적 · 실행(떼어 오기) |
+| 9 | J·J2·K(개정 43) — J 시안 글자 · 경고 두 줄(사용자 수정본) · 버튼 둘 · J2 줄 · ★ A·J 에 «되찾기 코드» 없음 · K 시안 · ★ 닫기 없음 · ★ UI_HIT_SEL · I 뒤 K · ★ A 완료 → 재시작 · 두 길 · ★ I 완료 → 닫기(재시작 없음) · ★ 구글 붙이기 = linkWithCredential · K 판정: uid 없음 · ★ 못 읽음 · 안 묶임 · ★ 이미 로그인 · ★ 묶였는데 로그인 안 됨(거울) · 다른 세션(이 기기 코드) · 완료 화면(가짜 DOM): J 표시 · J2 표시 · ★ [시작하기] 에서 풀림 · 구글 붙이기 성공·실패 | 정적 · 실행(떼어 오기 · 가짜 DOM) |
+| 10 | C3·C2(개정 44) — 구획 자리(로그인 후 얼굴 · 로그아웃 위) · 시안 글자(로그인 수단 · C3 안내 · C2 경고 · C2 안내) · ★ 비밀번호 칸 둘뿐 · ★ «되찾기 코드» 없음 · ★ CSP 함수 호스트(두 줄 · 와일드카드 아님) · 리전 · ★ 새 통로 넷은 authSignOut 뒤 · ★ 함수 SDK 동적 import · 판 일치 · C3 = 붙이기 · 재인증 = 세션 유지 · firebase-init 실행: 세션 없음 · 익명 · already · ★ 성공 이메일 · ★ needReauth · taken · user-mismatch · C2: 세션 없음 · 비밀번호 없음 · 6자 · SDK 못 받음 · ★ not-found = 배포 전 · ★ 새 비밀번호만 보냄 · ★ 다시 로그인 · relogged:false · app 실행: 모드 다섯 · 입력 검사 · 아이디(거울 · 이 기기 · ★ 남의 코드 거절 · 모양 · 못 읽음 · uid 없음) · C3 한 번 · ★ 재인증 뒤 한 번 더 · 창 닫음 · 재인증 실패 · C2 통로 · 그리기(가짜 DOM): ★ C3 · ★ C2 · ★ 경고 + [연결하기] · 세션 풀림 · 로그인 안 함 | 정적 · 실행(떼어 오기 · 가짜 DOM) |
+
+★ **떼어 오기(개정 44).** 10절 구획은 `<div id="acctMethods"` ~ `<div id="acctMOff"` — 그 사이에 다른 덩어리를 끼우지 말 것. firebase-init 새 통로 넷(`authProviders` · `authLinkPassword` · `authReauthGoogle` · `authChangePassword`)은 이 순서로 `authSignOut` **뒤**에 — 앞에 두면 5·6·9절 떼어 오기가 그것까지 품는다. `authChangePassword` 안의 `import(FUNCTIONS_SDK_URL)` 글자는 10절이 바꿔 끼워 돌린다(이 모양 그대로 둘 것).
+★ **떼어 오기(개정 43).** 7절 I 마크업은 `#existingSignupOverlay` ~ 다음 덩어리 머리(`<!-- 🎉 J · J2` 또는 `<!-- 🖥️ 한 계정 한 기기`), 9절 J 는 ~ `<!-- 🔐 K ·`, K 는 ~ `<!-- 🖥️ 한 계정 한 기기`. **떼어 오기(개정 40).** 5절은 `async authSignInWithFriendCode(` ~ 다음 메서드 머리(가입 통로 주석 또는 `async authSignOut()`), 6절은 `async authSignupEnsure(` ~ `async authSignOut()` — 가입 통로 셋 사이에 다른 메서드를 끼우지 말 것. 2절은 firebase-init 의 `const _NOUID_SEG` ~ `return _dbUpdate(r, v);\n  };` 를, 3절은 `async redeemInvite(` ~ `// 초대장 발급 — 유저는 invitesLeft를 1 차감` 을 떼어 돌린다 — 그 둘 사이에 다른 메서드를 끼우면 3절이 그것까지 품는다. 4절은 함수 일곱을 이름으로 뗀다.
+⚠️ smoke 하네스를 쓰는 검사(17개)는 **빈 localStorage 로 부팅한다** — 이제 uid 가 없는 «처음 쓰는 PC» 다. uid 가 필요한 시나리오는 부팅 **뒤**에 `tw.myUserId` 를 심는다(개정 38 의 두 검사). 부팅 **앞**에 심으면 `HAD_USER_ID_AT_BOOT` 가 true 가 되어 게이트·grandfather 갈래가 바뀐다.
+다음 절(설계 §8): 게이트 표 갈래 스텁(H·A·I·«다름» · 오프라인 첫 실행) · 가입 중단 재시도 · 익명 가입(`isAnonymous` · 같은 authUid · providers) · 거울 정정 ⑥ · 코드 재발급 0회.
+

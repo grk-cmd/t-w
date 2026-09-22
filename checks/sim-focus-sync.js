@@ -59,6 +59,10 @@ catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack 
 console.log = say;
 
 const P = globalThis.__P, LS = globalThis.localStorage;
+/* 🪪 [CHECKS 개정 38] 이 기기는 «이미 쓰던 사용자» 다 — uid 를 심는다(부팅 **뒤**라 HAD_USER_ID_AT_BOOT 는 옛날처럼 false).
+   예전엔 app.js getMyUserId() 가 첫 호출에서 uid 를 만들어 줘서 준비가 필요 없었다(회원가입 설계 §6-①).
+   판정은 한 글자도 안 바꿨다. */
+globalThis.localStorage.setItem('tw.myUserId', 'usimdevice0001');
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 const H = 3600, h = n => (n / H) + 'h';
