@@ -141,7 +141,7 @@
         },
         "$memberId": {
           ".write": true,
-          ".validate": "newData.hasChildren(['name','state']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('state').isString() && newData.child('state').val().length <= 20 && (!newData.child('chat').exists() || (newData.child('chat').child('text').isString() && newData.child('chat').child('text').val().length <= 140 && (!newData.child('chat').child('fly').exists() || newData.child('chat').child('fly').isBoolean()) && (!newData.child('chat').child('flyColor').exists() || (newData.child('chat').child('flyColor').isString() && newData.child('chat').child('flyColor').val().length <= 16)) && (!newData.child('chat').child('flySize').exists() || (newData.child('chat').child('flySize').isString() && newData.child('chat').child('flySize').val().length <= 2)))) && (!newData.child('customStatus').exists() || (newData.child('customStatus').child('text').isString() && newData.child('customStatus').child('text').val().length <= 12 && (!newData.child('customStatus').child('emo').exists() || newData.child('customStatus').child('emo').val().length <= 4)))"
+          ".validate": "newData.hasChildren(['name','state']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('state').isString() && newData.child('state').val().length <= 20 && (!newData.child('chat').exists() || (newData.child('chat').child('text').isString() && newData.child('chat').child('text').val().length <= 140 && (!newData.child('chat').child('fly').exists() || newData.child('chat').child('fly').isBoolean()) && (!newData.child('chat').child('flyColor').exists() || (newData.child('chat').child('flyColor').isString() && newData.child('chat').child('flyColor').val().length <= 16)) && (!newData.child('chat').child('flySize').exists() || (newData.child('chat').child('flySize').isString() && newData.child('chat').child('flySize').val().length <= 2)))) && (!newData.child('customStatus').exists() || (newData.child('customStatus').child('text').isString() && newData.child('customStatus').child('text').val().length <= 12 && (!newData.child('customStatus').child('emo').exists() || newData.child('customStatus').child('emo').val().length <= 4))) && (!newData.child('cyc').exists() || (newData.child('cyc').isNumber() && newData.child('cyc').val() >= 1 && newData.child('cyc').val() <= 100)) && (!newData.child('clv').exists() || (newData.child('clv').isNumber() && newData.child('clv').val() >= 1 && newData.child('clv').val() <= 999)) && (!newData.child('starC').exists() || (newData.child('starC').isString() && newData.child('starC').val().matches(/^#[0-9a-f]{6}$/))) && (!newData.child('mobile').exists() || (newData.child('mobile').isString() && newData.child('mobile').val().length <= 40))"
         }
       }
     },
@@ -326,7 +326,7 @@
         },
         "profile": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
-          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && (!newData.child('level').exists() || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 9999))"
+          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && (!newData.child('level').exists() || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 9999)) && (!newData.child('cyc').exists() || (newData.child('cyc').isNumber() && newData.child('cyc').val() >= 1 && newData.child('cyc').val() <= 100)) && (!newData.child('clv').exists() || (newData.child('clv').isNumber() && newData.child('clv').val() >= 1 && newData.child('clv').val() <= 999)) && (!newData.child('starC').exists() || (newData.child('starC').isString() && newData.child('starC').val().matches(/^#[0-9a-f]{6}$/)))"
         },
         "focus": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
@@ -608,6 +608,51 @@
       "$uid": {
         ".write": true,
         ".validate": "newData.hasChildren(['ts']) && newData.child('ts').isNumber() && (!newData.child('name').exists() || (newData.child('name').isString() && newData.child('name').val().length <= 20)) && (!newData.child('n').exists() || newData.child('n').isNumber())"
+      }
+    },
+    "mobileKeys": {
+      "$userId": {
+        ".read": false,
+        ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+        ".validate": "newData.isString() && newData.val().matches(/^[A-Z2-9]{24}$/)"
+      }
+    },
+    "mobileLink": {
+      "$userId": {
+        ".read": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+        ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid && !newData.exists()",
+        "live": {
+          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".validate": "newData.hasChildren(['at']) && newData.child('at').val() === now"
+        },
+        "state": {
+          ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) || (newData.exists() && newData.child('key').val() === root.child('mobileKeys/'+$userId).val() && root.child('mobileLink/'+$userId+'/live').exists())",
+          ".validate": "newData.hasChildren(['on','ts'])",
+          "on":  { ".validate": "newData.isBoolean()" },
+          "app": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "ts":  { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+          "key": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "$other": { ".validate": false }
+        },
+        "$other": { ".validate": false }
+      }
+    },
+    "leaderboard": {
+      ".read": "query.orderByChild == 'sec' && query.limitToLast <= 100",
+      ".indexOn": "sec",
+      "$userId": {
+        ".read": true,
+        ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+        ".validate": "newData.hasChildren(['sec','ts'])",
+        "sec": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 359640000"
+        },
+        "ts": {
+          ".validate": "newData.isNumber() && newData.val() <= now + 60000"
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
     "announce": {

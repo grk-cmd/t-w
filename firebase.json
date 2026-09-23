@@ -1,4 +1,7 @@
 {
+  "database": {
+    "rules": "firebase-database-rules.json"
+  },
   "functions": [
     {
       "source": "functions",
@@ -12,5 +15,19 @@
         "*.local"
       ]
     }
-  ]
+  ],
+  "hosting": {
+    "public": "hosting",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "cleanUrls": true,
+    "headers": [
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Referrer-Policy", "value": "no-referrer" },
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      }
+    ]
+  }
 }

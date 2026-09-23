@@ -621,6 +621,29 @@ else:
         _key17 = _sel17.split()[-1]          # 마지막 조각(.lvx / .np-star / .exp-fill …)으로 대조
         if _key17 not in re.sub(r'\s+', ' ', _red17):
             _miss17.append('움직이는 규칙 "%s" 가 prefers-reduced-motion 목록에 없음' % _sel17[:48])
+    # (e) 🌟 회차(개정 71) — lv-star 는 LV_TIERS 에 없어서 (a)(b) 가 안 센다. 따로 본다.
+    #     JS 가 lvStarBadgeClass/lvStarBarClass 로 붙이는 클래스마다 규칙이 있는가 · 그 블록이 두 토큰을 --pre-c 에서 내려주는가 ·
+    #     별 두 자리(.mh-flv .pre · .seat-nameplate .np-star)가 있는가. 함수가 없으면(회차 전 판) 건너뛴다.
+    _star17 = re.findall(r"function lvStar(?:BadgeClass|BarClass)\(\)\{\s*return\s*'([^']*)'", app)
+    if _star17:
+        _mb17 = re.search(r'\.mh-flv\.lv-star\s*,\s*\.seat-exp\.lv-star\s*\{([^{}]*)\}', _css17)
+        if not _mb17:
+            _miss17.append('회차 변수 블록(.mh-flv.lv-star, .seat-exp.lv-star) 없음')
+        else:
+            for _v in ('--lv-badge', '--lv-bar'):
+                if _v not in _mb17.group(1):
+                    _miss17.append('회차 블록에 %s 가 없음' % _v)
+            if 'var(--pre-c' not in _mb17.group(1):
+                _miss17.append('회차 블록이 --pre-c(고른 색)를 안 읽음 — 색을 박아 넣었나?')
+        for _mk in sorted({w for c in _star17 for w in c.split()}):
+            if not re.search(r'\.(?:mh-flv|seat-exp)\.%s\b' % re.escape(_mk), _css17):
+                _miss17.append("회차 표식 '%s' 를 JS 가 붙이는데 CSS 규칙이 없음" % _mk)
+        if not re.search(r'\.mh-flv\s+\.pre\s*\{', _css17):
+            _miss17.append('배지 별(.mh-flv .pre) 규칙이 없음')
+        _np17 = re.search(r'\.seat-nameplate\s+\.np-star\s*\{([^{}]*)\}', _css17)
+        if not _np17 or 'background-clip:text' not in _np17.group(1).replace(' ', ''):
+            _miss17.append('이름표 별(.seat-nameplate .np-star · background-clip:text) 규칙이 없음')
+        _marks17 = sorted(set(_marks17) | {'lv-star'})
     if _miss17:
         for _m in _miss17:
             problems.append('검사17: ' + _m + ' — 배지/바가 색 없는 회색 칸으로 나옵니다')

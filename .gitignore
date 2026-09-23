@@ -22,3 +22,4 @@ app/parts/firebase-config.js
 # npm pack 산출물(node-window-manager · uiohook-napi)과 파일 전달용 압축.
 *.tgz
 checks.zip
+.firebase/

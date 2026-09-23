@@ -236,6 +236,7 @@
   let _myPokeRef = null, _myPokeListener = null, _memberId = null, _roomCode = null;
   let _friendListListeners = {};   // {friendId: {profileUnsub, presenceUnsub, bioUnsub, avatarUnsub}} — 각 친구별 실시간 구독 정리용
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
+  let _mobLive = null;   // 📱 태블릿·폰 연결 — { uid, stop } (mobileLinkStart)
   let _sessionRef = null, _sessionId = null, _sessionUnsub = null, _sessionLost = false;   // 🖥️ 한 계정 한 기기(claimDeviceSession)
   // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
   /* 🔒 단, **시크릿룸 코드는 기기 밖으로 내보내지 않는다.**
@@ -530,6 +531,7 @@
         const p = ps.val() || {};
         return { name: p.name ? String(p.name) : null,
           level: (typeof p.level === 'number' && p.level >= 1) ? p.level : null,
+          cyc: p.cyc, clv: p.clv, starC: p.starC,   // 🌟 회차(개정 70) — 거르는 것은 app.js starFromRemote
           avatar: as.val() || null };
       }catch(e){ console.warn('[플레이리스트] 명함 읽기 실패', e); return null; }
     },
@@ -983,6 +985,35 @@
         return { ok:false, reason, denied, authed: !!(auth && auth.currentUser) };
       }
     },
+    /* ═══════════ 🏆 전체 랭킹 (개정 73 · handoff-ranking.md) ═══════════
+         leaderboard/{userId} = { sec: 누적초, ts: 서버 시각 }
+       ★ 이름·사진을 싣지 않는다 — 화면은 **내 순위 하나**만 보여준다. 표에 남는 건 코드와 시간뿐.
+       ★ 값은 syncFocusTotal 이 돌려준 **서버 총합**이다(여러 기기 합산이 끝난 값). 로컬 누적을 여기 쓰지 않는다.
+       ⚠️ 규칙: 목록 읽기는 «sec 정렬 + limitToLast ≤ 100» 쿼리만(playlistIndex 와 같은 방식 · 표 통째 읽기 거부).
+         한 줄 읽기(leaderboard/{코드})는 열려 있다 — 아래 «같은 값이면 안 씀» 이 그걸 쓴다.
+       ★ 같은 sec 를 다시 쓰지 않는 이유: ts 가 동점 순서(먼저 도달한 사람이 위)다. 부팅마다·기기마다 같은 값을
+         새 ts 로 덮으면 동점에서 뒤로 밀린다. 그래서 서버 줄의 sec 가 같으면 쓰지 않는다(읽기 1회). */
+    async setLeaderboardSec(userId, sec){
+      await _whenAuthReady();   // 소유권 쓰기 — syncFocusTotal 과 같은 대기선
+      try{
+        const CAP = 999*3600*100;   // ⚠️ focus/totalSec 과 같은 상한(규칙 leaderboard/sec 도 같은 값 · sim-focus-cap 3절)
+        const v = Math.min(CAP, Math.max(0, Math.floor(Number(sec) || 0)));
+        const r = ref(db, `leaderboard/${userId}`);
+        let cur = null; try{ const s0 = await get(r); cur = s0.val(); }catch(_){}
+        if(cur && Number(cur.sec) === v) return { ok:true, sec: v, same:true };
+        await set(r, { sec: v, ts: serverTimestamp() });
+        return { ok:true, sec: v };
+      }catch(e){ return { ok:false, reason: String((e && e.message) || e) }; }
+    },
+    /* 상위 100줄 — [{ uid, sec, ts }]. 순서는 부르는 쪽(rankOf)이 다시 매긴다. 실패 = null(«없음» 과 구분). */
+    async fetchLeaderboardTop(){
+      try{
+        const snap = await get(query(ref(db, 'leaderboard'), orderByChild('sec'), limitToLast(100)));
+        const out = [];
+        snap.forEach(ch => { const v = ch.val() || {}; out.push({ uid: ch.key, sec: Number(v.sec) || 0, ts: Number(v.ts) || 0 }); });
+        return out;
+      }catch(e){ console.warn('[랭킹] 읽기 실패', e); return null; }
+    },
     /* ═══════════ 👑 달성표 (주간 5일 달성) ═══════════
          users/{uid}/chal = { ts, week, kind, cfg, pendingCfg, auto, days, today }
        ★ 병합 정책은 **가챠 쪽(ts 최신 승)** 을 베꼈다 — focus/totalSec 의 max+증분이 아니다.
@@ -1009,14 +1040,36 @@
     /* 내 프로필(이름·레벨) 저장 — 친구 목록에서 상대방에게 보여줄 값.
        ★ level을 여기에 함께 넣는 이유: 친구 목록은 이미 users/{id}/profile을 구독하고 있어서
          읽기 비용이 전혀 늘지 않는다. 쓰기도 레벨이 실제로 바뀔 때만 1회(숫자 하나)라 사실상 0. */
-    async setMyProfile(userId, name, level){
+    async setMyProfile(userId, name, level, star){
       /* 🚧 부팅 직후 첫 쓰기다. 세션 복원을 기다리지 않으면 구글에 묶인 계정에서
          permission_denied 가 나고, 부르는 쪽(app.js initMyHome)이 그 예외로 중단된다. */
       await _whenAuthReady();
       const rec = { name: name||'(이름 없음)', updatedAt: Date.now() };
       const lv = parseInt(level, 10);
       if(isFinite(lv) && lv >= 1 && lv <= 9999) rec.level = lv;
+      /* 🌟 회차(개정 70) — { cyc, clv, starC }. 규칙과 같은 범위만 싣는다(cyc 1~100 · clv 1~999 · #rrggbb).
+         ★ level 은 해금 레벨 그대로다(999 에서 멈춤). 친구 목록의 별 배지는 이 세 필드로 그린다.
+         ⚠️ set() 통째 덮어쓰기라 **부르는 곳이 매번 star 를 넘겨야** 한다 — 빠뜨리면 회차가 지워진다(app.js myStarOut()). */
+      if(star){
+        const cy = parseInt(star.cyc, 10), cl = parseInt(star.clv, 10);
+        const hex = v => typeof v === 'string' && /^#[0-9a-f]{6}$/.test(v);
+        if(cy >= 1 && cy <= 100 && cl >= 1 && cl <= 999){
+          rec.cyc = cy; rec.clv = cl;
+          /* 🌟 [개정 71] starC 가 비어 오면 = 이 기기에 고른 색이 없다(새 기기 · 받아 오기 전). 서버의 기존 값을 **지킨다** —
+             안 지키면 set() 통째 덮어쓰기가 다른 기기에서 고른 색을 지운다. 읽기는 이 경우에만 한 번. */
+          let sc = star.starC;
+          if(!hex(sc)){ try{ const cur = (await get(ref(db, `users/${userId}/profile/starC`))).val(); if(hex(cur)) sc = cur; }catch(_){} }
+          if(hex(sc)) rec.starC = sc;
+        }
+      }
       await set(ref(db, `users/${userId}/profile`), rec);
+    },
+    /* 🌟 회차 별 색 받아 오기(개정 71) — 프로필 starC 한 값만 읽는다(프로필은 공개 읽기). #rrggbb 가 아니면 null.
+       팔레트 대조는 app.js(_starColorOk)가 한다. */
+    async fetchProfileStarC(userId){
+      if(!userId) return null;
+      try{ const v = (await get(ref(db, `users/${userId}/profile/starC`))).val(); return (typeof v === 'string' && /^#[0-9a-f]{6}$/.test(v)) ? v : null; }
+      catch(_){ return null; }
     },
     // 온라인 상태 등록 — onDisconnect로 앱이 꺼지거나 튕기면 자동으로 offline 처리됨.
     setMyPresenceOnline(userId){
@@ -1084,6 +1137,61 @@
         onDisconnect(_myPresenceRef).set({ online:false, lastSeen: Date.now() });
       }
       set(_myPresenceRef, { online: _presenceOnline, lastSeen: Date.now(), room: _presenceOnline ? _presenceRoom : null, inRoom: _presenceOnline ? _presenceInRoom : false });
+    },
+    /* ═══════════ 📱 태블릿·폰 포커싱 연결 (개정 74 · handoff-2026-09-18 §4) ═══════════
+       mobileKeys/{uid}       = "<키>"                 읽기 금지 · PC 만 쓴다(규칙)
+       mobileLink/{uid}/live  = { at }                 PC 가 켜져 있다는 표시 · onDisconnect remove
+       mobileLink/{uid}/state = { on, app, ts, key }   폰이 REST 로 쓴다(key 일치 + live 존재일 때만 · 규칙)
+       ⚠️ presence 를 «PC 켜짐» 으로 쓰지 않는다 — «오프라인으로 보이기» 가 online:false 를 써서 폰 연결까지 끊긴다.
+       ★ 키가 없는 사람(연결 안 한 사람)에게는 이 통로가 **한 번도 안 불린다** — 읽기·쓰기 0. */
+    async mobileLinkStart(userId, cb){
+      if(!userId || typeof cb !== 'function') return null;
+      await _whenAuthReady();
+      if(_mobLive && _mobLive.uid === userId) return _mobLive.stop;
+      if(_mobLive) _mobLive.stop();
+      const liveRef  = ref(db, `mobileLink/${userId}/live`);
+      const stateRef = ref(db, `mobileLink/${userId}/state`);
+      const arm = ()=>{
+        try{ onDisconnect(liveRef).remove(); }catch(_){}
+        set(liveRef, { at: serverTimestamp() }).catch(e=>console.warn('[📱] live 쓰기 실패', e && e.code));
+      };
+      arm();
+      /* 부팅 초기화 — 어제 «닫힘» 이 빠진 채 남은 «켜짐» 이 오늘 시간을 쌓지 않게. on 만 내린다(앱 이름·key 는 둔다). */
+      try{ const s = (await get(stateRef)).val(); if(s && s.on === true) await update(stateRef, { on:false }); }catch(_){}
+      const connRef = ref(db, '.info/connected');
+      const onConn = s=>{ if(s.val() === true) arm(); };
+      try{ onValue(connRef, onConn); }catch(_){}
+      const onState = s=>{ try{ cb(s.val() || null); }catch(_){} };
+      onValue(stateRef, onState, e=>{ console.warn('[📱] 구독 실패', e && e.code); try{ cb(null); }catch(_){} });
+      const stop = ()=>{
+        try{ off(connRef, 'value', onConn); }catch(_){}
+        try{ off(stateRef, 'value', onState); }catch(_){}
+        try{ onDisconnect(liveRef).cancel(); }catch(_){}
+        try{ remove(liveRef); }catch(_){}
+        if(_mobLive && _mobLive.stop === stop) _mobLive = null;
+      };
+      _mobLive = { uid:userId, stop };
+      return stop;
+    },
+    /* 키를 새로 적는다 — 예전 폰은 여기서 끊긴다. 남은 state 도 지운다(예전 폰의 «켜짐» 이 남지 않게). */
+    async mobileSetKey(userId, key){
+      if(!userId || typeof key !== 'string' || key.length < 16 || key.length > 32) return false;
+      await _whenAuthReady();
+      try{
+        await set(ref(db, `mobileKeys/${userId}`), key);
+        try{ await remove(ref(db, `mobileLink/${userId}/state`)); }catch(_){}
+        return true;
+      }catch(e){ console.warn('[📱] 키 저장 실패', e && e.code); return false; }
+    },
+    /* 연결 끊기 — 키 · live · state 를 전부 걷는다. */
+    async mobileUnlink(userId){
+      if(!userId) return false;
+      await _whenAuthReady();
+      if(_mobLive) _mobLive.stop();
+      let ok = true;
+      try{ await remove(ref(db, `mobileLink/${userId}`)); }catch(_){ ok = false; }
+      try{ await remove(ref(db, `mobileKeys/${userId}`)); }catch(_){ ok = false; }
+      return ok;
     },
     /* ═══════════ 📅 스케줄러 ═══════════
        users/{uid}/schedule/{YYYY-MM}/{DD}/{id} = { text, public, tags, ts }
@@ -1581,6 +1689,8 @@
             //  ★ 값이 없으면 null. '아직 새 버전으로 접속 안 한 친구'와 '진짜 Lv.1'을 구분해야
             //    전원이 Lv.1로 보이는 오해가 안 생긴다(배지를 아예 숨김).
             combined[fid].level = (typeof p.level === 'number' && p.level >= 1) ? p.level : null;
+            //  🌟 회차(개정 70) — 날것 그대로 넘기고 거르는 것은 app.js starFromRemote 한 곳.
+            combined[fid].cyc = p.cyc; combined[fid].clv = p.clv; combined[fid].starC = p.starC;
             notify(); };
           onValue(profRef, profCb);
           const presRef = ref(db, `users/${fid}/presence`);

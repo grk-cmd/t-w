@@ -5841,17 +5841,35 @@ function lvBarClass(lv){
   const t = lvTierNum(lv);
   return 't' + t + (t >= 7 ? ' lvx' : '') + (t >= 8 ? ' lvglow' : '');
 }
+/* 🌟 회차(999시간을 한 바퀴 채운 뒤) — 티어 자리에 lv-star 가 들어간다 (CHECKS 개정 70).
+   ★ 표식은 그대로 둘뿐이다(lvx 흐름 · lvglow 바 발광). 회차 전용 표식을 새로 만들지 않는다.
+   ★ 배지에는 shine 을 안 붙인다 — 번쩍임은 이름표 별에서만(목록에 여러 줄이 서는 자리 · handoff §3 «두 자리가 뒤집힌다»).
+   ★ star = { cyc: 회차, lv: 이번 바퀴 레벨, color: 팔레트 색 } | null. 만드는 곳은 myFocusShow(나) · starFromRemote(남) 둘뿐. */
+function lvStarBadgeClass(){ return 'lv-star lvx'; }
+function lvStarBarClass(){ return 'lv-star lvx lvglow'; }
+/* --pre-c 칠하기 — 회차면 얹고 아니면 걷는다(요소를 재활용하므로 걷는 쪽이 꼭 필요하다).
+   ⚠️ 좌석의 이름표와 바는 #seatLabelsLayer 의 **형제**라 좌석마다 공통 조상 요소가 없다(레이어는 전 좌석 공용).
+     그래서 «색 하나를 두 곳에 칠하지 않는다» 는 원칙을 «값 하나(star.color)를 이 함수 하나로 칠한다» 로 지킨다. */
+function _starPaint(el, star){
+  if(!el) return;
+  if(star && star.color) el.style.setProperty('--pre-c', star.color);
+  else el.style.removeProperty('--pre-c');
+}
 /* 레벨 배지 — 친구 목록(_lvBadge)과 **같은 함수**를 쓴다.
    ★ 레벨을 모르는 상대(구버전 접속)는 배지를 아예 숨긴다 — Lv.1 로 오해되지 않게. */
-function _plFillLv(el, lv){
+function _plFillLv(el, lv, star){
   if(!el) return;
   el.textContent = '';
-  if(lv == null){ el.className = ''; return; }
-  const n = Math.max(1, parseInt(lv, 10) || 1);
-  el.className = 'mh-flv ' + lvBadgeClass(n);
-  const p = document.createElement('i'); p.className = 'lvp'; p.textContent = 'Lv';
+  if(lv == null && !star){ el.className = ''; _starPaint(el, null); return; }
+  /* 🌟 회차면 'Lv' 자리에 별이 선다(★342) — 숫자는 **이번 바퀴** 레벨(star.lv). 배지 별은 흰색 고정(CSS .mh-flv .pre). */
+  const n = star ? star.lv : Math.max(1, parseInt(lv, 10) || 1);
+  el.className = 'mh-flv ' + (star ? lvStarBadgeClass() : lvBadgeClass(n));
+  const p = document.createElement('i');
+  if(star){ p.className = 'pre'; p.textContent = lvStarStr(star.cyc); }
+  else { p.className = 'lvp'; p.textContent = 'Lv'; }
   el.appendChild(p);
   el.appendChild(document.createTextNode(String(n)));
+  _starPaint(el, star);
 }
 /* 사진 칸 채우기 — 사진이 없으면 실루엣 글자로 떨어진다(칸이 비면 줄이 무너져 보인다). */
 function _plFillAva(el, url){
@@ -5896,7 +5914,8 @@ function _plRenderHead(){
 
   const lv = ro ? (card.level != null ? card.level : null)
                 : (typeof getFocusLevel === 'function' ? getFocusLevel() : null);
-  _plFillLv(document.getElementById('myPlLv'), lv);
+  const st = ro ? starFromRemote(card) : myFocusShow();   // 🌟 회차면 별 배지(개정 70)
+  _plFillLv(document.getElementById('myPlLv'), lv, st);
 
   const avaUrl = ro ? (card.avatar || null) : _plMyAvatar();
   const ava = document.getElementById('myPlAva');
@@ -8052,6 +8071,7 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     '#chatOverlay',         // 💬 대화창
     '#wardrobePanel', '#wdPreviewPanel',   // 🎨 꾸미기·미리보기
     '#myHomeOverlay', '#bellWin', '#focusLogOverlay',
+    '#mobLinkOverlay',      // 📱 태블릿·폰 연결 창 — 설정에서 열었으므로 눌러도 설정이 안 닫힌다
     '.gacha-ov', '.idesk-ov', '.toast'
   ].join(', ');
   document.addEventListener('click', e=>{
@@ -11871,6 +11891,8 @@ async function initMyHome(){
     const myId = getMyUserId();
     try{
       firebaseAPI.setMyPresenceOnline(myId);
+      /* 📱 태블릿·폰 연결 — presence 등록 직후(§4-②). 키가 없는 사람은 아무 일도 안 한다. */
+      try{ _mobileStart(); }catch(_){}
       /* 🖥️ [2026-09-17 제보 3] 한 계정 한 기기 — 로그인 계정이면 이 기기를 «지금 쓰는 기기» 로 적는다.
          다른 기기가 나중에 적으면 _onDeviceSessionLost 가 불린다. 규칙 미배포·미로그인이면 false 로 조용히 지나간다. */
       try{ if(firebaseAPI.claimDeviceSession) firebaseAPI.claimDeviceSession(myId, _onDeviceSessionLost); }catch(_){}
@@ -11883,7 +11905,8 @@ async function initMyHome(){
          ★ 원칙: 읽기(구독)는 쓰기의 성공에 기대지 않는다. 규칙상 users/{코드} 읽기는 항상
            열려 있으므로, 쓰기가 어떻게 되든 구독은 반드시 걸려야 한다.
          ⚠️ 여기에 await 쓰기를 새로 얹지 말 것. 얹어야 한다면 반드시 자기 try 로 감쌀 것. */
-      try{ await firebaseAPI.setMyProfile(myId, getDisplayName(), getFocusLevel()); }
+      try{ await _adoptStarColorFromProfile(); }catch(_){}   // 🌟 색 받아 오기(읽기) — 아래 첫 프로필 쓰기보다 먼저(개정 71)
+      try{ await firebaseAPI.setMyProfile(myId, getDisplayName(), getFocusLevel(), myStarProfileOut()); }
       catch(e){ _warnOwnerWriteDenied('프로필', e); }
       try{ await ensureMyFriendCode(); }
       catch(e){ console.warn('[마이홈] 친추 코드 확보 실패 — 구독은 그대로 진행', e); }
@@ -12435,7 +12458,11 @@ function renderMyHomeFriendList(){
   /* 🏅 레벨 배지 — 구간·표식 클래스는 lvBadgeClass() 한 곳에서 나온다.
      ⚠️ 여기에 경계값을 다시 적지 말 것. 예전에는 같은 삼항 사슬이 이 자리와 _plFillLv,
        경험치 바 세 군데에 복사돼 있어서 한 곳만 고치면 색이 어긋났다. */
-  const _lvBadge = (lv)=>{
+  const _lvBadge = (lv, f)=>{
+    /* 🌟 회차 친구 — 흰 별 + 이번 바퀴 레벨 · 몸통은 그 사람이 고른 색(개정 70).
+       ★ 색은 starFromRemote 가 **팔레트 안의 값으로만** 돌려준다. 그래도 속성값이라 escHtml 을 한 겹 더 건다(audit 검사 19). */
+    const st = starFromRemote(f);
+    if(st) return '<span class="mh-flv ' + escHtml(lvStarBadgeClass()) + '" style="--pre-c:' + escHtml(st.color) + '"><i class="pre">' + lvStarStr(st.cyc) + '</i>' + st.lv + '</span>';
     // 레벨 정보가 없는 친구(구버전 접속 상태)는 배지를 표시하지 않는다 — Lv.1로 오해되지 않게.
     if(lv == null) return '';
     const n = Math.max(1, parseInt(lv,10) || 1);
@@ -12479,7 +12506,7 @@ function renderMyHomeFriendList(){
       row.innerHTML = `<span class="mh-fdot ${f.online?'on':'off'}"></span>
         <span class="mh-favatar" style="cursor:pointer;"></span>
         <span class="mh-fmain">
-          <span class="mh-fname">${_mhHl(f.name||'(이름 없음)', _q)}${_lvBadge(f.level)}${inRoom?' 🏠':''}</span>
+          <span class="mh-fname">${_mhHl(f.name||'(이름 없음)', _q)}${_lvBadge(f.level, f)}${inRoom?' 🏠':''}</span>
           <span class="mh-fsub">${escHtml(sub)}</span>
         </span>${pill}
         <span class="mh-fremove" title="친구 삭제">✕</span>`;
@@ -21630,7 +21657,7 @@ const LABEL_INV_GAP_PX = 5;
       머리 위'를 유지하기 때문이다 — 여기서 같이 뒤집으면 말풍선까지 발밑으로 내려간다.
    false 로 두면 예전 3자리 규칙으로 그대로 돌아간다. */
 const NAMEPLATE_BELOW_EXPBAR = true;
-function setSeatNamePlate(seat, level, name){
+function setSeatNamePlate(seat, level, name, star){
   const el=ensureSeatNamePlateEl(seat); if(!el) return;
   // ★ 말풍선(headAnchor 기준, userScale에 비례)이랑 순서가 안 뒤집히게 이름표도 같은 비례식으로 "머리 바로 위" 높이 계산.
   //   group 기준(rig 아님)이라 흔들기/드래그 중에도 책상·상태칩처럼 제자리 고정.
@@ -21684,8 +21711,19 @@ function setSeatNamePlate(seat, level, name){
      ・직속 여부만 보면 충분하다 — ridingOn 이 있으면 2층이든 5층이든 전부 숨는다.
      ・updateSeatAnnounceEl 뒤에 두는 게 중요하다 — 앞에서 return하면 공지 배너 갱신이 멈춘다. */
   if(seat.ridingOn){ el.style.display='none'; return; }
-  const text='Lv.'+level+'  '+name;
-  if(el.textContent!==text) el.textContent=text;
+  /* 🌟 회차면 'Lv.' 자리에 색 있는 별(.np-star · 번쩍임)이 선다 — «★342  이름» (개정 70).
+     ★ 매 프레임 불리므로 열쇠(_npKey)가 같으면 DOM 을 안 건드린다. 별은 span 이라 textContent 비교로는 못 잰다. */
+  const key = star ? ('\u2605|' + star.cyc + '|' + star.color + '|' + level + '|' + name) : ('Lv.' + level + '  ' + name);
+  if(el._npKey !== key){
+    el._npKey = key;
+    if(star){
+      el.textContent = '';
+      const sp = document.createElement('span'); sp.className = 'np-star'; sp.textContent = lvStarStr(star.cyc);
+      el.appendChild(sp);
+      el.appendChild(document.createTextNode(level + '  ' + name));
+    } else el.textContent = key;
+    _starPaint(el, star);
+  }
   el.style.display='block';
 }
 // ★ 런처5: 공지 배너 element 관리 — 활성 공지가 있으면 이름표 위에 200px 마퀴로 표시.
@@ -22238,6 +22276,7 @@ function seatState(seat,now){
   // 포커싱 어플 게이트: 데스크톱 모드에서, 등록된 앱이 없거나 등록된 앱을 안 쓰는 중이면
   // (직접 쓰다듬기·흔들기 등은 위에서 이미 처리됐으므로) 자동 idle/focus 판정은 sleep으로 대체.
   if(desktopMode && focusGateSleep) return 'sleep';
+  if(seat.isMe && typeof _mobileOn === 'function' && _mobileOn()) return 'focus';   // 📱 폰에서 그리는 중 — 집중 포즈
   const idle=now-lastActivity;
   if(idle<focusWindowMs())return 'focus'; if(idle>SLEEP_MS)return 'sleep'; return 'idle'; }
 function triggerPet(seat){ const now=performance.now(); seat.petStart=now; if(seat.blink) seat.blink.pulses.push({start:now,dur:240}); }
@@ -29378,7 +29417,9 @@ const Presence=(()=>{
     finally{ _scheduleAutoAwayTick(); }   // 어떤 경우에도 다음 틱은 계속 예약 (루프가 끊기지 않게)
   }
   async function _autoAwayCheck(){
-    const idle = await _idleMs();
+    /* 📱 폰에서 포커싱 어플을 쓰는 중이면 PC 입력이 없어도 자리에 있는 것이다 — 20분 자동 자리비움 · 6시간 퇴장을 건너뛴다.
+       0 으로 두면 이미 자동 자리비움이었던 사람은 아래 «활동 재개» 갈래로 복원된다. */
+    const idle = (typeof _mobileOn === 'function' && _mobileOn()) ? 0 : await _idleMs();
     // 밥먹는중·게임중은 자리를 비운 게 아니라 의도적으로 둔 상태 — 자동 전환하지 않음
     const skipStatus = myUserStatus === 'meal' || myUserStatus === 'gaming';
     // 상태 변경은 전역 setUserStatus로 해야 UI(상태칩)+캐릭터 모션까지 함께 갱신됨.
@@ -29429,7 +29470,7 @@ const Presence=(()=>{
   }
   async function start(roomCode, def, name, changeCb){
     if(provider) await stop();   // 이미 연결돼있는데 다시 시작하면(연결끊기 없이 재접속 등) 이전 접속 삭제가 끝난 뒤에 새로 join — 안 그러면 옛 항목이 아직 안 지워진 채로 남아 자기 자신이 중복으로 보일 수 있음
-    room=roomCode; myDef=def; myName=name||'나'; myLevel=getFocusLevel(); onChange=changeCb||onChange; friends={};
+    room=roomCode; myDef=def; myName=name||'나'; myLevel=getFocusLevel(); _lvKey=''; onChange=changeCb||onChange; friends={};
     _myPokeSeenTs = 0; _joinedAt = _srvNow();   // 🛰 새 방 = 새 우편함. 들어오기 전 알림은 안 읽는다
     // ✨ 앱 재시작 후 첫 접속 — localStorage에서 복원된 커스텀 상태 문구를 join 페이로드에 실어보냄
     //   (setCustomStatus를 거치지 않고 바로 join하는 경로라 여기서 한 번 동기화해줘야 친구 화면에 문구가 보임)
@@ -29455,7 +29496,7 @@ const Presence=(()=>{
     try{ myFocusShow = _focusShowConf(); _focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
     try{ myNoise = (window.TW_NOISE && TW_NOISE.kind) ? TW_NOISE.kind() : ''; }catch(_){ myNoise = ''; }   // 🌙 입장 때 한 번
     const _st0 = _statusOut();
-    provider.join(room, {def:myDef,name:myName,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel,userId:getMyUserId(), noise:myNoise, lic:_myLicenseFlag(), awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
+    provider.join(room, {def:myDef,name:myName,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel, ...myStarOut(),mobile:_mobileRoomLabel(),userId:getMyUserId(), noise:myNoise, lic:_myLicenseFlag(), awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
       // 다른 사람이 내 캐릭터를 쓰다듬거나 흔들었을 때 — 내 화면의 'me' 좌석에 그 반응을 그대로 재생
       p=>{ const me=seats.find(s=>s.isMe); if(!me||!p) return;
         /* 🛰 같은 알림을 두 번 재생하지 않고, 지나간 알림은 아예 보지 않는다.
@@ -29543,6 +29584,8 @@ const Presence=(()=>{
      ★ 상태(밥·자리비움·커스텀 …)가 있으면 그것이 그대로 나간다 = 상태 메시지 우선 · 남의 설정을 덮지 않는다.
      ⚠️ 규칙: customStatus.text ≤ 12 · emo ≤ 4 — «오늘 99:59» 10자 · 🕒 2 로 안에 든다(규칙 변경 없음). */
   function _statusOut(){
+    /* 📱 폰 켜짐이면 🕒 오늘 기록보다 «📱 앱» 이 먼저다(사용자가 고른 상태는 그대로 이긴다) — 받는 쪽이 mobile 칸을 띄운다. */
+    if(!myUserStatus && typeof _mobileOn === 'function' && _mobileOn()) return { userStatus:myUserStatus, customStatus:myCustomStatus };
     if(!myUserStatus && myFocusShow) return { userStatus:'custom', customStatus:myFocusShow };
     return { userStatus:myUserStatus, customStatus:myCustomStatus };
   }
@@ -29566,12 +29609,15 @@ const Presence=(()=>{
     myFocusShow = v;
     if(provider && provider.update) provider.update(_basePayload());
   }
-  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), danceStyle:_myDanceStyle(), flyCool:_myFlyCool(), noise:myNoise}; }
+  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...myStarOut(), lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:_mobileRoomLabel(), danceStyle:_myDanceStyle(), flyCool:_myFlyCool(), noise:myNoise}; }
   /* 올라타기/하차 직후 즉시 반영 — 상태 틱을 기다리면 상대 화면에 몇 초 늦게 나타난다. */
   function broadcastRide(){ try{ if(provider && provider.update) provider.update(_basePayload()); }catch(_){} }
   function setState(s){ if(s===myState)return; myState=s; if(provider&&provider.update)provider.update(_basePayload()); }
   function setUserStatus(s){ if(s===myUserStatus)return; myUserStatus=s; _clearAutoAwayMarks(); if(provider&&provider.update)provider.update(_basePayload()); }
-  function setLevel(n){ if(n===myLevel)return; myLevel=n; if(provider&&provider.update)provider.update(_basePayload()); }
+  /* 🌟 회차에서는 해금 레벨(n)이 999 에 머문다 — 이번 바퀴 레벨·회차·색도 같이 보고 바뀌었을 때만 보낸다(개정 70).
+     ★ 매 프레임 불린다(좌석 루프) — 값 비교만 하고 쓰기는 바뀔 때 한 번. */
+  let _lvKey = '';
+  function setLevel(n){ const so=myStarOut(), k=n+'|'+so.cyc+'|'+so.clv+'|'+so.starC; if(k===_lvKey)return; _lvKey=k; myLevel=n; if(provider&&provider.update)provider.update(_basePayload()); }
   /* 🏷️ 닉네임 변경을 방에 즉시 반영.
      [제보] 마이홈에서 닉네임을 바꿔도 이름표에 바로 안 나온다.
      [원인] myName 은 start() 에서 **한 번만** 잡혔다. 방에 들어간 뒤 이름을 바꾸면 다시 들어가기
@@ -30210,10 +30256,12 @@ function syncFriendSeats(friends){
       if(wantSeats && (wantSeats!==haveSeats || s.benchDeskId!==wantDeskId)){ attachBenchToSeat(s, wantSeats, wantDeskId); }
       else if(!wantSeats && haveSeats){ seats.filter(o=>o.seatedOn===s).forEach(unmountBench); s.group.remove(s.bench); s.bench=null; s.benchSlots=null; s.benchDeskId=null; s.benchOccupants={}; s._benchOwnerSit=false; s._benchSit=false; if(s.desk) s.desk.visible=true; }
     }
+    s.remoteMobile=_mobileCleanApp(friends[id].mobile);   // 📱 폰에서 쓰는 앱 이름(없으면 빈 문자열 · 구버전은 칸이 없다)
     s.remoteCustomStatus=friends[id].customStatus||null;   // ✨ 친구의 커스텀 상태 문구 {emo,text}
     s.remoteAwayImg=_awayUrlOk(friends[id].awayImg) ? friends[id].awayImg : null;   // 🫧 자리비움 그림(Storage URL 만)
     s.remoteNoise=(typeof friends[id].noise === 'string' && /^(pencil|keyboard|page)$/.test(friends[id].noise)) ? friends[id].noise : null;   // 🌙 백색소음 종류 — 모르는 값은 버린다(parts/noise.js 가 읽는다)
     s.friendLevel=friends[id].level||1;
+    s.friendStar=starFromRemote(friends[id]);   // 🌟 회차 · 이번 바퀴 레벨 · 색(모르는 값은 버린다 · 옛 판은 null)
     /* ⭐ 상대 경험치 진행도(0~12칸). 구버전 상대는 이 필드가 없어서 undefined → null로 두고 바를 안 그린다.
        0으로 채우면 상대가 "방금 레벨업했다"로 잘못 읽힌다. */
     s.friendExp = (friends[id].exp==null) ? null : Math.max(0, Math.min(EXP_CELLS, friends[id].exp|0));
@@ -30624,7 +30672,7 @@ function commitUserName(raw){
   setUserName(v || '나');
   toast('이름이 저장됐어요');
   // ★ 마이홈 친구 목록에도 새 이름이 보이도록 프로필도 같이 갱신(마이홈 초기화 전이면 조용히 무시됨)
-  if(window.firebaseAPI && firebaseAPI.setMyProfile){ try{ firebaseAPI.setMyProfile(getMyUserId(), getDisplayName(), getFocusLevel()); }catch(e){} }
+  if(window.firebaseAPI && firebaseAPI.setMyProfile){ try{ firebaseAPI.setMyProfile(getMyUserId(), getDisplayName(), getFocusLevel(), myStarProfileOut()); }catch(e){} }
   // 🏷️ 방에 들어가 있으면 친구 화면의 내 이름표도 즉시 갱신 — 예전엔 방을 다시 들어가야 바뀌었다.
   try{ if(typeof Presence!=='undefined' && Presence.active() && Presence.setName) Presence.setName(getDisplayName()); }catch(_){}
   const nameEl=document.getElementById('mhMyName'); if(nameEl) nameEl.textContent=getDisplayName();   // 마이홈 페이지가 열려있으면 표시도 즉시 갱신
@@ -31194,6 +31242,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
      문자열로 적는다: 상수는 이 목록보다 뒤에 선언된다(검사가 이 함수만 떼어 돌린다). flush 가 먼저 올린다. */
   'deskFriends.chars.v1', 'deskFriends.chars.desk', 'deskFriends.chars.trashPend',
   'tw.charsLinked',            // F 안내 표시(개정 57) — 옮긴 cid 목록 · 다음 사람에게 띄울 것이 아니다
+  'tw.starColor',              // 🌟 회차 별 색(개정 71) — 프로필 starC 가 돌아올 길이다(_adoptStarColorFromProfile). 남으면 다음 계정 프로필에 앞 사람 색이 실린다
   /* ⚠️ SLOTS_BAK_KEY(덮어쓰기 직전 백업)는 **일부러 빼 두었다.** 위 ⚠️ 의 「돌아오는 길이 없는
      항목을 여기 넣으면 로그아웃이 곧 삭제」가 그 이유다 — 백업은 정의상 서버에 없는 것이라
      지우면 그것으로 끝이다. 남의 캐릭터를 주워 가는 길은 restoreSlotsBackup 의 uid 대조로 막는다.
@@ -31545,7 +31594,7 @@ function refreshAccountTab(){
          줄마다 섬네일 · «마지막 수정 M/D» · [슬롯에 올리기](_charsBoxToDesk). 개수는 «보관함 (n/20)» — «마리» 라는 말은 쓰지 않는다.
          보관함이 아직 안 열렸으면(스위치 · 첫 채택 전) 한 줄로 알린다. 맨 아래 [코드로 캐릭터 불러오기](#codeOverlay).
      · [계정] — C4 그대로(refreshAccountTab · _acctMethodsRender · 로그아웃 3단계 · _slotsRenderAcctSync).
-     · [휴지통] (개정 49 · 시안 E) — 탭 순서 보관함 · 계정 · 휴지통(사용자 결정). 보관함이 열린 PC 에서만 보인다. «휴지통 N» · 붉은 글자.
+     · [휴지통] (개정 49 · 시안 E) — 탭 순서 보관함 · 휴지통 · 계정(개정 69 에서 사용자가 다시 정함 · 옛 순서 보관함 · 계정 · 휴지통). 보관함이 열린 PC 에서만 보인다. «휴지통 N» · 붉은 글자.
          줄마다 섬네일 · 이름표 «옮김»(3일) / «연동 교체»(10일) · «M/D 사라져요» · [복원](폭 고정 · 무조건 보관함으로 · 20 이면 붉은 상자).
          보관함 줄 끝의 붉은 아이콘 = [휴지통 이동](그 줄 안에서 되묻기). 어떤 줄을 보일지는 _charsTrashView(순수) 몫.
      · [보관함] 가득 참 (개정 51 · 시안 D2) — 보관함 20 이상이면 노란 경고 · 체크칸 · [선택한 캐릭터 휴지통으로 (k)] → 되묻기 → 한꺼번에(_charsBoxTrashMany).
@@ -31560,6 +31609,7 @@ function openMyInfo(tab){
   try{ closeGearMenu(); }catch(_){}
   pg.style.display = 'block'; pg.scrollTop = 0;
   _miNameEditEnd();
+  _miStarOpen = false;                              // 🌟 별 색 구획은 열 때마다 닫힌 채 시작한다(시안 v2 · 개정 69)
   _miRenderHead();
   _miSetTab(tab);
   _miTrashLoad();                                   // 휴지통 탭 글자 «휴지통 N» — 보관함이 열린 PC 에서만 읽는다
@@ -31568,6 +31618,7 @@ function closeMyInfo(){
   const pg = document.getElementById('lcMyInfo'); if(!pg) return;
   _miNameEditEnd();
   _miBoxAsk = null; _miTrashFullShown = false; _miPick.clear(); _miBulkAsk = false;
+  _miStarOpen = false;
   pg.style.display = 'none';
   try{ renderLauncher(); }catch(_){}
 }
@@ -31582,7 +31633,7 @@ function _miSetTab(tab){
   if(pb) pb.style.display = _miTab === 'box' ? 'block' : 'none';
   if(pa) pa.style.display = _miTab === 'acct' ? 'block' : 'none';
   if(pt) pt.style.display = _miTab === 'trash' ? 'block' : 'none';
-  [['miTabBox','box'], ['miTabAcct','acct'], ['miTabTrash','trash']].forEach(([id, k]) => {
+  [['miTabBox','box'], ['miTabTrash','trash'], ['miTabAcct','acct']].forEach(([id, k]) => {
     const b = $e(id); if(!b) return;
     const on = k === _miTab;
     b.style.background = on ? '#fff' : 'var(--win-face)';
@@ -31595,13 +31646,133 @@ function _miSetTab(tab){
   else if(_miTab === 'trash') _miRenderTrash();
   else _miRenderBox();
 }
+/* ═══ 🏆 [내 정보] 전체 랭킹 1~100위 (시안 v2 B안 + 후광 ② 확정 · 2026-09-23 · CHECKS 개정 73 · handoff-ranking.md) ═══
+   ★ 기준은 누적 집중 시간 하나(회차 포함). 표시 레벨(myFocusShow)·해금 레벨(getFocusLevel)로 매기지 않는다 —
+     그렇게 하면 2회차 Lv.5 가 1회차 Lv.900 아래로 간다.
+   ★ 동점은 먼저 도달한 사람이 위(ts 오름). 서버는 같은 sec 를 키 순으로 주므로 받은 100줄을 여기서 다시 정렬한다.
+     100위 경계의 동점은 서버가 자른 대로다(허용).
+   ★ 100위 밖이면 자리를 비운다 — «100위 밖» 같은 글자도 쓰지 않는다(사용자 결정).
+   ★ 읽기는 [내 정보]를 열 때 한 번 · 60초 캐시. 실패하면 조용히 비운다. 내 기록은 10분 동기화에 실려 몇 분 늦을 수 있다. */
+const LB_TOP_N = 100, LB_CACHE_MS = 60*1000;
+/* 순수 — rows: [{uid, sec, ts}] → 내 순위(1~100) | null */
+function rankOf(rows, uid){
+  if(!Array.isArray(rows) || !uid) return null;
+  const ok = rows.filter(r => r && typeof r.uid === 'string' && isFinite(Number(r.sec)));
+  const tsOf = r => { const t = Number(r.ts); return (isFinite(t) && t > 0) ? t : Infinity; };
+  ok.sort((a, b) => (Number(b.sec) - Number(a.sec)) || (tsOf(a) - tsOf(b)) || (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0));
+  const i = ok.slice(0, LB_TOP_N).findIndex(r => r.uid === uid);
+  return i < 0 ? null : i + 1;
+}
+/* 순수 — 순위 → 보일 모양. null = 자리 비움. 1~3위는 메달 + 큰 글자 · 1위만 왕관·후광. */
+function rankLabel(rank){
+  const n = Number(rank);
+  if(!Number.isInteger(n) || n < 1 || n > LB_TOP_N) return null;
+  const MED = { 1:'🥇', 2:'🥈', 3:'🥉' };
+  return { text: (MED[n] ? MED[n] + ' ' : '') + n + '위', top: n <= 3, crown: n === 1 };
+}
+let _lbSent = null;              // {uid, sec} — 이번 부팅에서 올렸거나 서버와 같다고 확인한 값(같으면 다시 안 부름)
+let _miRankCache = null;         // {uid, at, rank}
+let _miRankSeq = 0;
+function _lbPush(uid, sec){
+  if(!uid || !(window.firebaseAPI && firebaseAPI.setLeaderboardSec)) return;
+  const v = Math.floor(Number(sec) || 0);
+  if(_lbSent && _lbSent.uid === uid && _lbSent.sec === v) return;
+  const p = firebaseAPI.setLeaderboardSec(uid, v);
+  if(p && p.then) p.then(r => {
+    if(!r || !r.ok) return;                                   // 다음 동기화가 다시 시도한다
+    _lbSent = { uid, sec: v };
+    if(!r.same) _miRankCache = null;                          // 내 값이 바뀌었다 — 다음에 열 때 새로 읽는다
+  }).catch(()=>{});
+}
+function _miApplyRank(rank){
+  const $e = id => document.getElementById(id);
+  const L = rankLabel(rank);
+  const box = $e('miRank'), v = $e('miRankV');
+  if(box) box.style.display = L ? '' : 'none';
+  if(v){ v.textContent = L ? L.text : ''; v.classList.toggle('top', !!(L && L.top)); }
+  const halo = $e('miHalo'), crown = $e('miCrown');
+  if(halo) halo.style.display = (L && L.crown) ? '' : 'none';
+  if(crown) crown.style.display = (L && L.crown) ? '' : 'none';
+  const bar = $e('miTopBar'); if(bar) bar.style.marginBottom = (L && L.crown) ? '22px' : '8px';   // 후광이 사진 위로 삐져나오는 만큼 — 1위일 때만
+}
+function _miRenderRank(){
+  let uid = null; try{ uid = (typeof _acctDetached !== 'undefined' && _acctDetached) ? null : getMyUserId(); }catch(_){}
+  const c = _miRankCache;
+  const same = !!(c && uid && c.uid === uid);
+  _miApplyRank(same ? c.rank : null);                        // 같은 계정이면 옛 값을 먼저 그대로(깜빡임 없음)
+  if(!uid || !(window.firebaseAPI && firebaseAPI.fetchLeaderboardTop)) return;
+  if(same && Date.now() - c.at < LB_CACHE_MS) return;
+  const seq = ++_miRankSeq;
+  let p; try{ p = firebaseAPI.fetchLeaderboardTop(); }catch(_){ p = null; }
+  if(!(p && p.then)) return;
+  p.then(rows => {
+    if(seq !== _miRankSeq) return;
+    if(!Array.isArray(rows)){ _miRankCache = null; if(_miIsOpen()) _miApplyRank(null); return; }   // 실패 — 조용히 비움
+    const rank = rankOf(rows, uid);
+    _miRankCache = { uid, at: Date.now(), rank };
+    if(_miIsOpen()) _miApplyRank(rank);
+  }).catch(() => { if(seq === _miRankSeq && _miIsOpen()) _miApplyRank(null); });
+}
 function _miRenderHead(){
   const $e = id => document.getElementById(id);
   const nick = $e('miNick'); if(nick){ let n = ''; try{ n = getDisplayName(); }catch(_){} nick.textContent = n; }
   /* 🏅 레벨 배지 — 친구 목록 배지와 **같은 함수**(_plFillLv → .mh-flv + lvBadgeClass). 모양·티어 색을 여기서 따로 만들지 않는다. */
-  const lv = $e('miLv'); if(lv){ let n = 1; try{ n = getFocusLevel(); }catch(_){} _plFillLv(lv, n); }
+  const lv = $e('miLv'); if(lv){ let n = 1, st = null; try{ n = getFocusLevel(); st = myFocusShow(); }catch(_){} _plFillLv(lv, n, st); }
   const code = $e('miCode'); if(code){ let c = null; try{ c = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){} code.textContent = c || '—'; }
   const p = _miRenderAvatar(); if(p && p.catch) p.catch(()=>{});
+  _miRenderStar();                                  // 🌟 별 색 구획 — 이름표 미리보기에 닉네임이 들어간다(개정 69)
+  _miRenderRank();                                  // 🏆 전체 랭킹 — 비동기 · 60초 캐시 · 실패하면 비움(개정 73)
+}
+/* 🌟 별 색 구획 (시안 v2 확정 · 2026-09-23 · CHECKS 개정 69) — 머리의 레벨 배지(#miLvBtn)를 누르면 머리 아래에 열린다.
+     · 999시간 전: 잠긴 상자 — «N시간 남았어요» + 막대. 배지를 누를 이유가 999 전에도 생긴다.
+     · 회차: 왼쪽 실제 이름표(별 + 이번 바퀴 레벨 + 닉네임)·바 미리보기, 오른쪽 16칸. 누르면 바로 저장되고 미리보기가 바뀐다.
+   ★ --pre-c 는 #miStar 한 곳에 얹는다 — 이름표 별과 바의 공통 조상이다(두 군데 칠하면 언젠가 한쪽만 바뀐다).
+   ★ 색 칸은 DOM 으로 만들고 색은 CSS 변수(--sw)로만 넣는다 — 속성 문자열 보간 없음. */
+let _miStarOpen = false;
+function _miStarToggle(){ _miStarOpen = !_miStarOpen; _miRenderStar(); }
+function _miRenderStar(){
+  const $e = id => document.getElementById(id);
+  const sec = $e('miStar'), btn = $e('miLvBtn'); if(!sec) return;
+  if(btn) btn.setAttribute('aria-expanded', _miStarOpen ? 'true' : 'false');
+  sec.style.display = _miStarOpen ? 'block' : 'none';
+  if(!_miStarOpen) return;
+  const total = Math.max(0, Number(_focusTotalSec) || 0);
+  const c = focusCycleOf(total);
+  const on = $e('miStarOn'), lock = $e('miStarLock'), sub = $e('miStarSub');
+  if(c.cycle > 0){
+    if(on) on.style.display = 'flex';
+    if(lock) lock.style.display = 'none';
+    if(sub) sub.textContent = c.cycle + '회차 · 이름표 별과 바가 같이 바뀌어요';
+    const col = getStarColor();
+    sec.style.setProperty('--pre-c', col);
+    let nick = ''; try{ nick = getDisplayName(); }catch(_){}
+    const st = $e('miStarNpStar'), tx = $e('miStarNpText'), fill = $e('miStarFill');
+    if(st) st.textContent = lvStarStr(c.cycle);
+    if(tx) tx.textContent = c.lv + ' ' + nick;
+    if(fill) fill.style.width = (Math.floor((total % EXP_SEC_PER_LEVEL) / EXP_SEC_PER_CELL) / EXP_CELLS * 100) + '%';
+    const pal = $e('miStarPal');
+    if(pal){
+      if(!pal.children.length){
+        STAR_PALETTE.forEach(([hex, name]) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'mi-star-sw'; b.setAttribute('role', 'radio');
+          b.setAttribute('aria-label', name); b.title = name; b.dataset.c = hex;
+          b.style.setProperty('--sw', hex);
+          b.onclick = () => { if(!setStarColor(hex)) return; _miRenderHead(); _pushLevelIfChanged(); };   // 머리 배지 · 구획 · 프로필(친구 목록) · 방은 좌석 루프가 다음 프레임에
+          pal.appendChild(b);
+        });
+      }
+      [...pal.children].forEach(b => b.setAttribute('aria-checked', b.dataset.c === col ? 'true' : 'false'));
+    }
+  } else {
+    if(on) on.style.display = 'none';
+    if(lock) lock.style.display = 'flex';
+    let lv = 1; try{ lv = getFocusLevel(); }catch(_){}
+    if(sub) sub.textContent = 'Lv.' + lv + ' / ' + FOCUS_LEVEL_CAP_HOURS;
+    const left = $e('miStarLeft'), meter = $e('miStarMeter');
+    if(left) left.textContent = Math.max(1, Math.ceil(c.leftSec / 3600)).toLocaleString('ko-KR') + '시간 남았어요';
+    if(meter) meter.style.width = Math.min(100, Math.floor(total / FOCUS_CYCLE_SEC * 100)) + '%';
+  }
 }
 /* 마이홈 프로필 사진(mhAvatarBig 과 같은 값) — 채팅 창 _refreshChatProfile 과 같은 순서: 마이홈 캐시 → 서버 한 번. */
 async function _miRenderAvatar(){
@@ -31894,6 +32065,7 @@ function _miCodeLoad(){
     const $e = id => document.getElementById(id);
     const on = (id, fn) => { const el = $e(id); if(el) el.onclick = fn; };
     on('miBack', () => closeMyInfo());
+    on('miLvBtn', () => _miStarToggle());           // 🌟 레벨 배지 = 별 색 구획 여닫기(개정 69)
     on('miTabBox', () => _miSetTab('box'));
     on('miTabAcct', () => _miSetTab('acct'));
     on('miTabTrash', () => { _miTrashFullShown = false; _miSetTab('trash'); _miTrashLoad(); });
@@ -32223,6 +32395,8 @@ async function _applyTransferSnapshot(r, opts){
      ★ 이 시점엔 마크 == 로컬 누적이라 증분이 0이다 — 올리는 건 없고 서버 값을 받아오기만 한다.
        (위에서 _focusTotalSec을 스냅샷 값으로 맞춰뒀기 때문. 그 줄과 짝이다) */
   try{ if(typeof syncFocusTotalToServer==='function') await syncFocusTotalToServer('transfer'); }catch(_){}
+  /* 🌟 회차 별 색 — 로그아웃이 지웠으니 이 계정 프로필의 starC 를 받아 온다(개정 71). */
+  try{ await _adoptStarColorFromProfile(); }catch(_){}
 }
 /* 🎵🎰 연동 직후 — 플레이리스트와 가챠 보유분을 새 uid 기준으로 되맞춘다.
    호출 시점에 localStorage 의 유저 ID 는 이미 새 계정으로 갈려 있다(getMyUserId()가 새 값).
@@ -38005,7 +38179,9 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
 
     /* 활동 상태 시각화 — 책상 위 이모지(모두), 머리 위 텍스트 말풍선(모두), 영혼 투명도(자리비움) */
     //   ✨ statusConfFor: 커스텀 상태(프리미엄)는 등록한 이모지/문구로 해석됨 (본인=내 등록값, 친구=전파받은 값).
-    const _conf = statusConfFor(seat, us);
+    /* 📱 머리 위 «📱 앱» — 사용자가 고른 상태가 있으면 그게 먼저 · 없으면 🕒 오늘 기록보다 먼저(보내는 쪽 _statusOut 과 같은 순서). */
+    const _mobApp = _seatMobileApp(seat);
+    const _conf = (_mobApp && !us) ? null : statusConfFor(seat, us);
     /* 🙈 숨긴 좌석 — 캐릭터 · 머리 위 말풍선 · 책상 위 상태 이모지. 매 프레임 판정(_hiddenSeatIds 주석). */
     const _hidden = _seatHidden(seat);
     if(seat.rig && seat.rig.visible === _hidden) seat.rig.visible = !_hidden;
@@ -38024,13 +38200,16 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     /* ⚠️ 순서 주의 — 경험치 바가 **먼저**, 이름표가 나중이다(NAMEPLATE_BELOW_EXPBAR 주석 참고).
        이름표가 바 아래로 비키려면 바의 '이번 프레임' 위치를 알아야 한다. 예전 순서(이름표 → 바)
        그대로 두면 한 프레임 전 값을 보게 되어, 캐릭터가 움직일 때 이름표가 바를 파고든다. */
+    /* 🌟 회차면 표시 레벨은 **이번 바퀴** 레벨이고 별이 붙는다. 해금 레벨(getFocusLevel · friendLevel)은 표시에만 안 쓴다 (개정 70). */
     if(seat.remote){
-      updateSeatExpBar(seat, seat.friendLevel||1, (seat.friendExp==null ? null : seat.friendExp));
-      setSeatNamePlate(seat, seat.friendLevel||1, seat.friendName||'(이름 없음)');
+      const st = seat.friendStar || null, lv = st ? st.lv : (seat.friendLevel||1);
+      updateSeatExpBar(seat, lv, (seat.friendExp==null ? null : seat.friendExp), st);
+      setSeatNamePlate(seat, lv, seat.friendName||'(이름 없음)', st);
     }
     else if(seat.isMe){
-      updateSeatExpBar(seat, getFocusLevel(), myExpCells());
-      setSeatNamePlate(seat, getFocusLevel(), getDisplayName());
+      const st = myFocusShow(), lv = st ? st.lv : getFocusLevel();
+      updateSeatExpBar(seat, lv, myExpCells(), st);
+      setSeatNamePlate(seat, lv, getDisplayName(), st);
     }
     else if(seat.namePlateEl){ seat.namePlateEl.style.display='none'; if(seat.expBarEl) seat.expBarEl.style.display='none'; }   // 주캐릭터였다가 자리추가로 바뀐 좌석 — 이전 이름표가 남아있지 않게 숨김
     /* 💬 말풍선 — ★ 반드시 이름표·경험치 바 **뒤에** 갱신한다.
@@ -38049,7 +38228,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     else if(officeMode){ setSeatHeadBubble(seat, _chatting ? seat.chatBubbleText : null); }
     else if(_chatting){ setSeatHeadBubble(seat, seat.chatBubbleText); }
     // 💭 상태 갈래만 '생각 말풍선'(동그라미 꼬리). 채팅은 뾰족 꼬리 그대로다.
-    else{ setSeatHeadBubble(seat, _conf ? _conf.label : null, true); }
+    else{ setSeatHeadBubble(seat, _conf ? _conf.label : _mobileBubbleText(_mobApp), true); }
     updateItemHandTrackers(seat);   // 책상 아이템 안의 hand_L/hand_R 지점을 이번 프레임 손 위치로 갱신
   });
 
@@ -38207,7 +38386,9 @@ const FOCUS_LEVEL_CAP_HOURS=999;
    누적 초 자체를 999시간에서 멈추는 것. 그래서 회차(999 를 채우면 ★ 하나 + 레벨 1부터)를
    붙일 재료가 아예 안 쌓였다.
    ⇒ 그릇(누적)만 먼저 키운다. **레벨 표시는 지금 그대로 999 에서 접힌다** — 별을 붙이는 단계는
-     다음이다(`handoff-level-tiers.md` §3). 누적이 원천이라 표시를 나중에 붙여도
+     다음이다(`handoff-level-tiers.md` §3).
+   ⇒ [개정 70] 별을 붙였다 — 단 **getFocusLevel 은 그대로 999 에서 멈춘다**(해금 기준이라서).
+     표시만 myFocusShow() 가 «이번 바퀴» 레벨 + 별로 바꾼다. 누적이 원천이라 표시를 나중에 붙여도
      그동안 쌓인 몫이 **소급해서** 회차로 보인다. 먼저 모듈로로 바꾸면 999 를 넘긴 사람이
      별 없이 Lv.1 로 떨어져 보인다 — 순서가 이쪽인 이유.
    ★ 회차는 저장하지 않는다. `floor(누적/FOCUS_CYCLE_SEC)` 로 **파생**시킨다 —
@@ -38366,7 +38547,7 @@ var AWAY_IMG_MAX_BYTES = 300 * 1024;
 var awayImgUrl = '';
 try{ const _a = localStorage.getItem(AWAY_IMG_KEY) || ''; awayImgUrl = _awayUrlOk(_a) ? _a : ''; }catch(_){}
 var _awayTex = new Map();   // url → { st:'loading'|'ok'|'fail', tex }
-var _awayBox = null, _awayGW = null;
+var _awayBox = null, _awayGW = null, _awayHostBox = null;
 var _awayBusy = false;
 function _awayUrlOk(u){
   return typeof u === 'string' && u.length <= 500 && u.indexOf('https://firebasestorage.googleapis.com/') === 0;
@@ -38414,7 +38595,22 @@ function _awayImgFrame(seat, url, now){
       /* 🖼️ [2026-09-23 제보 «동물이면 자리비움 그림이 엄청 크게 나온다»] 예전엔 캐릭터 경계상자 높이에 맞췄다 —
          동물은 경계상자가 몸보다 훨씬 커서 그림이 따라 커졌다. 이제 **화면에서 AWAY_PIC_SCREEN_PX(150)px 정사각형**으로
          고정한다(인간·동물 · 캐릭터 크기 설정과 무관). 자리(가운데 · 발밑)는 예전처럼 경계상자에서 잰다. */
-      const cx = (_awayBox.min.x + _awayBox.max.x)/2, cz = (_awayBox.min.z + _awayBox.max.z)/2, fy = _awayBox.min.y;
+      let cx = (_awayBox.min.x + _awayBox.max.x)/2, cz = (_awayBox.min.z + _awayBox.max.z)/2, fy = _awayBox.min.y;
+      /* 🗼 [2026-09-23 제보 «탑 위에서 자리비움하면 그림이 밑의 캐릭터를 가린다»] 1층으로 올라탄 캐릭터는 상대 머리에
+         팔을 걸치고 몸이 얼굴 앞으로 늘어진 자세라 **발밑이 상대 머리보다 아래**다. 그 발밑에 150px 그림을 세우면
+         상대를 통째로 덮었다. 올라탄 동안에는 그림 밑변을 **바로 아래 캐릭터의 꼭대기**에, 가로·앞뒤는 그 캐릭터 가운데에
+         맞춘다(A안 · 탑 맨 위에 얹힌 모양). 층마다 각자 자기 바로 아래 캐릭터 위에 선다. 2층 이상(묘기)도 같은 규칙이다. */
+      const _host = seat.ridingOn;
+      if(_host && _host.rig && seats.indexOf(_host) >= 0){
+        if(!_awayHostBox) _awayHostBox = new THREE.Box3();
+        _host.rig.updateMatrixWorld(true);
+        _awayHostBox.setFromObject(_host.bodyWrap || _host.rig);
+        if(!_awayHostBox.isEmpty()){
+          fy = _awayHostBox.max.y;
+          cx = (_awayHostBox.min.x + _awayHostBox.max.x)/2;
+          cz = (_awayHostBox.min.z + _awayHostBox.max.z)/2;
+        }
+      }
       const h = _awayWorldForPx(AWAY_PIC_SCREEN_PX, cx, fy, cz);
       if(!(h > 0)){ sp.visible = false; return; }
       sp.scale.set(h, h, 1);
@@ -38757,14 +38953,19 @@ async function _openReportAdmin(){
 
 /* 레벨이 바뀐 순간에만 프로필을 갱신한다(친구 목록 레벨 배지용).
    매초 쓰면 비용이 커지므로, 값이 실제로 달라졌을 때만 1회 쓴다. */
-let _lastPushedLevel = 0;
+let _lastPushedLevel = 0, _lastPushedStar = '';
 function _pushLevelIfChanged(){
   try{
     const lv = getFocusLevel();
-    if(lv === _lastPushedLevel) return;
-    _lastPushedLevel = lv;
+    /* 🌟 회차에서는 해금 레벨이 999 에 머문다 — 그래도 이번 바퀴 레벨·회차·색이 바뀌면 프로필을 다시 쓴다(개정 70).
+       ★ 해금 알림은 해금 레벨이 바뀔 때만(예전 그대로). */
+    const so = myStarProfileOut(), sk = so.cyc + '|' + so.clv + '|' + so.starC;
+    if(lv === _lastPushedLevel && sk === _lastPushedStar) return;
+    const lvChanged = lv !== _lastPushedLevel;
+    _lastPushedLevel = lv; _lastPushedStar = sk;
     if(window.firebaseAPI && firebaseAPI.setMyProfile)
-      firebaseAPI.setMyProfile(getMyUserId(), getDisplayName(), lv);
+      firebaseAPI.setMyProfile(getMyUserId(), getDisplayName(), lv, so);
+    if(!lvChanged) return;
     _notifyDeskUnlocks(lv);   // 🪑 이 레벨에서 새로 해금된 상호작용 책상이 있으면 수령함 알림
     _notifyDanceUnlocks(lv);  // 💃 이 레벨에서 새로 해금된 춤 명령이 있으면 수령함 알림
   }catch(_){}
@@ -38897,10 +39098,101 @@ function addFocusSeconds(sec){
     localStorage.setItem(FOCUS_TODAY_DATE_KEY,_focusDayStr());
   }catch(e){}
 }
-/* ★ 레벨은 **레벨 상한**에서 접힌다(누적 상한이 아니다 — 위 FOCUS_TOTAL_CAP_SEC 주석).
-   회차를 붙이는 단계에서 여기가 `1+floor((total % FOCUS_CYCLE_SEC)/3600)` 로 바뀌고,
-   그때 별(`lv-star`)이 같이 붙는다. 한쪽만 바꾸면 999 를 넘긴 사람이 별 없이 Lv.1 이 된다. */
+/* ★ 해금 레벨 — **레벨 상한(999)에서 멈춘다.** 회차가 돼도 모듈로로 접지 않는다(개정 70 · 아래 myFocusShow 주석).
+   화면에 보이는 «이번 바퀴» 레벨과 별은 myFocusShow() 가 따로 낸다. */
 function getFocusLevel(){ return Math.min(FOCUS_LEVEL_CAP_HOURS, 1+Math.floor(_focusTotalSec/3600)); }
+/* 🌟 회차 별 — 재료 (시안 v2 확정 · 2026-09-23 · CHECKS 개정 69) ──────────────────────────
+   [내 정보] «별 색» 구획(_miRenderStar)이 쓰는 것만 먼저 둔다. 실제 좌석·배지에 별을 붙이는 일은 아직이다 —
+   그건 getFocusLevel 을 모듈로로 바꾸는 일과 **한 번에** 한다(위 주석 · sim-focus-cap 4절 · handoff §6).
+   ★ 회차는 저장하지 않는다. 누적초에서 파생한다(focusCycleOf) — 서버 병합이 단조 증가라 저장하면 어긋날 자리가 생긴다.
+   ★ 색은 밝은 톤 16종만 받는다(handoff §3: 별은 검은 외곽선 위, 바는 6px 홈이라 어두운 색은 둘 다 먹힌다).
+     목록에 없는 값이 저장돼 있으면(손으로 고쳤거나 옛 판) 첫 색(금)으로 떨어진다 — 자유 색상을 받는 길은 없다.
+   ★ [개정 71] 색이 계정을 따라간다 — 원본은 이 기기 localStorage(tw.starColor), 서버 사본은 프로필 starC.
+     · 이 기기에 고른 값이 없으면(새 기기 · 로그아웃 뒤) 프로필 starC 를 받아 온다(_adoptStarColorFromProfile).
+     · 고른 값이 없는 동안 프로필을 쓰면 starC 를 **비워 보내고**, firebase-init 이 서버의 기존 starC 를 지킨다
+       (myStarProfileOut · setMyProfile). 그래서 받아 오기 전에 프로필이 먼저 써져도 금색으로 덮이지 않는다.
+     · 돌아올 길이 생겼으므로 ACCOUNT_LOCAL_KEYS 에 넣었다(로그아웃하면 지운다). */
+const STAR_COLOR_KEY = 'tw.starColor';
+const STAR_PALETTE = [
+  ['#ffd76a','금'],   ['#ffe066','레몬'],  ['#ffb86b','살구'], ['#ff9f43','주황'],
+  ['#ff8a8a','산호'], ['#ffa3c4','벚꽃'],  ['#ff7ad0','분홍'], ['#e39cff','라일락'],
+  ['#c9a0ff','라벤더'], ['#a3adff','달빛'], ['#8fc8ff','하늘'], ['#7fe0f0','물빛'],
+  ['#5ff0e4','청록'], ['#6ef0a0','민트'],  ['#b6f36a','연두'], ['#eef3ff','은빛'],
+];
+function _starColorOk(c){ return STAR_PALETTE.some(p => p[0] === c); }
+function getStarColor(){
+  let v = null; try{ v = localStorage.getItem(STAR_COLOR_KEY); }catch(_){}
+  return _starColorOk(v) ? v : STAR_PALETTE[0][0];
+}
+/* 이 기기에서 고른(또는 받아 온) 값이 있는가 — 없으면 getStarColor() 는 기본(금)을 돌려준다. */
+function _starPicked(){
+  let v = null; try{ v = localStorage.getItem(STAR_COLOR_KEY); }catch(_){}
+  return _starColorOk(v) ? v : null;
+}
+function setStarColor(c){
+  if(!_starColorOk(c)) return false;
+  try{ localStorage.setItem(STAR_COLOR_KEY, c); }catch(_){ return false; }
+  return true;
+}
+/* 누적초 → { cycle: 채운 바퀴 수, lv: 이번 바퀴 안의 레벨(1~999), leftSec: 다음 바퀴까지 남은 초 } */
+function focusCycleOf(sec){
+  const t = Math.max(0, Math.floor(Number(sec) || 0));
+  const inCycle = t % FOCUS_CYCLE_SEC;
+  return { cycle: Math.floor(t / FOCUS_CYCLE_SEC), lv: 1 + Math.floor(inCycle / 3600), leftSec: FOCUS_CYCLE_SEC - inCycle };
+}
+/* 회차 → 별 문자열. ☆ = 1회 · ★ = 2회(반 칸 둘이 한 칸). 1:☆ 2:★ 3:☆★ 4:★★ …
+   ☆ 는 홀수일 때만 맨 앞에 하나 — 앞머리만 보면 홀짝이 읽힌다. 6글자를 넘으면(13회차부터) «★×13» 으로 접는다
+   (안 접으면 이름표가 옆 캐릭터와 겹친다). 0 이하는 빈 문자열. */
+function lvStarStr(n){
+  n = Math.max(0, Math.floor(Number(n) || 0));
+  if(!n) return '';
+  const s = '\u2606'.repeat(n % 2) + '\u2605'.repeat(Math.floor(n / 2));
+  return s.length > 6 ? '\u2605\u00d7' + n : s;
+}
+/* 🌟 표시용 회차 — 해금과 표시를 가른다 (개정 70) ─────────────────────────────────────
+   ⚠️ **getFocusLevel() 은 모듈로로 바꾸지 않는다.** 그 값은 레벨 «표시» 만이 아니라 해금의 기준이다 —
+     춤(isDanceUnlocked) · 상호작용 책상 · 💣(FLY_MIN_LEVEL) · 날리기 색(FLY_COLOR_LEVEL · 받는 쪽도 friends[id].level 로 판정) ·
+     동물 · 가챠 뽑기 수(gachaTicketsEarned = 레벨/N). 모듈로로 바꾸면 2회차 사람이 Lv.1 이 되어 **전부 다시 잠기고
+     뽑기 수가 줄어든다**(이미 뽑은 게 더 많아진다). 옛 계획(handoff §3-1-b «레벨 = 1 + (누적 % 한 바퀴)»)이
+     getFocusLevel 을 고치는 것이었는데, 그 자리를 표시 쪽으로 옮긴 것이 이 두 함수다.
+   ★ 프리즌스·프로필의 level 도 해금 레벨 그대로 보낸다(받는 쪽 게이트 · 옛 판 호환). 표시는 cyc/clv/starC 로 따로 간다. */
+function myFocusShow(){
+  const c = focusCycleOf(_focusTotalSec);
+  return c.cycle > 0 ? { cyc: c.cycle, lv: c.lv, color: getStarColor() } : null;
+}
+/* 보내는 모양 — 프리즌스(_basePayload · 입장)와 프로필(setMyProfile) 한 벌. 회차가 없으면 null(= 지운다 · 옛 판은 모름). */
+function myStarOut(){
+  const s = myFocusShow();
+  return s ? { cyc: s.cyc, clv: s.lv, starC: s.color } : { cyc: null, clv: null, starC: null };
+}
+/* 프로필에 쓰는 모양 — myStarOut 과 같되 **고른 값이 없으면 starC 를 비운다**(firebase-init 이 서버의 기존 값을 지킨다 · 개정 71).
+   ⚠️ 프리즌스(방)는 myStarOut(보이는 색 그대로)을 쓴다 — 방은 지금 보이는 모양을 보내는 자리라서. */
+function myStarProfileOut(){
+  const o = myStarOut();
+  if(o.cyc && !_starPicked()) o.starC = null;
+  return o;
+}
+/* 이 기기에 고른 색이 없으면 프로필 starC 를 받아 온다(개정 71). 팔레트 밖 값은 안 받는다.
+   ★ 부르는 곳: 마이홈 초기화(첫 프로필 쓰기 **앞**) · 로그인 복원(_applyTransferSnapshot 끝). 읽기 하나 · 실패하면 조용히 넘어간다. */
+async function _adoptStarColorFromProfile(){
+  try{
+    if(_starPicked()) return false;
+    const uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+    if(!uid || !window.firebaseAPI || !firebaseAPI.fetchProfileStarC) return false;
+    const c = await firebaseAPI.fetchProfileStarC(uid);
+    if(!c || _starPicked() || !_starColorOk(c)) return false;   // 기다리는 사이 이 기기에서 골랐으면 그쪽이 이긴다
+    return setStarColor(c);
+  }catch(_){ return false; }
+}
+/* 받는 모양 — 남의 값(프리즌스 · 프로필 · 명함)을 표시용 star 로. 범위 밖 · 모르는 색은 버리거나 첫 색으로.
+   ★ 색은 **팔레트 안의 값만** 통과한다 — _lvBadge 가 이 값을 style 문자열에 넣는다. */
+function starFromRemote(o){
+  if(!o) return null;
+  const cyc = Math.min(FOCUS_CYCLE_CAP, parseInt(o.cyc, 10) || 0);
+  if(!(cyc >= 1)) return null;
+  const lv = Math.max(1, Math.min(FOCUS_LEVEL_CAP_HOURS, parseInt(o.clv, 10) || 1));
+  return { cyc, lv, color: _starColorOk(o.starC) ? o.starC : STAR_PALETTE[0][0] };
+}
 
 /* ═══ 🎰 파츠 가챠 — 코어 ══════════════════════════════════════════════════
    성격은 '집중 보상'이다. 수집 경쟁이 아니므로 등급(rarity)도 꽝도 없고 확률은 균등하다.
@@ -40319,14 +40611,11 @@ const EXP_BAR_GAP       = 2;    // 캐릭터 발밑 ↔ 바 간격(px)
 /* 레벨 → 색 구간 + 표식 클래스. 배지(.mh-flv)와 **같은 표**를 읽는다(lvBarClass).
    ⚠️ 여기에 경계값을 다시 적지 말 것 — 어긋나면 같은 레벨인데 배지와 바 색이 달라진다. */
 function expTierClass(lv){ return lvBarClass(lv); }
-/* 누적초 → 채운 칸 수(0~12). 레벨 상한에 도달하면 '다 참'으로 본다.
-   ★ 여기는 **레벨 상한**을 그대로 쓴다(누적 상한이 아니다). 999시간을 넘겨도 누적만 계속 늘고
-     바는 가득 찬 채로 멈춘다 — 예전과 보이는 것이 같다. 회차를 붙일 때 이 분기가
-     `total % FOCUS_CYCLE_SEC` 로 풀린다(`handoff-level-tiers.md` §3-1-b 표의 §4-1). */
+/* 누적초 → 채운 칸 수(0~12) — 이번 시간(= 이번 레벨) 안에서 몇 칸인가. */
 function expCellsFromSec(sec){
-  const capSec = FOCUS_LEVEL_CAP_HOURS * EXP_SEC_PER_LEVEL;
+  /* 🌟 [개정 70] 999시간에서 «가득 찬 채 멈추던» 분기를 풀었다 — 999시간을 채우면 회차가 되고 바는 이번 바퀴의
+     진행도를 보인다. 한 시간 = 한 레벨이라 바퀴가 바뀌어도 «시간 안의 몇 칸» 계산은 같다. */
   const total  = Math.max(0, sec||0);
-  if(total >= capSec) return EXP_CELLS;
   return Math.min(EXP_CELLS, Math.floor((total % EXP_SEC_PER_LEVEL) / EXP_SEC_PER_CELL));
 }
 /* 내 현재 칸 수 — 프리즌스로 내보낼 값이자 내 좌석에 그릴 값. */
@@ -40346,7 +40635,7 @@ function ensureSeatExpBarEl(seat){
 const _expTmpA = new THREE.Vector3(), _expTmpB = new THREE.Vector3();
 /* 좌석의 경험치 바를 발밑에 배치하고 채운다. 바의 '아래쪽' 화면 y를 돌려준다(안 보이면 null).
    가로 배치 상태칩이 이 값을 받아 바보다 아래에 놓인다. */
-function updateSeatExpBar(seat, level, cells){
+function updateSeatExpBar(seat, level, cells, star){
   if(!seat || !seat.group) return null;
   /* 숨기는 조건
      · 이름표를 끄면 같이 숨긴다 — 하나만 남으면 어중간하다(요청사항).
@@ -40391,10 +40680,13 @@ function updateSeatExpBar(seat, level, cells){
   /* 티어 + 표식 클래스(lvx·lvglow)를 한 문자열로 받아 통째로 갈아끼운다.
      ⚠️ className 통째 대입이라 여기서 안 만든 클래스는 지워진다. 회차 색 바(.starbar)를
        붙일 때는 이 문자열에 같이 실을 것 — 밖에서 classList.add 로 얹으면 다음 프레임에 날아간다. */
-  const tier = expTierClass(level);
-  if(el._tier !== tier){
-    el._tier = tier;
+  /* 🌟 회차면 티어 자리에 lv-star — 이 한 문자열에 같이 싣는다(통째 대입 · 개정 70). 색이 바뀌어도 다시 칠하게 열쇠에 넣는다. */
+  const tier = star ? lvStarBarClass() : expTierClass(level);
+  const tkey = star ? (tier + '|' + star.color) : tier;
+  if(el._tier !== tkey){
+    el._tier = tkey;
     el.className = 'seat-exp ' + tier;
+    _starPaint(el, star);
   }
   const n = Math.max(0, Math.min(EXP_CELLS, cells|0));
   if(el._cells !== n){
@@ -40508,6 +40800,8 @@ async function syncFocusTotalToServer(reason){
          올라 있어서 _pushLevelIfChanged 는 다시 안 불린다. 그 경우를 여는 것이 이 한 줄이다. */
     try{ _notifyDanceUnlocks(getFocusLevel()); }catch(_){}
     _focusLastSyncedVal = newMark;
+    /* 🏆 전체 랭킹(개정 73) — **서버 총합**(server)을 올린다. 여러 기기 합산이 끝난 값이라서. 기다리지 않는다(실패해도 동기화는 성공이다). */
+    try{ _lbPush(uid, server); }catch(_){}
   }catch(_){}
   finally{ _focusSyncing = false; }
 }
@@ -40539,6 +40833,189 @@ function formatHMS(sec){ sec=Math.max(0,Math.floor(sec));
   const h=String(Math.floor(sec/3600)).padStart(2,'0'), m=String(Math.floor((sec%3600)/60)).padStart(2,'0'), s=String(sec%60).padStart(2,'0');
   return h+':'+m+':'+s; }
 
+/* ═══════════════════════════════════════════════════════════════════════════════
+   📱 태블릿·폰 포커싱 연결 (개정 74 · handoff-2026-09-18 §4-③)
+   ───────────────────────────────────────────────────────────────────────────────
+   폰·태블릿은 «지금 켜진 앱» 을 알려 주지 않는다 → 기기 자동화(iOS 단축어 · MacroDroid)가
+   앱 열림/닫힘 때 mobileLink/{uid}/state 에 { on, app } 을 쓰고, **PC 가 여기서 판정한다.**
+   ★ 판정은 이 파일 한 곳(_applyActiveAppState)에서 합친다. main.js · preload 는 안 건드린다.
+   ★ lastActivity 를 인위로 갱신하지 않는다 — 펜 앱 판정·입력 진단(main.js)과 섞인다. 전용 플래그로 가른다.
+   ⚠️ 안전 상한 MOBILE_MAX_ON_MS — 새 «열림» 없이 이보다 오래 켜져 있으면 꺼짐으로 본다
+      (배터리 방전·강제 종료로 «닫힘» 이 안 온 경우). 4시간 넘게 연속으로 그리면 앱을 한 번 다시 열면 된다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const MOBILE_MAX_ON_MS = 4*60*60*1000;
+const MOBILE_KEY_LS = 'tw.mobileKey';   // { u, k } — 이 PC 가 만든 키. uid 가 다르면 없는 것으로 본다(계정 전환)
+const MOBILE_APP_MAX = 40;
+let _mobileFocus = { on:false, app:'', since:0, seen:false };   // seen = 이 키로 폰이 한 번이라도 신호를 보냈다
+let _mobileStop = null;
+function _mobileNow(){ try{ if(window.firebaseAPI && firebaseAPI.serverNow) return firebaseAPI.serverNow(); }catch(_){} return Date.now(); }
+/* 폰이 지금 «포커싱 어플을 쓰는 중» 인가 — 켜짐 + 상한 안. */
+function _mobileOn(){
+  const m = _mobileFocus;
+  if(!m || !m.on || !m.since) return false;
+  return (_mobileNow() - m.since) < MOBILE_MAX_ON_MS;
+}
+/* 좌석이 띄울 앱 이름 — 남은 받은 값(remoteMobile), 나는 지금 판정. 자리추가 좌석은 안 띄운다. */
+function _seatMobileApp(seat){
+  if(!seat) return '';
+  if(seat.remote) return seat.remoteMobile || '';
+  const mine = (typeof findMySeat === 'function') ? findMySeat() : null;
+  return (seat.isMe || seat === mine) ? _mobileRoomLabel() : '';
+}
+/* 방에 싣는 값 · 머리 위 말풍선 글자 — 꺼져 있으면 빈 문자열. */
+function _mobileRoomLabel(){ return _mobileOn() ? (_mobileFocus.app || '태블릿·폰') : ''; }
+function _mobileBubbleText(app){ return app ? ('📱 ' + String(app).slice(0, MOBILE_APP_MAX)) : null; }
+function _mobileCleanApp(v){
+  if(typeof v !== 'string') return '';
+  return v.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, MOBILE_APP_MAX);
+}
+function _mobileGetKey(){
+  try{
+    const o = JSON.parse(localStorage.getItem(MOBILE_KEY_LS) || 'null');
+    const uid = getMyUserId();
+    if(o && uid && o.u === uid && typeof o.k === 'string' && /^[A-Z2-9]{24}$/.test(o.k)) return o.k;
+  }catch(_){}
+  return null;
+}
+function _mobileNewKey(){
+  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 헷갈리는 글자(0·O·1·I) 뺌 — 붙여넣기 실수가 줄어든다
+  const b = new Uint8Array(24); crypto.getRandomValues(b);
+  let s = ''; for(let i = 0; i < 24; i++) s += a[b[i] % a.length];   // 256 % 32 == 0 → 치우침 없음
+  return s;
+}
+function _mobileLinkUrl(uid, key){
+  // ★ 키는 # 뒤 — 호스팅 서버 로그에 안 남는다(§4-⑤)
+  return 'https://together-working.web.app/link#u=' + encodeURIComponent(uid) + '&k=' + encodeURIComponent(key);
+}
+/* 서버 state → 전역. 이 PC 의 키로 쓴 것만 믿는다(키를 새로 만든 뒤 예전 값이 늦게 와도 무시). */
+function _mobileApplyState(v){
+  const key = _mobileGetKey();
+  const wasOn = _mobileOn(), wasLabel = _mobileRoomLabel();
+  if(!v || !key || v.key !== key){
+    _mobileFocus = { on:false, app:'', since:0, seen:false };
+  } else {
+    const on = v.on === true, ts = Number(v.ts) || 0;
+    _mobileFocus = { on, app:_mobileCleanApp(v.app), since: on ? (ts || _mobileNow()) : 0, seen:true };
+  }
+  if(wasOn !== _mobileOn() || wasLabel !== _mobileRoomLabel()) _mobileChanged();
+  try{ _mobRenderPanel(); }catch(_){}
+}
+/* 켜짐/꺼짐이 바뀌면 방에 바로 싣는다(다음 상태 틱을 기다리면 몇 초 늦다). */
+function _mobileChanged(){
+  try{ if(typeof Presence !== 'undefined' && Presence.broadcastNow) Presence.broadcastNow(); }catch(_){}
+}
+/* 부팅 · 연결 · 키 교체 때. 키가 없으면 아무것도 안 한다(비용 0). */
+function _mobileStart(){
+  const uid = getMyUserId(), key = _mobileGetKey();
+  if(!uid || !key || !window.firebaseAPI || !firebaseAPI.mobileLinkStart) return;
+  Promise.resolve(firebaseAPI.mobileLinkStart(uid, _mobileApplyState)).then(stop=>{ if(stop) _mobileStop = stop; }).catch(()=>{});
+}
+/* ── 📱 설정 › 포커싱어플 칸 + QR 창 (시안 ①~③) ─────────────────────────────
+   ★ 그리는 곳은 _mobRenderPanel 하나. 상태가 바뀔 때 · 1분마다 · 창을 열 때 부른다.
+   ⚠️ 확인은 2단계 누르기(이 파일 관례) — 네이티브 확인창은 투명 오버레이에서 안 보인다(audit 검사 4). */
+function _mobRenderPanel(){
+  const st = document.getElementById('fsMobSt'); if(!st) return;
+  const main = document.getElementById('fsMobMain'), sub = document.getElementById('fsMobSub');
+  const qr = document.getElementById('fsMobQr'), un = document.getElementById('fsMobUnlink'), note = document.getElementById('fsMobNote');
+  const paired = !!_mobileGetKey();
+  let cls = 'off', m = '연결 안 됨', sb = '';
+  if(paired && _mobileOn()){
+    const min = Math.max(0, Math.floor((_mobileNow() - _mobileFocus.since) / 60000));
+    cls = 'use'; m = '📱 ' + (_mobileFocus.app || '태블릿·폰') + ' 사용 중';
+    sb = (min < 1 ? '방금 시작' : (min + '분째')) + ' · 포커스 시간이 쌓이고 있어요';
+  } else if(paired && _mobileFocus.seen){
+    cls = 'rest'; m = '연결됨 · 폰에서 쉬는 중';
+  } else if(paired){
+    sb = '폰에서 [신호 보내 보기]를 눌러 보세요';
+  }
+  st.className = 'fs-mob-st ' + cls;
+  if(main){ main.textContent = m; main.title = m; }
+  if(sub){ sub.textContent = sb; sub.style.display = sb ? '' : 'none'; }
+  if(qr) qr.textContent = paired ? 'QR 다시 보기' : 'QR로 연결하기';
+  if(un && !un._armed){ un.style.display = paired ? '' : 'none'; un.textContent = '연결 끊기'; }
+  if(note) note.style.display = paired ? '' : 'none';
+}
+function _mobDrawQr(text){
+  const cv = document.getElementById('mobLinkQr'); if(!cv || !window.TWQR) return false;
+  let q; try{ q = TWQR.make(text, 'M'); }catch(_){ return false; }
+  const px = Math.max(1, Math.floor(cv.width / q.n)), off = Math.floor((cv.width - px*q.n)/2);
+  const g = cv.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+  g.fillStyle = '#000';
+  for(let r = 0; r < q.n; r++) for(let c = 0; c < q.n; c++) if(q.dark(r, c)) g.fillRect(off + c*px, off + r*px, px, px);
+  return true;
+}
+function _mobFillWindow(){
+  const uid = getMyUserId(), key = _mobileGetKey();
+  const k = document.getElementById('mobLinkKey');
+  if(k) k.textContent = key ? ('••••-' + key.slice(-4)) : '••••';
+  if(uid && key && !_mobDrawQr(_mobileLinkUrl(uid, key))) toast('QR 을 그리지 못했어요 — 앱을 다시 시작해 보세요');
+}
+/* 키를 만들어 서버에 적고(예전 폰은 끊김) 이 PC 에 기억한다. 성공하면 구독을 새로 건다. */
+async function _mobMakeKey(){
+  const uid = getMyUserId();
+  if(!uid){ toast('로그인한 뒤에 연결할 수 있어요'); return false; }
+  if(!window.firebaseAPI || !firebaseAPI.mobileSetKey){ toast('서버에 연결되면 다시 눌러 주세요'); return false; }
+  const key = _mobileNewKey();
+  const ok = await firebaseAPI.mobileSetKey(uid, key);
+  if(!ok){ toast('연결 키를 저장하지 못했어요 — 잠시 뒤 다시 눌러 주세요'); return false; }
+  try{ localStorage.setItem(MOBILE_KEY_LS, JSON.stringify({ u:uid, k:key })); }catch(_){}
+  try{ if(_mobileStop) _mobileStop(); }catch(_){}
+  _mobileStop = null;
+  _mobileApplyState(null);
+  _mobileStart();
+  return true;
+}
+async function _mobOpenWindow(){
+  const ov = document.getElementById('mobLinkOverlay'); if(!ov) return;
+  if(!_mobileGetKey() && !(await _mobMakeKey())) return;
+  ov.classList.add('on');
+  _mobFillWindow();
+  _mobRenderPanel();
+}
+function _mobCloseWindow(){ const ov = document.getElementById('mobLinkOverlay'); if(ov) ov.classList.remove('on'); }
+/* 2단계 누르기 — 처음 누르면 글자가 바뀌고, 4초 안에 한 번 더 누르면 실행. */
+function _mobArm(btn, armedText, run){
+  if(!btn) return;
+  btn.onclick = ()=>{
+    if(btn._armed){ clearTimeout(btn._armed); btn._armed = 0; btn.textContent = btn._idleText; run(); return; }
+    btn._idleText = btn.textContent; btn.textContent = armedText;
+    btn._armed = setTimeout(()=>{ btn._armed = 0; btn.textContent = btn._idleText; }, 4000);
+  };
+}
+{
+  const q = document.getElementById('fsMobQr'); if(q) q.onclick = ()=>{ _mobOpenWindow(); };
+  _mobArm(document.getElementById('fsMobUnlink'), '한 번 더 누르면 끊겨요', async ()=>{
+    const uid = getMyUserId();
+    try{ if(_mobileStop) _mobileStop(); }catch(_){}
+    _mobileStop = null;
+    try{ localStorage.removeItem(MOBILE_KEY_LS); }catch(_){}
+    _mobileApplyState(null);
+    _mobCloseWindow();
+    if(uid && window.firebaseAPI && firebaseAPI.mobileUnlink) await firebaseAPI.mobileUnlink(uid);
+    toast('📱 폰 연결을 끊었어요');
+  });
+  _mobArm(document.getElementById('mobLinkRenew'), '한 번 더 누르면 바뀌어요', async ()=>{
+    if(await _mobMakeKey()){ _mobFillWindow(); toast('새 키를 만들었어요 — 폰에서 다시 설정해 주세요'); }
+  });
+  const c = document.getElementById('mobLinkCopy');
+  if(c) c.onclick = ()=>{
+    const key = _mobileGetKey(); if(!key) return;
+    try{ navigator.clipboard.writeText(key).then(()=>toast('연결 키를 복사했어요'), ()=>toast('복사하지 못했어요')); }catch(_){ toast('복사하지 못했어요'); }
+  };
+  const x = document.getElementById('mobLinkClose'); if(x) x.onclick = _mobCloseWindow;
+  const d = document.getElementById('mobLinkDone');  if(d) d.onclick = _mobCloseWindow;
+  try{ _mobRenderPanel(); }catch(_){}
+}
+
+/* 상한을 넘기는 순간은 새 값이 오지 않으므로 1분마다 한 번 본다(표시 «N분째» 갱신 겸). */
+let _mobileWasOnTick = false;
+setInterval(()=>{
+  const on = _mobileOn();
+  if(on !== _mobileWasOnTick){ _mobileWasOnTick = on; _mobileChanged(); }
+  try{ _mobRenderPanel(); }catch(_){}
+}, 60*1000);
+
 let _focusLastTick=performance.now(), _focusWasActive=false;
 function _applyActiveAppState(state){
   if(!state) return;
@@ -40549,20 +41026,23 @@ function _applyActiveAppState(state){
   //   손을 뗀 뒤 캐릭터가 이미 idle인데도 8초까진 기록이 계속 쌓였다. 이제 마지막 입력 후 FOCUS_MS가
   //   지나 캐릭터가 '집중(focus) 포즈'를 벗어나면(=idle 진입) 즉시 누적을 멈춘다.
   //   → "실제로 입력하며 집중하는 동안"만 시간이 쌓임. 입력이 재개되면 다음 폴링부터 다시 누적.
-  const notFocusingNow = (now - lastActivity) > focusWindowMs();
+  /* 📱 폰 켜짐이면 PC 입력 조건을 건너뛴다 — PC 입력이 없는 게 정상이라 그대로 두면 한 초도 안 쌓인다(요구: PC 와 똑같이). */
+  const mobOn = _mobileOn();
+  const pcNotFocusing = (now - lastActivity) > focusWindowMs();
+  const notFocusingNow = mobOn ? false : pcNotFocusing;
   if(_focusWasActive && !notFocusingNow && dt>0 && dt<30) addFocusSeconds(dt);
   /* 👑 달성표 🎯집중 — "오늘 그 앱을 몇 초 썼나"를 같은 dt 로 여기서 센다.
      ★ 새 타이머를 만들지 않는 이유: dt 는 _focusLastTick 을 소비해서 나온다. 밖에서 따로 재면
        같은 구간을 두 번 세거나 서로 _focusLastTick 을 리셋해서 둘 다 틀린다.
      ★ _focusWasActive(=등록된 포커스 앱이 활성)를 조건에 안 거는 이유: 그건 평생 누적치용 게이트다.
        달성표는 사용자가 고른 exe 하나만 보므로, 그 앱이 포커싱 어플 슬롯에서 빠져도 계속 세야 한다. */
-  if(dt>0 && dt<30 && !notFocusingNow) _chalFocusTick(state, dt);
+  if(dt>0 && dt<30 && !pcNotFocusing) _chalFocusTick(state, dt);   // 📱 폰 시간은 안 넣는다(exe 기준 · 이번 범위 밖)
   /* 이 기기의 플랫폼 접두사를 main 이 보낸 키에서 배운다 — 렌더러가 스스로 판단하지 않는다.
      구버전 main 은 key 를 안 보내므로 null 로 남고, 그때는 플랫폼 판정을 아예 안 한다. */
   if(state.key) _chalKeyPlatform = String(state.key).split(':')[0] || null;
   _penAppFocused = !!state.isPenApp;   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
-  focusGateSleep = figureMode ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true);
-  _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered);
+  focusGateSleep = figureMode ? false : (mobOn ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true));
+  _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -41903,7 +42383,7 @@ if(desktopMode){
        두 곳에 따로 적어 두면 새 창을 추가할 때 한쪽만 고치게 되고, 그러면 main 과 렌더러가
        서로 다른 것을 보며 싸운다 — 그게 이번 제보의 정체였다(핸드오프5 §1-4).
        ⇒ body 에 붙는 팝업을 새로 만들면 **여기 한 곳에만** 추가하면 된다. */
-    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, .seat-nameplate';
+    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, .seat-nameplate';
     /* 📐 지금 화면에 떠 있는 "우리 창"들의 사각형 — main 에게 보낸다.
 
        [왜 필요한가 — 이번 제보의 뿌리] main 의 회수 안전장치(ⓕ·ⓖ)와 펜 근접 판정은 지금까지

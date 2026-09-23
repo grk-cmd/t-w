@@ -202,6 +202,19 @@ say('── 8. 🖼️ 자리비움 그림 = 화면 150×150');
   chk(/sp\.position\.set\(cx - _awayGW\.x, fy \+ h\/2 - _awayGW\.y, cz - _awayGW\.z\);/.test(fr), '자리는 예전처럼 가운데 · 발밑');
 }
 
+say('── 9. 🗼 탑 위 자리비움 그림 — 바로 아래 캐릭터의 꼭대기에(A안)');
+{
+  const fr = strip(grab(SRC, '_awayImgFrame'));
+  chk(/const _host = seat\.ridingOn;\s*if\(_host && _host\.rig && seats\.indexOf\(_host\) >= 0\)\{/.test(fr), '올라탄 동안에만 갈래를 탄다');
+  chk(/_awayHostBox\.setFromObject\(_host\.bodyWrap \|\| _host\.rig\);/.test(fr) && /fy = _awayHostBox\.max\.y;/.test(fr), '밑변 = 바로 아래 캐릭터의 꼭대기');
+  chk(/cx = \(_awayHostBox\.min\.x \+ _awayHostBox\.max\.x\)\/2;/.test(fr) && /cz = \(_awayHostBox\.min\.z \+ _awayHostBox\.max\.z\)\/2;/.test(fr), '가로·앞뒤 = 그 캐릭터 가운데');
+  chk(fr.indexOf('fy = _awayHostBox.max.y;') < fr.indexOf('const h = _awayWorldForPx(AWAY_PIC_SCREEN_PX, cx, fy, cz);'), '크기(150px)는 바뀐 자리의 깊이로 잰다');
+  chk(/var _awayBox = null, _awayGW = null, _awayHostBox = null;/.test(CODE), '상자는 하나를 재사용한다(매 측정 new 없음)');
+  /* 흉내: 팔 걸치기 자세 — 내 발밑(0.9)이 상대 꼭대기(1.4)보다 아래 → 그림 밑변은 1.4 */
+  const place = (rider, host) => { let fy = rider.min; if(host) fy = host.max; return fy; };
+  chk(place({ min:0.9 }, { max:1.4 }) === 1.4 && place({ min:0 }, null) === 0, '올라탄 그림은 상대 머리 위 · 땅에 선 그림은 예전처럼 발밑');
+}
+
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
 })();

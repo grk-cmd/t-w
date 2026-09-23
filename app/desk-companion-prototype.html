@@ -328,6 +328,7 @@
   html[data-theme="bubble"] #mhPromptTitle,
   html[data-theme="bubble"] #mhStickerAnimOverlay .ttl,
   html[data-theme="bubble"] #mhStickerMgrOverlay .ttl,
+  html[data-theme="bubble"] #mobLinkOverlay .ttl,
   html[data-theme="bubble"] #myHomeTitle,
   html[data-theme="bubble"] #myPlHead,
   html[data-theme="bubble"] #raceModal h2,
@@ -1161,6 +1162,52 @@
   /* 🪪 [내 정보 › 계정] 에서는 스크롤바를 숨긴다(사용자 요청 · 개정 53) — 휠·끌기 스크롤은 그대로. 클래스는 app.js _miSetTab 이 단다. */
   #lcMyInfo.mi-noscroll{scrollbar-width:none;}
   #lcMyInfo.mi-noscroll::-webkit-scrollbar{display:none;width:0;height:0;}
+  /* 🌟 [내 정보] 별 색 (시안 v2 확정 · 2026-09-23 · CHECKS 개정 69) — 머리의 레벨 배지가 버튼(#miLvBtn)이 되고, 누르면 #miStar 가 열린다.
+     ★ 배지(.mh-flv) 모양은 건드리지 않는다. 버튼은 배지를 감싸기만 하고, 눌리는 범위를 배지보다 조금 넓힌다(음수 margin 으로 줄 높이는 그대로).
+     ★ 미리보기(.mi-star-stage)는 진짜 좌석 CSS(.seat-nameplate · .seat-exp)를 **자리만 풀어서** 쓴다 — 좌석 쪽은 absolute·translate·display:none 이다.
+       색은 여기 적지 않는다. --pre-c 를 #miStar 에 얹으면 별·바가 레벨 토큰을 통해 따라온다(검사 17 의 원칙 그대로).
+     ⚠️ 두 변수(--nameplate-size · --exp-bar-h)는 원래 #seatLabelsLayer 에만 있다 — 미리보기는 그 밖이라 .mi-star-stage 가 같은 기본값을 준다.
+       없으면 바 높이가 0 이 돼 채움이 안 보인다(실제로 한 번 그랬다).
+     ⚠️ 움직임을 새로 만들지 않았다(▾ 회전은 즉시 · 구획은 그냥 나타남). 만들면 레벨 쪽 prefers-reduced-motion 목록에 넣을 것. */
+  .mi-lv-btn{display:inline-flex;align-items:center;background:none;border:0;padding:3px 2px;margin:-3px -2px;cursor:pointer;font:inherit;color:inherit;}
+  .mi-lv-btn .mh-flv{margin-left:0;}
+  .mi-lv-btn .mi-lv-car{font-size:8px;line-height:1;margin-left:2px;color:var(--ink-soft);}
+  .mi-lv-btn[aria-expanded="true"] .mi-lv-car{transform:rotate(180deg);}
+  .mi-lv-btn:hover,.mi-lv-btn[aria-expanded="true"]{background:rgba(0,0,0,.1);}
+  .mi-lv-btn:focus-visible{outline:1px dotted var(--ink);outline-offset:0;}
+  .mi-star{padding:9px 0;border-bottom:1px solid var(--win-lo-2);box-shadow:0 1px 0 var(--win-hi);}
+  .mi-star-t{display:flex;justify-content:space-between;align-items:baseline;gap:6px;font-size:11px;margin-bottom:6px;}
+  .mi-star-t span{font-size:10px;color:var(--ink-soft);text-align:right;}
+  #miStarOn{gap:8px;align-items:stretch;}
+  .mi-star-stage{--nameplate-size:15px;--exp-bar-h:6px;width:112px;flex-shrink:0;box-sizing:border-box;overflow:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 2px 8px;
+    background:linear-gradient(#46505e,#262d36);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
+  .mi-star-stage .seat-nameplate{position:static;transform:none;display:inline-block;pointer-events:none;}
+  .mi-star-stage .seat-exp{position:static;transform:none;display:block;width:70px;}
+  .mi-star-pal{display:grid;grid-template-columns:repeat(4,22px);gap:5px;align-content:center;}
+  .mi-star-sw{width:22px;height:22px;padding:0;margin:0;cursor:pointer;background:var(--sw);border:2px solid;
+    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
+  .mi-star-sw[aria-checked="true"]{outline:2px solid var(--ink);outline-offset:1px;box-shadow:inset 0 0 0 2px #fff;}
+  .mi-star-sw:focus-visible{outline:1px dotted var(--ink);outline-offset:2px;}
+  .mi-star-lock{gap:9px;align-items:center;padding:8px;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
+  .mi-star-ghost{font-size:22px;line-height:1;color:#c8c8c8;text-shadow:0 1px 0 #fff,0 -1px 0 #999;}
+  .mi-star-meter{height:6px;margin-top:4px;padding:1px;border:1px solid var(--win-lo-2);background:var(--win-face);box-sizing:content-box;}
+  .mi-star-meter i{display:block;height:100%;width:0;background:var(--win-select);}
+  /* 🏆 [내 정보] 전체 랭킹 1~100위 (시안 v2 B안 + 후광 ② 확정 · 2026-09-23 · CHECKS 개정 73) — 값은 시안 그대로.
+     ★ 칸 없이 글자만. 100위 밖이면 #miRank 를 통째로 숨긴다(글자도 없음). 1~3위는 메달 + 큰 글자(.top).
+     ★ 왕관·후광은 #miAvatar(overflow:hidden) 밖 · 감싸개 .mi-ava-wrap 의 자식이다 — 안에 넣으면 잘린다.
+     ⚠️ 후광 색은 테마 토큰이 아니라 고정 금빛이다(날리기 «무지개» 와 같은 태도). 방사형 · 베젤 없음이라 검사 12·13 과 무관.
+       전역 *{border-radius:0 !important} 가 50% 를 이기지만, closest-side 그라데이션이 가장자리에서 이미 투명이라 모양은 같다.
+     ⚠️ 움직임 없음 — 만들면 prefers-reduced-motion 목록에 넣을 것. */
+  .mi-ava-wrap{position:relative;flex-shrink:0;overflow:visible;}
+  .mi-rank{margin-left:auto;align-self:center;flex-shrink:0;text-align:right;line-height:1.25;}
+  .mi-rank .t{font-size:9.5px;color:var(--ink-soft);display:block;}
+  .mi-rank .v{font-size:15px;font-weight:bold;white-space:nowrap;}
+  .mi-rank .v.top{font-size:17px;}
+  .mi-halo{position:absolute;left:50%;top:-30px;width:54px;height:46px;transform:translateX(-50%);pointer-events:none;border-radius:50%;
+    background:radial-gradient(closest-side, rgba(255,250,200,1), rgba(255,226,80,.9) 35%, rgba(255,200,40,.45) 65%, rgba(255,200,40,0) 100%);}
+  .mi-crown{position:absolute;left:50%;top:-15px;transform:translateX(-50%) rotate(-12deg);font-size:20px;line-height:1;pointer-events:none;
+    filter:drop-shadow(0 0 2px #fff3a0) drop-shadow(0 0 4px rgba(255,200,40,.9));}
   .lc-card{position:relative;width:320px;max-width:92vw;padding:14px 18px 18px;margin:auto;flex:none;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);border-radius:var(--win-radius-el) !important;}
@@ -2221,6 +2268,52 @@
   .st-anim-foot button{flex:1;font-size:11px;padding:5px 0;cursor:pointer;background:var(--win-face);
     border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .st-anim-foot button.on{background:var(--win-title-b);color:#fff;font-weight:bold;}
+  /* 📱 태블릿·폰 연결 (개정 74 · 시안 ①~③ 승인) — 설정 › 포커싱어플 탭의 칸 + QR 창.
+     ★ 패널 폭 300px 안 — 버튼은 한 줄에 최대 2개. 색은 토큰으로만(초록·노랑은 폴백 있는 토큰).
+     ⚠️ 새 클래스에 fly 를 쓰지 말 것(sim-chat-fly 가 .fly 규칙 문자열을 붙잡고 있다). */
+  #focusSettingsPanel .fs-mob{margin-top:10px;padding-top:8px;border-top:1px solid var(--win-lo);}
+  #focusSettingsPanel .fs-mob .fs-label{margin-top:0;}
+  .fs-mob-st{display:flex;align-items:flex-start;gap:7px;padding:6px 8px;background:var(--win-hi);
+    border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
+  .fs-mob-dot{flex:0 0 auto;width:8px;height:8px;margin-top:3px;border-radius:50%;background:var(--win-lo);}
+  .fs-mob-st.use  .fs-mob-dot{background:var(--win-ok,#2a7a3f);}
+  .fs-mob-st.rest .fs-mob-dot{background:var(--win-warn,#c9a227);}
+  .fs-mob-txt{display:flex;flex-direction:column;min-width:0;font-size:11px;line-height:1.35;color:var(--ink);}
+  .fs-mob-txt b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .fs-mob-st.off .fs-mob-txt b{font-weight:normal;color:var(--ink-soft);}
+  .fs-mob-sub{font-size:10px;color:var(--ink-soft);}
+  .fs-mob-btns{display:flex;gap:6px;margin-top:7px;}
+  .fs-mob-btns .fs-toggle-btn{flex:1 1 0;white-space:nowrap;}
+  #mobLinkOverlay{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+    background:none;pointer-events:none;}
+  #mobLinkOverlay.on{display:flex;}
+  #mobLinkOverlay .box{pointer-events:auto;width:280px;max-width:92vw;max-height:92vh;overflow-y:auto;
+    background:var(--win-face);font-family:Tahoma,'Malgun Gothic',sans-serif;
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);border-radius:var(--win-radius-el) !important;}
+  #mobLinkOverlay .ttl{font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+    background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));
+    display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  #mobLinkClose{width:16px;height:14px;font-size:9px;line-height:1;cursor:pointer;padding:0;flex:0 0 auto;color:var(--ink);
+    background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
+  .mob-body{padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px;}
+  #mobLinkQr{width:132px;height:132px;image-rendering:pixelated;background:#fff;padding:6px;
+    border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
+  .mob-cap{font-size:10.5px;color:var(--ink-soft);text-align:center;}
+  .mob-steps{margin:0;padding:0 0 0 18px;align-self:stretch;font-size:11px;line-height:1.5;color:var(--ink);}
+  .mob-steps b{color:var(--ink);}
+  .mob-steps span{color:var(--ink-soft);}
+  .mob-key{display:flex;align-items:center;gap:6px;align-self:stretch;font-size:11px;color:var(--ink);}
+  .mob-key code{flex:1 1 auto;padding:3px 6px;font-family:Consolas,monospace;background:var(--win-hi);
+    border:1px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
+  .mob-body button.mob-b{font-size:11px;padding:4px 10px;cursor:pointer;color:var(--ink);white-space:nowrap;background:var(--win-face);
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
+  .mob-body button.mob-b:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow:inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
+  .mob-btns{display:flex;gap:6px;align-self:stretch;}
+  .mob-btns .mob-b{flex:1 1 0;}
+  .mob-warn{font-size:10px;color:var(--ink-soft);text-align:center;}
   /* 🎨 스티커 관리 창 — [+ 스티커] 버튼으로 열린다.
      ★ 화면에서 사라진 스티커(창 밖으로 밀렸거나 다른 스티커에 완전히 가려진 것)는 우클릭도 못 하므로
        손댈 방법이 아예 없었다. 목록으로 두면 언제나 닿는다 — 말랑이 선물함과 같은 발상. */
@@ -4616,6 +4709,17 @@
          게임은 자동 등록이 거의 항상 틀린다(게임에서 빠져나오는 사이에 바탕화면·런처가 한 번
          활성이 되고, 그게 대신 등록된다). 그래서 목록에서 직접 고르는 길을 열어두고 여기서 알린다. -->
     <div class="fs-hint" id="fsSlotHint">🎮 게임은 슬롯을 <b>우클릭</b>해서 목록에서 직접 고르세요</div>
+    <!-- 📱 태블릿·폰 (개정 74 · 시안 ①② 승인) — 슬롯·🎮 안내 줄 아래. 폰 자동화가 «앱 열림/닫힘» 을 보내면 PC 가 판정한다.
+         상태 칸 넷: 초록(쓰는 중) · 노랑(연결됨 · 쉬는 중) · 회색(연결 안 됨 / 신호 기다림). 그리는 곳은 app.js _mobRenderPanel 하나. -->
+    <div class="fs-mob" id="fsMob">
+      <div class="fs-label">📱 태블릿·폰 <span style="font-weight:normal;color:var(--ink-soft);">— 폰에서 그릴 때도 반응해요</span></div>
+      <div class="fs-mob-st off" id="fsMobSt"><span class="fs-mob-dot"></span><span class="fs-mob-txt"><b id="fsMobMain">연결 안 됨</b><span class="fs-mob-sub" id="fsMobSub" style="display:none;"></span></span></div>
+      <div class="fs-mob-btns">
+        <button class="fs-toggle-btn" id="fsMobQr" type="button">QR로 연결하기</button>
+        <button class="fs-toggle-btn" id="fsMobUnlink" type="button" style="display:none;">연결 끊기</button>
+      </div>
+      <div class="fs-hint" id="fsMobNote" style="display:none;">PC 프로그램을 끄면 폰 연결도 함께 멈춰요</div>
+    </div>
   </div>
   <div class="fs-tabpage" id="fsTabDisplay" style="display:none;">
     <div class="fs-label" id="fsMonitorLabel" style="display:none;">모니터 선택 <span style="font-weight:normal;color:var(--ink-soft);">— 캐릭터를 표시할 화면</span></div>
@@ -5325,19 +5429,25 @@
          ⚠️ 카드(.lc-card · position:relative) 안의 겹 페이지다 — 제목줄(22px) 아래를 덮는다. 창·팝업이 아니므로 바깥 클릭 닫기 · 팝업 목록에 넣지 않는다. -->
     <div id="lcMyInfo" style="display:none;position:absolute;left:0;right:0;top:22px;bottom:0;z-index:6;overflow-y:auto;
       background:var(--win-face);padding:8px 12px 12px;box-sizing:border-box;">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+      <div id="miTopBar" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
         <button id="miBack" class="lc-btn" type="button" aria-label="런처로" style="width:auto;margin:0;padding:2px 9px;font-size:11px;">&#9664;</button>
         <b style="font-size:12px;">내 정보</b></div>
       <div style="display:flex;gap:9px;align-items:center;padding-bottom:9px;border-bottom:1px solid var(--win-lo-2);box-shadow:0 1px 0 var(--win-hi);">
+        <!-- 🏆 사진 감싸개(개정 73) — 1위 왕관·후광이 #miAvatar(overflow:hidden) 밖으로 삐져나오게. 순서: 사진 → 후광 → 왕관. -->
+        <div class="mi-ava-wrap">
         <div id="miAvatar" style="width:44px;height:44px;flex-shrink:0;background:var(--win-select-bg);border:1px solid;
           border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;
           text-align:center;font-size:9px;line-height:1.3;overflow:hidden;"><!-- 틀은 마이홈 프로필 사진(#mhAvatarBig)과 같은 한 줄 베벨 -->
           <img id="miAvatarImg" alt="" draggable="false" style="display:none;width:100%;height:100%;object-fit:cover;">
           <span id="miAvatarPh">사진</span></div>
+          <span id="miHalo" class="mi-halo" aria-hidden="true" style="display:none;"></span><span id="miCrown" class="mi-crown" aria-hidden="true" style="display:none;">&#128081;</span></div>
         <div style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1;">
           <div id="miNameRow" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
             <span id="miNick" style="font-size:12.5px;font-weight:bold;word-break:break-all;"></span>
-            <span id="miLv"></span><!-- 레벨 배지 — 친구 목록과 같은 .mh-flv(_plFillLv) -->
+            <!-- 🌟 레벨 배지 = «별 색» 구획(#miStar)을 여닫는 버튼 (시안 v2 확정 · 2026-09-23 · CHECKS 개정 69).
+                 배지 자체는 친구 목록과 같은 .mh-flv(_plFillLv) 그대로다. 버튼으로 감싸는 것은 **이 자리 하나뿐** —
+                 친구 목록·마이홈 배지는 누르는 물건이 아니다. ▾ 는 «눌린다» 는 표시(배지는 원래 누르는 물건이 아니었다). -->
+            <button id="miLvBtn" class="mi-lv-btn" type="button" aria-expanded="false" aria-controls="miStar" title="별 색"><span id="miLv"></span><span class="mi-lv-car" aria-hidden="true">&#9662;</span></button>
             <button id="miNameEdit" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">수정</button></div>
           <div id="miNameEditRow" style="display:none;align-items:center;gap:4px;">
             <input id="miNameInput" type="text" maxlength="20" autocomplete="off" style="flex:1;min-width:0;width:100px;padding:2px 5px;box-sizing:border-box;background:#fff;
@@ -5346,6 +5456,29 @@
             <button id="miNameCancel" class="lc-btn" type="button" style="width:auto;margin:0;padding:2px 7px;font-size:10.5px;">취소</button></div>
           <div style="display:flex;align-items:center;gap:6px;"><span id="miCode" style="font-size:11px;font-weight:bold;font-family:'Courier New',monospace;letter-spacing:.3px;">—</span>
             <button id="miCopy" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">복사</button></div>
+        </div>
+        <!-- 🏆 전체 랭킹 (시안 v2 B안 · 개정 73) — 머리 줄 오른쪽. 1~100위만 · 밖이면 통째로 숨김. 글자는 app.js _miApplyRank(rankLabel)가 채운다. -->
+        <div id="miRank" class="mi-rank" style="display:none;"><span class="t">전체 랭킹</span><span id="miRankV" class="v"></span></div>
+      </div>
+      <!-- 🌟 별 색 (시안 v2 확정 · 2026-09-23 · CHECKS 개정 69) — 머리의 레벨 배지(#miLvBtn)를 누를 때만 열린다. [내 정보]를 열 때마다 닫힌 채 시작.
+           ★ 999시간 전: #miStarLock (남은 시간 + 막대). 회차: #miStarOn (왼쪽 실제 이름표·바 미리보기 + 오른쪽 16칸).
+           ★ 미리보기는 **진짜 좌석 CSS**(.seat-nameplate .np-star · .seat-exp.lv-star)를 그대로 쓴다 — 색을 여기 따로 적지 않는다.
+             --pre-c 는 두 미리보기의 공통 조상(#miStar)에 한 번만 얹는다(app.js _miRenderStar).
+           ⚠️ 미리보기의 lv-star 는 **이 마크업에 고정**이다. 실제 좌석·배지에 별을 붙이는 일은 레벨 모듈로와 한 번에 한다
+             (sim-focus-cap 4절 · handoff-level-tiers.md §6). 이 구획은 그 전에 «고르는 자리» 만 먼저 연다. -->
+      <div id="miStar" class="mi-star" style="display:none;">
+        <div class="mi-star-t"><b>별 색</b><span id="miStarSub"></span></div>
+        <div id="miStarOn" style="display:none;">
+          <div class="mi-star-stage"><span class="seat-nameplate"><span class="np-star" id="miStarNpStar"></span><span id="miStarNpText"></span></span>
+            <div class="seat-exp lv-star lvx lvglow"><div class="exp-fill" id="miStarFill"></div></div></div>
+          <div id="miStarPal" class="mi-star-pal" role="radiogroup" aria-label="별 색"></div>
+        </div>
+        <div id="miStarLock" class="mi-star-lock" style="display:none;">
+          <span class="mi-star-ghost" aria-hidden="true">&#9734;</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10.5px;">999시간을 채우면 별이 붙고, 여기서 색을 고를 수 있어요</div>
+            <div id="miStarLeft" style="font-size:10px;color:var(--ink-soft);line-height:1.5;"></div>
+            <div class="mi-star-meter"><i id="miStarMeter"></i></div></div>
         </div>
       </div>
       <!-- 🫧 자리비움 그림 (시안 A 확정 · 2026-09-23) — 머리 아래 한 구획. 자리비움이면 캐릭터 대신 이 그림이 선다(app.js bindAwayImg · _awayPick).
@@ -5367,8 +5500,8 @@
       </div>
       <div style="display:flex;gap:3px;margin:9px 0 0;">
         <button id="miTabBox" class="mi-tab" type="button" style="flex:1 1 0;font-family:inherit;font-size:11px;color:var(--ink);background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo),inset 1px 1px 0 var(--win-face-2);padding:4px 2px;cursor:pointer;">보관함</button>
-        <button id="miTabAcct" class="mi-tab" type="button" style="flex:1 1 0;font-family:inherit;font-size:11px;color:var(--ink);background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo),inset 1px 1px 0 var(--win-face-2);padding:4px 2px;cursor:pointer;">계정</button>
         <button id="miTabTrash" class="mi-tab" type="button" style="flex:1 1 0;font-family:inherit;font-size:11px;color:var(--ink);background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo),inset 1px 1px 0 var(--win-face-2);padding:4px 2px;cursor:pointer;display:none;color:#B22222;font-weight:bold;">휴지통</button>
+        <button id="miTabAcct" class="mi-tab" type="button" style="flex:1 1 0;font-family:inherit;font-size:11px;color:var(--ink);background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo),inset 1px 1px 0 var(--win-face-2);padding:4px 2px;cursor:pointer;">계정</button>
       </div>
       <div id="miPageBox" style="padding:9px 0 0;">
         <!-- 🧺 D2 보관함 가득 참 (개정 51) — 보관함(슬롯 밖) 20 이상일 때만. 문구·체크칸·[선택한 캐릭터 휴지통으로]는 app.js _miRenderBox 가 켠다. -->
@@ -6127,6 +6260,25 @@
       <span id="stMgrCount"></span>
     </div>
     <div id="stMgrList" class="st-mgr-list"></div>
+  </div>
+</div>
+<!-- 📱 태블릿·폰 연결 창 (개정 74 · 시안 ③ 승인) — 설정 › 포커싱어플 [QR로 연결하기]에서 연다.
+     QR 은 vendor/qrcode.js(로컬 · CSP) 로 canvas 에 그린다. 내용 = 안내 페이지 주소 · 키는 # 뒤(서버 로그에 안 남게). -->
+<div id="mobLinkOverlay">
+  <div class="box" role="dialog" aria-label="태블릿·폰 연결">
+    <div class="ttl"><span>📱 태블릿·폰 연결</span><button id="mobLinkClose" type="button">&#10005;</button></div>
+    <div class="mob-body">
+      <canvas id="mobLinkQr" width="132" height="132"></canvas>
+      <div class="mob-cap">폰 카메라로 찍으면 설정 안내가 열려요</div>
+      <ol class="mob-steps">
+        <li><b>받기</b> <span>— iPhone·iPad 는 단축어, 갤럭시는 MacroDroid</span></li>
+        <li><b>자동화 만들기</b> <span>— 그림 앱이 열릴 때·닫힐 때 신호를 보내요</span></li>
+        <li><b>연결 테스트</b> <span>— [신호 보내 보기] 후 설정 칸이 초록이면 끝</span></li>
+      </ol>
+      <div class="mob-key">연결 키 <code id="mobLinkKey">••••</code><button class="mob-b" id="mobLinkCopy" type="button">복사</button></div>
+      <div class="mob-btns"><button class="mob-b" id="mobLinkRenew" type="button">키 새로 만들기</button><button class="mob-b" id="mobLinkDone" type="button">닫기</button></div>
+      <div class="mob-warn">키를 새로 만들면 예전 폰 연결은 끊겨요</div>
+    </div>
   </div>
 </div>
 <div id="gameCfgOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
@@ -7353,6 +7505,7 @@
      ⚠️ firebase-init.js 는 type="module" 이라 이 classic 스크립트들보다 **늦게** 돈다.
        그래서 app.js 는 firebaseAPI.pkGet 이 아직 없을 수 있다고 보고 쓴다(_purikura() 참고). -->
 <script src="parts/purikura-net.js"></script>
+<script src="vendor/qrcode.js"></script>   <!-- 📱 태블릿·폰 연결 QR (MIT · 로컬 파일 — CSP) -->
 <script src="parts/app.js"></script>
 <script src="parts/myhome-desktop.js"></script>
 <script src="parts/mallang.js"></script>
