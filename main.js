@@ -637,6 +637,16 @@ const PEN_APPS = new Set([
   'coreldraw.exe', 'painter.exe',
   'affinityphoto.exe', 'affinitydesigner.exe', 'affinitypublisher.exe',
 ]);
+/* 🍎 [Mac 제보 2026-09-23] 위 목록은 **Windows 실행 파일 이름**뿐이다. mac 의 판정 키는 번들 id(sysinput-mac.js)라
+   한 줄도 안 걸려서 mac 에서는 펜 앱 처리(4초 기록 창 · forward 끔 · 펜 활동 감지)가 통째로 꺼져 있었다 — 클립스튜디오 제보의 한 갈래.
+   ★ mac 은 **표시 이름(.app 이름)** 으로 가른다. 이 판정은 저장·동기화되지 않는 순간값이라, 번들 id 를 고집한
+     포커싱 어플 키(이름이 바뀌면 등록이 풀림)와 달리 이름으로 봐도 잃을 것이 없다. 번들 id 를 몰라도 된다. */
+const PEN_APPS_MAC_RE = /clip\s*studio|photoshop|illustrator|adobe animate|fresco|krita|firealpaca|medibang|paint\s*tool\s*sai|blender|zbrush|coreldraw|corel painter|affinity (photo|designer|publisher)|procreate|pixelmator|rebelle|artrage/i;
+function _isPenApp(exeName, ownerPath){
+  if(PEN_APPS.has(exeName)) return true;
+  if(process.platform !== 'darwin') return false;
+  try{ return PEN_APPS_MAC_RE.test(sysinput.displayNameOf(ownerPath) || ''); }catch(_){ return false; }
+}
 // 현재 forward를 꺼야 하는 상태(=펜 앱이 활성 창)와 마지막으로 renderer가 요청한 ignore 값을 함께 저장.
 // 폴링에서 pen 앱 진입/이탈이 감지되면 이 두 값으로 setIgnoreMouseEvents를 재호출해 forward만 동적으로 바꿈.
 let _penAppActive = false;
@@ -1010,7 +1020,7 @@ function startActiveWinPolling(){
         }catch(_){}
       }
       // 펜 앱 활성 상태 변화 감지 — 진입/이탈 시 forward 옵션을 즉시 재적용해 태블릿 스무딩을 방해하지 않게.
-      const penNow = PEN_APPS.has(exeName);
+      const penNow = _isPenApp(exeName, ownerPath);
       // ★ isPenApp을 렌더러까지 실어 보낸다 — 그림 작업은 한 획이 몇 초씩 걸려서
       //   렌더러의 1.5초(FOCUS_MS) 기록 창이 너무 좁다. 펜 앱일 때만 그 창을 넓히는 데 쓴다.
       /* ⚠️ 전용 채널을 파지 않는다 — 필드 하나를 얹는 방식이라 구버전 preload/렌더러와도 짝이 맞는다

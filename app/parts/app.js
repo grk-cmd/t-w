@@ -1746,6 +1746,39 @@ function _flyRng(seed){
 }
 function flySeed(){ return (Math.random() * 0xFFFFFFFF) >>> 0; }
 
+/* ═══ 🙈 워킹룸 캐릭터 숨기기 (2026-09-23 · handoff-2026-09-21-features §5) ═══════════════════
+   상대 캐릭터 우클릭 → «🙈 숨기기». **내 화면에서만 · 그 방에 있는 동안만 · 워킹룸(채널 1)에서만.**
+   ★ 키 = seat.friendId(방 세션 memberId). 방마다 새로 뽑히는 값이라 사람 단위 영구 기억이 아니다(그건 «차단» — 별개 설계).
+   ★ localStorage 에 쓰지 않는다. 방 입장 직전(Presence.start 앞)과 doLeaveRoom 에서 비운다.
+   ★ 적용은 프레임 루프가 **매 프레임** 한다(rig.visible · 머리 위 말풍선 · 책상 위 상태 이모지).
+     좌석이 재동기화·재접속으로 새로 그려져도 friendId 가 같으면 다음 프레임에 그대로 다시 숨는다.
+   ★ 책상·이름표·경험치 바는 남긴다 — 빈 책상이 누구 것인지 보여야 우클릭 «🙉 다시 보이기» 로 풀 수 있다.
+   ⚠️ three.js 레이캐스트는 visible=false 를 거르지 않는다 → 좌클릭 잡기 · 💣 조준 · 🪄 때리기 조준 세 곳이
+     _hitsSkipHidden 으로 거른다. **우클릭 메뉴는 거르지 않는다**(책상을 눌러 «다시 보이기» 가 떠야 한다).
+   ⚠️ 숨긴 캐릭터 위에 올라탄 남의 캐릭터는 그대로 둔다(허공에 떠 보일 수 있음 — 범위 밖). */
+const _hiddenSeatIds = new Set();
+/* 🚩 신고로 숨긴 사람 — **계정(friendUserId) 기준 · 모든 방 · 내 컴퓨터에만 기억**(tw.reportHidden).
+   ★ 숨기기(_hiddenSeatIds · 워킹룸 · 이 방 동안)와 모양은 같고 범위만 다르다. 신고해 놓고 다음 방에서
+     다시 보이면 이상하므로. 푸는 길은 같다 — 책상 · 이름표 우클릭 «🙉 다시 보이기»(신고는 그대로 남는다).
+   ⚠️ 서버에는 쓰지 않는다 — 숨김은 내 화면 일이다. 신고 기록(reports/)과 별개. */
+const REPORT_HIDDEN_KEY = 'tw.reportHidden';
+const REPORT_HIDDEN_MAX = 200;
+const _reportHiddenUids = new Set();
+try{ const _rh = JSON.parse(localStorage.getItem(REPORT_HIDDEN_KEY) || '[]'); if(Array.isArray(_rh)) _rh.slice(-REPORT_HIDDEN_MAX).forEach(u=>{ if(typeof u === 'string' && u) _reportHiddenUids.add(u); }); }catch(_){}
+function _reportHiddenSave(){
+  try{ localStorage.setItem(REPORT_HIDDEN_KEY, JSON.stringify(Array.from(_reportHiddenUids).slice(-REPORT_HIDDEN_MAX))); }catch(_){}
+}
+function _seatHidden(seat){
+  if(!(seat && seat.remote)) return false;
+  if(seat.friendUserId && _reportHiddenUids.has(seat.friendUserId)) return true;   // 🚩 모든 채널
+  return !!(seat.friendId && window._activeChannel === 1 && _hiddenSeatIds.has(seat.friendId));
+}
+function _hitsSkipHidden(hits){
+  if(!_hiddenSeatIds.size && !_reportHiddenUids.size) return hits;
+  return hits.filter(h=>!_seatHidden(seatFromObject(h.object)));
+}
+function _clearHiddenSeats(){ _hiddenSeatIds.clear(); }
+
 /* 지금 날고 있는 좌석 수. frame() 의 비포커스 프레임 상한(FPS_UNFOCUSED)을 비행 동안만
    비켜 가는 데 쓴다 — 20fps 로는 빠르게 튕기는 움직임이 뚝뚝 끊겨 보인다.
    ★ seats 를 매 프레임 훑지 않고 세어 두는 이유: 이 값은 상한 검사보다 **먼저** 읽히고,
@@ -1781,13 +1814,16 @@ function _pokeFresh(ts){
    ★ 막는 이유가 전부 "그 좌석의 위치를 이미 다른 코드가 매 프레임 정하고 있다"는 것이다.
      올라타기(_updateRideChains)·벤치·흔들기가 그렇다. 둘이 같이 돌면 캐릭터가 두 좌표
      사이에서 떨린다. */
-function canFly(seat){
+/* 🗼 allowTower — [2026-09-23 요청 · A안] 룰렛·🎲 로 **나를** 날릴 때는 탑 안에 있어도 된다.
+   날리기 **직전에** 탑에서 뺀다(_rideLeaveTower · applyRemoteFly). 탑 계산과 비행이 같이 도는 일은 여전히 없다.
+   ★ 💣(남을 겨눔)은 지금처럼 막는다 — 표적 판정(_flyTargetCheck)은 이 인자를 안 넘긴다. */
+function canFly(seat, allowTower){
   if(!seat)                                    return {ok:false, why:'좌석이 없어요'};
   if(seat.fly)                                 return {ok:false, why:'이미 날아가는 중이에요'};
   if(seat.isPlaceholder)                       return {ok:false, why:'아직 캐릭터가 없어요'};
   if(seat.inPreview)                           return {ok:false, why:'미리보기 중에는 안 돼요'};
   if(seat.beingShaken || seat.pinned)          return {ok:false, why:'지금은 날릴 수 없어요'};
-  if(seat.ridingOn || seats.some(s=>s.ridingOn===seat))
+  if(!allowTower && (seat.ridingOn || seats.some(s=>s.ridingOn===seat)))
                                                return {ok:false, why:'올라타 있는 동안에는 못 날아가요'};
   if(seat.seatedOn || seat._benchOwnerSit)     return {ok:false, why:'벤치에 앉아 있을 땐 못 날아가요'};
   return {ok:true};
@@ -1941,7 +1977,7 @@ function _flyAimClick(e){
   ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
   ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
   ray.setFromCamera(ndc, camera);
-  const hit = ray.intersectObjects(seats.map(s=>s.group), true);
+  const hit = _hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group), true));   // 🙈 숨긴 캐릭터는 표적이 아니다
   const seat = hit.length ? seatFromObject(hit[0].object) : null;
   if(!seat){ setFlyAiming(false); return; }            // 빈 곳 클릭 = 취소
   const t = canTargetFly(seat);
@@ -1987,6 +2023,9 @@ function applyRemoteFly(seat, seedStr){
     return;
   }
   const seed = parseInt(seedStr, 10);
+  /* 🗼 탑 안이면 먼저 뺀다 — **모든 화면이 같은 순서로**(받은 쪽마다 여기서) 한다. 그래야 방 전원의 탑이 같은 모양으로 남는다.
+     각 좌석의 주인은 자기 좌석의 새 ridingOn 을 곧 방송하고(mountRide/unmountRide → broadcastRide), 남의 화면은 그걸로 맞춘다. */
+  if(seat && (seat.ridingOn || seats.some(s=>s.ridingOn===seat)) && canFly(seat, true).ok) _rideLeaveTower(seat);
   const ok = startFlight(seat, isFinite(seed) ? seed : 0, true);
   /* ★ 카운터는 **맞은 사람의 클라이언트에서만** 올린다. 남의 화면에서 같이 세면 방마다
      따로 세게 되고, 쉬는 시간 판정이 사람마다 어긋난다. */
@@ -2468,7 +2507,7 @@ function _bonkAimClick(e){
   ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
   ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
   ray.setFromCamera(ndc, camera);
-  const hit = ray.intersectObjects(seats.map(s=>s.group), true);
+  const hit = _hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group), true));   // 🙈 숨긴 캐릭터는 표적이 아니다
   const seat = hit.length ? seatFromObject(hit[0].object) : null;
   if(!seat){ setBonkAiming(false); return; }          // 빈 곳 클릭 = 취소
   const c = canBonk(seat);
@@ -3251,13 +3290,35 @@ function mountRide(animalSeat, hostSeat){
   //   그때도 토스트가 뜨면 남의 행동을 내가 한 것처럼 알리고, broadcastRide까지 불려
   //   친구의 상태 변화마다 내 presence 쓰기가 한 번씩 더 나간다(불필요한 서버 비용·왕복).
   if(!animalSeat.remote){
-    if(typeof toast==='function') toast('🐾 머리 위에 올라탔어요! (다시 드래그하면 내려와요)');
+    if(!_rideQuietToast && typeof toast==='function') toast('🐾 머리 위에 올라탔어요! (다시 드래그하면 내려와요)');   // 🗼 탑이 내려앉으며 다시 태울 땐 조용히
     try{ if(typeof broadcastRide==='function') broadcastRide(); }catch(_){}
   }
   /* 🐾 이 좌석은 이제 자리 계산에서 빠진다(layoutSeats 의 placed 주석) — 남은 좌석이 그 자리를
      메우도록 즉시 다시 깐다. 안 부르면 올라간 뒤에도 빈자리가 그대로 남는다. */
   try{ if(typeof layoutSeats==='function') layoutSeats(); }catch(_){}
   return true;
+}
+/* 🗼 탑에서 이 좌석만 뺀다 — [2026-09-23 요청 · A안 «나만 빠지고 탑은 한 칸 내려앉음»]
+   · 가운데·맨 위: unmountRide 본래 동작 — 내 위층들이 내 아래층 위로 내려앉는다(드래그로 내려올 때와 같다).
+   · 맨 아래: 바로 위층이 새 바닥이 되고 그 위는 탄 채 남는다. unmountRide(위층) 은 위층의 승객을 «그 아래(=나)» 로
+     옮겨 싣기 때문에 그대로 부르면 날아갈 나에게 다시 태운다 — 승객을 잠깐 떼었다가 위층 위로 다시 태운다.
+   ★ 다시 태울 때 토스트는 끈다(_rideQuietToast) — 내가 한 조작이 아니다. 방송(broadcastRide)은 그대로 나간다. */
+let _rideQuietToast = false;
+function _rideLeaveTower(seat){
+  if(!seat) return;
+  _rideQuietToast = true;
+  try{
+    if(seat.ridingOn){ unmountRide(seat); return; }
+    _rideRiders(seat).forEach(up=>{
+      const upper = _rideRiders(up);
+      upper.forEach(u=>{ u.ridingOn = null; });
+      unmountRide(up);
+      upper.forEach(u=>{
+        try{ if(!mountRide(u, up)){ u.ridingOn = up; unmountRide(u); } }catch(_){}
+      });
+    });
+  }catch(_){}
+  finally{ _rideQuietToast = false; }
 }
 function unmountRide(animalSeat){
   if(!animalSeat || !animalSeat.ridingOn) return;
@@ -3832,7 +3893,11 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
     canvasW = innerWidth;
     canvasH = innerHeight;
     // 설정에서 "저해상도(도트) 렌더"를 켰으면 pixelRatio를 낮춰 도트 느낌 (성능도 가벼워짐)
-    const wantPR = dotRenderEnabled ? 1 : Math.min(devicePixelRatio,2);
+    /* 🍎 [Mac 제보 2026-09-23 «굉장히 버벅인다»] 실행 화면은 **화면 전체 크기**의 투명 캔버스다. 레티나(DPR 2)면 픽셀이 4배 —
+       안티앨리어싱 · 로그 깊이 버퍼까지 얹혀 mac 에서 가장 큰 상시 비용이다. mac 은 MAC_RUN_MAX_PR 로 누른다(1.5 = 픽셀 56%).
+       ⚠️ 캐릭터가 조금 덜 선명해질 수 있다 — 실기기에서 보고 조정. Windows 는 예전 그대로(DPR 2 가 드물다). */
+    const _prCap = _IS_MAC_RENDER ? MAC_RUN_MAX_PR : 2;
+    const wantPR = dotRenderEnabled ? 1 : Math.min(devicePixelRatio,_prCap);
     if(renderer.getPixelRatio() !== wantPR) renderer.setPixelRatio(wantPR);
     canvas.style.imageRendering = dotRenderEnabled ? 'pixelated' : 'auto';
   } else {
@@ -4730,7 +4795,14 @@ function saveCustomStatusConf(emo, text){
    custom은 본인이면 내 등록값, 친구면 그 친구가 보낸 값(remoteCustomStatus)을 씀.
    문구가 비어 있으면(등록 안 함) null 반환 → 상태 없음(온라인)과 동일하게 처리됨. */
 function statusConfFor(seat, us){
-  if(!us) return null;
+  /* 📊 오늘 기록 전시 — **상태가 없을 때만** 내 머리 위에 방에 보낸 값과 같은 것을 띄운다(내 화면 거울).
+     상태(커스텀 포함)가 하나라도 있으면 그것이 이긴다 — 남의 화면에서도 같은 순서다(Presence._statusOut). */
+  if(!us){
+    /* ⚠️ isMe 만 보면 «자리추가»로 주 캐릭터가 바뀐 판에서 내 좌석이 빠진다 — findMySeat 과 같은 기준으로 본다. */
+    const _mine = (typeof findMySeat === 'function') ? findMySeat() : null;
+    if(seat && !seat.remote && (seat.isMe || seat === _mine)){ const f = _focusShowMine(); if(f) return Object.assign({}, USER_STATUSES.custom, { emo: f.emo, label: f.text }); }
+    return null;
+  }
   const base = USER_STATUSES[us];
   if(!base) return null;
   if(us !== 'custom') return base;
@@ -7453,6 +7525,10 @@ function updateMyStatusChipPosition(){
       // 💃 춤추기 버튼 — 투게더룸(채널2)에선 채팅 /80으로 대체되므로 숨김. 워킹룸·혼자 모드에서만 노출.
       const danceBtn = document.getElementById('myDanceBtn');
       if(danceBtn) danceBtn.style.display = (window._activeChannel === 2) ? 'none' : '';
+      /* 🔫 러시안룰렛 — 투게더룸(채널2)에선 숨긴다(2026-09-23 요청). 거기선 대화창 🎲 가 같은 일을 한다
+         (하나라도 1이면 굴린 사람이 날아간다 · _rollDice). 워킹룸·혼자 모드에는 그 🎲 가 없어서 버튼이 필요하다. */
+      const rouletteBtn = document.getElementById('myRouletteBtn');
+      if(rouletteBtn) rouletteBtn.style.display = (window._activeChannel === 2) ? 'none' : '';
       more.classList.toggle('hidden');
       if(!more.classList.contains('hidden')){ moreBtn.classList.add('on'); _positionCascade(more, moreBtn, 'right'); }
       else moreBtn.classList.remove('on');
@@ -7517,6 +7593,17 @@ function updateMyStatusChipPosition(){
       _danceCmdCooldownAt = nowMs;
       startMyDance(def);
       // 더보기 메뉴 닫기
+      const more=document.getElementById('myChipMore'); if(more) more.classList.add('hidden');
+      const moreBtn=document.getElementById('myChipMoreBtn'); if(moreBtn) moreBtn.classList.remove('on');
+    });
+  }
+
+  /* 🔫 러시안룰렛 — 채널 게이트 없음(모든 채널에서 보인다). 본체는 _rollRoulette. */
+  const myRouletteBtn=document.getElementById('myRouletteBtn');
+  if(myRouletteBtn){
+    myRouletteBtn.addEventListener('click', e=>{
+      e.stopPropagation();
+      _rollRoulette();
       const more=document.getElementById('myChipMore'); if(more) more.classList.add('hidden');
       const moreBtn=document.getElementById('myChipMoreBtn'); if(moreBtn) moreBtn.classList.remove('on');
     });
@@ -7590,6 +7677,7 @@ function updateMyStatusChipPosition(){
     chatInput.addEventListener('input', ()=>{ if(chatCount) chatCount.textContent = chatInput.value.length+'/140'; });
     chatInput.addEventListener('keydown', e=>{
       e.stopPropagation();   // Tab 등 전역 단축키가 입력 중에 반응하지 않게(이중 안전장치)
+      if(e.isComposing || e.keyCode === 229) return;   // ⌨️ 한글 조합 중 Enter 는 확정용 — 대화창 입력칸 주석(Mac 끝 글자 중복)
       if(e.key==='Enter'){
         const text=chatInput.value.trim();
         if(text && typeof sendMyChat==='function') sendMyChat(text);
@@ -8475,6 +8563,16 @@ function refreshFsAdBanner(){
     const btn = document.getElementById(id);
     if(btn) btn.click();
   }
+  function _isMacUI(){ try{ return /Mac/i.test(navigator.platform || '') || /Mac OS X/i.test(navigator.userAgent || ''); }catch(_){ return false; } }
+  /* 🍎 mac 이면 단축키 표시를 ⌘ 로 — .fkey 글자와 title 의 (F1)… 을 바꾼다. 마크업은 그대로(Windows 표시가 원본). */
+  (function _macShortcutLabels(){
+    if(!_isMacUI()) return;
+    const run = ()=>{
+      document.querySelectorAll('.fkey').forEach(el=>{ const m = /^F([1-5])$/.exec((el.textContent||'').trim()); if(m) el.textContent = '⌘' + m[1]; });
+      document.querySelectorAll('[title]').forEach(el=>{ const t = el.getAttribute('title'); if(t && /\(F[1-5]\)/.test(t)) el.setAttribute('title', t.replace(/\(F([1-5])\)/g, '(⌘$1)')); });
+    };
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once:true }); else run();
+  })();
   /* 🏠/🕒 더보기 메뉴 퀵 항목 — F4(마이홈)·[기록 열기](포커스 기록)와 같은 동작.
      항목을 누르면 더보기 캐스케이드를 닫고 실행(마이홈/기록 창이 위에 뜨는데 메뉴가 남아있으면 지저분함). */
   function _closeMoreCascade(){
@@ -8485,8 +8583,16 @@ function refreshFsAdBanner(){
   if(_mhMenuBtn) _mhMenuBtn.addEventListener('click', e=>{ e.stopPropagation(); _closeMoreCascade(); toggleMyHomeShortcut(); });
   const _flMenuBtn=document.getElementById('myFocusLogMenuBtn');
   if(_flMenuBtn) _flMenuBtn.addEventListener('click', e=>{ e.stopPropagation(); _closeMoreCascade(); triggerClick('fsFocusLogBtn'); });
+  /* 🍎 [Mac 제보 2026-09-23] F1~F5 는 mac 에서 밝기·미션 컨트롤·Spotlight·받아쓰기 자리다(Fn 을 같이 눌러야 F 키).
+     ★ mac 에서는 ⌘1~⌘5 를 같은 동작으로 받는다. F 키(Fn+F1 등)도 그대로 먹는다 — 둘 다 된다.
+       e.code 를 본다(Digit1…) — 한글 자판·Shift 상태와 무관하게 같은 물리 키다. 버튼 옆 표시(.fkey)·툴팁도 ⌘ 로 바꾼다(_macShortcutLabels). */
+  const _SC_MAC = _isMacUI();
   document.addEventListener('keydown', e=>{
     if(e.repeat) return;
+    if(_SC_MAC && e.metaKey && !e.ctrlKey && !e.altKey && /^Digit[1-5]$/.test(e.code || '')){
+      const _orig = e;
+      e = { key:'F' + _orig.code.slice(5), repeat:false, preventDefault:()=>_orig.preventDefault() };   // 아래 한 벌의 분기로 보낸다
+    }
     if(e.key!=='F1' && e.key!=='F2' && e.key!=='F3' && e.key!=='F4' && e.key!=='F5' && e.key!=='i' && e.key!=='I' && e.key!=='t' && e.key!=='T') return;
     if(!isRunMode()) return;
     if(isTyping()) return;
@@ -12069,7 +12175,14 @@ function _chatNotifyIncoming(){
 //   허용 style 속성은 아래 정규식이 정하는 다섯 개다: color · background-color · font-size ·
 //   font-weight · font-style. (예전 주석은 'color, font-size' 둘만이라고 했는데 실제와 달랐다)
 const _MH_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','U','SPAN','FONT','BR','DIV','P','A','IMG']);
-const _MH_ALLOWED_ATTRS = { A:['href'], IMG:['src','alt'], FONT:['color','size'], SPAN:['style'], DIV:['style'], P:['style'] };
+/* 🎨 [제보 2026-09-23] "게시글 글자에 준 배경색이 재접속하면 풀린다 — 띄어쓰기에 준 것만 남는다."
+   [원인] 크로미움의 backColor 는 선택 범위가 **이미 있는 서식 태그 하나를 꼭 채우면** 새 span 을 만들지 않고
+     그 태그에 style 을 붙인다 — `<font color=".." style="background-color:..">글</font>` · `<b style="..">`.
+     (실제 크로미움으로 재현: 글자색·크기·굵게를 먼저 준 글자는 전부 이 모양이다.) 그런데 여기 목록에서
+     FONT·B 등에는 style 이 없어서 저장할 때 지워졌다. 띄어쓰기는 보통 그런 태그 밖이라 span 으로 남았다.
+   ★ 서식 태그 전부에 style 을 연다 — 값은 아래 style 필터(다섯 속성만)를 그대로 거치므로 위험이 늘지 않는다.
+   ⚠️ 이 선언은 **한 줄**로 둔다 — sim-mh-sanitize.js 가 줄 단위(cutLine)로 떼어 가서 돌린다. */
+const _MH_ALLOWED_ATTRS = { A:['href'], IMG:['src','alt'], FONT:['color','size','style'], SPAN:['style'], DIV:['style'], P:['style'], B:['style'], STRONG:['style'], I:['style'], EM:['style'], U:['style'] };
 /* 🖼️ 남의 bio·게시글 속 `<img>` 를 어디까지 허용하는가 — **정책은 이 한 줄에만 있다.**
      'any'          : http(s) 전부 (지금 값). 남의 글을 여는 것만으로 그 서버에 요청이 나간다 = IP 노출
      'storage-only' : `_MH_IMG_HOSTS` 만. 기존 저장에 든 외부 이미지는 안 보이게 된다
@@ -17885,20 +17998,29 @@ function _pkCloneChar(seat, out){
   const srcEars = (srcFace && srcFace.userData && Array.isArray(srcFace.userData.animalEars))
                     ? srcFace.userData.animalEars : [];
   const ears = [];
+  /* 😑 [제보 2026-09-23] "동물형으로 찍으면 3 을 눌러도 표정이 안 바뀐다."
+     [원인] 재질을 **메시마다 따로** 복제했다. 원본에서 한 재질을 여러 메시가 같이 쓰면 사본은 메시 수만큼
+       갈라지고, 짝으로는 **마지막으로 만난 메시의 것 하나만** 남았다. 눈이 그려진 메시가 그 하나가 아니면
+       3 을 눌러도 다른 메시의 텍스처만 바뀐다 — 오류도 안 나고 화면만 그대로다.
+       (동물은 몸 무늬와 표정이 한 장의 텍스처라 얼굴 재질을 여러 메시가 같이 쓸 수 있다 — animal.js.
+        사람은 얼굴 재질을 한 메시만 써서 드러나지 않았다.)
+     ★ 원본 재질 하나 → 사본 하나(Map). 같이 쓰던 것은 복제 뒤에도 같이 쓴다 — 짝이 하나로 정해진다.
+       배열 재질 안에 든 얼굴·귀도 이제 짝이 된다(예전엔 배열이면 짝짓기를 건너뛰었다). */
+  const _cl = new Map();
+  const _clone = (m)=>{ if(!m || !m.clone) return m; let c = _cl.get(m); if(!c){ c = m.clone(); _cl.set(m, c); } return c; };
   g.traverse(o=>{
     if(!o.isMesh) return;
     o.frustumCulled = false;
     o.castShadow = o.receiveShadow = false;
-    const was = o.material;                       // ★ 복제 전 참조 — 이 한 줄이 짝짓기의 전부다
-    o.material = Array.isArray(o.material) ? o.material.map(m=>m && m.clone ? m.clone() : m)
-                                           : (o.material && o.material.clone ? o.material.clone() : o.material);
-    if(!out || Array.isArray(was)) return;
-    if(srcFace && was === srcFace){ out.faceMat = o.material; return; }
+    o.material = Array.isArray(o.material) ? o.material.map(_clone) : _clone(o.material);
+  });
+  if(out){
+    if(srcFace && _cl.has(srcFace)) out.faceMat = _cl.get(srcFace);
     for(let i=0;i<srcEars.length;i++){
       const e = srcEars[i];
-      if(e && e.mat && was === e.mat){ ears.push({ mat:o.material, fT:e.fT, bT:e.bT }); break; }
+      if(e && e.mat && _cl.has(e.mat)) ears.push({ mat:_cl.get(e.mat), fT:e.fT, bT:e.bT });
     }
-  });
+  }
   if(out) out.ears = ears;
   /* 키를 1.7 로 맞추고 발바닥을 y=0 에 놓는다. 좌석마다 userScale 이 달라서 이걸 안 하면
      무대에서만 사람마다 키가 다르게 나온다. */
@@ -19217,16 +19339,22 @@ function _pkBindWinDrag(){
 })();
 
 // 주사위 굴리기 — 메시지 전송(대화창) + 말풍선
+/* 🔫 [2026-09-23] 투게더룸 🎲 도 러시안룰렛이다 — 하나라도 1이면 **굴린 사람이** 날아간다(요청).
+   ★ 날리기는 룰렛과 같은 한 곳(_selfFlyAfterDice → pokeSelf)으로 간다.
+   ★ 🎲 는 룰렛 버튼과 달리 **굴리기 자체는 막지 않는다**(원래 놀이 도구다). 날 수 없을 때
+     (회사원 모드 · 쉬는 시간 · canFly 불가)는 주사위만 나오고 조용히 안 날아간다.
+   ★ 대화 기록 문장은 **원래 🎲 문장 그대로**다 — «1이 나와 날아갔어요» 꼬리는 붙이지 않는다(2026-09-23 요청). */
 function _rollDice(){
   if(window._activeChannel !== 2) return;
   const n1 = 1 + Math.floor(Math.random()*6);
   const n2 = 1 + Math.floor(Math.random()*6);
   const name = getDisplayName();
   const dice2 = `[dice:${n1}][dice:${n2}]`;   // 주사위 2개 나란히
+  const mySeat = findMySeat();
+  const willFly = (n1 === 1 || n2 === 1) && _selfFlyReady(mySeat);
   // 기록/전송 텍스트에 주사위 마커 삽입 — 렌더 시 SVG로 변환
   const logText = `${name}님이 주사위 ${dice2} 가 나왔습니다.`;
   // 1) 말풍선 — 주사위 2개만(마커). setSeatHeadBubble이 주사위 마커만으로 된 텍스트를 SVG로 렌더.
-  const mySeat = findMySeat();
   if(mySeat) showChatBubble(mySeat, dice2);
   if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(dice2);
   // 2) 대화 기록 — 전체 문장
@@ -19234,6 +19362,75 @@ function _rollDice(){
   if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
     firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name, text:logText });
   }
+  if(willFly) _selfFlyAfterDice();
+}
+
+/* 🔫 주사위로 나를 날릴 수 있는가 — 회사원 모드 · 쉬는 시간 · canFly. 토스트 없이 참/거짓만(🎲 용).
+   룰렛 버튼은 같은 판정을 **토스트와 함께** 먼저 한다(_rollRoulette). */
+function _selfFlyReady(seat){
+  if(typeof officeMode !== 'undefined' && officeMode) return false;
+  if(!seat) return false;
+  if(_myFlyCoolUntil && Date.now() < _myFlyCoolUntil) return false;
+  return canFly(seat, true).ok;   // 🗼 탑 안이어도 된다(날리기 직전에 뺀다 — canFly 주석)
+}
+/* 🔫 주사위 말풍선을 먼저 보여 주고 나를 날린다 — 룰렛 · 🎲 공용 한 곳.
+   방이면 pokeSelf(방송이 돌아와 applyRemoteFly 로 재생) · 혼자면 applyRemoteFly 직접. */
+function _selfFlyAfterDice(){
+  const inRoom = (typeof Presence!=='undefined' && Presence.active());
+  const seed = flySeed();
+  setTimeout(()=>{
+    if(inRoom && Presence.active() && Presence.pokeSelf){ Presence.pokeSelf('fly:' + seed); return; }
+    const me = findMySeat(); if(me) applyRemoteFly(me, String(seed));   // 혼자 — 방송이 없다
+  }, ROULETTE_FLY_DELAY_MS);
+}
+
+/* ═══ 🔫 러시안룰렛 ═══════════════════════════════════════════════════
+   [2026-09-23 · handoff-2026-09-21-features §1] 상태칩 ▼ 메뉴 💃 춤추기 아래 버튼.
+   ★ 버튼은 **투게더룸에서는 안 보인다**(2026-09-23 요청 · 💃 와 같은 자리에서 숨긴다) — 거기선 대화창 🎲 가
+     같은 일을 한다. 아래 _rollRoulette 자체에는 채널 게이트가 없다(혼자·워킹룸에서 도는 길).
+   **누른 사람만** 주사위 둘을 굴리고, 하나라도 1이면 **본인이** 날아간다(11/36).
+   ★ 날리기는 `Presence.pokeSelf('fly:'+시드)` 로만 간다 — 내 노드 우편함에 쓰면 나를 포함한 방 전원이
+     `applyRemoteFly` 로 같은 시드를 재생한다. `throwFlyAt`(남을 겨눔)은 쓰지 않는다.
+     ⚠️ 먼저 내 화면에서 돌리지 않는다 — 방송이 돌아올 때 시작하는 규약(💣 주석)을 그대로 지킨다.
+   ★ 레벨 게이트 없음 — 💣(FLY_MIN_LEVEL)는 «남을 고른다», 룰렛은 «내 운에 맡긴다».
+   ★ 채널 게이트 없음 — `_rollDice` 의 채널 2 줄은 일부러 안 옮겼다. 워킹룸·혼자·투게더룸 전부.
+     · 말풍선은 모든 채널(워킹룸 이모티콘과 같은 `Presence.sendChat` 경로).
+     · 대화 기록은 **채널 2 만**(워킹룸에는 채팅이 없다).
+     · 혼자(방 없음)면 방송이 없으므로 `applyRemoteFly` 를 직접 부른다(회사원 게이트·횟수 세기 동일).
+   🏢 회사원 모드 — 💣·📷 와 같이 **누를 때 토스트**로 막는다(내가 방금 누른 버튼이라 무반응은 고장으로 읽힌다).
+     보는 사람 쪽 게이트는 `applyRemoteFly` 가 이미 한다.
+   ⚠️ 난수는 클라이언트가 굴린다(🎲 와 같은 수준) — 콘솔로 조작 가능. */
+const ROULETTE_COOL_MS = 3000;          // 연타 방지 — 말풍선·기록 도배만 막는다
+const ROULETTE_FLY_DELAY_MS = 700;      // 주사위 말풍선을 먼저 보여 주고 날린다
+let _rouletteAt = 0;
+function _rollRoulette(){
+  if(typeof officeMode !== 'undefined' && officeMode){ if(typeof toast==='function') toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }
+  const mySeat = findMySeat();
+  if(!mySeat){ if(typeof toast==='function') toast('캐릭터가 없어요'); return; }
+  const now = Date.now();
+  if(now - _rouletteAt < ROULETTE_COOL_MS){ if(typeof toast==='function') toast('⏳ 룰렛은 ' + (ROULETTE_COOL_MS/1000) + '초에 한 번!'); return; }
+  /* 쉬는 시간(remoteFlyCool 의 내 쪽 값)·지금 못 나는 상태면 굴리지도 않는다 —
+     1이 나왔는데 안 날아가면 «고장» 으로 읽힌다. */
+  if(_myFlyCoolUntil && now < _myFlyCoolUntil){
+    if(typeof toast==='function') toast('어지러워서 쉬는 중이에요 (' + Math.ceil((_myFlyCoolUntil - now)/1000) + '초)');
+    return;
+  }
+  const c = canFly(mySeat, true);   // 🗼 탑 안이어도 굴린다 — 1 이면 탑에서 튕겨 나간다(A안)
+  if(!c.ok){ if(typeof toast==='function') toast(c.why); return; }
+  _rouletteAt = now;
+  const n1 = 1 + Math.floor(Math.random()*6);
+  const n2 = 1 + Math.floor(Math.random()*6);
+  const hit = (n1 === 1 || n2 === 1);
+  const dice2 = `[dice:${n1}][dice:${n2}]`;
+  const inRoom = (typeof Presence!=='undefined' && Presence.active());
+  showChatBubble(mySeat, dice2);
+  if(inRoom && Presence.sendChat) Presence.sendChat(dice2);
+  const name = getDisplayName();
+  if(window._activeChannel === 2){
+    _flyChatLog(name + '님이 룰렛을 돌려 ' + dice2 + ' 가 나왔습니다.');   // 결과 꼬리 없음(🎲 와 같은 문장 모양 · 2026-09-23 요청)
+  }
+  if(!hit) return;
+  _selfFlyAfterDice();
 }
 
 // ── 대화창 배선 (한 번만)
@@ -19419,6 +19616,11 @@ function _rollDice(){
   if(inp){
     inp.addEventListener('keydown', e=>{
       e.stopPropagation();
+      /* ⌨️ [Mac 제보 2026-09-23] "안녕하세요 → 1: 안녕하세요 1: 요" — 끝 글자가 한 번 더 간다.
+         [원인] mac 한글 입력기는 마지막 글자(요)를 **조합 중인 채로** Enter 의 keydown 을 보낸다(isComposing).
+           그 자리에서 보내면 줄 전체가 나가고 → 입력기가 «요» 를 비운 칸에 확정해 넣고 → 뒤따르는 Enter 가 그걸 또 보낸다.
+         ★ 조합 중 Enter 는 조합 확정에 쓰게 두고 무시한다(keyCode 229 는 조합 중 키의 옛 표식). Windows 는 원래 이 순서가 아니라 영향 없다. */
+      if(e.isComposing || e.keyCode === 229) return;
       if(e.key==='Enter'){ e.preventDefault(); _sendChatWindowMsg(); }
       else if(e.key==='Escape'){ closeChatWindow(); }
     });
@@ -21387,6 +21589,16 @@ function ensureSeatNamePlateEl(seat){
   const layer=ensureSeatLabelsLayer(); if(!layer) return null;
   const el=document.createElement('div');
   el.className='seat-nameplate';
+  /* 🖱 이름표 우클릭 = 좌석 우클릭과 같은 메뉴(2026-09-23 요청). 캔버스 우클릭의 게이트를 그대로 따른다 —
+     조준 중이면 안 열고, 회사원 모드면 남의 좌석은 조용히 막는다. 책상은 원래 seat.group 에 들어 있어
+     캔버스 레이캐스트로 이미 같은 메뉴가 뜬다.
+     ⚠️ 이름표는 pointer-events:auto(CSS) + UI_HIT_SEL '.seat-nameplate' 라야 실행 화면에서 클릭을 받는다. */
+  el.addEventListener('contextmenu', e=>{
+    e.preventDefault(); e.stopPropagation();
+    try{ if((typeof _flyAiming !== 'undefined' && _flyAiming) || (typeof _bonkAiming !== 'undefined' && _bonkAiming)) return; }catch(_){}
+    if(typeof officeMode !== 'undefined' && officeMode && seat.remote) return;
+    _seatCtxMenu(e, seat);
+  });
   layer.appendChild(el);
   seat.namePlateEl=el; return el;
 }
@@ -22206,6 +22418,18 @@ function _seatCtxMenu(ev, seat){
     } else {
       mk('👤 친구 신청', ()=>toast('이 유저의 정보가 아직 없어요 (버전 업데이트가 필요할 수 있어요)'));
     }
+    /* 🙈 숨기기 — 워킹룸에서만. 내 화면 · 이 방에 있는 동안만(_hiddenSeatIds 주석).
+       🚩 신고로 숨긴 사람은 채널과 상관없이 «🙉 다시 보이기» 하나로 푼다(신고 기록은 그대로). */
+    const _rptHid = !!(seat.friendUserId && _reportHiddenUids.has(seat.friendUserId));
+    if(_rptHid){
+      mk('🙉 다시 보이기', ()=>{ _reportHiddenUids.delete(seat.friendUserId); _reportHiddenSave(); if(seat.friendId) _hiddenSeatIds.delete(seat.friendId); });
+    }
+    else if(window._activeChannel === 1 && seat.friendId){
+      const _hid = _hiddenSeatIds.has(seat.friendId);
+      mk(_hid ? '🙉 다시 보이기' : '🙈 숨기기', ()=>{
+        if(_hid) _hiddenSeatIds.delete(seat.friendId); else _hiddenSeatIds.add(seat.friendId);
+      });
+    }
   } else {
     // 🎨 편집을 첫 항목에 둔다 — 예전에 우클릭이 곧 편집창이었으므로 손이 가는 거리를 줄인다
     mk('🎨 캐릭터 편집', ()=>openCreator({kind:'seat', seat}));
@@ -22223,10 +22447,12 @@ function _seatCtxMenu(ev, seat){
   }
   /* 🪄 때리기 — 프리미엄이 아니면 **줄을 아예 안 넣는다**(파츠 licenseOnly 가 장착을 막는 방식과 같게).
      ★ 남은 횟수를 여기 적는 것이 한도 있는 기능의 최소 예의다 — 누르기 전에 보여야 한다. */
-  if(_premiumOn()){
+  if(_premiumOn() && !_seatHidden(seat)){   // 🙈 숨긴 캐릭터는 때릴 대상이 아니다(안 보이는 것을 때리게 되지 않게)
     const left = _bonkLeft();
     mk('때리기 (' + left + '/' + BONK_DAILY_MAX + ')', ()=>bonkSeat(seat), left <= 0, BONK_CURSOR_IMG);
   }
+  /* 🚩 신고하기 — 남의 좌석 · 모든 채널. 사유는 창에서 고른다(_openReportDialog). */
+  if(seat.remote){ sep(); mk('🚩 신고하기…', ()=>_openReportDialog(seat)); }
   document.body.appendChild(backdrop);
   document.body.appendChild(menu);
   /* 뒷판을 누르면 닫는다. 우클릭도 마찬가지 — 메뉴가 떠 있는데 다른 곳을 우클릭했을 때
@@ -22255,7 +22481,7 @@ canvas.addEventListener('pointerdown',e=>{
   if(_bonkAiming){ _bonkAimClick(e); return; }
   const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(ndc,camera);
-  const hit=ray.intersectObjects(seats.map(s=>s.group),true);
+  const hit=_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기)
   if(!hit.length) return;
   const seat=seatFromObject(hit[0].object); if(!seat) return;
   /* 🪑 날아가는 중인 캐릭터는 잡지 않는다 — 잡으면 흔들기(rig 를 직접 제어한다)와 비행이 매
@@ -24741,7 +24967,13 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
     }
     if(!painting)return;
     const evs=(typeof e.getCoalescedEvents==='function')?e.getCoalescedEvents():null;
-    if(evs&&evs.length){ for(const ce of evs) paintFromEvent(ce); }
+    /* 🖊️ [Mac 제보 2026-09-23] "표정을 그리면 선이 위아래로 튄다."
+       getCoalescedEvents 의 점들은 **마지막 것이 이 이벤트 자신**이어야 한다(규격). 그런데 환경에 따라
+       (mac · 확대/축소 · 투명 창) 묶인 점이 다른 좌표계로 오면, 진짜 점과 어긋난 점이 번갈아 찍혀 선이 지그재그로 튄다.
+       ★ 마지막 묶인 점이 이 이벤트와 2px 안일 때만 믿는다. 아니면 이 이벤트 하나만 쓴다(조금 덜 매끄럽지만 튀지 않는다). */
+    const _cLast = (evs && evs.length) ? evs[evs.length-1] : null;
+    const _cOk = !!(_cLast && Math.abs(_cLast.clientX - e.clientX) <= 2 && Math.abs(_cLast.clientY - e.clientY) <= 2);
+    if(_cOk){ for(const ce of evs) paintFromEvent(ce); }
     else paintFromEvent(e);
   });
   cv.addEventListener('pointerup',(e)=>{
@@ -26808,16 +27040,58 @@ function loadLicenseFromStorage(){
   }catch(e){}
   return null;
 }
+/* 🎫 라이선스는 **계정을 따라간다** (2026-09-23 제보 «노트북에서 받고 본컴에서 받으려니 우편이 사라졌다 — 한 PC 만 되나요?»)
+   [답] 키는 여러 PC 에서 된다(redeemLicense 가 재설치 허용). 문제는 두 번째 PC 로 **옮겨 가는 길**이었다.
+   [구멍 셋]
+     ① 등록한 순간에는 계정 스냅샷(accountSnap)이 안 올라갔다 — 그 PC 를 로그인한 채 **다시 켜야** 올라갔다.
+     ② 스냅샷에서 라이선스를 받는 것은 로그인·계정 연동 순간뿐이었다 — 이미 로그인된 PC 는 영영 안 받았다.
+     ③ ★ 가장 나빴던 것: 로그인된 PC 는 부팅 6초 뒤 **자기** 스냅샷으로 accountSnap 을 통째로 덮어쓴다
+        (setAccountSnapshot 은 update 로 노드 하나를 교체). 라이선스 없는 PC 가 켜지면 계정의 라이선스가 null 로 지워졌다.
+   [고침] ① activateLicense 가 곧바로 올린다(_licenseSnapPushNow).
+          ② ③ 부팅 push 앞에서 _licenseSnapForPush — 이 PC 에 키가 없으면 계정 것을 읽어 검증하고,
+             유효하면 이 PC 에서도 켜고(해제해 둔 키가 아니면), **올리는 스냅샷에도 계정의 키를 그대로 싣는다.**
+             계정에서 라이선스가 빠지는 것은 키가 회수됐을 때(검증 실패 · 오프라인 아님)뿐이다.
+   ★ «이 기기에서 해제» 는 이 기기만의 일이다 — LICENSE_OPTOUT_KEY 에 그 키를 적어 두고, 그 키는 다시 켜지 않는다.
+     다른 키(새로 산 것)는 켠다. 로그아웃하면 이 표시도 지운다(ACCOUNT_LOCAL_KEYS). */
+const LICENSE_OPTOUT_KEY = 'tw.licenseOptOut';
+function _licenseSnapPushNow(){
+  try{
+    if(typeof getMyLoginEmail !== 'function' || !getMyLoginEmail()) return;   // 로그인 안 한 기기 — 계정이 없다
+    if(!(window.firebaseAPI && firebaseAPI.setAccountSnapshot)) return;
+    firebaseAPI.setAccountSnapshot(getMyUserId(), _loginLocalSnapshot());
+  }catch(_){}
+}
+async function _licenseSnapForPush(){
+  const snap = _loginLocalSnapshot();
+  if(snap.license) return snap;                        // 이 PC 에 있으면 그게 계정 것이다(예전과 같음)
+  let acct = null;
+  try{ acct = (window.firebaseAPI && firebaseAPI.fetchAccountSnapshot) ? await firebaseAPI.fetchAccountSnapshot(getMyUserId()) : null; }catch(_){ acct = null; }
+  const k = (acct && typeof acct.license === 'string') ? acct.license.trim().toUpperCase() : '';
+  if(!k) return snap;
+  const v = await verifyLicense(k);
+  if(!v.ok && !v.offline) return snap;                 // 회수된 키 — 계정에서도 빠진다
+  snap.license = k;                                    // ★ 이 PC 에 없다고 계정의 라이선스를 지우지 않는다(구멍 ③)
+  let opt = null; try{ opt = localStorage.getItem(LICENSE_OPTOUT_KEY); }catch(_){}
+  if(v.ok && opt !== k){
+    try{ localStorage.setItem(LICENSE_KEY_STORAGE, k); }catch(_){}
+    _setPremium(true);
+    try{ if(typeof refreshLicenseUI === 'function') refreshLicenseUI(); }catch(_){}
+    try{ if(typeof toast === 'function') toast('🎫 계정에 등록된 라이선스를 이 PC에서도 켰어요'); }catch(_){}
+  }
+  return snap;
+}
 async function activateLicense(key){
   const r = await verifyLicense(key);
   if(r.ok){
-    try{ localStorage.setItem(LICENSE_KEY_STORAGE, key.trim().toUpperCase()); }catch(e){}
+    try{ localStorage.setItem(LICENSE_KEY_STORAGE, key.trim().toUpperCase()); localStorage.removeItem(LICENSE_OPTOUT_KEY); }catch(e){}
     _setPremium(true);
+    _licenseSnapPushNow();   // 🎫 다른 PC 가 곧바로 받을 수 있게(구멍 ①)
   }
   return r;
 }
 function deactivateLicense(){
-  try{ localStorage.removeItem(LICENSE_KEY_STORAGE); }catch(e){}
+  let _k = null; try{ _k = localStorage.getItem(LICENSE_KEY_STORAGE); }catch(_){}
+  try{ localStorage.removeItem(LICENSE_KEY_STORAGE); if(_k) localStorage.setItem(LICENSE_OPTOUT_KEY, _k); }catch(e){}   // 🎫 이 기기만 해제 — 부팅 때 다시 켜지 않는다
   // 프리미엄이 풀렸는데 커스텀 상태를 쓰고 있었으면 기본 상태로 되돌림
   if(typeof userStatus!=='undefined' && userStatus==='custom' && typeof setUserStatus==='function') setUserStatus(null);
   _setPremium(false);
@@ -26825,6 +27099,7 @@ function deactivateLicense(){
 /* 프리미엄 여부가 바뀔 때 그에 따라 잠금/해제되는 UI를 다시 그림 (라이선스 검증이 비동기라 나중에 확정됨) */
 function _refreshPremiumGatedUI(){
   if(typeof refreshCustomStatusMenuItem==='function') refreshCustomStatusMenuItem();   // ✨ 커스텀 상태 메뉴 항목
+  try{ if(typeof _awayRenderUI === 'function') _awayRenderUI(null); }catch(_){}        // 👑 자리비움 그림 등록 칸(프리미엄 전용)
   /* 🪑 [2026-09-18 제보 2] 라이선스가 바뀌었으니 **저장값부터** 맞춘다 — 다시 그리는 것은 그 다음이다.
      ★ 예전에는 여기 「charDef 는 손대지 않는다」고 적혀 있었다. 근거는 «나중에 라이선스가 오면 같은
        참조로 원래 책상이 돌아온다» 였고 그 판단 자체는 옳았다. 다만 그 남은 값이
@@ -27900,7 +28175,42 @@ function sizeLauncherPreview(){const c=document.getElementById('lcPreview');
   const dist=(H/FILL)/(2*Math.tan(THREE.MathUtils.degToRad(32/2)));
   lCam.position.set(0, CY+0.05*H, lFrameZ+dist);   // 완전 정면
   lCam.lookAt(0.04*H, CY, lFrameZ);}   // 시선을 살짝 오른쪽으로 → 캐릭터가 프레임에서 왼쪽으로 당겨져 보임
-function setLauncherChar(def){if(lChar){lScene.remove(lChar.group);lChar=null;}
+/* 🖼️ 슬롯 섬네일 = 런처 미리보기 그대로 (2026-09-23 · 요청 «캐릭터 교체·자리 추가 섬네일을 런처와 같게»)
+   [전에는] F1 캐릭터 교체·자리 추가 칸의 그림(def.thumb)은 **생성기에서 저장한 순간** 생성기 카메라로 찍은 것이었다.
+     그래서 구도가 런처와 다르고, 그 뒤 꾸미기로 바꾼 파츠·책상은 영영 반영되지 않았다.
+   [지금] 런처가 그 캐릭터를 다 그린 뒤(파츠 장착 완료 + 책상·소품이 붙을 시간 LC_THUMB_SETTLE_MS) 그 화면을
+     한 장 찍어 def.thumb 을 갈아 끼운다. 눈 뜬 순간 · 둥둥 흔들림을 기준 높이에 멈춘 채로 찍는다 —
+     같은 모습이면 같은 그림이 나오게 해서 «바뀐 게 없으면 저장 안 함»이 실제로 걸리게 한다.
+   ★ lRenderer 에는 preserveDrawingBuffer 가 없다 → render 와 **같은 틱에서** 바로 복사한다(launcherLoop).
+   ★ def.thumb 은 로컬 전용이다(서버용 변환에서 빠진다) — 갈아 끼워도 서버 쓰기가 늘지 않는다.
+   ⚠️ 런처에서 한 번도 넘겨 보지 않은 슬롯은 예전 그림이 그대로다(찍을 기회가 없다). */
+const LC_THUMB_SETTLE_MS = 900, LC_THUMB_MAX = 160;
+let _lcThumbJob = null;   // { def, readyAt }
+function _lcThumbArm(def){ _lcThumbJob = { def, readyAt: performance.now() + LC_THUMB_SETTLE_MS }; }
+function _lcThumbTake(){
+  const job = _lcThumbJob; _lcThumbJob = null;
+  if(!job || !lChar || !lRenderer || lChar.charDef !== job.def) return;   // 그 사이 다른 슬롯으로 넘어갔다
+  if(!Array.isArray(slots) || slots.indexOf(job.def) < 0) return;          // 지워졌거나 갈아 끼워진 def
+  const y = lChar.group.position.y;
+  try{
+    lChar.group.position.y = lCharBaseY;                 // 둥둥을 멈춘 자리
+    lRenderer.render(lScene, lCam);
+    const src = lRenderer.domElement;
+    if(!src.width || !src.height) return;
+    const k = Math.min(1, LC_THUMB_MAX / Math.max(src.width, src.height));
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(src.width * k)); cv.height = Math.max(1, Math.round(src.height * k));
+    const cx = cv.getContext('2d'); cx.drawImage(src, 0, 0, cv.width, cv.height);
+    /* 빈 그림(렌더 전·컨텍스트 유실)으로 멀쩡한 섬네일을 덮지 않는다 */
+    const px = cx.getImageData(0, 0, cv.width, cv.height).data; let a = 0;
+    for(let i = 3; i < px.length; i += 16) a += px[i];
+    if(a < 255 * 20) return;
+    const url = cv.toDataURL('image/png');
+    if(url && url !== job.def.thumb){ job.def.thumb = url; if(typeof saveSlots === 'function') saveSlots(); }
+  }catch(e){ try{ console.warn('[런처] 섬네일 찍기 실패', e); }catch(_){} }
+  finally{ try{ lChar.group.position.y = y; }catch(_){} }
+}
+function setLauncherChar(def){_lcThumbJob=null;if(lChar){lScene.remove(lChar.group);lChar=null;}
   if(lHolder){ allDeskItems().forEach(d=>{ if(lHolder.deskItems[d.id]) equipDeskItem(lHolder,d,false); });
     swapDeskVisual(lHolder.desk,null); }
   if(!def)return;
@@ -27939,6 +28249,7 @@ function setLauncherChar(def){if(lChar){lScene.remove(lChar.group);lChar=null;}
     sizeLauncherPreview();
     extractBonesInto(base, base.root);   // 꾸미기 파츠를 붙일 본(부착점) 정보 채워넣기
     base.charDef = def;   // applyPartXf가 파츠별 위치/크기(xf)를 찾을 때 필요
+    if(!def.equippedParts) _lcThumbArm(def);   // 🖼️ 파츠가 없으면 지금부터 잰다(있으면 장착이 끝난 뒤)
     if(def.equippedParts){
       // Storage 이관 후속: getPartScene이 Storage에서 GLB를 fetch하는 데 시간이 걸림 —
       // await 없이 실행하면 초기 렌더 후에나 파츠가 채워져 사용자가 "이관 후 파츠 안 보임"을 겪음.
@@ -27956,6 +28267,7 @@ function setLauncherChar(def){if(lChar){lScene.remove(lChar.group);lChar=null;}
           lScaleHint = lFrameH/1.2;
           sizeLauncherPreview();
         }catch(e){}
+        if(lChar === base) _lcThumbArm(def);   // 🖼️ 파츠까지 붙은 뒤에 찍는다
       })();
     }
     (async()=>{
@@ -27984,7 +28296,8 @@ function launcherLoop(){
       //   모든 크기의 캐릭터가 프레임 가운데 같은 자리에 서고, 출렁임도 비례함.
       const dY=Math.max(0.2, lScaleHint||1);
       lChar.group.position.y=lCharBaseY+Math.sin(performance.now()*0.0016)*0.015*dY;}
-    lRenderer.render(lScene,lCam);}
+    lRenderer.render(lScene,lCam);
+    if(_lcThumbJob && lChar && !lBlinkOn && performance.now() >= _lcThumbJob.readyAt) _lcThumbTake();}   // 🖼️ 같은 틱에서
   requestAnimationFrame(launcherLoop);}
 
 function renderLauncher(){
@@ -28661,7 +28974,7 @@ function applyExtraSeatForMode(){
 }
 
 // 설정 패널 "캐릭터" 탭의 슬롯 UI 렌더링 — 패널 열릴 때 / 탭 전환 시 / 교체·자리추가 후 호출
-// 슬롯 아이콘 엘리먼트 생성 — def.thumb(생성기에서 캡처한 실제 3D 렌더 스냅샷)이 있으면 그걸 그대로 쓰고,
+// 슬롯 아이콘 엘리먼트 생성 — def.thumb(런처 미리보기를 찍은 것 · _lcThumbTake — 런처에서 아직 안 본 슬롯은 생성기 캡처)이 있으면 그걸 그대로 쓰고,
 // 없으면(예전에 저장돼서 스냅샷이 없는 캐릭터) 기존 2D 합성 아이콘(drawFaceThumb)으로 대신 보여줌.
 function makeCharThumbEl(d){
   if(d.thumb){
@@ -29008,6 +29321,9 @@ const Presence=(()=>{
   /* 🛰 내 노드 poke 의 중복·유통기한 판정용. friends 쪽 `_lastPokeTs` 와 같은 역할이다.
      _joinedAt 은 '이 방에 들어온 시각' — 들어오기 전에 찍힌 알림(내가 없던 사이의 마지막 값)을 거른다. */
   let _myPokeSeenTs = 0, _joinedAt = 0;
+  let myNoise='';          // 🌙 백색소음 종류('pencil'|'keyboard'|'page' · 없으면 빈 문자열) — parts/noise.js 가 정한다. 구버전은 이 칸을 무시한다
+  let myAwayImg='';        // 🫧 자리비움 그림 URL — 방에 실어 보낸다(없으면 빈 문자열 · 구버전은 무시)
+  let myFocusShow=null;   // 📊 오늘 기록 전시 {emo,text} — 상태가 없을 때만 custom 칸으로 실어 보낸다(_statusOut)
   let myCustomStatus=null;   // ✨ 커스텀 상태(프리미엄) {emo,text} — userStatus==='custom'일 때 친구에게 보여줄 문구
 
   // ────────────────────────────────────────────────────────────────────
@@ -29123,8 +29439,23 @@ const Presence=(()=>{
     // 🏊 얼굴 PNG를 Storage에 올려 URL 준비 — 실패해도 dataURL 병행 전송이라 입장엔 지장 없음
     try{ await ensureRoomFaceUrls(myDef); }catch(_){}
     // HTML의 모듈 스크립트가 준비한 window.firebaseAPI가 있으면 그걸 쓰고, 없으면(로드 지연·실패 등) 가짜 시연 데이터로 폴백.
+    /* 🧪 [Mac 제보 2026-09-23] "방을 만들면 현우·민지라는 캐릭터가 같이 뜨고 내 캐릭터 얼굴색이 바뀐다."
+       [원인] 그 둘은 **시연용 가짜 방(makeMockProvider)** 의 친구다 — 내 캐릭터 def 를 베껴 피부색만 바꾼다.
+         방에 들어가는 순간 firebaseAPI(모듈 스크립트)가 아직 준비 전이면 가짜 방으로 떨어졌다. mac 은 모듈 로드가 늦어 자주 걸렸다.
+       ★ 준비를 기다린다(최대 NET_READY_WAIT_MS). 그래도 없으면 **들어가지 않고 알린다.** 가짜 방은 개발 표식(tw.mockRoom=1)일 때만. */
+    if(!window.firebaseAPI) await _waitFirebaseApi(NET_READY_WAIT_MS);
+    if(!window.firebaseAPI && !_mockRoomAllowed()){
+      room = null; provider = null; friends = {}; if(onChange) onChange({});
+      try{ if(typeof toast==='function') toast('서버 연결이 아직 준비되지 않았어요 — 잠시 뒤 다시 들어가 주세요'); }catch(_){}
+      console.warn('[방] firebaseAPI 가 준비되지 않아 입장을 멈췄다(가짜 방으로 떨어지지 않음)');
+      return;
+    }
     provider = window.firebaseAPI ? makeFirebaseProvider() : makeMockProvider();
-    provider.join(room, {def:myDef,name:myName,state:myState,userStatus:myUserStatus,customStatus:myCustomStatus,level:myLevel,userId:getMyUserId(), lic:_myLicenseFlag()}, fr=>{ friends=fr; if(onChange)onChange(friends); },
+    try{ myAwayImg = _awayUrlOk(awayImgUrl) ? awayImgUrl : ''; }catch(_){ myAwayImg = ''; }   // 🫧 입장 때 한 번
+    try{ myFocusShow = _focusShowConf(); _focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
+    try{ myNoise = (window.TW_NOISE && TW_NOISE.kind) ? TW_NOISE.kind() : ''; }catch(_){ myNoise = ''; }   // 🌙 입장 때 한 번
+    const _st0 = _statusOut();
+    provider.join(room, {def:myDef,name:myName,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel,userId:getMyUserId(), noise:myNoise, lic:_myLicenseFlag(), awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
       // 다른 사람이 내 캐릭터를 쓰다듬거나 흔들었을 때 — 내 화면의 'me' 좌석에 그 반응을 그대로 재생
       p=>{ const me=seats.find(s=>s.isMe); if(!me||!p) return;
         /* 🛰 같은 알림을 두 번 재생하지 않고, 지나간 알림은 아예 보지 않는다.
@@ -29207,7 +29538,35 @@ const Presence=(()=>{
     try{ return (typeof _myFlyCoolUntil==='number' && _myFlyCoolUntil > Date.now()) ? _myFlyCoolUntil : null; }
     catch(_){ return null; }
   }
-  function _basePayload(){ return {state:myState, userStatus:myUserStatus, customStatus:myCustomStatus, level:myLevel, exp:_myExpCells(), lic:_myLicenseFlag(), ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), danceStyle:_myDanceStyle(), flyCool:_myFlyCool()}; }
+  /* 📊 오늘 기록 전시 — **새 필드를 만들지 않는다.** 상태가 없을 때(myUserStatus null)만 userStatus 'custom' +
+     customStatus {🕒, '오늘 H:MM'} 로 싣는다. 받는 쪽은 기존 커스텀 상태 경로 그대로라 구버전도 보인다.
+     ★ 상태(밥·자리비움·커스텀 …)가 있으면 그것이 그대로 나간다 = 상태 메시지 우선 · 남의 설정을 덮지 않는다.
+     ⚠️ 규칙: customStatus.text ≤ 12 · emo ≤ 4 — «오늘 99:59» 10자 · 🕒 2 로 안에 든다(규칙 변경 없음). */
+  function _statusOut(){
+    if(!myUserStatus && myFocusShow) return { userStatus:'custom', customStatus:myFocusShow };
+    return { userStatus:myUserStatus, customStatus:myCustomStatus };
+  }
+  function setAwayImg(url){
+    const v = _awayUrlOk(url) ? url : '';
+    if(v === myAwayImg) return;
+    myAwayImg = v;
+    if(provider && provider.update) provider.update(_basePayload());
+  }
+  /* 🌙 백색소음 — 고른 소리 종류 한 칸만 싣는다(상태 focus/idle/sleep 은 이미 흐른다 · 규칙 변경 없음 — awayImg 와 같은 방식).
+     ★ 끄면 빈 문자열 — null 로 보내면 칸이 지워져 _diffRoomPayload 기준값과 어긋난다. */
+  function setNoise(kind){
+    const v = (typeof kind === 'string' && /^(pencil|keyboard|page)$/.test(kind)) ? kind : '';
+    if(v === myNoise) return;
+    myNoise = v;
+    if(provider && provider.update) provider.update(_basePayload());
+  }
+  function setFocusShow(conf){
+    const v = (conf && conf.text) ? { emo: conf.emo || '', text: conf.text } : null;
+    if(JSON.stringify(v) === JSON.stringify(myFocusShow)) return;
+    myFocusShow = v;
+    if(provider && provider.update) provider.update(_basePayload());
+  }
+  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), danceStyle:_myDanceStyle(), flyCool:_myFlyCool(), noise:myNoise}; }
   /* 올라타기/하차 직후 즉시 반영 — 상태 틱을 기다리면 상대 화면에 몇 초 늦게 나타난다. */
   function broadcastRide(){ try{ if(provider && provider.update) provider.update(_basePayload()); }catch(_){} }
   function setState(s){ if(s===myState)return; myState=s; if(provider&&provider.update)provider.update(_basePayload()); }
@@ -29267,7 +29626,7 @@ const Presence=(()=>{
     provider=null; room=null; friends={}; if(onChange)onChange({});
     return p;   // 호출부에서 await하면 서버에 삭제가 반영된 뒤에 재접속하도록 할 수 있음
   }
-  return { start, setState, setUserStatus, setCustomStatus, setLevel, setName, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
+  return { start, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setNoise, setLevel, setName, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
            /* 🪑 상태 변화를 지금 당장 방에 실어 보낸다(같은 _basePayload). 쉬는 시간처럼
               "다음 상태 틱까지 기다리면 늦는" 값이 생겼을 때 부른다. */
            broadcastNow: broadcastRide,
@@ -29627,6 +29986,18 @@ function makeFirebaseProvider(){
 }
 
 /* 로컬 시뮬레이션 — Firebase 연결 전, 친구들이 타이핑/졸기 하는 걸 보여줌 */
+/* 🧪 가짜 방 — 개발 표식이 있을 때만(Presence.start 주석). */
+const NET_READY_WAIT_MS = 10000;
+function _mockRoomAllowed(){ try{ return localStorage.getItem('tw.mockRoom') === '1'; }catch(_){ return false; } }
+function _waitFirebaseApi(ms){
+  return new Promise(res=>{
+    if(window.firebaseAPI) return res(true);
+    let done = false;
+    const fin = ()=>{ if(done) return; done = true; res(!!window.firebaseAPI); };
+    try{ window.addEventListener('firebase-ready', fin, { once:true }); }catch(_){}
+    setTimeout(fin, ms);
+  });
+}
 function makeMockProvider(){
   let timer=null, cb=null, fr={};
   const names=['민지','현우','소라'], skins=[2,3,4,1], tops=['#c98a8a','#8aa0c9','#9ac98a'];
@@ -29748,6 +30119,9 @@ function _applyRemoteRides(){
     const byUser = {}, byFriend = {};
     seats.filter(x=>x.remote).forEach(x=>{ byFriend[x.friendId]=x; if(x.friendUserId) byUser[x.friendUserId]=x; });
     seats.filter(x=>x.remote).forEach(seat=>{
+      /* 🗼 날아가는 중인 좌석은 건드리지 않는다 — 탑에서 튕겨 나간 직후, 주인의 «아직 타고 있음» 이 늦게 도착하면
+         비행 도중에 머리 위로 다시 붙는다. 주인의 새 값(ridingOn 없음)은 이미 우리 화면의 로컬 상태와 같다. */
+      if(seat.fly) return;
       const want = seat._remoteRidingOn;
       //  'self' = 보낸 사람이 자기 자신 위에 탄 경우. 방에서는 사람당 좌석이 하나라 표현할 대상이 없어 무시.
       //  ★ 버그 수정(입장 시 동물이 내려오던 문제): '타고 있지 않다(want 없음/self)'와 '타고 있다는데
@@ -29837,6 +30211,8 @@ function syncFriendSeats(friends){
       else if(!wantSeats && haveSeats){ seats.filter(o=>o.seatedOn===s).forEach(unmountBench); s.group.remove(s.bench); s.bench=null; s.benchSlots=null; s.benchDeskId=null; s.benchOccupants={}; s._benchOwnerSit=false; s._benchSit=false; if(s.desk) s.desk.visible=true; }
     }
     s.remoteCustomStatus=friends[id].customStatus||null;   // ✨ 친구의 커스텀 상태 문구 {emo,text}
+    s.remoteAwayImg=_awayUrlOk(friends[id].awayImg) ? friends[id].awayImg : null;   // 🫧 자리비움 그림(Storage URL 만)
+    s.remoteNoise=(typeof friends[id].noise === 'string' && /^(pencil|keyboard|page)$/.test(friends[id].noise)) ? friends[id].noise : null;   // 🌙 백색소음 종류 — 모르는 값은 버린다(parts/noise.js 가 읽는다)
     s.friendLevel=friends[id].level||1;
     /* ⭐ 상대 경험치 진행도(0~12칸). 구버전 상대는 이 필드가 없어서 undefined → null로 두고 바를 안 그린다.
        0으로 채우면 상대가 "방금 레벨업했다"로 잘못 읽힌다. */
@@ -30194,6 +30570,7 @@ async function startRoom(code){
       }
     }catch(_){}
   }
+  _clearHiddenSeats();   // 🙈 숨김은 그 방에 있는 동안만
   await Presence.start(code, myDef, getDisplayName(), presenceChanged);
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
   window._pendingRoomChannel = null;
@@ -30372,6 +30749,7 @@ function refreshOfficeModeUI(){
 if(document.getElementById('progOfficeModeToggle')){
   document.getElementById('progOfficeModeToggle').onclick = ()=>{
     officeMode = !officeMode;
+    try{ _focusShowPush(true); }catch(_){}   // 📊 회사원 모드면 오늘 기록 전시를 즉시 거둔다(켜면 다시 보냄)
     let _offNote = '';   // 뒤에 한 줄로 합쳐 알린다 — toast 는 마지막 것만 남는다(덮어쓴다)
     /* 🏢 모드를 켜는 순간 떠 있던 조준을 정리한다 — 안 그러면 십자/🪄 커서가 남고,
        클릭해도 아무 일이 없어 "커서가 고장났다"로 보인다. */
@@ -30799,7 +31177,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   MY_USER_ID_KEY, INVITE_PASS_KEY, MY_FRIEND_CODE_KEY, LOGIN_EMAIL_KEY, LOGIN_UID_KEY,
   MY_FRIEND_CODE_PREV_KEY,     // 이 기기가 버린 코드 기록(진단용) — 다음 사람에게는 남의 코드다
   /* 라이선스 — 다시 로그인하면 계정 스냅샷(_applyTransferSnapshot r.license)으로 돌아온다. 없으면 키 재입력. */
-  LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY,
+  LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY, LICENSE_OPTOUT_KEY,   // 🎫 «이 기기만 해제» 표시도 계정 것이다
   /* 누적 시간(레벨 원본) — 스냅샷 focusTotalSec + syncFocusTotalToServer 의 «서버가 크면 받아온다» 가지.
      ⚠️ FOCUS_SYNCED_KEY 는 **removeItem** 이다. 값을 두면 «마크» 가 되고, 없으면 «한 번도 안 맞춰봄 = 증분 0 · max 바닥만».
         빈 기기에 마크가 남아 있으면 다음 계정의 첫 동기화가 (0 − 옛마크) 로 꼬인다. */
@@ -31700,7 +32078,8 @@ function _miCodeLoad(){
   const push = ()=>{
     if(!getMyLoginEmail()) return;
     if(!(window.firebaseAPI && firebaseAPI.setAccountSnapshot)) return;
-    setTimeout(()=>{ try{ firebaseAPI.setAccountSnapshot(getMyUserId(), _loginLocalSnapshot()); }catch(_){} }, 6000);
+    /* 🎫 라이선스 칸은 _licenseSnapForPush 가 채운다 — 이 PC 에 없으면 계정 것을 받아 켜고, 계정 것을 null 로 덮지 않는다. */
+    setTimeout(async ()=>{ try{ firebaseAPI.setAccountSnapshot(getMyUserId(), await _licenseSnapForPush()); }catch(_){} }, 6000);
   };
 
   /* 🔇 침묵 깨기 — "묶인 코드인데 로그인은 안 된" 기기에게 그렇다고 말해준다.
@@ -32240,6 +32619,7 @@ window._onRoomOverCapacity = function(cap){
 };
 
 async function doLeaveRoom(){
+  _clearHiddenSeats();   // 🙈 방을 나가면 숨김 목록도 비운다
   await Presence.stop();   // 서버에 내 항목 삭제가 반영된 뒤 진행 — 바로 재접속해도 내가 복제되어 보이는 문제 방지
   window._activeChannel = 1;          // ★ 방을 나가면 채널 원복 → 채팅 훅(===2) 자동 비활성
   window._pendingRoomChannel = null;
@@ -35718,8 +36098,21 @@ function getRecHides(rec){
   return raw.filter(h => h !== HIDES_NONE_SENTINEL);
 }
 // entry 추가 (stackable) — 이미 있으면 무시(중복 방지)
+/* 🧩 {0:..,1:..} 숫자키 맵(Firebase 가 배열을 저장하며 만든 모양)을 진짜 배열로 펴 둔다.
+   [왜] 아래 둘은 «배열 아니면 entry 하나» 로만 갈랐다. 숫자키 맵이 오면 add 는 그 맵을 entry 하나로 여겨
+     [맵, 새 entry] 로 싸 버리고(맵 안의 모자·리본이 id 없는 덩어리가 되어 안 보인다), remove 는 맵의 .id 가
+     없어 **아무것도 안 뺀다.** entriesForCat 은 이미 이 모양을 읽을 줄 안다 — 쓰는 쪽도 같은 눈으로 본다. */
+function _flattenCatContainer(def, cat){
+  const cur = def && def.equippedParts && def.equippedParts[cat];
+  if(cur && !Array.isArray(cur) && isPartEntryContainer(cur)){
+    const arr = entriesForCat(def, cat).slice();
+    if(arr.length === 0) delete def.equippedParts[cat];
+    else def.equippedParts[cat] = (arr.length === 1) ? arr[0] : arr;
+  }
+}
 function addEntryToCat(def, cat, entry){
   def.equippedParts = def.equippedParts || {};
+  _flattenCatContainer(def, cat);
   const cur = def.equippedParts[cat];
   const newId = partEntryId(entry);
   if(!cur){ def.equippedParts[cat] = entry; return; }
@@ -35733,6 +36126,7 @@ function addEntryToCat(def, cat, entry){
 // entry 제거 by id
 function removeEntryFromCat(def, cat, id){
   if(!def || !def.equippedParts) return;
+  _flattenCatContainer(def, cat);
   const cur = def.equippedParts[cat];
   if(!cur) return;
   if(Array.isArray(cur)){
@@ -35772,7 +36166,18 @@ function removePartEntryInstance(e, idx){
 let savedParts=[];   // [{id, cat, name, icon, glb(base64)}]
 function loadSavedParts(){
   try{ savedParts=JSON.parse(localStorage.getItem(SAVED_PARTS_KEY)||'[]'); }catch(_){ savedParts=[]; }
+  if(Array.isArray(savedParts)) savedParts.forEach(_normPartRec); else savedParts=[];
 }
+/* 🎰 가챠 파츠는 **항상** 겹쳐 입는다(stackable) — 들어오는 입구 두 곳(로컬 캐시 · 카탈로그)에서 못박는다.
+   [제보 2026-09-23] "보관함 모자를 끼웠다 뺐더니 원래 쓰던 기본 모자까지 같이 빠졌다."
+   [원인] 등록(신규·수정)은 가챠면 stackable 을 강제한다(파츠 등록 핸들러 주석). 그런데 **그 규칙이 생기기
+     전에 올라간 가챠 파츠**는 카탈로그에 stackable:false 로 남아 있고, 여기까지 그대로 들어왔다.
+     그러면 toggleEquip 이 그 파츠를 «일반 파츠»로 보고 **같은 칸의 기존 일반 모자를 def 에서 빼고 갈아 끼운다.**
+     가챠 모자가 기본 모자를 덮고 있어서 끼울 때는 티가 안 나고, 뺄 때 둘 다 없어진 것으로 보인다.
+   ★ 읽는 자리(rec.stackable 을 보는 곳이 열 군데가 넘는다)를 고치지 않고 들어오는 입구에서 값을 맞춘다 —
+     등록이 이미 지키는 약속과 같은 값이므로 새 규칙이 아니다. 부팅 때 좌석을 세우기 **전에** 돈다(loadSavedParts).
+   ⚠️ 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다(buildPartPublishData). */
+function _normPartRec(p){ if(p && p.gacha && !p.stackable) p.stackable = true; return p; }
 function persistSavedParts(){
   // ★ Storage 이관 후속: base64 glb는 로컬 저장 대상에서 제외 — 용량 폭탄(1MB×N개면 localStorage 5MB 한도 초과) 방지.
   //   glbUrl만 저장하고 실제 GLB는 필요 시점(파츠 렌더/편집)에 Storage에서 fetch. 로컬-전용(fromCatalog=false)은
@@ -36363,7 +36768,7 @@ async function applyDeskCatalogRefToSeat(seat, def){
   }catch(e){}
 }
 function mergeCatalogIntoSavedParts(catalogObj){
-  const catalogList = Object.keys(catalogObj||{}).map(id=>({ id, ...catalogObj[id], fromCatalog:true }));
+  const catalogList = Object.keys(catalogObj||{}).map(id=>_normPartRec({ id, ...catalogObj[id], fromCatalog:true }));   // 🎰 가챠 = stackable(_normPartRec 주석)
   // ★ order 필드 기준 오름차순 정렬 — 관리자가 화면에서 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
   //   order가 없는(예전에 등록돼서 순서 개념이 생기기 전인) 항목은 뒤로 밀리게 처리.
   catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
@@ -37428,6 +37833,8 @@ try{
   window.addEventListener('focus', ()=>{ _appFocused = true;  });
   window.addEventListener('blur',  ()=>{ _appFocused = false; });
 }catch(_){}
+const MAC_RUN_MAX_PR = 1.5;
+const _IS_MAC_RENDER = (()=>{ try{ return /Mac/i.test(navigator.platform || ''); }catch(_){ return false; } })();
 function frame(now, manual){
   if(!manual) _lastRafAt = now;   // 브라우저가 실제로 rAF를 불러준 시각(아래 감시 장치가 씀)
   /* 포커스가 없을 때만 상한 적용 — 내 창을 보고 있을 땐 항상 최대 프레임
@@ -37599,7 +38006,14 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     /* 활동 상태 시각화 — 책상 위 이모지(모두), 머리 위 텍스트 말풍선(모두), 영혼 투명도(자리비움) */
     //   ✨ statusConfFor: 커스텀 상태(프리미엄)는 등록한 이모지/문구로 해석됨 (본인=내 등록값, 친구=전파받은 값).
     const _conf = statusConfFor(seat, us);
-    setSeatDeskEmoji(seat,  (_conf && us!=='grind') ? _conf.emo : null);   // 빡일중은 책상에 🔥 안 뜨게(다른 상태는 그대로)
+    /* 🙈 숨긴 좌석 — 캐릭터 · 머리 위 말풍선 · 책상 위 상태 이모지. 매 프레임 판정(_hiddenSeatIds 주석). */
+    const _hidden = _seatHidden(seat);
+    if(seat.rig && seat.rig.visible === _hidden) seat.rig.visible = !_hidden;
+    /* 🫧 자리비움 그림 — 자리비움 · 안 숨김 · 회사원 모드 아님 · 그림이 실제로 올라왔을 때만 캐릭터 자리에 선다.
+       그땐 책상 위 🫧 를 안 띄운다(그림이 곧 자리비움 표시). 못 불러오면 예전 모양(🫧) 그대로. */
+    const _awayPic = _awayPicFor(seat, us, _hidden);
+    _awayImgFrame(seat, _awayPic, now);
+    setSeatDeskEmoji(seat,  (_conf && us!=='grind' && !_hidden && !_awayPic) ? _conf.emo : null);   // 빡일중은 책상에 🔥 안 뜨게(다른 상태는 그대로)
     // 💬 채팅 말풍선 — 보낸 지 CHAT_BUBBLE_MS 안이면 상태 말풍선 대신 채팅 내용을 잠깐 띄움(그 뒤엔 자동으로 상태 말풍선으로 복귀).
     //   (📢 확성기는 제거됨 → 커스텀 상태로 대체. 상태 말풍선이 곧 "지금 뭐 하는지"를 보여줌.)
     setSeatOpacity(seat, (_conf && _conf.opacity!=null) ? _conf.opacity : 1);
@@ -37631,7 +38045,8 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
        ⚠️ 이 세 갈래를 호출부에서 정하는 이유: '무엇을 보여줄지'는 여기가, '어떻게 보여줄지'는
           setSeatHeadBubble 이 정한다. 안쪽에서 상태/채팅을 다시 구분하려 들면 판정이 두 곳으로 갈린다. */
     const _chatting = !!(seat.chatBubbleUntil && now < seat.chatBubbleUntil);
-    if(officeMode){ setSeatHeadBubble(seat, _chatting ? seat.chatBubbleText : null); }
+    if(_hidden){ setSeatHeadBubble(seat, null); }   // 🙈 캐릭터 없이 말풍선만 뜨지 않게
+    else if(officeMode){ setSeatHeadBubble(seat, _chatting ? seat.chatBubbleText : null); }
     else if(_chatting){ setSeatHeadBubble(seat, seat.chatBubbleText); }
     // 💭 상태 갈래만 '생각 말풍선'(동그라미 꼬리). 채팅은 뾰족 꼬리 그대로다.
     else{ setSeatHeadBubble(seat, _conf ? _conf.label : null, true); }
@@ -37654,7 +38069,9 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   _updateRideChains(now);   // 🐾 올라탄(탑쌓기 포함) 좌석 위치를 아래층→위층 순으로 확정
   _updateFlyingSeats(now, dt);   // 🪑 플라잉체어 — 날고 있는 캐릭터의 rig 좌표를 마지막에 덮어쓴다
   if(desktopMode){ renderer.clear(); }   // 투명 클리어 강제 — 프레임 사이 흰 잔상 방지
-  renderer.render(scene,camera);
+  /* 🍎 설정(런처) 화면에서는 #scene 이 display:none 이다(body.desktop.config) — 안 보이는 화면을 그리지 않는다.
+     상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
+  if(!(document.body.classList.contains('desktop') && document.body.classList.contains('config'))) renderer.render(scene,camera);
   updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
   if(!manual) requestAnimationFrame(frame);
 }
@@ -37856,6 +38273,488 @@ function _rolloverFocusToday(){
   }catch(e){}
   return _focusTodaySec;
 }
+/* ═══ 📊 오늘 기록 전시 (2026-09-23 · handoff-2026-09-21-features §3 · 사용자 확정: 🕒 를 눌러 켜고 끈다) ═══
+   포커스 기록창 첫 줄(현재/누적 기록) 옆 🕒(#focusLogShowClock)를 누르면 켜짐/꺼짐.
+   켜지면 방 사람들 화면의 내 머리 위에 «오늘 H:MM». **초는 보내지 않는다.** 1분에 한 번 갱신(2026-09-23 요청).
+   ★ 이모지 칸은 비운다 — 커스텀 상태 배관이라 이모지를 넣으면 캐릭터 앞(책상 위)에도 같이 떴다(제보).
+   ★ 배관은 커스텀 상태 그대로(Presence.setFocusShow → _statusOut) — 규칙 · 필드 변경 없음.
+   ★ 상태가 켜져 있으면 그것이 먼저 보이고, 상태를 끄면 기록이 보인다(_statusOut · statusConfFor).
+   ★ 회사원 모드에서는 안 보낸다(토글을 켜 둬도 null). 모드를 켜는 순간 거둔다(progOfficeModeToggle).
+   ★ 켜짐은 기억한다(tw.focusShow) — 설정 성격의 작은 값이라 _lsSet.
+   ⚠️ 값은 보내는 쪽이 정한다(setLevel 과 같은 수준). 랭킹을 붙일 거면 서버 값이 필요하다. */
+const FOCUS_SHOW_KEY = 'tw.focusShow';
+const FOCUS_SHOW_MS  = 60 * 1000;       // 1분에 한 번(2026-09-23 요청 · 처음엔 5분이었다)
+let focusShowOn = false;
+try{ focusShowOn = (localStorage.getItem(FOCUS_SHOW_KEY) === '1'); }catch(_){}
+let _focusShowSentAt = 0, _focusShowSent = null;   // 마지막으로 방에 보낸 값(내 화면 거울도 이것을 쓴다)
+function _focusShowText(sec){
+  const s = Math.max(0, Math.floor(sec || 0));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+  return '오늘 ' + h + ':' + String(m).padStart(2, '0');   // hh:mm — 초 없음
+}
+function _focusShowConf(){
+  if(!focusShowOn) return null;
+  if(typeof officeMode !== 'undefined' && officeMode) return null;
+  /* 이모지는 **비워 둔다**(2026-09-23 요청) — 커스텀 상태와 같은 배관이라 emo 를 넣으면 책상 위(캐릭터 앞)에도
+     그 이모지가 뜬다. '' 이면 말풍선 문구만 뜬다(statusConfFor 의 커스텀 갈래 주석과 같은 처리). */
+  return { emo: '', text: _focusShowText(_rolloverFocusToday()) };
+}
+/* 방에 보낸다. force = 켜고 끈 순간 · 모드 전환 — 5분을 기다리지 않는다.
+   거둘 때(null)는 언제나 바로 보낸다. 값이 있을 때는 5분이 지나야 새 값을 보낸다. */
+function _focusShowPush(force){
+  const conf = _focusShowConf();
+  const now = Date.now();
+  if(conf){
+    if(!force && _focusShowSent && (now - _focusShowSentAt) < FOCUS_SHOW_MS) return;
+    _focusShowSentAt = now;
+  }else if(!_focusShowSent && !force){
+    return;
+  }
+  _focusShowSent = conf;
+  try{ if(typeof Presence !== 'undefined' && Presence.setFocusShow) Presence.setFocusShow(conf); }catch(_){}
+}
+function _focusShowMarkSent(conf){ _focusShowSent = conf || null; if(conf) _focusShowSentAt = Date.now(); }
+/* 내 화면 거울 — 방에 보낸 값(혼자면 «보낼 값») 그대로. 함수 선언이라 TDZ 걱정이 없다.
+   ⚠️ [2026-09-23 고침] 처음에는 «방에 있을 때만» 이었다. 그런데 🕒 를 누르는 자리는 대개 혼자 있는 화면이라,
+     눌러도 아무 일이 없어 **고장으로 읽혔다**(제보). 보내는 것과 보여 주는 것은 다른 판정이다 —
+     보내기는 방이 있어야 하지만(Presence 가 알아서 한다), 내 머리 위 확인은 혼자일 때가 오히려 필요하다. */
+function _focusShowMine(){
+  try{ return _focusShowSent || _focusShowConf(); }catch(_){ return null; }
+}
+function _focusShowRefreshUI(){
+  const el = document.getElementById('focusLogShowClock'); if(!el) return;
+  el.classList.toggle('on', !!focusShowOn);
+  el.setAttribute('aria-pressed', focusShowOn ? 'true' : 'false');
+  el.title = focusShowOn ? '방에 오늘 기록 보이는 중 — 눌러서 끄기' : '눌러서 방에 오늘 기록 보여주기';
+}
+(function bindFocusShow(){
+  const el = document.getElementById('focusLogShowClock');
+  if(el){
+    el.addEventListener('click', e=>{
+      e.stopPropagation();
+      focusShowOn = !focusShowOn;
+      _lsSet(FOCUS_SHOW_KEY, focusShowOn ? '1' : '0');
+      _focusShowRefreshUI();
+      _focusShowPush(true);
+      if(typeof toast === 'function'){
+        /* 켰는데 안 보이는 두 경우를 그 자리에서 말해 준다 — 아무 설명이 없으면 고장으로 읽힌다. */
+        if(focusShowOn && typeof officeMode !== 'undefined' && officeMode) toast('🏢 회사원 모드에서는 보내지 않아요 — 모드를 끄면 보여요');
+        else if(focusShowOn && typeof userStatus !== 'undefined' && userStatus) toast('🕒 켰어요 — 지금은 상태 메시지가 먼저 보여요(상태를 끄면 기록이 보여요)');
+        else toast(focusShowOn ? '🕒 오늘 기록을 보여줘요 — 내 머리 위와 방 사람들 화면에 (1분마다)' : '🕒 오늘 기록 보여주기를 껐어요');
+      }
+    });
+  }
+  _focusShowRefreshUI();
+  _focusShowPush(true);
+  setInterval(()=>_focusShowPush(false), 15000);   // 15초마다 보고, 실제 전송은 1분에 한 번
+})();
+
+/* ═══ 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정 · 500×500 · 캐릭터 자리) ═══════════
+   [내 정보] 머리 아래 «자리비움 그림» 칸에서 투명 PNG 를 등록하면, 자리비움일 때 **캐릭터 자리에** 그 그림이 선다
+   (내 화면 + 방 사람들 화면). 등록 안 한 사람 · 구버전 · 못 불러온 그림은 예전 그대로(투명 캐릭터 + 책상 🫧).
+   ★ 그림은 500×500 캔버스에 비율 유지로 맞춰 **WebP** 로 굽는다(투명 유지). 300KB 를 넘으면 품질을 낮춰 다시 굽고,
+     끝까지 넘으면 올리지 않는다. Storage 규칙도 `away/` 경로만 300KB 미만(users/ 2MB 와 별개 경로 — 규칙이 OR 라서).
+   ★ 전파는 URL 한 줄 — users/{uid}/awayImg(기기 간) + 방 payload awayImg. Storage 주소(https://firebasestorage.googleapis.com/)
+     가 아니면 받는 쪽이 버린다(_awayUrlOk) — 아무 주소나 방 사람들 화면에서 불러오게 두지 않는다.
+   ★ 원격 주소를 3D 로 그리는 것은 방 얼굴(_loadImgCors)이 이미 하는 길 그대로다. 못 불러오면 조용히 🫧.
+   ★ 회사원 모드에서는 그림을 세우지 않는다(보는 사람 기준 · 예전 모양).
+   ⚠️ 관리자가 [그림 내리기] 하면 users/{uid}/awayImg 와 파일이 지워진다 — 파일이 없으니 남들 화면은 곧바로 🫧,
+     본인 기기는 다음 부팅의 _awayBootSync 가 로컬 값을 비운다. */
+var AWAY_IMG_KEY = 'tw.awayImg';
+var AWAY_IMG_PX = 500;
+var AWAY_IMG_MAX_BYTES = 300 * 1024;
+var awayImgUrl = '';
+try{ const _a = localStorage.getItem(AWAY_IMG_KEY) || ''; awayImgUrl = _awayUrlOk(_a) ? _a : ''; }catch(_){}
+var _awayTex = new Map();   // url → { st:'loading'|'ok'|'fail', tex }
+var _awayBox = null, _awayGW = null;
+var _awayBusy = false;
+function _awayUrlOk(u){
+  return typeof u === 'string' && u.length <= 500 && u.indexOf('https://firebasestorage.googleapis.com/') === 0;
+}
+function _awayTexState(url){
+  let e = _awayTex.get(url);
+  if(e) return e.st;
+  if(_awayTex.size > 40){ const k = _awayTex.keys().next().value; _awayTex.delete(k); }
+  e = { st:'loading', tex:null }; _awayTex.set(url, e);
+  _loadImgCors(url).then(img=>{
+    const t = new THREE.Texture(img); t.encoding = THREE.sRGBEncoding; t.needsUpdate = true;
+    e.tex = t; e.st = 'ok';
+  }).catch(()=>{ e.st = 'fail'; });
+  return 'loading';
+}
+/* 이 좌석이 지금 그림을 세울 URL — 없으면 null(예전 모양). 그림이 **다 불러와졌을 때만** URL 을 준다. */
+function _awayPicFor(seat, us, hidden){
+  if(us !== 'away' || hidden || !seat) return null;
+  if(typeof officeMode !== 'undefined' && officeMode) return null;
+  const url = seat.remote ? seat.remoteAwayImg : (seat.isMe ? awayImgUrl : null);
+  if(!_awayUrlOk(url)) return null;
+  return (_awayTexState(url) === 'ok') ? url : null;
+}
+/* 캐릭터 자리에 그림 스프라이트 — 캐릭터 경계상자 높이에 맞춘 정사각형 · 발밑을 캐릭터 발밑에.
+   ★ 경계상자는 0.5초에 한 번만 잰다(매 프레임 setFromObject 는 비싸다). group 은 이동만 하므로 월드 오프셋 = 로컬 오프셋. */
+function _awayImgFrame(seat, url, now){
+  let sp = seat._awaySprite;
+  if(!url){ if(sp && sp.visible) sp.visible = false; return; }
+  const e = _awayTex.get(url); if(!e || !e.tex){ if(sp) sp.visible = false; return; }
+  if(!sp){
+    const mat = new THREE.SpriteMaterial({ map:e.tex, transparent:true, depthTest:true, depthWrite:false });
+    sp = new THREE.Sprite(mat); sp.renderOrder = 840; sp.visible = false;
+    seat.group.add(sp); seat._awaySprite = sp; seat._awayFitAt = 0;
+  }
+  if(sp.material.map !== e.tex){ sp.material.map = e.tex; sp.material.needsUpdate = true; }
+  if(!seat._awayFitAt || (now - seat._awayFitAt) > 500 || !sp.visible){
+    seat._awayFitAt = now;
+    try{
+      if(!_awayBox){ _awayBox = new THREE.Box3(); _awayGW = new THREE.Vector3(); }
+      seat.rig.updateMatrixWorld(true);
+      _awayBox.setFromObject(seat.bodyWrap || seat.rig);
+      seat.group.getWorldPosition(_awayGW);
+      const bh = _awayBox.max.y - _awayBox.min.y;
+      if(!(bh > 0.05 && bh < 10)){ sp.visible = false; return; }
+      /* 🖼️ [2026-09-23 제보 «동물이면 자리비움 그림이 엄청 크게 나온다»] 예전엔 캐릭터 경계상자 높이에 맞췄다 —
+         동물은 경계상자가 몸보다 훨씬 커서 그림이 따라 커졌다. 이제 **화면에서 AWAY_PIC_SCREEN_PX(150)px 정사각형**으로
+         고정한다(인간·동물 · 캐릭터 크기 설정과 무관). 자리(가운데 · 발밑)는 예전처럼 경계상자에서 잰다. */
+      const cx = (_awayBox.min.x + _awayBox.max.x)/2, cz = (_awayBox.min.z + _awayBox.max.z)/2, fy = _awayBox.min.y;
+      const h = _awayWorldForPx(AWAY_PIC_SCREEN_PX, cx, fy, cz);
+      if(!(h > 0)){ sp.visible = false; return; }
+      sp.scale.set(h, h, 1);
+      sp.position.set(cx - _awayGW.x, fy + h/2 - _awayGW.y, cz - _awayGW.z);
+    }catch(_){ sp.visible = false; return; }
+  }
+  sp.visible = true;
+}
+/* 🖼️ 화면 px → 그 깊이에서의 월드 길이(원근 카메라). 0.5초마다 다시 재므로 카메라 줌·창 크기가 바뀌어도 따라간다. */
+var AWAY_PIC_SCREEN_PX = 150;
+var _awayCamV = null;
+function _awayWorldForPx(px, wx, wy, wz){
+  try{
+    if(!_awayCamV) _awayCamV = new THREE.Vector3();
+    camera.updateMatrixWorld();
+    _awayCamV.set(wx, wy, wz).applyMatrix4(camera.matrixWorldInverse);
+    const d = Math.max(0.05, -_awayCamV.z);
+    const vh = (renderer && renderer.domElement && renderer.domElement.clientHeight) || innerHeight;
+    if(!(vh > 0)) return 0;
+    return px * (2 * d * Math.tan(camera.fov * Math.PI / 360) / (camera.zoom || 1)) / vh;
+  }catch(_){ return 0; }
+}
+/* 파일 → 500×500 WebP dataURL(투명 유지 · 비율 유지 가운데 맞춤). 300KB 이하가 될 때까지 품질을 내린다. */
+function _awayPrepare(file){
+  return new Promise(res=>{
+    if(!file || !/^image\//.test(file.type || '')) return res({ err:'bad' });
+    const fr = new FileReader();
+    fr.onerror = ()=>res({ err:'bad' });
+    fr.onload = ()=>{
+      const img = new Image();
+      img.onerror = ()=>res({ err:'bad' });
+      img.onload = ()=>{
+        if(!img.naturalWidth || !img.naturalHeight) return res({ err:'bad' });
+        const cv = document.createElement('canvas'); cv.width = AWAY_IMG_PX; cv.height = AWAY_IMG_PX;
+        const g = cv.getContext('2d');
+        const k = Math.min(AWAY_IMG_PX / img.naturalWidth, AWAY_IMG_PX / img.naturalHeight);
+        const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+        g.clearRect(0, 0, AWAY_IMG_PX, AWAY_IMG_PX);
+        g.drawImage(img, Math.round((AWAY_IMG_PX - w)/2), AWAY_IMG_PX - h, w, h);   // 발밑 맞춤(아래 정렬)
+        for(const q of [0.92, 0.85, 0.75, 0.6, 0.45]){
+          const d = cv.toDataURL('image/webp', q);
+          if(d.indexOf('data:image/webp') !== 0) return res({ err:'bad' });   // WebP 를 못 굽는 환경
+          const bytes = Math.floor((d.length - d.indexOf(',') - 1) * 3 / 4);
+          if(bytes <= AWAY_IMG_MAX_BYTES) return res({ dataUrl:d, bytes });
+        }
+        res({ err:'big' });
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+/* 👑 자리비움 그림은 **프리미엄 전용**이다(2026-09-23 요청).
+   ★ 등록만 잠근다 — 남이 등록한 그림은 프리미엄이 아니어도 그대로 보인다(보는 쪽은 라이선스와 무관).
+   ★ 이미 올려 둔 그림은 라이선스가 끝나도 지우지 않는다. [기본으로]는 언제나 쓸 수 있다(내 것을 되돌리는 길은 막지 않는다).
+   ⚠️ 서버는 이걸 못 본다 — Storage · RTDB 규칙에 라이선스 판정이 없다. 여기 게이트는 화면 쪽 약속이다. */
+function _awayPremium(){ try{ return (typeof _premiumOn === 'function') ? _premiumOn() : false; }catch(_){ return false; } }
+function _awayRenderUI(msg, isErr){
+  const im = document.getElementById('miAwayImg'), ph = document.getElementById('miAwayPh');
+  const rs = document.getElementById('miAwayReset'), m = document.getElementById('miAwayMsg');
+  const pk = document.getElementById('miAwayPick');
+  const has = _awayUrlOk(awayImgUrl);
+  const prem = _awayPremium();
+  if(im){ if(has){ im.src = awayImgUrl; im.style.display = ''; } else { im.removeAttribute('src'); im.style.display = 'none'; } }
+  if(ph) ph.style.display = has ? 'none' : '';
+  if(rs) rs.style.display = has ? '' : 'none';
+  if(pk) pk.disabled = !!_awayBusy || !prem;
+  if(rs) rs.disabled = !!_awayBusy;
+  if(m){
+    m.textContent = '';
+    if(msg){
+      const b = document.createElement(isErr ? 'b' : 'span');
+      if(isErr) b.style.color = '#B22222';
+      b.textContent = msg; m.appendChild(b);
+    }else if(!prem){
+      m.textContent = '👑 프리미엄 라이선스가 있어야 등록할 수 있어요.' + (has ? ' 지금 그림은 그대로 보여요.' : '');
+    }else if(has){
+      m.textContent = '자리비움이면 캐릭터 대신 이 그림이 서요. 방 사람들에게도 보여요.';
+    }else{
+      m.textContent = '투명 PNG · 500×500 · 300KB 이하. 자리비움이면 캐릭터 대신 이 그림이 서요.';
+    }
+  }
+}
+function _awaySetLocal(url){
+  awayImgUrl = _awayUrlOk(url) ? url : '';
+  try{ if(awayImgUrl) localStorage.setItem(AWAY_IMG_KEY, awayImgUrl); else localStorage.removeItem(AWAY_IMG_KEY); }catch(_){}
+  try{ if(typeof Presence !== 'undefined' && Presence.setAwayImg) Presence.setAwayImg(awayImgUrl); }catch(_){}
+}
+async function _awayPick(file){
+  if(_awayBusy || !file) return;
+  if(!_awayPremium()){ _awayRenderUI('👑 프리미엄 라이선스가 있어야 등록할 수 있어요.', true); return; }
+  const api = window.firebaseAPI, uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  if(!api || !api.uploadAwayImg || !uid){ _awayRenderUI('아직 준비 중이에요 — 잠시 뒤 다시 해 주세요.', true); return; }
+  let msg = null, err = false;
+  _awayBusy = true; _awayRenderUI('올리는 중…');
+  try{
+    const prep = await _awayPrepare(file);
+    if(prep.err === 'bad'){ msg = '그림 파일을 읽지 못했어요. PNG 를 골라 주세요.'; err = true; return; }
+    if(prep.err === 'big'){ msg = '못 올렸어요 — 줄이고 압축해도 300KB 를 넘었어요. 이전 그림 그대로예요.'; err = true; return; }
+    const up = await api.uploadAwayImg(uid, prep.dataUrl);
+    if(!up || !up.ok){ msg = '못 올렸어요 — ' + ((up && up.reason) || '업로드에 실패했어요') + '. 이전 그림 그대로예요.'; err = true; return; }
+    const sv = await api.setAwayImg(uid, up.url);
+    if(!sv || !sv.ok){ try{ await api.deleteStorageUrl(up.url); }catch(_){} msg = '못 올렸어요 — 저장에 실패했어요. 이전 그림 그대로예요.'; err = true; return; }
+    const old = awayImgUrl;
+    _awaySetLocal(up.url);
+    if(old && old !== up.url){ try{ await api.deleteStorageUrl(old); }catch(_){} }
+    if(typeof toast === 'function') toast('🫧 자리비움 그림을 바꿨어요');
+  }catch(e){ msg = '못 올렸어요 — 잠시 뒤 다시 해 주세요.'; err = true; }
+  finally{ _awayBusy = false; _awayRenderUI(msg, err); }
+}
+async function _awayReset(){
+  if(_awayBusy || !awayImgUrl) return;
+  const api = window.firebaseAPI, uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  if(!api || !api.setAwayImg || !uid){ _awayRenderUI('아직 준비 중이에요 — 잠시 뒤 다시 해 주세요.', true); return; }
+  _awayBusy = true; _awayRenderUI('되돌리는 중…');
+  try{
+    const sv = await api.setAwayImg(uid, null);
+    if(!sv || !sv.ok){ _awayBusy = false; _awayRenderUI('되돌리지 못했어요 — 잠시 뒤 다시 해 주세요.', true); return; }
+    const old = awayImgUrl;
+    _awaySetLocal('');
+    try{ await api.deleteStorageUrl(old); }catch(_){}
+    _awayBusy = false; _awayRenderUI(null);
+    if(typeof toast === 'function') toast('🫧 기본 자리비움으로 돌아왔어요');
+  }finally{ _awayBusy = false; }
+}
+/* 부팅 — 서버 값이 기준이다(다른 기기에서 바꿈 · 관리자가 내림). 못 읽으면 로컬 그대로. */
+function _awayBootSync(tries){
+  const api = window.firebaseAPI, uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  if(!api || !api.getAwayImg || !uid){ if((tries||0) < 30) setTimeout(()=>_awayBootSync((tries||0)+1), 2000); return; }
+  api.getAwayImg(uid).then(r=>{
+    if(!r || !r.ok) return;
+    const srv = _awayUrlOk(r.url) ? r.url : '';
+    if(srv !== awayImgUrl){ _awaySetLocal(srv); _awayRenderUI(null); }
+  }).catch(()=>{});
+}
+(function bindAwayImg(){
+  const pick = document.getElementById('miAwayPick'), file = document.getElementById('miAwayFile'), rs = document.getElementById('miAwayReset');
+  if(pick && file){
+    pick.addEventListener('click', e=>{
+      e.stopPropagation();
+      if(!_awayPremium()){ if(typeof toast === 'function') toast('👑 자리비움 그림은 프리미엄 라이선스가 있어야 등록할 수 있어요'); return; }
+      if(!_awayBusy){ file.value = ''; file.click(); }
+    });
+    file.addEventListener('change', ()=>{ const f = file.files && file.files[0]; if(f) _awayPick(f); });
+  }
+  if(rs) rs.addEventListener('click', e=>{ e.stopPropagation(); _awayReset(); });
+  _awayRenderUI(null);
+  _awayBootSync(0);
+})();
+
+/* ═══ 🚩 신고하기 (2026-09-23 · 시안 확정) ═══════════════════════════════════════════════════════════
+   좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» → 사유 라디오(캐릭터 · 자리비움 그림 · 닉네임 · 기타 40자) → [신고].
+   ★ 서버: reports/{신고당한 uid}/{내 uid} = { kind, note?, nick, code4, ts } — 규칙이 «로그인한 본인 칸만» 쓰게 한다.
+     같은 사람을 또 신고하면 같은 칸을 덮는다 = 칸 수가 곧 «서로 다른 신고자 수».
+   ★ 신고자에 대해 남기는 것은 **닉네임 + 친구 코드 뒷자리 4자리 + 사유**뿐(요청).
+   ★ 신고하면 내 화면에서 그 사람을 숨긴다(_reportHiddenUids · 계정 기준 · 모든 방).
+   ★ 관리자 목록(_openReportAdmin)에는 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람만 뜬다. */
+var REPORT_ADMIN_MIN = 3;
+var REPORT_KINDS = [
+  { k:'char', label:'캐릭터 신고', sub:'모습 · 꾸미기', short:'캐릭터' },
+  { k:'away', label:'자리비움 그림 신고', sub:'', short:'자리비움 그림' },
+  { k:'nick', label:'닉네임 신고', sub:'', short:'닉네임' },
+  { k:'etc',  label:'기타', sub:'', short:'기타' },
+];
+var _reportOv = null, _reportEsc = null;
+function _myCode4(){
+  try{ return String(localStorage.getItem(MY_FRIEND_CODE_KEY) || '').slice(-4); }catch(_){ return ''; }
+}
+function _reportClose(){
+  if(_reportEsc){ document.removeEventListener('keydown', _reportEsc, true); _reportEsc = null; }
+  if(_reportOv){ try{ _reportOv.remove(); }catch(_){} _reportOv = null; }
+}
+function _reportBox(title, width){
+  const ov = document.createElement('div');
+  ov.className = 'app-popup-ov';   // ⚠️ 마우스 통과 화이트리스트(UI_HIT_SEL) — 빼지 말 것
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9700;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'width:' + width + 'px;max-width:92vw;max-height:86vh;display:flex;flex-direction:column;background:var(--win-face);border:2px solid;'
+    + 'border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);'
+    + 'box-shadow:4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,"Malgun Gothic",sans-serif;color:var(--ink);';
+  const tb = document.createElement('div');
+  tb.style.cssText = 'background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;flex:none;';
+  tb.textContent = title;
+  const body = document.createElement('div');
+  body.style.cssText = 'padding:12px 14px 14px;font-size:11px;overflow-y:auto;';
+  box.appendChild(tb); box.appendChild(body); ov.appendChild(box);
+  return { ov, box, body };
+}
+function _openReportDialog(seat){
+  const target = seat && seat.friendUserId;
+  if(!target){ if(typeof toast === 'function') toast('이 분의 정보가 아직 없어요 (버전 업데이트가 필요할 수 있어요)'); return; }
+  const me = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  if(!me || me === target) return;
+  _reportClose();
+  const name = (typeof _seatLabelName === 'function' ? _seatLabelName(seat) : '') || seat.friendName || '이 분';
+  const { ov, body } = _reportBox('🚩 신고하기', 300);
+  const q = document.createElement('div'); q.style.cssText = 'margin-bottom:8px;';
+  const nb = document.createElement('b'); nb.textContent = name; q.appendChild(nb); q.appendChild(document.createTextNode(' 님을 신고할까요?'));
+  body.appendChild(q);
+  const fs = document.createElement('fieldset'); fs.style.cssText = 'margin:0;padding:6px 10px 8px;border:2px groove var(--win-hi);';
+  const lg = document.createElement('legend'); lg.textContent = '사유'; lg.style.cssText = 'font-size:10.5px;padding:0 3px;'; fs.appendChild(lg);
+  const hasAway = _awayUrlOk(seat.remoteAwayImg);
+  let picked = null;
+  const etc = document.createElement('input');
+  etc.type = 'text'; etc.maxLength = 40; etc.placeholder = '직접 적기 · 40자'; etc.autocomplete = 'off';
+  etc.setAttribute('aria-label', '기타 사유');
+  etc.style.cssText = 'display:none;margin:3px 0 0 18px;width:calc(100% - 18px);box-sizing:border-box;font-family:inherit;font-size:11px;padding:2px 5px;background:#fff;'
+    + 'border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);';
+  const go = document.createElement('button'); go.className = 'lc-btn'; go.type = 'button'; go.textContent = '신고';
+  go.style.cssText = 'width:auto;margin:0;padding:4px 16px;font-size:11px;'; go.disabled = true;
+  REPORT_KINDS.forEach(kd=>{
+    const lb = document.createElement('label');
+    const off = (kd.k === 'away' && !hasAway);
+    lb.style.cssText = 'display:flex;align-items:center;gap:6px;padding:3px 0;cursor:' + (off ? 'default' : 'pointer') + ';color:' + (off ? 'var(--win-lo)' : 'var(--ink)') + ';';
+    const r = document.createElement('input'); r.type = 'radio'; r.name = 'twReportKind'; r.value = kd.k; r.disabled = off;
+    r.addEventListener('change', ()=>{ picked = kd.k; etc.style.display = (kd.k === 'etc') ? '' : 'none'; go.disabled = false; if(kd.k === 'etc') etc.focus(); });
+    lb.appendChild(r); lb.appendChild(document.createTextNode(kd.label));
+    const subText = off ? '— 등록한 그림 없음' : (kd.sub ? '— ' + kd.sub : '');
+    if(subText){ const sp = document.createElement('span'); sp.style.cssText = 'color:var(--win-lo);font-size:10px;'; sp.textContent = subText; lb.appendChild(sp); }
+    fs.appendChild(lb);
+    if(kd.k === 'etc') fs.appendChild(etc);
+  });
+  body.appendChild(fs);
+  const note = document.createElement('div'); note.style.cssText = 'font-size:10px;color:var(--ink-soft);line-height:1.55;margin-top:8px;';
+  note.textContent = '신고하면 내 화면에서 이 분이 숨겨져요. 서로 다른 ' + REPORT_ADMIN_MIN + '명이 신고하면 관리자가 확인해요.';
+  body.appendChild(note);
+  const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;justify-content:flex-end;margin-top:10px;';
+  const no = document.createElement('button'); no.className = 'lc-btn'; no.type = 'button'; no.textContent = '취소';
+  no.style.cssText = 'width:auto;margin:0;padding:4px 16px;font-size:11px;';
+  row.appendChild(go); row.appendChild(no); body.appendChild(row);
+  no.onclick = _reportClose;
+  ov.addEventListener('mousedown', e=>{ if(e.target === ov) _reportClose(); });
+  go.onclick = async ()=>{
+    if(!picked) return;
+    const txt = (picked === 'etc') ? etc.value.trim().slice(0, 40) : '';
+    if(picked === 'etc' && !txt){ if(typeof toast === 'function') toast('사유를 적어 주세요'); etc.focus(); return; }
+    const api = window.firebaseAPI;
+    if(!api || !api.reportUser){ if(typeof toast === 'function') toast('아직 준비 중이에요'); return; }
+    go.disabled = true;
+    const res = await api.reportUser(target, me, { kind:picked, note:txt, nick:(typeof getDisplayName === 'function' ? getDisplayName() : ''), code4:_myCode4() });
+    if(res && res.ok){
+      _reportHiddenUids.add(target); _reportHiddenSave();
+      _reportClose();
+      if(typeof toast === 'function') toast('신고했어요 · 내 화면에서 이 분을 숨겼어요');
+    }else{
+      go.disabled = false;
+      if(typeof toast === 'function') toast(res && res.reason === 'auth' ? '로그인한 뒤에 신고할 수 있어요' : '신고하지 못했어요 — 잠시 뒤 다시 해 주세요');
+    }
+  };
+  _reportEsc = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _reportClose(); } };
+  document.addEventListener('keydown', _reportEsc, true);
+  document.body.appendChild(ov);
+  _reportOv = ov;
+}
+/* 관리자 — 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람 목록. 순수 함수로 떼어 둔다(검사). */
+function _reportAdminRows(all){
+  const out = [];
+  for(const t of Object.keys(all || {})){
+    const recs = Object.values(all[t] || {}).filter(r=>r && typeof r === 'object' && typeof r.kind === 'string');
+    if(recs.length >= REPORT_ADMIN_MIN) out.push({ target:t, recs: recs.sort((a,b)=>(b.ts||0)-(a.ts||0)) });
+  }
+  return out.sort((a,b)=>b.recs.length - a.recs.length);
+}
+function _reportReasonText(r){
+  const kd = REPORT_KINDS.find(x=>x.k === r.kind);
+  const base = kd ? kd.short : '기타';
+  return (r.kind === 'etc' && r.note) ? base + ' · ' + r.note : base;
+}
+async function _openReportAdmin(){
+  if(typeof isAdmin === 'undefined' || !isAdmin) return;
+  const api = window.firebaseAPI;
+  if(!api || !api.listReports){ if(typeof toast === 'function') toast('아직 준비 중이에요'); return; }
+  _reportClose();
+  const { ov, body } = _reportBox('🚩 신고 목록', 460);
+  body.textContent = '불러오는 중…';
+  ov.addEventListener('mousedown', e=>{ if(e.target === ov) _reportClose(); });
+  _reportEsc = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _reportClose(); } };
+  document.addEventListener('keydown', _reportEsc, true);
+  document.body.appendChild(ov); _reportOv = ov;
+  const res = await api.listReports();
+  if(_reportOv !== ov) return;
+  if(!res || !res.ok){ body.textContent = '목록을 읽지 못했어요(관리자 로그인 확인).'; return; }
+  const rows = _reportAdminRows(res.reports);
+  body.textContent = '';
+  const head = document.createElement('div'); head.style.cssText = 'font-size:10.5px;color:var(--ink-soft);margin-bottom:6px;';
+  head.textContent = '서로 다른 ' + REPORT_ADMIN_MIN + '명 이상이 신고한 사람만 보여요 · ' + rows.length + '명';
+  body.appendChild(head);
+  if(!rows.length) return;
+  const list = document.createElement('div');
+  list.style.cssText = 'border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:#fff;';
+  body.appendChild(list);
+  const briefs = await Promise.all(rows.map(r=>api.getUserBrief ? api.getUserBrief(r.target).catch(()=>({})) : Promise.resolve({})));
+  if(_reportOv !== ov) return;
+  rows.forEach((r, i)=>{
+    const b = briefs[i] || {};
+    const it = document.createElement('div'); it.style.cssText = 'display:flex;gap:8px;align-items:flex-start;padding:6px;border-bottom:1px solid #d4d0c8;';
+    const th = document.createElement('div');
+    th.style.cssText = 'width:48px;height:48px;flex:none;box-sizing:border-box;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);'
+      + 'background:#fff repeating-conic-gradient(#e6e6e6 0% 25%, #fff 0% 50%) 0 0/8px 8px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink-soft);';
+    if(_awayUrlOk(b.awayImg)){ const im = document.createElement('img'); im.src = b.awayImg; im.alt = ''; im.style.cssText = 'max-width:100%;max-height:100%;'; th.appendChild(im); }
+    else th.textContent = '그림 없음';
+    const mid = document.createElement('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;';
+    const nm = document.createElement('div');
+    const nb = document.createElement('b'); nb.textContent = b.name || '(이름 없음)'; nm.appendChild(nb);
+    const cd = document.createElement('span'); cd.style.cssText = 'font-family:"Courier New",monospace;font-size:10.5px;margin-left:5px;'; cd.textContent = b.friendCode || r.target;
+    nm.appendChild(cd); mid.appendChild(nm);
+    const cnt = document.createElement('span'); cnt.style.cssText = 'color:#B22222;font-weight:bold;font-size:10.5px;'; cnt.textContent = '🚩 ' + r.recs.length + '명';
+    mid.appendChild(cnt);
+    r.recs.forEach(rc=>{
+      const ln = document.createElement('div'); ln.style.cssText = 'font-size:10.5px;word-break:break-all;';
+      ln.textContent = '· ' + (rc.nick || '(이름 없음)') + ' #' + (rc.code4 || '----') + ' — ' + _reportReasonText(rc);
+      mid.appendChild(ln);
+    });
+    const act = document.createElement('div'); act.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:none;';
+    const mkb = (t, red)=>{ const x = document.createElement('button'); x.className = 'lc-btn'; x.type = 'button'; x.textContent = t;
+      x.style.cssText = 'width:auto;margin:0;padding:2px 7px;font-size:10.5px;' + (red ? 'color:#B22222;' : ''); act.appendChild(x); return x; };
+    if(_awayUrlOk(b.awayImg)){
+      const down = mkb('그림 내리기', true);
+      down.onclick = async ()=>{
+        down.disabled = true;
+        const ok = await api.setAwayImg(r.target, null);
+        if(ok && ok.ok){ try{ await api.deleteStorageUrl(b.awayImg); }catch(_){} th.textContent = '그림 없음'; down.remove(); if(typeof toast === 'function') toast('자리비움 그림을 내렸어요'); }
+        else { down.disabled = false; if(typeof toast === 'function') toast('내리지 못했어요'); }
+      };
+    }
+    const fine = mkb('문제없음', false);
+    fine.onclick = async ()=>{
+      fine.disabled = true;
+      const ok = await api.clearReports(r.target);
+      if(ok && ok.ok){ it.remove(); if(typeof toast === 'function') toast('신고를 비웠어요'); }
+      else { fine.disabled = false; if(typeof toast === 'function') toast('비우지 못했어요'); }
+    };
+    it.appendChild(th); it.appendChild(mid); it.appendChild(act); list.appendChild(it);
+  });
+}
+(function bindReportAdmin(){
+  const b = document.getElementById('lcReportList');
+  if(b) b.addEventListener('click', e=>{ e.stopPropagation(); _openReportAdmin(); });
+})();
+
 /* 레벨이 바뀐 순간에만 프로필을 갱신한다(친구 목록 레벨 배지용).
    매초 쓰면 비용이 커지므로, 값이 실제로 달라졌을 때만 1회 쓴다. */
 let _lastPushedLevel = 0;
@@ -41004,7 +41903,7 @@ if(desktopMode){
        두 곳에 따로 적어 두면 새 창을 추가할 때 한쪽만 고치게 되고, 그러면 main 과 렌더러가
        서로 다른 것을 보며 싸운다 — 그게 이번 제보의 정체였다(핸드오프5 §1-4).
        ⇒ body 에 붙는 팝업을 새로 만들면 **여기 한 곳에만** 추가하면 된다. */
-    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker';
+    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, .seat-nameplate';
     /* 📐 지금 화면에 떠 있는 "우리 창"들의 사각형 — main 에게 보낸다.
 
        [왜 필요한가 — 이번 제보의 뿌리] main 의 회수 안전장치(ⓕ·ⓖ)와 펜 근접 판정은 지금까지

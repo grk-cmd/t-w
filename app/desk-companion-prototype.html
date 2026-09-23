@@ -1478,6 +1478,7 @@
     --exp-bar-h:6px;         /* 경험치 바 두께 — 여기 한 곳만 고치면 전 좌석 반영 */
   }
   .seat-nameplate{position:absolute;transform:translate(-50%,-100%);white-space:nowrap;display:none;
+    pointer-events:auto;   /* 🖱 우클릭 = 좌석 메뉴(app.js ensureSeatNamePlateEl) — UI_HIT_SEL 에 .seat-nameplate */
     z-index:1;   /* 말풍선(z-index:2)보다 아래 — 아래 .seat-bubble-dom 주석 참고 */
     font:bold var(--nameplate-size) Tahoma,"Malgun Gothic","MS Sans Serif",sans-serif;color:#fff;letter-spacing:.3px;
     text-shadow:-1.5px 0 rgba(0,0,0,.8),1.5px 0 rgba(0,0,0,.8),0 -1.5px rgba(0,0,0,.8),0 1.5px rgba(0,0,0,.8),
@@ -3441,6 +3442,10 @@
   .flt-row{display:flex;align-items:center;gap:8px;}
   .flt-row .flt-label{font-size:11px;color:var(--ink-soft);font-weight:bold;width:52px;text-align:right;flex:none;}
   .flt-row .flt-clock{font-size:15px;line-height:1;flex:none;}
+  /* 📊 오늘 기록 전시 토글 — 꺼짐은 예전 모양 그대로, 켜지면 머리 위 말풍선과 같은 크림색 동그라미 안에 든다. */
+  #focusLogShowClock{cursor:pointer;border-radius:50%;padding:2px;border:1px solid transparent;}
+  #focusLogShowClock:hover{border-color:rgba(0,0,0,.35);}
+  #focusLogShowClock.on{background:#ffffcc;border-color:#000;}
   .flt-row .flt-time{font-size:22px;font-weight:bold;color:var(--ink);
     font-family:Tahoma,"Malgun Gothic","MS Sans Serif",sans-serif;letter-spacing:1px;}
   #focusLogOk{margin-top:10px;padding:6px 26px;font-weight:bold;cursor:pointer;color:var(--ink);
@@ -4070,6 +4075,37 @@
     width:8px;height:14px;background:var(--win-face);border:2px solid;
     border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     border-radius:var(--win-radius-el) !important;}
+  /* ==== 🌙 백색소음 줄 (#myPlNoise · 2026-09-23 시안 확정) ====
+     음악 줄(#myPlBar) 아래에 윗선 한 줄(눌린 베젤의 위쪽 선)로 갈라 붙인다.
+     ★ 칸 넷은 **같은 폭으로 나눠 갖는다**(flex:1) — 226px 안에 글자 버튼 여백(.plTxtBtn 0 13px)으로는 안 들어간다.
+       그래서 .plTxtBtn 을 안 쓰고 여기서 여백을 정한다. 선택자에 `.plBtn` 을 함께 적는 것은
+       #myPlProfile .plBtn.plpBack 과 같은 이유다(특이도가 같으면 뒤쪽 `#myPlaylistBox .plBtn{padding:0}` 이 이긴다).
+     ★ 슬라이더는 음악 쪽 62px 상한(.plVol)을 풀어 줄 폭을 다 쓴다 — 이 줄에는 버튼이 없어서 넘칠 일이 없다.
+     ⚠️ 미니미(.mini)에서는 줄째로 숨긴다 — 접힌 창은 «지금 나오는 곡» 만 보는 상태다. 소리는 그대로 난다. */
+  #myPlNoise{margin:0 5px 6px;padding:5px 0 0;border-top:1px solid var(--win-lo);box-shadow:inset 0 1px 0 var(--win-hi);
+    font-size:10.5px;color:var(--ink);}
+  #myPlaylistBox.mini #myPlNoise{display:none;}
+  #myPlNoise .nzHead{display:flex;align-items:center;gap:5px;min-height:18px;}
+  #myPlNoise .nzTtl{flex:none;font-weight:bold;}
+  #myPlNoise .nzNow{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;color:var(--ink-soft);}
+  #myPlNoise .plBtn.nzFold{flex:none;min-width:18px;width:18px;height:16px;font-size:8px;}
+  #myPlNoise .nzCaret{display:block;line-height:1;transition:transform .12s ease;}
+  #myPlNoise.fold .nzCaret{transform:rotate(-90deg);}
+  #myPlNoise.fold .nzBody{display:none;}
+  #myPlNoise .nzBody{display:flex;flex-direction:column;gap:5px;margin-top:5px;}
+  #myPlNoise .nzKinds{display:flex;gap:3px;}
+  #myPlNoise .plBtn.nzK{flex:1 1 0;min-width:0;height:20px;padding:0 2px;font-size:10px;white-space:nowrap;overflow:hidden;}
+  #myPlNoise .plBtn.nzK.on{font-weight:bold;}
+  #myPlNoise .nzVolRow{display:flex;align-items:center;gap:4px;}
+  #myPlNoise .plVolIco{margin-left:0;}
+  #myPlNoise .plVol.nzVol{max-width:none;}
+  #myPlNoise .nzPct{flex:none;width:30px;text-align:right;font-size:10px;color:var(--ink-soft);}
+  #myPlNoise .nzOthers{display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;}
+  #myPlNoise .nzOthers input{width:11px;height:11px;margin:0;flex:none;cursor:pointer;}
+  #myPlNoise .nzOffice{display:none;color:var(--ink-soft);}
+  #myPlNoise.office .nzOffice{display:block;}
+  #myPlNoise.office .nzKinds, #myPlNoise.office .nzVolRow, #myPlNoise.office .nzOthers{opacity:.45;}
+  #myPlNoise.office .nzNow{color:var(--ink-soft);}
   /* 🫧 [제보] "버블 테마에서 스크롤바가 외곽 곡선 틀을 벗어난 듯하다."
      맞다 — Chromium 은 `::-webkit-scrollbar` 를 그릴 때 요소의 border-radius 로 **잘라주지 않는다.**
      그래서 각진 기본 테마에서는 안 보이고(모서리가 직각이라 겹칠 데가 없다) 둥근 버블에서만 튄다.
@@ -4421,6 +4457,8 @@
     <button id="myWardrobeBtn" type="button" title="꾸미기 (F2)"><span class="ic">🎨</span>꾸미기<span class="fkey">F2</span></button>
     <button id="myMoveBtn" type="button" title="프로그램 이동 (F3)"><span class="ic">✥</span>이동<span class="fkey">F3</span></button>
     <button id="myDanceBtn" type="button" title="춤추기"><span class="ic">💃</span>춤추기</button>
+    <!-- 🔫 러시안룰렛 — 내 주사위 둘 중 하나라도 1이면 내가 날아간다. 모든 채널에서 보인다(app.js _rollRoulette). -->
+    <button id="myRouletteBtn" type="button" title="러시안룰렛"><span class="ic">🔫</span>러시안룰렛</button>
     <div class="sep"></div>
     <!-- 🏠/🕒 퀵 메뉴 — 마이홈은 F4 단축키(toggleMyHomeShortcut)와 같은 동작, 포커스 기록은 설정 패널의 [기록 열기]와 같은 동작 -->
     <button id="myHomeMenuBtn" type="button" title="마이홈 (F4)"><span class="ic">🏠</span>마이홈<span class="fkey">F4</span></button>
@@ -4522,6 +4560,27 @@
              되는 최소 폭이다(.plVol 주석) — 이 줄이 좁아졌으니 남는 폭을 받아 늘어나게 둔다. -->
       <svg class="plIco plVolIco" viewBox="1.6 1.6 12.8 12.8" aria-hidden="true"><path d="M3 6.2h2.1L8 3.6v8.8L5.1 9.8H3Z" fill="currentColor"/><path d="M10.2 5.9a3 3 0 0 1 0 4.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12.1 4.2a5.4 5.4 0 0 1 0 7.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
       <input id="myPlVol" class="plVol" type="range" min="0" max="100" step="1" value="80" title="음량 80%" aria-label="음량">
+    </div>
+    <!-- 🌙 백색소음 (2026-09-23 · 시안 확정 «플레이리스트 창 안에 두는 안» · handoff-2026-09-23-noise §4-3)
+         음악 음량 바로 아래 한 줄. 소리를 내는 것은 parts/noise.js 이고 여기는 **설정 칸**이다 —
+         창을 닫거나 접어도 소리는 그대로 난다(재생기가 아니다).
+         ★ 칸 넷 중 하나만 고른다(끄기 포함). data-nz 가 방에 실리는 값이다(빈 값 = 끄기).
+         ★ 음량은 음악과 **따로** 저장한다(tw.noise.vol). 남의 소리 비율(50/70/90) 위에 한 번 더 곱해진다.
+         ★ 줄 오른쪽 끝 ▼ — 접었다 폈다(요청). 접으면 머리줄에 지금 고른 소리가 한 줄로 남는다.
+         ⚠️ 회사원 모드면 줄을 흐리게 하고 «모드를 끄면 들려요» — 고르는 것은 막지 않는다(설정은 설정이다). -->
+    <div id="myPlNoise">
+      <div class="nzHead"><span class="nzTtl">🌙 백색소음</span><span class="nzNow" id="myNzNow">독서실 소리</span><button class="plBtn nzFold" id="myNzFold" type="button" aria-expanded="true" title="접기"><span class="nzCaret" aria-hidden="true">▼</span></button></div>
+      <div class="nzBody" id="myNzBody">
+        <div class="nzKinds" role="radiogroup" aria-label="백색소음 고르기">
+          <button class="plBtn nzK" type="button" data-nz="" role="radio">끄기</button>
+          <button class="plBtn nzK" type="button" data-nz="pencil" role="radio">✏️ 연필</button>
+          <button class="plBtn nzK" type="button" data-nz="keyboard" role="radio">⌨️ 키보드</button>
+          <button class="plBtn nzK" type="button" data-nz="page" role="radio">📖 책장</button>
+        </div>
+        <div class="nzVolRow"><svg class="plIco plVolIco" viewBox="1.6 1.6 12.8 12.8" aria-hidden="true"><path d="M3 6.2h2.1L8 3.6v8.8L5.1 9.8H3Z" fill="currentColor"/><path d="M10.2 5.9a3 3 0 0 1 0 4.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><input id="myNzVol" class="plVol nzVol" type="range" min="0" max="100" step="1" value="60" title="백색소음 음량 60%" aria-label="백색소음 음량"><span class="nzPct" id="myNzPct">60%</span></div>
+        <label class="nzOthers"><input type="checkbox" id="myNzOthers" checked> 같은 방 사람들 소리도 함께 듣기</label>
+        <div class="nzOffice" id="myNzOffice">🏢 회사원 모드 — 모드를 끄면 들려요</div>
+      </div>
     </div>
   </div>
   <div id="myChatBox" class="hidden">
@@ -4732,7 +4791,8 @@
       <!-- 한 줄 = [라벨][시계][시간] 가로 배치. 라벨 폭을 고정해 두 줄이 세로로 정렬된다. -->
       <div class="flt-row" id="focusLogRow1">
         <span class="flt-label" id="focusLogCaption">현재 기록</span>
-        <span class="flt-clock">🕒</span>
+        <!-- 📊 오늘 기록 전시 — 이 🕒 를 누르면 방에 «오늘 H:MM» 보여주기 켜짐/꺼짐(app.js bindFocusShow). 켜지면 .on -->
+        <span class="flt-clock" id="focusLogShowClock" role="button" tabindex="0" aria-pressed="false" title="눌러서 방에 오늘 기록 보여주기">🕒</span>
         <span class="flt-time" id="focusLogTime">00:00:00</span>
       </div>
       <!-- 누적기록 탭에서만 보이는 둘째 줄 — 오늘(오전 6시~다음날 오전 6시) 기록.
@@ -5256,7 +5316,7 @@
         🎟️ 초대장
       </button>
     </div>
-    <div class="lc-foot"><button id="lcGlbLoad" class="admin-only">암호화 GLB 불러오기</button><span class="admin-only">·</span><button id="lcAssetGen" class="admin-only">📦 책상·아이템 코드 만들기</button><span class="admin-only">·</span><button id="lcCommissionGen" class="admin-only">🎁 커미션 캐릭터 등록</button><span class="admin-only">·</span><button id="lcLicenseGen" class="admin-only">🎟️ 라이선스 키 발급</button><span class="admin-only">·</span><button id="lcAnnounce" class="admin-only">📣 확성기 공지</button><span class="admin-only">·</span><button id="lcUpdateNotice" class="admin-only">📰 업데이트 공지</button><span class="admin-only">·</span><button id="lcCategoryManage" class="admin-only">📁 카테고리 관리</button><span class="admin-only">·</span><button id="lcAdBannerEdit" class="admin-only">📢 광고 배너 편집</button><span class="admin-only">·</span><button id="lcInviteGrant" class="admin-only">🎟️ 유저 초대권 지급</button><span class="admin-only">·</span><button id="lcGameCfg" class="admin-only">⚙️ 게임 설정</button><span class="admin-only">·</span><button id="lcCloseAllRooms" class="admin-only">🛑 전체 방 종료</button><span class="admin-only">·</span><button id="lcCleanGhostRooms" class="admin-only">🧹 유령 방 청소</button></div>
+    <div class="lc-foot"><button id="lcGlbLoad" class="admin-only">암호화 GLB 불러오기</button><span class="admin-only">·</span><button id="lcAssetGen" class="admin-only">📦 책상·아이템 코드 만들기</button><span class="admin-only">·</span><button id="lcCommissionGen" class="admin-only">🎁 커미션 캐릭터 등록</button><span class="admin-only">·</span><button id="lcLicenseGen" class="admin-only">🎟️ 라이선스 키 발급</button><span class="admin-only">·</span><button id="lcAnnounce" class="admin-only">📣 확성기 공지</button><span class="admin-only">·</span><button id="lcUpdateNotice" class="admin-only">📰 업데이트 공지</button><span class="admin-only">·</span><button id="lcCategoryManage" class="admin-only">📁 카테고리 관리</button><span class="admin-only">·</span><button id="lcAdBannerEdit" class="admin-only">📢 광고 배너 편집</button><span class="admin-only">·</span><button id="lcInviteGrant" class="admin-only">🎟️ 유저 초대권 지급</button><span class="admin-only">·</span><button id="lcGameCfg" class="admin-only">⚙️ 게임 설정</button><span class="admin-only">·</span><button id="lcCloseAllRooms" class="admin-only">🛑 전체 방 종료</button><span class="admin-only">·</span><button id="lcCleanGhostRooms" class="admin-only">🧹 유령 방 청소</button><span class="admin-only">·</span><button id="lcReportList" class="admin-only">🚩 신고 목록</button></div>
 
     <!-- 🪪 [내 정보] — 런처 화면이 바뀐다(CHECKS 개정 48 · 사용자 결정 · 시안 «런처 전환»). ◀ 로 런처로 돌아간다.
          회원가입 설계 §7 B2 · C4 · D · G 를 이 자리로: 작은 머리(사진 · 닉네임 + 레벨 배지 + [수정] · 친구 코드 + [복사]) · 탭 [보관함] [휴지통](숨김 · E) [계정].
@@ -5287,6 +5347,23 @@
           <div style="display:flex;align-items:center;gap:6px;"><span id="miCode" style="font-size:11px;font-weight:bold;font-family:'Courier New',monospace;letter-spacing:.3px;">—</span>
             <button id="miCopy" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">복사</button></div>
         </div>
+      </div>
+      <!-- 🫧 자리비움 그림 (시안 A 확정 · 2026-09-23) — 머리 아래 한 구획. 자리비움이면 캐릭터 대신 이 그림이 선다(app.js bindAwayImg · _awayPick).
+           500×500 WebP 로 구워 300KB 이하만 올린다(Storage away/{uid}/ · 규칙 300KB 미만). 미리보기 체크무늬 = 투명 바탕. -->
+      <div id="miAway" style="padding:9px 0;border-bottom:1px solid var(--win-lo-2);box-shadow:0 1px 0 var(--win-hi);">
+        <div style="font-size:11px;font-weight:bold;margin-bottom:6px;">자리비움 그림</div>
+        <div style="display:flex;gap:9px;align-items:flex-start;">
+          <div id="miAwayThumb" style="width:48px;height:48px;flex-shrink:0;box-sizing:border-box;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+            background:#fff repeating-conic-gradient(#e6e6e6 0% 25%, #fff 0% 50%) 0 0/8px 8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+            <img id="miAwayImg" alt="" draggable="false" style="display:none;max-width:100%;max-height:100%;">
+            <span id="miAwayPh" style="font-size:26px;line-height:1;">🫧</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px;min-width:0;">
+            <div style="display:flex;gap:4px;">
+              <button id="miAwayPick" class="lc-btn" type="button" style="width:auto;margin:0;padding:3px 9px;font-size:10.5px;">그림 등록</button>
+              <button id="miAwayReset" class="lc-btn" type="button" style="width:auto;margin:0;padding:3px 9px;font-size:10.5px;display:none;">기본으로</button></div>
+            <div id="miAwayMsg" style="font-size:10px;color:var(--ink-soft);line-height:1.5;"></div>
+          </div></div>
+        <input id="miAwayFile" type="file" accept="image/png,image/webp,image/*" style="display:none;">
       </div>
       <div style="display:flex;gap:3px;margin:9px 0 0;">
         <button id="miTabBox" class="mi-tab" type="button" style="flex:1 1 0;font-family:inherit;font-size:11px;color:var(--ink);background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo),inset 1px 1px 0 var(--win-face-2);padding:4px 2px;cursor:pointer;">보관함</button>
@@ -7270,14 +7347,6 @@
 <!-- 투게더룸(Firebase Realtime Database) — 이 기능은 인터넷 연결이 필요해서 공식 CDN(gstatic) ESM을 사용.
      window.firebaseReady(Promise)로 app.js가 준비 여부를 기다릴 수 있게 함. -->
 <script type="module" src="parts/firebase-init.js"></script>
-<!-- 🕰 미스테리au 파티 전송선 — 지연 결선용 껍데기.
-     ⚠ 실제 어댑터는 위 모듈 스크립트(type="module") 안에 있는데, 모듈은 defer 라 이 아래 classic
-       스크립트(app.js·mystery-au.js)보다 늦게 실행된다. 게임이 부팅하면서 저장된 파티에 다시
-       들어갈 때(mysRejoinParty) window.MYS_NET 이 아직 없으면 게임은 루프백 — 같은 창 안에서만
-       도는 가짜 파티 — 으로 떨어진다. "다시 켰더니 파티원이 아무도 없다"가 그것이다.
-       그래서 껍데기를 먼저 앉혀두고, 모듈이 준비되면 그 자리에 실제 어댑터를 꽂는다.
-       그 사이에 들어온 join/send 는 들고 있다가 꽂히는 순간 그대로 흘린다. -->
-<script src="parts/mys-net-bind.js"></script>
 <!-- 📷 스티커사진의 «요금을 정하는 계층» — 반드시 parts/app.js **앞**에 둔다(classic script, window.Purikura).
      ⚠️ THREE 도 DOM 도 firebase SDK 도 안 본다. 실제 통신은 firebaseAPI 의 pk* 어댑터 7개로만 나간다
        (parts/firebase-init.js 끝부분). 그래서 node 로 따로 검사할 수 있다 — sim-purikura-net.js.
@@ -7287,7 +7356,11 @@
 <script src="parts/app.js"></script>
 <script src="parts/myhome-desktop.js"></script>
 <script src="parts/mallang.js"></script>
-<script src="parts/mystery-au.js"></script>
+<!-- 📚 마이홈 북마크 책장 — MYHOME_DESKTOP.addFolder 로만 붙는다(myhome-desktop.js 는 host:'side' 한 항목만 늘었다). -->
+<script src="parts/bookmark.js"></script>
+<!-- 🌙 백색소음 — 소리 자료(base64 · 약 620KB)를 먼저, 재생기를 뒤에. 둘 다 app.js 뒤여야 한다(seats · seatState · Presence 를 읽는다). -->
+<script src="parts/noise-sounds.js"></script>
+<script src="parts/noise.js"></script>
 <script src="parts/animal-glb.js"></script>
 <script src="parts/ears-glb.js"></script>
 <script src="parts/animal.js"></script>

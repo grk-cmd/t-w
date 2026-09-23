@@ -431,6 +431,25 @@
     }
     return n;
   }
+  /* 🫨 제자리 떨림 막기 (2026-09-23 제보 «갈 곳이 없으면 좌우로 굉장히 빠르게 움직인다 — 차라리 멈춰 있었으면»)
+     [원인] 막히면(tryMove 실패 · 앞에 줄) 그 자리에서 방향만 뒤집었다. 반대쪽도 막혀 있거나, 남의 머리 위처럼
+       발 디딜 폭이 몇 px 뿐이면 **한두 프레임마다** 뒤집혀 좌우로 파르르 떤다. 걷는 게 아니라 깜빡이는 것이다.
+     [고침] 돌아서는 자리를 한 곳(turnOrRest)으로 모으고, 짧은 간격(JITTER_GAP_F) 안에 JITTER_TURNS 번째로
+       돌아서려 하면 뒤집는 대신 **쉰다**(REST_MIN~MAX). 쉬고 나면 pickDir 로 다시 고른다 — 그 사이 자리가 나면 걷는다.
+     ★ 평소 걸음(벽에 한 번 닿고 돌아서는 것)은 간격이 길어 여기 안 걸린다. */
+  const JITTER_GAP_F = 40;   // ★ 이 프레임 안에 다시 돌아서면 «짧은 간격»(약 0.7초)
+  const JITTER_TURNS = 3;    // ★ 짧은 간격으로 이만큼 돌아서려 하면 멈춰 쉰다
+  function turnOrRest(inst){
+    inst._turnN = ((inst._sinceTurn|0) < JITTER_GAP_F && inst._sinceTurn != null) ? (inst._turnN|0) + 1 : 1;
+    inst._sinceTurn = 0;
+    if(inst._turnN >= JITTER_TURNS){
+      inst._turnN = 0;
+      inst.rest = REST_MIN + Math.floor(Math.random()*(REST_MAX-REST_MIN));
+      return false;   // 쉰다
+    }
+    inst.vx = -inst.vx;
+    return true;      // 돌아섰다
+  }
   function pickDir(inst){
     let _nL=0, _nR=0;   // ★ 고유 이름 — audit 검사6의 파일 단위 const 이름충돌 오탐 회피
     const cx = inst.x + inst.w/2;
@@ -687,6 +706,7 @@
         else{
           if(Math.random() < REST_CHANCE){ inst.rest = REST_MIN + Math.floor(Math.random()*(REST_MAX-REST_MIN)); }
           else{
+            inst._sinceTurn = (inst._sinceTurn == null) ? JITTER_GAP_F : inst._sinceTurn + 1;   // 🫨 마지막으로 돌아선 뒤 걸은 프레임
             // 앞을 막은 말랑이는 밀고 간다 — 단 ★2마리 이상 줄지어 있으면 못 밀고 돌아선다(뭉침 방지).
             //   양쪽 다 붐비면 반전 반복(제자리 지터) 대신 잠깐 쉰다.
             const _dir = inst.vx > 0 ? 1 : -1;
@@ -694,7 +714,7 @@
               if(chainAhead(inst, -_dir) >= 2){
                 inst.rest = REST_MIN + Math.floor(Math.random()*(REST_MAX-REST_MIN));
               } else {
-                inst.vx = -inst.vx; setFacing(inst);
+                turnOrRest(inst); setFacing(inst);   // 🫨 짧게 반복되면 뒤집지 않고 쉰다
               }
             }
             else if(!tryMove(inst, inst.vx)){
@@ -710,7 +730,7 @@
                                      : (fl.maxX + WALL_CLIMB_HUG);   // 벽 좌표 고정 + 벽 쪽으로 더 붙임
                 inst.climbF = 0;
               }else{
-                inst.vx = -inst.vx;
+                turnOrRest(inst);   // 🫨 짧게 반복되면 뒤집지 않고 쉰다
               }
               setFacing(inst);
             }
