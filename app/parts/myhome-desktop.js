@@ -2364,6 +2364,20 @@ const css = `
     box-shadow:inset -1px -1px 0 #808080,inset 1px 1px 0 #d4d0c8,3px 3px 0 rgba(0,0,0,.4);
     font-family:Tahoma,'맑은 고딕',sans-serif;max-width:calc(100% - 12px);max-height:calc(100% - 26px);}
   .adv-win.on{display:flex;}
+  /* 📚 host:'side' — 마이홈 창 **바깥**에 붙는 서랍. 자리는 인라인이 아니라 **여기서** 정한다.
+     ⚠️ 인라인으로만 두었더니 뒤에 붙는 한 줄(inset:auto)에 쓸려 창 아래로 떨어졌다(제보 2회).
+       규칙으로 못박아 두면 인라인 순서와 무관하게 자리가 유지된다. 좌/우 전환만 인라인으로 덮는다. */
+  /* 여기에 inset 을 쓰지 말 것 — inset:auto !important 는 좌/우를 정하는 인라인까지 이긴다
+     (!important 가 인라인보다 세다). 위·아래만 못박고 좌/우는 mhdPlaceSide 가 인라인으로 정한다. */
+  .adv-win.mhd-side{position:absolute !important;top:0 !important;bottom:0 !important;
+    width:320px;height:auto !important;max-width:none !important;max-height:none !important;z-index:150;
+    transform:translateX(-18px);opacity:0;transition:transform .18s ease, opacity .18s ease;will-change:transform;}
+  .adv-win.mhd-side.on{display:flex;}
+  /* 서랍이 스르르 나온다(요청). 여는 순간 한 프레임 뒤에 .mhd-side-open 이 붙고, 닫을 때 먼저 떼고 잠시 뒤 감춘다.
+     ⚠️ 시작 위치는 **왼쪽**(-18px)이다 — 창 쪽에서 오른쪽으로 밀려 나오는 방향(→). 양수로 두면 반대로 움직인다(제보). */
+  .adv-win.mhd-side.mhd-side-open{transform:translateX(0);opacity:1;}
+  /* 창 안쪽으로 접어 넣은 서랍(앱 창이 좁을 때) — 내용 위에 겹치므로 왼쪽에 그림자를 준다. */
+  .adv-win.mhd-side.mhd-side-in{box-shadow:-3px 0 10px rgba(0,0,0,.45);}
   .adv-titlebar{background:linear-gradient(90deg,#5a0000,#a01010);color:#fff;font-weight:bold;font-size:11.5px;
     padding:3px 7px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
   .adv-titlebar .x{width:16px;height:14px;font-size:9px;background:#c0c0c0;color:#000;cursor:pointer;
@@ -2874,6 +2888,7 @@ const css = `
 
 /* ─────────────────────────── 상태 ─────────────────────────── */
 let advVisiting = false;
+let MHD_VISIT_OWNER = null;   // 관람 중인 집주인 userId(외부 앱이 구경용 자료를 받을 때 쓴다)
 
 /* ─────────────────────────── 파티 상태 (실시간) ─────────────────────────── */
 const PARTY = {
@@ -3388,12 +3403,16 @@ function h(html){ const t=document.createElement('template'); t.innerHTML=html.t
      });
 
    ★ 계약 (이 아래 항목은 게임 파일이 믿고 쓰는 것 — 시그니처를 바꾸지 말 것)
-     addFolder({id, label, icon, slot, onOpen, onVisit})  → 아이콘 등록. slot 생략 시 자동 배치.
+     addFolder({id, label, icon, slot, onOpen, onVisit, visitable})  → 아이콘 등록. slot 생략 시 자동 배치.
+                                                       visitable:true 면 남의 집에서도 폴더를 열 수 있다(구경용).
+     setFolderVisible(id, on) / visitOwner()       → 아이콘 잠깐 감추기 / 관람 중인 집주인 id
+     onVisit(visiting, ownerId)                    → 관람 모드 전환 통보(집주인 id 포함)
      removeFolder(id)                              → 아이콘 제거(런타임 토글용)
      addEnvMenu({id, label, items, get, onSelect})  → '환경 설정'에 하위메뉴 추가
      createWindow({id, title, fill, host, onClose})  → Win98 창 껍데기 생성. body 엘리먼트 반환
                                                        host:'home' → 마이홈 창 전체를 덮음(시메지 위)
-     openWindow(id) / closeWindow(id)               → 표시 토글
+                                                       host:'side' → 마이홈 창 **오른쪽 바깥**에 붙는 서랍(창을 끌면 같이 따라옴)
+     openWindow(id) / closeWindow(id) / isWindowOpen(id)  → 표시 토글 · 열려 있는지
      isVisiting()                                   → 남의 집 관람 중이면 true
      desktop()                                      → #advDesktop 엘리먼트
      onReady(fn)                                    → advInit 완료 시점 콜백
@@ -3405,6 +3424,8 @@ function h(html){ const t=document.createElement('template'); t.innerHTML=html.t
 const MHD_APPS = [];        // 등록된 외부 앱 목록
 const MHD_WINS = [];        // 등록된 외부 창 id — 관람 모드 진입 시 일괄 닫기 대상
 const MHD_HOMEWINS = [];    // 그중 마이홈 창 전체를 덮는 창 id (host:'home')
+const MHD_SIDEWINS = [];    // 그중 마이홈 창 오른쪽 바깥에 붙는 서랍 id (host:'side')
+const MHD_VISIT_WINS = [];  // 남의 집에서도 열 수 있는 창 id (createWindow({visitable:true}))
 const MHD_ENV = [];         // 환경 설정 메뉴에 붙일 외부 하위메뉴
 const MHD_READYCBS = [];    // onReady 대기열
 let   MHD_READY = false;    // advInit이 #advDesktop을 만든 뒤 true
@@ -3446,7 +3467,10 @@ function mhdMountApp(a){
     +'<span class="lb">'+esc(a.label||'')+'</span></div>');
   mhdPlaceIcon(ic, idx);
   ic.addEventListener('click', ()=>{
-    if(advVisiting) return;                                     // 남의 집에선 열지 않는다
+    /* 남의 집에선 열지 않는다 — 단 visitable 로 등록한 폴더는 예외(구경거리를 내놓는 앱).
+       ⚠️ «열린다» 는 것과 «남의 것이 보인다» 는 것은 다른 문제다. 무엇을 보여줄지는 앱이 onVisit(true, 집주인id)
+         에서 스스로 갈아 끼운다 — 여기서는 문만 연다. */
+    if(advVisiting && !a.visitable) return;
     try{ a.onOpen && a.onOpen(); }
     catch(e){ console.error('[MYHOME_DESKTOP] '+a.id+'.onOpen 실패', e); }
   });
@@ -3461,8 +3485,9 @@ function mhdMountAll(){
 }
 
 /* 관람 모드 전파 — _advApplyVisitUI에서 호출한다 */
-function mhdNotifyVisit(visiting){
-  MHD_APPS.forEach(a=>{ if(a.onVisit) try{ a.onVisit(!!visiting); }catch(e){ console.error('[MYHOME_DESKTOP] '+a.id+'.onVisit 실패', e); } });
+function mhdNotifyVisit(visiting, ownerId){
+  MHD_VISIT_OWNER = visiting ? (ownerId || null) : null;
+  MHD_APPS.forEach(a=>{ if(a.onVisit) try{ a.onVisit(!!visiting, MHD_VISIT_OWNER); }catch(e){ console.error('[MYHOME_DESKTOP] '+a.id+'.onVisit 실패', e); } });
 }
 
 /* 🔌 외부 앱이 '환경 설정' 메뉴에 하위메뉴를 하나 붙인다.
@@ -3510,11 +3535,18 @@ window.MYHOME_DESKTOP = {
     if(!o || !o.id) return null;
     if(MHD_APPS.some(a=>a.id===o.id)) return MHD_APPS.find(a=>a.id===o.id);
     const a={ id:o.id, label:o.label||o.id, icon:o.icon||'📁', slot:o.slot,
-              onOpen:o.onOpen, onVisit:o.onVisit, iconId:'mhdIcon_'+o.id };
+              onOpen:o.onOpen, onVisit:o.onVisit, visitable:!!o.visitable, iconId:'mhdIcon_'+o.id };
     MHD_APPS.push(a);
     if(MHD_READY) mhdMountApp(a);
     return a;
   },
+
+  /* 폴더 아이콘을 잠깐 감춘다(지우는 것이 아니다) — 예: 남의 집에 공개된 것이 하나도 없을 때. */
+  setFolderVisible(id, on){
+    const a=MHD_APPS.find(x=>x.id===id); if(!a) return;
+    const n=document.getElementById(a.iconId); if(n) n.style.display = on ? '' : 'none';
+  },
+  visitOwner(){ return MHD_VISIT_OWNER; },
 
   removeFolder(id){
     const i=MHD_APPS.findIndex(a=>a.id===id); if(i<0) return;
@@ -3553,12 +3585,25 @@ window.MYHOME_DESKTOP = {
       w.querySelector('.mhd-title').textContent=o.title||'';
       if(o.fill!==false){ w.style.cssText+='inset:0;left:0;top:0;transform:none;width:auto;height:auto;max-width:none;max-height:none;z-index:150;'; }
       w.querySelector('.x').addEventListener('click', ()=>{
-        w.classList.remove('on');
+        /* ⚠️ [제보] 예전엔 여기서 .on 만 뗐다. host:'side' 서랍은 .on 이 아니라 display 로 여닫히므로
+           그대로 남아 있었다 — 닫는 길은 advCloseWin 한 곳으로 모은다(관람 모드 일괄 닫기와 같은 길). */
+        advCloseWin(o.id);
         if(o.onClose) try{ o.onClose(); }catch(e){ console.error('[MYHOME_DESKTOP] '+o.id+'.onClose 실패', e); }
       });
       advBindWinDrag(w.querySelector('.adv-titlebar'));   // 타이틀바 드래그 = 프로그램 창 이동(기존과 동일)
       d.appendChild(w);
       if(o.host==='home') MHD_HOMEWINS.push(o.id);        // openWindow에서 마이홈 창으로 옮긴다
+      /* 📚 host:'side' — 마이홈 창 **바깥 오른쪽**에 붙는 서랍(2026-09-23 · 개정 61 · 계약에 항목만 추가).
+         ★ 'home' 과 같은 이유로 부모를 #myHomeWin 으로 옮긴다. 다만 창을 덮는 것이 아니라 left:100% 로
+           바깥에 세운다 — #myHomeWin 에 overflow 가 없으므로 잘리지 않고, 창을 끌면 자식이라 같이 따라간다.
+         ⚠️ 기존 둘(기본 · 'home')의 동작은 한 줄도 바뀌지 않는다. */
+      if(o.visitable && MHD_VISIT_WINS.indexOf(o.id)<0) MHD_VISIT_WINS.push(o.id);   // 남의 집에서도 열리는 창
+      if(o.host==='side'){
+        MHD_SIDEWINS.push(o.id);
+        w.classList.add('mhd-side');            // 자리는 .adv-win.mhd-side 규칙이 잡는다(위 css)
+        w.style.display='none';
+        mhdPlaceSide(w);
+      }
       if(MHD_WINS.indexOf(o.id)<0) MHD_WINS.push(o.id);
     }
     const body=w.querySelector('.mhd-win-body');
@@ -3567,17 +3612,23 @@ window.MYHOME_DESKTOP = {
   },
 
   openWindow(id){
-    if(advVisiting) return;
+    if(advVisiting && MHD_VISIT_WINS.indexOf(id)<0) return;
     const w=document.getElementById(id); if(!w) return;
     /* host:'home' 창은 열 때마다 부모를 확인한다. 생성 시점엔 #myHomeWin이 아직 없을 수도 있고,
        탭 전환 등으로 DOM이 재구성되면 다시 붙여야 하기 때문(캐릭터세팅 창과 동일한 처리). */
-    if(MHD_HOMEWINS.indexOf(id)>=0){
+    if(MHD_HOMEWINS.indexOf(id)>=0 || MHD_SIDEWINS.indexOf(id)>=0){
       const homeWin=document.getElementById('myHomeWin');
       if(homeWin && w.parentNode!==homeWin) homeWin.appendChild(w);
+    }
+    if(MHD_SIDEWINS.indexOf(id)>=0){
+      mhdPlaceSide(w); w.style.display='flex';
+      if(w._mhdSideT){ clearTimeout(w._mhdSideT); w._mhdSideT=0; }
+      requestAnimationFrame(()=>requestAnimationFrame(()=>w.classList.add('mhd-side-open')));   // 한 프레임 뒤라야 전환이 돈다
     }
     w.classList.add('on');
   },
   closeWindow(id){ advCloseWin(id); },
+  isWindowOpen(id){ return mhdSideOpen(id); },
   isVisiting(){ return advVisiting; },
   desktop(){ return document.getElementById('advDesktop'); },
   onReady(fn){ if(typeof fn!=='function') return; if(MHD_READY) fn(window.MYHOME_DESKTOP); else MHD_READYCBS.push(fn); }
@@ -5621,7 +5672,48 @@ function advOpenChar(){ if(advVisiting) return;
   const homeWin=document.getElementById('myHomeWin');
   if(w && homeWin && w.parentNode!==homeWin){ homeWin.appendChild(w); }   // 마이홈 창 전체를 덮도록 이동(시메지·폴더 가림)
   if(w) w.classList.add('on'); }
-function advCloseWin(id){ const w=document.getElementById(id); if(w) w.classList.remove('on'); }
+/* 📚 서랍 자리 — **바깥 오른쪽 → 바깥 왼쪽 → 창 안쪽 오른쪽** 순으로, 들어갈 수 있는 첫 자리에 세운다.
+   ★ [제보 3회] 런처에서 연 마이홈은 **앱 창(Electron) 안**에 있다. 창 밖으로 나간 부분은 CSS 로는 못 살린다 —
+     OS 창이 잘라낸다. 그래서 «바깥에 붙인다»만으로는 부족하고, 자리가 없으면 **창 안쪽으로 접어 넣어야** 한다.
+     런처 마이홈은 760px 이고 앱 창은 그보다 조금 넓을 뿐이라, 실제로 대개 이 안쪽 자리가 쓰인다.
+   ★ 좌/우만 인라인으로 정한다 — 위·아래·폭은 .adv-win.mhd-side 규칙이 잡는다.
+   ⚠️ 창을 끌면 서랍은 자식이라 그냥 따라온다. 자리 계산은 열 때와 화면 크기가 바뀔 때만 한다. */
+function mhdPlaceSide(w){
+  if(!w) return;
+  const homeWin=document.getElementById('myHomeWin');
+  const width=(w.offsetWidth||320);
+  let mode='out-right';
+  if(homeWin){
+    const r=homeWin.getBoundingClientRect();
+    const vw=(window.innerWidth||document.documentElement.clientWidth||0);
+    if(r.right + width + 8 <= vw)      mode='out-right';
+    else if(r.left - width - 8 >= 0)   mode='out-left';
+    else                               mode='in-right';   // 앱 창이 좁다 — 창 안쪽 오른쪽에 접어 넣는다
+  }
+  w.classList.toggle('mhd-side-in', mode==='in-right');
+  /* 안쪽 자리일 때는 창보다 넓어지지 않게 — 좁은 앱 창에서 서랍이 창 왼쪽까지 밀고 나가지 않는다. */
+  if(mode==='in-right' && homeWin) w.style.width = Math.max(180, Math.min(320, homeWin.getBoundingClientRect().width - 24)) + 'px';
+  else w.style.width = '320px';
+  w.style.left        = (mode==='out-right') ? '100%' : 'auto';
+  w.style.right       = (mode==='out-left')  ? '100%' : (mode==='in-right' ? '0px' : 'auto');
+  w.style.marginLeft  = (mode==='out-right') ? '8px' : '0px';
+  w.style.marginRight = (mode==='out-left')  ? '8px' : '0px';
+}
+window.addEventListener('resize', ()=>{ MHD_SIDEWINS.forEach(id=>{ const w=document.getElementById(id); if(w && w.classList.contains('on')) mhdPlaceSide(w); }); });
+
+function advCloseWin(id){
+  const w=document.getElementById(id); if(!w) return;
+  w.classList.remove('on');
+  /* 📚 host:'side' 서랍은 .on 이 아니라 display 로 여닫는다(마이홈 창 바깥이라 .adv-win 규칙을 안 탄다).
+     ⚠️ 관람 모드 진입에서 MHD_WINS 를 이 함수로 일괄로 닫으므로, 여기서 같이 닫아야 남의 집에 서랍이 남지 않는다. */
+  if(MHD_SIDEWINS.indexOf(id)>=0){
+    w.classList.remove('mhd-side-open');
+    if(w._mhdSideT) clearTimeout(w._mhdSideT);
+    w._mhdSideT=setTimeout(()=>{ if(!w.classList.contains('mhd-side-open')) w.style.display='none'; w._mhdSideT=0; }, 180);
+  }
+}
+/* 서랍이 지금 열려 있는가 — 폴더를 다시 눌러 닫는 토글에 쓴다(게임 쪽에서 상태를 따로 안 들고 있게). */
+function mhdSideOpen(id){ const w=document.getElementById(id); return !!(w && w.classList.contains('on')); }
 // 게임 창(시뮬·캐릭터세팅) 타이틀바 드래그 → 프로그램 창 이동 (마이홈 타이틀 드래그와 동일 방식)
 function advBindWinDrag(bar){
   if(!bar || bar._advDragBound) return; bar._advDragBound=true; bar.style.cursor='move';
@@ -5813,7 +5905,7 @@ window._advApplyVisitUI = function(visiting, ownerId){
   if(d) d.classList.toggle('adv-visiting', advVisiting);
   const tb=document.getElementById('advEnvBtn');
   if(tb) tb.style.display=advVisiting?'none':'';
-  mhdNotifyVisit(advVisiting);   // 🔌 외부 앱에 관람 모드 전환 통보(구독 해제 등은 각 게임이 알아서)
+  mhdNotifyVisit(advVisiting, ownerId);   // 🔌 외부 앱에 관람 모드 전환 통보(집주인 id 도 같이 — 구경용 자료를 받으라고)
   if(advVisiting){
     ['advSimWin','advInvWin','advCharWin'].concat(MHD_WINS).forEach(advCloseWin);   // 🔌 외부 창도 같이 닫는다
     advTeardownParty();

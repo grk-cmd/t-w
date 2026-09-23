@@ -364,7 +364,8 @@ for _mm in re.finditer(r"onValue\(ref\(db,\s*[`'\"]([^`'\"/$]+)[`'\"]", html_cod
         ok9 = False
 # (b) 최상위 노드 통째 get() — 알려진 기준선 초과 시 경보 (기준: 패치 시점)
 _BASELINE_GET = {'rooms': 3, 'users': 2, 'licenses': 2, 'parties': 1, 'roomIndex': 99,
-                 'friendCodes': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
+                 'friendCodes': 1, 'reports': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
+# reports 1곳 = 🚩 listReports(관리자 전용 · [신고 목록] 버튼 누를 때 1회 · 규칙상 관리자만 읽힘 · 2026-09-23 개정 60).
 # friendCodes 1곳 = 🎟️ grantInvitesAll(관리자 전용, 버튼 누를 때 1회).
 #   users 전체 읽기는 규칙상 거부되므로(.read는 users/$userId에만 존재) uid 목록을 얻는 대체 인덱스로 사용.
 #   code→{userId}만 담겨 유저당 약 50바이트 — users 전체(수 KB/명)보다 훨씬 가볍다.

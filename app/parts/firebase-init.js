@@ -4,8 +4,7 @@
    './parts/firebase-config.js' → './firebase-config.js').
    ⚠️ HTML 에서 반드시 type="module" 로 불러야 한다 — import 문이 들어 있고,
      module 은 지연 실행이라 그 덕분에 parts/app.js(classic) 뒤에 도는 기존 순서가 유지된다.
-   ⚠️ 맨 끝에서 window.__mysNetBind 를 부른다. 그건 parts/mys-net-bind.js 가 정의하는데,
-     그쪽은 classic script 라 파싱 중에 먼저 돈다 — 순서가 보장된다. 둘의 위치를 바꾸지 말 것. */
+   ⚠️ (걷힘 · 개정 61) 예전에는 맨 끝에서 window.__mysNetBind(미스테리au 파티 전송선)를 불렀다. 그 게임과 함께 걷었다. */
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
@@ -1229,9 +1228,106 @@
       catch(e){ return { ok:false }; }
     },
     // 말랑이 이미지 URL 목록 조회 (내 것 또는 방문한 친구 것)
+    /* ===== 📚 마이홈 북마크 책장 (2026-09-23 · 개정 61 · 계정 연동) =====
+       bookmarks/{uid} = { order:"id,id,…", items:{ id:{url,title,w,h,color,img?,at} }, ts }
+       ★ users/{uid} 아래가 아니다 — 그 자리는 `.read: true` 라 **방문자 읽기를 규칙으로 막을 수 없다.**
+         책장은 주인만 보는 것이라 최상위에 따로 두고 읽기·쓰기를 주인(+로그인)으로 묶었다.
+       ★ order 는 **쉼표로 이은 문자열** 한 줄이다. 배열로 두면 규칙에서 한 칸씩 검사할 길이 마땅치 않고,
+         선반 번호는 저장하지 않으므로(서랍 너비로 매번 계산) 순서만 있으면 된다.
+       ★ 책등 그림은 Storage `bookmarks/{uid}/{bid}.webp` — 자리비움 그림과 같은 모양(200KB · 이미지만 · 삭제 허용). */
+    async getBookmarks(userId){
+      try{ const v=(await get(ref(db, `bookmarks/${userId}`))).val(); return { ok:true, data:(v && typeof v==='object') ? v : null }; }
+      catch(e){ return { ok:false, data:null }; }
+    },
+    /* 📚 공개 책장 — **따로 둔 노드**다(bookmarksPub/{uid}). 규칙은 «읽기»를 노드 단위로만 막을 수 있어서,
+       한 노드에 공개·비공개를 같이 두면 방문자가 비공개 책까지 받아 간다(화면에서 가리는 것은 방어가 아니다).
+       그래서 공개로 표시한 책만 이 노드에 **복사**해 둔다. 주인만 쓰고, 읽기는 열려 있다. */
+    async getPublicBookmarks(userId){
+      try{ const v=(await get(ref(db, `bookmarksPub/${userId}`))).val(); return { ok:true, data:(v && typeof v==='object') ? v : null }; }
+      catch(e){ return { ok:false, data:null }; }
+    },
+    async savePublicBookmarks(userId, data){
+      try{
+        if(data) await set(ref(db, `bookmarksPub/${userId}`), data);
+        else await remove(ref(db, `bookmarksPub/${userId}`));
+        return { ok:true };
+      }catch(e){ console.warn('[bookmark] 공개 책장 저장 실패', e); return { ok:false }; }
+    },
+    async saveBookmarks(userId, data){
+      try{ await set(ref(db, `bookmarks/${userId}`), data); return { ok:true }; }
+      catch(e){ console.warn('[bookmark] 저장 실패', e); return { ok:false }; }
+    },
+    async uploadBookmarkImg(userId, bid, dataUrl){
+      if(!userId || !bid || !dataUrl || !String(dataUrl).startsWith('data:image/')) return { ok:false, reason:'이미지가 아니에요' };
+      try{
+        const safe = String(bid).replace(/[^a-zA-Z0-9_-]/g, '');
+        const r = sref(storage, `bookmarks/${userId}/${safe}_${Date.now()}.webp`);
+        await uploadString(r, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: 'image/webp' });
+        return { ok:true, url: await getDownloadURL(r) };
+      }catch(e){ console.warn('[bookmark] 그림 업로드 실패', e); return { ok:false, reason:'업로드에 실패했어요' }; }
+    },
+
     async getMallangImgs(userId){
       try{ const s=await get(ref(db, `users/${userId}/mallang`)); const v=s.val(); return (v&&Array.isArray(v.imgs))?v.imgs:[]; }
       catch(e){ return []; }
+    },
+
+    /* ===== 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정) =====
+       Storage `away/{uid}/away_{ts}.webp`(규칙: 300KB 미만 · 삭제 허용) → URL 을 users/{uid}/awayImg 한 칸에.
+       ★ 파일 이름에 시각을 넣는다 — STORAGE_CACHE(1년) 라 같은 이름으로 덮으면 남들이 옛 그림을 계속 본다.
+       ★ dataURL 폴백이 없다 — 올리지 못하면 실패로 끝낸다(RTDB 로 새지 않게 · _uploadDataUrlIfNeeded 를 안 쓴다). */
+    async uploadAwayImg(userId, dataUrl){
+      if(!userId || !dataUrl || !String(dataUrl).startsWith('data:image/')) return { ok:false, reason:'이미지가 아니에요' };
+      try{
+        const r = sref(storage, `away/${userId}/away_${Date.now()}.webp`);
+        await uploadString(r, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: 'image/webp' });
+        return { ok:true, url: await getDownloadURL(r) };
+      }catch(e){ console.warn('[away] 업로드 실패', e); return { ok:false, reason:'업로드에 실패했어요' }; }
+    },
+    async setAwayImg(userId, url){
+      try{
+        if(url) await set(ref(db, `users/${userId}/awayImg`), url);
+        else await remove(ref(db, `users/${userId}/awayImg`));
+        return { ok:true };
+      }catch(e){ console.warn('[away] 저장 실패', e); return { ok:false }; }
+    },
+    async getAwayImg(userId){
+      try{ const v=(await get(ref(db, `users/${userId}/awayImg`))).val(); return { ok:true, url:(typeof v==='string')?v:null }; }
+      catch(e){ return { ok:false, url:null }; }
+    },
+    /* 다운로드 URL 로 Storage 파일을 지운다 — 없거나 거절돼도 조용히(옛 그림 정리용). */
+    async deleteStorageUrl(url){
+      if(!url || !/^https:\/\/firebasestorage\.googleapis\.com\//.test(url)) return;
+      try{ await deleteObject(_stRef(storage, url)); }catch(_){}
+    },
+
+    /* ===== 🚩 신고 (2026-09-23 · 시안 확정) =====
+       reports/{신고당한 uid}/{신고한 uid} = { kind, note?, nick, code4, ts }
+       ★ 한 사람이 같은 사람을 여러 번 신고해도 칸이 하나 — «서로 다른 몇 명» 이 곧 칸 수다.
+       ★ 규칙: 신고자 칸은 **로그인한 본인 것만**(userAuth/{신고자} === auth.uid) · 읽기와 비우기는 관리자만. */
+    async reportUser(targetId, reporterId, rec){
+      if(!targetId || !reporterId || targetId === reporterId) return { ok:false, reason:'self' };
+      if(!(auth && auth.currentUser)) return { ok:false, reason:'auth' };
+      const v = { kind: String(rec.kind||''), nick: String(rec.nick||'').slice(0,20), code4: String(rec.code4||'').slice(-4), ts: Date.now() };
+      if(rec.note) v.note = String(rec.note).slice(0,40);
+      try{ await set(ref(db, `reports/${targetId}/${reporterId}`), v); return { ok:true }; }
+      catch(e){ console.warn('[report] 실패', e); return { ok:false, reason:'denied' }; }
+    },
+    /* 관리자 — 전체 신고(대상별 묶음). 규칙상 관리자만 읽힌다. */
+    async listReports(){
+      try{ const v=(await get(ref(db, 'reports'))).val(); return { ok:true, reports: v || {} }; }
+      catch(e){ return { ok:false, reports:{} }; }
+    },
+    async clearReports(targetId){
+      try{ await remove(ref(db, `reports/${targetId}`)); return { ok:true }; }catch(e){ return { ok:false }; }
+    },
+    /* 관리자 목록 한 줄에 필요한 것만 — 이름 · 친구 코드 · 자리비움 그림. */
+    async getUserBrief(userId){
+      const out = { name:null, friendCode:null, awayImg:null };
+      try{ const p=(await get(ref(db, `users/${userId}/profile/name`))).val(); if(typeof p==='string') out.name=p; }catch(_){}
+      try{ const c=(await get(ref(db, `users/${userId}/friendCode`))).val(); if(typeof c==='string') out.friendCode=c; }catch(_){}
+      try{ const a=(await get(ref(db, `users/${userId}/awayImg`))).val(); if(typeof a==='string') out.awayImg=a; }catch(_){}
+      return out;
     },
 
     /* ── 🎁 말랑이 선물 ──
@@ -3864,99 +3960,9 @@
     return name || window._myNickCache || '';
   };
 
-  /* ═══════════ 🕰 미스테리au 파티 전송선 (MYS_NET) ═══════════════════════════
-     게임(parts/mystery-au.js)은 RTDB 를 모른다. 접점은 join/leave/send 셋뿐이고,
-     firebase 를 부르는 곳은 여기 하나다 — 게임 파일에 firebase 를 넣으면 마이홈의 API 가
-     바뀌는 날 게임이 같이 죽는다(window.MYHOME_DESKTOP 하나만 본다는 규칙과 같은 이유).
-
-     경로   mysRooms/{코드}/msg/{pushKey} = { ts, j }
-       · j = 메시지를 JSON 문자열로 담은 것. 객체를 그대로 쓰면 빈 배열이 사라지고
-         undefined 가 섞이면 write 자체가 예외로 죽는다. 문자열이면 보낸 모양 그대로 도착한다.
-       · 방 하위(msg)만 만진다. mysRooms 최상위를 통째로 읽거나 구독하지 않는다(audit 검사 9).
-
-     구독   query(msg, limitToLast(20)) + onChildAdded
-       ⚠ 창(limitToLast) 없이 노드에 그냥 붙으면 그 방의 과거가 통째로 내려오고,
-         이후 누가 한 걸음 걸을 때마다 전원 몫이 다시 내려온다. 그게 rooms 전체 구독으로
-         비용이 터졌던 것과 같은 실수다. 창이 있으면 새 메시지 하나만 내려온다.
-       ⚠ onChildAdded 는 붙는 순간 창에 남아 있던 것을 한꺼번에 되돌려준다. 그래서 붙기 직전에
-         있던 키를 먼저 적어두고 그것만 버린다. 시각(ts)으로 자르지 않는 이유 —
-         서버 오프셋이 아직 안 들어온 채로 PC 시계가 틀어져 있으면 남의 멀쩡한 말을 전부
-         옛것으로 보고 버려서, 그 사람만 "들어왔는데 아무도 없다"가 된다.
-
-     ⚠ 어댑터는 '전달'만 한다. 정원·잠금·파티장·착수 자격 판정은 전부 게임 쪽 일이다.
-       여기에 판정을 넣으면 전송 방식을 바꾸는 날 게임 규칙이 같이 바뀐다.
-     ⚠ 에코(내가 보낸 것이 나에게 돌아오는 것)는 게임도 from 으로 거르지만 여기서도 거른다. */
-  const MYSNET_KEEP = 6;      // 방에 남겨두는 '내' 메시지 수. 그보다 오래된 내 것은 지운다
-  const MYSNET_WIN  = 20;     // 구독 창 크기. 이만큼만 동기화된다
-  const MYSNET_MAXJ = 4096;   // 메시지 한 개 상한(문자) — 규칙(.validate)의 값과 같아야 한다
-  let _mysRoom = null, _mysUid = null, _mysCb = null, _mysTok = 0;
-  let _mysOff = null, _mysMine = [];
-  const _mysMsgRef = () => ref(db, `mysRooms/${_mysRoom}/msg`);
-  /* 내가 쓴 것만 지운다. ⚠ 남의 메시지에 손대면 상대가 아직 못 읽은 것을 지우게 된다. */
-  function _mysTrim(){
-    if(!_mysRoom || _mysMine.length <= MYSNET_KEEP) return;
-    const cut = _mysMine.splice(0, _mysMine.length - MYSNET_KEEP), patch = {};
-    cut.forEach(k => { patch[k] = null; });
-    try{ update(_mysMsgRef(), patch).catch(()=>{}); }catch(_){}
-  }
-  const MYS_NET_IMPL = {
-    join(room, me, onMsg){
-      MYS_NET_IMPL.leave();
-      const code = String(room || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
-      const uid  = String((me && me.id) || '');
-      if(!code || !uid) return;
-      _mysRoom = code; _mysUid = uid; _mysCb = onMsg; _mysMine = [];
-      const tok = ++_mysTok;                       // 그새 나갔는지 알아보는 표
-      const qy = query(_mysMsgRef(), limitToLast(MYSNET_WIN)), old = Object.create(null);
-      const attach = () => {
-        if(tok !== _mysTok) return;                // 붙기 전에 나갔거나 다른 방에 들어갔다
-        _mysOff = onChildAdded(qy, snap => {
-          if(old[snap.key]) return;                // 내가 들어오기 전에 이미 있던 것
-          const e = snap.val();
-          if(!e || typeof e.j !== 'string') return;
-          let msg = null;
-          try{ msg = JSON.parse(e.j); }catch(_){ return; }
-          if(!msg || msg.from === _mysUid) return;
-          try{ if(_mysCb) _mysCb(msg); }
-          catch(err){ console.warn('[미스테리au] 수신 처리 실패', err); }
-        });
-      };
-      /* 스냅샷과 구독 사이에 들어온 것은 old 에 없으므로 그대로 전달된다 — 놓치지 않는다. */
-      try{ get(qy).then(s => { s.forEach(c => { old[c.key] = 1; }); attach(); }, attach); }
-      catch(_){ attach(); }
-    },
-    send(msg){
-      if(!_mysRoom || !_mysUid) return;
-      let j = null;
-      try{ j = JSON.stringify(msg); }catch(_){ return; }
-      if(!j) return;
-      if(j.length > MYSNET_MAXJ){
-        /* 규칙이 거부할 크기다. 조용히 보내면 '나만 안 보이는' 상태가 되므로 남긴다. */
-        console.warn('[미스테리au] 메시지가 너무 커서 보내지 않았다 —', msg && msg.t, j.length);
-        return;
-      }
-      try{
-        const r = push(_mysMsgRef(), { ts: _svNow(), j });
-        if(r && r.key) _mysMine.push(r.key);
-      }catch(e){ console.warn('[미스테리au] 전송 실패', e); return; }
-      _mysTrim();
-    },
-    leave(){
-      if(_mysOff){ try{ _mysOff(); }catch(_){} _mysOff = null; }
-      const room = _mysRoom, keys = _mysMine;
-      _mysTok++; _mysRoom = null; _mysUid = null; _mysCb = null; _mysMine = [];
-      if(!room || !keys.length) return;
-      /* ⚠ 게임은 나가기 직전에 'bye' 를 보낸다. 그것까지 곧장 지우면 상대가 읽기 전에
-         사라져서 35초(TTL)가 지나서야 내가 명단에서 빠진다. 치우는 것만 늦춘다. */
-      setTimeout(() => {
-        const patch = {};
-        keys.forEach(k => { patch[k] = null; });
-        try{ update(ref(db, `mysRooms/${room}/msg`), patch).catch(()=>{}); }catch(_){}
-      }, 2000);
-    }
-  };
-  /* 껍데기(아래 classic 스크립트)가 먼저 앉아 있다. 그 자리에 실제 어댑터를 꽂는다. */
-  if(typeof window.__mysNetBind === 'function') window.__mysNetBind(MYS_NET_IMPL);
-  else window.MYS_NET = MYS_NET_IMPL;
+  /* 🕰 미스테리au 파티 전송선(MYS_NET · mysRooms/…)은 **걷었다**(2026-09-23 · 개정 61).
+     게임 파일 둘(parts/mystery-au.js · parts/mys-net-bind.js)과 같은 릴리스에서 함께 지웠다.
+     ★ 2026-09-23: 쓰는 사람이 없음을 확인하고 **서버 규칙에서도 `mysRooms` 를 내렸다**(개정 63).
+        남은 것은 콘솔의 옛 데이터뿐 — 규칙이 내려간 뒤에 지운다(순서가 반대면 지우자마자 다시 생길 수 있다). */
 
   window.dispatchEvent(new Event('firebase-ready'));

@@ -152,17 +152,6 @@
         ".validate": "newData.hasChild('lastSeen') && newData.child('lastSeen').isNumber() && (!newData.child('channel').exists() || (newData.child('channel').isString() && newData.child('channel').val().matches(/^(workingroom|togetherroom)$/))) && (!newData.child('open').exists() || newData.child('open').isBoolean())"
       }
     },
-    "mysRooms": {
-      "$code": {
-        ".read": true,
-        "msg": {
-          "$msgId": {
-            ".write": true,
-            ".validate": "newData.hasChildren(['ts','j']) && newData.child('ts').isNumber() && newData.child('j').isString() && newData.child('j').val().length <= 4096"
-          }
-        }
-      }
-    },
     "licenses": {
       ".read": "root.child('admins').child(auth.uid).val() === true",
       "$key": {
@@ -570,6 +559,10 @@
             ".validate": "newData.hasChildren(['fromId','text','ts']) && newData.child('fromId').isString() && newData.child('text').isString() && newData.child('text').val().length <= 40 && newData.child('ts').isNumber()"
           }
         },
+        "awayImg": {
+          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid || (auth != null && root.child('admins').child(auth.uid).val() === true)",
+          ".validate": "newData.isString() && newData.val().length <= 500 && newData.val().beginsWith('https://firebasestorage.googleapis.com/')"
+        },
         "advBg": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
           ".validate": "(!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().length <= 500)) && (!newData.child('color').exists() || (newData.child('color').isString() && newData.child('color').val().length <= 20))"
@@ -661,6 +654,74 @@
           ".write": true,
           ".validate": "newData.hasChildren(['ts']) && newData.child('ts').isNumber() && (!newData.child('toName').exists() || (newData.child('toName').isString() && newData.child('toName').val().length <= 20)) && (!newData.child('toCode').exists() || (newData.child('toCode').isString() && newData.child('toCode').val().length <= 12))"
         }
+      }
+    },
+    "reports": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$target": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$reporter": {
+          ".write": "auth != null && $reporter !== $target && root.child('userAuth/'+$reporter).val() === auth.uid",
+          ".validate": "newData.hasChildren(['kind','nick','code4','ts']) && newData.child('kind').isString() && newData.child('kind').val().matches(/^(char|away|nick|etc)$/) && newData.child('nick').isString() && newData.child('nick').val().length <= 20 && newData.child('code4').isString() && newData.child('code4').val().length <= 4 && newData.child('ts').isNumber() && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length <= 40))",
+          "kind": { ".validate": true },
+          "nick": { ".validate": true },
+          "code4": { ".validate": true },
+          "ts": { ".validate": true },
+          "note": { ".validate": true },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "bookmarks": {
+      "$userId": {
+        ".read": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid",
+        ".write": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid",
+        ".validate": "!newData.exists() || (newData.hasChildren(['order','ts']) && newData.child('order').isString() && newData.child('order').val().length <= 1300 && newData.child('ts').isNumber())",
+        "order": { ".validate": true },
+        "ts": { ".validate": true },
+        "items": {
+          "$bid": {
+            ".validate": "newData.hasChildren(['w','h','color']) && (!newData.child('url').exists() || (newData.child('url').isString() && newData.child('url').val().length <= 300 && newData.child('url').val().matches(/^https?:\\/\\//))) && newData.child('w').val().matches(/^(thin|thick)$/) && newData.child('h').val().matches(/^(short|long)$/) && newData.child('color').isString() && newData.child('color').val().length <= 9 && (!newData.child('tcolor').exists() || (newData.child('tcolor').isString() && newData.child('tcolor').val().length <= 9)) && (!newData.child('hideTitle').exists() || newData.child('hideTitle').isBoolean()) && (!newData.child('pub').exists() || newData.child('pub').isBoolean()) && (!newData.child('title').exists() || (newData.child('title').isString() && newData.child('title').val().length <= 14)) && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().length <= 500 && newData.child('img').val().beginsWith('https://firebasestorage.googleapis.com/'))) && (!newData.child('at').exists() || newData.child('at').isNumber())",
+            "url": { ".validate": true },
+            "title": { ".validate": true },
+            "w": { ".validate": true },
+            "h": { ".validate": true },
+            "color": { ".validate": true },
+            "tcolor": { ".validate": true },
+            "hideTitle": { ".validate": true },
+            "pub": { ".validate": true },
+            "img": { ".validate": true },
+            "at": { ".validate": true },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    },
+    "bookmarksPub": {
+      "$userId": {
+        ".read": true,
+        ".write": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid",
+        ".validate": "!newData.exists() || (newData.hasChildren(['order','ts']) && newData.child('order').isString() && newData.child('order').val().length <= 1300 && newData.child('ts').isNumber())",
+        "order": { ".validate": true },
+        "ts": { ".validate": true },
+        "items": {
+          "$bid": {
+            ".validate": "newData.hasChildren(['w','h','color']) && (!newData.child('url').exists() || (newData.child('url').isString() && newData.child('url').val().length <= 300 && newData.child('url').val().matches(/^https?:\\/\\//))) && newData.child('w').val().matches(/^(thin|thick)$/) && newData.child('h').val().matches(/^(short|long)$/) && newData.child('color').isString() && newData.child('color').val().length <= 9 && (!newData.child('tcolor').exists() || (newData.child('tcolor').isString() && newData.child('tcolor').val().length <= 9)) && (!newData.child('hideTitle').exists() || newData.child('hideTitle').isBoolean()) && (!newData.child('pub').exists() || newData.child('pub').isBoolean()) && (!newData.child('title').exists() || (newData.child('title').isString() && newData.child('title').val().length <= 14)) && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().length <= 500 && newData.child('img').val().beginsWith('https://firebasestorage.googleapis.com/'))) && (!newData.child('at').exists() || newData.child('at').isNumber())",
+            "url": { ".validate": true },
+            "title": { ".validate": true },
+            "w": { ".validate": true },
+            "h": { ".validate": true },
+            "color": { ".validate": true },
+            "tcolor": { ".validate": true },
+            "hideTitle": { ".validate": true },
+            "pub": { ".validate": true },
+            "img": { ".validate": true },
+            "at": { ".validate": true },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
       }
     },
     "bugReport": {
