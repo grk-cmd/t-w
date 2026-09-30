@@ -323,6 +323,26 @@ say('\n── 6. 경계 입력 (합성 · OS 무관)');
     '★ 중첩에서 가장 안쪽을 고른다 (합성) — 바깥을 고르면 헬퍼가 본체로 둔갑한다');
   chk(macMod.procNameOf(outerExe) === 'com.test.outer', '  바깥 번들은 바깥 id 를 준다');
 
+  /* ★★ [2026-09-30] **실물 입력 모양** — node-window-manager 는 실행 파일이 아니라 `.app` 폴더 경로를 준다
+       (macos.mm: `app.bundleURL.path`). 이 절이 실행 파일 경로만 넣어 봐서, 부모부터 올라가던 옛
+       _appBundleOf 가 `.app` 자신을 못 보는 것(키 = `google chrome.app`)을 초록으로 통과시켰다. */
+  const chromeDir = path.dirname(path.dirname(path.dirname(chromeExe)));   // …/Google Chrome.app
+  chk(macMod.procNameOf(chromeDir) === 'com.google.chrome',
+    '★ `.app` 폴더 경로(라이브러리가 실제로 주는 모양)에서도 번들 id 가 선다');
+  chk(macMod.procNameOf(chromeDir + '/') === 'com.google.chrome', '  끝의 / 가 붙어도 같다');
+  chk(macMod.displayNameOf(chromeDir) === 'Google Chrome', '  표시명도 `.app` 을 뗀 번들 이름이다');
+  const innerDir = path.dirname(path.dirname(path.dirname(innerExe)));
+  chk(macMod.procNameOf(innerDir) === 'com.test.inner', '  중첩 번들의 폴더 경로는 그 번들 자신이다');
+  /* 🕰️ 옛 규칙 — 0.9.7~0.10.0 이 저장한 키를 계속 알아보는 통로(main.js legacyKeyOf). */
+  if(typeof macMod.legacyProcNameOf === 'function'){
+    chk(macMod.legacyProcNameOf(chromeDir) === 'google chrome.app',
+      '★ 옛 규칙은 `.app` 폴더에서 번들 이름(옛 저장 키)을 그대로 재현한다 — 어긋나면 옛 등록이 조용히 멎는다');
+    chk(macMod.legacyProcNameOf(chromeExe) === macMod.procNameOf(chromeExe),
+      '  실행 파일 경로에서는 옛 규칙과 새 규칙이 같다(main.js 가 버린다)');
+  } else {
+    bad('legacyProcNameOf 가 없다 — 옛 규칙 키를 알아볼 통로가 사라졌다');
+  }
+
   /* plist 가 없는 번들 — B안 낙하와 그 로그. **낙하 자체보다 로그가 남는지가 중요하다.** */
   const noPlist = path.join(tmp, 'Broken.app', 'Contents', 'MacOS');
   fs.mkdirSync(noPlist, { recursive: true });

@@ -550,6 +550,20 @@ function focusKeyOf(procName){
   const n = String(procName || '').trim().toLowerCase();
   return n ? (KEY_PLATFORM + ':' + n) : '';
 }
+/* 🕰️ [2026-09-30] 활성 창의 **옛 규칙 키** — 없으면 ''. 판정 키(activeKey)와 같아도 ''.
+   [왜] mac 0.9.7~0.10.0 은 판정 키를 번들 id 가 아니라 번들 이름(`mac:google chrome.app`)으로
+     저장했다(sysinput-mac.js _appBundleOf 주석). 규칙을 바로잡으면서 그 기록을 조용히 버리지 않으려고,
+     **활성 창 쪽**에서 옛 키를 하나 더 만들어 둘 중 하나가 맞으면 등록으로 본다.
+   ★ 저장된 값은 안 건드린다 — keysOf(읽기 통로)도 그대로고 "저장은 언제나 하나" 도 그대로다.
+     새 등록은 전부 새 키(activeKey)로 저장된다(lastForeignWindow · setFocusApp).
+   ★ Windows 는 legacyProcNameOf 가 procNameOf 와 같은 값이라 여기서 늘 '' 이 된다 — 동작 변경 0.
+   ⚠️ 렌더러에도 같은 값을 `keyAlt` 로 실어 보낸다 — 서버에 저장된 달성 조건(chal.cfg.key)이 옛 키다. */
+function legacyKeyOf(ownerPath, activeKey){
+  try{
+    const alt = focusKeyOf(sysinput.legacyProcNameOf(ownerPath));
+    return (alt && alt !== activeKey) ? alt : '';
+  }catch(_){ return ''; }
+}
 /* 슬롯·달성조건 레코드에서 판정 키를 꺼내는 유일한 통로.
    ★ 승격은 반드시 'win:' 이다 — KEY_PLATFORM 이 아니다. `key` 가 없는 저장물은
      **Windows 에서만 쓰인 적이 있는 파일**이므로(mac 빌드가 존재한 적이 없다),
@@ -1003,7 +1017,8 @@ function startActiveWinPolling(){
       /* ★ 등록 판정은 keysOf 한 통로로만 나간다 — 이름을 직접 비교하지 말 것.
            여기서 `f.name === exeName` 로 되돌리면 mac 에서 조용히 전부 미등록이 된다. */
       const activeKey = focusKeyOf(exeName);
-      const isFocusedAppRegistered = !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey)));
+      const activeKeyAlt = legacyKeyOf(ownerPath, activeKey);   // 🕰️ 옛 규칙 키(mac ≤0.10.0 저장물) — 없으면 ''
+      const isFocusedAppRegistered = !!(activeKey && focusApps.some(f => keysOf(f).includes(activeKey) || (activeKeyAlt !== '' && keysOf(f).includes(activeKeyAlt))));
       /* 🩺 [2026-09-16 제보 1 · E] 활성 창 키가 **바뀔 때마다** 진단 로그에 한 줄 — 콘솔을 못 보는 환경용.
          [왜] 게임 클라이언트를 등록했는데 카운팅이 안 되는 제보. 목록에 뜨고 등록도 되는데 안 잡히면
            «등록된 키와 활성 창 키가 서로 다른 문자열» 이 가장 유력하다(런처 exe ≠ 실제 프로세스).
@@ -1014,7 +1029,7 @@ function startActiveWinPolling(){
         try{
           const regKeys = focusApps.map(f => keysOf(f).join('|')).filter(Boolean).join(', ');
           /* 경로=없음 — 관리자 권한 창이라 sysinput 이 tasklist 이름으로 판정한 경우(sysinput-win.js). */
-          _diagLog('[활성] 활성=' + (activeKey || '(없음)') + ' 등록=' + (isFocusedAppRegistered ? '예' : '아니오')
+          _diagLog('[활성] 활성=' + (activeKey || '(없음)') + (activeKeyAlt ? ' 옛키=' + activeKeyAlt : '') + ' 등록='+ (isFocusedAppRegistered ? '예' : '아니오')
             + ' 표시=' + sysinput.displayNameOf(ownerPath) + (w.owner.path ? '' : ' 경로=없음(관리자권한)')
             + ' | 등록키=[' + regKeys + ']');
         }catch(_){}
@@ -1025,7 +1040,7 @@ function startActiveWinPolling(){
       //   렌더러의 1.5초(FOCUS_MS) 기록 창이 너무 좁다. 펜 앱일 때만 그 창을 넓히는 데 쓴다.
       /* ⚠️ 전용 채널을 파지 않는다 — 필드 하나를 얹는 방식이라 구버전 preload/렌더러와도 짝이 맞는다
          (모르는 필드는 그냥 무시된다). offOverlay 를 얹을 때와 같은 규약이다. */
-      lastActiveState = { exeName, key: activeKey, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow };
+      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow };
       if(penNow !== _penAppActive){
         _penAppActive = penNow;
         if(!_penAppActive){

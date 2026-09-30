@@ -80,10 +80,25 @@ function _flushBootLog(){
      그 실행 파일을 품은 **가장 안쪽 번들의 Info.plist** 다. 바깥을 택하면 Simulator 를
      Xcode 로, 헬퍼를 본체로 둔갑시킨다.
    ⚠️ `.app` 이 없는 경로(순수 CLI 바이너리·데몬)도 있다. 그건 창을 가진 앱이 아니지만
-     0 을 돌려주면 판정이 통째로 멎으므로 basename 으로 떨어뜨린다(아래 fallback). */
-function _appBundleOf(p){
-  let cur = String(p || '');
+     0 을 돌려주면 판정이 통째로 멎으므로 basename 으로 떨어뜨린다(아래 fallback).
+
+   ★★ [2026-09-30 · 판정 키 정정] **경로 자체가 `.app` 이면 그것이 답이다.**
+     [무엇이 틀렸나] node-window-manager 가 주는 `path` 는 실행 파일이 아니라 **번들 폴더 자체**다
+       (macos.mm: `app.bundleURL.path` → `/Applications/Google Chrome.app`). 그런데 이 함수는
+       **부모부터** 올라가서 자기 자신을 못 봤다 → `.app` 을 못 찾고 basename 으로 떨어져
+       판정 키가 `com.google.chrome` 이 아니라 `google chrome.app` 이 됐다(번들 이름 = B안).
+       mac-bundleid-probe 는 실행 파일 경로만 넣어 봐서 초록이었다 — 실물 입력이 달랐다.
+     [그 결과] ① SELF_EXE(`process.execPath` = 실행 파일 → 번들 id)와 우리 창의 키(번들 이름)가
+       안 맞아 **우리 앱을 남의 앱으로 셌다** — «방금 쓰던 앱 등록» 이 투게더워킹 자신을 등록할 수 있었다.
+       ② WINLIST_SKIP(번들 id)이 한 줄도 안 걸려 Finder 가 목록에 떴다.
+       ③ 해마다 이름이 바뀌는 앱(`Adobe Photoshop 2025.app`)은 업데이트마다 등록이 풀린다.
+     ⇒ `includeSelf`(기본 true)로 경로 자체부터 본다. 가장 안쪽 원칙과도 맞다 — 경로가 `.app` 이면
+       그보다 안쪽 번들은 없다.
+   ⚠️ `includeSelf=false` 는 **옛 규칙**이다 — legacyProcNameOf 만 쓴다(아래). 판정에 쓰지 말 것. */
+function _appBundleOf(p, includeSelf){
+  let cur = String(p || '').replace(/\/+$/, '');
   if(!cur) return '';
+  if(includeSelf !== false && cur.toLowerCase().endsWith('.app')) return cur;
   /* 경로 끝에서부터 올라간다. path.dirname 은 루트에서 자기 자신을 돌려주므로 그걸로 멈춘다. */
   for(let guard = 0; guard < 64; guard++){
     const parent = path.dirname(cur);
@@ -169,6 +184,28 @@ function displayNameOf(p){
    ⚠️ 개발 실행(`npm start`)에서는 Electron.app 의 번들 id(`com.github.electron`)가 나온다.
      설치본과 값이 다르지만 둘 다 "자기 자신"을 정확히 가리키므로 동작은 같다. */
 function selfProcName(){ return procNameOf(process.execPath); }
+
+/* 🕰️ [2026-09-30] **옛 규칙으로 만든 이름** — 이미 저장된 키를 계속 알아보기 위한 것. **판정 키가 아니다.**
+   [왜 필요한가] 0.9.7~0.10.0 mac 판은 위 _appBundleOf 버그 때문에 `google chrome.app` 모양의 키를
+     저장했다. 저장 위치가 둘이다:
+       ・이 기기의 focus-apps.json (포커싱 어플 슬롯)
+       ・서버 `users/{코드}/chal/cfg.key` (달성 조건) — **계정을 따라다니고 회수가 안 된다**
+     키 규칙만 바로잡으면 그 기록이 전부 **조용히** 안 맞게 된다(에러 없이 0초씩 쌓임 — §4-b 가
+     없애려던 증상 그대로).
+   ⇒ 저장된 값을 고쳐 쓰지 않고, **활성 창 쪽에서 옛 이름을 하나 더 만들어** 둘 중 하나가 맞으면
+     등록된 것으로 본다(main.js 폴링 · app.js _chalFocusTick). "저장은 언제나 하나" 원칙은 그대로다.
+     새로 등록하는 것은 전부 번들 id 로 저장된다.
+   ★ 실행 파일 경로(`…/X.app/Contents/MacOS/X`)에서는 옛 규칙도 번들 id 를 냈다 — 그때는 procNameOf 와
+     같은 값이고, main.js 가 같으면 버린다.
+   ⚠️ 이 함수를 지우는 시점: mac 에 옛 판본(≤0.10.0)으로 등록한 기록이 없다고 확신할 수 있을 때.
+     지우면 그 사람들의 등록·달성 조건이 조용히 멎는다. */
+function legacyProcNameOf(p){
+  const s = String(p || '');
+  if(!s) return '';
+  const appDir = _appBundleOf(s, false);
+  if(appDir) return _bundleIdOf(appDir);
+  return path.basename(s).toLowerCase();
+}
 
 /* ═══ 🛡️ [2026-09-30 · Mac 크래시 제보 2건] 창 제목 — **네이티브 getTitle() 을 부르지 않는다** ═══
    [제보] 0.9.8 · macOS 15.2 · 사용 중 앱이 통째로 꺼짐. 두 리포트 모두 메인 스레드에서
@@ -332,6 +369,6 @@ module.exports = {
   init,
   startGlobalHooks, stopGlobalHooks,
   getActiveWindow, listWindows,
-  selfProcName, procNameOf, displayNameOf,
+  selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
   WINLIST_SKIP,
 };

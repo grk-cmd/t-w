@@ -87,6 +87,10 @@ function procNameOf(p){ return path.basename(p || '').toLowerCase(); }
      기능이 아니라 인터페이스를 맞추는 것이다. 여기서 `.exe` 를 떼는 등 손보지 말 것 —
      떼는 일은 app.js(표시부)가 이미 하고 있고, 두 곳에서 하면 한 번 더 떼어진다. */
 function displayNameOf(p){ return procNameOf(p); }
+/* 🕰️ [2026-09-30] mac 판이 옛 규칙의 키를 계속 알아보려고 늘린 이름(sysinput-mac.js 주석).
+   **Windows 는 규칙이 바뀐 적이 없으므로 procNameOf 와 같은 값**이다 — main.js 가 같으면 버리므로
+   Windows 동작은 한 글자도 안 바뀐다. 목적은 인터페이스를 맞추는 것뿐이다(§1-④ «똑같은 이름»). */
+function legacyProcNameOf(p){ return procNameOf(p); }
 
 /* 📋 셸 계열 — "목록에서 직접 고르기"에서 거르는 창들.
    ⚠️ Windows 실행 파일 이름이다. mac 판은 이 목록을 통째로 다시 써야 한다. */
@@ -269,6 +273,6 @@ module.exports = {
   init,
   startGlobalHooks, stopGlobalHooks,
   getActiveWindow, listWindows,
-  selfProcName, procNameOf, displayNameOf,
+  selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
   WINLIST_SKIP,
 };

@@ -41517,7 +41517,12 @@ function _chalFocusTick(state, dt){
   const now = state && state.key
     ? state.key
     : (state && state.exeName ? 'win:' + String(state.exeName).toLowerCase() : '');  // 구버전 main 대비
-  if(!now || !want.includes(now)) return;
+  /* 🕰️ [2026-09-30] `keyAlt` = 활성 창의 **옛 규칙 키**(main.js legacyKeyOf). mac 0.9.7~0.10.0 은 키를
+       `mac:google chrome.app` 모양으로 서버(cfg.key)에 저장했다. 규칙을 번들 id 로 바로잡으면서 그 조건이
+       조용히 0초로 멎지 않게, 둘 중 하나가 맞으면 센다. 저장된 cfg 는 안 건드린다(저장은 하나).
+     ⚠️ 옛 main 은 keyAlt 를 안 보낸다 — 없으면 예전과 똑같이 now 하나로만 본다. */
+  const alt = state && state.keyAlt ? String(state.keyAlt) : '';
+  if(!now || !(want.includes(now) || (alt && want.includes(alt)))) return;
   const t = chalRec.today;
   if(!t || t.date !== _focusDayStr()) return;   // 오전 6시를 넘겼다 — _chalTick 이 정리할 때까지 안 쌓는다
   t.sec = (t.sec || 0) + dt;
@@ -41940,7 +41945,12 @@ function _chalRenderSetup(force){
        옛 판본에서 창 제목이 label 로 저장된 사람도 여기서 같은 이름으로 보인다.
        (서버에 저장된 cfg 는 안 건드린다. 판정은 key 로만 하므로 표시만 맞추면 된다) */
     const k0 = (_chalKeysOf(c)[0] || '');
-    const shown = k0 ? k0.replace(/^[a-z]+:/, '').replace(/\.exe$/i, '') : (c.label || '');
+    /* 🍎 [2026-09-30] mac 키는 이제 번들 id(`mac:com.google.chrome`)라 키에서 뽑으면 사람이 못 읽는다.
+         mac 은 고를 때 함께 저장한 표시 이름(cfg.label = 'Google Chrome')을 먼저 쓴다.
+         옛 키(`google chrome.app`)는 label 이 없을 때만 키에서 뽑고 `.app` 을 뗀다. win 은 그대로다. */
+    const shown = k0
+      ? ((/^mac:/.test(k0) && c.label) ? String(c.label) : k0.replace(/^[a-z]+:/, '').replace(/\.(exe|app)$/i, ''))
+      : (c.label || '');
     if(app) app.textContent = shown || '아직 안 골랐어요';
     _chalPutNum(hrs, c.hours, force);
     /* ★ 다른 플랫폼에서 등록한 조건이면 **말해 준다.** 여기서 침묵하면 시간이 0초씩 쌓이다 마는데
