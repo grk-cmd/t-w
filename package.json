@@ -1,9 +1,10 @@
 {
   "name": "together-working",
-  "version": "0.9.8",
+  "version": "0.10.0",
   "description": "책상 위에 사는 데스크톱 컴패니언",
   "main": "main.js",
   "scripts": {
+    "postinstall": "node scripts/patch-nwm.js",
     "start": "electron .",
     "check": "node checks/run.js",
     "pack": "electron-builder --dir",

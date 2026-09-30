@@ -36,7 +36,7 @@
    ── 활성 창 감지: node-window-manager 기반 (win 판과 같은 패키지) ──
      ⚠️ **프리빌드가 없어 설치 때마다 `lib/macos.mm` 을 컴파일한다**(핸드오프 §0-②).
        ⑤ 에서 macOS 26.6 / SDK 26.5 로 붙는 것을 확인했다(mac-probe #2).
-     ⚠️ 권한이 없으면 **에러가 아니라 빈 값**이 온다 — 그 갈래를 아래 listWindows 가 가른다. */
+     ★★ [2026-09-30 · Mac 크래시 제보 2건] **이 파일은 `w.getTitle()` 을 부르지 않는다.** 아래 _titleOf 참고. */
 'use strict';
 const path = require('path');
 const fs   = require('fs');
@@ -170,6 +170,29 @@ function displayNameOf(p){
      설치본과 값이 다르지만 둘 다 "자기 자신"을 정확히 가리키므로 동작은 같다. */
 function selfProcName(){ return procNameOf(process.execPath); }
 
+/* ═══ 🛡️ [2026-09-30 · Mac 크래시 제보 2건] 창 제목 — **네이티브 getTitle() 을 부르지 않는다** ═══
+   [제보] 0.9.8 · macOS 15.2 · 사용 중 앱이 통째로 꺼짐. 두 리포트 모두 메인 스레드에서
+     `_platform_strlen ← Napi::String::New ← getWindowTitle (addon.node)` · SIGSEGV at 0x0.
+     하나는 타이머(RunTimers = 아래 활성 창 폴링), 하나는 콜백(InternalMakeCallback)에서 왔다.
+   [원인 — node-window-manager 2.2.4 `lib/macos.mm` 원문]
+       NSString *windowName = wInfo[(id)kCGWindowOwnerName];
+       return Napi::String::New(env, [windowName UTF8String]);
+     `kCGWindowOwnerName` 은 **없을 수도 있는 키**다(Apple 문서: optional). 없으면 nil →
+     UTF8String 이 NULL → N-API 가 strlen(NULL) 에서 죽는다. **JS 의 try/catch 로는 못 잡는다**
+     (예외가 아니라 세그폴트다) — 위 getActiveWindow·listWindows 의 try 가 있었는데도 앱이 꺼진 이유.
+     어떤 창이 앞에 오느냐에 달린 일이라, 같은 사람도 가끔만 겪는다.
+   ★ 알고 보니 **이 함수가 주는 것은 창 제목이 아니라 앱 이름**이다(kCGWindowName 이 아니라 OwnerName).
+     ⇒ 이미 손에 있는 경로로 같은 값을 만들 수 있다 — displayNameOf(p) = `.app` 번들 이름.
+     네이티브를 다시 빌드하지 않고 크래시 통로 자체를 닫는 길이 이것이다.
+   ⚠️ 그래서 mac 에는 «화면 기록 권한이 없으면 제목이 빈다» 는 갈래도 **없다.** OwnerName 은 권한과
+     무관하다. 예전 listWindows 의 «제목 0건 = 권한 문제» 판정은 이 착오 위에 서 있어서 걷었다.
+   ⚠️ 차이 하나: 예전 값은 **현지화된** 앱 이름(예: «시스템 설정»), 지금은 번들 이름(«System Settings»)
+     일 수 있다. 표시에만 쓰이고 판정 키(procNameOf = 번들 id)와 무관하다.
+   ⚠️ 이 줄을 `w.getTitle()` 로 되돌리지 말 것 — 네이티브를 고쳐 다시 빌드하기 전까지는 그대로 크래시다. */
+function _titleOf(p){
+  try{ return displayNameOf(p) || ''; }catch(_){ return ''; }
+}
+
 /* 📋 셸 계열 — "목록에서 직접 고르기"에서 거르는 창들.
    ⚠️ **win 판 목록을 번역한 것이 아니라 새로 쓴 것이다.** 여기 값은 exe 이름이 아니라
      위 procNameOf 가 내놓는 것과 같은 축, 즉 **번들 id** 다. 섞이면 한 줄도 안 걸린다.
@@ -209,8 +232,7 @@ async function getActiveWindow(){
     if(!w) return null;
     const p = w.path || '';
     if(!p) return null;
-    let title = '';
-    try{ title = w.getTitle() || ''; }catch(_){}
+    const title = _titleOf(p);   // 🛡️ w.getTitle() 금지 — 위 _titleOf 주석(크래시)
     return { owner: { path: p, name: path.basename(p) }, title };
   }catch(_){ return null; }
 }
@@ -219,31 +241,23 @@ async function getActiveWindow(){
    거르는 **순서가 뜻을 가진다**(win 판과 동일): 빈 값·비가시·빈 제목 → 자기/셸 →
    너무 작은 창 → 같은 번들 중복(제목 긴 쪽). 순서를 바꾸면 같은 입력에 다른 답이 나온다.
 
-   ★★ [mac 만의 갈래 — 핸드오프 §7-2 가 예고한 자리]
-     화면 기록 권한이 없으면 macOS 는 **에러를 주지 않는다.** 창은 다 열거되는데 `getTitle()`
-     이 전부 빈 문자열로 온다. 그러면 위 "빈 제목" 필터에 전부 걸려 **조용한 빈 목록**이 된다
-     — 사용자가 보는 것은 "목록에 아무것도 안 뜸" 하나뿐이고, 권한 때문인지 정말 창이 없는지
-     구분할 길이 없다.
-   ⇒ 창은 있는데 **제목이 하나도 없으면** 그것을 권한 문제로 보고 enum-failed 로 돌려준다.
-     ⚠️ 오판 가능성: 제목 없는 창만 떠 있는 경우. 그때 사용자가 보는 것은 "빈 목록" 대신
-       "권한을 확인하세요" 인데, 어느 쪽도 고를 것이 없는 건 같고 후자는 확인할 것이 있다.
-       비대칭이 크므로 이쪽을 택한다. */
+   🛡️ [2026-09-30] 여기 있던 «창은 있는데 제목이 0건이면 화면 기록 권한 문제» 갈래는 걷었다.
+     그 전제(권한이 없으면 getTitle 이 빈 문자열)가 틀렸다 — getTitle 은 창 제목이 아니라 앱 이름을
+     주고 권한과 무관하며, 값이 없으면 빈 문자열이 아니라 **앱이 죽는다**(_titleOf 주석).
+     이제 제목은 경로에서 만들므로 그 갈래는 영영 안 탄다. 빈 목록 = 정말 고를 창이 없음. */
 async function listWindows(){
   if(!windowManager) return { ok:false, reason:'enum-failed', message:'node-window-manager 로드 실패' };
   const SELF = selfProcName();
   const out = [];
-  let sawWindow = 0, sawTitle = 0;
   try{
     const wins = windowManager.getWindows() || [];
     const seen = new Map();   // 번들 경로 → 항목 (같은 프로그램의 창이 여러 개여도 한 줄만)
     for(const w of wins){
       let p = '', title = '', vis = true, bounds = null;
       try{ p = w.path || ''; }catch(_){}
-      try{ title = (w.getTitle() || '').trim(); }catch(_){}
+      title = _titleOf(p).trim();   // 🛡️ w.getTitle() 금지 — _titleOf 주석(크래시)
       try{ vis = (typeof w.isVisible === 'function') ? w.isVisible() : true; }catch(_){}
       try{ bounds = (typeof w.getBounds === 'function') ? w.getBounds() : null; }catch(_){}
-      if(p) sawWindow++;
-      if(title) sawTitle++;
       if(!p || !vis || !title) continue;
       const name = procNameOf(p);
       if(name === SELF || WINLIST_SKIP.has(name)) continue;
@@ -258,12 +272,6 @@ async function listWindows(){
     }
   }catch(err){
     return { ok:false, reason:'enum-failed', message: (err && err.message) || String(err) };
-  }
-  /* ★ 위 ★★ 주석의 갈래 — 창은 있는데 제목이 0건이면 권한이다. */
-  if(sawWindow > 0 && sawTitle === 0){
-    return { ok:false, reason:'enum-failed',
-      message: '창 ' + sawWindow + '개가 모두 제목이 비어 있다 — 화면 기록 권한이 없을 때의 모양이다'
-             + ' (시스템 설정 → 개인정보 보호 및 보안 → 화면 기록)' };
   }
   out.sort((a,b)=> a.name.localeCompare(b.name));
   return { ok:true, list: out };
