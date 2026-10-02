@@ -1,5 +1,6 @@
 /*
- * 1분마다 roomIndex 를 세어 roomStats = { workingroom, togetherroom, at } 에 기록한다.
+ * roomIndex 를 세어 roomStats = { workingroom, togetherroom, at } 에 기록한다.
+ * 방이 열릴 때(roomIndex 줄 생성) 바로 한 번, 그리고 닫힌 방을 반영하려고 1분마다 한 번 돈다.
  * 앱은 30초마다 roomIndex 전체를 받는 대신 이 작은 노드만 읽는다(app/parts/room-stats.js).
  * 세는 기준(90초 · 시크릿룸 제외 · channel 없으면 워킹룸)은 앱의 getRoomCounts 와 같아야 한다.
  *
@@ -31,10 +32,13 @@ function roomStatsFrom(idx, now){
   return { stats: out, drop: drop.slice(0, ROOM_DROP_MAX) };
 }
 
-async function runRoomStats(db, now){
+// opts.drop === false 면 낡은 줄 지우기를 건너뛴다(방 열림 트리거는 세기만 한다).
+async function runRoomStats(db, now, opts){
   const idx = (await db.ref('roomIndex').get()).val() || {};
-  const { stats, drop } = roomStatsFrom(idx, now);
-  await db.ref('roomStats').set(stats);
+  const { stats, drop: dropAll } = roomStatsFrom(idx, now);
+  const drop = (opts && opts.drop === false) ? [] : dropAll;
+  // 여러 실행이 겹치면 먼저 읽은 쪽이 늦게 써서 새 값을 덮을 수 있다. 더 늦게 읽은 값이 있으면 쓰지 않는다.
+  await db.ref('roomStats').transaction(cur => ((cur && Number(cur.at) > stats.at) ? undefined : stats), undefined, false);
   let dropped = 0, kept = 0, failed = 0;
   const cutoff = now - ROOM_INDEX_DROP_MS;
   for (const code of drop){

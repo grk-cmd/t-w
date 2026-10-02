@@ -51,8 +51,8 @@ const tick = () => new Promise(r => setTimeout(r, 0));
       const L = { sets: [], tx: {} };
       const db = { ref: (p) => ({
         get: async () => ({ val: () => (p === 'roomIndex' ? idx : null) }),
-        set: async (v) => { L.sets.push([p, v]); },
         transaction: async (fn) => {
+          if(p === 'roomStats'){ const v = fn(L.stats); if(v !== undefined){ L.stats = v; L.sets.push([p, v]); } return { committed: v !== undefined }; }
           const code = p.split('/')[1];
           let r = fn(null);                                       // 첫 호출은 로컬 추측값
           if(r === null && server[code] != null) r = fn(server[code]);
@@ -66,8 +66,18 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     const { db, L } = mkDb({ D1: old, D2: old }, { D1: old, D2: { lastSeen: now - 5000, channel: 'togetherroom' } });
     const sum = await (async () => { const q = console.log; console.log = () => {}; try{ return await f.runRoomStats(db, now); } finally { console.log = q; } })();
     chk(L.sets.length === 1 && L.sets[0][0] === 'roomStats', 'roomStats 를 한 번 쓴다');
+    const FX = need('functions/index.js');
+    chk(/exports\.roomStatsOnOpen = onValueCreated\(\{ ref: '\/roomIndex\/\{room\}'[\s\S]{0,300}runRoomStats\(getDatabase\(\), Date\.now\(\), \{ drop: false \}\)/.test(FX),
+        '방이 열리면(roomIndex 줄 생성) 바로 다시 센다 — 줄 수정(하트비트)에는 반응하지 않는 onValueCreated');
     chk(L.tx.D1 === null && sum.dropped === 1, '서버 값도 낡았으면 지운다');
     chk(L.tx.D2 === undefined && sum.kept === 1, '그새 누가 다시 들어와 lastSeen 이 새로워졌으면 그만둔다');
+    {
+      const { db: db2, L: L2 } = mkDb({ D1: old }, { D1: old });
+      L2.stats = { workingroom: 9, togetherroom: 9, at: now + 5000 };   // 더 늦게 읽은 실행이 먼저 썼다
+      const s2 = await f.runRoomStats(db2, now, { drop: false });
+      chk(L2.sets.length === 0 && L2.stats.workingroom === 9, '겹친 실행: 더 늦게 읽은 값이 있으면 덮지 않는다');
+      chk(Object.keys(L2.tx).length === 0 && s2.dropped === 0, 'drop:false(방 열림 트리거)는 줄을 지우지 않는다');
+    }
   }
 
   say('── 2. room-index.js (roomIndex 쓰기)');

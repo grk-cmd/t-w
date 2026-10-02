@@ -3,7 +3,7 @@
    [설계 결정 10 · 개정 18 · CHECKS 개정 50] 휴지통 청소 예약 함수 — 아래 cleanTrash.
    [설계 §9-12 · 개정 23 · CHECKS 개정 55] 계정 스냅샷 옮기기 **일회용** 함수 — 아래 moveAccountSnap(확인 뒤 걷는다).
    [설계 §5-N+1 · 개정 26 · CHECKS 개정 58] 이관 창 재기 **읽기만 · 일회용** 함수 — 아래 countSlotsWindow(N+1 배포 뒤 걷는다).
-   roomStats — 열린 방 개수 요약(1분마다). 로직은 room-stats.js.
+   roomStats · roomStatsOnOpen — 열린 방 개수 요약(1분마다 · 방이 열릴 때). 로직은 room-stats.js.
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -23,6 +23,7 @@
 'use strict';
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onValueCreated } = require('firebase-functions/v2/database');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
@@ -273,4 +274,11 @@ exports.roomStats = onSchedule({ schedule: 'every 1 minutes', timeoutSeconds: 60
   async () => {
     const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
     await require('./room-stats').runRoomStats(getDatabase(), Date.now());
+  });
+
+// 방이 열리면(roomIndex 줄 생성) 바로 다시 센다. 하트비트(줄 수정)에는 반응하지 않는다.
+exports.roomStatsOnOpen = onValueCreated({ ref: '/roomIndex/{room}', timeoutSeconds: 60, maxInstances: 2 },
+  async () => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    await require('./room-stats').runRoomStats(getDatabase(), Date.now(), { drop: false });
   });

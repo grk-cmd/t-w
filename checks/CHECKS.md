@@ -798,7 +798,7 @@
 | sim-fly-replay.js | 160 | 2bdaa91d9741 |
 | **sim-fly-roulette.js** | 147 | **a96af26bba03** ← **개정 58 신설 · 🔫 러시안룰렛** · **개정 58-b 4절 투게더룸 🎲 도 룰렛** · **개정 59 기록 문장 꼬리 없음** · **개정 63 투게더룸에서 숨김** · **개정 76 5절 🎟️ 하루 6번** |
 | **sim-license-xlsx.js** | 76 | **bfe0e2b63201** ← **개정 76 신설 · 📄 관리자 라이선스 엑셀(xlsx·csv) 일괄 발급** |
-| **sim-room-stats.js** | 137 | **c8d3c18bb29b** ← **2026-10-03 신규 · 📊 방 개수 서버 요약 — functions/room-stats.js 집계 · room-index.js channel·open 다시 싣기 · room-stats.js 신선도 · firebase-init 연결 · 규칙 읽기 전용 (모듈을 그대로 불러 가짜 DB)** |
+| **sim-room-stats.js** | 147 | **cca1efe906ea** ← **2026-10-03 신규 · 📊 방 개수 서버 요약 — functions/room-stats.js 집계 · room-index.js channel·open 다시 싣기 · room-stats.js 신선도 · firebase-init 연결 · 규칙 읽기 전용 (모듈을 그대로 불러 가짜 DB)** |
 | **sim-room-invite-wait.js** | 43 | **7161a20222f3** ← **개정 78 신설 · ⏳ 방 초대 팝업이 화면을 막지 않음 · 3분 뒤 자동 거절** |
 | **sim-focus-auth.js** | 90 | **58a1ca1bdfad** ← 2026-09-16 (제보 6 포커스 auth) · 개정 10 등재 |
 | **sim-focus-sync.js** | 172 | **5eac3ccdef75** ← 개정 38 준비 한 줄(uid 심기 · 판정 무변경) |
