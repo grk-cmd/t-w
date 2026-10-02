@@ -348,6 +348,44 @@
     if(String(room||'').indexOf('SCRT-') === 0) return;
     try{ update(ref(db, `roomIndex/${room}`), Object.assign({ lastSeen: serverTimestamp() }, extra || {})); }catch(_){}
   }
+  /* 👻 [2026-10-03 프로파일러 실측] 연결이 살아 있는 채로 내 멤버 노드가 사라진 «유령» 복구.
+     [실측] 2분간 rooms/{방}/{멤버} 쓰기 11,499건 중 5,365건(47%)이 거부됐다.
+     [기전] 내 노드가 지워진 뒤 하트비트(update {lastSeen, exp})·updateMe 가 오면, 합친 결과에 name·state 가 없어
+       `$memberId` 의 .validate 에 걸려 거부된다(dev DB 재현: 노드 있음 → update 성공 · 삭제 후 → Permission denied).
+       재등록은 `.info/connected` 가 true 가 되는 순간에만 했으므로(joinRoom), **연결이 끊기지 않은 채로** 노드가
+       사라지면 복구 길이 없다 — 상대 화면에서 나는 사라지고 나는 상대가 다 보이는 비대칭이 영구화된다.
+     [지워지는 경우] ① 옛 소켓의 onDisconnect.remove() 가 새 소켓으로 재등록한 **뒤에** 늦게 실행(절전·와이파이 전환)
+       ② 같은 계정의 다른 기기가 입장하며 내 옛 노드를 정리(첫 스냅샷의 userId 정리)
+     [대응] 쓰기가 **거부될 때만** 확인한다(평소 비용 0): 내 노드가 정말 없으면 전체 재등록 + onDisconnect 재예약.
+     ★ 되살리지 않는 경우
+       · 한 계정 한 기기에서 밀려남(window._deviceSessionLost) — ②는 의도된 정리다
+       · 방이 닫힘 — _meta 도 없고 살아 있는 다른 멤버도 없다(관리자 «모든 방 종료» · 마지막 사람 정리)
+       · 노드는 있다 — 값 형식 문제로 거부된 것이라 재등록해도 같은 거부가 난다
+     ⚠️ 거부가 이어져도 15초에 한 번만 확인한다 — 확인 읽기는 name 한 칸(수 바이트)이다. */
+  let _ghostHealAt = 0, _ghostHealBusy = false;
+  async function _healMyMemberNode(why){
+    const room = _roomCode, mid = _memberId, r = _myMemberRef;
+    if(!room || !mid || !r || !_myMemberData || _ghostHealBusy) return;
+    if(window._deviceSessionLost) return;
+    const now = Date.now();
+    if(now - _ghostHealAt < 15000) return;
+    _ghostHealBusy = true; _ghostHealAt = now;
+    try{
+      const mine = await get(ref(db, `rooms/${room}/${mid}/name`));
+      if(_roomCode !== room || _memberId !== mid) return;   // 그 사이 나갔다
+      if(mine.exists()) return;
+      const othersAlive = !!(_roomLastFriends && Object.keys(_roomLastFriends).length);
+      if(!_roomMetaVal && !othersAlive){
+        console.warn('[ghost-heal] 방이 닫힌 것으로 보여 재등록하지 않는다 —', room, '(' + why + ')');
+        return;
+      }
+      await set(r, { ..._myMemberData, lastSeen: serverTimestamp() });
+      onDisconnect(r).remove();
+      _touchRoomIndex(room);
+      console.warn('[ghost-heal] 내 멤버 노드가 사라져 재등록했다 —', room, '(' + why + ')');
+    }catch(_){
+    }finally{ _ghostHealBusy = false; }
+  }
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
@@ -2261,7 +2299,7 @@
              상대 화면에서 "레벨업 직후"로 오해된다). */
           const _hb = { lastSeen: serverTimestamp() };
           try{ if(typeof window.myExpCells === 'function') _hb.exp = window.myExpCells(); }catch(_){}
-          update(_myMemberRef, _hb);
+          update(_myMemberRef, _hb).catch(()=>_healMyMemberNode('heartbeat'));   // 👻 거부 = 내 노드가 사라졌을 수 있다
           _touchRoomIndex(room);   // 💰 요약 노드 하트비트 — 카운트가 이 lastSeen(90초)으로 살아있는 방을 판정
         }
       }, 30000);
@@ -2270,7 +2308,7 @@
     },
     updateMe(payload){
       if(_myMemberData) Object.assign(_myMemberData, payload);   // 재접속 재등록 때 최신 상태가 올라가게
-      if(_myMemberRef) update(_myMemberRef, { ...payload, lastSeen: serverTimestamp() });
+      if(_myMemberRef) update(_myMemberRef, { ...payload, lastSeen: serverTimestamp() }).catch(()=>_healMyMemberNode('updateMe'));
     },
     // 다른 사람의 캐릭터를 쓰다듬거나 흔들었을 때 그 사람에게 실시간으로 알림(찌르기).
     poke(targetId, type){
