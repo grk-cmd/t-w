@@ -10,6 +10,9 @@
 #   dev 는 main push 때 deploy-dev.yml 이 이미 반영했다. GCP 설정(vars) 전이면 이 단계는 건너뛴다(⚠️ 그땐 사람이 직접 배포).
 #   Functions 배포는 권한이 넓어서 넣지 않는다.
 # 🔐 oauth-config.js(시크릿)는 npm ci **뒤에** 만든다 — 의존성 설치 스크립트가 시크릿 파일을 읽을 틈을 주지 않는다.
+# 🧪 테스트 빌드: 태그에 '-' 가 붙으면(예: v0.10.2-beta.0 ← npm version prerelease --preid=beta) 프리릴리스로 본다.
+#   · app/parts/firebase-config.js 를 build/firebase-config.dev.js 로 바꿔 **dev Firebase 에 붙는** 앱을 만든다
+#   · 운영 규칙 배포는 하지 않는다 · Releases 에 Pre-release 로 올린다(사용자 앱은 자동 업데이트로 받지 않는다)
 # ⚠️ 서명하지 않는다 — mac-probe 와 같다(CSC_IDENTITY_AUTO_DISCOVERY=false). Windows 도 인증서가 없다.
 
 name: release
@@ -20,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '다시 빌드할 태그 (예: v0.10.1) — 이미 있는 태그여야 한다'
+        description: '다시 빌드할 태그 (예: v0.10.1 · 테스트 v0.10.2-beta.0) — 이미 있는 태그여야 한다'
         required: true
 
 permissions:
@@ -40,6 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +58,8 @@ jobs:
             exit 1
           fi
           echo "version=$PKG" >> "$GITHUB_OUTPUT"
+          case "$PKG" in *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT"; echo "🧪 테스트 빌드 (dev Firebase · Pre-release)";;
+                         *)   echo "prerelease=false" >> "$GITHUB_OUTPUT";; esac
       - name: 마지막 공개 릴리스보다 높은가
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -63,7 +69,7 @@ jobs:
           echo "마지막 공개: ${LAST:-없음} · 이번: $TAG"
           [ -z "$LAST" ] && exit 0
           node -e '
-            const p = v => v.replace(/^v/, "").split(".").map(Number);
+            const p = v => v.replace(/^v/, "").split("-")[0].split(".").map(Number);   // -beta.0 꼬리는 떼고 비교
             const [a, b] = [p(process.argv[1]), p(process.argv[2])];
             for (let i = 0; i < 3; i++) { if (a[i] > b[i]) process.exit(0); if (a[i] < b[i]) break; }
             console.error("::error::" + process.argv[1] + " 는 마지막 공개 릴리스 " + process.argv[2] + " 보다 높지 않다");
@@ -86,6 +92,7 @@ jobs:
         run: |
           PREV=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^" 2>/dev/null || true)
           echo "이전 태그: ${PREV:-없음}"
+          case "$TAG" in *-*) echo "테스트 빌드 — 운영 규칙 배포 대상 아님"; echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0;; esac
           if [ -z "$PREV" ] || ! git diff --quiet "$PREV" "$TAG" -- firebase-database-rules.json; then
             echo "규칙 파일이 바뀌었다 → 운영 배포 대상"; echo "changed=true" >> "$GITHUB_OUTPUT"
             if [ -z "${{ vars.GCP_WIF_PROVIDER }}" ]; then echo "::warning::규칙이 바뀌었지만 GCP 설정(vars)이 없어 자동 배포를 건너뛴다 — Publish 전에 사람이 firebase deploy --only database 를 할 것"; fi
@@ -96,8 +103,8 @@ jobs:
   # ── ① 규칙 → 운영 (production 환경: 승인자가 눌러야 시작한다) ──
   rules-prod:
     name: 규칙 → 운영
-    needs: rules-check
-    if: needs.rules-check.outputs.changed == 'true' && vars.GCP_WIF_PROVIDER != '' && vars.GCP_SA_EMAIL != ''
+    needs: [verify, rules-check]
+    if: needs.verify.outputs.prerelease != 'true' && needs.rules-check.outputs.changed == 'true' && vars.GCP_WIF_PROVIDER != '' && vars.GCP_SA_EMAIL != ''
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -141,6 +148,12 @@ jobs:
           if [ -z "$OAUTH_CONFIG_JS" ]; then echo "::error::OAUTH_CONFIG_JS 시크릿이 비어 있다"; exit 1; fi
           printf '%s' "$OAUTH_CONFIG_JS" > oauth-config.js
           node --check oauth-config.js
+      - name: 🧪 테스트 빌드면 dev Firebase 설정으로 교체
+        if: needs.verify.outputs.prerelease == 'true'
+        shell: bash
+        run: |
+          cp build/firebase-config.dev.js app/parts/firebase-config.js
+          grep -q "together-working-dev" app/parts/firebase-config.js || { echo "::error::dev 설정 교체 실패"; exit 1; }
       - name: electron-builder (win x64)
         run: npx electron-builder --win --x64 --publish never
       - name: 설정 파일이 asar 에 들어갔는가
@@ -155,6 +168,9 @@ jobs:
             dist/*.exe
             dist/*.exe.blockmap
             dist/latest.yml
+            dist/beta.yml
+            dist/alpha.yml
+            dist/rc.yml
           if-no-files-found: error
           retention-days: 3
 
@@ -187,6 +203,12 @@ jobs:
           node --check oauth-config.js
       - name: icns 를 iconutil 로 다시 조립 (mac-probe ③ 과 같다)
         run: iconutil -c icns build/icon.iconset -o build/icon.icns
+      - name: 🧪 테스트 빌드면 dev Firebase 설정으로 교체
+        if: needs.verify.outputs.prerelease == 'true'
+        shell: bash
+        run: |
+          cp build/firebase-config.dev.js app/parts/firebase-config.js
+          grep -q "together-working-dev" app/parts/firebase-config.js || { echo "::error::dev 설정 교체 실패"; exit 1; }
       - name: electron-builder (mac ${{ matrix.arch }})
         run: npx electron-builder --mac --${{ matrix.arch }} --publish never
       - name: 설정 파일이 asar 에 들어갔는가
@@ -211,22 +233,26 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       VERSION: ${{ needs.verify.outputs.version }}
+      PRERELEASE: ${{ needs.verify.outputs.prerelease }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: out
           merge-multiple: true
-      - name: 파일 이름 정리 · latest.yml 대조
+      - name: 파일 이름 정리 · 업데이트 정보(yml) 대조
         working-directory: out
         run: |
           # GitHub 는 자산 이름의 공백을 '.' 로 바꾼다. 그런데 latest.yml 의 url 은 '-' 로 적힌다
           # (예전 릴리스: Together-Working-Setup-0.10.0.exe). 공백을 '-' 로 맞춰야 자동 업데이트가 파일을 찾는다.
           for f in *\ *; do [ -e "$f" ] && mv "$f" "${f// /-}"; done
           ls -l
-          URL=$(grep -E '^\s*url:' latest.yml | head -n 1 | sed -E 's/^\s*url:\s*//')
-          echo "latest.yml url: $URL"
-          [ -f "$URL" ] || { echo "::error::latest.yml 이 가리키는 $URL 이 없다 — 자동 업데이트가 깨진다"; exit 1; }
-          grep -q "version: $VERSION" latest.yml || { echo "::error::latest.yml 버전이 $VERSION 이 아니다"; exit 1; }
+          # 정식은 latest.yml, 프리릴리스는 채널 이름(beta.yml 등)으로 나온다.
+          YML=$(ls latest.yml beta.yml alpha.yml rc.yml 2>/dev/null | head -n 1)
+          [ -n "$YML" ] || { echo "::error::업데이트 정보 파일(yml)이 없다"; exit 1; }
+          URL=$(grep -E '^\s*url:' "$YML" | head -n 1 | sed -E 's/^\s*url:\s*//')
+          echo "$YML url: $URL"
+          [ -f "$URL" ] || { echo "::error::$YML 이 가리키는 $URL 이 없다 — 자동 업데이트가 깨진다"; exit 1; }
+          grep -q "version: $VERSION" "$YML" || { echo "::error::$YML 버전이 $VERSION 이 아니다"; exit 1; }
       - name: 초안 만들기 / 올리기
         working-directory: out
         run: |
@@ -238,7 +264,12 @@ jobs:
             fi
             gh release upload "$TAG" -R "$REPO" --clobber *
           else
-            gh release create "$TAG" -R "$REPO" --draft --verify-tag --title "$VERSION" \
-              --notes "자동 빌드 초안 (커밋 ${GITHUB_SHA::7}). 확인 후 Publish 하세요." *
+            if [ "$PRERELEASE" = "true" ]; then
+              gh release create "$TAG" -R "$REPO" --draft --prerelease --verify-tag --title "$VERSION (테스트 · dev 서버)" \
+                --notes "🧪 테스트 빌드 — **dev Firebase(together-working-dev)** 에 접속합니다. 운영 데이터와 분리돼 있고, 일반 사용자 앱은 자동 업데이트로 받지 않습니다. (커밋 ${GITHUB_SHA::7})" *
+            else
+              gh release create "$TAG" -R "$REPO" --draft --verify-tag --title "$VERSION" \
+                --notes "자동 빌드 초안 (커밋 ${GITHUB_SHA::7}). 확인 후 Publish 하세요." *
+            fi
           fi
           gh release view "$TAG" -R "$REPO" --json assets -q '.assets[].name'
