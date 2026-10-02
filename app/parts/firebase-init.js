@@ -32,6 +32,7 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
+  import { createGhostHeal } from "./room-ghost-heal.js";   // 👻 방 유령 복구 (2026-10-03)
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -348,51 +349,14 @@
     if(String(room||'').indexOf('SCRT-') === 0) return;
     try{ update(ref(db, `roomIndex/${room}`), Object.assign({ lastSeen: serverTimestamp() }, extra || {})); }catch(_){}
   }
-  /* 👻 [2026-10-03 프로파일러 실측] 연결이 살아 있는 채로 내 멤버 노드가 사라진 «유령» 복구.
-     [실측] 2분간 rooms/{방}/{멤버} 쓰기 11,499건 중 5,365건(47%)이 거부됐다.
-     [기전] 내 노드가 지워진 뒤 하트비트(update {lastSeen, exp})·updateMe 가 오면, 합친 결과에 name·state 가 없어
-       `$memberId` 의 .validate 에 걸려 거부된다(dev DB 재현: 노드 있음 → update 성공 · 삭제 후 → Permission denied).
-       재등록은 `.info/connected` 가 true 가 되는 순간에만 했으므로(joinRoom), **연결이 끊기지 않은 채로** 노드가
-       사라지면 복구 길이 없다 — 상대 화면에서 나는 사라지고 나는 상대가 다 보이는 비대칭이 영구화된다.
-     [지워지는 경우] ① 옛 소켓의 onDisconnect.remove() 가 새 소켓으로 재등록한 **뒤에** 늦게 실행(절전·와이파이 전환)
-       ② 같은 계정의 다른 기기가 입장하며 내 옛 노드를 정리(첫 스냅샷의 userId 정리)
-     [대응] 쓰기가 **거부될 때만** 확인한다(평소 비용 0): 내 노드가 정말 없으면 전체 재등록 + onDisconnect 재예약.
-     ★ 되살리지 않는 경우
-       · 한 계정 한 기기에서 밀려남(window._deviceSessionLost) — ②는 의도된 정리다
-       · 방이 닫힘 — _meta 도 없고 살아 있는 다른 멤버도 없다(관리자 «모든 방 종료» · 마지막 사람 정리)
-       · 노드는 있다 — 값 형식 문제로 거부된 것이라 재등록해도 같은 거부가 난다
-     ⚠️ 거부가 이어져도 15초에 한 번만 확인한다 — 확인 읽기는 name 한 칸(수 바이트)이다. */
-  let _ghostHealAt = 0, _ghostHealBusy = false;
-  async function _healMyMemberNode(why){
-    const room = _roomCode, mid = _memberId, r = _myMemberRef;
-    if(!room || !mid || !r || !_myMemberData || _ghostHealBusy) return;
-    if(window._deviceSessionLost) return;
-    const now = Date.now();
-    if(now - _ghostHealAt < 15000) return;
-    _ghostHealBusy = true; _ghostHealAt = now;
-    try{
-      const mine = await get(ref(db, `rooms/${room}/${mid}/name`));
-      if(_roomCode !== room || _memberId !== mid) return;   // 그 사이 나갔다
-      if(mine.exists()){
-        /* 🔬 노드는 있는데 거부 = 값 형식이 규칙에 안 맞는다(예: customStatus.emo 4자 초과 — 합성 이모지 👨‍👩‍👧 는 8자 이상).
-           재등록으로는 못 고친다. 프로파일러의 «거부» 가 어느 쪽인지 가르는 진단 줄이다. */
-        console.warn('[ghost-heal] 노드는 있는데 거부됐다 — 값 형식 문제로 보인다 (' + why + ')');
-        return;
-      }
-      const othersAlive = !!(_roomLastFriends && Object.keys(_roomLastFriends).length);
-      if(!_roomMetaVal && !othersAlive){
-        console.warn('[ghost-heal] 방이 닫힌 것으로 보여 재등록하지 않는다 —', room, '(' + why + ')');
-        return;
-      }
-      await set(r, { ..._myMemberData, lastSeen: serverTimestamp() });
-      // 쓰기를 기다리는 사이 방을 나갔다면 — 노드는 나가기의 remove 가 뒤에 지운다. 예약·방 목록 갱신만 건너뛴다.
-      if(_roomCode !== room || _memberId !== mid) return;
-      onDisconnect(r).remove();
-      _touchRoomIndex(room);
-      console.warn('[ghost-heal] 내 멤버 노드가 사라져 재등록했다 —', room, '(' + why + ')');
-    }catch(_){
-    }finally{ _ghostHealBusy = false; }
-  }
+  /* 👻 방 «유령» 복구 — 구조와 이유는 room-ghost-heal.js 에 있다. 여기서는 이 파일의 방 상태를 넘겨 주기만 한다.
+     🚧 TODO(임시 처리): 사라진 뒤 되살리는 응급 처치다. 근본 해결(연결마다 다른 멤버 자리)은 room-ghost-heal.js 머리말 참고.
+     하트비트 · updateMe 의 update 가 거부되면 _healMyMemberNode 를 부른다(joinRoom · updateMe). */
+  const _healMyMemberNode = createGhostHeal({
+    db, ref, get, set, onDisconnect, serverTimestamp, touchRoomIndex: _touchRoomIndex,
+    state: () => ({ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,
+                    friends: _roomLastFriends, meta: _roomMetaVal }),
+  });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
