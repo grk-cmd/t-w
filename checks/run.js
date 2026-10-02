@@ -137,6 +137,13 @@ function stage(){
   const staged = new Set();
   mirror(ROOT, dir, staged);
   mirror(path.join(ROOT, 'app'), dir, staged);
+  // functions/ 는 node_modules 때문에 SKIP 이라, 맨 위 .js 만 스테이징의 functions/ 로 따로 복사한다.
+  const FN = path.join(ROOT, 'functions');
+  if (fs.existsSync(FN)){
+    fs.mkdirSync(path.join(dir, 'functions'), { recursive: true });
+    for (const e of fs.readdirSync(FN, { withFileTypes: true }))
+      if (e.isFile() && e.name.endsWith('.js')) fs.cpSync(path.join(FN, e.name), path.join(dir, 'functions', e.name));
+  }
   for (const e of fs.readdirSync(CHECKS, { withFileTypes: true })){
     /* ⚠️ 폴더는 건너뛴다. 재귀 옵션 없이 cpSync 에 폴더를 주면 던지고, 그러면
        **한 바퀴가 통째로 안 돈다.** 스테이징은 평면이어야 하므로 폴더는 애초에 대상이 아니다

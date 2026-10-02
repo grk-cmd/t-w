@@ -1,10 +1,8 @@
-/* ═══ 👻 sim-ghost-heal.js — 방 «유령» 복구 (2026-10-03 · 프로파일러 실측) ═══════════════════════════
-   [무엇을 보는가] 연결이 살아 있는 채로 내 멤버 노드가 사라지면(옛 소켓의 onDisconnect 가 늦게 실행 ·
-     같은 계정의 다른 기기가 정리) 하트비트 update 가 name/state 필수 규칙에 걸려 영원히 거부된다.
-     room-ghost-heal.js 가 «거부될 때만» 확인하고 재등록하는가, firebase-init.js 가 그걸 제대로 연결했는가를 본다.
-   ・1절: firebase-init.js — import · 상태 넘기기 · 하트비트 / updateMe 거부 → 복구 호출
-   ・2절: room-ghost-heal.js — 복구 판단을 가짜 DB 로 돌려 본다
-   [실행] firebase-init.js · room-ghost-heal.js 가 있는 폴더에서. */
+/*
+ * 방 유령 복구 검사.
+ * 1. firebase-init.js: 하트비트 · updateMe 거부 시 복구를 부르는가
+ * 2. room-ghost-heal.js: 복구 판단을 가짜 DB 로 돌린다
+ */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;

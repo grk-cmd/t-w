@@ -1,7 +1,6 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-/* 🔀 Firebase 실행 환경 — main.js 에 한 번 묻는다(동기 · 부팅 때 한 번). 'dev' 가 아니면 전부 운영(설치본은 늘 'prod').
-   묻지 못하면(검사 하네스 · 메인 핸들러 없음) 운영으로 본다. */
+// Firebase 프로젝트(main.js FIREBASE_ENV). 묻지 못하면 운영으로 본다.
 const FIREBASE_ENV = (() => { try{ return ipcRenderer.sendSync('companion:firebaseEnv') === 'dev' ? 'dev' : 'prod'; }catch(_){ return 'prod'; } })();
 
 contextBridge.exposeInMainWorld('companion', {

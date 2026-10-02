@@ -14,19 +14,16 @@ const { autoUpdater } = require('electron-updater');
    ⚠️ asar 안에서도 읽힌다(일렉트론이 asar 경로를 처리). 경로만 맞으면 개발/설치본 둘 다 동작. */
 const APP_ICON = path.join(__dirname, 'app', 'assets', 'icon', 'tw-icon.ico');
 
-/* 🔀 [2026-10-03] Firebase 실행 환경 스위치 — `npm run start:dev` 로 띄우면 렌더러가 dev Firebase(together-working-dev)에 붙는다.
-   운영 데이터를 건드리지 않고 로컬에서 로그인·방·규칙을 확인하려는 것. 예전엔 firebase-config.js 를 손으로 바꿨다가
-   되돌려야 했고, 잊고 커밋하면 정식 빌드가 dev 에 붙는 사고가 났다.
-   ★ 설치본(app.isPackaged)은 실행 인자·환경변수를 **무시**하고, 빌드 때 package.json 에 박힌 `twFirebase` 만 본다.
-     정식 빌드에는 이 값이 없어서 늘 운영이다. 프리릴리스(-beta) 빌드만 release.yml 이 `--config.extraMetadata.twFirebase=dev` 로 박는다.
-   전달: preload 가 시작할 때 ipcRenderer.sendSync('companion:firebaseEnv') 로 묻는다 → companion.firebaseEnv → firebase-config.js
-   ⚠️ webPreferences.additionalArguments 로 넘기지 말 것 — 이 앱의 투명 · 프레임 없는 창(Electron 44)에서 창이 화면에 안 올라왔다(2026-10-03 실측). */
+/* Firebase 프로젝트 선택 — 'dev' 면 together-working-dev, 아니면 운영.
+   - 개발 실행: `npm run start:dev`(--tw-firebase=dev) 또는 TW_FIREBASE=dev
+   - 설치본: 실행 인자를 무시하고 package.json 의 twFirebase 만 본다. 프리릴리스 빌드만 release.yml 이 'dev' 를 넣는다.
+   preload 가 동기 IPC 로 물어 간다. webPreferences.additionalArguments 로 넘기면 이 앱의 투명 창이 뜨지 않았다. */
 ipcMain.on('companion:firebaseEnv', (e) => { e.returnValue = FIREBASE_ENV; });
 const FIREBASE_ENV = app.isPackaged
-  ? (_pkgFirebaseEnv() === 'dev' ? 'dev' : 'prod')                                      // 설치본: 빌드 때 박은 표시만 본다(release.yml 프리릴리스)
-  : ((process.argv.includes('--tw-firebase=dev') || process.env.TW_FIREBASE === 'dev') ? 'dev' : 'prod');   // 개발 실행: npm run start:dev
+  ? (_pkgFirebaseEnv() === 'dev' ? 'dev' : 'prod')
+  : ((process.argv.includes('--tw-firebase=dev') || process.env.TW_FIREBASE === 'dev') ? 'dev' : 'prod');
 function _pkgFirebaseEnv(){ try{ return require('./package.json').twFirebase || null; }catch(_){ return null; } }
-if(FIREBASE_ENV === 'dev') console.log('[firebase-env] 🔀 dev Firebase(together-working-dev)로 실행한다');
+if(FIREBASE_ENV === 'dev') console.log('[firebase-env] dev Firebase(together-working-dev)로 실행');
 
 // 투명 창 지원 활성화 (이건 가벼움 — GPU 합성은 유지해서 렉 없음)
 app.commandLine.appendSwitch('enable-transparent-visuals');

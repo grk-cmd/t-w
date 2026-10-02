@@ -32,7 +32,9 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
-  import { createGhostHeal } from "./room-ghost-heal.js";   // 👻 방 유령 복구 (2026-10-03)
+  import { createGhostHeal } from "./room-ghost-heal.js";
+  import { createRoomIndex } from "./room-index.js";
+  import { createRoomStats } from "./room-stats.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -340,23 +342,18 @@
   /* 🗑️ _countLiveRooms 삭제됨 — rooms "전체 스냅샷"을 받아 세던 시절의 헬퍼.
      카운트가 roomIndex + 핀포인트 프로브(getRoomCounts)로 바뀌면서 전체 스냅샷을 받을 일이 없어짐.
      이 함수가 다시 필요해진다면 그건 어딘가에서 rooms 전체를 읽고 있다는 신호이므로 설계를 재검토할 것. */
-  /* 💰 roomIndex 유지 — 방 요약 노드(roomIndex/{code} = {channel, lastSeen})에 하트비트를 기록.
-     카운트(getRoomCounts)가 rooms 전체(멤버·아바타·chatLog 포함, 방당 수백 KB) 대신
-     이 노드(방당 수십 바이트)만 읽게 하기 위한 것. 쓰기 실패는 조용히 무시 — 카운트가 잠깐 어긋날 뿐. */
-  function _touchRoomIndex(room, extra){
-    // 🔒 시크릿룸(후원자 전용 고정방)은 인덱스에 기록하지 않는다 — getRoomCounts가 인덱스를 세므로
-    //    여기서 빠지는 것만으로 방 개수(정원)에 잡히지 않는다. 카운트 쪽에도 같은 가드가 한 겹 더 있다.
-    if(String(room||'').indexOf('SCRT-') === 0) return;
-    try{ update(ref(db, `roomIndex/${room}`), Object.assign({ lastSeen: serverTimestamp() }, extra || {})); }catch(_){}
-  }
-  /* 👻 방 «유령» 복구 — 구조와 이유는 room-ghost-heal.js 에 있다. 여기서는 이 파일의 방 상태를 넘겨 주기만 한다.
-     🚧 TODO(임시 처리): 사라진 뒤 되살리는 응급 처치다. 근본 해결(연결마다 다른 멤버 자리)은 room-ghost-heal.js 머리말 참고.
-     하트비트 · updateMe 의 update 가 거부되면 _healMyMemberNode 를 부른다(joinRoom · updateMe). */
+  const _roomIndex = createRoomIndex({
+    db, ref, update, serverTimestamp,
+    state: () => ({ room: _roomCode, meta: _roomMetaVal }),
+  });
+  function _touchRoomIndex(room, extra){ _roomIndex.touch(room, extra); }
+  // 하트비트 · updateMe 가 거부되면 부른다. TODO: 임시 처리 — room-ghost-heal.js 참고
   const _healMyMemberNode = createGhostHeal({
     db, ref, get, set, onDisconnect, serverTimestamp, touchRoomIndex: _touchRoomIndex,
     state: () => ({ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
+  const _roomStats = createRoomStats({ db, ref, get, onValue, now: () => _svNow() });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
@@ -2270,7 +2267,7 @@
              상대 화면에서 "레벨업 직후"로 오해된다). */
           const _hb = { lastSeen: serverTimestamp() };
           try{ if(typeof window.myExpCells === 'function') _hb.exp = window.myExpCells(); }catch(_){}
-          update(_myMemberRef, _hb).catch(()=>_healMyMemberNode('heartbeat'));   // 👻 거부 = 내 노드가 사라졌을 수 있다
+          update(_myMemberRef, _hb).catch(()=>_healMyMemberNode('heartbeat'));   // 거부되면 내 노드가 사라졌을 수 있다
           _touchRoomIndex(room);   // 💰 요약 노드 하트비트 — 카운트가 이 lastSeen(90초)으로 살아있는 방을 판정
         }
       }, 30000);
@@ -2404,8 +2401,16 @@
           → 구버전 클라이언트가 연 방(인덱스 미기록)도 정확히 세면서 rooms "전체 트리"는 절대 안 읽음.
           → 전 사용자가 업데이트되면 2)는 대상 0건이 되어 비용 없이 은퇴한다.
        lastSeen 90초 기준(하트비트 30초×3회 유실)은 화면 멤버 필터와 동일.
-       반환: { total, workingroom, togetherroom } (모든 소스 실패 시 각 null) */
-    async getRoomCounts(){
+       반환: { total, workingroom, togetherroom } (모든 소스 실패 시 각 null)
+       opts.quick: 화면 표시용. 서버가 세어 둔 roomStats 를 먼저 보고, 없으면 아래처럼 직접 센다.
+         최대 1분 늦고 2) 프로브를 안 타므로 정원 검사에는 쓰지 않는다. */
+    // 방 창이 열려 있는 동안 roomStats 를 구독한다. cb(counts | null), 돌려주는 함수로 끊는다.
+    watchRoomCounts(cb){ return _roomStats.watch(cb); },
+    async getRoomCounts(opts){
+      if(opts && opts.quick){
+        const qc = await _roomStats.counts();
+        if(qc) return qc;
+      }
       const now = _svNow(); const STALE = 90*1000;
       const out = { total:0, workingroom:0, togetherroom:0 };
       let anySource = false;
@@ -2483,6 +2488,8 @@
       try{
         const meta = { channel: channel||'workingroom', ts: serverTimestamp() };
         if(hostUserId) meta.host = hostUserId;   // ★ 방장 = 방을 만든 사람의 userId(사람 고정값 — 재접속해도 동일)
+        // open 도 _meta 에 둔다. 방 사람들의 하트비트가 roomIndex 줄을 되살릴 때 여기서 꺼내 싣는다(room-index.js).
+        if(open === true || open === false) meta.open = open;
         await update(ref(db, `rooms/${room}/_meta`), meta);
         const extra = { channel: channel||'workingroom' };
         if(open === true || open === false) extra.open = open;
@@ -2495,7 +2502,8 @@
          카드에 토글을 안 그리는 것과 함께 두 겹으로 막는다.
        · 정원·생존 확인은 하지 않는다(인덱스는 최대 90초 낡을 수 있다) — 부르는 쪽이
          checkRoomCapacity 로 확인하며 넘어간다.
-       반환: 섞은 코드 배열 / 조회 실패는 null / 후보 없음은 [] — 문구를 다르게 내려고 구분한다. */
+       반환: 섞은 코드 배열 / 조회 실패는 null / 후보 없음은 [] — 문구를 다르게 내려고 구분한다.
+       버튼을 누를 때만 도니 roomStats(최대 1분 늦음) 대신 직접 읽는다 — 방금 연 방도 후보에 나온다. */
     async findRandomRooms(limit){
       try{
         const snap = await get(ref(db, 'roomIndex'));
