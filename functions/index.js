@@ -3,7 +3,7 @@
    [설계 결정 10 · 개정 18 · CHECKS 개정 50] 휴지통 청소 예약 함수 — 아래 cleanTrash.
    [설계 §9-12 · 개정 23 · CHECKS 개정 55] 계정 스냅샷 옮기기 **일회용** 함수 — 아래 moveAccountSnap(확인 뒤 걷는다).
    [설계 §5-N+1 · 개정 26 · CHECKS 개정 58] 이관 창 재기 **읽기만 · 일회용** 함수 — 아래 countSlotsWindow(N+1 배포 뒤 걷는다).
-   [2026-10-03 · RTDB 트래픽 분석 §2-1] 열린 방 개수 요약 예약 함수(1분마다) — 아래 roomStats · 로직은 room-stats.js.
+   roomStats — 열린 방 개수 요약(1분마다). 로직은 room-stats.js.
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -268,9 +268,9 @@ exports.countSlotsWindow = onSchedule({ schedule: '10 5 1 1 *', timeZone: 'Asia/
   });
 
 
-/* ═══ 📊 roomStats — 열린 방 개수 요약 (1분마다). 로직과 이유는 room-stats.js ═══════════════════════════ */
+// 열린 방 개수 요약 — room-stats.js
 exports.roomStats = onSchedule({ schedule: 'every 1 minutes', timeoutSeconds: 60, retryCount: 0, maxInstances: 1 },
   async () => {
-    const { getDatabase } = require('firebase-admin/database');   // 늦게 읽기 — 맨 위 ⚠️
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
     await require('./room-stats').runRoomStats(getDatabase(), Date.now());
   });

@@ -32,9 +32,9 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
-  import { createGhostHeal } from "./room-ghost-heal.js";   // 👻 방 유령 복구 (2026-10-03)
-  import { createRoomIndex } from "./room-index.js";        // 💰 roomIndex 쓰기 (2026-10-03 분리)
-  import { createRoomStats } from "./room-stats.js";        // 📊 서버 방 개수 요약 읽기 (2026-10-03)
+  import { createGhostHeal } from "./room-ghost-heal.js";
+  import { createRoomIndex } from "./room-index.js";
+  import { createRoomStats } from "./room-stats.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -342,23 +342,17 @@
   /* 🗑️ _countLiveRooms 삭제됨 — rooms "전체 스냅샷"을 받아 세던 시절의 헬퍼.
      카운트가 roomIndex + 핀포인트 프로브(getRoomCounts)로 바뀌면서 전체 스냅샷을 받을 일이 없어짐.
      이 함수가 다시 필요해진다면 그건 어딘가에서 rooms 전체를 읽고 있다는 신호이므로 설계를 재검토할 것. */
-  /* 💰 roomIndex 쓰기 — 구조와 이유는 room-index.js 에 있다. 여기서는 방 상태를 넘겨 주기만 한다.
-     하트비트 · 재접속 · 유령 복구도 channel · open 을 같이 싣는다(서버 함수가 낡은 줄을 지운 뒤 되살아날 때 대비). */
   const _roomIndex = createRoomIndex({
     db, ref, get, update, serverTimestamp,
     state: () => ({ room: _roomCode, meta: _roomMetaVal }),
   });
   function _touchRoomIndex(room, extra){ _roomIndex.touch(room, extra); }
-  /* 👻 방 «유령» 복구 — 구조와 이유는 room-ghost-heal.js 에 있다. 여기서는 이 파일의 방 상태를 넘겨 주기만 한다.
-     🚧 TODO(임시 처리): 사라진 뒤 되살리는 응급 처치다. 근본 해결(연결마다 다른 멤버 자리)은 room-ghost-heal.js 머리말 참고.
-     하트비트 · updateMe 의 update 가 거부되면 _healMyMemberNode 를 부른다(joinRoom · updateMe). */
+  // 하트비트 · updateMe 가 거부되면 부른다. TODO: 임시 처리 — room-ghost-heal.js 참고
   const _healMyMemberNode = createGhostHeal({
     db, ref, get, set, onDisconnect, serverTimestamp, touchRoomIndex: _touchRoomIndex,
     state: () => ({ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
-  /* 📊 roomStats 읽기 — 서버(functions/room-stats.js)가 1분마다 세어 둔 요약. 구조와 이유는 room-stats.js.
-     없거나 3분 넘게 낡았으면 null → getRoomCounts · findRandomRooms 가 예전처럼 roomIndex 로 센다. */
   const _roomStats = createRoomStats({ db, ref, get, now: () => _svNow() });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
@@ -2064,7 +2058,7 @@
         defBytes: JSON.stringify(_myMemberData.def==null?'':_myMemberData.def).length };
         console.log('[def-diag] 입장 — 노드 '+window._defDiag.memberBytes+'B (그중 def '+window._defDiag.defBytes+'B)'); }catch(_){}
       _touchRoomIndex(room);   // 💰 카운트용 요약 노드 갱신 — getRoomCounts가 rooms 전체 대신 이걸 읽음
-      _roomIndex.rememberOpen(room);   // 📊 줄이 정리됐다 되살아날 때 open 을 다시 싣도록 한 칸(수 바이트)만 읽어 둔다
+      _roomIndex.rememberOpen(room);
       // 🧹 이전 세션/chatLog 정리는 아래 방 리스너의 "첫 스냅샷"에서 수행 —
       //   💰 예전엔 여기서 방 전체를 한 번 더 get()했는데(입장마다 전체 다운로드 1회 추가),
       //   리스너 초기 동기화가 어차피 같은 데이터를 통째로 받으므로 그 스냅샷을 재사용한다.
@@ -2274,7 +2268,7 @@
              상대 화면에서 "레벨업 직후"로 오해된다). */
           const _hb = { lastSeen: serverTimestamp() };
           try{ if(typeof window.myExpCells === 'function') _hb.exp = window.myExpCells(); }catch(_){}
-          update(_myMemberRef, _hb).catch(()=>_healMyMemberNode('heartbeat'));   // 👻 거부 = 내 노드가 사라졌을 수 있다
+          update(_myMemberRef, _hb).catch(()=>_healMyMemberNode('heartbeat'));   // 거부되면 내 노드가 사라졌을 수 있다
           _touchRoomIndex(room);   // 💰 요약 노드 하트비트 — 카운트가 이 lastSeen(90초)으로 살아있는 방을 판정
         }
       }, 30000);
@@ -2392,7 +2386,7 @@
       //   끝나기 전에 네트워크상 이미 날아오던 스냅샷을 받아도, 이 값들이 먼저 바뀌어 있어서 그 콜백 안의
       //   가드(_roomCode!==room / _memberId!==memberId)가 즉시 걸러줌.
       _roomRef=null; _roomQuery=null; _roomListener=null; _roomMetaRef=null; _roomMetaCb=null; _roomMetaVal=null; _roomLastFriends=null;
-      _roomIndex.reset();   // 📊 다시 들어오면 그때의 open 을 새로 읽는다
+      _roomIndex.reset();
       _myMemberRef=null; _myPokeRef=null; _myPokeListener=null; _memberId=null; _roomCode=null;
       _syncPresenceRoom(null);   // 방에서 나가면 친구 목록의 방코드 배지도 제거
       return done;
@@ -2410,10 +2404,8 @@
           → 전 사용자가 업데이트되면 2)는 대상 0건이 되어 비용 없이 은퇴한다.
        lastSeen 90초 기준(하트비트 30초×3회 유실)은 화면 멤버 필터와 동일.
        반환: { total, workingroom, togetherroom } (모든 소스 실패 시 각 null)
-       📊 opts.quick [2026-10-03] — 화면 표시용 30초 폴링은 서버(Functions roomStats)가 1분마다 세어 둔
-          숫자만 읽는다(roomIndex 약 24KB → 수백 바이트). roomStats 가 없거나 낡았으면 아래 원래 길로 센다.
-          ⚠️ 정원 검사(getRoomCount)는 quick 을 쓰지 않는다 — 최대 1분 늦은 숫자로 정원을 넘기면 안 된다.
-          ⚠️ quick 은 2) 마이그레이션 프로브를 안 탄다 — 인덱스를 안 쓰는 아주 옛 버전의 방은 표시에서만 빠진다. */
+       opts.quick: 화면 표시용. 서버가 세어 둔 roomStats 를 먼저 보고, 없으면 아래처럼 직접 센다.
+         최대 1분 늦고 2) 프로브를 안 타므로 정원 검사에는 쓰지 않는다. */
     async getRoomCounts(opts){
       if(opts && opts.quick){
         const qc = await _roomStats.counts();
@@ -2509,8 +2501,7 @@
        · 정원·생존 확인은 하지 않는다(인덱스는 최대 90초 낡을 수 있다) — 부르는 쪽이
          checkRoomCapacity 로 확인하며 넘어간다.
        반환: 섞은 코드 배열 / 조회 실패는 null / 후보 없음은 [] — 문구를 다르게 내려고 구분한다.
-       📊 [2026-10-03] roomStats.open(서버가 1분마다 섞어 30개까지 실어 둠)이 있으면 그걸 쓴다 — roomIndex 를 안 읽는다.
-          최대 1분 더 낡지만 부르는 쪽이 후보마다 checkRoomCapacity 로 확인하고 0명(죽은 방)은 건너뛴다. */
+       roomStats 에 후보가 있으면 그걸 쓴다(roomIndex 를 안 읽는다). */
     async findRandomRooms(limit){
       const fromStats = await _roomStats.randomOpen(limit);
       if(fromStats) return fromStats;

@@ -1,13 +1,7 @@
-/* ═══ 📊 sim-room-stats.js — 방 개수 서버 요약(roomStats) · roomIndex 쓰기 (2026-10-03 · RTDB 트래픽 분석 §2-1) ═════
-   [무엇을 보는가] 30초마다 roomIndex 전체(약 24KB)를 받아 세던 것을 서버 함수가 1분마다 세어 roomStats 에 둔다.
-   세 모듈을 **그대로 불러** 가짜 DB 로 돌린다(정규식으로 코드를 떼어 내지 않는다).
-   ・1절: functions/room-stats.js — 앱과 같은 기준으로 세는가 · 10분 지난 줄만 지우는가 · 지우기 트랜잭션
-   ・2절: room-index.js — 정리된 줄이 하트비트로 되살아날 때 channel · open 을 같이 싣는가
-          (안 실으면 투게더룸이 워킹룸으로 세어지고 랜덤 참여 방이 후보에서 빠진다)
-   ・3절: room-stats.js — 신선도 · 모양 판정 · 랜덤 후보
-   ・4절: firebase-init.js 연결 — import · 상태 넘기기 · quick 만 사용 · 규칙은 읽기만
-   [실행] 스테이징(run.js)에서 — firebase-init.js · room-index.js · room-stats.js · firebase-database-rules.json ·
-          functions/room-stats.js 가 있는 폴더. */
+/*
+ * roomStats(서버 방 개수 요약)와 roomIndex 쓰기 검사. 모듈을 그대로 불러 가짜 DB 로 돌린다.
+ * 1. functions/room-stats.js  2. room-index.js  3. room-stats.js  4. firebase-init.js 연결 · 규칙
+ */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -21,7 +15,7 @@ const RULES = need('firebase-database-rules.json');
 need('functions/room-stats.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(FI);
-// ESM 파일을 그대로 함수로 — export 만 떼어 낸다 (sim-ghost-heal.js 와 같은 방식)
+// ES 모듈을 export 만 떼고 함수로 불러온다
 const esm = (src, names) => new Function(src.replace(/^export (function|const) /mg, '$1 ') + `\nreturn { ${names} };`)();
 const tick = () => new Promise(r => setTimeout(r, 0));
 
@@ -49,7 +43,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     const many = {}; for(let i = 0; i < 50; i++) many['R' + i] = { lastSeen: now, open: true };
     chk(f.roomStatsFrom(many, now).stats.open.length === f.ROOM_OPEN_MAX, `랜덤 후보는 ${f.ROOM_OPEN_MAX}개까지만 싣는다`);
 
-    // runRoomStats — 가짜 Admin DB. 지우기 트랜잭션은 «서버 값»으로 판정해야 한다
+    // runRoomStats: 지우기 트랜잭션은 서버 값으로 판정해야 한다
     const mkDb = (idx, server) => {
       const L = { sets: [], tx: {} };
       const db = { ref: (p) => ({
@@ -57,8 +51,8 @@ const tick = () => new Promise(r => setTimeout(r, 0));
         set: async (v) => { L.sets.push([p, v]); },
         transaction: async (fn) => {
           const code = p.split('/')[1];
-          let r = fn(null);                                       // 첫 호출은 로컬 추측(null)
-          if(r === null && server[code] != null) r = fn(server[code]);   // 서버 값이 다르면 다시 불린다
+          let r = fn(null);                                       // 첫 호출은 로컬 추측값
+          if(r === null && server[code] != null) r = fn(server[code]);
           L.tx[code] = r;
           return { committed: r !== undefined };
         },

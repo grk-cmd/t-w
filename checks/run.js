@@ -137,8 +137,7 @@ function stage(){
   const staged = new Set();
   mirror(ROOT, dir, staged);
   mirror(path.join(ROOT, 'app'), dir, staged);
-  /* 📊 [2026-10-03] functions/ 는 SKIP(node_modules 때문)이라 원본이 안 올라온다. **맨 위 .js 만** functions/ 로 옮겨 둔다
-     — 함수의 순수 로직을 검사하려는 것(sim-room-stats.js). 평면에 두면 index.js 같은 흔한 이름이 겹친다. */
+  // functions/ 는 node_modules 때문에 SKIP 이라, 맨 위 .js 만 스테이징의 functions/ 로 따로 복사한다.
   const FN = path.join(ROOT, 'functions');
   if (fs.existsSync(FN)){
     fs.mkdirSync(path.join(dir, 'functions'), { recursive: true });

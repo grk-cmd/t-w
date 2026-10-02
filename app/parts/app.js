@@ -26544,8 +26544,8 @@ function _setDeskMatColor(m, color){
 
 /* ===== 관리자 모드 =====
    진입: Ctrl 누른 채로 "캐릭터 생성" 버튼을 3초 안에 5번 연타 → 비밀번호 prompt
-   비밀번호: 입력값의 SHA-256 을 ADMIN_PASS_HASH 와 비교한다. 비밀번호 자체는 코드 · 주석에 적지 않는다.
-   🚧 TODO: 비밀번호 교체 · 비밀번호 대신 로그인 계정의 admins 등록 여부(서버 판정)로 여는 방식 검토.
+   비밀번호: 입력값의 SHA-256 을 ADMIN_PASS_HASH 와 비교한다.
+   TODO: 비밀번호 교체. 비밀번호 대신 로그인 계정의 admins 등록 여부로 여는 방식 검토.
    세션 단위로만 유지 (브라우저 닫으면 자동 해제). 우상단에 🔧 배지 표시, 클릭하면 종료.
    관리자만 가능: 책상·아이템 코드 등록 (커미션 판매자 작업)
 */
@@ -32978,7 +32978,7 @@ async function refreshRoomCountOnce(){
   try{
     if(!window.firebaseAPI) return;
     // 💰 getRoomCounts = roomIndex(방당 수십 바이트) 1회 조회. 구버전 API만 있으면 폴백.
-    // 📊 [2026-10-03] quick — 서버가 세어 둔 roomStats(수백 바이트)를 먼저 본다. 30초마다 도는 표시용이라 1분 늦어도 된다.
+    // 표시용이라 서버가 세어 둔 값(quick)이면 충분하다.
     if(firebaseAPI.getRoomCounts){
       const c = await firebaseAPI.getRoomCounts({ quick: true });
       if(c && c.total != null) _liveRoomCount = c.total;
@@ -33141,7 +33141,7 @@ async function _refreshChannelPickUI(){
       // 💰 예전엔 getRoomCount(채널)×2 = rooms "전체 트리" 다운로드 2회(회당 ~1MB+)였음 —
       //    이 화면이 떠 있는 동안 30초마다 반복돼 RTDB 다운로드 폭증의 주범이었다.
       //    이제 roomIndex 1회 조회(수 KB 미만)로 전체+채널별 카운트를 한 번에 얻는다.
-      // 📊 [2026-10-03] 그 roomIndex 도 방이 늘어 24KB가 됐다 — quick 으로 서버 요약(roomStats)을 먼저 본다.
+      // 표시용이라 서버가 세어 둔 값(quick)이면 충분하다.
       const c = await firebaseAPI.getRoomCounts({ quick: true });
       const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${ROOM_LIMITS.workingroom}`;
       const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${ROOM_LIMITS.togetherroom}`;
