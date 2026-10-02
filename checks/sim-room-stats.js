@@ -46,41 +46,62 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(!('open' in stats), '랜덤 후보는 싣지 않는다 (랜덤 참여는 roomIndex 를 직접 읽는다)');
     chk(JSON.stringify(drop.slice().sort()) === '["D1","SCRT-B"]', `지울 줄 = 10분 넘은 것만 (${JSON.stringify(drop)})`);
 
-    // runRoomStats: 지우기 트랜잭션은 서버 값으로 판정해야 한다
-    const mkDb = (idx, server) => {
-      const L = { sets: [], tx: {} };
+    // runRoomStats — 가짜 Admin DB. get('roomIndex') 는 읽은 값, 트랜잭션은 경로별 서버 값(srv)으로 판정한다.
+    // 실제 SDK 처럼 첫 호출은 로컬 추측값(null)으로 부르고, null 을 돌려주면 서버 값으로 다시 부른다.
+    const mkDb = (read, server, stats) => {
+      const srv = Object.assign({}, server), L = { sets: [], stats, srv };
       const db = { ref: (p) => ({
-        get: async () => ({ val: () => (p === 'roomIndex' ? idx : null) }),
+        get: async () => ({ val: () => (p === 'roomIndex' ? read : (srv[p] !== undefined ? srv[p] : null)) }),
         transaction: async (fn) => {
           if(p === 'roomStats'){ const v = fn(L.stats); if(v !== undefined){ L.stats = v; L.sets.push([p, v]); } return { committed: v !== undefined }; }
-          const code = p.split('/')[1];
-          let r = fn(null);                                       // 첫 호출은 로컬 추측값
-          if(r === null && server[code] != null) r = fn(server[code]);
-          L.tx[code] = r;
-          return { committed: r !== undefined };
+          const cur = srv[p] !== undefined ? srv[p] : null;
+          let r = fn(null);
+          if(r === null && cur !== null) r = fn(cur);
+          if(r !== undefined){ if(r === null) delete srv[p]; else srv[p] = r; }
+          return { committed: r !== undefined, snapshot: { val: () => (r !== undefined ? r : cur) } };
         },
       }) };
       return { db, L };
     };
+    const quiet = async (fn) => { const q = console.log; console.log = () => {}; try{ return await fn(); } finally { console.log = q; } };
     const old = { lastSeen: now - 11 * 60 * 1000 };
-    const { db, L } = mkDb({ D1: old, D2: old }, { D1: old, D2: { lastSeen: now - 5000, channel: 'togetherroom' } });
-    const sum = await (async () => { const q = console.log; console.log = () => {}; try{ return await f.runRoomStats(db, now); } finally { console.log = q; } })();
+    let { db, L } = mkDb({ D1: old, D2: old }, { 'roomIndex/D1': old, 'roomIndex/D2': { lastSeen: now - 5000, channel: 'togetherroom' } });
+    let sum = await quiet(() => f.runRoomStats(db, now));
     chk(L.sets.length === 1 && L.sets[0][0] === 'roomStats', 'roomStats 를 한 번 쓴다');
+    chk(!('roomIndex/D1' in L.srv) && sum.dropped === 1, '서버 값도 낡았으면 지운다');
+    chk(!!L.srv['roomIndex/D2'] && sum.kept === 1, '그새 누가 다시 들어와 lastSeen 이 새로워졌으면 그만둔다');
+
+    // 지우기 전에 channel · open 을 _meta 로 옮겨 둔다
+    const gone = { lastSeen: now - 11 * 60 * 1000, channel: 'workingroom', open: true };
+    ({ db, L } = mkDb({ G1: gone, G2: gone }, { 'roomIndex/G1': gone, 'rooms/G1/_meta': { channel: 'workingroom', host: 'u1' }, 'roomIndex/G2': gone }));
+    await quiet(() => f.runRoomStats(db, now));
+    chk(L.srv['rooms/G1/_meta'] && L.srv['rooms/G1/_meta'].open === true && L.srv['rooms/G1/_meta'].host === 'u1' && !('roomIndex/G1' in L.srv),
+        '줄을 지우기 전에 빠진 open 을 _meta 에 옮겨 둔다 (있던 값은 그대로)');
+    chk(!('rooms/G2/_meta' in L.srv) && !('roomIndex/G2' in L.srv), '  ↳ _meta 가 없으면(정상 종료된 방) 새로 만들지 않는다');
+
+    // 되살아난 줄에 channel · open 이 빠졌으면 _meta 에서 채운다 (옛 판 앱이 { lastSeen } 만 쓴 경우)
+    const bare = { lastSeen: now - 1000 };
+    ({ db, L } = mkDb({ R1: bare, R2: bare }, { 'roomIndex/R1': bare, 'rooms/R1/_meta': { channel: 'togetherroom', open: false }, 'roomIndex/R2': bare }));
+    sum = await quiet(() => f.runRoomStats(db, now));
+    chk(L.srv['roomIndex/R1'].channel === 'togetherroom' && L.srv['roomIndex/R1'].open === false && sum.repaired === 1,
+        '되살아난 줄의 channel · open 을 _meta 에서 채운다');
+    chk(L.stats.togetherroom === 1 && L.stats.workingroom === 1, '  ↳ 채운 값으로 센다 (투게더룸이 워킹룸으로 세어지지 않는다)');
+    chk(!L.srv['roomIndex/R2'].channel, '  ↳ _meta 가 없으면 그대로 둔다');
+
+    {
+      ({ db, L } = mkDb({ D1: old, R1: bare }, { 'roomIndex/D1': old, 'roomIndex/R1': bare, 'rooms/R1/_meta': { channel: 'togetherroom' } },
+                        { workingroom: 9, togetherroom: 9, at: now + 5000 }));   // 더 늦게 읽은 실행이 먼저 썼다
+      const s2 = await f.runRoomStats(db, now, { drop: false });
+      chk(L.sets.length === 0 && L.stats.workingroom === 9, '겹친 실행: 더 늦게 읽은 값이 있으면 덮지 않는다');
+      chk(('roomIndex/D1' in L.srv) && !L.srv['roomIndex/R1'].channel && s2.dropped === 0 && s2.repaired === 0,
+          'drop:false(열림 · 닫힘 트리거)는 세기만 한다 — 지우기 · 채우기 없음');
+    }
     const FX = need('functions/index.js');
     chk(/exports\.roomStatsOnOpen = onValueCreated\(\{ ref: '\/roomIndex\/\{room\}'[\s\S]{0,300}runRoomStats\(getDatabase\(\), Date\.now\(\), \{ drop: false \}\)/.test(FX),
         '방이 열리면(roomIndex 줄 생성) 바로 다시 센다 — 줄 수정(하트비트)에는 반응하지 않는 onValueCreated');
     const close = FX.match(/exports\.roomStatsOnClose = onValueDeleted\(\{ ref: '\/roomIndex\/\{room\}'[\s\S]*?\n  \}\);/);
     chk(!!close && /runRoomStats\(getDatabase\(\), Date\.now\(\), \{ drop: false \}\)/.test(close[0]), '마지막 사람이 나가 줄이 지워지면 바로 다시 센다 (onValueDeleted)');
     chk(!!close && /if \(event\.authType === 'admin'\) return;[\s\S]*runRoomStats/.test(close[0]), "  ↳ 서버 청소(authType 'admin')가 지운 건 건너뛴다 — 수백 줄 청소가 수백 번 다시 세기가 되지 않게");
-    chk(L.tx.D1 === null && sum.dropped === 1, '서버 값도 낡았으면 지운다');
-    chk(L.tx.D2 === undefined && sum.kept === 1, '그새 누가 다시 들어와 lastSeen 이 새로워졌으면 그만둔다');
-    {
-      const { db: db2, L: L2 } = mkDb({ D1: old }, { D1: old });
-      L2.stats = { workingroom: 9, togetherroom: 9, at: now + 5000 };   // 더 늦게 읽은 실행이 먼저 썼다
-      const s2 = await f.runRoomStats(db2, now, { drop: false });
-      chk(L2.sets.length === 0 && L2.stats.workingroom === 9, '겹친 실행: 더 늦게 읽은 값이 있으면 덮지 않는다');
-      chk(Object.keys(L2.tx).length === 0 && s2.dropped === 0, 'drop:false(방 열림 트리거)는 줄을 지우지 않는다');
-    }
   }
 
   say('── 2. room-index.js (roomIndex 쓰기)');
