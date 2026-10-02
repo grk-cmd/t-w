@@ -71,7 +71,10 @@ say('── 3. 🎨 서식 태그의 배경색');
 say('── 4. 😑 스티커사진 눈 감기 짝');
 {
   const cc = strip(grab(SRC, '_pkCloneChar'));
-  chk(/const _cl = new Map\(\);/.test(cc) && /let c = _cl\.get\(m\); if\(!c\)\{ c = m\.clone\(\); _cl\.set\(m, c\); \}/.test(cc), '원본 재질 하나 → 복제본 하나');
+  /* [2026-10-03] 복제와 등록 사이에 색조 셰이더(_hueOBC) 옮기기가 들어왔다(제보 #8) — 한 줄 모양 대신
+     «표에 없을 때만 clone → 같은 if 안에서 set → 그 사본을 돌려준다» 를 본다. */
+  chk(/const _cl = new Map\(\);/.test(cc)
+      && /let c = _cl\.get\(m\);\s*if\(!c\)\{\s*c = m\.clone\(\);[\s\S]*?_cl\.set\(m, c\);\s*\}\s*return c;/.test(cc), '원본 재질 하나 → 복제본 하나');
   chk(/o\.material = Array\.isArray\(o\.material\) \? o\.material\.map\(_clone\) : _clone\(o\.material\);/.test(cc), '배열 재질도 같은 표');
   chk(/if\(srcFace && _cl\.has\(srcFace\)\) out\.faceMat = _cl\.get\(srcFace\);/.test(cc) && !/was === srcFace/.test(cc), '얼굴 짝은 표에서 한 번(«마지막 메시» 판정 없음)');
   chk(/ears\.push\(\{ mat:_cl\.get\(e\.mat\), fT:e\.fT, bT:e\.bT \}\)/.test(cc), '귀도 같은 표');

@@ -182,7 +182,9 @@ else {
         '⑥ 로그인 창에 preload 를 붙이지 않는다 (companion API 비노출)');
     chk(/contextIsolation:\s*true/.test(winOpts) && /nodeIntegration:\s*false/.test(winOpts),
         '⑥ contextIsolation 켜짐 · nodeIntegration 꺼짐');
-    chk(/on\('closed'[\s\S]{0,120}finish\(/.test(body),
+    /* [2026-10-03] 닫힘 처리 안에 실패 사유 판정(_gErrReason)과 주석이 들어와 120자를 넘었다 —
+       글자 수 대신 «closed 콜백 본문(다음 `});` 까지) 안에 finish( 가 있는가» 를 본다. */
+    chk(/on\('closed',\s*\(\)\s*=>\s*\{(?:(?!\}\);)[\s\S])*?finish\(/.test(body),
         '⑦ 유저가 창을 닫아도 invoke 가 끝난다 (버튼이 죽지 않는다)');
     chk(/let settled = false|settled\s*=\s*true/.test(body),
         '⑦ 결과가 두 번 돌아가지 않는다 (한 번만 resolve)');
