@@ -373,13 +373,20 @@
     try{
       const mine = await get(ref(db, `rooms/${room}/${mid}/name`));
       if(_roomCode !== room || _memberId !== mid) return;   // 그 사이 나갔다
-      if(mine.exists()) return;
+      if(mine.exists()){
+        /* 🔬 노드는 있는데 거부 = 값 형식이 규칙에 안 맞는다(예: customStatus.emo 4자 초과 — 합성 이모지 👨‍👩‍👧 는 8자 이상).
+           재등록으로는 못 고친다. 프로파일러의 «거부» 가 어느 쪽인지 가르는 진단 줄이다. */
+        console.warn('[ghost-heal] 노드는 있는데 거부됐다 — 값 형식 문제로 보인다 (' + why + ')');
+        return;
+      }
       const othersAlive = !!(_roomLastFriends && Object.keys(_roomLastFriends).length);
       if(!_roomMetaVal && !othersAlive){
         console.warn('[ghost-heal] 방이 닫힌 것으로 보여 재등록하지 않는다 —', room, '(' + why + ')');
         return;
       }
       await set(r, { ..._myMemberData, lastSeen: serverTimestamp() });
+      // 쓰기를 기다리는 사이 방을 나갔다면 — 노드는 나가기의 remove 가 뒤에 지운다. 예약·방 목록 갱신만 건너뛴다.
+      if(_roomCode !== room || _memberId !== mid) return;
       onDisconnect(r).remove();
       _touchRoomIndex(room);
       console.warn('[ghost-heal] 내 멤버 노드가 사라져 재등록했다 —', room, '(' + why + ')');
