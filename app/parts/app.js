@@ -32978,8 +32978,9 @@ async function refreshRoomCountOnce(){
   try{
     if(!window.firebaseAPI) return;
     // 💰 getRoomCounts = roomIndex(방당 수십 바이트) 1회 조회. 구버전 API만 있으면 폴백.
+    // 📊 [2026-10-03] quick — 서버가 세어 둔 roomStats(수백 바이트)를 먼저 본다. 30초마다 도는 표시용이라 1분 늦어도 된다.
     if(firebaseAPI.getRoomCounts){
-      const c = await firebaseAPI.getRoomCounts();
+      const c = await firebaseAPI.getRoomCounts({ quick: true });
       if(c && c.total != null) _liveRoomCount = c.total;
     } else if(firebaseAPI.getRoomCount){
       _liveRoomCount = await firebaseAPI.getRoomCount();
@@ -33140,7 +33141,8 @@ async function _refreshChannelPickUI(){
       // 💰 예전엔 getRoomCount(채널)×2 = rooms "전체 트리" 다운로드 2회(회당 ~1MB+)였음 —
       //    이 화면이 떠 있는 동안 30초마다 반복돼 RTDB 다운로드 폭증의 주범이었다.
       //    이제 roomIndex 1회 조회(수 KB 미만)로 전체+채널별 카운트를 한 번에 얻는다.
-      const c = await firebaseAPI.getRoomCounts();
+      // 📊 [2026-10-03] 그 roomIndex 도 방이 늘어 24KB가 됐다 — quick 으로 서버 요약(roomStats)을 먼저 본다.
+      const c = await firebaseAPI.getRoomCounts({ quick: true });
       const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${ROOM_LIMITS.workingroom}`;
       const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${ROOM_LIMITS.togetherroom}`;
       if(c.total!=null){ _liveRoomCount = c.total; _updateRoomCountUI(); }   // 전체 문구도 같은 조회로 함께 갱신

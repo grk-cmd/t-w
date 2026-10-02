@@ -357,6 +357,20 @@
     state: () => ({ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
+  /* 📊 roomStats 읽기 [2026-10-03] — 서버(functions/index.js roomStats)가 1분마다 세어 두는 요약.
+     { workingroom, togetherroom, open:[코드], at } 를 받아, 모양이 맞고 3분 안에 쓴 것일 때만 돌려준다.
+     없음(함수 배포 전)·규칙 거부(규칙 배포 전)·낡음(함수 멈춤)이면 null → 부르는 쪽이 roomIndex 로 물러난다.
+     ★ open 이 비어 있으면 RTDB 는 그 키를 저장하지 않는다 — 없으면 [] 로 본다(모양 틀림이 아니다). */
+  const ROOM_STATS_FRESH_MS = 3*60*1000;
+  async function _readRoomStats(){
+    try{
+      const s = (await get(ref(db, 'roomStats'))).val();
+      if(!s || typeof s.at !== 'number' || (_svNow() - s.at) >= ROOM_STATS_FRESH_MS) return null;
+      if(typeof s.workingroom !== 'number' || typeof s.togetherroom !== 'number') return null;
+      const open = (s.open == null) ? [] : (Array.isArray(s.open) ? s.open : Object.values(s.open));
+      return { workingroom: s.workingroom, togetherroom: s.togetherroom, open };
+    }catch(_){ return null; }
+  }
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
@@ -2404,8 +2418,16 @@
           → 구버전 클라이언트가 연 방(인덱스 미기록)도 정확히 세면서 rooms "전체 트리"는 절대 안 읽음.
           → 전 사용자가 업데이트되면 2)는 대상 0건이 되어 비용 없이 은퇴한다.
        lastSeen 90초 기준(하트비트 30초×3회 유실)은 화면 멤버 필터와 동일.
-       반환: { total, workingroom, togetherroom } (모든 소스 실패 시 각 null) */
-    async getRoomCounts(){
+       반환: { total, workingroom, togetherroom } (모든 소스 실패 시 각 null)
+       📊 opts.quick [2026-10-03] — 화면 표시용 30초 폴링은 서버(Functions roomStats)가 1분마다 세어 둔
+          숫자만 읽는다(roomIndex 약 24KB → 수백 바이트). roomStats 가 없거나 낡았으면 아래 원래 길로 센다.
+          ⚠️ 정원 검사(getRoomCount)는 quick 을 쓰지 않는다 — 최대 1분 늦은 숫자로 정원을 넘기면 안 된다.
+          ⚠️ quick 은 2) 마이그레이션 프로브를 안 탄다 — 인덱스를 안 쓰는 아주 옛 버전의 방은 표시에서만 빠진다. */
+    async getRoomCounts(opts){
+      if(opts && opts.quick){
+        const st = await _readRoomStats();
+        if(st) return { total: st.workingroom + st.togetherroom, workingroom: st.workingroom, togetherroom: st.togetherroom };
+      }
       const now = _svNow(); const STALE = 90*1000;
       const out = { total:0, workingroom:0, togetherroom:0 };
       let anySource = false;
@@ -2495,8 +2517,16 @@
          카드에 토글을 안 그리는 것과 함께 두 겹으로 막는다.
        · 정원·생존 확인은 하지 않는다(인덱스는 최대 90초 낡을 수 있다) — 부르는 쪽이
          checkRoomCapacity 로 확인하며 넘어간다.
-       반환: 섞은 코드 배열 / 조회 실패는 null / 후보 없음은 [] — 문구를 다르게 내려고 구분한다. */
+       반환: 섞은 코드 배열 / 조회 실패는 null / 후보 없음은 [] — 문구를 다르게 내려고 구분한다.
+       📊 [2026-10-03] roomStats.open(서버가 1분마다 섞어 30개까지 실어 둠)이 있으면 그걸 쓴다 — roomIndex 를 안 읽는다.
+          최대 1분 더 낡지만 부르는 쪽이 후보마다 checkRoomCapacity 로 확인하고 0명(죽은 방)은 건너뛴다. */
     async findRandomRooms(limit){
+      const st = await _readRoomStats();
+      if(st && Array.isArray(st.open)){
+        const out = st.open.filter(c => typeof c === 'string' && c.indexOf('SCRT-') !== 0);
+        for(let i=out.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); const t=out[i]; out[i]=out[j]; out[j]=t; }
+        return (limit > 0) ? out.slice(0, limit) : out;
+      }
       try{
         const snap = await get(ref(db, 'roomIndex'));
         const idx = snap.val() || {};
