@@ -33,6 +33,8 @@
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
   import { createGhostHeal } from "./room-ghost-heal.js";   // 👻 방 유령 복구 (2026-10-03)
+  import { createRoomIndex } from "./room-index.js";        // 💰 roomIndex 쓰기 (2026-10-03 분리)
+  import { createRoomStats } from "./room-stats.js";        // 📊 서버 방 개수 요약 읽기 (2026-10-03)
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -340,39 +342,13 @@
   /* 🗑️ _countLiveRooms 삭제됨 — rooms "전체 스냅샷"을 받아 세던 시절의 헬퍼.
      카운트가 roomIndex + 핀포인트 프로브(getRoomCounts)로 바뀌면서 전체 스냅샷을 받을 일이 없어짐.
      이 함수가 다시 필요해진다면 그건 어딘가에서 rooms 전체를 읽고 있다는 신호이므로 설계를 재검토할 것. */
-  /* 💰 roomIndex 유지 — 방 요약 노드(roomIndex/{code} = {channel, lastSeen})에 하트비트를 기록.
-     카운트(getRoomCounts)가 rooms 전체(멤버·아바타·chatLog 포함, 방당 수백 KB) 대신
-     이 노드(방당 수십 바이트)만 읽게 하기 위한 것. 쓰기 실패는 조용히 무시 — 카운트가 잠깐 어긋날 뿐. */
-  function _touchRoomIndex(room, extra){
-    // 🔒 시크릿룸(후원자 전용 고정방)은 인덱스에 기록하지 않는다 — getRoomCounts가 인덱스를 세므로
-    //    여기서 빠지는 것만으로 방 개수(정원)에 잡히지 않는다. 카운트 쪽에도 같은 가드가 한 겹 더 있다.
-    if(String(room||'').indexOf('SCRT-') === 0) return;
-    try{ update(ref(db, `roomIndex/${room}`), Object.assign({ lastSeen: serverTimestamp() }, _roomIndexKeep(room), extra || {})); }catch(_){}
-  }
-  /* 📊 [2026-10-03] 하트비트 · 재접속 · 유령 복구도 channel · open 을 같이 싣는다.
-     서버 함수 roomStats(functions/index.js)가 10분 넘게 조용한 roomIndex 줄을 지운다 — 방 사람들이 다 절전했다가
-     깨어나면 하트비트가 { lastSeen } 만으로 줄을 새로 만들어, 투게더룸이 워킹룸으로 세어지고(정원 검사 포함)
-     랜덤 참여 방이 후보에서 빠졌다. channel 과 open 을 쓰는 곳이 방을 열 때(setRoomChannel)뿐이었기 때문이다.
-     · channel — 지금 방의 _meta 구독 값(_roomMetaVal). 없으면(옛 방 · 메타 도착 전) 싣지 않는다.
-     · open    — roomIndex 에만 있는 값이라, 입장 때 그 한 칸을 읽어 두거나 setRoomChannel 이 쓴 값을 기억한다.
-                 ⚠️ 명시적 boolean 일 때만 싣는다(setRoomChannel 주석과 같은 이유). 업로드라 다운로드 요금은 그대로다. */
-  let _roomOpenMemo = { room: null, open: null };
-  function _roomIndexKeep(room){
-    const out = {};
-    if(room !== _roomCode) return out;   // 지금 있는 방이 아니면 아무것도 덧붙이지 않는다
-    const ch = _roomMetaVal && _roomMetaVal.channel;
-    if(ch === 'workingroom' || ch === 'togetherroom') out.channel = ch;
-    if(_roomOpenMemo.room === room && (_roomOpenMemo.open === true || _roomOpenMemo.open === false)) out.open = _roomOpenMemo.open;
-    return out;
-  }
-  function _rememberRoomOpen(room){
-    if(_roomOpenMemo.room === room) return;   // setRoomChannel 이 먼저 기억했다 — 그 값이 더 새롭다
-    get(ref(db, `roomIndex/${room}/open`)).then(s => {
-      if(_roomCode !== room || _roomOpenMemo.room === room) return;
-      const v = s.val();
-      if(v === true || v === false) _roomOpenMemo = { room, open: v };
-    }).catch(()=>{});
-  }
+  /* 💰 roomIndex 쓰기 — 구조와 이유는 room-index.js 에 있다. 여기서는 방 상태를 넘겨 주기만 한다.
+     하트비트 · 재접속 · 유령 복구도 channel · open 을 같이 싣는다(서버 함수가 낡은 줄을 지운 뒤 되살아날 때 대비). */
+  const _roomIndex = createRoomIndex({
+    db, ref, get, update, serverTimestamp,
+    state: () => ({ room: _roomCode, meta: _roomMetaVal }),
+  });
+  function _touchRoomIndex(room, extra){ _roomIndex.touch(room, extra); }
   /* 👻 방 «유령» 복구 — 구조와 이유는 room-ghost-heal.js 에 있다. 여기서는 이 파일의 방 상태를 넘겨 주기만 한다.
      🚧 TODO(임시 처리): 사라진 뒤 되살리는 응급 처치다. 근본 해결(연결마다 다른 멤버 자리)은 room-ghost-heal.js 머리말 참고.
      하트비트 · updateMe 의 update 가 거부되면 _healMyMemberNode 를 부른다(joinRoom · updateMe). */
@@ -381,20 +357,9 @@
     state: () => ({ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
-  /* 📊 roomStats 읽기 [2026-10-03] — 서버(functions/index.js roomStats)가 1분마다 세어 두는 요약.
-     { workingroom, togetherroom, open:[코드], at } 를 받아, 모양이 맞고 3분 안에 쓴 것일 때만 돌려준다.
-     없음(함수 배포 전)·규칙 거부(규칙 배포 전)·낡음(함수 멈춤)이면 null → 부르는 쪽이 roomIndex 로 물러난다.
-     ★ open 이 비어 있으면 RTDB 는 그 키를 저장하지 않는다 — 없으면 [] 로 본다(모양 틀림이 아니다). */
-  const ROOM_STATS_FRESH_MS = 3*60*1000;
-  async function _readRoomStats(){
-    try{
-      const s = (await get(ref(db, 'roomStats'))).val();
-      if(!s || typeof s.at !== 'number' || (_svNow() - s.at) >= ROOM_STATS_FRESH_MS) return null;
-      if(typeof s.workingroom !== 'number' || typeof s.togetherroom !== 'number') return null;
-      const open = (s.open == null) ? [] : (Array.isArray(s.open) ? s.open : Object.values(s.open));
-      return { workingroom: s.workingroom, togetherroom: s.togetherroom, open };
-    }catch(_){ return null; }
-  }
+  /* 📊 roomStats 읽기 — 서버(functions/room-stats.js)가 1분마다 세어 둔 요약. 구조와 이유는 room-stats.js.
+     없거나 3분 넘게 낡았으면 null → getRoomCounts · findRandomRooms 가 예전처럼 roomIndex 로 센다. */
+  const _roomStats = createRoomStats({ db, ref, get, now: () => _svNow() });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
@@ -2099,7 +2064,7 @@
         defBytes: JSON.stringify(_myMemberData.def==null?'':_myMemberData.def).length };
         console.log('[def-diag] 입장 — 노드 '+window._defDiag.memberBytes+'B (그중 def '+window._defDiag.defBytes+'B)'); }catch(_){}
       _touchRoomIndex(room);   // 💰 카운트용 요약 노드 갱신 — getRoomCounts가 rooms 전체 대신 이걸 읽음
-      _rememberRoomOpen(room); // 📊 줄이 정리됐다 되살아날 때 open 을 다시 싣도록 한 칸(수 바이트)만 읽어 둔다
+      _roomIndex.rememberOpen(room);   // 📊 줄이 정리됐다 되살아날 때 open 을 다시 싣도록 한 칸(수 바이트)만 읽어 둔다
       // 🧹 이전 세션/chatLog 정리는 아래 방 리스너의 "첫 스냅샷"에서 수행 —
       //   💰 예전엔 여기서 방 전체를 한 번 더 get()했는데(입장마다 전체 다운로드 1회 추가),
       //   리스너 초기 동기화가 어차피 같은 데이터를 통째로 받으므로 그 스냅샷을 재사용한다.
@@ -2427,7 +2392,7 @@
       //   끝나기 전에 네트워크상 이미 날아오던 스냅샷을 받아도, 이 값들이 먼저 바뀌어 있어서 그 콜백 안의
       //   가드(_roomCode!==room / _memberId!==memberId)가 즉시 걸러줌.
       _roomRef=null; _roomQuery=null; _roomListener=null; _roomMetaRef=null; _roomMetaCb=null; _roomMetaVal=null; _roomLastFriends=null;
-      _roomOpenMemo = { room: null, open: null };   // 📊 다시 들어오면 그때의 값을 새로 읽는다
+      _roomIndex.reset();   // 📊 다시 들어오면 그때의 open 을 새로 읽는다
       _myMemberRef=null; _myPokeRef=null; _myPokeListener=null; _memberId=null; _roomCode=null;
       _syncPresenceRoom(null);   // 방에서 나가면 친구 목록의 방코드 배지도 제거
       return done;
@@ -2451,8 +2416,8 @@
           ⚠️ quick 은 2) 마이그레이션 프로브를 안 탄다 — 인덱스를 안 쓰는 아주 옛 버전의 방은 표시에서만 빠진다. */
     async getRoomCounts(opts){
       if(opts && opts.quick){
-        const st = await _readRoomStats();
-        if(st) return { total: st.workingroom + st.togetherroom, workingroom: st.workingroom, togetherroom: st.togetherroom };
+        const qc = await _roomStats.counts();
+        if(qc) return qc;
       }
       const now = _svNow(); const STALE = 90*1000;
       const out = { total:0, workingroom:0, togetherroom:0 };
@@ -2533,7 +2498,7 @@
         if(hostUserId) meta.host = hostUserId;   // ★ 방장 = 방을 만든 사람의 userId(사람 고정값 — 재접속해도 동일)
         await update(ref(db, `rooms/${room}/_meta`), meta);
         const extra = { channel: channel||'workingroom' };
-이        if(open === true || open === false){ extra.open = open; _roomOpenMemo = { room, open }; }
+        if(open === true || open === false){ extra.open = open; _roomIndex.setOpen(room, open); }
         _touchRoomIndex(room, extra);   // 💰 채널별 카운트가 인덱스만 읽으면 되게
       }catch(_){}
     },
@@ -2547,12 +2512,8 @@
        📊 [2026-10-03] roomStats.open(서버가 1분마다 섞어 30개까지 실어 둠)이 있으면 그걸 쓴다 — roomIndex 를 안 읽는다.
           최대 1분 더 낡지만 부르는 쪽이 후보마다 checkRoomCapacity 로 확인하고 0명(죽은 방)은 건너뛴다. */
     async findRandomRooms(limit){
-      const st = await _readRoomStats();
-      if(st && Array.isArray(st.open)){
-        const out = st.open.filter(c => typeof c === 'string' && c.indexOf('SCRT-') !== 0);
-        for(let i=out.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); const t=out[i]; out[i]=out[j]; out[j]=t; }
-        return (limit > 0) ? out.slice(0, limit) : out;
-      }
+      const fromStats = await _roomStats.randomOpen(limit);
+      if(fromStats) return fromStats;
       try{
         const snap = await get(ref(db, 'roomIndex'));
         const idx = snap.val() || {};

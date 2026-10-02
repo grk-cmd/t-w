@@ -1,103 +1,154 @@
-/* ═══ 📊 sim-room-stats.js — 방 개수 서버 요약(roomStats) (2026-10-03 · RTDB 트래픽 분석 §2-1) ═══════════════
+/* ═══ 📊 sim-room-stats.js — 방 개수 서버 요약(roomStats) · roomIndex 쓰기 (2026-10-03 · RTDB 트래픽 분석 §2-1) ═════
    [무엇을 보는가] 30초마다 roomIndex 전체(약 24KB)를 받아 세던 것을 서버 함수가 1분마다 세어 roomStats 에 둔다.
-   ・1절: functions/index.js roomStatsFrom — 앱 getRoomCounts 와 같은 기준으로 세는가 · 10분 지난 줄만 지우는가
-   ・2절: firebase-init.js — 정리된 줄이 하트비트로 되살아날 때 channel · open 을 같이 싣는가
+   세 모듈을 **그대로 불러** 가짜 DB 로 돌린다(정규식으로 코드를 떼어 내지 않는다).
+   ・1절: functions/room-stats.js — 앱과 같은 기준으로 세는가 · 10분 지난 줄만 지우는가 · 지우기 트랜잭션
+   ・2절: room-index.js — 정리된 줄이 하트비트로 되살아날 때 channel · open 을 같이 싣는가
           (안 실으면 투게더룸이 워킹룸으로 세어지고 랜덤 참여 방이 후보에서 빠진다)
-   ・3절: 앱이 roomStats 를 읽는 자리 — 화면 표시(quick)만 쓰고 정원 검사는 안 쓴다 · 규칙은 읽기만
-   [실행] 스테이징(run.js)에서 — firebase-init.js · firebase-database-rules.json · functions/index.js 가 있는 폴더. */
+   ・3절: room-stats.js — 신선도 · 모양 판정 · 랜덤 후보
+   ・4절: firebase-init.js 연결 — import · 상태 넘기기 · quick 만 사용 · 규칙은 읽기만
+   [실행] 스테이징(run.js)에서 — firebase-init.js · room-index.js · room-stats.js · firebase-database-rules.json ·
+          functions/room-stats.js 가 있는 폴더. */
 'use strict';
 const fs = require('fs');
+const path = require('path');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const FI = read('firebase-init.js'), FN = read('functions/index.js'), RULES = read('firebase-database-rules.json');
-if(!FI){ say('  ? 원본 못 찾음 — firebase-init.js'); process.exit(2); }
-if(!RULES){ say('  ? 원본 못 찾음 — firebase-database-rules.json'); process.exit(2); }
-if(!FN){ say('  ? 원본 못 찾음 — functions/index.js'); process.exit(2); }
+const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
+const FI = need('firebase-init.js'), RI = need('room-index.js'), RS = need('room-stats.js');
+const RULES = need('firebase-database-rules.json');
+need('functions/room-stats.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(FI);
+// ESM 파일을 그대로 함수로 — export 만 떼어 낸다 (sim-ghost-heal.js 와 같은 방식)
+const esm = (src, names) => new Function(src.replace(/^export (function|const) /mg, '$1 ') + `\nreturn { ${names} };`)();
+const tick = () => new Promise(r => setTimeout(r, 0));
 
-say('── 1. functions/index.js roomStatsFrom (순수 함수를 떼어 돌린다)');
-{
-  const m = FN.match(/const ROOM_LIVE_MS[\s\S]*?\nfunction roomStatsFrom[\s\S]*?\n}\n/);
-  chk(!!m, 'roomStatsFrom 과 상수를 찾았다');
-  if(m){
-    const f = new Function(m[0] + '\nreturn { roomStatsFrom, ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_OPEN_MAX };')();
+(async () => {
+  say('── 1. functions/room-stats.js (서버 집계)');
+  {
+    const f = require(path.resolve('functions/room-stats.js'));
     const now = 1e9;
     chk(f.ROOM_LIVE_MS === 90 * 1000, '살아 있는 방 기준 90초 — 앱 getRoomCounts 의 STALE 과 같다');
     chk(/const STALE = 90\*1000;/.test(CODE), '  ↳ 앱 쪽도 아직 90초다 (한쪽만 바꾸면 숫자가 어긋난다)');
     const { stats, drop } = f.roomStatsFrom({
       W1: { lastSeen: now - 1000, channel: 'workingroom', open: true },
-      W2: { lastSeen: now - 1000 },                                   // channel 없음 → 워킹룸(앱과 같음)
-      T1: { lastSeen: now - 1000, channel: 'togetherroom', open: true }, // 투게더룸은 랜덤 후보 아님
+      W2: { lastSeen: now - 1000 },                                        // channel 없음 → 워킹룸(앱과 같음)
+      T1: { lastSeen: now - 1000, channel: 'togetherroom', open: true },   // 투게더룸은 랜덤 후보 아님
       S1: { lastSeen: now - 100 * 1000, channel: 'workingroom', open: true }, // 90초 넘음 — 안 셈 · 안 지움
       D1: { lastSeen: now - 11 * 60 * 1000, channel: 'togetherroom' },     // 10분 넘음 — 지움
-      'SCRT-A': { lastSeen: now - 1000, channel: 'togetherroom' },        // 시크릿룸 — 안 셈
-      'SCRT-B': { lastSeen: now - 11 * 60 * 1000 },                        // 낡은 시크릿룸 줄 — 지움
+      'SCRT-A': { lastSeen: now - 1000, channel: 'togetherroom' },          // 시크릿룸 — 안 셈
+      'SCRT-B': { lastSeen: now - 11 * 60 * 1000 },                         // 낡은 시크릿룸 줄 — 지움
       BAD: 'x', NOTS: { channel: 'workingroom' },
     }, now, () => 0);
     chk(stats.workingroom === 2 && stats.togetherroom === 1, `채널별 개수 (워킹 ${stats.workingroom} · 투게더 ${stats.togetherroom}) = 2 · 1`);
     chk(stats.at === now, 'at = 센 시각 (앱이 3분 넘게 낡으면 무시)');
     chk(JSON.stringify(stats.open) === '["W1"]', `랜덤 후보 = 열린 워킹룸만 (${JSON.stringify(stats.open)})`);
-    chk(JSON.stringify(drop.sort()) === '["D1","SCRT-B"]', `지울 줄 = 10분 넘은 것만 (${JSON.stringify(drop)})`);
+    chk(JSON.stringify(drop.slice().sort()) === '["D1","SCRT-B"]', `지울 줄 = 10분 넘은 것만 (${JSON.stringify(drop)})`);
     const many = {}; for(let i = 0; i < 50; i++) many['R' + i] = { lastSeen: now, open: true };
     chk(f.roomStatsFrom(many, now).stats.open.length === f.ROOM_OPEN_MAX, `랜덤 후보는 ${f.ROOM_OPEN_MAX}개까지만 싣는다`);
-  }
-  chk(/transaction\(cur => \{\s*if \(cur === null\) return null;\s*if \(Number\(cur\.lastSeen\) < cutoff\) return null;\s*return;/.test(FN),
-      '지우기는 트랜잭션 — 그새 lastSeen 이 새로워졌으면 그만둔다');
-  chk(/exports\.roomStats = onSchedule\(\{ schedule: 'every 1 minutes'/.test(FN), '1분마다 도는 예약 함수로 내보낸다');
-}
 
-say('── 2. firebase-init.js — 되살아난 줄에 channel · open');
-{
-  chk(/update\(ref\(db, `roomIndex\/\$\{room\}`\), Object\.assign\(\{ lastSeen: serverTimestamp\(\) \}, _roomIndexKeep\(room\), extra \|\| \{\}\)\)/.test(CODE),
-      '_touchRoomIndex 가 _roomIndexKeep 을 섞는다 (하트비트 · 재접속 · 유령 복구가 모두 이 길)');
-  // _roomIndexKeep · _rememberRoomOpen 을 떼어 가짜 상태로 돌린다
-  const k = CODE.match(/let _roomOpenMemo = [\s\S]*?\n  function _rememberRoomOpen\(room\)\{[\s\S]*?\n  \}\n/);
-  chk(!!k, '_roomIndexKeep · _rememberRoomOpen 을 찾았다');
-  if(k){
-    const mk = new Function('env', `let _roomCode = env.room, _roomMetaVal = env.meta;
-      const ref = (_d, p) => p, db = null;
-      const get = (p) => { env.reads.push(p); return Promise.resolve({ val: () => env.open }); };
-      ${k[0]}
-      return { keep: _roomIndexKeep, remember: _rememberRoomOpen, setMemo: (m) => { _roomOpenMemo = m; }, setRoom: (r) => { _roomCode = r; } };`);
-    const run = async () => {
-      let env = { room: 'COZY-1', meta: { channel: 'togetherroom' }, open: true, reads: [] };
-      let t = mk(env);
-      chk(JSON.stringify(t.keep('COZY-1')) === '{"channel":"togetherroom"}', 'open 을 모를 때는 channel 만 싣는다 (false 로 덮지 않는다)');
-      t.remember('COZY-1'); await new Promise(r => setTimeout(r, 0));
-      chk(env.reads.length === 1 && env.reads[0] === 'roomIndex/COZY-1/open', '입장 때 open 한 칸만 읽는다');
-      chk(JSON.stringify(t.keep('COZY-1')) === '{"channel":"togetherroom","open":true}', '읽은 뒤엔 channel · open 을 같이 싣는다');
-      chk(JSON.stringify(t.keep('OTHER')) === '{}', '지금 방이 아닌 코드에는 아무것도 덧붙이지 않는다');
-      env = { room: 'COZY-1', meta: null, open: null, reads: [] }; t = mk(env);
-      t.remember('COZY-1'); await new Promise(r => setTimeout(r, 0));
-      chk(JSON.stringify(t.keep('COZY-1')) === '{}', '메타 도착 전 · open 없음 → 예전처럼 lastSeen 만');
-      env = { room: 'COZY-1', meta: { channel: 'workingroom' }, open: true, reads: [] }; t = mk(env);
-      t.setMemo({ room: 'COZY-1', open: false }); t.remember('COZY-1'); await new Promise(r => setTimeout(r, 0));
-      chk(env.reads.length === 0 && t.keep('COZY-1').open === false, 'setRoomChannel 이 먼저 기억한 값이 있으면 읽지 않고 그 값을 쓴다');
-      env = { room: 'COZY-1', meta: null, open: true, reads: [] }; t = mk(env);
-      t.remember('COZY-1'); t.setRoom(null); await new Promise(r => setTimeout(r, 0)); t.setRoom('COZY-1');
-      chk(t.keep('COZY-1').open === undefined, '읽는 사이 방을 나갔으면 기억하지 않는다');
+    // runRoomStats — 가짜 Admin DB. 지우기 트랜잭션은 «서버 값»으로 판정해야 한다
+    const mkDb = (idx, server) => {
+      const L = { sets: [], tx: {} };
+      const db = { ref: (p) => ({
+        get: async () => ({ val: () => (p === 'roomIndex' ? idx : null) }),
+        set: async (v) => { L.sets.push([p, v]); },
+        transaction: async (fn) => {
+          const code = p.split('/')[1];
+          let r = fn(null);                                       // 첫 호출은 로컬 추측(null)
+          if(r === null && server[code] != null) r = fn(server[code]);   // 서버 값이 다르면 다시 불린다
+          L.tx[code] = r;
+          return { committed: r !== undefined };
+        },
+      }) };
+      return { db, L };
     };
-    module.exports = run;
+    const old = { lastSeen: now - 11 * 60 * 1000 };
+    const { db, L } = mkDb({ D1: old, D2: old }, { D1: old, D2: { lastSeen: now - 5000, channel: 'togetherroom' } });
+    const sum = await (async () => { const q = console.log; console.log = () => {}; try{ return await f.runRoomStats(db, now); } finally { console.log = q; } })();
+    chk(L.sets.length === 1 && L.sets[0][0] === 'roomStats', 'roomStats 를 한 번 쓴다');
+    chk(L.tx.D1 === null && sum.dropped === 1, '서버 값도 낡았으면 지운다');
+    chk(L.tx.D2 === undefined && sum.kept === 1, '그새 누가 다시 들어와 lastSeen 이 새로워졌으면 그만둔다');
   }
-  chk(/if\(open === true \|\| open === false\)\{ extra\.open = open; _roomOpenMemo = \{ room, open \}; \}/.test(CODE), 'setRoomChannel 이 쓴 open 을 기억한다');
-  chk(/_touchRoomIndex\(room\);[^\n]*\n\s*_rememberRoomOpen\(room\);/.test(CODE), '입장(joinRoom) 때 open 을 읽어 둔다');
-  chk(/_roomLastFriends=null;\s*_roomOpenMemo = \{ room: null, open: null \};/.test(CODE), '나가면(leaveRoom) 기억을 비운다');
-}
 
-say('── 3. 읽는 자리 · 규칙');
-{
-  chk(/async getRoomCounts\(opts\)\{\s*if\(opts && opts\.quick\)\{\s*const st = await _readRoomStats\(\);/.test(CODE), 'getRoomCounts 는 quick 일 때만 roomStats 를 본다');
-  chk(!/async getRoomCount\([^)]*\)\{[\s\S]{0,600}_readRoomStats/.test(CODE), '정원 검사(getRoomCount)는 roomStats 를 쓰지 않는다');
-  chk(/\(_svNow\(\) - s\.at\) >= ROOM_STATS_FRESH_MS\) return null;/.test(CODE) && /const ROOM_STATS_FRESH_MS = 3\*60\*1000;/.test(CODE), '3분 넘게 낡으면 무시하고 roomIndex 로 물러난다');
-  let r = null; try{ r = JSON.parse(RULES).rules.roomStats; }catch(_){}
-  chk(!!r && r['.read'] === true && !('.write' in r) && Object.keys(r).length === 1, '규칙: roomStats 는 읽기만 — 쓰기는 서버(Admin SDK)만');
-}
+  say('── 2. room-index.js (roomIndex 쓰기)');
+  {
+    const { createRoomIndex } = esm(RI, 'createRoomIndex');
+    const mk = (o) => {
+      const env = Object.assign({ room: 'COZY-1', meta: { channel: 'togetherroom' }, open: true, reads: [], writes: [] }, o);
+      env.ri = createRoomIndex({
+        db: {}, ref: (_d, p) => p, serverTimestamp: () => 'TS',
+        get: async (p) => { env.reads.push(p); return { val: () => env.open }; },
+        update: (p, v) => { env.writes.push([p, v]); return Promise.resolve(); },
+        state: () => ({ room: env.room, meta: env.meta }),
+      });
+      return env;
+    };
+    const last = (e) => JSON.stringify(e.writes[e.writes.length - 1]);
+    let e = mk({});
+    e.ri.touch('COZY-1');
+    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"togetherroom"}]', 'open 을 모를 때 하트비트는 lastSeen + channel (false 로 덮지 않는다)');
+    e.ri.rememberOpen('COZY-1'); await tick();
+    chk(e.reads.length === 1 && e.reads[0] === 'roomIndex/COZY-1/open', '입장 때 open 한 칸만 읽는다');
+    e.ri.touch('COZY-1');
+    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"togetherroom","open":true}]', '  ↳ 그다음 하트비트는 channel · open 을 같이 싣는다');
+    e.ri.touch('COZY-1', { channel: 'workingroom', open: false });
+    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"workingroom","open":false}]', '명시한 extra 가 이긴다 (setRoomChannel)');
+    e.ri.touch('OTHER');
+    chk(last(e) === '["roomIndex/OTHER",{"lastSeen":"TS"}]', '지금 방이 아닌 코드에는 아무것도 덧붙이지 않는다');
+    const n = e.writes.length; e.ri.touch('SCRT-9');
+    chk(e.writes.length === n, '🔒 시크릿룸은 쓰지 않는다');
+    e.ri.reset(); e.ri.touch('COZY-1');
+    chk(!/"open"/.test(last(e)), 'reset(나가기) 뒤에는 open 을 잊는다');
 
-(async () => {
-  if(typeof module.exports === 'function') await module.exports();
+    e = mk({ meta: null, open: null });
+    e.ri.rememberOpen('COZY-1'); await tick(); e.ri.touch('COZY-1');
+    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS"}]', '메타 도착 전 · open 없음 → 예전처럼 lastSeen 만');
+    e = mk({ open: true });
+    e.ri.setOpen('COZY-1', false); e.ri.rememberOpen('COZY-1'); await tick(); e.ri.touch('COZY-1');
+    chk(e.reads.length === 0 && /"open":false/.test(last(e)), '방을 연 사람이 먼저 기억한 값이 있으면 읽지 않고 그 값을 쓴다');
+    e = mk({ open: true });
+    e.ri.rememberOpen('COZY-1'); e.room = null; await tick(); e.room = 'COZY-1'; e.ri.touch('COZY-1');
+    chk(!/"open"/.test(last(e)), '읽는 사이 방을 나갔으면 기억하지 않는다');
+    e = mk({ meta: { channel: 'evil' } }); e.ri.touch('COZY-1');
+    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS"}]', '규칙에 없는 channel 값은 싣지 않는다 (쓰기 거부 방지)');
+  }
+
+  say('── 3. room-stats.js (roomStats 읽기)');
+  {
+    const { createRoomStats, ROOM_STATS_FRESH_MS } = esm(RS, 'createRoomStats, ROOM_STATS_FRESH_MS');
+    const mk = (val, now) => createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => ({ val: () => val }), now: () => now, rnd: () => 0 });
+    const now = 1e9;
+    chk(ROOM_STATS_FRESH_MS === 3 * 60 * 1000, '신선도 기준 3분 (함수가 1분마다 쓰니 두 번 놓쳐도 버틴다)');
+    chk(JSON.stringify(await mk({ workingroom: 3, togetherroom: 2, at: now - 1000 }, now).counts()) === '{"total":5,"workingroom":3,"togetherroom":2}', 'counts = 채널 둘의 합');
+    chk(await mk({ workingroom: 3, togetherroom: 2, at: now - ROOM_STATS_FRESH_MS }, now).counts() === null, '3분 낡으면 null → roomIndex 로 물러난다');
+    chk(await mk(null, now).counts() === null, '없으면(함수 배포 전) null');
+    chk(await mk({ workingroom: '3', togetherroom: 2, at: now }, now).counts() === null, '모양이 틀리면 null');
+    chk(await createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => { throw new Error('permission_denied'); }, now: () => now }).counts() === null, '규칙 거부(규칙 배포 전)도 null');
+    chk(JSON.stringify(await mk({ workingroom: 0, togetherroom: 0, at: now }, now).randomOpen(5)) === '[]', 'open 키가 없으면(빈 목록) [] — 실패(null)와 구분');
+    const r = await mk({ workingroom: 3, togetherroom: 0, open: ['A', 'SCRT-X', 'B', 7, 'C'], at: now }, now).randomOpen(2);
+    chk(Array.isArray(r) && r.length === 2 && r.every(c => ['A', 'B', 'C'].includes(c)), `randomOpen — 시크릿룸 · 이상한 값 거름 · limit 2 (${JSON.stringify(r)})`);
+  }
+
+  say('── 4. firebase-init.js 연결 · 규칙');
+  {
+    chk(/import \{ createRoomIndex \} from "\.\/room-index\.js";/.test(CODE) && /import \{ createRoomStats \} from "\.\/room-stats\.js";/.test(CODE), 'room-index.js · room-stats.js 를 import 한다');
+    chk(/createRoomIndex\(\{[\s\S]{0,200}state: \(\) => \(\{ room: _roomCode, meta: _roomMetaVal \}\)/.test(CODE), 'roomIndex 에 방 상태를 «부를 때마다» 읽는 함수로 넘긴다');
+    chk(/function _touchRoomIndex\(room, extra\)\{ _roomIndex\.touch\(room, extra\); \}/.test(CODE), '_touchRoomIndex 는 모듈로 넘기기만 한다 (하트비트 · 재접속 · 유령 복구가 모두 이 길)');
+    chk(/_touchRoomIndex\(room\);[^\n]*\n\s*_roomIndex\.rememberOpen\(room\);/.test(CODE), '입장(joinRoom) 때 open 을 읽어 둔다');
+    chk(/_roomIndex\.setOpen\(room, open\)/.test(CODE), 'setRoomChannel 이 쓴 open 을 기억한다');
+    chk(/_roomLastFriends=null;\s*_roomIndex\.reset\(\);/.test(CODE), '나가면(leaveRoom) 기억을 비운다');
+    chk(/createRoomStats\(\{ db, ref, get, now: \(\) => _svNow\(\) \}\)/.test(CODE), 'roomStats 신선도는 서버 기준 시각(_svNow)으로 본다');
+    chk(/async getRoomCounts\(opts\)\{\s*if\(opts && opts\.quick\)\{\s*const qc = await _roomStats\.counts\(\);/.test(CODE), 'getRoomCounts 는 quick 일 때만 roomStats 를 본다');
+    chk((CODE.match(/_roomStats\./g) || []).length === 2, 'roomStats 를 쓰는 자리는 둘(quick 카운트 · 랜덤 후보)뿐');
+    const gc = CODE.match(/async getRoomCount\([^)]*\)\{[\s\S]*?\n    \},/);
+    chk(!!gc && !/_roomStats/.test(gc[0]), '정원 검사(getRoomCount)는 roomStats 를 쓰지 않는다');
+    let rr = null; try{ rr = JSON.parse(RULES).rules.roomStats; }catch(_){}
+    chk(!!rr && rr['.read'] === true && !('.write' in rr) && Object.keys(rr).length === 1, '규칙: roomStats 는 읽기만 — 쓰기는 서버(Admin SDK)만');
+  }
+
   say(`\n${pass} · ${fail}`);
   process.exit(fail ? 1 : 0);
-})();
+})().catch(e => { say('  ✗ 검사가 던졌다: ' + (e && e.stack || e)); process.exit(1); });
