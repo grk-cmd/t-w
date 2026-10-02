@@ -1,6 +1,12 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
+/* 🧪 Firebase 실행 환경 — main.js 가 additionalArguments 로 넘긴 값. 'dev' 가 아니면 전부 운영으로 본다(설치본은 늘 'prod'). */
+const FIREBASE_ENV = (process.argv.find(a => a.startsWith('--tw-firebase=')) || '').split('=')[1] === 'dev' ? 'dev' : 'prod';
+
 contextBridge.exposeInMainWorld('companion', {
+  // 🧪 firebase-config.js 가 이 값으로 운영 / dev 설정을 고른다. 값이라 함수가 아니다.
+  firebaseEnv: FIREBASE_ENV,
+
   // 설정 화면(런처/생성기) ↔ 실행 화면 전환. isConfig=true면 작은 창, false면 전체화면 투명.
   // mode: 'launcher'|'creator'|'run' — 화면별 창 크기 구분용
   setConfigMode(isConfig, mode) {

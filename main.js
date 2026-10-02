@@ -14,6 +14,18 @@ const { autoUpdater } = require('electron-updater');
    ⚠️ asar 안에서도 읽힌다(일렉트론이 asar 경로를 처리). 경로만 맞으면 개발/설치본 둘 다 동작. */
 const APP_ICON = path.join(__dirname, 'app', 'assets', 'icon', 'tw-icon.ico');
 
+/* 🧪 [2026-10-03] Firebase 실행 환경 스위치 — `npm run start:dev` 로 띄우면 렌더러가 dev Firebase(together-working-dev)에 붙는다.
+   운영 데이터를 건드리지 않고 로컬에서 로그인·방·규칙을 확인하려는 것. 예전엔 firebase-config.js 를 손으로 바꿨다가
+   되돌려야 했고, 잊고 커밋하면 정식 빌드가 dev 에 붙는 사고가 났다.
+   ★ 설치본(app.isPackaged)은 실행 인자·환경변수를 **무시**하고, 빌드 때 package.json 에 박힌 `twFirebase` 만 본다.
+     정식 빌드에는 이 값이 없어서 늘 운영이다. 프리릴리스(-beta) 빌드만 release.yml 이 `--config.extraMetadata.twFirebase=dev` 로 박는다.
+   전달: webPreferences.additionalArguments → preload 의 process.argv → companion.firebaseEnv → firebase-config.js */
+const FIREBASE_ENV = app.isPackaged
+  ? (_pkgFirebaseEnv() === 'dev' ? 'dev' : 'prod')                                      // 설치본: 빌드 때 박은 표시만 본다(release.yml 프리릴리스)
+  : ((process.argv.includes('--tw-firebase=dev') || process.env.TW_FIREBASE === 'dev') ? 'dev' : 'prod');   // 개발 실행: npm run start:dev
+function _pkgFirebaseEnv(){ try{ return require('./package.json').twFirebase || null; }catch(_){ return null; } }
+if(FIREBASE_ENV === 'dev') console.log('[firebase-env] 🧪 dev Firebase(together-working-dev)로 실행한다');
+
 // 투명 창 지원 활성화 (이건 가벼움 — GPU 합성은 유지해서 렉 없음)
 app.commandLine.appendSwitch('enable-transparent-visuals');
 /* ★★ 동영상(유튜브·넷플릭스) 위에 캐릭터가 겹치면 그 영역이 검게 나오는 문제 대응.
@@ -1703,6 +1715,7 @@ function createWindow() {
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.js'),
       backgroundThrottling: false,   // 창이 뒤로 가도 렌더링 계속 (흰 화면/멈춤 방지)
+      additionalArguments: ['--tw-firebase=' + FIREBASE_ENV],   // 🧪 preload 가 읽어 companion.firebaseEnv 로 내보낸다
     }
   });
 

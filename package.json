@@ -6,6 +6,7 @@
   "scripts": {
     "postinstall": "node scripts/patch-nwm.js",
     "start": "electron .",
+    "start:dev": "electron . --tw-firebase=dev",
     "check": "node checks/run.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
