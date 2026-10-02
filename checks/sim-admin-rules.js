@@ -29,6 +29,7 @@ console.log('\n── 1. 관리자만 쓸 수 있어야 하는 곳');
   ['catalog/catOverrides/$catId','카테고리 설정'],
   ['catalog/adBanner',           '광고 배너'],
   ['catalog/gameConfig',         '게임 설정'],
+  ['catalogMeta/$kind',          '카탈로그 버전(앱 캐시 무효화)'],
   ['announce/current',           '상단 배너 공지'],
   ['updateNotice/current',       '업데이트 공지'],
   ['bugReport/current',          '버그제보 공지·링크'],

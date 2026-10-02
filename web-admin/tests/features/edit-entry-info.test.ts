@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { entryInfoProblem, toEntry } from '@/entities/catalog';
 import { saveEntryInfo } from '@/features/catalog/edit-entry-info';
-import { fakeDb, withoutAudits } from '../shared/fakeDb';
+import { fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const desk = toEntry('desks', 'd1', {
   name: '나무책상',
@@ -15,13 +15,19 @@ describe('책상 · 아이템 정보 수정', () => {
     expect(await saveEntryInfo(db, desk, ' 큰 나무책상 ', '🪵')).toEqual({
       'catalog/desks/d1/name': '큰 나무책상',
     });
-    expect(withoutAudits(writes)).toEqual([['commit', 'catalog/desks/d1/name', '큰 나무책상']]);
+    expect(withoutAudits(writes)).toEqual([
+      ['commit', 'catalog/desks/d1/name', '큰 나무책상'],
+      ['commit', 'catalogMeta/desks', NOW],
+    ]);
   });
 
   it('아이콘을 비우면 키를 지우지 않고 빈 글자로 쓴다(규칙이 icon 없는 항목을 거절)', async () => {
     const { db, writes } = fakeDb();
     await saveEntryInfo(db, toEntry('items', 'i1', { name: '컵', icon: '☕' }), '컵', '');
-    expect(withoutAudits(writes)).toEqual([['commit', 'catalog/items/i1/icon', '']]);
+    expect(withoutAudits(writes)).toEqual([
+      ['commit', 'catalog/items/i1/icon', ''],
+      ['commit', 'catalogMeta/items', NOW],
+    ]);
   });
 
   it('바뀐 게 없으면 아무것도 보내지 않는다', async () => {
