@@ -69,6 +69,9 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     const FX = need('functions/index.js');
     chk(/exports\.roomStatsOnOpen = onValueCreated\(\{ ref: '\/roomIndex\/\{room\}'[\s\S]{0,300}runRoomStats\(getDatabase\(\), Date\.now\(\), \{ drop: false \}\)/.test(FX),
         '방이 열리면(roomIndex 줄 생성) 바로 다시 센다 — 줄 수정(하트비트)에는 반응하지 않는 onValueCreated');
+    const close = FX.match(/exports\.roomStatsOnClose = onValueDeleted\(\{ ref: '\/roomIndex\/\{room\}'[\s\S]*?\n  \}\);/);
+    chk(!!close && /runRoomStats\(getDatabase\(\), Date\.now\(\), \{ drop: false \}\)/.test(close[0]), '마지막 사람이 나가 줄이 지워지면 바로 다시 센다 (onValueDeleted)');
+    chk(!!close && /if \(event\.authType === 'admin'\) return;[\s\S]*runRoomStats/.test(close[0]), "  ↳ 서버 청소(authType 'admin')가 지운 건 건너뛴다 — 수백 줄 청소가 수백 번 다시 세기가 되지 않게");
     chk(L.tx.D1 === null && sum.dropped === 1, '서버 값도 낡았으면 지운다');
     chk(L.tx.D2 === undefined && sum.kept === 1, '그새 누가 다시 들어와 lastSeen 이 새로워졌으면 그만둔다');
     {
