@@ -777,7 +777,7 @@
 | **audit.py** | 819 | **83347093c5ef** ← 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) · **개정 60 검사 9 기준선 reports 1** · **개정 71 검사 17 (e) 회차** |
 | **smoke.js** | 335 | **d6e4720de7f6** ← 2026-09-14 판정 줄 (§10) |
 | **sim-account-switch.js** | 383 | **9fa214200956** ← 2026-09-16 신규 · 제보 4 계정 전환 소지품 정리 (§18) · 2026-09-20 ⑧ 로그아웃 출구 + 스텁 고침 (개정 28) · **2026-09-22 연동 해제 걷음 · 2절 상수 표에 슬롯 기록 키 넷(가려져 있던 2절 되살림) (개정 45)** · **개정 56 버린 uid 목록 걷음** |
-| **sim-admin-rules.js** | 108 | **47ffd6a836ab** ← **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
+| **sim-admin-rules.js** | 110 | **7bd7048582ed** ← **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | sim-char-foot.js | 141 | 9f0e32d97ac7 |
 | sim-char-identity.js | 187 | bdad4f71d987 |
 | sim-char-z.js | 224 | 24de011f5c83 |
@@ -806,7 +806,7 @@
 | sim-gacha-race.js | 120 | 85100a1126c6 |
 | sim-ghost-cache-sync.js | 273 | 356d2cabc722 |
 | **sim-friend-code-keep.js** | 217 | **ab254584ef33** ← 2026-09-20 신규 · 제보 3-2 친추코드 유지 + 제보 3-1 스냅샷 없이도 소지품 복원 (§31 · 개정 27) · **개정 56 되찾기 갈래 걷음 · 계정에 코드 없을 때 (가)** |
-| **sim-google-login.js** | 574 | **95d3347776f0** ← 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) · **2026-09-22 계정 자리 [내 정보] · 이전/연동/해제·되찾기 걷음 · transferHash 지우기만 (개정 45)** · **개정 48 #lcMyInfo** · **개정 52 §7 통로 걷음** · **개정 54 §3 이메일 거울** · **개정 55 §8 transferData 지우기만 · accountSnap 규칙 · §9 스냅샷 자리** · **개정 56 ① 버린 uid 안 적음 · _setMyUserId** · **개정 57 §5 갈아타기 전 정리 순서 · 실패** |
+| **sim-google-login.js** | 578 | **bef93f665bdc** ← **2026-10-03 users/invite 주인 또는 관리자** · 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) · **2026-09-22 계정 자리 [내 정보] · 이전/연동/해제·되찾기 걷음 · transferHash 지우기만 (개정 45)** · **개정 48 #lcMyInfo** · **개정 52 §7 통로 걷음** · **개정 54 §3 이메일 거울** · **개정 55 §8 transferData 지우기만 · accountSnap 규칙 · §9 스냅샷 자리** · **개정 56 ① 버린 uid 안 적음 · _setMyUserId** · **개정 57 §5 갈아타기 전 정리 순서 · 실패** |
 | sim-invite-gate.js | 99 | 98990b71a1f1 |
 | **sim-item-rot.js** | 85 | **039eb445cd61** ← 2026-09-16 (제보 4 아이템 회전) · 개정 10 등재 |
 | **sim-keysof-twin.js** | 366 | **774c29848a37** ← 2026-09-14 신규 (§14) |
@@ -830,7 +830,7 @@
 | sim-publish-fields.js | 198 | 67aef987d9f9 |
 | **sim-purikura-deco.js** | 947 | **dcfee3c1d4aa** ← 2026-09-13 고친 판 (§4-③) |
 | sim-purikura-net.js | 361 | a4029a7ef053 |
-| sim-purikura-rules.js | 258 | 9079757f6fbd |
+| sim-purikura-rules.js | 260 | a131c1032a7c ← **2026-10-03 방 통째 삭제 관리자만 · _photo 청소 분리 · userCount +1 만** |
 | **sim-purikura-stage.js** | 266 | **4ed21e787576** ← 2026-09-13 고친 판 |
 | **sim-report-away.js** | 111 | **ea17b5be625e** ← **개정 60 신설 · 🫧 자리비움 그림 · 🚩 신고하기 · 이름표 우클릭** · **개정 61-c 프리미엄 게이트** |
 | sim-ride-height.js | 107 | 51ec14fb65a3 |

@@ -41,10 +41,12 @@ console.log('\n── 2. 일반 사용자가 계속 할 수 있어야 하는 것
   chk(w('licenses/$key/redeemedAt') === "!data.exists() && root.child('licenses').child($key).exists()",
       '라이선스 등록 시 redeemedAt 기록 — 처음 한 번만, 있는 키에만');
   chk(!!at('licenses/$key/redeemedAt') && at('licenses/$key/redeemedAt')['.validate'] === 'newData.isNumber()', '그 값은 숫자여야 한다');
-  chk(w('licenseRequests/$reqId') === true, '라이선스 신청은 누구나 넣을 수 있다');
+  chk(/!data\.exists\(\) && newData\.child\('status'\)\.val\(\) === 'pending'/.test(String(w('licenseRequests/$reqId'))),
+      '라이선스 신청은 누구나 새로 넣을 수 있다 (pending · 발급 키 없이) — 승인·거절·수정은 관리자만');
   chk(r('licenseRequests/$reqId') === true, '신청자는 자기 신청 상태를 볼 수 있다');
   chk(r('licenses/$key') === true, '키 하나는 누구나 읽는다 — 등록(redeemLicense)·재검증·회수 구독이 키 하나로 읽는다 (개정 55)');
-  chk(w('stats/userCount') === true, '누적 이용자 수는 각 클라이언트가 올린다 (줄이지 못하게 validate 가 막는다)');
+  chk(/newData\.val\(\) === \(data\.exists\(\) \? data\.val\(\) : 0\) \+ 1/.test(String(w('stats/userCount'))),
+      '누적 이용자 수는 각 클라이언트가 +1 만 올린다 (임의 값은 관리자만)');
   chk(/newData\.val\(\) >= data\.val\(\)/.test(at('stats/userCount')['.validate']), '  ↳ 줄이는 쓰기는 거부된다');
 }
 

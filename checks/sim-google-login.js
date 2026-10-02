@@ -476,7 +476,11 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
       /* 이쪽은 **열려 있어야 한다.** 잠그면 친구 수락·방명록·박수·선물이 조용히 전부 죽는다
          (전부 남의 users 노드에 쓰는 기능이다 — acceptFriendRequest, writeGuestbook,
           clapOnce, sendMallangGift, 일정 알림). */
-      ['friends','guestbook','clap','mallangGifts','schedNotices','invite']
+      /* [2026-10-03] invite 는 뺐다 — 남의 invite 에 쓰는 것은 관리자 지급(grantInvites·grantInvitesAll)뿐이라
+         «주인 또는 관리자» 로 잠갔다. 아래 따로 본다. */
+      chk(/admins/.test(String((U.invite||{})['.write'])) && /userAuth/.test(String((U.invite||{})['.write'])),
+          'users/invite 는 주인 또는 관리자만 쓴다 (관리자 초대권 지급)');
+      ['friends','guestbook','clap','mallangGifts','schedNotices']
         .forEach(k => {
           const w = U[k] && (U[k]['.write'] !== undefined ? U[k]['.write'] : (U[k].$friendId||{})['.write']);
           chk(w === true, 'users/' + k + ' 은 남도 쓸 수 있다 (' + k + ' 기능이 죽지 않게)');
