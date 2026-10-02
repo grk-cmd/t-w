@@ -7,13 +7,16 @@
  * 다시 들어온 방의 줄은 하트비트가 channel · open 과 함께 되살린다(app/parts/room-index.js).
  */
 'use strict';
+// app/parts/room-channel.js 와 같은 값
+const CHANNEL = Object.freeze({ WORKING: 'workingroom', TOGETHER: 'togetherroom' });
+const SECRET_ROOM_PREFIX = 'SCRT-';
 const ROOM_LIVE_MS = 90 * 1000;              // 앱 getRoomCounts 의 STALE 과 같게
 const ROOM_INDEX_DROP_MS = 10 * 60 * 1000;   // 하트비트가 30초라 살아 있는 방은 이만큼 조용하지 않다
 const ROOM_OPEN_MAX = 30;
 const ROOM_DROP_MAX = 300;                   // 첫 실행 때 밀린 줄이 많아도 한 번에 이만큼만
 
 function roomStatsFrom(idx, now, rnd){
-  const out = { workingroom: 0, togetherroom: 0, open: [], at: now };
+  const out = { [CHANNEL.WORKING]: 0, [CHANNEL.TOGETHER]: 0, open: [], at: now };
   const drop = [];
   for (const code in (idx || {})){
     const e = idx[code];
@@ -21,11 +24,11 @@ function roomStatsFrom(idx, now, rnd){
     const seen = Number(e.lastSeen);
     if (!Number.isFinite(seen)) continue;
     if (now - seen >= ROOM_INDEX_DROP_MS){ drop.push(code); continue; }
-    if (code.indexOf('SCRT-') === 0) continue;
+    if (code.indexOf(SECRET_ROOM_PREFIX) === 0) continue;
     if (now - seen >= ROOM_LIVE_MS) continue;
-    const ch = (e.channel === 'togetherroom') ? 'togetherroom' : 'workingroom';
+    const ch = (e.channel === CHANNEL.TOGETHER) ? CHANNEL.TOGETHER : CHANNEL.WORKING;
     out[ch]++;
-    if (ch === 'workingroom' && e.open === true) out.open.push(code);   // 투게더룸은 랜덤 참여 대상이 아니다
+    if (ch === CHANNEL.WORKING && e.open === true) out.open.push(code);   // 투게더룸은 랜덤 참여 대상이 아니다
   }
   const r = rnd || Math.random;
   for (let i = out.open.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); const t = out.open[i]; out.open[i] = out.open[j]; out.open[j] = t; }

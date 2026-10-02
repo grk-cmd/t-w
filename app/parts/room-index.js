@@ -9,6 +9,8 @@
  * deps: db, ref, update, serverTimestamp,
  *       state() → { room, meta } — 지금 방 코드와 _meta 값. 호출할 때마다 현재 값을 읽는다.
  */
+import { isChannel, isSecretRoom } from './room-channel.js';
+
 export function createRoomIndex(deps){
   const { db, ref, update, serverTimestamp, state } = deps;
 
@@ -16,14 +18,14 @@ export function createRoomIndex(deps){
     const s = state();
     if(!room || room !== s.room || !s.meta) return {};
     const out = {};
-    if(s.meta.channel === 'workingroom' || s.meta.channel === 'togetherroom') out.channel = s.meta.channel;
+    if(isChannel(s.meta.channel)) out.channel = s.meta.channel;
     // 모를 때 false 를 쓰면 방장이 켠 랜덤 참여가 꺼진다. 아는 값만 싣는다.
     if(typeof s.meta.open === 'boolean') out.open = s.meta.open;
     return out;
   }
 
   function touch(room, extra){
-    if(String(room || '').indexOf('SCRT-') === 0) return;   // 시크릿룸은 방 개수에 안 잡히게 기록하지 않는다
+    if(isSecretRoom(room)) return;   // 시크릿룸은 방 개수에 안 잡히게 기록하지 않는다
     try{ update(ref(db, `roomIndex/${room}`), Object.assign({ lastSeen: serverTimestamp() }, keep(room), extra || {})); }catch(_){}
   }
 

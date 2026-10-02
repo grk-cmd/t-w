@@ -11,12 +11,17 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
 const FI = need('firebase-init.js'), RI = need('room-index.js'), RS = need('room-stats.js');
+need('room-channel.js');
 const RULES = need('firebase-database-rules.json');
 need('functions/room-stats.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(FI);
-// ES 모듈을 export 만 떼고 함수로 불러온다
-const esm = (src, names) => new Function(src.replace(/^export (function|const) /mg, '$1 ') + `\nreturn { ${names} };`)();
+// ES 모듈을 함수로 불러온다. './x.js' import 는 그 파일 내용을 앞에 붙여 대신한다(한 단계).
+const unexport = (src) => src.replace(/^export (function|const) /mg, '$1 ');
+const esm = (src, names) => {
+  const deps = [...src.matchAll(/^import \{[^}]*\} from '\.\/([\w.-]+\.js)';\n/mg)].map(m => unexport(need(m[1])));
+  return new Function(deps.join('\n') + '\n' + unexport(src.replace(/^import [^\n]*\n/mg, '')) + `\nreturn { ${names} };`)();
+};
 const tick = () => new Promise(r => setTimeout(r, 0));
 
 (async () => {

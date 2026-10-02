@@ -7,6 +7,8 @@
  *
  * deps: db, ref, get, now() — 서버 기준 시각, rnd() — 테스트용(기본 Math.random)
  */
+import { isSecretRoom } from './room-channel.js';
+
 export const ROOM_STATS_FRESH_MS = 3 * 60 * 1000;
 
 export function createRoomStats(deps){
@@ -33,7 +35,7 @@ export function createRoomStats(deps){
   async function randomOpen(limit){
     const st = await read();
     if(!st) return null;
-    const out = st.open.filter(c => typeof c === 'string' && c.indexOf('SCRT-') !== 0);
+    const out = st.open.filter(c => typeof c === 'string' && !isSecretRoom(c));
     for(let i = out.length - 1; i > 0; i--){ const j = Math.floor(rnd() * (i + 1)); const t = out[i]; out[i] = out[j]; out[j] = t; }
     return (limit > 0) ? out.slice(0, limit) : out;
   }
