@@ -343,7 +343,7 @@
      카운트가 roomIndex + 핀포인트 프로브(getRoomCounts)로 바뀌면서 전체 스냅샷을 받을 일이 없어짐.
      이 함수가 다시 필요해진다면 그건 어딘가에서 rooms 전체를 읽고 있다는 신호이므로 설계를 재검토할 것. */
   const _roomIndex = createRoomIndex({
-    db, ref, get, update, serverTimestamp,
+    db, ref, update, serverTimestamp,
     state: () => ({ room: _roomCode, meta: _roomMetaVal }),
   });
   function _touchRoomIndex(room, extra){ _roomIndex.touch(room, extra); }
@@ -2058,7 +2058,6 @@
         defBytes: JSON.stringify(_myMemberData.def==null?'':_myMemberData.def).length };
         console.log('[def-diag] 입장 — 노드 '+window._defDiag.memberBytes+'B (그중 def '+window._defDiag.defBytes+'B)'); }catch(_){}
       _touchRoomIndex(room);   // 💰 카운트용 요약 노드 갱신 — getRoomCounts가 rooms 전체 대신 이걸 읽음
-      _roomIndex.rememberOpen(room);
       // 🧹 이전 세션/chatLog 정리는 아래 방 리스너의 "첫 스냅샷"에서 수행 —
       //   💰 예전엔 여기서 방 전체를 한 번 더 get()했는데(입장마다 전체 다운로드 1회 추가),
       //   리스너 초기 동기화가 어차피 같은 데이터를 통째로 받으므로 그 스냅샷을 재사용한다.
@@ -2386,7 +2385,6 @@
       //   끝나기 전에 네트워크상 이미 날아오던 스냅샷을 받아도, 이 값들이 먼저 바뀌어 있어서 그 콜백 안의
       //   가드(_roomCode!==room / _memberId!==memberId)가 즉시 걸러줌.
       _roomRef=null; _roomQuery=null; _roomListener=null; _roomMetaRef=null; _roomMetaCb=null; _roomMetaVal=null; _roomLastFriends=null;
-      _roomIndex.reset();
       _myMemberRef=null; _myPokeRef=null; _myPokeListener=null; _memberId=null; _roomCode=null;
       _syncPresenceRoom(null);   // 방에서 나가면 친구 목록의 방코드 배지도 제거
       return done;
@@ -2488,9 +2486,11 @@
       try{
         const meta = { channel: channel||'workingroom', ts: serverTimestamp() };
         if(hostUserId) meta.host = hostUserId;   // ★ 방장 = 방을 만든 사람의 userId(사람 고정값 — 재접속해도 동일)
+        // open 도 _meta 에 둔다. 방 사람들의 하트비트가 roomIndex 줄을 되살릴 때 여기서 꺼내 싣는다(room-index.js).
+        if(open === true || open === false) meta.open = open;
         await update(ref(db, `rooms/${room}/_meta`), meta);
         const extra = { channel: channel||'workingroom' };
-        if(open === true || open === false){ extra.open = open; _roomIndex.setOpen(room, open); }
+        if(open === true || open === false) extra.open = open;
         _touchRoomIndex(room, extra);   // 💰 채널별 카운트가 인덱스만 읽으면 되게
       }catch(_){}
     },

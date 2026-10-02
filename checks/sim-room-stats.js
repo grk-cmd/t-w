@@ -71,10 +71,9 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   {
     const { createRoomIndex } = esm(RI, 'createRoomIndex');
     const mk = (o) => {
-      const env = Object.assign({ room: 'COZY-1', meta: { channel: 'togetherroom' }, open: true, reads: [], writes: [] }, o);
+      const env = Object.assign({ room: 'COZY-1', meta: { channel: 'togetherroom' }, writes: [] }, o);
       env.ri = createRoomIndex({
         db: {}, ref: (_d, p) => p, serverTimestamp: () => 'TS',
-        get: async (p) => { env.reads.push(p); return { val: () => env.open }; },
         update: (p, v) => { env.writes.push([p, v]); return Promise.resolve(); },
         state: () => ({ room: env.room, meta: env.meta }),
       });
@@ -83,31 +82,21 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     const last = (e) => JSON.stringify(e.writes[e.writes.length - 1]);
     let e = mk({});
     e.ri.touch('COZY-1');
-    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"togetherroom"}]', 'open 을 모를 때 하트비트는 lastSeen + channel (false 로 덮지 않는다)');
-    e.ri.rememberOpen('COZY-1'); await tick();
-    chk(e.reads.length === 1 && e.reads[0] === 'roomIndex/COZY-1/open', '입장 때 open 한 칸만 읽는다');
-    e.ri.touch('COZY-1');
-    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"togetherroom","open":true}]', '  ↳ 그다음 하트비트는 channel · open 을 같이 싣는다');
-    e.ri.touch('COZY-1', { channel: 'workingroom', open: false });
-    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"workingroom","open":false}]', '명시한 extra 가 이긴다 (setRoomChannel)');
+    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"togetherroom"}]', '_meta 에 open 이 없으면 lastSeen + channel 만 (false 로 덮지 않는다)');
+    e = mk({ meta: { channel: 'workingroom', open: true } }); e.ri.touch('COZY-1');
+    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"workingroom","open":true}]', '_meta 의 channel · open 을 같이 싣는다');
+    e = mk({ meta: { channel: 'workingroom', open: false } }); e.ri.touch('COZY-1');
+    chk(/"open":false/.test(last(e)), '  ↳ open:false 도 싣는다');
+    e.ri.touch('COZY-1', { channel: 'togetherroom', open: true });
+    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"togetherroom","open":true}]', '명시한 extra 가 이긴다 (setRoomChannel)');
     e.ri.touch('OTHER');
     chk(last(e) === '["roomIndex/OTHER",{"lastSeen":"TS"}]', '지금 방이 아닌 코드에는 아무것도 덧붙이지 않는다');
     const n = e.writes.length; e.ri.touch('SCRT-9');
-    chk(e.writes.length === n, '🔒 시크릿룸은 쓰지 않는다');
-    e.ri.reset(); e.ri.touch('COZY-1');
-    chk(!/"open"/.test(last(e)), 'reset(나가기) 뒤에는 open 을 잊는다');
-
-    e = mk({ meta: null, open: null });
-    e.ri.rememberOpen('COZY-1'); await tick(); e.ri.touch('COZY-1');
-    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS"}]', '메타 도착 전 · open 없음 → 예전처럼 lastSeen 만');
-    e = mk({ open: true });
-    e.ri.setOpen('COZY-1', false); e.ri.rememberOpen('COZY-1'); await tick(); e.ri.touch('COZY-1');
-    chk(e.reads.length === 0 && /"open":false/.test(last(e)), '방을 연 사람이 먼저 기억한 값이 있으면 읽지 않고 그 값을 쓴다');
-    e = mk({ open: true });
-    e.ri.rememberOpen('COZY-1'); e.room = null; await tick(); e.room = 'COZY-1'; e.ri.touch('COZY-1');
-    chk(!/"open"/.test(last(e)), '읽는 사이 방을 나갔으면 기억하지 않는다');
-    e = mk({ meta: { channel: 'evil' } }); e.ri.touch('COZY-1');
-    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS"}]', '규칙에 없는 channel 값은 싣지 않는다 (쓰기 거부 방지)');
+    chk(e.writes.length === n, '시크릿룸은 쓰지 않는다');
+    e = mk({ meta: null }); e.ri.touch('COZY-1');
+    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS"}]', '메타 도착 전 → lastSeen 만');
+    e = mk({ meta: { channel: 'evil', open: 'yes' } }); e.ri.touch('COZY-1');
+    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS"}]', '규칙에 없는 값은 싣지 않는다 (쓰기 거부 방지)');
   }
 
   say('── 3. room-stats.js (roomStats 읽기)');
@@ -131,9 +120,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(/import \{ createRoomIndex \} from "\.\/room-index\.js";/.test(CODE) && /import \{ createRoomStats \} from "\.\/room-stats\.js";/.test(CODE), 'room-index.js · room-stats.js 를 import 한다');
     chk(/createRoomIndex\(\{[\s\S]{0,200}state: \(\) => \(\{ room: _roomCode, meta: _roomMetaVal \}\)/.test(CODE), 'roomIndex 에 방 상태를 «부를 때마다» 읽는 함수로 넘긴다');
     chk(/function _touchRoomIndex\(room, extra\)\{ _roomIndex\.touch\(room, extra\); \}/.test(CODE), '_touchRoomIndex 는 모듈로 넘기기만 한다 (하트비트 · 재접속 · 유령 복구가 모두 이 길)');
-    chk(/_touchRoomIndex\(room\);[^\n]*\n\s*_roomIndex\.rememberOpen\(room\);/.test(CODE), '입장(joinRoom) 때 open 을 읽어 둔다');
-    chk(/_roomIndex\.setOpen\(room, open\)/.test(CODE), 'setRoomChannel 이 쓴 open 을 기억한다');
-    chk(/_roomLastFriends=null;\s*_roomIndex\.reset\(\);/.test(CODE), '나가면(leaveRoom) 기억을 비운다');
+    chk(/if\(open === true \|\| open === false\) meta\.open = open;\s*await update\(ref\(db, `rooms\/\$\{room\}\/_meta`\), meta\);/.test(CODE), 'setRoomChannel 이 open 을 _meta 에도 쓴다 (명시한 boolean 일 때만)');
     chk(/createRoomStats\(\{ db, ref, get, now: \(\) => _svNow\(\) \}\)/.test(CODE), 'roomStats 신선도는 서버 기준 시각(_svNow)으로 본다');
     chk(/async getRoomCounts\(opts\)\{\s*if\(opts && opts\.quick\)\{\s*const qc = await _roomStats\.counts\(\);/.test(CODE), 'getRoomCounts 는 quick 일 때만 roomStats 를 본다');
     chk((CODE.match(/_roomStats\./g) || []).length === 2, 'roomStats 를 쓰는 자리는 둘(quick 카운트 · 랜덤 후보)뿐');
