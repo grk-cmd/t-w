@@ -430,6 +430,11 @@ function buildOverlay(){
   const bCustom=overlay.querySelector('#anpBrushCustom'); if(bCustom) bCustom.addEventListener('input',e=>{ pColor=e.target.value; pEraser=false;
     const swEl=overlay.querySelector('#anpBrushColors'); if(swEl)[...swEl.children].forEach(x=>x.classList.remove('on'));
     syncPaintUI(); });
+  /* 🎨 [2026-10-02] 같은 색으로 창을 닫으면 input 이 안 와서 이전 자유 색을 다시 못 잡던 문제 —
+     인간 생성기 brushCustom 의 click 주석과 같은 처리. 누르는 순간 칸의 색을 브러시로 잡는다. */
+  if(bCustom) bCustom.addEventListener('click',e=>{ pColor=e.target.value; pEraser=false;
+    const swEl=overlay.querySelector('#anpBrushColors'); if(swEl)[...swEl.children].forEach(x=>x.classList.remove('on'));
+    syncPaintUI(); });
   const bBrush=overlay.querySelector('#anpBrush'); if(bBrush) bBrush.addEventListener('input',e=>{ pSize=+e.target.value; });
   const bUndo=overlay.querySelector('#anpUndo'); if(bUndo) bUndo.onclick=()=>pUndo();
   const bEr=overlay.querySelector('#anpEraser'); if(bEr) bEr.onclick=()=>{ pEraser=!pEraser; syncPaintUI(); };
@@ -1507,6 +1512,12 @@ function pPickColor(e){
   const h=pHit(e); const uv=h&&h.uv; if(!uv||!pDispC) return;
   const d=pDispC.getContext('2d').getImageData(Math.floor(uv.x*P_SZ),Math.floor(uv.y*P_SZ),1,1).data;
   pColor='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
+  /* 🎨 [2026-10-02] 인간 생성기 스포이드와 맞춘다 — 뽑은 색을 자유 색 칸에 넣고 칩 선택 표시를 끈다.
+     그래야 기본 칩으로 갔다가 자유 색 칸을 눌러 이 색으로 돌아올 수 있다. */
+  if(overlay){
+    const bc=overlay.querySelector('#anpBrushCustom'); if(bc) bc.value=pColor;
+    const swEl=overlay.querySelector('#anpBrushColors'); if(swEl)[...swEl.children].forEach(x=>x.classList.remove('on'));
+  }
   syncPaintUI();
 }
 function syncPaintUI(){

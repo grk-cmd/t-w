@@ -1590,6 +1590,7 @@ const RIDE_HEAD_OFFSET_Y = 0.35;   // 폴백 전용 — 손 본을 못 찾아 �
 const RIDE_FOLLOW_HEAD_TILT = true;   // true=고개 기울임까지 따라 기울어짐. 어색하면 false(위치만 따라감)
 const RIDE_SNAP_DIST = 1.1;        // 이 거리(월드) 안에서 놓으면 흡착
 const _rideWP = new THREE.Vector3(), _rideTmp = new THREE.Vector3(), _rideOff = new THREE.Vector3();
+const _rideAwayP = new THREE.Vector3(), _rideAwayS = new THREE.Vector3();   // 🫧 대상이 자리비움 그림일 때 그 그림의 월드 위치·크기
 const _rideQD = new THREE.Quaternion(), _rideQP = new THREE.Quaternion(), _rideQR = new THREE.Quaternion();
 const _rideQC = new THREE.Quaternion(), _rideQY = new THREE.Quaternion();
 const _rideAxisY = new THREE.Vector3(0,1,0);
@@ -1772,6 +1773,34 @@ function _seatHidden(seat){
   if(!(seat && seat.remote)) return false;
   if(seat.friendUserId && _reportHiddenUids.has(seat.friendUserId)) return true;   // 🚩 모든 채널
   return !!(seat.friendId && window._activeChannel === 1 && _hiddenSeatIds.has(seat.friendId));
+}
+/* 🩹 [2026-10-02 제보 #7] «머리 잡고 끌면 옆으로 빠지고 올라타기가 안 됨 · 캐릭터 위쪽 다른 앱 클릭을 앱이 가로챔»
+   [원인] 동물이 머리 위에 올라타면 그 좌석의 **책상은 desk.visible=false 로 숨기기만** 한다(mountRide).
+     좌석 group 은 대상의 머리 높이로 옮겨지므로, 보이지 않는 책상 덩어리가 머리 위 허공에 떠 있게 된다.
+     three r128 레이캐스트는 visible 을 안 보므로(위 ⚠️) 그 허공이
+       ① 클릭 통과 판정(_pointHitsInteractive)에서 «캐릭터 위» 로 잡혀 다른 앱 클릭을 가로채고
+       ② 잡기에서 hit[0] 이 되어 classifyHit → 'desk' → 슬롯 이동 모드(x축만 움직임)로 빠진다.
+          올라타기는 흔들기 모드에만 있어 아예 안 일어난다.
+   [대응] 숨겨진 **책상**(그 자체 또는 그 아래의 숨겨진 메쉬)에 맞은 것은 버린다.
+   ⚠️ visible=false 전부를 거르지 않는다 — 자리비움 중엔 몸통 메쉬를 visible=false 로 숨기는데(applySeatOpacity),
+     그것까지 거르면 자리비움 캐릭터를 못 잡게 된다. 지금 문제는 책상뿐이라 책상만 거른다.
+   ★ 커스텀 책상을 쓰면 기본 책상 메쉬가 숨겨진 채 남는데(deskGroup defaults) 그것도 같이 걸러진다 — 같은 종류의 유령이다. */
+function _hitInHiddenDesk(obj){
+  let hidden = false;
+  for(let o = obj; o; o = o.parent){
+    if(o.visible === false) hidden = true;
+    if(hidden){ for(let i = 0; i < seats.length; i++){ if(seats[i].desk === o) return true; } }
+  }
+  return false;
+}
+/* 🩹 #7 — 숨긴 책상 히트를 뺀다. 뺄 것이 없으면 **같은 배열**을 돌려준다(_hitsSkipHidden 과 같은 약속).
+   ⚠️ _hitsSkipHidden 안에 넣지 않는다 — 그 함수는 sim-seat-hide 가 따로 떼어 돌리는 단위라 바깥 함수에 기대면 안 된다.
+     호출부에서 `_skipHiddenDesk(_hitsSkipHidden(...))` 로 겹쳐 쓴다. */
+function _skipHiddenDesk(hits){
+  if(!hits || !hits.length) return hits;
+  let drop = false;
+  for(let i = 0; i < hits.length; i++){ if(_hitInHiddenDesk(hits[i].object)){ drop = true; break; } }
+  return drop ? hits.filter(h=>!_hitInHiddenDesk(h.object)) : hits;
 }
 function _hitsSkipHidden(hits){
   if(!_hiddenSeatIds.size && !_reportHiddenUids.size) return hits;
@@ -1977,7 +2006,7 @@ function _flyAimClick(e){
   ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
   ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
   ray.setFromCamera(ndc, camera);
-  const hit = _hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group), true));   // 🙈 숨긴 캐릭터는 표적이 아니다
+  const hit = _skipHiddenDesk(_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group), true)));   // 🙈 숨긴 캐릭터는 표적이 아니다
   const seat = hit.length ? seatFromObject(hit[0].object) : null;
   if(!seat){ setFlyAiming(false); return; }            // 빈 곳 클릭 = 취소
   const t = canTargetFly(seat);
@@ -2365,6 +2394,12 @@ const CHAT_SFX_POOL        = 2;                // 두 사람이 거의 동시에
 const CHAT_SFX_GAP_MS      = 250;              // 이보다 촘촘하면 한 번만 — 여럿이 몰아 치면 귀가 따갑다
 const _chatSfxPools = {};
 CHAT_SFX_LIST.forEach(x=>{ _chatSfxPools[x.id] = _mkSndPool('chat' + x.id, x.srcs, CHAT_SFX_VOL, CHAT_SFX_POOL); });
+/* 🍅 뽀모도로 알림음 (2026-10-02 · 지정 파일 beep-alarm) — 집중 끝 · 휴식 끝 둘 다 이 소리. 3.5초짜리라 풀은 하나면 된다.
+   ★ 여기(prime 등록 **위**)에서 만든다 — 아래 once:true 등록보다 늦게 만든 풀은 자동재생 잠금 해제를 못 받아
+     창을 안 보고 있을 때 울려야 할 알람이 조용해진다(채팅 알림음 주석과 같은 이유).
+   ⚠️ 파일은 app/parts/pomodoro-alarm.mp3. 회사원 모드면 울리지 않는다(_mkSndPool.play 의 공통 게이트). */
+const POMO_SND_SRC = ['parts/pomodoro-alarm.mp3', 'pomodoro-alarm.mp3'];
+const _pomoSnd = _mkSndPool('pomo', POMO_SND_SRC, 0.6, 1);
 try{
   ['pointerdown','keydown'].forEach(ev=>window.addEventListener(ev, ()=>{
     _sndPools.forEach(P=>{ try{ P.prime(); }catch(_){} });
@@ -2507,7 +2542,7 @@ function _bonkAimClick(e){
   ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
   ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
   ray.setFromCamera(ndc, camera);
-  const hit = _hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group), true));   // 🙈 숨긴 캐릭터는 표적이 아니다
+  const hit = _skipHiddenDesk(_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group), true)));   // 🙈 숨긴 캐릭터는 표적이 아니다
   const seat = hit.length ? seatFromObject(hit[0].object) : null;
   if(!seat){ setBonkAiming(false); return; }          // 빈 곳 클릭 = 취소
   const c = canBonk(seat);
@@ -2682,12 +2717,14 @@ function _positionRideSeat(seat, now){
       if(seat._circusOn !== undefined && seat._circusOn !== _circus) seat._rideDbgOnce = true;
       seat._circusOn = _circus;
       let _offY, _offZ;
+      let _topUsed = null;   // 🫧 아래 갈래가 «꼭대기» 로 쓴 머리 높이(머리 본 기준) — 대상이 자리비움 그림이면 그림 꼭대기로 바꿔 끼운다
       if(_circus){
         // ★ sink는 '대상 크기 1' 기준으로 눈으로 맞춘 값이라 반드시 대상 크기를 곱한다(아래 1층 주석 참고).
         /* 🎪 발을 놓는 기준은 '귀 위'가 아니라 머리 꼭대기다(위 캐싱 주석 참고).
            옛 값만 있는 좌석(_rideHeadTopBare 미설정)은 예전 동작 그대로 떨어진다. */
         const _headTopForFeet = (seat._rideHeadTopBare != null) ? seat._rideHeadTopBare : seat._rideHeadTop;
         _offY = _headTopForFeet - CIRCUS_FOOT_SINK*_hs;
+        _topUsed = _headTopForFeet;
         // 머리 박스 중심 실측 + 앞으로 당기는 보정(박스에 몸통·꼬리가 섞여 중심이 뒤로 치우침)
         // ★ 1층의 '깊이 비율만큼 뒤로'를 여기에 적용하면 안 된다 — 자세가 다르다.
         //   1층은 '팔을 머리에 걸치는' 자세라 몸이 뒤로 물러나야 하지만,
@@ -2749,6 +2786,7 @@ function _positionRideSeat(seat, now){
         _offY = (_armW!=null && _headTopForArm!=null)
           ? (_headTopForArm + _sink - _armW)
           : (RIDE_HEAD_OFFSET_Y*_hs);
+        if(_armW!=null && _headTopForArm!=null) _topUsed = _headTopForArm;
         // 동물 대상: 실측 머리 중심 + 미세조정. 실측 실패 시에만 예전 상수로 폴백.
         // 동물 대상: 실측 박스 중심에서 깊이 비율만큼 뒤로. 실측 실패 시에만 예전 상수로 폴백.
         _offZ = (host.charDef && host.charDef.animal)
@@ -2773,6 +2811,22 @@ function _positionRideSeat(seat, now){
       if(_spinY){ _rideQSpin.setFromAxisAngle(_rideAxisY, _spinY); _rideOff.applyQuaternion(_rideQSpin); }
       _rideOff.applyQuaternion(_rideQD);
       _rideWP.add(_rideOff);
+      /* 🫧 [2026-10-02 제보 «자리비움 위로 올라가면 공중에 떠 있다»] 대상이 자리비움 그림으로 서 있으면 몸은 숨어 있고
+         **그림이 몸 자리를 대신한다.** 그런데 위 계산은 숨은 몸의 머리 본을 따라가서, 그림(60~100px)보다 한참 위 —
+         보이지 않는 머리 높이 — 에 떠 있었다.
+         ⇒ 그림이 보이는 동안에는 «꼭대기» 를 **그림 윗변**으로 바꿔 끼운다. 자세별 보정(1층 팔 걸치기의 sink−팔높이 ·
+           묘기의 발 sink · 내 캐릭터 높이 상쇄)은 위에서 계산한 그대로 쓴다 — _offY 에서 머리 높이(_topUsed)만 뺀 나머지.
+           가로·앞뒤는 그림 한가운데(그림은 평평한 판이라 머리 앞뒤 보정이 뜻이 없다).
+         ★ 그림 크기(60·80·100)가 바뀌면 그림 윗변이 따라 움직이므로 저절로 맞는다. 그림이 사라지면(복귀) 다음 프레임부터 예전 머리 기준.
+         ⚠️ 그림은 _awayImgFrame 이 0.5초마다 다시 재므로 한 프레임 늦을 수 있다 — 눈에 안 띈다. */
+      const _asp = host._awaySprite;
+      if(_asp && _asp.visible){
+        _asp.getWorldPosition(_rideAwayP);
+        _asp.getWorldScale(_rideAwayS);
+        const _picTop = _rideAwayP.y + _rideAwayS.y / 2;
+        const _rest = (_topUsed != null) ? (_offY - _topUsed) : -charLiftWorld(seat);   // 자세 보정 + 높이 상쇄(이미 _offY 에 들어 있다)
+        _rideWP.set(_rideAwayP.x, _picTop + _rest, _rideAwayP.z);
+      }
       seat.group.position.copy(_rideWP);
       if(seat._rideDbgOnce){
         seat._rideDbgOnce = false;
@@ -8145,7 +8199,20 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     if(!api){ row.style.display = 'none'; return; }
     row.style.display = '';
     const pct = document.getElementById('fsUiZoomPct');
-    const show = (z) => { if(pct && typeof z === 'number' && isFinite(z)) pct.textContent = Math.round(z * 100) + '%'; };
+    let _lastZ = null;
+    const show = (z) => {
+      if(pct && typeof z === 'number' && isFinite(z)) pct.textContent = Math.round(z * 100) + '%';
+      /* 🩹 [2026-10-02 제보 #10] 줌이 바뀌면 BGM(유튜브) 창이 숨을 사각형을 다시 보낸다. main 이 새 배율로
+         다시 놓지만, 패널 위치가 창 크기에 따라 정해지는 경우 CSS 좌표 자체도 바뀌므로 렌더러 값도 새로 준다.
+         ★ _plLastBoundsKey 를 비워야 «안 바뀌었으면 IPC 생략» 에 걸리지 않는다. */
+      if(typeof z === 'number' && _lastZ !== null && z !== _lastZ){
+        requestAnimationFrame(()=>{
+          try{ _plLastBoundsKey = ''; _plSyncBgmBounds(); }catch(_){}
+          try{ if(typeof window._mhSyncBgmBounds === 'function') window._mhSyncBgmBounds(); }catch(_){}
+        });
+      }
+      if(typeof z === 'number') _lastZ = z;
+    };
     const send = (op) => { try{ Promise.resolve(api.uiZoom(op)).then(show).catch(()=>{}); }catch(_){} };
     const b = (id, op) => { const el = document.getElementById(id); if(el) el.onclick = () => send(op); };
     b('fsUiZoomOut', 'out'); b('fsUiZoomIn', 'in'); b('fsUiZoomReset', 'reset');
@@ -10797,6 +10864,18 @@ function _applyAnnivHeight(px){
     if(tagCancel) tagCancel.addEventListener('click', ()=>{ tagPop.style.display='none'; });
   }
 
+  /* 🩹 [2026-10-02 제보 #6] 일정·D-day 저장 실패 사유를 가른다. 예전엔 무엇이든 «추가에 실패했어요» 하나였다.
+     ★ permission_denied = 이 PC 의 로그인이 풀렸거나 다른 계정 세션이다(구글에 묶인 계정은 규칙이
+       auth.uid 일치를 요구한다). 읽기는 공개라 달력은 멀쩡히 보이고 쓰기만 거부돼서 «어느 순간부터
+       등록만 안 된다» 로 신고됐다. 고치는 길은 앱 재시작(부팅 때 로그인을 다시 받는다).
+     ⚠️ 원문 오류는 콘솔에 남긴다 — 제보를 받았을 때 이 줄이 근거다. */
+  const _schedFailMsg = (e, what)=>{
+    try{ console.warn('[일정] ' + what + ' 실패', e); }catch(_){}
+    const s = String((e && (e.code || e.message)) || e || '').toLowerCase();
+    if(s.indexOf('permission') >= 0) return '로그인이 풀려 ' + what + '할 수 없어요 — 앱을 다시 켜서 로그인해 주세요';
+    if(s.indexOf('network') >= 0 || s.indexOf('offline') >= 0 || s.indexOf('disconnect') >= 0) return '네트워크 연결을 확인해 주세요';
+    return what + '에 실패했어요';
+  };
   // 일정 추가
   const doAddSched = async ()=>{
     if(!_schedSelDD){ toast('날짜를 먼저 선택해 주세요'); return; }
@@ -10806,18 +10885,22 @@ function _applyAnnivHeight(px){
     const isPublic = !!(pubChk && pubChk.checked);
     try{
       await firebaseAPI.addScheduleItem(getMyUserId(), _schedYM, _schedSelDD, { text, public: isPublic });
-      // 👥 태그한 친구들에게 알림 발송
-      if(_schedTagSel.length && firebaseAPI.sendScheduleNotices){
+    }catch(e){ toast(_schedFailMsg(e, '일정 추가')); return; }
+    /* 🩹 #6 — 알림 발송은 **따로** 감싼다. 예전엔 같은 try 라서, 일정은 저장됐는데 알림만 실패해도
+       «추가에 실패했어요» 가 뜨고 입력칸·태그도 안 비워졌다(다시 누르면 같은 일정이 두 번 생긴다). */
+    let _tagN = _schedTagSel.length, _noticeOk = true;
+    if(_tagN && firebaseAPI.sendScheduleNotices){
+      try{
         const [y,m] = _schedYM.split('-').map(Number);
         const dateStr = `${y}-${_pad2(m)}-${_schedSelDD}`;
         await firebaseAPI.sendScheduleNotices(getMyUserId(), getDisplayName(), _schedTagSel, text, dateStr);
-        toast(`일정을 추가하고 친구 ${_schedTagSel.length}명에게 알렸어요`);
-      } else {
-        toast('일정을 추가했어요');
-      }
-      if(input) input.value='';
-      _schedTagSel = []; refreshTagInfo();
-    }catch(e){ toast('추가에 실패했어요'); }
+      }catch(e){ _noticeOk = false; try{ console.warn('[일정] 친구 알림 실패', e); }catch(_){} }
+    }
+    if(!_tagN) toast('일정을 추가했어요');
+    else if(_noticeOk) toast(`일정을 추가하고 친구 ${_tagN}명에게 알렸어요`);
+    else toast('일정은 추가했지만 친구 알림은 보내지 못했어요');
+    if(input) input.value='';
+    _schedTagSel = []; refreshTagInfo();
   };
   if(addBtn) addBtn.addEventListener('click', doAddSched);
   if(input) input.addEventListener('keydown', e=>{ if(e.key==='Enter') doAddSched(); });
@@ -10972,7 +11055,7 @@ function _applyAnnivHeight(px){
         }
         _ddayCloseEdit();
       }catch(e){
-        ddShowMsg('저장에 실패했어요', true);
+        ddShowMsg(_schedFailMsg(e, '저장'), true);   // 🩹 #6 — 로그인 풀림·네트워크를 구분해 알린다
       }
       ddSave.disabled = false;
     });
@@ -15627,16 +15710,32 @@ function _mhBindStickerResize(handle, sid){
       if(!window.firebaseAPI || !firebaseAPI.clapOnce){ toast('아직 준비 중이에요'); return; }
       const target = _gbTargetId();
       const key='gbClap:'+target+':'+new Date().toISOString().slice(0,10);   // 홈주인uid+오늘날짜 (내가 친구한테 박수쳐도 별도 카운트)
+      /* 🩹 [2026-10-02 제보 #4c] «맥에서 박수 한 번에 7~8회가 기록된다»
+         [원인] 하루 횟수 n 을 await **앞**에서 읽고 저장은 await **뒤**에 했다. 진행 중인 요청을 막는
+           장치도 없었다. 응답이 늦으면(맥 절전·App Nap 뒤 재연결) 사용자는 반응이 없다고 여러 번 누르고,
+           매번 같은 n 이 읽혀 5회 제한이 전부 뚫린다. 쌓인 트랜잭션은 재연결 순간 한꺼번에 반영된다
+           — «한 번 눌렀는데 +7~8» 로 보인 모양이다.
+         [대응] ① 같은 홈에 보낸 박수가 **응답을 기다리는 동안은** 더 보내지 않는다(창을 닫았다 열어도
+           유지되게 opener 의 window 에 둔다). ② 횟수를 보내기 **전에** 먼저 올리고, 실패하면 되돌린다. */
+      const inflight = (window.__gbClapInflight = window.__gbClapInflight || new Set());
+      if(inflight.has(target)){ toast('박수를 보내는 중이에요 — 잠시만요 👏'); return; }
       let n=0; try{ n=parseInt(localStorage.getItem(key)||'0',10)||0; }catch(_){}
       if(n>=5){ toast('박수는 하루에 5번까지만 칠 수 있어요 👏'); return; }
+      inflight.add(target);
+      try{ localStorage.setItem(key, String(n+1)); }catch(_){}   // 먼저 올려 둔다 — 실패하면 아래에서 되돌린다
       /* 🎆 폭죽은 서버 응답 전에 터뜨린다 — 네트워크를 기다리면 손가락을 뗀 한참 뒤에 터져서
          내가 누른 것과 연결이 안 된다. 실패하면 아래 toast로 따로 알린다. */
       try{ gbBurst(ev && ev.clientX, ev && ev.clientY); }catch(_){}
       try{
         await firebaseAPI.clapOnce(target);
-        try{ localStorage.setItem(key, String(n+1)); }catch(_){}
         toast('👏 박수! ('+(n+1)+'/5)');
-      }catch(e){ toast('박수 실패 — 네트워크를 확인해 주세요'); }
+      }catch(e){
+        /* 되돌릴 때는 지금 값에서 하나를 뺀다(n 으로 덮지 않는다) — 그 사이 날짜가 바뀌었거나 다른 경로로
+           값이 바뀌었어도 내 몫만 정확히 돌려준다. */
+        try{ const cur=parseInt(localStorage.getItem(key)||'0',10)||0; localStorage.setItem(key, String(Math.max(0, cur-1))); }catch(_){}
+        toast('박수 실패 — 네트워크를 확인해 주세요');
+      }
+      finally{ inflight.delete(target); }
     };
     d.getElementById('gbImgSet').onclick=()=>{
       if(window.companion && companion.gbHold) companion.gbHold();   // 파일 다이얼로그로 포커스가 빠져도 방명록이 안 닫히게 유예
@@ -17972,6 +18071,12 @@ function _pkNeutralPose(seat){
        몸 자체의 스킨드메시(커미션 모델)는 파츠가 아니므로 그대로 잰다.
      ★ 그리기는 그대로다 — 측정에서만 빠진다. 모자는 보인다. */
 function _pkVisibleBox(g, noParts){
+  /* 🩹 [2026-10-02] 몸 상자(noParts)는 원본과 짝지은 표가 있으면 실행 화면 규칙으로 잰다 — _pkBodyBox 주석.
+     표는 _pkCloneChar 가 복제 직후 g.__pkSrcOf 에 달아 둔다. 없으면(검사 무대 · 구 경로) 아래 예전 규칙 그대로다. */
+  if(noParts && g && g.__pkSrcOf){
+    const _b = _pkBodyBox(g, g.__pkSrcOf, g.__pkPh || null);
+    if(_b) return _b;
+  }
   g.updateWorldMatrix(true, true);
   const box = new THREE.Box3(), tmp = new THREE.Box3();
   let any = false;
@@ -17992,6 +18097,51 @@ function _pkVisibleBox(g, noParts){
   return any ? box : new THREE.Box3().setFromObject(g);
 }
 
+/* 📏 [2026-10-02 제보] «리깅 파츠를 끼고 스티커사진을 찍으면 캐릭터 크기가 랜덤으로 작아지거나 난리가 난다»
+   [원인] 키(1.7) 분모를 _pkVisibleBox(보이는 것만)로 쟀다. 숨은 placeholder 를 빼려던 규칙인데,
+     **숨긴 몸 메쉬까지 같이 빠졌다.**
+       · 리깅 옷 파츠를 입으면 기본 옷 메쉬가 숨는다(applyClothVisibility) — 한벌옷이면 몸통·다리가 통째로 빠져
+         «머리만» 재고 그 키에 맞춰 키운다(난리). 윗옷만 숨으면 어깨가 빠져 폭·중심이 어긋난다.
+       · 자리비움 페이드는 몸 메쉬를 visible=false 로 끈다 — 그 순간 찍으면 잴 것이 없어 옛 방식(setFromObject,
+         placeholder·파츠 포함)으로 떨어진다.
+     입은 파츠·자리비움 여부에 따라 결과가 달라지니 «랜덤» 으로 보였다.
+   [대응] 실행 화면(measureCharBox)과 **같은 규칙**으로 잰다 — 숨김 여부와 무관하게 몸 메쉬는 세고,
+     placeholder · 꾸미기 파츠(__partWrap_ · rigged · __twPartWrap) · 리깅 파츠 스킨드메시(_origBind)만 뺀다.
+   ★ 복제본은 userData 가 비어 있어(_pkCloneChar 주석) **원본과 짝을 지어** 원본의 표식·정체로 판정한다.
+     복제는 자식 순서를 그대로 베끼므로 나란히 훑으면 짝이 맞는다(SkeletonUtils 도 같은 방법을 쓴다).
+   ⚠️ 계산 방식(지오메트리 상자 × matrixWorld)은 _pkVisibleBox 와 같다 — 이 화면 안에서 규칙이 섞이지 않게. */
+function _pkPairMap(src, cl){
+  const m = new Map();
+  const walk = (a, b)=>{
+    if(!a || !b) return;
+    m.set(b, a);
+    const n = Math.min(a.children.length, b.children.length);
+    for(let i = 0; i < n; i++) walk(a.children[i], b.children[i]);
+  };
+  walk(src, cl);
+  return m;
+}
+function _pkBodyBox(g, srcOf, ph){
+  g.updateWorldMatrix(true, true);
+  const box = new THREE.Box3(), tmp = new THREE.Box3();
+  let any = false;
+  g.traverse(o=>{
+    if(!o.isMesh || !o.geometry) return;
+    const so = srcOf.get(o);
+    if(so && so.userData && so.userData._origBind) return;            // 리깅 파츠 스킨드메시
+    for(let p = o; p; p = p.parent){
+      const sp = srcOf.get(p);
+      if(ph && sp === ph) return;                                         // 숨겨 둔 placeholder
+      if(typeof p.name === 'string' && p.name.indexOf('__partWrap_') === 0) return;   // 꾸미기 파츠
+      if(sp && sp.userData && (sp.userData.rigged || sp.userData.__twPartWrap)) return;
+    }
+    if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    if(!o.geometry.boundingBox) return;
+    tmp.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
+    box.union(tmp); any = true;
+  });
+  return any ? box : null;   // 잴 몸이 없으면 null — 부르는 쪽(_pkVisibleBox)이 예전 규칙으로 잰다
+}
 function _pkCloneChar(seat, out){
   if(!seat || !seat.bodyWrap) return null;
   const src = seat.bodyWrap;
@@ -18034,7 +18184,29 @@ function _pkCloneChar(seat, out){
      ★ 원본 재질 하나 → 사본 하나(Map). 같이 쓰던 것은 복제 뒤에도 같이 쓴다 — 짝이 하나로 정해진다.
        배열 재질 안에 든 얼굴·귀도 이제 짝이 된다(예전엔 배열이면 짝짓기를 건너뛰었다). */
   const _cl = new Map();
-  const _clone = (m)=>{ if(!m || !m.clone) return m; let c = _cl.get(m); if(!c){ c = m.clone(); _cl.set(m, c); } return c; };
+  /* 🩹 [2026-10-02 제보 #8] «스티커사진에서 염색한 노비 모자·목도리가 기본색으로 보인다»
+     m.clone() 은 onBeforeCompile 을 안 옮긴다 → 텍스처 파츠의 색조 셰이더(_hueOBC)가 사본에서 빠진다.
+     ★ 원본의 유니폼 객체를 **그대로 공유**한다(값 사본이 아니라). 그래야 무대가 떠 있는 동안 원본에서
+       색을 바꿔도 같이 따라가고, 셰이더가 잡는 참조와 userData._hueU 가 한 몸으로 남는다.
+     ⚠️ PS1 표식(_ps1Hooked)은 JSON 으로 true 가 따라오지만 사본에는 그 주입이 없다 — 거짓 표식을
+       지워 둬야 나중에 사본에 PS1 을 걸 때 «이미 걸림» 으로 건너뛰지 않는다. */
+  const _clone = (m)=>{
+    if(!m || !m.clone) return m;
+    let c = _cl.get(m);
+    if(!c){
+      c = m.clone();
+      const hu = m.userData && m.userData._hueU;
+      if(hu && hu.uOn){
+        c.userData = c.userData || {};
+        c.userData._hueU = hu;
+        c.onBeforeCompile = _hueOBC(hu);
+        if(c.userData._ps1Hooked){ c.userData._ps1Hooked = false; delete c.userData._ps1PrevOBC; }
+        c.needsUpdate = true;
+      }
+      _cl.set(m, c);
+    }
+    return c;
+  };
   g.traverse(o=>{
     if(!o.isMesh) return;
     o.frustumCulled = false;
@@ -18053,6 +18225,12 @@ function _pkCloneChar(seat, out){
      무대에서만 사람마다 키가 다르게 나온다. */
   /* 몸통 자체의 회전은 지운다 — 춤(등 대고 눕기 rotation.x = -1.5)이나 sleep 의 turnY 가
      그대로 딸려오면 무대에서 누운 채로·비스듬히 선 채로 굳는다. 방향은 아래 연출 겹이 정한다. */
+  /* 🩹 [2026-10-02] 원본과 짝을 지어 둔다 — 몸 상자를 실행 화면 규칙으로 재는 데 쓴다(_pkBodyBox 주석:
+     리깅 옷·자리비움 때 키가 랜덤이던 원인). 회전을 지우기 전에 달아도 무관하다(구조만 본다). */
+  if(typeof _pkPairMap === 'function'){
+    g.__pkSrcOf = _pkPairMap(src, g);
+    g.__pkPh = (seat && seat.placeholder && seat.placeholder.root) || null;
+  }
   g.rotation.set(0,0,0);
   g.updateWorldMatrix(true,true);
   /* ★ [2026-09-16 제보 5] 키는 **몸만** 잰다(noParts) — 파츠까지 재면 파츠가 클수록 캐릭터가 작아진다.
@@ -19365,6 +19543,25 @@ function _pkBindWinDrag(){
   });
 })();
 
+/* ═══ 🎟️ [2026-10-02 요청] 하루 횟수 제한 — 🔫 러시안룰렛(워킹룸·혼자) · 🎲 투게더룸 주사위, **각각 하루 6번** ═══
+   ★ 둘은 따로 센다(룰렛 6 + 주사위 6). 날짜는 이 PC 의 자정(로컬 날짜)에 넘어간다.
+   ★ 세는 시점은 **실제로 굴릴 때**다 — 회사원 모드·쉬는 시간·3초 연타·canFly 불가로 막힌 누름은 안 깎는다.
+   ⚠️ 이 기기 localStorage 에만 센다 — 기기마다 따로이고, 콘솔로 지우면 풀린다(난수 자체가 클라이언트라
+     🎲 와 같은 수준 — ROULETTE 주석의 ⚠️ 그대로). 서버로 막아야 하면 규칙·서버 기록이 따로 필요하다.
+   ⚠️ 저장이 안 되는 환경이면 **막지 않는다**(못 세는 것을 «다 썼다» 로 읽으면 놀이가 영영 잠긴다). */
+const DAILY_PLAY_MAX = 6;
+function _dailyPlayDay(){ const d = new Date(); return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate(); }
+/* kind: 'roulette' | 'dice'. 쓸 수 있으면 한 번 깎고 { ok:true, left } · 다 썼으면 { ok:false, left:0 }. */
+function _dailyPlayTake(kind){
+  const key = 'tw.dailyPlay.' + kind, day = _dailyPlayDay();
+  let rec = null;
+  try{ rec = JSON.parse(localStorage.getItem(key) || 'null'); }catch(_){ rec = null; }
+  const used = (rec && rec.d === day && rec.n > 0) ? (rec.n | 0) : 0;
+  if(used >= DAILY_PLAY_MAX) return { ok:false, left:0 };
+  try{ localStorage.setItem(key, JSON.stringify({ d:day, n:used + 1 })); }catch(_){}
+  return { ok:true, left:DAILY_PLAY_MAX - used - 1 };
+}
+
 // 주사위 굴리기 — 메시지 전송(대화창) + 말풍선
 /* 🔫 [2026-09-23] 투게더룸 🎲 도 러시안룰렛이다 — 하나라도 1이면 **굴린 사람이** 날아간다(요청).
    ★ 날리기는 룰렛과 같은 한 곳(_selfFlyAfterDice → pokeSelf)으로 간다.
@@ -19373,6 +19570,12 @@ function _pkBindWinDrag(){
    ★ 대화 기록 문장은 **원래 🎲 문장 그대로**다 — «1이 나와 날아갔어요» 꼬리는 붙이지 않는다(2026-09-23 요청). */
 function _rollDice(){
   if(window._activeChannel !== 2) return;
+  /* 🎟️ 하루 6번(_dailyPlayTake 주석). typeof 로 거는 것은 검사 무대(sim-fly-roulette)가 이 함수만 오려 돌리기 때문이다. */
+  if(typeof _dailyPlayTake === 'function'){
+    const q = _dailyPlayTake('dice');
+    if(!q.ok){ if(typeof toast==='function') toast('🎲 주사위는 하루 ' + DAILY_PLAY_MAX + '번까지예요 — 내일 다시 굴릴 수 있어요'); return; }
+    if(q.left === 0 && typeof toast==='function') toast('🎲 오늘 마지막 주사위였어요');
+  }
   const n1 = 1 + Math.floor(Math.random()*6);
   const n2 = 1 + Math.floor(Math.random()*6);
   const name = getDisplayName();
@@ -19444,6 +19647,12 @@ function _rollRoulette(){
   }
   const c = canFly(mySeat, true);   // 🗼 탑 안이어도 굴린다 — 1 이면 탑에서 튕겨 나간다(A안)
   if(!c.ok){ if(typeof toast==='function') toast(c.why); return; }
+  /* 🎟️ 하루 6번 — 위 게이트를 다 지난 뒤에만 센다(막힌 누름은 안 깎는다 · _dailyPlayTake 주석). */
+  if(typeof _dailyPlayTake === 'function'){
+    const q = _dailyPlayTake('roulette');
+    if(!q.ok){ if(typeof toast==='function') toast('🔫 룰렛은 하루 ' + DAILY_PLAY_MAX + '번까지예요 — 내일 다시 돌릴 수 있어요'); return; }
+    if(q.left === 0 && typeof toast==='function') toast('🔫 오늘 마지막 룰렛이었어요');
+  }
   _rouletteAt = now;
   const n1 = 1 + Math.floor(Math.random()*6);
   const n2 = 1 + Math.floor(Math.random()*6);
@@ -19978,8 +20187,13 @@ function createWardrobeAdjPanel(cat, id) {
   // xf 참조 — mutate 대상. 인스턴스가 바뀔 때마다 재할당.
   let xf = getXf();
   if(!xf.color) xf.color = {};
+  /* 🩹 [2026-10-02 제보] «세부 조정 뒤 초기화를 눌러도 안 된다»
+     패널이 만들어질 때의 미리보기(previewSeat)를 그대로 잡고 있으면, 그 뒤 미리보기가 다시 지어졌을 때
+     (카탈로그 동기화·재장착 등 refreshWdPreviewChar) 화면에 없는 옛 캐릭터에 적용하게 된다.
+     기즈모는 늘 **지금의** wdPreviewBase 를 보므로 조정은 먹고 초기화만 안 먹는 모양이 된다. */
   const sync = () => {
-    if(previewSeat) applyPartXf(previewSeat, cat);
+    const b = wdPreviewBase || previewSeat;
+    if(b) applyPartXf(b, cat);
   };
 
   const panel = document.createElement('div');
@@ -20073,10 +20287,51 @@ function createWardrobeAdjPanel(cat, id) {
   // 개별 초기화 함수 — defaultXf가 있으면 그 값으로, 없으면 원점(0/1)
   const rec4reset = savedParts.find(p=>p.id===id);
   const defXf = rec4reset && rec4reset.defaultXf;
+  /* 🩹 [2026-10-02 제보] 초기화는 **누르는 순간** 값을 다시 찾는다 — 기즈모(_wdGetActiveWrapperAndXf)와 같은 출처.
+     [원인] 예전엔 패널을 만들 때 잡아 둔 entry·xf 를 고쳤다. 그 사이 미리보기·draft 가 새로 지어지면
+       (refreshWdPreviewChar · ensureWdDraft 가 새 draft 를 만드는 경우) 기즈모가 만진 값과 다른 객체를 고치게 되어
+       눌러도 화면이 그대로였다.
+     [대응] 지금 미리보기의 charDef 와 지금 draft 양쪽에서 이 파츠·인스턴스의 xf 를 찾아 **둘 다** 되돌린다
+       (둘이 같은 객체면 한 번). 패널이 잡아 둔 xf 도 같이 — 패널의 다른 동작이 옛 값을 다시 쓰지 않게.
+     ★ 저작 오프셋 옛 보정 표식(_aoLegacy)도 내린다. 초기화로 쓴 값은 «깨끗한» 값이라, 표식이 남아 있으면
+       authorOff 만큼 밀린 자리로 «초기화» 된다(기즈모가 sync 에서 내리는 것과 같은 이유). */
+  const _resetTargets = ()=>{
+    const out = [];
+    const defs = [];
+    const b = wdPreviewBase;
+    if(b && b.charDef) defs.push(b.charDef);
+    /* ⚠️ ensureWdDraft() 를 부르지 않는다 — 원본이 바뀐 경우 새 draft 를 만들어 지금까지의 편집을 버릴 수 있다.
+       저장(_commitWdDraftNow)이 읽는 그 전역(wdDraftDef)을 그대로 본다. */
+    const dr = (typeof wdDraftDef !== 'undefined') ? wdDraftDef : null;
+    if(dr && defs.indexOf(dr) < 0) defs.push(dr);
+    defs.forEach(d=>{
+      const e = findEntryById(d, cat, id) || firstEntryForCat(d, cat);
+      if(!e || typeof e !== 'object') return;
+      const insts = partEntryInstances(e);
+      let x = insts[currentInstanceIdx];
+      if(!x){ x = defaultPartXf(); setPartEntryInstanceXf(e, currentInstanceIdx, x); }
+      if(out.indexOf(x) < 0) out.push(x);
+    });
+    if(xf && out.indexOf(xf) < 0) out.push(xf);
+    return out;
+  };
+  const _clearAoLegacy = ()=>{
+    const b = wdPreviewBase; if(!b) return;
+    const ws = [];
+    const m = b.equippedPartObjs && b.equippedPartObjs[cat];
+    if(m) ws.push(m);
+    const st = b.stackedPartObjs && b.stackedPartObjs[cat] && b.stackedPartObjs[cat][id];
+    if(st) ws.push(st);
+    ws.slice().forEach(w=>{ ((w.userData && w.userData.multiExtras) || []).forEach(ex=>ws.push(ex)); });
+    ws.forEach(w=>{ if(w && w.userData) w.userData._aoLegacy = false; });
+  };
   const resetOne = (kind)=>{
-    if(kind==='pos')   xf.pos   = (defXf && Array.isArray(defXf.pos))   ? defXf.pos.slice()  : [0,0,0];
-    if(kind==='rot')   xf.rot   = (defXf && Array.isArray(defXf.rot))   ? defXf.rot.slice()  : [0,0,0];
-    if(kind==='scale') xf.scale = (defXf && typeof defXf.scale==='number') ? defXf.scale     : 1;
+    _resetTargets().forEach(x=>{
+      if(kind==='pos')   x.pos   = (defXf && Array.isArray(defXf.pos))   ? defXf.pos.slice()  : [0,0,0];
+      if(kind==='rot')   x.rot   = (defXf && Array.isArray(defXf.rot))   ? defXf.rot.slice()  : [0,0,0];
+      if(kind==='scale') x.scale = (defXf && typeof defXf.scale==='number') ? defXf.scale     : 1;
+    });
+    if(kind==='pos') _clearAoLegacy();
     sync();
   };
   resetRow.querySelector('.wd-reset-pos').onclick   = ()=>resetOne('pos');
@@ -20149,7 +20404,17 @@ function _ensureHueUniforms(mat){
   mat.userData = mat.userData || {};
   const u = { uHue:{value:0}, uSat:{value:0}, uVal:{value:1}, uOn:{value:0} };
   mat.userData._hueU = u;
-  mat.onBeforeCompile = (shader)=>{
+  mat.onBeforeCompile = _hueOBC(u);
+  mat.needsUpdate = true;
+  return u;
+}
+/* 🎨 색조 셰이더 주입 함수 — u(유니폼 묶음)를 클로저로 잡는다.
+   ★ [2026-10-02 제보 #8] _ensureHueUniforms 에서 떼어 냈다. 스티커사진 무대(_pkCloneChar)가 재질을
+     m.clone() 하면 THREE r128 의 Material.copy 는 onBeforeCompile 을 **복사하지 않는다**(userData 는
+     JSON 값만 복사). 그래서 사본은 원본 텍스처색으로 그려졌다 — 텍스처 파츠(노비 모자·목도리)만
+     염색이 빠지고 단색 파츠는 멀쩡했던 이유다. 사본에 같은 주입을 다시 걸려면 이 함수가 따로 있어야 한다. */
+function _hueOBC(u){
+  return (shader)=>{
     // ★ 같은 객체 참조를 넘겨야 이후 .value 변경이 렌더에 반영된다.
     shader.uniforms.uHue = u.uHue; shader.uniforms.uSat = u.uSat; shader.uniforms.uVal = u.uVal; shader.uniforms.uOn = u.uOn;
     shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform float uVal;\nuniform float uOn;\n'
@@ -20164,8 +20429,6 @@ function _ensureHueUniforms(mat){
       '#include <emissivemap_fragment>\n  if(uOn > 0.5){ totalEmissiveRadiance = twHueShift(totalEmissiveRadiance, uHue, uSat, uVal); }'
     );
   };
-  mat.needsUpdate = true;
-  return u;
 }
 /* hex=null이면 색조 해제(원본 텍스처 그대로).
    hsvOpt = {h(0~1), s(0~1), v(배율, 1=중립)} 가 있으면 그쪽이 우선이다.
@@ -22520,7 +22783,7 @@ canvas.addEventListener('pointerdown',e=>{
   if(_bonkAiming){ _bonkAimClick(e); return; }
   const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(ndc,camera);
-  const hit=_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기)
+  const hit=_skipHiddenDesk(_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true)));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기)
   if(!hit.length) return;
   const seat=seatFromObject(hit[0].object); if(!seat) return;
   /* 🪑 날아가는 중인 캐릭터는 잡지 않는다 — 잡으면 흔들기(rig 를 직접 제어한다)와 비행이 매
@@ -22531,7 +22794,6 @@ canvas.addEventListener('pointerdown',e=>{
   // shake용 평면 — 캐릭터(rig)의 world position 기준 (책상 고정, 캐릭터만 움직임)
   const camDir = camera.getWorldDirection(new THREE.Vector3()).negate();
   const rigWP = new THREE.Vector3(); seat.rig.getWorldPosition(rigWP);
-  const groupWP = new THREE.Vector3(); seat.group.getWorldPosition(groupWP);
   const grabPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(camDir, rigWP);
   const grabPt = new THREE.Vector3(); ray.ray.intersectPlane(grabPlane, grabPt);
   const grabOffset = grabPt.clone().sub(rigWP);
@@ -22539,6 +22801,14 @@ canvas.addEventListener('pointerdown',e=>{
      남이 내 머리에 얹어둔 동물은 그 사람 것이라 내가 내릴 수 없다(요청 사양).
      내려도 그 사람이 방송하는 상태 때문에 다음 sync에 곧바로 다시 올라와 깜빡이기만 했다. */
   if(seat.ridingOn && !seat.remote) unmountRide(seat);
+  /* 🩹 [2026-10-02 제보 #7] groupWP 는 **내린 뒤에** 잰다.
+     [원인] 예전엔 내리기 전에 쟀다. unmountRide 가 group 을 제자리(머리 위 → 자기 자리)로 되돌리는데
+       흔들기 계산(rig = 커서 − grabOffset − groupWP)은 옛 groupWP 를 계속 써서, 그 차이만큼 캐릭터가
+       커서에서 옆으로 빠져 따라왔다. 그러면 놓는 자리 판정(findRideTarget)도 엉뚱한 곳을 본다.
+     ★ grabPlane·grabOffset 은 내리기 **전** 값을 그대로 쓴다 — 잡은 지점(머리 위 그 자리)과 손잡이 위치가
+       유지되어, 내린 캐릭터가 커서 바로 아래로 따라온다. */
+  seat.group.updateMatrixWorld(true);
+  const groupWP = new THREE.Vector3(); seat.group.getWorldPosition(groupWP);
   drag={
     seat, startX:e.clientX, startY:e.clientY, moved:false, mode:null, targetType,
     grabX: worldX(e) - seat.group.position.x,
@@ -24123,7 +24393,7 @@ async function applyEquippedPartsToSeat(seat, def){
      null 로 남는다(패딩됨). 반대로 5칸으로 저장된 값을 옛 판본이 읽어도 앞 3칸만 읽고 지나간다.
      즉 양방향 모두 안전하다.
    ⚠️ extraSeatSlots(솔로모드 자리추가)는 슬롯 번호 목록이라 자동으로 최대 4석까지 늘어난다.
-     layoutSeats 는 인원 수 상한이 없고(방은 이미 8명) 간격·줌을 실측으로 잡으므로 그대로 돈다. */
+     layoutSeats 는 인원 수 상한이 없고(방은 이미 10명) 간격·줌을 실측으로 잡으므로 그대로 돈다. */
 const CHAR_SLOT_MAX=5;
 const slots=new Array(CHAR_SLOT_MAX).fill(null);
 /* 🛡️ [얼굴 영구 소실 방어 · 기억] 칸마다 «이 캐릭터는 그림을 가진 적이 있다».
@@ -24547,33 +24817,92 @@ function mirrorUVOn(hit, mesh, cam, cx, castFn, off){ if(!mesh||!hit)return null
   if(h.length&&h[0].uv) return {x:h[0].uv.x,y:h[0].uv.y};
   return null; }
 function mirrorUV(hit){ if(!cBase||!cBase.face)return null;
-  return mirrorUVOn(hit, cBase.face, cCam, cBase.faceCx||0); }
+  /* 🩹 [2026-10-02] 대칭 되쏘기도 지금 자세로 맞힌다 — 얼굴이 리깅이라 기본 캐스트는 바인드 포즈를 맞혔다(_stampFaceHit 주석). */
+  return mirrorUVOn(hit, cBase.face, cCam, cBase.faceCx||0, (ray, mesh)=>_picIntersect(ray,[mesh])); }
 function strokeSeg(ctx,lx,ly,x,y){ if(lx==null)_seg(ctx,x,y,x+0.01,y+0.01); else _seg(ctx,lx,ly,x,y); }
+/* 🩹 [2026-10-02 제보 #12] «캐릭터 생성 때 머리 윗부분은 끝까지 칠해도 되는데, 수염을 그리려고 아래쪽을 칠하면 튀어서 제멋대로 그려진다»
+   [원인] 생성기 칠하기는 얼굴 메쉬 **하나만** 맞히고 직전 점과 이번 점을 텍스처 위에서 직선으로 이었다.
+     ① 가려짐을 안 봤다 — 턱 밑·목 쪽 얼굴 메쉬는 몸통·옷에 가려 안 보이는데도 광선이 그대로 맞혀서, 화면엔 옷 위를
+        칠하는데 안 보이는 목 UV 에 찍혔다.
+     ② 솔기를 안 봤다 — 턱 아래 UV 솔기를 건너면 텍스처를 가로지르는 긴 직선이 그어졌다.
+     머리 위쪽은 실루엣을 넘으면 그냥 빗나가(miss) 획이 끊기므로 멀쩡했다 — 그래서 «아래쪽만» 이다.
+   [대응] 꾸미기 파츠 그리기(_wdPic)가 이미 검증한 세 가지를 그대로 쓴다.
+     · 앞면만: 뒷면(dot ≥ 0)에 맞은 것은 버린다(_picIntersect 와 같은 규칙).
+     · 가려짐: 옷(윗옷·아래옷·한벌옷)이 얼굴보다 앞에서 맞으면 거기서 획을 끊는다.
+     · 솔기: 3D 이동량 대비 UV 가 설명 못 할 만큼 뛰면 잇지 않고 끊는다(_wdPicPaint 의 allow 식 그대로).
+     · 빠른 움직임 쪼개기: 화면 경로를 몇 px 단위로 나눠 각 지점을 따로 맞힌다(_wdPicStrokeTo 와 같은 상수).
+   ⚠️ 가려짐 판정에 모자·안경·탈은 넣지 않는다 — 얼굴 위에 얹는 파츠라 그 아래를 칠하려는 경우가 있다.
+   ⚠️ 스포이드·도장은 손대지 않는다(이번 증상과 무관). */
+let _pLastScr = null, _pLastUV = null, _pLastPt = null, _pLastSUV = null;
+function _paintBreak(){ lastPX=lastPY=null; lastSX=lastSY=null; _pLastUV=null; _pLastPt=null; _pLastSUV=null; }
+function _paintHitAt(clientX, clientY){
+  const cv=document.getElementById('creatorPreview'); if(!cv || !cBase || !cBase.face) return null;
+  const r=cv.getBoundingClientRect();
+  _pndc.x=((clientX-r.left)/r.width)*2-1; _pndc.y=-((clientY-r.top)/r.height)*2+1;
+  _pray.setFromCamera(_pndc,cCam);
+  /* 🩹 얼굴·옷 모두 리깅이라 지금 자세로 맞힌다(_picIntersect — 앞면만). 기본 캐스트는 바인드 포즈라 아래쪽이 어긋났다. */
+  const hit=_picIntersect(_pray.ray, [cBase.face]);
+  if(!hit || !hit.uv) return null;
+  hit.distance = _pray.ray.origin.distanceTo(hit.point);
+  const occ=[cBase.upMesh, cBase.loMesh, cBase.onepieceMesh];
+  /* ⚠️ 같은 장면에 붙어 있는 옷만 본다 — 동물 생성기로 바뀌면 cBase.face 만 동물 것으로 바뀌고 옷 참조는 옛 사람
+     인스턴스를 가리킬 수 있다(장면에서 떼어진 메쉬). 그 낡은 위치에 맞으면 엉뚱하게 칠이 막힌다. */
+  let _fr=cBase.face; while(_fr.parent) _fr=_fr.parent;
+  for(let i=0;i<occ.length;i++){
+    const o=occ[i]; if(!o || o === cBase.face) continue;
+    let vis=true, q=o, root=o; for(;q;q=q.parent){ if(q.visible===false){ vis=false; break; } root=q; }
+    if(!vis || root !== _fr) continue;
+    const oh=_picIntersect(_pray.ray, [o]);
+    if(oh && oh.point && _pray.ray.origin.distanceTo(oh.point) < hit.distance - 1e-3) return null;   // 옷이 앞에 있다 — 안 보이는 곳이다
+  }
+  return hit;
+}
 function paintAt(hit){ const ctx=actC().getContext('2d');ctx.lineCap='round';ctx.lineJoin='round';
   ctx.lineWidth=brushSize;
   ctx.globalCompositeOperation=eraser?'destination-out':'source-over';ctx.strokeStyle=brushColor;
   const cx=hit.uv.x*CANVAS_SZ, cy=hit.uv.y*CANVAS_SZ;
+  /* 🧵 솔기 판정(_wdPicPaint 와 같은 식) — 천장 0.25 까지 그대로. */
+  const wD=(_pLastPt && hit.point) ? _pLastPt.distanceTo(hit.point) : 0;
+  const allow=Math.min(0.25, wD * _wdPicUvScale(hit.object) * 4 + 0.02);
+  if(_pLastUV && Math.hypot(hit.uv.x-_pLastUV.x, hit.uv.y-_pLastUV.y) > allow){ lastPX=lastPY=null; }
   strokeSeg(ctx,lastPX,lastPY,cx,cy); lastPX=cx; lastPY=cy;
+  _pLastUV={x:hit.uv.x, y:hit.uv.y};
+  if(hit.point){ if(!_pLastPt) _pLastPt=new THREE.Vector3(); _pLastPt.copy(hit.point); }
   if(symmetry){ const m=mirrorUV(hit);
-    if(m){ const mx=m.x*CANVAS_SZ, my=m.y*CANVAS_SZ; strokeSeg(ctx,lastSX,lastSY,mx,my); lastSX=mx; lastSY=my; }
-    else { lastSX=lastSY=null; } }
+    if(m){
+      const mj=!!(_pLastSUV && Math.hypot(m.x-_pLastSUV.x, m.y-_pLastSUV.y) > allow);
+      const mx=m.x*CANVAS_SZ, my=m.y*CANVAS_SZ; strokeSeg(ctx,mj?null:lastSX,mj?null:lastSY,mx,my); lastSX=mx; lastSY=my; _pLastSUV={x:m.x,y:m.y};
+    }
+    else { lastSX=lastSY=null; _pLastSUV=null; } }
   ctx.globalCompositeOperation='source-over'; blit(); }
 const _pray=new THREE.Raycaster(), _pndc=new THREE.Vector2();
+const CR_PAINT_STEP_PX = 6, CR_PAINT_MAX_STEPS = 8;   // _wdPicStrokeTo 와 같은 값
 function paintFromEvent(e){ if(!isDrawStep()||!cBase)return;
-  const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();
-  _pndc.x=((e.clientX-r.left)/r.width)*2-1; _pndc.y=-((e.clientY-r.top)/r.height)*2+1;
-  _pray.setFromCamera(_pndc,cCam);
-  const hit=_pray.intersectObject(cBase.face,false);
-  if(hit.length&&hit[0].uv){ paintAt(hit[0]); } else { lastPX=lastPY=null; lastSX=lastSY=null; } }
+  /* 획의 첫 점(pointerdown 이 lastPX 를 비우고 부른다) — 쪼개기 출발점을 새로 잡는다. */
+  if(lastPX==null && lastSX==null && !_pLastUV) _pLastScr=null;
+  const sx=_pLastScr ? _pLastScr.x : null, sy=_pLastScr ? _pLastScr.y : null;
+  if(sx==null){
+    const h=_paintHitAt(e.clientX, e.clientY);
+    if(h) paintAt(h); else _paintBreak();
+  } else {
+    const dx=e.clientX-sx, dy=e.clientY-sy;
+    const n=Math.min(CR_PAINT_MAX_STEPS, Math.max(1, Math.ceil(Math.hypot(dx,dy)/CR_PAINT_STEP_PX)));
+    for(let i=1;i<=n;i++){
+      const h=_paintHitAt(sx+dx*i/n, sy+dy*i/n);
+      if(h) paintAt(h); else _paintBreak();   // 얼굴 밖·가려진 곳 — 거기서 끊는다
+    }
+  }
+  _pLastScr={x:e.clientX, y:e.clientY};
+}
 // 우클릭 스포이드: 표정 텍스처 캔버스에서 픽셀 색을 읽어 브러시 색으로 적용
 function eyedropFromEvent(e){ if(!isDrawStep()||!cBase)return false;
   const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();
   _pndc.x=((e.clientX-r.left)/r.width)*2-1; _pndc.y=-((e.clientY-r.top)/r.height)*2+1;
   _pray.setFromCamera(_pndc,cCam);
-  const hit=_pray.intersectObject(cBase.face,false);
-  if(!hit.length||!hit[0].uv) return false;
-  const cx=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(hit[0].uv.x*CANVAS_SZ)));
-  const cy=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(hit[0].uv.y*CANVAS_SZ)));
+  const _eh=_picIntersect(_pray.ray, [cBase.face]);   // 🩹 지금 자세로 맞힌다(리깅 · _stampFaceHit 주석)
+  if(!_eh||!_eh.uv) return false;
+  const cx=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.x*CANVAS_SZ)));
+  const cy=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.y*CANVAS_SZ)));
   let d; try{ d=actC().getContext('2d').getImageData(cx,cy,1,1).data; }catch(_){ return false; }
   if(d[3]<8) return false;   // 빈 픽셀은 무시
   const hex='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
@@ -24692,7 +25021,24 @@ function commitStamp(){
     return {x: cx + lx*cs - ly*sn, y: cy + lx*sn + ly*cs};
   }
   // N×N 격자
-  const N=18;
+  /* 🩹 [2026-10-02 제보] «도장을 찍을 때 얼굴 하관·턱 부분이 제대로 안 찍힌다»
+     [원인] 아래 UV_EDGE_MAX(0.15) 가 **절대값** 이었다. 턱 아래처럼 얼굴이 화면 안쪽으로 휘어 들어가는 곳은 화면에선
+       한 칸인데 UV 로는 넓게 펼쳐져서(비스듬히 보는 면), 이음새가 아닌데도 «UV 점프» 로 버려졌다 — 턱선이 비어 찍혔다.
+     [대응] ① 이음새 판정을 **3D 거리 대비** 로 바꾼다(_uvFar 주석 · 꾸미기 그리기 _wdPicPaint 와 같은 식).
+       ② 격자를 18 → 28 로 촘촘히 — 진짜 이음새에서 버려지는 칸이 작아지고 굽은 면을 더 잘 따라간다(레이 841회, 대칭 시 두 배).
+       ③ 앞면에 맞은 것만 쓴다 — 양면 재질이면 턱 밑을 스치는 광선이 안쪽 면(다른 UV)에 맞을 수 있다.
+     ⚠️ animal.js aCommitStamp 에 같은 코드가 있다(이 파일 주석의 약속). 동물 생성기도 같은 증상이면 그쪽도 같이 고칠 것. */
+  const N=28;
+  /* 🩹 [2026-10-02 재제보 — «하관 아래가 아직 덜 찍힌다»(위에서 본 스크린샷: 비스듬하지 않은 아래 띠가 통째로 빔)]
+     [진짜 원인] 얼굴 메쉬는 **리깅(SkinnedMesh)** 이다. three r128 기본 레이캐스트는 스키닝을 계산하지 않아
+       **바인드 포즈** 의 얼굴을 맞힌다. 화면의 얼굴(지금 자세)과 어긋난 만큼 아래쪽 띠는 광선이 빈 곳을 지나 못 맞혔다.
+     [대응] 꾸미기 그리기가 이 문제로 만든 _picIntersect(리깅이면 지금 자세의 정점으로 직접 교차 · 앞면만)를 쓴다.
+       리깅이 아니면 평소 레이캐스트 + 앞면 필터라 예전과 같다. */
+  function _stampFaceHit(){
+    const c=_picIntersect(_pray.ray, [cBase.face]);
+    if(!c||!c.uv) return null;
+    return {x:c.uv.x, y:c.uv.y, p:c.point.clone()};
+  }
   // 각 격자 점의 face UV(있으면) 계산
   const uvs=[]; // [j*(N+1)+i] = {uv:{x,y}} or null
   for(let j=0;j<=N;j++){
@@ -24702,8 +25048,7 @@ function commitStamp(){
       // 화면 좌표 → NDC (캔버스 픽셀 크기는 r.width/r.height 사용)
       _pndc.x=(sp.x/r.width)*2-1; _pndc.y=-(sp.y/r.height)*2+1;
       _pray.setFromCamera(_pndc,cCam);
-      const hit=_pray.intersectObject(cBase.face,false);
-      uvs.push(hit.length&&hit[0].uv ? {x:hit[0].uv.x, y:hit[0].uv.y} : null);
+      uvs.push(_stampFaceHit());
     }
   }
   pushHistory();
@@ -24794,7 +25139,17 @@ function commitStamp(){
      (제보 증상: 얼굴 영역을 벗어나면 일부가 침범되듯 중첩으로 찍힘).
      → 정상 셀의 UV 간격(N=18이면 ~0.05 이하)보다 훨씬 큰 점프가 있는 삼각형은 폐기. */
   const UV_EDGE_MAX = 0.15;
-  function _uvFar(p,q){ const dx=p.x-q.x, dy=p.y-q.y; return (dx*dx+dy*dy) > UV_EDGE_MAX*UV_EDGE_MAX; }
+  /* 🩹 이음새 판정 — 3D 로 그만큼 떨어진 두 점이라면 UV 가 이 정도 벌어지는 게 자연스러운가?
+     · 둘 다 실제로 맞힌 점(p 있음): 허용치 = 3D 거리 × 이 메쉬의 UV 배율 × 3 + 0.03, 천장 0.35.
+       비스듬한 턱 밑은 3D 거리도 같이 커서 통과하고, 진짜 이음새(3D 는 붙어 있는데 UV 가 멀다)는 걸린다.
+       천장은 «텍스처를 가로지르는 긴 띠» 를 막는 마지막 울타리다.
+     · 외삽으로 채운 점(p 없음): 예전 그대로 0.15. */
+  const _uvK = _wdPicUvScale(cBase.face);
+  function _uvFar(p,q){
+    const dx=p.x-q.x, dy=p.y-q.y, uvD=Math.sqrt(dx*dx+dy*dy);
+    if(p.p && q.p){ const allow=Math.min(0.35, p.p.distanceTo(q.p)*_uvK*3 + 0.03); return uvD > allow; }
+    return uvD > UV_EDGE_MAX;
+  }
   /* ★ 삼각형을 픽셀 단위로 직접 래스터화한다 (clip + drawImage 사용 안 함).
      [왜] 캔버스의 clip 경계는 안티앨리어싱된다. 그래서 어떤 합성 모드를 써도 이음매가 남는다.
        · source-over + 부풀리기 → 겹침 띠에서 알파가 두 번 쌓임 → '진한' 빗금 (0.5→0.75)
@@ -24872,8 +25227,7 @@ function commitStamp(){
       const sx=stampPlace.cx+lx*cs2-ly*sn2, sy=stampPlace.cy+lx*sn2+ly*cs2;
       _pndc.x=(sx/r.width)*2-1; _pndc.y=-(sy/r.height)*2+1;
       _pray.setFromCamera(_pndc,cCam);
-      const hit=_pray.intersectObject(cBase.face,false);
-      uvs2.push(hit.length&&hit[0].uv?{x:hit[0].uv.x,y:hit[0].uv.y}:null);
+      uvs2.push(_stampFaceHit());   // 🩹 원본 도장과 같은 판정(앞면 · 3D 위치 포함)
     }}
     extrapolateUVs(uvs2, N);
     for(let j=0;j<N;j++){ for(let i=0;i<N;i++){
@@ -24990,7 +25344,7 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
     // 도장 편집 중에는 캔버스 클릭으로 그리지 않음(오버레이 조작 우선)
     if(stampMode) return;
     if(e.button!==0)return;
-    if(crStep===3)blinkEdited=true;pushHistory();painting=true;lastPX=lastPY=null;lastSX=lastSY=null;paintFromEvent(e);cv.setPointerCapture(e.pointerId);
+    if(crStep===3)blinkEdited=true;pushHistory();painting=true;_paintBreak();_pLastScr=null;paintFromEvent(e);cv.setPointerCapture(e.pointerId);   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
   });
   cv.addEventListener('pointermove',e=>{
     if(_rcOrbit){
@@ -25088,6 +25442,13 @@ const swEl=document.getElementById('brushColors');
   s.onclick=()=>{brushColor=c;eraser=false;document.getElementById('eraserBtn').classList.remove('on');[...swEl.children].forEach(x=>x.classList.toggle('on',x===s));};
   swEl.appendChild(s);});
 document.getElementById('brushCustom').addEventListener('input',e=>{brushColor=e.target.value;eraser=false;
+  document.getElementById('eraserBtn').classList.remove('on');[...swEl.children].forEach(x=>x.classList.remove('on'));});
+/* 🎨 [2026-10-02 제보] "자유 색으로 칠하다 기본 칩을 눌렀다가, 아까 그 자유 색으로 돌아가려고 칸을 다시
+   눌러도 그 색이 안 잡힌다." — <input type="color"> 는 **값이 바뀔 때만** input/change 를 보낸다.
+   같은 색 그대로 창을 닫으면 이벤트가 없어서 브러시가 기본 칩 색에 머물렀다.
+   ⇒ 칸을 누르는 순간 지금 들어 있는 색(=마지막 자유 색·스포이드 색)을 바로 브러시로 잡는다.
+     창은 평소처럼 열리고, 거기서 색을 바꾸면 위 input 이 그대로 이어받는다. */
+document.getElementById('brushCustom').addEventListener('click',e=>{brushColor=e.target.value;eraser=false;
   document.getElementById('eraserBtn').classList.remove('on');[...swEl.children].forEach(x=>x.classList.remove('on'));});
 document.getElementById('brushSize').addEventListener('input',e=>brushSize=+e.target.value);
 document.getElementById('eraserBtn').addEventListener('click',e=>{
@@ -26315,7 +26676,7 @@ async function _signupDoGoogle(){
   if(!(window.firebaseAPI && firebaseAPI.authSignInWithGoogle)) return { ok:false, reason:'네트워크 연결이 필요해요' };
   let g;
   try{ g = await companion.signInWithGoogle(); }catch(_){ return { ok:false, reason:'로그인 창을 열지 못했어요' }; }
-  if(!g || !g.ok) return { ok:false, canceled:true, reason:(g && g.reason) || '' };
+  if(!g || !g.ok) return { ok:false, canceled:!!(g && (g.canceled || !g.reason || g.reason === '로그인이 취소됐어요')), reason:(g && g.reason) || '' };
   const p = _signupPendingEnsure();
   const r = await firebaseAPI.authSignInWithGoogle(g.idToken, p.uid);
   if(!r || !r.ok) return { ok:false, reason:(r && r.reason) || '구글 가입에 실패했어요' };
@@ -29227,13 +29588,17 @@ document.getElementById('toLauncher').onclick=backToLauncher;
 /* ===================== 친구 초대 · 상태 공유 (Presence) =====================
    provider 인터페이스: join(room, me, onFriends) / update(state) / leave()
    지금은 makeMockProvider(로컬 시뮬레이션). 실서비스에선 makeFirebaseProvider로 교체.   */
-/* ★ 한 방 정원(나 포함). 5 → 6 → 8.
+/* ★ 한 방 정원(나 포함). 5 → 6 → 8 → 10(2026-10-02 요청).
    ⚠️ 서버 규칙에도 방 인원 제한은 없다(rooms/$room/$memberId 는 형식만 검사).
       정원은 startRoom의 사전 검사 하나로만 지켜지므로, 구버전 클라이언트가 섞이면
-      8명을 넘겨 들어올 수 있다. 화면은 넘쳐도 깨지지 않고 좌석만 늘어난다.
+      정원을 넘겨 들어올 수 있다. 화면은 넘쳐도 깨지지 않고 좌석만 늘어난다.
+   ⚠️ [8 → 10] **옛 판(8)과 섞이면** — 옛 판은 친구를 7명까지만 그리고(9·10번째가 안 보임), 8명 이상인 방에는
+      못 들어오며, 늦게 들어온 옛 판은 8번째 자리부터 스스로 나간다. 새 판끼리는 10명이 정상이다.
+      ⇒ 배포 뒤 관리자가 config/minRoomVer 를 새 판 번호로 올리면 옛 판은 방 입장 자체가 막혀 섞이지 않는다.
    💰 이 숫자는 곧 비용이다 — 한 멤버가 1바이트를 쓰면 방의 나머지 인원수만큼 내려간다
-      (_diffRoomPayload 주석의 실측 ×4.0). 6→8은 꽉 찬 방 기준 다운로드가 약 1.4배다. */
-const MAX_PEOPLE=8;   // 나 + 친구 최대 7
+      (_diffRoomPayload 주석의 실측 ×4.0). 6→8은 꽉 찬 방 기준 다운로드가 약 1.4배다.
+      8→10 은 꽉 찬 방 기준 약 1.6배다(인원×(인원−1): 56 → 90). */
+const MAX_PEOPLE=10;   // 나 + 친구 최대 9
 /* ★ HTML(joinRoom 리스너)의 정원 초과 자기 퇴장 판정이 같은 값을 봐야 한다 — app.js 는 클래식
    스크립트라 여기 const 가 module 쪽에서 안 보인다. 숫자를 저쪽에 또 적으면 반드시 갈라진다. */
 window.MAX_PEOPLE = MAX_PEOPLE;
@@ -29362,6 +29727,10 @@ const Presence=(()=>{
   let _myPokeSeenTs = 0, _joinedAt = 0;
   let myNoise='';          // 🌙 백색소음 종류('pencil'|'keyboard'|'page' · 없으면 빈 문자열) — parts/noise.js 가 정한다. 구버전은 이 칸을 무시한다
   let myAwayImg='';        // 🫧 자리비움 그림 URL — 방에 실어 보낸다(없으면 빈 문자열 · 구버전은 무시)
+  /* 📏 그 그림의 화면 크기(60·80·100) — 받는 쪽이 이 크기로 그린다(구버전은 무시 → 그쪽 고정값).
+     ⚠️ 초기값을 AWAY_PIC_SCREEN_PX 로 쓰지 말 것 — 그 var 는 파일 아래쪽이라 이 IIFE 가 도는 순간엔 undefined 이고,
+       Firebase 는 undefined 가 든 payload 를 통째로 거절한다(방 입장이 깨진다). 숫자로 둔다(기본 80 과 같은 값). */
+  let myAwaySz=80;
   let myFocusShow=null;   // 📊 오늘 기록 전시 {emo,text} — 상태가 없을 때만 custom 칸으로 실어 보낸다(_statusOut)
   let myCustomStatus=null;   // ✨ 커스텀 상태(프리미엄) {emo,text} — userStatus==='custom'일 때 친구에게 보여줄 문구
 
@@ -29393,6 +29762,38 @@ const Presence=(()=>{
     _autoAwayApplied = false; _preAutoAwayStatus = null; _autoAwayAt = 0;
     try{ _autoExitCancel(); }catch(_){}
   }
+  /* 🩹 [2026-10-02 제보 #1] «장시간 자리비움 뒤 마우스를 움직여도 온라인으로 안 돌아온다»
+     [원인] 전역 setUserStatus 는 'away' 를 localStorage(tw.userStatus)에 남기지만, «자동으로 들어간
+       자리비움» 표식(_autoAwayApplied)은 메모리에만 있었다. 자리비움 중에 앱이 다시 켜지면
+       (윈도우 업데이트 재부팅·크래시·자동 시작) 전역 userStatus 만 'away' 로 되살아나고
+       여기 myUserStatus 는 null · _autoAwayApplied 는 false 로 시작한다
+       ⇒ 복귀 조건(`_autoAwayApplied && myUserStatus==='away'`)이 영영 참이 안 된다.
+       덤으로 내 화면은 자리비움인데 친구 화면에는 온라인(null)으로 보였다.
+     [대응] ① 자리비움의 종류(auto/manual)와 복원할 직전 상태를 tw.awayKind 에 같이 남긴다.
+       ② 이 IIFE 가 만들어질 때 저장된 상태로 myUserStatus 를 맞추고, 자동이었으면 표식을 되살린다.
+     ★ 기록이 **없는** 'away' 는 자동으로 본다 — 이 수정 전 판본이 남긴 값이고, 지금 갇혀 있는
+       사람을 풀어 주는 쪽이 맞다. 손으로 고른 자리비움은 이 판본부터 'manual' 로 남으므로 유지된다.
+     ⚠️ 6시간 자동 퇴장 시계(_autoAwayAt)는 부팅 시각부터 다시 센다 — 꺼져 있던 동안은 방에 없었다. */
+  const AWAY_KIND_KEY = 'tw.awayKind';
+  function _saveAwayKind(kind, pre){
+    try{
+      if(kind) localStorage.setItem(AWAY_KIND_KEY, JSON.stringify({ k: kind, pre: pre || null }));
+      else localStorage.removeItem(AWAY_KIND_KEY);
+    }catch(_){}
+  }
+  (function _restoreBootStatus(){
+    let v = null;
+    try{ v = localStorage.getItem('tw.userStatus') || null; }catch(_){}
+    if(!v || !USER_STATUSES[v]) return;
+    myUserStatus = v;
+    if(v !== 'away') return;
+    let rec = null;
+    try{ rec = JSON.parse(localStorage.getItem(AWAY_KIND_KEY) || 'null'); }catch(_){}
+    if(rec && rec.k === 'manual') return;   // 손으로 고른 자리비움 — 그대로 둔다
+    _autoAwayApplied = true;
+    _preAutoAwayStatus = (rec && rec.pre && USER_STATUSES[rec.pre] && rec.pre !== 'away') ? rec.pre : null;
+    _autoAwayAt = Date.now();
+  })();
   // 유휴 시간(ms) — OS의 powerMonitor 값이 있으면 그걸 우선 사용(마우스 "이동"까지 포함되어 가장 정확).
   //   IPC가 없거나 실패하면 렌더러가 직접 기록한 lastAnyInput(클릭·키 입력)으로 폴백.
   async function _idleMs(){
@@ -29438,6 +29839,7 @@ const Presence=(()=>{
         _autoAwayApplied = true;
         _preAutoAwayStatus = prev;
         _autoAwayAt = Date.now();   // 🚪 6시간 자동 퇴장 시계는 여기서 시작한다
+        _saveAwayKind('auto', prev);   // 🩹 #1 — 재시작해도 «자동» 이었음을 잊지 않게(위 _restoreBootStatus)
       }
     } else if(idle < AUTO_AWAY_MS && _autoAwayApplied && myUserStatus === 'away'){
       // 활동 재개 → 자동 전환 직전 상태로 복원 (빡일중이었으면 다시 빡일중, 기본이었으면 기본)
@@ -29493,10 +29895,11 @@ const Presence=(()=>{
     }
     provider = window.firebaseAPI ? makeFirebaseProvider() : makeMockProvider();
     try{ myAwayImg = _awayUrlOk(awayImgUrl) ? awayImgUrl : ''; }catch(_){ myAwayImg = ''; }   // 🫧 입장 때 한 번
+    try{ myAwaySz = _awaySzOk(awayImgSz) ? awayImgSz : AWAY_PIC_SCREEN_PX; }catch(_){ myAwaySz = AWAY_PIC_SCREEN_PX; }
     try{ myFocusShow = _focusShowConf(); _focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
     try{ myNoise = (window.TW_NOISE && TW_NOISE.kind) ? TW_NOISE.kind() : ''; }catch(_){ myNoise = ''; }   // 🌙 입장 때 한 번
     const _st0 = _statusOut();
-    provider.join(room, {def:myDef,name:myName,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel, ...myStarOut(),mobile:_mobileRoomLabel(),userId:getMyUserId(), noise:myNoise, lic:_myLicenseFlag(), awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
+    provider.join(room, {def:myDef,name:myName,awaySz:myAwaySz,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel, ...myStarOut(),mobile:_mobileRoomLabel(),userId:getMyUserId(), noise:myNoise, lic:_myLicenseFlag(), awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
       // 다른 사람이 내 캐릭터를 쓰다듬거나 흔들었을 때 — 내 화면의 'me' 좌석에 그 반응을 그대로 재생
       p=>{ const me=seats.find(s=>s.isMe); if(!me||!p) return;
         /* 🛰 같은 알림을 두 번 재생하지 않고, 지나간 알림은 아예 보지 않는다.
@@ -29595,6 +29998,13 @@ const Presence=(()=>{
     myAwayImg = v;
     if(provider && provider.update) provider.update(_basePayload());
   }
+  /* 📏 [2026-10-02] 자리비움 그림 화면 크기 — 규칙 변경 없는 방 payload 한 칸(awayImg 와 같은 방식). */
+  function setAwaySz(px){
+    const v = _awaySzOk(px) ? px : AWAY_PIC_SCREEN_PX;
+    if(v === myAwaySz) return;
+    myAwaySz = v;
+    if(provider && provider.update) provider.update(_basePayload());
+  }
   /* 🌙 백색소음 — 고른 소리 종류 한 칸만 싣는다(상태 focus/idle/sleep 은 이미 흐른다 · 규칙 변경 없음 — awayImg 와 같은 방식).
      ★ 끄면 빈 문자열 — null 로 보내면 칸이 지워져 _diffRoomPayload 기준값과 어긋난다. */
   function setNoise(kind){
@@ -29609,11 +30019,22 @@ const Presence=(()=>{
     myFocusShow = v;
     if(provider && provider.update) provider.update(_basePayload());
   }
-  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...myStarOut(), lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:_mobileRoomLabel(), danceStyle:_myDanceStyle(), flyCool:_myFlyCool(), noise:myNoise}; }
+  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...myStarOut(), awaySz:myAwaySz, lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:_mobileRoomLabel(), danceStyle:_myDanceStyle(), flyCool:_myFlyCool(), noise:myNoise}; }
   /* 올라타기/하차 직후 즉시 반영 — 상태 틱을 기다리면 상대 화면에 몇 초 늦게 나타난다. */
   function broadcastRide(){ try{ if(provider && provider.update) provider.update(_basePayload()); }catch(_){} }
   function setState(s){ if(s===myState)return; myState=s; if(provider&&provider.update)provider.update(_basePayload()); }
-  function setUserStatus(s){ if(s===myUserStatus)return; myUserStatus=s; _clearAutoAwayMarks(); if(provider&&provider.update)provider.update(_basePayload()); }
+  function setUserStatus(s){
+    if(s===myUserStatus){
+      /* 🩹 #1 — 부팅 때 «자동» 으로 되살린 자리비움을 사람이 칩에서 다시 고르면 그때부터 «수동» 이다.
+         값이 같아 아래로 안 내려가므로 여기서 따로 바꿔 준다(안 하면 마우스만 움직여도 풀린다). */
+      if(s === 'away' && _autoAwayApplied){ _clearAutoAwayMarks(); _saveAwayKind('manual'); }
+      return;
+    }
+    myUserStatus=s; _clearAutoAwayMarks();
+    /* 🩹 #1 — 여기는 «사람이 고른» 경로다. 자동 전환은 이 뒤에 'auto' 로 덮어쓴다(_autoAwayCheck). */
+    _saveAwayKind(s === 'away' ? 'manual' : null);
+    if(provider&&provider.update)provider.update(_basePayload());
+  }
   /* 🌟 회차에서는 해금 레벨(n)이 999 에 머문다 — 이번 바퀴 레벨·회차·색도 같이 보고 바뀌었을 때만 보낸다(개정 70).
      ★ 매 프레임 불린다(좌석 루프) — 값 비교만 하고 쓰기는 바뀔 때 한 번. */
   let _lvKey = '';
@@ -29672,7 +30093,7 @@ const Presence=(()=>{
     provider=null; room=null; friends={}; if(onChange)onChange({});
     return p;   // 호출부에서 await하면 서버에 삭제가 반영된 뒤에 재접속하도록 할 수 있음
   }
-  return { start, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setNoise, setLevel, setName, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
+  return { start, setState, setUserStatus, setCustomStatus, setFocusShow, setAwayImg, setAwaySz, setNoise, setLevel, setName, poke, pokeSelf, updateDef, sendChat, stop, broadcastRide,
            /* 🪑 상태 변화를 지금 당장 방에 실어 보낸다(같은 _basePayload). 쉬는 시간처럼
               "다음 상태 틱까지 기다리면 늦는" 값이 생겼을 때 부른다. */
            broadcastNow: broadcastRide,
@@ -30184,7 +30605,7 @@ function _applyRemoteRides(){
 }
 function syncFriendSeats(friends){
   friends=friends||{};
-  const ids=Object.keys(friends).slice(0, MAX_PEOPLE-1);   // 친구는 최대 7(나 제외)
+  const ids=Object.keys(friends).slice(0, MAX_PEOPLE-1);   // 친구는 최대 9(나 제외)
   const have={}; seats.filter(s=>s.remote).forEach(s=>{ have[s.friendId]=s; });
   Object.keys(have).forEach(id=>{ if(!friends[id]){ const s=have[id]; scene.remove(s.group); removeSeatLabels(s); const ix=seats.indexOf(s); if(ix>=0)seats.splice(ix,1); } });
   ids.forEach(id=>{ let s=have[id];
@@ -30259,6 +30680,7 @@ function syncFriendSeats(friends){
     s.remoteMobile=_mobileCleanApp(friends[id].mobile);   // 📱 폰에서 쓰는 앱 이름(없으면 빈 문자열 · 구버전은 칸이 없다)
     s.remoteCustomStatus=friends[id].customStatus||null;   // ✨ 친구의 커스텀 상태 문구 {emo,text}
     s.remoteAwayImg=_awayUrlOk(friends[id].awayImg) ? friends[id].awayImg : null;   // 🫧 자리비움 그림(Storage URL 만)
+    s.remoteAwaySz=_awaySzOk(friends[id].awaySz) ? friends[id].awaySz : null;          // 📏 그 그림의 화면 크기(없으면 기본 · 구버전)
     s.remoteNoise=(typeof friends[id].noise === 'string' && /^(pencil|keyboard|page)$/.test(friends[id].noise)) ? friends[id].noise : null;   // 🌙 백색소음 종류 — 모르는 값은 버린다(parts/noise.js 가 읽는다)
     s.friendLevel=friends[id].level||1;
     s.friendStar=starFromRemote(friends[id]);   // 🌟 회차 · 이번 바퀴 레벨 · 색(모르는 값은 버린다 · 옛 판은 null)
@@ -30328,7 +30750,22 @@ function syncFriendSeats(friends){
 }
 
 /* 초대 UI 연결 */
-function genRoomCode(){ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='COZY-'; for(let i=0;i<4;i++)s+=a[Math.floor(Math.random()*a.length)]; return s; }
+/* 🏷️ [2026-10-02 #9] 방 코드 접두어를 채널로 가른다 — 워킹룸 WORK- · 투게더룸 PLAY- (예전: 둘 다 COZY-).
+   ★ 접두어는 «이 방이 지금 어느 채널인가»를 코드에 드러내는 표시다. 채널의 진짜 출처는 여전히
+     서버 `rooms/$room/_meta.channel` 이고, 둘이 갈라지는 유일한 순간(빈 방 승격)에는 startRoom 이
+     코드 쪽을 채널에 맞춰 바꾼다(_roomPrefixSwap).
+   ⚠️ COZY- 는 **옛 방**이다. 사람이 남아 있는 동안은 그대로 들어갈 수 있고(구버전이 아직 거기 있다),
+     비면 들어가는 사람의 자격대로 WORK-/PLAY- 로 옮겨 연다 — 자동 이관.
+   ⚠️ 친구코드(MATE-/옛 COZY-)와는 별개다. 그쪽 COZY 하위호환(_friendCodeCandidates 등)은 건드리지 말 것. */
+const ROOM_PREFIX = { workingroom:'WORK-', togetherroom:'PLAY-' };
+const ROOM_CODE_RE = /^(COZY|WORK|PLAY)-([A-Z0-9]{4})$/;
+function _roomPrefixFor(channel){ return ROOM_PREFIX[channel] || ROOM_PREFIX.workingroom; }
+/* 빈 방을 열 때 내가 갖게 될 채널의 접두어 — 빈 방 승격 규칙(보유자=투게더룸)과 **같은 판정**이어야 한다. */
+function _myRoomPrefix(){
+  const lic = (typeof isPremium!=='undefined' && isPremium) || (typeof isAdmin!=='undefined' && isAdmin);
+  return _roomPrefixFor(lic ? 'togetherroom' : 'workingroom');
+}
+function genRoomCode(channel){ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=_roomPrefixFor(channel); for(let i=0;i<4;i++)s+=a[Math.floor(Math.random()*a.length)]; return s; }
 function presenceChanged(friends){
   const cnt=Object.keys(friends).length;
   const lbl=document.getElementById('inviteFriendCnt'); if(lbl)lbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
@@ -30497,6 +30934,22 @@ async function startRoom(code){
   //   (방에 들어가자마자 내 슬롯 캐릭터들이 전부 나타나던 버그의 원인).
   // ★ 채널 확정 — 방을 '만드는' 경우엔 _pendingRoomChannel(선택창에서 정함),
   //   '참여'는 방의 _meta.channel을 읽어 그대로 따른다(스펙: 참여는 선택 없이 방 채널로 입장).
+  /* 🏷️ [2026-10-02 #9] 빈 방 승격 = 코드도 채널에 맞춘다.
+     빈 방에 들어가면 아래에서 채널이 «들어가는 사람의 자격»으로 다시 정해진다(보유자=투게더룸).
+     그런데 접두어가 채널을 드러내므로, 그 채널과 접두어가 다르면 **같은 4자리의 맞는 접두어 방**으로
+     옮겨 연다(PLAY-AB12 빈 방에 미보유자 → WORK-AB12, 반대도 같다). 옛 COZY- 빈 방도 여기서 이관된다.
+     ★ 옮긴 쪽에 사람이 있으면 그 방에 그냥 들어간다 — 다음 startRoom 이 사람 있는 방 규칙을 탄다.
+       옮긴 코드는 접두어가 이미 내 자격과 맞으므로 다시 옮기지 않는다(재귀는 한 번뿐).
+     ⚠️ _roomCount 가 null(확인 실패)이면 옮기지 않는다 — 빈 방 판정과 같은 태도.
+     ⚠️ 만들기(_pendingRoomChannel)와 시크릿룸은 여기 오지 않는다. */
+  if(!_isSecret && !window._pendingRoomChannel && _roomCount === 0){
+    const _m = ROOM_CODE_RE.exec(code), _want = _myRoomPrefix();
+    if(_m && (_m[1] + '-') !== _want){
+      const _next = _want + _m[2];
+      console.log('[방] 빈 방이라 코드를 채널에 맞춰 옮겨 엽니다 —', code, '→', _next);
+      return startRoom(_next);
+    }
+  }
   let _channel = window._pendingRoomChannel || null;
   try{
     if(_isSecret){
@@ -31101,7 +31554,9 @@ async function _loginDoGoogle(){
   let g;
   try{ g = await companion.signInWithGoogle(); }
   catch(e){ return { ok:false, reason:'로그인 창을 열지 못했어요' }; }
-  if(!g || !g.ok) return { ok:false, reason:(g && g.reason) || '로그인이 취소됐어요', canceled:true };
+  /* 🩹 [2026-10-02 제보 #5] canceled 는 «그냥 닫음» 일 때만 — 예전엔 실패를 전부 취소로 쳐서 구글이 막은 사유까지 숨겼다.
+     옛 main 은 canceled 표시 없이 '로그인이 취소됐어요' 만 보내므로 그것도 닫음으로 본다. (세 곳 같은 식 — 검사가 함수를 떼어 돌려 공용 함수를 못 쓴다) */
+  if(!g || !g.ok) return { ok:false, reason:(g && g.reason) || '로그인이 취소됐어요', canceled:!!(g && (g.canceled || !g.reason || g.reason === '로그인이 취소됐어요')) };
 
   /* ⚠️ getMyUserId() 를 쓰지 않는다 — 없으면 만들어내는 함수라, 없다는 사실 자체가 지워진다.
      여기서는 "이 기기에 코드가 있었는가"가 판단의 근거이므로 날것으로 읽어야 한다. */
@@ -31253,7 +31708,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio',
   'tw.playlistHomePublic', 'tw.playlistPrivate',
   /* 프로필·읽음 표시 — 이름은 스냅샷(r.name), 나머지는 새로 쌓이면 된다. */
-  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', MY_AD_BANNER_KEY,
+  USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind', MY_AD_BANNER_KEY,
   BELL_SEEN_KEY, INBOX_BC_READ_KEY, BONK_DAY_KEY,
 ];
 /* 접두어로 쌓이는 키(방마다 하나) — 목록에 못 적으므로 여기서 훑는다. */
@@ -31458,7 +31913,7 @@ async function _acctCreatePassword(pw){
   if(r && r.needReauth){
     if(!(window.companion && companion.signInWithGoogle) || !firebaseAPI.authReauthGoogle) return { ok:false, reason:'구글로 다시 확인할 수 없는 버전이에요 — 앱을 다시 시작한 뒤 해 주세요' };
     let g = null; try{ g = await companion.signInWithGoogle(); }catch(_){}
-    if(!g || !g.ok) return { ok:false, canceled:true, reason:(g && g.reason) || '' };
+    if(!g || !g.ok) return { ok:false, canceled:!!(g && (g.canceled || !g.reason || g.reason === '로그인이 취소됐어요')), reason:(g && g.reason) || '' };
     let a = null; try{ a = await firebaseAPI.authReauthGoogle(g.idToken); }catch(_){}
     if(!a || !a.ok) return a || { ok:false, reason:'구글 확인에 실패했어요' };
     r = await link();
@@ -31572,15 +32027,24 @@ function refreshAccountTab(){
     if(p1) p1.onkeydown = e=>{ if(e.key === 'Enter'){ if(p2) p2.focus(); } };
     if(p2) p2.onkeydown = e=>{ if(e.key === 'Enter') go(); };
     /* C2 의 구글 [연결하기] — J 의 [구글도 연결하기]와 같은 일(지금 세션에 붙이기 · authLinkGoogle). 로그인을 바꾸지 않는다. */
+    /* 🩹 [2026-10-02 제보 #5] «구글 연결하기를 누르면 창이 뜬 뒤 아무 일도 안 일어난다»
+       결과 문구가 비밀번호 칸 **맨 아래** 작은 글씨(acctPwMsg)에만 나와서 화면 밖에 있으면 안 보였다.
+       게다가 실패 사유가 비면(signInWithGoogle 예외 · reason 없음) say('') 가 칸을 아예 숨겼다.
+       ⇒ ① 사유가 비면 기본 문구 ② 토스트로도 같이 띄운다 ③ 문구 칸을 화면 안으로 끌어온다. */
+    const sayG = (t, kind)=>{
+      say(t, kind);
+      if(t && kind !== 'info'){ try{ toast(t); }catch(_){} }
+      try{ const el = $e('acctPwMsg'); if(el && t) el.scrollIntoView({ block:'nearest' }); }catch(_){}
+    };
     if(gl) gl.onclick = async ()=>{
-      if(!(window.companion && companion.signInWithGoogle) || !(window.firebaseAPI && firebaseAPI.authLinkGoogle)){ say('이 버전에서는 구글을 연결할 수 없어요', 'err'); return; }
+      if(!(window.companion && companion.signInWithGoogle) || !(window.firebaseAPI && firebaseAPI.authLinkGoogle)){ sayG('이 버전에서는 구글을 연결할 수 없어요', 'err'); return; }
       gl.disabled = true; say('구글 창을 여는 중…', 'info');
       let g = null; try{ g = await companion.signInWithGoogle(); }catch(_){}
-      if(!g || !g.ok){ say((g && g.reason) || '', 'err'); gl.disabled = false; return; }
+      if(!g || !g.ok){ sayG((g && g.reason) || '구글 로그인 창에서 결과를 받지 못했어요 — 다시 시도해 주세요', 'err'); gl.disabled = false; return; }
       let r = null; try{ r = await firebaseAPI.authLinkGoogle(g.idToken); }catch(_){ r = { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' }; }
-      if(!r || !r.ok){ say((r && r.reason) || '구글을 연결하지 못했어요', 'err'); gl.disabled = false; return; }
+      if(!r || !r.ok){ sayG((r && r.reason) || '구글을 연결하지 못했어요', 'err'); gl.disabled = false; return; }
       try{ await _acctMethodsRender(true); }catch(_){}
-      say('✅ 구글이 연결됐어요. 이제 구글로도 로그인할 수 있어요.', 'ok');
+      sayG('✅ 구글이 연결됐어요. 이제 구글로도 로그인할 수 있어요.', 'ok');
     };
   };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once:true });
@@ -32557,7 +33021,7 @@ async function doCreateRoomInChannel(channel){
      혹시 DOM이 남아 있더라도 채널로 한 번 더 막는다(findRandomRooms 의 채널 필터와 함께 세 겹). */
   const _randEl = document.getElementById('chRandOpen');
   window._pendingRoomOpen = (channel === 'workingroom') && !!(_randEl && _randEl.checked);
-  const c=genRoomCode();
+  const c=genRoomCode(channel);   // 🏷️ #9 — 채널대로 WORK-/PLAY-
   startRoom(c);
 }
 /* 🎲 랜덤 참여 — 코드 없이 '참여'를 누르면 여기로 온다.
@@ -32695,6 +33159,21 @@ async function _refreshChannelPickUI(){
    몇백 ms 걸린다. 그 사이 [참여]를 두 번 누르면 입장이 두 번 돈다.
    (코드를 직접 넣는 경로는 이제 조회 없이 즉시 startRoom 이라 이 가드에 걸릴 일이 없다.) */
 let _joiningRoom = false;
+/* 🏷️ [2026-10-02 #9] 4자리 + 고른 접두어(WORK-/PLAY-)로 갈 방을 정한다.
+   ★ WORK-1234 와 PLAY-1234 는 **서로 다른 방으로 공존한다.** 어느 쪽인지는 입력칸 앞 라벨을 눌러 사람이
+     고른다(_setupRoomCodeInput). 그래서 여기서 두 쪽을 조회해 추측하지 않는다 — 추측하면 같은 4자리의
+     두 방 중 한쪽이 가려진다(아래 doJoinRoom 의 SCRT 사양과 같은 이유).
+   ★ 단 하나의 예외: 고른 방이 비어 있고 같은 4자리의 **옛 COZY- 방**에 사람이 있으면 거기로 간다 —
+     구버전 사용자가 아직 쓰는 방이라 새 판에서도 들어갈 길을 남긴다. COZY 방이 비면 이 갈래는 안 탄다.
+   ⚠️ 조회 실패는 사람이 없는 것으로 본다(고른 방으로 간다). */
+async function _resolveRoomCode(body, chosen){
+  const pre = (chosen === ROOM_PREFIX.togetherroom || chosen === ROOM_PREFIX.workingroom || chosen === 'COZY-') ? chosen : _myRoomPrefix();
+  if(pre === 'COZY-' || !(window.firebaseAPI && firebaseAPI.checkRoomCapacity)) return pre + body;
+  const cnt = async (c)=>{ try{ const n = await firebaseAPI.checkRoomCapacity(c); return (typeof n === 'number') ? n : 0; }catch(_){ return 0; } };
+  const [a, z] = await Promise.all([cnt(pre + body), cnt('COZY-' + body)]);
+  if(a === 0 && z > 0) return 'COZY-' + body;
+  return pre + body;
+}
 async function doJoinRoom(codeInputEl){
   if(_joiningRoom) return;
   let c=((codeInputEl&&codeInputEl.value)||'').trim().toUpperCase();
@@ -32707,7 +33186,15 @@ async function doJoinRoom(codeInputEl){
      ★ 별표를 먼저 떼고 길이를 잰다. "SCRT*" 는 별표를 빼면 4자 = 코드 본문이다. */
   const _body0 = c.replace(/\*/g, '');
   const secret = (c.indexOf('*') >= 0) || (_body0.length > 4 && _body0.startsWith('SCRT'));
-  c = (_body0.length > 4 ? _body0.replace(/^(?:COZY|SCRT)-?/, '') : _body0).replace(/[^A-Z0-9]/g, '');
+  /* 🏷️ #9 — 접두어까지 붙여 넣었으면(WORK-/PLAY-/COZY-) 그 방으로 **그대로** 간다. 사람이 고른 것이다.
+     ⚠️ 길이 검사가 필요한 이유는 SCRT 와 같다 — 코드 본문이 통째로 "PLAY" 로 뽑힐 수 있다(WORK 는 O 가
+       알파벳에 없어 불가). 5자 이상일 때만 접두어로 본다. */
+  const _pm = (!secret && _body0.length > 4) ? /^(COZY|WORK|PLAY)-?/.exec(_body0) : null;
+  /* 입력칸 정리기가 접두어를 떼고 4자리만 남겼으면 붙여 넣은 접두어는 data-prefix 에 있다(_setupRoomCodeInput). */
+  const _dsPre = (!secret && codeInputEl && codeInputEl.dataset && /^(COZY|WORK|PLAY)-$/.test(codeInputEl.dataset.prefix || ''))
+    ? codeInputEl.dataset.prefix : null;
+  const _explicit = _pm ? (_pm[1] + '-') : _dsPre;
+  c = (_body0.length > 4 ? _body0.replace(/^(?:COZY|WORK|PLAY|SCRT)-?/, '') : _body0).replace(/[^A-Z0-9]/g, '');
   if(!c){ toast('방 코드를 입력하세요'); return; }
   /* 🔒 갈림길은 여기가 전부다 — **별표(또는 SCRT 접두어)가 없으면 무조건 COZY.**
 
@@ -32724,9 +33211,14 @@ async function doJoinRoom(codeInputEl){
        못 들어가게 된다. **같은 제보가 또 올라와도 라우팅으로 풀지 않는다.** 그 제보는 "코드를
        별표까지 붙여서 주라"로 답할 문제다.
 
-     ⚠️ 여기서 서버 조회를 하지 않는 것 자체가 규칙이다. 조회로 추측하는 순간 두 코드 공간의
-       공존이 깨진다. 입력에 담긴 표시 하나만 보고 가른다. */
-  startRoom((secret ? 'SCRT-' : 'COZY-') + c);
+     ⚠️ 여기서 SCRT 를 조회하지 않는 것 자체가 규칙이다. 조회로 추측하는 순간 두 코드 공간의
+       공존이 깨진다. 입력에 담긴 표시 하나만 보고 가른다.
+     🏷️ [#9] 공개 방 쪽(WORK/PLAY/COZY) 안에서의 조회는 _resolveRoomCode 가 한다 — SCRT 와 무관하다. */
+  if(secret){ startRoom('SCRT-' + c); return; }
+  _joiningRoom = true;
+  let _code = null;
+  try{ _code = await _resolveRoomCode(c, _explicit || _myRoomPrefix()); } finally{ _joiningRoom = false; }
+  startRoom(_code);
 }
 /* 🔒 시크릿룸 입장 — 코드 공간이 분리돼 있어(SCRT-) 일반 방 코드와 섞이지 않는다.
    미발급 코드 차단은 startRoom 안에서 secretRooms 조회로 한다.
@@ -32810,10 +33302,10 @@ async function doLeaveRoom(){
 }
 async function doCopyRoomCode(){
   const code=Presence.roomCode(); if(!code) return;
-  // ★ 참여 입력창이 뒤 4자리만 받는 형태라, 복사도 "COZY-" 프리픽스를 뗀 4자리만 복사 —
-  //   받은 친구가 그대로 붙여넣기만 하면 되게. (전체 코드를 붙여넣어도 하위호환으로 정상 동작)
-  const short = code.replace(/^COZY-/,'');
-  try{ await navigator.clipboard.writeText(short); toast('방 코드를 복사했어요: '+short); }
+  /* 🏷️ [2026-10-02 #9] **접두어까지 통째로 복사한다.** WORK-1234 와 PLAY-1234 가 따로 공존하므로 4자리만으로는
+     어느 방인지 모른다. 받은 친구가 입력칸에 붙여 넣으면 정리기가 4자리만 남기고 라벨을 그 접두어로 바꾼다
+     (_setupRoomCodeInput) — 따로 고를 필요가 없다. (예전: COZY- 를 떼고 4자리만 복사) */
+  try{ await navigator.clipboard.writeText(code); toast('방 코드를 복사했어요: '+code); }
   catch(err){ toast('복사에 실패했어요'); }
 }
 // ★ 채널 개편 — 채널 카드가 상시 표시되므로 카드 클릭이 곧 방 만들기.
@@ -32864,13 +33356,51 @@ function _setupRoomCodeInput(inputEl){
     // SCRT를 통째로 붙여넣은 경우는 별표가 없어도 시크릿룸으로 본다.
     // ⚠️ 코드 자체가 "SCRT"일 수 있으므로(genSecretCode 알파벳에 S·C·R·T 포함) 길이로 가른다.
     const pastedSecret = raw.length > 4 && raw.startsWith('SCRT');
-    if(raw.length > 4) raw = raw.replace(/^(?:COZY|SCRT)-?/, '');   // ★ 4자면 그게 코드 본문이다
+    /* 🏷️ #9 — WORK-/PLAY- 를 붙여 넣으면 그 접두어를 기억해 라벨에 보여 준다(doJoinRoom 도 같은 판정).
+       ⚠️ 칸에는 4자리만 남으므로, 붙여 넣은 접두어는 data-prefix 에 따로 들고 있다가 doJoinRoom 이 읽는다. */
+    const pastedPre = (!pastedSecret && raw.length > 4) ? (/^(COZY|WORK|PLAY)-?/.exec(raw) || [])[1] : null;
+    if(raw.length > 4) raw = raw.replace(/^(?:COZY|WORK|PLAY|SCRT)-?/, '');   // ★ 4자면 그게 코드 본문이다
     const secret = pastedSecret || raw.indexOf('*') >= 0;
     const body = raw.replace(/[^A-Z0-9]/g, '').substring(0, 4);   // 영숫자 4자
     const v = body + (secret ? '*' : '');                          // 별표는 항상 맨 뒤 한 개
     if(v !== inputEl.value) inputEl.value = v;
-    if(preEl) preEl.textContent = secret ? 'SCRT-' : 'COZY-';
+    if(pastedPre) inputEl.dataset.prefix = pastedPre + '-';
+    _paintPre(secret);
   });
+  /* 🏷️ 라벨 = 이 4자리를 붙일 접두어. **눌러서 WORK- ↔ PLAY- 를 바꾼다**(요청: 클릭 한 번으로 전환).
+     · 고른 적이 없으면 내 자격대로 보여 준다(미보유 WORK- · 보유 PLAY-) — 빈 방을 열 때 쓰일 쪽이다.
+     · 한 번 고르면(또는 접두어째 붙여 넣으면) data-prefix 에 남아 칸을 비워도 유지된다.
+     · 붙여 넣은 COZY- 는 라벨에 그대로 보이고, 누르면 WORK- 부터 다시 돈다.
+     · 별표(시크릿)일 때는 SCRT- 고정이라 눌러도 바뀌지 않는다.
+     ⚠️ 새 요소를 만들지 않는다 — 기존 라벨에 커서·툴팁·점선 밑줄만 얹는다(디자인 변경 없음). */
+  function _paintPre(secret){
+    if(!preEl) return;
+    preEl.textContent = secret ? 'SCRT-' : (inputEl.dataset.prefix || _myRoomPrefix());
+    preEl.style.cursor = secret ? '' : 'pointer';
+    preEl.style.textDecoration = secret ? '' : 'underline dotted';
+    preEl.title = secret ? '' : '눌러서 WORK(워킹룸) ↔ PLAY(투게더룸) 바꾸기';
+  }
+  if(preEl){
+    preEl.addEventListener('click', ()=>{
+      if(inputEl.value.indexOf('*') >= 0) return;   // 시크릿 입력 중에는 SCRT- 고정
+      const cur = inputEl.dataset.prefix || _myRoomPrefix();
+      inputEl.dataset.prefix = (cur === ROOM_PREFIX.workingroom) ? ROOM_PREFIX.togetherroom : ROOM_PREFIX.workingroom;
+      _paintPre(false);
+      try{ inputEl.focus(); }catch(_){}
+    });
+  }
+  inputEl.addEventListener('focus', ()=>_paintPre(inputEl.value.indexOf('*') >= 0));   // 라이선스가 나중에 바뀌어도 맞게
+  /* 📋 [2026-10-02 #9] 붙여넣기는 직접 받는다. 칸이 maxlength=5 라 «PLAY-1234» 를 붙이면 브라우저가 «PLAY-» 로
+     잘라 버려 코드 본문이 통째로 사라졌다(예전 «COZY-XXXX 붙여넣기 하위호환» 도 실제로는 같은 이유로 안 됐다).
+     ★ 스크립트로 넣는 value 는 maxlength 에 안 걸린다 → 원문을 넣고 위 input 정리기를 그대로 태운다. */
+  inputEl.addEventListener('paste', e=>{
+    const t = (e.clipboardData && e.clipboardData.getData('text')) || '';
+    if(!t) return;
+    e.preventDefault();
+    inputEl.value = t.trim();
+    inputEl.dispatchEvent(new Event('input'));
+  });
+  _paintPre(false);
   inputEl.addEventListener('keydown', e=>{
     if(e.key === 'Enter'){ e.preventDefault(); doJoinRoom(inputEl); }
   });
@@ -33168,6 +33698,9 @@ document.addEventListener('click', e=>{
       // ★ 파츠 등록창은 등록하려는 파츠를 미리보기에서 실시간으로 조정할 수 있게 열어두는 창이므로,
       //   미리보기 패널(#wdPreviewPanel — 기즈모 조작 포함) 위의 클릭은 "바깥 클릭"으로 취급하지 않음(요청사항).
       if(overlayId==='partRegOverlay' && e.target && e.target.closest && e.target.closest('#wdPreviewPanel')) return;
+      /* 📄 [2026-10-02] 라이선스 발급 창 옆의 «엑셀로 일괄 발급» 창(#licenseXlsxWin)은 같은 오버레이의 **두 번째 자식**이라
+         위 box(첫 자식) 기준으로는 바깥으로 읽힌다 — 그 창 안 클릭이 발급 창을 통째로 닫지 않게 뺀다. */
+      if(overlayId==='licenseGenOverlay' && e.target && e.target.closest && e.target.closest('#licenseXlsxWin')) return;
       const btn=document.getElementById(closeBtnId); if(btn) btn.click();
     }
   });
@@ -33703,6 +34236,436 @@ document.getElementById('licenseGenCopyBtn').onclick=()=>{
   };
   btn.addEventListener('click', submit);
   codeInp.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
+})();
+
+/* ═══ 📄 [2026-10-02] 엑셀(xlsx·csv)로 라이선스 일괄 발급 — 시안 확정(입구 = 친구코드 발급 아래 · 빈 코드 = 키만 · 전에 발급한 코드 = 건너뜀) ═══
+   흐름: ① 파일 고르기 → ② 미리보기(친구코드 **조회만** — 키 생성·수령함 발송 없음) → ③ [N건 발급] → ④ 결과 엑셀 저장.
+   ★ 외부 라이브러리를 새로 넣지 않는다. xlsx 는 «XML 몇 장을 담은 zip» 이라, 이미 실려 있는 JSZip(vendor/jszip.min.js)과
+     브라우저 DOMParser 로 첫 시트의 글자만 읽고, 결과 파일도 같은 방식으로 쓴다. (SheetJS npm 판은 알려진 취약점이 있고
+     최신판은 npm 밖에서만 받을 수 있어 일부러 피했다.) 옛 .xls(이진 형식)는 못 읽는다 — 안내 문구로 막는다.
+   ★ 발급 한 건 = 단건 「친구코드로 발급」(bindLicenseGrantByCode)과 **같은 순서·같은 문구**다: createLicense → sendInboxMessage(reward).
+     note 는 규칙 상한(licenses/$key/note ≤ 100자)에 맞춰 자른다.
+   ★ «전에 발급한 적 있음» 은 발급된 키 목록(listLicenses)의 메모에서 친구코드를 찾아 판정한다. 관리자 화면에서는 그 사람이
+     **지금 프리미엄인지는 알 수 없다**(accountSnap 은 본인만 읽음) — 그래서 이 기준을 쓴다.
+   ⚠️ 한 명씩 순서대로 보낸다(동시에 쏘지 않는다). 중간에 끊겨도 결과 표에 어디까지 됐는지 남는다. */
+const LX_MAX_ROWS = 500;          // 한 파일 상한 — 넘으면 앞 500행만(안내)
+const LX_NOTE_MAX = 100;          // 규칙 licenses/$key/note 상한
+const LX_CODE_RE = /^(?:(MATE|COZY)-)?([A-Z0-9]{4})$/;
+
+/* xml 문서에서 이름(네임스페이스 무시)으로 자식 찾기 */
+function _lxKids(el, name){ return Array.from(el.getElementsByTagNameNS('*', name)); }
+/* 'B12' → 1 (0부터) */
+function _lxColIdx(ref){
+  const m = /^([A-Z]+)/.exec(String(ref || '').toUpperCase()); if(!m) return -1;
+  let n = 0; for(const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1;
+}
+/* sharedStrings 의 <si> 하나 → 글자. 서식 조각(<r><t>)은 잇고, 일본어·한글 후리가나(<rPh>)는 뺀다. */
+function _lxSiText(si){
+  let out = '';
+  for(const ch of Array.from(si.childNodes)){
+    const ln = ch.localName;
+    if(ln === 't') out += ch.textContent;
+    else if(ln === 'r'){ for(const t of _lxKids(ch, 't')) out += t.textContent; }
+  }
+  return out;
+}
+/* xlsx(ArrayBuffer) → 첫 시트의 2차원 글자 배열. 실패하면 Error(사람이 읽는 문구). */
+async function _lxReadXlsx(buf){
+  if(typeof JSZip === 'undefined') throw new Error('JSZip 라이브러리가 로드되지 않았어요');
+  let z;
+  try{ z = await JSZip.loadAsync(buf); }catch(_){ throw new Error('엑셀 파일을 열 수 없어요 — .xlsx 로 다시 저장해 주세요(옛 .xls 는 못 읽어요)'); }
+  const P = new DOMParser();
+  const xml = async (path)=>{ const f = z.file(path); if(!f) return null; return P.parseFromString(await f.async('string'), 'application/xml'); };
+  const wb = await xml('xl/workbook.xml');
+  if(!wb) throw new Error('엑셀 파일이 아니에요 — .xlsx 로 다시 저장해 주세요');
+  const sheet = _lxKids(wb, 'sheet')[0];
+  if(!sheet) throw new Error('시트가 없어요');
+  /* 첫 시트의 실제 경로 — r:id → workbook.xml.rels 의 Target. 못 찾으면 관례 경로. */
+  let path = 'xl/worksheets/sheet1.xml';
+  const rid = sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id') || sheet.getAttribute('r:id');
+  const rels = await xml('xl/_rels/workbook.xml.rels');
+  if(rels && rid){
+    const rel = _lxKids(rels, 'Relationship').find(r => r.getAttribute('Id') === rid);
+    const tgt = rel && rel.getAttribute('Target');
+    if(tgt) path = tgt.charAt(0) === '/' ? tgt.slice(1) : ('xl/' + tgt.replace(/^\.\//, ''));
+  }
+  const sh = await xml(path);
+  if(!sh) throw new Error('첫 시트를 읽을 수 없어요');
+  const ssDoc = await xml('xl/sharedStrings.xml');
+  const ss = ssDoc ? _lxKids(ssDoc, 'si').map(_lxSiText) : [];
+  const rows = [];
+  for(const row of _lxKids(sh, 'row')){
+    const rn = parseInt(row.getAttribute('r'), 10);
+    const ri = (rn > 0) ? rn - 1 : rows.length;
+    const cells = [];
+    let ci = 0;
+    for(const c of _lxKids(row, 'c')){
+      const ix = _lxColIdx(c.getAttribute('r')); if(ix >= 0) ci = ix;
+      const t = c.getAttribute('t') || 'n';
+      const v = _lxKids(c, 'v')[0];
+      let val = '';
+      if(t === 's') val = v ? (ss[parseInt(v.textContent, 10)] || '') : '';
+      else if(t === 'inlineStr'){ const is = _lxKids(c, 'is')[0]; val = is ? _lxSiText(is) : ''; }
+      else val = v ? v.textContent : '';
+      cells[ci] = String(val);
+      ci++;
+    }
+    for(let i = 0; i < cells.length; i++) if(cells[i] === undefined) cells[i] = '';
+    rows[ri] = cells;
+  }
+  for(let i = 0; i < rows.length; i++) if(!rows[i]) rows[i] = [];
+  return rows;
+}
+/* csv 바이트 → 글자. BOM 이 있으면 UTF-8, 없으면 UTF-8 로 엄격히 읽어 보고 깨지면 EUC-KR(한글 엑셀이 저장한 csv). */
+function _lxDecodeCsv(buf){
+  const u8 = new Uint8Array(buf);
+  if(u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF) return new TextDecoder('utf-8').decode(u8.subarray(3));
+  try{ return new TextDecoder('utf-8', { fatal:true }).decode(u8); }
+  catch(_){ try{ return new TextDecoder('euc-kr').decode(u8); }catch(__){ return new TextDecoder('utf-8').decode(u8); } }
+}
+/* csv 글자 → 2차원 배열(따옴표·따옴표 안 줄바꿈·"" 이스케이프). 쉼표가 없고 탭이 있으면 탭으로 가른다. */
+function _lxParseCsv(text){
+  const s = String(text || '');
+  const firstLine = s.split(/\r?\n/, 1)[0] || '';
+  const sep = (firstLine.indexOf(',') < 0 && firstLine.indexOf('\t') >= 0) ? '\t' : ',';
+  const rows = []; let row = [], cur = '', q = false;
+  for(let i = 0; i < s.length; i++){
+    const ch = s[i];
+    if(q){
+      if(ch === '"'){ if(s[i+1] === '"'){ cur += '"'; i++; } else q = false; }
+      else cur += ch;
+    }else if(ch === '"' && cur === '') q = true;
+    else if(ch === sep){ row.push(cur); cur = ''; }
+    else if(ch === '\n' || ch === '\r'){
+      if(ch === '\r' && s[i+1] === '\n') i++;
+      row.push(cur); rows.push(row); row = []; cur = '';
+    }else cur += ch;
+  }
+  if(cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+/* 2차원 배열 → { header:[…]|null, codeCol, memoCol, data:[{line, cells, code, memo}] }
+   제목 줄 판정: 첫 줄 A칸이 친구코드처럼 생겼으면 제목 없이 바로 자료로 본다. */
+function _lxMapRows(rows){
+  const norm = v => String(v == null ? '' : v).trim();
+  const first = (rows[0] || []).map(norm);
+  const looksCode = LX_CODE_RE.test(norm(first[0]).toUpperCase().replace(/\s+/g, ''));
+  const hasHeader = rows.length > 0 && !looksCode;
+  let codeCol = 0, memoCol = 1, keyCol = -1;
+  if(hasHeader){
+    const h = first.map(x => x.toLowerCase().replace(/\s+/g, ''));
+    const ci = h.findIndex(x => /친구코드|^코드$|code/.test(x));
+    const mi = h.findIndex(x => /메모|비고|note|memo/.test(x));
+    if(ci >= 0) codeCol = ci;
+    if(mi >= 0 && mi !== codeCol) memoCol = mi; else if(ci >= 0) memoCol = (ci === 0 ? 1 : 0);
+    /* 결과 파일을 고쳐 다시 올린 경우 — «발급 키» 열에 값이 있는 행은 이미 키가 나간 행이다(아래 hasKey). */
+    keyCol = h.findIndex(x => x === '발급키');
+  }
+  const data = [];
+  for(let i = hasHeader ? 1 : 0; i < rows.length; i++){
+    const cells = (rows[i] || []).map(norm);
+    if(!cells.some(Boolean)) continue;               // 빈 줄은 조용히 넘긴다
+    data.push({ line: i + 1, cells, code: cells[codeCol] || '', memo: cells[memoCol] || '', hasKey: keyCol >= 0 && !!cells[keyCol] });
+  }
+  return { header: hasHeader ? first : null, codeCol, memoCol, keyCol, data };
+}
+/* 친구코드 입력 → 조회 후보. 단건 발급과 같은 규칙(뒷 4자리면 MATE-·COZY- 둘 다). 빈 값이면 []. */
+function _lxCandidates(raw){
+  const c = String(raw || '').toUpperCase().replace(/\s+/g, '');
+  if(!c) return [];
+  if(/^[A-Z0-9]{4}$/.test(c)) return ['MATE-' + c, 'COZY-' + c];
+  return [c];
+}
+/* 발급된 키 목록 → 이미 받은 친구코드 표. 단건 발급 메모 모양 둘(«닉 · 친구코드 MATE-XXXX» · «친구코드 발급: XXXX»)을 다 읽는다.
+   full: 'MATE-9K2M' 꼴 · tail: 접두어 없이 적힌 4자리(옛 단건 발급이 입력 그대로 남긴 것). */
+function _lxIssuedIndex(all){
+  const full = new Set(), tail = new Set();
+  Object.keys(all || {}).forEach(k=>{
+    const note = String((all[k] || {}).note || '').toUpperCase();
+    (note.match(/\b(?:MATE|COZY)-[A-Z0-9]{4}\b/g) || []).forEach(x => full.add(x));
+    const m = /친구코드(?: 발급:)? ([A-Z0-9]{4})(?![A-Z0-9-])/.exec(note);
+    if(m) tail.add(m[1]);
+  });
+  return { full, tail };
+}
+function _lxWasIssued(idx, code){
+  if(!idx || !code) return false;
+  return idx.full.has(code) || idx.tail.has(code.replace(/^(MATE|COZY)-/, ''));
+}
+/* 2차원 글자 배열 → xlsx(Uint8Array). 모든 칸은 inlineStr(숫자도 글자로 — 키·코드가 숫자로 바뀌지 않게). */
+async function _lxWriteXlsx(rows, sheetName){
+  if(typeof JSZip === 'undefined') throw new Error('JSZip 라이브러리가 로드되지 않았어요');
+  const esc = v => String(v == null ? '' : v)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const colName = i => { let s = ''; i++; while(i > 0){ const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+  const width = [];
+  rows.forEach(r => r.forEach((v, i) => { width[i] = Math.max(width[i] || 8, Math.min(48, String(v || '').length * 1.6 + 2)); }));
+  const cols = width.length ? '<cols>' + width.map((w, i) => '<col min="' + (i+1) + '" max="' + (i+1) + '" width="' + w.toFixed(1) + '" customWidth="1"/>').join('') + '</cols>' : '';
+  const body = rows.map((r, ri) => '<row r="' + (ri+1) + '">' + r.map((v, ci) =>
+      '<c r="' + colName(ci) + (ri+1) + '" t="inlineStr"' + (ri === 0 ? ' s="1"' : '') + '><is><t xml:space="preserve">' + esc(v) + '</t></is></c>').join('') + '</row>').join('');
+  const z = new JSZip();
+  z.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '<Default Extension="xml" ContentType="application/xml"/>'
+    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+    + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+    + '</Types>');
+  z.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+    + '</Relationships>');
+  z.file('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheets><sheet name="' + esc(String(sheetName || 'Sheet1').slice(0, 31).replace(/[\\\/?*\[\]:]/g, ' ')) + '" sheetId="1" r:id="rId1"/></sheets></workbook>');
+  z.file('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+    + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+    + '</Relationships>');
+  z.file('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<fonts count="2"><font><sz val="11"/><name val="Malgun Gothic"/></font><font><b/><sz val="11"/><name val="Malgun Gothic"/></font></fonts>'
+    + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
+    + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+    + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+    + '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+    + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
+    + '</styleSheet>');
+  z.file('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' + cols + '<sheetData>' + body + '</sheetData></worksheet>');
+  return z.generateAsync({ type:'uint8array', compression:'DEFLATE' });
+}
+
+(function bindLicenseXlsxBulk(){
+  const $ = id => document.getElementById(id);
+  const win = $('licenseXlsxWin'), openBtn = $('licenseXlsxOpenBtn');
+  if(!win || !openBtn) return;
+  const fileInp = $('licenseXlsxFile'), info = $('licenseXlsxFileInfo'), sumEl = $('licenseXlsxSum'), pv = $('licenseXlsxPreview');
+  const opts = $('licenseXlsxOpts'), acts = $('licenseXlsxActs'), runBtn = $('licenseXlsxRunBtn');
+  const prog = $('licenseXlsxProg'), progText = $('licenseXlsxProgText'), progBar = $('licenseXlsxProgBar');
+  const done = $('licenseXlsxDone'), doneSum = $('licenseXlsxDoneSum'), keyOnly = $('licenseXlsxKeyOnly');
+  const dupFirst = $('licenseXlsxDupFirst'), reissue = $('licenseXlsxReissue');
+  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+  /* 상태: rows(판정된 행) · map(파일 열 정보) · fileName · running · finished */
+  let S = { rows: [], map: null, fileName: '', running: false, finished: false };
+  const CHIP = {
+    send:   ['✓ 발송', 'var(--win-select)'],
+    key:    ['🔑 키만', 'var(--win-accent)'],
+    nouser: ['✗ 유저 없음', 'var(--win-error)'],
+    dup:    ['✗ 중복', 'var(--win-error)'],
+    issued: ['⚠ 발급한 적 있음', '#9A6B00'],
+    badcode:['✗ 코드 형식', 'var(--win-error)'],
+    neterr: ['✗ 조회 실패', 'var(--win-error)'],
+    haskey: ['⚠ 이미 키 있음', '#9A6B00'],
+    ok:     ['✓ 보냄', '#2E7D4F'],
+    okkey:  ['🔑 키 생성', '#2E7D4F'],
+    sendfail:['⚠ 수령함 실패', '#9A6B00'],
+    fail:   ['✗ 발급 실패', 'var(--win-error)'],
+  };
+  const chip = (st, extra) => { const c = CHIP[st] || [st, 'var(--ink-soft)'];
+    return '<span style="display:inline-block;font-size:10px;padding:0 5px;border:1px solid ' + escHtml(c[1]) + ';color:' + escHtml(c[1]) + ';white-space:nowrap;">' + esc(c[0] + (extra || '')) + '</span>'; };
+  const actionable = r => r.st === 'send' || r.st === 'key';
+  const show = (el, on, disp) => { if(el) el.style.display = on ? (disp || 'block') : 'none'; };
+
+  function resetView(){
+    show(sumEl, false); show(pv, false); show(opts, false); show(acts, false); show(prog, false); show(done, false);
+  }
+  function renderPreview(){
+    const n = { send:0, key:0, skip:0 };
+    S.rows.forEach(r => { if(r.st === 'send') n.send++; else if(r.st === 'key') n.key++; else n.skip++; });
+    sumEl.innerHTML = chip('send', ' ' + n.send).replace('✓ 발송', '수령함 발송') + chip('key', ' ' + n.key).replace('🔑 키만', '키만 발급')
+      + (n.skip ? chip('nouser', ' ' + n.skip).replace('✗ 유저 없음', '건너뜀') : '');
+    show(sumEl, true, 'flex');
+    let h = '<table style="width:100%;border-collapse:collapse;font-size:10.5px;"><tr>'
+      + ['행','친구코드','받는 사람','메모','상태'].map(t => '<th style="position:sticky;top:0;background:var(--win-face-2);text-align:left;padding:4px 5px;border-bottom:1px solid var(--win-lo);">' + t + '</th>').join('') + '</tr>';
+    S.rows.forEach(r => {
+      const dim = actionable(r) || r.res ? '' : 'color:#999;';
+      const st = r.res || r.st;
+      h += '<tr style="' + escHtml(dim) + '"><td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + r.line + '</td>'
+        + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + (r.raw ? esc(r.raw) + (r.code && r.code !== r.raw.toUpperCase().replace(/\s+/g,'') ? ' <span style="color:var(--ink-soft);">→ ' + esc(r.code) + '</span>' : '') : '<span style="color:var(--ink-soft);">(비어 있음)</span>') + '</td>'
+        + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + esc(r.name || '—') + '</td>'
+        + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.memo) + '">' + esc(r.memo) + '</td>'
+        + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + chip(st, r.st === 'dup' && !r.res ? ' (' + r.dupOf + '행)' : '') + '</td></tr>';
+    });
+    pv.innerHTML = h + '</table>';
+    show(pv, true);
+    const go = S.rows.filter(actionable).length;
+    runBtn.textContent = '🎟️ ' + go + '건 발급';
+    runBtn.disabled = !go || S.running || S.finished;
+    show(opts, !S.finished); show(acts, !S.finished, 'flex');
+  }
+  /* 판정 — 중복·전에 발급함은 옵션에 따라 다시 계산한다(조회는 다시 안 한다). */
+  function judge(){
+    const seen = new Map();
+    S.rows.forEach(r => {
+      r.st = r.base;
+      if(r.base === 'haskey' && r.code && !seen.has(r.code)) seen.set(r.code, r.line);
+      if(r.base !== 'send') return;
+      if(dupFirst.checked && seen.has(r.code)){ r.st = 'dup'; r.dupOf = seen.get(r.code); return; }
+      if(!seen.has(r.code)) seen.set(r.code, r.line);
+      if(!reissue.checked && _lxWasIssued(S.issued, r.code)) r.st = 'issued';
+    });
+  }
+  async function loadFile(f){
+    if(S.running) return;
+    S = { rows: [], map: null, fileName: f.name, running: false, finished: false };
+    resetView();
+    info.textContent = '📎 ' + f.name + ' · 읽는 중…';
+    let grid;
+    try{
+      const buf = await f.arrayBuffer();
+      if(/\.csv$/i.test(f.name)) grid = _lxParseCsv(_lxDecodeCsv(buf));
+      else if(/\.xls$/i.test(f.name)) throw new Error('옛 .xls 는 못 읽어요 — 엑셀에서 .xlsx 로 다시 저장해 주세요');
+      else grid = await _lxReadXlsx(buf);
+    }catch(e){ info.textContent = '⚠ ' + ((e && e.message) || '파일을 읽지 못했어요'); return; }
+    const map = _lxMapRows(grid);
+    let data = map.data;
+    const cut = data.length > LX_MAX_ROWS;
+    if(cut) data = data.slice(0, LX_MAX_ROWS);
+    if(!data.length){ info.textContent = '⚠ ' + f.name + ' — 발급할 줄이 없어요(첫 줄은 제목으로 봐요)'; return; }
+    S.map = map; S.grid = grid;
+    info.textContent = '📎 ' + f.name + ' · ' + data.length + '행 · 확인 중…' + (cut ? ' (앞 ' + LX_MAX_ROWS + '행만)' : '');
+    /* 전에 발급한 코드 표 — 실패해도 미리보기는 계속(그때는 이 판정만 빠진다) */
+    try{ S.issued = _lxIssuedIndex(await firebaseAPI.listLicenses()); }catch(_){ S.issued = null; }
+    /* 조회 — 같은 코드는 한 번만, 다섯 개씩 나란히 */
+    const look = new Map();
+    const uniq = [...new Set(data.map(d => d.code.toUpperCase().replace(/\s+/g, '')).filter(Boolean))];
+    let doneN = 0;
+    const one = async raw => {
+      const cands = _lxCandidates(raw);
+      let hit = null, err = false;
+      for(const c of cands){
+        try{ const u = await firebaseAPI.lookupFriendCode(c); if(u){ hit = { uid: u, code: c }; break; } }catch(_){ err = true; }
+      }
+      if(hit){ try{ if(firebaseAPI.getUserNameById) hit.name = await firebaseAPI.getUserNameById(hit.uid); }catch(_){} }
+      look.set(raw, hit || (err ? 'err' : null));
+      doneN++; info.textContent = '📎 ' + f.name + ' · ' + data.length + '행 · 확인 중… ' + doneN + '/' + uniq.length;
+    };
+    for(let i = 0; i < uniq.length; i += 5) await Promise.all(uniq.slice(i, i + 5).map(one));
+    S.rows = data.map(d => {
+      const raw = d.code, k = raw.toUpperCase().replace(/\s+/g, '');
+      const r = { line: d.line, cells: d.cells, raw, memo: d.memo, code: '', uid: null, name: '', base: 'key' };
+      if(k){
+        const h = look.get(k);
+        if(h === 'err') r.base = 'neterr';
+        else if(h){ r.base = 'send'; r.uid = h.uid; r.code = h.code; r.name = h.name || ''; }
+        else r.base = LX_CODE_RE.test(k) ? 'nouser' : 'badcode';
+      }
+      /* 결과 파일을 다시 올렸을 때 — 키가 이미 나간 행은 또 만들지 않는다. 코드는 위에서 풀어 두었으니
+         judge() 가 «같은 코드의 뒷 행» 을 중복으로 거를 때 이 행도 센다. */
+      if(d.hasKey) r.base = 'haskey';
+      return r;
+    });
+    judge();
+    info.textContent = '📎 ' + f.name + ' · ' + S.rows.length + '행' + (cut ? ' (앞 ' + LX_MAX_ROWS + '행만)' : '') + (S.issued ? '' : ' · ⚠ 발급 목록을 못 읽어 «발급한 적 있음» 판정 없음');
+    renderPreview();
+  }
+  async function run(){
+    const todo = S.rows.filter(actionable);
+    if(!todo.length || S.running) return;
+    if(!(window.firebaseAPI && firebaseAPI.createLicense && firebaseAPI.sendInboxMessage)){ toast('네트워크 연결이 필요해요'); return; }
+    const nSend = todo.filter(r => r.st === 'send').length;
+    if(!confirm(todo.length + '건을 발급할까요?\n· 수령함으로 보냄 ' + nSend + '건\n· 키만 만듦 ' + (todo.length - nSend) + '건')){ window.focus(); return; }
+    window.focus();
+    S.running = true;
+    show(opts, false); show(acts, false); show(prog, true);
+    let i = 0;
+    for(const r of todo){
+      i++;
+      progText.innerHTML = '발급 중… <b>' + i + ' / ' + todo.length + '</b>';
+      progBar.style.width = Math.round((i - 1) / todo.length * 100) + '%';
+      const key = _genLicenseKey();
+      const tail = r.memo ? ' · ' + r.memo : '';
+      const note = (r.st === 'send'
+        ? (r.name ? r.name + ' · ' : '') + '친구코드 ' + r.code + tail
+        : '엑셀 일괄' + tail).slice(0, LX_NOTE_MAX);
+      try{
+        await firebaseAPI.createLicense(key, note);
+        r.key = key;
+      }catch(e){ r.res = 'fail'; r.why = (typeof _saveFailMsg === 'function') ? _saveFailMsg(e, '키 생성 실패') : '키 생성 실패'; continue; }
+      if(r.st !== 'send'){ r.res = 'okkey'; continue; }
+      try{
+        const title = '🎫 라이선스가 도착했어요';
+        const body = '아래 키를 [라이선스 등록] 창에 입력하면 프리미엄 기능을 쓸 수 있어요.\n\n' + key + '\n\n(설정 → 라이선스 등록)';
+        const res = await firebaseAPI.sendInboxMessage(r.uid, 'reward', title, body);
+        if(res && res.ok === false){ r.res = 'sendfail'; r.why = '키는 만들어짐 — 직접 전달해 주세요'; }
+        else r.res = 'ok';
+      }catch(_){ r.res = 'sendfail'; r.why = '키는 만들어짐 — 직접 전달해 주세요'; }
+    }
+    progBar.style.width = '100%';
+    S.running = false; S.finished = true;
+    show(prog, false);
+    const c = k => S.rows.filter(r => r.res === k).length;
+    const skip = S.rows.filter(r => !actionable(r)).length;
+    doneSum.innerHTML = chip('ok', ' ' + c('ok')).replace('✓ 보냄', '수령함 발송') + chip('okkey', ' ' + c('okkey')).replace('🔑 키 생성', '키만 발급')
+      + (c('sendfail') ? chip('sendfail', ' ' + c('sendfail')) : '') + chip('fail', ' ' + c('fail')).replace('✗ 발급 실패', '실패')
+      + (skip ? chip('issued', ' ' + skip).replace('⚠ 발급한 적 있음', '건너뜀') : '');
+    const hand = S.rows.filter(r => r.key && r.res !== 'ok');
+    keyOnly.innerHTML = hand.map(r => '<div>' + r.line + '행 · ' + esc(r.memo || r.raw || '—') + ' · <span style="font-family:\'Courier New\',monospace;font-weight:bold;user-select:all;">' + esc(r.key) + '</span></div>').join('')
+      + (hand.length ? '<div style="color:var(--ink-soft);">↑ 이 키들은 직접 전달해야 해요 (결과 엑셀에도 들어 있어요)</div>' : '');
+    show(keyOnly, hand.length > 0);
+    show(done, true);
+    renderPreview();
+    show(acts, false); show(opts, false); show(sumEl, false);   // 위 요약은 «발급 전» 숫자라 끝나면 내린다(아래 완료 요약이 대신한다)
+    try{ renderLicenseGenList(); }catch(_){}
+    toast('일괄 발급 완료 — 수령함 ' + c('ok') + ' · 키만 ' + c('okkey') + (c('fail') + c('sendfail') ? ' · 확인 필요 ' + (c('fail') + c('sendfail')) : ''));
+  }
+  async function saveResult(){
+    if(!S.rows.length) return;
+    const width = Math.max(1, ...S.grid.map(r => r.length));
+    const head = (S.map.header ? S.map.header.slice() : Array.from({ length: width }, (_, i) => i === S.map.codeCol ? '친구코드' : (i === S.map.memoCol ? '메모' : '')));
+    while(head.length < width) head.push('');
+    const LABEL = { send:'발급 안 함', key:'발급 안 함', haskey:'건너뜀', nouser:'건너뜀', dup:'건너뜀', issued:'건너뜀', badcode:'건너뜀', neterr:'건너뜀',
+                    ok:'수령함 발송', okkey:'키만 발급', sendfail:'수령함 실패', fail:'실패' };
+    const WHY = { haskey:'이미 발급 키가 있는 행', nouser:'친구코드를 가진 유저가 없음', badcode:'친구코드 형식이 아님', neterr:'조회 실패(네트워크)', issued:'전에 발급한 적 있음' };
+    /* 결과 파일을 다시 올린 것이면 그 세 열을 **채운다**(덧붙이면 열이 두 벌이 된다). 그 행의 옛 키는 지우지 않는다. */
+    const hn = head.map(x => String(x || '').replace(/\s+/g, ''));
+    let ki = hn.indexOf('발급키'), ri = hn.indexOf('결과'), wi = hn.indexOf('사유');
+    if(ki < 0 || ri < 0 || wi < 0){ ki = head.length; ri = ki + 1; wi = ki + 2; head.push('발급 키', '결과', '사유'); }
+    const out = [head];
+    S.rows.forEach(r => {
+      const cells = r.cells.slice(); while(cells.length < head.length) cells.push('');
+      const st = r.res || r.st;
+      const why = r.why || (r.st === 'dup' ? (r.dupOf + '행과 같은 친구코드') : (WHY[st] || '')) || (r.name ? '받는 사람: ' + r.name : '');
+      if(r.key) cells[ki] = r.key;
+      /* 이미 키가 있던 행(다시 올린 결과 파일)은 그때의 결과·사유를 그대로 둔다 — 덮으면 «수령함 발송» 기록이 사라진다. */
+      if(!(st === 'haskey' && (cells[ri] || cells[wi]))){ cells[ri] = LABEL[st] || st; cells[wi] = why; }
+      out.push(cells);
+    });
+    try{
+      const bin = await _lxWriteXlsx(out, '발급 결과');
+      const base = (S.fileName || '라이선스').replace(/\.(xlsx|csv)$/i, '');
+      downloadBlob(bin, base + '_발급결과.xlsx');
+    }catch(e){ toast('결과 파일을 만들지 못했어요'); }
+  }
+  async function saveTemplate(){
+    try{ downloadBlob(await _lxWriteXlsx([['친구코드', '메모']], '라이선스 발급'), '라이선스_일괄발급_양식.xlsx'); }
+    catch(_){ toast('양식 파일을 만들지 못했어요'); }
+  }
+  function closeWin(){
+    if(S.running){ toast('발급 중이에요 — 끝날 때까지 기다려 주세요'); return; }
+    win.style.display = 'none';
+  }
+  openBtn.addEventListener('click', ()=>{
+    if(!(window.firebaseAPI && firebaseAPI.lookupFriendCode && firebaseAPI.listLicenses)){ toast('네트워크 연결이 필요해요'); return; }
+    win.style.display = 'block';
+  });
+  $('licenseXlsxClose').addEventListener('click', closeWin);
+  $('licenseXlsxCancelBtn').addEventListener('click', ()=>{ if(S.running) return; S = { rows: [], map: null, fileName: '', running: false, finished: false }; resetView(); info.textContent = '📎 .xlsx 또는 .csv 파일을 골라 주세요'; });
+  $('licenseXlsxFileBtn').addEventListener('click', ()=>{ if(S.running) return; fileInp.value = ''; fileInp.click(); });
+  fileInp.addEventListener('change', ()=>{ const f = fileInp.files && fileInp.files[0]; if(f) loadFile(f); });
+  dupFirst.addEventListener('change', ()=>{ if(S.rows.length && !S.finished){ judge(); renderPreview(); } });
+  reissue.addEventListener('change', ()=>{ if(S.rows.length && !S.finished){ judge(); renderPreview(); } });
+  runBtn.addEventListener('click', run);
+  $('licenseXlsxSaveBtn').addEventListener('click', saveResult);
+  $('licenseXlsxTplBtn').addEventListener('click', saveTemplate);
+  /* 발급 창을 닫으면 이 창도 숨긴다(발급 중이면 진행은 계속되고, 다시 열면 결과가 남아 있다). */
+  const gc = $('licenseGenClose');
+  if(gc) gc.addEventListener('click', ()=>{ win.style.display = 'none'; });
+  window._lxHideWin = ()=>{ win.style.display = 'none'; };
 })();
 
 /* 🔒 시크릿룸 발급 (관리자) — 후원자 친구코드 + 발급 열쇠.
@@ -36819,7 +37782,7 @@ window.migrateCatalogThumbsToStorage = async function(){
   return results;
 };
 
-function mergeCatalogIntoSavedItems(catalogObj){
+async function mergeCatalogIntoSavedItems(catalogObj){
   const catalogList = Object.keys(catalogObj||{}).map(id=>({ id, ...catalogObj[id], fromCatalog:true }));
   // ★ order 필드 기준 오름차순 정렬 — 관리자가 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
   catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
@@ -36833,7 +37796,9 @@ function mergeCatalogIntoSavedItems(catalogObj){
   }
   savedItems = [...catalogList, ...localOnly];
   persistSavedAssets();
-  loadSavedItemsIntoSession();   // 세션 customItems에도 최신 상태 반영(새로 추가/수정된 GLB 등록)
+  /* 🩹 #11 — 등록이 끝난 **뒤에** 좌석을 다시 적용한다. 예전엔 await 없이 불러서 바로 아래 재적용이
+     옛 정의(크기 0.8)로 아이템을 다시 만들었고, 등록이 끝난 뒤엔 다시 그리는 곳이 없었다. */
+  try{ await loadSavedItemsIntoSession(); }catch(_){}   // 세션 customItems에도 최신 상태 반영(새로 추가/수정된 GLB 등록)
   // 캐릭터 로드가 카탈로그 동기화보다 먼저 끝났을 수 있어서(비동기 타이밍), 이미 떠 있는 좌석들의 아이템도 다시 적용
   seats.forEach(s=>{ clearHolderDeskItems(s); if(s.charDef && s.charDef.deskItems) applyDeskItemsTo(s, s.charDef.deskItems); });
   // ★ 생성기 안에서 지금 장착 중인 아이템도 갱신 — 관리자가 생성기를 연 채로 아이템을 수정하면
@@ -36857,7 +37822,7 @@ function subscribeCatalogItems(){
   if(!window.firebaseAPI || !window.firebaseAPI.subscribeCatalogItems) return;
   window.firebaseAPI.subscribeCatalogItems(async catalogObj=>{
     await resolveCatalogGlbAll(catalogObj);
-    mergeCatalogIntoSavedItems(catalogObj);
+    await mergeCatalogIntoSavedItems(catalogObj);
   });
 }
 if(window.firebaseAPI) subscribeCatalogItems();
@@ -37079,7 +38044,31 @@ function subscribeCatOverrides(){
 }
 if(window.firebaseAPI){ subscribeCustomCats(); subscribeCatOverrides(); }
 else window.addEventListener('firebase-ready', ()=>{ subscribeCustomCats(); subscribeCatOverrides(); }, { once:true });
-function registerCustomItem(id,name,glbB64,template,icon,animations,attachTo,autoPlay,defaultSize,glow,licenseOnly,playMode){ customItems[id]={id,name,glb:glbB64,custom:true,icon:icon||'',
+/* 🩹 [2026-10-02 제보 #11] «부팅 직후 첫 실행에서 가끔 책상 위 오브젝트가 죄그매진다 — 런처 갔다 오면 회복»
+   [원인] 캐릭터를 좌석·런처·생성기에 올리는 세 경로가 def.customItems 의 아이템을
+     `registerCustomItem(id, name, glb, scene, '', animations)` 로 **크기(defaultSize) 없이** 등록한다 → 0.8 로 고정.
+     카탈로그 동기화가 나중에 올바른 값으로 다시 등록해도, 좌석 재적용이 그 등록보다 먼저 돌면 틀린 크기가 남았다.
+     부팅 직후엔 디스크·네트워크가 느려 이 순서가 뒤집히기 쉽다 — «가끔, 부팅 직후» 의 정체.
+   [대응] ① 인자로 안 온 메타값(크기·부착 위치·재생 모드·빛·라이선스)은 **같은 id 의 카탈로그 레코드(savedItems)**
+     에서 채운다. savedItems 는 GLB 를 뺀 채 localStorage 에 남아 있어 부팅 직후에도 메타는 있다.
+     ② mergeCatalogIntoSavedItems 가 등록을 **기다린 뒤** 좌석을 다시 적용한다(아래).
+   ⚠️ 인자로 온 값이 우선이다 — 기존 호출부(loadSavedItemsIntoSession 등)는 동작이 그대로다. */
+function _savedItemMeta(id){
+  try{ return (typeof savedItems !== 'undefined' && Array.isArray(savedItems)) ? (savedItems.find(r=>r && r.id === id) || null) : null; }
+  catch(_){ return null; }   // savedItems 선언(let) 전에 불리는 경우
+}
+function registerCustomItem(id,name,glbB64,template,icon,animations,attachTo,autoPlay,defaultSize,glow,licenseOnly,playMode){
+  { const _m = _savedItemMeta(id);
+    if(_m){
+      if(attachTo == null)    attachTo = _m.attachTo;
+      if(autoPlay == null)    autoPlay = _m.autoPlay;
+      if(defaultSize == null) defaultSize = _m.defaultSize;
+      if(glow == null)        glow = _m.glow;
+      if(licenseOnly == null) licenseOnly = _m.licenseOnly;
+      if(playMode == null)    playMode = _m.playMode;
+      if(!icon && _m.icon)    icon = _m.icon;
+    } }
+  customItems[id]={id,name,glb:glbB64,custom:true,icon:icon||'',
   attachTo: attachTo||'desk',   // 'desk'(기본, 책상 위) | 'handL' | 'handR' — equipDeskItem에서 부착 위치 결정에 사용
   autoPlay: !!autoPlay,   // true면 클릭 없이 장착되자마자 애니메이션 자동 반복재생 (하위호환용)
   playMode: playMode || (autoPlay ? 'auto' : 'click'),   // 어플 8: 'click' | 'auto' | 'idle'
@@ -38247,6 +39236,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   _checkCircusBalance(now);   // 🎪 묘기 균형 판정(흔들림 → 와해)
   _updateRideChains(now);   // 🐾 올라탄(탑쌓기 포함) 좌석 위치를 아래층→위층 순으로 확정
   _updateFlyingSeats(now, dt);   // 🪑 플라잉체어 — 날고 있는 캐릭터의 rig 좌표를 마지막에 덮어쓴다
+  try{ _awayImgFollow(); }catch(_){}   // 🩹 자리비움 그림이 rig 를 매 프레임 따라간다(비행 버벅임) — _awayImgFollow 주석
   if(desktopMode){ renderer.clear(); }   // 투명 클리어 강제 — 프레임 사이 흰 잔상 방지
   /* 🍎 설정(런처) 화면에서는 #scene 이 display:none 이다(body.desktop.config) — 안 보이는 화면을 그리지 않는다.
      상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
@@ -38478,6 +39468,9 @@ function _focusShowConf(){
   if(typeof officeMode !== 'undefined' && officeMode) return null;
   /* 이모지는 **비워 둔다**(2026-09-23 요청) — 커스텀 상태와 같은 배관이라 emo 를 넣으면 책상 위(캐릭터 앞)에도
      그 이모지가 뜬다. '' 이면 말풍선 문구만 뜬다(statusConfFor 의 커스텀 갈래 주석과 같은 처리). */
+  /* 🍅 뽀모가 돌고 있으면 그 남은 시간을 대신 싣는다(«🍅 집중 18분» · 12자 안 · 분 단위). 배관 · 필드는 그대로. */
+  const _pt = (typeof _pomoShowText === 'function') ? _pomoShowText() : '';
+  if(_pt) return { emo: '', text: _pt };
   return { emo: '', text: _focusShowText(_rolloverFocusToday()) };
 }
 /* 방에 보낸다. force = 켜고 끈 순간 · 모드 전환 — 5분을 기다리지 않는다.
@@ -38546,8 +39539,34 @@ var AWAY_IMG_PX = 500;
 var AWAY_IMG_MAX_BYTES = 300 * 1024;
 var awayImgUrl = '';
 try{ const _a = localStorage.getItem(AWAY_IMG_KEY) || ''; awayImgUrl = _awayUrlOk(_a) ? _a : ''; }catch(_){}
+/* 📏 [2026-10-02 · A안 확정] 자리비움 그림 **화면 크기** — 60·80·100 중 그림 주인이 고른다(기본 80 = AWAY_PIC_SCREEN_PX).
+   이 기기 tw.awaySz + 서버 users/{uid}/awaySz(계정을 따라감) + 방 payload awaySz(받는 쪽이 이 크기로 그린다).
+   ⚠️ 구버전이 보낸 좌석(awaySz 없음)은 기본값으로 그린다. 구버전이 **보는** 화면에서는 그쪽 고정값(60)으로 보인다. */
+var AWAY_SZ_KEY = 'tw.awaySz';
+var AWAY_SZ_OPTIONS = [60, 80, 100];
+function _awaySzOk(v){ return AWAY_SZ_OPTIONS.indexOf(v) >= 0; }
+var awayImgSz = 80;
+try{ const _z = parseInt(localStorage.getItem(AWAY_SZ_KEY) || '', 10); if(_awaySzOk(_z)) awayImgSz = _z; }catch(_){}
+/* 이 좌석의 그림을 화면 몇 px 로 그릴지 — 내 좌석은 내가 고른 값, 남의 좌석은 그 사람이 보낸 값(없으면 기본). */
+function _awayPxFor(seat){
+  const v = (seat && seat.remote) ? seat.remoteAwaySz : (seat && seat.isMe ? awayImgSz : null);
+  return _awaySzOk(v) ? v : AWAY_PIC_SCREEN_PX;
+}
 var _awayTex = new Map();   // url → { st:'loading'|'ok'|'fail', tex }
 var _awayBox = null, _awayGW = null, _awayHostBox = null;
+var _awayHostP = null, _awayHostS = null;   // 🫧 아래 캐릭터의 자리비움 그림 위치·크기(탑 위 그림용 · 하나를 재사용)
+/* 🩹 [2026-10-02 제보 «자리비움인 사람을 💣 로 날리면 버벅인다»] 비행은 매 프레임 seat.rig.position 만 움직이는데(_updateFlyingSeats),
+   그림은 group 에 붙어 0.5초마다만 자리를 다시 잡았다 — 몸은 숨어 있고 그림만 보이니 «0.5초 멈춤 → 순간이동» 이 초당 두 번.
+   ⇒ 잴 때 남긴 rig 기준 오프셋(_awayOff)으로 **매 프레임** 그림을 rig 에 붙여 옮긴다. 벡터 덧셈 하나라 비용이 없다.
+   ★ 그림을 rig 의 자식으로 옮기지 않는다 — 비행 스핀(rotation.z)·turnY 를 같이 받아 그림이 발을 축으로 돈다.
+   ★ _updateFlyingSeats **뒤에** 부른다(frame) — 그래야 이번 프레임의 비행 좌표를 따라간다. */
+function _awayImgFollow(){
+  for(let i = 0; i < seats.length; i++){
+    const s = seats[i], sp = s && s._awaySprite;
+    if(!sp || !sp.visible || !s._awayOff || !s.rig) continue;
+    sp.position.copy(s.rig.position).add(s._awayOff);
+  }
+}
 var _awayBusy = false;
 function _awayUrlOk(u){
   return typeof u === 'string' && u.length <= 500 && u.indexOf('https://firebasestorage.googleapis.com/') === 0;
@@ -38583,7 +39602,9 @@ function _awayImgFrame(seat, url, now){
     seat.group.add(sp); seat._awaySprite = sp; seat._awayFitAt = 0;
   }
   if(sp.material.map !== e.tex){ sp.material.map = e.tex; sp.material.needsUpdate = true; }
-  if(!seat._awayFitAt || (now - seat._awayFitAt) > 500 || !sp.visible){
+  /* 🩹 [2026-10-02 제보 «자리비움인 사람을 💣 로 날리면 버벅이며 날아간다»] 비행 중에는 다시 재지 않는다 —
+     빙글 도는 몸을 재면 측정마다 크기·가운데가 튄다. 위치는 아래 _awayImgFollow 가 매 프레임 rig 를 따라 옮긴다. */
+  if(!seat._awayFitAt || ((now - seat._awayFitAt) > 500 && !seat.fly) || !sp.visible){
     seat._awayFitAt = now;
     try{
       if(!_awayBox){ _awayBox = new THREE.Box3(); _awayGW = new THREE.Vector3(); }
@@ -38593,9 +39614,13 @@ function _awayImgFrame(seat, url, now){
       const bh = _awayBox.max.y - _awayBox.min.y;
       if(!(bh > 0.05 && bh < 10)){ sp.visible = false; return; }
       /* 🖼️ [2026-09-23 제보 «동물이면 자리비움 그림이 엄청 크게 나온다»] 예전엔 캐릭터 경계상자 높이에 맞췄다 —
-         동물은 경계상자가 몸보다 훨씬 커서 그림이 따라 커졌다. 이제 **화면에서 AWAY_PIC_SCREEN_PX(150)px 정사각형**으로
+         동물은 경계상자가 몸보다 훨씬 커서 그림이 따라 커졌다. 이제 **화면에서 주인이 고른 60·80·100px(_awayPxFor) 정사각형**으로
          고정한다(인간·동물 · 캐릭터 크기 설정과 무관). 자리(가운데 · 발밑)는 예전처럼 경계상자에서 잰다. */
       let cx = (_awayBox.min.x + _awayBox.max.x)/2, cz = (_awayBox.min.z + _awayBox.max.z)/2, fy = _awayBox.min.y;
+      /* 🩹 [2026-10-02 제보 «가끔 그림이 자기 자리에서 옆으로 벗어나 있다»] 가로·앞뒤는 상자 가운데가 아니라 **rig 원점**
+         (= 캐릭터 발밑 피봇 · measureCharBox 주석)에서 잡는다. 이 상자(setFromObject)는 숨은 placeholder·한쪽으로 뻗은
+         파츠·바인드포즈 리깅 파츠까지 담아서 가운데가 옆으로 끌려갔다. 높이(발밑 fy)는 예전 그대로다. */
+      { const _rw = new THREE.Vector3(); seat.rig.getWorldPosition(_rw); cx = _rw.x; cz = _rw.z; }
       /* 🗼 [2026-09-23 제보 «탑 위에서 자리비움하면 그림이 밑의 캐릭터를 가린다»] 1층으로 올라탄 캐릭터는 상대 머리에
          팔을 걸치고 몸이 얼굴 앞으로 늘어진 자세라 **발밑이 상대 머리보다 아래**다. 그 발밑에 150px 그림을 세우면
          상대를 통째로 덮었다. 올라탄 동안에는 그림 밑변을 **바로 아래 캐릭터의 꼭대기**에, 가로·앞뒤는 그 캐릭터 가운데에
@@ -38605,22 +39630,46 @@ function _awayImgFrame(seat, url, now){
         if(!_awayHostBox) _awayHostBox = new THREE.Box3();
         _host.rig.updateMatrixWorld(true);
         _awayHostBox.setFromObject(_host.bodyWrap || _host.rig);
+        /* 🩹 [2026-10-02 제보 «머리 위에 올리면 연 날리는 것처럼 엄청 떠 있다»] 위 상자는 모자·뿔 파츠, 숨긴 장식,
+           바인드포즈 리깅 파츠, 숨은 placeholder 까지 담아 «꼭대기» 가 머리보다 한참 위였다. 탑쌓기(올라타기 높이)가
+           이미 쓰는 «맨 머리 꼭대기» 측정(measureHeadBoxNoParts)으로 갈아 끼운다.
+           ⚠️ 비어 있으면(아래 캐릭터도 자리비움이라 몸이 숨은 경우) 위 상자를 그대로 쓴다. */
+        try{
+          const _hb = (typeof measureHeadBoxNoParts === 'function' && _host.gltfRoot) ? measureHeadBoxNoParts(_host.gltfRoot, null, _host) : null;
+          if(_hb && !_hb.isEmpty()) _awayHostBox.copy(_hb);
+        }catch(_){}
         if(!_awayHostBox.isEmpty()){
           fy = _awayHostBox.max.y;
           cx = (_awayHostBox.min.x + _awayHostBox.max.x)/2;
           cz = (_awayHostBox.min.z + _awayHostBox.max.z)/2;
         }
+        /* 🫧 [2026-10-02] 바로 아래 캐릭터도 자리비움 그림이면 그 몸은 숨어 있다 — 숨은 머리가 아니라 **그 그림 윗변**에 얹는다
+           (_positionRideSeat 의 같은 날 수정과 짝 · 안 하면 그림 위에 그림이 공중에 뜬다). */
+        const _hsp = _host._awaySprite;
+        if(_hsp && _hsp.visible){
+          if(!_awayHostP){ _awayHostP = new THREE.Vector3(); _awayHostS = new THREE.Vector3(); }
+          _hsp.getWorldPosition(_awayHostP); _hsp.getWorldScale(_awayHostS);
+          fy = _awayHostP.y + _awayHostS.y / 2; cx = _awayHostP.x; cz = _awayHostP.z;
+        }
       }
-      const h = _awayWorldForPx(AWAY_PIC_SCREEN_PX, cx, fy, cz);
+      const h = _awayWorldForPx(_awayPxFor(seat), cx, fy, cz);   // 📏 좌석마다 주인이 고른 크기(60·80·100)
       if(!(h > 0)){ sp.visible = false; return; }
       sp.scale.set(h, h, 1);
       sp.position.set(cx - _awayGW.x, fy + h/2 - _awayGW.y, cz - _awayGW.z);
+      /* 🩹 [2026-10-02] 위 줄은 group 이 이동만 할 때의 값 — 아래에서 월드 목표점을 group 로컬로 **역변환**해 덮어쓴다. 예전엔 «group 은 이동만 한다» 고 보고 월드 위치만 뺐는데,
+         올라탄 좌석은 group 이 고개 기울기·상대 회전을 받아 돈다(mountRide) — 그 회전만큼 그림이 옆·앞뒤로 비껴났다. */
+      { const _t = new THREE.Vector3(cx, fy + h/2, cz); seat.group.updateMatrixWorld(true); seat.group.worldToLocal(_t); sp.position.copy(_t); }
+      /* rig 기준 오프셋 — 비행·흔들기처럼 rig 만 움직이는 동안 _awayImgFollow 가 매 프레임 이 값으로 따라 옮긴다. */
+      if(!seat._awayOff) seat._awayOff = new THREE.Vector3();
+      seat._awayOff.copy(sp.position).sub(seat.rig.position);
     }catch(_){ sp.visible = false; return; }
   }
   sp.visible = true;
 }
 /* 🖼️ 화면 px → 그 깊이에서의 월드 길이(원근 카메라). 0.5초마다 다시 재므로 카메라 줌·창 크기가 바뀌어도 따라간다. */
-var AWAY_PIC_SCREEN_PX = 150;
+/* 🖼️ [2026-10-02 요청] 150 → 60 → **기본 80** + 그림 주인이 60·80·100 중 고른다(A안 · _awayPxFor · AWAY_SZ_OPTIONS).
+   이 값은 «고른 적 없음 · 구버전 좌석» 의 기본이다. 업로드 원본(AWAY_IMG_PX 500)은 그대로라 다시 올릴 필요 없다. */
+var AWAY_PIC_SCREEN_PX = 80;
 var _awayCamV = null;
 function _awayWorldForPx(px, wx, wy, wz){
   try{
@@ -38679,6 +39728,13 @@ function _awayRenderUI(msg, isErr){
   if(rs) rs.style.display = has ? '' : 'none';
   if(pk) pk.disabled = !!_awayBusy || !prem;
   if(rs) rs.disabled = !!_awayBusy;
+  /* 📏 크기 버튼 — 지금 값에 눌림 표시. 그림이 없으면 고를 이유가 없어 줄을 숨긴다(골라 둔 값은 남는다). */
+  const szRow = document.getElementById('miAwaySzRow');
+  if(szRow) szRow.style.display = has ? 'flex' : 'none';
+  document.querySelectorAll('#miAwaySz .mi-away-sz').forEach(b=>{
+    b.classList.toggle('on', +b.dataset.sz === awayImgSz);
+    b.disabled = !!_awayBusy;
+  });
   if(m){
     m.textContent = '';
     if(msg){
@@ -38736,6 +39792,26 @@ async function _awayReset(){
     if(typeof toast === 'function') toast('🫧 기본 자리비움으로 돌아왔어요');
   }finally{ _awayBusy = false; }
 }
+/* 📏 크기 — 이 기기·방에는 바로, 서버에는 뒤에서. 서버 저장이 실패해도 이 기기·방은 바뀐 채로 둔다(다음 부팅 때 서버 값이 이기므로
+   실패를 알려 준다). 같은 값이면 아무것도 안 보낸다. */
+function _awaySzSetLocal(px){
+  if(!_awaySzOk(px)) return;
+  awayImgSz = px;
+  try{ localStorage.setItem(AWAY_SZ_KEY, String(px)); }catch(_){}
+  try{ if(typeof Presence !== 'undefined' && Presence.setAwaySz) Presence.setAwaySz(px); }catch(_){}
+  try{ const me = (typeof findMySeat === 'function') ? findMySeat() : null; if(me) me._awayFitAt = 0; }catch(_){}   // 내 화면 즉시 다시 맞춤
+}
+async function _awaySetSz(px){
+  if(!_awaySzOk(px) || px === awayImgSz) return;
+  _awaySzSetLocal(px);
+  _awayRenderUI(null);
+  const api = window.firebaseAPI, uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  if(!api || !api.setAwaySz || !uid) return;
+  try{
+    const r = await api.setAwaySz(uid, px);
+    if(!r || !r.ok) _awayRenderUI('크기를 서버에 저장하지 못했어요 — 이 기기에서만 바뀌었어요.', true);
+  }catch(_){ _awayRenderUI('크기를 서버에 저장하지 못했어요 — 이 기기에서만 바뀌었어요.', true); }
+}
 /* 부팅 — 서버 값이 기준이다(다른 기기에서 바꿈 · 관리자가 내림). 못 읽으면 로컬 그대로. */
 function _awayBootSync(tries){
   const api = window.firebaseAPI, uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
@@ -38744,6 +39820,10 @@ function _awayBootSync(tries){
     if(!r || !r.ok) return;
     const srv = _awayUrlOk(r.url) ? r.url : '';
     if(srv !== awayImgUrl){ _awaySetLocal(srv); _awayRenderUI(null); }
+  }).catch(()=>{});
+  /* 📏 크기도 서버가 기준 — 서버에 없으면(고른 적 없음 · 옛 판) 이 기기 값을 그대로 둔다. */
+  if(api.getAwaySz) api.getAwaySz(uid).then(r=>{
+    if(r && r.ok && _awaySzOk(r.px) && r.px !== awayImgSz){ _awaySzSetLocal(r.px); _awayRenderUI(null); }
   }).catch(()=>{});
 }
 (function bindAwayImg(){
@@ -38757,6 +39837,9 @@ function _awayBootSync(tries){
     file.addEventListener('change', ()=>{ const f = file.files && file.files[0]; if(f) _awayPick(f); });
   }
   if(rs) rs.addEventListener('click', e=>{ e.stopPropagation(); _awayReset(); });
+  document.querySelectorAll('#miAwaySz .mi-away-sz').forEach(b=>b.addEventListener('click', e=>{
+    e.stopPropagation(); if(!_awayBusy) _awaySetSz(+b.dataset.sz);
+  }));
   _awayRenderUI(null);
   _awayBootSync(0);
 })();
@@ -40739,10 +41822,30 @@ function _focusSyncFailed(reason, r, delta){
   const why = (r && r.reason) || '응답 없음';
   try{ console.warn('[포커스동기화] 실패 (' + reason + ') — ' + why + ' | 못 올린 증분=' + delta + 's | 연속 ' + _focusSyncFailStreak + '회'); }catch(_){}
   const linked = !!(typeof getMyLoginEmail === 'function' && getMyLoginEmail());
+  /* ⚠️ 세션이 있는데 거부되는 경우(authed)는 안내하지 않는다 — 재로그인으로 못 고치는 종류(규칙 문제)라서다(sim-focus-auth ②).
+     [2026-10-02 #4a] 그 대신 아래에서 서버 값을 받아와 레벨이 기기마다 갈라져 보이지 않게 한다. */
   if(r && r.denied && linked && !r.authed && !_focusSyncNoticed){
     _focusSyncNoticed = true;   // 부팅당 한 번
     try{ toast('🔑 이 PC의 로그인이 풀려 있어요 — 앱을 다시 시작해 다시 로그인하면 이 기기의 기록이 서버에 올라가요'); }catch(_){}
   }
+  /* 🩹 #4a — 거부돼도 **받아오기는 한다.** 서버가 더 크면(다른 기기에서 쌓인 시간) 그만큼 올려서 보여 준다.
+     ★ 아직 못 올린 이 기기 몫(pending = 지금값 − 마크)은 그대로 얹고, 마크를 서버 값으로 옮긴다 — 다음에 쓰기가
+       통하면 pending 만 증분으로 올라간다(서버 값을 증분으로 다시 올려 두 번 세는 일이 없다).
+     ⚠️ 서버가 작으면 아무것도 안 한다 — 줄이는 길은 만들지 않는다(기존 원칙). */
+  try{
+    const S = Number(r && r.serverSec);
+    if(r && r.serverSec != null && isFinite(S) && S > _focusTotalSec){
+      const mine = Math.floor(_focusTotalSec);
+      const mark = _hasFocusSyncedMark() ? _getFocusSyncedMark() : mine;
+      const pending = Math.max(0, mine - mark);
+      _focusTotalSec = Math.min(FOCUS_TOTAL_CAP_SEC, S + pending);
+      try{ localStorage.setItem(FOCUS_TOTAL_KEY, String(_focusTotalSec)); }catch(_){}
+      _setFocusSyncedMark(S);
+      _pushLevelIfChanged();
+      try{ if(typeof appMode!=='undefined' && appMode!=='run' && typeof renderLauncher==='function') renderLauncher(); }catch(_){}
+      try{ console.warn('[포커스동기화] 쓰기는 거부됐지만 서버 값을 받아왔어요 — ' + mine + 's → ' + _focusTotalSec + 's'); }catch(_){}
+    }
+  }catch(_){}
   if(_focusSyncFailStreak === 1 && !_focusSyncRetryTimer){
     _focusSyncRetryTimer = setTimeout(()=>{ _focusSyncRetryTimer = null; try{ syncFocusTotalToServer('retry'); }catch(_){} }, 60*1000);
   }
@@ -41685,6 +42788,7 @@ const _chalEl = id => document.getElementById(id);
 function _chalOpen(on){
   const win = _chalEl('focusLogWin'); if(!win) return;
   win.classList.toggle('chal-on', !!on);
+  if(on) win.classList.remove('pomo-on');   // 🍅 뽀모 서랍과 같은 자리 — 하나만 연다
   /* 열 때마다 다시 읽는다 — 사람들은 "달성표 → 아, 등록부터 해야겠네 → F1 → 다시 달성표" 순서로 온다.
      캐시만 믿으면 방금 등록하고 왔는데도 여전히 못 고른다고 나온다. */
   /* 열 때는 언제나 **지금 트랙**을 보여준다 — 지난번에 기록을 보다 닫았다고 해서
@@ -42233,6 +43337,183 @@ function _chalRenderRuleList(){
   });
 })();
 
+/* ═══ 🍅 뽀모도로 (2026-10-02 · 시안 A안 확정 · 포커스 기록창 안쪽 서랍) ════════════════════════════════════
+   [누적기록][🍅 뽀모][👑 달성표] — 🍅 를 누르면 달성표와 같은 자리에 서랍이 열린다(둘 중 하나만 · _chalOpen 이 이쪽을 닫는다).
+   ★ 포커스 기록(addFocusSeconds)은 **건드리지 않는다.** 기록은 지금처럼 포커싱 앱 사용 시간으로 쌓이고,
+     뽀모는 시간을 재고 알려 주기만 한다 — 둘을 섞으면 같은 시간이 두 번 쌓이거나 레벨·달성표 판정이 바뀐다.
+   ★ 시간은 끝나는 시각(endAt, 벽시계)으로 잰다 — 창이 가려져 타이머가 늦게 돌아도 남은 시간이 밀리지 않는다.
+     재시작해도 이어지도록 진행 상태를 tw.pomoRun 에 남긴다(설정은 tw.pomo).
+   ★ 머리 위 표시는 새 배관이 없다 — 🕒(오늘 기록 보여주기)가 켜져 있을 때 _focusShowConf 가 «🍅 18분» 으로 바꿔 싣는다.
+   ★ 무료 기능(왕관 없음).
+   ⚠️ 상태 변수는 var — _focusShowConf 가 이 블록보다 **먼저**(bindFocusShow, 스크립트 로드 중) 불린다. let 이면 TDZ 로 앱이 안 켜진다. */
+var POMO_KEY = 'tw.pomo', POMO_RUN_KEY = 'tw.pomoRun';
+var POMO_PRESETS = { '25': { f:25, s:5, l:15 }, '50': { f:50, s:10, l:20 } };
+var _pomoCfg = { preset:'25', f:25, s:5, l:15, every:4, auto:true, sound:true };
+var _pomoRun = null;   // { phase:'focus'|'short'|'long', endAt, left(일시정지 중 남은 ms), paused, done(이번 사이클에 끝낸 집중 수), total(이 구간 길이 ms) }
+try{ const c = JSON.parse(localStorage.getItem(POMO_KEY) || 'null'); if(c && typeof c === 'object') Object.assign(_pomoCfg, c); }catch(_){}
+try{ const r = JSON.parse(localStorage.getItem(POMO_RUN_KEY) || 'null'); if(r && r.phase && r.total > 0) _pomoRun = r; }catch(_){}
+function _pomoClampMin(v, lo, hi, d){ const n = parseInt(v, 10); return (n >= lo && n <= hi) ? n : d; }
+function _pomoSaveCfg(){ try{ localStorage.setItem(POMO_KEY, JSON.stringify(_pomoCfg)); }catch(_){} }
+function _pomoSaveRun(){ try{ if(_pomoRun) localStorage.setItem(POMO_RUN_KEY, JSON.stringify(_pomoRun)); else localStorage.removeItem(POMO_RUN_KEY); }catch(_){} }
+function _pomoPhaseMs(phase){ return 60 * 1000 * (phase === 'focus' ? _pomoCfg.f : phase === 'long' ? _pomoCfg.l : _pomoCfg.s); }
+function _pomoLeftMs(now){
+  if(!_pomoRun) return 0;
+  return _pomoRun.paused ? Math.max(0, _pomoRun.left || 0) : Math.max(0, _pomoRun.endAt - (now || Date.now()));
+}
+function _pomoFmt(ms){ const s = Math.ceil(ms / 1000), m = Math.floor(s / 60); return String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); }
+/* 머리 위(🕒 켜짐일 때) 문구 — 1분에 한 번 나가므로 **분**만. 12자 안. */
+function _pomoShowText(){
+  if(!_pomoRun) return '';
+  if(_pomoRun.paused) return '🍅 일시정지';
+  const min = Math.max(1, Math.ceil(_pomoLeftMs() / 60000));
+  return (_pomoRun.phase === 'focus' ? '🍅 집중 ' : '☕ 휴식 ') + min + '분';
+}
+function _pomoStartPhase(phase, paused){
+  const total = _pomoPhaseMs(phase);
+  const done = _pomoRun ? (_pomoRun.done || 0) : 0;
+  _pomoRun = { phase, total, done, paused: !!paused, left: total, endAt: Date.now() + total };
+  _pomoSaveRun();
+}
+function _pomoChime(){
+  if(!_pomoCfg.sound) return;
+  try{ _pomoSnd.play(); }catch(_){}   // 지정 알림음 파일(parts/pomodoro-alarm.mp3) — 위 _mkSndPool 참고
+}
+/* 한 구간이 끝났다 — 집중 → 휴식(4바퀴마다 긴 휴식), 휴식 → 다음 집중(자동 시작이 꺼져 있으면 멈춘 채로 대기). */
+function _pomoAdvance(){
+  if(!_pomoRun) return;
+  if(_pomoRun.phase === 'focus'){
+    _pomoRun.done = (_pomoRun.done || 0) + 1;
+    const long = (_pomoRun.done % _pomoCfg.every) === 0;
+    _pomoChime();
+    try{ toast(long ? '🍅 ' + _pomoCfg.every + '바퀴 완료! 긴 휴식 ' + _pomoCfg.l + '분' : '🍅 집중 끝! 휴식 ' + _pomoCfg.s + '분'); }catch(_){}
+    _pomoStartPhase(long ? 'long' : 'short', false);
+  }else{
+    if(_pomoRun.phase === 'long') _pomoRun.done = 0;   // 긴 휴식이 끝나면 새 사이클
+    _pomoChime();
+    try{ toast(_pomoCfg.auto ? '☕ 휴식 끝! 다음 집중을 시작해요' : '☕ 휴식 끝! ▶ 를 누르면 다음 집중이 시작돼요'); }catch(_){}
+    _pomoStartPhase('focus', !_pomoCfg.auto);
+  }
+  try{ _focusShowPush(true); }catch(_){}
+}
+function _pomoOpen(on){
+  const win = document.getElementById('focusLogWin'); if(!win) return;
+  if(on){ try{ _chalOpen(false); }catch(_){} }
+  win.classList.toggle('pomo-on', !!on);
+  _pomoRender();
+  try{ if(typeof window._focusLogClamp === 'function') window._focusLogClamp(); }catch(_){}
+}
+function _pomoRender(){
+  const $ = id => document.getElementById(id);
+  const win = $('focusLogWin'); if(!win) return;
+  const btn = $('pomoBtn'), run = _pomoRun, left = _pomoLeftMs();
+  const rest = !!(run && run.phase !== 'focus');
+  if(btn){
+    /* 서랍을 닫아 둬도 돌고 있다는 걸 버튼이 알려 준다(남은 시간). */
+    btn.textContent = (run && !win.classList.contains('pomo-on')) ? ((rest ? '☕ ' : '🍅 ') + _pomoFmt(left)) : '🍅 뽀모';
+    btn.classList.toggle('run', !!run);
+  }
+  const mini = $('pomoMiniRow');
+  if(mini){
+    mini.style.display = run ? 'flex' : 'none';   // 일반 크기에서는 CSS 가 숨긴다(미니미에서만 보임)
+    mini.classList.toggle('rest', rest);
+    const ml = $('pomoMiniLbl'), mt = $('pomoMiniTime');
+    if(ml) ml.textContent = rest ? '☕ 휴식' : ('🍅 ' + Math.min((run ? run.done : 0) + 1, _pomoCfg.every) + '/' + _pomoCfg.every);
+    if(mt) mt.textContent = _pomoFmt(left);
+  }
+  if(!win.classList.contains('pomo-on')) return;
+  const setup = $('pomoSetup'), runEl = $('pomoRun');
+  if(setup) setup.style.display = run ? 'none' : 'block';
+  if(runEl) runEl.style.display = run ? 'block' : 'none';
+  if(!run){
+    const seg = $('pomoPresetSeg');
+    if(seg) seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.p === _pomoCfg.preset));
+    const custom = (_pomoCfg.preset === 'custom');
+    [['pomoInFocus','f'],['pomoInShort','s'],['pomoInLong','l'],['pomoInEvery','every']].forEach(([id, k]) => {
+      const el = $(id); if(!el) return;
+      if(document.activeElement !== el) el.value = String(_pomoCfg[k]);
+      el.disabled = !custom && k !== 'every';
+    });
+    const a = $('pomoChkAuto'), s = $('pomoChkSound');
+    if(a) a.classList.toggle('on', !!_pomoCfg.auto);
+    if(s) s.classList.toggle('on', !!_pomoCfg.sound);
+    return;
+  }
+  const ph = $('pomoPhase'), big = $('pomoBig'), bar = $('pomoBar'), fill = $('pomoBarFill'), dots = $('pomoDots'), pause = $('pomoPause');
+  const n = Math.min((run.done || 0) + (run.phase === 'focus' ? 1 : 0), _pomoCfg.every);
+  if(ph){
+    ph.textContent = run.phase === 'focus' ? ('🍅 집중 ' + n + ' / ' + _pomoCfg.every) : (run.phase === 'long' ? '☕ 긴 휴식' : '☕ 휴식');
+    if(run.paused) ph.textContent += ' · 멈춤';
+    ph.classList.toggle('rest', rest); ph.classList.toggle('paused', !!run.paused);
+  }
+  if(big) big.textContent = _pomoFmt(left);
+  if(bar) bar.classList.toggle('rest', rest);
+  if(fill) fill.style.width = Math.max(0, Math.min(100, 100 * (1 - left / run.total))).toFixed(1) + '%';
+  if(dots){ let t = ''; for(let i = 0; i < _pomoCfg.every; i++) t += (i < (run.done || 0)) ? '🍅' : '⚪'; dots.textContent = t; }
+  if(pause) pause.textContent = run.paused ? '▶ 계속' : '⏸ 일시정지';
+}
+function _pomoTick(){
+  if(_pomoRun && !_pomoRun.paused){
+    /* 오래 꺼져 있다 켜진 경우 — 지난 구간을 한꺼번에 소리 내며 몰아서 넘기지 않는다. 한 번만 넘기고,
+       그 다음 구간도 이미 지났으면 그냥 멈춘 채로 새 집중을 기다린다. */
+    if(Date.now() >= _pomoRun.endAt){
+      const late = Date.now() - _pomoRun.endAt;
+      _pomoAdvance();
+      if(_pomoRun && !_pomoRun.paused && late > _pomoRun.total){ _pomoRun.done = 0; _pomoStartPhase('focus', true); }
+    }
+  }
+  _pomoRender();
+}
+(function bindPomo(){
+  const $ = id => document.getElementById(id);
+  const btn = $('pomoBtn'); if(!btn) return;
+  btn.onclick = () => { const w = $('focusLogWin'); _pomoOpen(!(w && w.classList.contains('pomo-on'))); };
+  const seg = $('pomoPresetSeg');
+  if(seg) seg.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('button[data-p]'); if(!b) return;
+    _pomoCfg.preset = b.dataset.p;
+    if(POMO_PRESETS[b.dataset.p]) Object.assign(_pomoCfg, POMO_PRESETS[b.dataset.p]);
+    _pomoSaveCfg(); _pomoRender();
+  });
+  const bindIn = (id, k, lo, hi) => {
+    const el = $(id); if(!el) return;
+    el.addEventListener('change', () => { _pomoCfg[k] = _pomoClampMin(el.value, lo, hi, _pomoCfg[k]); el.value = String(_pomoCfg[k]); _pomoSaveCfg(); });
+    el.addEventListener('keydown', e => e.stopPropagation());   // 단축키(F1~)·채팅 입력이 숫자 칸을 가로채지 않게
+  };
+  bindIn('pomoInFocus', 'f', 1, 180); bindIn('pomoInShort', 's', 1, 60); bindIn('pomoInLong', 'l', 1, 90); bindIn('pomoInEvery', 'every', 1, 8);
+  const tog = (id, k) => { const el = $(id); if(el) el.onclick = () => { _pomoCfg[k] = !_pomoCfg[k]; _pomoSaveCfg(); _pomoRender(); }; };
+  tog('pomoChkAuto', 'auto'); tog('pomoChkSound', 'sound');
+  const st = $('pomoStart');
+  if(st) st.onclick = () => {
+    /* 입력 중인 칸이 change 를 아직 안 쐈을 수 있다 — 시작 전에 한 번 읽는다. */
+    [['pomoInFocus','f',1,180],['pomoInShort','s',1,60],['pomoInLong','l',1,90],['pomoInEvery','every',1,8]].forEach(([id,k,lo,hi]) => { const el = $(id); if(el && !el.disabled) _pomoCfg[k] = _pomoClampMin(el.value, lo, hi, _pomoCfg[k]); });
+    _pomoSaveCfg();
+    _pomoRun = null; _pomoStartPhase('focus', false);
+    try{ _pomoSnd.prime(); }catch(_){}   // 시작 버튼 = 사용자 제스처 — 여기서 잠금을 풀어 둔다
+    try{ _focusShowPush(true); }catch(_){}
+    _pomoRender();
+  };
+  const pz = $('pomoPause');
+  if(pz) pz.onclick = () => {
+    if(!_pomoRun) return;
+    if(_pomoRun.paused){ _pomoRun.paused = false; _pomoRun.endAt = Date.now() + (_pomoRun.left || 0); }
+    else { _pomoRun.left = _pomoLeftMs(); _pomoRun.paused = true; }
+    _pomoSaveRun(); try{ _focusShowPush(true); }catch(_){} _pomoRender();
+  };
+  const sk = $('pomoSkip');
+  if(sk) sk.onclick = () => {
+    if(!_pomoRun) return;
+    /* 건너뛰기는 소리·알림 없이 다음 구간으로. 집중을 건너뛰면 그 바퀴는 센다(사람이 끝냈다고 본 것). */
+    const snd = _pomoCfg.sound; _pomoCfg.sound = false;
+    try{ _pomoAdvance(); } finally { _pomoCfg.sound = snd; }
+    if(_pomoRun && _pomoRun.paused && _pomoRun.phase === 'focus'){ /* 자동 시작 꺼짐 — 건너뛰기는 사람이 누른 것이니 바로 돈다 */ _pomoRun.paused = false; _pomoRun.endAt = Date.now() + _pomoRun.total; _pomoSaveRun(); }
+    _pomoRender();
+  };
+  const sp = $('pomoStop');
+  if(sp) sp.onclick = () => { _pomoRun = null; _pomoSaveRun(); try{ _focusShowPush(true); }catch(_){} _pomoRender(); };
+  _pomoRender();
+  setInterval(_pomoTick, 1000);
+})();
+
 let myHomeOpen = false;   // ★ 마이홈 팝업이 "런처에서" 열려있는지 — 이때만 창 크기를 생성기처럼 키움
                           //   (실행 화면은 이미 전체화면이라 그 안에서 여는 건 그대로 둬도 잘 맞음)
 function applyDesktopRunClass(){ if(!desktopMode) return;
@@ -42577,7 +43858,10 @@ if(desktopMode){
              렌더러는 "맞았다", main 은 "캐릭터에서 1200px 이나 떨어졌으니 틀렸다" 하며 서로를 덮어쓴다.
              제보 로그가 정확히 그 모양이었다(회수 53회, 매번 0.38초 뒤 렌더러가 되돌림).
              ⚠️ 여기서 seat 를 못 찾아도 판정 결과는 예전과 **완전히 같다** — 이유 문자열만 거칠어진다. */
-          const _ix = ray.intersectObjects(_hitObjs, true);
+          const _ix0 = ray.intersectObjects(_hitObjs, true);
+          /* 🩹 #7 — 올라탄 동물 좌석의 숨긴 책상이 머리 위 허공에 떠서 다른 앱 클릭을 가로챘다(_hitInHiddenDesk 주석).
+             ⚡ 맞은 게 없으면 거르지 않는다 — 대부분의 호출(빈 공간)은 추가 비용 0 이다. */
+          const _ix = _skipHiddenDesk(_ix0);
           if(_ix.length){
             let _si = -1;
             for(let o = _ix[0].object; o && _si < 0; o = o.parent){
@@ -43191,12 +44475,28 @@ addEventListener('resize',resize); resize();
 
 /* 🚪 방 초대 수신 — 어디에 있든 팝업으로 수락/거절. 수락하면 그 방으로 이동. */
 let _roomInviteBusy = false;
+/* ⏳ [2026-10-02 제보 «초대 알림이 뜨면 수락·거절 말고 아무것도 못 한다»] 초대는 **3분** 기다린다.
+   그동안 화면의 다른 곳(앱 · 뒤의 프로그램)을 그대로 쓸 수 있고, 3분이 지나면 **거절로 본다.**
+   ★ 오래된 초대(앱을 꺼 둔 사이에 온 것 등)는 띄우지 않고 지운다 — 몇 시간 전 초대에 수락하면
+     이미 비어 있거나 다른 방이 된 방으로 끌려간다.
+   ⚠️ 그 «오래됨» 문턱은 3분이 아니라 **10분**이다. ts 는 **보낸 쪽 PC 시계**(Date.now)라, 받는 쪽 시계가 몇 분
+     앞서 있으면 방금 온 초대를 «3분 지남» 으로 읽고 버린다. 3분 대기 자체는 팝업이 뜬 순간부터 잰다(아래). */
+const ROOM_INVITE_WAIT_MS  = 3 * 60 * 1000;
+const ROOM_INVITE_STALE_MS = 10 * 60 * 1000;
 function _bindRoomInviteReceiver(){
   if(!(window.firebaseAPI && firebaseAPI.subscribeRoomInvites)) return;
   const myId = getMyUserId();
   firebaseAPI.subscribeRoomInvites(myId, invites=>{
-    const ids = Object.keys(invites || {});
+    let ids = Object.keys(invites || {});
     if(!ids.length || _roomInviteBusy) return;
+    /* 오래된 초대는 조용히 거절 처리(지우기). 지우면 구독이 다시 불려 남은 것으로 이어진다. */
+    const _now = Date.now();
+    const _stale = ids.filter(id => (invites[id] && invites[id].ts > 0) && (_now - invites[id].ts > ROOM_INVITE_STALE_MS));
+    if(_stale.length){
+      _stale.forEach(id => { try{ Promise.resolve(firebaseAPI.clearRoomInvite(myId, id)).catch(()=>{}); }catch(_){} });
+      ids = ids.filter(id => _stale.indexOf(id) < 0);
+      if(!ids.length) return;
+    }
     _roomInviteBusy = true;
     // 가장 최근 초대 하나만 처리 (여러 개면 순차)
     ids.sort((a,b)=> (invites[b].ts||0) - (invites[a].ts||0));
@@ -43228,19 +44528,41 @@ function _flashTaskbar(on){
 function showRoomInvitePopup(fromName, roomCode, cb){
   const ov = document.createElement('div');
   ov.className = 'app-popup-ov';   // 마우스 통과 화이트리스트 매칭용
-  ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;pointer-events:auto;';
+  /* ⏳ [2026-10-02] 배경 판을 뺐다 — 껍데기(ov)는 **pointer-events:none** 이고 상자만 클릭을 받는다.
+     예전엔 화면 전체를 덮는 어두운 판(pointer-events:auto)이라, 실행 화면에서 **화면 전체가 클릭을 막았다**
+     (앱 버튼도 뒤 프로그램도 못 누름 = 제보). 클릭 통과 영역 수집(_uiRegions)은 none 껍데기를 건너뛰고
+     자식(상자)의 사각형만 담으므로 상자 밖은 그대로 뒤로 통과한다. ⚠️ ov 를 다시 auto 로 바꾸지 말 것. */
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9600;background:none;display:flex;align-items:center;justify-content:center;pointer-events:none;';
   const box = document.createElement('div');
-  box.style.cssText = 'width:300px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,"Malgun Gothic",sans-serif;';
+  box.style.cssText = 'pointer-events:auto;width:300px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,"Malgun Gothic",sans-serif;';
   box.innerHTML =
     '<div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;">🙋 방 초대</div>' +
-    '<div style="padding:16px 14px;color:var(--ink);font-size:12px;line-height:1.6;"><b>' + escHtml(fromName) + '</b> 님이 함께하자고 초대했어요.<br>수락하면 그 방으로 이동해요.</div>' +
+    '<div style="padding:16px 14px 8px;color:var(--ink);font-size:12px;line-height:1.6;"><b>' + escHtml(fromName) + '</b> 님이 함께하자고 초대했어요.<br>수락하면 그 방으로 이동해요.</div>' +
+    '<div data-a="left" style="padding:0 14px 10px;color:var(--ink-soft);font-size:10.5px;"></div>' +
     '<div style="display:flex;gap:6px;padding:0 14px 14px;justify-content:flex-end;">' +
       '<button class="lc-btn" data-a="ok" style="min-width:70px;">수락</button>' +
       '<button class="lc-btn ghost" data-a="no" style="min-width:70px;">거절</button>' +
     '</div>';
   ov.appendChild(box); document.body.appendChild(ov);
   _flashTaskbar(true);
-  const done = (val)=>{ _flashTaskbar(false); try{ ov.remove(); }catch(_){} cb(val); };
+  /* ⏳ 3분 대기 — 팝업이 뜬 순간부터 잰다(안내한 3분을 그대로 준다). 지나면 거절과 같은 길(done(false))로 간다.
+     ★ done 은 한 번만 — 시간 만료와 버튼이 같은 순간에 겹쳐도 cb 가 두 번 불리지 않게. */
+  const leftEl = box.querySelector('[data-a="left"]');
+  const due = Date.now() + ROOM_INVITE_WAIT_MS;
+  let finished = false, tick = null;
+  const done = (val)=>{
+    if(finished) return; finished = true;
+    if(tick){ clearInterval(tick); tick = null; }
+    _flashTaskbar(false); try{ ov.remove(); }catch(_){} cb(val);
+  };
+  const paint = ()=>{
+    const ms = due - Date.now();
+    if(ms <= 0){ done(false); if(typeof toast === 'function') toast('⏳ 초대에 3분 동안 응답이 없어 거절했어요'); return; }
+    const s = Math.ceil(ms / 1000);
+    if(leftEl) leftEl.textContent = '⏳ ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' 안에 응답이 없으면 자동으로 거절돼요';
+  };
+  paint();
+  tick = setInterval(paint, 1000);
   box.querySelector('[data-a="ok"]').onclick = ()=>done(true);
   box.querySelector('[data-a="no"]').onclick = ()=>done(false);
 }

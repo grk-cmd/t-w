@@ -1,0 +1,7 @@
+bookmark-books.svg — Noto Emoji "📚 books" (U+1F4DA)
+Source: https://github.com/googlefonts/noto-emoji (2D/svg/emoji_u1f4da.svg)
+Copyright 2013 Google, Inc. All Rights Reserved.
+Licensed under the Apache License, Version 2.0 — http://www.apache.org/licenses/LICENSE-2.0
+
+Modification: the red and green book colors were swapped so the red book sits on top
+(matching the older Noto glyph users saw as the 📚 bookmark icon).

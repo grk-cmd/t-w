@@ -186,19 +186,19 @@ say('── 7. 🗼 탑에서 룰렛 — 나만 빠지고 탑은 한 칸 내려�
   chk(/if\(!_rideQuietToast && typeof toast==='function'\) toast\('🐾 머리 위에 올라탔어요!/.test(CODE), '탑이 내려앉으며 다시 태울 땐 토스트 없음');
 }
 
-say('── 8. 🖼️ 자리비움 그림 = 화면 150×150');
+say('── 8. 🖼️ 자리비움 그림 = 화면 px 고정 (개정 76 · 150 → 기본 80 · 주인이 60·80·100)');
 {
-  chk(/var AWAY_PIC_SCREEN_PX = 150;/.test(CODE), '상수 150px');
+  chk(/var AWAY_PIC_SCREEN_PX = 80;/.test(CODE), '기본 80px');
   const fn = grab(SRC, '_awayWorldForPx');
   class V{ set(x,y,z){ this.x=x; this.y=y; this.z=z; return this; } applyMatrix4(m){ this.z = this.z - m.camZ; return this; } }
   const run = (px, camZ, fov, vh) => new Function('THREE', 'camera', 'renderer', 'innerHeight', 'var _awayCamV = null;' + fn + ' return _awayWorldForPx;')(
     { Vector3:V }, { fov, zoom:1, updateMatrixWorld(){}, matrixWorldInverse:{ camZ } }, { domElement:{ clientHeight:vh } }, vh)(px, 0, 0, 0);
-  const w = run(150, 10, 34, 1000), expect = 150 * 2 * 10 * Math.tan(17 * Math.PI / 180) / 1000;
-  chk(Math.abs(w - expect) < 1e-9, '150px → 월드 ' + w.toFixed(4) + '(거리 10 · fov 34 · 화면 1000px)');
-  chk(Math.abs(run(150, 20, 34, 1000) - 2 * w) < 1e-9, '두 배 멀면 월드 길이도 두 배 — 화면에서는 같은 150px');
-  chk(Math.abs(run(150, 10, 34, 2000) - w / 2) < 1e-9, '화면이 두 배 크면 절반 — 화면 px 고정');
+  const w = run(60, 10, 34, 1000), expect = 60 * 2 * 10 * Math.tan(17 * Math.PI / 180) / 1000;
+  chk(Math.abs(w - expect) < 1e-9, '60px → 월드 ' + w.toFixed(4) + '(거리 10 · fov 34 · 화면 1000px)');
+  chk(Math.abs(run(60, 20, 34, 1000) - 2 * w) < 1e-9, '두 배 멀면 월드 길이도 두 배 — 화면에서는 같은 60px');
+  chk(Math.abs(run(60, 10, 34, 2000) - w / 2) < 1e-9, '화면이 두 배 크면 절반 — 화면 px 고정');
   const fr = strip(grab(SRC, '_awayImgFrame'));
-  chk(/const h = _awayWorldForPx\(AWAY_PIC_SCREEN_PX, cx, fy, cz\);/.test(fr) && /sp\.scale\.set\(h, h, 1\);/.test(fr) && !/sp\.scale\.set\(bh/.test(fr), '크기는 경계상자가 아니라 화면 px 에서(인간·동물 같음)');
+  chk(/const h = _awayWorldForPx\(_awayPxFor\(seat\), cx, fy, cz\);/.test(fr) && /sp\.scale\.set\(h, h, 1\);/.test(fr) && !/sp\.scale\.set\(bh/.test(fr), '크기는 경계상자가 아니라 화면 px 에서(인간·동물 같음)');
   chk(/sp\.position\.set\(cx - _awayGW\.x, fy \+ h\/2 - _awayGW\.y, cz - _awayGW\.z\);/.test(fr), '자리는 예전처럼 가운데 · 발밑');
 }
 
@@ -208,11 +208,58 @@ say('── 9. 🗼 탑 위 자리비움 그림 — 바로 아래 캐릭터의 �
   chk(/const _host = seat\.ridingOn;\s*if\(_host && _host\.rig && seats\.indexOf\(_host\) >= 0\)\{/.test(fr), '올라탄 동안에만 갈래를 탄다');
   chk(/_awayHostBox\.setFromObject\(_host\.bodyWrap \|\| _host\.rig\);/.test(fr) && /fy = _awayHostBox\.max\.y;/.test(fr), '밑변 = 바로 아래 캐릭터의 꼭대기');
   chk(/cx = \(_awayHostBox\.min\.x \+ _awayHostBox\.max\.x\)\/2;/.test(fr) && /cz = \(_awayHostBox\.min\.z \+ _awayHostBox\.max\.z\)\/2;/.test(fr), '가로·앞뒤 = 그 캐릭터 가운데');
-  chk(fr.indexOf('fy = _awayHostBox.max.y;') < fr.indexOf('const h = _awayWorldForPx(AWAY_PIC_SCREEN_PX, cx, fy, cz);'), '크기(150px)는 바뀐 자리의 깊이로 잰다');
+  chk(fr.indexOf('fy = _awayHostBox.max.y;') < fr.indexOf('const h = _awayWorldForPx(_awayPxFor(seat), cx, fy, cz);'), '크기는 바뀐 자리의 깊이로 잰다');
   chk(/var _awayBox = null, _awayGW = null, _awayHostBox = null;/.test(CODE), '상자는 하나를 재사용한다(매 측정 new 없음)');
   /* 흉내: 팔 걸치기 자세 — 내 발밑(0.9)이 상대 꼭대기(1.4)보다 아래 → 그림 밑변은 1.4 */
   const place = (rider, host) => { let fy = rider.min; if(host) fy = host.max; return fy; };
   chk(place({ min:0.9 }, { max:1.4 }) === 1.4 && place({ min:0 }, null) === 0, '올라탄 그림은 상대 머리 위 · 땅에 선 그림은 예전처럼 발밑');
+}
+
+say('── 10. 📏 자리비움 그림 크기 60·80·100 — 그림 주인이 고른다(개정 76 · A안)');
+{
+  const pf = grab(SRC, '_awayPxFor'), ok = grab(SRC, '_awaySzOk');
+  chk(!!pf && !!ok && /var AWAY_SZ_OPTIONS = \[60, 80, 100\];/.test(CODE), '_awayPxFor · _awaySzOk · 선택지 셋');
+  const px = new Function('AWAY_SZ_OPTIONS', 'AWAY_PIC_SCREEN_PX', 'awayImgSz', ok + pf + ' return _awayPxFor;')([60, 80, 100], 80, 100);
+  chk(px({ isMe:true }) === 100 && px({ remote:true, remoteAwaySz:60 }) === 60, '내 좌석 = 내가 고른 값 · 남의 좌석 = 그 사람이 보낸 값');
+  chk(px({ remote:true, remoteAwaySz:null }) === 80 && px({ remote:true, remoteAwaySz:999 }) === 80 && px(null) === 80, '안 보냈거나(구버전) 엉뚱한 값이면 기본 80');
+  chk(/let myAwaySz=80;/.test(CODE) && !/let myAwaySz=AWAY_PIC_SCREEN_PX/.test(CODE), 'Presence 초기값은 숫자 — 아래쪽 var 를 읽으면 load 순간 undefined(방 payload 거절)');
+  chk(/\.\.\.myStarOut\(\), awaySz:myAwaySz, lic:/.test(CODE) && /\{def:myDef,name:myName,awaySz:myAwaySz,state:myState,/.test(CODE), '평소 · 입장 payload 에 awaySz(다른 검사가 붙잡은 줄 모양은 안 흔든다)');
+  chk(/s\.remoteAwaySz=_awaySzOk\(friends\[id\]\.awaySz\) \? friends\[id\]\.awaySz : null;/.test(CODE), '받는 쪽은 세 값만 받는다');
+  chk(/function setAwaySz\(px\)\{[\s\S]{0,160}if\(v === myAwaySz\) return;/.test(CODE) && /setAwayImg, setAwaySz,/.test(CODE), 'Presence.setAwaySz — 같으면 안 보냄 · 내보냄');
+  const ui = grab(SRC, '_awaySetSz');
+  chk(/if\(!_awaySzOk\(px\) \|\| px === awayImgSz\) return;/.test(ui) && /api\.setAwaySz\(uid, px\)/.test(ui), '버튼 → 같은 값이면 무시 · 서버 users/{uid}/awaySz');
+  chk(/api\.getAwaySz\(uid\)/.test(grab(SRC, '_awayBootSync')), '부팅 때 서버 값이 이긴다(계정을 따라감)');
+  const H = read('desk-companion-prototype.html') || '';
+  chk(/id="miAwaySz"[\s\S]{0,400}data-sz="60"[\s\S]{0,120}data-sz="80"[\s\S]{0,120}data-sz="100"/.test(H) && H.indexOf('id="miAwaySzRow"') > H.indexOf('id="miAwayReset"'), 'HTML — [내 정보] 그림 칸 버튼 아래 60·80·100');
+  const RJ = read('firebase-database-rules.json');
+  if(RJ){
+    const R = JSON.parse(RJ).rules.users.$userId.awaySz;
+    chk(!!R && /=== 60/.test(R['.validate']) && /=== 80/.test(R['.validate']) && /=== 100/.test(R['.validate']) && /isNumber/.test(R['.validate']) && /userAuth/.test(R['.write']), '규칙 users/$userId/awaySz — 본인만 · 세 값만');
+  } else say('  ? firebase-database-rules.json 없음 — 규칙 판정 건너뜀');
+  const FI = read('firebase-init.js');
+  if(FI) chk(/async setAwaySz\(userId, px\)/.test(FI) && /async getAwaySz\(userId\)/.test(FI) && /users\/\$\{userId\}\/awaySz/.test(FI), 'firebase-init — setAwaySz · getAwaySz');
+  else say('  ? firebase-init.js 없음 — 건너뜀');
+}
+
+say('── 11. 🫧 자리비움 그림 위에 올라타면 그림 윗변에 얹힌다(개정 76 · 공중부양 제보)');
+{
+  const a = SRC.indexOf('      const _asp = host._awaySprite;'), b = SRC.indexOf('      seat.group.position.copy(_rideWP);', a);
+  const blk = (a > 0 && b > a) ? SRC.slice(a, b) : '';
+  chk(!!blk, '_positionRideSeat — 그림 갈래가 위치 확정 바로 앞에 있다');
+  class V{ constructor(){ this.x=0; this.y=0; this.z=0; } set(x,y,z){ this.x=x; this.y=y; this.z=z; return this; } }
+  const run = (o) => { const wp = new V().set(5, 9, 5);
+    new Function('host','seat','_rideWP','_rideAwayP','_rideAwayS','_offY','_topUsed','charLiftWorld', blk)({ _awaySprite:o.sp }, {}, wp, new V(), new V(), o.offY, o.top, () => o.lift || 0);
+    return wp; };
+  const sp = (x,y,z,h,vis) => ({ visible:vis, getWorldPosition:v=>v.set(x,y,z), getWorldScale:v=>v.set(h,h,1) });
+  let r = run({ sp:sp(1,0.4,2,0.8,true), offY:0.35, top:0.6 });
+  chk(Math.abs(r.y - 0.55) < 1e-9 && r.x === 1 && r.z === 2, '1층 — 그림 윗변(0.8) + 자세 보정(0.35−0.6) · 가로·앞뒤 = 그림 가운데');
+  r = run({ sp:sp(0,0.4,0,0.8,true), offY:0.2, top:null, lift:0.1 });
+  chk(Math.abs(r.y - 0.7) < 1e-9, '실측이 없는 폴백 — 그림 윗변에서 내 높이만 상쇄');
+  chk(run({ sp:sp(1,0.4,2,0.8,false), offY:0.35, top:0.6 }).y === 9 && run({ sp:null, offY:0.35, top:0.6 }).y === 9, '그림이 안 보이거나 없으면 예전(머리 기준) 그대로');
+  const P = strip(grab(SRC, '_positionRideSeat'));
+  chk(/_topUsed = _headTopForFeet;/.test(P) && /if\(_armW!=null && _headTopForArm!=null\) _topUsed = _headTopForArm;/.test(P), '묘기·1층 둘 다 «꼭대기로 쓴 값» 을 남긴다');
+  const F = strip(grab(SRC, '_awayImgFrame'));
+  chk(/const _hsp = _host\._awaySprite;\s*if\(_hsp && _hsp\.visible\)\{/.test(F) && F.indexOf('const _hsp = _host._awaySprite;') < F.indexOf('const h = _awayWorldForPx('), '내가 자리비움 그림인데 아래도 그림이면 — 그 그림 윗변에 내 그림');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

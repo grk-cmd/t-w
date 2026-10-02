@@ -3556,8 +3556,14 @@
         들어간 규칙을 폴더탭으로 보고 '위쪽만 둥글리기' 목록에 있는지 따지는데, 이건 폴더탭이 아니다. */
 
   /* 버튼 두 개를 한 줄에 — [누적기록] 옆에 [👑 달성표] */
-  #focusLogBtns{display:flex;gap:6px;align-items:center;margin-top:10px;}
+  #focusLogBtns{display:flex;gap:4px;align-items:center;margin-top:10px;align-self:stretch;}
   #focusLogBtns #focusLogOk{margin-top:0;}
+  /* 🩹 [2026-10-02] 두 버튼 크기를 맞춘다 — 예전엔 [누적기록] 6px 26px·기본 글자, [👑 달성표] 6px 14px·11px 라
+     높이와 폭이 둘 다 어긋나 보였다. 한 줄을 반씩 나눠 같은 폭·같은 안쪽 여백·같은 글자로 둔다. */
+  /* 🍅 [2026-10-02] 버튼이 셋(누적기록·뽀모·달성표)이 되어 206px 한 줄을 셋으로 나눈다 — 셋 다 같은 폭·같은 글자.
+     「👑 달성표」가 잘리지 않게 좌우 여백 0 · 10.5px · 사이 4px · 줄 전체 폭(stretch). */
+  #focusLogBtns #focusLogOk, #focusLogBtns #chalBtn, #focusLogBtns #pomoBtn{flex:1 1 0;min-width:0;padding:6px 0;font-size:10.5px;letter-spacing:-.3px;font-weight:bold;
+    line-height:1.2;box-sizing:border-box;white-space:nowrap;}
   #chalBtn{padding:6px 14px;font-size:11px;font-weight:bold;font-family:inherit;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;
     border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -3742,6 +3748,57 @@
   #chalDrawer .chal-btn.tiny{padding:3px 8px;font-size:9.5px;font-weight:normal;}
   #chalDrawer .chal-btn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     border-radius:var(--win-radius-el);}
+
+  /* ==== 🍅 뽀모도로 서랍 (2026-10-02 · 시안 A안) ───────────────────────────────
+     달성표 서랍(#chalDrawer)과 같은 틀 — 창 안쪽 아래에 붙고, 둘 중 하나만 열린다.
+     ⚠️ 베젤 규칙엔 예외 없이 border-radius:var(--win-radius-el)(검사 12). 이름에 'tab' 을 쓰지 않는다(검사 12(b)). */
+  #pomoBtn{font-family:inherit;cursor:pointer;color:var(--ink);background:var(--win-face);border:2px solid;
+    border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);}
+  #pomoBtn:active, #focusLogWin.pomo-on #pomoBtn{background:#bfbbb2;
+    border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);border-radius:var(--win-radius-el);}
+  #pomoBtn.run{color:#b0301f;}
+  #pomoDrawer{display:none;border-top:2px solid var(--win-lo);box-shadow:inset 0 1px 0 var(--win-hi);padding:10px 10px 12px;}
+  #focusLogWin.pomo-on #pomoDrawer{display:block;}
+  #focusLogWin.mini #pomoBtn,
+  #focusLogWin.mini #pomoDrawer{display:none !important;}
+  #focusLogWin:not(.mini) #pomoMiniRow{display:none !important;}
+  #pomoMiniRow .flt-label, #pomoMiniRow .flt-time{color:#b0301f;}
+  #pomoMiniRow.rest .flt-label, #pomoMiniRow.rest .flt-time{color:#1d6b3a;}
+  #pomoDrawer .pomo-seg{display:flex;gap:2px;margin-bottom:9px;}
+  #pomoDrawer .pomo-seg button{flex:1;text-align:center;font-size:10px;padding:5px 0;color:var(--ink-soft);
+    background:#bfbbb2;border:1px solid;font-family:inherit;cursor:pointer;
+    border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);}
+  #pomoDrawer .pomo-seg button.on{background:var(--win-face);color:var(--ink);font-weight:bold;
+    border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);border-radius:var(--win-radius-el);}
+  #pomoDrawer .pomo-set{display:grid;grid-template-columns:auto 1fr;gap:6px 8px;font-size:11px;align-items:center;color:var(--ink);}
+  #pomoDrawer .pomo-in{display:flex;align-items:center;gap:3px;white-space:nowrap;}
+  #pomoDrawer .pomo-in input{width:30px;box-sizing:border-box;font-size:11px;padding:2px 3px;text-align:right;color:var(--ink);
+    font-family:inherit;outline:none;background:#fff;border:1px solid;
+    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el);}
+  #pomoDrawer .pomo-in input#pomoInEvery{width:20px;}
+  #pomoDrawer .pomo-in input:disabled{background:var(--win-face-2);color:var(--ink-soft);}
+  #pomoDrawer .pomo-chk{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--ink);margin-top:8px;cursor:pointer;}
+  #pomoDrawer .pomo-chk i{font-style:normal;width:13px;height:13px;background:#fff;border:1px solid;
+    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el);
+    font-size:10px;line-height:12px;text-align:center;flex:none;}
+  #pomoDrawer .pomo-chk.on i::before{content:'✔';}
+  #pomoDrawer .pomo-go{display:flex;gap:4px;margin-top:10px;}
+  #pomoDrawer .pomo-btn{flex:1 1 0;min-width:0;padding:6px 2px;font-size:11px;font-weight:bold;white-space:nowrap;
+    color:var(--ink);font-family:inherit;cursor:pointer;background:var(--win-face);border:2px solid;
+    border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);}
+  #pomoDrawer .pomo-btn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);border-radius:var(--win-radius-el);}
+  #pomoDrawer .pomo-hint{margin-top:9px;background:var(--win-face-2);border:1px solid #a9a69e;border-radius:var(--win-radius-el);
+    padding:6px 8px;font-size:10px;color:var(--ink-soft);line-height:1.6;}
+  #pomoDrawer .pomo-phase{text-align:center;font-size:11px;font-weight:bold;color:#b0301f;}
+  #pomoDrawer .pomo-phase.rest{color:#1d6b3a;}
+  #pomoDrawer .pomo-phase.paused{color:var(--ink-soft);}
+  #pomoDrawer .pomo-big{text-align:center;font-size:30px;font-weight:bold;color:var(--ink);letter-spacing:1px;margin:2px 0 6px;
+    font-family:Tahoma,"Malgun Gothic","MS Sans Serif",sans-serif;}
+  #pomoDrawer .pomo-bar{height:10px;padding:1px;box-sizing:border-box;background:#fff;border:1px solid;
+    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el);}
+  #pomoDrawer .pomo-bar > div{height:100%;width:0;background:repeating-linear-gradient(90deg,#c0392b 0 7px,transparent 7px 9px);}
+  #pomoDrawer .pomo-bar.rest > div{background:repeating-linear-gradient(90deg,#2e8b57 0 7px,transparent 7px 9px);}
+  #pomoDrawer .pomo-dots{text-align:center;font-size:13px;letter-spacing:2px;margin-top:6px;min-height:16px;}
 
   /* ==== 상태 메뉴 — Win98 캐스케이드 스타일 (좌우 자동 반전은 JS positionCascade에서 처리) ==== */
   #myStatusMenu{
@@ -4809,7 +4866,7 @@
   </div>
   <div class="fs-tabpage" id="fsTabMulti" style="display:none;">
     <div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;line-height:1.5;">
-      같은 방 코드로 연결하면, 서로의 이미지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 8명)
+      같은 방 코드로 연결하면, 서로의 이미지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 10명)
     </div>
     <div id="fsInviteIdle">
       <button class="lc-btn" id="fsInviteCreate" style="margin-bottom:4px;">방 만들기 (코드 생성)</button>
@@ -4906,9 +4963,16 @@
         <span class="flt-clock">🕒</span>
         <span class="flt-time" id="focusLogTime2">00:00:00</span>
       </div>
+      <!-- 🍅 미니미일 때만, 뽀모가 돌고 있으면 나타나는 둘째 줄(app.js _pomoRender 가 켠다) -->
+      <div class="flt-row" id="pomoMiniRow" style="display:none;">
+        <span class="flt-label" id="pomoMiniLbl">🍅 1/4</span>
+        <span class="flt-time" id="pomoMiniTime">25:00</span>
+      </div>
       <div id="focusLogBtns">
         <button id="focusLogOk" type="button">누적기록</button>
         <!-- 👑 = 프리미엄 표시. 라이선스가 있어도 왕관은 그대로 둔다(무엇이 프리미엄인지 알아보라고). -->
+        <!-- 🍅 뽀모도로(2026-10-02 · 시안 A안 확정) — 서랍은 달성표와 같은 자리에 하나만 열린다. 무료 기능(왕관 없음). -->
+        <button id="pomoBtn" type="button" title="뽀모도로 타이머">🍅 뽀모</button>
         <button id="chalBtn" type="button" title="주간 5일 달성표">👑 달성표</button>
       </div>
     </div>
@@ -5016,6 +5080,34 @@
         <div class="chal-arcnote" style="margin-top:8px;margin-bottom:0;">지난 기록이라 고칠 수 없어요. 위에서 지금 트랙으로 돌아갈 수 있어요.</div>
       </div>
 
+    </div>
+    <!-- ==== 🍅 뽀모도로 서랍 ====
+         달성표 서랍과 같은 자리(#focusLogWin 안쪽 아래)에 펼쳐진다 — 둘 중 하나만 열린다(app.js _pomoOpen · _chalOpen).
+         화면 두 개: 설정(#pomoSetup) → 진행 중(#pomoRun). 서랍을 닫아도 타이머는 계속 돈다. -->
+    <div id="pomoDrawer">
+      <div id="pomoSetup">
+        <div class="pomo-seg" id="pomoPresetSeg">
+          <button type="button" data-p="25">25 / 5</button><button type="button" data-p="50">50 / 10</button><button type="button" data-p="custom">직접</button>
+        </div>
+        <div class="pomo-set">
+          <span>집중</span><span class="pomo-in"><input id="pomoInFocus" type="text" inputmode="numeric" maxlength="3">분</span>
+          <span>짧은 휴식</span><span class="pomo-in"><input id="pomoInShort" type="text" inputmode="numeric" maxlength="2">분</span>
+          <span>긴 휴식</span><span class="pomo-in"><input id="pomoInLong" type="text" inputmode="numeric" maxlength="2">분 · <input id="pomoInEvery" type="text" inputmode="numeric" maxlength="1">바퀴마다</span>
+        </div>
+        <div class="pomo-chk" id="pomoChkAuto" role="button"><i></i>휴식 끝나면 다음 집중 자동 시작</div>
+        <div class="pomo-chk" id="pomoChkSound" role="button"><i></i>끝날 때 소리</div>
+        <div class="pomo-go"><button id="pomoStart" type="button" class="pomo-btn">▶ 시작</button></div>
+        <div class="pomo-hint">포커스 기록은 지금처럼 따로 쌓여요. 뽀모는 시간을 재고 알려 주기만 해요. 🕒 를 켜 두면 머리 위에 남은 시간이 보여요.</div>
+      </div>
+      <div id="pomoRun" style="display:none;">
+        <div class="pomo-phase" id="pomoPhase">🍅 집중 1 / 4</div>
+        <div class="pomo-big" id="pomoBig">25:00</div>
+        <div class="pomo-bar" id="pomoBar"><div id="pomoBarFill"></div></div>
+        <div class="pomo-dots" id="pomoDots"></div>
+        <div class="pomo-go">
+          <button id="pomoPause" type="button" class="pomo-btn">⏸ 일시정지</button><button id="pomoSkip" type="button" class="pomo-btn">⏭ 건너뛰기</button><button id="pomoStop" type="button" class="pomo-btn">■ 끝</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -5483,6 +5575,14 @@
       </div>
       <!-- 🫧 자리비움 그림 (시안 A 확정 · 2026-09-23) — 머리 아래 한 구획. 자리비움이면 캐릭터 대신 이 그림이 선다(app.js bindAwayImg · _awayPick).
            500×500 WebP 로 구워 300KB 이하만 올린다(Storage away/{uid}/ · 규칙 300KB 미만). 미리보기 체크무늬 = 투명 바탕. -->
+      <style>
+        /* 📏 자리비움 그림 크기 — 세 칸 눌림 버튼(Win98 베젤 · 눌린 칸 = 오목). 베젤 규칙이라 --win-radius-el 을 받는다. */
+        .mi-away-sz{font-family:inherit;font-size:10.5px;min-width:40px;padding:2px 6px;cursor:pointer;color:var(--ink);background:var(--win-face);
+          border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo),inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
+        .mi-away-sz + .mi-away-sz{margin-left:-2px;}
+        .mi-away-sz.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);box-shadow:inset 1px 1px 0 var(--win-lo);background:var(--win-select-bg);color:var(--win-select);font-weight:bold;}
+        .mi-away-sz:disabled{cursor:default;opacity:.6;}
+      </style>
       <div id="miAway" style="padding:9px 0;border-bottom:1px solid var(--win-lo-2);box-shadow:0 1px 0 var(--win-hi);">
         <div style="font-size:11px;font-weight:bold;margin-bottom:6px;">자리비움 그림</div>
         <div style="display:flex;gap:9px;align-items:flex-start;">
@@ -5494,6 +5594,13 @@
             <div style="display:flex;gap:4px;">
               <button id="miAwayPick" class="lc-btn" type="button" style="width:auto;margin:0;padding:3px 9px;font-size:10.5px;">그림 등록</button>
               <button id="miAwayReset" class="lc-btn" type="button" style="width:auto;margin:0;padding:3px 9px;font-size:10.5px;display:none;">기본으로</button></div>
+            <!-- 📏 [2026-10-02 · A안 확정] 화면 크기 60·80·100 — 그림 주인이 정하고 방 사람들 화면에도 같은 크기(app.js _awaySetSz · users/{uid}/awaySz) -->
+            <div id="miAwaySzRow" style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:10.5px;">크기</span>
+              <div id="miAwaySz" style="display:inline-flex;">
+                <button type="button" class="mi-away-sz" data-sz="60">60</button><button type="button" class="mi-away-sz" data-sz="80">80</button><button type="button" class="mi-away-sz" data-sz="100">100</button>
+              </div>
+            </div>
             <div id="miAwayMsg" style="font-size:10px;color:var(--ink-soft);line-height:1.5;"></div>
           </div></div>
         <input id="miAwayFile" type="file" accept="image/png,image/webp,image/*" style="display:none;">
@@ -6018,7 +6125,7 @@
 
 <!-- 라이선스 키 생성 모달 (관리자 전용) -->
 <div id="licenseGenOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
-  background:none;pointer-events:none;">
+  gap:12px;flex-wrap:wrap;background:none;pointer-events:none;">
   <div style="pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:340px;max-width:90vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
@@ -6035,6 +6142,8 @@
       <button id="licenseGrantBtn" class="lc-btn" style="margin-top:0;white-space:nowrap;flex:0 0 auto;width:auto;padding:7px 14px;">📮 발급</button>
     </div>
     <div id="licenseGrantMsg" style="display:none;font-size:10.5px;margin-bottom:10px;"></div>
+    <!-- 📄 [2026-10-02] 엑셀(xlsx·csv)로 일괄 발급 — 옆에 #licenseXlsxWin 창을 연다(app.js bindLicenseXlsxBulk) -->
+    <button id="licenseXlsxOpenBtn" class="lc-btn" style="margin-top:0;margin-bottom:10px;">📄 엑셀로 일괄 발급…</button>
     <div style="border-top:1px solid var(--win-lo-2);margin:4px 0 12px;"></div>
 
     <label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">구매자 메모(선택, 나만 봄)</label>
@@ -6090,6 +6199,61 @@
       <div id="licenseGenList" style="max-height:140px;overflow-y:auto;font-size:11px;color:var(--ink-soft);"></div>
     </div>
     <button id="licenseGenClose" class="lc-btn ghost" style="margin-top:12px;">닫기</button>
+    </div>
+  </div>
+  <!-- 📄 [2026-10-02] 엑셀로 일괄 발급 — 발급 창 **옆에** 서는 두 번째 창(같은 #licenseGenOverlay 안이라
+       클릭 통과 목록·ESC 사다리·창 층을 새로 등록할 필요가 없다). 미리보기 단계에서는 아무것도 쓰지 않는다. -->
+  <div id="licenseXlsxWin" style="display:none;pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:440px;max-width:90vw;font-family:Tahoma,'Malgun Gothic',sans-serif;">
+    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;display:flex;align-items:center;justify-content:space-between;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">
+      <span>📄 엑셀로 일괄 발급</span>
+      <button id="licenseXlsxClose" title="닫기" style="width:18px;height:16px;padding:0;font-size:10px;line-height:12px;cursor:pointer;">✕</button>
+    </div>
+    <div style="padding:14px;font-size:11px;color:var(--ink);">
+      <input id="licenseXlsxFile" type="file" accept=".xlsx,.csv" style="display:none;">
+      <div style="display:flex;gap:6px;align-items:center;">
+        <div id="licenseXlsxFileInfo" style="flex:1;min-width:0;padding:8px 10px;background:#fff;border:2px dashed var(--win-lo);font-size:11.5px;color:var(--ink-soft);
+          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 .xlsx 또는 .csv 파일을 골라 주세요</div>
+        <button id="licenseXlsxFileBtn" style="padding:6px 10px;font-size:11px;cursor:pointer;white-space:nowrap;">파일 고르기</button>
+      </div>
+      <div id="licenseXlsxSum" style="display:none;gap:8px;flex-wrap:wrap;margin:8px 0 2px;"></div>
+      <div id="licenseXlsxPreview" style="display:none;max-height:210px;overflow:auto;margin-top:6px;background:#fff;
+        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"></div>
+      <div id="licenseXlsxOpts" style="display:none;margin-top:8px;">
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;margin-bottom:4px;"><input type="checkbox" id="licenseXlsxDupFirst" checked> 같은 친구코드가 여러 번 나오면 첫 행만 발급</label>
+        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="checkbox" id="licenseXlsxReissue"> 전에 발급한 적 있는 친구코드도 다시 발급 <span style="color:var(--ink-soft);">(기본: 건너뜀)</span></label>
+      </div>
+      <div id="licenseXlsxActs" style="display:none;gap:6px;margin-top:12px;">
+        <button id="licenseXlsxRunBtn" class="lc-btn" style="margin-top:0;flex:1;">🎟️ 발급</button>
+        <button id="licenseXlsxCancelBtn" class="lc-btn ghost" style="margin-top:0;width:auto;padding:8px 14px;">취소</button>
+      </div>
+      <div id="licenseXlsxProg" style="display:none;margin-top:10px;">
+        <div id="licenseXlsxProgText">발급 중…</div>
+        <div style="height:16px;padding:2px;margin:6px 0 4px;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
+          <div id="licenseXlsxProgBar" style="height:100%;width:0%;background:repeating-linear-gradient(90deg,var(--win-select) 0 9px,transparent 9px 11px);"></div>
+        </div>
+        <div style="color:var(--ink-soft);font-size:10.5px;">창을 닫지 마세요. 한 명씩 순서대로 보내요.</div>
+      </div>
+      <div id="licenseXlsxDone" style="display:none;margin-top:10px;">
+        <div style="font-size:12px;font-weight:bold;margin-bottom:6px;">✅ 일괄 발급 완료</div>
+        <div id="licenseXlsxDoneSum" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+        <div id="licenseXlsxKeyOnly" style="display:none;padding:6px 8px;margin-top:8px;font-size:10.5px;line-height:1.7;max-height:120px;overflow:auto;background:#fff;
+          border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"></div>
+        <button id="licenseXlsxSaveBtn" class="lc-btn">💾 결과 엑셀 저장</button>
+        <div style="color:var(--ink-soft);font-size:10.5px;margin-top:6px;line-height:1.55;">원본 열 뒤에 <b>발급 키 · 결과 · 사유</b> 열을 붙여 저장해요. 실패·건너뜀 행만 고쳐 그대로 다시 올리면 됩니다.</div>
+      </div>
+      <div style="border-top:1px solid var(--win-lo-2);margin:12px 0 8px;"></div>
+      <div style="color:var(--ink-soft);font-size:10.5px;line-height:1.6;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+          <span><b>파일 양식</b> — 첫 줄은 제목, 둘째 줄부터 한 줄에 한 명</span>
+          <button id="licenseXlsxTplBtn" style="padding:2px 8px;font-size:10.5px;cursor:pointer;white-space:nowrap;">⬇ 양식 받기</button>
+        </div>
+        <div>· <b>친구코드</b> 칸: MATE-9K2M 또는 뒷 4자리. 비우면 키만 만들어 결과 파일에 담아요.</div>
+        <div>· <b>메모</b> 칸(선택): 발급 목록 메모에 붙어요(나만 봄).</div>
+        <div>· 첫 시트만 읽어요. 제목 줄에 «친구코드»·«메모»가 있으면 그 열을, 없으면 A·B 열을 써요.</div>
+      </div>
     </div>
   </div>
 </div>
@@ -7289,7 +7453,7 @@
 <div id="inviteOverlay">
   <div id="inviteModal">
     <h2>방 만들기 / 참여하기</h2>
-    <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 8명)</p>
+    <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 10명)</p>
     <div id="inviteIdle">
       <!-- 채널 카드가 바로 보임 (raceOverlay 카드 스타일 재사용) -->
       <div id="inviteChannelPick">
@@ -7299,7 +7463,7 @@
             <div class="ch-emoji">💼</div>
             <div class="ch-sub">채팅 없이 · 집중</div>
             <div class="ch-name">워킹룸</div>
-            <div class="ch-meta">무료 · 최대 8명</div>
+            <div class="ch-meta">무료 · 최대 10명</div>
             <div class="ch-count" id="chCountWorking">— / 250</div>
             <!-- 🎲 랜덤 참여 허용 — 워킹룸 카드에만 둔다. 투게더룸 카드에는 아예 그리지 않는다:
                  라이선스 방에 모르는 사람이 들어오면 안 되고, findRandomRooms 의 채널 필터와 함께 두 겹이 된다.
@@ -7313,7 +7477,7 @@
             <div class="ch-emoji" id="chEmojiTogether"><span class="ui-ic" data-ic="chat" data-px="40">💬</span></div>
             <div class="ch-sub" id="chSubTogether">대화하며 · 함께</div>
             <div class="ch-name">투게더룸</div>
-            <div class="ch-meta" id="chMetaTogether">라이선스 · 최대 8명</div>
+            <div class="ch-meta" id="chMetaTogether">라이선스 · 최대 10명</div>
             <div class="ch-count" id="chCountTogether">— / 250</div>
           </div>
         </div>

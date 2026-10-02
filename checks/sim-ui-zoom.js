@@ -77,7 +77,7 @@ else{
   let z; for(let i = 0; i < 30; i++) z = run.apply('in', 't');
   chk(z === 2 && run.get() === 2, '  상한 200% 에서 멈춘다');
   for(let i = 0; i < 40; i++) z = run.apply('out', 't');
-  chk(z === 0.5, '  하한 50% 에서 멈춘다');
+  chk(z === 0.2, '  하한 20% 에서 멈춘다 (2026-10-02 · 50 → 20)');
   const nZoom = env.zoom.length, nSaved = env.saved;
   run.apply('out', 't');
   chk(env.zoom.length === nZoom + 1 && env.saved === nSaved, '  값이 안 바뀌어도 setZoomFactor 는 걸고(부팅 복원용) 저장은 안 한다');

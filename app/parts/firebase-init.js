@@ -957,6 +957,7 @@
          빠져 있었다: 부팅 4초 동기화가 세션 복원과 경주해서, 구글에 묶인 계정은 첫 push 가
          permission_denied 로 조용히 죽고 다음 10분 주기까지 이 기기의 기록이 서버에 안 갔다. */
       await _whenAuthReady();
+      let _readSec = null;   // 🩹 #4a — 쓰기가 거부돼도 읽기는 공개라 서버 값은 받을 수 있다(아래 catch 가 돌려준다)
       try{
         const r = ref(db, `users/${userId}/focus/totalSec`);
         /* ⚠️ 누적 상한 — **app.js 의 FOCUS_TOTAL_CAP_SEC · 규칙 파일의 .validate 와 같은 값이어야 한다.**
@@ -968,7 +969,7 @@
         // ★ 사전 get: RTDB 트랜잭션은 로컬 캐시가 비어 있으면 첫 시도에 cur=null로 들어온다.
         //   그 상태를 "값 없음"으로 오해해 중단하면 기록이 영영 안 써지므로, 미리 읽어 기준값을 잡는다.
         let pre = 0;
-        try{ const s = await get(r); pre = Number(s.val()) || 0; }catch(_){}
+        try{ const s = await get(r); pre = Number(s.val()) || 0; _readSec = pre; }catch(_){}
         // 올릴 게 없으면 쓰지 않는다 — 주기 동기화가 읽기 1회로 끝나게 하는 지점(비용).
         const want = Math.min(CAP, Math.max(pre + delta, baseline));
         if(want <= pre) return { ok:true, totalSec: pre };
@@ -982,7 +983,9 @@
         const reason = String((e && e.message) || e);
         /* 거부를 이름 붙여 돌려준다 — 부르는 쪽이 «세션이 풀렸다» 를 가려낼 유일한 근거다. */
         const denied = /permission[_ ]denied/i.test(reason) || /PERMISSION_DENIED/.test(String(e && e.code || ''));
-        return { ok:false, reason, denied, authed: !!(auth && auth.currentUser) };
+        /* 🩹 [2026-10-02 제보 #4a] «윈도우 58 → 맥 47» — 쓰기가 거부되면 받아오기도 같이 멈춰서, 거부되는 기기는
+           옛 레벨에 영영 머물렀다. 읽어 둔 서버 값(serverSec)을 같이 돌려준다 — 받아올지는 app.js 가 정한다. */
+        return { ok:false, reason, denied, authed: !!(auth && auth.currentUser), serverSec: _readSec };
       }
     },
     /* ═══════════ 🏆 전체 랭킹 (개정 73 · handoff-ranking.md) ═══════════
@@ -1211,6 +1214,11 @@
       return ()=>{ try{ unsub(); }catch(_){} };
     },
     async addScheduleItem(userId, ym, dd, item){
+      /* 🩹 [2026-10-02 제보 #6] «잘 쓰다가 어느 순간부터 일정 등록이 안 된다»
+         소유권이 걸린 쓰기(users/{코드}/schedule)인데 로그인 복원 대기선을 안 지나고 있었다 — 구글에 묶인 계정은
+         부팅 직후 토큰 없이 나간 쓰기가 permission_denied 로 떨어진다(위 auth barrier 주석). saveMyHome 이 같은
+         함정을 먼저 고친 자리다. 거부 사유 구분·안내는 app.js doAddSched 가 한다. */
+      await _whenAuthReady();
       const id = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
       await set(ref(db, `users/${userId}/schedule/${ym}/${dd}/${id}`), {
         text: String(item.text||'').slice(0,40),
@@ -1234,6 +1242,7 @@
     },
     // D-day 카드 저장 (신규/수정 겸용). bgImg는 dataURL이면 Storage로 올려 URL만 저장.
     async saveDday(userId, id, dd){
+      await _whenAuthReady();   // 🩹 #6 — 일정과 같은 함정(users/{코드}/ddays 도 소유권 쓰기다)
       const did = id || ('d' + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
       let bgImg = dd.bgImg || null;
       if(bgImg) bgImg = await _uploadDataUrlIfNeeded(`users/${userId}/dday_${did}.jpg`, bgImg);
@@ -1402,6 +1411,20 @@
     async getAwayImg(userId){
       try{ const v=(await get(ref(db, `users/${userId}/awayImg`))).val(); return { ok:true, url:(typeof v==='string')?v:null }; }
       catch(e){ return { ok:false, url:null }; }
+    },
+    /* 🫧 [2026-10-02 · A안] 자리비움 그림 **화면 크기**(60·80·100 px) — 그림 주인이 정하고 계정을 따라간다.
+       규칙 users/$userId/awaySz 가 세 값만 받는다. 그림 URL 과 칸을 나눈 이유: awayImg 규칙이 «Storage 주소 문자열» 이라
+       거기에 숫자를 섞을 수 없고, 관리자 [그림 내리기]가 크기까지 지울 이유도 없다. */
+    async setAwaySz(userId, px){
+      try{
+        if(!userId || [60, 80, 100].indexOf(px) < 0) return { ok:false };
+        await set(ref(db, `users/${userId}/awaySz`), px);
+        return { ok:true };
+      }catch(e){ console.warn('[away] 크기 저장 실패', e); return { ok:false }; }
+    },
+    async getAwaySz(userId){
+      try{ const v=(await get(ref(db, `users/${userId}/awaySz`))).val(); return { ok:true, px:([60, 80, 100].indexOf(v) >= 0) ? v : null }; }
+      catch(e){ return { ok:false, px:null }; }
     },
     /* 다운로드 URL 로 Storage 파일을 지운다 — 없거나 거절돼도 조용히(옛 그림 정리용). */
     async deleteStorageUrl(url){
@@ -2192,7 +2215,7 @@
              그게 이 '각자 알아서 나간다' 방식의 전제다.
              _meta.host 폴백은 규칙이 바뀌었을 때의 안전망일 뿐 1순위로 쓰면 안 된다 — _meta 리스너는
              멤버 스냅샷보다 늦게 올 수 있고, 그 찰나에 나가는 사람이 0명이거나 2명이 된다. */
-        const _cap = (typeof window.MAX_PEOPLE === 'number' && window.MAX_PEOPLE > 0) ? window.MAX_PEOPLE : 8;
+        const _cap = (typeof window.MAX_PEOPLE === 'number' && window.MAX_PEOPLE > 0) ? window.MAX_PEOPLE : 10;   // 폴백도 app.js MAX_PEOPLE 과 같은 값
         const _srOwner = (String(room||'').indexOf('SCRT-') === 0)
           ? (window._srOwnerUid || (_capturedMeta && _capturedMeta.host) || null) : null;
         const _aliveIds = Object.keys(friends);
@@ -3388,16 +3411,31 @@
     },
     // ===== 🖥️ 마이홈 바탕화면(좀아칼 데스크톱) 배경 — 방문자에게도 보이도록 서버 공유 =====
     // users/{uid}/advBg = { color } 또는 { img }
+    /* 🩹 [2026-10-02 제보 #4b·#13] «다른 컴퓨터에서 마이홈을 열면 바탕화면 배경이 초기화되거나 그 기기 것으로 바뀐다»
+       [원인] 켤 때마다 각 기기가 **자기 로컬 배경을 서버에 덮어쓰기만** 하고 서버 값을 읽지 않았다(myhome-desktop.js
+         advSyncBgOnStart). 그래서 서버는 «마지막에 켠 기기의 배경» 이 되고 기기끼리 서로 덮었다.
+       [대응] 값에 ts(고른 시각)를 붙여, 켤 때 서버를 먼저 읽고 **더 최근에 고른 쪽**을 따른다(저쪽 주석).
+         ⚠️ 지우기(배경 초기화)도 기록으로 남긴다 — { cleared:true, ts }. 노드를 지워 버리면 «방금 지웠다» 와
+           «한 번도 안 골랐다» 가 구분이 안 돼서, 옛 배경을 든 다른 기기가 켜지자마자 도로 올려 버린다.
+         ★ 규칙 변경 없음 — advBg 의 .validate 는 img·color 만 검사하고 다른 칸(ts·cleared)을 막지 않는다.
+         ★ 방문자 화면은 img·color 가 없으면 «배경 없음» 으로 그린다 — cleared 기록도 그대로 읽힌다. */
     async saveAdvBg(userId, bg){
       try{
-        if(!bg) await remove(ref(db, `users/${userId}/advBg`));
-        else await set(ref(db, `users/${userId}/advBg`), bg);
+        await _whenAuthReady();   // 소유권 쓰기 — 부팅 직후 토큰 없이 나가면 구글 계정은 거부된다
+        const rec = bg ? bg : { cleared:true, ts: Date.now() };
+        await set(ref(db, `users/${userId}/advBg`), rec);
         return { ok:true };
       }catch(e){ return { ok:false }; }
     },
     async getAdvBg(userId){
       try{ const s=await get(ref(db, `users/${userId}/advBg`)); return s.val() || null; }
       catch(e){ return null; }
+    },
+    /* 내 배경 동기화용 — **읽기 실패와 «없음» 을 가른다.** getAdvBg 는 둘 다 null 이라, 읽기가 한 번 실패한 것만으로
+       옛 로컬 배경을 서버에 덮어쓰는 일이 생긴다(이번 제보와 같은 모양). */
+    async getAdvBgEx(userId){
+      try{ const s=await get(ref(db, `users/${userId}/advBg`)); return { ok:true, bg: s.val() || null }; }
+      catch(e){ return { ok:false, bg:null }; }
     },
     subscribeCustomCats(onChange){
       const r = ref(db, 'catalog/customCats');

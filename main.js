@@ -375,7 +375,9 @@ function loadSettings(){
      클릭을 먹는다» 와 같은 모양이 **줌만으로도** 난다. 채널을 늘리지 않고 값만 환산한다.
    ⚠️ 모니터별로 나누지 않는다 — `_charScaleMap` 은 아바타존 크기라 모니터마다 다르게 두는 뜻이 있지만,
      렌더러 줌은 창 하나에 한 값이다(webContents 단위). 나눌 이유가 생기면 그때 키를 늘린다. */
-const UI_ZOOM_MIN = 0.5, UI_ZOOM_MAX = 2.0, UI_ZOOM_STEP = 0.1;
+/* 🔍 [2026-10-02 요청] 하한 50% → 20%. 노트북 작은 화면에서 런처·마이홈을 더 줄여 쓰고 싶다는 요청.
+   ⚠️ 20% 에서 글자는 읽기 어렵다 — 그래도 [초기화](100%)·Ctrl+0 이 늘 살아 있어 되돌릴 길은 막히지 않는다. */
+const UI_ZOOM_MIN = 0.2, UI_ZOOM_MAX = 2.0, UI_ZOOM_STEP = 0.1;
 let uiZoom = 1;
 function _clampZoom(z){
   const n = Number(z);
@@ -393,6 +395,9 @@ function _zoomStep(cur, op){
 function applyUiZoom(op, why){
   const next = _zoomStep(uiZoom, op);
   const changed = next !== uiZoom;
+  /* 📐 지금 런처·생성기·마이홈 창이면 그 모드를 **줌을 바꾸기 전에** 읽어 둔다 — 창 크기가 옛 줌 기준이라
+     바꾼 뒤에는 sizeToMode 가 못 알아본다. (typeof — sim-ui-zoom 이 이 함수만 오려 돌린다) */
+  const _cfgM = (changed && typeof _cfgModeForZoom === 'function') ? _cfgModeForZoom() : null;
   uiZoom = next;
   if(mainWindow && !mainWindow.isDestroyed()){
     try{ mainWindow.webContents.setZoomFactor(uiZoom); }catch(_){}
@@ -400,9 +405,46 @@ function applyUiZoom(op, why){
     try{ mainWindow.webContents.send('companion:uiZoom', uiZoom); }catch(_){}
   }
   if(changed){ saveSettings(); _diagLog('[줌] ' + Math.round(uiZoom * 100) + '% (' + (why || op) + ')'); }
+  if(changed && typeof _onUiZoomChanged === 'function'){ try{ _onUiZoomChanged(); }catch(_){} }
+  if(_cfgM && typeof _refitConfigForZoom === 'function'){ try{ _refitConfigForZoom(_cfgM); }catch(_){} }
   return uiZoom;
 }
+/* ═══ 📐 [2026-10-02 제보] «프로그램 크기를 키우면 마이홈 크기는 그대로고 화면만 커진다» ═══════════════
+   [원인] 런처·생성기·동물·마이홈은 **OS 창 크기가 MODE_SIZE 고정값(DIP)** 이다. 렌더러 줌을 올리면 안쪽 내용은
+     CSS px × 줌으로 커지는데 창은 그대로라, 마이홈(760px)이 120% 에서 912 DIP 가 되어 800 짜리 창에서 잘렸다.
+     내리면 반대로 창 안에 빈 테두리가 남았다. 실행 화면(run)은 전체화면이라 무관하다.
+   [대응] 창 크기를 정하는 자리가 전부 _modeSize(mode) 를 지난다 = MODE_SIZE × 줌. 작업영역보다 크면
+     _fitConfigRect 가 늘 하던 대로 줄이고, 그 실제 크기를 _fittedSize 에 남기므로 sizeToMode 가 줌 걸린 창도
+     같은 모드로 알아본다(sizeToMode 는 안 고쳤다 — _fittedSize 를 이미 본다 · sim-cfg-fit 3절).
+   ★ 줌을 바꾸는 순간에도 맞춘다(_refitConfigForZoom) — 좌상단을 그대로 두고 크기만 바꾼 뒤 작업영역 안으로 민다. */
+function _modeSize(mode){
+  const s = MODE_SIZE[mode] || MODE_SIZE.launcher;
+  const z = (uiZoom > 0) ? uiZoom : 1;
+  return { w: Math.round(s.w * z), h: Math.round(s.h * z) };
+}
+function _cfgModeForZoom(){
+  try{
+    if(!_isConfigMode || !mainWindow || mainWindow.isDestroyed()) return null;
+    const b = mainWindow.getBounds();
+    return sizeToMode(b.width, b.height);
+  }catch(_){ return null; }
+}
+function _refitConfigForZoom(m){
+  if(!mainWindow || mainWindow.isDestroyed()) return;
+  const b = mainWindow.getBounds();
+  const rect = _fitConfigRect(m, _modeSize(m), screen.getDisplayMatching(b), { x: b.x, y: b.y });
+  if(_sameRect(rect, b)) return;
+  mainWindow.setResizable(true);    // 고정 크기 상태로 setBounds 하면 크기가 깎인다 — setConfigMode 와 같은 순서
+  mainWindow.setBounds(rect);
+  mainWindow.setResizable(false);
+  _noteApplied(rect, false);
+  savedPos[m] = { x: rect.x, y: rect.y };
+  _diagLog('[창] 줌 ' + Math.round(uiZoom * 100) + '% — ' + m + ' 창 크기 맞춤 ' + rect.width + 'x' + rect.height);
+}
 const _zoomIn  = v => v * uiZoom;   // CSS px → DIP
+/* 🩹 [2026-10-02 제보 #10] 줌이 바뀌면 BGM(유튜브) 창도 새 배율로 다시 놓는다.
+   createWindow 안의 BGM 배치 함수를 여기서 부를 수 있게 그쪽이 꽂아 준다(없으면 아무것도 안 한다). */
+let _onUiZoomChanged = null;
 const _zoomOut = v => v / uiZoom;   // DIP → CSS px
 /* 단축키 — 일렉트론 기본 메뉴의 zoomIn/zoomOut/resetZoom 가속기를 **가로채** 위 한 통로로 보낸다.
    ⚠️ `input.key` 는 Ctrl+Shift+= 이면 '+', Ctrl+= 이면 '=' 다. 넷 다 잡아야 «되던 조합»이 다 된다.
@@ -685,6 +727,82 @@ let _lastActiveKeyLogged = null; // 🩺 [E] 마지막으로 진단 로그에 �
    ⚠️ 등록 앱이 앞에 있을 때만 적는다 — 그 밖의 시간은 진단 가치가 없고 회전(256KB)만 당긴다.
    ⚠️ 새 타이머를 만들지 않는다 — 500ms 활성 창 폴링의 finally 에 얹는다(커서 이동 보고와 같은 자리). */
 const INPUT_DIAG_MS = 60 * 1000;
+/* ═══ ⌨️ [2026-10-02 제보] «업데이트 재설치 뒤로 키보드가 전혀 안 잡힌다 — 마우스만 잡혀서 타이핑하면 졸다가 자리비움» ═══
+   [갈래] 전역 키 감지는 uIOhook 하나뿐이다. 이게 막히는 길이 OS 마다 있다.
+     ・mac  : 키 이벤트를 엿들으려면 **입력 모니터링** 권한이 따로 필요하다(마우스 클릭은 이 권한 없이도 온다 — 증상과 같다).
+              재설치로 앱 서명이 바뀌면 설정 화면엔 켜진 것처럼 보여도 **옛 앱에 붙은 허용**이라 새 앱엔 안 먹는다.
+              에러도 안 나고 키만 영영 안 온다(sysinput-mac.js «제일 나쁜 모양»).
+     ・win  : 키보드 보안 프로그램(은행·공공기관용 TouchEn nxKey · AhnLab Safe Transaction 등)이 저수준 키 훅을 막는다.
+   [대응] 기록을 대신 쌓지 않는다 — OS 유휴시간으로 활동을 보정하는 길은 센서 떨림·펜 호버 때문에 한 번 걷어 낸 방식이다
+     (_reportCursorActivity 위 주석). 대신 **«키 훅이 안 들어오는 상태»를 알아채서 고치는 법을 한 번 알려 준다.**
+   [판정] OS 는 입력이 있었다고 하는데(유휴 0초) 훅도 커서 이동도 그 입력을 설명하지 못하는 순간을 센다.
+     부팅 뒤 5분이 지났고, 그동안 키 훅이 **한 번도** 안 왔고, 그런 순간이 누적 60초(500ms × 120)를 넘으면 의심한다.
+     ⚠️ 키가 한 번이라도 들어오면 그 실행 동안은 다시 안 본다 — 훅이 살아 있다는 확증이다.
+     ⚠️ 안내는 실행당 한 번 · «다시 보지 않기» 를 고르면 그 뒤로 안 띄운다(userData/kb-guide-off).
+     ⚠️ 이 값은 판정용일 뿐 활동(anyInput·activity)으로 쓰이지 않는다 — 위 이유. */
+const KB_BLIND_MIN_UPTIME_MS = 5 * 60 * 1000;
+const KB_BLIND_TICKS = 120;
+let _kbBootAt = Date.now(), _kbKeyTotal = 0, _kbClickTotal = 0, _kbLastHookAt = 0, _kbLastCursorAt = 0;
+let _kbUnexplained = 0, _kbGuideShown = false;
+function _kbGuideOffPath(){ try{ return require('path').join(app.getPath('userData'), 'kb-guide-off'); }catch(_){ return null; } }
+/* 훅 수신은 _inputDiag 카운터의 **변화량**으로 읽는다 — 등록 자리의 감싸기 줄은 sim-admin-active 가 모양까지 지키므로
+   거기에 셈을 더 얹지 않는다. 카운터는 1분마다 0 으로 돌아가므로(_inputDiagTick) 줄었으면 0 에서 다시 센다.
+   ⚠️ 반드시 _inputDiagTick **앞에서** 부른다 — 뒤에서 부르면 비워진 직후라 그 1분 몫을 놓친다.
+     (판정 _kbBlindTick 은 커서 보고 뒤에 둔다 — 이번 표본의 커서 이동까지 본 다음 «설명 안 되는 입력» 을 센다) */
+let _kbPrev = { click:0, wheel:0, key:0 };
+function _kbReadHooks(now){
+  const c = _inputDiag;
+  const d = (k)=> (c[k] >= _kbPrev[k]) ? (c[k] - _kbPrev[k]) : c[k];
+  const dc = d('click'), dw = d('wheel'), dk = d('key');
+  _kbPrev = { click:c.click, wheel:c.wheel, key:c.key };
+  if(dk > 0) _kbKeyTotal += dk;
+  if(dc > 0) _kbClickTotal += dc;
+  if(dc + dw + dk > 0) _kbLastHookAt = now;
+}
+function _kbBlindTick(now){
+  if(_kbGuideShown || _kbKeyTotal > 0) return;
+  let idle = null;
+  try{ idle = powerMonitor.getSystemIdleTime(); }catch(_){ return; }
+  if(idle !== 0) return;                                   // 지난 1초 안에 OS 가 본 입력이 없다
+  if(now - _kbLastHookAt < 1500 || now - _kbLastCursorAt < 1500) return;   // 훅·커서로 설명되는 입력
+  _kbUnexplained++;
+  if(now - _kbBootAt < KB_BLIND_MIN_UPTIME_MS || _kbUnexplained < KB_BLIND_TICKS) return;
+  _kbGuideShown = true;
+  _diagLog('[입력] ⚠️ 키 훅 미수신 의심 — 부팅 뒤 키=0 · 클릭=' + _kbClickTotal + ' · 설명 안 되는 입력 ' + _kbUnexplained
+    + '회(×0.5초) · ' + process.platform);
+  try{ const f = _kbGuideOffPath(); if(f && require('fs').existsSync(f)) return; }catch(_){}
+  _kbShowGuide();
+}
+function _kbShowGuide(){
+  const mac = process.platform === 'darwin';
+  const opts = mac ? {
+    type: 'warning', title: 'Together Working',
+    message: '키보드 입력이 감지되지 않고 있어요',
+    detail: '타이핑해도 캐릭터가 작업 중으로 인식하지 못해요.\n\n'
+      + '① 시스템 설정 › 개인정보 보호 및 보안 › 입력 모니터링\n'
+      + '② 목록의 Together Working 을 선택하고 [−] 로 지운 뒤, [+] 로 다시 추가해서 켜기\n'
+      + '③ «손쉬운 사용» 항목도 같은 방법으로\n'
+      + '④ Together Working 을 완전히 종료했다가 다시 실행\n\n'
+      + '앱을 재설치하면 예전에 켜 둔 허용이 새 앱에 이어지지 않을 수 있어요. 켜져 있어 보여도 지웠다가 다시 추가해 주세요.',
+    buttons: ['입력 모니터링 설정 열기', '닫기'], defaultId: 0, cancelId: 1,
+    checkboxLabel: '다시 보지 않기',
+  } : {
+    type: 'warning', title: 'Together Working',
+    message: '키보드 입력이 감지되지 않고 있어요',
+    detail: '타이핑해도 캐릭터가 작업 중으로 인식하지 못해요.\n\n'
+      + '・키보드 보안 프로그램(TouchEn nxKey · AhnLab Safe Transaction 등 은행·공공기관용)이 켜져 있으면 키 입력을 막을 수 있어요. 잠시 꺼 보거나 PC 를 다시 시작해 확인해 주세요.\n'
+      + '・작업 중인 프로그램을 «관리자 권한으로 실행» 했다면, Together Working 도 관리자 권한으로 실행해야 키를 볼 수 있어요.',
+    buttons: ['확인'], defaultId: 0, cancelId: 0,
+    checkboxLabel: '다시 보지 않기',
+  };
+  const parent = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : undefined;
+  Promise.resolve(parent ? dialog.showMessageBox(parent, opts) : dialog.showMessageBox(opts)).then(r=>{
+    if(r && r.checkboxChecked){ try{ const f = _kbGuideOffPath(); if(f) require('fs').writeFileSync(f, String(Date.now())); }catch(_){} }
+    if(mac && r && r.response === 0){
+      try{ shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent'); }catch(_){}
+    }
+  }).catch(()=>{});
+}
 let _inputDiagAt = 0;
 const _inputDiag = { click: 0, wheel: 0, key: 0, cursor: 0 };
 function _inputDiagTick(now){
@@ -922,6 +1040,7 @@ function _reportCursorActivity(pt, minPx){
   if((dx*dx + dy*dy) < (th*th)) return;
   _penLastPt = { x: pt.x, y: pt.y };
   const now = Date.now();
+  _kbLastCursorAt = now;   // 🩺 키보드 미수신 진단(_kbBlindTick) — 이 입력은 커서로 설명된다
   if(now - _penActivitySentAt < PEN_ACTIVITY_MIN_MS) return;
   _penActivitySentAt = now;
   _inputDiag.cursor++;   // 🩺 [입력] 진단 — 훅과 무관한 유일한 활동 신호가 이것이다
@@ -1067,8 +1186,10 @@ function startActiveWinPolling(){
          ⚠️ 펜 앱일 때는 _checkCursorNearChar(50ms)가 3px 로 더 촘촘히 같은 일을 한다.
            둘이 기준점(_penLastPt)과 전송 간격(PEN_ACTIVITY_MIN_MS)을 공유하므로 겹쳐도
            신호가 두 벌이 되지 않는다. */
+      try{ _kbReadHooks(Date.now()); }catch(_){}     // ⌨️ 훅 수신 변화량 — _inputDiagTick(1분 리셋) 앞이어야 한다
       try{ _reportCursorActivity(screen.getCursorScreenPoint(), CURSOR_MOVE_MIN_PX); }catch(_){}
       try{ _inputDiagTick(Date.now()); }catch(_){}   // 🩺 [입력] 1분에 한 줄 — 선언부 주석 참고
+      try{ _kbBlindTick(Date.now()); }catch(_){}     // ⌨️ 키 훅 미수신 진단 — 선언부 주석 참고(활동으로 쓰지 않는다)
     }
   }, 500);
 }
@@ -1561,7 +1682,7 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
      예전엔 workAreaSize 만 보고 (0,0) 기준으로 중앙을 잡았다 — 작업표시줄이 위에 있으면 그만큼 어긋난다. */
-  const initRect = _fitConfigRect('launcher', MODE_SIZE.launcher, primaryDisplay, null);
+  const initRect = _fitConfigRect('launcher', _modeSize('launcher'), primaryDisplay, null);   // 📐 저장된 줌이 이미 실려 있다(loadSettings 가 먼저 돈다)
 
   mainWindow = new BrowserWindow({
     width: initRect.width,      // 시작은 config 모드 크기로 (런처가 먼저 뜨니까)
@@ -1854,7 +1975,17 @@ function createWindow() {
         let q = null;
         try{ q = new URL(url).searchParams; }catch(_){}
         if(!q){ finish({ ok:false, reason:'로그인 응답을 읽지 못했어요' }); return; }
-        if(q.get('error')){ finish({ ok:false, reason:'로그인이 취소됐어요' }); return; }
+        /* 🩹 [2026-10-02 제보 #5] 오류 코드를 버리지 않는다 — 예전엔 무엇이든 «로그인이 취소됐어요» 였다.
+           access_denied 는 사람이 [취소]를 누른 경우와 **구글이 막은 경우**(동의 화면 테스트 모드의 미등록 계정,
+           회사·학교 계정 정책)가 같은 코드로 온다. 그래서 둘 다 말해 준다. */
+        if(q.get('error')){
+          const _ge = String(q.get('error') || '');
+          _diagLog('[구글] 로그인 오류 응답: ' + _ge + (q.get('error_description') ? (' — ' + q.get('error_description')) : ''));
+          finish({ ok:false, reason: _ge === 'access_denied'
+            ? '구글이 로그인을 허용하지 않았어요 — 직접 취소했거나, 이 구글 계정(회사·학교 계정 등)이 막혀 있어요'
+            : ('구글 로그인 오류 (' + _ge + ')') });
+          return;
+        }
         if(q.get('state') !== state){ finish({ ok:false, reason:'로그인 응답이 올바르지 않아요' }); return; }
         const code = q.get('code');
         if(!code){ finish({ ok:false, reason:'로그인 응답에 코드가 없어요' }); return; }
@@ -1879,8 +2010,29 @@ function createWindow() {
       };
       googleAuthWin.webContents.on('will-redirect', handle);
       googleAuthWin.webContents.on('will-navigate', handle);
+      /* 🩹 [2026-10-02 제보 #5] «구글 연결하기를 누르면 로그인 창이 뜬 뒤 아무 일도 안 일어난다»
+         계정을 고른 뒤 구글이 **리디렉트 없이 오류 페이지**를 띄우면(임베디드 브라우저 차단 «이 브라우저 또는 앱은
+         안전하지 않을 수 있습니다» · 계정 정책 차단 등) 우리 쪽에는 아무 신호도 안 온다. 사용자가 창을 닫으면
+         «취소» 로만 보였다. 마지막으로 머문 주소를 기억해 두고, 닫힐 때 오류 페이지였으면 그 사유를 돌려준다.
+         ⚠️ 오류 페이지에서 창을 자동으로 닫지 않는다 — 구글이 보여 주는 설명을 사람이 읽을 수 있어야 한다. */
+      let _gLastUrl = '';
+      const _gErrReason = (u)=>{
+        const s2 = String(u || '');
+        if(/disallowed_useragent|\/signin\/rejected|\/v3\/signin\/rejected/.test(s2)) return '구글이 이 로그인 창을 막았어요(보안 정책) — 다른 구글 계정으로 시도하거나 운영자에게 알려 주세요';
+        if(/admin_policy_enforced|\/info\/unknownerror|\/signin\/oauth\/error|\/o\/oauth2\/.*error/.test(s2)) return '구글 계정 정책 때문에 로그인할 수 없어요(회사·학교 계정이면 관리자 제한일 수 있어요)';
+        return '';
+      };
+      googleAuthWin.webContents.on('did-navigate', (_e, u)=>{
+        _gLastUrl = u || '';
+        if(_gErrReason(_gLastUrl)) _diagLog('[구글] 오류 페이지로 이동: ' + String(_gLastUrl).slice(0, 200));
+      });
       /* 유저가 × 로 닫은 경우 — 이걸 안 걸면 invoke 가 영영 안 끝나서 로그인 버튼이 죽는다. */
-      googleAuthWin.on('closed', ()=>{ googleAuthWin = null; finish({ ok:false, reason:'로그인이 취소됐어요' }); });
+      googleAuthWin.on('closed', ()=>{
+        googleAuthWin = null;
+        const _why = _gErrReason(_gLastUrl);
+        /* canceled — 사람이 그냥 닫았다는 표시. 로그인 화면 쪽(_loginDoGoogle 등)은 이 경우를 조용히 끝낸다. */
+        finish(_why ? { ok:false, reason:_why } : { ok:false, reason:'로그인 창을 닫아서 연결을 멈췄어요', canceled:true });
+      });
 
       googleAuthWin.loadURL(authUrl).catch(()=> finish({ ok:false, reason:'로그인 화면을 열지 못했어요' }));
     });
@@ -2087,11 +2239,19 @@ function createWindow() {
     }
     try{ bgmWin.setOpacity(1); bgmWin.setIgnoreMouseEvents(false); }catch(_){}
     const cb = mainWindow.getContentBounds ? mainWindow.getContentBounds() : mainWindow.getBounds();
-    // 패널보다 가로·세로 20% 작게 만들어 패널 한가운데에 놓는다 — 어느 가장자리도 삐져나오지 않는다.
-    const SHRINK = 0.8;
-    const w = bgmPlRect.w * SHRINK, h = bgmPlRect.h * SHRINK;
-    const x = cb.x + bgmPlRect.x + (bgmPlRect.w - w) / 2;
-    const y = cb.y + bgmPlRect.y + (bgmPlRect.h - h) / 2;
+    /* 🩹 [2026-10-02 제보 #10] «플레이리스트를 틀면 유튜브 창이 패널 밖으로 보인다»
+       [원인] 렌더러가 보내는 패널 사각형은 **CSS px** 인데 여기서 DIP 로 그대로 썼다. UI 줌이 100% 가
+         아니면 창이 패널에서 z 배만큼 밀려나 투명한 오버레이 쪽으로 드러났다(위 «좌표계» 주석의 규칙 —
+         렌더러 → main 은 받을 때 × z — 이 이 경로에만 빠져 있었다).
+       [대응] ① _zoomIn 으로 환산한다. ② 창을 패널의 절반 크기로 줄여 한가운데에 둔다 — 반올림·그림자·
+         배율 혼합 같은 남은 오차가 있어도 패널 안에 숨을 여유를 크게 잡는다(요청: «작게 만들어 가려지게»).
+       ⚠️ 너무 작게 줄이지 않는다 — 1px 급이면 유튜브가 재생을 멈출 수 있다(위 주석). 그래서 하한 160x120
+         을 두되, 패널의 80% 는 넘지 않게 한다(작은 패널에서 하한이 패널보다 커지는 것을 막는다). */
+    const pr = { x:_zoomIn(bgmPlRect.x), y:_zoomIn(bgmPlRect.y), w:_zoomIn(bgmPlRect.w), h:_zoomIn(bgmPlRect.h) };
+    const w = Math.min(pr.w * 0.8, Math.max(160, pr.w * 0.5));
+    const h = Math.min(pr.h * 0.8, Math.max(120, pr.h * 0.5));
+    const x = cb.x + pr.x + (pr.w - w) / 2;
+    const y = cb.y + pr.y + (pr.h - h) / 2;
     // 메인창 밖으로는 나가지 않게 클리핑(마이홈 배치와 같은 이유 — 창 밖은 데스크탑이라 그대로 노출된다)
     const left   = Math.max(x, cb.x);
     const top    = Math.max(y, cb.y);
@@ -2108,12 +2268,19 @@ function createWindow() {
       try{ bgmWin.setMinimumSize(80, 20); }catch(_){}
       bgmPositionBehindPlaylist();
     }else{
-      try{ bgmWin.setMinimumSize(180, BGM_CHROME_H); }catch(_){}
-      try{ bgmWin.setOpacity(1); bgmWin.setIgnoreMouseEvents(false); }catch(_){}
+      /* 🩹 #10-b — 예전 최소 크기(180x30)는 마이홈 가장자리에서 잘린 창을 다시 키웠다. 플레이리스트와 같은
+         80x20 으로 내린다. 불투명/투명은 bgmPositionRelativeToMain 이 마이홈 좌표 유무로 정한다. */
+      try{ bgmWin.setMinimumSize(80, 20); }catch(_){}
       bgmPositionRelativeToMain();
     }
     bgmLayoutView();
   }
+  /* 🩹 #10 — 줌이 바뀌면 지금 모드대로 다시 놓는다(applyUiZoom 이 부른다). 렌더러도 새 사각형을 다시 보낸다. */
+  _onUiZoomChanged = () => {
+    if(!bgmWin || bgmWin.isDestroyed()) return;
+    if(bgmMode === 'playlist') bgmPositionBehindPlaylist(); else bgmPositionRelativeToMain();
+    bgmLayoutView();
+  };
   // renderer → main: 플레이리스트 패널 위치/크기 알림 (닫히면 null)
   ipcMain.on('companion:setPlBounds', (e, rect)=>{
     bgmPlRect = (rect && typeof rect.x === 'number') ? rect : null;
@@ -2124,14 +2291,24 @@ function createWindow() {
     if(!bgmWin || bgmWin.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) return;
     const mb = mainWindow.getBounds();
     // ★ renderer가 마이홈의 DOM 사각형을 알려줬으면(=마이홈 창이 열려있고 위치를 알 수 있으면) 그 뒤에
-    //   완전히 숨도록 그 좌표로 BGM 창 배치. 안 알려줬으면(초기 진입 순간 등) 예전처럼 메인창 전체를 덮음.
+    //   완전히 숨도록 그 좌표로 BGM 창 배치. 안 알려줬으면(초기 진입 순간 등) 좌표가 올 때까지 투명하게 둔다(#10-b).
     if(bgmRenderRect){
-      const INSET = 4;   // 마이홈 창 안쪽으로 살짝 여유
-      // ★ BGM 창 좌표(스크린 절대)를 우선 계산
-      let x = mb.x + bgmRenderRect.x + INSET;
-      let y = mb.y + bgmRenderRect.y + INSET;
-      let w = bgmRenderRect.w - INSET*2;
-      let h = bgmRenderRect.h - INSET*2;
+      /* 🩹 [2026-10-02 제보 #10] 플레이리스트 쪽과 같은 수정 — CSS px → DIP(_zoomIn).
+         🩹 [2026-10-02 제보 #10-b] «마이홈 음악을 틀면 유튜브 창이 마이홈 밖으로 보인다» 가 절반 크기로도 남았다.
+           [원인 셋] ① 절반 크기라도 마이홈이 크면 창이 수백 px 이라, 마이홈 가장자리가 화면·런처 창 밖으로
+             잘리는 순간 그 너비만큼 바로 드러났다. ② 잘린 뒤 `Math.max(180, …)` 로 **다시 키워서**
+             잘라 낸 부분을 도로 내밀었다. ③ 마이홈 좌표가 오기 전(창이 막 생긴 순간)에는 아래 대체 경로가
+             메인 창 전체(실행 화면이면 사실상 전체화면)를 덮었다.
+           [대응] ① 크기를 **작은 고정 범위**(160x120 ~ 240x180, 마이홈의 80% 이내)로 묶어 마이홈 한가운데에
+             둔다 — 영상은 원래 숨겨 두는 창이라 볼 일이 없고, 작을수록 가장자리 오차가 드러날 여지가 없다.
+             ② 잘린 뒤에는 다시 키우지 않는다. 너무 작게 잘리면 투명(setOpacity 0)으로 소리만 남긴다.
+             ③ 좌표가 없을 때도 투명으로 둔다(플레이리스트 패널이 닫혔을 때와 같은 방법).
+           ⚠️ 160x120 아래로는 줄이지 않는다 — 1px 급이면 유튜브가 재생을 멈출 수 있다(bgmPositionBehindPlaylist 주석). */
+      const rr = { x:_zoomIn(bgmRenderRect.x), y:_zoomIn(bgmRenderRect.y), w:_zoomIn(bgmRenderRect.w), h:_zoomIn(bgmRenderRect.h) };
+      let w = Math.min(rr.w * 0.8, Math.max(160, Math.min(240, rr.w * 0.3)));
+      let h = Math.min(rr.h * 0.8, Math.max(120, Math.min(180, rr.h * 0.3)));
+      let x = mb.x + rr.x + (rr.w - w) / 2;
+      let y = mb.y + rr.y + (rr.h - h) / 2;
       // ★ 마이홈이 런처 메인 창(작은 창) 경계를 넘어 잘리면 그 잘린 만큼 데스크탑이 보이는데,
       //   BGM 창은 데스크탑 좌표라 그 데스크탑 영역까지 그대로 나타남 → 마이홈 잘린 부분이
       //   유튜브로 채워져 보이는 문제. 그래서 BGM 창을 mainWindow(런처 메인) 클라이언트 영역으로 클리핑.
@@ -2142,21 +2319,25 @@ function createWindow() {
       const top  = Math.max(y, cy);
       const right  = Math.min(x + w, cx + cw);
       const bottom = Math.min(y + h, cy + ch);
-      x = left; y = top;
-      w = Math.max(180, right - left);
-      h = Math.max(BGM_CHROME_H, bottom - top);
-      bgmWin.setBounds({ x:Math.round(x), y:Math.round(y), width:Math.round(w), height:Math.round(h) });
+      // ② 잘린 크기 그대로 쓴다 — 다시 키우면 잘라 낸 부분이 도로 밖으로 나온다(#10-b).
+      const cw2 = right - left, ch2 = bottom - top;
+      if(cw2 < 40 || ch2 < 30){
+        // 마이홈이 거의 다 화면 밖이다 — 숨을 자리가 없으니 투명하게(소리는 그대로) 둔다.
+        try{ bgmWin.setOpacity(0); bgmWin.setIgnoreMouseEvents(true); }catch(_){}
+        return;
+      }
+      try{ bgmWin.setOpacity(1); bgmWin.setIgnoreMouseEvents(false); }catch(_){}
+      bgmWin.setBounds({ x:Math.round(left), y:Math.round(top), width:Math.round(cw2), height:Math.round(ch2) });
       return;
     }
-    // ★ BGM 창은 마이홈보다 조금 작게 만들어 안쪽에 완전히 숨김 — 마이홈보다 크면 가장자리가 삐져나옴.
-    //   Windows의 getBounds가 창 그림자/프레임 여유를 포함해 실제 콘텐츠보다 살짝 큰 값을 반환하는 경우가
-    //   있어서, 여기서 명시적으로 20px 안쪽으로 인셋해서 확실히 마이홈에 가려지도록 함.
-    const INSET = 20;
+    /* ③ 마이홈 좌표가 아직 안 왔다(창이 막 생긴 순간 등) — 예전엔 메인 창 전체를 덮었는데, 실행 화면에서는
+       그게 곧 전체화면이라 투명한 오버레이 너머로 유튜브가 통째로 보였다(#10-b).
+       ⇒ 좌표가 올 때까지 투명으로 두고 작은 크기로만 놓는다. 좌표가 오면 위 갈래가 불투명으로 되돌린다. */
+    try{ bgmWin.setOpacity(0); bgmWin.setIgnoreMouseEvents(true); }catch(_){}
     bgmWin.setBounds({
-      x: mb.x + INSET,
-      y: mb.y + INSET,
-      width: Math.max(180, mb.width - INSET*2),
-      height: Math.max(BGM_CHROME_H, mb.height - INSET*2)
+      x: Math.round(mb.x + (mb.width - 160) / 2),
+      y: Math.round(mb.y + (mb.height - 120) / 2),
+      width: 160, height: 120
     });
   }
   // renderer → main: 마이홈 창 위치/크기 알림
@@ -2302,6 +2483,34 @@ function createWindow() {
       console.warn('[BGM] ' + ms + 'ms 동안 TWPL 신호 없음 — 감시를 다시 심는다');
       bgmForcePlay();
     }, ms)));
+  }
+  /* 🩹 [2026-10-02 제보 #2] «플레이리스트 음악이 뚝뚝 끊긴다 — 갤럭시북5 프로, 처음부터, 나만»
+     [가설] BGM 창은 사람이 안 보는 창인데도 유튜브가 **고화질 영상을 그대로 디코딩**한다(화질을 낮추는 코드가 0건).
+       같은 앱의 3D 오버레이와 GPU 를 나눠 쓰고, 저전력 코어(EcoQoS)로 밀리는 노트북에서는 영상 프레임이 밀려
+       재생 파이프라인이 버퍼링으로 들어가고 **소리까지 같이 끊긴다.** 오디오 향상·돌비를 꺼도 안 나은 것과 맞는다.
+     [대응] 화질을 144p(tiny)로 묶는다 — 안 보이는 창이라 잃는 것이 없다.
+       ① 플레이어 API(setPlaybackQualityRange·setPlaybackQuality) — 곡이 바뀌거나 광고 뒤 유튜브가 되돌리므로
+          3초마다 다시 건다(값이 이미 tiny 면 아무것도 안 한다).
+       ② 유튜브가 다음 로드에 읽는 저장값(yt-player-quality)도 144 로 둔다 — 첫 몇 초도 고화질로 시작하지 않게.
+     ⚠️ 이 BrowserView 세션 안의 저장값이다. 사용자의 실제 브라우저 유튜브 화질과는 무관하다.
+     ⚠️ 재생·음량·음소거는 건드리지 않는다 — 그 주인은 bgmForcePlay·광고 게이트다(위 규칙).
+     ⚠️ __twLowQ 로 한 번만 건다(dom-ready·did-finish-load 두 번 와도 interval 은 하나). */
+  function bgmLowQuality(){
+    if(!bgmView || !bgmView.webContents || bgmView.webContents.isDestroyed()) return;
+    bgmView.webContents.executeJavaScript(
+      '(function(){'+
+      '  try{ var now=Date.now(); localStorage.setItem("yt-player-quality", JSON.stringify({data:JSON.stringify({quality:144,previousQuality:144}),expiration:now+31536000000,creation:now})); }catch(e){}'+
+      '  if(window.__twLowQ) return; window.__twLowQ=1;'+
+      '  var f=function(){ try{'+
+      '    var p=document.querySelector("#movie_player,.html5-video-player"); if(!p) return;'+
+      '    var q=(typeof p.getPlaybackQuality==="function")?p.getPlaybackQuality():"";'+
+      '    if(q==="tiny") return;'+
+      '    if(typeof p.setPlaybackQualityRange==="function") p.setPlaybackQualityRange("tiny","tiny");'+
+      '    if(typeof p.setPlaybackQuality==="function") p.setPlaybackQuality("tiny");'+
+      '  }catch(e){} };'+
+      '  f(); setInterval(f, 3000);'+
+      '})();'
+    ).catch(()=>{});
   }
   function bgmForcePlay(){
     if(!bgmView) return;
@@ -2462,7 +2671,7 @@ function createWindow() {
       //   숨길 수 없게 됨. 그래서 parent는 안 쓰고, 아래 bgmWin.on('closed')와 mainWindow의 close 훅으로
       //   생명주기를 수동 관리.
       width: 240, height: BGM_CHROME_H,
-      minWidth: 180, minHeight: BGM_CHROME_H,
+      minWidth: 80, minHeight: 20,   // 🩹 #10-b — 마이홈 뒤에 작게 숨기려고 낮춤(bgmApplyMode 와 같은 값)
       frame: false,             // ★ OS 프레임 제거 — Win98풍 커스텀 타이틀바 사용
       movable: false,           // 유저가 이 창은 드래그 못 하게 (부모 따라 이동만)
       resizable: true,          // 유저가 아래로 늘려서 영상/컨트롤 볼 수 있게
@@ -2537,6 +2746,9 @@ function createWindow() {
        주입 스크립트의 __twplArmed 가 두 벌을 막으므로 둘 다 걸어도 안전하다. */
     bgmView.webContents.on('dom-ready', bgmForcePlay);
     bgmView.webContents.on('did-finish-load', bgmForcePlay);
+    /* 🩹 #2 — 화질을 최저로 묶는다(bgmLowQuality 주석). 감시 루프와 따로 건다(그쪽은 sim-pl-loop 가 지키는 단위). */
+    bgmView.webContents.on('dom-ready', bgmLowQuality);
+    bgmView.webContents.on('did-finish-load', bgmLowQuality);
     /* 🎵 곡 종료·재생불가 신호 수신 — 주입 스크립트의 console.log('TWPL:…')를 renderer로 넘긴다.
        유튜브 자신도 콘솔에 로그를 잔뜩 찍으므로 접두어로 걸러낸다. */
     bgmView.webContents.on('console-message', (ev, level, message)=>{
@@ -2809,11 +3021,10 @@ function createWindow() {
       const wa = target.workArea;
       if(curMode){
         // 런처/생성기: 선택 모니터 중앙으로 옮기고 그 위치를 새 기준으로 저장
-        const sz = MODE_SIZE[curMode];
-        const nx = Math.round(wa.x + (wa.width - sz.w)/2);
-        const ny = Math.round(wa.y + (wa.height - sz.h)/2);
-        mainWindow.setBounds({ x: nx, y: ny, width: sz.w, height: sz.h });
-        savedPos[curMode] = { x: nx, y: ny };
+        /* 📐 줌 걸린 크기로, 작업영역에 맞춰 — 직접 setBounds 하면 _fittedSize 가 안 남아 다음 sizeToMode 가 못 알아본다. */
+        const mvc = _fitConfigRect(curMode, _modeSize(curMode), target, null);
+        mainWindow.setBounds(mvc);
+        savedPos[curMode] = { x: mvc.x, y: mvc.y };
       } else {
         // run(전체화면): 그 모니터 작업영역 꽉 채움
         // ★ 높이는 overlay.runOverlayHeight 를 거친다 — 동영상 검어짐 대응(근거는 overlay-win.js 상단). 원래 크기로 되돌리지 말 것.
@@ -2847,7 +3058,7 @@ function createWindow() {
     const waPos = display.workArea;   // {x, y, width, height} — 전역 좌표계에서의 작업영역(멀티모니터 대응)
     if (isConfig) {
       // 설정 화면: mode에 따라 크기 다름. 사용자가 옮긴 적 있으면 그 위치, 없으면 선택된 모니터 중앙.
-      const sz = MODE_SIZE[mode] || MODE_SIZE.launcher;
+      const sz = _modeSize(mode);   // 📐 MODE_SIZE × 줌 — 줌을 올려도 창이 내용을 따라 커진다(_modeSize 주석)
       /* ⚠️ setResizable(true) 는 아래 '같은 상태면 생략' 판정 **뒤로** 옮겼다.
          고정 크기 창에 setBounds 를 걸면 OS 가 크기를 깎을 수 있어 잠깐 풀어줘야 하는데,
          그걸 판정 전에 부르면 isResizable() 이 항상 true 가 되어 판정이 영영 성립하지 않는다.
@@ -3086,7 +3297,7 @@ function createWindow() {
           const b = mainWindow.getBounds();
           const m = sizeToMode(b.width, b.height);
           if(!m) return;
-          const rect = _fitConfigRect(m, MODE_SIZE[m], screen.getDisplayMatching(b), { x: b.x, y: b.y });
+          const rect = _fitConfigRect(m, _modeSize(m), screen.getDisplayMatching(b), { x: b.x, y: b.y });
           if(_sameRect(rect, b)) return;
           mainWindow.setResizable(true);    // 고정 크기 상태로 setBounds 하면 크기가 깎인다 — setConfigMode 와 같은 순서
           mainWindow.setBounds(rect);

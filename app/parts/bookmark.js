@@ -594,6 +594,9 @@
     bmBindShelf(); bmRender();
     D.addFolder({
       id:'bookmark', label:'북마크', icon:'📚', slot:0, visitable:true,
+      /* 🖼 [2026-10-02] 바탕화면 아이콘 그림 — Noto Emoji 📚(Apache-2.0 · parts/icons/NOTICE-noto-emoji.txt).
+         이모지는 OS 글꼴마다 모양이 달라서 그림으로 고정한다. 파일을 못 읽으면 위 icon 글자로 돌아간다(myhome-desktop). */
+      iconSrc:'parts/icons/bookmark-books.svg',
       onOpen(){
         /* 폴더를 다시 누르면 닫힌다(요청) — 창 ✕ 와 같은 길로 닫는다. */
         if(D.isWindowOpen && D.isWindowOpen('bmWin')){ bmOpen = false; bmEditorClose(); D.closeWindow('bmWin'); return; }

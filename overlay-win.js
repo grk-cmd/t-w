@@ -30,7 +30,7 @@
      배경이다. 값을 건드리기 전에 그 둘을 먼저 읽을 것.
    ══════════════════════════════════════════════════════════════════════════════ */
 'use strict';
-const { screen } = require('electron');
+const { screen, app } = require('electron');
 
 /* ── 이음매 (main.js 가 init 으로 꽂아 준다) ───────────────────────────────── */
 let _getWin     = () => null;
@@ -195,6 +195,18 @@ const OVERLAY_LAYERED_ALPHA_ON = 252;    // 토글을 켰을 때 쓰는 값 (0<a
 let OVERLAY_LAYERED_ALPHA = 0;
 /* 실제로 걸렸는지 — 진단 로그가 이 값을 같이 남긴다(옛 빌드/꺼진 빌드 구분용). */
 let _layeredState = 'off';
+/* setOpacity 를 한 번이라도 0<a<255 로 걸었는가 — 이게 거짓이면 창은 아직 레이어드가 아니다. */
+let _layeredTouched = false;
+/* GPU 합성 상태 — app.getGPUFeatureStatus() 는 ready 이후에만 의미가 있다(createWindow 는 ready 뒤라 안전).
+   'enabled' 계열이 아니면 소프트웨어 합성(UpdateLayeredWindow 경로)으로 본다. 못 읽으면 보수적으로 '꺼짐' 취급. */
+function _gpuCompStatus(){
+  try{
+    if(app.commandLine.hasSwitch('disable-gpu') || app.commandLine.hasSwitch('disable-gpu-compositing')) return 'disabled(스위치)';
+    const s = app.getGPUFeatureStatus();
+    return (s && s.gpu_compositing) || '?';
+  }catch(_){ return '?'; }
+}
+function _gpuCompositingOff(){ return !/^enabled/.test(_gpuCompStatus()); }
 function _setOpacitySafe(v){
   const mainWindow = _getWin();   // ← 이음매: 옮겨온 본문이 쓰던 이름을 그대로 유지한다
   try{ mainWindow.setOpacity(v); return true; }catch(_){ return false; }
@@ -204,17 +216,39 @@ function _applyOverlayLayered(where){
   if(!mainWindow || mainWindow.isDestroyed()) return;
   if(process.platform !== 'win32'){ _layeredState = 'n/a(win32 아님)'; return; }
   const a = OVERLAY_LAYERED_ALPHA;
+  /* 🩹 [2026-10-01] **GPU 합성이 꺼진 PC 에서는 레이어드 알파를 절대 걸지 않는다.**
+     [왜] GPU 합성이 꺼지면(드라이버 차단목록·구형 드라이버·--disable-gpu) 크로미움은 투명 창을
+       UpdateLayeredWindow 로 그린다. 그런데 Windows 는 **SetLayeredWindowAttributes 가 한 번 불린
+       창에서는 그 뒤 UpdateLayeredWindow 를 실패시킨다**(MSDN 명시). setOpacity 가 바로 그 함수다.
+       ⇒ 그 PC 에서는 창이 존재하지만 한 픽셀도 안 그려진다. 2026-10-01 제보 PC 가 정확히 이 증상이었고
+         --disable-gpu 로도 그대로였다(강제로 이 갈래를 타게 되므로 당연한 결과).
+       GPU 합성(DirectComposition)인 대다수 PC 에서는 무해해서 지금까지 안 드러났다.
+     ⇒ 이 갈래에서는 토글을 켜 두었어도 건너뛴다. 이미 걸린 창은 되돌릴 통로가 없으니 애초에 안 거는 것뿐이다. */
+  if(_gpuCompositingOff()){
+    _layeredState = 'blocked(GPU 합성 꺼짐)';
+    if(where) _diagLog('[오버레이] 레이어드 알파 ' + where + ' — ' + _layeredState + ' | gpu_compositing=' + _gpuCompStatus());
+    return;
+  }
   if(a > 0 && a < 255){
     /* → Electron 이 WS_EX_LAYERED + LWA_ALPHA 를 걸고 layered_=true 로 고정한다.
          그 뒤로는 setIgnoreMouseEvents 가 몇 번을 왕복하든 LAYERED 가 다시 붙는다. */
     _layeredState = _setOpacitySafe(a / 255) ? ('on(alpha ' + a + ')') : 'fail';
+  } else if(!_layeredTouched){
+    /* 🩹 [2026-10-01 제보: 설치 후 런처·오버레이가 통째로 안 보임] **한 번도 켠 적 없으면 손대지 않는다.**
+       [무엇이 났나] 예전엔 꺼짐(0)이어도 부팅 때 setOpacity(1) 을 불렀다. 그런데 Electron 의 SetOpacity 는
+         값과 상관없이 **WS_EX_LAYERED + LWA_ALPHA(255) 를 건다** — 즉 '기본은 꺼짐' 이 실제로는
+         전원에게 레이어드를 걸고 있었다. 위 ⚠️ electron#40515 계열(투명 창 + LWA_ALPHA)에 해당하는
+         PC 에서는 메인 창이 **존재하지만 아무것도 그려지지 않는** 상태가 된다. 불투명 창(구글 로그인)은 정상.
+       ⇒ 꺼짐 상태로 부팅하면 setOpacity 자체를 부르지 않는다. 진짜로 '안 건' 상태가 된다. */
+    _layeredState = 'off(미적용)';
   } else {
-    /* 끄기 — 알파를 255(불투명)로 되돌리면 예외 목록의 `alpha < 255` 에 안 걸린다.
+    /* 끄기 — 켰다가 끄는 경우에만 온다. 알파를 255(불투명)로 되돌리면 예외 목록의 `alpha < 255` 에 안 걸린다.
        ⚠️ WS_EX_LAYERED 비트 자체는 남는다(Electron 의 layered_ 를 끄는 통로가 없다). 그래도
          GetLayeredWindowAttributes 가 alpha=255 를 돌려주므로 판정상으로는 확실히 꺼진 것이다. */
     _layeredState = _setOpacitySafe(1) ? 'off' : 'fail';
   }
-  if(where) _diagLog('[오버레이] 레이어드 알파 ' + where + ' — ' + _layeredState);
+  if(a > 0 && a < 255) _layeredTouched = true;
+  if(where) _diagLog('[오버레이] 레이어드 알파 ' + where + ' — ' + _layeredState + ' | gpu_compositing=' + _gpuCompStatus());
 }
 
 /* 🩺 실제로 틈이 생겼는가 — **지정한 크기와 OS 가 준 크기는 다를 수 있다.**

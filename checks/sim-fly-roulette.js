@@ -119,5 +119,29 @@ say('── 4. 투게더룸 🎲 도 룰렛');
   chk(!r.bubble.length && !r.pokeSelf.length, '투게더룸이 아니면 🎲 자체가 안 돈다(기존 게이트 그대로)');
 }
 
+say('── 5. 🎟️ 하루 6번 — 룰렛 · 🎲 각각 (개정 76)');
+{
+  const TAKE = grabFn('_dailyPlayTake'), DAY = grabFn('_dailyPlayDay');
+  chk(!!TAKE && !!DAY && /const DAILY_PLAY_MAX = 6;/.test(SRC), '_dailyPlayTake · 상수 6');
+  const mk = (store, ymd) => {
+    const ls = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } };
+    const D = function(){ return { getFullYear: () => ymd[0], getMonth: () => ymd[1] - 1, getDate: () => ymd[2] }; };
+    return new Function('localStorage', 'Date', 'const DAILY_PLAY_MAX = 6;\n' + DAY + '\n' + TAKE + '\nreturn _dailyPlayTake;')(ls, D);
+  };
+  const st = {};
+  let take = mk(st, [2026, 10, 2]), got = [];
+  for(let i = 0; i < 7; i++) got.push(take('roulette'));
+  chk(got.slice(0, 6).every(q => q.ok) && got[5].left === 0 && !got[6].ok, '룰렛: 6번까지 되고 7번째 막힘 · 6번째 left 0');
+  chk(take('dice').ok, '🎲 는 따로 센다(룰렛을 다 써도 굴린다)');
+  take = mk(st, [2026, 10, 3]);
+  chk(take('roulette').ok, '날짜가 바뀌면 다시 6번');
+  const bad = { getItem(){ throw new Error('x'); }, setItem(){ throw new Error('x'); } };
+  const t2 = new Function('localStorage', 'Date', 'const DAILY_PLAY_MAX = 6;\n' + DAY + '\n' + TAKE + '\nreturn _dailyPlayTake;')(bad, Date);
+  chk(t2('dice').ok, '저장이 안 되는 환경이면 막지 않는다');
+  const R = strip(FN), Dc = strip(DICE);
+  chk(R.indexOf("_dailyPlayTake('roulette')") > R.indexOf('canFly(mySeat, true)') && R.indexOf("_dailyPlayTake('roulette')") < R.indexOf('_rouletteAt = now;'), '룰렛: 게이트를 다 지난 뒤 · 굴리기 전에 센다');
+  chk(Dc.indexOf("_dailyPlayTake('dice')") > Dc.indexOf('_activeChannel !== 2') && Dc.indexOf("_dailyPlayTake('dice')") < Dc.indexOf('Math.random()'), '🎲: 투게더룸 게이트 뒤 · 굴리기 전에 센다');
+}
+
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

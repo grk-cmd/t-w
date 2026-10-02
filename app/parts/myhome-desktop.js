@@ -101,6 +101,8 @@ function advLoad(){
         scene:d.scene||'camp',                          // 진행 중인 씬
         homeCamp:d.homeCamp||null,                       // 저장된 캠프 씬 (복귀 지점)
         bg:d.bg||null,
+        bgTs:(typeof d.bgTs==='number')?d.bgTs:0,   // 🩹 #4b·#13 — 이 기기에서 배경을 고른 시각(서버 ts 와 견준다 · 0 = 옛 판본)
+        hideFolders:!!d.hideFolders,   // 📂 폴더 숨기기(외부 앱 폴더) — 배경과 같이 서버에 올라간다
         map:(d.map&&typeof d.map==='object')?d.map:null,   // 🗺️ {seed,pos:{x,y},stepped:['x,y'],found:[bldgIdx]}
         deeds:Array.isArray(d.deeds)?d.deeds:[],          // 선택 기록(과거 흔적·목격) — 재접속 복원
         runStart:(typeof d.runStart==='number')?d.runStart:null,   // 생존 타이머 시작 — 재접속 복원
@@ -132,16 +134,58 @@ function advLoad(){
            inf:0, inv:{}, weapons:[], scene:'camp', bg:null };
 }
 function advSave(){ try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }
-// 🖥️ 바탕화면 배경을 서버에도 저장 — 방문자가 집주인 바탕화면을 볼 수 있게(로컬 저장만으론 공유 불가).
+// 🖥️ 바탕화면 배경을 서버에도 저장 — 방문자가 집주인 바탕화면을 볼 수 있게 + 🩹 내 다른 기기와 맞추려고.
+//   ★ ts(고른 시각)를 같이 싣는다 — 기기끼리 «누가 더 최근에 골랐나» 를 가르는 유일한 근거다(advPullBg).
 function advSaveBgRemote(){
   try{
     if(!window.firebaseAPI || !firebaseAPI.saveAdvBg || typeof getMyUserId!=='function') return;
     const uid = getMyUserId(); if(!uid) return;
-    Promise.resolve(firebaseAPI.saveAdvBg(uid, ADV.bg || null)).then(r=>{
+    const ts = ADV.bgTs || Date.now();
+    const rec = ADV.bg ? Object.assign({}, ADV.bg, { ts }) : { cleared:true, ts };
+    /* 📂 폴더 숨기기도 같은 기록에 싣는다 — 방문자 화면이 이 값 하나로 가린다(advApplyFolderHide).
+       ★ 규칙 변경 없음 — advBg 의 .validate 는 img·color 만 본다. 꺼져 있으면 칸을 아예 안 싣는다. */
+    if(ADV.hideFolders) rec.hideFolders = true;
+    Promise.resolve(firebaseAPI.saveAdvBg(uid, rec)).then(r=>{
       if(r && r.ok) console.log('[바탕화면] 서버 저장 완료', ADV.bg||'(없음)');
       else console.warn('[바탕화면] 서버 저장 실패 — Firebase 규칙(users/{uid}/advBg)이 콘솔에 게시됐는지 확인하세요.');
     }).catch(()=>console.warn('[바탕화면] 서버 저장 실패(네트워크)'));
   }catch(_){}
+}
+/* 🩹 사람이 배경을 바꾸는 네 곳(색·이미지·URL·초기화)이 모두 여기로 온다 — 고른 시각을 찍어야 다른 기기를 이긴다. */
+function advSetBg(bg){
+  ADV.bg = bg || null;
+  ADV.bgTs = Date.now();
+  advSave(); advSaveBgRemote(); advApplyBg();
+}
+/* 🩹 [2026-10-02 제보 #4b·#13] 켤 때(그리고 내 집으로 돌아올 때) 서버를 **먼저** 읽고 더 최근에 고른 쪽을 따른다.
+   [예전] 로컬 배경을 서버에 덮어쓰기만 했다 → 서버는 «마지막에 켠 기기의 배경» 이 되고, 기기끼리 서로 덮었다.
+   [판정]  서버 ts > 로컬 ts           → 서버 것을 받아 로컬에 저장(다른 기기에서 더 최근에 골랐다)
+           로컬 ts > 서버 ts           → 로컬 것을 올린다(이 기기에서 고른 게 아직 안 올라갔다)
+           둘 다 0(옛 판본끼리) · 서버 있음 → 서버 것을 따른다 — 한쪽으로 모이게 하는 것이 목적이다
+           서버 없음 · 로컬 있음        → 로컬 것을 올린다
+   ⚠️ 읽기 실패면 아무것도 안 한다 — 실패를 «서버 없음» 으로 보면 옛 배경으로 덮어쓴다(getAdvBgEx 주석). */
+async function advPullBg(uid){
+  if(!(window.firebaseAPI && firebaseAPI.getAdvBgEx)) { if(ADV.bg) advSaveBgRemote(); return; }   // 구버전 API — 예전 동작
+  let r = null;
+  try{ r = await firebaseAPI.getAdvBgEx(uid); }catch(_){ return; }
+  if(!r || !r.ok) return;
+  const srv = r.bg;
+  const srvTs = (srv && typeof srv.ts === 'number') ? srv.ts : 0;
+  const locTs = ADV.bgTs || 0;
+  if(srv && (srvTs > locTs || (srvTs === 0 && locTs === 0))){
+    const next = (srv.img) ? { img: srv.img } : (srv.color ? { color: srv.color } : null);
+    const nextHide = !!srv.hideFolders;
+    if(JSON.stringify(next) !== JSON.stringify(ADV.bg || null) || ADV.bgTs !== srvTs || nextHide !== !!ADV.hideFolders){
+      console.log('[바탕화면] 다른 기기에서 고른 배경으로 맞춤', next || '(없음)', nextHide ? '· 폴더 숨김' : '');
+      ADV.bg = next; ADV.bgTs = srvTs; ADV.hideFolders = nextHide; advSave();
+      if(!advVisiting) advApplyBg();
+    }
+    return;
+  }
+  if(locTs > srvTs || (!srv && ADV.bg)){
+    if(!ADV.bgTs) ADV.bgTs = Date.now();   // 옛 판본 로컬 값 — 지금 시각으로 찍어 올린다(서버가 비어 있을 때만 여기 온다)
+    advSave(); advSaveBgRemote();
+  }
 }
 // 앱 시작 시 내 배경을 서버와 맞춤 — 사용자ID·firebase 준비가 늦을 수 있어 준비될 때까지 재시도.
 //   (예전엔 1회 플래그 방식이라, 저장이 실패해도 플래그가 찍혀 영영 재시도하지 않는 문제가 있었음)
@@ -151,7 +195,7 @@ function advSyncBgOnStart(){
     tries++;
     const uid = (typeof getMyUserId==='function') ? getMyUserId() : null;
     if(window.firebaseAPI && firebaseAPI.saveAdvBg && uid){
-      if(ADV.bg) advSaveBgRemote();
+      advPullBg(uid);   // 🩹 #4b·#13 — 덮어쓰기 전에 서버부터 읽는다
       return;
     }
     if(tries < 20) setTimeout(tick, 500);
@@ -2321,6 +2365,15 @@ const css = `
   #advDesktop.adv-visiting .adv-icon{opacity:.75;cursor:default;}
   .adv-icon{position:absolute;width:66px;text-align:center;cursor:pointer;user-select:none;}
   .adv-icon .ic{font-size:30px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.35));}
+  /* 🖼 그림 아이콘 — 이모지(30px 글자)와 같은 자리를 차지하게 */
+  .adv-icon .ic .mhd-ic-img{width:34px;height:34px;display:block;margin:0 auto -2px;pointer-events:none;}
+  /* 📂 폴더 숨기기 — 외부 앱 폴더(책장·말랑이 등)를 통째로 가린다. setFolderVisible(인라인 display)보다 우선한다. */
+  #advDesktop.mhd-hide-folders .mhd-app{display:none !important;}
+  /* 📂 [2026-10-02 제보 «폴더 숨기기에서 말랑이 폴더는 안 숨겨진다»] 말랑이 폴더(#mlFolder · mallang.js)는 #advDesktop 안이 아니라
+     **그 형제**로 #mhRoomPreview 에 바로 붙는다 — 위 규칙(#advDesktop … .mhd-app)이 닿지 않았다.
+     ⇒ advApplyFolderHide 가 같은 표식을 바깥 상자(#mhRoomPreview)에도 걸고, 여기서 말랑이 폴더를 가린다.
+     ★ CSS 라서 말랑이 폴더가 나중에(이미지 로드 뒤 refreshFolder) 생겨도 바로 숨는다. mallang.js 는 안 고친다. */
+  #mhRoomPreview.mhd-hide-folders #mlFolder{display:none !important;}
   .adv-icon .lb{display:inline-block;margin-top:3px;font-size:10px;color:#fff;padding:1px 3px;line-height:1.3;
     text-shadow:1px 1px 0 rgba(0,0,0,.55);}
   .adv-icon:not(.disabled):hover .lb{background:#000080;}
@@ -3462,9 +3515,19 @@ function mhdMountApp(a){
   const d=document.getElementById('advDesktop'); if(!d) return;
   if(document.getElementById(a.iconId)) return;                 // 중복 마운트 방지
   const idx = (a._slot = mhdNextSlot(a.slot));                  // 지정 칸 우선, 없으면 빈 칸
-  const ic=h('<div class="adv-icon" id="'+a.iconId+'">'
+  /* 📂 mhd-app — 외부 앱 폴더 표식. «폴더 숨기기»(advApplyFolderHide)가 이 클래스로 한꺼번에 가린다. */
+  const ic=h('<div class="adv-icon mhd-app" id="'+a.iconId+'">'
     +'<div class="ic">'+esc(a.icon||'📁')+'</div>'
     +'<span class="lb">'+esc(a.label||'')+'</span></div>');
+  /* 🖼 그림 아이콘 — 문자열로 끼우지 않고 DOM 으로 만든다(경로에 따옴표가 섞여도 마크업이 깨지지 않게).
+     그림을 못 읽으면 원래 글자(icon)로 돌아간다 — 빈 칸이 남지 않게. */
+  if(a.iconSrc){
+    const box=ic.querySelector('.ic');
+    const im=document.createElement('img');
+    im.src=a.iconSrc; im.alt=''; im.draggable=false; im.className='mhd-ic-img';
+    im.onerror=()=>{ box.textContent=a.icon||'📁'; };
+    box.textContent=''; box.appendChild(im);
+  }
   mhdPlaceIcon(ic, idx);
   ic.addEventListener('click', ()=>{
     /* 남의 집에선 열지 않는다 — 단 visitable 로 등록한 폴더는 예외(구경거리를 내놓는 앱).
@@ -3534,7 +3597,13 @@ window.MYHOME_DESKTOP = {
   addFolder(o){
     if(!o || !o.id) return null;
     if(MHD_APPS.some(a=>a.id===o.id)) return MHD_APPS.find(a=>a.id===o.id);
-    const a={ id:o.id, label:o.label||o.id, icon:o.icon||'📁', slot:o.slot,
+    /* 🖼 [2026-10-02] iconSrc — 이모지 대신 그림 파일로 그릴 수 있다(선택). 없으면 예전처럼 icon 글자.
+       ⚠️ 상대 경로만 받는다(앱에 같이 들어 있는 파일). 바깥 주소·스크립트 주소는 받지 않는다. */
+    /* 🩹 [2026-10-02 · 개정 77 sim-mhd-hidefolders 4절] 첫 글자는 글자·숫자만 — 예전 `^[\w./-]+` 는 `//서버/a.svg`
+       (file:// 에서 네트워크 공유 경로)와 `/절대경로` 를 통과시켰다. 앱 안 상대 경로(parts/icons/…)만 받는다.
+       ⚠️ 개정 79(말랑이 폴더 숨기기)를 개정 77 이전 판에 얹어 이 줄이 한 번 되돌아갔었다 — 다시 넣었다. */
+    const _src = (typeof o.iconSrc === 'string' && /^[A-Za-z0-9][\w./-]*\.(svg|png|webp)$/i.test(o.iconSrc) && o.iconSrc.indexOf('..') < 0) ? o.iconSrc : '';
+    const a={ id:o.id, label:o.label||o.id, icon:o.icon||'📁', iconSrc:_src, slot:o.slot,
               onOpen:o.onOpen, onVisit:o.onVisit, visitable:!!o.visitable, iconId:'mhdIcon_'+o.id };
     MHD_APPS.push(a);
     if(MHD_READY) mhdMountApp(a);
@@ -3658,11 +3727,20 @@ function advInit(){
       (ADV_GAME_OFF?'':'<div class="adv-icon" id="advIconSim"><div class="ic">📁</div><span class="lb">'+ADV_WORLD.folderName+'</span></div>')+
       (ADV_HIDE_CHAR?'':'<div class="adv-icon" id="advIconChar"><div class="ic">📁</div><span class="lb">캐릭터세팅</span></div>')+
       '<div id="advTaskbar"><button id="advEnvBtn" type="button">환경 설정</button></div>'+
+      /* 🗂 [2026-10-02 · 시안 확정] 배경 네 줄을 [배경 변경 ▶] 하나로 묶고(옆으로 펼침), [폴더 숨기기]를 더한다.
+         ★ 펼침은 외부 앱 하위메뉴와 **같은 모양**(mhd-envsub · mhd-fly)을 쓴다 — 새 CSS 를 만들지 않는다.
+         ★ 버튼 id 는 그대로다(advEnvColor·File·Img·Reset) — 아래 advBindEvents 의 연결이 한 줄도 안 바뀐다. */
       '<div id="advEnvMenu">'+
-        '<button id="advEnvColor" type="button">🎨 배경 색상 변경</button>'+
-        '<button id="advEnvFile" type="button">📁 배경 이미지 (파일에서)</button>'+
-        '<button id="advEnvImg" type="button">🖼 배경 이미지 (URL로)</button>'+
-        '<button id="advEnvReset" type="button">↺ 기본 배경으로</button>'+
+        '<div class="mhd-envsub" id="advEnvBgSub">'+
+          '<button type="button" class="hd">배경화면 변경<span>▶</span></button>'+
+          '<div class="mhd-fly">'+
+            '<button id="advEnvColor" type="button">🎨 색상</button>'+
+            '<button id="advEnvFile" type="button">📁 파일</button>'+
+            '<button id="advEnvImg" type="button">🌐 URL</button>'+
+            '<button id="advEnvReset" type="button">↺ 배경 초기화</button>'+
+          '</div>'+
+        '</div>'+
+        '<button id="advEnvHideFolders" type="button">폴더 숨기기</button>'+
       '</div>'+
       '<div id="advUrlBox"><div class="t">배경 이미지 URL</div>'+
         '<input id="advUrlInput" type="text" placeholder="https://... 이미지 주소">'+
@@ -5507,6 +5585,18 @@ function advApplyBg(){
   //   그러면 그 집 마이홈 테마의 "방 미리보기 배경"이 비쳐 보여서 최소한 주인이 꾸민 색/이미지가 나온다.
   else if(advVisiting) d.style.background='transparent';
   else d.style.background='#3a8a8a';
+  advApplyFolderHide();   // 📂 배경과 같은 때(내 집 · 남의 집 전환 · 서버 맞춤)에 같이 맞춘다
+}
+/* 📂 [2026-10-02] 폴더 숨기기 — 내 집이면 내 설정, 남의 집이면 **그 집 주인의** 설정(advVisitBg.hideFolders)을 따른다.
+   ★ 주인이 숨겼으면 방문자에게도 안 보인다(요청). 메뉴 줄의 ✔ 는 내 설정만 보여 준다. */
+function advApplyFolderHide(){
+  const d=document.getElementById('advDesktop'); if(!d) return;
+  const on = advVisiting ? !!(advVisitBg && advVisitBg.hideFolders) : !!ADV.hideFolders;
+  d.classList.toggle('mhd-hide-folders', on);
+  const room=document.getElementById('mhRoomPreview');   // 📂 말랑이 폴더는 #advDesktop 바깥(형제)이라 바깥 상자에도 같은 표식 — 위 CSS 주석
+  if(room) room.classList.toggle('mhd-hide-folders', on);
+  const b=document.getElementById('advEnvHideFolders');
+  if(b) b.textContent = (ADV.hideFolders ? '✔ ' : '') + '폴더 숨기기';   // ✔ 는 켜짐 표시라 남긴다(아이콘은 뗐다 · 요청)
 }
 
 /* ─────────────────────────── 창 열기/닫기 ─────────────────────────── */
@@ -5773,15 +5863,41 @@ function advBindEvents(){
     if(fp&&fp.classList.contains('on')&&!e.target.closest('#advFacePick,#advFaceBig')) fp.classList.remove('on');
   });
   el('advEnvColor').addEventListener('click', ()=>{ el('advEnvMenu').classList.remove('on'); el('advBgColorInput').click(); });
-  el('advBgColorInput').addEventListener('input', e=>{ ADV.bg={color:e.target.value}; advSave(); advSaveBgRemote(); advApplyBg(); });
+  el('advBgColorInput').addEventListener('input', e=>{ advSetBg({color:e.target.value}); });
   el('advEnvFile').addEventListener('click', ()=>{
     el('advEnvMenu').classList.remove('on');
-    advUploadImage('adv-bg', 960, 720, 0.82, url=>{ ADV.bg={img:url}; advSave(); advSaveBgRemote(); advApplyBg(); });
+    /* 🩹 #4b·#13 — 업로드 경로가 design_adv-bg.jpg 하나로 고정이고 1년 캐시가 걸려 있다. 주소 끝에 버전을 붙여
+       새로 올린 그림을 캐시가 가리지 않게 한다(기기마다 «언제 바뀌어 보이는지» 가 제각각이던 부분). */
+    advUploadImage('adv-bg', 960, 720, 0.82, url=>{
+      const v = (/^https?:/.test(url) && url.length < 470) ? (url + (url.indexOf('?') >= 0 ? '&' : '?') + 'twv=' + Date.now().toString(36)) : url;
+      advSetBg({img:v});
+    });
   });
   el('advEnvImg').addEventListener('click', ()=>{ el('advEnvMenu').classList.remove('on'); el('advUrlInput').value=(ADV.bg&&ADV.bg.img)||''; el('advUrlBox').classList.add('on'); el('advUrlInput').focus(); });
-  el('advUrlOk').addEventListener('click', ()=>{ const v=el('advUrlInput').value.trim(); if(v){ ADV.bg={img:v}; advSave(); advSaveBgRemote(); advApplyBg(); } el('advUrlBox').classList.remove('on'); });
+  el('advUrlOk').addEventListener('click', ()=>{ const v=el('advUrlInput').value.trim(); if(v){ advSetBg({img:v}); } el('advUrlBox').classList.remove('on'); });
   el('advUrlCancel').addEventListener('click', ()=>el('advUrlBox').classList.remove('on'));
-  el('advEnvReset').addEventListener('click', ()=>{ el('advEnvMenu').classList.remove('on'); ADV.bg=null; advSave(); advSaveBgRemote(); advApplyBg(); });
+  el('advEnvReset').addEventListener('click', ()=>{ el('advEnvMenu').classList.remove('on'); advSetBg(null); });
+  /* 🗂 [배경 변경 ▶] 펼침 — 외부 앱 하위메뉴(mhdMountEnv)와 같은 동작: 올리면 열리고, 누르면 토글, 벗어나면 닫힌다.
+     ★ 안의 항목을 고르면 펼침도 같이 닫는다 — 안 닫으면 다음에 메뉴를 열 때 펼친 채로 나온다. */
+  {
+    const sub=el('advEnvBgSub');
+    if(sub){
+      const hd=sub.querySelector('.hd');
+      if(hd) hd.addEventListener('click', ev=>{ ev.stopPropagation(); sub.classList.toggle('on'); });
+      sub.addEventListener('mouseenter', ()=>sub.classList.add('on'));
+      sub.addEventListener('mouseleave', ()=>sub.classList.remove('on'));
+      sub.querySelectorAll('.mhd-fly button').forEach(b=>b.addEventListener('click', ()=>sub.classList.remove('on')));
+    }
+  }
+  /* 📂 [2026-10-02] 폴더 숨기기 — 외부 앱 폴더(책장·말랑이 등)를 내 화면과 **방문자 화면** 모두에서 가린다.
+     ★ 배경과 같은 기록(users/{uid}/advBg)에 실어 올린다 — 고른 시각(bgTs)을 찍어야 다른 기기와의 맞춤(advPullBg)에서 이긴다. */
+  el('advEnvHideFolders').addEventListener('click', ()=>{
+    el('advEnvMenu').classList.remove('on');
+    ADV.hideFolders = !ADV.hideFolders;
+    ADV.bgTs = Date.now();
+    advSave(); advSaveBgRemote(); advApplyFolderHide();
+    if(typeof toast==='function') toast(ADV.hideFolders ? '폴더를 숨겼어요 — 방문자에게도 안 보여요' : '폴더를 다시 보여요');
+  });
 
   el('advFName').addEventListener('input', e=>{ curSlot().name=e.target.value; advSave(); advRenderSlotTabs(); });
   el('advFAge').addEventListener('input', e=>{
@@ -5900,7 +6016,11 @@ window._advApplyVisitUI = function(visiting, ownerId){
         }).catch(()=>console.warn('[바탕화면] 방문 대상 배경 조회 실패'));
       } else console.warn('[바탕화면] 배경 조회 건너뜀 — ownerId:', ownerId, '/ getAdvBg 사용가능:', !!(window.firebaseAPI&&window.firebaseAPI.getAdvBg));
     }catch(_){}
-  } else advVisitBg = null;
+  } else {
+    advVisitBg = null;
+    /* 🩹 #4b·#13 — 내 집으로 돌아올 때도 한 번 맞춘다(앱을 켜 둔 채 다른 기기에서 배경을 바꾼 경우). 읽기 1회. */
+    try{ const _u = (typeof getMyUserId==='function') ? getMyUserId() : null; if(_u) advPullBg(_u); }catch(_){}
+  }
   const d=document.getElementById('advDesktop');
   if(d) d.classList.toggle('adv-visiting', advVisiting);
   const tb=document.getElementById('advEnvBtn');
