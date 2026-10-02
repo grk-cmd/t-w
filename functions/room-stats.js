@@ -15,7 +15,7 @@ const CHANNEL = Object.freeze({ WORKING: 'workingroom', TOGETHER: 'togetherroom'
 const SECRET_ROOM_PREFIX = 'SCRT-';
 const ROOM_LIVE_MS = 90 * 1000;              // 앱 getRoomCounts 의 STALE 과 같게
 const ROOM_INDEX_DROP_MS = 10 * 60 * 1000;   // 하트비트가 30초라 살아 있는 방은 이만큼 조용하지 않다
-const ROOM_DROP_MAX = 300;                   // 첫 실행 때 밀린 줄이 많아도 한 번에 이만큼만
+const ROOM_DROP_MAX = 100;                   // 밀린 줄이 많아도 한 번에 이만큼만(줄마다 트랜잭션 2개 · 실행 제한 60초)
 const ROOM_REPAIR_MAX = 50;                  // channel 채워 넣기도 한 번에 이만큼만
 
 function roomStatsFrom(idx, now){
