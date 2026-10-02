@@ -11,7 +11,8 @@
 #   Functions 배포는 권한이 넓어서 넣지 않는다.
 # 🔐 oauth-config.js(시크릿)는 npm ci **뒤에** 만든다 — 의존성 설치 스크립트가 시크릿 파일을 읽을 틈을 주지 않는다.
 # 🧪 테스트 빌드: 태그에 '-' 가 붙으면(예: v0.10.2-beta.0 ← npm version prerelease --preid=beta) 프리릴리스로 본다.
-#   · app/parts/firebase-config.js 를 build/firebase-config.dev.js 로 바꿔 **dev Firebase 에 붙는** 앱을 만든다
+#   · package.json 에 `twFirebase: dev` 를 박아(--config.extraMetadata) **dev Firebase 에 붙는** 앱을 만든다
+#     (main.js FIREBASE_ENV 가 설치본에서 이 값만 본다 · 운영/dev 설정은 둘 다 app/parts/firebase-config.js 에 있다)
 #   · 운영 규칙 배포는 하지 않는다 · Releases 에 Pre-release 로 올린다(사용자 앱은 자동 업데이트로 받지 않는다)
 # ⚠️ 서명하지 않는다 — mac-probe 와 같다(CSC_IDENTITY_AUTO_DISCOVERY=false). Windows 도 인증서가 없다.
 
@@ -148,19 +149,18 @@ jobs:
           if [ -z "$OAUTH_CONFIG_JS" ]; then echo "::error::OAUTH_CONFIG_JS 시크릿이 비어 있다"; exit 1; fi
           printf '%s' "$OAUTH_CONFIG_JS" > oauth-config.js
           node --check oauth-config.js
-      - name: 🧪 테스트 빌드면 dev Firebase 설정으로 교체
-        if: needs.verify.outputs.prerelease == 'true'
-        shell: bash
-        run: |
-          cp build/firebase-config.dev.js app/parts/firebase-config.js
-          grep -q "together-working-dev" app/parts/firebase-config.js || { echo "::error::dev 설정 교체 실패"; exit 1; }
       - name: electron-builder (win x64)
-        run: npx electron-builder --win --x64 --publish never
+        shell: bash
+        run: npx electron-builder --win --x64 --publish never $([ "${{ needs.verify.outputs.prerelease }}" = true ] && echo --config.extraMetadata.twFirebase=dev)
       - name: 설정 파일이 asar 에 들어갔는가
         shell: bash
         run: |
           npx --yes @electron/asar@3.2.17 list dist/win-unpacked/resources/app.asar | grep -E "oauth-config.js|firebase-config.js" \
             || { echo "::error::설정 파일이 asar 에 없다"; exit 1; }
+          # 🧪 Firebase 환경 표시 — 프리릴리스만 twFirebase=dev, 정식은 없어야 한다(있으면 사용자 앱이 dev 에 붙는다)
+          ( cd "$RUNNER_TEMP" && npx --yes @electron/asar@3.2.17 extract-file "$GITHUB_WORKSPACE/dist/win-unpacked/resources/app.asar" package.json \
+            && node -e "const e=require('./package.json').twFirebase||'prod'; const want=process.argv[1]==='true'?'dev':'prod'; console.log('Firebase 환경:',e,'(기대',want+')'); process.exit(e===want?0:1)" "${{ needs.verify.outputs.prerelease }}" ) \
+            || { echo "::error::설치본의 Firebase 환경 표시가 기대와 다르다"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: win
@@ -203,19 +203,17 @@ jobs:
           node --check oauth-config.js
       - name: icns 를 iconutil 로 다시 조립 (mac-probe ③ 과 같다)
         run: iconutil -c icns build/icon.iconset -o build/icon.icns
-      - name: 🧪 테스트 빌드면 dev Firebase 설정으로 교체
-        if: needs.verify.outputs.prerelease == 'true'
-        shell: bash
-        run: |
-          cp build/firebase-config.dev.js app/parts/firebase-config.js
-          grep -q "together-working-dev" app/parts/firebase-config.js || { echo "::error::dev 설정 교체 실패"; exit 1; }
       - name: electron-builder (mac ${{ matrix.arch }})
-        run: npx electron-builder --mac --${{ matrix.arch }} --publish never
+        run: npx electron-builder --mac --${{ matrix.arch }} --publish never $([ "${{ needs.verify.outputs.prerelease }}" = true ] && echo --config.extraMetadata.twFirebase=dev)
       - name: 설정 파일이 asar 에 들어갔는가
         run: |
           APP=$(ls -d dist/mac*/*.app | head -n 1)
           npx --yes @electron/asar@3.2.17 list "$APP/Contents/Resources/app.asar" | grep -E "oauth-config.js|firebase-config.js" \
             || { echo "::error::설정 파일이 asar 에 없다"; exit 1; }
+          # 🧪 Firebase 환경 표시 — 프리릴리스만 twFirebase=dev, 정식은 없어야 한다(있으면 사용자 앱이 dev 에 붙는다)
+          ( cd "$RUNNER_TEMP" && npx --yes @electron/asar@3.2.17 extract-file "$GITHUB_WORKSPACE/$APP/Contents/Resources/app.asar" package.json \
+            && node -e "const e=require('./package.json').twFirebase||'prod'; const want=process.argv[1]==='true'?'dev':'prod'; console.log('Firebase 환경:',e,'(기대',want+')'); process.exit(e===want?0:1)" "${{ needs.verify.outputs.prerelease }}" ) \
+            || { echo "::error::설치본의 Firebase 환경 표시가 기대와 다르다"; exit 1; }
       - uses: actions/upload-artifact@v4
         with:
           name: mac-${{ matrix.arch }}

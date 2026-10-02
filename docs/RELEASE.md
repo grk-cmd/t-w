@@ -113,7 +113,8 @@ git push --follow-tags
 | 일반 사용자 자동 업데이트 | **받지 않음** | 받음 |
 | 설치 | 내부 사람이 Releases 페이지에서 직접 받음 | 자동 |
 
-- 접속 정보는 빌드할 때 `build/firebase-config.dev.js`로 바뀝니다. 앱 코드는 같습니다.
+- 빌드할 때 `package.json`에 `twFirebase: dev` 표시가 들어가고, 앱이 그걸 보고 dev 설정을 고릅니다. 운영·dev 설정은 둘 다 `app/parts/firebase-config.js`에 있습니다.
+- **내 PC에서 dev로 실행**: `npm run start:dev` (설치본에는 영향 없음)
 - 테스트가 끝나면 `npm version patch`로 정식 버전을 냅니다(`0.10.2-beta.N` → `0.10.2`).
 - dev 서버에서 **안 되는 기능**: 비밀번호 변경(Cloud Functions 없음), 폰 연결 QR(운영 호스팅 주소 고정). 구글 로그인은 dev 콘솔에서 허용 설정을 해야 됩니다.
 - dev DB는 운영과 **데이터가 분리**돼 있습니다. 계정도 따로 가입해야 하고, 카탈로그(파츠·책상·아이템)는 운영에서 복사해 둬야 보입니다.
