@@ -805,6 +805,7 @@
 | **sim-gacha-prune.js** | 162 | **11e728f770b9** ← 개정 38 준비 한 줄(uid 심기 · 판정 무변경) |
 | sim-gacha-race.js | 120 | 85100a1126c6 |
 | sim-ghost-cache-sync.js | 273 | 356d2cabc722 |
+| **sim-ghost-heal.js** | 90 | **cc79e08bbfbf** ← **2026-10-03 신규 · 방 «유령» 복구 — room-ghost-heal.js(복구 판단 · 가짜 DB) + firebase-init.js 연결** |
 | **sim-friend-code-keep.js** | 217 | **ab254584ef33** ← 2026-09-20 신규 · 제보 3-2 친추코드 유지 + 제보 3-1 스냅샷 없이도 소지품 복원 (§31 · 개정 27) · **개정 56 되찾기 갈래 걷음 · 계정에 코드 없을 때 (가)** |
 | **sim-google-login.js** | 580 | **688e4097df20** ← **2026-10-03 ⑦ closed 콜백 본문 안의 finish 로 판정** · **2026-10-03 users/invite 주인 또는 관리자** · 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) · **2026-09-22 계정 자리 [내 정보] · 이전/연동/해제·되찾기 걷음 · transferHash 지우기만 (개정 45)** · **개정 48 #lcMyInfo** · **개정 52 §7 통로 걷음** · **개정 54 §3 이메일 거울** · **개정 55 §8 transferData 지우기만 · accountSnap 규칙 · §9 스냅샷 자리** · **개정 56 ① 버린 uid 안 적음 · _setMyUserId** · **개정 57 §5 갈아타기 전 정리 순서 · 실패** |
 | sim-invite-gate.js | 99 | 98990b71a1f1 |

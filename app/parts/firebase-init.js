@@ -32,6 +32,7 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
+  import { createGhostHeal } from "./room-ghost-heal.js";   // 👻 방 유령 복구 (2026-10-03)
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -348,6 +349,14 @@
     if(String(room||'').indexOf('SCRT-') === 0) return;
     try{ update(ref(db, `roomIndex/${room}`), Object.assign({ lastSeen: serverTimestamp() }, extra || {})); }catch(_){}
   }
+  /* 👻 방 «유령» 복구 — 구조와 이유는 room-ghost-heal.js 에 있다. 여기서는 이 파일의 방 상태를 넘겨 주기만 한다.
+     🚧 TODO(임시 처리): 사라진 뒤 되살리는 응급 처치다. 근본 해결(연결마다 다른 멤버 자리)은 room-ghost-heal.js 머리말 참고.
+     하트비트 · updateMe 의 update 가 거부되면 _healMyMemberNode 를 부른다(joinRoom · updateMe). */
+  const _healMyMemberNode = createGhostHeal({
+    db, ref, get, set, onDisconnect, serverTimestamp, touchRoomIndex: _touchRoomIndex,
+    state: () => ({ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,
+                    friends: _roomLastFriends, meta: _roomMetaVal }),
+  });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
@@ -2261,7 +2270,7 @@
              상대 화면에서 "레벨업 직후"로 오해된다). */
           const _hb = { lastSeen: serverTimestamp() };
           try{ if(typeof window.myExpCells === 'function') _hb.exp = window.myExpCells(); }catch(_){}
-          update(_myMemberRef, _hb);
+          update(_myMemberRef, _hb).catch(()=>_healMyMemberNode('heartbeat'));   // 👻 거부 = 내 노드가 사라졌을 수 있다
           _touchRoomIndex(room);   // 💰 요약 노드 하트비트 — 카운트가 이 lastSeen(90초)으로 살아있는 방을 판정
         }
       }, 30000);
@@ -2270,7 +2279,7 @@
     },
     updateMe(payload){
       if(_myMemberData) Object.assign(_myMemberData, payload);   // 재접속 재등록 때 최신 상태가 올라가게
-      if(_myMemberRef) update(_myMemberRef, { ...payload, lastSeen: serverTimestamp() });
+      if(_myMemberRef) update(_myMemberRef, { ...payload, lastSeen: serverTimestamp() }).catch(()=>_healMyMemberNode('updateMe'));
     },
     // 다른 사람의 캐릭터를 쓰다듬거나 흔들었을 때 그 사람에게 실시간으로 알림(찌르기).
     poke(targetId, type){
