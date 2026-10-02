@@ -353,7 +353,7 @@
     state: () => ({ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
-  const _roomStats = createRoomStats({ db, ref, get, now: () => _svNow() });
+  const _roomStats = createRoomStats({ db, ref, get, onValue, now: () => _svNow() });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
@@ -2404,6 +2404,8 @@
        반환: { total, workingroom, togetherroom } (모든 소스 실패 시 각 null)
        opts.quick: 화면 표시용. 서버가 세어 둔 roomStats 를 먼저 보고, 없으면 아래처럼 직접 센다.
          최대 1분 늦고 2) 프로브를 안 타므로 정원 검사에는 쓰지 않는다. */
+    // 방 창이 열려 있는 동안 roomStats 를 구독한다. cb(counts | null), 돌려주는 함수로 끊는다.
+    watchRoomCounts(cb){ return _roomStats.watch(cb); },
     async getRoomCounts(opts){
       if(opts && opts.quick){
         const qc = await _roomStats.counts();

@@ -123,6 +123,19 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(await mk(null, now).counts() === null, '없으면(함수 배포 전) null');
     chk(await mk({ workingroom: '3', togetherroom: 2, at: now }, now).counts() === null, '모양이 틀리면 null');
     chk(await createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => { throw new Error('permission_denied'); }, now: () => now }).counts() === null, '규칙 거부(규칙 배포 전)도 null');
+    {
+      const W = { cb: null, err: null, off: 0 };
+      const rs = createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => null, now: () => now,
+        onValue: (p, cb, err) => { W.path = p; W.cb = cb; W.err = err; return () => { W.off++; }; } });
+      const got = []; const off = rs.watch(c => got.push(c));
+      W.cb({ val: () => ({ workingroom: 1, togetherroom: 2, at: now }) });
+      W.cb({ val: () => ({ workingroom: 1, togetherroom: 2, at: now - ROOM_STATS_FRESH_MS }) });
+      W.err(new Error('permission_denied'));
+      off();
+      chk(W.path === 'roomStats' && JSON.stringify(got) === '[{"total":3,"workingroom":1,"togetherroom":2},null,null]',
+          'watch — 쓰는 즉시 숫자, 낡음 · 거부는 null');
+      chk(W.off === 1, '  ↳ 돌려준 함수로 구독을 끊는다');
+    }
   }
 
   say('── 4. firebase-init.js 연결 · 규칙');
@@ -131,9 +144,13 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(/createRoomIndex\(\{[\s\S]{0,200}state: \(\) => \(\{ room: _roomCode, meta: _roomMetaVal \}\)/.test(CODE), 'roomIndex 에 방 상태를 «부를 때마다» 읽는 함수로 넘긴다');
     chk(/function _touchRoomIndex\(room, extra\)\{ _roomIndex\.touch\(room, extra\); \}/.test(CODE), '_touchRoomIndex 는 모듈로 넘기기만 한다 (하트비트 · 재접속 · 유령 복구가 모두 이 길)');
     chk(/if\(open === true \|\| open === false\) meta\.open = open;\s*await update\(ref\(db, `rooms\/\$\{room\}\/_meta`\), meta\);/.test(CODE), 'setRoomChannel 이 open 을 _meta 에도 쓴다 (명시한 boolean 일 때만)');
-    chk(/createRoomStats\(\{ db, ref, get, now: \(\) => _svNow\(\) \}\)/.test(CODE), 'roomStats 신선도는 서버 기준 시각(_svNow)으로 본다');
     chk(/async getRoomCounts\(opts\)\{\s*if\(opts && opts\.quick\)\{\s*const qc = await _roomStats\.counts\(\);/.test(CODE), 'getRoomCounts 는 quick 일 때만 roomStats 를 본다');
-    chk((CODE.match(/_roomStats\./g) || []).length === 1, 'roomStats 를 쓰는 자리는 quick 카운트 하나뿐');
+    chk((CODE.match(/_roomStats\./g) || []).length === 2, 'roomStats 를 쓰는 자리는 quick 카운트 · 구독 둘뿐');
+    chk(/createRoomStats\(\{ db, ref, get, onValue, now: \(\) => _svNow\(\) \}\)/.test(CODE) && /watchRoomCounts\(cb\)\{ return _roomStats\.watch\(cb\); \}/.test(CODE), 'firebaseAPI.watchRoomCounts 로 구독을 연다 · 신선도는 서버 기준 시각(_svNow)');
+    const APP = strip(need('app.js'));
+    const sw = APP.match(/function startRoomCountWatch\(\)\{[\s\S]*?\n\}/);
+    chk(!!sw && /_roomCountUnsub = firebaseAPI\.watchRoomCounts\(_paintRoomCounts\)/.test(sw[0]), '방 창을 열면 구독한다 (startRoomCountWatch)');
+    chk(!!sw && /clearInterval\(_roomCountTimer\);[\s\S]{0,80}_roomCountUnsub\(\)/.test(sw[0]), '  ↳ 방 창이 닫히면 구독을 끊는다');
     const fr = CODE.match(/async findRandomRooms\(limit\)\{[\s\S]*?\n    \},/);
     chk(!!fr && !/_roomStats/.test(fr[0]) && /get\(ref\(db, 'roomIndex'\)\)/.test(fr[0]), '랜덤 참여는 roomIndex 를 직접 읽는다 (방금 연 방도 후보에)');
     const gc = CODE.match(/async getRoomCount\([^)]*\)\{[\s\S]*?\n    \},/);

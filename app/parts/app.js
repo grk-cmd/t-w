@@ -32988,8 +32988,17 @@ async function refreshRoomCountOnce(){
     _updateRoomCountUI();
   }catch(_){}
 }
+// 구독으로 받은 숫자를 그린다. null(낡음 · 없음)이면 그대로 두고 아래 30초 확인이 직접 센다.
+let _roomCountUnsub = null;
+function _paintRoomCounts(c){
+  if(!c) return;
+  const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${ROOM_LIMITS.workingroom}`;
+  const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${ROOM_LIMITS.togetherroom}`;
+  if(c.total!=null){ _liveRoomCount = c.total; _updateRoomCountUI(); }
+}
 function startRoomCountWatch(){
   refreshRoomCountOnce();
+  if(!_roomCountUnsub && window.firebaseAPI && firebaseAPI.watchRoomCounts) _roomCountUnsub = firebaseAPI.watchRoomCounts(_paintRoomCounts);
   if(_roomCountTimer) return;
   _roomCountTimer = setInterval(()=>{
     // 방 창(모달 또는 F1 멀티모드 탭)이 열려 있을 때만 갱신 — 닫히면 스스로 멈춤
@@ -33002,7 +33011,10 @@ function startRoomCountWatch(){
       if(pick && pick.style.display!=='none' && typeof _refreshChannelPickUI==='function') _refreshChannelPickUI();
       else refreshRoomCountOnce();
     }
-    else { clearInterval(_roomCountTimer); _roomCountTimer = null; }
+    else {
+      clearInterval(_roomCountTimer); _roomCountTimer = null;
+      if(_roomCountUnsub){ try{ _roomCountUnsub(); }catch(_){} _roomCountUnsub = null; }
+    }
   }, 30000);
 }
 
