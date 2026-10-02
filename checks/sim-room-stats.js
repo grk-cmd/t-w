@@ -40,13 +40,11 @@ const tick = () => new Promise(r => setTimeout(r, 0));
       'SCRT-A': { lastSeen: now - 1000, channel: 'togetherroom' },          // 시크릿룸 — 안 셈
       'SCRT-B': { lastSeen: now - 11 * 60 * 1000 },                         // 낡은 시크릿룸 줄 — 지움
       BAD: 'x', NOTS: { channel: 'workingroom' },
-    }, now, () => 0);
+    }, now);
     chk(stats.workingroom === 2 && stats.togetherroom === 1, `채널별 개수 (워킹 ${stats.workingroom} · 투게더 ${stats.togetherroom}) = 2 · 1`);
     chk(stats.at === now, 'at = 센 시각 (앱이 3분 넘게 낡으면 무시)');
-    chk(JSON.stringify(stats.open) === '["W1"]', `랜덤 후보 = 열린 워킹룸만 (${JSON.stringify(stats.open)})`);
+    chk(!('open' in stats), '랜덤 후보는 싣지 않는다 (랜덤 참여는 roomIndex 를 직접 읽는다)');
     chk(JSON.stringify(drop.slice().sort()) === '["D1","SCRT-B"]', `지울 줄 = 10분 넘은 것만 (${JSON.stringify(drop)})`);
-    const many = {}; for(let i = 0; i < 50; i++) many['R' + i] = { lastSeen: now, open: true };
-    chk(f.roomStatsFrom(many, now).stats.open.length === f.ROOM_OPEN_MAX, `랜덤 후보는 ${f.ROOM_OPEN_MAX}개까지만 싣는다`);
 
     // runRoomStats: 지우기 트랜잭션은 서버 값으로 판정해야 한다
     const mkDb = (idx, server) => {
@@ -107,7 +105,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   say('── 3. room-stats.js (roomStats 읽기)');
   {
     const { createRoomStats, ROOM_STATS_FRESH_MS } = esm(RS, 'createRoomStats, ROOM_STATS_FRESH_MS');
-    const mk = (val, now) => createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => ({ val: () => val }), now: () => now, rnd: () => 0 });
+    const mk = (val, now) => createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => ({ val: () => val }), now: () => now });
     const now = 1e9;
     chk(ROOM_STATS_FRESH_MS === 3 * 60 * 1000, '신선도 기준 3분 (함수가 1분마다 쓰니 두 번 놓쳐도 버틴다)');
     chk(JSON.stringify(await mk({ workingroom: 3, togetherroom: 2, at: now - 1000 }, now).counts()) === '{"total":5,"workingroom":3,"togetherroom":2}', 'counts = 채널 둘의 합');
@@ -115,9 +113,6 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(await mk(null, now).counts() === null, '없으면(함수 배포 전) null');
     chk(await mk({ workingroom: '3', togetherroom: 2, at: now }, now).counts() === null, '모양이 틀리면 null');
     chk(await createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => { throw new Error('permission_denied'); }, now: () => now }).counts() === null, '규칙 거부(규칙 배포 전)도 null');
-    chk(JSON.stringify(await mk({ workingroom: 0, togetherroom: 0, at: now }, now).randomOpen(5)) === '[]', 'open 키가 없으면(빈 목록) [] — 실패(null)와 구분');
-    const r = await mk({ workingroom: 3, togetherroom: 0, open: ['A', 'SCRT-X', 'B', 7, 'C'], at: now }, now).randomOpen(2);
-    chk(Array.isArray(r) && r.length === 2 && r.every(c => ['A', 'B', 'C'].includes(c)), `randomOpen — 시크릿룸 · 이상한 값 거름 · limit 2 (${JSON.stringify(r)})`);
   }
 
   say('── 4. firebase-init.js 연결 · 규칙');
@@ -128,7 +123,9 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(/if\(open === true \|\| open === false\) meta\.open = open;\s*await update\(ref\(db, `rooms\/\$\{room\}\/_meta`\), meta\);/.test(CODE), 'setRoomChannel 이 open 을 _meta 에도 쓴다 (명시한 boolean 일 때만)');
     chk(/createRoomStats\(\{ db, ref, get, now: \(\) => _svNow\(\) \}\)/.test(CODE), 'roomStats 신선도는 서버 기준 시각(_svNow)으로 본다');
     chk(/async getRoomCounts\(opts\)\{\s*if\(opts && opts\.quick\)\{\s*const qc = await _roomStats\.counts\(\);/.test(CODE), 'getRoomCounts 는 quick 일 때만 roomStats 를 본다');
-    chk((CODE.match(/_roomStats\./g) || []).length === 2, 'roomStats 를 쓰는 자리는 둘(quick 카운트 · 랜덤 후보)뿐');
+    chk((CODE.match(/_roomStats\./g) || []).length === 1, 'roomStats 를 쓰는 자리는 quick 카운트 하나뿐');
+    const fr = CODE.match(/async findRandomRooms\(limit\)\{[\s\S]*?\n    \},/);
+    chk(!!fr && !/_roomStats/.test(fr[0]) && /get\(ref\(db, 'roomIndex'\)\)/.test(fr[0]), '랜덤 참여는 roomIndex 를 직접 읽는다 (방금 연 방도 후보에)');
     const gc = CODE.match(/async getRoomCount\([^)]*\)\{[\s\S]*?\n    \},/);
     chk(!!gc && !/_roomStats/.test(gc[0]), '정원 검사(getRoomCount)는 roomStats 를 쓰지 않는다');
     let rr = null; try{ rr = JSON.parse(RULES).rules.roomStats; }catch(_){}

@@ -2501,10 +2501,8 @@
        · 정원·생존 확인은 하지 않는다(인덱스는 최대 90초 낡을 수 있다) — 부르는 쪽이
          checkRoomCapacity 로 확인하며 넘어간다.
        반환: 섞은 코드 배열 / 조회 실패는 null / 후보 없음은 [] — 문구를 다르게 내려고 구분한다.
-       roomStats 에 후보가 있으면 그걸 쓴다(roomIndex 를 안 읽는다). */
+       버튼을 누를 때만 도니 roomStats(최대 1분 늦음) 대신 직접 읽는다 — 방금 연 방도 후보에 나온다. */
     async findRandomRooms(limit){
-      const fromStats = await _roomStats.randomOpen(limit);
-      if(fromStats) return fromStats;
       try{
         const snap = await get(ref(db, 'roomIndex'));
         const idx = snap.val() || {};

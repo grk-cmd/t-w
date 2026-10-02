@@ -1,5 +1,5 @@
 /*
- * 1분마다 roomIndex 를 세어 roomStats = { workingroom, togetherroom, open, at } 에 기록한다.
+ * 1분마다 roomIndex 를 세어 roomStats = { workingroom, togetherroom, at } 에 기록한다.
  * 앱은 30초마다 roomIndex 전체를 받는 대신 이 작은 노드만 읽는다(app/parts/room-stats.js).
  * 세는 기준(90초 · 시크릿룸 제외 · channel 없으면 워킹룸)은 앱의 getRoomCounts 와 같아야 한다.
  *
@@ -12,11 +12,10 @@ const CHANNEL = Object.freeze({ WORKING: 'workingroom', TOGETHER: 'togetherroom'
 const SECRET_ROOM_PREFIX = 'SCRT-';
 const ROOM_LIVE_MS = 90 * 1000;              // 앱 getRoomCounts 의 STALE 과 같게
 const ROOM_INDEX_DROP_MS = 10 * 60 * 1000;   // 하트비트가 30초라 살아 있는 방은 이만큼 조용하지 않다
-const ROOM_OPEN_MAX = 30;
 const ROOM_DROP_MAX = 300;                   // 첫 실행 때 밀린 줄이 많아도 한 번에 이만큼만
 
-function roomStatsFrom(idx, now, rnd){
-  const out = { [CHANNEL.WORKING]: 0, [CHANNEL.TOGETHER]: 0, open: [], at: now };
+function roomStatsFrom(idx, now){
+  const out = { [CHANNEL.WORKING]: 0, [CHANNEL.TOGETHER]: 0, at: now };
   const drop = [];
   for (const code in (idx || {})){
     const e = idx[code];
@@ -28,11 +27,7 @@ function roomStatsFrom(idx, now, rnd){
     if (now - seen >= ROOM_LIVE_MS) continue;
     const ch = (e.channel === CHANNEL.TOGETHER) ? CHANNEL.TOGETHER : CHANNEL.WORKING;
     out[ch]++;
-    if (ch === CHANNEL.WORKING && e.open === true) out.open.push(code);   // 투게더룸은 랜덤 참여 대상이 아니다
   }
-  const r = rnd || Math.random;
-  for (let i = out.open.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); const t = out.open[i]; out.open[i] = out.open[j]; out.open[j] = t; }
-  out.open = out.open.slice(0, ROOM_OPEN_MAX);
   return { stats: out, drop: drop.slice(0, ROOM_DROP_MAX) };
 }
 
@@ -55,9 +50,9 @@ async function runRoomStats(db, now){
     }catch(e){ failed++; }
   }
   const sum = { live: stats.workingroom + stats.togetherroom, working: stats.workingroom, together: stats.togetherroom,
-                open: stats.open.length, rows: Object.keys(idx).length, dropped, kept, failed };
+                rows: Object.keys(idx).length, dropped, kept, failed };
   if (dropped || failed) console.log('[roomStats]', JSON.stringify(sum));
   return sum;
 }
 
-module.exports = { roomStatsFrom, runRoomStats, ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_OPEN_MAX, ROOM_DROP_MAX };
+module.exports = { roomStatsFrom, runRoomStats, ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_DROP_MAX };
