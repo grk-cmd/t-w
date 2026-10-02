@@ -152,16 +152,25 @@ main ──●────●────────●──────●─
   - `PATCH`: 버그 수정
   - `MINOR`: 기능 추가
   - `MAJOR`: 데이터 구조나 규칙이 바뀌어 **옛 앱이 동작하지 않게 될 때**
-- 순서 (버전 올림은 `main`에 직접 커밋합니다):
+- 순서는 **① 규칙 → ② 최신화 → ③ 빌드**입니다 (버전 올림은 `main`에 직접 커밋합니다).
+
+  **① 규칙**: 규칙이나 Functions 변경이 있을 때만 합니다.
+  1. 규칙 파일 변경을 먼저 커밋·push합니다. 배포는 **커밋된 파일 기준**으로 합니다.
+  2. dev에 먼저 배포합니다: `firebase deploy --only database --project together-working-dev`
+  3. 운영에 배포합니다: `firebase deploy --only database` (Functions면 `--only functions`)
+  - 이 시점에는 사용자 대부분이 아직 **옛 앱**을 씁니다. 새 규칙이 옛 앱의 쓰기를 막지 않는지 확인합니다(4장).
+
+  **② 최신화**
   1. `git pull --rebase` → `npm run check` (빨강 0)
   2. `npm version patch -m "chore: %s"`: `package.json` 버전 수정, 커밋, 태그 `vX.Y.Z`를 한 번에 합니다.
   3. `git push --follow-tags`
-     **버전은 반드시 커밋하고 push한 뒤에** 다음 단계로 갑니다. 로컬에서만 올리면 맥 dmg가 옛 버전 번호로 빌드됩니다.
-  4. GitHub Actions → `mac-probe` → Run workflow (`main`) → 아티팩트에서 dmg 2개(arm64·x64)를 받습니다.
-  5. 규칙이나 Functions 변경이 있으면 `firebase deploy`를 **먼저** 합니다 (4장).
-  6. `npm run release`: exe와 `latest.yml`이 GitHub Releases **초안**으로 올라갑니다.
-  7. 초안에 dmg 2개를 올리고 **Publish release**를 누릅니다. 이때부터 사용자에게 배포됩니다.
-  8. 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 RTDB `config/minRoomVer`를 새 버전 문자열로 바꿉니다 (콘솔에서 수동).
+     **버전은 반드시 커밋하고 push한 뒤에** 빌드로 갑니다. 로컬에서만 올리면 맥 dmg가 옛 버전 번호로 빌드됩니다.
+
+  **③ 빌드**
+  1. GitHub Actions → `mac-probe` → Run workflow (`main`) → 아티팩트에서 dmg 2개(arm64·x64)를 받습니다.
+  2. `npm run release`: exe와 `latest.yml`이 GitHub Releases **초안**으로 올라갑니다.
+  3. 초안에 dmg 2개를 올리고 **Publish release**를 누릅니다. 이때부터 사용자에게 배포됩니다.
+  4. 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 RTDB `config/minRoomVer`를 새 버전 문자열로 바꿉니다 (콘솔에서 수동).
 - 릴리스 본문에는 사용자용 변경 사항과, 규칙·Functions를 함께 배포했는지 적습니다.
 
 ---

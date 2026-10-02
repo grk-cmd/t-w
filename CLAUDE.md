@@ -46,13 +46,11 @@ npm run check        # 검사 전체 — 마지막 줄 «빨강 0» 이면 통�
 - 규칙 함정: 상위 `.write` 가 하위 삭제를 대신 받아 주는 곳이 있다(예: `rooms/$room` ↔ `_photo`). 삭제(null)에는 `.validate` 가 안 돈다. 권한이 거부된 `onValue` 구독은 재시도 없이 끊긴다.
 - 운영 DB 데이터를 대량으로 읽거나 고치기 전에는 몇 건·무엇을 읽는지 먼저 말하고 확인받는다.
 
-## 릴리스 순서
-1. `git pull --rebase` → `npm run check`
-2. `npm version patch -m "chore: %s"` → `git push --follow-tags` (버전은 **반드시 커밋**한다. 안 하면 맥 빌드 버전이 어긋난다)
-3. GitHub Actions → `mac-probe` → Run workflow(main) → dmg 2개 받기
-4. (규칙·Functions 변경이 있으면) `firebase deploy` 를 **먼저**
-5. `npm run release` → GitHub Releases 초안에 exe 업로드 → 초안에 dmg 추가 → **Publish**
-6. 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 RTDB `config/minRoomVer` 를 새 버전 문자열로 (콘솔에서 수동)
+## 릴리스 순서: ① 규칙 → ② 최신화 → ③ 빌드
+1. **규칙** (규칙·Functions 변경이 있을 때만): 커밋·push한 규칙 파일로 dev → 운영 순서로 `firebase deploy`. 아직 옛 앱을 쓰는 사용자의 쓰기를 막지 않는지 확인한다.
+2. **최신화**: `git pull --rebase` → `npm run check` → `npm version patch -m "chore: %s"` → `git push --follow-tags` (버전은 **반드시 커밋·push**. 안 하면 맥 빌드 버전이 어긋난다)
+3. **빌드**: GitHub Actions `mac-probe` 실행(main) → dmg 2개 받기 → `npm run release`(exe가 Releases 초안으로) → 초안에 dmg 추가 → **Publish**
+4. 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 RTDB `config/minRoomVer` 를 새 버전 문자열로 (콘솔에서 수동)
 
 ## 문서
 - `docs/GIT_CONVENTION.md` 커밋·브랜치·릴리스 규칙

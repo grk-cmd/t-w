@@ -1,0 +1,192 @@
+# ═══ 🚀 release — 버전 태그(v*) push 로 Windows · Mac 빌드 → GitHub Releases 초안 ═══════════
+# [2026-10-03] 릴리스 순서 «① 규칙 → ② 최신화 → ③ 빌드» 중 ③ 을 자동화한다.
+#   ② 최신화(사람):  npm version patch -m "chore: %s"  →  git push --follow-tags
+#   ③ 빌드(여기):    태그 push 가 트리거 → exe · dmg ×2 · latest.yml 을 **한 초안**에 올린다
+#   Publish(사람):   GitHub Releases 에서 초안 확인 → [Publish release]
+# ★ 왜 태그인가 — exe 와 dmg 가 **같은 커밋 · 같은 버전**으로 빌드된다. 예전엔 exe 는 개발자 PC(로컬 버전),
+#   dmg 는 mac-probe(main 의 버전)로 따로 만들어 0.10.0 릴리스에 0.9.8 dmg 가 올라간 일이 두 번 있었다.
+# ★ 초안까지만 만든다. 사용자에게 나가는 건 사람이 Publish 를 누를 때다.
+# ⚠️ Firebase 규칙 · Functions 배포는 아직 여기 없다(① 은 사람이 먼저). 다음 단계에서 승인 게이트와 함께 넣는다.
+# ⚠️ 서명하지 않는다 — mac-probe 와 같다(CSC_IDENTITY_AUTO_DISCOVERY=false). Windows 도 인증서가 없다.
+
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '다시 빌드할 태그 (예: v0.10.1) — 이미 있는 태그여야 한다'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  # ── 태그와 package.json 버전이 같은가 — 다르면 여기서 멈춘다(버전 어긋남을 원천 차단) ──
+  verify:
+    name: 버전 확인
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - id: v
+        name: 태그 = package.json 버전
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          echo "태그: $TAG · package.json: $PKG"
+          if [ "v$PKG" != "$TAG" ]; then
+            echo "::error::태그($TAG)와 package.json 버전(v$PKG)이 다르다 — npm version 으로 올리고 커밋한 뒤 태그를 달 것"
+            exit 1
+          fi
+          echo "version=$PKG" >> "$GITHUB_OUTPUT"
+      - name: 마지막 공개 릴리스보다 높은가
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 낮은 버전은 사용자 앱이 업데이트하지 않는다(electron-updater 는 올라가는 방향만 받는다).
+          LAST=$(gh release list -R "${{ github.repository }}" --exclude-drafts --exclude-pre-releases --limit 1 --json tagName -q '.[0].tagName')
+          echo "마지막 공개: ${LAST:-없음} · 이번: $TAG"
+          [ -z "$LAST" ] && exit 0
+          node -e '
+            const p = v => v.replace(/^v/, "").split(".").map(Number);
+            const [a, b] = [p(process.argv[1]), p(process.argv[2])];
+            for (let i = 0; i < 3; i++) { if (a[i] > b[i]) process.exit(0); if (a[i] < b[i]) break; }
+            console.error("::error::" + process.argv[1] + " 는 마지막 공개 릴리스 " + process.argv[2] + " 보다 높지 않다");
+            process.exit(1);
+          ' "$TAG" "$LAST"
+
+  # ── Windows: exe · blockmap · latest.yml (latest.yml 은 Windows 자동 업데이트가 읽는다) ──
+  build-win:
+    name: Windows x64
+    needs: verify
+    runs-on: windows-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: oauth-config.js 만들기
+        shell: bash
+        env:
+          OAUTH_CONFIG_JS: ${{ secrets.OAUTH_CONFIG_JS }}
+        run: |
+          if [ -z "$OAUTH_CONFIG_JS" ]; then echo "::error::OAUTH_CONFIG_JS 시크릿이 비어 있다"; exit 1; fi
+          printf '%s' "$OAUTH_CONFIG_JS" > oauth-config.js
+          node --check oauth-config.js
+      - run: npm ci
+      - name: electron-builder (win x64)
+        run: npx electron-builder --win --x64 --publish never
+      - name: 설정 파일이 asar 에 들어갔는가
+        shell: bash
+        run: |
+          npx --yes asar list dist/win-unpacked/resources/app.asar | grep -E "oauth-config.js|firebase-config.js" \
+            || { echo "::error::설정 파일이 asar 에 없다"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win
+          path: |
+            dist/*.exe
+            dist/*.exe.blockmap
+            dist/latest.yml
+          if-no-files-found: error
+          retention-days: 3
+
+  # ── Mac: arm64 · x64 따로 (mac-probe 와 같은 이유 — 한쪽이 죽어도 다른 쪽을 잃지 않게) ──
+  build-mac:
+    name: macOS ${{ matrix.arch }}
+    needs: verify
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, x64]
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: oauth-config.js 만들기
+        env:
+          OAUTH_CONFIG_JS: ${{ secrets.OAUTH_CONFIG_JS }}
+        run: |
+          if [ -z "$OAUTH_CONFIG_JS" ]; then echo "::error::OAUTH_CONFIG_JS 시크릿이 비어 있다"; exit 1; fi
+          printf '%s' "$OAUTH_CONFIG_JS" > oauth-config.js
+          node --check oauth-config.js
+      - run: npm ci
+      - name: icns 를 iconutil 로 다시 조립 (mac-probe ③ 과 같다)
+        run: iconutil -c icns build/icon.iconset -o build/icon.icns
+      - name: electron-builder (mac ${{ matrix.arch }})
+        run: npx electron-builder --mac --${{ matrix.arch }} --publish never
+      - name: 설정 파일이 asar 에 들어갔는가
+        run: |
+          APP=$(ls -d dist/mac*/*.app | head -n 1)
+          npx --yes asar list "$APP/Contents/Resources/app.asar" | grep -E "oauth-config.js|firebase-config.js" \
+            || { echo "::error::설정 파일이 asar 에 없다"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-${{ matrix.arch }}
+          path: dist/*.dmg
+          if-no-files-found: error
+          retention-days: 3
+
+  # ── 한 초안에 모아 올린다 (병렬 업로드로 초안이 둘 생기는 경쟁을 피하려고 마지막에 한 번) ──
+  publish-draft:
+    name: Releases 초안
+    needs: [verify, build-win, build-mac]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: 파일 이름 정리 · latest.yml 대조
+        working-directory: out
+        run: |
+          # GitHub 는 자산 이름의 공백을 '.' 로 바꾼다. 그런데 latest.yml 의 url 은 '-' 로 적힌다
+          # (예전 릴리스: Together-Working-Setup-0.10.0.exe). 공백을 '-' 로 맞춰야 자동 업데이트가 파일을 찾는다.
+          for f in *\ *; do [ -e "$f" ] && mv "$f" "${f// /-}"; done
+          ls -l
+          URL=$(grep -E '^\s*url:' latest.yml | head -n 1 | sed -E 's/^\s*url:\s*//')
+          echo "latest.yml url: $URL"
+          [ -f "$URL" ] || { echo "::error::latest.yml 이 가리키는 $URL 이 없다 — 자동 업데이트가 깨진다"; exit 1; }
+          grep -q "version: $VERSION" latest.yml || { echo "::error::latest.yml 버전이 $VERSION 이 아니다"; exit 1; }
+      - name: 초안 만들기 / 올리기
+        working-directory: out
+        run: |
+          REPO=${{ github.repository }}
+          if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
+            DRAFT=$(gh release view "$TAG" -R "$REPO" --json isDraft -q .isDraft)
+            if [ "$DRAFT" != "true" ]; then
+              echo "::error::$TAG 는 이미 공개된 릴리스다 — 공개본은 덮어쓰지 않는다"; exit 1
+            fi
+            gh release upload "$TAG" -R "$REPO" --clobber *
+          else
+            gh release create "$TAG" -R "$REPO" --draft --verify-tag --title "$VERSION" \
+              --notes "자동 빌드 초안 (커밋 ${GITHUB_SHA::7}). 확인 후 Publish 하세요." *
+          fi
+          gh release view "$TAG" -R "$REPO" --json assets -q '.assets[].name'
