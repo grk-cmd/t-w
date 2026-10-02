@@ -137,6 +137,14 @@ function stage(){
   const staged = new Set();
   mirror(ROOT, dir, staged);
   mirror(path.join(ROOT, 'app'), dir, staged);
+  /* 📊 [2026-10-03] functions/ 는 SKIP(node_modules 때문)이라 원본이 안 올라온다. **맨 위 .js 만** functions/ 로 옮겨 둔다
+     — 함수의 순수 로직을 검사하려는 것(sim-room-stats.js). 평면에 두면 index.js 같은 흔한 이름이 겹친다. */
+  const FN = path.join(ROOT, 'functions');
+  if (fs.existsSync(FN)){
+    fs.mkdirSync(path.join(dir, 'functions'), { recursive: true });
+    for (const e of fs.readdirSync(FN, { withFileTypes: true }))
+      if (e.isFile() && e.name.endsWith('.js')) fs.cpSync(path.join(FN, e.name), path.join(dir, 'functions', e.name));
+  }
   for (const e of fs.readdirSync(CHECKS, { withFileTypes: true })){
     /* ⚠️ 폴더는 건너뛴다. 재귀 옵션 없이 cpSync 에 폴더를 주면 던지고, 그러면
        **한 바퀴가 통째로 안 돈다.** 스테이징은 평면이어야 하므로 폴더는 애초에 대상이 아니다

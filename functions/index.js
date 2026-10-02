@@ -278,7 +278,9 @@ exports.countSlotsWindow = onSchedule({ schedule: '10 5 1 1 *', timeZone: 'Asia/
      ② lastSeen 이 10분 넘게 지난 줄을 지운다 — 방이 강제 종료·절전으로 끝나면 줄이 남아 쌓였다
         (실측 455줄 중 248줄). 옛 버전 앱은 계속 roomIndex 전체를 읽으므로 그 몫도 줄어든다.
    · 지우기는 줄마다 트랜잭션 — 읽은 뒤 누가 그 코드로 다시 들어와 lastSeen 을 고쳤으면 지우지 않는다.
-     하트비트는 lastSeen 만 다시 쓰므로, 살아 있는 줄을 잘못 지우면 channel·open 이 사라진다.
+   · 지운 방 사람들이 절전에서 깨어나면 하트비트가 줄을 다시 만든다. 이 판 앱은 그때 channel · open 도 같이 싣는다
+     (firebase-init.js _roomIndexKeep). 옛 판 앱은 { lastSeen } 만 써서 그 방은 워킹룸 · 랜덤 참여 아님으로 보인다 —
+     옛 판이 줄어들수록 사라지는 어긋남이다.
    · 앱은 roomStats 가 없거나 3분 넘게 낡았으면 예전처럼 roomIndex 를 직접 센다(배포 전·함수 장애 대비).
    · 정원 검사(방 만들기·빈 방 승격)는 roomStats 를 쓰지 않는다 — 1분 늦은 숫자로 정원을 넘기면 안 된다.
    · 비용: 1분에 roomIndex 한 번(약 24KB) — 하루 약 35MB. Cloud Scheduler 작업이 4개째라 월 $0.10. */

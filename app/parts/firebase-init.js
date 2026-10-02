@@ -347,7 +347,31 @@
     // 🔒 시크릿룸(후원자 전용 고정방)은 인덱스에 기록하지 않는다 — getRoomCounts가 인덱스를 세므로
     //    여기서 빠지는 것만으로 방 개수(정원)에 잡히지 않는다. 카운트 쪽에도 같은 가드가 한 겹 더 있다.
     if(String(room||'').indexOf('SCRT-') === 0) return;
-    try{ update(ref(db, `roomIndex/${room}`), Object.assign({ lastSeen: serverTimestamp() }, extra || {})); }catch(_){}
+    try{ update(ref(db, `roomIndex/${room}`), Object.assign({ lastSeen: serverTimestamp() }, _roomIndexKeep(room), extra || {})); }catch(_){}
+  }
+  /* 📊 [2026-10-03] 하트비트 · 재접속 · 유령 복구도 channel · open 을 같이 싣는다.
+     서버 함수 roomStats(functions/index.js)가 10분 넘게 조용한 roomIndex 줄을 지운다 — 방 사람들이 다 절전했다가
+     깨어나면 하트비트가 { lastSeen } 만으로 줄을 새로 만들어, 투게더룸이 워킹룸으로 세어지고(정원 검사 포함)
+     랜덤 참여 방이 후보에서 빠졌다. channel 과 open 을 쓰는 곳이 방을 열 때(setRoomChannel)뿐이었기 때문이다.
+     · channel — 지금 방의 _meta 구독 값(_roomMetaVal). 없으면(옛 방 · 메타 도착 전) 싣지 않는다.
+     · open    — roomIndex 에만 있는 값이라, 입장 때 그 한 칸을 읽어 두거나 setRoomChannel 이 쓴 값을 기억한다.
+                 ⚠️ 명시적 boolean 일 때만 싣는다(setRoomChannel 주석과 같은 이유). 업로드라 다운로드 요금은 그대로다. */
+  let _roomOpenMemo = { room: null, open: null };
+  function _roomIndexKeep(room){
+    const out = {};
+    if(room !== _roomCode) return out;   // 지금 있는 방이 아니면 아무것도 덧붙이지 않는다
+    const ch = _roomMetaVal && _roomMetaVal.channel;
+    if(ch === 'workingroom' || ch === 'togetherroom') out.channel = ch;
+    if(_roomOpenMemo.room === room && (_roomOpenMemo.open === true || _roomOpenMemo.open === false)) out.open = _roomOpenMemo.open;
+    return out;
+  }
+  function _rememberRoomOpen(room){
+    if(_roomOpenMemo.room === room) return;   // setRoomChannel 이 먼저 기억했다 — 그 값이 더 새롭다
+    get(ref(db, `roomIndex/${room}/open`)).then(s => {
+      if(_roomCode !== room || _roomOpenMemo.room === room) return;
+      const v = s.val();
+      if(v === true || v === false) _roomOpenMemo = { room, open: v };
+    }).catch(()=>{});
   }
   /* 👻 방 «유령» 복구 — 구조와 이유는 room-ghost-heal.js 에 있다. 여기서는 이 파일의 방 상태를 넘겨 주기만 한다.
      🚧 TODO(임시 처리): 사라진 뒤 되살리는 응급 처치다. 근본 해결(연결마다 다른 멤버 자리)은 room-ghost-heal.js 머리말 참고.
@@ -2075,6 +2099,7 @@
         defBytes: JSON.stringify(_myMemberData.def==null?'':_myMemberData.def).length };
         console.log('[def-diag] 입장 — 노드 '+window._defDiag.memberBytes+'B (그중 def '+window._defDiag.defBytes+'B)'); }catch(_){}
       _touchRoomIndex(room);   // 💰 카운트용 요약 노드 갱신 — getRoomCounts가 rooms 전체 대신 이걸 읽음
+      _rememberRoomOpen(room); // 📊 줄이 정리됐다 되살아날 때 open 을 다시 싣도록 한 칸(수 바이트)만 읽어 둔다
       // 🧹 이전 세션/chatLog 정리는 아래 방 리스너의 "첫 스냅샷"에서 수행 —
       //   💰 예전엔 여기서 방 전체를 한 번 더 get()했는데(입장마다 전체 다운로드 1회 추가),
       //   리스너 초기 동기화가 어차피 같은 데이터를 통째로 받으므로 그 스냅샷을 재사용한다.
@@ -2402,6 +2427,7 @@
       //   끝나기 전에 네트워크상 이미 날아오던 스냅샷을 받아도, 이 값들이 먼저 바뀌어 있어서 그 콜백 안의
       //   가드(_roomCode!==room / _memberId!==memberId)가 즉시 걸러줌.
       _roomRef=null; _roomQuery=null; _roomListener=null; _roomMetaRef=null; _roomMetaCb=null; _roomMetaVal=null; _roomLastFriends=null;
+      _roomOpenMemo = { room: null, open: null };   // 📊 다시 들어오면 그때의 값을 새로 읽는다
       _myMemberRef=null; _myPokeRef=null; _myPokeListener=null; _memberId=null; _roomCode=null;
       _syncPresenceRoom(null);   // 방에서 나가면 친구 목록의 방코드 배지도 제거
       return done;
@@ -2507,7 +2533,7 @@
         if(hostUserId) meta.host = hostUserId;   // ★ 방장 = 방을 만든 사람의 userId(사람 고정값 — 재접속해도 동일)
         await update(ref(db, `rooms/${room}/_meta`), meta);
         const extra = { channel: channel||'workingroom' };
-        if(open === true || open === false) extra.open = open;
+이        if(open === true || open === false){ extra.open = open; _roomOpenMemo = { room, open }; }
         _touchRoomIndex(room, extra);   // 💰 채널별 카운트가 인덱스만 읽으면 되게
       }catch(_){}
     },
