@@ -14,6 +14,20 @@ const { autoUpdater } = require('electron-updater');
    ⚠️ asar 안에서도 읽힌다(일렉트론이 asar 경로를 처리). 경로만 맞으면 개발/설치본 둘 다 동작. */
 const APP_ICON = path.join(__dirname, 'app', 'assets', 'icon', 'tw-icon.ico');
 
+/* 🔀 [2026-10-03] Firebase 실행 환경 스위치 — `npm run start:dev` 로 띄우면 렌더러가 dev Firebase(together-working-dev)에 붙는다.
+   운영 데이터를 건드리지 않고 로컬에서 로그인·방·규칙을 확인하려는 것. 예전엔 firebase-config.js 를 손으로 바꿨다가
+   되돌려야 했고, 잊고 커밋하면 정식 빌드가 dev 에 붙는 사고가 났다.
+   ★ 설치본(app.isPackaged)은 실행 인자·환경변수를 **무시**하고, 빌드 때 package.json 에 박힌 `twFirebase` 만 본다.
+     정식 빌드에는 이 값이 없어서 늘 운영이다. 프리릴리스(-beta) 빌드만 release.yml 이 `--config.extraMetadata.twFirebase=dev` 로 박는다.
+   전달: preload 가 시작할 때 ipcRenderer.sendSync('companion:firebaseEnv') 로 묻는다 → companion.firebaseEnv → firebase-config.js
+   ⚠️ webPreferences.additionalArguments 로 넘기지 말 것 — 이 앱의 투명 · 프레임 없는 창(Electron 44)에서 창이 화면에 안 올라왔다(2026-10-03 실측). */
+ipcMain.on('companion:firebaseEnv', (e) => { e.returnValue = FIREBASE_ENV; });
+const FIREBASE_ENV = app.isPackaged
+  ? (_pkgFirebaseEnv() === 'dev' ? 'dev' : 'prod')                                      // 설치본: 빌드 때 박은 표시만 본다(release.yml 프리릴리스)
+  : ((process.argv.includes('--tw-firebase=dev') || process.env.TW_FIREBASE === 'dev') ? 'dev' : 'prod');   // 개발 실행: npm run start:dev
+function _pkgFirebaseEnv(){ try{ return require('./package.json').twFirebase || null; }catch(_){ return null; } }
+if(FIREBASE_ENV === 'dev') console.log('[firebase-env] 🔀 dev Firebase(together-working-dev)로 실행한다');
+
 // 투명 창 지원 활성화 (이건 가벼움 — GPU 합성은 유지해서 렉 없음)
 app.commandLine.appendSwitch('enable-transparent-visuals');
 /* ★★ 동영상(유튜브·넷플릭스) 위에 캐릭터가 겹치면 그 영역이 검게 나오는 문제 대응.
@@ -3195,7 +3209,7 @@ function createWindow() {
      ⚠️ **알파만** 다룬다. 갭(overlayBottomGap)은 절대 건드리지 않는다 — 이유는 loadSettings 주석.
      ⚠️ 이 토글은 **성공하면 지운다.** 레이어드 알파가 실기기에서 효과가 확인되면 기본 동작으로
        올리고 이 통로와 UI 를 함께 걷어낼 것. 한 번 내보낸 토글은 켜 둔 사용자가 생겨서
-       나중에 지우기 어려워진다 — 폐기된 🧪 실험실 칸이 정확히 그 이유로 위험해졌다. */
+       나중에 지우기 어려워진다 — 폐기된 🔀 실험실 칸이 정확히 그 이유로 위험해졌다. */
   ipcMain.handle('companion:getLabVideo', () => {
     return { on: overlay.alpha() > 0 && overlay.alpha() < 255, alpha: overlay.alpha() };
   });

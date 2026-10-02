@@ -96,6 +96,31 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 
 ---
 
+## 5-1. 테스트 빌드 (dev 서버에 붙는 앱)
+
+정식 배포 전에 내부에서 먼저 써 볼 때 씁니다. 버전에 `-beta.N` 꼬리를 붙이면 됩니다.
+
+```bash
+npm version prerelease --preid=beta -m "chore: %s"   # 0.10.1 → 0.10.2-beta.0 (다시 하면 -beta.1, -beta.2 …)
+git push --follow-tags
+```
+
+| | 테스트 빌드 (`v0.10.2-beta.0`) | 정식 빌드 (`v0.10.2`) |
+|---|---|---|
+| 앱이 접속하는 Firebase | **dev (`together-working-dev`)** | 운영 (`together-working`) |
+| 운영 규칙 배포 | 하지 않음 | 규칙이 바뀌었으면 승인 후 배포 |
+| Releases 표시 | **Pre-release** | Latest |
+| 일반 사용자 자동 업데이트 | **받지 않음** | 받음 |
+| 설치 | 내부 사람이 Releases 페이지에서 직접 받음 | 자동 |
+
+- 빌드할 때 `package.json`에 `twFirebase: dev` 표시가 들어가고, 앱이 그걸 보고 dev 설정을 고릅니다. 운영·dev 설정은 둘 다 `app/parts/firebase-config.js`에 있습니다.
+- **내 PC에서 dev로 실행**: `npm run start:dev` (설치본에는 영향 없음)
+- 테스트가 끝나면 `npm version patch`로 정식 버전을 냅니다(`0.10.2-beta.N` → `0.10.2`).
+- dev 서버에서 **안 되는 기능**: 비밀번호 변경(Cloud Functions 없음), 폰 연결 QR(운영 호스팅 주소 고정). 구글 로그인은 dev 콘솔에서 허용 설정을 해야 됩니다.
+- dev DB는 운영과 **데이터가 분리**돼 있습니다. 계정도 따로 가입해야 하고, 카탈로그(파츠·책상·아이템)는 운영에서 복사해 둬야 보입니다.
+
+---
+
 ## 6. 문제가 생겼을 때
 
 | 상황 | 해결 |
