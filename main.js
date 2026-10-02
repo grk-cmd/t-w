@@ -19,7 +19,9 @@ const APP_ICON = path.join(__dirname, 'app', 'assets', 'icon', 'tw-icon.ico');
    되돌려야 했고, 잊고 커밋하면 정식 빌드가 dev 에 붙는 사고가 났다.
    ★ 설치본(app.isPackaged)은 실행 인자·환경변수를 **무시**하고, 빌드 때 package.json 에 박힌 `twFirebase` 만 본다.
      정식 빌드에는 이 값이 없어서 늘 운영이다. 프리릴리스(-beta) 빌드만 release.yml 이 `--config.extraMetadata.twFirebase=dev` 로 박는다.
-   전달: webPreferences.additionalArguments → preload 의 process.argv → companion.firebaseEnv → firebase-config.js */
+   전달: preload 가 시작할 때 ipcRenderer.sendSync('companion:firebaseEnv') 로 묻는다 → companion.firebaseEnv → firebase-config.js
+   ⚠️ webPreferences.additionalArguments 로 넘기지 말 것 — 이 앱의 투명 · 프레임 없는 창(Electron 44)에서 창이 화면에 안 올라왔다(2026-10-03 실측). */
+ipcMain.on('companion:firebaseEnv', (e) => { e.returnValue = FIREBASE_ENV; });
 const FIREBASE_ENV = app.isPackaged
   ? (_pkgFirebaseEnv() === 'dev' ? 'dev' : 'prod')                                      // 설치본: 빌드 때 박은 표시만 본다(release.yml 프리릴리스)
   : ((process.argv.includes('--tw-firebase=dev') || process.env.TW_FIREBASE === 'dev') ? 'dev' : 'prod');   // 개발 실행: npm run start:dev
@@ -1715,7 +1717,6 @@ function createWindow() {
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.js'),
       backgroundThrottling: false,   // 창이 뒤로 가도 렌더링 계속 (흰 화면/멈춤 방지)
-      additionalArguments: ['--tw-firebase=' + FIREBASE_ENV],   // 🔀 preload 가 읽어 companion.firebaseEnv 로 내보낸다
     }
   });
 

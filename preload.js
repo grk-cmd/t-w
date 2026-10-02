@@ -1,8 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-/* 🔀 Firebase 실행 환경 — main.js 가 additionalArguments 로 넘긴 값. 'dev' 가 아니면 전부 운영으로 본다(설치본은 늘 'prod'). */
-const _argv = (typeof process !== 'undefined' && Array.isArray(process.argv)) ? process.argv : [];   // process 가 없는 환경(검사 하네스)에서도 운영으로
-const FIREBASE_ENV = (_argv.find(a => a.startsWith('--tw-firebase=')) || '').split('=')[1] === 'dev' ? 'dev' : 'prod';
+/* 🔀 Firebase 실행 환경 — main.js 에 한 번 묻는다(동기 · 부팅 때 한 번). 'dev' 가 아니면 전부 운영(설치본은 늘 'prod').
+   묻지 못하면(검사 하네스 · 메인 핸들러 없음) 운영으로 본다. */
+const FIREBASE_ENV = (() => { try{ return ipcRenderer.sendSync('companion:firebaseEnv') === 'dev' ? 'dev' : 'prod'; }catch(_){ return 'prod'; } })();
 
 contextBridge.exposeInMainWorld('companion', {
   // 🔀 firebase-config.js 가 이 값으로 운영 / dev 설정을 고른다. 값이라 함수가 아니다.
