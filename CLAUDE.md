@@ -17,24 +17,28 @@
 | `main.js` · `preload.js` | Electron 메인 프로세스, IPC(`window.companion`) |
 | `overlay-{win,mac}.js` · `sysinput-{win,mac}.js` | 플랫폼 모듈. 두 파일은 **export 이름이 같아야** 한다 |
 | `app/desk-companion-prototype.html` | 렌더러 진입 HTML (CSP 정의) |
-| `app/parts/app.js` | 렌더러 본체 (~43k줄, 전역 스코프). `/* ═══ 제목 ═══ */` 구역으로 나뉜다 |
+| `app/parts/app.js` | 렌더러 본체 (~45k줄, 전역 스코프). `/* ═══ 제목 ═══ */` 구역으로 나뉜다 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
+| `app/parts/room-*.js` · `invite-account.js` | 도메인 모듈 — `createXxx(deps)` 로 필요한 함수 · 상태를 받는다(Firebase 직접 import 없음). `firebase-init.js` 는 연결만 |
 | `firebase-database-rules.json` | **Realtime Database 보안 규칙 — 서버 쪽 검증의 전부** |
-| `functions/` | Cloud Functions (비밀번호 변경, 예약 정리 작업) |
+| `functions/` | Cloud Functions (비밀번호 변경, 휴지통 청소, 방 개수 집계 `room-stats.js`). **자동 배포 대상이 아니다** |
 | `hosting/` | Firebase Hosting (폰 연결 안내 페이지) |
 | `checks/` | 자체 검사 (`sim-*.js` · `audit.py` · `run.js` 러너 · `CHECKS.md` 정본 표) |
-| `.github/workflows/` | `checks.yml`(push·PR 마다 검사) · `mac-probe.yml`(맥 빌드, 수동) |
+| `.github/workflows/` | `checks.yml`(push·PR 마다 검사) · `deploy-dev.yml`(규칙 → dev) · `release.yml`(버전 태그 → 빌드 · 릴리스 초안) · `min-room-ver.yml` · `mac-probe.yml`(맥 빌드, 수동) |
 
 ## 명령
 ```bash
 npm install          # 의존성 (postinstall 로 node-window-manager 패치)
-npm start            # 앱 실행
+npm start            # 앱 실행 (운영 Firebase)
+npm run start:dev    # dev Firebase(together-working-dev)로 실행 — 테스트는 이걸로
 npm run check        # 검사 전체 — 마지막 줄 «빨강 0» 이면 통과. 첫 바퀴의 ✗ 는 다음 바퀴에서 통과하면 정상
 ```
 
 ## 코드 컨벤션
-- 순수 JS, 번들러·TS 없음. `const` 위주, 4칸 들여쓰기, 작은따옴표, 세미콜론.
-- 주석은 한국어로, 주변 코드만큼 촘촘하게. 바꾼 이유를 `[날짜]` 와 함께 남긴다.
+- 순수 JS, 번들러·TS 없음. `const` 위주, 2칸 들여쓰기, 작은따옴표, 세미콜론. 앱 쪽은 `if(`, `functions/` 는 `if (`.
+- 새 로직은 `firebase-init.js` · `app.js` 에 쌓지 말고 도메인 모듈 파일로 만든다(위 구조 표). 모듈마다 검사(`sim-*.js`)를 붙인다.
+- 주석은 한국어로, **코드만 봐서는 모를 이유**만 짧게. 변경 이력 · 날짜 · 실측치는 커밋 메시지와 PR 에 적고, 이모지 꼬리표는 쓰지 않는다. 할 일은 `TODO:`.
+- 여러 곳에서 쓰는 값(채널 이름, 접두사 등)은 상수로 둔다.
 - localStorage 키는 `tw.` 접두사.
 - 서버 데이터는 **Firebase Realtime Database**(JSON 트리). 요금은 **내려받은 바이트**로 나온다 —
   노드를 통째로 `get`/`onValue` 하지 말고 필요한 하위 경로만 읽는다. 반복 폴링·부팅마다 전체 받기를 새로 만들지 않는다.
@@ -47,11 +51,11 @@ npm run check        # 검사 전체 — 마지막 줄 «빨강 0» 이면 통�
 - 자동화(GitHub Actions): `main` 에 규칙이 바뀌어 push 되면 `deploy-dev.yml` 이 **dev 에 자동 반영**, 버전 태그 push 때 `release.yml` 이 규칙이 바뀌었으면 **운영 배포(production 환경 승인 필요)** → 앱 빌드. `config/minRoomVer` 는 `min-room-ver.yml` 수동 실행(승인 필요). 릴리스 절차는 `docs/RELEASE.md`.
 - 운영 DB 데이터를 대량으로 읽거나 고치기 전에는 몇 건·무엇을 읽는지 먼저 말하고 확인받는다.
 
-## 릴리스 순서: ① 규칙 → ② 최신화 → ③ 빌드
-1. **규칙** (규칙·Functions 변경이 있을 때만): 커밋·push한 규칙 파일로 dev → 운영 순서로 `firebase deploy`. 아직 옛 앱을 쓰는 사용자의 쓰기를 막지 않는지 확인한다.
-2. **최신화**: `git pull --rebase` → `npm run check` → `npm version patch -m "chore: %s"` → `git push --follow-tags` (버전은 **반드시 커밋·push**. 안 하면 맥 빌드 버전이 어긋난다)
-3. **빌드**: GitHub Actions `mac-probe` 실행(main) → dmg 2개 받기 → `npm run release`(exe가 Releases 초안으로) → 초안에 dmg 추가 → **Publish**
-4. 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 RTDB `config/minRoomVer` 를 새 버전 문자열로 (콘솔에서 수동)
+## 릴리스 순서: ① 서버 → ② 버전 태그 → ③ Publish
+1. **서버** (바뀐 것만): 함수는 자동 배포가 없으니 `firebase deploy --only functions:<이름> --project together-working` 을 앱 릴리스 **전에** 직접. 규칙은 태그 때 `release.yml` 이 승인을 받아 배포한다(GitHub Environments · 변수 설정 전이면 직접). 옛 앱이 깨지지 않는지 확인한다.
+2. **버전 태그**: main 에서 `git pull --rebase` → `npm run check` → `npm version patch -m "chore: %s"` → `git push --follow-tags`. 태그가 올라가면 `release.yml` 이 Windows · Mac 빌드 → Releases 초안까지 자동. 테스트 빌드는 `npm version prerelease --preid=beta`(dev 에 붙고 일반 사용자에겐 안 감).
+3. **Publish**: Releases 초안의 파일 5개(exe · blockmap · latest.yml · dmg 2개) 버전을 확인하고 Publish.
+4. 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 `min-room-ver.yml` 로 `config/minRoomVer` 를 올린다(승인 필요). 자세한 절차는 `docs/RELEASE.md`.
 
 ## 문서
 - `docs/GIT_CONVENTION.md` 커밋·브랜치·릴리스 규칙
