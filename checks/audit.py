@@ -392,6 +392,20 @@ for _n, _c in sorted(_gets.items()):
     elif _c > _b:
         problems.append(f'검사9: "{_n}" 전체 get()이 {_b}→{_c}곳으로 늘어남 — 새 호출부가 반복 실행되는지 확인')
         print(f'  ⚠️ 전체 get 증가: {_n} {_b}→{_c}'); ok9 = False
+# (c) 한 단계 아래 노드 통째 읽기 — users/{uid} · rooms/{code} 처럼 «한 사람 · 한 방» 전체를 get/onValue.
+#   최상위 검사(a)(b)는 이걸 못 본다. users/{uid} 는 캐릭터 · 슬롯이 들어오며 평균 22KB(큰 사람은 MB)가 됐고,
+#   런처마다 통째로 읽던 한 줄이 운영 다운로드의 27%였다(2026-10-03). 기준선보다 늘면 경보 — 필요한 하위 경로만 읽을 것.
+#   users 1곳 = invite-account.js 의 폴백(shallow 실패 때만). rooms 2곳 = 정원 · 생존 확인의 폴백.
+_BASELINE_GET1 = {'accountSnap': 1, 'authUsers': 2, 'bookmarks': 1, 'bookmarksPub': 1, 'catalog': 1, 'friendCodes': 1,
+                  'inbox': 1, 'licenseRequests': 1, 'licenses': 2, 'rooms': 2, 'sentFriendRequests': 1, 'userAuth': 2, 'users': 1}
+_gets1 = {}
+for _mm in re.finditer(r"(?:get|onValue)\(ref\(db,\s*`([A-Za-z]+)/\$\{[^}`]+\}`\)", html_code):
+    _gets1[_mm.group(1)] = _gets1.get(_mm.group(1), 0) + 1
+for _n, _c in sorted(_gets1.items()):
+    _b = _BASELINE_GET1.get(_n)
+    if _b is None or _c > _b:
+        problems.append(f'검사9: "{_n}/{{id}}" 통째 읽기가 {_b or 0}→{_c}곳 — 한 항목 전체가 정말 필요한지, 하위 경로만 읽을 수 없는지 확인')
+        print(f'  ⚠️ 한 단계 아래 통째 읽기 증가: {_n}/{{id}} {_b or 0}→{_c}'); ok9 = False
 if ok9:
     print('  통과 ✅ (전체 구독 없음 · 전체 get 기준선 이내)')
 
