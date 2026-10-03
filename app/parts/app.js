@@ -26543,7 +26543,7 @@ function _setDeskMatColor(m, color){
 }
 
 /* ===== 관리자 모드 =====
-   진입: Ctrl 누른 채로 "캐릭터 생성" 버튼을 3초 안에 5번 연타 → 비밀번호 prompt
+   진입: Ctrl(Mac 은 ⌘) 누른 채로 후원 · 캐릭터 생성 · 꾸미기 · 광고배너 중 하나를 한 번 클릭 → 비밀번호 창(bindAdminTrigger)
    비밀번호: 입력값의 SHA-256 을 ADMIN_PASS_HASH 와 비교한다.
    TODO: 비밀번호 교체. 비밀번호 대신 로그인 계정의 admins 등록 여부로 여는 방식 검토.
    세션 단위로만 유지 (브라우저 닫으면 자동 해제). 우상단에 🔧 배지 표시, 클릭하면 종료.
@@ -27805,9 +27805,11 @@ function refreshAdminVisibility(){
    ★ 캐릭터 생성 버튼이 비활성화(슬롯 꽉 참)되면 클릭 이벤트 자체가 안 나가므로, 항상 클릭
      가능한 후원 버튼·광고배너도 함께 받는다. */
 (function bindAdminTrigger(){
+  // Windows 에서 metaKey 는 Win 키다. Win 키와 같이 누른 클릭으로 열리지 않게 Meta 는 Mac 에서만 받는다.
+  const isMac = /Mac/i.test(navigator.platform || '');
   document.addEventListener('click', e=>{
     if(isAdmin) return;
-    if(!(e.ctrlKey || e.metaKey)) return;                 // Mac 은 Meta
+    if(!(e.ctrlKey || (isMac && e.metaKey))) return;
     const target = e.target.closest && (e.target.closest('#lcDonateBtn') || e.target.closest('#lcCreate') || e.target.closest('#myWardrobeBtn') || e.target.closest('#lcAdBanner'));
     if(!target) return;
     e.preventDefault();

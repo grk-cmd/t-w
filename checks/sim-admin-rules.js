@@ -98,7 +98,8 @@ console.log('\n── 5. 관리자 모드 진입 — 화면과 실제 권한이 
       '권한 판정에 앱 자체 id(getMyUserId)를 쓰지 않는다');
 
   chk(!/clicks\.length >= 5/.test(trigger), '5연타 조건이 사라졌다');
-  chk(/e\.ctrlKey \|\| e\.metaKey/.test(trigger), 'Ctrl(또는 Meta) + 클릭 한 번으로 연다');
+  chk(/e\.ctrlKey \|\| \(isMac && e\.metaKey\)/.test(trigger) && /const isMac = \/Mac\/i\.test\(navigator\.platform/.test(trigger),
+      'Ctrl + 클릭 한 번으로 연다 (Meta 는 Mac ⌘ 만 — Windows Win 키로는 안 열림)');
   chk(/e\.preventDefault\(\)/.test(trigger) && /e\.stopPropagation\(\)/.test(trigger),
       '그 클릭의 원래 동작(생성창·꾸미기)은 막는다');
 
