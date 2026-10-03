@@ -1,7 +1,6 @@
 /* ═══ 🔐 functions/index.js — Together Working Cloud Functions ═══════════════════════════════
    [회원가입 설계 §4 (가) · §7-C2 · 개정 14] 비밀번호 바꾸기 함수.
    [설계 결정 10 · 개정 18 · CHECKS 개정 50] 휴지통 청소 예약 함수 — 아래 cleanTrash.
-   [설계 §9-12 · 개정 23 · CHECKS 개정 55] 계정 스냅샷 옮기기 **일회용** 함수 — 아래 moveAccountSnap(확인 뒤 걷는다).
    [설계 §5-N+1 · 개정 26 · CHECKS 개정 58] 이관 창 재기 **읽기만 · 일회용** 함수 — 아래 countSlotsWindow(N+1 배포 뒤 걷는다).
    roomStats · roomStatsOnOpen · roomStatsOnClose — 열린 방 개수 요약(1분마다 · 방이 열리고 닫힐 때). 로직은 room-stats.js.
 
@@ -140,75 +139,6 @@ exports.cleanTrash = onSchedule({ schedule: 'every day 04:00', timeZone: 'Asia/S
   async () => {
     const { getDatabase } = require('firebase-admin/database');   // 늦게 읽기 — 위 ⚠️
     await runCleanTrash(getDatabase(), Date.now());
-  });
-
-
-/* ═══ 🔐 moveAccountSnap — 계정 스냅샷 옮기기 · **일회용** (설계 §9-12 · 개정 23 · CHECKS 개정 55) ═══════════════
-   users/{uid}/transferData(공개 읽기 — 라이선스 키가 보였다) → accountSnap/{uid}(주인만).
-   · 앱(firebase-init setAccountSnapshot · fetchAccountSnapshot)도 들어오는 사람 것은 스스로 옮긴다. 이 함수는
-     **안 들어오는 사람 몫**이다 — 그 사람들의 라이선스 키가 공개 자리에 계속 남지 않게.
-   · 결속된 uid(userAuth/{uid} 있음): accountSnap 이 없거나 더 오래됐으면 옮기고, 옛 자리를 지운다 — **한 번의 update**(원자적).
-     accountSnap 이 같거나 더 새것이면 옛 자리만 지운다.
-   · 결속 안 된 uid: **지우기만** — 지금 앱은 로그인에 결속을 요구해서 그 값을 읽을 길이 없다(값은 그 기기 로컬에 있다).
-   · 객체가 아닌 transferData 는 지우지 않고 센다(cleanTrash 와 같은 태도).
-   · 스냅샷 내용(라이선스·이름)은 로그에 남기지 않는다. 몇 개인지만.
-   · 순서: 규칙 게시(accountSnap · transferData 지우기만 · licenses 잠금) → 앱 배포 → **이 함수 배포 → Scheduler 강제 실행**
-     (firebase-schedule-moveAccountSnap-asia-southeast1) → 로그 moved·deleted 확인 → 한 번 더 실행해 left 0 → 다음 배포에서 이 블록을 걷는다.
-   · 일정은 1월 1일 05:00 — 저절로 돌 일은 거의 없다(돌아도 멱등). 강제 실행으로만 쓴다. */
-function snapClean(s, ts){
-  // ★ firebase-init.js _acctSnapClean 과 같은 규칙(규칙 파일 accountSnap 과 같은 범위).
-  s = s || {};
-  const str = (v, n) => (typeof v === 'string' && v && v.length <= n) ? v : null;
-  const f = Number(s.focusTotalSec);
-  return {
-    license: str(s.license, 40),
-    focusTotalSec: (s.focusTotalSec != null && Number.isFinite(f) && f >= 0 && f <= 359640000) ? f : null,
-    name: (typeof s.name === 'string' && s.name) ? s.name.slice(0, 40) : null,
-    friendCode: str(s.friendCode, 12),
-    ts: Number.isFinite(ts) ? ts : Date.now()
-  };
-}
-
-/* 순수 — 한 사람 몫의 패치. bound = userAuth 에 있는가 · cur = 지금 accountSnap 값. ★ 따로 export 하지 않는다(cleanTrash 와 같은 이유). */
-function snapMovePatch(uid, old, bound, cur, now){
-  if (old == null) return { kind: 'none', patch: null };
-  if (typeof old !== 'object') return { kind: 'odd', patch: null };
-  const patch = {}; patch['users/' + uid + '/transferData'] = null;
-  if (!bound) return { kind: 'deleted', patch };
-  const oldTs = Number.isFinite(old.ts) ? old.ts : 0;
-  const curTs = cur && Number.isFinite(cur.ts) ? cur.ts : -1;
-  if (curTs >= oldTs) return { kind: 'deleted', patch };
-  patch['accountSnap/' + uid] = snapClean(old, oldTs || now);
-  return { kind: 'moved', patch };
-}
-
-async function runMoveAccountSnap(db, now){
-  const { ids, via } = await listUserIds(db);
-  const ua = (await db.ref('userAuth').get()).val() || {};
-  let moved = 0, deleted = 0, odd = 0, failed = 0, none = 0;
-  for (const uid of ids){
-    if (typeof uid !== 'string' || !uid || /[.#$\[\]\/]/.test(uid)) continue;
-    let old;
-    try{ old = (await db.ref('users/' + uid + '/transferData').get()).val(); }
-    catch(e){ failed++; continue; }
-    if (old == null){ none++; continue; }
-    const bound = typeof ua[uid] === 'string' && !!ua[uid];
-    let cur = null;
-    if (bound){ try{ cur = (await db.ref('accountSnap/' + uid).get()).val(); }catch(e){ failed++; continue; } }
-    const r = snapMovePatch(uid, old, bound, cur, now);
-    if (r.kind === 'odd'){ odd++; continue; }
-    try{ await db.ref().update(r.patch); if (r.kind === 'moved') moved++; else deleted++; }
-    catch(e){ failed++; console.warn('[moveAccountSnap] 실패', uid, String(e && e.message || e)); }
-  }
-  const sum = { via, scanned: ids.length, moved, deleted, odd, failed, left: odd + failed };
-  console.log('[moveAccountSnap]', JSON.stringify(sum));
-  return sum;
-}
-
-exports.moveAccountSnap = onSchedule({ schedule: '0 5 1 1 *', timeZone: 'Asia/Seoul', timeoutSeconds: 540, retryCount: 0 },
-  async () => {
-    const { getDatabase } = require('firebase-admin/database');   // 늦게 읽기 — 맨 위 ⚠️
-    await runMoveAccountSnap(getDatabase(), Date.now());
   });
 
 

@@ -558,12 +558,7 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
       w = await t.api.setAccountSnapshot('U6', { license: 'x' });
       chk(w.ok === false, '  거절되면 ok:false — 던지지 않는다');
       chk((await t.api.setAccountSnapshot('', { license: 'x' })).ok === false && (await t.api.setAccountSnapshot('U7', null)).ok === false, '  코드나 값이 없으면 쓰지 않는다');
-      /* ⑥ 함수(functions/index.js moveAccountSnap)와 규칙이 같다 — 떼어 비교(파일이 스테이징에 없으면 건너뜀) */
-      let IDX = null; for (const p of ['functions/index.js', '../functions/index.js', 'index.js']) { try { const t2 = fs.readFileSync(p, 'utf8'); if (/moveAccountSnap/.test(t2)) { IDX = t2; break; } } catch (_) {} }
-      if (IDX){
-        const norm = x => String(x || '').replace(/\/\/.*$/mg, '').replace(/\s+/g, ' ').replace(/^.*?const str/, 'const str').replace(/\}\s*$/, '');
-        chk(norm(grabM(IDX, 'function snapClean(')) === norm(fClean), '  함수 snapClean = 앱 _acctSnapClean (같은 규칙)');
-      } else say('  (functions/index.js 없음 — 함수 쪽 비교는 세션에서 떼어 돌린다)');
+      /* ⑥ (걷음) 일회용 함수 moveAccountSnap 의 snapClean 비교 — 함수는 할 일을 마치고 걷었다(2026-10-03). */
       /* ⑦ 부르는 쪽 — app.js 는 여전히 두 함수만 부르고, transferData 를 직접 만지지 않는다 */
       const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
       chk(!/transferData|accountSnap/.test(CODE), '  app.js 코드는 스냅샷 자리를 직접 만지지 않는다 (통로 두 함수뿐)');

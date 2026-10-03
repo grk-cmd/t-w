@@ -387,8 +387,7 @@
   }
 
   /* 🔐 계정 스냅샷 한 벌을 accountSnap 규칙 모양으로 — 범위 밖 항목은 **그 항목만** 뺀다(null = 쓰지 않음).
-     규칙(firebase-database-rules.json accountSnap)과 같은 값: license ≤40 · focusTotalSec 0..359640000 · name ≤40 · friendCode ≤12 · ts 숫자 · 그 밖 거절.
-     ★ functions/index.js 의 snapClean 과 **같은 규칙**이다 — 한쪽만 바꾸면 이관한 것과 앱이 쓴 것이 달라진다. */
+     규칙(firebase-database-rules.json accountSnap)과 같은 값: license ≤40 · focusTotalSec 0..359640000 · name ≤40 · friendCode ≤12 · ts 숫자 · 그 밖 거절. */
   function _acctSnapClean(snap, ts){
     const s = snap || {};
     const str = (v, n) => (typeof v === 'string' && v && v.length <= n) ? v : null;
@@ -3938,7 +3937,7 @@
          예전 자리 users/{uid}/transferData 는 `users/$userId .read:true` 아래라 라이선스 키가 누구에게나 읽혔다
          (RTDB 는 아래 가지에서 읽기를 거둘 수 없다). 규칙은 그 자리를 이제 **지우기만** 받는다.
          옮기는 길은 둘: ① 여기(쓸 때 옛 자리를 같이 지움 · 읽을 때 옛 것만 있으면 옮기고 지움)
-                        ② 일회용 함수 moveAccountSnap(functions/index.js — 안 들어오는 사람 몫).
+                        ② 일회용 함수 moveAccountSnap 이 안 들어오는 사람 몫을 옮겼다(2026-09-22 left 0 확인 뒤 걷음).
        ⚠️ 새 자리는 결속된 코드만 쓴다(userAuth/{코드} === 내 authUid). 부르는 셋(가입 끝 · 구글 첫 결속 · 부팅)은 다 결속 뒤다.
        ⚠️ 값이 규칙 범위를 벗어나면 그 항목만 뺀다 — 하나가 틀려 통째로 거절되면 라이선스까지 못 남긴다. */
     async setAccountSnapshot(userCode, snap){
@@ -3970,7 +3969,7 @@
               [`accountSnap/${userCode}`]: _acctSnapClean(old, Number.isFinite(old.ts) ? old.ts : Date.now()),
               [`users/${userCode}/transferData`]: null
             });
-          }catch(_){}   // 못 옮겨도 이번 복원은 한다 — 다음 부팅의 setAccountSnapshot 이나 moveAccountSnap 이 옮긴다
+          }catch(_){}   // 못 옮겨도 이번 복원은 한다 — 다음 부팅의 setAccountSnapshot 이 옮긴다
         }
       }
       if(tv){
