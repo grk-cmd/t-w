@@ -24,6 +24,9 @@ const FIREBASE_ENV = app.isPackaged
   : ((process.argv.includes('--tw-firebase=dev') || process.env.TW_FIREBASE === 'dev') ? 'dev' : 'prod');
 function _pkgFirebaseEnv(){ try{ return require('./package.json').twFirebase || null; }catch(_){ return null; } }
 if(FIREBASE_ENV === 'dev') console.log('[firebase-env] dev Firebase(together-working-dev)로 실행');
+// dev 는 앱 데이터 폴더를 따로 쓴다. 같이 쓰면 localStorage(uid · 초대 통과 도장 · 슬롯 캐시 등)가 운영과 섞여
+// dev 에서 신규 가입 흐름을 재현할 수 없고, dev 에서 바꾼 로컬 상태가 운영 앱에 남는다. ready 전에 정해야 한다.
+if(FIREBASE_ENV === 'dev') app.setPath('userData', path.join(app.getPath('appData'), app.getName() + '-dev'));
 
 // 투명 창 지원 활성화 (이건 가벼움 — GPU 합성은 유지해서 렉 없음)
 app.commandLine.appendSwitch('enable-transparent-visuals');
