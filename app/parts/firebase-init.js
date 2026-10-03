@@ -35,6 +35,7 @@
   import { createGhostHeal } from "./room-ghost-heal.js";
   import { createRoomIndex } from "./room-index.js";
   import { createRoomStats } from "./room-stats.js";
+  import { createInviteAccount } from "./invite-account.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -2896,15 +2897,7 @@
     ─────────────────────────────────────────────────────────── */
 
     // 이 uid가 이미 등록된 사용자인지 (친구 시스템을 쓴 적 있으면 profile/home 등이 남아있음)
-    async getInviteAccount(userId){
-      const snap = await get(ref(db, `users/${userId}`));
-      const v = snap.val();
-      if(!v) return null;
-      // hasLegacy: "실사용 흔적" — 친구/마이홈/스케줄/방명록 등.
-      //   presence·profile은 앱이 첫 실행에 자동으로 쓰기 때문에 신규 유저도 갖게 됨 → 판정에 쓰면 안 됨.
-      const hasLegacy = !!(v.home || v.friends || v.schedule || v.ddays || v.guestbook || v.clap);
-      return { exists:true, invite: v.invite || null, hasProfile: !!(v.profile || v.home), hasLegacy };
-    },
+    getInviteAccount: createInviteAccount({ db, ref, get, databaseURL: db && db.app && db.app.options && db.app.options.databaseURL }),
     // 기존 유저 grandfather 처리 — 초대 정보가 없으면 5장 부여하고 통과
     async grandfatherInvite(userId, grantCount){
       const inviteRef = ref(db, `users/${userId}/invite`);
