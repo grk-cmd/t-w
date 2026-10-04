@@ -125,3 +125,58 @@ test('수령함 전체 공지 — 고정해 보내고, 고정을 풀었다 다�
   expect(await dbGet(`inboxBroadcast/${id}`)).toBeNull();
   expect(await dbGet('inboxBroadcast/bOld')).not.toBeNull();
 });
+
+test('수령함 전체 공지 — 골라서 고정하고, 골라서 지운다', async ({ page, seed }) => {
+  await seed({
+    inboxBroadcast: {
+      b1: { tag: 'notice', title: '첫째', body: '1', ts: Date.UTC(2026, 0, 1) },
+      b2: { tag: 'notice', title: '둘째', body: '2', ts: Date.UTC(2026, 0, 2) },
+      b3: { tag: 'reward', title: '셋째', body: '3', ts: Date.UTC(2026, 0, 3), pinned: true },
+    },
+  });
+  await openMenu(page, 'notices');
+  const list = card(page, '보낸 전체 공지');
+  await expect(list.getByText('3건')).toBeVisible();
+
+  await list.getByRole('checkbox', { name: '첫째 선택' }).check();
+  await list.getByRole('checkbox', { name: '셋째 선택' }).check();
+  // 이미 고정된 셋째는 고정에서 빠진다.
+  await expect(list.getByRole('button', { name: '선택 고정 해제 (1)' })).toBeVisible();
+  await list.getByRole('button', { name: '선택 고정 (1)' }).click();
+  await expect(toast(page)).toHaveText('1개 고정했어요');
+  await expect(list.getByText('0개 선택')).toBeVisible();
+  expect(await dbGet('inboxBroadcast/b1/pinned')).toBe(true);
+  expect(await dbGet('inboxBroadcast/b2')).not.toHaveProperty('pinned');
+
+  await list.getByRole('checkbox', { name: '첫째 선택' }).check();
+  await list.getByRole('checkbox', { name: '둘째 선택' }).check();
+  await list.getByRole('button', { name: '선택 삭제 (2)' }).click();
+  await expect(toast(page)).toHaveText('2개 삭제했어요');
+  await expect(list.getByText('1건')).toBeVisible();
+  expect(Object.keys((await dbGet<Record<string, Broadcast>>('inboxBroadcast'))!)).toEqual(['b3']);
+});
+
+test('수령함 전체 공지 — 최근 30개 + 고정만 받고, 더 보기로 늘린다', async ({ page, seed }) => {
+  const T0 = Date.UTC(2026, 0, 1);
+  const many: Record<string, Broadcast> = {};
+  for (let i = 1; i <= 35; i++) {
+    const n = String(i).padStart(2, '0');
+    many[`b${n}`] = { tag: 'notice', title: `공지 ${n}`, body: '본문', ts: T0 + i * 1000 };
+  }
+  // 가장 오래됐지만 고정이라 처음부터 보여야 한다.
+  many.bPin = { tag: 'update', title: '오래된 고정', body: '본문', ts: T0, pinned: true };
+  await seed({ inboxBroadcast: many });
+  await openMenu(page, 'notices');
+  const list = card(page, '보낸 전체 공지');
+
+  await expect(list.getByText('31건+')).toBeVisible();
+  await expect(list.locator('.row').first()).toContainText('오래된 고정');
+  await expect(list.locator('.row').nth(1)).toContainText('공지 35');
+  await expect(list.getByText('공지 05')).toHaveCount(0);
+
+  await list.getByRole('button', { name: '더 보기' }).click();
+  await expect(list.getByText('36건')).toBeVisible();
+  await expect(list.getByRole('button', { name: '더 보기' })).toHaveCount(0);
+  await list.getByRole('button', { name: '다음' }).click();
+  await expect(list.locator('.row').last()).toContainText('공지 01');
+});

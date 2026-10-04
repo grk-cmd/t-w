@@ -59,6 +59,39 @@ test('문제없음 — 그 사람의 신고만 비운다', async ({ page, seed }
   expect(Object.keys((await dbGet<Record<string, unknown>>(`reports/${MILD}`))!)).toHaveLength(2);
 });
 
+test('선택 문제없음 — 고른 사람들의 신고만 한 묶음으로 비운다', async ({ page, seed }) => {
+  const data = reportData();
+  const OTHER = 'uother0000003';
+  const KEEP = 'ukeep00000004';
+  await seed({
+    ...data,
+    reports: {
+      ...data.reports,
+      [OTHER]: { ur1: report('nick', 'ㄱ', 6), ur2: report('nick', 'ㄴ', 7), ur3: report('nick', 'ㄷ', 8) },
+      [KEEP]: { ur1: report('char', 'ㄱ', 9), ur2: report('char', 'ㄴ', 10), ur3: report('char', 'ㄷ', 11) },
+    },
+    users: {
+      ...data.users,
+      [OTHER]: { profile: { name: '두번째' } },
+      [KEEP]: { profile: { name: '남길사람' } },
+    },
+  });
+  await openMenu(page, 'reports');
+  await expect(page.getByText('신고 3명 이상 · 3명')).toBeVisible();
+
+  await page.getByRole('checkbox', { name: '말썽꾼 선택' }).check();
+  await page.getByRole('checkbox', { name: '두번째 선택' }).check();
+  await page.getByRole('button', { name: '선택 문제없음 (2)' }).click();
+
+  await expect(toast(page)).toHaveText('2명의 신고를 비웠어요');
+  await expect(page.getByText('신고 3명 이상 · 1명')).toBeVisible();
+  await expect(row(page, '남길사람')).toBeVisible();
+  expect(await dbGet(`reports/${TARGET}`)).toBeNull();
+  expect(await dbGet(`reports/${OTHER}`)).toBeNull();
+  expect(Object.keys((await dbGet<Record<string, unknown>>(`reports/${KEEP}`))!)).toHaveLength(3);
+  expect(Object.keys((await dbGet<Record<string, unknown>>(`reports/${MILD}`))!)).toHaveLength(2);
+});
+
 // 에뮬레이터에 붙은 Storage SDK 는 firebasestorage.googleapis.com 주소를 자기 것으로 알아보지 못해(호스트가 127.0.0.1:9199)
 // 파일 지우기가 늘 실패한다. 그런데 규칙은 awayImg 에 그 주소만 받는다 — 여기서는 «DB 는 비우고 파일은 남은» 쪽만 확인한다.
 test('그림 내리기 — awayImg · 신고를 한 묶음으로 비운다(파일 삭제 실패는 알린다)', async ({ page, seed }) => {

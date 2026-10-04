@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { dbGet } from './support/emulator';
+import { dbGet, dbSet } from './support/emulator';
 import { openMenu, toast } from './support/ui';
 
 const T0 = Date.UTC(2026, 0, 1);
@@ -122,4 +122,45 @@ test('전체 지급은 «전체 지급» 을 적어야 열리고, 칸 없는 사
   // 999 에서 자른다 — 넘기면 규칙이 쓰기를 통째로 거부한다.
   expect(await dbGet('users/urevoked00003/invite/invitesLeft')).toBe(999);
   expect(await dbGet('users/unoacct000004/invite')).toBeNull();
+});
+
+test('지급 창을 연 뒤 본인이 초대권을 쓰면 그 값에 더한다 — 읽어 둔 값으로 덮지 않는다', async ({
+  page,
+  seed,
+}) => {
+  await seed(DATA);
+  await openMenu(page, 'users');
+
+  await userRow(page, '김민수').getByRole('button', { name: '초대권 지급' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('지금 2장')).toBeVisible();
+  // 창이 2장을 보여 준 뒤 본인이 1장을 썼다.
+  await dbSet('users/uminsu0000001/invite/invitesLeft', 1);
+  await dialog.getByRole('button', { name: '1장 지급' }).click();
+
+  await expect(toast(page)).toHaveText('김민수 님에게 초대권 1장 지급 · 지금 2장');
+  expect(await dbGet('users/uminsu0000001/invite/invitesLeft')).toBe(2);
+});
+
+test('선택 지급 — 고른 사람에게만, 상한 999 에서 자르고 칸 없는 사람은 건너뛴다', async ({ page, seed }) => {
+  await seed(DATA);
+  await openMenu(page, 'users');
+
+  for (const name of ['김민수', '이회수', 'MATE-CCC3']) {
+    await page.getByRole('checkbox', { name: `${name} 선택` }).check();
+  }
+  await page.getByRole('button', { name: '선택 초대권 지급 (3)' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading')).toHaveText('선택한 3명에게 초대권 지급');
+  await dialog.getByRole('button', { name: '+' }).click();
+  await dialog.getByRole('button', { name: '3명에게 2장씩 지급' }).click();
+
+  await expect(dialog.getByText('완료 · 2명 지급 · 1명 건너뜀')).toBeVisible();
+  expect(await dbGet('users/uminsu0000001/invite/invitesLeft')).toBe(4);
+  expect(await dbGet('users/urevoked00003/invite/invitesLeft')).toBe(999);
+  expect(await dbGet('users/ujiyoung00002/invite/invitesLeft')).toBe(0);
+  expect(await dbGet('users/unoacct000004/invite')).toBeNull();
+
+  await dialog.getByRole('button', { name: '닫기' }).click();
+  await expect(page.getByText('0개 선택')).toBeVisible();
 });

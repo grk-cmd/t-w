@@ -163,6 +163,8 @@ test('전체 종료 — «종료» 를 적어야 열리고, 앱처럼 시크릿�
 
   await expect(toast(page)).toHaveText('방 6개를 종료했어요');
   expect(asked[0]).toContain('방 6개를 모두 종료할까요? (시크릿룸 1개 포함)');
+  // e2e 는 demo 프로젝트라 운영 표시가 붙지 않는다.
+  expect(asked[0]).not.toContain('[운영]');
   await expect(page.getByText('열린 방이 없어요')).toBeVisible();
   expect(await indexKeys()).toEqual([]);
   expect(await roomKeys()).toEqual([]);

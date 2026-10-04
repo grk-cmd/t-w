@@ -101,6 +101,46 @@ test.describe('발급된 키', () => {
     expect(Object.keys(await licenses())).toEqual(['KEEP-AAAA-BBBB-CCCC']);
   });
 
+  test('선택 회수 · 선택 삭제 — 고른 키만, 이미 회수된 키는 회수에서 · 살아 있는 키는 삭제에서 뺀다', async ({
+    page,
+    seed,
+  }) => {
+    await seed({
+      licenses: {
+        'LIVE-AAAA-AAAA-AAAA': { valid: true, note: '하나', createdAt: T0 + 4 },
+        'LIVE-BBBB-BBBB-BBBB': { valid: true, note: '둘', createdAt: T0 + 3 },
+        'DEAD-CCCC-CCCC-CCCC': { valid: false, note: '셋', createdAt: T0 + 2, revokedAt: T0 },
+        'KEEP-DDDD-DDDD-DDDD': { valid: true, note: '남길 키', createdAt: T0 + 1 },
+      },
+    });
+    await openMenu(page, 'license');
+    const pick = (key: string) => page.getByRole('checkbox', { name: `${key} 선택` }).check();
+
+    await pick('LIVE-AAAA-AAAA-AAAA');
+    await pick('LIVE-BBBB-BBBB-BBBB');
+    await pick('DEAD-CCCC-CCCC-CCCC');
+    await expect(page.getByRole('button', { name: '선택 삭제 (1)' })).toBeVisible();
+    await page.getByRole('button', { name: '선택 회수 (2)' }).click();
+    await expect(toast(page)).toHaveText('2개 회수했어요');
+    await expect(page.getByText('0개 선택')).toBeVisible();
+    await expect(row(page, 'LIVE-BBBB-BBBB-BBBB')).toContainText('🚫 회수됨');
+    let all = await licenses();
+    expect(all['LIVE-AAAA-AAAA-AAAA']).toMatchObject({ valid: false, note: '하나' });
+    expect(all['LIVE-BBBB-BBBB-BBBB'].valid).toBe(false);
+    expect(all['KEEP-DDDD-DDDD-DDDD'].valid).toBe(true);
+
+    await pick('LIVE-AAAA-AAAA-AAAA');
+    await pick('DEAD-CCCC-CCCC-CCCC');
+    await pick('KEEP-DDDD-DDDD-DDDD');
+    await expect(page.getByRole('button', { name: '선택 회수 (1)' })).toBeVisible();
+    await page.getByRole('button', { name: '선택 삭제 (2)' }).click();
+    await expect(toast(page)).toHaveText('2개 삭제했어요');
+    await expect(row(page, 'DEAD-CCCC-CCCC-CCCC')).toHaveCount(0);
+    all = await licenses();
+    expect(Object.keys(all).sort()).toEqual(['KEEP-DDDD-DDDD-DDDD', 'LIVE-BBBB-BBBB-BBBB']);
+    expect(all['KEEP-DDDD-DDDD-DDDD'].valid).toBe(true);
+  });
+
   test('통계 카드는 가입 수와 사용 · 미사용 · 회수 개수를 보인다', async ({ page, seed }) => {
     await seed({
       stats: { userCount: 1234 },
