@@ -45,7 +45,7 @@ export function BugReportCard() {
   return (
     <section className="card">
       <div className="card-head">
-        <h2>🐞 버그 제보 탭</h2>
+        <h2>🐞 버그 제보 탭 문구</h2>
         <button
           type="button"
           className="btn"
