@@ -1,4 +1,5 @@
 import { realName, useUserName, type UserLicense, type UserRow } from '@/entities/user';
+import { GrantInvitesButton } from '@/features/grant-invites';
 import { formatDate } from '@/shared/lib';
 import styles from './UserTable.module.css';
 
@@ -40,12 +41,13 @@ export function UserTable({ rows, startIndex }: Props) {
             <th>라이선스</th>
             <th>집중</th>
             <th>마지막 갱신</th>
+            <th />
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={7} className="soft">
+              <td colSpan={8} className="soft">
                 조건에 맞는 사용자가 없어요
               </td>
             </tr>
@@ -76,6 +78,9 @@ export function UserTable({ rows, startIndex }: Props) {
               </td>
               <td>{formatHours(row.focusTotalSec)}</td>
               <td className="soft">{row.lastSeen ? formatDate(row.lastSeen) : '—'}</td>
+              <td>
+                <GrantInvitesButton uid={row.userCode} who={row.name ?? row.friendCode ?? row.userCode} />
+              </td>
             </tr>
           ))}
         </tbody>

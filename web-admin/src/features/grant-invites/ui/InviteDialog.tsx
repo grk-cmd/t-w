@@ -1,0 +1,55 @@
+import { useEffect, useRef, type ReactNode } from 'react';
+import { INVITE_GRANT_MAX } from '@/entities/invite';
+import styles from './InviteDialog.module.css';
+
+interface DialogProps {
+  open: boolean;
+  title: string;
+  /** 참이면 Esc 로 닫히지 않는다 — 전체 지급이 도는 중에 창이 사라지면 진행 상황을 볼 수 없다. */
+  locked?: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}
+
+export function InviteDialog({ open, title, locked, onClose, children }: DialogProps) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (open && !d.open) d.showModal();
+    if (!open && d.open) d.close();
+  }, [open]);
+
+  return (
+    <dialog
+      ref={ref}
+      className={styles.dialog}
+      onCancel={(e) => locked && e.preventDefault()}
+      onClose={onClose}
+    >
+      <h2>{title}</h2>
+      {open && children}
+    </dialog>
+  );
+}
+
+export function CountStepper({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  return (
+    <div className={styles.stepper}>
+      <button type="button" className="btn" disabled={value <= 1} onClick={() => onChange(value - 1)}>
+        −
+      </button>
+      <b className={styles.count}>{value}장</b>
+      <button
+        type="button"
+        className="btn"
+        disabled={value >= INVITE_GRANT_MAX}
+        onClick={() => onChange(value + 1)}
+      >
+        +
+      </button>
+      <small className="soft">한 번에 최대 {INVITE_GRANT_MAX}장</small>
+    </div>
+  );
+}
