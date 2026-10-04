@@ -9,8 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "oxlint && steiger ./src",
-    "format": "prettier --write src tests",
-    "format:check": "prettier --check src tests"
+    "format": "prettier --write src tests e2e playwright.config.ts",
+    "format:check": "prettier --check src tests e2e playwright.config.ts",
+    "e2e": "cp ../firebase-database-rules.json e2e/.database.rules.json && firebase emulators:exec --config e2e/firebase.json --project demo-tw \"playwright test\""
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.1",

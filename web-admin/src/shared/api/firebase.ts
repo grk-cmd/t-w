@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import {
   GoogleAuthProvider,
+  connectAuthEmulator,
   getAuth,
   onAuthStateChanged,
   signInWithPopup,
@@ -8,6 +9,7 @@ import {
   type User,
 } from 'firebase/auth';
 import {
+  connectDatabaseEmulator,
   get,
   getDatabase,
   limitToFirst,
@@ -19,11 +21,31 @@ import {
   set,
   update,
 } from 'firebase/database';
-import { deleteObject, getStorage, ref as storageRef } from 'firebase/storage';
+import { connectStorageEmulator, deleteObject, getStorage, ref as storageRef } from 'firebase/storage';
 import { isPermissionDenied, type Db } from './db';
 import type { Files } from './files';
 
 const PROD_PROJECT_ID = 'together-working';
+
+// e2e 빌드(VITE_E2E=1)에서만 에뮬레이터에 붙는다. 일반 빌드에서는 이 값이 false 로 굳어 아래 갈래가 빠진다.
+const E2E = import.meta.env.VITE_E2E === '1';
+const E2E_PROJECT_ID = 'demo-tw';
+const E2E_HOST = '127.0.0.1';
+const E2E_PORTS = { auth: 9099, database: 9000, storage: 9199 };
+const E2E_CONFIG = {
+  apiKey: 'demo-key',
+  authDomain: `${E2E_PROJECT_ID}.firebaseapp.com`,
+  projectId: E2E_PROJECT_ID,
+  databaseURL: `http://${E2E_HOST}:${E2E_PORTS.database}?ns=${E2E_PROJECT_ID}-default-rtdb`,
+  storageBucket: `${E2E_PROJECT_ID}.appspot.com`,
+};
+
+async function loadConfig() {
+  if (E2E) return E2E_CONFIG;
+  const res = await fetch('/__/firebase/init.json');
+  if (!res.ok) throw new Error(`Firebase 설정을 받지 못했어요 (${res.status})`);
+  return res.json();
+}
 
 export interface Firebase {
   projectId: string;
@@ -37,13 +59,17 @@ export interface Firebase {
 
 // 설정값을 코드에 두지 않는다. 배포된 프로젝트가 자기 설정을 돌려주므로 dev 에 올리면 dev, 운영에 올리면 운영에 붙는다.
 export async function connectFirebase(): Promise<Firebase> {
-  const res = await fetch('/__/firebase/init.json');
-  if (!res.ok) throw new Error(`Firebase 설정을 받지 못했어요 (${res.status})`);
-  const config = await res.json();
+  const config = await loadConfig();
 
   const app = initializeApp(config);
   const database = getDatabase(app);
   const auth = getAuth(app);
+  const storage = getStorage(app);
+  if (E2E) {
+    connectAuthEmulator(auth, `http://${E2E_HOST}:${E2E_PORTS.auth}`, { disableWarnings: true });
+    connectDatabaseEmulator(database, E2E_HOST, E2E_PORTS.database);
+    connectStorageEmulator(storage, E2E_HOST, E2E_PORTS.storage);
+  }
   const at = (path: string) => ref(database, path);
 
   const db: Db = {
@@ -60,7 +86,6 @@ export async function connectFirebase(): Promise<Firebase> {
     serverTimeOffset: async () => Number((await get(at('.info/serverTimeOffset'))).val()) || 0,
   };
 
-  const storage = getStorage(app);
   const files: Files = {
     deleteByUrl: async (url) => {
       try {

@@ -46,6 +46,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   test: {
+    include: ['tests/**/*.test.ts'], // e2e/ 는 Playwright 가 돌린다
     environment: 'node',
   },
 });
