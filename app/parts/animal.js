@@ -1072,14 +1072,14 @@ function aCommitStamp(){
   const doOnce=(cx)=>{
     const cy=aStampPlace.cy, w=aStampPlace.w, h=aStampPlace.h, rot=aStampPlace.rot;
     const cs=Math.cos(rot), sn=Math.sin(rot);
-    const N=18, uvs=[];
+    const N=18, uvs=[], targets=_pTargets();
     for(let j=0;j<=N;j++) for(let i=0;i<=N;i++){
       const lx=(i/N-0.5)*w, ly=(j/N-0.5)*h;
       const sx=cx+lx*cs-ly*sn, sy=cy+lx*sn+ly*cs;
       _pN.x=(sx/r.width)*2-1; _pN.y=-(sy/r.height)*2+1;
       _pRay.setFromCamera(_pN,cam);
-      const hit=_pRay.intersectObjects(_pTargets(),false);
-      uvs.push(hit.length&&hit[0].uv?{x:hit[0].uv.x,y:hit[0].uv.y}:null);
+      const hit=_aCast(_pRay.ray, targets);   // 지금 자세로 맞힌다(_aCast 주석) — 키운 얼굴의 바깥 볼도 찍힌다
+      uvs.push(hit?{x:hit.uv.x,y:hit.uv.y}:null);
     }
     /* 가장자리 외삽.
        ★ 예전엔 (-0.05~1.05) 안이기만 하면 무제한으로 채우고 0~1로 잘랐다. 잘린 값들이
@@ -1426,13 +1426,21 @@ function pStroke(x0,y0,x1,y1,target){
   ctx.globalCompositeOperation='source-over';
 }
 const _pRay=new THREE.Raycaster(), _pN=new THREE.Vector2();
+/* 그리기·도장·스포이드·대칭이 모두 이 함수로 표면을 맞힌다.
+   몸·얼굴은 리깅인데 three r128 기본 레이캐스트는 **바인드 포즈의 경계 상자**로 먼저 거른다. 얼굴 크기를
+   키우면 바깥쪽 볼·눈꼬리에 광선이 아예 안 맞아 붓·도장이 거기서 빠졌다.
+   그래서 사람 생성기와 같은 _picIntersect(app.js — 지금 자세의 정점으로 교차 · 앞면만)를 쓴다. */
+function _aCast(ray, meshes){
+  if(typeof _picIntersect==='function') return _picIntersect(ray, meshes);
+  const h=new THREE.Raycaster(ray.origin, ray.direction).intersectObjects(meshes,false);
+  return (h.length&&h[0].uv) ? h[0] : null;
+}
 function pHit(e){
   const cv=overlay.querySelector('#anpCv'); if(!cv||!cam) return null;
   const r=cv.getBoundingClientRect();
   _pN.x=((e.clientX-r.left)/r.width)*2-1; _pN.y=-((e.clientY-r.top)/r.height)*2+1;
   _pRay.setFromCamera(_pN,cam);
-  const hit=_pRay.intersectObjects(_pTargets(),false);
-  return (hit.length&&hit[0].uv) ? hit[0] : null;
+  return _aCast(_pRay.ray, _pTargets());
 }
 const _mP=new THREE.Vector3(), _mN=new THREE.Vector3(), _mO=new THREE.Vector3(), _mD=new THREE.Vector3(), _mRay=new THREE.Raycaster();
 function _pTargets(){
@@ -1460,6 +1468,20 @@ function _canvasForMesh(mesh){
 }
 /* 지금 잠금 설정에서 이 부위를 칠해도 되는가 */
 function _partAllowed(tgt){ return !pPartMask || (tgt && tgt.part===pPartMask); }
+/* 대칭 지점을 다시 맞힐 메쉬 — 얼굴은 얼굴, 몸은 몸, 왼귀는 오른귀.
+   모든 메쉬를 보면 비스듬한 되쏘기 광선이 얼굴 가장자리에서 그 뒤의 몸(다른 UV)을 먼저 맞혀 획이 끊긴다.
+   사람 생성기도 대칭은 같은 메쉬만 다시 맞힌다(mirrorUVOn). */
+function _mirrorMeshes(obj){
+  for(const side of ['L','R']){
+    const w = side==='L'?earObjL:earObjR;
+    let mine=false; if(w) w.traverse(o=>{ if(o===obj) mine=true; });
+    if(!mine) continue;
+    const other = side==='L'?earObjR:earObjL, out=[];
+    if(other) other.traverse(o=>{ if(o.isMesh&&o.visible) out.push(o); });
+    return out;
+  }
+  return [obj];
+}
 function _pMirrorHit(hit){
   if(!model||!hit||!hit.point) return null;
   _mP.copy(hit.point); model.worldToLocal(_mP); _mP.x=-_mP.x; model.localToWorld(_mP);
@@ -1467,21 +1489,8 @@ function _pMirrorHit(hit){
   if(n && hit.object){ _mN.set(-n.x,n.y,n.z).transformDirection(hit.object.matrixWorld).normalize(); }
   else { _mN.copy(cam.position).sub(_mP).normalize(); }
   _mO.copy(_mP).addScaledVector(_mN,0.6); _mD.copy(_mN).negate(); _mRay.set(_mO,_mD);
-  const h=_mRay.intersectObjects(_pTargets(),false);
-  return (h.length&&h[0].uv) ? h[0] : null;
-}
-function pMirrorUV(hit){
-  // 인간 mirrorUV와 동일 원리 — 표면점을 모델 로컬 x 대칭으로 반전해 반대편 표면을 재레이캐스트
-  if(!model||!hit||!hit.point) return null;
-  _mP.copy(hit.point); model.worldToLocal(_mP); _mP.x=-_mP.x; model.localToWorld(_mP);
-  const n=hit.face&&hit.face.normal;
-  if(n && hit.object){ _mN.set(-n.x,n.y,n.z).transformDirection(hit.object.matrixWorld).normalize(); }
-  else { _mN.copy(cam.position).sub(_mP).normalize(); }
-  _mO.copy(_mP).addScaledVector(_mN,0.6);
-  _mD.copy(_mN).negate();
-  _mRay.set(_mO,_mD);
-  const h=_mRay.intersectObjects(_pTargets(),false);
-  return (h.length&&h[0].uv) ? h[0].uv : null;
+  const ms=_mirrorMeshes(hit.object);
+  return ms.length ? _aCast(_mRay.ray, ms) : null;
 }
 function pPaintEvent(e, isStart){
   const hit=pHit(e);
