@@ -24,6 +24,7 @@ export function fakeDb(data: Record<string, unknown> = {}, failOn: (path: string
     watch: () => () => {},
     probe: async () => {},
     now: () => NOW,
+    serverTimeOffset: async () => 0,
   };
   return { db, writes };
 }

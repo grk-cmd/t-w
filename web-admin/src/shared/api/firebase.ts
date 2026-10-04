@@ -19,7 +19,9 @@ import {
   set,
   update,
 } from 'firebase/database';
+import { deleteObject, getStorage, ref as storageRef } from 'firebase/storage';
 import { isPermissionDenied, type Db } from './db';
+import type { Files } from './files';
 
 const PROD_PROJECT_ID = 'together-working';
 
@@ -27,6 +29,7 @@ export interface Firebase {
   projectId: string;
   isProd: boolean;
   db: Db;
+  files: Files;
   signIn(): Promise<void>;
   signOut(): Promise<void>;
   onAuth(callback: (user: User | null) => void): () => void;
@@ -54,12 +57,25 @@ export async function connectFirebase(): Promise<Firebase> {
       await get(query(at(path), limitToFirst(1)));
     },
     now: serverTimestamp,
+    serverTimeOffset: async () => Number((await get(at('.info/serverTimeOffset'))).val()) || 0,
+  };
+
+  const storage = getStorage(app);
+  const files: Files = {
+    deleteByUrl: async (url) => {
+      try {
+        await deleteObject(storageRef(storage, url));
+      } catch (error) {
+        if ((error as { code?: string }).code !== 'storage/object-not-found') throw error;
+      }
+    },
   };
 
   return {
     projectId: config.projectId,
     isProd: config.projectId === PROD_PROJECT_ID,
     db,
+    files,
     signIn: async () => {
       await signInWithPopup(auth, new GoogleAuthProvider());
     },

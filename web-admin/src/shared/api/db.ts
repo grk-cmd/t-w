@@ -12,6 +12,8 @@ export interface Db {
   probe(path: string): Promise<void>;
   /** 서버 시각 자리표시자. */
   now(): object;
+  /** 이 기기 시계와 서버 시계의 차(ms). 서버 기준 «지금» = Date.now() + 이 값. */
+  serverTimeOffset(): Promise<number>;
 }
 
 export function isPermissionDenied(error: unknown): boolean {

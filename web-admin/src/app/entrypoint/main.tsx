@@ -11,7 +11,7 @@ connectFirebase()
   .then((fb) =>
     root.render(
       <StrictMode>
-        <Providers db={fb.db}>
+        <Providers db={fb.db} files={fb.files}>
           <App fb={fb} />
         </Providers>
       </StrictMode>,
