@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { INBOX_TAG_LABEL, useBroadcasts, useRefreshBroadcasts } from '@/entities/inbox';
-import { BroadcastActions } from '@/features/notice/manage-broadcast';
-import { errorMessage, formatDate, paginate } from '@/shared/lib';
-import { Pager } from '@/shared/ui';
+import { BroadcastActions, BulkBroadcastActions } from '@/features/notice/manage-broadcast';
+import { errorMessage, formatDate, paginate, useSelection } from '@/shared/lib';
+import { Pager, RowCheckbox, SelectAllCheckbox, SelectionBar } from '@/shared/ui';
 import styles from './BroadcastList.module.css';
 
 const PAGE_SIZE = 30;
@@ -11,7 +11,12 @@ export function BroadcastList() {
   const { data: broadcasts, error } = useBroadcasts();
   const refresh = useRefreshBroadcasts();
   const [page, setPage] = useState(1);
-  const view = paginate(broadcasts ?? [], page, PAGE_SIZE);
+  const list = useMemo(() => broadcasts ?? [], [broadcasts]);
+  const view = paginate(list, page, PAGE_SIZE);
+  const ids = useMemo(() => list.map((b) => b.id), [list]);
+  const pageIds = useMemo(() => view.items.map((b) => b.id), [view.items]);
+  const selection = useSelection(ids, pageIds);
+  const selected = list.filter((b) => selection.isSelected(b.id));
 
   return (
     <section className="card">
@@ -22,12 +27,32 @@ export function BroadcastList() {
           새로고침
         </button>
       </div>
+      {list.length > 0 && (
+        <SelectionBar
+          count={selected.length}
+          onClear={selection.clear}
+          selectAll={
+            <SelectAllCheckbox
+              allChecked={selection.allChecked}
+              someChecked={selection.someChecked}
+              onChange={selection.toggleAll}
+            />
+          }
+        >
+          <BulkBroadcastActions broadcasts={selected} onDone={selection.clear} />
+        </SelectionBar>
+      )}
       <div className="list tall">
         {error && errorMessage(error, '공지 목록을 불러오지 못했어요')}
         {!error && !broadcasts && '불러오는 중…'}
         {broadcasts?.length === 0 && '보낸 공지가 없어요'}
         {view.items.map((b) => (
           <div key={b.id} className="row">
+            <RowCheckbox
+              label={`${b.title || '제목 없음'} 선택`}
+              checked={selection.isSelected(b.id)}
+              onChange={() => selection.toggle(b.id)}
+            />
             <span className="grow">
               {b.pinned && <span title="맨 위 고정">📌</span>}
               <span className="meta">{INBOX_TAG_LABEL[b.tag]}</span>

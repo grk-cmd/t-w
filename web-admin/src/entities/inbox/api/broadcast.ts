@@ -51,3 +51,12 @@ export function setBroadcastPinned(db: Db, id: string, pinned: boolean): Promise
 export function deleteBroadcast(db: Db, id: string): Promise<void> {
   return db.remove(`${ROOT}/${id}`);
 }
+
+/** 여러 공지의 고정을 한 묶음으로 바꾸는 쓰기 — 풀 때는 키를 지운다(앱과 같은 모양). */
+export function broadcastsPinnedWrite(ids: readonly string[], pinned: boolean): Record<string, true | null> {
+  return Object.fromEntries(ids.map((id) => [`${ROOT}/${id}/pinned`, pinned ? true : null]));
+}
+
+export function deleteBroadcastsWrite(ids: readonly string[]): Record<string, null> {
+  return Object.fromEntries(ids.map((id) => [`${ROOT}/${id}`, null]));
+}

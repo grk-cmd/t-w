@@ -1,7 +1,9 @@
 export { inboxMessageWrite, sendInboxMessage } from './api/inbox';
 export {
+  broadcastsPinnedWrite,
   broadcastWrite,
   deleteBroadcast,
+  deleteBroadcastsWrite,
   listBroadcasts,
   sendBroadcast,
   setBroadcastPinned,
