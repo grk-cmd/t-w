@@ -73,6 +73,22 @@ export async function connectFirebase(): Promise<Firebase> {
   }
   const at = (path: string) => ref(database, path);
 
+  // SDK 에는 shallow 가 없어 REST 로 묻는다. 규칙은 로그인한 사람으로 판정되게 ID 토큰을 auth= 로 싣는다.
+  // e2e 의 databaseURL 은 «주소?ns=…» 꼴이라 그 질의를 살린 채 경로만 바꾼다.
+  const shallowKeys = async (path: string): Promise<string[]> => {
+    const url = new URL(config.databaseURL);
+    url.pathname = `/${path.split('/').filter(Boolean).map(encodeURIComponent).join('/')}.json`;
+    url.searchParams.set('shallow', 'true');
+    const token = await auth.currentUser?.getIdToken();
+    if (token) url.searchParams.set('auth', token);
+    const res = await fetch(url);
+    if (res.status === 401 || res.status === 403)
+      throw Object.assign(new Error('Permission denied'), { code: 'PERMISSION_DENIED' });
+    if (!res.ok) throw new Error(`${path} 키 목록을 받지 못했어요 (${res.status})`);
+    const body: unknown = await res.json();
+    return body && typeof body === 'object' ? Object.keys(body) : [];
+  };
+
   const db: Db = {
     get: async (path) => (await get(at(path))).val(),
     set: (path, value) => set(at(path), value),
@@ -92,6 +108,7 @@ export async function connectFirebase(): Promise<Firebase> {
       return { committed: result.committed, value: result.snapshot.val() as T | null };
     },
     commit: (updates) => update(ref(database), updates),
+    shallowKeys,
     watch: (path, onChange, onError) => onValue(at(path), (snap) => onChange(snap.val()), onError),
     probe: async (path) => {
       await get(query(at(path), limitToFirst(1)));

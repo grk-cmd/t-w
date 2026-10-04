@@ -34,6 +34,10 @@ export function fakeDb(data: Record<string, unknown> = {}, failOn: (path: string
       if (Object.keys(updates).some(failOn)) throw new Error('commit failed');
       for (const [path, value] of Object.entries(updates)) writes.push(['commit', path, value]);
     },
+    shallowKeys: async (path) => {
+      const v = data[path];
+      return v && typeof v === 'object' ? Object.keys(v) : [];
+    },
     watch: () => () => {},
     probe: async () => {},
     now: () => NOW,

@@ -14,6 +14,8 @@ export interface Db {
   ): Promise<{ committed: boolean; value: T | null }>;
   /** 여러 경로를 한 번에 쓴다 — 전부 되거나 전부 안 된다(규칙 검사도 한 묶음으로). 값이 null 이면 그 경로를 지운다. */
   commit(updates: Record<string, unknown>): Promise<void>;
+  /** 바로 아래 키 이름만 받는다(REST ?shallow=true) — 값은 내려받지 않는다. 없으면 []. */
+  shallowKeys(path: string): Promise<string[]>;
   /** 구독 해제 함수를 돌려준다. */
   watch<T>(path: string, onChange: (value: T | null) => void, onError: (error: Error) => void): () => void;
   /** 첫 한 건만 읽어 본다 — 권한이 있는지 확인하는 용도. */
