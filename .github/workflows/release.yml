@@ -227,6 +227,9 @@ jobs:
   publish-draft:
     name: Releases 초안
     needs: [verify, build-win, build-mac]
+    # 위 빌드들은 rules-prod 를 needs 로 거친다. 그 단계가 건너뛰어지면(베타 · 규칙이 안 바뀐 릴리스) GitHub 은
+    # 기본 조건(success())으로 이 job 까지 건너뛴다 — always() 로 받고 셋의 결과를 직접 본다.
+    if: always() && needs.verify.result == 'success' && needs.build-win.result == 'success' && needs.build-mac.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
