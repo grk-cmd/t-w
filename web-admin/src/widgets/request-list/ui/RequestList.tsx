@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { usePendingRequests } from '@/entities/license-request';
-import { BulkApproveButton, RequestActions } from '@/features/approve-request';
+import { BulkApproveButton, RequestActions } from '@/features/license/approve-request';
 import { errorMessage, formatDate } from '@/shared/lib';
 import styles from './RequestList.module.css';
 

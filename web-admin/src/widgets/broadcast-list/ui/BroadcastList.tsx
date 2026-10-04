@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { INBOX_TAG_LABEL, useBroadcasts, useRefreshBroadcasts } from '@/entities/inbox';
-import { BroadcastActions } from '@/features/manage-broadcast';
+import { BroadcastActions } from '@/features/notice/manage-broadcast';
 import { errorMessage, formatDate, paginate } from '@/shared/lib';
 import { Pager } from '@/shared/ui';
 import styles from './BroadcastList.module.css';

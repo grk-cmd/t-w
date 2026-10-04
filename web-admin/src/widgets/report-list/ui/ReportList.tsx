@@ -1,6 +1,6 @@
 import { reportReason, type ReportTarget } from '@/entities/report';
 import { realName, useUserBrief } from '@/entities/user';
-import { ReportActions } from '@/features/moderate-report';
+import { ReportActions } from '@/features/user/moderate-report';
 import { formatDate } from '@/shared/lib';
 import styles from './ReportList.module.css';
 

@@ -1,6 +1,6 @@
-import { AdBannerCard } from '@/features/edit-ad-banner';
-import { GameConfigCard } from '@/features/edit-game-config';
-import { MinRoomVerCard } from '@/features/set-min-room-ver';
+import { AdBannerCard } from '@/features/settings/edit-ad-banner';
+import { GameConfigCard } from '@/features/settings/edit-game-config';
+import { MinRoomVerCard } from '@/features/settings/set-min-room-ver';
 
 export function SettingsPage() {
   return (

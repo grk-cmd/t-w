@@ -1,5 +1,5 @@
 import { realName, useUserName, type UserLicense, type UserRow } from '@/entities/user';
-import { GrantInvitesButton } from '@/features/grant-invites';
+import { GrantInvitesButton } from '@/features/user/grant-invites';
 import { formatDate } from '@/shared/lib';
 import styles from './UserTable.module.css';
 

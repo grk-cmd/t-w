@@ -1,7 +1,7 @@
-import { AnnounceCard } from '@/features/announce';
-import { BugReportCard } from '@/features/bug-report';
-import { SendBroadcastCard } from '@/features/send-broadcast';
-import { UpdateNoticeCard } from '@/features/update-notice';
+import { AnnounceCard } from '@/features/notice/announce';
+import { BugReportCard } from '@/features/notice/bug-report';
+import { SendBroadcastCard } from '@/features/notice/send-broadcast';
+import { UpdateNoticeCard } from '@/features/notice/update-notice';
 import { BroadcastList } from '@/widgets/broadcast-list';
 
 export function NoticesPage() {

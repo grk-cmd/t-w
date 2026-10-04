@@ -9,7 +9,7 @@ import {
   useRoomStats,
   useServerNow,
 } from '@/entities/room';
-import { CloseRoomButton } from '@/features/close-room';
+import { CloseRoomButton } from '@/features/room/close-room';
 import { errorMessage, formatDate } from '@/shared/lib';
 import styles from './RoomList.module.css';
 

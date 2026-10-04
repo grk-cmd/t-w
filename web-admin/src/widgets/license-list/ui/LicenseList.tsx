@@ -6,7 +6,7 @@ import {
   useRefreshLicenses,
   type LicenseStatus,
 } from '@/entities/license';
-import { KeyActions } from '@/features/revoke-key';
+import { KeyActions } from '@/features/license/revoke-key';
 import { copyText, errorMessage, formatDate, paginate } from '@/shared/lib';
 import { Pager, useToast } from '@/shared/ui';
 

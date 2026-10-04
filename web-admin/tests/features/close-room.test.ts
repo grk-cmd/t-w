@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { closeAllRooms, closeRoom, isCloseAllConfirmed } from '@/features/close-room';
+import { closeAllRooms, closeRoom, isCloseAllConfirmed } from '@/features/room/close-room';
 import { fakeDb } from '../shared/fakeDb';
 
 describe('방 종료', () => {

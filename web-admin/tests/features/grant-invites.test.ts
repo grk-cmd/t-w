@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { grantInvites, grantInvitesAll, uniqueUserIds } from '@/features/grant-invites';
+import { grantInvites, grantInvitesAll, uniqueUserIds } from '@/features/user/grant-invites';
 import { fakeDb } from '../shared/fakeDb';
 
 const left = (uid: string) => `users/${uid}/invite/invitesLeft`;

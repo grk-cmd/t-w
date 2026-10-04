@@ -1,5 +1,5 @@
-import { GhostCleanupCard } from '@/features/clean-ghost-rooms';
-import { CloseAllRoomsCard, CloseByCodeCard } from '@/features/close-room';
+import { GhostCleanupCard } from '@/features/room/clean-ghost-rooms';
+import { CloseAllRoomsCard, CloseByCodeCard } from '@/features/room/close-room';
 import { RoomList } from '@/widgets/room-list';
 
 export function RoomsPage() {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildUserRows } from '@/entities/user';
-import { filterUsers, type UserFilter } from '@/features/user-filter';
+import { filterUsers, type UserFilter } from '@/features/user/user-filter';
 import { accounts, friendCodes, licenses } from '../shared/userFixtures';
 
 const rows = buildUserRows(accounts, friendCodes, licenses);

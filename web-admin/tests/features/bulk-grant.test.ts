@@ -17,7 +17,7 @@ import {
   wasIssued,
   writeXlsx,
   type PlanRow,
-} from '@/features/bulk-grant';
+} from '@/features/license/bulk-grant';
 import { fakeDb } from '../shared/fakeDb';
 
 const buf = (u8: Uint8Array) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer;

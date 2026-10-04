@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { approveRequest, approveRequests } from '@/features/approve-request';
+import { approveRequest, approveRequests } from '@/features/license/approve-request';
 import { fakeDb } from '../shared/fakeDb';
 
 const req = { id: 'r1', name: '테스터', friendCode: 'MATE-AB12', requestedAt: 1 };

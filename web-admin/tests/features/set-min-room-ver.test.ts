@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { setMinRoomVer } from '@/features/set-min-room-ver';
+import { setMinRoomVer } from '@/features/settings/set-min-room-ver';
 import { fakeDb } from '../shared/fakeDb';
 
 describe('방 입장 최소 버전 바꾸기', () => {

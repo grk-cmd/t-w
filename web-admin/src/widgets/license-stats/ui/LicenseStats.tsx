@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { countLicenses, useLicenses } from '@/entities/license';
 import { useUserCount } from '@/entities/user-count';
-import { AdjustUserCount } from '@/features/adjust-user-count';
+import { AdjustUserCount } from '@/features/user/adjust-user-count';
 import { errorMessage } from '@/shared/lib';
 import styles from './LicenseStats.module.css';
 

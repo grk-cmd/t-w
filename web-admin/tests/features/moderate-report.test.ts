@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dismissReports, takeDownAwayImg } from '@/features/moderate-report';
+import { dismissReports, takeDownAwayImg } from '@/features/user/moderate-report';
 import { fakeDb } from '../shared/fakeDb';
 import { fakeFiles } from '../shared/fakeFiles';
 

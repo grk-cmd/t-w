@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { usePendingRequests } from '@/entities/license-request';
-import { BulkGrantCard } from '@/features/bulk-grant';
-import { GrantByCodeCard } from '@/features/grant-by-code';
-import { SecretRoomCard } from '@/features/grant-secret-room';
-import { IssueKeyCard } from '@/features/issue-key';
+import { BulkGrantCard } from '@/features/license/bulk-grant';
+import { GrantByCodeCard } from '@/features/license/grant-by-code';
+import { SecretRoomCard } from '@/features/license/grant-secret-room';
+import { IssueKeyCard } from '@/features/license/issue-key';
 import { LicenseList } from '@/widgets/license-list';
 import { LicenseStats } from '@/widgets/license-stats';
 import { RequestList } from '@/widgets/request-list';

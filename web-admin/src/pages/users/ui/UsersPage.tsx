@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { GrantInvitesAllButton } from '@/features/grant-invites';
-import { filterUsers, UserFilterBar, type UserFilter } from '@/features/user-filter';
+import { GrantInvitesAllButton } from '@/features/user/grant-invites';
+import { filterUsers, UserFilterBar, type UserFilter } from '@/features/user/user-filter';
 import { errorMessage, paginate } from '@/shared/lib';
 import { Pager } from '@/shared/ui';
 import { UserTable } from '@/widgets/user-table';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { grantByFriendCode } from '@/features/grant-by-code';
+import { grantByFriendCode } from '@/features/license/grant-by-code';
 import { fakeDb } from '../shared/fakeDb';
 
 describe('친구코드로 발급', () => {

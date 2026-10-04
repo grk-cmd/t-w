@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanGhostRooms } from '@/features/clean-ghost-rooms';
+import { cleanGhostRooms } from '@/features/room/clean-ghost-rooms';
 import { fakeDb } from '../shared/fakeDb';
 
 const NOW = 1_000_000;
