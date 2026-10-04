@@ -1,8 +1,5 @@
 import type { Db } from '@/shared/api';
-import type { InboxMessage } from '../model/message';
-
-const TITLE_MAX = 80;
-const BODY_MAX = 600;
+import { INBOX_BODY_MAX, INBOX_TITLE_MAX, type InboxMessage } from '../model/message';
 
 function messageId(): string {
   return 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -13,8 +10,8 @@ export function inboxMessageWrite(uid: string, message: InboxMessage) {
   return {
     [`inbox/${uid}/${messageId()}`]: {
       tag: message.tag,
-      title: message.title.slice(0, TITLE_MAX),
-      body: message.body.slice(0, BODY_MAX),
+      title: message.title.slice(0, INBOX_TITLE_MAX),
+      body: message.body.slice(0, INBOX_BODY_MAX),
       ts: Date.now(),
       read: false,
     },

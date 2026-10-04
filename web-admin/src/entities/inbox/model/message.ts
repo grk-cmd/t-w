@@ -1,8 +1,20 @@
+export type InboxTag = 'notice' | 'update' | 'reward';
+
 export interface InboxMessage {
-  tag: 'reward' | 'notice';
+  tag: InboxTag;
   title: string;
   body: string;
 }
+
+export const INBOX_TITLE_MAX = 80; // 규칙 inbox · inboxBroadcast .validate
+export const INBOX_BODY_MAX = 600;
+
+// 앱 수령함의 태그 이름표(_inboxTagLabel)와 같다.
+export const INBOX_TAG_LABEL: Record<InboxTag, string> = {
+  notice: '📢 공지',
+  update: '🆕 업데이트',
+  reward: '📩 우편',
+};
 
 export function licenseGrantMessage(key: string): InboxMessage {
   return {
