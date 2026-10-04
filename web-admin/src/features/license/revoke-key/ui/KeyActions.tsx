@@ -9,21 +9,26 @@ export function KeyActions({ licenseKey, status }: { licenseKey: string; status:
   const revoke = useRevokeKey();
   const remove = useRemoveKey();
 
-  const onRevoke = () => {
+  // 회수 · 삭제 뒤 목록을 다시 받으며 이 줄이 바뀌거나 사라진다 — 호출별 콜백 대신 결과를 기다려 알린다.
+  const onRevoke = async () => {
     if (!confirm(`${licenseKey} 키를 회수할까요? 이 키를 쓰던 사람은 다음 접속 때 라이선스가 풀려요.`))
       return;
-    revoke.mutate(licenseKey, {
-      onSuccess: () => toast('회수했어요'),
-      onError: (e) => toast(errorMessage(e, '회수하지 못했어요')),
-    });
+    try {
+      await revoke.mutateAsync(licenseKey);
+      toast('회수했어요');
+    } catch (e) {
+      toast(errorMessage(e, '회수하지 못했어요'));
+    }
   };
 
-  const onRemove = () => {
+  const onRemove = async () => {
     if (!confirm(`${licenseKey} 키를 목록에서 완전히 지울까요? 되돌릴 수 없어요.`)) return;
-    remove.mutate(licenseKey, {
-      onSuccess: () => toast('삭제했어요'),
-      onError: (e) => toast(errorMessage(e, '삭제하지 못했어요')),
-    });
+    try {
+      await remove.mutateAsync(licenseKey);
+      toast('삭제했어요');
+    } catch (e) {
+      toast(errorMessage(e, '삭제하지 못했어요'));
+    }
   };
 
   return status === 'revoked' ? (
