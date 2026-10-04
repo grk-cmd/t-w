@@ -29,6 +29,26 @@ export function licenseStatus(license: License | null): LicenseStatus {
   return license.redeemedAt ? 'used' : 'unused';
 }
 
+export interface LicenseCounts {
+  total: number;
+  valid: number;
+  used: number;
+  unused: number;
+  revoked: number;
+}
+
+// 앱 통계는 usedBy 로 세는데 그 필드를 쓰는 곳이 없어 늘 0 이다. 사용 여부는 redeemedAt 에만 남는다.
+export function countLicenses(all: Record<string, License>): LicenseCounts {
+  const counts: LicenseCounts = { total: 0, valid: 0, used: 0, unused: 0, revoked: 0 };
+  for (const license of Object.values(all)) {
+    const status = licenseStatus(license);
+    counts.total++;
+    counts[status]++;
+    if (status !== 'revoked') counts.valid++;
+  }
+  return counts;
+}
+
 // 키는 무작위라 키 순서가 발급 순서가 아니다 — 최근 발급한 것부터.
 export function filterLicenses(all: Record<string, License>, search: string): [string, License][] {
   const needle = search.trim().toLowerCase();

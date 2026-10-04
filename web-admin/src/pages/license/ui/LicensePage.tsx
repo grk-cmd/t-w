@@ -3,6 +3,7 @@ import { usePendingRequests } from '@/entities/license-request';
 import { GrantByCodeCard } from '@/features/grant-by-code';
 import { IssueKeyCard } from '@/features/issue-key';
 import { LicenseList } from '@/widgets/license-list';
+import { LicenseStats } from '@/widgets/license-stats';
 import { RequestList } from '@/widgets/request-list';
 import styles from './LicensePage.module.css';
 
@@ -15,6 +16,7 @@ export function LicensePage() {
 
   return (
     <>
+      <LicenseStats />
       <div className="grid2">
         <IssueKeyCard />
         <GrantByCodeCard />
