@@ -5,16 +5,28 @@ import { fakeDb } from '../shared/fakeDb';
 const left = (uid: string) => `users/${uid}/invite/invitesLeft`;
 
 describe('초대권 지급 — 한 명', () => {
-  it('지금 장수에 더해 invite 칸만 고친다', async () => {
+  it('지금 장수에 더해 invitesLeft 한 칸만 트랜잭션으로 고친다', async () => {
     const { db, writes } = fakeDb({ [left('u1')]: 2 });
     expect(await grantInvites(db, 'u1', 3)).toEqual({ ok: true, before: 2, after: 5 });
-    expect(writes).toEqual([['update', 'users/u1/invite', { invitesLeft: 5 }]]);
+    expect(writes).toEqual([['transaction', left('u1'), 5]]);
+  });
+
+  it('읽은 뒤 본인이 쓴 초대권을 덮지 않는다 — 서버가 거절하면 새 값으로 다시 더한다', async () => {
+    const { db, writes } = fakeDb({ [left('u1')]: 5 });
+    const tx = db.transaction;
+    // 첫 시도 땐 5 로 보였지만 그새 본인이 1장 써서 서버는 4 — 실제 트랜잭션처럼 새 값으로 다시 부른다.
+    db.transaction = async <T>(path: string, change: (c: T | null) => T | undefined) => {
+      change(5 as T);
+      return tx<T>(path, (c) => change((c === null ? null : 4) as T | null));
+    };
+    expect(await grantInvites(db, 'u1', 2)).toEqual({ ok: true, before: 4, after: 6 });
+    expect(writes).toEqual([['transaction', left('u1'), 6]]);
   });
 
   it('규칙 상한 999 에서 자른다', async () => {
     const { db, writes } = fakeDb({ [left('u1')]: 998 });
     expect(await grantInvites(db, 'u1', 3)).toEqual({ ok: true, before: 998, after: 999 });
-    expect(writes[0][2]).toEqual({ invitesLeft: 999 });
+    expect(writes[0][2]).toBe(999);
   });
 
   it('이미 999 면 쓰지 않는다', async () => {
@@ -55,7 +67,7 @@ describe('초대권 지급 — 전체', () => {
     const seen: number[] = [];
     const r = await grantInvitesAll(db, ['a', 'b', 'c', 'd'], 2, { onProgress: (done) => seen.push(done) });
     expect(r).toEqual({ total: 4, granted: 1, skipped: 2, failed: 1, stopped: false });
-    expect(writes).toEqual([['update', 'users/a/invite', { invitesLeft: 2 }]]);
+    expect(writes).toEqual([['transaction', left('a'), 2]]);
     expect(seen).toEqual([1, 2, 3, 4]);
   });
 
@@ -85,8 +97,8 @@ describe('초대권 지급 — 선택', () => {
     const r = await grantInvitesAll(db, ['a', 'c'], 3);
     expect(r).toEqual({ total: 2, granted: 2, skipped: 0, failed: 0, stopped: false });
     expect(writes).toEqual([
-      ['update', 'users/a/invite', { invitesLeft: 4 }],
-      ['update', 'users/c/invite', { invitesLeft: 4 }],
+      ['transaction', left('a'), 4],
+      ['transaction', left('c'), 4],
     ]);
   });
 });

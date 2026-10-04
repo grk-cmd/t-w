@@ -4,6 +4,14 @@ export interface Db {
   set(path: string, value: unknown): Promise<void>;
   update(path: string, value: Record<string, unknown>): Promise<void>;
   remove(path: string): Promise<void>;
+  /**
+   * 한 경로를 읽고-고쳐-쓰기를 서버에서 한 번에 — 그 사이 다른 쓰기가 끼면 새 값으로 update 를 다시 부른다.
+   * update 가 undefined 를 돌려주면 쓰지 않고 그만둔다(committed: false). value 는 끝났을 때의 값.
+   */
+  transaction<T>(
+    path: string,
+    update: (current: T | null) => T | undefined,
+  ): Promise<{ committed: boolean; value: T | null }>;
   /** 여러 경로를 한 번에 쓴다 — 전부 되거나 전부 안 된다(규칙 검사도 한 묶음으로). 값이 null 이면 그 경로를 지운다. */
   commit(updates: Record<string, unknown>): Promise<void>;
   /** 구독 해제 함수를 돌려준다. */

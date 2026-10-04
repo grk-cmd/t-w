@@ -17,6 +17,7 @@ import {
   query,
   ref,
   remove,
+  runTransaction,
   serverTimestamp,
   set,
   update,
@@ -77,6 +78,19 @@ export async function connectFirebase(): Promise<Firebase> {
     set: (path, value) => set(at(path), value),
     update: (path, value) => update(at(path), value),
     remove: (path) => remove(at(path)),
+    transaction: async <T>(path: string, change: (current: T | null) => T | undefined) => {
+      const r = at(path);
+      // 이 경로를 구독하지 않으면 SDK 캐시가 비어 첫 호출이 null 로 들어온다. 그걸 «값 없음» 으로 보고
+      // 그만두면 안 되므로 첫 번째만 방금 읽은 서버 값으로 대신한다 — 틀렸으면 서버가 거절해 진짜 값으로 다시 부른다.
+      const seed = (await get(r)).val() as T | null;
+      let first = true;
+      const result = await runTransaction(r, (current: T | null) => {
+        const value = first && current === null ? seed : current;
+        first = false;
+        return change(value);
+      });
+      return { committed: result.committed, value: result.snapshot.val() as T | null };
+    },
     commit: (updates) => update(ref(database), updates),
     watch: (path, onChange, onError) => onValue(at(path), (snap) => onChange(snap.val()), onError),
     probe: async (path) => {
