@@ -32,6 +32,29 @@ export function getUserName(db: Db, uid: string): Promise<string | null> {
   return db.get<string>(`users/${uid}/profile/name`).catch(() => null);
 }
 
+/** 마지막 접속 시각(ms). 기록이 없거나 읽지 못하면 null. */
+export async function getUserLastSeen(db: Db, uid: string): Promise<number | null> {
+  try {
+    const seen = await db.get<number>(`users/${uid}/presence/lastSeen`);
+    return typeof seen === 'number' ? seen : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 계정에 적힌 친구코드(거울). friendCodes 는 코드 → uid 뿐이라 반대 방향은 여기서만 알 수 있다.
+ * undefined = 읽지 못함 · null = 적힌 값 없음.
+ */
+export async function getUserFriendCode(db: Db, uid: string): Promise<string | null | undefined> {
+  try {
+    const code = await db.get<string>(`users/${uid}/friendCode`);
+    return typeof code === 'string' && code ? code : null;
+  } catch {
+    return undefined;
+  }
+}
+
 export function useFriendCodes() {
   const db = useDb();
   return useQuery({ queryKey: ['friendCodes'], queryFn: () => listFriendCodes(db) });

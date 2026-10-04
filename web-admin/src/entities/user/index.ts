@@ -1,6 +1,8 @@
 export {
   findUserByFriendCode,
   friendCodeCandidates,
+  getUserFriendCode,
+  getUserLastSeen,
   getUserName,
   listFriendCodes,
   useFriendCodes,
