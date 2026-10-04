@@ -10,10 +10,13 @@ import {
 } from 'firebase/auth';
 import {
   connectDatabaseEmulator,
+  equalTo,
   get,
   getDatabase,
   limitToFirst,
+  limitToLast,
   onValue,
+  orderByChild,
   query,
   ref,
   remove,
@@ -91,6 +94,10 @@ export async function connectFirebase(): Promise<Firebase> {
 
   const db: Db = {
     get: async (path) => (await get(at(path))).val(),
+    getLast: async (path, child, n) =>
+      (await get(query(at(path), orderByChild(child), limitToLast(n)))).val() ?? {},
+    getEqual: async (path, child, value) =>
+      (await get(query(at(path), orderByChild(child), equalTo(value)))).val() ?? {},
     set: (path, value) => set(at(path), value),
     update: (path, value) => update(at(path), value),
     remove: (path) => remove(at(path)),

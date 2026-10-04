@@ -1,5 +1,6 @@
 export { inboxMessageWrite, sendInboxMessage } from './api/inbox';
 export {
+  BROADCAST_PAGE,
   broadcastsPinnedWrite,
   broadcastWrite,
   deleteBroadcast,
@@ -9,6 +10,7 @@ export {
   setBroadcastPinned,
   useBroadcasts,
   useRefreshBroadcasts,
+  type BroadcastPage,
 } from './api/broadcast';
 export { checkBroadcast, sortBroadcasts, type InboxBroadcast, type RawBroadcast } from './model/broadcast';
 export {

@@ -64,11 +64,39 @@ describe('수령함 전체 공지', () => {
         pin: { tag: 'weird', title: '고정', ts: 2, pinned: true },
       },
     });
-    const list = await listBroadcasts(db);
+    const { items: list, hasMore } = await listBroadcasts(db);
     expect(list.map((b) => b.id)).toEqual(['pin', 'new', 'old']);
     expect(list[0]).toEqual({ id: 'pin', tag: 'notice', title: '고정', body: '', ts: 2, pinned: true });
-    expect(await listBroadcasts(fakeDb().db)).toEqual([]);
+    expect(hasMore).toBe(false);
+    expect(await listBroadcasts(fakeDb().db)).toEqual({ items: [], hasMore: false });
     expect(sortBroadcasts({})).toEqual([]);
+  });
+
+  it('목록 — 최근 n 개만 받고, 오래된 고정 공지는 개수와 상관없이 함께 받는다', async () => {
+    const all = Object.fromEntries(
+      Array.from({ length: 5 }, (_, i) => [`b${i}`, { tag: 'notice', title: `${i}`, ts: i }]),
+    );
+    const { db } = fakeDb({
+      inboxBroadcast: { ...all, pinOld: { tag: 'notice', title: '옛 고정', ts: -1, pinned: true } },
+    });
+    const asked: unknown[] = [];
+    const { getLast, getEqual } = db;
+    db.getLast = (path, child, n) => (asked.push(['last', path, child, n]), getLast(path, child, n));
+    db.getEqual = (path, child, v) => (asked.push(['equal', path, child, v]), getEqual(path, child, v));
+    db.get = async () => {
+      throw new Error('통째로 받지 않는다');
+    };
+
+    const first = await listBroadcasts(db, 2);
+    expect(first.items.map((b) => b.id)).toEqual(['pinOld', 'b4', 'b3']);
+    expect(first.hasMore).toBe(true);
+    expect(asked).toEqual([
+      ['last', 'inboxBroadcast', 'ts', 2],
+      ['equal', 'inboxBroadcast', 'pinned', true],
+    ]);
+    const more = await listBroadcasts(db, 8);
+    expect(more.items).toHaveLength(6);
+    expect(more.hasMore).toBe(false);
   });
 
   it('제목 · 내용 둘 다 있어야 보낸다', () => {

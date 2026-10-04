@@ -17,6 +17,15 @@ export function fakeDb(data: Record<string, unknown> = {}, failOn: (path: string
   };
   const db: Db = {
     get: async <T>(path: string) => (data[path] ?? null) as T | null,
+    getLast: async <T>(path: string, child: string, n: number) => {
+      const all = Object.entries((data[path] ?? {}) as Record<string, Record<string, unknown>>);
+      all.sort(([, a], [, b]) => Number(a?.[child] ?? 0) - Number(b?.[child] ?? 0));
+      return Object.fromEntries(all.slice(-n)) as Record<string, T>;
+    },
+    getEqual: async <T>(path: string, child: string, value: unknown) => {
+      const all = Object.entries((data[path] ?? {}) as Record<string, Record<string, unknown>>);
+      return Object.fromEntries(all.filter(([, v]) => v?.[child] === value)) as Record<string, T>;
+    },
     set: (path, value) => write('set', path, value),
     update: (path, value) => write('update', path, value),
     remove: (path) => write('remove', path),

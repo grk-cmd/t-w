@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { INBOX_TAG_LABEL, useBroadcasts, useRefreshBroadcasts } from '@/entities/inbox';
+import { BROADCAST_PAGE, INBOX_TAG_LABEL, useBroadcasts, useRefreshBroadcasts } from '@/entities/inbox';
 import { BroadcastActions, BulkBroadcastActions } from '@/features/notice/manage-broadcast';
 import { errorMessage, formatDate, paginate, useSelection } from '@/shared/lib';
 import { Pager, RowCheckbox, SelectAllCheckbox, SelectionBar } from '@/shared/ui';
@@ -8,7 +8,9 @@ import styles from './BroadcastList.module.css';
 const PAGE_SIZE = 30;
 
 export function BroadcastList() {
-  const { data: broadcasts, error } = useBroadcasts();
+  const [limit, setLimit] = useState(BROADCAST_PAGE);
+  const { data, error, isFetching } = useBroadcasts(limit);
+  const broadcasts = data?.items;
   const refresh = useRefreshBroadcasts();
   const [page, setPage] = useState(1);
   const list = useMemo(() => broadcasts ?? [], [broadcasts]);
@@ -22,7 +24,7 @@ export function BroadcastList() {
     <section className="card">
       <div className="card-head">
         <h2>보낸 전체 공지</h2>
-        <span className="soft">{broadcasts && `${broadcasts.length}건`}</span>
+        <span className="soft">{broadcasts && `${broadcasts.length}건${data.hasMore ? '+' : ''}`}</span>
         <button type="button" className="btn" onClick={refresh}>
           새로고침
         </button>
@@ -65,6 +67,16 @@ export function BroadcastList() {
         ))}
       </div>
       <Pager page={view.page} pageCount={view.pageCount} onChange={setPage} />
+      {data?.hasMore && (
+        <button
+          type="button"
+          className="btn"
+          disabled={isFetching}
+          onClick={() => setLimit((n) => n + BROADCAST_PAGE)}
+        >
+          {isFetching ? '불러오는 중…' : '더 보기'}
+        </button>
+      )}
     </section>
   );
 }

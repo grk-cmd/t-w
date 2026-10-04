@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
 import { sortBroadcasts, type InboxBroadcast, type RawBroadcast } from '../model/broadcast';
 import { INBOX_BODY_MAX, INBOX_TITLE_MAX, type InboxMessage } from '../model/message';
@@ -10,14 +10,35 @@ function broadcastId(): string {
   return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-// 공지 목록은 통째로 받는 노드다(요금 = 내려받은 바이트) — 구독하지 않고 쓰기 직후 · 새로고침 때만 다시 받는다.
-export async function listBroadcasts(db: Db): Promise<InboxBroadcast[]> {
-  return sortBroadcasts((await db.get<Record<string, RawBroadcast>>(ROOT)) ?? {});
+/** 처음에 받는 최근 공지 수 · «더 보기» 한 번에 늘리는 수. */
+export const BROADCAST_PAGE = 30;
+
+export interface BroadcastPage {
+  items: InboxBroadcast[];
+  /** 최근 n 개를 꽉 채워 받았다 — 더 오래된 공지가 남아 있을 수 있다. */
+  hasMore: boolean;
 }
 
-export function useBroadcasts() {
+/**
+ * 최근 n 개 + 고정 공지(오래됐어도 맨 위라 개수와 상관없이). 요금 = 내려받은 바이트라 통째로 받지 않는다.
+ * 구독하지 않고 쓰기 직후 · 새로고침 · 더 보기 때만 다시 받는다.
+ */
+export async function listBroadcasts(db: Db, n = BROADCAST_PAGE): Promise<BroadcastPage> {
+  const [recent, pinned] = await Promise.all([
+    db.getLast<RawBroadcast>(ROOT, 'ts', n),
+    db.getEqual<RawBroadcast>(ROOT, 'pinned', true),
+  ]);
+  return { items: sortBroadcasts({ ...recent, ...pinned }), hasMore: Object.keys(recent).length >= n };
+}
+
+export function useBroadcasts(n = BROADCAST_PAGE) {
   const db = useDb();
-  return useQuery({ queryKey: BROADCAST_KEY, queryFn: () => listBroadcasts(db) });
+  return useQuery({
+    queryKey: [...BROADCAST_KEY, n],
+    queryFn: () => listBroadcasts(db, n),
+    // 더 보기 동안 지금 목록을 둔 채 받는다.
+    placeholderData: keepPreviousData,
+  });
 }
 
 export function useRefreshBroadcasts() {
