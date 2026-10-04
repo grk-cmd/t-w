@@ -25,7 +25,8 @@
   border-color: var(--line);
 }
 
-.tabs + :global(.card) {
+.tabs + :global(.card),
+.panel > :global(.card) {
   border-top-left-radius: 0;
 }
 
