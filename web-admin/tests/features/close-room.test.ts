@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { closeAllRooms, closeRoom, isCloseAllConfirmed } from '@/features/room/close-room';
+import {
+  closeAllRooms,
+  closeRoom,
+  closeSelectedRooms,
+  isCloseAllConfirmed,
+} from '@/features/room/close-room';
 import { fakeDb } from '../shared/fakeDb';
 
 describe('방 종료', () => {
@@ -37,5 +42,24 @@ describe('방 종료', () => {
     expect(isCloseAllConfirmed(' 종료 ')).toBe(true);
     expect(isCloseAllConfirmed('')).toBe(false);
     expect(isCloseAllConfirmed('종료함')).toBe(false);
+  });
+});
+
+describe('선택 종료', () => {
+  it('고른 방의 rooms · roomIndex 를 한 묶음으로 지운다', async () => {
+    const { db, writes } = fakeDb();
+    expect(await closeSelectedRooms(db, ['WORK-A', 'PLAY-B'])).toBe(2);
+    expect(writes).toEqual([
+      ['commit', 'rooms/WORK-A', null],
+      ['commit', 'roomIndex/WORK-A', null],
+      ['commit', 'rooms/PLAY-B', null],
+      ['commit', 'roomIndex/PLAY-B', null],
+    ]);
+  });
+
+  it('하나라도 막히면 아무 방도 지우지 않는다', async () => {
+    const { db, writes } = fakeDb({}, (p) => p === 'rooms/PLAY-B');
+    await expect(closeSelectedRooms(db, ['WORK-A', 'PLAY-B'])).rejects.toThrow();
+    expect(writes).toEqual([]);
   });
 });

@@ -9,8 +9,9 @@ import {
   useRoomStats,
   useServerNow,
 } from '@/entities/room';
-import { CloseRoomButton } from '@/features/room/close-room';
-import { errorMessage, formatDate } from '@/shared/lib';
+import { CloseRoomButton, CloseSelectedRoomsButton } from '@/features/room/close-room';
+import { errorMessage, formatDate, useSelection } from '@/shared/lib';
+import { RowCheckbox, SelectAllCheckbox, SelectionBar } from '@/shared/ui';
 import styles from './RoomList.module.css';
 
 export function RoomList() {
@@ -25,6 +26,8 @@ export function RoomList() {
   );
   const summary = now !== null ? roomStatsSummary(stats.data ?? null, now) : null;
   const aliveCount = rows?.filter((r) => r.alive).length ?? 0;
+  const ids = useMemo(() => (rows ?? []).map((r) => r.code), [rows]);
+  const selection = useSelection(ids);
 
   return (
     <section className="card">
@@ -55,11 +58,25 @@ export function RoomList() {
 
       {index.error && <p className="msg err">{errorMessage(index.error, '방 목록을 불러오지 못했어요')}</p>}
       {!index.error && !rows && <p className="soft">불러오는 중…</p>}
+      {rows && rows.length > 0 && (
+        <SelectionBar count={selection.selected.length} onClear={selection.clear}>
+          <CloseSelectedRoomsButton codes={selection.selected} onDone={selection.clear} />
+        </SelectionBar>
+      )}
       {rows && (
         <div className={styles.wrap}>
           <table className={styles.table}>
             <thead>
               <tr>
+                <th>
+                  <SelectAllCheckbox
+                    label="전체 선택"
+                    allChecked={selection.allChecked}
+                    someChecked={selection.someChecked}
+                    disabled={rows.length === 0}
+                    onChange={selection.toggleAll}
+                  />
+                </th>
                 <th>방 코드</th>
                 <th>채널</th>
                 <th>랜덤 공개</th>
@@ -71,13 +88,20 @@ export function RoomList() {
             <tbody>
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="soft">
+                  <td colSpan={7} className="soft">
                     열린 방이 없어요
                   </td>
                 </tr>
               )}
               {rows.map((row) => (
                 <tr key={row.code} className={row.alive ? undefined : styles.ghost}>
+                  <td>
+                    <RowCheckbox
+                      label={`${row.code} 선택`}
+                      checked={selection.isSelected(row.code)}
+                      onChange={() => selection.toggle(row.code)}
+                    />
+                  </td>
                   <td>
                     <code className="key">{row.code}</code>
                   </td>
