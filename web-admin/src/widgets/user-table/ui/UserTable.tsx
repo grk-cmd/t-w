@@ -1,6 +1,7 @@
 import { realName, useUserName, type UserLicense, type UserRow } from '@/entities/user';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
-import { formatDate } from '@/shared/lib';
+import { formatDate, type Selection } from '@/shared/lib';
+import { RowCheckbox, SelectAllCheckbox } from '@/shared/ui';
 import styles from './UserTable.module.css';
 
 const LICENSE_LABEL: Record<UserLicense, string> = {
@@ -26,14 +27,24 @@ function NameCell({ row }: { row: UserRow }) {
 interface Props {
   rows: UserRow[];
   startIndex: number;
+  /** 사용자코드로 고른다. 전체 선택은 이 쪽(rows)만. */
+  selection: Selection;
 }
 
-export function UserTable({ rows, startIndex }: Props) {
+export function UserTable({ rows, startIndex, selection }: Props) {
   return (
     <div className={styles.wrap}>
       <table className={styles.table}>
         <thead>
           <tr>
+            <th>
+              <SelectAllCheckbox
+                allChecked={selection.allChecked}
+                someChecked={selection.someChecked}
+                disabled={rows.length === 0}
+                onChange={selection.toggleAll}
+              />
+            </th>
             <th>#</th>
             <th>이름</th>
             <th>친구코드</th>
@@ -47,13 +58,20 @@ export function UserTable({ rows, startIndex }: Props) {
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={8} className="soft">
+              <td colSpan={9} className="soft">
                 조건에 맞는 사용자가 없어요
               </td>
             </tr>
           )}
           {rows.map((row, i) => (
             <tr key={row.userCode}>
+              <td>
+                <RowCheckbox
+                  label={`${row.name ?? row.friendCode ?? row.userCode} 선택`}
+                  checked={selection.isSelected(row.userCode)}
+                  onChange={() => selection.toggle(row.userCode)}
+                />
+              </td>
               <td className="soft">{startIndex + i + 1}</td>
               <td>
                 <NameCell row={row} />

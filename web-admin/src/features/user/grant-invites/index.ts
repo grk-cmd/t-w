@@ -7,3 +7,4 @@ export {
 } from './model/grantInvites';
 export { GrantInvitesAllButton } from './ui/GrantInvitesAllButton';
 export { GrantInvitesButton } from './ui/GrantInvitesButton';
+export { GrantInvitesSelectedButton } from './ui/GrantInvitesSelectedButton';

@@ -78,3 +78,15 @@ describe('초대권 지급 — 전체', () => {
     expect(writes).toEqual([]);
   });
 });
+
+describe('초대권 지급 — 선택', () => {
+  it('고른 사람에게만 쓴다', async () => {
+    const { db, writes } = fakeDb({ [left('a')]: 1, [left('b')]: 1, [left('c')]: 1 });
+    const r = await grantInvitesAll(db, ['a', 'c'], 3);
+    expect(r).toEqual({ total: 2, granted: 2, skipped: 0, failed: 0, stopped: false });
+    expect(writes).toEqual([
+      ['update', 'users/a/invite', { invitesLeft: 4 }],
+      ['update', 'users/c/invite', { invitesLeft: 4 }],
+    ]);
+  });
+});
