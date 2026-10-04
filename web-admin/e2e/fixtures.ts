@@ -35,6 +35,8 @@ export const test = base.extend<{ seed: (data?: Record<string, unknown>) => Prom
     await stayLocal(page);
     await provide(page);
   },
+  // Playwright 는 픽스처 인자를 구조 분해로 읽어 의존성을 정한다 — 쓰는 픽스처가 없어도 {} 가 있어야 한다.
+  // oxlint-disable-next-line no-empty-pattern
   seed: async ({}, provide) => {
     const uid = adminUid();
     await provide((data = {}) => resetDb(uid, data));
