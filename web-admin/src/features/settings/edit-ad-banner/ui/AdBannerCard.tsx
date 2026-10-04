@@ -26,17 +26,21 @@ function Preview({ img }: { img: string }) {
   );
 }
 
-function AdBannerForm({ saved }: { saved: AdSlide[] }) {
+interface FormProps {
+  saved: AdSlide[];
+  setMessage: (message: Message) => void;
+}
+
+function AdBannerForm({ saved, setMessage }: FormProps) {
   const save = useSaveAdBanner();
   const [slots, setSlots] = useState<AdSlide[]>(() =>
     Array.from({ length: AD_SLOTS }, (_, i) => saved[i] ?? { img: '', link: '' }),
   );
-  const [message, setMessage] = useState<Message>(null);
 
   const change = (i: number, field: keyof AdSlide, value: string) =>
     setSlots((prev) => prev.map((s, j) => (j === i ? { ...s, [field]: value } : s)));
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     const slides = buildSlides(slots);
     const problem = slides.map(slideProblem).find(Boolean);
@@ -48,14 +52,16 @@ function AdBannerForm({ saved }: { saved: AdSlide[] }) {
       ? `배너 ${slides.length}장을 게시할까요? 모든 사용자의 런처에 바로 바뀌어요.`
       : '이미지가 없어요. 모든 사용자에게서 배너를 숨길까요?';
     if (!confirm(ask)) return;
-    save.mutate(slides, {
-      onSuccess: () =>
-        setMessage({
-          text: slides.length ? `게시했어요 · ${slides.length}장` : '배너를 숨겼어요',
-          error: false,
-        }),
-      onError: (err) => setMessage({ text: errorMessage(err, '저장하지 못했어요'), error: true }),
-    });
+    // 저장이 끝나면 다시 받은 값으로 이 폼이 새로 마운트된다(key) — mutate 콜백은 그때 사라지므로 결과를 기다려 위 카드에 남긴다.
+    try {
+      await save.mutateAsync(slides);
+      setMessage({
+        text: slides.length ? `게시했어요 · ${slides.length}장` : '배너를 숨겼어요',
+        error: false,
+      });
+    } catch (err) {
+      setMessage({ text: errorMessage(err, '저장하지 못했어요'), error: true });
+    }
   };
 
   return (
@@ -87,7 +93,6 @@ function AdBannerForm({ saved }: { saved: AdSlide[] }) {
           {save.isPending ? '게시 중…' : '게시'}
         </button>
       </div>
-      {message && <p className={message.error ? 'msg err' : 'msg'}>{message.text}</p>}
     </form>
   );
 }
@@ -95,6 +100,7 @@ function AdBannerForm({ saved }: { saved: AdSlide[] }) {
 export function AdBannerCard() {
   const { data, error } = useAdBanner();
   const refresh = useRefreshAdBanner();
+  const [message, setMessage] = useState<Message>(null);
 
   return (
     <section className="card">
@@ -107,7 +113,8 @@ export function AdBannerCard() {
       {error && <p className="msg err">{errorMessage(error, '불러오지 못했어요')}</p>}
       {!error && !data && <p className="soft">불러오는 중…</p>}
       {/* 다시 받은 값으로 입력 칸을 새로 채운다 */}
-      {data && <AdBannerForm key={JSON.stringify(data)} saved={data} />}
+      {data && <AdBannerForm key={JSON.stringify(data)} saved={data} setMessage={setMessage} />}
+      {message && <p className={message.error ? 'msg err' : 'msg'}>{message.text}</p>}
     </section>
   );
 }
