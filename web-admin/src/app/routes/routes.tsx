@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import { LicensePage } from '@/pages/license';
+import { SettingsPage } from '@/pages/settings';
 import { UsersPage } from '@/pages/users';
 
 export interface Route {
@@ -12,4 +13,5 @@ export interface Route {
 export const ROUTES: Route[] = [
   { id: 'license', label: '🎟️ 라이선스', Page: LicensePage },
   { id: 'users', label: '👥 사용자', Page: UsersPage },
+  { id: 'settings', label: '⚙️ 설정', Page: SettingsPage },
 ];
