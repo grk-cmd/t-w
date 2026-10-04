@@ -4,7 +4,7 @@ import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { useCloseRoom } from '../model/useCloseRoom';
 
-// 시크릿룸(SCRT-)은 roomIndex 에 적히지 않아 목록에 없다. 코드를 알면 여기서 닫는다.
+// 목록에 있는 방은 목록에서 닫는다. 목록을 받기 전이거나 코드만 아는 방을 여기서 닫는다.
 export function CloseByCodeCard() {
   const toast = useToast();
   const close = useCloseRoom();

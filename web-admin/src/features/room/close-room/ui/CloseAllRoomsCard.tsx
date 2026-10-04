@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRoomIndex } from '@/entities/room';
+import { allRoomCodes, isSecretRoom, useRoomCodes, useRoomIndex } from '@/entities/room';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { CLOSE_ALL_WORD, isCloseAllConfirmed } from '../model/closeRoom';
@@ -8,15 +8,20 @@ import { useCloseAllRooms } from '../model/useCloseRoom';
 export function CloseAllRoomsCard() {
   const toast = useToast();
   const { data: index } = useRoomIndex();
+  const { data: codes } = useRoomCodes();
   const closeAll = useCloseAllRooms();
   const [typed, setTyped] = useState('');
-  const count = index ? Object.keys(index).length : null;
+  const all = index && codes ? allRoomCodes(index, codes) : null;
+  const secret = all?.filter(isSecretRoom).length ?? 0;
+  const target = all ? `${all.length}개` + (secret ? ` (시크릿룸 ${secret}개 포함)` : '') : '…';
 
   const onClose = () => {
-    if (!isCloseAllConfirmed(typed)) return;
+    if (!all || !isCloseAllConfirmed(typed)) return;
+    const ask = `방 ${all.length}개를 모두 종료할까요? (시크릿룸 ${secret}개 포함)\n안에 있던 사람은 방에서 튕겨 나가요.`;
+    if (!confirm(ask)) return;
     closeAll.mutate(undefined, {
-      onSuccess: (codes) => {
-        toast(codes.length ? `방 ${codes.length}개를 종료했어요` : '종료할 방이 없어요');
+      onSuccess: (closed) => {
+        toast(closed.length ? `방 ${closed.length}개를 종료했어요` : '종료할 방이 없어요');
         setTyped('');
       },
       onError: (e) => toast(errorMessage(e, '종료하지 못했어요. 지운 방은 없어요')),
@@ -26,7 +31,7 @@ export function CloseAllRoomsCard() {
   return (
     <section className="card">
       <h2>🛑 전체 방 종료</h2>
-      <p className="soft">대상 {count ?? '…'}개</p>
+      <p className="soft">대상 {target}</p>
       <div className="field">
         <input
           type="text"
@@ -37,8 +42,8 @@ export function CloseAllRoomsCard() {
         <button
           type="button"
           className="btn danger"
-          disabled={!isCloseAllConfirmed(typed) || closeAll.isPending}
-          title="목록의 방을 즉시 닫아요. 안에 있던 사람은 튕겨 나가요. 시크릿룸은 제외"
+          disabled={!all || !isCloseAllConfirmed(typed) || closeAll.isPending}
+          title="시크릿룸까지 모든 방을 즉시 닫아요. 안에 있던 사람은 튕겨 나가요"
           onClick={onClose}
         >
           {closeAll.isPending ? '종료 중…' : '전체 종료'}

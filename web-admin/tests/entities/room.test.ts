@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  allRoomCodes,
   closeRooms,
   closeRoomsWrite,
   formatAgo,
   ghostCodes,
+  isMemberKey,
   isRoomAlive,
   normalizeRoomCode,
+  orphanCodes,
+  probeRoom,
+  probeRooms,
   ROOM_LIVE_MS,
   roomRows,
   roomStatsSummary,
@@ -108,5 +113,73 @@ describe('방 종료 쓰기', () => {
     const { db, writes } = fakeDb();
     await closeRooms(db, []);
     expect(writes).toEqual([]);
+  });
+});
+
+describe('rooms 키만 보고 — 고아 · 시크릿룸 · 인원', () => {
+  const index = {
+    'WORK-LIVE': { lastSeen: NOW - 1_000 },
+    'WORK-DEAD': { lastSeen: NOW - 200_000 },
+  };
+  const codes = ['WORK-LIVE', 'WORK-DEAD', 'WORK-ORPH', 'WORK-OLDC', 'SCRT-AB12'];
+  const probes = {
+    'WORK-LIVE': { members: 2, lastSeen: null },
+    'WORK-DEAD': { members: 0, lastSeen: null },
+    'WORK-ORPH': { members: 0, lastSeen: null },
+    'WORK-OLDC': { members: 1, lastSeen: NOW - 5_000 }, // 옛 앱이 연 방 — roomIndex 를 안 쓰지만 살아 있다
+    'SCRT-AB12': { members: 3, lastSeen: null },
+  };
+
+  it('멤버 키는 밑줄 키 · chatLog 를 뺀다 (앱 _isMemberKey 와 같다)', () => {
+    expect(['_meta', '_photo', 'chatLog', 'u1', 'm-2'].filter(isMemberKey)).toEqual(['u1', 'm-2']);
+  });
+
+  it('고아 방 = rooms 에만 있는 방, 시크릿룸은 원래 roomIndex 에 없으니 빼고', () => {
+    expect(orphanCodes(index, codes)).toEqual(['WORK-OLDC', 'WORK-ORPH']);
+  });
+
+  it('유령 = 신호 끊긴 줄 + 멤버 신호가 끊긴 고아. 살펴보기 전 고아 · 시크릿룸은 넣지 않는다', () => {
+    expect(ghostCodes(index, NOW, { codes, probes })).toEqual(['WORK-DEAD', 'WORK-ORPH']);
+    expect(ghostCodes(index, NOW, { codes })).toEqual(['WORK-DEAD']);
+    expect(ghostCodes({ 'SCRT-X': {} }, NOW)).toEqual([]);
+  });
+
+  it('목록 줄 — 인원 수를 싣고, 고아는 멤버 신호로 판정, 시크릿룸은 맨 아래', () => {
+    const rows = roomRows(index, NOW, { codes, probes });
+    expect(rows.map((r) => [r.code, r.kind, r.alive, r.members])).toEqual([
+      ['WORK-LIVE', 'indexed', true, 2],
+      ['WORK-OLDC', 'orphan', true, 1],
+      ['WORK-DEAD', 'indexed', false, 0],
+      ['WORK-ORPH', 'orphan', false, 0],
+      ['SCRT-AB12', 'secret', false, 3],
+    ]);
+    expect(rows[1]).toMatchObject({ channel: null, lastSeen: NOW - 5_000 });
+  });
+
+  it('전체 종료 대상은 앱처럼 rooms 의 모든 방(시크릿룸 포함) + roomIndex 에만 남은 줄', () => {
+    expect(allRoomCodes({ 'WORK-GONE': {}, 'WORK-A': {} }, ['WORK-A', 'SCRT-B'])).toEqual([
+      'SCRT-B',
+      'WORK-A',
+      'WORK-GONE',
+    ]);
+  });
+
+  it('방 살펴보기 — 키만 받아 멤버를 세고, 요청한 방만 멤버 lastSeen 을 읽는다', async () => {
+    const { db } = fakeDb({
+      'rooms/WORK-A': { _meta: true, chatLog: true, u1: true, u2: true },
+      'rooms/WORK-A/u1/lastSeen': NOW - 50_000,
+      'rooms/WORK-A/u2/lastSeen': NOW - 3_000,
+      'rooms/WORK-B': { _meta: true },
+    });
+    const read: string[] = [];
+    const get = db.get;
+    db.get = (path) => (read.push(path), get(path));
+    expect(await probeRoom(db, 'WORK-A', false)).toEqual({ members: 2, lastSeen: null });
+    expect(read).toEqual([]);
+    expect(await probeRoom(db, 'WORK-A', true)).toEqual({ members: 2, lastSeen: NOW - 3_000 });
+    expect(await probeRooms(db, ['WORK-A', 'WORK-B'], new Set())).toEqual({
+      'WORK-A': { members: 2, lastSeen: null },
+      'WORK-B': { members: 0, lastSeen: null },
+    });
   });
 });

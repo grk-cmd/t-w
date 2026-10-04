@@ -31,6 +31,19 @@ describe('방 종료', () => {
     ]);
   });
 
+  it('전체 — 앱처럼 rooms 의 시크릿룸 · 고아도 닫는다(rooms 는 키만 받는다)', async () => {
+    const { db, writes } = fakeDb({
+      roomIndex: { 'WORK-B': { lastSeen: 1 } },
+      rooms: { 'WORK-B': {}, 'SCRT-Z': {}, 'WORK-O': {} },
+    });
+    const read: string[] = [];
+    const get = db.get;
+    db.get = (path) => (read.push(path), get(path));
+    expect(await closeAllRooms(db)).toEqual(['SCRT-Z', 'WORK-B', 'WORK-O']);
+    expect(read).toEqual(['roomIndex']);
+    expect(writes).toHaveLength(6);
+  });
+
   it('전체 — 방이 없으면 아무것도 보내지 않는다', async () => {
     const { db, writes } = fakeDb();
     expect(await closeAllRooms(db)).toEqual([]);

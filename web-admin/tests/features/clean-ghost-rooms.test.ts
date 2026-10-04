@@ -36,4 +36,22 @@ describe('유령 방 청소', () => {
     await expect(cleanGhostRooms(db, ['WORK-A', 'WORK-B'], clock)).rejects.toThrow();
     expect(writes).toEqual([]);
   });
+
+  it('고아 방은 지우기 직전 멤버 신호를 읽어 그새 살아났으면 남긴다', async () => {
+    const { db, writes } = fakeDb({
+      roomIndex: {},
+      'rooms/WORK-ORPH': { _meta: true, chatLog: true },
+      'rooms/WORK-OLDC': { u1: true },
+      'rooms/WORK-OLDC/u1/lastSeen': NOW - 1_000,
+    });
+    const r = await cleanGhostRooms(db, ['WORK-ORPH', 'WORK-OLDC'], clock);
+    expect(r).toEqual({ removed: ['WORK-ORPH'], revived: ['WORK-OLDC'] });
+    expect(writes.map((w) => w[1])).toEqual(['rooms/WORK-ORPH', 'roomIndex/WORK-ORPH']);
+  });
+
+  it('시크릿룸은 넘겨받아도 지우지 않는다', async () => {
+    const { db, writes } = fakeDb({ roomIndex: {}, 'rooms/SCRT-AB12': {} });
+    expect(await cleanGhostRooms(db, ['SCRT-AB12'], clock)).toEqual({ removed: [], revived: [] });
+    expect(writes).toEqual([]);
+  });
 });

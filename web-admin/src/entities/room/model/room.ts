@@ -35,37 +35,100 @@ export function isRoomAlive(entry: RoomIndexEntry | null | undefined, now: numbe
   return Number.isFinite(seen) && now - seen < ROOM_LIVE_MS;
 }
 
-/** roomIndex 에서 유령(마지막 신호가 90초 넘게 끊긴 줄)인 방 코드. */
-export function ghostCodes(index: Record<string, RoomIndexEntry | null>, now: number): string[] {
-  return Object.keys(index)
-    .filter((code) => !isRoomAlive(index[code], now))
-    .sort();
+// 앱 _isMemberKey 와 같다 — `_meta` · `_photo` 같은 밑줄 키와 chatLog 는 사람이 아니다.
+export const isMemberKey = (key: string) => !key.startsWith('_') && key !== 'chatLog';
+
+/** rooms/{방} 을 키만 받아 본 결과. lastSeen 은 roomIndex 에 없는 방만 멤버 신호에서 직접 읽는다. */
+export interface RoomProbe {
+  members: number;
+  lastSeen: number | null;
 }
+
+/** rooms 에는 있는데 roomIndex 에 줄이 없는 방 — 시크릿룸은 원래 roomIndex 에 안 적히므로 빼고. */
+export function orphanCodes(index: Record<string, unknown>, codes: readonly string[]): string[] {
+  return codes.filter((code) => !(code in index) && !isSecretRoom(code)).sort();
+}
+
+/** 전체 종료 대상 — 앱 closeAllRooms 처럼 rooms 의 모든 방(시크릿룸 포함) + roomIndex 에만 남은 줄. */
+export function allRoomCodes(index: Record<string, unknown>, codes: readonly string[]): string[] {
+  return [...new Set([...Object.keys(index), ...codes])].sort();
+}
+
+const probeAlive = (probe: RoomProbe | undefined, now: number) =>
+  isRoomAlive({ lastSeen: probe?.lastSeen ?? undefined }, now);
+
+/**
+ * 유령 방 코드 — roomIndex 에서 신호가 90초 넘게 끊긴 줄 + 멤버 신호가 끊긴 고아 방.
+ * 고아 방은 살펴본 결과(probes)가 있어야 넣는다. 시크릿룸은 roomIndex 를 안 쓰니 자동 청소에서 뺀다.
+ */
+export function ghostCodes(
+  index: Record<string, RoomIndexEntry | null>,
+  now: number,
+  rooms: { codes?: readonly string[]; probes?: Record<string, RoomProbe> } = {},
+): string[] {
+  const indexed = Object.keys(index).filter((code) => !isSecretRoom(code) && !isRoomAlive(index[code], now));
+  const orphans = orphanCodes(index, rooms.codes ?? []).filter(
+    (code) => rooms.probes?.[code] && !probeAlive(rooms.probes[code], now),
+  );
+  return [...indexed, ...orphans].sort();
+}
+
+/** indexed: roomIndex 에 줄이 있음 · orphan: rooms 에만 있음 · secret: 시크릿룸(roomIndex 를 안 씀). */
+export type RoomKind = 'indexed' | 'orphan' | 'secret';
 
 export interface RoomRow {
   code: string;
-  channel: Channel;
+  kind: RoomKind;
+  /** roomIndex 에 없는 방은 모른다. */
+  channel: Channel | null;
   open: boolean;
   lastSeen: number | null;
   alive: boolean;
   secret: boolean;
+  /** rooms/{방} 의 멤버 키 수 — 아직 못 셌으면 null. */
+  members: number | null;
 }
 
-// 살아 있는 방이 위, 그 안에서는 최근 신호 순.
-export function roomRows(index: Record<string, RoomIndexEntry | null>, now: number): RoomRow[] {
-  return Object.entries(index)
-    .map(([code, e]) => {
-      const seen = Number(e?.lastSeen);
-      return {
-        code,
-        channel: roomChannel(e),
-        open: e?.open === true,
-        lastSeen: Number.isFinite(seen) ? seen : null,
-        alive: isRoomAlive(e, now),
-        secret: isSecretRoom(code),
-      };
-    })
-    .sort((a, b) => Number(b.alive) - Number(a.alive) || (b.lastSeen ?? 0) - (a.lastSeen ?? 0));
+// 시크릿룸은 맨 아래, 나머지는 살아 있는 방이 위 · 그 안에서는 최근 신호 순.
+export function roomRows(
+  index: Record<string, RoomIndexEntry | null>,
+  now: number,
+  rooms: { codes?: readonly string[]; probes?: Record<string, RoomProbe> } = {},
+): RoomRow[] {
+  const probes = rooms.probes ?? {};
+  const members = (code: string) => probes[code]?.members ?? null;
+  const indexed: RoomRow[] = Object.entries(index).map(([code, e]) => {
+    const seen = Number(e?.lastSeen);
+    return {
+      code,
+      kind: isSecretRoom(code) ? 'secret' : 'indexed',
+      channel: roomChannel(e),
+      open: e?.open === true,
+      lastSeen: Number.isFinite(seen) ? seen : null,
+      alive: isRoomAlive(e, now),
+      secret: isSecretRoom(code),
+      members: members(code),
+    };
+  });
+  const rest: RoomRow[] = (rooms.codes ?? [])
+    .filter((code) => !(code in index))
+    .map((code) => ({
+      code,
+      kind: isSecretRoom(code) ? 'secret' : 'orphan',
+      channel: null,
+      open: false,
+      lastSeen: probes[code]?.lastSeen ?? null,
+      alive: !isSecretRoom(code) && probeAlive(probes[code], now),
+      secret: isSecretRoom(code),
+      members: members(code),
+    }));
+  return [...indexed, ...rest].sort(
+    (a, b) =>
+      Number(a.secret) - Number(b.secret) ||
+      Number(b.alive) - Number(a.alive) ||
+      (b.lastSeen ?? 0) - (a.lastSeen ?? 0) ||
+      a.code.localeCompare(b.code),
+  );
 }
 
 export interface RoomStatsSummary {

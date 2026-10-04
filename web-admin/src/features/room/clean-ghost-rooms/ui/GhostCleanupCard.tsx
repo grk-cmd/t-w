@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ghostCodes, useRoomIndex, useServerNow } from '@/entities/room';
+import { ghostCodes, useRoomCodes, useRoomIndex, useRoomProbes, useServerNow } from '@/entities/room';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { useCleanGhostRooms } from '../model/useCleanGhostRooms';
@@ -8,9 +8,15 @@ import styles from './GhostCleanupCard.module.css';
 export function GhostCleanupCard() {
   const toast = useToast();
   const { data: index } = useRoomIndex();
+  const { data: codes } = useRoomCodes();
+  const { data: probes } = useRoomProbes(index, codes);
   const now = useServerNow();
   const clean = useCleanGhostRooms();
-  const targets = useMemo(() => (index && now !== null ? ghostCodes(index, now) : null), [index, now]);
+  // 고아 방은 멤버 신호를 읽어 본 뒤에야 판정할 수 있어 그때까지 기다린다.
+  const targets = useMemo(
+    () => (index && codes && probes && now !== null ? ghostCodes(index, now, { codes, probes }) : null),
+    [index, codes, probes, now],
+  );
 
   const onClean = () => {
     if (!targets?.length) return;
@@ -32,7 +38,9 @@ export function GhostCleanupCard() {
 
   return (
     <section className="card">
-      <h2 title="마지막 신호가 90초 넘게 끊긴 방">🧹 유령 방 청소</h2>
+      <h2 title="마지막 신호가 90초 넘게 끊긴 방 · roomIndex 에 없는 방 포함 · 시크릿룸 제외">
+        🧹 유령 방 청소
+      </h2>
       {targets && targets.length > 0 && (
         <div className={styles.chips}>
           {targets.map((code) => (
