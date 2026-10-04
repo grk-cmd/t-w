@@ -252,7 +252,8 @@ jobs:
           # 정식은 latest.yml, 프리릴리스는 채널 이름(beta.yml 등)으로 나온다.
           YML=$(ls latest.yml beta.yml alpha.yml rc.yml 2>/dev/null | head -n 1)
           [ -n "$YML" ] || { echo "::error::업데이트 정보 파일(yml)이 없다"; exit 1; }
-          URL=$(grep -E '^\s*url:' "$YML" | head -n 1 | sed -E 's/^\s*url:\s*//')
+          # url 은 files: 아래 목록 줄(«  - url: …»)에 있다 — 앞의 «- » 까지 받는다.
+          URL=$(grep -E '^[[:space:]]*(-[[:space:]]*)?url:' "$YML" | head -n 1 | sed -E 's/^[[:space:]]*(-[[:space:]]*)?url:[[:space:]]*//')
           echo "$YML url: $URL"
           [ -f "$URL" ] || { echo "::error::$YML 이 가리키는 $URL 이 없다 — 자동 업데이트가 깨진다"; exit 1; }
           grep -q "version: $VERSION" "$YML" || { echo "::error::$YML 버전이 $VERSION 이 아니다"; exit 1; }
