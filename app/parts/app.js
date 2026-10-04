@@ -2557,7 +2557,7 @@ function _bonkAimClick(e){
    ★ 비프리미엄은 **무반응**이다. 메뉴가 때리기 줄을 아예 안 넣는 것과 같은 태도로,
      "프리미엄이면 쓸 수 있어요" 같은 안내는 이 파일에 없던 규약이다. */
 window.addEventListener('keydown', e=>{
-  if(e.key !== 'b' && e.key !== 'B') return;
+  if(hotkeyLetter(e) !== 'b') return;
   if(e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
   const t = e.target, tag = (t && t.tagName || '').toLowerCase();
   if(tag === 'input' || tag === 'textarea' || (t && t.isContentEditable)) return;
@@ -8680,12 +8680,15 @@ function refreshFsAdBanner(){
       const _orig = e;
       e = { key:'F' + _orig.code.slice(5), repeat:false, preventDefault:()=>_orig.preventDefault() };   // 아래 한 벌의 분기로 보낸다
     }
-    if(e.key!=='F1' && e.key!=='F2' && e.key!=='F3' && e.key!=='F4' && e.key!=='F5' && e.key!=='i' && e.key!=='I' && e.key!=='t' && e.key!=='T') return;
+    // 글자 단축키(i · t)는 수정키 없이 누를 때만 — 한글 상태에서도 먹게 hotkeyLetter 로 본다.
+    const letter = (e.ctrlKey || e.metaKey || e.altKey) ? '' : hotkeyLetter(e);
+    const isFKey = /^F[1-5]$/.test(e.key);
+    if(!isFKey && letter!=='i' && letter!=='t') return;
     if(!isRunMode()) return;
     if(isTyping()) return;
     if(document.querySelector(OPEN_MODAL_SEL)) return;
     e.preventDefault();
-    switch(e.key){
+    switch(isFKey ? e.key : letter){
       case 'F1': triggerClick('myFocusGearBtn'); break;   // ⚙ 설정
       case 'F2': triggerClick('myWardrobeBtn'); break;    // 🎨 꾸미기
       case 'F3': triggerClick('myMoveBtn'); break;        // ✥ 이동(드래그)
@@ -8698,12 +8701,12 @@ function refreshFsAdBanner(){
           else if(typeof openChatWindow==='function'){ openChatWindow(); }
         }
         break;
-      case 'i': case 'I':                                 // 🪑 상호작용 책상 인벤토리 (방 안에서만)
+      case 'i':                                           // 🪑 상호작용 책상 인벤토리 (방 안에서만)
         // ⏸️ 이번 릴리스에서는 비활성화 — 상호작용 책상은 다음 업데이트에 공개.
         //   기능/UI/동기화 코드는 그대로 두고 진입만 막음. 재활성화: IDESK_ENABLED=true 한 줄만 되돌리면 됨.
         if(typeof IDESK_ENABLED!=='undefined' && IDESK_ENABLED && typeof toggleIdeskInventory==='function') toggleIdeskInventory();
         break;
-      case 't': case 'T':                                 // 🎰 파츠 보관함 (가챠)
+      case 't':                                           // 🎰 파츠 보관함 (가챠)
         if(typeof toggleGachaInv==='function') toggleGachaInv();
         break;
     }
@@ -25389,8 +25392,8 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
 addEventListener('keydown',e=>{
   if(!creatorOpen)return;
   // Ctrl+Shift+Z = redo (Ctrl+Z보다 먼저 체크 — shift 조합이 더 구체적)
-  if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='z'){e.preventDefault();redo();return;}
-  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return;}
+  if((e.ctrlKey||e.metaKey)&&e.shiftKey&&hotkeyLetter(e)==='z'){e.preventDefault();redo();return;}
+  if((e.ctrlKey||e.metaKey)&&hotkeyLetter(e)==='z'){e.preventDefault();undo();return;}
   // Delete: 표정 그리기 단계에서 전체 지우기 (clearBtn과 동일 동작). input/textarea에 포커스면 무시.
   if(e.key==='Delete' && isDrawStep()){
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
@@ -25401,7 +25404,7 @@ addEventListener('keydown',e=>{
     blit();
   }
   // C: 지우개 ON/OFF 토글 (포토샵식). modifier가 있으면 무시 (Ctrl+C 복사 등과 충돌 회피)
-  if((e.key==='c'||e.key==='C') && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
+  if(hotkeyLetter(e)==='c' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea')return;
     e.preventDefault();
@@ -25409,7 +25412,7 @@ addEventListener('keydown',e=>{
     if(eb) eb.click();   // 기존 토글 핸들러 재사용 — eraser 변수와 버튼 클래스가 한 곳에서 관리됨
   }
   // X: 좌우 대칭 ON/OFF 토글
-  if((e.key==='x'||e.key==='X') && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
+  if(hotkeyLetter(e)==='x' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea')return;
     e.preventDefault();
@@ -25417,7 +25420,7 @@ addEventListener('keydown',e=>{
     if(sb) sb.click();
   }
   // Z: 도장 모드 ON/OFF 토글 (찍기는 Enter 또는 ✓ 버튼)
-  if((e.key==='z'||e.key==='Z') && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
+  if(hotkeyLetter(e)==='z' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea')return;
     e.preventDefault();
@@ -27779,7 +27782,7 @@ function exitAdmin(){
 }
 // 관리자 모드 표시는 배지(클릭 버튼) 대신 Ctrl+E 단축키로 종료 — run 모드 클릭통과와 충돌하지 않게.
 document.addEventListener('keydown', e=>{
-  if(isAdmin && e.ctrlKey && (e.key==='e' || e.key==='E')){ e.preventDefault(); exitAdmin(); }
+  if(isAdmin && e.ctrlKey && hotkeyLetter(e)==='e'){ e.preventDefault(); exitAdmin(); }
 });
 /* 관리자 전용 UI 표시 토글 — DOM에 .admin-only 클래스가 있으면 isAdmin일 때만 보임 */
 function refreshAdminVisibility(){

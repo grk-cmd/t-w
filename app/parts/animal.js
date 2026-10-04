@@ -38,8 +38,8 @@ function _unlockOk(){
   return admin() || _cheatUnlocked() || _everUnlocked();
 }
 try{
-  window.addEventListener('keydown', e=>{ if((e.key==='l'||e.key==='L')&&!e.repeat) _lKeyDown=true; });
-  window.addEventListener('keyup',   e=>{ if(e.key==='l'||e.key==='L'){ _lKeyDown=false; _cheatCount=0; } });
+  window.addEventListener('keydown', e=>{ if(hotkeyLetter(e)==='l'&&!e.repeat) _lKeyDown=true; });   // hotkeyLetter — key-input.js(한글 상태 맥)
+  window.addEventListener('keyup',   e=>{ if(hotkeyLetter(e)==='l'){ _lKeyDown=false; _cheatCount=0; } });
   window.addEventListener('blur',    ()=>{ _lKeyDown=false; _cheatCount=0; });
 }catch(_){}
 
@@ -877,17 +877,18 @@ function onPanKey(e){
   const t=e.target; if(t && (t.tagName==='INPUT' || t.tagName==='TEXTAREA')) return;   // 슬라이더 조작 충돌 방지
   // 페인트 단축키 (인간 생성기와 동일 키)
   if(paintTab){
-    if((e.ctrlKey||e.metaKey) && (e.key==='z'||e.key==='Z')){
+    const k = hotkeyLetter(e);   // key-input.js — 한글 상태 맥에서도 같은 키
+    if((e.ctrlKey||e.metaKey) && k==='z'){
       if(e.shiftKey) pRedoDo(); else pUndo();
       e.preventDefault(); return;
     }
-    if(e.key==='z'||e.key==='Z'){ aSetStampMode(!aStampMode); e.preventDefault(); return; }   // Z=도장 모드 토글(인간과 동일)
+    if(k==='z'){ aSetStampMode(!aStampMode); e.preventDefault(); return; }   // Z=도장 모드 토글(인간과 동일)
     if(e.key==='Enter'){ if(aStampMode) aCommitStamp(); e.preventDefault(); return; }          // Enter=찍기
     if(e.key==='Escape'){ if(aStampMode) aSetStampMode(false); e.preventDefault(); return; }
-    if(e.key==='c'||e.key==='C'){ pEraser=!pEraser; syncPaintUI(); e.preventDefault(); return; }
-    if(e.key==='x'||e.key==='X'){ pSym=!pSym; syncPaintUI(); e.preventDefault(); return; }
+    if(k==='c'){ pEraser=!pEraser; syncPaintUI(); e.preventDefault(); return; }
+    if(k==='x'){ pSym=!pSym; syncPaintUI(); e.preventDefault(); return; }
     if(e.key==='Delete'){ pClearAll(); e.preventDefault(); return; }
-    if(e.key==='g'||e.key==='G'){ pFillAll(); e.preventDefault(); return; }   // G=전체 채우기
+    if(k==='g'){ pFillAll(); e.preventDefault(); return; }   // G=전체 채우기
   }
   const STEP=0.14; let used=true;
   if(e.key==='ArrowLeft') panX-=STEP;
