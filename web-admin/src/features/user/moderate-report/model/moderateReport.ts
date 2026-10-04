@@ -33,3 +33,10 @@ export async function takeDownAwayImg(
 export function dismissReports(db: Db, target: string): Promise<void> {
   return db.commit(clearReportsWrite(target));
 }
+
+/** 여러 사람 문제없음 — 신고만 한 묶음으로 비운다. 그림 내리기는 Storage 삭제가 섞여 한 건씩만 한다. */
+export async function dismissReportsMany(db: Db, targets: readonly string[]): Promise<number> {
+  if (targets.length)
+    await db.commit(Object.assign({}, ...targets.map((target) => clearReportsWrite(target))));
+  return targets.length;
+}

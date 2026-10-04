@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dismissReports, takeDownAwayImg } from '@/features/user/moderate-report';
+import { dismissReports, dismissReportsMany, takeDownAwayImg } from '@/features/user/moderate-report';
 import { fakeDb } from '../shared/fakeDb';
 import { fakeFiles } from '../shared/fakeFiles';
 
@@ -52,5 +52,26 @@ describe('문제없음', () => {
     const { db, writes } = fakeDb(data);
     await dismissReports(db, 'u1');
     expect(writes).toEqual([['commit', 'reports/u1', null]]);
+  });
+});
+
+describe('선택 문제없음', () => {
+  it('여러 사람의 신고를 한 묶음으로 비운다', async () => {
+    const { db, writes } = fakeDb();
+    expect(await dismissReportsMany(db, ['u1', 'u2'])).toBe(2);
+    expect(writes).toEqual([
+      ['commit', 'reports/u1', null],
+      ['commit', 'reports/u2', null],
+    ]);
+  });
+
+  it('하나라도 막히면 아무것도 비우지 않는다 · 대상이 없으면 보내지 않는다', async () => {
+    const denied = fakeDb({}, (p) => p === 'reports/u2');
+    await expect(dismissReportsMany(denied.db, ['u1', 'u2'])).rejects.toThrow();
+    expect(denied.writes).toEqual([]);
+
+    const empty = fakeDb({}, () => true);
+    expect(await dismissReportsMany(empty.db, [])).toBe(0);
+    expect(empty.writes).toEqual([]);
   });
 });

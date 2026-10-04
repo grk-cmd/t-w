@@ -1,11 +1,12 @@
 import { reportReason, type ReportTarget } from '@/entities/report';
 import { realName, useUserBrief } from '@/entities/user';
 import { ReportActions } from '@/features/user/moderate-report';
-import { formatDate } from '@/shared/lib';
+import { formatDate, type Selection } from '@/shared/lib';
+import { RowCheckbox } from '@/shared/ui';
 import styles from './ReportList.module.css';
 
 // 신고된 사람 한 명당 이름 · 친구코드 · 그림 세 칸만 읽는다 — 목록에 뜬 사람(3명 이상 신고)만.
-function ReportRow({ item }: { item: ReportTarget }) {
+function ReportRow({ item, selection }: { item: ReportTarget; selection: Selection }) {
   const brief = useUserBrief(item.target);
   const b = brief.data;
   const name = realName(b?.name);
@@ -13,6 +14,11 @@ function ReportRow({ item }: { item: ReportTarget }) {
 
   return (
     <div className={`row ${styles.item}`}>
+      <RowCheckbox
+        label={`${who} 선택`}
+        checked={selection.isSelected(item.target)}
+        onChange={() => selection.toggle(item.target)}
+      />
       <div className={styles.thumb}>
         {b?.awayImg ? (
           <a href={b.awayImg} target="_blank" rel="noreferrer" title="원본 크게 보기">
@@ -44,11 +50,12 @@ function ReportRow({ item }: { item: ReportTarget }) {
   );
 }
 
-export function ReportList({ items }: { items: ReportTarget[] }) {
+/** 선택은 신고된 사람(target)으로 — 페이지가 고른 것을 들고 있다. */
+export function ReportList({ items, selection }: { items: ReportTarget[]; selection: Selection }) {
   return (
     <div className="list">
       {items.map((item) => (
-        <ReportRow key={item.target} item={item} />
+        <ReportRow key={item.target} item={item} selection={selection} />
       ))}
     </div>
   );
