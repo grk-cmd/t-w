@@ -1,0 +1,16 @@
+.checkAll {
+  cursor: pointer;
+}
+
+.check {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.num {
+  min-width: 1.5em;
+  font-weight: bold;
+  color: var(--soft);
+  text-align: right;
+}

@@ -32,3 +32,25 @@ jobs:
 
       - name: 검사 실행
         run: node checks/run.js
+
+  web-admin:
+    name: 웹 관리자 테스트 · 빌드
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web-admin
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web-admin/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint          # oxlint + steiger(FSD 층 규칙)
+      - run: npm run format:check
+      - run: npm test
+      - run: npm run build         # tsc(strict) 포함

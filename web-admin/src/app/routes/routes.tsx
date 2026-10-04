@@ -1,0 +1,15 @@
+import type { ComponentType } from 'react';
+import { LicensePage } from '@/pages/license';
+import { UsersPage } from '@/pages/users';
+
+export interface Route {
+  id: string;
+  label: string;
+  Page: ComponentType;
+}
+
+// 좌측 메뉴 = 이 목록. 관리자 기능을 웹으로 옮길 때마다 여기에 한 줄씩 더한다.
+export const ROUTES: Route[] = [
+  { id: 'license', label: '🎟️ 라이선스', Page: LicensePage },
+  { id: 'users', label: '👥 사용자', Page: UsersPage },
+];
