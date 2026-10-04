@@ -33,6 +33,11 @@ export interface Db {
   serverTimeOffset(): Promise<number>;
 }
 
+/** 규칙에 .indexOn 이 없어 서버가 범위 조회(getLast · getEqual)를 거절했다. */
+export function isIndexMissing(error: unknown): boolean {
+  return /index not defined/i.test(String((error as { message?: string } | null)?.message ?? ''));
+}
+
 export function isPermissionDenied(error: unknown): boolean {
   const e = error as { code?: string; message?: string } | null;
   return /permission.denied/i.test(String(e?.code ?? e?.message ?? ''));

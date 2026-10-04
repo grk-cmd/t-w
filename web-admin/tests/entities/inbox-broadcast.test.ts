@@ -99,6 +99,29 @@ describe('수령함 전체 공지', () => {
     expect(more.hasMore).toBe(false);
   });
 
+  it('규칙에 .indexOn 이 없어 범위 조회가 거절되면 통째로 받아 같은 결과를 낸다', async () => {
+    const { db } = fakeDb({
+      inboxBroadcast: {
+        a: { tag: 'notice', title: 'a', ts: 1 },
+        b: { tag: 'notice', title: 'b', ts: 2 },
+        c: { tag: 'notice', title: 'c', ts: 3 },
+        p: { tag: 'notice', title: 'p', ts: 0, pinned: true },
+      },
+    });
+    const missing = async () => {
+      throw new Error('Index not defined, add ".indexOn": "ts", for path "/inboxBroadcast", to the rules');
+    };
+    db.getLast = missing;
+    db.getEqual = missing;
+    const r = await listBroadcasts(db, 2);
+    expect(r.items.map((b) => b.id)).toEqual(['p', 'c', 'b']);
+    expect(r.hasMore).toBe(true);
+    db.getLast = async () => {
+      throw new Error('Permission denied');
+    };
+    await expect(listBroadcasts(db, 2)).rejects.toThrow('Permission denied');
+  });
+
   it('제목 · 내용 둘 다 있어야 보낸다', () => {
     expect(checkBroadcast({ tag: 'notice', title: '', body: '내용' })).not.toBeNull();
     expect(checkBroadcast({ tag: 'notice', title: '제목', body: ' ' })).not.toBeNull();

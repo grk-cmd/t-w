@@ -1,4 +1,4 @@
-export { isPermissionDenied, type Db } from './db';
+export { isIndexMissing, isPermissionDenied, type Db } from './db';
 export type { Files } from './files';
 export { DbProvider } from './DbProvider';
 export { EnvContext, PROD_MARK, useEnv, withProdMark, type Env } from './env';

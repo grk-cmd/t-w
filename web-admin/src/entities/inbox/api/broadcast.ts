@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+import { isIndexMissing, useDb, type Db } from '@/shared/api';
 import { sortBroadcasts, type InboxBroadcast, type RawBroadcast } from '../model/broadcast';
 import { INBOX_BODY_MAX, INBOX_TITLE_MAX, type InboxMessage } from '../model/message';
 
@@ -27,8 +27,20 @@ export async function listBroadcasts(db: Db, n = BROADCAST_PAGE): Promise<Broadc
   const [recent, pinned] = await Promise.all([
     db.getLast<RawBroadcast>(ROOT, 'ts', n),
     db.getEqual<RawBroadcast>(ROOT, 'pinned', true),
-  ]);
+  ]).catch(async (error: unknown) => {
+    // TODO: 규칙에 inboxBroadcast ".indexOn": ["ts", "pinned"] 가 들어가면 이 갈래는 안 탄다 — 그때 지운다.
+    //   지금은 서버가 범위 조회를 거절하므로 통째로 받아 여기서 자른다(내려받는 양은 예전과 같다).
+    if (!isIndexMissing(error)) throw error;
+    return splitBroadcasts((await db.get<Record<string, RawBroadcast>>(ROOT)) ?? {}, n);
+  });
   return { items: sortBroadcasts({ ...recent, ...pinned }), hasMore: Object.keys(recent).length >= n };
+}
+
+function splitBroadcasts(all: Record<string, RawBroadcast>, n: number) {
+  const entries = Object.entries(all).filter(([, b]) => b && typeof b === 'object');
+  const recent = [...entries].sort(([, a], [, b]) => (a.ts ?? 0) - (b.ts ?? 0)).slice(-n);
+  const pinned = entries.filter(([, b]) => b.pinned === true);
+  return [Object.fromEntries(recent), Object.fromEntries(pinned)] as const;
 }
 
 export function useBroadcasts(n = BROADCAST_PAGE) {
