@@ -464,7 +464,9 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
       {
         const AS = (R.accountSnap && R.accountSnap.$userId) || {};
         const OWN_ONLY = "auth != null && root.child('userAuth/'+$userId).val() === auth.uid";
-        chk(R.accountSnap && R.accountSnap['.read'] === undefined && R.accountSnap['.write'] === undefined, 'accountSnap 모음 자체는 아무도 못 읽는다 (목록 없음)');
+        // 안에 라이선스 키 원문이 있다 — 목록은 관리자만(웹 관리자 사용자 목록). 관리자는 licenses 목록도 이미 읽으므로 새로 드러나는 것은 없다.
+        chk(R.accountSnap && R.accountSnap['.read'] === "auth != null && root.child('admins').child(auth.uid).val() === true" && R.accountSnap['.write'] === undefined,
+            'accountSnap 모음은 관리자만 읽고, 모음째 쓰기는 없다');
         chk(AS['.read'] === OWN_ONLY && AS['.write'] === OWN_ONLY, 'accountSnap/{코드} 는 결속된 주인만 읽고 쓴다 (미결속 갈래 없음)');
         chk(AS.license && /length <= 40/.test(AS.license['.validate']) && AS.friendCode && /length <= 12/.test(AS.friendCode['.validate'])
             && AS.name && /length <= 40/.test(AS.name['.validate']) && AS.focusTotalSec && /359640000/.test(AS.focusTotalSec['.validate'])

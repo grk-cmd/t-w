@@ -777,7 +777,7 @@
 | **audit.py** | 851 | **4697757bb3dd** ← 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) · **개정 60 검사 9 기준선 reports 1** · **개정 71 검사 17 (e) 회차** · **2026-10-03 검사 9 기준선 roomStats 1** · **2026-10-03 검사 10 ES 모듈 문법 · firebase-init import 모듈도 시야에** |
 | **smoke.js** | 335 | **d6e4720de7f6** ← 2026-09-14 판정 줄 (§10) |
 | **sim-account-switch.js** | 383 | **9fa214200956** ← 2026-09-16 신규 · 제보 4 계정 전환 소지품 정리 (§18) · 2026-09-20 ⑧ 로그아웃 출구 + 스텁 고침 (개정 28) · **2026-09-22 연동 해제 걷음 · 2절 상수 표에 슬롯 기록 키 넷(가려져 있던 2절 되살림) (개정 45)** · **개정 56 버린 uid 목록 걷음** |
-| **sim-admin-rules.js** | 111 | **cd208b511c29** ← **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
+| **sim-admin-rules.js** | 118 | **50ebd3b274fb** ← **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | sim-char-foot.js | 141 | 9f0e32d97ac7 |
 | sim-char-identity.js | 187 | bdad4f71d987 |
 | sim-char-z.js | 224 | 24de011f5c83 |
@@ -809,7 +809,7 @@
 | sim-ghost-cache-sync.js | 273 | 356d2cabc722 |
 | **sim-ghost-heal.js** | 88 | **06792553a038** ← **2026-10-03 신규 · 방 «유령» 복구 — room-ghost-heal.js(복구 판단 · 가짜 DB) + firebase-init.js 연결** |
 | **sim-friend-code-keep.js** | 217 | **ab254584ef33** ← 2026-09-20 신규 · 제보 3-2 친추코드 유지 + 제보 3-1 스냅샷 없이도 소지품 복원 (§31 · 개정 27) · **개정 56 되찾기 갈래 걷음 · 계정에 코드 없을 때 (가)** |
-| **sim-google-login.js** | 575 | **b28b92ea2683** ← **2026-10-03 ⑦ closed 콜백 본문 안의 finish 로 판정** · **2026-10-03 users/invite 주인 또는 관리자** · 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) · **2026-09-22 계정 자리 [내 정보] · 이전/연동/해제·되찾기 걷음 · transferHash 지우기만 (개정 45)** · **개정 48 #lcMyInfo** · **개정 52 §7 통로 걷음** · **개정 54 §3 이메일 거울** · **개정 55 §8 transferData 지우기만 · accountSnap 규칙 · §9 스냅샷 자리** · **개정 56 ① 버린 uid 안 적음 · _setMyUserId** · **개정 57 §5 갈아타기 전 정리 순서 · 실패** |
+| **sim-google-login.js** | 577 | **7448bb354492** ← **2026-10-04 accountSnap 모음 관리자 읽기(웹 관리자 사용자 목록)** · **2026-10-03 ⑦ closed 콜백 본문 안의 finish 로 판정** · **2026-10-03 users/invite 주인 또는 관리자** · 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) · **2026-09-22 계정 자리 [내 정보] · 이전/연동/해제·되찾기 걷음 · transferHash 지우기만 (개정 45)** · **개정 48 #lcMyInfo** · **개정 52 §7 통로 걷음** · **개정 54 §3 이메일 거울** · **개정 55 §8 transferData 지우기만 · accountSnap 규칙 · §9 스냅샷 자리** · **개정 56 ① 버린 uid 안 적음 · _setMyUserId** · **개정 57 §5 갈아타기 전 정리 순서 · 실패** |
 | sim-invite-gate.js | 99 | 98990b71a1f1 |
 | **sim-item-rot.js** | 85 | **039eb445cd61** ← 2026-09-16 (제보 4 아이템 회전) · 개정 10 등재 |
 | **sim-keysof-twin.js** | 366 | **774c29848a37** ← 2026-09-14 신규 (§14) |
