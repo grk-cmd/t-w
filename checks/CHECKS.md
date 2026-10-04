@@ -894,7 +894,7 @@
 해시만 여기 적는다. 검사 개수(54)에는 안 넣는다.
 
 ```
-run.js                         505줄   366119e193b6   ← 2026-09-22 SKIP 에 functions (개정 44)
+run.js                         515줄   4c94d2275bfe   ← 2026-10-04 SKIP 에 .claude (워크트리 사본) · web-admin (자체 vitest) · 2026-09-22 SKIP 에 functions (개정 44)
 tools/trapscan.js              267줄   71a7d91b4979
 tools/mac-bundleid-probe.js    415줄   cb30d59cf85a   ← 2026-09-30 6절에 `.app` 폴더 경로 · 옛 규칙 (개정 75)
 CHECKS.md           (이 파일 · 자기 해시는 안 적는다)
