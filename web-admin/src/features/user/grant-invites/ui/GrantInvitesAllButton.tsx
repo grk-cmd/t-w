@@ -40,15 +40,14 @@ export function GrantInvitesAllButton() {
         onClose={() => setOpen(false)}
       >
         <p>
-          친구코드가 있는 <b>{uids.length}명</b>에게 한 사람씩 더해요. 초대권 칸이 없는 계정(가입을 마치지
-          않은 계정)과 이미 999장인 사람은 건너뛰어요.
+          대상 <b>{uids.length}명</b> <span className="soft">· 초대권 칸 없음 · 999장은 건너뜀</span>
         </p>
         <CountStepper value={count} onChange={setCount} />
         {!r && (
           <div className="field">
             <input
               type="text"
-              placeholder={`확인하려면 «${CONFIRM_WORD}» 라고 적어 주세요`}
+              placeholder={`«${CONFIRM_WORD}» 입력`}
               value={typed}
               disabled={running}
               onChange={(e) => setTyped(e.target.value)}
@@ -69,7 +68,7 @@ export function GrantInvitesAllButton() {
         )}
         {r && (
           <p className="msg">
-            {r.stopped ? '멈췄어요 — ' : '끝났어요 — '}
+            {r.stopped ? '멈춤 · ' : '완료 · '}
             {r.granted}명 지급 · {r.skipped}명 건너뜀{r.failed ? ` · ${r.failed}명 실패` : ''}
           </p>
         )}

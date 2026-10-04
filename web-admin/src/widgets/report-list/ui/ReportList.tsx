@@ -24,14 +24,14 @@ function ReportRow({ item }: { item: ReportTarget }) {
       </div>
       <div className={styles.body}>
         <span className="grow">
-          <b>{name ?? (brief.isLoading ? '…' : '(이름 없음)')}</b>
+          <b>{name ?? (brief.isLoading ? '…' : '이름 없음')}</b>
           <code className="key">{b?.friendCode ?? item.target}</code>
           <b className="warn">🚩 {item.reports.length}명</b>
         </span>
         <ul className={styles.reasons}>
           {item.reports.map((r, i) => (
             <li key={i}>
-              {r.nick || '(이름 없음)'} #{r.code4 || '----'} — {reportReason(r)}
+              {r.nick || '이름 없음'} #{r.code4 || '----'} · {reportReason(r)}
               {r.ts ? <small className="soft"> · {formatDate(r.ts)}</small> : null}
             </li>
           ))}

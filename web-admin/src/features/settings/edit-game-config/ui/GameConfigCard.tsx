@@ -36,7 +36,7 @@ export function GameConfigCard() {
       return;
     save.mutate(level, {
       onSuccess: () => {
-        setMessage({ text: `저장했어요 — 동물 해금 Lv.${level}`, error: false });
+        setMessage({ text: `저장했어요 · Lv.${level}`, error: false });
         setDraft(null);
       },
       onError: (err) => setMessage({ text: errorMessage(err, '저장하지 못했어요'), error: true }),
@@ -46,7 +46,6 @@ export function GameConfigCard() {
   return (
     <section className="card">
       <h2>게임 설정</h2>
-      <p className="soft">앱을 새로 배포하지 않고 바꾸는 값이에요. 저장하면 모든 사용자에게 바로 반영돼요.</p>
       {error ? (
         <p className="msg err">{errorMessage(error, '불러오지 못했어요')}</p>
       ) : (
@@ -73,7 +72,7 @@ export function GameConfigCard() {
           </button>
           {!isPending && saved === null && (
             <small className={`soft ${styles.hint}`}>
-              서버에 저장된 값이 없어 앱 기본값(Lv.{DEFAULT_ANIMAL_UNLOCK_LEVEL})을 쓰는 중
+              서버 값 없음 → 기본값 Lv.{DEFAULT_ANIMAL_UNLOCK_LEVEL}
             </small>
           )}
         </form>

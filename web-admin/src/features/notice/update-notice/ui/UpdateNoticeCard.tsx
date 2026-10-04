@@ -33,9 +33,9 @@ export function UpdateNoticeCard() {
     publish.mutate(form, {
       onSuccess: () => {
         setDraft(null);
-        toast('발행했어요 — 사람들이 앱을 켤 때 팝업으로 떠요');
+        toast('발행했어요');
       },
-      onError: (e) => toast(errorMessage(e, '발행하지 못했어요 — 다시 시도해 주세요')),
+      onError: (e) => toast(errorMessage(e, '발행하지 못했어요')),
     });
   };
 
@@ -65,9 +65,6 @@ export function UpdateNoticeCard() {
           새로고침
         </button>
       </div>
-      <p className="soft">
-        앱을 켤 때 한 번 팝업으로 떠요. 다시 발행하면 «다시 보지 않기» 를 누른 사람에게도 다시 떠요.
-      </p>
       <p className="meta">
         {error && errorMessage(error, '현재 공지를 불러오지 못했어요')}
         {!error && notice === undefined && '불러오는 중…'}
@@ -78,7 +75,7 @@ export function UpdateNoticeCard() {
         <input
           type="text"
           maxLength={NOTICE_TITLE_MAX}
-          placeholder={`제목 (${NOTICE_TITLE_MAX}자까지)`}
+          placeholder="제목"
           value={form.title}
           onChange={(e) => edit({ title: e.target.value })}
         />
@@ -87,7 +84,7 @@ export function UpdateNoticeCard() {
         className={styles.textarea}
         rows={7}
         maxLength={NOTICE_BODY_MAX}
-        placeholder="본문 — 주소를 넣으면 앱에서 눌러 열 수 있어요"
+        placeholder="본문"
         value={form.body}
         onChange={(e) => edit({ body: e.target.value })}
       />
@@ -98,8 +95,14 @@ export function UpdateNoticeCard() {
         <button type="button" className="btn danger" disabled={!notice || clear.isPending} onClick={onClear}>
           {clear.isPending ? '삭제 중…' : '삭제'}
         </button>
-        <button type="button" className="btn primary" disabled={publish.isPending} onClick={onPublish}>
-          {publish.isPending ? '발행 중…' : notice ? '고쳐서 다시 발행' : '발행'}
+        <button
+          type="button"
+          className="btn primary"
+          disabled={publish.isPending}
+          title="«다시 보지 않기» 를 누른 사람에게도 다시 떠요"
+          onClick={onPublish}
+        >
+          {publish.isPending ? '발행 중…' : notice ? '다시 발행' : '발행'}
         </button>
       </div>
     </section>

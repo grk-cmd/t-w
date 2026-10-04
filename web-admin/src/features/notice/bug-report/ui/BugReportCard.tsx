@@ -38,7 +38,7 @@ export function BugReportCard() {
         setDraft(null);
         toast('버그 제보 공지를 저장했어요');
       },
-      onError: (e) => toast(errorMessage(e, '저장하지 못했어요 — 인터넷 연결을 확인해 주세요')),
+      onError: (e) => toast(errorMessage(e, '저장하지 못했어요')),
     });
   };
 
@@ -57,21 +57,18 @@ export function BugReportCard() {
           새로고침
         </button>
       </div>
-      <p className="soft">
-        앱의 «버그 제보» 탭에 뜨는 글과 [제보하기] 버튼이 여는 주소예요. 저장하면 바로 바뀌어요.
-      </p>
       <p className="meta">
         {error && errorMessage(error, '현재 값을 불러오지 못했어요')}
         {!error && report === undefined && '불러오는 중…'}
-        {report === null && '저장된 적이 없어요 — 앱은 기본 글을 보여 주고 [제보하기] 가 꺼져 있어요'}
+        {report === null && '저장된 값 없음 · 기본 글 · [제보하기] 꺼짐'}
         {report &&
-          `마지막 저장 · ${formatDate(report.ts)}${report.link ? '' : ' · 링크 없음([제보하기] 꺼짐)'}`}
+          `마지막 저장 · ${formatDate(report.ts)}${report.link ? '' : ' · 링크 없음 · [제보하기] 꺼짐'}`}
       </p>
       <textarea
         className={styles.textarea}
         rows={5}
         maxLength={BUG_NOTICE_MAX}
-        placeholder="탭에 보일 공지"
+        placeholder="공지"
         value={form.notice}
         onChange={(e) => edit({ notice: e.target.value })}
       />
@@ -79,7 +76,8 @@ export function BugReportCard() {
         <input
           type="text"
           maxLength={BUG_LINK_MAX}
-          placeholder="제보 링크 (https://…) — 비우면 [제보하기] 가 꺼져요"
+          placeholder="제보 링크 (https)"
+          title="비우면 [제보하기] 가 꺼져요"
           value={form.link}
           onChange={(e) => edit({ link: e.target.value })}
         />

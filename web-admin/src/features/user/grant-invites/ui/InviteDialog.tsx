@@ -49,7 +49,7 @@ export function CountStepper({ value, onChange }: { value: number; onChange: (n:
       >
         +
       </button>
-      <small className="soft">한 번에 최대 {INVITE_GRANT_MAX}장</small>
+      <small className="soft">최대 {INVITE_GRANT_MAX}장</small>
     </div>
   );
 }

@@ -18,7 +18,7 @@ export function IssueKeyCard() {
         setIssued({ key, note: memo });
         setNote('');
       },
-      onError: (e) => toast(errorMessage(e, '발급하지 못했어요 — 네트워크를 확인해 주세요')),
+      onError: (e) => toast(errorMessage(e, '발급하지 못했어요')),
     });
   };
 
@@ -27,17 +27,16 @@ export function IssueKeyCard() {
   return (
     <section className="card">
       <h2>새 키 발급</h2>
-      <p className="soft">키를 만들어 직접 전달할 때 써요.</p>
       <div className="field">
         <input
           type="text"
           maxLength={NOTE_MAX}
-          placeholder="메모 (누구에게 · 왜) — 목록 검색에 쓰여요"
+          placeholder="메모"
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
         <button type="button" className="btn primary" disabled={issue.isPending} onClick={onIssue}>
-          {issue.isPending ? '발급 중…' : '새 키 발급'}
+          {issue.isPending ? '발급 중…' : '발급'}
         </button>
       </div>
       {issued && (

@@ -14,7 +14,7 @@ export function UserFilterBar({ filter, search, onFilterChange, onSearchChange }
       <div className="field">
         <input
           type="search"
-          placeholder="이름 · 친구코드 · 사용자코드 · 라이선스 키로 검색"
+          placeholder="이름 · 친구코드 · 사용자코드 · 키 검색"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />

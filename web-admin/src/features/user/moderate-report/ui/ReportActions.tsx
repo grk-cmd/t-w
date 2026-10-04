@@ -21,11 +21,11 @@ export function ReportActions({ target, who, awayImg }: Props) {
       return;
     takeDown.mutate(awayImg, {
       onSuccess: (r) => {
-        if (!r.ok) toast('그 사이 그림이 바뀌었어요 — 새 그림을 다시 확인해 주세요');
+        if (!r.ok) toast('그 사이 그림이 바뀌었어요. 다시 확인해 주세요');
         else if (r.fileDeleted) toast('자리비움 그림을 내리고 신고를 비웠어요');
-        else toast('그림을 내리고 신고를 비웠어요 — 파일은 지우지 못해 저장소에 남았어요');
+        else toast('그림을 내리고 신고를 비웠어요 · 파일 삭제 실패');
       },
-      onError: (e) => toast(errorMessage(e, '내리지 못했어요 — 아무것도 바뀌지 않았어요')),
+      onError: (e) => toast(errorMessage(e, '내리지 못했어요')),
     });
   };
 

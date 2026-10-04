@@ -33,16 +33,12 @@ export function GrantInvitesButton({ uid, who }: Props) {
       onSuccess: (r) => {
         if (r.ok) {
           setOpen(false);
-          toast(`${who} 님에게 초대권 ${count}장 지급 — 지금 ${r.after}장`);
+          toast(`${who} 님에게 초대권 ${count}장 지급 · 지금 ${r.after}장`);
         } else {
-          setError(
-            r.reason === 'no-invite'
-              ? '초대권 칸이 없는 사용자예요 — 가입을 마치지 않은 계정이라 지급하지 않아요'
-              : '이미 상한(999장)이에요',
-          );
+          setError(r.reason === 'no-invite' ? '초대권 칸이 없는 계정이에요' : '이미 상한(999장)이에요');
         }
       },
-      onError: (e) => setError(errorMessage(e, '지급하지 못했어요 — 아무것도 바뀌지 않았어요')),
+      onError: (e) => setError(errorMessage(e, '지급하지 못했어요')),
     });
 
   return (
@@ -56,7 +52,7 @@ export function GrantInvitesButton({ uid, who }: Props) {
           {left.isLoading
             ? '…'
             : left.error
-              ? '(읽지 못함)'
+              ? '읽지 못함'
               : left.data === null
                 ? '초대권 칸 없음'
                 : `${left.data}장`}

@@ -13,13 +13,13 @@ export function BroadcastActions({ broadcast }: { broadcast: InboxBroadcast }) {
     pin.mutate(
       { id: broadcast.id, pinned: next },
       {
-        onSuccess: () => toast(next ? '📌 맨 위에 고정했어요' : '고정을 풀었어요'),
+        onSuccess: () => toast(next ? '맨 위에 고정했어요' : '고정을 풀었어요'),
         onError: (e) => toast(errorMessage(e, '바꾸지 못했어요')),
       },
     );
 
   const onDelete = () => {
-    if (!confirm(`"${broadcast.title}" 공지를 모든 사람의 수령함에서 지울까요? (되돌릴 수 없어요)`)) return;
+    if (!confirm(`"${broadcast.title}" 공지를 모든 사람의 수령함에서 지울까요? 되돌릴 수 없어요.`)) return;
     remove.mutate(broadcast.id, {
       onSuccess: () => toast('삭제했어요'),
       onError: (e) => toast(errorMessage(e, '삭제하지 못했어요')),

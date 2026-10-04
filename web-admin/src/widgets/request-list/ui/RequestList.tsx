@@ -26,7 +26,7 @@ export function RequestList() {
   return (
     <section className="card">
       <div className="card-head">
-        <p className="soft grow">발급하면 키를 만들어 그 사람의 수령함(보상)으로 보내요.</p>
+        <span className="grow" />
         <BulkApproveButton requests={selected} onDone={() => setChecked(new Set())} />
       </div>
       <div className="list">

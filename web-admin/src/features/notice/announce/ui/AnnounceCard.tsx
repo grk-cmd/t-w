@@ -40,7 +40,7 @@ export function AnnounceCard() {
         setNow(Date.now());
         toast('공지를 보냈어요 (1분간 표시)');
       },
-      onError: (e) => toast(errorMessage(e, '보내지 못했어요 — 다시 시도해 주세요')),
+      onError: (e) => toast(errorMessage(e, '보내지 못했어요')),
     });
   };
 
@@ -60,7 +60,6 @@ export function AnnounceCard() {
           새로고침
         </button>
       </div>
-      <p className="soft">켜져 있는 모든 사람의 캐릭터 위에 1분 동안 떠요.</p>
       <div className={styles.current}>
         {error && errorMessage(error, '현재 공지를 불러오지 못했어요')}
         {!error && announce === undefined && '불러오는 중…'}
@@ -79,7 +78,7 @@ export function AnnounceCard() {
         <input
           type="text"
           maxLength={ANNOUNCE_TEXT_MAX}
-          placeholder={`공지 문구 (${ANNOUNCE_TEXT_MAX}자까지)`}
+          placeholder="공지 문구"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && onSend()}

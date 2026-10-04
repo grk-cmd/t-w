@@ -46,12 +46,12 @@ function AdBannerForm({ saved }: { saved: AdSlide[] }) {
     }
     const ask = slides.length
       ? `배너 ${slides.length}장을 게시할까요? 모든 사용자의 런처에 바로 바뀌어요.`
-      : '이미지가 하나도 없어요 — 모든 사용자에게서 배너를 숨길까요?';
+      : '이미지가 없어요. 모든 사용자에게서 배너를 숨길까요?';
     if (!confirm(ask)) return;
     save.mutate(slides, {
       onSuccess: () =>
         setMessage({
-          text: slides.length ? `게시했어요 (${slides.length}장)` : '배너를 숨겼어요',
+          text: slides.length ? `게시했어요 · ${slides.length}장` : '배너를 숨겼어요',
           error: false,
         }),
       onError: (err) => setMessage({ text: errorMessage(err, '저장하지 못했어요'), error: true }),
@@ -63,18 +63,18 @@ function AdBannerForm({ saved }: { saved: AdSlide[] }) {
       {slots.map((slot, i) => (
         <div key={i} className={styles.slot}>
           <div className={styles.inputs}>
-            <b>{i + 1}번째 장</b>
+            <b>{i + 1}</b>
             <input
               type="text"
               inputMode="url"
-              placeholder="이미지 주소 (https://…)"
+              placeholder="이미지 주소 (https)"
               value={slot.img}
               onChange={(e) => change(i, 'img', e.target.value)}
             />
             <input
               type="text"
               inputMode="url"
-              placeholder="누르면 열 링크 (비워도 돼요)"
+              placeholder="링크 (선택)"
               value={slot.link}
               onChange={(e) => change(i, 'link', e.target.value)}
             />
@@ -104,9 +104,6 @@ export function AdBannerCard() {
           새로고침
         </button>
       </div>
-      <p className="soft">
-        런처 아래에 {AD_SLOTS}장까지 돌아가며 보여요. 이미지가 빈 칸은 건너뛰고, 모두 비우면 배너가 숨겨져요.
-      </p>
       {error && <p className="msg err">{errorMessage(error, '불러오지 못했어요')}</p>}
       {!error && !data && <p className="soft">불러오는 중…</p>}
       {/* 다시 받은 값으로 입력 칸을 새로 채운다 */}

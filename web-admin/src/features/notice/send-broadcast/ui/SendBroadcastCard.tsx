@@ -35,15 +35,14 @@ export function SendBroadcastCard() {
           setPinned(false);
           toast('전체 수령함으로 보냈어요');
         },
-        onError: (e) => toast(errorMessage(e, '보내지 못했어요 — 네트워크를 확인해 주세요')),
+        onError: (e) => toast(errorMessage(e, '보내지 못했어요')),
       },
     );
   };
 
   return (
     <section className="card">
-      <h2>📩 수령함 전체 공지 쓰기</h2>
-      <p className="soft">모든 사람의 수령함에 같은 글이 들어가요. 고정하면 맨 위에 붙어 있어요.</p>
+      <h2>📩 수령함 전체 공지</h2>
       <div className={styles.tags} role="radiogroup" aria-label="태그">
         {TAGS.map((tag) => (
           <label key={tag}>
@@ -57,15 +56,14 @@ export function SendBroadcastCard() {
           </label>
         ))}
         <label className={styles.pin}>
-          <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />
-          📌 맨 위 고정
+          <input type="checkbox" checked={pinned} onChange={(e) => setPinned(e.target.checked)} />맨 위 고정
         </label>
       </div>
       <div className="field">
         <input
           type="text"
           maxLength={INBOX_TITLE_MAX}
-          placeholder={`제목 (${INBOX_TITLE_MAX}자까지)`}
+          placeholder="제목"
           value={message.title}
           onChange={(e) => edit({ title: e.target.value })}
         />
@@ -74,7 +72,7 @@ export function SendBroadcastCard() {
         className={styles.textarea}
         rows={5}
         maxLength={INBOX_BODY_MAX}
-        placeholder="내용 — 주소를 넣으면 앱에서 눌러 열 수 있어요"
+        placeholder="내용"
         value={message.body}
         onChange={(e) => edit({ body: e.target.value })}
       />
@@ -83,7 +81,7 @@ export function SendBroadcastCard() {
           {message.body.length} / {INBOX_BODY_MAX}
         </small>
         <button type="button" className="btn primary" disabled={send.isPending} onClick={onSend}>
-          {send.isPending ? '보내는 중…' : '전체에게 보내기'}
+          {send.isPending ? '보내는 중…' : '보내기'}
         </button>
       </div>
     </section>

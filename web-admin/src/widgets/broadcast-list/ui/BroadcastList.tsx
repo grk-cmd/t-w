@@ -31,9 +31,9 @@ export function BroadcastList() {
             <span className="grow">
               {b.pinned && <span title="맨 위 고정">📌</span>}
               <span className="meta">{INBOX_TAG_LABEL[b.tag]}</span>
-              <b>{b.title || '(제목 없음)'}</b>
+              <b>{b.title || '제목 없음'}</b>
               <small className="soft">{formatDate(b.ts)}</small>
-              <span className={`note ${styles.body}`}>{b.body || '(내용 없음)'}</span>
+              <span className={`note ${styles.body}`}>{b.body || '내용 없음'}</span>
             </span>
             <BroadcastActions broadcast={b} />
           </div>

@@ -49,6 +49,8 @@ interface Sheet {
 
 type Phase = 'idle' | 'reading' | 'preview' | 'running' | 'done';
 
+const IDLE_INFO = '.xlsx · .csv';
+
 function Chip({ st, text }: { st: RowStatus | RowResult; text?: string }) {
   const [label, tone] = CHIP[st];
   return <span className={`${styles.chip} ${styles[tone]}`}>{text ?? label}</span>;
@@ -62,7 +64,7 @@ export function BulkGrantCard() {
   const fileInput = useRef<HTMLInputElement>(null);
 
   const [phase, setPhase] = useState<Phase>('idle');
-  const [info, setInfo] = useState('.xlsx 또는 .csv 파일을 골라 주세요');
+  const [info, setInfo] = useState(IDLE_INFO);
   const [sheet, setSheet] = useState<Sheet | null>(null);
   const [looked, setLooked] = useState<PlanRow[]>([]);
   const [done, setDone] = useState<PlanRow[] | null>(null);
@@ -88,7 +90,7 @@ export function BulkGrantCard() {
     setSheet(null);
     setLooked([]);
     setDone(null);
-    setInfo('.xlsx 또는 .csv 파일을 골라 주세요');
+    setInfo(IDLE_INFO);
   };
 
   const load = async (file: File) => {
@@ -108,7 +110,7 @@ export function BulkGrantCard() {
     const data = map.data.slice(0, MAX_ROWS);
     if (!data.length) {
       setPhase('idle');
-      setInfo(`⚠ ${file.name} — 발급할 줄이 없어요(첫 줄은 제목으로 봐요)`);
+      setInfo(`⚠ ${file.name} · 발급할 행이 없어요`);
       return;
     }
     const head = `${file.name} · ${data.length}행${cut ? ` (앞 ${MAX_ROWS}행만)` : ''}`;
@@ -118,7 +120,7 @@ export function BulkGrantCard() {
     const planned = await lookupRows(db, data, (n, total) => setInfo(`${head} · 확인 중… ${n}/${total}`));
     setSheet({ fileName: file.name, grid, map: { ...map, data }, cut, issued });
     setLooked(planned);
-    setInfo(head + (issued ? '' : ' · ⚠ 발급 목록을 못 읽어 «발급한 적 있음» 판정 없음'));
+    setInfo(head + (issued ? '' : ' · ⚠ 발급 이력 확인 못 함'));
     setPhase('preview');
   };
 
@@ -140,7 +142,7 @@ export function BulkGrantCard() {
     refreshLicenses();
     const count = (res: RowResult) => result.filter((r) => r.res === res).length;
     toast(
-      `일괄 발급 완료 — 수령함 ${count('ok')} · 키만 ${count('okkey')}` +
+      `일괄 발급 완료 · 수령함 ${count('ok')} · 키만 ${count('okkey')}` +
         (count('fail') ? ` · 실패 ${count('fail')}` : ''),
     );
   };
@@ -173,16 +175,11 @@ export function BulkGrantCard() {
       <div className="card-head">
         <h2>엑셀로 일괄 발급</h2>
         <button type="button" className="btn" onClick={saveTemplate}>
-          ⬇ 양식 받기
+          양식 받기
         </button>
       </div>
-      <p className="soft">
-        첫 시트만 읽어요. 제목 줄에 «친구코드» · «메모» 가 있으면 그 열을, 없으면 A · B 열을 써요. 친구코드는
-        MATE-9K2M 또는 뒤 4자리, 비우면 키만 만들어 결과 파일에 담아요. 한 번에 {MAX_ROWS}행까지.
-      </p>
-
       <div className="field">
-        <span className={styles.file}>📎 {info}</span>
+        <span className={styles.file}>{info}</span>
         <input
           ref={fileInput}
           type="file"
@@ -194,7 +191,13 @@ export function BulkGrantCard() {
             if (file) void load(file);
           }}
         />
-        <button type="button" className="btn" disabled={busy} onClick={() => fileInput.current?.click()}>
+        <button
+          type="button"
+          className="btn"
+          disabled={busy}
+          title={`첫 시트의 «친구코드» · «메모» 열(없으면 A · B 열), 최대 ${MAX_ROWS}행. 친구코드가 비면 키만 만들어요`}
+          onClick={() => fileInput.current?.click()}
+        >
           파일 고르기
         </button>
       </div>
@@ -213,7 +216,7 @@ export function BulkGrantCard() {
                 checked={options.dupFirst}
                 onChange={(e) => setOptions({ ...options, dupFirst: e.target.checked })}
               />
-              같은 친구코드가 여러 번 나오면 첫 행만 발급
+              중복 친구코드는 첫 행만
             </label>
             <label>
               <input
@@ -221,7 +224,7 @@ export function BulkGrantCard() {
                 checked={options.reissue}
                 onChange={(e) => setOptions({ ...options, reissue: e.target.checked })}
               />
-              전에 발급한 적 있는 친구코드도 다시 발급 <span className="soft">(기본: 건너뜀)</span>
+              발급한 적 있어도 다시 발급
             </label>
           </div>
         </>
@@ -230,7 +233,7 @@ export function BulkGrantCard() {
       {phase === 'running' && (
         <div className={styles.progress}>
           <span>
-            발급 중… <b>{progress.done}</b> / {progress.total} — 창을 닫지 마세요. 한 명씩 순서대로 보내요.
+            발급 중… <b>{progress.done}</b> / {progress.total}
           </span>
           <progress max={progress.total || 1} value={progress.done} />
         </div>
@@ -238,7 +241,7 @@ export function BulkGrantCard() {
 
       {phase === 'done' && (
         <div className={styles.summary}>
-          <b>✅ 일괄 발급 완료</b>
+          <b>완료</b>
           <Chip st="ok" text={`수령함 발송 ${count('ok')}`} />
           <Chip st="okkey" text={`키만 발급 ${count('okkey')}`} />
           <Chip st="fail" text={`실패 ${count('fail')}`} />
@@ -250,7 +253,7 @@ export function BulkGrantCard() {
 
       {byHand.length > 0 && (
         <div className={styles.byHand}>
-          <p className="soft">이 키들은 직접 전달해야 해요(결과 파일에도 들어 있어요).</p>
+          <p className="soft">직접 전달할 키</p>
           {byHand.map((r) => (
             <div key={r.line} className="row">
               <span className="grow">
@@ -291,7 +294,7 @@ export function BulkGrantCard() {
                   <tr key={r.line} className={isActionable(r) || r.res ? undefined : styles.dim}>
                     <td>{r.line}</td>
                     <td>
-                      {r.raw || <span className="soft">(비어 있음)</span>}
+                      {r.raw || <span className="soft">비어 있음</span>}
                       {r.code && r.code !== shown && <span className="soft"> → {r.code}</span>}
                     </td>
                     <td>{r.name || '—'}</td>
@@ -315,7 +318,7 @@ export function BulkGrantCard() {
       {phase === 'preview' && (
         <div className="field">
           <button type="button" className="btn primary" disabled={!todo.length} onClick={run}>
-            🎟️ {todo.length}건 발급
+            {todo.length}건 발급
           </button>
           <button type="button" className="btn" onClick={reset}>
             취소
@@ -325,19 +328,18 @@ export function BulkGrantCard() {
 
       {phase === 'done' && (
         <div className="field">
-          <button type="button" className="btn primary" onClick={saveResult}>
-            💾 결과 엑셀 저장
+          <button
+            type="button"
+            className="btn primary"
+            title="원본 열 뒤에 발급 키 · 결과 · 사유 열을 붙여요"
+            onClick={saveResult}
+          >
+            결과 저장
           </button>
           <button type="button" className="btn" onClick={reset}>
             새 파일
           </button>
         </div>
-      )}
-      {phase === 'done' && (
-        <small className="soft">
-          원본 열 뒤에 «발급 키 · 결과 · 사유» 열을 붙여 저장해요. 실패 · 건너뜀 행만 고쳐 그대로 다시 올리면
-          돼요.
-        </small>
       )}
       {sheet?.cut && phase === 'preview' && <small className="warn">앞 {MAX_ROWS}행만 읽었어요.</small>}
     </section>

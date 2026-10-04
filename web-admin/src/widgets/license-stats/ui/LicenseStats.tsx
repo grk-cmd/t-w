@@ -14,21 +14,17 @@ export function LicenseStats() {
   return (
     <section className={styles.stats} aria-label="전체 통계">
       <div className="card">
-        <span className="meta">👥 가입 유저</span>
+        <span className="meta" title="가입 카운터라 탈퇴 · 테스트 계정도 포함돼요">
+          👥 가입 유저
+        </span>
         <strong className={styles.num}>{users.error ? '—' : n(users.data)}명</strong>
-        <small className="soft">
-          {users.error
-            ? errorMessage(users.error, '불러오지 못했어요')
-            : '앱이 가입 때마다 1 씩 올리는 카운터라 탈퇴 · 테스트 계정도 남아 실제보다 많을 수 있어요'}
-        </small>
+        {users.error && <small className="soft">{errorMessage(users.error, '불러오지 못했어요')}</small>}
       </div>
       <div className="card">
-        <span className="meta">👑 프리미엄 사용 중인 키</span>
+        <span className="meta" title="회수 안 된 등록 키 수. 한 사람이 여러 키를 쓰면 겹쳐 세요">
+          👑 사용 중인 키
+        </span>
         <strong className={styles.num}>{n(counts?.used)}개</strong>
-        <small className="soft">
-          회수되지 않았고 앱에서 등록된(redeemedAt) 키 수예요. 키에 사용자가 적히지 않아 한 사람이 여러 키를
-          쓰면 겹쳐 세요.
-        </small>
       </div>
       <div className="card">
         <span className="meta">🎟️ 발급된 키</span>
@@ -36,7 +32,7 @@ export function LicenseStats() {
         <small className="soft">
           {licenses.error
             ? errorMessage(licenses.error, '불러오지 못했어요')
-            : `유효 ${n(counts?.valid)} (사용 ${n(counts?.used)} · 미사용 ${n(counts?.unused)}) · 회수 ${n(counts?.revoked)}`}
+            : `사용 ${n(counts?.used)} · 미사용 ${n(counts?.unused)} · 회수 ${n(counts?.revoked)}`}
         </small>
       </div>
     </section>

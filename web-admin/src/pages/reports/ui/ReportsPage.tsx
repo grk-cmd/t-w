@@ -18,8 +18,8 @@ export function ReportsPage() {
   return (
     <section className="card">
       <div className="card-head">
-        <span className="soft grow">
-          서로 다른 {REPORT_ADMIN_MIN}명 이상이 신고한 사람만 보여요{items && ` · ${items.length}명`}
+        <span className="soft grow" title={`서로 다른 ${REPORT_ADMIN_MIN}명 이상이 신고한 사람만`}>
+          신고 {REPORT_ADMIN_MIN}명 이상{items && ` · ${items.length}명`}
         </span>
         <button type="button" className="btn" onClick={refresh}>
           새로고침

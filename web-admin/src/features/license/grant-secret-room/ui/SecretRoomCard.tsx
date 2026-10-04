@@ -16,21 +16,15 @@ type Message = { text: string; error: boolean } | null;
 
 function resultMessage(r: Extract<GrantResult, { ok: true }>, plan: SecretGrantPlan): Message {
   const parts = [
-    `발급 완료: ${r.code} [${r.period}]`,
-    r.sent ? '수령함으로 보냈어요' : '⚠️ 수령함 전송 실패 — 코드를 직접 전달해 주세요',
+    `발급 완료 ${r.code} [${r.period}]`,
+    r.sent ? '수령함으로 보냈어요' : '수령함 전송 실패. 코드를 직접 전달해 주세요',
     // 잘못 간 뒤에 어디로 갔는지 되짚을 수 있게 받는 계정을 늘 남긴다.
     `받는 계정 ${plan.uid}${plan.name ? ` (${plan.name})` : ''}`,
   ];
-  if (plan.confusing) parts.push('⚠️ 0 · O · 1 · I 가 섞여 있어 불러 줄 때 헷갈릴 수 있어요');
+  if (plan.confusing) parts.push('0 · O · 1 · I 가 섞여 있어요');
   if (r.expiredOld) parts.push(`옛 코드 ${r.expiredOld} 를 만료 처리했어요`);
-  if (r.expireFailed)
-    parts.push(
-      `⚠️ 옛 코드 ${r.expireFailed} 만료 처리에 실패했어요 — 그 코드로도 계속 입장돼요(열쇠를 확인하고 다시 발급해 보세요)`,
-    );
-  if (!r.linked)
-    parts.push(
-      '참여 화면 자동 채움은 갱신하지 못했어요(계정에 연결된 사용자) — 코드는 수령함으로 알려 주세요',
-    );
+  if (r.expireFailed) parts.push(`옛 코드 ${r.expireFailed} 만료 실패. 그 코드로도 계속 입장돼요`);
+  if (!r.linked) parts.push('참여 화면 자동 채움은 갱신하지 못했어요');
   return { text: parts.join('\n'), error: !r.sent || !!r.expireFailed };
 }
 
@@ -57,9 +51,7 @@ export function SecretRoomCard() {
     const r = await grantSecretRoom(db, plan, secret.trim());
     if (!r.ok) {
       setMessage({
-        text: r.denied
-          ? '발급 열쇠가 맞지 않아요 — 서버가 거부했어요'
-          : '발급에 실패했어요 — 네트워크를 확인해 주세요',
+        text: r.denied ? '발급 열쇠가 맞지 않아요' : '발급하지 못했어요',
         error: true,
       });
       return;
@@ -67,7 +59,7 @@ export function SecretRoomCard() {
     setMessage(resultMessage(r, plan));
     // 개월 수 · 열쇠는 비우지 않는다 — 같은 기간으로 여러 명에게 연달아 발급하는 경우가 대부분이다.
     setInput((cur) => ({ ...cur, target: '', want: '' }));
-    toast(`🔒 시크릿룸 ${r.code} 발급 (${r.period})`);
+    toast(`시크릿룸 ${r.code} 발급 · ${r.period}`);
   };
 
   const run = async (confirmed: SecretGrantPlan | null) => {
@@ -92,7 +84,7 @@ export function SecretRoomCard() {
       setPending(null);
       await execute(plan);
     } catch (e) {
-      setMessage({ text: errorMessage(e, '오류가 났어요 — 네트워크를 확인해 주세요'), error: true });
+      setMessage({ text: errorMessage(e, '오류가 났어요'), error: true });
     } finally {
       setBusy(false);
     }
@@ -104,18 +96,14 @@ export function SecretRoomCard() {
 
   return (
     <section className="card">
-      <h2>🔒 시크릿룸 발급</h2>
-      <p className="soft">
-        후원자용 고정 투게더룸(방 개수에 안 잡혀요). 서버가 발급 열쇠로 확인해요 — 관리자 계정이어도 열쇠가
-        없으면 거부돼요. 같은 사람에게 같은 코드로 다시 발급하면 남은 기간에 이어붙여요.
-      </p>
+      <h2 title="같은 사람에게 같은 코드로 다시 발급하면 남은 기간에 이어붙여요">🔒 시크릿룸 발급</h2>
       <div className={styles.form} onKeyDown={onEnter}>
         <label>
           받는 사람
           <input
             type="text"
             maxLength={48}
-            placeholder="친구코드(MATE-9K2M · 뒤 4자리) 또는 유저 코드(u…)"
+            placeholder="친구코드 · 유저 코드"
             value={input.target}
             onChange={(e) => edit({ target: e.target.value })}
           />
@@ -126,7 +114,7 @@ export function SecretRoomCard() {
             type="text"
             maxLength={4}
             className={styles.upper}
-            placeholder="4자리 (비우면 자동)"
+            placeholder="4자리 · 비우면 자동"
             value={input.want}
             onChange={(e) => edit({ want: e.target.value })}
           />
@@ -137,7 +125,7 @@ export function SecretRoomCard() {
             type="text"
             inputMode="numeric"
             maxLength={3}
-            placeholder={`1~${MONTHS_MAX} (비우면 영구)`}
+            placeholder={`1~${MONTHS_MAX} · 비우면 영구`}
             value={input.months}
             onChange={(e) => edit({ months: e.target.value })}
           />
@@ -161,12 +149,12 @@ export function SecretRoomCard() {
         <div className={styles.confirm}>
           {pending.warnings.map((w) => (
             <p key={w} className="warn">
-              ⚠️ {w}
+              {w}
             </p>
           ))}
           <div className="field">
             <button type="button" className="btn danger" disabled={busy} onClick={() => run(pending)}>
-              {busy ? '발급 중…' : '확인했어요 — 그대로 발급'}
+              {busy ? '발급 중…' : '그대로 발급'}
             </button>
             <button type="button" className="btn" disabled={busy} onClick={() => setPending(null)}>
               취소
@@ -176,7 +164,7 @@ export function SecretRoomCard() {
       ) : (
         <div className="field">
           <button type="button" className="btn primary" disabled={busy} onClick={() => run(null)}>
-            {busy ? '확인 중…' : '🔒 시크릿룸 발급'}
+            {busy ? '확인 중…' : '발급'}
           </button>
         </div>
       )}

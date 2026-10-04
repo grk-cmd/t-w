@@ -40,18 +40,16 @@ export function RoomList() {
         {summary ? (
           <>
             <span>
-              서버 집계 <b>{summary.total}</b>개 — {CHANNEL_LABEL.workingroom} {summary.workingroom} ·{' '}
+              서버 집계 <b>{summary.total}</b>개 · {CHANNEL_LABEL.workingroom} {summary.workingroom} ·{' '}
               {CHANNEL_LABEL.togetherroom} {summary.togetherroom}
             </span>
             <span className={summary.fresh ? 'soft' : 'warn'}>
               {summary.at !== null && now !== null ? `${formatAgo(now - summary.at)} 집계` : '집계 시각 없음'}
-              {!summary.fresh && ' — 집계 함수가 멈췄을 수 있어요'}
+              {!summary.fresh && ' · 갱신 멈춤'}
             </span>
           </>
         ) : (
-          <span className="soft">
-            {stats.isLoading ? '집계 불러오는 중…' : '서버 집계(roomStats)가 없어요'}
-          </span>
+          <span className="soft">{stats.isLoading ? '집계 불러오는 중…' : '서버 집계 없음'}</span>
         )}
       </div>
 

@@ -19,7 +19,7 @@ export function KeyActions({ licenseKey, status }: { licenseKey: string; status:
   };
 
   const onRemove = () => {
-    if (!confirm(`${licenseKey} 키를 목록에서 완전히 지울까요? (되돌릴 수 없어요)`)) return;
+    if (!confirm(`${licenseKey} 키를 목록에서 완전히 지울까요? 되돌릴 수 없어요.`)) return;
     remove.mutate(licenseKey, {
       onSuccess: () => toast('삭제했어요'),
       onError: (e) => toast(errorMessage(e, '삭제하지 못했어요')),

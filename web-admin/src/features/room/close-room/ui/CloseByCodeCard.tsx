@@ -26,11 +26,10 @@ export function CloseByCodeCard() {
   return (
     <section className="card">
       <h2>코드로 방 종료</h2>
-      <p className="soft">목록에 없는 방(시크릿룸 SCRT- 등)을 코드로 닫아요.</p>
       <div className="field">
         <input
           type="text"
-          placeholder="예: SCRT-AB12"
+          placeholder="방 코드 (SCRT-AB12)"
           value={input}
           onChange={(e) => setInput(e.target.value)}
         />
