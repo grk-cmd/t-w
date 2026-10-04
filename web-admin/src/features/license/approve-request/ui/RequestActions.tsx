@@ -9,19 +9,25 @@ export function RequestActions({ request }: { request: LicenseRequest }) {
   const reject = useRejectRequest();
   const who = `${request.name || '이름 없음'} 님`;
 
-  const onApprove = () =>
-    approve.mutate(request, {
-      onSuccess: ({ delivered }) =>
-        toast(`${who}에게 발급했어요 · ${delivered ? '수령함으로 보냈어요' : '수령함 전송 실패'}`),
-      onError: (e) => toast(errorMessage(e, '발급하지 못했어요')),
-    });
+  // 요청 목록은 실시간 구독이라 쓰는 순간 이 줄이 사라진다 — mutate 의 콜백은 언마운트되면 불리지 않아
+  // 알림이 사라지므로 mutateAsync 의 결과를 기다려 알린다.
+  const onApprove = async () => {
+    try {
+      const { delivered } = await approve.mutateAsync(request);
+      toast(`${who}에게 발급했어요 · ${delivered ? '수령함으로 보냈어요' : '수령함 전송 실패'}`);
+    } catch (e) {
+      toast(errorMessage(e, '발급하지 못했어요'));
+    }
+  };
 
-  const onReject = () => {
+  const onReject = async () => {
     if (!confirm(`${who}의 요청을 거절할까요? 상대는 다시 요청할 수 있어요.`)) return;
-    reject.mutate(request, {
-      onSuccess: () => toast('거절했어요'),
-      onError: (e) => toast(errorMessage(e, '거절하지 못했어요')),
-    });
+    try {
+      await reject.mutateAsync(request);
+      toast('거절했어요');
+    } catch (e) {
+      toast(errorMessage(e, '거절하지 못했어요'));
+    }
   };
 
   const busy = approve.isPending || reject.isPending;
