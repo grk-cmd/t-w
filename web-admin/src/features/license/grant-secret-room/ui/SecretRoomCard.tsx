@@ -99,11 +99,12 @@ export function SecretRoomCard() {
       <h2 title="같은 사람에게 같은 코드로 다시 발급하면 남은 기간에 이어붙여요">🔒 시크릿룸 발급</h2>
       <div className={styles.form} onKeyDown={onEnter}>
         <label>
-          받는 사람
+          받는 사람 친구코드
           <input
             type="text"
             maxLength={48}
-            placeholder="친구코드 · 유저 코드"
+            placeholder="MATE-XXXX · 뒤 4자리"
+            title="유저 코드(u…)도 받아요"
             value={input.target}
             onChange={(e) => edit({ target: e.target.value })}
           />
