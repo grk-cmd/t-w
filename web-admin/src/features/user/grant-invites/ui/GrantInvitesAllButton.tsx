@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useFriendCodes } from '@/entities/user';
+import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { uniqueUserIds } from '../model/grantInvites';
 import { useGrantInvitesAll } from '../model/useGrantInvites';
@@ -12,6 +13,7 @@ const CONFIRM_WORD = '전체 지급';
 export function GrantInvitesAllButton() {
   // 사용자 화면이 이미 받아 둔 friendCodes 캐시를 그대로 쓴다 — 다시 받지 않는다.
   const friendCodes = useFriendCodes();
+  const env = useEnv();
   const uids = useMemo(() => (friendCodes.data ? uniqueUserIds(friendCodes.data) : []), [friendCodes.data]);
   const grant = useGrantInvitesAll();
   const [open, setOpen] = useState(false);
@@ -35,7 +37,7 @@ export function GrantInvitesAllButton() {
       </button>
       <InviteDialog
         open={open}
-        title="전체 사용자에게 초대권 지급"
+        title={withProdMark(env, '전체 사용자에게 초대권 지급')}
         locked={running}
         onClose={() => setOpen(false)}
       >

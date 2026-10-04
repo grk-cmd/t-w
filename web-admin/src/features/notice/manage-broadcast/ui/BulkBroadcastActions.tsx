@@ -1,4 +1,5 @@
 import type { InboxBroadcast } from '@/entities/inbox';
+import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { pinTargets } from '../model/manageBroadcasts';
@@ -11,6 +12,7 @@ interface Props {
 
 export function BulkBroadcastActions({ broadcasts, onDone }: Props) {
   const toast = useToast();
+  const env = useEnv();
   const pin = usePinBroadcasts();
   const remove = useDeleteBroadcasts();
   const toPin = pinTargets(broadcasts, true);
@@ -32,7 +34,12 @@ export function BulkBroadcastActions({ broadcasts, onDone }: Props) {
 
   const onDelete = async () => {
     const ids = broadcasts.map((b) => b.id);
-    if (!confirm(`선택한 ${ids.length}개를 모든 사람의 수령함에서 지울까요? 되돌릴 수 없어요.`)) return;
+    if (
+      !confirm(
+        withProdMark(env, `선택한 ${ids.length}개를 모든 사람의 수령함에서 지울까요? 되돌릴 수 없어요.`),
+      )
+    )
+      return;
     try {
       toast(`${await remove.mutateAsync(ids)}개 삭제했어요`);
       onDone();

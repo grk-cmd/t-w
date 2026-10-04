@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useGrantInvitesAll } from '../model/useGrantInvites';
 import { CountStepper, InviteDialog } from './InviteDialog';
@@ -12,6 +13,7 @@ interface Props {
 
 // 한 명 지급(grantInvites)을 전체 지급과 같은 방식(20명씩 동시에)으로 고른 사람에게만 돌린다.
 export function GrantInvitesSelectedButton({ uids, onDone }: Props) {
+  const env = useEnv();
   const grant = useGrantInvitesAll();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
@@ -40,7 +42,7 @@ export function GrantInvitesSelectedButton({ uids, onDone }: Props) {
       </button>
       <InviteDialog
         open={open}
-        title={`선택한 ${targets.length}명에게 초대권 지급`}
+        title={withProdMark(env, `선택한 ${targets.length}명에게 초대권 지급`)}
         locked={running}
         onClose={close}
       >

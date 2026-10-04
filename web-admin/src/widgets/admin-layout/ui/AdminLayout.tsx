@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { Env } from '@/shared/api';
 import styles from './AdminLayout.module.css';
 
 export interface NavItem {
@@ -7,7 +8,7 @@ export interface NavItem {
 }
 
 interface Props {
-  env: { isProd: boolean; projectId: string };
+  env: Env;
   account?: { label: string; onSignOut: () => void };
   nav?: { items: NavItem[]; current: string; onSelect: (id: string) => void };
   title?: string;

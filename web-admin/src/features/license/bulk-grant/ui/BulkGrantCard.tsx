@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLicenses, useRefreshLicenses } from '@/entities/license';
-import { useDb } from '@/shared/api';
+import { useDb, useEnv, withProdMark } from '@/shared/api';
 import { copyText } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { downloadBytes, readSheetFile, writeXlsx, type Grid } from '../lib/sheet';
@@ -58,6 +58,7 @@ function Chip({ st, text }: { st: RowStatus | RowResult; text?: string }) {
 
 export function BulkGrantCard() {
   const db = useDb();
+  const env = useEnv();
   const toast = useToast();
   const { data: licenses } = useLicenses();
   const refreshLicenses = useRefreshLicenses();
@@ -130,7 +131,10 @@ export function BulkGrantCard() {
     const nSend = todo.filter((r) => r.st === 'send').length;
     if (
       !confirm(
-        `${todo.length}건을 발급할까요?\n· 수령함으로 보냄 ${nSend}건\n· 키만 만듦 ${todo.length - nSend}건`,
+        withProdMark(
+          env,
+          `${todo.length}건을 발급할까요?\n· 수령함으로 보냄 ${nSend}건\n· 키만 만듦 ${todo.length - nSend}건`,
+        ),
       )
     )
       return;

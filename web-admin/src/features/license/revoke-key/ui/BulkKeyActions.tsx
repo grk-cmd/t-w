@@ -1,3 +1,4 @@
+import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { removeTargets, revokeTargets, type SelectedKey } from '../model/revokeKeys';
@@ -10,6 +11,7 @@ interface Props {
 
 export function BulkKeyActions({ keys, onDone }: Props) {
   const toast = useToast();
+  const env = useEnv();
   const revoke = useRevokeKeys();
   const remove = useRemoveKeys();
   const toRevoke = revokeTargets(keys);
@@ -36,7 +38,7 @@ export function BulkKeyActions({ keys, onDone }: Props) {
     const head = skip
       ? `선택한 ${keys.length}개 중 회수된 ${toRemove.length}개만 삭제할까요? 살아 있는 ${skip}개는 남아요.`
       : `선택한 ${toRemove.length}개를 삭제할까요?`;
-    if (!confirm(`${head} 되돌릴 수 없어요.`)) return;
+    if (!confirm(withProdMark(env, `${head} 되돌릴 수 없어요.`))) return;
     try {
       toast(`${await remove.mutateAsync(toRemove)}개 삭제했어요`);
       onDone();

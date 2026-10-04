@@ -1,6 +1,6 @@
 import { useAdminSession } from '@/features/auth';
 import { LoginPage } from '@/pages/login';
-import type { Firebase } from '@/shared/api';
+import { useEnv, type Firebase } from '@/shared/api';
 import { AdminLayout } from '@/widgets/admin-layout';
 import { ROUTES } from '../routes/routes';
 import { useHashRoute } from '../routes/useHashRoute';
@@ -9,7 +9,7 @@ export function App({ fb }: { fb: Firebase }) {
   const session = useAdminSession(fb);
   const [routeId, go] = useHashRoute(ROUTES[0].id);
   const route = ROUTES.find((r) => r.id === routeId) ?? ROUTES[0];
-  const env = { isProd: fb.isProd, projectId: fb.projectId };
+  const env = useEnv();
 
   if (session.state !== 'admin') {
     return (

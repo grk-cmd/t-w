@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { allRoomCodes, isSecretRoom, useRoomCodes, useRoomIndex } from '@/entities/room';
+import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { CLOSE_ALL_WORD, isCloseAllConfirmed } from '../model/closeRoom';
@@ -7,6 +8,7 @@ import { useCloseAllRooms } from '../model/useCloseRoom';
 
 export function CloseAllRoomsCard() {
   const toast = useToast();
+  const env = useEnv();
   const { data: index } = useRoomIndex();
   const { data: codes } = useRoomCodes();
   const closeAll = useCloseAllRooms();
@@ -18,7 +20,7 @@ export function CloseAllRoomsCard() {
   const onClose = () => {
     if (!all || !isCloseAllConfirmed(typed)) return;
     const ask = `방 ${all.length}개를 모두 종료할까요? (시크릿룸 ${secret}개 포함)\n안에 있던 사람은 방에서 튕겨 나가요.`;
-    if (!confirm(ask)) return;
+    if (!confirm(withProdMark(env, ask))) return;
     closeAll.mutate(undefined, {
       onSuccess: (closed) => {
         toast(closed.length ? `방 ${closed.length}개를 종료했어요` : '종료할 방이 없어요');
