@@ -3,7 +3,9 @@ export {
   listLicenses,
   newLicenseWrite,
   removeLicense,
+  removeLicensesWrite,
   revokeLicense,
+  revokeLicensesWrite,
   useLicenses,
   useRefreshLicenses,
 } from './api/license';

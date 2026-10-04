@@ -39,6 +39,20 @@ export async function createLicense(db: Db, note: string, genKey?: () => string)
   return key;
 }
 
+/** 여러 키 회수 — 한 묶음(db.commit)으로 보낼 경로 → 값. */
+export function revokeLicensesWrite(db: Db, keys: readonly string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of keys) {
+    out[`licenses/${key}/valid`] = false;
+    out[`licenses/${key}/revokedAt`] = db.now();
+  }
+  return out;
+}
+
+export function removeLicensesWrite(keys: readonly string[]): Record<string, null> {
+  return Object.fromEntries(keys.map((key) => [`licenses/${key}`, null]));
+}
+
 export function revokeLicense(db: Db, key: string): Promise<void> {
   return db.update(`licenses/${key}`, { valid: false, revokedAt: db.now() });
 }

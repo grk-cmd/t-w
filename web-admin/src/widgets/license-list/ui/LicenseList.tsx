@@ -6,9 +6,9 @@ import {
   useRefreshLicenses,
   type LicenseStatus,
 } from '@/entities/license';
-import { KeyActions } from '@/features/license/revoke-key';
-import { copyText, errorMessage, formatDate, paginate } from '@/shared/lib';
-import { Pager, useToast } from '@/shared/ui';
+import { BulkKeyActions, KeyActions } from '@/features/license/revoke-key';
+import { copyText, errorMessage, formatDate, paginate, useSelection } from '@/shared/lib';
+import { Pager, RowCheckbox, SelectAllCheckbox, SelectionBar, useToast } from '@/shared/ui';
 
 const PAGE_SIZE = 50;
 
@@ -26,6 +26,13 @@ export function LicenseList() {
   const [page, setPage] = useState(1);
   const rows = useMemo(() => (licenses ? filterLicenses(licenses, search) : []), [licenses, search]);
   const view = paginate(rows, page, PAGE_SIZE);
+  const ids = useMemo(() => rows.map(([key]) => key), [rows]);
+  const pageIds = useMemo(() => view.items.map(([key]) => key), [view.items]);
+  const selection = useSelection(ids, pageIds);
+  const selectedKeys = selection.selected.map((key) => ({
+    key,
+    status: licenseStatus(licenses?.[key] ?? null),
+  }));
 
   const changeSearch = (next: string) => {
     setSearch(next);
@@ -50,6 +57,21 @@ export function LicenseList() {
           onChange={(e) => changeSearch(e.target.value)}
         />
       </div>
+      {rows.length > 0 && (
+        <SelectionBar
+          count={selectedKeys.length}
+          onClear={selection.clear}
+          selectAll={
+            <SelectAllCheckbox
+              allChecked={selection.allChecked}
+              someChecked={selection.someChecked}
+              onChange={selection.toggleAll}
+            />
+          }
+        >
+          <BulkKeyActions keys={selectedKeys} onDone={selection.clear} />
+        </SelectionBar>
+      )}
       <div className="list tall">
         {error && errorMessage(error, '목록을 불러오지 못했어요')}
         {!error && !licenses && '불러오는 중…'}
@@ -58,6 +80,11 @@ export function LicenseList() {
           const status = licenseStatus(license);
           return (
             <div key={key} className={status === 'revoked' ? 'row dim' : 'row'}>
+              <RowCheckbox
+                label={`${key} 선택`}
+                checked={selection.isSelected(key)}
+                onChange={() => selection.toggle(key)}
+              />
               <span className="grow">
                 <code className="key">{key}</code>
                 <span className="meta">
