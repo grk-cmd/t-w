@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
 
 const PATH = 'config/minRoomVer';
@@ -13,13 +13,4 @@ export async function getMinRoomVer(db: Db): Promise<string | null> {
 export function useMinRoomVer() {
   const db = useDb();
   return useQuery({ queryKey: MIN_ROOM_VER_KEY, queryFn: () => getMinRoomVer(db) });
-}
-
-export function useRefreshMinRoomVer() {
-  const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: MIN_ROOM_VER_KEY });
-}
-
-export function saveMinRoomVer(db: Db, version: string): Promise<void> {
-  return db.set(PATH, version);
 }

@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
 
 const USER_COUNT_PATH = 'stats/userCount';
@@ -10,16 +10,7 @@ export async function getUserCount(db: Db): Promise<number> {
   return typeof value === 'number' ? value : 0;
 }
 
-export function setUserCount(db: Db, count: number): Promise<void> {
-  return db.set(USER_COUNT_PATH, count);
-}
-
 export function useUserCount() {
   const db = useDb();
   return useQuery({ queryKey: USER_COUNT_KEY, queryFn: () => getUserCount(db) });
-}
-
-export function useRefreshUserCount() {
-  const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: USER_COUNT_KEY });
 }

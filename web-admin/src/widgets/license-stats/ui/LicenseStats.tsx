@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { countLicenses, useLicenses } from '@/entities/license';
 import { useUserCount } from '@/entities/user-count';
-import { AdjustUserCount } from '@/features/user/adjust-user-count';
 import { errorMessage } from '@/shared/lib';
 import styles from './LicenseStats.module.css';
 
@@ -20,9 +19,8 @@ export function LicenseStats() {
         <small className="soft">
           {users.error
             ? errorMessage(users.error, '불러오지 못했어요')
-            : '앱이 가입 때마다 올리는 카운터(stats/userCount)'}
+            : '앱이 가입 때마다 1 씩 올리는 카운터라 탈퇴 · 테스트 계정도 남아 실제보다 많을 수 있어요'}
         </small>
-        {users.data !== undefined && <AdjustUserCount current={users.data} />}
       </div>
       <div className="card">
         <span className="meta">👑 프리미엄 사용 중인 키</span>
