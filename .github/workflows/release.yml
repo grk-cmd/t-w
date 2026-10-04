@@ -130,7 +130,9 @@ jobs:
     name: Windows x64
     needs: [verify, rules-prod]
     if: always() && needs.verify.result == 'success' && (needs.rules-prod.result == 'success' || needs.rules-prod.result == 'skipped')
-    runs-on: windows-latest
+    # windows-latest(Server 2025) 에서는 node-gyp 가 Visual Studio 를 못 찾아 node-window-manager 빌드가 실패했다.
+    # VS 2022 + C++ 도구가 들어 있는 이미지로 고정한다. 이미지가 은퇴하면 node-gyp 를 올려 새 이미지로 옮길 것.
+    runs-on: windows-2022
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: false
     steps:
