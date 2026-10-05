@@ -23,6 +23,6 @@ export async function closeSelectedRooms(db: Db, codes: readonly string[]): Prom
 export async function closeAllRooms(db: Db): Promise<string[]> {
   const [index, codes] = await Promise.all([getRoomIndex(db), getRoomCodes(db)]);
   const all = allRoomCodes(index, codes);
-  await closeRooms(db, all);
+  await closeRooms(db, all, 'room.closeAll');
   return all;
 }

@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { useDb, type Db } from '@/shared/api';
+import { countTarget, useDb, withAudit, type AuditAction, type Db } from '@/shared/api';
 import {
   closeRoomsWrite,
   isMemberKey,
@@ -121,6 +121,12 @@ export async function serverNow(db: Db, clock: () => number = Date.now): Promise
   return clock() + (await db.serverTimeOffset());
 }
 
-export function closeRooms(db: Db, codes: string[]): Promise<void> {
-  return codes.length ? db.commit(closeRoomsWrite(codes)) : Promise.resolve();
+/** 방을 한 묶음으로 닫고 같은 묶음에 기록 한 줄 — 한 방이면 그 코드, 여럿이면 개수와 앞 몇 개. */
+export function closeRooms(db: Db, codes: string[], action: AuditAction = 'room.close'): Promise<void> {
+  if (!codes.length) return Promise.resolve();
+  const many = action !== 'room.close' || codes.length > 1;
+  const target = many ? `${codes.length}개` : codes[0];
+  return db.commit(
+    withAudit(db, closeRoomsWrite(codes), action, target, many ? countTarget(codes) : undefined),
+  );
 }

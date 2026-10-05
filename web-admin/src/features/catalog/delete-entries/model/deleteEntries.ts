@@ -5,7 +5,7 @@ import {
   type CatalogEntry,
   type CatalogWrite,
 } from '@/entities/catalog';
-import type { Db, Files } from '@/shared/api';
+import { countTarget, withAudit, type Db, type Files } from '@/shared/api';
 
 export interface DeleteEntriesResult {
   removed: number;
@@ -33,7 +33,11 @@ export async function deleteEntries(
     entries[0].kind,
     entries.map((e) => e.id),
   );
-  await catalogCommit(db, written);
+  const target = `${entries[0].kind} ${entries.length}개`;
+  await catalogCommit(
+    db,
+    withAudit(db, written, 'catalog.delete', target, countTarget(entries.map((e) => e.name || e.id))),
+  );
 
   const removing = new Set(entries.map((e) => e.id));
   const inUse = new Set(rest.filter((e) => !removing.has(e.id)).flatMap((e) => e.files.map(catalogFilePath)));

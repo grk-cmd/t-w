@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+import { useDb, withAudit, type Db } from '@/shared/api';
 import { ANNOUNCE_DURATION, ANNOUNCE_TEXT_MAX, type Announce } from '../model/announce';
 
 const ANNOUNCE_KEY = ['announce'];
@@ -28,13 +28,10 @@ export function useServerTimeOffset() {
 
 // ts 는 서버 시각 — 관리자 PC 시계가 틀려도 모두에게 같은 1분이 되게.
 export function publishAnnounce(db: Db, text: string): Promise<void> {
-  return db.set(PATH, {
-    text: text.trim().slice(0, ANNOUNCE_TEXT_MAX),
-    ts: db.now(),
-    duration: ANNOUNCE_DURATION,
-  });
+  const value = { text: text.trim().slice(0, ANNOUNCE_TEXT_MAX), ts: db.now(), duration: ANNOUNCE_DURATION };
+  return db.commit(withAudit(db, { [PATH]: value }, 'notice.announce', value.text));
 }
 
 export function clearAnnounce(db: Db): Promise<void> {
-  return db.remove(PATH);
+  return db.commit(withAudit(db, { [PATH]: null }, 'notice.announceClear', '상단 공지'));
 }

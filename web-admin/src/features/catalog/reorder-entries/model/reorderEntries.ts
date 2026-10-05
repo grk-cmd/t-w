@@ -1,5 +1,5 @@
 import { catalogCommit, moveId, orderWrite, type CatalogEntry, type CatalogWrite } from '@/entities/catalog';
-import type { Db } from '@/shared/api';
+import { withAudit, type Db } from '@/shared/api';
 
 /**
  * 한 진열 칸(파츠는 카테고리 하나, 책상 · 아이템은 전체) 안에서 dragged 를 target 자리로 옮기고
@@ -18,6 +18,6 @@ export async function reorderEntries(
     target,
   );
   const write = orderWrite(ids.map((id) => byId.get(id)!));
-  await catalogCommit(db, write);
+  await catalogCommit(db, withAudit(db, write, 'catalog.reorder', `${group[0]?.kind ?? ''}/${dragged}`));
   return write;
 }

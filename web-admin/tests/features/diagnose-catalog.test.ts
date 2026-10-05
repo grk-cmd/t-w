@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeKind, base64CleanupWrite, planBase64Cleanup } from '@/entities/catalog';
 import { cleanBase64 } from '@/features/catalog/diagnose-catalog';
-import { fakeDb } from '../shared/fakeDb';
+import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const BIG = 'A'.repeat(3000);
 const THUMB = 'data:image/png;base64,' + 'B'.repeat(2100);
@@ -49,7 +49,7 @@ describe('base64 정리', () => {
       { kind: 'items', id: 'i', bytes: 2 },
       { kind: 'desks', id: 'gone', bytes: 1 },
     ]);
-    expect(writes).toEqual([['commit', 'catalog/parts/a/glb', null]]);
+    expect(withoutAudits(writes)).toEqual([['commit', 'catalog/parts/a/glb', null]]);
     expect(r.cleaned.map((t) => t.id)).toEqual(['a']);
     expect(r.skipped.map((t) => t.id)).toEqual(['i', 'gone']);
   });
@@ -65,6 +65,6 @@ describe('base64 정리', () => {
         { kind: 'parts', id: 'b', bytes: 1 },
       ]),
     ).rejects.toThrow();
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 });

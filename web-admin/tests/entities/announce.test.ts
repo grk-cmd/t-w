@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { announceRemaining, clearAnnounce, getAnnounce, publishAnnounce } from '@/entities/announce';
-import { fakeDb, NOW } from '../shared/fakeDb';
+import { fakeDb, withoutAudits, NOW } from '../shared/fakeDb';
 
 describe('확성기 공지', () => {
   it('앱이 읽는 모양(text · ts · duration 1분)으로 통째로 쓴다', async () => {
     const { db, writes } = fakeDb();
     await publishAnnounce(db, '  점검 5분 전  ');
-    expect(writes).toEqual([['set', 'announce/current', { text: '점검 5분 전', ts: NOW, duration: 60_000 }]]);
+    expect(withoutAudits(writes)).toEqual([
+      ['commit', 'announce/current', { text: '점검 5분 전', ts: NOW, duration: 60_000 }],
+    ]);
   });
 
   it('140자를 넘으면 자른다(규칙 한도)', async () => {
@@ -18,7 +20,7 @@ describe('확성기 공지', () => {
   it('끄기는 노드를 지운다', async () => {
     const { db, writes } = fakeDb();
     await clearAnnounce(db);
-    expect(writes).toEqual([['remove', 'announce/current', undefined]]);
+    expect(withoutAudits(writes)).toEqual([['commit', 'announce/current', null]]);
   });
 
   it('현재 값은 announce/current 한 노드만 읽는다', async () => {

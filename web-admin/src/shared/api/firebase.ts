@@ -121,6 +121,7 @@ export async function connectFirebase(): Promise<Firebase> {
       await get(query(at(path), limitToFirst(1)));
     },
     now: serverTimestamp,
+    uid: () => auth.currentUser?.uid ?? null,
     // .info 는 이 기기에만 있는 경로라 get() 으로 읽으면 서버에 물어 «Invalid token in path» 로 거부된다 — 구독으로 한 번만 읽는다.
     serverTimeOffset: () =>
       new Promise((resolve, reject) =>

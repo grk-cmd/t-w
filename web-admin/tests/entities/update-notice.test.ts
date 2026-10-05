@@ -5,13 +5,15 @@ import {
   getUpdateNotice,
   publishUpdateNotice,
 } from '@/entities/update-notice';
-import { fakeDb, NOW } from '../shared/fakeDb';
+import { fakeDb, withoutAudits, NOW } from '../shared/fakeDb';
 
 describe('업데이트 공지', () => {
   it('제목 · 본문 · 새 ts 를 쓴다 — ts 가 바뀌어야 «다시 보지 않기» 한 사람에게도 다시 뜬다', async () => {
     const { db, writes } = fakeDb();
     await publishUpdateNotice(db, ' v1.2 ', ' 고친 점 ');
-    expect(writes).toEqual([['set', 'updateNotice/current', { title: 'v1.2', body: '고친 점', ts: NOW }]]);
+    expect(withoutAudits(writes)).toEqual([
+      ['commit', 'updateNotice/current', { title: 'v1.2', body: '고친 점', ts: NOW }],
+    ]);
   });
 
   it('제목 60자 · 본문 800자로 자른다(규칙 한도)', async () => {
@@ -33,6 +35,6 @@ describe('업데이트 공지', () => {
     const { db, writes } = fakeDb({ 'updateNotice/current': cur });
     expect(await getUpdateNotice(db)).toEqual(cur);
     await clearUpdateNotice(db);
-    expect(writes).toEqual([['remove', 'updateNotice/current', undefined]]);
+    expect(withoutAudits(writes)).toEqual([['commit', 'updateNotice/current', null]]);
   });
 });

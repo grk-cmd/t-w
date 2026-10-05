@@ -1,3 +1,16 @@
+export {
+  AUDIT_ACTIONS,
+  AUDIT_DETAIL_MAX,
+  AUDIT_ROOT,
+  AUDIT_TARGET_MAX,
+  auditAfter,
+  auditEntry,
+  countTarget,
+  maskKey,
+  withAudit,
+  type AuditAction,
+  type AuditRecord,
+} from './audit';
 export { isIndexMissing, isPermissionDenied, type Db } from './db';
 export type { Files } from './files';
 export { DbProvider } from './DbProvider';

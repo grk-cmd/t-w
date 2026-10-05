@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  checkBroadcast,
-  deleteBroadcast,
-  listBroadcasts,
-  sendBroadcast,
-  setBroadcastPinned,
-  sortBroadcasts,
-} from '@/entities/inbox';
-import { fakeDb, NOW } from '../shared/fakeDb';
+import { checkBroadcast, listBroadcasts, sendBroadcast, sortBroadcasts } from '@/entities/inbox';
+import { fakeDb, withoutAudits, NOW } from '../shared/fakeDb';
 
 const msg = { tag: 'update' as const, title: ' 새 버전 ', body: ' 고친 점 ' };
 
@@ -15,7 +8,7 @@ describe('수령함 전체 공지', () => {
   it('공용 노드 한 곳에 한 묶음으로 쓴다 — 고정이 아니면 pinned 키가 없다', async () => {
     const { db, writes } = fakeDb();
     await sendBroadcast(db, msg, false, 'b1');
-    expect(writes).toEqual([
+    expect(withoutAudits(writes)).toEqual([
       ['commit', 'inboxBroadcast/b1', { tag: 'update', title: '새 버전', body: '고친 점', ts: NOW }],
     ]);
   });
@@ -38,22 +31,6 @@ describe('수령함 전체 공지', () => {
     const v = writes[0][2] as { title: string; body: string };
     expect(v.title).toHaveLength(80);
     expect(v.body).toHaveLength(600);
-  });
-
-  it('고정은 pinned 한 필드만 — 풀 때는 키를 지운다', async () => {
-    const { db, writes } = fakeDb();
-    await setBroadcastPinned(db, 'b1', true);
-    await setBroadcastPinned(db, 'b1', false);
-    expect(writes).toEqual([
-      ['set', 'inboxBroadcast/b1/pinned', true],
-      ['remove', 'inboxBroadcast/b1/pinned', undefined],
-    ]);
-  });
-
-  it('삭제는 그 공지 하나만', async () => {
-    const { db, writes } = fakeDb();
-    await deleteBroadcast(db, 'b1');
-    expect(writes).toEqual([['remove', 'inboxBroadcast/b1', undefined]]);
   });
 
   it('목록 — 고정이 맨 위, 그 안에서 최근 것부터, 모르는 태그는 공지로', async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createInviteCode, genInviteCode, INVITE_CODE_RE } from '@/entities/invite';
 import { createInviteCodes } from '@/features/user/grant-invites';
-import { fakeDb } from '../shared/fakeDb';
+import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 describe('초대 코드', () => {
   it('앱 _genInviteCode 와 같은 모양 — 0 · O · 1 · I 는 나오지 않는다', () => {
@@ -15,7 +15,9 @@ describe('초대 코드', () => {
     const { db, writes } = fakeDb({ 'invites/INVT-AAAA-AAAA': taken });
     const codes = ['INVT-AAAA-AAAA', 'INVT-BBBB-BBBB'];
     expect(await createInviteCode(db, 5, () => codes.shift()!)).toBe('INVT-BBBB-BBBB');
-    expect(writes).toEqual([['transaction', 'invites/INVT-BBBB-BBBB', { issuedBy: 'admin', createdAt: 5 }]]);
+    expect(withoutAudits(writes)).toEqual([
+      ['transaction', 'invites/INVT-BBBB-BBBB', { issuedBy: 'admin', createdAt: 5 }],
+    ]);
   });
 
   it('여러 개는 하나씩 알리고, 범위 밖 개수는 쓰기 전에 막는다', async () => {
@@ -27,6 +29,6 @@ describe('초대 코드', () => {
     expect(new Set(codes).size).toBe(3);
     await expect(createInviteCodes(db, 11)).rejects.toThrow();
     await expect(createInviteCodes(db, 0)).rejects.toThrow();
-    expect(writes).toHaveLength(3);
+    expect(withoutAudits(writes)).toHaveLength(3);
   });
 });

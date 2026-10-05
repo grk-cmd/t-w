@@ -1,7 +1,7 @@
 import { inboxMessageWrite, licenseGrantMessage } from '@/entities/inbox';
 import { newLicenseWrite } from '@/entities/license';
 import { findUserByFriendCode, getUserName } from '@/entities/user';
-import type { Db } from '@/shared/api';
+import { maskKey, withAudit, type Db } from '@/shared/api';
 import { CODE_RE, normalizeCode, rowNote, type BaseStatus, type PlanRow, type SheetRow } from './rows';
 
 const LOOKUP_BATCH = 5;
@@ -63,7 +63,9 @@ export async function lookupRows(
 export async function grantRow(db: Db, row: PlanRow, genKey?: () => string): Promise<string> {
   const { key, write } = newLicenseWrite(db, rowNote(row), genKey);
   const inbox = row.st === 'send' && row.uid ? inboxMessageWrite(row.uid, licenseGrantMessage(key)) : {};
-  await db.commit({ ...write, ...inbox });
+  // 행마다 키가 하나씩 나가므로 기록도 행마다 그 묶음 안에 — 친구코드가 빈 행은 «키만».
+  const target = row.st === 'send' && row.code ? row.code : '키만';
+  await db.commit(withAudit(db, { ...write, ...inbox }, 'license.bulk', target, maskKey(key)));
   return key;
 }
 

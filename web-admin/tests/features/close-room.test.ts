@@ -5,13 +5,13 @@ import {
   closeSelectedRooms,
   isCloseAllConfirmed,
 } from '@/features/room/close-room';
-import { fakeDb } from '../shared/fakeDb';
+import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 describe('방 종료', () => {
   it('방 하나 — rooms · roomIndex 를 함께 지운다', async () => {
     const { db, writes } = fakeDb();
     await closeRoom(db, 'SCRT-AB12');
-    expect(writes).toEqual([
+    expect(withoutAudits(writes)).toEqual([
       ['commit', 'rooms/SCRT-AB12', null],
       ['commit', 'roomIndex/SCRT-AB12', null],
     ]);
@@ -22,8 +22,8 @@ describe('방 종료', () => {
       roomIndex: { 'WORK-B': { lastSeen: 1 }, 'PLAY-A': { lastSeen: 2 } },
     });
     expect(await closeAllRooms(db)).toEqual(['PLAY-A', 'WORK-B']);
-    expect(writes.every(([op, , v]) => op === 'commit' && v === null)).toBe(true);
-    expect(writes.map((w) => w[1])).toEqual([
+    expect(withoutAudits(writes).every(([op, , v]) => op === 'commit' && v === null)).toBe(true);
+    expect(withoutAudits(writes).map((w) => w[1])).toEqual([
       'rooms/PLAY-A',
       'roomIndex/PLAY-A',
       'rooms/WORK-B',
@@ -41,13 +41,13 @@ describe('방 종료', () => {
     db.get = (path) => (read.push(path), get(path));
     expect(await closeAllRooms(db)).toEqual(['SCRT-Z', 'WORK-B', 'WORK-O']);
     expect(read).toEqual(['roomIndex']);
-    expect(writes).toHaveLength(6);
+    expect(withoutAudits(writes)).toHaveLength(6);
   });
 
   it('전체 — 방이 없으면 아무것도 보내지 않는다', async () => {
     const { db, writes } = fakeDb();
     expect(await closeAllRooms(db)).toEqual([]);
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 
   it('전체 종료는 «종료» 를 정확히 입력해야 한다', () => {
@@ -62,7 +62,7 @@ describe('선택 종료', () => {
   it('고른 방의 rooms · roomIndex 를 한 묶음으로 지운다', async () => {
     const { db, writes } = fakeDb();
     expect(await closeSelectedRooms(db, ['WORK-A', 'PLAY-B'])).toBe(2);
-    expect(writes).toEqual([
+    expect(withoutAudits(writes)).toEqual([
       ['commit', 'rooms/WORK-A', null],
       ['commit', 'roomIndex/WORK-A', null],
       ['commit', 'rooms/PLAY-B', null],
@@ -73,6 +73,6 @@ describe('선택 종료', () => {
   it('하나라도 막히면 아무 방도 지우지 않는다', async () => {
     const { db, writes } = fakeDb({}, (p) => p === 'rooms/PLAY-B');
     await expect(closeSelectedRooms(db, ['WORK-A', 'PLAY-B'])).rejects.toThrow();
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 });

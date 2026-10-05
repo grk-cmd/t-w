@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { checkBugReport, getBugReport, saveBugReport } from '@/entities/bug-report';
-import { fakeDb, NOW } from '../shared/fakeDb';
+import { fakeDb, withoutAudits, NOW } from '../shared/fakeDb';
 
 describe('버그 제보 탭', () => {
   it('공지 · 링크 · ts 를 쓴다 — 링크가 비어도 빈 문자열로 쓴다(앱과 같다)', async () => {
     const { db, writes } = fakeDb();
     await saveBugReport(db, ' 알려 주세요 ', ' https://open.kakao.com/x ');
     await saveBugReport(db, '알려 주세요', '');
-    expect(writes).toEqual([
-      ['set', 'bugReport/current', { notice: '알려 주세요', link: 'https://open.kakao.com/x', ts: NOW }],
-      ['set', 'bugReport/current', { notice: '알려 주세요', link: '', ts: NOW }],
+    expect(withoutAudits(writes)).toEqual([
+      ['commit', 'bugReport/current', { notice: '알려 주세요', link: 'https://open.kakao.com/x', ts: NOW }],
+      ['commit', 'bugReport/current', { notice: '알려 주세요', link: '', ts: NOW }],
     ]);
   });
 

@@ -1,6 +1,6 @@
 import { clearReportsWrite } from '@/entities/report';
 import { awayImgRemoveWrite } from '@/entities/user';
-import type { Db, Files } from '@/shared/api';
+import { countTarget, withAudit, type Db, type Files } from '@/shared/api';
 
 export type TakeDownResult = { ok: true; fileDeleted: boolean } | { ok: false; reason: 'changed' };
 
@@ -19,7 +19,8 @@ export async function takeDownAwayImg(
   const current = await db.get<unknown>(`users/${target}/awayImg`);
   if (current !== shownUrl) return { ok: false, reason: 'changed' };
 
-  await db.commit({ ...awayImgRemoveWrite(target), ...clearReportsWrite(target) });
+  const updates = { ...awayImgRemoveWrite(target), ...clearReportsWrite(target) };
+  await db.commit(withAudit(db, updates, 'report.takeDown', target));
 
   try {
     await files.deleteByUrl(shownUrl);
@@ -31,12 +32,14 @@ export async function takeDownAwayImg(
 
 /** 문제없음 — 신고만 비운다. */
 export function dismissReports(db: Db, target: string): Promise<void> {
-  return db.commit(clearReportsWrite(target));
+  return db.commit(withAudit(db, clearReportsWrite(target), 'report.dismiss', target));
 }
 
 /** 여러 사람 문제없음 — 신고만 한 묶음으로 비운다. 그림 내리기는 Storage 삭제가 섞여 한 건씩만 한다. */
 export async function dismissReportsMany(db: Db, targets: readonly string[]): Promise<number> {
-  if (targets.length)
-    await db.commit(Object.assign({}, ...targets.map((target) => clearReportsWrite(target))));
+  if (targets.length) {
+    const updates = Object.assign({}, ...targets.map((target) => clearReportsWrite(target)));
+    await db.commit(withAudit(db, updates, 'report.dismiss', `${targets.length}명`, countTarget(targets)));
+  }
   return targets.length;
 }
