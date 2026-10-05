@@ -115,4 +115,78 @@ console.log('\n── 5. 관리자 모드 진입 — 화면과 실제 권한이 
   chk(/uid /.test(enter), '  ↳ uid 를 그대로 보여준다 (관리자 추가 등록에 쓰인다)');
 }
 
+console.log('\n── 6. 관리자 작업 기록(adminLog) — 관리자만, 새로 쓰기만, 오래된 것만 지우기');
+{
+  /* 규칙식을 실제로 굴려 본다(sim-purikura-rules.js 와 같은 방식). .matches 는 JS 에 없어 문자열에 잠깐 붙인다. */
+  const snap = (val) => ({
+    exists: () => val !== null && val !== undefined,
+    val: () => val,
+    isNumber: () => typeof val === 'number',
+    isString: () => typeof val === 'string',
+    hasChildren: (ks) => ks.every(k => val && val[k] !== undefined),
+    child: (k) => snap(val && val[k] !== undefined ? val[k] : null),
+  });
+  const ADMIN = 'adm1', NOW = Date.UTC(2026, 9, 5);
+  const ROOT = snap({ admins: { [ADMIN]: true } });
+  const run = (expr, ctx) => {
+    if (typeof expr !== 'string') return expr === true;
+    String.prototype.matches = function (re) { return re.test(String(this)); };   // eslint-disable-line no-extend-native
+    try {
+      return !!new Function('newData', 'data', 'now', 'auth', 'root', '$logId', 'return (' + expr + ');')(
+        snap(ctx.newVal), snap(ctx.oldVal), NOW, ctx.uid ? { uid: ctx.uid } : null, ROOT, ctx.id || 'a1');
+    } finally { delete String.prototype.matches; }
+  };
+  const node = at('adminLog/$logId') || {};
+  // 쓰기 한 건 판정 — $logId 의 .write 와 .validate, 자식 .validate(없는 자식 이름은 $other)까지.
+  const allowed = (ctx) => {
+    if (!run(node['.write'], ctx)) return false;
+    if (ctx.newVal === null) return true;                 // 삭제에는 .validate 가 안 돈다
+    if (!run(node['.validate'], ctx)) return false;
+    return Object.keys(ctx.newVal).every(k => {
+      const c = node[k] || node.$other || {};
+      return c['.validate'] === undefined ? true : run(c['.validate'], { ...ctx, newVal: ctx.newVal[k], oldVal: null });
+    });
+  };
+  const good = { at: NOW, by: ADMIN, action: 'license.issue', target: 'ABCD-…', detail: '메모' };
+  const as = (uid, newVal, oldVal = null, id) => allowed({ uid, newVal, oldVal, id });
+
+  chk(isAdmin(r('adminLog')) && /auth != null/.test(r('adminLog')), '목록 읽기는 관리자만');
+  chk(JSON.stringify((at('adminLog') || {})['.indexOn']) === '["at"]', '  ↳ .indexOn ["at"] — 최근 것부터 getLast 로 필요한 만큼만');
+  chk(!w('adminLog'), '모음째 쓰기 · 통째 지우기 규칙은 없다 (루트 .write false 를 그대로 받는다)');
+  chk(as(ADMIN, good), '관리자는 새 기록을 쓴다');
+  chk(as(ADMIN, { at: NOW, by: ADMIN, action: 'room.closeAll', target: '3개' }), '  ↳ detail 은 없어도 된다');
+  chk(!as('user9', { ...good, by: 'user9' }), '★ 관리자가 아니면 못 쓴다');
+  chk(!as(null, good), '  ↳ 로그인 안 했으면 못 쓴다');
+  chk(!as(ADMIN, { ...good, by: 'someone' }), '★ by 는 쓰는 사람 자신(auth.uid)만');
+  chk(!as(ADMIN, { ...good, at: NOW - 1000 }), '★ at 은 서버 시각(now)만 — 기기 시계 값은 거절');
+  chk(!as(ADMIN, { ...good, at: String(NOW) }), '  ↳ 숫자가 아니면 거절');
+  chk(!as(ADMIN, good, { ...good, at: NOW - 1000 }), '★ 이미 있는 기록은 고치지 못한다');
+  chk(!as(ADMIN, { ...good, extra: 1 }), '정해진 칸 밖의 필드는 거절');
+  chk(!as(ADMIN, { ...good, action: 'License Issue' }), '  ↳ action 은 «종류.동작» 짧은 식별자만');
+  chk(!as(ADMIN, { ...good, target: 'x'.repeat(61) }) && as(ADMIN, { ...good, target: 'x'.repeat(60) }), '  ↳ target 60자까지');
+  chk(!as(ADMIN, { ...good, detail: 'x'.repeat(121) }) && as(ADMIN, { ...good, detail: 'x'.repeat(120) }), '  ↳ detail 120자까지');
+  chk(!as(ADMIN, good, null, 'a/b c'), '  ↳ 키는 짧은 id 모양만');
+  const DAY = 24 * 3600 * 1000;
+  chk(!as(ADMIN, null, { ...good, at: NOW - 30 * DAY }), '최근(90일 안) 기록은 지우지 못한다 — 흔적을 지우는 길을 막는다');
+  chk(as(ADMIN, null, { ...good, at: NOW - 91 * DAY }), '  ↳ 90일 지난 기록은 관리자가 한 건씩 정리할 수 있다');
+  chk(!as('user9', null, { ...good, at: NOW - 91 * DAY }), '  ↳ 관리자가 아니면 오래된 것도 못 지운다');
+  // 러너 스테이징에서는 firebase-init.js 가 parts/ 아래에 있다 — 두 곳 다 본다. 못 찾으면 빈 문자열(판정이 빨강으로 드러난다).
+  const readFirst = (...names) => { for (const n of names) { try { return fs.readFileSync(n, 'utf8'); } catch (_) {} } return ''; };
+  const fbSrc = readFirst('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js');
+  {
+    const app = readFirst('app.js');
+    chk(!!app && !!fbSrc && !/adminLog/.test(app + fbSrc), '앱(app.js · firebase-init.js)은 이 경로를 쓰지 않는다 — 웹 관리자 전용');
+  }
+
+  /* 초대 코드 목록 — 웹 관리자가 «이 사람이 초대한 사람» 을 issuedBy 로 찾는다. 앱은 코드 하나씩만 읽고 쓴다. */
+  {
+    const inv = at('invites') || {};
+    chk(!run(inv['.read'], { uid: 'user9' }) && !run(inv['.read'], {}), '★ invites 통째 읽기 — 비관리자 · 로그인 안 한 사람은 거절');
+    chk(run(inv['.read'], { uid: ADMIN }), '  ↳ 관리자는 목록을 읽는다');
+    chk(JSON.stringify(inv['.indexOn']) === '["issuedBy"]', '  ↳ .indexOn ["issuedBy"] — 한 사람이 낸 코드만 getEqual 로');
+    chk(r('invites/$code') === true && w('invites/$code') === true, '코드 하나 읽기 · 쓰기는 그대로 누구나 (가입 게이트가 코드 하나로 확인 · 소진)');
+    chk(/ref\(db, *`invites\/\$\{code\}`\)/.test(fbSrc) && !/ref\(db, *['`]invites['`]\)/.test(fbSrc),'  ↳ 앱은 invites 모음을 읽지 않는다 (코드 하나 경로만)');
+  }
+}
+
 console.log(fail ? '\n✗ 실패 ' + fail + '건' : '\n✓ 전부 통과');
