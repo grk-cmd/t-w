@@ -11,9 +11,8 @@ import {
 } from '@/entities/catalog';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
-import { useToast } from '@/shared/ui';
+import { EmojiInput, useToast } from '@/shared/ui';
 import { useSaveCategoryName } from '../model/useManageCategories';
-import styles from './CategoryCards.module.css';
 
 function NameRow({ cat }: { cat: CatView }) {
   const toast = useToast();
@@ -44,14 +43,12 @@ function NameRow({ cat }: { cat: CatView }) {
 
   return (
     <form className="row" onSubmit={submit}>
-      <input
-        type="text"
-        className={styles.icon}
-        aria-label={`${cat.cat} 아이콘`}
+      <EmojiInput
+        label={`${cat.cat} 아이콘`}
         maxLength={ICON_MAX}
         placeholder={cat.defaultIcon || cat.icon}
         value={icon}
-        onChange={(e) => setIcon(e.target.value)}
+        onChange={setIcon}
       />
       <input
         type="text"

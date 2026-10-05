@@ -14,7 +14,9 @@ test('카테고리 이름 — 칸에 고쳐 저장, 비우고 저장하면 기�
     names.locator('form').filter({ hasText: cat }).getByRole('button', { name: '저장' });
   await expect(save('cape')).toBeDisabled();
   await names.getByLabel('cape 이름').fill('겉옷');
-  await names.getByLabel('cape 아이콘').fill('🧥');
+  await names.getByRole('button', { name: 'cape 아이콘 고르기' }).click();
+  await names.getByRole('dialog').getByRole('button', { name: '🧥' }).click();
+  await expect(names.getByRole('dialog')).toHaveCount(0);
   await save('cape').click();
   await expect(toast(page)).toHaveText('저장했어요');
   expect(await dbGet('catalog/catOverrides/cape')).toMatchObject({ label: '겉옷', icon: '🧥' });

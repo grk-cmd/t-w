@@ -26,7 +26,8 @@ test('책상 — 이름 · 아이콘만 바꾸고 glbUrl 같은 나머지 필드
   await list.getByLabel('d1 이름').fill('ㄱ'.repeat(31));
   await expect(list.getByLabel('d1 이름')).toHaveValue('ㄱ'.repeat(30)); // 칸이 30자에서 멈춘다
   await list.getByLabel('d1 이름').fill('큰 나무책상');
-  await list.getByLabel('d1 아이콘').fill('🪑');
+  await list.getByRole('button', { name: 'd1 아이콘 고르기' }).click();
+  await list.getByLabel('d1 아이콘', { exact: true }).fill('🪑');
   await list.getByRole('button', { name: '저장' }).click();
   await expect(toast(page)).toHaveText('저장했어요');
   await expect(row(list, 'd1')).toContainText('🪑 큰 나무책상');

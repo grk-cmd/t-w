@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { ENTRY_ICON_MAX, entryInfoProblem, NAME_MAX, type CatalogEntry } from '@/entities/catalog';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
-import { useToast } from '@/shared/ui';
+import { EmojiInput, useToast } from '@/shared/ui';
 import { useEditEntryInfo } from '../model/useEditEntryInfo';
 import styles from './EntryInfoForm.module.css';
 
@@ -36,14 +36,7 @@ export function EntryInfoForm({ entry, onDone }: Props) {
 
   return (
     <form className={styles.form} onSubmit={submit}>
-      <input
-        type="text"
-        className={styles.icon}
-        aria-label={`${entry.id} 아이콘`}
-        maxLength={ENTRY_ICON_MAX}
-        value={icon}
-        onChange={(e) => setIcon(e.target.value)}
-      />
+      <EmojiInput label={`${entry.id} 아이콘`} maxLength={ENTRY_ICON_MAX} value={icon} onChange={setIcon} />
       <input
         type="text"
         aria-label={`${entry.id} 이름`}
