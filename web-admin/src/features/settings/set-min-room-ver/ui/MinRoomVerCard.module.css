@@ -9,7 +9,9 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  margin-top: 10px;
+  font-weight: bold;
 }
 
 .part {
@@ -20,7 +22,8 @@
 
 /* 숫자 네 자리까지 — 전역 input 의 flex: 1 보다 세게 */
 .part input {
-  flex: 0 0 5em;
-  width: 5em;
-  text-align: center;
+  flex: 0 0 4.5em;
+  width: 4.5em;
+  padding: 6px 4px 6px 8px;
+  text-align: right;
 }
