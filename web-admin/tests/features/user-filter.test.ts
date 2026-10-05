@@ -14,6 +14,23 @@ describe('사용자 필터 · 검색', () => {
     expect(ids('no-account')).toEqual(['u9']);
   });
 
+  it('키 중복 — 같은 키를 2명 이상이 쓰는 사람만, 키끼리 모아 그 안은 최근 순', () => {
+    const dup = buildUserRows(
+      {
+        ...accounts,
+        u5: { name: '자차', license: ' key-1 ', ts: 25 },
+        u6: { name: '카타', license: 'GONE', ts: 1 },
+      },
+      friendCodes,
+      licenses,
+    );
+    const dupIds = (search = '') => filterUsers(dup, 'dup-license', search).map((r) => r.userCode);
+    expect(dupIds()).toEqual(['u4', 'u6', 'u1', 'u5']);
+    // 글자로 좁혀도 중복 여부는 전체 기준 — 한 명만 남아도 그 사람은 중복 키를 쓴다.
+    expect(dupIds('자차')).toEqual(['u5']);
+    expect(ids('dup-license')).toEqual([]);
+  });
+
   it('검색은 이름 · 친구코드 · 사용자코드 · 키', () => {
     expect(ids('all', '다라')).toEqual(['u2']);
     expect(ids('all', 'cccc')).toEqual(['u3']);

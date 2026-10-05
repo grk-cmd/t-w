@@ -63,3 +63,12 @@ export function buildUserRows(
 
   return [...rows.values()].sort((a, b) => b.lastSeen - a.lastSeen);
 }
+
+/** 키 → 그 키를 쓰는 사람 수. 계정 요약에 적힌 키만 센다 — 계정 없는 사람은 키를 모른다. */
+export function licenseUseCounts(rows: UserRow[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const { license } of rows) {
+    if (license) counts.set(license, (counts.get(license) ?? 0) + 1);
+  }
+  return counts;
+}

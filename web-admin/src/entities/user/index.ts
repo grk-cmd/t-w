@@ -21,4 +21,4 @@ export {
   useUserBrief,
   type UserBrief,
 } from './api/brief';
-export { buildUserRows, realName, type UserLicense, type UserRow } from './model/userRow';
+export { buildUserRows, licenseUseCounts, realName, type UserLicense, type UserRow } from './model/userRow';

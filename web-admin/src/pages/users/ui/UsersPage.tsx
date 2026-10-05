@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { licenseUseCounts } from '@/entities/user';
 import {
   CreateInviteCodesButton,
   GrantInvitesAllButton,
@@ -25,9 +26,11 @@ export function UsersPage() {
   const [filter, setFilter] = useState<UserFilter>('all');
   const [search, setSearch] = useState<UserSearch>(NO_SEARCH);
 
+  // 키 중복은 이미 받은 계정 요약의 키로 센다 — 따로 내려받지 않는다.
+  const licenseCounts = useMemo(() => (rows ? licenseUseCounts(rows) : null), [rows]);
   const base = useMemo(
-    () => (rows ? filterUsers(rows, filter, search.text) : null),
-    [rows, filter, search.text],
+    () => (rows && licenseCounts ? filterUsers(rows, filter, search.text, licenseCounts) : null),
+    [rows, licenseCounts, filter, search.text],
   );
   // 기간은 사람마다 한 칸씩 읽어야 알 수 있다 — 기간을 걸었을 때만, 칩 · 글자로 좁힌 사람만 읽는다.
   const periodOn = hasPeriod(search.period);
@@ -75,7 +78,12 @@ export function UsersPage() {
           <SelectionBar count={selection.selected.length} onClear={selection.clear}>
             <GrantInvitesSelectedButton uids={selection.selected} onDone={selection.clear} />
           </SelectionBar>
-          <UserTable rows={paging.items} startIndex={paging.start} selection={selection} />
+          <UserTable
+            rows={paging.items}
+            startIndex={paging.start}
+            selection={selection}
+            licenseCounts={licenseCounts}
+          />
         </>
       )}
       <Pager paging={paging} />

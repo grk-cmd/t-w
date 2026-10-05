@@ -102,6 +102,37 @@ test('목록 · 검색 · 필터 칩', async ({ page, seed }) => {
   await count(page, '4 / 4명');
 });
 
+test('키 중복 — 같은 키를 쓰는 사람끼리 모아 보이고, 라이선스 칸에 사용자 수', async ({ page, seed }) => {
+  // 민수의 키를 소문자 · 공백 섞어 쓰는 사람 하나를 더한다 — 계정 요약의 키는 정규화해 맞춘다.
+  await seed({
+    ...DATA,
+    accountSnap: {
+      ...DATA.accountSnap,
+      ushare0000005: { name: '최공유', friendCode: 'MATE-EEE5', license: ' live-aaaa-aaaa-aaaa ', ts: T0 },
+    },
+  });
+  await openMenu(page, 'users');
+
+  await count(page, '5 / 5명');
+  // 다른 칩에서도 중복 키를 쓰는 줄에만 표시된다.
+  await expect(userRow(page, '김민수')).toContainText('2명 사용');
+  await expect(userRow(page, '최공유')).toContainText('2명 사용');
+  await expect(userRow(page, '이회수')).not.toContainText('명 사용');
+
+  await page.getByRole('button', { name: '키 중복', exact: true }).click();
+  await count(page, '2 / 5명');
+  await expect(page.locator('tbody tr').first()).toContainText('김민수');
+  await expect(page.locator('tbody tr').last()).toContainText('최공유');
+
+  // 검색 · 선택도 함께 — 좁혀도 중복 표시는 목록 전체 기준.
+  await page.getByPlaceholder('이름 · 친구코드 · 사용자코드 · 키').fill('최공');
+  await page.getByRole('button', { name: '검색', exact: true }).click();
+  await count(page, '1 / 5명');
+  await expect(userRow(page, '최공유')).toContainText('2명 사용');
+  await page.getByRole('checkbox', { name: '최공유 선택' }).check();
+  await expect(page.getByText('1개 선택')).toBeVisible();
+});
+
 test('한 명에게 초대권을 지급하면 invitesLeft 가 늘어난다', async ({ page, seed }) => {
   await seed(DATA);
   await openMenu(page, 'users');

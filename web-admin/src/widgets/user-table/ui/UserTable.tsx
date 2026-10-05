@@ -50,14 +50,20 @@ function JoinCell({ uid }: { uid: string }) {
   );
 }
 
+function SharedKeyTag({ count }: { count: number }) {
+  return count > 1 ? <small className={`${styles.tag} ${styles.shared}`}>{count}명 사용</small> : null;
+}
+
 interface Props {
   rows: UserRow[];
   startIndex: number;
   /** 사용자코드로 고른다. 전체 선택은 이 쪽(rows)만. */
   selection: Selection;
+  /** 키 → 쓰는 사람 수(목록 전체 기준). 2명 이상이면 라이선스 칸에 표시한다. */
+  licenseCounts: Map<string, number> | null;
 }
 
-export function UserTable({ rows, startIndex, selection }: Props) {
+export function UserTable({ rows, startIndex, selection, licenseCounts }: Props) {
   return (
     <div className={styles.wrap}>
       <table className={styles.table}>
@@ -120,6 +126,7 @@ export function UserTable({ rows, startIndex, selection }: Props) {
                   {' '}
                   {LICENSE_LABEL[row.licenseState]}
                 </small>
+                <SharedKeyTag count={row.license ? (licenseCounts?.get(row.license) ?? 0) : 0} />
               </td>
               <td>{formatHours(row.focusTotalSec)}</td>
               <td>
