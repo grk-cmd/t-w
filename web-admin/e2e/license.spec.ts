@@ -1,3 +1,4 @@
+import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { dbGet } from './support/emulator';
 import { card, openMenu, row, toast } from './support/ui';
@@ -25,6 +26,21 @@ const USER = {
   users: { ua1b2c3d4e5f6: { profile: { name: '철수' } } },
 };
 
+// 60번이 가장 최근, 'SEED-9999…' 가 가장 오래된 키(목록 맨 끝).
+function manyLicenses(n: number): Record<string, License> {
+  const seeded: Record<string, License> = {};
+  for (let i = 1; i <= n; i++) {
+    const id = String(i).padStart(4, '0');
+    seeded[`SEED-${id}-AAAA-AAAA`] = { valid: true, note: `묶음 ${id}`, createdAt: T0 + i };
+  }
+  seeded['SEED-9999-ZZZZ-ZZZZ'] = { valid: true, note: '특별 후원', createdAt: T0 };
+  return seeded;
+}
+
+const licenseList = (page: Page) =>
+  page.locator('section.card').filter({ has: page.getByPlaceholder('키 · 메모로 검색') });
+const currentPage = (scope: Locator) => scope.locator('button[aria-current="page"]');
+
 test.describe('발급된 키', () => {
   test('새 키를 메모와 함께 발급하면 목록과 DB 에 생긴다', async ({ page, seed }) => {
     await seed();
@@ -47,34 +63,85 @@ test.describe('발급된 키', () => {
   });
 
   test('메모로 검색하고 50개씩 쪽을 넘긴다', async ({ page, seed }) => {
-    const seeded: Record<string, License> = {};
-    for (let i = 1; i <= 60; i++) {
-      const n = String(i).padStart(2, '0');
-      seeded[`SEED-00${n}-AAAA-AAAA`] = { valid: true, note: `묶음 ${n}`, createdAt: T0 + i };
-    }
-    seeded['SEED-9999-ZZZZ-ZZZZ'] = { valid: true, note: '특별 후원', createdAt: T0 };
-    await seed({ licenses: seeded });
+    await seed({ licenses: manyLicenses(60) });
     await openMenu(page, 'license');
+    const list = licenseList(page);
 
     await expect(page.getByText('61 / 61건')).toBeVisible();
-    await expect(page.getByText('1 / 2', { exact: true })).toBeVisible();
+    await expect(list.getByText('총 61개')).toBeVisible();
+    await expect(currentPage(list)).toHaveText('1');
     // 최근 발급(createdAt 큰 것)부터 — 첫 쪽에 60번, 둘째 쪽 맨 끝에 가장 오래된 키.
     await expect(row(page, 'SEED-0060-AAAA-AAAA')).toBeVisible();
     await expect(row(page, 'SEED-9999-ZZZZ-ZZZZ')).toHaveCount(0);
 
-    await page.getByRole('button', { name: '다음' }).click();
-    await expect(page.getByText('2 / 2', { exact: true })).toBeVisible();
+    await list.getByRole('button', { name: '다음' }).click();
+    await expect(currentPage(list)).toHaveText('2');
     await expect(row(page, 'SEED-9999-ZZZZ-ZZZZ')).toBeVisible();
     await expect(page.locator('.list .row')).toHaveCount(11);
 
-    // 검색하면 첫 쪽으로 돌아간다.
+    // 검색하면 첫 쪽으로 돌아간다. 한 쪽뿐이면 쪽 이동은 숨고 총 개수 · 개수 선택은 남는다.
     await page.getByPlaceholder('키 · 메모로 검색').fill('특별');
     await expect(page.getByText('1 / 61건')).toBeVisible();
     await expect(page.locator('.list .row')).toHaveCount(1);
-    await expect(page.getByRole('button', { name: '다음' })).toHaveCount(0);
+    await expect(list.getByRole('navigation', { name: '쪽 이동' })).toHaveCount(0);
+    await expect(list.getByText('총 1개')).toBeVisible();
+    await expect(list.getByRole('combobox', { name: '페이지당 개수' })).toBeVisible();
 
     await page.getByPlaceholder('키 · 메모로 검색').fill('없는메모');
     await expect(page.getByText('검색 결과가 없어요')).toBeVisible();
+  });
+
+  test('페이지당 개수를 바꾸면 쪽이 다시 나뉘고, 고른 개수는 다시 열어도 남는다', async ({ page, seed }) => {
+    await seed({ licenses: manyLicenses(140) });
+    await openMenu(page, 'license');
+    const list = licenseList(page);
+    const size = list.getByRole('combobox', { name: '페이지당 개수' });
+    const rows = page.locator('.list .row');
+
+    await expect(size).toHaveValue('50');
+    await expect(rows).toHaveCount(50);
+    await list.getByRole('button', { name: '3쪽' }).click();
+    await expect(currentPage(list)).toHaveText('3');
+    await expect(rows).toHaveCount(41);
+
+    // 20개씩 — 보던 첫 줄(101번째)이 있는 6쪽으로, 쪽이 많으면 줄여서 보인다.
+    await size.selectOption('20');
+    await expect(currentPage(list)).toHaveText('6');
+    await expect(rows).toHaveCount(20);
+    const nav = list.getByRole('navigation', { name: '쪽 이동' });
+    await expect(nav.getByRole('button', { name: /^\d+쪽$/ })).toHaveText(['1', '4', '5', '6', '7', '8']);
+    await expect(nav.getByText('…')).toHaveCount(1);
+    await nav.getByRole('button', { name: '8쪽' }).click();
+    await expect(rows).toHaveCount(1);
+    await expect(row(page, 'SEED-9999-ZZZZ-ZZZZ')).toBeVisible();
+    await expect(nav.getByRole('button', { name: '다음' })).toBeDisabled();
+    await nav.getByRole('button', { name: '이전' }).click();
+    await expect(currentPage(list)).toHaveText('7');
+
+    expect(await page.evaluate(() => localStorage.getItem('tw.admin.pageSize.licenses'))).toBe('20');
+    await page.reload();
+    await expect(list.getByRole('combobox', { name: '페이지당 개수' })).toHaveValue('20');
+    await expect(rows).toHaveCount(20);
+    await expect(currentPage(list)).toHaveText('1');
+  });
+
+  test('좁은 화면에서도 페이저가 화면 밖으로 넘치지 않는다', async ({ page, seed }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await seed({ licenses: manyLicenses(200) });
+    await openMenu(page, 'license');
+    const list = licenseList(page);
+    await list.getByRole('combobox', { name: '페이지당 개수' }).selectOption('20');
+    await list.getByRole('button', { name: '5쪽' }).click();
+    await list.getByRole('button', { name: '6쪽' }).click();
+    // 1 … 5 6 7 … 11 — 가장 칸이 많은 모양.
+    await expect(list.getByRole('navigation', { name: '쪽 이동' }).getByText('…')).toHaveCount(2);
+    for (const name of ['이전', '다음', '1쪽', '11쪽']) {
+      const box = (await list.getByRole('button', { name, exact: true }).boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(360);
+    }
+    const sizeBox = (await list.getByRole('combobox', { name: '페이지당 개수' }).boundingBox())!;
+    expect(sizeBox.x + sizeBox.width).toBeLessThanOrEqual(360);
   });
 
   test('회수하면 valid:false 가 되고, 회수된 키만 지울 수 있다', async ({ page, seed }) => {

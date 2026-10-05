@@ -1,7 +1,76 @@
+/* 왼쪽 총 개수 · 가운데 쪽 이동 · 오른쪽 개수 선택. 좁으면 쪽 이동이 아랫줄로 내려간다. */
 .pager {
+  display: grid;
+  grid-template-areas: 'total pages size';
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.total {
+  grid-area: total;
+  color: var(--soft);
+  white-space: nowrap;
+}
+
+.pages {
   display: flex;
+  flex-wrap: wrap;
+  grid-area: pages;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  margin-top: 12px;
+  gap: 4px;
+}
+
+.num {
+  min-width: 2.4em;
+  padding: 5px 6px;
+}
+
+.num[aria-current='page'] {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+  cursor: default;
+}
+
+.gap {
+  padding: 0 2px;
+  color: var(--soft);
+}
+
+.size {
+  grid-area: size;
+  justify-self: end;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+@media (max-width: 720px) {
+  .pager {
+    grid-template-areas:
+      'total size'
+      'pages pages';
+    grid-template-columns: 1fr auto;
+  }
+
+  /* 쪽 번호가 가장 많을 때(이전 1 … 5 6 7 … 20 다음)도 폰 폭 한 줄에 들게 줄인다. */
+  .pages {
+    gap: 2px;
+  }
+
+  .pages :global(.btn) {
+    padding: 5px 7px;
+  }
+
+  .pages .num {
+    min-width: 2em;
+    padding: 5px 3px;
+  }
 }

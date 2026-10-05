@@ -15,18 +15,15 @@ import {
   type UserFilter,
   type UserSearch,
 } from '@/features/user/user-filter';
-import { errorMessage, paginate, useSelection } from '@/shared/lib';
+import { errorMessage, usePaging, useSelection } from '@/shared/lib';
 import { Pager, SelectionBar } from '@/shared/ui';
 import { UserTable } from '@/widgets/user-table';
 import { useUserRows } from '../model/useUserRows';
-
-const PAGE_SIZE = 50;
 
 export function UsersPage() {
   const { rows, error, refresh } = useUserRows();
   const [filter, setFilter] = useState<UserFilter>('all');
   const [search, setSearch] = useState<UserSearch>(NO_SEARCH);
-  const [page, setPage] = useState(1);
 
   const base = useMemo(
     () => (rows ? filterUsers(rows, filter, search.text) : null),
@@ -41,19 +38,19 @@ export function UsersPage() {
     return times ? base.filter((r) => inPeriod(times.get(r.userCode), search.period)) : [];
   }, [base, periodOn, times, search.period]);
   const fieldLabel = PERIOD_FIELDS.find((f) => f.id === search.period.field)?.label;
-  const view = paginate(filtered, page, PAGE_SIZE);
+  const paging = usePaging(filtered, 'users');
   const ids = useMemo(() => filtered.map((r) => r.userCode), [filtered]);
-  const pageIds = useMemo(() => view.items.map((r) => r.userCode), [view.items]);
+  const pageIds = useMemo(() => paging.items.map((r) => r.userCode), [paging.items]);
   const selection = useSelection(ids, pageIds);
 
   // 조건이 바뀌면 첫 쪽부터 본다.
   const changeFilter = (next: UserFilter) => {
     setFilter(next);
-    setPage(1);
+    paging.setPage(1);
   };
   const changeSearch = (next: UserSearch) => {
     setSearch(next);
-    setPage(1);
+    paging.setPage(1);
   };
 
   return (
@@ -78,10 +75,10 @@ export function UsersPage() {
           <SelectionBar count={selection.selected.length} onClear={selection.clear}>
             <GrantInvitesSelectedButton uids={selection.selected} onDone={selection.clear} />
           </SelectionBar>
-          <UserTable rows={view.items} startIndex={(view.page - 1) * PAGE_SIZE} selection={selection} />
+          <UserTable rows={paging.items} startIndex={paging.start} selection={selection} />
         </>
       )}
-      <Pager page={view.page} pageCount={view.pageCount} onChange={setPage} />
+      <Pager paging={paging} />
     </section>
   );
 }

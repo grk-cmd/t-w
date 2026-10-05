@@ -10,7 +10,7 @@ function broadcastId(): string {
   return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-/** 처음에 받는 최근 공지 수 · «더 보기» 한 번에 늘리는 수. */
+/** 받을 개수를 주지 않을 때 받는 최근 공지 수. */
 export const BROADCAST_PAGE = 30;
 
 export interface BroadcastPage {
@@ -21,7 +21,7 @@ export interface BroadcastPage {
 
 /**
  * 최근 n 개 + 고정 공지(오래됐어도 맨 위라 개수와 상관없이). 요금 = 내려받은 바이트라 통째로 받지 않는다.
- * 구독하지 않고 쓰기 직후 · 새로고침 · 더 보기 때만 다시 받는다.
+ * 구독하지 않고 쓰기 직후 · 새로고침 · 받아 둔 것보다 뒤쪽으로 갈 때만 다시 받는다.
  */
 export async function listBroadcasts(db: Db, n = BROADCAST_PAGE): Promise<BroadcastPage> {
   const [recent, pinned] = await Promise.all([
@@ -48,7 +48,7 @@ export function useBroadcasts(n = BROADCAST_PAGE) {
   return useQuery({
     queryKey: [...BROADCAST_KEY, n],
     queryFn: () => listBroadcasts(db, n),
-    // 더 보기 동안 지금 목록을 둔 채 받는다.
+    // 더 받는 동안 지금 목록을 둔 채 받는다.
     placeholderData: keepPreviousData,
   });
 }
