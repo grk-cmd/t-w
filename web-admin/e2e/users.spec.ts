@@ -164,3 +164,26 @@ test('선택 지급 — 고른 사람에게만, 상한 999 에서 자르고 칸 
   await dialog.getByRole('button', { name: '닫기' }).click();
   await expect(page.getByText('0개 선택')).toBeVisible();
 });
+
+test('초대 코드 만들기 — 고른 개수만큼 invites 에 생기고, 이미 있는 코드는 건드리지 않는다', async ({
+  page,
+  seed,
+}) => {
+  await seed({ ...DATA, invites: { 'INVT-KEEP-KEEP': { issuedBy: 'u1', createdAt: 1, usedBy: 'u2' } } });
+  await openMenu(page, 'users');
+
+  await page.getByRole('button', { name: '초대 코드 만들기' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: '+' }).click();
+  await dialog.getByRole('button', { name: '+' }).click();
+  await dialog.getByRole('button', { name: '3개 만들기' }).click();
+
+  const codes = dialog.getByRole('list', { name: '만든 초대 코드' }).getByRole('listitem');
+  await expect(codes).toHaveCount(3);
+  const made = await codes.allInnerTexts();
+  for (const code of made) {
+    expect(code).toMatch(/^INVT-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
+    expect(await dbGet(`invites/${code}`)).toMatchObject({ issuedBy: 'admin' });
+  }
+  expect(await dbGet('invites/INVT-KEEP-KEEP')).toMatchObject({ usedBy: 'u2' });
+});

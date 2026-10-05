@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useSetInvitesLeftCache } from '@/entities/invite';
 import { useDb } from '@/shared/api';
-import { grantInvites, grantInvitesAll } from './grantInvites';
+import { createInviteCodes, grantInvites, grantInvitesAll } from './grantInvites';
 
 export function useGrantInvites(uid: string) {
   const db = useDb();
@@ -35,4 +35,21 @@ export function useGrantInvitesAll() {
     setProgress(null);
   };
   return { ...mutation, reset, progress, stop };
+}
+
+/** 만든 코드는 실패해도 남도록 codes 에 하나씩 쌓는다. */
+export function useCreateInviteCodes() {
+  const db = useDb();
+  const [codes, setCodes] = useState<string[]>([]);
+  const mutation = useMutation({
+    mutationFn: (n: number) => {
+      setCodes([]);
+      return createInviteCodes(db, n, (code) => setCodes((prev) => [...prev, code]));
+    },
+  });
+  const reset = () => {
+    setCodes([]);
+    mutation.reset();
+  };
+  return { ...mutation, codes, reset };
 }

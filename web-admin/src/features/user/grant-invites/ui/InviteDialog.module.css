@@ -34,3 +34,12 @@
   width: 100%;
   margin-top: 10px;
 }
+
+.codes {
+  display: grid;
+  grid-template-columns: repeat(2, max-content);
+  gap: 4px 16px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}

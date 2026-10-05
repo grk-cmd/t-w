@@ -1,4 +1,10 @@
-import { addInvitesLeft, isGrantCount, type AddInvitesResult } from '@/entities/invite';
+import {
+  addInvitesLeft,
+  createInviteCode,
+  INVITE_CODE_MAX,
+  isGrantCount,
+  type AddInvitesResult,
+} from '@/entities/invite';
 import type { Db } from '@/shared/api';
 
 export type GrantInvitesResult = AddInvitesResult;
@@ -59,4 +65,24 @@ export async function grantInvitesAll(
     );
   }
   return result;
+}
+
+/**
+ * 초대 코드 n 개 — 하나씩 차례로(겹침 확인이 코드마다 따로라 묶음으로 쓸 수 없다).
+ * 중간에 실패해도 이미 만든 코드는 살아 있으니 onCode 로 하나씩 알려 화면에서 잃지 않게 한다.
+ */
+export async function createInviteCodes(
+  db: Db,
+  n: number,
+  onCode?: (code: string) => void,
+): Promise<string[]> {
+  if (!Number.isInteger(n) || n < 1 || n > INVITE_CODE_MAX)
+    throw new Error(`만들 개수가 범위를 벗어났어요: ${n}`);
+  const codes: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const code = await createInviteCode(db);
+    codes.push(code);
+    onCode?.(code);
+  }
+  return codes;
 }

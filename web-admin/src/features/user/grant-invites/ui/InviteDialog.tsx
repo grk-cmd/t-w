@@ -34,22 +34,33 @@ export function InviteDialog({ open, title, locked, onClose, children }: DialogP
   );
 }
 
-export function CountStepper({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+export function CountStepper({
+  value,
+  onChange,
+  max = INVITE_GRANT_MAX,
+  unit = '장',
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  max?: number;
+  unit?: string;
+}) {
   return (
     <div className={styles.stepper}>
       <button type="button" className="btn" disabled={value <= 1} onClick={() => onChange(value - 1)}>
         −
       </button>
-      <b className={styles.count}>{value}장</b>
-      <button
-        type="button"
-        className="btn"
-        disabled={value >= INVITE_GRANT_MAX}
-        onClick={() => onChange(value + 1)}
-      >
+      <b className={styles.count}>
+        {value}
+        {unit}
+      </b>
+      <button type="button" className="btn" disabled={value >= max} onClick={() => onChange(value + 1)}>
         +
       </button>
-      <small className="soft">최대 {INVITE_GRANT_MAX}장</small>
+      <small className="soft">
+        최대 {max}
+        {unit}
+      </small>
     </div>
   );
 }

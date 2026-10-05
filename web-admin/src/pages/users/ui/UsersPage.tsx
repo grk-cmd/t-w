@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react';
-import { GrantInvitesAllButton, GrantInvitesSelectedButton } from '@/features/user/grant-invites';
+import {
+  CreateInviteCodesButton,
+  GrantInvitesAllButton,
+  GrantInvitesSelectedButton,
+} from '@/features/user/grant-invites';
 import { filterUsers, UserFilterBar, type UserFilter } from '@/features/user/user-filter';
 import { errorMessage, paginate, useSelection } from '@/shared/lib';
 import { Pager, SelectionBar } from '@/shared/ui';
@@ -34,6 +38,7 @@ export function UsersPage() {
     <section className="card">
       <div className="card-head">
         <span className="soft grow">{rows && `${filtered.length} / ${rows.length}명`}</span>
+        <CreateInviteCodesButton />
         <GrantInvitesAllButton />
         <button type="button" className="btn" onClick={refresh}>
           새로고침
