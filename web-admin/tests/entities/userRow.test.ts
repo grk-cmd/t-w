@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildUserRows, realName } from '@/entities/user';
+import { buildUserRows, licenseUseCounts, realName } from '@/entities/user';
 
 import { accounts, friendCodes, licenses } from '../shared/userFixtures';
 
@@ -23,5 +23,27 @@ describe('사용자 한 줄', () => {
     expect(rows.find((r) => r.userCode === 'u3')?.name).toBeNull();
     expect(realName('  ')).toBeNull();
     expect(realName('가나')).toBe('가나');
+  });
+});
+
+describe('키별 사용자 수', () => {
+  it('정규화한 키로 세고, 키 없는 사람 · 계정 없는 사람은 빠진다', () => {
+    const rows = buildUserRows(
+      {
+        ...accounts,
+        u5: { name: '자차', license: ' key-1 ', ts: 1 },
+        u6: { name: '카타', license: 'KEY-1', ts: 0 },
+      },
+      friendCodes,
+      licenses,
+    );
+    expect(licenseUseCounts(rows)).toEqual(
+      new Map([
+        ['KEY-1', 3],
+        ['KEY-2', 1],
+        ['GONE', 1],
+      ]),
+    );
+    expect(licenseUseCounts([])).toEqual(new Map());
   });
 });

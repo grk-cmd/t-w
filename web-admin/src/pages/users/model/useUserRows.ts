@@ -20,7 +20,17 @@ export function useUserRows(): { rows: UserRow[] | null; error: Error | null; re
   );
 
   const refresh = () => {
-    for (const queryKey of [['accountSnap'], ['friendCodes'], ['licenses'], ['userName']]) {
+    // 상세 창만 쓰는 칸(집중 · 시크릿룸 · 신고 수)도 함께 — 열려 있는 창은 바로 다시 읽는다.
+    const keys = [
+      ['accountSnap'],
+      ['friendCodes'],
+      ['licenses'],
+      ['userName'],
+      ['userFocus'],
+      ['userSecretRoom'],
+      ['reports'],
+    ];
+    for (const queryKey of keys) {
       client.invalidateQueries({ queryKey });
     }
   };

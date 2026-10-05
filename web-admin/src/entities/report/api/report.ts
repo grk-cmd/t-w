@@ -19,6 +19,17 @@ export function useRefreshReports() {
   return () => client.invalidateQueries({ queryKey: REPORTS_KEY });
 }
 
+/** 한 사람이 받은 신고 수(= 서로 다른 신고자 수). 키 이름만 받는다 — 사유 · 닉네임은 내려받지 않는다. */
+export async function countUserReports(db: Db, uid: string): Promise<number> {
+  return (await db.shallowKeys(`reports/${uid}`)).length;
+}
+
+/** 열쇠가 ['reports', …] 로 시작해 신고 목록을 새로 받을 때 함께 다시 센다. */
+export function useUserReportCount(uid: string) {
+  const db = useDb();
+  return useQuery({ queryKey: [...REPORTS_KEY, 'count', uid], queryFn: () => countUserReports(db, uid) });
+}
+
 /** 한 사람에 대한 신고를 전부 비우는 쓰기 — 다른 쓰기와 한 묶음(db.commit)으로 보낼 수 있다. */
 export function clearReportsWrite(target: string): Record<string, null> {
   return { [`reports/${target}`]: null };

@@ -1,6 +1,6 @@
-import type { UserRow } from '@/entities/user';
+import { licenseUseCounts, type UserRow } from '@/entities/user';
 
-export type UserFilter = 'all' | 'licensed' | 'revoked' | 'no-license' | 'no-account';
+export type UserFilter = 'all' | 'licensed' | 'revoked' | 'no-license' | 'no-account' | 'dup-license';
 
 export const USER_FILTERS: { id: UserFilter; label: string }[] = [
   { id: 'all', label: '전체' },
@@ -8,10 +8,13 @@ export const USER_FILTERS: { id: UserFilter; label: string }[] = [
   { id: 'revoked', label: '회수 · 없는 키' },
   { id: 'no-license', label: '라이선스 없음' },
   { id: 'no-account', label: '계정 없음' },
+  { id: 'dup-license', label: '키 중복' },
 ];
 
-function matchesFilter(row: UserRow, filter: UserFilter): boolean {
+function matchesFilter(row: UserRow, filter: UserFilter, counts: Map<string, number>): boolean {
   switch (filter) {
+    case 'dup-license':
+      return Boolean(row.license && (counts.get(row.license) ?? 0) > 1);
     case 'licensed':
       return row.licenseState === 'unused' || row.licenseState === 'used';
     case 'revoked':
@@ -25,14 +28,23 @@ function matchesFilter(row: UserRow, filter: UserFilter): boolean {
   }
 }
 
-export function filterUsers(rows: UserRow[], filter: UserFilter, search: string): UserRow[] {
+/** counts 는 rows 전체로 센 키별 사용자 수 — 글자 검색으로 좁혀도 중복 여부는 전체 기준이다. */
+export function filterUsers(
+  rows: UserRow[],
+  filter: UserFilter,
+  search: string,
+  counts: Map<string, number> = licenseUseCounts(rows),
+): UserRow[] {
   const needle = search.trim().toLowerCase();
-  return rows.filter(
+  const found = rows.filter(
     (row) =>
-      matchesFilter(row, filter) &&
+      matchesFilter(row, filter, counts) &&
       (!needle ||
         [row.name, row.friendCode, row.userCode, row.license].some((v) => v?.toLowerCase().includes(needle))),
   );
+  // 같은 키끼리 붙여 본다. sort 는 안정 정렬이라 키 안에서는 원래(최근 순) 순서가 남는다.
+  if (filter === 'dup-license') found.sort((a, b) => (a.license ?? '').localeCompare(b.license ?? ''));
+  return found;
 }
 
 export type PeriodField = 'joined' | 'seen';

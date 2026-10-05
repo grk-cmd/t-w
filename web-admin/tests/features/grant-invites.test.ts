@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { grantInvites, grantInvitesAll, uniqueUserIds } from '@/features/user/grant-invites';
-import { fakeDb } from '../shared/fakeDb';
+import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const left = (uid: string) => `users/${uid}/invite/invitesLeft`;
 
@@ -8,7 +8,7 @@ describe('초대권 지급 — 한 명', () => {
   it('지금 장수에 더해 invitesLeft 한 칸만 트랜잭션으로 고친다', async () => {
     const { db, writes } = fakeDb({ [left('u1')]: 2 });
     expect(await grantInvites(db, 'u1', 3)).toEqual({ ok: true, before: 2, after: 5 });
-    expect(writes).toEqual([['transaction', left('u1'), 5]]);
+    expect(withoutAudits(writes)).toEqual([['transaction', left('u1'), 5]]);
   });
 
   it('읽은 뒤 본인이 쓴 초대권을 덮지 않는다 — 서버가 거절하면 새 값으로 다시 더한다', async () => {
@@ -20,7 +20,7 @@ describe('초대권 지급 — 한 명', () => {
       return tx<T>(path, (c) => change((c === null ? null : 4) as T | null));
     };
     expect(await grantInvites(db, 'u1', 2)).toEqual({ ok: true, before: 4, after: 6 });
-    expect(writes).toEqual([['transaction', left('u1'), 6]]);
+    expect(withoutAudits(writes)).toEqual([['transaction', left('u1'), 6]]);
   });
 
   it('규칙 상한 999 에서 자른다', async () => {
@@ -32,19 +32,19 @@ describe('초대권 지급 — 한 명', () => {
   it('이미 999 면 쓰지 않는다', async () => {
     const { db, writes } = fakeDb({ [left('u1')]: 999 });
     expect(await grantInvites(db, 'u1', 1)).toEqual({ ok: false, reason: 'full' });
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 
   it('초대권 칸이 없는 사람에겐 쓰지 않는다', async () => {
     const { db, writes } = fakeDb();
     expect(await grantInvites(db, 'u1', 1)).toEqual({ ok: false, reason: 'no-invite' });
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 
   it('한 번에 1~3장만 — 그 밖은 읽지도 쓰지도 않는다', async () => {
     const { db, writes } = fakeDb({ [left('u1')]: 0 });
     for (const n of [0, 4, 1.5, -1]) await expect(grantInvites(db, 'u1', n)).rejects.toThrow();
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 });
 
@@ -67,7 +67,7 @@ describe('초대권 지급 — 전체', () => {
     const seen: number[] = [];
     const r = await grantInvitesAll(db, ['a', 'b', 'c', 'd'], 2, { onProgress: (done) => seen.push(done) });
     expect(r).toEqual({ total: 4, granted: 1, skipped: 2, failed: 1, stopped: false });
-    expect(writes).toEqual([['transaction', left('a'), 2]]);
+    expect(withoutAudits(writes)).toEqual([['transaction', left('a'), 2]]);
     expect(seen).toEqual([1, 2, 3, 4]);
   });
 
@@ -81,13 +81,13 @@ describe('초대권 지급 — 전체', () => {
     });
     expect(r.stopped).toBe(true);
     expect(r.granted).toBe(20);
-    expect(writes).toHaveLength(20);
+    expect(withoutAudits(writes)).toHaveLength(20);
   });
 
   it('장수가 범위를 벗어나면 아무에게도 쓰지 않는다', async () => {
     const { db, writes } = fakeDb({ [left('a')]: 0 });
     await expect(grantInvitesAll(db, ['a'], 4)).rejects.toThrow();
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 });
 
@@ -96,7 +96,7 @@ describe('초대권 지급 — 선택', () => {
     const { db, writes } = fakeDb({ [left('a')]: 1, [left('b')]: 1, [left('c')]: 1 });
     const r = await grantInvitesAll(db, ['a', 'c'], 3);
     expect(r).toEqual({ total: 2, granted: 2, skipped: 0, failed: 0, stopped: false });
-    expect(writes).toEqual([
+    expect(withoutAudits(writes)).toEqual([
       ['transaction', left('a'), 4],
       ['transaction', left('c'), 4],
     ]);

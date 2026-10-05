@@ -1,6 +1,7 @@
 import type { Db } from '@/shared/api';
 
 export const NOW = { '.sv': 'timestamp' };
+export const ADMIN_UID = 'admin-uid';
 
 export type Write = [
   op: 'set' | 'update' | 'remove' | 'commit' | 'transaction',
@@ -50,7 +51,19 @@ export function fakeDb(data: Record<string, unknown> = {}, failOn: (path: string
     watch: () => () => {},
     probe: async () => {},
     now: () => NOW,
+    uid: () => ADMIN_UID,
     serverTimeOffset: async () => 0,
   };
   return { db, writes };
 }
+
+const isAudit = (w: Write) => w[1].startsWith('adminLog/');
+
+/** 작업 기록 줄을 뺀 쓰기 — 기록 id 는 무작위라 동작 쓰기만 견줄 때. */
+export const withoutAudits = (writes: Write[]) => writes.filter((w) => !isAudit(w));
+
+/** 남긴 작업 기록(값만) — 순서대로. */
+export const auditsOf = (writes: Write[]) =>
+  writes
+    .filter(isAudit)
+    .map((w) => w[2] as { at: unknown; by: string; action: string; target: string; detail?: string });

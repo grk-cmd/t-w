@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
-export type Menu = 'license' | 'users' | 'reports' | 'notices' | 'settings' | 'rooms' | 'catalog';
+export type Menu = 'license' | 'users' | 'reports' | 'notices' | 'settings' | 'rooms' | 'catalog' | 'log';
 
 /** 메뉴 화면을 바로 연다(#/<id>). 로그인 확인이 끝나 머리줄에 «로그아웃» 이 뜰 때까지 기다린다. */
 export async function openMenu(page: Page, menu: Menu) {

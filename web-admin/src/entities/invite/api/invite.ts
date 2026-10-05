@@ -6,6 +6,8 @@ import {
   INVITE_ISSUER_ADMIN,
   INVITES_LEFT_MAX,
   type InviteRecord,
+  toIssuedInvites,
+  type IssuedInvite,
 } from '../model/invite';
 
 const invitesLeftKey = (uid: string) => ['invitesLeft', uid];
@@ -109,4 +111,20 @@ export async function createInviteCode(
     if (r.committed) return code;
   }
   throw new Error('초대 코드가 계속 겹쳐요');
+}
+
+/**
+ * 이 사람이 만든 초대 코드 — 규칙의 invites ".indexOn": ["issuedBy"] 로 그 사람 몫만 받는다(통째 받기 금지).
+ * 관리자가 만든 코드는 issuedBy 가 'admin' 이라 여기 나오지 않는다.
+ */
+export async function listIssuedInvites(db: Db, uid: string): Promise<IssuedInvite[]> {
+  return toIssuedInvites(
+    await db.getEqual<{ createdAt?: unknown; usedBy?: unknown }>('invites', 'issuedBy', uid),
+  );
+}
+
+/** 상세 창을 열 때만. */
+export function useIssuedInvites(uid: string) {
+  const db = useDb();
+  return useQuery({ queryKey: ['issuedInvites', uid], queryFn: () => listIssuedInvites(db, uid) });
 }

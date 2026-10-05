@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+import { maskKey, useDb, withAudit, type Db } from '@/shared/api';
 import { genLicenseKey, NOTE_MAX, type License } from '../model/license';
 
 const LICENSES_KEY = ['licenses'];
@@ -35,7 +35,7 @@ export function newLicenseWrite(db: Db, note: string, genKey: () => string = gen
 
 export async function createLicense(db: Db, note: string, genKey?: () => string): Promise<string> {
   const { key, write } = newLicenseWrite(db, note, genKey);
-  await db.commit(write);
+  await db.commit(withAudit(db, write, 'license.issue', maskKey(key)));
   return key;
 }
 
@@ -51,12 +51,4 @@ export function revokeLicensesWrite(db: Db, keys: readonly string[]): Record<str
 
 export function removeLicensesWrite(keys: readonly string[]): Record<string, null> {
   return Object.fromEntries(keys.map((key) => [`licenses/${key}`, null]));
-}
-
-export function revokeLicense(db: Db, key: string): Promise<void> {
-  return db.update(`licenses/${key}`, { valid: false, revokedAt: db.now() });
-}
-
-export function removeLicense(db: Db, key: string): Promise<void> {
-  return db.remove(`licenses/${key}`);
 }

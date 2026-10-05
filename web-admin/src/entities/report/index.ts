@@ -1,6 +1,8 @@
 export {
   clearReportsWrite,
+  countUserReports,
   listReports,
+  useUserReportCount,
   useForgetReports,
   useRefreshReports,
   useReports,

@@ -15,7 +15,7 @@ export function GrantInvitesAllButton() {
   const friendCodes = useFriendCodes();
   const env = useEnv();
   const uids = useMemo(() => (friendCodes.data ? uniqueUserIds(friendCodes.data) : []), [friendCodes.data]);
-  const grant = useGrantInvitesAll();
+  const grant = useGrantInvitesAll('all');
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
   const [typed, setTyped] = useState('');

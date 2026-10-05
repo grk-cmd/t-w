@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { inboxMessageWrite, licenseGrantMessage } from '@/entities/inbox';
 import { newLicenseWrite, useRefreshLicenses } from '@/entities/license';
 import { findUserByFriendCode, getUserName } from '@/entities/user';
-import { useDb, type Db } from '@/shared/api';
+import { maskKey, useDb, withAudit, type Db } from '@/shared/api';
 
 export type GrantResult =
   { ok: true; key: string; code: string; name: string | null } | { ok: false; reason: 'not-found' };
@@ -15,7 +15,8 @@ export async function grantByFriendCode(db: Db, input: string, genKey?: () => st
   const name = await getUserName(db, user.uid);
   const note = name ? `${name} · 친구코드 ${user.code}` : `친구코드 발급: ${user.code}`;
   const { key, write } = newLicenseWrite(db, note, genKey);
-  await db.commit({ ...write, ...inboxMessageWrite(user.uid, licenseGrantMessage(key)) });
+  const updates = { ...write, ...inboxMessageWrite(user.uid, licenseGrantMessage(key)) };
+  await db.commit(withAudit(db, updates, 'license.grantCode', user.code, maskKey(key)));
   return { ok: true, key, code: user.code, name };
 }
 

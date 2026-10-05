@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+import { useDb, withAudit, type Db } from '@/shared/api';
 import { toSlides, type AdSlide } from '../model/adBanner';
 
 const PATH = 'catalog/adBanner';
@@ -21,5 +21,5 @@ export function useRefreshAdBanner() {
 
 // 앱이 배열을 통째로 쓰고 통째로 읽는 노드라 부분 수정 없이 통째로 바꾼다. 빈 배열이면 노드가 지워져 배너가 숨겨진다.
 export function saveAdBanner(db: Db, slides: AdSlide[]): Promise<void> {
-  return db.set(PATH, slides);
+  return db.commit(withAudit(db, { [PATH]: slides }, 'settings.adBanner', `${slides.length}장`));
 }

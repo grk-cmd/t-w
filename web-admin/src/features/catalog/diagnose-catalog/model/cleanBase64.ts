@@ -5,7 +5,7 @@ import {
   type CatalogWrite,
   type CleanupTarget,
 } from '@/entities/catalog';
-import type { Db } from '@/shared/api';
+import { countTarget, withAudit, type Db } from '@/shared/api';
 
 export interface CleanBase64Result {
   cleaned: CleanupTarget[];
@@ -34,6 +34,10 @@ export async function cleanBase64(db: Db, targets: readonly CleanupTarget[]): Pr
   const cleaned = targets.filter((_, i) => hasUrl(i));
   const skipped = targets.filter((_, i) => !hasUrl(i));
   const written = base64CleanupWrite(cleaned);
-  await catalogCommit(db, written);
+  const target = `${cleaned.length}개`;
+  await catalogCommit(
+    db,
+    withAudit(db, written, 'catalog.cleanGlb', target, countTarget(cleaned.map((t) => `${t.kind}/${t.id}`))),
+  );
   return { cleaned, skipped, written };
 }

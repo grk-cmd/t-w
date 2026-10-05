@@ -7,7 +7,7 @@ import {
   slideProblem,
   toSlides,
 } from '@/entities/ad-banner';
-import { fakeDb } from '../shared/fakeDb';
+import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 describe('광고 배너', () => {
   it('DB 값: 배열이 아니면 없음, 이미지 없는 장은 뺀다', async () => {
@@ -47,6 +47,6 @@ describe('광고 배너', () => {
   it('배열을 통째로 쓴다 — 앱과 같은 모양', async () => {
     const { db, writes } = fakeDb();
     await saveAdBanner(db, [{ img: 'https://a', link: '' }]);
-    expect(writes).toEqual([['set', 'catalog/adBanner', [{ img: 'https://a', link: '' }]]]);
+    expect(withoutAudits(writes)).toEqual([['commit', 'catalog/adBanner', [{ img: 'https://a', link: '' }]]]);
   });
 });

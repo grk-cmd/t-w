@@ -46,13 +46,21 @@ export interface Presence {
   online: boolean;
   /** 마지막으로 접속 · 종료한 시각(ms). 0.9.7 같은 옛 앱도 쓴다 — 계정이 없는 사용자의 활동은 여기서만 보인다. */
   lastSeen: number | null;
+  /** 접속 중일 때 들어가 있는 방 코드. 시크릿룸은 앱이 코드를 올리지 않아 늘 null 이다. */
+  room: string | null;
 }
 
 // presence 는 online · lastSeen · room · inRoom 네 칸뿐이라 통째로 읽는다(접속 중인 사람은 lastSeen 이 접속한 시각이라 online 도 봐야 한다).
 export async function getUserPresence(db: Db, uid: string): Promise<Presence | null> {
-  const p = await db.get<{ online?: unknown; lastSeen?: unknown }>(`users/${uid}/presence`);
+  const p = await db.get<{ online?: unknown; lastSeen?: unknown; room?: unknown }>(`users/${uid}/presence`);
   if (!p) return null;
-  return { online: p.online === true, lastSeen: typeof p.lastSeen === 'number' ? p.lastSeen : null };
+  const online = p.online === true;
+  return {
+    online,
+    lastSeen: typeof p.lastSeen === 'number' ? p.lastSeen : null,
+    // 끈 앱은 room 을 지우지 못하고 남길 수 있다 — 접속 중일 때만 믿는다.
+    room: online && typeof p.room === 'string' && p.room ? p.room : null,
+  };
 }
 
 /** 목록 칸과 기간 검색이 같은 캐시를 쓰도록 한 곳에서 만든다. */
@@ -80,6 +88,21 @@ export async function getUserFriendCode(db: Db, uid: string): Promise<string | n
 export function useFriendCodes() {
   const db = useDb();
   return useQuery({ queryKey: ['friendCodes'], queryFn: () => listFriendCodes(db) });
+}
+
+/**
+ * 집중 누적 시간(초) — 계정 요약에도 있지만 계정이 없는 사람은 여기에만 있다. 앱이 기기끼리 합치는 정본.
+ * 칸이 없으면 0.
+ */
+export async function getUserFocusSec(db: Db, uid: string): Promise<number> {
+  const v = await db.get<unknown>(`users/${uid}/focus/totalSec`);
+  return typeof v === 'number' && v > 0 ? v : 0;
+}
+
+/** 상세 창을 열 때만 읽는다. */
+export function useUserFocusSec(uid: string) {
+  const db = useDb();
+  return useQuery({ queryKey: ['userFocus', uid], queryFn: () => getUserFocusSec(db, uid) });
 }
 
 /** 이름 한 칸 — 한 번 받은 이름은 캐시에 남아 페이지를 오가도 다시 받지 않는다. */

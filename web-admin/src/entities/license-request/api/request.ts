@@ -37,7 +37,7 @@ export function approvedWrite(db: Db, id: string, key: string) {
   };
 }
 
-// 지우면 앱의 요청 화면이 처음 상태로 돌아가 다시 요청할 수 있다 — 그게 «거절» 이다.
-export function removeRequest(db: Db, id: string): Promise<void> {
-  return db.remove(`licenseRequests/${id}`);
+/** 요청을 지우는 쓰기 — 지우면 앱의 요청 화면이 처음 상태로 돌아가 다시 요청할 수 있다(«거절»). */
+export function removeRequestWrite(id: string): Record<string, null> {
+  return { [`licenseRequests/${id}`]: null };
 }
