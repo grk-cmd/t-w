@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { Base64CleanupCard, CatalogAnalysisCard } from '@/features/catalog/diagnose-catalog';
 import { BuiltinCatsCard, CustomCatsCard } from '@/features/catalog/manage-categories';
 import { CatalogList } from '@/widgets/catalog-list';
 import styles from './CatalogPage.module.css';
@@ -25,6 +26,16 @@ const TABS: Tab[] = [
   { id: 'gachaParts', label: '가챠 파츠', render: () => <CatalogList kind="gachaParts" /> },
   { id: 'desks', label: '책상', render: () => <CatalogList kind="desks" editable /> },
   { id: 'items', label: '아이템', render: () => <CatalogList kind="items" editable /> },
+  {
+    id: 'diagnose',
+    label: '진단',
+    render: () => (
+      <>
+        <CatalogAnalysisCard />
+        <Base64CleanupCard />
+      </>
+    ),
+  },
 ];
 
 export function CatalogPage() {

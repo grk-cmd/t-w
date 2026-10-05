@@ -60,3 +60,16 @@ export {
   type CatalogKind,
   type CatalogRecord,
 } from './model/entry';
+export {
+  analyzeKind,
+  base64CleanupWrite,
+  DIAGNOSE_KINDS,
+  HEAVY_CHARS,
+  planBase64Cleanup,
+  toMB,
+  TOP_N,
+  type CleanupPlan,
+  type CleanupTarget,
+  type KindAnalysis,
+  type RecordSize,
+} from './model/diagnose';
