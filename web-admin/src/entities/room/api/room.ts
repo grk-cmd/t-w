@@ -1,5 +1,4 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 import { countTarget, useDb, withAudit, type AuditAction, type Db } from '@/shared/api';
 import {
   closeRoomsWrite,
@@ -17,8 +16,6 @@ const ROOM_PROBES_KEY = ['roomProbes'];
 const PROBE_CHUNK = 20;
 const ROOM_STATS_KEY = ['roomStats'];
 const SERVER_OFFSET_KEY = ['serverTimeOffset'];
-const CLOCK_TICK_MS = 15 * 1000;
-
 // rooms 는 멤버 · chatLog · _photo 까지 실려 커서 읽지 않는다. 방당 수십 바이트인 roomIndex 만 받는다.
 export async function getRoomIndex(db: Db): Promise<Record<string, RoomIndexEntry>> {
   return (await db.get<Record<string, RoomIndexEntry>>('roomIndex')) ?? {};
@@ -90,16 +87,15 @@ export function useRoomStats() {
   return useQuery({ queryKey: ROOM_STATS_KEY, queryFn: () => db.get<RoomStats>('roomStats') });
 }
 
-/** 서버 기준 «지금». 시계가 틀린 PC 에서 살아 있는 방을 유령으로 보지 않게 서버 시각 차를 더한다. 받은 뒤엔 내려받기 없이 화면만 흘러간다. */
-export function useServerNow(): number | null {
+/**
+ * 받은 시점의 서버 기준 «지금» — 살았나 죽었나는 **받아 둔 값을 받은 그 시각**으로 판정한다.
+ * 화면 시계를 흘려보내면 roomIndex 를 다시 받지 않는 동안(staleTime 무한) 모든 방의 lastSeen 이 낡아
+ * 90초 뒤엔 살아 있는 방까지 전부 유령으로 보였다. 시계가 틀린 PC 를 위해 서버 시각 차는 더한다.
+ */
+export function useSnapshotNow(fetchedAt: number | undefined): number | null {
   const db = useDb();
   const offset = useQuery({ queryKey: SERVER_OFFSET_KEY, queryFn: () => db.serverTimeOffset() });
-  const [tick, setTick] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setTick(Date.now()), CLOCK_TICK_MS);
-    return () => clearInterval(id);
-  }, []);
-  return offset.data === undefined ? null : tick + offset.data;
+  return offset.data === undefined || !fetchedAt ? null : fetchedAt + offset.data;
 }
 
 export function useRefreshRooms() {

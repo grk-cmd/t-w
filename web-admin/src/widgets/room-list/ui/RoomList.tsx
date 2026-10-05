@@ -9,7 +9,7 @@ import {
   useRoomIndex,
   useRoomProbes,
   useRoomStats,
-  useServerNow,
+  useSnapshotNow,
   type RoomRow,
 } from '@/entities/room';
 import { CloseRoomButton, CloseSelectedRoomsButton } from '@/features/room/close-room';
@@ -35,7 +35,7 @@ export function RoomList() {
   const codes = useRoomCodes();
   const probes = useRoomProbes(index.data, codes.data);
   const stats = useRoomStats();
-  const now = useServerNow();
+  const now = useSnapshotNow(index.dataUpdatedAt);
   const refresh = useRefreshRooms();
 
   // 방 코드(shallow)를 못 받아도 roomIndex 만으로 목록은 보인다.

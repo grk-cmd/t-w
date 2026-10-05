@@ -169,3 +169,18 @@ test('전체 종료 — «종료» 를 적어야 열리고, 앱처럼 시크릿�
   expect(await indexKeys()).toEqual([]);
   expect(await roomKeys()).toEqual([]);
 });
+
+// 받아 둔 roomIndex 는 다시 받지 않는다 — 화면 시계만 흘러가면 살아 있던 방이 90초 뒤 전부 유령으로 보였다(운영에서 503개).
+test('화면을 오래 열어 둬도 살아 있는 방이 유령 · 청소 대상으로 바뀌지 않는다', async ({ page, seed }) => {
+  await page.clock.install();
+  await seed(roomData());
+  await openMenu(page, 'rooms');
+  const ghosts = card(page, '🧹 유령 방 청소');
+  await expect(ghosts).toContainText('대상 2개');
+  await expect(roomRow(page, 'WORK-AAAA')).toContainText('🟢 살아 있음');
+
+  await page.clock.fastForward('05:00');
+  await expect(roomRow(page, 'WORK-AAAA')).toContainText('🟢 살아 있음');
+  await expect(ghosts).toContainText('대상 2개');
+  await expect(ghosts).not.toContainText('WORK-AAAA');
+});

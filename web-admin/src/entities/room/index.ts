@@ -10,7 +10,7 @@ export {
   useRoomIndex,
   useRoomProbes,
   useRoomStats,
-  useServerNow,
+  useSnapshotNow,
 } from './api/room';
 export {
   allRoomCodes,

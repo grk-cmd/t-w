@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ghostCodes, useRoomCodes, useRoomIndex, useRoomProbes, useServerNow } from '@/entities/room';
+import { ghostCodes, useRoomCodes, useRoomIndex, useRoomProbes, useSnapshotNow } from '@/entities/room';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { useCleanGhostRooms } from '../model/useCleanGhostRooms';
@@ -7,10 +7,10 @@ import styles from './GhostCleanupCard.module.css';
 
 export function GhostCleanupCard() {
   const toast = useToast();
-  const { data: index } = useRoomIndex();
+  const { data: index, dataUpdatedAt } = useRoomIndex();
   const { data: codes } = useRoomCodes();
   const { data: probes } = useRoomProbes(index, codes);
-  const now = useServerNow();
+  const now = useSnapshotNow(dataUpdatedAt);
   const clean = useCleanGhostRooms();
   // 고아 방은 멤버 신호를 읽어 본 뒤에야 판정할 수 있어 그때까지 기다린다.
   const targets = useMemo(
