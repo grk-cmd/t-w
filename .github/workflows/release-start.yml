@@ -1,6 +1,6 @@
 # ═══ ▶️ release-start — Actions 탭의 [Run workflow] 버튼 하나로 릴리스 시작 ═══════════════════
 # 사람이 하던 «git pull → npm run check → npm version … → git push --follow-tags» 를 대신한다.
-#   ① 최신 main 받기 → ② 검사(빨강이면 멈춤) → ③ 버전 올림 커밋 + 태그 push → ④ release.yml 을 그 태그로 실행
+#   ① 최신 main 받기 → ② 검사(빨강이면 멈춤) → ③ 버전 올림 커밋 + 태그 push(베타는 태그만) → ④ release.yml 을 그 태그로 실행
 #   그 뒤(규칙 운영 배포 승인 · Windows · Mac 빌드 · Releases 초안)는 release.yml 이 한다. Publish 는 여전히 사람.
 # ★ ④ 를 따로 부르는 이유 — 워크플로가 GITHUB_TOKEN 으로 올린 태그는 다른 워크플로를 깨우지 않는다(GitHub 의
 #   무한 반복 방지). workflow_dispatch 는 예외라 gh workflow run 으로 직접 부른다.
@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       kind:
-        description: '버전 종류 — patch 0.10.1→0.10.2 · minor 0.10.1→0.11.0 · beta 0.10.1→0.10.2-beta.0(dev 테스트, 사용자에게 안 감)'
+        description: '버전 종류 — patch 0.10.1→0.10.2 · minor 0.10.1→0.11.0 · beta 0.10.2→0.10.3-beta.N(dev 테스트 · 태그만, main 에 안 올림)'
         type: choice
         options: [patch, minor, beta]
         default: patch
@@ -53,15 +53,29 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # beta 는 0.10.1 → 0.10.2-beta.0, 이미 베타면 0.10.2-beta.0 → 0.10.2-beta.1.
-          # patch 는 베타 다음이면 꼬리만 떼어 0.10.2-beta.1 → 0.10.2 (npm version 규칙).
           case "$KIND" in
-            beta)  npm version prerelease --preid=beta -m "chore: %s" ;;
-            patch|minor) npm version "$KIND" -m "chore: %s" ;;
+            patch|minor)
+              # 정식: main 에 버전 커밋 + 태그. 지금이 베타 번호면(옛 방식) 꼬리만 뗀다 — 0.10.2-beta.1 → 0.10.2.
+              npm version "$KIND" -m "chore: %s"
+              TAG="v$(node -p "require('./package.json').version")"
+              git push origin HEAD:main --follow-tags
+              ;;
+            beta)
+              # 베타: main 에는 올리지 않고 태그만 — 버전 커밋은 태그에만 매달린다(main 기록 · 버전은 정식 번호 그대로).
+              # 번호는 «다음 정식 번호 -beta.N», N 은 이미 있는 베타 태그 다음. main 이 0.10.2 면 0.10.3-beta.0 → .1 → …
+              CUR=$(node -p "require('./package.json').version")
+              case "$CUR" in
+                *-*) BASE="${CUR%%-*}" ;;
+                *)   BASE=$(node -p "const [a,b,c]=process.argv[1].split('.').map(Number); [a,b,c+1].join('.')" "$CUR") ;;
+              esac
+              LAST=$(git tag -l "v$BASE-beta.*" | sed -E 's/.*-beta\.([0-9]+)$/\1/' | sort -n | tail -n 1)
+              N=$(( ${LAST:--1} + 1 ))
+              npm version "$BASE-beta.$N" -m "chore: %s"
+              TAG="v$BASE-beta.$N"
+              git push origin "$TAG"
+              ;;
             *) echo "::error::알 수 없는 종류 $KIND"; exit 1 ;;
           esac
-          TAG="v$(node -p "require('./package.json').version")"
-          git push origin HEAD:main --follow-tags
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "### ▶️ $TAG 태그를 올렸다" >> "$GITHUB_STEP_SUMMARY"
 
