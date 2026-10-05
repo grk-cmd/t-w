@@ -58,26 +58,33 @@ test('게임 설정 — 서버 값이 없으면 기본값 50 을 보여 준다',
   await expect(game.getByText('서버 값 없음 → 기본값 Lv.50')).toBeVisible();
 });
 
-// 올리면 그보다 낮은 앱이 방에서 막힌다 — 최신 릴리스보다 높은 값은 막고, 같은 버전을 두 번 적어야 저장.
-test('방 입장 최소 버전 — 최신 릴리스까지만, 두 번 적어야 저장되고 기록이 남는다', async ({ page, seed }) => {
+// 올리면 그보다 낮은 앱이 방에서 막힌다 — 숫자 세 칸, 최신 릴리스보다 높은 값은 막고 확인창 뒤 저장 · 기록.
+test('방 입장 최소 버전 — 숫자 세 칸으로 올리고, 최신 릴리스까지만 · 기록이 남는다', async ({
+  page,
+  seed,
+}) => {
   await page.route('https://api.github.com/**', (route) => route.fulfill({ json: RELEASES }));
   await seed({ config: { minRoomVer: '0.10.1' } });
   await openMenu(page, 'settings');
   const minVer = card(page, '방 입장 최소 버전');
   await expect(minVer.locator('code.key')).toHaveText('0.10.1');
   await expect(minVer).toContainText('최신 릴리스 0.10.2');
-
+  const patch = minVer.getByLabel('수 버전');
+  await expect(minVer.getByLabel('주 버전')).toHaveValue('0');
+  await expect(minVer.getByLabel('부 버전')).toHaveValue('10');
+  await expect(patch).toHaveValue('1');
   const save = minVer.getByRole('button', { name: '저장' });
-  await minVer.getByLabel('새 최소 버전').fill('0.10.3');
-  await minVer.getByLabel('한 번 더').fill('0.10.2');
   await expect(save).toBeDisabled();
-  await minVer.getByLabel('한 번 더').fill('0.10.3');
+
+  // 숫자만 — 글자는 들어가지 않는다. ↑ 로 하나씩.
+  await patch.press('ArrowUp');
+  await patch.press('ArrowUp');
+  await expect(patch).toHaveValue('3');
   await save.click();
   await expect(minVer.getByText('최신 릴리스(0.10.2)보다 높아요 — 모두 방에서 막혀요')).toBeVisible();
   expect(await dbGet('config/minRoomVer')).toBe('0.10.1');
 
-  await minVer.getByLabel('새 최소 버전').fill('0.10.2');
-  await minVer.getByLabel('한 번 더').fill('0.10.2');
+  await patch.press('ArrowDown');
   await save.click();
   await expect(minVer.getByText('저장했어요 · 0.10.2')).toBeVisible();
   await expect(minVer.locator('code.key')).toHaveText('0.10.2');
