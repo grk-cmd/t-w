@@ -1,4 +1,4 @@
-import { realName, useUserName, type UserLicense, type UserRow } from '@/entities/user';
+import { realName, useUserName, useUserPresence, type UserLicense, type UserRow } from '@/entities/user';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
 import { formatDate, type Selection } from '@/shared/lib';
 import { RowCheckbox, SelectAllCheckbox } from '@/shared/ui';
@@ -22,6 +22,15 @@ function NameCell({ row }: { row: UserRow }) {
   const name = row.name ?? realName(fetched.data);
   if (name) return <>{name}</>;
   return <span className="soft">{fetched.isLoading ? '…' : '이름 없음'}</span>;
+}
+
+// 마지막 접속 — 계정 요약은 계정이 있는 사람만 있어서, 옛 앱을 포함한 모두가 쓰는 presence 를 줄마다 읽는다.
+function LastSeenCell({ uid }: { uid: string }) {
+  const p = useUserPresence(uid);
+  if (p.isLoading) return <span className="soft">…</span>;
+  if (p.error) return <span className="soft">읽지 못함</span>;
+  if (p.data?.online) return <span className={styles.online}>접속 중</span>;
+  return <span className="soft">{p.data?.lastSeen ? formatDate(p.data.lastSeen) : '—'}</span>;
 }
 
 interface Props {
@@ -51,7 +60,7 @@ export function UserTable({ rows, startIndex, selection }: Props) {
             <th>사용자코드</th>
             <th>라이선스</th>
             <th>집중</th>
-            <th>마지막 갱신</th>
+            <th>마지막 접속</th>
             <th />
           </tr>
         </thead>
@@ -95,7 +104,9 @@ export function UserTable({ rows, startIndex, selection }: Props) {
                 </small>
               </td>
               <td>{formatHours(row.focusTotalSec)}</td>
-              <td className="soft">{row.lastSeen ? formatDate(row.lastSeen) : '—'}</td>
+              <td>
+                <LastSeenCell uid={row.userCode} />
+              </td>
               <td>
                 <GrantInvitesButton uid={row.userCode} who={row.name ?? row.friendCode ?? row.userCode} />
               </td>

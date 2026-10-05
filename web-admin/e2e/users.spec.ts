@@ -24,10 +24,10 @@ const DATA = {
     'DEAD-AAAA-AAAA-AAAA': { valid: false, createdAt: T0 },
   },
   users: {
-    uminsu0000001: { invite: { invitesLeft: 2 } },
+    uminsu0000001: { invite: { invitesLeft: 2 }, presence: { online: true, lastSeen: T0 } },
     ujiyoung00002: { invite: { invitesLeft: 0 } },
     urevoked00003: { invite: { invitesLeft: 998 } },
-    unoacct000004: { profile: { name: '계정없는이' } },
+    unoacct000004: { profile: { name: '계정없는이' }, presence: { online: false, lastSeen: T0 + 60_000 } },
   },
 };
 
@@ -44,6 +44,10 @@ test('목록 · 검색 · 필터 칩', async ({ page, seed }) => {
   // 계정 요약에 없는 사람은 이름 한 칸을 따로 읽어 채운다.
   await expect(userRow(page, 'MATE-CCC3')).toContainText('계정없는이');
   await expect(userRow(page, 'MATE-CCC3')).toContainText('계정 없음');
+  // 마지막 접속은 presence — 계정이 없어도 보이고, 접속 중이면 시각 대신 «접속 중».
+  await expect(userRow(page, 'MATE-CCC3')).toContainText(new RegExp(`2026-01-01 \\d{2}:01`));
+  await expect(userRow(page, '김민수')).toContainText('접속 중');
+  await expect(userRow(page, '박지영')).toContainText('—');
   // 최근 갱신 순 — 계정 없는 사람(갱신 기록 없음)이 맨 뒤.
   await expect(page.locator('tbody tr').first()).toContainText('김민수');
   await expect(page.locator('tbody tr').last()).toContainText('MATE-CCC3');
