@@ -282,6 +282,13 @@ test('이름을 누르면 상세 창 — 칸마다 그 사람 몫만 읽어 보�
       },
     },
     secretRooms: { 'SCRT-MINS': { k: 'x', pub: { owner: 'uminsu0000001', ts: T0, exp } } },
+    // 민수가 만든 코드 셋(지영이 씀 · 가입 도중 기기 토큰 · 안 씀) + 관리자 코드(민수 몫이 아님).
+    invites: {
+      'INVT-AAAA-AAAA': { issuedBy: 'uminsu0000001', createdAt: 3, usedBy: 'ujiyoung00002', usedAt: 4 },
+      'INVT-BBBB-BBBB': { issuedBy: 'uminsu0000001', createdAt: 2, usedBy: 'tok-abc123' },
+      'INVT-CCCC-CCCC': { issuedBy: 'uminsu0000001', createdAt: 1 },
+      'INVT-DDDD-DDDD': { issuedBy: 'admin', createdAt: 5 },
+    },
   });
   await openMenu(page, 'users');
 
@@ -297,6 +304,7 @@ test('이름을 누르면 상세 창 — 칸마다 그 사람 몫만 읽어 보�
   await expect(field(detail, '코드')).toHaveText('—');
   // 초대한 사람(사용자코드)은 이름으로 — 누르면 그 사람으로 바뀐다.
   await expect(field(detail, '경로')).toHaveText('초대 · 김민수');
+  await expect(field(detail, '초대한 사람')).toHaveText('없음');
   await field(detail, '경로').getByRole('button', { name: '김민수' }).click();
 
   detail = page.getByRole('dialog', { name: '김민수 상세' });
@@ -308,6 +316,9 @@ test('이름을 누르면 상세 창 — 칸마다 그 사람 몫만 읽어 보�
   await expect(field(detail, '집중')).toHaveText('1.5시간');
   await expect(field(detail, '경로')).toHaveText('기존');
   await expect(field(detail, '초대권')).toContainText('2장');
+  // issuedBy 색인으로 민수 몫만 — 쓴 사람은 이름, 나머지는 개수.
+  await expect(field(detail, '초대한 사람')).toContainText('박지영');
+  await expect(field(detail, '초대한 사람')).toContainText('코드 3개 · 가입 중 1 · 안 씀 1');
   await expect(field(detail, '받은 신고')).toHaveText('2명');
   await expect(field(detail, '자리비움 그림').getByRole('img')).toHaveAttribute('src', away);
   await expect(field(detail, '코드')).toHaveText('SCRT-MINS2099-01-01 까지');
