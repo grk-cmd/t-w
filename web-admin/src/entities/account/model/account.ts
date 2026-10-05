@@ -5,4 +5,6 @@ export interface AccountSnap {
   license?: string;
   focusTotalSec?: number;
   ts?: number;
+  /** 앱 버전 — 0.10.3 부터 앱이 부팅마다 올린다. 옛 앱 사용자는 없다. */
+  ver?: string;
 }

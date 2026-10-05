@@ -264,7 +264,7 @@ test.describe('대기 중인 요청', () => {
     friendCodes: { ...USER.friendCodes, 'MATE-CD34': { userId: 'ucd34ef56gh78' } },
     licenseRequests: {
       r1: { name: '영희', friendCode: 'MATE-AB12', status: 'pending', requestedAt: T0 + 1 },
-      r2: { name: '민수', friendCode: 'MATE-CD34', status: 'pending', requestedAt: T0 + 2 },
+      r2: { name: '민수', friendCode: 'MATE-CD34', status: 'pending', requestedAt: T0 + 2, ver: '0.10.3' },
       r3: { name: '지민', friendCode: 'MATE-EF56', status: 'pending', requestedAt: T0 + 3 },
       done: { name: '끝난 요청', friendCode: 'MATE-AB12', status: 'approved', requestedAt: T0 },
     },
@@ -282,6 +282,9 @@ test.describe('대기 중인 요청', () => {
     await seed(REQUESTS);
     await openRequests(page);
     await expect(row(page, '끝난 요청')).toHaveCount(0);
+    // 앱 버전 — 보낸 요청에 있으면 보이고, 옛 앱 요청은 없다.
+    await expect(row(page, '민수')).toContainText('v0.10.3');
+    await expect(row(page, '영희')).not.toContainText('v0.');
 
     await row(page, '영희').getByRole('button', { name: '발급' }).click();
     await expect(toast(page)).toHaveText('영희 님에게 발급했어요 · 수령함으로 보냈어요');

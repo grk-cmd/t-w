@@ -125,6 +125,11 @@ function Presence({ uid }: { uid: string }) {
   );
 }
 
+function PresenceVer({ uid }: { uid: string }) {
+  const q = useUserPresence(uid);
+  return <Loaded q={q}>{(p) => p?.ver ?? <span className="soft">기록 없음</span>}</Loaded>;
+}
+
 function SecretRoom({ uid }: { uid: string }) {
   const q = useUserSecretRoom(uid);
   const [now] = useState(Date.now);
@@ -208,6 +213,10 @@ function Body({ row, rows, onOpen }: Omit<Props, 'onClose' | 'row'> & { row: Use
       <dl className={styles.fields}>
         <Field label="마지막 접속">
           <Presence uid={uid} />
+        </Field>
+        <Field label="앱 버전">
+          {/* 목록은 계정 요약 값, 여기는 presence 값 — 계정이 없어도 0.10.3 부터는 보인다. */}
+          <PresenceVer uid={uid} />
         </Field>
         <Field label="집중">
           {/* 계정 요약 값은 앱이 올린 때의 값이라, 기기끼리 합친 정본(focus/totalSec)을 따로 읽는다. */}

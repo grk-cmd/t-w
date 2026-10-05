@@ -33,3 +33,12 @@ export {
   type UserLicense,
   type UserRow,
 } from './model/userRow';
+export {
+  ACTIVE_DAYS,
+  compareVerDesc,
+  matchesVer,
+  OLD_VER_LABEL,
+  verLabel,
+  versionCounts,
+  type VersionCount,
+} from './model/version';

@@ -14,3 +14,4 @@ export {
 } from './model/filter';
 export { usePeriodTimes, type PeriodTimes } from './model/usePeriodTimes';
 export { UserFilterBar } from './ui/UserFilterBar';
+export { VersionSummary, type VerFilter } from './ui/VersionSummary';
