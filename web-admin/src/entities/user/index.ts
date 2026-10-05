@@ -4,9 +4,13 @@ export {
   getUserFriendCode,
   getUserLastSeen,
   getUserName,
+  getUserPresence,
   listFriendCodes,
   useFriendCodes,
   useUserName,
+  userPresenceQuery,
+  useUserPresence,
+  type Presence,
 } from './api/user';
 export {
   awayImgRemoveWrite,

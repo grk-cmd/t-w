@@ -21,3 +21,26 @@
   background: var(--accent);
   border-color: var(--accent);
 }
+
+.search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.search .text {
+  flex: 1 1 14em;
+}
+
+.search select,
+.search input[type='date'] {
+  flex: 0 0 auto;
+  padding: 7px 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}

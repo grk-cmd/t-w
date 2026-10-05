@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
 
 const FRIEND_CODE_PREFIXES = ['MATE', 'COZY'];
@@ -40,6 +40,28 @@ export async function getUserLastSeen(db: Db, uid: string): Promise<number | nul
   } catch {
     return null;
   }
+}
+
+export interface Presence {
+  online: boolean;
+  /** 마지막으로 접속 · 종료한 시각(ms). 0.9.7 같은 옛 앱도 쓴다 — 계정이 없는 사용자의 활동은 여기서만 보인다. */
+  lastSeen: number | null;
+}
+
+// presence 는 online · lastSeen · room · inRoom 네 칸뿐이라 통째로 읽는다(접속 중인 사람은 lastSeen 이 접속한 시각이라 online 도 봐야 한다).
+export async function getUserPresence(db: Db, uid: string): Promise<Presence | null> {
+  const p = await db.get<{ online?: unknown; lastSeen?: unknown }>(`users/${uid}/presence`);
+  if (!p) return null;
+  return { online: p.online === true, lastSeen: typeof p.lastSeen === 'number' ? p.lastSeen : null };
+}
+
+/** 목록 칸과 기간 검색이 같은 캐시를 쓰도록 한 곳에서 만든다. */
+export const userPresenceQuery = (db: Db, uid: string) =>
+  queryOptions({ queryKey: ['presence', uid], queryFn: () => getUserPresence(db, uid) });
+
+/** 화면에 보이는 줄만 읽는다 — 한 번 읽은 값은 캐시에 남아 페이지를 오가도 다시 받지 않는다. */
+export function useUserPresence(uid: string) {
+  return useQuery(userPresenceQuery(useDb(), uid));
 }
 
 /**

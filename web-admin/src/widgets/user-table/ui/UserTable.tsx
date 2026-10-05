@@ -1,4 +1,5 @@
-import { realName, useUserName, type UserLicense, type UserRow } from '@/entities/user';
+import { realName, useUserName, useUserPresence, type UserLicense, type UserRow } from '@/entities/user';
+import { useUserInvite } from '@/entities/invite';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
 import { formatDate, type Selection } from '@/shared/lib';
 import { RowCheckbox, SelectAllCheckbox } from '@/shared/ui';
@@ -22,6 +23,31 @@ function NameCell({ row }: { row: UserRow }) {
   const name = row.name ?? realName(fetched.data);
   if (name) return <>{name}</>;
   return <span className="soft">{fetched.isLoading ? '…' : '이름 없음'}</span>;
+}
+
+// 마지막 접속 — 계정 요약은 계정이 있는 사람만 있어서, 옛 앱을 포함한 모두가 쓰는 presence 를 줄마다 읽는다.
+function LastSeenCell({ uid }: { uid: string }) {
+  const p = useUserPresence(uid);
+  if (p.isLoading) return <span className="soft">…</span>;
+  if (p.error) return <span className="soft">읽지 못함</span>;
+  if (p.data?.online) return <span className={styles.online}>접속 중</span>;
+  return <span className="soft">{p.data?.lastSeen ? formatDate(p.data.lastSeen) : '—'}</span>;
+}
+
+// 가입 — 초대장 제도의 기록. 초대한 사람이 없으면 제도 전부터 쓰던 «기존»(처음 5장), 있으면 «초대»(0장으로 시작).
+function JoinCell({ uid }: { uid: string }) {
+  const inv = useUserInvite(uid);
+  if (inv.isLoading) return <span className="soft">…</span>;
+  if (inv.error) return <span className="soft">읽지 못함</span>;
+  if (!inv.data) return <span className="soft">—</span>;
+  const { joinedAt, invitedBy, invitesLeft } = inv.data;
+  return (
+    <span title={invitedBy ? `초대: ${invitedBy}` : undefined}>
+      {joinedAt ? formatDate(joinedAt).slice(0, 10) : '—'}{' '}
+      <small className="soft">{invitedBy ? '초대' : '기존'}</small>
+      {invitesLeft !== null && <small className="soft"> · 초대권 {invitesLeft}장</small>}
+    </span>
+  );
 }
 
 interface Props {
@@ -51,14 +77,15 @@ export function UserTable({ rows, startIndex, selection }: Props) {
             <th>사용자코드</th>
             <th>라이선스</th>
             <th>집중</th>
-            <th>마지막 갱신</th>
+            <th>가입</th>
+            <th>마지막 접속</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={9} className="soft">
+              <td colSpan={10} className="soft">
                 조건에 맞는 사용자가 없어요
               </td>
             </tr>
@@ -95,7 +122,12 @@ export function UserTable({ rows, startIndex, selection }: Props) {
                 </small>
               </td>
               <td>{formatHours(row.focusTotalSec)}</td>
-              <td className="soft">{row.lastSeen ? formatDate(row.lastSeen) : '—'}</td>
+              <td>
+                <JoinCell uid={row.userCode} />
+              </td>
+              <td>
+                <LastSeenCell uid={row.userCode} />
+              </td>
               <td>
                 <GrantInvitesButton uid={row.userCode} who={row.name ?? row.friendCode ?? row.userCode} />
               </td>

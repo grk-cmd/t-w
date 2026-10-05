@@ -24,10 +24,15 @@ const DATA = {
     'DEAD-AAAA-AAAA-AAAA': { valid: false, createdAt: T0 },
   },
   users: {
-    uminsu0000001: { invite: { invitesLeft: 2 } },
-    ujiyoung00002: { invite: { invitesLeft: 0 } },
+    uminsu0000001: {
+      invite: { invitesLeft: 2, joinedAt: Date.UTC(2026, 8, 10, 3) },
+      presence: { online: true, lastSeen: T0 },
+    },
+    ujiyoung00002: {
+      invite: { invitesLeft: 0, invitedBy: 'uminsu0000001', joinedAt: Date.UTC(2026, 9, 3, 3) },
+    },
     urevoked00003: { invite: { invitesLeft: 998 } },
-    unoacct000004: { profile: { name: '계정없는이' } },
+    unoacct000004: { profile: { name: '계정없는이' }, presence: { online: false, lastSeen: T0 + 60_000 } },
   },
 };
 
@@ -44,18 +49,43 @@ test('목록 · 검색 · 필터 칩', async ({ page, seed }) => {
   // 계정 요약에 없는 사람은 이름 한 칸을 따로 읽어 채운다.
   await expect(userRow(page, 'MATE-CCC3')).toContainText('계정없는이');
   await expect(userRow(page, 'MATE-CCC3')).toContainText('계정 없음');
+  // 마지막 접속은 presence — 계정이 없어도 보이고, 접속 중이면 시각 대신 «접속 중».
+  await expect(userRow(page, 'MATE-CCC3')).toContainText(new RegExp(`2026-01-01 \\d{2}:01`));
+  await expect(userRow(page, '김민수')).toContainText('접속 중');
+  await expect(userRow(page, '박지영')).toContainText('—');
+  // 가입 — 초대한 사람이 없으면 «기존», 있으면 «초대». 칸이 없으면(옛 앱) «—».
+  await expect(userRow(page, '김민수')).toContainText('2026-09-10 기존 · 초대권 2장');
+  await expect(userRow(page, '박지영')).toContainText('2026-10-03 초대 · 초대권 0장');
   // 최근 갱신 순 — 계정 없는 사람(갱신 기록 없음)이 맨 뒤.
   await expect(page.locator('tbody tr').first()).toContainText('김민수');
   await expect(page.locator('tbody tr').last()).toContainText('MATE-CCC3');
 
-  const search = page.getByPlaceholder('이름 · 친구코드 · 사용자코드 · 키 검색');
+  const search = page.getByPlaceholder('이름 · 친구코드 · 사용자코드 · 키');
+  const go = () => page.getByRole('button', { name: '검색', exact: true }).click();
+  // 글자는 «검색» 을 눌러야 걸린다.
   await search.fill('박지');
+  await count(page, '4 / 4명');
+  await go();
   await count(page, '1 / 4명');
   await expect(userRow(page, '박지영')).toBeVisible();
   await search.fill('live-aaaa');
+  await go();
   await count(page, '1 / 4명');
   await expect(userRow(page, '김민수')).toBeVisible();
+
+  // 기간 — 가입일 10월은 지영만(민수는 9월 · 나머지는 기록 없음), 마지막 접속 2026-01-01 은 민수 · 계정없는이.
   await search.fill('');
+  await page.getByLabel('시작일').fill('2026-10-01');
+  await page.getByLabel('종료일').fill('2026-10-31');
+  await go();
+  await count(page, '1 / 4명');
+  await expect(userRow(page, '박지영')).toBeVisible();
+  await page.getByLabel('기간 기준').selectOption('seen');
+  await page.getByLabel('시작일').fill('2026-01-01');
+  await page.getByLabel('종료일').fill('2026-01-01');
+  await go();
+  await count(page, '2 / 4명');
+  await page.getByRole('button', { name: '초기화' }).click();
 
   const chips: [string, string[]][] = [
     ['라이선스 사용 중', ['김민수']],
@@ -86,6 +116,7 @@ test('한 명에게 초대권을 지급하면 invitesLeft 가 늘어난다', asy
   await expect(toast(page)).toHaveText('김민수 님에게 초대권 2장 지급 · 지금 4장');
   await expect(dialog).toBeHidden();
   expect(await dbGet('users/uminsu0000001/invite/invitesLeft')).toBe(4);
+  await expect(userRow(page, '김민수')).toContainText('초대권 4장');
 });
 
 test('초대권 칸이 없는 계정에는 지급 버튼이 잠긴다', async ({ page, seed }) => {

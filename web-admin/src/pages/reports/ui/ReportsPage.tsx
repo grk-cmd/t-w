@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { REPORT_ADMIN_MIN, reportTargets, useRefreshReports, useReports } from '@/entities/report';
 import { useRefreshUserBrief } from '@/entities/user';
 import { BulkDismissButton } from '@/features/user/moderate-report';
-import { errorMessage, useSelection } from '@/shared/lib';
-import { SelectAllCheckbox, SelectionBar } from '@/shared/ui';
+import { errorMessage, usePaging, useSelection } from '@/shared/lib';
+import { Pager, SelectAllCheckbox, SelectionBar } from '@/shared/ui';
 import { ReportList } from '@/widgets/report-list';
 
 export function ReportsPage() {
@@ -12,7 +12,9 @@ export function ReportsPage() {
   const refreshBrief = useRefreshUserBrief();
   const items = useMemo(() => (data ? reportTargets(data) : null), [data]);
   const ids = useMemo(() => (items ?? []).map((item) => item.target), [items]);
-  const selection = useSelection(ids);
+  const paging = usePaging(items ?? [], 'reports');
+  const pageIds = useMemo(() => paging.items.map((item) => item.target), [paging.items]);
+  const selection = useSelection(ids, pageIds);
 
   const refresh = () => {
     refreshReports();
@@ -39,7 +41,6 @@ export function ReportsPage() {
             onClear={selection.clear}
             selectAll={
               <SelectAllCheckbox
-                label="전체 선택"
                 allChecked={selection.allChecked}
                 someChecked={selection.someChecked}
                 onChange={selection.toggleAll}
@@ -48,7 +49,8 @@ export function ReportsPage() {
           >
             <BulkDismissButton targets={selection.selected} onDone={selection.clear} />
           </SelectionBar>
-          <ReportList items={items} selection={selection} />
+          <ReportList items={paging.items} selection={selection} />
+          <Pager paging={paging} />
         </>
       )}
     </section>

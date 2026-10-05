@@ -13,8 +13,8 @@ import {
   type RoomRow,
 } from '@/entities/room';
 import { CloseRoomButton, CloseSelectedRoomsButton } from '@/features/room/close-room';
-import { errorMessage, formatDate, useSelection } from '@/shared/lib';
-import { RowCheckbox, SelectAllCheckbox, SelectionBar } from '@/shared/ui';
+import { errorMessage, formatDate, usePaging, useSelection } from '@/shared/lib';
+import { Pager, RowCheckbox, SelectAllCheckbox, SelectionBar } from '@/shared/ui';
 import styles from './RoomList.module.css';
 
 function RoomState({ row }: { row: RoomRow }) {
@@ -49,8 +49,11 @@ export function RoomList() {
   const summary = now !== null ? roomStatsSummary(stats.data ?? null, now) : null;
   const aliveCount = rows?.filter((r) => r.alive).length ?? 0;
   const secretCount = rows?.filter((r) => r.secret).length ?? 0;
-  const ids = useMemo(() => (rows ?? []).map((r) => r.code), [rows]);
-  const selection = useSelection(ids);
+  const list = useMemo(() => rows ?? [], [rows]);
+  const ids = useMemo(() => list.map((r) => r.code), [list]);
+  const paging = usePaging(list, 'rooms');
+  const pageIds = useMemo(() => paging.items.map((r) => r.code), [paging.items]);
+  const selection = useSelection(ids, pageIds);
 
   return (
     <section className="card">
@@ -102,7 +105,6 @@ export function RoomList() {
               <tr>
                 <th>
                   <SelectAllCheckbox
-                    label="전체 선택"
                     allChecked={selection.allChecked}
                     someChecked={selection.someChecked}
                     disabled={rows.length === 0}
@@ -126,7 +128,7 @@ export function RoomList() {
                   </td>
                 </tr>
               )}
-              {rows.map((row) => (
+              {paging.items.map((row) => (
                 <tr key={row.code} className={row.alive || row.secret ? undefined : styles.ghost}>
                   <td>
                     <RowCheckbox
@@ -162,6 +164,7 @@ export function RoomList() {
           </table>
         </div>
       )}
+      <Pager paging={paging} />
     </section>
   );
 }

@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
 import {
   addInvites,
@@ -9,6 +9,8 @@ import {
 } from '../model/invite';
 
 const invitesLeftKey = (uid: string) => ['invitesLeft', uid];
+const USER_INVITE = 'userInvite';
+const userInviteKey = (uid: string) => [USER_INVITE, uid];
 
 /** 초대권 칸이 없으면 null — 규칙이 «없던 칸은 0 으로만 만들 수 있다» 고 해서 지급 대상이 아니다. */
 export async function getInvitesLeft(db: Db, uid: string): Promise<number | null> {
@@ -42,9 +44,51 @@ export function useInvitesLeft(uid: string, enabled: boolean) {
   return useQuery({ queryKey: invitesLeftKey(uid), queryFn: () => getInvitesLeft(db, uid), enabled });
 }
 
+/** 한 명에게 지급한 뒤 — 지급 창의 장수와 목록의 가입 칸을 함께 맞춘다. */
 export function useSetInvitesLeftCache() {
   const client = useQueryClient();
-  return (uid: string, value: number) => client.setQueryData(invitesLeftKey(uid), value);
+  return (uid: string, value: number) => {
+    client.setQueryData(invitesLeftKey(uid), value);
+    client.setQueryData<UserInvite | null>(userInviteKey(uid), (cur) =>
+      cur ? { ...cur, invitesLeft: value } : cur,
+    );
+  };
+}
+
+/** 여러 명에게 지급한 뒤 — 받아 둔 가입 칸을 버려 보이는 줄만 다시 읽게 한다. */
+export function useForgetUserInvites() {
+  const client = useQueryClient();
+  return () => client.invalidateQueries({ queryKey: [USER_INVITE] });
+}
+
+export interface UserInvite {
+  /** 가입(처음 통과)한 시각(ms). */
+  joinedAt: number | null;
+  /** 초대 코드를 준 사람. null 이면 초대장 제도 전부터 쓰던 기존 사용자(처음 한 번 5장). */
+  invitedBy: string | null;
+  invitesLeft: number | null;
+}
+
+/** users/{uid}/invite 세 칸. 칸이 없으면 null — 아직 게이트를 안 지난(옛 앱) 사용자. */
+export async function getUserInvite(db: Db, uid: string): Promise<UserInvite | null> {
+  const v = await db.get<{ joinedAt?: unknown; invitedBy?: unknown; invitesLeft?: unknown }>(
+    `users/${uid}/invite`,
+  );
+  if (!v || typeof v !== 'object') return null;
+  return {
+    joinedAt: typeof v.joinedAt === 'number' ? v.joinedAt : null,
+    invitedBy: typeof v.invitedBy === 'string' && v.invitedBy ? v.invitedBy : null,
+    invitesLeft: typeof v.invitesLeft === 'number' ? v.invitesLeft : null,
+  };
+}
+
+/** 목록 칸과 기간 검색이 같은 캐시를 쓰도록 한 곳에서 만든다. */
+export const userInviteQuery = (db: Db, uid: string) =>
+  queryOptions({ queryKey: userInviteKey(uid), queryFn: () => getUserInvite(db, uid) });
+
+/** 화면에 보이는 줄만 읽고 캐시에 남긴다. */
+export function useUserInvite(uid: string) {
+  return useQuery(userInviteQuery(useDb(), uid));
 }
 
 /**

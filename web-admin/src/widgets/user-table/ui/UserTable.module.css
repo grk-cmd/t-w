@@ -29,3 +29,8 @@
   border: 1px solid var(--line);
   border-radius: 4px;
 }
+
+.online {
+  color: var(--ok);
+  font-weight: 600;
+}

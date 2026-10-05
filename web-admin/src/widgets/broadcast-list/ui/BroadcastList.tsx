@@ -1,22 +1,24 @@
 import { useMemo, useState } from 'react';
-import { BROADCAST_PAGE, INBOX_TAG_LABEL, useBroadcasts, useRefreshBroadcasts } from '@/entities/inbox';
+import { INBOX_TAG_LABEL, useBroadcasts, useRefreshBroadcasts } from '@/entities/inbox';
 import { BroadcastActions, BulkBroadcastActions } from '@/features/notice/manage-broadcast';
-import { errorMessage, formatDate, paginate, useSelection } from '@/shared/lib';
+import { errorMessage, formatDate, readPageSize, usePaging, useSelection } from '@/shared/lib';
 import { Pager, RowCheckbox, SelectAllCheckbox, SelectionBar } from '@/shared/ui';
 import styles from './BroadcastList.module.css';
 
-const PAGE_SIZE = 30;
+const LIST_KEY = 'broadcasts';
 
 export function BroadcastList() {
-  const [limit, setLimit] = useState(BROADCAST_PAGE);
-  const { data, error, isFetching } = useBroadcasts(limit);
+  const [limit, setLimit] = useState(() => readPageSize(LIST_KEY));
+  const { data, error } = useBroadcasts(limit);
   const broadcasts = data?.items;
   const refresh = useRefreshBroadcasts();
-  const [page, setPage] = useState(1);
   const list = useMemo(() => broadcasts ?? [], [broadcasts]);
-  const view = paginate(list, page, PAGE_SIZE);
+  const paging = usePaging(list, LIST_KEY);
+  // 통째로 받지 않는다 — 처음엔 첫 쪽만큼, 받아 둔 것보다 뒤쪽으로 가거나 개수를 늘리면 그 쪽까지만 더 받는다.
+  const need = paging.want * paging.size;
+  if (need > limit && data?.hasMore) setLimit(need);
   const ids = useMemo(() => list.map((b) => b.id), [list]);
-  const pageIds = useMemo(() => view.items.map((b) => b.id), [view.items]);
+  const pageIds = useMemo(() => paging.items.map((b) => b.id), [paging.items]);
   const selection = useSelection(ids, pageIds);
   const selected = list.filter((b) => selection.isSelected(b.id));
 
@@ -48,7 +50,7 @@ export function BroadcastList() {
         {error && errorMessage(error, '공지 목록을 불러오지 못했어요')}
         {!error && !broadcasts && '불러오는 중…'}
         {broadcasts?.length === 0 && '보낸 공지가 없어요'}
-        {view.items.map((b) => (
+        {paging.items.map((b) => (
           <div key={b.id} className="row">
             <RowCheckbox
               label={`${b.title || '제목 없음'} 선택`}
@@ -66,17 +68,7 @@ export function BroadcastList() {
           </div>
         ))}
       </div>
-      <Pager page={view.page} pageCount={view.pageCount} onChange={setPage} />
-      {data?.hasMore && (
-        <button
-          type="button"
-          className="btn"
-          disabled={isFetching}
-          onClick={() => setLimit((n) => n + BROADCAST_PAGE)}
-        >
-          {isFetching ? '불러오는 중…' : '더 보기'}
-        </button>
-      )}
+      <Pager paging={paging} more={data?.hasMore} />
     </section>
   );
 }
