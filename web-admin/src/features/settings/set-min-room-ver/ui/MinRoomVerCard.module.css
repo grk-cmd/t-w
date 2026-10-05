@@ -8,9 +8,19 @@
 .row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 4px;
 }
 
-.row input {
-  flex: 1 1 7em;
+.part {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 숫자 네 자리까지 — 전역 input 의 flex: 1 보다 세게 */
+.part input {
+  flex: 0 0 5em;
+  width: 5em;
+  text-align: center;
 }
