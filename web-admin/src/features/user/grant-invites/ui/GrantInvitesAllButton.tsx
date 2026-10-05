@@ -42,7 +42,8 @@ export function GrantInvitesAllButton() {
         onClose={() => setOpen(false)}
       >
         <p>
-          대상 <b>{uids.length}명</b> <span className="soft">· 초대권 칸 없음 · 999장은 건너뜀</span>
+          대상 <b>{uids.length}명</b>{' '}
+          <span className="soft">· 초대 정보가 없는 계정 · 이미 999장인 계정은 빼고 줘요</span>
         </p>
         <CountStepper value={count} onChange={setCount} />
         {!r && (

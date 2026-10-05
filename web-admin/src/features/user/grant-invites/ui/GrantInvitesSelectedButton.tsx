@@ -46,7 +46,7 @@ export function GrantInvitesSelectedButton({ uids, onDone }: Props) {
         locked={running}
         onClose={close}
       >
-        <p className="soft">초대권 칸 없음 · 999장은 건너뜀</p>
+        <p className="soft">초대 정보가 없는 계정 · 이미 999장인 계정은 빼고 줘요</p>
         <CountStepper value={count} onChange={setCount} />
         {grant.progress && (
           <>

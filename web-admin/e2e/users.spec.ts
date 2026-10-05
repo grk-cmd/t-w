@@ -94,7 +94,7 @@ test('초대권 칸이 없는 계정에는 지급 버튼이 잠긴다', async ({
 
   await userRow(page, 'MATE-CCC3').getByRole('button', { name: '초대권 지급' }).click();
   const dialog = page.getByRole('dialog');
-  await expect(dialog.getByText('지금 초대권 칸 없음')).toBeVisible();
+  await expect(dialog.getByText('지금 초대 정보 없음')).toBeVisible();
   await expect(dialog.getByRole('button', { name: '1장 지급' })).toBeDisabled();
   await dialog.getByRole('button', { name: '취소' }).click();
   expect(await dbGet('users/unoacct000004/invite')).toBeNull();
