@@ -36,6 +36,7 @@
   import { createRoomIndex } from "./room-index.js";
   import { createRoomStats } from "./room-stats.js";
   import { createInviteAccount } from "./invite-account.js";
+  import { createAppVersion } from "./app-version.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -240,6 +241,7 @@
   let _myPokeRef = null, _myPokeListener = null, _memberId = null, _roomCode = null;
   let _friendListListeners = {};   // {friendId: {profileUnsub, presenceUnsub, bioUnsub, avatarUnsub}} — 각 친구별 실시간 구독 정리용
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
+  let _presenceWritten = false;   // presence 를 한 번이라도 set 했는가 — 버전이 늦게 오면 그때만 메운다
   let _mobLive = null;   // 📱 태블릿·폰 연결 — { uid, stop } (mobileLinkStart)
   let _sessionRef = null, _sessionId = null, _sessionUnsub = null, _sessionLost = false;   // 🖥️ 한 계정 한 기기(claimDeviceSession)
   // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
@@ -355,6 +357,16 @@
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
   const _roomStats = createRoomStats({ db, ref, get, onValue, now: () => _svNow() });
+  /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
+     버전보다 presence 가 먼저 쓰였으면 받은 뒤 ver 만 update 하고 onDisconnect 도 ver 를 실어 다시 건다. */
+  const _appVer = createAppVersion({
+    getVersion: () => (window.companion && window.companion.getAppVersion) ? window.companion.getAppVersion() : null,
+    onReady: (ver) => {
+      if(!_myPresenceRef || !_presenceWritten) return;
+      try{ onDisconnect(_myPresenceRef).set(_appVer.withVer({ online:false, lastSeen: Date.now() })); }catch(_){}
+      update(_myPresenceRef, { ver }).catch(()=>{});
+    },
+  });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
@@ -388,8 +400,9 @@
   }
 
   /* 🔐 계정 스냅샷 한 벌을 accountSnap 규칙 모양으로 — 범위 밖 항목은 **그 항목만** 뺀다(null = 쓰지 않음).
-     규칙(firebase-database-rules.json accountSnap)과 같은 값: license ≤40 · focusTotalSec 0..359640000 · name ≤40 · friendCode ≤12 · ts 숫자 · 그 밖 거절. */
-  function _acctSnapClean(snap, ts){
+     규칙(firebase-database-rules.json accountSnap)과 같은 값: license ≤40 · focusTotalSec 0..359640000 · name ≤40 · friendCode ≤12 · ts 숫자 · ver ≤20 · 그 밖 거절.
+     ver 는 스냅샷 값이 아니라 지금 앱 버전이다 — 웹 관리자가 사용자 수천 명의 버전을 이 모음 한 번으로 센다(presence 를 한 명씩 읽지 않게). */
+  function _acctSnapClean(snap, ts, ver){
     const s = snap || {};
     const str = (v, n) => (typeof v === 'string' && v && v.length <= n) ? v : null;
     const f = Number(s.focusTotalSec);
@@ -398,7 +411,8 @@
       focusTotalSec: (s.focusTotalSec != null && Number.isFinite(f) && f >= 0 && f <= 359640000) ? f : null,
       name: (typeof s.name === 'string' && s.name) ? s.name.slice(0, 40) : null,
       friendCode: str(s.friendCode, 12),
-      ts: Number.isFinite(ts) ? ts : Date.now()
+      ts: Number.isFinite(ts) ? ts : Date.now(),
+      ver: str(ver, 20)
     };
   }
 
@@ -1091,12 +1105,13 @@
            온라인으로 되돌리면 안 된다(setMyPresenceState 가 이 값을 세운다). */
       const _armPresence = ()=>{
         if(!_myPresenceRef) return;
-        onDisconnect(_myPresenceRef).set({ online:false, lastSeen: Date.now() });
-        set(_myPresenceRef, {
+        onDisconnect(_myPresenceRef).set(_appVer.withVer({ online:false, lastSeen: Date.now() }));
+        set(_myPresenceRef, _appVer.withVer({
           online: _presenceOnline, lastSeen: Date.now(),
           room:   _presenceOnline ? _presenceRoom   : null,
           inRoom: _presenceOnline ? _presenceInRoom : false
-        });
+        }));
+        _presenceWritten = true;
       };
       /* 🚧 presence 도 소유권이 걸린 가지다 — 세션 복원 전에 쓰면 조용히 거부되고,
          그 기기는 친구 목록에서 영영 오프라인으로 보인다(재접속 복구가 돌기 전까지).
@@ -1143,9 +1158,10 @@
       _presenceOnline = !!online;
       if(!_myPresenceRef){
         _myPresenceRef = ref(db, `users/${userId}/presence`);
-        onDisconnect(_myPresenceRef).set({ online:false, lastSeen: Date.now() });
+        onDisconnect(_myPresenceRef).set(_appVer.withVer({ online:false, lastSeen: Date.now() }));
       }
-      set(_myPresenceRef, { online: _presenceOnline, lastSeen: Date.now(), room: _presenceOnline ? _presenceRoom : null, inRoom: _presenceOnline ? _presenceInRoom : false });
+      set(_myPresenceRef, _appVer.withVer({ online: _presenceOnline, lastSeen: Date.now(), room: _presenceOnline ? _presenceRoom : null, inRoom: _presenceOnline ? _presenceInRoom : false }));
+      _presenceWritten = true;
     },
     /* ═══════════ 📱 태블릿·폰 포커싱 연결 (개정 74 · handoff-2026-09-18 §4) ═══════════
        mobileKeys/{uid}       = "<키>"                 읽기 금지 · PC 만 쓴다(규칙)
@@ -3177,12 +3193,13 @@
     },
 
     // ---- 라이선스 요청 (일반 유저가 앱 안에서 요청 → 관리자가 확인 후 발급) ----
-    // licenseRequests/{reqId} = { name, status:'pending'|'approved', requestedAt, issuedKey|null, approvedAt|null }
+    // licenseRequests/{reqId} = { name, status:'pending'|'approved', requestedAt, issuedKey|null, approvedAt|null, ver? }
 
     // 사용자: 라이선스 요청 보내기(내 표시 이름과 함께)
     async requestLicense(name){
       const reqId = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      await set(ref(db, `licenseRequests/${reqId}`), { name: name||'(이름 없음)', status:'pending', requestedAt: serverTimestamp(), issuedKey:null });
+      await _appVer.ready;
+      await set(ref(db, `licenseRequests/${reqId}`), _appVer.withVer({ name: name||'(이름 없음)', status:'pending', requestedAt: serverTimestamp(), issuedKey:null }));
       return reqId;
     },
     // 관리자: 대기 중인 요청 목록 실시간 구독
@@ -3935,13 +3952,18 @@
        ⚠️ 값이 규칙 범위를 벗어나면 그 항목만 뺀다 — 하나가 틀려 통째로 거절되면 라이선스까지 못 남긴다. */
     async setAccountSnapshot(userCode, snap){
       if(!userCode || !snap) return { ok:false };
-      try{
-        await update(ref(db), {
-          [`accountSnap/${userCode}`]: _acctSnapClean(snap, Date.now()),
-          [`users/${userCode}/transferData`]: null
-        });
-        return { ok:true };
-      }catch(e){ return { ok:false }; }
+      await _appVer.ready;
+      const ver = _appVer.get();
+      const write = (v) => update(ref(db), {
+        [`accountSnap/${userCode}`]: _acctSnapClean(snap, Date.now(), v),
+        [`users/${userCode}/transferData`]: null
+      });
+      try{ await write(ver); return { ok:true }; }
+      catch(e){
+        // 규칙에 accountSnap ver 가 아직 없으면($other:false) 통째로 거절된다 — 라이선스는 남기도록 ver 를 빼고 한 번 더.
+        if(ver){ try{ await write(null); return { ok:true }; }catch(_){} }
+        return { ok:false };
+      }
     },
     /* 로그인 직후 복원용 — 옛 verifyTransfer(개정 52 걷음)가 돌려주던 것과 **같은 모양**
        { ok, license, focusTotalSec, name, friendCode } — app.js 의 _applyTransferSnapshot 이 이 모양 하나만 받는다(복원 규칙이 한 벌).

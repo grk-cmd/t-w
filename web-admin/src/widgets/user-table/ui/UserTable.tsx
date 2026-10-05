@@ -4,6 +4,7 @@ import {
   realName,
   useUserName,
   useUserPresence,
+  verLabel,
   type UserRow,
 } from '@/entities/user';
 import { useUserInvite } from '@/entities/invite';
@@ -82,13 +83,14 @@ export function UserTable({ rows, startIndex, selection, licenseCounts, onOpen }
             <th>집중</th>
             <th>가입</th>
             <th>마지막 접속</th>
+            <th>버전</th>
             <th />
           </tr>
         </thead>
         <tbody>
           {rows.length === 0 && (
             <tr>
-              <td colSpan={10} className="soft">
+              <td colSpan={11} className="soft">
                 조건에 맞는 사용자가 없어요
               </td>
             </tr>
@@ -135,6 +137,7 @@ export function UserTable({ rows, startIndex, selection, licenseCounts, onOpen }
               <td>
                 <LastSeenCell uid={row.userCode} />
               </td>
+              <td className={row.ver ? undefined : 'soft'}>{verLabel(row)}</td>
               <td>
                 <GrantInvitesButton uid={row.userCode} who={row.name ?? row.friendCode ?? row.userCode} />
               </td>

@@ -1,5 +1,6 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
+import { cleanVer } from '../model/version';
 
 const FRIEND_CODE_PREFIXES = ['MATE', 'COZY'];
 
@@ -48,11 +49,15 @@ export interface Presence {
   lastSeen: number | null;
   /** 접속 중일 때 들어가 있는 방 코드. 시크릿룸은 앱이 코드를 올리지 않아 늘 null 이다. */
   room: string | null;
+  /** 앱 버전 — 0.10.3 부터. 꺼진 뒤에도 남는다. 옛 앱은 null. */
+  ver: string | null;
 }
 
-// presence 는 online · lastSeen · room · inRoom 네 칸뿐이라 통째로 읽는다(접속 중인 사람은 lastSeen 이 접속한 시각이라 online 도 봐야 한다).
+// presence 는 online · lastSeen · room · inRoom · ver 다섯 칸뿐이라 통째로 읽는다(접속 중인 사람은 lastSeen 이 접속한 시각이라 online 도 봐야 한다).
 export async function getUserPresence(db: Db, uid: string): Promise<Presence | null> {
-  const p = await db.get<{ online?: unknown; lastSeen?: unknown; room?: unknown }>(`users/${uid}/presence`);
+  const p = await db.get<{ online?: unknown; lastSeen?: unknown; room?: unknown; ver?: unknown }>(
+    `users/${uid}/presence`,
+  );
   if (!p) return null;
   const online = p.online === true;
   return {
@@ -60,6 +65,7 @@ export async function getUserPresence(db: Db, uid: string): Promise<Presence | n
     lastSeen: typeof p.lastSeen === 'number' ? p.lastSeen : null,
     // 끈 앱은 room 을 지우지 못하고 남길 수 있다 — 접속 중일 때만 믿는다.
     room: online && typeof p.room === 'string' && p.room ? p.room : null,
+    ver: cleanVer(p.ver),
   };
 }
 

@@ -382,3 +382,50 @@ test('상세 창에서 초대권을 지급하면 창과 목록이 함께 갱신�
   await detail.getByRole('button', { name: '닫기' }).click();
   await expect(userRow(page, '김민수')).toContainText('초대권 3장');
 });
+
+test('버전 — 계정 요약의 ver 로 칸 · 최근 7일 버전별 사용자 · 누르면 그 버전만', async ({ page, seed }) => {
+  const recent = Date.now() - 60 * 60 * 1000;
+  await seed({
+    ...DATA,
+    accountSnap: {
+      uminsu0000001: { ...DATA.accountSnap.uminsu0000001, ts: recent, ver: '0.10.3' },
+      ujiyoung00002: { ...DATA.accountSnap.ujiyoung00002, ts: recent - 1, ver: '0.10.3' },
+      // 옛 앱 — 버전 기록 없음
+      urevoked00003: { ...DATA.accountSnap.urevoked00003, ts: recent - 2 },
+      // 7일 넘게 안 켬 — 칸에는 보이지만 버전별 사용자에는 안 센다
+      uold000000006: { name: '오래전', friendCode: 'MATE-FFF6', ts: T0, ver: '0.10.4' },
+    },
+    users: {
+      ...DATA.users,
+      uminsu0000001: { ...DATA.users.uminsu0000001, presence: { online: true, lastSeen: T0, ver: '0.10.3' } },
+    },
+  });
+  await openMenu(page, 'users');
+
+  await count(page, '5 / 5명');
+  await expect(userRow(page, '김민수')).toContainText('0.10.3');
+  await expect(userRow(page, '이회수')).toContainText('0.10.2 이하');
+  await expect(userRow(page, '오래전')).toContainText('0.10.4');
+
+  const summary = page.getByText('버전별 사용자 · 최근 7일').locator('..');
+  await expect(summary.getByRole('button')).toHaveText(['0.10.32명 · 67%', '0.10.2 이하1명 · 33%']);
+
+  await summary.getByRole('button', { name: /^0\.10\.3/ }).click();
+  await count(page, '2 / 5명');
+  await expect(userRow(page, '김민수')).toBeVisible();
+  await expect(userRow(page, '박지영')).toBeVisible();
+  await summary.getByRole('button', { name: /0\.10\.2 이하/ }).click();
+  await count(page, '1 / 5명');
+  await expect(userRow(page, '이회수')).toBeVisible();
+  // 다시 누르면 푼다.
+  await summary.getByRole('button', { name: /0\.10\.2 이하/ }).click();
+  await count(page, '5 / 5명');
+
+  // 상세 창은 presence 의 버전.
+  await userRow(page, '김민수').getByRole('button', { name: '김민수' }).click();
+  const detail = page.getByRole('dialog', { name: '김민수 상세' });
+  await expect(field(detail, '앱 버전')).toHaveText('0.10.3');
+  await detail.getByRole('button', { name: '닫기' }).click();
+  await userRow(page, '이회수').getByRole('button', { name: '이회수' }).click();
+  await expect(field(page.getByRole('dialog', { name: '이회수 상세' }), '앱 버전')).toHaveText('기록 없음');
+});

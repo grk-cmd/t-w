@@ -48,6 +48,7 @@ export function RequestList() {
               <b>{req.name || '(이름 없음)'}</b>
               <code className="key">{req.friendCode}</code>
               <small className="soft">{formatDate(req.requestedAt)}</small>
+              {req.ver && <small className="soft">v{req.ver}</small>}
             </span>
             <RequestActions request={req} />
           </div>

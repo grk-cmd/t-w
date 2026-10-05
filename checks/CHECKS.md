@@ -810,6 +810,7 @@
 | **sim-fly-roulette.js** | 147 | **a96af26bba03** ← **개정 58 신설 · 🔫 러시안룰렛** · **개정 58-b 4절 투게더룸 🎲 도 룰렛** · **개정 59 기록 문장 꼬리 없음** · **개정 63 투게더룸에서 숨김** · **개정 76 5절 🎟️ 하루 6번** |
 | **sim-license-xlsx.js** | 82 | **eb779c819cb0** ← **개정 76 신설 · 📄 관리자 라이선스 엑셀(xlsx·csv) 일괄 발급** · **개정 82 1절 좁은 창이면 일괄 창만** |
 | **sim-room-stats.js** | 188 | **ebeceb1be37b** ← **2026-10-03 신규 · 📊 방 개수 서버 요약 — functions/room-stats.js 집계 · room-index.js channel·open 다시 싣기 · room-stats.js 신선도 · firebase-init 연결 · 규칙 읽기 전용 (모듈을 그대로 불러 가짜 DB)** |
+| **sim-app-version.js** | 152 | **11f90aed8615** ← **2026-10-06 신규 · 🏷️ 앱 버전(ver)을 presence · 라이선스 요청 · accountSnap 에 — app-version.js 를 그대로 돌림 · presence 를 통째로 쓰는 자리 전부 ver · 늦게 오면 update · 규칙 셋(없어도 통과 · 문자열 20자) · 규칙 배포 전이면 accountSnap 은 ver 빼고 다시** |
 | **sim-invite-account.js** | 79 | **9974af64f5c8** ← **2026-10-03 신규 · 초대 계정 읽기 — 판정 = 예전 판정 · invite 먼저 · 폴백 · 런처 동작 그대로** |
 | **sim-room-invite-wait.js** | 43 | **7161a20222f3** ← **개정 78 신설 · ⏳ 방 초대 팝업이 화면을 막지 않음 · 3분 뒤 자동 거절** |
 | **sim-focus-auth.js** | 90 | **58a1ca1bdfad** ← 2026-09-16 (제보 6 포커스 auth) · 개정 10 등재 |
@@ -820,7 +821,7 @@
 | sim-ghost-cache-sync.js | 273 | 356d2cabc722 |
 | **sim-ghost-heal.js** | 88 | **06792553a038** ← **2026-10-03 신규 · 방 «유령» 복구 — room-ghost-heal.js(복구 판단 · 가짜 DB) + firebase-init.js 연결** |
 | **sim-friend-code-keep.js** | 217 | **ab254584ef33** ← 2026-09-20 신규 · 제보 3-2 친추코드 유지 + 제보 3-1 스냅샷 없이도 소지품 복원 (§31 · 개정 27) · **개정 56 되찾기 갈래 걷음 · 계정에 코드 없을 때 (가)** |
-| **sim-google-login.js** | 577 | **7448bb354492** ← **2026-10-04 accountSnap 모음 관리자 읽기(웹 관리자 사용자 목록)** · **2026-10-03 ⑦ closed 콜백 본문 안의 finish 로 판정** · **2026-10-03 users/invite 주인 또는 관리자** · 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) · **2026-09-22 계정 자리 [내 정보] · 이전/연동/해제·되찾기 걷음 · transferHash 지우기만 (개정 45)** · **개정 48 #lcMyInfo** · **개정 52 §7 통로 걷음** · **개정 54 §3 이메일 거울** · **개정 55 §8 transferData 지우기만 · accountSnap 규칙 · §9 스냅샷 자리** · **개정 56 ① 버린 uid 안 적음 · _setMyUserId** · **개정 57 §5 갈아타기 전 정리 순서 · 실패** |
+| **sim-google-login.js** | 578 | **268284aaf4f5** ← **2026-10-06 §9 가짜 문맥에 _appVer 자리(setAccountSnapshot 이 버전을 기다린다 · 판정 무변경)** · **2026-10-04 accountSnap 모음 관리자 읽기(웹 관리자 사용자 목록)** · **2026-10-03 ⑦ closed 콜백 본문 안의 finish 로 판정** · **2026-10-03 users/invite 주인 또는 관리자** · 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) · **2026-09-22 계정 자리 [내 정보] · 이전/연동/해제·되찾기 걷음 · transferHash 지우기만 (개정 45)** · **개정 48 #lcMyInfo** · **개정 52 §7 통로 걷음** · **개정 54 §3 이메일 거울** · **개정 55 §8 transferData 지우기만 · accountSnap 규칙 · §9 스냅샷 자리** · **개정 56 ① 버린 uid 안 적음 · _setMyUserId** · **개정 57 §5 갈아타기 전 정리 순서 · 실패** |
 | sim-invite-gate.js | 99 | 98990b71a1f1 |
 | **sim-item-rot.js** | 85 | **039eb445cd61** ← 2026-09-16 (제보 4 아이템 회전) · 개정 10 등재 |
 | **sim-key-input.js** | 68 | **65094b1b9190** ← **개정 83 신설 · ⌨️ 글자 단축키 · 한글 조합 Enter (key-input.js)** |

@@ -1,6 +1,7 @@
 // 사용자 한 줄은 계정 요약 · 친구코드 명단 · 발급된 키를 맞춰 본 결과라 두 entity 를 @x 통로로 함께 쓴다.
 import type { AccountSnap } from '@/entities/account/@x/user';
 import { licenseStatus, type License, type LicenseStatus } from '@/entities/license/@x/user';
+import { cleanVer } from './version';
 
 export type UserLicense = LicenseStatus | 'none' | 'unknown';
 
@@ -25,6 +26,8 @@ export interface UserRow {
   hasAccount: boolean;
   lastSeen: number;
   focusTotalSec: number;
+  /** 계정 요약의 앱 버전. 없으면 null — 옛 앱이거나 계정이 없다. */
+  ver: string | null;
 }
 
 // 앱은 이름을 안 정한 사람에게 이 글자를 실제 이름처럼 저장한다 — 이름이 없는 것으로 본다.
@@ -55,6 +58,7 @@ export function buildUserRows(
       hasAccount: true,
       lastSeen: snap.ts ?? 0,
       focusTotalSec: snap.focusTotalSec ?? 0,
+      ver: cleanVer(snap.ver),
     });
   }
 
@@ -70,6 +74,7 @@ export function buildUserRows(
       hasAccount: false,
       lastSeen: 0,
       focusTotalSec: 0,
+      ver: null,
     });
   }
 

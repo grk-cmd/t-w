@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { licenseUseCounts } from '@/entities/user';
+import { licenseUseCounts, matchesVer } from '@/entities/user';
 import {
   CreateInviteCodesButton,
   GrantInvitesAllButton,
@@ -13,8 +13,10 @@ import {
   PERIOD_FIELDS,
   usePeriodTimes,
   UserFilterBar,
+  VersionSummary,
   type UserFilter,
   type UserSearch,
+  type VerFilter,
 } from '@/features/user/user-filter';
 import { errorMessage, usePaging, useSelection } from '@/shared/lib';
 import { Pager, SelectionBar } from '@/shared/ui';
@@ -26,15 +28,17 @@ export function UsersPage() {
   const { rows, error, refresh } = useUserRows();
   const [filter, setFilter] = useState<UserFilter>('all');
   const [search, setSearch] = useState<UserSearch>(NO_SEARCH);
+  const [ver, setVer] = useState<VerFilter>(undefined);
   const [openUid, setOpenUid] = useState<string | null>(null);
   const openRow = useMemo(() => rows?.find((r) => r.userCode === openUid) ?? null, [rows, openUid]);
 
   // 키 중복은 이미 받은 계정 요약의 키로 센다 — 따로 내려받지 않는다.
   const licenseCounts = useMemo(() => (rows ? licenseUseCounts(rows) : null), [rows]);
-  const base = useMemo(
-    () => (rows && licenseCounts ? filterUsers(rows, filter, search.text, licenseCounts) : null),
-    [rows, licenseCounts, filter, search.text],
-  );
+  const base = useMemo(() => {
+    if (!rows || !licenseCounts) return null;
+    const found = filterUsers(rows, filter, search.text, licenseCounts);
+    return ver === undefined ? found : found.filter((r) => matchesVer(r, ver));
+  }, [rows, licenseCounts, filter, search.text, ver]);
   // 기간은 사람마다 한 칸씩 읽어야 알 수 있다 — 기간을 걸었을 때만, 칩 · 글자로 좁힌 사람만 읽는다.
   const periodOn = hasPeriod(search.period);
   const { times, progress } = usePeriodTimes(periodOn ? base : null, search.period.field);
@@ -58,6 +62,10 @@ export function UsersPage() {
     setSearch(next);
     paging.setPage(1);
   };
+  const changeVer = (next: VerFilter) => {
+    setVer(next);
+    paging.setPage(1);
+  };
 
   return (
     <section className="card">
@@ -73,6 +81,7 @@ export function UsersPage() {
           새로고침
         </button>
       </div>
+      {rows && <VersionSummary rows={rows} value={ver} onChange={changeVer} />}
       <UserFilterBar filter={filter} search={search} onFilterChange={changeFilter} onSearch={changeSearch} />
       {error && <p className="msg err">{errorMessage(error, '사용자 목록을 불러오지 못했어요')}</p>}
       {!error && !rows && <p className="soft">불러오는 중…</p>}

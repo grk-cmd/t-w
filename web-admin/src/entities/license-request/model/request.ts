@@ -4,6 +4,8 @@ export interface LicenseRequest {
   name: string;
   friendCode: string;
   requestedAt: number;
+  /** 요청한 앱의 버전 — 0.10.3 부터. 옛 앱은 null. */
+  ver?: string | null;
 }
 
 export interface RawRequest {
@@ -11,6 +13,7 @@ export interface RawRequest {
   friendCode?: string;
   status?: string;
   requestedAt?: number;
+  ver?: unknown;
 }
 
 export function pendingRequests(all: Record<string, RawRequest>): LicenseRequest[] {
@@ -21,6 +24,7 @@ export function pendingRequests(all: Record<string, RawRequest>): LicenseRequest
       name: r.name ?? '',
       friendCode: r.friendCode ?? '',
       requestedAt: r.requestedAt ?? 0,
+      ver: typeof r.ver === 'string' && r.ver ? r.ver : null,
     }))
     .sort((a, b) => a.requestedAt - b.requestedAt);
 }
