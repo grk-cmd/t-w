@@ -105,7 +105,8 @@ small {
 }
 
 input[type='text'],
-input[type='search'] {
+input[type='search'],
+input[type='number'] {
   flex: 1;
   min-width: 0;
   padding: 8px 10px;
