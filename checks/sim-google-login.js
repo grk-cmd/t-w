@@ -518,6 +518,7 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
         const put = (p, v) => { const ks = p.split('/').filter(Boolean); let o = data; for (let i = 0; i < ks.length - 1; i++){ o[ks[i]] = o[ks[i]] || {}; o = o[ks[i]]; }
           if (v === null) delete o[ks[ks.length - 1]]; else o[ks[ks.length - 1]] = JSON.parse(JSON.stringify(v)); };
         const c = { db: {}, Date: { now: () => 5000 }, Number, JSON, String,
+          _appVer: { ready: Promise.resolve(null), get: () => null },   // 버전 쪽은 sim-app-version.js 가 본다
           ref: (db, p) => ({ p: p || '' }),
           get: async r => { log.push('get:' + r.p); if (opts.denyNew && /^accountSnap\//.test(r.p)) throw new Error('PERMISSION_DENIED'); const v = at(r.p); return { val: () => (v === undefined ? null : v) }; },
           update: async (r, patch) => { log.push('update:' + (r.p || '/') + ':' + Object.keys(patch).sort().join(',')); if (opts.denyUpdate) throw new Error('PERMISSION_DENIED'); for (const k in patch) put((r.p ? r.p + '/' : '') + k, patch[k]); } };
