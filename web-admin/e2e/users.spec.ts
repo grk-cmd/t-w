@@ -24,8 +24,13 @@ const DATA = {
     'DEAD-AAAA-AAAA-AAAA': { valid: false, createdAt: T0 },
   },
   users: {
-    uminsu0000001: { invite: { invitesLeft: 2 }, presence: { online: true, lastSeen: T0 } },
-    ujiyoung00002: { invite: { invitesLeft: 0 } },
+    uminsu0000001: {
+      invite: { invitesLeft: 2, joinedAt: Date.UTC(2026, 8, 10, 3) },
+      presence: { online: true, lastSeen: T0 },
+    },
+    ujiyoung00002: {
+      invite: { invitesLeft: 0, invitedBy: 'uminsu0000001', joinedAt: Date.UTC(2026, 9, 3, 3) },
+    },
     urevoked00003: { invite: { invitesLeft: 998 } },
     unoacct000004: { profile: { name: '계정없는이' }, presence: { online: false, lastSeen: T0 + 60_000 } },
   },
@@ -48,6 +53,9 @@ test('목록 · 검색 · 필터 칩', async ({ page, seed }) => {
   await expect(userRow(page, 'MATE-CCC3')).toContainText(new RegExp(`2026-01-01 \\d{2}:01`));
   await expect(userRow(page, '김민수')).toContainText('접속 중');
   await expect(userRow(page, '박지영')).toContainText('—');
+  // 가입 — 초대한 사람이 없으면 «기존», 있으면 «초대». 칸이 없으면(옛 앱) «—».
+  await expect(userRow(page, '김민수')).toContainText('2026-09-10 기존 · 초대권 2장');
+  await expect(userRow(page, '박지영')).toContainText('2026-10-03 초대 · 초대권 0장');
   // 최근 갱신 순 — 계정 없는 사람(갱신 기록 없음)이 맨 뒤.
   await expect(page.locator('tbody tr').first()).toContainText('김민수');
   await expect(page.locator('tbody tr').last()).toContainText('MATE-CCC3');
@@ -90,6 +98,7 @@ test('한 명에게 초대권을 지급하면 invitesLeft 가 늘어난다', asy
   await expect(toast(page)).toHaveText('김민수 님에게 초대권 2장 지급 · 지금 4장');
   await expect(dialog).toBeHidden();
   expect(await dbGet('users/uminsu0000001/invite/invitesLeft')).toBe(4);
+  await expect(userRow(page, '김민수')).toContainText('초대권 4장');
 });
 
 test('초대권 칸이 없는 계정에는 지급 버튼이 잠긴다', async ({ page, seed }) => {
