@@ -29,6 +29,12 @@ say('── 1. 배선');
   chk(/overlayId==='licenseGenOverlay' && e\.target && e\.target\.closest && e\.target\.closest\('#licenseXlsxWin'\)\) return;/.test(SRC),
     '바깥 클릭 예외 — 일괄 창 안 클릭이 발급 창을 닫지 않는다(box = 첫 자식이라 필요)');
   chk(!/vendor\/xlsx|sheetjs|XLSX\./i.test(strip(SRC)) && !/vendor\/xlsx/i.test(HTML), '새 라이브러리 없음 — JSZip 재사용');
+  /* 2026-10-04 · 좁은 런처 창에서 일괄 창이 아래 줄로 밀려 잘리던 것 — 자리가 없으면 발급 창을 숨기고 일괄 창만 */
+  const B = strip(SRC.slice(SRC.indexOf('(function bindLicenseXlsxBulk'), SRC.indexOf('(function bindLicenseXlsxBulk') + 30000));
+  chk(/const fits = [^;]*ov\.clientWidth >= mainBox\.offsetWidth \+ GAP \+ WIN_W/.test(B) && /setSolo\(!fits\);/.test(B), '옆에 설 자리가 없으면 일괄 창만 보인다');
+  chk(/function hideWin\(\)\{ win\.style\.display = 'none'; setSolo\(false\); \}/.test(B) && /gc\.addEventListener\('click', hideWin\)/.test(B)
+    && /window\._lxHideWin = hideWin;/.test(B), '닫으면(✕ · 발급 창 닫기) 발급 창이 돌아온다');
+  chk(/o\.style\.display='flex';\s*if\(typeof window\._lxHideWin==='function'\) window\._lxHideWin\(\);/.test(SRC), '발급 창을 다시 열면 발급 창부터');
   chk(/JSZip\.loadAsync\(buf\)/.test(grab('_lxReadXlsx')) && /new JSZip\(\)/.test(grab('_lxWriteXlsx')), '읽기·쓰기 모두 JSZip');
 }
 

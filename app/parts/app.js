@@ -33862,6 +33862,7 @@ function _renderLicenseGenListFiltered(){
 }
 document.getElementById('lcLicenseGen').onclick=()=>{
   const o=document.getElementById('licenseGenOverlay'); o.classList.add('on'); o.style.display='flex';
+  if(typeof window._lxHideWin==='function') window._lxHideWin();   // 일괄 창만 보이던 채로 닫혔어도 발급 창부터 연다
   document.getElementById('licenseGenResult').style.display='none';
   document.getElementById('licenseGenNote').value='';
   renderLicenseGenList();
@@ -34662,12 +34663,20 @@ async function _lxWriteXlsx(rows, sheetName){
     try{ downloadBlob(await _lxWriteXlsx([['친구코드', '메모']], '라이선스 발급'), '라이선스_일괄발급_양식.xlsx'); }
     catch(_){ toast('양식 파일을 만들지 못했어요'); }
   }
+  /* 두 창은 오버레이 안에서 옆으로 나란히 선다(flex-wrap). 런처 창처럼 좁은 OS 창에서는 일괄 창이 아래 줄로
+     밀려나 잘렸다 → 옆에 설 자리가 없으면 발급 창을 숨기고 일괄 창만 보인다(✕ 로 닫으면 발급 창이 돌아온다). */
+  const mainBox = win.parentElement && win.parentElement.firstElementChild;
+  const setSolo = (on) => { if(mainBox && mainBox !== win) mainBox.style.display = on ? 'none' : ''; };
+  function hideWin(){ win.style.display = 'none'; setSolo(false); }
   function closeWin(){
     if(S.running){ toast('발급 중이에요 — 끝날 때까지 기다려 주세요'); return; }
-    win.style.display = 'none';
+    hideWin();
   }
   openBtn.addEventListener('click', ()=>{
     if(!(window.firebaseAPI && firebaseAPI.lookupFriendCode && firebaseAPI.listLicenses)){ toast('네트워크 연결이 필요해요'); return; }
+    const ov = win.parentElement, GAP = 12, WIN_W = 440;
+    const fits = !ov || !mainBox || ov.clientWidth >= mainBox.offsetWidth + GAP + WIN_W + 16;
+    setSolo(!fits);
     win.style.display = 'block';
   });
   $('licenseXlsxClose').addEventListener('click', closeWin);
@@ -34681,8 +34690,8 @@ async function _lxWriteXlsx(rows, sheetName){
   $('licenseXlsxTplBtn').addEventListener('click', saveTemplate);
   /* 발급 창을 닫으면 이 창도 숨긴다(발급 중이면 진행은 계속되고, 다시 열면 결과가 남아 있다). */
   const gc = $('licenseGenClose');
-  if(gc) gc.addEventListener('click', ()=>{ win.style.display = 'none'; });
-  window._lxHideWin = ()=>{ win.style.display = 'none'; };
+  if(gc) gc.addEventListener('click', hideWin);
+  window._lxHideWin = hideWin;
 })();
 
 /* 🔒 시크릿룸 발급 (관리자) — 후원자 친구코드 + 발급 열쇠.
