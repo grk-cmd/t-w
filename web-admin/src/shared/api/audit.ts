@@ -32,6 +32,7 @@ export const AUDIT_ACTIONS = [
   'notice.broadcastDelete',
   'settings.adBanner',
   'settings.unlockLevel',
+  'settings.minRoomVer',
   'room.close',
   'room.closeAll',
   'room.cleanGhost',

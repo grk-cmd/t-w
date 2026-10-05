@@ -36,6 +36,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'notice.broadcastDelete': '공지 삭제',
   'settings.adBanner': '광고 배너',
   'settings.unlockLevel': '게임 설정',
+  'settings.minRoomVer': '방 입장 최소 버전',
   'room.close': '방 종료',
   'room.closeAll': '방 전체 종료',
   'room.cleanGhost': '유령 방 청소',
