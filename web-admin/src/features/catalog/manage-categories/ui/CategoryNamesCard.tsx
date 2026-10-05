@@ -43,7 +43,7 @@ function NameRow({ cat }: { cat: CatView }) {
   };
 
   return (
-    <form className="row" onSubmit={submit}>
+    <form className={`row ${styles.line}`} onSubmit={submit}>
       <EmojiInput
         label={`${cat.cat} 아이콘`}
         maxLength={ICON_MAX}

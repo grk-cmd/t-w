@@ -12,3 +12,18 @@
     columns: 2;
   }
 }
+
+/* 줄마다 ID 길이가 달라 이름 칸 폭이 들쭉날쭉하지 않게 — 칸 자리를 고정한다 */
+:global(.row).line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 6.5em auto;
+}
+
+.line > input {
+  width: 100%;
+  min-width: 0;
+}
+
+.line > :global(.note) {
+  grid-column: 1 / -1;
+}
