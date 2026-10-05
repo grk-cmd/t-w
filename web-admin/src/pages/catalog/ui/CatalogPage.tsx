@@ -22,6 +22,7 @@ const TABS: Tab[] = [
     ),
   },
   { id: 'parts', label: '파츠', render: () => <CatalogList kind="parts" /> },
+  { id: 'gachaParts', label: '가챠 파츠', render: () => <CatalogList kind="gachaParts" /> },
   { id: 'desks', label: '책상', render: () => <CatalogList kind="desks" editable /> },
   { id: 'items', label: '아이템', render: () => <CatalogList kind="items" editable /> },
 ];
