@@ -34,6 +34,12 @@ export async function dbSetAs(idToken: string, path: string, value: unknown): Pr
   return res.status;
 }
 
+/** 규칙을 거쳐 읽기 — 거부되면 HTTP 상태(401 등)를 그대로 돌려준다. */
+export async function dbGetAs(idToken: string, path: string): Promise<number> {
+  const res = await fetch(`${url(path)}&auth=${idToken}`);
+  return res.status;
+}
+
 const AUTH = 'http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1';
 
 /** 인증 에뮬레이터에 이메일 계정을 만들고 ID 토큰을 받는다. */
