@@ -1,43 +1,15 @@
-import {
-  catalogCommit,
-  customCatWrite,
-  overrideWrite,
-  removeCustomCatsWrite,
-  revertOverridesWrite,
-  type CatalogWrite,
-  type CustomCatInput,
-} from '@/entities/catalog';
+import { catalogCommit, categoryNameWrite, type CatalogWrite, type CatView } from '@/entities/catalog';
 import type { Db } from '@/shared/api';
 
-// 모두 쓴 묶음을 돌려준다 — 받아 둔 목록에 그대로 반영해 노드를 다시 받지 않으려고.
-
-export async function addCustomCat(db: Db, input: CustomCatInput, now = Date.now()): Promise<CatalogWrite> {
-  const write = customCatWrite(input, now);
-  await catalogCommit(db, write);
-  return write;
-}
-
-/** 카테고리만 지운다 — 그 카테고리의 파츠 데이터는 남는다(앱과 같다). */
-export async function deleteCustomCats(db: Db, ids: readonly string[]): Promise<CatalogWrite> {
-  const write = removeCustomCatsWrite(ids);
-  await catalogCommit(db, write);
-  return write;
-}
-
-export async function saveCatOverride(
+/** 쓴 묶음을 돌려준다 — 받아 둔 목록에 그대로 반영해 노드를 다시 받지 않으려고. */
+export async function saveCategoryName(
   db: Db,
-  cat: string,
+  cat: CatView,
   label: string,
   icon: string,
   now = Date.now(),
 ): Promise<CatalogWrite> {
-  const write = overrideWrite(cat, label, icon, now);
-  await catalogCommit(db, write);
-  return write;
-}
-
-export async function revertCatOverrides(db: Db, cats: readonly string[]): Promise<CatalogWrite> {
-  const write = revertOverridesWrite(cats);
+  const write = categoryNameWrite(cat, label, icon, now);
   await catalogCommit(db, write);
   return write;
 }

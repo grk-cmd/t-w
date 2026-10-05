@@ -12,9 +12,6 @@ export const PART_GROUPS: readonly { group: PartGroup; label: string; icon: stri
   { group: 'desk', label: '책상', icon: '🪑' },
 ];
 
-// 규칙 customCats .validate 가 받는 그룹 — 앱 화면은 책상 그룹에도 «추가» 가 있지만 규칙이 거절한다.
-export const CUSTOM_GROUPS: readonly CustomGroup[] = ['head', 'cloth', 'deco', 'hand'];
-
 export interface BuiltinCat {
   cat: string;
   label: string;
@@ -36,20 +33,8 @@ export const BUILTIN_CATS: readonly BuiltinCat[] = [
   { cat: 'deskitem', label: '책상 위', icon: '🪑', group: 'desk' },
 ];
 
-export const BONES = ['head', 'spine', 'handL', 'handR'] as const;
-export type Bone = (typeof BONES)[number];
-
-// 앱 «추가» 폼이 그룹마다 미리 골라 두는 본.
-export const DEFAULT_BONE: Record<CustomGroup, Bone> = {
-  head: 'head',
-  cloth: 'spine',
-  deco: 'spine',
-  hand: 'handR',
-};
-
 export const CUSTOM_CAT_ICON = '🏷️'; // 아이콘을 비우면 앱이 넣는 값
 export const CAT_LABEL_MAX = 20; // 규칙 customCats · catOverrides label
-export const CAT_ID_MAX = 20; // 규칙 customCats cat
 export const ICON_MAX = 8; // 규칙 icon
 
 export interface CustomCat {
@@ -67,78 +52,49 @@ export interface CatOverride {
   updatedAt?: number;
 }
 
-/** 입력 → ID. 앱과 같이 소문자로 바꾸고 영문 소문자 · 숫자 · _ 밖의 글자는 버린다. */
-export function normalizeCatId(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, '');
-}
-
-export interface CustomCatInput {
-  id: string;
-  label: string;
-  icon: string;
-  group: CustomGroup;
-  bone: Bone;
-}
-
-/** 문제가 있으면 그 이유, 없으면 null. taken 은 기본 · 커스텀 카테고리 ID 전부. */
-export function customCatProblem(input: CustomCatInput, taken: ReadonlySet<string>): string | null {
-  const label = input.label.trim();
-  if (!label) return '이름을 넣어 주세요';
-  if (label.length > CAT_LABEL_MAX) return `이름은 ${CAT_LABEL_MAX}자까지예요`;
-  if (!input.id) return 'ID 를 넣어 주세요';
-  if (!/^[a-z][a-z0-9_]*$/.test(input.id)) return 'ID 는 영문 소문자로 시작해요';
-  if (input.id.length > CAT_ID_MAX) return `ID 는 ${CAT_ID_MAX}자까지예요`;
-  if (taken.has(input.id)) return '이미 있는 ID 예요';
-  if (input.icon.trim().length > ICON_MAX) return `아이콘은 ${ICON_MAX}자까지예요`;
-  return null;
-}
-
-export function customCatWrite(input: CustomCatInput, now: number): CatalogWrite {
-  return {
-    [catalogPath('customCats', input.id)]: {
-      cat: input.id,
-      label: input.label.trim(),
-      icon: input.icon.trim() || CUSTOM_CAT_ICON,
-      group: input.group,
-      bone: input.bone,
-      createdAt: now,
-    },
-  };
-}
-
-export function removeCustomCatsWrite(ids: readonly string[]): CatalogWrite {
-  return Object.fromEntries(ids.map((id) => [catalogPath('customCats', id), null]));
-}
-
-export function overrideProblem(label: string, icon: string): string | null {
+/** 문제가 있으면 그 이유, 없으면 null. 기본 카테고리는 이름을 비우면 기본값으로 돌아가니 빈 이름도 받는다. */
+export function categoryNameProblem(cat: CatView, label: string, icon: string): string | null {
   const text = label.trim();
-  if (!text) return '이름을 넣어 주세요';
+  if (!text && !cat.builtin) return '이름을 넣어 주세요';
   if (text.length > CAT_LABEL_MAX) return `이름은 ${CAT_LABEL_MAX}자까지예요`;
   if (icon.trim().length > ICON_MAX) return `아이콘은 ${ICON_MAX}자까지예요`;
   return null;
 }
 
-/** 기본 카테고리 이름 · 아이콘 덮어쓰기. 아이콘을 비우면 앱과 같이 키를 두지 않아 기본 아이콘을 쓴다. */
-export function overrideWrite(cat: string, label: string, icon: string, now: number): CatalogWrite {
-  const value: CatOverride = { label: label.trim(), updatedAt: now };
-  if (icon.trim()) value.icon = icon.trim();
-  return { [catalogPath('catOverrides', cat)]: value };
-}
-
-export function revertOverridesWrite(cats: readonly string[]): CatalogWrite {
-  return Object.fromEntries(cats.map((cat) => [catalogPath('catOverrides', cat), null]));
+/**
+ * 이름 · 아이콘 저장 묶음. 기본 카테고리는 catOverrides 에 — 기본값과 같아지면 덮어쓰기를 지운다.
+ * 커스텀은 제 항목의 두 필드만(규칙이 cat · group 을 요구하므로 통째로 쓰지 않는다). 아이콘을 비우면 앱과 같이 🏷️.
+ */
+export function categoryNameWrite(cat: CatView, label: string, icon: string, now: number): CatalogWrite {
+  const text = label.trim();
+  const mark = icon.trim();
+  if (!cat.builtin) {
+    return {
+      [`${catalogPath('customCats', cat.id)}/label`]: text,
+      [`${catalogPath('customCats', cat.id)}/icon`]: mark || CUSTOM_CAT_ICON,
+    };
+  }
+  const sameLabel = !text || text === cat.defaultLabel;
+  const sameIcon = !mark || mark === cat.defaultIcon;
+  if (sameLabel && sameIcon) return { [catalogPath('catOverrides', cat.id)]: null };
+  // 앱 rebuildPartCats 는 빈 label 을 기본값으로 읽지만 규칙이 label 을 요구한다 — 기본 이름을 그대로 넣는다.
+  const value: CatOverride = { label: text || cat.defaultLabel, updatedAt: now };
+  if (!sameIcon) value.icon = mark;
+  return { [catalogPath('catOverrides', cat.id)]: value };
 }
 
 export interface CatView {
+  /** DB 키 — 기본 카테고리는 cat 과 같다. */
+  id: string;
   cat: string;
   label: string;
   icon: string;
   group: string;
   builtin: boolean;
   overridden: boolean;
+  /** 덮어쓰기 전 이름 · 아이콘 — 커스텀은 빈 값. */
+  defaultLabel: string;
+  defaultIcon: string;
 }
 
 /** 앱 rebuildPartCats 와 같게 — 기본 카테고리에 덮어쓰기를 얹고 커스텀을 뒤에 붙인다. */
@@ -150,17 +106,30 @@ export function categoryViews(
     const o = overrides[c.cat];
     const label = o?.label != null && String(o.label).trim() ? String(o.label) : c.label;
     const icon = o?.icon != null && String(o.icon).trim() ? String(o.icon) : c.icon;
-    return { cat: c.cat, label, icon, group: c.group, builtin: true, overridden: !!o };
+    return {
+      id: c.cat,
+      cat: c.cat,
+      label,
+      icon,
+      group: c.group,
+      builtin: true,
+      overridden: !!o,
+      defaultLabel: c.label,
+      defaultIcon: c.icon,
+    };
   });
   const custom = Object.entries(customCats)
     .filter(([, c]) => c && typeof c === 'object')
     .map(([id, c]): CatView => ({
+      id,
       cat: c.cat || id,
       label: c.label || id,
       icon: c.icon || CUSTOM_CAT_ICON,
       group: c.group || 'head',
       builtin: false,
       overridden: false,
+      defaultLabel: '',
+      defaultIcon: '',
     }));
   return [...builtin, ...custom];
 }
