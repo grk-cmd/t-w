@@ -31,12 +31,13 @@
     signInAnonymously, linkWithCredential, EmailAuthProvider, reauthenticateWithCredential,
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { firebaseConfig } from "./firebase-config.js";
+  import { firebaseConfig, FIREBASE_ENV } from "./firebase-config.js";
   import { createGhostHeal } from "./room-ghost-heal.js";
   import { createRoomIndex } from "./room-index.js";
   import { createRoomStats } from "./room-stats.js";
   import { createInviteAccount } from "./invite-account.js";
   import { createAppVersion } from "./app-version.js";
+  import { createRoomServerNet, roomServerFlag, roomServerUrl } from "./room-server-net.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -367,6 +368,17 @@
       update(_myPresenceRef, { ver }).catch(()=>{});
     },
   });
+  /* 🛰 방 서버(웹소켓) — 기본 꺼짐. 켜는 법 · 규칙은 room-server-net.js 머리 주석. 여기서는 토큰 · 버전 · userId 만 잇는다. */
+  const _lsOrNull = () => { try{ return window.localStorage; }catch(_){ return null; } };
+  const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
+  const _roomServer = createRoomServerNet({
+    WebSocket: (typeof WebSocket === 'function') ? WebSocket : null,
+    enabled: () => roomServerFlag(_lsOrNull()),
+    url: () => roomServerUrl(FIREBASE_ENV, _lsOrNull()),
+    getToken: _getIdToken,
+    getUserId: () => (typeof window.getMyUserId === 'function') ? window.getMyUserId() : null,
+    getVersion: () => _appVer.ready,
+  });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
@@ -426,6 +438,11 @@
        ⚠️ 오프셋이 아직 안 왔거나 오프라인이면 0 이라 Date.now() 와 같아진다 — 호출부는 그 경우를
          '보정 없음'으로 그냥 받아들이면 된다(지금보다 나빠지지 않는다). */
     serverNow(){ return _svNow(); },
+    /* 🛰 방 서버 연결 — app.js 의 makeServerProvider · 방 개수 · 랜덤 입장이 쓴다(꺼져 있으면 enabled() 가 false). */
+    roomServerNet(){ return _roomServer; },
+    getIdToken(force){ return _getIdToken(force); },
+    // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
+    setPresenceRoom(code){ _syncPresenceRoom(code || null); },
     /* 🛰 소켓이 실제로 열렸는가 — 감시견(app.js `_fbBootWatch`)이 부팅 때 한 번 부른다.
        [왜 필요한가] `window.firebaseAPI` 가 있다는 것과 **서버에 닿는다**는 것은 다른 질문이다.
          initializeApp·getDatabase 는 네트워크를 안 타므로 CSP connect-src 나 방화벽이 소켓만

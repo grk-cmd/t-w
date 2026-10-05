@@ -16449,14 +16449,15 @@ async function _chatOffToggleClick(){
   if(!_chatIsSecretRoom()) return;
   if(!_chatIsHost()){ toast('방장만 켜고 끌 수 있어요'); return; }
   const room = _chatRoomCode(); if(!room) return;
-  if(!(window.firebaseAPI && firebaseAPI.setRoomChatOff)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
+  const _sp = (Presence.serverProvider && Presence.serverProvider()) || null;   // 🛰 서버 방이면 meta 를 서버로
+  if(!_sp && !(window.firebaseAPI && firebaseAPI.setRoomChatOff)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
   const next = !_chatOffOn();
   /* 서버 왕복을 기다리지 않고 먼저 반영한다 — 아무 반응이 없으면 두 번 누르고, 그러면 원위치가 된다.
      실패하면 되돌리고 이유를 말한다. */
   const prev = window._roomMetaCache;
   try{ window._roomMetaCache = Object.assign({}, prev || {}, { chatOff: next }); }catch(_){}
   _chatOffRefreshUI();
-  const r = await firebaseAPI.setRoomChatOff(room, next);
+  const r = _sp ? await _sp.setMeta({ chatOff: next }) : await firebaseAPI.setRoomChatOff(room, next);
   if(!(r && r.ok)){
     try{ window._roomMetaCache = prev; }catch(_){}
     _chatOffRefreshUI();
@@ -29876,7 +29877,9 @@ const Presence=(()=>{
     try{ return !!(typeof isPremium!=='undefined' && isPremium) || !!(typeof isAdmin!=='undefined' && isAdmin); }
     catch(_){ return false; }
   }
-  async function start(roomCode, def, name, changeCb){
+  /* opts.provider — 방 서버 provider(makeServerProvider). 주면 입장 결과를 기다려 { ok, code, others, meta } 를 돌려준다.
+     안 주면 예전 그대로(Firebase · 가짜 방) — 돌려주는 값도 예전처럼 방 코드다. */
+  async function start(roomCode, def, name, changeCb, opts){
     if(provider) await stop();   // 이미 연결돼있는데 다시 시작하면(연결끊기 없이 재접속 등) 이전 접속 삭제가 끝난 뒤에 새로 join — 안 그러면 옛 항목이 아직 안 지워진 채로 남아 자기 자신이 중복으로 보일 수 있음
     room=roomCode; myDef=def; myName=name||'나'; myLevel=getFocusLevel(); _lvKey=''; onChange=changeCb||onChange; friends={};
     _myPokeSeenTs = 0; _joinedAt = _srvNow();   // 🛰 새 방 = 새 우편함. 들어오기 전 알림은 안 읽는다
@@ -29899,13 +29902,15 @@ const Presence=(()=>{
       console.warn('[방] firebaseAPI 가 준비되지 않아 입장을 멈췄다(가짜 방으로 떨어지지 않음)');
       return;
     }
-    provider = window.firebaseAPI ? makeFirebaseProvider() : makeMockProvider();
+    const _srv = (opts && opts.provider) || null;   // 🛰 방 서버 provider(_startRoomOnServer) — 없으면 아래 줄 그대로
+    if(_srv) provider = _srv;
+    else provider = window.firebaseAPI ? makeFirebaseProvider() : makeMockProvider();
     try{ myAwayImg = _awayUrlOk(awayImgUrl) ? awayImgUrl : ''; }catch(_){ myAwayImg = ''; }   // 🫧 입장 때 한 번
     try{ myAwaySz = _awaySzOk(awayImgSz) ? awayImgSz : AWAY_PIC_SCREEN_PX; }catch(_){ myAwaySz = AWAY_PIC_SCREEN_PX; }
     try{ myFocusShow = _focusShowConf(); _focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
     try{ myNoise = (window.TW_NOISE && TW_NOISE.kind) ? TW_NOISE.kind() : ''; }catch(_){ myNoise = ''; }   // 🌙 입장 때 한 번
     const _st0 = _statusOut();
-    provider.join(room, {def:myDef,name:myName,awaySz:myAwaySz,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel, ...myStarOut(),mobile:_mobileRoomLabel(),userId:getMyUserId(), noise:myNoise, lic:_myLicenseFlag(), awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
+    const _joinRes = provider.join(room, {def:myDef,name:myName,awaySz:myAwaySz,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel, ...myStarOut(),mobile:_mobileRoomLabel(),userId:getMyUserId(), noise:myNoise, lic:_myLicenseFlag(), awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
       // 다른 사람이 내 캐릭터를 쓰다듬거나 흔들었을 때 — 내 화면의 'me' 좌석에 그 반응을 그대로 재생
       p=>{ const me=seats.find(s=>s.isMe); if(!me||!p) return;
         /* 🛰 같은 알림을 두 번 재생하지 않고, 지나간 알림은 아예 보지 않는다.
@@ -29937,6 +29942,14 @@ const Presence=(()=>{
           }
         }
       });
+    if(_srv){
+      const r = await _joinRes;
+      if(!(r && r.ok)){
+        if(provider === _srv){ provider = null; room = null; friends = {}; if(onChange) onChange({}); }
+        return { ok:false, code:(r && r.code) || 'fail' };
+      }
+      return r;
+    }
     return room;
   }
   // 매 update마다 함께 보내는 공통 페이로드 (✨ customStatus 포함 — 친구 화면에서 커스텀 문구를 보여주기 위함)
@@ -30103,7 +30116,9 @@ const Presence=(()=>{
            /* 🪑 상태 변화를 지금 당장 방에 실어 보낸다(같은 _basePayload). 쉬는 시간처럼
               "다음 상태 틱까지 기다리면 늦는" 값이 생겼을 때 부른다. */
            broadcastNow: broadcastRide,
-           active:()=>!!provider, roomCode:()=>room, friendsObj:()=>friends };
+           active:()=>!!provider, roomCode:()=>room, friendsObj:()=>friends,
+           // 🛰 지금 방이 방 서버로 붙어 있으면 그 provider(방장 설정 chatOff 를 서버로 보낼 때) · 아니면 null
+           serverProvider:()=>(provider && provider.kind === 'server') ? provider : null };
 })();
 
 /* Firebase Realtime Database 연동 — 실제 함수는 HTML의 <script type="module">이 window.firebaseAPI로 노출.
@@ -30456,6 +30471,138 @@ function makeFirebaseProvider(){
       return window.firebaseAPI.leaveRoom();
     }
   };
+}
+
+/* ═══ 🛰 방 서버 provider (기본 꺼짐) ═══════════════════════════════════════════
+   방 통신을 Firebase 대신 웹소켓 방 서버로. 실제 구현은 parts/room-server-net.js 이고 여기는 화면 쪽 연결만 한다.
+   켜는 법 · 주소는 그 파일 머리 주석. 꺼져 있으면(기본) 아래 함수들은 전부 «Firebase 로» 를 돌려주고 아무것도 안 한다.
+   ★ 서버 방에서는 정원 · 같은 계정 중복 · 호스트 승계 · 해산 · 120초 생존 판정을 서버가 한다.
+     그래서 firebase-init joinRoom 의 그 판정들(자기 퇴장 · _maybeSucceedHost)은 이 길에서 아예 돌지 않는다.
+   ★ 채팅 기록(chatLog) · 스티커사진(_photo) · 친구 목록의 접속 정보는 1단계에서는 Firebase 그대로다. */
+function _roomServerNet(){
+  try{ return (window.firebaseAPI && typeof firebaseAPI.roomServerNet === 'function') ? firebaseAPI.roomServerNet() : null; }
+  catch(_){ return null; }
+}
+function _roomServerOn(){ const n = _roomServerNet(); return !!(n && n.enabled()); }
+/* 서버 meta { channel, host(userId), open, chatOff, secret } → Firebase _meta 리스너가 하던 것과 같은 자리로 */
+function _onServerRoomMeta(meta, prev){
+  window._roomMetaCache = meta;
+  window._activeChannel = (meta && meta.channel === 'togetherroom') ? 2 : 1;
+  const me = getMyUserId();
+  if(prev && meta && prev.host !== me && meta.host === me && typeof window._onHostSucceeded === 'function') window._onHostSucceeded(meta);
+  try{ if(typeof window._onRoomMeta === 'function') window._onRoomMeta(meta); }catch(_){}
+}
+function makeServerProvider(net, create){
+  return net.makeProvider({
+    serializeDef: serializeDefForNetwork,
+    deserializeDef: deserializeDefFromNetwork,
+    getExp: ()=>{ try{ return (typeof myExpCells === 'function') ? myExpCells() : undefined; }catch(_){ return undefined; } },
+    onMeta: _onServerRoomMeta,
+    onDisband: ()=>{ if(typeof window._onRoomDisbanded === 'function') window._onRoomDisbanded(); },
+    onReplaced: ()=>{ try{ _onDeviceSessionLost(); }catch(_){} },
+    onLost: (code)=>{
+      console.warn('[방 서버] 방을 이어 가지 못했다 —', code);
+      toast('방 서버와 연결이 끊겨 방에서 나왔어요 — 다시 들어가 주세요');
+      Promise.resolve(doLeaveRoom()).catch(()=>{});
+    },
+    onJoined: (room)=>{ try{ firebaseAPI.setPresenceRoom(room); }catch(_){} },
+    onLeft: ()=>{ try{ firebaseAPI.setPresenceRoom(null); }catch(_){} },
+  }, { create });
+}
+/* 입장 실패 코드 → 지금 쓰는 안내 문구. null 이면 «Firebase 로 돌아간다»(서버에 못 붙음 · 인증 · 버전 · 시간 초과 등). */
+function _roomServerJoinMessage(code, isSecret){
+  if(code === 'full') return isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(MAX_PEOPLE-1)+'명)')
+                                      : ('이 방은 이미 가득 찼어요(최대 '+MAX_PEOPLE+'명)');
+  if(code === 'channelFull'){
+    const ch = (window._pendingRoomChannel === 'togetherroom') ? 'togetherroom' : 'workingroom';
+    const limit = (typeof roomLimitOf === 'function') ? roomLimitOf(ch) : MAX_ROOMS;
+    const name = (typeof CHANNEL_NAMES !== 'undefined' && CHANNEL_NAMES[ch]) || '방';
+    return `${name}이 지금 꽉 찼어요(${limit}/${limit}) — 잠시 후 다시 시도해 주세요`;
+  }
+  if(code === 'secretClosed') return '이 시크릿룸은 이용 기간이 끝났어요';
+  if(code === 'forbidden') return '투게더룸은 라이선스가 있어야 열 수 있어요';
+  return null;
+}
+/* startRoom 의 서버 갈래. 'firebase' = 아래 기존 흐름으로 계속 · 그 밖 = 여기서 끝났다.
+   고르는 순서(설계 §5):
+     · 만들기 → 서버에 create 로.
+     · 코드로 들어가기 → Firebase 에 살아 있는 사람이 없으면 서버로(서버에 방이 있으면 들어가고, 없으면 서버가 연다).
+       Firebase 에 사람이 있으면 서버에 같은 방이 있는지 «들어가 보고» 안다 — 아무도 없었으면(내가 연 빈 방) 바로 나와서 Firebase 로.
+     ⚠️ 서버 규약(PROTOCOL v1)에 «방이 있나 · 몇 명인가» 를 묻는 메시지가 없어서 들어가 보는 방식을 쓴다.
+       그 짧은 사이에 다른 새 앱이 같은 코드로 들어오면 그 사람은 서버에, 나는 Firebase 에 남을 수 있다(옛 앱과 섞이는 기간에만).
+     · 서버에 못 붙으면 Firebase 로. */
+async function _startRoomOnServer(code, ctx){
+  const net = _roomServerNet();
+  if(!(net && net.enabled())) return 'firebase';
+  const creating = !!window._pendingRoomChannel && !ctx.isSecret;
+  let probe = false;
+  if(!creating){
+    let fb = null;
+    try{
+      if(ctx.isSecret && firebaseAPI.checkSecretRoomEntry){ const sr = await firebaseAPI.checkSecretRoomEntry(code, ctx.secretOwner); fb = sr ? sr.count : null; }
+      if(fb === null && firebaseAPI.checkRoomCapacity) fb = await firebaseAPI.checkRoomCapacity(code);
+    }catch(_){ fb = null; }
+    probe = (typeof fb === 'number' && fb > 0);
+  }
+  const rd = await net.ensureReady();
+  if(!rd.ok){ console.warn('[방 서버] 연결 안 됨 — Firebase 방식으로 들어갑니다 (' + rd.code + ')'); return 'firebase'; }
+  const create = creating ? { channel: window._pendingRoomChannel,
+    open: (window._pendingRoomChannel === 'workingroom') && !!window._pendingRoomOpen } : null;
+  _clearHiddenSeats();
+  const r = await Presence.start(code, ctx.myDef, getDisplayName(), presenceChanged, { provider: makeServerProvider(net, create) });
+  if(!(r && r.ok)){
+    const msg = _roomServerJoinMessage(r && r.code, ctx.isSecret);
+    if(!msg){ console.warn('[방 서버] 입장 실패 — Firebase 방식으로 들어갑니다 (' + (r && r.code) + ')'); return 'firebase'; }
+    toast(msg);
+    window._pendingRoomChannel = null;
+    window._pendingRoomOpen = false;
+    refreshInviteUI();
+    return 'stop';
+  }
+  if(probe && !r.others){
+    await Presence.stop();   // 서버에는 없던 방 — 옛 앱 사람들이 있는 Firebase 방으로
+    return 'firebase';
+  }
+  /* 빈 방을 열었는데 접두어가 채널과 다르면 같은 4자리의 맞는 접두어 방으로 옮긴다(Firebase 갈래의 빈 방 규칙과 같다).
+     옮긴 코드는 접두어가 내 자격과 맞으므로 다시 옮기지 않는다. */
+  if(!creating && !ctx.isSecret && !r.others && r.meta){
+    const m = ROOM_CODE_RE.exec(code), want = _roomPrefixFor(r.meta.channel);
+    if(m && (m[1] + '-') !== want){
+      await Presence.stop();
+      console.log('[방] 빈 방이라 코드를 채널에 맞춰 옮겨 엽니다 —', code, '→', want + m[2]);
+      await startRoom(want + m[2]);
+      return 'done';
+    }
+  }
+  refreshInviteUI(); toast('방에 연결됐어요: '+code);
+  window._pendingRoomChannel = null;
+  window._pendingRoomOpen = false;
+  if(typeof applyExtraSeatForMode==='function') applyExtraSeatForMode();
+  return 'done';
+}
+/* 방 개수 — 서버 방 몫을 더한다(켜져 있을 때만). 서버 답은 20초 기억한다(방 창이 30초마다 다시 묻는다). */
+let _srvRoomStats = null, _srvRoomStatsAt = 0;
+function _addServerRoomCounts(c){
+  const s = _srvRoomStats;
+  if(!c || !s || !_roomServerOn()) return c;
+  const add = (a, b)=> (a == null) ? a : a + (b | 0);
+  return Object.assign({}, c, { total: add(c.total, s.total), workingroom: add(c.workingroom, s.workingroom), togetherroom: add(c.togetherroom, s.togetherroom) });
+}
+async function _withServerRoomCounts(c){
+  if(!_roomServerOn()) return c;
+  if(Date.now() - _srvRoomStatsAt > 20000){
+    const net = _roomServerNet();
+    let s = null;
+    try{ s = net ? await net.stats() : null; }catch(_){ s = null; }
+    if(s){ _srvRoomStats = s; _srvRoomStatsAt = Date.now(); }
+  }
+  return _addServerRoomCounts(c);
+}
+/* 랜덤 입장 후보 — 서버 방을 먼저 본다. 서버가 이미 «열린 워킹룸 · 1~9명» 만 준다. 꺼져 있거나 못 받으면 []. */
+async function _serverRandomRooms(limit){
+  if(!_roomServerOn()) return [];
+  const net = _roomServerNet();
+  try{ const list = net ? await net.random(limit) : null; return Array.isArray(list) ? list : []; }catch(_){ return []; }
 }
 
 /* 로컬 시뮬레이션 — Firebase 연결 전, 친구들이 타이핑/졸기 하는 걸 보여줌 */
@@ -30907,6 +31054,12 @@ async function startRoom(code){
   /* (걷음 · 개정 56 · 설계 §6-⑥) 방장이 «내가 버린 uid» 면 재발급을 안내하던 토스트 — 그 목록과 함께. 손님 입장은 그대로. */
   //   html 자기 퇴장 게이트가 읽는다 — _meta.host 보다 이르게(입장 전에) 확정되는 값이라 순서 계산이 안 흔들린다.
   window._srOwnerUid = _isSecret ? (_secretOwner || null) : null;
+  /* 🛰 방 서버 — 켜져 있을 때만(기본 꺼짐 · _startRoomOnServer 주석). 'firebase' 면 아래 기존 흐름 그대로다.
+     ★ 아래의 Firebase 쓰기(_meta · roomIndex · 빈 방 선점)보다 **먼저** 가른다 — 서버 방에 Firebase 표지가 생기면 옛 앱이 그 방을 «있는 방» 으로 센다. */
+  if(_roomServerOn()){
+    const _via = await _startRoomOnServer(code, { isSecret:_isSecret, secretOwner:_secretOwner, myDef });
+    if(_via !== 'firebase') return;
+  }
   // ★ 예전엔 정원 체크가 전혀 없어서 화면에 표시되는 한도(MAX_PEOPLE)보다 많은 인원이 그냥 입장은 되고,
   //   그 중 화면에 안 보이는 사람이 생기는 문제가 있었음 — 입장 시도 시점에 미리 인원수를 확인해서 막음.
   let _roomCount = null;   // 나를 제외한 현재 방 인원 (빈 방 승격 판정에 재사용)
@@ -32985,7 +33138,7 @@ async function refreshRoomCountOnce(){
     // 💰 getRoomCounts = roomIndex(방당 수십 바이트) 1회 조회. 구버전 API만 있으면 폴백.
     // 표시용이라 서버가 세어 둔 값(quick)이면 충분하다.
     if(firebaseAPI.getRoomCounts){
-      const c = await firebaseAPI.getRoomCounts({ quick: true });
+      const c = await _withServerRoomCounts(await firebaseAPI.getRoomCounts({ quick: true }));
       if(c && c.total != null) _liveRoomCount = c.total;
     } else if(firebaseAPI.getRoomCount){
       _liveRoomCount = await firebaseAPI.getRoomCount();
@@ -32997,6 +33150,7 @@ async function refreshRoomCountOnce(){
 let _roomCountUnsub = null;
 function _paintRoomCounts(c){
   if(!c) return;
+  c = _addServerRoomCounts(c);   // 🛰 서버 방 몫(켜져 있을 때 · 마지막으로 받은 값)
   const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${ROOM_LIMITS.workingroom}`;
   const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${ROOM_LIMITS.togetherroom}`;
   if(c.total!=null){ _liveRoomCount = c.total; _updateRoomCountUI(); }
@@ -33051,6 +33205,9 @@ async function doCreateRoomInChannel(channel){
 const RANDOM_JOIN_TRIES = 3;
 async function doJoinRandomRoom(){
   if(!(window.firebaseAPI && firebaseAPI.findRandomRooms)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
+  /* 🛰 서버 방이 먼저(켜져 있을 때만). 서버가 정원 · 생존을 알고 고른 후보라 따로 확인하지 않는다. */
+  const _srv = await _serverRandomRooms(12);
+  if(_srv.length){ startRoom(_srv[0]); return; }
   const none = ()=>toast('지금은 참여할 수 있는 방이 없어요. 방을 만들어 보세요 🎲');
   let cands = null;
   try{ cands = await firebaseAPI.findRandomRooms(12); }catch(_){}
@@ -33090,6 +33247,13 @@ async function doHopRandomRoom(){
   const cur = Presence.roomCode();
   _hoppingRoom = true; _setHopBusy(true);
   try{
+    const _srv = (await _serverRandomRooms(12)).filter(c => c !== cur);   // 🛰 서버 방 먼저(켜져 있을 때만)
+    if(_srv.length){
+      await doLeaveRoom();
+      await startRoom(_srv[0]);
+      if(!Presence.active()) toast('방을 옮기지 못했어요 — 참여를 다시 눌러주세요');
+      return;
+    }
     let cands = null;
     try{ cands = await firebaseAPI.findRandomRooms(12); }catch(_){}
     if(cands === null){ toast('방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요'); return; }
@@ -33159,7 +33323,7 @@ async function _refreshChannelPickUI(){
       //    이 화면이 떠 있는 동안 30초마다 반복돼 RTDB 다운로드 폭증의 주범이었다.
       //    이제 roomIndex 1회 조회(수 KB 미만)로 전체+채널별 카운트를 한 번에 얻는다.
       // 표시용이라 서버가 세어 둔 값(quick)이면 충분하다.
-      const c = await firebaseAPI.getRoomCounts({ quick: true });
+      const c = await _withServerRoomCounts(await firebaseAPI.getRoomCounts({ quick: true }));
       const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${ROOM_LIMITS.workingroom}`;
       const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${ROOM_LIMITS.togetherroom}`;
       if(c.total!=null){ _liveRoomCount = c.total; _updateRoomCountUI(); }   // 전체 문구도 같은 조회로 함께 갱신
