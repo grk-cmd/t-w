@@ -24,7 +24,7 @@
 | `functions/` | Cloud Functions (비밀번호 변경, 휴지통 청소, 방 개수 집계 `room-stats.js`). **자동 배포 대상이 아니다** |
 | `hosting/` | Firebase Hosting (폰 연결 안내 페이지) |
 | `checks/` | 자체 검사 (`sim-*.js` · `audit.py` · `run.js` 러너 · `CHECKS.md` 정본 표) |
-| `.github/workflows/` | `checks.yml`(push·PR 마다 검사) · `deploy-dev.yml`(규칙 → dev) · `release.yml`(버전 태그 → 빌드 · 릴리스 초안) · `min-room-ver.yml` · `mac-probe.yml`(맥 빌드, 수동) |
+| `.github/workflows/` | `checks.yml`(push·PR 마다 검사) · `deploy-dev.yml`(규칙 → dev) · `release-start.yml`(버튼 → 검사 · 버전 태그 · release 실행) · `release.yml`(버전 태그 → 빌드 · 릴리스 초안) · `min-room-ver.yml` · `mac-probe.yml`(맥 빌드, 수동) |
 
 ## 명령
 ```bash
@@ -53,7 +53,7 @@ npm run check        # 검사 전체 — 마지막 줄 «빨강 0» 이면 통�
 
 ## 릴리스 순서: ① 서버 → ② 버전 태그 → ③ Publish
 1. **서버** (바뀐 것만): 함수는 자동 배포가 없으니 `firebase deploy --only functions:<이름> --project together-working` 을 앱 릴리스 **전에** 직접. 규칙은 태그 때 `release.yml` 이 승인을 받아 배포한다(GitHub Environments · 변수 설정 전이면 직접). 옛 앱이 깨지지 않는지 확인한다.
-2. **버전 태그**: main 에서 `git pull --rebase` → `npm run check` → `npm version patch -m "chore: %s"` → `git push --follow-tags`. 태그가 올라가면 `release.yml` 이 Windows · Mac 빌드 → Releases 초안까지 자동. 테스트 빌드는 `npm version prerelease --preid=beta`(dev 에 붙고 일반 사용자에겐 안 감).
+2. **버전 태그**: Actions › **release-start** › Run workflow(patch · minor · beta) 버튼, 또는 main 에서 `git pull --rebase` → `npm run check` → `npm version patch -m "chore: %s"` → `git push --follow-tags`. 태그가 올라가면 `release.yml` 이 Windows · Mac 빌드 → Releases 초안까지 자동. 테스트 빌드는 `npm version prerelease --preid=beta`(dev 에 붙고 일반 사용자에겐 안 감).
 3. **Publish**: Releases 초안의 파일 5개(exe · blockmap · latest.yml · dmg 2개) 버전을 확인하고 Publish.
 4. 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 `min-room-ver.yml` 로 `config/minRoomVer` 를 올린다(승인 필요). 자세한 절차는 `docs/RELEASE.md`.
 
