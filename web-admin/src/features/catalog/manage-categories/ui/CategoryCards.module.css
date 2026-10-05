@@ -1,0 +1,38 @@
+.edit {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.add select {
+  padding: 7px 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.add input[type='text'] {
+  flex: 1 1 8em;
+}
+
+/* 이모지 한두 글자 칸 — 전역 input 의 flex: 1 보다 세게 */
+.edit input.icon,
+.add input.icon {
+  flex: 0 0 4.5em;
+  text-align: center;
+}

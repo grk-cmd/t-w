@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react';
+import { CatalogPage } from '@/pages/catalog';
 import { LicensePage } from '@/pages/license';
 import { NoticesPage } from '@/pages/notices';
 import { ReportsPage } from '@/pages/reports';
@@ -20,4 +21,5 @@ export const ROUTES: Route[] = [
   { id: 'notices', label: '📣 공지', Page: NoticesPage },
   { id: 'settings', label: '⚙️ 설정', Page: SettingsPage },
   { id: 'rooms', label: '🛑 방', Page: RoomsPage },
+  { id: 'catalog', label: '🗂️ 카탈로그', Page: CatalogPage },
 ];
