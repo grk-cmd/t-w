@@ -13,6 +13,7 @@ import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { EmojiInput, useToast } from '@/shared/ui';
 import { useSaveCategoryName } from '../model/useManageCategories';
+import styles from './CategoryNamesCard.module.css';
 
 function NameRow({ cat }: { cat: CatView }) {
   const toast = useToast();
@@ -92,7 +93,7 @@ export function CategoryNamesCard() {
           새로고침
         </button>
       </div>
-      <div className="list">
+      <div className={`list ${styles.cols}`}>
         {error && errorMessage(error, '불러오지 못했어요')}
         {!error && !cats.length && '불러오는 중…'}
         {cats.map((c) => (

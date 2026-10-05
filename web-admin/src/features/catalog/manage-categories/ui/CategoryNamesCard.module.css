@@ -1,0 +1,14 @@
+/* 줄이 짧아 넓은 화면에선 두 단 — 위에서 아래로 읽히게 column 으로 */
+.cols {
+  column-gap: 32px;
+}
+
+.cols > :global(.row) {
+  break-inside: avoid;
+}
+
+@media (min-width: 900px) {
+  .cols {
+    columns: 2;
+  }
+}
