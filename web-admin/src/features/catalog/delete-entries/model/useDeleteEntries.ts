@@ -8,7 +8,8 @@ export function useDeleteEntries() {
   const files = useFiles();
   const apply = useApplyCatalogWrite();
   return useMutation({
-    mutationFn: (entries: CatalogEntry[]) => deleteEntries(db, files, entries),
+    mutationFn: ({ entries, rest }: { entries: CatalogEntry[]; rest: CatalogEntry[] }) =>
+      deleteEntries(db, files, entries, rest),
     onSuccess: (r) => apply(r.written),
   });
 }

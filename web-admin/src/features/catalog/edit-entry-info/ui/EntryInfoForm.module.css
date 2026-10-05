@@ -1,0 +1,14 @@
+.form {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* 이모지 한두 글자 칸 — 전역 input 의 flex: 1 보다 세게 */
+.form input.icon {
+  flex: 0 0 4.5em;
+  text-align: center;
+}

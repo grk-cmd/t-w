@@ -38,17 +38,20 @@ const str = (v: unknown) => (typeof v === 'string' ? v : '');
 // 로컬 호스트는 Storage 에뮬레이터 주소(e2e) — 에뮬레이터에 붙은 SDK 는 googleapis 주소를 제 것으로 못 알아본다.
 const STORAGE_HOSTS = ['firebasestorage.googleapis.com', '127.0.0.1', 'localhost'];
 
-/** 다운로드 URL 이 Storage 의 catalog/ 아래 파일인지 — 그 밖의 주소는 지우지 않는다. */
-export function isCatalogFileUrl(url: unknown): url is string {
-  if (typeof url !== 'string') return false;
+/** 다운로드 URL → Storage 안 경로. catalog/ 아래 파일이 아니면 null — 그 밖의 주소는 지우지 않는다. */
+export function catalogFilePath(url: unknown): string | null {
+  if (typeof url !== 'string') return null;
   try {
     const u = new URL(url);
     const m = u.pathname.match(/^\/v0\/b\/[^/]+\/o\/(.+)$/);
-    return STORAGE_HOSTS.includes(u.hostname) && !!m && decodeURIComponent(m[1]).startsWith('catalog/');
+    const path = m && STORAGE_HOSTS.includes(u.hostname) ? decodeURIComponent(m[1]) : '';
+    return path.startsWith('catalog/') ? path : null;
   } catch {
-    return false;
+    return null;
   }
 }
+
+export const isCatalogFileUrl = (url: unknown): url is string => catalogFilePath(url) !== null;
 
 function thumbOf(rec: CatalogRecord): string | null {
   const url = str(rec.thumbUrl);
@@ -110,4 +113,27 @@ export function orderWrite(ordered: readonly CatalogEntry[]): CatalogWrite {
 export function removeEntriesWrite(kind: CatalogKind, ids: readonly string[]): CatalogWrite {
   const kinds: CatalogKind[] = kind === 'parts' || kind === 'gachaParts' ? ['parts', 'gachaParts'] : [kind];
   return Object.fromEntries(ids.flatMap((id) => kinds.map((k) => [catalogPath(k, id), null])));
+}
+
+export const NAME_MAX = 30; // 규칙 name
+export const ENTRY_ICON_MAX = 8; // 규칙 icon
+
+export function entryInfoProblem(name: string, icon: string): string | null {
+  const text = name.trim();
+  if (!text) return '이름을 넣어 주세요';
+  if (text.length > NAME_MAX) return `이름은 ${NAME_MAX}자까지예요`;
+  if (icon.trim().length > ENTRY_ICON_MAX) return `아이콘은 ${ENTRY_ICON_MAX}자까지예요`;
+  return null;
+}
+
+/**
+ * 바뀐 필드만 쓴다 — glb · glbUrl 같은 나머지 필드는 그대로라 규칙 .validate(항목 전체를 본다)를 그대로 통과한다.
+ * 아이콘을 비우면 키를 지우지 않고 '' 로 쓴다 — 규칙이 icon 이 없는 항목을 거절한다.
+ */
+export function entryInfoWrite(entry: CatalogEntry, name: string, icon: string): CatalogWrite {
+  const base = catalogPath(entry.kind, entry.id);
+  const out: CatalogWrite = {};
+  if (name.trim() !== entry.name) out[`${base}/name`] = name.trim();
+  if (icon.trim() !== entry.icon) out[`${base}/icon`] = icon.trim();
+  return out;
 }

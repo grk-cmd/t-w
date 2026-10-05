@@ -22,6 +22,8 @@ const TABS: Tab[] = [
     ),
   },
   { id: 'parts', label: '파츠', render: () => <CatalogList kind="parts" /> },
+  { id: 'desks', label: '책상', render: () => <CatalogList kind="desks" editable /> },
+  { id: 'items', label: '아이템', render: () => <CatalogList kind="items" editable /> },
 ];
 
 export function CatalogPage() {

@@ -6,12 +6,14 @@ import { useDeleteEntries } from '../model/useDeleteEntries';
 
 interface Props {
   entries: CatalogEntry[];
+  /** 같은 목록 전체 — 남는 항목이 쓰는 파일은 지우지 않는다. */
+  all: CatalogEntry[];
   /** 줄 하나의 «삭제» 면 true. */
   single?: boolean;
   onDone?: () => void;
 }
 
-export function DeleteEntriesButton({ entries, single, onDone }: Props) {
+export function DeleteEntriesButton({ entries, all, single, onDone }: Props) {
   const toast = useToast();
   const env = useEnv();
   const remove = useDeleteEntries();
@@ -25,7 +27,7 @@ export function DeleteEntriesButton({ entries, single, onDone }: Props) {
     if (!confirm(withProdMark(env, `${what} 를 지울까요? 모든 사용자에게서 사라지고 되돌릴 수 없어요.`)))
       return;
     try {
-      const r = await remove.mutateAsync(entries);
+      const r = await remove.mutateAsync({ entries, rest: all });
       toast(`${r.removed}개 삭제했어요` + (r.filesLeft ? ` · 파일 ${r.filesLeft}개는 못 지웠어요` : ''));
       onDone?.();
     } catch (e) {

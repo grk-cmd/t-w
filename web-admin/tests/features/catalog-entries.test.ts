@@ -46,6 +46,17 @@ describe('카탈로그 항목 삭제', () => {
     const { files } = fakeFiles((url) => url.includes('thumb'));
     expect(await deleteEntries(db, files, parts)).toMatchObject({ removed: 2, filesLeft: 1 });
   });
+  it('남는 항목이 같은 파일을 가리키면(토큰이 달라도) 그 파일은 지우지 않는다', async () => {
+    const { db } = fakeDb();
+    const { files, deleted } = fakeFiles();
+    const all = catalogEntries('items', {
+      a: { glbUrl: FILE('catalog/items/shared.glb') + '&token=1', thumbUrl: FILE('catalog/items/a.png') },
+      b: { glbUrl: FILE('catalog/items/shared.glb') + '&token=2' },
+    });
+    const r = await deleteEntries(db, files, [all[0]], all);
+    expect(deleted).toEqual([FILE('catalog/items/a.png')]);
+    expect(r.filesLeft).toBe(0);
+  });
 });
 
 describe('카탈로그 진열 순서', () => {

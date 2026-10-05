@@ -44,9 +44,14 @@ export {
 } from './model/category';
 export {
   catalogEntries,
+  catalogFilePath,
+  ENTRY_ICON_MAX,
+  entryInfoProblem,
+  entryInfoWrite,
   isCatalogFileUrl,
   KIND_LABEL,
   moveId,
+  NAME_MAX,
   NO_ORDER,
   orderWrite,
   removeEntriesWrite,

@@ -10,6 +10,7 @@ import {
   type CatalogKind,
 } from '@/entities/catalog';
 import { DeleteEntriesButton } from '@/features/catalog/delete-entries';
+import { EntryInfoForm } from '@/features/catalog/edit-entry-info';
 import { useReorderEntries } from '@/features/catalog/reorder-entries';
 import { errorMessage, useSelection } from '@/shared/lib';
 import { RowCheckbox, SelectAllCheckbox, SelectionBar, useToast } from '@/shared/ui';
@@ -65,9 +66,11 @@ function Thumb({ entry }: { entry: CatalogEntry }) {
 
 interface Props {
   kind: CatalogKind;
+  /** 이름 · 아이콘 수정 — 책상 · 아이템. */
+  editable?: boolean;
 }
 
-export function CatalogList({ kind }: Props) {
+export function CatalogList({ kind, editable }: Props) {
   const toast = useToast();
   const { data: entries, error, isFetching } = useCatalogEntries(kind);
   const refresh = useRefreshCatalog();
@@ -77,6 +80,7 @@ export function CatalogList({ kind }: Props) {
   const selection = useSelection(ids);
   const selected = (entries ?? []).filter((e) => selection.isSelected(e.id));
   const [drag, setDrag] = useState<{ id: string; group: string } | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const onDrop = async (group: Group, target: string) => {
     const dragged = drag;
@@ -115,13 +119,13 @@ export function CatalogList({ kind }: Props) {
             />
           }
         >
-          <DeleteEntriesButton entries={selected} onDone={selection.clear} />
+          <DeleteEntriesButton entries={selected} all={entries} onDone={selection.clear} />
         </SelectionBar>
       )}
       <div className="list">
         {error && errorMessage(error, '불러오지 못했어요')}
         {!error && !entries && '불러오는 중…'}
-        {entries?.length === 0 && `등록된 ${KIND_LABEL[kind]}가 없어요`}
+        {entries?.length === 0 && '비어 있어요'}
         {groups.map((group) => (
           <div key={group.key} role="group" aria-label={group.title ?? KIND_LABEL[kind]}>
             {group.title && (
@@ -133,7 +137,7 @@ export function CatalogList({ kind }: Props) {
               <div
                 key={entry.id}
                 className={drag?.id === entry.id ? `row ${styles.dragging}` : 'row'}
-                draggable={!entry.legacyGacha && !reorder.isPending}
+                draggable={!entry.legacyGacha && !reorder.isPending && editing !== entry.id}
                 onDragStart={(e) => {
                   e.dataTransfer.effectAllowed = 'move';
                   e.dataTransfer.setData('text/plain', entry.id);
@@ -155,15 +159,26 @@ export function CatalogList({ kind }: Props) {
                   ⠿
                 </span>
                 <Thumb entry={entry} />
-                <span className="grow">
-                  <b>
-                    {entry.icon} {entry.name || '이름 없음'}
-                  </b>
-                  <code className="key">{entry.id}</code>
-                  {entry.base64 && <small className="warn">base64</small>}
-                  {entry.legacyGacha && <small className="warn">가챠 이관 전</small>}
-                </span>
-                <DeleteEntriesButton entries={[entry]} single />
+                {editing === entry.id ? (
+                  <EntryInfoForm entry={entry} onDone={() => setEditing(null)} />
+                ) : (
+                  <>
+                    <span className="grow">
+                      <b>
+                        {entry.icon} {entry.name || '이름 없음'}
+                      </b>
+                      <code className="key">{entry.id}</code>
+                      {entry.base64 && <small className="warn">base64</small>}
+                      {entry.legacyGacha && <small className="warn">가챠 이관 전</small>}
+                    </span>
+                    {editable && (
+                      <button type="button" className="btn" onClick={() => setEditing(entry.id)}>
+                        수정
+                      </button>
+                    )}
+                  </>
+                )}
+                <DeleteEntriesButton entries={[entry]} all={entries ?? []} single />
               </div>
             ))}
           </div>
