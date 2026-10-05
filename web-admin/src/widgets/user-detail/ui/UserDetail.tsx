@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { inviterKind, useUserInvite } from '@/entities/invite';
+import { inviterKind, useIssuedInvites, useUserInvite } from '@/entities/invite';
 import { REPORT_ADMIN_MIN, useUserReportCount } from '@/entities/report';
 import { formatDay, secretRoomState, useUserSecretRoom } from '@/entities/secret-room';
 import {
@@ -79,6 +79,32 @@ function Joined({
     <>
       초대 · <Inviter uid={invitedBy} rows={rows} onOpen={onOpen} />
     </>
+  );
+}
+
+// 이 사람이 만든 초대 코드 → 그 코드로 들어온 사람. 쓴 사람만 이름으로, 나머지는 개수로.
+function Invitees({ uid, rows, onOpen }: { uid: string; rows: UserRow[]; onOpen: (uid: string) => void }) {
+  const issued = useIssuedInvites(uid);
+  return (
+    <Loaded q={issued}>
+      {(list) => {
+        if (!list.length) return <>없음</>;
+        const used = list.filter((i) => i.usedBy);
+        const pending = list.filter((i) => i.pending).length;
+        const unused = list.length - used.length - pending;
+        return (
+          <span className={styles.invitees}>
+            {used.map((i) => (
+              <Inviter key={i.code} uid={i.usedBy!} rows={rows} onOpen={onOpen} />
+            ))}
+            <small className="soft">
+              코드 {list.length}개{pending ? ` · 가입 중 ${pending}` : ''}
+              {unused ? ` · 안 씀 ${unused}` : ''}
+            </small>
+          </span>
+        );
+      }}
+    </Loaded>
   );
 }
 
@@ -200,6 +226,9 @@ function Body({ row, rows, onOpen }: Omit<Props, 'onClose' | 'row'> & { row: Use
             <Field label="초대권">
               {invite.data.invitesLeft === null ? '—' : `${invite.data.invitesLeft}장`}
               <GrantInvitesButton uid={uid} who={who} />
+            </Field>
+            <Field label="초대한 사람">
+              <Invitees uid={uid} rows={rows} onOpen={onOpen} />
             </Field>
           </>
         ) : (

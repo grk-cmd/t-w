@@ -40,3 +40,32 @@ export interface InviteRecord {
   issuedBy: string;
   createdAt: number;
 }
+
+export interface IssuedInvite {
+  code: string;
+  createdAt: number | null;
+  /** 쓴 사람의 사용자코드. 가입 도중이면 앱이 잠깐 기기 토큰을 넣어 둔다 — 그때는 pending. */
+  usedBy: string | null;
+  pending: boolean;
+}
+
+// 앱 redeemInvite 는 가입 도중 기기 토큰을, finishInviteSignup 이 끝나면 사용자코드를 usedBy 에 둔다.
+const USER_CODE_RE = /^u[0-9a-z]{6,}$/;
+
+/** invites 에서 issuedBy 로 받은 묶음 → 최근 만든 것부터. */
+export function toIssuedInvites(
+  raw: Record<string, { createdAt?: unknown; usedBy?: unknown }>,
+): IssuedInvite[] {
+  return Object.entries(raw)
+    .filter(([, v]) => v && typeof v === 'object')
+    .map(([code, v]) => {
+      const used = typeof v.usedBy === 'string' && v.usedBy ? v.usedBy : null;
+      return {
+        code,
+        createdAt: typeof v.createdAt === 'number' ? v.createdAt : null,
+        usedBy: used && USER_CODE_RE.test(used) ? used : null,
+        pending: !!used && !USER_CODE_RE.test(used),
+      };
+    })
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}

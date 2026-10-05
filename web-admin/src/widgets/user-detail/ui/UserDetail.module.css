@@ -103,3 +103,10 @@
     border-left: 0;
   }
 }
+
+.invitees {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
