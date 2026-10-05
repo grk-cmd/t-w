@@ -3,6 +3,7 @@ export {
   createInviteCode,
   getUserInvite,
   useForgetUserInvites,
+  userInviteQuery,
   useUserInvite,
   type UserInvite,
   getInvitesLeft,

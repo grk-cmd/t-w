@@ -8,6 +8,7 @@ export {
   listFriendCodes,
   useFriendCodes,
   useUserName,
+  userPresenceQuery,
   useUserPresence,
   type Presence,
 } from './api/user';

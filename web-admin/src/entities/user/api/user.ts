@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
 
 const FRIEND_CODE_PREFIXES = ['MATE', 'COZY'];
@@ -55,10 +55,13 @@ export async function getUserPresence(db: Db, uid: string): Promise<Presence | n
   return { online: p.online === true, lastSeen: typeof p.lastSeen === 'number' ? p.lastSeen : null };
 }
 
+/** 목록 칸과 기간 검색이 같은 캐시를 쓰도록 한 곳에서 만든다. */
+export const userPresenceQuery = (db: Db, uid: string) =>
+  queryOptions({ queryKey: ['presence', uid], queryFn: () => getUserPresence(db, uid) });
+
 /** 화면에 보이는 줄만 읽는다 — 한 번 읽은 값은 캐시에 남아 페이지를 오가도 다시 받지 않는다. */
 export function useUserPresence(uid: string) {
-  const db = useDb();
-  return useQuery({ queryKey: ['presence', uid], queryFn: () => getUserPresence(db, uid) });
+  return useQuery(userPresenceQuery(useDb(), uid));
 }
 
 /**

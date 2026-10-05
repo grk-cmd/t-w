@@ -60,14 +60,32 @@ test('목록 · 검색 · 필터 칩', async ({ page, seed }) => {
   await expect(page.locator('tbody tr').first()).toContainText('김민수');
   await expect(page.locator('tbody tr').last()).toContainText('MATE-CCC3');
 
-  const search = page.getByPlaceholder('이름 · 친구코드 · 사용자코드 · 키 검색');
+  const search = page.getByPlaceholder('이름 · 친구코드 · 사용자코드 · 키');
+  const go = () => page.getByRole('button', { name: '검색', exact: true }).click();
+  // 글자는 «검색» 을 눌러야 걸린다.
   await search.fill('박지');
+  await count(page, '4 / 4명');
+  await go();
   await count(page, '1 / 4명');
   await expect(userRow(page, '박지영')).toBeVisible();
   await search.fill('live-aaaa');
+  await go();
   await count(page, '1 / 4명');
   await expect(userRow(page, '김민수')).toBeVisible();
+
+  // 기간 — 가입일 10월은 지영만(민수는 9월 · 나머지는 기록 없음), 마지막 접속 2026-01-01 은 민수 · 계정없는이.
   await search.fill('');
+  await page.getByLabel('시작일').fill('2026-10-01');
+  await page.getByLabel('종료일').fill('2026-10-31');
+  await go();
+  await count(page, '1 / 4명');
+  await expect(userRow(page, '박지영')).toBeVisible();
+  await page.getByLabel('기간 기준').selectOption('seen');
+  await page.getByLabel('시작일').fill('2026-01-01');
+  await page.getByLabel('종료일').fill('2026-01-01');
+  await go();
+  await count(page, '2 / 4명');
+  await page.getByRole('button', { name: '초기화' }).click();
 
   const chips: [string, string[]][] = [
     ['라이선스 사용 중', ['김민수']],

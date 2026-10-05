@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
 import {
   addInvites,
@@ -82,10 +82,13 @@ export async function getUserInvite(db: Db, uid: string): Promise<UserInvite | n
   };
 }
 
+/** 목록 칸과 기간 검색이 같은 캐시를 쓰도록 한 곳에서 만든다. */
+export const userInviteQuery = (db: Db, uid: string) =>
+  queryOptions({ queryKey: userInviteKey(uid), queryFn: () => getUserInvite(db, uid) });
+
 /** 화면에 보이는 줄만 읽고 캐시에 남긴다. */
 export function useUserInvite(uid: string) {
-  const db = useDb();
-  return useQuery({ queryKey: userInviteKey(uid), queryFn: () => getUserInvite(db, uid) });
+  return useQuery(userInviteQuery(useDb(), uid));
 }
 
 /**
