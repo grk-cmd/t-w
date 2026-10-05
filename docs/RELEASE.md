@@ -7,6 +7,11 @@
 
 ## 한눈에 보기
 
+**버튼으로 (추천)**: GitHub → **Actions** → 왼쪽 **release-start** → **Run workflow** → 버전 종류(`patch` · `minor` · `beta`) 고르기 → **Run workflow**.
+검사 · 버전 올리기 · 태그 · 빌드까지 자동으로 하고, 10~15분 뒤 Releases 초안이 생깁니다(아래 5번부터 같음).
+
+**명령으로**:
+
 ```bash
 git pull --rebase                  # 1. 최신 받기
 npm run check                      # 2. 검사 (마지막 줄 «빨강 0» 확인)

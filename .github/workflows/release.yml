@@ -91,7 +91,9 @@ jobs:
           fetch-depth: 0
       - id: d
         run: |
-          PREV=$(git describe --tags --abbrev=0 --match 'v*' "$TAG^" 2>/dev/null || true)
+          # 정식 태그끼리만 비교한다 — 베타 태그(v*-*)를 «이전» 으로 잡으면 베타 때 이미 들어간 규칙 변경을
+          # «안 바뀜» 으로 보고 운영 배포를 건너뛴다(운영에는 아직 없는데).
+          PREV=$(git describe --tags --abbrev=0 --match 'v*' --exclude 'v*-*' "$TAG^" 2>/dev/null || true)
           echo "이전 태그: ${PREV:-없음}"
           case "$TAG" in *-*) echo "테스트 빌드 — 운영 규칙 배포 대상 아님"; echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0;; esac
           if [ -z "$PREV" ] || ! git diff --quiet "$PREV" "$TAG" -- firebase-database-rules.json; then
@@ -130,7 +132,9 @@ jobs:
     name: Windows x64
     needs: [verify, rules-prod]
     if: always() && needs.verify.result == 'success' && (needs.rules-prod.result == 'success' || needs.rules-prod.result == 'skipped')
-    runs-on: windows-latest
+    # windows-latest(Server 2025) 에서는 node-gyp 가 Visual Studio 를 못 찾아 node-window-manager 빌드가 실패했다.
+    # VS 2022 + C++ 도구가 들어 있는 이미지로 고정한다. 이미지가 은퇴하면 node-gyp 를 올려 새 이미지로 옮길 것.
+    runs-on: windows-2022
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: false
     steps:
@@ -225,6 +229,9 @@ jobs:
   publish-draft:
     name: Releases 초안
     needs: [verify, build-win, build-mac]
+    # 위 빌드들은 rules-prod 를 needs 로 거친다. 그 단계가 건너뛰어지면(베타 · 규칙이 안 바뀐 릴리스) GitHub 은
+    # 기본 조건(success())으로 이 job 까지 건너뛴다 — always() 로 받고 셋의 결과를 직접 본다.
+    if: always() && needs.verify.result == 'success' && needs.build-win.result == 'success' && needs.build-mac.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -247,7 +254,8 @@ jobs:
           # 정식은 latest.yml, 프리릴리스는 채널 이름(beta.yml 등)으로 나온다.
           YML=$(ls latest.yml beta.yml alpha.yml rc.yml 2>/dev/null | head -n 1)
           [ -n "$YML" ] || { echo "::error::업데이트 정보 파일(yml)이 없다"; exit 1; }
-          URL=$(grep -E '^\s*url:' "$YML" | head -n 1 | sed -E 's/^\s*url:\s*//')
+          # url 은 files: 아래 목록 줄(«  - url: …»)에 있다 — 앞의 «- » 까지 받는다.
+          URL=$(grep -E '^[[:space:]]*(-[[:space:]]*)?url:' "$YML" | head -n 1 | sed -E 's/^[[:space:]]*(-[[:space:]]*)?url:[[:space:]]*//')
           echo "$YML url: $URL"
           [ -f "$URL" ] || { echo "::error::$YML 이 가리키는 $URL 이 없다 — 자동 업데이트가 깨진다"; exit 1; }
           grep -q "version: $VERSION" "$YML" || { echo "::error::$YML 버전이 $VERSION 이 아니다"; exit 1; }
