@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLicenses, useRefreshLicenses } from '@/entities/license';
 import { useDb, useEnv, withProdMark } from '@/shared/api';
-import { copyText } from '@/shared/lib';
-import { useToast } from '@/shared/ui';
+import { copyText, usePaging } from '@/shared/lib';
+import { Pager, useToast } from '@/shared/ui';
 import { downloadBytes, readSheetFile, writeXlsx, type Grid } from '../lib/sheet';
 import { lookupRows, runBulkGrant } from '../model/bulkGrant';
 import {
@@ -76,6 +76,7 @@ export function BulkGrantCard() {
     () => done ?? judge(looked, options, sheet?.issued ?? null),
     [done, looked, options, sheet],
   );
+  const paging = usePaging(rows, 'bulkGrant');
   const busy = phase === 'reading' || phase === 'running';
 
   // 발급 중에 창을 닫으면 어디까지 됐는지 모르게 된다 — 브라우저가 한 번 묻게 한다.
@@ -92,6 +93,7 @@ export function BulkGrantCard() {
     setLooked([]);
     setDone(null);
     setInfo(IDLE_INFO);
+    paging.setPage(1);
   };
 
   const load = async (file: File) => {
@@ -292,7 +294,7 @@ export function BulkGrantCard() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => {
+              {paging.items.map((r) => {
                 const shown = normalizeCode(r.raw);
                 return (
                   <tr key={r.line} className={isActionable(r) || r.res ? undefined : styles.dim}>
@@ -318,6 +320,7 @@ export function BulkGrantCard() {
           </table>
         </div>
       )}
+      <Pager paging={paging} />
 
       {phase === 'preview' && (
         <div className="field">

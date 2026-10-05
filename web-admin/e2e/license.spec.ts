@@ -319,6 +319,40 @@ test.describe('대기 중인 요청', () => {
     expectGrantMessage(await inbox('ucd34ef56gh78'), all.r2.issuedKey!);
   });
 
+  test('쪽을 넘겨도 선택은 남고, 이 쪽 전체 선택은 이 쪽만 고른다', async ({ page, seed }) => {
+    const licenseRequests: Record<string, object> = {};
+    for (let i = 1; i <= 25; i++) {
+      const n = String(i).padStart(2, '0');
+      licenseRequests[`p${n}`] = {
+        name: `요청${n}`,
+        friendCode: 'MATE-EF56',
+        status: 'pending',
+        requestedAt: T0 + i,
+      };
+    }
+    await seed({ licenseRequests });
+    await openMenu(page, 'license');
+    await page.getByRole('tab', { name: /대기 중인 요청/ }).click();
+    const rows = page.locator('.list .row');
+    const pageSize = page.getByRole('combobox', { name: '페이지당 개수' });
+
+    await pageSize.selectOption('20');
+    await expect(rows).toHaveCount(20);
+    await page.getByRole('checkbox', { name: '이 쪽 전체 선택' }).check();
+    await expect(page.getByText('20개 선택')).toBeVisible();
+
+    await page.getByRole('button', { name: '2쪽' }).click();
+    await expect(rows).toHaveCount(5);
+    // 번호는 목록 전체 순번으로 이어진다.
+    await expect(rows.first()).toContainText('21');
+    await expect(page.getByRole('checkbox', { name: '이 쪽 전체 선택' })).not.toBeChecked();
+    await page.getByRole('checkbox', { name: '이 쪽 전체 선택' }).check();
+    await expect(page.getByText('25개 선택')).toBeVisible();
+    await page.getByRole('checkbox', { name: '이 쪽 전체 선택' }).uncheck();
+    await expect(page.getByText('20개 선택')).toBeVisible();
+    await expect(page.getByRole('button', { name: '선택 발급 (20)' })).toBeVisible();
+  });
+
   test('거절하면 요청을 지운다(다시 요청할 수 있게)', async ({ page, seed }) => {
     await seed(REQUESTS);
     await openRequests(page);
