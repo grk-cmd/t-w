@@ -2,8 +2,10 @@ export {
   expireSecretRoom,
   getSecretRoomPub,
   getUserSecretRoom,
+  getUserSecretRoomInfo,
   issueSecretRoom,
   setUserSecretRoom,
+  useUserSecretRoom,
 } from './api/secretRoom';
 export {
   addMonths,
@@ -18,8 +20,10 @@ export {
   periodText,
   planExpiry,
   SECRET_PREFIX,
+  secretRoomState,
   staleReason,
   STALE_DAYS,
   type ExpiryMode,
   type SecretRoomPub,
+  type SecretRoomState,
 } from './model/secretRoom';

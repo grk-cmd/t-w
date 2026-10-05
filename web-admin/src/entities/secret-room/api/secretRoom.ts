@@ -1,4 +1,5 @@
-import type { Db } from '@/shared/api';
+import { useQuery } from '@tanstack/react-query';
+import { useDb, type Db } from '@/shared/api';
 import { OWNER_NAME_MAX, type SecretRoomPub } from '../model/secretRoom';
 
 // secretRooms/{코드} 쓰기는 admins 가 아니라 발급 열쇠로 막혀 있다(규칙: newData.k === srKey/v, srKey 는 아무도 못 읽음).
@@ -51,6 +52,24 @@ export async function getUserSecretRoom(db: Db, uid: string): Promise<string | n
   } catch {
     return null;
   }
+}
+
+/**
+ * 사용자 상세용 — 그 사람 칸의 코드와 그 코드의 pub 두 칸. 코드가 없으면 null.
+ * getUserSecretRoom 과 달리 읽기 실패를 «없음» 으로 삼키지 않는다(창에 «읽지 못함» 으로 보인다).
+ */
+export async function getUserSecretRoomInfo(
+  db: Db,
+  uid: string,
+): Promise<{ code: string; pub: SecretRoomPub | null } | null> {
+  const code = await db.get<unknown>(`users/${uid}/secretRoom`);
+  if (typeof code !== 'string' || !code) return null;
+  return { code, pub: await getSecretRoomPub(db, code) };
+}
+
+export function useUserSecretRoom(uid: string) {
+  const db = useDb();
+  return useQuery({ queryKey: ['userSecretRoom', uid], queryFn: () => getUserSecretRoomInfo(db, uid) });
 }
 
 /** 받는 앱의 참여 화면이 이 값으로 코드를 채운다. 규칙상 계정에 연결된 사용자 칸은 관리자도 못 쓴다 — 실패하면 false. */

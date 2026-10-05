@@ -19,6 +19,8 @@ export {
   INVITE_GRANT_MAX,
   INVITE_ISSUER_ADMIN,
   INVITES_LEFT_MAX,
+  inviterKind,
   isGrantCount,
   type InviteRecord,
+  type InviterKind,
 } from './model/invite';

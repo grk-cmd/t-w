@@ -7,6 +7,11 @@ export function formatDate(ts: number | undefined): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+/** 초 → «12.3시간»(소수 한 자리). 0 이면 «—». */
+export function formatHours(sec: number): string {
+  return sec ? `${Math.round(sec / 360) / 10}시간` : '—';
+}
+
 export function errorMessage(error: unknown, fallback: string): string {
   return isPermissionDenied(error) ? '권한이 없어요 — 관리자 계정으로 로그인했는지 확인해 주세요' : fallback;
 }

@@ -1,4 +1,4 @@
-export { copyText, errorMessage, formatDate } from './format';
+export { copyText, errorMessage, formatDate, formatHours } from './format';
 export { paginate } from './paginate';
 export {
   DEFAULT_PAGE_SIZE,

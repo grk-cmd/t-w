@@ -4,6 +4,18 @@ import { licenseStatus, type License, type LicenseStatus } from '@/entities/lice
 
 export type UserLicense = LicenseStatus | 'none' | 'unknown';
 
+// 사용자 쪽에서 보면 아직 안 쓴(unused) 키도 쥐고 있는 것이라 «사용 중» 으로 묶는다.
+export const LICENSE_LABEL: Record<UserLicense, string> = {
+  used: '사용 중',
+  unused: '사용 중',
+  revoked: '회수됨',
+  unknown: '없는 키',
+  none: '—',
+};
+
+/** 회수됐거나 발급 목록에 없는 키 — 경고 색으로 보인다. */
+export const isBadLicense = (state: UserLicense) => state === 'revoked' || state === 'unknown';
+
 export interface UserRow {
   userCode: string;
   name: string | null;
@@ -71,4 +83,10 @@ export function licenseUseCounts(rows: UserRow[]): Map<string, number> {
     if (license) counts.set(license, (counts.get(license) ?? 0) + 1);
   }
   return counts;
+}
+
+/** 같은 키를 쓰는 다른 사람들(본인 빼고). 목록 줄과 같은 정규화된 키로 맞춘다. */
+export function sameLicenseUsers(rows: UserRow[], row: UserRow): UserRow[] {
+  if (!row.license) return [];
+  return rows.filter((r) => r.license === row.license && r.userCode !== row.userCode);
 }

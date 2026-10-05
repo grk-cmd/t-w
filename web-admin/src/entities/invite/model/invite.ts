@@ -22,6 +22,14 @@ export const INVITE_CODE_MAX = 10;
  */
 export const INVITE_ISSUER_ADMIN = 'admin';
 
+/** 가입 경로 — 초대한 사람이 없으면 제도 전부터 쓰던 기존 사용자, 'admin' 이면 웹 관리자가 만든 코드, 그 밖은 사용자코드. */
+export type InviterKind = 'existing' | 'admin' | 'user';
+
+export function inviterKind(invitedBy: string | null): InviterKind {
+  if (!invitedBy) return 'existing';
+  return invitedBy === INVITE_ISSUER_ADMIN ? 'admin' : 'user';
+}
+
 export function genInviteCode(random: () => number = Math.random): string {
   const seg = () =>
     Array.from({ length: 4 }, () => CODE_CHARS[Math.floor(random() * CODE_CHARS.length)]).join('');

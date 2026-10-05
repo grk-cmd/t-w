@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { dbGet, dbSet } from './support/emulator';
 import { openMenu, toast } from './support/ui';
@@ -248,4 +248,126 @@ test('초대 코드 만들기 — 고른 개수만큼 invites 에 생기고, 이
     expect(await dbGet(`invites/${code}`)).toMatchObject({ issuedBy: 'admin' });
   }
   expect(await dbGet('invites/INVT-KEEP-KEEP')).toMatchObject({ usedBy: 'u2' });
+});
+
+// 상세 창의 한 칸 — «라벨» 바로 옆 값.
+const field = (scope: Locator, label: string) => scope.locator(`dt:text-is("${label}") + dd`);
+
+test('이름을 누르면 상세 창 — 칸마다 그 사람 몫만 읽어 보여 주고, 같은 키 · 초대한 사람으로 건너간다', async ({
+  page,
+  seed,
+}) => {
+  const away = 'https://firebasestorage.googleapis.com/v0/b/demo-tw.appspot.com/o/away%2Fm.png?alt=media';
+  const exp = Date.UTC(2099, 0, 1, 3);
+  await seed({
+    ...DATA,
+    accountSnap: {
+      ...DATA.accountSnap,
+      ushare0000005: { name: '최공유', friendCode: 'MATE-EEE5', license: 'LIVE-AAAA-AAAA-AAAA', ts: T0 },
+    },
+    users: {
+      ...DATA.users,
+      uminsu0000001: {
+        ...DATA.users.uminsu0000001,
+        presence: { online: true, lastSeen: T0, room: 'WORK-ROOM' },
+        focus: { totalSec: 5400 },
+        awayImg: away,
+        secretRoom: 'SCRT-MINS',
+      },
+    },
+    reports: {
+      uminsu0000001: {
+        ur1: { kind: 'nick', nick: 'a', code4: '1', ts: 1 },
+        ur2: { kind: 'char', nick: 'b', code4: '2', ts: 2 },
+      },
+    },
+    secretRooms: { 'SCRT-MINS': { k: 'x', pub: { owner: 'uminsu0000001', ts: T0, exp } } },
+  });
+  await openMenu(page, 'users');
+
+  await userRow(page, '박지영').getByRole('button', { name: '박지영' }).click();
+  let detail = page.getByRole('dialog', { name: '박지영 상세' });
+  await expect(detail.getByRole('heading', { level: 2 })).toHaveText('박지영');
+  await expect(field(detail, '사용자코드')).toContainText('ujiyoung00002');
+  await expect(field(detail, '계정')).toHaveText('있음');
+  await expect(field(detail, '키')).toHaveText('—');
+  await expect(field(detail, '가입일')).toContainText('2026-10-03');
+  await expect(field(detail, '받은 신고')).toHaveText('0명');
+  await expect(field(detail, '자리비움 그림')).toHaveText('없음');
+  await expect(field(detail, '코드')).toHaveText('—');
+  // 초대한 사람(사용자코드)은 이름으로 — 누르면 그 사람으로 바뀐다.
+  await expect(field(detail, '경로')).toHaveText('초대 · 김민수');
+  await field(detail, '경로').getByRole('button', { name: '김민수' }).click();
+
+  detail = page.getByRole('dialog', { name: '김민수 상세' });
+  await expect(field(detail, '친구코드')).toHaveText('MATE-AAA1');
+  await expect(field(detail, '키')).toContainText('LIVE-AAAA-AAAA-AAAA');
+  await expect(field(detail, '키')).toContainText('사용 중');
+  await expect(field(detail, '같은 키')).toHaveText('1명최공유');
+  await expect(field(detail, '마지막 접속')).toHaveText('접속 중 · WORK-ROOM');
+  await expect(field(detail, '집중')).toHaveText('1.5시간');
+  await expect(field(detail, '경로')).toHaveText('기존');
+  await expect(field(detail, '초대권')).toContainText('2장');
+  await expect(field(detail, '받은 신고')).toHaveText('2명');
+  await expect(field(detail, '자리비움 그림').getByRole('img')).toHaveAttribute('src', away);
+  await expect(field(detail, '코드')).toHaveText('SCRT-MINS2099-01-01 까지');
+
+  await field(detail, '같은 키').getByRole('button', { name: '최공유' }).click();
+  detail = page.getByRole('dialog', { name: '최공유 상세' });
+  await expect(field(detail, '같은 키')).toHaveText('1명김민수');
+  // invite 칸이 없는 사람(옛 앱)은 가입 기록 없음.
+  await expect(field(detail, '가입')).toHaveText('기록 없음');
+
+  await detail.getByRole('button', { name: '닫기' }).click();
+  await expect(detail).toBeHidden();
+});
+
+test('계정 없는 사람 · 관리자 초대 — 이름은 따로 읽고, 경로는 «관리자»', async ({ page, seed }) => {
+  await seed({
+    ...DATA,
+    users: {
+      ...DATA.users,
+      unoacct000004: {
+        ...DATA.users.unoacct000004,
+        invite: { invitesLeft: 0, invitedBy: 'admin', joinedAt: T0 },
+      },
+    },
+  });
+  await openMenu(page, 'users');
+
+  await userRow(page, 'MATE-CCC3').getByRole('button', { name: '계정없는이' }).click();
+  const detail = page.getByRole('dialog', { name: 'MATE-CCC3 상세' });
+  await expect(field(detail, '이름')).toHaveText('계정없는이');
+  await expect(field(detail, '계정')).toHaveText('없음');
+  await expect(field(detail, '경로')).toHaveText('초대 · 관리자');
+  await expect(field(detail, '마지막 접속')).toContainText('2026-01-01');
+
+  // 폰 폭에서는 화면을 꽉 채운다.
+  await page.setViewportSize({ width: 375, height: 700 });
+  await expect.poll(async () => (await detail.boundingBox())?.width).toBe(375);
+});
+
+test('상세 창에서 초대권을 지급하면 창과 목록이 함께 갱신된다', async ({ page, seed }) => {
+  await seed(DATA);
+  await openMenu(page, 'users');
+
+  await userRow(page, '김민수').getByRole('button', { name: '김민수' }).click();
+  const detail = page.getByRole('dialog', { name: '김민수 상세' });
+  await expect(field(detail, '초대권')).toContainText('2장');
+  await field(detail, '초대권').getByRole('button', { name: '초대권 지급' }).click();
+
+  const grant = page
+    .getByRole('dialog')
+    .filter({ has: page.getByRole('heading', { name: '김민수 님에게 초대권 지급' }) });
+  await expect(grant.getByText('지금 2장')).toBeVisible();
+  await grant.getByRole('button', { name: '1장 지급' }).click();
+
+  await expect(toast(page)).toHaveText('김민수 님에게 초대권 1장 지급 · 지금 3장');
+  await expect(grant).toBeHidden();
+  // 지급 창이 닫혀도 상세 창은 그대로 남는다.
+  await expect(detail).toBeVisible();
+  await expect(field(detail, '초대권')).toContainText('3장');
+  expect(await dbGet('users/uminsu0000001/invite/invitesLeft')).toBe(3);
+  await detail.getByRole('button', { name: '닫기' }).click();
+  await expect(userRow(page, '김민수')).toContainText('초대권 3장');
 });

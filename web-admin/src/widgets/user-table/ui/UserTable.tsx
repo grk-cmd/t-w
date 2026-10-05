@@ -1,21 +1,16 @@
-import { realName, useUserName, useUserPresence, type UserLicense, type UserRow } from '@/entities/user';
+import {
+  isBadLicense,
+  LICENSE_LABEL,
+  realName,
+  useUserName,
+  useUserPresence,
+  type UserRow,
+} from '@/entities/user';
 import { useUserInvite } from '@/entities/invite';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
-import { formatDate, type Selection } from '@/shared/lib';
+import { formatDate, formatHours, type Selection } from '@/shared/lib';
 import { RowCheckbox, SelectAllCheckbox } from '@/shared/ui';
 import styles from './UserTable.module.css';
-
-const LICENSE_LABEL: Record<UserLicense, string> = {
-  used: '사용 중',
-  unused: '사용 중',
-  revoked: '회수됨',
-  unknown: '없는 키',
-  none: '—',
-};
-
-function formatHours(sec: number): string {
-  return sec ? `${Math.round(sec / 360) / 10}시간` : '—';
-}
 
 // 계정 요약에 이름이 없으면 그 사람 이름 한 칸만 읽는다. 화면에 보이는 줄만 읽고, 한 번 읽은 이름은 캐시에 남는다.
 function NameCell({ row }: { row: UserRow }) {
@@ -61,9 +56,11 @@ interface Props {
   selection: Selection;
   /** 키 → 쓰는 사람 수(목록 전체 기준). 2명 이상이면 라이선스 칸에 표시한다. */
   licenseCounts: Map<string, number> | null;
+  /** 이름을 누르면 그 사람 상세를 연다. */
+  onOpen: (uid: string) => void;
 }
 
-export function UserTable({ rows, startIndex, selection, licenseCounts }: Props) {
+export function UserTable({ rows, startIndex, selection, licenseCounts, onOpen }: Props) {
   return (
     <div className={styles.wrap}>
       <table className={styles.table}>
@@ -107,7 +104,14 @@ export function UserTable({ rows, startIndex, selection, licenseCounts }: Props)
               </td>
               <td className="soft">{startIndex + i + 1}</td>
               <td>
-                <NameCell row={row} />
+                <button
+                  type="button"
+                  className={styles.open}
+                  title="상세 보기"
+                  onClick={() => onOpen(row.userCode)}
+                >
+                  <NameCell row={row} />
+                </button>
                 {!row.hasAccount && <small className={styles.tag}>계정 없음</small>}
               </td>
               <td>
@@ -118,11 +122,7 @@ export function UserTable({ rows, startIndex, selection, licenseCounts }: Props)
               </td>
               <td>
                 {row.license && <code className="key">{row.license}</code>}
-                <small
-                  className={
-                    row.licenseState === 'revoked' || row.licenseState === 'unknown' ? 'warn' : 'soft'
-                  }
-                >
+                <small className={isBadLicense(row.licenseState) ? 'warn' : 'soft'}>
                   {' '}
                   {LICENSE_LABEL[row.licenseState]}
                 </small>

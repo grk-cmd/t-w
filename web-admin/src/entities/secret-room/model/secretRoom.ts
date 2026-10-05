@@ -127,6 +127,20 @@ export function overwriteWarning(
   return `${code} 는 이미 ${taken.owner} 에게 발급돼 있어요${current}. 그대로 발급하면 ${effect}`;
 }
 
+export type SecretRoomState =
+  | { kind: 'active'; exp: number | null }
+  | { kind: 'expired'; exp: number }
+  /** users/{uid}/secretRoom 에 적힌 코드가 그새 다른 사람에게 재발급됐거나 발급 기록이 없다. */
+  | { kind: 'not-owner'; owner: string | null };
+
+/** 사용자 칸에 적힌 코드와 그 코드의 pub 를 맞춰 본 상태. 입장 게이트와 같이 owner · exp 만 본다. */
+export function secretRoomState(pub: SecretRoomPub | null, uid: string, now: number): SecretRoomState {
+  if (!pub?.owner || pub.owner !== uid) return { kind: 'not-owner', owner: pub?.owner || null };
+  const exp = typeof pub.exp === 'number' && pub.exp > 0 ? pub.exp : null;
+  if (exp !== null && now > exp) return { kind: 'expired', exp };
+  return { kind: 'active', exp };
+}
+
 /**
  * 친구코드가 가리키는 계정이 버려졌을 수 있는지. 계정 이전 뒤 friendCodes 는 옛 uid 를 계속 가리켜,
  * 그대로 발급하면 쓰기는 다 성공하는데 후원자에게는 영영 안 간다.

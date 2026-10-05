@@ -39,3 +39,20 @@
   color: var(--ok);
   font-weight: 600;
 }
+
+/* 이름 칸 전체가 상세를 여는 버튼 — 글자 모양은 표 그대로 두고 밑줄만. */
+.open {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-decoration: underline dotted var(--soft);
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.open:hover {
+  color: var(--accent);
+}

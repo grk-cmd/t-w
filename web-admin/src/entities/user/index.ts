@@ -1,12 +1,14 @@
 export {
   findUserByFriendCode,
   friendCodeCandidates,
+  getUserFocusSec,
   getUserFriendCode,
   getUserLastSeen,
   getUserName,
   getUserPresence,
   listFriendCodes,
   useFriendCodes,
+  useUserFocusSec,
   useUserName,
   userPresenceQuery,
   useUserPresence,
@@ -21,4 +23,13 @@ export {
   useUserBrief,
   type UserBrief,
 } from './api/brief';
-export { buildUserRows, licenseUseCounts, realName, type UserLicense, type UserRow } from './model/userRow';
+export {
+  buildUserRows,
+  isBadLicense,
+  LICENSE_LABEL,
+  licenseUseCounts,
+  realName,
+  sameLicenseUsers,
+  type UserLicense,
+  type UserRow,
+} from './model/userRow';

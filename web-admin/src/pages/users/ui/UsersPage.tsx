@@ -18,6 +18,7 @@ import {
 } from '@/features/user/user-filter';
 import { errorMessage, usePaging, useSelection } from '@/shared/lib';
 import { Pager, SelectionBar } from '@/shared/ui';
+import { UserDetail } from '@/widgets/user-detail';
 import { UserTable } from '@/widgets/user-table';
 import { useUserRows } from '../model/useUserRows';
 
@@ -25,6 +26,8 @@ export function UsersPage() {
   const { rows, error, refresh } = useUserRows();
   const [filter, setFilter] = useState<UserFilter>('all');
   const [search, setSearch] = useState<UserSearch>(NO_SEARCH);
+  const [openUid, setOpenUid] = useState<string | null>(null);
+  const openRow = useMemo(() => rows?.find((r) => r.userCode === openUid) ?? null, [rows, openUid]);
 
   // 키 중복은 이미 받은 계정 요약의 키로 센다 — 따로 내려받지 않는다.
   const licenseCounts = useMemo(() => (rows ? licenseUseCounts(rows) : null), [rows]);
@@ -83,7 +86,9 @@ export function UsersPage() {
             startIndex={paging.start}
             selection={selection}
             licenseCounts={licenseCounts}
+            onOpen={setOpenUid}
           />
+          <UserDetail row={openRow} rows={rows} onOpen={setOpenUid} onClose={() => setOpenUid(null)} />
         </>
       )}
       <Pager paging={paging} />
