@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getAnimalUnlockLevel, parseUnlockLevel, saveAnimalUnlockLevel } from '@/entities/game-config';
-import { fakeDb } from '../shared/fakeDb';
+import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 describe('게임 설정', () => {
   it('해금 레벨 입력은 1~999 정수만', () => {
@@ -22,9 +22,9 @@ describe('게임 설정', () => {
     ).toBeNull();
   });
 
-  it('저장은 그 필드만 update — 다른 설정을 지우지 않는다', async () => {
+  it('저장은 그 필드 한 칸만 — 다른 설정을 지우지 않는다', async () => {
     const { db, writes } = fakeDb();
     await saveAnimalUnlockLevel(db, 40);
-    expect(writes).toEqual([['update', 'catalog/gameConfig', { animalUnlockLevel: 40 }]]);
+    expect(withoutAudits(writes)).toEqual([['commit', 'catalog/gameConfig/animalUnlockLevel', 40]]);
   });
 });

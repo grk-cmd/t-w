@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { isIndexMissing, useDb, type Db } from '@/shared/api';
+import { isIndexMissing, useDb, withAudit, type Db } from '@/shared/api';
 import { sortBroadcasts, type InboxBroadcast, type RawBroadcast } from '../model/broadcast';
-import { INBOX_BODY_MAX, INBOX_TITLE_MAX, type InboxMessage } from '../model/message';
+import { INBOX_BODY_MAX, INBOX_TAG_LABEL, INBOX_TITLE_MAX, type InboxMessage } from '../model/message';
 
 const BROADCAST_KEY = ['inboxBroadcast'];
 const ROOT = 'inboxBroadcast';
@@ -72,17 +72,10 @@ export function broadcastWrite(db: Db, message: InboxMessage, pinned: boolean, i
 }
 
 export function sendBroadcast(db: Db, message: InboxMessage, pinned: boolean, id?: string): Promise<void> {
-  return db.commit(broadcastWrite(db, message, pinned, id));
-}
-
-// 내용은 두고 pinned 만 바꾼다. 풀 때는 false 를 쓰지 않고 키를 지운다(앱과 같은 모양).
-export function setBroadcastPinned(db: Db, id: string, pinned: boolean): Promise<void> {
-  const path = `${ROOT}/${id}/pinned`;
-  return pinned ? db.set(path, true) : db.remove(path);
-}
-
-export function deleteBroadcast(db: Db, id: string): Promise<void> {
-  return db.remove(`${ROOT}/${id}`);
+  const detail = `${INBOX_TAG_LABEL[message.tag] ?? message.tag}${pinned ? ' · 고정' : ''}`;
+  return db.commit(
+    withAudit(db, broadcastWrite(db, message, pinned, id), 'notice.broadcast', message.title.trim(), detail),
+  );
 }
 
 /** 여러 공지의 고정을 한 묶음으로 바꾸는 쓰기 — 풀 때는 키를 지운다(앱과 같은 모양). */

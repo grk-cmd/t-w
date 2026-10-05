@@ -27,6 +27,6 @@ export async function cleanGhostRooms(
   );
   const removed = targets.filter((_, i) => !alive[i]);
   const revived = targets.filter((_, i) => alive[i]);
-  await closeRooms(db, removed);
+  await closeRooms(db, removed, 'room.cleanGhost');
   return { removed, revived };
 }

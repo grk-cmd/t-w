@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { catalogEntries } from '@/entities/catalog';
 import { deleteEntries } from '@/features/catalog/delete-entries';
 import { reorderEntries } from '@/features/catalog/reorder-entries';
-import { fakeDb } from '../shared/fakeDb';
+import { fakeDb, withoutAudits } from '../shared/fakeDb';
 import { fakeFiles } from '../shared/fakeFiles';
 
 const FILE = (path: string) =>
@@ -23,7 +23,7 @@ describe('카탈로그 항목 삭제', () => {
     const { db, writes } = fakeDb();
     const { files, deleted } = fakeFiles();
     const r = await deleteEntries(db, files, parts);
-    expect(writes).toEqual([
+    expect(withoutAudits(writes)).toEqual([
       ['commit', 'catalog/parts/p1', null],
       ['commit', 'catalog/gachaParts/p1', null],
       ['commit', 'catalog/parts/p2', null],
@@ -37,7 +37,7 @@ describe('카탈로그 항목 삭제', () => {
     const { db, writes } = fakeDb({}, (p) => p === 'catalog/parts/p2');
     const { files, deleted } = fakeFiles();
     await expect(deleteEntries(db, files, parts)).rejects.toThrow();
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
     expect(deleted).toEqual([]);
   });
 
@@ -64,7 +64,7 @@ describe('카탈로그 진열 순서', () => {
     const group = catalogEntries('gachaParts', { a: { order: 0 }, b: { order: 1 }, c: { order: 2 } });
     const { db, writes } = fakeDb();
     const written = await reorderEntries(db, group, 'c', 'a');
-    expect(writes).toEqual([
+    expect(withoutAudits(writes)).toEqual([
       ['commit', 'catalog/gachaParts/c/order', 0],
       ['commit', 'catalog/gachaParts/a/order', 1],
       ['commit', 'catalog/gachaParts/b/order', 2],
@@ -76,6 +76,6 @@ describe('카탈로그 진열 순서', () => {
     const group = catalogEntries('items', { a: { order: 0 } });
     const { db, writes } = fakeDb({}, () => true);
     expect(await reorderEntries(db, group, 'a', 'a')).toEqual({});
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 });

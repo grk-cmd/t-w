@@ -15,7 +15,7 @@ import {
   roomRows,
   roomStatsSummary,
 } from '@/entities/room';
-import { fakeDb } from '../shared/fakeDb';
+import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const NOW = 1_000_000;
 
@@ -103,7 +103,7 @@ describe('방 종료 쓰기', () => {
     });
     const { db, writes } = fakeDb();
     await closeRooms(db, ['A-1']);
-    expect(writes).toEqual([
+    expect(withoutAudits(writes)).toEqual([
       ['commit', 'rooms/A-1', null],
       ['commit', 'roomIndex/A-1', null],
     ]);
@@ -112,7 +112,7 @@ describe('방 종료 쓰기', () => {
   it('대상이 없으면 아무것도 보내지 않는다', async () => {
     const { db, writes } = fakeDb();
     await closeRooms(db, []);
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 });
 

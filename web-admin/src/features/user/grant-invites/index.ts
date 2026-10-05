@@ -5,6 +5,7 @@ export {
   uniqueUserIds,
   type GrantAllResult,
   type GrantInvitesResult,
+  type GrantScope,
 } from './model/grantInvites';
 export { GrantInvitesAllButton } from './ui/GrantInvitesAllButton';
 export { GrantInvitesButton } from './ui/GrantInvitesButton';

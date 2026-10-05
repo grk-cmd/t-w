@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addMonths } from '@/entities/secret-room';
 import { grantSecretRoom, prepareSecretGrant, secretRoomMessage } from '@/features/license/grant-secret-room';
-import { fakeDb } from '../shared/fakeDb';
+import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const NOW = new Date(2026, 4, 10, 12).getTime();
 const DAY = 86_400_000;
@@ -38,7 +38,7 @@ describe('시크릿룸 발급 — 확인', () => {
         warnings: [],
       },
     });
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 
   it('입력 오류는 아무것도 읽기 전에 막는다', async () => {
@@ -121,7 +121,7 @@ describe('시크릿룸 발급 — 쓰기', () => {
       expiredOld: 'SCRT-OLD1',
       expireFailed: '',
     });
-    expect(writes.map(([op, path]) => [op, path.replace(/\/m[^/]+$/, '/m…')])).toEqual([
+    expect(withoutAudits(writes).map(([op, path]) => [op, path.replace(/\/m[^/]+$/, '/m…')])).toEqual([
       ['set', 'secretRooms/SCRT-NEW1'],
       ['set', 'secretRooms/SCRT-OLD1'],
       ['set', 'users/u1/secretRoom'],
@@ -140,7 +140,7 @@ describe('시크릿룸 발급 — 쓰기', () => {
       throw denied;
     };
     expect(await grantSecretRoom(db, plan, 'WRONG', NOW)).toEqual({ ok: false, denied: true });
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 
   it('옛 코드가 그새 남에게 갔으면 만료시키지 않는다 · 같은 코드면 연장이라 손대지 않는다', async () => {

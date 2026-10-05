@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createLicense, filterLicenses, genLicenseKey, licenseStatus } from '@/entities/license';
-import { fakeDb, NOW } from '../shared/fakeDb';
+import { ADMIN_UID, auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 describe('라이선스 키', () => {
   it('4자리씩 네 덩어리, 헷갈리는 글자 없음', () => {
@@ -25,8 +25,10 @@ describe('라이선스 키', () => {
   it('발급은 앱이 검증하는 모양으로 쓴다', async () => {
     const { db, writes } = fakeDb();
     await createLicense(db, '메모', () => 'KEY');
-    expect(writes).toEqual([
+    expect(withoutAudits(writes)).toEqual([
       ['commit', 'licenses/KEY', { valid: true, note: '메모', createdAt: NOW, redeemedAt: null }],
     ]);
+    // 같은 묶음에 기록 한 줄 — 키 원문은 남기지 않는다.
+    expect(auditsOf(writes)).toEqual([{ at: NOW, by: ADMIN_UID, action: 'license.issue', target: 'KEY' }]);
   });
 });

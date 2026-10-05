@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+import { useDb, withAudit, type Db } from '@/shared/api';
 import { NOTICE_BODY_MAX, NOTICE_TITLE_MAX, type UpdateNotice } from '../model/updateNotice';
 
 const NOTICE_KEY = ['updateNotice'];
@@ -20,13 +20,14 @@ export function useRefreshUpdateNotice() {
 }
 
 export function publishUpdateNotice(db: Db, title: string, body: string): Promise<void> {
-  return db.set(PATH, {
+  const value = {
     title: title.trim().slice(0, NOTICE_TITLE_MAX),
     body: body.trim().slice(0, NOTICE_BODY_MAX),
     ts: db.now(),
-  });
+  };
+  return db.commit(withAudit(db, { [PATH]: value }, 'notice.update', value.title));
 }
 
 export function clearUpdateNotice(db: Db): Promise<void> {
-  return db.remove(PATH);
+  return db.commit(withAudit(db, { [PATH]: null }, 'notice.updateClear', '업데이트 공지'));
 }

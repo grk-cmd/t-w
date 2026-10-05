@@ -18,7 +18,7 @@ import {
   writeXlsx,
   type PlanRow,
 } from '@/features/license/bulk-grant';
-import { fakeDb } from '../shared/fakeDb';
+import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const buf = (u8: Uint8Array) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer;
 
@@ -195,7 +195,7 @@ describe('일괄 발급 — 조회 · 발급', () => {
       ['key', '', null, ''],
       ['haskey', 'COZY-AB12', 'u1', '철수'],
     ]);
-    expect(writes).toEqual([]);
+    expect(withoutAudits(writes)).toEqual([]);
   });
 
   it('조회가 실패하면 «조회 실패» 로 남긴다', async () => {
@@ -210,7 +210,7 @@ describe('일괄 발급 — 조회 · 발급', () => {
     const { db, writes } = fakeDb();
     await grantRow(db, row({ st: 'send', uid: 'u1', code: 'MATE-AB12' }), () => 'K1');
     await grantRow(db, row({ st: 'key' }), () => 'K2');
-    expect(writes.map(([op, path]) => [op, path.replace(/\/m[^/]+$/, '/m…')])).toEqual([
+    expect(withoutAudits(writes).map(([op, path]) => [op, path.replace(/\/m[^/]+$/, '/m…')])).toEqual([
       ['commit', 'licenses/K1'],
       ['commit', 'inbox/u1/m…'],
       ['commit', 'licenses/K2'],
@@ -231,7 +231,7 @@ describe('일괄 발급 — 조회 · 발급', () => {
       [undefined, undefined],
       ['okkey', 'K2'],
     ]);
-    expect(writes.map(([, path]) => path)).toEqual(['licenses/K2']);
+    expect(withoutAudits(writes).map(([, path]) => path)).toEqual(['licenses/K2']);
   });
 
   it('결과 파일 — 원본 뒤에 발급 키 · 결과 · 사유, 다시 올린 파일은 그 열을 채운다', () => {

@@ -19,7 +19,7 @@ import {
   type ExpiryMode,
 } from '@/entities/secret-room';
 import { findUserByFriendCode, getUserFriendCode, getUserLastSeen, getUserName } from '@/entities/user';
-import { isPermissionDenied, type Db } from '@/shared/api';
+import { auditAfter, isPermissionDenied, type Db } from '@/shared/api';
 
 const AUTO_CODE_TRIES = 5;
 
@@ -193,10 +193,18 @@ export async function grantSecretRoom(
   } catch {
     sent = false;
   }
+  const period = periodText(plan.months, plan.expMs, plan.mode);
+  // 여러 번 나눠 쓰는 동작이라 한 묶음에 넣을 수 없다 — 새 코드가 써진 뒤 따로 남긴다.
+  await auditAfter(
+    db,
+    'license.secretRoom',
+    plan.code,
+    `${period}${expiredOld ? ` · 옛 ${expiredOld} 만료` : ''}`,
+  );
   return {
     ok: true,
     code: plan.code,
-    period: periodText(plan.months, plan.expMs, plan.mode),
+    period,
     sent,
     linked,
     expiredOld,

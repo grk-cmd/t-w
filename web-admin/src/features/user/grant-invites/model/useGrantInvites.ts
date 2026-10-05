@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useForgetUserInvites, useSetInvitesLeftCache } from '@/entities/invite';
 import { useDb } from '@/shared/api';
-import { createInviteCodes, grantInvites, grantInvitesAll } from './grantInvites';
+import { createInviteCodes, grantInvites, grantInvitesAll, type GrantScope } from './grantInvites';
 
 export function useGrantInvites(uid: string) {
   const db = useDb();
@@ -13,7 +13,7 @@ export function useGrantInvites(uid: string) {
   });
 }
 
-export function useGrantInvitesAll() {
+export function useGrantInvitesAll(scope: GrantScope) {
   const db = useDb();
   const forget = useForgetUserInvites();
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -25,6 +25,7 @@ export function useGrantInvitesAll() {
       return grantInvitesAll(db, uids, count, {
         onProgress: (done, total) => setProgress({ done, total }),
         shouldStop: () => stopRef.current,
+        scope,
       });
     },
     onSettled: () => forget(),

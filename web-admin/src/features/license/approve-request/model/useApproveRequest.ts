@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRefreshLicenses } from '@/entities/license';
-import { removeRequest, type LicenseRequest } from '@/entities/license-request';
+import type { LicenseRequest } from '@/entities/license-request';
 import { useDb } from '@/shared/api';
-import { approveRequest, approveRequests } from './approveRequest';
+import { approveRequest, approveRequests, rejectRequest } from './approveRequest';
 
 // 요청 목록은 실시간 구독이라 따로 다시 받을 필요가 없다. 키 목록만 새로 받는다.
 export function useApproveRequest() {
@@ -22,5 +22,5 @@ export function useApproveRequests() {
 
 export function useRejectRequest() {
   const db = useDb();
-  return useMutation({ mutationFn: (req: LicenseRequest) => removeRequest(db, req.id) });
+  return useMutation({ mutationFn: (req: LicenseRequest) => rejectRequest(db, req) });
 }

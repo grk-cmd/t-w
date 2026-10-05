@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { InboxBroadcast } from '@/entities/inbox';
 import { deleteBroadcasts, pinTargets, setBroadcastsPinned } from '@/features/notice/manage-broadcast';
-import { fakeDb } from '../shared/fakeDb';
+import { auditsOf, fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const b = (id: string, pinned: boolean): InboxBroadcast => ({
   id,
@@ -19,24 +19,29 @@ describe('선택 공지', () => {
     expect(pinTargets(list, false)).toEqual(['a']);
   });
 
-  it('고정은 pinned: true, 해제는 키를 지운다 — 한 묶음', async () => {
+  it('고정은 pinned: true, 해제는 키를 지운다 — 한 묶음, 기록은 묶음마다 한 줄', async () => {
     const { db, writes } = fakeDb();
     expect(await setBroadcastsPinned(db, ['a', 'b'], true)).toBe(2);
     expect(await setBroadcastsPinned(db, ['c'], false)).toBe(1);
-    expect(writes).toEqual([
+    expect(withoutAudits(writes)).toEqual([
       ['commit', 'inboxBroadcast/a/pinned', true],
       ['commit', 'inboxBroadcast/b/pinned', true],
       ['commit', 'inboxBroadcast/c/pinned', null],
     ]);
+    expect(auditsOf(writes).map((a) => [a.action, a.target, a.detail])).toEqual([
+      ['notice.pin', '2개', 'a, b'],
+      ['notice.unpin', 'c', undefined],
+    ]);
   });
 
-  it('삭제는 공지 노드를 한 묶음으로 지우고, 하나라도 막히면 아무것도 지우지 않는다', async () => {
+  it('삭제는 공지 노드를 한 묶음으로 지우고, 하나라도 막히면 아무것도 지우지 않는다(기록도)', async () => {
     const ok = fakeDb();
     expect(await deleteBroadcasts(ok.db, ['a', 'b'])).toBe(2);
-    expect(ok.writes).toEqual([
+    expect(withoutAudits(ok.writes)).toEqual([
       ['commit', 'inboxBroadcast/a', null],
       ['commit', 'inboxBroadcast/b', null],
     ]);
+    expect(auditsOf(ok.writes).map((a) => a.action)).toEqual(['notice.broadcastDelete']);
 
     const denied = fakeDb({}, (p) => p === 'inboxBroadcast/b');
     await expect(deleteBroadcasts(denied.db, ['a', 'b'])).rejects.toThrow();

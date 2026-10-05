@@ -14,7 +14,7 @@ interface Props {
 // 한 명 지급(grantInvites)을 전체 지급과 같은 방식(20명씩 동시에)으로 고른 사람에게만 돌린다.
 export function GrantInvitesSelectedButton({ uids, onDone }: Props) {
   const env = useEnv();
-  const grant = useGrantInvitesAll();
+  const grant = useGrantInvitesAll('selected');
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(1);
   // 창을 연 순간의 대상 — 도는 중에 선택이 바뀌어도 진행 표시가 흔들리지 않게.

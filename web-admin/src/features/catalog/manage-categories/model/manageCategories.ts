@@ -1,5 +1,5 @@
 import { catalogCommit, categoryNameWrite, type CatalogWrite, type CatView } from '@/entities/catalog';
-import type { Db } from '@/shared/api';
+import { withAudit, type Db } from '@/shared/api';
 
 /** 쓴 묶음을 돌려준다 — 받아 둔 목록에 그대로 반영해 노드를 다시 받지 않으려고. */
 export async function saveCategoryName(
@@ -10,6 +10,9 @@ export async function saveCategoryName(
   now = Date.now(),
 ): Promise<CatalogWrite> {
   const write = categoryNameWrite(cat, label, icon, now);
-  await catalogCommit(db, write);
+  await catalogCommit(
+    db,
+    withAudit(db, write, 'catalog.categoryName', cat.id, label.trim() || '(기본 이름)'),
+  );
   return write;
 }
