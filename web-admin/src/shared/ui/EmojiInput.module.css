@@ -1,0 +1,63 @@
+.root {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.face {
+  width: 2.6em;
+  height: 2.2em;
+  font-size: 1.1em;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ghost {
+  opacity: 0.4;
+}
+
+.pop {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 16.5em;
+  padding: 8px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.15);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+}
+
+.grid button {
+  padding: 4px 0;
+  font-size: 1.15em;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.grid button:hover,
+.grid .on {
+  background: var(--bg);
+  border-color: var(--line);
+}
+
+.foot {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.foot input {
+  flex: 1;
+  min-width: 0;
+}

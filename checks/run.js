@@ -44,9 +44,12 @@ const MANIFEST = path.join(CHECKS, 'CHECKS.md');
 /* ★ [2026-09-22 · 개정 44] 'functions' — Cloud Functions 폴더(저장소 루트). 그 안의 node_modules 는 이름이 겹쳐도
      여기 SKIP 이 **맨 위 한 층만** 보므로 걸러지지 않는다 → 폴더째 빼지 않으면 한 바퀴마다 수만 개를 복사한다.
      검사가 읽는 원본(렌더러·main)이 그 안에 없으니 빼도 판정은 그대로다. */
+/* '.claude' — Claude Code 워크트리(.claude/worktrees/*)가 저장소 사본을 통째로 품고 있어서,
+   깊은 원본 찾기(findDeep)가 app.js 를 두 곳에서 찾고 고르지 못해 «원본 없음» 이 된다.
+   'web-admin' — 웹 관리자(Vite)는 자기 테스트(vitest)로 검사한다. node_modules 를 품고 있어 복사만 무겁다. */
 const SKIP = new Set([
   'node_modules', '.git', '.github', 'dist', 'out', 'release',
-  'checks', 'build', '디자인', '.vscode', '.idea', 'functions',
+  'checks', 'build', '디자인', '.vscode', '.idea', 'functions', '.claude', 'web-admin',
 ]);
 
 /* 검사들이 실제로 읽는 원본 — 없으면 그 검사가 통째로 헛돈다.

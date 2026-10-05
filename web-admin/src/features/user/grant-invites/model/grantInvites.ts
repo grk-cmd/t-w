@@ -1,0 +1,88 @@
+import {
+  addInvitesLeft,
+  createInviteCode,
+  INVITE_CODE_MAX,
+  isGrantCount,
+  type AddInvitesResult,
+} from '@/entities/invite';
+import type { Db } from '@/shared/api';
+
+export type GrantInvitesResult = AddInvitesResult;
+
+/**
+ * 한 사람의 초대권에 count 장을 더한다(999 에서 자름).
+ * 칸이 없는 사람은 쓰지 않는다 — 규칙이 새 칸을 0 으로만 받아 어차피 거부되고, 앱 전체 지급도 이들을 뺀다.
+ */
+export function grantInvites(db: Db, uid: string, count: number): Promise<GrantInvitesResult> {
+  if (!isGrantCount(count)) return Promise.reject(new Error(`지급 장수가 범위를 벗어났어요: ${count}`));
+  return addInvitesLeft(db, uid, count);
+}
+
+/** friendCodes 는 코드 → 사용자라 코드를 바꾼 사람이 여럿 나온다 — 한 번씩만. */
+export function uniqueUserIds(friendCodes: Record<string, { userId?: string }>): string[] {
+  const uids = new Set<string>();
+  for (const entry of Object.values(friendCodes)) if (entry?.userId) uids.add(entry.userId);
+  return [...uids];
+}
+
+export interface GrantAllResult {
+  total: number;
+  granted: number;
+  /** 초대권 칸이 없거나 이미 상한인 사람. */
+  skipped: number;
+  failed: number;
+  stopped: boolean;
+}
+
+// 앱과 같이 20명씩 동시에 — 한 명씩이면 사용자 수만큼 왕복이 쌓인다.
+const CHUNK = 20;
+
+export async function grantInvitesAll(
+  db: Db,
+  uids: string[],
+  count: number,
+  opts: { onProgress?: (done: number, total: number) => void; shouldStop?: () => boolean } = {},
+): Promise<GrantAllResult> {
+  if (!isGrantCount(count)) throw new Error(`지급 장수가 범위를 벗어났어요: ${count}`);
+  const result: GrantAllResult = { total: uids.length, granted: 0, skipped: 0, failed: 0, stopped: false };
+  let done = 0;
+  for (let i = 0; i < uids.length; i += CHUNK) {
+    if (opts.shouldStop?.()) {
+      result.stopped = true;
+      break;
+    }
+    await Promise.all(
+      uids.slice(i, i + CHUNK).map(async (uid) => {
+        try {
+          const r = await grantInvites(db, uid, count);
+          if (r.ok) result.granted++;
+          else result.skipped++;
+        } catch {
+          result.failed++;
+        }
+        opts.onProgress?.(++done, uids.length);
+      }),
+    );
+  }
+  return result;
+}
+
+/**
+ * 초대 코드 n 개 — 하나씩 차례로(겹침 확인이 코드마다 따로라 묶음으로 쓸 수 없다).
+ * 중간에 실패해도 이미 만든 코드는 살아 있으니 onCode 로 하나씩 알려 화면에서 잃지 않게 한다.
+ */
+export async function createInviteCodes(
+  db: Db,
+  n: number,
+  onCode?: (code: string) => void,
+): Promise<string[]> {
+  if (!Number.isInteger(n) || n < 1 || n > INVITE_CODE_MAX)
+    throw new Error(`만들 개수가 범위를 벗어났어요: ${n}`);
+  const codes: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const code = await createInviteCode(db);
+    codes.push(code);
+    onCode?.(code);
+  }
+  return codes;
+}

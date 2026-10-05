@@ -172,7 +172,7 @@
       ".read": "root.child('admins').child(auth.uid).val() === true",
       "$reqId": {
         ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (!data.exists() && newData.child('status').val() === 'pending' && !newData.child('issuedKey').exists() && !newData.child('approvedAt').exists())",
-        ".validate": "newData.hasChildren(['name','status']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('status').isString() && newData.child('status').val().length <= 20",
+        ".validate": "newData.hasChildren(['name','status']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('status').isString() && newData.child('status').val().length <= 20 && (!newData.child('friendCode').exists() || (newData.child('friendCode').isString() && newData.child('friendCode').val().matches(/^(MATE|COZY)-[A-Z0-9]{4}$/)))",
         ".read": true
       }
     },
@@ -251,6 +251,7 @@
       }
     },
     "accountSnap": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$userId": {
         ".read": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid",
         ".write": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid",
@@ -816,6 +817,7 @@
     },
     "inboxBroadcast": {
       ".read": true,
+      ".indexOn": ["ts", "pinned"],
       ".write": "root.child('admins').child(auth.uid).val() === true",
       "$msgId": {
         ".validate": "newData.hasChildren(['tag','title','ts']) && newData.child('tag').isString() && newData.child('tag').val().matches(/^(notice|update|reward)$/) && newData.child('title').isString() && newData.child('title').val().length <= 80 && (!newData.child('body').exists() || (newData.child('body').isString() && newData.child('body').val().length <= 600)) && newData.child('ts').isNumber() && (!newData.child('pinned').exists() || newData.child('pinned').isBoolean())"

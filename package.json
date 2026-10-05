@@ -8,6 +8,9 @@
     "start": "electron .",
     "start:dev": "electron . --tw-firebase=dev",
     "check": "node checks/run.js",
+    "admin:dev": "npm --prefix web-admin run dev",
+    "admin:test": "npm --prefix web-admin test",
+    "admin:build": "npm --prefix web-admin run build",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "release": "electron-builder --publish always"

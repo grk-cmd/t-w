@@ -44,6 +44,11 @@ console.log('\n── 2. 일반 사용자가 계속 할 수 있어야 하는 것
   chk(/!data\.exists\(\) && newData\.child\('status'\)\.val\(\) === 'pending'/.test(String(w('licenseRequests/$reqId'))),
       '라이선스 신청은 누구나 새로 넣을 수 있다 (pending · 발급 키 없이) — 승인·거절·수정은 관리자만');
   chk(r('licenseRequests/$reqId') === true, '신청자는 자기 신청 상태를 볼 수 있다');
+  {
+    const v = String((at('licenseRequests/$reqId') || {})['.validate']);
+    chk(/!newData\.child\('friendCode'\)\.exists\(\) \|\|/.test(v), '신청의 친구코드는 없어도 된다 (친구코드를 안 보내는 옛 앱)');
+    chk(v.includes("matches(/^(MATE|COZY)-[A-Z0-9]{4}$/)"), '  ↳ 있으면 MATE-XXXX · COZY-XXXX 형식만 (발급 때 그 주인의 수령함으로 보낸다)');
+  }
   chk(r('licenses/$key') === true, '키 하나는 누구나 읽는다 — 등록(redeemLicense)·재검증·회수 구독이 키 하나로 읽는다 (개정 55)');
   chk(/newData\.val\(\) === \(data\.exists\(\) \? data\.val\(\) : 0\) \+ 1/.test(String(w('stats/userCount'))),
       '누적 이용자 수는 각 클라이언트가 +1 만 올린다 (임의 값은 관리자만)');
@@ -57,6 +62,8 @@ console.log('\n── 3. 새는 곳이 없는가');
   /* 개정 55 (설계 §9-12): licenses 모음이 .read:true 라 `/licenses.json` 한 번으로 발급된 키 전부가 보였고,
      등록은 «있고 valid» 만 보므로 그 키로 누구나 프리미엄이 됐다. 모음 읽기는 관리자만 — 키 하나는 위 2절대로 열려 있다. */
   chk(r('licenses') !== true && isAdmin(r('licenses')), '★ 라이선스 키 목록 전체 열람은 관리자만 (개정 55)');
+  chk(isAdmin(r('accountSnap')) && !w('accountSnap'), '계정 요약(accountSnap) 목록은 관리자만 읽는다 — 웹 관리자 사용자 목록 · 쓰기는 본인만 그대로');
+  chk(/userAuth/.test(String(r('accountSnap/$userId'))), '  ↳ 한 명분 읽기는 여전히 본인만 (안에 라이선스 키가 있다)');
   {
     let fb = ''; try { fb = fs.readFileSync('firebase-init.js', 'utf8'); } catch (_) {}
     if (!fb) console.log('  ? firebase-init.js 없음 — 모음 읽기 자리 대조 건너뜀');

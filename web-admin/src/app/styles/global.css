@@ -1,0 +1,227 @@
+/* 화면 어디서나 쓰는 바탕 — 색 토큰과 카드 · 버튼 · 입력 · 목록 같은 기본 조각. 조각 전용 모양은 각 *.module.css 에 둔다. */
+:root {
+  --bg: #f4f1ec;
+  --card: #fff;
+  --ink: #1d1b18;
+  --soft: #6b655c;
+  --line: #e3ddd3;
+  --accent: #2f5d8a;
+  --accent-ink: #fff;
+  --danger: #b5463a;
+  --ok: #2a7a3f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #171614;
+    --card: #22201d;
+    --ink: #ece8e1;
+    --soft: #a39d93;
+    --line: #38342e;
+    --accent: #6c9fd1;
+    --accent-ink: #0f1720;
+    --danger: #e07a6e;
+    --ok: #6cc386;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    14px/1.5 -apple-system,
+    'Apple SD Gothic Neo',
+    'Malgun Gothic',
+    sans-serif;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0 0 14px;
+}
+
+h2 {
+  font-size: 15px;
+  margin: 0;
+}
+
+p {
+  margin: 6px 0;
+}
+
+small {
+  font-size: 12px;
+}
+
+.soft {
+  color: var(--soft);
+}
+
+.warn {
+  color: var(--danger);
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  padding: 48px 16px;
+}
+
+.card {
+  margin-bottom: 14px;
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.card-head h2 {
+  flex: 1;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+input[type='text'],
+input[type='search'] {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.btn {
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  border-color: var(--soft);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.btn.primary {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.btn.danger {
+  color: var(--danger);
+}
+
+.list {
+  margin-top: 10px;
+  color: var(--soft);
+}
+
+.list.tall {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row.dim {
+  opacity: 0.6;
+}
+
+.grow {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.key {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--soft);
+}
+
+.note {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--soft);
+  overflow-wrap: anywhere;
+}
+
+.msg {
+  min-height: 1.5em;
+  margin-top: 8px;
+  color: var(--ok);
+  white-space: pre-line;
+}
+
+.msg.err {
+  color: var(--danger);
+}
+
+@media (max-width: 720px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .field {
+    flex-wrap: wrap;
+  }
+
+  .field .btn {
+    flex: 1;
+  }
+}
