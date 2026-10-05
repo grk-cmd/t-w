@@ -2,6 +2,7 @@ export {
   catalogCommit,
   getCatalogNode,
   useApplyCatalogWrite,
+  useCatalogEntries,
   useCatalogNode,
   useCatOverrides,
   useCustomCats,
@@ -41,3 +42,16 @@ export {
   type CustomGroup,
   type PartGroup,
 } from './model/category';
+export {
+  catalogEntries,
+  isCatalogFileUrl,
+  KIND_LABEL,
+  moveId,
+  NO_ORDER,
+  orderWrite,
+  removeEntriesWrite,
+  toEntry,
+  type CatalogEntry,
+  type CatalogKind,
+  type CatalogRecord,
+} from './model/entry';

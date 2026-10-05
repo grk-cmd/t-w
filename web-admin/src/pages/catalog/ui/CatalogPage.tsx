@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { BuiltinCatsCard, CustomCatsCard } from '@/features/catalog/manage-categories';
+import { CatalogList } from '@/widgets/catalog-list';
 import styles from './CatalogPage.module.css';
 
 interface Tab {
@@ -20,6 +21,7 @@ const TABS: Tab[] = [
       </>
     ),
   },
+  { id: 'parts', label: '파츠', render: () => <CatalogList kind="parts" /> },
 ];
 
 export function CatalogPage() {

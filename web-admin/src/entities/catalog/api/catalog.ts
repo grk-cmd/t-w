@@ -8,6 +8,7 @@ import {
   type CatalogWrite,
 } from '../model/catalog';
 import type { CatOverride, CustomCat } from '../model/category';
+import { catalogEntries, type CatalogKind, type CatalogRecord } from '../model/entry';
 
 const nodeKey = (node: CatalogNode) => ['catalog', node];
 
@@ -23,6 +24,17 @@ export function useCatalogNode<T>(node: CatalogNode) {
     queryKey: nodeKey(node),
     queryFn: () => getCatalogNode<T>(db, node),
     gcTime: Infinity,
+  });
+}
+
+/** 같은 캐시를 진열 순서대로 편 목록. */
+export function useCatalogEntries(kind: CatalogKind) {
+  const db = useDb();
+  return useQuery({
+    queryKey: nodeKey(kind),
+    queryFn: () => getCatalogNode<CatalogRecord>(db, kind),
+    gcTime: Infinity,
+    select: (raw: Record<string, CatalogRecord>) => catalogEntries(kind, raw),
   });
 }
 
