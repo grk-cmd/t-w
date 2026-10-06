@@ -8,6 +8,11 @@
  * 다시 들어온 방의 줄은 하트비트가 channel · open 과 함께 되살린다(app/parts/room-index.js).
  * 옛 판 앱은 { lastSeen } 만 써서 channel · open 이 빠질 수 있다. 그래서 줄을 지우기 전에 두 값을 그 방 _meta 에
  * 옮겨 두고(빠진 것만), 방이 되살아나면 주기 실행이 _meta 에서 다시 채워 넣는다.
+ *
+ * 💓 유령 멤버 청소(sweepRoomAlive) — 새 하트비트(app/parts/room-alive.js)는 30초 도장을 roomAlive/{방}/{멤버id} 에 찍고
+ * 멤버 노드에는 hb:2 만 남긴다. 앱은 hb:2 멤버를 «노드가 있으면 산 것» 으로 보므로, onDisconnect 가 못 지운 노드는
+ * 여기서 지운다: 도장이 ROOM_ALIVE_STALE_MS 넘게 낡았고 멤버 노드가 hb:2 면 둘 다 지운다. 옛 방식 멤버(hb 없음)는
+ * 건드리지 않는다 — 그 사람들은 lastSeen 으로 각자 판정한다.
  */
 'use strict';
 // app/parts/room-channel.js 와 같은 값
@@ -17,6 +22,9 @@ const ROOM_LIVE_MS = 90 * 1000;              // 앱 getRoomCounts 의 STALE 과 
 const ROOM_INDEX_DROP_MS = 10 * 60 * 1000;   // 하트비트가 30초라 살아 있는 방은 이만큼 조용하지 않다
 const ROOM_DROP_MAX = 100;                   // 밀린 줄이 많아도 한 번에 이만큼만(줄마다 트랜잭션 2개 · 실행 제한 60초)
 const ROOM_REPAIR_MAX = 50;                  // channel 채워 넣기도 한 번에 이만큼만
+const ROOM_ALIVE_STALE_MS = 150 * 1000;      // app/parts/room-alive.js 와 같게 — 도장 30초 × 5번 놓침
+const ROOM_ALIVE_HB = 2;                     // 같은 파일의 멤버 표시
+const ROOM_ALIVE_SWEEP_MAX = 200;            // 한 번에 이만큼만(줄마다 읽기 1 · 트랜잭션 1)
 
 function roomStatsFrom(idx, now){
   const out = { [CHANNEL.WORKING]: 0, [CHANNEL.TOGETHER]: 0, at: now };
@@ -73,6 +81,42 @@ async function keepInMeta(db, code, row){
   }, undefined, false);
 }
 
+// roomAlive 트리에서 낡은 도장을 고른다(순수). 숫자가 아닌 값도 고른다 — 지워도 되는 쓰레기다.
+function staleAliveFrom(tree, now){
+  const out = [];
+  for (const room in (tree || {})){
+    const members = tree[room];
+    if (!members || typeof members !== 'object') continue;
+    for (const mid in members){
+      const at = Number(members[mid]);
+      if (!Number.isFinite(at) || now - at >= ROOM_ALIVE_STALE_MS) out.push({ room, mid });
+      if (out.length >= ROOM_ALIVE_SWEEP_MAX) return out;
+    }
+  }
+  return out;
+}
+async function sweepRoomAlive(db, now){
+  const tree = (await db.ref('roomAlive').get()).val() || {};
+  const cutoff = now - ROOM_ALIVE_STALE_MS;
+  let ghosts = 0, orphans = 0, kept = 0, failed = 0;
+  for (const { room, mid } of staleAliveFrom(tree, now)){
+    try{
+      const hb = (await db.ref('rooms/' + room + '/' + mid + '/hb').get()).val();
+      // 읽은 사이에 도장을 다시 찍었으면(살아 있음) 그만둔다. 첫 호출의 cur 는 로컬 추측값이라 null 을 돌려줘야 서버 값으로 다시 불린다.
+      const r = await db.ref('roomAlive/' + room + '/' + mid).transaction(cur => {
+        if (cur === null) return null;
+        const at = Number(cur);
+        if (Number.isFinite(at) && at >= cutoff) return;
+        return null;
+      }, undefined, false);
+      if (!r.committed){ kept++; continue; }
+      if (hb === ROOM_ALIVE_HB){ await db.ref('rooms/' + room + '/' + mid).remove(); ghosts++; }
+      else orphans++;   // 멤버 노드가 이미 없거나 옛 방식 — 도장만 걷는다
+    }catch(e){ failed++; }
+  }
+  return { ghosts, orphans, kept, failed };
+}
+
 // opts.drop === false 면 세기만 한다(열림 · 닫힘 트리거). 낡은 줄 지우기 · channel 채우기는 주기 실행만.
 async function runRoomStats(db, now, opts){
   const idx = (await db.ref('roomIndex').get()).val() || {};
@@ -97,10 +141,13 @@ async function runRoomStats(db, now, opts){
       if (r.committed) dropped++; else kept++;
     }catch(e){ failed++; }
   }
+  let alive = { ghosts: 0, orphans: 0, kept: 0, failed: 0 };
+  if (!light){ try{ alive = await sweepRoomAlive(db, now); }catch(e){ alive.failed++; } }
   const sum = { live: stats.workingroom + stats.togetherroom, working: stats.workingroom, together: stats.togetherroom,
-                rows: Object.keys(idx).length, dropped, kept, failed, repaired };
-  if (dropped || failed || repaired) console.log('[roomStats]', JSON.stringify(sum));
+                rows: Object.keys(idx).length, dropped, kept, failed, repaired, alive };
+  if (dropped || failed || repaired || alive.ghosts || alive.failed) console.log('[roomStats]', JSON.stringify(sum));
   return sum;
 }
 
-module.exports = { roomStatsFrom, runRoomStats, ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_DROP_MAX, ROOM_REPAIR_MAX };
+module.exports = { roomStatsFrom, runRoomStats, staleAliveFrom, sweepRoomAlive,
+  ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_DROP_MAX, ROOM_REPAIR_MAX, ROOM_ALIVE_STALE_MS, ROOM_ALIVE_HB };

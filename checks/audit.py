@@ -374,7 +374,8 @@ for _mm in re.finditer(r"onValue\(ref\(db,\s*[`'\"]([^`'\"/$]+)[`'\"]", html_cod
         ok9 = False
 # (b) 최상위 노드 통째 get() — 알려진 기준선 초과 시 경보 (기준: 패치 시점)
 _BASELINE_GET = {'rooms': 3, 'users': 2, 'licenses': 2, 'parties': 1, 'roomIndex': 99,
-                 'friendCodes': 1, 'reports': 1, 'roomStats': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
+                 'friendCodes': 1, 'reports': 1, 'roomStats': 1, 'roomAlive': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
+# roomAlive 1곳 = 💓 cleanGhostRooms(관리자 전용 · 버튼 누를 때 1회 · 규칙상 관리자만 읽힘). 멤버당 숫자 하나(수십 바이트).
 # roomStats 1곳 = room-stats.js read() — 서버가 세어 둔 방 개수 요약(수백 바이트).
 #   30초 폴링이 roomIndex(약 24KB) 대신 이걸 읽는다. 늘어나면 같은 요약을 두 번 읽는 자리가 생긴 것.
 # reports 1곳 = 🚩 listReports(관리자 전용 · [신고 목록] 버튼 누를 때 1회 · 규칙상 관리자만 읽힘 · 2026-09-23 개정 60).
@@ -397,7 +398,8 @@ for _n, _c in sorted(_gets.items()):
 #   런처마다 통째로 읽던 한 줄이 운영 다운로드의 27%였다(2026-10-03). 기준선보다 늘면 경보 — 필요한 하위 경로만 읽을 것.
 #   users 1곳 = invite-account.js 의 폴백(shallow 실패 때만). rooms 2곳 = 정원 · 생존 확인의 폴백.
 _BASELINE_GET1 = {'accountSnap': 1, 'authUsers': 2, 'bookmarks': 1, 'bookmarksPub': 1, 'catalog': 1, 'friendCodes': 1,
-                  'inbox': 1, 'licenseRequests': 1, 'licenses': 2, 'rooms': 2, 'sentFriendRequests': 1, 'userAuth': 2, 'users': 1}
+                  'inbox': 1, 'licenseRequests': 1, 'licenses': 2, 'rooms': 2, 'roomAlive': 2, 'sentFriendRequests': 1, 'userAuth': 2, 'users': 1}
+#   roomAlive 2곳 = 💓 checkRoomCapacity · checkSecretRoomEntry — 입장할 때 한 번, 그 방 도장(멤버당 숫자 하나)만.
 _gets1 = {}
 for _mm in re.finditer(r"(?:get|onValue)\(ref\(db,\s*`([A-Za-z]+)/\$\{[^}`]+\}`\)", html_code):
     _gets1[_mm.group(1)] = _gets1.get(_mm.group(1), 0) + 1
