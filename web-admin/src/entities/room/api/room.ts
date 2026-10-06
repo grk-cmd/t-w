@@ -39,14 +39,16 @@ export function useRoomCodes() {
 /**
  * 방 하나의 멤버 수(키만). withSeen 이면 멤버마다 lastSeen 한 칸씩 읽어 가장 최근 신호를 낸다 —
  * roomIndex 에 줄이 없는 방이 살아 있는지 볼 때만(앱 getRoomCounts 의 프로브와 같은 방식).
+ * 새 하트비트(앱 room-alive.js) 멤버는 lastSeen 이 입장 때 값에 머물고 30초 도장을 roomAlive/{방} 에 찍으므로 그것도 본다.
  */
 export async function probeRoom(db: Db, code: string, withSeen: boolean): Promise<RoomProbe> {
   const ids = (await db.shallowKeys(`rooms/${code}`)).filter(isMemberKey);
   if (!withSeen || !ids.length) return { members: ids.length, lastSeen: null };
-  const seens = await Promise.all(
-    ids.map((id) => db.get<unknown>(`rooms/${code}/${id}/lastSeen`).catch(() => null)),
-  );
-  const nums = seens.filter((v): v is number => typeof v === 'number');
+  const [seens, alive] = await Promise.all([
+    Promise.all(ids.map((id) => db.get<unknown>(`rooms/${code}/${id}/lastSeen`).catch(() => null))),
+    db.get<Record<string, unknown> | null>(`roomAlive/${code}`).catch(() => null),
+  ]);
+  const nums = [...seens, ...Object.values(alive ?? {})].filter((v): v is number => typeof v === 'number');
   return { members: ids.length, lastSeen: nums.length ? Math.max(...nums) : null };
 }
 

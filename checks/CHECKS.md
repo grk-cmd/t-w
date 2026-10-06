@@ -785,7 +785,7 @@
 
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
-| **audit.py** | 851 | **4697757bb3dd** ← 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) · **개정 60 검사 9 기준선 reports 1** · **개정 71 검사 17 (e) 회차** · **2026-10-03 검사 9 기준선 roomStats 1** · **2026-10-03 검사 10 ES 모듈 문법 · firebase-init import 모듈도 시야에** |
+| **audit.py** | 853 | **d2660b2d8a06** ← 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) · **개정 60 검사 9 기준선 reports 1** · **개정 71 검사 17 (e) 회차** · **2026-10-03 검사 9 기준선 roomStats 1** · **2026-10-03 검사 10 ES 모듈 문법 · firebase-init import 모듈도 시야에** · **2026-10-06 검사 9 기준선 roomAlive(전체 1 · 방 단위 2)** |
 | **smoke.js** | 335 | **d6e4720de7f6** ← 2026-09-14 판정 줄 (§10) |
 | **sim-account-switch.js** | 383 | **9fa214200956** ← 2026-09-16 신규 · 제보 4 계정 전환 소지품 정리 (§18) · 2026-09-20 ⑧ 로그아웃 출구 + 스텁 고침 (개정 28) · **2026-09-22 연동 해제 걷음 · 2절 상수 표에 슬롯 기록 키 넷(가려져 있던 2절 되살림) (개정 45)** · **개정 56 버린 uid 목록 걷음** |
 | **sim-admin-rules.js** | 194 | **7268b890161e** ← **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
@@ -810,6 +810,7 @@
 | **sim-fly-roulette.js** | 147 | **a96af26bba03** ← **개정 58 신설 · 🔫 러시안룰렛** · **개정 58-b 4절 투게더룸 🎲 도 룰렛** · **개정 59 기록 문장 꼬리 없음** · **개정 63 투게더룸에서 숨김** · **개정 76 5절 🎟️ 하루 6번** |
 | **sim-license-xlsx.js** | 82 | **eb779c819cb0** ← **개정 76 신설 · 📄 관리자 라이선스 엑셀(xlsx·csv) 일괄 발급** · **개정 82 1절 좁은 창이면 일괄 창만** |
 | **sim-room-stats.js** | 188 | **ebeceb1be37b** ← **2026-10-03 신규 · 📊 방 개수 서버 요약 — functions/room-stats.js 집계 · room-index.js channel·open 다시 싣기 · room-stats.js 신선도 · firebase-init 연결 · 규칙 읽기 전용 (모듈을 그대로 불러 가짜 DB)** |
+| **sim-room-alive.js** | 125 | **973298c2df39** ← **2026-10-06 신규 · 💓 새 하트비트 — room-alive.js 판정(hb:2 · 버전 문턱 · 중복 세션 · roomIndex 한 명 · 입장 검사) · functions/room-stats.js 유령 청소(가짜 DB · 다시 찍으면 그만둠) · firebase-init 연결 · 규칙 roomAlive** |
 | **sim-app-version.js** | 152 | **11f90aed8615** ← **2026-10-06 신규 · 🏷️ 앱 버전(ver)을 presence · 라이선스 요청 · accountSnap 에 — app-version.js 를 그대로 돌림 · presence 를 통째로 쓰는 자리 전부 ver · 늦게 오면 update · 규칙 셋(없어도 통과 · 문자열 20자) · 규칙 배포 전이면 accountSnap 은 ver 빼고 다시** |
 | **sim-invite-account.js** | 79 | **9974af64f5c8** ← **2026-10-03 신규 · 초대 계정 읽기 — 판정 = 예전 판정 · invite 먼저 · 폴백 · 런처 동작 그대로** |
 | **sim-room-invite-wait.js** | 43 | **7161a20222f3** ← **개정 78 신설 · ⏳ 방 초대 팝업이 화면을 막지 않음 · 3분 뒤 자동 거절** |

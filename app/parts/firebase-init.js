@@ -35,6 +35,7 @@
   import { createGhostHeal } from "./room-ghost-heal.js";
   import { createRoomIndex } from "./room-index.js";
   import { createRoomStats } from "./room-stats.js";
+  import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room-alive.js";
   import { createInviteAccount } from "./invite-account.js";
   import { createAppVersion } from "./app-version.js";
   import { createCatalogSync } from "./catalog-cache.js";
@@ -171,6 +172,9 @@
   let _roomQuery = null, _roomMetaRef = null, _roomMetaCb = null, _roomMetaVal = null, _roomLastFriends = null;
   let _myMemberData = null;    // 내 멤버 전체 페이로드 — 재접속 시 노드를 통째로 재등록할 때 사용
   let _connWatchRef = null, _connWatchCb = null;   // .info/connected 감시 (재접속 감지)
+  /* 💓 새 하트비트(room-alive.js) — 켜지면 도장을 멤버 노드가 아니라 아무도 구독하지 않는 roomAlive 에 찍는다.
+     켤지는 입장 때 config/minRoomVer 로 정한다(옛 앱이 방에 없을 때만). _lastHbExp 는 exp 를 바뀔 때만 보내려고. */
+  let _aliveV2 = false, _myAliveRef = null, _lastHbExp;
   // ⏱ 서버 시간 오프셋 — stale 판정을 로컬 시계로 하면 PC 시계가 몇 분만 틀어져도
   //   상대의 멀쩡한 하트비트를 "오래됨"으로 오판해 숨김(A↔B 비대칭의 원인 후보). 서버 오프셋으로 보정.
   /* 💬 채팅 한 줄의 최대 글자수. **세 곳이 같은 숫자를 봐야 한다:**
@@ -2056,11 +2060,13 @@
             if(keys && typeof keys === 'object'){
               const ids = Object.keys(keys).filter(id => id.charAt(0) !== '_' && id !== 'chatLog');
               const now = _svNow(); const STALE_MS = 5*60*1000;   // 🕒 입장 검사는 방 밖이라 내 노드가 없다 — 오프셋 보정본이 최선이다
-              const seens = await Promise.all(ids.map(id =>
-                get(ref(db, `rooms/${room}/${id}/lastSeen`)).then(s => s.val()).catch(() => undefined)));
+              const [seens, alive] = await Promise.all([
+                Promise.all(ids.map(id => get(ref(db, `rooms/${room}/${id}/lastSeen`)).then(s => s.val()).catch(() => undefined))),
+                get(ref(db, `roomAlive/${room}`)).then(s => s.val() || {}).catch(() => ({})),   // 💓 새 하트비트 도장(방당 한 번)
+              ]);
               let count = 0;
-              // 원래 규칙 그대로: lastSeen이 최근이면 카운트, lastSeen이 아예 없으면(옛 데이터) 카운트.
-              seens.forEach(v => { if(v == null || (now - v) < STALE_MS) count++; });
+              // 원래 규칙 그대로: lastSeen이 최근이면 카운트, lastSeen이 아예 없으면(옛 데이터) 카운트. 새 방식은 도장이 최근이면.
+              ids.forEach((id, i) => { if(isProbeAlive(seens[i], alive[id], now, STALE_MS)) count++; });
               return count;
             }
           }
@@ -2073,7 +2079,8 @@
       for(const id in all){
         if(id.charAt(0) === '_' || id === 'chatLog') continue;   // ★ _meta·chatLog 등은 멤버가 아니므로 인원 계산에서 제외
         const m = all[id];
-        if(m && m.lastSeen && (now - m.lastSeen) < STALE_MS) count++;
+        if(m && m.hb === ROOM_ALIVE_HB) count++;   // 💓 새 하트비트 — 노드가 있으면 산 것(유령은 서버가 지운다)
+        else if(m && m.lastSeen && (now - m.lastSeen) < STALE_MS) count++;
         else if(m && !m.lastSeen) count++;
       }
       return count;
@@ -2099,13 +2106,16 @@
         if(!keys || typeof keys !== 'object') return null;
         const ids = Object.keys(keys).filter(id => id.charAt(0) !== '_' && id !== 'chatLog');
         const now = _svNow(); const STALE_MS = 5*60*1000;   // 🕒 입장 검사는 방 밖이라 내 노드가 없다 — 오프셋 보정본이 최선이다
-        const rows = await Promise.all(ids.map(id => Promise.all([
-          get(ref(db, `rooms/${room}/${id}/lastSeen`)).then(s => s.val()).catch(() => undefined),
-          get(ref(db, `rooms/${room}/${id}/userId`)).then(s => s.val()).catch(() => undefined),
-        ])));
+        const [rows, alive] = await Promise.all([
+          Promise.all(ids.map(id => Promise.all([
+            get(ref(db, `rooms/${room}/${id}/lastSeen`)).then(s => s.val()).catch(() => undefined),
+            get(ref(db, `rooms/${room}/${id}/userId`)).then(s => s.val()).catch(() => undefined),
+          ]))),
+          get(ref(db, `roomAlive/${room}`)).then(s => s.val() || {}).catch(() => ({})),   // 💓 checkRoomCapacity 와 같다
+        ]);
         let count = 0, ownerIn = false;
-        rows.forEach(([seen, uid]) => {
-          if(!(seen == null || (now - seen) < STALE_MS)) return;   // 유령은 안 센다
+        rows.forEach(([seen, uid], i) => {
+          if(!isProbeAlive(seen, alive[ids[i]], now, STALE_MS)) return;   // 유령은 안 센다
           count++;
           if(ownerUid && uid === ownerUid) ownerIn = true;
         });
@@ -2127,6 +2137,18 @@
       _myMemberRef = ref(db, `rooms/${room}/${memberId}`);
       _myMemberData = { name: me.name, def: me.def, state: me.state, userStatus: me.userStatus||null, level: me.level||1, userId: me.userId||null, lic: !!me.lic };
       set(_myMemberRef, { ..._myMemberData, lastSeen: serverTimestamp() });
+      _aliveV2 = false; _lastHbExp = undefined;
+      _myAliveRef = ref(db, `roomAlive/${room}/${memberId}`);
+      /* 💓 새 하트비트를 켤지 — 방에 옛 앱이 없을 때(minRoomVer ≥ ROOM_ALIVE_MIN_VER)만. 첫 하트비트(30초) 전에 대개 정해진다.
+         켜지면 멤버 노드에 hb:2 를 한 번 싣는다 — 남들은 이 표시를 보고 내 생존을 lastSeen 대신 «노드가 있음» 으로 본다. */
+      get(ref(db, 'config/minRoomVer')).then(v => {
+        if(_roomCode !== room || _memberId !== memberId || !aliveV2On(v.val())) return;
+        _aliveV2 = true;
+        if(_myMemberData) _myMemberData.hb = ROOM_ALIVE_HB;
+        update(_myMemberRef, { hb: ROOM_ALIVE_HB }).catch(()=>{});
+        set(_myAliveRef, serverTimestamp()).catch(()=>{});
+        onDisconnect(_myAliveRef).remove();
+      }).catch(()=>{});
       // 🔬 [def-diag] 진단 카운터 — 재접속 재등록 빈도/노드 크기 측정용(임시). 동작 영향 없음.
       try{ window._defDiag = { room, joinAt: Date.now(), reconnectResets: 0,
         memberBytes: JSON.stringify(_myMemberData).length,
@@ -2153,6 +2175,7 @@
           console.log('[def-diag] 재등록 #'+window._defDiag.reconnectResets+' (~'+window._defDiag.memberBytes+'B, def '+window._defDiag.defBytes+'B) — 첫 1회는 입장 직후 자동, 그 이상이 진짜 재접속'); } }catch(_){}
         _touchRoomIndex(room);   // 💰 재접속 시 요약 노드도 되살림
         onDisconnect(_myMemberRef).remove();   // 이전 onDisconnect는 발동하며 소모됐으므로 다시 예약
+        if(_aliveV2 && _myAliveRef){ set(_myAliveRef, serverTimestamp()).catch(()=>{}); onDisconnect(_myAliveRef).remove(); }
       });
 
       _roomRef = ref(db, `rooms/${room}`);
@@ -2206,7 +2229,7 @@
             for(const id in _raw){
               if(id === memberId || id.charAt(0) === '_' || id === 'chatLog') continue;
               const mm = _raw[id];
-              if(mm && mm.lastSeen && (_now0 - mm.lastSeen) < _STALE0){ _otherAlive = true; break; }
+              if(isMemberAlive(mm, _now0, _STALE0)){ _otherAlive = true; break; }
             }
             if(!_otherAlive && !KEEP_CHAT_LOG_ON_EMPTY){
               /* 이제 스냅샷에 chatLog가 없으므로 "잔재가 있으면"을 확인할 수 없다.
@@ -2217,6 +2240,9 @@
             }
           }catch(_){}
         }
+        /* 💓 내 노드가 스냅샷에서 사라졌다 — 새 하트비트는 멤버 노드에 쓰지 않아 «쓰기 거부» 신호가 없으므로 여기서 본다.
+           (서버 함수의 유령 청소 · 옛 연결의 늦은 onDisconnect.) 복구는 직접 읽어 확인한 뒤에만 다시 쓴다(15초에 한 번). */
+        if(!_raw[memberId]) _healMyMemberNode('snapshot');
         const all = Object.assign({}, _raw);
         const _capturedMeta = _roomMetaVal;   // ★ 승계 판정용 — 이제 별도 _meta 리스너가 채워준다
         delete all[memberId];
@@ -2234,7 +2260,8 @@
           if(id.charAt(0) === '_' || id === 'chatLog') continue;   // _로 시작하는 키·chatLog는 메타/예약 — 멤버 아님
           // lastSeen이 있는 최근 멤버만 통과. lastSeen이 아예 없는 항목은 정상 입장에선 생길 수 없고
           // (join 시 serverTimestamp로 반드시 기록됨) 옛 테스트·견본 잔여 데이터뿐이라 유령으로 취급해 제외.
-          if(m && m.lastSeen && (now - m.lastSeen) < STALE_MS) friends[id] = m;
+          // 💓 hb:2(새 하트비트) 멤버는 노드가 있으면 산 것이다 — 유령은 서버 함수가 노드를 지운다(room-alive.js).
+          if(isMemberAlive(m, now, STALE_MS)) friends[id] = m;
         }
         /* 🩺 [진단] **스냅샷에 사람이 있는데 한 명도 통과 못 한 순간만** 한 줄 남긴다.
            이 사안은 `friends` 가 비는 갈래가 넷이라(스냅샷 0건 · lastSeen 없음 · 시계 · 중복제거),
@@ -2261,7 +2288,7 @@
         for(const id in friends){
           const u = friends[id] && friends[id].userId;
           if(!u) continue;   // userId가 없는 항목(아주 옛 데이터)은 중복 판정 불가 — 그대로 둠
-          if(!_byUser[u] || (friends[id].lastSeen||0) > (friends[_byUser[u]].lastSeen||0)){
+          if(!_byUser[u] || isNewerSession(id, friends[id], _byUser[u], friends[_byUser[u]])){
             if(_byUser[u]) delete friends[_byUser[u]];
             _byUser[u] = id;
           } else {
@@ -2340,10 +2367,24 @@
              대가는 진행도가 최대 30초 늦게 반영되는 것인데, 5분 단위로 끊기는 바라 티가 안 난다.
              app.js가 아직 안 떴거나 함수가 없으면 필드를 아예 빼서 옛 값이 남게 둔다(0으로 덮으면
              상대 화면에서 "레벨업 직후"로 오해된다). */
-          const _hb = { lastSeen: serverTimestamp() };
-          try{ if(typeof window.myExpCells === 'function') _hb.exp = window.myExpCells(); }catch(_){}
-          update(_myMemberRef, _hb).catch(()=>_healMyMemberNode('heartbeat'));   // 거부되면 내 노드가 사라졌을 수 있다
-          _touchRoomIndex(room);   // 💰 요약 노드 하트비트 — 카운트가 이 lastSeen(90초)으로 살아있는 방을 판정
+          /* 💰 exp 는 바뀔 때만 싣는다 — 같은 값이면 남들에게는 안 내려가지만 업로드는 매번이었다. */
+          let _exp;
+          try{ if(typeof window.myExpCells === 'function') _exp = window.myExpCells(); }catch(_){}
+          const _expChanged = _exp !== undefined && _exp !== _lastHbExp;
+          if(_expChanged) _lastHbExp = _exp;
+          if(_aliveV2){
+            /* 💓 새 하트비트 — 도장은 roomAlive(아무도 구독 안 함)에. 방 사람들에게는 아무것도 안 내려간다.
+               exp 가 바뀌었을 때만 멤버 노드에 쓴다(5분 단위로 바뀌는 값). */
+            set(_myAliveRef, serverTimestamp()).catch(()=>{});
+            if(_expChanged) update(_myMemberRef, { exp: _exp }).catch(()=>_healMyMemberNode('heartbeat'));
+          }else{
+            const _hb = { lastSeen: serverTimestamp() };
+            if(_expChanged) _hb.exp = _exp;
+            update(_myMemberRef, _hb).catch(()=>_healMyMemberNode('heartbeat'));   // 거부되면 내 노드가 사라졌을 수 있다
+          }
+          /* 💰 요약 노드 하트비트 — 카운트가 이 lastSeen(90초)으로 살아있는 방을 판정.
+             방마다 한 명(가장 먼저 온 사람)만 찍는다. 모두가 찍으면 사람마다 쓰기 확인 응답이 30초마다 내려온다. */
+          if(isIndexToucher(memberId, _roomLastFriends)) _touchRoomIndex(room);
         }
       }, 30000);
       _syncPresenceRoom(room);   // 친구 목록에 "온라인 · 방코드"로 표시되게
@@ -2391,6 +2432,10 @@
         const ref_ = _myMemberRef;
         // 수동으로 정상 나가는 거니까 "연결 끊기면 자동 삭제" 예약 취소 → 그 다음 즉시 삭제, 순서대로 확실히 기다림.
         done = Promise.resolve(onDisconnect(ref_).cancel()).catch(()=>{}).then(()=>remove(ref_)).catch(()=>{});
+      }
+      if(_myAliveRef){   // 💓 새 하트비트 도장도 함께(안 썼으면 없는 경로를 지우는 것이라 무해)
+        const aref = _myAliveRef;
+        Promise.resolve(onDisconnect(aref).cancel()).catch(()=>{}).then(()=>remove(aref)).catch(()=>{});
       }
       // 내 노드 삭제 완료 후, 방에 남은 멤버가 없으면 _meta·chatLog도 지움(마지막 사람 처리).
       done = done.then(async ()=>{
@@ -2456,6 +2501,7 @@
       if(_fbHeartbeat) { clearInterval(_fbHeartbeat); _fbHeartbeat=null; }
       if(_connWatchRef && _connWatchCb){ try{ off(_connWatchRef, 'value', _connWatchCb); }catch(e){} }
       _connWatchRef=null; _connWatchCb=null; _myMemberData=null;
+      _aliveV2=false; _myAliveRef=null; _lastHbExp=undefined;
       // ★ _roomCode/_memberId를 여기서 즉시(동기적으로) 비워두는 게 핵심 — 위 onValue 리스너들이 off() 처리가
       //   끝나기 전에 네트워크상 이미 날아오던 스냅샷을 받아도, 이 값들이 먼저 바뀌어 있어서 그 콜백 안의
       //   가드(_roomCode!==room / _memberId!==memberId)가 즉시 걸러줌.
@@ -3174,6 +3220,8 @@
         /* 🕒 관리자 PC 시계가 앞서 있으면 **살아 있는 방을 유령으로 보고 지운다** — 여기는
            되돌릴 수 없는 삭제라 다른 자리보다 위험하다. 오프셋 보정본을 쓴다. */
         const now = _svNow(); const STALE = 90*1000;
+        // 💓 새 하트비트(hb:2) 멤버는 lastSeen 이 입장 때 값에 머문다 — roomAlive 도장으로 본다(room-alive.js)
+        const aliveTree = await get(ref(db, 'roomAlive')).then(s => s.val() || {}).catch(() => ({}));
         const ghosts = [];
         for(const code in all){
           const room = all[code] || {};
@@ -3182,6 +3230,8 @@
             if(k === '_meta' || k === 'chatLog') continue;
             const mm = room[k];
             if(mm && mm.lastSeen && (now - mm.lastSeen) < STALE){ alive = true; break; }
+            const at = aliveTree[code] && aliveTree[code][k];
+            if(mm && mm.hb === ROOM_ALIVE_HB && typeof at === 'number' && (now - at) < ROOM_ALIVE_STALE_MS){ alive = true; break; }
           }
           if(!alive) ghosts.push(code);   // 살아있는 멤버 없음 = 유령 방
         }
@@ -3193,6 +3243,7 @@
             const room = all[code] || {};
             const dels = [];
             for(const k in room){ dels.push(remove(ref(db, `rooms/${code}/${k}`)).catch(()=>{})); }
+            if(aliveTree[code]) dels.push(remove(ref(db, `roomAlive/${code}`)).catch(()=>{}));
             await Promise.all(dels);
             ok++;
           }catch(_){ fail++; }

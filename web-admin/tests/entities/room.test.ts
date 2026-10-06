@@ -182,4 +182,15 @@ describe('rooms 키만 보고 — 고아 · 시크릿룸 · 인원', () => {
       'WORK-B': { members: 0, lastSeen: null },
     });
   });
+
+  it('새 하트비트 멤버 — lastSeen 이 입장 때 값이어도 roomAlive 도장이 최근이면 그 신호를 쓴다', async () => {
+    const { db } = fakeDb({
+      'rooms/WORK-C': { _meta: true, m1: true },
+      'rooms/WORK-C/m1/lastSeen': NOW - 3_600_000,
+      'roomAlive/WORK-C': { m1: NOW - 20_000 },
+    });
+    const probe = await probeRoom(db, 'WORK-C', true);
+    expect(probe).toEqual({ members: 1, lastSeen: NOW - 20_000 });
+    expect(ghostCodes({}, NOW, { codes: ['WORK-C'], probes: { 'WORK-C': probe } })).toEqual([]);
+  });
 });
