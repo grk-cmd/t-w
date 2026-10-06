@@ -166,10 +166,7 @@ main ──●────●────────●──────●─
   3. `git push --follow-tags`
      **버전은 반드시 커밋하고 push한 뒤에** 빌드로 갑니다. 로컬에서만 올리면 맥 dmg가 옛 버전 번호로 빌드됩니다.
 
-  **③ 빌드**
-  1. GitHub Actions → `mac-probe` → Run workflow (`main`) → 아티팩트에서 dmg 2개(arm64·x64)를 받습니다.
-  2. `npm run release`: exe와 `latest.yml`이 GitHub Releases **초안**으로 올라갑니다.
-  3. 초안에 dmg 2개를 올리고 **Publish release**를 누릅니다. 이때부터 사용자에게 배포됩니다.
+  **③ 빌드 · 공개**: 태그가 올라가면 `release.yml` 이 빌드 · 검사 · 공개까지 합니다 → [RELEASE.md](RELEASE.md)
   4. 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 RTDB `config/minRoomVer`를 새 버전 문자열로 바꿉니다 (콘솔에서 수동).
 - 릴리스 본문에는 사용자용 변경 사항과, 규칙·Functions를 함께 배포했는지 적습니다.
 
