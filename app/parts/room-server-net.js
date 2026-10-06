@@ -1,6 +1,7 @@
 /*
  * 방 서버(웹소켓) provider — makeFirebaseProvider 와 같은 모양(join · update · poke · pokeSelf · leave).
  * 통신 규약의 정본은 방 서버 저장소의 PROTOCOL.md (PROTOCOL_VERSION = 1) 다. 칸 이름 · 한도는 거기를 따른다.
+ * peek · rid 는 v1 안에서 선택으로 더해진 것이다. 그 전 서버에서는 peek 이 null 로 끝나고, rid 없는 답은 보낸 순서로 짝짓는다.
  *
  * 기본은 꺼져 있다. 켜지는 조건은 둘 다 맞을 때뿐이다.
  *   ① ROOM_SERVER_ENABLED(아래 상수) 가 true 이거나, 이 PC 의 localStorage `tw.roomServer` 가 '1'
@@ -28,7 +29,7 @@ export const ROOM_SERVER_URL_KEY = 'tw.roomServerUrl';
 
 const CONNECT_TIMEOUT_MS = 5000;     // 이 안에 ready 가 안 오면 Firebase 로 돌아간다
 const JOIN_TIMEOUT_MS = 8000;
-const REQ_TIMEOUT_MS = 4000;         // stats · random · meta 답
+const REQ_TIMEOUT_MS = 4000;         // stats · random · peek · meta 답
 const LEAVE_WAIT_MS = 1500;          // 나가기 확인(left)을 기다리는 최대 시간
 const BACKOFF_MS = [1000, 2000, 4000, 8000, 15000];
 const STATE_MIN_GAP_MS = 1000;       // 집중 상태(focus/idle/sleep)는 1초에 한 번까지
@@ -43,6 +44,8 @@ const FAIL_COOLDOWN_MS = 60 * 1000;  // 못 붙었으면 이만큼은 다시 시
 export const MEMBER_FIELDS = ['name', 'state', 'userStatus', 'customStatus', 'level', 'exp', 'cyc', 'clv', 'starC',
   'awaySz', 'lic', 'awayImg', 'ridingOn', 'seatedOn', 'bench', 'mobile', 'danceStyle', 'flyCool', 'noise'];
 const CHAT_FIELDS = ['text', 'fly', 'flyColor', 'flySize'];
+// rid(요청 id)를 붙여 묻는 요청 — 답의 t 가 요청의 t 와 같다. 서버는 rid 를 1~16자(영숫자 _ . : -)만 받는다.
+export const RID_REQUESTS = ['stats', 'random', 'peek'];
 
 /* 방 전원이 봐야 하는 찌르기. 지금(Firebase)은 대상 노드에 쓰면 방 전체가 그 노드를 구독하고 있어서
    모두의 화면에서 그 사람 좌석이 반응한다(syncFriendSeats 의 pet · dizzy · fly: · bonk:). 같은 그림을 내려면 all.
@@ -122,7 +125,8 @@ export function createRoomServerNet(deps){
   let tokenTimer = null, idleTimer = null, reconnectTimer = null, connectTimer = null, attempt = 0;
   let readyWaiters = [];
   let failAt = -Infinity, failCode = null;
-  const reqWaiters = { stats: [], random: [] };
+  const reqWaiters = new Map();   // rid → { kind, done } — 답은 rid 로 짝짓는다(보낸 순서에 기대지 않는다)
+  let ridSeq = 0;
   let active = null;   // 방에 들어가 있거나 들어가는 중인 provider 의 속(P)
   let lingering = null;  // 나가기 확인(left)을 기다리는 provider — active 를 비운 뒤라 따로 잡아 둔다
 
@@ -191,10 +195,8 @@ export function createRoomServerNet(deps){
     if(idleTimer){ tClear(idleTimer); idleTimer = null; }
     if(!wasReady){ failAt = now(); failCode = fatal || 'closed'; }
     settleReady({ ok: false, code: fatal || 'closed' });
-    for(const k of Object.keys(reqWaiters)){
-      const list = reqWaiters[k]; reqWaiters[k] = [];
-      for(const w of list) w.done(null);
-    }
+    const pending = [...reqWaiters.values()]; reqWaiters.clear();
+    for(const w of pending) w.done(null);
     const P = active;
     if(!P || !P.inRoom || P.leaving) return;
     if(P.joinWaiter && !P.joined){
@@ -241,7 +243,7 @@ export function createRoomServerNet(deps){
     if(active) return;
     idleTimer = tSet(() => {
       idleTimer = null;
-      if(!active && !reqWaiters.stats.length && !reqWaiters.random.length) close();
+      if(!active && !reqWaiters.size) close();
     }, IDLE_CLOSE_MS);
   }
 
@@ -272,29 +274,41 @@ export function createRoomServerNet(deps){
     });
   }
 
-  function request(kind, msg, map){
+  function request(msg, map){
     return ensureReady().then((r) => {
       if(!r.ok) return null;
       return new Promise((res) => {
-        const w = { done: null, timer: null };
-        w.done = (m) => { tClear(w.timer); res(m ? map(m) : null); scheduleIdle(); };
-        w.timer = tSet(() => {
-          const i = reqWaiters[kind].indexOf(w);
-          if(i >= 0) reqWaiters[kind].splice(i, 1);
-          res(null);
-        }, REQ_TIMEOUT_MS);
-        reqWaiters[kind].push(w);
-        if(!send(msg)){ reqWaiters[kind].splice(reqWaiters[kind].indexOf(w), 1); tClear(w.timer); res(null); }
+        const rid = 'q' + (++ridSeq).toString(36);
+        const w = { kind: msg.t, done: null, timer: null };
+        w.done = (m) => { tClear(w.timer); reqWaiters.delete(rid); res(m ? map(m) : null); scheduleIdle(); };
+        w.timer = tSet(() => { reqWaiters.delete(rid); res(null); }, REQ_TIMEOUT_MS);
+        reqWaiters.set(rid, w);
+        if(!send(Object.assign({}, msg, { rid }))) w.done(null);
       });
     });
   }
+  // 답 하나 → 기다리던 요청. rid 가 없는 답(rid 를 모르는 옛 서버)만 같은 종류 중 가장 먼저 보낸 것에 준다.
+  function takeWaiter(kind, rid){
+    if(typeof rid === 'string') return reqWaiters.get(rid) || null;
+    for(const w of reqWaiters.values()){ if(w.kind === kind) return w; }
+    return null;
+  }
   function stats(){
-    return request('stats', { t: 'stats' }, (m) => ({ workingroom: m.workingroom | 0, togetherroom: m.togetherroom | 0, total: m.total | 0 }));
+    return request({ t: 'stats' }, (m) => ({ workingroom: m.workingroom | 0, togetherroom: m.togetherroom | 0, total: m.total | 0 }));
   }
   function random(limit){
     const msg = { t: 'random' };
     if(limit > 0) msg.limit = Math.min(50, limit | 0);
-    return request('random', msg, (m) => (Array.isArray(m.rooms) ? m.rooms.filter((c) => typeof c === 'string') : []));
+    return request(msg, (m) => (Array.isArray(m.rooms) ? m.rooms.filter((c) => typeof c === 'string') : []));
+  }
+  /* 들어가지 않고 방 보기 — { exists, count, channel, secret } · 못 물으면 null(꺼짐 · 못 붙음 · 시간 초과 · peek 을 모르는 서버).
+     방 밖 · 방 안 어디서나 묻는다(지금 자리는 그대로). */
+  function peek(room){
+    return request({ t: 'peek', room: String(room || '') }, (m) => ({
+      exists: m.exists === true, count: m.count | 0,
+      channel: (m.channel === 'workingroom' || m.channel === 'togetherroom') ? m.channel : null,
+      secret: m.secret === true,
+    }));
   }
 
   // ── 받은 메시지 ─────────────────────────────────────────────────────
@@ -320,12 +334,19 @@ export function createRoomServerNet(deps){
           return;
         }
         if(m.code === 'auth' && m.ref === 'hello') return;   // 갱신 실패 — 만료 뒤 서버가 끊으면 재연결이 새 토큰을 받는다
+        /* 묻기 요청이 거절됐다 — 오류에는 rid 가 없어서 그 종류 중 가장 먼저 보낸 것을 실패로 끝낸다.
+           peek 을 모르는 옛 서버는 ref 없이 badRequest 를 준다(모르는 t) — 이 모듈은 깨진 JSON 을 보내지 않으니 그건 peek 뿐이다. */
+        if(m.code === 'badRequest' && (RID_REQUESTS.indexOf(m.ref) >= 0 || !m.ref)){
+          const w = takeWaiter(m.ref || 'peek', undefined);
+          if(w){ w.done(null); return; }
+        }
         if(P) onError(P, m);
         return;
       case 'stats':
-      case 'random': {
-        const w = reqWaiters[m.t].shift();
-        if(w) w.done(m);
+      case 'random':
+      case 'peek': {
+        const w = takeWaiter(m.t, m.rid);
+        if(w && w.kind === m.t) w.done(m);
         return;
       }
       default: {
@@ -671,7 +692,7 @@ export function createRoomServerNet(deps){
   }
 
   return {
-    enabled, ensureReady, stats, random, makeProvider, close,
+    enabled, ensureReady, stats, random, peek, makeProvider, close,
     isReady: () => ready,
     _debug: () => ({ ws, ready, gen, attempt, fatal, active, tokenTimer, reconnectTimer }),
   };
