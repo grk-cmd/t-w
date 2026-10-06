@@ -11,9 +11,14 @@ export {
 export {
   applyCatalogWrite,
   CATALOG_NODES,
+  catalogMetaPath,
   catalogPath,
+  touchedVersionedNodes,
+  VERSIONED_NODES,
+  withCatalogVersion,
   type CatalogNode,
   type CatalogWrite,
+  type VersionedNode,
 } from './model/catalog';
 export {
   BUILTIN_CATS,

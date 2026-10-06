@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { catalogEntries } from '@/entities/catalog';
 import { deleteEntries } from '@/features/catalog/delete-entries';
 import { reorderEntries } from '@/features/catalog/reorder-entries';
-import { fakeDb, withoutAudits } from '../shared/fakeDb';
+import { fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 import { fakeFiles } from '../shared/fakeFiles';
 
 const FILE = (path: string) =>
@@ -28,6 +28,8 @@ describe('카탈로그 항목 삭제', () => {
       ['commit', 'catalog/gachaParts/p1', null],
       ['commit', 'catalog/parts/p2', null],
       ['commit', 'catalog/gachaParts/p2', null],
+      ['commit', 'catalogMeta/parts', NOW],
+      ['commit', 'catalogMeta/gachaParts', NOW],
     ]);
     expect(deleted).toEqual([FILE('catalog/parts/p1.glb'), FILE('catalog/parts/p1.thumb.png')]);
     expect(r).toMatchObject({ removed: 2, filesLeft: 0 });
@@ -68,6 +70,7 @@ describe('카탈로그 진열 순서', () => {
       ['commit', 'catalog/gachaParts/c/order', 0],
       ['commit', 'catalog/gachaParts/a/order', 1],
       ['commit', 'catalog/gachaParts/b/order', 2],
+      ['commit', 'catalogMeta/gachaParts', NOW],
     ]);
     expect(Object.keys(written)).toHaveLength(3);
   });

@@ -38,6 +38,9 @@ test('책상 — 이름 · 아이콘만 바꾸고 glbUrl 같은 나머지 필드
     licenseOnly: true,
     createdAt: 1,
   });
+  // 같은 묶음으로 책상 버전(서버 시각)만 오른다 — 앱은 이걸 보고 캐시를 버린다
+  expect(await dbGet('catalogMeta/desks')).toEqual(expect.any(Number));
+  expect(await dbGet('catalogMeta/items')).toBeNull();
 });
 
 test('책상 — 지우면 DB 와 Storage glb · 썸네일이 같이 지워진다', async ({ page, seed }) => {
@@ -73,6 +76,8 @@ test('아이템 — 끌어 놓은 순서를 쓰고, 고른 것만 한 묶음으�
   expect(await dbGet('catalog/items/c/order')).toBe(0);
   expect(await dbGet('catalog/items/a/order')).toBe(1);
   expect(await dbGet('catalog/items/b/order')).toBe(2);
+  const reorderedAt = await dbGet<number>('catalogMeta/items');
+  expect(reorderedAt).toEqual(expect.any(Number));
 
   await list.getByRole('checkbox', { name: '머그컵 선택' }).check();
   await list.getByRole('checkbox', { name: '화분 선택' }).check();
@@ -80,4 +85,5 @@ test('아이템 — 끌어 놓은 순서를 쓰고, 고른 것만 한 묶음으�
   await expect(toast(page)).toHaveText('2개 삭제했어요');
   expect(Object.keys((await dbGet<Record<string, unknown>>('catalog/items'))!)).toEqual(['c']);
   expect(await fileExists('catalog/items/x.glb')).toBe(true); // 남은 스탠드가 같은 파일을 쓴다
+  expect(await dbGet<number>('catalogMeta/items')).toBeGreaterThan(reorderedAt!);
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeKind, base64CleanupWrite, planBase64Cleanup } from '@/entities/catalog';
 import { cleanBase64 } from '@/features/catalog/diagnose-catalog';
-import { fakeDb, withoutAudits } from '../shared/fakeDb';
+import { fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const BIG = 'A'.repeat(3000);
 const THUMB = 'data:image/png;base64,' + 'B'.repeat(2100);
@@ -49,7 +49,11 @@ describe('base64 정리', () => {
       { kind: 'items', id: 'i', bytes: 2 },
       { kind: 'desks', id: 'gone', bytes: 1 },
     ]);
-    expect(withoutAudits(writes)).toEqual([['commit', 'catalog/parts/a/glb', null]]);
+    // 실제로 지운 종류(parts)의 버전만 같은 묶음으로 올린다 — items · desks 는 그대로
+    expect(withoutAudits(writes)).toEqual([
+      ['commit', 'catalog/parts/a/glb', null],
+      ['commit', 'catalogMeta/parts', NOW],
+    ]);
     expect(r.cleaned.map((t) => t.id)).toEqual(['a']);
     expect(r.skipped.map((t) => t.id)).toEqual(['i', 'gone']);
   });

@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, type Db } from '@/shared/api';
+import { isPermissionDenied, useDb, type Db } from '@/shared/api';
 import {
   applyCatalogWrite,
   CATALOG_NODES,
   catalogPath,
+  withCatalogVersion,
   type CatalogNode,
   type CatalogWrite,
 } from '../model/catalog';
@@ -58,8 +59,21 @@ export function useApplyCatalogWrite() {
   };
 }
 
-/** 카탈로그 쓰기는 전부 여기를 지난다 — 한 묶음(db.commit)이라 규칙에 하나라도 막히면 아무것도 바뀌지 않는다. */
-export function catalogCommit(db: Db, updates: CatalogWrite): Promise<void> {
-  // TODO: 규칙에 catalogMeta 가 생기면 바뀐 종류의 catalogMeta/{kind} 버전 갱신을 이 묶음에 함께 넣는다(perf/catalog-cache).
-  return Object.keys(updates).length ? db.commit(updates) : Promise.resolve();
+/**
+ * 카탈로그 쓰기는 전부 여기를 지난다 — 한 묶음(db.commit)이라 규칙에 하나라도 막히면 아무것도 바뀌지 않는다.
+ * 바뀐 종류의 catalogMeta 버전도 같은 묶음으로 올린다(앱이 그걸 보고 캐시를 버린다).
+ */
+export async function catalogCommit(db: Db, updates: CatalogWrite): Promise<void> {
+  if (!Object.keys(updates).length) return;
+  const versioned = withCatalogVersion(updates, db.now());
+  if (versioned === updates) return db.commit(updates);
+  try {
+    await db.commit(versioned);
+  } catch (error) {
+    // 규칙에 catalogMeta 가 아직 없는 DB(운영 규칙 배포 전)는 묶음째 거절한다 — 그때만 카탈로그만 다시 쓴다.
+    // 그 DB 를 쓰는 앱은 catalogMeta 를 못 읽어 통째 구독으로 돌고 있으니 버전 없이도 바로 반영된다.
+    if (!isPermissionDenied(error)) throw error;
+    await db.commit(updates);
+    console.warn('[catalog] catalogMeta 규칙이 없어 버전 없이 카탈로그만 썼다');
+  }
 }
