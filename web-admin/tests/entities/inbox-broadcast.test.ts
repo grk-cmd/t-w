@@ -10,6 +10,7 @@ describe('수령함 전체 공지', () => {
     await sendBroadcast(db, msg, false, 'b1');
     expect(withoutAudits(writes)).toEqual([
       ['commit', 'inboxBroadcast/b1', { tag: 'update', title: '새 버전', body: '고친 점', ts: NOW }],
+      ['commit', 'inboxBroadcastMeta', NOW],
     ]);
   });
 

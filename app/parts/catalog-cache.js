@@ -26,6 +26,8 @@
  * 받기(get)까지 실패하면 ① 과 같은 옛 방식으로 물러난다.
  * 캐시 키에 DB 주소를 넣는다 — 운영과 dev(start:dev)가 같은 PC 에서 돌 수 있다.
  *
+ * 공용 공지(inboxBroadcast)도 같은 구독기를 쓴다 — 받는 방법(fetch)만 다르다(broadcast-cache.js).
+ *
  * Firebase 를 직접 import 하지 않는다 — 경로 · onValue · get 은 firebase-init.js 가 넘긴다(검사 sim-catalog-cache.js).
  */
 
@@ -133,9 +135,16 @@ export function createIdbCatalogStore(idb){
      onValue(ref, cb, errCb) → 해제 함수 · get(ref) → snapshot — Firebase 것 그대로
      store — { read, write } (기본: createIdbCatalogStore)
      scope — 캐시 키 앞머리(DB 주소)
+     fetch(kind) → snapshot 모양({ val() }) — 받기를 한 번의 get 이 아닌 다른 방법으로 할 때(공용 공지: 최근 n 개 + 고정).
+       val() 은 부를 때마다 새 객체를 돌려줘야 한다(캐시용 · 화면용을 따로 뗀다). 없으면 get(catalogRef(kind)).
+     tag — 경고 줄 머리말(기본 catalog-cache)
+     liveNow() → 참이면 켜져 있는 동안의 바뀜도 모으지 않고 바로 받는다 — 이 기기가 방금 쓴 경우(관리자가 지운 공지가 바로 사라지게)
      now · setTimer · clearTimer · maxAge · graceMs · random · warn — 검사에서 바꿔 끼운다 */
 export function createCatalogSync(deps){
   const { metaRef, catalogRef, onValue, get } = deps;
+  const fetchKind = deps.fetch || ((kind) => get(catalogRef(kind)));
+  const tag = '[' + (deps.tag || 'catalog-cache') + ']';
+  const liveNow = deps.liveNow || (() => false);
   const store = deps.store || createIdbCatalogStore(typeof indexedDB !== 'undefined' ? indexedDB : null);
   const scope = String(deps.scope || '');
   const now = deps.now || (() => Date.now());
@@ -159,14 +168,14 @@ export function createCatalogSync(deps){
     let graceTimer = null;
     let liveTimer = null;
 
-    const emit = (data) => { if(stopped) return; try{ onData(data); }catch(e){ warn('[catalog-cache] onData 오류', kind, e); } };
+    const emit = (data) => { if(stopped) return; try{ onData(data); }catch(e){ warn(tag + ' onData 오류', kind, e); } };
     const readCache = async () => { try{ return await store.read(key); }catch(_){ return null; } };   // 읽기 실패 = 캐시 없음
     const clearGrace = () => { if(graceTimer !== null){ clearTimer(graceTimer); graceTimer = null; } };
     const clearLive = () => { if(liveTimer !== null){ clearTimer(liveTimer); liveTimer = null; } };
     /* 버전이 바뀌었을 때 — 처음 답 · 버전 없음 · 통째 구독 중이면 바로, 켜져 있는 동안의 새 버전이면 모았다가.
        모으는 동안 또 바뀌면 타이머를 그대로 두고 그때의 마지막 버전(lastVer)으로 판정한다. */
     const onMeta = (ver, first) => {
-      if(first || !isCatalogVer(ver) || fullUnsub || ver === deliveredVer){ clearLive(); evaluate(ver); return; }
+      if(first || !isCatalogVer(ver) || fullUnsub || ver === deliveredVer || liveNow()){ clearLive(); evaluate(ver); return; }
       if(liveTimer !== null) return;
       const r = Number(random()) || 0;
       const wait = LIVE_COALESCE_MIN_MS + Math.floor(Math.min(Math.max(r, 0), 1) * LIVE_COALESCE_SPREAD_MS);
@@ -175,10 +184,10 @@ export function createCatalogSync(deps){
     const startFull = (why) => {
       if(fullUnsub || stopped) return;
       deliveredVer = undefined;
-      warn('[catalog-cache] 버전 없이 통째 구독 —', kind, '(' + why + ')');
+      warn(tag + ' 버전 없이 통째 구독 —', kind, '(' + why + ')');
       try{
         fullUnsub = onValue(catalogRef(kind), snap => emit(snap.val() || {})) || (() => {});
-      }catch(e){ warn('[catalog-cache] 통째 구독 실패', kind, e); }
+      }catch(e){ warn(tag + ' 통째 구독 실패', kind, e); }
     };
     const stopFull = () => { if(fullUnsub){ try{ fullUnsub(); }catch(_){} fullUnsub = null; } };
     const arm = (savedAt) => {
@@ -192,7 +201,7 @@ export function createCatalogSync(deps){
       const my = ++seq;
       if(!isCatalogVer(ver)){
         if(timer !== null){ clearTimer(timer); timer = null; }   // 통째 구독은 실시간이라 수명 타이머가 필요 없다
-        startFull(ver == null ? 'catalogMeta 없음' : '버전 형식 아님');
+        startFull(ver == null ? '버전 없음' : '버전 형식 아님');
         return;
       }
       const entry = await readCache();
@@ -206,11 +215,11 @@ export function createCatalogSync(deps){
       }
       /* get 은 한 번 받고 끝이라 구독 비용이 안 남는다 — 그 뒤 바뀜은 버전 구독이 알려 준다. */
       let snap;
-      try{ snap = await get(catalogRef(kind)); }
+      try{ snap = await fetchKind(kind); }
       catch(e){
         if(my !== seq || stopped) return;
-        warn('[catalog-cache] 받기 실패 —', kind, e && (e.code || e.message));
-        startFull('get 실패');   // 연결되면 onValue 가 알아서 채운다
+        warn(tag + ' 받기 실패 —', kind, e && (e.code || e.message));
+        startFull('받기 실패');   // 연결되면 onValue 가 알아서 채운다
         return;
       }
       if(my !== seq || stopped) return;
@@ -231,7 +240,7 @@ export function createCatalogSync(deps){
       const entry = await readCache();
       if(metaSeen || stopped || fullUnsub || deliveredVer !== undefined) return;
       if(!usableOfflineCache(entry)) return;
-      warn('[catalog-cache] 버전 확인이 늦어 캐시를 먼저 보여 준다 —', kind);
+      warn(tag + ' 버전 확인이 늦어 캐시를 먼저 보여 준다 —', kind);
       deliveredVer = entry.ver;
       emit(entry.data);
     }, graceMs);
@@ -239,9 +248,9 @@ export function createCatalogSync(deps){
     try{
       metaUnsub = onValue(metaRef(kind),
         snap => { if(stopped) return; const first = !metaSeen; metaSeen = true; clearGrace(); lastVer = snap.val(); onMeta(lastVer, first); },
-        err => { if(stopped) return; metaSeen = true; clearGrace(); clearLive(); seq++; startFull('catalogMeta 구독 거부: ' + ((err && (err.code || err.message)) || '?')); }
+        err => { if(stopped) return; metaSeen = true; clearGrace(); clearLive(); seq++; startFull('버전 구독 거부: ' + ((err && (err.code || err.message)) || '?')); }
       ) || (() => {});
-    }catch(e){ clearGrace(); startFull('catalogMeta 구독 실패'); }
+    }catch(e){ clearGrace(); startFull('버전 구독 실패'); }
 
     return () => {
       stopped = true; seq++;

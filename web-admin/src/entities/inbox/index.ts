@@ -1,6 +1,7 @@
 export { inboxMessageWrite, sendInboxMessage } from './api/inbox';
 export {
   BROADCAST_PAGE,
+  broadcastCommit,
   broadcastsPinnedWrite,
   broadcastWrite,
   deleteBroadcastsWrite,
@@ -10,7 +11,14 @@ export {
   useRefreshBroadcasts,
   type BroadcastPage,
 } from './api/broadcast';
-export { checkBroadcast, sortBroadcasts, type InboxBroadcast, type RawBroadcast } from './model/broadcast';
+export {
+  BROADCAST_META,
+  checkBroadcast,
+  sortBroadcasts,
+  withBroadcastVersion,
+  type InboxBroadcast,
+  type RawBroadcast,
+} from './model/broadcast';
 export {
   INBOX_BODY_MAX,
   INBOX_TAG_LABEL,

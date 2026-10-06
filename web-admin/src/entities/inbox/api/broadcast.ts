@@ -1,10 +1,16 @@
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { isIndexMissing, useDb, withAudit, type Db } from '@/shared/api';
-import { sortBroadcasts, type InboxBroadcast, type RawBroadcast } from '../model/broadcast';
+import { isIndexMissing, isPermissionDenied, useDb, withAudit, type Db } from '@/shared/api';
+import {
+  BROADCAST_ROOT,
+  sortBroadcasts,
+  withBroadcastVersion,
+  type InboxBroadcast,
+  type RawBroadcast,
+} from '../model/broadcast';
 import { INBOX_BODY_MAX, INBOX_TAG_LABEL, INBOX_TITLE_MAX, type InboxMessage } from '../model/message';
 
 const BROADCAST_KEY = ['inboxBroadcast'];
-const ROOT = 'inboxBroadcast';
+const ROOT = BROADCAST_ROOT;
 
 function broadcastId(): string {
   return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -71,9 +77,29 @@ export function broadcastWrite(db: Db, message: InboxMessage, pinned: boolean, i
   };
 }
 
+/**
+ * 공용 공지 쓰기(보내기 · 고정 · 삭제)는 전부 여기를 지난다 — 공지 버전(inboxBroadcastMeta)도 같은 묶음으로 올린다.
+ * 한 묶음이라 규칙에 하나라도 막히면 아무것도 바뀌지 않는다.
+ */
+export async function broadcastCommit(db: Db, updates: Record<string, unknown>): Promise<void> {
+  if (!Object.keys(updates).length) return;
+  const versioned = withBroadcastVersion(updates, db.now());
+  if (versioned === updates) return db.commit(updates);
+  try {
+    await db.commit(versioned);
+  } catch (error) {
+    // 규칙에 inboxBroadcastMeta 가 아직 없는 DB(운영 규칙 배포 전)는 묶음째 거절한다 — 그때만 버전 없이 다시 쓴다.
+    // 그 DB 를 쓰는 앱은 버전을 못 읽어 통째 구독으로 돌고 있으니 버전 없이도 바로 반영된다.
+    if (!isPermissionDenied(error)) throw error;
+    await db.commit(updates);
+    console.warn('[inbox] inboxBroadcastMeta 규칙이 없어 버전 없이 공지만 썼다');
+  }
+}
+
 export function sendBroadcast(db: Db, message: InboxMessage, pinned: boolean, id?: string): Promise<void> {
   const detail = `${INBOX_TAG_LABEL[message.tag] ?? message.tag}${pinned ? ' · 고정' : ''}`;
-  return db.commit(
+  return broadcastCommit(
+    db,
     withAudit(db, broadcastWrite(db, message, pinned, id), 'notice.broadcast', message.title.trim(), detail),
   );
 }

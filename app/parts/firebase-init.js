@@ -9,7 +9,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getDatabase, ref as _dbRef, set, update as _dbUpdate, remove, onValue, off, onDisconnect, serverTimestamp, get, runTransaction,
-    push, query, limitToLast, orderByChild, orderByKey, startAt, onChildAdded
+    push, query, limitToLast, orderByChild, orderByKey, startAt, equalTo, onChildAdded
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
@@ -38,6 +38,7 @@
   import { createInviteAccount } from "./invite-account.js";
   import { createAppVersion } from "./app-version.js";
   import { createCatalogSync } from "./catalog-cache.js";
+  import { createBroadcastSync } from "./broadcast-cache.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -408,6 +409,35 @@
       if(!/permission|PERMISSION_DENIED/i.test(code)) throw e;
       await update(ref(db), updates);   // 이것도 거부면(관리자 아님 · 형식 오류) 그 오류를 그대로 던진다
       console.warn('[catalog-cache] catalogMeta 규칙이 없어 버전 없이 카탈로그만 썼다 —', kinds.join(','));
+    }
+  }
+
+  /* 공용 공지 버전 확인 + 로컬 캐시 — 구조는 broadcast-cache.js 머리말. 경로를 여기 두는 이유는 위 카탈로그와 같다. */
+  const BROADCAST_OWN_WRITE_MS = 15000;   // 이 기기에서 쓴 뒤 이만큼은 공지 바뀜을 모으지 않는다(아래 liveNow)
+  let _broadcastWroteAt = 0;
+  const _subscribeBroadcast = createBroadcastSync({
+    metaRef:     () => ref(db, 'inboxBroadcastMeta'),
+    fullRef:     () => ref(db, 'inboxBroadcast'),
+    latestQuery: (n) => query(ref(db, 'inboxBroadcast'), orderByChild('ts'), limitToLast(n)),
+    pinnedQuery: () => query(ref(db, 'inboxBroadcast'), orderByChild('pinned'), equalTo(true)),
+    onValue, get,
+    scope: (firebaseConfig && (firebaseConfig.databaseURL || firebaseConfig.projectId)) || '',
+    /* 이 기기에서 방금 쓴 바뀜은 모으지 않고 바로 받는다 — 관리자가 보낸 · 지운 공지가 자기 화면에 늦게 반영되지 않게 */
+    liveNow: () => Date.now() - _broadcastWroteAt < BROADCAST_OWN_WRITE_MS,
+  });
+  /* 공용 공지 쓰기(보내기 · 고정 · 삭제)는 전부 여기를 지난다 — 같은 다중 경로 update 로 inboxBroadcastMeta(서버 시각)도 올린다.
+     빠지면 사용자는 캐시해 둔 옛 공지를 캐시 수명(24시간)까지 본다. 웹 관리자는 broadcastCommit 이 같은 일을 한다.
+     규칙에 inboxBroadcastMeta 가 아직 없으면 update 가 통째로 거부된다 — 그때만 버전 없이 공지만 한 번 더 쓴다
+     (그 DB 를 쓰는 앱은 버전 구독이 거부돼 통째 구독으로 돌고 있으므로 바로 반영된다). */
+  async function _broadcastUpdate(updates){
+    _broadcastWroteAt = Date.now();   // update 를 부르는 순간 버전 구독이 (서버 시각 추정값으로) 먼저 울린다 — 그 전에 표시
+    try{
+      await update(ref(db), Object.assign({}, updates, { inboxBroadcastMeta: serverTimestamp() }));
+    }catch(e){
+      const code = String((e && (e.code || e.message)) || '');
+      if(!/permission|PERMISSION_DENIED/i.test(code)) throw e;
+      await update(ref(db), updates);   // 이것도 거부면(관리자 아님 · 형식 오류) 그 오류를 그대로 던진다
+      console.warn('[broadcast-cache] inboxBroadcastMeta 규칙이 없어 버전 없이 공지만 썼다');
     }
   }
 
@@ -3622,25 +3652,26 @@
         tag:tagFinal, title:String(title||'').slice(0,80), body:String(body||'').slice(0,600), ts: now
       };
       if(pinned) rec.pinned = true;   // 고정 아닐 땐 아예 키를 안 써서 기존 규칙/데이터와 호환
-      await set(ref(db, `inboxBroadcast/${id}`), rec);
+      await _broadcastUpdate({ [`inboxBroadcast/${id}`]: rec });
       return { ok:true, count:'전체' };
     },
     // 📌 관리자: 기존 공지의 고정 상태만 토글 (내용은 그대로 두고 pinned만 갱신)
     async setInboxBroadcastPinned(msgId, pinned){
       try{
-        if(pinned) await set(ref(db, `inboxBroadcast/${msgId}/pinned`), true);
-        else await remove(ref(db, `inboxBroadcast/${msgId}/pinned`));
+        await _broadcastUpdate({ [`inboxBroadcast/${msgId}/pinned`]: pinned ? true : null });
         return { ok:true };
       }catch(_){ return { ok:false }; }
     },
-    // 공용 공지 구독 → onChange({ id:{tag,title,body,ts} })
+    // 공용 공지 구독 → onChange({ id:{tag,title,body,ts} }) — 버전 확인 + 로컬 캐시(broadcast-cache.js).
+    //   통째가 아니라 최근 30개 + 고정 공지만 온다. 콜백 모양은 예전 통째 onValue 때와 같다.
     subscribeInboxBroadcast(onChange){
-      const r = ref(db, 'inboxBroadcast');
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
+      const unsub = _subscribeBroadcast(v => onChange(v || {}));
       return ()=>{ try{ unsub(); }catch(_){} };
     },
     // 관리자: 공용 공지 삭제
-    async deleteInboxBroadcast(msgId){ try{ await remove(ref(db, `inboxBroadcast/${msgId}`)); }catch(_){} },
+    async deleteInboxBroadcast(msgId){
+      try{ await _broadcastUpdate({ [`inboxBroadcast/${msgId}`]: null }); }catch(_){}
+    },
 
     /* ═══════════ 🔑 구글 로그인 — 계정과 유저 코드를 묶는다 ═══════════
        [구조] 신원이 둘이고, 둘을 **줄 두 개로** 묶는다.
