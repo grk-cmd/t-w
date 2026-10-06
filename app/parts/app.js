@@ -30526,26 +30526,30 @@ function _roomServerJoinMessage(code, isSecret){
 /* startRoom 의 서버 갈래. 'firebase' = 아래 기존 흐름으로 계속 · 그 밖 = 여기서 끝났다.
    고르는 순서(설계 §5):
      · 만들기 → 서버에 create 로.
-     · 코드로 들어가기 → Firebase 에 살아 있는 사람이 없으면 서버로(서버에 방이 있으면 들어가고, 없으면 서버가 연다).
-       Firebase 에 사람이 있으면 서버에 같은 방이 있는지 «들어가 보고» 안다 — 아무도 없었으면(내가 연 빈 방) 바로 나와서 Firebase 로.
-     ⚠️ 서버 규약(PROTOCOL v1)에 «방이 있나 · 몇 명인가» 를 묻는 메시지가 없어서 들어가 보는 방식을 쓴다.
-       그 짧은 사이에 다른 새 앱이 같은 코드로 들어오면 그 사람은 서버에, 나는 Firebase 에 남을 수 있다(옛 앱과 섞이는 기간에만).
+     · 코드로 들어가기 → 서버에 peek(들어가지 않고 보기)
+         서버에 그 방이 있으면 → 서버로.
+         없으면 Firebase 에 살아 있는 사람이 있나 본다 → 있으면 Firebase 로(옛 앱 사람들이 있는 방).
+         둘 다 없으면 → 서버로(서버가 연다).
+       peek 을 못 물었으면(시간 초과 · peek 을 모르는 서버) «서버에 없음» 으로 보고 같은 순서로 간다.
      · 서버에 못 붙으면 Firebase 로. */
 async function _startRoomOnServer(code, ctx){
   const net = _roomServerNet();
   if(!(net && net.enabled())) return 'firebase';
   const creating = !!window._pendingRoomChannel && !ctx.isSecret;
-  let probe = false;
-  if(!creating){
-    let fb = null;
-    try{
-      if(ctx.isSecret && firebaseAPI.checkSecretRoomEntry){ const sr = await firebaseAPI.checkSecretRoomEntry(code, ctx.secretOwner); fb = sr ? sr.count : null; }
-      if(fb === null && firebaseAPI.checkRoomCapacity) fb = await firebaseAPI.checkRoomCapacity(code);
-    }catch(_){ fb = null; }
-    probe = (typeof fb === 'number' && fb > 0);
-  }
   const rd = await net.ensureReady();
   if(!rd.ok){ console.warn('[방 서버] 연결 안 됨 — Firebase 방식으로 들어갑니다 (' + rd.code + ')'); return 'firebase'; }
+  if(!creating){
+    let pk = null;
+    try{ pk = await net.peek(code); }catch(_){ pk = null; }
+    if(!(pk && pk.exists)){
+      let fb = null;   // Firebase 쪽 사람 수 — 서버에 방이 없을 때만 읽는다
+      try{
+        if(ctx.isSecret && firebaseAPI.checkSecretRoomEntry){ const sr = await firebaseAPI.checkSecretRoomEntry(code, ctx.secretOwner); fb = sr ? sr.count : null; }
+        if(fb === null && firebaseAPI.checkRoomCapacity) fb = await firebaseAPI.checkRoomCapacity(code);
+      }catch(_){ fb = null; }
+      if(typeof fb === 'number' && fb > 0) return 'firebase';
+    }
+  }
   const create = creating ? { channel: window._pendingRoomChannel,
     open: (window._pendingRoomChannel === 'workingroom') && !!window._pendingRoomOpen } : null;
   _clearHiddenSeats();
@@ -30558,10 +30562,6 @@ async function _startRoomOnServer(code, ctx){
     window._pendingRoomOpen = false;
     refreshInviteUI();
     return 'stop';
-  }
-  if(probe && !r.others){
-    await Presence.stop();   // 서버에는 없던 방 — 옛 앱 사람들이 있는 Firebase 방으로
-    return 'firebase';
   }
   /* 빈 방을 열었는데 접두어가 채널과 다르면 같은 4자리의 맞는 접두어 방으로 옮긴다(Firebase 갈래의 빈 방 규칙과 같다).
      옮긴 코드는 접두어가 내 자격과 맞으므로 다시 옮기지 않는다. */

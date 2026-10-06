@@ -9,6 +9,7 @@
  * 7. 끊김 → 재연결(resume) · resumeFailed → 전체 다시 입장
  * 8. 인증 실패 · 시간 초과 · 꺼짐 → Firebase 로 돌아가라는 신호
  * 9. 토큰 갱신 타이머 · 나가기 · stats · random
+ * 9-1. 요청 id(rid)로 답 짝짓기 · peek(들어가지 않고 보기) · peek 을 모르는 옛 서버
  * 10. firebase-init.js · app.js · HTML 연결
  */
 'use strict';
@@ -178,6 +179,7 @@ async function joined(o = {}){
     chk(p && p.level === 8 && p.userStatus === 'meal' && !('state' in p) && !('lastSeen' in p) && !('def' in p) && !('chat' in p), 'patch — 바뀐 멤버 칸만(def · chat · 모르는 칸 없음)');
     chk(d && d.def.ser.skin === 2, 'def — 따로 한 통(serializeDef)');
     chk(c && c.text === 'yo' && c.fly === true && c.flyColor === '#fff' && !('ts' in c), 'chat — 따로 한 통 · ts 없음');
+    chk(p && Object.keys(p).every((k) => k === 't' || M.MEMBER_FIELDS.includes(k)) && !('fields' in p), 'patch 는 평평하게 — { t:patch, 칸… } (fields 로 감싸지 않음, PROTOCOL.md)');
     e.prov.update({ level: 8 });
     chk(e.ws.all('patch').length === 1, '같은 값을 다시 넣어도 또 보내지 않는다');
     e.prov.update({ customStatus: { emo: '', text: 'a' } });
@@ -425,13 +427,13 @@ async function joined(o = {}){
     const sp = s.net.stats();
     await tick();
     chk(s.ws.last('stats') !== null, 'stats() → {t:stats}');
-    s.ws.msg({ t: 'stats', workingroom: 3, togetherroom: 2, total: 5 });
+    s.ws.msg({ t: 'stats', workingroom: 3, togetherroom: 2, total: 5, rid: s.ws.last('stats').rid });
     const st = await sp;
     chk(st && st.workingroom === 3 && st.togetherroom === 2 && st.total === 5, '  ↳ 채널별 개수');
     const rp = s.net.random(12);
     await tick();
     chk(s.ws.last('random').limit === 12, 'random(12) → {t:random, limit:12}');
-    s.ws.msg({ t: 'random', rooms: ['WORK-AAAA', 'WORK-BBBB'] });
+    s.ws.msg({ t: 'random', rooms: ['WORK-AAAA', 'WORK-BBBB'], rid: s.ws.last('random').rid });
     const rr = await rp;
     chk(Array.isArray(rr) && rr.length === 2 && rr[0] === 'WORK-AAAA', '  ↳ 후보 목록');
     const mp = s.prov.setMeta({ chatOff: true });
@@ -460,6 +462,65 @@ async function joined(o = {}){
     chk(gr.ok === false && gr.code === 'full', '정원 초과 → { ok:false, code:full } (앱이 지금 쓰는 «가득 찼어요» 문구로)');
   }
 
+  say('── 9-1. rid · peek');
+  {
+    const RID = /^[A-Za-z0-9_.:-]{1,16}$/;
+    const e = await joined();
+    const p1 = e.net.stats(), p2 = e.net.stats(), p3 = e.net.random(5);
+    await tick();
+    const [q1, q2] = e.ws.all('stats'), q3 = e.ws.last('random');
+    chk([q1, q2, q3].every((q) => RID.test(q.rid)) && new Set([q1.rid, q2.rid, q3.rid]).size === 3, 'stats · random 마다 서로 다른 rid(1~16자 · 영숫자 _ . : -)');
+    // 답이 보낸 순서와 반대로 와도 rid 로 짝짓는다
+    e.ws.msg({ t: 'random', rooms: ['WORK-RRRR'], rid: q3.rid });
+    e.ws.msg({ t: 'stats', workingroom: 2, togetherroom: 0, total: 2, rid: q2.rid });
+    e.ws.msg({ t: 'stats', workingroom: 1, togetherroom: 0, total: 1, rid: q1.rid });
+    const [a1, a2, a3] = await Promise.all([p1, p2, p3]);
+    chk(a1.total === 1 && a2.total === 2 && a3[0] === 'WORK-RRRR', '  ↳ 답이 거꾸로 와도 rid 로 제 요청에');
+    const p4 = e.net.stats();
+    await tick();
+    e.ws.msg({ t: 'stats', workingroom: 9, togetherroom: 9, total: 18, rid: 'nope' });
+    e.ws.msg({ t: 'random', rooms: [], rid: e.ws.last('stats').rid });
+    let got4 = false; p4.then(() => { got4 = true; });
+    await tick();
+    chk(!got4, '  ↳ 모르는 rid · 종류가 다른 답은 받지 않는다');
+    e.ws.msg({ t: 'stats', workingroom: 4, togetherroom: 0, total: 4 });
+    chk((await p4).total === 4, '  ↳ rid 없는 답(옛 서버)은 같은 종류 중 먼저 보낸 것에');
+    const p5 = e.net.stats();
+    await tick();
+    e.ws.msg({ t: 'error', code: 'badRequest', ref: 'stats' });
+    chk((await p5) === null, '  ↳ stats 가 거절되면 null(4초 기다리지 않음)');
+
+    const pk = e.net.peek('PLAY-AB12');
+    await tick();
+    const q = e.ws.last('peek');
+    chk(q && q.room === 'PLAY-AB12' && RID.test(q.rid) && Object.keys(q).sort().join() === 'rid,room,t', 'peek(code) → {t:peek, room, rid} — 방 안에서도 묻는다');
+    e.ws.msg({ t: 'peek', room: 'PLAY-AB12', exists: true, count: 3, channel: 'togetherroom', secret: false, rid: q.rid });
+    const pr = await pk;
+    chk(pr && pr.exists === true && pr.count === 3 && pr.channel === 'togetherroom' && pr.secret === false, '  ↳ { exists, count, channel, secret }');
+    chk(e.ws.all('join').length === 1 && e.ws.all('leave').length === 0 && e.prov.memberId() === 'mME', '  ↳ 들어가거나 나가지 않는다(지금 자리 그대로)');
+    const pk2 = e.net.peek('SCRT-ZZ99');
+    await tick();
+    e.ws.msg({ t: 'peek', room: 'SCRT-ZZ99', exists: false, count: 0, channel: null, secret: true, rid: e.ws.last('peek').rid });
+    const pr2 = await pk2;
+    chk(pr2 && pr2.exists === false && pr2.channel === null && pr2.secret === true, '  ↳ 없는 방 — exists:false · channel:null');
+
+    // peek 을 모르는 옛 서버 — 모르는 t 라 ref 없는 badRequest
+    const o = mkNet();
+    const op = o.net.peek('WORK-AB12');
+    await tick();
+    o.socks[0].open(); o.socks[0].msg({ t: 'ready', pv: 1, now: 0 });
+    await tick();
+    chk(o.socks[0].last('peek') !== null, '방 밖에서도 peek 하러 붙는다');
+    o.socks[0].msg({ t: 'error', code: 'badRequest' });
+    chk((await op) === null, '  ↳ 옛 서버(ref 없는 badRequest) → null, 기다리지 않음');
+    const tp = o.net.peek('WORK-AB12');
+    await tick();
+    await o.clock.advance(4000);
+    chk((await tp) === null, '  ↳ 답이 없으면 4초 뒤 null');
+    const off = mkNet({ enabled: false });
+    chk((await off.net.peek('WORK-AB12')) === null && off.socks.length === 0, '꺼져 있으면 peek 은 붙지 않고 null');
+  }
+
   say('── 10. 연결');
   {
     const FC = strip(FI), AC = strip(APP), RC = strip(SRC);
@@ -483,6 +544,11 @@ async function joined(o = {}){
     chk(/if\(code === 'full'\)/.test(AC) && /if\(code === 'channelFull'\)/.test(AC) && /if\(code === 'secretClosed'\)/.test(AC), 'full · channelFull · secretClosed → 안내 문구');
     chk(/const _sp = \(Presence\.serverProvider && Presence\.serverProvider\(\)\) \|\| null;/.test(AC) && /_sp \? await _sp\.setMeta\(\{ chatOff: next \}\)/.test(AC), '채팅 잠금 — 서버 방이면 meta 를 서버로');
     chk(/await _withServerRoomCounts\(await firebaseAPI\.getRoomCounts\(\{ quick: true \}\)\)/.test(AC) && /c = _addServerRoomCounts\(c\);/.test(AC), '방 개수 — 서버 몫을 더한다(켜져 있을 때만)');
+    const so = AC.slice(AC.indexOf('async function _startRoomOnServer('), AC.indexOf('/* 방 개수 — 서버 방 몫을 더한다'));
+    const iPeek = so.indexOf('await net.peek(code)'), iFbCnt = so.indexOf('firebaseAPI.checkRoomCapacity(code)'), iStart = so.indexOf('await Presence.start(');
+    chk(iPeek > 0 && iFbCnt > iPeek && iStart > iFbCnt && /if\(!\(pk && pk\.exists\)\)\{/.test(so) && /if\(typeof fb === 'number' && fb > 0\) return 'firebase';/.test(so),
+      '코드로 들어가기 — peek 먼저: 서버에 있으면 서버, 없고 Firebase 에 사람이 있으면 Firebase, 둘 다 없으면 서버');
+    chk(!/Presence\.stop\(\);\s*\/\/ 서버에는 없던 방/.test(so) && !/\bprobe\b/.test(so), '  ↳ 들어갔다 나오는 탐색(probe)은 없앴다');
     chk(/const _srv = await _serverRandomRooms\(12\);/.test(AC) && /_serverRandomRooms\(12\)\)\.filter\(c => c !== cur\)/.test(AC), '랜덤 입장 · 갈아타기 — 서버 방 먼저');
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => m[1]);
     chk(csp.length === 2 && csp.every((c) => /connect-src [^;]*ws:\/\/127\.0\.0\.1:\* ws:\/\/localhost:\*/.test(c)), 'CSP 두 줄 connect-src 에 로컬 방 서버(ws://127.0.0.1 · localhost)');

@@ -810,7 +810,7 @@
 | **sim-fly-roulette.js** | 147 | **a96af26bba03** ← **개정 58 신설 · 🔫 러시안룰렛** · **개정 58-b 4절 투게더룸 🎲 도 룰렛** · **개정 59 기록 문장 꼬리 없음** · **개정 63 투게더룸에서 숨김** · **개정 76 5절 🎟️ 하루 6번** |
 | **sim-license-xlsx.js** | 82 | **eb779c819cb0** ← **개정 76 신설 · 📄 관리자 라이선스 엑셀(xlsx·csv) 일괄 발급** · **개정 82 1절 좁은 창이면 일괄 창만** |
 | **sim-room-stats.js** | 188 | **ebeceb1be37b** ← **2026-10-03 신규 · 📊 방 개수 서버 요약 — functions/room-stats.js 집계 · room-index.js channel·open 다시 싣기 · room-stats.js 신선도 · firebase-init 연결 · 규칙 읽기 전용 (모듈을 그대로 불러 가짜 DB)** |
-| **sim-room-server-net.js** | 497 | **1db4b7c97713** ← **2026-10-06 신규 · 🛰 방 서버(웹소켓) provider — room-server-net.js 를 가짜 웹소켓 · 가짜 시계로 그대로 돌림 · hello/join/welcome · patch/def/chat 나누기 · state 1초 묶기 · exp 는 바뀔 때만 · 찌르기 all · resume 재연결 · resumeFailed 전체 입장 · auth/version/시간 초과 → Firebase 로 · 토큰 갱신 · firebase-init · app.js · CSP 연결 (기본 꺼짐)** |
+| **sim-room-server-net.js** | 563 | **5b64830764df** ← **2026-10-06 신규 · 🛰 방 서버(웹소켓) provider — room-server-net.js 를 가짜 웹소켓 · 가짜 시계로 그대로 돌림 · hello/join/welcome · patch/def/chat 나누기(patch 는 평평하게) · state 1초 묶기 · exp 는 바뀔 때만 · 찌르기 all · resume 재연결 · resumeFailed 전체 입장 · auth/version/시간 초과 → Firebase 로 · 토큰 갱신 · stats/random/peek 답을 rid 로 짝짓기 · peek 으로 서버/Firebase 고르기 · firebase-init · app.js · CSP 연결 (기본 꺼짐)** |
 | **sim-app-version.js** | 152 | **11f90aed8615** ← **2026-10-06 신규 · 🏷️ 앱 버전(ver)을 presence · 라이선스 요청 · accountSnap 에 — app-version.js 를 그대로 돌림 · presence 를 통째로 쓰는 자리 전부 ver · 늦게 오면 update · 규칙 셋(없어도 통과 · 문자열 20자) · 규칙 배포 전이면 accountSnap 은 ver 빼고 다시** |
 | **sim-invite-account.js** | 79 | **9974af64f5c8** ← **2026-10-03 신규 · 초대 계정 읽기 — 판정 = 예전 판정 · invite 먼저 · 폴백 · 런처 동작 그대로** |
 | **sim-room-invite-wait.js** | 43 | **7161a20222f3** ← **개정 78 신설 · ⏳ 방 초대 팝업이 화면을 막지 않음 · 3분 뒤 자동 거절** |
