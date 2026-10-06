@@ -35,6 +35,7 @@ console.log('\n── 1. 관리자만 쓸 수 있어야 하는 곳');
   ['bugReport/current',          '버그제보 공지·링크'],
   ['config/minRoomVer',          '최소 버전(전원 접속 차단 가능)'],
   ['inboxBroadcast',             '전체 우편함 발송'],
+  ['inboxBroadcastMeta',         '공용 공지 버전(앱 캐시 무효화)'],
 ].forEach(([p, name])=> chk(isAdmin(w(p)), name + '  (' + p + ')'));
 
 console.log('\n── 2. 일반 사용자가 계속 할 수 있어야 하는 것 (잠그면 앱이 멎는다)');

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { InboxBroadcast } from '@/entities/inbox';
 import { deleteBroadcasts, pinTargets, setBroadcastsPinned } from '@/features/notice/manage-broadcast';
-import { auditsOf, fakeDb, withoutAudits } from '../shared/fakeDb';
+import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const b = (id: string, pinned: boolean): InboxBroadcast => ({
   id,
@@ -26,7 +26,9 @@ describe('선택 공지', () => {
     expect(withoutAudits(writes)).toEqual([
       ['commit', 'inboxBroadcast/a/pinned', true],
       ['commit', 'inboxBroadcast/b/pinned', true],
+      ['commit', 'inboxBroadcastMeta', NOW],
       ['commit', 'inboxBroadcast/c/pinned', null],
+      ['commit', 'inboxBroadcastMeta', NOW],
     ]);
     expect(auditsOf(writes).map((a) => [a.action, a.target, a.detail])).toEqual([
       ['notice.pin', '2개', 'a, b'],
@@ -40,6 +42,7 @@ describe('선택 공지', () => {
     expect(withoutAudits(ok.writes)).toEqual([
       ['commit', 'inboxBroadcast/a', null],
       ['commit', 'inboxBroadcast/b', null],
+      ['commit', 'inboxBroadcastMeta', NOW],
     ]);
     expect(auditsOf(ok.writes).map((a) => a.action)).toEqual(['notice.broadcastDelete']);
 

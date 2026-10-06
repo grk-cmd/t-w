@@ -838,6 +838,11 @@
         ".validate": "newData.hasChildren(['tag','title','ts']) && newData.child('tag').isString() && newData.child('tag').val().matches(/^(notice|update|reward)$/) && newData.child('title').isString() && newData.child('title').val().length <= 80 && (!newData.child('body').exists() || (newData.child('body').isString() && newData.child('body').val().length <= 600)) && newData.child('ts').isNumber() && (!newData.child('pinned').exists() || newData.child('pinned').isBoolean())"
       }
     },
+    "inboxBroadcastMeta": {
+      ".read": true,
+      ".write": "root.child('admins').child(auth.uid).val() === true",
+      ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 60000"
+    },
     "roomInvites": {
       "$toId": {
         ".read": true,

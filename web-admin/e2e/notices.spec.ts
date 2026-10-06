@@ -107,6 +107,9 @@ test('수령함 전체 공지 — 고정해 보내고, 고정을 풀었다 다�
     body: '설정에서 업데이트해 주세요',
     pinned: true,
   });
+  // 같은 묶음으로 공지 버전(서버 시각)이 오른다 — 앱은 이걸 보고 캐시를 버린다
+  const sentAt = await dbGet<number>('inboxBroadcastMeta');
+  expect(sentAt).toEqual(expect.any(Number));
 
   const sent = row(list, '새 버전이 나왔어요');
   await sent.getByRole('button', { name: '고정 풀기' }).click();
@@ -124,6 +127,7 @@ test('수령함 전체 공지 — 고정해 보내고, 고정을 풀었다 다�
   await expect(list.getByText('1건')).toBeVisible();
   expect(await dbGet(`inboxBroadcast/${id}`)).toBeNull();
   expect(await dbGet('inboxBroadcast/bOld')).not.toBeNull();
+  expect(await dbGet<number>('inboxBroadcastMeta')).toBeGreaterThan(sentAt!);
 });
 
 test('수령함 전체 공지 — 골라서 고정하고, 골라서 지운다', async ({ page, seed }) => {
