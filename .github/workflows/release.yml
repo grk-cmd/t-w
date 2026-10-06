@@ -173,7 +173,8 @@ jobs:
         env:
           VERSION: ${{ needs.verify.outputs.version }}
         run: |
-          YML=$(ls dist/latest.yml dist/beta.yml dist/alpha.yml dist/rc.yml 2>/dev/null | head -n 1)
+          # shell: bash 는 pipefail 이라 «ls 없는파일 | head» 가 실패로 끝난다 — 하나씩 본다.
+          YML=; for f in dist/latest.yml dist/beta.yml dist/alpha.yml dist/rc.yml; do [ -f "$f" ] && { YML=$f; break; }; done
           [ -n "$YML" ] || { echo "::error::업데이트 정보 파일(yml)이 없다"; exit 1; }
           grep -qx "version: $VERSION" "$YML" || { echo "::error::$YML 버전이 $VERSION 이 아니다"; exit 1; }
           # 자동 업데이트는 내려받은 exe 의 sha512 를 yml 과 대조한다 — 어긋나면 모든 사용자의 업데이트가 실패한다.
