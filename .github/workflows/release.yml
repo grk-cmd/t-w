@@ -2,10 +2,13 @@
 # [2026-10-03] 릴리스 순서 «① 규칙 → ② 최신화 → ③ 빌드» 중 ③ 을 자동화한다.
 #   ② 최신화(사람):  npm version patch -m "chore: %s"  →  git push --follow-tags
 #   ③ 빌드(여기):    태그 push 가 트리거 → exe · dmg ×2 · latest.yml 을 **한 초안**에 올린다
-#   Publish(사람):   GitHub Releases 에서 초안 확인 → [Publish release]
+#   ④ 검사 → 공개:   빌드마다 «열리는가 · 버전 · arch · 켜지는가», 초안은 «올라간 파일 = 원본» 을 본다.
+#                    전부 통과해야 공개(Publish)한다. 하나라도 빨강이면 초안으로 남고 사용자에게 가지 않는다.
 # ★ 왜 태그인가 — exe 와 dmg 가 **같은 커밋 · 같은 버전**으로 빌드된다. 예전엔 exe 는 개발자 PC(로컬 버전),
 #   dmg 는 mac-probe(main 의 버전)로 따로 만들어 0.10.0 릴리스에 0.9.8 dmg 가 올라간 일이 두 번 있었다.
-# ★ 초안까지만 만든다. 사용자에게 나가는 건 사람이 Publish 를 누를 때다.
+# ★ 초안에 모두 올린 뒤 한 번에 공개한다 — 파일이 하나씩 공개되면 latest.yml 만 먼저 보인 사이에
+#   업데이트를 확인한 앱이 아직 없는 exe 를 받으려다 실패한다.
+#   검사로 못 잡는 것(로그인 · 방 입장 같은 기능)은 베타로 미리 써 보고 정식을 누른다.
 # ① 규칙: 이전 태그 이후 firebase-database-rules.json 이 바뀌었으면 **운영 배포(production 환경 승인)** 를 빌드보다 먼저 한다.
 #   dev 는 main push 때 deploy-dev.yml 이 이미 반영했다. GCP 설정(vars) 전이면 이 단계는 건너뛴다(⚠️ 그땐 사람이 직접 배포).
 #   Functions 배포는 권한이 넓어서 넣지 않는다.
@@ -165,6 +168,31 @@ jobs:
           ( cd "$RUNNER_TEMP" && npx --yes @electron/asar@3.2.17 extract-file "$GITHUB_WORKSPACE/dist/win-unpacked/resources/app.asar" package.json \
             && node -e "const e=require('./package.json').twFirebase||'prod'; const want=process.argv[1]==='true'?'dev':'prod'; console.log('Firebase 환경:',e,'(기대',want+')'); process.exit(e===want?0:1)" "${{ needs.verify.outputs.prerelease }}" ) \
             || { echo "::error::설치본의 Firebase 환경 표시가 기대와 다르다"; exit 1; }
+      - name: 업데이트 정보(yml)가 exe 와 맞는가
+        shell: bash
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          YML=$(ls dist/latest.yml dist/beta.yml dist/alpha.yml dist/rc.yml 2>/dev/null | head -n 1)
+          [ -n "$YML" ] || { echo "::error::업데이트 정보 파일(yml)이 없다"; exit 1; }
+          grep -qx "version: $VERSION" "$YML" || { echo "::error::$YML 버전이 $VERSION 이 아니다"; exit 1; }
+          # 자동 업데이트는 내려받은 exe 의 sha512 를 yml 과 대조한다 — 어긋나면 모든 사용자의 업데이트가 실패한다.
+          # yml 의 path 는 공백이 '-' 로 적힌다(Releases 에서 그 이름으로 맞춘다) — 로컬 파일은 버전으로 찾는다.
+          EXE=$(ls dist/*-Setup-"$VERSION".exe)
+          WANT=$(sed -n 's/^sha512: //p' "$YML")
+          GOT=$(node -e "process.stdout.write(require('crypto').createHash('sha512').update(require('fs').readFileSync(process.argv[1])).digest('base64'))" "$EXE")
+          [ "$WANT" = "$GOT" ] || { echo "::error::$EXE sha512 가 $YML 과 다르다"; exit 1; }
+          echo "$YML ↔ $EXE 일치 · 버전 $VERSION"
+      - name: 켜지는가 (20초 살아 있나)
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem 'dist/win-unpacked/*.exe' | Where-Object { $_.Name -notmatch 'Uninstall' } | Select-Object -First 1
+          $p = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 20
+          if ($p.HasExited) { Write-Output "::error::앱이 20초 안에 꺼졌다 (종료 코드 $($p.ExitCode))"; exit 1 }
+          Write-Output "켜진 채 20초 — 정상"
+          Stop-Process -Id $p.Id -Force
+          Get-Process | Where-Object { $_.Path -like "$($exe.DirectoryName)*" } | Stop-Process -Force -ErrorAction SilentlyContinue
       - uses: actions/upload-artifact@v4
         with:
           name: win
@@ -218,6 +246,38 @@ jobs:
           ( cd "$RUNNER_TEMP" && npx --yes @electron/asar@3.2.17 extract-file "$GITHUB_WORKSPACE/$APP/Contents/Resources/app.asar" package.json \
             && node -e "const e=require('./package.json').twFirebase||'prod'; const want=process.argv[1]==='true'?'dev':'prod'; console.log('Firebase 환경:',e,'(기대',want+')'); process.exit(e===want?0:1)" "${{ needs.verify.outputs.prerelease }}" ) \
             || { echo "::error::설치본의 Firebase 환경 표시가 기대와 다르다"; exit 1; }
+      - name: dmg 가 열리는가 · 버전 · arch · 켜지는가
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          DMG=$(ls dist/*-"$ARCH".dmg)
+          hdiutil verify "$DMG" || { echo "::error::$DMG 가 손상됐다"; exit 1; }
+          MP="$RUNNER_TEMP/dmg"; mkdir -p "$MP"
+          hdiutil attach -readonly -nobrowse -noautoopen -mountpoint "$MP" "$DMG" >/dev/null
+          SRC=$(ls -d "$MP"/*.app)
+          APP="$RUNNER_TEMP/$(basename "$SRC")"
+          cp -R "$SRC" "$APP"
+          hdiutil detach "$MP" >/dev/null
+          V=$(defaults read "$APP/Contents/Info" CFBundleShortVersionString)
+          BIN="$APP/Contents/MacOS/$(defaults read "$APP/Contents/Info" CFBundleExecutable)"
+          A=$(lipo -archs "$BIN")
+          WANT_A=$([ "$ARCH" = x64 ] && echo x86_64 || echo arm64)
+          echo "dmg 안 앱: 버전 $V · arch $A"
+          [ "$V" = "$VERSION" ] || { echo "::error::앱 버전 $V ≠ $VERSION"; exit 1; }
+          [ "$A" = "$WANT_A" ] || { echo "::error::앱 arch $A ≠ $WANT_A"; exit 1; }
+          # 러너는 애플 실리콘이다 — x64 는 Rosetta 가 있을 때만 켜 본다.
+          if [ "$ARCH" = x64 ] && ! arch -x86_64 /usr/bin/true 2>/dev/null; then
+            echo "::warning::Rosetta 가 없어 x64 앱 실행 확인은 건너뛴다"; exit 0
+          fi
+          "$BIN" > "$RUNNER_TEMP/app.log" 2>&1 &
+          PID=$!
+          sleep 20
+          if ! kill -0 "$PID" 2>/dev/null; then
+            tail -n 40 "$RUNNER_TEMP/app.log"; echo "::error::앱이 20초 안에 꺼졌다"; exit 1
+          fi
+          echo "켜진 채 20초 — 정상"
+          kill "$PID"; pkill -f "$APP" || true
       - uses: actions/upload-artifact@v4
         with:
           name: mac-${{ matrix.arch }}
@@ -230,7 +290,7 @@ jobs:
   # ── 한 초안에 모아 올린다 (병렬 업로드로 초안이 둘 생기는 경쟁을 피하려고 마지막에 한 번) ──
   publish-draft:
     name: Releases 초안
-    needs: [verify, build-win, build-mac]
+    needs: [verify, rules-check, rules-prod, build-win, build-mac]
     # 위 빌드들은 rules-prod 를 needs 로 거친다. 그 단계가 건너뛰어지면(베타 · 규칙이 안 바뀐 릴리스) GitHub 은
     # 기본 조건(success())으로 이 job 까지 건너뛴다 — always() 로 받고 셋의 결과를 직접 본다.
     if: always() && needs.verify.result == 'success' && needs.build-win.result == 'success' && needs.build-mac.result == 'success'
@@ -261,6 +321,12 @@ jobs:
           echo "$YML url: $URL"
           [ -f "$URL" ] || { echo "::error::$YML 이 가리키는 $URL 이 없다 — 자동 업데이트가 깨진다"; exit 1; }
           grep -q "version: $VERSION" "$YML" || { echo "::error::$YML 버전이 $VERSION 이 아니다"; exit 1; }
+          # 올릴 파일은 정확히 다섯 — 빠지거나 같은 종류가 둘이면(이름 겹침 · 옛 버전 섞임) 멈춘다.
+          for pat in "*-Setup-$VERSION.exe" "*-Setup-$VERSION.exe.blockmap" "*-$VERSION-arm64.dmg" "*-$VERSION-x64.dmg"; do
+            n=$(ls $pat 2>/dev/null | wc -l)
+            [ "$n" -eq 1 ] || { echo "::error::$pat 가 $n 개다 (1개여야 한다)"; exit 1; }
+          done
+          [ "$(ls | wc -l)" -eq 5 ] || { echo "::error::올릴 파일이 5개가 아니다"; ls; exit 1; }
       - name: 초안 만들기 / 올리기
         working-directory: out
         run: |
@@ -276,8 +342,7 @@ jobs:
               gh release create "$TAG" -R "$REPO" --draft --prerelease --verify-tag --title "$VERSION (테스트 · dev 서버)" \
                 --notes "🧪 테스트 빌드 — **dev Firebase(together-working-dev)** 에 접속합니다. 운영 데이터와 분리돼 있고, 일반 사용자 앱은 자동 업데이트로 받지 않습니다. (커밋 ${GITHUB_SHA::7})" *
             else
-              gh release create "$TAG" -R "$REPO" --draft --verify-tag --title "$VERSION" \
-                --notes "자동 빌드 초안 (커밋 ${GITHUB_SHA::7}). 확인 후 Publish 하세요." *
+              gh release create "$TAG" -R "$REPO" --draft --verify-tag --title "$VERSION" --generate-notes *
             fi
           fi
           gh release view "$TAG" -R "$REPO" --json assets -q '.assets[].name'
@@ -294,3 +359,21 @@ jobs:
             if [ "$WANT" = "$GOT" ]; then echo "같음: $f"; else echo "::error::$f — 원본 $WANT · 릴리스 ${GOT:-없음}"; BAD=1; fi
           done
           exit $BAD
+      - name: 공개 (Publish)
+        env:
+          RULES_CHANGED: ${{ needs.rules-check.outputs.changed }}
+          RULES_PROD: ${{ needs.rules-prod.result }}
+        run: |
+          # 위 검사가 하나라도 빨강이면 여기까지 오지 않는다 — 초안으로 남는다.
+          REPO=${{ github.repository }}
+          # 규칙이 바뀌었는데 운영 배포를 못 했으면(GCP 설정 전) 새 앱이 옛 규칙에 막힐 수 있다 — 사람이 배포하고 누르게 둔다.
+          if [ "$PRERELEASE" != "true" ] && [ "$RULES_CHANGED" = "true" ] && [ "$RULES_PROD" != "success" ]; then
+            echo "::warning::규칙이 바뀌었는데 운영 배포가 안 됐다 — 초안으로 둔다. firebase deploy --only database --project together-working 후 Releases 에서 Publish"
+            exit 0
+          fi
+          if [ "$PRERELEASE" = "true" ]; then
+            gh release edit "$TAG" -R "$REPO" --draft=false --prerelease
+          else
+            gh release edit "$TAG" -R "$REPO" --draft=false --latest
+          fi
+          gh release view "$TAG" -R "$REPO" --json isDraft,isPrerelease,url -q '"공개됨 · 프리릴리스 \(.isPrerelease) · \(.url)"'

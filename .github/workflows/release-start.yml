@@ -1,7 +1,7 @@
 # ═══ ▶️ release-start — Actions 탭의 [Run workflow] 버튼 하나로 릴리스 시작 ═══════════════════
 # 사람이 하던 «git pull → npm run check → npm version … → git push --follow-tags» 를 대신한다.
 #   ① 최신 main 받기 → ② 검사(빨강이면 멈춤) → ③ 버전 올림 커밋 + 태그 push(베타는 태그만) → ④ release.yml 을 그 태그로 실행
-#   그 뒤(규칙 운영 배포 승인 · Windows · Mac 빌드 · Releases 초안)는 release.yml 이 한다. Publish 는 여전히 사람.
+#   그 뒤(규칙 운영 배포 승인 · Windows · Mac 빌드 · 검사 · 공개)는 release.yml 이 한다.
 # ★ ④ 를 따로 부르는 이유 — 워크플로가 GITHUB_TOKEN 으로 올린 태그는 다른 워크플로를 깨우지 않는다(GitHub 의
 #   무한 반복 방지). workflow_dispatch 는 예외라 gh workflow run 으로 직접 부른다.
 # ★ main 에 보호 규칙이 생기면 ③ 의 push 가 막힌다 — 그때는 이 워크플로가 push 할 수 있게 예외를 둘 것.
@@ -85,4 +85,4 @@ jobs:
           TAG: ${{ steps.bump.outputs.tag }}
         run: |
           gh workflow run release.yml --repo "${{ github.repository }}" --ref main -f tag="$TAG"
-          echo "Actions › release 에서 $TAG 빌드가 시작된다 — 끝나면 Releases 초안을 확인하고 Publish." >> "$GITHUB_STEP_SUMMARY"
+          echo "Actions › release 에서 $TAG 빌드가 시작된다 — 검사를 모두 통과하면 자동으로 공개된다(빨강이면 초안으로 남는다)." >> "$GITHUB_STEP_SUMMARY"
