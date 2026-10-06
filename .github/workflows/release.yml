@@ -221,7 +221,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: mac-${{ matrix.arch }}
-          path: dist/*.dmg
+          # package.json 의 mac.target 이 arch 를 둘 다 적고 있어서 --arm64 를 줘도 dmg 가 둘 다 나온다.
+          # 둘 다 올리면 같은 이름 파일이 merge-multiple 로 동시에 풀리며 섞여 dmg 가 깨진다 — 자기 arch 것만 올린다.
+          path: dist/*-${{ matrix.arch }}.dmg
           if-no-files-found: error
           retention-days: 3
 
@@ -279,3 +281,16 @@ jobs:
             fi
           fi
           gh release view "$TAG" -R "$REPO" --json assets -q '.assets[].name'
+      - name: 올라간 파일이 원본과 같은가
+        working-directory: out
+        run: |
+          # 업로드 도중 깨져도 GitHub 는 성공으로 끝낸다 — 릴리스에 붙은 sha256 을 로컬 원본과 대조한다.
+          gh release view "$TAG" -R ${{ github.repository }} --json assets -q '.assets[] | "\(.name) \(.digest)"' > remote.txt
+          BAD=0
+          for f in *; do
+            [ "$f" = remote.txt ] && continue
+            WANT="sha256:$(sha256sum "$f" | cut -d' ' -f1)"
+            GOT=$(awk -v n="$f" '$1 == n { print $2 }' remote.txt)
+            if [ "$WANT" = "$GOT" ]; then echo "같음: $f"; else echo "::error::$f — 원본 $WANT · 릴리스 ${GOT:-없음}"; BAD=1; fi
+          done
+          exit $BAD
