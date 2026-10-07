@@ -17,7 +17,6 @@ export interface Route {
 
 // 좌측 메뉴 = 이 목록. 관리자 기능을 웹으로 옮길 때마다 여기에 한 줄씩 더한다.
 export const ROUTES: Route[] = [
-  { id: 'metrics', label: '📈 지표', Page: MetricsPage },
   { id: 'license', label: '🎟️ 라이선스', Page: LicensePage },
   { id: 'users', label: '👥 사용자', Page: UsersPage },
   { id: 'reports', label: '🚩 신고', Page: ReportsPage },
@@ -26,4 +25,5 @@ export const ROUTES: Route[] = [
   { id: 'rooms', label: '🛑 방', Page: RoomsPage },
   { id: 'catalog', label: '🗂️ 카탈로그', Page: CatalogPage },
   { id: 'log', label: '🧾 기록', Page: AdminLogPage },
+  { id: 'metrics', label: '📈 지표', Page: MetricsPage },
 ];

@@ -31,10 +31,11 @@ function metricsData() {
 const stat = (page: import('@playwright/test').Page, label: string) =>
   page.locator('section[aria-label="접속 지표"] .card').filter({ hasText: label });
 
-test('지표가 첫 메뉴이고 DAU · 방문 수 · WAU · MAU 를 보여 준다', async ({ page, seed }) => {
+test('지표는 마지막 메뉴이고 DAU · 방문 수 · WAU · MAU 를 보여 준다', async ({ page, seed }) => {
   await seed(metricsData());
   await page.goto('/admin/');
-  await expect(page.getByRole('navigation').getByRole('button').first()).toHaveText(/지표/);
+  await expect(page.getByRole('navigation').getByRole('button').last()).toHaveText(/지표/);
+  await openMenu(page, 'metrics');
 
   await expect(stat(page, '오늘 DAU')).toContainText('3명');
   await expect(stat(page, '어제 DAU')).toContainText('2명');
