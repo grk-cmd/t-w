@@ -7,6 +7,8 @@
    partEquipCount — 카탈로그 항목별 장착 사용자 수. users/{코드}/slots 쓰기마다 장착 집합의 차이만 metrics/parts/equipped 에 더하고 뺀다. 로직은 part-equip.js.
    visitPing — IP 기준 일일 방문자(호출형 · 로그인 없이). 앱이 켜질 때 한 번 부른다. IP 는 해시로만 적는다. 로직은 visit-ping.js.
      비밀 값 METRICS_IP_SALT 가 있어야 배포된다: firebase functions:secrets:set METRICS_IP_SALT (길고 무작위한 값).
+   usageSnapshot — 사용량(비용) 기록(매시간). Cloud Monitoring 하루 합계를 metrics/usage/{서울 날짜} 에. 로직은 usage-snapshot.js.
+   adminDeleteAccount — 계정 삭제(호출형 · 관리자만). 웹 관리자 사용자 페이지가 부른다. 로직은 account-delete.js.
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -235,6 +237,21 @@ exports.dailyActive = onValueWritten({ ref: '/accountSnap/{userId}', timeoutSeco
     await require('./daily-active').runDailyActive(getDatabase(), event, Date.parse(event.time) || Date.now());
   });
 
+/* 사용량(비용) 기록 — Cloud Monitoring 에서 어제 · 오늘(서울)의 RTDB · 함수 · Storage · Hosting 하루 합계를 받아
+   metrics/usage/{날짜} 에 적는다(usage-snapshot.js). 함수 서비스 계정에 Monitoring 읽기(roles/monitoring.viewer)가 있어야 한다.
+   토큰은 Admin SDK 기본 자격 증명(cleanTrash 의 shallow 목록과 같은 방법)으로 받는다. */
+exports.usageSnapshot = onSchedule({ schedule: 'every 60 minutes', timeZone: 'Asia/Seoul', timeoutSeconds: 120, retryCount: 0, maxInstances: 1 },
+  async () => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const app = require('firebase-admin/app').getApp();
+    const tok = await app.options.credential.getAccessToken();
+    const cfg = JSON.parse(process.env.FIREBASE_CONFIG || '{}');
+    const project = cfg.projectId || process.env.GCLOUD_PROJECT;
+    await require('./usage-snapshot').runUsageSnapshot({
+      db: getDatabase(), fetch, token: tok.access_token, project, bucket: cfg.storageBucket || null,
+    }, Date.now());
+  });
+
 // 슬롯(캐릭터 5칸)이 바뀔 때마다 장착한 카탈로그 id 집합의 차이만 센다(part-equip.js). 처음 숫자는 scripts/backfill-part-equip.js 로 채운다.
 // 다시 시도하지 않는다 — 같은 이벤트를 두 번 더하면 숫자가 어긋난다. 어긋남은 백필을 다시 돌려 맞춘다.
 exports.partEquipCount = onValueWritten({ ref: '/users/{userId}/slots', timeoutSeconds: 60, maxInstances: 5, retry: false },
@@ -256,4 +273,20 @@ exports.visitPing = onCall({ secrets: [METRICS_IP_SALT], timeoutSeconds: 10, max
       console.warn('[visitPing] 못 적음', e && e.message);   // IP 는 로그에 남기지 않는다
     }
     return { ok: true };
+  });
+
+/* 계정 삭제 — 웹 관리자 사용자 페이지가 부른다(개인정보 처리방침 8항). 관리자(admins/{uid} === true)만, 익명 거절.
+   { code, dryRun } — dryRun 을 false 로 분명히 보낼 때만 지운다. 모듈이 던진 httpsCode 를 HttpsError 로 바꿔 화면에 문구가 가게 한다. */
+exports.adminDeleteAccount = onCall({ timeoutSeconds: 300, maxInstances: 2 },
+  async (request) => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const mod = require('./account-delete');
+    const db = getDatabase();
+    try {
+      return await mod.handleAdminDeleteAccount(db, request, mod.adminDeps(db), Date.now());
+    } catch (e) {
+      if (e && e.httpsCode) throw new HttpsError(e.httpsCode, e.message);
+      console.error('[adminDeleteAccount] 실패', e && e.message);
+      throw new HttpsError('internal', '삭제 중에 문제가 생겼어요 — 다시 미리 보기로 남은 것을 확인해 주세요');
+    }
   });

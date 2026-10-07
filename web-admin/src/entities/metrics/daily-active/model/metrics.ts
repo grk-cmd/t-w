@@ -1,3 +1,5 @@
+import { kstDateKey, lastDateKeys } from '@/shared/lib';
+
 // 일일 접속 지표 — 서버 함수가 날짜별로 적는다.
 //   metrics/daily/{YYYY-MM-DD}/u/{사용자 코드} = true · visits = 방문 수   (functions/daily-active.js · 로그인 연결된 사용자)
 //   metrics/daily/{YYYY-MM-DD}/ip/{IP 해시} = true    · pings = 앱 실행 수 (functions/visit-ping.js · 로그인 안 한 사람 포함)
@@ -6,8 +8,8 @@
 export const METRICS_DAILY = 'metrics/daily';
 export const METRICS_SUMMARY = 'metrics/summary';
 export const METRICS_DAYS = 30;
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+// 서울 날짜 계산은 shared/lib 에 — 사용량 화면과 같이 쓴다.
+export { kstDateKey, lastDateKeys };
 
 export interface DayMetrics {
   date: string;
@@ -48,15 +50,6 @@ export interface MetricsSummary {
   days: DayMetrics[];
 }
 
-export function kstDateKey(ms: number): string {
-  return new Date(ms + KST_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-/** 오늘(서울)까지 n 일의 날짜 키 — 오래된 날부터. */
-export function lastDateKeys(nowMs: number, n: number): string[] {
-  return Array.from({ length: n }, (_, i) => kstDateKey(nowMs - (n - 1 - i) * DAY_MS));
-}
-
 export function uniqueUsers(days: readonly DayMetrics[]): number {
   const all = new Set<string>();
   for (const d of days) for (const u of d.users) all.add(u);
@@ -79,6 +72,35 @@ export function metricsSummary(days: readonly DayMetrics[]): MetricsSummary | nu
     ipFirstDate: days.find(hasIpRecord)?.date ?? null,
     days: [...days],
   };
+}
+
+export interface SeriesStats {
+  /** 오늘을 뺀 지난날 중 기록이 있는 날의 평균(반올림) — 오늘은 아직 하루가 덜 차서 뺀다. 기록이 없으면 null */
+  avg: number | null;
+  /** 범위 안 최댓값(오늘 포함) */
+  max: number;
+  /** 최댓값이 나온 날 — 0 뿐이면 null */
+  maxDate: string | null;
+}
+
+/** 한 계열(DAU · IP 방문자 · 방문 수)의 일평균 · 최대. days 는 오래된 날 → 오늘. */
+export function seriesStats(
+  days: readonly DayMetrics[],
+  value: (d: DayMetrics) => number,
+  recorded: (d: DayMetrics) => boolean,
+): SeriesStats {
+  const past = days.slice(0, -1).filter(recorded);
+  const avg = past.length ? Math.round(past.reduce((sum, d) => sum + value(d), 0) / past.length) : null;
+  let max = 0;
+  let maxDate: string | null = null;
+  for (const d of days) {
+    const v = value(d);
+    if (v > max) {
+      max = v;
+      maxDate = d.date;
+    }
+  }
+  return { avg, max, maxDate };
 }
 
 /** 서버 값을 숫자로 — 없거나 이상하면 0. */

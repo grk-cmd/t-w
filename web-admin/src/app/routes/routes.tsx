@@ -7,6 +7,7 @@ import { NoticesPage } from '@/pages/notices';
 import { ReportsPage } from '@/pages/reports';
 import { RoomsPage } from '@/pages/rooms';
 import { SettingsPage } from '@/pages/settings';
+import { UsagePage } from '@/pages/usage';
 import { UsersPage } from '@/pages/users';
 
 export interface Route {
@@ -26,4 +27,5 @@ export const ROUTES: Route[] = [
   { id: 'catalog', label: '🗂️ 카탈로그', Page: CatalogPage },
   { id: 'log', label: '🧾 기록', Page: AdminLogPage },
   { id: 'metrics', label: '📈 지표', Page: MetricsPage },
+  { id: 'usage', label: '💰 사용량', Page: UsagePage },
 ];

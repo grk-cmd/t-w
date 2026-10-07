@@ -1,0 +1,99 @@
+.dialog {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 18px;
+  overflow-y: auto;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.head h2 {
+  flex: 1;
+  margin: 0;
+}
+
+.line {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.line input {
+  flex: 1;
+  min-width: 0;
+}
+
+.who {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 12px;
+  margin: 12px 0;
+}
+
+.who dt {
+  color: var(--soft);
+}
+
+.who dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.table {
+  width: 100%;
+  margin: 10px 0;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 6px 4px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+
+.table td:last-child,
+.table th:last-child {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.paths {
+  margin: 6px 0 0;
+  padding-left: 16px;
+  overflow-wrap: anywhere;
+}
+
+.kept {
+  margin: 10px 0;
+  color: var(--soft);
+}
+
+.kept ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.confirm {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.confirm label {
+  display: grid;
+  gap: 6px;
+}

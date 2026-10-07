@@ -5,11 +5,13 @@ import {
   kstDateKey,
   lastDateKeys,
   metricsSummary,
+  seriesStats,
+  hasRecord,
   toDaySummary,
   toVisits,
   uniqueUsers,
   type DayMetrics,
-} from '@/entities/daily-active';
+} from '@/entities/metrics/daily-active';
 import { fakeDb } from '../shared/fakeDb';
 
 const day = (date: string, users: string[] = [], visits = 0, ipVisitors = 0, pings = 0): DayMetrics => ({
@@ -192,5 +194,26 @@ describe('읽기', () => {
       'get metrics/summary/2026-10-05',
       'get metrics/summary/2026-10-06',
     ]);
+  });
+});
+
+describe('일평균 · 최대', () => {
+  const days = [
+    day('2026-10-04', [], 0),
+    day('2026-10-05', ['ua'], 4),
+    day('2026-10-06', ['ua', 'ub'], 7),
+    day('2026-10-07', ['ua', 'ub', 'uc'], 9),
+  ];
+
+  it('평균은 오늘과 기록 없는 날을 빼고, 최대는 오늘까지 본다', () => {
+    expect(seriesStats(days, (d) => d.visits, hasRecord)).toEqual({ avg: 6, max: 9, maxDate: '2026-10-07' });
+  });
+
+  it('기록이 없으면 평균 null · 최대 0', () => {
+    expect(seriesStats([day('2026-10-07')], (d) => d.visits, hasRecord)).toEqual({
+      avg: null,
+      max: 0,
+      maxDate: null,
+    });
   });
 });
