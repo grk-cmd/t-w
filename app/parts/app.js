@@ -31110,6 +31110,7 @@ function _bindDonate(el){
 _bindDonate(document.getElementById('donateLink'));    // 방 만들기 / 참여하기 모달
 _bindDonate(document.getElementById('lcDonateBtn'));   // 런처 (예전 [공사중] 자리)
 _bindDonate(document.getElementById('progIconCredit')); // 설정 → 시스템 → 프로그램 정보 (아이콘 출처 @Miraclelife_CM)
+_bindDonate(document.getElementById('progPrivacyLink')); // 설정 → 시스템 → 프로그램 정보 (개인정보 처리방침)
 
 /* --- 런처의 "🏠 마이홈" 버튼 (예전엔 이름 설정 버튼이었음) --- */
 document.getElementById('lcNameBtn').onclick=()=>{
