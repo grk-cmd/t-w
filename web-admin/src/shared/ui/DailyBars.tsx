@@ -1,5 +1,10 @@
-import type { DayMetrics } from '@/entities/daily-active';
-import styles from './MetricsDashboard.module.css';
+import styles from './DailyBars.module.css';
+
+/** 막대 하나 — 날짜(YYYY-MM-DD)와 그날 값. */
+export interface DailyPoint {
+  date: string;
+  value: number;
+}
 
 const shortDate = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
 // 날짜 글자가 겹치지 않게 4일마다 하나 — 오늘은 따로 «오늘» 로 적는다.
@@ -13,20 +18,25 @@ function niceCeil(v: number): number {
   return 10 * p;
 }
 
-// 한 계열 막대 — 계열마다 크기가 달라 한 축에 겹치지 않고 구역마다 그린다. 막대에 올리면 그날 숫자가 뜬다.
+/**
+ * 한 계열 30일 막대 — 계열마다 크기가 달라 한 축에 겹치지 않고 구역마다 그린다. 막대에 올리면 그날 숫자가 뜬다.
+ * 마지막 칸을 오늘로 칠한다. digits 는 소수 자리(GB 처럼 1 보다 작은 값이 나오는 계열).
+ */
 export function DailyBars({
   label,
   unit,
   days,
-  value,
+  digits = 0,
 }: {
   label: string;
   unit: string;
-  days: readonly DayMetrics[];
-  value: (d: DayMetrics) => number;
+  days: readonly DailyPoint[];
+  digits?: number;
 }) {
-  const values = days.map(value);
-  const top = niceCeil(Math.max(0, ...values));
+  const fmt = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: digits });
+  const top = niceCeil(Math.max(0, ...days.map((d) => d.value)));
+  const half = top / 2;
+  const showHalf = Number.isInteger(half * 10 ** digits);
   const last = days.length - 1;
 
   return (
@@ -39,8 +49,8 @@ export function DailyBars({
       </figcaption>
       <div className={styles.plot}>
         <div className={`${styles.yAxis} soft`} aria-hidden="true">
-          <span>{top.toLocaleString()}</span>
-          <span>{Number.isInteger(top / 2) ? (top / 2).toLocaleString() : ''}</span>
+          <span>{fmt(top)}</span>
+          <span>{showHalf ? fmt(half) : ''}</span>
           <span>0</span>
         </div>
         <div className={styles.area} role="img" aria-label={`${label} 최근 ${days.length}일`}>
@@ -50,14 +60,13 @@ export function DailyBars({
             <i />
           </div>
           {days.map((d, i) => {
-            const v = values[i];
-            const tip = `${d.date} · ${v.toLocaleString()}${unit}`;
+            const tip = `${d.date} · ${fmt(d.value)}${unit}`;
             return (
               <div key={d.date} className={styles.col} title={tip} data-tip={tip}>
-                {v > 0 && (
+                {d.value > 0 && (
                   <span
                     className={`${styles.bar} ${i === last ? styles.barToday : ''}`}
-                    style={{ height: `${(v / top) * 100}%` }}
+                    style={{ height: `${(d.value / top) * 100}%` }}
                   />
                 )}
               </div>

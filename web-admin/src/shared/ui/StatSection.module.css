@@ -1,0 +1,78 @@
+.section {
+  padding: 18px 20px 14px;
+}
+
+.head h2 {
+  font-size: 16px;
+}
+
+.head p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0 18px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.stat strong {
+  font-size: 26px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat strong small {
+  margin-left: 3px;
+  font-size: 13px;
+  font-weight: normal;
+  color: var(--soft);
+}
+
+.statMain {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.statMain strong {
+  color: var(--accent);
+}
+
+/* 칸 위험 표시 — 지난날 평균보다 크게 늘었을 때 */
+.statAlert {
+  border-color: var(--danger);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.statAlert strong {
+  color: var(--danger);
+}
+
+.alert {
+  margin: -6px 0 14px;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.foot {
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .stats {
+    grid-template-columns: 1fr 1fr;
+  }
+}
