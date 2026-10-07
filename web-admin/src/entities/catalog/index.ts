@@ -67,3 +67,13 @@ export {
   type KindAnalysis,
   type RecordSize,
 } from './model/diagnose';
+export { getEquipCounts, useEquipCounts, useRefreshEquipCounts } from './api/popularity';
+export {
+  byPopularity,
+  equipCountOf,
+  equipKindOf,
+  equipPath,
+  METRICS_EQUIPPED,
+  toEquipCounts,
+  type EquipKind,
+} from './model/popularity';

@@ -4,6 +4,7 @@
    [설계 §5-N+1 · 개정 26 · CHECKS 개정 58] 이관 창 재기 **읽기만 · 일회용** 함수 — 아래 countSlotsWindow(N+1 배포 뒤 걷는다).
    roomStats · roomStatsOnOpen · roomStatsOnClose — 열린 방 개수 요약(1분마다 · 방이 열리고 닫힐 때). 로직은 room-stats.js.
    dailyActive — 일일 접속 집계(DAU · 방문 수). accountSnap 쓰기마다 metrics/daily/{서울 날짜} 에 적는다. 로직은 daily-active.js.
+   partEquipCount — 카탈로그 항목별 장착 사용자 수. users/{코드}/slots 쓰기마다 장착 집합의 차이만 metrics/parts/equipped 에 더하고 뺀다. 로직은 part-equip.js.
    visitPing — IP 기준 일일 방문자(호출형 · 로그인 없이). 앱이 켜질 때 한 번 부른다. IP 는 해시로만 적는다. 로직은 visit-ping.js.
      비밀 값 METRICS_IP_SALT 가 있어야 배포된다: firebase functions:secrets:set METRICS_IP_SALT (길고 무작위한 값).
    usageSnapshot — 사용량(비용) 기록(매시간). Cloud Monitoring 하루 합계를 metrics/usage/{서울 날짜} 에. 로직은 usage-snapshot.js.
@@ -249,6 +250,14 @@ exports.usageSnapshot = onSchedule({ schedule: 'every 60 minutes', timeZone: 'As
     await require('./usage-snapshot').runUsageSnapshot({
       db: getDatabase(), fetch, token: tok.access_token, project, bucket: cfg.storageBucket || null,
     }, Date.now());
+  });
+
+// 슬롯(캐릭터 5칸)이 바뀔 때마다 장착한 카탈로그 id 집합의 차이만 센다(part-equip.js). 처음 숫자는 scripts/backfill-part-equip.js 로 채운다.
+// 다시 시도하지 않는다 — 같은 이벤트를 두 번 더하면 숫자가 어긋난다. 어긋남은 백필을 다시 돌려 맞춘다.
+exports.partEquipCount = onValueWritten({ ref: '/users/{userId}/slots', timeoutSeconds: 60, maxInstances: 5, retry: false },
+  async (event) => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    await require('./part-equip').runPartEquip(getDatabase(), event);
   });
 
 /* IP 기준 일일 방문자 — 앱(visit-ping.js)이 켜질 때 한 번 부른다. 로그인하지 않은 사람도 세야 해서 인증을 보지 않는다.

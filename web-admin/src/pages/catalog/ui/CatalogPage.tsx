@@ -53,7 +53,10 @@ export function CatalogPage() {
           </button>
         ))}
       </div>
-      <div role="tabpanel">{tab.render()}</div>
+      {/* 탭마다 새로 그린다 — 종류가 달라도 같은 CatalogList 라 정렬 · 선택 같은 상태가 다음 탭으로 넘어간다. */}
+      <div role="tabpanel" key={tab.id}>
+        {tab.render()}
+      </div>
     </>
   );
 }
