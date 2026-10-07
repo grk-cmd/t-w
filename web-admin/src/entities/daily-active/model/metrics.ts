@@ -81,6 +81,35 @@ export function metricsSummary(days: readonly DayMetrics[]): MetricsSummary | nu
   };
 }
 
+export interface SeriesStats {
+  /** 오늘을 뺀 지난날 중 기록이 있는 날의 평균(반올림) — 오늘은 아직 하루가 덜 차서 뺀다. 기록이 없으면 null */
+  avg: number | null;
+  /** 범위 안 최댓값(오늘 포함) */
+  max: number;
+  /** 최댓값이 나온 날 — 0 뿐이면 null */
+  maxDate: string | null;
+}
+
+/** 한 계열(DAU · IP 방문자 · 방문 수)의 일평균 · 최대. days 는 오래된 날 → 오늘. */
+export function seriesStats(
+  days: readonly DayMetrics[],
+  value: (d: DayMetrics) => number,
+  recorded: (d: DayMetrics) => boolean,
+): SeriesStats {
+  const past = days.slice(0, -1).filter(recorded);
+  const avg = past.length ? Math.round(past.reduce((sum, d) => sum + value(d), 0) / past.length) : null;
+  let max = 0;
+  let maxDate: string | null = null;
+  for (const d of days) {
+    const v = value(d);
+    if (v > max) {
+      max = v;
+      maxDate = d.date;
+    }
+  }
+  return { avg, max, maxDate };
+}
+
 /** 서버 값을 숫자로 — 없거나 이상하면 0. */
 export const toVisits = (v: unknown): number =>
   typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : 0;

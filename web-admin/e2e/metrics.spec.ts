@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures';
 import { dbGetAs, signUpUser } from './support/emulator';
-import { card, openMenu } from './support/ui';
+import { openMenu } from './support/ui';
 
 const DAY = 24 * 60 * 60 * 1000;
 // 함수(functions/daily-active.js)와 같은 서울 날짜 — 테스트가 도는 «오늘» 기준으로 넣는다.
@@ -28,8 +28,15 @@ function metricsData() {
   };
 }
 
-const stat = (page: import('@playwright/test').Page, label: string) =>
-  page.locator('section[aria-label="접속 지표"] .card').filter({ hasText: label });
+// 구역(활성 사용자 · 방문자 · 방문 수) 안의 숫자 칸 하나
+const stat = (page: import('@playwright/test').Page, section: string, label: string) =>
+  page
+    .locator(`section[aria-label="${section}"] > div > div`)
+    .filter({ has: page.getByText(label, { exact: true }) });
+const DAU = '활성 사용자 (DAU)';
+const IP = '방문자 (IP 기준)';
+const VISITS = '방문 수';
+const table = (page: import('@playwright/test').Page) => page.locator('section[aria-label="날짜별 숫자"]');
 
 test('지표는 마지막 메뉴이고 DAU · 방문 수 · WAU · MAU 를 보여 준다', async ({ page, seed }) => {
   await seed(metricsData());
@@ -37,22 +44,25 @@ test('지표는 마지막 메뉴이고 DAU · 방문 수 · WAU · MAU 를 보�
   await expect(page.getByRole('navigation').getByRole('button').last()).toHaveText(/지표/);
   await openMenu(page, 'metrics');
 
-  await expect(stat(page, '오늘 DAU')).toContainText('3명');
-  await expect(stat(page, '어제 DAU')).toContainText('2명');
-  await expect(stat(page, '오늘 방문 수')).toContainText('7회');
-  await expect(stat(page, 'WAU')).toContainText('3명'); // a · c · d (9일 전은 밖)
-  await expect(stat(page, 'MAU')).toContainText('5명'); // a · b · c · d · e
-  await expect(stat(page, '오늘 방문자(IP 기준)')).toContainText('4명');
-  await expect(stat(page, '어제 방문자(IP 기준)')).toContainText('6명');
-  const chart = card(page, '최근 30일');
-  await expect(chart).toContainText(
-    `로그인 연결된 사용자 기준 · ${kst(Date.now() - 9 * 24 * 60 * 60 * 1000)}부터 기록`,
+  await expect(stat(page, DAU, '오늘')).toContainText('3명');
+  await expect(stat(page, DAU, '어제')).toContainText('2명');
+  await expect(stat(page, DAU, 'WAU (7일)')).toContainText('3명'); // a · c · d (9일 전은 밖)
+  await expect(stat(page, DAU, 'MAU (30일)')).toContainText('5명'); // a · b · c · d · e
+  await expect(stat(page, IP, '오늘')).toContainText('4명');
+  await expect(stat(page, IP, '어제')).toContainText('6명');
+  await expect(stat(page, IP, '최대')).toContainText('6명');
+  await expect(stat(page, VISITS, '오늘')).toContainText('7회');
+  await expect(stat(page, VISITS, '오늘 실행 수')).toContainText('12회');
+  await expect(stat(page, VISITS, '일평균')).toContainText('4회'); // 9일 전 4 · 어제 3 → 3.5 반올림
+  await expect(page.locator(`section[aria-label="${DAU}"]`)).toContainText(
+    `${kst(Date.now() - 9 * 24 * 60 * 60 * 1000)}부터 기록`,
   );
-  await expect(chart).toContainText(
-    `IP 기준 방문자: 같은 IP 는 하루 1번 · IP 원문은 저장하지 않음 · ${kst(Date.now() - DAY)}부터`,
+  await expect(page.locator(`section[aria-label="${IP}"]`)).toContainText(
+    `IP 원문은 저장하지 않음 · ${kst(Date.now() - DAY)}부터 기록`,
   );
-  await expect(chart.getByRole('img')).toHaveCount(3);
+  await expect(page.getByRole('img', { name: /최근 30일/ })).toHaveCount(3);
 
+  const chart = table(page);
   await chart.getByText('날짜별 숫자').click();
   const today = chart.locator('tbody tr').first();
   await expect(today.locator('td')).toHaveText([kst(Date.now()), '3', '7', '4', '12']);
@@ -84,11 +94,11 @@ test('지난날 요약(metrics/summary)이 있으면 목록 없이도 숫자가 
     if (url.port === '9000' && url.pathname.startsWith('/metrics')) asked.push(url.pathname);
   });
   await openMenu(page, 'metrics');
-  const chart = card(page, '최근 30일');
+  const chart = table(page);
   await chart.getByText('날짜별 숫자').click();
   await expect(chart.locator('tbody tr').nth(2).locator('td')).toHaveText([d2, '40', '70', '55', '90']);
-  await expect(chart).toContainText(`로그인 연결된 사용자 기준 · ${d2}부터 기록`);
-  await expect(chart).toContainText(`· ${d2}부터`);
+  await expect(page.locator(`section[aria-label="${DAU}"]`)).toContainText(`${d2}부터 기록`);
+  await expect(page.locator(`section[aria-label="${IP}"]`)).toContainText(`${d2}부터 기록`);
   expect(asked).not.toContain(`/metrics/daily/${d2}/ip.json`);
   expect(asked).toContain(`/metrics/daily/${d2}/u.json`); // 사용자 목록은 WAU · MAU 때문에 받는다
 });
@@ -96,9 +106,10 @@ test('지난날 요약(metrics/summary)이 있으면 목록 없이도 숫자가 
 test('기록이 없으면 0 과 «기록이 아직 없음»', async ({ page, seed }) => {
   await seed();
   await openMenu(page, 'metrics');
-  await expect(stat(page, '오늘 DAU')).toContainText('0명');
-  await expect(stat(page, 'MAU')).toContainText('0명');
-  await expect(card(page, '최근 30일')).toContainText('로그인 연결된 사용자 기준 · 기록이 아직 없음');
+  await expect(stat(page, DAU, '오늘')).toContainText('0명');
+  await expect(stat(page, DAU, 'MAU (30일)')).toContainText('0명');
+  await expect(stat(page, IP, '일평균')).toContainText('–');
+  await expect(page.locator(`section[aria-label="${DAU}"]`)).toContainText('기록이 아직 없음');
 });
 
 test('사용자 · IP 키는 shallow 로만 받는다 — 날짜 노드를 통째로 받지 않는다', async ({ page, seed }) => {
@@ -110,8 +121,8 @@ test('사용자 · IP 키는 shallow 로만 받는다 — 날짜 노드를 통�
       asked.push(`${url.pathname} ${url.searchParams.get('shallow')}`);
   });
   await openMenu(page, 'metrics');
-  await expect(stat(page, 'MAU')).toContainText('5명');
-  await expect(stat(page, '오늘 방문자(IP 기준)')).toContainText('4명');
+  await expect(stat(page, DAU, 'MAU (30일)')).toContainText('5명');
+  await expect(stat(page, IP, '오늘')).toContainText('4명');
   const today = kst(Date.now());
   expect(asked).toContain(`/metrics/daily/${today}/u.json true`);
   expect(asked).toContain(`/metrics/daily/${today}/ip.json true`);
