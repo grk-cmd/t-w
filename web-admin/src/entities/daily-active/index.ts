@@ -8,10 +8,12 @@ export {
   METRICS_DAYS,
   METRICS_SUMMARY,
   metricsSummary,
+  seriesStats,
   toDaySummary,
   toVisits,
   uniqueUsers,
   type DayMetrics,
   type DaySummary,
   type MetricsSummary,
+  type SeriesStats,
 } from './model/metrics';
