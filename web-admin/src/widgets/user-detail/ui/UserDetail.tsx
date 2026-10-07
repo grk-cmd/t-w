@@ -41,6 +41,15 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function Section({ title, children, danger }: { title: string; children: ReactNode; danger?: boolean }) {
+  return (
+    <section className={`${styles.section} ${danger ? styles.danger : ''}`}>
+      <h3>{title}</h3>
+      <dl className={styles.fields}>{children}</dl>
+    </section>
+  );
+}
+
 const whoOf = (r: UserRow) => r.name ?? r.friendCode ?? r.userCode;
 
 /** 다른 사용자로 건너가는 링크 — 같은 창에서 그 사람으로 바뀐다. */
@@ -154,6 +163,37 @@ function SecretRoom({ uid }: { uid: string }) {
   );
 }
 
+/** 머리 부분 — 이름 아래 한눈에 보는 상태 표시(접속 · 계정 · 라이선스 · 신고). */
+function Badges({ row }: { row: UserRow }) {
+  const presence = useUserPresence(row.userCode);
+  const reports = useUserReportCount(row.userCode);
+  const online = presence.data?.online;
+  return (
+    <div className={styles.badges}>
+      {online ? (
+        <span className={`${styles.badge} ${styles.badgeOk}`}>● 접속 중</span>
+      ) : (
+        <span className={styles.badge}>오프라인</span>
+      )}
+      <span className={`${styles.badge} ${row.hasAccount ? styles.badgeOk : ''}`}>
+        {row.hasAccount ? '계정 있음' : '계정 없음'}
+      </span>
+      {row.license && (
+        <span
+          className={`${styles.badge} ${isBadLicense(row.licenseState) ? styles.badgeWarn : styles.badgeAccent}`}
+        >
+          라이선스 · {LICENSE_LABEL[row.licenseState]}
+        </span>
+      )}
+      {!!reports.data && (
+        <span className={`${styles.badge} ${reports.data >= REPORT_ADMIN_MIN ? styles.badgeWarn : ''}`}>
+          신고 {reports.data}명
+        </span>
+      )}
+    </div>
+  );
+}
+
 function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> & { row: UserRow }) {
   const uid = row.userCode;
   const toast = useToast();
@@ -169,8 +209,7 @@ function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
 
   return (
     <>
-      <h3>기본</h3>
-      <dl className={styles.fields}>
+      <Section title="계정 정보">
         <Field label="이름">
           {name ?? <span className="soft">{brief.isLoading ? '…' : '이름 없음'}</span>}
         </Field>
@@ -179,15 +218,14 @@ function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
         </Field>
         <Field label="사용자코드">
           <code className="key">{uid}</code>
-          <button type="button" className="btn" onClick={copy}>
+          <button type="button" className={styles.mini} onClick={copy}>
             복사
           </button>
         </Field>
         <Field label="계정">{row.hasAccount ? '있음' : '없음'}</Field>
-      </dl>
+      </Section>
 
-      <h3>라이선스</h3>
-      <dl className={styles.fields}>
+      <Section title="라이선스">
         <Field label="키">
           {row.license && <code className="key">{row.license}</code>}
           <small className={isBadLicense(row.licenseState) ? 'warn' : 'soft'}>
@@ -208,10 +246,9 @@ function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
             )}
           </Field>
         )}
-      </dl>
+      </Section>
 
-      <h3>활동</h3>
-      <dl className={styles.fields}>
+      <Section title="활동">
         <Field label="마지막 접속">
           <Presence uid={uid} />
         </Field>
@@ -223,10 +260,9 @@ function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
           {/* 계정 요약 값은 앱이 올린 때의 값이라, 기기끼리 합친 정본(focus/totalSec)을 따로 읽는다. */}
           <Loaded q={focus}>{(sec) => formatHours(sec)}</Loaded>
         </Field>
-      </dl>
+      </Section>
 
-      <h3>가입</h3>
-      <dl className={styles.fields}>
+      <Section title="가입 · 초대">
         {invite.data ? (
           <>
             <Field label="가입일">{invite.data.joinedAt ? formatDate(invite.data.joinedAt) : '—'}</Field>
@@ -247,10 +283,9 @@ function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
             <Loaded q={invite}>{() => <span className="soft">기록 없음</span>}</Loaded>
           </Field>
         )}
-      </dl>
+      </Section>
 
-      <h3>신고</h3>
-      <dl className={styles.fields}>
+      <Section title="신고 · 그림">
         <Field label="받은 신고">
           <Loaded q={reports}>
             {(n) => <span className={n >= REPORT_ADMIN_MIN ? 'warn' : undefined}>{n}명</span>}
@@ -275,21 +310,19 @@ function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
             }
           </Loaded>
         </Field>
-      </dl>
+      </Section>
 
-      <h3>시크릿룸</h3>
-      <dl className={styles.fields}>
+      <Section title="시크릿룸">
         <Field label="코드">
           <SecretRoom uid={uid} />
         </Field>
-      </dl>
+      </Section>
 
-      <h3>삭제 요청</h3>
-      <dl className={styles.fields}>
-        <Field label="계정">
+      <Section title="삭제 요청" danger>
+        <Field label="계정 삭제">
           <DeleteAccountButton code={uid} onDeleted={onDeleted} />
         </Field>
-      </dl>
+      </Section>
     </>
   );
 }
@@ -329,11 +362,22 @@ export function UserDetail({ row, rows, onOpen, onClose, onDeleted }: Props) {
       onClose={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className={styles.head}>
-        <h2>{row ? (row.name ?? row.friendCode ?? row.userCode) : ''}</h2>
+        <div className={styles.avatar} aria-hidden="true">
+          {row ? whoOf(row).slice(0, 1) : ''}
+        </div>
+        <div className={styles.headText}>
+          <h2>{row ? whoOf(row) : ''}</h2>
+          {row && (
+            <p className="soft">
+              {row.friendCode ?? '친구코드 없음'} · <code>{row.userCode}</code>
+            </p>
+          )}
+        </div>
         <button type="button" className="btn" onClick={onClose}>
           닫기
         </button>
       </div>
+      {row && <Badges row={row} />}
       {row && <Body key={row.userCode} row={row} rows={rows} onOpen={onOpen} onDeleted={onDeleted} />}
     </dialog>
   );
