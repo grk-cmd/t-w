@@ -1,14 +1,14 @@
 /* 오른쪽에서 붙는 세로 패널. 폰 폭에서는 화면을 꽉 채운다. */
 .panel {
-  width: min(460px, 100vw);
+  width: min(480px, 100vw);
   max-width: 100vw;
   height: 100dvh;
   max-height: 100dvh;
   margin: 0 0 0 auto;
-  padding: 16px;
+  padding: 0 0 24px;
   overflow-y: auto;
   color: var(--ink);
-  background: var(--card);
+  background: var(--bg);
   border: 0;
   border-left: 1px solid var(--line);
 }
@@ -17,31 +17,110 @@
   background: rgb(0 0 0 / 35%);
 }
 
-.panel h3 {
-  margin: 18px 0 6px;
-  font-size: 13px;
-  color: var(--soft);
-}
-
+/* 머리 — 스크롤해도 이름이 보이게 붙여 둔다 */
 .head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding: 16px 16px 10px;
+  background: var(--card);
 }
 
-.head h2 {
+.avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 50%;
+}
+
+.headText {
   flex: 1;
   min-width: 0;
+}
+
+.headText h2 {
   margin: 0;
+  font-size: 18px;
   overflow-wrap: anywhere;
 }
 
+.headText p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 14px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+.badge {
+  padding: 2px 9px;
+  font-size: 12px;
+  color: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.badgeOk {
+  color: var(--ok);
+  border-color: currentColor;
+}
+
+.badgeAccent {
+  color: var(--accent);
+  border-color: currentColor;
+}
+
+.badgeWarn {
+  color: var(--danger);
+  border-color: currentColor;
+}
+
+/* 묶음 카드 */
+.section {
+  margin: 12px 12px 0;
+  padding: 4px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.section h3 {
+  margin: 10px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--soft);
+}
+
+.danger {
+  border-color: var(--danger);
+}
+
+.danger h3 {
+  color: var(--danger);
+}
+
+/* 항목(왼쪽 · 흐린 작은 글씨 · 폭 고정)과 값(오른쪽 · 진한 글씨)을 줄마다 나눈다 */
 .fields {
   display: grid;
-  grid-template-columns: 7em 1fr;
-  gap: 6px 12px;
+  grid-template-columns: 6.5em 1fr;
   margin: 0;
-  font-size: 13px;
 }
 
 /* dt · dd 를 한 줄로 묶는 div 는 격자에서 보이지 않게 — 칸 수가 조건에 따라 바뀌어도 줄이 맞는다. */
@@ -49,7 +128,21 @@
   display: contents;
 }
 
+.field dt,
+.field dd {
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+
+.field:first-child dt,
+.field:first-child dd {
+  border-top: 0;
+}
+
 .field dt {
+  padding-right: 10px;
+  font-size: 12px;
+  line-height: 20px;
   color: var(--soft);
 }
 
@@ -60,7 +153,29 @@
   gap: 4px 8px;
   min-width: 0;
   margin: 0;
+  font-size: 14px;
+  font-weight: 500;
   overflow-wrap: anywhere;
+}
+
+.field dd small {
+  font-weight: normal;
+}
+
+.mini {
+  padding: 1px 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--soft);
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.mini:hover {
+  color: var(--ink);
 }
 
 .link {
@@ -97,16 +212,16 @@
   max-height: 100%;
 }
 
-@media (max-width: 600px) {
-  .panel {
-    width: 100vw;
-    border-left: 0;
-  }
-}
-
 .invitees {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 10px;
+}
+
+@media (max-width: 600px) {
+  .panel {
+    width: 100vw;
+    border-left: 0;
+  }
 }

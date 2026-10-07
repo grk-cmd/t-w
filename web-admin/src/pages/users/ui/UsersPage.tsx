@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { licenseUseCounts, matchesVer } from '@/entities/user';
+import { DeleteAccountButton } from '@/features/user/delete-account';
 import {
   CreateInviteCodesButton,
   GrantInvitesAllButton,
@@ -62,6 +63,11 @@ export function UsersPage() {
     setSearch(next);
     paging.setPage(1);
   };
+  // 지운 사람은 목록에서 빠져야 한다 — 상세 창을 닫고 다시 읽는다.
+  const afterDelete = () => {
+    setOpenUid(null);
+    refresh();
+  };
   const changeVer = (next: VerFilter) => {
     setVer(next);
     paging.setPage(1);
@@ -77,6 +83,7 @@ export function UsersPage() {
         </span>
         <CreateInviteCodesButton />
         <GrantInvitesAllButton />
+        <DeleteAccountButton onDeleted={afterDelete} />
         <button type="button" className="btn" onClick={refresh}>
           새로고침
         </button>
@@ -97,7 +104,13 @@ export function UsersPage() {
             licenseCounts={licenseCounts}
             onOpen={setOpenUid}
           />
-          <UserDetail row={openRow} rows={rows} onOpen={setOpenUid} onClose={() => setOpenUid(null)} />
+          <UserDetail
+            row={openRow}
+            rows={rows}
+            onOpen={setOpenUid}
+            onClose={() => setOpenUid(null)}
+            onDeleted={afterDelete}
+          />
         </>
       )}
       <Pager paging={paging} />
