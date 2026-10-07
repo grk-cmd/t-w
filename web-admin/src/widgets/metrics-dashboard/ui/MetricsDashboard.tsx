@@ -8,7 +8,7 @@ import {
   useRefreshTodayMetrics,
   type DayMetrics,
   type MetricsSummary,
-} from '@/entities/daily-active';
+} from '@/entities/metrics/daily-active';
 import { errorMessage } from '@/shared/lib';
 import { DailyBars, StatSection } from '@/shared/ui';
 import styles from './MetricsDashboard.module.css';
