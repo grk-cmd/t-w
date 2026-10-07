@@ -3,6 +3,9 @@
    [설계 결정 10 · 개정 18 · CHECKS 개정 50] 휴지통 청소 예약 함수 — 아래 cleanTrash.
    [설계 §5-N+1 · 개정 26 · CHECKS 개정 58] 이관 창 재기 **읽기만 · 일회용** 함수 — 아래 countSlotsWindow(N+1 배포 뒤 걷는다).
    roomStats · roomStatsOnOpen · roomStatsOnClose — 열린 방 개수 요약(1분마다 · 방이 열리고 닫힐 때). 로직은 room-stats.js.
+   dailyActive — 일일 접속 집계(DAU · 방문 수). accountSnap 쓰기마다 metrics/daily/{서울 날짜} 에 적는다. 로직은 daily-active.js.
+   visitPing — IP 기준 일일 방문자(호출형 · 로그인 없이). 앱이 켜질 때 한 번 부른다. IP 는 해시로만 적는다. 로직은 visit-ping.js.
+     비밀 값 METRICS_IP_SALT 가 있어야 배포된다: firebase functions:secrets:set METRICS_IP_SALT (길고 무작위한 값).
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -22,8 +25,9 @@
 'use strict';
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { onValueCreated, onValueDeleted } = require('firebase-functions/v2/database');
+const { onValueCreated, onValueDeleted, onValueWritten } = require('firebase-functions/v2/database');
 const { setGlobalOptions } = require('firebase-functions/v2');
+const { defineSecret } = require('firebase-functions/params');
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 /* ⚠️ firebase-admin/database 는 맨 위에서 require 하지 않는다 — 배포 때 CLI 가 이 파일을 10초 안에 읽어야 하는데
@@ -221,4 +225,26 @@ exports.roomStatsOnClose = onValueDeleted({ ref: '/roomIndex/{room}', timeoutSec
     if (event.authType === 'admin') return;
     const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
     await require('./room-stats').runRoomStats(getDatabase(), Date.now(), { drop: false });
+  });
+
+// 앱이 부팅마다 accountSnap/{코드} 를 쓴다 — 그 쓰기를 그날의 접속으로 센다(daily-active.js). 지우기는 세지 않는다.
+exports.dailyActive = onValueWritten({ ref: '/accountSnap/{userId}', timeoutSeconds: 60, maxInstances: 5 },
+  async (event) => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    await require('./daily-active').runDailyActive(getDatabase(), event, Date.parse(event.time) || Date.now());
+  });
+
+/* IP 기준 일일 방문자 — 앱(visit-ping.js)이 켜질 때 한 번 부른다. 로그인하지 않은 사람도 세야 해서 인증을 보지 않는다.
+   누구나 부를 수 있으므로 돌려주는 것은 늘 { ok: true } 하나다. 지표가 앱을 막지 않게 실패도 밖으로 던지지 않는다.
+   data.ver(앱 버전)는 받기만 하고 쓰지 않는다 — 무엇이 오든(없음 · 틀린 모양) 거절하지 않고 그대로 센다. */
+const METRICS_IP_SALT = defineSecret('METRICS_IP_SALT');
+exports.visitPing = onCall({ secrets: [METRICS_IP_SALT], timeoutSeconds: 10, maxInstances: 5, enforceAppCheck: false },
+  async (request) => {
+    try {
+      const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+      await require('./visit-ping').runVisitPing(getDatabase(), request, Date.now(), METRICS_IP_SALT.value());
+    } catch (e) {
+      console.warn('[visitPing] 못 적음', e && e.message);   // IP 는 로그에 남기지 않는다
+    }
+    return { ok: true };
   });

@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import { AdminLogPage } from '@/pages/admin-log';
 import { CatalogPage } from '@/pages/catalog';
 import { LicensePage } from '@/pages/license';
+import { MetricsPage } from '@/pages/metrics';
 import { NoticesPage } from '@/pages/notices';
 import { ReportsPage } from '@/pages/reports';
 import { RoomsPage } from '@/pages/rooms';
@@ -24,4 +25,5 @@ export const ROUTES: Route[] = [
   { id: 'rooms', label: '🛑 방', Page: RoomsPage },
   { id: 'catalog', label: '🗂️ 카탈로그', Page: CatalogPage },
   { id: 'log', label: '🧾 기록', Page: AdminLogPage },
+  { id: 'metrics', label: '📈 지표', Page: MetricsPage },
 ];

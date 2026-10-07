@@ -788,7 +788,7 @@
 | **audit.py** | 853 | **d2660b2d8a06** ← 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) · **개정 60 검사 9 기준선 reports 1** · **개정 71 검사 17 (e) 회차** · **2026-10-03 검사 9 기준선 roomStats 1** · **2026-10-03 검사 10 ES 모듈 문법 · firebase-init import 모듈도 시야에** · **2026-10-06 검사 9 기준선 roomAlive(전체 1 · 방 단위 2)** |
 | **smoke.js** | 335 | **d6e4720de7f6** ← 2026-09-14 판정 줄 (§10) |
 | **sim-account-switch.js** | 383 | **9fa214200956** ← 2026-09-16 신규 · 제보 4 계정 전환 소지품 정리 (§18) · 2026-09-20 ⑧ 로그아웃 출구 + 스텁 고침 (개정 28) · **2026-09-22 연동 해제 걷음 · 2절 상수 표에 슬롯 기록 키 넷(가려져 있던 2절 되살림) (개정 45)** · **개정 56 버린 uid 목록 걷음** |
-| **sim-admin-rules.js** | 194 | **7268b890161e** ← **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
+| **sim-admin-rules.js** | 196 | **1fcf63fb8f0c** ← **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | sim-char-foot.js | 141 | 9f0e32d97ac7 |
 | sim-char-identity.js | 187 | bdad4f71d987 |
 | sim-char-z.js | 224 | 24de011f5c83 |
@@ -811,6 +811,9 @@
 | **sim-license-xlsx.js** | 82 | **eb779c819cb0** ← **개정 76 신설 · 📄 관리자 라이선스 엑셀(xlsx·csv) 일괄 발급** · **개정 82 1절 좁은 창이면 일괄 창만** |
 | **sim-room-stats.js** | 188 | **ebeceb1be37b** ← **2026-10-03 신규 · 📊 방 개수 서버 요약 — functions/room-stats.js 집계 · room-index.js channel·open 다시 싣기 · room-stats.js 신선도 · firebase-init 연결 · 규칙 읽기 전용 (모듈을 그대로 불러 가짜 DB)** |
 | **sim-room-alive.js** | 125 | **973298c2df39** ← **2026-10-06 신규 · 💓 새 하트비트 — room-alive.js 판정(hb:2 · 버전 문턱 · 중복 세션 · roomIndex 한 명 · 입장 검사) · functions/room-stats.js 유령 청소(가짜 DB · 다시 찍으면 그만둠) · firebase-init 연결 · 규칙 roomAlive** |
+| **sim-daily-active.js** | 88 | **49b1c35d9cbf** ← **2026-10-07 신규 · 📈 일일 접속 집계(DAU · 방문 수) — functions/daily-active.js 서울 날짜 경계 · 쓰기 묶음(고유 사용자 + 방문 수 증가) · 지우기 무시 · 틀린 코드 거절(가짜 DB) · index.js onValueWritten 연결 · 규칙 metrics 관리자만 읽기 · 앱은 안 씀** |
+| **sim-visit-ping.js** | 163 | **6ecb9e8625e1** ← **2026-10-07 신규 · 🌐 IP 기준 일일 방문자 — functions/visit-ping.js 접속 IP 고르기(x-forwarded-for 맨 앞 · ::ffff: 벗김) · HMAC 해시(날마다 · 비밀마다 다름 · 16자) · 쓰기 묶음(ip 해시 + pings 증가 · IP 원문 없음) · 비밀 없으면 안 씀(가짜 DB) · index.js onCall(비밀 · 인증 안 봄 · 늘 ok) · 앱 visit-ping.js(한 번 · 8초 뒤 · 실패 삼킴 · 다시 시도 없음) · firebase-init 연결 · CSP 함수 호스트** |
+| **sim-daily-summary.js** | 115 | **83533f9939a9** ← **2026-10-07 신규 · 📈 날짜별 숫자 요약(metrics/summary) — 요약할 날(어제 · 자정 10분 여유) · dau · ipVisitors · visits · pings · wau · mau 계산 · 있으면 점 읽기 1번 · 없으면 한 번 씀(가짜 DB) · roomStats 1분 주기 연결(light 제외) · 실패해도 방 집계 그대로 · 규칙 metrics 아래** |
 | **sim-app-version.js** | 152 | **11f90aed8615** ← **2026-10-06 신규 · 🏷️ 앱 버전(ver)을 presence · 라이선스 요청 · accountSnap 에 — app-version.js 를 그대로 돌림 · presence 를 통째로 쓰는 자리 전부 ver · 늦게 오면 update · 규칙 셋(없어도 통과 · 문자열 20자) · 규칙 배포 전이면 accountSnap 은 ver 빼고 다시** |
 | **sim-invite-account.js** | 79 | **9974af64f5c8** ← **2026-10-03 신규 · 초대 계정 읽기 — 판정 = 예전 판정 · invite 먼저 · 폴백 · 런처 동작 그대로** |
 | **sim-room-invite-wait.js** | 43 | **7161a20222f3** ← **개정 78 신설 · ⏳ 방 초대 팝업이 화면을 막지 않음 · 3분 뒤 자동 거절** |

@@ -77,6 +77,8 @@ console.log('\n── 3. 새는 곳이 없는가');
       chk(whole === 2 && inAdmin === 2, '  ↳ 모음을 읽는 곳은 관리자 통로 둘(listLicenses · getAdminStats)뿐이다 (' + whole + '곳)');
     }
   }
+  chk(isAdmin(r('metrics')) && /auth != null/.test(r('metrics')) && !JSON.stringify(at('metrics') || {}).includes('.write'),
+      '접속 지표(metrics — DAU · 방문 수) 읽기는 관리자만 · 쓰기 규칙 없음(함수가 Admin SDK 로만)');
   chk(r('admins') === false, '관리자 명단은 앱에서 읽을 수 없다');
   chk(!!at('admins/$uid') && at('admins/$uid')['.write'] === false, '관리자 명단은 앱에서 쓸 수 없다 (콘솔에서만)');
   chk(r('srKey') === false && w('srKey') === false, '시크릿룸 발급 키는 그대로 잠겨 있다');

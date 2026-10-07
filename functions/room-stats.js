@@ -13,6 +13,8 @@
  * 멤버 노드에는 hb:2 만 남긴다. 앱은 hb:2 멤버를 «노드가 있으면 산 것» 으로 보므로, onDisconnect 가 못 지운 노드는
  * 여기서 지운다: 도장이 ROOM_ALIVE_STALE_MS 넘게 낡았고 멤버 노드가 hb:2 면 둘 다 지운다. 옛 방식 멤버(hb 없음)는
  * 건드리지 않는다 — 그 사람들은 lastSeen 으로 각자 판정한다.
+ *
+ * 📈 지난날 지표 요약(daily-summary.js) — 1분 주기 실행이 어제 요약이 없을 때 한 번 만든다. 새 예약 함수를 늘리지 않으려고 여기 붙였다.
  */
 'use strict';
 // app/parts/room-channel.js 와 같은 값
@@ -143,6 +145,13 @@ async function runRoomStats(db, now, opts){
   }
   let alive = { ghosts: 0, orphans: 0, kept: 0, failed: 0 };
   if (!light){ try{ alive = await sweepRoomAlive(db, now); }catch(e){ alive.failed++; } }
+  // 지난날 지표 요약(daily-summary.js) — 방 집계와 무관하다. 실패해도 위 일은 이미 끝났고 다음 주기에 다시 해 본다.
+  if (!light){
+    try{
+      const made = await require('./daily-summary').ensureDailySummary(db, now);
+      if (made) console.log('[roomStats] 지표 요약', made.day, JSON.stringify(made.summary));
+    }catch(e){ console.warn('[roomStats] 지표 요약 못 함', e && e.message); }
+  }
   const sum = { live: stats.workingroom + stats.togetherroom, working: stats.workingroom, together: stats.togetherroom,
                 rows: Object.keys(idx).length, dropped, kept, failed, repaired, alive };
   if (dropped || failed || repaired || alive.ghosts || alive.failed) console.log('[roomStats]', JSON.stringify(sum));

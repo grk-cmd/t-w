@@ -40,6 +40,7 @@
   import { createAppVersion } from "./app-version.js";
   import { createCatalogSync } from "./catalog-cache.js";
   import { createBroadcastSync } from "./broadcast-cache.js";
+  import { createVisitPing } from "./visit-ping.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -373,6 +374,15 @@
       update(_myPresenceRef, { ver }).catch(()=>{});
     },
   });
+  /* IP 기준 일일 방문자(visit-ping.js) — 로그인과 상관없이 켤 때 한 번. 함수 SDK 는 위 FUNCTIONS_SDK_URL 주석대로 부를 때 들여온다.
+     ⚠️ CSP connect-src 에 운영 함수 호스트만 있어 dev(together-working-dev)에서는 막힌다 — 지표만 빠지고 앱은 그대로다. */
+  createVisitPing({
+    callPing: async (data) => {
+      const mod = await import(FUNCTIONS_SDK_URL);
+      return mod.httpsCallable(mod.getFunctions(fbApp, FUNCTIONS_REGION), 'visitPing')(data);
+    },
+    getVersion: () => _appVer.ready,
+  }).start();
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
