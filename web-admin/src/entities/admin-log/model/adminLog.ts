@@ -45,6 +45,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'catalog.reorder': '카탈로그 순서',
   'catalog.editInfo': '카탈로그 정보 수정',
   'catalog.cleanGlb': '카탈로그 진단 정리',
+  'account.delete': '계정 삭제',
 };
 
 /** 필터 칩 — action 의 앞부분(«종류»)으로 묶는다. */
@@ -57,6 +58,7 @@ export const LOG_GROUPS = [
   { id: 'settings', label: '설정' },
   { id: 'room', label: '방' },
   { id: 'catalog', label: '카탈로그' },
+  { id: 'account', label: '계정' },
 ] as const;
 
 export type LogGroup = (typeof LOG_GROUPS)[number]['id'];

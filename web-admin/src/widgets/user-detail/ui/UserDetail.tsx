@@ -13,6 +13,7 @@ import {
   useUserPresence,
   type UserRow,
 } from '@/entities/user';
+import { DeleteAccountButton } from '@/features/user/delete-account';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
 import { copyText, formatDate, formatHours } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
@@ -153,7 +154,7 @@ function SecretRoom({ uid }: { uid: string }) {
   );
 }
 
-function Body({ row, rows, onOpen }: Omit<Props, 'onClose' | 'row'> & { row: UserRow }) {
+function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> & { row: UserRow }) {
   const uid = row.userCode;
   const toast = useToast();
   const brief = useUserBrief(uid);
@@ -282,6 +283,13 @@ function Body({ row, rows, onOpen }: Omit<Props, 'onClose' | 'row'> & { row: Use
           <SecretRoom uid={uid} />
         </Field>
       </dl>
+
+      <h3>삭제 요청</h3>
+      <dl className={styles.fields}>
+        <Field label="계정">
+          <DeleteAccountButton code={uid} onDeleted={onDeleted} />
+        </Field>
+      </dl>
     </>
   );
 }
@@ -294,10 +302,12 @@ interface Props {
   /** 같은 키를 쓰는 사람 · 초대한 사람을 누르면 그 사람으로 바꾼다. */
   onOpen: (uid: string) => void;
   onClose: () => void;
+  /** 계정을 지운 뒤 — 목록을 다시 읽고 창을 닫는다. */
+  onDeleted?: () => void;
 }
 
 /** 한 사람을 한 화면에 — 창을 열 때만, 그 사람 몫의 작은 칸들만 읽는다(users/{uid} 통째는 마이홈 · 캐릭터까지 딸려 와 크다). */
-export function UserDetail({ row, rows, onOpen, onClose }: Props) {
+export function UserDetail({ row, rows, onOpen, onClose, onDeleted }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const open = row !== null;
 
@@ -324,7 +334,7 @@ export function UserDetail({ row, rows, onOpen, onClose }: Props) {
           닫기
         </button>
       </div>
-      {row && <Body key={row.userCode} row={row} rows={rows} onOpen={onOpen} />}
+      {row && <Body key={row.userCode} row={row} rows={rows} onOpen={onOpen} onDeleted={onDeleted} />}
     </dialog>
   );
 }

@@ -25,9 +25,11 @@ import {
   set,
   update,
 } from 'firebase/database';
+import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
 import { connectStorageEmulator, deleteObject, getStorage, ref as storageRef } from 'firebase/storage';
 import { isPermissionDenied, type Db } from './db';
 import type { Files } from './files';
+import { FUNCTIONS_REGION, type Functions } from './functions';
 
 const PROD_PROJECT_ID = 'together-working';
 
@@ -35,7 +37,7 @@ const PROD_PROJECT_ID = 'together-working';
 const E2E = import.meta.env.VITE_E2E === '1';
 const E2E_PROJECT_ID = 'demo-tw';
 const E2E_HOST = '127.0.0.1';
-const E2E_PORTS = { auth: 9099, database: 9000, storage: 9199 };
+const E2E_PORTS = { auth: 9099, database: 9000, storage: 9199, functions: 5001 };
 const E2E_CONFIG = {
   apiKey: 'demo-key',
   authDomain: `${E2E_PROJECT_ID}.firebaseapp.com`,
@@ -56,6 +58,7 @@ export interface Firebase {
   isProd: boolean;
   db: Db;
   files: Files;
+  fns: Functions;
   signIn(): Promise<void>;
   signOut(): Promise<void>;
   onAuth(callback: (user: User | null) => void): () => void;
@@ -69,10 +72,12 @@ export async function connectFirebase(): Promise<Firebase> {
   const database = getDatabase(app);
   const auth = getAuth(app);
   const storage = getStorage(app);
+  const functions = getFunctions(app, FUNCTIONS_REGION);
   if (E2E) {
     connectAuthEmulator(auth, `http://${E2E_HOST}:${E2E_PORTS.auth}`, { disableWarnings: true });
     connectDatabaseEmulator(database, E2E_HOST, E2E_PORTS.database);
     connectStorageEmulator(storage, E2E_HOST, E2E_PORTS.storage);
+    connectFunctionsEmulator(functions, E2E_HOST, E2E_PORTS.functions);
   }
   const at = (path: string) => ref(database, path);
 
@@ -141,11 +146,16 @@ export async function connectFirebase(): Promise<Firebase> {
     },
   };
 
+  const fns: Functions = {
+    call: async <T>(name: string, data: unknown) => (await httpsCallable(functions, name)(data)).data as T,
+  };
+
   return {
     projectId: config.projectId,
     isProd: config.projectId === PROD_PROJECT_ID,
     db,
     files,
+    fns,
     signIn: async () => {
       await signInWithPopup(auth, new GoogleAuthProvider());
     },

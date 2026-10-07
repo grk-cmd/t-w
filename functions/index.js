@@ -7,6 +7,7 @@
    visitPing — IP 기준 일일 방문자(호출형 · 로그인 없이). 앱이 켜질 때 한 번 부른다. IP 는 해시로만 적는다. 로직은 visit-ping.js.
      비밀 값 METRICS_IP_SALT 가 있어야 배포된다: firebase functions:secrets:set METRICS_IP_SALT (길고 무작위한 값).
    usageSnapshot — 사용량(비용) 기록(매시간). Cloud Monitoring 하루 합계를 metrics/usage/{서울 날짜} 에. 로직은 usage-snapshot.js.
+   adminDeleteAccount — 계정 삭제(호출형 · 관리자만). 웹 관리자 사용자 페이지가 부른다. 로직은 account-delete.js.
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -263,4 +264,20 @@ exports.visitPing = onCall({ secrets: [METRICS_IP_SALT], timeoutSeconds: 10, max
       console.warn('[visitPing] 못 적음', e && e.message);   // IP 는 로그에 남기지 않는다
     }
     return { ok: true };
+  });
+
+/* 계정 삭제 — 웹 관리자 사용자 페이지가 부른다(개인정보 처리방침 8항). 관리자(admins/{uid} === true)만, 익명 거절.
+   { code, dryRun } — dryRun 을 false 로 분명히 보낼 때만 지운다. 모듈이 던진 httpsCode 를 HttpsError 로 바꿔 화면에 문구가 가게 한다. */
+exports.adminDeleteAccount = onCall({ timeoutSeconds: 300, maxInstances: 2 },
+  async (request) => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const mod = require('./account-delete');
+    const db = getDatabase();
+    try {
+      return await mod.handleAdminDeleteAccount(db, request, mod.adminDeps(db), Date.now());
+    } catch (e) {
+      if (e && e.httpsCode) throw new HttpsError(e.httpsCode, e.message);
+      console.error('[adminDeleteAccount] 실패', e && e.message);
+      throw new HttpsError('internal', '삭제 중에 문제가 생겼어요 — 다시 미리 보기로 남은 것을 확인해 주세요');
+    }
   });
