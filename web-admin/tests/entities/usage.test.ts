@@ -63,8 +63,10 @@ describe('단위 · 금액', () => {
   });
 
   it('달러 — 소수 둘째 자리, 아주 작으면 «미만»', () => {
-    expect(formatUsd(11.468)).toBe('$11.47');
-    expect(formatUsd(1234.5)).toBe('$1,234.50');
+    expect(formatUsd(11.468)).toBe('$11.47 (약 1.6만 원)');
+    expect(formatUsd(1234.5)).toBe('$1,234.50 (약 173만 원)');
+    expect(formatUsd(316.05)).toBe('$316.05 (약 44.2만 원)');
+    expect(formatUsd(1)).toBe('$1.00 (약 1,400원)');
     expect(formatUsd(0.004)).toBe('$0.01 미만');
     expect(formatUsd(0)).toBe('$0');
   });

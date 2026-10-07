@@ -4,6 +4,7 @@ import {
   byteUnit,
   BYTES_PER_GB,
   formatUsd,
+  USD_KRW,
   FREE,
   monthEstimate,
   overAverage,
@@ -132,8 +133,9 @@ export function UsageDashboard() {
           서울 날짜 기준 · 매시간 갱신(어제 · 오늘)
           {today?.db ? ` · 마지막 측정 ${formatDate(today.db.at)}` : ''}
           <br />
-          <strong>금액은 추정</strong> — 다운로드는 무료 한도 빼기 전 정가, 저장 용량 · 함수 호출은 무료 한도
-          초과분만. 할인 · 세금 제외. 실제 금액은 Google Cloud 결제 화면 기준.
+          <strong>금액은 추정</strong>(1달러 = {USD_KRW.toLocaleString()}원) — 구역의 하루치 다운로드 금액은
+          정가(무료 한도는 맨 위 이번 달 합계에서 뺌), 저장 용량 · 함수 호출은 무료 한도 초과분만. 할인 · 세금
+          제외. 실제 금액은 Google Cloud 결제 화면 기준.
         </p>
         <button type="button" className="btn" onClick={() => void refresh()} disabled={usage.fetching}>
           새로고침
@@ -218,7 +220,7 @@ export function UsageDashboard() {
         chart={body(() => (
           <DailyBars label="DB 다운로드" unit={db!.unit.unit} digits={db!.unit.digits} days={db!.points} />
         ))}
-        foot={`추정 금액 = 다운로드 × $${PRICES.dbDownloadPerGB}/GB (무료 한도 월 ${FREE.dbDownloadGBMonth}GB 빼기 전)`}
+        foot={`추정 금액 = 다운로드 × $${PRICES.dbDownloadPerGB}/GB (하루치는 정가 · 무료 월 ${FREE.dbDownloadGBMonth}GB 는 이번 달 합계에서 뺌)`}
       />
 
       <StatSection
@@ -314,7 +316,7 @@ export function UsageDashboard() {
             days={st!.points}
           />
         ))}
-        foot={`추정 금액 = 다운로드 × $${PRICES.storageDownloadPerGB}/GB · 저장 × $${PRICES.storageStoragePerGBMonth}/GB·월 (다운로드는 무료 월 ${FREE.storageDownloadGBMonth}GB 빼기 전 · 저장은 무료 ${FREE.storageStorageGB}GB 넘는 만큼)${
+        foot={`추정 금액 = 다운로드 × $${PRICES.storageDownloadPerGB}/GB · 저장 × $${PRICES.storageStoragePerGBMonth}/GB·월 (다운로드 하루치는 정가 · 무료 월 ${FREE.storageDownloadGBMonth}GB 는 이번 달 합계에서 뺌 · 저장은 무료 ${FREE.storageStorageGB}GB 넘는 만큼)${
           yesterday?.hosting
             ? ` · 참고: 어제 Hosting(웹 관리자 · 안내 페이지) 다운로드 ${hostingText(yesterday.hosting.sentBytes)}`
             : ''

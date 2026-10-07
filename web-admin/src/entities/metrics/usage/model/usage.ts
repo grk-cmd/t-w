@@ -94,11 +94,23 @@ export function byteUnit(maxBytes: number): ByteUnit {
   return { unit: 'KB', div: 2 ** 10, digits: 0 };
 }
 
-/** $0.0123 → «$0.01», 아주 작으면 «$0.01 미만». */
+/** 원화 환산 — 대략 값(1달러 = USD_KRW 원). 환율이 크게 바뀌면 이 한 곳만 고친다. */
+export const USD_KRW = 1400;
+
+/** 1234 → «약 1,200원», 442470 → «약 44만 원» — 추정치라 앞 두 자리만. */
+export function formatKrw(usd: number): string {
+  const won = usd * USD_KRW;
+  if (won < 100) return '약 100원 미만';
+  if (won < 10_000) return `약 ${(Math.round(won / 100) * 100).toLocaleString()}원`;
+  const man = won / 10_000;
+  return `약 ${man < 100 ? man.toFixed(1).replace(/\.0$/, '') : Math.round(man).toLocaleString()}만 원`;
+}
+
+/** $0.0123 → «$0.01», 아주 작으면 «$0.01 미만». 원화를 괄호로 덧붙인다. */
 export function formatUsd(v: number): string {
   if (v <= 0) return '$0';
   if (v < 0.01) return '$0.01 미만';
-  return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${formatKrw(v)})`;
 }
 
 export interface UsageStats {
