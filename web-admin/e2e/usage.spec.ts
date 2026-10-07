@@ -45,7 +45,7 @@ test('사용량은 지표 바로 뒤 마지막 메뉴이고, 다운로드 · 함
   await expect(menu.nth(-2)).toHaveText(/지표/);
   await openMenu(page, 'usage');
 
-  await expect(page.getByText('금액은 모두 추정')).toBeVisible();
+  await expect(page.getByText('금액은 추정')).toBeVisible();
   await expect(stat(page, DB, '오늘')).toContainText('0.5GB');
   await expect(stat(page, DB, '어제')).toContainText('3GB');
   await expect(stat(page, DB, '어제')).toContainText('추정 $3.00');
@@ -78,7 +78,7 @@ test('어제 다운로드가 지난날 일평균의 2배를 넘으면 그 칸이
   await expect(stat(page, DB, '어제')).toHaveAttribute('data-alert', 'true');
   await expect(stat(page, DB, '일평균')).not.toHaveAttribute('data-alert', 'true');
   const section = page.locator(`section[aria-label="${DB}"]`);
-  await expect(section.getByRole('alert')).toContainText('DB 다운로드가 평소보다 많아요');
+  await expect(section.getByRole('alert')).toContainText('DB 다운로드 평소보다 많음');
   await expect(section.getByRole('alert')).toContainText('어제(3 GB)');
   await expect(page.locator(`section[aria-label="${ST}"]`).getByRole('alert')).toHaveCount(0);
 });

@@ -106,7 +106,7 @@ export function UsageDashboard() {
       ? ''
       : recorded
         ? ` · ${recorded}부터 기록`
-        : ' · 기록이 아직 없음(서버 함수 usageSnapshot 이 매시간 적어요)';
+        : ' · 기록이 아직 없음(서버 함수 usageSnapshot 이 매시간 기록)';
 
   const downloadAlert = (name: string, s: NonNullable<typeof db>): ReactNode => {
     if (!s.todayAlert && !s.yesterdayAlert) return undefined;
@@ -118,7 +118,7 @@ export function UsageDashboard() {
     ]
       .filter(Boolean)
       .join(' · ');
-    return `${name} 다운로드가 평소보다 많아요 — ${which} 가 지난날 일평균(${avg})의 ${ALERT_RATIO}배를 넘었어요`;
+    return `${name} 다운로드 평소보다 많음 — ${which}, 지난날 일평균(${avg})의 ${ALERT_RATIO}배 넘음`;
   };
 
   const usd = (v: number | null | undefined) => (typeof v === 'number' ? `추정 ${formatUsd(v)}` : undefined);
@@ -127,12 +127,11 @@ export function UsageDashboard() {
     <>
       <div className={styles.toolbar}>
         <p className="soft">
-          서울 날짜 기준 · 서버가 매시간 어제 · 오늘을 다시 적어요
+          서울 날짜 기준 · 매시간 갱신(어제 · 오늘)
           {today?.db ? ` · 마지막 측정 ${formatDate(today.db.at)}` : ''}
           <br />
-          <strong>금액은 모두 추정</strong>이에요 — 다운로드는 무료 한도를 빼기 전 정가, 저장 용량 · 함수
-          호출은 무료 한도를 넘는 만큼만 셌어요. 할인 · 세금은 빠져 있어요. 실제 금액은 Google Cloud 결제
-          화면에서 확인하세요.
+          <strong>금액은 추정</strong> — 다운로드는 무료 한도 빼기 전 정가, 저장 용량 · 함수 호출은 무료 한도
+          초과분만. 할인 · 세금 제외. 실제 금액은 Google Cloud 결제 화면 기준.
         </p>
         <button type="button" className="btn" onClick={() => void refresh()} disabled={usage.fetching}>
           새로고침
@@ -152,7 +151,7 @@ export function UsageDashboard() {
                   format: fmtIn(db.unit),
                   main: true,
                   alert: db.todayAlert,
-                  hint: '오늘 0시부터 지금까지 — 하루가 끝날 때까지 늘어나요',
+                  hint: '오늘 0시부터 지금까지 — 하루가 끝날 때까지 늘어남',
                   sub:
                     db.stats.todayProjected !== null
                       ? `하루 환산 ${fmtIn(db.unit)(db.stats.todayProjected / db.unit.div)}${db.unit.unit} · ${usd(gb(db.stats.todayProjected) * PRICES.dbDownloadPerGB)}`
