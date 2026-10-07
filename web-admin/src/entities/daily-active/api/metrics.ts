@@ -1,21 +1,51 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
-import { lastDateKeys, METRICS_DAILY, METRICS_DAYS, toVisits, type DayMetrics } from '../model/metrics';
+import {
+  lastDateKeys,
+  METRICS_DAILY,
+  METRICS_DAYS,
+  METRICS_SUMMARY,
+  toDaySummary,
+  toVisits,
+  type DayMetrics,
+} from '../model/metrics';
 
 const DAY_KEY = ['metrics', 'day'];
 const NOW_KEY = ['metrics', 'serverNow'];
 // 오늘 칸만 쌓이는 중이라 몇 분 뒤 다시 받는다. 지난날은 더 바뀌지 않아 한 번 받으면 그대로 둔다.
 const TODAY_STALE_MS = 5 * 60 * 1000;
 
-/** 하루치 — 사용자 코드는 키만(shallow), 방문 수는 숫자 한 칸. 기록이 없는 날은 빈 값. */
-export async function getDayMetrics(db: Db, date: string): Promise<DayMetrics> {
+/**
+ * 하루치 — 사용자 코드 · IP 해시는 키만(shallow), 숫자는 한 칸씩. 기록이 없는 날은 빈 값.
+ * 지난날은 서버 요약(metrics/summary)이 있으면 숫자를 거기서 받고 IP 목록 · 숫자 칸은 받지 않는다.
+ * 사용자 목록은 요약이 있어도 받는다 — 오늘 기준 WAU · MAU 가 여러 날의 합집합이라서.
+ */
+export async function getDayMetrics(db: Db, date: string, isToday = false): Promise<DayMetrics> {
   const base = `${METRICS_DAILY}/${date}`;
-  const [users, visits] = await Promise.all([db.shallowKeys(`${base}/u`), db.get<unknown>(`${base}/visits`)]);
-  return { date, users, visits: toVisits(visits) };
+  const [users, summary] = await Promise.all([
+    db.shallowKeys(`${base}/u`),
+    isToday ? null : db.get<unknown>(`${METRICS_SUMMARY}/${date}`).then(toDaySummary),
+  ]);
+  if (summary) return { date, users, ...summary };
+  const [ips, visits, pings] = await Promise.all([
+    db.shallowKeys(`${base}/ip`),
+    db.get<unknown>(`${base}/visits`),
+    db.get<unknown>(`${base}/pings`),
+  ]);
+  return {
+    date,
+    users,
+    dau: users.length,
+    visits: toVisits(visits),
+    ipVisitors: ips.length,
+    pings: toVisits(pings),
+  };
 }
 
+/** dates 의 마지막 날을 오늘로 본다(오늘은 요약이 아직 없다). */
 export function getRecentMetrics(db: Db, dates: readonly string[]): Promise<DayMetrics[]> {
-  return Promise.all(dates.map((date) => getDayMetrics(db, date)));
+  const today = dates.at(-1);
+  return Promise.all(dates.map((date) => getDayMetrics(db, date, date === today)));
 }
 
 /**
@@ -33,7 +63,7 @@ export function useRecentMetrics(days: number = METRICS_DAYS) {
   return useQueries({
     queries: dates.map((date) => ({
       queryKey: [...DAY_KEY, date],
-      queryFn: () => getDayMetrics(db, date),
+      queryFn: () => getDayMetrics(db, date, date === today),
       staleTime: date === today ? TODAY_STALE_MS : Infinity,
     })),
     combine: (results) => ({

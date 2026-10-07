@@ -1,6 +1,6 @@
 .stats {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 14px;
 }
 
@@ -16,7 +16,7 @@
 
 .charts {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
   margin-top: 10px;
 }
@@ -60,6 +60,14 @@
   display: flex;
   justify-content: space-between;
   font-size: 12px;
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  font-size: 13px;
 }
 
 .table {
