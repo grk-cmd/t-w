@@ -6,6 +6,7 @@
    dailyActive — 일일 접속 집계(DAU · 방문 수). accountSnap 쓰기마다 metrics/daily/{서울 날짜} 에 적는다. 로직은 daily-active.js.
    visitPing — IP 기준 일일 방문자(호출형 · 로그인 없이). 앱이 켜질 때 한 번 부른다. IP 는 해시로만 적는다. 로직은 visit-ping.js.
      비밀 값 METRICS_IP_SALT 가 있어야 배포된다: firebase functions:secrets:set METRICS_IP_SALT (길고 무작위한 값).
+   usageSnapshot — 사용량(비용) 기록(매시간). Cloud Monitoring 하루 합계를 metrics/usage/{서울 날짜} 에. 로직은 usage-snapshot.js.
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -232,6 +233,21 @@ exports.dailyActive = onValueWritten({ ref: '/accountSnap/{userId}', timeoutSeco
   async (event) => {
     const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
     await require('./daily-active').runDailyActive(getDatabase(), event, Date.parse(event.time) || Date.now());
+  });
+
+/* 사용량(비용) 기록 — Cloud Monitoring 에서 어제 · 오늘(서울)의 RTDB · 함수 · Storage · Hosting 하루 합계를 받아
+   metrics/usage/{날짜} 에 적는다(usage-snapshot.js). 함수 서비스 계정에 Monitoring 읽기(roles/monitoring.viewer)가 있어야 한다.
+   토큰은 Admin SDK 기본 자격 증명(cleanTrash 의 shallow 목록과 같은 방법)으로 받는다. */
+exports.usageSnapshot = onSchedule({ schedule: 'every 60 minutes', timeZone: 'Asia/Seoul', timeoutSeconds: 120, retryCount: 0, maxInstances: 1 },
+  async () => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const app = require('firebase-admin/app').getApp();
+    const tok = await app.options.credential.getAccessToken();
+    const cfg = JSON.parse(process.env.FIREBASE_CONFIG || '{}');
+    const project = cfg.projectId || process.env.GCLOUD_PROJECT;
+    await require('./usage-snapshot').runUsageSnapshot({
+      db: getDatabase(), fetch, token: tok.access_token, project, bucket: cfg.storageBucket || null,
+    }, Date.now());
   });
 
 /* IP 기준 일일 방문자 — 앱(visit-ping.js)이 켜질 때 한 번 부른다. 로그인하지 않은 사람도 세야 해서 인증을 보지 않는다.
