@@ -1,3 +1,5 @@
+import { kstDateKey, lastDateKeys } from '@/shared/lib';
+
 // 일일 접속 지표 — 서버 함수가 날짜별로 적는다.
 //   metrics/daily/{YYYY-MM-DD}/u/{사용자 코드} = true · visits = 방문 수   (functions/daily-active.js · 로그인 연결된 사용자)
 //   metrics/daily/{YYYY-MM-DD}/ip/{IP 해시} = true    · pings = 앱 실행 수 (functions/visit-ping.js · 로그인 안 한 사람 포함)
@@ -6,8 +8,8 @@
 export const METRICS_DAILY = 'metrics/daily';
 export const METRICS_SUMMARY = 'metrics/summary';
 export const METRICS_DAYS = 30;
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
+// 서울 날짜 계산은 shared/lib 에 — 사용량 화면과 같이 쓴다.
+export { kstDateKey, lastDateKeys };
 
 export interface DayMetrics {
   date: string;
@@ -46,15 +48,6 @@ export interface MetricsSummary {
   ipFirstDate: string | null;
   /** 오래된 날 → 오늘 */
   days: DayMetrics[];
-}
-
-export function kstDateKey(ms: number): string {
-  return new Date(ms + KST_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-/** 오늘(서울)까지 n 일의 날짜 키 — 오래된 날부터. */
-export function lastDateKeys(nowMs: number, n: number): string[] {
-  return Array.from({ length: n }, (_, i) => kstDateKey(nowMs - (n - 1 - i) * DAY_MS));
 }
 
 export function uniqueUsers(days: readonly DayMetrics[]): number {

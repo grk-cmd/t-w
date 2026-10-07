@@ -8,57 +8,15 @@ import {
   useRefreshTodayMetrics,
   type DayMetrics,
   type MetricsSummary,
-} from '@/entities/daily-active';
+} from '@/entities/metrics/daily-active';
 import { errorMessage } from '@/shared/lib';
-import { DailyBars } from './DailyBars';
+import { DailyBars, StatSection } from '@/shared/ui';
 import styles from './MetricsDashboard.module.css';
 
-const n = (v: number | null | undefined) => (v === undefined ? '…' : v === null ? '–' : v.toLocaleString());
 const shortDate = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
-
-interface Stat {
-  label: string;
-  value: number | null | undefined;
-  unit: string;
-  hint?: string;
-  /** 숫자 아래 작은 글씨(예: 최대가 나온 날) */
-  sub?: string;
-  main?: boolean;
-}
-
-function Section({
-  title,
-  desc,
-  stats,
-  chart,
-}: {
-  title: string;
-  desc: ReactNode;
-  stats: Stat[];
-  chart: ReactNode;
-}) {
-  return (
-    <section className={`card ${styles.section}`} aria-label={title}>
-      <div className={styles.head}>
-        <h2>{title}</h2>
-        <p className="soft">{desc}</p>
-      </div>
-      <div className={styles.stats}>
-        {stats.map((s) => (
-          <div key={s.label} className={`${styles.stat} ${s.main ? styles.statMain : ''}`} title={s.hint}>
-            <span className="soft">{s.label}</span>
-            <strong>
-              {n(s.value)}
-              <small>{s.unit}</small>
-            </strong>
-            {s.sub && <small className="soft">{s.sub}</small>}
-          </div>
-        ))}
-      </div>
-      {chart}
-    </section>
-  );
-}
+// 한 계열을 막대 그래프 점으로
+const points = (days: readonly DayMetrics[], value: (d: DayMetrics) => number) =>
+  days.map((d) => ({ date: d.date, value: value(d) }));
 
 function stats(
   summary: MetricsSummary | null,
@@ -101,7 +59,7 @@ export function MetricsDashboard() {
         </button>
       </div>
 
-      <Section
+      <StatSection
         title="활성 사용자 (DAU)"
         desc={<>하루에 한 번이라도 앱을 켠 로그인 연결 사용자 수{since(summary?.firstDate)}</>}
         stats={[
@@ -127,12 +85,12 @@ export function MetricsDashboard() {
           },
         ]}
         chart={body((days) => (
-          <DailyBars label="활성 사용자" unit="명" days={days} value={(d) => d.dau} />
+          <DailyBars label="활성 사용자" unit="명" days={points(days, (d) => d.dau)} />
         ))}
       />
 
       {/* IP 해시는 날마다 바뀌게 만들어 여러 날을 이을 수 없다 — 그래서 IP 기준은 WAU · MAU 대신 일평균 · 최대. */}
-      <Section
+      <StatSection
         title="방문자 (IP 기준)"
         desc={
           <>
@@ -147,11 +105,11 @@ export function MetricsDashboard() {
           { label: '최대', value: ip.max, unit: '명', sub: ip.sub },
         ]}
         chart={body((days) => (
-          <DailyBars label="방문자" unit="명" days={days} value={(d) => d.ipVisitors} />
+          <DailyBars label="방문자" unit="명" days={points(days, (d) => d.ipVisitors)} />
         ))}
       />
 
-      <Section
+      <StatSection
         title="방문 수"
         desc="로그인 연결 사용자가 앱을 켠 횟수 — 같은 사람이 여러 번 켜면 모두 셈"
         stats={[
@@ -166,7 +124,7 @@ export function MetricsDashboard() {
           { label: '최대', value: visits.max, unit: '회', sub: visits.sub },
         ]}
         chart={body((days) => (
-          <DailyBars label="방문 수" unit="회" days={days} value={(d) => d.visits} />
+          <DailyBars label="방문 수" unit="회" days={points(days, (d) => d.visits)} />
         ))}
       />
 

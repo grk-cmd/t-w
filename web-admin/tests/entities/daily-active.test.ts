@@ -11,7 +11,7 @@ import {
   toVisits,
   uniqueUsers,
   type DayMetrics,
-} from '@/entities/daily-active';
+} from '@/entities/metrics/daily-active';
 import { fakeDb } from '../shared/fakeDb';
 
 const day = (date: string, users: string[] = [], visits = 0, ipVisitors = 0, pings = 0): DayMetrics => ({
