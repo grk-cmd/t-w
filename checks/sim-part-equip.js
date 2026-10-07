@@ -108,7 +108,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
     chk(/require\('\.\.\/functions\/part-equip'\)/.test(BC) && /equipTotals/.test(BC), '백필 도구는 함수와 같은 계산(part-equip.js)을 쓴다');
     chk(/'--write'/.test(BC) && /if \(!WRITE\)/.test(BC), '  ↳ 기본은 미리 보기 — --write 일 때만 쓴다');
     chk(/if \(!PROJECT\)/.test(BC), '  ↳ --project 가 없으면 멈춘다 (기본 프로젝트가 운영)');
-    chk(/'\/users', true\)/.test(BC) && /'\/users\/' \+ ids\[i\] \+ '\/slots'/.test(BC) && !/getJson\('\/users', false\)/.test(BC), '  ↳ users 는 키만(shallow), 사람마다 slots 만 읽는다');
+    chk(/'\/users', true\)/.test(BC) && /\/users\/\$\{id\}\/slots\.json/.test(BC) && !/getJson\('\/users', false\)/.test(BC), '  ↳ users 는 키만(shallow), 사람마다 slots 만 읽는다');
   }
 
   say('── 6. index.js 연결 · 규칙');
