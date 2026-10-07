@@ -47,13 +47,14 @@ const GROUPS = [
   ['roomInvite', '방 초대 (받은 것 · 보낸 것)'],
   ['secretRoom', '시크릿룸'],
   ['invite', '이 사람이 만든 안 쓴 초대 코드'],
+  ['licenseRequest', '라이선스 신청 기록 (이름 · 친구 코드)'],
   ['metrics', '날짜별 접속자 명단 속 이 사람'],
 ];
 
 // 지우지 않는 것 — 화면에 그대로 보여 준다. 처리방침 5항의 보관 기간을 따른다.
 const KEPT = [
   { label: '신고 기록 (받은 신고 · 한 신고)', why: '처리방침: 처리 완료 후 1년 보관' },
-  { label: '라이선스 키 · 신청 기록', why: '라이선스 기록은 키가 유효한 동안 보관 — 계정 요약이 지워져 사람과의 연결은 끊긴다' },
+  { label: '라이선스 키', why: '라이선스 기록은 키가 유효한 동안 보관 — 키에는 사람 정보가 없고, 계정 요약이 지워져 사람과의 연결은 끊긴다' },
   { label: '관리자 작업 기록', why: '누가 언제 무엇을 했는지 — 이 삭제도 남는다(내용 없이 코드만)' },
   { label: '날짜별 합계 숫자 (접속자 수 · 방문 수)', why: '개인을 알아볼 수 없는 합계' },
   { label: '방 채팅 기록 속 지난 메시지', why: '방 기록이라 이번 범위 밖 — 요청이 있으면 방 단위로 따로 정리' },
@@ -115,7 +116,7 @@ async function planAccountDelete(db, code, deps, viaFc){
   const add = (k, p) => groups[k].push(p);
   const warnings = [];
 
-  const [userKeys, snap, myFc, mySr, name, online, authUid] = await Promise.all([
+  const [userKeys, snap, myFc, mySr, name, online, authUid, myKey] = await Promise.all([
     deps.shallow('users/' + code),
     val('accountSnap/' + code + '/friendCode'),
     val('users/' + code + '/friendCode'),
@@ -123,6 +124,7 @@ async function planAccountDelete(db, code, deps, viaFc){
     val('users/' + code + '/profile/name'),
     val('users/' + code + '/presence/online'),
     val('userAuth/' + code),
+    val('accountSnap/' + code + '/license'),
   ]);
   const snapExists = await has('accountSnap/' + code);
   if (userKeys != null) add('user', 'users/' + code);
@@ -198,6 +200,15 @@ async function planAccountDelete(db, code, deps, viaFc){
     add('secretRoom', 'secretRooms/' + mySr);
   }
 
+  // 라이선스 신청 기록 — 친구 코드가 적힌 신청 · 이 사람이 등록한 키로 발급된 신청. 둘 다 규칙 licenseRequests 색인으로 그것만 받는다.
+  // 앱은 신청에 사람 코드를 남기지 않아(신청 id 는 그 PC 에만) 둘 다 없는 대기 신청은 찾을 수 없다.
+  const reqQueries = fcs.map((fc) => ['friendCode', fc]);
+  if (typeof myKey === 'string' && myKey) reqQueries.push(['issuedKey', myKey]);
+  for (const [field, value] of reqQueries){
+    const hits = (await db.ref('licenseRequests').orderByChild(field).equalTo(value).get()).val();
+    for (const id of safeKeys(hits)) add('licenseRequest', 'licenseRequests/' + id);
+  }
+
   // 이 사람이 만든 초대 코드 — 안 쓴 것만(쓴 것은 초대받은 사람의 가입 기록). invites 에 issuedBy 색인이 있다.
   const invites = (await db.ref('invites').orderByChild('issuedBy').equalTo(code).get()).val();
   for (const ic of safeKeys(invites)) if (!invites[ic].usedBy) add('invite', 'invites/' + ic);
@@ -228,7 +239,7 @@ async function planAccountDelete(db, code, deps, viaFc){
     online: online === true,
     auth,
     authToDelete,
-    groups: GROUPS.map(([key, label]) => ({ key, label, paths: groups[key].sort() })).filter((g) => g.paths.length),
+    groups: GROUPS.map(([key, label]) => ({ key, label, paths: Array.from(new Set(groups[key])).sort() })).filter((g) => g.paths.length),
     dbPaths,
     storage,
     warnings,

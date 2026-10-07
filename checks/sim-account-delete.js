@@ -118,7 +118,12 @@ function world(){
     },
     reports: { [ME]: { [BOB]: { kind: 'nick', nick: 'x', code4: 'DEL1', ts: 1 } }, [BOB]: { [ME]: { kind: 'away', nick: 'y', code4: 'BOB2', ts: 1 } } },
     licenses: { 'KEEP-AAAA-BBBB-CCCC': { valid: true, createdAt: 1, redeemedAt: 2 } },
-    licenseRequests: { r1: { name: '지울이', status: 'approved', friendCode: 'MATE-DEL1' } },
+    licenseRequests: {
+      r1: { name: '지울이', status: 'approved', friendCode: 'MATE-DEL1' },
+      r2: { name: '지울이', status: 'approved', issuedKey: 'KEEP-AAAA-BBBB-CCCC' },
+      r3: { name: '밥', status: 'pending', friendCode: 'MATE-BOB2' },
+      r4: { name: '누군가', status: 'pending' },
+    },
     adminLog: { a1: { at: 1, by: ADMIN, action: 'license.issue', target: 'x' } },
     rooms: { R1: { chatLog: { c1: { userId: ME, text: '안녕' } } } },
     stats: { userCount: 3 },
@@ -160,7 +165,7 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
       'users/' + BOB + '/friends/' + ME, 'users/' + AMY + '/friends/' + ME,
       'friendRequests/' + ME, 'sentFriendRequests/' + ME, 'sentFriendRequests/ucarl0000004/' + ME, 'friendRequests/udan00000005/' + ME,
       'roomInvites/' + ME, 'roomInvites/' + AMY + '/' + ME, 'secretRooms/SCRT-AAAA', 'invites/INVT-AAAA-AAAA',
-      'metrics/daily/2026-10-06/u/' + ME,
+      'metrics/daily/2026-10-06/u/' + ME, 'licenseRequests/r1', 'licenseRequests/r2',
     ];
     const missing = expect.filter((p) => !paths.includes(p));
     const extra = paths.filter((p) => !expect.includes(p));
@@ -172,8 +177,13 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(out.friendCode === 'MATE-DEL1' && out.name === '지울이', '확인용 친구 코드 · 이름');
     chk(!JSON.stringify(out).includes('authMe') && paths.includes('authUsers/(로그인 계정)'), '돌려주는 값에 로그인 계정 uid 를 싣지 않는다(경로도 가린다)');
     chk(W.updates.length === 0 && W.order.length === 0, '미리 보기는 아무것도 쓰지 · 지우지 않는다');
-    const keptKeys = ['reports', 'licenses', 'licenseRequests', 'adminLog', 'metrics/summary', 'rooms', 'stats', 'users/' + BOB + '/guestbook', 'invites/INVT-BBBB-BBBB'];
-    chk(keptKeys.every((k) => !paths.some((p) => p === k || p.startsWith(k + '/') || k.startsWith(p + '/'))), '남기는 것(신고 · 라이선스 · 신청 · 작업 기록 · 합계 · 방 채팅 · 남의 방명록 · 쓰인 초대)은 목록에 없다');
+    const keptKeys = ['reports', 'licenses', 'licenseRequests/r3', 'licenseRequests/r4', 'adminLog', 'metrics/summary', 'rooms', 'stats', 'users/' + BOB + '/guestbook', 'invites/INVT-BBBB-BBBB'];
+    chk(keptKeys.every((k) => !paths.some((p) => p === k || p.startsWith(k + '/') || k.startsWith(p + '/'))), '남기는 것(신고 · 라이선스 키 · 남의 신청 · 작업 기록 · 합계 · 방 채팅 · 남의 방명록 · 쓰인 초대)은 목록에 없다');
+    const lr = out.groups.find((g) => g.key === 'licenseRequest');
+    chk(!!lr && lr.count === 2 && /라이선스 신청 기록/.test(lr.label), '라이선스 신청 기록 — 친구 코드로 · 등록한 키(issuedKey)로 찾은 둘을 «라이선스 신청 기록» 묶음에');
+    chk(W.reads.includes('licenseRequests?friendCode=MATE-DEL1') && W.reads.includes('licenseRequests?issuedKey=KEEP-AAAA-BBBB-CCCC') && !W.reads.includes('licenseRequests'),
+        '  ↳ 신청 목록은 통째로 읽지 않고 색인 조회만');
+    chk(out.kept.some((k) => k.label === '라이선스 키') && !out.kept.some((k) => /신청/.test(k.label)), '남기는 것 목록: 라이선스 키는 남김 · 신청 기록 줄은 없음');
     chk(out.kept.length >= 5 && out.kept.every((k) => k.label && k.why), '남기는 것 목록을 이유와 함께 돌려준다');
     const bigWhole = W.reads.filter((r) => !r.startsWith('shallow:') && /^(users\/[^/]+|inbox\/[^/]+|bookmarks\/[^/]+|metrics\/daily|friendCodes|invites|users)$/.test(r));
     chk(!bigWhole.length, '큰 노드는 통째로 읽지 않는다(키만 · 한 칸만 · 색인 조회)' + (bigWhole.length ? ' — ' + bigWhole.join(', ') : ''));
@@ -243,7 +253,8 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(!W.at('users/' + ME) && !W.at('accountSnap/' + ME) && !W.at('userAuth/' + ME) && !W.at('authUsers/authMe') && !W.at('friendCodes/MATE-DEL1'), '본인 노드 · 로그인 연결 · 친구 코드가 사라졌다');
     chk(!W.at('users/' + BOB + '/friends/' + ME) && !!W.at('users/' + AMY + '/friends/' + BOB), '친구 목록에서 이 사람만 빠지고 다른 친구 관계는 그대로');
     chk(!!W.at('roomInvites/' + BOB + '/' + AMY) && !W.at('roomInvites/' + AMY + '/' + ME), '남이 보낸 방 초대는 그대로 · 이 사람이 보낸 것만 사라짐');
-    chk(!!W.at('reports/' + ME) && !!W.at('reports/' + BOB + '/' + ME) && !!W.at('licenses/KEEP-AAAA-BBBB-CCCC') && !!W.at('licenseRequests/r1'), '신고 · 라이선스 · 신청 기록은 남는다');
+    chk(!!W.at('reports/' + ME) && !!W.at('reports/' + BOB + '/' + ME) && !!W.at('licenses/KEEP-AAAA-BBBB-CCCC'), '신고 · 라이선스 키는 남는다');
+    chk(!W.at('licenseRequests/r1') && !W.at('licenseRequests/r2') && !!W.at('licenseRequests/r3') && !!W.at('licenseRequests/r4'), '이 사람 신청 기록만 사라지고 남의 신청 · 사람을 알 수 없는 신청은 그대로');
     chk(!!W.at('metrics/daily/2026-10-06/u/' + BOB) && W.at('metrics/daily/2026-10-06/visits') === 3 && !!W.at('metrics/summary/2026-10-06'), '접속 명단에서 이 사람만 빠지고 숫자 · 합계는 그대로');
     chk(!!W.at('invites/INVT-BBBB-BBBB') && !W.at('invites/INVT-AAAA-AAAA') && !!W.at('secretRooms/SCRT-BBBB'), '쓰인 초대 · 남의 시크릿룸은 남는다');
     chk(W.files.join() === ['purikura/ROOM1/' + BOB + '/0.webp', 'users/' + BOB + '/avatar.jpg', 'users/' + ME + 'x/avatar.jpg'].join(), 'Storage 는 이 사람 파일만 사라졌다');
@@ -278,6 +289,9 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(/adminDeleteAccount — 계정 삭제/.test(FX), '  ↳ 머리 주석의 함수 목록에도 적었다');
     const AD = strip(need('functions/account-delete.js'));
     chk(!/require\('firebase-(admin|functions)[^']*'\)/.test(AD.split('function adminDeps')[0]), 'account-delete.js 는 firebase 모듈을 adminDeps 안에서만 읽는다(검사는 가짜를 넣는다)');
+    let rr = null; try{ rr = JSON.parse(RULES).rules.licenseRequests; }catch(_){}
+    const idx = rr && [].concat(rr['.indexOn'] || []);
+    chk(!!idx && idx.includes('friendCode') && idx.includes('issuedKey'), '규칙: licenseRequests 에 friendCode · issuedKey 색인 — 없으면 Admin SDK 가 신청 목록을 통째로 받아 거른다');
     let csp = '';
     try{ csp = (JSON.parse(FB).hosting.headers.find((h) => h.source === '/admin/**').headers.find((h) => h.key === 'Content-Security-Policy') || {}).value || ''; }catch(_){}
     chk(/connect-src[^;]*https:\/\/\*\.cloudfunctions\.net/.test(csp), '웹 관리자 CSP connect-src 에 호출형 함수 주소(*.cloudfunctions.net)');
