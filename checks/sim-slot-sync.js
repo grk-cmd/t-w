@@ -80,6 +80,9 @@ const fSave = grabFn(SRC, 'saveSlots');
 const fHash = grabFn(SRC, '_quickHash');
 const fCL = grabFn(SRC, '_roomFaceCacheLoad'), fCS = grabFn(SRC, '_roomFaceCacheSave');
 const fOne = grabFn(SRC, '_storageFaceUrlOne', 'async function ');
+/* 업로드 캐시 그릇(storage-upload.js · app.js 보다 먼저 로드) — 평평한 폴더(러너) 또는 parts/ 아래 */
+const UPSRC = (() => { for(const p of ['storage-upload.js', 'parts/storage-upload.js', 'app/parts/storage-upload.js']){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return ''; })();
+const fRFC = grabFn(SRC, '_roomFaceCache') || '', fUS = grabFn(SRC, '_uploadShare') || '';
 if(!block || !fSlotToObj || !fImg || !fSave || !fHash || !fCL || !fCS || !fOne){
   huh('본문을 못 떼어 옴 — block:' + !!block + ' slotToObj:' + !!fSlotToObj + ' saveSlots:' + !!fSave + ' cache:' + !!(fCL && fCS && fOne));
 }else{
@@ -133,7 +136,7 @@ if(!block || !fSlotToObj || !fImg || !fSave || !fHash || !fCL || !fCS || !fOne){
       /* 로컬 저장본을 그대로 메모리에 — 그림은 문자열인 채로 둔다(slotToObj 가 data: 문자열을 통과시킨다) */
       "async function loadSlots(){ let arr; try{ arr=JSON.parse(localStorage.getItem(LS_KEY)||'null'); }catch(_){ return; } if(!Array.isArray(arr)) return; for(let i=0;i<CHAR_SLOT_MAX;i++){ if(arr[i]) slots[i]=Object.assign({}, arr[i]); } }",
     ].join('\n');
-    const body = [fHash, fCL, fCS, fOne, fImg, fSlotToObj, fSave, block].join('\n');
+    const body = [UPSRC, fHash, fRFC, fUS, fCL, fCS, fOne, fImg, fSlotToObj, fSave, block].join('\n');
     const f = new Function('env', 'localStorage', 'window', 'firebaseAPI', decl + '\n' + body +
       "\nreturn { sync:syncSlotsToServer, save:saveSlots, slots, ts:()=>_slotsTs, setCreator:(v)=>{ creatorOpen=v; }, push:_slotsPushToServer, load:loadSlots, faceMem:_faceEverDrawn," +
       /* 🛟 백업(제보 3-7)은 패치 전 원본에 없다. 없는 이름을 그냥 적으면 **모듈 평가가 통째로 터져**
@@ -394,12 +397,13 @@ if(!block || !fSlotToObj || !fImg || !fSave || !fHash || !fCL || !fCS || !fOne){
     /* 캐시 상한 — 전환기에 통째로 비우지 않는다(비우면 Class A 를 두 번 치른다) */
     const e13 = mkEnv();
     const pre = {};
-    for(let i = 0; i < 40; i++) pre['face:' + i.toString(36) + '.1234'] = 'https://st/old' + i + '.png';   // 구형
-    for(let i = 0; i < 25; i++) pre['face:h2' + i.toString(36) + '.z.1234'] = 'https://st/new' + i + '.png';
+    for(let i = 0; i < 80; i++) pre['face:' + i.toString(36) + '.1234'] = 'https://st/old' + i + '.png';   // 구형
+    for(let i = 0; i < 40; i++) pre['face:h2' + i.toString(36) + '.z.1234'] = 'https://st/new' + i + '.png';
     e13.LS.setItem('tw.roomFaceUrls', JSON.stringify(pre));
     const kept = e13.m.cacheLoad();
     const keptKeys = Object.keys(kept);
-    chk(keptKeys.length === 25 && keptKeys.every(k => /:h2/.test(k)), '★ 상한을 넘으면 **구형 항목부터** 버린다 — 통째로 비우면 방금 올린 새 파일까지 잊고 전원이 또 올린다');
+    /* 상한 100(storage-upload.js 로 옮기며 60 → 100) — 넘친 20 만 구형에서 버린다(통째 비움 없음) */
+    chk(keptKeys.length === 100 && keptKeys.filter(k => /:h2/.test(k)).length === 40, '★ 상한을 넘으면 **구형 항목부터** 버린다 — 통째로 비우면 방금 올린 새 파일까지 잊고 전원이 또 올린다');
     chk(kept['face:h20.z.1234'] === 'https://st/new0.png', '  새 항목은 URL 그대로 남는다');
 
     /* 구형 항목을 조회에 쓰지 않는다 — 옛 해시가 같다는 것은 «그림이 같다» 가 아니다 */

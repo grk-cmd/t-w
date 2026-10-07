@@ -459,10 +459,20 @@
      dataURL("data:image/...;base64,...")이 들어오면 Storage에 올리고 다운로드 URL을 돌려줌.
      이미 URL(https://...)이면 그대로 통과 — 재저장 시 중복 업로드 방지.
      실패하면 원본 dataURL을 그대로 돌려줌(업로드 실패로 이미지가 통째로 날아가지 않게). */
-  async function _uploadDataUrlIfNeeded(path, dataUrl){
+  /* 이름이 곧 내용 해시인 파일(roomface_* · slotglb_* — `종류_h2…`)은 같은 이름 = 같은 내용이다.
+     앱 캐시에 없더라도(다른 PC · 캐시 정리 뒤) Storage 에 이미 있으면 올리지 않고 URL 만 받는다.
+     ★ 확인은 읽기 한 번(Class B)이고 올리기(Class A)보다 싸다. 없거나 거절되면 null — 평소처럼 올린다.
+     ⚠️ 해시가 아닌 이름(avatar.jpg · sticker_{id}.png 처럼 같은 이름에 다른 그림이 오는 것)에는 쓰지 않는다. */
+  const HASH_NAMED = /_h2[0-9a-z]{15,}\.[a-z]+$/;
+  async function _existingUrl(path){
+    if(!HASH_NAMED.test(path)) return null;
+    try{ return await getDownloadURL(sref(storage, path)); }catch(_){ return null; }
+  }
+  async function _uploadDataUrlIfNeeded(path, dataUrl, opts){
     if(!dataUrl || typeof dataUrl !== 'string') return dataUrl;
     if(!dataUrl.startsWith('data:')) return dataUrl;   // 이미 URL이거나 빈 값
     try{
+      if(opts && opts.reuse){ const had = await _existingUrl(path); if(had) return had; }
       const storageRef = sref(storage, path);
       await uploadString(storageRef, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE });
       return await getDownloadURL(storageRef);
@@ -971,10 +981,11 @@
        key 는 app.js 가 '종류_내용해시' 로 만든다 — 같은 파일은 같은 경로라 두 번 올라가지 않고,
        다른 파일은 다른 경로라 서로 덮지 않는다(roomface_* 와 같은 규칙).
        ⚠️ 카탈로그 GLB(_uploadGlbIfNeeded)와 경로를 나눈다 — 그쪽은 관리자 카탈로그, 이쪽은 개인 파일. */
-    async uploadSlotGlb(userId, key, b64){
+    async uploadSlotGlb(userId, key, b64, opts){
       if(!b64 || typeof b64 !== 'string') return { ok:false, reason:'GLB 가 아니에요' };
       const safeKey = String(key||'glb').replace(/[^a-zA-Z0-9_.-]/g, '');
       try{
+        if(opts && opts.reuse){ const had = await _existingUrl(`users/${userId}/slotglb_${safeKey}.glb`); if(had) return { ok:true, url: had }; }
         const storageRef = sref(storage, `users/${userId}/slotglb_${safeKey}.glb`);
         await uploadString(storageRef, b64, 'base64', { cacheControl: STORAGE_CACHE, contentType: 'model/gltf-binary' });
         const url = await getDownloadURL(storageRef);
@@ -1409,10 +1420,10 @@
       if(!url || url.startsWith('data:')) return { ok:false, reason:'업로드에 실패했어요' };
       return { ok:true, url };
     },
-    async uploadRoomFace(userId, key, dataUrl){
+    async uploadRoomFace(userId, key, dataUrl, opts){
       if(!dataUrl || !dataUrl.startsWith('data:')) return { ok:false };
       const safeKey = String(key||'face').replace(/[^a-zA-Z0-9_-]/g, '');
-      const url = await _uploadDataUrlIfNeeded(`users/${userId}/roomface_${safeKey}.png`, dataUrl);
+      const url = await _uploadDataUrlIfNeeded(`users/${userId}/roomface_${safeKey}.png`, dataUrl, opts);
       if(!url || url.startsWith('data:')) return { ok:false };
       return { ok:true, url };
     },
@@ -1844,7 +1855,17 @@
          사용자에게는 원인 없는 실패로만 보인다(채팅 글자수에서 실제로 겪은 그 사고다).
        ★ 여기 없는 필드(stickers · bg)는 규칙에도 크기 검사가 없다 — 스티커 용량은 거부 사유가 아니다. */
     _myHomeLimits(){ return { bio:4000, post:20000, postTitle:60, avatar:200000 }; },
+    /* 올리고 받은 URL 을 swaps 로 돌려준다 — 부르는 쪽(app.js commitMyHomePage)이 원본(_myHomeData)에 되써 넣어
+       다음 저장에서 같은 그림을 다시 올리지 않게. 예전엔 복사본(out)만 URL 로 바뀌고 원본엔 dataURL 이 남아,
+       스티커를 누르거나 끌 때마다(저장할 때마다) 같은 그림이 같은 이름으로 다시 올라갔다.
+       ★ 실패한 업로드는 swaps 에 없다 — 원본은 dataURL 그대로, 다음 저장에서 다시 시도한다(예전 동작). */
     async saveMyHome(userId, homeData){
+      const swaps = [];
+      const r = await this._saveMyHomeBody(userId, homeData, swaps);
+      if(r && typeof r === 'object' && swaps.length) r.swaps = swaps;
+      return r;
+    },
+    async _saveMyHomeBody(userId, homeData, swaps){
       /* 🚧 세션 복원을 기다린다 — setMyProfile 693줄과 **같은 이유, 같은 함정**이다.
          getAuth() 는 즉시 돌아오지만 저장된 세션을 되읽는 일은 비동기라, 그 사이 나가는 쓰기에는
          토큰이 안 붙는다. 구글에 묶인 계정(userAuth 가 있는 계정)은 그때 permission_denied 를 받는다.
@@ -1856,20 +1877,21 @@
       //   기존에 base64로 저장돼 있던 데이터도 다음 저장 때 자동으로 이관됨.
       const out = JSON.parse(JSON.stringify(homeData || {}));
       const failedUploads = [];
-      const up = async (label, path, val)=>{
+      const up = async (label, path, val, at)=>{
         const r = await _uploadDataUrlIfNeeded(path, val);
+        if(typeof val === 'string' && val.startsWith('data:') && typeof r === 'string' && /^https:\/\//.test(r)) swaps.push({ at, from: val, to: r });
         /* ⚠️ _uploadDataUrlIfNeeded 는 실패하면 **원본 dataURL 을 그대로 돌려준다.**
            예전에는 그게 조용히 DB 로 흘러들어가, 수백 KB 짜리 문자열이 그대로 쓰기에 실려 갔다.
            그 실패를 여기서 붙잡아 두면 «사진이 안 올라갔다»고 정확히 말할 수 있다. */
         if(typeof r === 'string' && r.startsWith('data:')) failedUploads.push(label);
         return r;
       };
-      if(out.avatar)          out.avatar  = await up('프로필 사진', `users/${userId}/avatar.jpg`, out.avatar);
-      if(out.bg && out.bg.img) out.bg.img = await up('배경 사진',   `users/${userId}/bg.jpg`,     out.bg.img);
+      if(out.avatar)          out.avatar  = await up('프로필 사진', `users/${userId}/avatar.jpg`, out.avatar, ['avatar']);
+      if(out.bg && out.bg.img) out.bg.img = await up('배경 사진',   `users/${userId}/bg.jpg`,     out.bg.img, ['bg', 'img']);
       if(out.stickers){
         for(const sid of Object.keys(out.stickers)){
           const st = out.stickers[sid];
-          if(st && st.img) st.img = await up('스티커', `users/${userId}/sticker_${sid}.png`, st.img);
+          if(st && st.img) st.img = await up('스티커', `users/${userId}/sticker_${sid}.png`, st.img, ['stickers', sid, 'img']);
         }
       }
       /* ⚠️ 업로드가 실패했다고 **저장 전체를 막지 않는다.**
