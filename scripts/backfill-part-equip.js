@@ -6,8 +6,10 @@
    실행(저장소 루트 · firebase login 필요 · 규칙을 거치지 않는 관리자 권한):
      node scripts/backfill-part-equip.js --project together-working-dev            ← 미리 보기(읽기만 · 숫자와 지금 값과의 차이 출력)
      node scripts/backfill-part-equip.js --project together-working-dev --write    ← 계산한 값으로 덮어쓰기
-   --project 는 꼭 적는다(기본 프로젝트가 운영이라 빠뜨리면 운영을 읽는다). --instance <이름> · --concurrency <n>(기본 6)
-   firebase CLI 는 FIREBASE_BIN 으로 바꿀 수 있다(기본 'npx --yes firebase-tools@15.32.1').
+   --project 는 꼭 적는다(기본 프로젝트가 운영이라 빠뜨리면 운영을 읽는다). --instance <이름> · --concurrency <n>(기본 16)
+   firebase CLI 는 FIREBASE_BIN 으로 바꿀 수 있다(기본 'npx --yes firebase-tools@15.32.1') — 목록 · 쓰기 몇 번에만 쓴다.
+   사람마다의 slots 는 CLI 를 사람 수만큼 띄우지 않고(느리고 CPU 를 먹는다) 이 프로그램 안에서 REST 로 읽는다.
+   토큰은 `gcloud auth print-access-token`(그 계정이 프로젝트 권한을 가져야 한다) · 실패한 사람은 3번까지 다시 읽는다.
 
    읽는 것: users 키 목록(shallow · 값 없음) 1번 + 사람마다 users/{코드}/slots 1번 + metrics/parts/equipped 1번(작다).
      users 를 통째로 읽지 않는다(모든 사람의 모든 데이터). slots 는 사람당 최대 5칸 × 칸당 15만 자 — 시작할 때 사람 수와
@@ -17,7 +19,7 @@
      두 번 돌려도 같다(통째로 다시 센 값을 쓴다). */
 'use strict';
 const fs = require('fs'), os = require('os'), path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const { KINDS, METRICS_EQUIPPED, equipTotals } = require('../functions/part-equip');
 
 const args = process.argv.slice(2);
@@ -25,7 +27,11 @@ const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1
 const WRITE = args.includes('--write');
 const PROJECT = opt('--project');
 const INSTANCE = opt('--instance');
-const CONCURRENCY = Math.max(1, Math.min(16, Number(opt('--concurrency')) || 6));
+const CONCURRENCY = Math.max(1, Math.min(32, Number(opt('--concurrency')) || 16));
+// 두 프로젝트 모두 RTDB 가 asia-southeast1 이다(functions · 앱 설정과 같다).
+const DB_URL = `https://${INSTANCE || PROJECT + '-default-rtdb'}.asia-southeast1.firebasedatabase.app`;
+const TOKEN_MS = 30 * 60 * 1000;
+const RETRY = 3;
 const FIREBASE = process.env.FIREBASE_BIN || 'npx --yes firebase-tools@15.32.1';
 const USER_RE = /^[A-Za-z0-9_-]{1,128}$/;
 const SAMPLE = 20;
@@ -56,6 +62,28 @@ const getJson = async (p, shallow) => {
 const kb = (n) => (n / 1024).toFixed(1) + ' KB';
 const mb = (n) => n < 1024 * 1024 ? kb(n) : (n / 1024 / 1024).toFixed(2) + ' MB';
 
+let _tok = null, _tokAt = 0;
+function token(){
+  if (!_tok || Date.now() - _tokAt > TOKEN_MS){
+    _tok = execFileSync('gcloud', ['auth', 'print-access-token'], { encoding: 'utf8' }).trim();
+    _tokAt = Date.now();
+  }
+  return _tok;
+}
+
+async function readSlots(id){
+  let last = null;
+  for (let i = 0; i < RETRY; i++){
+    try{
+      const res = await fetch(`${DB_URL}/users/${id}/slots.json`, { headers: { Authorization: 'Bearer ' + token() } });
+      if (res.status === 401) _tok = null;   // 토큰이 만료 · 무효 — 다음 시도에서 새로 받는다
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return await res.text();
+    }catch(e){ last = e; await new Promise(r => setTimeout(r, 500 * (i + 1))); }
+  }
+  throw last;
+}
+
 async function readAll(ids, onStart){
   const list = new Array(ids.length);
   let bytes = 0, done = 0, failed = 0, next = 0;
@@ -63,13 +91,14 @@ async function readAll(ids, onStart){
     while (next < ids.length){
       const i = next++;
       try{
-        const raw = await fb(['database:get', '/users/' + ids[i] + '/slots']);
+        const raw = await readSlots(ids[i]);
         bytes += Buffer.byteLength(raw);
-        list[i] = raw.trim() ? JSON.parse(raw) : null;
-      }catch(e){ failed++; list[i] = null; console.warn('  ! 읽기 실패', ids[i], String(e.message).split('\n')[0]); }
+        const t = raw.trim();
+        list[i] = t && t !== 'null' ? JSON.parse(t) : null;
+      }catch(e){ failed++; list[i] = null; console.warn('  ! 읽기 실패', ids[i], String(e && e.message || e)); }
       done++;
       if (done === Math.min(SAMPLE, ids.length)) onStart(bytes / done);
-      if (done % 100 === 0) console.log(`  ${done}/${ids.length} 읽음 · ${mb(bytes)}`);
+      if (done % 500 === 0) console.log(`  ${done}/${ids.length} 읽음 · ${mb(bytes)}`);
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, ids.length) }, worker));
