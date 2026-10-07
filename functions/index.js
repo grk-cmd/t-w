@@ -3,6 +3,7 @@
    [설계 결정 10 · 개정 18 · CHECKS 개정 50] 휴지통 청소 예약 함수 — 아래 cleanTrash.
    [설계 §5-N+1 · 개정 26 · CHECKS 개정 58] 이관 창 재기 **읽기만 · 일회용** 함수 — 아래 countSlotsWindow(N+1 배포 뒤 걷는다).
    roomStats · roomStatsOnOpen · roomStatsOnClose — 열린 방 개수 요약(1분마다 · 방이 열리고 닫힐 때). 로직은 room-stats.js.
+   dailyActive — 일일 접속 집계(DAU · 방문 수). accountSnap 쓰기마다 metrics/daily/{서울 날짜} 에 적는다. 로직은 daily-active.js.
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -22,7 +23,7 @@
 'use strict';
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-const { onValueCreated, onValueDeleted } = require('firebase-functions/v2/database');
+const { onValueCreated, onValueDeleted, onValueWritten } = require('firebase-functions/v2/database');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
@@ -221,4 +222,11 @@ exports.roomStatsOnClose = onValueDeleted({ ref: '/roomIndex/{room}', timeoutSec
     if (event.authType === 'admin') return;
     const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
     await require('./room-stats').runRoomStats(getDatabase(), Date.now(), { drop: false });
+  });
+
+// 앱이 부팅마다 accountSnap/{코드} 를 쓴다 — 그 쓰기를 그날의 접속으로 센다(daily-active.js). 지우기는 세지 않는다.
+exports.dailyActive = onValueWritten({ ref: '/accountSnap/{userId}', timeoutSeconds: 60, maxInstances: 5 },
+  async (event) => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    await require('./daily-active').runDailyActive(getDatabase(), event, Date.parse(event.time) || Date.now());
   });
