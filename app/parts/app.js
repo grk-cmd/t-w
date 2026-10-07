@@ -14172,6 +14172,9 @@ function _mhBindStickerResize(handle, sid){
        제보자는 멀쩡한 스티커를 지우며 같은 실패를 반복했다. 이제 saveMyHome 이 이유를 돌려준다. */
     try{
       const r = await firebaseAPI.saveMyHome(getMyUserId(), _myHomeData);
+      /* 올린 그림의 URL 을 원본 자리에 되써 넣는다 — 안 하면 다음 저장(스티커 클릭 · 끌기 · blur 마다)에서 또 올린다.
+         그 사이 사용자가 그림을 바꿨으면 applyUrlSwaps 가 건드리지 않는다. */
+      if(r && Array.isArray(r.swaps)){ try{ applyUrlSwaps(_myHomeData, r.swaps); }catch(_){} }
       if(r && r.ok === false){ toast(r.reason || '저장에 실패했어요'); return; }
       if(r && r.warn){ toast(r.warn); return; }   // 저장은 됐다 — 조용히 넘기면 원인이 계속 숨는다
       if(!silent) toast('마이홈을 저장했어요');
@@ -20640,13 +20643,10 @@ async function uploadPartPic(dataUrl){
        함께 쓰므로 파츠 그림 한 장이 얼굴 URL 을 통째로 날리는 길이었고, 해시가 바뀐 전환기에는
        그 상한에 훨씬 빨리 닿는다. 얼굴과 **같은 로더/세이버**를 쓰게 해 규칙을 한 벌로 맞춘다. */
     const st = _roomFaceCacheLoad();
-    const h = _quickHash(dataUrl), ck = 'pic:' + h;
-    if(st[ck]) return st[ck];
-    const r = await firebaseAPI.uploadRoomFace(uid, 'pic_' + h, dataUrl);
-    if(!r || !r.ok) return null;
-    st[ck] = r.url;
+    const url = await _storageFaceUrlOne(uid, st, 'pic', dataUrl);
+    if(!url) return null;
     _roomFaceCacheSave(st);
-    return r.url;
+    return url;
   }catch(e){ console.warn('[파츠 그림] 업로드 실패', e); return null; }
 }
 
@@ -28593,10 +28593,33 @@ function sizeLauncherPreview(){const c=document.getElementById('lcPreview');
 const LC_THUMB_SETTLE_MS = 900, LC_THUMB_MAX = 160;
 let _lcThumbJob = null;   // { def, readyAt }
 function _lcThumbArm(def){ _lcThumbJob = { def, readyAt: performance.now() + LC_THUMB_SETTLE_MS }; }
+/* 섬네일 ↔ 외모 지문. «이 섬네일(내용 해시)은 이 외모(thumbSigOf)일 때 찍었다» 를 이 기기에만 적어 둔다.
+   [왜] 같은 모습이어도 대기 동작 · 소품 애니메이션 · 창 크기 때문에 찍을 때마다 픽셀이 조금씩 달라서
+     거의 매번 «바뀜» 이 되었다 → saveSlots → 새 해시 이름으로 Storage 업로드. 외모가 그대로면 찍지 않는다.
+   ★ 슬롯 저장본(LS_KEY)에도 서버(slots · chars)에도 넣지 않는다 — 넣으면 저장 문자열 · 캐릭터 열쇠(K2)가
+     바뀌어 옛 앱과 섞여 쓸 때 같은 캐릭터를 다른 것으로 보거나 한 번 더 올린다. */
+function _lcThumbSigs(){
+  if(!_lcThumbSigs.c) _lcThumbSigs.c = createUploadCache({ store: localStorage, key: 'tw.thumbSigs', max: 20 });
+  return _lcThumbSigs.c;
+}
+function _lcThumbSigOf(def){
+  try{ return thumbSigOf(slotToObj(def), _quickHash); }catch(_){ return null; }   // 얼굴이 캔버스가 아닌 칸 등 — 예전처럼 찍는다
+}
+function _lcThumbSigRemember(thumb, sig){
+  if(!sig || typeof thumb !== 'string' || !thumb) return;
+  try{ const c = _lcThumbSigs(), st = c.load(), k = _quickHash(thumb); st[k] = sig; c.touch(k); c.save(st); }catch(_){}
+}
+function _lcThumbSigFresh(def, sig){
+  if(!sig || typeof def.thumb !== 'string' || !def.thumb) return false;
+  try{ const k = _quickHash(def.thumb), v = _lcThumbSigs().peek(k); if(v === sig){ _lcThumbSigs().touch(k); return true; } }catch(_){}
+  return false;
+}
 function _lcThumbTake(){
   const job = _lcThumbJob; _lcThumbJob = null;
   if(!job || !lChar || !lRenderer || lChar.charDef !== job.def) return;   // 그 사이 다른 슬롯으로 넘어갔다
   if(!Array.isArray(slots) || slots.indexOf(job.def) < 0) return;          // 지워졌거나 갈아 끼워진 def
+  const sig = _lcThumbSigOf(job.def);
+  if(_lcThumbSigFresh(job.def, sig)) return;                               // 외모가 그대로 — 지금 섬네일을 그대로 쓴다
   const y = lChar.group.position.y;
   try{
     lChar.group.position.y = lCharBaseY;                 // 둥둥을 멈춘 자리
@@ -28613,6 +28636,7 @@ function _lcThumbTake(){
     if(a < 255 * 20) return;
     const url = cv.toDataURL('image/png');
     if(url && url !== job.def.thumb){ job.def.thumb = url; if(typeof saveSlots === 'function') saveSlots(); }
+    _lcThumbSigRemember(job.def.thumb, sig);
   }catch(e){ try{ console.warn('[런처] 섬네일 찍기 실패', e); }catch(_){} }
   finally{ try{ lChar.group.position.y = y; }catch(_){} }
 }
@@ -30157,37 +30181,36 @@ function _quickHash(str){
      **같은 캐시·같은 파일명 규칙**을 쓰기 위해서다 — 방에 한 번이라도 들어간 캐릭터는 얼굴이 이미
      roomface_{key}_{hash}.png 로 올라가 있으므로, 슬롯을 올릴 때 그 그림은 한 장도 다시 안 올라간다.
      캐시를 두 벌로 갈랐다면 같은 그림이 두 번 올라갔을 것이다(Class A 요금). 동작은 한 글자도 안 바뀌었다. */
-function _roomFaceCacheLoad(){
-  let st = {}; try{ st = JSON.parse(localStorage.getItem('tw.roomFaceUrls')||'{}'); }catch(_){}
-  if(!st || typeof st !== 'object') st = {};
-  /* 🗂️ 캐시 형태를 "{key}:{해시} → URL" 로 바꾼다.
-     [경위] 예전엔 key 하나당 해시 하나만 기억했다(st.faceHash / st.faceUrl).
-       캐릭터 슬롯이 둘 이상인 사람이 캐릭터를 바꾸면 해시가 어긋나 재업로드되고, 도로 바꾸면
-       또 재업로드됐다 — 슬롯을 오갈 때마다 무한히 PUT 이 나갔다(Cloud Storage Class A 폭증의 정체).
-       파일명이 이미 내용 해시라(roomface_{key}_{hash}.png) 같은 그림은 같은 파일인데도 매번 올린 셈이다.
-     ⚠️ 옛 형태를 여기서 한 번 이관한다 — 안 하면 업데이트 직후 모두가 한 번씩 재업로드한다. */
-  ['face','blink','aBody','aEarL','aEarR','aBlink'].forEach(k=>{
-    if(st[k+'Hash'] && st[k+'Url']){ st[k+':'+st[k+'Hash']] = st[k+'Url']; }
-    delete st[k+'Hash']; delete st[k+'Url'];
+/* 캐시 그릇 — storage-upload.js 의 createUploadCache. 한 번 만들어 계속 쓴다(최근 사용 순서를 기억해야 해서).
+   ⚠️ 상한을 넘었을 때 **통째로 비우지 않는다.** 비우면 이미 올린 그림을 전부 다시 올린다(Class A).
+     구형(`h2` 로 시작하지 않는) 항목을 먼저, 그다음 오래 안 쓴 것부터 버린다. 섬네일은 칸마다 바뀌므로
+     몇 장만 남긴다(`thumb:`).
+   ★ 구형 항목을 조회에 **쓰지는 않는다**(_storageFaceUrlOne 은 새 키 하나만 본다) — 옛 해시가 같다는 것은
+     «그림이 같다» 는 뜻이 아니어서, 그걸 믿고 URL 을 물려주면 다른 캐릭터 그림이 덮어써진다. */
+function _roomFaceCache(){
+  if(!_roomFaceCache.c) _roomFaceCache.c = createUploadCache({
+    store: localStorage, key: 'tw.roomFaceUrls', max: 100, groupMax: { 'thumb:': 10 },
+    isStale: k => !/^h2/.test(k.slice(k.indexOf(':') + 1)),
+    /* 옛 형태(key 하나당 해시 하나 — st.faceHash / st.faceUrl)를 «{key}:{해시} → URL» 로 옮긴다.
+       안 옮기면 업데이트 직후 모두가 한 번씩 다시 올린다. */
+    migrate: st => {
+      ['face','blink','aBody','aEarL','aEarR','aBlink'].forEach(k=>{
+        if(st[k+'Hash'] && st[k+'Url']){ st[k+':'+st[k+'Hash']] = st[k+'Url']; }
+        delete st[k+'Hash']; delete st[k+'Url'];
+      });
+    },
   });
-  // 무한정 쌓이지 않게 상한 — 넘으면 다음 장착 때 한 번만 다시 올린다.
-  /* ⚠️ [2026-09-18 · 제보 3-7 (나)] 넘었다고 **통째로** 비우면 안 된다. 해시가 바뀐 전환기에는
-     한 그림이 옛 이름·새 이름 두 칸을 차지해 상한에 금방 닿는데, 거기서 통째로 비우면 방금 올린
-     새 파일까지 잊고 **전원이 또 재업로드한다** — Class A 를 두 번 치르는 길이다.
-     그래서 구형(`h2` 로 시작하지 않는) 항목을 **먼저** 버리고, 그러고도 넘칠 때만 통째로 비운다.
-     ★ 구형 항목을 조회에 **쓰지는 않는다**(_storageFaceUrlOne 은 새 키 하나만 본다) — 옛 해시가
-       같다는 것은 「그림이 같다」는 뜻이 아니어서, 그걸 믿고 URL 을 물려주면 이 제보가 그대로
-       재현된다. 여기서 남기는 것은 순전히 «전환기에 통째 비움을 늦추기» 위해서다. */
-  if(Object.keys(st).length > 60){
-    for(const k of Object.keys(st)){
-      const h = k.slice(k.indexOf(':') + 1);
-      if(!/^h2/.test(h)) delete st[k];
-    }
-    if(Object.keys(st).length > 60) st = {};
-  }
-  return st;
+  return _roomFaceCache.c;
 }
-function _roomFaceCacheSave(st){ try{ localStorage.setItem('tw.roomFaceUrls', JSON.stringify(st)); }catch(_){} }
+/* 진행 중인 업로드 나눠 쓰기 — 슬롯 push · chars 동기화 · 방 입장이 같은 그림을 동시에 올리지 않게. */
+function _uploadShare(){
+  if(!_uploadShare.c) _uploadShare.c = createUploadShare();
+  return _uploadShare.c;
+}
+/* ⚠️ 부르는 쪽마다 **자기 사본**(st)을 들고 업로드한 뒤 저장한다. 저장은 디스크를 다시 읽어 합친다 —
+   예전엔 사본을 그대로 덮어써서, 같이 돌던 다른 쪽이 기억한 URL 이 지워지고 다음에 또 올라갔다. */
+function _roomFaceCacheLoad(){ return _roomFaceCache().load(); }
+function _roomFaceCacheSave(st){ try{ _roomFaceCache().save(st); }catch(_){} }
 /* 그림 한 장 → Storage URL. 캐시(st)에 있으면 업로드 없이 그 URL. 실패·그림 아님 → null.
    ★ 파일 이름에 '그림 내용 해시'를 넣는다 — 예전엔 users/{uid}/roomface_face.png 처럼
      캐릭터 구분 없이 한 경로만 써서, 동물을 만들면 그 얼굴(투명 배경)이 인간이 쓰던 파일을
@@ -30198,9 +30221,16 @@ async function _storageFaceUrlOne(uid, st, key, cv){
   if(!dataUrl || !dataUrl.startsWith('data:')) return null;
   const h = _quickHash(dataUrl);
   const ck = key + ':' + h;
-  if(st[ck]) return st[ck];   // 이 그림은 전에 올려둔 적이 있다 — 캐릭터를 몇 번 바꿔도 다시 안 올린다
-  const r = await firebaseAPI.uploadRoomFace(uid, key + '_' + h, dataUrl);
-  if(r && r.ok){ st[ck] = r.url; return r.url; }
+  const cache = _roomFaceCache();
+  if(st[ck]){ cache.touch(ck); return st[ck]; }   // 이 그림은 전에 올려둔 적이 있다 — 캐릭터를 몇 번 바꿔도 다시 안 올린다
+  /* 같은 그림을 다른 쪽이 지금 올리고 있으면 그 결과를 기다린다. 다른 사본이 이미 저장했으면(디스크) 그 URL. */
+  const url = await _uploadShare().run(uid + '|face|' + ck, async () => {
+    const saved = cache.peek(ck);
+    if(saved) return saved;
+    const r = await firebaseAPI.uploadRoomFace(uid, key + '_' + h, dataUrl, { reuse: true });
+    return (r && r.ok) ? r.url : null;
+  });
+  if(url){ st[ck] = url; cache.touch(ck); return url; }
   return null;
 }
 async function ensureRoomFaceUrls(def){
@@ -35286,20 +35316,26 @@ function _slotsSchedulePush(){
 }
 
 /* ── GLB 한 덩이 → Storage URL. 얼굴과 같은 «종류_내용해시» 이름 + localStorage 캐시. ── */
-function _slotGlbCacheLoad(){
-  let st = {}; try{ st = JSON.parse(localStorage.getItem(SLOT_GLB_CACHE_KEY) || '{}'); }catch(_){}
-  if(!st || typeof st !== 'object') st = {};
-  if(Object.keys(st).length > 40) st = {};
-  return st;
+/* ⚠️ 넘치면 통째로 비우지 않는다 — 오래 안 쓴 것부터 버린다(얼굴 캐시와 같은 그릇 · _roomFaceCache). */
+function _slotGlbCache(){
+  if(!_slotGlbCache.c) _slotGlbCache.c = createUploadCache({ store: localStorage, key: SLOT_GLB_CACHE_KEY, max: 40 });
+  return _slotGlbCache.c;
 }
-function _slotGlbCacheSave(st){ try{ localStorage.setItem(SLOT_GLB_CACHE_KEY, JSON.stringify(st)); }catch(_){} }
+function _slotGlbCacheLoad(){ return _slotGlbCache().load(); }
+function _slotGlbCacheSave(st){ try{ _slotGlbCache().save(st); }catch(_){} }
 async function _storageGlbUrlOne(uid, st, key, b64){
   if(typeof b64 !== 'string' || !b64) return null;
   const h = _quickHash(b64);
   const ck = key + ':' + h;
-  if(st[ck]) return st[ck];
-  const r = await firebaseAPI.uploadSlotGlb(uid, key + '_' + h, b64);
-  if(r && r.ok){ st[ck] = r.url; return r.url; }
+  const cache = _slotGlbCache();
+  if(st[ck]){ cache.touch(ck); return st[ck]; }
+  const url = await _uploadShare().run(uid + '|glb|' + ck, async () => {
+    const saved = cache.peek(ck);
+    if(saved) return saved;
+    const r = await firebaseAPI.uploadSlotGlb(uid, key + '_' + h, b64, { reuse: true });
+    return (r && r.ok) ? r.url : null;
+  });
+  if(url){ st[ck] = url; cache.touch(ck); return url; }
   return null;
 }
 /* URL → base64 (GLB 되받기). Storage 는 CORS 허용이라 fetch 가 통한다(말랑이 선물이 같은 길). */

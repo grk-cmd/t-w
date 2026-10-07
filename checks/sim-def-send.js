@@ -37,13 +37,16 @@ globalThis.HTMLImageElement = globalThis.Image;
 
 const probe = `
 ;globalThis.__P = { Presence, slots, loadSlots, LS_KEY, serializeDefForNetwork,
-                    setCurSlot: n => { curSlot = n; } };`;
+                    setCurSlot: n => { curSlot = n; },
+                    resetShare: () => { if (typeof _uploadShare === 'function') _uploadShare.c = null; } };`;
 
 /* app.js 는 [def-diag] 등을 console.log 로 계속 찍는다 — 검사 결과만 보이게 계속 막아 두고,
    이 파일의 출력은 붙잡아 둔 원본(say)으로만 낸다. */
 const say = console.log;
 console.log = () => {}; console.warn = () => {};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+/* app.js 보다 먼저 로드되는 업로드 캐시 그릇(storage-upload.js) — 앱과 같은 순서로 */
+const UPSRC = (() => { for (const p of ['storage-upload.js', 'parts/storage-upload.js', 'app/parts/storage-upload.js']) { try { return fs.readFileSync(p, 'utf8'); } catch (_) {} } return ''; })();
+try { vm.runInThisContext(UPSRC + '\n;' + fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 
 const P = globalThis.__P;
@@ -75,7 +78,8 @@ const ANIMAL = {
   animalEarPaintR: D('AEARR'), animalBlink: D('ABLNK'),
 };
 
-const clearFaceCache = () => { try { LS.removeItem('tw.roomFaceUrls'); } catch (_) {} };
+/* 이번 실행에서 올린 URL 기억(_uploadShare)도 함께 비운다 — 절마다 «처음 켠 앱» 에서 시작하게 */
+const clearFaceCache = () => { try { LS.removeItem('tw.roomFaceUrls'); } catch (_) {} try { P.resetShare(); } catch (_) {} };
 
 async function seedAndEnter(slotArr, idx){
   LS.setItem(P.LS_KEY, JSON.stringify(slotArr));

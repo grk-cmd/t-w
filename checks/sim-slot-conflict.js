@@ -86,6 +86,9 @@ const fSave = grabFn(SRC, 'saveSlots');
 const fHash = grabFn(SRC, '_quickHash');
 const fCL = grabFn(SRC, '_roomFaceCacheLoad'), fCS = grabFn(SRC, '_roomFaceCacheSave');
 const fOne = grabFn(SRC, '_storageFaceUrlOne', 'async function ');
+/* 업로드 캐시 그릇(storage-upload.js · app.js 보다 먼저 로드) — 평평한 폴더(러너) 또는 parts/ 아래 */
+const UPSRC = (() => { for(const p of ['storage-upload.js', 'parts/storage-upload.js', 'app/parts/storage-upload.js']){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return ''; })();
+const fRFC = grabFn(SRC, '_roomFaceCache') || '', fUS = grabFn(SRC, '_uploadShare') || '';
 if(!block || !fSlotToObj || !fImg || !fSave || !fHash || !fCL || !fCS || !fOne){
   huh('본문을 못 떼어 옴 — block:' + !!block + ' slotToObj:' + !!fSlotToObj + ' saveSlots:' + !!fSave);
   say(''); say('통과 ' + pass + ' · 실패 ' + fail + ' · 검사못함 ' + huhs); process.exit(fail ? 1 : 0);
@@ -124,7 +127,7 @@ function mkEnv(){
     "const btoa=(s)=>Buffer.from(s,'binary').toString('base64');",
     "async function loadSlots(){ let arr; try{ arr=JSON.parse(localStorage.getItem(LS_KEY)||'null'); }catch(_){ return; } if(!Array.isArray(arr)) return; for(let i=0;i<CHAR_SLOT_MAX;i++){ if(arr[i]) slots[i]=Object.assign({}, arr[i]); } }",
   ].join('\n');
-  const body = [fHash, fCL, fCS, fOne, fImg, fSlotToObj, fSave, block].join('\n');
+  const body = [UPSRC, fHash, fRFC, fUS, fCL, fCS, fOne, fImg, fSlotToObj, fSave, block].join('\n');
   const f = new Function('env', 'localStorage', 'window', 'firebaseAPI', decl + '\n' + body +
     "\nreturn { sync:syncSlotsToServer, save:saveSlots, load:loadSlots, slots, ts:()=>_slotsTs, filled:_slotsFilledCount," +
     "\n  seen:(typeof _slotsSeenSet==='function'?_slotsSeenSet:null), seenTs:()=>(typeof _slotsSeen==='number'?_slotsSeen:null)," +
