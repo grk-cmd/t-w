@@ -4,6 +4,7 @@ import {
   BYTES_PER_GB,
   formatUsd,
   getDayUsage,
+  monthEstimate,
   overAverage,
   toDayUsage,
   usageStats,
@@ -113,5 +114,39 @@ describe('일평균 · 오늘 환산 · 경고', () => {
     const s = usageStats(few, sent, sixAm);
     expect(s.avgDays).toBe(1);
     expect(overAverage(90, s)).toBe(false);
+  });
+});
+
+describe('이번 달 예상 청구액', () => {
+  const G = 2 ** 30;
+  const d = (date: string, dbGB: number | null, calls = 0): DayUsage => ({
+    date,
+    db: dbGB === null ? null : { sentBytes: dbGB * G, storedBytes: 2 * G, peakConnections: 0, at: 1 },
+    functions: dbGB === null ? null : { calls, byName: {}, at: 1 },
+    storage: null,
+    hosting: null,
+  });
+
+  it('지난날 실제 + 남은 날 × 최근 평균, 기록 전 날은 평균으로 채움, 무료 한도는 한 번', () => {
+    // 10월(31일) 3일 오늘 — 1일 기록 없음, 2일 12GB → 평균 12GB
+    const est = monthEstimate([
+      d('2026-09-30', 12),
+      d('2026-10-01', null),
+      d('2026-10-02', 12),
+      d('2026-10-03', 5),
+    ])!;
+    expect(est.month).toBe('2026-10');
+    expect(est.filledDays).toBe(1);
+    const db = est.lines.find((l) => l.label === 'DB 다운로드')!;
+    // 2일 12 + 1일(채움) 12 + 3~31일 29일 × 12 = 372GB → 무료 10GB 빼고 $362
+    expect(db.usd).toBeCloseTo(362, 5);
+    const stored = est.lines.find((l) => l.label === 'DB 저장')!;
+    expect(stored.usd).toBeCloseTo(5, 5); // 2GB − 무료 1GB = 1GB × $5
+    expect(est.lines.find((l) => l.label === '함수 호출')!.usd).toBe(0);
+    expect(est.total).toBeCloseTo(367, 5);
+  });
+
+  it('비어 있으면 null', () => {
+    expect(monthEstimate([])).toBeNull();
   });
 });

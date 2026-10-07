@@ -5,6 +5,7 @@ import {
   BYTES_PER_GB,
   formatUsd,
   FREE,
+  monthEstimate,
   overAverage,
   PRICES,
   usageStats,
@@ -79,6 +80,7 @@ export function UsageDashboard() {
   );
   const conn = useMemo(() => (days ? usageStats(days, peak, null) : null), [days]);
   const fnMonth = days ? sumOf(days, fnCalls) : undefined;
+  const est = useMemo(() => (days ? monthEstimate(days) : null), [days]);
 
   // 저장 용량은 «지금 얼마» 라 가장 최근 값(오늘이 없으면 어제)
   const latest = (pick: (d: DayUsage) => number | null | undefined) => {
@@ -138,9 +140,35 @@ export function UsageDashboard() {
         </button>
       </div>
 
+      <section className={`card ${styles.month}`} aria-label="이번 달 예상 청구액">
+        <div className={styles.monthHead}>
+          <h2>이번 달 예상 청구액{est ? ` (${est.month})` : ''}</h2>
+          <strong className={styles.monthTotal}>{est ? `추정 ${formatUsd(est.total)}` : '…'}</strong>
+        </div>
+        {est && (
+          <>
+            <table className={styles.monthTable}>
+              <tbody>
+                {est.lines.map((l) => (
+                  <tr key={l.label}>
+                    <th>{l.label}</th>
+                    <td className="soft">{l.amount}</td>
+                    <td>{l.usd > 0 ? formatUsd(l.usd) : '무료 한도 안'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="soft">
+              이번 달 지난날 실제 + 남은 날 × 최근 7일 평균 · 무료 한도는 달마다 한 번 뺌 · 할인 · 세금 제외
+              {est.filledDays > 0 ? ` · 기록 시작 전 ${est.filledDays}일은 최근 평균으로 채움` : ''}
+            </p>
+          </>
+        )}
+      </section>
+
       <StatSection
         title="DB 다운로드"
-        desc={<>앱 · 웹 관리자가 Realtime Database 에서 내려받은 양 — 요금 대부분이 여기서 나와요{since}</>}
+        desc={<>앱 · 웹 관리자가 Realtime Database 에서 내려받은 양 — 요금 대부분이 여기서 나옴{since}</>}
         stats={
           db
             ? [

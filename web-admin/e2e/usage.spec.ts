@@ -46,6 +46,9 @@ test('사용량은 지표 바로 뒤 마지막 메뉴이고, 다운로드 · 함
   await openMenu(page, 'usage');
 
   await expect(page.getByText('금액은 추정')).toBeVisible();
+  const month = page.locator('section[aria-label="이번 달 예상 청구액"]');
+  await expect(month).toContainText('추정 $');
+  await expect(month.locator('tr')).toHaveCount(6);
   await expect(stat(page, DB, '오늘')).toContainText('0.5GB');
   await expect(stat(page, DB, '어제')).toContainText('3GB');
   await expect(stat(page, DB, '어제')).toContainText('추정 $3.00');

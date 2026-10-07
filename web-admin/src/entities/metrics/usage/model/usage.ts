@@ -154,3 +154,104 @@ export function usageStats(
 export function overAverage(v: number | null, s: UsageStats): boolean {
   return v !== null && s.avg !== null && s.avgDays >= ALERT_MIN_DAYS && s.avg > 0 && v > s.avg * ALERT_RATIO;
 }
+
+export interface MonthLine {
+  label: string;
+  /** 이번 달 예상 사용량 설명(예: «약 345GB») */
+  amount: string;
+  usd: number;
+}
+
+export interface MonthEstimate {
+  /** YYYY-MM */
+  month: string;
+  total: number;
+  lines: MonthLine[];
+  /** 이번 달 중 기록이 없어 최근 평균으로 채운 지난날 수 */
+  filledDays: number;
+}
+
+const RATE_DAYS = 7;
+const daysInMonth = (month: string) => {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+};
+const gbOf = (bytes: number) => bytes / BYTES_PER_GB;
+const gbText = (g: number) => `약 ${g < 10 ? g.toFixed(1) : Math.round(g).toLocaleString()}GB`;
+
+/**
+ * 이번 달(서울) 예상 청구액 — 쌓이는 값(다운로드 · 호출)은 «이번 달 지난날 실제 + 오늘부터 말일까지 × 최근 7일 평균»,
+ * 지난날 중 기록이 없는 날(기록 시작 전)도 최근 평균으로 채운다. 저장 용량은 가장 최근 값으로 한 달치.
+ * 무료 한도는 달 단위로 한 번 뺀다. days 는 오래된 날 → 오늘.
+ */
+export function monthEstimate(days: readonly DayUsage[]): MonthEstimate | null {
+  const today = days.at(-1);
+  if (!today) return null;
+  const month = today.date.slice(0, 7);
+  const past = days.slice(0, -1);
+  const thisMonthPast = past.filter((d) => d.date.startsWith(month));
+  const dayOfMonth = Number(today.date.slice(8, 10));
+  const anyRecord = (d: DayUsage) => !!(d.db || d.functions || d.storage || d.hosting);
+  const filledDays = dayOfMonth - 1 - thisMonthPast.filter(anyRecord).length;
+
+  const project = (value: (d: DayUsage) => number | null) => {
+    const recent = past
+      .map(value)
+      .filter((v): v is number => v !== null)
+      .slice(-RATE_DAYS);
+    const rate = recent.length ? recent.reduce((s, v) => s + v, 0) / recent.length : (value(today) ?? 0);
+    const known = thisMonthPast.map(value).filter((v): v is number => v !== null);
+    const missing = dayOfMonth - 1 - known.length;
+    const remaining = daysInMonth(month) - dayOfMonth + 1;
+    return known.reduce((s, v) => s + v, 0) + Math.max(0, missing) * rate + remaining * rate;
+  };
+  const latest = (pick: (d: DayUsage) => number | null | undefined) => {
+    for (let i = days.length - 1; i >= 0; i--) {
+      const v = pick(days[i]);
+      if (typeof v === 'number') return v;
+    }
+    return 0;
+  };
+
+  const dbDown = gbOf(project((d) => d.db?.sentBytes ?? null));
+  const stDown = gbOf(project((d) => d.storage?.sentBytes ?? null));
+  const hostDown = gbOf(project((d) => d.hosting?.sentBytes ?? null));
+  const calls = project((d) => d.functions?.calls ?? null);
+  const dbStored = gbOf(latest((d) => d.db?.storedBytes));
+  const stStored = gbOf(latest((d) => d.storage?.storedBytes));
+
+  const over = (v: number, free: number) => Math.max(0, v - free);
+  const lines: MonthLine[] = [
+    {
+      label: 'DB 다운로드',
+      amount: gbText(dbDown),
+      usd: over(dbDown, FREE.dbDownloadGBMonth) * PRICES.dbDownloadPerGB,
+    },
+    {
+      label: 'DB 저장',
+      amount: gbText(dbStored),
+      usd: over(dbStored, FREE.dbStorageGB) * PRICES.dbStoragePerGBMonth,
+    },
+    {
+      label: 'Storage 다운로드',
+      amount: gbText(stDown),
+      usd: over(stDown, FREE.storageDownloadGBMonth) * PRICES.storageDownloadPerGB,
+    },
+    {
+      label: 'Storage 저장',
+      amount: gbText(stStored),
+      usd: over(stStored, FREE.storageStorageGB) * PRICES.storageStoragePerGBMonth,
+    },
+    {
+      label: 'Hosting 다운로드',
+      amount: gbText(hostDown),
+      usd: over(hostDown, FREE.hostingDownloadGBMonth) * PRICES.hostingDownloadPerGB,
+    },
+    {
+      label: '함수 호출',
+      amount: `약 ${Math.round(calls).toLocaleString()}회`,
+      usd: (over(calls, FREE.functionsCallsMonth) / 1_000_000) * PRICES.functionsPerMillion,
+    },
+  ];
+  return { month, total: lines.reduce((s, l) => s + l.usd, 0), lines, filledDays };
+}

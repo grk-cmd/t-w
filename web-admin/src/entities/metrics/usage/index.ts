@@ -7,6 +7,7 @@ export {
   formatUsd,
   FREE,
   METRICS_USAGE,
+  monthEstimate,
   overAverage,
   PRICES,
   toDayUsage,
@@ -14,5 +15,7 @@ export {
   usageStats,
   type ByteUnit,
   type DayUsage,
+  type MonthEstimate,
+  type MonthLine,
   type UsageStats,
 } from './model/usage';
