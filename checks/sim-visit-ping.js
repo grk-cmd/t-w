@@ -28,8 +28,9 @@ const app = new Function(AVP.replace(/^export (function|const) /mg, '$1 ') + '\n
 
   say('── 1. 접속 IP (clientIp)');
   {
-    chk(f.clientIp({ headers: { 'x-forwarded-for': ' 203.0.113.7 , 10.0.0.1, 35.1.1.1' }, ip: '10.9.9.9' }) === '203.0.113.7', 'x-forwarded-for 목록의 맨 앞 · 앞뒤 빈칸 걷음');
-    chk(f.clientIp({ headers: { 'x-forwarded-for': ['198.51.100.2, 10.0.0.1'] } }) === '198.51.100.2', '  ↳ 헤더가 배열로 와도 첫 값');
+    chk(f.clientIp({ headers: { 'x-forwarded-for': ' 9.9.9.9 , 203.0.113.7 ' }, ip: '9.9.9.9' }) === '203.0.113.7', 'x-forwarded-for 맨 뒤(프런트엔드가 붙인 실제 주소) · 앞뒤 빈칸 걷음 — 맨 앞은 지어낼 수 있다');
+    chk(f.clientIp({ headers: { 'x-forwarded-for': '1.1.1.1, 2.2.2.2, 198.51.100.2' } }) === '198.51.100.2' && f.clientIp({ headers: { 'x-forwarded-for': '198.51.100.2' } }) === '198.51.100.2', '  ↳ 가짜 값을 앞에 몇 개 붙여도 같은 IP (dev 실측: "9.9.9.9,실제IP")');
+    chk(f.clientIp({ headers: { 'x-forwarded-for': ['10.0.0.1', '198.51.100.2'] } }) === '198.51.100.2', '  ↳ 헤더가 배열로 와도 맨 뒤');
     chk(f.clientIp({ headers: {}, ip: '::ffff:192.0.2.5' }) === '192.0.2.5', '헤더가 없으면 rawRequest.ip · IPv6 에 싸인 IPv4(::ffff:) 는 벗긴다');
     chk(f.clientIp({ headers: { 'x-forwarded-for': '::FFFF:192.0.2.6' } }) === '192.0.2.6', '  ↳ 대문자 ::FFFF: 도');
     chk(f.clientIp({ headers: { 'x-forwarded-for': '2001:db8::1' } }) === '2001:db8::1', 'IPv6 는 그대로');

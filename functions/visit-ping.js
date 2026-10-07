@@ -14,15 +14,15 @@ const { kstDateKey, METRICS_DAILY } = require('./daily-active');
 const IP_HASH_LEN = 16;
 const IPV4_MAPPED = '::ffff:';
 
-// 호출형 함수는 Google 프런트엔드 뒤에서 돈다 — x-forwarded-for 맨 앞이 접속한 쪽 주소다(뒤는 거쳐 온 프록시).
-// TODO: 부르는 쪽이 x-forwarded-for 를 직접 실어 보내면 맨 앞 값을 지어낼 수 있다(프런트엔드는 뒤에 덧붙인다).
-//       운영 로그로 실제 모양을 확인하고, 필요하면 맨 뒤(프런트엔드가 붙인 값)를 쓰도록 바꾼다.
+// 호출형 함수는 Google 프런트엔드 뒤에서 돈다 — 프런트엔드는 실제 접속 주소를 x-forwarded-for **맨 뒤**에 덧붙인다.
+// 맨 앞은 부르는 쪽이 직접 실어 보낸 값일 수 있어서 쓰지 않는다(dev 에서 가짜 헤더 3번으로 방문자가 3 늘어나는 것을 확인).
 function clientIp(rawRequest){
   if (!rawRequest) return null;
   const headers = rawRequest.headers || {};
   let xff = headers['x-forwarded-for'];
-  if (Array.isArray(xff)) xff = xff[0];
-  let ip = (typeof xff === 'string' ? xff.split(',')[0] : '').trim();
+  if (Array.isArray(xff)) xff = xff.join(',');
+  const parts = typeof xff === 'string' ? xff.split(',').map((v) => v.trim()).filter(Boolean) : [];
+  let ip = parts.length ? parts[parts.length - 1] : '';
   if (!ip && typeof rawRequest.ip === 'string') ip = rawRequest.ip.trim();
   if (ip.toLowerCase().startsWith(IPV4_MAPPED)) ip = ip.slice(IPV4_MAPPED.length);
   return ip || null;
