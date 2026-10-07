@@ -823,6 +823,7 @@
 | **sim-focus-auth.js** | 90 | **58a1ca1bdfad** ← 2026-09-16 (제보 6 포커스 auth) · 개정 10 등재 |
 | **sim-focus-sync.js** | 172 | **5eac3ccdef75** ← 개정 38 준비 한 줄(uid 심기 · 판정 무변경) |
 | sim-friend-manage.js | 262 | 780d6dc97b68 |
+| **sim-gift-star.js** | 104 | **458c29100178** ← **2026-10-08 신규 · 🎁 선물함 ⭐ 즐겨찾기 · 직접 삭제 — mallang.js giftOrder(⭐ 최신순 → 나머지 최신순) · giftOverflow(⭐ 아닌 것 중 오래된 것부터 · 옛 방식이면 ⭐ 가 지워지는 것을 가름) · 「다음 삭제」 칸 = 실제 삭제 칸 · starred 서버 저장(로컬 없음) · 규칙 starred 불리언 · ⭐ 클릭 전파 끊음 · 상한 20 · ⭐ 우클릭 막음 · 확인창 #myHomeWin 자식 · confirm() 없음** |
 | **sim-gacha-prune.js** | 162 | **11e728f770b9** ← 개정 38 준비 한 줄(uid 심기 · 판정 무변경) |
 | sim-gacha-race.js | 120 | 85100a1126c6 |
 | sim-ghost-cache-sync.js | 273 | 356d2cabc722 |

@@ -338,7 +338,7 @@
         "mallangGifts": {
           ".write": true,
           "$giftId": {
-            ".validate": "newData.hasChildren(['imgUrl','ts']) && newData.child('imgUrl').isString() && newData.child('imgUrl').val().length <= 400 && (!newData.child('fromName').exists() || newData.child('fromName').val().length <= 20) && (!newData.child('fromId').exists() || newData.child('fromId').val().length <= 40) && newData.child('ts').isNumber() && (!newData.child('msg').exists() || (newData.child('msg').isString() && newData.child('msg').val().length <= 50)) && (!newData.child('hidden').exists() || newData.child('hidden').isBoolean())"
+            ".validate": "newData.hasChildren(['imgUrl','ts']) && newData.child('imgUrl').isString() && newData.child('imgUrl').val().length <= 400 && (!newData.child('fromName').exists() || newData.child('fromName').val().length <= 20) && (!newData.child('fromId').exists() || newData.child('fromId').val().length <= 40) && newData.child('ts').isNumber() && (!newData.child('msg').exists() || (newData.child('msg').isString() && newData.child('msg').val().length <= 50)) && (!newData.child('hidden').exists() || newData.child('hidden').isBoolean()) && (!newData.child('starred').exists() || newData.child('starred').isBoolean())"
           }
         },
         "mallangGiftCount": {

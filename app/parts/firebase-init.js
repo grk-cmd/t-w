@@ -1614,6 +1614,12 @@
       try{ await set(ref(db, `users/${userId}/mallangGifts/${giftId}/hidden`), !!hidden); return { ok:true }; }
       catch(e){ return { ok:false }; }
     },
+    /* ⭐ 선물 즐겨찾기 — 서버에 둔다(로컬이면 다른 기기의 자동 정리가 모르고 지운다).
+       끌 때는 칸을 지워 구버전과 같은 모양으로 되돌린다. */
+    async setMallangGiftStarred(userId, giftId, on){
+      try{ await set(ref(db, `users/${userId}/mallangGifts/${giftId}/starred`), on ? true : null); return { ok:true }; }
+      catch(e){ return { ok:false }; }
+    },
     // 안 읽은 선물 뱃지용 — 마지막 확인 시각 저장/조회
     async getMallangGiftSeen(userId){
       try{ const s=await get(ref(db, `users/${userId}/mallangGiftSeen`)); const v=s.val(); return (typeof v==='number')?v:0; }

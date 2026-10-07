@@ -147,6 +147,8 @@
          var() 로만 받는다 — 같은 색을 두 곳에 복사하지 않게 되는 것은 덤이다. */
     --fly-rainbow:linear-gradient(90deg,#FF4D4D,#FFB84D,#FFF04D,#5BE36A,#4DC8FF,#9B5BFF,#FF5BC8);
     --win-error:#B5624A;       /* 에러/경고 */
+    --win-star:#C9A227;        /* ⭐ 즐겨찾기 테두리 (선물함) */
+    --win-star-bg:#FFF6C8;     /* ⭐ 즐겨찾기 칸 배경 */
 
     /* ===== 🎨 '모양' 토큰 — 테마가 갈아끼우는 값들 =====
        기본 테마에서는 전부 지금까지의 Win98 그대로다. 즉 테마를 켜기 전에는 화면이 1px도 안 바뀐다. */
@@ -208,6 +210,8 @@
     --win-ink:#333B3E;
     --win-ink-soft:#6E777A;
     --win-error:#D9705E;
+    --win-star:#E8B930;
+    --win-star-bg:#FFF8DA;
     --win-pop:var(--acc-pop, #FFC24B);
     --win-accent:var(--acc-d, #6BA82F);
 
@@ -2039,6 +2043,32 @@
   .gift-cell.out img{opacity:.45;}
   .gift-cell.out:hover img{opacity:.8;}
   .gift-cell:not(.empty):hover{border-color:var(--win-title-b);}
+  /* ⭐ 즐겨찾기 — 「치움」(.out, 그림만 흐림)과 겹쳐도 테두리·배경으로 둘 다 읽힌다. */
+  .gift-cell.star{background:var(--win-star-bg);border-color:var(--win-star);box-shadow:inset 0 0 0 1px var(--win-star);}
+  .gift-cell.star:hover{border-color:var(--win-star);}
+  .gift-star{position:absolute;top:0;right:1px;z-index:1;padding:0 1px;font-size:11px;line-height:1.1;
+    cursor:pointer;color:var(--ink-soft);opacity:0;}
+  .gift-cell:hover .gift-star, .gift-cell.star .gift-star{opacity:1;}
+  .gift-cell.star .gift-star{color:var(--win-star);}
+  /* 꽉 찼을 때 다음 선물이 오면 지워질 칸 */
+  .gift-next{position:absolute;left:0;right:0;bottom:0;font-size:8.5px;line-height:1.5;text-align:center;
+    background:var(--win-error);color:#fff;pointer-events:none;}
+  .gift-head{max-width:430px;margin:0 auto;padding:2px 8px 0;text-align:right;font-size:10.5px;color:var(--ink-soft);}
+  /* 선물함 확인창 — **#myHomeWin 안에** 붙는다(body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다). */
+  .mh-ask-ov{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.35);}
+  .mh-ask-win{width:min(320px,92%);background:var(--win-face);
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.4));border-radius:var(--win-radius-el) !important;}
+  .mh-ask-win .ma-head{padding:3px 6px;background:var(--win-title-grad);color:var(--win-title-ink);font-size:11px;font-weight:bold;}
+  .mh-ask-win .ma-body{padding:14px 14px 0;font-size:11.5px;color:var(--ink);line-height:1.7;white-space:pre-line;}
+  .mh-ask-win .ma-foot{display:flex;justify-content:flex-end;gap:6px;padding:14px;}
+  .mh-ask-win .ma-foot button{min-width:68px;padding:3px 10px;font-size:11px;cursor:pointer;
+    font-family:Tahoma,'Malgun Gothic',sans-serif;color:var(--ink);background:var(--win-face);
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    border-radius:var(--win-radius-el) !important;}
+  .mh-ask-win .ma-foot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  .mh-ask-win .ma-foot button.danger{color:var(--ink-danger, #7a1f1f);font-weight:bold;}
 
   /* 🎰 파츠 보관함 / 가챠 뽑기 — idesk 창과 같은 관례(배경 안 어둡게, 떠 있는 창).
      ⚠️ 색은 전부 토큰 경유다. 하드코딩하면 버블 테마에서 이 창만 Win98로 남는다(audit 검사 12·13). */

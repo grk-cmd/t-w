@@ -818,7 +818,31 @@
      화면에 안 띄울 giftId만 로컬에 기억한다. 선물함에서 클릭하면 이 목록에서 빼고 다시 소환.
      ★ 로컬 저장이라 DB 규칙을 건드리지 않는다(비용·호환 위험 없음). 기기마다 따로 관리됨. */
   const GIFT_HIDE_KEY = 'tw.mallangGiftHidden';
-  const GIFT_MAX = 30;   // ★ 선물함 보관 개수. 넘치면 가장 오래된 것부터 서버에서 삭제.
+  const GIFT_MAX = 30;   // ★ 선물함 보관 개수. 넘치면 ⭐ 아닌 것 중 가장 오래된 것부터 서버에서 삭제.
+  /* ⭐ 즐겨찾기 — `mallangGifts/{id}/starred` (서버). 로컬에 두면 안 된다: 자동 정리는 그 계정의
+     **어느 기기에서든** 돌아서, 다른 PC 가 ⭐ 를 모른 채 지운다.
+     ⚠️ 알려진 한계 — 업데이트 안 한 기기는 starred 를 몰라 옛 방식(오래된 순)으로 지울 수 있다.
+       여러 기기를 쓰는 사람만 해당되고, 업데이트 공지로 대응한다.
+     ★ 상한(20)이 GIFT_MAX(30)보다 작아야 자동 정리가 늘 지울 칸을 찾는다. */
+  const GIFT_STAR_MAX = 20;
+  const _isStar = (g)=> !!(g && g.starred === true);
+  /* 선물함 격자 순서 — ⭐(최신순) → 나머지(최신순). 한 격자 안에서 순서만 바뀐다. */
+  function giftOrder(gifts){
+    const ids = Object.keys(gifts || {});
+    const byNew = (a,b)=>((gifts[b]&&gifts[b].ts)||0)-((gifts[a]&&gifts[a].ts)||0);
+    return ids.filter(id=>_isStar(gifts[id])).sort(byNew)
+      .concat(ids.filter(id=>!_isStar(gifts[id])).sort(byNew));
+  }
+  /* 보관 한도를 넘친 만큼 지울 것 — ⭐ 아닌 것 중 오래된 것부터. */
+  function giftOverflow(gifts){
+    const ids = Object.keys(gifts || {});
+    if(ids.length <= GIFT_MAX) return [];
+    const plain = ids.filter(id=>!_isStar(gifts[id]))
+      .sort((a,b)=>((gifts[a]&&gifts[a].ts)||0)-((gifts[b]&&gifts[b].ts)||0));
+    return plain.slice(0, ids.length - GIFT_MAX);
+  }
+  window._mallangGiftOrder = giftOrder;
+  window._mallangGiftLimits = { max: GIFT_MAX, starMax: GIFT_STAR_MAX };
   function _hiddenSet(){
     try{ const a = JSON.parse(localStorage.getItem(GIFT_HIDE_KEY) || '[]');
          return new Set(Array.isArray(a) ? a : []); }catch(_){ return new Set(); }
@@ -840,16 +864,31 @@
     }catch(_){ return 'error'; }
   };
 
+  /* 선물함 우클릭 → 영구 삭제 (app.js 가 확인창을 띄운 뒤 호출).
+     서버(+Storage 사본)에서 지우고, 마이홈에 나와 있는 그 말랑이와 로컬 치움 목록에서도 뺀다.
+     ⚠️ ⭐ 는 여기서 한 번 더 막는다 — 확인창을 거치지 않는 호출이 생겨도 즐겨찾기는 안 지워진다. */
+  window._mallangDeleteGift = async function(giftId, gift){
+    if(!giftId) return 'error';
+    if(_isStar(gift)) return 'starred';
+    if(!fbReady() || !firebaseAPI.deleteMallangGift) return 'error';
+    const r = await firebaseAPI.deleteMallangGift(myId(), giftId).catch(()=>null);
+    if(!(r && r.ok)) return 'error';
+    live.filter(x=>x.gift && x.gift.giftId===giftId).forEach(inst=>{ try{ inst.el.remove(); }catch(_){} });
+    live = live.filter(x=>!(x.gift && x.gift.giftId===giftId));
+    if(!live.length && rafId){ cancelAnimationFrame(rafId); rafId=null; }
+    const h=_hiddenSet(); if(h.delete(giftId)) _saveHidden(h);
+    return 'ok';
+  };
+
   /* ── 🎁 받은 선물 말랑이 로드/소환 ── */
   async function loadGifts(ownerId){
     if(!fbReady() || !firebaseAPI.getMallangGifts) return;
     const gifts = await firebaseAPI.getMallangGifts(ownerId).catch(()=>({})) || {};
     const isOwner = (ownerId===myId());
     let ids = Object.keys(gifts);
-    // ★ 보관 한도 — 내 집일 때만, 오래된 것부터 서버에서 정리(최신 GIFT_MAX개 유지)
+    // ★ 보관 한도 — 내 집일 때만, ⭐ 아닌 것 중 오래된 것부터 서버에서 정리(GIFT_MAX개 유지)
     if(isOwner && ids.length > GIFT_MAX && firebaseAPI.deleteMallangGift){
-      const byOld = ids.slice().sort((a,b)=>(gifts[a].ts||0)-(gifts[b].ts||0));
-      const drop = byOld.slice(0, ids.length - GIFT_MAX);
+      const drop = giftOverflow(gifts);
       drop.forEach(id=>{ try{ firebaseAPI.deleteMallangGift(ownerId, id); }catch(_){} delete gifts[id]; });
       ids = Object.keys(gifts);
     }
