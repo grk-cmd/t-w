@@ -87,3 +87,33 @@ test('아이템 — 끌어 놓은 순서를 쓰고, 고른 것만 한 묶음으�
   expect(await fileExists('catalog/items/x.glb')).toBe(true); // 남은 스탠드가 같은 파일을 쓴다
   expect(await dbGet<number>('catalogMeta/items')).toBeGreaterThan(reorderedAt!);
 });
+
+test('책상 · 아이템 — 장착 N명과 많이 쓰는 순', async ({ page, seed }) => {
+  const glbUrl = await upload('catalog/desks/pop.glb');
+  await seed({
+    catalog: {
+      desks: {
+        __default_desk__: { name: '기본 책상', icon: '🪵', glbUrl, order: 0 },
+        d1: { name: '나무책상', icon: '🪵', glbUrl, order: 1 },
+      },
+      items: {
+        plant: { name: '화분', icon: '🪴', glbUrl, order: 0 },
+        i1: { name: '머그컵', icon: '☕', glbUrl, order: 1 },
+      },
+    },
+    metrics: { parts: { equipped: { desks: { __default_desk__: 1, d1: 12 }, items: { i1: 4 } } } },
+  });
+  const desks = await openTab(page, '책상');
+  await expect(row(desks, '나무책상')).toContainText('장착 12명');
+  await expect(row(desks, '기본 책상')).toContainText('장착 1명');
+  await desks.getByLabel('정렬').selectOption({ label: '많이 쓰는 순' });
+  await expect(desks.locator('.row').first()).toContainText('나무책상');
+
+  await page.getByRole('tab', { name: '아이템', exact: true }).click();
+  const items = card(page, '아이템');
+  await expect(row(items, '화분')).toContainText('장착 0명');
+  await expect(row(items, '머그컵')).toContainText('장착 4명');
+  await expect(items.locator('.row').first()).toContainText('화분'); // 탭마다 처음엔 진열 순서
+  await items.getByLabel('정렬').selectOption({ label: '많이 쓰는 순' });
+  await expect(items.locator('.row').first()).toContainText('머그컵');
+});

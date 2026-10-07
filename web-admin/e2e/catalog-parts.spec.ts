@@ -106,3 +106,39 @@ test('파츠 — 카테고리 안에서 끌어 놓으면 order 를 한 묶음으
   expect(await dbGet('catalog/parts/a/order')).toBe(1);
   expect(await dbGet('catalog/parts/g/order')).toBe(0);
 });
+
+test('파츠 · 가챠 파츠 — 장착 N명이 보이고, 많이 쓰는 순으로 고르면 카테고리 안에서 다시 선다', async ({
+  page,
+  seed,
+}) => {
+  const url = await upload('catalog/parts/pop.glb');
+  await seed({
+    catalog: {
+      parts: {
+        a: part('hat', '첫모자', 0, url),
+        b: part('hat', '둘모자', 1, url),
+        c: part('hat', '셋모자', 2, url),
+        g: part('glasses', '안경하나', 0, url),
+      },
+      gachaParts: { k: part('hat', '반짝모자', 0, url) },
+    },
+    // 서버 함수가 적는 자리 — 파츠 · 가챠 파츠 둘 다 parts 아래. 0 이하 · 없는 항목은 0명.
+    metrics: { parts: { equipped: { parts: { c: 7, b: 2, a: 0, k: 3 } } } },
+  });
+  const list = await openParts(page);
+  const hats = list.getByRole('group', { name: /모자 · hat/ });
+  await expect(row(hats, '셋모자')).toContainText('장착 7명');
+  await expect(row(hats, '첫모자')).toContainText('장착 0명');
+  await expect(row(list, '안경하나')).toContainText('장착 0명');
+  await expect(hats.locator('.row').first()).toContainText('첫모자'); // 처음엔 진열 순서
+
+  await list.getByLabel('정렬').selectOption({ label: '많이 쓰는 순' });
+  await expect(hats.locator('.row').nth(0)).toContainText('셋모자');
+  await expect(hats.locator('.row').nth(1)).toContainText('둘모자');
+  await expect(hats.locator('.row').nth(2)).toContainText('첫모자');
+  await expect(row(hats, '셋모자')).toHaveAttribute('draggable', 'false'); // 이 순서에선 끌어 놓기 없음
+  expect(await dbGet('catalog/parts/a/order')).toBe(0); // 정렬은 화면만 — 진열 순서는 그대로
+
+  await page.getByRole('tab', { name: '가챠 파츠', exact: true }).click();
+  await expect(row(card(page, '가챠 파츠'), '반짝모자')).toContainText('장착 3명');
+});

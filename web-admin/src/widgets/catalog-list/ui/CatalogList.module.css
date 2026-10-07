@@ -30,3 +30,18 @@
   height: 100%;
   object-fit: contain;
 }
+
+.off {
+  visibility: hidden;
+}
+
+.equip {
+  flex: 0 0 auto;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
