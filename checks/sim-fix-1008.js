@@ -97,6 +97,22 @@ say('§4 영상 겹침 실험이 재부팅 후 꺼짐 — 부팅 판정이 막�
   }
 }
 
+say('§12 내 캐릭터(동물 포함)를 쓰다듬으면 상대 화면에도 하트');
+{
+  const up = APP.slice(APP.indexOf("Presence.poke(seat.friendId, 'pet');"), APP.indexOf("Presence.poke(seat.friendId, 'pet');") + 1400);
+  chk(/else if\(seat\.isMe && !seat\.isExtra && Presence\.active\(\) && Presence\.pokeSelf\)\{/.test(up), '★ 내 좌석 클릭도 pokeSelf(\'pet\') 로 알린다 (자리추가 좌석은 제외)');
+  chk(/if\(_t - _myPetSentAt >= MY_PET_SEND_GAP_MS\)\{ _myPetSentAt = _t; Presence\.pokeSelf\('pet'\); \}/.test(up), '  0.5초 쓰로틀');
+  chk(/const MY_PET_SEND_GAP_MS = 500, MY_PET_ECHO_MS = 1500;/.test(APP), '  간격 500ms · 에코 창 1.5초');
+  chk(/if\(p\.type==='pet'\)\{\s*\/\/[^\n]*\n\s*if\(performance\.now\(\) - _myPetLocalAt < MY_PET_ECHO_MS\) return;/.test(APP), '★ 내 노드로 돌아온 에코는 건너뛴다 (내 화면 하트 두 번 방지)');
+  // 흉내: 0ms·100ms·600ms 클릭 → 보내기 2번, 에코(+300ms)는 무시, 2초 뒤 친구가 쓰다듬은 것은 재생
+  let sentAt = -Infinity, localAt = -Infinity, sent = 0;
+  const click = (t) => { localAt = t; if (t - sentAt >= 500) { sentAt = t; sent++; } };
+  const recv = (t) => !(t - localAt < 1500);
+  [0, 100, 600].forEach(click);
+  chk(sent === 2, '  흉내 — 0 · 100 · 600ms 연타 → 2번만 보낸다 (' + sent + ')');
+  chk(!recv(900) && recv(2600), '  흉내 — 직후 에코는 무시, 한참 뒤 남이 쓰다듬은 것은 재생');
+}
+
 say('');
 say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅');
 process.exit(fail ? 1 : 0);

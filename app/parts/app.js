@@ -23305,6 +23305,16 @@ canvas.addEventListener('pointerup',e=>{
       triggerPet(seat); for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('♥','#f2607d',seat),i*320);
       dismissSeatHeadBubble(seat);   // 말풍선 떠 있으면 클릭으로 숨김
       if(seat.remote && seat.friendId && Presence.active()) Presence.poke(seat.friendId, 'pet');   // 남의 캐릭터 쓰다듬으면 그 사람에게 알림
+      /* 💗 [2026-10-08 제보 #12] **내 캐릭터**를 쓰다듬은 것도 방에 알린다 — 예전엔 남의 캐릭터만 알려서
+         내가 내 캐릭터(동물 포함)를 눌러도 상대 화면에는 하트가 안 떴다.
+         ★ 0.5초 쓰로틀 — 연타하면 쓰기가 그만큼 늘어난다. 로컬 하트는 위에서 매번 그대로 뜬다.
+         ★ 자리추가 좌석(isExtra)은 내 화면에만 있는 것이라 알리지 않는다.
+         ★ 내 노드로 돌아오는 에코는 수신부(_myPetLocalAt)에서 건너뛴다 — 안 그러면 내 화면 하트가 두 번이다. */
+      else if(seat.isMe && !seat.isExtra && Presence.active() && Presence.pokeSelf){
+        const _t = performance.now();
+        _myPetLocalAt = _t;
+        if(_t - _myPetSentAt >= MY_PET_SEND_GAP_MS){ _myPetSentAt = _t; Presence.pokeSelf('pet'); }
+      }
     }
   } else if(drag.mode==='shake'){
     seat.beingShaken = false;
@@ -23399,6 +23409,9 @@ const FLOATER_DRIFT_X    = 0.15;  // ★ 떠오르며 좌우로 흘러가는 속
 const FLOATER_RISE       = 0.3;   // ★ 떠오르는 속도(=세로로 퍼지는 범위).
 const FLOATER_HEAD_Y     = 0.65;  // ★ 캐릭터 기준 생성 높이. 낮추면 더 아래에서 생겨남(인간 기준, 동물은 자동 40%).
 const FLOATER_BURST      = 5;     // ★ 쓰다듬기·어지러움 등 한 번에 터지는 개수(기존 3 → 1.5배).
+/* 💗 내 캐릭터 쓰다듬기 방송(제보 #12) — 보내는 간격 · 내 노드로 돌아온 에코를 무시하는 창 */
+const MY_PET_SEND_GAP_MS = 500, MY_PET_ECHO_MS = 1500;
+let _myPetSentAt = -Infinity, _myPetLocalAt = -Infinity;
 function _floaterK(){ return 1 / Math.max(0.1, (typeof focusCharScale==='number' ? focusCharScale : 1)); }
 function spawnFloater(ch,color,seat){
   if(!emojiReactionsEnabled) return;   // 설정에서 꺼두면 zzz/하트/💫 등 이모지 반응 생성 안 함
@@ -30339,7 +30352,11 @@ const Presence=(()=>{
           if(_joinedAt && _pts < _joinedAt - POKE_SKEW_MS) return;   // 내가 들어오기 전에 찍힌 값
           if(!_pokeFresh(_pts)) return;                              // 유통기한 지난 값
         }
-        if(p.type==='pet'){ triggerPet(me); for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('♥','#f2607d',me),i*320); }
+        if(p.type==='pet'){
+          // 💗 방금 내가 직접 쓰다듬은 것의 에코면 건너뛴다(이미 로컬에서 하트를 띄웠다 — 제보 #12)
+          if(performance.now() - _myPetLocalAt < MY_PET_ECHO_MS) return;
+          triggerPet(me); for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('♥','#f2607d',me),i*320);
+        }
         else if(p.type==='dizzy'){ me.dizzyUntil=performance.now()+2500; for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('💫','#f5a94f',me),i*300); }
         else if(typeof p.type==='string' && p.type.indexOf('fly:')===0){ applyRemoteFly(me, p.type.slice(4)); }   // 🪑 내가 날아간다 — 연속 횟수도 여기서 센다
         /* 🪄 내가 맞았다. 내가 나를 때린 경우도 이 노드로 돌아오는데, 그건 이미 로컬에서
