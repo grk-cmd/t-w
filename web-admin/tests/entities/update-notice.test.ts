@@ -4,7 +4,7 @@ import {
   clearUpdateNotice,
   getUpdateNotice,
   publishUpdateNotice,
-} from '@/entities/update-notice';
+} from '@/entities/notice/update-notice';
 import { fakeDb, withoutAudits, NOW } from '../shared/fakeDb';
 
 describe('업데이트 공지', () => {

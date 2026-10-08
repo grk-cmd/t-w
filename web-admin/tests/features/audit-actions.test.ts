@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { publishAnnounce } from '@/entities/announce';
+import { publishAnnounce } from '@/entities/notice/announce';
 import type { CatalogEntry } from '@/entities/catalog';
 import { sendBroadcast } from '@/entities/inbox';
 import { createLicense } from '@/entities/license';

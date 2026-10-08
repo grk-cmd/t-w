@@ -1,5 +1,7 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
+import { licenseStatus, type License } from '@/entities/license/@x/user';
+import type { UserLicense } from '../model/userRow';
 import { cleanVer } from '../model/version';
 
 const FRIEND_CODE_PREFIXES = ['MATE', 'COZY'];
@@ -115,4 +117,21 @@ export function useUserFocusSec(uid: string) {
 export function useUserName(uid: string, enabled: boolean) {
   const db = useDb();
   return useQuery({ queryKey: ['userName', uid], queryFn: () => getUserName(db, uid), enabled });
+}
+
+/**
+ * 한 사람의 라이선스 상태 — 계정 요약의 키 한 칸 + 그 키 한 건만 읽는다(목록 통째 읽기 없음).
+ * 사용자 목록(buildUserRows)과 같은 판정: 키 없음 none · 발급 목록에 없음 unknown · 그 밖은 licenseStatus.
+ */
+export async function getUserLicense(db: Db, uid: string): Promise<UserLicense> {
+  const raw = await db.get<unknown>(`accountSnap/${uid}/license`);
+  const key = typeof raw === 'string' ? raw.trim().toUpperCase() : '';
+  if (!key) return 'none';
+  const license = await db.get<License>(`licenses/${key}`);
+  return license ? licenseStatus(license) : 'unknown';
+}
+
+export function useUserLicense(uid: string) {
+  const db = useDb();
+  return useQuery({ queryKey: ['userLicense', uid], queryFn: () => getUserLicense(db, uid) });
 }
