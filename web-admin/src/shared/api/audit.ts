@@ -33,6 +33,7 @@ export const AUDIT_ACTIONS = [
   'settings.adBanner',
   'settings.unlockLevel',
   'settings.minRoomVer',
+  'settings.minAppVer',
   'room.close',
   'room.closeAll',
   'room.cleanGhost',

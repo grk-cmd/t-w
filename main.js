@@ -2360,6 +2360,8 @@ function createWindow() {
 
   // 렌더러가 "지금 재시작해서 설치" 버튼을 눌렀을 때 — 다운로드 완료된 업데이트를 설치하며 앱 재시작
   ipcMain.on('companion:installUpdate', () => { autoUpdater.quitAndInstall(); });
+  // 앱 최소 버전 화면(app-version-gate.js)의 «다시 시도» — 처음 확인이 실패했을 때 한 번 더. 갈래는 startUpdateCheck 한 곳.
+  ipcMain.on('companion:checkUpdate', () => { startUpdateCheck(); });
 
   // 광고 배너 클릭 등 — 시스템 기본 브라우저(크롬/웨일 등 사용자가 설정한 기본 브라우저)로 URL 열기.
   ipcMain.on('companion:openBrowser', (e, url) => {
