@@ -9961,6 +9961,87 @@ function _picIntersect(ray, meshes){
   }
   return best;
 }
+/* 🩹 [2026-10-08 제보 #3] 도장 «감아 칠하기» — 턱 아래처럼 정면 광선이 못 맞히는 곳까지 이어서 칠한다.
+   [왜] 도장은 지금 카메라 정면에서 격자마다 광선을 쏴 **앞면에 맞은 점만** 찍는다. 턱 밑은 아래를 향해서
+     정면 광선이 스쳐 지나가고, 그 칸은 버려졌다(「얼굴을 벗어나 잘렸어요」).
+   [방법] 빗나간 격자점마다 그 광선이 얼굴 중심에 가장 가까워지는 점 P 를 잡고, 중심에서 P 쪽 바깥에서
+     **중심을 향해** 다시 쏜다(방사 투영). 맞은 곳은 턱 밑 표면의 실제 자리라, 도장 아랫부분이 턱선을 넘어
+     감기듯 이어지고 비스듬한 면이라 그만큼 늘어나 보인다(요청한 모양).
+   ⚠️ 예전 «번짐 띠»(EXTRA_MAX 주석)와 원리가 다르다 — 그건 추정 UV 가 텍스처 가장자리 한 점에 뭉쳐서 났다.
+     여기 점들은 전부 메시의 실제 다른 자리라 뭉치지 않는다. 그래도 엉뚱한 곳(귀 · 뒤통수)으로 튀지 않게
+     ① 이미 맞은 이웃에서 한 고리씩만 자라고(STAMP_WRAP_RINGS) ② 이웃 점과 3D 거리가 보통 간격의 4배를 넘으면 버리고
+     ③ 얼굴 **아래쪽**(중심보다 아래 방향)만 감는다. 이음새 판정(_uvFar)은 그리기 단계에서 그대로 한 번 더 걸린다.
+   ★ 사람(commitStamp) · 동물(animal.js aCommitStamp)이 같이 쓴다. */
+const STAMP_WRAP_RINGS = 6;          // 실루엣 밖으로 몇 칸까지 감을지(격자 칸 수)
+const STAMP_WRAP_MAX_STEP = 4;       // 이웃과의 3D 거리 상한 — 보통 격자 간격의 배수
+const STAMP_WRAP_DOWN = -0.35;
+const STAMP_WRAP_MAX_R = 0.35;        // 이웃과의 3D 거리 상한(얼굴 반지름 비율) — 이보다 멀면 다른 부위로 튄 것       // 이 값보다 아래를 향한 쪽만 감는다(얼굴 위쪽 축 기준 cos)
+function _stampWrapCenter(mesh){
+  const g = mesh && mesh.geometry; if(!g) return null;
+  if(!g.boundingSphere) g.computeBoundingSphere();
+  if(!g.boundingSphere) return null;
+  mesh.updateMatrixWorld(true);
+  const c = g.boundingSphere.center.clone().applyMatrix4(mesh.matrixWorld);
+  const sc = new THREE.Vector3().setFromMatrixScale(mesh.matrixWorld);
+  const up = new THREE.Vector3(0,1,0).applyQuaternion(mesh.getWorldQuaternion(new THREE.Quaternion())).normalize();
+  return { c, r: g.boundingSphere.radius * Math.max(Math.abs(sc.x), Math.abs(sc.y), Math.abs(sc.z)), up };
+}
+/* arr: 격자 (N+1)² — {x,y,p?} 또는 null. rays: 빗나간 칸 표시(감아 칠할 후보). 채운 칸 수를 돌려준다.
+   [걷기] 빗나간 칸 옆의 맞은 점 Q 와 그 안쪽 점 Q2 가 향하던 방향(Q−Q2)으로 **한 칸 크기만큼** 더 나간 자리 T 를 잡고,
+     얼굴 중심에서 T 쪽 바깥에서 중심을 향해 쏴 표면에 다시 붙인다. 다음 고리는 그 점에서 또 한 칸 — 그래서 턱선을 넘어
+     표면을 따라 고르게 감겨 들어간다.
+   ⚠️ «광선이 중심에 가장 가까운 점» 으로 붙이는 방식은 처음에 썼다가 버렸다 — 아래 칸으로 갈수록 점이 턱 밑 한 곳에
+     몰리고 앞쪽으로 되돌아와 그림이 접혔다(구 흉내에서 확인). */
+function _stampWrapFill(arr, N, rays, meshes, ctr){
+  if(!ctr || !meshes || !meshes.length) return 0;
+  const W = N + 1, ds = [];
+  for(let j=0;j<=N;j++) for(let i=0;i<N;i++){
+    const a = arr[j*W+i], b = arr[j*W+i+1];
+    if(a && b && a.p && b.p) ds.push(a.p.distanceTo(b.p));
+  }
+  for(let j=0;j<N;j++) for(let i=0;i<=N;i++){
+    const a = arr[j*W+i], b = arr[(j+1)*W+i];
+    if(a && b && a.p && b.p) ds.push(a.p.distanceTo(b.p));
+  }
+  if(!ds.length) return 0;
+  ds.sort((x,y)=>x-y);
+  const cell = Math.max(1e-6, ds[ds.length>>1]);   // 칸 크기(3D) — 걸음 한 번의 길이
+  /* 이웃과의 3D 거리 상한 — 칸 크기의 배수, 단 얼굴 반지름의 일정 비율까지는 허용(턱선 바로 밑은 원래 벌어져 있다). */
+  const maxStep = Math.max(cell * STAMP_WRAP_MAX_STEP, ctr.r * STAMP_WRAP_MAX_R);
+  const ray = new THREE.Ray(), T = new THREE.Vector3(), dir = new THREE.Vector3(), v = new THREE.Vector3();
+  const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
+  let filled = 0;
+  for(let ring=0; ring<STAMP_WRAP_RINGS; ring++){
+    const add = [];
+    for(let j=0;j<=N;j++) for(let i=0;i<=N;i++){
+      const k = j*W+i;
+      if(arr[k] || !rays[k]) continue;
+      let best = null;
+      for(const [di,dj] of DIRS){
+        const i1 = i+di, j1 = j+dj, i2 = i+2*di, j2 = j+2*dj;
+        if(i2<0||i2>N||j2<0||j2>N) continue;
+        const q = arr[j1*W+i1], q2 = arr[j2*W+i2];
+        if(!q || !q2 || !q.p || !q2.p) continue;
+        dir.copy(q.p).sub(q2.p); const L = dir.length(); if(L < 1e-9) continue;
+        T.copy(q.p).addScaledVector(dir, cell / L);      // 같은 방향으로 한 칸 더
+        v.copy(T).sub(ctr.c); const len = v.length(); if(len < 1e-6) continue;
+        v.multiplyScalar(1/len);
+        if(v.dot(ctr.up) > STAMP_WRAP_DOWN) continue;   // 아래쪽만
+        ray.origin.copy(ctr.c).addScaledVector(v, ctr.r * 2.5);
+        ray.direction.copy(v).negate();
+        const h = _picIntersect(ray, meshes);
+        if(!h || !h.uv) continue;
+        const dq = h.point.distanceTo(q.p);
+        if(dq > maxStep || dq < cell * 0.2) continue;   // 멀리 튐 · 제자리(더 못 감음)
+        if(!best || dq < best.d) best = { d: dq, u: { x:h.uv.x, y:h.uv.y, p:h.point.clone(), wrap:true } };
+      }
+      if(best) add.push([k, best.u]);
+    }
+    if(!add.length) break;
+    add.forEach(([k,u])=>{ arr[k] = u; }); filled += add.length;
+  }
+  return filled;
+}
 function _wdPicHit(e){
   const cv=document.getElementById('wdPreviewCanvas'); if(!cv || !_wdPic.meshes.length) return null;
   const r=cv.getBoundingClientRect();
@@ -25501,6 +25582,7 @@ function commitStamp(){
   }
   // 각 격자 점의 face UV(있으면) 계산
   const uvs=[]; // [j*(N+1)+i] = {uv:{x,y}} or null
+  const _wrapRays=[];   // 빗나간 칸의 광선 — 감아 칠하기용
   for(let j=0;j<=N;j++){
     for(let i=0;i<=N;i++){
       const lx=(i/N-0.5)*w, ly=(j/N-0.5)*h;
@@ -25508,9 +25590,15 @@ function commitStamp(){
       // 화면 좌표 → NDC (캔버스 픽셀 크기는 r.width/r.height 사용)
       _pndc.x=(sp.x/r.width)*2-1; _pndc.y=-(sp.y/r.height)*2+1;
       _pray.setFromCamera(_pndc,cCam);
-      uvs.push(_stampFaceHit());
+      const _h=_stampFaceHit();
+      uvs.push(_h);
+      if(!_h) _wrapRays[uvs.length-1]={o:_pray.ray.origin.clone(), d:_pray.ray.direction.clone()};
     }
   }
+  // 🩹 #3 감아 칠하기 — 턱 밑처럼 정면에서 못 맞힌 칸을 이웃에서부터 이어 채운다(_stampWrapFill 주석)
+  const _wrapCtr=_stampWrapCenter(cBase.face);
+  const _wrapN=_stampWrapFill(uvs, N, _wrapRays, [cBase.face], _wrapCtr);
+  if(_wrapN) console.log('[도장] 감아 칠한 격자점', _wrapN);
   pushHistory();
   // 가장자리 폐기 셀의 UV를 인접 유효 셀에서 *바깥으로 외삽*해서 채움 — 도장이 얼굴을 더 꽉 채우게
   // 외삽한 UV가 0..1 약간 벗어나는 범위(-0.05..1.05)까지는 클램프해서 살리고, 그 밖은 폐기.
@@ -25680,15 +25768,18 @@ function commitStamp(){
     const octx=off.getContext('2d'); octx.translate(imgW,0); octx.scale(-1,1); octx.drawImage(stampImg,0,0);
     const savedImg=stampImg; stampImg=off;
     // 격자 raycast 다시
-    const uvs2=[];
+    const uvs2=[], _wrapRays2=[];
     const cs2=Math.cos(stampPlace.rot), sn2=Math.sin(stampPlace.rot);
     for(let j=0;j<=N;j++){ for(let i=0;i<=N;i++){
       const lx=(i/N-0.5)*stampPlace.w, ly=(j/N-0.5)*stampPlace.h;
       const sx=stampPlace.cx+lx*cs2-ly*sn2, sy=stampPlace.cy+lx*sn2+ly*cs2;
       _pndc.x=(sx/r.width)*2-1; _pndc.y=-(sy/r.height)*2+1;
       _pray.setFromCamera(_pndc,cCam);
-      uvs2.push(_stampFaceHit());   // 🩹 원본 도장과 같은 판정(앞면 · 3D 위치 포함)
+      const _h2=_stampFaceHit();
+      uvs2.push(_h2);   // 🩹 원본 도장과 같은 판정(앞면 · 3D 위치 포함)
+      if(!_h2) _wrapRays2[uvs2.length-1]={o:_pray.ray.origin.clone(), d:_pray.ray.direction.clone()};
     }}
+    _stampWrapFill(uvs2, N, _wrapRays2, [cBase.face], _wrapCtr);   // 거울 도장도 같이 감는다
     extrapolateUVs(uvs2, N);
     for(let j=0;j<N;j++){ for(let i=0;i<N;i++){
       const a=uvs2[j*(N+1)+i], b=uvs2[j*(N+1)+(i+1)], c=uvs2[(j+1)*(N+1)+i], d=uvs2[(j+1)*(N+1)+(i+1)];

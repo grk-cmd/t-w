@@ -188,6 +188,42 @@ say('§2 계정을 바꾼 뒤 자동 저장이 옛 계정 마이홈으로 덮어
   chk(!sim('uA', 'uB').saved && sim('uA', 'uA').saved, '  흉내 — 바뀐 계정이면 안 쓰고, 같은 계정이면 쓴다');
 }
 
+say('§3 표정 도장 — 턱 아래로 감아 칠하기 (공 모양 머리 흉내)');
+{
+  const THREE_SRC = (() => { for (const c of ['three.min.js', 'vendor/three/three.min.js', 'app/vendor/three/three.min.js', '../app/vendor/three/three.min.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
+  const AN = read('animal.js');
+  if (!THREE_SRC) say('  · three.min.js 가 이 폴더에 없어 흉내는 건너뜀');
+  else {
+    const vm = require('vm'); const ctx = {}; vm.createContext(ctx);
+    vm.runInContext(THREE_SRC, ctx);
+    const g = (re) => (APP.match(re) || [''])[0];
+    const src = ['const _picCastRay=new THREE.Raycaster();', g(/const _pskVec=new THREE\.Vector3\(\)[\s\S]*?\nconst _pskLA=[^\n]*\n/),
+      'function _picIsSkinned(o){ return false; } function _picSkinnedIntersect(){ return null; }',
+      g(/function _picIntersect\(ray, meshes\)\{[\s\S]*?\n\}/),
+      g(/const STAMP_WRAP_RINGS[\s\S]*?\nfunction _wdPicHit/).replace(/\nfunction _wdPicHit$/, '')].join('\n');
+    vm.runInContext(src + '\nthis._stampWrapFill=_stampWrapFill; this._stampWrapCenter=_stampWrapCenter; this._picIntersect=_picIntersect;', ctx);
+    const out = vm.runInContext(`(()=>{
+      const head=new THREE.Mesh(new THREE.SphereGeometry(1,48,32), new THREE.MeshBasicMaterial({side:THREE.DoubleSide})); head.updateMatrixWorld(true);
+      const cam=new THREE.PerspectiveCamera(30,1,0.1,100); cam.position.set(0,0,6); cam.lookAt(0,0,0); cam.updateMatrixWorld(true);
+      const run=(y0,y1)=>{ const N=28, uvs=[], rays=[], rc=new THREE.Raycaster(), ndc=new THREE.Vector2();
+        for(let j=0;j<=N;j++) for(let i=0;i<=N;i++){ ndc.set(-0.15+0.3*i/N, y0+(y1-y0)*j/N); rc.setFromCamera(ndc,cam);
+          const h=_picIntersect(rc.ray,[head]); uvs.push(h?{x:h.uv.x,y:h.uv.y,p:h.point.clone()}:null); if(!h) rays[uvs.length-1]=1; }
+        const filled=_stampWrapFill(uvs,N,rays,[head],_stampWrapCenter(head));
+        const w=uvs.filter(x=>x&&x.wrap); const col=[]; for(let j=0;j<=N;j++){ const u=uvs[j*(N+1)+14]; if(u) col.push(u.p); }
+        let mono=true; for(let k=1;k<col.length;k++) if(col[k].y>col[k-1].y+1e-6 || col[k].z>col[k-1].z+1e-6) mono=false;
+        return { filled, below: w.every(x=>x.p.y<-0.3), uniq: new Set(w.map(x=>x.x.toFixed(4)+','+x.y.toFixed(4))).size, n: w.length, mono }; };
+      return { chin: run(-0.3,-0.9), top: run(0.3,0.9) };
+    })()`, ctx);
+    chk(out.chin.filled > 0 && out.chin.below, '★ 턱 아래로 나간 칸을 아래쪽 실제 표면에 이어 칠한다 (' + out.chin.filled + '칸)');
+    chk(out.chin.uniq === out.chin.n, '  감은 점의 UV 가 전부 다르다 — 한 점에 뭉쳐 번지던 예전 띠와 다르다');
+    chk(out.chin.mono, '  한 열을 따라 내려갈수록 아래 · 뒤로 이어진다 (그림이 접히지 않는다)');
+    chk(out.top.filled === 0, '  머리 위로 나간 도장은 감지 않는다 (아래쪽만)');
+  }
+  chk(/const _wrapN=_stampWrapFill\(uvs, N, _wrapRays, \[cBase\.face\], _wrapCtr\);/.test(APP) && /_stampWrapFill\(uvs2, N, _wrapRays2, \[cBase\.face\], _wrapCtr\);/.test(APP), '사람 도장 · 거울 도장 둘 다 감는다');
+  chk(!!AN && /if\(faceMesh\) _stampWrapFill\(uvs, N, wrapRays, \[faceMesh\], _stampWrapCenter\(faceMesh\)\);/.test(AN), '동물 도장도 감는다 (얼굴 메시만)');
+  chk(/const EXTRA_MAX = 2;/.test(APP), 'EXTRA_MAX 는 그대로 2 — 예전 번짐 띠 보호 유지');
+}
+
 say('');
 say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅');
 process.exit(fail ? 1 : 0);
