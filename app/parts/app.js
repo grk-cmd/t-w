@@ -9694,7 +9694,7 @@ let _wdActivePartRef = null;   // refreshWdPreviewColorSection 이 정한 {cat, 
    wrp · user 는 첫 대상을 가리키는 옛 이름(이름표 · 파츠 판정에서 쓴다). earSym = 대칭을 반대쪽 귀에 긋는가. */
 const _wdPic = {
   on:false, wrp:null, xf:null, meshes:[], user:null, tgts:[], ear:false, symOk:true,
-  color:'#333333', size:11, eraser:false, sym:false,
+  color:'#333333', size:11, eraser:false, sym:false, fill:false,   // fill = 🪣 클릭한 메쉬 채우기(uv-fill.js)
   hist:[], redo:[], orig:null,
   drawing:false, lx:null, ly:null, sx:null, sy:null,
   luv:null, smuv:null, lp:null, lobj:null,   // 🧵 직전 점의 UV·3D 위치·면 — 솔기를 건너뛰었는지 판정용
@@ -9857,7 +9857,7 @@ async function exitWdPicMode(save){
     });
   }
   _wdPic.wrp=null; _wdPic.xf=null; _wdPic.meshes=[]; _wdPic.user=null; _wdPic.orig=null;
-  _wdPic.tgts=[]; _wdPic.ear=false; _wdPic.symOk=true;
+  _wdPic.tgts=[]; _wdPic.ear=false; _wdPic.symOk=true; _wdPic.fill=false;
   _wdPic.hist.length=0; _wdPic.redo.length=0;
   const sec=_wdPicSection(); if(sec) sec.innerHTML='';
   try{ updateWdGizmoForActivePanel(); }catch(_){}
@@ -9913,6 +9913,25 @@ function _wdPicSetEraser(v){
   const b=document.getElementById('wdPicEraser'); if(b) b.classList.toggle('on', _wdPic.eraser);
   const p=document.getElementById('wdPicPen');    if(p) p.classList.toggle('on', !_wdPic.eraser);
 }
+/* 🪣 채우기 — 켜 두면 좌클릭이 획 대신 «맞힌 메쉬의 UV 자리 전체» 를 칠한다(지우개면 지운다) */
+function _wdPicSetFill(v){
+  _wdPic.fill = !!v;
+  const b=document.getElementById('wdPicFill'); if(b) b.classList.toggle('on', _wdPic.fill);
+  if(_wdPic.fill && typeof toast==='function') toast('🪣 채우기 — 칠할 모델을 눌러요');
+}
+function _wdPicFillHit(hit){
+  if(typeof UvFill === 'undefined' || !hit || !hit.object) return;
+  const tgt=_wdPicTgtOf(hit.object);
+  const opt={ color:_wdPic.color, erase:_wdPic.eraser };
+  UvFill.fillMesh(tgt.user.getContext('2d'), hit.object.geometry, CANVAS_SZ, opt);
+  _picBlit(tgt.wrp);
+  /* 🐾 귀 대칭 — 반대쪽 귀의 같은 번호 메쉬도 채운다(파츠는 메쉬 전체라 대칭이 따로 필요 없다) */
+  if(_wdPic.ear && _wdPic.sym){
+    const mt=_wdPic.tgts.find(t=>t!==tgt);
+    const om=mt && mt.wrp.userData.picMeshes[tgt.wrp.userData.picMeshes.indexOf(hit.object)];
+    if(om){ UvFill.fillMesh(mt.user.getContext('2d'), om.geometry, CANVAS_SZ, opt); _picBlit(mt.wrp); }
+  }
+}
 function _wdPicSetSym(v){
   if(v && !_wdPic.symOk){ if(typeof toast==='function') toast('좌우 귀가 같은 종류일 때만 대칭으로 그릴 수 있어요'); return; }
   _wdPic.sym = !!v;
@@ -9943,6 +9962,9 @@ function _buildWdPicSection(){
   const penB=mk('button','wd-pic-btn on','펜');    penB.id='wdPicPen';
   const eraB=mk('button','wd-pic-btn','지우개');   eraB.id='wdPicEraser';
   const symB=mk('button','wd-pic-btn','대칭');     symB.id='wdPicSym';
+  const fillB=mk('button','wd-pic-btn','🪣 채우기'); fillB.id='wdPicFill'; fillB.title='G — 누른 모델의 칠할 자리 전체를 지금 색으로';
+  fillB.onclick=()=>_wdPicSetFill(!_wdPic.fill);
+  fillB.classList.toggle('on', _wdPic.fill);
   const swat=mk('button','wd-pic-swatch');         swat.id='wdPicColor';
   swat.style.background=_wdPic.color; swat.title='색 고르기';
   penB.onclick=()=>_wdPicSetEraser(false);
@@ -9972,7 +9994,7 @@ function _buildWdPicSection(){
     });
     setTimeout(()=>document.addEventListener('mousedown', outside, true), 0);
   };
-  [penB,eraB,symB,swat].forEach(b=>tools.appendChild(b));
+  [penB,eraB,symB,fillB,swat].forEach(b=>tools.appendChild(b));
   sec.appendChild(tools);
 
   const sz=mk('div','wd-pic-row');
@@ -9996,7 +10018,7 @@ function _buildWdPicSection(){
 
   const hint=mk('div','wd-pic-hint');
   if(_wdPic.ear) sec.appendChild(mk('div','wd-pic-hint','귀를 눌러 그려요. 대칭을 켜면 반대쪽 귀에 좌우를 뒤집어 같이 그려요.'));
-  hint.innerHTML='Ctrl+Z 되돌리기 · Ctrl+Shift+Z 다시 · Delete 전체 지우기<br>X 대칭 · C 지우개 · 우클릭 스포이드';
+  hint.innerHTML='Ctrl+Z 되돌리기 · Ctrl+Shift+Z 다시 · Delete 전체 지우기<br>X 대칭 · C 지우개 · G 채우기 · 우클릭 스포이드';
   sec.appendChild(hint);
 
   const foot=mk('div','wd-pic-row wd-pic-foot');
@@ -10384,6 +10406,7 @@ function _wdPicStrokeTo(e){
     if(e.button!==0) return;
     const hit=_wdPicHit(e); if(!hit) return;
     e.preventDefault(); e.stopPropagation();   // 다중 인스턴스 선택 클릭이 같이 먹지 않게
+    if(_wdPic.fill){ _wdPicPush(); _wdPicFillHit(hit); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
     _wdPicPush();
     _wdPic.drawing=true; _wdPicBreak();
     _wdPic.lsx=e.clientX; _wdPic.lsy=e.clientY;   // 🪡 쪼개기의 출발점
@@ -10431,6 +10454,7 @@ function _wdPicKey(e){
   if(e.key==='Delete'){ stop(); _wdPicClear(); }
   else if(k==='x'){ stop(); _wdPicSetSym(!_wdPic.sym); }
   else if(k==='c'){ stop(); _wdPicSetEraser(!_wdPic.eraser); }
+  else if(k==='g'){ stop(); _wdPicSetFill(!_wdPic.fill); }   // 동물 생성기의 G(전체 채우기)와 같은 글자
   else if(e.key==='Escape'){ stop(); exitWdPicMode(false); }   // 창이 같이 닫히지 않게 여기서 끊는다
 }
 window.addEventListener('keydown', _wdPicKey, true);
