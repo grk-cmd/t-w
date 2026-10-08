@@ -6,6 +6,7 @@ export type Menu =
   | 'reports'
   | 'notices'
   | 'settings'
+  | 'roomServer'
   | 'rooms'
   | 'catalog'
   | 'log'
