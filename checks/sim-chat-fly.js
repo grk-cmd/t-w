@@ -44,7 +44,7 @@ say('· §1 전송 — payload 와 연타 억제');
 
 const sendChat = (SRC.match(/function sendChat\(text[\s\S]*?\n  \}/) || [''])[0];
 chk(sendChat.length > 0, 'Presence.sendChat 를 찾았다');
-chk(/sendChat\(text,\s*fly,\s*flyColor,\s*flySize\)/.test(SRC),
+chk(/sendChat\(text,\s*fly,\s*flyColor,\s*flySize(?:,\s*tab)?\)/.test(SRC),   // tab — 💬 채팅 탭(2026-10-08)
     '★ sendChat 이 fly·flyColor·flySize 를 받는다');
 chk(/chat\.fly\s*=\s*true/.test(sendChat),
     '★ 체크한 줄에만 chat.fly 를 싣는다');

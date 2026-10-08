@@ -257,6 +257,10 @@ contextBridge.exposeInMainWorld('companion', {
   getLabVideo() {
     return ipcRenderer.invoke('companion:getLabVideo');
   },
+  // 🧹 옛 빌드 설정을 기본값으로 되돌렸는가 — Promise<{reset:boolean}>. 한 번만 참이다.
+  takeSettingsNotice() {
+    return ipcRenderer.invoke('companion:takeSettingsNotice');
+  },
   // 켜기/끄기: Promise<{ok:true, on:boolean}> — 재시작 없이 즉시 반영된다.
   setLabVideo(on) {
     return ipcRenderer.invoke('companion:setLabVideo', !!on);
@@ -266,6 +270,11 @@ contextBridge.exposeInMainWorld('companion', {
   //   제보를 받을 때 "이 폴더의 파일을 보내주세요" 대신 버튼 하나로 끝내려는 것.
   openDiagFolder() {
     return ipcRenderer.invoke('companion:openDiagFolder');
+  },
+
+  // 🩺 렌더러 쪽 사건 한 줄을 진단 기록에 남긴다(WebGL 연결 끊김 등). 길이는 main 이 자른다.
+  diagNote(msg) {
+    ipcRenderer.send('companion:diagNote', String(msg == null ? '' : msg).slice(0, 200));
   },
 
   // ---- 버전 게이트 ----
