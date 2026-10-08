@@ -1,0 +1,23 @@
+/* 상태 칩 — 미해결은 눈에 띄게, 끝난 것은 흐리게 */
+.chip {
+  padding: 1px 8px;
+  font-size: 12px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+
+.new {
+  color: var(--danger);
+}
+
+.checking {
+  color: var(--accent);
+}
+
+.fixed {
+  color: var(--ok);
+}
+
+.norepro {
+  color: var(--soft);
+}

@@ -11,7 +11,7 @@ export {
   type AuditAction,
   type AuditRecord,
 } from './audit';
-export { isIndexMissing, isPermissionDenied, type Db } from './db';
+export { isIndexMissing, isPermissionDenied, type Db, type LastRange } from './db';
 export type { Files } from './files';
 export { callErrorMessage, FUNCTIONS_REGION, type Functions } from './functions';
 export { DbProvider } from './DbProvider';

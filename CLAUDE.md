@@ -9,6 +9,7 @@
 - 커밋 형식: `타입(스코프): 무엇을 — 부연` + 빈 줄 + `- 파일: 내용` 목록. 타입: `feat` `fix` `security` `refactor` `perf` `test` `docs` `ci` `build` `chore`. 자세한 건 `docs/GIT_CONVENTION.md`.
 - 한 커밋에 한 의도. `checks/` 를 바꿨으면 `checks/CHECKS.md` §3 해시를 **같은 커밋**에서 갱신한다.
 - 커밋·push 전에 무엇을 올리는지 한 줄로 알리고 진행한다. **force push 는 하지 않는다.**
+- **PR**: 한 PR = 한 의도(버그 수정 묶음과 새 기능은 나눈다). 제목은 커밋 제목 형식(이모지 없음), 본문은 `.github/pull_request_template.md` 틀 그대로 — «무엇을» 은 커밋과 1:1. 자세한 건 `docs/GIT_CONVENTION.md` 3장.
 - 절대 커밋하지 않는 것: `oauth-config.js`(OAuth 시크릿), `.env*`, `.idea/`, `*.iml`, `dist/`.
 
 ## 구조
@@ -49,6 +50,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 - 서버 데이터는 **Firebase Realtime Database**(JSON 트리). 요금은 **내려받은 바이트**로 나온다 —
   노드를 통째로 `get`/`onValue` 하지 말고 필요한 하위 경로만 읽는다. 반복 폴링·부팅마다 전체 받기를 새로 만들지 않는다.
 - 권한 검사는 서버에 없고 규칙 파일뿐이다. 남의 데이터에 쓰는 기능을 만들면 규칙도 같이 본다.
+- **규칙이 바뀌는 기능 개발 · 수정은 PR 본문에 «서버(AWS) 이관» 안내를 쓴다**(바뀐 경로 · 칸 · 권한 · 앱에서 쓰는 곳, 방에 오가는 칸인지). 자체 서버(`t-w-server`, 비공개 · 방 서버는 모르는 칸을 받지 않음)로 옮기는 중이라 관리자가 이 안내로 서버에 옮긴다. 형식은 `docs/GIT_CONVENTION.md` 4.1 · `.github/pull_request_template.md`.
 
 ## Firebase 규칙 · 배포
 - `firebase deploy` 는 **모든 사용자에게 즉시 적용**된다. 기본 프로젝트(`.firebaserc`)는 **운영 `together-working`**.

@@ -296,7 +296,16 @@ console.info = () => {};
 console.debug = () => {};
 
 let failed = null;
-try {
+/* html 이 app.js **앞에** 싣고 app.js 가 최상위에서 바로 쓰는 모듈 — 같은 순서로 먼저 평가한다.
+   (스텁이 아니라 진짜 파일이다. 빠지면 app.js 가 첫 줄에서 «정의 안 됨» 으로 서는데, 그건 앱의 버그가 아니다) */
+const PRELOAD = ['human-ear.js', 'wd-ear.js'];
+for (const f of PRELOAD) {
+  const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
+  if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
+  try { vm.runInThisContext(fs.readFileSync(p, 'utf8'), { filename: p }); }
+  catch (e) { failed = failed || { where: f, err: e }; }
+}
+if (!failed) try {
   vm.runInThisContext(fs.readFileSync(FILE, 'utf8'), { filename: FILE });
 } catch (e) {
   failed = { where: '최상위', err: e };
