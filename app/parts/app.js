@@ -31743,6 +31743,15 @@ if(document.getElementById('progOfficeModeToggle')){
    ⚠️ 통로가 없는 구버전에서는 **칸 자체를 숨긴다.** 눌러도 아무 일이 없는 토글을 보여주면
      "고장났다"는 제보가 온다.
    ⚠️ **성공하면 이 블록도 같이 지운다** — HTML 주석 참조. */
+/* 🧹 옛 빌드 설정을 기본값으로 되돌렸으면 한 번 알린다(main.js SETTINGS_VER 주석). 부팅 화면이 자리 잡은 뒤에. */
+setTimeout(()=>{
+  try{
+    if(!(window.companion && companion.takeSettingsNotice)) return;   // 구버전 preload
+    companion.takeSettingsNotice().then(r=>{
+      if(r && r.reset) toast('업데이트하면서 화면 설정(모니터 · 화면 크기 · 영상 겹침 실험)을 기본값으로 되돌렸어요', null, 9000);
+    }).catch(()=>{});
+  }catch(_){}
+}, 2500);
 function refreshLabVideoUI(){
   const row = document.getElementById('progLabVideoRow');
   const hint= document.getElementById('progLabVideoHint');
@@ -39095,11 +39104,11 @@ function _saveFailMsg(e, fallback){
 /* 🍞 두 번째 인자(iconSrc)는 **글자 앞에 붙일 작은 그림**이다 — 뿅망치처럼 이모지가 없는 것 때문에 생겼다.
    ⚠️ 본문은 계속 textContent 로 넣는다. 여기엔 남이 친 글(닉네임 등)이 섞여 들어오므로
      innerHTML 로 바꾸면 안 된다. 그림은 별도 <img> 노드로 앞에 끼운다. */
-let toastT=null;function toast(msg, iconSrc){const t=document.getElementById('toast');t.textContent=msg;
+let toastT=null;function toast(msg, iconSrc, ms){const t=document.getElementById('toast');t.textContent=msg;
   if(iconSrc){ const im=document.createElement('img'); im.src=iconSrc;
     im.style.cssText='width:16px;height:16px;vertical-align:-3px;margin-right:5px;'; t.prepend(im); }
   t.classList.add('on');
-  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),1900);}
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),(typeof ms==='number'&&ms>0)?ms:1900);}
 
 /* ============================================================ ANIM */
 const STATES={idle:{label:'평소',color:'#9dba8a'},focus:{label:'활동중',color:'#e0a050'},pet:{label:'쓰다듬',color:'#e89b9b'},sleep:{label:'잠듦',color:'#7fa0c4'},shaking:{label:'흔들림',color:'#d98e73'},dizzy:{label:'어지러움',color:'#c9a560'}};

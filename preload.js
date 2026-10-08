@@ -257,6 +257,10 @@ contextBridge.exposeInMainWorld('companion', {
   getLabVideo() {
     return ipcRenderer.invoke('companion:getLabVideo');
   },
+  // 🧹 옛 빌드 설정을 기본값으로 되돌렸는가 — Promise<{reset:boolean}>. 한 번만 참이다.
+  takeSettingsNotice() {
+    return ipcRenderer.invoke('companion:takeSettingsNotice');
+  },
   // 켜기/끄기: Promise<{ok:true, on:boolean}> — 재시작 없이 즉시 반영된다.
   setLabVideo(on) {
     return ipcRenderer.invoke('companion:setLabVideo', !!on);

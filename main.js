@@ -332,12 +332,34 @@ function _displaySize(d){ const b = (d && d.bounds) || {}; return b.width + 'x' 
 // 설정 저장 파일 경로 — app.getPath('userData')는 'ready' 이후에만 안전하게 값이 나오므로
 // app.whenReady() 안에서 한 번 초기화한 뒤 사용.
 let SETTINGS_PATH = null;
+/* 🧹 [2026-10-08 제보 #1] 설정 파일 세대 — saveSettings 가 적는다. 이 표시가 없는 파일은 이번 업데이트 전 빌드가 쓴 것이다.
+   그중 **영상 겹침 실험(레이어드 알파)이 켜진 채 남은 파일**은 한 번 통째로 기본값으로 되돌린다.
+   [왜] 일부 그래픽카드(electron#40515 계열)에서는 그 값이 걸린 투명 창이 «있지만 안 그려진다».
+     창이 안 보이니 설정에 들어가 토글을 끌 방법도 없다 — 앱이 스스로 걷어내야 한다.
+   ★ 옛 파일이라도 실험을 안 켰던 사람(대부분)은 건드리지 않는다. 이번 빌드는 꺼짐이면 setOpacity 를 안 부르므로
+     그 사람들은 업데이트만으로 이미 낫는다. 통째로 되돌리면 모니터 선택 · 화면 크기를 괜히 잃는다.
+   ★ 지운 파일은 tw-settings.before-reset.json 으로 남긴다(제보 때 받아 볼 수 있게).
+   ⚠️ 판정 범위를 넓히려면 _settingsLegacyRisky 한 곳만 고친다. 세대를 올리면(2) 다시 한 번 돈다. */
+const SETTINGS_VER = 1;
+let _settingsReset = null;          // 초기화했으면 옛 값 요약 — 부팅 로그 · 렌더러 안내에 쓴다
+let _settingsResetNotice = false;   // 렌더러가 안내를 한 번 가져가면 끈다
+function _settingsLegacyRisky(data){
+  const a = data && data.overlayLayeredAlpha;
+  return typeof a === 'number' && isFinite(a) && a > 0 && a < 255;
+}
 
 // 저장된 설정(runDisplayId + 지문) 불러오기. 파일이 없거나(최초 실행) 손상돼 있으면 조용히 기본값(주 모니터) 유지.
 function loadSettings(){
   try{
     const raw = fs.readFileSync(SETTINGS_PATH, 'utf8');
     const data = JSON.parse(raw);
+    const settingsVer = (typeof data.settingsVer === 'number') ? data.settingsVer : 0;
+    if(settingsVer < SETTINGS_VER && _settingsLegacyRisky(data)){
+      try{ fs.copyFileSync(SETTINGS_PATH, SETTINGS_PATH.replace(/\.json$/, '') + '.before-reset.json'); }catch(_){}
+      _settingsReset = { alpha: data.overlayLayeredAlpha, zoom: data.uiZoom, display: data.runDisplayId, gap: data.overlayBottomGap };
+      _settingsResetNotice = true;
+      return;   // 값을 하나도 읽지 않는다 = 전부 기본값. 파일은 createWindow 에서 새 세대로 다시 쓴다.
+    }
     if(typeof data.runDisplayId === 'number') runDisplayId = data.runDisplayId;
     if(typeof data.runDisplayKey === 'string') runDisplayKey = data.runDisplayKey;
     /* ★ 동영상 검어짐 틈 — 빌드 없이 조절하는 통로. 제보자에게 "이 파일의 이 숫자만 바꿔서
@@ -479,7 +501,7 @@ function saveSettings(){
        두지만, 그 한 갈래 때문에 "파일이 왜 없나"를 또 못 가르는 일이 없도록 여기서 확정한다.
        (_diagLog 도 같은 폴더를 쓴다 — 폴더가 없으면 로그조차 안 남아 관찰 자체가 막힌다) */
     try{ fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true }); }catch(_){}
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ runDisplayId, runDisplayKey,
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ settingsVer: SETTINGS_VER, runDisplayId, runDisplayKey,
       overlayBottomGap: overlay.gap(),
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
@@ -1728,6 +1750,13 @@ function createWindow() {
   overlay.applyLayered('부팅');
   /* 🚚 갭 승격이 일어났으면 한 줄 남긴다 — 제보 로그에서 "이 사람은 옛 값을 쓰고 있었다"가
      바로 보여야 한다. loadSettings 시점에는 app 이 아직 ready 가 아니라 여기서 찍는다. */
+  if(_settingsReset){
+    _diagLog('[설정] 옛 빌드 파일 초기화 — 영상 겹침 실험이 켜진 채(alpha ' + _settingsReset.alpha + ') 남아 있었다'
+      + ' | 옛 값: 모니터 ' + _settingsReset.display + ' · 화면 크기 ' + _settingsReset.zoom + ' · 아래틈 ' + _settingsReset.gap
+      + ' | 원본은 tw-settings.before-reset.json');
+    try{ saveSettings(); }catch(_){}
+    _settingsReset = null;
+  }
   if(_gapMigratedFrom != null){
     _diagLog('[오버레이] 갭 승격 — 옛 기본값 ' + _gapMigratedFrom + ' → ' + overlay.GAP_DEFAULT + ' (설정 파일 세대 갱신)');
     try{ saveSettings(); }catch(_){}
@@ -3210,6 +3239,12 @@ function createWindow() {
      ⚠️ 이 토글은 **성공하면 지운다.** 레이어드 알파가 실기기에서 효과가 확인되면 기본 동작으로
        올리고 이 통로와 UI 를 함께 걷어낼 것. 한 번 내보낸 토글은 켜 둔 사용자가 생겨서
        나중에 지우기 어려워진다 — 폐기된 🔀 실험실 칸이 정확히 그 이유로 위험해졌다. */
+  /* 🧹 옛 설정 초기화 안내 — 렌더러가 부팅 때 한 번 묻는다. 한 번 돌려주면 끈다(창을 다시 불러도 두 번 안 뜬다). */
+  ipcMain.handle('companion:takeSettingsNotice', () => {
+    const r = { reset: _settingsResetNotice };
+    _settingsResetNotice = false;
+    return r;
+  });
   ipcMain.handle('companion:getLabVideo', () => {
     return { on: overlay.alpha() > 0 && overlay.alpha() < 255, alpha: overlay.alpha() };
   });
