@@ -4461,6 +4461,15 @@
   #wdGizmoBar.pic-only .wd-gizmo-btn:not(.wd-pencil){display:none;}
   /* 그리는 동안에는 이동·회전·크기를 잠근다 — 좌드래그의 임자가 붓이라 눌러도 헛돈다. */
   #wdGizmoBar.drawing .wd-gizmo-btn:not(.wd-pencil){opacity:.45;pointer-events:none;}
+  #wdEarAdjRow{display:flex;gap:4px;padding:4px 8px;align-items:center;flex-shrink:0;
+    border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face-2);border-radius:var(--win-radius-el) !important;}
+  #wdEarAdjRow .wd-ear-adj-cap{font-size:10px;color:var(--ink-soft);white-space:nowrap;}
+  #wdEarAdjRow .wd-gizmo-btn:disabled{opacity:.45;cursor:default;}
+  #wdEarAdjRow .wd-gizmo-btn{flex:1 1 0;min-width:0;padding:3px 4px;white-space:nowrap;}
+  #wdEarAdjRow .wd-gizmo-btn.wd-ear-mini{flex:0 0 28px;padding:3px 0;}
+  .wd-ear-link{font-size:10.5px;color:var(--ink-soft);display:flex;align-items:center;gap:2px;cursor:pointer;}
+  .wd-ear-sub{font-size:10.5px;color:var(--ink-soft);margin:8px 2px 4px;}
+  .wd-ear-tip{font-size:10px;color:var(--ink-soft);opacity:.85;margin:8px 2px 0;line-height:1.4;}
   #wdPicSection{flex-direction:column;gap:5px;padding:6px 8px;flex-shrink:0;
     border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   .wd-pic-row{display:flex;gap:4px;align-items:center;}
@@ -5044,6 +5053,8 @@
          켜지면 좌드래그의 임자가 기즈모에서 붓으로 넘어간다(우드래그 회전·휠 확대는 그대로). -->
     <button id="wdPencilBtn" class="wd-gizmo-btn wd-pencil" title="파츠에 직접 그리기" style="display:none;">✎</button>
   </div>
+  <!-- 🐾 귀 탭일 때만 — 조정할 귀(◀ 왼쪽 · 오른쪽 ▶) · ⇆ 대칭 복사 · ↺. 내용은 wd-ear.js 가 그린다 -->
+  <div id="wdEarAdjRow" style="display:none;"></div>
   <div id="wdPreviewColorSection" style="display:none;"></div>
   <!-- 🖍️ 그리기 줄 — 내용은 app.js 의 _buildWdPicSection 이 만든다. 그리는 동안에는 위 색상 줄이 내려간다
        (320px 창에 둘을 같이 펴면 세로가 넘친다). -->
@@ -7851,6 +7862,8 @@
 <script src="parts/chat-copy.js"></script>
 <script src="parts/chat-tabs.js"></script>   <!-- 💬 채팅 탭 규칙(window.ChatTabs) — app.js 보다 먼저 -->   <!-- 📋 대화 복사 형식(window.ChatCopy) — app.js 보다 먼저 -->
 <script src="parts/gl-recover.js"></script>   <!-- 🧯 WebGL 연결 끊김 감시(window.GlRecover) — app.js 보다 먼저 -->
+<script src="parts/human-ear.js"></script>   <!-- 🐾 사람 귀(꾸미기 › 머리 › 귀) — app.js 보다 먼저. 귀 GLB 는 ears-glb.js 가 나중에 채운다 -->
+<script src="parts/wd-ear.js"></script>   <!-- 🐾 꾸미기 › 머리 › 귀 탭 — app.js 보다 먼저(app.js 가 createWdEar 로 만든다) -->
 <script src="parts/app.js"></script>
 <script src="parts/myhome-desktop.js"></script>
 <script src="parts/mallang.js"></script>
