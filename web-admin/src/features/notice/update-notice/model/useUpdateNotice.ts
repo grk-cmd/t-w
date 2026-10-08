@@ -1,5 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
-import { clearUpdateNotice, publishUpdateNotice, useRefreshUpdateNotice } from '@/entities/notice/update-notice';
+import {
+  clearUpdateNotice,
+  publishUpdateNotice,
+  useRefreshUpdateNotice,
+} from '@/entities/notice/update-notice';
 import { useDb } from '@/shared/api';
 
 export function usePublishUpdateNotice() {

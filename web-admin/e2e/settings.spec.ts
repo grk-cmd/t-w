@@ -97,6 +97,34 @@ test('방 입장 최소 버전 — 숫자 세 칸으로 올리고, 최신 릴리
   );
 });
 
+// 앱 최소 버전 — 방 입장과 같은 칸 · 같은 제약. 값이 없으면 «제한 없음» 에서 처음 저장하고, 방 값은 그대로.
+test('앱 최소 버전 — 처음 저장 · 최신 릴리스까지만 · 방 입장 값은 그대로 · 기록', async ({ page, seed }) => {
+  await page.route('https://api.github.com/**', (route) => route.fulfill({ json: RELEASES }));
+  await seed({ config: { minRoomVer: '0.10.1' } });
+  await openMenu(page, 'settings');
+  const appVer = card(page, '앱 최소 버전');
+  await expect(appVer.locator('code.key')).toHaveText('제한 없음');
+  const save = appVer.getByRole('button', { name: '저장' });
+
+  await appVer.getByLabel('부 버전').fill('11');
+  await save.click();
+  await expect(appVer.getByText('최신 릴리스(0.10.2)보다 높아요 — 모두 앱을 못 써요')).toBeVisible();
+  expect(await dbGet('config/minAppVer')).toBeNull();
+
+  await appVer.getByLabel('부 버전').fill('10');
+  await appVer.getByLabel('수 버전').fill('2');
+  await save.click();
+  await expect(appVer.getByText('저장했어요 · 0.10.2')).toBeVisible();
+  expect(await dbGet('config/minAppVer')).toBe('0.10.2');
+  expect(await dbGet('config/minRoomVer')).toBe('0.10.1');
+  const logs = Object.values(
+    (await dbGet<Record<string, { action: string; detail?: string }>>('adminLog')) ?? {},
+  );
+  expect(logs).toContainEqual(
+    expect.objectContaining({ action: 'settings.minAppVer', detail: '없음 → 0.10.2' }),
+  );
+});
+
 const RELEASES = [
   {
     tag_name: 'v0.10.3-beta.1',

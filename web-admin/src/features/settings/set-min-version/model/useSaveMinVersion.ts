@@ -1,13 +1,13 @@
 import { useMutation } from '@tanstack/react-query';
-import { saveMinRoomVer, useRefreshMinRoomVer } from '@/entities/min-room-ver';
+import { saveMinVersion, useRefreshMinVersion, type MinVersionKind } from '@/entities/min-version';
 import { useDb } from '@/shared/api';
 
-export function useSaveMinRoomVer() {
+export function useSaveMinVersion(kind: MinVersionKind) {
   const db = useDb();
-  const refresh = useRefreshMinRoomVer();
+  const refresh = useRefreshMinVersion(kind);
   return useMutation({
     mutationFn: ({ version, before }: { version: string; before: string | null }) =>
-      saveMinRoomVer(db, version, before),
+      saveMinVersion(db, kind, version, before),
     onSuccess: refresh,
   });
 }

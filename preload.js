@@ -148,6 +148,11 @@ contextBridge.exposeInMainWorld('companion', {
     ipcRenderer.send('companion:installUpdate');
   },
 
+  // 업데이트 확인을 다시 — 앱 최소 버전 화면의 «다시 시도». 결과는 onUpdateStatus 로 온다.
+  checkUpdate() {
+    ipcRenderer.send('companion:checkUpdate');
+  },
+
   // 광고 배너·플레이리스트 우클릭 등 — URL을 **시스템 기본 브라우저**(크롬·웨일 등)로 연다.
   //   main.js 가 shell.openExternal 로 넘긴다(http/https 만 허용).
   //   ⚠️ 예전 주석이 "앱 안의 작은 창으로 연다"라고 돼 있었는데 그건 옛 구현이다. 앱 안에 뜨는
