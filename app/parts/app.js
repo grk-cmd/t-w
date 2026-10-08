@@ -31436,7 +31436,7 @@ function _roomServerJoinMessage(code, isSecret){
          주소록(roomDir)에 있는 방(from 'dir') → peek 없이 그 서버에 바로 join.
            서버가 재시작 직후면 그 방은 «되살릴 후보» 라 peek 에 안 나오지만 join 하면 원래 설정으로 되살아난다.
            join 이 실패(못 붙음 · 거절 · 시간 초과)할 때만 Firebase 로 — 칸이 낡았는지는 join 결과로만 판단한다.
-           허용 목록에 없는 사람도 «따라가기(follow)» 가 켜져 있으면 여기로 온다.
+           허용 목록에 없는 사람도 방 서버가 켜져 있으면 늘 여기로 온다(따라가기).
          허용된 사람(from 'allow' · 'dev')인데 주소록에 없음 → peek: 서버에 있으면 서버로.
            없으면 Firebase 에 살아 있는 사람이 있나 본다 → 있으면 Firebase 로(옛 앱 사람들이 있는 방). 둘 다 없으면 서버가 연다.
        peek 을 못 물었으면(시간 초과 · peek 을 모르는 서버) «서버에 없음» 으로 본다.

@@ -2,7 +2,7 @@
  * 방 서버 문지기 검사 — room-server-gate.js 를 가짜 DB 읽기로 그대로 돌린다.
  * 1. 주소 거르기(운영 앱은 운영 주소만 · 로컬은 dev 앱만) · 개발용 켜기는 dev 에서만
  * 2. 만들기 — on + allow/{내 코드} = 서버 이름 → 그 서버 · 표에 없는 이름 · 낯선 주소 → Firebase
- * 3. 들어가기 — 주소록(roomDir) 따라가기(follow) · 허용된 사람 · 꺼짐
+ * 3. 들어가기 — 주소록(roomDir) 따라가기(on 이면 늘 · follow 칸은 안 읽음) · 허용된 사람 · 꺼짐
  * 4. 읽는 칸 — 칸 단위만(목록 통째 읽기 없음) · 꺼져 있으면 on 한 칸 · 서버 표 기억
  * 5. 규칙 — config 는 칸 단위 공개 · 쓰기 관리자만 · roomDir 앱 쓰기 막힘 · minRoomVer 그대로 공개
  * 6. 연결 — firebase-init · app.js 가 문지기 한 곳(resolveRoomServer)으로 고른다
@@ -60,7 +60,7 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     let r = await g.gate.resolveRoomServer('WORK-AB12', { creating: true });
     chk(r.via === 'server' && r.url === PROD && r.server === 'rooms-1' && r.from === 'allow', '허용 목록 = 서버 이름 → 그 서버에 만든다');
     chk(g.gate.mine() && g.gate.mine().name === 'rooms-1', '  ↳ «내 서버» 를 기억(방 개수 · 랜덤)');
-    chk(!g.reads.includes('roomDir/WORK-AB12') && !g.reads.includes(C + '/follow'), '  ↳ 만들 때는 주소록 · follow 를 안 읽는다');
+    chk(!g.reads.includes('roomDir/WORK-AB12'), '  ↳ 만들 때는 주소록을 안 읽는다');
     g = mkGate(base());
     r = await g.gate.resolveRoomServer('WORK-AB12', { creating: true });
     chk(r.via === 'firebase' && g.gate.mine() === null, '목록에 없으면 Firebase');
@@ -80,43 +80,44 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
   say('── 3. 들어가기');
   {
     const dir = { 'roomDir/WORK-AB12': { srv: 'rooms-1', ts: 1 } };
-    let g = mkGate(Object.assign(base(), dir, { [C + '/follow']: true }));
+    let g = mkGate(Object.assign(base(), dir));
     let r = await g.gate.resolveRoomServer('WORK-AB12', {});
-    chk(r.via === 'server' && r.from === 'dir' && r.url === PROD, 'follow 켜짐 — 허용 목록에 없어도 주소록의 서버로 따라간다');
+    chk(r.via === 'server' && r.from === 'dir' && r.url === PROD, 'on 이면 허용 목록에 없어도 늘 주소록의 서버로 따라간다(같은 코드 다른 방으로 갈라지지 않게)');
     chk(g.gate.mine() === null, '  ↳ 따라가기만 — «내 서버» 는 없다(방 개수 · 랜덤에 안 섞임)');
-    g = mkGate(Object.assign(base(), dir));
+    chk(!g.reads.includes(C + '/follow'), '  ↳ 예전 follow 칸은 읽지 않는다');
+    g = mkGate(Object.assign(base(), dir, { [C + '/follow']: false }));
     r = await g.gate.resolveRoomServer('WORK-AB12', {});
-    chk(r.via === 'firebase', 'follow 꺼짐 + 허용 안 됨 → Firebase(갈라짐 — 지금 동작)');
+    chk(r.via === 'server' && r.from === 'dir', '  ↳ DB 에 follow:false 가 남아 있어도 따라간다');
     g = mkGate(Object.assign(base(), dir, { [C + '/allow/u1abc234']: 'rooms-1', [C + '/servers/rooms-2']: PROD, 'roomDir/WORK-AB12': { srv: 'rooms-2' } }));
     r = await g.gate.resolveRoomServer('WORK-AB12', {});
     chk(r.via === 'server' && r.from === 'dir' && r.server === 'rooms-2', '허용된 사람도 주소록이 먼저(다른 서버의 방이면 그 서버로)');
-    g = mkGate(Object.assign(base(), { [C + '/allow/u1abc234']: 'rooms-1', [C + '/follow']: true }));
+    g = mkGate(Object.assign(base(), { [C + '/allow/u1abc234']: 'rooms-1' }));
     r = await g.gate.resolveRoomServer('WORK-ZZ99', {});
     chk(r.via === 'server' && r.from === 'allow', '허용된 사람 + 주소록에 없음 → 내 서버(빈 방은 서버가 연다 · peek 은 app.js)');
-    g = mkGate(Object.assign(base(), { [C + '/follow']: true }));
+    g = mkGate(base());
     r = await g.gate.resolveRoomServer('WORK-ZZ99', {});
-    chk(r.via === 'firebase' && r.why === 'noDir', 'follow 켜짐 + 주소록에 없음 → Firebase');
-    g = mkGate(Object.assign(base(), { [C + '/follow']: true, 'roomDir/WORK-AB12': { srv: 'nope' } }));
+    chk(r.via === 'firebase' && r.why === 'noDir', '허용 안 됨 + 주소록에 없음 → Firebase');
+    g = mkGate(Object.assign(base(), { 'roomDir/WORK-AB12': { srv: 'nope' } }));
     chk((await g.gate.resolveRoomServer('WORK-AB12', {})).via === 'firebase', '주소록의 서버가 표에 없으면 Firebase');
-    g = mkGate(Object.assign(base(), dir, { [C + '/follow']: true, [C + '/on']: false }));
-    chk((await g.gate.resolveRoomServer('WORK-AB12', {})).via === 'firebase', 'on:false 면 따라가기도 Firebase');
+    g = mkGate(Object.assign(base(), dir, { [C + '/on']: false }));
+    chk((await g.gate.resolveRoomServer('WORK-AB12', {})).via === 'firebase', 'on:false 면 따라가기도 Firebase(on 이 비상 정지 스위치)');
   }
 
   say('── 4. 읽는 칸');
   {
-    const g = mkGate(Object.assign(base(), { [C + '/follow']: true, 'roomDir/WORK-AB12': { srv: 'rooms-1' } }));
+    const g = mkGate(Object.assign(base(), { 'roomDir/WORK-AB12': { srv: 'rooms-1' } }));
     await g.gate.resolveRoomServer('WORK-AB12', {});
     const set = new Set(g.reads);
-    chk(g.reads.every((p) => p === C + '/on' || p === C + '/follow' || p === C + '/allow/u1abc234' || p === 'roomDir/WORK-AB12' || p === C + '/servers/rooms-1'),
-      '읽는 곳은 on · follow · allow/{내 코드} · roomDir/{방 코드} · servers/{이름} 칸뿐 (' + [...set].join(', ') + ')');
+    chk(g.reads.every((p) => p === C + '/on' || p === C + '/allow/u1abc234' || p === 'roomDir/WORK-AB12' || p === C + '/servers/rooms-1'),
+      '읽는 곳은 on · allow/{내 코드} · roomDir/{방 코드} · servers/{이름} 칸뿐 (' + [...set].join(', ') + ')');
     chk(!g.reads.some((p) => p === C || p === C + '/allow' || p === C + '/servers' || p === 'roomDir'), '  ↳ 목록 통째 읽기 없음');
     const n = g.reads.length;
     await g.gate.resolveRoomServer('WORK-AB12', {});
-    chk(g.reads.length - n === 4, '  ↳ 서버 표는 5분 기억(두 번째 입장은 servers 를 다시 안 읽음)');
+    chk(g.reads.length - n === 3, '  ↳ 서버 표는 5분 기억(두 번째 입장은 servers 를 다시 안 읽음)');
     g.adv(5 * 60 * 1000 + 1);
     const n2 = g.reads.length;
     await g.gate.resolveRoomServer('WORK-AB12', {});
-    chk(g.reads.length - n2 === 5, '  ↳ 5분이 지나면 다시 읽는다');
+    chk(g.reads.length - n2 === 4, '  ↳ 5분이 지나면 다시 읽는다');
     const h = mkGate(Object.assign(base(), { [C + '/allow/u1abc234']: 'rooms-1' }));
     const m = await h.gate.refreshMine();
     chk(m && m.name === 'rooms-1' && !h.reads.some((p) => p.startsWith('roomDir')), 'refreshMine — on · allow/{내 코드} (+서버 표)만');

@@ -4,13 +4,14 @@
  * (firebase-init.js 가 read(path) 를 넘긴다).
  *
  * 관리자 스위치 — RTDB config/roomServer (웹 관리자 ⚙️ 설정 «방 서버(시험)»):
- *   on      : true 일 때만 아래가 동작한다. 아니면 전원 Firebase.
- *   follow  : true 면 허용 목록에 없는 사람도 «서버에 있는 방» 코드로 들어갈 때 그 서버로 따라간다.
+ *   on      : true 일 때만 아래가 동작한다. 아니면 전원 Firebase(비상 정지 스위치).
+ *             켜져 있으면 허용 목록에 없는 사람도 «서버에 있는 방» 코드로 들어갈 때 늘 그 서버로 따라간다 —
+ *             안 따라가면 Firebase 의 «같은 코드 다른 방» 에 들어가 서로 못 본다. (예전 follow 칸은 더 읽지 않는다.)
  *   servers : { <서버 이름>: 'wss://…' } — 주소가 KNOWN_SERVER_URLS(= CSP connect-src) 에 없으면 무시.
  *   allow   : { <사용자 코드>: <서버 이름> } — 이 사람이 방을 «만들면» 그 서버에 연다.
  * 방 주소록 — roomDir/{방 코드} = { srv: <서버 이름>, ts }. 방 서버가 방을 열 때 쓰고 닫을 때 지운다(앱은 읽기만).
  *
- * 읽는 양: 입장 한 번에 on(+ follow · allow/{내 코드} · roomDir/{방 코드}) 칸 몇 개 + servers/{이름} 한 칸.
+ * 읽는 양: 입장 한 번에 on(+ allow/{내 코드} · roomDir/{방 코드}) 칸 몇 개 + servers/{이름} 한 칸.
  *   목록(allow · servers · roomDir)을 통째로 읽지 않는다 — 규칙도 칸 단위로만 열려 있다.
  * 읽기가 실패하면 «없음» 으로 보고 Firebase 로 간다(입장을 막지 않는다).
  *
@@ -85,22 +86,21 @@ export function createRoomServerGate(deps){
     const uid = myId();
     const on = await read(ROOM_SERVER_CFG + '/on');
     if(on !== true){ mine = null; return { via: 'firebase', why: 'off' }; }
-    const [follow, allowName, dir] = await Promise.all([
-      creating ? Promise.resolve(null) : read(ROOM_SERVER_CFG + '/follow'),
+    const [allowName, dir] = await Promise.all([
       uid ? read(ROOM_SERVER_CFG + '/allow/' + uid) : Promise.resolve(null),
       (creating || !code) ? Promise.resolve(null) : read(roomDirPath(code)),
     ]);
     const myUrl = (typeof allowName === 'string') ? await serverUrl(allowName) : null;
     mine = myUrl ? { name: allowName, url: myUrl } : null;
-    // 이미 서버에 있는 방 — 주소록이 가리키는 서버로(허용된 사람 · 따라가기가 켜진 사람)
-    if(!creating && dir && typeof dir.srv === 'string' && (follow === true || mine)){
+    // 이미 서버에 있는 방 — 누구든 주소록이 가리키는 서버로 따라간다(서버가 거절하면 app.js 가 Firebase 로)
+    if(!creating && dir && typeof dir.srv === 'string'){
       const url = await serverUrl(dir.srv);
       if(url) return { via: 'server', url, server: dir.srv, from: 'dir' };
     }
     /* 칸이 없으면 «아직 서버에 없는 방» 으로 본다. 서버는 재시작해도 칸을 지우지 않고(되살릴 후보) 빈틈은 쓰기 실패뿐이라,
        따라가는 사람까지 서버에 peek 하러 붙게 하지 않는다(입장마다 웹소켓이 생긴다). 허용된 사람만 자기 서버에 peek(app.js). */
     if(mine) return { via: 'server', url: mine.url, server: mine.name, from: 'allow' };
-    return { via: 'firebase', why: (follow === true && !creating) ? 'noDir' : 'notAllowed' };
+    return { via: 'firebase', why: creating ? 'notAllowed' : 'noDir' };
   }
 
   /* 방 개수 · 랜덤 입장 전에 «내 서버» 만 다시 확인(on · allow/{내 코드}). 방 코드가 없어 주소록은 안 본다. */
