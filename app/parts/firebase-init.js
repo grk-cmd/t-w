@@ -3168,6 +3168,7 @@
     // 이 uid가 이미 등록된 사용자인지 (친구 시스템을 쓴 적 있으면 profile/home 등이 남아있음)
     /* 🐞 버그제보 게시판 — 경로 · 쿼리 · 묶음 쓰기는 bug-board.js 에 있다. 여기는 연결만. */
     bugBoard: createBugBoard({ db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo, runTransaction, push,
+                               serverTs: () => serverTimestamp(),
                                authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),
     getInviteAccount: createInviteAccount({ db, ref, get, databaseURL: db && db.app && db.app.options && db.app.options.databaseURL }),
     // 기존 유저 grandfather 처리 — 초대 정보가 없으면 5장 부여하고 통과
