@@ -3,6 +3,7 @@
  * 1. 기본 꺼짐 · 주소 · 순수 함수
  * 2. hello → join → welcome → 친구 객체
  * 3. patch · def · chat 나누기 · 바뀐 칸만
+ * 3-1. 💬 채팅 탭 — 멤버 칸 tab · chatTab ↔ chat{tab} · meta.tabs(방장 setMeta) · 받은 말풍선을 chat / chatTab 자리로
  * 4. state 1초 묶기 · exp 는 바뀔 때만
  * 5. 찌르기 all · 받은 찌르기
  * 6. 서버 사건(joined · patch · left · meta · disband · replaced) · def 푸는 순서
@@ -182,6 +183,61 @@ async function joined(o = {}){
     e.prov.update({ customStatus: { emo: '', text: 'a' } });
     chk(e.ws.all('patch').length === 2, '객체 칸은 내용으로 비교한다');
     chk(!e.ws.sent.some((x) => 'lastSeen' in x), '30초 하트비트(lastSeen)는 보내지 않는다');
+  }
+
+  say('── 3-1. 💬 채팅 탭');
+  {
+    chk(M.MEMBER_FIELDS.includes('tab') && M.CHAT_TAB_IDS.join() === 's1,s2', '멤버 칸 tab 을 서버로 보낸다 · 탭 자리는 s1 · s2(chat-tabs.js SLOTS)');
+    const sp = M.splitRoomPayload({ state: 'idle', tab: 's1', chatTab: { tab: 's1', text: '팝콘', ts: 9, fly: true, flySize: 'm' } });
+    chk(sp.patch && sp.patch.tab === 's1' && !('chatTab' in sp.patch), 'splitRoomPayload — tab 은 patch 로, chatTab 은 patch 에 안 싣는다');
+    chk(sp.chat && sp.chat.text === '팝콘' && sp.chat.tab === 's1' && sp.chat.fly === true && sp.chat.flySize === 'm' && !('ts' in sp.chat), '  ↳ chatTab → chat{text, …, tab} (ts 는 서버가)');
+    const sp2 = M.splitRoomPayload({ chatTab: { tab: 'general', text: 'x', ts: 1 } });
+    chk(sp2.chat === null, '  ↳ 자리(s1 · s2)가 아닌 탭은 보내지 않는다(서버가 거절할 것)');
+    const sp3 = M.splitRoomPayload({ chat: { text: '일반', ts: 1 } });
+    chk(sp3.chat && sp3.chat.text === '일반' && !('tab' in sp3.chat), '  ↳ #일반 chat 에는 tab 이 없다');
+    const w1 = M.chatFromWire({ text: 'a', ts: 5, tab: 's2', fly: true }), w2 = M.chatFromWire({ text: 'b', ts: 6 });
+    chk(w1.key === 'chatTab' && w1.val.tab === 's2' && w1.val.ts === 5 && w1.val.fly === true && w2.key === 'chat' && !('tab' in w2.val), 'chatFromWire — tab 이 있으면 chatTab{tab,text,ts}, 없으면 chat');
+    chk(M.metaMatches({ tabs: { s1: { name: '영화', ts: 1 } } }, { tabs: { s1: { name: '영화' }, s2: null } }) && !M.metaMatches({ tabs: {} }, { tabs: { s1: { name: '영화' } } })
+      && !M.metaMatches({ tabs: { s1: { name: '옛이름', ts: 1 } } }, { tabs: { s1: { name: '영화' } } }) && M.metaMatches({ chatOff: true }, { chatOff: true }), 'metaMatches — tabs 는 이름 · 지움으로 견준다');
+
+    // 입장 — #일반(null)이면 join.me 에 tab 이 없다(옛 서버도 받는다), 탭에 있으면 싣는다
+    const e = await joined({ welcome: { members: { mA: { name: 'A', state: 'focus', userId: 'uA', def: { a: 1 }, tab: 's1', chat: { text: '영화 중', ts: 7, tab: 's1' } } } } });
+    chk(!('tab' in e.ws.last('join').me), 'join.me — tab 이 null 이면 칸을 싣지 않는다');
+    let fr = e.h.frames[e.h.frames.length - 1];
+    chk(fr.mA.tab === 's1' && fr.mA.chatTab && fr.mA.chatTab.tab === 's1' && fr.mA.chatTab.text === '영화 중' && fr.mA.chatTab.ts === 7 && !fr.mA.chat,
+      'welcome — 마지막 말풍선에 tab 이 있으면 chatTab 자리로(app.js 가 들어오기 전 말풍선으로 기억)');
+    e.prov.update({ tab: 's1' });
+    chk(e.ws.last('patch') && e.ws.last('patch').tab === 's1', '탭을 바꾸면 patch{tab}');
+    e.prov.update({ tab: 's1', chatTab: { tab: 's1', text: '같이 봐요', ts: 1 } });
+    const c = e.ws.last('chat');
+    chk(c && c.text === '같이 봐요' && c.tab === 's1' && !('ts' in c) && e.ws.all('patch').length === 1, '탭 말 → {t:chat, text, tab} 한 통(바뀐 칸 없으면 patch 없음)');
+    e.prov.update({ tab: null });
+    chk(e.ws.last('patch').tab === null, '#일반으로 돌아오면 patch{tab:null}');
+    e.ws.msg({ t: 'chat', memberId: 'mA', ts: 300, text: '팝콘', tab: 's1' });
+    await tick();
+    fr = e.h.frames[e.h.frames.length - 1];
+    chk(fr.mA.chatTab.ts === 300 && fr.mA.chatTab.text === '팝콘' && fr.mA.chatTab.tab === 's1' && !fr.mA.chat, '받은 탭 말 → 그 친구의 chatTab{tab,text,ts}(서버 시각)');
+    e.ws.msg({ t: 'chat', memberId: 'mA', ts: 301, text: '일반' });
+    await tick();
+    fr = e.h.frames[e.h.frames.length - 1];
+    chk(fr.mA.chat && fr.mA.chat.ts === 301 && fr.mA.chatTab.ts === 300, '받은 #일반 말 → chat(탭 말풍선은 그대로)');
+
+    // 방장 — 탭 만들기 · 지우기는 meta 요청으로
+    const mp = e.prov.setMeta({ tabs: { s1: { name: '영화' }, zz: { name: 'x' } } });
+    await tick();
+    const mm = e.ws.last('meta');
+    chk(mm && mm.tabs && mm.tabs.s1.name === '영화' && !('zz' in mm.tabs) && Object.keys(mm).join() === 't,tabs', 'setMeta({tabs}) → {t:meta, tabs:{s1:{name}}} (자리가 아닌 키는 버림)');
+    e.ws.msg({ t: 'meta', meta: Object.assign({}, META, { tabs: { s1: { name: '영화', ts: 400 } } }) });
+    chk((await mp).ok === true, '  ↳ 서버 meta.tabs 에 그 이름이 오면 ok');
+    const mt = e.h.log.filter((x) => x[0] === 'meta').pop();
+    chk(mt && mt[1].tabs.s1.ts === 400, '  ↳ onMeta 로 tabs 가 그대로 간다(app.js _roomMetaCache.tabs)');
+    const md = e.prov.setMeta({ tabs: { s1: null } });
+    await tick();
+    chk(e.ws.last('meta').tabs.s1 === null, 'setMeta({tabs:{s1:null}}) → 지우기');
+    e.ws.msg({ t: 'meta', meta: Object.assign({}, META, { tabs: {} }) });
+    chk((await md).ok === true, '  ↳ 서버 meta 에서 사라지면 ok');
+    const mx = e.prov.setMeta({ tabs: { s9: null } });
+    chk((await mx).ok === false, '  ↳ 보낼 게 없으면 바로 실패');
   }
 
   say('── 4. state 1초 묶기 · exp');
@@ -632,6 +688,14 @@ async function joined(o = {}){
     chk(/window\._onRoomMeta\(meta\)/.test(AC.slice(AC.indexOf('function _onServerRoomMeta'))) && /window\._roomMetaCache = meta;/.test(AC), 'meta → _roomMetaCache · _onRoomMeta');
     chk(/if\(code === 'full'\)/.test(AC) && /if\(code === 'channelFull'\)/.test(AC) && /if\(code === 'secretClosed'\)/.test(AC), 'full · channelFull · secretClosed → 안내 문구');
     chk(/const _sp = \(Presence\.serverProvider && Presence\.serverProvider\(\)\) \|\| null;/.test(AC) && /_sp \? await _sp\.setMeta\(\{ chatOff: next \}\)/.test(AC), '채팅 잠금 — 서버 방이면 meta 를 서버로');
+    const ctAdd = AC.slice(AC.indexOf('async function _chatTabAdd('), AC.indexOf('function _chatTabMeta('));
+    chk(/if\(!sp\) return firebaseAPI\.addChatTab\(room, name\);/.test(ctAdd) && /await sp\.setMeta\(\{ tabs: \{ \[id\]: \{ name \} \} \}\)/.test(ctAdd)
+      && /if\(!sp\) return firebaseAPI\.renameChatTab\(room, id, name\);/.test(ctAdd) && /if\(!sp\) return firebaseAPI\.deleteChatTab\(room, id\);/.test(ctAdd)
+      && /await sp\.setMeta\(\{ tabs: \{ \[id\]: null \} \}\)/.test(ctAdd) && /firebaseAPI\.clearChatLog\(room, id\)/.test(ctAdd),
+      '💬 채팅 탭 — 서버 방이면 만들기 · 이름 바꾸기 · 지우기를 방 서버 meta 로(기록 지우기는 Firebase) · 아니면 Firebase _meta/tabs');
+    chk(/r = await _chatTabAdd\(room, c\.name\);/.test(AC) && /else r = await _chatTabRename\(room, edit\.id, c\.name\);/.test(AC) && /const r = await _chatTabDelete\(_chatRoomCode\(\), id\);/.test(AC)
+      && !/firebaseAPI\.(addChatTab|renameChatTab|deleteChatTab)\(/.test(AC.replace(ctAdd, '')) && !/_chatTabsOnServer/.test(AC), '  ↳ 탭 줄 · 메뉴는 이 셋만 부른다 · 서버 방이라고 [+] 를 숨기지 않는다');
+    chk(/meta\.tabs = tabs;/.test(rm.slice(0, rm.indexOf('meta.ts = meta.openTs'))) && /t\.name\.length <= 10 && typeof t\.ts === 'number'/.test(rm), '  ↳ Firebase 로 되살릴 때 채팅 탭 정의도 옮긴다(규칙 모양만)');
     chk(/await _withServerRoomCounts\(await firebaseAPI\.getRoomCounts\(\{ quick: true \}\)\)/.test(AC) && /c = _addServerRoomCounts\(c\);/.test(AC), '방 개수 — 서버 몫을 더한다(켜져 있을 때만)');
     const so = AC.slice(AC.indexOf('async function _startRoomOnServer('), AC.indexOf('/* 방 개수 — 서버 방 몫을 더한다'));
     chk(/rs = await firebaseAPI\.resolveRoomServer\(code, \{ creating \}\);/.test(so) && /if\(!\(rs && rs\.via === 'server'\)\) return 'firebase';/.test(so), '서버로 갈지는 firebaseAPI.resolveRoomServer 한 곳 — 아니면 Firebase');

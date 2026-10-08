@@ -16726,17 +16726,40 @@ function _refreshChatMembers(){
    ★ 내가 있는 탭 = 마지막으로 누른 탭. 창을 닫거나 접어도 유지, 방에 들어오면 #일반, 그 탭이 지워지면 #일반.
    ★ 읽음 구분선 · 입장 컷 · [지우기] 는 ChatTabs.markKey(방, 탭) 를 방 코드 자리에 써서 탭마다 따로 간다
      (#일반은 예전 방 코드 그대로라 기존 표식이 그대로 이어진다).
-   ⚠️ 방장 제한은 **화면 수준**이다 — `_meta.host` 는 문자열일 뿐이라 서버가 방장을 검증하지 못한다
-     (채팅 켜짐/꺼짐과 같은 수준). 규칙은 탭 개수(≤ 2)와 이름 길이만 막는다. */
+   ⚠️ 방장 제한은 **화면 수준**이다(Firebase 방) — `_meta.host` 는 문자열일 뿐이라 서버가 방장을 검증하지 못한다
+     (채팅 켜짐/꺼짐과 같은 수준). 규칙은 탭 개수(≤ 2)와 이름 길이만 막는다. 🛰 서버 방은 방 서버가 방장만 받는다. */
 let _chatMyTab = 'general';
 let _chatTabRoom = null;          // _chatMyTab 이 어느 방 것인가 — 방이 바뀌면 #일반으로
 const _chatTabUnread = {};        // tabId → 안 읽은 수 (창이 열려 있는 동안, 보고 있지 않은 탭만)
 let _chatTabUnreadUnsubs = [];
 const CHAT_TAB_UNREAD_LIMIT = 30;
-/* 🛰 서버 방에서는 탭을 만들지 않는다 — 탭 정의(_meta/tabs) · 멤버 칸(tab · chatTab)이 아직 방 서버 규약(PROTOCOL.md)에 없다.
-   만들면 Firebase 에 rooms/{방}/_meta/tabs 만 생겨(유령 방 노드) 방장 혼자만 탭을 보고, 다른 사람에겐 안 보인다.
-   TODO: 방 서버 규약에 tabs · tab · chatTab 을 더하면 이 막음을 걷는다. */
-function _chatTabsOnServer(){ try{ const n = _roomServerNet(); return !!(n && n.inRoom && n.inRoom()); }catch(_){ return false; } }
+/* 🛰 탭 정의 바꾸기 — 서버 방이면 방 서버 meta(방장만 · 서버가 검사), 아니면 Firebase _meta/tabs.
+   서버 방에서 Firebase 에 쓰면 rooms/{방}/_meta/tabs 만 생겨(유령 방 노드) 방장 혼자만 탭을 본다.
+   탭별 대화 기록(_chatTab)은 어느 방이든 Firebase 다(#일반 chatLog 와 같다). 반환은 firebaseAPI 쪽과 같은 { ok, id?, reason? }. */
+function _chatTabServer(){ try{ return (typeof Presence !== 'undefined' && Presence.serverProvider && Presence.serverProvider()) || null; }catch(_){ return null; } }
+async function _chatTabAdd(room, name){
+  const sp = _chatTabServer();
+  if(!sp) return firebaseAPI.addChatTab(room, name);
+  const id = ChatTabs.freeSlot(_chatTabMeta());
+  if(!id) return { ok:false, reason:'채널은 3개까지예요' };
+  const r = await sp.setMeta({ tabs: { [id]: { name } } });
+  return (r && r.ok) ? { ok:true, id } : { ok:false, reason: (r && r.code === 'forbidden') ? '방장만 바꿀 수 있어요' : '' };
+}
+async function _chatTabRename(room, id, name){
+  const sp = _chatTabServer();
+  if(!sp) return firebaseAPI.renameChatTab(room, id, name);
+  const r = await sp.setMeta({ tabs: { [id]: { name } } });
+  return { ok: !!(r && r.ok) };
+}
+async function _chatTabDelete(room, id){
+  const sp = _chatTabServer();
+  if(!sp) return firebaseAPI.deleteChatTab(room, id);
+  const r = await sp.setMeta({ tabs: { [id]: null } });
+  if(!(r && r.ok)) return { ok:false };
+  // 정의는 서버에서 지워졌다 — 기록은 Firebase 에 있으니 따로 지운다(실패해도 탭은 이미 없다 · 같은 자리를 다시 쓰기 전에 정리)
+  try{ if(firebaseAPI.clearChatLog) await firebaseAPI.clearChatLog(room, id); }catch(_){}
+  return { ok:true };
+}
 function _chatTabMeta(){ try{ return (window._roomMetaCache && window._roomMetaCache.tabs) || null; }catch(_){ return null; } }
 function _chatTabResolve(id){ return window.ChatTabs ? ChatTabs.resolve(id, _chatTabMeta()) : 'general'; }
 function _chatMyTabId(){
@@ -16839,7 +16862,7 @@ function _chatTabsRender(){
       (un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : un) + '</span>' : '') + '</span>';
   });
   if(_chatTabEdit && _chatTabEdit.mode === 'add') h.push(_chatTabEditHtml(''));
-  else if(!_chatTabsOnServer() && ChatTabs.canAdd(host, _chatTabMeta())) h.push('<span class="ct-add" title="채널 추가 (방장)">+</span>');
+  else if(ChatTabs.canAdd(host, _chatTabMeta())) h.push('<span class="ct-add" title="채널 추가 (방장)">+</span>');
   bar.innerHTML = h.join('');
   const inp = bar.querySelector('.ct-edit input');
   if(inp){ inp.focus(); inp.select(); }
@@ -16857,15 +16880,14 @@ async function _chatTabEditSubmit(){
   const room = _chatRoomCode(); if(!room) return;
   let r = null;
   if(edit.mode === 'add'){
-    if(_chatTabsOnServer()){ toast('이 방에서는 아직 채널을 만들 수 없어요'); _chatTabEdit = null; _chatTabsRender(); return; }
     if(!ChatTabs.canAdd(true, _chatTabMeta())){ toast('채널은 #일반 포함 3개까지예요'); _chatTabEdit = null; _chatTabsRender(); return; }
-    r = await firebaseAPI.addChatTab(room, c.name);
-  }else r = await firebaseAPI.renameChatTab(room, edit.id, c.name);
+    r = await _chatTabAdd(room, c.name);
+  }else r = await _chatTabRename(room, edit.id, c.name);
   _chatTabEdit = null;
   if(!(r && r.ok)){ toast((r && r.reason) || '바꾸지 못했어요 — 네트워크를 확인해 주세요'); _chatTabsRender(); return; }
   if(edit.mode === 'add' && r.id){
     // 메타가 리스너로 오기 전이라도 바로 그 탭으로 — 캐시에 먼저 넣어 둔다
-    try{ const m = window._roomMetaCache = Object.assign({}, window._roomMetaCache || {}); m.tabs = Object.assign({}, m.tabs || {}, { [r.id]: { name: c.name, ts: Date.now() } }); }catch(_){}
+    try{ const m = window._roomMetaCache = Object.assign({}, window._roomMetaCache || {}); m.tabs = Object.assign({ [r.id]: { name: c.name, ts: Date.now() } }, m.tabs || {}); }catch(_){}   // 이미 온 값(서버 방은 meta 가 먼저 온다)이 이긴다
     _chatSwitchTab(r.id);
   }
   _chatTabsRender();
@@ -16896,7 +16918,7 @@ function _chatTabMenu(id){
   _chatAsk('#' + name + ' 채널을 삭제할까요?\n대화 기록도 같이 지워지고, 있던 사람은 #일반으로 옮겨져요.', [
     { label:'이름 바꾸기', run: () => { _chatTabEdit = { mode:'rename', id }; _chatTabsRender(); } },
     { label:'삭제', danger:true, run: async () => {
-        const r = await firebaseAPI.deleteChatTab(_chatRoomCode(), id);
+        const r = await _chatTabDelete(_chatRoomCode(), id);
         if(!(r && r.ok)) toast('지우지 못했어요 — 네트워크를 확인해 주세요');
         else toast('🗑 #' + name + ' 채널을 지웠어요');
       } },

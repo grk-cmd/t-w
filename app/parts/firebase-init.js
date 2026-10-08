@@ -2843,7 +2843,7 @@
       }catch(e){ console.warn('[방] 채널 복구 실패', e); return null; }
     },
     /* 🛰 방 서버가 안 돌아와 같은 코드로 Firebase 에 다시 들어올 때 — 서버 방의 meta 로 `_meta` 를 «되살린다».
-       새로 여는 것이 아니라서 채널 · 방장 · 랜덤 허용 · 채팅 잠금을 그대로 옮기고(들어오는 사람의 라이선스와 상관없이),
+       새로 여는 것이 아니라서 채널 · 방장 · 랜덤 허용 · 채팅 잠금 · 채팅 탭을 그대로 옮기고(들어오는 사람의 라이선스와 상관없이),
        restoredTs 를 찍어 둔다. 먼저 되살린 사람이 있으면(restoredTs 가 신선) 덮지 않고 그 값을 따른다.
        ★ restoredTs 가 신선한 동안(ROOM_RESTORE_GRACE_MS)은 방장 승계 · 해산을 미룬다(_maybeSucceedHost) —
          방장이 아직 Firebase 로 넘어오는 중일 수 있어서. 그 뒤로는 평소 규칙 그대로.
@@ -2857,6 +2857,13 @@
           if(m && typeof m.host === 'string' && m.host) meta.host = m.host;
           if(m && typeof m.open === 'boolean') meta.open = m.open;
           if(m && m.chatOff === true) meta.chatOff = true;
+          // 💬 채팅 탭 정의도 옮긴다 — 규칙(_meta/tabs/$tabId)과 같은 모양만(s1 · s2, 이름 1~10자, ts 숫자). 기록은 원래 Firebase 에 있다.
+          const tabs = {};
+          for(const id of ['s1', 's2']){
+            const t = m && m.tabs && m.tabs[id];
+            if(t && typeof t.name === 'string' && t.name.length >= 1 && t.name.length <= 10 && typeof t.ts === 'number' && isFinite(t.ts)) tabs[id] = { name: t.name, ts: t.ts };
+          }
+          if(Object.keys(tabs).length) meta.tabs = tabs;
           meta.ts = meta.openTs = meta.restoredTs = _svNow();
           return meta;
         });

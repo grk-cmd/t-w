@@ -2,6 +2,7 @@
  * 방 서버(웹소켓) provider — makeFirebaseProvider 와 같은 모양(join · update · poke · pokeSelf · leave).
  * 통신 규약의 정본은 방 서버 저장소의 PROTOCOL.md (PROTOCOL_VERSION = 1) 다. 칸 이름 · 한도는 거기를 따른다.
  * peek · rid 는 v1 안에서 선택으로 더해진 것이다. 그 전 서버에서는 peek 이 null 로 끝나고, rid 없는 답은 보낸 순서로 짝짓는다.
+ * 채팅 탭(멤버 칸 tab · chat 의 tab · meta 의 tabs)도 v1 안에서 더해졌다 — 그 전 서버는 tab 이 실린 메시지를 거절하므로 서버를 먼저 배포한다.
  *
  * 켤지 · 어느 서버로 갈지는 room-server-gate.js(관리자 스위치 config/roomServer · 방 주소록 roomDir)가 정하고,
  * firebase-init.js 가 그 결과 주소를 url() 로 넘긴다. url() 이 null 이면 서버 쪽은 아예 쓰지 않는다.
@@ -34,8 +35,10 @@ export const ROOM_LOST_AFTER_MS = 30 * 1000;  // 못 붙었으면 이만큼은 �
 
 // 서버가 받는 멤버 칸(PROTOCOL.md «멤버 칸»). 모르는 칸이 하나라도 있으면 patch 통째로 거절되므로 여기서 거른다.
 export const MEMBER_FIELDS = ['name', 'state', 'userStatus', 'customStatus', 'level', 'exp', 'cyc', 'clv', 'starC',
-  'awaySz', 'lic', 'awayImg', 'ridingOn', 'seatedOn', 'bench', 'mobile', 'danceStyle', 'flyCool', 'noise'];
+  'awaySz', 'lic', 'awayImg', 'ridingOn', 'seatedOn', 'bench', 'mobile', 'danceStyle', 'flyCool', 'noise', 'tab'];
 const CHAT_FIELDS = ['text', 'fly', 'flyColor', 'flySize'];
+// 💬 채팅 탭 자리 — chat-tabs.js SLOTS · 서버 PROTOCOL.md «채팅 탭». #일반은 id 가 없다.
+export const CHAT_TAB_IDS = ['s1', 's2'];
 // rid(요청 id)를 붙여 묻는 요청 — 답의 t 가 요청의 t 와 같다. 서버는 rid 를 1~16자(영숫자 _ . : -)만 받는다.
 export const RID_REQUESTS = ['stats', 'random', 'peek'];
 
@@ -76,20 +79,45 @@ function pickFields(o){
   return out;
 }
 
-/* Presence 가 provider.update 로 넘기는 것(_basePayload + def · chat · name)을 서버 메시지 셋으로 가른다.
-   def → def, chat → chat(서버가 ts 를 찍으므로 ts 는 뺀다), 나머지 → patch. 바뀐 칸 고르기는 부르는 쪽 몫이다. */
+/* Presence 가 provider.update 로 넘기는 것(_basePayload + def · chat · chatTab · name)을 서버 메시지 셋으로 가른다.
+   def → def, chat → chat(서버가 ts 를 찍으므로 ts 는 뺀다), 나머지 → patch. 바뀐 칸 고르기는 부르는 쪽 몫이다.
+   💬 chatTab(#일반이 아닌 탭의 말) → chat + tab. 서버에는 칸이 하나(chat)뿐이고 tab 으로 가른다 — 받는 쪽은 chatTabFromWire. */
 export function splitRoomPayload(payload){
   const out = { patch: null, def: undefined, chat: null };
   if(!payload) return out;
   const patch = pickFields(payload);
   if(Object.keys(patch).length) out.patch = patch;
   if(payload.def) out.def = payload.def;
-  if(payload.chat && typeof payload.chat.text === 'string'){
+  const ct = payload.chatTab;
+  const src = (ct && typeof ct.text === 'string' && CHAT_TAB_IDS.indexOf(ct.tab) >= 0) ? ct
+            : (payload.chat && typeof payload.chat.text === 'string') ? payload.chat : null;
+  if(src){
     const c = {};
-    for(const k of CHAT_FIELDS){ if(payload.chat[k] !== undefined) c[k] = payload.chat[k]; }
+    for(const k of CHAT_FIELDS){ if(src[k] !== undefined) c[k] = src[k]; }
+    if(src === ct) c.tab = ct.tab;
     out.chat = c;
   }
   return out;
+}
+
+/* 서버의 말풍선 { text, ts, fly?, …, tab? } → 친구 객체 칸. tab 이 있으면 chatTab(Firebase 방에서 멤버 노드에 쓰는 것과 같은 모양
+   { tab, text, ts, … }), 없으면 chat. app.js 의 말풍선 · 탭 거르기(syncFriendSeats)가 고치지 않고 그대로 돈다. */
+export function chatFromWire(m){
+  const c = { text: m.text, ts: m.ts };
+  if(m.fly !== undefined) c.fly = m.fly;
+  if(m.flyColor !== undefined) c.flyColor = m.flyColor;
+  if(m.flySize !== undefined) c.flySize = m.flySize;
+  if(typeof m.tab === 'string' && m.tab) return { key: 'chatTab', val: Object.assign({ tab: m.tab }, c) };
+  return { key: 'chat', val: c };
+}
+
+/* meta 요청이 반영됐는지 — tabs 는 { s1: { name } | null } 을 서버 meta.tabs 와 견준다. */
+export function metaMatches(meta, want){
+  return Object.keys(want).every((k) => {
+    if(k !== 'tabs') return meta[k] === want[k];
+    const cur = (meta && meta.tabs && typeof meta.tabs === 'object') ? meta.tabs : {};
+    return Object.keys(want.tabs).every((id) => want.tabs[id] === null ? !cur[id] : !!(cur[id] && cur[id].name === want.tabs[id].name));
+  });
 }
 
 export function createRoomServerNet(deps){
@@ -366,6 +394,8 @@ export function createRoomServerNet(deps){
       msg.resume = P.resume;
     }else{
       msg.me = Object.assign({}, P.current, { def: P.def });
+      // #일반(null)이면 tab 을 싣지 않는다 — 채팅 탭을 모르는 옛 서버에도 들어갈 수는 있게(null = 칸 없음이라 뜻은 같다)
+      if(msg.me.tab == null) delete msg.me.tab;
       if(P.userId) msg.me.userId = P.userId;
       if(P.create) msg.create = P.create;
       P.sent = Object.assign({}, P.current);
@@ -430,7 +460,16 @@ export function createRoomServerNet(deps){
     try{ log.warn('[방 서버] 거절 —', m.code, m.ref || ''); }catch(_){}
   }
 
-  const memberFrom = (view) => Object.assign({}, view || {});
+  // 멤버 모습 → 친구 객체. 마지막 말풍선에 tab 이 있으면 chatTab 자리로(chatFromWire).
+  const memberFrom = (view) => {
+    const v = Object.assign({}, view || {});
+    if(v.chat && typeof v.chat === 'object'){
+      const c = chatFromWire(v.chat);
+      delete v.chat;
+      v[c.key] = c.val;
+    }
+    return v;
+  };
 
   function setMeta(P, meta){
     if(!meta) return;
@@ -438,7 +477,7 @@ export function createRoomServerNet(deps){
     P.meta = meta;
     const list = P.metaWaiters; P.metaWaiters = [];
     for(const w of list){
-      if(Object.keys(w.want).every((k) => meta[k] === w.want[k])) w.done({ ok: true });
+      if(metaMatches(meta, w.want)) w.done({ ok: true });
       else P.metaWaiters.push(w);
     }
     try{ if(P.hooks.onMeta) P.hooks.onMeta(meta, prev); }catch(_){}
@@ -533,11 +572,8 @@ export function createRoomServerNet(deps){
       case 'chat': {
         const cur = P.members[m.memberId];
         if(!cur) return;
-        const c = { text: m.text, ts: m.ts };
-        if(m.fly !== undefined) c.fly = m.fly;
-        if(m.flyColor !== undefined) c.flyColor = m.flyColor;
-        if(m.flySize !== undefined) c.flySize = m.flySize;
-        cur.chat = c;
+        const c = chatFromWire(m);
+        cur[c.key] = c.val;
         emit(P);
         return;
       }
@@ -644,11 +680,20 @@ export function createRoomServerNet(deps){
         if(!canSend(P)) return;
         send({ t: 'poke', to: P.memberId, type: String(type) });   // to 가 나 자신이면 서버가 방 전원(나 포함)에게 보낸다
       },
-      // 방장만 — chatOff · open. 서버가 바뀐 meta 를 돌려주면 ok.
+      // 방장만 — chatOff · open · tabs({ s1: { name } | null }). 서버가 바뀐 meta 를 돌려주면 ok.
       setMeta(fields){
         const want = {};
         if(fields && typeof fields.chatOff === 'boolean') want.chatOff = fields.chatOff;
         if(fields && typeof fields.open === 'boolean') want.open = fields.open;
+        if(fields && fields.tabs && typeof fields.tabs === 'object'){
+          const tabs = {};
+          for(const id of CHAT_TAB_IDS){
+            const v = fields.tabs[id];
+            if(v === null) tabs[id] = null;
+            else if(v && typeof v.name === 'string' && v.name) tabs[id] = { name: v.name };
+          }
+          if(Object.keys(tabs).length) want.tabs = tabs;
+        }
         if(!Object.keys(want).length || !canSend(P)) return Promise.resolve({ ok: false });
         return new Promise((res) => {
           const w = { want, done: null, timer: null };
