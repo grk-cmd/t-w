@@ -101,7 +101,11 @@ say('── 2. 소리 풀');
 say('── 3. 울리는 자리');
 {
   const calls = SRC.split('_chatNotifyIncoming()').length - 1;
-  chk(calls === 2, '★ 호출은 정의 1 + 부르는 자리 1 뿐 [' + calls + ']');
+  /* 💬 채팅 탭(2026-10-08) — `chatTab` 칸(#일반 외 탭의 말풍선)이 두 번째 수신 분기다. 한 줄에 한 칸만 오므로
+     두 번 울리지 않는다. 대화창 기록 구독(chatLog · _chatTab)에는 여전히 없어야 한다. */
+  chk(calls === 3, '★ 호출은 정의 1 + 부르는 자리 2 (chat · chatTab) 뿐 [' + calls + ']');
+  const tabRecv = (SRC.match(/const ctab = friends\[id\]\.chatTab;[\s\S]*?\n    \}/) || [''])[0];
+  chk(/if\(_shown && typeof _chatNotifyIncoming === 'function'\) _chatNotifyIncoming\(\);/.test(tabRecv), '  두 번째 자리는 chatTab 수신 분기 — 화면에 뜬 경우에만');
   const recv = (SRC.match(/const chat=friends\[id\]\.chat;[\s\S]*?\n    \}/) || [''])[0];
   chk(/_chatShown = true;[\s\S]*_chatShown = true;[\s\S]*if\(_chatShown && typeof _chatNotifyIncoming === 'function'\) _chatNotifyIncoming\(\);/.test(recv),
       '★ 상대 채팅 수신 분기에서, 날리기·말풍선이 **실제로 뜬 경우에만** 부른다');

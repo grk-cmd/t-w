@@ -1075,14 +1075,21 @@ function aCommitStamp(){
   const doOnce=(cx)=>{
     const cy=aStampPlace.cy, w=aStampPlace.w, h=aStampPlace.h, rot=aStampPlace.rot;
     const cs=Math.cos(rot), sn=Math.sin(rot);
-    const N=18, uvs=[], targets=_pTargets();
+    const N=18, uvs=[], targets=_pTargets(), wrapRays=[];
     for(let j=0;j<=N;j++) for(let i=0;i<=N;i++){
       const lx=(i/N-0.5)*w, ly=(j/N-0.5)*h;
       const sx=cx+lx*cs-ly*sn, sy=cy+lx*sn+ly*cs;
       _pN.x=(sx/r.width)*2-1; _pN.y=-(sy/r.height)*2+1;
       _pRay.setFromCamera(_pN,cam);
       const hit=_aCast(_pRay.ray, targets);   // 지금 자세로 맞힌다(_aCast 주석) — 키운 얼굴의 바깥 볼도 찍힌다
-      uvs.push(hit?{x:hit.uv.x,y:hit.uv.y}:null);
+      uvs.push(hit?{x:hit.uv.x,y:hit.uv.y,p:hit.point.clone()}:null);
+      if(!hit) wrapRays[uvs.length-1]={o:_pRay.ray.origin.clone(), d:_pRay.ray.direction.clone()};
+    }
+    /* 🩹 #3 감아 칠하기 — 사람 도장과 같은 함수(app.js _stampWrapFill). 중심은 보이는 얼굴 메시 기준. */
+    if(typeof _stampWrapFill==='function'){
+      // 얼굴 메시에만 감는다 — 몸에 맞은 점이 섞이면 지금 칠하는 캔버스(pActC)와 다른 메시의 UV 가 된다
+      const faceMesh=targets.find(o=>_isFaceMesh(o));
+      if(faceMesh) _stampWrapFill(uvs, N, wrapRays, [faceMesh], _stampWrapCenter(faceMesh));
     }
     /* 가장자리 외삽.
        ★ 예전엔 (-0.05~1.05) 안이기만 하면 무제한으로 채우고 0~1로 잘랐다. 잘린 값들이

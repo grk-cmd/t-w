@@ -33,6 +33,8 @@ console.log('\n── 1. 관리자만 쓸 수 있어야 하는 곳');
   ['announce/current',           '상단 배너 공지'],
   ['updateNotice/current',       '업데이트 공지'],
   ['bugReport/current',          '버그제보 공지·링크'],
+  ['bugBoard/ans/pub/$id',       '버그제보 공개 답변'],
+  ['bugBoard/ans/prv/$id',       '버그제보 비공개 답변'],
   ['config/minRoomVer',          '최소 버전(전원 접속 차단 가능)'],
   ['inboxBroadcast',             '전체 우편함 발송'],
   ['inboxBroadcastMeta',         '공용 공지 버전(앱 캐시 무효화)'],
@@ -50,6 +52,15 @@ console.log('\n── 2. 일반 사용자가 계속 할 수 있어야 하는 것
     const v = String((at('licenseRequests/$reqId') || {})['.validate']);
     chk(/!newData\.child\('friendCode'\)\.exists\(\) \|\|/.test(v), '신청의 친구코드는 없어도 된다 (친구코드를 안 보내는 옛 앱)');
     chk(v.includes("matches(/^(MATE|COZY)-[A-Z0-9]{4}$/)"), '  ↳ 있으면 MATE-XXXX · COZY-XXXX 형식만 (발급 때 그 주인의 수령함으로 보낸다)');
+  }
+  {
+    /* 🐞 버그제보 게시판 — 글쓰기는 누구나(본인 이름으로 새 글만) · 공감은 본인 표시 하나 */
+    const lw = String(w('bugBoard/list/$id'));
+    chk(/!data\.exists\(\) && newData\.child\('authUid'\)\.val\(\) === auth\.uid/.test(lw) && /userAuth/.test(lw),
+        '버그제보 글쓰기 — 본인 uid · 본인 코드로 새 글만 (상태·공지는 관리자)');
+    chk(/!data\.exists\(\)/.test(String(w('bugBoard/pub/$id'))) && /auth\.uid === \$authUid/.test(String(w('bugBoard/prv/$authUid/$id'))),
+        '  ↳ 공개 · 비공개 내용도 글쓴이가 새로 쓸 수 있다');
+    chk(/auth\.uid === \$authUid && !data\.exists\(\)/.test(String(w('bugBoard/likes/$id/$authUid'))), '  ↳ 👍 은 본인 표시 하나만');
   }
   chk(r('licenses/$key') === true, '키 하나는 누구나 읽는다 — 등록(redeemLicense)·재검증·회수 구독이 키 하나로 읽는다 (개정 55)');
   chk(/newData\.val\(\) === \(data\.exists\(\) \? data\.val\(\) : 0\) \+ 1/.test(String(w('stats/userCount'))),

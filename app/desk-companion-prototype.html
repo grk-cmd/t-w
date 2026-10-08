@@ -147,6 +147,11 @@
          var() 로만 받는다 — 같은 색을 두 곳에 복사하지 않게 되는 것은 덤이다. */
     --fly-rainbow:linear-gradient(90deg,#FF4D4D,#FFB84D,#FFF04D,#5BE36A,#4DC8FF,#9B5BFF,#FF5BC8);
     --win-error:#B5624A;       /* 에러/경고 */
+    --win-star:#C9A227;        /* ⭐ 즐겨찾기 테두리 (선물함) */
+    --win-star-bg:#FFF6C8;     /* ⭐ 즐겨찾기 칸 배경 */
+    --win-private:#7A5AA6;     /* 🔒 비공개 답변(버그제보) */
+    --win-private-bg:#F1ECF8;
+    --kakao:#FEE500;           /* 오픈카톡 버튼 — 브랜드 색이라 테마를 타지 않는다 */
 
     /* ===== 🎨 '모양' 토큰 — 테마가 갈아끼우는 값들 =====
        기본 테마에서는 전부 지금까지의 Win98 그대로다. 즉 테마를 켜기 전에는 화면이 1px도 안 바뀐다. */
@@ -208,6 +213,10 @@
     --win-ink:#333B3E;
     --win-ink-soft:#6E777A;
     --win-error:#D9705E;
+    --win-star:#E8B930;
+    --win-star-bg:#FFF8DA;
+    --win-private:#9A7CC6;
+    --win-private-bg:#F5F0FB;
     --win-pop:var(--acc-pop, #FFC24B);
     --win-accent:var(--acc-d, #6BA82F);
 
@@ -368,6 +377,7 @@
   html[data-theme="bubble"] .wd-tab-btn,
   html[data-theme="bubble"] .wd-group-btn,
   html[data-theme="bubble"] .gc-tab,
+  html[data-theme="bubble"] .ct-tab,
   html[data-theme="bubble"] .cr-tabs button,
   html[data-theme="bubble"] #crSteps span,
   /* .on(활성 탭)은 자체 규칙이 균일 radius를 !important로 갖고 있다.
@@ -594,6 +604,33 @@
   #chatDelWin .cd-foot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   #chatDelWin .cd-foot #chatDelOk{color:var(--ink-danger, #7a1f1f);font-weight:bold;}
   #chatDelWin .cd-foot button[disabled]{color:var(--ink-soft);cursor:default;}
+  /* 💬 채팅 탭 줄 — 스크롤바 없음. 이름(.ct-name)만 줄어들고 인원 · 안 읽음 숫자는 줄지 않는다. */
+  .chat-tabs{display:none;align-items:center;gap:2px;margin:4px 6px 0;overflow:hidden;font-size:11px;white-space:nowrap;}
+  .chat-tabs.on{display:flex;}
+  .ct-tab{display:inline-flex;align-items:center;gap:4px;min-width:0;flex:0 1 auto;padding:2px 8px;cursor:pointer;color:var(--ink);
+    background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-face) var(--win-hi);border-bottom:none;
+    border-radius:var(--win-radius-el) !important;}
+  .ct-tab.on{background:var(--win-face-2);font-weight:bold;}
+  .ct-name{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+  .ct-tab[data-tab="general"]{flex-shrink:0;}   /* #일반은 짧아서 줄이지 않는다 — 긴 이름 탭이 먼저 준다 */
+  .ct-n{flex-shrink:0;color:var(--ink-soft);font-weight:normal;}
+  .ct-unread{flex-shrink:0;min-width:15px;padding:0 4px;box-sizing:border-box;text-align:center;font-size:9.5px;line-height:15px;
+    color:#fff;background:var(--win-error);border-radius:8px;font-weight:bold;}
+  .ct-add{flex-shrink:0;padding:0 7px;cursor:pointer;color:var(--ink-soft);font-weight:bold;}
+  .ct-add:hover{color:var(--win-select);}
+  .ct-edit{display:inline-flex;align-items:center;gap:2px;flex-shrink:0;}
+  .ct-edit input{width:88px;font-size:11px;padding:1px 4px;font-family:Tahoma,'Malgun Gothic',sans-serif;}
+  .ct-edit button{font-size:10.5px;padding:0 6px;cursor:pointer;font-family:Tahoma,'Malgun Gothic',sans-serif;}
+  /* 탭 우클릭 확인창 — #chatWindow 의 자식(chatDelOv 와 같은 관례) */
+  .chat-ask-ov{position:absolute;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
+  .chat-ask-win{width:min(300px,92%);background:var(--win-face);
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.4));border-radius:var(--win-radius-el) !important;}
+  .chat-ask-win .ca-body{padding:14px 14px 0;font-size:11.5px;color:var(--ink);line-height:1.7;white-space:pre-line;}
+  .chat-ask-win .ca-foot{display:flex;justify-content:flex-end;gap:6px;padding:12px 14px;}
+  .chat-ask-win .ca-foot button{padding:3px 10px;font-size:11px;cursor:pointer;font-family:Tahoma,'Malgun Gothic',sans-serif;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
+  .chat-ask-win .ca-foot button.danger{color:var(--ink-danger, #7a1f1f);font-weight:bold;}
   .chat-memberbar{margin:6px;display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 6px;
     background:var(--win-face);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);color:var(--ink);border-radius:var(--win-radius-el) !important;}
   .chat-member-label{background:var(--win-face-2);border:1px solid var(--win-lo-2);padding:1px 5px;font-weight:bold;white-space:nowrap;}
@@ -620,6 +657,26 @@
   .chat-messages .cm-unread-sep::before,
   .chat-messages .cm-unread-sep::after{content:"";flex:1;height:0;border-top:1px dashed #e0a0a0;}
   .chat-messages a{color:#0a3;text-decoration:underline;}
+  /* 📋 대화 칸만 글자를 고를 수 있다 — body 의 user-select:none 을 여기서만 푼다.
+     이름표·탭·메뉴·툴바는 그대로 못 고른다. 시각·구분선은 위 규칙의 none 이 이긴다(더 구체적). */
+  .chat-messages, .chat-messages *{user-select:text;-webkit-user-select:text;}
+  .chat-messages .cm-time, .chat-messages .cm-unread-sep{user-select:none;-webkit-user-select:none;}
+  /* 고르는 동안 새 메시지는 그리지 않고 칩으로 알린다(app.js _renderChatLog). 위치는 JS 가 대화 칸 아래에 맞춘다. */
+  .cm-newchip{display:none;position:absolute;right:16px;z-index:4;padding:2px 9px;font-size:11px;cursor:pointer;
+    color:var(--win-title-ink);background:var(--win-title-grad);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.35);}
+  .cm-newchip.on{display:block;}
+  .cm-copytoast{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:7;
+    padding:5px 12px;font-size:11px;color:#fff;background:rgba(0,0,0,.72);border-radius:4px;pointer-events:none;}
+  .cm-copytoast.on{display:block;}
+  .cm-ctx{display:none;position:absolute;z-index:8;min-width:120px;padding:2px;font-size:11px;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.4));border-radius:var(--win-radius-el) !important;}
+  .cm-ctx.on{display:block;}
+  .cm-ctx-it{padding:3px 18px 3px 14px;cursor:pointer;white-space:nowrap;}
+  .cm-ctx-it:hover{background:var(--win-select);color:var(--win-title-ink);}
+  .cm-ctx-it.off{color:var(--ink-soft);opacity:.55;pointer-events:none;}
+  .cm-ctx-it.hide{display:none;}
+  .cm-ctx-sep{height:0;margin:2px 1px;border-top:1px solid var(--win-lo);border-bottom:1px solid var(--win-hi);}
   .chat-inputrow{display:flex;gap:6px;margin:6px;}
   /* ▁ 최소화 — 타이틀바 + 입력줄(😊🎲💣 + 입력칸)만 남긴다.
      [왜 이 방식인가] 남길 것들이 마침 .chat-inputrow > .chat-input-col 하나에 다 들어 있어서
@@ -632,7 +689,10 @@
   #chatWindow.min .chat-menubar,
   #chatWindow.min .chat-memberbar,
   #chatWindow.min .chat-messages,
-  #chatWindow.min .chat-profile{display:none;}
+  #chatWindow.min .chat-profile,
+  #chatWindow.min .chat-tabs,
+  #chatWindow.min .cm-newchip,
+  #chatWindow.min .cm-ctx{display:none;}
   #chatWindow.min .chat-rz.n, #chatWindow.min .chat-rz.s,
   #chatWindow.min .chat-rz.ne, #chatWindow.min .chat-rz.nw,
   #chatWindow.min .chat-rz.se, #chatWindow.min .chat-rz.sw{display:none;}
@@ -2039,6 +2099,30 @@
   .gift-cell.out img{opacity:.45;}
   .gift-cell.out:hover img{opacity:.8;}
   .gift-cell:not(.empty):hover{border-color:var(--win-title-b);}
+  /* ⭐ 즐겨찾기 — 「치움」(.out, 그림만 흐림)과 겹쳐도 테두리·배경으로 둘 다 읽힌다. */
+  .gift-cell.star{background:var(--win-star-bg);border-color:var(--win-star);box-shadow:inset 0 0 0 1px var(--win-star);}
+  .gift-cell.star:hover{border-color:var(--win-star);}
+  .gift-star{position:absolute;top:0;right:1px;z-index:1;padding:0 1px;font-size:11px;line-height:1.1;
+    cursor:pointer;color:var(--ink-soft);opacity:0;}
+  .gift-cell:hover .gift-star, .gift-cell.star .gift-star{opacity:1;}
+  .gift-cell.star .gift-star{color:var(--win-star);}
+  /* 서브탭 줄 오른쪽 끝 — 격자 위에 줄을 따로 두면 목록이 한 줄 길어져 스크롤이 생긴다. */
+  .gift-head{margin-left:auto;align-self:center;white-space:nowrap;font-size:10.5px;color:var(--ink-soft);}
+  /* 선물함 확인창 — **#myHomeWin 안에** 붙는다(body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다). */
+  .mh-ask-ov{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.35);}
+  .mh-ask-win{width:min(320px,92%);background:var(--win-face);
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.4));border-radius:var(--win-radius-el) !important;}
+  .mh-ask-win .ma-head{padding:3px 6px;background:var(--win-title-grad);color:var(--win-title-ink);font-size:11px;font-weight:bold;}
+  .mh-ask-win .ma-body{padding:14px 14px 0;font-size:11.5px;color:var(--ink);line-height:1.7;white-space:pre-line;}
+  .mh-ask-win .ma-foot{display:flex;justify-content:flex-end;gap:6px;padding:14px;}
+  .mh-ask-win .ma-foot button{min-width:68px;padding:3px 10px;font-size:11px;cursor:pointer;
+    font-family:Tahoma,'Malgun Gothic',sans-serif;color:var(--ink);background:var(--win-face);
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    border-radius:var(--win-radius-el) !important;}
+  .mh-ask-win .ma-foot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  .mh-ask-win .ma-foot button.danger{color:var(--ink-danger, #7a1f1f);font-weight:bold;}
 
   /* 🎰 파츠 보관함 / 가챠 뽑기 — idesk 창과 같은 관례(배경 안 어둡게, 떠 있는 창).
      ⚠️ 색은 전부 토큰 경유다. 하드코딩하면 버블 테마에서 이 창만 Win98로 남는다(audit 검사 12·13). */
@@ -3038,48 +3122,89 @@
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
 
-  /* 🐞 버그제보 탭 */
-  #mhPageBugreport{padding:16px;overflow-y:auto;}
+  /* 🐞 버그제보 게시판 — 탭 안에서 목록 → 상세 → 글쓰기 세 화면을 바꿔 끼운다(bug-board-ui.js).
+     ⚠️ 색은 전부 토큰 경유(audit 검사 12·13). 확인창·메뉴를 새로 띄우지 않는다 — 전부 탭 안 화면이다. */
+  #mhPageBugreport{padding:12px 16px;overflow-y:auto;}
   #mhPageScheduler{position:relative;}
-  #mhBugWrap{max-width:520px;margin:0 auto;}
-  #mhBugNotice{font-size:12px;line-height:1.75;color:var(--ink);white-space:pre-wrap;word-break:break-word;
-    padding:14px;background:#fffdf6;border:2px solid;
-    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-    box-shadow: inset 1px 1px 0 var(--win-lo-2);min-height:120px;border-radius:var(--win-radius-el) !important;
-    /* 📜 긴 공지는 이 상자 안에서 스크롤한다.
-       [경위] 상한이 없어서 공지를 길게 쓰면 상자가 그만큼 늘어났다. `.mh-page` 는 min-height 만
-         있고 max-height 가 없어 페이지도 같이 늘어나고, 마이홈 창은 화면 중앙 기준(translate -50%)이라
-         **창이 위아래로 화면 밖까지 삐져나간다** — 아래에 있는 [제보하기]·[수정] 버튼이 화면 밖으로
-         밀려 누를 수 없게 된다(제보). #mhPageBugreport 의 overflow-y:auto 는 높이 상한이 없으니
-         애초에 발동하지 않았다.
-       ★ 페이지가 아니라 **글 상자**를 잡는다. 버튼은 상자 밖에 있으므로 늘 제자리에 남는다.
-       ★ 46vh 를 같이 두는 이유 — 세로가 짧은 화면(노트북·작은 창)에서는 340px 도 넘친다. */
-    max-height:min(340px, 46vh);overflow-y:auto;
-    scrollbar-width:thin;scrollbar-color:var(--win-face) var(--win-face-2, #efefef);}
-  #mhBugNotice::-webkit-scrollbar{width:8px;}
-  #mhBugNotice::-webkit-scrollbar-track{background:var(--win-face-2, #efefef);margin:2px 0;}
-  #mhBugNotice::-webkit-scrollbar-thumb{background:var(--win-face);border:1px solid;
-    border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    border-radius:var(--win-radius-el) !important;}
-  #mhBugActions{display:flex;gap:8px;margin-top:12px;justify-content:center;}
-  #mhBugActions button, #mhBugEditBtns button{
-    font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:12px;font-weight:bold;padding:8px 18px;cursor:pointer;color:var(--ink);
+  #bbBoard{max-width:640px;margin:0 auto;font-size:11.5px;color:var(--ink);}
+  .bb-bar{display:flex;align-items:center;gap:4px;margin-bottom:6px;}
+  .bb-sp{flex:1;}
+  .bb-btn, .bb-flt{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;padding:3px 10px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
-  #mhBugActions button:active, #mhBugEditBtns button:active{
-    border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
-    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
-  #mhBugActions button:disabled{opacity:.5;cursor:default;}
-  #mhBugGoBtn{background:var(--win-select-bg);color:#fff;}
-  #mhBugEditForm{max-width:520px;margin:14px auto 0;}
-  .mh-bug-lbl{font-size:11px;font-weight:bold;color:var(--ink-soft);margin:8px 0 3px;}
-  #mhBugNoticeInput, #mhBugLinkInput{
+    border-radius:var(--win-radius-el) !important;position:relative;}
+  .bb-btn:active, .bb-flt.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  .bb-flt.on{font-weight:bold;background:var(--win-face-2);}
+  .bb-btn:disabled{opacity:.5;cursor:default;}
+  .bb-dot{display:none;position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--win-error);}
+  .bb-dot.on{display:block;}
+  #bbRows{background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    border-radius:var(--win-radius-el) !important;min-height:120px;}
+  .bb-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--win-face-2);cursor:pointer;}
+  .bb-row:hover{background:var(--win-select-bg);}
+  .bb-row.notice{background:var(--win-star-bg);}
+  .bb-row.locked{cursor:not-allowed;color:var(--ink-soft);}
+  .bb-row.locked:hover{background:transparent;}
+  .bb-main{flex:1;min-width:0;}
+  .bb-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bb-sub{font-size:10px;color:var(--ink-soft);margin-top:1px;}
+  .bb-who{font-size:10px;color:var(--ink-soft);text-align:right;white-space:nowrap;line-height:1.4;}
+  .bb-tag{font-size:10px;color:var(--ink-soft);margin-right:3px;}
+  .bb-new{margin-left:5px;font-size:9.5px;font-weight:bold;color:#fff;background:var(--win-error);padding:0 5px;border-radius:7px;}
+  .bb-chip{flex-shrink:0;min-width:52px;text-align:center;font-size:10px;padding:1px 6px;border-radius:9px;color:#fff;background:var(--win-lo);}
+  .bb-chip.new{background:var(--win-select);}
+  .bb-chip.checking{background:var(--win-star);}
+  .bb-chip.fixed{background:var(--win-accent);}
+  .bb-chip.norepro{background:var(--win-lo);}
+  .bb-chip.notice{background:var(--win-error);}
+  .bb-empty{padding:30px 8px;text-align:center;color:var(--ink-soft);}
+  .bb-pager{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:6px;font-size:11px;}
+  /* 상세 */
+  .bb-back{margin-bottom:8px;}
+  .bb-dhead{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:bold;}
+  .bb-dmeta{font-size:10.5px;color:var(--ink-soft);margin:4px 0 8px;}
+  .bb-body{white-space:pre-wrap;word-break:break-word;line-height:1.7;padding:10px;background:#fff;
+    border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
+  .bb-env{margin-top:6px;padding:5px 8px;font-size:10.5px;color:var(--ink-soft);background:var(--win-face-2);border:1px dashed var(--win-lo);}
+  .bb-like{margin:8px 0;}
+  .bb-like.on{font-weight:bold;}
+  .bb-ans{margin-top:8px;padding:8px 10px;background:var(--win-select-bg);border-left:3px solid var(--win-select);}
+  .bb-ans.prv{background:var(--win-private-bg);border-left-color:var(--win-private);}
+  .bb-ans-h{font-size:10.5px;font-weight:bold;margin-bottom:3px;}
+  .bb-ans-h .bb-ans-v{font-weight:normal;color:var(--ink-soft);margin-left:6px;}
+  .bb-ans.prv .bb-ans-v{color:var(--win-private);}
+  .bb-ans-t{white-space:pre-wrap;word-break:break-word;line-height:1.6;}
+  .bb-kakao{margin-top:6px;}
+  .bb-kakao button{font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11px;padding:4px 12px;cursor:pointer;color:#3a1d1d;
+    background:var(--kakao);border:1px solid var(--win-lo);border-radius:4px;}
+  .bb-kakao small{display:block;margin-top:2px;font-size:9.5px;color:var(--ink-soft);word-break:break-all;}
+  .bb-admin{margin-top:12px;padding:8px;border:1px solid var(--win-lo);background:var(--win-face-2);}
+  .bb-admin textarea, .bb-form textarea, .bb-form input[type="text"], .bb-form select, .bb-admin select, .bb-kk input{
+    width:100%;box-sizing:border-box;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11.5px;padding:5px 7px;background:#fff;color:var(--ink);
+    border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
+  .bb-admin textarea{height:70px;resize:vertical;}
+  .bb-row2{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;}
+  .bb-row2 select{width:auto;}
+  .bb-btn.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);background:var(--kakao);}
+  .bb-kk{display:none;align-items:center;gap:6px;margin-top:6px;padding:5px 8px;background:var(--win-star-bg);border:1px solid var(--win-star);font-size:10.5px;}
+  .bb-kk.on{display:flex;}
+  .bb-kk input{flex:1;width:auto;}
+  .bb-kk .bb-kk-x{cursor:pointer;padding:0 4px;}
+  .bb-hint{font-size:10px;color:var(--ink-soft);margin-top:4px;}
+  .bb-err{font-size:10.5px;color:var(--win-error);margin-top:4px;min-height:14px;}
+  /* 글쓰기 */
+  .bb-form .bb-lbl{font-size:11px;font-weight:bold;color:var(--ink-soft);margin:8px 0 3px;}
+  .bb-form textarea{height:160px;resize:vertical;line-height:1.6;}
+  .bb-form label{cursor:pointer;margin-right:12px;}
+  .bb-foot{display:flex;justify-content:flex-end;gap:6px;margin-top:10px;}
+  /* 오픈카톡 기본 링크(관리자) — 예전 공지 편집 폼을 줄인 것 */
+  #mhBugEditForm{margin:10px 0;padding:8px;border:1px solid var(--win-lo);background:var(--win-face-2);}
+  .mh-bug-lbl{font-size:11px;font-weight:bold;color:var(--ink-soft);margin:0 0 3px;}
+  #mhBugLinkInput{
     width:100%;box-sizing:border-box;font-family:Tahoma,'Malgun Gothic',sans-serif;font-size:11.5px;padding:6px 8px;
     background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
-  #mhBugNoticeInput{height:150px;resize:vertical;line-height:1.6;}
   #mhBugEditMsg{display:none;font-size:11px;margin-top:6px;}
-  #mhBugEditBtns{display:flex;gap:8px;margin-top:10px;justify-content:center;}
+  #mhBugEditBtns{display:flex;gap:8px;margin-top:8px;justify-content:flex-end;}
   /* 👋 친구 요청 행 — [체크박스] 이름/시각 + [수락][거절]
      ⚠️ 예전엔 이 줄이 친구 목록 위 238px 칸(#mhReqSection)에 있어서 아주 납작했다.
        친구 관리(오른쪽 칸)로 나오면서 폭이 3배가 됐으므로 카드 모양으로 바꿨다. */
@@ -3210,6 +3335,7 @@
   .mh-ibx-tag.notice{background:#6a7ba5;}
   .mh-ibx-tag.update{background:#5aa06a;}
   .mh-ibx-tag.reward{background:#c88a3a;}
+  .mh-ibx-tag.bug{background:#a0566a;}
   .mh-ibx-title{flex:1;min-width:0;font-weight:bold;color:var(--ink);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .mh-ibx-item.unread .mh-ibx-title::before{content:'●';color:#c0504d;margin-right:4px;font-size:9px;}
@@ -5228,6 +5354,7 @@
           <button class="mh-ibx-tab on" data-fm="req"  type="button">👋 받은 요청</button>
           <button class="mh-ibx-tab"    data-fm="sent" type="button">📤 보낸 요청</button>
           <button class="mh-ibx-tab gift" data-fm="gift" type="button">💝 선물함</button>
+          <span id="mhGiftStat" class="gift-head"></span>   <!-- ⭐ n/20 · 보관 m/30 — 선물함 서브탭일 때만 채워진다 -->
         </div>
         <!-- 일괄 처리 바 — 받은 요청 서브탭에서 요청이 있을 때만 보인다(JS 가 .on 토글) -->
         <div id="mhFmBar">
@@ -5408,23 +5535,55 @@
 
     <!-- 🐞 버그제보 — 관리자가 등록한 공지글 + 오픈카톡 링크. 일반 유저는 읽고 [제보하기]만 누를 수 있음. -->
     <div id="mhPageBugreport" class="mh-page">
-      <div id="mhBugWrap">
-        <div id="mhBugNotice">불러오는 중…</div>
-        <div id="mhBugActions">
-          <button id="mhBugGoBtn" type="button">💬 제보하기</button>
-          <button id="mhBugEditBtn" type="button" class="admin-only">✎ 공지·링크 수정</button>
+      <!-- 🐞 버그제보 게시판 — 목록 / 상세 / 글쓰기 를 바꿔 끼운다(bug-board-ui.js). 공지는 목록 맨 위에 고정. -->
+      <div id="bbBoard">
+        <div id="bbListView">
+          <div class="bb-bar">
+            <button class="bb-flt on" data-f="all" type="button">전체</button>
+            <button class="bb-flt" data-f="mine" type="button">내 글<span class="bb-dot" id="bbMineDot"></span></button>
+            <button class="bb-flt" data-f="open" type="button">미해결</button>
+            <span class="bb-sp"></span>
+            <button id="mhBugEditBtn" class="bb-btn admin-only" type="button" title="답변의 오픈카톡 버튼에 미리 채워질 주소">🔗 오픈카톡 링크</button>
+            <button id="bbWriteBtn" class="bb-btn" type="button">✎ 제보하기</button>
+          </div>
+          <!-- 관리자: 오픈카톡 기본 링크(bugReport/current.link) — 예전 공지·링크 편집 폼을 줄인 것 -->
+          <div id="mhBugEditForm" style="display:none;">
+            <div class="mh-bug-lbl">오픈카톡 기본 링크</div>
+            <input id="mhBugLinkInput" type="text" maxlength="300" placeholder="https://open.kakao.com/...">
+            <div id="mhBugEditMsg"></div>
+            <div id="mhBugEditBtns">
+              <button id="mhBugCancelBtn" class="bb-btn" type="button">취소</button>
+              <button id="mhBugSaveBtn" class="bb-btn" type="button">저장</button>
+            </div>
+          </div>
+          <div id="bbRows"><div class="bb-empty">불러오는 중…</div></div>
+          <div class="bb-pager">
+            <button id="bbPrev" class="bb-btn" type="button">◀ 이전</button>
+            <span id="bbPageNo">1</span>
+            <button id="bbNext" class="bb-btn" type="button">다음 ▶</button>
+          </div>
         </div>
-      </div>
-      <!-- 관리자 편집 폼 (평소 숨김) -->
-      <div id="mhBugEditForm" style="display:none;">
-        <div class="mh-bug-lbl">공지 내용</div>
-        <textarea id="mhBugNoticeInput" maxlength="600" placeholder="버그 제보 안내 문구를 입력하세요"></textarea>
-        <div class="mh-bug-lbl">오픈카톡 링크</div>
-        <input id="mhBugLinkInput" type="text" maxlength="300" placeholder="https://open.kakao.com/...">
-        <div id="mhBugEditMsg"></div>
-        <div id="mhBugEditBtns">
-          <button id="mhBugSaveBtn" type="button">저장</button>
-          <button id="mhBugCancelBtn" type="button">취소</button>
+        <div id="bbDetailView" style="display:none;"></div>
+        <div id="bbWriteView" class="bb-form" style="display:none;">
+          <div class="bb-dhead">✎ 버그 제보하기</div>
+          <div class="bb-lbl">분류</div>
+          <select id="bbWCat"></select>
+          <div class="bb-lbl">제목</div>
+          <input id="bbWTitle" type="text" maxlength="60" placeholder="어떤 문제인지 한 줄로">
+          <div class="bb-lbl">내용</div>
+          <textarea id="bbWBody" maxlength="2000" placeholder="언제, 무엇을 했을 때, 어떻게 됐는지 적어 주세요"></textarea>
+          <div class="bb-lbl">공개 범위</div>
+          <label><input type="radio" name="bbWVis" value="pub" checked> 공개</label>
+          <label><input type="radio" name="bbWVis" value="prv"> 비공개 (나와 관리자만)</label>
+          <div class="bb-row2">
+            <label><input type="checkbox" id="bbWEnv" checked> 앱 버전·OS 같이 보내기</label>
+            <label class="admin-only"><input type="checkbox" id="bbWNotice"> 📌 공지로 등록</label>
+          </div>
+          <div class="bb-err" id="bbWErr"></div>
+          <div class="bb-foot">
+            <button id="bbWCancel" class="bb-btn" type="button">취소</button>
+            <button id="bbWSubmit" class="bb-btn" type="button">등록</button>
+          </div>
         </div>
       </div>
     </div>
@@ -7210,7 +7369,7 @@
            드롭다운이 #chatWindow 의 자식이어야 클릭 통과 화이트리스트에 자동 포함된다. -->
       <div class="chat-menu-item" id="chatClearMenu">지우기
         <div class="chat-dropdown" id="chatClearDropdown">
-          <div class="chat-dropdown-item" id="chatClearNow">이 방 대화 지우기</div>
+          <div class="chat-dropdown-item" id="chatClearNow">이 채널 대화 지우기</div>
           <div class="chat-dropdown-item" id="chatClearUndo">다시 보기</div>
         </div>
       </div>
@@ -7229,11 +7388,23 @@
         <span id="chatDelLog" title="이 방의 대화 기록을 모두 삭제합니다">🗑 기록 삭제</span>
       </span>
     </div>
+    <!-- 💬 채팅 탭(채널) 줄 — 투게더룸 · 시크릿룸에서만(.on). 그리기는 app.js _chatTabsRender.
+         ⚠️ 스크롤바를 만들지 않는다(overflow:hidden) — 좁아지면 이름만 줄임표, 숫자는 남는다. -->
+    <div class="chat-tabs" id="chatTabs"></div>
     <div class="chat-memberbar">
-      <span class="chat-member-label" id="chatMemberLabel">멤버(0)</span>
+      <span class="chat-member-label" id="chatMemberLabel">이 채널(0)</span>
       <span class="chat-member-list" id="chatMemberList">—</span>
     </div>
     <div class="chat-messages" id="chatMessages"></div>
+    <!-- 📋 복사 — 셋 다 #chatWindow 의 자식이다(body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다). -->
+    <div class="cm-newchip" id="chatNewChip"></div>
+    <div class="cm-copytoast" id="chatCopyToast">복사했어요</div>
+    <div class="cm-ctx" id="chatCtx">
+      <div class="cm-ctx-it" data-act="copy">복사</div>
+      <div class="cm-ctx-it" data-act="copyMsg">이 메시지 복사</div>
+      <div class="cm-ctx-sep"></div>
+      <div class="cm-ctx-it" data-act="all">전체 선택</div>
+    </div>
     <div class="chat-inputrow">
       <div class="chat-input-col">
         <div class="chat-toolbar">
@@ -7281,7 +7452,7 @@
         <div class="cd-head"><span class="cd-t">대화 기록 삭제</span>
           <button class="win98titlebtn" id="chatDelX" title="닫기">&times;</button></div>
         <div class="cd-body">
-          이 방의 대화 기록을 <b>전부</b> 지웁니다.<br>
+          <span id="chatDelWhat">이 방의</span> 대화 기록을 <b>전부</b> 지웁니다.<br>
           <span class="cd-warn">방에 있는 모든 사람의 화면에서도 사라지고, 되돌릴 수 없어요.</span>
           <div class="cd-count" id="chatDelCount">지울 대화 0줄</div>
         </div>
@@ -7688,6 +7859,9 @@
 <script src="parts/purikura-net.js"></script>
 <script src="vendor/qrcode.js"></script>   <!-- 📱 태블릿·폰 연결 QR (MIT · 로컬 파일 — CSP) -->
 <script src="parts/key-input.js"></script>   <!-- ⌨️ 글자 단축키 · 한글 조합 Enter — app.js 보다 먼저 -->
+<script src="parts/chat-copy.js"></script>
+<script src="parts/chat-tabs.js"></script>   <!-- 💬 채팅 탭 규칙(window.ChatTabs) — app.js 보다 먼저 -->   <!-- 📋 대화 복사 형식(window.ChatCopy) — app.js 보다 먼저 -->
+<script src="parts/gl-recover.js"></script>   <!-- 🧯 WebGL 연결 끊김 감시(window.GlRecover) — app.js 보다 먼저 -->
 <script src="parts/human-ear.js"></script>   <!-- 🐾 사람 귀(꾸미기 › 머리 › 귀) — app.js 보다 먼저. 귀 GLB 는 ears-glb.js 가 나중에 채운다 -->
 <script src="parts/wd-ear.js"></script>   <!-- 🐾 꾸미기 › 머리 › 귀 탭 — app.js 보다 먼저(app.js 가 createWdEar 로 만든다) -->
 <script src="parts/app.js"></script>
@@ -7695,6 +7869,7 @@
 <script src="parts/mallang.js"></script>
 <!-- 📚 마이홈 북마크 책장 — MYHOME_DESKTOP.addFolder 로만 붙는다(myhome-desktop.js 는 host:'side' 한 항목만 늘었다). -->
 <script src="parts/bookmark.js"></script>
+<script src="parts/bug-board-ui.js"></script>   <!-- 🐞 버그제보 게시판 화면 — app.js 뒤(isAdmin · toast · escHtml) -->
 <!-- 🌙 백색소음 — 소리 자료(base64 · 약 620KB)를 먼저, 재생기를 뒤에. 둘 다 app.js 뒤여야 한다(seats · seatState · Presence 를 읽는다). -->
 <script src="parts/noise-sounds.js"></script>
 <script src="parts/noise.js"></script>
