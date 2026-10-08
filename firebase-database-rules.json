@@ -382,7 +382,7 @@
         },
         "profile": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
-          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && (!newData.child('level').exists() || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 9999)) && (!newData.child('cyc').exists() || (newData.child('cyc').isNumber() && newData.child('cyc').val() >= 1 && newData.child('cyc').val() <= 100)) && (!newData.child('clv').exists() || (newData.child('clv').isNumber() && newData.child('clv').val() >= 1 && newData.child('clv').val() <= 999)) && (!newData.child('starC').exists() || (newData.child('starC').isString() && newData.child('starC').val().matches(/^#[0-9a-f]{6}$/)))"
+          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && (!newData.child('name').val().toLowerCase().matches(/^ *(운영자|관리자|운영팀|관리팀|admin|administrator) *$/) || newData.child('name').val() === data.child('name').val() || (auth != null && root.child('admins').child(auth.uid).val() === true)) && (!newData.child('level').exists() || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 9999)) && (!newData.child('cyc').exists() || (newData.child('cyc').isNumber() && newData.child('cyc').val() >= 1 && newData.child('cyc').val() <= 100)) && (!newData.child('clv').exists() || (newData.child('clv').isNumber() && newData.child('clv').val() >= 1 && newData.child('clv').val() <= 999)) && (!newData.child('starC').exists() || (newData.child('starC').isString() && newData.child('starC').val().matches(/^#[0-9a-f]{6}$/)))"
         },
         "focus": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
@@ -744,6 +744,11 @@
         ".write": "root.child('admins').child(auth.uid).val() === true",
         ".validate": "newData.isString() && newData.val().length <= 20"
       },
+      "bugDailyMax": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 100 && newData.val() % 1 === 0"
+      },
       "roomServer": {
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         "on": { ".read": true, ".validate": "newData.isBoolean()" },
@@ -884,8 +889,8 @@
         ],
         "$id": {
           ".read": true,
-          ".write": "(auth != null && !data.exists() && newData.child('authUid').val() === auth.uid && root.child('userAuth/'+newData.child('code').val()).val() === auth.uid && newData.child('status').val() === 'new' && !newData.child('notice').exists() && !newData.child('nts').exists() && !newData.child('lastReplyTs').exists() && !newData.child('likeN').exists() && !newData.child('ansN').exists() && newData.child('ts').val() <= now + 60000) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
-          ".validate": "newData.hasChildren(['vis','status','cat','name','authUid','code','ts']) && newData.child('vis').isString() && newData.child('vis').val().matches(/^(pub|prv)$/) && newData.child('status').isString() && newData.child('status').val().matches(/^(new|checking|fixed|norepro)$/) && newData.child('cat').isString() && newData.child('cat').val().matches(/^(bug|ui|room|chat|myhome|etc)$/) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('authUid').isString() && newData.child('authUid').val().length <= 128 && newData.child('code').isString() && newData.child('code').val().length <= 40 && newData.child('ts').isNumber() && (!newData.child('notice').exists() || (newData.child('notice').val() === true && newData.child('vis').val() === 'pub')) && (!newData.child('lastReplyTs').exists() || (newData.child('lastReplyTs').isNumber())) && (!newData.child('openTs').exists() || (newData.child('openTs').isNumber())) && (!newData.child('nts').exists() || (newData.child('nts').isNumber())) && (!newData.child('ansN').exists() || (newData.child('ansN').isNumber() && newData.child('ansN').val() >= 0)) && (!newData.child('title').exists() || (newData.child('vis').val() === 'pub' && newData.child('title').isString() && newData.child('title').val().length >= 1 && newData.child('title').val().length <= 60))",
+          ".write": "(auth != null && !data.exists() && newData.child('authUid').val() === auth.uid && root.child('userAuth/'+newData.child('code').val()).val() === auth.uid && newData.child('status').val() === 'new' && !newData.child('notice').exists() && !newData.child('nts').exists() && !newData.child('lastReplyTs').exists() && !newData.child('likeN').exists() && !newData.child('ansN').exists() && !newData.child('no').exists() && newData.child('ts').val() === now && newData.child('openTs').val() === now) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
+          ".validate": "newData.hasChildren(['vis','status','cat','name','authUid','code','ts']) && newData.child('vis').isString() && newData.child('vis').val().matches(/^(pub|prv)$/) && newData.child('status').isString() && newData.child('status').val().matches(/^(new|checking|fixed|norepro)$/) && newData.child('cat').isString() && newData.child('cat').val().matches(/^(bug|ui|room|chat|myhome|etc)$/) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('authUid').isString() && newData.child('authUid').val().length <= 128 && newData.child('code').isString() && newData.child('code').val().length <= 40 && newData.child('ts').isNumber() && (!newData.child('notice').exists() || (newData.child('notice').val() === true && newData.child('vis').val() === 'pub')) && (!newData.child('lastReplyTs').exists() || (newData.child('lastReplyTs').isNumber())) && (!newData.child('openTs').exists() || (newData.child('openTs').isNumber())) && (!newData.child('nts').exists() || (newData.child('nts').isNumber())) && (!newData.child('ansN').exists() || (newData.child('ansN').isNumber() && newData.child('ansN').val() >= 0)) && (!newData.child('title').exists() || (newData.child('vis').val() === 'pub' && newData.child('title').isString() && newData.child('title').val().length >= 1 && newData.child('title').val().length <= 60)) && (!newData.child('no').exists() || (newData.child('no').isString() && newData.child('no').val().matches(/^B-[0-9]{4}-[0-9]{1,4}$/)))",
           "likeN": {
             ".write": "auth != null && newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1 && root.child('bugBoard/list/'+$id+'/vis').val() === 'pub' && !root.child('bugBoard/likes/'+$id+'/'+auth.uid).exists() && newData.parent().parent().parent().child('likes/'+$id+'/'+auth.uid).val() === true",
             ".validate": "newData.isNumber() && newData.val() >= 0"
@@ -929,9 +934,20 @@
           "title": {
             ".validate": "true"
           },
+          "no": {
+            ".validate": "true"
+          },
+          "byAdmin": {
+            ".validate": "newData.val() === true && auth != null && root.child('admins').child(auth.uid).val() === true"
+          },
           "$other": {
             ".validate": "false"
           }
+        }
+      },
+      "seq": {
+        "$day": {
+          ".validate": "$day.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && newData.isNumber() && newData.val() >= 1"
         }
       },
       "pub": {
