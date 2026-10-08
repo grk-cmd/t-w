@@ -153,6 +153,10 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
    이 두 스위치가 그 판단 자체를 끈다(렌더링만 계속 시킬 뿐이라 위험도 낮음). */
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
+/* 🧯 [제보 #11] GPU 프로세스가 짧은 사이에 여러 번 죽으면 크로미움은 그 페이지(file://)의 WebGL 을 **앱을 다시 켤 때까지** 막는다.
+   그러면 three.js 가 기다리는 '연결 복구'가 영영 오지 않고, 다시 불러와도(gl-recover.js) 3D 를 못 만들어 얼굴 없는 화면이 남는다.
+   우리 앱은 페이지가 하나뿐이고 3D 가 본체라, 막는 것보다 다시 시도하는 쪽이 낫다. ready 전에 불러야 한다. */
+app.disableDomainBlockingFor3DAPIs();
 
 let mainWindow = null;
 
@@ -321,6 +325,7 @@ let runDisplayId = null;
    남아 있는데 화면만 원래대로 돌아온 것처럼 보임).
    그래서 id와 별개로 "해상도·위치·회전·배율" 지문을 함께 저장해두고, id가 안 맞으면 지문으로 찾는다. */
 let runDisplayKey = null;
+let runDisplayWasPrimary = null;   // 고를 때 주 모니터였는가 — 못 찾았을 때 대체 방향(제보 #10). 없으면(옛 파일) null
 function _displayKey(d){
   if(!d) return null;
   const b = d.bounds || {};
@@ -328,18 +333,45 @@ function _displayKey(d){
           d.rotation || 0, Math.round((d.scaleFactor || 1) * 100)].join('|');
 }
 function _displaySize(d){ const b = (d && d.bounds) || {}; return b.width + 'x' + b.height; }
+/* 모니터 목록을 화면 위치 순서로 — 왼쪽부터, x 가 같으면 위쪽부터. */
+function _displaysByPosition(all){
+  return all.slice().sort((a, b) => ((a.bounds.x - b.bounds.x) || (a.bounds.y - b.bounds.y)));
+}
 
 // 설정 저장 파일 경로 — app.getPath('userData')는 'ready' 이후에만 안전하게 값이 나오므로
 // app.whenReady() 안에서 한 번 초기화한 뒤 사용.
 let SETTINGS_PATH = null;
+/* 🧹 [2026-10-08 제보 #1] 설정 파일 세대 — saveSettings 가 적는다. 이 표시가 없는 파일은 이번 업데이트 전 빌드가 쓴 것이다.
+   그중 **영상 겹침 실험(레이어드 알파)이 켜진 채 남은 파일**은 한 번 통째로 기본값으로 되돌린다.
+   [왜] 일부 그래픽카드(electron#40515 계열)에서는 그 값이 걸린 투명 창이 «있지만 안 그려진다».
+     창이 안 보이니 설정에 들어가 토글을 끌 방법도 없다 — 앱이 스스로 걷어내야 한다.
+   ★ 옛 파일이라도 실험을 안 켰던 사람(대부분)은 건드리지 않는다. 이번 빌드는 꺼짐이면 setOpacity 를 안 부르므로
+     그 사람들은 업데이트만으로 이미 낫는다. 통째로 되돌리면 모니터 선택 · 화면 크기를 괜히 잃는다.
+   ★ 지운 파일은 tw-settings.before-reset.json 으로 남긴다(제보 때 받아 볼 수 있게).
+   ⚠️ 판정 범위를 넓히려면 _settingsLegacyRisky 한 곳만 고친다. 세대를 올리면(2) 다시 한 번 돈다. */
+const SETTINGS_VER = 1;
+let _settingsReset = null;          // 초기화했으면 옛 값 요약 — 부팅 로그 · 렌더러 안내에 쓴다
+let _settingsResetNotice = false;   // 렌더러가 안내를 한 번 가져가면 끈다
+function _settingsLegacyRisky(data){
+  const a = data && data.overlayLayeredAlpha;
+  return typeof a === 'number' && isFinite(a) && a > 0 && a < 255;
+}
 
 // 저장된 설정(runDisplayId + 지문) 불러오기. 파일이 없거나(최초 실행) 손상돼 있으면 조용히 기본값(주 모니터) 유지.
 function loadSettings(){
   try{
     const raw = fs.readFileSync(SETTINGS_PATH, 'utf8');
     const data = JSON.parse(raw);
+    const settingsVer = (typeof data.settingsVer === 'number') ? data.settingsVer : 0;
+    if(settingsVer < SETTINGS_VER && _settingsLegacyRisky(data)){
+      try{ fs.copyFileSync(SETTINGS_PATH, SETTINGS_PATH.replace(/\.json$/, '') + '.before-reset.json'); }catch(_){}
+      _settingsReset = { alpha: data.overlayLayeredAlpha, zoom: data.uiZoom, display: data.runDisplayId, gap: data.overlayBottomGap };
+      _settingsResetNotice = true;
+      return;   // 값을 하나도 읽지 않는다 = 전부 기본값. 파일은 createWindow 에서 새 세대로 다시 쓴다.
+    }
     if(typeof data.runDisplayId === 'number') runDisplayId = data.runDisplayId;
     if(typeof data.runDisplayKey === 'string') runDisplayKey = data.runDisplayKey;
+    if(typeof data.runDisplayWasPrimary === 'boolean') runDisplayWasPrimary = data.runDisplayWasPrimary;
     /* ★ 동영상 검어짐 틈 — 빌드 없이 조절하는 통로. 제보자에게 "이 파일의 이 숫자만 바꿔서
        다시 켜 보세요" 라고 할 수 있다. 값을 넣은 적이 없으면 위 기본값을 그대로 쓴다.
        (설정 UI 에 안 내놓는다 — 사용자가 만질 값이 아니라 진단용이다) */
@@ -479,7 +511,7 @@ function saveSettings(){
        두지만, 그 한 갈래 때문에 "파일이 왜 없나"를 또 못 가르는 일이 없도록 여기서 확정한다.
        (_diagLog 도 같은 폴더를 쓴다 — 폴더가 없으면 로그조차 안 남아 관찰 자체가 막힌다) */
     try{ fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true }); }catch(_){}
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ runDisplayId, runDisplayKey,
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ settingsVer: SETTINGS_VER, runDisplayId, runDisplayKey, runDisplayWasPrimary,
       overlayBottomGap: overlay.gap(),
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
@@ -561,19 +593,49 @@ function _ensureSettingsFile(){
      2) 지문 정확히 일치          — id만 재발급된 경우(재부팅 등)
      3) 해상도가 같은 게 딱 하나  — 주 모니터가 바뀌어 좌표까지 밀린 경우.
         같은 해상도가 둘 이상이면 어느 쪽인지 알 수 없으므로 추측하지 않고 주 모니터로 간다. */
+/* 🩹 [2026-10-08 제보 #10] 저장한 모니터 다시 찾기 — 판정만(화면 · 저장 없음). 검사 sim-fix-1008 이 떼어 돌린다.
+   [예전] id 가 맞으면 무조건 그 모니터 → 재부팅 · 드라이버로 id 가 **서로 뒤바뀌면** 엉뚱한 모니터를 고르고,
+     그 지문으로 저장을 덮어써 영구히 굳었다. 배율을 바꾸면 지문이 안 맞아 조용히 주 모니터로 떨어졌다.
+   [지금] ① 지문(해상도 · 위치 · 회전 · 배율) 정확 일치 → ② id 일치는 **크기가 같을 때만** → ③ 같은 크기가 하나뿐
+     → ④ 저장한 게 «주 아님» 이었으면 주 아닌 모니터가 하나뿐일 때 그쪽 → ⑤ 주 모니터.
+   ★ strong(①②)일 때만 새 id · 지문으로 저장을 갱신한다. 약한 대체(③④)로는 저장을 덮지 않는다 —
+     원래 모니터가 다시 연결되면 그쪽으로 돌아가야 한다. */
+function _pickRunDisplay(all, primaryId, saved){
+  const id = saved && saved.id, key = saved && saved.key, wasPrimary = saved && saved.wasPrimary;
+  if(key){
+    const k = all.find(d => _displayKey(d) === key);
+    if(k) return { display: k, stage: 'key', strong: true };
+  }
+  if(id != null){
+    const byId = all.find(d => d.id === id);
+    if(byId && (!key || _displaySize(byId) === key.split('|')[0])) return { display: byId, stage: 'id', strong: true };
+  }
+  if(key){
+    const wantSize = key.split('|')[0];
+    const sameSize = all.filter(d => _displaySize(d) === wantSize);
+    if(sameSize.length === 1) return { display: sameSize[0], stage: 'size', strong: false };
+  }
+  if((id != null || key) && wasPrimary === false){
+    const others = all.filter(d => d.id !== primaryId);
+    if(others.length === 1) return { display: others[0], stage: 'non-primary', strong: false };
+  }
+  return { display: null, stage: (id != null || key) ? 'primary(못 찾음)' : 'primary(고른 적 없음)', strong: false };
+}
+let _runDisplayLogged = '';
 function getRunDisplay(){
   const all = screen.getAllDisplays();
-  let found = null;
-  if(runDisplayId != null) found = all.find(d => d.id === runDisplayId) || null;
-  if(!found && runDisplayKey) found = all.find(d => _displayKey(d) === runDisplayKey) || null;
-  if(!found && runDisplayKey){
-    const wantSize = runDisplayKey.split('|')[0];
-    const sameSize = all.filter(d => _displaySize(d) === wantSize);
-    if(sameSize.length === 1) found = sameSize[0];
+  const primary = screen.getPrimaryDisplay();
+  const r = _pickRunDisplay(all, primary.id, { id: runDisplayId, key: runDisplayKey, wasPrimary: runDisplayWasPrimary });
+  const found = r.display || primary;
+  // 🩺 어느 단계에서 맞았는지 — 바뀔 때만 한 줄(이 함수는 자주 불린다)
+  const sig = r.stage + '|' + found.id;
+  if(sig !== _runDisplayLogged){
+    _runDisplayLogged = sig;
+    try{ _diagLog('[화면] 실행 모니터 — ' + r.stage + ' → id ' + found.id + ' ' + _displayKey(found) + ' | 저장 id ' + runDisplayId + ' · 지문 ' + runDisplayKey); }catch(_){}
   }
-  if(!found) return screen.getPrimaryDisplay();
-  // ★ 지문으로 찾아냈다면 새로 발급된 id로 갱신해 저장 — 다음 실행부터는 1번에서 바로 걸린다.
-  if(found.id !== runDisplayId || _displayKey(found) !== runDisplayKey){
+  if(!r.display) return primary;
+  // ★ 확실히 찾았을 때만 새로 발급된 id · 지문으로 갱신해 저장 — 다음 실행부터는 ①에서 바로 걸린다.
+  if(r.strong && (found.id !== runDisplayId || _displayKey(found) !== runDisplayKey)){
     runDisplayId = found.id; runDisplayKey = _displayKey(found);
     if(SETTINGS_PATH) saveSettings();
   }
@@ -963,6 +1025,8 @@ function _reapplyIgnoreMouse(){
 //     - 반환 좌표가 처음부터 DIP라 screenToDipPoint 변환도 불필요
 //     - 펜 앱 활성일 때만 타이머가 돌아서 평소 오버헤드 0
 let _cursorWatchTimer = null;
+const PEN_REPOKE_MS = 150;   // 펜 앱 — 근처에 머무는 동안 다시 묻는 최소 간격(제보 #5)
+let _penRepokeAt = 0, _penRepokePt = null;
 function _syncCursorWatcher(){
   const shouldWatch = _penAppActive && mainWindow && !mainWindow.isDestroyed();
   if(shouldWatch && !_cursorWatchTimer){
@@ -992,6 +1056,19 @@ function _checkCursorNearChar(){
        mousemove 가 끊겨서 렌더러가 스스로 판정할 기회가 이 penHitTest 뿐인데, 그 신호가
        캐릭터 반경 안에서만 왔기 때문이다. 실제 제보로 확인된 자리다. */
   const near = _ptOnOurUI(cx, cy);
+  /* 🩹 [2026-10-08 제보 #5] 펜 앱 — 근처(원 안)에 계속 있는데 아직 통과 중이면, 커서가 움직였을 때 150ms 간격으로 다시 묻는다.
+     [왜] 아래 분기는 near 가 **바뀔 때만** 묻는다. 원 안에 들어왔지만 메시 위가 아니었다가 메시 위로 옮겨 가면
+       near 는 계속 참이라 다시 묻지 않았다 — 펜 앱은 mousemove 가 끊겨 렌더러가 스스로 알 길이 없다.
+     ★ 찌르기만 한다. setIgnoreMouseEvents 를 다시 걸지 않는다(영상 깜빡임 — app.js 사다리 주석). forward 판정도 그대로.
+     ★ 움직였을 때만 — 가만히 있으면 같은 답이라 묻지 않는다. */
+  if(near && _penMouseNearChar && _lastIgnoreRequested){
+    const _now = Date.now();
+    const _moved = !_penRepokePt || Math.abs(pt.x - _penRepokePt.x) + Math.abs(pt.y - _penRepokePt.y) >= 2;
+    if(_moved && _now - _penRepokeAt >= PEN_REPOKE_MS){
+      _penRepokeAt = _now; _penRepokePt = { x: pt.x, y: pt.y };
+      try{ _sendHitTest({ x: cx, y: cy }); }catch(_){}
+    }
+  }
   if(near !== _penMouseNearChar){
     _penMouseNearChar = near;
     _applyForwardOnly();
@@ -1273,7 +1350,16 @@ function _guardStuckClickCapture(){
      캐릭터 위가 아니면 렌더러가 다시 통과로 확정하므로 오발동해도 손해가 없다.
    ⚠️ 이 장치가 자주 발동한다면 그 자체가 신호다. 진단 로그에 발동 기록이 쌓이면
      근본 원인(렌더러가 왜 판정을 놓쳤는가)을 따로 찾아야 한다. */
-const GHOST_MS = 2000;          // 커서가 캐릭터 위에 이만큼 머물렀는데도 통과면 재판정 요청
+const GHOST_MS = 2000;          // 커서가 캐릭터 위에 이만큼 머물렀는데도 통과면 재판정 요청(펜 앱)
+/* 🩹 [2026-10-08 제보 #5] 일반 앱(펜 앱 아님)에서는 첫 재판정을 0.4초로 당긴다.
+   [증상] 오버레이에 마우스를 올려도 클릭이 바로 안 잡히고 몇 초 흔들어야 된다.
+   [원인] 일부 전경 앱이 있으면 forward mousemove 가 끊긴다(electron#30808/#33281). 일반 앱에서는 50ms 커서 감시가
+     펜 앱일 때만 돌아서(_syncCursorWatcher), 남은 길이 이 유령 감지뿐인데 문턱이 2초였다 → 2.0~2.5초 지연.
+   ★ 바꾸는 것은 **첫 찌르기까지의 시간 하나**다. 찌르기 간격(GHOST_REPOKE_MS)과 포기 한도는 그대로 —
+     렌더러 사다리와의 결합(아래 GHOST_MAX_POKES 주석)을 건드리지 않는다. 판단은 여전히 렌더러가 하므로
+     캐릭터 반경 안이지만 메시 위가 아니면 렌더러가 통과로 다시 확정한다(오발동 손해 없음).
+   ⚠️ 펜 앱은 2초 그대로 둔다 — 그쪽은 50ms 감시가 따로 있고, 클립 스튜디오 보호 장치(_forwardFor · 사다리 생략)와 얽혀 있다. */
+const GHOST_MS_PLAIN = 400;
 const GHOST_REPOKE_MS = 3000;   // 재판정 요청 최소 간격(연달아 쏘지 않게)
 /* ★ [2026-08-25] 포기 한도. **이 장치가 렌더러의 자가 회복을 눌러 앉히고 있었다.**
      렌더러의 고착 회복 사다리(app.js __mouseKick)는 "mousemove 가 3초 이상 없다"를 발동 조건으로
@@ -1304,7 +1390,7 @@ function _guardGhostPassthrough(quietFor){
   }
   const now = Date.now();
   if(!_ghostSince){ _ghostSince = now; return; }
-  if(now - _ghostSince < GHOST_MS) return;
+  if(now - _ghostSince < (_penAppActive ? GHOST_MS : GHOST_MS_PLAIN)) return;
   if(now - _ghostPokedAt < GHOST_REPOKE_MS) return;
   const cx = pt.x - _mainWinScreenBounds.x, cy = pt.y - _mainWinScreenBounds.y;
   /* 🛑 포기 — 여기서 물러나야 렌더러 사다리가 돈다(위 GHOST_MAX_POKES 주석).
@@ -1333,7 +1419,7 @@ function _guardGhostPassthrough(quietFor){
     _sendHitTest({ x: cx, y: cy });
   }catch(_){}
   _diagLog('유령 의심 — 커서가 캐릭터 위에 ' + (now - _ghostSince) + 'ms 머물렀는데 통과 중, 렌더러에 재판정 요청'
-    + ' (' + _ghostPokes + '/' + GHOST_MAX_POKES + ')');
+    + ' (' + _ghostPokes + '/' + GHOST_MAX_POKES + ') pen=' + (_penAppActive ? 1 : 0));
 }
 
 /* ═══ [진단] 마우스 활성화 제보 추적 ══════════════════════════════════
@@ -1692,6 +1778,72 @@ const MODE_SIZE = {
 const CONFIG_WIDTH = MODE_SIZE.launcher.w;
 const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
 
+/* 🩺 [2026-10-08 제보 #1 · 보류 #11 공용] 렌더러 · GPU 프로세스의 죽음과 로드 실패를 기록한다.
+   [왜] «설치 후 아무것도 안 보이는데 클릭은 된다» 의 남은 갈래가 «렌더러가 한 번도 안 그려졌다(로드 실패 · 크래시 · 백신 격리)» 인데,
+     이 파일에 그 이벤트 처리가 하나도 없어서 로그로 가를 수가 없었다. OBS 충돌 제보(#11)의 GPU 프로세스 종료도 같은 통로로 남는다.
+   ★ 렌더러가 죽으면(정상 종료 · 강제 종료 제외) **한 번만** 다시 불러온다. 계속 죽는 PC 에서 무한 재시작으로 CPU 를 태우지 않게
+     횟수를 묶는다 — 두 번째부터는 기록만 한다. */
+let _rendererReloads = 0, _childGoneHooked = false;
+const RENDERER_AUTO_RELOAD_MAX = 1;
+function _watchRendererHealth(win){
+  if(!win || win.isDestroyed()) return;
+  const wc = win.webContents;
+  wc.on('render-process-gone', (e, d) => {
+    const reason = (d && d.reason) || '?';
+    _diagLog('[렌더러] 프로세스 종료 — reason=' + reason + ' exitCode=' + (d && d.exitCode) + ' | 자동 재로드 ' + _rendererReloads + '/' + RENDERER_AUTO_RELOAD_MAX);
+    if(reason === 'clean-exit' || reason === 'killed') return;   // 앱이 닫히는 중 · 사용자가 끈 것
+    if(_rendererReloads >= RENDERER_AUTO_RELOAD_MAX) return;
+    _rendererReloads++;
+    setTimeout(() => { try{ if(!win.isDestroyed()) wc.reload(); _diagLog('[렌더러] 자동 재로드 실행'); }catch(err){ _diagLog('[렌더러] 자동 재로드 실패 — ' + (err && err.message)); } }, 1000);
+  });
+  wc.on('did-fail-load', (e, code, desc, url, isMainFrame) => {
+    if(isMainFrame === false) return;   // 안쪽 iframe(유튜브 등) 실패는 앱 화면과 무관
+    _diagLog('[렌더러] 로드 실패 — ' + code + ' ' + desc + ' | ' + String(url || '').slice(-80));
+  });
+  win.on('unresponsive', () => _diagLog('[렌더러] 응답 없음(unresponsive)'));
+  win.on('responsive',   () => _diagLog('[렌더러] 응답 재개(responsive)'));
+  if(!_childGoneHooked){
+    _childGoneHooked = true;
+    app.on('child-process-gone', (e, d) => {
+      _diagLog('[프로세스] ' + ((d && d.type) || '?') + ' 종료 — reason=' + ((d && d.reason) || '?') + ' exitCode=' + (d && d.exitCode)
+        + (d && d.name ? ' name=' + d.name : '') + (d && d.serviceName ? ' service=' + d.serviceName : ''));
+    });
+  }
+}
+/* 🩺 [제보 #1-B] 부팅마다 한 번, 그래픽카드 정보와 크로미움의 GPU 기능 상태를 남긴다.
+   [왜] «투명한 곳이 검게 덮임» 은 일부 GPU 에서만 난다. 어느 PC(외장+내장 노트북 · 구형 인텔 · 원격)인지
+     알아야 CPU 합성으로 넘기지 않는 방법(아래 GPU_TEST_SWITCHES) 중 무엇을 토글에 넣을지 정할 수 있다.
+   ★ 제보자가 바로가기 끝에 붙여 시험한 스위치가 실제로 먹었는지도 같은 줄에 남긴다.
+   ⚠️ getGPUFeatureStatus 는 gpu-info-update 전에는 '?' 가 섞인다 — 그 이벤트(또는 화면 로드 + 1.5초) 뒤에 한 번만 찍는다. */
+const GPU_TEST_SWITCHES = ['force_high_performance_gpu', 'use-angle', 'disable-direct-composition', 'disable-gpu', 'disable-gpu-compositing'];
+const GPU_VENDORS = { 0x10de: 'NVIDIA', 0x1002: 'AMD', 0x8086: 'Intel', 0x1414: 'Microsoft(기본/원격)', 0x15ad: 'VMware' };
+let _gpuLogged = false;
+function _gpuSummary(info, feat, sw){
+  const devs = ((info && info.gpuDevice) || []).map(d => {
+    const v = GPU_VENDORS[d.vendorId] || ('0x' + Number(d.vendorId || 0).toString(16));
+    return v + ' 0x' + Number(d.deviceId || 0).toString(16) + (d.active ? '(사용 중)' : '') + (d.driverVersion ? ' 드라이버 ' + d.driverVersion : '');
+  });
+  const f = feat || {};
+  const pick = ['gpu_compositing', 'webgl', 'rasterization', 'video_decode'].map(k => k + '=' + (f[k] || '?')).join(' ');
+  const on = GPU_TEST_SWITCHES.filter(s => sw.has(s)).map(s => s + (sw.value(s) ? '=' + sw.value(s) : ''));
+  return '[GPU] ' + (devs.length ? devs.join(' · ') : '정보 없음') + (devs.length > 1 ? ' | 그래픽카드 ' + devs.length + '개' : '')
+    + ' | ' + pick + ' | 시험 스위치 ' + (on.length ? on.join(' ') : '없음');
+}
+function _logGpuOnce(win){
+  if(_gpuLogged) return;   // 창을 다시 만들 때(모드 전환) 듣기를 또 걸지 않는다
+  const go = () => {
+    if(_gpuLogged) return;
+    _gpuLogged = true;
+    const sw = { has: (s) => app.commandLine.hasSwitch(s), value: (s) => app.commandLine.getSwitchValue(s) };
+    let feat = null;
+    try{ feat = app.getGPUFeatureStatus(); }catch(_){}
+    app.getGPUInfo('basic')
+      .then(info => _diagLog(_gpuSummary(info, feat, sw)))
+      .catch(err => _diagLog(_gpuSummary(null, feat, sw) + ' | getGPUInfo 실패 ' + (err && err.message)));
+  };
+  app.once('gpu-info-update', go);
+  if(win && !win.isDestroyed()) win.webContents.once('did-finish-load', () => setTimeout(go, 1500));
+}
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
@@ -1726,8 +1878,32 @@ function createWindow() {
        주기적으로 다시 부르지 말 것 — 스타일 변경 자체가 크로미움의 가려짐 재계산 훅을
        두들겨서(핸드오프4 §4-2 의 906회 사고) 고치려던 깜빡임을 우리 손으로 만들게 된다. */
   overlay.applyLayered('부팅');
+  /* 🔁 [2026-10-08 제보 #4] 부팅 판정이 «GPU 합성 꺼짐» 이면 GPU 정보가 준비된 뒤 **딱 한 번** 다시 본다.
+     [왜] app.getGPUFeatureStatus() 는 gpu-info-update 전에는 믿을 수 없다. 윈도우 시작 자동 실행처럼 GPU 가 덜 준비된
+       순간이면 '?' 가 나와 꺼짐으로 판정되고, 예전엔 다시 시도하지 않아서 «토글은 켜짐인데 효과는 꺼짐» 이 됐다
+       (토글을 껐다 켜면 그때는 준비돼 있어 적용됐다 — 제보와 일치).
+     ★ 재시도도 같은 함수(_applyOverlayLayered)를 지난다 — 그때도 enabled 가 아니면 그대로 건너뛴다(10-01 보호 유지).
+     ⚠️ 한 번뿐이다. 주기적으로 다시 부르지 말 것(위 주석 — 스타일 변경이 가려짐 재계산 훅을 두들긴다). */
+  if(/^blocked/.test(overlay.layeredState()) && overlay.alpha() > 0 && overlay.alpha() < 255){
+    let _layRetried = false;
+    const _layRetry = (why)=>{
+      if(_layRetried || !mainWindow || mainWindow.isDestroyed()) return;
+      _layRetried = true;
+      overlay.applyLayered('재시도(' + why + ')');
+    };
+    app.once('gpu-info-update', ()=>_layRetry('gpu-info-update'));
+    // gpu-info-update 가 이미 지나갔을 수 있다 — 화면이 다 뜬 뒤 한 번 더 기회를 준다
+    mainWindow.webContents.once('did-finish-load', ()=>setTimeout(()=>_layRetry('did-finish-load'), 1500));
+  }
   /* 🚚 갭 승격이 일어났으면 한 줄 남긴다 — 제보 로그에서 "이 사람은 옛 값을 쓰고 있었다"가
      바로 보여야 한다. loadSettings 시점에는 app 이 아직 ready 가 아니라 여기서 찍는다. */
+  if(_settingsReset){
+    _diagLog('[설정] 옛 빌드 파일 초기화 — 영상 겹침 실험이 켜진 채(alpha ' + _settingsReset.alpha + ') 남아 있었다'
+      + ' | 옛 값: 모니터 ' + _settingsReset.display + ' · 화면 크기 ' + _settingsReset.zoom + ' · 아래틈 ' + _settingsReset.gap
+      + ' | 원본은 tw-settings.before-reset.json');
+    try{ saveSettings(); }catch(_){}
+    _settingsReset = null;
+  }
   if(_gapMigratedFrom != null){
     _diagLog('[오버레이] 갭 승격 — 옛 기본값 ' + _gapMigratedFrom + ' → ' + overlay.GAP_DEFAULT + ' (설정 파일 세대 갱신)');
     try{ saveSettings(); }catch(_){}
@@ -1736,6 +1912,8 @@ function createWindow() {
 
   _fdInstrument(mainWindow);   // 🩺 [진단] 활성화 원인 추적 — 창을 올리는 메서드에 표식만 심는다(동작 불변)
 
+  _watchRendererHealth(mainWindow);   // 🩺 렌더러 사망 · 로드 실패 · 무응답 기록(+ 사망 시 1회 재로드) — 제보 #1
+  _logGpuOnce(mainWindow);            // 🩺 그래픽카드 · GPU 기능 상태 · 시험 스위치 한 줄 — 제보 #1-B
   mainWindow.loadFile(path.join(__dirname, 'app', 'desk-companion-prototype.html'));
 
   // ★ renderer의 window.open 요청 처리 — 방명록('mhGuestbook…')은 Win98풍 프레임리스 독립 창으로.
@@ -3007,9 +3185,13 @@ function createWindow() {
     const all = screen.getAllDisplays();
     const primaryId = screen.getPrimaryDisplay().id;
     const curId = getRunDisplay().id;
-    return all.map((d, i) => ({
+    /* 🩹 [2026-10-08 제보 #10] 번호를 Electron 열거 순서가 아니라 **위치 순서**(왼→오, 위→아래)로 매기고
+       해상도를 붙인다. 열거 순서는 Windows 의 1/2 번호와 달라서 「모니터 2 (주)」 같은 이름이 나왔고,
+       그걸 보고 누른 사람은 엉뚱한 모니터를 저장했다. 누르는 키는 여전히 id 다. */
+    return _displaysByPosition(all).map((d, i) => ({
       id: d.id,
-      label: `모니터 ${i+1}` + (d.id === primaryId ? ' (주)' : ''),
+      label: `모니터 ${i+1} · ${d.bounds.width}×${d.bounds.height}` + (d.id === primaryId ? ' (주)' : ''),
+      name: (typeof d.label === 'string' && d.label) ? d.label : '',   // OS 가 주는 모니터 이름(있으면 툴팁용)
       isPrimary: d.id === primaryId,
       isCurrent: d.id === curId,
       bounds: d.bounds,
@@ -3028,6 +3210,8 @@ function createWindow() {
     if(!target) return { ok:false, reason:'not-found' };
     runDisplayId = displayId;
     runDisplayKey = _displayKey(target);   // ★ id가 재발급돼도 이 지문으로 같은 모니터를 다시 찾는다
+    runDisplayWasPrimary = (target.id === screen.getPrimaryDisplay().id);
+    try{ _diagLog('[화면] 모니터 선택 — id ' + displayId + ' ' + runDisplayKey + (runDisplayWasPrimary ? ' (주)' : '')); }catch(_){}
     saveSettings();   // ★ 재시작해도 유지되도록 즉시 저장
     if(mainWindow && !mainWindow.isDestroyed()){
       const b = mainWindow.getBounds();
@@ -3210,8 +3394,15 @@ function createWindow() {
      ⚠️ 이 토글은 **성공하면 지운다.** 레이어드 알파가 실기기에서 효과가 확인되면 기본 동작으로
        올리고 이 통로와 UI 를 함께 걷어낼 것. 한 번 내보낸 토글은 켜 둔 사용자가 생겨서
        나중에 지우기 어려워진다 — 폐기된 🔀 실험실 칸이 정확히 그 이유로 위험해졌다. */
+  /* 🧹 옛 설정 초기화 안내 — 렌더러가 부팅 때 한 번 묻는다. 한 번 돌려주면 끈다(창을 다시 불러도 두 번 안 뜬다). */
+  ipcMain.handle('companion:takeSettingsNotice', () => {
+    const r = { reset: _settingsResetNotice };
+    _settingsResetNotice = false;
+    return r;
+  });
+  /* state — 실제로 걸렸는지(overlay.layeredState). 켜 두었는데 'blocked…' 면 화면이 「켜짐」 대신 「이 PC 에서는 적용 안 됨」. */
   ipcMain.handle('companion:getLabVideo', () => {
-    return { on: overlay.alpha() > 0 && overlay.alpha() < 255, alpha: overlay.alpha() };
+    return { on: overlay.alpha() > 0 && overlay.alpha() < 255, alpha: overlay.alpha(), state: overlay.layeredState() };
   });
   ipcMain.handle('companion:setLabVideo', (e, on) => {
     overlay.setAlpha(on ? overlay.LAYERED_ALPHA_ON : 0);
@@ -3219,12 +3410,17 @@ function createWindow() {
     /* 즉시 반영한다 — 재시작을 요구하지 않는다. 스타일 변경은 재계산 훅이지만 이건 사람이
        버튼을 누른 순간 한 번뿐이라, 주기 호출 금지 원칙(위 주석)에 어긋나지 않는다. */
     overlay.applyLayered(on ? '토글 켜기' : '토글 끄기');
-    return { ok: true, on: overlay.alpha() > 0 && overlay.alpha() < 255 };
+    return { ok: true, on: overlay.alpha() > 0 && overlay.alpha() < 255, state: overlay.layeredState() };
   });
 
   /* 🩺 진단 기록 폴더 열기 — 제보를 받을 때 "이 경로의 파일을 보내주세요" 대신 버튼 하나로.
      ⚠️ 파일을 여는 게 아니라 **폴더를 열고 그 파일을 선택**한다(showItemInFolder). 로그를
        메모장으로 열어 버리면 유저가 내용을 복사해서 붙여넣게 되는데, 그러면 잘려서 온다. */
+  /* 🩺 렌더러가 보내는 진단 한 줄 — 렌더러에서 났는지 보이게 머리표를 붙이고, 줄바꿈을 지워 한 줄로 묶는다. */
+  ipcMain.on('companion:diagNote', (e, msg) => {
+    if(!mainWindow || mainWindow.isDestroyed() || e.sender !== mainWindow.webContents) return;
+    _diagLog('[렌더러] ' + String(msg == null ? '' : msg).replace(/[\r\n]+/g, ' ').slice(0, 200));
+  });
   ipcMain.handle('companion:openDiagFolder', () => {
     try{
       const f = path.join(app.getPath('userData'), 'tw-mouse-diag.log');

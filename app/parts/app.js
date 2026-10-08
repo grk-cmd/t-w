@@ -8,6 +8,18 @@ const canvas=document.getElementById('scene');
 //   도트 느낌은 실행 중 해상도 축소(DOT_RENDER_SCALE)+텍스처 필터 전환만으로 충분히 나서, antialias는 고정해도 무방.
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setClearColor(0x000000, 0);   // 항상 투명 배경으로 클리어 (Electron 투명창 흰 화면 예방)
+/* 🧯 메인 캔버스 WebGL 연결 끊김 — 기록하고, 6초 안에 안 돌아오면 화면을 한 번 다시 불러온다(parts/gl-recover.js · 제보 #11).
+   three.js 자기 리스너가 먼저 붙어 preventDefault 를 하므로 여기는 기록 · 시간 재기만 한다. */
+try{
+  if(typeof GlRecover !== 'undefined'){
+    GlRecover.createGlRecover({
+      log: (m) => { console.warn('[WebGL]', m); try{ if(window.companion && companion.diagNote) companion.diagNote('[WebGL] ' + m); }catch(_){} },
+      reload: () => location.reload(),
+      setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: (id) => clearTimeout(id), now: () => Date.now(),
+      store: { get: (k) => sessionStorage.getItem(k), set: (k, v) => sessionStorage.setItem(k, v) },
+    }).attach(canvas);
+  }
+}catch(e){ console.warn('[WebGL] 복구 감시를 못 붙였다', e); }
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
 const scene=new THREE.Scene();
@@ -1801,6 +1813,24 @@ function _skipHiddenDesk(hits){
   let drop = false;
   for(let i = 0; i < hits.length; i++){ if(_hitInHiddenDesk(hits[i].object)){ drop = true; break; } }
   return drop ? hits.filter(h=>!_hitInHiddenDesk(h.object)) : hits;
+}
+/* 🩹 [2026-10-08 제보 #7] 잡기 — **보이는 것에 맞은 히트를 먼저.** 없으면 예전처럼 첫 히트.
+   [증상] 자리비움 이미지를 건 사람 머리 위의 동물을 눌러도 안 내려오고, 그 사람(이미지째)이 흔들린다.
+   [원인] 자리비움이면 몸 메시를 visible=false 로 숨기는데(setSeatOpacity) three r128 레이캐스트는 visible 을 안 본다.
+     이미지가 있으면 탑승자를 이미지 윗변에 내려 앉히므로 숨은 몸 윤곽 안으로 들어가고, 숨은 몸이 hit[0] 이 된다.
+   ⚠️ 안 보이는 히트를 **버리지 않는다** — 이미지 없는 자리비움 캐릭터는 몸 전체가 숨어 있어서, 버리면 그 사람을
+     쓰다듬지 못하게 된다(_hitInHiddenDesk 위 주석의 결정). 순서만 바꾼다.
+   ★ 클릭 통과 판정(_pointHitsInteractive)은 «맞았는가» 만 보므로 순서와 무관 — 호버와 클릭이 어긋나지 않는다. */
+function _hitVisible(obj){
+  for(let o = obj; o; o = o.parent){ if(o.visible === false) return false; }
+  return true;
+}
+function _preferVisibleHit(hits){
+  if(!hits || hits.length < 2 || _hitVisible(hits[0].object)) return hits;
+  for(let i = 1; i < hits.length; i++){
+    if(_hitVisible(hits[i].object)) return [hits[i]].concat(hits.slice(0, i), hits.slice(i + 1));
+  }
+  return hits;
 }
 function _hitsSkipHidden(hits){
   if(!_hiddenSeatIds.size && !_reportHiddenUids.size) return hits;
@@ -8066,7 +8096,7 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
       const btn=document.createElement('button');
       btn.type='button';
       btn.className='fs-mon-btn'+(d.isCurrent?' current':'');
-      btn.textContent=d.label;
+      btn.textContent=d.label; if(d.name) btn.title=d.name;   // OS 가 주는 모니터 이름(제보 #10)
       btn.onclick=async ()=>{
         if(window.companion && companion.moveToDisplay){
           const res=await companion.moveToDisplay(d.id);
@@ -9392,6 +9422,10 @@ async function _commitWdDraftNow(silent){
   if(_wdPic.on){ try{ await exitWdPicMode(true); }catch(_){} }
   const mySeat=findMySeat(); if(!mySeat||!mySeat.charDef) return false;
   const draft=wdDraftDef; if(!draft) return false;   // 편집한 적 없으면(초안 자체가 없으면) 저장할 것도 없음
+  /* 🔀 초안의 주인이 지금 주 캐릭터가 아니면(꾸미기를 연 채 캐릭터 교체 · 자리 교체) 원래 주인에게 저장한다.
+     [왜] 캐릭터 슬롯 버튼이 있는 #focusSettingsPanel 은 꾸미기 창의 «바깥 클릭» 예외라, 창을 연 채 교체할 수 있다.
+       예전엔 무조건 지금 주 캐릭터(def=mySeat.charDef)에 썼기 때문에 A 를 꾸미던 초안이 B 를 통째로 덮었다. */
+  if(draft._srcDef && draft._srcDef !== mySeat.charDef) return _commitWdDraftToOwner(draft, silent);
   const def=mySeat.charDef;
   def.equippedParts = JSON.parse(JSON.stringify(draft.equippedParts||{}));
   def.partXfMemory = JSON.parse(JSON.stringify(draft.partXfMemory||{}));
@@ -9415,6 +9449,43 @@ async function _commitWdDraftNow(silent){
   try{ if(typeof pruneUnownedGachaParts === 'function') pruneUnownedGachaParts(); }
   catch(e){ console.warn('[가챠] 커밋 후 정리 실패', e); }
   return true;
+}
+/* 🔀 주인이 바뀐 초안 — 원래 캐릭터(슬롯 객체 = 앉아 있으면 그 좌석의 charDef)에만 쓰고 초안은 버린다.
+   ★ 슬롯에도 좌석에도 없는 객체면(그 사이 슬롯을 다시 불러옴 등) 아무 데도 쓰지 않는다 — 엉뚱한 캐릭터를 덮는 것보다 낫다.
+   ⚠️ Presence 는 그 좌석이 지금 «나» 일 때만 — 자리추가 좌석은 로컬 전용이다. */
+async function _commitWdDraftToOwner(draft, silent){
+  const src = draft._srcDef;
+  const seat = seats.find(s => !s.remote && s.charDef === src) || null;
+  const inSlots = (typeof slots !== 'undefined') && slots.indexOf(src) >= 0;
+  wdDraftDef = null;   // 다음에 꾸미기를 열면 지금 주 캐릭터로 새 초안을 만든다
+  if(!seat && !inSlots){ console.warn('[꾸미기] 초안의 원래 캐릭터를 찾지 못해 저장하지 않았다'); return false; }
+  src.equippedParts = JSON.parse(JSON.stringify(draft.equippedParts||{}));
+  src.partXfMemory = JSON.parse(JSON.stringify(draft.partXfMemory||{}));
+  if(seat){
+    pruneSeatPartsAgainstDef(seat, src);
+    await applyEquippedPartsToSeat(seat, src);
+    try{ if(seat.gltfRoot && typeof fitModel==='function') fitModel(seat); }catch(_){}
+  }
+  if(typeof saveSlots==='function') saveSlots();
+  if(seat && seat.isMe && typeof Presence!=='undefined' && Presence.active()) Presence.updateDef(src);
+  if(!silent) toast('꾸민 내용은 원래 캐릭터에 저장했어요');
+  try{ if(typeof pruneUnownedGachaParts === 'function') pruneUnownedGachaParts(); }catch(_){}
+  return true;
+}
+/* 🔀 주 캐릭터가 바뀐 직후 — 열려 있던 꾸미기 초안을 원래 캐릭터에 저장하고, 미리보기를 새 캐릭터로 다시 그린다. */
+function _wdAfterMainSwap(){
+  if(!wdDraftDef) return;
+  const wd = document.getElementById('wardrobePanel'), gi = document.getElementById('gachaInvOverlay');
+  const editing = (wd && wd.classList.contains('on')) || (gi && gi.style.display && gi.style.display !== 'none');
+  /* 창이 닫혀 있으면 닫힐 때 이미 저장됐다 — 다시 쓰지 않고 남은 초안만 버린다(다른 경로가 옛 초안을 읽지 않게). */
+  if(!editing){ wdDraftDef = null; return; }
+  commitWdDraft(true).then(()=>{
+    const wp = document.getElementById('wdPreviewPanel');
+    if(wp && wp.classList.contains('on')){
+      try{ refreshWdPreviewChar(); }catch(_){}
+      try{ if(typeof window.refreshWardrobe==='function') window.refreshWardrobe(); }catch(_){}
+    }
+  }).catch(e=>console.warn('[꾸미기] 교체 뒤 저장 실패', e));
 }
 // ★ 요청사항: 우클릭으로 상세조정 패널을 안 열어도, 미리보기 바로 아래에 "지금 보고 있는 카테고리에
 //   장착된 파츠"의 색상(_col)을 바로 바꿀 수 있는 영역을 상시 표시. _col이 없는 파츠거나 아무것도
@@ -9942,6 +10013,87 @@ function _picIntersect(ray, meshes){
     if(d<bestD){ bestD=d; best=h; }
   }
   return best;
+}
+/* 🩹 [2026-10-08 제보 #3] 도장 «감아 칠하기» — 턱 아래처럼 정면 광선이 못 맞히는 곳까지 이어서 칠한다.
+   [왜] 도장은 지금 카메라 정면에서 격자마다 광선을 쏴 **앞면에 맞은 점만** 찍는다. 턱 밑은 아래를 향해서
+     정면 광선이 스쳐 지나가고, 그 칸은 버려졌다(「얼굴을 벗어나 잘렸어요」).
+   [방법] 빗나간 격자점마다 그 광선이 얼굴 중심에 가장 가까워지는 점 P 를 잡고, 중심에서 P 쪽 바깥에서
+     **중심을 향해** 다시 쏜다(방사 투영). 맞은 곳은 턱 밑 표면의 실제 자리라, 도장 아랫부분이 턱선을 넘어
+     감기듯 이어지고 비스듬한 면이라 그만큼 늘어나 보인다(요청한 모양).
+   ⚠️ 예전 «번짐 띠»(EXTRA_MAX 주석)와 원리가 다르다 — 그건 추정 UV 가 텍스처 가장자리 한 점에 뭉쳐서 났다.
+     여기 점들은 전부 메시의 실제 다른 자리라 뭉치지 않는다. 그래도 엉뚱한 곳(귀 · 뒤통수)으로 튀지 않게
+     ① 이미 맞은 이웃에서 한 고리씩만 자라고(STAMP_WRAP_RINGS) ② 이웃 점과 3D 거리가 보통 간격의 4배를 넘으면 버리고
+     ③ 얼굴 **아래쪽**(중심보다 아래 방향)만 감는다. 이음새 판정(_uvFar)은 그리기 단계에서 그대로 한 번 더 걸린다.
+   ★ 사람(commitStamp) · 동물(animal.js aCommitStamp)이 같이 쓴다. */
+const STAMP_WRAP_RINGS = 6;          // 실루엣 밖으로 몇 칸까지 감을지(격자 칸 수)
+const STAMP_WRAP_MAX_STEP = 4;       // 이웃과의 3D 거리 상한 — 보통 격자 간격의 배수
+const STAMP_WRAP_DOWN = -0.35;
+const STAMP_WRAP_MAX_R = 0.35;        // 이웃과의 3D 거리 상한(얼굴 반지름 비율) — 이보다 멀면 다른 부위로 튄 것       // 이 값보다 아래를 향한 쪽만 감는다(얼굴 위쪽 축 기준 cos)
+function _stampWrapCenter(mesh){
+  const g = mesh && mesh.geometry; if(!g) return null;
+  if(!g.boundingSphere) g.computeBoundingSphere();
+  if(!g.boundingSphere) return null;
+  mesh.updateMatrixWorld(true);
+  const c = g.boundingSphere.center.clone().applyMatrix4(mesh.matrixWorld);
+  const sc = new THREE.Vector3().setFromMatrixScale(mesh.matrixWorld);
+  const up = new THREE.Vector3(0,1,0).applyQuaternion(mesh.getWorldQuaternion(new THREE.Quaternion())).normalize();
+  return { c, r: g.boundingSphere.radius * Math.max(Math.abs(sc.x), Math.abs(sc.y), Math.abs(sc.z)), up };
+}
+/* arr: 격자 (N+1)² — {x,y,p?} 또는 null. rays: 빗나간 칸 표시(감아 칠할 후보). 채운 칸 수를 돌려준다.
+   [걷기] 빗나간 칸 옆의 맞은 점 Q 와 그 안쪽 점 Q2 가 향하던 방향(Q−Q2)으로 **한 칸 크기만큼** 더 나간 자리 T 를 잡고,
+     얼굴 중심에서 T 쪽 바깥에서 중심을 향해 쏴 표면에 다시 붙인다. 다음 고리는 그 점에서 또 한 칸 — 그래서 턱선을 넘어
+     표면을 따라 고르게 감겨 들어간다.
+   ⚠️ «광선이 중심에 가장 가까운 점» 으로 붙이는 방식은 처음에 썼다가 버렸다 — 아래 칸으로 갈수록 점이 턱 밑 한 곳에
+     몰리고 앞쪽으로 되돌아와 그림이 접혔다(구 흉내에서 확인). */
+function _stampWrapFill(arr, N, rays, meshes, ctr){
+  if(!ctr || !meshes || !meshes.length) return 0;
+  const W = N + 1, ds = [];
+  for(let j=0;j<=N;j++) for(let i=0;i<N;i++){
+    const a = arr[j*W+i], b = arr[j*W+i+1];
+    if(a && b && a.p && b.p) ds.push(a.p.distanceTo(b.p));
+  }
+  for(let j=0;j<N;j++) for(let i=0;i<=N;i++){
+    const a = arr[j*W+i], b = arr[(j+1)*W+i];
+    if(a && b && a.p && b.p) ds.push(a.p.distanceTo(b.p));
+  }
+  if(!ds.length) return 0;
+  ds.sort((x,y)=>x-y);
+  const cell = Math.max(1e-6, ds[ds.length>>1]);   // 칸 크기(3D) — 걸음 한 번의 길이
+  /* 이웃과의 3D 거리 상한 — 칸 크기의 배수, 단 얼굴 반지름의 일정 비율까지는 허용(턱선 바로 밑은 원래 벌어져 있다). */
+  const maxStep = Math.max(cell * STAMP_WRAP_MAX_STEP, ctr.r * STAMP_WRAP_MAX_R);
+  const ray = new THREE.Ray(), T = new THREE.Vector3(), dir = new THREE.Vector3(), v = new THREE.Vector3();
+  const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
+  let filled = 0;
+  for(let ring=0; ring<STAMP_WRAP_RINGS; ring++){
+    const add = [];
+    for(let j=0;j<=N;j++) for(let i=0;i<=N;i++){
+      const k = j*W+i;
+      if(arr[k] || !rays[k]) continue;
+      let best = null;
+      for(const [di,dj] of DIRS){
+        const i1 = i+di, j1 = j+dj, i2 = i+2*di, j2 = j+2*dj;
+        if(i2<0||i2>N||j2<0||j2>N) continue;
+        const q = arr[j1*W+i1], q2 = arr[j2*W+i2];
+        if(!q || !q2 || !q.p || !q2.p) continue;
+        dir.copy(q.p).sub(q2.p); const L = dir.length(); if(L < 1e-9) continue;
+        T.copy(q.p).addScaledVector(dir, cell / L);      // 같은 방향으로 한 칸 더
+        v.copy(T).sub(ctr.c); const len = v.length(); if(len < 1e-6) continue;
+        v.multiplyScalar(1/len);
+        if(v.dot(ctr.up) > STAMP_WRAP_DOWN) continue;   // 아래쪽만
+        ray.origin.copy(ctr.c).addScaledVector(v, ctr.r * 2.5);
+        ray.direction.copy(v).negate();
+        const h = _picIntersect(ray, meshes);
+        if(!h || !h.uv) continue;
+        const dq = h.point.distanceTo(q.p);
+        if(dq > maxStep || dq < cell * 0.2) continue;   // 멀리 튐 · 제자리(더 못 감음)
+        if(!best || dq < best.d) best = { d: dq, u: { x:h.uv.x, y:h.uv.y, p:h.point.clone(), wrap:true } };
+      }
+      if(best) add.push([k, best.u]);
+    }
+    if(!add.length) break;
+    add.forEach(([k,u])=>{ arr[k] = u; }); filled += add.length;
+  }
+  return filled;
 }
 function _wdPicHit(e){
   const cv=document.getElementById('wdPreviewCanvas'); if(!cv || !_wdPic.meshes.length) return null;
@@ -11391,47 +11543,20 @@ function renderBellList(){
   }, 60 * 1000);
 })();
 
-/* ═══════════════════ 🐞 버그 제보 탭 ═══════════════════
-   관리자가 등록한 공지글 + 오픈카톡 링크를 보여주고, [제보하기]로 링크를 엶.
-   공지·링크 수정은 관리자만(.admin-only 버튼 + 저장 시 isAdmin 재확인). */
-const BUG_REPORT_DEFAULT_NOTICE =
-  '버그를 발견하셨나요?\n\n' +
-  '아래 [제보하기] 버튼을 눌러 오픈채팅방으로 들어와 알려주세요.\n' +
-  '어떤 상황에서 문제가 생겼는지 자세히 적어주시면 큰 도움이 됩니다.';
+/* ═══════════════════ 🐞 버그 제보 탭 — 오픈카톡 기본 링크 ═══════════════════
+   게시판 화면은 parts/bug-board-ui.js 다. 여기는 bugReport/current 만 맡는다.
+   ★ 예전 공지(notice)는 첫 공지글로 옮겨졌다(bug-board.js migrateNotice). current.link 는
+     답변에 붙는 [💬 오픈카톡] 의 기본 주소로 계속 쓴다. 편집은 관리자만(.admin-only + 저장 때 isAdmin 재확인). */
 let _bugReportConf = null;   // { notice, link, ts }
-
-function renderBugReport(){
-  const noticeEl = document.getElementById('mhBugNotice');
-  const goBtn    = document.getElementById('mhBugGoBtn');
-  if(!noticeEl || !goBtn) return;
-  const notice = (_bugReportConf && _bugReportConf.notice) || BUG_REPORT_DEFAULT_NOTICE;
-  const link   = (_bugReportConf && _bugReportConf.link) || '';
-  noticeEl.textContent = notice;
-  goBtn.disabled = !link;
-  goBtn.title = link ? '오픈채팅방으로 이동해요' : '아직 제보 링크가 등록되지 않았어요';
-  goBtn.style.opacity = link ? '' : '.5';
-}
+window._bugReportLink = ()=> (_bugReportConf && _bugReportConf.link) || '';
 
 (function bindBugReport(){
-  const goBtn     = document.getElementById('mhBugGoBtn');
   const editBtn   = document.getElementById('mhBugEditBtn');
   const form      = document.getElementById('mhBugEditForm');
-  const wrap      = document.getElementById('mhBugWrap');
-  const noticeIn  = document.getElementById('mhBugNoticeInput');
   const linkIn    = document.getElementById('mhBugLinkInput');
   const saveBtn   = document.getElementById('mhBugSaveBtn');
   const cancelBtn = document.getElementById('mhBugCancelBtn');
   const msgEl     = document.getElementById('mhBugEditMsg');
-
-  // [제보하기] — 앱 안의 작은 브라우저 창으로 링크 열기 (외부 브라우저 대신)
-  if(goBtn){
-    goBtn.addEventListener('click', ()=>{
-      const link = (_bugReportConf && _bugReportConf.link) || '';
-      if(!link){ toast('아직 제보 링크가 등록되지 않았어요'); return; }
-      if(window.companion && companion.openBrowser) companion.openBrowser(link);
-      else window.open(link, '_blank');
-    });
-  }
 
   const showMsg = (text, isErr)=>{
     if(!msgEl) return;
@@ -11439,21 +11564,16 @@ function renderBugReport(){
     msgEl.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
     msgEl.style.display = text ? 'block' : 'none';
   };
-  const closeForm = ()=>{
-    if(form) form.style.display = 'none';
-    if(wrap) wrap.style.display = '';
-  };
+  const closeForm = ()=>{ if(form) form.style.display = 'none'; };
 
-  // 관리자: 편집 폼 열기
   if(editBtn){
     editBtn.addEventListener('click', ()=>{
       if(!isAdmin) return;   // .admin-only로 숨겨져 있지만 한 번 더 확인
-      if(noticeIn) noticeIn.value = (_bugReportConf && _bugReportConf.notice) || BUG_REPORT_DEFAULT_NOTICE;
-      if(linkIn)   linkIn.value   = (_bugReportConf && _bugReportConf.link) || '';
+      if(form && form.style.display !== 'none'){ closeForm(); return; }
+      if(linkIn) linkIn.value = window._bugReportLink();
       showMsg('', false);
-      if(wrap) wrap.style.display = 'none';
       if(form) form.style.display = 'block';
-      if(noticeIn) noticeIn.focus();
+      if(linkIn) linkIn.focus();
     });
   }
   if(cancelBtn) cancelBtn.addEventListener('click', closeForm);
@@ -11462,14 +11582,14 @@ function renderBugReport(){
     saveBtn.addEventListener('click', async ()=>{
       if(!isAdmin){ toast('관리자만 수정할 수 있어요'); return; }
       if(!window.firebaseAPI || !firebaseAPI.setBugReport){ toast('네트워크 연결이 필요해요'); return; }
-      const notice = (noticeIn ? noticeIn.value : '').trim();
-      const link   = (linkIn   ? linkIn.value   : '').trim();
-      if(!notice){ showMsg('공지 내용을 입력해 주세요', true); return; }
-      if(link && !/^https?:\/\//i.test(link)){ showMsg('링크는 http:// 또는 https:// 로 시작해야 해요', true); return; }
+      const link = (linkIn ? linkIn.value : '').trim();
+      if(link && !/^https:\/\/open\.kakao\.com\//.test(link)){ showMsg('오픈카톡 링크는 https://open.kakao.com/ 으로 시작해야 해요', true); return; }
+      /* ⚠️ 규칙이 notice 를 필수로 본다(웹 관리자도 같은 노드를 쓴다) — 있던 글을 그대로 실어 보낸다. */
+      const notice = (_bugReportConf && _bugReportConf.notice) || '버그 제보는 버그제보 게시판에 남겨 주세요.';
       saveBtn.disabled = true; showMsg('저장 중…', false);
       try{
         await firebaseAPI.setBugReport(notice, link);
-        toast('버그 제보 공지를 저장했어요');
+        toast('오픈카톡 기본 링크를 저장했어요');
         closeForm();
       }catch(e){
         showMsg(_saveFailMsg(e, '저장에 실패했어요 — 인터넷 연결을 확인해 주세요'), true);
@@ -11478,10 +11598,9 @@ function renderBugReport(){
     });
   }
 
-  // 공지 실시간 구독 (관리자가 바꾸면 모두에게 즉시 반영)
   const sub = ()=>{
-    if(!window.firebaseAPI || !firebaseAPI.subscribeBugReport){ renderBugReport(); return; }
-    firebaseAPI.subscribeBugReport(conf=>{ _bugReportConf = conf; renderBugReport(); });
+    if(!window.firebaseAPI || !firebaseAPI.subscribeBugReport) return;
+    firebaseAPI.subscribeBugReport(conf=>{ _bugReportConf = conf; });
   };
   if(window.firebaseAPI) sub();
   else window.addEventListener('firebase-ready', sub, { once:true });
@@ -11625,6 +11744,7 @@ function _fmReqVisible(){
 function _fmSeatsLeft(){ return FRIEND_MAX - Object.keys(_myHomeFriends || {}).length; }
 
 function renderFriendManage(){
+  if(_fmTab !== 'gift') _giftStat('');
   document.querySelectorAll('#mhFmTabs .mh-ibx-tab').forEach(t=>{
     t.classList.toggle('on', t.dataset.fm === _fmTab);
   });
@@ -12045,8 +12165,10 @@ async function initMyHome(){
           Object.keys(_myInbox).forEach(id=>{
             if(prevIds.includes(id)) return;
             const m = _myInbox[id];
-            const lbl = m.tag==='update' ? '🆕 업데이트' : m.tag==='reward' ? '📩 우편' : '📢 공지';
+            const lbl = _inboxTagLabel(m.tag);
             toast(`📩 ${lbl}: ${m.title||''}`);
+            // 🐞 답변 알림이 오면 버그제보 탭 배지도 같이(bug-board-ui.js)
+            if(m.tag==='bug' && typeof window._bugBoardRefreshBadge==='function') window._bugBoardRefreshBadge();
           });
         });
       }
@@ -12651,7 +12773,7 @@ function renderMhChat(){ renderInbox(); renderMhProfileRail(); }
    전부 [공지]로 떨어진다(폴백이 notice 다). 보이는 글자만 [보상] → [우편] 으로 바꿨다.
    [왜] 보상 말고도 시스템이 개인에게 보내는 우편(제재 안내 등)이 이 태그로 온다. */
 function _inboxTagLabel(tag){
-  return tag==='update' ? '🆕 업데이트' : tag==='reward' ? '📩 우편' : '📢 공지';
+  return tag==='update' ? '🆕 업데이트' : tag==='reward' ? '📩 우편' : tag==='bug' ? '🐞 버그제보' : '📢 공지';
 }
 function _inboxTimeStr(ts){
   if(!ts) return '';
@@ -12723,42 +12845,126 @@ function renderGiftBox(listEl){
   (async ()=>{
     let gifts = {};
     try{ if(window.firebaseAPI && firebaseAPI.getMallangGifts) gifts = await firebaseAPI.getMallangGifts(getMyUserId()) || {}; }catch(_){}
-    const keys = Object.keys(gifts).sort((a,b)=>(gifts[b].ts||0)-(gifts[a].ts||0));
-    if(!keys.length){
-      listEl.innerHTML = '<div class="mh-ibx-empty">💝 아직 받은 선물이 없어요<br><small>친구가 보낸 말랑이가 여기에 표시돼요</small></div>';
+    _giftBoxPaint(listEl, gifts);
+  })();
+}
+/* 받아 둔 gifts 로 다시 그린다 — ⭐ 토글·삭제·다시 불러오기마다 서버에서 통째로 다시 받지 않으려고
+   renderGiftBox 에서 떼어 냈다. */
+function _giftBoxPaint(listEl, gifts){
+  const lim = window._mallangGiftLimits || { max:30, starMax:20 };
+  const keys = (typeof window._mallangGiftOrder === 'function')
+    ? window._mallangGiftOrder(gifts)
+    : Object.keys(gifts).sort((a,b)=>(gifts[b].ts||0)-(gifts[a].ts||0));
+  if(!keys.length){
+    listEl.innerHTML = '<div class="mh-ibx-empty">💝 아직 받은 선물이 없어요<br><small>친구가 보낸 말랑이가 여기에 표시돼요</small></div>';
+    listEl.onclick = null; listEl.oncontextmenu = null;
+    _giftStat('');
+    return;
+  }
+  const starN = keys.filter(k=>gifts[k] && gifts[k].starred === true).length;
+  /* 🛡️ 여기 있던 지역 이스케이프(`_e`)는 지웠다 — `'` 가 빠진 네 문자짜리였다.
+     공용 escHtml 을 쓴다. 선물의 `fromName`·`msg`·`imgUrl` 은 **친구가 정한 문자열**이고
+     그 넷 전부 속성값 안으로 들어간다(`data-*`·`title`·`img src`). */
+  /* 🎁 6×5 격자 — 30칸이 보관 한도(GIFT_MAX=30)와 딱 맞는다.
+     칸이 작아 글자를 넣을 자리가 없으므로, 보낸 사람·메시지·시각은 title(마우스를 올리면 뜨는 설명)에 담는다.
+     fromName은 선물을 받을 때 이미 함께 저장돼 오는 값이라 추가로 받아오는 데이터가 없다(사용량 0).
+     ⭐ 순서는 mallang.js giftOrder — ⭐ 아닌 것의 가장 오래된 것이 늘 마지막 칸이라, 꽉 찼을 때
+       그 칸이 곧 자동 정리의 다음 대상이다(마우스를 올리면 설명에 적힌다). */
+  const full = keys.length >= lim.max;
+  const cells = keys.map((k, i)=>{
+    const g = gifts[k];
+    const when = (typeof _inboxTimeStr==='function') ? _inboxTimeStr(g.ts) : '';
+    const isHidden = (typeof window._mallangIsGiftHidden==='function') ? window._mallangIsGiftHidden(k) : false;
+    const star = g.starred === true;
+    const next = full && !star && i === keys.length - 1;
+    const who = (g.fromName||'친구') + ' 님이 선물했어요';
+    const tip = who + (g.msg ? ('\n“'+g.msg+'”') : '') + (when ? ('\n'+when) : '')
+              + '\n' + (isHidden ? '클릭하면 마이홈에 다시 불러와요' : '마이홈에 나와 있어요')
+              + (next ? '\n새 선물이 오면 이 선물이 먼저 지워져요' : '');
+    return '<div class="gift-cell gift-item'+(isHidden?' out':'')+(star?' star':'')+'" data-gid="'+escHtml(k)+'"'+
+           ' data-img="'+escHtml(g.imgUrl||'')+'" data-msg="'+escHtml(g.msg||'')+'" title="'+escHtml(tip)+'">'+
+           '<img src="'+escHtml(g.imgUrl||'')+'" alt="" draggable="false">'+   // 이름은 title(마우스 올림)에만
+           '<span class="gift-star" title="'+(star?'즐겨찾기 풀기':'즐겨찾기')+'">'+(star?'⭐':'☆')+'</span></div>';
+  });
+  // 남은 칸은 빈 칸으로 채워 격자 모양을 유지
+  for(let i=keys.length;i<lim.max;i++) cells.push('<div class="gift-cell empty"></div>');
+  listEl.innerHTML = '<div class="gift-grid">'+cells.join('')+'</div>';
+  _giftStat('⭐ '+starN+'/'+lim.starMax+' · 보관 '+keys.length+'/'+lim.max);
+  const repaint = ()=>{ try{ _giftBoxPaint(listEl, gifts); }catch(_){} };
+  // ★ 선물함 항목 클릭 → 마이홈에 다시 소환. innerHTML로 만든 목록이라 위임 방식으로 한 번만 건다.
+  listEl.onclick = (ev)=>{
+    const it = ev.target && ev.target.closest ? ev.target.closest('.gift-item') : null;
+    if(!it || !it.dataset.gid) return;
+    const k = it.dataset.gid;
+    /* ⭐ 칸 클릭(다시 불러오기)으로 번지면 안 된다 — 여기서 끊는다. */
+    if(ev.target.closest('.gift-star')){
+      ev.stopPropagation();
+      _giftToggleStar(k, gifts, starN, lim, repaint);
       return;
     }
-    /* 🛡️ 여기 있던 지역 이스케이프(`_e`)는 지웠다 — `'` 가 빠진 네 문자짜리였다.
-       공용 escHtml 을 쓴다. 선물의 `fromName`·`msg`·`imgUrl` 은 **친구가 정한 문자열**이고
-       그 넷 전부 속성값 안으로 들어간다(`data-*`·`title`·`img src`). */
-    /* 🎁 6×5 격자 — 30칸이 보관 한도(GIFT_MAX=30)와 딱 맞는다.
-       칸이 작아 글자를 넣을 자리가 없으므로, 보낸 사람·메시지·시각은 title(마우스를 올리면 뜨는 설명)에 담는다.
-       fromName은 선물을 받을 때 이미 함께 저장돼 오는 값이라 추가로 받아오는 데이터가 없다(사용량 0). */
-    const cells = keys.map(k=>{
-      const g = gifts[k];
-      const when = (typeof _inboxTimeStr==='function') ? _inboxTimeStr(g.ts) : '';
-      const isHidden = (typeof window._mallangIsGiftHidden==='function') ? window._mallangIsGiftHidden(k) : false;
-      const who = (g.fromName||'친구') + ' 님이 선물했어요';
-      const tip = who + (g.msg ? ('\n“'+g.msg+'”') : '') + (when ? ('\n'+when) : '')
-                + '\n' + (isHidden ? '클릭하면 마이홈에 다시 불러와요' : '마이홈에 나와 있어요');
-      return '<div class="gift-cell gift-item'+(isHidden?' out':'')+'" data-gid="'+escHtml(k)+'"'+
-             ' data-img="'+escHtml(g.imgUrl||'')+'" data-msg="'+escHtml(g.msg||'')+'" title="'+escHtml(tip)+'">'+
-             '<img src="'+escHtml(g.imgUrl||'')+'" alt="" draggable="false"></div>';   // 이름은 title(마우스 올림)에만
-    });
-    // 남은 칸은 빈 칸으로 채워 격자 모양을 유지
-    for(let i=keys.length;i<30;i++) cells.push('<div class="gift-cell empty"></div>');
-    listEl.innerHTML = '<div class="gift-grid">'+cells.join('')+'</div>';
-    // ★ 선물함 항목 클릭 → 마이홈에 다시 소환. innerHTML로 만든 목록이라 위임 방식으로 한 번만 건다.
-    listEl.onclick = (ev)=>{
-      const it = ev.target && ev.target.closest ? ev.target.closest('.gift-item') : null;
-      if(!it || !it.dataset.gid) return;
-      if(typeof window._mallangRespawnGift !== 'function') return;
-      const r = window._mallangRespawnGift(it.dataset.gid, it.dataset.img, it.dataset.msg);
-      if(r === 'ok'){ toast('🎁 마이홈에 다시 불러왔어요'); try{ renderGiftBox(listEl); }catch(_){} }   // 목록의 '치움' 표시 갱신
-      else if(r === 'already') toast('이미 마이홈에 나와 있어요');
-      else if(r === 'full') toast('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요');
-    };
-  })();
+    if(typeof window._mallangRespawnGift !== 'function') return;
+    const r = window._mallangRespawnGift(k, it.dataset.img, it.dataset.msg);
+    if(r === 'ok'){ toast('🎁 마이홈에 다시 불러왔어요'); repaint(); }   // 목록의 '치움' 표시 갱신
+    else if(r === 'already') toast('이미 마이홈에 나와 있어요');
+    else if(r === 'full') toast('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요');
+  };
+  // 우클릭 → 영구 삭제 (⭐ 는 막음). 확인은 창 안 확인창으로 — confirm() 금지(audit 검사 4).
+  listEl.oncontextmenu = (ev)=>{
+    const it = ev.target && ev.target.closest ? ev.target.closest('.gift-item') : null;
+    if(!it || !it.dataset.gid) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const k = it.dataset.gid, g = gifts[k]; if(!g) return;
+    if(g.starred === true){
+      _mhAsk('선물 삭제', '즐겨찾기한 선물이에요. ⭐를 먼저 풀어 주세요.', [{ label:'확인' }]);
+      return;
+    }
+    _mhAsk('선물 삭제',
+      (g.fromName||'친구')+' 님의 선물을 삭제할까요?\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
+      [{ label:'삭제', danger:true, run: async ()=>{
+          const r = (typeof window._mallangDeleteGift === 'function') ? await window._mallangDeleteGift(k, g) : 'error';
+          if(r === 'ok'){ delete gifts[k]; repaint(); toast('🗑 선물을 삭제했어요'); }
+          else toast('삭제하지 못했어요 — 네트워크를 확인해 주세요');
+        } },
+       { label:'취소' }]);
+  };
+}
+/* 서브탭 줄 오른쪽의 「⭐ n/20 · 보관 m/30」. 다른 서브탭으로 가면 renderFriendManage 가 비운다. */
+function _giftStat(text){
+  const el = document.getElementById('mhGiftStat');
+  if(el) el.textContent = text;
+}
+async function _giftToggleStar(k, gifts, starN, lim, repaint){
+  const g = gifts[k]; if(!g) return;
+  const on = g.starred !== true;
+  if(on && starN >= lim.starMax){ toast('즐겨찾기는 '+lim.starMax+'개까지예요'); return; }
+  if(!(window.firebaseAPI && firebaseAPI.setMallangGiftStarred)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
+  const r = await firebaseAPI.setMallangGiftStarred(getMyUserId(), k, on);
+  if(!(r && r.ok)){ toast('저장하지 못했어요 — 네트워크를 확인해 주세요'); return; }
+  if(on) g.starred = true; else delete g.starred;
+  repaint();
+}
+/* 마이홈 창 안 확인창 — btns: [{label, danger?, run?}]. 아무 버튼이나 누르면 닫힌다.
+   ⚠️ #myHomeWin 의 자식으로 붙인다. body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다(.mh-color-pop 사고). */
+function _mhAsk(title, text, btns){
+  const win = document.getElementById('myHomeWin'); if(!win) return;
+  const old = document.getElementById('mhAskOv'); if(old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'mhAskOv'; ov.className = 'mh-ask-ov';
+  ov.innerHTML = '<div class="mh-ask-win"><div class="ma-head">'+escHtml(title)+'</div>'+
+    '<div class="ma-body">'+escHtml(text)+'</div><div class="ma-foot">'+
+    btns.map((b,i)=>'<button type="button" data-i="'+i+'"'+(b.danger?' class="danger"':'')+'>'+escHtml(b.label)+'</button>').join('')+
+    '</div></div>';
+  const close = ()=>{ try{ ov.remove(); }catch(_){} };
+  ov.addEventListener('mousedown', e=>e.stopPropagation());
+  ov.addEventListener('contextmenu', e=>{ e.preventDefault(); e.stopPropagation(); });
+  ov.addEventListener('click', e=>{
+    e.stopPropagation();
+    if(e.target === ov){ close(); return; }
+    const bt = e.target.closest && e.target.closest('button[data-i]'); if(!bt) return;
+    const b = btns[+bt.dataset.i]; close();
+    if(b && typeof b.run === 'function') b.run();
+  });
+  win.appendChild(ov);
 }
 function renderInbox(){
   const listEl = document.getElementById('mhInboxList');
@@ -12800,7 +13006,7 @@ function renderInbox(){
   listEl.innerHTML = '';
   filtered.forEach(id=>{
     const m = merged[id];
-    const tag = (m.tag==='update'||m.tag==='reward') ? m.tag : 'notice';
+    const tag = (m.tag==='update'||m.tag==='reward'||m.tag==='bug') ? m.tag : 'notice';
     const item = document.createElement('div');
     item.className = 'mh-ibx-item' + (m.read ? '' : ' unread') + (_inboxOpenId===id ? ' open' : '') + (m.pinned ? ' pinned' : '');
 
@@ -12864,6 +13070,10 @@ function renderInbox(){
         if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }
         else if(window.firebaseAPI && firebaseAPI.markInboxRead){ firebaseAPI.markInboxRead(getMyUserId(), id); }
         if(typeof refreshBellBadge==='function') refreshBellBadge();
+      }
+      // 🐞 답변 알림 — 펼치는 대신 버그제보 탭의 그 글로 간다(bug-board-ui.js)
+      if(m.tag === 'bug' && m.bugId && typeof window._bugBoardOpen === 'function'){
+        _inboxOpenId = null; window._bugBoardOpen(m.bugId); return;
       }
       renderInbox();
     };
@@ -12986,6 +13196,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
     overlay.classList.remove('on');
     myHomeOpen = false;
     _step('말랑이 정리', ()=>{ if(typeof window._mallangOnClose==='function') window._mallangOnClose(); });   // 🧸 말랑이 전부 제거
+    _step('확인창 닫기', ()=>{ const a=document.getElementById('mhAskOv'); if(a) a.remove(); });   // 다시 열 때 남아 있지 않게
     // 🔍 검색줄도 접는다 — 다음에 열었을 때 필터만 남아 친구가 사라져 보이지 않게
     _step('검색줄', ()=>{ if(typeof _mhFriendSearchToggle==='function') _mhFriendSearchToggle(false); });
     _step('방명록 뱃지', ()=>{ if(typeof _mhGbStopWatch==='function') _mhGbStopWatch(); });   // 방명록 뱃지 감시 종료
@@ -13298,6 +13509,11 @@ function _mhSubscribeDMForSelected(){ /* 수령함으로 대체됨 */ }
 /* ============================================================ 🏠 마이홈 (2단계: 프로필/게시글/스티커) */
 let _myHomeData = { avatar:null, bio:'', postTitle:'', post:'', stickers:{}, bgm:null, bg:null, theme:null };
 let _myHomeLoaded = false;
+/* 🪪 [2026-10-08 제보 #2] 마이홈을 **어느 계정 코드로** 불러왔는가. 저장 때 지금 코드와 다르면 거부한다.
+   [가설] 계정 탭에서 다른 계정으로 갈아탄 뒤 재시작 전에 자동 저장(창 닫기 · 탭 전환)이 돌면, 먼저 불러온
+     **옛 계정의 마이홈(빈 데이터일 수 있다)** 이 새 계정 users/{코드}/home 에 통째로 덮어써졌다.
+     _myHomeLoaded 하나로는 «불러왔다» 만 알고 «누구 것을» 은 몰랐다. */
+let _myHomeUid = null;
 
 // ★ 마이홈2-B: 친구 마이홈 관람 모드 — null이면 내 마이홈, 아니면 그 유저의 홈을 읽기전용으로 표시.
 //   내 홈 데이터는 백업해뒀다가 관람 종료 시 복원(불필요한 firebase 재로드 방지).
@@ -13562,12 +13778,15 @@ async function loadMyHomePage(){
   if(_mhViewingUserId) return;
   if(!window.firebaseAPI || !firebaseAPI.getMyHome){ try{ renderMyHomePage(); }catch(_){}; return; }
   try{
-    const data = await firebaseAPI.getMyHome(getMyUserId()) || {};
+    const _loadUid = getMyUserId();
+    const data = await firebaseAPI.getMyHome(_loadUid) || {};
     if(_mhViewingUserId) return;   // ★ 로드가 진행되는 사이 친구 홈 관람으로 전환됐으면 덮어쓰지 않음(비동기 경쟁 방지)
+    if(getMyUserId() !== _loadUid) return;   // 🪪 불러오는 사이 계정이 바뀌었다 — 옛 계정 데이터를 붙들지 않는다
     _myHomeData = { avatar:data.avatar||null, bio:data.bio||'', postTitle:data.postTitle||'', post:data.post||'',
       theme:data.theme||null,
       stickers:data.stickers||{}, bgm:data.bgm||null, bg:data.bg||null };
     _myHomeLoaded = true;
+    _myHomeUid = _loadUid;
   }catch(e){
     console.warn('마이홈 페이지 로드 실패 — 기본값으로 렌더', e);
     // ★ 로드가 실패해도 마이홈이 통째로 빈 화면이 되지 않게 안전한 기본값으로라도 렌더
@@ -14158,6 +14377,14 @@ function _mhBindStickerResize(handle, sid){
     // 🛑 서버에서 내 마이홈을 "성공적으로 로드한 적 없는" 세션에서는 절대 저장하지 않음.
     //   예전엔 로드 실패 → 기본값 렌더 → 창 닫을 때 자동 저장이 그 기본값을 서버에 덮어써서
     //   꾸민 데이터가 통째로 초기화되는 사고가 있었음. 로드 성공(_myHomeLoaded)이 저장의 전제조건.
+    /* 🪪 불러온 계정과 지금 계정이 다르면 저장하지 않는다 — 옛 계정 데이터로 새 계정 마이홈을 덮는 길(제보 #2).
+       불러온 상태도 같이 무효로 돌려, 다음에 열 때 지금 계정 것을 새로 받게 한다. */
+    if(_myHomeLoaded && _myHomeUid !== getMyUserId()){
+      _myHomeLoaded = false;
+      console.warn('[마이홈] 계정이 바뀌었다(' + _myHomeUid + ' → ' + getMyUserId() + ') — 데이터 보호를 위해 저장을 건너뜀');
+      if(!silent) toast('계정이 바뀌어서 저장하지 않았어요 — 앱을 다시 시작해 주세요');
+      return;
+    }
     if(!_myHomeLoaded){
       if(!silent) toast('마이홈 정보를 아직 불러오지 못했어요 — 창을 닫았다 다시 열어주세요');
       console.warn('[마이홈] 로드 미완료 상태 — 데이터 보호를 위해 저장을 건너뜀');
@@ -15985,7 +16212,7 @@ function _chatFlyRefreshUI(){
 // 내가 채팅 전송 — 멀티모드에서만 상대에게 실제로 전송되고, 내 화면에는 항상 즉시 말풍선으로 보여줌.
 /* 🌊 fly 가 참이면 말풍선 대신 «내 화면에도» 날린다 — 니코동 방식. 안 그러면 보낸 사람만
    자기 글이 안 보여서, 날아갔는지 아닌지를 알 수 없다. */
-function sendMyChat(text, fly, flyColor, flySize){
+function sendMyChat(text, fly, flyColor, flySize, tab){
   // 🚫 채널 개편: 채널2(채팅룸)가 아니면 전송하지 않음 — 투게더룸은 일에 집중.
   if(window._activeChannel !== 2) return;
   text = String(text).trim().slice(0,140);
@@ -15996,11 +16223,11 @@ function sendMyChat(text, fly, flyColor, flySize){
     const col = _flyColorOk(flyColor, lv);
     const sz  = _flySizeOk(flySize);
     if(mySeat && typeof showFlyText === 'function') showFlyText(mySeat, text, col, sz);
-    if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(text, true, col, sz);
+    if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(text, true, col, sz, tab);
     return;
   }
   if(mySeat) showChatBubble(mySeat, text);
-  if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(text);
+  if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(text, false, '', '', tab);
 }
 
 /* ═══════════════ 💬 프리미엄 대화창 (1차: 코어) ═══════════════ */
@@ -16254,25 +16481,22 @@ function openChatWindow(){
   const _ep=document.getElementById('chatEmojiWin'); if(_ep) _ep.classList.remove('on');
   // 대화 기록 구독 시작
   const room = (typeof Presence!=='undefined' && Presence.roomCode) ? Presence.roomCode() : null;
-  // 🔖 이번 세션의 구분선 위치를 여기서 '고정' — 이후 창이 열려 있는 동안 새 메시지가 와도 선은 움직이지 않는다.
-  _chatReadRoom = room;
-  _chatReadMarker = _loadChatReadMarker(room);
-  _chatJumpToUnread = true;   // 첫 렌더에서 구분선이 보이도록 스크롤
   if(typeof _stopChatBadgeSub==='function') _stopChatBadgeSub();   // 본문 구독과 중복되지 않게 뱃지 구독 해제
   if(typeof _setChatBadge==='function') _setChatBadge(0);
-  if(room && window.firebaseAPI && firebaseAPI.subscribeChatLog){
-    if(_chatLogUnsub){ try{ _chatLogUnsub(); }catch(_){} _chatLogUnsub=null; }
-    // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
-    _chatLogUnsub = firebaseAPI.subscribeChatLog(room, list => { _noteChatJoin(room, list); _renderChatLog(list); });
-  }
+  /* 💬 탭 — 방이 바뀌었으면 #일반부터. 같은 방이면 마지막에 보던 탭 그대로(창을 닫아도 유지). */
+  if(_chatTabRoom !== room){ _chatTabRoom = room; _chatMyTab = 'general'; }
+  _chatSubscribeTab(room);
+  _chatOffRefreshUI();   // 입력칸 안내문의 #탭 이름을 방 · 탭이 정해진 뒤에 다시
   const inp=document.getElementById('chatInput'); if(inp){ inp.value=''; setTimeout(()=>inp.focus(),0); }
 }
 function closeChatWindow(){
   // 🔖 닫는 시점까지를 읽음 처리 — 다음에 열면 그 아래로 쌓인 메시지에 구분선이 붙는다.
   _markChatRead();
+  _chatTabUnreadStop();   // 💬 다른 탭 안 읽음 구독은 창이 열려 있는 동안만
   /* ▁ 최소화한 채로 닫으면 다음에 열 때 입력칸만 뜬다 — "채팅창이 사라졌다"로 읽힌다.
      닫을 때 항상 원래 크기로 되돌린다(높이 복원도 여기서 같이 일어난다). */
   _setChatMinimized(false);
+  _chatCtxClose();
   const ov=document.getElementById('chatOverlay'); if(ov) ov.style.display='none';
   if(_chatLogUnsub){ try{ _chatLogUnsub(); }catch(_){} _chatLogUnsub=null; }
 }
@@ -16370,7 +16594,7 @@ function _chatOffRefreshUI(){
                     : (off ? '방장이 채팅을 껐어요' : '방장만 켜고 끌 수 있어요');
   }
   const inp = document.getElementById('chatInput');
-  if(inp) inp.placeholder = off ? '😊 🎲 💣 · /80 · /150 만 쓸 수 있어요' : '메시지 입력 후 Enter';
+  if(inp) inp.placeholder = off ? '😊 🎲 💣 · /80 · /150 만 쓸 수 있어요' : ('#' + _chatTabName(_chatMyTabId()) + '에 메시지 입력 후 Enter');
   /* 🗑 기록 삭제 버튼도 같은 재료(방 종류·방장)로 정해진다 — 여기서 같이 갱신한다.
      ⚠️ 호출 자리를 따로 두지 않는 이유: 이 함수는 창을 열 때(openChatWindow)와 방 메타가 바뀔 때
        (_onRoomMeta) 양쪽에서 이미 불린다. 별도 함수를 만들어 두 자리에 각각 걸면, 다음에 호출
@@ -16408,6 +16632,8 @@ function _chatDelOpen(){
   /* 몇 줄이 지워지는지 보여준다 — 화면에 보이는 줄(_chatVisibleRows)이 아니라 **서버에 있는 줄**이다.
      내가 [지우기]로 접어 둔 것도, 입장 전 대화도 같이 사라지므로 그쪽이 정직한 숫자다. */
   const n = (_chatLogCache || []).length;
+  const what = document.getElementById('chatDelWhat');
+  if(what) what.textContent = '#' + _chatTabName(_chatMyTabId()) + ' 채널의';
   const cnt = document.getElementById('chatDelCount');
   if(cnt) cnt.textContent = n ? ('지울 대화 ' + n + '줄') : '지울 대화가 없어요';
   const ok = document.getElementById('chatDelOk');
@@ -16426,7 +16652,7 @@ async function _chatDelRun(){
      ⚠️ 낙관적 반영은 하지 않는다([채팅 켜짐]과 다른 점). 지우기는 되돌릴 수 없어서,
        실패했는데 화면만 빈 상태가 제일 위험하다 — 서버가 지웠다고 답한 뒤에 비운다. */
   if(ok){ ok.disabled = true; ok.textContent = '지우는 중…'; }
-  const r = await firebaseAPI.clearChatLog(room);
+  const r = await firebaseAPI.clearChatLog(room, _chatMyTabId());   // 💬 지금 보는 탭만
   if(!(r && r.ok)){
     if(ok){ ok.disabled = false; ok.textContent = '삭제'; }
     toast('지우지 못했어요 — 네트워크나 권한을 확인해 주세요');
@@ -16441,6 +16667,7 @@ async function _chatDelRun(){
 /* 🎛️ 방 메타가 바뀔 때마다 firebase-init 의 _meta 리스너가 부른다.
    방장 승계·채널 변경도 같은 값으로 오므로 멤버줄(👑)도 여기서 같이 갱신한다. */
 window._onRoomMeta = function(){
+  try{ _chatTabsOnMeta(); }catch(_){}
   try{ _chatOffRefreshUI(); }catch(_){}
   try{ if(typeof _refreshChatMembers==='function') _refreshChatMembers(); }catch(_){}
   try{ if(typeof _renderChatLog==='function') _renderChatLog(_chatLogCache); }catch(_){}   // 안내줄 갱신
@@ -16478,6 +16705,8 @@ function _refreshChatMembers(){
   try{
     for(const st of seats){
       if(!st || (!st.isMe && !st.friendName && !st.remote)) continue;
+      // 💬 「이 채널」 — 내 탭에 있는 사람만(구버전 · 탭 칸이 없는 사람은 #일반)
+      if(!st.isMe && _chatTabResolve(st.chatTabId || 'general') !== _chatMyTabId()) continue;
       if(st.isMe){
         names.push({ name:getDisplayName(), isHost:(hostUserId && getMyUserId()===hostUserId) });
       }else if(st.friendName){
@@ -16487,17 +16716,233 @@ function _refreshChatMembers(){
   }catch(_){}
   // 방장을 맨 앞으로
   names.sort((a,b)=> (b.isHost?1:0)-(a.isHost?1:0));
-  label.textContent = `멤버(${names.length})`;
+  label.textContent = `이 채널(${names.length})`;
   listEl.innerHTML = names.map(m =>
     m.isHost ? `<span class="host">👑 ${_chatEsc(m.name)}</span>` : _chatEsc(m.name)
   ).join(', ') || '—';
 }
+/* ═══ 💬 채팅 탭(채널) — 투게더룸 · 시크릿룸 대화창 ═══
+   규칙(이름 · 상한 · 인원 · 경로)은 chat-tabs.js. 여기는 화면 · 구독 · 전환.
+   ★ 내가 있는 탭 = 마지막으로 누른 탭. 창을 닫거나 접어도 유지, 방에 들어오면 #일반, 그 탭이 지워지면 #일반.
+   ★ 읽음 구분선 · 입장 컷 · [지우기] 는 ChatTabs.markKey(방, 탭) 를 방 코드 자리에 써서 탭마다 따로 간다
+     (#일반은 예전 방 코드 그대로라 기존 표식이 그대로 이어진다).
+   ⚠️ 방장 제한은 **화면 수준**이다 — `_meta.host` 는 문자열일 뿐이라 서버가 방장을 검증하지 못한다
+     (채팅 켜짐/꺼짐과 같은 수준). 규칙은 탭 개수(≤ 2)와 이름 길이만 막는다. */
+let _chatMyTab = 'general';
+let _chatTabRoom = null;          // _chatMyTab 이 어느 방 것인가 — 방이 바뀌면 #일반으로
+const _chatTabUnread = {};        // tabId → 안 읽은 수 (창이 열려 있는 동안, 보고 있지 않은 탭만)
+let _chatTabUnreadUnsubs = [];
+const CHAT_TAB_UNREAD_LIMIT = 30;
+/* 🛰 서버 방에서는 탭을 만들지 않는다 — 탭 정의(_meta/tabs) · 멤버 칸(tab · chatTab)이 아직 방 서버 규약(PROTOCOL.md)에 없다.
+   만들면 Firebase 에 rooms/{방}/_meta/tabs 만 생겨(유령 방 노드) 방장 혼자만 탭을 보고, 다른 사람에겐 안 보인다.
+   TODO: 방 서버 규약에 tabs · tab · chatTab 을 더하면 이 막음을 걷는다. */
+function _chatTabsOnServer(){ try{ const n = _roomServerNet(); return !!(n && n.inRoom && n.inRoom()); }catch(_){ return false; } }
+function _chatTabMeta(){ try{ return (window._roomMetaCache && window._roomMetaCache.tabs) || null; }catch(_){ return null; } }
+function _chatTabResolve(id){ return window.ChatTabs ? ChatTabs.resolve(id, _chatTabMeta()) : 'general'; }
+function _chatMyTabId(){
+  if(window._activeChannel !== 2) return 'general';   // 워킹룸에는 탭이 없다
+  return _chatTabResolve(_chatMyTab);
+}
+/* presence 에 싣는 값 — #일반이면 null(칸을 지운다 · 구버전과 같은 모양) */
+function _chatTabOut(){ const t = _chatMyTabId(); return t === 'general' ? null : t; }
+function _chatTabName(id){
+  const t = window.ChatTabs ? ChatTabs.list(_chatTabMeta()).find(x => x.id === id) : null;
+  return t ? t.name : '일반';
+}
+function _chatMarkKey(room, tab){ return window.ChatTabs ? ChatTabs.markKey(room, tab) : room; }
+/* 지금 탭의 기록을 구독한다 — 창을 열 때 · 탭을 바꿀 때 */
+function _chatSubscribeTab(room){
+  const tab = _chatMyTabId();
+  const key = _chatMarkKey(room, tab);
+  // 🔖 이번 세션의 구분선 위치를 여기서 '고정' — 이후 창이 열려 있는 동안 새 메시지가 와도 선은 움직이지 않는다.
+  _chatReadRoom = key;
+  _chatReadMarker = _loadChatReadMarker(key);
+  _chatJumpToUnread = true;   // 첫 렌더에서 구분선이 보이도록 스크롤
+  if(_chatLogUnsub){ try{ _chatLogUnsub(); }catch(_){} _chatLogUnsub=null; }
+  _chatLogCache = [];
+  try{ _renderChatLog([]); }catch(_){}
+  if(room && window.firebaseAPI && firebaseAPI.subscribeChatLog){
+    // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
+    _chatLogUnsub = firebaseAPI.subscribeChatLog(room, list => { _noteChatJoin(key, list); _renderChatLog(list); }, undefined, tab);
+  }
+  _chatTabUnreadStart(room);
+  _chatTabsRender();
+}
+/* 보고 있지 않은 탭은 작은 limit 로 가볍게 구독해 숫자만 센다(본문은 받지 않는다). */
+function _chatTabUnreadStop(){
+  _chatTabUnreadUnsubs.forEach(u => { try{ u(); }catch(_){} });
+  _chatTabUnreadUnsubs = [];
+  Object.keys(_chatTabUnread).forEach(k => delete _chatTabUnread[k]);
+}
+function _chatTabUnreadStart(room){
+  _chatTabUnreadStop();
+  if(!room || window._activeChannel !== 2 || !window.ChatTabs || !(window.firebaseAPI && firebaseAPI.subscribeChatLog)) return;
+  const cur = _chatMyTabId();
+  ChatTabs.list(_chatTabMeta()).forEach(t => {
+    if(t.id === cur) return;
+    const key = _chatMarkKey(room, t.id);
+    _chatTabUnreadUnsubs.push(firebaseAPI.subscribeChatLog(room, list => {
+      let mark = _loadChatReadMarker(key);
+      const last = list[list.length - 1];
+      // 처음 보는 탭이면 '지금까지는 읽은 것' — 뱃지 구독과 같은 규칙
+      if(!mark && last){ _saveChatReadMarker(key, _chatMsgKey(last)); mark = _chatMsgKey(last); }
+      _chatTabUnread[t.id] = mark ? list.filter(m => _chatMsgKey(m) > mark).length : 0;
+      _chatTabsRender();
+    }, CHAT_TAB_UNREAD_LIMIT, t.id));
+  });
+}
+function _chatSwitchTab(id){
+  const room = _chatRoomCode(); if(!room) return;
+  const next = _chatTabResolve(id);
+  if(next === _chatMyTabId()) return;
+  _markChatRead();                 // 떠나는 탭은 여기까지 읽음
+  _chatMyTab = next; _chatTabRoom = room;
+  _chatSubscribeTab(room);
+  _chatOffRefreshUI();             // 입력칸 안내문(#이름)
+  _refreshChatMembers();
+  if(typeof Presence!=='undefined' && Presence.broadcastNow) Presence.broadcastNow();   // 내 탭을 방에 알린다
+}
+/* 방 메타가 바뀌었다 — 내 탭이 지워졌으면 #일반으로, 탭 목록이 바뀌었으면 안 읽음 구독을 다시. */
+let _chatTabSig = '';
+function _chatTabsOnMeta(){
+  if(!window.ChatTabs) return;
+  const room = _chatRoomCode();
+  const sig = ChatTabs.list(_chatTabMeta()).map(t => t.id + ':' + t.name).join('|');
+  if(_chatMyTab !== 'general' && _chatTabResolve(_chatMyTab) === 'general'){
+    _chatMyTab = 'general';
+    if(_chatWindowIsOpen() && room){ _chatSubscribeTab(room); toast('채널이 삭제되어 #일반으로 옮겼어요'); }
+    if(typeof Presence!=='undefined' && Presence.broadcastNow) Presence.broadcastNow();
+  }else if(sig !== _chatTabSig && _chatWindowIsOpen()){
+    _chatTabUnreadStart(room);
+  }
+  _chatTabSig = sig;
+  _chatTabsRender();
+}
+/* 탭 줄 — 고정 · 스크롤바 없음. 좁아지면 이름만 줄임표, 인원 · 안 읽음 숫자는 늘 보인다(CSS). */
+let _chatTabEdit = null;   // { mode:'add'|'rename', id }
+function _chatTabsRender(){
+  const bar = document.getElementById('chatTabs'); if(!bar || !window.ChatTabs) return;
+  const on = window._activeChannel === 2;
+  bar.classList.toggle('on', on);
+  if(!on){ bar.innerHTML = ''; return; }
+  // 입력 중이면 다시 그리지 않는다 — 치던 글자가 날아간다
+  if(_chatTabEdit && bar.querySelector('.ct-edit input') === document.activeElement) return;
+  const tabs = ChatTabs.list(_chatTabMeta()), cur = _chatMyTabId();
+  const people = seats.filter(st => st && (st.isMe || st.friendName)).map(st => ({ tab: st.isMe ? cur : (st.chatTabId || 'general') }));
+  const cnt = ChatTabs.counts(people, _chatTabMeta());
+  const host = _chatIsHost();
+  const h = tabs.map(t => {
+    if(_chatTabEdit && _chatTabEdit.mode === 'rename' && _chatTabEdit.id === t.id) return _chatTabEditHtml(t.name);
+    const un = t.id === cur ? 0 : (_chatTabUnread[t.id] || 0);
+    return '<span class="ct-tab' + (t.id === cur ? ' on' : '') + '" data-tab="' + escHtml(t.id) + '" title="#' + escHtml(t.name) + '">' +
+      '<span class="ct-name">#' + escHtml(t.name) + '</span><span class="ct-n">' + (cnt[t.id] || 0) + '</span>' +
+      (un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : un) + '</span>' : '') + '</span>';
+  });
+  if(_chatTabEdit && _chatTabEdit.mode === 'add') h.push(_chatTabEditHtml(''));
+  else if(!_chatTabsOnServer() && ChatTabs.canAdd(host, _chatTabMeta())) h.push('<span class="ct-add" title="채널 추가 (방장)">+</span>');
+  bar.innerHTML = h.join('');
+  const inp = bar.querySelector('.ct-edit input');
+  if(inp){ inp.focus(); inp.select(); }
+}
+function _chatTabEditHtml(val){
+  return '<span class="ct-edit"><input type="text" maxlength="' + (window.ChatTabs ? ChatTabs.NAME_MAX : 10) + '" value="' + escHtml(val) + '" placeholder="채널 이름">' +
+    '<button type="button" data-ct="ok">' + (_chatTabEdit && _chatTabEdit.mode === 'rename' ? '바꾸기' : '추가') + '</button><button type="button" data-ct="x">×</button></span>';
+}
+async function _chatTabEditSubmit(){
+  const bar = document.getElementById('chatTabs'), edit = _chatTabEdit;
+  const inp = bar && bar.querySelector('.ct-edit input'); if(!edit || !inp) return;
+  if(!_chatIsHost()){ toast('방장만 바꿀 수 있어요'); _chatTabEdit = null; _chatTabsRender(); return; }
+  const c = ChatTabs.cleanName(inp.value, _chatTabMeta(), edit.id);
+  if(c.err){ toast(c.err); inp.focus(); return; }
+  const room = _chatRoomCode(); if(!room) return;
+  let r = null;
+  if(edit.mode === 'add'){
+    if(_chatTabsOnServer()){ toast('이 방에서는 아직 채널을 만들 수 없어요'); _chatTabEdit = null; _chatTabsRender(); return; }
+    if(!ChatTabs.canAdd(true, _chatTabMeta())){ toast('채널은 #일반 포함 3개까지예요'); _chatTabEdit = null; _chatTabsRender(); return; }
+    r = await firebaseAPI.addChatTab(room, c.name);
+  }else r = await firebaseAPI.renameChatTab(room, edit.id, c.name);
+  _chatTabEdit = null;
+  if(!(r && r.ok)){ toast((r && r.reason) || '바꾸지 못했어요 — 네트워크를 확인해 주세요'); _chatTabsRender(); return; }
+  if(edit.mode === 'add' && r.id){
+    // 메타가 리스너로 오기 전이라도 바로 그 탭으로 — 캐시에 먼저 넣어 둔다
+    try{ const m = window._roomMetaCache = Object.assign({}, window._roomMetaCache || {}); m.tabs = Object.assign({}, m.tabs || {}, { [r.id]: { name: c.name, ts: Date.now() } }); }catch(_){}
+    _chatSwitchTab(r.id);
+  }
+  _chatTabsRender();
+}
+/* 탭 우클릭(방장) — 창 안 확인창. ⚠️ #chatWindow 의 자식으로 붙인다(body 로 빼면 run 모드에서 클릭이 뚫린다). */
+function _chatAsk(text, btns){
+  const win = document.getElementById('chatWindow'); if(!win) return;
+  const old = document.getElementById('chatAskOv'); if(old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'chatAskOv'; ov.className = 'chat-ask-ov';
+  ov.innerHTML = '<div class="chat-ask-win"><div class="ca-body">' + escHtml(text) + '</div><div class="ca-foot">' +
+    btns.map((b, i) => '<button type="button" data-i="' + i + '"' + (b.danger ? ' class="danger"' : '') + '>' + escHtml(b.label) + '</button>').join('') + '</div></div>';
+  ov.addEventListener('mousedown', e => e.stopPropagation());
+  ov.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); });
+  ov.addEventListener('click', e => {
+    e.stopPropagation();
+    if(e.target === ov){ ov.remove(); return; }
+    const bt = e.target.closest && e.target.closest('button[data-i]'); if(!bt) return;
+    const b = btns[+bt.dataset.i]; ov.remove();
+    if(b && typeof b.run === 'function') b.run();
+  });
+  win.appendChild(ov);
+}
+function _chatTabMenu(id){
+  if(!_chatIsHost()) return;   // 참여자에게는 메뉴가 없다
+  if(id === 'general'){ _chatAsk('#일반은 이름을 바꾸거나 지울 수 없어요.', [{ label:'확인' }]); return; }
+  const name = _chatTabName(id);
+  _chatAsk('#' + name + ' 채널을 삭제할까요?\n대화 기록도 같이 지워지고, 있던 사람은 #일반으로 옮겨져요.', [
+    { label:'이름 바꾸기', run: () => { _chatTabEdit = { mode:'rename', id }; _chatTabsRender(); } },
+    { label:'삭제', danger:true, run: async () => {
+        const r = await firebaseAPI.deleteChatTab(_chatRoomCode(), id);
+        if(!(r && r.ok)) toast('지우지 못했어요 — 네트워크를 확인해 주세요');
+        else toast('🗑 #' + name + ' 채널을 지웠어요');
+      } },
+    { label:'취소' },
+  ]);
+}
+function _bindChatTabs(){
+  const bar = document.getElementById('chatTabs'); if(!bar) return;
+  bar.addEventListener('mousedown', e => e.stopPropagation());
+  bar.addEventListener('click', e => {
+    e.stopPropagation();
+    const bt = e.target.closest('[data-ct]');
+    if(bt){ if(bt.dataset.ct === 'ok') _chatTabEditSubmit(); else { _chatTabEdit = null; _chatTabsRender(); } return; }
+    if(e.target.closest('.ct-add')){ if(_chatIsHost()){ _chatTabEdit = { mode:'add' }; _chatTabsRender(); } return; }
+    const t = e.target.closest('.ct-tab'); if(t) _chatSwitchTab(t.dataset.tab);
+  });
+  bar.addEventListener('keydown', e => {
+    if(!e.target.closest('.ct-edit')) return;
+    e.stopPropagation();
+    if(e.isComposing || e.keyCode === 229) return;   // 한글 조합 중 Enter 는 조합 확정에 쓴다(대화 입력칸과 같은 규칙)
+    if(e.key === 'Enter'){ e.preventDefault(); _chatTabEditSubmit(); }
+    else if(e.key === 'Escape'){ _chatTabEdit = null; _chatTabsRender(); }
+  });
+  bar.addEventListener('contextmenu', e => {
+    e.preventDefault(); e.stopPropagation();
+    const t = e.target.closest('.ct-tab'); if(t) _chatTabMenu(t.dataset.tab);
+  });
+}
+
 // 대화 기록 렌더
 function _renderChatLog(list){
   _chatLogCache = list || [];
   const box=document.getElementById('chatMessages'); if(!box) return;
   /* 🧹 지우기 — 화면에 그릴 목록만 거른다(위 _chatVisibleRows 주석 참고). */
   const rows = _chatVisibleRows(_chatLogCache);
+  /* 📋 고르는 중이면 그리지 않는다 — 아래 innerHTML 이 통째로 갈아 끼워서 고르던 것이 날아간다.
+     최신 list 는 위에서 이미 _chatLogCache 에 받아 두었다. 선택이 풀리면 _chatFlushHeld 가 그린다. */
+  if(_chatSelInBox()){
+    _chatHeldN = Math.max(0, rows.length - _chatShownRows.length);
+    _chatHeldOn = true;
+    _chatChipRefresh();
+    return;
+  }
+  _chatHeldOn = false; _chatHeldN = 0;
+  _chatShownRows = rows;
+  _chatChipRefresh();
   const atBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 30;   // 맨 아래면 자동 스크롤
   // 🔖 구분선 위치 = 마커보다 뒤(=안 읽은) 첫 메시지.
   //    마커가 없으면(그 방 첫 방문) 구분선 없이 전부 읽은 것으로 취급한다.
@@ -16524,7 +16969,8 @@ function _renderChatLog(list){
     // 내 발화는 이름을 테마 강조색으로 — 긴 대화에서 내 줄을 눈으로 찾기 위함(uid 기준이라 동명이인 안전).
     const mine = !!(_myUid && m.uid && m.uid === _myUid);
     const t = _hhmm(m.ts);
-    html.push('<div class="cm-row"><span class="cm-name' + (mine?' me':'') + '">' + nm + '</span> : ' + tx
+    // data-i — 복사는 화면 글자가 아니라 이 번호로 원문(_chatShownRows)을 찾는다(chat-copy.js).
+    html.push('<div class="cm-row" data-i="' + i + '"><span class="cm-name' + (mine?' me':'') + '">' + nm + '</span> : ' + tx
       + (t ? '<span class="cm-time">' + t + '</span>' : '') + '</div>');
   });
   /* 🔇 잠겨 있으면 목록 끝에 안내줄 — 서버 기록이 아니라 **화면에만** 그린다.
@@ -16544,6 +16990,139 @@ function _renderChatLog(list){
   }
   _syncChatMinBadge();   // ▁ 접혀 있으면 새로 온 만큼 💬 뱃지에 올린다 (펼쳐져 있으면 무동작)
 }
+/* ═══ 📋 대화 드래그 · 복사 ═══
+   ★ 형식은 chat-copy.js(원문 기준). 여기는 선택 → 원문 찾기 · 클립보드 · 우클릭 메뉴 · 다시 그리기 보류.
+   ★ mac 은 창이 frame:false 라 기본 편집 메뉴가 없어 Cmd+C 가 안 먹을 수 있다 — 키를 직접 받는다(두 OS 같게). */
+let _chatShownRows = [];      // 지금 화면에 그려진 메시지(원문) — .cm-row[data-i] 의 번호가 여기 자리다
+let _chatHeldOn = false, _chatHeldN = 0;
+function _chatSelInBox(){
+  const box = document.getElementById('chatMessages');
+  if(!box || !box.getClientRects().length) return false;   // 창이 닫혀(숨어) 있으면 보류하지 않는다
+  const sel = window.getSelection ? window.getSelection() : null;
+  if(!sel || sel.isCollapsed || !sel.rangeCount) return false;
+  return box.contains(sel.anchorNode) || box.contains(sel.focusNode);
+}
+function _chatChipRefresh(){
+  const chip = document.getElementById('chatNewChip'), box = document.getElementById('chatMessages');
+  if(!chip || !box) return;
+  const on = _chatHeldOn && _chatHeldN > 0;
+  chip.classList.toggle('on', on);
+  if(!on) return;
+  chip.textContent = '새 메시지 ' + _chatHeldN + ' ↓';
+  // 대화 칸 오른쪽 아래 — offset 값이라 창의 transform·화면 배율과 무관하다
+  const win = document.getElementById('chatWindow');
+  if(win) chip.style.bottom = (win.clientHeight - (box.offsetTop + box.offsetHeight) + 8) + 'px';
+}
+/* 보류해 둔 list 로 그리고 맨 아래로. */
+function _chatFlushHeld(){
+  if(!_chatHeldOn) return;
+  _chatHeldOn = false;
+  _renderChatLog(_chatLogCache);
+  const box = document.getElementById('chatMessages');
+  if(box) box.scrollTop = box.scrollHeight;
+}
+/* 선택에 걸친 메시지들(원문). 한 메시지 안에서만 고른 것이면 null — 그때는 고른 글자 그대로 복사한다. */
+function _chatSelRows(){
+  if(!_chatSelInBox()) return null;
+  const box = document.getElementById('chatMessages');
+  const range = window.getSelection().getRangeAt(0);
+  const hit = [...box.querySelectorAll('.cm-row[data-i]')].filter(r => range.intersectsNode(r));
+  if(hit.length < 2) return null;
+  return hit.map(r => _chatShownRows[+r.dataset.i]).filter(Boolean);
+}
+function _chatSelText(){
+  if(!_chatSelInBox()) return '';
+  const rows = _chatSelRows();
+  if(rows) return window.ChatCopy ? ChatCopy.textFor(rows) : '';
+  return String(window.getSelection().toString() || '').trim();
+}
+function _chatCopyToast(){
+  const t = document.getElementById('chatCopyToast'); if(!t) return;
+  t.classList.add('on');
+  clearTimeout(_chatCopyToast._t);
+  _chatCopyToast._t = setTimeout(()=>t.classList.remove('on'), 900);
+}
+async function _chatWriteClip(text){
+  if(!text) return;
+  try{ await navigator.clipboard.writeText(text); _chatCopyToast(); }
+  catch(_){ toast('복사하지 못했어요'); }
+}
+function _chatCtxClose(){
+  const m = document.getElementById('chatCtx'); if(m) m.classList.remove('on');
+}
+function _chatCtxOpen(e){
+  const m = document.getElementById('chatCtx'), win = document.getElementById('chatWindow');
+  if(!m || !win) return;
+  const row = e.target.closest ? e.target.closest('.cm-row[data-i]') : null;
+  m._row = row ? _chatShownRows[+row.dataset.i] : null;
+  m.querySelector('[data-act="copy"]').classList.toggle('off', !_chatSelText());
+  m.querySelector('[data-act="copyMsg"]').classList.toggle('hide', !m._row);
+  m.classList.add('on');
+  /* 창 기준 좌표. 화면 배율이 걸려 있어도 맞게 rect 와 layout 폭의 비로 되돌린다. */
+  const r = win.getBoundingClientRect(), k = r.width ? win.offsetWidth / r.width : 1;
+  const x = (e.clientX - r.left) * k, y = (e.clientY - r.top) * k;
+  m.style.left = Math.max(2, Math.min(x, win.clientWidth - m.offsetWidth - 2)) + 'px';
+  m.style.top  = Math.max(2, Math.min(y, win.clientHeight - m.offsetHeight - 2)) + 'px';
+}
+function _chatCtxRun(act){
+  const m = document.getElementById('chatCtx'); if(!m) return;
+  const row = m._row;
+  _chatCtxClose();
+  if(act === 'copy') _chatWriteClip(_chatSelText());
+  else if(act === 'copyMsg'){
+    const line = (row && window.ChatCopy) ? ChatCopy.lineFor(row) : null;
+    if(line) _chatWriteClip(line); else toast('이모티콘만 있는 메시지예요');
+  }
+  else if(act === 'all'){
+    const box = document.getElementById('chatMessages'); if(!box) return;
+    const sel = window.getSelection(), rg = document.createRange();
+    rg.selectNodeContents(box); sel.removeAllRanges(); sel.addRange(rg);
+  }
+}
+function _bindChatCopy(){
+  const box = document.getElementById('chatMessages'), win = document.getElementById('chatWindow');
+  if(!box || !win) return;
+  /* Ctrl+C / Cmd+C — 대화 칸 선택일 때만 가로챈다. 입력칸의 복사는 건드리지 않는다. */
+  document.addEventListener('keydown', e=>{
+    if(!(e.ctrlKey || e.metaKey) || e.altKey || String(e.key).toLowerCase() !== 'c') return;
+    if(!_chatSelInBox()) return;
+    e.preventDefault(); e.stopPropagation();
+    _chatWriteClip(_chatSelText());
+  }, true);
+  // 메뉴 등 다른 길로 오는 복사도 같은 형식으로
+  document.addEventListener('copy', e=>{
+    if(!_chatSelInBox() || !e.clipboardData) return;
+    const t = _chatSelText(); if(!t) return;
+    e.clipboardData.setData('text/plain', t); e.preventDefault();
+    _chatCopyToast();
+  });
+  document.addEventListener('selectionchange', ()=>{ if(_chatHeldOn && !_chatSelInBox()) _chatFlushHeld(); });
+  box.addEventListener('contextmenu', e=>{ e.preventDefault(); e.stopPropagation(); _chatCtxOpen(e); });
+  const m = document.getElementById('chatCtx');
+  if(m){
+    // ⚠️ mousedown 을 막아야 메뉴를 누르는 순간 선택이 풀리지 않는다([복사]가 빈손이 된다).
+    m.addEventListener('mousedown', e=>{ e.preventDefault(); e.stopPropagation(); });
+    m.addEventListener('click', e=>{
+      e.stopPropagation();
+      const it = e.target.closest('.cm-ctx-it'); if(it) _chatCtxRun(it.dataset.act);
+    });
+    m.addEventListener('contextmenu', e=>{ e.preventDefault(); e.stopPropagation(); });
+  }
+  document.addEventListener('mousedown', e=>{
+    const mm = document.getElementById('chatCtx');
+    if(mm && mm.classList.contains('on') && !mm.contains(e.target)) _chatCtxClose();
+  }, true);
+  const chip = document.getElementById('chatNewChip');
+  if(chip){
+    chip.addEventListener('mousedown', e=>{ e.preventDefault(); e.stopPropagation(); });
+    chip.addEventListener('click', e=>{
+      e.stopPropagation();
+      try{ window.getSelection().removeAllRanges(); }catch(_){}
+      _chatFlushHeld();
+    });
+  }
+}
+
 // 이스케이프된 텍스트 안의 이모티콘 마커를 <img>로. 마커는 [emoji:URL] 형태(URL은 이스케이프되어 &amp; 등 포함 가능).
 // (구) 이모티콘 마커 렌더 — 지금은 _renderChatText 파이프라인이 대체(URL 링크화 충돌 방지). 참고용 보존.
 function _renderEmojiMarkers(escapedText){
@@ -16672,7 +17251,7 @@ function _sendChatWindowMsg(){
      한 노드가 마지막 하나만 들고 있어서, 연타하면 앞 줄이 상대 화면에 뜨기도 전에 덮인다.
      보내기를 막지는 않는다 — 친 글을 잃지 않는 것이 이 창의 관례다(잠금·도배 제한 참고). */
   const _fly = !(typeof officeMode !== 'undefined' && officeMode) && _chatFlyOn && _chatFlySendGate();   // 🏢 회사원 모드면 안 날린다
-  if(typeof sendMyChat==='function') sendMyChat(bubbleText, _fly, _fly ? _chatFlyColor : '', _chatFlySize);
+  if(typeof sendMyChat==='function') sendMyChat(bubbleText, _fly, _fly ? _chatFlyColor : '', _chatFlySize, _chatMyTabId());
   // 2) 대화 기록 저장 — 마커가 든 outText 저장(다른 사람도 이모티콘을 URL로 렌더)
   const room=(typeof Presence!=='undefined' && Presence.roomCode)?Presence.roomCode():null;
   if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
@@ -16680,7 +17259,7 @@ function _sendChatWindowMsg(){
        반영하고 거부가 돌아오면 되돌리기 때문이다. 예전엔 그 실패가 어디에도 안 남아서,
        보내는 사람에게는 «쳤는데 없어지거나 순서가 뒤엉킨» 것으로만 보였다.
        ★ 친 글은 입력칸에 돌려준다 — 잠금·도배 제한과 같은 관례다(길게 쓴 줄을 날리지 않는다). */
-    Promise.resolve(firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text:outText }))
+    Promise.resolve(firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text:outText }, _chatMyTabId()))
       .then(r=>{
         if(r && r.ok === false){
           if(typeof toast==='function') toast('전송에 실패했어요 — 잠시 뒤 다시 보내주세요');
@@ -19590,11 +20169,13 @@ function _rollDice(){
   const logText = `${name}님이 주사위 ${dice2} 가 나왔습니다.`;
   // 1) 말풍선 — 주사위 2개만(마커). setSeatHeadBubble이 주사위 마커만으로 된 텍스트를 SVG로 렌더.
   if(mySeat) showChatBubble(mySeat, dice2);
-  if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(dice2);
+  // 💬 🎲 은 대화창 도구라 지금 보는 탭으로 간다(말풍선 · 기록 둘 다). 날아가는 것(willFly)은 방 전체 그대로.
+  const _tab = (typeof _chatMyTabId === 'function') ? _chatMyTabId() : 'general';
+  if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(dice2, false, '', '', _tab);
   // 2) 대화 기록 — 전체 문장
   const room=(typeof Presence!=='undefined' && Presence.roomCode)?Presence.roomCode():null;
   if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
-    firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name, text:logText });
+    firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name, text:logText }, _tab);
   }
   if(willFly) _selfFlyAfterDice();
 }
@@ -19865,6 +20446,8 @@ function _rollRoulette(){
       else if(e.key==='Escape'){ closeChatWindow(); }
     });
   }
+  try{ _bindChatCopy(); }catch(_){}   // 📋 드래그 · 복사 · 우클릭 메뉴
+  try{ _bindChatTabs(); }catch(_){}   // 💬 채팅 탭 줄
   // 링크 클릭 → 외부 열기(Electron: shell.openExternal, 웹: 새 탭)
   const msgs=document.getElementById('chatMessages');
   if(msgs){
@@ -22787,7 +23370,7 @@ canvas.addEventListener('pointerdown',e=>{
   if(_bonkAiming){ _bonkAimClick(e); return; }
   const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(ndc,camera);
-  const hit=_skipHiddenDesk(_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true)));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기)
+  const hit=_preferVisibleHit(_skipHiddenDesk(_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true))));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기) · 보이는 것 먼저(#7)
   if(!hit.length) return;
   const seat=seatFromObject(hit[0].object); if(!seat) return;
   /* 🪑 날아가는 중인 캐릭터는 잡지 않는다 — 잡으면 흔들기(rig 를 직접 제어한다)와 비행이 매
@@ -22896,6 +23479,16 @@ canvas.addEventListener('pointerup',e=>{
       triggerPet(seat); for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('♥','#f2607d',seat),i*320);
       dismissSeatHeadBubble(seat);   // 말풍선 떠 있으면 클릭으로 숨김
       if(seat.remote && seat.friendId && Presence.active()) Presence.poke(seat.friendId, 'pet');   // 남의 캐릭터 쓰다듬으면 그 사람에게 알림
+      /* 💗 [2026-10-08 제보 #12] **내 캐릭터**를 쓰다듬은 것도 방에 알린다 — 예전엔 남의 캐릭터만 알려서
+         내가 내 캐릭터(동물 포함)를 눌러도 상대 화면에는 하트가 안 떴다.
+         ★ 0.5초 쓰로틀 — 연타하면 쓰기가 그만큼 늘어난다. 로컬 하트는 위에서 매번 그대로 뜬다.
+         ★ 자리추가 좌석(isExtra)은 내 화면에만 있는 것이라 알리지 않는다.
+         ★ 내 노드로 돌아오는 에코는 수신부(_myPetLocalAt)에서 건너뛴다 — 안 그러면 내 화면 하트가 두 번이다. */
+      else if(seat.isMe && !seat.isExtra && Presence.active() && Presence.pokeSelf){
+        const _t = performance.now();
+        _myPetLocalAt = _t;
+        if(_t - _myPetSentAt >= MY_PET_SEND_GAP_MS){ _myPetSentAt = _t; Presence.pokeSelf('pet'); }
+      }
     }
   } else if(drag.mode==='shake'){
     seat.beingShaken = false;
@@ -22990,6 +23583,9 @@ const FLOATER_DRIFT_X    = 0.15;  // ★ 떠오르며 좌우로 흘러가는 속
 const FLOATER_RISE       = 0.3;   // ★ 떠오르는 속도(=세로로 퍼지는 범위).
 const FLOATER_HEAD_Y     = 0.65;  // ★ 캐릭터 기준 생성 높이. 낮추면 더 아래에서 생겨남(인간 기준, 동물은 자동 40%).
 const FLOATER_BURST      = 5;     // ★ 쓰다듬기·어지러움 등 한 번에 터지는 개수(기존 3 → 1.5배).
+/* 💗 내 캐릭터 쓰다듬기 방송(제보 #12) — 보내는 간격 · 내 노드로 돌아온 에코를 무시하는 창 */
+const MY_PET_SEND_GAP_MS = 500, MY_PET_ECHO_MS = 1500;
+let _myPetSentAt = -Infinity, _myPetLocalAt = -Infinity;
 function _floaterK(){ return 1 / Math.max(0.1, (typeof focusCharScale==='number' ? focusCharScale : 1)); }
 function spawnFloater(ch,color,seat){
   if(!emojiReactionsEnabled) return;   // 설정에서 꺼두면 zzz/하트/💫 등 이모지 반응 생성 안 함
@@ -25045,6 +25641,7 @@ function commitStamp(){
   }
   // 각 격자 점의 face UV(있으면) 계산
   const uvs=[]; // [j*(N+1)+i] = {uv:{x,y}} or null
+  const _wrapRays=[];   // 빗나간 칸의 광선 — 감아 칠하기용
   for(let j=0;j<=N;j++){
     for(let i=0;i<=N;i++){
       const lx=(i/N-0.5)*w, ly=(j/N-0.5)*h;
@@ -25052,9 +25649,15 @@ function commitStamp(){
       // 화면 좌표 → NDC (캔버스 픽셀 크기는 r.width/r.height 사용)
       _pndc.x=(sp.x/r.width)*2-1; _pndc.y=-(sp.y/r.height)*2+1;
       _pray.setFromCamera(_pndc,cCam);
-      uvs.push(_stampFaceHit());
+      const _h=_stampFaceHit();
+      uvs.push(_h);
+      if(!_h) _wrapRays[uvs.length-1]={o:_pray.ray.origin.clone(), d:_pray.ray.direction.clone()};
     }
   }
+  // 🩹 #3 감아 칠하기 — 턱 밑처럼 정면에서 못 맞힌 칸을 이웃에서부터 이어 채운다(_stampWrapFill 주석)
+  const _wrapCtr=_stampWrapCenter(cBase.face);
+  const _wrapN=_stampWrapFill(uvs, N, _wrapRays, [cBase.face], _wrapCtr);
+  if(_wrapN) console.log('[도장] 감아 칠한 격자점', _wrapN);
   pushHistory();
   // 가장자리 폐기 셀의 UV를 인접 유효 셀에서 *바깥으로 외삽*해서 채움 — 도장이 얼굴을 더 꽉 채우게
   // 외삽한 UV가 0..1 약간 벗어나는 범위(-0.05..1.05)까지는 클램프해서 살리고, 그 밖은 폐기.
@@ -25224,15 +25827,18 @@ function commitStamp(){
     const octx=off.getContext('2d'); octx.translate(imgW,0); octx.scale(-1,1); octx.drawImage(stampImg,0,0);
     const savedImg=stampImg; stampImg=off;
     // 격자 raycast 다시
-    const uvs2=[];
+    const uvs2=[], _wrapRays2=[];
     const cs2=Math.cos(stampPlace.rot), sn2=Math.sin(stampPlace.rot);
     for(let j=0;j<=N;j++){ for(let i=0;i<=N;i++){
       const lx=(i/N-0.5)*stampPlace.w, ly=(j/N-0.5)*stampPlace.h;
       const sx=stampPlace.cx+lx*cs2-ly*sn2, sy=stampPlace.cy+lx*sn2+ly*cs2;
       _pndc.x=(sx/r.width)*2-1; _pndc.y=-(sy/r.height)*2+1;
       _pray.setFromCamera(_pndc,cCam);
-      uvs2.push(_stampFaceHit());   // 🩹 원본 도장과 같은 판정(앞면 · 3D 위치 포함)
+      const _h2=_stampFaceHit();
+      uvs2.push(_h2);   // 🩹 원본 도장과 같은 판정(앞면 · 3D 위치 포함)
+      if(!_h2) _wrapRays2[uvs2.length-1]={o:_pray.ray.origin.clone(), d:_pray.ray.direction.clone()};
     }}
+    _stampWrapFill(uvs2, N, _wrapRays2, [cBase.face], _wrapCtr);   // 거울 도장도 같이 감는다
     extrapolateUVs(uvs2, N);
     for(let j=0;j<N;j++){ for(let i=0;i<N;i++){
       const a=uvs2[j*(N+1)+i], b=uvs2[j*(N+1)+(i+1)], c=uvs2[(j+1)*(N+1)+i], d=uvs2[(j+1)*(N+1)+(i+1)];
@@ -28802,16 +29408,30 @@ function doDeleteCurSlot(){
 }
 /* 🧰 [보관함 이동] — 슬롯에서 내려 보관함에 둔다(시안 G · 개정 48). 당기기는 doDeleteCurSlot 과 같은 모양이다
    (자리 추가 번호도 같이 당긴다 — 옛 버그 주석 참고). 보관함 쪽 기록은 _charsDeskToBox 가 먼저 끝낸 뒤에만 칸을 당긴다. */
+/* 🩹 [2026-10-08 제보 #9] «보관함에 안 들어가고, 연타하면 들어가지만 슬롯에도 남는다».
+   [가설] 동시 실행 방지가 없었다 — 연타하면 겹친 호출이 각자 `i = curSlot` 을 잡고 기다린 뒤 그 i 로 칸을 당겼다.
+     동물은 추가 그림 6장을 올려서 동기화가 길어 겹칠 틈이 넓다.
+   [대응] ① 진행 중이면 다시 안 들어간다 ② 기다린 뒤에는 **번호(i) 대신 그 캐릭터(slotObj)로** 칸을 다시 찾는다
+     ③ 실패 이유(why)를 남긴다(_charsMoveFailLog) — 다음 제보 때 moved/nocid/err/save/dirty 를 가를 수 있게. */
+let _moveToBoxBusy = false;
 async function doMoveCurSlotToBox(){
+  if(_moveToBoxBusy){ toast('보관함으로 옮기는 중이에요 — 잠시만요'); return; }
   const i = curSlot;
-  if(!slots[i]) return;
+  const slotObj = slots[i];
+  if(!slotObj) return;
+  _moveToBoxBusy = true;
   let r = { ok: false, why: 'off' };
-  try{ r = await _charsDeskToBox(i); }catch(e){ r = { ok: false, why: 'err' }; }
-  if(!r.ok){ toast(_charsMoveMsg(r)); return; }
-  for(let k = i; k < slots.length - 1; k++){ slots[k] = slots[k + 1]; }
+  try{
+    try{ r = await _charsDeskToBox(i); }catch(e){ r = { ok: false, why: 'err', err: String(e && e.message || e) }; }
+  }finally{ _moveToBoxBusy = false; }
+  if(!r.ok){ _charsMoveFailLog(r, i); toast(_charsMoveMsg(r)); return; }
+  /* 기다리는 사이 칸이 바뀌었을 수 있다(동기화 · 다른 창) — 옮긴 그 캐릭터가 지금 몇 번 칸인지 다시 찾는다. */
+  const at = slots.indexOf(slotObj);
+  if(at < 0){ renderLauncher(); toast('보관함으로 옮겼어요'); return; }   // 이미 칸에서 빠져 있다 — 당길 것이 없다
+  for(let k = at; k < slots.length - 1; k++){ slots[k] = slots[k + 1]; }
   slots[slots.length - 1] = null;
   if(Array.isArray(extraSeatSlots)){
-    extraSeatSlots = extraSeatSlots.filter(n => n !== i).map(n => n > i ? n - 1 : n);
+    extraSeatSlots = extraSeatSlots.filter(n => n !== at).map(n => n > at ? n - 1 : n);
     if(typeof _saveExtraSeatSlots === 'function') _saveExtraSeatSlots();
   }
   if(!slots[curSlot]){ let last = -1; slots.forEach((x, k) => { if(x) last = k; }); curSlot = last >= 0 ? last : 0; }
@@ -29155,6 +29775,10 @@ function applyCharToSeat(seat,def){
     }
     applyLightPresetToInstance(inst);   // 생성기와 같은 톤(텍스처 색을 emissive로 평탄화)
     seat.faceMat=inst.faceMat; seat.faceMapOrig=fT; seat.blinkTex=bT;
+    /* 👁 새 모델은 뜬 눈 텍스처로 시작한다 — 감김 표시도 같이 «뜸» 으로 되돌려 둔다.
+       프레임 루프는 표시가 **바뀔 때만** 텍스처를 바꾸므로, 졸던 중(closed=true)에 모델이 바뀌면
+       표시는 감김인데 그림은 뜬 눈으로 남는다(제보 #6 — 편집 → 완성 후 조는데 눈 뜸). 다음 프레임이 다시 감긴다. */
+    if(seat.blink) seat.blink.closed = false;
     seat.upMesh=inst.upMesh||null; seat.loMesh=inst.loMesh||null;   // 옷 교체 시 기본 메시 숨김용
     seat.glassesMesh=inst.glassesMesh||null;   // 안경 파츠 장착 시 기본(베이크된) 안경 숨김용
     seat.hatMesh=inst.hatMesh||null; seat.hatMat=inst.hatMat||null; seat.maskMesh=inst.maskMesh||null; seat.onepieceMesh=inst.onepieceMesh||null;
@@ -29216,6 +29840,10 @@ function applyCharToSeat(seat,def){
     seat.modelRoot=base.root;   // 🎩 파츠 좌표계 기준 — base.group은 wrap, 본은 base.root 안에 있다(위 setupSeatModel 주석 참고)
     seat.isPlaceholder=false;seat.mixer=null;seat.hasRig=false;
     seat.faceMat=base.faceMat;seat.faceMapOrig=base.fT;seat.blinkTex=base.bT;
+    /* 👁 새 모델은 뜬 눈 텍스처로 시작한다 — 감김 표시도 같이 «뜸» 으로 되돌려 둔다.
+       프레임 루프는 표시가 **바뀔 때만** 텍스처를 바꾸므로, 졸던 중(closed=true)에 모델이 바뀌면
+       표시는 감김인데 그림은 뜬 눈으로 남는다(제보 #6 — 편집 → 완성 후 조는데 눈 뜸). 다음 프레임이 다시 감긴다. */
+    if(seat.blink) seat.blink.closed = false;
     seat.headAnchor.position.set(0,1.2,0);seat.bodyAnchor.position.set(0,0.7,0);
     
     // [수정] 폴백 캐릭터일 때도 생성기에서 설정한 크기를 똑같이 주입합니다.
@@ -29317,6 +29945,7 @@ function switchMainCharacter(i){
     layoutSeats();
     renderCharSlots();
     if(typeof Presence!=='undefined' && Presence.active()) Presence.updateDef(d);   // 즉시 동기화(보통 솔로 상태지만 방어적으로)
+    _wdAfterMainSwap();   // 🔀 꾸미기를 연 채 바꿨으면 그 초안은 원래 캐릭터 몫이다
     toast('주 캐릭터를 바꿨어요');
     return;
   }
@@ -29330,6 +29959,7 @@ function switchMainCharacter(i){
   layoutSeats();
   renderCharSlots();
   if(typeof Presence!=='undefined' && Presence.active()) Presence.updateDef(d);   // 즉시 동기화
+  _wdAfterMainSwap();   // 🔀 꾸미기를 연 채 바꿨으면 그 초안은 원래 캐릭터 몫이다
   toast('캐릭터를 바꿨어요');
 }
 
@@ -29926,7 +30556,11 @@ const Presence=(()=>{
           if(_joinedAt && _pts < _joinedAt - POKE_SKEW_MS) return;   // 내가 들어오기 전에 찍힌 값
           if(!_pokeFresh(_pts)) return;                              // 유통기한 지난 값
         }
-        if(p.type==='pet'){ triggerPet(me); for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('♥','#f2607d',me),i*320); }
+        if(p.type==='pet'){
+          // 💗 방금 내가 직접 쓰다듬은 것의 에코면 건너뛴다(이미 로컬에서 하트를 띄웠다 — 제보 #12)
+          if(performance.now() - _myPetLocalAt < MY_PET_ECHO_MS) return;
+          triggerPet(me); for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('♥','#f2607d',me),i*320);
+        }
         else if(p.type==='dizzy'){ me.dizzyUntil=performance.now()+2500; for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('💫','#f5a94f',me),i*300); }
         else if(typeof p.type==='string' && p.type.indexOf('fly:')===0){ applyRemoteFly(me, p.type.slice(4)); }   // 🪑 내가 날아간다 — 연속 횟수도 여기서 센다
         /* 🪄 내가 맞았다. 내가 나를 때린 경우도 이 노드로 돌아오는데, 그건 이미 로컬에서
@@ -30038,7 +30672,7 @@ const Presence=(()=>{
     myFocusShow = v;
     if(provider && provider.update) provider.update(_basePayload());
   }
-  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...myStarOut(), awaySz:myAwaySz, lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:_mobileRoomLabel(), danceStyle:_myDanceStyle(), flyCool:_myFlyCool(), noise:myNoise}; }
+  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...myStarOut(), awaySz:myAwaySz, lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:_mobileRoomLabel(), danceStyle:_myDanceStyle(), tab:_chatTabOut(), flyCool:_myFlyCool(), noise:myNoise}; }
   /* 올라타기/하차 직후 즉시 반영 — 상태 틱을 기다리면 상대 화면에 몇 초 늦게 나타난다. */
   function broadcastRide(){ try{ if(provider && provider.update) provider.update(_basePayload()); }catch(_){} }
   function setState(s){ if(s===myState)return; myState=s; if(provider&&provider.update)provider.update(_basePayload()); }
@@ -30096,15 +30730,20 @@ const Presence=(()=>{
          `fly:false` 가 붙어 방 payload 가 그만큼 커진다(얼굴 PNG 를 걷어낸 것과 같은 이유).
        ⚠️ flyColor 는 «보낸 사람이 고른 값»일 뿐 권한이 아니다. Lv.200 판정은 **받는 쪽**에서
          friends[id].level 로 다시 한다 — 여기서만 막으면 값을 조작해 색을 쓸 수 있다. */
-  function sendChat(text, fly, flyColor, flySize){
+  /* 💬 tab — 채팅 탭. #일반이 아니면 `chat` 이 아니라 새 칸 `chatTab` 으로 보낸다.
+     ★ 구버전은 chatTab 을 몰라 아예 안 띄운다 — 영화 탭의 말풍선 · 날리기가 #일반 사람 · 구버전에게 새지 않는 이유가 이것이다.
+       `chat` 칸으로 보내면 구버전이 탭을 모른 채 방 전원에게 띄운다(sim-chat-tabs ①). */
+  function sendChat(text, fly, flyColor, flySize, tab){
     if(!(provider && provider.update)) return;
     const chat = { text:String(text).slice(0,140), ts:Date.now() };
+    if(tab && tab !== 'general') chat.tab = String(tab).slice(0,16);
     if(fly){
       chat.fly = true;
       if(flyColor) chat.flyColor = String(flyColor).slice(0,16);
       // 대(l)는 기본값이라 안 싣는다 — 받는 쪽이 «없으면 대» 로 읽는다.
       if(flySize && flySize !== 'l') chat.flySize = String(flySize).slice(0,2);
     }
+    if(chat.tab){ provider.update(Object.assign(_basePayload(), { chatTab: chat })); return; }
     provider.update(Object.assign(_basePayload(), { chat }));
   }
   function stop(){
@@ -30805,6 +31444,7 @@ function syncFriendSeats(friends){
       //   재생되던 원인). 생성 시점의 값으로 미리 "이미 봤다"고 표시해서 진짜 새 이벤트만 재생되게 함.
       s._lastPokeTs = (friends[id].poke && friends[id].poke.ts) || null;
       s._lastChatTs = (friends[id].chat && friends[id].chat.ts) || null;
+      s._lastChatTabTs = (friends[id].chatTab && friends[id].chatTab.ts) || null;   // 💬 들어오기 전 탭 말풍선은 다시 안 띄운다
       s._lastEquipJSON = JSON.stringify((friends[id].def && friends[id].def.equippedParts) || null);
       s._lastIdentityJSON = _charIdentityFingerprint(friends[id].def);
       s._lastDeskJSON = _deskStateFingerprint(friends[id].def);
@@ -30900,6 +31540,7 @@ function syncFriendSeats(friends){
     }
     /* 🪑 이 친구가 "쉬는 중"인 시각(ms). 맞은 본인이 판정해 실어 보낸 값이라 방 전체가 같은 값을 본다. */
     s.remoteFlyCool = friends[id].flyCool || 0;
+    s.chatTabId = window.ChatTabs ? ChatTabs.tabOf(friends[id]) : 'general';   // 💬 이 사람이 있는 채팅 탭
     // 💬 채팅 — ts가 새로 바뀐 경우에만 말풍선으로 잠깐 표시(중복 재생 방지)
     const chat=friends[id].chat;
     if(chat && chat.ts && chat.ts!==s._lastChatTs){
@@ -30919,7 +31560,10 @@ function syncFriendSeats(friends){
       /* 🏢 회사원 모드 — **보는 사람 기준**(플라잉체어·효과음과 같은 규칙). 상대가 날려도 내 화면에선
            아래 말풍선/한 줄 라벨 분기로 떨어진다. 던진 사람이 회사원 모드가 아니면 그 화면에선 정상으로 날아간다. */
       let _chatShown = false;
-      if(chat.fly && window._activeChannel === 2 && !(typeof officeMode !== 'undefined' && officeMode) && typeof showFlyText==='function'){
+      /* 💬 #일반 말풍선 · 날리기는 #일반에 있는 사람에게만 — 다른 탭에 있으면 안 띄운다(기본 이모티콘 단독은 방 전체 몸짓이라 그대로). */
+      const _onGeneral = _chatMyTabId() === 'general';
+      if(!_onGeneral && !_demojiOnly){ /* 다른 탭 — 띄우지 않는다 */ }
+      else if(chat.fly && window._activeChannel === 2 && !(typeof officeMode !== 'undefined' && officeMode) && typeof showFlyText==='function'){
         showFlyText(s, chat.text, (friends[id].level|0) >= FLY_COLOR_LEVEL ? chat.flyColor : '', chat.flySize);
         _chatShown = true;
       }
@@ -30927,6 +31571,19 @@ function syncFriendSeats(friends){
       /* 🔔 알림음 — 상대 채팅이 **화면에 뜬 경우에만** 울린다. 워킹룸에서 걸러진 글자처럼 안 뜬 것은 조용하다.
          ⚠ 여기가 유일한 자리다. chatLog 구독(대화창)에도 걸면 한 줄에 두 번 울린다. */
       if(_chatShown && typeof _chatNotifyIncoming === 'function') _chatNotifyIncoming();
+    }
+    /* 💬 채팅 탭 말풍선 — **내 탭과 같을 때만** 띄운다(sim-chat-tabs ②). 투게더룸 · 시크릿룸에서만.
+       ⚠️ 날리기 · 말풍선 · 알림음 분기는 위 `chat` 과 같은 규칙이다 — 한쪽만 고치지 말 것. */
+    const ctab = friends[id].chatTab;
+    if(ctab && ctab.ts && ctab.ts !== s._lastChatTabTs){
+      s._lastChatTabTs = ctab.ts;
+      if(window._activeChannel === 2 && ctab.tab === _chatMyTabId()){
+        let _shown = false;
+        if(ctab.fly && !(typeof officeMode !== 'undefined' && officeMode) && typeof showFlyText==='function'){
+          showFlyText(s, ctab.text, (friends[id].level|0) >= FLY_COLOR_LEVEL ? ctab.flyColor : '', ctab.flySize); _shown = true;
+        }else if(typeof showChatBubble==='function'){ showChatBubble(s, ctab.text); _shown = true; }
+        if(_shown && typeof _chatNotifyIncoming === 'function') _chatNotifyIncoming();
+      }
     }
   });
   _applyRemoteRides();   // 🐾 친구들의 올라타기·탑쌓기 관계를 좌석에 반영(좌석이 다 만들어진 뒤에)
@@ -30960,6 +31617,8 @@ function presenceChanged(friends){
   const lbl=document.getElementById('inviteFriendCnt'); if(lbl)lbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
   const flbl=document.getElementById('fsInviteFriendCnt'); if(flbl)flbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
   if(seats.some(s=>s.isMe)) syncFriendSeats(friends);
+  // 💬 탭별 인원 · 멤버 줄은 사람이 오가거나 탭을 옮길 때 바뀐다
+  try{ if(_chatWindowIsOpen()){ _chatTabsRender(); _refreshChatMembers(); } }catch(_){}
 }
 /* 📅 시크릿룸 만료일 표시용 — 입장 게이트(startRoom)와 관리자 발급 화면이 같은 형식을 쓴다.
    YYYY-MM-DD. 후원자에게 불러줄 값이라 로컬 시간대 기준으로 찍는다(toISOString은 UTC라 하루 어긋난다). */
@@ -31357,7 +32016,7 @@ async function renderProgMonitors(){
     const btn=document.createElement('button');
     btn.type='button';
     btn.className='fs-mon-btn'+(d.isCurrent?' current':'');
-    btn.textContent=d.label;
+    btn.textContent=d.label; if(d.name) btn.title=d.name;   // OS 가 주는 모니터 이름(제보 #10)
     btn.onclick=async ()=>{
       if(window.companion && companion.moveToDisplay){
         const res=await companion.moveToDisplay(d.id);
@@ -31495,6 +32154,25 @@ if(document.getElementById('progOfficeModeToggle')){
    ⚠️ 통로가 없는 구버전에서는 **칸 자체를 숨긴다.** 눌러도 아무 일이 없는 토글을 보여주면
      "고장났다"는 제보가 온다.
    ⚠️ **성공하면 이 블록도 같이 지운다** — HTML 주석 참조. */
+/* 🧹 옛 빌드 설정을 기본값으로 되돌렸으면 한 번 알린다(main.js SETTINGS_VER 주석). 부팅 화면이 자리 잡은 뒤에. */
+setTimeout(()=>{
+  try{
+    if(!(window.companion && companion.takeSettingsNotice)) return;   // 구버전 preload
+    companion.takeSettingsNotice().then(r=>{
+      if(r && r.reset) toast('업데이트하면서 화면 설정(모니터 · 화면 크기 · 영상 겹침 실험)을 기본값으로 되돌렸어요', null, 9000);
+    }).catch(()=>{});
+  }catch(_){}
+}, 2500);
+/* 켜 두었는데 실제로는 막혔으면(GPU 합성 꺼짐) 「켜짐」 이라고 말하지 않는다 — 제보 #4.
+   ★ .on 은 «값» 기준 그대로 둔다 — 누르면 꺼짐으로 가야 한다. 글자만 사실대로. */
+function _labVideoShow(btn, r){
+  const on = !!(r && r.on);
+  const blocked = on && /^blocked/.test(String((r && r.state) || ''));
+  btn.textContent = blocked ? '적용 안 됨' : (on ? '켜짐' : '꺼짐');
+  btn.title = blocked ? '켜 두었지만 이 PC 에서는 적용되지 않아요(그래픽 가속이 꺼져 있어요). 누르면 꺼져요.' : '';
+  btn.classList.toggle('on', on);
+  return { on, blocked };
+}
 function refreshLabVideoUI(){
   const row = document.getElementById('progLabVideoRow');
   const hint= document.getElementById('progLabVideoHint');
@@ -31507,11 +32185,7 @@ function refreshLabVideoUI(){
   }
   row.style.display = '';
   if(hint) hint.style.display = '';
-  companion.getLabVideo().then(r=>{
-    const on = !!(r && r.on);
-    btn.textContent = on ? '켜짐' : '꺼짐';
-    btn.classList.toggle('on', on);
-  }).catch(()=>{ /* 조회 실패 — 마지막 표시를 그대로 둔다(값을 멋대로 꺼짐으로 보이면 안 된다) */ });
+  companion.getLabVideo().then(r=>{ _labVideoShow(btn, r); }).catch(()=>{ /* 조회 실패 — 마지막 표시를 그대로 둔다(값을 멋대로 꺼짐으로 보이면 안 된다) */ });
 }
 if(document.getElementById('progLabVideoToggle')){
   document.getElementById('progLabVideoToggle').onclick = async ()=>{
@@ -31520,10 +32194,8 @@ if(document.getElementById('progLabVideoToggle')){
     const wantOn = !btn.classList.contains('on');
     try{
       const r = await companion.setLabVideo(wantOn);
-      const on = !!(r && r.on);
-      btn.textContent = on ? '켜짐' : '꺼짐';
-      btn.classList.toggle('on', on);
-      toast(on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요');
+      const v = _labVideoShow(btn, r);
+      toast(v.blocked ? '켜 두었지만 이 PC 에서는 적용되지 않아요' : (v.on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요'));
     }catch(e){ toast('설정에 실패했어요'); }
   };
 }
@@ -36510,6 +37182,16 @@ function _charsTrashMove(i){
    [슬롯에 올리기] _charsBoxToDesk(cid): 빈 슬롯 첫 칸에 서버 표현을 그림째 받아 앉힌다(_charsSync 의 «바꿔 앉히기» 와 같은 길).
      기준(h)은 지워 다음 saveSlots 가 다시 잡게 한다 — 받은 것을 고침으로 치지 않는다. 슬롯이 꽉 차면 D3 문구.
    부르는 쪽(런처 · [내 정보])이 결과의 why 로 문구를 고른다(_charsMoveMsg). */
+/* 보관함 이동 실패 기록 — 콘솔 + 최근 10건(localStorage). 제보 때 «tw.charsMoveFails» 를 받아 본다. */
+function _charsMoveFailLog(r, i){
+  const rec = { t: Date.now(), why: (r && r.why) || '?', slot: i, err: (r && r.err) || undefined, syncing: !!_charsSyncing };
+  console.warn('[🧬] 보관함 이동 실패', rec);
+  try{
+    const a = JSON.parse(localStorage.getItem('tw.charsMoveFails') || '[]');
+    a.push(rec); while(a.length > 10) a.shift();
+    localStorage.setItem('tw.charsMoveFails', JSON.stringify(a));
+  }catch(_){}
+}
 async function _charsDeskToBox(i){
   if(!_charsActive()) return { ok: false, why: 'off' };
   if(!(i >= 0 && i < CHAR_SLOT_MAX)) return { ok: false, why: 'nocid' };
@@ -36518,9 +37200,16 @@ async function _charsDeskToBox(i){
   if(!cid || !box[cid] || _charsIsTomb(box[cid])) return { ok: false, why: 'nocid' };
   if(_charsBoxOnlyCount(box, desk) >= CHARS_BOX_MAX) return { ok: false, why: 'full' };
   if(typeof box[cid].def !== 'string'){
+    /* 🩹 #9 — 이미 도는 동기화가 있으면 **끝날 때까지 기다린 뒤** 부른다. 예전엔 _charsSync 가 «도는 중» 으로 바로
+       돌아와서, 올리기가 안 끝난 채 아래 검사로 떨어져 dirty/moved 로 실패했다(동물은 그림이 많아 자주). */
+    // 진행 중인 동기화가 끝날 때까지(최대 20초). ⚠️ 이 함수 안에 둔다 — sim-signup 이 이 함수만 떼어 돌린다.
+    const _idle = async () => { for(let t = 0; typeof _charsSyncing !== 'undefined' && _charsSyncing && t < 200; t++) await new Promise(res => setTimeout(res, 100)); };
+    await _idle();
     try{ await _charsSync('force'); }catch(_){}
+    await _idle();
     box = _charsBoxGet(); desk = _charsDeskGet();
-    if(desk[i] !== cid) return { ok: false, why: 'moved' };
+    /* 기다리는 사이 칸 번호가 바뀌었으면 그 캐릭터의 새 번호로 따라간다(번호만 믿으면 엉뚱한 칸을 당긴다). */
+    if(desk[i] !== cid){ const j = desk.indexOf(cid); if(j < 0) return { ok: false, why: 'moved' }; i = j; }
     if(!box[cid] || typeof box[cid].def !== 'string') return { ok: false, why: 'dirty' };
   }
   for(let k = i; k < CHAR_SLOT_MAX - 1; k++) desk[k] = desk[k + 1];
@@ -36570,7 +37259,7 @@ function _charsMoveMsg(r){
   if(w === 'dirty') return '방금 고친 모습을 계정에 올리는 중이에요 — 잠시 뒤 다시 눌러 주세요';
   if(w === 'slotsfull') return '슬롯이 꽉 차서 이동할 수 없어요. 슬롯을 먼저 비워 주세요 — 런처 톱니 [보관함 이동]';
   if(w === 'img') return '캐릭터 그림을 받지 못했어요 — 네트워크를 확인하고 다시 눌러 주세요';
-  return '옮기지 못했어요 — 다시 눌러 주세요';
+  return '옮기지 못했어요 — 다시 눌러 주세요' + (w ? ' (' + w + ')' : '');   // 🩺 이유 코드 — 제보 때 갈래를 가른다
 }
 /* 런처 톱니 문구 — 켜져 있으면(채택 뒤) «휴지통 이동», 아니면 옛 «캐릭터 삭제»(설계 개정 5 · 문구와 동작을 같이 바꾼다). */
 function _charsDeleteWords(){
@@ -36812,6 +37501,9 @@ async function _charsSync(reason){
     if(changed){
       for(let i = 0; i < CHAR_SLOT_MAX; i++){ slots[i] = null; _faceEverDrawn[i] = false; _blinkEverDrawn[i] = false; }
       try{ await loadSlots(); }catch(_){}
+      /* 🩹 #9 — loadSlots 를 기다리는 사이 보관함 이동 등으로 칸이 또 바뀌었으면 옛 모양을 다시 저장하지 않는다
+         (보관함과 슬롯 양쪽에 남던 자리). 다음 판이 다시 맞춘다. */
+      if(gen !== _charsGen){ _charsSyncAgain = true; return { ok: true, did: '불러오는 중 바뀜 — 다시' }; }
       try{ saveSlots(); }catch(_){}                                  // 받은 칸의 저장 모양을 맞추고 기준(h)을 잡는다 — 받은 것을 고침으로 치지 않는다
       try{ if(typeof renderLauncher === 'function') renderLauncher(); }catch(_){}
       try{ if(typeof renderCharSlots === 'function') renderCharSlots(); }catch(_){}
@@ -38858,11 +39550,11 @@ function _saveFailMsg(e, fallback){
 /* 🍞 두 번째 인자(iconSrc)는 **글자 앞에 붙일 작은 그림**이다 — 뿅망치처럼 이모지가 없는 것 때문에 생겼다.
    ⚠️ 본문은 계속 textContent 로 넣는다. 여기엔 남이 친 글(닉네임 등)이 섞여 들어오므로
      innerHTML 로 바꾸면 안 된다. 그림은 별도 <img> 노드로 앞에 끼운다. */
-let toastT=null;function toast(msg, iconSrc){const t=document.getElementById('toast');t.textContent=msg;
+let toastT=null;function toast(msg, iconSrc, ms){const t=document.getElementById('toast');t.textContent=msg;
   if(iconSrc){ const im=document.createElement('img'); im.src=iconSrc;
     im.style.cssText='width:16px;height:16px;vertical-align:-3px;margin-right:5px;'; t.prepend(im); }
   t.classList.add('on');
-  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),1900);}
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),(typeof ms==='number'&&ms>0)?ms:1900);}
 
 /* ============================================================ ANIM */
 const STATES={idle:{label:'평소',color:'#9dba8a'},focus:{label:'활동중',color:'#e0a050'},pet:{label:'쓰다듬',color:'#e89b9b'},sleep:{label:'잠듦',color:'#7fa0c4'},shaking:{label:'흔들림',color:'#d98e73'},dizzy:{label:'어지러움',color:'#c9a560'}};
