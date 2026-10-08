@@ -12876,7 +12876,7 @@ function renderMyHomeFriendList(){
       const roomTag = _friendRoomTag(f);
       const inRoom  = _friendInRoom(f);   // 🏠 — 시크릿룸이어도 붙는다(코드만 안 붙는다)
       const pill = fid===_mhSelectedFriend
-        ? `<span class="mh-fpill">${f.online ? ('온라인'+(roomTag?' · '+escHtml(roomTag):'')) : '오프라인'}</span>` : '';
+        ? `<span class="mh-fpill">${f.online ? ('온라인'+(roomTag?' · <span class="mh-fpill-code">'+escHtml(roomTag)+'</span>':'')) : '오프라인'}</span>` : '';
       /* 🛡️ 아바타 칸은 **속성에 보간을 쓰지 않는다.** `title` 은 남이 정한 닉네임이고
            `src` 는 남의 `users/$fid/home/avatar`(20만 자까지 허용되는 문자열)다. 둘 다
            예전엔 `title="…${…}…"` · `src="${…}"` 로 문자열에 박혀 있었는데, 그때 쓰던 헬퍼
@@ -22774,6 +22774,13 @@ function setSeatNamePlate(seat, level, name, star){
       const _mr = _mb.getBoundingClientRect();
       if(_mr.height) _plateTop = Math.max(_plateTop, _mr.bottom + 4);
     }
+  }
+  /* 화면 아래로 잘리지 않게 — 이름표는 바가 아니라 **발밑**을 기준으로 놓이므로, 바만 화면 안으로 올리면
+     이름표는 그대로 밖에 남는다(제보: 화면 아래에 두면 이름이 잘림). 바는 이미 이 높이만큼 올라가 있다
+     (updateSeatExpBar 의 below) — 그래서 이 제한과 위의 «바 아래» 가 서로 밀지 않는다. */
+  if(_atFeet){
+    const _h = el.offsetHeight || seat._npH || 0;
+    if(_h) _plateTop = Math.min(_plateTop, innerHeight - _h - 2);
   }
   el.style.left=p.x+'px'; el.style.top=_plateTop+'px';
   el.classList.toggle('inverted', _atFeet);   // CSS의 transform 방향 뒤집기
@@ -39452,6 +39459,31 @@ function setCreatorDeskScale(scale){ setDeskScale(cDesk, (scale||1) * CREATOR_DE
    ⚠️ deskScaleBase 는 setDeskScale 이 심는다. 그 경로를 안 타는 화면(꾸미기/보관함 미리보기)은
      자기가 직접 심어 둔다 — 없으면 ratio = 1 이라 조용히 예전 동작으로 떨어진다. */
 const DESK_PART_ANCHOR_NAME = '__deskPartAnchor';
+/* 🪑 좌석 크기 평준화를 켜면 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 안으로 민다(seat-slot.js 머리말).
+   자리 = 책상이 뻗은 거리(seatDeskHalfWidth) + 좌석 사이 여백(layoutSeats 와 같은 값)의 절반.
+   책상 · 파츠 박스를 재야 해서 매 프레임이 아니라 SEAT_SLOT_EVERY_MS 마다 — 평준화를 끄면 다음 차례에 되돌아간다. */
+const SEAT_SLOT_EVERY_MS = 500;
+const seatSlot = (typeof SeatSlot === 'undefined') ? null : SeatSlot.createSeatSlot({ THREE });
+let _seatSlotNext = 0;
+function _clampSeatDeskParts(now){
+  if(!seatSlot) return;
+  const t = (now != null) ? now : performance.now();
+  if(t < _seatSlotNext) return;
+  _seatSlotNext = t + SEAT_SLOT_EVERY_MS;
+  const gap = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING;
+  seats.forEach(s=>{
+    try{
+      const pin = s.deskAnchor && s.deskAnchor.getObjectByName && s.deskAnchor.getObjectByName(DESK_PART_ANCHOR_NAME);
+      if(!pin) return;
+      const parts = pin.children.filter(o=>o.userData && o.userData.__twPartWrap);
+      if(!parts.length) return;
+      // 올라탄 좌석은 책상이 숨고 자리도 안 차지한다(layoutSeats) — 가두지 않는다
+      const on = !!(seatEqualizeOn && !s.ridingOn && s.desk && s.desk.visible !== false);
+      const half = on ? seatDeskHalfWidth(s) + gap / 2 : 0;
+      seatSlot.clampParts(parts, s.group ? s.group.position.x : 0, half, on);
+    }catch(e){ console.warn('[좌석 자리] 파츠 가두기 실패', e); }
+  });
+}
 function syncDeskPartAnchor(deskGroup){
   if(!deskGroup) return;
   const anchor = (deskGroup.userData && deskGroup.userData.deskAnchor)
@@ -40184,6 +40216,7 @@ function frame(now, manual){
   if(typeof updateIdleItemPlayback==='function') updateIdleItemPlayback();   // 어플 8: 자리비움 감지로 아이템 재생/정지 자동 전환
   if(typeof updateActivePartPlayback==='function') updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
   if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
+  _clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
   seats.forEach(seat=>{
     const state=seatState(seat,now);
     if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); Presence.setLevel(getFocusLevel()); }   // 액자 고정은 상대에겐 평상시로
@@ -42861,6 +42894,9 @@ const EXP_BAR_CHROME    = 4;    // 테두리1 + 안쪽여백1 × 상하
    줄이면 위로 올라오고, 음수를 주면 발밑선보다 위(발에 겹치게)로 올라간다.
    가로 배치 상태칩은 바의 '실제 렌더된 위치'를 읽어 그 아래에 붙으므로 여기만 고치면 같이 따라온다. */
 const EXP_BAR_GAP       = 2;    // 캐릭터 발밑 ↔ 바 간격(px)
+/* 바 길이(px) — **모든 캐릭터 공통.** 예전엔 캐릭터 실측 폭을 따라가서(40~220) 덩치 · 동물 · 커미션 · 평준화에
+   따라 누구는 길고 누구는 짧아 보였다(제보). 길이는 레벨 진행도를 읽는 자이므로 같아야 비교가 된다. */
+const EXP_BAR_W         = 72;
 
 /* 레벨 → 색 구간 + 표식 클래스. 배지(.mh-flv)와 **같은 표**를 읽는다(lvBarClass).
    ⚠️ 여기에 경계값을 다시 적지 말 것 — 어긋나면 같은 레벨인데 배지와 바 색이 달라진다. */
@@ -42886,7 +42922,7 @@ function ensureSeatExpBarEl(seat){
   return el;
 }
 
-const _expTmpA = new THREE.Vector3(), _expTmpB = new THREE.Vector3();
+const _expTmpA = new THREE.Vector3();
 /* 좌석의 경험치 바를 발밑에 배치하고 채운다. 바의 '아래쪽' 화면 y를 돌려준다(안 보이면 null).
    가로 배치 상태칩이 이 값을 받아 바보다 아래에 놓인다. */
 function updateSeatExpBar(seat, level, cells, star){
@@ -42902,15 +42938,9 @@ function updateSeatExpBar(seat, level, cells, star){
     return null;
   }
   const el = ensureSeatExpBarEl(seat); if(!el) return null;
-  // 폭은 캐릭터 실측 반폭을 따라간다 — 커미션·동물·파츠로 덩치가 달라도 비율이 유지된다.
-  const m = _chipCharMetrics(seat);
   seat.group.getWorldPosition(_expTmpA);
-  _expTmpB.copy(_expTmpA); _expTmpB.y += m.topY;
   const pFeet = projectWorldToScreenPx(_expTmpA);
-  const pTop  = projectWorldToScreenPx(_expTmpB);
-  const charPxH   = Math.max(1, Math.abs(pFeet.y - pTop.y));
-  const pxPerUnit = charPxH / Math.max(0.01, m.topY);
-  const w = Math.round(Math.max(40, Math.min(220, pxPerUnit * m.halfW * 2)));
+  const w = EXP_BAR_W;   // 모두 같은 길이(EXP_BAR_W 주석)
   let top = pFeet.y + EXP_BAR_GAP;
   // 캐릭터가 화면 위쪽에 붙으면 이름표가 발밑으로 반전 배치된다(seat._invertLabels) — 그 아래로 비켜준다.
   //   ★ 공지 배너도 반전이면 이름표 바로 아래에 온다. 이름표만 피하면 배너와 겹친다.
@@ -42926,7 +42956,16 @@ function updateSeatExpBar(seat, level, cells, star){
     });
   }
   const barH = EXP_BAR_H + EXP_BAR_CHROME;
-  top = Math.max(2, Math.min(innerHeight - barH - 2, Math.round(top)));
+  /* 화면 아래에 두면 바 **밑에 붙는 이름표**까지 화면 안에 들어와야 한다. 예전엔 바만 화면 안으로 눌러서,
+     발밑 높이가 사람마다(키 · 화면 앵글) 조금씩 다른 만큼 어떤 사람은 이름이 잘렸다(제보).
+     이름표 높이는 마지막으로 잰 값을 쓴다(_npH) — 이 프레임엔 이름표가 바 다음에 자리를 잡는다. */
+  let below = 0;
+  if(NAMEPLATE_BELOW_EXPBAR && seat.namePlateEl && seat.namePlateEl.style.display !== 'none'){
+    const h = seat.namePlateEl.offsetHeight || seat._npH || 0;
+    if(h) seat._npH = h;
+    below = h ? h + 4 : 0;   // 4 = setSeatNamePlate 가 바 아래에 두는 간격
+  }
+  top = Math.max(2, Math.min(innerHeight - barH - below - 2, Math.round(top)));
   el.style.left  = Math.round(pFeet.x) + 'px';
   el.style.top   = top + 'px';
   el.style.width = w + 'px';
