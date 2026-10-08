@@ -262,6 +262,28 @@ say('§1-A 렌더러 사망 · 로드 실패 진단 + 1회 자동 재로드');
   chk(reloads === 1, '  흉내 — 네 번 종료(정상 1 포함)에도 재로드 1번');
 }
 
+say('§1-B 그래픽카드 · GPU 기능 상태 · 시험 스위치 기록');
+{
+  const MAIN = fs.readFileSync(fs.existsSync('main.js') ? 'main.js' : '../main.js', 'utf8');
+  const iG = MAIN.indexOf('_logGpuOnce(mainWindow);'), iL = MAIN.indexOf("mainWindow.loadFile(path.join(__dirname, 'app', 'desk-companion-prototype.html'));");
+  chk(iG > 0 && iL > iG, '창을 불러오기 전에 건다');
+  const lg = (MAIN.match(/function _logGpuOnce\(win\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(/if\(_gpuLogged\) return;/.test(lg) && /app\.once\('gpu-info-update', go\)/.test(lg) && /did-finish-load', \(\) => setTimeout\(go, 1500\)/.test(lg), '★ GPU 준비 뒤 · 부팅마다 한 번만');
+  chk(!/appendSwitch\('disable-gpu-compositing'\)/.test(MAIN.replace(/^\s*\/\/.*$/mg, '')) && !/disableHardwareAcceleration\(\)/.test(MAIN.replace(/^\s*\/\/.*$/mg, '').replace(/\/\*[\s\S]*?\*\//g, '')), '★ CPU 합성 · 하드웨어 가속 끄기는 켜지 않았다 (기록만)');
+  const src = (MAIN.match(/const GPU_TEST_SWITCHES[\s\S]*?\nfunction _gpuSummary\(info, feat, sw\)\{[\s\S]*?\n\}/) || [''])[0];
+  let sum = null; try { sum = new Function(src + '\nreturn _gpuSummary;')(); } catch (e) { say('  ' + e.message); }
+  if (!sum) chk(false, '_gpuSummary 를 꺼냈다');
+  else {
+    const sw = (on) => ({ has: (s) => s in on, value: (s) => on[s] || '' });
+    const a = sum({ gpuDevice: [{ vendorId: 0x8086, deviceId: 0x9bc4, active: true }, { vendorId: 0x10de, deviceId: 0x1f95, active: false, driverVersion: '31.0.15' }] },
+      { gpu_compositing: 'enabled', webgl: 'enabled' }, sw({ 'use-angle': 'gl' }));
+    chk(/Intel 0x9bc4\(사용 중\)/.test(a) && /NVIDIA 0x1f95 드라이버 31\.0\.15/.test(a) && /그래픽카드 2개/.test(a), '  실행 — 내장 + 외장 노트북이 한 줄에 보인다: ' + a.slice(0, 70) + '…');
+    chk(/gpu_compositing=enabled/.test(a) && /rasterization=\?/.test(a) && /시험 스위치 use-angle=gl/.test(a), '  실행 — 기능 상태 · 시험 스위치 값이 남는다');
+    const b = sum(null, null, sw({}));
+    chk(/\[GPU\] 정보 없음/.test(b) && /시험 스위치 없음/.test(b), '  실행 — 정보가 없어도 죽지 않는다');
+  }
+}
+
 say('§9 보관함 이동 — 연타 · 동기화 경쟁');
 {
   const mv = (APP.match(/async function doMoveCurSlotToBox\(\)\{[\s\S]*?\n\}/) || [''])[0];

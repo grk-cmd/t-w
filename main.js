@@ -1806,6 +1806,40 @@ function _watchRendererHealth(win){
     });
   }
 }
+/* 🩺 [제보 #1-B] 부팅마다 한 번, 그래픽카드 정보와 크로미움의 GPU 기능 상태를 남긴다.
+   [왜] «투명한 곳이 검게 덮임» 은 일부 GPU 에서만 난다. 어느 PC(외장+내장 노트북 · 구형 인텔 · 원격)인지
+     알아야 CPU 합성으로 넘기지 않는 방법(아래 GPU_TEST_SWITCHES) 중 무엇을 토글에 넣을지 정할 수 있다.
+   ★ 제보자가 바로가기 끝에 붙여 시험한 스위치가 실제로 먹었는지도 같은 줄에 남긴다.
+   ⚠️ getGPUFeatureStatus 는 gpu-info-update 전에는 '?' 가 섞인다 — 그 이벤트(또는 화면 로드 + 1.5초) 뒤에 한 번만 찍는다. */
+const GPU_TEST_SWITCHES = ['force_high_performance_gpu', 'use-angle', 'disable-direct-composition', 'disable-gpu', 'disable-gpu-compositing'];
+const GPU_VENDORS = { 0x10de: 'NVIDIA', 0x1002: 'AMD', 0x8086: 'Intel', 0x1414: 'Microsoft(기본/원격)', 0x15ad: 'VMware' };
+let _gpuLogged = false;
+function _gpuSummary(info, feat, sw){
+  const devs = ((info && info.gpuDevice) || []).map(d => {
+    const v = GPU_VENDORS[d.vendorId] || ('0x' + Number(d.vendorId || 0).toString(16));
+    return v + ' 0x' + Number(d.deviceId || 0).toString(16) + (d.active ? '(사용 중)' : '') + (d.driverVersion ? ' 드라이버 ' + d.driverVersion : '');
+  });
+  const f = feat || {};
+  const pick = ['gpu_compositing', 'webgl', 'rasterization', 'video_decode'].map(k => k + '=' + (f[k] || '?')).join(' ');
+  const on = GPU_TEST_SWITCHES.filter(s => sw.has(s)).map(s => s + (sw.value(s) ? '=' + sw.value(s) : ''));
+  return '[GPU] ' + (devs.length ? devs.join(' · ') : '정보 없음') + (devs.length > 1 ? ' | 그래픽카드 ' + devs.length + '개' : '')
+    + ' | ' + pick + ' | 시험 스위치 ' + (on.length ? on.join(' ') : '없음');
+}
+function _logGpuOnce(win){
+  if(_gpuLogged) return;   // 창을 다시 만들 때(모드 전환) 듣기를 또 걸지 않는다
+  const go = () => {
+    if(_gpuLogged) return;
+    _gpuLogged = true;
+    const sw = { has: (s) => app.commandLine.hasSwitch(s), value: (s) => app.commandLine.getSwitchValue(s) };
+    let feat = null;
+    try{ feat = app.getGPUFeatureStatus(); }catch(_){}
+    app.getGPUInfo('basic')
+      .then(info => _diagLog(_gpuSummary(info, feat, sw)))
+      .catch(err => _diagLog(_gpuSummary(null, feat, sw) + ' | getGPUInfo 실패 ' + (err && err.message)));
+  };
+  app.once('gpu-info-update', go);
+  if(win && !win.isDestroyed()) win.webContents.once('did-finish-load', () => setTimeout(go, 1500));
+}
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
@@ -1875,6 +1909,7 @@ function createWindow() {
   _fdInstrument(mainWindow);   // 🩺 [진단] 활성화 원인 추적 — 창을 올리는 메서드에 표식만 심는다(동작 불변)
 
   _watchRendererHealth(mainWindow);   // 🩺 렌더러 사망 · 로드 실패 · 무응답 기록(+ 사망 시 1회 재로드) — 제보 #1
+  _logGpuOnce(mainWindow);            // 🩺 그래픽카드 · GPU 기능 상태 · 시험 스위치 한 줄 — 제보 #1-B
   mainWindow.loadFile(path.join(__dirname, 'app', 'desk-companion-prototype.html'));
 
   // ★ renderer의 window.open 요청 처리 — 방명록('mhGuestbook…')은 Win98풍 프레임리스 독립 창으로.
