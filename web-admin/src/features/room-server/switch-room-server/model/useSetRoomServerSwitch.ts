@@ -6,8 +6,7 @@ export function useSetRoomServerSwitch() {
   const db = useDb();
   const refresh = useRefreshRoomServer();
   return useMutation({
-    mutationFn: ({ key, value }: { key: 'on' | 'follow'; value: boolean }) =>
-      setRoomServerSwitch(db, key, value),
+    mutationFn: (value: boolean) => setRoomServerSwitch(db, value),
     onSuccess: refresh,
   });
 }

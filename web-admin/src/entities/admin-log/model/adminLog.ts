@@ -42,6 +42,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'roomServer.serverDelete': '방 서버 빼기',
   'roomServer.allow': '방 서버 시범 이용자',
   'roomServer.allowDelete': '방 서버 시범 이용자 빼기',
+  'roomServer.limits': '방 개수 상한',
   'settings.minAppVer': '앱 최소 버전',
   'settings.bugDailyMax': '버그 제보 하루 상한',
   'room.close': '방 종료',

@@ -1,0 +1,21 @@
+.form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field input {
+  width: 7em;
+}
+
+.count {
+  margin-right: 10px;
+}

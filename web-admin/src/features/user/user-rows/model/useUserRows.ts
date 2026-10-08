@@ -4,7 +4,7 @@ import { useAccountSnaps } from '@/entities/account';
 import { useLicenses } from '@/entities/license';
 import { buildUserRows, useFriendCodes, type UserRow } from '@/entities/user';
 
-// 세 목록을 받아 사용자 한 줄씩으로 맞춘다. licenses 는 라이선스 화면과 캐시를 같이 쓴다.
+// 세 목록을 받아 사용자 한 줄씩으로 맞춘다. 사용자 화면 · 방 서버 화면이 같은 캐시를 쓴다(따로 내려받지 않음).
 export function useUserRows(): { rows: UserRow[] | null; error: Error | null; refresh: () => void } {
   const client = useQueryClient();
   const accounts = useAccountSnaps();

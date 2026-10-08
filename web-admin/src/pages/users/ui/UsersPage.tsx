@@ -23,7 +23,7 @@ import { errorMessage, usePaging, useSelection } from '@/shared/lib';
 import { Pager, SelectionBar } from '@/shared/ui';
 import { UserDetail } from '@/widgets/user-detail';
 import { UserTable } from '@/widgets/user-table';
-import { useUserRows } from '../model/useUserRows';
+import { useUserRows } from '@/features/user/user-rows';
 
 export function UsersPage() {
   const { rows, error, refresh } = useUserRows();
