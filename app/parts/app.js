@@ -39452,6 +39452,31 @@ function setCreatorDeskScale(scale){ setDeskScale(cDesk, (scale||1) * CREATOR_DE
    ⚠️ deskScaleBase 는 setDeskScale 이 심는다. 그 경로를 안 타는 화면(꾸미기/보관함 미리보기)은
      자기가 직접 심어 둔다 — 없으면 ratio = 1 이라 조용히 예전 동작으로 떨어진다. */
 const DESK_PART_ANCHOR_NAME = '__deskPartAnchor';
+/* 🪑 좌석 크기 평준화를 켜면 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 안으로 민다(seat-slot.js 머리말).
+   자리 = 책상이 뻗은 거리(seatDeskHalfWidth) + 좌석 사이 여백(layoutSeats 와 같은 값)의 절반.
+   책상 · 파츠 박스를 재야 해서 매 프레임이 아니라 SEAT_SLOT_EVERY_MS 마다 — 평준화를 끄면 다음 차례에 되돌아간다. */
+const SEAT_SLOT_EVERY_MS = 500;
+const seatSlot = (typeof SeatSlot === 'undefined') ? null : SeatSlot.createSeatSlot({ THREE });
+let _seatSlotNext = 0;
+function _clampSeatDeskParts(now){
+  if(!seatSlot) return;
+  const t = (now != null) ? now : performance.now();
+  if(t < _seatSlotNext) return;
+  _seatSlotNext = t + SEAT_SLOT_EVERY_MS;
+  const gap = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING;
+  seats.forEach(s=>{
+    try{
+      const pin = s.deskAnchor && s.deskAnchor.getObjectByName && s.deskAnchor.getObjectByName(DESK_PART_ANCHOR_NAME);
+      if(!pin) return;
+      const parts = pin.children.filter(o=>o.userData && o.userData.__twPartWrap);
+      if(!parts.length) return;
+      // 올라탄 좌석은 책상이 숨고 자리도 안 차지한다(layoutSeats) — 가두지 않는다
+      const on = !!(seatEqualizeOn && !s.ridingOn && s.desk && s.desk.visible !== false);
+      const half = on ? seatDeskHalfWidth(s) + gap / 2 : 0;
+      seatSlot.clampParts(parts, s.group ? s.group.position.x : 0, half, on);
+    }catch(e){ console.warn('[좌석 자리] 파츠 가두기 실패', e); }
+  });
+}
 function syncDeskPartAnchor(deskGroup){
   if(!deskGroup) return;
   const anchor = (deskGroup.userData && deskGroup.userData.deskAnchor)
@@ -40184,6 +40209,7 @@ function frame(now, manual){
   if(typeof updateIdleItemPlayback==='function') updateIdleItemPlayback();   // 어플 8: 자리비움 감지로 아이템 재생/정지 자동 전환
   if(typeof updateActivePartPlayback==='function') updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
   if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
+  _clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
   seats.forEach(seat=>{
     const state=seatState(seat,now);
     if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); Presence.setLevel(getFocusLevel()); }   // 액자 고정은 상대에겐 평상시로
