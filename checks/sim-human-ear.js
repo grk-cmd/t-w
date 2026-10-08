@@ -5,7 +5,8 @@
    ・3절: 실제 three 로 — 사람 기본 뼈대에서 옮길 양 · 귀 본 없는 모델 · 정규화 배율과 무관
    ・4절: 붙이기 — head 본을 따라 움직인다 · 같은 쪽 콜백 두 번이면 하나만 · 늦게 온 콜백은 버린다 · 크기 측정 제외 표식
           · 움직이는 중에 달아도 바인드 기준 · readAdj 역함수
-   ・5절: 배선 — html 로드 순서 · animal.js 가 귀 파서를 내준다
+   ・5절: 대칭 그리기 — mirrorUv 를 실제 귀 GLB 다섯 종으로(정점 짝 · 거울 자리) · 종류가 다르면 null · 그림칸
+   ・6절: 배선 — html 로드 순서 · animal.js 가 귀 파서를 내준다
    [실행] human-ear.js · animal.js · base-glb.js · animal-glb.js · ears-glb.js · desk-companion-prototype.html 이 있는 폴더에서.
      three 는 vendor/three/three.min.js 를 쓴다. */
 'use strict';
@@ -181,7 +182,54 @@ const a7 = { px:0.1, py:-0.2, pz:0.05, rot:0.3, rx:-0.2, ry:0.1, sc:1.2, scx:1.2
 HE.applyAdj(w7, a7); const b7 = HE.readAdj(w7);
 chk(['px','py','pz','rot','rx','ry','scx','scy','scz'].every(k => near(b7[k], a7[k], 1e-6)), 'readAdj = applyAdj 의 역함수(기즈모 → 조정값)');
 
-say('── 5. 배선');
+say('── 5. 대칭 그리기 — 반대쪽 귀의 같은 자리 (실제 귀 GLB 다섯 종)');
+/* GLB 의 첫 메쉬를 three BufferGeometry 로 — 위치 · UV · 인덱스만 */
+function earMesh(key){
+  const buf = Buffer.from(win.ANIMAL_EARS[key], 'base64'), len = buf.readUInt32LE(12);
+  const j = JSON.parse(buf.toString('utf8', 20, 20 + len)), bin = buf.subarray(20 + len + 8);
+  const pr = j.meshes[0].primitives[0];
+  const acc = (i, n, T) => { const a = j.accessors[i], bv = j.bufferViews[a.bufferView], o = (bv.byteOffset || 0) + (a.byteOffset || 0);
+    const sz = T === 'f' ? 4 : (a.componentType === 5123 ? 2 : 4), st = bv.byteStride || n * sz, out = [];
+    for(let k = 0; k < a.count; k++) for(let c = 0; c < n; c++){ const at = o + k * st + c * sz;
+      out.push(T === 'f' ? bin.readFloatLE(at) : (sz === 2 ? bin.readUInt16LE(at) : bin.readUInt32LE(at))); }
+    return out; };
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(acc(pr.attributes.POSITION, 3, 'f'), 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(acc(pr.attributes.TEXCOORD_0, 2, 'f'), 2));
+  g.setIndex(acc(pr.indices, 1, 'i'));
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial()); m.updateMatrixWorld(true); return m;
+}
+let rnd = 7; const rand = () => (rnd = (rnd * 16807) % 2147483647) / 2147483647;
+for(const t of win.ANIMAL_EAR_TYPES){
+  const mL = earMesh('ear_' + t.key + '_L'), mR = earMesh('ear_' + t.key + '_R');
+  const pL = mL.geometry.attributes.position, pR = mR.geometry.attributes.position, uR = mR.geometry.attributes.uv, idx = mL.geometry.index;
+  let ok = pL.count === pR.count, worst = 0;
+  for(let i = 0; ok && i < pL.count; i++) worst = Math.max(worst, Math.abs(pL.getX(i) + pR.getX(i)) + Math.abs(pL.getY(i) - pR.getY(i)) + Math.abs(pL.getZ(i) - pR.getZ(i)));
+  // 무작위 삼각형 · 무작위 자리 40곳 — 반대쪽 귀에서 구한 UV 가 «거울 자리» 의 UV 인가
+  let bad = 0;
+  for(let n = 0; ok && n < 40; n++){
+    const f = Math.floor(rand() * idx.count / 3), a = idx.getX(f * 3), b = idx.getX(f * 3 + 1), c = idx.getX(f * 3 + 2);
+    let w1 = rand(), w2 = rand(); if(w1 + w2 > 1){ w1 = 1 - w1; w2 = 1 - w2; } const w0 = 1 - w1 - w2;
+    const P = new THREE.Vector3().fromBufferAttribute(pL, a).multiplyScalar(w0)
+      .add(new THREE.Vector3().fromBufferAttribute(pL, b).multiplyScalar(w1)).add(new THREE.Vector3().fromBufferAttribute(pL, c).multiplyScalar(w2));
+    const uv = HE.mirrorUv({ object:mL, face:{ a, b, c }, point:P }, mR);
+    const wantU = uR.getX(a) * w0 + uR.getX(b) * w1 + uR.getX(c) * w2, wantV = uR.getY(a) * w0 + uR.getY(b) * w1 + uR.getY(c) * w2;
+    const Q = new THREE.Vector3().fromBufferAttribute(pR, a).multiplyScalar(w0)
+      .add(new THREE.Vector3().fromBufferAttribute(pR, b).multiplyScalar(w1)).add(new THREE.Vector3().fromBufferAttribute(pR, c).multiplyScalar(w2));
+    if(!uv || !near(uv.x, wantU, 1e-4) || !near(uv.y, wantV, 1e-4) || !near(Q.x, -P.x, 1e-4) || !near(Q.y, P.y, 1e-4) || !near(Q.z, P.z, 1e-4)) bad++;
+  }
+  chk(ok && worst < 1e-4 && bad === 0, `${t.label} — 좌·우 정점이 번호까지 거울상 · 대칭 획 40곳이 반대쪽 귀의 거울 자리 (어긋남 ${bad})`);
+}
+const other = earMesh('ear_bear_R');
+const mCat = earMesh('ear_cat_L');
+const ia = mCat.geometry.index;
+const hitCat = { object:mCat, face:{ a:ia.getX(0), b:ia.getX(1), c:ia.getX(2) }, point:new THREE.Vector3().fromBufferAttribute(mCat.geometry.attributes.position, ia.getX(0)) };
+chk(HE.mirrorUv(hitCat, earMesh('ear_rabbit_R')) === null, '좌우 귀 종류가 다르면(정점 수가 다르면) null — 엉뚱한 자리에 안 그린다');
+chk(other && HE.mirrorUv(hitCat, null) === null && HE.mirrorUv({}, other) === null, '반대쪽 귀가 없거나 맞힌 게 없으면 null');
+const wP = HE.findWrap(r1, 'L');
+chk(wP && Array.isArray(wP.userData.picMeshes) && wP.userData.picMeshes.length === 1 && wP.userData.picMeshes[0].isMesh, '붙은 귀에 그림칸(picMeshes) — 꾸미기 그리기가 파츠와 같은 배관을 탄다');
+
+say('── 6. 배선');
 const HTML = SRC['desk-companion-prototype.html'];
 const iH = HTML.indexOf('<script src="parts/human-ear.js">'), iApp = HTML.indexOf('<script src="parts/app.js">');
 chk(iH > 0 && iH < iApp, 'html — human-ear.js 가 app.js 보다 먼저');

@@ -1,9 +1,10 @@
 /* ═══ 🐾 sim-wd-ear.js — 꾸미기 › 머리 › 귀 탭 (wd-ear.js · app.js 배선) (2026-10-08 신설) ═══════════════
-   시안 2 확정본: 좌우 같이 / 따로 고르기 · 조정할 귀 줄(◀ ▶ ⇆ ↺) · 기즈모 · 크기 －/＋ · 미리보기에서 귀 누르기 ·
+   시안 2 확정본 + 2026-10-08 결정(동물 생성기처럼 왼쪽 · 오른쪽 상자를 늘 따로): 조정할 귀 줄(◀ ▶ ⇆ ↺) · 기즈모 · 크기 －/＋ · 미리보기에서 귀 누르기 ·
    초안 → 저장 · 동물은 탭 숨김 · 바탕색 없음(색은 그리기로만 — 2026-10-08 결정).
    ・1절: wd-ear.js 를 가짜 DOM · 실제 three · 실제 human-ear.js 로 돌린다
    ・2절: 저장(commit) · 초안 복사(copyIntoDraft)
-   ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장(지금 주인 · 원래 주인) · 탭 · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
+   ・1절 끝: ✎ 그리기 대상 · 그림 저장 · 종류를 바꾸면 그림 버림
+   ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장(지금 주인 · 원래 주인) · 탭 · 3-b 귀 그리기(대상 목록 · 대칭 · 저장 · 방 전송 · 지문) · 3-c 탑승 높이 · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
    ・4절: html · smoke.js
    [실행] wd-ear.js · human-ear.js · app.js · base-glb.js · ears-glb.js · desk-companion-prototype.html · smoke.js 가 있는 폴더에서.
      three 는 vendor/three/three.min.js 를 쓴다. */
@@ -36,8 +37,6 @@ const all = (e) => [e].concat(...e.children.map(all));
 const ELS = { wdGizmoBar:mkEl('div'), wdEarAdjRow:mkEl('div') };
 ELS.wdGizmoBar.style.display = 'none'; ELS.wdEarAdjRow.style.display = 'none';
 const doc = { createElement:mkEl, createTextNode:(t) => ({ textContent:t, children:[] }), getElementById:(id) => ELS[id] || null };
-const cards = (wrap) => all(wrap).filter(e => /\bwd-card\b/.test(e.className));
-const cardText = (c) => all(c).map(x => x.textContent).join('');
 const rowBtns = () => ELS.wdEarAdjRow.children.filter(e => e.tagName === 'BUTTON');
 
 /* 사람 기본 뼈대(본만) — sim-human-ear.js 와 같은 방식 */
@@ -55,41 +54,56 @@ const fakeEar = (key) => { const s = key.slice(-1), g = new THREE.Group();
   m.position.set(H.ANIMAL_EAR_BONE[s][0], H.ANIMAL_EAR_BONE[s][1] + 0.45, H.ANIMAL_EAR_BONE[s][2]); g.add(m); return g; };
 const HE = H.createHumanEar({ THREE, earTypes:() => win.ANIMAL_EAR_TYPES, parseEar:(k, cb) => cb(win.ANIMAL_EARS[k] ? fakeEar(k) : null) });
 
+let decorations = [], drawing = false, synced = 0;
 let tab = W.WD_EAR_TAB, draft = { skin:0, top:'#fff' }, root = glbTree(win.BASE_GLB_B64), rerenders = 0, toasts = [];
 HE.ensureHolder(root);
 const gizmo = { object:null, attach(o){ this.object = o; }, detach(){ this.object = null; } };
 const WE = W.createWdEar({ humanEar:HE, HumanEar:H, doc, getTab:() => tab, getDraft:() => draft, getPreviewRoot:() => root,
   getGizmo:() => gizmo, setGizmoMode:() => {}, earTypes:() => win.ANIMAL_EAR_TYPES, material:() => new THREE.MeshBasicMaterial(),
-  toast:(m) => toasts.push(m), rerender:() => { rerenders++; } });
+  toast:(m) => toasts.push(m), rerender:() => { rerenders++; },
+  decorate:(w) => { decorations.push(w.userData.humanEar); }, isDrawing:() => drawing, onSynced:() => { synced++; } });
 
 say('── 1. 귀 탭 (가짜 DOM · 실제 three)');
 chk(WE.available({}) && !WE.available({ animal:true }) && !WE.available(null), '동물 캐릭터에는 탭이 없다');
 let wrap = mkEl('div'); WE.render(wrap);
 const nTypes = win.ANIMAL_EAR_TYPES.length;
-chk(cards(wrap).length === nTypes + 1, `좌우 같이(기본) — 한 줄: 없음 + 귀 ${nTypes}종 (${cards(wrap).length}칸)`);
-chk(/없음/.test(cardText(cards(wrap)[0])) && /\bon\b/.test(cards(wrap)[0].className), '첫 칸은 «없음» · 귀가 없으면 켜져 있다');
+/* 동물 생성기 «2 귀» 와 같은 화면 — 왼쪽 · 오른쪽 상자(cr-groupbox) 안에 버튼(skin-sw) */
+const boxes = (w) => all(w).filter(e => /\bwd-ear-box\b/.test(e.className));
+const swOf = (box) => all(box).filter(e => e.tagName === 'BUTTON' && /\bskin-sw\b/.test(e.className));
+const press = (w, side, text) => swOf(boxes(w)[side === 'L' ? 0 : 1]).find(b => b.textContent === text).onclick();
+const reRender = () => { wrap = mkEl('div'); WE.render(wrap); };
+const bx = boxes(wrap);
+chk(bx.length === 2 && /\bcr-groupbox\b/.test(bx[0].className), '왼쪽 · 오른쪽 상자 둘(동물 생성기와 같은 cr-groupbox)');
+chk(all(bx[0]).some(e => /cr-groupbox-label/.test(e.className) && e.textContent === '왼쪽 귀') && all(bx[1]).some(e => /cr-groupbox-label/.test(e.className) && e.textContent === '오른쪽 귀'), '상자 이름 — 왼쪽 귀 · 오른쪽 귀');
+chk(bx.every(x => swOf(x).length === nTypes + 1), `상자마다 버튼: 없음 + 귀 ${nTypes}종`);
+chk(bx.every(x => swOf(x)[0].textContent === '없음' && /\bon\b/.test(swOf(x)[0].className)), '첫 버튼은 «없음» · 귀가 없으면 켜져 있다');
+chk(swOf(bx[0]).slice(1).map(b => b.textContent).join() === win.ANIMAL_EAR_TYPES.map(t => t.label).join(), '버튼 이름 = ANIMAL_EAR_TYPES 의 이름(동물 생성기와 같은 목록 · 순서)');
+chk(!all(wrap).some(e => e.type === 'checkbox'), '«좌우 같이» 체크칸 없음 — 늘 따로 고른다(2026-10-08 결정)');
 chk(!/바탕색|머리카락/.test(all(wrap).map(e => e.textContent).join(' ')), '귀 바탕색 줄 없음 — 색은 그리기로만(2026-10-08 결정)');
-const catCard = cards(wrap).find(c => /고양이/.test(cardText(c)));
-catCard.onclick();
-chk(draft.earL === 'cat' && draft.earR === 'cat', '좌우 같이 — 한 번 고르면 양쪽에');
+press(wrap, 'L', '고양이');
+chk(draft.earL === 'cat' && !('earR' in draft) && WE.side() === 'L', '왼쪽만 고양이 — 오른쪽은 그대로 · 조정 대상은 왼쪽');
+reRender(); press(wrap, 'R', '고양이');
+chk(draft.earL === 'cat' && draft.earR === 'cat' && WE.side() === 'R', '오른쪽도 고양이 — 조정 대상이 오른쪽으로');
 chk(!!HE.findWrap(root, 'L') && !!HE.findWrap(root, 'R') && rerenders > 0, '미리보기에 양쪽 귀가 붙고 화면을 다시 그린다');
+reRender();
+chk(/\bon\b/.test(swOf(boxes(wrap)[0]).find(b => b.textContent === '고양이').className) && !/\bon\b/.test(swOf(boxes(wrap)[0])[0].className), '고른 버튼에 체크 표시(on) · «없음» 은 꺼진다');
 chk(!('earColor' in draft) && !('earColorFollow' in draft), '초안에 바탕색 필드를 안 만든다');
 
-WE.syncGizmo();
+WE.setSide('L'); WE.syncGizmo();
 chk(ELS.wdGizmoBar.style.display === 'flex' && ELS.wdEarAdjRow.style.display === 'flex', '귀가 있으면 기즈모 바 · 조정할 귀 줄이 보인다');
 chk(rowBtns().map(b => b.textContent).join('|') === '◀ 왼쪽|오른쪽 ▶|⇆|↺', '조정할 귀 줄 — ◀ 왼쪽 · 오른쪽 ▶ · ⇆ · ↺');
-chk(gizmo.object === HE.findWrap(root, 'L'), '핸들은 조정할 쪽(처음은 왼쪽) 귀에');
+chk(gizmo.object === HE.findWrap(root, 'L'), '핸들은 조정할 쪽 귀에');
+chk(decorations.join() === 'L,R', '미리보기에 붙은 귀마다 그림을 입힌다(decorate)');
+chk(synced > 0, '귀가 붙은 뒤 연필 버튼을 다시 맞춘다(onSynced)');
+drawing = true; WE.syncGizmo();
+chk(gizmo.object === null && ELS.wdEarAdjRow.style.display === 'flex', '그리는 동안은 핸들을 안 붙인다(좌클릭은 붓) · 줄은 남는다');
+drawing = false; WE.syncGizmo();
 
-// 따로 고르기
-const linkBox = all(wrap).find(e => e.type === 'checkbox');
-chk(linkBox && linkBox.checked === true, '«좌우 같이» 체크칸 — 양쪽이 같으면 켜져 있다');
-linkBox.checked = false; linkBox.onchange();
-wrap = mkEl('div'); WE.render(wrap);
-chk(cards(wrap).length === 2 * (nTypes + 1), '좌우 같이를 끄면 왼쪽 · 오른쪽 목록이 따로');
-cards(wrap).slice(nTypes + 1).find(c => /곰/.test(cardText(c))).onclick();
-chk(draft.earL === 'cat' && draft.earR === 'bear', '따로 — 오른쪽만 곰으로');
+// 좌우 다르게
+press(wrap, 'R', '곰');
+chk(draft.earL === 'cat' && draft.earR === 'bear', '오른쪽만 곰으로');
 chk(WE.side() === 'R', '방금 바꾼 쪽이 조정 대상이 된다');
-cards(wrap).slice(0, nTypes + 1)[0].onclick();
+reRender(); press(wrap, 'L', '없음');
 chk(!('earL' in draft) && draft.earR === 'bear', '왼쪽 «없음» → earL 필드가 사라진다');
 WE.syncGizmo();
 chk(rowBtns()[0].disabled === true && rowBtns()[2].disabled === true, '귀가 없는 쪽 버튼 · ⇆ 는 잠긴다');
@@ -99,7 +113,7 @@ WE.mirror();
 chk(/반대쪽에 귀가 없어요/.test(toasts.join()), '반대쪽이 비었으면 ⇆ 는 안내만');
 
 // 조정 · 대칭 · 초기화 · 크기
-cards(wrap).slice(0, nTypes + 1).find(c => /고양이/.test(cardText(c))).onclick();
+reRender(); press(wrap, 'L', '고양이');
 WE.setSide('R'); WE.syncGizmo();
 const wR = HE.findWrap(root, 'R');
 wR.position.x += 0.2; wR.rotation.z += 0.3; wR.rotation.y -= 0.1; WE.onGizmoChange();
@@ -135,6 +149,25 @@ draft.earL = null; delete draft.earL;
 WE.syncGizmo();
 chk(ELS.wdGizmoBar.style.display === 'none' && ELS.wdEarAdjRow.style.display === 'none' && gizmo.object === null, '귀가 하나도 없으면 바 · 줄 · 핸들 모두 숨김');
 
+// 🖍️ 그리기 대상 · 그림 저장
+tab = W.WD_EAR_TAB; draft = { earL:'cat', earR:'cat' }; root = glbTree(win.BASE_GLB_B64); HE.ensureHolder(root);
+HE.attachFromDef(root, draft, {});
+let pt = WE.picTarget();
+chk(pt && pt.ear && pt.targets.map(t => t.side).join() === 'L,R' && pt.symOk === true, '그리기 대상 — 좌·우 귀 둘 · 같은 종류면 대칭 가능');
+chk(pt.targets.every(t => t.wrapper === HE.findWrap(root, t.side)), '대상은 지금 미리보기에 붙은 귀');
+draft.earR = 'bear'; HE.attachFromDef(root, draft, {});
+chk(WE.picTarget().symOk === false, '좌우 종류가 다르면 대칭 잠금(정점 짝이 안 맞는다)');
+delete draft.earR; HE.attachFromDef(root, draft, {});
+chk(WE.picTarget().targets.length === 1 && WE.picTarget().symOk === false, '한쪽만 있으면 대상 하나 · 대칭 없음');
+tab = 'hat'; chk(WE.picTarget() === null, '귀 탭이 아니면 대상 없음(파츠 그리기로 간다)'); tab = W.WD_EAR_TAB;
+WE.setPic('L', 'https://x/pic_a.png'); chk(draft.earPicL === 'https://x/pic_a.png', '그림 저장 — 초안 earPicL');
+WE.setPic('L', null); chk(!('earPicL' in draft), '다 지우고 완료하면 필드가 사라진다');
+draft = { earL:'cat', earR:'cat', earPicL:'u1', earPicR:'u2' }; root = glbTree(win.BASE_GLB_B64); HE.ensureHolder(root);
+reRender(); press(wrap, 'L', '곰');
+chk(!('earPicL' in draft) && draft.earPicR === 'u2', '귀 종류를 바꾸면 그 쪽 그림만 버린다(UV 배치가 달라서)');
+draft.earPicL = 'u3'; reRender(); press(wrap, 'L', '곰');
+chk(draft.earPicL === 'u3', '같은 종류를 다시 고르면 그림은 그대로');
+
 say('── 2. 저장 · 초안 복사');
 const src = { earL:'cat', earR:'rabbit', earAdj:{ L:{ px:0.1 }, R:{ py:0.2 } } };
 const dr = Object.assign({}, src); WE.copyIntoDraft(dr, src);
@@ -150,6 +183,11 @@ WE.commit(def1, {});
 chk(!('earL' in def1) && !('earR' in def1) && !('earAdj' in def1), '귀를 다 빼면 필드가 전부 사라진다(옛 def 와 같은 모양)');
 WE.commit(def1, { earL:'evil', earR:'cat' });
 chk(!('earL' in def1) && def1.earR === 'cat', '모르는 귀 종류는 저장하지 않는다');
+const def2 = {};
+chk(WE.commit(def2, { earL:'cat', earR:'cat', earPicL:'https://x/L.png', earPicR:'https://x/R.png' }) === true && def2.earPicL === 'https://x/L.png' && def2.earPicR === 'https://x/R.png', '저장 — 귀 그림도 def 로');
+chk(WE.commit(def2, { earL:'cat', earR:'cat', earPicL:'https://x/L2.png', earPicR:'https://x/R.png' }) === true, '그림만 바뀌어도 true(좌석 귀를 다시 칠한다)');
+WE.commit(def2, { earR:'cat', earPicL:'https://x/L2.png', earPicR:'https://x/R.png' });
+chk(!('earPicL' in def2) && def2.earPicR === 'https://x/R.png', '귀가 없는 쪽 그림은 안 남긴다');
 const dr3 = {}; WE.copyIntoDraft(dr3, {});
 chk(!('earAdj' in dr3), '조정값이 없는 def 의 초안에는 earAdj 를 안 만든다');
 
@@ -187,6 +225,37 @@ chk(/currentWdTab !== wdEar\.TAB && currentWdTab !== WD_DESK_TAB && \(!currentWd
 chk(/else wdEar\.render\(wrap\);[\s\S]{0,300}updateWdGizmoForActivePanel\(\);\s*return;/.test(rw), '귀 탭 — 파츠 그리드 배관을 안 타고 갈라진다');
 const fp = grab(A, '_charIdentityFingerprint');
 chk(/earL: def\.earL\|\|null, earR: def\.earR\|\|null, earAdj: def\.earAdj\|\|null/.test(fp), '캐릭터 지문에 귀 — 친구 화면이 귀 변경으로 다시 그린다');
+say('── 3-b. app.js 배선 — 귀 그리기');
+chk(/if\(wdEar\.isActive\(\)\) return wdEar\.picTarget\(\);/.test(grab(A, '_wdResolvePicTarget')), '그리기 대상 — 귀 탭이면 좌·우 귀');
+const en = grab(A, 'enterWdPicMode');
+chk(/const ref = wdEar\.isActive\(\) \? _wdResolvePicTarget\(\) : \(_wdPicTarget \|\| _wdResolvePicTarget\(\)\);/.test(en), '귀는 들어갈 때 대상을 새로 구한다(미리보기가 다시 지어지면 옛 wrap)');
+chk(/put:v=>wdEar\.setPic\(t\.side, v\)/.test(en) && /put:v=>\{ if\(v\) ref\.xf\.pic = v; else delete ref\.xf\.pic; \}/.test(en), '저장 자리 — 귀는 초안 earPic · 파츠는 xf.pic(예전 그대로)');
+chk(/if\(!_wdPic\.symOk\) _wdPic\.sym = false;/.test(en), '대칭이 안 되는 귀면 대칭을 끄고 들어간다');
+const ex = grab(APP, 'exitWdPicMode').replace(/\/\*[\s\S]*?\*\//g, '');
+chk(/for\(const t of tgts\)\{[\s\S]*uploadPartPic\(dataUrl\)[\s\S]*t\.put\(v\);/.test(ex) && /orig && orig\[i\]/.test(ex), '완료 — 대상마다 올려 저장 · 취소 — 대상마다 원본으로');
+chk(/_wdPic\.hist\.push\(_wdPicSnap\(\)\)/.test(grab(A, '_wdPicPush')) && /_wdPicRestore\(_wdPic\.hist\.pop\(\)\)/.test(grab(A, '_wdPicUndo')), '되돌리기 한 칸 = 대상 전부의 그림(대칭 획은 두 귀를 한 번에)');
+const pa = grab(A, '_wdPicPaint');
+chk(/const tgt=_wdPicTgtOf\(hit\.object\);/.test(pa) && /_picBlit\(tgt\.wrp\);/.test(pa), '획은 맞힌 귀에');
+chk(/m=om \? humanEar\.mirrorUv\(hit, om\) : null;/.test(pa) && /mirrorUVOn\(hit, hit\.object, wdCam/.test(pa), '대칭 — 귀는 반대쪽 귀의 같은 자리 · 파츠는 예전 그대로');
+chk(/if\(_wdPic\.on && _wdPic\.tgts\.some\(t=>t\.wrp === wrp\)\) return;/.test(grab(A, 'applyPartPic')), '그리는 중인 귀는 저장본으로 덮지 않는다');
+chk(/if\(v && !_wdPic\.symOk\)/.test(grab(A, '_wdPicSetSym')), 'X(대칭) 키도 다른 종류 귀에서는 막힌다');
+const rp = grab(A, 'refreshWdPicUI');
+chk(/!wdEar\.isActive\(\)\)\{ bar\.style\.display='flex'; bar\.classList\.add\('pic-only'\);/.test(rp), '귀 탭에서는 바를 «연필만» 으로 줄이지 않는다(이동·회전이 귀 몫)');
+chk(/_earRow\.classList\.toggle\('drawing', _wdPic\.on\)/.test(rp), '그리는 동안 조정할 귀 줄 잠금');
+chk(/applyPartPic\(wrap, \(def && def\['earPic' \+ wrap\.userData\.humanEar\]\) \|\| null\)/.test(grab(A, '_humanEarPic')), '귀 그림 입히기 — 파츠 그림과 같은 applyPartPic');
+chk(/onAttach:\(w\)=>\{\s*_humanEarPic\(w, def\);/.test(grab(A, '_attachHumanEars')), '조립(좌석 · 미리보기)할 때 귀 그림을 입힌다');
+chk(/decorate:\(w\)=>_humanEarPic\(w, ensureWdDraft\(\)\)/.test(A) && /isDrawing:\(\)=>_wdPic\.on/.test(A) && /onSynced:\(\)=>\{ try\{ refreshWdPicUI\(\); \}/.test(A), 'wd-ear 에 그림 입히기 · 그리는 중 · 연필 갱신을 넘긴다');
+chk(/\['earPicL','earPicR'\]\.forEach\(k=>\{ if\(typeof out\[k\]==='string' && out\[k\]\.startsWith\('data:'\)\) delete out\[k\]; \}\);/.test(grab(A, 'serializeDefForNetwork')), '방 전송 — 귀 그림 dataURL 은 뺀다(URL 만)');
+chk(/earPicL: \(typeof def\.earPicL==='string' && !def\.earPicL\.startsWith\('data:'\)\) \? def\.earPicL : _imgSig\(def\.earPicL\)/.test(fp), '지문 — 귀 그림 URL 은 통째로(_imgSig 는 Storage URL 을 못 가른다)');
+
+say('── 3-c. app.js 배선 — 머리 위 탑승 높이');
+const mh = grab(A, '_measureHostHeadTop');
+chk(/const _humanEarHost = !!\(hostSeat\.charDef && !hostSeat\.charDef\.animal && \(hostSeat\.charDef\.earL \|\| hostSeat\.charDef\.earR\)\);/.test(mh)
+  && /if\(\(hostSeat\.charDef && hostSeat\.charDef\.animal\) \|\| _humanEarHost\)\{/.test(mh), '귀 달린 사람도 «귀 포함» 높이를 잰다(동물만 재던 것)');
+chk(/if\(!\(o\.userData && \(o\.userData\.animalEar \|\| o\.userData\.humanEar\)\)\) return;/.test(mh), '귀 박스에 사람 귀(humanEar)도 합친다 — 숨은 메쉬 제외 규칙은 그대로');
+chk(mh.indexOf('_bareTopY') >= 0 && mh.indexOf('_bareTopY') < mh.indexOf('_humanEarHost'), '«귀 제외» 높이(묘기 2층+)는 귀를 합치기 전에 잰다');
+chk(/const _s = seats\.find\(x=>x\.modelRoot === root\); if\(_s\) _remeasureRideHeadTop\(_s\);/.test(grab(A, '_attachHumanEars')), '귀가 늦게 붙으면 이미 타고 있는 좌석의 높이를 다시 잰다');
+
 const cam = grab(A, 'updateWdCam');
 chk(/_wdEarCamOn\(\)/.test(cam) && /WD_EAR_CAM_ZOOM/.test(cam) && /WD_EAR_CAM_LIFT/.test(cam), '귀 탭 — 미리보기 구도를 올리고 물러선다(귀가 화면 밖이던 것)');
 chk(/try\{ return wdEar\.isActive\(\); \}catch\(_\)\{ return false; \}/.test(grab(A, '_wdEarCamOn')), '구도 판정은 wdEar 준비 전에도 안전');

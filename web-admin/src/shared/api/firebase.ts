@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import {
   connectDatabaseEmulator,
+  endBefore,
   equalTo,
   get,
   getDatabase,
@@ -23,6 +24,7 @@ import {
   runTransaction,
   serverTimestamp,
   set,
+  startAt,
   update,
 } from 'firebase/database';
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
@@ -99,8 +101,18 @@ export async function connectFirebase(): Promise<Firebase> {
 
   const db: Db = {
     get: async (path) => (await get(at(path))).val(),
-    getLast: async (path, child, n) =>
-      (await get(query(at(path), orderByChild(child), limitToLast(n)))).val() ?? {},
+    getLast: async (path, child, n, range) => {
+      const from = range?.startAt;
+      const before = range?.endBefore;
+      const q = query(
+        at(path),
+        orderByChild(child),
+        ...(from !== undefined ? [startAt(from)] : []),
+        ...(before ? [endBefore(before.value, before.key)] : []),
+        limitToLast(n),
+      );
+      return (await get(q)).val() ?? {};
+    },
     getEqual: async (path, child, value) =>
       (await get(query(at(path), orderByChild(child), equalTo(value)))).val() ?? {},
     set: (path, value) => set(at(path), value),

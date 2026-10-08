@@ -46,6 +46,8 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'catalog.reorder': '카탈로그 순서',
   'catalog.editInfo': '카탈로그 정보 수정',
   'catalog.cleanGlb': '카탈로그 진단 정리',
+  'bug.answer': '제보 답변',
+  'bug.status': '제보 상태',
   'account.delete': '계정 삭제',
 };
 
@@ -59,6 +61,7 @@ export const LOG_GROUPS = [
   { id: 'settings', label: '설정' },
   { id: 'room', label: '방' },
   { id: 'catalog', label: '카탈로그' },
+  { id: 'bug', label: '제보' },
   { id: 'account', label: '계정' },
 ] as const;
 

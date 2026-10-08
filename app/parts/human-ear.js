@@ -135,6 +135,28 @@ function createHumanEar(deps){
              sc:s.x, scx:s.x, scy:s.y, scz:s.z };
   }
 
+  /* 🖍️ 대칭 그리기 — 이 귀에서 맞힌 자리의 «반대쪽 귀 같은 자리» UV.
+     좌·우 귀 GLB 는 정점 번호까지 정확한 거울상이다(sim-human-ear.js 가 다섯 종 모두 본다). UV 배치는 서로 달라서
+     UV 를 뒤집는 식으로는 안 되고, 맞힌 삼각형의 세 정점 + 그 안의 위치(무게중심 좌표)를 같은 번호 정점으로 옮긴다.
+     귀를 비대칭으로 옮겨 놓아도 «귀 모양 위의 같은 자리» 라서 정확하다(광선을 거울에 비춰 쏘는 방식은 빗나간다).
+     정점 수가 다르면 null. ⚠️ 고양이 · 곰처럼 정점 수가 같은 다른 종류는 여기서 못 가른다 —
+     호출하는 쪽(wd-ear.js picTarget 의 symOk)이 좌우가 같은 종류일 때만 부른다. */
+  function mirrorUv(hit, other){
+    const gA = hit && hit.object && hit.object.geometry, gB = other && other.geometry;
+    if(!gA || !gB || !hit.face || !hit.point) return null;
+    const pa = gA.attributes.position, pb = gB.attributes.position, uvB = gB.attributes.uv;
+    if(!pa || !pb || !uvB || pa.count !== pb.count) return null;
+    const { a, b, c } = hit.face;
+    const p = hit.object.worldToLocal(hit.point.clone());
+    const A = new THREE.Vector3().fromBufferAttribute(pa, a);
+    const B = new THREE.Vector3().fromBufferAttribute(pa, b);
+    const C = new THREE.Vector3().fromBufferAttribute(pa, c);
+    const w = THREE.Triangle.getBarycoord(p, A, B, C, new THREE.Vector3());
+    if(!isFinite(w.x) || !isFinite(w.y) || !isFinite(w.z)) return null;
+    return { x:uvB.getX(a) * w.x + uvB.getX(b) * w.y + uvB.getX(c) * w.z,
+             y:uvB.getY(a) * w.x + uvB.getY(b) * w.y + uvB.getY(c) * w.z };
+  }
+
   function findWrap(root, side){
     let w = null;
     root.traverse(o=>{ if(!w && o.userData && o.userData.humanEar === side) w = o; });
@@ -169,6 +191,9 @@ function createHumanEar(deps){
       wrap.add(obj);
       wrap.userData.pivot = c.clone().add(shift);
       wrap.userData.humanEar = side;
+      // 그림칸 — 꾸미기 그리기(app.js _picSetup)가 파츠와 같은 배관으로 귀를 칠한다
+      wrap.userData.picMeshes = [];
+      obj.traverse(m=>{ if(m.isMesh) wrap.userData.picMeshes.push(m); });
       applyAdj(wrap, adj);
       holder.add(wrap);
       if(o.onAttach) o.onAttach(wrap);
@@ -185,7 +210,7 @@ function createHumanEar(deps){
     return s;
   }
 
-  return { readDef, hasEars, shiftFor, ensureHolder, applyAdj, readAdj, findWrap, detach, attachSide, attachFromDef };
+  return { readDef, hasEars, shiftFor, ensureHolder, applyAdj, readAdj, mirrorUv, findWrap, detach, attachSide, attachFromDef };
 }
 
 const api = { EAR_SIDES, ANIMAL_EAR_BONE, HEAD_TO_EAR, HOLDER_NAME, EAR_ADJ_DEFAULT,

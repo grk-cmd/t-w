@@ -289,12 +289,21 @@ function _humanEarMat(){
 }
 /* ⚠️ 바인드 자세일 때(조립 직후 · 애니메이션 전) 불러야 한다 — holder 와 옮길 양을 이때 잰다.
    귀가 없어도 holder 는 만들어 둔다: 나중에 꾸미기에서 귀를 고를 때는 이미 움직이는 좌석이다. */
+/* 🖍️ 귀 그림(def.earPicL·R)을 붙은 귀에 입힌다 — 파츠 그림과 같은 배관(applyPartPic · 같은 업로드 캐시) */
+function _humanEarPic(wrap, def){
+  try{ applyPartPic(wrap, (def && def['earPic' + wrap.userData.humanEar]) || null); }catch(e){ console.warn('[사람 귀] 그림', e); }
+}
 function _attachHumanEars(root, def){
   if(!humanEar || !root || (def && def.animal)) return;
   try{
     humanEar.ensureHolder(root);
     humanEar.attachFromDef(root, def, { material:_humanEarMat,
-      onAttach:()=>{ try{ wdEar.onEarAttached(root); }catch(_){} } });
+      onAttach:(w)=>{
+        _humanEarPic(w, def);
+        try{ wdEar.onEarAttached(root); }catch(_){}
+        /* 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 '머리 꼭대기' 는 귀 없던 값이다 */
+        try{ const _s = seats.find(x=>x.modelRoot === root); if(_s) _remeasureRideHeadTop(_s); }catch(_){}
+      } });
   }catch(e){ console.warn('[사람 귀] 붙이기 실패', e); }
 }
 
@@ -3135,7 +3144,10 @@ function _measureHostHeadTop(hostSeat, headNode){
     let _bareBox = null;
     try{ if(!_hb.isEmpty()) _bareBox = _hb.clone(); }catch(_){ _bareBox = null; }
     const _bareTopY = _hb.isEmpty() ? null : _hb.max.y;
-    if(hostSeat.charDef && hostSeat.charDef.animal){
+    /* 🐾 사람 귀(꾸미기 › 머리 › 귀)도 같은 규칙 — 동물 귀처럼 rigged 표식으로 본체 측정에서 빠져 있어서,
+       여기서 합치지 않으면 귀 달린 사람 위에 얹을 때 귀 사이 머리통에 파묻힌다. 귀가 없는 사람은 합칠 게 없어 그대로다. */
+    const _humanEarHost = !!(hostSeat.charDef && !hostSeat.charDef.animal && (hostSeat.charDef.earL || hostSeat.charDef.earR));
+    if((hostSeat.charDef && hostSeat.charDef.animal) || _humanEarHost){
       /* ★ 귀 박스도 measureHeadBoxNoParts와 **같은 규칙**으로 잰다 — 숨은 메쉬 제외.
          Box3.setFromObject는 traverse(≠traverseVisible)라 wrap 하위의 안 보이는 메쉬까지 그대로 잰다.
          예전 코드는 wrap **자신**의 visible만 보고 그 안쪽은 못 봐서, 숨은 메쉬가 있으면
@@ -3145,7 +3157,7 @@ function _measureHostHeadTop(hostSeat, headNode){
       const _eb = new THREE.Box3(), _et = new THREE.Box3();
       const _ebRaw = new THREE.Box3(), _etRaw = new THREE.Box3();   // 진단용 — 옛 규칙(숨은 메쉬 포함)
       hostSeat.gltfRoot.traverse(o=>{
-        if(!(o.userData && o.userData.animalEar)) return;
+        if(!(o.userData && (o.userData.animalEar || o.userData.humanEar))) return;
         if(o.visible === false) return;
         try{ _etRaw.setFromObject(o); if(!_etRaw.isEmpty()) _ebRaw.union(_etRaw); }catch(_){}
         o.traverse(m=>{
@@ -9678,8 +9690,10 @@ function refreshWdPreviewColorSection(){
    ⚠️ 저장(업로드)은 '완료' 한 번뿐이다. 획마다 저장하면 equippedParts JSON 이 매번 달라져서
      상대 화면이 파츠를 통째로 재장착한다 — 남의 화면에서 내 파츠가 계속 깜빡인다. */
 let _wdActivePartRef = null;   // refreshWdPreviewColorSection 이 정한 {cat, entry, xf, wrapper}
+/* 🐾 대상은 **목록**이다(tgts) — 파츠는 한 장, 귀는 좌·우 두 장. 되돌리기 · 취소 · 지우기 · 저장이 목록을 한꺼번에 다룬다.
+   wrp · user 는 첫 대상을 가리키는 옛 이름(이름표 · 파츠 판정에서 쓴다). earSym = 대칭을 반대쪽 귀에 긋는가. */
 const _wdPic = {
-  on:false, wrp:null, xf:null, meshes:[], user:null,
+  on:false, wrp:null, xf:null, meshes:[], user:null, tgts:[], ear:false, symOk:true,
   color:'#333333', size:11, eraser:false, sym:false,
   hist:[], redo:[], orig:null,
   drawing:false, lx:null, ly:null, sx:null, sy:null,
@@ -9714,6 +9728,7 @@ function _wdWrapperForPartId(cat, id){
    ⚠️ 우클릭으로 고른 파츠(activeWdAdj)가 있으면 그건 색상 줄이 이미 1순위로 쓰고 있다 —
      여기서 다시 볼 필요가 없다. */
 function _wdResolvePicTarget(){
+  if(wdEar.isActive()) return wdEar.picTarget();   // 🐾 귀 탭 — 좌·우 귀(파츠 판정을 안 탄다)
   const ref = _wdActivePartRef;
   if(ref && wrapperHasPic(ref.wrapper)) return ref;
   if(!wdPreviewBase || !wdPreviewBase.charDef) return null;
@@ -9745,8 +9760,12 @@ function refreshWdPicUI(){
      ★ 사라진 경우는 저장할 자리(파츠)가 없으니 그냥 접는다.
      ⚠️ exitWdPicMode 안에서 이 함수가 다시 불리지만 그때는 on 이 false 라 여기서 멈춘다. */
   if(_wdPic.on){
-    const gone = !_wdPic.wrp || !_wdPic.wrp.parent;
-    const moved = !gone && _wdPicTarget && _wdPicTarget.wrapper !== _wdPic.wrp;
+    /* 🐾 귀는 대상이 둘 — 하나라도 떨어졌으면 사라진 것, 귀 탭을 떠났거나 귀 구성이 바뀌었으면 옮긴 것 */
+    const gone = !_wdPic.tgts.length || _wdPic.tgts.some(t=>!t.wrp || !t.wrp.parent);
+    const moved = !gone && (_wdPic.ear
+      ? !(_wdPicTarget && _wdPicTarget.ear && _wdPicTarget.targets.length === _wdPic.tgts.length
+          && _wdPicTarget.targets.every((t,i)=>t.wrapper === _wdPic.tgts[i].wrp))
+      : !!(_wdPicTarget && _wdPicTarget.wrapper !== _wdPic.wrp));
     if(gone || moved){ exitWdPicMode(!gone); return; }
   }
   const btn = document.getElementById('wdPencilBtn');
@@ -9760,10 +9779,13 @@ function refreshWdPicUI(){
   /* 상세조정 패널이 안 열려 있어도 그림칸이 있으면 바를 띄운다 — 연필만 보이게.
      (이동·회전·크기는 붙일 기즈모가 없으니 그때는 숨긴다) */
   if(bar){
-    if(can && !(activeWdAdj && activeWdAdj.cat)){ bar.style.display='flex'; bar.classList.add('pic-only'); }
+    // 🐾 귀 탭은 이동·회전 버튼이 귀 몫이라 «연필만» 으로 줄이지 않는다
+    if(can && !(activeWdAdj && activeWdAdj.cat) && !wdEar.isActive()){ bar.style.display='flex'; bar.classList.add('pic-only'); }
     else bar.classList.remove('pic-only');
     bar.classList.toggle('drawing', _wdPic.on);
   }
+  const _earRow = document.getElementById('wdEarAdjRow');
+  if(_earRow) _earRow.classList.toggle('drawing', _wdPic.on);   // 그리는 동안 조정할 귀 줄도 잠근다
   if(sec){
     const want = _wdPic.on ? 'flex' : 'none';
     if(sec.style.display !== want){
@@ -9779,18 +9801,25 @@ function refreshWdPicUI(){
 /* 그리기 시작 — 지금 색상 줄이 가리키는 그 파츠에 그린다. */
 function enterWdPicMode(){
   if(_wdPic.on) return;
-  const ref = _wdPicTarget || _wdResolvePicTarget();
-  if(!ref || !wrapperHasPic(ref.wrapper)){ if(typeof toast==='function') toast('이 파츠에는 그릴 자리가 없어요'); return; }
-  const user = _picSetup(ref.wrapper);
-  if(!user){ if(typeof toast==='function') toast('이 파츠에는 그릴 자리가 없어요'); return; }
+  /* 🐾 귀는 늘 새로 구한다 — 미리보기가 다시 지어지면(창 열기 · 파츠 장착) 귀 wrap 도 새로 생기는데,
+     기억해 둔 대상은 옛 wrap 이라 들어가자마자 «대상이 바뀌었다» 로 빠져나온다. */
+  const ref = wdEar.isActive() ? _wdResolvePicTarget() : (_wdPicTarget || _wdResolvePicTarget());
+  /* 🐾 귀는 대상이 둘이고 저장 자리가 초안의 earPicL·R 이다. 파츠는 한 장 · xf.pic. */
+  const list = !ref ? [] : ref.ear
+    ? ref.targets.map(t=>({ wrp:t.wrapper, put:v=>wdEar.setPic(t.side, v) }))
+    : [{ wrp:ref.wrapper, put:v=>{ if(v) ref.xf.pic = v; else delete ref.xf.pic; } }];
+  const tgts = list.filter(t=>wrapperHasPic(t.wrp) && (t.user = _picSetup(t.wrp)));
+  if(!tgts.length){ if(typeof toast==='function') toast(ref && ref.ear ? '귀에 그릴 자리가 없어요' : '이 파츠에는 그릴 자리가 없어요'); return; }
   _wdPicTarget = ref;
   _wdPic.on = true;
-  _wdPic.wrp = ref.wrapper; _wdPic.xf = ref.xf;
-  _wdPic.meshes = ref.wrapper.userData.picMeshes.slice();
-  _wdPic.user = user;
+  _wdPic.tgts = tgts; _wdPic.ear = !!ref.ear; _wdPic.symOk = ref.ear ? !!ref.symOk : true;
+  if(!_wdPic.symOk) _wdPic.sym = false;
+  _wdPic.wrp = tgts[0].wrp; _wdPic.xf = ref.ear ? null : ref.xf;
+  _wdPic.meshes = [].concat(...tgts.map(t=>t.wrp.userData.picMeshes));
+  _wdPic.user = tgts[0].user;
   _wdPic.hist.length = 0; _wdPic.redo.length = 0;
   // 취소용 원본 — '취소'는 들어오기 전 그림으로 정확히 되돌린다.
-  try{ _wdPic.orig = user.getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ); }catch(_){ _wdPic.orig = null; }
+  _wdPic.orig = _wdPicSnap();
   /* 기즈모 핸들을 내린다 — 좌클릭을 기즈모가 먼저 먹으면 첫 획이 파츠 이동으로 나간다.
      선택 상태(wdGizmoCat)는 건드리지 않는다. 나갈 때 updateWdGizmoForActivePanel 이 그대로 되붙인다. */
   try{ if(wdGizmo) wdGizmo.detach(); }catch(_){}
@@ -9800,28 +9829,35 @@ function enterWdPicMode(){
 /* 그리기 끝 — save=true 면 올리고 저장, false 면 들어오기 전으로 되돌린다. */
 async function exitWdPicMode(save){
   if(!_wdPic.on) return;
-  const wrp = _wdPic.wrp, xf = _wdPic.xf, user = _wdPic.user;
+  const tgts = _wdPic.tgts.slice(), orig = _wdPic.orig;
   _wdPic.on = false; _wdPic.drawing = false; _wdPic.rc = null;
-  if(save && user && xf){
-    const blank = _wdPicIsBlank(user);
-    if(blank){
-      delete xf.pic;
-      if(wrp) wrp.userData._picSrc = null;
-    } else {
-      const dataUrl = user.toDataURL('image/png');
-      const url = await uploadPartPic(dataUrl);
-      /* 업로드가 실패해도 내 화면의 그림은 남긴다 — 방으로 나갈 때 serializeDefForNetwork 가
-         dataURL 을 걸러내므로 남의 화면에 안 보일 뿐, 다음 저장 때 다시 올라간다. */
-      xf.pic = url || dataUrl;
-      if(wrp) wrp.userData._picSrc = xf.pic;
-      if(!url && typeof toast==='function') toast('그림은 저장했지만 아직 못 올렸어요 — 다음에 다시 올릴게요');
+  if(save){
+    let notUp = false;
+    for(const t of tgts){
+      if(!t.user) continue;
+      let v = null;
+      if(!_wdPicIsBlank(t.user)){
+        const dataUrl = t.user.toDataURL('image/png');
+        const url = await uploadPartPic(dataUrl);
+        /* 업로드가 실패해도 내 화면의 그림은 남긴다 — 방으로 나갈 때 serializeDefForNetwork 가
+           dataURL 을 걸러내므로 남의 화면에 안 보일 뿐, 다음 저장 때 다시 올라간다. */
+        v = url || dataUrl;
+        if(!url) notUp = true;
+      }
+      t.put(v);
+      if(t.wrp) t.wrp.userData._picSrc = v;
     }
-  } else if(user){
-    try{ if(_wdPic.orig) user.getContext('2d').putImageData(_wdPic.orig,0,0);
-         else user.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ); }catch(_){}
-    if(wrp) _picBlit(wrp);
+    if(notUp && typeof toast==='function') toast('그림은 저장했지만 아직 못 올렸어요 — 다음에 다시 올릴게요');
+  } else {
+    tgts.forEach((t, i)=>{
+      if(!t.user) return;
+      try{ if(orig && orig[i]) t.user.getContext('2d').putImageData(orig[i],0,0);
+           else t.user.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ); }catch(_){}
+      if(t.wrp) _picBlit(t.wrp);
+    });
   }
   _wdPic.wrp=null; _wdPic.xf=null; _wdPic.meshes=[]; _wdPic.user=null; _wdPic.orig=null;
+  _wdPic.tgts=[]; _wdPic.ear=false; _wdPic.symOk=true;
   _wdPic.hist.length=0; _wdPic.redo.length=0;
   const sec=_wdPicSection(); if(sec) sec.innerHTML='';
   try{ updateWdGizmoForActivePanel(); }catch(_){}
@@ -9835,28 +9871,42 @@ function _wdPicIsBlank(cv){
     return true;
   }catch(_){ return false; }
 }
+/* 대상 전부의 그림을 한 장씩 — 되돌리기 한 칸 · 취소용 원본이 이 묶음이다(대칭 획은 두 귀를 한 번에 바꾼다). */
+function _wdPicSnap(){
+  return _wdPic.tgts.map(t=>{ try{ return t.user.getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ); }catch(_){ return null; } });
+}
+function _wdPicRestore(snap){
+  _wdPic.tgts.forEach((t, i)=>{
+    if(snap && snap[i]){ try{ t.user.getContext('2d').putImageData(snap[i],0,0); }catch(_){} }
+    _picBlit(t.wrp);
+  });
+}
 function _wdPicPush(){
-  try{ _wdPic.hist.push(_wdPic.user.getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ)); }catch(_){}
+  _wdPic.hist.push(_wdPicSnap());
   if(_wdPic.hist.length>WD_PIC_HIST_MAX) _wdPic.hist.shift();
   _wdPic.redo.length = 0;   // 새로 그렸으면 앞으로 가기는 버린다(표준 동작)
 }
 function _wdPicUndo(){
   if(!_wdPic.on || !_wdPic.hist.length) return;
-  const g=_wdPic.user.getContext('2d');
-  try{ _wdPic.redo.push(g.getImageData(0,0,CANVAS_SZ,CANVAS_SZ)); if(_wdPic.redo.length>WD_PIC_HIST_MAX) _wdPic.redo.shift(); }catch(_){}
-  g.putImageData(_wdPic.hist.pop(),0,0); _picBlit(_wdPic.wrp);
+  _wdPic.redo.push(_wdPicSnap()); if(_wdPic.redo.length>WD_PIC_HIST_MAX) _wdPic.redo.shift();
+  _wdPicRestore(_wdPic.hist.pop());
 }
 function _wdPicRedo(){
   if(!_wdPic.on || !_wdPic.redo.length) return;
-  const g=_wdPic.user.getContext('2d');
-  try{ _wdPic.hist.push(g.getImageData(0,0,CANVAS_SZ,CANVAS_SZ)); if(_wdPic.hist.length>WD_PIC_HIST_MAX) _wdPic.hist.shift(); }catch(_){}
-  g.putImageData(_wdPic.redo.pop(),0,0); _picBlit(_wdPic.wrp);
+  _wdPic.hist.push(_wdPicSnap()); if(_wdPic.hist.length>WD_PIC_HIST_MAX) _wdPic.hist.shift();
+  _wdPicRestore(_wdPic.redo.pop());
 }
 function _wdPicClear(){
   if(!_wdPic.on) return;
   _wdPicPush();
-  _wdPic.user.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
-  _picBlit(_wdPic.wrp);   // ★ 원본 텍스처는 base 층에 있다 — 지우기는 '원본으로 돌아가기'다
+  _wdPic.tgts.forEach(t=>{
+    t.user.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
+    _picBlit(t.wrp);   // ★ 원본 텍스처는 base 층에 있다 — 지우기는 '원본으로 돌아가기'다
+  });
+}
+/* 맞힌 메쉬가 어느 대상의 것인가 */
+function _wdPicTgtOf(mesh){
+  return _wdPic.tgts.find(t=>t.wrp.userData.picMeshes.indexOf(mesh) >= 0) || _wdPic.tgts[0];
 }
 function _wdPicSetEraser(v){
   _wdPic.eraser = !!v;
@@ -9864,6 +9914,7 @@ function _wdPicSetEraser(v){
   const p=document.getElementById('wdPicPen');    if(p) p.classList.toggle('on', !_wdPic.eraser);
 }
 function _wdPicSetSym(v){
+  if(v && !_wdPic.symOk){ if(typeof toast==='function') toast('좌우 귀가 같은 종류일 때만 대칭으로 그릴 수 있어요'); return; }
   _wdPic.sym = !!v;
   const b=document.getElementById('wdPicSym'); if(b) b.classList.toggle('on', _wdPic.sym);
 }
@@ -9880,13 +9931,13 @@ function _buildWdPicSection(){
   /* 어느 파츠에 그리는지 적는다 — 위 색상 줄이 가리키는 파츠와 **다를 수 있다.**
      같은 칸에 파츠를 둘 이상 착용했고 그림칸이 그중 한쪽에만 있으면 그렇게 된다
      (_wdResolvePicTarget 참고). 안 적으면 "왜 저 파츠에 그려지지?" 가 된다. */
-  let _tname = '이 파츠';
-  try{
+  let _tname = _wdPic.ear ? '귀' : '이 파츠';
+  if(!_wdPic.ear) try{
     const _tid = _wdPic.wrp && _wdPic.wrp.userData ? _wdPic.wrp.userData.partId : null;
     const _trec = _tid && Array.isArray(savedParts) ? savedParts.find(p=>p.id===_tid) : null;
     if(_trec && _trec.name) _tname = _trec.name;
   }catch(_){}
-  sec.appendChild(mk('div','wd-preview-color-head','✎ '+_tname+' 에 그리는 중'));
+  sec.appendChild(mk('div','wd-preview-color-head', _wdPic.ear ? '✎ 귀에 그리는 중' : '✎ '+_tname+' 에 그리는 중'));
 
   const tools=mk('div','wd-pic-row');
   const penB=mk('button','wd-pic-btn on','펜');    penB.id='wdPicPen';
@@ -9898,6 +9949,10 @@ function _buildWdPicSection(){
   eraB.onclick=()=>_wdPicSetEraser(true);
   symB.onclick=()=>_wdPicSetSym(!_wdPic.sym);
   symB.classList.toggle('on', _wdPic.sym);
+  if(_wdPic.ear){
+    symB.title = _wdPic.symOk ? '반대쪽 귀에 좌우를 뒤집어 같이 그려요' : '좌우 귀가 같은 종류일 때만 대칭으로 그릴 수 있어요';
+    if(!_wdPic.symOk) symB.disabled = true;
+  }
   let pal=null;
   const closePal=()=>{ if(pal){ pal.remove(); pal=null; document.removeEventListener('mousedown', outside, true); } };
   const outside=e=>{ if(pal && !pal.contains(e.target) && e.target!==swat) closePal(); };
@@ -9940,6 +9995,7 @@ function _buildWdPicSection(){
   sec.appendChild(hist);
 
   const hint=mk('div','wd-pic-hint');
+  if(_wdPic.ear) sec.appendChild(mk('div','wd-pic-hint','귀를 눌러 그려요. 대칭을 켜면 반대쪽 귀에 좌우를 뒤집어 같이 그려요.'));
   hint.innerHTML='Ctrl+Z 되돌리기 · Ctrl+Shift+Z 다시 · Delete 전체 지우기<br>X 대칭 · C 지우개 · 우클릭 스포이드';
   sec.appendChild(hint);
 
@@ -10187,7 +10243,8 @@ function _wdPicUvScale(mesh){
   return s;
 }
 function _wdPicPaint(hit){
-  const g=_wdPic.user.getContext('2d');
+  const tgt=_wdPicTgtOf(hit.object);
+  const g=tgt.user.getContext('2d');
   g.lineCap='round'; g.lineJoin='round';
   g.lineWidth=_wdPic.size;
   g.globalCompositeOperation=_wdPic.eraser?'destination-out':'source-over';
@@ -10218,18 +10275,34 @@ function _wdPicPaint(hit){
   _wdPic.lobj=hit.object;
   if(hit.point){ if(!_wdPic.lp) _wdPic.lp=new THREE.Vector3(); _wdPic.lp.copy(hit.point); }
   if(_wdPic.sym){
-    const m=mirrorUVOn(hit, hit.object, wdCam, _wdPicMirrorCx(hit.object),
-                       (ray, mesh)=>_picIntersect(ray,[mesh]), _wdPicMirrorOff(hit.object));
-    if(m){
-      const mj = !!(_wdPic.smuv && Math.hypot(m.x-_wdPic.smuv.x, m.y-_wdPic.smuv.y) > allow);
+    /* 🐾 귀 — 반대쪽 귀의 같은 자리(human-ear.js mirrorUv). 파츠 — 같은 파츠 안에서 좌우 되쏘기. */
+    let m=null, mg=g, mt=tgt;
+    if(_wdPic.ear){
+      mt=_wdPic.tgts.find(t=>t!==tgt) || null;
+      const om=mt && mt.wrp.userData.picMeshes[tgt.wrp.userData.picMeshes.indexOf(hit.object)];
+      m=om ? humanEar.mirrorUv(hit, om) : null;
+      if(mt){
+        mg=mt.user.getContext('2d');
+        mg.lineCap='round'; mg.lineJoin='round'; mg.lineWidth=_wdPic.size;
+        mg.globalCompositeOperation=g.globalCompositeOperation; mg.strokeStyle=_wdPic.color;
+      }
+    } else {
+      m=mirrorUVOn(hit, hit.object, wdCam, _wdPicMirrorCx(hit.object),
+                   (ray, mesh)=>_picIntersect(ray,[mesh]), _wdPicMirrorOff(hit.object));
+    }
+    if(m && mt){
+      // 귀는 본 획이 솔기에서 끊기면 반대쪽도 끊는다(다른 캔버스라 UV 튐만으로는 못 본다) · 파츠는 예전 그대로
+      const mj = !!((_wdPic.ear && jumped) || (_wdPic.smuv && Math.hypot(m.x-_wdPic.smuv.x, m.y-_wdPic.smuv.y) > allow));
       const mx=m.x*CANVAS_SZ, my=m.y*CANVAS_SZ;
-      strokeSeg(g, mj?null:_wdPic.sx, mj?null:_wdPic.sy, mx, my);
+      strokeSeg(mg, mj?null:_wdPic.sx, mj?null:_wdPic.sy, mx, my);
       _wdPic.sx=mx; _wdPic.sy=my; _wdPic.smuv={x:m.x, y:m.y};
+      mg.globalCompositeOperation='source-over';
+      if(mt!==tgt) _picBlit(mt.wrp);
     }
     else { _wdPic.sx=_wdPic.sy=null; _wdPic.smuv=null; }
   }
   g.globalCompositeOperation='source-over';
-  _picBlit(_wdPic.wrp);
+  _picBlit(tgt.wrp);
 }
 /* 대칭 되쏘기를 표면에서 얼마나 물러나 시작할까 — 이 메쉬 크기에 맞춘다.
    ⚠️ 상수 0.6(얼굴 기준)을 옷에 그대로 쓰면 몸통 반대편이 아니라 앞쪽 천에서 출발한다.
@@ -21247,7 +21320,7 @@ async function _picLoad(wrp, src){
      그리던 획이 저장본으로 덮여 사라진다. */
 function applyPartPic(wrp, src){
   if(!wrapperHasPic(wrp)) return;
-  if(_wdPic.on && _wdPic.wrp === wrp) return;
+  if(_wdPic.on && _wdPic.tgts.some(t=>t.wrp === wrp)) return;
   const v = (typeof src === 'string' && src) ? src : null;
   /* 아무도 안 그린 파츠는 **손대지 않는다.**
      [왜] 층을 만드는 순간 원본 map 이 캔버스 텍스처로 갈아 끼워진다. 그린 것이 없으면 그림도
@@ -21516,7 +21589,8 @@ const WD_DESK_TAB = '__desk_model__';
 /* 🐾 «귀» 도 가상 탭이다 — 위와 같은 이유로 PART_CATS 에 안 넣는다(wd-ear.js 머리말). */
 /* 모듈이 없으면 탭이 안 보이는 빈 껍데기 — 호출하는 곳마다 null 을 묻지 않게 */
 const WD_EAR_OFF = { TAB:'__ear__', available:()=>false, isActive:()=>false, render(){}, syncGizmo(){}, hideRow:()=>false,
-  onGizmoChange(){}, scaleStep:()=>false, pickAt:()=>false, onEarAttached(){}, copyIntoDraft(){}, commit:()=>false };
+  onGizmoChange(){}, scaleStep:()=>false, pickAt:()=>false, onEarAttached(){}, copyIntoDraft(){}, commit:()=>false,
+  picTarget:()=>null, setPic(){} };
 const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.createWdEar({
   humanEar, HumanEar, doc:document,
   getTab:()=>currentWdTab,
@@ -21526,6 +21600,9 @@ const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.c
   setGizmoMode:()=>setWdGizmoMode(wdGizmoMode),
   earTypes:()=>window.ANIMAL_EAR_TYPES || [],
   material:_humanEarMat,
+  decorate:(w)=>_humanEarPic(w, ensureWdDraft()),
+  isDrawing:()=>_wdPic.on,
+  onSynced:()=>{ try{ refreshWdPicUI(); }catch(_){} },
   toast:(m)=>{ if(typeof toast==='function') toast(m); },
   rerender:()=>renderWardrobe(),
 });
@@ -31023,6 +31100,8 @@ function serializeDefForNetwork(def){
     }catch(_){}
     if(_picStripped) console.warn('[파츠 그림] 업로드 안 된 그림 ' + _picStripped + '장을 방 전송에서 뺐습니다 — 내 화면에는 그대로 있고, 다음 저장 때 다시 올립니다.');
   }
+  /* 🐾 귀 그림도 URL 만 — 위 파츠 그림 안전망과 같은 이유(업로드 실패 때 dataURL 이 남는다) */
+  ['earPicL','earPicR'].forEach(k=>{ if(typeof out[k]==='string' && out[k].startsWith('data:')) delete out[k]; });
   _defPayloadDiag(out);
   return out;
 }
@@ -31252,6 +31331,9 @@ function _charIdentityFingerprint(def){
     animalEarL: def.animalEarL||null, animalEarR: def.animalEarR||null,
     /* 🐾 사람 귀 — defToBase·applyCharToSeat 가 읽어서 모양을 바꾸는 값(아래 동물 묶음과 같은 이유) */
     earL: def.earL||null, earR: def.earR||null, earAdj: def.earAdj||null,
+    /* 그림은 URL 이면 통째로 — _imgSig 는 앞 32자만 보는데 Storage URL 은 그 자리가 전부 같다(동물 …Url 과 같은 처리) */
+    earPicL: (typeof def.earPicL==='string' && !def.earPicL.startsWith('data:')) ? def.earPicL : _imgSig(def.earPicL),
+    earPicR: (typeof def.earPicR==='string' && !def.earPicR.startsWith('data:')) ? def.earPicR : _imgSig(def.earPicR),
     animalBody: _imgSig(def.animalBody), animalBodyUrl: def.animalBodyUrl||null,
     /* ★ [제보] "F1 으로 캐릭터를 바꿔도 이미 방에 있는 상대 화면엔 반영되지 않는다."
        아래 네 묶음이 지문에서 빠져 있었다. 전부 animal.js buildAnimalBase 가 **실제로 읽어서

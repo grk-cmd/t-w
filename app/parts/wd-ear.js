@@ -4,13 +4,16 @@
    app.js 보다 먼저 로드되고, app.js 가 createWdEar(deps) 로 필요한 것만 넘긴다.
 
    [저장] 꾸미기 창의 규약대로 초안(draft)에만 쓰고, 저장(_commitWdDraftNow)에서 캐릭터 def 로 옮긴다.
-     def.earL · def.earR = ANIMAL_EAR_TYPES 의 key(없으면 필드 없음) · def.earAdj = {L,R} 조정값.
+     def.earL · def.earR = ANIMAL_EAR_TYPES 의 key(없으면 필드 없음) · def.earAdj = {L,R} 조정값 ·
+     def.earPicL · def.earPicR = 귀 그림(Storage URL — 올리기 전 잠깐은 dataURL, 방으로는 안 나간다).
+   [그리기] 꾸미기의 ✎ 그리기 줄을 그대로 쓴다(app.js _wdPic). 대상이 «한 파츠» 가 아니라 «좌·우 귀 둘» 이라
+     picTarget() 이 두 대상을 넘기고, 대칭은 human-ear.js mirrorUv 로 반대쪽 귀에 같은 획을 긋는다.
+     귀 바탕색 줄은 없다 — 흰색으로 시작하고 색은 그리기로만(2026-10-08 결정).
    [동물] 동물 캐릭터는 생성기에서 귀를 정하므로 이 탭을 숨긴다. */
 (function(){
 'use strict';
 
 const WD_EAR_TAB = '__ear__';
-const EAR_ICON = { cat:'🐱', bear:'🐻', rabbit:'🐰', puppy:'🐶', fold:'🐱' };
 const SIDE_LABEL = { L:'왼쪽 귀', R:'오른쪽 귀' };
 const EAR_SCALE_MIN = 0.3, EAR_SCALE_MAX = 2.5;
 
@@ -18,7 +21,6 @@ function createWdEar(deps){
   const HE = deps.humanEar, H = deps.HumanEar;
   const doc = deps.doc;
   let side = 'L';
-  let link = null;            // 좌우 같이 — null 이면 처음 그릴 때 def 에서 정한다(양쪽이 같으면 켬)
 
   const available = (def)=>!!def && !def.animal;
   const isActive = ()=>deps.getTab() === WD_EAR_TAB;
@@ -37,14 +39,18 @@ function createWdEar(deps){
   /* 한쪽(또는 양쪽) 귀를 바꾼다 — 초안에 쓰고 미리보기에 바로 붙인다. 귀가 바뀌면 조정할 쪽도 그리로 옮긴다. */
   function pick(sides, type){
     const def = deps.getDraft(); if(!def) return;
-    sides.forEach(s=>{ if(type) def['ear' + s] = type; else delete def['ear' + s]; });
+    sides.forEach(s=>{
+      /* 귀 종류가 바뀌면 그 쪽 그림은 버린다 — 종류마다 UV 배치가 달라서 옛 그림이 엉뚱한 자리에 묻는다 */
+      if((def['ear' + s] || null) !== (type || null)) delete def['earPic' + s];
+      if(type) def['ear' + s] = type; else delete def['ear' + s];
+    });
     const root = deps.getPreviewRoot();
     if(root) sides.forEach(s=>{
       const want = def['ear' + s] || null;
       HE.attachSide(root, s, want, adjOf(def, s), {
         material:deps.material,
         isStale:()=>{ const d = deps.getDraft(); return !d || (d['ear' + s] || null) !== want; },
-        onAttach:()=>{ if(isActive() && side === s) syncGizmo(); },
+        onAttach:(w)=>{ if(deps.decorate) deps.decorate(w); if(isActive() && side === s) syncGizmo(); },
       });
     });
     if(type && sides.indexOf(side) < 0) side = sides[0];
@@ -52,53 +58,38 @@ function createWdEar(deps){
     deps.rerender();
   }
 
-  function _card(label, icon, on, onclick, none){
-    const c = doc.createElement('div');
-    c.className = 'wd-card' + (none ? ' none-card' : '') + (on ? ' on' : '');
-    if(none) c.textContent = label;
-    else {
-      const i = doc.createElement('span'); i.textContent = icon;
-      const n = doc.createElement('span'); n.className = 'nm'; n.textContent = label;
-      c.appendChild(i); c.appendChild(n);
-    }
-    c.onclick = onclick;
-    return c;
-  }
-  function _grid(cur, onPick){
-    const g = doc.createElement('div'); g.className = 'wd-grid';
-    g.appendChild(_card('없음', '', !cur, ()=>onPick(null), true));
+  /* 동물 생성기 «2 귀» 화면(animal.js renderEarLists)과 같은 모양 — 왼쪽 · 오른쪽 상자를 늘 따로 둔다.
+     상자 · 버튼 스타일(cr-groupbox · skin-sw)은 앱 공용이라 그대로 쓴다. */
+  function _box(s, cur){
+    const box = doc.createElement('div'); box.className = 'cr-groupbox wd-ear-box';
+    const lab = doc.createElement('span'); lab.className = 'cr-groupbox-label'; lab.textContent = SIDE_LABEL[s];
+    const row = doc.createElement('div'); row.className = 'skin-row wd-ear-row';
+    const btn = (text, on, onclick)=>{
+      const b = doc.createElement('button');
+      b.type = 'button'; b.className = 'skin-sw wd-ear-sw' + (on ? ' on' : ''); b.textContent = text; b.title = text;
+      b.onclick = onclick;
+      return b;
+    };
+    row.appendChild(btn('없음', !cur, ()=>pick([s], null)));
     (deps.earTypes() || []).forEach(t=>{
       if(!t || !t.key) return;
-      g.appendChild(_card(t.label || t.key, EAR_ICON[t.key] || '🐾', cur === t.key, ()=>onPick(t.key)));
+      const label = t.label || t.key;
+      row.appendChild(btn(label, cur === t.key, ()=>pick([s], t.key)));
     });
-    return g;
-  }
-  function _sub(text){
-    const d = doc.createElement('div'); d.className = 'wd-ear-sub'; d.textContent = text; return d;
+    box.appendChild(lab); box.appendChild(row);
+    return box;
   }
 
   function render(wrap){
     const def = deps.getDraft();
     if(!def){ wrap.innerHTML = '<div class="wd-empty"><span class="ic">🐾</span>캐릭터를 먼저 실행해 주세요.</div>'; return; }
     const st = HE.readDef(def);
-    if(link === null) link = (st.L === st.R);
     const sec = doc.createElement('div'); sec.className = 'wd-cat';
     const head = doc.createElement('div'); head.className = 'wd-cat-head';
     const h3 = doc.createElement('h3'); h3.textContent = '🐾 귀';
-    const lab = doc.createElement('label'); lab.className = 'wd-ear-link';
-    const cb = doc.createElement('input'); cb.type = 'checkbox'; cb.checked = !!link;
-    cb.onchange = ()=>{ link = cb.checked; deps.rerender(); };
-    lab.appendChild(cb); lab.appendChild(doc.createTextNode(' 좌우 같이'));
-    head.appendChild(h3); head.appendChild(lab); sec.appendChild(head);
-    if(link){
-      // 양쪽이 다르면 어느 칸도 켜지 않는다 — 고르는 순간 양쪽이 같아진다
-      sec.appendChild(_grid(st.L === st.R ? st.L : undefined, t=>pick(['L', 'R'], t)));
-    } else {
-      sec.appendChild(_sub('◀ ' + SIDE_LABEL.L));
-      sec.appendChild(_grid(st.L, t=>pick(['L'], t)));
-      sec.appendChild(_sub(SIDE_LABEL.R + ' ▶'));
-      sec.appendChild(_grid(st.R, t=>pick(['R'], t)));
-    }
+    head.appendChild(h3); sec.appendChild(head);
+    sec.appendChild(_box('L', st.L));
+    sec.appendChild(_box('R', st.R));
     const tip = doc.createElement('div'); tip.className = 'wd-ear-tip';
     tip.textContent = '미리보기 아래에서 조정할 귀를 고르고 핸들로 옮겨요. 미리보기에서 귀를 눌러도 돼요.';
     sec.appendChild(tip);
@@ -151,10 +142,14 @@ function createWdEar(deps){
     if(bar) bar.style.display = 'flex';
     _renderRow(def);
     const w = previewWrap(side);
+    // 그리는 동안은 핸들을 안 붙인다 — 좌클릭의 임자가 붓이다(enterWdPicMode 가 뗀 것을 되붙이지 않게)
+    if(gz && deps.isDrawing && deps.isDrawing()){ gz.detach(); return; }
     if(gz){
       if(w){ gz.attach(w); deps.setGizmoMode(); }
       else gz.detach();   // 아직 파싱 중 — 붙으면 onAttach 가 다시 부른다
     }
+    // 귀는 늦게 붙는다 — 붙은 뒤에 연필(그리기) 버튼을 다시 맞춘다
+    if(deps.onSynced) deps.onSynced();
   }
 
   function setSide(s){
@@ -212,6 +207,26 @@ function createWdEar(deps){
     if(isActive() && root && root === deps.getPreviewRoot()) syncGizmo();
   }
 
+  /* 🖍️ 그리기 대상 — 귀 탭에서 미리보기에 붙어 있는 귀들. 대칭은 양쪽이 같은 종류일 때만(정점 짝이 맞아야 한다).
+     귀가 없으면 null(연필이 안 뜬다). */
+  function picTarget(){
+    if(!isActive()) return null;
+    const def = deps.getDraft(); if(!def) return null;
+    const st = HE.readDef(def);
+    const tgts = [];
+    ['L', 'R'].forEach(s=>{
+      const w = st[s] ? previewWrap(s) : null;
+      if(w && w.userData.picMeshes && w.userData.picMeshes.length) tgts.push({ side:s, wrapper:w });
+    });
+    if(!tgts.length) return null;
+    return { ear:true, targets:tgts, symOk:tgts.length === 2 && st.L === st.R };
+  }
+  /* 그림 저장 — 그리기 «완료» 가 부른다. v 가 없으면(다 지웠다) 필드를 지운다. */
+  function setPic(s, v){
+    const def = deps.getDraft(); if(!def) return;
+    if(v) def['earPic' + s] = v; else delete def['earPic' + s];
+  }
+
   /* 초안 만들 때 — 조정값은 깊은 복사(초안에서 고친 것이 저장 전에 캐릭터로 새지 않게) */
   function copyIntoDraft(draft, def){
     if(def.earAdj) draft.earAdj = JSON.parse(JSON.stringify(def.earAdj));
@@ -220,18 +235,23 @@ function createWdEar(deps){
   /* 저장 — 초안의 귀를 def 로 옮긴다. 바뀌었으면 true(호출자가 좌석 귀를 다시 붙인다).
      귀가 없는 쪽의 조정값은 남기지 않는다 — 방에 실리는 바이트를 줄인다. */
   function commit(def, draft){
-    const before = JSON.stringify([def.earL || null, def.earR || null, def.earAdj || null]);
+    const snap = (d)=>JSON.stringify([d.earL || null, d.earR || null, d.earAdj || null, d.earPicL || null, d.earPicR || null]);
+    const before = snap(def);
     const st = HE.readDef(draft);
-    ['L', 'R'].forEach(s=>{ if(st[s]) def['ear' + s] = st[s]; else delete def['ear' + s]; });
+    ['L', 'R'].forEach(s=>{
+      if(st[s]) def['ear' + s] = st[s]; else delete def['ear' + s];
+      const pic = st[s] && typeof draft['earPic' + s] === 'string' ? draft['earPic' + s] : null;
+      if(pic) def['earPic' + s] = pic; else delete def['earPic' + s];
+    });
     const adj = {};
     ['L', 'R'].forEach(s=>{ if(st[s]) adj[s] = st.adj[s]; });
     if(adj.L || adj.R) def.earAdj = adj; else delete def.earAdj;
-    return before !== JSON.stringify([def.earL || null, def.earR || null, def.earAdj || null]);
+    return before !== snap(def);
   }
 
   return { TAB:WD_EAR_TAB, available, isActive, render, syncGizmo, hideRow, setSide, reset, mirror,
-           onGizmoChange, scaleStep, pickAt, onEarAttached, copyIntoDraft, commit,
-           side:()=>side, link:()=>link };
+           onGizmoChange, scaleStep, pickAt, onEarAttached, copyIntoDraft, commit, picTarget, setPic,
+           side:()=>side };
 }
 
 const api = { WD_EAR_TAB, createWdEar };
