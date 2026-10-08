@@ -1895,7 +1895,7 @@ function _hitsSkipHidden(hits){
 }
 function _clearHiddenSeats(){ _hiddenSeatIds.clear(); }
 
-/* 지금 날고 있는 좌석 수. frame() 의 비포커스 프레임 상한(FPS_UNFOCUSED)을 비행 동안만
+/* 지금 날고 있는 좌석 수. frame() 의 비포커스 프레임 상한(FrameBudget.FPS_UNFOCUSED)을 비행 동안만
    비켜 가는 데 쓴다 — 20fps 로는 빠르게 튕기는 움직임이 뚝뚝 끊겨 보인다.
    ★ seats 를 매 프레임 훑지 않고 세어 두는 이유: 이 값은 상한 검사보다 **먼저** 읽히고,
      그 검사는 rAF 가 올 때마다(초 60회) 돈다. */
@@ -4037,11 +4037,11 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
     canvasW = innerWidth;
     canvasH = innerHeight;
     // 설정에서 "저해상도(도트) 렌더"를 켰으면 pixelRatio를 낮춰 도트 느낌 (성능도 가벼워짐)
-    /* 🍎 [Mac 제보 2026-09-23 «굉장히 버벅인다»] 실행 화면은 **화면 전체 크기**의 투명 캔버스다. 레티나(DPR 2)면 픽셀이 4배 —
-       안티앨리어싱 · 로그 깊이 버퍼까지 얹혀 mac 에서 가장 큰 상시 비용이다. mac 은 MAC_RUN_MAX_PR 로 누른다(1.5 = 픽셀 56%).
-       ⚠️ 캐릭터가 조금 덜 선명해질 수 있다 — 실기기에서 보고 조정. Windows 는 예전 그대로(DPR 2 가 드물다). */
-    const _prCap = _IS_MAC_RENDER ? MAC_RUN_MAX_PR : 2;
-    const wantPR = dotRenderEnabled ? 1 : Math.min(devicePixelRatio,_prCap);
+    /* 🍎🪟 실행 화면은 **화면 전체 크기**의 투명 캔버스다. DPR 2 면 픽셀이 4배 — 안티앨리어싱 · 로그 깊이 버퍼까지 얹혀
+       가장 큰 상시 비용이다([Mac 제보 2026-09-23 «굉장히 버벅인다»] · [Windows 제보 «켜 두면 크롬이 버벅인다»]).
+       mac · Windows 모두 FrameBudget.RUN_MAX_PR(1.5 = 픽셀 56%)로 누른다. 도트 렌더면 1.
+       ⚠️ 캐릭터가 조금 덜 선명해질 수 있다 — 실기기에서 보고 조정. */
+    const wantPR = (typeof FrameBudget !== 'undefined') ? FrameBudget.runPixelRatio(devicePixelRatio, dotRenderEnabled) : (dotRenderEnabled ? 1 : Math.min(devicePixelRatio, 1.5));
     if(renderer.getPixelRatio() !== wantPR) renderer.setPixelRatio(wantPR);
     canvas.style.imageRendering = dotRenderEnabled ? 'pixelated' : 'auto';
   } else {
@@ -40146,18 +40146,17 @@ function setClip(seat,state){ if(!seat.mixer)return; const a=seat.actions[state]
   if(seat.current)seat.current.fadeOut(0.3); a.reset().fadeIn(0.3).play(); seat.current=a;}
 
 let prev=performance.now();
-/* 🔋 절전 — 다른 앱을 쓰는 동안엔 프레임 수를 낮춘다.
-   이 창은 화면 전체를 덮는 투명 WebGL 오버레이라, 60fps로 계속 그리면 GPU를 항상 점유한다.
-   크롬 스크롤·영상처럼 GPU 합성을 쓰는 작업과 경합해 '스크롤이 버벅인다'로 나타난다.
+/* 🔋 절전 — 프레임 상한은 frame-budget.js(FrameBudget)가 정한다. 요약: 최대 60 · 포커스 있어도 손 안 대면 30 ·
+   다른 창을 보는 중이면 20. 이 창은 화면 전체를 덮는 투명 WebGL 오버레이라, 많이 그릴수록 크롬 스크롤 · 영상처럼
+   GPU 합성을 쓰는 작업과 경합한다(제보: RTX 3060 Ti · 고주사율 모니터에서 크롬이 버벅임).
    캐릭터는 계속 움직여야 하므로 멈추지는 않고 상한만 둔다(dt는 그만큼 커져 속도는 그대로 유지).
-   ★ 0으로 두면 절전 없음(항상 최대). 더 아끼려면 20 정도로 낮춰도 된다. */
-const FPS_UNFOCUSED = 20;   // ★ 비포커스(다른 창 볼 때) 프레임 상한. 30→20으로 낮춰 유휴 시 GPU/CPU 부담 감소.
-                           //   ※ 브라우저 스크롤 멈춤(GPU 합성 표면 점유) 문제와는 무관함이 실험으로 확인됨(2026-07-25).
-                           //     그 문제는 프레임 수가 아니라 '오버레이가 GPU 합성 표면을 점유한다'는 사실 자체가 원인.
-                           //   내 앱을 볼 땐(_appFocused=true) 상한 미적용 — 캐릭터는 항상 부드러움.
+   ※ 브라우저 스크롤 '멈춤'(GPU 합성 표면 점유)은 프레임 수와 무관함이 실험으로 확인됨(2026-07-25) —
+     그건 오버레이가 표면을 잡는다는 사실 자체가 원인이다. 상한은 '버벅임'(GPU 부하) 쪽을 줄인다.
+   ★ frame-budget.js 가 안 실렸으면(검사 등) 상한 없이 돈다. */
+const _FB = (typeof FrameBudget !== 'undefined') ? FrameBudget : null;
+const _frameBudget = _FB ? _FB.createFrameBudget({ now: ()=>performance.now() }) : null;
 let _appFocused = true;
-let _lastFrameAt = 0;
-/* 🔥 상한 임시 해제 — **만지는 동안에는 비포커스여도 최대 프레임으로 돌린다.**
+/* 🔥 상한 임시 해제 — **만지는 동안에는 비포커스여도 60fps(FrameBudget.FPS_ACTIVE)로 돌린다.**
    [제보] "다른 브라우저를 띄워 둔 채 캐릭터를 클릭하면 앱이 무겁고 버벅인다. 앱을 활성화하면 멀쩡하다."
    [원인] 위 상한이 20fps 다. 다른 창을 보고 있으면 프레임 간격이 50ms 라, 그 상태에서 캐릭터를
      누르거나 끌면 반응이 한 박자씩 늦게 그려진다 — 앱이 느려진 것처럼 읽힌다. 절전은 **유휴일 때**
@@ -40170,13 +40169,39 @@ let _lastFrameAt = 0;
 const UI_HOT_MS = 1500;
 let _uiHotUntil = 0;
 function _uiHot(ms){ const t = performance.now() + (ms || UI_HOT_MS); if(t > _uiHotUntil) _uiHotUntil = t; }
-/* 이번 프레임을 건너뛸 것인가 — 상한 판정을 한 곳에 모은다(검증기도 여기를 본다). */
+/* 포커스가 있을 때 30 으로 내려가지 않게 막는 «하는 중» — 춤 · 입력칸 · 꾸미기/생성기.
+   DOM 을 보므로 0.5초에 한 번만 다시 잰다(매 프레임 querySelector 를 안 부르게). */
+let _fbBusyAt = -1e9, _fbBusy = false;
+function _fbIsBusy(now){
+  if(now - _fbBusyAt < 500) return _fbBusy;
+  _fbBusyAt = now;
+  let b = false;
+  try{
+    if(creatorOpen) b = true;
+    else if(seats.some(s=>s._danceStartAt)) b = true;
+    else {
+      const a = document.activeElement;
+      if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)) b = true;
+      else if(document.querySelector('#wardrobePanel.on, #wdPreviewPanel.on')) b = true;
+    }
+  }catch(_){}
+  return (_fbBusy = b);
+}
+/* 지금 상한 fps — 상한 판정을 한 곳에 모은다(검증기도 여기를 본다). 0 = 상한 없음 */
+function _frameCap(now){
+  if(!_frameBudget) return 0;
+  return _FB.pickFps({
+    hot: !!_flyActive || (typeof drag !== 'undefined' && !!drag) || now < _uiHotUntil,   // 🪑 비행 · 끄는 중 · 방금 누름
+    focused: _appFocused,
+    runMode: document.body.classList.contains('runmode'),
+    busy: _appFocused && _fbIsBusy(now),
+    idleMs: _frameBudget.idleMs(now),
+  });
+}
+/* 이번 프레임을 건너뛸 것인가. 그린다고 답하면 다음 예정 시각이 잡힌다(admit). */
 function _frameCapped(now){
-  if(_appFocused || FPS_UNFOCUSED <= 0) return false;   // 내 앱을 보는 중 = 항상 최대
-  if(_flyActive) return false;                          // 🪑 비행 중 예외(기존)
-  if(typeof drag !== 'undefined' && drag) return false;  // 끌고 있는 중 — 손에 붙어 있어야 한다
-  if(now < _uiHotUntil) return false;                   // 방금 만졌다
-  return (now - _lastFrameAt) < (1000 / FPS_UNFOCUSED);
+  if(!_frameBudget) return false;
+  return !_frameBudget.admit(now, _frameCap(now));
 }
 /* 🩺 화면 멈춤 감시 — 창이 가려지거나 오래 방치되면 브라우저가 requestAnimationFrame 호출을
    아예 멈추는 경우가 있다(클릭하면 다시 움직이던 그 현상). main.js 쪽 절전 해제 스위치로도
@@ -40196,22 +40221,39 @@ try{
 }catch(_){}
 try{
   _appFocused = document.hasFocus();
-  window.addEventListener('focus', ()=>{ _appFocused = true;  });
-  window.addEventListener('blur',  ()=>{ _appFocused = false; });
+  if(_frameBudget) _frameBudget.noteFocus(_appFocused, performance.now());
+  window.addEventListener('focus', ()=>{ _appFocused = true;  if(_frameBudget){ const t = performance.now(); _frameBudget.noteFocus(true, t); _frameBudget.poke(t); } });
+  window.addEventListener('blur',  ()=>{ _appFocused = false; if(_frameBudget) _frameBudget.noteFocus(false, performance.now()); });
+  /* «손댐» = 내 창에 온 누르기 · 키 · 휠. ⚠️ mousemove 는 세지 않는다 — 클릭 통과 중에도 들어와서
+     크롬 위로 커서만 지나가도 30 ↔ 60 이 오르내린다(영상 깜빡임 — _updateIgnore 🚫 주석). */
+  if(_frameBudget){
+    const _fbPoke = ()=>_frameBudget.poke(performance.now());
+    for(const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, _fbPoke, { capture: true, passive: true });
+  }
 }catch(_){}
-const MAC_RUN_MAX_PR = 1.5;
-const _IS_MAC_RENDER = (()=>{ try{ return /Mac/i.test(navigator.platform || ''); }catch(_){ return false; } })();
+/* 🩺 1분마다 진단 한 줄(tw-mouse-diag.log) — 실제로 그린 장 수 · 포커스 비율 · 상한 · 배율 · 캔버스 크기.
+   «앱 켜면 다른 프로그램이 버벅인다» 제보 때 로그만 받아서 우리 몫이 얼마인지 본다. 실행 화면에서만 적는다. */
+try{
+  setInterval(()=>{
+    if(!_frameBudget) return;
+    const t = performance.now();
+    const m = _frameBudget.takeMinute(t);
+    if(!document.body.classList.contains('runmode')) return;
+    if(!(window.companion && companion.diagNote)) return;
+    m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height;
+    companion.diagNote(_FB.diagLine(m));
+  }, 60000);
+}catch(_){}
 function frame(now, manual){
   if(!manual) _lastRafAt = now;   // 브라우저가 실제로 rAF를 불러준 시각(아래 감시 장치가 씀)
-  /* 포커스가 없을 때만 상한 적용 — 내 창을 보고 있을 땐 항상 최대 프레임
-     ★ 🪑 플라잉체어가 도는 동안은 상한을 비켜 간다. 20fps 에서는 dt 가 프레임당 0.05초로
+  /* 상한(_frameCapped → FrameBudget) — 최대 60 · 포커스 있어도 손 안 대면 30 · 다른 창을 보는 중이면 20
+     ★ 🪑 플라잉체어가 도는 동안은 60 으로 올린다. 20fps 에서는 dt 가 프레임당 0.05초로
        고정돼 빠르게 튕기는 캐릭터가 한 칸씩 순간이동하듯 끊겨 보인다(평소 앉아 있는 모션은
        느려서 20fps 로도 티가 안 났다). 최대 10초짜리 한시적 예외다. */
   if(_frameCapped(now)){
     if(!manual) requestAnimationFrame(frame);
     return;
   }
-  _lastFrameAt = now;
   const dt=Math.min((now-prev)/1000,0.05);prev=now;
   if(typeof updateIdleItemPlayback==='function') updateIdleItemPlayback();   // 어플 8: 자리비움 감지로 아이템 재생/정지 자동 전환
   if(typeof updateActivePartPlayback==='function') updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
@@ -45380,7 +45422,7 @@ if(desktopMode){
              canvas pointerdown 의 _uiHot(3000) 과 드래그 예외(_frameCapped)가 그 몫이다.
              잃는 것은 "누르기 직전의 hover 가 20fps" 뿐이고, 누르는 순간 3초가 열린다.
            ⚠️ 반응이 굼떠 보인다고 이 줄을 되살리지 말 것. 그러면 깜빡임이 그대로 돌아온다.
-             먼저 UI_HOT_MS 나 FPS_UNFOCUSED 를 손보고, 그래도 부족하면 "캐릭터 레이캐스트에
+             먼저 UI_HOT_MS 나 FrameBudget.FPS_UNFOCUSED(frame-budget.js) 를 손보고, 그래도 부족하면 "캐릭터 레이캐스트에
              맞았을 때만 · 짧은 창으로" 여는 식으로 **좁혀서** 다시 뚫을 것.
              (sim-unfocused-fps.js 검사 8 이 이 자리를 지킨다) */
         // ★ "클릭을 받는 상태로 전환"은 지연 없이 즉시 적용.

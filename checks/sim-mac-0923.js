@@ -58,7 +58,8 @@ say('── 4. 🍎 단축키');
 }
 say('── 5. 🐢 성능');
 {
-  chk(/const MAC_RUN_MAX_PR = 1\.5;/.test(CODE) && /const _prCap = _IS_MAC_RENDER \? MAC_RUN_MAX_PR : 2;/.test(CODE) && /Math\.min\(devicePixelRatio,_prCap\)/.test(CODE), 'mac 실행 화면 픽셀 비율 상한 1.5 · Windows 는 2 그대로');
+  /* 개정 95: 상한은 frame-budget.js(RUN_MAX_PR 1.5)로 옮겨 mac · Windows 가 같이 쓴다 — 값은 sim-frame-budget.js 가 본다 */
+  chk(/FrameBudget\.runPixelRatio\(devicePixelRatio, dotRenderEnabled\)/.test(CODE) && /const RUN_MAX_PR = 1\.5;/.test(read('frame-budget.js') || ''), '실행 화면 픽셀 비율 상한 1.5(mac · Windows 같이 — frame-budget.js)');
   chk(/if\(!\(document\.body\.classList\.contains\('desktop'\) && document\.body\.classList\.contains\('config'\)\)\) renderer\.render\(scene,camera\);/.test(CODE), '설정 화면(#scene 숨김)에서는 메인 3D 를 안 그린다');
 }
 say('── 6. 🖌️ 펜 앱(main.js)');
