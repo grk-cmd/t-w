@@ -4,7 +4,7 @@
    ・1절: wd-ear.js 를 가짜 DOM · 실제 three · 실제 human-ear.js 로 돌린다
    ・2절: 저장(commit) · 초안 복사(copyIntoDraft)
    ・1절 끝: ✎ 그리기 대상 · 그림 저장 · 종류를 바꾸면 그림 버림
-   ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장(지금 주인 · 원래 주인) · 탭 · 3-b 귀 그리기(대상 목록 · 대칭 · 저장 · 방 전송 · 지문) · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
+   ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장(지금 주인 · 원래 주인) · 탭 · 3-b 귀 그리기(대상 목록 · 대칭 · 저장 · 방 전송 · 지문) · 3-c 탑승 높이 · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
    ・4절: html · smoke.js
    [실행] wd-ear.js · human-ear.js · app.js · base-glb.js · ears-glb.js · desk-companion-prototype.html · smoke.js 가 있는 폴더에서.
      three 는 vendor/three/three.min.js 를 쓴다. */
@@ -239,10 +239,18 @@ const rp = grab(A, 'refreshWdPicUI');
 chk(/!wdEar\.isActive\(\)\)\{ bar\.style\.display='flex'; bar\.classList\.add\('pic-only'\);/.test(rp), '귀 탭에서는 바를 «연필만» 으로 줄이지 않는다(이동·회전이 귀 몫)');
 chk(/_earRow\.classList\.toggle\('drawing', _wdPic\.on\)/.test(rp), '그리는 동안 조정할 귀 줄 잠금');
 chk(/applyPartPic\(wrap, \(def && def\['earPic' \+ wrap\.userData\.humanEar\]\) \|\| null\)/.test(grab(A, '_humanEarPic')), '귀 그림 입히기 — 파츠 그림과 같은 applyPartPic');
-chk(/onAttach:\(w\)=>\{ _humanEarPic\(w, def\);/.test(grab(A, '_attachHumanEars')), '조립(좌석 · 미리보기)할 때 귀 그림을 입힌다');
+chk(/onAttach:\(w\)=>\{\s*_humanEarPic\(w, def\);/.test(grab(A, '_attachHumanEars')), '조립(좌석 · 미리보기)할 때 귀 그림을 입힌다');
 chk(/decorate:\(w\)=>_humanEarPic\(w, ensureWdDraft\(\)\)/.test(A) && /isDrawing:\(\)=>_wdPic\.on/.test(A) && /onSynced:\(\)=>\{ try\{ refreshWdPicUI\(\); \}/.test(A), 'wd-ear 에 그림 입히기 · 그리는 중 · 연필 갱신을 넘긴다');
 chk(/\['earPicL','earPicR'\]\.forEach\(k=>\{ if\(typeof out\[k\]==='string' && out\[k\]\.startsWith\('data:'\)\) delete out\[k\]; \}\);/.test(grab(A, 'serializeDefForNetwork')), '방 전송 — 귀 그림 dataURL 은 뺀다(URL 만)');
 chk(/earPicL: \(typeof def\.earPicL==='string' && !def\.earPicL\.startsWith\('data:'\)\) \? def\.earPicL : _imgSig\(def\.earPicL\)/.test(fp), '지문 — 귀 그림 URL 은 통째로(_imgSig 는 Storage URL 을 못 가른다)');
+
+say('── 3-c. app.js 배선 — 머리 위 탑승 높이');
+const mh = grab(A, '_measureHostHeadTop');
+chk(/const _humanEarHost = !!\(hostSeat\.charDef && !hostSeat\.charDef\.animal && \(hostSeat\.charDef\.earL \|\| hostSeat\.charDef\.earR\)\);/.test(mh)
+  && /if\(\(hostSeat\.charDef && hostSeat\.charDef\.animal\) \|\| _humanEarHost\)\{/.test(mh), '귀 달린 사람도 «귀 포함» 높이를 잰다(동물만 재던 것)');
+chk(/if\(!\(o\.userData && \(o\.userData\.animalEar \|\| o\.userData\.humanEar\)\)\) return;/.test(mh), '귀 박스에 사람 귀(humanEar)도 합친다 — 숨은 메쉬 제외 규칙은 그대로');
+chk(mh.indexOf('_bareTopY') >= 0 && mh.indexOf('_bareTopY') < mh.indexOf('_humanEarHost'), '«귀 제외» 높이(묘기 2층+)는 귀를 합치기 전에 잰다');
+chk(/const _s = seats\.find\(x=>x\.modelRoot === root\); if\(_s\) _remeasureRideHeadTop\(_s\);/.test(grab(A, '_attachHumanEars')), '귀가 늦게 붙으면 이미 타고 있는 좌석의 높이를 다시 잰다');
 
 const cam = grab(A, 'updateWdCam');
 chk(/_wdEarCamOn\(\)/.test(cam) && /WD_EAR_CAM_ZOOM/.test(cam) && /WD_EAR_CAM_LIFT/.test(cam), '귀 탭 — 미리보기 구도를 올리고 물러선다(귀가 화면 밖이던 것)');
