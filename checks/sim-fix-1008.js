@@ -224,6 +224,27 @@ say('§3 표정 도장 — 턱 아래로 감아 칠하기 (공 모양 머리 흉
   chk(/const EXTRA_MAX = 2;/.test(APP), 'EXTRA_MAX 는 그대로 2 — 예전 번짐 띠 보호 유지');
 }
 
+say('§5 호버해도 클릭이 바로 안 잡힘 — 일반 앱 첫 재판정 0.4초 · 펜 앱 근처 재질문');
+{
+  const MAIN = (() => { for (const c of ['main.js', '../main.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
+  if (!MAIN) chk(false, 'main.js 를 찾았다');
+  else {
+    chk(/const GHOST_MS = 2000;/.test(MAIN) && /const GHOST_MS_PLAIN = 400;/.test(MAIN), '펜 앱 2초 그대로 · 일반 앱 0.4초');
+    chk(/if\(now - _ghostSince < \(_penAppActive \? GHOST_MS : GHOST_MS_PLAIN\)\) return;/.test(MAIN), '★ 첫 찌르기 문턱만 앱 종류로 가른다');
+    chk(/const GHOST_REPOKE_MS = 3000;/.test(MAIN) && /const GHOST_MAX_POKES = 3;/.test(MAIN), '  찌르기 간격 · 포기 한도는 그대로 (렌더러 사다리와의 결합 유지)');
+    const fwd = (MAIN.match(/function _forwardFor\(\)\{[\s\S]*?\n\}/) || [''])[0];
+    chk(/if\(_lastIgnoreRequested\) return true;/.test(fwd) && /return !_penAppActive \|\| _penMouseNearChar;/.test(fwd), '  _forwardFor(클립 스튜디오 보호) 그대로');
+    const chkFn = (MAIN.match(/function _checkCursorNearChar\(\)\{[\s\S]*?\n\}/) || [''])[0];
+    const re = chkFn.slice(chkFn.indexOf('if(near && _penMouseNearChar && _lastIgnoreRequested){'), chkFn.indexOf('if(near !== _penMouseNearChar){'));
+    chk(re.length > 0 && /_now - _penRepokeAt >= PEN_REPOKE_MS/.test(re) && /_moved/.test(re) && /_sendHitTest\(\{ x: cx, y: cy \}\)/.test(re), '★ 펜 앱 — 근처 · 통과 중 · 움직였으면 150ms 간격으로 다시 묻는다');
+    chk(!/setIgnoreMouseEvents|_reapplyIgnoreMouse|_applyForwardOnly/.test(re), '  찌르기만 — 통과 설정을 다시 걸지 않는다(영상 깜빡임 방지)');
+    chk(/\) pen=' \+ \(_penAppActive \? 1 : 0\)\);/.test(MAIN), '「유령 의심」 로그 끝에 pen= (일반 · 펜 구분)');
+    // 흉내 — 500ms 폴링으로 일반 앱 첫 찌르기까지 걸리는 시간
+    const firstPoke = (pen) => { let since = 0; for (let t = 0; t <= 5000; t += 500) { if (!since) { since = t || 1; continue; } if (t - since >= (pen ? 2000 : 400)) return t; } return -1; };
+    chk(firstPoke(false) <= 1000 && firstPoke(true) >= 2000, '  흉내 — 일반 앱은 1초 안에 첫 재판정(' + firstPoke(false) + 'ms) · 펜 앱은 예전대로(' + firstPoke(true) + 'ms)');
+  }
+}
+
 say('');
 say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅');
 process.exit(fail ? 1 : 0);

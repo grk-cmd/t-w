@@ -1021,6 +1021,8 @@ function _reapplyIgnoreMouse(){
 //     - 반환 좌표가 처음부터 DIP라 screenToDipPoint 변환도 불필요
 //     - 펜 앱 활성일 때만 타이머가 돌아서 평소 오버헤드 0
 let _cursorWatchTimer = null;
+const PEN_REPOKE_MS = 150;   // 펜 앱 — 근처에 머무는 동안 다시 묻는 최소 간격(제보 #5)
+let _penRepokeAt = 0, _penRepokePt = null;
 function _syncCursorWatcher(){
   const shouldWatch = _penAppActive && mainWindow && !mainWindow.isDestroyed();
   if(shouldWatch && !_cursorWatchTimer){
@@ -1050,6 +1052,19 @@ function _checkCursorNearChar(){
        mousemove 가 끊겨서 렌더러가 스스로 판정할 기회가 이 penHitTest 뿐인데, 그 신호가
        캐릭터 반경 안에서만 왔기 때문이다. 실제 제보로 확인된 자리다. */
   const near = _ptOnOurUI(cx, cy);
+  /* 🩹 [2026-10-08 제보 #5] 펜 앱 — 근처(원 안)에 계속 있는데 아직 통과 중이면, 커서가 움직였을 때 150ms 간격으로 다시 묻는다.
+     [왜] 아래 분기는 near 가 **바뀔 때만** 묻는다. 원 안에 들어왔지만 메시 위가 아니었다가 메시 위로 옮겨 가면
+       near 는 계속 참이라 다시 묻지 않았다 — 펜 앱은 mousemove 가 끊겨 렌더러가 스스로 알 길이 없다.
+     ★ 찌르기만 한다. setIgnoreMouseEvents 를 다시 걸지 않는다(영상 깜빡임 — app.js 사다리 주석). forward 판정도 그대로.
+     ★ 움직였을 때만 — 가만히 있으면 같은 답이라 묻지 않는다. */
+  if(near && _penMouseNearChar && _lastIgnoreRequested){
+    const _now = Date.now();
+    const _moved = !_penRepokePt || Math.abs(pt.x - _penRepokePt.x) + Math.abs(pt.y - _penRepokePt.y) >= 2;
+    if(_moved && _now - _penRepokeAt >= PEN_REPOKE_MS){
+      _penRepokeAt = _now; _penRepokePt = { x: pt.x, y: pt.y };
+      try{ _sendHitTest({ x: cx, y: cy }); }catch(_){}
+    }
+  }
   if(near !== _penMouseNearChar){
     _penMouseNearChar = near;
     _applyForwardOnly();
@@ -1331,7 +1346,16 @@ function _guardStuckClickCapture(){
      캐릭터 위가 아니면 렌더러가 다시 통과로 확정하므로 오발동해도 손해가 없다.
    ⚠️ 이 장치가 자주 발동한다면 그 자체가 신호다. 진단 로그에 발동 기록이 쌓이면
      근본 원인(렌더러가 왜 판정을 놓쳤는가)을 따로 찾아야 한다. */
-const GHOST_MS = 2000;          // 커서가 캐릭터 위에 이만큼 머물렀는데도 통과면 재판정 요청
+const GHOST_MS = 2000;          // 커서가 캐릭터 위에 이만큼 머물렀는데도 통과면 재판정 요청(펜 앱)
+/* 🩹 [2026-10-08 제보 #5] 일반 앱(펜 앱 아님)에서는 첫 재판정을 0.4초로 당긴다.
+   [증상] 오버레이에 마우스를 올려도 클릭이 바로 안 잡히고 몇 초 흔들어야 된다.
+   [원인] 일부 전경 앱이 있으면 forward mousemove 가 끊긴다(electron#30808/#33281). 일반 앱에서는 50ms 커서 감시가
+     펜 앱일 때만 돌아서(_syncCursorWatcher), 남은 길이 이 유령 감지뿐인데 문턱이 2초였다 → 2.0~2.5초 지연.
+   ★ 바꾸는 것은 **첫 찌르기까지의 시간 하나**다. 찌르기 간격(GHOST_REPOKE_MS)과 포기 한도는 그대로 —
+     렌더러 사다리와의 결합(아래 GHOST_MAX_POKES 주석)을 건드리지 않는다. 판단은 여전히 렌더러가 하므로
+     캐릭터 반경 안이지만 메시 위가 아니면 렌더러가 통과로 다시 확정한다(오발동 손해 없음).
+   ⚠️ 펜 앱은 2초 그대로 둔다 — 그쪽은 50ms 감시가 따로 있고, 클립 스튜디오 보호 장치(_forwardFor · 사다리 생략)와 얽혀 있다. */
+const GHOST_MS_PLAIN = 400;
 const GHOST_REPOKE_MS = 3000;   // 재판정 요청 최소 간격(연달아 쏘지 않게)
 /* ★ [2026-08-25] 포기 한도. **이 장치가 렌더러의 자가 회복을 눌러 앉히고 있었다.**
      렌더러의 고착 회복 사다리(app.js __mouseKick)는 "mousemove 가 3초 이상 없다"를 발동 조건으로
@@ -1362,7 +1386,7 @@ function _guardGhostPassthrough(quietFor){
   }
   const now = Date.now();
   if(!_ghostSince){ _ghostSince = now; return; }
-  if(now - _ghostSince < GHOST_MS) return;
+  if(now - _ghostSince < (_penAppActive ? GHOST_MS : GHOST_MS_PLAIN)) return;
   if(now - _ghostPokedAt < GHOST_REPOKE_MS) return;
   const cx = pt.x - _mainWinScreenBounds.x, cy = pt.y - _mainWinScreenBounds.y;
   /* 🛑 포기 — 여기서 물러나야 렌더러 사다리가 돈다(위 GHOST_MAX_POKES 주석).
@@ -1391,7 +1415,7 @@ function _guardGhostPassthrough(quietFor){
     _sendHitTest({ x: cx, y: cy });
   }catch(_){}
   _diagLog('유령 의심 — 커서가 캐릭터 위에 ' + (now - _ghostSince) + 'ms 머물렀는데 통과 중, 렌더러에 재판정 요청'
-    + ' (' + _ghostPokes + '/' + GHOST_MAX_POKES + ')');
+    + ' (' + _ghostPokes + '/' + GHOST_MAX_POKES + ') pen=' + (_penAppActive ? 1 : 0));
 }
 
 /* ═══ [진단] 마우스 활성화 제보 추적 ══════════════════════════════════
