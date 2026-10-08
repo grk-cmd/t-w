@@ -169,53 +169,88 @@ export function overAverage(v: number | null, s: UsageStats): boolean {
 
 export interface MonthLine {
   label: string;
-  /** 이번 달 예상 사용량 설명(예: «약 345GB») */
+  /** 1일부터 지금까지 실제 사용량(예: «약 120GB»). 저장 용량은 지금 크기 */
+  toDateAmount: string;
+  /** 월말 예상 사용량 */
   amount: string;
+  /** 1일부터 지금까지 실제 금액 — 무료 한도를 이 합계에서 뺀 값 */
+  toDateUsd: number;
+  /** 월말 예상 금액 — 무료 한도를 달 합계에서 한 번 뺀 값 */
   usd: number;
 }
 
 export interface MonthEstimate {
-  /** YYYY-MM */
+  /** YYYY-MM (서울 달력) */
   month: string;
-  total: number;
+  /** 이번 달 일수 */
+  monthDays: number;
+  /** 1일부터 지금까지 실제 합 */
+  toDate: number;
+  /** 월말 예상 합 = 집계 일평균 × 이번 달 일수. 집계가 2시간보다 짧으면 null(들쭉날쭉) */
+  total: number | null;
   lines: MonthLine[];
-  /** 이번 달 중 기록이 없어 최근 평균으로 채운 지난날 수 */
-  filledDays: number;
+  /** 이번 달 첫 기록 날짜 — 이번 달 기록이 없으면 null */
+  since: string | null;
+  /** 1일부터 빠진 날 없이 기록이 있나 — 아니면 있는 날만으로 추정 */
+  fullMonth: boolean;
+  /** 추정에 쓴 날 수 — 기록 있는 지난날 + 오늘 지난 시간(소수) */
+  coveredDays: number;
 }
 
-const RATE_DAYS = 7;
 const daysInMonth = (month: string) => {
   const [y, m] = month.split('-').map(Number);
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
 };
 const gbOf = (bytes: number) => bytes / BYTES_PER_GB;
 const gbText = (g: number) => `약 ${g < 10 ? g.toFixed(1) : Math.round(g).toLocaleString()}GB`;
+const anyRecord = (d: DayUsage) => !!(d.db || d.functions || d.storage || d.hosting);
+/** 그날 가장 늦게 잰 시각 — 오늘이 얼마나 지났는지의 기준. */
+const lastAt = (d: DayUsage): number | null => {
+  const ats = [d.db?.at, d.functions?.at, d.storage?.at, d.hosting?.at].filter(
+    (v): v is number => typeof v === 'number',
+  );
+  return ats.length ? Math.max(...ats) : null;
+};
 
 /**
- * 이번 달(서울) 예상 청구액 — 쌓이는 값(다운로드 · 호출)은 «이번 달 지난날 실제 + 오늘부터 말일까지 × 최근 7일 평균»,
- * 지난날 중 기록이 없는 날(기록 시작 전)도 최근 평균으로 채운다. 저장 용량은 가장 최근 값으로 한 달치.
- * 무료 한도는 달 단위로 한 번 뺀다. days 는 오래된 날 → 오늘.
+ * 이번 달 청구액 — 서울 달력 1일 0시부터.
+ * 쌓이는 값(다운로드 · 호출): 지금까지 실제 = 이번 달 날짜 칸의 합(오늘은 지금까지),
+ *   월말 예상 = 그 합 ÷ 집계 일수 × 이번 달 일수. 집계 일수 = 기록 있는 지난날 + 오늘 지난 시간(소수).
+ *   1일부터 다 있으면 «지금까지 실제를 한 달로 늘린 값», 달 중간부터면 있는 날의 일평균으로 한 달을 채운다.
+ *   지난달 · 기록 없는 날의 값으로 채우지 않는다.
+ * 저장 용량(GB·월): 가장 최근 값의 한 달치가 월말 예상, 그중 지난 날만큼이 지금까지.
+ * 무료 한도는 달 합계에서 한 번 뺀다(지금까지 · 월말 예상 각각). days 는 오래된 날 → 오늘.
+ * Firebase · GCP 청구 달은 미국 태평양 시간 기준이라 서울 달력과 경계가 16~17시간 어긋난다 —
+ * 기록이 서울 날짜 칸이라 더 잘게 나눌 수 없어 서울 달력을 쓴다(한 달 기준 2% 남짓 차이).
  */
 export function monthEstimate(days: readonly DayUsage[]): MonthEstimate | null {
   const today = days.at(-1);
   if (!today) return null;
   const month = today.date.slice(0, 7);
-  const past = days.slice(0, -1);
-  const thisMonthPast = past.filter((d) => d.date.startsWith(month));
+  const monthDays = daysInMonth(month);
   const dayOfMonth = Number(today.date.slice(8, 10));
-  const anyRecord = (d: DayUsage) => !!(d.db || d.functions || d.storage || d.hosting);
-  const filledDays = dayOfMonth - 1 - thisMonthPast.filter(anyRecord).length;
+  const inMonth = days.filter((d) => d.date.startsWith(month));
+  const pastInMonth = inMonth.slice(0, -1);
+  const todayAt = lastAt(today);
+  const todayFrac =
+    todayAt === null ? 0 : Math.min(1, Math.max(0, (todayAt - kstDayStart(today.date)) / DAY_MS));
+  const elapsedDays = dayOfMonth - 1 + todayFrac;
 
-  const project = (value: (d: DayUsage) => number | null) => {
-    const recent = past
-      .map(value)
-      .filter((v): v is number => v !== null)
-      .slice(-RATE_DAYS);
-    const rate = recent.length ? recent.reduce((s, v) => s + v, 0) / recent.length : (value(today) ?? 0);
-    const known = thisMonthPast.map(value).filter((v): v is number => v !== null);
-    const missing = dayOfMonth - 1 - known.length;
-    const remaining = daysInMonth(month) - dayOfMonth + 1;
-    return known.reduce((s, v) => s + v, 0) + Math.max(0, missing) * rate + remaining * rate;
+  const since = inMonth.find(anyRecord)?.date ?? null;
+  const coveredDays = pastInMonth.filter(anyRecord).length + (anyRecord(today) ? todayFrac : 0);
+  const fullMonth = pastInMonth.length === dayOfMonth - 1 && inMonth.every(anyRecord);
+
+  /** 쌓이는 값 하나 → [지금까지 실제, 월말 예상]. 계열마다 기록 있는 날로 일수를 센다. */
+  const accumulate = (value: (d: DayUsage) => number | null): [number, number] => {
+    let sum = 0;
+    let n = 0;
+    for (const d of inMonth) {
+      const v = value(d);
+      if (v === null) continue;
+      sum += v;
+      n += d === today ? todayFrac : 1;
+    }
+    return [sum, n > 0 ? (sum / n) * monthDays : 0];
   };
   const latest = (pick: (d: DayUsage) => number | null | undefined) => {
     for (let i = days.length - 1; i >= 0; i--) {
@@ -225,45 +260,78 @@ export function monthEstimate(days: readonly DayUsage[]): MonthEstimate | null {
     return 0;
   };
 
-  const dbDown = gbOf(project((d) => d.db?.sentBytes ?? null));
-  const stDown = gbOf(project((d) => d.storage?.sentBytes ?? null));
-  const hostDown = gbOf(project((d) => d.hosting?.sentBytes ?? null));
-  const calls = project((d) => d.functions?.calls ?? null);
-  const dbStored = gbOf(latest((d) => d.db?.storedBytes));
-  const stStored = gbOf(latest((d) => d.storage?.storedBytes));
-
   const over = (v: number, free: number) => Math.max(0, v - free);
+  const flow = (
+    label: string,
+    value: (d: DayUsage) => number | null,
+    perGB: number,
+    freeGB: number,
+  ): MonthLine => {
+    const [now, end] = accumulate(value).map(gbOf);
+    return {
+      label,
+      toDateAmount: gbText(now),
+      amount: gbText(end),
+      toDateUsd: over(now, freeGB) * perGB,
+      usd: over(end, freeGB) * perGB,
+    };
+  };
+  const stored = (
+    label: string,
+    pick: (d: DayUsage) => number | null | undefined,
+    perGBMonth: number,
+    freeGB: number,
+  ): MonthLine => {
+    const g = gbOf(latest(pick));
+    const full = over(g, freeGB) * perGBMonth;
+    return {
+      label,
+      toDateAmount: gbText(g),
+      amount: gbText(g),
+      toDateUsd: (full * elapsedDays) / monthDays,
+      usd: full,
+    };
+  };
+  const [callsNow, callsEnd] = accumulate((d) => d.functions?.calls ?? null);
+  const callUsd = (c: number) => (over(c, FREE.functionsCallsMonth) / 1_000_000) * PRICES.functionsPerMillion;
+
   const lines: MonthLine[] = [
-    {
-      label: 'DB 다운로드',
-      amount: gbText(dbDown),
-      usd: over(dbDown, FREE.dbDownloadGBMonth) * PRICES.dbDownloadPerGB,
-    },
-    {
-      label: 'DB 저장',
-      amount: gbText(dbStored),
-      usd: over(dbStored, FREE.dbStorageGB) * PRICES.dbStoragePerGBMonth,
-    },
-    {
-      label: 'Storage 다운로드',
-      amount: gbText(stDown),
-      usd: over(stDown, FREE.storageDownloadGBMonth) * PRICES.storageDownloadPerGB,
-    },
-    {
-      label: 'Storage 저장',
-      amount: gbText(stStored),
-      usd: over(stStored, FREE.storageStorageGB) * PRICES.storageStoragePerGBMonth,
-    },
-    {
-      label: 'Hosting 다운로드',
-      amount: gbText(hostDown),
-      usd: over(hostDown, FREE.hostingDownloadGBMonth) * PRICES.hostingDownloadPerGB,
-    },
+    flow('DB 다운로드', (d) => d.db?.sentBytes ?? null, PRICES.dbDownloadPerGB, FREE.dbDownloadGBMonth),
+    stored('DB 저장', (d) => d.db?.storedBytes, PRICES.dbStoragePerGBMonth, FREE.dbStorageGB),
+    flow(
+      'Storage 다운로드',
+      (d) => d.storage?.sentBytes ?? null,
+      PRICES.storageDownloadPerGB,
+      FREE.storageDownloadGBMonth,
+    ),
+    stored(
+      'Storage 저장',
+      (d) => d.storage?.storedBytes,
+      PRICES.storageStoragePerGBMonth,
+      FREE.storageStorageGB,
+    ),
+    flow(
+      'Hosting 다운로드',
+      (d) => d.hosting?.sentBytes ?? null,
+      PRICES.hostingDownloadPerGB,
+      FREE.hostingDownloadGBMonth,
+    ),
     {
       label: '함수 호출',
-      amount: `약 ${Math.round(calls).toLocaleString()}회`,
-      usd: (over(calls, FREE.functionsCallsMonth) / 1_000_000) * PRICES.functionsPerMillion,
+      toDateAmount: `약 ${Math.round(callsNow).toLocaleString()}회`,
+      amount: `약 ${Math.round(callsEnd).toLocaleString()}회`,
+      toDateUsd: callUsd(callsNow),
+      usd: callUsd(callsEnd),
     },
   ];
-  return { month, total: lines.reduce((s, l) => s + l.usd, 0), lines, filledDays };
+  return {
+    month,
+    monthDays,
+    toDate: lines.reduce((s, l) => s + l.toDateUsd, 0),
+    total: coveredDays * DAY_MS >= PROJECT_MIN_MS ? lines.reduce((s, l) => s + l.usd, 0) : null,
+    lines,
+    since,
+    fullMonth,
+    coveredDays,
+  };
 }

@@ -1,6 +1,6 @@
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
-import { lastDateKeys } from '@/shared/lib';
+import { kstDateKey, lastDateKeys } from '@/shared/lib';
 import { METRICS_USAGE, toDayUsage, USAGE_DAYS, type DayUsage } from '../model/usage';
 
 const DAY_KEY = ['usage', 'day'];
@@ -13,8 +13,13 @@ export async function getDayUsage(db: Db, date: string): Promise<DayUsage> {
   return toDayUsage(date, await db.get<unknown>(`${METRICS_USAGE}/${date}`));
 }
 
+/** 받을 날 수 — 최근 days 일, 이번 달 1일이 그보다 앞이면(31일 달의 31일) 1일까지. */
+export function usageDayCount(nowMs: number, days: number = USAGE_DAYS): number {
+  return Math.max(days, Number(kstDateKey(nowMs).slice(8, 10)));
+}
+
 /**
- * 최근 days 일(서울 날짜 · 오래된 날 → 오늘). 날마다 따로 캐시해 새로고침은 어제 · 오늘만 다시 받는다.
+ * 최근 days 일 · 이번 달 1일부터 중 긴 쪽(서울 날짜 · 오래된 날 → 오늘). 날마다 따로 캐시해 새로고침은 어제 · 오늘만 다시 받는다.
  * «오늘» 은 받은 시점의 서버 기준 시각으로 정한다.
  */
 export function useRecentUsage(days: number = USAGE_DAYS) {
@@ -23,7 +28,7 @@ export function useRecentUsage(days: number = USAGE_DAYS) {
     queryKey: NOW_KEY,
     queryFn: async () => Date.now() + (await db.serverTimeOffset()),
   });
-  const dates = now.data === undefined ? [] : lastDateKeys(now.data, days);
+  const dates = now.data === undefined ? [] : lastDateKeys(now.data, usageDayCount(now.data, days));
   const recent = new Set(dates.slice(-2));
   return useQueries({
     queries: dates.map((date) => ({
