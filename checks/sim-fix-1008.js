@@ -284,6 +284,54 @@ say('§1-B 그래픽카드 · GPU 기능 상태 · 시험 스위치 기록');
   }
 }
 
+say('§13 꾸미기 초안 — 캐릭터를 바꾼 뒤 저장해도 원래 캐릭터에만');
+{
+  const cm = (APP.match(/async function _commitWdDraftNow\(silent\)\{[\s\S]*?\n\}/) || [''])[0];
+  const iG = cm.indexOf('if(draft._srcDef && draft._srcDef !== mySeat.charDef) return _commitWdDraftToOwner(draft, silent);');
+  const iW = cm.indexOf('const def=mySeat.charDef;');
+  chk(iG > 0 && iW > iG, '★ 저장 전에 초안 주인을 대조한다 (다르면 지금 캐릭터에 쓰지 않음)');
+  const sw = (APP.match(/function switchMainCharacter\(i\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk((sw.match(/_wdAfterMainSwap\(\);/g) || []).length === 2, '캐릭터 교체 · 자리 교체 두 갈래 모두 교체 뒤 초안을 정리한다');
+  const af = (APP.match(/function _wdAfterMainSwap\(\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(/if\(!editing\)\{ wdDraftDef = null; return; \}/.test(af), '  창이 닫혀 있으면 다시 쓰지 않고 초안만 버린다');
+  const src = (APP.match(/async function _commitWdDraftToOwner\(draft, silent\)\{[\s\S]*?\n\}/) || [''])[0];
+  let run = null;
+  try {
+    run = new Function('env', 'let wdDraftDef = env.draft; const {seats, slots, saveSlots, toast, Presence, pruneSeatPartsAgainstDef, applyEquippedPartsToSeat, fitModel} = env; const console = { warn(){} };\n'
+      + src + '\nreturn _commitWdDraftToOwner(env.draft, true).then(r => ({ r, left: wdDraftDef }));');
+  } catch (e) { say('  ' + e.message); }
+  if (!run) chk(false, '_commitWdDraftToOwner 를 꺼냈다');
+  else {
+    const mk = () => {
+      const A = { name: 'A', equippedParts: { hat: { id: 'old' } } }, B = { name: 'B', equippedParts: { hat: { id: 'b' } } };
+      const draft = Object.assign({}, A, { equippedParts: { hat: { id: 'ribbon' }, face: { id: 'blush' } }, partXfMemory: {} }); draft._srcDef = A;
+      const applied = [];
+      return { A, B, draft, applied, saved: 0, presence: 0 };
+    };
+    // 자리 교체 — A 는 자리추가 좌석으로 남아 있다
+    const t1 = mk();
+    const e1 = { draft: t1.draft, slots: [t1.A, t1.B], seats: [{ isMe: true, charDef: t1.B }, { isExtra: true, charDef: t1.A }],
+      saveSlots: () => t1.saved++, toast(){}, Presence: { active: () => true, updateDef: () => t1.presence++ },
+      pruneSeatPartsAgainstDef(){}, applyEquippedPartsToSeat: async (s, d) => t1.applied.push(d.name), fitModel(){} };
+    // 캐릭터 교체 — A 는 화면에 없고 슬롯에만 있다
+    const t2 = mk();
+    const e2 = Object.assign({}, e1, { draft: t2.draft, slots: [t2.A, t2.B], seats: [{ isMe: true, charDef: t2.B }], saveSlots: () => t2.saved++,
+      applyEquippedPartsToSeat: async (s, d) => t2.applied.push(d.name), Presence: { active: () => true, updateDef: () => t2.presence++ } });
+    // 원래 캐릭터를 찾을 수 없음
+    const t3 = mk();
+    const e3 = Object.assign({}, e2, { draft: t3.draft, slots: [t3.B], seats: [{ isMe: true, charDef: t3.B }], saveSlots: () => t3.saved++ });
+    Promise.all([run(e1), run(e2), run(e3)]).then(([r1, r2, r3]) => {
+      chk(t1.A.equippedParts.face && t1.A.equippedParts.hat.id === 'ribbon' && t1.B.equippedParts.hat.id === 'b' && !t1.B.equippedParts.face,
+        '★ 실행 — 자리 교체 뒤: A 에 저장 · B 는 그대로');
+      chk(t1.applied.join() === 'A' && t1.presence === 0 && t1.saved === 1 && r1.left === null, '  자리추가로 남은 A 좌석에만 입히고, 방에는 안 보낸다 · 초안 버림');
+      chk(t2.A.equippedParts.hat.id === 'ribbon' && t2.B.equippedParts.hat.id === 'b' && t2.applied.length === 0 && t2.saved === 1, '★ 실행 — 캐릭터 교체 뒤: 슬롯의 A 에만 저장 · B 는 그대로');
+      chk(r3.r === false && t3.B.equippedParts.hat.id === 'b' && t3.saved === 0 && r3.left === null, '  실행 — A 를 못 찾으면 아무 데도 안 쓴다');
+      done13();
+    });
+  }
+}
+let _done13 = null; const done13 = () => { if (_done13) _done13(); else _done13 = true; };
+
 say('§9 보관함 이동 — 연타 · 동기화 경쟁');
 {
   const mv = (APP.match(/async function doMoveCurSlotToBox\(\)\{[\s\S]*?\n\}/) || [''])[0];
@@ -303,9 +351,8 @@ say('§9 보관함 이동 — 연타 · 동기화 경쟁');
   const press = async () => { if (busy) return 'busy'; busy = true; try { await new Promise(r => setTimeout(r, 5)); moved++; } finally { busy = false; } return 'ok'; };
   Promise.all([press(), press(), press()]).then(rs => {
     chk(moved === 1 && rs.filter(x => x === 'busy').length === 2, '  흉내 — 세 번 연타해도 한 번만 옮긴다');
-    say('');
-    say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅');
-    process.exit(fail ? 1 : 0);
+    const fin = () => { say(''); say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅'); process.exit(fail ? 1 : 0); };
+    if (_done13 === true) fin(); else _done13 = fin;
   });
 }
 

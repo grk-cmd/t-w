@@ -9410,6 +9410,10 @@ async function _commitWdDraftNow(silent){
   if(_wdPic.on){ try{ await exitWdPicMode(true); }catch(_){} }
   const mySeat=findMySeat(); if(!mySeat||!mySeat.charDef) return false;
   const draft=wdDraftDef; if(!draft) return false;   // 편집한 적 없으면(초안 자체가 없으면) 저장할 것도 없음
+  /* 🔀 초안의 주인이 지금 주 캐릭터가 아니면(꾸미기를 연 채 캐릭터 교체 · 자리 교체) 원래 주인에게 저장한다.
+     [왜] 캐릭터 슬롯 버튼이 있는 #focusSettingsPanel 은 꾸미기 창의 «바깥 클릭» 예외라, 창을 연 채 교체할 수 있다.
+       예전엔 무조건 지금 주 캐릭터(def=mySeat.charDef)에 썼기 때문에 A 를 꾸미던 초안이 B 를 통째로 덮었다. */
+  if(draft._srcDef && draft._srcDef !== mySeat.charDef) return _commitWdDraftToOwner(draft, silent);
   const def=mySeat.charDef;
   def.equippedParts = JSON.parse(JSON.stringify(draft.equippedParts||{}));
   def.partXfMemory = JSON.parse(JSON.stringify(draft.partXfMemory||{}));
@@ -9433,6 +9437,43 @@ async function _commitWdDraftNow(silent){
   try{ if(typeof pruneUnownedGachaParts === 'function') pruneUnownedGachaParts(); }
   catch(e){ console.warn('[가챠] 커밋 후 정리 실패', e); }
   return true;
+}
+/* 🔀 주인이 바뀐 초안 — 원래 캐릭터(슬롯 객체 = 앉아 있으면 그 좌석의 charDef)에만 쓰고 초안은 버린다.
+   ★ 슬롯에도 좌석에도 없는 객체면(그 사이 슬롯을 다시 불러옴 등) 아무 데도 쓰지 않는다 — 엉뚱한 캐릭터를 덮는 것보다 낫다.
+   ⚠️ Presence 는 그 좌석이 지금 «나» 일 때만 — 자리추가 좌석은 로컬 전용이다. */
+async function _commitWdDraftToOwner(draft, silent){
+  const src = draft._srcDef;
+  const seat = seats.find(s => !s.remote && s.charDef === src) || null;
+  const inSlots = (typeof slots !== 'undefined') && slots.indexOf(src) >= 0;
+  wdDraftDef = null;   // 다음에 꾸미기를 열면 지금 주 캐릭터로 새 초안을 만든다
+  if(!seat && !inSlots){ console.warn('[꾸미기] 초안의 원래 캐릭터를 찾지 못해 저장하지 않았다'); return false; }
+  src.equippedParts = JSON.parse(JSON.stringify(draft.equippedParts||{}));
+  src.partXfMemory = JSON.parse(JSON.stringify(draft.partXfMemory||{}));
+  if(seat){
+    pruneSeatPartsAgainstDef(seat, src);
+    await applyEquippedPartsToSeat(seat, src);
+    try{ if(seat.gltfRoot && typeof fitModel==='function') fitModel(seat); }catch(_){}
+  }
+  if(typeof saveSlots==='function') saveSlots();
+  if(seat && seat.isMe && typeof Presence!=='undefined' && Presence.active()) Presence.updateDef(src);
+  if(!silent) toast('꾸민 내용은 원래 캐릭터에 저장했어요');
+  try{ if(typeof pruneUnownedGachaParts === 'function') pruneUnownedGachaParts(); }catch(_){}
+  return true;
+}
+/* 🔀 주 캐릭터가 바뀐 직후 — 열려 있던 꾸미기 초안을 원래 캐릭터에 저장하고, 미리보기를 새 캐릭터로 다시 그린다. */
+function _wdAfterMainSwap(){
+  if(!wdDraftDef) return;
+  const wd = document.getElementById('wardrobePanel'), gi = document.getElementById('gachaInvOverlay');
+  const editing = (wd && wd.classList.contains('on')) || (gi && gi.style.display && gi.style.display !== 'none');
+  /* 창이 닫혀 있으면 닫힐 때 이미 저장됐다 — 다시 쓰지 않고 남은 초안만 버린다(다른 경로가 옛 초안을 읽지 않게). */
+  if(!editing){ wdDraftDef = null; return; }
+  commitWdDraft(true).then(()=>{
+    const wp = document.getElementById('wdPreviewPanel');
+    if(wp && wp.classList.contains('on')){
+      try{ refreshWdPreviewChar(); }catch(_){}
+      try{ if(typeof window.refreshWardrobe==='function') window.refreshWardrobe(); }catch(_){}
+    }
+  }).catch(e=>console.warn('[꾸미기] 교체 뒤 저장 실패', e));
 }
 // ★ 요청사항: 우클릭으로 상세조정 패널을 안 열어도, 미리보기 바로 아래에 "지금 보고 있는 카테고리에
 //   장착된 파츠"의 색상(_col)을 바로 바꿀 수 있는 영역을 상시 표시. _col이 없는 파츠거나 아무것도
@@ -29886,6 +29927,7 @@ function switchMainCharacter(i){
     layoutSeats();
     renderCharSlots();
     if(typeof Presence!=='undefined' && Presence.active()) Presence.updateDef(d);   // 즉시 동기화(보통 솔로 상태지만 방어적으로)
+    _wdAfterMainSwap();   // 🔀 꾸미기를 연 채 바꿨으면 그 초안은 원래 캐릭터 몫이다
     toast('주 캐릭터를 바꿨어요');
     return;
   }
@@ -29899,6 +29941,7 @@ function switchMainCharacter(i){
   layoutSeats();
   renderCharSlots();
   if(typeof Presence!=='undefined' && Presence.active()) Presence.updateDef(d);   // 즉시 동기화
+  _wdAfterMainSwap();   // 🔀 꾸미기를 연 채 바꿨으면 그 초안은 원래 캐릭터 몫이다
   toast('캐릭터를 바꿨어요');
 }
 
