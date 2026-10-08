@@ -1,4 +1,4 @@
-export { getDayUsage, useRecentUsage, useRefreshRecentUsage } from './api/usage';
+export { getDayUsage, usageDayCount, useRecentUsage, useRefreshRecentUsage } from './api/usage';
 export {
   ALERT_MIN_DAYS,
   ALERT_RATIO,

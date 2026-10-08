@@ -43,3 +43,18 @@
   text-align: left;
   font-weight: normal;
 }
+
+.monthToDate {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+.monthTable thead th {
+  color: var(--soft);
+  font-size: 12px;
+  text-align: right;
+}
+
+.monthTable thead th:first-child {
+  text-align: left;
+}

@@ -25,6 +25,7 @@
         "_meta": {
           ".write": true,
           ".validate": "(!newData.child('channel').exists() || (newData.child('channel').isString() && newData.child('channel').val().matches(/^(workingroom|togetherroom)$/))) && (!newData.child('host').exists() || (newData.child('host').isString() && newData.child('host').val().length <= 40)) && (!newData.child('ts').exists() || newData.child('ts').isNumber())",
+          "restoredTs": { ".validate": "newData.isNumber()" },
           "tabs": {
             "$tabId": {
               ".validate": "$tabId.matches(/^s[12]$/) && newData.hasChildren(['name','ts']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 10 && newData.child('ts').isNumber()"
@@ -732,10 +733,41 @@
       }
     },
     "config": {
-      ".read": true,
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "minRoomVer": {
+        ".read": true,
         ".write": "root.child('admins').child(auth.uid).val() === true",
         ".validate": "newData.isString() && newData.val().length <= 20"
+      },
+      "minAppVer": {
+        ".read": true,
+        ".write": "root.child('admins').child(auth.uid).val() === true",
+        ".validate": "newData.isString() && newData.val().length <= 20"
+      },
+      "roomServer": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "on": { ".read": true, ".validate": "newData.isBoolean()" },
+        "follow": { ".read": true, ".validate": "newData.isBoolean()" },
+        "servers": {
+          "$name": {
+            ".read": true,
+            ".validate": "$name.matches(/^[a-z0-9][a-z0-9-]{0,31}$/) && newData.isString() && newData.val().length <= 200 && newData.val().matches(/^wss?:\\/\\/[A-Za-z0-9.-]+(:[0-9]{1,5})?$/)"
+          }
+        },
+        "allow": {
+          "$userId": {
+            ".read": true,
+            ".validate": "$userId.matches(/^u[0-9a-z]{6,40}$/) && newData.isString() && newData.val().matches(/^[a-z0-9][a-z0-9-]{0,31}$/)"
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    },
+    "roomDir": {
+      ".indexOn": ["srv"],
+      "$code": {
+        ".read": true,
+        ".write": false
       }
     },
     "invites": {

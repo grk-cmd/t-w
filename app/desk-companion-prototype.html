@@ -62,11 +62,15 @@
      리전·프로젝트는 parts/firebase-config.js(databaseURL 의 asia-southeast1 · projectId together-working)와 같다.
      와일드카드(*.cloudfunctions.net)로 넓히지 않았다 — 남의 함수로 나가는 길을 열 이유가 없다.
      ⚠️ 함수 리전을 바꾸면 이 두 줄과 firebase-init.js FUNCTIONS_REGION 을 같이 바꾼다. -->
+<!-- 🛰 connect-src 의 방 서버 — wss://rooms…(운영) · wss://rooms-dev…(dev) · ws://127.0.0.1:8787 · localhost:8787(로컬 시험).
+       앱이 실제로 붙는 주소는 parts/room-server-gate.js 가 한 번 더 거른다(운영 앱은 운영 주소만 · 로컬은 dev 앱만).
+       로컬은 포트 하나(8787)만 연다 — 모든 포트(*)를 열면 내 PC 의 다른 웹소켓(브라우저 디버그 포트 등)에도 닿을 수 있다.
+       ⚠️ 서버 주소를 바꾸면 두 줄 모두와 room-server-gate.js ROOM_SERVER_URLS 를 같이 바꾼다. -->
 <!-- ▼▼ 1단계 (지금 활성) — script-src 에 'unsafe-inline' 있음 ▼▼ -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://rooms.togetherworking.duckdns.org wss://rooms-dev.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 
 <!-- ▼▼ 2단계 — 위 줄을 주석 처리하고 이 줄의 주석을 벗기면 'unsafe-inline' 만 빠진다 ▼▼
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://rooms.togetherworking.duckdns.org wss://rooms-dev.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Desk Companion — 멀티 좌석 프로토타입</title>
@@ -4461,6 +4465,19 @@
   #wdGizmoBar.pic-only .wd-gizmo-btn:not(.wd-pencil){display:none;}
   /* 그리는 동안에는 이동·회전·크기를 잠근다 — 좌드래그의 임자가 붓이라 눌러도 헛돈다. */
   #wdGizmoBar.drawing .wd-gizmo-btn:not(.wd-pencil){opacity:.45;pointer-events:none;}
+  #wdEarAdjRow{display:flex;gap:4px;padding:4px 8px;align-items:center;flex-shrink:0;
+    border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face-2);border-radius:var(--win-radius-el) !important;}
+  #wdEarAdjRow .wd-ear-adj-cap{font-size:10px;color:var(--ink-soft);white-space:nowrap;}
+  #wdEarAdjRow .wd-gizmo-btn:disabled{opacity:.45;cursor:default;}
+  #wdEarAdjRow.drawing{opacity:.45;pointer-events:none;}   /* 그리는 동안 — 좌드래그의 임자가 붓이다 */
+  .wd-pic-btn:disabled{opacity:.45;cursor:default;}
+  #wdEarAdjRow .wd-gizmo-btn{flex:1 1 0;min-width:0;padding:3px 4px;white-space:nowrap;}
+  #wdEarAdjRow .wd-gizmo-btn.wd-ear-mini{flex:0 0 28px;padding:3px 0;}
+  /* 🐾 귀 탭 — 동물 생성기 «2 귀» 와 같은 상자 · 버튼(cr-groupbox · skin-sw 는 생성기 것). 크기만 꾸미기 창에 맞춘다 */
+  .wd-ear-box{margin:12px 0 4px;}
+  .wd-ear-row{flex-wrap:wrap;gap:4px;}
+  .wd-ear-row .skin-sw.wd-ear-sw{width:42px;height:40px;font-size:9.5px;line-height:1.1;color:var(--ink);background:var(--win-face-2);}
+  .wd-ear-tip{font-size:10px;color:var(--ink-soft);opacity:.85;margin:8px 2px 0;line-height:1.4;}
   #wdPicSection{flex-direction:column;gap:5px;padding:6px 8px;flex-shrink:0;
     border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   .wd-pic-row{display:flex;gap:4px;align-items:center;}
@@ -5044,6 +5061,8 @@
          켜지면 좌드래그의 임자가 기즈모에서 붓으로 넘어간다(우드래그 회전·휠 확대는 그대로). -->
     <button id="wdPencilBtn" class="wd-gizmo-btn wd-pencil" title="파츠에 직접 그리기" style="display:none;">✎</button>
   </div>
+  <!-- 🐾 귀 탭일 때만 — 조정할 귀(◀ 왼쪽 · 오른쪽 ▶) · ⇆ 대칭 복사 · ↺. 내용은 wd-ear.js 가 그린다 -->
+  <div id="wdEarAdjRow" style="display:none;"></div>
   <div id="wdPreviewColorSection" style="display:none;"></div>
   <!-- 🖍️ 그리기 줄 — 내용은 app.js 의 _buildWdPicSection 이 만든다. 그리는 동안에는 위 색상 줄이 내려간다
        (320px 창에 둘을 같이 펴면 세로가 넘친다). -->
@@ -7851,6 +7870,9 @@
 <script src="parts/chat-copy.js"></script>
 <script src="parts/chat-tabs.js"></script>   <!-- 💬 채팅 탭 규칙(window.ChatTabs) — app.js 보다 먼저 -->   <!-- 📋 대화 복사 형식(window.ChatCopy) — app.js 보다 먼저 -->
 <script src="parts/gl-recover.js"></script>   <!-- 🧯 WebGL 연결 끊김 감시(window.GlRecover) — app.js 보다 먼저 -->
+<script src="parts/human-ear.js"></script>   <!-- 🐾 사람 귀(꾸미기 › 머리 › 귀) — app.js 보다 먼저. 귀 GLB 는 ears-glb.js 가 나중에 채운다 -->
+<script src="parts/wd-ear.js"></script>   <!-- 🐾 꾸미기 › 머리 › 귀 탭 — app.js 보다 먼저(app.js 가 createWdEar 로 만든다) -->
+<script src="parts/uv-fill.js"></script>   <!-- 🪣 꾸미기 그리기 «채우기» — 누른 메쉬의 UV 자리만 칠한다 -->
 <script src="parts/app.js"></script>
 <script src="parts/myhome-desktop.js"></script>
 <script src="parts/mallang.js"></script>

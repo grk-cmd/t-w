@@ -5,7 +5,7 @@ import {
   useAnnounce,
   useRefreshAnnounce,
   useServerTimeOffset,
-} from '@/entities/announce';
+} from '@/entities/notice/announce';
 import { errorMessage, formatDate } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { useClearAnnounce, usePublishAnnounce } from '../model/useAnnounce';

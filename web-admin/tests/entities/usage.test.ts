@@ -7,6 +7,7 @@ import {
   monthEstimate,
   overAverage,
   toDayUsage,
+  usageDayCount,
   usageStats,
   type DayUsage,
 } from '@/entities/metrics/usage';
@@ -119,36 +120,102 @@ describe('일평균 · 오늘 환산 · 경고', () => {
   });
 });
 
-describe('이번 달 예상 청구액', () => {
+describe('이번 달 예상 청구액 — 서울 달력 1일 0시부터', () => {
   const G = 2 ** 30;
-  const d = (date: string, dbGB: number | null, calls = 0): DayUsage => ({
+  // 서울 정오(그날 12:00) — 오늘이 반나절 지났다
+  const noon = (date: string) => Date.parse(`${date}T03:00:00Z`);
+  const d = (date: string, dbGB: number | null, at = 1, calls = 0): DayUsage => ({
     date,
-    db: dbGB === null ? null : { sentBytes: dbGB * G, storedBytes: 2 * G, peakConnections: 0, at: 1 },
-    functions: dbGB === null ? null : { calls, byName: {}, at: 1 },
+    db: dbGB === null ? null : { sentBytes: dbGB * G, storedBytes: 2 * G, peakConnections: 0, at },
+    functions: dbGB === null ? null : { calls, byName: {}, at },
     storage: null,
     hosting: null,
   });
+  const dbLine = (est: NonNullable<ReturnType<typeof monthEstimate>>) =>
+    est.lines.find((l) => l.label === 'DB 다운로드')!;
 
-  it('지난날 실제 + 남은 날 × 최근 평균, 기록 전 날은 평균으로 채움, 무료 한도는 한 번', () => {
-    // 10월(31일) 3일 오늘 — 1일 기록 없음, 2일 12GB → 평균 12GB
+  it('지난달 값은 섞지 않는다 — 1일부터 지금까지 실제를 한 달로 늘림(오늘은 지난 시간만큼)', () => {
+    // 9월 말 하루 30GB, 10월은 하루 10GB. 오늘 10-03 정오까지 5GB.
+    // 예전 방식(지난날 + 남은 날 × 최근 7일 평균 — 9월 다섯 날이 섞임)은 20 + 29 × 24.3 ≈ 724GB → $714 였다.
     const est = monthEstimate([
-      d('2026-09-30', 12),
-      d('2026-10-01', null),
-      d('2026-10-02', 12),
-      d('2026-10-03', 5),
+      d('2026-09-26', 30),
+      d('2026-09-27', 30),
+      d('2026-09-28', 30),
+      d('2026-09-29', 30),
+      d('2026-09-30', 30),
+      d('2026-10-01', 10),
+      d('2026-10-02', 10),
+      d('2026-10-03', 5, noon('2026-10-03')),
     ])!;
     expect(est.month).toBe('2026-10');
-    expect(est.filledDays).toBe(1);
-    const db = est.lines.find((l) => l.label === 'DB 다운로드')!;
-    // 2일 12 + 1일(채움) 12 + 3~31일 29일 × 12 = 372GB → 무료 10GB 빼고 $362
-    expect(db.usd).toBeCloseTo(362, 5);
+    expect(est.monthDays).toBe(31);
+    expect(est.since).toBe('2026-10-01');
+    expect(est.fullMonth).toBe(true);
+    expect(est.coveredDays).toBeCloseTo(2.5, 5);
+    // 지금까지 25GB → 무료 10GB 빼고 $15 · 월말 25 ÷ 2.5 × 31 = 310GB → $300
+    expect(dbLine(est).toDateUsd).toBeCloseTo(15, 5);
+    expect(dbLine(est).usd).toBeCloseTo(300, 5);
+    // DB 저장 2GB − 무료 1GB = $5/월, 지금까지는 2.5/31 만큼
     const stored = est.lines.find((l) => l.label === 'DB 저장')!;
-    expect(stored.usd).toBeCloseTo(5, 5); // 2GB − 무료 1GB = 1GB × $5
-    expect(est.lines.find((l) => l.label === '함수 호출')!.usd).toBe(0);
-    expect(est.total).toBeCloseTo(367, 5);
+    expect(stored.usd).toBeCloseTo(5, 5);
+    expect(stored.toDateUsd).toBeCloseTo((5 * 2.5) / 31, 5);
+    expect(est.total).toBeCloseTo(305, 5);
+    expect(est.toDate).toBeCloseTo(15 + (5 * 2.5) / 31, 5);
+  });
+
+  it('달 중간부터 기록이면 있는 날로만 추정하고 표시한다 — 빈 날을 지난달 평균으로 채우지 않음', () => {
+    // 함수가 10-05 에 배포 — 10-01~04 칸은 비어 있다
+    const est = monthEstimate([
+      d('2026-09-30', 50),
+      d('2026-10-01', null),
+      d('2026-10-02', null),
+      d('2026-10-03', null),
+      d('2026-10-04', null),
+      d('2026-10-05', 10),
+      d('2026-10-06', 10),
+      d('2026-10-07', 10),
+      d('2026-10-08', 10),
+      d('2026-10-09', 5, noon('2026-10-09')),
+    ])!;
+    expect(est.since).toBe('2026-10-05');
+    expect(est.fullMonth).toBe(false);
+    expect(est.coveredDays).toBeCloseTo(4.5, 5);
+    expect(dbLine(est).toDateAmount).toBe('약 45GB');
+    expect(dbLine(est).amount).toBe('약 310GB'); // 45 ÷ 4.5 × 31
+    expect(dbLine(est).usd).toBeCloseTo(300, 5);
+  });
+
+  it('무료 한도는 달 합계에서 한 번 — 함수 호출', () => {
+    // 10-02 정오: 1일 100만 + 오늘 50만 = 150만 → 무료 안, 월말 150만 ÷ 1.5 × 31 = 3,100만 → (3,100만 − 200만) × $0.4/100만
+    const est = monthEstimate([
+      d('2026-10-01', 0, 1, 1_000_000),
+      d('2026-10-02', 0, noon('2026-10-02'), 500_000),
+    ])!;
+    const fn = est.lines.find((l) => l.label === '함수 호출')!;
+    expect(fn.toDateUsd).toBe(0);
+    expect(fn.usd).toBeCloseTo(29 * 0.4, 5);
+  });
+
+  it('1일 자정 직후(2시간 미만)는 월말 예상 보류, 지금까지 실제만', () => {
+    const est = monthEstimate([d('2026-09-30', 30), d('2026-10-01', 1, Date.parse('2026-09-30T16:00:00Z'))])!;
+    expect(est.coveredDays).toBeCloseTo(1 / 24, 5);
+    expect(est.total).toBeNull();
+    expect(est.toDate).toBeGreaterThanOrEqual(0);
+  });
+
+  it('이번 달 기록이 없으면 since 는 null', () => {
+    const est = monthEstimate([d('2026-09-30', 30), d('2026-10-01', null)])!;
+    expect(est.since).toBeNull();
+    expect(est.fullMonth).toBe(false);
+    expect(est.total).toBeNull();
   });
 
   it('비어 있으면 null', () => {
     expect(monthEstimate([])).toBeNull();
+  });
+
+  it('31일 달의 31일엔 1일까지 받도록 31일치를 받는다', () => {
+    expect(usageDayCount(Date.parse('2026-10-31T03:00:00Z'))).toBe(31);
+    expect(usageDayCount(Date.parse('2026-10-09T03:00:00Z'))).toBe(30);
   });
 });

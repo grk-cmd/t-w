@@ -11,6 +11,7 @@ import {
   PRICES,
   usageStats,
   useRecentUsage,
+  USAGE_DAYS,
   useRefreshRecentUsage,
   type ByteUnit,
   type DayUsage,
@@ -68,7 +69,9 @@ const peak = (d: DayUsage) => d.db?.peakConnections ?? null;
 export function UsageDashboard() {
   const usage = useRecentUsage();
   const refresh = useRefreshRecentUsage();
-  const days = usage.data;
+  // 받은 날은 이번 달 1일까지라 31일이 될 수 있다 — 구역 그래프 · 평균은 최근 USAGE_DAYS 일만
+  const all = usage.data;
+  const days = useMemo(() => all?.slice(-USAGE_DAYS), [all]);
   const today = days?.at(-1);
   const yesterday = days && days.length > 1 ? days[days.length - 2] : null;
   const recorded = days?.find((d) => d.db || d.functions || d.storage || d.hosting)?.date;
@@ -81,7 +84,7 @@ export function UsageDashboard() {
   );
   const conn = useMemo(() => (days ? usageStats(days, peak, null) : null), [days]);
   const fnMonth = days ? sumOf(days, fnCalls) : undefined;
-  const est = useMemo(() => (days ? monthEstimate(days) : null), [days]);
+  const est = useMemo(() => (all ? monthEstimate(all) : null), [all]);
 
   // 저장 용량은 «지금 얼마» 라 가장 최근 값(오늘이 없으면 어제)
   const latest = (pick: (d: DayUsage) => number | null | undefined) => {
@@ -145,24 +148,49 @@ export function UsageDashboard() {
       <section className={`card ${styles.month}`} aria-label="이번 달 예상 청구액">
         <div className={styles.monthHead}>
           <h2>이번 달 예상 청구액{est ? ` (${est.month})` : ''}</h2>
-          <strong className={styles.monthTotal}>{est ? `추정 ${formatUsd(est.total)}` : '…'}</strong>
+          <strong className={styles.monthTotal}>
+            {!est ? '…' : est.total === null ? '추정 보류' : `추정 ${formatUsd(est.total)}`}
+          </strong>
         </div>
         {est && (
           <>
+            <p className={styles.monthToDate}>
+              1일부터 지금까지 실제 <strong>{formatUsd(est.toDate)}</strong>
+              {est.since && !est.fullMonth ? (
+                <span className="warn">
+                  {' '}
+                  · {shortDate(est.since)}부터 집계 · {est.coveredDays.toFixed(1)}일치로 추정
+                </span>
+              ) : null}
+              {!est.since ? <span className="warn"> · 이번 달 기록 없음</span> : null}
+            </p>
             <table className={styles.monthTable}>
+              <thead>
+                <tr>
+                  <th>항목</th>
+                  <th>지금까지</th>
+                  <th>월말 예상</th>
+                  <th>월말 예상 금액</th>
+                </tr>
+              </thead>
               <tbody>
                 {est.lines.map((l) => (
                   <tr key={l.label}>
                     <th>{l.label}</th>
+                    <td className="soft">{l.toDateAmount}</td>
                     <td className="soft">{l.amount}</td>
-                    <td>{l.usd > 0 ? formatUsd(l.usd) : '무료 한도 안'}</td>
+                    <td>{est.total === null ? '…' : l.usd > 0 ? formatUsd(l.usd) : '무료 한도 안'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <p className="soft">
-              이번 달 지난날 실제 + 남은 날 × 최근 7일 평균 · 무료 한도는 달마다 한 번 뺌 · 할인 · 세금 제외
-              {est.filledDays > 0 ? ` · 기록 시작 전 ${est.filledDays}일은 최근 평균으로 채움` : ''}
+              월말 예상 = {est.month.slice(5).replace(/^0/, '')}/1 0시(서울)부터 지금까지 실제 ÷ 집계 일수(
+              {est.coveredDays.toFixed(1)}일) × {est.monthDays}일 · 저장 용량은 지금 크기로 한 달치 · 무료
+              한도는 달 합계에서 한 번 뺌 · 할인 · 세금 제외
+              {est.total === null ? ' · 집계 2시간 미만이라 월말 예상 보류' : ''}
+              <br />
+              구글 청구 달은 미국 태평양 시간 기준 — 서울 달력과 경계가 16~17시간 차이(기록이 서울 날짜 단위)
             </p>
           </>
         )}

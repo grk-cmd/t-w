@@ -31,17 +31,20 @@
     signInAnonymously, linkWithCredential, EmailAuthProvider, reauthenticateWithCredential,
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { firebaseConfig } from "./firebase-config.js";
+  import { firebaseConfig, FIREBASE_ENV } from "./firebase-config.js";
   import { createGhostHeal } from "./room-ghost-heal.js";
   import { createRoomIndex } from "./room-index.js";
   import { createRoomStats } from "./room-stats.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room-alive.js";
   import { createInviteAccount } from "./invite-account.js";
   import { createAppVersion } from "./app-version.js";
+  import { createAppVersionGate, createAppVersionGateDom } from "./app-version-gate.js";
   import { createBugBoard } from "./bug-board.js";
   import { createCatalogSync } from "./catalog-cache.js";
   import { createBroadcastSync } from "./broadcast-cache.js";
   import { createVisitPing } from "./visit-ping.js";
+  import { createRoomServerNet } from "./room-server-net.js";
+  import { createRoomServerGate } from "./room-server-gate.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -307,12 +310,17 @@
      누가 계산해도 같은 후보가 나오므로 트랜잭션은 사실상 후보 1명만 실행한다.
      트랜잭션 자체도 '이미 유효한 host가 있으면 포기'라 이중 안전. */
   let _lastSuccessionAt = 0;
+  /* 🛰 되살린 방(restoreRoomMeta)의 방장 유예 — 방장이 Firebase 로 넘어오는 동안 승계 · 해산을 미룬다.
+     서버 쪽 포기 기준이 30초라 방 사람들이 넘어오는 시각은 많아야 수십 초 벌어진다. */
+  const ROOM_RESTORE_GRACE_MS = 60 * 1000;
+  const ROOM_RESTORE_FRESH_MS = 5 * 60 * 1000;   // 이보다 오래된 restoredTs 는 지난 일 — 새로 되살린다
   async function _maybeSucceedHost(room, myMemberId, meta, friends){
     // 🔒 시크릿룸은 방장이 '발급 대상(owner)'으로 고정이다. 승계도, 해산도 하지 않는다 —
     //    후원자가 잠깐 나간 사이에 자기 방이 남의 방이 되거나 방이 터지면 안 되기 때문.
     //    (startRoom이 입장할 때마다 host를 owner로 다시 써주는 것과 한 쌍)
     if(String(room||'').indexOf('SCRT-') === 0) return;
     if(!meta || !meta.host) return;                    // 방장 정보가 없는 방 → 승계 대상 아님
+    if(meta.restoredTs && (_svNow() - meta.restoredTs) < ROOM_RESTORE_GRACE_MS) return;   // 🛰 되살린 방 — 방장이 넘어오는 중
     // ★ 무료방(워킹룸)은 승계하지 않는다 — 방장 권한이 '프리미엄 방 생성 자격'뿐이라 무료방에선 의미가 없다.
     //   참여·채팅 모두 방장과 무관하므로 방장이 나가도 남은 사람들은 그대로 쓰면 된다.
     if(meta.channel !== 'togetherroom') return;
@@ -377,6 +385,14 @@
       update(_myPresenceRef, { ver }).catch(()=>{});
     },
   });
+  /* 앱 최소 버전(app-version-gate.js) — 켤 때 config/minAppVer 하나만 읽어, 이 앱이 낮으면 «업데이트해 주세요» 로 막는다.
+     DB 가 생기자마자 — 다른 읽기 · 게이트보다 먼저. 읽지 못하면(오프라인 · 시간 초과) 막지 않는다. */
+  createAppVersionGate({
+    readMin: () => get(ref(db, 'config/minAppVer')).then(s => s.val()),   // 경로는 app-version-gate.js MIN_APP_VER_PATH 와 같다
+    getVersion: () => _appVer.ready,
+    companion: window.companion || null,
+    ui: createAppVersionGateDom(document),
+  }).start().then(r => { if(r.blocked) console.warn('[앱 최소 버전] 막음 —', r.my, '<', r.min); });
   /* IP 기준 일일 방문자(visit-ping.js) — 로그인과 상관없이 켤 때 한 번. 함수 SDK 는 위 FUNCTIONS_SDK_URL 주석대로 부를 때 들여온다.
      ⚠️ CSP connect-src 에 운영 함수 호스트만 있어 dev(together-working-dev)에서는 막힌다 — 지표만 빠지고 앱은 그대로다. */
   createVisitPing({
@@ -386,6 +402,25 @@
     },
     getVersion: () => _appVer.ready,
   }).start();
+  /* 🛰 방 서버(웹소켓) — 관리자 스위치(config/roomServer)가 켜고, 어느 서버로 갈지는 문지기(room-server-gate.js)가 정한다.
+     여기서는 칸 하나 읽기 · 토큰 · 버전 · userId 만 잇는다. _rsUrl = 문지기가 마지막으로 고른 주소(null 이면 서버 안 씀). */
+  const _lsOrNull = () => { try{ return window.localStorage; }catch(_){ return null; } };
+  const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
+  let _rsUrl = null;
+  const _roomServerGate = createRoomServerGate({
+    read: (path) => get(ref(db, path)).then(s => s.val()),
+    getUserId: () => (typeof window.getMyUserId === 'function') ? window.getMyUserId() : null,
+    env: FIREBASE_ENV,
+    storage: _lsOrNull(),
+  });
+  const _roomServer = createRoomServerNet({
+    WebSocket: (typeof WebSocket === 'function') ? WebSocket : null,
+    enabled: () => !!_rsUrl,
+    url: () => _rsUrl,
+    getToken: _getIdToken,
+    getUserId: () => (typeof window.getMyUserId === 'function') ? window.getMyUserId() : null,
+    getVersion: () => _appVer.ready,
+  });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
   const _roomProbeCache = {};   // code → { ch: 'workingroom'|'togetherroom'|null(죽은 방), until: ms }
@@ -502,6 +537,24 @@
        ⚠️ 오프셋이 아직 안 왔거나 오프라인이면 0 이라 Date.now() 와 같아진다 — 호출부는 그 경우를
          '보정 없음'으로 그냥 받아들이면 된다(지금보다 나빠지지 않는다). */
     serverNow(){ return _svNow(); },
+    /* 🛰 방 서버 연결 — app.js 의 makeServerProvider · 방 개수 · 랜덤 입장이 쓴다(꺼져 있으면 enabled() 가 false). */
+    roomServerNet(){ return _roomServer; },
+    /* 이 방을 방 서버로? — 결과 주소를 연결에 걸어 둔다(서버로 가면). 방 안이면 지금 연결은 그 방이 끝날 때까지 그대로다. */
+    async resolveRoomServer(code, opts){
+      const r = await _roomServerGate.resolveRoomServer(code, opts);
+      if(r.via === 'server') _rsUrl = r.url;   // 방 안이어도 괜찮다 — 지금 방의 연결은 그 방을 연 주소(net targetUrl)를 쓴다
+      return r;
+    },
+    roomServerMineNow(){ return _roomServerGate.mine(); },
+    // 방 개수 · 랜덤 입장 — «내 서버»(허용 목록) 만. 없으면 null.
+    async roomServerMine(refresh){
+      const m = refresh ? await _roomServerGate.refreshMine() : _roomServerGate.mine();
+      if(m && !_roomServer.inRoom()) _rsUrl = m.url;
+      return m;
+    },
+    getIdToken(force){ return _getIdToken(force); },
+    // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
+    setPresenceRoom(code){ _syncPresenceRoom(code || null); },
     /* 🛰 소켓이 실제로 열렸는가 — 감시견(app.js `_fbBootWatch`)이 부팅 때 한 번 부른다.
        [왜 필요한가] `window.firebaseAPI` 가 있다는 것과 **서버에 닿는다**는 것은 다른 질문이다.
          initializeApp·getDatabase 는 네트워크를 안 타므로 CSP connect-src 나 방화벽이 소켓만
@@ -2797,6 +2850,41 @@
         if(!had && channel) _touchRoomIndex(room, { channel });
         return { channel, recovered: !had && !!res.committed };
       }catch(e){ console.warn('[방] 채널 복구 실패', e); return null; }
+    },
+    /* 🛰 방 서버가 안 돌아와 같은 코드로 Firebase 에 다시 들어올 때 — 서버 방의 meta 로 `_meta` 를 «되살린다».
+       새로 여는 것이 아니라서 채널 · 방장 · 랜덤 허용 · 채팅 잠금 · 채팅 탭을 그대로 옮기고(들어오는 사람의 라이선스와 상관없이),
+       restoredTs 를 찍어 둔다. 먼저 되살린 사람이 있으면(restoredTs 가 신선) 덮지 않고 그 값을 따른다.
+       ★ restoredTs 가 신선한 동안(ROOM_RESTORE_GRACE_MS)은 방장 승계 · 해산을 미룬다(_maybeSucceedHost) —
+         방장이 아직 Firebase 로 넘어오는 중일 수 있어서. 그 뒤로는 평소 규칙 그대로.
+       반환: { channel, restored } | null(실패) */
+    async restoreRoomMeta(room, m){
+      try{
+        let had = false;
+        const res = await runTransaction(ref(db, `rooms/${room}/_meta`), cur => {
+          if(cur && cur.channel && cur.restoredTs && (_svNow() - cur.restoredTs) < ROOM_RESTORE_FRESH_MS){ had = true; return; }
+          const meta = { channel: (m && m.channel === 'togetherroom') ? 'togetherroom' : 'workingroom' };
+          if(m && typeof m.host === 'string' && m.host) meta.host = m.host;
+          if(m && typeof m.open === 'boolean') meta.open = m.open;
+          if(m && m.chatOff === true) meta.chatOff = true;
+          // 💬 채팅 탭 정의도 옮긴다 — 규칙(_meta/tabs/$tabId)과 같은 모양만(s1 · s2, 이름 1~10자, ts 숫자). 기록은 원래 Firebase 에 있다.
+          const tabs = {};
+          for(const id of ['s1', 's2']){
+            const t = m && m.tabs && m.tabs[id];
+            if(t && typeof t.name === 'string' && t.name.length >= 1 && t.name.length <= 10 && typeof t.ts === 'number' && isFinite(t.ts)) tabs[id] = { name: t.name, ts: t.ts };
+          }
+          if(Object.keys(tabs).length) meta.tabs = tabs;
+          meta.ts = meta.openTs = meta.restoredTs = _svNow();
+          return meta;
+        });
+        const val = res.snapshot ? res.snapshot.val() : null;
+        const channel = (val && val.channel) || null;
+        if(channel){
+          const extra = { channel };
+          if(val && typeof val.open === 'boolean') extra.open = val.open;
+          _touchRoomIndex(room, extra);
+        }
+        return { channel, restored: !had && !!res.committed };
+      }catch(e){ console.warn('[방] 방 되살리기 실패', e); return null; }
     },
     /* ===== 🔒 시크릿룸 (후원자 전용 고정 투게더룸) =====
        secretRooms/{SCRT-XXXX} = { pub:{owner, name, ts}, k }
