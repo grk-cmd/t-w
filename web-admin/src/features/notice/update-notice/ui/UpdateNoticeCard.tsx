@@ -5,7 +5,7 @@ import {
   NOTICE_TITLE_MAX,
   useRefreshUpdateNotice,
   useUpdateNotice,
-} from '@/entities/update-notice';
+} from '@/entities/notice/update-notice';
 import { errorMessage, formatDate } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { useClearUpdateNotice, usePublishUpdateNotice } from '../model/useUpdateNotice';

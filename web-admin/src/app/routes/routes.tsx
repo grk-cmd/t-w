@@ -6,6 +6,7 @@ import { LicensePage } from '@/pages/license';
 import { MetricsPage } from '@/pages/metrics';
 import { NoticesPage } from '@/pages/notices';
 import { ReportsPage } from '@/pages/reports';
+import { RoomServerPage } from '@/pages/room-server';
 import { RoomsPage } from '@/pages/rooms';
 import { SettingsPage } from '@/pages/settings';
 import { UsagePage } from '@/pages/usage';
@@ -25,6 +26,7 @@ export const ROUTES: Route[] = [
   { id: 'bugs', label: '🐞 제보', Page: BugBoardPage },
   { id: 'notices', label: '📣 공지', Page: NoticesPage },
   { id: 'settings', label: '⚙️ 설정', Page: SettingsPage },
+  { id: 'roomServer', label: '🛰 방 서버', Page: RoomServerPage },
   { id: 'rooms', label: '🛑 방', Page: RoomsPage },
   { id: 'catalog', label: '🗂️ 카탈로그', Page: CatalogPage },
   { id: 'log', label: '🧾 기록', Page: AdminLogPage },
