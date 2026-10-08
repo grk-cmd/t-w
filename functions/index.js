@@ -4,6 +4,8 @@
    [설계 §5-N+1 · 개정 26 · CHECKS 개정 58] 이관 창 재기 **읽기만 · 일회용** 함수 — 아래 countSlotsWindow(N+1 배포 뒤 걷는다).
    roomStats · roomStatsOnOpen · roomStatsOnClose — 열린 방 개수 요약(1분마다 · 방이 열리고 닫힐 때). 로직은 room-stats.js.
    dailyActive — 일일 접속 집계(DAU · 방문 수). accountSnap 쓰기마다 metrics/daily/{서울 날짜} 에 적는다. 로직은 daily-active.js.
+   bugNo — 버그 제보 고정 번호 · 하루 작성 수. bugBoard/list/{id} 가 생기면 users/{코드}/bugPostCount/{서울 날짜} +1(한도를 넘으면 그 글을 지운다),
+     받아들인 글에 no = «B-MMDD-n»(그날 순번 · bugBoard/seq 트랜잭션). 로직은 bug-no.js.
    partEquipCount — 카탈로그 항목별 장착 사용자 수. users/{코드}/slots 쓰기마다 장착 집합의 차이만 metrics/parts/equipped 에 더하고 뺀다. 로직은 part-equip.js.
    visitPing — IP 기준 일일 방문자(호출형 · 로그인 없이). 앱이 켜질 때 한 번 부른다. IP 는 해시로만 적는다. 로직은 visit-ping.js.
      비밀 값 METRICS_IP_SALT 가 있어야 배포된다: firebase functions:secrets:set METRICS_IP_SALT (길고 무작위한 값).
@@ -250,6 +252,15 @@ exports.usageSnapshot = onSchedule({ schedule: 'every 60 minutes', timeZone: 'As
     await require('./usage-snapshot').runUsageSnapshot({
       db: getDatabase(), fetch, token: tok.access_token, project, bucket: cfg.storageBucket || null,
     }, Date.now());
+  });
+
+// 새 제보의 하루 작성 수를 세고(넘으면 지움 · 관리자 · 공지 제외), 받아들인 글에 고정 번호(B-MMDD-n)를 붙인다.
+// 번호는 그날 카운터에서 +1 만 해서 글을 지워도 다시 쓰이지 않는다(bug-no.js).
+// 다시 시도하지 않는다 — 다시 돌면 카운터만 한 칸 더 올라 빈 번호가 생긴다(no 가 이미 있으면 그만두지만).
+exports.bugNo = onValueCreated({ ref: '/bugBoard/list/{id}', timeoutSeconds: 60, maxInstances: 2, retry: false },
+  async (event) => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    await require('./bug-no').runBugNo(getDatabase(), event, Date.parse(event.time) || Date.now());
   });
 
 // 슬롯(캐릭터 5칸)이 바뀔 때마다 장착한 카탈로그 id 집합의 차이만 센다(part-equip.js). 처음 숫자는 scripts/backfill-part-equip.js 로 채운다.

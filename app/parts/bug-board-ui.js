@@ -111,7 +111,9 @@
     const h = [];
     h.push('<button class="bb-btn bb-back" type="button" data-act="back">◀ 목록</button>');
     h.push('<div class="bb-dhead">' + chip(it) + '<span class="bb-tag">' + (it.notice ? '📌' : it.vis === 'pub' ? '[공개]' : '[비공개]') + '</span>' + esc(title) + '</div>');
-    h.push('<div class="bb-dmeta">' + esc(it.name) + ' · ' + fmtDate(it.ts, true) + (it.notice ? '' : ' · ' + esc(catName(it.cat))) + '</div>');
+    // 고정 번호(B-MMDD-n · 서버 함수가 붙인다)는 관리자에게만 — 커밋 · PR 에서 제보를 가리키는 번호다.
+    h.push('<div class="bb-dmeta">' + ((admin() && it.no) ? '<span class="bb-no">' + esc(it.no) + '</span> · ' : '') +
+      esc(it.name) + ' · ' + fmtDate(it.ts, true) + (it.notice ? '' : ' · ' + esc(catName(it.cat))) + '</div>');
     h.push('<div class="bb-body">' + esc(ct ? ct.body : '(내용을 불러오지 못했어요)') + '</div>');
     if(ct && ct.env) h.push('<div class="bb-env">🖥 ' + esc(ct.env) + '</div>');
     if(it.vis === 'pub' && !it.notice){
@@ -180,6 +182,31 @@
     $('bbWEnv').checked = true; $('bbWNotice').checked = false;
     show('write');
     $('bbWTitle').focus();
+    showQuota();
+  }
+  /* 오늘 남은 제보 수 — 서버 함수가 센 값을 읽기만 한다. 다 썼으면 등록 단추를 끈다. 관리자는 제한 없음. */
+  async function showQuota(){
+    const btn = $('bbWSubmit');
+    btn.disabled = false; btn.textContent = '등록';
+    if(admin()) return;
+    const max = C().dailyMax || 5;
+    const n = await api().todayCount(getMyUserId());
+    if($('bbWriteView').style.display === 'none') return;
+    if(n >= max){
+      btn.disabled = true;
+      $('bbWErr').textContent = '오늘은 제보를 ' + max + '건 모두 썼어요 — 내일 다시 써 주세요';
+    }else btn.textContent = '등록 (오늘 ' + (max - n) + '건 남음)';
+  }
+  /* 등록 뒤 서버 함수가 한도를 넘은 글을 지웠는지 — 잠시 뒤 한 번 본다. 지워졌으면 알리고 목록으로. */
+  function checkKept(id){
+    setTimeout(async () => {
+      let it = null;
+      try{ it = await api().getItem(id); }catch(_){ return; }
+      if(it) return;
+      toast('하루 제보 수를 넘어 이 제보는 접수되지 않았어요');
+      const box = $('bbDetailView');
+      if(box && box._post && box._post.id === id && box.style.display !== 'none'){ show('list'); loadList(); }
+    }, 6000);
   }
   async function envString(){
     let ver = '';
@@ -206,6 +233,7 @@
     toast(notice ? '📌 공지를 등록했어요' : '🐞 제보를 등록했어요');
     cursors = [null];
     openPost(r.id);
+    if(!admin()) checkKept(r.id);
   }
 
   /* ── 배지 ───────────────────────────────────────────── */

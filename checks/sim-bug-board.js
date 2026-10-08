@@ -15,6 +15,7 @@
 const fs = require('fs');
 const say = console.log;
 let fail = 0;
+const pending = [];
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const RULES = read('firebase-database-rules.json'), BB = read('bug-board.js'), UI = read('bug-board-ui.js');
@@ -65,12 +66,17 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
   chk(/vis'\)\.val\(\) === 'pub'/.test(k), '  비공개 글에는 공개 답변을 못 단다');
   const ln = S(at('bugBoard/list/$id/likeN')['.write']);
   chk(/=== \(data\.exists\(\) \? data\.val\(\) : 0\) \+ 1/.test(ln) && /likes\/'\+\$id\+'\/'\+auth\.uid\)\.val\(\) === true/.test(ln), '👍 수는 +1 만 · 내 공감 표시와 짝으로만');
-  chk(/userAuth/.test(S(at('users/$userId/bugPostCount')['.write'])) && /userAuth/.test(S(at('users/$userId/bugSeen')['.write'])), '하루 작성 수 · 본 시각은 본인만');
+  chk(/userAuth/.test(S(at('users/$userId/bugSeen')['.write'])), '본 시각은 본인만');
+  const bpc = S(at('users/$userId/bugPostCount')['.write']);
+  chk(ADMIN.test(bpc) && !/\|\|/.test(bpc), '하루 작성 수는 관리자(서버 함수)만 쓴다 — 앱은 읽기만');
+  const wn = w.split('||')[0];
+  chk(/newData\.child\('ts'\)\.val\(\) === now && newData\.child\('openTs'\)\.val\(\) === now/.test(wn) && !/now \+ 60000/.test(w), '글쓴이의 새 글 ts · openTs 는 서버 시각만 (PC 시계와 무관)');
+  chk(/toLowerCase\(\)\.contains\('admin'\)/.test(wn) && wn.includes("contains('운영')") && wn.includes("contains('관리자')"), '운영자처럼 보이는 이름(admin · 운영 · 관리자)은 글쓴이 쪽에서 막는다');
 }
 
 say('§2 bug-board.js (실행)');
 const M = new Function(BB.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount };')();
+  '\nreturn { BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, ymd, staffName, createBugBoard };')();
 const who = { name: '에이', code: 'CA', authUid: 'uA' };
 const prv = M.listEntry({ vis: 'prv', cat: 'bug', title: '비밀 제목', body: 'b' }, who, 1000);
 chk(!('title' in prv) && !JSON.stringify(prv).includes('비밀 제목'), '⑤ 비공개 글의 목록 줄에는 제목이 없다');
@@ -91,6 +97,30 @@ const ruleCats = (S(at('bugBoard/list/$id')['.validate']).match(/cat'\)\.val\(\)
 chk(M.BUG_CATS.map(c => c[0]).join('|') === ruleCats.join('|'), '분류 목록이 규칙과 같다 (' + ruleCats.join(',') + ')');
 chk(M.BUG_DAILY_MAX === 5 && M.BUG_PAGE === 20, '하루 5건 · 20개 단위');
 chk(M.unseenCount([{ id: 'a', lastReplyTs: 5 }, { id: 'b', lastReplyTs: 5 }, { id: 'c' }], { a: 9 }) === 1, '배지 = lastReplyTs > bugSeen[id] 개수');
+chk(M.ymd(Date.UTC(2026, 9, 8, 15)) === '2026-10-09' && M.ymd(Date.UTC(2026, 9, 8, 14, 59)) === '2026-10-08', '하루 작성 수 날짜는 서울 기준 (서버 함수와 같다)');
+chk(M.staffName('운영팀') && M.staffName('ADMIN') && M.staffName('관리자님') && !M.staffName('에이') && !M.staffName('운동'), '운영자처럼 보이는 이름 판정 (규칙과 같은 말)');
+{
+  // createPost 를 가짜 deps 로 — 서버 시각 · 카운터를 쓰지 않음 · 한도 · 이름
+  const run = async (count, who) => {
+    const writes = [], tx = [];
+    const SV = { '.sv': 'timestamp' };
+    const bb = M.createBugBoard({ db: {}, ref: (_, p) => p || '', get: async (p) => ({ val: () => (/bugPostCount/.test(p) ? count : null) }),
+      update: async (_, w) => { writes.push(w); }, push: () => ({ key: 'k1' }), runTransaction: async (p) => { tx.push(p); },
+      query: () => null, orderByChild: () => null, limitToLast: () => null, endBefore: () => null, equalTo: () => null,
+      authUid: () => 'uA', now: () => 1000, serverTs: () => SV });
+    const r = await bb.createPost({ vis: 'pub', cat: 'bug', title: 't', body: 'b' }, who);
+    return { r, writes, tx, SV };
+  };
+  // 결과는 맨 끝 판정 전에 모은다(pending)
+  pending.push(run(2, { name: '에이', code: 'CA' }).then(({ r, writes, tx, SV }) => {
+    const e = writes[0] && writes[0]['bugBoard/list/k1'];
+    chk(r.ok && e && e.ts === SV && e.openTs === SV && tx.length === 0 && !Object.keys(writes[0]).some(k => /bugPostCount/.test(k)),
+      '새 글 ts · openTs = serverTimestamp · 하루 작성 수는 앱이 쓰지 않는다');
+  }));
+  pending.push(run(5, { name: '에이', code: 'CA' }).then(({ r, writes }) => chk(!r.ok && /하루 5건/.test(r.reason) && !writes.length, '서버가 센 수가 한도면 미리 막는다')));
+  pending.push(run(5, { name: '운영자', code: 'CA', isAdmin: true }).then(({ r }) => chk(r.ok, '  ↳ 관리자는 한도 · 이름 제한 없음')));
+  pending.push(run(0, { name: '운영팀', code: 'CA' }).then(({ r, writes }) => chk(!r.ok && /운영/.test(r.reason) && !writes.length, '운영자처럼 보이는 이름이면 쓰지 않고 이유를 알린다')));
+}
 chk(M.KAKAO_RE.test('https://open.kakao.com/o/x') && !M.KAKAO_RE.test('http://open.kakao.com/o/x') && !M.KAKAO_RE.test('https://open.kakao.com.evil.io/'), '오픈카톡 링크 판정');
 
 say('§3 연결');
@@ -106,6 +136,8 @@ const noC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]
 chk(!/\b(alert|confirm|prompt)\(/.test(noC(UI)), 'alert · confirm · prompt 를 쓰지 않는다');
 chk(!/innerHTML[^;]*\+\s*(it|ct|a|post)\.(title|body|text|name|env|kakao)\b/.test(UI), '사용자 문자열은 esc() 를 거쳐 innerHTML 에 들어간다');
 
-say('');
-say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 비공개 제보는 서버에서 막히고, 답변 알림이 우편함으로 간다');
-process.exit(fail ? 1 : 0);
+Promise.all(pending).catch(e => chk(false, '검사가 던졌다: ' + (e && e.stack || e))).then(() => {
+  say('');
+  say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 비공개 제보는 서버에서 막히고, 답변 알림이 우편함으로 간다');
+  process.exit(fail ? 1 : 0);
+});
