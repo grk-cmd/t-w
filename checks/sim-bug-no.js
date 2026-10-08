@@ -1,6 +1,6 @@
 /*
  * 버그 제보 고정 번호(B-MMDD-n) 검사. functions/bug-no.js 를 그대로 불러 가짜 DB 로 돌린다.
- * 1. 날짜 · 모양  2. 처리기(카운터 +1 · 붙이기 · 이미 있음 · 지워진 글 · 이상한 ts)  3. 지워도 번호가 다시 안 쓰인다
+ * 1. 날짜 · 모양  2. 처리기(카운터 +1 · 붙이기 · 이미 있음 · 지워진 글 · 이상한 ts)  3. 지워도 번호가 다시 안 쓰인다 · 번호만(세기 · 지우기 없음)
  * 4. 백필 계획  5. index.js 연결  6. 규칙(no 모양 · 글쓴이는 no 못 넣음 · seq 클라이언트 못 씀)  7. 앱은 관리자에게만 보인다
  */
 'use strict';
@@ -18,16 +18,13 @@ const UI = need('bug-board-ui.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
 // 경로 → 값 가짜 DB. transaction 은 RTDB 처럼 «처음엔 로컬 추측(null)» 으로 한 번 부르고, 서버 값과 다르면 진짜 값으로 다시 부른다.
+// 함수는 번호만 붙인다 — 트랜잭션 말고 다른 쓰기(update · set · remove)를 부르면 기록해 둔다(지우기 · 세기 없음 확인).
+const OTHER = [];
 function fakeDb(data){
   const ref = (p) => ({
-    get: async () => ({ val: () => (data[p] === undefined ? null : data[p]) }),
-    // 루트 update — 값이 null 이면 그 경로와 아래를 지운다
-    update: async (w) => {
-      for (const [k, v] of Object.entries(w)){
-        if (v === null){ for (const key of Object.keys(data)) if (key === k || key.startsWith(k + '/')) delete data[key]; }
-        else data[k] = v;
-      }
-    },
+    update: async (w) => { OTHER.push(['update', p, w]); },
+    set: async (v) => { OTHER.push(['set', p, v]); },
+    remove: async () => { OTHER.push(['remove', p]); },
     transaction: async (fn) => {
       let cur = null;
       for (let i = 0; i < 2; i++){
@@ -44,7 +41,7 @@ function fakeDb(data){
   return { ref };
 }
 const ev = (id, v) => ({ params: { id }, data: { val: () => v } });
-const noOf = (r) => (r && r.no) || null;
+const noOf = (r) => r;
 
 (async () => {
   const f = require(path.resolve('functions/bug-no.js'));
@@ -71,7 +68,7 @@ const noOf = (r) => (r && r.no) || null;
     chk(na === 'B-1009-1' && nb === 'B-1009-2', '그날 순서대로 1 · 2');
     chk(data['bugBoard/list/a'].no === 'B-1009-1' && data['bugBoard/list/a'].vis === 'pub' && data['bugBoard/seq/2026-10-09'] === 2, '  ↳ 글에 no 를 붙이고 다른 칸은 그대로 · 카운터 2');
     const again = await f.runBugNo(db, ev('a', data['bugBoard/list/a']), NOW);
-    chk(again === null && data['bugBoard/seq/2026-10-09'] === 2 && data['users/C10/bugPostCount/2026-10-09'] === 1, '이미 no 가 있으면 아무것도 안 한다 (카운터 · 작성 수도 그대로)');
+    chk(again === null && data['bugBoard/seq/2026-10-09'] === 2, '이미 no 가 있으면 아무것도 안 한다 (카운터도 그대로)');
     data['bugBoard/list/c'] = post(12, { no: 'B-1009-9' });
     await f.runBugNo(db, ev('c', post(12)), NOW);
     chk(data['bugBoard/list/c'].no === 'B-1009-9', '이벤트 뒤에 누가 먼저 붙였어도 덮지 않는다');
@@ -94,32 +91,17 @@ const noOf = (r) => (r && r.no) || null;
     chk(noOf(await f.runBugNo(db, ev('z', data['bugBoard/list/z']), NOW + 86400000)) === 'B-1010-1', '날이 바뀌면 1부터');
   }
 
-  say('── 3-b. 하루 작성 수 (서버가 센다)');
+  say('── 3-b. 번호만 붙인다 (세지도 지우지도 않는다)');
   {
-    const data = { 'admins/uBoss': true };
+    const data = {};
     const db = fakeDb(data);
-    const mk = (id, h, extra) => {
-      const v = Object.assign({ ts: KST(2026, 10, 9, h), vis: 'pub', authUid: 'uA', code: 'CA' }, extra || {});
-      data['bugBoard/list/' + id] = v;
-      data[(v.vis === 'prv' ? 'bugBoard/prv/uA/' : 'bugBoard/pub/') + id] = { title: 't', body: 'b' };
-      return v;
-    };
-    const res = [];
-    for (let i = 1; i <= f.BUG_DAILY_MAX; i++) res.push(noOf(await f.runBugNo(db, ev('p' + i, mk('p' + i, 9)), NOW)));
-    chk(res.join() === 'B-1009-1,B-1009-2,B-1009-3,B-1009-4,B-1009-5' && data['users/CA/bugPostCount/2026-10-09'] === f.BUG_DAILY_MAX && f.BUG_DAILY_MAX === 5,
-        '한 사람 하루 5건까지 받고 users/{code}/bugPostCount/{서울 날짜} 에 센다');
-    const over = await f.runBugNo(db, ev('p6', mk('p6', 10, { vis: 'prv' })), NOW);
-    chk(over && over.rejected && data['bugBoard/list/p6'] === undefined && data['bugBoard/prv/uA/p6'] === undefined, '6번째 글은 목록 줄 · 내용(비공개 자리)까지 지운다');
-    chk(data['bugBoard/seq/2026-10-09'] === 5 && data['users/CA/bugPostCount/2026-10-09'] === 5, '  ↳ 지운 글은 번호도 작성 수도 쓰지 않는다 (받아들인 글 번호는 빈칸 없이)');
-    const pubOver = await f.runBugNo(db, ev('p7', mk('p7', 10)), NOW);
-    chk(pubOver.rejected && data['bugBoard/pub/p7'] === undefined, '  ↳ 공개 글이면 pub 자리를 지운다');
-    chk(noOf(await f.runBugNo(db, ev('n1', mk('n1', 11, { notice: true }), NOW), NOW)) === 'B-1009-6', '공지는 세지 않는다');
-    chk(noOf(await f.runBugNo(db, ev('b1', mk('b1', 11, { authUid: 'uBoss' })), NOW)) === 'B-1009-7' && data['users/CA/bugPostCount/2026-10-09'] === 5, '관리자 글은 세지 않는다');
-    chk(noOf(await f.runBugNo(db, ev('o1', mk('o1', 11, { code: 'CB' })), NOW)) === 'B-1009-8', '다른 사람은 따로 센다');
-    const bad = await f.runBugNo(db, ev('q1', mk('q1', 11, { code: 'a/b' })), NOW);
-    chk(bad.rejected && data['bugBoard/list/q1'] === undefined, '코드 모양이 이상하면(셀 수 없으면) 받지 않는다');
-    chk(noOf(await f.runBugNo(db, ev('t1', mk('t1', 11)), NOW + 86400000)) === 'B-1010-1', '다음 날(서울)은 다시 5건');
-    chk(f.countUp(null) === 1 && f.countUp(4) === 5 && f.countUp(5) === undefined && f.countUp(9) === undefined, 'countUp — 한도면 트랜잭션을 그만둔다');
+    for (let i = 1; i <= 7; i++){
+      data['bugBoard/list/p' + i] = post(9, { code: 'CA' });
+      await f.runBugNo(db, ev('p' + i, data['bugBoard/list/p' + i]), NOW);
+    }
+    chk(data['bugBoard/list/p7'] && data['bugBoard/list/p7'].no === 'B-1009-7', '한 사람이 하루 7건 써도 함수는 지우지 않고 번호를 준다 (하루 상한은 앱이 config/bugDailyMax 로)');
+    chk(OTHER.length === 0 && !Object.keys(data).some(k => /bugPostCount/.test(k)), '  ↳ 트랜잭션(seq · 글) 말고는 아무것도 쓰지 않는다 · 작성 수를 세지 않는다');
+    chk(!('countUp' in f) && !('rejectWrite' in f) && !/bugPostCount|admins\//.test(strip(need('functions/bug-no.js'))), '  ↳ bug-no.js 에 세기 · 지우기 코드가 없다');
   }
 
   say('── 4. 백필 계획 (planBackfill)');
