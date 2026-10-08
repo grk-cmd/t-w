@@ -39,6 +39,7 @@ export const AUDIT_ACTIONS = [
   'roomServer.allow',
   'roomServer.allowDelete',
   'settings.minAppVer',
+  'settings.bugDailyMax',
   'room.close',
   'room.closeAll',
   'room.cleanGhost',
@@ -49,6 +50,7 @@ export const AUDIT_ACTIONS = [
   'catalog.cleanGlb',
   'bug.answer',
   'bug.status',
+  'bug.delete',
   // 서버 함수(adminDeleteAccount)가 쓴다 — 웹은 이름만 보여 준다.
   'account.delete',
 ] as const;

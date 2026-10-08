@@ -32233,6 +32233,11 @@ document.getElementById('lcNameBtn').onclick=()=>{
 const USER_NAME_MAX = 12;   // ⚠️ 옛 모달은 이 값을 HTML 의 maxlength 로 들고 있었다. 이제 여기가 유일한 자리다.
 function commitUserName(raw){
   const v = String(raw==null?'':raw).trim().slice(0, USER_NAME_MAX);
+  // 운영진처럼 보이는 이름(name-guard.js)은 저장하지 않는다 — 규칙도 프로필에서 막는다(관리자 · 이미 그 이름인 사람은 예외).
+  if(typeof isStaffName === 'function' && isStaffName(v) && v !== getUserName().trim() && !(typeof isAdmin !== 'undefined' && isAdmin)){
+    toast('운영진과 헷갈리는 이름은 쓸 수 없어요');
+    return;
+  }
   setUserName(v || '나');
   toast('이름이 저장됐어요');
   // ★ 마이홈 친구 목록에도 새 이름이 보이도록 프로필도 같이 갱신(마이홈 초기화 전이면 조용히 무시됨)
