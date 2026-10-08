@@ -67,6 +67,8 @@ export interface BugItem {
   title?: string;
   /** 고정 번호 «B-MMDD-n» — 서버 함수(functions/bug-no.js)가 붙인다. 옛 글 · 함수가 아직 안 돈 글은 없다. */
   no?: string;
+  /** 관리자가 쓴 글 — 규칙상 관리자만 넣을 수 있는 칸(🛡 배지). */
+  byAdmin?: boolean;
 }
 
 export interface BugContent {
@@ -112,7 +114,25 @@ export function toBugItem(id: string, v: unknown): BugItem | null {
     likeN: num(r.likeN),
     title: str(r.title),
     no: typeof r.no === 'string' && BUG_NO_RE.test(r.no) ? r.no : undefined,
+    byAdmin: r.byAdmin === true,
   };
+}
+
+/** 🛡 운영진 글 — byAdmin 또는 공지(공지는 관리자만 쓴다). 이름으로 가르지 않는다. */
+export const isStaffPost = (item: Pick<BugItem, 'byAdmin' | 'notice'>) => !!item.byAdmin || !!item.notice;
+
+// 하루 제보 상한 — 앱이 config/bugDailyMax 를 읽는다(없으면 기본값). 규칙 .validate 와 같은 범위.
+export const BUG_DAILY_MAX_PATH = 'config/bugDailyMax';
+export const BUG_DAILY_MAX_DEFAULT = 5;
+export const BUG_DAILY_MAX_MIN = 1;
+export const BUG_DAILY_MAX_MAX = 100;
+
+/** 입력 → 상한. 정수가 아니거나 범위를 벗어나면 null. */
+export function parseBugDailyMax(input: string): number | null {
+  const text = input.trim();
+  if (!/^\d+$/.test(text)) return null;
+  const n = Number(text);
+  return n >= BUG_DAILY_MAX_MIN && n <= BUG_DAILY_MAX_MAX ? n : null;
 }
 
 export interface BugCursor {

@@ -3,6 +3,7 @@ import {
   BUG_CATS,
   bugNoLabel,
   BugNoText,
+  isStaffPost,
   StatusChip,
   useBugNo,
   useBugPost,
@@ -26,7 +27,8 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
         <div className={styles.headText}>
           <h2>{content?.title || '(제목 없음)'}</h2>
           <p className="soft">
-            <BugNoText value={bugNo} /> · {item.name || '이름 없음'} <span className="key">{item.code}</span>{' '}
+            <BugNoText value={bugNo} /> · {item.name || '이름 없음'}
+            {isStaffPost(item) && <span title="운영진 글"> 🛡</span>} <span className="key">{item.code}</span>{' '}
             · {formatDate(item.ts)}
           </p>
         </div>

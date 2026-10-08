@@ -4,7 +4,12 @@ import {
   answerWrite,
   bugNo,
   bugNoLabel,
+  BUG_DAILY_MAX_DEFAULT,
   BUG_NO_RE,
+  getBugDailyMax,
+  isStaffPost,
+  parseBugDailyMax,
+  saveBugDailyMax,
   BUG_PRV_NOTICE_BODY,
   checkAnswer,
   dayOrder,
@@ -19,7 +24,7 @@ import {
   type BugItem,
 } from '@/entities/bug-board';
 import { kstDayStart } from '@/shared/lib';
-import { fakeDb, NOW } from '../shared/fakeDb';
+import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const DAY = kstDayStart('2026-10-08');
 const row = (ts: number, extra: Record<string, unknown> = {}) => ({
@@ -37,6 +42,34 @@ const row = (ts: number, extra: Record<string, unknown> = {}) => ({
 const item = (extra: Partial<BugItem> = {}): BugItem => ({
   ...(toBugItem('p1', row(DAY + 1000)) as BugItem),
   ...extra,
+});
+
+describe('하루 상한 · 운영진 글', () => {
+  it('상한 입력 — 1~100 정수만', () => {
+    expect(parseBugDailyMax(' 7 ')).toBe(7);
+    expect(parseBugDailyMax('100')).toBe(100);
+    for (const bad of ['0', '101', '2.5', '-1', 'x', '']) expect(parseBugDailyMax(bad)).toBeNull();
+    expect(BUG_DAILY_MAX_DEFAULT).toBe(5);
+  });
+
+  it('상한 읽기 · 저장 — config/bugDailyMax 한 칸 + 작업 기록(이전 → 다음)', async () => {
+    const { db, writes } = fakeDb({ 'config/bugDailyMax': 3 });
+    expect(await getBugDailyMax(db)).toBe(3);
+    expect(await getBugDailyMax(fakeDb({ 'config/bugDailyMax': '3' }).db)).toBeNull();
+    await saveBugDailyMax(db, 8, null);
+    expect(withoutAudits(writes)).toEqual([['commit', 'config/bugDailyMax', 8]]);
+    expect(auditsOf(writes)[0]).toMatchObject({
+      action: 'settings.bugDailyMax',
+      target: '하루 8건',
+      detail: '기본 5 → 8',
+    });
+  });
+
+  it('🛡 — byAdmin(관리자만 쓰는 칸) 또는 공지일 때만, 이름은 보지 않는다', () => {
+    expect(isStaffPost(toBugItem('p1', row(DAY, { byAdmin: true })) as BugItem)).toBe(true);
+    expect(isStaffPost(toBugItem('p1', row(DAY, { byAdmin: 'yes', name: '운영자' })) as BugItem)).toBe(false);
+    expect(isStaffPost(toBugItem('p1', row(DAY, { notice: true })) as BugItem)).toBe(true);
+  });
 });
 
 describe('고정 번호', () => {
