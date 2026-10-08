@@ -11391,47 +11391,20 @@ function renderBellList(){
   }, 60 * 1000);
 })();
 
-/* ═══════════════════ 🐞 버그 제보 탭 ═══════════════════
-   관리자가 등록한 공지글 + 오픈카톡 링크를 보여주고, [제보하기]로 링크를 엶.
-   공지·링크 수정은 관리자만(.admin-only 버튼 + 저장 시 isAdmin 재확인). */
-const BUG_REPORT_DEFAULT_NOTICE =
-  '버그를 발견하셨나요?\n\n' +
-  '아래 [제보하기] 버튼을 눌러 오픈채팅방으로 들어와 알려주세요.\n' +
-  '어떤 상황에서 문제가 생겼는지 자세히 적어주시면 큰 도움이 됩니다.';
+/* ═══════════════════ 🐞 버그 제보 탭 — 오픈카톡 기본 링크 ═══════════════════
+   게시판 화면은 parts/bug-board-ui.js 다. 여기는 bugReport/current 만 맡는다.
+   ★ 예전 공지(notice)는 첫 공지글로 옮겨졌다(bug-board.js migrateNotice). current.link 는
+     답변에 붙는 [💬 오픈카톡] 의 기본 주소로 계속 쓴다. 편집은 관리자만(.admin-only + 저장 때 isAdmin 재확인). */
 let _bugReportConf = null;   // { notice, link, ts }
-
-function renderBugReport(){
-  const noticeEl = document.getElementById('mhBugNotice');
-  const goBtn    = document.getElementById('mhBugGoBtn');
-  if(!noticeEl || !goBtn) return;
-  const notice = (_bugReportConf && _bugReportConf.notice) || BUG_REPORT_DEFAULT_NOTICE;
-  const link   = (_bugReportConf && _bugReportConf.link) || '';
-  noticeEl.textContent = notice;
-  goBtn.disabled = !link;
-  goBtn.title = link ? '오픈채팅방으로 이동해요' : '아직 제보 링크가 등록되지 않았어요';
-  goBtn.style.opacity = link ? '' : '.5';
-}
+window._bugReportLink = ()=> (_bugReportConf && _bugReportConf.link) || '';
 
 (function bindBugReport(){
-  const goBtn     = document.getElementById('mhBugGoBtn');
   const editBtn   = document.getElementById('mhBugEditBtn');
   const form      = document.getElementById('mhBugEditForm');
-  const wrap      = document.getElementById('mhBugWrap');
-  const noticeIn  = document.getElementById('mhBugNoticeInput');
   const linkIn    = document.getElementById('mhBugLinkInput');
   const saveBtn   = document.getElementById('mhBugSaveBtn');
   const cancelBtn = document.getElementById('mhBugCancelBtn');
   const msgEl     = document.getElementById('mhBugEditMsg');
-
-  // [제보하기] — 앱 안의 작은 브라우저 창으로 링크 열기 (외부 브라우저 대신)
-  if(goBtn){
-    goBtn.addEventListener('click', ()=>{
-      const link = (_bugReportConf && _bugReportConf.link) || '';
-      if(!link){ toast('아직 제보 링크가 등록되지 않았어요'); return; }
-      if(window.companion && companion.openBrowser) companion.openBrowser(link);
-      else window.open(link, '_blank');
-    });
-  }
 
   const showMsg = (text, isErr)=>{
     if(!msgEl) return;
@@ -11439,21 +11412,16 @@ function renderBugReport(){
     msgEl.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
     msgEl.style.display = text ? 'block' : 'none';
   };
-  const closeForm = ()=>{
-    if(form) form.style.display = 'none';
-    if(wrap) wrap.style.display = '';
-  };
+  const closeForm = ()=>{ if(form) form.style.display = 'none'; };
 
-  // 관리자: 편집 폼 열기
   if(editBtn){
     editBtn.addEventListener('click', ()=>{
       if(!isAdmin) return;   // .admin-only로 숨겨져 있지만 한 번 더 확인
-      if(noticeIn) noticeIn.value = (_bugReportConf && _bugReportConf.notice) || BUG_REPORT_DEFAULT_NOTICE;
-      if(linkIn)   linkIn.value   = (_bugReportConf && _bugReportConf.link) || '';
+      if(form && form.style.display !== 'none'){ closeForm(); return; }
+      if(linkIn) linkIn.value = window._bugReportLink();
       showMsg('', false);
-      if(wrap) wrap.style.display = 'none';
       if(form) form.style.display = 'block';
-      if(noticeIn) noticeIn.focus();
+      if(linkIn) linkIn.focus();
     });
   }
   if(cancelBtn) cancelBtn.addEventListener('click', closeForm);
@@ -11462,14 +11430,14 @@ function renderBugReport(){
     saveBtn.addEventListener('click', async ()=>{
       if(!isAdmin){ toast('관리자만 수정할 수 있어요'); return; }
       if(!window.firebaseAPI || !firebaseAPI.setBugReport){ toast('네트워크 연결이 필요해요'); return; }
-      const notice = (noticeIn ? noticeIn.value : '').trim();
-      const link   = (linkIn   ? linkIn.value   : '').trim();
-      if(!notice){ showMsg('공지 내용을 입력해 주세요', true); return; }
-      if(link && !/^https?:\/\//i.test(link)){ showMsg('링크는 http:// 또는 https:// 로 시작해야 해요', true); return; }
+      const link = (linkIn ? linkIn.value : '').trim();
+      if(link && !/^https:\/\/open\.kakao\.com\//.test(link)){ showMsg('오픈카톡 링크는 https://open.kakao.com/ 으로 시작해야 해요', true); return; }
+      /* ⚠️ 규칙이 notice 를 필수로 본다(웹 관리자도 같은 노드를 쓴다) — 있던 글을 그대로 실어 보낸다. */
+      const notice = (_bugReportConf && _bugReportConf.notice) || '버그 제보는 버그제보 게시판에 남겨 주세요.';
       saveBtn.disabled = true; showMsg('저장 중…', false);
       try{
         await firebaseAPI.setBugReport(notice, link);
-        toast('버그 제보 공지를 저장했어요');
+        toast('오픈카톡 기본 링크를 저장했어요');
         closeForm();
       }catch(e){
         showMsg(_saveFailMsg(e, '저장에 실패했어요 — 인터넷 연결을 확인해 주세요'), true);
@@ -11478,10 +11446,9 @@ function renderBugReport(){
     });
   }
 
-  // 공지 실시간 구독 (관리자가 바꾸면 모두에게 즉시 반영)
   const sub = ()=>{
-    if(!window.firebaseAPI || !firebaseAPI.subscribeBugReport){ renderBugReport(); return; }
-    firebaseAPI.subscribeBugReport(conf=>{ _bugReportConf = conf; renderBugReport(); });
+    if(!window.firebaseAPI || !firebaseAPI.subscribeBugReport) return;
+    firebaseAPI.subscribeBugReport(conf=>{ _bugReportConf = conf; });
   };
   if(window.firebaseAPI) sub();
   else window.addEventListener('firebase-ready', sub, { once:true });
@@ -12046,8 +12013,10 @@ async function initMyHome(){
           Object.keys(_myInbox).forEach(id=>{
             if(prevIds.includes(id)) return;
             const m = _myInbox[id];
-            const lbl = m.tag==='update' ? '🆕 업데이트' : m.tag==='reward' ? '📩 우편' : '📢 공지';
+            const lbl = _inboxTagLabel(m.tag);
             toast(`📩 ${lbl}: ${m.title||''}`);
+            // 🐞 답변 알림이 오면 버그제보 탭 배지도 같이(bug-board-ui.js)
+            if(m.tag==='bug' && typeof window._bugBoardRefreshBadge==='function') window._bugBoardRefreshBadge();
           });
         });
       }
@@ -12652,7 +12621,7 @@ function renderMhChat(){ renderInbox(); renderMhProfileRail(); }
    전부 [공지]로 떨어진다(폴백이 notice 다). 보이는 글자만 [보상] → [우편] 으로 바꿨다.
    [왜] 보상 말고도 시스템이 개인에게 보내는 우편(제재 안내 등)이 이 태그로 온다. */
 function _inboxTagLabel(tag){
-  return tag==='update' ? '🆕 업데이트' : tag==='reward' ? '📩 우편' : '📢 공지';
+  return tag==='update' ? '🆕 업데이트' : tag==='reward' ? '📩 우편' : tag==='bug' ? '🐞 버그제보' : '📢 공지';
 }
 function _inboxTimeStr(ts){
   if(!ts) return '';
@@ -12885,7 +12854,7 @@ function renderInbox(){
   listEl.innerHTML = '';
   filtered.forEach(id=>{
     const m = merged[id];
-    const tag = (m.tag==='update'||m.tag==='reward') ? m.tag : 'notice';
+    const tag = (m.tag==='update'||m.tag==='reward'||m.tag==='bug') ? m.tag : 'notice';
     const item = document.createElement('div');
     item.className = 'mh-ibx-item' + (m.read ? '' : ' unread') + (_inboxOpenId===id ? ' open' : '') + (m.pinned ? ' pinned' : '');
 
@@ -12949,6 +12918,10 @@ function renderInbox(){
         if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }
         else if(window.firebaseAPI && firebaseAPI.markInboxRead){ firebaseAPI.markInboxRead(getMyUserId(), id); }
         if(typeof refreshBellBadge==='function') refreshBellBadge();
+      }
+      // 🐞 답변 알림 — 펼치는 대신 버그제보 탭의 그 글로 간다(bug-board-ui.js)
+      if(m.tag === 'bug' && m.bugId && typeof window._bugBoardOpen === 'function'){
+        _inboxOpenId = null; window._bugBoardOpen(m.bugId); return;
       }
       renderInbox();
     };

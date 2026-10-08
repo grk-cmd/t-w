@@ -788,12 +788,13 @@
 | **audit.py** | 853 | **d2660b2d8a06** ← 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) · **개정 60 검사 9 기준선 reports 1** · **개정 71 검사 17 (e) 회차** · **2026-10-03 검사 9 기준선 roomStats 1** · **2026-10-03 검사 10 ES 모듈 문법 · firebase-init import 모듈도 시야에** · **2026-10-06 검사 9 기준선 roomAlive(전체 1 · 방 단위 2)** |
 | **smoke.js** | 335 | **d6e4720de7f6** ← 2026-09-14 판정 줄 (§10) |
 | **sim-account-switch.js** | 383 | **9fa214200956** ← 2026-09-16 신규 · 제보 4 계정 전환 소지품 정리 (§18) · 2026-09-20 ⑧ 로그아웃 출구 + 스텁 고침 (개정 28) · **2026-09-22 연동 해제 걷음 · 2절 상수 표에 슬롯 기록 키 넷(가려져 있던 2절 되살림) (개정 45)** · **개정 56 버린 uid 목록 걷음** |
-| **sim-admin-rules.js** | 196 | **1fcf63fb8f0c** ← **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
+| **sim-admin-rules.js** | 207 | **828f7096998f** ← **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | sim-char-foot.js | 141 | 9f0e32d97ac7 |
 | sim-char-identity.js | 187 | bdad4f71d987 |
 | sim-char-z.js | 224 | 24de011f5c83 |
 | **sim-cfg-fit.js** | 144 | **7d2963e0741d** ← 2026-09-16 (제보 1·2 런처 크기) · 개정 10 등재 |
 | **sim-chat-fly.js** | 359 | **8bd048f24d91** ← 2026-09-17 고침(350→359줄) · 회사원 모드 게이트 판정 4개 추가. 2026-09-16 신규 · 같은 날 5차 개정(띠·크기·체크줄·크기 3단·속도 px/s) (§15) |
+| **sim-bug-board.js** | 111 | **d463c39d7311** ← **2026-10-08 신규 · 🐞 버그제보 게시판 — 규칙(비공개 글 · 비공개 답변 읽기 = 본인/관리자 · 답변 쓰기 관리자만 · 목록 limitToLast ≤ 20 쿼리만 · 내 글은 내 uid 만 · 우편함 tag bug · 목록 title 은 공개 글만 · kakao open.kakao.com · 👍 +1 짝) · bug-board.js 실행(비공개 목록 줄에 제목 없음 · 입력 확인 · 분류 = 규칙 · 배지 수) · 연결(firebase-init · 우편함 열기 · 답변 알림 · 스크립트 순서 · 비공개 행 못 누름)** |
 | **sim-chat-copy.js** | 85 | **95db64382afa** ← **2026-10-08 신규 · 📋 대화창 드래그 · 복사 — chat-copy.js 실행(「이름: 내용」 · 시각 없음 · 이모티콘 마커 생략 · 이모티콘만 있는 줄 빼기 · 링크 원문) · 스크립트 순서 · .chat-messages 만 user-select:text · 칩/메뉴/토스트 #chatWindow 안 · 고르는 중 innerHTML 전 보류 · 원문 번호(data-i) · Ctrl/Cmd+C 직접 · 우클릭 메뉴 · 선택 풀리면/칩 누르면 그리고 맨 아래로** |
 | **sim-chat-log-persist.js** | 148 | **04941c076189** ← 2026-09-13 고친 판 (§8) |
 | **sim-child-theme.js** | 96 | **36e0e6de3ef7** ← 2026-09-16 (제보 5 자식 창 테마) · 개정 10 등재 |

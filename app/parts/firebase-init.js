@@ -9,7 +9,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getDatabase, ref as _dbRef, set, update as _dbUpdate, remove, onValue, off, onDisconnect, serverTimestamp, get, runTransaction,
-    push, query, limitToLast, orderByChild, orderByKey, startAt, equalTo, onChildAdded
+    push, query, limitToLast, orderByChild, orderByKey, startAt, endBefore, equalTo, onChildAdded
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
@@ -38,6 +38,7 @@
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room-alive.js";
   import { createInviteAccount } from "./invite-account.js";
   import { createAppVersion } from "./app-version.js";
+  import { createBugBoard } from "./bug-board.js";
   import { createCatalogSync } from "./catalog-cache.js";
   import { createBroadcastSync } from "./broadcast-cache.js";
   import { createVisitPing } from "./visit-ping.js";
@@ -3033,6 +3034,9 @@
     ─────────────────────────────────────────────────────────── */
 
     // 이 uid가 이미 등록된 사용자인지 (친구 시스템을 쓴 적 있으면 profile/home 등이 남아있음)
+    /* 🐞 버그제보 게시판 — 경로 · 쿼리 · 묶음 쓰기는 bug-board.js 에 있다. 여기는 연결만. */
+    bugBoard: createBugBoard({ db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo, runTransaction, push,
+                               authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),
     getInviteAccount: createInviteAccount({ db, ref, get, databaseURL: db && db.app && db.app.options && db.app.options.databaseURL }),
     // 기존 유저 grandfather 처리 — 초대 정보가 없으면 5장 부여하고 통과
     async grandfatherInvite(userId, grantCount){
@@ -3696,14 +3700,17 @@
       try{ await remove(ref(db, `inbox/${myId}/${msgId}`)); }catch(_){}
     },
     // 개별 유저에게 메시지 전송 — 시스템(보상 지급/업데이트 안내 등)이 호출
-    async sendInboxMessage(toId, tag, title, body){
+    /* extra.bugId — 🐞 답변 알림(tag 'bug')이 가리키는 글. 우편함에서 누르면 그 글을 연다. */
+    async sendInboxMessage(toId, tag, title, body, extra){
       const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-      await set(ref(db, `inbox/${toId}/${id}`), {
-        tag: (tag==='update'||tag==='reward') ? tag : 'notice',
+      const rec = {
+        tag: (tag==='update'||tag==='reward'||tag==='bug') ? tag : 'notice',
         title: String(title||'').slice(0,80),
         body:  String(body ||'').slice(0,600),
         ts: Date.now(), read: false,
-      });
+      };
+      if(extra && extra.bugId) rec.bugId = String(extra.bugId).slice(0,40);
+      await set(ref(db, `inbox/${toId}/${id}`), rec);
       return { ok:true, id };
     },
     // 관리자: 모든 유저에게 일괄 전송 — users 목록을 읽어서 각자의 inbox에 같은 메시지를 뿌림
