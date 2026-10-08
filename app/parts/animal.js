@@ -614,6 +614,8 @@ function _parseEar(key, cb){
     _earLoader.parse(buf.buffer,'',(g)=>{ _earCache[key]=g.scene; cb(g.scene); }, (e)=>{ console.warn('[동물] 귀 파싱 실패',key,e); cb(null); });
   }catch(e){ console.warn('[동물] 귀 로드 오류',key,e); cb(null); }
 }
+// 사람 귀(human-ear.js)도 같은 캐시로 파싱한다 — 귀 GLB 다섯 종을 두 번 풀지 않게
+window.parseAnimalEar=_parseEar;
 function _detachEar(side){
   const obj = side==='L' ? earObjL : earObjR;
   if(obj && obj.parent) obj.parent.remove(obj);
