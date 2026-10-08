@@ -252,6 +252,7 @@
   let _friendListListeners = {};   // {friendId: {profileUnsub, presenceUnsub, bioUnsub, avatarUnsub}} — 각 친구별 실시간 구독 정리용
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
   let _presenceWritten = false;   // presence 를 한 번이라도 set 했는가 — 버전이 늦게 오면 그때만 메운다
+  let _presenceArm = null;        // setMyPresenceOnline 의 _armPresence — 계정을 묶은 뒤 다시 걸 때(rearmPresence)
   let _mobLive = null;   // 📱 태블릿·폰 연결 — { uid, stop } (mobileLinkStart)
   let _sessionRef = null, _sessionId = null, _sessionUnsub = null, _sessionLost = false;   // 🖥️ 한 계정 한 기기(claimDeviceSession)
   // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
@@ -1192,6 +1193,7 @@
       /* 🚧 presence 도 소유권이 걸린 가지다 — 세션 복원 전에 쓰면 조용히 거부되고,
          그 기기는 친구 목록에서 영영 오프라인으로 보인다(재접속 복구가 돌기 전까지).
          ⚠️ .info/connected 쪽은 감싸지 않는다. 그건 이미 부팅이 한참 지난 뒤의 경로다. */
+      _presenceArm = _armPresence;
       _whenAuthReady().then(_armPresence);
       /* 🔌 재접속 복구 — **이게 없으면 한 번 끊긴 사람은 영영 오프라인이다.**
          [기전] 화면 잠금·절전·와이파이 전환으로 소켓이 끊기면 서버가 위 onDisconnect 를 실행해
@@ -1229,6 +1231,9 @@
         }, 6 * 60 * 60 * 1000);
       }catch(_){}
     },
+    /* presence 와 onDisconnect 를 지금 세션으로 다시 건다 — 가입 I · 로그인 K 로 이 uid 를 막 묶었을 때(재시작 없음).
+       묶이기 전(안 묶인 uid)에 건 것은 규칙에 거부돼 남아 있지 않다. onDisconnect 는 거는 순간에 권한을 본다. */
+    rearmPresence(){ if(_presenceArm) _whenAuthReady().then(_presenceArm); },
     // 온라인 표시 수동 토글 — false면 친구 목록에서 오프라인으로 보임(앱은 계속 실행됨).
     setMyPresenceState(userId, online){
       _presenceOnline = !!online;

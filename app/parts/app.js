@@ -27458,6 +27458,19 @@ async function _existingSignupDoPassword(st, password){
   try{ if(firebaseAPI.setAccountSnapshot) await firebaseAPI.setAccountSnapshot(st.uid, _loginLocalSnapshot()); }catch(_){}
   return { ok:true, code:st.code, changed };
 }
+/* 🔒 [규칙 잠금 A] 이 uid 를 계정에 막 묶은 뒤(I 가입 · K 로그인, 재시작 없음) — 부팅 때 거부된 한 번짜리 쓰기를 다시 한다.
+   안 묶인 uid 는 주인만 쓰는 칸(presence · profile …)에 못 쓰므로, 묶기 전에 나간 쓰기는 거부된 채 이번 실행 내내 비어 있다.
+   주기 동기화(집중 · 가챠 · 슬롯 · 캐릭터)는 다음 박자에 스스로 낫고, 초대 기록(grandfatherInvite)은 다음 부팅에 다시 돈다.
+   폰 연결 live 는 다음 재접속 · 재시작 때 다시 걸린다. 실패해도 조용히 넘어간다(그때는 다음 부팅이 같은 일을 한다). */
+function _afterBindRewrite(){
+  if(!window.firebaseAPI) return;
+  const myId = getMyUserId();
+  if(!myId) return;
+  try{ if(firebaseAPI.rearmPresence) firebaseAPI.rearmPresence(); }catch(_){}
+  try{ if(firebaseAPI.claimDeviceSession) firebaseAPI.claimDeviceSession(myId, _onDeviceSessionLost); }catch(_){}
+  Promise.resolve().then(()=> firebaseAPI.setMyProfile(myId, getDisplayName(), getFocusLevel(), myStarProfileOut()))
+    .catch(e=> _warnOwnerWriteDenied('프로필', e));
+}
 /* 부팅 때 한 번 — 초대 게이트를 지난 뒤(initInviteGate). 띄우면 끝날 때까지 기다린다. */
 async function _existingSignupCheck(){
   let st = null;
@@ -27481,6 +27494,7 @@ function _showExistingSignup(st){
     const close = ()=>{
       ov.style.display = 'none';
       try{ if(typeof refreshAccountTab === 'function') refreshAccountTab(); }catch(_){}
+      _afterBindRewrite();   // 닫는 길은 묶기에 성공했을 때뿐이다(비밀번호 · 같은 uid 구글)
       resolve(true);
     };
     const goPw = async ()=>{
@@ -27598,7 +27612,7 @@ function _showNeedLogin(st){
     if(codeEl) codeEl.textContent = st.code || '—';
     ov.style.display = 'flex';
     setTimeout(()=>{ if(pw) pw.focus(); }, 50);
-    const close = ()=>{ ov.style.display = 'none'; try{ if(typeof refreshAccountTab === 'function') refreshAccountTab(); }catch(_){} resolve(true); };
+    const close = ()=>{ ov.style.display = 'none'; try{ if(typeof refreshAccountTab === 'function') refreshAccountTab(); }catch(_){} _afterBindRewrite(); resolve(true); };
     const after = r => {
       if(!r.switched){ say('✅ 로그인됐어요.', false); setTimeout(close, 900); return; }
       /* 로그인한 계정의 uid 가 이 PC 와 달랐다 — 그 계정으로 갈아탔으니 다시 띄운다(구글 갈아타기와 같은 결론). */
@@ -32196,13 +32210,14 @@ function _loginMayBind(){
      갈아타는 길(I 의 구글 · K 의 다른 계정 로그인)에만 있던 틈이다.
    갈래 — 옛 uid 가 어느 계정에 묶였나(userAuth/{before}):
      · 못 읽음      → 실패(갈아타지 않는다). 어느 쪽인지 모르고 섞거나 버리지 않는다.
-     · 안 묶임(I)   → 같은 사람의 이 PC 몫이다. ① 옛 uid 로 캐릭터를 끝까지 올리고(안 묶인 uid 라 규칙상 쓸 수 있다 · 못 올리면 실패)
+     · 안 묶임(I)   → 같은 사람의 이 PC 몫이다. ① 옛 uid 로 캐릭터를 끝까지 올리고(예전 규칙에서만 된다 · 못 올려도 ② 로 — 아래 _switchPrepare 주석)
                       ② 옛 uid 서버의 산 캐릭터를 **같은 cid 로** 새 계정 보관함에 복사(_charsLinkPlan · 더 새것이 이긴다 · 묘비는 안 옮김 ·
                       20 을 넘어도 버리지 않는다 — D2 가 경고) ③ 캐릭터 로컬 키만 내려놓고 ④ F 안내 표시를 남긴다(재시작 뒤 첫 채택이 끝나면 한 번).
                       집중 시간 · 플레이리스트 등 나머지는 예전처럼 따라간다(같은 사람).
      · 다른 계정(K) → 남의 계정일 수 있다(한 PC 를 둘이 씀). 아무것도 가져오지 않고 **로그아웃처럼 전부 내려놓는다**(_wipeAccountLocal).
                       그 계정 몫은 지금 세션으로 올릴 수 없으므로(규칙) 책상 칸은 슬롯 백업에만 남긴다(백업은 uid 대조로 남이 못 줍는다).
-   ⚠️ uid 기록(_setMyUserId) **전에** 부른다 — ① 은 옛 uid 로 돈다. 돌려주는 것: { ok, mode:'none'|'import'|'detach'|'plain', n, reason }. */
+   ⚠️ uid 기록(_setMyUserId) **전에** 부른다 — ① 은 옛 uid 로 돈다(잠근 규칙에서는 거부 — 그래도 ② 부터 간다).
+   돌려주는 것: { ok, mode:'none'|'import'|'detach'|'plain', n, pushed, reason }. */
 const CHARS_LINKED_KEY = 'tw.charsLinked';
 function _charsLinkPlan(fromChars, toChars){
   fromChars = (fromChars && typeof fromChars === 'object') ? fromChars : {};
@@ -32232,10 +32247,14 @@ async function _switchPrepare(before, to){
   }
   if(!(typeof CHARS_SYNC_ENABLED !== 'undefined' && CHARS_SYNC_ENABLED && typeof _charsBoot === 'function')){ dropChars(); return { ok:true, mode:'plain', n:0 }; }
   const prepFail = { ok:false, reason:'이 PC 의 캐릭터를 올리지 못했어요 — 아무것도 바꾸지 않았어요. 잠시 뒤 다시 시도해 주세요' };
+  /* 🔒 [규칙 잠금 A] 옛 uid 로 올리기는 «되면 좋은 것» 이다 — 잠근 규칙에서는 안 묶인 uid 에 아무도 못 쓴다(지금 세션은 새 계정 주인).
+     못 올렸어도 멈추지 않는다: 서버에 이미 있는 옛 uid 캐릭터를 옮기고, 이 PC 책상 칸(LS_KEY)은 남겨 재시작 뒤
+     새 계정 첫 채택이 가져간다. 빠지는 것은 «책상에 없고 보관함에만 있던, 못 올린 고침» 뿐이다.
+     예전 규칙(안 묶인 uid 쓰기 허용)에서는 지금처럼 다 올린 뒤 옮긴다. */
   let b = null; try{ b = await _charsBoot('switch'); }catch(_){ b = null; }
-  if(!b || !b.ok) return prepFail;
   const box = _charsBoxGet();
-  for(const c in box) if(box[c] && box[c].dirty) return prepFail;   // 아직 못 올린 칸이 남았다(도는 중이었던 판 포함)
+  const pushed = !!(b && b.ok) && !Object.keys(box).some(c => box[c] && box[c].dirty);
+  if(!pushed) console.warn('[🧬] 옛 uid 로 캐릭터를 다 올리지 못함 — 서버에 있는 것만 옮긴다', b && b.reason);
   if(!(firebaseAPI.loadCharsRemote && firebaseAPI.saveCharsEntries)) return prepFail;
   let ca = null, cb = null;
   try{ [ca, cb] = await Promise.all([ firebaseAPI.loadCharsRemote(before), firebaseAPI.loadCharsRemote(to) ]); }catch(_){}
@@ -32247,7 +32266,7 @@ async function _switchPrepare(before, to){
   }
   dropChars();
   if(plan.cids.length){ try{ localStorage.setItem(CHARS_LINKED_KEY, JSON.stringify({ to, cids: plan.cids, at: Date.now() })); }catch(_){} }
-  return { ok:true, mode:'import', n: plan.cids.length };
+  return { ok:true, mode:'import', n: plan.cids.length, pushed };
 }
 
 /* 🧬 F · 캐릭터를 계정에 연동했어요 (설계 §7-F · 시안 F-1 · F-2 확정 · CHECKS 개정 57) — 묻지 않는 안내 창. 한 번만.

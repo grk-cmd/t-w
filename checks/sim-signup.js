@@ -1220,10 +1220,14 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       chk(!('deskFriends.chars.v1' in e.st) && !('deskFriends.chars.desk' in e.st) && !('deskFriends.chars.trashPend' in e.st) && e.st['deskFriends.slots.v2'] === '[{"skin":1}]', '★ 캐릭터 로컬 키 셋만 내려놓는다 — 책상 칸(LS_KEY)은 둔다(재시작 뒤 새 계정으로 첫 채택)');
       const mk = JSON.parse(e.st['tw.charsLinked'] || 'null');
       chk(mk && mk.to === 'unew00000001' && mk.cids.join() === 'cabc1234', '  F 표시를 남긴다 { to · cids }');
+      /* [규칙 잠금 A] 잠근 규칙에서는 안 묶인 옛 uid 에 못 올린다 — 그래도 멈추지 않고 서버에 있는 것만 옮긴다(책상 칸 LS_KEY 는 남아 재시작 뒤 첫 채택). */
       e = mkPrep({ owner: null, boot: { ok:false, reason:'x' } }); r = await e.F('uold000000001', 'unew00000001');
-      chk(!r.ok && /올리지 못했어요/.test(r.reason) && e.st['deskFriends.chars.v1'] && !e.log.some(x => /^save:/.test(x)), '★ 옛 uid 로 못 올리면 실패 — 로컬 그대로 · 새 계정에 안 쓴다');
+      chk(r.ok && r.mode === 'import' && r.pushed === false && e.log.includes('save:unew00000001:cabc1234') && !('deskFriends.chars.v1' in e.st) && e.st['deskFriends.slots.v2'] === '[{"skin":1}]',
+          '★ 옛 uid 로 못 올려도(잠근 규칙) 서버 것을 옮기고 캐릭터 키만 내려놓는다 — 책상 칸은 둔다 · pushed:false');
       e = mkPrep({ owner: null, dirty: true }); r = await e.F('uold000000001', 'unew00000001');
-      chk(!r.ok && e.st['deskFriends.chars.v1'], '  올린 뒤에도 못 올린 칸(dirty)이 남았으면 실패');
+      chk(r.ok && r.pushed === false && e.log.includes('save:unew00000001:cabc1234'), '  올린 뒤에도 못 올린 칸(dirty)이 남아도 같다 — 갈아타기가 막히지 않는다');
+      e = mkPrep({ owner: null }); r = await e.F('uold000000001', 'unew00000001');
+      chk(r.ok && r.pushed === true, '  예전 규칙(올리기 성공)이면 pushed:true');
       e = mkPrep({ owner: null, save: false }); r = await e.F('uold000000001', 'unew00000001');
       chk(!r.ok && /옮기지 못했어요/.test(r.reason) && e.st['deskFriends.chars.v1'] && !e.st['tw.charsLinked'], '★ 새 계정에 못 쓰면 실패 — 로컬 그대로 · 표시 없음');
       e = mkPrep({ owner: null, load: false }); r = await e.F('uold000000001', 'unew00000001');
