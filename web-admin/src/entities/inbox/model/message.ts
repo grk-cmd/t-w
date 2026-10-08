@@ -6,6 +6,19 @@ export interface InboxMessage {
   body: string;
 }
 
+/**
+ * 한 사람에게 보내는 메시지 — 공용 공지(InboxMessage)에 없는 «버그 답변» 알림까지.
+ * bug 는 앱 수령함에서 누르면 bugId 의 글을 연다(앱 sendInboxMessage 와 같은 모양).
+ */
+export interface PersonalMessage {
+  tag: InboxTag | 'bug';
+  title: string;
+  body: string;
+  bugId?: string;
+}
+
+export const INBOX_BUG_ID_MAX = 40; // 규칙 inbox/$uid/$msgId bugId
+
 export const INBOX_TITLE_MAX = 80; // 규칙 inbox · inboxBroadcast .validate
 export const INBOX_BODY_MAX = 600;
 

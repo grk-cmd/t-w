@@ -41,6 +41,8 @@ export const AUDIT_ACTIONS = [
   'catalog.reorder',
   'catalog.editInfo',
   'catalog.cleanGlb',
+  'bug.answer',
+  'bug.status',
   // 서버 함수(adminDeleteAccount)가 쓴다 — 웹은 이름만 보여 준다.
   'account.delete',
 ] as const;

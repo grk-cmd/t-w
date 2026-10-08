@@ -21,9 +21,11 @@ export {
 } from './model/broadcast';
 export {
   INBOX_BODY_MAX,
+  INBOX_BUG_ID_MAX,
   INBOX_TAG_LABEL,
   INBOX_TITLE_MAX,
   licenseGrantMessage,
   type InboxMessage,
   type InboxTag,
+  type PersonalMessage,
 } from './model/message';

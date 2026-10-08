@@ -1,4 +1,4 @@
-import type { Db } from '@/shared/api';
+import type { Db, LastRange } from '@/shared/api';
 
 export const NOW = { '.sv': 'timestamp' };
 export const ADMIN_UID = 'admin-uid';
@@ -18,9 +18,19 @@ export function fakeDb(data: Record<string, unknown> = {}, failOn: (path: string
   };
   const db: Db = {
     get: async <T>(path: string) => (data[path] ?? null) as T | null,
-    getLast: async <T>(path: string, child: string, n: number) => {
-      const all = Object.entries((data[path] ?? {}) as Record<string, Record<string, unknown>>);
-      all.sort(([, a], [, b]) => Number(a?.[child] ?? 0) - Number(b?.[child] ?? 0));
+    // RTDB 처럼 값 순 · 같으면 키 이름 순. 값이 없는 항목은 맨 앞(0 으로 본다).
+    getLast: async <T>(path: string, child: string, n: number, range?: LastRange) => {
+      const val = (v: Record<string, unknown> | undefined) => Number(v?.[child] ?? 0);
+      let all = Object.entries((data[path] ?? {}) as Record<string, Record<string, unknown>>);
+      all.sort(([ka, a], [kb, b]) => val(a) - val(b) || (ka < kb ? -1 : ka > kb ? 1 : 0));
+      const from = range?.startAt;
+      const before = range?.endBefore;
+      if (from !== undefined) all = all.filter(([, v]) => val(v) >= from);
+      if (before)
+        all = all.filter(
+          ([k, v]) =>
+            val(v) < before.value || (before.key !== undefined && val(v) === before.value && k < before.key),
+        );
       return Object.fromEntries(all.slice(-n)) as Record<string, T>;
     },
     getEqual: async <T>(path: string, child: string, value: unknown) => {

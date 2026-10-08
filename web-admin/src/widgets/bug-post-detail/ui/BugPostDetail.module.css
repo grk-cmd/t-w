@@ -1,0 +1,101 @@
+/* 오른쪽에서 붙는 세로 패널 — 사용자 상세와 같은 모양. 폰 폭에서는 화면을 꽉 채운다. */
+.panel {
+  width: min(560px, 100vw);
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0 0 0 auto;
+  padding: 0 0 24px;
+  overflow-y: auto;
+  color: var(--ink);
+  background: var(--bg);
+  border: 0;
+  border-left: 1px solid var(--line);
+}
+
+.panel::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+
+.close {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 12px 0;
+  background: var(--card);
+}
+
+.pad {
+  padding: 0 16px;
+}
+
+.head {
+  padding: 4px 16px 10px;
+  background: var(--card);
+}
+
+.headText h2 {
+  margin: 0;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.headText p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px 14px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+
+.badge {
+  padding: 1px 8px;
+  font-size: 12px;
+  color: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.section {
+  margin: 12px 12px 0;
+  padding: 4px 14px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.section h3 {
+  margin: 10px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--soft);
+}
+
+.text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.answer {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.answer:last-child {
+  border-bottom: 0;
+}
+
+.answer a {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
