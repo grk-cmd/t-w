@@ -31752,6 +31752,16 @@ setTimeout(()=>{
     }).catch(()=>{});
   }catch(_){}
 }, 2500);
+/* 켜 두었는데 실제로는 막혔으면(GPU 합성 꺼짐) 「켜짐」 이라고 말하지 않는다 — 제보 #4.
+   ★ .on 은 «값» 기준 그대로 둔다 — 누르면 꺼짐으로 가야 한다. 글자만 사실대로. */
+function _labVideoShow(btn, r){
+  const on = !!(r && r.on);
+  const blocked = on && /^blocked/.test(String((r && r.state) || ''));
+  btn.textContent = blocked ? '적용 안 됨' : (on ? '켜짐' : '꺼짐');
+  btn.title = blocked ? '켜 두었지만 이 PC 에서는 적용되지 않아요(그래픽 가속이 꺼져 있어요). 누르면 꺼져요.' : '';
+  btn.classList.toggle('on', on);
+  return { on, blocked };
+}
 function refreshLabVideoUI(){
   const row = document.getElementById('progLabVideoRow');
   const hint= document.getElementById('progLabVideoHint');
@@ -31764,11 +31774,7 @@ function refreshLabVideoUI(){
   }
   row.style.display = '';
   if(hint) hint.style.display = '';
-  companion.getLabVideo().then(r=>{
-    const on = !!(r && r.on);
-    btn.textContent = on ? '켜짐' : '꺼짐';
-    btn.classList.toggle('on', on);
-  }).catch(()=>{ /* 조회 실패 — 마지막 표시를 그대로 둔다(값을 멋대로 꺼짐으로 보이면 안 된다) */ });
+  companion.getLabVideo().then(r=>{ _labVideoShow(btn, r); }).catch(()=>{ /* 조회 실패 — 마지막 표시를 그대로 둔다(값을 멋대로 꺼짐으로 보이면 안 된다) */ });
 }
 if(document.getElementById('progLabVideoToggle')){
   document.getElementById('progLabVideoToggle').onclick = async ()=>{
@@ -31777,10 +31783,8 @@ if(document.getElementById('progLabVideoToggle')){
     const wantOn = !btn.classList.contains('on');
     try{
       const r = await companion.setLabVideo(wantOn);
-      const on = !!(r && r.on);
-      btn.textContent = on ? '켜짐' : '꺼짐';
-      btn.classList.toggle('on', on);
-      toast(on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요');
+      const v = _labVideoShow(btn, r);
+      toast(v.blocked ? '켜 두었지만 이 PC 에서는 적용되지 않아요' : (v.on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요'));
     }catch(e){ toast('설정에 실패했어요'); }
   };
 }

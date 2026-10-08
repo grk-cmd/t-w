@@ -1748,6 +1748,23 @@ function createWindow() {
        주기적으로 다시 부르지 말 것 — 스타일 변경 자체가 크로미움의 가려짐 재계산 훅을
        두들겨서(핸드오프4 §4-2 의 906회 사고) 고치려던 깜빡임을 우리 손으로 만들게 된다. */
   overlay.applyLayered('부팅');
+  /* 🔁 [2026-10-08 제보 #4] 부팅 판정이 «GPU 합성 꺼짐» 이면 GPU 정보가 준비된 뒤 **딱 한 번** 다시 본다.
+     [왜] app.getGPUFeatureStatus() 는 gpu-info-update 전에는 믿을 수 없다. 윈도우 시작 자동 실행처럼 GPU 가 덜 준비된
+       순간이면 '?' 가 나와 꺼짐으로 판정되고, 예전엔 다시 시도하지 않아서 «토글은 켜짐인데 효과는 꺼짐» 이 됐다
+       (토글을 껐다 켜면 그때는 준비돼 있어 적용됐다 — 제보와 일치).
+     ★ 재시도도 같은 함수(_applyOverlayLayered)를 지난다 — 그때도 enabled 가 아니면 그대로 건너뛴다(10-01 보호 유지).
+     ⚠️ 한 번뿐이다. 주기적으로 다시 부르지 말 것(위 주석 — 스타일 변경이 가려짐 재계산 훅을 두들긴다). */
+  if(/^blocked/.test(overlay.layeredState()) && overlay.alpha() > 0 && overlay.alpha() < 255){
+    let _layRetried = false;
+    const _layRetry = (why)=>{
+      if(_layRetried || !mainWindow || mainWindow.isDestroyed()) return;
+      _layRetried = true;
+      overlay.applyLayered('재시도(' + why + ')');
+    };
+    app.once('gpu-info-update', ()=>_layRetry('gpu-info-update'));
+    // gpu-info-update 가 이미 지나갔을 수 있다 — 화면이 다 뜬 뒤 한 번 더 기회를 준다
+    mainWindow.webContents.once('did-finish-load', ()=>setTimeout(()=>_layRetry('did-finish-load'), 1500));
+  }
   /* 🚚 갭 승격이 일어났으면 한 줄 남긴다 — 제보 로그에서 "이 사람은 옛 값을 쓰고 있었다"가
      바로 보여야 한다. loadSettings 시점에는 app 이 아직 ready 가 아니라 여기서 찍는다. */
   if(_settingsReset){
@@ -3245,8 +3262,9 @@ function createWindow() {
     _settingsResetNotice = false;
     return r;
   });
+  /* state — 실제로 걸렸는지(overlay.layeredState). 켜 두었는데 'blocked…' 면 화면이 「켜짐」 대신 「이 PC 에서는 적용 안 됨」. */
   ipcMain.handle('companion:getLabVideo', () => {
-    return { on: overlay.alpha() > 0 && overlay.alpha() < 255, alpha: overlay.alpha() };
+    return { on: overlay.alpha() > 0 && overlay.alpha() < 255, alpha: overlay.alpha(), state: overlay.layeredState() };
   });
   ipcMain.handle('companion:setLabVideo', (e, on) => {
     overlay.setAlpha(on ? overlay.LAYERED_ALPHA_ON : 0);
@@ -3254,7 +3272,7 @@ function createWindow() {
     /* 즉시 반영한다 — 재시작을 요구하지 않는다. 스타일 변경은 재계산 훅이지만 이건 사람이
        버튼을 누른 순간 한 번뿐이라, 주기 호출 금지 원칙(위 주석)에 어긋나지 않는다. */
     overlay.applyLayered(on ? '토글 켜기' : '토글 끄기');
-    return { ok: true, on: overlay.alpha() > 0 && overlay.alpha() < 255 };
+    return { ok: true, on: overlay.alpha() > 0 && overlay.alpha() < 255, state: overlay.layeredState() };
   });
 
   /* 🩺 진단 기록 폴더 열기 — 제보를 받을 때 "이 경로의 파일을 보내주세요" 대신 버튼 하나로.

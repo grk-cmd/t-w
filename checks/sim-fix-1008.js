@@ -70,6 +70,33 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
   }
 }
 
+say('§4 영상 겹침 실험이 재부팅 후 꺼짐 — 부팅 판정이 막히면 GPU 준비 뒤 한 번 더');
+{
+  const MAIN = (() => { for (const c of ['main.js', '../main.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
+  if (!MAIN) chk(false, 'main.js 를 찾았다');
+  else {
+    const i = MAIN.indexOf("overlay.applyLayered('부팅');");
+    const blk = MAIN.slice(i, i + 2200);
+    chk(i > 0 && /if\(\/\^blocked\/\.test\(overlay\.layeredState\(\)\) && overlay\.alpha\(\) > 0 && overlay\.alpha\(\) < 255\)\{/.test(blk), '★ 부팅이 blocked 이고 실험이 켜져 있을 때만 재시도를 건다');
+    chk(/app\.once\('gpu-info-update'/.test(blk) && /webContents\.once\('did-finish-load'/.test(blk), '  gpu-info-update · did-finish-load 중 먼저 오는 쪽');
+    chk(/if\(_layRetried \|\| !mainWindow \|\| mainWindow\.isDestroyed\(\)\) return;\s*_layRetried = true;/.test(blk), '  딱 한 번 (주기 호출 없음)');
+    chk(/overlay\.applyLayered\('재시도\(' \+ why \+ '\)'\)/.test(blk), '  재시도도 같은 함수 — GPU 합성 꺼짐 보호(10-01)를 그대로 지난다');
+    const W = (() => { for (const c of ['overlay-win.js', '../overlay-win.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
+    chk(!!W && /if\(_gpuCompositingOff\(\)\)\{\s*_layeredState = 'blocked\(GPU 합성 꺼짐\)';/.test(W), '  그 보호 줄이 overlay-win.js 에 그대로 있다');
+    chk(/companion:getLabVideo'[\s\S]{0,200}state: overlay\.layeredState\(\)/.test(MAIN) && /setLabVideo'[\s\S]{0,700}state: overlay\.layeredState\(\)/.test(MAIN), '설정 조회 · 토글이 실제 적용 상태(state)를 돌려준다');
+    // 화면 흉내
+    const fn = (APP.match(/function _labVideoShow\(btn, r\)\{[\s\S]*?\n\}/) || [''])[0];
+    const show = new Function(fn + '\nreturn _labVideoShow;')();
+    const mk = () => ({ textContent: '', title: '', classList: { v: false, toggle(c, on) { this.v = on; } } });
+    const b1 = mk(); show(b1, { on: true, state: 'blocked(GPU 합성 꺼짐)' });
+    const b2 = mk(); show(b2, { on: true, state: 'on(alpha 252)' });
+    const b3 = mk(); show(b3, { on: false, state: 'off(미적용)' });
+    const b4 = mk(); show(b4, { on: true });   // 옛 main(state 없음)
+    chk(b1.textContent === '적용 안 됨' && b1.classList.v === true, '★ 켜 두었는데 막혔으면 「적용 안 됨」(누르면 꺼짐으로)');
+    chk(b2.textContent === '켜짐' && b3.textContent === '꺼짐' && b4.textContent === '켜짐', '  정상 · 꺼짐 · state 없는 옛 응답은 예전 그대로');
+  }
+}
+
 say('');
 say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅');
 process.exit(fail ? 1 : 0);
