@@ -38,6 +38,7 @@ export const AUDIT_ACTIONS = [
   'roomServer.serverDelete',
   'roomServer.allow',
   'roomServer.allowDelete',
+  'roomServer.limits',
   'settings.minAppVer',
   'room.close',
   'room.closeAll',
