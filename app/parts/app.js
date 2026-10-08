@@ -29564,6 +29564,10 @@ function applyCharToSeat(seat,def){
     }
     applyLightPresetToInstance(inst);   // 생성기와 같은 톤(텍스처 색을 emissive로 평탄화)
     seat.faceMat=inst.faceMat; seat.faceMapOrig=fT; seat.blinkTex=bT;
+    /* 👁 새 모델은 뜬 눈 텍스처로 시작한다 — 감김 표시도 같이 «뜸» 으로 되돌려 둔다.
+       프레임 루프는 표시가 **바뀔 때만** 텍스처를 바꾸므로, 졸던 중(closed=true)에 모델이 바뀌면
+       표시는 감김인데 그림은 뜬 눈으로 남는다(제보 #6 — 편집 → 완성 후 조는데 눈 뜸). 다음 프레임이 다시 감긴다. */
+    if(seat.blink) seat.blink.closed = false;
     seat.upMesh=inst.upMesh||null; seat.loMesh=inst.loMesh||null;   // 옷 교체 시 기본 메시 숨김용
     seat.glassesMesh=inst.glassesMesh||null;   // 안경 파츠 장착 시 기본(베이크된) 안경 숨김용
     seat.hatMesh=inst.hatMesh||null; seat.hatMat=inst.hatMat||null; seat.maskMesh=inst.maskMesh||null; seat.onepieceMesh=inst.onepieceMesh||null;
@@ -29625,6 +29629,10 @@ function applyCharToSeat(seat,def){
     seat.modelRoot=base.root;   // 🎩 파츠 좌표계 기준 — base.group은 wrap, 본은 base.root 안에 있다(위 setupSeatModel 주석 참고)
     seat.isPlaceholder=false;seat.mixer=null;seat.hasRig=false;
     seat.faceMat=base.faceMat;seat.faceMapOrig=base.fT;seat.blinkTex=base.bT;
+    /* 👁 새 모델은 뜬 눈 텍스처로 시작한다 — 감김 표시도 같이 «뜸» 으로 되돌려 둔다.
+       프레임 루프는 표시가 **바뀔 때만** 텍스처를 바꾸므로, 졸던 중(closed=true)에 모델이 바뀌면
+       표시는 감김인데 그림은 뜬 눈으로 남는다(제보 #6 — 편집 → 완성 후 조는데 눈 뜸). 다음 프레임이 다시 감긴다. */
+    if(seat.blink) seat.blink.closed = false;
     seat.headAnchor.position.set(0,1.2,0);seat.bodyAnchor.position.set(0,0.7,0);
     
     // [수정] 폴백 캐릭터일 때도 생성기에서 설정한 크기를 똑같이 주입합니다.
