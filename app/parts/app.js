@@ -13375,6 +13375,11 @@ function _mhSubscribeDMForSelected(){ /* 수령함으로 대체됨 */ }
 /* ============================================================ 🏠 마이홈 (2단계: 프로필/게시글/스티커) */
 let _myHomeData = { avatar:null, bio:'', postTitle:'', post:'', stickers:{}, bgm:null, bg:null, theme:null };
 let _myHomeLoaded = false;
+/* 🪪 [2026-10-08 제보 #2] 마이홈을 **어느 계정 코드로** 불러왔는가. 저장 때 지금 코드와 다르면 거부한다.
+   [가설] 계정 탭에서 다른 계정으로 갈아탄 뒤 재시작 전에 자동 저장(창 닫기 · 탭 전환)이 돌면, 먼저 불러온
+     **옛 계정의 마이홈(빈 데이터일 수 있다)** 이 새 계정 users/{코드}/home 에 통째로 덮어써졌다.
+     _myHomeLoaded 하나로는 «불러왔다» 만 알고 «누구 것을» 은 몰랐다. */
+let _myHomeUid = null;
 
 // ★ 마이홈2-B: 친구 마이홈 관람 모드 — null이면 내 마이홈, 아니면 그 유저의 홈을 읽기전용으로 표시.
 //   내 홈 데이터는 백업해뒀다가 관람 종료 시 복원(불필요한 firebase 재로드 방지).
@@ -13639,12 +13644,15 @@ async function loadMyHomePage(){
   if(_mhViewingUserId) return;
   if(!window.firebaseAPI || !firebaseAPI.getMyHome){ try{ renderMyHomePage(); }catch(_){}; return; }
   try{
-    const data = await firebaseAPI.getMyHome(getMyUserId()) || {};
+    const _loadUid = getMyUserId();
+    const data = await firebaseAPI.getMyHome(_loadUid) || {};
     if(_mhViewingUserId) return;   // ★ 로드가 진행되는 사이 친구 홈 관람으로 전환됐으면 덮어쓰지 않음(비동기 경쟁 방지)
+    if(getMyUserId() !== _loadUid) return;   // 🪪 불러오는 사이 계정이 바뀌었다 — 옛 계정 데이터를 붙들지 않는다
     _myHomeData = { avatar:data.avatar||null, bio:data.bio||'', postTitle:data.postTitle||'', post:data.post||'',
       theme:data.theme||null,
       stickers:data.stickers||{}, bgm:data.bgm||null, bg:data.bg||null };
     _myHomeLoaded = true;
+    _myHomeUid = _loadUid;
   }catch(e){
     console.warn('마이홈 페이지 로드 실패 — 기본값으로 렌더', e);
     // ★ 로드가 실패해도 마이홈이 통째로 빈 화면이 되지 않게 안전한 기본값으로라도 렌더
@@ -14235,6 +14243,14 @@ function _mhBindStickerResize(handle, sid){
     // 🛑 서버에서 내 마이홈을 "성공적으로 로드한 적 없는" 세션에서는 절대 저장하지 않음.
     //   예전엔 로드 실패 → 기본값 렌더 → 창 닫을 때 자동 저장이 그 기본값을 서버에 덮어써서
     //   꾸민 데이터가 통째로 초기화되는 사고가 있었음. 로드 성공(_myHomeLoaded)이 저장의 전제조건.
+    /* 🪪 불러온 계정과 지금 계정이 다르면 저장하지 않는다 — 옛 계정 데이터로 새 계정 마이홈을 덮는 길(제보 #2).
+       불러온 상태도 같이 무효로 돌려, 다음에 열 때 지금 계정 것을 새로 받게 한다. */
+    if(_myHomeLoaded && _myHomeUid !== getMyUserId()){
+      _myHomeLoaded = false;
+      console.warn('[마이홈] 계정이 바뀌었다(' + _myHomeUid + ' → ' + getMyUserId() + ') — 데이터 보호를 위해 저장을 건너뜀');
+      if(!silent) toast('계정이 바뀌어서 저장하지 않았어요 — 앱을 다시 시작해 주세요');
+      return;
+    }
     if(!_myHomeLoaded){
       if(!silent) toast('마이홈 정보를 아직 불러오지 못했어요 — 창을 닫았다 다시 열어주세요');
       console.warn('[마이홈] 로드 미완료 상태 — 데이터 보호를 위해 저장을 건너뜀');
