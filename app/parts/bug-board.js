@@ -78,6 +78,22 @@ const byTsDesc = (a, b) => (b.ts || 0) - (a.ts || 0);
  * deps: db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo,
  *       runTransaction, push, authUid(), now()
  */
+/* 받은 한 쪽(raw) → 화면에 보일 글 · 다음 쪽 커서.
+   «꽉 찬 쪽인가» 와 커서는 **거르기 전** 원본으로 센다 — 공지(전체 목록에서 뺌)가 하나만 섞여도
+   19개가 되어 [다음] 이 꺼지고 그보다 오래된 글을 못 보던 버그가 있었다.
+   미해결(openTs 정렬)은 openTs 없는 글이 맨 앞(null)으로 몰려 끝에 딸려 올 뿐이라, openTs 있는 글 수로 센다. */
+export function pageOf(filter, raw){
+  const key = filter === 'open' ? 'openTs' : 'ts';
+  const keyed = filter === 'mine' ? [] : raw.filter(it => typeof it[key] === 'number');
+  let items = raw;
+  if(filter === 'open') items = items.filter(it => typeof it.openTs === 'number');
+  if(filter === 'all') items = items.filter(it => !it.notice);
+  items = items.slice().sort(byTsDesc);
+  const full = keyed.length >= BUG_PAGE;
+  const next = full ? Math.min(...keyed.map(it => it[key])) : null;
+  return { items, next };
+}
+
 export function createBugBoard(deps){
   const { db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo, runTransaction, push } = deps;
   const now = deps.now || (() => Date.now());
@@ -97,13 +113,7 @@ export function createBugBoard(deps){
         ? query(ref(db, L), orderByChild(key), endBefore(before), limitToLast(BUG_PAGE))
         : query(ref(db, L), orderByChild(key), limitToLast(BUG_PAGE));
     }
-    let items = toArr((await get(q)).val());
-    if(filter === 'open') items = items.filter(it => typeof it.openTs === 'number');
-    if(filter === 'all') items = items.filter(it => !it.notice);
-    items.sort(byTsDesc);
-    const full = filter !== 'mine' && items.length >= BUG_PAGE;
-    const last = items[items.length - 1];
-    return { items, next: full && last ? (filter === 'open' ? last.openTs : last.ts) : null };
+    return pageOf(filter, toArr((await get(q)).val()));
   }
   async function notices(){
     const v = (await get(query(ref(db, L), orderByChild('nts'), limitToLast(BUG_NOTICE_MAX)))).val();

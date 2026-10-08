@@ -70,13 +70,26 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 
 say('§2 bug-board.js (실행)');
 const M = new Function(BB.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody };')();
+  '\nreturn { BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf };')();
 const who = { name: '에이', code: 'CA', authUid: 'uA' };
 const prv = M.listEntry({ vis: 'prv', cat: 'bug', title: '비밀 제목', body: 'b' }, who, 1000);
 chk(!('title' in prv) && !JSON.stringify(prv).includes('비밀 제목'), '⑤ 비공개 글의 목록 줄에는 제목이 없다');
 // 우편함은 누구나 읽고 글쓴이 코드는 공개 목록에 있다 — 비공개 글의 답변 알림에 제목이 실리면 그 길로 샌다
 chk(!M.answerNoticeBody('prv', '비밀 제목', false).includes('비밀 제목') && !M.answerNoticeBody('prv', '비밀 제목', true).includes('비밀 제목'),
   '⑥ 비공개 글의 답변 알림(우편함) 본문에는 제목이 없다');
+// ⑦ 쪽 넘김 — 공지가 섞여도 [다음] 이 켜진다(거르기 전 원본으로 센다)
+{
+  const raw = Array.from({ length: 20 }, (_, i) => ({ id: 'p' + i, ts: 1000 + i, status: 'new' }));
+  raw[19].notice = true;
+  const pg = M.pageOf('all', raw);
+  chk(pg.items.length === 19 && pg.next === 1000, '⑦ 전체: 공지 1개 섞인 20개 → 19개 보이고 [다음] 켜짐(커서 = 가장 오래된 ts)');
+  chk(M.pageOf('all', raw.slice(0, 7)).next === null, '⑦ 전체: 20개 미만이면 끝');
+  const open = raw.map((it, i) => Object.assign({}, it, { openTs: 2000 + i }));
+  chk(M.pageOf('open', open).next === 2000, '⑦ 미해결: 꽉 차면 커서 = 가장 작은 openTs');
+  const mixed = open.slice(0, 15).concat(Array.from({ length: 5 }, (_, i) => ({ id: 'z' + i, ts: 1 + i })));
+  chk(M.pageOf('open', mixed).next === null && M.pageOf('open', mixed).items.length === 15, '⑦ 미해결: openTs 없는 글이 딸려 와도 끝으로 본다');
+  chk(M.pageOf('mine', raw).next === null, '⑦ 내 글은 쪽을 넘기지 않는다');
+}
 chk(M.answerNoticeBody('pub', '공개 제목', true).startsWith('공개 제목') && M.answerNoticeBody('pub', '공개 제목', true).includes('오픈카톡'),
   '⑥ 공개 글은 제목 + 오픈카톡 안내');
 chk(/answerNoticeBody\(post\.it\.vis/.test(UI) && !/post\.title \+ \(r\.kakao/.test(UI), '⑥ 화면은 answerNoticeBody 로 알림 본문을 만든다');
