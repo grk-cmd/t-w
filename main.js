@@ -1774,6 +1774,38 @@ const MODE_SIZE = {
 const CONFIG_WIDTH = MODE_SIZE.launcher.w;
 const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
 
+/* 🩺 [2026-10-08 제보 #1 · 보류 #11 공용] 렌더러 · GPU 프로세스의 죽음과 로드 실패를 기록한다.
+   [왜] «설치 후 아무것도 안 보이는데 클릭은 된다» 의 남은 갈래가 «렌더러가 한 번도 안 그려졌다(로드 실패 · 크래시 · 백신 격리)» 인데,
+     이 파일에 그 이벤트 처리가 하나도 없어서 로그로 가를 수가 없었다. OBS 충돌 제보(#11)의 GPU 프로세스 종료도 같은 통로로 남는다.
+   ★ 렌더러가 죽으면(정상 종료 · 강제 종료 제외) **한 번만** 다시 불러온다. 계속 죽는 PC 에서 무한 재시작으로 CPU 를 태우지 않게
+     횟수를 묶는다 — 두 번째부터는 기록만 한다. */
+let _rendererReloads = 0, _childGoneHooked = false;
+const RENDERER_AUTO_RELOAD_MAX = 1;
+function _watchRendererHealth(win){
+  if(!win || win.isDestroyed()) return;
+  const wc = win.webContents;
+  wc.on('render-process-gone', (e, d) => {
+    const reason = (d && d.reason) || '?';
+    _diagLog('[렌더러] 프로세스 종료 — reason=' + reason + ' exitCode=' + (d && d.exitCode) + ' | 자동 재로드 ' + _rendererReloads + '/' + RENDERER_AUTO_RELOAD_MAX);
+    if(reason === 'clean-exit' || reason === 'killed') return;   // 앱이 닫히는 중 · 사용자가 끈 것
+    if(_rendererReloads >= RENDERER_AUTO_RELOAD_MAX) return;
+    _rendererReloads++;
+    setTimeout(() => { try{ if(!win.isDestroyed()) wc.reload(); _diagLog('[렌더러] 자동 재로드 실행'); }catch(err){ _diagLog('[렌더러] 자동 재로드 실패 — ' + (err && err.message)); } }, 1000);
+  });
+  wc.on('did-fail-load', (e, code, desc, url, isMainFrame) => {
+    if(isMainFrame === false) return;   // 안쪽 iframe(유튜브 등) 실패는 앱 화면과 무관
+    _diagLog('[렌더러] 로드 실패 — ' + code + ' ' + desc + ' | ' + String(url || '').slice(-80));
+  });
+  win.on('unresponsive', () => _diagLog('[렌더러] 응답 없음(unresponsive)'));
+  win.on('responsive',   () => _diagLog('[렌더러] 응답 재개(responsive)'));
+  if(!_childGoneHooked){
+    _childGoneHooked = true;
+    app.on('child-process-gone', (e, d) => {
+      _diagLog('[프로세스] ' + ((d && d.type) || '?') + ' 종료 — reason=' + ((d && d.reason) || '?') + ' exitCode=' + (d && d.exitCode)
+        + (d && d.name ? ' name=' + d.name : '') + (d && d.serviceName ? ' service=' + d.serviceName : ''));
+    });
+  }
+}
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
@@ -1842,6 +1874,7 @@ function createWindow() {
 
   _fdInstrument(mainWindow);   // 🩺 [진단] 활성화 원인 추적 — 창을 올리는 메서드에 표식만 심는다(동작 불변)
 
+  _watchRendererHealth(mainWindow);   // 🩺 렌더러 사망 · 로드 실패 · 무응답 기록(+ 사망 시 1회 재로드) — 제보 #1
   mainWindow.loadFile(path.join(__dirname, 'app', 'desk-companion-prototype.html'));
 
   // ★ renderer의 window.open 요청 처리 — 방명록('mhGuestbook…')은 Win98풍 프레임리스 독립 창으로.

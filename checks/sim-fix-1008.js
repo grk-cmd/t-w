@@ -245,6 +245,23 @@ say('§5 호버해도 클릭이 바로 안 잡힘 — 일반 앱 첫 재판정 0
   }
 }
 
+say('§1-A 렌더러 사망 · 로드 실패 진단 + 1회 자동 재로드');
+{
+  const MAIN = fs.readFileSync(fs.existsSync('main.js') ? 'main.js' : '../main.js', 'utf8');
+  const fn = (MAIN.match(/function _watchRendererHealth\(win\)\{[\s\S]*?\n\}/) || [''])[0];
+  const iW = MAIN.indexOf('_watchRendererHealth(mainWindow);'), iL = MAIN.indexOf("mainWindow.loadFile(path.join(__dirname, 'app', 'desk-companion-prototype.html'));");
+  chk(fn && iW > 0 && iL > iW, '★ 창을 불러오기 전에 감시를 건다 (첫 로드 실패도 잡힌다)');
+  chk(/wc\.on\('render-process-gone'/.test(fn) && /reason === 'clean-exit' \|\| reason === 'killed'\) return;/.test(fn), '렌더러 사망 기록 — 정상 종료 · 강제 종료는 재로드 안 함');
+  chk(/const RENDERER_AUTO_RELOAD_MAX = 1;/.test(MAIN) && /if\(_rendererReloads >= RENDERER_AUTO_RELOAD_MAX\) return;\s*_rendererReloads\+\+;/.test(fn), '★ 자동 재로드는 한 번만 (계속 죽는 PC 에서 무한 재시작 없음)');
+  chk(/wc\.on\('did-fail-load'/.test(fn) && /if\(isMainFrame === false\) return;/.test(fn), '로드 실패 기록 — 본 화면만 (iframe 실패 제외)');
+  chk(/win\.on\('unresponsive'/.test(fn) && /win\.on\('responsive'/.test(fn), '무응답 · 응답 재개 기록');
+  chk(/if\(!_childGoneHooked\)\{\s*_childGoneHooked = true;\s*app\.on\('child-process-gone'/.test(fn), 'GPU 등 자식 프로세스 종료 기록 — 한 번만 건다');
+  // 흉내 — 세 번 죽어도 재로드는 한 번
+  let reloads = 0, n = 0; const gone = (reason) => { if (reason === 'clean-exit' || reason === 'killed') return; if (n >= 1) return; n++; reloads++; };
+  ['crashed', 'clean-exit', 'oom', 'crashed'].forEach(gone);
+  chk(reloads === 1, '  흉내 — 네 번 종료(정상 1 포함)에도 재로드 1번');
+}
+
 say('§9 보관함 이동 — 연타 · 동기화 경쟁');
 {
   const mv = (APP.match(/async function doMoveCurSlotToBox\(\)\{[\s\S]*?\n\}/) || [''])[0];
