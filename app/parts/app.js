@@ -1215,12 +1215,12 @@ let deskPanX=_savedPos.x, deskPanY=_savedPos.y;   // "프로그램 이동"으로
      0이면 예전 그대로, 키울수록 더 일찍(위에서) 멈춘다. */
 const PAN_DOWN_TRIM      = 0.05;  // ★ 아래쪽 한계를 위로 당기는 양(인간·동물 공통). 키우면 덜 내려간다.
 const PAN_UP_EXTRA       = 0.05;  // ★ 위쪽 한계를 더 올려주는 양(인간·동물 공통). 키우면 더 올라간다.
-/* ↑ 두 값은 '실측 여백(_myPanHalfFrac) 위에 얹는 취향 조정'이다.
+/* ↑ 두 값은 '여백(clampDeskPan) 위에 얹는 취향 조정'이다.
    예전엔 여백이 고정 상수라 화면·캐릭터 크기가 바뀌면 어긋났고, 그 오차를 이런 값들로 덧대다 보니
    한 해상도에 맞추면 다른 해상도에서 다시 틀어졌다. 지금은 여백이 자동으로 맞으므로
    이 값들은 순수하게 '얼마나 여유를 둘지'만 정한다(비율이라 해상도가 바뀌어도 유지됨). */
 const ANIMAL_PAN_UP_K    = 0;      // ★ 동물이 위로 더 갈 수 있는 여유 배수 (0이면 인간과 동일)
-                                   //   ★ 여백 실측(_myPanHalfFrac) 도입으로 0으로 정리 — 동물이 작다는 사실이
+                                   //   ★ 0으로 정리 — 동물이 작다는 사실이
                                    //     이미 실측 여백에 반영되므로, 여기서 또 넓히면 천장 밖으로 나간다.
 const ANIMAL_PAN_DOWN_K  = 0;     // ★ 동물이 아래로 더 갈 수 있는 여유 배수 (기본 0 — 아래는 안 넓힘)
 const ANIMAL_PAN_SIDE_K  = 0.0;   // ★ 동물 좌우 여유 배수
@@ -1235,50 +1235,22 @@ function _animalPanExtra(){
            up: 0.28 * (1 - r) * k * ANIMAL_PAN_UP_K,
            dn: 0.28 * (1 - r) * k * ANIMAL_PAN_DOWN_K };
 }
-/* 내 캐릭터(+책상)가 화면에서 차지하는 '절반 크기'를 뷰 비율(0~0.5)로 실측한다.
-   ★ 이동 한계의 여백은 원래 이 값이어야 한다. 예전엔 0.02 같은 고정 상수라서
-     화면 해상도·캐릭터 크기가 바뀌면 실제 절반 크기와 어긋나 화면 밖으로 삐져나갔다
-     (한 해상도에 맞춰 상수를 고쳐도 다른 크기에서 다시 틀어지던 원인).
-     실측하면 어떤 화면·어떤 크기·인간이든 동물이든 자동으로 맞는다. */
-function _myPanHalfFrac(){
-  try{
-    const me = (typeof seats!=='undefined') && seats.find(s=>s.isMe);
-    if(!me || !me.group || !_cvEl) return null;
-    const cr = _cvEl.getBoundingClientRect();
-    if(!cr.width || !cr.height) return null;
-    // ★ Box3.setFromObject는 '숨겨진 메시'도 포함한다(r128). 동물 좌석에는 인간 크기의 숨은
-    //   placeholder가 남아 있어서, 그대로 재면 박스가 실제보다 크고 위아래로 비대칭이 된다
-    //   (동물만 바닥이 더 가라앉던 원인). 보이는 메시만 골라서 잰다.
-    const box = new THREE.Box3(); const _tb = new THREE.Box3();
-    me.group.traverse(o=>{
-      if(!o.isMesh || o.visible === false) return;
-      let p=o, hidden=false;
-      while(p && p!==me.group){ if(p.visible===false){ hidden=true; break; } p=p.parent; }
-      if(hidden) return;
-      try{ _tb.setFromObject(o); if(!_tb.isEmpty()) box.union(_tb); }catch(_){}
-    });
-    if(box.isEmpty()) return null;
-    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; const v=new THREE.Vector3();
-    for(let i=0;i<8;i++){
-      v.set((i&1)?box.max.x:box.min.x,(i&2)?box.max.y:box.min.y,(i&4)?box.max.z:box.min.z).project(camera);
-      const px=(v.x*0.5+0.5)*cr.width, py=(-v.y*0.5+0.5)*cr.height;
-      if(px<x0)x0=px; if(px>x1)x1=px; if(py<y0)y0=py; if(py>y1)y1=py;
-    }
-    const hx = ((x1-x0)/2)/cr.width, hy = ((y1-y0)/2)/cr.height;
-    if(!isFinite(hx)||!isFinite(hy)||hx<=0||hy<=0||hx>0.5||hy>0.5) return null;
-    return { x:hx, y:hy };
-  }catch(_){ return null; }
+/* 프로그램 이동(상태칩) 좌우 여백 = 내 좌석 반폭(화면 비율). 방에서만 쓴다 — 방에서는 카메라 기준점이 내 자리라
+   이 여백이면 내 캐릭터가 화면 밖으로 못 나간다. 혼자일 때는 예전 고정 여백(0.02) 그대로 둔다(혼자 화면 모양 유지).
+   ⚠️ 예전 실측 함수(_myPanHalfFrac)는 클릭 통과 구역 안의 지역 변수(_cvEl)를 봐서 늘 null 이었다 — 지웠다.
+   이 값은 마지막 카메라의 화면 폭(_deskViewW)과 layoutSeats 가 잰 책상 반폭으로 계산해 가볍다. */
+function _panHalfFracX(){
+  if(!_rowRoomMode || !(_deskViewW > 0)) return null;
+  const f = _rowMeHalfW / _deskViewW;
+  return (isFinite(f) && f > 0 && f < 0.5) ? f : null;
 }
 function clampDeskPan(px, py){
-  const _hf = _myPanHalfFrac();
-  // ★ 버그 수정("여럿일 때 바닥 위에서 일찍 막힘"): 실측 여백(_myPanHalfFrac)은 _cvEl 스코프 문제로
-  //   항상 null이라 실제로는 늘 이 폴백이 쓰인다. 예전 폴백은 0.02+0.02*(n-1)로 좌석 수에 비례해
-  //   커져서, 친구가 들어올수록 이동 여백이 넓어져(=이동 가능 범위가 좁아져) 바닥·천장·옆에서 일찍
-  //   막혔다(혼자면 n=1이라 0.02로 정상). 인원수 가산을 제거해 여럿일 때도 혼자와 동일한 여백을 쓴다.
-  //   (각 좌석 간격/카메라 줌아웃은 layoutSeats가 이미 처리하므로 여기서 n을 또 반영할 필요가 없다.)
+  // ★ 예전 폴백은 0.02+0.02*(n-1)(좌석 수 비례)이라 여럿일 때 일찍 막혔다 — 인원수 가산은 없앴다.
+  //   위아래는 아래 PAN_* 조절값이 이 고정 여백에 맞춰져 있어 그대로 둔다.
   const PAN_MARGIN_FALLBACK = 0.02;
-  const PAN_MARGIN   = _hf ? _hf.x : PAN_MARGIN_FALLBACK;   // 좌우 여백 = 실제 반폭
-  const PAN_MARGIN_Y = _hf ? _hf.y : PAN_MARGIN_FALLBACK;   // 위아래 여백 = 실제 반높이
+  const _hfx = _panHalfFracX();
+  const PAN_MARGIN   = _hfx != null ? _hfx : PAN_MARGIN_FALLBACK;   // 좌우 여백 — 방에서는 내 좌석 반폭
+  const PAN_MARGIN_Y = PAN_MARGIN_FALLBACK;
   // ★ 세로 모니터(높이가 폭보다 큰 경우)는 화면에서 위아래로 이동할 수 있는 실제 여유 공간이 훨씬 많은데도
   //   가로 모니터와 똑같은 비율 범위를 쓰고 있어서 위아래 이동이 부자연스럽게 일찍 막히는 문제가 있었음 —
   //   세로 화면일 때는 위아래 범위를 더 넉넉하게 넓힘(가로 이동 범위는 그대로).
@@ -1301,6 +1273,13 @@ function clampDeskPan(px, py){
   return { x: Math.max(nxMin, Math.min(nxMax, px)), y: Math.max(nyMin, Math.min(nyMax, py)) };
 }
 let _deskViewH=0, _deskCanvasH=1;   // 이동 중 픽셀↔월드 정확한 변환을 위해 layoutSeats가 매 프레임 갱신
+/* 🪑 방 좌석 줄(seat-layout.js) — var 인 이유: layoutSeats 가 이 줄보다 먼저 불려도 TDZ 로 죽지 않게. */
+var _deskViewW = 0;                  // 실행 화면 카메라의 화면 폭(월드) — 프로그램 이동 좌우 여백 계산
+var _rowRoomMode = false;            // 지금 방 배치(나는 오른쪽 아래 · 나머지는 내 왼쪽)인가
+var _rowMeHalfW = 0.85;              // 내 좌석(기준 좌석) 책상 반폭(월드)
+var _rowCache = null;                // {anchor, others, xs, hws, spacing} — 오프셋만 바뀔 때 다시 재지 않게
+var _rowLayout = (window.SeatLayout && SeatLayout.createSeatLayout) ? SeatLayout.createSeatLayout() : null;
+var _rowDrag = null;                 // 이름표 끌기 상태(SeatLayout.dragBegin) — 클릭 통과 판정이 본다
 /* 설정 패널의 "캐릭터 크기" 슬라이더 값 — 데스크톱 run 모드 전용 배율 (localStorage에서 복원) */
 let focusCharScale=_loadCharScale();
 let dotRenderEnabled = (localStorage.getItem('tw.dotRender')==='1');   // 기본 꺼짐
@@ -3993,7 +3972,16 @@ function layoutSeats(){
        화면 폭 계산에 유령 자리가 남아 줌만 이상해진다. */
   const halfWidths = seats.map(seatDeskHalfWidth);
   const _hwOf = new Map(seats.map((s,i)=>[s, halfWidths[i]]));
-  const placed = seats.filter(s=>!s.ridingOn);
+  let placed = seats.filter(s=>!s.ridingOn);
+  /* 🪑 방(실행 화면 · 다른 사람 있음)에서는 나(내가 탄 탑의 바닥)를 맨 오른쪽 기준으로, 나머지는 내 왼쪽으로.
+     혼자일 때(자리추가 포함)는 예전 순서 그대로 — 혼자 화면 모양을 바꾸지 않는다. */
+  const _me = seats.find(s=>s.isMe);
+  const _anchor = _me ? (_me.ridingOn ? _rideBottom(_me) : _me) : null;
+  const _wasRoom = _rowRoomMode;
+  _rowRoomMode = !!(hasRemote && _anchor && placed.includes(_anchor) && window.SeatLayout && _rowLayout
+    && document.body.classList.contains('desktop') && document.body.classList.contains('runmode'));
+  if(_rowRoomMode) placed = SeatLayout.orderRow(placed, _anchor);
+  if(_rowRoomMode && !_wasRoom) _rowLayout.reset();   // 방에 들어올 때마다 모두 내 왼쪽에 붙은 자리에서 시작
   placed.forEach((s,i)=>{
     if(i===0){ s.targetX = 0; return; }   // 맨 오른쪽 고정
     const prev = placed[i-1];
@@ -4008,8 +3996,121 @@ function layoutSeats(){
   const leftIdx = xs.indexOf(minX), rightIdx = xs.indexOf(maxX);
   const halfWidthsForZoom = placed.map(s=>seatDeskHalfWidth(s, true));   // 카메라 줌은 상한선 적용된 값 사용(유난히 큰 책상 하나가 전체를 과하게 줌아웃시키지 않게)
   const rowSpan = Math.max(1.2, (maxX-minX) + halfWidthsForZoom[leftIdx] + halfWidthsForZoom[rightIdx]);   // 카메라 줌 계산용 전체 폭(책상 폭까지 포함)
-  _cachedRowCenter = rowCenter; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
-  applyCameraAndCanvas(rowCenter, rowSpan);
+  /* 방에서는 카메라 기준점이 줄 가운데가 아니라 **내 자리**(x=0). 기본 위치(-0.34)가 혼자일 때와 같아서
+     방에 들어가도 내 캐릭터는 그 자리에 그대로 있고, 다른 사람이 왼쪽에 선다. 줌(rowSpan)은 예전 그대로. */
+  const camX = _rowRoomMode ? 0 : rowCenter;
+  if(_rowRoomMode){
+    _rowMeHalfW = _hwOf.get(_anchor);
+    _rowCache = { others: placed.slice(1), xs: placed.map(s=>s.targetX), hws: placed.map(s=>_hwOf.get(s)), spacing };
+  } else {
+    _rowCache = null;
+    seats.forEach(s=>{ s._rowSide = null; });
+  }
+  _cachedRowCenter = camX; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
+  applyCameraAndCanvas(camX, rowSpan);
+  _applyRowOffset(false);
+}
+/* 🪑 줄 오프셋을 좌석 자리에 반영한다(seat-layout.js). 카메라가 정해진 뒤라야 화면 왼쪽 끝의 월드 x 를 안다.
+   instant — 끌기 중에는 미끄러지지 않고 바로 그 자리로(이름표가 커서 밑에 남아야 클릭 통과 판정이 안 풀린다).
+   한 사람이 내 자리를 건너가는 순간도 바로 옮긴다(내 몸을 가로질러 미끄러지지 않게). */
+const ROW_SCREEN_MARGIN_PX = 12;
+const _rowRay = new THREE.Raycaster(), _rowNdc = new THREE.Vector2(), _rowPlane = new THREE.Plane(new THREE.Vector3(0,0,1), 0), _rowHit = new THREE.Vector3(), _rowP = new THREE.Vector3();
+function _rowScreenLeftWorldX(){
+  const W = innerWidth || 1;
+  camera.updateMatrixWorld();
+  _rowP.set(0, 0.5, 0).project(camera);   // 내 자리 높이에서 잰다
+  _rowNdc.set(-1 + 2 * ROW_SCREEN_MARGIN_PX / W, isFinite(_rowP.y) ? _rowP.y : 0);
+  _rowRay.setFromCamera(_rowNdc, camera);
+  return _rowRay.ray.intersectPlane(_rowPlane, _rowHit) ? _rowHit.x : NaN;
+}
+/* 화면 1px 이 월드로 얼마인가(내 자리 깊이 기준). */
+function _rowWorldPerPx(){
+  return (_deskViewW > 0) ? _deskViewW / Math.max(1, innerWidth) : 0;
+}
+function _applyRowOffset(instant){
+  const c = _rowCache;
+  if(!_rowRoomMode || !c || !_rowLayout) return;
+  const range = SeatLayout.offsetRange(c.xs, c.hws, _rowScreenLeftWorldX());
+  const s = _rowLayout.setRange(range);
+  const res = SeatLayout.placeRow(c.xs, c.hws, s, c.spacing);
+  c.others.forEach((seat, j)=>{
+    const i = j + 1;
+    seat.targetX = res.xs[i];
+    const flipped = seat._rowSide && seat._rowSide !== res.side[i];
+    seat._rowSide = res.side[i];
+    if((instant || flipped) && seat.group) seat.group.position.x = seat.targetX;
+  });
+  // 올라탄 좌석의 UI 앵커는 탑 바닥의 targetX 를 읽는다 — 옮긴 자리로 다시 물려준다
+  seats.forEach(s=>{ if(s.ridingOn){ const b=_rideBottom(s); s.targetX = (b && b.targetX) || 0; } });
+}
+/* 줄을 dWorld 만큼 오른쪽으로(음수면 왼쪽). 휠 · 이름표 끌기 공용. */
+function nudgeRowOffset(dWorld, instant){
+  if(!_rowRoomMode || !_rowLayout) return;
+  _rowLayout.nudge(dWorld);
+  _applyRowOffset(!!instant);
+}
+/* 🖱 다른 사람 이름표를 좌우로 끌면 줄이 따라온다. 5px 미만이면 끌기가 아니다 — 클릭 · 우클릭 메뉴는 그대로.
+   몸 · 책상 끌기는 쓰지 않는다(쓰다듬기 · 흔들기 · 액자 고정 · 상호작용 책상과 겹친다). */
+let _rowDragJustEnded = 0;
+function _rowDragStart(e, seat){
+  if(e.button !== 0 || !_rowRoomMode || !_rowLayout || !seat || !seat.remote) return;
+  _rowDrag = SeatLayout.dragBegin(e.clientX, e.clientY, _rowLayout.offset);
+  _rowDrag.pointerId = e.pointerId;
+  _rowDrag.el = e.currentTarget;
+}
+function _rowDragEnd(){
+  if(!_rowDrag) return;
+  const was = _rowDrag.active, el = _rowDrag.el, pid = _rowDrag.pointerId;
+  _rowDrag = null;
+  if(was){
+    _rowDragJustEnded = performance.now();
+    try{ if(el && el.hasPointerCapture && el.hasPointerCapture(pid)) el.releasePointerCapture(pid); }catch(_){}
+  }
+}
+window.addEventListener('pointermove', e=>{
+  if(!_rowDrag) return;
+  if(!_rowRoomMode || e.buttons === 0){ _rowDragEnd(); return; }   // 놓친 pointerup — 끌기가 남지 않게
+  const wasActive = _rowDrag.active;
+  const dx = SeatLayout.dragMove(_rowDrag, e.clientX, e.clientY);
+  if(dx == null) return;
+  if(!wasActive){ try{ if(_rowDrag.el) _rowDrag.el.setPointerCapture(_rowDrag.pointerId); }catch(_){} }
+  _rowLayout.set(_rowDrag.s0 + dx * _rowWorldPerPx());
+  _applyRowOffset(true);
+});
+window.addEventListener('pointerup', _rowDragEnd);
+window.addEventListener('pointercancel', _rowDragEnd);
+// 끌기를 마친 직후의 click 은 클릭으로 치지 않는다
+window.addEventListener('click', e=>{
+  if(_rowDragJustEnded && performance.now() - _rowDragJustEnded < 300){ _rowDragJustEnded = 0; e.stopPropagation(); e.preventDefault(); }
+}, true);
+/* 🛞 줄 위에서 휠 — 줄을 좌우로. 클릭을 받는 자리(사람 · 책상 · 이름표)에서만 휠이 우리 창에 온다.
+   Ctrl+휠은 화면 크기(main 의 줌)라 건드리지 않는다. 다른 창(대화창 등) 위 휠도 그 창 몫이다. */
+window.addEventListener('wheel', e=>{
+  if(!_rowRoomMode || e.ctrlKey || !_rowCache || !_rowCache.others.length) return;
+  const t = e.target;
+  const onRow = t && (t.id === 'scene' || (t.closest && t.closest('#seatLabelsLayer')));
+  if(!onRow) return;
+  const px = SeatLayout.wheelToRowPx(e);
+  if(px) nudgeRowOffset(px * _rowWorldPerPx(), false);
+}, { passive: true });
+/* 🧪 개발용 — 가짜 사람 N명(dev Firebase 실행에서만: npm run start:dev). 방에 들어가지 않은 상태에서
+   콘솔(F12)에 __devFakeSeats(10) · 지우기 __devFakeSeats(0). 실제 방 동기화와 같은 길(syncFriendSeats)로 만든다.
+   ⚠️ 서버에는 아무것도 쓰지 않는다. 방에 들어가 있으면 진짜 동기화가 덮어쓰므로 막는다. */
+if(window.companion && window.companion.firebaseEnv === 'dev'){
+  window.__devFakeSeats = function(n){
+    n = Math.max(0, Math.min((typeof MAX_PEOPLE === 'number' ? MAX_PEOPLE : 10) - 1, n|0));
+    if(typeof Presence !== 'undefined' && Presence.active()) return '방에 들어가 있으면 쓸 수 없어요(진짜 동기화가 덮어씀)';
+    const me = seats.find(s=>s.isMe);
+    if(!me || !me.charDef) return '먼저 실행 화면으로 들어가세요';
+    const names = ['가람','나래','다온','라온','마루','바다','사랑','아라','자람','차미','하늘','온새','이든','누리','별','솔'];
+    const friends = {};
+    for(let i = 0; i < n; i++){
+      const id = '__fake' + i;
+      friends[id] = { name: names[i % names.length] + (i + 1), def: (()=>{ try{ return JSON.parse(JSON.stringify(me.charDef)); }catch(_){ return me.charDef; } })(), level: 1 + i, state: 'idle', userId: 'fake-' + i };
+    }
+    syncFriendSeats(friends);
+    return n + '명 — 휠 · 이름표 끌기로 줄을 움직여 보세요';
+  };
 }
 // ★ 캐릭터 크기 슬라이더처럼 "좌석 배치는 그대로고 카메라 거리/줌만 다시 계산하면 되는" 경우 전용 —
 //   위 layoutSeats()의 무거운 책상 실측(Box3, updateMatrixWorld)을 건너뛰고, 마지막으로 계산해둔
@@ -4017,6 +4118,7 @@ function layoutSeats(){
 //   (슬라이더를 빠르게 움직이면 무거운 계산이 밀려서 버벅이던/깜빡이던 문제 해결)
 function updateCameraOnly(){
   applyCameraAndCanvas(_cachedRowCenter, _cachedRowSpan);
+  _applyRowOffset(false);   // 캐릭터 크기가 바뀌면 화면에 들어가는 줄 폭도 바뀐다
 }
 function applyCameraAndCanvas(rowCenter, rowSpan){
   // 카메라가 바라보는 중심(c.y)을 살짝 낮춰서 바닥이 화면 중앙에 오도록 유도
@@ -4091,8 +4193,8 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
     const viewH = 2 * dist * Math.tan(fov/2);
     const viewW = viewH * aspect;
     // deskPanX/Y는 "뷰 비율"(unitless fraction) — 캐릭터 크기(focusCharScale)가 바뀌어도 항상 같은 화면 비율 위치 유지.
-    const panX = viewW * (-0.34 + deskPanX);   // 기본: 좌측 + 사용자 오프셋(비율)
-    const panY = viewH * (0.28 + deskPanY);    // 기본: 하단 + 사용자 오프셋(비율)
+    const panX = viewW * (-0.34 + deskPanX);   // 기본: 기준점이 화면 0.84(오른쪽) + 사용자 오프셋(비율)
+    const panY = viewH * (0.28 + deskPanY);    // 기본: 기준점이 화면 0.78(아래) + 사용자 오프셋(비율)
     // 🔭 축 분리 배치 — 좌우와 상하를 다른 방식으로 처리.
     //   · 좌우(X): 카메라 이동과 뷰 오프셋을 "섞어서" 원근 강도를 조절.
     //     SIDE_PERSP = 좌우 원근 강도 손잡이 (0.0=어느 위치든 각도 완전 고정, 1.0=위치 따라 최대로 변함).
@@ -4119,7 +4221,7 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
     const offY = -(panY / viewH) * canvasH;
     camera.setViewOffset(canvasW, canvasH, offX, offY, canvasW, canvasH);
     // 이동 모드에서 픽셀↔월드 정확한 변환을 위해 매 프레임 계산값을 전역에 노출
-    _deskViewH = viewH; _deskCanvasH = canvasH;
+    _deskViewH = viewH; _deskCanvasH = canvasH; _deskViewW = viewW;
   } else if(camera.view){
     camera.clearViewOffset();   // 실행 화면이 아니면 오프셋 잔존 방지 (미리보기 등)
   }
@@ -8263,6 +8365,12 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     ['tw.wdPreviewPos','tw.gachaWinPos','tw.ideskInvPos','tw.playlistPos','tw.bellWinPos','tw_chat_win_pos']
       .forEach(k=>{ try{ localStorage.removeItem(k); }catch(_){} });
     (window.__winPosResetters||[]).forEach(fn=>{ try{ fn(); }catch(_){} });
+    /* 🪑 캐릭터 자리(프로그램 이동 · tw.deskPan)와 방 좌석 줄 오프셋(저장 안 함 · 메모리)도 처음으로 —
+       메모리 값을 같이 비우지 않으면 다음 이동 확정 때 옛 자리가 다시 저장된다. */
+    try{ localStorage.removeItem(CHAR_POS_KEY); }catch(_){}
+    deskPanX = 0; deskPanY = 0;
+    if(_rowLayout) _rowLayout.reset();
+    try{ layoutSeats(); if(typeof updateMyStatusChipPosition==='function') updateMyStatusChipPosition(); }catch(_){}
     /* 지금 떠 있는 창은 그 자리에서 기본 위치로 돌려놓는다 — 다시 열 때까지 기다리게 하면
        "눌러도 아무 일이 없다"로 보인다. 기본 위치는 CSS 가 정하므로 인라인 값만 지운다. */
     ['wdPreviewPanel','gachaInvWin','gachaDrawWin','ideskInvWin','myPlaylistBox','bellWin','chatWindow']
@@ -22709,6 +22817,7 @@ function ensureSeatNamePlateEl(seat){
     if(typeof officeMode !== 'undefined' && officeMode && seat.remote) return;
     _seatCtxMenu(e, seat);
   });
+  el.addEventListener('pointerdown', e=>_rowDragStart(e, seat));   // 🪑 방에서 남의 이름표를 좌우로 끌면 줄이 움직인다(5px 넘게)
   layer.appendChild(el);
   seat.namePlateEl=el; return el;
 }
@@ -45425,6 +45534,7 @@ if(desktopMode){
          드래그가 성립할 수 없으므로, 그 조합은 '드래그 중'이 아니라 '플래그가 남은 것'이다.
          → 그때는 건너뛰지 않고 다시 판정한다. drag 가 어떤 이유로 남더라도 유령이 되지 않는다. */
       if(drag && _ignoreSent === false) return;   // 진짜 드래그 중 — 무시 해제 상태 유지
+      if(_rowDrag && _rowDrag.active && _ignoreSent === false) return;   // 🪑 이름표로 줄 끌기 중 — 같은 이유(끝에 걸려 커서가 이름표를 벗어나도)
       _updateIgnore(e.clientX, e.clientY);
     });
     // 드래그 중엔 캐릭터 밖으로 벗어나도 계속 잡아야 하므로, 드래그 동안은 무시 해제 유지
