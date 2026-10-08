@@ -45,7 +45,7 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
       if (fileObj) fs.writeFileSync(P, JSON.stringify(fileObj));
       const ov = { _g: 12, _a: 0, GAP_MAX: 64, GAP_VER: 2, GAP_LEGACY: [2, 6], GAP_DEFAULT: 12,
         setGap(v) { this._g = v; }, gap() { return this._g; }, setAlpha(v) { this._a = v; }, alpha() { return this._a; } };
-      const body = 'let SETTINGS_PATH = P; let runDisplayId = null, runDisplayKey = null, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
+      const body = 'let SETTINGS_PATH = P; let runDisplayId = null, runDisplayKey = null, runDisplayWasPrimary = null, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
         + 'const _clampZoom = (z) => z; const _diagLog = () => {};\n' + head + '\n' + load + '\n' + save
         + '\nloadSettings(); const r = { runDisplayId, uiZoom, alpha: overlay.alpha(), reset: _settingsReset, notice: _settingsResetNotice };'
         + '\n_settingsReset = null; saveSettings(); r.saved = JSON.parse(fs.readFileSync(P, "utf8")); return r;';
@@ -132,6 +132,45 @@ say('§7 자리비움 이미지 위 동물 — 보이는 히트 먼저 잡는다
   chk(pref([{ object: inHidden, n: 'a' }, { object: rider, n: 'b' }])[0].n === 'b', '  조상이 숨은 메시도 «안 보임» 으로 본다');
   chk(/const hit=_preferVisibleHit\(_skipHiddenDesk\(_hitsSkipHidden\(ray\.intersectObjects\(seats\.map\(s=>s\.group\),true\)\)\)\);/.test(APP), '잡기(pointerdown)가 그 순서를 쓴다');
   chk(/if\(seat\.ridingOn && !seat\.remote\) unmountRide\(seat\);/.test(APP), '  내 탑승 동물이 잡히면 내려온다(예전 규칙 그대로)');
+}
+
+say('§10 듀얼 모니터 — 위치순 이름 · 저장 모니터 다시 찾기');
+{
+  const MAIN = (() => { for (const c of ['main.js', '../main.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
+  if (!MAIN) chk(false, 'main.js 를 찾았다');
+  else {
+    const g = (re) => (MAIN.match(re) || [''])[0];
+    const src = [g(/function _displayKey\(d\)\{[\s\S]*?\n\}/), g(/function _displaySize\(d\)\{[^\n]*\}/),
+                 g(/function _displaysByPosition\(all\)\{[\s\S]*?\n\}/), g(/function _pickRunDisplay\(all, primaryId, saved\)\{[\s\S]*?\n\}/)].join('\n');
+    const M = new Function(src + '\nreturn { _displayKey, _pickRunDisplay, _displaysByPosition };')();
+    const D = (id, x, w, h, sf) => ({ id, bounds: { x, y: 0, width: w, height: h }, rotation: 0, scaleFactor: sf || 1 });
+    // 제보 PC 모양: 주 모니터가 열거 두 번째로 온다
+    const left = D(11, -1920, 1920, 1080), main = D(22, 0, 2560, 1440);
+    const all = [main, left];
+    const order = M._displaysByPosition(all).map(d => d.id);
+    chk(order.join() === '11,22', '★ 이름 번호는 위치순(왼→오) — 열거 순서가 아니다');
+    chk(/label: `모니터 \$\{i\+1\} · \$\{d\.bounds\.width\}×\$\{d\.bounds\.height\}` \+ \(d\.id === primaryId \? ' \(주\)' : ''\)/.test(MAIN) && /_displaysByPosition\(all\)\.map\(\(d, i\) =>/.test(MAIN), '  「모니터 N · 해상도 (주)」 · 위치순 목록');
+    const keyL = M._displayKey(left);
+    // ① 지문 정확 일치가 id 보다 먼저 — id 가 서로 뒤바뀐 경우
+    const swapped = [D(11, 0, 2560, 1440), D(22, -1920, 1920, 1080)];   // id 만 뒤바뀜
+    const r1 = M._pickRunDisplay(swapped, 11, { id: 11, key: keyL, wasPrimary: false });
+    chk(r1.stage === 'key' && r1.display.id === 22, '★ id 가 뒤바뀌어도 지문으로 원래 모니터(왼쪽 1920)를 찾는다');
+    // ② id 일치는 크기가 같을 때만
+    const r2 = M._pickRunDisplay([D(11, 0, 2560, 1440)], 11, { id: 11, key: keyL, wasPrimary: false });
+    chk(r2.stage !== 'id' && !r2.strong, '★ id 만 같고 크기가 다르면 그 모니터로 굳히지 않는다');
+    const r2b = M._pickRunDisplay([D(11, 50, 1920, 1080, 1.5), main], 22, { id: 11, key: keyL, wasPrimary: false });
+    chk(r2b.stage === 'id' && r2b.strong, '  배율 · 위치만 바뀐 같은 모니터(id · 크기 같음)는 찾는다');
+    // ④ 주 아님이었으면 주 아닌 쪽
+    const r4 = M._pickRunDisplay([D(33, 0, 2560, 1440), D(44, 2560, 1680, 1050)], 33, { id: 11, key: keyL, wasPrimary: false });
+    chk(r4.stage === 'non-primary' && r4.display.id === 44 && !r4.strong, '저장한 게 «주 아님» 이면 대체도 주 아닌 쪽 — 저장은 덮지 않는다');
+    const r5 = M._pickRunDisplay([main], 22, { id: 11, key: keyL, wasPrimary: false });
+    chk(r5.display === null, '  모니터가 하나뿐이면 주 모니터');
+    const r6 = M._pickRunDisplay(all, 22, { id: null, key: null, wasPrimary: null });
+    chk(r6.display === null && /고른 적 없음/.test(r6.stage), '고른 적 없으면 주 모니터(예전 그대로)');
+    const gr = g(/function getRunDisplay\(\)\{[\s\S]*?\n\}/);
+    chk(/if\(r\.strong && \(found\.id !== runDisplayId/.test(gr) && /_diagLog\('\[화면\] 실행 모니터 — '/.test(gr), '확실히 찾았을 때만 저장 갱신 · 어느 단계였는지 진단 로그(바뀔 때만)');
+    chk(/runDisplayWasPrimary = \(target\.id === screen\.getPrimaryDisplay\(\)\.id\);/.test(MAIN) && /typeof data\.runDisplayWasPrimary === 'boolean'/.test(MAIN), '고를 때 주 모니터였는지 저장 · 불러오기');
+  }
 }
 
 say('');

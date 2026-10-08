@@ -321,6 +321,7 @@ let runDisplayId = null;
    남아 있는데 화면만 원래대로 돌아온 것처럼 보임).
    그래서 id와 별개로 "해상도·위치·회전·배율" 지문을 함께 저장해두고, id가 안 맞으면 지문으로 찾는다. */
 let runDisplayKey = null;
+let runDisplayWasPrimary = null;   // 고를 때 주 모니터였는가 — 못 찾았을 때 대체 방향(제보 #10). 없으면(옛 파일) null
 function _displayKey(d){
   if(!d) return null;
   const b = d.bounds || {};
@@ -328,6 +329,10 @@ function _displayKey(d){
           d.rotation || 0, Math.round((d.scaleFactor || 1) * 100)].join('|');
 }
 function _displaySize(d){ const b = (d && d.bounds) || {}; return b.width + 'x' + b.height; }
+/* 모니터 목록을 화면 위치 순서로 — 왼쪽부터, x 가 같으면 위쪽부터. */
+function _displaysByPosition(all){
+  return all.slice().sort((a, b) => ((a.bounds.x - b.bounds.x) || (a.bounds.y - b.bounds.y)));
+}
 
 // 설정 저장 파일 경로 — app.getPath('userData')는 'ready' 이후에만 안전하게 값이 나오므로
 // app.whenReady() 안에서 한 번 초기화한 뒤 사용.
@@ -362,6 +367,7 @@ function loadSettings(){
     }
     if(typeof data.runDisplayId === 'number') runDisplayId = data.runDisplayId;
     if(typeof data.runDisplayKey === 'string') runDisplayKey = data.runDisplayKey;
+    if(typeof data.runDisplayWasPrimary === 'boolean') runDisplayWasPrimary = data.runDisplayWasPrimary;
     /* ★ 동영상 검어짐 틈 — 빌드 없이 조절하는 통로. 제보자에게 "이 파일의 이 숫자만 바꿔서
        다시 켜 보세요" 라고 할 수 있다. 값을 넣은 적이 없으면 위 기본값을 그대로 쓴다.
        (설정 UI 에 안 내놓는다 — 사용자가 만질 값이 아니라 진단용이다) */
@@ -501,7 +507,7 @@ function saveSettings(){
        두지만, 그 한 갈래 때문에 "파일이 왜 없나"를 또 못 가르는 일이 없도록 여기서 확정한다.
        (_diagLog 도 같은 폴더를 쓴다 — 폴더가 없으면 로그조차 안 남아 관찰 자체가 막힌다) */
     try{ fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true }); }catch(_){}
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ settingsVer: SETTINGS_VER, runDisplayId, runDisplayKey,
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ settingsVer: SETTINGS_VER, runDisplayId, runDisplayKey, runDisplayWasPrimary,
       overlayBottomGap: overlay.gap(),
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
@@ -583,19 +589,49 @@ function _ensureSettingsFile(){
      2) 지문 정확히 일치          — id만 재발급된 경우(재부팅 등)
      3) 해상도가 같은 게 딱 하나  — 주 모니터가 바뀌어 좌표까지 밀린 경우.
         같은 해상도가 둘 이상이면 어느 쪽인지 알 수 없으므로 추측하지 않고 주 모니터로 간다. */
+/* 🩹 [2026-10-08 제보 #10] 저장한 모니터 다시 찾기 — 판정만(화면 · 저장 없음). 검사 sim-fix-1008 이 떼어 돌린다.
+   [예전] id 가 맞으면 무조건 그 모니터 → 재부팅 · 드라이버로 id 가 **서로 뒤바뀌면** 엉뚱한 모니터를 고르고,
+     그 지문으로 저장을 덮어써 영구히 굳었다. 배율을 바꾸면 지문이 안 맞아 조용히 주 모니터로 떨어졌다.
+   [지금] ① 지문(해상도 · 위치 · 회전 · 배율) 정확 일치 → ② id 일치는 **크기가 같을 때만** → ③ 같은 크기가 하나뿐
+     → ④ 저장한 게 «주 아님» 이었으면 주 아닌 모니터가 하나뿐일 때 그쪽 → ⑤ 주 모니터.
+   ★ strong(①②)일 때만 새 id · 지문으로 저장을 갱신한다. 약한 대체(③④)로는 저장을 덮지 않는다 —
+     원래 모니터가 다시 연결되면 그쪽으로 돌아가야 한다. */
+function _pickRunDisplay(all, primaryId, saved){
+  const id = saved && saved.id, key = saved && saved.key, wasPrimary = saved && saved.wasPrimary;
+  if(key){
+    const k = all.find(d => _displayKey(d) === key);
+    if(k) return { display: k, stage: 'key', strong: true };
+  }
+  if(id != null){
+    const byId = all.find(d => d.id === id);
+    if(byId && (!key || _displaySize(byId) === key.split('|')[0])) return { display: byId, stage: 'id', strong: true };
+  }
+  if(key){
+    const wantSize = key.split('|')[0];
+    const sameSize = all.filter(d => _displaySize(d) === wantSize);
+    if(sameSize.length === 1) return { display: sameSize[0], stage: 'size', strong: false };
+  }
+  if((id != null || key) && wasPrimary === false){
+    const others = all.filter(d => d.id !== primaryId);
+    if(others.length === 1) return { display: others[0], stage: 'non-primary', strong: false };
+  }
+  return { display: null, stage: (id != null || key) ? 'primary(못 찾음)' : 'primary(고른 적 없음)', strong: false };
+}
+let _runDisplayLogged = '';
 function getRunDisplay(){
   const all = screen.getAllDisplays();
-  let found = null;
-  if(runDisplayId != null) found = all.find(d => d.id === runDisplayId) || null;
-  if(!found && runDisplayKey) found = all.find(d => _displayKey(d) === runDisplayKey) || null;
-  if(!found && runDisplayKey){
-    const wantSize = runDisplayKey.split('|')[0];
-    const sameSize = all.filter(d => _displaySize(d) === wantSize);
-    if(sameSize.length === 1) found = sameSize[0];
+  const primary = screen.getPrimaryDisplay();
+  const r = _pickRunDisplay(all, primary.id, { id: runDisplayId, key: runDisplayKey, wasPrimary: runDisplayWasPrimary });
+  const found = r.display || primary;
+  // 🩺 어느 단계에서 맞았는지 — 바뀔 때만 한 줄(이 함수는 자주 불린다)
+  const sig = r.stage + '|' + found.id;
+  if(sig !== _runDisplayLogged){
+    _runDisplayLogged = sig;
+    try{ _diagLog('[화면] 실행 모니터 — ' + r.stage + ' → id ' + found.id + ' ' + _displayKey(found) + ' | 저장 id ' + runDisplayId + ' · 지문 ' + runDisplayKey); }catch(_){}
   }
-  if(!found) return screen.getPrimaryDisplay();
-  // ★ 지문으로 찾아냈다면 새로 발급된 id로 갱신해 저장 — 다음 실행부터는 1번에서 바로 걸린다.
-  if(found.id !== runDisplayId || _displayKey(found) !== runDisplayKey){
+  if(!r.display) return primary;
+  // ★ 확실히 찾았을 때만 새로 발급된 id · 지문으로 갱신해 저장 — 다음 실행부터는 ①에서 바로 걸린다.
+  if(r.strong && (found.id !== runDisplayId || _displayKey(found) !== runDisplayKey)){
     runDisplayId = found.id; runDisplayKey = _displayKey(found);
     if(SETTINGS_PATH) saveSettings();
   }
@@ -3053,9 +3089,13 @@ function createWindow() {
     const all = screen.getAllDisplays();
     const primaryId = screen.getPrimaryDisplay().id;
     const curId = getRunDisplay().id;
-    return all.map((d, i) => ({
+    /* 🩹 [2026-10-08 제보 #10] 번호를 Electron 열거 순서가 아니라 **위치 순서**(왼→오, 위→아래)로 매기고
+       해상도를 붙인다. 열거 순서는 Windows 의 1/2 번호와 달라서 「모니터 2 (주)」 같은 이름이 나왔고,
+       그걸 보고 누른 사람은 엉뚱한 모니터를 저장했다. 누르는 키는 여전히 id 다. */
+    return _displaysByPosition(all).map((d, i) => ({
       id: d.id,
-      label: `모니터 ${i+1}` + (d.id === primaryId ? ' (주)' : ''),
+      label: `모니터 ${i+1} · ${d.bounds.width}×${d.bounds.height}` + (d.id === primaryId ? ' (주)' : ''),
+      name: (typeof d.label === 'string' && d.label) ? d.label : '',   // OS 가 주는 모니터 이름(있으면 툴팁용)
       isPrimary: d.id === primaryId,
       isCurrent: d.id === curId,
       bounds: d.bounds,
@@ -3074,6 +3114,8 @@ function createWindow() {
     if(!target) return { ok:false, reason:'not-found' };
     runDisplayId = displayId;
     runDisplayKey = _displayKey(target);   // ★ id가 재발급돼도 이 지문으로 같은 모니터를 다시 찾는다
+    runDisplayWasPrimary = (target.id === screen.getPrimaryDisplay().id);
+    try{ _diagLog('[화면] 모니터 선택 — id ' + displayId + ' ' + runDisplayKey + (runDisplayWasPrimary ? ' (주)' : '')); }catch(_){}
     saveSettings();   // ★ 재시작해도 유지되도록 즉시 저장
     if(mainWindow && !mainWindow.isDestroyed()){
       const b = mainWindow.getBounds();

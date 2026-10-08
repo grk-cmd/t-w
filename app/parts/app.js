@@ -8084,7 +8084,7 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
       const btn=document.createElement('button');
       btn.type='button';
       btn.className='fs-mon-btn'+(d.isCurrent?' current':'');
-      btn.textContent=d.label;
+      btn.textContent=d.label; if(d.name) btn.title=d.name;   // OS 가 주는 모니터 이름(제보 #10)
       btn.onclick=async ()=>{
         if(window.companion && companion.moveToDisplay){
           const res=await companion.moveToDisplay(d.id);
@@ -31640,7 +31640,7 @@ async function renderProgMonitors(){
     const btn=document.createElement('button');
     btn.type='button';
     btn.className='fs-mon-btn'+(d.isCurrent?' current':'');
-    btn.textContent=d.label;
+    btn.textContent=d.label; if(d.name) btn.title=d.name;   // OS 가 주는 모니터 이름(제보 #10)
     btn.onclick=async ()=>{
       if(window.companion && companion.moveToDisplay){
         const res=await companion.moveToDisplay(d.id);
