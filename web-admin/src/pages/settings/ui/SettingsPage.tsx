@@ -1,5 +1,5 @@
 import { AdBannerCard } from '@/features/settings/edit-ad-banner';
-import { MinRoomVerCard } from '@/features/settings/set-min-room-ver';
+import { MinVersionCard } from '@/features/settings/set-min-version';
 import { GameConfigCard } from '@/features/settings/edit-game-config';
 import { ReleaseDownloadsView } from '@/entities/release';
 
@@ -8,9 +8,10 @@ export function SettingsPage() {
     <>
       <ReleaseDownloadsView />
       <AdBannerCard />
+      <GameConfigCard />
       <div className="grid2">
-        <GameConfigCard />
-        <MinRoomVerCard />
+        <MinVersionCard kind="room" />
+        <MinVersionCard kind="app" />
       </div>
     </>
   );
