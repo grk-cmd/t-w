@@ -115,7 +115,7 @@ if(fs.existsSync('firebase-database-rules.json')){
   const u = R && R.rules && R.rules.users && R.rules.users.$userId;
   if(!u){ chk(false, '규칙 파일에 users/$userId 가 없다'); }
   else{
-    const own = "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid";
+    const own = "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)";   // 규칙 잠금 A — 안 묶인 uid 갈래를 걷었다(sim-rules-lock-unbound.js)
     const c = u.chars, t = u.trash, m = u.charsMeta;
     chk(!!c && c['.write'] === own, '★ chars 블록 · .write 가 slots 와 같은 소유 식');
     chk(!!c && c.$cid && /c\[a-z0-9\]\{6,24\}/.test(c.$cid['.validate']) && /hasChild\('def'\) \|\| newData\.hasChild\('del'\)/.test(c.$cid['.validate']), '  cid 모양 · def 또는 del 이 있어야 한다');

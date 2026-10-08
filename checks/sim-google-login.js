@@ -489,10 +489,10 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
           const w = U[k] && (U[k]['.write'] !== undefined ? U[k]['.write'] : (U[k].$friendId||{})['.write']);
           chk(w === true, 'users/' + k + ' 은 남도 쓸 수 있다 (' + k + ' 기능이 죽지 않게)');
         });
-      /* 잠근 가지는 **로그인 안 한 기기에서도** 돌아야 한다 — 아직 아무 계정에도 안 묶인 코드는
-         첫 절에서 통과한다. 이 절이 빠지면 로그인 안 한 기존 유저 전원이 자기 마이홈에 못 쓴다. */
-      chk(OWN.test(String(U.profile['.write'])) && /!root\.child\('userAuth\/'\+\$userId\)\.exists\(\)/.test(String(U.profile['.write'])),
-          '아직 안 묶인 코드는 로그인 없이도 쓴다 (기존 유저가 잠기지 않는다)');
+      /* [규칙 잠금 A · 2026-10-09] 예전에는 아직 안 묶인 코드가 첫 절(!userAuth exists)로 로그인 없이 썼다 — 가입 게이트 없던 옛 앱 때문.
+         지금 앱은 가입(I) 없이는 못 쓰므로 그 갈래를 걷었다. 안 묶인 코드는 묶인 뒤에야 쓴다(sim-rules-lock-unbound.js). */
+      chk(OWN.test(String(U.profile['.write'])) && !/!root\.child\('userAuth\/'\+\$userId\)\.exists\(\)/.test(String(U.profile['.write'])),
+          '안 묶인 코드는 쓰지 못한다 — 묶인 주인만 (규칙 잠금 A)');
       chk(/function warnUnbound|const warnUnbound/.test(SRC) && /authOwnerOf/.test(SRC),
           '묶였는데 로그인 안 한 기기에게 그렇다고 알려준다 (거부가 침묵으로 끝나지 않게)');
     }

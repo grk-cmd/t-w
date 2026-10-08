@@ -72,7 +72,7 @@ export function useUserSecretRoom(uid: string) {
   return useQuery({ queryKey: ['userSecretRoom', uid], queryFn: () => getUserSecretRoomInfo(db, uid) });
 }
 
-/** 받는 앱의 참여 화면이 이 값으로 코드를 채운다. 규칙상 계정에 연결된 사용자 칸은 관리자도 못 쓴다 — 실패하면 false. */
+/** 받는 앱의 참여 화면이 이 값으로 코드를 채운다. 규칙은 주인 또는 관리자(규칙 잠금 A 에서 관리자 갈래를 넣음) — 그 전 규칙이면 묶인 사용자 칸은 거부, 실패하면 false. */
 export async function setUserSecretRoom(db: Db, uid: string, code: string): Promise<boolean> {
   try {
     await db.set(`users/${uid}/secretRoom`, code);

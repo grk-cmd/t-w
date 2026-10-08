@@ -333,23 +333,23 @@
       "$userId": {
         ".read": true,
         "secretRoom": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
           ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 12)"
         },
         "friendCode": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 12)"
         },
         "transferHash": {
-          ".write": "!newData.exists() && (!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid)",
+          ".write": "!newData.exists() && (auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "false"
         },
         "transferData": {
-          ".write": "!newData.exists() && (!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid)",
+          ".write": "!newData.exists() && (auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "false"
         },
         "mallang": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid"
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)"
         },
         "mallangGifts": {
           ".write": true,
@@ -358,37 +358,37 @@
           }
         },
         "mallangGiftCount": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "$date": {
             ".validate": "newData.isNumber()"
           }
         },
         "bugSeen": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "$id": {
             ".validate": "newData.isNumber()"
           }
         },
         "bugPostCount": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "$date": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 50"
           }
         },
         "mallangGiftSeen": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "newData.isNumber()"
         },
         "profile": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && (!newData.child('level').exists() || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 9999)) && (!newData.child('cyc').exists() || (newData.child('cyc').isNumber() && newData.child('cyc').val() >= 1 && newData.child('cyc').val() <= 100)) && (!newData.child('clv').exists() || (newData.child('clv').isNumber() && newData.child('clv').val() >= 1 && newData.child('clv').val() <= 999)) && (!newData.child('starC').exists() || (newData.child('starC').isString() && newData.child('starC').val().matches(/^#[0-9a-f]{6}$/)))"
         },
         "focus": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "!newData.child('totalSec').exists() || (newData.child('totalSec').isNumber() && newData.child('totalSec').val() >= 0 && newData.child('totalSec').val() <= 359640000)"
         },
         "gacha": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "ts": {
             ".validate": "newData.isNumber() && newData.val() >= 0"
           },
@@ -399,7 +399,7 @@
           }
         },
         "slots": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "ts": {
             ".validate": "newData.isNumber() && newData.val() >= 0"
           },
@@ -416,7 +416,7 @@
           }
         },
         "slotsPrev": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "at": {
             ".validate": "newData.isNumber() && newData.val() >= 0"
           },
@@ -436,7 +436,7 @@
           }
         },
         "chars": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "$cid": {
             ".validate": "$cid.matches(/^c[a-z0-9]{6,24}$/) && (newData.hasChild('def') || newData.hasChild('del'))",
             "def": { ".validate": "newData.isString() && newData.val().length <= 150000 && !newData.val().matches(/data:[a-z]+\\/[a-z0-9.+-]+;base64,/)" },
@@ -449,7 +449,7 @@
         "trash": {
           "$cid": {
             "$mtime": {
-              ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && !data.exists() && newData.exists()",
+              ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid) && !data.exists() && newData.exists()",
               "def": { ".validate": "newData.isString() && newData.val().length <= 150000 && !newData.val().matches(/data:[a-z]+\\/[a-z0-9.+-]+;base64,/)" },
               "why": { ".validate": "newData.isString() && (newData.val() === 'overwritten' || newData.val() === 'deleted')" },
               "at": { ".validate": "newData.isNumber() && newData.val() >= 0" },
@@ -458,7 +458,7 @@
           }
         },
         "charsMeta": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "migratedFrom": { ".validate": "newData.isString() && newData.val() === 'slots'" },
           "migratedAt": { ".validate": "newData.isNumber() && newData.val() >= 0" },
           "claimAt": { ".validate": "newData.isNumber() && newData.val() >= 0" },
@@ -467,11 +467,11 @@
           "$other": { ".validate": false }
         },
         "chalBonus": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9999"
         },
         "chal": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "ts": {
             ".validate": "newData.isNumber() && newData.val() >= 0"
           },
@@ -558,7 +558,7 @@
           }
         },
         "presence": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "newData.hasChildren(['online']) && newData.child('online').isBoolean()",
           "ver": {
             ".validate": "newData.isString() && newData.val().length <= 20"
@@ -575,7 +575,7 @@
           }
         },
         "home": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "(!newData.child('bio').exists() || (newData.child('bio').isString() && newData.child('bio').val().length <= 4000)) && (!newData.child('post').exists() || (newData.child('post').isString() && newData.child('post').val().length <= 20000)) && (!newData.child('postTitle').exists() || (newData.child('postTitle').isString() && newData.child('postTitle').val().length <= 60)) && (!newData.child('avatar').exists() || (newData.child('avatar').isString() && newData.child('avatar').val().length <= 200000))"
         },
         "guestbook": {
@@ -589,14 +589,14 @@
           ".validate": "(!newData.child('count').exists() || newData.child('count').isNumber()) && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().length <= 400000)) && (!newData.child('emoji').exists() || (newData.child('emoji').isString() && newData.child('emoji').val().length <= 32))"
         },
         "invite": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid || (auth != null && root.child('admins').child(auth.uid).val() === true)",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
           ".validate": "newData.hasChildren(['invitesLeft']) && newData.child('invitesLeft').isNumber() && newData.child('invitesLeft').val() >= -999 && newData.child('invitesLeft').val() <= 999",
           "invitesLeft": {
             ".validate": "newData.isNumber() && newData.val() >= -999 && newData.val() <= 999 && (data.exists() || newData.val() == 0)"
           }
         },
         "schedule": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "$ym": {
             "$dd": {
               "$id": {
@@ -606,7 +606,7 @@
           }
         },
         "ddays": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "$id": {
             ".validate": "newData.hasChildren(['text','date','ts']) && newData.child('text').isString() && newData.child('text').val().length <= 20 && newData.child('date').isString() && newData.child('date').val().length <= 10 && newData.child('ts').isNumber()"
           }
@@ -618,19 +618,19 @@
           }
         },
         "awayImg": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid || (auth != null && root.child('admins').child(auth.uid).val() === true)",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
           ".validate": "newData.isString() && newData.val().length <= 500 && newData.val().beginsWith('https://firebasestorage.googleapis.com/')"
         },
         "awaySz": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "newData.isNumber() && (newData.val() === 60 || newData.val() === 80 || newData.val() === 100)"
         },
         "advBg": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "(!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().length <= 500)) && (!newData.child('color').exists() || (newData.child('color').isString() && newData.child('color').val().length <= 20))"
         },
         "playlist": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "items": {
             "$i": {
               ".validate": "newData.hasChildren(['id']) && newData.child('id').isString() && newData.child('id').val().length <= 16 && (!newData.child('title').exists() || (newData.child('title').isString() && newData.child('title').val().length <= 60))"
@@ -651,13 +651,13 @@
           }
         },
         "emojis": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "$slot": {
             ".validate": "newData.hasChildren(['cmd','url']) && newData.child('cmd').isString() && newData.child('cmd').val().length <= 10 && newData.child('url').isString() && newData.child('url').val().length <= 500 && (!newData.child('gif').exists() || newData.child('gif').isBoolean()) && (!newData.child('ts').exists() || newData.child('ts').isNumber())"
           }
         },
         "chalPaidTags": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           "$tag": {
             ".validate": "!data.exists() && newData.isNumber() && newData.val() > 0"
           }
@@ -675,20 +675,20 @@
     "mobileKeys": {
       "$userId": {
         ".read": false,
-        ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+        ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
         ".validate": "newData.isString() && newData.val().matches(/^[A-Z2-9]{24}$/)"
       }
     },
     "mobileLink": {
       "$userId": {
-        ".read": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
-        ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid && !newData.exists()",
+        ".read": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
+        ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid) && !newData.exists()",
         "live": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
           ".validate": "newData.hasChildren(['at']) && newData.child('at').val() === now"
         },
         "state": {
-          ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) || (newData.exists() && newData.child('key').val() === root.child('mobileKeys/'+$userId).val() && root.child('mobileLink/'+$userId+'/live').exists())",
+          ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid) || (newData.exists() && newData.child('key').val() === root.child('mobileKeys/'+$userId).val() && root.child('mobileLink/'+$userId+'/live').exists())",
           ".validate": "newData.hasChildren(['on','ts'])",
           "on":  { ".validate": "newData.isBoolean()" },
           "app": { ".validate": "newData.isString() && newData.val().length <= 40" },
@@ -704,7 +704,7 @@
       ".indexOn": "sec",
       "$userId": {
         ".read": true,
-        ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+        ".write": "(auth != null && root.child('userAuth/'+$userId).val() === auth.uid)",
         ".validate": "newData.hasChildren(['sec','ts'])",
         "sec": {
           ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 359640000"
@@ -999,7 +999,7 @@
     "inbox": {
       "$uid": {
         ".read": true,
-        ".write": "!root.child('userAuth/'+$uid).exists() || root.child('userAuth/'+$uid).val() === auth.uid || (auth != null && root.child('admins').child(auth.uid).val() === true)",
+        ".write": "(auth != null && root.child('userAuth/'+$uid).val() === auth.uid) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
         "$msgId": {
           ".validate": "newData.hasChildren(['tag','title','ts']) && newData.child('tag').isString() && newData.child('tag').val().matches(/^(notice|update|reward|bug)$/) && newData.child('title').isString() && newData.child('title').val().length <= 80 && (!newData.child('body').exists() || (newData.child('body').isString() && newData.child('body').val().length <= 600)) && newData.child('ts').isNumber() && (!newData.child('read').exists() || newData.child('read').isBoolean()) && (!newData.child('bugId').exists() || (newData.child('bugId').isString() && newData.child('bugId').val().length <= 40))"
         }
