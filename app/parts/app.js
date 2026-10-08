@@ -11625,6 +11625,7 @@ function _fmReqVisible(){
 function _fmSeatsLeft(){ return FRIEND_MAX - Object.keys(_myHomeFriends || {}).length; }
 
 function renderFriendManage(){
+  if(_fmTab !== 'gift') _giftStat('');
   document.querySelectorAll('#mhFmTabs .mh-ibx-tab').forEach(t=>{
     t.classList.toggle('on', t.dataset.fm === _fmTab);
   });
@@ -12736,6 +12737,7 @@ function _giftBoxPaint(listEl, gifts){
   if(!keys.length){
     listEl.innerHTML = '<div class="mh-ibx-empty">💝 아직 받은 선물이 없어요<br><small>친구가 보낸 말랑이가 여기에 표시돼요</small></div>';
     listEl.onclick = null; listEl.oncontextmenu = null;
+    _giftStat('');
     return;
   }
   const starN = keys.filter(k=>gifts[k] && gifts[k].starred === true).length;
@@ -12746,7 +12748,7 @@ function _giftBoxPaint(listEl, gifts){
      칸이 작아 글자를 넣을 자리가 없으므로, 보낸 사람·메시지·시각은 title(마우스를 올리면 뜨는 설명)에 담는다.
      fromName은 선물을 받을 때 이미 함께 저장돼 오는 값이라 추가로 받아오는 데이터가 없다(사용량 0).
      ⭐ 순서는 mallang.js giftOrder — ⭐ 아닌 것의 가장 오래된 것이 늘 마지막 칸이라, 꽉 찼을 때
-       그 칸이 곧 자동 정리의 다음 대상이다(「다음 삭제」 띠). */
+       그 칸이 곧 자동 정리의 다음 대상이다(마우스를 올리면 설명에 적힌다). */
   const full = keys.length >= lim.max;
   const cells = keys.map((k, i)=>{
     const g = gifts[k];
@@ -12761,13 +12763,12 @@ function _giftBoxPaint(listEl, gifts){
     return '<div class="gift-cell gift-item'+(isHidden?' out':'')+(star?' star':'')+'" data-gid="'+escHtml(k)+'"'+
            ' data-img="'+escHtml(g.imgUrl||'')+'" data-msg="'+escHtml(g.msg||'')+'" title="'+escHtml(tip)+'">'+
            '<img src="'+escHtml(g.imgUrl||'')+'" alt="" draggable="false">'+   // 이름은 title(마우스 올림)에만
-           '<span class="gift-star" title="'+(star?'즐겨찾기 풀기':'즐겨찾기')+'">'+(star?'⭐':'☆')+'</span>'+
-           (next ? '<span class="gift-next">다음 삭제</span>' : '')+'</div>';
+           '<span class="gift-star" title="'+(star?'즐겨찾기 풀기':'즐겨찾기')+'">'+(star?'⭐':'☆')+'</span></div>';
   });
   // 남은 칸은 빈 칸으로 채워 격자 모양을 유지
   for(let i=keys.length;i<lim.max;i++) cells.push('<div class="gift-cell empty"></div>');
-  listEl.innerHTML = '<div class="gift-head">⭐ '+starN+'/'+lim.starMax+' · 보관 '+keys.length+'/'+lim.max+'</div>'+
-                     '<div class="gift-grid">'+cells.join('')+'</div>';
+  listEl.innerHTML = '<div class="gift-grid">'+cells.join('')+'</div>';
+  _giftStat('⭐ '+starN+'/'+lim.starMax+' · 보관 '+keys.length+'/'+lim.max);
   const repaint = ()=>{ try{ _giftBoxPaint(listEl, gifts); }catch(_){} };
   // ★ 선물함 항목 클릭 → 마이홈에 다시 소환. innerHTML로 만든 목록이라 위임 방식으로 한 번만 건다.
   listEl.onclick = (ev)=>{
@@ -12805,6 +12806,11 @@ function _giftBoxPaint(listEl, gifts){
         } },
        { label:'취소' }]);
   };
+}
+/* 서브탭 줄 오른쪽의 「⭐ n/20 · 보관 m/30」. 다른 서브탭으로 가면 renderFriendManage 가 비운다. */
+function _giftStat(text){
+  const el = document.getElementById('mhGiftStat');
+  if(el) el.textContent = text;
 }
 async function _giftToggleStar(k, gifts, starN, lim, repaint){
   const g = gifts[k]; if(!g) return;

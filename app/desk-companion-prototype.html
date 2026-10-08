@@ -2050,10 +2050,8 @@
     cursor:pointer;color:var(--ink-soft);opacity:0;}
   .gift-cell:hover .gift-star, .gift-cell.star .gift-star{opacity:1;}
   .gift-cell.star .gift-star{color:var(--win-star);}
-  /* 꽉 찼을 때 다음 선물이 오면 지워질 칸 */
-  .gift-next{position:absolute;left:0;right:0;bottom:0;font-size:8.5px;line-height:1.5;text-align:center;
-    background:var(--win-error);color:#fff;pointer-events:none;}
-  .gift-head{max-width:430px;margin:0 auto;padding:2px 8px 0;text-align:right;font-size:10.5px;color:var(--ink-soft);}
+  /* 서브탭 줄 오른쪽 끝 — 격자 위에 줄을 따로 두면 목록이 한 줄 길어져 스크롤이 생긴다. */
+  .gift-head{margin-left:auto;align-self:center;white-space:nowrap;font-size:10.5px;color:var(--ink-soft);}
   /* 선물함 확인창 — **#myHomeWin 안에** 붙는다(body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다). */
   .mh-ask-ov{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
     background:rgba(0,0,0,.35);}
@@ -5247,6 +5245,7 @@
           <button class="mh-ibx-tab on" data-fm="req"  type="button">👋 받은 요청</button>
           <button class="mh-ibx-tab"    data-fm="sent" type="button">📤 보낸 요청</button>
           <button class="mh-ibx-tab gift" data-fm="gift" type="button">💝 선물함</button>
+          <span id="mhGiftStat" class="gift-head"></span>   <!-- ⭐ n/20 · 보관 m/30 — 선물함 서브탭일 때만 채워진다 -->
         </div>
         <!-- 일괄 처리 바 — 받은 요청 서브탭에서 요청이 있을 때만 보인다(JS 가 .on 토글) -->
         <div id="mhFmBar">

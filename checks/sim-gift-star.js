@@ -10,7 +10,7 @@
         (⭐ 최신순 → 나머지 최신순 / 넘친 만큼 ⭐ 아닌 것 중 오래된 것부터 / ⭐ 는 절대 안 지움)
         그리고 **옛 방식(오래된 순 그대로)으로 돌리면 ⭐ 가 지워지는 것을 이 검사가 잡는가**
      §2 저장 · 규칙 — starred 가 서버에 저장되는가(로컬 키 없음) · 규칙에 starred 불리언 검증
-     §3 화면 — ⭐ 클릭이 칸 클릭으로 번지지 않는가 · 상한 20 · ⭐ 우클릭 삭제 막힘 ·
+     §3 화면 — 숫자 표시가 서브탭 줄에 있는가 · ⭐ 클릭이 칸 클릭으로 번지지 않는가 · 상한 20 · ⭐ 우클릭 삭제 막힘 ·
         확인창이 #myHomeWin 안에 붙는가 · confirm() 안 씀 */
 'use strict';
 const fs = require('fs'), vm = require('vm');
@@ -53,7 +53,7 @@ if (M) {
   const drop = M.giftOverflow(gifts);
   chk(drop.length === 1 && drop[0] === 'g2', '31개 → ⭐ 아닌 것 중 가장 오래된 g2 하나만 지운다 (' + drop.join() + ')');
   chk(drop.every(k => !gifts[k].starred), '⭐ 는 지울 목록에 없다');
-  chk(drop[0] === order[order.length - 1], '「다음 삭제」 띠 칸(정렬 마지막) = 실제로 지워지는 칸');
+  chk(drop[0] === order[order.length - 1], '정렬 마지막 칸(설명에 「먼저 지워져요」) = 실제로 지워지는 칸');
 
   const few = {}; for (let i = 0; i < 30; i++) few['h' + i] = { ts: i };
   chk(M.giftOverflow(few).length === 0, '30개 이하면 아무것도 안 지운다');
@@ -90,7 +90,11 @@ chk(/closest\('\.gift-star'\)\)\{\s*ev\.stopPropagation\(\)/.test(paint), '⭐ �
 chk(/starN >= lim\.starMax[\s\S]{0,60}즐겨찾기는 '\+lim\.starMax\+'개까지예요/.test(paint), '⭐ 상한 초과 시 토스트');
 chk(/g\.starred === true\)\{\s*_mhAsk\([^)]*⭐를 먼저 풀어 주세요/.test(paint), '⭐ 칸 우클릭은 삭제 대신 안내');
 chk(/_mallangDeleteGift/.test(paint) && /if\(_isStar\(gift\)\) return 'starred'/.test(ML), '삭제 함수도 ⭐ 를 한 번 더 막는다');
-chk(/⭐ '\+starN\+'\/'\+lim\.starMax\+' · 보관 '\+keys\.length\+'\/'\+lim\.max/.test(paint), '상단 표시 「⭐ n/20 · 보관 m/30」');
+chk(/_giftStat\('⭐ '\+starN\+'\/'\+lim\.starMax\+' · 보관 '\+keys\.length\+'\/'\+lim\.max/.test(paint), '「⭐ n/20 · 보관 m/30」 표시');
+const HTML = read('desk-companion-prototype.html') || '';
+const fmTabs = (HTML.match(/<div id="mhFmTabs">[\s\S]*?<\/div>/) || [''])[0];
+chk(/id="mhGiftStat"/.test(fmTabs), '그 표시는 서브탭 줄(#mhFmTabs) 안에 있다 — 격자 위에 줄을 더하면 스크롤이 생긴다');
+chk(/function renderFriendManage\(\)\{\s*if\(_fmTab !== 'gift'\) _giftStat\(''\)/.test(APP), '다른 서브탭으로 가면 표시를 비운다');
 chk(/getElementById\('myHomeWin'\)/.test(ask) && /win\.appendChild\(ov\)/.test(ask) && !/document\.body\.appendChild/.test(ask),
   '확인창은 #myHomeWin 의 자식 (body 로 빼면 run 모드에서 클릭이 뚫린다)');
 const noComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
