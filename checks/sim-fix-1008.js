@@ -113,6 +113,27 @@ say('§12 내 캐릭터(동물 포함)를 쓰다듬으면 상대 화면에도 �
   chk(!recv(900) && recv(2600), '  흉내 — 직후 에코는 무시, 한참 뒤 남이 쓰다듬은 것은 재생');
 }
 
+say('§7 자리비움 이미지 위 동물 — 보이는 히트 먼저 잡는다');
+{
+  const fv = (APP.match(/function _hitVisible\(obj\)\{[\s\S]*?\n\}/) || [''])[0];
+  const fp = (APP.match(/function _preferVisibleHit\(hits\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(!!fv && !!fp, '_hitVisible · _preferVisibleHit 를 찾았다');
+  const pref = new Function(fv + '\n' + fp + '\nreturn _preferVisibleHit;')();
+  const node = (vis, parent) => ({ visible: vis, parent: parent || null });
+  const hostRoot = node(true), hostBody = node(false, hostRoot);   // 자리비움 — 몸만 숨김
+  const riderRoot = node(true), rider = node(true, riderRoot);
+  const r1 = pref([{ object: hostBody, n: 'host' }, { object: rider, n: 'rider' }]);
+  chk(r1[0].n === 'rider' && r1.length === 2, '★ 숨은 몸(자리비움) 앞에 맞아도 보이는 탑승자를 먼저 잡는다');
+  const r2 = pref([{ object: hostBody, n: 'host' }]);
+  chk(r2[0].n === 'host', '  보이는 히트가 없으면 예전처럼 — 이미지 없는 자리비움 캐릭터도 쓰다듬을 수 있다');
+  const r3 = pref([{ object: rider, n: 'rider' }, { object: hostBody, n: 'host' }]);
+  chk(r3[0].n === 'rider', '  이미 보이는 것이 앞이면 그대로');
+  const hiddenParent = node(false), inHidden = node(true, hiddenParent);
+  chk(pref([{ object: inHidden, n: 'a' }, { object: rider, n: 'b' }])[0].n === 'b', '  조상이 숨은 메시도 «안 보임» 으로 본다');
+  chk(/const hit=_preferVisibleHit\(_skipHiddenDesk\(_hitsSkipHidden\(ray\.intersectObjects\(seats\.map\(s=>s\.group\),true\)\)\)\);/.test(APP), '잡기(pointerdown)가 그 순서를 쓴다');
+  chk(/if\(seat\.ridingOn && !seat\.remote\) unmountRide\(seat\);/.test(APP), '  내 탑승 동물이 잡히면 내려온다(예전 규칙 그대로)');
+}
+
 say('');
 say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅');
 process.exit(fail ? 1 : 0);

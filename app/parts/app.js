@@ -1802,6 +1802,24 @@ function _skipHiddenDesk(hits){
   for(let i = 0; i < hits.length; i++){ if(_hitInHiddenDesk(hits[i].object)){ drop = true; break; } }
   return drop ? hits.filter(h=>!_hitInHiddenDesk(h.object)) : hits;
 }
+/* 🩹 [2026-10-08 제보 #7] 잡기 — **보이는 것에 맞은 히트를 먼저.** 없으면 예전처럼 첫 히트.
+   [증상] 자리비움 이미지를 건 사람 머리 위의 동물을 눌러도 안 내려오고, 그 사람(이미지째)이 흔들린다.
+   [원인] 자리비움이면 몸 메시를 visible=false 로 숨기는데(setSeatOpacity) three r128 레이캐스트는 visible 을 안 본다.
+     이미지가 있으면 탑승자를 이미지 윗변에 내려 앉히므로 숨은 몸 윤곽 안으로 들어가고, 숨은 몸이 hit[0] 이 된다.
+   ⚠️ 안 보이는 히트를 **버리지 않는다** — 이미지 없는 자리비움 캐릭터는 몸 전체가 숨어 있어서, 버리면 그 사람을
+     쓰다듬지 못하게 된다(_hitInHiddenDesk 위 주석의 결정). 순서만 바꾼다.
+   ★ 클릭 통과 판정(_pointHitsInteractive)은 «맞았는가» 만 보므로 순서와 무관 — 호버와 클릭이 어긋나지 않는다. */
+function _hitVisible(obj){
+  for(let o = obj; o; o = o.parent){ if(o.visible === false) return false; }
+  return true;
+}
+function _preferVisibleHit(hits){
+  if(!hits || hits.length < 2 || _hitVisible(hits[0].object)) return hits;
+  for(let i = 1; i < hits.length; i++){
+    if(_hitVisible(hits[i].object)) return [hits[i]].concat(hits.slice(0, i), hits.slice(i + 1));
+  }
+  return hits;
+}
 function _hitsSkipHidden(hits){
   if(!_hiddenSeatIds.size && !_reportHiddenUids.size) return hits;
   return hits.filter(h=>!_seatHidden(seatFromObject(h.object)));
@@ -23196,7 +23214,7 @@ canvas.addEventListener('pointerdown',e=>{
   if(_bonkAiming){ _bonkAimClick(e); return; }
   const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(ndc,camera);
-  const hit=_skipHiddenDesk(_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true)));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기)
+  const hit=_preferVisibleHit(_skipHiddenDesk(_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true))));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기) · 보이는 것 먼저(#7)
   if(!hit.length) return;
   const seat=seatFromObject(hit[0].object); if(!seat) return;
   /* 🪑 날아가는 중인 캐릭터는 잡지 않는다 — 잡으면 흔들기(rig 를 직접 제어한다)와 비행이 매
