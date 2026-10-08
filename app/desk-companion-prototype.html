@@ -377,6 +377,7 @@
   html[data-theme="bubble"] .wd-tab-btn,
   html[data-theme="bubble"] .wd-group-btn,
   html[data-theme="bubble"] .gc-tab,
+  html[data-theme="bubble"] .ct-tab,
   html[data-theme="bubble"] .cr-tabs button,
   html[data-theme="bubble"] #crSteps span,
   /* .on(활성 탭)은 자체 규칙이 균일 radius를 !important로 갖고 있다.
@@ -603,6 +604,33 @@
   #chatDelWin .cd-foot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   #chatDelWin .cd-foot #chatDelOk{color:var(--ink-danger, #7a1f1f);font-weight:bold;}
   #chatDelWin .cd-foot button[disabled]{color:var(--ink-soft);cursor:default;}
+  /* 💬 채팅 탭 줄 — 스크롤바 없음. 이름(.ct-name)만 줄어들고 인원 · 안 읽음 숫자는 줄지 않는다. */
+  .chat-tabs{display:none;align-items:center;gap:2px;margin:4px 6px 0;overflow:hidden;font-size:11px;white-space:nowrap;}
+  .chat-tabs.on{display:flex;}
+  .ct-tab{display:inline-flex;align-items:center;gap:4px;min-width:0;flex:0 1 auto;padding:2px 8px;cursor:pointer;color:var(--ink);
+    background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-face) var(--win-hi);border-bottom:none;
+    border-radius:var(--win-radius-el) !important;}
+  .ct-tab.on{background:var(--win-face-2);font-weight:bold;}
+  .ct-name{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+  .ct-tab[data-tab="general"]{flex-shrink:0;}   /* #일반은 짧아서 줄이지 않는다 — 긴 이름 탭이 먼저 준다 */
+  .ct-n{flex-shrink:0;color:var(--ink-soft);font-weight:normal;}
+  .ct-unread{flex-shrink:0;min-width:15px;padding:0 4px;box-sizing:border-box;text-align:center;font-size:9.5px;line-height:15px;
+    color:#fff;background:var(--win-error);border-radius:8px;font-weight:bold;}
+  .ct-add{flex-shrink:0;padding:0 7px;cursor:pointer;color:var(--ink-soft);font-weight:bold;}
+  .ct-add:hover{color:var(--win-select);}
+  .ct-edit{display:inline-flex;align-items:center;gap:2px;flex-shrink:0;}
+  .ct-edit input{width:88px;font-size:11px;padding:1px 4px;font-family:Tahoma,'Malgun Gothic',sans-serif;}
+  .ct-edit button{font-size:10.5px;padding:0 6px;cursor:pointer;font-family:Tahoma,'Malgun Gothic',sans-serif;}
+  /* 탭 우클릭 확인창 — #chatWindow 의 자식(chatDelOv 와 같은 관례) */
+  .chat-ask-ov{position:absolute;inset:0;z-index:9;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
+  .chat-ask-win{width:min(300px,92%);background:var(--win-face);
+    border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.4));border-radius:var(--win-radius-el) !important;}
+  .chat-ask-win .ca-body{padding:14px 14px 0;font-size:11.5px;color:var(--ink);line-height:1.7;white-space:pre-line;}
+  .chat-ask-win .ca-foot{display:flex;justify-content:flex-end;gap:6px;padding:12px 14px;}
+  .chat-ask-win .ca-foot button{padding:3px 10px;font-size:11px;cursor:pointer;font-family:Tahoma,'Malgun Gothic',sans-serif;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
+  .chat-ask-win .ca-foot button.danger{color:var(--ink-danger, #7a1f1f);font-weight:bold;}
   .chat-memberbar{margin:6px;display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 6px;
     background:var(--win-face);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);color:var(--ink);border-radius:var(--win-radius-el) !important;}
   .chat-member-label{background:var(--win-face-2);border:1px solid var(--win-lo-2);padding:1px 5px;font-weight:bold;white-space:nowrap;}
@@ -662,6 +690,7 @@
   #chatWindow.min .chat-memberbar,
   #chatWindow.min .chat-messages,
   #chatWindow.min .chat-profile,
+  #chatWindow.min .chat-tabs,
   #chatWindow.min .cm-newchip,
   #chatWindow.min .cm-ctx{display:none;}
   #chatWindow.min .chat-rz.n, #chatWindow.min .chat-rz.s,
@@ -7329,7 +7358,7 @@
            드롭다운이 #chatWindow 의 자식이어야 클릭 통과 화이트리스트에 자동 포함된다. -->
       <div class="chat-menu-item" id="chatClearMenu">지우기
         <div class="chat-dropdown" id="chatClearDropdown">
-          <div class="chat-dropdown-item" id="chatClearNow">이 방 대화 지우기</div>
+          <div class="chat-dropdown-item" id="chatClearNow">이 채널 대화 지우기</div>
           <div class="chat-dropdown-item" id="chatClearUndo">다시 보기</div>
         </div>
       </div>
@@ -7348,8 +7377,11 @@
         <span id="chatDelLog" title="이 방의 대화 기록을 모두 삭제합니다">🗑 기록 삭제</span>
       </span>
     </div>
+    <!-- 💬 채팅 탭(채널) 줄 — 투게더룸 · 시크릿룸에서만(.on). 그리기는 app.js _chatTabsRender.
+         ⚠️ 스크롤바를 만들지 않는다(overflow:hidden) — 좁아지면 이름만 줄임표, 숫자는 남는다. -->
+    <div class="chat-tabs" id="chatTabs"></div>
     <div class="chat-memberbar">
-      <span class="chat-member-label" id="chatMemberLabel">멤버(0)</span>
+      <span class="chat-member-label" id="chatMemberLabel">이 채널(0)</span>
       <span class="chat-member-list" id="chatMemberList">—</span>
     </div>
     <div class="chat-messages" id="chatMessages"></div>
@@ -7409,7 +7441,7 @@
         <div class="cd-head"><span class="cd-t">대화 기록 삭제</span>
           <button class="win98titlebtn" id="chatDelX" title="닫기">&times;</button></div>
         <div class="cd-body">
-          이 방의 대화 기록을 <b>전부</b> 지웁니다.<br>
+          <span id="chatDelWhat">이 방의</span> 대화 기록을 <b>전부</b> 지웁니다.<br>
           <span class="cd-warn">방에 있는 모든 사람의 화면에서도 사라지고, 되돌릴 수 없어요.</span>
           <div class="cd-count" id="chatDelCount">지울 대화 0줄</div>
         </div>
@@ -7816,7 +7848,8 @@
 <script src="parts/purikura-net.js"></script>
 <script src="vendor/qrcode.js"></script>   <!-- 📱 태블릿·폰 연결 QR (MIT · 로컬 파일 — CSP) -->
 <script src="parts/key-input.js"></script>   <!-- ⌨️ 글자 단축키 · 한글 조합 Enter — app.js 보다 먼저 -->
-<script src="parts/chat-copy.js"></script>   <!-- 📋 대화 복사 형식(window.ChatCopy) — app.js 보다 먼저 -->
+<script src="parts/chat-copy.js"></script>
+<script src="parts/chat-tabs.js"></script>   <!-- 💬 채팅 탭 규칙(window.ChatTabs) — app.js 보다 먼저 -->   <!-- 📋 대화 복사 형식(window.ChatCopy) — app.js 보다 먼저 -->
 <script src="parts/app.js"></script>
 <script src="parts/myhome-desktop.js"></script>
 <script src="parts/mallang.js"></script>

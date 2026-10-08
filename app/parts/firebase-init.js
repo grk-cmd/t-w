@@ -171,6 +171,8 @@
        자동 보존 기간이 필요하면 그건 별도 작업이다 — 규칙(chatLog 하위 삭제 권한)부터 확인할 것.
      🔵 되돌리려면 이 값을 false 로. 두 청소 자리가 같이 예전 동작으로 돌아간다. */
   const KEEP_CHAT_LOG_ON_EMPTY = true;
+  /* 💬 채팅 탭 기록 경로 — #일반은 chatLog, 그 외는 _chatTab/{tabId} (chat-tabs.js 주석 참고) */
+  const _chatLogPath = (room, tabId) => (!tabId || tabId === 'general') ? `rooms/${room}/chatLog` : `rooms/${room}/_chatTab/${tabId}`;
   let _roomQuery = null, _roomMetaRef = null, _roomMetaCb = null, _roomMetaVal = null, _roomLastFriends = null;
   let _myMemberData = null;    // 내 멤버 전체 페이로드 — 재접속 시 노드를 통째로 재등록할 때 사용
   let _connWatchRef = null, _connWatchCb = null;   // .info/connected 감시 (재접속 감지)
@@ -2480,6 +2482,9 @@
           const _isMemberKey = k => k.charAt(0) !== '_' && k !== 'chatLog';
           const _finalCleanup = async (keys)=>{
             if(keys && keys._meta)   await remove(ref(db, `rooms/${roomCodeForCleanup}/_meta`)).catch(()=>{});
+            /* 💬 탭 기록은 지운다 — 탭 정의(_meta/tabs)가 위에서 _meta 와 함께 사라지므로 남겨 봐야 다시 열 길이 없다.
+               #일반(chatLog)만 KEEP_CHAT_LOG_ON_EMPTY 를 따른다. */
+            if(keys && keys._chatTab) await remove(ref(db, `rooms/${roomCodeForCleanup}/_chatTab`)).catch(()=>{});
             /* 💬 chatLog 는 남긴다(KEEP_CHAT_LOG_ON_EMPTY) — 그 상수 주석에 이유가 있다.
                ★ _meta·roomIndex 삭제는 **그대로 둔다.** 유령 방 판정은 `_isMemberKey` 가
                  chatLog 를 이미 멤버에서 빼고 세므로, 기록만 남은 방은 여전히 빈 방이다. */
@@ -2684,10 +2689,49 @@
          부르는 쪽이 반드시 반환값을 보고 실패를 사람에게 말할 것 — 삭제는 "눌렀는데 아무 일도
          안 일어났다"가 가장 나쁜 결과다. (같은 경로의 remove 는 '마지막 사람 퇴장' 정리에서
          이미 쓰고 있다 — 이 파일 위쪽 chatLog 정리 주석 참고.) */
-    async clearChatLog(room){
+    /* tabId — 💬 채팅 탭. 없거나 general 이면 예전 그대로 chatLog(구버전이 보는 자리). 경로는 chat-tabs.js 한 곳. */
+    async clearChatLog(room, tabId){
       if(!room) return { ok:false };
-      try{ await remove(ref(db, `rooms/${room}/chatLog`)); return { ok:true }; }
+      try{
+        if(!tabId || tabId === 'general') await remove(ref(db, `rooms/${room}/chatLog`));
+        else await remove(ref(db, _chatLogPath(room, tabId)));
+        return { ok:true };
+      }
       catch(e){ return { ok:false, reason:(e && e.message) || '' }; }
+    },
+    /* ── 💬 채팅 탭(채널) — rooms/{방}/_meta/tabs/{tabId} = {name, ts} ──
+       ⚠️ 방장 제한은 **화면 수준**이다(채팅 켜짐/꺼짐과 같다). _meta.host 는 문자열일 뿐이라 서버가 방장을
+         검증하지 못한다 — 규칙은 개수(≤ 2) · 이름 길이만 막는다.
+       ★ 탭 자리는 s1 · s2 두 칸뿐이다(chat-tabs.js SLOTS) — 규칙이 그 이름만 받으므로 셋째는 구조상 못 생긴다.
+       ★ 추가는 트랜잭션 — 두 화면에서 동시에 누르면 같은 빈 자리를 고를 수 있어서 서버 값으로 다시 고른다. */
+    async addChatTab(room, name){
+      if(!room) return { ok:false };
+      try{
+        let full = false, id = null;
+        const res = await runTransaction(ref(db, `rooms/${room}/_meta/tabs`), cur => {
+          const t = cur || {};
+          id = ['s1', 's2'].find(k => !t[k]) || null;
+          if(!id){ full = true; return; }
+          t[id] = { name: String(name).slice(0, 10), ts: Date.now() };
+          return t;
+        });
+        if(full || !res.committed) return { ok:false, reason: full ? '채널은 3개까지예요' : '' };
+        return { ok:true, id };
+      }catch(e){ return { ok:false, reason:(e && e.message) || '' }; }
+    },
+    async renameChatTab(room, tabId, name){
+      if(!room || !tabId || tabId === 'general') return { ok:false };
+      try{ await set(ref(db, `rooms/${room}/_meta/tabs/${tabId}/name`), String(name).slice(0, 10)); return { ok:true }; }
+      catch(e){ return { ok:false }; }
+    },
+    /* 탭 삭제 — 정의와 그 기록을 한 묶음으로. 그 탭에 있던 사람은 _meta 리스너가 #일반으로 옮긴다. */
+    async deleteChatTab(room, tabId){
+      if(!room || !tabId || tabId === 'general') return { ok:false };
+      const w = {};
+      w[`rooms/${room}/_meta/tabs/${tabId}`] = null;
+      w[`rooms/${room}/_chatTab/${tabId}`] = null;
+      try{ await update(ref(db), w); return { ok:true }; }
+      catch(e){ return { ok:false }; }
     },
     /* 🚪 빈 방 선점 — 아무도 없는 코드에 두 사람이 거의 동시에 들어올 때 방장과 채널을 하나로 정한다.
        [규칙] 라이선스 보유자가 이긴다. 둘 다 보유자면(또는 둘 다 미보유면) 먼저 쓴 쪽이 방장이다.
@@ -2834,9 +2878,9 @@
          그 동작 때문에 다 같이 앱을 껐다 켜면 기록이 통째로 없어졌다. 지금은 방이 비어도
          chatLog 만 남는다(KEEP_CHAT_LOG_ON_EMPTY 주석 참고). 지우는 건 관리자 청소뿐이다.
        한 방에 최대 100개만 화면에 유지(limitToLast — 저장은 그보다 많이 쌓일 수 있다). */
-    async sendChatLog(room, msg){
+    async sendChatLog(room, msg, tabId){
       try{
-        const logRef = ref(db, `rooms/${room}/chatLog`);
+        const logRef = ref(db, _chatLogPath(room, tabId));
         // 상한은 CHAT_TEXT_MAX 한 곳에서 온다 — 아래 slice 와 규칙 파일이 같은 숫자를 봐야 한다.
         /* ⚠️ 1200 은 app.js 의 CHAT_OUT_MAX 와 **짝이다**. 커스텀 이모티콘 마커는 URL 때문에
            하나가 200자 안팎이라, 예전 상한 500 에서는 셋만 붙여도 넘어갔다. 그때 마커 한가운데가
@@ -2862,11 +2906,11 @@
         return { ok:false, reason:'전송에 실패했어요' };
       }
     },
-    subscribeChatLog(room, onChange, limit){
+    subscribeChatLog(room, onChange, limit, tabId){
       try{
         // limit 생략 시 100(대화창 본문). 뱃지 카운트처럼 적게만 필요하면 작은 값을 넘겨 트래픽을 줄인다.
         const n = (typeof limit === 'number' && limit > 0) ? Math.min(200, Math.floor(limit)) : 100;
-        const q = query(ref(db, `rooms/${room}/chatLog`), limitToLast(n));
+        const q = query(ref(db, _chatLogPath(room, tabId)), limitToLast(n));
         const cb = snap => {
           const val = snap.val() || {};
           /* ★ push key(k)를 id로 함께 넘긴다 — "여기까지 읽었습니다" 구분선이 이 id를 기준으로 잡는다.

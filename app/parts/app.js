@@ -16044,7 +16044,7 @@ function _chatFlyRefreshUI(){
 // 내가 채팅 전송 — 멀티모드에서만 상대에게 실제로 전송되고, 내 화면에는 항상 즉시 말풍선으로 보여줌.
 /* 🌊 fly 가 참이면 말풍선 대신 «내 화면에도» 날린다 — 니코동 방식. 안 그러면 보낸 사람만
    자기 글이 안 보여서, 날아갔는지 아닌지를 알 수 없다. */
-function sendMyChat(text, fly, flyColor, flySize){
+function sendMyChat(text, fly, flyColor, flySize, tab){
   // 🚫 채널 개편: 채널2(채팅룸)가 아니면 전송하지 않음 — 투게더룸은 일에 집중.
   if(window._activeChannel !== 2) return;
   text = String(text).trim().slice(0,140);
@@ -16055,11 +16055,11 @@ function sendMyChat(text, fly, flyColor, flySize){
     const col = _flyColorOk(flyColor, lv);
     const sz  = _flySizeOk(flySize);
     if(mySeat && typeof showFlyText === 'function') showFlyText(mySeat, text, col, sz);
-    if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(text, true, col, sz);
+    if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(text, true, col, sz, tab);
     return;
   }
   if(mySeat) showChatBubble(mySeat, text);
-  if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(text);
+  if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(text, false, '', '', tab);
 }
 
 /* ═══════════════ 💬 프리미엄 대화창 (1차: 코어) ═══════════════ */
@@ -16313,22 +16313,18 @@ function openChatWindow(){
   const _ep=document.getElementById('chatEmojiWin'); if(_ep) _ep.classList.remove('on');
   // 대화 기록 구독 시작
   const room = (typeof Presence!=='undefined' && Presence.roomCode) ? Presence.roomCode() : null;
-  // 🔖 이번 세션의 구분선 위치를 여기서 '고정' — 이후 창이 열려 있는 동안 새 메시지가 와도 선은 움직이지 않는다.
-  _chatReadRoom = room;
-  _chatReadMarker = _loadChatReadMarker(room);
-  _chatJumpToUnread = true;   // 첫 렌더에서 구분선이 보이도록 스크롤
   if(typeof _stopChatBadgeSub==='function') _stopChatBadgeSub();   // 본문 구독과 중복되지 않게 뱃지 구독 해제
   if(typeof _setChatBadge==='function') _setChatBadge(0);
-  if(room && window.firebaseAPI && firebaseAPI.subscribeChatLog){
-    if(_chatLogUnsub){ try{ _chatLogUnsub(); }catch(_){} _chatLogUnsub=null; }
-    // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
-    _chatLogUnsub = firebaseAPI.subscribeChatLog(room, list => { _noteChatJoin(room, list); _renderChatLog(list); });
-  }
+  /* 💬 탭 — 방이 바뀌었으면 #일반부터. 같은 방이면 마지막에 보던 탭 그대로(창을 닫아도 유지). */
+  if(_chatTabRoom !== room){ _chatTabRoom = room; _chatMyTab = 'general'; }
+  _chatSubscribeTab(room);
+  _chatOffRefreshUI();   // 입력칸 안내문의 #탭 이름을 방 · 탭이 정해진 뒤에 다시
   const inp=document.getElementById('chatInput'); if(inp){ inp.value=''; setTimeout(()=>inp.focus(),0); }
 }
 function closeChatWindow(){
   // 🔖 닫는 시점까지를 읽음 처리 — 다음에 열면 그 아래로 쌓인 메시지에 구분선이 붙는다.
   _markChatRead();
+  _chatTabUnreadStop();   // 💬 다른 탭 안 읽음 구독은 창이 열려 있는 동안만
   /* ▁ 최소화한 채로 닫으면 다음에 열 때 입력칸만 뜬다 — "채팅창이 사라졌다"로 읽힌다.
      닫을 때 항상 원래 크기로 되돌린다(높이 복원도 여기서 같이 일어난다). */
   _setChatMinimized(false);
@@ -16430,7 +16426,7 @@ function _chatOffRefreshUI(){
                     : (off ? '방장이 채팅을 껐어요' : '방장만 켜고 끌 수 있어요');
   }
   const inp = document.getElementById('chatInput');
-  if(inp) inp.placeholder = off ? '😊 🎲 💣 · /80 · /150 만 쓸 수 있어요' : '메시지 입력 후 Enter';
+  if(inp) inp.placeholder = off ? '😊 🎲 💣 · /80 · /150 만 쓸 수 있어요' : ('#' + _chatTabName(_chatMyTabId()) + '에 메시지 입력 후 Enter');
   /* 🗑 기록 삭제 버튼도 같은 재료(방 종류·방장)로 정해진다 — 여기서 같이 갱신한다.
      ⚠️ 호출 자리를 따로 두지 않는 이유: 이 함수는 창을 열 때(openChatWindow)와 방 메타가 바뀔 때
        (_onRoomMeta) 양쪽에서 이미 불린다. 별도 함수를 만들어 두 자리에 각각 걸면, 다음에 호출
@@ -16468,6 +16464,8 @@ function _chatDelOpen(){
   /* 몇 줄이 지워지는지 보여준다 — 화면에 보이는 줄(_chatVisibleRows)이 아니라 **서버에 있는 줄**이다.
      내가 [지우기]로 접어 둔 것도, 입장 전 대화도 같이 사라지므로 그쪽이 정직한 숫자다. */
   const n = (_chatLogCache || []).length;
+  const what = document.getElementById('chatDelWhat');
+  if(what) what.textContent = '#' + _chatTabName(_chatMyTabId()) + ' 채널의';
   const cnt = document.getElementById('chatDelCount');
   if(cnt) cnt.textContent = n ? ('지울 대화 ' + n + '줄') : '지울 대화가 없어요';
   const ok = document.getElementById('chatDelOk');
@@ -16486,7 +16484,7 @@ async function _chatDelRun(){
      ⚠️ 낙관적 반영은 하지 않는다([채팅 켜짐]과 다른 점). 지우기는 되돌릴 수 없어서,
        실패했는데 화면만 빈 상태가 제일 위험하다 — 서버가 지웠다고 답한 뒤에 비운다. */
   if(ok){ ok.disabled = true; ok.textContent = '지우는 중…'; }
-  const r = await firebaseAPI.clearChatLog(room);
+  const r = await firebaseAPI.clearChatLog(room, _chatMyTabId());   // 💬 지금 보는 탭만
   if(!(r && r.ok)){
     if(ok){ ok.disabled = false; ok.textContent = '삭제'; }
     toast('지우지 못했어요 — 네트워크나 권한을 확인해 주세요');
@@ -16501,6 +16499,7 @@ async function _chatDelRun(){
 /* 🎛️ 방 메타가 바뀔 때마다 firebase-init 의 _meta 리스너가 부른다.
    방장 승계·채널 변경도 같은 값으로 오므로 멤버줄(👑)도 여기서 같이 갱신한다. */
 window._onRoomMeta = function(){
+  try{ _chatTabsOnMeta(); }catch(_){}
   try{ _chatOffRefreshUI(); }catch(_){}
   try{ if(typeof _refreshChatMembers==='function') _refreshChatMembers(); }catch(_){}
   try{ if(typeof _renderChatLog==='function') _renderChatLog(_chatLogCache); }catch(_){}   // 안내줄 갱신
@@ -16537,6 +16536,8 @@ function _refreshChatMembers(){
   try{
     for(const st of seats){
       if(!st || (!st.isMe && !st.friendName && !st.remote)) continue;
+      // 💬 「이 채널」 — 내 탭에 있는 사람만(구버전 · 탭 칸이 없는 사람은 #일반)
+      if(!st.isMe && _chatTabResolve(st.chatTabId || 'general') !== _chatMyTabId()) continue;
       if(st.isMe){
         names.push({ name:getDisplayName(), isHost:(hostUserId && getMyUserId()===hostUserId) });
       }else if(st.friendName){
@@ -16546,11 +16547,211 @@ function _refreshChatMembers(){
   }catch(_){}
   // 방장을 맨 앞으로
   names.sort((a,b)=> (b.isHost?1:0)-(a.isHost?1:0));
-  label.textContent = `멤버(${names.length})`;
+  label.textContent = `이 채널(${names.length})`;
   listEl.innerHTML = names.map(m =>
     m.isHost ? `<span class="host">👑 ${_chatEsc(m.name)}</span>` : _chatEsc(m.name)
   ).join(', ') || '—';
 }
+/* ═══ 💬 채팅 탭(채널) — 투게더룸 · 시크릿룸 대화창 ═══
+   규칙(이름 · 상한 · 인원 · 경로)은 chat-tabs.js. 여기는 화면 · 구독 · 전환.
+   ★ 내가 있는 탭 = 마지막으로 누른 탭. 창을 닫거나 접어도 유지, 방에 들어오면 #일반, 그 탭이 지워지면 #일반.
+   ★ 읽음 구분선 · 입장 컷 · [지우기] 는 ChatTabs.markKey(방, 탭) 를 방 코드 자리에 써서 탭마다 따로 간다
+     (#일반은 예전 방 코드 그대로라 기존 표식이 그대로 이어진다).
+   ⚠️ 방장 제한은 **화면 수준**이다 — `_meta.host` 는 문자열일 뿐이라 서버가 방장을 검증하지 못한다
+     (채팅 켜짐/꺼짐과 같은 수준). 규칙은 탭 개수(≤ 2)와 이름 길이만 막는다. */
+let _chatMyTab = 'general';
+let _chatTabRoom = null;          // _chatMyTab 이 어느 방 것인가 — 방이 바뀌면 #일반으로
+const _chatTabUnread = {};        // tabId → 안 읽은 수 (창이 열려 있는 동안, 보고 있지 않은 탭만)
+let _chatTabUnreadUnsubs = [];
+const CHAT_TAB_UNREAD_LIMIT = 30;
+function _chatTabMeta(){ try{ return (window._roomMetaCache && window._roomMetaCache.tabs) || null; }catch(_){ return null; } }
+function _chatTabResolve(id){ return window.ChatTabs ? ChatTabs.resolve(id, _chatTabMeta()) : 'general'; }
+function _chatMyTabId(){
+  if(window._activeChannel !== 2) return 'general';   // 워킹룸에는 탭이 없다
+  return _chatTabResolve(_chatMyTab);
+}
+/* presence 에 싣는 값 — #일반이면 null(칸을 지운다 · 구버전과 같은 모양) */
+function _chatTabOut(){ const t = _chatMyTabId(); return t === 'general' ? null : t; }
+function _chatTabName(id){
+  const t = window.ChatTabs ? ChatTabs.list(_chatTabMeta()).find(x => x.id === id) : null;
+  return t ? t.name : '일반';
+}
+function _chatMarkKey(room, tab){ return window.ChatTabs ? ChatTabs.markKey(room, tab) : room; }
+/* 지금 탭의 기록을 구독한다 — 창을 열 때 · 탭을 바꿀 때 */
+function _chatSubscribeTab(room){
+  const tab = _chatMyTabId();
+  const key = _chatMarkKey(room, tab);
+  // 🔖 이번 세션의 구분선 위치를 여기서 '고정' — 이후 창이 열려 있는 동안 새 메시지가 와도 선은 움직이지 않는다.
+  _chatReadRoom = key;
+  _chatReadMarker = _loadChatReadMarker(key);
+  _chatJumpToUnread = true;   // 첫 렌더에서 구분선이 보이도록 스크롤
+  if(_chatLogUnsub){ try{ _chatLogUnsub(); }catch(_){} _chatLogUnsub=null; }
+  _chatLogCache = [];
+  try{ _renderChatLog([]); }catch(_){}
+  if(room && window.firebaseAPI && firebaseAPI.subscribeChatLog){
+    // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
+    _chatLogUnsub = firebaseAPI.subscribeChatLog(room, list => { _noteChatJoin(key, list); _renderChatLog(list); }, undefined, tab);
+  }
+  _chatTabUnreadStart(room);
+  _chatTabsRender();
+}
+/* 보고 있지 않은 탭은 작은 limit 로 가볍게 구독해 숫자만 센다(본문은 받지 않는다). */
+function _chatTabUnreadStop(){
+  _chatTabUnreadUnsubs.forEach(u => { try{ u(); }catch(_){} });
+  _chatTabUnreadUnsubs = [];
+  Object.keys(_chatTabUnread).forEach(k => delete _chatTabUnread[k]);
+}
+function _chatTabUnreadStart(room){
+  _chatTabUnreadStop();
+  if(!room || window._activeChannel !== 2 || !window.ChatTabs || !(window.firebaseAPI && firebaseAPI.subscribeChatLog)) return;
+  const cur = _chatMyTabId();
+  ChatTabs.list(_chatTabMeta()).forEach(t => {
+    if(t.id === cur) return;
+    const key = _chatMarkKey(room, t.id);
+    _chatTabUnreadUnsubs.push(firebaseAPI.subscribeChatLog(room, list => {
+      let mark = _loadChatReadMarker(key);
+      const last = list[list.length - 1];
+      // 처음 보는 탭이면 '지금까지는 읽은 것' — 뱃지 구독과 같은 규칙
+      if(!mark && last){ _saveChatReadMarker(key, _chatMsgKey(last)); mark = _chatMsgKey(last); }
+      _chatTabUnread[t.id] = mark ? list.filter(m => _chatMsgKey(m) > mark).length : 0;
+      _chatTabsRender();
+    }, CHAT_TAB_UNREAD_LIMIT, t.id));
+  });
+}
+function _chatSwitchTab(id){
+  const room = _chatRoomCode(); if(!room) return;
+  const next = _chatTabResolve(id);
+  if(next === _chatMyTabId()) return;
+  _markChatRead();                 // 떠나는 탭은 여기까지 읽음
+  _chatMyTab = next; _chatTabRoom = room;
+  _chatSubscribeTab(room);
+  _chatOffRefreshUI();             // 입력칸 안내문(#이름)
+  _refreshChatMembers();
+  if(typeof Presence!=='undefined' && Presence.broadcastNow) Presence.broadcastNow();   // 내 탭을 방에 알린다
+}
+/* 방 메타가 바뀌었다 — 내 탭이 지워졌으면 #일반으로, 탭 목록이 바뀌었으면 안 읽음 구독을 다시. */
+let _chatTabSig = '';
+function _chatTabsOnMeta(){
+  if(!window.ChatTabs) return;
+  const room = _chatRoomCode();
+  const sig = ChatTabs.list(_chatTabMeta()).map(t => t.id + ':' + t.name).join('|');
+  if(_chatMyTab !== 'general' && _chatTabResolve(_chatMyTab) === 'general'){
+    _chatMyTab = 'general';
+    if(_chatWindowIsOpen() && room){ _chatSubscribeTab(room); toast('채널이 삭제되어 #일반으로 옮겼어요'); }
+    if(typeof Presence!=='undefined' && Presence.broadcastNow) Presence.broadcastNow();
+  }else if(sig !== _chatTabSig && _chatWindowIsOpen()){
+    _chatTabUnreadStart(room);
+  }
+  _chatTabSig = sig;
+  _chatTabsRender();
+}
+/* 탭 줄 — 고정 · 스크롤바 없음. 좁아지면 이름만 줄임표, 인원 · 안 읽음 숫자는 늘 보인다(CSS). */
+let _chatTabEdit = null;   // { mode:'add'|'rename', id }
+function _chatTabsRender(){
+  const bar = document.getElementById('chatTabs'); if(!bar || !window.ChatTabs) return;
+  const on = window._activeChannel === 2;
+  bar.classList.toggle('on', on);
+  if(!on){ bar.innerHTML = ''; return; }
+  // 입력 중이면 다시 그리지 않는다 — 치던 글자가 날아간다
+  if(_chatTabEdit && bar.querySelector('.ct-edit input') === document.activeElement) return;
+  const tabs = ChatTabs.list(_chatTabMeta()), cur = _chatMyTabId();
+  const people = seats.filter(st => st && (st.isMe || st.friendName)).map(st => ({ tab: st.isMe ? cur : (st.chatTabId || 'general') }));
+  const cnt = ChatTabs.counts(people, _chatTabMeta());
+  const host = _chatIsHost();
+  const h = tabs.map(t => {
+    if(_chatTabEdit && _chatTabEdit.mode === 'rename' && _chatTabEdit.id === t.id) return _chatTabEditHtml(t.name);
+    const un = t.id === cur ? 0 : (_chatTabUnread[t.id] || 0);
+    return '<span class="ct-tab' + (t.id === cur ? ' on' : '') + '" data-tab="' + escHtml(t.id) + '" title="#' + escHtml(t.name) + '">' +
+      '<span class="ct-name">#' + escHtml(t.name) + '</span><span class="ct-n">' + (cnt[t.id] || 0) + '</span>' +
+      (un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : un) + '</span>' : '') + '</span>';
+  });
+  if(_chatTabEdit && _chatTabEdit.mode === 'add') h.push(_chatTabEditHtml(''));
+  else if(ChatTabs.canAdd(host, _chatTabMeta())) h.push('<span class="ct-add" title="채널 추가 (방장)">+</span>');
+  bar.innerHTML = h.join('');
+  const inp = bar.querySelector('.ct-edit input');
+  if(inp){ inp.focus(); inp.select(); }
+}
+function _chatTabEditHtml(val){
+  return '<span class="ct-edit"><input type="text" maxlength="' + (window.ChatTabs ? ChatTabs.NAME_MAX : 10) + '" value="' + escHtml(val) + '" placeholder="채널 이름">' +
+    '<button type="button" data-ct="ok">' + (_chatTabEdit && _chatTabEdit.mode === 'rename' ? '바꾸기' : '추가') + '</button><button type="button" data-ct="x">×</button></span>';
+}
+async function _chatTabEditSubmit(){
+  const bar = document.getElementById('chatTabs'), edit = _chatTabEdit;
+  const inp = bar && bar.querySelector('.ct-edit input'); if(!edit || !inp) return;
+  if(!_chatIsHost()){ toast('방장만 바꿀 수 있어요'); _chatTabEdit = null; _chatTabsRender(); return; }
+  const c = ChatTabs.cleanName(inp.value, _chatTabMeta(), edit.id);
+  if(c.err){ toast(c.err); inp.focus(); return; }
+  const room = _chatRoomCode(); if(!room) return;
+  let r = null;
+  if(edit.mode === 'add'){
+    if(!ChatTabs.canAdd(true, _chatTabMeta())){ toast('채널은 #일반 포함 3개까지예요'); _chatTabEdit = null; _chatTabsRender(); return; }
+    r = await firebaseAPI.addChatTab(room, c.name);
+  }else r = await firebaseAPI.renameChatTab(room, edit.id, c.name);
+  _chatTabEdit = null;
+  if(!(r && r.ok)){ toast((r && r.reason) || '바꾸지 못했어요 — 네트워크를 확인해 주세요'); _chatTabsRender(); return; }
+  if(edit.mode === 'add' && r.id){
+    // 메타가 리스너로 오기 전이라도 바로 그 탭으로 — 캐시에 먼저 넣어 둔다
+    try{ const m = window._roomMetaCache = Object.assign({}, window._roomMetaCache || {}); m.tabs = Object.assign({}, m.tabs || {}, { [r.id]: { name: c.name, ts: Date.now() } }); }catch(_){}
+    _chatSwitchTab(r.id);
+  }
+  _chatTabsRender();
+}
+/* 탭 우클릭(방장) — 창 안 확인창. ⚠️ #chatWindow 의 자식으로 붙인다(body 로 빼면 run 모드에서 클릭이 뚫린다). */
+function _chatAsk(text, btns){
+  const win = document.getElementById('chatWindow'); if(!win) return;
+  const old = document.getElementById('chatAskOv'); if(old) old.remove();
+  const ov = document.createElement('div');
+  ov.id = 'chatAskOv'; ov.className = 'chat-ask-ov';
+  ov.innerHTML = '<div class="chat-ask-win"><div class="ca-body">' + escHtml(text) + '</div><div class="ca-foot">' +
+    btns.map((b, i) => '<button type="button" data-i="' + i + '"' + (b.danger ? ' class="danger"' : '') + '>' + escHtml(b.label) + '</button>').join('') + '</div></div>';
+  ov.addEventListener('mousedown', e => e.stopPropagation());
+  ov.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); });
+  ov.addEventListener('click', e => {
+    e.stopPropagation();
+    if(e.target === ov){ ov.remove(); return; }
+    const bt = e.target.closest && e.target.closest('button[data-i]'); if(!bt) return;
+    const b = btns[+bt.dataset.i]; ov.remove();
+    if(b && typeof b.run === 'function') b.run();
+  });
+  win.appendChild(ov);
+}
+function _chatTabMenu(id){
+  if(!_chatIsHost()) return;   // 참여자에게는 메뉴가 없다
+  if(id === 'general'){ _chatAsk('#일반은 이름을 바꾸거나 지울 수 없어요.', [{ label:'확인' }]); return; }
+  const name = _chatTabName(id);
+  _chatAsk('#' + name + ' 채널을 삭제할까요?\n대화 기록도 같이 지워지고, 있던 사람은 #일반으로 옮겨져요.', [
+    { label:'이름 바꾸기', run: () => { _chatTabEdit = { mode:'rename', id }; _chatTabsRender(); } },
+    { label:'삭제', danger:true, run: async () => {
+        const r = await firebaseAPI.deleteChatTab(_chatRoomCode(), id);
+        if(!(r && r.ok)) toast('지우지 못했어요 — 네트워크를 확인해 주세요');
+        else toast('🗑 #' + name + ' 채널을 지웠어요');
+      } },
+    { label:'취소' },
+  ]);
+}
+function _bindChatTabs(){
+  const bar = document.getElementById('chatTabs'); if(!bar) return;
+  bar.addEventListener('mousedown', e => e.stopPropagation());
+  bar.addEventListener('click', e => {
+    e.stopPropagation();
+    const bt = e.target.closest('[data-ct]');
+    if(bt){ if(bt.dataset.ct === 'ok') _chatTabEditSubmit(); else { _chatTabEdit = null; _chatTabsRender(); } return; }
+    if(e.target.closest('.ct-add')){ if(_chatIsHost()){ _chatTabEdit = { mode:'add' }; _chatTabsRender(); } return; }
+    const t = e.target.closest('.ct-tab'); if(t) _chatSwitchTab(t.dataset.tab);
+  });
+  bar.addEventListener('keydown', e => {
+    if(!e.target.closest('.ct-edit')) return;
+    e.stopPropagation();
+    if(e.isComposing || e.keyCode === 229) return;   // 한글 조합 중 Enter 는 조합 확정에 쓴다(대화 입력칸과 같은 규칙)
+    if(e.key === 'Enter'){ e.preventDefault(); _chatTabEditSubmit(); }
+    else if(e.key === 'Escape'){ _chatTabEdit = null; _chatTabsRender(); }
+  });
+  bar.addEventListener('contextmenu', e => {
+    e.preventDefault(); e.stopPropagation();
+    const t = e.target.closest('.ct-tab'); if(t) _chatTabMenu(t.dataset.tab);
+  });
+}
+
 // 대화 기록 렌더
 function _renderChatLog(list){
   _chatLogCache = list || [];
@@ -16876,7 +17077,7 @@ function _sendChatWindowMsg(){
      한 노드가 마지막 하나만 들고 있어서, 연타하면 앞 줄이 상대 화면에 뜨기도 전에 덮인다.
      보내기를 막지는 않는다 — 친 글을 잃지 않는 것이 이 창의 관례다(잠금·도배 제한 참고). */
   const _fly = !(typeof officeMode !== 'undefined' && officeMode) && _chatFlyOn && _chatFlySendGate();   // 🏢 회사원 모드면 안 날린다
-  if(typeof sendMyChat==='function') sendMyChat(bubbleText, _fly, _fly ? _chatFlyColor : '', _chatFlySize);
+  if(typeof sendMyChat==='function') sendMyChat(bubbleText, _fly, _fly ? _chatFlyColor : '', _chatFlySize, _chatMyTabId());
   // 2) 대화 기록 저장 — 마커가 든 outText 저장(다른 사람도 이모티콘을 URL로 렌더)
   const room=(typeof Presence!=='undefined' && Presence.roomCode)?Presence.roomCode():null;
   if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
@@ -16884,7 +17085,7 @@ function _sendChatWindowMsg(){
        반영하고 거부가 돌아오면 되돌리기 때문이다. 예전엔 그 실패가 어디에도 안 남아서,
        보내는 사람에게는 «쳤는데 없어지거나 순서가 뒤엉킨» 것으로만 보였다.
        ★ 친 글은 입력칸에 돌려준다 — 잠금·도배 제한과 같은 관례다(길게 쓴 줄을 날리지 않는다). */
-    Promise.resolve(firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text:outText }))
+    Promise.resolve(firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text:outText }, _chatMyTabId()))
       .then(r=>{
         if(r && r.ok === false){
           if(typeof toast==='function') toast('전송에 실패했어요 — 잠시 뒤 다시 보내주세요');
@@ -19794,11 +19995,13 @@ function _rollDice(){
   const logText = `${name}님이 주사위 ${dice2} 가 나왔습니다.`;
   // 1) 말풍선 — 주사위 2개만(마커). setSeatHeadBubble이 주사위 마커만으로 된 텍스트를 SVG로 렌더.
   if(mySeat) showChatBubble(mySeat, dice2);
-  if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(dice2);
+  // 💬 🎲 은 대화창 도구라 지금 보는 탭으로 간다(말풍선 · 기록 둘 다). 날아가는 것(willFly)은 방 전체 그대로.
+  const _tab = (typeof _chatMyTabId === 'function') ? _chatMyTabId() : 'general';
+  if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(dice2, false, '', '', _tab);
   // 2) 대화 기록 — 전체 문장
   const room=(typeof Presence!=='undefined' && Presence.roomCode)?Presence.roomCode():null;
   if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
-    firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name, text:logText });
+    firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name, text:logText }, _tab);
   }
   if(willFly) _selfFlyAfterDice();
 }
@@ -20070,6 +20273,7 @@ function _rollRoulette(){
     });
   }
   try{ _bindChatCopy(); }catch(_){}   // 📋 드래그 · 복사 · 우클릭 메뉴
+  try{ _bindChatTabs(); }catch(_){}   // 💬 채팅 탭 줄
   // 링크 클릭 → 외부 열기(Electron: shell.openExternal, 웹: 새 탭)
   const msgs=document.getElementById('chatMessages');
   if(msgs){
@@ -30231,7 +30435,7 @@ const Presence=(()=>{
     myFocusShow = v;
     if(provider && provider.update) provider.update(_basePayload());
   }
-  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...myStarOut(), awaySz:myAwaySz, lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:_mobileRoomLabel(), danceStyle:_myDanceStyle(), flyCool:_myFlyCool(), noise:myNoise}; }
+  function _basePayload(){ const _st=_statusOut(); return {state:myState, userStatus:_st.userStatus, customStatus:_st.customStatus, level:myLevel, exp:_myExpCells(), ...myStarOut(), awaySz:myAwaySz, lic:_myLicenseFlag(), awayImg:myAwayImg, ridingOn:_myRidingOn(), seatedOn:_mySeatedOn(), bench:_myBench(), mobile:_mobileRoomLabel(), danceStyle:_myDanceStyle(), tab:_chatTabOut(), flyCool:_myFlyCool(), noise:myNoise}; }
   /* 올라타기/하차 직후 즉시 반영 — 상태 틱을 기다리면 상대 화면에 몇 초 늦게 나타난다. */
   function broadcastRide(){ try{ if(provider && provider.update) provider.update(_basePayload()); }catch(_){} }
   function setState(s){ if(s===myState)return; myState=s; if(provider&&provider.update)provider.update(_basePayload()); }
@@ -30289,15 +30493,20 @@ const Presence=(()=>{
          `fly:false` 가 붙어 방 payload 가 그만큼 커진다(얼굴 PNG 를 걷어낸 것과 같은 이유).
        ⚠️ flyColor 는 «보낸 사람이 고른 값»일 뿐 권한이 아니다. Lv.200 판정은 **받는 쪽**에서
          friends[id].level 로 다시 한다 — 여기서만 막으면 값을 조작해 색을 쓸 수 있다. */
-  function sendChat(text, fly, flyColor, flySize){
+  /* 💬 tab — 채팅 탭. #일반이 아니면 `chat` 이 아니라 새 칸 `chatTab` 으로 보낸다.
+     ★ 구버전은 chatTab 을 몰라 아예 안 띄운다 — 영화 탭의 말풍선 · 날리기가 #일반 사람 · 구버전에게 새지 않는 이유가 이것이다.
+       `chat` 칸으로 보내면 구버전이 탭을 모른 채 방 전원에게 띄운다(sim-chat-tabs ①). */
+  function sendChat(text, fly, flyColor, flySize, tab){
     if(!(provider && provider.update)) return;
     const chat = { text:String(text).slice(0,140), ts:Date.now() };
+    if(tab && tab !== 'general') chat.tab = String(tab).slice(0,16);
     if(fly){
       chat.fly = true;
       if(flyColor) chat.flyColor = String(flyColor).slice(0,16);
       // 대(l)는 기본값이라 안 싣는다 — 받는 쪽이 «없으면 대» 로 읽는다.
       if(flySize && flySize !== 'l') chat.flySize = String(flySize).slice(0,2);
     }
+    if(chat.tab){ provider.update(Object.assign(_basePayload(), { chatTab: chat })); return; }
     provider.update(Object.assign(_basePayload(), { chat }));
   }
   function stop(){
@@ -30828,6 +31037,7 @@ function syncFriendSeats(friends){
       //   재생되던 원인). 생성 시점의 값으로 미리 "이미 봤다"고 표시해서 진짜 새 이벤트만 재생되게 함.
       s._lastPokeTs = (friends[id].poke && friends[id].poke.ts) || null;
       s._lastChatTs = (friends[id].chat && friends[id].chat.ts) || null;
+      s._lastChatTabTs = (friends[id].chatTab && friends[id].chatTab.ts) || null;   // 💬 들어오기 전 탭 말풍선은 다시 안 띄운다
       s._lastEquipJSON = JSON.stringify((friends[id].def && friends[id].def.equippedParts) || null);
       s._lastIdentityJSON = _charIdentityFingerprint(friends[id].def);
       s._lastDeskJSON = _deskStateFingerprint(friends[id].def);
@@ -30923,6 +31133,7 @@ function syncFriendSeats(friends){
     }
     /* 🪑 이 친구가 "쉬는 중"인 시각(ms). 맞은 본인이 판정해 실어 보낸 값이라 방 전체가 같은 값을 본다. */
     s.remoteFlyCool = friends[id].flyCool || 0;
+    s.chatTabId = window.ChatTabs ? ChatTabs.tabOf(friends[id]) : 'general';   // 💬 이 사람이 있는 채팅 탭
     // 💬 채팅 — ts가 새로 바뀐 경우에만 말풍선으로 잠깐 표시(중복 재생 방지)
     const chat=friends[id].chat;
     if(chat && chat.ts && chat.ts!==s._lastChatTs){
@@ -30942,7 +31153,10 @@ function syncFriendSeats(friends){
       /* 🏢 회사원 모드 — **보는 사람 기준**(플라잉체어·효과음과 같은 규칙). 상대가 날려도 내 화면에선
            아래 말풍선/한 줄 라벨 분기로 떨어진다. 던진 사람이 회사원 모드가 아니면 그 화면에선 정상으로 날아간다. */
       let _chatShown = false;
-      if(chat.fly && window._activeChannel === 2 && !(typeof officeMode !== 'undefined' && officeMode) && typeof showFlyText==='function'){
+      /* 💬 #일반 말풍선 · 날리기는 #일반에 있는 사람에게만 — 다른 탭에 있으면 안 띄운다(기본 이모티콘 단독은 방 전체 몸짓이라 그대로). */
+      const _onGeneral = _chatMyTabId() === 'general';
+      if(!_onGeneral && !_demojiOnly){ /* 다른 탭 — 띄우지 않는다 */ }
+      else if(chat.fly && window._activeChannel === 2 && !(typeof officeMode !== 'undefined' && officeMode) && typeof showFlyText==='function'){
         showFlyText(s, chat.text, (friends[id].level|0) >= FLY_COLOR_LEVEL ? chat.flyColor : '', chat.flySize);
         _chatShown = true;
       }
@@ -30950,6 +31164,19 @@ function syncFriendSeats(friends){
       /* 🔔 알림음 — 상대 채팅이 **화면에 뜬 경우에만** 울린다. 워킹룸에서 걸러진 글자처럼 안 뜬 것은 조용하다.
          ⚠ 여기가 유일한 자리다. chatLog 구독(대화창)에도 걸면 한 줄에 두 번 울린다. */
       if(_chatShown && typeof _chatNotifyIncoming === 'function') _chatNotifyIncoming();
+    }
+    /* 💬 채팅 탭 말풍선 — **내 탭과 같을 때만** 띄운다(sim-chat-tabs ②). 투게더룸 · 시크릿룸에서만.
+       ⚠️ 날리기 · 말풍선 · 알림음 분기는 위 `chat` 과 같은 규칙이다 — 한쪽만 고치지 말 것. */
+    const ctab = friends[id].chatTab;
+    if(ctab && ctab.ts && ctab.ts !== s._lastChatTabTs){
+      s._lastChatTabTs = ctab.ts;
+      if(window._activeChannel === 2 && ctab.tab === _chatMyTabId()){
+        let _shown = false;
+        if(ctab.fly && !(typeof officeMode !== 'undefined' && officeMode) && typeof showFlyText==='function'){
+          showFlyText(s, ctab.text, (friends[id].level|0) >= FLY_COLOR_LEVEL ? ctab.flyColor : '', ctab.flySize); _shown = true;
+        }else if(typeof showChatBubble==='function'){ showChatBubble(s, ctab.text); _shown = true; }
+        if(_shown && typeof _chatNotifyIncoming === 'function') _chatNotifyIncoming();
+      }
     }
   });
   _applyRemoteRides();   // 🐾 친구들의 올라타기·탑쌓기 관계를 좌석에 반영(좌석이 다 만들어진 뒤에)
@@ -30983,6 +31210,8 @@ function presenceChanged(friends){
   const lbl=document.getElementById('inviteFriendCnt'); if(lbl)lbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
   const flbl=document.getElementById('fsInviteFriendCnt'); if(flbl)flbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
   if(seats.some(s=>s.isMe)) syncFriendSeats(friends);
+  // 💬 탭별 인원 · 멤버 줄은 사람이 오가거나 탭을 옮길 때 바뀐다
+  try{ if(_chatWindowIsOpen()){ _chatTabsRender(); _refreshChatMembers(); } }catch(_){}
 }
 /* 📅 시크릿룸 만료일 표시용 — 입장 게이트(startRoom)와 관리자 발급 화면이 같은 형식을 쓴다.
    YYYY-MM-DD. 후원자에게 불러줄 값이라 로컬 시간대 기준으로 찍는다(toISOString은 UTC라 하루 어긋난다). */
