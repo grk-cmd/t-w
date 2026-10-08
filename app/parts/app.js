@@ -298,7 +298,12 @@ function _attachHumanEars(root, def){
   try{
     humanEar.ensureHolder(root);
     humanEar.attachFromDef(root, def, { material:_humanEarMat,
-      onAttach:(w)=>{ _humanEarPic(w, def); try{ wdEar.onEarAttached(root); }catch(_){} } });
+      onAttach:(w)=>{
+        _humanEarPic(w, def);
+        try{ wdEar.onEarAttached(root); }catch(_){}
+        /* 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 '머리 꼭대기' 는 귀 없던 값이다 */
+        try{ const _s = seats.find(x=>x.modelRoot === root); if(_s) _remeasureRideHeadTop(_s); }catch(_){}
+      } });
   }catch(e){ console.warn('[사람 귀] 붙이기 실패', e); }
 }
 
@@ -3139,7 +3144,10 @@ function _measureHostHeadTop(hostSeat, headNode){
     let _bareBox = null;
     try{ if(!_hb.isEmpty()) _bareBox = _hb.clone(); }catch(_){ _bareBox = null; }
     const _bareTopY = _hb.isEmpty() ? null : _hb.max.y;
-    if(hostSeat.charDef && hostSeat.charDef.animal){
+    /* 🐾 사람 귀(꾸미기 › 머리 › 귀)도 같은 규칙 — 동물 귀처럼 rigged 표식으로 본체 측정에서 빠져 있어서,
+       여기서 합치지 않으면 귀 달린 사람 위에 얹을 때 귀 사이 머리통에 파묻힌다. 귀가 없는 사람은 합칠 게 없어 그대로다. */
+    const _humanEarHost = !!(hostSeat.charDef && !hostSeat.charDef.animal && (hostSeat.charDef.earL || hostSeat.charDef.earR));
+    if((hostSeat.charDef && hostSeat.charDef.animal) || _humanEarHost){
       /* ★ 귀 박스도 measureHeadBoxNoParts와 **같은 규칙**으로 잰다 — 숨은 메쉬 제외.
          Box3.setFromObject는 traverse(≠traverseVisible)라 wrap 하위의 안 보이는 메쉬까지 그대로 잰다.
          예전 코드는 wrap **자신**의 visible만 보고 그 안쪽은 못 봐서, 숨은 메쉬가 있으면
@@ -3149,7 +3157,7 @@ function _measureHostHeadTop(hostSeat, headNode){
       const _eb = new THREE.Box3(), _et = new THREE.Box3();
       const _ebRaw = new THREE.Box3(), _etRaw = new THREE.Box3();   // 진단용 — 옛 규칙(숨은 메쉬 포함)
       hostSeat.gltfRoot.traverse(o=>{
-        if(!(o.userData && o.userData.animalEar)) return;
+        if(!(o.userData && (o.userData.animalEar || o.userData.humanEar))) return;
         if(o.visible === false) return;
         try{ _etRaw.setFromObject(o); if(!_etRaw.isEmpty()) _ebRaw.union(_etRaw); }catch(_){}
         o.traverse(m=>{
