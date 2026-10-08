@@ -153,6 +153,10 @@ app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
    이 두 스위치가 그 판단 자체를 끈다(렌더링만 계속 시킬 뿐이라 위험도 낮음). */
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
+/* 🧯 [제보 #11] GPU 프로세스가 짧은 사이에 여러 번 죽으면 크로미움은 그 페이지(file://)의 WebGL 을 **앱을 다시 켤 때까지** 막는다.
+   그러면 three.js 가 기다리는 '연결 복구'가 영영 오지 않고, 다시 불러와도(gl-recover.js) 3D 를 못 만들어 얼굴 없는 화면이 남는다.
+   우리 앱은 페이지가 하나뿐이고 3D 가 본체라, 막는 것보다 다시 시도하는 쪽이 낫다. ready 전에 불러야 한다. */
+app.disableDomainBlockingFor3DAPIs();
 
 let mainWindow = null;
 
@@ -3412,6 +3416,11 @@ function createWindow() {
   /* 🩺 진단 기록 폴더 열기 — 제보를 받을 때 "이 경로의 파일을 보내주세요" 대신 버튼 하나로.
      ⚠️ 파일을 여는 게 아니라 **폴더를 열고 그 파일을 선택**한다(showItemInFolder). 로그를
        메모장으로 열어 버리면 유저가 내용을 복사해서 붙여넣게 되는데, 그러면 잘려서 온다. */
+  /* 🩺 렌더러가 보내는 진단 한 줄 — 렌더러에서 났는지 보이게 머리표를 붙이고, 줄바꿈을 지워 한 줄로 묶는다. */
+  ipcMain.on('companion:diagNote', (e, msg) => {
+    if(!mainWindow || mainWindow.isDestroyed() || e.sender !== mainWindow.webContents) return;
+    _diagLog('[렌더러] ' + String(msg == null ? '' : msg).replace(/[\r\n]+/g, ' ').slice(0, 200));
+  });
   ipcMain.handle('companion:openDiagFolder', () => {
     try{
       const f = path.join(app.getPath('userData'), 'tw-mouse-diag.log');

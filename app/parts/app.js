@@ -8,6 +8,18 @@ const canvas=document.getElementById('scene');
 //   도트 느낌은 실행 중 해상도 축소(DOT_RENDER_SCALE)+텍스처 필터 전환만으로 충분히 나서, antialias는 고정해도 무방.
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setClearColor(0x000000, 0);   // 항상 투명 배경으로 클리어 (Electron 투명창 흰 화면 예방)
+/* 🧯 메인 캔버스 WebGL 연결 끊김 — 기록하고, 6초 안에 안 돌아오면 화면을 한 번 다시 불러온다(parts/gl-recover.js · 제보 #11).
+   three.js 자기 리스너가 먼저 붙어 preventDefault 를 하므로 여기는 기록 · 시간 재기만 한다. */
+try{
+  if(typeof GlRecover !== 'undefined'){
+    GlRecover.createGlRecover({
+      log: (m) => { console.warn('[WebGL]', m); try{ if(window.companion && companion.diagNote) companion.diagNote('[WebGL] ' + m); }catch(_){} },
+      reload: () => location.reload(),
+      setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: (id) => clearTimeout(id), now: () => Date.now(),
+      store: { get: (k) => sessionStorage.getItem(k), set: (k, v) => sessionStorage.setItem(k, v) },
+    }).attach(canvas);
+  }
+}catch(e){ console.warn('[WebGL] 복구 감시를 못 붙였다', e); }
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
 const scene=new THREE.Scene();

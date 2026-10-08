@@ -272,6 +272,11 @@ contextBridge.exposeInMainWorld('companion', {
     return ipcRenderer.invoke('companion:openDiagFolder');
   },
 
+  // 🩺 렌더러 쪽 사건 한 줄을 진단 기록에 남긴다(WebGL 연결 끊김 등). 길이는 main 이 자른다.
+  diagNote(msg) {
+    ipcRenderer.send('companion:diagNote', String(msg == null ? '' : msg).slice(0, 200));
+  },
+
   // ---- 버전 게이트 ----
   // 현재 앱 버전 조회(예: "0.6.1"): Promise<string|null>. 방 입장 시 config/minRoomVer와 비교.
   getAppVersion() {
