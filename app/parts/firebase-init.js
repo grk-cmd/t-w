@@ -38,6 +38,7 @@
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room-alive.js";
   import { createInviteAccount } from "./invite-account.js";
   import { createAppVersion } from "./app-version.js";
+  import { createAppVersionGate, createAppVersionGateDom } from "./app-version-gate.js";
   import { createBugBoard } from "./bug-board.js";
   import { createCatalogSync } from "./catalog-cache.js";
   import { createBroadcastSync } from "./broadcast-cache.js";
@@ -377,6 +378,14 @@
       update(_myPresenceRef, { ver }).catch(()=>{});
     },
   });
+  /* 앱 최소 버전(app-version-gate.js) — 켤 때 config/minAppVer 하나만 읽어, 이 앱이 낮으면 «업데이트해 주세요» 로 막는다.
+     DB 가 생기자마자 — 다른 읽기 · 게이트보다 먼저. 읽지 못하면(오프라인 · 시간 초과) 막지 않는다. */
+  createAppVersionGate({
+    readMin: () => get(ref(db, 'config/minAppVer')).then(s => s.val()),   // 경로는 app-version-gate.js MIN_APP_VER_PATH 와 같다
+    getVersion: () => _appVer.ready,
+    companion: window.companion || null,
+    ui: createAppVersionGateDom(document),
+  }).start().then(r => { if(r.blocked) console.warn('[앱 최소 버전] 막음 —', r.my, '<', r.min); });
   /* IP 기준 일일 방문자(visit-ping.js) — 로그인과 상관없이 켤 때 한 번. 함수 SDK 는 위 FUNCTIONS_SDK_URL 주석대로 부를 때 들여온다.
      ⚠️ CSP connect-src 에 운영 함수 호스트만 있어 dev(together-working-dev)에서는 막힌다 — 지표만 빠지고 앱은 그대로다. */
   createVisitPing({
