@@ -28,6 +28,14 @@ export const BUG_STATUS = { new: '접수', checking: '확인 중', fixed: '수�
 export const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
 const OPEN = (st) => st === 'new' || st === 'checking';
 
+/* 답변 알림(우편함) 본문. 우편함은 규칙상 누구나 읽고 글쓴이 코드는 공개 목록에 있어서,
+   비공개 글의 제목을 넣으면 그 길로 새어 나간다 — 비공개 글은 고정 문구만. 어느 글인지는 함께 보내는 bugId 로 연다. */
+export const BUG_PRV_NOTICE_BODY = '비공개 제보예요 — 버그제보 탭의 «내 글» 에서 확인해 주세요';
+export function answerNoticeBody(vis, title, hasKakao){
+  const head = vis === 'pub' ? String(title || '') : BUG_PRV_NOTICE_BODY;
+  return head + (hasKakao ? '\n💬 오픈카톡 연결이 함께 왔어요' : '');
+}
+
 export function ymd(t){
   const d = new Date(t);
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -201,6 +209,6 @@ export function createBugBoard(deps){
     return createPost({ vis: 'pub', cat: 'etc', title: '버그 제보 안내', body, notice: true }, who);
   }
   const C = { cats: BUG_CATS, status: BUG_STATUS, page: BUG_PAGE, dailyMax: BUG_DAILY_MAX, titleMax: BUG_TITLE_MAX,
-              bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE };
+              bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE, answerNoticeBody };
   return { C, checkPost, listPage, notices, getItem, getPost, prvTitle, createPost, addAnswer, like, getSeen, setSeen, unseen, migrateNotice };
 }

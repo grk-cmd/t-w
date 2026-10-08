@@ -9,7 +9,7 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const api = () => (window.firebaseAPI && firebaseAPI.bugBoard) || null;
-  const C = () => (api() && api().C) || { cats: [], status: {}, page: 20, kakaoRe: /^https:\/\/open\.kakao\.com\// };
+  const C = () => (api() && api().C) || { cats: [], status: {}, page: 20, kakaoRe: /^https:\/\/open\.kakao\.com\//, answerNoticeBody: () => '버그제보 탭에서 확인해 주세요' };
   const esc = (s) => escHtml(String(s == null ? '' : s));
   const myUid = () => { try{ return firebaseAPI.authCurrentUid(); }catch(_){ return null; } };
   const admin = () => (typeof isAdmin !== 'undefined') && !!isAdmin;
@@ -157,7 +157,7 @@
     // 글쓴이 우편함 알림 — 실패해도 답변은 남아 있다(조용히 넘기지 않고 알린다)
     try{
       await firebaseAPI.sendInboxMessage(post.it.code, 'bug', '접수된 제보에 답변이 달렸어요',
-        post.title + (r.kakao ? '\n💬 오픈카톡 연결이 함께 왔어요' : ''), { bugId: post.id });
+        C().answerNoticeBody(post.it.vis, post.title, !!r.kakao), { bugId: post.id });
     }catch(_){ toast('답변은 등록됐지만 알림을 보내지 못했어요'); }
     toast('답변을 등록했어요');
     openPost(post.id);
