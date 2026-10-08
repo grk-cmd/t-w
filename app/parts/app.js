@@ -16359,6 +16359,7 @@ function closeChatWindow(){
   /* ▁ 최소화한 채로 닫으면 다음에 열 때 입력칸만 뜬다 — "채팅창이 사라졌다"로 읽힌다.
      닫을 때 항상 원래 크기로 되돌린다(높이 복원도 여기서 같이 일어난다). */
   _setChatMinimized(false);
+  _chatCtxClose();
   const ov=document.getElementById('chatOverlay'); if(ov) ov.style.display='none';
   if(_chatLogUnsub){ try{ _chatLogUnsub(); }catch(_){} _chatLogUnsub=null; }
 }
@@ -16583,6 +16584,17 @@ function _renderChatLog(list){
   const box=document.getElementById('chatMessages'); if(!box) return;
   /* 🧹 지우기 — 화면에 그릴 목록만 거른다(위 _chatVisibleRows 주석 참고). */
   const rows = _chatVisibleRows(_chatLogCache);
+  /* 📋 고르는 중이면 그리지 않는다 — 아래 innerHTML 이 통째로 갈아 끼워서 고르던 것이 날아간다.
+     최신 list 는 위에서 이미 _chatLogCache 에 받아 두었다. 선택이 풀리면 _chatFlushHeld 가 그린다. */
+  if(_chatSelInBox()){
+    _chatHeldN = Math.max(0, rows.length - _chatShownRows.length);
+    _chatHeldOn = true;
+    _chatChipRefresh();
+    return;
+  }
+  _chatHeldOn = false; _chatHeldN = 0;
+  _chatShownRows = rows;
+  _chatChipRefresh();
   const atBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 30;   // 맨 아래면 자동 스크롤
   // 🔖 구분선 위치 = 마커보다 뒤(=안 읽은) 첫 메시지.
   //    마커가 없으면(그 방 첫 방문) 구분선 없이 전부 읽은 것으로 취급한다.
@@ -16609,7 +16621,8 @@ function _renderChatLog(list){
     // 내 발화는 이름을 테마 강조색으로 — 긴 대화에서 내 줄을 눈으로 찾기 위함(uid 기준이라 동명이인 안전).
     const mine = !!(_myUid && m.uid && m.uid === _myUid);
     const t = _hhmm(m.ts);
-    html.push('<div class="cm-row"><span class="cm-name' + (mine?' me':'') + '">' + nm + '</span> : ' + tx
+    // data-i — 복사는 화면 글자가 아니라 이 번호로 원문(_chatShownRows)을 찾는다(chat-copy.js).
+    html.push('<div class="cm-row" data-i="' + i + '"><span class="cm-name' + (mine?' me':'') + '">' + nm + '</span> : ' + tx
       + (t ? '<span class="cm-time">' + t + '</span>' : '') + '</div>');
   });
   /* 🔇 잠겨 있으면 목록 끝에 안내줄 — 서버 기록이 아니라 **화면에만** 그린다.
@@ -16629,6 +16642,139 @@ function _renderChatLog(list){
   }
   _syncChatMinBadge();   // ▁ 접혀 있으면 새로 온 만큼 💬 뱃지에 올린다 (펼쳐져 있으면 무동작)
 }
+/* ═══ 📋 대화 드래그 · 복사 ═══
+   ★ 형식은 chat-copy.js(원문 기준). 여기는 선택 → 원문 찾기 · 클립보드 · 우클릭 메뉴 · 다시 그리기 보류.
+   ★ mac 은 창이 frame:false 라 기본 편집 메뉴가 없어 Cmd+C 가 안 먹을 수 있다 — 키를 직접 받는다(두 OS 같게). */
+let _chatShownRows = [];      // 지금 화면에 그려진 메시지(원문) — .cm-row[data-i] 의 번호가 여기 자리다
+let _chatHeldOn = false, _chatHeldN = 0;
+function _chatSelInBox(){
+  const box = document.getElementById('chatMessages');
+  if(!box || !box.getClientRects().length) return false;   // 창이 닫혀(숨어) 있으면 보류하지 않는다
+  const sel = window.getSelection ? window.getSelection() : null;
+  if(!sel || sel.isCollapsed || !sel.rangeCount) return false;
+  return box.contains(sel.anchorNode) || box.contains(sel.focusNode);
+}
+function _chatChipRefresh(){
+  const chip = document.getElementById('chatNewChip'), box = document.getElementById('chatMessages');
+  if(!chip || !box) return;
+  const on = _chatHeldOn && _chatHeldN > 0;
+  chip.classList.toggle('on', on);
+  if(!on) return;
+  chip.textContent = '새 메시지 ' + _chatHeldN + ' ↓';
+  // 대화 칸 오른쪽 아래 — offset 값이라 창의 transform·화면 배율과 무관하다
+  const win = document.getElementById('chatWindow');
+  if(win) chip.style.bottom = (win.clientHeight - (box.offsetTop + box.offsetHeight) + 8) + 'px';
+}
+/* 보류해 둔 list 로 그리고 맨 아래로. */
+function _chatFlushHeld(){
+  if(!_chatHeldOn) return;
+  _chatHeldOn = false;
+  _renderChatLog(_chatLogCache);
+  const box = document.getElementById('chatMessages');
+  if(box) box.scrollTop = box.scrollHeight;
+}
+/* 선택에 걸친 메시지들(원문). 한 메시지 안에서만 고른 것이면 null — 그때는 고른 글자 그대로 복사한다. */
+function _chatSelRows(){
+  if(!_chatSelInBox()) return null;
+  const box = document.getElementById('chatMessages');
+  const range = window.getSelection().getRangeAt(0);
+  const hit = [...box.querySelectorAll('.cm-row[data-i]')].filter(r => range.intersectsNode(r));
+  if(hit.length < 2) return null;
+  return hit.map(r => _chatShownRows[+r.dataset.i]).filter(Boolean);
+}
+function _chatSelText(){
+  if(!_chatSelInBox()) return '';
+  const rows = _chatSelRows();
+  if(rows) return window.ChatCopy ? ChatCopy.textFor(rows) : '';
+  return String(window.getSelection().toString() || '').trim();
+}
+function _chatCopyToast(){
+  const t = document.getElementById('chatCopyToast'); if(!t) return;
+  t.classList.add('on');
+  clearTimeout(_chatCopyToast._t);
+  _chatCopyToast._t = setTimeout(()=>t.classList.remove('on'), 900);
+}
+async function _chatWriteClip(text){
+  if(!text) return;
+  try{ await navigator.clipboard.writeText(text); _chatCopyToast(); }
+  catch(_){ toast('복사하지 못했어요'); }
+}
+function _chatCtxClose(){
+  const m = document.getElementById('chatCtx'); if(m) m.classList.remove('on');
+}
+function _chatCtxOpen(e){
+  const m = document.getElementById('chatCtx'), win = document.getElementById('chatWindow');
+  if(!m || !win) return;
+  const row = e.target.closest ? e.target.closest('.cm-row[data-i]') : null;
+  m._row = row ? _chatShownRows[+row.dataset.i] : null;
+  m.querySelector('[data-act="copy"]').classList.toggle('off', !_chatSelText());
+  m.querySelector('[data-act="copyMsg"]').classList.toggle('hide', !m._row);
+  m.classList.add('on');
+  /* 창 기준 좌표. 화면 배율이 걸려 있어도 맞게 rect 와 layout 폭의 비로 되돌린다. */
+  const r = win.getBoundingClientRect(), k = r.width ? win.offsetWidth / r.width : 1;
+  const x = (e.clientX - r.left) * k, y = (e.clientY - r.top) * k;
+  m.style.left = Math.max(2, Math.min(x, win.clientWidth - m.offsetWidth - 2)) + 'px';
+  m.style.top  = Math.max(2, Math.min(y, win.clientHeight - m.offsetHeight - 2)) + 'px';
+}
+function _chatCtxRun(act){
+  const m = document.getElementById('chatCtx'); if(!m) return;
+  const row = m._row;
+  _chatCtxClose();
+  if(act === 'copy') _chatWriteClip(_chatSelText());
+  else if(act === 'copyMsg'){
+    const line = (row && window.ChatCopy) ? ChatCopy.lineFor(row) : null;
+    if(line) _chatWriteClip(line); else toast('이모티콘만 있는 메시지예요');
+  }
+  else if(act === 'all'){
+    const box = document.getElementById('chatMessages'); if(!box) return;
+    const sel = window.getSelection(), rg = document.createRange();
+    rg.selectNodeContents(box); sel.removeAllRanges(); sel.addRange(rg);
+  }
+}
+function _bindChatCopy(){
+  const box = document.getElementById('chatMessages'), win = document.getElementById('chatWindow');
+  if(!box || !win) return;
+  /* Ctrl+C / Cmd+C — 대화 칸 선택일 때만 가로챈다. 입력칸의 복사는 건드리지 않는다. */
+  document.addEventListener('keydown', e=>{
+    if(!(e.ctrlKey || e.metaKey) || e.altKey || String(e.key).toLowerCase() !== 'c') return;
+    if(!_chatSelInBox()) return;
+    e.preventDefault(); e.stopPropagation();
+    _chatWriteClip(_chatSelText());
+  }, true);
+  // 메뉴 등 다른 길로 오는 복사도 같은 형식으로
+  document.addEventListener('copy', e=>{
+    if(!_chatSelInBox() || !e.clipboardData) return;
+    const t = _chatSelText(); if(!t) return;
+    e.clipboardData.setData('text/plain', t); e.preventDefault();
+    _chatCopyToast();
+  });
+  document.addEventListener('selectionchange', ()=>{ if(_chatHeldOn && !_chatSelInBox()) _chatFlushHeld(); });
+  box.addEventListener('contextmenu', e=>{ e.preventDefault(); e.stopPropagation(); _chatCtxOpen(e); });
+  const m = document.getElementById('chatCtx');
+  if(m){
+    // ⚠️ mousedown 을 막아야 메뉴를 누르는 순간 선택이 풀리지 않는다([복사]가 빈손이 된다).
+    m.addEventListener('mousedown', e=>{ e.preventDefault(); e.stopPropagation(); });
+    m.addEventListener('click', e=>{
+      e.stopPropagation();
+      const it = e.target.closest('.cm-ctx-it'); if(it) _chatCtxRun(it.dataset.act);
+    });
+    m.addEventListener('contextmenu', e=>{ e.preventDefault(); e.stopPropagation(); });
+  }
+  document.addEventListener('mousedown', e=>{
+    const mm = document.getElementById('chatCtx');
+    if(mm && mm.classList.contains('on') && !mm.contains(e.target)) _chatCtxClose();
+  }, true);
+  const chip = document.getElementById('chatNewChip');
+  if(chip){
+    chip.addEventListener('mousedown', e=>{ e.preventDefault(); e.stopPropagation(); });
+    chip.addEventListener('click', e=>{
+      e.stopPropagation();
+      try{ window.getSelection().removeAllRanges(); }catch(_){}
+      _chatFlushHeld();
+    });
+  }
+}
+
 // 이스케이프된 텍스트 안의 이모티콘 마커를 <img>로. 마커는 [emoji:URL] 형태(URL은 이스케이프되어 &amp; 등 포함 가능).
 // (구) 이모티콘 마커 렌더 — 지금은 _renderChatText 파이프라인이 대체(URL 링크화 충돌 방지). 참고용 보존.
 function _renderEmojiMarkers(escapedText){
@@ -19950,6 +20096,7 @@ function _rollRoulette(){
       else if(e.key==='Escape'){ closeChatWindow(); }
     });
   }
+  try{ _bindChatCopy(); }catch(_){}   // 📋 드래그 · 복사 · 우클릭 메뉴
   // 링크 클릭 → 외부 열기(Electron: shell.openExternal, 웹: 새 탭)
   const msgs=document.getElementById('chatMessages');
   if(msgs){
