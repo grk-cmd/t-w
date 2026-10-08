@@ -4469,8 +4469,10 @@
   .wd-pic-btn:disabled{opacity:.45;cursor:default;}
   #wdEarAdjRow .wd-gizmo-btn{flex:1 1 0;min-width:0;padding:3px 4px;white-space:nowrap;}
   #wdEarAdjRow .wd-gizmo-btn.wd-ear-mini{flex:0 0 28px;padding:3px 0;}
-  .wd-ear-link{font-size:10.5px;color:var(--ink-soft);display:flex;align-items:center;gap:2px;cursor:pointer;}
-  .wd-ear-sub{font-size:10.5px;color:var(--ink-soft);margin:8px 2px 4px;}
+  /* 🐾 귀 탭 — 동물 생성기 «2 귀» 와 같은 상자 · 버튼(cr-groupbox · skin-sw 는 생성기 것). 크기만 꾸미기 창에 맞춘다 */
+  .wd-ear-box{margin:12px 0 4px;}
+  .wd-ear-row{flex-wrap:wrap;gap:4px;}
+  .wd-ear-row .skin-sw.wd-ear-sw{width:42px;height:40px;font-size:9.5px;line-height:1.1;color:var(--ink);background:var(--win-face-2);}
   .wd-ear-tip{font-size:10px;color:var(--ink-soft);opacity:.85;margin:8px 2px 0;line-height:1.4;}
   #wdPicSection{flex-direction:column;gap:5px;padding:6px 8px;flex-shrink:0;
     border-top:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:var(--win-face-2);border-radius:var(--win-radius-el) !important;}

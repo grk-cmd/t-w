@@ -14,7 +14,6 @@
 'use strict';
 
 const WD_EAR_TAB = '__ear__';
-const EAR_ICON = { cat:'🐱', bear:'🐻', rabbit:'🐰', puppy:'🐶', fold:'🐱' };
 const SIDE_LABEL = { L:'왼쪽 귀', R:'오른쪽 귀' };
 const EAR_SCALE_MIN = 0.3, EAR_SCALE_MAX = 2.5;
 
@@ -22,7 +21,6 @@ function createWdEar(deps){
   const HE = deps.humanEar, H = deps.HumanEar;
   const doc = deps.doc;
   let side = 'L';
-  let link = null;            // 좌우 같이 — null 이면 처음 그릴 때 def 에서 정한다(양쪽이 같으면 켬)
 
   const available = (def)=>!!def && !def.animal;
   const isActive = ()=>deps.getTab() === WD_EAR_TAB;
@@ -60,53 +58,38 @@ function createWdEar(deps){
     deps.rerender();
   }
 
-  function _card(label, icon, on, onclick, none){
-    const c = doc.createElement('div');
-    c.className = 'wd-card' + (none ? ' none-card' : '') + (on ? ' on' : '');
-    if(none) c.textContent = label;
-    else {
-      const i = doc.createElement('span'); i.textContent = icon;
-      const n = doc.createElement('span'); n.className = 'nm'; n.textContent = label;
-      c.appendChild(i); c.appendChild(n);
-    }
-    c.onclick = onclick;
-    return c;
-  }
-  function _grid(cur, onPick){
-    const g = doc.createElement('div'); g.className = 'wd-grid';
-    g.appendChild(_card('없음', '', !cur, ()=>onPick(null), true));
+  /* 동물 생성기 «2 귀» 화면(animal.js renderEarLists)과 같은 모양 — 왼쪽 · 오른쪽 상자를 늘 따로 둔다.
+     상자 · 버튼 스타일(cr-groupbox · skin-sw)은 앱 공용이라 그대로 쓴다. */
+  function _box(s, cur){
+    const box = doc.createElement('div'); box.className = 'cr-groupbox wd-ear-box';
+    const lab = doc.createElement('span'); lab.className = 'cr-groupbox-label'; lab.textContent = SIDE_LABEL[s];
+    const row = doc.createElement('div'); row.className = 'skin-row wd-ear-row';
+    const btn = (text, on, onclick)=>{
+      const b = doc.createElement('button');
+      b.type = 'button'; b.className = 'skin-sw wd-ear-sw' + (on ? ' on' : ''); b.textContent = text; b.title = text;
+      b.onclick = onclick;
+      return b;
+    };
+    row.appendChild(btn('없음', !cur, ()=>pick([s], null)));
     (deps.earTypes() || []).forEach(t=>{
       if(!t || !t.key) return;
-      g.appendChild(_card(t.label || t.key, EAR_ICON[t.key] || '🐾', cur === t.key, ()=>onPick(t.key)));
+      const label = t.label || t.key;
+      row.appendChild(btn(label, cur === t.key, ()=>pick([s], t.key)));
     });
-    return g;
-  }
-  function _sub(text){
-    const d = doc.createElement('div'); d.className = 'wd-ear-sub'; d.textContent = text; return d;
+    box.appendChild(lab); box.appendChild(row);
+    return box;
   }
 
   function render(wrap){
     const def = deps.getDraft();
     if(!def){ wrap.innerHTML = '<div class="wd-empty"><span class="ic">🐾</span>캐릭터를 먼저 실행해 주세요.</div>'; return; }
     const st = HE.readDef(def);
-    if(link === null) link = (st.L === st.R);
     const sec = doc.createElement('div'); sec.className = 'wd-cat';
     const head = doc.createElement('div'); head.className = 'wd-cat-head';
     const h3 = doc.createElement('h3'); h3.textContent = '🐾 귀';
-    const lab = doc.createElement('label'); lab.className = 'wd-ear-link';
-    const cb = doc.createElement('input'); cb.type = 'checkbox'; cb.checked = !!link;
-    cb.onchange = ()=>{ link = cb.checked; deps.rerender(); };
-    lab.appendChild(cb); lab.appendChild(doc.createTextNode(' 좌우 같이'));
-    head.appendChild(h3); head.appendChild(lab); sec.appendChild(head);
-    if(link){
-      // 양쪽이 다르면 어느 칸도 켜지 않는다 — 고르는 순간 양쪽이 같아진다
-      sec.appendChild(_grid(st.L === st.R ? st.L : undefined, t=>pick(['L', 'R'], t)));
-    } else {
-      sec.appendChild(_sub('◀ ' + SIDE_LABEL.L));
-      sec.appendChild(_grid(st.L, t=>pick(['L'], t)));
-      sec.appendChild(_sub(SIDE_LABEL.R + ' ▶'));
-      sec.appendChild(_grid(st.R, t=>pick(['R'], t)));
-    }
+    head.appendChild(h3); sec.appendChild(head);
+    sec.appendChild(_box('L', st.L));
+    sec.appendChild(_box('R', st.R));
     const tip = doc.createElement('div'); tip.className = 'wd-ear-tip';
     tip.textContent = '미리보기 아래에서 조정할 귀를 고르고 핸들로 옮겨요. 미리보기에서 귀를 눌러도 돼요.';
     sec.appendChild(tip);
@@ -268,7 +251,7 @@ function createWdEar(deps){
 
   return { TAB:WD_EAR_TAB, available, isActive, render, syncGizmo, hideRow, setSide, reset, mirror,
            onGizmoChange, scaleStep, pickAt, onEarAttached, copyIntoDraft, commit, picTarget, setPic,
-           side:()=>side, link:()=>link };
+           side:()=>side };
 }
 
 const api = { WD_EAR_TAB, createWdEar };
