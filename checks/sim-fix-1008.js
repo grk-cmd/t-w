@@ -245,6 +245,28 @@ say('§5 호버해도 클릭이 바로 안 잡힘 — 일반 앱 첫 재판정 0
   }
 }
 
-say('');
-say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅');
-process.exit(fail ? 1 : 0);
+say('§9 보관함 이동 — 연타 · 동기화 경쟁');
+{
+  const mv = (APP.match(/async function doMoveCurSlotToBox\(\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(/if\(_moveToBoxBusy\)\{ toast\(/.test(mv) && /finally\{ _moveToBoxBusy = false; \}/.test(mv), '★ 진행 중이면 다시 안 들어간다 (연타 방지 · 실패해도 풀린다)');
+  chk(/const at = slots\.indexOf\(slotObj\);/.test(mv) && /for\(let k = at; k < slots\.length - 1; k\+\+\)/.test(mv) && !/for\(let k = i; k < slots\.length - 1/.test(mv), '★ 기다린 뒤에는 번호 대신 그 캐릭터로 칸을 다시 찾아 당긴다');
+  chk(/_charsMoveFailLog\(r, i\);/.test(mv) && /localStorage\.setItem\('tw\.charsMoveFails'/.test(APP), '실패 이유를 기록한다 (콘솔 + 최근 10건)');
+  const d2b = (APP.match(/async function _charsDeskToBox\(i\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(/await _idle\(\);\s*try\{ await _charsSync\('force'\); \}catch\(_\)\{\}\s*await _idle\(\);/.test(d2b) && /_charsSyncing && t < 200/.test(d2b), '★ 도는 동기화를 기다린 뒤 올리고, 끝날 때까지 다시 기다린다');
+  chk(/const j = desk\.indexOf\(cid\); if\(j < 0\) return \{ ok: false, why: 'moved' \}; i = j;/.test(d2b), '  번호가 바뀌었으면 그 캐릭터의 새 번호로 따라간다');
+  const sy = (APP.match(/async function _charsSync\(reason\)\{[\s\S]*?\n\}/) || [''])[0];
+  const iLoad = sy.indexOf('try{ await loadSlots(); }catch(_){}'), iGen = sy.indexOf("if(gen !== _charsGen){ _charsSyncAgain = true; return { ok: true, did: '불러오는 중 바뀜 — 다시' }; }"), iSave = sy.indexOf('try{ saveSlots(); }catch(_){}', iLoad);
+  chk(iLoad > 0 && iGen > iLoad && iSave > iGen, '★ 동기화 — loadSlots 를 기다린 뒤 칸이 바뀌었으면 saveSlots 를 건너뛴다 (양쪽에 남던 자리)');
+  chk(/return '옮기지 못했어요 — 다시 눌러 주세요' \+ \(w \? ' \(' \+ w \+ '\)' : ''\);/.test(APP), '기본 실패 문구에 이유 코드');
+  // 흉내 — 연타 두 번이 겹쳐도 한 번만 옮긴다
+  (async () => {})();
+  let busy = false, moved = 0;
+  const press = async () => { if (busy) return 'busy'; busy = true; try { await new Promise(r => setTimeout(r, 5)); moved++; } finally { busy = false; } return 'ok'; };
+  Promise.all([press(), press(), press()]).then(rs => {
+    chk(moved === 1 && rs.filter(x => x === 'busy').length === 2, '  흉내 — 세 번 연타해도 한 번만 옮긴다');
+    say('');
+    say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅');
+    process.exit(fail ? 1 : 0);
+  });
+}
+

@@ -29349,16 +29349,30 @@ function doDeleteCurSlot(){
 }
 /* 🧰 [보관함 이동] — 슬롯에서 내려 보관함에 둔다(시안 G · 개정 48). 당기기는 doDeleteCurSlot 과 같은 모양이다
    (자리 추가 번호도 같이 당긴다 — 옛 버그 주석 참고). 보관함 쪽 기록은 _charsDeskToBox 가 먼저 끝낸 뒤에만 칸을 당긴다. */
+/* 🩹 [2026-10-08 제보 #9] «보관함에 안 들어가고, 연타하면 들어가지만 슬롯에도 남는다».
+   [가설] 동시 실행 방지가 없었다 — 연타하면 겹친 호출이 각자 `i = curSlot` 을 잡고 기다린 뒤 그 i 로 칸을 당겼다.
+     동물은 추가 그림 6장을 올려서 동기화가 길어 겹칠 틈이 넓다.
+   [대응] ① 진행 중이면 다시 안 들어간다 ② 기다린 뒤에는 **번호(i) 대신 그 캐릭터(slotObj)로** 칸을 다시 찾는다
+     ③ 실패 이유(why)를 남긴다(_charsMoveFailLog) — 다음 제보 때 moved/nocid/err/save/dirty 를 가를 수 있게. */
+let _moveToBoxBusy = false;
 async function doMoveCurSlotToBox(){
+  if(_moveToBoxBusy){ toast('보관함으로 옮기는 중이에요 — 잠시만요'); return; }
   const i = curSlot;
-  if(!slots[i]) return;
+  const slotObj = slots[i];
+  if(!slotObj) return;
+  _moveToBoxBusy = true;
   let r = { ok: false, why: 'off' };
-  try{ r = await _charsDeskToBox(i); }catch(e){ r = { ok: false, why: 'err' }; }
-  if(!r.ok){ toast(_charsMoveMsg(r)); return; }
-  for(let k = i; k < slots.length - 1; k++){ slots[k] = slots[k + 1]; }
+  try{
+    try{ r = await _charsDeskToBox(i); }catch(e){ r = { ok: false, why: 'err', err: String(e && e.message || e) }; }
+  }finally{ _moveToBoxBusy = false; }
+  if(!r.ok){ _charsMoveFailLog(r, i); toast(_charsMoveMsg(r)); return; }
+  /* 기다리는 사이 칸이 바뀌었을 수 있다(동기화 · 다른 창) — 옮긴 그 캐릭터가 지금 몇 번 칸인지 다시 찾는다. */
+  const at = slots.indexOf(slotObj);
+  if(at < 0){ renderLauncher(); toast('보관함으로 옮겼어요'); return; }   // 이미 칸에서 빠져 있다 — 당길 것이 없다
+  for(let k = at; k < slots.length - 1; k++){ slots[k] = slots[k + 1]; }
   slots[slots.length - 1] = null;
   if(Array.isArray(extraSeatSlots)){
-    extraSeatSlots = extraSeatSlots.filter(n => n !== i).map(n => n > i ? n - 1 : n);
+    extraSeatSlots = extraSeatSlots.filter(n => n !== at).map(n => n > at ? n - 1 : n);
     if(typeof _saveExtraSeatSlots === 'function') _saveExtraSeatSlots();
   }
   if(!slots[curSlot]){ let last = -1; slots.forEach((x, k) => { if(x) last = k; }); curSlot = last >= 0 ? last : 0; }
@@ -36902,6 +36916,16 @@ function _charsTrashMove(i){
    [슬롯에 올리기] _charsBoxToDesk(cid): 빈 슬롯 첫 칸에 서버 표현을 그림째 받아 앉힌다(_charsSync 의 «바꿔 앉히기» 와 같은 길).
      기준(h)은 지워 다음 saveSlots 가 다시 잡게 한다 — 받은 것을 고침으로 치지 않는다. 슬롯이 꽉 차면 D3 문구.
    부르는 쪽(런처 · [내 정보])이 결과의 why 로 문구를 고른다(_charsMoveMsg). */
+/* 보관함 이동 실패 기록 — 콘솔 + 최근 10건(localStorage). 제보 때 «tw.charsMoveFails» 를 받아 본다. */
+function _charsMoveFailLog(r, i){
+  const rec = { t: Date.now(), why: (r && r.why) || '?', slot: i, err: (r && r.err) || undefined, syncing: !!_charsSyncing };
+  console.warn('[🧬] 보관함 이동 실패', rec);
+  try{
+    const a = JSON.parse(localStorage.getItem('tw.charsMoveFails') || '[]');
+    a.push(rec); while(a.length > 10) a.shift();
+    localStorage.setItem('tw.charsMoveFails', JSON.stringify(a));
+  }catch(_){}
+}
 async function _charsDeskToBox(i){
   if(!_charsActive()) return { ok: false, why: 'off' };
   if(!(i >= 0 && i < CHAR_SLOT_MAX)) return { ok: false, why: 'nocid' };
@@ -36910,9 +36934,16 @@ async function _charsDeskToBox(i){
   if(!cid || !box[cid] || _charsIsTomb(box[cid])) return { ok: false, why: 'nocid' };
   if(_charsBoxOnlyCount(box, desk) >= CHARS_BOX_MAX) return { ok: false, why: 'full' };
   if(typeof box[cid].def !== 'string'){
+    /* 🩹 #9 — 이미 도는 동기화가 있으면 **끝날 때까지 기다린 뒤** 부른다. 예전엔 _charsSync 가 «도는 중» 으로 바로
+       돌아와서, 올리기가 안 끝난 채 아래 검사로 떨어져 dirty/moved 로 실패했다(동물은 그림이 많아 자주). */
+    // 진행 중인 동기화가 끝날 때까지(최대 20초). ⚠️ 이 함수 안에 둔다 — sim-signup 이 이 함수만 떼어 돌린다.
+    const _idle = async () => { for(let t = 0; typeof _charsSyncing !== 'undefined' && _charsSyncing && t < 200; t++) await new Promise(res => setTimeout(res, 100)); };
+    await _idle();
     try{ await _charsSync('force'); }catch(_){}
+    await _idle();
     box = _charsBoxGet(); desk = _charsDeskGet();
-    if(desk[i] !== cid) return { ok: false, why: 'moved' };
+    /* 기다리는 사이 칸 번호가 바뀌었으면 그 캐릭터의 새 번호로 따라간다(번호만 믿으면 엉뚱한 칸을 당긴다). */
+    if(desk[i] !== cid){ const j = desk.indexOf(cid); if(j < 0) return { ok: false, why: 'moved' }; i = j; }
     if(!box[cid] || typeof box[cid].def !== 'string') return { ok: false, why: 'dirty' };
   }
   for(let k = i; k < CHAR_SLOT_MAX - 1; k++) desk[k] = desk[k + 1];
@@ -36962,7 +36993,7 @@ function _charsMoveMsg(r){
   if(w === 'dirty') return '방금 고친 모습을 계정에 올리는 중이에요 — 잠시 뒤 다시 눌러 주세요';
   if(w === 'slotsfull') return '슬롯이 꽉 차서 이동할 수 없어요. 슬롯을 먼저 비워 주세요 — 런처 톱니 [보관함 이동]';
   if(w === 'img') return '캐릭터 그림을 받지 못했어요 — 네트워크를 확인하고 다시 눌러 주세요';
-  return '옮기지 못했어요 — 다시 눌러 주세요';
+  return '옮기지 못했어요 — 다시 눌러 주세요' + (w ? ' (' + w + ')' : '');   // 🩺 이유 코드 — 제보 때 갈래를 가른다
 }
 /* 런처 톱니 문구 — 켜져 있으면(채택 뒤) «휴지통 이동», 아니면 옛 «캐릭터 삭제»(설계 개정 5 · 문구와 동작을 같이 바꾼다). */
 function _charsDeleteWords(){
@@ -37204,6 +37235,9 @@ async function _charsSync(reason){
     if(changed){
       for(let i = 0; i < CHAR_SLOT_MAX; i++){ slots[i] = null; _faceEverDrawn[i] = false; _blinkEverDrawn[i] = false; }
       try{ await loadSlots(); }catch(_){}
+      /* 🩹 #9 — loadSlots 를 기다리는 사이 보관함 이동 등으로 칸이 또 바뀌었으면 옛 모양을 다시 저장하지 않는다
+         (보관함과 슬롯 양쪽에 남던 자리). 다음 판이 다시 맞춘다. */
+      if(gen !== _charsGen){ _charsSyncAgain = true; return { ok: true, did: '불러오는 중 바뀜 — 다시' }; }
       try{ saveSlots(); }catch(_){}                                  // 받은 칸의 저장 모양을 맞추고 기준(h)을 잡는다 — 받은 것을 고침으로 치지 않는다
       try{ if(typeof renderLauncher === 'function') renderLauncher(); }catch(_){}
       try{ if(typeof renderCharSlots === 'function') renderCharSlots(); }catch(_){}
