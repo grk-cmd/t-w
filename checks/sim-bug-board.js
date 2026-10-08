@@ -89,6 +89,7 @@ chk(!M.answerNoticeBody('prv', '비밀 제목', false).includes('비밀 제목')
   const mixed = open.slice(0, 15).concat(Array.from({ length: 5 }, (_, i) => ({ id: 'z' + i, ts: 1 + i })));
   chk(M.pageOf('open', mixed).next === null && M.pageOf('open', mixed).items.length === 15, '⑦ 미해결: openTs 없는 글이 딸려 와도 끝으로 본다');
   chk(M.pageOf('mine', raw).next === null, '⑦ 내 글은 쪽을 넘기지 않는다');
+  chk(/더 이전 제보가 없어요/.test(UI) && /emptyText\(filter, page\)/.test(UI), '⑦ 딱 20의 배수라 빈 2쪽이 나오면 «더 이전 제보가 없어요»');
 }
 chk(M.answerNoticeBody('pub', '공개 제목', true).startsWith('공개 제목') && M.answerNoticeBody('pub', '공개 제목', true).includes('오픈카톡'),
   '⑥ 공개 글은 제목 + 오픈카톡 안내');
