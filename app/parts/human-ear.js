@@ -94,13 +94,21 @@ function createHumanEar(deps){
     return at.sub(new THREE.Vector3().fromArray(ANIMAL_EAR_BONE[side]));
   }
 
-  /* ⚠️ 바인드 자세에서 불러야 한다 — defToBase 처럼 조립 직후. 머리가 움직이는 중에 만들면 그 각도가 굳는다. */
-  function ensureHolder(root){
+  function _findHolder(root){
     let h = null;
     root.traverse(o=>{ if(!h && o.name === HOLDER_NAME) h = o; });
+    return h;
+  }
+  /* ⚠️ 바인드 자세에서 불러야 한다 — defToBase 처럼 조립 직후. 머리가 움직이는 중에 만들면 그 각도가 굳는다.
+     그래서 defToBase 가 귀가 없어도 미리 만들어 두고, 옮길 양(shift)도 이때 재서 holder 에 적어 둔다 —
+     나중에 꾸미기에서 귀를 고르면 이미 움직이는 좌석이라 그때 재면 틀린다. */
+  function ensureHolder(root){
+    let h = _findHolder(root);
     if(h) return h;
+    const shift = { L:shiftFor(root, 'L'), R:shiftFor(root, 'R') };
     h = new THREE.Group();
     h.name = HOLDER_NAME;
+    h.userData.shift = shift;
     /* 크기 정규화(measureCharBox · measureHeadBoxNoParts)에서 뺀다 — 동물 귀 wrap 의 rigged 표식과 같은 이유.
        귀는 비동기로 붙어서, 재는 순간에 따라 캐릭터 키가 흔들린다. */
     h.userData.rigged = true;
@@ -116,6 +124,15 @@ function createHumanEar(deps){
     wrap.position.set(pv.x + (a.px || 0), pv.y + (a.py || 0), pv.z + (a.pz || 0));
     const r = earRot(a); wrap.rotation.set(r.x, r.y, r.z);
     const s = earScale(a); wrap.scale.set(s.x, s.y, s.z);
+  }
+
+  /* 기즈모로 움직인 wrap → 조정값. applyAdj 의 역함수다(피봇을 빼고, 회전 세 축 · 축별 크기). */
+  function readAdj(wrap){
+    const pv = wrap.userData.pivot || { x:0, y:0, z:0 };
+    const s = wrap.scale;
+    return { px:wrap.position.x - pv.x, py:wrap.position.y - pv.y, pz:wrap.position.z - pv.z,
+             rot:wrap.rotation.z, rx:wrap.rotation.x, ry:wrap.rotation.y,
+             sc:s.x, scx:s.x, scy:s.y, scz:s.z };
   }
 
   function findWrap(root, side){
@@ -136,7 +153,7 @@ function createHumanEar(deps){
     detach(root, side);
     if(!type || !isEarType(type)) return;
     const holder = ensureHolder(root);
-    const shift = shiftFor(root, side) || new THREE.Vector3();
+    const shift = (holder.userData.shift && holder.userData.shift[side]) || new THREE.Vector3();
     parseEar('ear_' + type + '_' + side, (scene)=>{
       if(!scene) return;
       if(o.isStale && o.isStale()) return;
@@ -168,7 +185,7 @@ function createHumanEar(deps){
     return s;
   }
 
-  return { readDef, hasEars, shiftFor, ensureHolder, applyAdj, findWrap, detach, attachSide, attachFromDef };
+  return { readDef, hasEars, shiftFor, ensureHolder, applyAdj, readAdj, findWrap, detach, attachSide, attachFromDef };
 }
 
 const api = { EAR_SIDES, ANIMAL_EAR_BONE, HEAD_TO_EAR, HOLDER_NAME, EAR_ADJ_DEFAULT,

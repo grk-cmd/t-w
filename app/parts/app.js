@@ -257,6 +257,35 @@ scene.add(floor);
 const loader=new THREE.GLTFLoader();
 try{const draco=new THREE.DRACOLoader();draco.setDecoderPath('vendor/draco/');loader.setDRACOLoader(draco);}catch(e){console.warn('DRACO init',e);}
 
+/* ===== 🐾 사람 귀 (꾸미기 › 머리 › 귀) — human-ear.js. 귀 GLB 파싱은 animal.js 캐시를 같이 쓴다.
+   animal.js 는 이 파일보다 늦게 로드되므로 파서는 부를 때 찾는다. */
+/* ⚠️ 모듈이 없어도(로드 실패 · app.js 만 평가하는 검사) 앱은 켜져야 한다 — 그때는 귀만 꺼진다. */
+const humanEar = (typeof HumanEar === 'undefined') ? null : HumanEar.createHumanEar({
+  THREE,
+  parseEar:(key, cb)=>{
+    const f = window.parseAnimalEar;
+    if(f){ f(key, cb); return; }
+    setTimeout(()=>{ const g = window.parseAnimalEar; if(g) g(key, cb); else cb(null); }, 500);
+  },
+  earTypes:()=>window.ANIMAL_EAR_TYPES || [],
+});
+/* 귀는 흰색으로 시작한다(색은 그리기로만) — 다른 몸 재질과 같은 플랫 조명(applyLightPresetToInstance). */
+function _humanEarMat(){
+  const m = new THREE.MeshStandardMaterial({ color:'#ffffff', metalness:0, roughness:0.9, side:THREE.DoubleSide });
+  m.emissive.setScalar(FLAT_EMISSIVE);
+  return m;
+}
+/* ⚠️ 바인드 자세일 때(조립 직후 · 애니메이션 전) 불러야 한다 — holder 와 옮길 양을 이때 잰다.
+   귀가 없어도 holder 는 만들어 둔다: 나중에 꾸미기에서 귀를 고를 때는 이미 움직이는 좌석이다. */
+function _attachHumanEars(root, def){
+  if(!humanEar || !root || (def && def.animal)) return;
+  try{
+    humanEar.ensureHolder(root);
+    humanEar.attachFromDef(root, def, { material:_humanEarMat,
+      onAttach:()=>{ try{ wdEar.onEarAttached(root); }catch(_){} } });
+  }catch(e){ console.warn('[사람 귀] 붙이기 실패', e); }
+}
+
 /* ===== 기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅 ===== */
 let BASE_SCENE=null, BASE_ANIMS=[];
 function b64ToBuf(b64){const bin=atob(b64);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u.buffer;}
@@ -8822,7 +8851,7 @@ function ensureWdGizmo(){
   }
   wdGizmo = new THREE.TransformControls(wdCam, wdRenderer.domElement);
   wdGizmo.setSize(3.2);   // 런처1-1: 기즈모 두 배(1.6 → 3.2)
-  wdGizmo.addEventListener('objectChange', ()=>{ syncWdGizmoToXf(); });
+  wdGizmo.addEventListener('objectChange', ()=>{ if(wdEar.isActive()) wdEar.onGizmoChange(); else syncWdGizmoToXf(); });
   // 드래그가 끝나는 순간에만(매 프레임이 아니라) 상세조정 패널의 숫자 표시를 다시 그림 — 무거운 재렌더를 드래그 중엔 피함
   wdGizmo.addEventListener('dragging-changed', e=>{ if(!e.value && typeof renderWardrobe==='function') renderWardrobe(); });
   wdScene.add(wdGizmo);
@@ -8934,6 +8963,9 @@ function setWdGizmoMode(mode){
 // 상세조정 패널이 열려있는지 확인해서 기즈모 바를 보이거나 숨기고, 해당 카테고리에 자동으로 부착
 function updateWdGizmoForActivePanel(){
   const bar=document.getElementById('wdGizmoBar');
+  /* 🐾 귀 탭은 파츠가 아니라 귀에 핸들을 붙인다(wd-ear.js) — 조정할 귀 줄도 거기서 그린다 */
+  if(wdEar.isActive()){ wdGizmoCat=null; wdGizmoPartId=null; wdEar.syncGizmo(); try{ refreshWdPicUI(); }catch(_){} updateWdCam(); sizeWdPreview(); return; }
+  if(wdEar.hideRow()){ updateWdCam(); sizeWdPreview(); }   // 귀 탭에서 막 나왔다 — 구도·캔버스 크기 되돌림
   if(activeWdAdj && activeWdAdj.cat){
     if(bar) bar.style.display='flex';
     // 런처9: 다중 파츠의 활성 인스턴스도 복원 (renderWardrobe로 패널 재생성돼도 유지)
@@ -8988,10 +9020,12 @@ function updateWdGizmoForActivePanel(){
   function _wdApplyActive(){ if(wdGizmoCat && wdPreviewBase) applyPartXf(wdPreviewBase, wdGizmoCat); }
   const minus=document.getElementById('wdScaleMinus'), plus=document.getElementById('wdScalePlus');
   if(minus && typeof _holdRepeat==='function') _holdRepeat(minus, (isBig)=>{
+    if(wdEar.isActive()){ wdEar.scaleStep(-1, isBig); return; }
     const xf=_wdActiveXf(); if(!xf){ toast('먼저 파츠 카드를 우클릭해서 조정할 파츠를 선택해 주세요'); return; }
     xf.scale = Math.max(0.3, +(xf.scale - (isBig?0.06:0.02)).toFixed(2)); _wdApplyActive();
   });
   if(plus && typeof _holdRepeat==='function') _holdRepeat(plus, (isBig)=>{
+    if(wdEar.isActive()){ wdEar.scaleStep(1, isBig); return; }
     const xf=_wdActiveXf(); if(!xf){ toast('먼저 파츠 카드를 우클릭해서 조정할 파츠를 선택해 주세요'); return; }
     xf.scale = Math.min(2.5, +(xf.scale + (isBig?0.06:0.02)).toFixed(2)); _wdApplyActive();
   });
@@ -9114,9 +9148,15 @@ let wdYaw=0, wdPitch=0, wdHeightOffset=0, wdZoomMul=1;
       같은 창에서 드래그와 방향키가 서로 반대로 돈다. 그래서 상수 하나로 묶었다 — 되돌리려면 이 값만 1로. */
 const ORBIT_DRAG_DIR = -1;
 let wdCamCenter=new THREE.Vector3(), wdCamLookY=0, wdCamBaseDist=1;
+/* 🐾 귀 탭 — 기본 구도는 머리 꼭대기에서 잘려 귀가 화면 밖이다. 그 탭에서만 조금 올리고 물러선다.
+   (사용자가 휠·방향키로 맞춘 값은 그대로 두고 그 위에 얹는다) */
+const WD_EAR_CAM_LIFT = 0.12, WD_EAR_CAM_ZOOM = 1.18;
+function _wdEarCamOn(){ try{ return wdEar.isActive(); }catch(_){ return false; } }
 function updateWdCam(){
   if(!wdCam) return;
-  const dist = wdCamBaseDist * wdZoomMul;
+  const _ear = _wdEarCamOn();
+  const dist = wdCamBaseDist * wdZoomMul * (_ear ? WD_EAR_CAM_ZOOM : 1);
+  const _lift = _ear ? wdCamBaseDist * WD_EAR_CAM_LIFT : 0;
   // ★ 위/아래 방향키 — 예전엔 카메라 "각도"(하이앵글/로우앵글)를 바꿔서 일정 범위 이상 넘어가면
   //   더 이상 안 움직이는 것처럼 보였음. 요청대로 각도는 고정하고 카메라 자체의 "높이"만 위아래로
   //   옮기는 방식으로 변경 — 카메라와 보는 지점(lookAt)을 같이 옮겨서 각도는 그대로 유지됨.
@@ -9124,9 +9164,9 @@ function updateWdCam(){
   const cp = Math.cos(wdPitch);
   const x = wdCamCenter.x + dist*Math.sin(wdYaw)*cp;
   const z = wdCamCenter.z + dist*Math.cos(wdYaw)*cp;
-  const y = wdCamLookY + wdHeightOffset + dist*Math.sin(wdPitch);
+  const y = wdCamLookY + wdHeightOffset + _lift + dist*Math.sin(wdPitch);
   wdCam.position.set(x, y, z);
-  wdCam.lookAt(wdCamCenter.x, wdCamLookY + wdHeightOffset, wdCamCenter.z);
+  wdCam.lookAt(wdCamCenter.x, wdCamLookY + wdHeightOffset + _lift, wdCamCenter.z);
 }
 // ★ 꾸미기 임시본(draft) — 요청사항: 꾸미기 조정은 "미리보기"에서만 즉시 보이고, 실제 실행 중인
 //   캐릭터(런처 메인)에는 미리보기의 "저장" 버튼을 눌러야만 반영됨. 그래서 toggleEquip/상세조정은
@@ -9143,6 +9183,7 @@ function ensureWdDraft(){
       partXfMemory: JSON.parse(JSON.stringify(def.partXfMemory||{})),
     });
     wdDraftDef._srcDef = def;   // 원본 참조 — 캐릭터가 바뀌면(다른 슬롯 등) draft를 새로 만들기 위한 식별용
+    wdEar.copyIntoDraft(wdDraftDef, def);   // 🐾 귀 조정값도 편집 대상이라 깊은 복사
   }
   return wdDraftDef;
 }
@@ -9335,6 +9376,16 @@ requestAnimationFrame(wdPreviewLoop);
     if(e.button!==0) return;   // 좌클릭만 — 우클릭은 위의 오빗 전용
     // 기즈모 조작 중이면 무시 (dragging 상태)
     if(wdGizmo && wdGizmo.dragging) return;
+    /* 🐾 귀 탭 — 누른 귀를 조정 대상으로(시안: 미리보기에서 귀를 직접 눌러도 그쪽으로 바뀐다) */
+    if(wdEar.isActive()){
+      if(_wdPic.on || !wdPreviewBase) return;
+      const r = canvas.getBoundingClientRect();
+      _wdPt.x = ((e.clientX-r.left)/r.width)*2 - 1;
+      _wdPt.y = -((e.clientY-r.top)/r.height)*2 + 1;
+      _wdRay.setFromCamera(_wdPt, wdCam);
+      wdEar.pickAt(_wdRay);
+      return;
+    }
     const multi = window._wdCurrentMultiPanel;
     if(!multi || !wdPreviewBase) return;
     // 🔗 stackable 파츠는 equippedPartObjs에 없다 — 지금 우클릭해둔 파츠 id로 stackedPartObjs도 함께 본다.
@@ -9395,6 +9446,8 @@ async function _commitWdDraftNow(silent){
   const def=mySeat.charDef;
   def.equippedParts = JSON.parse(JSON.stringify(draft.equippedParts||{}));
   def.partXfMemory = JSON.parse(JSON.stringify(draft.partXfMemory||{}));
+  /* 🐾 귀는 파츠 배관 밖이라 따로 옮기고, 바뀌었으면 좌석 귀를 다시 붙인다 */
+  try{ if(wdEar.commit(def, draft)) _attachHumanEars(mySeat.modelRoot, def); }catch(e){ console.warn('[사람 귀] 저장', e); }
   // 실제 캐릭터에서 "뺀 파츠"를 먼저 걷어냄 — 🔗 stackable은 id 단위까지 대조 (안 하면 예전 파츠가 유령으로 남음)
   pruneSeatPartsAgainstDef(mySeat, def);
   await applyEquippedPartsToSeat(mySeat, def);   // 남아있는/새로 생긴 파츠는 적용(같은 카테고리 교체도 내부에서 처리됨)
@@ -20878,6 +20931,22 @@ let currentWdGroup = null; // ★ Phase 2: 현재 선택된 상위 그룹 (head/
      책상 필드는 커밋 대상이 아니므로 charDef 에 **바로 쓴다** — 생성기의 autoSaveDeskItemsNow 와
      같은 태도다. 다만 미리보기는 draft 를 보므로 draft 에도 같이 적어 준다. */
 const WD_DESK_TAB = '__desk_model__';
+/* 🐾 «귀» 도 가상 탭이다 — 위와 같은 이유로 PART_CATS 에 안 넣는다(wd-ear.js 머리말). */
+/* 모듈이 없으면 탭이 안 보이는 빈 껍데기 — 호출하는 곳마다 null 을 묻지 않게 */
+const WD_EAR_OFF = { TAB:'__ear__', available:()=>false, isActive:()=>false, render(){}, syncGizmo(){}, hideRow:()=>false,
+  onGizmoChange(){}, scaleStep:()=>false, pickAt:()=>false, onEarAttached(){}, copyIntoDraft(){}, commit:()=>false };
+const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.createWdEar({
+  humanEar, HumanEar, doc:document,
+  getTab:()=>currentWdTab,
+  getDraft:()=>ensureWdDraft(),
+  getPreviewRoot:()=>(wdPreviewBase && wdPreviewBase.root) || null,
+  getGizmo:()=>{ ensureWdGizmo(); return wdGizmo; },
+  setGizmoMode:()=>setWdGizmoMode(wdGizmoMode),
+  earTypes:()=>window.ANIMAL_EAR_TYPES || [],
+  material:_humanEarMat,
+  toast:(m)=>{ if(typeof toast==='function') toast(m); },
+  rerender:()=>renderWardrobe(),
+});
 function _wdLicenseDesks(){
   let list = null; try{ list = savedDesks; }catch(_){ return []; }
   if(!list || !list.length) return [];
@@ -21011,8 +21080,10 @@ function renderWardrobe(){
   //   기존엔 10개 서브 카테고리를 한 줄에 나열해서 시각적으로 복잡했음.
   /* 🪑 «책상» 은 PART_CATS 에 없는 **가상 탭**이다(WD_DESK_TAB 주석) — 유효성 검사에서 빼 준다.
      안 빼면 그 탭을 고르는 순간 첫 카테고리(모자)로 튕긴다. */
-  if(currentWdTab !== WD_DESK_TAB && (!currentWdTab || !PART_CATS.find(c=>c.cat===currentWdTab))) currentWdTab = PART_CATS[0].cat;
-  currentWdGroup = (currentWdTab === WD_DESK_TAB) ? 'desk' : (groupOfCat(currentWdTab) || PART_GROUPS[0].group);
+  /* 🐾 동물로 바뀌었는데 귀 탭이면 머리 첫 칸(모자)으로 돌린다 — 동물은 생성기에서 귀를 정한다 */
+  if(currentWdTab === wdEar.TAB && !wdEar.available(def)) currentWdTab = (partsInGroup('head')[0] || PART_CATS[0]).cat;
+  if(currentWdTab !== wdEar.TAB && currentWdTab !== WD_DESK_TAB && (!currentWdTab || !PART_CATS.find(c=>c.cat===currentWdTab))) currentWdTab = PART_CATS[0].cat;
+  currentWdGroup = (currentWdTab === WD_DESK_TAB) ? 'desk' : (currentWdTab === wdEar.TAB) ? 'head' : (groupOfCat(currentWdTab) || PART_GROUPS[0].group);
 
   if(tabsWrap){
     tabsWrap.innerHTML='';
@@ -21051,11 +21122,27 @@ function renderWardrobe(){
       btn.onclick=()=>{ currentWdTab=info.cat; activeWdAdj=null; _clearMultiPanelRef(); renderWardrobe(); };
       subRow.appendChild(btn);
     });
+    /* 🐾 머리 › 귀 — 모자·탈·안경 옆. 동물 캐릭터에는 없다 */
+    if(currentWdGroup === 'head' && wdEar.available(def)){
+      const ebtn=document.createElement('button');
+      ebtn.className='wd-tab-btn wd-sub-btn'+(currentWdTab===wdEar.TAB?' on':'');
+      ebtn.textContent='🐾 귀';
+      ebtn.onclick=()=>{ currentWdTab=wdEar.TAB; activeWdAdj=null; _clearMultiPanelRef(); renderWardrobe(); };
+      subRow.appendChild(ebtn);
+    }
     tabsWrap.appendChild(subRow);
   }
 
   /* 🪑 «책상» 가상 탭 — 파츠 그리드 배관을 타지 않고 여기서 갈라진다(WD_DESK_TAB 주석). */
-  if(currentWdTab === WD_DESK_TAB){ wrap.innerHTML=''; renderWdDeskSection(wrap); return; }
+  /* 🐾 «귀» 가상 탭 — 기즈모·조정할 귀 줄은 updateWdGizmoForActivePanel 이 wd-ear.js 로 넘긴다.
+     책상 탭도 같이 맞춘다 — 안 부르면 귀 탭에서 넘어올 때 귀 핸들·줄이 남는다. */
+  if(currentWdTab === WD_DESK_TAB || currentWdTab === wdEar.TAB){
+    wrap.innerHTML='';
+    if(currentWdTab === WD_DESK_TAB) renderWdDeskSection(wrap); else wdEar.render(wrap);
+    if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+    if(typeof updateWdGizmoForActivePanel==='function') updateWdGizmoForActivePanel();
+    return;
+  }
   const info = PART_CATS.find(c=>c.cat===currentWdTab);
   wrap.innerHTML='';
   /* 🎰 가챠 파츠는 여기 안 나온다 — 뽑아서 얻고 [파츠 보관함](T키)에서 착용한다.
@@ -24532,6 +24619,7 @@ function defToBase(def, customScene){
     }
     applyLightPresetToInstance(inst);   // 생성기·메인과 같은 톤(emissive)
     normalizeModel(inst.root, 1.4, def.isCommission);
+    _attachHumanEars(inst.root, def);
     const wrap=new THREE.Group(); wrap.add(inst.root);
     // ★ upMesh/loMesh/glassesMesh 등(꾸미기 파츠 장착 시 베이크된 메쉬를 자동으로 숨기는 데 필요한 참조)이
     //   지금까지 반환값에서 빠져있었음 — 이 함수를 쓰는 쪽(꾸미기 미리보기 등)에서 applyClothVisibility가
@@ -29158,6 +29246,7 @@ function applyCharToSeat(seat,def){
     seat.glassesMesh=inst.glassesMesh||null;   // 안경 파츠 장착 시 기본(베이크된) 안경 숨김용
     seat.hatMesh=inst.hatMesh||null; seat.hatMat=inst.hatMat||null; seat.maskMesh=inst.maskMesh||null; seat.onepieceMesh=inst.onepieceMesh||null;
     seat.wingMesh=inst.wingMesh||null; seat.handLMesh=inst.handLMesh||null; seat.handRMesh=inst.handRMesh||null; seat.capeMesh=inst.capeMesh||null;
+    if(!inst._animal) _attachHumanEars(inst.root, def);   // setupSeatModel 이 애니메이션을 걸기 전(바인드 자세)
     setupSeatModel(seat, inst.root, BASE_ANIMS, '커스텀 캐릭터');
     // 🐾 동물 귀 등록 — setupSeatModel이 seat.bones를 새로 만들기 때문에 반드시 그 '뒤'에 해야 한다.
     //   __animalSeat: 아직 파싱 중인 귀가 나중에 붙을 때 animal.js가 이 좌석을 찾아오기 위한 역참조.
@@ -30523,6 +30612,8 @@ function _charIdentityFingerprint(def){
     skin: def.skin, top: def.top, bot: def.bot,
     animal: !!def.animal, animalFace: def.animalFace||0,
     animalEarL: def.animalEarL||null, animalEarR: def.animalEarR||null,
+    /* 🐾 사람 귀 — defToBase·applyCharToSeat 가 읽어서 모양을 바꾸는 값(아래 동물 묶음과 같은 이유) */
+    earL: def.earL||null, earR: def.earR||null, earAdj: def.earAdj||null,
     animalBody: _imgSig(def.animalBody), animalBodyUrl: def.animalBodyUrl||null,
     /* ★ [제보] "F1 으로 캐릭터를 바꿔도 이미 방에 있는 상대 화면엔 반영되지 않는다."
        아래 네 묶음이 지문에서 빠져 있었다. 전부 animal.js buildAnimalBase 가 **실제로 읽어서

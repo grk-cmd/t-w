@@ -4,6 +4,7 @@
    ・2절: 조정값 — 대칭 복사가 animal.js ⇆ 와 같은 결과 · 두 번 뒤집으면 제자리 · 방에서 온 값 거르기 · 귀 종류 거르기
    ・3절: 실제 three 로 — 사람 기본 뼈대에서 옮길 양 · 귀 본 없는 모델 · 정규화 배율과 무관
    ・4절: 붙이기 — head 본을 따라 움직인다 · 같은 쪽 콜백 두 번이면 하나만 · 늦게 온 콜백은 버린다 · 크기 측정 제외 표식
+          · 움직이는 중에 달아도 바인드 기준 · readAdj 역함수
    ・5절: 배선 — html 로드 순서 · animal.js 가 귀 파서를 내준다
    [실행] human-ear.js · animal.js · base-glb.js · animal-glb.js · ears-glb.js · desk-companion-prototype.html 이 있는 폴더에서.
      three 는 vendor/three/three.min.js 를 쓴다. */
@@ -163,6 +164,22 @@ const r5 = glbTree(win.BASE_GLB_B64);
 HE.attachFromDef(r5, {});
 let hasHolder = false; r5.traverse(o => { if(o.name === H.HOLDER_NAME) hasHolder = true; });
 chk(!hasHolder, '귀가 없는 캐릭터에는 아무것도 안 만든다');
+
+/* holder 를 바인드 자세에서 만들어 두면, 나중에(머리가 돌아간 채) 귀를 달아도 바인드 기준 자리에 붙는다 */
+const r6 = glbTree(win.BASE_GLB_B64);
+let head6 = null; r6.traverse(o => { if(o.isBone && o.name === 'head') head6 = o; });
+HE.ensureHolder(r6);
+head6.rotation.z += 0.5; head6.rotation.x -= 0.3;
+HE.attachSide(r6, 'L', 'cat', H.newAdj());
+head6.rotation.z -= 0.5; head6.rotation.x += 0.3;
+const m6 = HE.findWrap(r6, 'L').children[0].children[0];
+r6.updateMatrixWorld(true);
+const want6 = [wantL[0], wantL[1] - 0.05, wantL[2]];
+chk(nearV(m6.getWorldPosition(new THREE.Vector3()), want6, 2e-3), '머리가 돌아간 채 귀를 달아도 바인드 자세 기준 자리(holder 가 옮길 양을 미리 잰다)');
+const w7 = HE.findWrap(r6, 'L');
+const a7 = { px:0.1, py:-0.2, pz:0.05, rot:0.3, rx:-0.2, ry:0.1, sc:1.2, scx:1.2, scy:0.9, scz:1.1 };
+HE.applyAdj(w7, a7); const b7 = HE.readAdj(w7);
+chk(['px','py','pz','rot','rx','ry','scx','scy','scz'].every(k => near(b7[k], a7[k], 1e-6)), 'readAdj = applyAdj 의 역함수(기즈모 → 조정값)');
 
 say('── 5. 배선');
 const HTML = SRC['desk-companion-prototype.html'];
