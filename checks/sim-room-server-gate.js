@@ -4,7 +4,7 @@
  * 2. 만들기 — on + allow/{내 코드} = 서버 이름 → 그 서버 · 표에 없는 이름 · 낯선 주소 → Firebase
  * 3. 들어가기 — 주소록(roomDir) 따라가기(on 이면 늘 · follow 칸은 안 읽음) · 허용된 사람 · 꺼짐
  * 4. 읽는 칸 — 칸 단위만(목록 통째 읽기 없음) · 꺼져 있으면 on 한 칸 · 서버 표 기억
- * 5. 규칙 — config 는 칸 단위 공개 · 쓰기 관리자만 · roomDir 앱 쓰기 막힘 · minRoomVer 그대로 공개
+ * 5. 규칙 — config 는 칸 단위 공개 · 쓰기 관리자만 · limits 정수 범위 · roomDir 앱 쓰기 막힘 · minRoomVer 그대로 공개
  * 6. 연결 — firebase-init · app.js 가 문지기 한 곳(resolveRoomServer)으로 고른다
  */
 'use strict';
@@ -138,6 +138,11 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     chk(al['.read'] === true && /\$userId\.matches/.test(al['.validate']) && /newData\.isString\(\)/.test(al['.validate']) && al['.validate'].includes('[a-z0-9][a-z0-9-]{0,31}'),
       '  ↳ allow/{코드} 한 칸 읽기 · 값은 서버 이름 형식');
     chk(sv['.read'] === true && sv['.validate'].includes('wss?:') && /length <= 200/.test(sv['.validate']), '  ↳ servers/{이름} 한 칸 읽기 · 값은 ws(s):// 주소');
+    const lm = rs.limits || {};
+    const intRange = (v) => typeof v === 'string' && /newData\.isNumber\(\)/.test(v) && v.includes('% 1 === 0') && v.includes('>= 1') && v.includes('<= 100000');
+    chk(lm['.read'] === true && !lm['.write'] && intRange((lm.workingroom || {})['.validate']) && intRange((lm.togetherroom || {})['.validate']),
+      '  ↳ limits(방 개수 상한) — 누구나 읽기(키 없는 방 서버) · 쓰기는 roomServer 관리자 · 채널마다 정수 1~100000');
+    chk(lm.$other && lm.$other['.validate'] === false && !(lm.workingroom || {})['.read'], '  ↳ limits 의 모르는 칸은 거절');
     chk(rs.$other && rs.$other['.validate'] === false, '  ↳ 모르는 칸은 거절');
     const rd = R.roomDir || {};
     chk(!rd['.read'] && rd.$code && rd.$code['.read'] === true && rd.$code['.write'] === false, 'roomDir — 방 코드 한 칸만 누구나 읽기 · 앱은 못 씀(방 서버가 관리자 키로)');
