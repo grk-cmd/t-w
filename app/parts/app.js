@@ -293,6 +293,23 @@ function _humanEarMat(){
 function _humanEarPic(wrap, def){
   try{ applyPartPic(wrap, (def && def['earPic' + wrap.userData.humanEar]) || null); }catch(e){ console.warn('[사람 귀] 그림', e); }
 }
+/* 귀 까닥임 — 붙어 있는 사람 귀를 좌석의 귀 목록(seat.bones.ear)에 올리고, 떨어진 옛 귀는 걷는다.
+   동물 귀와 같은 등록(_registerAnimalEarOn)을 쓴다 — 사람 기본 모델의 ear 본도 웨이트가 없어서
+   본만 돌리면 아무것도 안 움직인다(부착물 자체를 돌려야 한다). */
+function _syncHumanEarRig(seat){
+  if(!seat || !seat.bones || !seat.bones.ear || !seat.modelRoot) return;
+  if(!seat.boneRest) seat.boneRest = {};
+  if(!seat.boneRest.ear) seat.boneRest.ear = [];
+  const live = [];
+  try{ seat.modelRoot.traverse(o=>{ if(o.userData && o.userData.humanEar) live.push(o); }); }catch(_){}
+  for(let i = seat.bones.ear.length - 1; i >= 0; i--){
+    const o = seat.bones.ear[i];
+    if(o && o.userData && o.userData.humanEar && live.indexOf(o) < 0){
+      seat.bones.ear.splice(i, 1); seat.boneRest.ear.splice(i, 1); seat.earTimers = null;
+    }
+  }
+  live.forEach(w=>_registerAnimalEarOn(seat, w));
+}
 function _attachHumanEars(root, def){
   if(!humanEar || !root || (def && def.animal)) return;
   try{
@@ -302,8 +319,10 @@ function _attachHumanEars(root, def){
         _humanEarPic(w, def);
         try{ wdEar.onEarAttached(root); }catch(_){}
         /* 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 '머리 꼭대기' 는 귀 없던 값이다 */
-        try{ const _s = seats.find(x=>x.modelRoot === root); if(_s) _remeasureRideHeadTop(_s); }catch(_){}
+        try{ const _s = seats.find(x=>x.modelRoot === root); if(_s){ _syncHumanEarRig(_s); _remeasureRideHeadTop(_s); } }catch(_){}
       } });
+    /* 귀를 뺐거나 파싱 캐시로 바로 붙은 경우 — 콜백만으로는 옛 귀가 목록에 남는다 */
+    try{ const _s = seats.find(x=>x.modelRoot === root); if(_s) _syncHumanEarRig(_s); }catch(_){}
   }catch(e){ console.warn('[사람 귀] 붙이기 실패', e); }
 }
 
@@ -30003,6 +30022,7 @@ function applyCharToSeat(seat,def){
     // 🐾 동물 귀 등록 — setupSeatModel이 seat.bones를 새로 만들기 때문에 반드시 그 '뒤'에 해야 한다.
     //   __animalSeat: 아직 파싱 중인 귀가 나중에 붙을 때 animal.js가 이 좌석을 찾아오기 위한 역참조.
     if(inst._animal){ inst.root.userData.__animalSeat = seat; _sweepAnimalEars(seat, inst.root); }
+    else _syncHumanEarRig(seat);   // 🐾 사람 귀 — setupSeatModel 이 seat.bones 를 새로 만든 뒤에 올린다(동물과 같은 이유)
     
     // [수정] 생성기에서 설정한 캐릭터 크기와 위치 데이터를 메인 화면에 확실하게 주입합니다.
     const xf=def.xf;

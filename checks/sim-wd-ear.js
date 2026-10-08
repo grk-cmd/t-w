@@ -4,7 +4,7 @@
    ・1절: wd-ear.js 를 가짜 DOM · 실제 three · 실제 human-ear.js 로 돌린다
    ・2절: 저장(commit) · 초안 복사(copyIntoDraft)
    ・1절 끝: ✎ 그리기 대상 · 그림 저장 · 종류를 바꾸면 그림 버림
-   ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장(지금 주인 · 원래 주인) · 탭 · 3-b 귀 그리기(대상 목록 · 대칭 · 저장 · 방 전송 · 지문) · 3-c 탑승 높이 · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
+   ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장(지금 주인 · 원래 주인) · 탭 · 3-b 귀 그리기(대상 목록 · 대칭 · 저장 · 방 전송 · 지문) · 3-c 탑승 높이 · 3-d 귀 까닥임 · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
    ・4절: html · smoke.js
    [실행] wd-ear.js · human-ear.js · app.js · base-glb.js · ears-glb.js · desk-companion-prototype.html · smoke.js 가 있는 폴더에서.
      three 는 vendor/three/three.min.js 를 쓴다. */
@@ -254,7 +254,14 @@ chk(/const _humanEarHost = !!\(hostSeat\.charDef && !hostSeat\.charDef\.animal &
   && /if\(\(hostSeat\.charDef && hostSeat\.charDef\.animal\) \|\| _humanEarHost\)\{/.test(mh), '귀 달린 사람도 «귀 포함» 높이를 잰다(동물만 재던 것)');
 chk(/if\(!\(o\.userData && \(o\.userData\.animalEar \|\| o\.userData\.humanEar\)\)\) return;/.test(mh), '귀 박스에 사람 귀(humanEar)도 합친다 — 숨은 메쉬 제외 규칙은 그대로');
 chk(mh.indexOf('_bareTopY') >= 0 && mh.indexOf('_bareTopY') < mh.indexOf('_humanEarHost'), '«귀 제외» 높이(묘기 2층+)는 귀를 합치기 전에 잰다');
-chk(/const _s = seats\.find\(x=>x\.modelRoot === root\); if\(_s\) _remeasureRideHeadTop\(_s\);/.test(grab(A, '_attachHumanEars')), '귀가 늦게 붙으면 이미 타고 있는 좌석의 높이를 다시 잰다');
+chk(/if\(_s\)\{ _syncHumanEarRig\(_s\); _remeasureRideHeadTop\(_s\); \}/.test(grab(A, '_attachHumanEars')), '귀가 늦게 붙으면 까닥임 목록에 올리고 이미 타고 있는 좌석의 높이를 다시 잰다');
+
+say('── 3-d. app.js 배선 — 귀 까닥임');
+const sr = grab(A, '_syncHumanEarRig');
+chk(/seat\.modelRoot\.traverse\(o=>\{ if\(o\.userData && o\.userData\.humanEar\) live\.push\(o\); \}\)/.test(sr) && /live\.forEach\(w=>_registerAnimalEarOn\(seat, w\)\);/.test(sr), '붙은 사람 귀를 동물 귀와 같은 등록(_registerAnimalEarOn)으로 seat.bones.ear 에');
+chk(/o\.userData\.humanEar && live\.indexOf\(o\) < 0/.test(sr) && /seat\.bones\.ear\.splice\(i, 1\); seat\.boneRest\.ear\.splice\(i, 1\); seat\.earTimers = null;/.test(sr), '떨어진 옛 사람 귀는 목록 · 쉼 자세 · 타이머에서 같이 걷는다(바꾸거나 뺐을 때)');
+chk(/else _syncHumanEarRig\(seat\);/.test(A) && A.indexOf('else _syncHumanEarRig(seat);') > A.indexOf("setupSeatModel(seat, inst.root, BASE_ANIMS"), '좌석 — setupSeatModel 이 seat.bones 를 새로 만든 뒤에 올린다');
+chk(/try\{ const _s = seats\.find\(x=>x\.modelRoot === root\); if\(_s\) _syncHumanEarRig\(_s\); \}catch/.test(grab(A, '_attachHumanEars')), '다시 붙일 때(저장) · 귀를 뺐을 때도 목록을 맞춘다');
 
 const cam = grab(A, 'updateWdCam');
 chk(/_wdEarCamOn\(\)/.test(cam) && /WD_EAR_CAM_ZOOM/.test(cam) && /WD_EAR_CAM_LIFT/.test(cam), '귀 탭 — 미리보기 구도를 올리고 물러선다(귀가 화면 밖이던 것)');
