@@ -9514,7 +9514,11 @@ async function _commitWdDraftToOwner(draft, silent){
   if(!seat && !inSlots){ console.warn('[꾸미기] 초안의 원래 캐릭터를 찾지 못해 저장하지 않았다'); return false; }
   src.equippedParts = JSON.parse(JSON.stringify(draft.equippedParts||{}));
   src.partXfMemory = JSON.parse(JSON.stringify(draft.partXfMemory||{}));
+  /* 🐾 귀도 원래 주인에게 — _commitWdDraftNow 와 같은 짝. 빠지면 교체 직전에 고른 귀만 사라진다 */
+  let _earChanged = false;
+  try{ _earChanged = wdEar.commit(src, draft); }catch(e){ console.warn('[사람 귀] 저장', e); }
   if(seat){
+    if(_earChanged) _attachHumanEars(seat.modelRoot, src);
     pruneSeatPartsAgainstDef(seat, src);
     await applyEquippedPartsToSeat(seat, src);
     try{ if(seat.gltfRoot && typeof fitModel==='function') fitModel(seat); }catch(_){}

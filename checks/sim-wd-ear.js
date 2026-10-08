@@ -3,7 +3,7 @@
    초안 → 저장 · 동물은 탭 숨김 · 바탕색 없음(색은 그리기로만 — 2026-10-08 결정).
    ・1절: wd-ear.js 를 가짜 DOM · 실제 three · 실제 human-ear.js 로 돌린다
    ・2절: 저장(commit) · 초안 복사(copyIntoDraft)
-   ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장 · 탭 · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
+   ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장(지금 주인 · 원래 주인) · 탭 · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
    ・4절: html · smoke.js
    [실행] wd-ear.js · human-ear.js · app.js · base-glb.js · ears-glb.js · desk-companion-prototype.html · smoke.js 가 있는 폴더에서.
      three 는 vendor/three/three.min.js 를 쓴다. */
@@ -173,6 +173,8 @@ chk(/if\(!inst\._animal\) _attachHumanEars\(inst\.root, def\);\s*setupSeatModel\
 chk(/humanEar\.findWrap|createWdEar/.test(A) && /color:'#ffffff'/.test(grab(A, '_humanEarMat')), '귀 재질은 흰색으로 시작');
 chk(/wdEar\.copyIntoDraft\(wdDraftDef, def\);/.test(grab(A, 'ensureWdDraft')), '초안 — 귀 조정값 깊은 복사');
 chk(/if\(wdEar\.commit\(def, draft\)\) _attachHumanEars\(mySeat\.modelRoot, def\);/.test(grab(APP, '_commitWdDraftNow').replace(/\/\*[\s\S]*?\*\//g, '')), '저장 — 바뀌었으면 좌석 귀를 다시 붙인다');
+const own = grab(APP, '_commitWdDraftToOwner').replace(/\/\*[\s\S]*?\*\//g, '');
+chk(/_earChanged = wdEar\.commit\(src, draft\);/.test(own) && /if\(_earChanged\) _attachHumanEars\(seat\.modelRoot, src\);/.test(own), '꾸미기를 연 채 캐릭터를 바꿔도 귀는 원래 주인에게 저장(_commitWdDraftToOwner)');
 chk(/if\(wdEar\.isActive\(\)\) wdEar\.onGizmoChange\(\); else syncWdGizmoToXf\(\);/.test(A), '기즈모 objectChange — 귀 탭이면 귀 조정값으로');
 const ug = grab(A, 'updateWdGizmoForActivePanel');
 chk(/if\(wdEar\.isActive\(\)\)\{[^}]*wdEar\.syncGizmo\(\);/.test(ug) && /wdEar\.hideRow\(\)/.test(ug), '기즈모 바 갱신 — 귀 탭은 wd-ear 로 · 아니면 줄을 숨긴다');
