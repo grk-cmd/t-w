@@ -7,8 +7,8 @@ export {
   useBugPost,
   useDayOrder,
   usePrvTitle,
+  useBugNo,
   useRefreshBugBoard,
-  useShortNo,
   type BugPost,
 } from './api/bugBoard';
 export {
@@ -17,6 +17,10 @@ export {
   answerVis,
   answerWrite,
   bugDay,
+  bugNo,
+  bugNoLabel,
+  BUG_NO_RE,
+  deleteWrite,
   BUG_ANS_MAX,
   BUG_CATS,
   BUG_FILTERS,
@@ -41,8 +45,10 @@ export {
   type BugCursor,
   type BugFilter,
   type BugItem,
+  type BugNo,
   type BugPage,
   type BugStatus,
   type BugVis,
 } from './model/bugBoard';
+export { BugNoText } from './ui/BugNoText';
 export { StatusChip } from './ui/StatusChip';

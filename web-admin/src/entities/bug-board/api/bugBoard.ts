@@ -3,12 +3,12 @@ import { useDb, type Db } from '@/shared/api';
 import { DAY_MS, kstDateKey, kstDayStart } from '@/shared/lib';
 import {
   bugDay,
+  bugNo,
   BUG_LIST,
   BUG_PAGE,
   BUG_ROOT,
   dayOrder,
   filterKey,
-  shortNo,
   toAnswers,
   toBugItem,
   toBugPage,
@@ -17,6 +17,7 @@ import {
   type BugCursor,
   type BugFilter,
   type BugItem,
+  type BugNo,
   type BugPage,
 } from '../model/bugBoard';
 
@@ -69,19 +70,20 @@ export async function getDayOrder(db: Db, day: string): Promise<Map<string, numb
 }
 
 /** 지난 날짜는 글이 더 붙지 않으니 다시 받지 않는다. 오늘은 새로고침 때 다시. */
-export function useDayOrder(day: string) {
+export function useDayOrder(day: string, enabled = true) {
   const db = useDb();
   return useQuery({
     queryKey: [...BUG_KEY, 'day', day],
     queryFn: () => getDayOrder(db, day),
     staleTime: () => (day < kstDateKey(Date.now()) ? Infinity : 0),
+    enabled,
   });
 }
 
-/** 화면용 짧은 번호 «B-MMDD-n» — 그날 순번을 받기 전엔 «B-MMDD-?». */
-export function useShortNo(item: Pick<BugItem, 'id' | 'ts'>): string {
-  const order = useDayOrder(bugDay(item.ts));
-  return shortNo(item.ts, order.data?.get(item.id));
+/** 번호 — 고정 번호(no)가 있으면 그대로(그날 순번은 받지 않는다), 없으면 임시 번호 «B-MMDD-n»(순번 받기 전엔 «?»). */
+export function useBugNo(item: Pick<BugItem, 'id' | 'ts' | 'no'>): BugNo {
+  const order = useDayOrder(bugDay(item.ts), !item.no);
+  return bugNo(item, order.data?.get(item.id));
 }
 
 /** 비공개 글 제목 — 목록에는 없어서 prv 에서 제목 칸만 읽는다(관리자 읽기 허용). */

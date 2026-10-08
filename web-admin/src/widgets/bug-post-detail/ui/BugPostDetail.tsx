@@ -1,13 +1,24 @@
 import { useEffect, useRef } from 'react';
-import { BUG_CATS, StatusChip, useBugPost, useShortNo, type BugPost } from '@/entities/bug-board';
+import {
+  BUG_CATS,
+  bugNoLabel,
+  BugNoText,
+  StatusChip,
+  useBugNo,
+  useBugPost,
+  type BugPost,
+} from '@/entities/bug-board';
 import { AnswerForm } from '@/features/bug-board/answer-post';
 import { StatusButtons } from '@/features/bug-board/change-status';
+import { DeletePostButton } from '@/features/bug-board/delete-post';
 import { errorMessage, formatDate } from '@/shared/lib';
 import styles from './BugPostDetail.module.css';
 
-function Body({ post }: { post: BugPost }) {
+function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
   const { item, content, answers } = post;
-  const no = useShortNo(item);
+  const bugNo = useBugNo(item);
+  // 작업 기록 · 확인 문구용 — 임시 번호면 «(임시)» 까지.
+  const no = bugNoLabel(bugNo);
 
   return (
     <>
@@ -15,8 +26,8 @@ function Body({ post }: { post: BugPost }) {
         <div className={styles.headText}>
           <h2>{content?.title || '(제목 없음)'}</h2>
           <p className="soft">
-            <code className="key">{no}</code> · {item.name || '이름 없음'}{' '}
-            <span className="key">{item.code}</span> · {formatDate(item.ts)}
+            <BugNoText value={bugNo} /> · {item.name || '이름 없음'} <span className="key">{item.code}</span>{' '}
+            · {formatDate(item.ts)}
           </p>
         </div>
       </div>
@@ -69,6 +80,12 @@ function Body({ post }: { post: BugPost }) {
         <h3>답변 등록</h3>
         <AnswerForm key={item.id} item={item} label={no} />
       </section>
+
+      <section className={styles.section}>
+        <h3>삭제</h3>
+        <p className="soft">번호는 다시 쓰이지 않음 · 이미 보낸 우편함 알림은 남음</p>
+        <DeletePostButton item={item} label={no} onDone={onClose} />
+      </section>
     </>
   );
 }
@@ -103,7 +120,7 @@ export function BugPostDetail({ id, onClose }: { id: string | null; onClose: () 
         <p className={`msg err ${styles.pad}`}>{errorMessage(error, '제보 불러오기 실패')}</p>
       )}
       {open && !isLoading && !error && data === null && <p className={`soft ${styles.pad}`}>글 없음</p>}
-      {open && data && <Body post={data} />}
+      {open && data && <Body post={data} onClose={onClose} />}
     </dialog>
   );
 }

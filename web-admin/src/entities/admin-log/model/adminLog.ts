@@ -53,6 +53,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'catalog.cleanGlb': '카탈로그 진단 정리',
   'bug.answer': '제보 답변',
   'bug.status': '제보 상태',
+  'bug.delete': '제보 삭제',
   'account.delete': '계정 삭제',
 };
 

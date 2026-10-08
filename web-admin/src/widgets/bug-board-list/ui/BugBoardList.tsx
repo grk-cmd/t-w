@@ -2,11 +2,12 @@ import { useState } from 'react';
 import {
   BUG_CATS,
   BUG_FILTERS,
+  BugNoText,
   StatusChip,
+  useBugNo,
   useBugPage,
   usePrvTitle,
   useRefreshBugBoard,
-  useShortNo,
   type BugCursor,
   type BugFilter,
   type BugItem,
@@ -23,12 +24,12 @@ function Title({ item }: { item: BugItem }) {
 }
 
 function Row({ item, onOpen }: { item: BugItem; onOpen: (id: string) => void }) {
-  const no = useShortNo(item);
+  const no = useBugNo(item);
   return (
     <tr>
       <td>
         <button type="button" className={styles.link} onClick={() => onOpen(item.id)}>
-          <code className="key">{no}</code>
+          <BugNoText value={no} />
         </button>
       </td>
       <td>
