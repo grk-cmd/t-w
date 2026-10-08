@@ -3,15 +3,9 @@
  * 통신 규약의 정본은 방 서버 저장소의 PROTOCOL.md (PROTOCOL_VERSION = 1) 다. 칸 이름 · 한도는 거기를 따른다.
  * peek · rid 는 v1 안에서 선택으로 더해진 것이다. 그 전 서버에서는 peek 이 null 로 끝나고, rid 없는 답은 보낸 순서로 짝짓는다.
  *
- * 기본은 꺼져 있다. 켜지는 조건은 둘 다 맞을 때뿐이다.
- *   ① ROOM_SERVER_ENABLED(아래 상수) 가 true 이거나, 이 PC 의 localStorage `tw.roomServer` 가 '1'
- *   ② 주소가 있다 — localStorage `tw.roomServerUrl`(로컬 시험용 · ws:// 도 받는다) 이 먼저, 없으면 ROOM_SERVER_URLS[환경]
- * 주소가 null 이면 서버 쪽은 아예 쓰지 않는다(지금 운영 · dev 둘 다 null).
- *
- * 로컬 시험:
- *   localStorage.setItem('tw.roomServer', '1');
- *   localStorage.setItem('tw.roomServerUrl', 'ws://127.0.0.1:8787');   // 방 서버를 FAKE_AUTH 없이 dev 프로젝트로 띄운 주소
- *   끄려면 두 키를 지운다. 서버에 못 붙으면(인증 · 버전 · 시간 초과) 저절로 Firebase 방식으로 들어간다.
+ * 켤지 · 어느 서버로 갈지는 room-server-gate.js(관리자 스위치 config/roomServer · 방 주소록 roomDir)가 정하고,
+ * firebase-init.js 가 그 결과 주소를 url() 로 넘긴다. url() 이 null 이면 서버 쪽은 아예 쓰지 않는다.
+ * 주소가 바뀌면(다른 서버의 방) 방 밖에 있을 때 옛 연결을 닫고 새로 붙는다. 못 붙은 주소는 1분 동안 다시 시도하지 않는다.
  *
  * 서버가 맡는 규칙(정원 · 중복 접속 · 호스트 승계 · 해산 · 살아 있음)은 여기서 다시 판단하지 않는다.
  * Firebase 를 직접 부르지 않는다 — firebase-init.js 가 토큰 · 버전 · userId 를 넘겨 연결만 한다.
@@ -21,11 +15,6 @@
  *       now · setTimeout · clearTimeout · setInterval · clearInterval · log 는 검사용(기본 전역).
  */
 export const ROOM_SERVER_PV = 1;
-export const ROOM_SERVER_ENABLED = false;
-// TODO: 서버 도메인이 정해지면 채운다. 채울 때 desk-companion-prototype.html CSP connect-src 에도 같은 주소를 더한다.
-export const ROOM_SERVER_URLS = { prod: null, dev: null };
-export const ROOM_SERVER_FLAG_KEY = 'tw.roomServer';
-export const ROOM_SERVER_URL_KEY = 'tw.roomServerUrl';
 
 const CONNECT_TIMEOUT_MS = 5000;     // 이 안에 ready 가 안 오면 Firebase 로 돌아간다
 const JOIN_TIMEOUT_MS = 8000;
@@ -38,7 +27,10 @@ const TOKEN_LEAD_MS = 5 * 60 * 1000; // 만료 5분 전에 새 토큰으로 hell
 const TOKEN_FALLBACK_MS = 50 * 60 * 1000;
 const TOKEN_MIN_MS = 60 * 1000;
 const IDLE_CLOSE_MS = 60 * 1000;     // 방 밖에서 개수 · 랜덤만 물은 연결은 이만큼 쉬면 닫는다
-const FAIL_COOLDOWN_MS = 60 * 1000;  // 못 붙었으면 이만큼은 다시 시도하지 않는다 — 서버가 죽었을 때 입장마다 5초씩 기다리지 않게
+const FAIL_COOLDOWN_MS = 60 * 1000;
+/* 방 안에서 끊긴 뒤 이만큼 못 돌아오면 그 방은 포기한다(onLost 'unreachable' → app.js 가 같은 코드로 Firebase 에 다시 들어간다).
+   재시작 한 번(몇 초)은 재연결로 이어 붙는다 — 재연결 간격 1·2·4·8·15초를 다 써 볼 만큼(30초)은 기다린다. */
+export const ROOM_LOST_AFTER_MS = 30 * 1000;  // 못 붙었으면 이만큼은 다시 시도하지 않는다 — 서버가 죽었을 때 입장마다 5초씩 기다리지 않게
 
 // 서버가 받는 멤버 칸(PROTOCOL.md «멤버 칸»). 모르는 칸이 하나라도 있으면 patch 통째로 거절되므로 여기서 거른다.
 export const MEMBER_FIELDS = ['name', 'state', 'userStatus', 'customStatus', 'level', 'exp', 'cyc', 'clv', 'starC',
@@ -53,18 +45,6 @@ export const RID_REQUESTS = ['stats', 'random', 'peek'];
 export function isRoomWidePoke(type){
   const t = String(type || '');
   return t === 'pet' || t === 'dizzy' || t.indexOf('fly:') === 0 || t.indexOf('bonk:') === 0;
-}
-
-export function roomServerFlag(storage){
-  if(ROOM_SERVER_ENABLED) return true;
-  try{ return !!storage && storage.getItem(ROOM_SERVER_FLAG_KEY) === '1'; }catch(_){ return false; }
-}
-
-export function roomServerUrl(env, storage){
-  let o = null;
-  try{ o = storage ? storage.getItem(ROOM_SERVER_URL_KEY) : null; }catch(_){ o = null; }
-  if(typeof o === 'string' && /^wss?:\/\/\S+$/.test(o)) return o;
-  return ROOM_SERVER_URLS[env === 'dev' ? 'dev' : 'prod'] || null;
 }
 
 // Firebase ID 토큰의 만료 시각(ms). 못 읽으면 null.
@@ -122,13 +102,19 @@ export function createRoomServerNet(deps){
 
   let ws = null, gen = 0, opening = false, ready = false, fatal = null;
   let token = null, helloUid = null, helloVer = null, forceToken = false, authRetried = false;
-  let tokenTimer = null, idleTimer = null, reconnectTimer = null, connectTimer = null, attempt = 0;
+  let tokenTimer = null, idleTimer = null, reconnectTimer = null, connectTimer = null, attempt = 0, downSince = null;
   let readyWaiters = [];
-  let failAt = -Infinity, failCode = null;
+  let failAt = -Infinity, failCode = null, failUrl = null, curUrl = null;
   const reqWaiters = new Map();   // rid → { kind, done } — 답은 rid 로 짝짓는다(보낸 순서에 기대지 않는다)
   let ridSeq = 0;
   let active = null;   // 방에 들어가 있거나 들어가는 중인 provider 의 속(P)
   let lingering = null;  // 나가기 확인(left)을 기다리는 provider — active 를 비운 뒤라 따로 잡아 둔다
+
+  // 방 안이면 그 방을 연 서버로(재연결도), 방 밖이면 지금 고른 주소로.
+  function targetUrl(){
+    if(active && active.inRoom && active.url) return active.url;
+    try{ return deps.url() || null; }catch(_){ return null; }
+  }
 
   function enabled(){
     try{ return !!(deps.WebSocket && deps.enabled && deps.enabled() && deps.url && deps.url()); }catch(_){ return false; }
@@ -164,7 +150,7 @@ export function createRoomServerNet(deps){
     if(!tk || !uid){ fatal = 'auth'; closed(); return; }
     token = tk; helloUid = uid; helloVer = (typeof ver === 'string' && ver) ? ver : '0.0.0';
     let sock;
-    try{ sock = new deps.WebSocket(deps.url()); }catch(_){ fatal = 'connect'; closed(); return; }
+    try{ curUrl = targetUrl(); sock = new deps.WebSocket(curUrl); }catch(_){ fatal = 'connect'; closed(); return; }
     ws = sock;
     connectTimer = tSet(() => { connectTimer = null; if(my === gen && !ready){ fatal = fatal || 'timeout'; drop(); } }, CONNECT_TIMEOUT_MS);
     sock.onopen = () => { if(my === gen) sendRaw(sock, { t: 'hello', pv: ROOM_SERVER_PV, token: tk, userId: uid, ver: helloVer }); };
@@ -193,7 +179,7 @@ export function createRoomServerNet(deps){
     if(connectTimer){ tClear(connectTimer); connectTimer = null; }
     if(tokenTimer){ tClear(tokenTimer); tokenTimer = null; }
     if(idleTimer){ tClear(idleTimer); idleTimer = null; }
-    if(!wasReady){ failAt = now(); failCode = fatal || 'closed'; }
+    if(!wasReady){ failAt = now(); failCode = fatal || 'closed'; failUrl = curUrl; }
     settleReady({ ok: false, code: fatal || 'closed' });
     const pending = [...reqWaiters.values()]; reqWaiters.clear();
     for(const w of pending) w.done(null);
@@ -210,6 +196,8 @@ export function createRoomServerNet(deps){
     }
     if(fatal === 'auth'){ authRetried = true; forceToken = true; }
     if(wasReady) attempt = 0;
+    if(downSince === null) downSince = now();
+    if(now() - downSince >= ROOM_LOST_AFTER_MS){ downSince = null; failAt = now(); failUrl = curUrl; lost(P, 'unreachable'); return; }
     scheduleReconnect();
   }
 
@@ -260,8 +248,11 @@ export function createRoomServerNet(deps){
 
   function ensureReady(ms){
     if(!enabled()) return Promise.resolve({ ok: false, code: 'off' });
+    const want = targetUrl();
+    // 다른 서버의 방으로 간다 — 방 밖일 때만 옛 연결을 닫는다(방 안이면 그 방이 끝날 때까지 그대로).
+    if((ws || opening) && curUrl !== want && !(active && active.inRoom)) close();
     if(ready) return Promise.resolve({ ok: true });
-    if(!ws && !opening && now() - failAt < FAIL_COOLDOWN_MS) return Promise.resolve({ ok: false, code: failCode || 'closed' });
+    if(!ws && !opening && failUrl === want && now() - failAt < FAIL_COOLDOWN_MS) return Promise.resolve({ ok: false, code: failCode || 'closed' });
     return new Promise((res) => {
       const w = { res, timer: null };
       w.timer = tSet(() => {
@@ -317,7 +308,7 @@ export function createRoomServerNet(deps){
     switch(m.t){
       case 'ready':
         if(!ready){
-          ready = true; attempt = 0; authRetried = false; failAt = -Infinity;
+          ready = true; attempt = 0; authRetried = false; failAt = -Infinity; downSince = null;
           if(connectTimer){ tClear(connectTimer); connectTimer = null; }
           scheduleToken();
           if(P && P.inRoom) onReady(P);
@@ -398,6 +389,7 @@ export function createRoomServerNet(deps){
 
   function detach(P){
     P.inRoom = false;
+    if(active === P) downSince = null;
     stopTimers(P);
     notifyLeft(P);
     if(active === P) active = null;
@@ -607,7 +599,7 @@ export function createRoomServerNet(deps){
   function makeProvider(hooks, opts){
     const P = {
       hooks: hooks || {}, create: (opts && opts.create) || null,
-      room: null, memberId: null, resume: null, userId: null,
+      room: null, url: null, memberId: null, resume: null, userId: null,
       inRoom: false, joined: false, leaving: false, leftNotified: false, awaitingWelcome: false, sentAnyJoin: false,
       current: {}, sent: {}, def: null, defDirty: false,
       members: {}, meta: null, defCache: {}, seq: 0,
@@ -624,6 +616,7 @@ export function createRoomServerNet(deps){
         // 경험치 칸도 입장 때 싣는다 — Firebase 는 첫 하트비트가 실어 보냈지만 여기는 하트비트가 없다
         if(P.hooks.getExp){ try{ const e = P.hooks.getExp(); if(e !== undefined) P.current.exp = e; }catch(_){} }
         P.userId = (me && me.userId) || null;
+        try{ P.url = deps.url() || null; }catch(_){ P.url = null; }
         if(active && active !== P) detach(active);
         active = P;
         if(idleTimer){ tClear(idleTimer); idleTimer = null; }
@@ -694,6 +687,7 @@ export function createRoomServerNet(deps){
   return {
     enabled, ensureReady, stats, random, peek, makeProvider, close,
     isReady: () => ready,
+    inRoom: () => !!(active && active.inRoom),
     _debug: () => ({ ws, ready, gen, attempt, fatal, active, tokenTimer, reconnectTimer }),
   };
 }
