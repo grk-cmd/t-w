@@ -6,6 +6,8 @@
    ・4절: 도구 줄 DOM(가짜 문서) — 버튼 셋 · 눌림 표시 · 한국어 툴팁 · 인라인 SVG(currentColor)
    ・5절: 배선 — app.js(사람 · 꾸미기 그리기) · animal.js(동물) · html 로드 순서 · 스타일
    ・6절: 💧 스포이드(sampleLayers) — 그림 층에 칠한 색 · 투명하면 바탕(피부 · 흰 바탕 · 파츠 원본) · 빈 곳은 안 바꿈 · 세 곳 배선
+   ・7절: 🖱 우클릭 콕(createRightPick) — Windows · mac 순서 · pointerup 이 안 와도 · 끌기는 안 집음 · Ctrl+클릭 · 세 곳 배선
+   ・8절: 🪣 동물 양팔 — 실제 몸 GLB 의 왼팔 · 오른팔 조각이 따로 · 안 겹침 · 둘 다 채워짐 / 🔒 잠금 · 빈 곳 알림
    [실행] uv-fill.js · paint-tools.js · key-input.js · animal-glb.js · base-glb.js · app.js · animal.js ·
           desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
@@ -33,7 +35,7 @@ function glbMeshes(b64){
     for(let k = 0; k < a.count; k++) for(let c = 0; c < n; c++){ const at = o + k * st + c * sz; out.push(f ? bin.readFloatLE(at) : (sz === 2 ? bin.readUInt16LE(at) : bin.readUInt32LE(at))); } return out; };
   const out = {};
   j.nodes.forEach(nd => { if(nd.mesh == null) return; const pr = j.meshes[nd.mesh].primitives[0];
-    out[nd.name] = geo(rd(pr.attributes.TEXCOORD_0, 2, true), rd(pr.indices, 1, false)); });
+    out[nd.name] = geo(rd(pr.attributes.TEXCOORD_0, 2, true), rd(pr.indices, 1, false)); out[nd.name].pos = rd(pr.attributes.POSITION, 3, true); });
   return out;
 }
 /* 섬 하나의 삼각형 번호들 */
@@ -187,7 +189,7 @@ for(const t of ['bucket', 'eraser', 'bucket', 'brush', 'eraser']){ TW2.set(t); s
 chk(TW.get() === 'brush' && !seen.has('true/true'), '꾸미기 — 어떤 순서로 골라도 «지우개 + 채우기» 상태가 안 생긴다');
 /* 동물 */
 const pb = grab(N, 'pBucketEvent');
-chk(/const tgt=_canvasForMesh\(hit\.object\);\s*if\(!_partAllowed\(tgt\)\) return false;/.test(pb), '동물 — 맞힌 메쉬의 캔버스(몸·얼굴 / 좌우 귀) · 부위 잠금 지킴');
+chk(/const tgt=_canvasForMesh\(hit\.object\);\s*if\(!_partAllowed\(tgt\)\)\{ _lockToast\(\); return false; \}/.test(pb), '동물 — 맞힌 메쉬의 캔버스(몸·얼굴 / 좌우 귀) · 부위 잠금 지킴(막히면 알림)');
 chk(/geometry:hit\.object\.geometry, faceIndex:hit\.faceIndex, uv:hit\.uv, pushHistory:pPushHist \}/.test(pb), '동물 — 그 메쉬의 조각만 · 되돌리기 pPushHist(몸 + 좌우 귀 세트)');
 chk(/if\(pSym\)\{/.test(pb) && /_pMirrorHit\(hit\)/.test(pb) && /_partAllowed\(mt\) && aPaintTool\.bucket\(/.test(pb), '동물 — 대칭이면 거울 조각도(잠금 밖이면 생략)');
 chk(/const act=aPaintTool\?aPaintTool\.pointerAction\(e\):'stroke';\s*if\(act!=='stroke'\)\{ pBucketEvent\(e, act==='fillErase'\); return; \}\s*pPushHist\(\);/.test(N), '동물 — 좌클릭: 페인트통이면 한 번에 끝');
@@ -223,9 +225,68 @@ P.sampleLayers([big, pl], { x:0.5, y:0.25 });
 chk(big.reads[0] === '512,64' && pl.reads[0] === '256,128', '층 크기가 달라도 같은 uv 자리(꾸미기 원본 1024×256 · 그림 층 512)');
 chk(P.sampleLayers([fakeCv(4, 4, () => [1, 2, 3, 255])], { x:1, y:1 }) === '#010203', 'uv 1.0 은 마지막 칸으로 잘라 읽는다');
 const ed = grab(A, 'eyedropFromEvent'), wd = grab(A, '_wdPicEyedrop'), ap = grab(N, 'pPickColor');
-chk(/PaintTools\.sampleLayers\(\[skinCanvasFor\(skinIndex\), actC\(\)\], _eh\.uv\)/.test(ed) && /if\(!_eh\|\|!_eh\.uv\) return false;/.test(ed) && /if\(!hex\) return false;/.test(ed), '사람 — 맞힌 얼굴 UV 에서 그림 층 → 비었으면 그 자리 피부 · 빈 곳은 그대로');
-chk(/PaintTools\.sampleLayers\(\[P_BASE, tgt\.draw\], uv\)/.test(ap) && /const tgt=_canvasForMesh\(h\.object\);/.test(ap) && !/pDispC/.test(ap) && /if\(!hex\) return;/.test(ap), '동물 — 맞힌 메쉬의 캔버스(귀는 그 귀) → 비었으면 흰 바탕 · 몸 화면 캔버스를 안 읽는다');
-chk(/PaintTools\.sampleLayers\(\[hit\.object\.userData\.picBase, tgt && tgt\.user\], hit\.uv\)/.test(wd) && /if\(!hex\) return false;/.test(wd), '꾸미기 — 그린 층 → 비었으면 파츠 바탕(원본 텍스처) · 빈 곳은 그대로');
+chk(/PaintTools\.sampleLayers\(\[skinCanvasFor\(skinIndex\), actC\(\)\], _eh\.uv\)/.test(ed) && /if\(!_eh\|\|!_eh\.uv\)\{ if\(typeof toast==='function'\) toast\([^)]*\); return false; \}/.test(ed) && /if\(!hex\)\{ if\(typeof toast==='function'\) toast\([^)]*\); return false; \}/.test(ed), '사람 — 맞힌 얼굴 UV 에서 그림 층 → 비었으면 그 자리 피부 · 빈 곳은 그대로');
+chk(/PaintTools\.sampleLayers\(\[P_BASE, tgt\.draw\], uv\)/.test(ap) && /const tgt=_canvasForMesh\(h\.object\);/.test(ap) && !/pDispC/.test(ap) && /if\(!hex\)\{ if\(typeof toast==='function'\) toast\([^)]*\); return; \}/.test(ap), '동물 — 맞힌 메쉬의 캔버스(귀는 그 귀) → 비었으면 흰 바탕 · 몸 화면 캔버스를 안 읽는다');
+chk(/PaintTools\.sampleLayers\(\[hit\.object\.userData\.picBase, tgt && tgt\.user\], hit\.uv\)/.test(wd) && /if\(!hex\)\{ if\(typeof toast==='function'\) toast\([^)]*\); return false; \}/.test(wd), '꾸미기 — 그린 층 → 비었으면 파츠 바탕(원본 텍스처) · 빈 곳은 그대로');
+
+say('── 7. 🖱 우클릭 콕 — 언제 스포이드를 부르나');
+/* 가짜 시계 · 타이머 — 순서만 본다 */
+function rcRig(){
+  const st = { t:1000, timers:[], picks:[] };
+  const R = P.createRightPick({ now:() => st.t, pick:(e) => st.picks.push(e.tag),
+    setTimeout:(f, ms) => { const h = { f, at:st.t + ms }; st.timers.push(h); return h; }, clearTimeout:(h) => { st.timers = st.timers.filter(x => x !== h); } });
+  st.R = R;
+  st.tick = (ms) => { st.t += ms; const due = st.timers.filter(h => h.at <= st.t); st.timers = st.timers.filter(h => h.at > st.t); due.forEach(h => h.f()); };
+  return st;
+}
+const E = (tag, x, y, extra) => Object.assign({ tag, clientX:x || 100, clientY:y || 100, button:2 }, extra || {});
+{ const s1 = rcRig(); s1.R.down(E('d')); s1.tick(80); s1.R.up(E('up')); s1.tick(5); s1.R.menu(E('menu')); s1.tick(1000);
+  chk(s1.picks.join() === 'up', 'Windows 순서(누름 → 뗌 → 메뉴) — 뗄 때 한 번, 뒤따르는 메뉴는 같은 클릭이라 건너뜀'); }
+{ const s2 = rcRig(); s2.R.down(E('d')); s2.R.menu(E('menu')); s2.tick(100); s2.R.up(E('up')); s2.tick(1000);
+  chk(s2.picks.join() === 'up', 'mac 순서(누름 → 메뉴 → 뗌) — 뗄 때 한 번(메뉴 때 미리 안 집음)'); }
+{ const s3 = rcRig(); s3.R.down(E('d')); s3.R.menu(E('menu')); s3.tick(P.RC_UP_GAP_MS); const early = s3.picks.length; s3.tick(1000);
+  chk(early === 0 && s3.picks.join() === 'menu', 'mac 에서 pointerup 이 안 와도 — 안 움직이면 ' + 'RC_HOLD_MS 뒤 한 번 집는다(예전엔 아무 일 없음)'); }
+{ const s4 = rcRig(); s4.R.down(E('d')); s4.R.menu(E('menu')); s4.R.move(E('m', 160, 100)); s4.tick(2000); s4.R.up(E('up', 160, 100)); s4.R.menu(E('menu2', 160, 100)); s4.tick(1000);
+  chk(s4.picks.length === 0, '오른쪽 끌기(회전) — mac · Windows 어느 순서든 색을 안 바꾼다'); }
+{ const s5 = rcRig(); s5.R.menu(E('menu')); s5.tick(1000);
+  chk(s5.picks.join() === 'menu', 'pointer 이벤트 없이 메뉴만 와도 집는다'); }
+{ const s6 = rcRig(); s6.R.down(E('d')); s6.R.move(E('m', 102, 101)); s6.R.up(E('up', 102, 101));
+  chk(s6.picks.join() === 'up', '손떨림(4px 이하)은 콕으로 본다'); }
+{ const s7 = rcRig(); s7.R.down(E('d')); s7.R.menu(E('menu')); s7.tick(1000); s7.R.up(E('up'));
+  chk(s7.picks.join() === 'menu', '오래 누르고 있다가 떼도 한 번만'); }
+chk(P.isSecondaryClick({ button:2 }) && P.isSecondaryClick({ button:0, ctrlKey:true }) && !P.isSecondaryClick({ button:0 }) && !P.isSecondaryClick({ button:0, ctrlKey:true, metaKey:true }), 'mac Ctrl+클릭도 우클릭(button 0 + ctrlKey)');
+const bp = A.slice(A.indexOf('function bindPaint('), A.indexOf('function bindPaint(') + 4000);
+chk(/PaintTools\.createRightPick\(\{ pick:pickNow \}\)/.test(bp) && /cv\.addEventListener\('contextmenu',e=>\{ e\.preventDefault\(\); if\(rcPick\) rcPick\.menu\(e\); \}\);/.test(bp)
+  && /if\(isRc\(e\)\)\{ _rcOrbit=/.test(bp) && /if\(rcPick\) rcPick\.up\(e\);/.test(bp), '사람 — 우클릭 · Ctrl+클릭 · 메뉴 · 뗌을 판정기에');
+chk(/createRightPick\(\{ pick:\(e\)=>\{ if\(paintTab\) pPickColor\(e\); \} \}\)/.test(N) && /cv\.addEventListener\('contextmenu',e=>\{ e\.preventDefault\(\); if\(_rcPick\) _rcPick\.menu\(e\); \}\);/.test(N)
+  && /if\(e\.button===0 && paintTab && !_isRc\(e\)\)\{/.test(N) && /if\(_rcPick\) _rcPick\.up\(e\);/.test(N), '동물 — 같은 판정기 · Ctrl+클릭은 칠하기가 아니라 스포이드');
+chk(/createRightPick\(\{ pick:\(e\)=>\{ if\(_wdPic\.on\) _wdPicEyedrop\(e\); \} \}\)/.test(A) && /cv\.addEventListener\('contextmenu', e=>\{ if\(_wdPic\.on && _wdRcPick\)\{ e\.preventDefault\(\); _wdRcPick\.menu\(e\); \} \}, true\);/.test(A)
+  && /if\(_wdRcPick\) _wdRcPick\.up\(e\);/.test(A), '꾸미기 — 같은 판정기');
+chk(!/[^{]\s*cv\.setPointerCapture\(e\.pointerId\);/.test(N.replace(/try\{ cv\.setPointerCapture\(e\.pointerId\); \}catch\(_\)\{\}/g, '')), '동물 — setPointerCapture 가 던져도(끝난 포인터) 판정이 안 끊긴다');
+
+say('── 8. 🪣 동물 양팔 · 🔒 알림');
+const armIsl = [...bSet].map(id => { const ts = trisOf(bIds, id); let x = 0, n = 0; ts.forEach(t => { for(let k = 0; k < 3; k++){ x += body.pos[body.index.getX(t * 3 + k) * 3]; n++; } }); return { id, ts, x:x / n }; })
+  .filter(o => Math.abs(o.x) > 0.3).sort((a, b) => a.x - b.x);
+chk(armIsl.length === 2 && armIsl[0].x < 0 && armIsl[1].x > 0, `동물 몸에 팔 조각 둘(x ${armIsl.map(o => o.x.toFixed(2)).join(' · ')}) — 서로 다른 섬`);
+const raster = (tris) => { const set = new Set(); for(const tr of tris) for(let y = 0; y < 128; y++) for(let x = 0; x < 128; x++){ const px = x + 0.5, py = y + 0.5;
+  const d = (tr[3] - tr[5]) * (tr[0] - tr[4]) + (tr[4] - tr[2]) * (tr[1] - tr[5]); if(!d) continue;
+  const l1 = ((tr[3] - tr[5]) * (px - tr[4]) + (tr[4] - tr[2]) * (py - tr[5])) / d, l2 = ((tr[5] - tr[1]) * (px - tr[4]) + (tr[0] - tr[4]) * (py - tr[5])) / d;
+  if(l1 >= 0 && l2 >= 0 && 1 - l1 - l2 >= 0) set.add(x + ',' + y); } return set; };
+if(armIsl.length === 2){
+  const L = U.islandTriangles(body, 128, armIsl[0].ts[0], null), R = U.islandTriangles(body, 128, armIsl[1].ts[0], null);
+  const rl = raster(L), rr = raster(R); let ov = 0; rl.forEach(c => { if(rr.has(c)) ov++; });
+  chk(L.length === armIsl[0].ts.length && R.length === armIsl[1].ts.length && rl.size > 100 && rr.size > 100, `왼팔 ${rl.size}칸 · 오른팔 ${rr.size}칸 — 둘 다 칠할 그림 자리가 있다(넓이 0 으로 버려지지 않음)`);
+  chk(ov === 0, '두 팔은 그림판에서 안 겹친다 — 한쪽을 칠해도 다른 쪽이 따라 칠해지거나 가려지지 않는다');
+  const other = [...bSet].filter(id => armIsl.every(a => a.id !== id)).map(id => raster(U.islandTriangles(body, 128, trisOf(bIds, id)[0], null)));
+  let ov2 = 0; other.forEach(o => o.forEach(c => { if(rr.has(c) || rl.has(c)) ov2++; }));
+  chk(ov2 === 0, '팔 자리는 몸통 · 다리 조각과도 안 겹친다');
+  for(const a of armIsl){ const ts = a.ts; chk(ts.every(t => U.islandTriangles(body, 128, t, null).length === ts.length), `${a.x < 0 ? '왼' : '오른'}팔 어느 삼각형을 눌러도 같은 팔 조각 전체(${ts.length})`); }
+}
+chk(/const LOCK_MSG=\{ ear:'지금은 귀만 칠할 수 있어요/.test(SRC['animal.js']) && /face:'지금은 얼굴만 칠할 수 있어요/.test(SRC['animal.js']) && /body:'지금은 몸만 칠할 수 있어요/.test(SRC['animal.js']), '🔒 잠금 안내 문구 셋(귀만 · 얼굴만 · 몸만)');
+chk(/if\(!_partAllowed\(tgt\)\)\{ _lockToast\(\); return false; \}/.test(pb) && /if\(!_partAllowed\(tgt\)\)\{ pLastX=pLastY=null; _lockToast\(\); return; \}/.test(grab(N, 'pPaintEvent')), '🔒 페인트통 · 붓이 잠금에 막히면 알린다');
+chk(/if\(now-_lockToastAt<1500\) return;/.test(grab(N, '_lockToast')), '🔒 붓은 한 획에 여러 번 막히므로 1.5초에 한 번만');
+chk(/if\(!hit \|\| !hit\.object\)\{ if\(typeof toast==='function'\) toast\('캐릭터를 눌러 채워요'\); return false; \}/.test(pb) && /if\(!hit\)\{ if\(typeof toast==='function'\) toast\('얼굴을 눌러 채워요'\); return false; \}/.test(bf), '빈 곳을 페인트통으로 누르면 알린다(사람 · 동물)');
+chk(/if\(!hit\)\{ if\(typeof toast==='function'\) toast\('파츠 위를 우클릭하면 그 색을 집어요'\); return false; \}/.test(wd) && /toast\('캐릭터 위를 우클릭하면 그 색을 집어요'\)/.test(ap), '빈 곳 스포이드도 알린다(색은 그대로)');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

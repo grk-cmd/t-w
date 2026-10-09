@@ -520,20 +520,23 @@ function buildOverlay(){
   // 회전: 드래그(상하좌우) + 휠 줌 + 좌우 화살표(15°)
   const cv=overlay.querySelector('#anpCv');
   // 🖱️ 우클릭 드래그 = 회전 (인간 생성기와 통일). 좌클릭은 기즈모 전용.
-  cv.addEventListener('contextmenu',e=>e.preventDefault());
+  /* 💧 우클릭 콕 = 스포이드 — pointerup · contextmenu 중 먼저 오는 쪽에서 한 번(paint-tools.js createRightPick 주석: mac 순서) */
+  const _rcPick=(typeof PaintTools!=='undefined') ? PaintTools.createRightPick({ pick:(e)=>{ if(paintTab) pPickColor(e); } }) : null;
+  const _isRc=(e)=>(typeof PaintTools!=='undefined') ? PaintTools.isSecondaryClick(e) : e.button===2;
+  cv.addEventListener('contextmenu',e=>{ e.preventDefault(); if(_rcPick) _rcPick.menu(e); });
   let _rcDown=null;   // 우클릭 상태 — 드래그면 회전, 콕이면 스포이드(페인트 탭)
   cv.addEventListener('pointerdown',e=>{
     if(_gizmoDragging) return;
-    if(e.button===0 && paintTab){
+    if(e.button===0 && paintTab && !_isRc(e)){
       if(aStampMode) return;   // 도장 편집 중 — 오버레이(이동·핸들)가 조작 담당, 캔버스 클릭은 그리지 않음(인간과 동일)
       const act=aPaintTool?aPaintTool.pointerAction(e):'stroke';
       if(act!=='stroke'){ pBucketEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
       pPushHist(); pPainting=true; pLastX=pLastY=null; pLastSX=pLastSY=null;   // 브러시
-      pPaintEvent(e,true); cv.setPointerCapture(e.pointerId); return;
+      pPaintEvent(e,true); try{ cv.setPointerCapture(e.pointerId); }catch(_){} return;
     }
-    if(e.button!==2) return;
-    _rcDown={x:e.clientX,y:e.clientY,moved:false};
-    dragging=true; lastX=e.clientX; lastY=e.clientY; cv.setPointerCapture(e.pointerId);
+    if(!_isRc(e)) return;   // 오른쪽 버튼 · mac Ctrl+클릭
+    _rcDown={x:e.clientX,y:e.clientY,moved:false}; if(_rcPick) _rcPick.down(e);
+    dragging=true; lastX=e.clientX; lastY=e.clientY; try{ cv.setPointerCapture(e.pointerId); }catch(_){}
   });
   cv.addEventListener('pointermove',e=>{
     /* 🖌 커서 = 지금 도구(페인트 탭에서만 · 도장 중엔 기본) */
@@ -541,13 +544,14 @@ function buildOverlay(){
     if(pPainting){ pPaintEvent(e,false); return; }
     if(!dragging) return;
     if(_rcDown && !_rcDown.moved && Math.abs(e.clientX-_rcDown.x)+Math.abs(e.clientY-_rcDown.y)>4) _rcDown.moved=true;
+    if(_rcPick) _rcPick.move(e);
     rotY += (e.clientX-lastX)*0.012;   // 오른쪽 드래그 = 앵글이 오른쪽으로 (사용자 확정 방향)
     rotX = Math.max(-0.55, Math.min(0.9, rotX + (e.clientY-lastY)*0.008));   // 위/아래에서 보기 (과회전 방지 클램프)
     lastX=e.clientX; lastY=e.clientY;
   });
   cv.addEventListener('pointerup',e=>{
     if(pPainting){ pPainting=false; pLastX=pLastY=null; pLastSX=pLastSY=null; return; }
-    if(dragging && _rcDown && !_rcDown.moved && paintTab) pPickColor(e);   // 우클릭 콕 = 색 추출 (인간과 동일)
+    if(_rcDown){ if(_rcPick) _rcPick.up(e); else if(!_rcDown.moved && paintTab) pPickColor(e); }   // 우클릭 콕 = 색 추출 (인간과 동일)
     _rcDown=null; dragging=false;
   });
   // ▲▼◀▶ — 좌우는 15° 앵글 회전, 상하는 카메라 이동(팬). 인간 생성기(cpLeft 등)와 같은 문법.
@@ -1489,6 +1493,16 @@ function _canvasForMesh(mesh){
   // 몸/얼굴은 같은 캔버스를 쓰지만 부위는 구분해서 알려준다(부위 잠금용)
   return {draw:pActC(), blit:pBlit, isEar:false, part:_isFaceMesh(mesh)?'face':'body'};
 }
+/* 🔒 부위 잠금으로 막혔을 때 알린다 — 조용히 아무 일도 안 하면 «고장» 으로 읽힌다(제보: 오른팔이 안 칠해진다).
+   붓은 획 하나에 여러 번 막히므로 1.5초에 한 번만. */
+const LOCK_MSG={ ear:'지금은 귀만 칠할 수 있어요 — «귀만» 을 끄면 다른 곳도 칠해요',
+                 face:'지금은 얼굴만 칠할 수 있어요 — «얼굴만» 을 끄면 다른 곳도 칠해요',
+                 body:'지금은 몸만 칠할 수 있어요 — «몸만» 을 끄면 다른 곳도 칠해요' };
+let _lockToastAt=0;
+function _lockToast(){
+  const now=Date.now(); if(now-_lockToastAt<1500) return; _lockToastAt=now;
+  if(typeof toast==='function') toast(LOCK_MSG[pPartMask]||'잠금 때문에 여기는 칠할 수 없어요');
+}
 /* 지금 잠금 설정에서 이 부위를 칠해도 되는가 */
 function _partAllowed(tgt){ return !pPartMask || (tgt && tgt.part===pPartMask); }
 /* 대칭 지점을 다시 맞힐 메쉬 — 얼굴은 얼굴, 몸은 몸, 왼귀는 오른귀.
@@ -1521,7 +1535,7 @@ function pPaintEvent(e, isStart){
   const uv=hit.uv;
   const cx=uv.x*P_SZ, cy=uv.y*P_SZ;   // flipY=false 규약 — uv 그대로 (인간과 동일)
   const tgt=_canvasForMesh(hit.object);   // 히트한 메쉬 소속 캔버스(몸/얼굴 or 귀L/R)
-  if(!_partAllowed(tgt)){ pLastX=pLastY=null; return; }   // 부위 잠금(귀만/얼굴만/몸만): 다른 부위 히트는 무시
+  if(!_partAllowed(tgt)){ pLastX=pLastY=null; _lockToast(); return; }   // 부위 잠금(귀만/얼굴만/몸만): 다른 부위 히트는 무시 · 알림
   // UV 점프 가드
   if(pLastX!=null && (Math.abs(cx-pLastX)+Math.abs(cy-pLastY)) > P_SZ*0.18){ pLastX=pLastY=null; }
   pStroke(pLastX,pLastY,cx,cy,tgt.draw); pLastX=cx; pLastY=cy;
@@ -1545,12 +1559,13 @@ function pPaintEvent(e, isStart){
    부위 잠금(귀만 · 얼굴만 · 몸만) · 대칭은 붓과 같은 규칙. 되돌리기 한 칸(pPushHist — 몸 + 좌우 귀 세트). */
 function pBucketEvent(e, erase){
   if(!aPaintTool) return false;
-  const hit=pHit(e); if(!hit || !hit.object) return false;
+  const hit=pHit(e);
+  if(!hit || !hit.object){ if(typeof toast==='function') toast('캐릭터를 눌러 채워요'); return false; }
   const tgt=_canvasForMesh(hit.object);
-  if(!_partAllowed(tgt)) return false;
+  if(!_partAllowed(tgt)){ _lockToast(); return false; }
   const opt={ color:pColor, erase:!!erase, size:P_SZ };
   const n=aPaintTool.bucket(Object.assign({ ctx:tgt.draw.getContext('2d'), geometry:hit.object.geometry, faceIndex:hit.faceIndex, uv:hit.uv, pushHistory:pPushHist }, opt));
-  if(!n){ if(typeof toast==='function') toast('여기는 채울 자리가 없어요'); return false; }
+  if(!n){ if(typeof toast==='function') toast('여기는 채울 그림 자리가 없어요'); return false; }
   tgt.blit();
   if(pSym){
     const mh=_pMirrorHit(hit);
@@ -1564,10 +1579,11 @@ function pBucketEvent(e, erase){
    빈 곳(아무 메쉬도 안 맞음)은 색을 안 바꾼다. */
 const P_BASE='#ffffff';   // 안 칠한 곳 = 흰색(pBlit · _blitEar 와 같은 값)
 function pPickColor(e){
-  const h=pHit(e); const uv=h&&h.uv; if(!uv||!h.object) return;
+  const h=pHit(e); const uv=h&&h.uv;
+  if(!uv||!h.object){ if(typeof toast==='function') toast('캐릭터 위를 우클릭하면 그 색을 집어요'); return; }
   const tgt=_canvasForMesh(h.object);
   const hex=(typeof PaintTools!=='undefined') ? PaintTools.sampleLayers([P_BASE, tgt.draw], uv) : null;
-  if(!hex) return;
+  if(!hex){ if(typeof toast==='function') toast('여기서는 색을 집을 수 없어요'); return; }
   pColor=hex;
   /* 🎨 [2026-10-02] 인간 생성기 스포이드와 맞춘다 — 뽑은 색을 자유 색 칸에 넣고 칩 선택 표시를 끈다.
      그래야 기본 칩으로 갔다가 자유 색 칸을 눌러 이 색으로 돌아올 수 있다. */
