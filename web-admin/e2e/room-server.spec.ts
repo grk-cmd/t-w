@@ -59,6 +59,31 @@ test('방 서버 — 스위치 · 서버 목록 · 방 개수 상한 · 사용�
   await expect(limits.getByText('저장 · 1분 안에 서버에 반영')).toBeVisible();
   expect(await dbGet('config/roomServer/limits')).toEqual({ workingroom: 400, togetherroom: 250 });
 
+  // 기본 서버 · 비율 — 처음엔 «없음» · 범위 검사 · 저장 · 기본 서버는 못 뺀다
+  const dflt = card(page, '기본 서버 · 비율');
+  await expect(dflt.getByText('허용 목록에 없는 사람도 이 비율만큼 기본 서버에 방을 열어요')).toBeVisible();
+  await expect(dflt.getByLabel('기본 서버')).toHaveValue('');
+  await expect(dflt.getByLabel('비율 %')).toBeDisabled();
+  await dflt.getByLabel('기본 서버').selectOption('realtime-1');
+  await dflt.getByLabel('비율 %').fill('150');
+  await dflt.getByRole('button', { name: '저장' }).click();
+  await expect(dflt.getByText('비율 — 0~100 사이 정수')).toBeVisible();
+  await dflt.getByRole('button', { name: '10', exact: true }).click();
+  await expect(dflt.getByLabel('비율 %')).toHaveValue('10');
+  await dflt.getByRole('button', { name: '저장' }).click();
+  await expect(dflt.getByText('저장 · realtime-1 10%')).toBeVisible();
+  expect(await dbGet('config/roomServer/default')).toBe('realtime-1');
+  expect(await dbGet('config/roomServer/defaultPercent')).toBe(10);
+  await row(servers, 'realtime-1').getByRole('button', { name: '빼기' }).click();
+  await expect(
+    servers.getByText('realtime-1 은 기본 서버 — 먼저 «기본 서버 · 비율» 에서 바꾸기'),
+  ).toBeVisible();
+  await dflt.getByLabel('기본 서버').selectOption('');
+  await dflt.getByRole('button', { name: '저장' }).click();
+  await expect(dflt.getByText('저장 · 기본 서버 없음')).toBeVisible();
+  expect(await dbGet('config/roomServer/default')).toBeNull();
+  expect(await dbGet('config/roomServer/defaultPercent')).toBeNull();
+
   // 사용자별 서버 — 옛 앱은 서버를 못 고른다(Firebase(기본)만)
   const users = card(page, '사용자별 서버');
   await users.getByLabel('사용자 찾기').fill('cd34');
@@ -100,6 +125,7 @@ test('방 서버 — 스위치 · 서버 목록 · 방 개수 상한 · 사용�
       'roomServer.server:realtime-1',
       'roomServer.server:lab',
       'roomServer.limits:limits',
+      'roomServer.default:default',
       'roomServer.allow:u1abc2345',
       'roomServer.allowDelete:u1abc2345',
     ]),
@@ -168,4 +194,18 @@ test('방 서버 — 규칙: 칸 하나씩만 공개 · 쓰기는 관리자만 �
     expect(await dbSetAs(admin.idToken, 'config/roomServer/limits/workingroom', bad), String(bad)).toBe(401);
   expect(await dbSetAs(admin.idToken, 'config/roomServer/limits/secret', 10)).toBe(401);
   expect(await dbSetAs(admin.idToken, 'config/roomServer/limits', null)).toBe(200);
+  // 기본 서버 · 비율 — 누구나 한 칸 읽기 · 관리자만 · 이름 형식 · 정수 0~100
+  for (const p of ['config/roomServer/default', 'config/roomServer/defaultPercent'])
+    expect(await dbGetAs(user.idToken, p), p).toBe(200);
+  expect(await dbSetAs(user.idToken, 'config/roomServer/default', 'rooms-1')).toBe(401);
+  expect(await dbSetAs(user.idToken, 'config/roomServer/defaultPercent', 10)).toBe(401);
+  expect(await dbSetAs(admin.idToken, 'config/roomServer/default', 'rooms-1')).toBe(200);
+  for (const bad of ['Rooms 1', 'a'.repeat(33), 7])
+    expect(await dbSetAs(admin.idToken, 'config/roomServer/default', bad), String(bad)).toBe(401);
+  for (const ok of [0, 100, 37])
+    expect(await dbSetAs(admin.idToken, 'config/roomServer/defaultPercent', ok), String(ok)).toBe(200);
+  for (const bad of [-1, 101, 2.5, '50', true])
+    expect(await dbSetAs(admin.idToken, 'config/roomServer/defaultPercent', bad), String(bad)).toBe(401);
+  expect(await dbSetAs(admin.idToken, 'config/roomServer/defaultPercent', null)).toBe(200);
+  expect(await dbSetAs(admin.idToken, 'config/roomServer/default', null)).toBe(200);
 });
