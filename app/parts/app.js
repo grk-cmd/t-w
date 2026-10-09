@@ -8086,7 +8086,9 @@ function updateMyStatusChipPosition(){
 
   // 설정 패널 — 캐릭터 머리 위 중앙에 오도록, 상태칩과 별개로 "오프셋 없는" 캐릭터 중앙 x 사용
   const panel=document.getElementById('focusSettingsPanel');
-  if(panel && panel.classList.contains('on') && !window._fsPanelDragged){   // ✥ 드래그로 옮긴 뒤엔 머리 위 자동 따라가기 중단
+  /* 🪑 방 줄(휠 · ◀ ▶ 로 넘김)에서는 연 순간 한 번만 자리를 잡는다 — 계속 따라가면 줄을 넘길 때 내 캐릭터와 함께 창이 끌려간다. */
+  if(panel && panel.classList.contains('on') && !window._fsPanelDragged && !(_rowRoomMode && panel._rowPlaced)){   // ✥ 드래그로 옮긴 뒤엔 머리 위 자동 따라가기 중단
+    if(_rowRoomMode) panel._rowPlaced = true;
     _uiAnchorWorld(me, _wpTmp2); _wpTmp2.y = 1.55; _wpTmp2.project(camera);   // 올라탄 동안엔 제자리 기준
     let cx=rect.left+(_wpTmp2.x*0.5+0.5)*rect.width;
     let cy=rect.top +(-_wpTmp2.y*0.5+0.5)*rect.height;
@@ -8629,6 +8631,7 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     const willOpen = !panel.classList.contains('on');
     panel.classList.toggle('on', willOpen);
     if(willOpen){
+      panel._rowPlaced = false;   // 🪑 방 줄에서는 열 때마다 내 캐릭터 머리 위에 한 번 다시 잡는다
       if(typeof bringWinToFront==='function') bringWinToFront('focusSettingsPanel');   // 🪟 열 때는 맨 앞으로
       // ✥ 드래그로 옮긴 위치 기억 — 닫았다 열어도 그 자리. 단 화면 밖(해상도 변경 등)이면 머리 위 기본 위치로 복귀.
       if(window._fsPanelDragged){
