@@ -253,7 +253,7 @@ function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
           <Presence uid={uid} />
         </Field>
         <Field label="앱 버전">
-          {/* 목록은 계정 요약 값, 여기는 presence 값 — 계정이 없어도 0.10.3 부터는 보인다. */}
+          {/* 목록은 계정 요약 값, 여기는 presence 값 — 계정이 없어도 0.11.0 부터는 보인다. */}
           <PresenceVer uid={uid} />
         </Field>
         <Field label="집중">
