@@ -9957,11 +9957,10 @@ function _wdPicSetFill(v){
   if(wdPaintTool){ if(v) wdPaintTool.set('bucket'); else if(wdPaintTool.is('bucket')) wdPaintTool.set('brush'); return; }
   _wdPic.fill = !!v;
 }
-/* 메쉬 하나를 둘레 번짐까지 채운다 — 같은 그림판을 쓰는 이 파츠의 다른 메쉬 안쪽은 안 덮는다(uv-fill.js fillRegion 주석: 테두리 실선) */
+/* 메쉬 하나를 조각 사이 여백까지 채운다 — 같은 그림판을 쓰는 이 파츠의 다른 메쉬 안쪽은 안 덮는다(uv-fill.js 여백 몫 주석: 테두리 실선) */
 function _wdPicFillMesh(ctx, wrp, mesh, opt){
-  const others=[];
-  ((wrp && wrp.userData.picMeshes) || []).forEach(m=>{ if(m!==mesh && m.geometry) UvFill.uvTriangles(m.geometry, CANVAS_SZ).forEach(t=>others.push(t)); });
-  return UvFill.fillRegion(ctx, CANVAS_SZ, UvFill.uvTriangles(mesh.geometry, CANVAS_SZ), others, opt);
+  const peers=((wrp && wrp.userData.picMeshes) || []).filter(m=>m!==mesh && m.geometry).map(m=>m.geometry);
+  return UvFill.fillMeshOwned(ctx, CANVAS_SZ, mesh.geometry, peers, opt);
 }
 function _wdPicFillHit(hit, erase){
   if(typeof UvFill === 'undefined' || !hit || !hit.object) return;

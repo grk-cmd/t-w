@@ -2,7 +2,7 @@
    ・1절: uv-fill.js 섬 함수 — 손으로 만든 geometry · 실제 동물 몸/얼굴 GLB · 사람 얼굴 GLB
           (누른 조각만 · 다른 조각 안 섞임 · UV 로 찾기 · 넓이 0 조각은 안 칠함 · 캐시)
    ・2절: createPaintTools — 기본 붓 · 하나만 · onChange · C 토글 · 색 고르면 지우개만 붓으로 · 키(B G E · 맥 한글) · 클릭 동작 · 커서
-   ・3절: 페인트통 한 번 — 되돌리기 한 칸을 칠하기 **전에** · 칠할 게 없으면 이력 안 남김 · 지우기 · 3-b 둘레 번짐(경계 텍셀 · 옆 조각 · 다른 메쉬 · 실제 몸)
+   ・3절: 페인트통 한 번 — 되돌리기 한 칸을 칠하기 **전에** · 칠할 게 없으면 이력 안 남김 · 지우기 · 3-b 여백 몫(가운데 선까지 · 옆 조각 · 다른 메쉬 · 실제 동물 몸 · 사람 얼굴)
    ・4절: 도구 줄 DOM(가짜 문서) — 버튼 셋 · 눌림 표시 · 한국어 툴팁 · 인라인 SVG(currentColor)
    ・5절: 배선 — app.js(사람 · 꾸미기 그리기) · animal.js(동물) · html 로드 순서 · 스타일
    ・6절: 🪣 동물 양팔 — 실제 몸 GLB 의 왼팔 · 오른팔 조각이 따로 · 안 겹침 · 둘 다 채워짐 / 🔒 잠금 · 빈 곳 알림(채우기 · 붓)
@@ -47,7 +47,7 @@ const g1 = geo([
   0, 0, 0.4, 0, 0, 1, 0.4, 1,          // 0~3 섬 A
   0.6, 0, 1, 0, 0.6, 1, 1, 1,          // 4~7 섬 B 앞 삼각형
   1, 1, 0.6, 1,                        // 8~9 섬 B 의 7 · 6 과 같은 UV(쪼개진 정점)
-  0.5, 0.5, 0.5, 0.5, 0.5, 0.5,        // 10~12 넓이 0 조각(다른 섬과 안 닿는 한 점)
+  0.5, 0.02, 0.5, 0.02, 0.5, 0.02,     // 10~12 넓이 0 조각(다른 섬과 안 닿는 한 점)
   1, 0,                                // 13 섬 B 의 5 와 같은 UV
 ], [0, 1, 2, 2, 1, 3,  4, 5, 6,  13, 8, 9,  10, 11, 12]);   // 세 번째 삼각형은 인덱스를 하나도 안 나눠 쓴다
 const ids1 = U.islandIds(g1);
@@ -131,46 +131,71 @@ T.bucket({ ctx:c4, geometry:g1, size:100, faceIndex:0, color:'#123456' });
 chk(px(c4, 20, 50).join() === '18,52,86,255' && px(c4, 80, 50)[3] === 0, '칠하기 — 지금 색(불투명) · 누른 조각만');
 chk(P.applyBucket({ ctx:pixCtx(100), geometry:g1, size:100, faceIndex:0 }) === 0, 'uv-fill.js 가 없으면 아무것도 안 한다(앱은 켜진다)');
 
-say('── 3-b. 🧵 둘레 번짐(테두리 실선 막기)');
-chk(U.bleedFor(512) === 4 && U.bleedFor(1024) === 8 && U.bleedFor(100) === 2, '번짐 폭 = 그림판 크기 / 128(512 → 4텍셀 · 밉맵 2단계까지) · 최소 2');
-/* 섬 A: x 0~40 · 섬 B: x 60~100 (100×100) */
-const cA = pixCtx(100);
-T.bucket({ ctx:cA, geometry:g1, size:100, faceIndex:0, color:'#ff0000', bleed:4 });
+say('── 3-b. 🧵 여백 몫 — 이웃 조각과의 가운데 선까지 채운다(테두리 실선 막기)');
 const isPainted = (c, x, y) => px(c, x, y)[3] === 255;
+/* 섬 A: x 0~40 · 섬 B: x 60~100 (100×100) — 사이 여백 40~59 */
+const cA = pixCtx(100);
+T.bucket({ ctx:cA, geometry:g1, size:100, faceIndex:0, color:'#ff0000' });
 chk(isPainted(cA, 39, 50) && isPainted(cA, 40, 50), '경계 텍셀(중심이 조각 밖이어도 걸친 칸)까지 칠한다 — 옛 색이 섞이던 칸');
-chk(isPainted(cA, 43, 50) && !isPainted(cA, 44, 50), '조각 밖으로 4텍셀까지 번진다 — 그 너머 빈 칸은 그대로');
-chk([60, 61, 70, 99].every(x => !isPainted(cA, x, 50)), '옆 조각(섬 B) 안쪽은 한 칸도 안 건드린다');
-/* 두 조각 사이가 4텍셀뿐이면 반씩 나눈다 — 이웃 조각의 둘레를 덮지 않는다 */
+chk(isPainted(cA, 49, 50) && !isPainted(cA, 50, 50), '여백은 이웃 조각과의 가운데 선까지(40~49 는 이 조각 몫 · 50~59 는 옆 조각 몫) — 몇 텍셀로 자르지 않는다(밉맵 깊은 단계도 깨끗)');
+chk([50, 59, 60, 70, 99].every(x => !isPainted(cA, x, 50)), '옆 조각 안쪽 · 옆 조각 몫 여백은 한 칸도 안 건드린다');
 const g2 = geo([0, 0, 0.4, 0, 0, 1, 0.4, 1,  0.44, 0, 1, 0, 0.44, 1, 1, 1], [0, 1, 2, 2, 1, 3,  4, 5, 6, 6, 5, 7]);
 const cB = pixCtx(100);
-T.bucket({ ctx:cB, geometry:g2, size:100, faceIndex:0, color:'#ff0000', bleed:4 });
-chk(isPainted(cB, 40, 50) && isPainted(cB, 41, 50) && !isPainted(cB, 43, 50) && !isPainted(cB, 44, 50), '조각 사이 여백이 좁으면 가까운 쪽 반만(40~41 은 이 조각 · 42~43 은 옆 조각 몫)');
-/* 다른 메쉬(같은 그림판) — peers 안쪽도 안 덮는다 */
+T.bucket({ ctx:cB, geometry:g2, size:100, faceIndex:0, color:'#ff0000' });
+chk(isPainted(cB, 41, 50) && !isPainted(cB, 42, 50) && !isPainted(cB, 44, 50), '여백이 좁으면 반씩(40~41 이 조각 · 42~43 옆 조각)');
 const g3 = geo([0, 0, 0.4, 0, 0, 1, 0.4, 1], [0, 1, 2, 2, 1, 3]), peer = geo([0.42, 0, 0.7, 0, 0.42, 1, 0.7, 1], [0, 1, 2, 2, 1, 3]);
 const cC = pixCtx(100), cD = pixCtx(100);
-T.bucket({ ctx:cC, geometry:g3, size:100, faceIndex:0, color:'#ff0000', bleed:4, peers:[peer] });
-T.bucket({ ctx:cD, geometry:g3, size:100, faceIndex:0, color:'#ff0000', bleed:4 });
-chk(!isPainted(cC, 42, 50) && !isPainted(cC, 43, 50) && isPainted(cD, 43, 50), '같은 그림판을 쓰는 다른 메쉬(동물 몸 ↔ 얼굴 · 꾸미기 파츠의 다른 메쉬) 안쪽도 안 덮는다');
+T.bucket({ ctx:cC, geometry:g3, size:100, faceIndex:0, color:'#ff0000', peers:[peer] });
+T.bucket({ ctx:cD, geometry:g3, size:100, faceIndex:0, color:'#ff0000' });
+chk(isPainted(cC, 40, 50) && !isPainted(cC, 42, 50) && !isPainted(cC, 80, 50) && isPainted(cD, 80, 50) && isPainted(cD, 99, 99),
+  '같은 그림판을 쓰는 다른 메쉬(peers) 안쪽 · 그 몫도 안 덮는다 — 혼자면 빈 그림판 전부가 이 조각 몫');
 const cE = pixCtx(100); cE.data.fill(200);
-T.bucket({ ctx:cE, geometry:g1, size:100, faceIndex:0, erase:true, bleed:4 });
-chk(px(cE, 43, 50)[3] === 0 && px(cE, 60, 50)[3] === 200, 'Shift 지우기도 둘레까지(지운 자리에 옛 색 테두리가 안 남는다) · 옆 조각은 그대로');
-/* 실제 동물 몸 — 왼팔 조각을 512 로 채우면 다른 조각 텍셀은 0 개 · 둘레 2텍셀 고리는 전부 칠해짐 */
+T.bucket({ ctx:cE, geometry:g1, size:100, faceIndex:0, erase:true });
+chk(px(cE, 45, 50)[3] === 0 && px(cE, 55, 50)[3] === 200 && px(cE, 80, 50)[3] === 200, 'Shift 지우기도 같은 자리(가운데 선까지) · 옆 조각 몫은 그대로');
+const L1 = U.canvasLayout(100, [g1]);
+chk(U.canvasLayout(100, [g1]) === L1 && U.canvasLayout(64, [g1]) !== L1, '주인 표는 (geometry 묶음 · 크기)마다 한 번 만들고 기억한다');
+{ const zi = L1.islands.findIndex(o => !(o.area > 0.5)), cZ = pixCtx(100);
+  T.bucket({ ctx:cZ, geometry:g1, size:100, faceIndex:0, color:'#ff0000' });
+  chk(zi >= 0 && L1.owner[2 * 100 + 50] === zi + 1 && !isPainted(cZ, 50, 2) && U.islandIndex(L1, g1, 4, null) === -1,
+    '넓이 0 조각(사람 손 · 몸이 UV 한 점을 읽음)도 그 점의 주인 — 옆 조각을 채워도 그 점은 안 칠한다(손 · 몸 색 그대로) · 그 조각 자체는 못 채움'); }
+{ const LH = U.canvasLayout(512, [hf]), cHz = pixCtx(512);
+  const fr = [...hSet].map(id => trisOf(hIds, id)).find(ts => ts.length === 98);
+  T.bucket({ ctx:cHz, geometry:hf, size:512, faceIndex:fr[0], color:'#ff0000' });
+  chk(!isPainted(cHz, 0, 511), '실제 사람 — 얼굴 앞을 채워도 손 · 몸이 읽는 점(0,511)은 그대로'); }
+/* 실제 동물 — 몸 · 얼굴형 넷이 그림판 한 장을 같이 쓴다 */
 {
-  const S = 512, armId = [...bSet].map(id => { const ts = trisOf(bIds, id); let x = 0, n = 0; ts.forEach(t => { for(let k = 0; k < 3; k++){ x += body.pos[body.index.getX(t * 3 + k) * 3]; n++; } }); return { id, ts, x:x / n }; }).sort((a, b) => a.x - b.x)[0];
+  const S = 512, faces = ['face1', 'face2', 'face3', 'face4'].map(k => AN[k]);
+  const rast = (tris) => { const m = new Uint8Array(S * S); for(const t of tris){ const d = (t[3] - t[5]) * (t[0] - t[4]) + (t[4] - t[2]) * (t[1] - t[5]); if(!d) continue;
+    const x0 = Math.max(0, Math.floor(Math.min(t[0], t[2], t[4]))), x1 = Math.min(S - 1, Math.ceil(Math.max(t[0], t[2], t[4]))), y0 = Math.max(0, Math.floor(Math.min(t[1], t[3], t[5]))), y1 = Math.min(S - 1, Math.ceil(Math.max(t[1], t[3], t[5])));
+    for(let y = y0; y <= y1; y++) for(let x = x0; x <= x1; x++){ const pxx = x + 0.5, pyy = y + 0.5; const l1 = ((t[3] - t[5]) * (pxx - t[4]) + (t[4] - t[2]) * (pyy - t[5])) / d, l2 = ((t[5] - t[1]) * (pxx - t[4]) + (t[0] - t[4]) * (pyy - t[5])) / d;
+      if(l1 >= 0 && l2 >= 0 && 1 - l1 - l2 >= 0) m[y * S + x] = 1; } } return m; };
+  const chebDist = (m) => { const d = new Int32Array(S * S).fill(1e9), q = new Int32Array(S * S); let qt = 0; for(let k = 0; k < S * S; k++) if(m[k]){ d[k] = 0; q[qt++] = k; }
+    for(let qh = 0; qh < qt; qh++){ const k = q[qh], x = k % S, y = (k / S) | 0; for(let dy = -1; dy <= 1; dy++) for(let dx = -1; dx <= 1; dx++){ const xx = x + dx, yy = y + dy; if(xx < 0 || yy < 0 || xx >= S || yy >= S) continue; const kk = yy * S + xx; if(d[kk] > d[k] + 1){ d[kk] = d[k] + 1; q[qt++] = kk; } } } return d; };
+  const arm = [...bSet].map(id => { const ts = trisOf(bIds, id); let x = 0, n = 0; ts.forEach(t => { for(let k = 0; k < 3; k++){ x += body.pos[body.index.getX(t * 3 + k) * 3]; n++; } }); return { id, ts, x:x / n }; }).sort((a, b) => a.x - b.x)[0];
   const cR = pixCtx(S);
-  T.bucket({ ctx:cR, geometry:body, size:S, faceIndex:armId.ts[0], color:'#ff0000' });
-  const own = U.regionMask(S, U.islandTriangles(body, S, armId.ts[0], null), [], 0);
-  const oth = U.regionMask(S, U.otherIslandTriangles(body, S, armId.ts[0], null), [], 0);
-  let hitOther = 0, ring = 0, ringOk = 0;
-  for(let k = 0; k < S * S; k++){ if(oth[k] && cR.data[k * 4 + 3]) hitOther++; }
-  for(let y = 1; y < S - 1; y++) for(let x = 1; x < S - 1; x++){ const k = y * S + x; if(own[k] || oth[k]) continue;
-    /* 고리 = 이 조각에서 2텍셀 안 · 다른 조각에서는 4텍셀 밖(가운데 여백은 가까운 조각 몫이라 뺀다) */
-    let near = false, otherNear = false;
-    for(let dy = -4; dy <= 4; dy++) for(let dx = -4; dx <= 4; dx++){ const yy = y + dy, xx = x + dx; if(yy < 0 || yy >= S || xx < 0 || xx >= S) continue; const kk = yy * S + xx;
-      if(own[kk] && Math.abs(dx) <= 2 && Math.abs(dy) <= 2) near = true; if(oth[kk]) otherNear = true; }
-    if(near && !otherNear){ ring++; if(cR.data[k * 4 + 3]) ringOk++; } }
-  chk(hitOther === 0, '실제 동물 몸 왼팔 채우기 — 다른 조각(몸통 · 오른팔 · 다리) 텍셀 0개 침범');
-  chk(ring > 50 && ringOk === ring, `실제 동물 몸 왼팔 — 조각 둘레 2텍셀 고리 ${ringOk}/${ring} 전부 칠함(테두리 실선이 생기던 자리)`);
+  T.bucket({ ctx:cR, geometry:body, size:S, faceIndex:arm.ts[0], color:'#ff0000', peers:faces });
+  const own = rast(U.islandTriangles(body, S, arm.ts[0], null));
+  const othTris = []; [...bSet].filter(id => id !== arm.id).forEach(id => U.islandTriangles(body, S, trisOf(bIds, id)[0], null).forEach(t => othTris.push(t)));
+  faces.forEach(g => U.uvTriangles(g, S).forEach(t => othTris.push(t)));
+  const oth = rast(othTris), dOwn = chebDist(own), dOth = chebDist(oth);
+  let hitOther = 0, gutter = 0, gutterOk = 0, wrongSide = 0;
+  for(let k = 0; k < S * S; k++){
+    const p = cR.data[k * 4 + 3] === 255;
+    if(oth[k] && !own[k] && p) hitOther++;
+    if(!own[k] && !oth[k] && dOwn[k] + 1 < dOth[k]){ gutter++; if(p) gutterOk++; }
+    if(p && !own[k] && dOwn[k] > dOth[k] + 1) wrongSide++;
+  }
+  chk(hitOther === 0, '실제 동물 몸 왼팔 채우기 — 다른 조각(몸통 · 오른팔 · 다리 · 얼굴형 넷) 텍셀 0개 침범');
+  chk(gutter > 1000 && gutterOk === gutter, `실제 동물 몸 왼팔 — 이 조각이 더 가까운 여백 ${gutterOk}/${gutter} 텍셀 전부 칠함(고정 폭이 아니라 가운데 선까지)`);
+  chk(wrongSide === 0, '실제 동물 몸 왼팔 — 다른 조각이 더 가까운 여백은 칠하지 않는다(그 조각의 둘레를 덮지 않음)');
+}
+{
+  /* 사람 얼굴 메쉬 — 얼굴 앞 조각 채우기는 뒤통수 조각 안쪽을 안 덮는다 */
+  const S = 512, cH = pixCtx(S), front = [...hSet].map(id => ({ id, ts:trisOf(hIds, id) })).find(o => o.ts.length === 98), back = [...hSet].map(id => ({ id, ts:trisOf(hIds, id) })).find(o => o.ts.length === 158);
+  T.bucket({ ctx:cH, geometry:hf, size:S, faceIndex:front.ts[0], color:'#ff0000' });
+  const bt = U.islandTriangles(hf, S, back.ts[0], null); let inBack = 0, tot = 0;
+  for(const t of bt){ const cx = Math.floor((t[0] + t[2] + t[4]) / 3), cy = Math.floor((t[1] + t[3] + t[5]) / 3); tot++; if(isPainted(cH, cx, cy)) inBack++; }
+  chk(tot > 100 && inBack === 0, `사람 얼굴 앞 채우기 — 뒤통수 조각 안쪽(삼각형 중심 ${tot}곳) 0곳 칠함`);
 }
 
 say('── 4. 도구 줄 DOM');

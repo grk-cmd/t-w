@@ -45,17 +45,14 @@ const TOOL_CURSOR = {
 
 /* 🪣 페인트통 한 번. 칠할 자리가 있을 때만 되돌리기 한 칸(pushHistory)을 남기고 칠한 뒤 화면을 갱신(blit)한다.
    바꾼 텍셀 수를 돌려준다 — 0 이면 아무것도 안 했다(이력도 안 남긴다). 대칭 두 번째 칸은 pushHistory 없이 부른다. */
-/* 둘레 번짐(uv-fill.js fillRegion) — 같은 그림판을 쓰는 다른 조각(같은 메쉬의 다른 섬 + o.peers 메쉬들) 안쪽은 안 칠한다.
-   o.peers = 같은 캔버스에 UV 를 둔 다른 geometry 목록(동물 몸 ↔ 얼굴 · 꾸미기 파츠의 다른 메쉬). */
+/* 여백까지 채운다(uv-fill.js fillIslandOwned — 조각 사이 빈 텍셀은 가까운 조각 몫) · 다른 조각 안쪽은 안 칠한다.
+   o.peers = 같은 캔버스에 UV 를 둔 다른 geometry 목록(동물 몸 ↔ 얼굴형 넷 · 귀의 다른 메쉬). */
 function applyBucket(o){
   const U = o && o.uvFill;
   if(!U || !o.ctx || !o.geometry) return 0;
-  const tris = U.islandTriangles(o.geometry, o.size, o.faceIndex, o.uv);
-  if(!tris.length) return 0;
-  const others = U.otherIslandTriangles(o.geometry, o.size, o.faceIndex, o.uv);
-  (o.peers || []).forEach(g=>{ if(g && g !== o.geometry) U.uvTriangles(g, o.size).forEach(t=>others.push(t)); });
+  if(!U.islandTriangles(o.geometry, o.size, o.faceIndex, o.uv).length) return 0;   // 못 찾음 · 넓이 0 — 이력도 안 남긴다
   if(typeof o.pushHistory === 'function') o.pushHistory();
-  const n = U.fillRegion(o.ctx, o.size, tris, others, { color:o.color, erase:!!o.erase, bleed:o.bleed });
+  const n = U.fillIslandOwned(o.ctx, o.size, o.geometry, o.faceIndex, o.uv, o.peers, { color:o.color, erase:!!o.erase });
   if(typeof o.blit === 'function') o.blit();
   return n;
 }
