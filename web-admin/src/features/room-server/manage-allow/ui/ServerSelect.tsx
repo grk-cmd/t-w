@@ -17,14 +17,16 @@ interface Props {
   /** 지금 allow/{코드} 값. 없으면 null(Firebase). */
   current: string | null;
   disabled?: boolean;
+  /** 앱 버전 때문에 서버를 못 고른다(appVerBlock). «Firebase(기본)» 로 빼기는 된다. */
+  blocked?: boolean;
   onResult: (text: string, error: boolean) => void;
 }
 
 // 사용자 한 명이 «만드는» 방을 어느 서버에 열지. 들어가기는 주소록(roomDir)을 따른다.
-export function ServerSelect({ userCode, who, servers, current, disabled, onResult }: Props) {
+export function ServerSelect({ userCode, who, servers, current, disabled, blocked, onResult }: Props) {
   const env = useEnv();
   const change = useChangeAllow();
-  const options = serverOptions(servers, current);
+  const options = serverOptions(servers, current, blocked);
 
   const pick = (value: string) => {
     const c = allowChange(current, value);
@@ -47,7 +49,7 @@ export function ServerSelect({ userCode, who, servers, current, disabled, onResu
       onChange={(e) => pick(e.target.value)}
     >
       {options.map((o) => (
-        <option key={o.value} value={o.value}>
+        <option key={o.value} value={o.value} disabled={o.disabled}>
           {o.label}
         </option>
       ))}

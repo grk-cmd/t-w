@@ -6,6 +6,7 @@ import { checkLimits, limitsConfirmText } from '@/features/room-server/edit-limi
 import {
   allowChange,
   allowConfirmText,
+  appVerBlock,
   FIREBASE_OPTION,
   serverOptions,
 } from '@/features/room-server/manage-allow';
@@ -26,6 +27,34 @@ describe('사용자별 서버 드롭다운', () => {
       label: 'rooms-1 (표에 없음 — Firebase)',
     });
     expect(serverOptions(['realtime-1'], 'realtime-1')).toHaveLength(2);
+  });
+
+  it('앱 버전이 낮거나 모르면 서버는 못 고르고 Firebase(기본) · 지금 값만 남는다', () => {
+    expect(serverOptions(['realtime-1', 'lab'], null, true)).toEqual([
+      { value: FIREBASE_OPTION, label: 'Firebase(기본)' },
+      { value: 'lab', label: 'lab', disabled: true },
+      { value: 'realtime-1', label: 'realtime-1', disabled: true },
+    ]);
+    // 이미 지정된 옛 앱 사용자 — 지금 값은 그대로 보이고, Firebase(기본) 로 빼기는 된다
+    const opts = serverOptions(['realtime-1', 'lab'], 'realtime-1', true);
+    expect(opts.find((o) => o.value === 'realtime-1')?.disabled).toBeUndefined();
+    expect(opts.find((o) => o.value === FIREBASE_OPTION)?.disabled).toBeUndefined();
+    expect(opts.find((o) => o.value === 'lab')?.disabled).toBe(true);
+  });
+
+  it('앱 버전 → 막는 이유(0.10.3 이상 · 같은 버전의 베타는 통과)', () => {
+    const ok = (ver: string) => appVerBlock({ ver, hasAccount: true });
+    expect(ok('0.10.3')).toBeNull();
+    expect(ok('0.10.3-beta.2')).toBeNull();
+    expect(ok('0.10.4')).toBeNull();
+    expect(ok('0.11.0')).toBeNull();
+    expect(ok('1.0.0')).toBeNull();
+    expect(ok('0.10.2')).toBe('앱 업데이트 필요 (현재 0.10.2)');
+    expect(ok('0.10.2-beta.9')).toBe('앱 업데이트 필요 (현재 0.10.2-beta.9)');
+    expect(ok('0.9.99')).toBe('앱 업데이트 필요 (현재 0.9.99)');
+    // 계정 요약은 있는데 버전이 없다 = 버전을 안 올리던 옛 앱 · 계정도 없으면 모름
+    expect(appVerBlock({ ver: null, hasAccount: true })).toBe('앱 업데이트 필요 (현재 0.10.2 이하)');
+    expect(appVerBlock({ ver: null, hasAccount: false })).toBe('버전 모름');
   });
 
   it('고른 값 → 할 일: 서버 = 쓰기 · Firebase(기본) = 지우기 · 같으면 없음', () => {
