@@ -4271,7 +4271,7 @@ function _rowPlaceBandHandle(){
     ['roomBandPrev', 'roomBandNext'].forEach(id=>{ const el = document.getElementById(id); if(el && el.style.display !== 'none') el.style.display = 'none'; });
     return;
   }
-  /* 세로 자리 = 띠 안 좌석들이 실제로 화면에서 차지하는 높이의 가운데(머리 꼭대기 ~ 책상 아래 앞 모서리).
+  /* 세로 자리 = 줄 전체(띠 밖 좌석 포함)가 화면에서 차지하는 높이의 가운데(머리 꼭대기 ~ 책상 아래 앞 모서리).
      캐릭터 크기 · 동물(40%) · 층 수 · 화면 크기 · 사람이 바뀌어도 상자(c.boxes)와 카메라를 따라 다시 잡힌다.
      2층이면 두 층을 합친 높이의 가운데 — 손잡이는 두 층을 함께 넓히고 좁히므로. */
   const y = _rowBandYRange();
@@ -4291,7 +4291,7 @@ function _rowPlaceBandHandle(){
     el.classList.toggle('end', atEnd);
   });
 }
-/* 띠 안 좌석의 화면 세로 범위(px) — {top, bottom}. 상자는 배치 때 잰 값, 투영은 지금 카메라. */
+/* 줄 전체 좌석의 화면 세로 범위(px) — {top, bottom}. 상자는 배치 때 잰 값, 투영은 지금 카메라. */
 function _rowBandYRange(){
   const c = _rowCache;
   if(!c || !c.boxes || !c.boxes.length) return null;
@@ -4299,8 +4299,7 @@ function _rowBandYRange(){
   const sy = (y, z)=>{ _rowP.set(0, y, z).project(camera); return (-_rowP.y * 0.5 + 0.5) * innerHeight; };
   for(let i = 0; i < c.seats.length; i++){
     const b = c.boxes[i]; if(!b) continue;
-    // 띠 밖(안 그려지는) 좌석은 빼고 잰다
-    if(_rowBandPx && c.seats[i].group){ c.seats[i].group.getWorldPosition(_rowSeatP); _rowSeatP.project(camera); if(!SeatLayout.inBand((_rowSeatP.x * 0.5 + 0.5) * innerWidth, _rowBandPx)) continue; }
+    // 띠 밖(안 보이는) 좌석까지 줄 전체로 잰다 — 보이는 좌석만 재면 줄을 넘길 때마다 손잡이 · ◀ ▶ 높이가 바뀐다
     const fy = (c.floor && c.lifts) ? (c.lifts[c.floor[i]] || 0) : 0;
     top = Math.min(top, sy(fy + b.top, 0));
     bottom = Math.max(bottom, sy(fy + b.minY, b.maxZ));

@@ -234,7 +234,7 @@ say('── 6. app.js 배선');
   chk(/id="fsRoomFloorsToggle"/.test(SRC['desk-companion-prototype.html']), 'html: 캐릭터 탭 «방 줄 층 수»');
   chk(/'이 화면에서는 ' \+ c\.floorsShown \+ '층까지'/.test(A0) && /id="fsRoomFloorsNote"/.test(SRC['desk-companion-prototype.html']), '층 수를 줄였으면 설정 아래에 «이 화면에서는 N층까지»');
   chk(/Math\.max\(sy\(L \+ minY, maxZ\), sy\(L, 0\) \+ gap\.labelsPx\) <= headBelow - gap\.gapPx/.test(A0) && />= ROOM_FLOOR_TOP_MARGIN_PX;/.test(A0), '층 높이는 화면 px 로 — 위층 책상 앞 아래 모서리 · 위층 이름표가 아래층 머리 위 · 맨 위층 머리는 화면 안');
-  chk(/const y = _rowBandYRange\(\);\n  const cy = y \? \(y\.top \+ y\.bottom\) \/ 2/.test(A0) && /if\(!SeatLayout\.inBand\(\(_rowSeatP\.x \* 0\.5 \+ 0\.5\) \* innerWidth, _rowBandPx\)\) continue;/.test(A0), '손잡이 세로 자리 = 띠 안 좌석이 화면에서 차지하는 높이의 가운데');
+  chk(/const y = _rowBandYRange\(\);\n  const cy = y \? \(y\.top \+ y\.bottom\) \/ 2/.test(A0) && !/function _rowBandYRange\(\)[\s\S]{0,600}SeatLayout\.inBand/.test(A0), '손잡이 · ◀ ▶ 세로 자리 = 줄 전체(띠 밖 포함) 높이의 가운데 — 넘겨도 안 움직임');
   const V = (A0.match(/const DEV_FAKE_VARIANTS = \[([\s\S]*?)\];/) || [])[1] || '';
   chk(/kind: 'human'/.test(V) && /kind: 'animal'/.test(V) && /rideOnPrev: true/.test(V) && (V.match(/\{ kind:/g) || []).length === 9 && /deskLenX: 2\.2/.test(V) && /items: false/.test(V), '가짜 사람 9 가지 — 사람 · 동물 · 몸 크기 · 책상 크기 · 넓은 책상 · 물건 없음 · 올라탄 동물');
   chk(/if\(opts\.same\)\{ def = clone\(me\.charDef\); \}/.test(A0), '__devFakeSeats(n, {same:true}) — 예전처럼 내 캐릭터 복제');
