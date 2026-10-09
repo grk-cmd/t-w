@@ -8,6 +8,7 @@ import {
   improvementResult,
   improvementWindows,
   mbPerConnOf,
+  monthlySaving,
   PRICES,
   saveImprovement,
   toImprovements,
@@ -113,8 +114,8 @@ describe('전 · 후 견주기 — 0.10.2 실측과 비슷한 값', () => {
     expect(r.after.gbPerDay).toBeCloseTo(11);
     expect(r.before.mbPerConn).toBeCloseTo((15.1 * 1024) / 3091);
     expect(r.gbChangePct).toBeCloseTo(-27.15, 1);
-    // (15.1 − 11) × 30일 × $1/GB
-    expect(r.monthlySavingUsd).toBeCloseTo(123);
+    // (15.1/3091 − 11/3100)GB × 후 동시 접속 3100 × 30일 × $1/GB — 동시 접속이 거의 같아 ≈ $124
+    expect(r.monthlySavingUsd).toBeCloseTo(((15.1 * 3100) / 3091 - 11) * 30, 6);
   });
 
   it('후가 7일 안 찼으면 측정 중 — 있는 날(10-08 · 09)만으로', () => {
@@ -129,6 +130,29 @@ describe('전 · 후 견주기 — 0.10.2 실측과 비슷한 값', () => {
     expect(r.after.days).toBe(0);
     expect(r.monthlySavingUsd).toBeNull();
     expect(r.gbChangePct).toBeNull();
+  });
+
+  it('사용자가 늘어 하루 GB 가 늘어도 접속당이 줄었으면 절감 — 운영 9/28~10/4 → 10/8~ 실측', () => {
+    // 전: 9.4GB/일 · 접속당 ≈4.0MB · 최대 동시 접속 2,324 / 후: 10.3GB · ≈3.5MB · 3,039 (사용자 +30%)
+    const b = range('2026-09-28', 7).map((d) => day(d, 9.4, 2324));
+    const a = range('2026-10-08', 7).map((d) => day(d, 10.3, 3039));
+    const r = improvementResult(entry, mapOf([...b, ...a]), '2026-10-20', PRICES.dbDownloadPerGB);
+    expect(r.gbChangePct).toBeGreaterThan(0); // 하루 GB 는 늘었다
+    expect(r.before.mbPerConn).toBeCloseTo(4.14, 2);
+    expect(r.after.mbPerConn).toBeCloseTo(3.47, 2);
+    // (4.142 − 3.471)MB × 3,039 ÷ 1024 ≈ 1.99GB/일 × 30 ≈ $59.8
+    const want = (((9.4 * 1024) / 2324 - (10.3 * 1024) / 3039) * 3039 * 30) / 1024;
+    expect(r.monthlySavingUsd).toBeCloseTo(want, 6);
+    expect(r.monthlySavingUsd).toBeGreaterThan(59);
+    expect(r.monthlySavingUsd).toBeLessThan(61);
+  });
+
+  it('접속당 · 동시 접속 기록이 없으면 null', () => {
+    const none = { days: 0, gbPerDay: null, mbPerConn: null, peakAvg: null };
+    const some = { days: 1, gbPerDay: 1, mbPerConn: 4, peakAvg: 1024 };
+    expect(monthlySaving(none, some, 1)).toBeNull();
+    expect(monthlySaving(some, none, 1)).toBeNull();
+    expect(monthlySaving(some, { ...some, mbPerConn: 3 }, 1)).toBeCloseTo(30);
   });
 
   it('늘었으면 절감이 음수', () => {

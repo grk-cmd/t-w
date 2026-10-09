@@ -163,8 +163,19 @@ export interface ImprovementResult {
   measuring: boolean;
   gbChangePct: number | null;
   perConnChangePct: number | null;
-  /** 한 달 절감 추정(USD) = (전 − 후 GB/일) × 30 × 단가. 음수면 늘어난 것. 계산할 수 없으면 null */
+  /** 한 달 절감 추정(USD) — monthlySaving 참고. 음수면 늘어난 것. 계산할 수 없으면 null */
   monthlySavingUsd: number | null;
+}
+
+/**
+ * 사용자 수 변화를 뺀 한 달 절감 추정(USD)
+ * = (전 − 후 접속당 MB) × 후 구간 최대 동시 접속(평균) → GB/일 × 30 × 단가.
+ * 하루 GB 를 그대로 빼면 그사이 사용자가 늘어난 만큼 «증가» 로 보이기 때문에 접속당으로 견준다.
+ */
+export function monthlySaving(before: WindowStat, after: WindowStat, perGB: number): number | null {
+  if (before.mbPerConn === null || after.mbPerConn === null || after.peakAvg === null) return null;
+  const gbPerDay = ((before.mbPerConn - after.mbPerConn) * after.peakAvg * BYTES_PER_MB) / BYTES_PER_GB;
+  return gbPerDay * MONTH_DAYS * perGB;
 }
 
 export function improvementResult(
@@ -182,10 +193,7 @@ export function improvementResult(
     measuring: after.days < WINDOW_DAYS,
     gbChangePct: changePct(before.gbPerDay, after.gbPerDay),
     perConnChangePct: changePct(before.mbPerConn, after.mbPerConn),
-    monthlySavingUsd:
-      before.gbPerDay === null || after.gbPerDay === null
-        ? null
-        : (before.gbPerDay - after.gbPerDay) * MONTH_DAYS * perGB,
+    monthlySavingUsd: monthlySaving(before, after, perGB),
   };
 }
 
