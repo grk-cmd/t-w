@@ -236,18 +236,19 @@ function ImprovementCard({
           <span className="soft">{r ? '전 · 후 기록 부족 — 절감 추정 보류' : '…'}</span>
         ) : saving >= 0 ? (
           <>
-            한 달 절감 추정 <strong>{formatUsd(saving)}</strong>
+            사용자 수 변화를 뺀 절감 추정(한 달) <strong>{formatUsd(saving)}</strong>
             {r?.measuring && <span className="warn"> · 측정 중 값</span>}
           </>
         ) : (
           <>
-            한 달 증가 추정 <strong className="warn">{formatUsd(-saving)}</strong>
+            사용자 수 변화를 뺀 증가 추정(한 달) <strong className="warn">{formatUsd(-saving)}</strong>
           </>
         )}
       </p>
       <p className={`soft ${styles.foot}`}>
-        추정 = (전 − 후 하루 GB) × {MONTH_DAYS}일 × ${PRICES.dbDownloadPerGB}/GB · 전 = 릴리스 날 앞{' '}
-        {WINDOW_DAYS}일 · 후 = 릴리스 + 적용 기간부터 {WINDOW_DAYS}일 · 오늘 · 기록 없는 날 제외
+        추정 = 접속당 감소(전 − 후 MB) × 후 구간 최대 동시 접속(평균) × {MONTH_DAYS}일 × $
+        {PRICES.dbDownloadPerGB}/GB — 그사이 사용자가 늘거나 준 몫은 뺀다 · 전 = 릴리스 날 앞 {WINDOW_DAYS}일
+        · 후 = 릴리스 + 적용 기간부터 {WINDOW_DAYS}일 · 오늘 · 기록 없는 날 제외
         <br />
         접속당 = 하루 다운로드 ÷ 그날 최대 동시 접속 — 최대 동시 접속은 순간 최대값(실제 접속자 수 아님)
       </p>

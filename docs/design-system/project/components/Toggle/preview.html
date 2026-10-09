@@ -1,0 +1,12 @@
+<!-- @dsCard group="동작" height=110 -->
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"></head>
+<body>
+<div class="tw-stage" style="flex-direction:column;gap:8px">
+ <label class="tw-toggle"><input type="checkbox" checked><span class="st">켬</span> 집중 시간 알림</label>
+ <label class="tw-toggle"><input type="checkbox"><span class="st">끔</span> 도트 렌더</label>
+</div>
+<script>document.querySelectorAll('.tw-toggle input').forEach(function(i){i.addEventListener('change',function(){i.nextElementSibling.textContent=i.checked?'켬':'끔';});});</script>
+</body>
+</html>

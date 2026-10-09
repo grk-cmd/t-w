@@ -49,6 +49,7 @@ export {
   mbPerConnOf,
   METRICS_IMPROVEMENTS,
   MONTH_DAYS,
+  monthlySaving,
   TITLE_MAX,
   toImprovement,
   toImprovements,
