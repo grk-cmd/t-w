@@ -1265,6 +1265,17 @@
   #cpReset:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);transform:none;}
 
+  #cpFlat{position:absolute;right:8px;bottom:8px;z-index:4;width:28px;height:28px;font-size:14px;line-height:1;cursor:pointer;padding:0;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);
+    align-items:center;justify-content:center;border-radius:var(--win-radius-el) !important;}
+  #cpFlat.on{background:var(--win-face-2);border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
+  /* ▲(위로 올리기) 바로 아래 — 위 화살표와 프리셋 버튼을 가리지 않는 자리 */
+  #cpFlatBadge{position:absolute;top:38px;left:50%;transform:translateX(-50%);z-index:4;white-space:nowrap;pointer-events:none;
+    font-size:10.5px;font-weight:bold;padding:2px 7px;color:var(--ink);background:var(--win-face);
+    border:1px solid var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
+
   /* 도장 떠 있는 미리보기 (Z=확정 박기, ESC=취소) */
   #stampOverlay{position:absolute;z-index:5;pointer-events:none;transform-origin:50% 50%;}
   #stampOverlayImg{display:block;width:100%;height:100%;opacity:.78;outline:1.5px dashed #c9a36a;outline-offset:-1px;pointer-events:auto;cursor:move;user-select:none;-webkit-user-drag:none;}
@@ -6951,6 +6962,9 @@
         <button class="cp-arrow u" id="cpUp" title="위로 올리기">&#9650;</button>
         <button class="cp-arrow d" id="cpDown" title="아래로 내리기">&#9660;</button>
         <button id="cpReset" title="카메라 각도 초기화">↺</button>
+        <!-- 💡 원색 보기 — 표정 · 감은눈 단계에서만 보인다(gotoStep). 켜져 있는 동안은 위에 글로 알린다. -->
+        <button id="cpFlat" type="button" aria-pressed="false" aria-label="조명 끄고 원색 보기" title="조명 끄고 원색 보기 (L)" style="display:none;">💡</button>
+        <div id="cpFlatBadge" style="display:none;">원색 보기 — 칠한 색 그대로</div>
       </div>
       <div class="creator-right">
         <div class="cr-steps" id="crStages" style="font-weight:700;">
@@ -6991,7 +7005,7 @@
             <span id="stampHint" style="color:var(--ink-soft);">이미지 위치를 잡아 Enter 또는 ✓ 찍기 · Z=모드 켜기/끄기</span>
           </div>
           <div id="penHint" style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;margin:4px 2px -2px;opacity:.85;">
-            ✏ 우클릭으로 색 추출 · <b>Delete</b>로 전체 지우기 · <b>C</b> 지우개 · <b>X</b> 대칭 · <b>Z</b> 도장모드 · <b>Enter</b> 찍기 · <b>Ctrl+Shift+Z</b> 다시
+            ✏ 우클릭으로 색 추출 · <b>Delete</b>로 전체 지우기 · <b>C</b> 지우개 · <b>X</b> 대칭 · <b>Z</b> 도장모드 · <b>L</b> 원색 보기 · <b>Enter</b> 찍기 · <b>Ctrl+Shift+Z</b> 다시
           </div>
         </div>
         <div class="cr-colors" id="crColors" style="display:none;"><label>상의 <input id="topColor" type="color" value="#9dba8a"></label>
@@ -7946,6 +7960,7 @@
 <script src="parts/uv-fill.js"></script>   <!-- 🪣 꾸미기 그리기 «채우기» — 누른 메쉬의 UV 자리만 칠한다 -->
 <script src="parts/name-guard.js"></script>   <!-- 🏷️ 운영진처럼 보이는 이름 막기(isStaffName) — app.js 보다 먼저 -->
 <script src="parts/seat-slot.js"></script>   <!-- 🪑 평준화 중 «책상 위» 파츠를 자기 좌석 자리 안으로 -->
+<script src="parts/creator-flat-view.js"></script>   <!-- 💡 표정 그리기 «원색 보기» -->
 <script src="parts/frame-budget.js"></script>   <!-- 🔋 실행 화면 프레임 상한(60 · 손 안 대면 30 · 다른 창 20) · 해상도 배율 — app.js 보다 먼저 -->
 <script src="parts/app.js"></script>
 <script src="parts/myhome-desktop.js"></script>
