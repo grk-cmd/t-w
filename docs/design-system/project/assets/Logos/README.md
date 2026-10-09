@@ -1,0 +1,1 @@
+앱 마크 — 도트 아이콘 `tw-mini.png`(28×26, PNG). 타이틀바 왼쪽에 16×15 로 줄여 `image-rendering:pixelated` 로 쓴다. 다시 그리거나 벡터로 바꾸거나 부드럽게 만들지 않는다. 앱 원본 경로: `app/assets/icon/tw-mini.png`. 큰 아이콘(`tw-icon.ico`, `icon.ico`)은 설치 파일용이라 여기 두지 않았다.

@@ -1,10 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import {
+  CHANNEL_LABEL,
+  CHANNELS,
   DEFAULT_SERVER_NAMES,
   isAppServerUrl,
   serverInUse,
   serverProblem,
+  uptimeLabel,
   useRoomServerConfig,
+  useServerHealth,
 } from '@/entities/room-server';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
@@ -12,6 +16,20 @@ import { useRemoveServer, useSaveServer } from '../model/useEditServers';
 import styles from './ServersCard.module.css';
 
 type Message = { text: string; error: boolean } | null;
+
+// 서버가 지금 돌리는 코드 · 켜진 시간 · 쓰는 상한 — 방 서버 /health(공개, 방 개수 상한 카드와 같은 캐시).
+function ServerLive({ url }: { url: string }) {
+  const h = useServerHealth(url);
+  if (h.isPending) return <small className="soft">…</small>;
+  if (h.error || !h.data) return <small className="warn">응답 없음</small>;
+  const { version, uptimeS, limits } = h.data;
+  const parts = [
+    version ?? '버전 모름',
+    uptimeS !== null ? uptimeLabel(uptimeS) : null,
+    limits ? `상한 ${CHANNELS.map((c) => `${CHANNEL_LABEL[c]} ${limits[c] ?? '?'}`).join(' · ')}` : null,
+  ].filter(Boolean);
+  return <small className="soft">{parts.join(' · ')}</small>;
+}
 
 // 서버 이름 → 주소. 이름은 방 서버가 roomDir 에 적는 이름과 같아야 한다.
 export function ServersCard() {
@@ -75,7 +93,11 @@ export function ServersCard() {
             servers.map(([n, u]) => (
               <div key={n} className="row">
                 <code className="key">{n}</code>
-                <span className="grow">{u}</span>
+                <span className="grow">
+                  {u}
+                  <br />
+                  <ServerLive url={u} />
+                </span>
                 {!isAppServerUrl(u) && <span className="warn">앱이 안 씀</span>}
                 <button
                   type="button"

@@ -15,6 +15,8 @@ export const BUG_PAGE = 20; // 규칙 list .read limitToLast ≤ 20
 export const BUG_ANS_MAX = 1000;
 export const BUG_KAKAO_MAX = 300;
 export const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
+// 규칙 bugBoard/list/$id/no 와 같은 모양
+export const BUG_NO_RE = /^B-\d{4}-\d{1,4}$/;
 
 export type BugVis = 'pub' | 'prv';
 export type BugStatus = 'new' | 'checking' | 'fixed' | 'norepro';
@@ -63,6 +65,10 @@ export interface BugItem {
   likeN?: number;
   /** 공개 글만 — 비공개 글 제목은 prv 에서 따로 읽는다. */
   title?: string;
+  /** 고정 번호 «B-MMDD-n» — 서버 함수(functions/bug-no.js)가 붙인다. 옛 글 · 함수가 아직 안 돈 글은 없다. */
+  no?: string;
+  /** 관리자가 쓴 글 — 규칙상 관리자만 넣을 수 있는 칸(🛡 배지). */
+  byAdmin?: boolean;
 }
 
 export interface BugContent {
@@ -107,7 +113,26 @@ export function toBugItem(id: string, v: unknown): BugItem | null {
     ansN: num(r.ansN),
     likeN: num(r.likeN),
     title: str(r.title),
+    no: typeof r.no === 'string' && BUG_NO_RE.test(r.no) ? r.no : undefined,
+    byAdmin: r.byAdmin === true,
   };
+}
+
+/** 🛡 운영진 글 — byAdmin 또는 공지(공지는 관리자만 쓴다). 이름으로 가르지 않는다. */
+export const isStaffPost = (item: Pick<BugItem, 'byAdmin' | 'notice'>) => !!item.byAdmin || !!item.notice;
+
+// 하루 제보 상한 — 앱이 config/bugDailyMax 를 읽는다(없으면 기본값). 규칙 .validate 와 같은 범위.
+export const BUG_DAILY_MAX_PATH = 'config/bugDailyMax';
+export const BUG_DAILY_MAX_DEFAULT = 5;
+export const BUG_DAILY_MAX_MIN = 1;
+export const BUG_DAILY_MAX_MAX = 100;
+
+/** 입력 → 상한. 정수가 아니거나 범위를 벗어나면 null. */
+export function parseBugDailyMax(input: string): number | null {
+  const text = input.trim();
+  if (!/^\d+$/.test(text)) return null;
+  const n = Number(text);
+  return n >= BUG_DAILY_MAX_MIN && n <= BUG_DAILY_MAX_MAX ? n : null;
 }
 
 export interface BugCursor {
@@ -153,10 +178,41 @@ export function dayOrder(all: Record<string, unknown>): Map<string, number> {
 /** 하루를 가르는 날짜(서울 기준) — «YYYY-MM-DD». */
 export const bugDay = (ts: number) => kstDateKey(ts);
 
-/** 짧은 번호 «B-MMDD-n». 저장하지 않고 화면에서만 셈한다. 순번을 아직 모르면 «B-MMDD-?». */
+/** 임시 번호 «B-MMDD-n» — 고정 번호(no)가 없는 글에만 화면에서 센다(앞 글이 지워지면 바뀐다). 순번을 모르면 «B-MMDD-?». */
 export function shortNo(ts: number, n: number | undefined): string {
   const [, mm, dd] = bugDay(ts).split('-');
   return `B-${mm}${dd}-${n ?? '?'}`;
+}
+
+export interface BugNo {
+  no: string;
+  /** 고정 번호가 아니라 화면에서 센 번호 — «(임시)» 를 붙여 보인다. */
+  temp: boolean;
+}
+
+/** 고정 번호가 있으면 그것, 없으면 임시 번호. */
+export function bugNo(item: Pick<BugItem, 'ts' | 'no'>, n: number | undefined): BugNo {
+  return item.no ? { no: item.no, temp: false } : { no: shortNo(item.ts, n), temp: true };
+}
+
+/** 작업 기록 · 확인 문구에 쓰는 이름 — 임시 번호면 그렇다고 적는다. */
+export const bugNoLabel = (b: BugNo) => (b.temp ? `${b.no}(임시)` : b.no);
+
+/**
+ * 글 지우기 — 목록 줄 · 내용 · 답변 · 공감을 한 묶음으로 null.
+ * 그날 카운터(bugBoard/seq)는 건드리지 않는다 — 번호는 늘기만 해서 지운 글의 번호가 다시 쓰이지 않는다.
+ * 글쓴이 우편함에 이미 간 답변 알림은 그대로 둔다(누르면 «글을 찾지 못했어요»).
+ */
+export function deleteWrite(item: Pick<BugItem, 'id' | 'vis' | 'authUid'>): Record<string, null> {
+  const content =
+    item.vis === 'pub' ? `${BUG_ROOT}/pub/${item.id}` : `${BUG_ROOT}/prv/${item.authUid}/${item.id}`;
+  return {
+    [`${BUG_LIST}/${item.id}`]: null,
+    [content]: null,
+    [`${BUG_ROOT}/ans/pub/${item.id}`]: null,
+    [`${BUG_ROOT}/ans/prv/${item.id}`]: null,
+    [`${BUG_ROOT}/likes/${item.id}`]: null,
+  };
 }
 
 /** 상태만 바꾸는 쓰기 — openTs 는 미해결일 때만 ts(공지는 늘 없음). 앱 addAnswer 와 같은 규칙. */

@@ -37,6 +37,7 @@ console.log('\n── 1. 관리자만 쓸 수 있어야 하는 곳');
   ['bugBoard/ans/prv/$id',       '버그제보 비공개 답변'],
   ['config/minRoomVer',          '최소 버전(전원 접속 차단 가능)'],
   ['config/minAppVer',           '앱 최소 버전(옛 앱 전체 차단)'],
+  ['config/bugDailyMax',         '버그 제보 하루 상한'],
   ['inboxBroadcast',             '전체 우편함 발송'],
   ['inboxBroadcastMeta',         '공용 공지 버전(앱 캐시 무효화)'],
 ].forEach(([p, name])=> chk(isAdmin(w(p)), name + '  (' + p + ')'));
@@ -89,8 +90,19 @@ console.log('\n── 3. 새는 곳이 없는가');
       chk(whole === 2 && inAdmin === 2, '  ↳ 모음을 읽는 곳은 관리자 통로 둘(listLicenses · getAdminStats)뿐이다 (' + whole + '곳)');
     }
   }
-  chk(isAdmin(r('metrics')) && /auth != null/.test(r('metrics')) && !JSON.stringify(at('metrics') || {}).includes('.write'),
-      '접속 지표(metrics — DAU · 방문 수) 읽기는 관리자만 · 쓰기 규칙 없음(함수가 Admin SDK 로만)');
+  chk(isAdmin(r('metrics')) && /auth != null/.test(r('metrics')) && !JSON.stringify(Object.assign({}, at('metrics') || {}, { improvements: undefined })).includes('.write'),
+      '접속 지표(metrics — DAU · 방문 수) 읽기는 관리자만 · 쓰기 규칙 없음(함수가 Admin SDK 로만) — 개선 기록(improvements)만 빼고');
+  {
+    const im = at('metrics/improvements/$id') || {};
+    const v = (k) => String((im[k] || {})['.validate'] || '');
+    const item = String(((im.items || {}).$i || {})['.validate'] || '');
+    chk(isAdmin(im['.write']) && Object.keys(at('metrics/improvements') || {}).every(k => k === '$id'),
+        '개선 기록(metrics/improvements/$id) 쓰기는 관리자만 · 위 칸에 쓰기 규칙 없음');
+    chk(/hasChildren\(\['version','releasedAt','title','items'\]\)/.test(String(im['.validate'])) && /<= 20/.test(v('version')) && /<= 80/.test(v('title'))
+        && item.includes('$i.matches(/^1?[0-9]$/)') && /<= 120/.test(item)
+        && /<= 30/.test(v('adoptDays')) && /isNumber/.test(v('releasedAt')) && (im.$other || {})['.validate'] === false,
+        '  ↳ 모양: 버전 ≤20 · 제목 ≤80 · 항목 0~19번(20개) 각 ≤120 · 적용 일수 0~30 · 모르는 칸 거절');
+  }
   chk(r('admins') === false, '관리자 명단은 앱에서 읽을 수 없다');
   chk(!!at('admins/$uid') && at('admins/$uid')['.write'] === false, '관리자 명단은 앱에서 쓸 수 없다 (콘솔에서만)');
   chk(r('srKey') === false && w('srKey') === false, '시크릿룸 발급 키는 그대로 잠겨 있다');

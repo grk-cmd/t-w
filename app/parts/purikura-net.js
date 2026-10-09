@@ -405,11 +405,17 @@ function drawBg(g, w, h, id){
    ⚠️ 필터는 컷 «안»에 걸린다 — 뒷배경과 같은 층이고, 여백(기본 프레임)과 올린 프레임에는 안 걸린다.
      그 둘은 캡처 대상 밖이라 애초에 이 함수를 안 지난다.
    ⚠️ 세기(강도)는 안 연다. 슬라이더를 열면 방 전체가 맞춰야 할 값이 하나 더 늘고,
-     끌 때마다 쓰기가 나가서 «시선처럼 얹기»를 따로 설계해야 한다. 여섯을 각각 한 자리로 고정한다. */
+     끌 때마다 쓰기가 나가서 «시선처럼 얹기»를 따로 설계해야 한다. 일곱을 각각 한 자리로 고정한다. */
 var PS1_BLOCK  = 3;      // 도트 한 칸(무대 기준 px). 캡처에서는 k 를 곱해 커진다
 var PS1_LEVELS = 16;     // 채널당 색 단계 — app.js 의 _PS1_LEVELS(도트 모드)와 같은 값이다
 var SOFT_BLUR  = 5.5;    // 뽀샤시 번짐 반경(무대 기준 px)
 var SOFT_MIX   = 0.62;   // 번진 판을 얹는 세기
+/* 🐟 어안 — 꽉 찬 볼록렌즈(원형 · 검은 테두리 없음). 결과 반지름 r(귀퉁이 = 1)에서 원본 반지름을
+     r·((1-S) + S·r²) 로 읽는다. 가운데 배율은 1/(1-S), 귀퉁이는 귀퉁이 그대로라 네 구석까지 찬다.
+   ★ 비율로만 계산해서 k 가 없다 — 무대(306×420)와 사진(540×740)이 저절로 같은 모양이다.
+   ⚠️ 한 점만 집으면(최근접) 가운데를 키울 때 얼굴 테두리가 계단처럼 깨진다 → 이웃 넷을 섞는다. */
+var FISH_S   = 0.72;     // 렌즈 세기 — 가운데 약 3.6배
+var FISH_VIG = 0.18;     // 가장자리 어둡게 — 귀퉁이가 82% 밝기
 /* ══ 색감 필터 표 ══════════════════════════════════════════════════════
    ★ 여기 있는 것들은 **색만 만진다.** 그래서 배율 k 가 아예 안 들어가고, 무대와 사진이
      저절로 같아진다 — 이 화면에서 제일 안전한 종류다(뽀샤시·PS1 은 크기가 있어서 k 를 탄다).
@@ -426,11 +432,12 @@ var GRADES = {
           wash:[ ['screen','rgb(48,48,48)',1] ] }
 };
 /* 목록 순서가 곧 줄에 놓이는 순서다. 첫 칸은 반드시 'none' — 끄는 길이 맨 앞에 있어야 한다.
-   뒤 셋(흑백·새벽·빈티지)이 «색감» 묶음이라 같은 성격끼리 붙여 둔다. */
+   모양을 바꾸는 것(뽀샤시·PS1·어안)이 앞, 뒤 셋(흑백·새벽·빈티지)이 «색감» 묶음이다. */
 var FILTERS = [
   { id:'none', name:'없음',   sub:'기본'     },
   { id:'soft', name:'뽀샤시', sub:'부드럽게' },
   { id:'ps1',  name:'PS1',    sub:'도트'     },
+  { id:'fish', name:'어안',   sub:'볼록렌즈' },
   { id:'mono', name:'흑백',   sub:'모노'     },
   { id:'dawn', name:'새벽',   sub:'푸른빛'   },
   { id:'vint', name:'빈티지', sub:'색바램'   }
@@ -442,8 +449,58 @@ function filterAllowed(id){ for(var i=0;i<FILTERS.length;i++) if(FILTERS[i].id =
    ⚠️ 그냥 무시하면 내 화면에는 «내가 마지막에 보던 필터»가 그대로 남는다 — 그러면 같은 촬영인데
      사람마다 다른 사진이 나온다. 모르는 값은 한 곳(없음)으로 모으는 것이 맞다. */
 function filterIn(id){ return filterAllowed(id) ? id : 'none'; }
+/* 🆙 업데이트 안 한 참가자. 그 사람 앱은 새 필터를 모르므로 filterIn 이 «없음»으로 접어 필터 없이 찍힌다.
+   막지는 않고 방장에게 이름만 알린다. 자리(slots/$i)에 내 앱이 아는 필터 판(fx)을 적어 두고 비교한다 —
+   fx 가 없으면 이 판보다 옛 앱이다(0). 새 필터를 더하면 FILTER_REV 를 올리고 FILTER_NEED 에 한 줄. */
+var FILTER_REV  = 1;
+var FILTER_NEED = { fish: 1 };
+function filterLaggards(slots, id, meId){
+  var need = FILTER_NEED[id] || 0, out = [];
+  if(!need || !slots) return out;
+  for(var k in slots){
+    var v = slots[k];
+    if(!v || typeof v !== 'object' || (meId && v.uid === meId)) continue;
+    if(!((+v.fx || 0) >= need)) out.push(String(v.name || '참가자'));
+  }
+  return out;
+}
 /* ★ 캡처가 무대보다 몇 배 큰가. 이 한 줄이 「화면과 사진이 같아 보이는」 이유 전부다. */
 function filterScale(orient, n){ return frameSpec(orient, n)[0] / stageSize(orient, n).w; }
+
+/* 🐟 어안 좌표표 — (w,h)별로 한 번만 만든다(무대 · 사진 · 축소판 세 벌). 매 프레임은 이 표만 따라간다.
+   칸마다 왼쪽 위 이웃의 위치(i0)와 섞는 비율(ax · ay), 어둡게 하는 값(vg)을 들고 있다. */
+var _fishMaps = {}, _fishCount = 0;
+function fishMap(w, h){
+  var key = w + 'x' + h, m = _fishMaps[key];
+  if(m) return m;
+  if(++_fishCount > 8){ _fishMaps = {}; _fishCount = 1; }   // 창 크기가 이상하게 바뀌어도 쌓이지 않게
+  var n = w*h, i0 = new Int32Array(n), ax = new Float32Array(n), ay = new Float32Array(n), vg = new Float32Array(n);
+  var cx = w/2, cy = h/2, D2 = cx*cx + cy*cy, xm = Math.max(0, w - 2), ym = Math.max(0, h - 2);
+  for(var y=0, j=0; y<h; y++) for(var x=0; x<w; x++, j++){
+    var px = x + 0.5 - cx, py = y + 0.5 - cy, r2 = (px*px + py*py) / D2;
+    var sc = (1 - FISH_S) + FISH_S*r2;
+    var sx = Math.min(w - 1, Math.max(0, cx + px*sc - 0.5)), sy = Math.min(h - 1, Math.max(0, cy + py*sc - 0.5));
+    var x0 = Math.min(xm, Math.floor(sx)), y0 = Math.min(ym, Math.floor(sy));
+    i0[j] = y0*w + x0; ax[j] = sx - x0; ay[j] = sy - y0;
+    vg[j] = 1 - FISH_VIG*r2;
+  }
+  m = _fishMaps[key] = { w:w, h:h, i0:i0, ax:ax, ay:ay, vg:vg, out:null };
+  return m;
+}
+/* 좌표표를 따라 sp(원본 RGBA) → dp(결과 RGBA). 캔버스 없이 도는 순수 계산이라 검사에서 그대로 굴린다. */
+function fishRemap(sp, dp, w, h){
+  var m = fishMap(w, h), dx = w > 1 ? 4 : 0, dy = h > 1 ? w*4 : 0;
+  var I0 = m.i0, AX = m.ax, AY = m.ay, VG = m.vg;
+  for(var j=0, n=w*h, o=0; j<n; j++, o+=4){       // 매 프레임 도는 자리라 채널 넷을 풀어 쓴다
+    var a = I0[j]*4, b = a + dx, c = a + dy, d = c + dx, fx = AX[j], fy = AY[j], v = VG[j];
+    var w11 = fx*fy, w10 = fx - w11, w01 = fy - w11, w00 = 1 - fx - fy + w11;
+    var w0 = w00*v, w1 = w10*v, w2 = w01*v, w3 = w11*v;
+    dp[o]   = sp[a]*w0   + sp[b]*w1   + sp[c]*w2   + sp[d]*w3;
+    dp[o+1] = sp[a+1]*w0 + sp[b+1]*w1 + sp[c+1]*w2 + sp[d+1]*w3;
+    dp[o+2] = sp[a+2]*w0 + sp[b+2]*w1 + sp[c+2]*w2 + sp[d+2]*w3;
+    dp[o+3] = sp[a+3]*w00 + sp[b+3]*w10 + sp[c+3]*w01 + sp[d+3]*w11;
+  }
+}
 
 /* 필터 한 겹. g 에는 이미 그림이 들어 있고, src 는 그 그림을 담은 캔버스다(g.canvas 와 같아도 된다).
    ⚠️ 색감 필터(GRADES)에는 k 가 안 들어간다 — 색만 만지므로 해상도와 무관하다. 그게 정상이다. */
@@ -490,6 +547,21 @@ function applyFilter(g, src, w, h, id, k, mk){
     g.imageSmoothingEnabled = false;               // 도트가 뭉개지면 도트가 아니다
     g.globalCompositeOperation = 'copy';
     g.drawImage(c, 0, 0, sw, sh, 0, 0, w, h);
+    g.restore();
+    return true;
+  }
+  if(f.id === 'fish'){
+    /* ⚠️ 이 캔버스도 매 프레임 getImageData 를 당한다(PS1 과 같은 관례). 태그로 딴 캔버스를 받는다 —
+       src 가 같은 크기의 돌려 쓰는 캔버스일 수 있어서, 태그가 없으면 자기 자신을 돌려받는다. */
+    var fc = mk(w, h, 'fish'), fg = fc.getContext('2d', { willReadFrequently: true }) || fc.getContext('2d');
+    fg.save(); fg.globalCompositeOperation = 'copy'; fg.drawImage(src, 0, 0, w, h); fg.restore();
+    var fm = fishMap(w, h), sd = fg.getImageData(0, 0, w, h);
+    var od = fm.out || (fm.out = fg.createImageData(w, h));   // 결과 판도 크기별로 한 장 — 매 프레임 새로 만들지 않는다
+    fishRemap(sd.data, od.data, w, h);
+    fg.putImageData(od, 0, 0);
+    g.save();
+    g.globalCompositeOperation = 'copy';
+    g.drawImage(fc, 0, 0, w, h);
     g.restore();
     return true;
   }
@@ -874,7 +946,13 @@ function makeSession(api, opts){
   function open(roomCode, me){
     room = roomCode; myId = me.userId; myName = me.name || '';
     var t = now();
-    return api.pkTransaction(P('slots'), function(cur){
+    /* ⚠️ fx 칸을 모르는 옛 규칙은 자리 쓰기를 통째로 거부한다(slots/$i 의 $other). 그러면 버튼을 눌러도
+       아무 일이 없다 — 그래서 거부되면 fx 없이 한 번 더 잡는다. 사진은 찍히고 방장 안내만 «업데이트 필요» 로 틀린다. */
+    return claim(true).catch(function(e){
+      console.warn('[스티커사진] 자리 쓰기 거부 — fx 없이 다시 잡아요(서버 규칙이 옛 판)', e);
+      return claim(false);
+    }).then(function(r){ return afterClaim(r); });
+    function claim(withFx){ return api.pkTransaction(P('slots'), function(cur){
       cur = cur || {};
       /* 죽은 세션 걷어내기 — 브라우저가 꺼지면 onDisconnect 가 지우지만,
          그것마저 못 돌았을 때를 위해 오래된 자리는 여기서 무효로 본다. */
@@ -884,12 +962,21 @@ function makeSession(api, opts){
         if(v && typeof v.at === 'number' && (t - v.at) < SLOT_TTL_MS) live[k] = v;
       }
       /* 이미 들어와 있으면 그 자리를 그대로 쓴다(새로고침·재접속) */
-      for(var k2 in live) if(live[k2] && live[k2].uid === myId){ live[k2].at = t; return live; }
+      for(var k2 in live) if(live[k2] && live[k2].uid === myId){
+        live[k2].at = t;
+        if(withFx) live[k2].fx = FILTER_REV; else delete live[k2].fx;
+        return live;
+      }
       for(var i = 0; i < MAX_SLOTS; i++){
-        if(!live[i]){ live[i] = { uid: myId, name: myName, at: t }; return live; }
+        if(!live[i]){
+          live[i] = { uid: myId, name: myName, at: t };
+          if(withFx) live[i].fx = FILTER_REV;
+          return live;
+        }
       }
       return undefined;                       // 만석 — 트랜잭션 취소
-    }).then(function(r){
+    }); }
+    function afterClaim(r){
       if(!r || !r.committed) return { ok: false, reason: 'full' };
       var v = r.value || {};
       /* 트랜잭션 결과가 곧 지금의 자리 배치다 — 구독이 도착하기 전에도 방장 판정이 서야 한다.
@@ -904,7 +991,7 @@ function makeSession(api, opts){
       return Promise.all([p1, p2]).then(function(){
         return { ok: true, slot: slot, host: isHost() };
       });
-    });
+    }
   }
 
   /* 촬영 창이 열려 있는 동안만 남은 횟수를 지켜본다.
@@ -1223,6 +1310,7 @@ return {
   /* 필터 — 무대와 캡처가 «같은 함수를 배율만 바꿔» 부르게 하는 유일한 출처 */
   filterList: filterList, filterOf: filterOf, filterAllowed: filterAllowed,
   filterScale: filterScale, applyFilter: applyFilter, drawFilterSample: drawFilterSample,
+  filterLaggards: filterLaggards, FILTER_REV: FILTER_REV, FISH_S: FISH_S, fishMap: fishMap, fishRemap: fishRemap,
   PS1_BLOCK: PS1_BLOCK, PS1_LEVELS: PS1_LEVELS, SOFT_BLUR: SOFT_BLUR,
   GRADES: GRADES, filterIn: filterIn,
   strokeGroups: strokeGroups, needsScratch: needsScratch, outlineInk: outlineInk,

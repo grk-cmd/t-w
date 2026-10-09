@@ -2,11 +2,13 @@ import { useState } from 'react';
 import {
   BUG_CATS,
   BUG_FILTERS,
+  BugNoText,
+  isStaffPost,
   StatusChip,
+  useBugNo,
   useBugPage,
   usePrvTitle,
   useRefreshBugBoard,
-  useShortNo,
   type BugCursor,
   type BugFilter,
   type BugItem,
@@ -23,12 +25,12 @@ function Title({ item }: { item: BugItem }) {
 }
 
 function Row({ item, onOpen }: { item: BugItem; onOpen: (id: string) => void }) {
-  const no = useShortNo(item);
+  const no = useBugNo(item);
   return (
     <tr>
       <td>
         <button type="button" className={styles.link} onClick={() => onOpen(item.id)}>
-          <code className="key">{no}</code>
+          <BugNoText value={no} />
         </button>
       </td>
       <td>
@@ -42,7 +44,9 @@ function Row({ item, onOpen }: { item: BugItem; onOpen: (id: string) => void }) 
         </button>
       </td>
       <td>
-        {item.name || <span className="soft">이름 없음</span>} <small className="soft key">{item.code}</small>
+        {item.name || <span className="soft">이름 없음</span>}
+        {isStaffPost(item) && <span title="운영진 글"> 🛡</span>}{' '}
+        <small className="soft key">{item.code}</small>
       </td>
       <td>{formatDate(item.ts)}</td>
       <td className={styles.num}>{item.ansN ?? 0}</td>

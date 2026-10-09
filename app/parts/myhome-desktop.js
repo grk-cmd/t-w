@@ -103,6 +103,7 @@ function advLoad(){
         bg:d.bg||null,
         bgTs:(typeof d.bgTs==='number')?d.bgTs:0,   // 🩹 #4b·#13 — 이 기기에서 배경을 고른 시각(서버 ts 와 견준다 · 0 = 옛 판본)
         hideFolders:!!d.hideFolders,   // 📂 폴더 숨기기(외부 앱 폴더) — 배경과 같이 서버에 올라간다
+        folderPos:(typeof FolderFree!=='undefined') ? FolderFree.cleanPos(d.folderPos) : {},   // 📂 폴더 자유배치 {id:{x,y}}(비율) — 배경과 같이 서버에 올라간다
         map:(d.map&&typeof d.map==='object')?d.map:null,   // 🗺️ {seed,pos:{x,y},stepped:['x,y'],found:[bldgIdx]}
         deeds:Array.isArray(d.deeds)?d.deeds:[],          // 선택 기록(과거 흔적·목격) — 재접속 복원
         runStart:(typeof d.runStart==='number')?d.runStart:null,   // 생존 타이머 시작 — 재접속 복원
@@ -145,6 +146,8 @@ function advSaveBgRemote(){
     /* 📂 폴더 숨기기도 같은 기록에 싣는다 — 방문자 화면이 이 값 하나로 가린다(advApplyFolderHide).
        ★ 규칙 변경 없음 — advBg 의 .validate 는 img·color 만 본다. 꺼져 있으면 칸을 아예 안 싣는다. */
     if(ADV.hideFolders) rec.hideFolders = true;
+    /* 📂 폴더 자유배치도 같은 기록에 — 방문자 화면 · 다른 기기가 같은 배치로 놓는다(규칙 변경 없음, 위와 같은 이유). */
+    if(ADV.folderPos && Object.keys(ADV.folderPos).length) rec.folderPos = ADV.folderPos;
     Promise.resolve(firebaseAPI.saveAdvBg(uid, rec)).then(r=>{
       if(r && r.ok) console.log('[바탕화면] 서버 저장 완료', ADV.bg||'(없음)');
       else console.warn('[바탕화면] 서버 저장 실패 — Firebase 규칙(users/{uid}/advBg)이 콘솔에 게시됐는지 확인하세요.');
@@ -175,9 +178,11 @@ async function advPullBg(uid){
   if(srv && (srvTs > locTs || (srvTs === 0 && locTs === 0))){
     const next = (srv.img) ? { img: srv.img } : (srv.color ? { color: srv.color } : null);
     const nextHide = !!srv.hideFolders;
-    if(JSON.stringify(next) !== JSON.stringify(ADV.bg || null) || ADV.bgTs !== srvTs || nextHide !== !!ADV.hideFolders){
+    const nextPos = (typeof FolderFree!=='undefined') ? FolderFree.cleanPos(srv.folderPos) : (ADV.folderPos || {});
+    if(JSON.stringify(next) !== JSON.stringify(ADV.bg || null) || ADV.bgTs !== srvTs || nextHide !== !!ADV.hideFolders
+       || JSON.stringify(nextPos) !== JSON.stringify(ADV.folderPos || {})){
       console.log('[바탕화면] 다른 기기에서 고른 배경으로 맞춤', next || '(없음)', nextHide ? '· 폴더 숨김' : '');
-      ADV.bg = next; ADV.bgTs = srvTs; ADV.hideFolders = nextHide; advSave();
+      ADV.bg = next; ADV.bgTs = srvTs; ADV.hideFolders = nextHide; ADV.folderPos = nextPos; advSave();
       if(!advVisiting) advApplyBg();
     }
     return;
@@ -203,6 +208,7 @@ function advSyncBgOnStart(){
   tick();
 }
 let advVisitBg = null;   // 방문 중일 때 표시할 "집주인의" 배경 ({img}|{color}|null)
+let mhdFF = null;        // 📂 폴더 자유배치(folder-free.js) — advApplyFolderHide · mhdMountApp 가 이른 시점에도 보므로 위에 둔다
 const ADV = advLoad();
 let editSlot = ADV.active;
 try{ if(!localStorage.getItem(ADV_KEY)) advSave(); }catch(_){}
@@ -2374,6 +2380,17 @@ const css = `
      ⇒ advApplyFolderHide 가 같은 표식을 바깥 상자(#mhRoomPreview)에도 걸고, 여기서 말랑이 폴더를 가린다.
      ★ CSS 라서 말랑이 폴더가 나중에(이미지 로드 뒤 refreshFolder) 생겨도 바로 숨는다. mallang.js 는 안 고친다. */
   #mhRoomPreview.mhd-hide-folders #mlFolder{display:none !important;}
+  /* 📂 폴더 자유배치(folder-free.js) — 배치 중에는 옮길 수 있는 폴더(외부 앱 · 말랑이)에 점선, 붙박이 아이콘은 흐리게. */
+  #mhRoomPreview.mhd-ff-arrange .mhd-app,#mhRoomPreview.mhd-ff-arrange #mlFolder{cursor:grab;touch-action:none;
+    outline:1.5px dashed var(--tw-plate-ink);outline-offset:2px;}
+  #mhRoomPreview .mhd-ff-drag{cursor:grabbing !important;outline-color:var(--tw-star) !important;}
+  #mhRoomPreview.mhd-ff-arrange #advIconSim,#mhRoomPreview.mhd-ff-arrange #advIconChar{opacity:.55;cursor:default;}
+  #advFfBand{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:40;display:none;align-items:center;gap:6px;
+    white-space:nowrap;font-size:10.5px;padding:3px 4px 3px 8px;background:var(--tw-bg-face);color:var(--tw-ink);
+    border:2px solid;border-color:var(--tw-bevel-hi) var(--tw-bevel-dark) var(--tw-bevel-dark) var(--tw-bevel-hi);box-shadow:var(--tw-shadow-window);}
+  #advFfBand button{font-size:10.5px;padding:1px 8px;cursor:pointer;background:var(--tw-bg-face);color:var(--tw-ink);
+    border:1px solid;border-color:var(--tw-bevel-hi) var(--tw-bevel-dark) var(--tw-bevel-dark) var(--tw-bevel-hi);}
+  #advFfBand button.ok{font-weight:bold;}
   .adv-icon .lb{display:inline-block;margin-top:3px;font-size:10px;color:#fff;padding:1px 3px;line-height:1.3;
     text-shadow:1px 1px 0 rgba(0,0,0,.55);}
   .adv-icon:not(.disabled):hover .lb{background:#000080;}
@@ -3538,6 +3555,7 @@ function mhdMountApp(a){
     catch(e){ console.error('[MYHOME_DESKTOP] '+a.id+'.onOpen 실패', e); }
   });
   d.appendChild(ic);
+  if(mhdFF) mhdFF.apply();   // 📂 자유배치로 옮겨 둔 자리가 있으면 거기로(늦게 붙는 폴더도)
 }
 
 function mhdMountAll(){
@@ -3741,6 +3759,7 @@ function advInit(){
           '</div>'+
         '</div>'+
         '<button id="advEnvHideFolders" type="button">폴더 숨기기</button>'+
+        '<button id="advEnvFreeFolders" type="button">폴더 자유배치</button>'+
       '</div>'+
       '<div id="advUrlBox"><div class="t">배경 이미지 URL</div>'+
         '<input id="advUrlInput" type="text" placeholder="https://... 이미지 주소">'+
@@ -3811,6 +3830,7 @@ function advInit(){
   room.appendChild(desk);
 
   advBindEvents();
+  mhdFfInit();     // 📂 폴더 자유배치 — advApplyBg 가 배치까지 맞추므로 그보다 먼저
   advApplyBg();
   mhdMountAll();   // 🔌 외부 앱(mystery-au.js 등) 아이콘 마운트 — 등록된 게 없으면 아무 일도 안 한다
 }
@@ -5597,6 +5617,49 @@ function advApplyFolderHide(){
   if(room) room.classList.toggle('mhd-hide-folders', on);
   const b=document.getElementById('advEnvHideFolders');
   if(b) b.textContent = (ADV.hideFolders ? '✔ ' : '') + '폴더 숨기기';   // ✔ 는 켜짐 표시라 남긴다(아이콘은 뗐다 · 요청)
+  if(typeof mhdFF !== 'undefined' && mhdFF) mhdFF.apply();   // 📂 자유배치도 같은 때에 — 남의 집이면 그 집 주인의 배치(검사가 이 함수만 떼어 돌려도 안전하게 typeof)
+}
+
+/* 📂 폴더 자유배치(folder-free.js) — 내 집은 내 배치(ADV.folderPos), 남의 집은 **그 집 주인의** 배치(advVisitBg.folderPos).
+   ★ 옮길 수 있는 것: 외부 앱 폴더(.mhd-app)와 말랑이 폴더(#mlFolder). 둘 다 #mhRoomPreview 를 기준으로
+     놓인다(#advDesktop 은 그 안을 꽉 채운다) — 그래서 한 좌표로 다룬다. 붙박이 아이콘(캐릭터세팅 · 좀아칼)은 그대로.
+   ★ 옮기지 않은 폴더는 원래 자리 규칙을 그대로 따른다(격자 칸 · 말랑이 오른쪽 아래). */
+const MHD_FF_TASKBAR = 20;   // #advTaskbar 높이 — 폴더가 작업표시줄 위로만 가게
+function mhdFfItems(){
+  const out = [];
+  MHD_APPS.forEach(a=>{
+    const e = document.getElementById(a.iconId);
+    if(e) out.push({ id:a.id, el:e, reset:()=>{ e.style.right = e.style.bottom = ''; mhdPlaceIcon(e, a._slot); } });
+  });
+  const ml = document.getElementById('mlFolder');
+  if(ml) out.push({ id:'mallang', el:ml, reset:()=>{ ml.style.left = ml.style.top = ml.style.right = ml.style.bottom = ''; } });
+  return out;
+}
+function mhdFfPos(){ return advVisiting ? ((advVisitBg && advVisitBg.folderPos) || {}) : (ADV.folderPos || {}); }
+function mhdFfInit(){
+  if(mhdFF || typeof FolderFree === 'undefined') return;
+  const room = document.getElementById('mhRoomPreview'); if(!room) return;
+  const band = h('<div id="advFfBand">✋ 폴더를 끌어서 옮기세요'
+    + '<button type="button" class="ok" id="advFfOk">완료</button><button type="button" id="advFfReset">처음 자리로</button></div>');
+  room.appendChild(band);
+  mhdFF = FolderFree.createFolderFree({
+    room:()=>document.getElementById('mhRoomPreview'), items:mhdFfItems, getPos:mhdFfPos, band, bottomInset:MHD_FF_TASKBAR,
+    canArrange:()=> advVisiting ? '남의 집에서는 폴더를 옮길 수 없어요'
+                  : (ADV.hideFolders ? '폴더 숨기기가 켜져 있어요 — 먼저 꺼 주세요' : ''),
+    toast:(t)=>{ if(typeof toast === 'function') toast(t); },
+    /* 배경과 같은 기록 — 고른 시각(bgTs)을 찍어야 다른 기기와의 맞춤(advPullBg)에서 이긴다(폴더 숨기기와 같다). */
+    onSave:(pos)=>{ ADV.folderPos = pos; ADV.bgTs = Date.now(); advSave(); advSaveBgRemote(); },
+    onChange:(on)=>{ const b = document.getElementById('advEnvFreeFolders'); if(b) b.textContent = (on ? '✔ ' : '') + '폴더 자유배치'; }
+  });
+  band.querySelector('#advFfOk').addEventListener('click', e=>{ e.stopPropagation(); mhdFF.finish(); });
+  band.querySelector('#advFfReset').addEventListener('click', e=>{ e.stopPropagation(); mhdFF.resetAll(); });
+  /* 말랑이 폴더는 늦게 생기고(라이선스 · 이미지 확인 뒤) 지웠다 다시 만들어진다 — 생기면 그때 자리를 잡는다.
+     창 크기가 바뀌면 비율로 다시 놓는다. */
+  try{ new MutationObserver(()=>mhdFF.apply()).observe(room, { childList:true }); }catch(_){}
+  try{ new ResizeObserver(()=>mhdFF.apply()).observe(room); }catch(_){}
+  /* 마이홈이 닫히면(어느 길로든) 배치를 끝낸다 — 다시 열었을 때 [완료] 띠가 남지 않게. */
+  const ov = document.getElementById('myHomeOverlay');
+  try{ mhdFF.watchHost(ov, ()=>!!ov && ov.classList.contains('on')); }catch(_){}
 }
 
 /* ─────────────────────────── 창 열기/닫기 ─────────────────────────── */
@@ -5893,10 +5956,17 @@ function advBindEvents(){
      ★ 배경과 같은 기록(users/{uid}/advBg)에 실어 올린다 — 고른 시각(bgTs)을 찍어야 다른 기기와의 맞춤(advPullBg)에서 이긴다. */
   el('advEnvHideFolders').addEventListener('click', ()=>{
     el('advEnvMenu').classList.remove('on');
+    if(mhdFF && mhdFF.isArranging()) mhdFF.finish();   // 숨기기 전에 옮기던 것을 저장해 둔다
     ADV.hideFolders = !ADV.hideFolders;
     ADV.bgTs = Date.now();
     advSave(); advSaveBgRemote(); advApplyFolderHide();
     if(typeof toast==='function') toast(ADV.hideFolders ? '폴더를 숨겼어요 — 방문자에게도 안 보여요' : '폴더를 다시 보여요');
+  });
+
+  /* 📂 폴더 자유배치 — 켜면 끌어서 옮기기, 다시 누르면(또는 띠의 [완료] · Esc) 저장. */
+  el('advEnvFreeFolders').addEventListener('click', ()=>{
+    el('advEnvMenu').classList.remove('on');
+    if(mhdFF) mhdFF.toggle();
   });
 
   el('advFName').addEventListener('input', e=>{ curSlot().name=e.target.value; advSave(); advRenderSlotTabs(); });
@@ -6004,6 +6074,7 @@ function advBindEvents(){
 
 /* ─────────────────────────── 관람 모드 훅 (app.js가 호출) ─────────────────────────── */
 window._advApplyVisitUI = function(visiting, ownerId){
+  if(mhdFF && mhdFF.isArranging()) mhdFF.finish();   // 📂 옮기던 중에 집을 나가면 내 배치로 저장하고 끝낸다
   advVisiting=!!visiting;
   // 🖥️ 방문 시작 → 집주인 바탕화면을 서버에서 받아와 적용 (내 집 복귀 시엔 초기화)
   if(advVisiting){

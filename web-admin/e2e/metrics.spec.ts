@@ -38,10 +38,14 @@ const IP = '방문자 (IP 기준)';
 const VISITS = '방문 수';
 const table = (page: import('@playwright/test').Page) => page.locator('section[aria-label="날짜별 숫자"]');
 
-test('지표는 사용량 바로 앞 메뉴이고 DAU · 방문 수 · WAU · MAU 를 보여 준다', async ({ page, seed }) => {
+test('지표는 «성능 · 비용» 묶음 첫 메뉴이고 DAU · 방문 수 · WAU · MAU 를 보여 준다', async ({
+  page,
+  seed,
+}) => {
   await seed(metricsData());
   await page.goto('/admin/');
-  await expect(page.getByRole('navigation').getByRole('button').nth(-2)).toHaveText(/지표/);
+  const perf = page.getByRole('navigation').getByRole('group', { name: '📊 성능 · 비용' });
+  await expect(perf.getByRole('button').first()).toHaveText(/지표/);
   await openMenu(page, 'metrics');
 
   await expect(stat(page, DAU, '오늘')).toContainText('3명');

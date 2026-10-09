@@ -42,7 +42,9 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'roomServer.serverDelete': '방 서버 빼기',
   'roomServer.allow': '방 서버 시범 이용자',
   'roomServer.allowDelete': '방 서버 시범 이용자 빼기',
+  'roomServer.limits': '방 개수 상한',
   'settings.minAppVer': '앱 최소 버전',
+  'settings.bugDailyMax': '버그 제보 하루 상한',
   'room.close': '방 종료',
   'room.closeAll': '방 전체 종료',
   'room.cleanGhost': '유령 방 청소',
@@ -53,6 +55,10 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'catalog.cleanGlb': '카탈로그 진단 정리',
   'bug.answer': '제보 답변',
   'bug.status': '제보 상태',
+  'bug.delete': '제보 삭제',
+  'improvements.add': '개선 기록 추가',
+  'improvements.edit': '개선 기록 수정',
+  'improvements.delete': '개선 기록 삭제',
   'account.delete': '계정 삭제',
 };
 
@@ -68,6 +74,7 @@ export const LOG_GROUPS = [
   { id: 'room', label: '방' },
   { id: 'catalog', label: '카탈로그' },
   { id: 'bug', label: '제보' },
+  { id: 'improvements', label: '개선 기록' },
   { id: 'account', label: '계정' },
 ] as const;
 

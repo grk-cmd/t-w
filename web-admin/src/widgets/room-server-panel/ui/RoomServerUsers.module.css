@@ -1,0 +1,37 @@
+.search {
+  width: 100%;
+  max-width: 360px;
+  margin: 6px 0 10px;
+}
+
+.wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th,
+.table td {
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--line);
+}
+
+.table th {
+  font-weight: bold;
+  color: var(--soft);
+}
+
+.online {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.block {
+  margin-left: 8px;
+}

@@ -6,6 +6,13 @@ export interface DailyPoint {
   value: number;
 }
 
+/** 세로 표시선 — 그 날짜 칸 왼쪽에 선과 짧은 이름(예: 릴리스 버전). */
+export interface DailyMarker {
+  date: string;
+  label: string;
+  title?: string;
+}
+
 const shortDate = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
 // 날짜 글자가 겹치지 않게 4일마다 하나 — 오늘은 따로 «오늘» 로 적는다.
 const LABEL_EVERY = 4;
@@ -20,31 +27,48 @@ function niceCeil(v: number): number {
 
 /**
  * 한 계열 30일 막대 — 계열마다 크기가 달라 한 축에 겹치지 않고 구역마다 그린다. 막대에 올리면 그날 숫자가 뜬다.
- * 마지막 칸을 오늘로 칠한다. digits 는 소수 자리(GB 처럼 1 보다 작은 값이 나오는 계열).
+ * 마지막 칸을 오늘로 칠한다(lastIsToday=false 면 안 칠함). digits 는 소수 자리(GB 처럼 1 보다 작은 값이 나오는 계열).
  */
 export function DailyBars({
   label,
   unit,
   days,
   digits = 0,
+  markers = [],
+  lastIsToday = true,
 }: {
   label: string;
   unit: string;
   days: readonly DailyPoint[];
   digits?: number;
+  markers?: readonly DailyMarker[];
+  lastIsToday?: boolean;
 }) {
   const fmt = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: digits });
   const top = niceCeil(Math.max(0, ...days.map((d) => d.value)));
   const half = top / 2;
   const showHalf = Number.isInteger(half * 10 ** digits);
-  const last = days.length - 1;
+  const last = lastIsToday ? days.length - 1 : -1;
+  const markerAt = new Map(markers.map((m) => [m.date, m]));
 
   return (
     <figure className={styles.chart}>
       <figcaption className={styles.legend}>
         <span>최근 {days.length}일</span>
         <span className="soft">
-          <i className={styles.dot} /> {label} <i className={`${styles.dot} ${styles.dotToday}`} /> 오늘
+          <i className={styles.dot} /> {label}
+          {lastIsToday && (
+            <>
+              {' '}
+              <i className={`${styles.dot} ${styles.dotToday}`} /> 오늘
+            </>
+          )}
+          {markers.length > 0 && (
+            <>
+              {' '}
+              <i className={styles.markLegend} /> 릴리스
+            </>
+          )}
         </span>
       </figcaption>
       <div className={styles.plot}>
@@ -60,9 +84,15 @@ export function DailyBars({
             <i />
           </div>
           {days.map((d, i) => {
-            const tip = `${d.date} · ${fmt(d.value)}${unit}`;
+            const mark = markerAt.get(d.date);
+            const tip = `${d.date} · ${fmt(d.value)}${unit}${mark ? ` · ${mark.label}` : ''}`;
             return (
               <div key={d.date} className={styles.col} title={tip} data-tip={tip}>
+                {mark && (
+                  <span className={styles.mark} title={mark.title ?? mark.label}>
+                    <b>{mark.label}</b>
+                  </span>
+                )}
                 {d.value > 0 && (
                   <span
                     className={`${styles.bar} ${i === last ? styles.barToday : ''}`}
@@ -77,7 +107,11 @@ export function DailyBars({
       <div className={`${styles.xAxis} soft`} aria-hidden="true">
         {days.map((d, i) => (
           <span key={d.date} className={i === last ? styles.xToday : undefined}>
-            {i === last ? '오늘' : i % LABEL_EVERY === 0 && last - i >= 2 ? shortDate(d.date) : ''}
+            {i === last
+              ? '오늘'
+              : i % LABEL_EVERY === 0 && (last < 0 || last - i >= 2)
+                ? shortDate(d.date)
+                : ''}
           </span>
         ))}
       </div>

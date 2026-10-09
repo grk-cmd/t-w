@@ -31,6 +31,8 @@
     ? '<span class="bb-chip notice">공지</span>'
     : '<span class="bb-chip ' + esc(it.status) + '">' + esc(C().status[it.status] || '접수') + '</span>';
   const canSeePrv = (it) => it.authUid === myUid() || admin();
+  // 🛡 운영진 글 — 이름이 아니라 byAdmin(규칙상 관리자만 쓸 수 있는 칸)으로 가른다. 공지도 관리자만 쓴다.
+  const whoName = (it) => esc(it.name) + ((it.byAdmin === true || it.notice) ? ' <span class="bb-adm" title="운영진">🛡</span>' : '');
 
   function show(view){
     $('bbListView').style.display = view === 'list' ? '' : 'none';
@@ -45,7 +47,7 @@
     if(it.vis === 'prv' && !canSeePrv(it)){
       return '<div class="bb-row locked" title="글쓴이와 관리자만 볼 수 있어요">' + chip(it) +
         '<div class="bb-main"><div class="bb-title"><span class="bb-tag">[비공개]</span>🔒 비공개 제보예요</div></div>' +
-        '<div class="bb-who">' + esc(it.name) + '<br>' + fmtDate(it.ts) + '</div></div>';
+        '<div class="bb-who">' + whoName(it) + '<br>' + fmtDate(it.ts) + '</div></div>';
     }
     const tag = it.notice ? '📌' : (it.vis === 'pub' ? '[공개]' : '[비공개]');
     const title = it.vis === 'pub' ? (it.title || '(제목 없음)') : (titleCache.get(it.id) || '…');
@@ -54,7 +56,7 @@
       '<div class="bb-main"><div class="bb-title"><span class="bb-tag">' + tag + '</span><span class="bb-tt" data-tid="' + esc(it.id) + '">' + esc(title) + '</span>' +
       (isNew ? '<span class="bb-new">새 답변</span>' : '') + '</div>' +
       (it.notice ? '' : '<div class="bb-sub">' + esc(catName(it.cat)) + ' · 👍' + (it.likeN || 0) + ' · 답변 ' + (it.ansN || 0) + '</div>') +
-      '</div><div class="bb-who">' + esc(it.name) + '<br>' + fmtDate(it.ts) + '</div></div>';
+      '</div><div class="bb-who">' + whoName(it) + '<br>' + fmtDate(it.ts) + '</div></div>';
   }
   /* 비공개 글 제목은 행마다 따로 읽는다(목록 노드에는 없다 — 누구나 읽는 곳이라). */
   function fillPrvTitles(items){
@@ -117,14 +119,16 @@
     const h = [];
     h.push('<button class="bb-btn bb-back" type="button" data-act="back">◀ 목록</button>');
     h.push('<div class="bb-dhead">' + chip(it) + '<span class="bb-tag">' + (it.notice ? '📌' : it.vis === 'pub' ? '[공개]' : '[비공개]') + '</span>' + esc(title) + '</div>');
-    h.push('<div class="bb-dmeta">' + esc(it.name) + ' · ' + fmtDate(it.ts, true) + (it.notice ? '' : ' · ' + esc(catName(it.cat))) + '</div>');
+    // 고정 번호(B-MMDD-n · 서버 함수가 붙인다)는 관리자에게만 — 커밋 · PR 에서 제보를 가리키는 번호다.
+    h.push('<div class="bb-dmeta">' + ((admin() && it.no) ? '<span class="bb-no">' + esc(it.no) + '</span> · ' : '') +
+      whoName(it) + ' · ' + fmtDate(it.ts, true) + (it.notice ? '' : ' · ' + esc(catName(it.cat))) + '</div>');
     h.push('<div class="bb-body">' + esc(ct ? ct.body : '(내용을 불러오지 못했어요)') + '</div>');
     if(ct && ct.env) h.push('<div class="bb-env">🖥 ' + esc(ct.env) + '</div>');
     if(it.vis === 'pub' && !it.notice){
       h.push('<button class="bb-btn bb-like' + (d.liked ? ' on' : '') + '" type="button" data-act="like"' + (d.liked ? ' disabled' : '') + '>👍 나도 겪었어요 ' + (it.likeN || 0) + '</button>');
     }
     d.answers.forEach(a => {
-      h.push('<div class="bb-ans' + (a.vis === 'prv' ? ' prv' : '') + '"><div class="bb-ans-h">운영자 답변<span class="bb-ans-v">' +
+      h.push('<div class="bb-ans' + (a.vis === 'prv' ? ' prv' : '') + '"><div class="bb-ans-h">🛡 운영자 답변<span class="bb-ans-v">' +
         (a.vis === 'prv' ? '🔒 비공개' : '공개') + ' · ' + fmtDate(a.ts, true) + '</span></div><div class="bb-ans-t">' + esc(a.text) + '</div>' +
         ((a.kakao && C().kakaoRe.test(a.kakao)) ? '<div class="bb-kakao"><button type="button" data-kakao="' + esc(a.kakao) + '">💬 오픈카톡으로 이야기하기</button><small>' + esc(a.kakao) + '</small></div>' : '') +
         '</div>');
@@ -186,6 +190,20 @@
     $('bbWEnv').checked = true; $('bbWNotice').checked = false;
     show('write');
     $('bbWTitle').focus();
+    showQuota();
+  }
+  /* 오늘 남은 제보 수 — 상한(config/bugDailyMax · 게시판 열 때 읽음) − 오늘 쓴 수. 다 썼으면 등록 단추를 끈다. 관리자는 제한 없음. */
+  async function showQuota(){
+    const btn = $('bbWSubmit');
+    btn.disabled = false; btn.textContent = '등록';
+    if(admin()) return;
+    const max = api().dailyMax();
+    const n = await api().todayCount(getMyUserId());
+    if($('bbWriteView').style.display === 'none') return;
+    if(n >= max){
+      btn.disabled = true;
+      $('bbWErr').textContent = '오늘은 제보를 ' + max + '건 모두 썼어요 — 내일 다시 써 주세요';
+    }else btn.textContent = '등록 (오늘 ' + (max - n) + '건 남음)';
   }
   async function envString(){
     let ver = '';
@@ -234,6 +252,7 @@
   /* ── 탭 들어올 때 · 우편함에서 열 때 ───────────────────── */
   async function enter(){
     show('list');
+    if(api()) api().loadDailyMax();   // 하루 상한 — 열 때 한 번(기다리지 않는다 · 못 읽으면 5)
     if(admin() && !migrated && api()){
       migrated = true;
       try{ const r = await api().migrateNotice(who()); if(r && r.ok && !r.skipped) toast('예전 버그제보 공지를 첫 공지글로 옮겼어요'); }catch(_){}

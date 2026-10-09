@@ -2,9 +2,18 @@ import { describe, expect, it } from 'vitest';
 import {
   answerNoticeBody,
   answerWrite,
+  bugNo,
+  bugNoLabel,
+  BUG_DAILY_MAX_DEFAULT,
+  BUG_NO_RE,
+  getBugDailyMax,
+  isStaffPost,
+  parseBugDailyMax,
+  saveBugDailyMax,
   BUG_PRV_NOTICE_BODY,
   checkAnswer,
   dayOrder,
+  deleteWrite,
   getBugPost,
   getDayOrder,
   listBugPage,
@@ -15,7 +24,7 @@ import {
   type BugItem,
 } from '@/entities/bug-board';
 import { kstDayStart } from '@/shared/lib';
-import { fakeDb, NOW } from '../shared/fakeDb';
+import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const DAY = kstDayStart('2026-10-08');
 const row = (ts: number, extra: Record<string, unknown> = {}) => ({
@@ -33,6 +42,67 @@ const row = (ts: number, extra: Record<string, unknown> = {}) => ({
 const item = (extra: Partial<BugItem> = {}): BugItem => ({
   ...(toBugItem('p1', row(DAY + 1000)) as BugItem),
   ...extra,
+});
+
+describe('하루 상한 · 운영진 글', () => {
+  it('상한 입력 — 1~100 정수만', () => {
+    expect(parseBugDailyMax(' 7 ')).toBe(7);
+    expect(parseBugDailyMax('100')).toBe(100);
+    for (const bad of ['0', '101', '2.5', '-1', 'x', '']) expect(parseBugDailyMax(bad)).toBeNull();
+    expect(BUG_DAILY_MAX_DEFAULT).toBe(5);
+  });
+
+  it('상한 읽기 · 저장 — config/bugDailyMax 한 칸 + 작업 기록(이전 → 다음)', async () => {
+    const { db, writes } = fakeDb({ 'config/bugDailyMax': 3 });
+    expect(await getBugDailyMax(db)).toBe(3);
+    expect(await getBugDailyMax(fakeDb({ 'config/bugDailyMax': '3' }).db)).toBeNull();
+    await saveBugDailyMax(db, 8, null);
+    expect(withoutAudits(writes)).toEqual([['commit', 'config/bugDailyMax', 8]]);
+    expect(auditsOf(writes)[0]).toMatchObject({
+      action: 'settings.bugDailyMax',
+      target: '하루 8건',
+      detail: '기본 5 → 8',
+    });
+  });
+
+  it('🛡 — byAdmin(관리자만 쓰는 칸) 또는 공지일 때만, 이름은 보지 않는다', () => {
+    expect(isStaffPost(toBugItem('p1', row(DAY, { byAdmin: true })) as BugItem)).toBe(true);
+    expect(isStaffPost(toBugItem('p1', row(DAY, { byAdmin: 'yes', name: '운영자' })) as BugItem)).toBe(false);
+    expect(isStaffPost(toBugItem('p1', row(DAY, { notice: true })) as BugItem)).toBe(true);
+  });
+});
+
+describe('고정 번호', () => {
+  it('저장된 no 가 있으면 그것, 없으면 임시 번호 — 기록용 이름엔 «(임시)»', () => {
+    const fixed = bugNo({ ts: DAY + 5, no: 'B-1008-7' }, 2);
+    expect(fixed).toEqual({ no: 'B-1008-7', temp: false });
+    expect(bugNoLabel(fixed)).toBe('B-1008-7');
+    const temp = bugNo({ ts: DAY + 5 }, 2);
+    expect(temp).toEqual({ no: 'B-1008-2', temp: true });
+    expect(bugNoLabel(temp)).toBe('B-1008-2(임시)');
+  });
+
+  it('목록 줄의 no 는 모양이 맞을 때만 읽는다', () => {
+    expect(toBugItem('p1', row(DAY, { no: 'B-1008-12' }))?.no).toBe('B-1008-12');
+    expect(toBugItem('p1', row(DAY, { no: 'B-10-1' }))?.no).toBeUndefined();
+    expect(toBugItem('p1', row(DAY, { no: 3 }))?.no).toBeUndefined();
+    expect(toBugItem('p1', row(DAY))?.no).toBeUndefined();
+    expect(BUG_NO_RE.test('B-1009-1') && !BUG_NO_RE.test('B-1009-12345')).toBe(true);
+  });
+
+  it('지우기 — 목록 · 내용(공개/비공개 자리) · 답변 둘 · 공감, 카운터는 건드리지 않는다', () => {
+    expect(deleteWrite(item())).toEqual({
+      'bugBoard/list/p1': null,
+      'bugBoard/pub/p1': null,
+      'bugBoard/ans/pub/p1': null,
+      'bugBoard/ans/prv/p1': null,
+      'bugBoard/likes/p1': null,
+    });
+    const prv = deleteWrite(item({ vis: 'prv' }));
+    expect(prv).toHaveProperty(['bugBoard/prv/uid1/p1'], null);
+    expect(prv).not.toHaveProperty(['bugBoard/pub/p1']);
+    expect(Object.keys(prv).some((p) => p.startsWith('bugBoard/seq'))).toBe(false);
+  });
 });
 
 describe('짧은 번호', () => {

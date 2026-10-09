@@ -9,62 +9,85 @@ const actions = async () =>
     (l) => `${l.action}:${l.target}`,
   );
 
-test('방 서버 — 스위치 · 서버 목록 · 시범 이용자(친구 코드로) · 기록', async ({ page, seed }) => {
+test('방 서버 — 스위치 · 서버 목록 · 방 개수 상한 · 사용자별 서버 · 기록', async ({ page, seed }) => {
   await seed({
-    friendCodes: { 'MATE-AB12': { userId: 'u1abc2345' } },
-    users: { u1abc2345: { profile: { name: '철수' } } },
-    accountSnap: { u1abc2345: { license: 'ABCD-EFGH-JKLM-NPQR' } },
+    friendCodes: { 'MATE-AB12': { userId: 'u1abc2345' }, 'MATE-CD34': { userId: 'u2abc2345' } },
+    users: { u1abc2345: { profile: { name: '철수' } }, u2abc2345: { profile: { name: '영희' } } },
+    accountSnap: {
+      u1abc2345: { license: 'ABCD-EFGH-JKLM-NPQR', friendCode: 'MATE-AB12', ver: '0.10.3' },
+      // 버전을 안 올리는 옛 앱(0.10.2 이하) — 서버를 못 고른다
+      u2abc2345: { friendCode: 'MATE-CD34' },
+    },
     licenses: { 'ABCD-EFGH-JKLM-NPQR': { valid: true, createdAt: 1, redeemedAt: 2 } },
   });
   await openMenu(page, 'roomServer');
 
-  // 스위치
+  // 스위치 — «방 서버 사용» 하나뿐(따라가기는 켜져 있으면 늘)
   const sw = card(page, '스위치');
+  await expect(sw.getByLabel('방 따라가기')).toHaveCount(0);
   await sw.getByLabel('방 서버 사용').click();
   await expect(sw.getByText('방 서버 사용 켜짐')).toBeVisible();
   expect(await dbGet('config/roomServer/on')).toBe(true);
-  await sw.getByLabel('방 따라가기').click();
-  await expect(sw.getByText('방 따라가기 켜짐')).toBeVisible();
-  expect(await dbGet('config/roomServer/follow')).toBe(true);
 
   // 서버 목록 — 형식 검사 · 추가 · CSP 밖 주소 표시
   const servers = card(page, '서버 목록');
-  await servers.getByLabel('서버 이름').fill('rooms-1');
+  await expect(servers.getByLabel('서버 이름')).toHaveAttribute('placeholder', /realtime-/);
+  await servers.getByLabel('서버 이름').fill('realtime-1');
   await servers.getByLabel('서버 주소').fill('https://x.example');
   await servers.getByRole('button', { name: '저장' }).click();
   await expect(servers.getByText('주소는 wss://호스트[:포트] 형식')).toBeVisible();
   await servers.getByLabel('서버 주소').fill(PROD_URL);
   await servers.getByRole('button', { name: '저장' }).click();
-  await expect(servers.getByText('저장 · rooms-1')).toBeVisible();
+  await expect(servers.getByText('저장 · realtime-1')).toBeVisible();
   await servers.getByLabel('서버 이름').fill('lab');
   await servers.getByLabel('서버 주소').fill('wss://lab.example');
   await servers.getByRole('button', { name: '저장' }).click();
   await expect(row(servers, 'lab')).toContainText('앱이 안 씀');
-  expect(await dbGet('config/roomServer/servers')).toEqual({ 'rooms-1': PROD_URL, lab: 'wss://lab.example' });
+  expect(await dbGet('config/roomServer/servers')).toEqual({
+    'realtime-1': PROD_URL,
+    lab: 'wss://lab.example',
+  });
 
-  // 시범 이용자 — 친구 코드 뒤 4자리로 추가 · 이름 · 서버 바꾸기 · 빼기
-  const allow = card(page, '시범 이용자');
-  await allow.getByLabel('사용자 코드 또는 친구 코드').fill('ZZ99');
-  await allow.getByRole('button', { name: '추가' }).click();
-  await expect(allow.getByText('없는 코드 — 사용자 코드(u…) 또는 친구 코드')).toBeVisible();
-  await allow.getByLabel('사용자 코드 또는 친구 코드').fill('ab12');
-  await allow.getByLabel('서버', { exact: true }).selectOption('rooms-1');
-  await allow.getByRole('button', { name: '추가' }).click();
-  await expect(allow.getByText('추가 · MATE-AB12 (u1abc2345) → rooms-1')).toBeVisible();
+  // 방 개수 상한 — 칸이 없으면 기본 250 · 범위 검사 · 저장
+  const limits = card(page, '방 개수 상한');
+  await expect(limits.getByLabel('워킹룸 상한')).toHaveValue('250');
+  await limits.getByLabel('워킹룸 상한').fill('0');
+  await limits.getByRole('button', { name: '저장' }).click();
+  await expect(limits.getByText('워킹룸 — 1~100000 사이 정수')).toBeVisible();
+  await limits.getByLabel('워킹룸 상한').fill('400');
+  await limits.getByRole('button', { name: '저장' }).click();
+  await expect(limits.getByText('저장 · 1분 안에 서버에 반영')).toBeVisible();
+  expect(await dbGet('config/roomServer/limits')).toEqual({ workingroom: 400, togetherroom: 250 });
+
+  // 사용자별 서버 — 옛 앱은 서버를 못 고른다(Firebase(기본)만)
+  const users = card(page, '사용자별 서버');
+  await users.getByLabel('사용자 찾기').fill('cd34');
+  await expect(users.getByText('앱 업데이트 필요 (현재 0.10.2 이하)')).toBeVisible();
+  await expect(users.getByLabel('영희(MATE-CD34) 서버').locator('option[value="realtime-1"]')).toBeDisabled();
+
+  // 목록에서 찾아 드롭다운으로 지정
+  await users.getByLabel('사용자 찾기').fill('ab12');
+  const pick = users.getByLabel('철수(MATE-AB12) 서버');
+  await expect(pick).toHaveValue('');
+  await expect(users.locator('tr', { hasText: 'MATE-AB12' })).toContainText('0.10.3');
+  await pick.selectOption('realtime-1');
+  await expect(users.getByText('철수(MATE-AB12) → realtime-1')).toBeVisible();
+  expect(await dbGet('config/roomServer/allow')).toEqual({ u1abc2345: 'realtime-1' });
+
+  // 지정된 사용자 목록에 바로 보인다
+  const allow = card(page, /서버로 지정된 사용자/);
   await expect(row(allow, 'u1abc2345')).toContainText('철수');
   await expect(row(allow, 'u1abc2345')).toContainText('🔑 라이선스');
-  await expect(allow).toContainText('투게더룸을 열려면 라이선스 필요 — 명단은 어디에 열지만 정함');
-  expect(await dbGet('config/roomServer/allow')).toEqual({ u1abc2345: 'rooms-1' });
 
   // 쓰는 서버는 못 뺀다
-  await row(servers, 'rooms-1').getByRole('button', { name: '빼기' }).click();
-  await expect(servers.getByText('rooms-1 을 쓰는 시범 이용자 1명 — 먼저 옮기거나 빼기')).toBeVisible();
+  await row(servers, 'realtime-1').getByRole('button', { name: '빼기' }).click();
+  await expect(servers.getByText('realtime-1 을 쓰는 시범 이용자 1명 — 먼저 옮기거나 빼기')).toBeVisible();
 
-  await row(allow, 'u1abc2345').getByLabel('u1abc2345 서버').selectOption('lab');
-  await expect(allow.getByText('바꿈 · u1abc2345 → lab')).toBeVisible();
+  await row(allow, 'u1abc2345').getByLabel('철수(u1abc2345) 서버').selectOption('lab');
+  await expect(allow.getByText('철수(u1abc2345) → lab')).toBeVisible();
   expect(await dbGet('config/roomServer/allow/u1abc2345')).toBe('lab');
-  await row(allow, 'u1abc2345').getByRole('button', { name: '빼기' }).click();
-  await expect(allow.getByText('명단 없음')).toBeVisible();
+  await row(allow, 'u1abc2345').getByLabel('철수(u1abc2345) 서버').selectOption('');
+  await expect(allow.getByText('없음 — 아래 사용자 목록에서 서버를 고르면 여기에 나온다')).toBeVisible();
   expect(await dbGet('config/roomServer/allow')).toBeNull();
 
   await sw.getByLabel('방 서버 사용').click();
@@ -74,9 +97,9 @@ test('방 서버 — 스위치 · 서버 목록 · 시범 이용자(친구 코�
   expect(await actions()).toEqual(
     expect.arrayContaining([
       'roomServer.switch:on',
-      'roomServer.switch:follow',
-      'roomServer.server:rooms-1',
+      'roomServer.server:realtime-1',
       'roomServer.server:lab',
+      'roomServer.limits:limits',
       'roomServer.allow:u1abc2345',
       'roomServer.allowDelete:u1abc2345',
     ]),
@@ -97,6 +120,7 @@ test('방 서버 — 규칙: 칸 하나씩만 공개 · 쓰기는 관리자만 �
         follow: false,
         servers: { 'rooms-1': PROD_URL },
         allow: { u1abc2345: 'rooms-1' },
+        limits: { workingroom: 300 },
       },
     },
     roomDir: { 'WORK-AB12': { srv: 'rooms-1', ts: 1 } },
@@ -108,6 +132,8 @@ test('방 서버 — 규칙: 칸 하나씩만 공개 · 쓰기는 관리자만 �
     'config/roomServer/follow',
     'config/roomServer/allow/u1abc2345',
     'config/roomServer/servers/rooms-1',
+    'config/roomServer/limits',
+    'config/roomServer/limits/workingroom',
     'roomDir/WORK-AB12',
   ])
     expect(await dbGetAs(user.idToken, p), p).toBe(200);
@@ -134,4 +160,12 @@ test('방 서버 — 규칙: 칸 하나씩만 공개 · 쓰기는 관리자만 �
   expect(await dbSetAs(admin.idToken, 'config/roomServer/on', 'yes')).toBe(401);
   expect(await dbSetAs(admin.idToken, 'config/roomServer/extra', true)).toBe(401);
   expect(await dbSetAs(admin.idToken, 'config/roomServer/allow/u2abc2345', null)).toBe(200);
+  // 방 개수 상한 — 관리자만 · 채널마다 정수 1~100000 · 모르는 칸 거절
+  expect(await dbSetAs(user.idToken, 'config/roomServer/limits/workingroom', 400)).toBe(401);
+  expect(await dbSetAs(admin.idToken, 'config/roomServer/limits/workingroom', 400)).toBe(200);
+  expect(await dbSetAs(admin.idToken, 'config/roomServer/limits/togetherroom', 100000)).toBe(200);
+  for (const bad of [0, 100001, 2.5, '300'])
+    expect(await dbSetAs(admin.idToken, 'config/roomServer/limits/workingroom', bad), String(bad)).toBe(401);
+  expect(await dbSetAs(admin.idToken, 'config/roomServer/limits/secret', 10)).toBe(401);
+  expect(await dbSetAs(admin.idToken, 'config/roomServer/limits', null)).toBe(200);
 });

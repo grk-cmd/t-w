@@ -11,6 +11,7 @@
     "admin:dev": "npm --prefix web-admin run dev",
     "admin:test": "npm --prefix web-admin test",
     "admin:build": "npm --prefix web-admin run build",
+    "design:build": "node scripts/build-design-site.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "release": "electron-builder --publish always"
@@ -38,6 +39,7 @@
       "overlay-mac.js",
       "sysinput-win.js",
       "sysinput-mac.js",
+      "hover-poke.js",
       "oauth-config.js",
       "app/**/*"
     ],
