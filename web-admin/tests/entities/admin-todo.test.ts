@@ -4,8 +4,13 @@ import {
   ALL_TODOS,
   becomesDone,
   checkDraft,
+  compareRelease,
+  draftOf,
   emptyDraft,
   filterTodos,
+  nextRelease,
+  releasesOf,
+  releaseState,
   todoByReport,
   todoChanges,
   todoValue,
@@ -26,6 +31,7 @@ const todo = (id: string, extra: Partial<Todo> = {}): Todo => ({
   assignee: null,
   assigneeName: '',
   reports: [],
+  release: '',
   createdBy: 'a1',
   createdAt: 1,
   updatedBy: 'a1',
@@ -39,7 +45,14 @@ describe('할 일 — 읽기 · 정렬 · 거르기', () => {
     expect(toTodo('x', { title: 't', status: 'nope', rev: 0 })).toBeNull();
     expect(toTodo('x', { title: 't', status: 'todo' })).toBeNull();
     const t = toTodo('x', { title: 't', status: 'doing', rev: 2, reports: { [R1]: true, bad: true } });
-    expect(t).toMatchObject({ status: 'doing', rev: 2, reports: [R1], memo: '', assignee: null });
+    expect(t).toMatchObject({
+      status: 'doing',
+      rev: 2,
+      reports: [R1],
+      memo: '',
+      assignee: null,
+      release: '',
+    });
   });
 
   it('진행 중 → 할 일 → 완료, 같은 상태는 최근 것부터', () => {
@@ -74,6 +87,91 @@ describe('할 일 — 읽기 · 정렬 · 거르기', () => {
   });
 });
 
+describe('할 일 — 릴리스 버전', () => {
+  it('칸이 없던 옛 할 일 · 모양이 틀린 값은 «버전 없음»', () => {
+    expect(toTodo('x', { title: 't', status: 'done', rev: 0, release: '0.11.3' })?.release).toBe('0.11.3');
+    expect(toTodo('x', { title: 't', status: 'done', rev: 0, release: '0.11.3 릴리스 대기' })?.release).toBe(
+      '',
+    );
+    expect(toTodo('x', { title: 't', status: 'done', rev: 0, release: 11 })?.release).toBe('');
+  });
+
+  it('입력 확인 — 빈 값은 통과, 0.11.3 · 0.12.0-beta.1 모양만', () => {
+    const d = { ...emptyDraft(), title: 't' };
+    expect(checkDraft({ ...d, release: '' })).toBeNull();
+    expect(checkDraft({ ...d, release: ' 0.11.3 ' })).toBeNull();
+    expect(checkDraft({ ...d, release: '0.12.0-beta.1' })).toBeNull();
+    for (const bad of ['v0.11.3', '0.11', '0.11.3-beta', '0.11.3-Beta.1', '0.11.3 대기'])
+      expect(checkDraft({ ...d, release: bad })).toMatch(/릴리스 버전/);
+    expect(checkDraft({ ...d, release: '1000000.0.0-beta.1000' })).toMatch(/20자/);
+  });
+
+  it('저장 값 — 있으면 다듬어 넣고, 비면 칸을 두지 않는다', () => {
+    expect(todoValue({ ...emptyDraft(), title: 't', release: ' 0.11.3 ' }, null, 'me', '', 0)).toMatchObject({
+      release: '0.11.3',
+    });
+    expect(todoValue({ ...emptyDraft(), title: 't', release: '  ' }, null, 'me', '', 0)).not.toHaveProperty(
+      'release',
+    );
+    expect(draftOf(todo('t', { release: '0.11.3' })).release).toBe('0.11.3');
+  });
+
+  it('바뀐 것 요약에 버전', () => {
+    const names = (uid: string) => uid;
+    const prev = todo('t');
+    expect(todoChanges(prev, { ...draftOf(prev), release: '0.11.3' }, names)).toBe('릴리스 없음 → 0.11.3');
+    expect(
+      todoChanges(todo('t', { release: '0.11.3' }), { ...draftOf(prev), release: '0.11.4' }, names),
+    ).toBe('릴리스 0.11.3 → 0.11.4');
+    expect(todoChanges(null, { ...emptyDraft(), title: 't', release: '0.11.3' }, names)).toBe(
+      '할 일 · 릴리스 0.11.3',
+    );
+  });
+
+  it('버전 순서 · 목록의 버전(새 것부터 · 중복 · 빈 값 빼고)', () => {
+    expect(compareRelease('0.11.3', '0.11.10')).toBeLessThan(0);
+    expect(compareRelease('0.11.3-beta.1', '0.11.3')).toBeLessThan(0);
+    expect(compareRelease('0.11.3-beta.2', '0.11.3-beta.10')).toBeLessThan(0);
+    expect(compareRelease('0.12.0', '0.11.9')).toBeGreaterThan(0);
+    expect(compareRelease('0.11.3', '0.11.3')).toBe(0);
+    const list = [
+      todo('a', { release: '0.11.3' }),
+      todo('b', { release: '0.11.10' }),
+      todo('c'),
+      todo('d', { release: '0.11.3' }),
+      todo('e', { release: '0.12.0-beta.1' }),
+    ];
+    expect(releasesOf(list)).toEqual(['0.12.0-beta.1', '0.11.10', '0.11.3']);
+  });
+
+  it('버전으로 거르기 — 전체 · 버전 없음 · 한 버전', () => {
+    const list = [todo('a', { release: '0.11.3' }), todo('b'), todo('c', { release: '0.11.4' })];
+    expect(filterTodos(list, ALL_TODOS, null)).toHaveLength(3);
+    expect(filterTodos(list, { ...ALL_TODOS, release: 'none' }, null).map((t) => t.id)).toEqual(['b']);
+    expect(filterTodos(list, { ...ALL_TODOS, release: '0.11.3' }, null).map((t) => t.id)).toEqual(['a']);
+  });
+
+  it('출시 여부 — 최신 공개 릴리스 이하면 출시됨, 모르면 null', () => {
+    expect(releaseState('0.11.3', '0.11.2')).toBe('pending');
+    expect(releaseState('0.11.3', '0.11.3')).toBe('released');
+    expect(releaseState('0.11.2', '0.11.3')).toBe('released');
+    // 베타로 먼저 나갔어도 같은 번호 정식이 나왔으면 그 안에 실려 나갔다.
+    expect(releaseState('0.11.3-beta.1', '0.11.3')).toBe('released');
+    expect(releaseState('0.11.4-beta.1', '0.11.3')).toBe('pending');
+    expect(releaseState('0.11.10', '0.11.9')).toBe('pending');
+    expect(releaseState('0.11.3', undefined)).toBeNull();
+    expect(releaseState('0.11.3', null)).toBeNull();
+    expect(releaseState('', '0.11.3')).toBeNull();
+  });
+
+  it('다음 버전 제안 — 최신의 다음 patch, 모르면 빈 값', () => {
+    expect(nextRelease('0.11.2')).toBe('0.11.3');
+    expect(nextRelease('v0.11.9')).toBe('0.11.10');
+    expect(nextRelease(undefined)).toBe('');
+    expect(nextRelease('latest')).toBe('');
+  });
+});
+
 describe('할 일 — 입력 · 저장 값', () => {
   it('제목 필수 · 길이 · 제보 id 모양', () => {
     expect(checkDraft(emptyDraft())).toBe('제목 필요');
@@ -98,7 +196,7 @@ describe('할 일 — 입력 · 저장 값', () => {
   it('고치면 만든 사람 · 시각은 그대로, rev + 1 · 작업자 이름 · 제보 묶음', () => {
     const prev = todo('t', { createdBy: 'a1', createdAt: 5, rev: 3 });
     const v = todoValue(
-      { title: 't', memo: 'm', status: 'doing', assignee: 'b', reports: [R1, R1] },
+      { title: 't', memo: 'm', status: 'doing', assignee: 'b', reports: [R1, R1], release: '' },
       prev,
       'me',
       '비',

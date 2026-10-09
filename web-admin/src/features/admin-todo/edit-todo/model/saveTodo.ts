@@ -3,6 +3,7 @@ import {
   becomesDone,
   checkDraft,
   commitTodo,
+  draftOf,
   todoChanges,
   todoValue,
   type Todo,
@@ -87,13 +88,7 @@ export function linkReport(
   names: ReadonlyMap<string, string>,
 ): Promise<SaveTodoResult> {
   if (todo.reports.includes(reportId)) return Promise.resolve({ ok: true, id: todo.id, fixed: 0 });
-  const draft: TodoDraft = {
-    title: todo.title,
-    memo: todo.memo,
-    status: todo.status,
-    assignee: todo.assignee,
-    reports: [...todo.reports, reportId],
-  };
+  const draft: TodoDraft = { ...draftOf(todo), reports: [...todo.reports, reportId] };
   return saveTodo(db, { id: todo.id, seen: todo, draft, names });
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commitTodo, emptyDraft, type Todo } from '@/entities/admin/todo';
+import { commitTodo, draftOf, emptyDraft, type Todo } from '@/entities/admin/todo';
 import { conflictMessage, deleteTodo, linkReport, saveTodo } from '@/features/admin-todo/edit-todo';
 import type { Db } from '@/shared/api';
 import { ADMIN_UID, auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
@@ -56,6 +56,7 @@ const seenOf = (id: string, v: Record<string, unknown>): Todo => ({
   assignee: (v.assignee as string) ?? null,
   assigneeName: (v.assigneeName as string) ?? '',
   reports: Object.keys((v.reports as object) ?? {}),
+  release: (v.release as string) ?? '',
   createdBy: String(v.createdBy),
   createdAt: Number(v.createdAt),
   updatedBy: String(v.updatedBy),
@@ -64,13 +65,38 @@ const seenOf = (id: string, v: Record<string, unknown>): Todo => ({
 });
 
 describe('할 일 쓰기 — 본 rev 그대로일 때만', () => {
+  it('릴리스 버전을 넣으면 rev + 1 로 저장 · 기록에 남는다, 모양이 틀리면 쓰지 않는다', async () => {
+    const { db, writes, data } = rulesDb({ 'adminTodos/t1': stored() });
+    const seen = seenOf('t1', stored());
+    const bad = await saveTodo(db, {
+      id: 't1',
+      seen,
+      draft: { ...draftOf(seen), release: '0.11.3 대기' },
+      names,
+    });
+    expect(bad).toMatchObject({ ok: false, reason: expect.stringMatching(/릴리스 버전/) });
+    expect(writes).toEqual([]);
+    const r = await saveTodo(db, {
+      id: 't1',
+      seen,
+      draft: { ...draftOf(seen), status: 'done', release: '0.11.3' },
+      names,
+    });
+    expect(r).toMatchObject({ ok: true });
+    expect(data['adminTodos/t1']).toMatchObject({ rev: 3, status: 'done', release: '0.11.3' });
+    expect(auditsOf(writes)[0]).toMatchObject({
+      action: 'todo.update',
+      detail: '할 일 → 완료 · 릴리스 없음 → 0.11.3',
+    });
+  });
+
   it('같은 rev 면 쓴다 — rev + 1 · 작업 기록이 한 묶음', async () => {
     const { db, writes } = rulesDb({ 'adminTodos/t1': stored() });
     const seen = seenOf('t1', stored());
     const r = await saveTodo(db, {
       id: 't1',
       seen,
-      draft: { title: '고치기', memo: '', status: 'doing', assignee: ADMIN_UID, reports: [] },
+      draft: { title: '고치기', memo: '', status: 'doing', assignee: ADMIN_UID, reports: [], release: '' },
       names,
     });
     expect(r).toEqual({ ok: true, id: 't1', fixed: 0 });
@@ -220,6 +246,7 @@ describe('완료 → 연결된 제보 «수정 완료»', () => {
         status: 'done',
         assignee: null,
         reports: [R1, R2, '-OaAAAAAAAAAAAAAAAA3'],
+        release: '',
       },
       names,
       markFixed: true,
@@ -288,6 +315,14 @@ describe('제보 연결', () => {
     expect(await linkReport(db, seen, R2, names)).toMatchObject({ ok: true });
     expect(data['adminTodos/t1']).toMatchObject({ rev: 3, reports: { [R1]: true, [R2]: true } });
     expect(auditsOf(writes)[0].detail).toBe('제보 +1');
+  });
+
+  it('붙여도 릴리스 버전은 그대로', async () => {
+    const { db, data } = rulesDb({ 'adminTodos/t1': stored({ release: '0.11.3' }) });
+    expect(await linkReport(db, seenOf('t1', stored({ release: '0.11.3' })), R2, names)).toMatchObject({
+      ok: true,
+    });
+    expect(data['adminTodos/t1']).toMatchObject({ rev: 3, release: '0.11.3', reports: { [R2]: true } });
   });
 
   it('붙이는 사이 남이 고쳤으면 충돌', async () => {
