@@ -672,8 +672,10 @@
   #chatDelWin .cd-foot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   #chatDelWin .cd-foot #chatDelOk{color:var(--ink-danger, #7a1f1f);font-weight:bold;}
   #chatDelWin .cd-foot button[disabled]{color:var(--ink-soft);cursor:default;}
-  /* 💬 채팅 탭 줄 — 스크롤바 없음. 이름(.ct-name)만 줄어들고 인원 · 안 읽음 숫자는 줄지 않는다. */
-  .chat-tabs{display:none;align-items:center;gap:2px;margin:4px 6px 0;overflow:hidden;font-size:11px;white-space:nowrap;}
+  /* 💬 채팅 탭 줄 — 스크롤바 없음. 이름(.ct-name)만 줄어들고 인원 · 안 읽음 숫자는 줄지 않는다.
+     ⚠️ flex-shrink:0 — overflow:hidden 인 flex 항목은 최소 높이가 0 이라, 대화가 쌓이면 세로로 눌려
+       탭 줄이 1px 로 사라졌다. 아래 .chat-messages 의 flex-basis 0 과 짝이다(sim-chat-layout). */
+  .chat-tabs{display:none;flex-shrink:0;align-items:center;gap:2px;margin:4px 6px 0;overflow:hidden;font-size:11px;white-space:nowrap;}
   .chat-tabs.on{display:flex;}
   .ct-tab{display:inline-flex;align-items:center;gap:4px;min-width:0;flex:0 1 auto;padding:2px 8px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-face) var(--win-hi);border-bottom:none;
@@ -707,7 +709,9 @@
   /* 💬 글자 크기는 --chat-font 한 곳에서 정한다(#chatWindow에 JS가 인라인으로 심음).
      기본값 12px은 원래 값 그대로 — 설정을 건드리지 않은 유저는 1px도 안 바뀐다.
      ⚠️ 아래 하위 규칙의 폰트는 em(상대값)이라야 같이 커진다. px로 되돌리면 그 줄만 안 커진다. */
-  .chat-messages{margin:0 6px;flex:1 1 auto;min-height:60px;overflow-y:auto;padding:8px;background:#fff;font-size:var(--chat-font, 12px);color:#111;
+  /* ⚠️ flex:1 1 0 — 기준 크기를 내용 높이(auto)로 두면 대화가 쌓일수록 다른 줄(탭 · 인원)을 밀어
+       눌렀다. 0 이면 남은 자리만 받고 넘치는 대화는 이 칸 안에서 스크롤된다(sim-chat-layout). */
+  .chat-messages{margin:0 6px;flex:1 1 0;min-height:60px;overflow-y:auto;padding:8px;background:#fff;font-size:var(--chat-font, 12px);color:#111;
     border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
   .chat-messages .cm-row{margin-bottom:5px;line-height:1.4;word-break:break-word;}
   .chat-messages .cm-name{font-weight:bold;}
