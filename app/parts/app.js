@@ -1284,8 +1284,8 @@ var _rowBandPx = null;               // 보이는 영역(띠) 화면 px {l, r, w
 var ROOM_BAND_KEY = 'tw.roomBandW';          // 보이는 영역 폭(화면 폭 비율)
 var ROOM_SEAT_MODE_KEY = 'tw.roomSeatMode';  // 내 자리: 'row'(줄 안에 함께 · 기본) | 'right'(맨 오른쪽 고정)
 var roomBandFrac = (()=>{ try{ const v = parseFloat(localStorage.getItem('tw.roomBandW')); if(isFinite(v) && v > 0 && v <= 1) return v; }catch(_){} return (window.SeatLayout ? SeatLayout.BAND_DEFAULT_FRAC : 0.6); })();
-var ROOM_FLOORS_KEY = 'tw.roomFloors';   // 방 줄 층 수: 1(기본) | 2 — 1층이 띠에 넘치면 위 선반(2층)으로
-var roomFloors = (()=>{ try{ return localStorage.getItem('tw.roomFloors') === '2' ? 2 : 1; }catch(_){ return 1; } })();
+var ROOM_FLOORS_KEY = 'tw.roomFloors';   // 방 줄 층 수: 1(기본) · 2 · 3 — 아래층이 띠에 넘치면 위 선반으로
+var roomFloors = (()=>{ try{ const v = parseInt(localStorage.getItem('tw.roomFloors'), 10); return (v >= 1 && v <= 3) ? v : 1; }catch(_){ return 1; } })();
 var roomSeatMode = (()=>{ try{ return localStorage.getItem('tw.roomSeatMode') === 'right' ? 'right' : 'row'; }catch(_){ return 'row'; } })();
 /* 설정 패널의 "캐릭터 크기" 슬라이더 값 — 데스크톱 run 모드 전용 배율 (localStorage에서 복원) */
 let focusCharScale=_loadCharScale();
@@ -4012,9 +4012,9 @@ function layoutSeats(){
     rowSpan = Math.max(1.2, 2 * halfWidthsForZoom[0]);
     _rowMeHalfW = _hwOf.get(placed[0]);
     _rowCache = { fixRight: _fixRight, seats: placed.slice(), xs: placed.map(s=>s.targetX), hws: placed.map(s=>_hwOf.get(s)), spacing,
-      boxes: placed.map(_rowSeatBox) };   // 좌석 상자 — 배치 때만 잰다(끌기 · 매 프레임엔 이 값을 다시 쓴다). 2층 높이 · 손잡이 높이에 쓴다
+      boxes: placed.map(_rowSeatBox) };   // 좌석 상자 — 배치 때만 잰다(끌기 · 매 프레임엔 이 값을 다시 쓴다). 층 높이 · 손잡이 높이에 쓴다
   } else {
-    _rowCache = null; _rowBandPx = null;
+    _rowCache = null; _rowBandPx = null; _rowFloorsNote();
     seats.forEach(s=>{ s._rowSide = null; if(s._rowFloorY){ if(s.group && !s.ridingOn && !s.seatedOn) s.group.position.y = 0; s._rowFloorY = 0; } });
   }
   _cachedRowCenter = camX; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
@@ -4052,68 +4052,66 @@ function _applyRowOffset(instant){
     screenW: innerWidth, minPx: 2 * anchorHalfPx + 2 * ROOM_BAND_RIGHT_PAD_PX });
   _rowBandPx = band;
   const bL = _rowWorldAtPx(band.l), bR = _rowWorldAtPx(band.r);
-  /* 🏢 층 나누기 — 2층이면 1층을 띠 폭만큼 채우고 넘치는 사람은 1층 위 선반(2층)으로. 줄 순서 · 내 자리 설정은 그대로
-     («맨 오른쪽 고정» 이면 나는 1층 맨 오른쪽). 넘기기(오프셋)는 두 층이 같이. */
-  const fl = SeatLayout.splitFloors(c.hws, c.spacing, bR - bL, roomFloors);
-  const on1 = [], on2 = [];
-  fl.floor.forEach((f, i)=>{ (f ? on2 : on1).push(i); });
+  /* 🏢 층 — 1층을 띠 폭만큼 채우고 넘치면 2층, 또 넘치면 3층(설정한 층 수까지). 줄 순서 · 내 자리 설정은 그대로
+     («맨 오른쪽 고정» 이면 나는 1층 맨 오른쪽). 넘기기(오프셋)는 모든 층이 같이.
+     층 높이는 화면 px 로 맞춘다 — 책상 앞면은 카메라 쪽(z+)으로 나와 같은 높이라도 화면에서 더 아래에 보이므로.
+     조건: 위층 책상 앞 아래 모서리 · 위층 이름표 자리(발밑 + px)가 아래층 머리 꼭대기보다 위, 맨 위층 머리는 화면 위 여백 안.
+     안 들어가면 층 사이 여백을 좁혀 보고(이름표 자리는 남긴다), 그래도 안 되면 한 층씩 줄인다 — 설정 아래에 «이 화면에서는 N층까지». */
+  const bandW = bR - bL;
+  const bx = (i)=>(c.boxes && c.boxes[i]) || _rowSeatBox(c.seats[i]);
+  // 카메라 뒤 · 너무 멀리(투영이 뒤집히는 곳)는 NaN — 아래 비교가 전부 거짓이 되어 «안 들어감» 으로 친다
+  const sy = (y, z)=>{ _rowP.set(0, y, z).project(camera); return (Math.abs(_rowP.z) <= 1 && isFinite(_rowP.y)) ? (-_rowP.y * 0.5 + 0.5) * innerHeight : NaN; };
+  let fl = null;
+  const plan = SeatLayout.planFloors(roomFloors, ROOM_FLOOR_GAPS.length, (n, g)=>{
+    const f = SeatLayout.splitFloors(c.hws, c.spacing, bandW, n);
+    if(f.count < 2) return null;   // 한 층으로 다 들어간다 — 층을 줄이는 것과 같다
+    const gap = ROOM_FLOOR_GAPS[g];
+    const lifts = [0];
+    const members = k=>f.floor.map((x, i)=>x === k ? i : -1).filter(i=>i >= 0);
+    for(let k = 1; k < f.count; k++){
+      const below = members(k - 1), here = members(k);
+      const headBelow = sy(lifts[k - 1] + Math.max(...below.map(i=>bx(i).top)), 0);
+      const minY = Math.min(...here.map(i=>bx(i).minY)), maxZ = Math.max(...here.map(i=>bx(i).maxZ));
+      const hi = lifts[k - 1] + ROOM_FLOOR_LIFT_MAX;
+      const L = SeatLayout.minLiftFor(L=>Math.max(sy(L + minY, maxZ), sy(L, 0) + gap.labelsPx) <= headBelow - gap.gapPx, lifts[k - 1], hi);
+      if(!(L < hi)) return { ok: false };   // 끝까지 올려도 안 됐다
+      lifts.push(L);
+    }
+    const top = members(f.count - 1);
+    const ok = sy(lifts[f.count - 1] + Math.max(...top.map(i=>bx(i).top)), 0) >= ROOM_FLOOR_TOP_MARGIN_PX;
+    if(ok) fl = f;
+    return { ok, lifts, count: f.count };
+  });
+  if(plan.n < 2 || !fl) fl = SeatLayout.splitFloors(c.hws, c.spacing, bandW, 1);
+  const lifts = plan.n < 2 ? [0] : plan.lifts;
+  c.floorsShown = fl.count || 1;
+  c.floorsCapped = roomFloors > 1 && c.floorsShown < roomFloors && SeatLayout.splitFloors(c.hws, c.spacing, bandW, roomFloors).count > c.floorsShown;
   const pick = (idx, arr)=>idx.map(i=>arr[i]);
-  const xs1 = pick(on1, fl.xs), hw1 = pick(on1, c.hws), xs2 = pick(on2, fl.xs), hw2 = pick(on2, c.hws);
-  let range;
-  if(c.fixRight){
-    // 맨 오른쪽 고정 — 나는 1층 0 그대로, 나머지만 띠 왼쪽 끝까지(지나간 1층 사람은 내 오른쪽 · 띠 밖)
-    range = SeatLayout.offsetRange(xs1.concat(xs2), hw1.concat(hw2), bL);
-  } else {
-    // 줄 안에 함께 — 나 포함 두 층 전체를 띠 안에서
-    range = SeatLayout.rowRange(xs1.concat(xs2), hw1.concat(hw2), bL, bR);
-  }
-  const s = _rowLayout.setRange(range);
+  const all = c.seats.map((_, i)=>i);
+  const on1 = all.filter(i=>fl.floor[i] === 0), up = all.filter(i=>fl.floor[i] > 0);
+  const xsAll = pick(on1, fl.xs).concat(pick(up, fl.xs)), hwAll = pick(on1, c.hws).concat(pick(up, c.hws));
+  // 맨 오른쪽 고정 — 나는 1층 0 그대로, 나머지만 띠 왼쪽 끝까지 · 줄 안에 함께 — 나 포함 모든 층을 띠 안에서
+  const s = _rowLayout.setRange(c.fixRight ? SeatLayout.offsetRange(xsAll, hwAll, bL) : SeatLayout.rowRange(xsAll, hwAll, bL, bR));
   const outX = new Array(c.seats.length), outSide = new Array(c.seats.length);
   if(c.fixRight){
-    const r1 = SeatLayout.placeRow(xs1, hw1, s, c.spacing);
+    const r1 = SeatLayout.placeRow(pick(on1, fl.xs), pick(on1, c.hws), s, c.spacing);
     on1.forEach((i, k)=>{ outX[i] = r1.xs[k]; outSide[i] = r1.side[k]; });
   } else {
-    on1.forEach((i, k)=>{ outX[i] = xs1[k] + s; outSide[i] = 'L'; });
+    on1.forEach(i=>{ outX[i] = fl.xs[i] + s; outSide[i] = 'L'; });
   }
-  on2.forEach((i, k)=>{ outX[i] = xs2[k] + s; outSide[i] = 'L'; });
-  // 2층 높이 — 1층 머리 위 + 2층 이름표 자리. 2층 머리가 화면 위로 나가면 낮춘다(1층 키의 60% 까지)
-  let lift = 0;
-  if(on2.length){
-    /* 화면 px 로 맞춘다 — 책상 앞면은 카메라 쪽(z+)으로 나와 있어서 같은 높이라도 화면에서는 더 아래에 보인다.
-       조건: 2층 책상 앞 아래 모서리 · 2층 이름표 자리(발밑 + px)가 1층 머리 꼭대기보다 위. 2층 머리는 화면 위 여백 안. */
-    const bx = (i)=>(c.boxes && c.boxes[i]) || _rowSeatBox(c.seats[i]);
-    const top1 = Math.max(...on1.map(i=>bx(i).top)), top2 = Math.max(...on2.map(i=>bx(i).top));
-    const minY2 = Math.min(...on2.map(i=>bx(i).minY)), maxZ2 = Math.max(...on2.map(i=>bx(i).maxZ));
-    const sy = (y, z)=>{ _rowP.set(0, y, z).project(camera); return (-_rowP.y * 0.5 + 0.5) * innerHeight; };
-    const head1 = sy(top1, 0);
-    const need = SeatLayout.minLiftFor(L=>Math.max(sy(L + minY2, maxZ2), sy(L, 0) + ROOM_FLOOR_LABELS_PX) <= head1 - ROOM_FLOOR_GAP_PX, 0, 8);
-    const lmax = SeatLayout.minLiftFor(L=>sy(L + top2, 0) < ROOM_FLOOR_TOP_MARGIN_PX, 0, 20);
-    lift = SeatLayout.floorLift({ want: need, top1, top2: 0, yTopLimit: lmax, minFrac: 0.6 });
-    /* 캐릭터가 커서 두 층이 화면 높이에 안 들어가면(낮춰도 2층 머리가 화면 위로 나가면) 이번엔 1층 한 줄로 —
-       화면 밖으로 나가거나 1층 머리를 덮는 것보다 넘겨 보는 편이 낫다. 크기를 줄이면 다시 2층이 된다. */
-    if(lift > lmax + 1e-6){
-      lift = 0;
-      const one = SeatLayout.splitFloors(c.hws, c.spacing, bR - bL, 1);
-      fl.floor = one.floor; fl.xs = one.xs;
-      on2.length = 0; on1.length = 0; fl.floor.forEach((f, i)=>on1.push(i));
-      const xsA = pick(on1, fl.xs), hwA = pick(on1, c.hws);
-      const s2 = _rowLayout.setRange(c.fixRight ? SeatLayout.offsetRange(xsA, hwA, bL) : SeatLayout.rowRange(xsA, hwA, bL, bR));
-      if(c.fixRight){ const r1 = SeatLayout.placeRow(xsA, hwA, s2, c.spacing); on1.forEach((i, k)=>{ outX[i] = r1.xs[k]; outSide[i] = r1.side[k]; }); }
-      else on1.forEach((i, k)=>{ outX[i] = xsA[k] + s2; outSide[i] = 'L'; });
-      c.floorFallback = true;
-    } else c.floorFallback = false;
-  }
-  c.natX = fl.xs.slice(); c.floor = fl.floor.slice(); c.lift = lift;
+  up.forEach(i=>{ outX[i] = fl.xs[i] + s; outSide[i] = 'L'; });
+  c.natX = fl.xs.slice(); c.floor = fl.floor.slice(); c.lifts = lifts.slice();
   c.seats.forEach((seat, i)=>{
     seat.targetX = outX[i];
     const flipped = seat._rowSide && seat._rowSide !== outSide[i];
     seat._rowSide = outSide[i];
-    const fy = fl.floor[i] ? lift : 0;
+    const fy = lifts[fl.floor[i]] || 0;
     const floorChanged = (seat._rowFloorY || 0) !== fy;
     if(seat.group && !seat.ridingOn && !seat.seatedOn && (floorChanged || seat.group.position.y !== fy)) seat.group.position.y = fy;
     seat._rowFloorY = fy;
     if((instant || flipped || floorChanged) && seat.group) seat.group.position.x = seat.targetX;   // 층을 옮기면 미끄러지지 않고 바로
   });
+  _rowFloorsNote();
   // 올라탄 좌석의 UI 앵커는 탑 바닥의 targetX 를 읽는다 — 옮긴 자리로 다시 물려준다
   seats.forEach(s=>{ if(s.ridingOn){ const b=_rideBottom(s); s.targetX = (b && b.targetX) || 0; } });
 }
@@ -4136,8 +4134,17 @@ function _rowSeatBox(seat){
     return (isFinite(r.top) && r.top > 0.1 && isFinite(r.minY) && isFinite(r.maxZ)) ? r : def;
   }catch(_){ return def; }
 }
-const ROOM_FLOOR_GAP_PX = 4;          // 1층 머리와 2층(책상 · 이름표) 사이 여백
-const ROOM_FLOOR_LABELS_PX = 46;      // 2층 발밑의 경험치 바 + 이름표 자리(px) — 1층 머리를 안 덮게
+/* 층 사이 여백 단계 — 보통 → 좁게. labelsPx = 위층 발밑의 경험치 바 + 이름표 자리(좁혀도 이름표는 안 덮는다),
+   gapPx = 그 아래 아래층 머리까지 띄우는 px. */
+const ROOM_FLOOR_LIFT_MAX = 10;        // 한 층을 올려 볼 최대 높이(월드) — 여기까지 안 되면 그 층 수는 안 된다
+const ROOM_FLOOR_GAPS = [{ labelsPx: 46, gapPx: 4 }, { labelsPx: 38, gapPx: 0 }];
+/* 설정한 층 수가 이 화면 · 이 크기에서 안 되면 설정 아래에 짧게 알린다. */
+function _rowFloorsNote(){
+  const el = document.getElementById('fsRoomFloorsNote'); if(!el) return;
+  const c = _rowCache;
+  const txt = (c && c.floorsCapped) ? ('이 화면에서는 ' + c.floorsShown + '층까지') : '';
+  if(el.textContent !== txt){ el.textContent = txt; el.style.display = txt ? '' : 'none'; }
+}
 const ROOM_FLOOR_TOP_MARGIN_PX = 8;   // 2층 머리 위 화면 여백
 /* 화면 위에서 px 만큼 내려온 높이가 좌석 깊이(z=0) · 맨 오른쪽 좌석 x 에서 월드 y 로 어디인가. */
 function _rowWorldYAtTopPx(px){
@@ -4217,7 +4224,7 @@ function _rowBandYRange(){
     const b = c.boxes[i]; if(!b) continue;
     // 띠 밖(안 그려지는) 좌석은 빼고 잰다
     if(_rowBandPx && c.seats[i].group){ c.seats[i].group.getWorldPosition(_rowSeatP); _rowSeatP.project(camera); if(!SeatLayout.inBand((_rowSeatP.x * 0.5 + 0.5) * innerWidth, _rowBandPx)) continue; }
-    const fy = (c.floor && c.floor[i]) ? (c.lift || 0) : 0;
+    const fy = (c.floor && c.lifts) ? (c.lifts[c.floor[i]] || 0) : 0;
     top = Math.min(top, sy(fy + b.top, 0));
     bottom = Math.max(bottom, sy(fy + b.minY, b.maxZ));
   }
@@ -8595,7 +8602,7 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     const eqBtn=document.getElementById('fsSeatEqToggle');
     if(eqBtn){ eqBtn.textContent = seatEqualizeOn?'켜짐':'꺼짐'; eqBtn.classList.toggle('on', seatEqualizeOn); }
     const flBtn=document.getElementById('fsRoomFloorsToggle');
-    if(flBtn){ flBtn.textContent = roomFloors===2 ? '2층' : '1층'; flBtn.classList.toggle('on', roomFloors===2); }
+    if(flBtn){ flBtn.textContent = roomFloors + '층'; flBtn.classList.toggle('on', roomFloors > 1); }
     const rsBtn=document.getElementById('fsRoomSeatModeToggle');
     if(rsBtn){ rsBtn.textContent = roomSeatMode==='right' ? '맨 오른쪽 고정' : '줄 안에 함께'; rsBtn.classList.toggle('on', roomSeatMode==='right'); }
     const dpBtn=document.getElementById('fsDecoPartsToggle');
@@ -8697,10 +8704,10 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     refreshToggleBtns();
     layoutSeats();
   };
-  /* 🏢 방 줄 층 수 — 1층 ↔ 2층. 내 화면에서만(서버에 안 쓴다). */
+  /* 🏢 방 줄 층 수 — 1층 → 2층 → 3층. 내 화면에서만(서버에 안 쓴다). */
   const flBtn=document.getElementById('fsRoomFloorsToggle');
   if(flBtn) flBtn.onclick=()=>{
-    roomFloors = (roomFloors===2) ? 1 : 2;
+    roomFloors = (roomFloors % SeatLayout.MAX_FLOORS) + 1;   // 1 → 2 → 3 → 1
     try{ localStorage.setItem(ROOM_FLOORS_KEY, String(roomFloors)); }catch(_){}
     refreshToggleBtns();
     layoutSeats();

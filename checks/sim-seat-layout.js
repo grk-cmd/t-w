@@ -5,7 +5,7 @@
    ・3절: «맨 오른쪽 고정» 겹침 없음 · 건너가기
    ・4절: 휠 · 끌기 값(5px 문턱 · 줄 단위 휠) · 프로그램 이동 좌우 범위
    ・5절: 보이는 영역 — 띠 자리 · 폭 손잡이 · «줄 안에 함께» 범위(처음 사람 ~ 끝 사람)
-   ・7절: 2층 — 1층을 띠 폭만큼 채우고 넘치면 위 선반 · 2층 높이(머리 위 + 이름표 자리 · 화면 위 넘지 않게)
+   ・7절: 층(최대 3) — 아래층을 띠 폭만큼 채우고 넘치면 위 선반 · 층 수 고르기(여백 좁히기 → 층 줄이기)
    ・6절: app.js 배선 · html(로드 순서 · 손잡이 · 설정 버튼) · 클릭 통과 목록 · 창 위치 초기화 · 개발용 가짜 사람
    [실행] seat-layout.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
@@ -168,47 +168,66 @@ say('── 5. 보이는 영역(띠)');
   chk(L.clampOffset(0, rg) >= rg.min && rg.max > 0, '처음 자리(0) 근처에서 시작해 휠 · 끌기로 양쪽 다 움직인다(10명 · 좁은 띠)');
 }
 
-say('── 7. 2층');
+say('── 7. 층(최대 3)');
 {
-  let okFit = true, okOrder = true, okOne = true, okNoOverlap = true, bad = '';
-  for(const n of [1, 4, 10, 20]) for(const bw of [2, 5, 9, 25]) for(const sp of [0.02, 0.45]){
+  let okFit = true, okOrder = true, okOne = true, okNoOverlap = true, okMax = true, bad = '';
+  for(const n of [1, 4, 10, 20]) for(const bw of [2, 5, 9, 25]) for(const sp of [0.02, 0.45]) for(const F of [1, 2, 3]){
     const r = rowOf(n, 0.85, sp);
-    const f = L.splitFloors(r.hws, sp, bw, 2);
-    const f1 = []; const f2 = [];
-    f.floor.forEach((x, i) => (x ? f2 : f1).push(i));
-    if(!f1.length || f1[0] !== 0) okOne = false;
-    // 1층을 먼저 채운다 — 1층은 앞쪽 연속 · 2층은 그 뒤 연속(줄 순서 그대로)
-    if(f2.length && f2[0] !== f1.length) okOrder = false;
-    // 1층(2명 이상일 때)은 띠 폭 안
-    if(f1.length > 1){ const L1 = Math.min(...f1.map(i => f.xs[i] - r.hws[i])), R1 = Math.max(...f1.map(i => f.xs[i] + r.hws[i])); if(R1 - L1 > bw + 1e-9){ okFit = false; bad = `n${n} bw${bw}`; } }
-    // 한 층 안에서 겹치지 않는다
-    for(const fl of [f1, f2]) for(let k = 1; k < fl.length; k++){ const a = fl[k - 1], b = fl[k]; if((f.xs[a] - r.hws[a]) - (f.xs[b] + r.hws[b]) < sp - 1e-9) okNoOverlap = false; }
-    // 넘쳤다면 1층에 한 명 더 넣으면 띠를 넘는다(꽉 채움)
-    if(f2.length && f1.length){ const k = f2[0]; const R1 = f.xs[0] + r.hws[0]; const xk = f.xs[f1[f1.length - 1]] - (r.hws[f1[f1.length - 1]] + sp + r.hws[k]); if(R1 - (xk - r.hws[k]) <= bw) okFit = false; }
+    const f = L.splitFloors(r.hws, sp, bw, F);
+    const by = [[], [], []];
+    f.floor.forEach((x, i) => by[x].push(i));
+    if(n && (!by[0].length || by[0][0] !== 0)) okOne = false;
+    if(f.count > F || Math.max(...f.floor) !== f.count - 1) okMax = false;
+    // 줄 순서대로 아래층부터 — 층 번호가 줄 순서에서 줄어들지 않는다
+    for(let i = 1; i < n; i++) if(f.floor[i] < f.floor[i - 1] || f.floor[i] > f.floor[i - 1] + 1) okOrder = false;
+    for(let k = 0; k < f.count; k++){
+      const fl = by[k]; if(!fl.length) { okOne = false; continue; }
+      // 맨 위층이 아니면 띠 폭 안 · 꽉 채움(다음 사람을 넣으면 넘침)
+      if(k < f.count - 1){
+        const Lk = Math.min(...fl.map(i => f.xs[i] - r.hws[i])), Rk = Math.max(...fl.map(i => f.xs[i] + r.hws[i]));
+        if(fl.length > 1 && Rk - Lk > bw + 1e-9){ okFit = false; bad = `n${n} bw${bw} F${F}`; }
+        const last = fl[fl.length - 1], nx = last + 1;
+        const xk = f.xs[last] - (r.hws[last] + sp + r.hws[nx]);
+        if(Rk - (xk - r.hws[nx]) <= bw) okFit = false;
+      }
+      for(let j = 1; j < fl.length; j++){ const a2 = fl[j - 1], b2 = fl[j]; if((f.xs[a2] - r.hws[a2]) - (f.xs[b2] + r.hws[b2]) < sp - 1e-9) okNoOverlap = false; }
+    }
   }
-  chk(okOne, '1층에는 늘 적어도 한 사람 · 맨 앞(기준 좌석)은 1층');
-  chk(okOrder, '1층을 먼저 채우고 나머지가 2층 — 줄 순서 그대로');
-  chk(okFit, '1층은 띠 폭 안 · 한 명이라도 더 넣으면 넘칠 때만 2층으로 ' + bad);
+  chk(okOne, '층마다 적어도 한 사람 · 맨 앞(기준 좌석)은 1층');
+  chk(okMax, '설정한 층 수를 넘지 않는다(최대 3)');
+  chk(okOrder, '아래층부터 채운다 — 줄 순서 그대로, 층을 건너뛰지 않는다');
+  chk(okFit, '맨 위층이 아니면 띠 폭 안 · 한 명이라도 더 넣으면 넘칠 때만 위층으로 ' + bad);
   chk(okNoOverlap, '같은 층끼리 겹치지 않는다(여백 포함)');
   const one = L.splitFloors([0.85, 0.85, 0.85, 0.85], 0.45, 2, 1);
-  chk(one.floor.every(x => x === 0) && one.xs[3] < -6, '1층 설정이면 모두 1층(예전 한 줄)');
-  chk(Math.abs(L.floorLift({ top1: 1.25, labelsWorld: 0.2, top2: 1.25, yTopLimit: 10 }) - 1.45) < EPS, '2층 높이 = 1층 머리 위 + 이름표 자리');
-  chk(Math.abs(L.floorLift({ top1: 1.25, labelsWorld: 0.2, top2: 1.25, yTopLimit: 2.3 }) - 1.05) < EPS, '화면 위가 모자라면 2층 머리가 화면 안에 들어오게 낮춘다');
-  chk(Math.abs(L.floorLift({ top1: 1.25, labelsWorld: 0.2, top2: 1.25, yTopLimit: 1 }) - 0.75) < EPS, '그래도 1층 키의 60% 아래로는 안 내린다');
-  chk(L.floorLift({ top1: 0.5, labelsWorld: 0.2, top2: 0.5, yTopLimit: NaN }) === 0.7, '동물(작은 키)이면 2층도 낮게');
+  chk(one.floor.every(x => x === 0) && one.xs[3] < -6 && one.count === 1, '1층 설정이면 모두 1층(예전 한 줄)');
+  chk(L.splitFloors([0.85, 0.85, 0.85, 0.85, 0.85, 0.85], 0.45, 2, 9).count === 3, '층 수는 3 을 넘지 않는다');
+  // 층 수 고르기 — 원하는 층 · 여백 보통 → 좁게 → 한 층 줄이기
+  const log = [];
+  const pick3 = L.planFloors(3, 2, (n, g) => { log.push(n + ':' + g); return { ok: n === 3 && g === 0, lifts: [0, 1, 2], count: n }; });
+  chk(pick3.n === 3 && pick3.gapLevel === 0 && log.join() === '3:0', '들어가면 원하는 층 수 그대로(여백 보통)');
+  log.length = 0;
+  const pickG = L.planFloors(3, 2, (n, g) => { log.push(n + ':' + g); return { ok: n === 3 && g === 1, lifts: [0, 1, 2], count: n }; });
+  chk(pickG.n === 3 && pickG.gapLevel === 1 && log.join() === '3:0,3:1', '안 들어가면 먼저 층 사이 여백을 좁혀 본다');
+  log.length = 0;
+  const pick2 = L.planFloors(3, 2, (n, g) => { log.push(n + ':' + g); return { ok: n === 2, lifts: [0, 1], count: n }; });
+  chk(pick2.n === 2 && log.join() === '3:0,3:1,2:0', '그래도 안 되면 한 층 줄인다(3 → 2)');
+  const pick1 = L.planFloors(3, 2, () => ({ ok: false }));
+  chk(pick1.n === 1 && pick1.lifts.length === 1 && pick1.lifts[0] === 0, '끝까지 안 되면 1층');
+  chk(L.planFloors(1, 2, () => { throw new Error('부르면 안 됨'); }).n === 1, '1층 설정이면 계산하지 않는다');
+  chk(L.minLiftFor(x => x >= 2.5, 0, 8) - 2.5 < 1e-4 && L.minLiftFor(x => x >= 0, 0, 8) === 0 && L.minLiftFor(x => false, 0, 8) === 8, 'minLiftFor — 조건을 처음 만족하는 높이');
 }
 
 say('── 6. app.js 배선');
 {
   const A0 = SRC['app.js'];
-  chk(/const fl = SeatLayout\.splitFloors\(c\.hws, c\.spacing, bR - bL, roomFloors\);/.test(A0) && /var ROOM_FLOORS_KEY = 'tw\.roomFloors';/.test(A0), '층 나누기: 띠 폭(월드)으로 · 설정 tw.roomFloors');
-  chk(/SeatLayout\.floorLift\(\{ want: need, top1, top2: 0, yTopLimit: lmax, minFrac: 0\.6 \}\)/.test(A0) && /const bx = \(i\)=>\(c\.boxes && c\.boxes\[i\]\) \|\| _rowSeatBox\(c\.seats\[i\]\);/.test(A0), '2층 높이: 실제 좌석 상자(캐릭터 크기 · 동물 40% · 책상) · 화면 위 한계');
+  chk(/const plan = SeatLayout\.planFloors\(roomFloors, ROOM_FLOOR_GAPS\.length, \(n, g\)=>\{\n    const f = SeatLayout\.splitFloors\(c\.hws, c\.spacing, bandW, n\);/.test(A0) && /var ROOM_FLOORS_KEY = 'tw\.roomFloors';/.test(A0) && /roomFloors = \(roomFloors % SeatLayout\.MAX_FLOORS\) \+ 1;/.test(A0), '층 나누기: 띠 폭(월드)으로 · 설정 tw.roomFloors(1 → 2 → 3)');
+  chk(/const bx = \(i\)=>\(c\.boxes && c\.boxes\[i\]\) \|\| _rowSeatBox\(c\.seats\[i\]\);/.test(A0) && /const ROOM_FLOOR_GAPS = \[\{ labelsPx: 46, gapPx: 4 \}, \{ labelsPx: 38, gapPx: 0 \}\];/.test(A0), '층 높이: 실제 좌석 상자(캐릭터 크기 · 동물 40% · 책상) · 여백 보통 → 좁게');
   chk(/if\(seat\.group && !seat\.ridingOn && !seat\.seatedOn && \(floorChanged/.test(A0) && /s\._rowFloorY = 0;/.test(A0), '층 높이는 올라탄 · 벤치 좌석은 건드리지 않고 · 방을 나가면 0 으로');
   chk(/const cxChip = _chipNatDx \? /.test(A0) && /px0 = placeRight \? \(cxChip \+ CHAR_HALF_PX/.test(A0) && /_charBoundsLatest = \{ x: cx, y: cy/.test(A0), '상태칩은 줄을 넘겨도 처음 자리 — main 에 보내는 캐릭터 원은 실제 자리');
   chk(/if\(!_rowRoomMode \|\| !c \|\| c\.fixRight \|\| !c\.natX/.test(A0), '«맨 오른쪽 고정» 이면 칩은 원래대로');
   chk(/id="fsRoomFloorsToggle"/.test(SRC['desk-companion-prototype.html']), 'html: 캐릭터 탭 «방 줄 층 수»');
-  chk(/if\(lift > lmax \+ 1e-6\)\{/.test(A0) && /c\.floorFallback = true;/.test(A0), '두 층이 화면 높이에 안 들어가면 1층 한 줄로(화면 밖 · 머리 덮기 대신)');
-  chk(/sy\(L \+ minY2, maxZ2\), sy\(L, 0\) \+ ROOM_FLOOR_LABELS_PX\) <= head1 - ROOM_FLOOR_GAP_PX/.test(A0), '2층 높이는 화면 px 로 — 책상 앞 아래 모서리 · 2층 이름표가 1층 머리 위');
+  chk(/'이 화면에서는 ' \+ c\.floorsShown \+ '층까지'/.test(A0) && /id="fsRoomFloorsNote"/.test(SRC['desk-companion-prototype.html']), '층 수를 줄였으면 설정 아래에 «이 화면에서는 N층까지»');
+  chk(/Math\.max\(sy\(L \+ minY, maxZ\), sy\(L, 0\) \+ gap\.labelsPx\) <= headBelow - gap\.gapPx/.test(A0) && />= ROOM_FLOOR_TOP_MARGIN_PX;/.test(A0), '층 높이는 화면 px 로 — 위층 책상 앞 아래 모서리 · 위층 이름표가 아래층 머리 위 · 맨 위층 머리는 화면 안');
   chk(/const y = _rowBandYRange\(\);\n  const cy = y \? \(y\.top \+ y\.bottom\) \/ 2/.test(A0) && /if\(!SeatLayout\.inBand\(\(_rowSeatP\.x \* 0\.5 \+ 0\.5\) \* innerWidth, _rowBandPx\)\) continue;/.test(A0), '손잡이 세로 자리 = 띠 안 좌석이 화면에서 차지하는 높이의 가운데');
   const V = (A0.match(/const DEV_FAKE_VARIANTS = \[([\s\S]*?)\];/) || [])[1] || '';
   chk(/kind: 'human'/.test(V) && /kind: 'animal'/.test(V) && /rideOnPrev: true/.test(V) && (V.match(/\{ kind:/g) || []).length === 9 && /deskLenX: 2\.2/.test(V) && /items: false/.test(V), '가짜 사람 9 가지 — 사람 · 동물 · 몸 크기 · 책상 크기 · 넓은 책상 · 물건 없음 · 올라탄 동물');
@@ -226,7 +245,7 @@ say('── 6. app.js 배선');
   chk(/classList\.contains\('runmode'\)\);/.test(A) && /_rowRoomMode = !!\(hasRemote && _meBase/.test(A), '방(실행 화면 · 다른 사람 있음)일 때만 — 혼자일 때 예전 그대로');
   chk(/rowSpan = Math\.max\(1\.2, 2 \* halfWidthsForZoom\[0\]\);/.test(A), '방에서도 카메라 줌은 좌석 하나 기준 — 사람이 늘어도 캐릭터 크기 그대로');
   chk(/const camX = _rowRoomMode \? 0 : rowCenter;/.test(A) && /applyCameraAndCanvas\(camX, rowSpan\);\n  _applyRowOffset\(false\);/.test(A), '방에서는 카메라 기준점 = 맨 오른쪽 좌석 · 혼자는 줄 가운데(예전 그대로)');
-  chk(/SeatLayout\.rowRange\(xs1\.concat\(xs2\), hw1\.concat\(hw2\), bL, bR\)/.test(A) && /SeatLayout\.offsetRange\(xs1\.concat\(xs2\), hw1\.concat\(hw2\), bL\)/.test(A), '두 모드의 범위 — 줄 안에 함께: 띠 양 끝 · 맨 오른쪽 고정: 띠 왼쪽 끝');
+  chk(/SeatLayout\.offsetRange\(xsAll, hwAll, bL\) : SeatLayout\.rowRange\(xsAll, hwAll, bL, bR\)/.test(A), '두 모드의 범위 — 줄 안에 함께: 띠 양 끝 · 맨 오른쪽 고정: 띠 왼쪽 끝');
   chk(/if\(_rowRoomMode && !_wasRoom\) _rowLayout\.reset\(\);/.test(A), '방에 들어올 때 오프셋 0');
   chk(/function updateCameraOnly\(\)\{\n  applyCameraAndCanvas\(_cachedRowCenter, _cachedRowSpan\);\n  _applyRowOffset\(false\);/.test(A), '캐릭터 크기만 바꿔도 띠 · 범위 다시 계산');
   chk(/const _sc = _rowScissorBegin\(\);[^\n]*\n[^\n]*renderer\.render\(scene,camera\);\n  _rowScissorEnd\(_sc\);/.test(A) && /_rowClipLabels\(\); _rowPlaceBandHandle\(\);/.test(A), '띠 밖은 안 그린다(가위) · 이름표 숨김 · 손잡이 자리 — 매 프레임');

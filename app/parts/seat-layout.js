@@ -104,34 +104,46 @@ function rowRange(xs, hws, bandL, bandR){
   return { min: Math.min(a, b), max: Math.max(a, b) };
 }
 
-/* 층 나누기 — 줄 순서대로 1층을 띠 폭(월드)만큼 채우고 넘치는 사람은 2층으로(floors 가 1 이면 모두 1층).
-   층마다 맨 오른쪽 좌석이 x=0 이고 왼쪽으로 «반폭 + 여백 + 반폭». 1층에는 적어도 한 사람.
-   돌려주는 값: floor[i](0|1) · xs[i](그 층 안의 자리). */
+const MAX_FLOORS = 3;
+
+/* 층 나누기 — 줄 순서대로 1층을 띠 폭(월드)만큼 채우고, 넘치면 2층, 또 넘치면 3층 … floors 층까지.
+   마지막 층은 남은 사람을 다 받는다(띠보다 길면 넘겨 본다). 한 층에는 적어도 한 사람.
+   층마다 맨 오른쪽 좌석이 x=0 이고 왼쪽으로 «반폭 + 여백 + 반폭».
+   돌려주는 값: floor[i](0부터) · xs[i](그 층 안의 자리) · count(실제로 쓴 층 수). */
 function splitFloors(hws, spacing, bandW, floors){
   const n = hws.length, floor = new Array(n).fill(0), xs = new Array(n);
-  const two = floors === 2 && isFinite(bandW) && bandW > 0;
-  let x = 0, right = 0, prev = -1;
+  const maxF = Math.max(1, Math.min(MAX_FLOORS, floors | 0));
+  const fits = isFinite(bandW) && bandW > 0;
+  let f = 0, x = 0, right = 0, prev = -1;
   for(let i = 0; i < n; i++){
-    const nx = prev < 0 ? 0 : x - (hws[prev] + spacing + hws[i]);
+    let nx = prev < 0 ? 0 : x - (hws[prev] + spacing + hws[i]);
     if(prev < 0) right = hws[i];
-    if(two && prev >= 0 && floor[prev] === 0 && (right - (nx - hws[i])) > bandW + 1e-9){
-      // 1층이 찼다 — 여기부터 2층(맨 오른쪽에서 다시 시작)
-      for(let j = i; j < n; j++) floor[j] = 1;
-      let x2 = 0, p2 = -1;
-      for(let j = i; j < n; j++){ x2 = p2 < 0 ? 0 : x2 - (hws[p2] + spacing + hws[j]); xs[j] = x2; p2 = j; }
-      break;
+    if(fits && prev >= 0 && f < maxF - 1 && (right - (nx - hws[i])) > bandW + 1e-9){
+      f++; nx = 0; right = hws[i];   // 이 층이 찼다 — 위층 맨 오른쪽에서 다시 시작
     }
-    xs[i] = nx; x = nx; prev = i;
+    floor[i] = f; xs[i] = nx; x = nx; prev = i;
   }
-  return { floor, xs };
+  return { floor, xs, count: n ? f + 1 : 0 };
 }
-/* 2층 높이(월드) — 1층 머리 위 + 2층 이름표 자리(이름표 · 경험치 바는 발밑에 붙는다)만큼 올린다.
-   2층 머리가 화면 위로 나가면(yTopLimit) 그만큼 낮추되 1층 키의 minFrac 아래로는 안 내린다. */
-function floorLift(o){
-  const want = isFinite(o.want) ? o.want : (o.top1 || 0) + (o.labelsWorld || 0);
-  let y = want;
-  if(isFinite(o.yTopLimit)) y = Math.min(y, o.yTopLimit - (o.top2 || 0));
-  return Math.max((o.top1 || 0) * (isFinite(o.minFrac) ? o.minFrac : 0.6), y);
+/* 층 수 고르기 — 원하는 층 수부터, 층 사이 여백을 보통 → 좁게 순서로 시도하고(tryFloors(n, gapLevel) 가 {ok, lifts}),
+   안 되면 한 층씩 줄인다. 1층은 늘 된다. 돌려주는 값: {n, gapLevel, lifts}. */
+function planFloors(want, gapLevels, tryFloors){
+  const w = Math.max(1, Math.min(MAX_FLOORS, want | 0));
+  for(let n = w; n >= 2; n--){
+    for(let g = 0; g < gapLevels; g++){
+      const r = tryFloors(n, g);
+      if(r && r.ok) return { n: r.count || n, gapLevel: g, lifts: r.lifts };
+    }
+  }
+  return { n: 1, gapLevel: 0, lifts: [0] };
+}
+/* 단조 조건 ok(L) 를 처음 만족하는 L(작은 쪽) — 이분 탐색. lo 에서 이미 참이면 lo, hi 에서도 거짓이면 hi.
+   층 높이를 화면 px 기준(원근 · 책상 앞면 포함)으로 맞출 때 쓴다. */
+function minLiftFor(ok, lo, hi, iters){
+  if(ok(lo)) return lo;
+  if(!ok(hi)) return hi;
+  for(let k = 0; k < (iters || 24); k++){ const m = (lo + hi) / 2; if(ok(m)) hi = m; else lo = m; }
+  return hi;
 }
 
 /* 보이는 영역(띠)의 화면 px. 오른쪽 끝 = 기준 좌석(맨 오른쪽 사람) 오른쪽 + 여백, 폭 = 화면 폭 × widthFrac.
@@ -148,14 +160,6 @@ function bandFracFromDrag(startFrac, dxPx, screenW){
   const W = Math.max(1, screenW || 1);
   const f = (isFinite(startFrac) ? startFrac : BAND_DEFAULT_FRAC) - (+dxPx || 0) / W;
   return Math.max(BAND_MIN_FRAC, Math.min(1, f));
-}
-/* 단조 조건 ok(L) 를 처음 만족하는 L(작은 쪽) — 이분 탐색. lo 에서 이미 참이면 lo, hi 에서도 거짓이면 hi.
-   2층 높이를 화면 px 기준(원근 · 책상 앞면 포함)으로 맞출 때 쓴다. */
-function minLiftFor(ok, lo, hi, iters){
-  if(ok(lo)) return lo;
-  if(!ok(hi)) return hi;
-  for(let k = 0; k < (iters || 24); k++){ const m = (lo + hi) / 2; if(ok(m)) hi = m; else lo = m; }
-  return hi;
 }
 function inBand(px, band){ return !band || (px >= band.l && px <= band.r); }
 
@@ -183,7 +187,7 @@ function createSeatLayout(){
 }
 
 const api = { createSeatLayout, orderRow, naturalRow, offsetRange, clampOffset, placeRow,
-  rowRange, bandRect, bandFracFromDrag, inBand, splitFloors, floorLift, minLiftFor,
+  rowRange, bandRect, bandFracFromDrag, inBand, splitFloors, planFloors, minLiftFor, MAX_FLOORS,
   wheelToRowPx, dragBegin, dragMove, clampPanX,
   DRAG_THRESHOLD_PX, PAN_BASE_X, PAN_MARGIN_FALLBACK, BAND_DEFAULT_FRAC, BAND_MIN_FRAC, SEAT_MODE_ROW, SEAT_MODE_RIGHT };
 if(typeof window !== 'undefined') window.SeatLayout = api;
