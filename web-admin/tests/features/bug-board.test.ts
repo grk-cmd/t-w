@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BUG_PRV_NOTICE_BODY } from '@/entities/bug-board';
 import { answerPost } from '@/features/bug-board/answer-post';
 import { changeStatus } from '@/features/bug-board/change-status';
+import { deleteAsk, deletePost } from '@/features/bug-board/delete-post';
 import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
 
 const entry = (extra: Record<string, unknown> = {}) => ({
@@ -88,5 +89,44 @@ describe('상태만 변경', () => {
       ['commit', 'bugBoard/list/p1/openTs', null],
     ]);
     expect(auditsOf(writes)[0]).toMatchObject({ action: 'bug.status', detail: '접수 → 수정 완료' });
+  });
+});
+
+describe('제보 삭제', () => {
+  const item = {
+    id: 'p1',
+    vis: 'prv',
+    status: 'new',
+    cat: 'bug',
+    name: '',
+    authUid: 'uid1',
+    code: 'u1',
+    ts: 100,
+  } as const;
+
+  it('한 묶음 — 목록 · 비공개 내용 · 답변 · 공감 + 기록(대상은 번호만)', async () => {
+    const { db, writes } = fakeDb();
+    await deletePost(db, item, 'B-1009-1');
+    expect(writes.every((w) => w[0] === 'commit')).toBe(true);
+    expect(withoutAudits(writes)).toEqual([
+      ['commit', 'bugBoard/list/p1', null],
+      ['commit', 'bugBoard/prv/uid1/p1', null],
+      ['commit', 'bugBoard/ans/pub/p1', null],
+      ['commit', 'bugBoard/ans/prv/p1', null],
+      ['commit', 'bugBoard/likes/p1', null],
+    ]);
+    expect(writes.some((w) => w[1].startsWith('inbox/') || w[1].startsWith('bugBoard/seq'))).toBe(false);
+    expect(auditsOf(writes)).toEqual([
+      { at: NOW, by: 'admin-uid', action: 'bug.delete', target: 'B-1009-1' },
+    ]);
+  });
+
+  it('묶음이 거절되면 아무것도 지워지지 않는다 · 확인 문구', async () => {
+    const { db, writes } = fakeDb({}, (p) => p.startsWith('adminLog/'));
+    await expect(deletePost(db, item, 'B-1009-1')).rejects.toThrow();
+    expect(writes).toEqual([]);
+    expect(deleteAsk('B-1009-1')).toBe(
+      'B-1009-1 제보를 지울까요? 본문 · 답변 · 공감까지 모두 지워지고 되돌릴 수 없어요.',
+    );
   });
 });

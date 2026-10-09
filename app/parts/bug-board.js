@@ -32,6 +32,11 @@ export function ymd(t){
   const d = new Date(t);
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
+/* 하루 상한 — 웹 관리자 ⚙️ 설정의 config/bugDailyMax(1~100). 없거나 이상하면 BUG_DAILY_MAX. */
+export const BUG_DAILY_MAX_PATH = 'config/bugDailyMax';
+export function dailyMaxOf(v){
+  return (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 100) ? v : BUG_DAILY_MAX;
+}
 /* 새 글 입력 확인 — 화면과 규칙이 같은 상한을 본다. 문제가 없으면 null. */
 export function checkPost(p){
   if(!p) return '내용이 없어요';
@@ -68,7 +73,7 @@ const byTsDesc = (a, b) => (b.ts || 0) - (a.ts || 0);
 
 /*
  * deps: db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo,
- *       runTransaction, push, authUid(), now()
+ *       runTransaction, push, authUid(), now(), serverTs()(= serverTimestamp — 새 글 ts)
  */
 export function createBugBoard(deps){
   const { db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo, runTransaction, push } = deps;
@@ -121,7 +126,22 @@ export function createBugBoard(deps){
       .sort((a, b) => (a.ts || 0) - (b.ts || 0));
     return { item: it, content, answers, liked: !!liked };
   }
-  /* 새 글. who: { name, code, isAdmin }. 하루 BUG_DAILY_MAX 건(관리자 제외). */
+  /* 하루 상한 — 게시판을 열 때 한 번 읽어 둔다(구독 아님). 못 읽으면(오프라인 · 값 없음) BUG_DAILY_MAX. */
+  let dailyMax = BUG_DAILY_MAX;
+  async function loadDailyMax(){
+    try{ dailyMax = dailyMaxOf((await get(ref(db, BUG_DAILY_MAX_PATH))).val()); }catch(_){ dailyMax = BUG_DAILY_MAX; }
+    return dailyMax;
+  }
+  /* 오늘 내가 쓴 제보 수 — 앱이 쓰는 users/{code}/bugPostCount/{날짜}. 못 읽으면 0. */
+  async function todayCount(code){
+    if(!code) return 0;
+    try{
+      const n = (await get(ref(db, 'users/' + code + '/bugPostCount/' + ymd(now())))).val();
+      return typeof n === 'number' ? n : 0;
+    }catch(_){ return 0; }
+  }
+  /* 새 글. who: { name, code, isAdmin }. 하루 dailyMax 건(관리자 제외 · 상한은 config/bugDailyMax).
+     ts · openTs 는 서버 시각(규칙이 === now 를 본다 — PC 시계가 빨라도 써진다). 관리자 글엔 byAdmin(🛡 배지 · 규칙이 관리자만 받는다). */
   async function createPost(p, who){
     const bad = checkPost(p); if(bad) return { ok: false, reason: bad };
     const me = uid(); if(!me || !who || !who.code) return { ok: false, reason: '로그인이 필요해요' };
@@ -130,11 +150,13 @@ export function createBugBoard(deps){
     const cntRef = ref(db, 'users/' + who.code + '/bugPostCount/' + day);
     if(!who.isAdmin){
       const n = (await get(cntRef)).val();
-      if(typeof n === 'number' && n >= BUG_DAILY_MAX) return { ok: false, reason: '제보는 하루 ' + BUG_DAILY_MAX + '건까지예요' };
+      if(typeof n === 'number' && n >= dailyMax) return { ok: false, reason: '제보는 하루 ' + dailyMax + '건까지예요' };
     }
     const id = push(ref(db, L)).key;
     const w = {};
-    w[L + '/' + id] = listEntry(p, { name: who.name, code: who.code, authUid: me }, t);
+    const e = listEntry(p, { name: who.name, code: who.code, authUid: me }, deps.serverTs ? deps.serverTs() : t);
+    if(who.isAdmin) e.byAdmin = true;
+    w[L + '/' + id] = e;
     w[(p.vis === 'pub' ? 'bugBoard/pub/' : 'bugBoard/prv/' + me + '/') + id] = contentEntry(p);
     await update(ref(db), w);
     if(!who.isAdmin){ try{ await runTransaction(cntRef, c => (typeof c === 'number' ? c : 0) + 1); }catch(_){} }
@@ -202,5 +224,5 @@ export function createBugBoard(deps){
   }
   const C = { cats: BUG_CATS, status: BUG_STATUS, page: BUG_PAGE, dailyMax: BUG_DAILY_MAX, titleMax: BUG_TITLE_MAX,
               bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE };
-  return { C, checkPost, listPage, notices, getItem, getPost, prvTitle, createPost, addAnswer, like, getSeen, setSeen, unseen, migrateNotice };
+  return { C, checkPost, listPage, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, like, getSeen, setSeen, unseen, migrateNotice };
 }

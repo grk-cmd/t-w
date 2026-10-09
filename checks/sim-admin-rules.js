@@ -37,6 +37,7 @@ console.log('\n── 1. 관리자만 쓸 수 있어야 하는 곳');
   ['bugBoard/ans/prv/$id',       '버그제보 비공개 답변'],
   ['config/minRoomVer',          '최소 버전(전원 접속 차단 가능)'],
   ['config/minAppVer',           '앱 최소 버전(옛 앱 전체 차단)'],
+  ['config/bugDailyMax',         '버그 제보 하루 상한'],
   ['inboxBroadcast',             '전체 우편함 발송'],
   ['inboxBroadcastMeta',         '공용 공지 버전(앱 캐시 무효화)'],
 ].forEach(([p, name])=> chk(isAdmin(w(p)), name + '  (' + p + ')'));
