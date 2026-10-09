@@ -2,9 +2,9 @@
    [문제] 방에서는 줄 가운데를 화면 오른쪽(0.84)에 두고 줄 전체가 들어오게 카메라를 물렸다. 사람이 많거나
      캐릭터를 키우면 줄이 오른쪽 화면 밖으로 나가 맨 오른쪽인 내 캐릭터도 사라졌다.
    [해법] 줄은 띠 안에 선다. 띠 = 맨 오른쪽 좌석(카메라 기준점 · 프로그램 이동으로 같이 움직임) 오른쪽 끝 ~ 화면 왼쪽 끝.
-     방에서는 «자동 맞춤» 이 모두가 화면(설정한 층 수 안)에 들어오도록 보기 배율을 줄인다 — 내가 정한 크기보다
-     커지지 않고, 가장 작은 캐릭터가 MIN_CHAR_PX 보다 작아지지 않는다. 그래도 넘치면 층 · 휠(오프셋)로 넘겨 본다.
-     띠 밖은 앱이 그리지 않는다(가위 · 이름표 숨김). 자리 바꾸기는 책상 · 이름표 끌기(층을 넘나든다).
+     방에서는 «자동 맞춤» 이 모두가 한 줄로 화면에 들어오도록 보기 배율을 줄인다 — 내가 정한 크기보다
+     커지지 않고, 가장 작은 캐릭터가 MIN_CHAR_PX 보다 작아지지 않는다. 그래도 넘치면 휠(오프셋)로 넘겨 본다.
+     띠 밖은 앱이 그리지 않는다(가위 · 이름표 숨김). 자리 바꾸기는 책상 · 이름표 끌기.
      ・내 자리 «줄 안에 함께»(기본): 순서는 예전 그대로, 줄 전체를 넘긴다 — rowRange.
      ・내 자리 «맨 오른쪽 고정»: 나를 맨 앞(오른쪽)에 두고 나머지만 넘긴다 — offsetRange · placeRow
        (내 자리를 지나는 사람은 내 오른쪽 = 띠 밖으로 건너간다).
@@ -104,47 +104,14 @@ function rowRange(xs, hws, bandL, bandR){
   return { min: Math.min(a, b), max: Math.max(a, b) };
 }
 
-const MAX_FLOORS = 3;
-
-/* 층 나누기 — 줄 순서대로 1층을 띠 폭(월드)만큼 채우고, 넘치면 2층, 또 넘치면 3층 … floors 층까지.
-   마지막 층은 남은 사람을 다 받는다(띠보다 길면 넘겨 본다). 한 층에는 적어도 한 사람.
-   층마다 맨 오른쪽 좌석이 x=0 이고 왼쪽으로 «반폭 + 여백 + 반폭».
-   돌려주는 값: floor[i](0부터) · xs[i](그 층 안의 자리) · count(실제로 쓴 층 수). */
-function splitFloors(hws, spacing, bandW, floors){
-  const n = hws.length, floor = new Array(n).fill(0), xs = new Array(n);
-  const maxF = Math.max(1, Math.min(MAX_FLOORS, floors | 0));
-  const fits = isFinite(bandW) && bandW > 0;
-  let f = 0, x = 0, right = 0, prev = -1;
-  for(let i = 0; i < n; i++){
-    let nx = prev < 0 ? 0 : x - (hws[prev] + spacing + hws[i]);
-    if(prev < 0) right = hws[i];
-    if(fits && prev >= 0 && f < maxF - 1 && (right - (nx - hws[i])) > bandW + 1e-9){
-      f++; nx = 0; right = hws[i];   // 이 층이 찼다 — 위층 맨 오른쪽에서 다시 시작
-    }
-    floor[i] = f; xs[i] = nx; x = nx; prev = i;
-  }
-  return { floor, xs, count: n ? f + 1 : 0 };
-}
-/* 층 수 고르기 — 원하는 층 수부터, 층 사이 여백을 보통 → 좁게 순서로 시도하고(tryFloors(n, gapLevel) 가 {ok, lifts}),
-   안 되면 한 층씩 줄인다. 1층은 늘 된다. 돌려주는 값: {n, gapLevel, lifts}. */
-function planFloors(want, gapLevels, tryFloors){
-  const w = Math.max(1, Math.min(MAX_FLOORS, want | 0));
-  for(let n = w; n >= 2; n--){
-    for(let g = 0; g < gapLevels; g++){
-      const r = tryFloors(n, g);
-      if(r && r.ok) return { n: r.count || n, gapLevel: g, lifts: r.lifts };
-    }
-  }
-  return { n: 1, gapLevel: 0, lifts: [0] };
-}
 /* 탑 높이 — 머리 위에 올라탄 사람(탑쌓기)이 있으면 그 키만큼 위로. 바닥 좌석 키 + 올라탄 사람마다 (맨 위 − 맨 아래).
-   층 높이 계산이 이 값을 그 좌석의 키로 쓴다 — 위층 책상 · 이름표가 탑을 덮지 않게. */
+   자동 맞춤이 이 값으로 «탑 꼭대기가 화면 위로 나가지 않는가» 를 본다. */
 function towerTop(ownTop, riders){
   let t = isFinite(ownTop) ? ownTop : 0;
   (riders || []).forEach(r=>{ const h = (r && isFinite(r.top) && isFinite(r.minY)) ? r.top - r.minY : 0; if(h > 0) t += h; });
   return t;
 }
-/* 🔍 자동 맞춤(방) — 모두가 화면(설정한 층 수 안)에 들어오도록 방 줄 전체의 보기 배율 s 를 줄인다. 내 화면 전용(저장값 안 건드림).
+/* 🔍 자동 맞춤(방) — 모두가 한 줄로 화면에 들어오도록 방 줄 전체의 보기 배율 s 를 줄인다. 내 화면 전용(저장값 안 건드림).
    ★ 최소는 비율이 아니라 **화면 픽셀**이다: 방에서 가장 작은 캐릭터의 화면 키가 MIN_CHAR_PX(CSS px) 아래로 내려가지 않는다.
      카메라 투영으로 잰 px 라 해상도 · DPI · 화면 크기(줌)와 상관없이 «눈으로 보이는 크기» 가 같다.
      56px 은 얼굴 · 표정 · 상태 이모지가 알아볼 만한 가장 작은 키로 잡은 시작값(실기기에서 보고 조정).
@@ -168,14 +135,6 @@ function fitHysteresis(prev, next, gap){
   if(!isFinite(prev)) return next;
   if(next < prev) return next;
   return (next - prev) > (isFinite(gap) ? gap : 0.04) ? next : prev;
-}
-/* 단조 조건 ok(L) 를 처음 만족하는 L(작은 쪽) — 이분 탐색. lo 에서 이미 참이면 lo, hi 에서도 거짓이면 hi.
-   층 높이를 화면 px 기준(원근 · 책상 앞면 포함)으로 맞출 때 쓴다. */
-function minLiftFor(ok, lo, hi, iters){
-  if(ok(lo)) return lo;
-  if(!ok(hi)) return hi;
-  for(let k = 0; k < (iters || 24); k++){ const m = (lo + hi) / 2; if(ok(m)) hi = m; else lo = m; }
-  return hi;
 }
 
 /* 보이는 영역(띠)의 화면 px. 오른쪽 끝 = 기준 좌석(맨 오른쪽 사람) 오른쪽 + 여백, 폭 = 화면 폭 × widthFrac.
@@ -213,7 +172,7 @@ function createSeatLayout(){
 }
 
 const api = { createSeatLayout, orderRow, naturalRow, offsetRange, clampOffset, placeRow,
-  rowRange, bandRect, inBand, splitFloors, planFloors, minLiftFor, towerTop, MAX_FLOORS,
+  rowRange, bandRect, inBand, towerTop,
   fitMinScale, maxScaleFor, fitHysteresis,
   wheelToRowPx, dragBegin, dragMove, clampPanX,
   DRAG_THRESHOLD_PX, PAN_BASE_X, PAN_MARGIN_FALLBACK, BAND_DEFAULT_FRAC, MIN_CHAR_PX, SEAT_MODE_ROW, SEAT_MODE_RIGHT };

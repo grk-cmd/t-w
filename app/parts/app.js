@@ -1282,8 +1282,6 @@ var _rowLayout = (window.SeatLayout && SeatLayout.createSeatLayout) ? SeatLayout
 var _rowDrag = null;                 // 이름표 끌기 상태(SeatLayout.dragBegin) — 클릭 통과 판정이 본다
 var _rowBandPx = null;               // 보이는 영역(띠) 화면 px {l, r, w} — 방일 때만
 var ROOM_SEAT_MODE_KEY = 'tw.roomSeatMode';  // 내 자리: 'row'(줄 안에 함께 · 기본) | 'right'(맨 오른쪽 고정)
-var ROOM_FLOORS_KEY = 'tw.roomFloors';   // 방 줄 층 수: 1(기본) · 2 · 3 — 아래층이 띠에 넘치면 위 선반으로
-var roomFloors = (()=>{ try{ const v = parseInt(localStorage.getItem('tw.roomFloors'), 10); return (v >= 1 && v <= 3) ? v : 1; }catch(_){ return 1; } })();
 var roomSeatMode = (()=>{ try{ return localStorage.getItem('tw.roomSeatMode') === 'right' ? 'right' : 'row'; }catch(_){ return 'row'; } })();
 /* 설정 패널의 "캐릭터 크기" 슬라이더 값 — 데스크톱 run 모드 전용 배율 (localStorage에서 복원) */
 let focusCharScale=_loadCharScale();
@@ -4010,10 +4008,10 @@ function layoutSeats(){
     rowSpan = Math.max(1.2, 2 * halfWidthsForZoom[0]);
     _rowMeHalfW = _hwOf.get(placed[0]);
     _rowCache = { fixRight: _fixRight, seats: placed.slice(), xs: placed.map(s=>s.targetX), hws: placed.map(s=>_hwOf.get(s)), spacing,
-      boxes: placed.map(_rowSeatBoxWithTower) };   // 좌석 상자 — 배치 때만 잰다(끌기 · 매 프레임엔 이 값을 다시 쓴다). 층 높이 · 손잡이 높이에 쓴다
+      boxes: placed.map(_rowSeatBoxWithTower) };   // 좌석 상자 — 배치 때만 잰다(끌기 · 매 프레임엔 이 값을 다시 쓴다). 자동 맞춤(최소 px · 탑이 화면 위로 나가는지)에 쓴다
   } else {
-    _rowCache = null; _rowBandPx = null; _rowFloorsNote();
-    seats.forEach(s=>{ s._rowSide = null; s._rowFloorIdx = undefined; if(s._rowFloorY){ if(s.group && !s.ridingOn && !s.seatedOn) s.group.position.y = 0; s._rowFloorY = 0; } });
+    _rowCache = null; _rowBandPx = null;
+    seats.forEach(s=>{ s._rowSide = null; if(s._rowFloorY){ if(s.group && !s.ridingOn && !s.seatedOn) s.group.position.y = 0; s._rowFloorY = 0; } });
   }
   _cachedRowCenter = camX; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
   _roomAutoFit(camX, rowSpan);   // 방이면 자동 맞춤(배율을 고르고 카메라 · 줄을 건다) · 혼자면 예전 그대로
@@ -4053,86 +4051,44 @@ function _applyRowOffset(instant, dry){
   const band = { l: _bl, r: band0.r, w: band0.r - _bl };
   _rowBandPx = band;
   const bL = _rowWorldAtPx(band.l), bR = _rowWorldAtPx(band.r);
-  /* 🏢 층 — 1층을 띠 폭만큼 채우고 넘치면 2층, 또 넘치면 3층(설정한 층 수까지). 줄 순서 · 내 자리 설정은 그대로
-     («맨 오른쪽 고정» 이면 나는 1층 맨 오른쪽). 넘기기(오프셋)는 모든 층이 같이.
-     층 높이는 화면 px 로 맞춘다 — 책상 앞면은 카메라 쪽(z+)으로 나와 같은 높이라도 화면에서 더 아래에 보이므로.
-     조건: 위층 책상 앞 아래 모서리 · 위층 이름표 자리(발밑 + px)가 아래층 머리 꼭대기보다 위, 맨 위층 머리는 화면 위 여백 안.
-     안 들어가면 층 사이 여백을 좁혀 보고(이름표 자리는 남긴다), 그래도 안 되면 한 층씩 줄인다 — 설정 아래에 «이 화면에서는 N층까지». */
+  /* 한 줄 — 순서는 seats 그대로(«맨 오른쪽 고정» 이면 나를 맨 앞), 맨 오른쪽 좌석이 x=0 이고 왼쪽으로 «반폭 + 여백 + 반폭». */
   const bandW = bR - bL;
   const bx = (i)=>(c.boxes && c.boxes[i]) || _rowSeatBoxWithTower(c.seats[i]);
-  // 카메라 뒤 · 너무 멀리(투영이 뒤집히는 곳)는 NaN — 아래 비교가 전부 거짓이 되어 «안 들어감» 으로 친다
-  const sy = (y, z)=>{ _rowP.set(0, y, z).project(camera); return (Math.abs(_rowP.z) <= 1 && isFinite(_rowP.y)) ? (-_rowP.y * 0.5 + 0.5) * innerHeight : NaN; };
-  let fl = null;
-  const plan = SeatLayout.planFloors(roomFloors, ROOM_FLOOR_GAPS.length, (n, g)=>{
-    const f = SeatLayout.splitFloors(c.hws, c.spacing, bandW, n);
-    if(f.count < 2) return null;   // 한 층으로 다 들어간다 — 층을 줄이는 것과 같다
-    const gap = ROOM_FLOOR_GAPS[g];
-    const lifts = [0];
-    const members = k=>f.floor.map((x, i)=>x === k ? i : -1).filter(i=>i >= 0);
-    for(let k = 1; k < f.count; k++){
-      const below = members(k - 1), here = members(k);
-      const headBelow = sy(lifts[k - 1] + Math.max(...below.map(i=>bx(i).top)), 0);
-      const minY = Math.min(...here.map(i=>bx(i).minY)), maxZ = Math.max(...here.map(i=>bx(i).maxZ));
-      const hi = lifts[k - 1] + ROOM_FLOOR_LIFT_MAX;
-      const L = SeatLayout.minLiftFor(L=>Math.max(sy(L + minY, maxZ), sy(L, 0) + gap.labelsPx) <= headBelow - gap.gapPx, lifts[k - 1], hi);
-      if(!(L < hi)) return { ok: false };   // 끝까지 올려도 안 됐다
-      lifts.push(L);
-    }
-    const top = members(f.count - 1);
-    const ok = sy(lifts[f.count - 1] + Math.max(...top.map(i=>bx(i).top)), 0) >= ROOM_FLOOR_TOP_MARGIN_PX;
-    if(ok) fl = f;
-    return { ok, lifts, count: f.count };
-  });
-  if(plan.n < 2 || !fl) fl = SeatLayout.splitFloors(c.hws, c.spacing, bandW, 1);
-  const lifts = plan.n < 2 ? [0] : plan.lifts;
-  c.floorsShown = fl.count || 1;
-  c.floorsCapped = roomFloors > 1 && c.floorsShown < roomFloors && SeatLayout.splitFloors(c.hws, c.spacing, bandW, roomFloors).count > c.floorsShown;
-  const pick = (idx, arr)=>idx.map(i=>arr[i]);
-  const all = c.seats.map((_, i)=>i);
-  const on1 = all.filter(i=>fl.floor[i] === 0), up = all.filter(i=>fl.floor[i] > 0);
-  const xsAll = pick(on1, fl.xs).concat(pick(up, fl.xs)), hwAll = pick(on1, c.hws).concat(pick(up, c.hws));
-  // 줄(가장 긴 층)이 띠보다 긴가 — 그럴 때만 휠로 넘긴다(자동 맞춤이 가장 작게 해도 안 들어간 경우)
+  const xsAll = SeatLayout.naturalRow(c.hws, c.spacing), hwAll = c.hws;
+  // 줄이 띠보다 긴가 — 그럴 때만 휠로 넘긴다(자동 맞춤이 가장 작게 해도 안 들어간 경우)
   const overflow = xsAll.length > 0 && (Math.max(...xsAll.map((x, k)=>x + hwAll[k])) - Math.min(...xsAll.map((x, k)=>x - hwAll[k]))) > bandW + 1e-6;
   if(dry){
     /* 자동 맞춤의 «이 크기면 다 들어가나» 검사 — 좌석은 안 건드린다. 띠 안에 설 좌석 중 가장 작게 보이는 캐릭터의 화면 키(px)도 같이 —
        멀리(왼쪽) 선 좌석은 원근 때문에 x=0 보다 작게 보이므로, 최소 px 는 실제로 설 자리에서 잰다. */
-    let minPx = Infinity;
+    let minPx = Infinity, towerOff = false;
     c.seats.forEach((st, i)=>{
       if(st.ridingOn) return;
-      const b = bx(i), x = fl.xs[i], y = lifts[fl.floor[i]] || 0, h = isFinite(b.ownTop) ? b.ownTop : b.top;
+      const b = bx(i), x = xsAll[i], y = 0, h = isFinite(b.ownTop) ? b.ownTop : b.top;
       _rowP.set(x, y, 0).project(camera); const px0 = (_rowP.x * 0.5 + 0.5) * innerWidth, y0 = (-_rowP.y * 0.5 + 0.5) * innerHeight;
       if(!SeatLayout.inBand(px0, band)) return;
       _rowP.set(x, y + h, 0).project(camera); const y1 = (-_rowP.y * 0.5 + 0.5) * innerHeight;
       if(isFinite(y0 - y1) && y0 > y1) minPx = Math.min(minPx, y0 - y1);
+      // 머리 위 탑(올라탄 사람들)까지 화면 위로 나가면 «안 들어감» — 줄이면 탑도 같이 작아진다
+      _rowP.set(x, y + b.top, 0).project(camera); const yTop = (-_rowP.y * 0.5 + 0.5) * innerHeight;
+      if(!(yTop >= ROOM_TOP_MARGIN_PX)) towerOff = true;
     });
-    return { fits: !overflow, floors: fl.count || 1, minPx: isFinite(minPx) ? minPx : 0 };
+    return { fits: !overflow && !towerOff, minPx: isFinite(minPx) ? minPx : 0 };
   }
   c.overflow = overflow;
-  // 다 들어가면 줄은 제자리(넘길 데 없음) · 넘치면 맨 오른쪽 고정: 나머지만 띠 왼쪽 끝까지 · 줄 안에 함께: 모든 층을 띠 안에서
+  // 다 들어가면 줄은 제자리(넘길 데 없음) · 넘치면 맨 오른쪽 고정: 나머지만 띠 왼쪽 끝까지 · 줄 안에 함께: 줄 전체를 띠 안에서
   const s = _rowLayout.setRange(!overflow ? { min: 0, max: 0 }
     : (c.fixRight ? SeatLayout.offsetRange(xsAll, hwAll, bL) : SeatLayout.rowRange(xsAll, hwAll, bL, bR)));
-  const outX = new Array(c.seats.length), outSide = new Array(c.seats.length);
-  if(c.fixRight){
-    const r1 = SeatLayout.placeRow(pick(on1, fl.xs), pick(on1, c.hws), s, c.spacing);
-    on1.forEach((i, k)=>{ outX[i] = r1.xs[k]; outSide[i] = r1.side[k]; });
-  } else {
-    on1.forEach(i=>{ outX[i] = fl.xs[i] + s; outSide[i] = 'L'; });
-  }
-  up.forEach(i=>{ outX[i] = fl.xs[i] + s; outSide[i] = 'L'; });
-  c.natX = fl.xs.slice(); c.floor = fl.floor.slice(); c.lifts = lifts.slice();
+  const res = c.fixRight ? SeatLayout.placeRow(xsAll, hwAll, s, c.spacing) : { xs: xsAll.map(x=>x + s), side: xsAll.map(()=>'L') };
+  c.natX = xsAll.slice();
   c.seats.forEach((seat, i)=>{
-    seat.targetX = outX[i];
-    const flipped = seat._rowSide && seat._rowSide !== outSide[i];
-    seat._rowSide = outSide[i];
-    const fIdx = fl.floor[i], base = lifts[fIdx] || 0;
-    const fy = base + _rowLevelY(outX[i], base);   // 층 높이 + 수평 맞춤(_rowLevelY 주석)
-    const floorChanged = seat._rowFloorIdx !== undefined && seat._rowFloorIdx !== fIdx;
-    seat._rowFloorIdx = fIdx;
+    seat.targetX = res.xs[i];
+    const flipped = seat._rowSide && seat._rowSide !== res.side[i];
+    seat._rowSide = res.side[i];
+    const fy = _rowLevelY(res.xs[i], 0);   // 수평 맞춤(_rowLevelY 주석)
     if(seat.group && !seat.ridingOn && !seat.seatedOn && Math.abs(seat.group.position.y - fy) > 1e-6) seat.group.position.y = fy;
     seat._rowFloorY = fy;
-    if((instant || flipped || floorChanged) && seat.group) seat.group.position.x = seat.targetX;   // 층을 옮기면 미끄러지지 않고 바로
+    if((instant || flipped) && seat.group) seat.group.position.x = seat.targetX;
   });
-  _rowFloorsNote();
   // 올라탄 좌석의 UI 앵커는 탑 바닥의 targetX 를 읽는다 — 옮긴 자리로 다시 물려준다
   seats.forEach(s=>{ if(s.ridingOn){ const b=_rideBottom(s); s.targetX = (b && b.targetX) || 0; } });
 }
@@ -4163,9 +4119,9 @@ function _rowSeatBoxWithTower(seat){
   if(!riders.length) return b;
   return { top: SeatLayout.towerTop(b.top, riders.map(_rowSeatBox)), ownTop: b.top, minY: b.minY, maxZ: b.maxZ, tower: riders.length };
 }
-/* 📏 같은 층 좌석의 발밑을 화면에서 한 줄로 — 카메라가 살짝 옆(yaw 5°) · 위(pitch)에서 보므로 같은 높이라도
+/* 📏 좌석들의 발밑을 화면에서 한 줄로 — 카메라가 살짝 옆(yaw 5°) · 위(pitch)에서 보므로 같은 높이라도
    왼쪽(먼) 좌석일수록 화면에서 조금씩 위로 보인다(좌석 하나에 4~5px). «맨 오른쪽 고정» 에서는 맨 오른쪽(가장 가까운)
-   내 좌석만 늘 줄 끝이라 «나만 낮다» 로 보였다. 기준 = 그 층 맨 오른쪽 자리(x=0)의 발밑, 좌석마다 그 차이만큼 월드 y 를 뺀다.
+   내 좌석만 늘 줄 끝이라 «나만 낮다» 로 보였다. 기준 = 맨 오른쪽 자리(x=0)의 발밑, 좌석마다 그 차이만큼 월드 y 를 뺀다.
    돌려주는 값은 월드 y(보통 수백분의 일). 방에서만 쓴다 — 혼자일 때는 예전 그대로. */
 function _rowLevelY(x, baseY){
   if(!isFinite(x)) return 0;
@@ -4174,26 +4130,7 @@ function _rowLevelY(x, baseY){
   const d = (yx - y0) / perY;
   return (isFinite(d) && perY > 0) ? Math.max(-0.5, Math.min(0.5, d)) : 0;
 }
-/* 층 사이 여백 단계 — 보통 → 좁게. labelsPx = 위층 발밑의 경험치 바 + 이름표 자리(좁혀도 이름표는 안 덮는다),
-   gapPx = 그 아래 아래층 머리까지 띄우는 px. */
-const ROOM_FLOOR_LIFT_MAX = 10;        // 한 층을 올려 볼 최대 높이(월드) — 여기까지 안 되면 그 층 수는 안 된다
-const ROOM_FLOOR_GAPS = [{ labelsPx: 46, gapPx: 4 }, { labelsPx: 38, gapPx: 0 }];
-/* 설정한 층 수가 이 화면 · 이 크기에서 안 되면 설정 아래에 짧게 알린다. */
-function _rowFloorsNote(){
-  const el = document.getElementById('fsRoomFloorsNote'); if(!el) return;
-  const c = _rowCache;
-  const txt = (c && c.floorsCapped) ? ('이 화면에서는 ' + c.floorsShown + '층까지') : '';
-  if(el.textContent !== txt){ el.textContent = txt; el.style.display = txt ? '' : 'none'; }
-}
-const ROOM_FLOOR_TOP_MARGIN_PX = 8;   // 2층 머리 위 화면 여백
-/* 화면 위에서 px 만큼 내려온 높이가 좌석 깊이(z=0) · 맨 오른쪽 좌석 x 에서 월드 y 로 어디인가. */
-function _rowWorldYAtTopPx(px){
-  camera.updateMatrixWorld();
-  _rowP.set(0, 0.5, 0).project(camera);
-  _rowNdc.set(isFinite(_rowP.x) ? _rowP.x : 0, 1 - 2 * px / Math.max(1, innerHeight));
-  _rowRay.setFromCamera(_rowNdc, camera);
-  return _rowRay.ray.intersectPlane(_rowPlane, _rowHit) ? _rowHit.y : NaN;
-}
+const ROOM_TOP_MARGIN_PX = 8;   // 탑 꼭대기 위 화면 여백(자동 맞춤이 지킨다)
 /* 상태칩 고정 — «줄 안에 함께» 에서 줄을 넘기면 내 캐릭터도 같이 움직이지만 상태칩은 처음 자리(오프셋 0)에 남는다.
    돌려주는 값 = (처음 자리 x) − (지금 실제 x), 월드. 미끄러지는 중에도 칩이 흔들리지 않게 실제 위치 기준으로 뺀다. */
 const _rowChipP = new THREE.Vector3();
@@ -4205,8 +4142,8 @@ function _rowChipNaturalDx(base){
   const d = c.natX[i] - base.group.position.x;
   return Math.abs(d) > 1e-6 ? d : 0;
 }
-/* 🪑 방에서 자리 바꾸기(책상 끌기 · 이름표 끌기 공용) — **층을 넘나든다.**
-   층은 seats 순서 하나로 아래층부터 채워지므로, 놓을 자리 = 커서에 화면(x · y)으로 가장 가까운 다른 좌석(어느 층이든)의
+/* 🪑 방에서 자리 바꾸기(책상 끌기 · 이름표 끌기 공용).
+   놓을 자리 = 커서에 화면(x · y)으로 가장 가까운 다른 좌석의
    순서다. 끄는 동안 좌석은 커서를 따라 위아래로도 움직이고(좌석 깊이의 세로면 z=0 에서 잰다), 놓일 자리의 이름표에 표시를 한다.
    ★ 순서는 **놓을 때 한 번만** 바꾼다 — 끄는 중에 바꾸면 줄이 다시 흐르며 대상이 움직여 앞뒤로 튄다.
    «맨 오른쪽 고정» 이면 내 좌석은 끌리지도, 놓일 자리도 되지 않는다. 줄 오프셋은 건드리지 않는다. */
@@ -4255,7 +4192,7 @@ function _rowSlotDrop(seat, st){
     if(ti >= 0 && cur >= 0 && ti !== cur){ seats.splice(cur, 1); seats.splice(ti, 0, seat); }   // 대상 자리로(앞으로 가면 대상 뒤, 뒤로 가면 대상 앞)
     if(typeof renderSeatTabs === 'function') renderSeatTabs();
   }
-  layoutSeats();   // 층 다시 흐르기 · 끌던 좌석 높이 되돌리기(층 높이로)
+  layoutSeats();   // 줄 다시 세우기 · 끌던 좌석 높이 되돌리기
 }
 /* 줄을 dWorld 만큼 오른쪽으로(음수면 왼쪽). 휠 · 이름표 끌기 공용. */
 function nudgeRowOffset(dWorld, instant){
@@ -4411,12 +4348,12 @@ if(window.companion && window.companion.firebaseEnv === 'dev'){
 function updateCameraOnly(){
   _roomAutoFit(_cachedRowCenter, _cachedRowSpan);   // 캐릭터 크기가 바뀌면 자동 맞춤 배율 · 줄 폭도 다시
 }
-/* 🔍 방 자동 맞춤 — 모두가 화면(설정한 층 수 안)에 들어오도록 방 줄 전체의 보기 배율(_roomFitCur)을 줄인다.
+/* 🔍 방 자동 맞춤 — 모두가 한 줄로 화면에 들어오도록 방 줄 전체의 보기 배율(_roomFitCur)을 줄인다.
    카메라 거리에만 들어간다(applyCameraAndCanvas 의 focusCharScale × _roomViewScale()) — 캐릭터 · 책상 · 라벨이 한 번에 같이 작아지고,
    저장값(userScale · focusCharScale)과 서버는 건드리지 않는다.
    · 위로는 1(내가 정한 크기)을 넘지 않는다. 아래로는 «가장 작은 캐릭터의 화면 키 ≥ MIN_CHAR_PX(px)» 까지(seat-layout.js 주석).
-   · 그래도 안 들어가면 그 최소 크기 + 층 + 휠 넘기기(마지막 수단).
-   · 사람이 오가거나 층 수 · 평준화 · 캐릭터 크기 · 창 크기가 바뀌면 layoutSeats/updateCameraOnly 를 지나며 다시 고른다.
+   · 그래도 안 들어가면 그 최소 크기 + 휠 넘기기(마지막 수단). 머리 위 탑이 화면 위로 나가도 «안 들어감» 으로 친다.
+   · 사람이 오가거나 평준화 · 캐릭터 크기 · 창 크기가 바뀌면 layoutSeats/updateCameraOnly 를 지나며 다시 고른다.
    · 떨림 막기: 줄일 땐 바로, 키울 땐 4% 넘게 커질 때만(fitHysteresis). 바뀐 배율로는 매 프레임 조금씩 옮겨 간다(_roomFitStep). */
 var _roomFitCur = 1, _roomFitTarget = 1, _roomFitWasRoom = false;
 function _roomViewScale(){ return _rowRoomMode ? _roomFitCur : 1; }
@@ -8703,8 +8640,6 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     if(coBtn){ coBtn.textContent = chipHorizontal?'가로':'세로'; coBtn.classList.toggle('on', chipHorizontal); }
     const eqBtn=document.getElementById('fsSeatEqToggle');
     if(eqBtn){ eqBtn.textContent = seatEqualizeOn?'켜짐':'꺼짐'; eqBtn.classList.toggle('on', seatEqualizeOn); }
-    const flBtn=document.getElementById('fsRoomFloorsToggle');
-    if(flBtn){ flBtn.textContent = roomFloors + '층'; flBtn.classList.toggle('on', roomFloors > 1); }
     const rsBtn=document.getElementById('fsRoomSeatModeToggle');
     if(rsBtn){ rsBtn.textContent = roomSeatMode==='right' ? '맨 오른쪽 고정' : '줄 안에 함께'; rsBtn.classList.toggle('on', roomSeatMode==='right'); }
     const dpBtn=document.getElementById('fsDecoPartsToggle');
@@ -8802,14 +8737,6 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     roomSeatMode = (roomSeatMode==='right') ? 'row' : 'right';
     try{ localStorage.setItem(ROOM_SEAT_MODE_KEY, roomSeatMode); }catch(_){}
     if(_rowLayout) _rowLayout.reset();
-    refreshToggleBtns();
-    layoutSeats();
-  };
-  /* 🏢 방 줄 층 수 — 1층 → 2층 → 3층. 내 화면에서만(서버에 안 쓴다). */
-  const flBtn=document.getElementById('fsRoomFloorsToggle');
-  if(flBtn) flBtn.onclick=()=>{
-    roomFloors = (roomFloors % SeatLayout.MAX_FLOORS) + 1;   // 1 → 2 → 3 → 1
-    try{ localStorage.setItem(ROOM_FLOORS_KEY, String(roomFloors)); }catch(_){}
     refreshToggleBtns();
     layoutSeats();
   };
@@ -24133,7 +24060,7 @@ canvas.addEventListener('pointerdown',e=>{
   const groupWP = new THREE.Vector3(); seat.group.getWorldPosition(groupWP);
   drag={
     seat, startX:e.clientX, startY:e.clientY, moved:false, mode:null, targetType,
-    slotY: seat.group.position.y + 0.4,                              // 이 좌석 층 높이의 평면(책상 끌기 — 2 · 3층)
+    slotY: seat.group.position.y + 0.4,                              // 이 좌석 높이의 평면(책상 끌기)
     grabX: worldX(e, seat.group.position.y + 0.4) - seat.group.position.x,
     grabPlane, grabOffset, groupWP,
     lastX:e.clientX, lastY:e.clientY, lastT:performance.now(),
@@ -24161,7 +24088,7 @@ canvas.addEventListener('pointermove',e=>{
 
   if(drag.mode==='slot'){
     if(_rowRoomMode){
-      // 🪑 방 — 층을 넘나드는 자리 바꾸기(이름표 끌기와 같은 함수). 순서는 놓을 때(pointerup) 바꾼다.
+      // 🪑 방 — 자리 바꾸기(이름표 끌기와 같은 함수). 순서는 놓을 때(pointerup) 바꾼다.
       if(drag.roomSlot === undefined) drag.roomSlot = _rowSlotBegin(drag.seat, e);
       _rowSlotFollow(drag.seat, drag.roomSlot, e);
     } else {
