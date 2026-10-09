@@ -30524,7 +30524,14 @@ function launchApp(opts){ opts=opts||{};
   appMode = (opts.mode==='edit') ? 'editseat' : 'run';
   applyAppMode();
   document.getElementById('launcher').classList.remove('on');
-  if(Presence.active()) syncFriendSeats(Presence.friendsObj());   // 초대된 친구 복원
+  if(Presence.active()){
+    syncFriendSeats(Presence.friendsObj());   // 초대된 친구 복원
+    /* 방에 있는 채로 런처에서 캐릭터를 고쳤거나(⚙ 캐릭터 수정 · 생성기 kind:'slot') 다른 칸을 골라 돌아왔으면
+       방에 나간 def 와 지금 def 가 다르다 — 생성기 kind:'slot' 저장은 슬롯에만 쓰고 방으로는 안 보낸다.
+       그대로 두면 내 화면만 바뀌고 남의 화면은 옛 모습이다. 캐릭터 교체(switchMainCharacter)와 같은 길로 보낸다.
+       슬롯 저장은 새 def 객체를 만들므로 같은 객체면 바뀐 것이 없다 — 런처만 다녀온 왕복은 아무것도 안 보낸다. */
+    if(Presence.myDef() !== myDef) Presence.updateDef(myDef);
+  }
   else extraSeatSlots.forEach(i=>{ if(i!==curSlot && slots[i]) addExtraSeat(i); });   // 솔로모드 — 저장해둔 자리추가 좌석들 복원(주캐릭터 슬롯과 겹치면 제외 — 자기 복제 방지)
   layoutSeats();
   // 💡 상태칩 Tab 힌트 — run 모드로 들어올 때마다(런처 나갔다 다시 들어와도) 한 번만 안내.
@@ -31112,6 +31119,7 @@ const Presence=(()=>{
               "다음 상태 틱까지 기다리면 늦는" 값이 생겼을 때 부른다. */
            broadcastNow: broadcastRide,
            active:()=>!!provider, roomCode:()=>room, friendsObj:()=>friends,
+           myDef:()=>myDef,   // 방에 마지막으로 보낸(입장 · updateDef) 내 def — launchApp 이 바뀌었는지 본다
            // 🛰 지금 방이 방 서버로 붙어 있으면 그 provider(방장 설정 chatOff 를 서버로 보낼 때) · 아니면 null
            serverProvider:()=>(provider && provider.kind === 'server') ? provider : null };
 })();
