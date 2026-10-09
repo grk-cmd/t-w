@@ -235,8 +235,8 @@ function buildOverlay(){
         
       +'</div>'
       +'<div class="creator-right">'
-        +'<div class="cr-steps" style="font-weight:700;">'
-          +'<span class="on">캐릭터 세팅</span><span style="opacity:.45;" title="다음 단계에서 지원">책상 세팅</span><span style="opacity:.45;" title="다음 단계에서 지원">좌석 세팅</span>'
+        +'<div class="cr-steps" id="anpStages" style="font-weight:700;">'
+          +'<span class="on">캐릭터 세팅</span><span data-stg="desk">책상 세팅</span><span data-stg="seat">좌석 세팅</span>'
         +'</div>'
         +'<div class="cr-steps" id="anpTabs" style="font-size:11px;opacity:.95;">'
           +'<span class="on" data-tab="face">1 얼굴</span><span data-tab="ear">2 귀</span><span data-tab="paint">3 표정</span><span data-tab="blink">4 감은눈</span>'
@@ -377,6 +377,17 @@ function buildOverlay(){
       nb.disabled=false; nb.style.opacity='1'; nb.style.cursor='pointer'; }
   };
   tabs.forEach(t=>{ t.style.cursor='pointer'; t.onclick=()=>window.__anpGoTab(t.dataset.tab); });
+  /* 위 «책상 세팅» · «좌석 세팅» — 사람 생성기 위 탭과 같이 누르면 그 단계로. [다음 → 책상·좌석] 과 같은 저장을 거친다. */
+  overlay.querySelectorAll('#anpStages span[data-stg]').forEach(sp=>{
+    sp.onclick=()=>{
+      const st=_stageState(sp.dataset.stg);
+      if(!st.enabled){ if(typeof toast==='function') toast(st.title); return; }
+      // 감은눈 탭을 안 거쳤으면 그 탭에 들어갈 때처럼 표정을 감은눈으로 가져온다(빈 감은눈이 저장되지 않게).
+      //   재편집 중 저장된 감은눈이 아직 그려지는 중이면 덮지 않는다.
+      if(!_blinkTouched && !(_editSrcDef && _editSrcDef.animalBlink)) _copyPaintSide('face','blink');
+      saveAnimalSlot({startStep: st.step});
+    };
+  });
   const nextBtn=overlay.querySelector('#anpNextBtn');
   if(nextBtn) nextBtn.onclick=()=>{
     const cur=overlay.querySelector('#anpTabs span.on')?.dataset.tab || 'face';
@@ -807,6 +818,7 @@ function loadModel(){
 
 function openPreview(){
   buildOverlay();
+  _syncAnimalStages();   // 위 «책상 세팅» · «좌석 세팅» — 편집 컨텍스트(_editSrcDef · _editSeat · _targetSlot)를 정한 뒤 불린다
   // ★ 창 크기 모드 전환 — 데스크탑 창은 creatorOpen 여부로 크기가 결정됨(런처 380×680 / 생성기 740×620).
   //   이걸 안 켜면 런처 크기(380px)에 갇혀 오른쪽 패널이 세로로 짓눌림.
   try{
@@ -1579,7 +1591,25 @@ function _cvToDataURL(c){ return c ? c.toDataURL('image/png') : null; }
 /* ★ def.face/blink에 캔버스를 '그대로' 넣으면 pFaceC/pBlinkC는 모듈 전역이라 모든 동물 슬롯이 같은 캔버스를
    공유하게 된다(한쪽을 고치면 다른 슬롯도 같이 바뀜). 인간 경로가 snapCanvas로 복사본을 넣는 것과 동일하게 맞춤. */
 function _cvCopy(c){ if(!c) return null; const d=_mkCv(); d.getContext('2d').drawImage(c,0,0); return d; }
-function saveAnimalSlot(){
+/* 위 «책상 세팅» · «좌석 세팅» 상태 — 판정은 animal-edit-route.js. 모듈이 없으면 늘 누를 수 있다(저장이 다시 막는다). */
+function _stageState(stage){
+  const R=(typeof window!=='undefined' && window.AnimalEditRoute) || null;
+  const step = stage==='seat' ? 6 : 5;
+  if(!R) return {enabled:true, step, title:''};
+  let empty=false; try{ empty = slots.some(x=>!x); }catch(_){}
+  return R.animalStageState({editSeat:_editSeat, editSrc:_editSrcDef, targetSlot:_targetSlot, hasEmptySlot:empty}, stage);
+}
+function _syncAnimalStages(){
+  if(!overlay) return;
+  overlay.querySelectorAll('#anpStages span[data-stg]').forEach(sp=>{
+    const st=_stageState(sp.dataset.stg);
+    sp.style.opacity = st.enabled ? '' : '.45';
+    sp.style.cursor = st.enabled ? 'pointer' : 'not-allowed';
+    sp.title = st.title || '';
+  });
+}
+function saveAnimalSlot(opts){
+  const _startStep = (opts && opts.startStep===6) ? 6 : 5;   // 위 «좌석 세팅» 으로 왔으면 6단계부터
   /* 🙈 저장 직전에 부위 잠금을 풀고 얼굴을 되살린다 — '몸만'으로 얼굴을 숨겨 둔 채 저장하면
      이 미리보기 장면에서 뽑는 그림(썸네일 등)에 얼굴 없는 동물이 박힐 수 있다.
      저장은 어차피 다음 단계(책상·좌석)로 넘어가는 지점이라 잠금을 유지할 이유가 없다. */
@@ -1634,7 +1664,7 @@ function saveAnimalSlot(){
     closePreview();
     try{
       if(typeof openCreator==='function'){
-        openCreator({kind:'seat', seat:seatRef});
+        openCreator({kind:'seat', seat:seatRef, fromAnimal:true, startStep:_startStep});   // fromAnimal — 동물 생성기로 되돌아가지 않고 책상부터
         if(typeof toast==='function') toast('🐾 수정했어요 — 책상·좌석을 확인하고 저장하세요');
       }
     }catch(e){ console.warn('[동물] 책상·좌석 진입 실패',e); }
@@ -1684,7 +1714,7 @@ function saveAnimalSlot(){
   closePreview();
   try{
     if(typeof openCreator==='function'){
-      openCreator({kind:'slot', edit:true, slot:savedIdx});
+      openCreator({kind:'slot', edit:true, slot:savedIdx, fromAnimal:true, startStep:_startStep});   // fromAnimal — 동물 생성기로 되돌아가지 않고 책상부터
       if(typeof toast==='function') toast('🐾 이제 책상과 좌석을 설정하고 저장하면 완성돼요');
     }
   }catch(e){ console.warn('[동물] 책상·좌석 진입 실패',e); if(typeof toast==='function') toast('동물 캐릭터를 저장했어요'); }
@@ -1734,7 +1764,7 @@ window._setAnimalUnlockLevel = function(lv){
 window._animalUnlocked = function(){
   try{ return _unlockOk(); }catch(_){ return false; }
 };
-window.reopenAnimalCreator=function(def){
+window.reopenAnimalCreator=function(def, opts){
   // 어디서 돌아왔는지 기억 — 저장 시 원본 def에 병합하고, 좌석 편집이면 그 좌석에 직접 반영한다.
   _editSrcDef = def || null;
   _targetSlot = null;   // ★ 재편집은 원본이 꽂힌 칸을 따라가야 하므로 [＋] 타깃을 비운다
@@ -1788,7 +1818,9 @@ window.reopenAnimalCreator=function(def){
       // 슬라이더 UI 반영
       ['anpSx','anpSy','anpSa'].forEach(id=>{ const k=id==='anpSx'?'x':id==='anpSy'?'y':'all'; const el=overlay.querySelector('#'+id); if(el) el.value=scl[k]; const v=overlay.querySelector('#'+id+'V'); if(v) v.textContent=(scl[k]).toFixed(2); });
       if(typeof renderEarLists==='function') renderEarLists();
-      if(typeof window.__anpGoTab==='function') window.__anpGoTab('blink');   // 마지막 편집 지점(감은눈)으로
+      // 처음 들어올 땐 얼굴(opts.tab), 책상에서 [이전] 으로 돌아오면 마지막 편집 지점(감은눈)으로
+      const _tab = (opts && ['face','ear','paint','blink'].indexOf(opts.tab)>=0) ? opts.tab : 'blink';
+      if(typeof window.__anpGoTab==='function') window.__anpGoTab(_tab);
     }catch(e){ console.warn('[동물] 창 복원 실패',e); }
   };
   restore();
