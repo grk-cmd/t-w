@@ -17911,7 +17911,9 @@ async function openPurikura(){
   let pv; try{ pv = await pk.peek(room, getMyUserId()); }catch(_){ pv = null; }
   if(pv && pv.busy){ toast('📷 지금 촬영 중이에요 — 끝나면 들어갈 수 있어요'); return; }
 
-  const r = await pk.open(room, { userId:getMyUserId(), name:getDisplayName() });
+  /* ⚠️ 서버가 자리 쓰기를 거부하면 open 이 던진다 — 받지 않으면 버튼을 눌러도 아무 반응이 없다. */
+  let r; try{ r = await pk.open(room, { userId:getMyUserId(), name:getDisplayName() }); }
+  catch(e){ console.warn('[스티커사진] 자리 잡기 실패', e); r = null; }
   if(!r || !r.ok){ toast(r && r.reason==='full' ? '자리가 다 찼어요 (4명까지)' : '지금은 들어갈 수 없어요'); return; }
 
   PK.open = true; PK.room = room; PK.slot = r.slot; PK.host = !!r.host;

@@ -3,7 +3,8 @@
    ・2절: 좌표표 — 꽉 찬 어안(귀퉁이 = 귀퉁이) · 가운데 약 3.6배 · 비율로만 계산(무대 · 사진이 같은 모양) · (w,h)별 캐시
    ・3절: 다시 놓기 — 이웃 넷 섞기(계단 없음) · 가장자리 살짝 어둡게 · 투명도는 그대로
    ・4절: applyFilter 한 갈래 — 태그 붙은 딴 캔버스 · willReadFrequently · 결과 판 재사용
-   ・5절: 업데이트 안 한 참가자 — 자리에 fx · 방장에게 «○○님은 업데이트가 필요해서 필터 없이 찍혀요»
+   ・5절: 업데이트 안 한 참가자 — 자리에 fx · 방장에게 «○○님은 업데이트가 필요해서 필터 없이 찍혀요» ·
+          서버 규칙이 옛 판(fx 를 모름)이면 fx 없이 다시 잡는다 — 안 그러면 스티커사진 버튼이 반응 없음(2026-10-09 제보)
    ・6절: 규칙 — meta/filter 에 fish · slots/$i 에 fx
    ・7절: app.js · html 배선 — 줄 일곱 칸 · 자리가 바뀌면 안내를 다시
    ⚠️ 실제 무대 · 사진은 2026-10-08 헤드리스 크로미움에서 확인했다.
@@ -21,6 +22,7 @@ const P = require(require('path').resolve('purikura-net.js'));
 const near = (a, b, e) => Math.abs(a - b) <= (e || 1e-3);
 /* 절마다 따로 — 옛 코드(어안 없음)에 대면 멈추지 않고 그 절을 빨강 하나로 센다 */
 const sec = (title, fn) => { say(title); try{ fn(); }catch(e){ chk(false, '이 절을 못 돌았다 — ' + e.message); } };
+const later = [];   // 비동기 검사 — 맨 끝에서 기다린다
 
 sec('── 1. 필터 줄', () => {
   const ids = P.filterList().map(f => f.id).join(',');
@@ -51,9 +53,9 @@ sec('── 2. 좌표표', () => {
   [[0.2, 0.3], [0.5, 0.15], [0.8, 0.8], [0.35, 0.65], [0.95, 0.5]].forEach(([fx, fy]) => {
     const p = rel(S, fx, fy), q = rel(L, fx, fy);
     worst = Math.max(worst, Math.abs(p[0] - q[0]), Math.abs(p[1] - q[1]));
-});
-chk(worst < 0.01, '무대(306×420)와 사진(540×740)이 같은 모양 — 비율 차 최대 ' + worst.toFixed(4));
-chk(!/FISH_S\s*\*\s*k|k\s*\*\s*FISH/.test(SRC['purikura-net.js']), '어안에는 배율 k 가 안 들어간다');
+  });
+  chk(worst < 0.01, '무대(306×420)와 사진(540×740)이 같은 모양 — 비율 차 최대 ' + worst.toFixed(4));
+  chk(!/FISH_S\s*\*\s*k|k\s*\*\s*FISH/.test(SRC['purikura-net.js']), '어안에는 배율 k 가 안 들어간다');
 });
 
 sec('── 3. 다시 놓기', () => {
@@ -105,8 +107,36 @@ sec('── 5. 업데이트 안 한 참가자', () => {
   chk(JSON.stringify(P.filterLaggards(slots, 'fish', 'me')) === '["옛판"]', 'fx 가 없는 자리만 «업데이트 필요»');
   chk(P.filterLaggards(slots, 'mono', 'me').length === 0 && P.filterLaggards(slots, 'none', 'me').length === 0, '옛 앱도 아는 필터면 아무도 안 알린다');
   chk(P.filterLaggards(null, 'fish', 'me').length === 0, '자리를 아직 못 받았으면 빈 목록');
-  const NET = SRC['purikura-net.js'];
-  chk(/live\[i\] = \{ uid: myId, name: myName, at: t, fx: FILTER_REV \}/.test(NET) && /live\[k2\]\.fx = FILTER_REV;/.test(NET), '자리를 잡을 때 · 다시 들어올 때 내 앱의 필터 판(fx)을 적는다');
+  /* 가짜 서버 — oldRules 면 slots/$i 에 uid · name · at 밖의 칸이 있으면 쓰기를 통째로 거부한다($other 와 같다) */
+  function fakeApi(oldRules){
+    const db = {}, st = { rejects: 0 };
+    const ok = () => Promise.resolve();
+    return { db, st, serverNow: () => Date.now(),
+      pkTransaction(p, fn){
+        const next = fn(db[p] ? JSON.parse(JSON.stringify(db[p])) : null);
+        if(next == null) return Promise.resolve({ committed: false, value: db[p] || null });
+        if(oldRules && Object.keys(next).some(k => next[k] && Object.keys(next[k]).some(f => ['uid', 'name', 'at'].indexOf(f) < 0))){
+          st.rejects++; return Promise.reject(new Error('PERMISSION_DENIED'));
+        }
+        db[p] = next; return Promise.resolve({ committed: true, value: next });
+      },
+      pkOnDisconnectRemove: ok, pkOnDisconnectCancel: ok, pkSet: ok, pkUpdate: ok, pkRemove: ok,
+      pkGet: () => Promise.resolve(null), pkOnValue: () => function(){} };
+  }
+  const SLOTS = 'rooms/R1/_photo/slots';
+  const mine = (db) => Object.values(db[SLOTS] || {}).find(v => v.uid === 'me');
+  later.push((async () => {
+    const a = fakeApi(false), s1 = P.makeSession(a, {});
+    const r1 = await s1.open('R1', { userId: 'me', name: '나' });
+    chk(r1 && r1.ok && mine(a.db) && mine(a.db).fx === P.FILTER_REV, '새 규칙 — 자리를 잡을 때 내 앱의 필터 판(fx)을 적는다');
+    const r1b = await P.makeSession(a, {}).open('R1', { userId: 'me', name: '나' });
+    chk(r1b && r1b.ok && mine(a.db).fx === P.FILTER_REV && Object.keys(a.db[SLOTS]).length === 1, '다시 들어와도 같은 자리 · fx 그대로');
+    const b = fakeApi(true), s2 = P.makeSession(b, {});
+    let r2 = null, threw = false;
+    try{ r2 = await s2.open('R1', { userId: 'me', name: '나' }); }catch(_){ threw = true; }
+    chk(!threw && r2 && r2.ok && r2.host === true, '★ 옛 규칙 — 거부돼도 들어간다(버튼이 반응 없던 제보)');
+    chk(b.st.rejects === 1 && mine(b.db) && !('fx' in mine(b.db)), '거부되면 fx 없이 한 번 더 — 한 번만 다시 시도');
+  })().catch(e => chk(false, '자리 잡기 검사를 못 돌았다 — ' + e.message)));
 });
 
 sec('── 6. 규칙', () => {
@@ -127,8 +157,12 @@ sec('── 7. app.js · html', () => {
   chk(/P\.filterLaggards\(PK\.members, PK\.filter, getMyUserId\(\)\)/.test(A) && /'님은 업데이트가 필요해서 필터 없이 찍혀요'/.test(A), '방장 화면에 «○○님은 업데이트가 필요해서 필터 없이 찍혀요»');
   chk(/const lag = \(PK\.host && /.test(A), '안내는 방장에게만');
   chk(/_pkPaintSlots\(\);\s*_pkPaintFilterNote\(\);/.test(A), '자리가 바뀌면 안내를 다시 쓴다(축소판은 다시 안 그린다)');
+  chk(/let r; try\{ r = await pk\.open\(room, \{ userId:getMyUserId\(\), name:getDisplayName\(\) \}\); \}\s*catch\(e\)\{ console\.warn\('\[스티커사진\] 자리 잡기 실패', e\); r = null; \}/.test(A),
+    '자리 잡기가 던져도 «지금은 들어갈 수 없어요» 로 알린다(조용히 멈추지 않는다)');
   chk(/<div class="pk-bgrow pk-frow" id="pkFilterRowLobby">/.test(HTML) && /<div class="pk-bgrow pk-frow" id="pkFilterRow">/.test(HTML), '로비와 촬영 중 필터 줄이 같은 모양');
   chk(/\.pk-bgrow\.pk-frow\{grid-template-columns:repeat\(7,1fr\)/.test(HTML), '필터 줄은 일곱 칸 한 줄(뒷배경은 여섯 칸 그대로)');
 });
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
-process.exit(fail ? 1 : 0);
+Promise.all(later).then(() => {
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+});

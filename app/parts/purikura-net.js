@@ -946,7 +946,13 @@ function makeSession(api, opts){
   function open(roomCode, me){
     room = roomCode; myId = me.userId; myName = me.name || '';
     var t = now();
-    return api.pkTransaction(P('slots'), function(cur){
+    /* ⚠️ fx 칸을 모르는 옛 규칙은 자리 쓰기를 통째로 거부한다(slots/$i 의 $other). 그러면 버튼을 눌러도
+       아무 일이 없다 — 그래서 거부되면 fx 없이 한 번 더 잡는다. 사진은 찍히고 방장 안내만 «업데이트 필요» 로 틀린다. */
+    return claim(true).catch(function(e){
+      console.warn('[스티커사진] 자리 쓰기 거부 — fx 없이 다시 잡아요(서버 규칙이 옛 판)', e);
+      return claim(false);
+    }).then(function(r){ return afterClaim(r); });
+    function claim(withFx){ return api.pkTransaction(P('slots'), function(cur){
       cur = cur || {};
       /* 죽은 세션 걷어내기 — 브라우저가 꺼지면 onDisconnect 가 지우지만,
          그것마저 못 돌았을 때를 위해 오래된 자리는 여기서 무효로 본다. */
@@ -956,12 +962,21 @@ function makeSession(api, opts){
         if(v && typeof v.at === 'number' && (t - v.at) < SLOT_TTL_MS) live[k] = v;
       }
       /* 이미 들어와 있으면 그 자리를 그대로 쓴다(새로고침·재접속) */
-      for(var k2 in live) if(live[k2] && live[k2].uid === myId){ live[k2].at = t; live[k2].fx = FILTER_REV; return live; }
+      for(var k2 in live) if(live[k2] && live[k2].uid === myId){
+        live[k2].at = t;
+        if(withFx) live[k2].fx = FILTER_REV; else delete live[k2].fx;
+        return live;
+      }
       for(var i = 0; i < MAX_SLOTS; i++){
-        if(!live[i]){ live[i] = { uid: myId, name: myName, at: t, fx: FILTER_REV }; return live; }
+        if(!live[i]){
+          live[i] = { uid: myId, name: myName, at: t };
+          if(withFx) live[i].fx = FILTER_REV;
+          return live;
+        }
       }
       return undefined;                       // 만석 — 트랜잭션 취소
-    }).then(function(r){
+    }); }
+    function afterClaim(r){
       if(!r || !r.committed) return { ok: false, reason: 'full' };
       var v = r.value || {};
       /* 트랜잭션 결과가 곧 지금의 자리 배치다 — 구독이 도착하기 전에도 방장 판정이 서야 한다.
@@ -976,7 +991,7 @@ function makeSession(api, opts){
       return Promise.all([p1, p2]).then(function(){
         return { ok: true, slot: slot, host: isHost() };
       });
-    });
+    }
   }
 
   /* 촬영 창이 열려 있는 동안만 남은 횟수를 지켜본다.
