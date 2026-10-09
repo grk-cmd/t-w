@@ -6,6 +6,7 @@ export {
   NO_DEFAULT,
   parsePercentInput,
   PERCENT_STEPS,
+  percentLockReason,
   toDefaultInputs,
   type DefaultInputs,
   type DefaultOption,

@@ -20,3 +20,8 @@
   display: inline-flex;
   gap: 4px;
 }
+
+/* 비율 칸이 잠긴 이유 — 폼 아래 한 줄로 */
+.hint {
+  flex-basis: 100%;
+}
