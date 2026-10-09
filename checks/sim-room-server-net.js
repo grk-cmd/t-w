@@ -8,6 +8,7 @@
  * 5. 찌르기 all · 받은 찌르기
  * 6. 서버 사건(joined · patch · left · meta · disband · replaced) · def 푸는 순서
  * 7. 끊김 → 재연결(resume) · resumeFailed → 전체 다시 입장
+ * 7-1. 이어 붙으면 지금 상태 전체를 한 번 다시 · 끊긴 동안의 말 · 찌르기는 들고 있다가 보냄(종류마다 5개 · 15초)
  * 8. 인증 실패 · 시간 초과 · 꺼짐 → Firebase 로 돌아가라는 신호
  * 9. 토큰 갱신 타이머 · 나가기 · stats · random
  * 9-1. 요청 id(rid)로 답 짝짓기 · peek(들어가지 않고 보기) · peek 을 모르는 옛 서버
@@ -360,7 +361,7 @@ async function joined(o = {}){
     w2.msg(WELCOME({ resumed: true, resume: 'R2' }));
     await tick();
     const p = w2.last('patch');
-    chk(p && p.level === 99, '  ↳ 이어 붙으면 끊긴 사이 바뀐 칸만 보낸다');
+    chk(p && p.level === 99, '  ↳ 이어 붙으면 끊긴 사이 바뀐 칸을 보낸다');
     chk(e.h.defCalls === 1, '  ↳ def 가 그대로면 다시 풀지 않는다(얼굴 그림을 또 받지 않음)');
     w2.close();
     await e.clock.advance(1000);
@@ -389,6 +390,72 @@ async function joined(o = {}){
     chk(b.socks.length === 2, '두 번째 실패 뒤에는 2초 기다린다');
     await b.clock.advance(1);
     chk(b.socks.length === 3, '  ↳ 2초 뒤 다시');
+  }
+
+  say('── 7-1. 이어 붙기 — 다시 보내기 · 들고 있던 말 · 찌르기');
+  {
+    // 죽어 가던 소켓에 보낸 patch · def — 보낸 걸로 적혔지만 서버에 안 닿았을 수 있다
+    const e = await joined();
+    e.prov.update({ level: 50, def: { skin: 2 } });
+    chk(e.ws.last('patch') && e.ws.last('patch').level === 50 && e.ws.last('def'), '(준비) 끊기기 직전에 patch · def 를 보냄');
+    e.ws.close();
+    await e.clock.advance(1000);
+    const w2 = e.socks[1];
+    w2.open(); w2.msg({ t: 'ready', pv: 1, now: 0 });
+    w2.msg(WELCOME({ resumed: true, resume: 'R2' }));
+    await tick();
+    const p = w2.last('patch'), d = w2.last('def');
+    chk(p && p.level === 50 && p.name === '철수' && p.state === 'idle', '이어 붙으면 바뀐 게 없어도 지금 상태 전체를 한 번 다시 보낸다');
+    chk(d && d.def && d.def.ser && d.def.ser.skin === 2, '  ↳ def 도 다시(마지막 것)');
+    chk(w2.all('patch').length === 1 && w2.all('def').length === 1, '  ↳ 한 번만');
+    e.prov.update({ level: 50 });
+    chk(w2.all('patch').length === 1, '  ↳ 그 뒤로는 다시 바뀐 칸만');
+
+    // welcome 을 기다리는 사이 바뀐 칸 — 새로 들어가기(resumeFailed) 뒤에도 나간다
+    w2.close();
+    await e.clock.advance(1000);
+    const w3 = e.socks[2];
+    w3.open(); w3.msg({ t: 'ready', pv: 1, now: 0 });
+    w3.msg({ t: 'error', code: 'resumeFailed', ref: 'join' });
+    e.prov.update({ level: 51 });
+    chk(!w3.all('patch').length, '(준비) welcome 전에는 안 보냄');
+    w3.msg(WELCOME({ memberId: 'mME2', resume: 'R3', members: {} }));
+    await tick();
+    chk(w3.last('patch') && w3.last('patch').level === 51, '다시 들어간 welcome 뒤에 그 사이 바뀐 칸을 보낸다');
+
+    // 끊긴 동안의 말 · 찌르기
+    const c = await joined();
+    c.ws.close();
+    c.prov.update({ chat: { text: '옛말', ts: 1 } });
+    await c.clock.advance(1000);       // 1초 — 첫 재연결 때 붙지 못한다
+    c.socks[1].close();
+    await c.clock.advance(16000);      // 옛말은 15초를 넘긴다
+    for(let i = 0; i < 7; i++) c.prov.update({ chat: { text: 'm' + i, ts: 2 + i } });
+    c.prov.poke('mA', 'pet');
+    c.prov.pokeSelf('fly:3');
+    while(c.socks[c.socks.length - 1].closed) await c.clock.advance(500);   // 다음 재연결 소켓이 생길 때까지
+    const w = c.socks[c.socks.length - 1];
+    chk(!w.all('chat').length && !w.all('poke').length, '(준비) 끊긴 동안은 안 보냄');
+    w.open(); w.msg({ t: 'ready', pv: 1, now: 0 });
+    w.msg(WELCOME({ resumed: true, memberId: 'mME9' }));
+    await tick();
+    const ch = w.all('chat').map((x) => x.text);
+    chk(ch.join(',') === 'm2,m3,m4,m5,m6', '이어 붙으면 들고 있던 말을 보낸다 — 마지막 5개 · 15초 지난 것은 버림 (' + ch.join(',') + ')');
+    const pk = w.all('poke');
+    chk(pk.length === 2 && pk[0].to === 'mA' && pk[0].all === true && pk[1].to === 'mME9' && pk[1].type === 'fly:3', '  ↳ 찌르기도(나 찌르기는 새 memberId 로)');
+    w.close();
+    await c.clock.advance(1000);
+    const wn = c.socks[c.socks.length - 1];
+    wn.open(); wn.msg({ t: 'ready', pv: 1, now: 0 }); wn.msg(WELCOME({ resumed: true }));
+    await tick();
+    chk(!wn.all('chat').length && !wn.all('poke').length, '  ↳ 한 번 보낸 것은 다시 안 보낸다');
+
+    // 방을 나가면 들고 있던 것은 버린다
+    const l = await joined();
+    l.ws.close();
+    l.prov.update({ chat: { text: '버려질 말', ts: 1 } });
+    await l.prov.leave();
+    chk(l.prov._state.held.chat.length === 0, '나가면 들고 있던 말은 버린다');
   }
 
   say('── 8. Firebase 로 돌아가라는 신호');
