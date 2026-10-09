@@ -17929,6 +17929,7 @@ async function openPurikura(){
     PK.members = o || {};
     const pk2 = _purikura(); if(pk2) pk2.adoptSlots(PK.members);
     _pkPaintSlots();
+    _pkPaintFilterNote();
   });
   PK.unframes = firebaseAPI.pkOnValue('rooms/'+room+'/_photo/frames', o=>{ _pkOnFrames(o||{}); });
 
@@ -18151,7 +18152,7 @@ function _pkPaintBg(){
 
 /* 📷 필터 줄 — 로비와 무대 아래에 **같은 줄**이 선다(시안 filter-v1 의 «안 A»).
    ★ 두 자리가 같은 함수로 그려진다. 따로 만들면 하나만 잠기거나 하나만 갱신되는 날이 온다.
-   ⚠️ 축소판은 3D 가 아니라 실루엣이다(계층의 drawFilterSample). 무대를 여섯 번 더 그릴 수는 없고,
+   ⚠️ 축소판은 3D 가 아니라 실루엣이다(계층의 drawFilterSample). 무대를 일곱 번 더 그릴 수는 없고,
      고르는 데 필요한 것은 «색과 결»이라 이걸로 충분하다. 진짜 모습은 바로 위 무대에 있다. */
 function _pkFilterLocked(){
   if(PK.state !== 'shooting') return false;
@@ -18187,12 +18188,20 @@ function _pkPaintFilter(){
       row.appendChild(btn);
     });
   });
+  _pkPaintFilterNote();
+}
+/* 필터 안내 글. 자리가 바뀔 때도 부른다(업데이트 안 한 사람이 들어오고 나갈 때) — 축소판은 다시 안 그린다. */
+function _pkPaintFilterNote(){
+  const P = _pkP(), locked = _pkFilterLocked();
+  /* 🆙 업데이트 안 한 참가자는 이 필터를 몰라서 그 사람 사진만 필터 없이 찍힌다. 막지 않고 방장에게만 알린다. */
+  const lag = (PK.host && P.filterLaggards) ? P.filterLaggards(PK.members, PK.filter, getMyUserId()) : [];
+  const lagMsg = lag.length ? lag.join(' · ') + '님은 업데이트가 필요해서 필터 없이 찍혀요' : '';
   const msg = _pkEl('pkFilterMsg');
   if(msg) msg.textContent = locked ? '곧 찍어요 — 이번 컷은 이대로'
-                          : (PK.host ? '' : '방장이 고른 필터예요');
+                          : (PK.host ? lagMsg : '방장이 고른 필터예요');
   const note = _pkEl('pkFilterNote');
   if(note) note.textContent = PK.host
-    ? '«' + P.filterOf(PK.filter).name + '» — 사진에 그대로 구워져서 꾸미기에서는 못 되돌려요.'
+    ? (lagMsg || '«' + P.filterOf(PK.filter).name + '» — 사진에 그대로 구워져서 꾸미기에서는 못 되돌려요.')
     : '방장이 고른 필터로 함께 찍혀요.';
 }
 /* 필터를 고른 순간. ★ 촬영 중과 로비가 **다른 길로 나간다.**
