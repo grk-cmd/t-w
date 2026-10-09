@@ -4331,6 +4331,21 @@ let _bandDrag = null;   // {x0, f0, pointerId}
   h.addEventListener('pointerup', end);
   h.addEventListener('pointercancel', end);
   h.addEventListener('lostpointercapture', end);
+  /* 더블클릭 = 모두 보이게 — 줄이 넘치지 않는 가장 좁은 폭으로(층 수 설정 안에서). 다 못 넣으면 화면 끝까지. */
+  h.addEventListener('dblclick', e=>{
+    e.preventDefault(); e.stopPropagation();
+    if(!_rowRoomMode || !SeatLayout) return;
+    const keep = roomBandFrac;
+    let fit = 1;
+    for(let f = SeatLayout.BAND_MIN_FRAC; f <= 1.0001; f += 0.01){
+      roomBandFrac = Math.min(1, f); _applyRowOffset(true);
+      if(_rowCache && !_rowCache.overflow){ fit = roomBandFrac; break; }
+    }
+    roomBandFrac = (_rowCache || keep) ? fit : keep;
+    _applyRowOffset(false);
+    try{ localStorage.setItem(ROOM_BAND_KEY, String(roomBandFrac)); }catch(_){}
+    _rowPlaceBandHandle();
+  });
 })();
 /* 🖱 이름표 끌기 = 자리 바꾸기(책상 끌기와 같다) — 책상이 없거나 숨긴 사람도 이름표로 옮길 수 있게.
    5px 미만이면 끌기가 아니다 — 클릭 · 우클릭 메뉴는 그대로. 줄 넘기기는 휠 · 가로 쓸기 · ◀ ▶ 만.
