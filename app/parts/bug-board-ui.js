@@ -9,7 +9,7 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const api = () => (window.firebaseAPI && firebaseAPI.bugBoard) || null;
-  const C = () => (api() && api().C) || { cats: [], status: {}, page: 20, kakaoRe: /^https:\/\/open\.kakao\.com\// };
+  const C = () => (api() && api().C) || { cats: [], status: {}, page: 20, kakaoRe: /^https:\/\/open\.kakao\.com\//, answerNoticeBody: () => '버그제보 탭에서 확인해 주세요' };
   const esc = (s) => escHtml(String(s == null ? '' : s));
   const myUid = () => { try{ return firebaseAPI.authCurrentUid(); }catch(_){ return null; } };
   const admin = () => (typeof isAdmin !== 'undefined') && !!isAdmin;
@@ -68,6 +68,12 @@
       });
     });
   }
+  /* 빈 목록 문구. 2쪽부터 빈 것은 «글이 딱 20의 배수라 [다음] 이 켜졌는데 더 없던» 경우다 —
+     규칙이 한 번에 20개까지만 받게 해서(21개로 미리 볼 수 없음) 헛걸음 한 번은 생긴다. */
+  function emptyText(f, page){
+    if(page > 1) return f === 'open' ? '더 이전 미해결 제보가 없어요' : '더 이전 제보가 없어요';
+    return f === 'mine' ? '아직 쓴 제보가 없어요' : f === 'open' ? '미해결 제보가 없어요' : '아직 제보가 없어요';
+  }
   async function loadList(){
     const rows = $('bbRows'); if(!rows) return;
     document.querySelectorAll('#bbListView .bb-flt').forEach(b => b.classList.toggle('on', b.dataset.f === filter));
@@ -82,7 +88,7 @@
       nextCursor = res.next;
       const all = notes.concat(res.items);
       rows.innerHTML = all.length ? all.map(rowHtml).join('')
-        : '<div class="bb-empty">' + (filter === 'mine' ? '아직 쓴 제보가 없어요' : filter === 'open' ? '미해결 제보가 없어요' : '아직 제보가 없어요') + '</div>';
+        : '<div class="bb-empty">' + emptyText(filter, page) + '</div>';
       fillPrvTitles(all);
     }catch(e){
       rows.innerHTML = '<div class="bb-empty">목록을 불러오지 못했어요 — 네트워크를 확인해 주세요</div>';
@@ -161,7 +167,7 @@
     // 글쓴이 우편함 알림 — 실패해도 답변은 남아 있다(조용히 넘기지 않고 알린다)
     try{
       await firebaseAPI.sendInboxMessage(post.it.code, 'bug', '접수된 제보에 답변이 달렸어요',
-        post.title + (r.kakao ? '\n💬 오픈카톡 연결이 함께 왔어요' : ''), { bugId: post.id });
+        C().answerNoticeBody(post.it.vis, post.title, !!r.kakao), { bugId: post.id });
     }catch(_){ toast('답변은 등록됐지만 알림을 보내지 못했어요'); }
     toast('답변을 등록했어요');
     openPost(post.id);

@@ -28,6 +28,14 @@ export const BUG_STATUS = { new: '접수', checking: '확인 중', fixed: '수�
 export const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
 const OPEN = (st) => st === 'new' || st === 'checking';
 
+/* 답변 알림(우편함) 본문. 우편함은 규칙상 누구나 읽고 글쓴이 코드는 공개 목록에 있어서,
+   비공개 글의 제목을 넣으면 그 길로 새어 나간다 — 비공개 글은 고정 문구만. 어느 글인지는 함께 보내는 bugId 로 연다. */
+export const BUG_PRV_NOTICE_BODY = '비공개 제보예요 — 버그제보 탭의 «내 글» 에서 확인해 주세요';
+export function answerNoticeBody(vis, title, hasKakao){
+  const head = vis === 'pub' ? String(title || '') : BUG_PRV_NOTICE_BODY;
+  return head + (hasKakao ? '\n💬 오픈카톡 연결이 함께 왔어요' : '');
+}
+
 export function ymd(t){
   const d = new Date(t);
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -75,6 +83,22 @@ const byTsDesc = (a, b) => (b.ts || 0) - (a.ts || 0);
  * deps: db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo,
  *       runTransaction, push, authUid(), now(), serverTs()(= serverTimestamp — 새 글 ts)
  */
+/* 받은 한 쪽(raw) → 화면에 보일 글 · 다음 쪽 커서.
+   «꽉 찬 쪽인가» 와 커서는 **거르기 전** 원본으로 센다 — 공지(전체 목록에서 뺌)가 하나만 섞여도
+   19개가 되어 [다음] 이 꺼지고 그보다 오래된 글을 못 보던 버그가 있었다.
+   미해결(openTs 정렬)은 openTs 없는 글이 맨 앞(null)으로 몰려 끝에 딸려 올 뿐이라, openTs 있는 글 수로 센다. */
+export function pageOf(filter, raw){
+  const key = filter === 'open' ? 'openTs' : 'ts';
+  const keyed = filter === 'mine' ? [] : raw.filter(it => typeof it[key] === 'number');
+  let items = raw;
+  if(filter === 'open') items = items.filter(it => typeof it.openTs === 'number');
+  if(filter === 'all') items = items.filter(it => !it.notice);
+  items = items.slice().sort(byTsDesc);
+  const full = keyed.length >= BUG_PAGE;
+  const next = full ? Math.min(...keyed.map(it => it[key])) : null;
+  return { items, next };
+}
+
 export function createBugBoard(deps){
   const { db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo, runTransaction, push } = deps;
   const now = deps.now || (() => Date.now());
@@ -94,13 +118,7 @@ export function createBugBoard(deps){
         ? query(ref(db, L), orderByChild(key), endBefore(before), limitToLast(BUG_PAGE))
         : query(ref(db, L), orderByChild(key), limitToLast(BUG_PAGE));
     }
-    let items = toArr((await get(q)).val());
-    if(filter === 'open') items = items.filter(it => typeof it.openTs === 'number');
-    if(filter === 'all') items = items.filter(it => !it.notice);
-    items.sort(byTsDesc);
-    const full = filter !== 'mine' && items.length >= BUG_PAGE;
-    const last = items[items.length - 1];
-    return { items, next: full && last ? (filter === 'open' ? last.openTs : last.ts) : null };
+    return pageOf(filter, toArr((await get(q)).val()));
   }
   async function notices(){
     const v = (await get(query(ref(db, L), orderByChild('nts'), limitToLast(BUG_NOTICE_MAX)))).val();
@@ -223,6 +241,6 @@ export function createBugBoard(deps){
     return createPost({ vis: 'pub', cat: 'etc', title: '버그 제보 안내', body, notice: true }, who);
   }
   const C = { cats: BUG_CATS, status: BUG_STATUS, page: BUG_PAGE, dailyMax: BUG_DAILY_MAX, titleMax: BUG_TITLE_MAX,
-              bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE };
+              bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE, answerNoticeBody };
   return { C, checkPost, listPage, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, like, getSeen, setSeen, unseen, migrateNotice };
 }
