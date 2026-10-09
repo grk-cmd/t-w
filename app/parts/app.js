@@ -13722,6 +13722,19 @@ function _mhSubscribeDMForSelected(){ /* 수령함으로 대체됨 */ }
 
 /* ============================================================ 🏠 마이홈 (2단계: 프로필/게시글/스티커) */
 let _myHomeData = { avatar:null, bio:'', postTitle:'', post:'', stickers:{}, bgm:null, bg:null, theme:null };
+/* 서버에서 받은 users/{uid}/home 을 _myHomeData 모양으로 옮긴다 — 내 홈 · 친구 홈 둘 다 여기를 탄다.
+   ⚠️ 저장(saveMyHome)은 _myHomeData 를 홈 노드에 **통째로 set** 한다. 여기서 빠진 칸은 화면에서만
+     안 보이는 게 아니라 다음 저장 때 서버에서도 지워진다. _myHomeData 에 새 칸을 만들면 여기에도 넣을 것.
+     (👑 디자인 프리셋 themePresets · themePresetCur 가 빠져 있어서, 이름을 바꿔도 다시 열면 1 2 3 으로
+     돌아가고 담아 둔 색까지 사라졌다 — sim-myhome-load.js) */
+function _mhHomeFromServer(data){
+  data = data || {};
+  return { avatar:data.avatar||null, bio:data.bio||'', postTitle:data.postTitle||'', post:data.post||'',
+    theme:data.theme||null,
+    stickers:data.stickers||{}, bgm:data.bgm||null, bg:data.bg||null,
+    themePresets:data.themePresets||null,
+    themePresetCur:(data.themePresetCur!=null ? data.themePresetCur : null) };
+}
 let _myHomeLoaded = false;
 /* 🪪 [2026-10-08 제보 #2] 마이홈을 **어느 계정 코드로** 불러왔는가. 저장 때 지금 코드와 다르면 거부한다.
    [가설] 계정 탭에서 다른 계정으로 갈아탄 뒤 재시작 전에 자동 저장(창 닫기 · 탭 전환)이 돌면, 먼저 불러온
@@ -13764,9 +13777,7 @@ async function openFriendHomeView(friendId, nameHint){
     window._mhPreviewMode = false;   // 👁 미리보기 중이었으면 해제 (실제 방문으로 전환)
     _mhViewingUserId = friendId;
     // ★ theme 포함 — 관람 모드에서도 친구의 👑 프리미엄 디자인이 그대로 보이게 (loadMyHomePage와 동일한 누락 버그 수정)
-    _myHomeData = { avatar:data.avatar||null, bio:data.bio||'', postTitle:data.postTitle||'', post:data.post||'',
-      theme:data.theme||null,
-      stickers:data.stickers||{}, bgm:data.bgm||null, bg:data.bg||null };
+    _myHomeData = _mhHomeFromServer(data);
     // 마이홈 창을 안 열려있으면 열기 + 마이홈 탭으로 전환 (loadMyHomePage 트리거 없이 수동 전환)
     const overlay=document.getElementById('myHomeOverlay');
     if(overlay && !overlay.classList.contains('on')){ overlay.classList.add('on'); myHomeOpen = true; }
@@ -13996,9 +14007,7 @@ async function loadMyHomePage(){
     const data = await firebaseAPI.getMyHome(_loadUid) || {};
     if(_mhViewingUserId) return;   // ★ 로드가 진행되는 사이 친구 홈 관람으로 전환됐으면 덮어쓰지 않음(비동기 경쟁 방지)
     if(getMyUserId() !== _loadUid) return;   // 🪪 불러오는 사이 계정이 바뀌었다 — 옛 계정 데이터를 붙들지 않는다
-    _myHomeData = { avatar:data.avatar||null, bio:data.bio||'', postTitle:data.postTitle||'', post:data.post||'',
-      theme:data.theme||null,
-      stickers:data.stickers||{}, bgm:data.bgm||null, bg:data.bg||null };
+    _myHomeData = _mhHomeFromServer(data);
     _myHomeLoaded = true;
     _myHomeUid = _loadUid;
   }catch(e){

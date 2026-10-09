@@ -162,8 +162,8 @@
      [경위] 원래는 방이 비는 순간 `rooms/{방}/chatLog` 를 지웠다(두 곳: 입장 첫 스냅샷 청소 ·
        마지막 퇴장 청소). 그래서 다 같이 앱을 껐다 켜면 그 방의 기록이 서버에서 사라지고,
        모두가 '처음 입장'과 똑같은 화면을 봤다 — 제보된 "재부팅하면 모두가 처음으로 돌아간다".
-     [지금] `chatLog` 만 남긴다. `_meta` · `roomIndex` 는 **그대로 지운다** —
-       유령 방·채널 오염 방지가 그 둘의 일이고, 인원 계산은 이미 `_isMemberKey` 로
+     [지금] `chatLog` 만 남긴다. `_meta` · `_chatTab` 은 서버 함수가 지운다(빈 채로 2분 넘은 방 · functions/room-stats.js) —
+       유령 방·채널 오염 방지가 그쪽 일이고, 인원 계산은 이미 `_isMemberKey` 로
        `_`시작 키와 `chatLog` 를 빼고 세므로 기록만 남은 방은 '빈 방' 그대로다.
      ★ '처음 들어온 사람은 이전 기록을 못 본다'는 규칙은 **여기가 아니라** app.js 의
        입장 컷(`tw_chat_join:` · localStorage)이 맡는다. 기록을 지우는 것으로 대신하고 있었던 셈이라,
@@ -2488,8 +2488,8 @@
       if(_roomQuery && _roomListener) off(_roomQuery, 'value', _roomListener);
       if(_roomMetaRef && _roomMetaCb) off(_roomMetaRef, 'value', _roomMetaCb);
       if(_myPokeRef && _myPokeListener) off(_myPokeRef, 'value', _myPokeListener);
-      // 나가기 전에 "나 말고 다른 멤버가 있는지" 스냅샷을 찍어둠 — 마지막 사람이면 _meta도 같이 정리해서
-      // 다음에 같은 코드로 재입장할 때 채널 정보가 오염된 상태로 남지 않게(=유령 방 방지).
+      // 나가고 나서 "나 말고 다른 멤버가 있는지" 키만 본다 — 마지막 사람이면 roomIndex 줄에 «비었음» 을 남긴다(_finalCleanup).
+      // _meta 는 서버 함수가 지운다. 그 전에 같은 코드로 들어오면 빈 방 선점(claimEmptyRoom)이 새로 연다.
       const roomCodeForCleanup = _roomCode;
       // 🔬 [def-diag] 퇴장 요약 — 체류 시간 대비 재접속 빈도 + def 비중. 이 수치로 def 분리 효과 판단.
       try{ if(window._defDiag){ const d=window._defDiag; const mins=(Date.now()-d.joinAt)/60000;
@@ -2509,7 +2509,7 @@
         const aref = _myAliveRef;
         Promise.resolve(onDisconnect(aref).cancel()).catch(()=>{}).then(()=>remove(aref)).catch(()=>{});
       }
-      // 내 노드 삭제 완료 후, 방에 남은 멤버가 없으면 _meta·chatLog도 지움(마지막 사람 처리).
+      // 내 노드 삭제 완료 후, 방에 남은 멤버가 없으면 «비었음» 표시(마지막 사람 처리).
       done = done.then(async ()=>{
         try{
           if(!roomCodeForCleanup) return;
@@ -2533,30 +2533,34 @@
                 나중에 _ 로 시작하는 예약 노드가 하나만 늘어도 방이 영원히 안 지워진다.
                 화면 멤버 필터·checkRoomCapacity 와 같은 규칙이다. */
           const _isMemberKey = k => k.charAt(0) !== '_' && k !== 'chatLog';
+          /* 🧹 마지막 사람 표시 — `_meta` · `_chatTab` · `roomIndex` 줄을 **지우지 않는다.**
+             [왜] «남은 사람 확인 → 지우기» 는 한 덩어리가 아니다. 그 사이(재조회 시차 포함)에 누가 다시 들어오면
+               «사람은 있는데 `_meta` 만 없는» 방이 남고, 들어오는 사람 라이선스로 채널이 다시 세워져
+               투게더룸이 워킹룸이 됐다(자동 업데이트로 다 같이 껐다 켤 때). 지우기는 서버 함수가 한다 —
+               빈 채로 2분 넘게 지난 방만, 지우기 직전 멤버를 다시 보고, `_meta` 트랜잭션으로(functions/room-stats.js sweepEmptyRooms).
+             여기서는 줄에 «비었음» 만 남긴다: lastSeen 0 이라 앱 · 서버 어디서도 살아 있는 방으로 안 센다(방 개수 · 랜덤 참여에서
+               바로 빠진다). 시크릿룸도 쓴다 — 셀 때는 SCRT- 를 건너뛰고, 서버는 이 줄로 비운 방을 찾는다.
+               그새 누가 다시 들어왔어도 해가 없다 — 그 사람의 하트비트가 30초 안에 lastSeen 을 다시 찍는다.
+             `_meta/openTs` 만 걷는다 — 열자마자(20초 안) 비운 방에 다음 사람이 «방금 누가 열었다» 로 양보하지 않게.
+               채널 · 방장은 건드리지 않으므로 경쟁에 걸려도 남의 방이 바뀌지 않는다. */
           const _finalCleanup = async (keys)=>{
-            if(keys && keys._meta)   await remove(ref(db, `rooms/${roomCodeForCleanup}/_meta`)).catch(()=>{});
-            /* 💬 탭 기록은 지운다 — 탭 정의(_meta/tabs)가 위에서 _meta 와 함께 사라지므로 남겨 봐야 다시 열 길이 없다.
-               #일반(chatLog)만 KEEP_CHAT_LOG_ON_EMPTY 를 따른다. */
-            if(keys && keys._chatTab) await remove(ref(db, `rooms/${roomCodeForCleanup}/_chatTab`)).catch(()=>{});
-            /* 💬 chatLog 는 남긴다(KEEP_CHAT_LOG_ON_EMPTY) — 그 상수 주석에 이유가 있다.
-               ★ _meta·roomIndex 삭제는 **그대로 둔다.** 유령 방 판정은 `_isMemberKey` 가
-                 chatLog 를 이미 멤버에서 빼고 세므로, 기록만 남은 방은 여전히 빈 방이다. */
+            if(keys && keys._meta) await remove(ref(db, `rooms/${roomCodeForCleanup}/_meta/openTs`)).catch(()=>{});
+            /* 💬 chatLog 는 남긴다(KEEP_CHAT_LOG_ON_EMPTY) — 그 상수 주석에 이유가 있다. */
             if(!KEEP_CHAT_LOG_ON_EMPTY && keys && keys.chatLog) await remove(ref(db, `rooms/${roomCodeForCleanup}/chatLog`)).catch(()=>{});
-            await remove(ref(db, `roomIndex/${roomCodeForCleanup}`)).catch(()=>{});   // 💰 요약 노드도 함께 삭제
+            await update(ref(db, `roomIndex/${roomCodeForCleanup}`), { lastSeen: 0, emptyAt: serverTimestamp() }).catch(()=>{});
           };
           const others = Object.keys(all).filter(_isMemberKey);
           if(others.length === 0){
             await _finalCleanup(all);
           }else{
             /* 🧹 동시 퇴장 경쟁 — 여럿이 한꺼번에 나가면 각자 이 스냅샷에서 서로를 아직 '남은 사람'으로
-               보기 때문에 others.length === 0 이 아무에게도 참이 아니다. 그러면 rooms/{code}/_meta 가
-               영구 잔류하고, 다음에 같은 코드로 들어온 사람이 남의 채널·방장을 그대로 물려받는다
-               (멤버 카운트는 lastSeen 90초로 회복되지만 _meta 는 스스로 사라지지 않는다).
+               보기 때문에 others.length === 0 이 아무에게도 참이 아니다. 그러면 «비었음» 표시가 안 남아
+               빈 방이 90초 동안 방 개수 · 랜덤 참여 후보에 남고, 서버도 그 방의 _meta 를 걷지 않는다
+               (남은 _meta 는 다음 사람의 빈 방 선점이 새로 덮는다 — claimEmptyRoom).
                그래서 남은 사람이 있으면 시차를 두고 키 목록만 한 번 더 확인한다.
                · 시차는 memberId 정렬 순서로 정한다(난수가 아니라) — 같은 순간에 몰려 재조회하지 않게.
                · 비용은 퇴장당 최대 shallow 1회(수십 바이트)다. 주기 조회가 아니다.
-               · 재조회에 실패하면(null) 아무것도 지우지 않는다 — 살아 있는 방의 _meta 를
-                 잘못 지우느니 유령이 남는 편이 낫다(유령은 관리자 청소로 걷힌다). */
+               · 재조회에 실패하면(null) 아무것도 안 남긴다 — 줄은 90초 뒤 저절로 안 세어진다. */
             const _ids = others.concat([myMemberIdForCleanup]).sort();
             const _rank = _ids.indexOf(myMemberIdForCleanup);
             await new Promise(r => setTimeout(r, 1200 + (_ids.length - 1 - _rank) * 700));
@@ -2769,6 +2773,9 @@
           return t;
         });
         if(full || !res.committed) return { ok:false, reason: full ? '채널은 3개까지예요' : '' };
+        /* 새 탭은 빈 기록으로 시작한다 — 빈 방의 `_chatTab` 은 서버 함수가 2분 넘게 지나서야 걷으므로, 그 사이 다시 연 방에서
+           같은 자리(s1 · s2)를 고르면 지난 방의 탭 기록이 딸려 나온다. 방금 비운 자리라 지금 방 사람의 글은 아직 없다. */
+        await remove(ref(db, _chatLogPath(room, id))).catch(()=>{});
         return { ok:true, id };
       }catch(e){ return { ok:false, reason:(e && e.message) || '' }; }
     },
@@ -2809,12 +2816,16 @@
             if(meta.openLic || !licensed) return;
             // 나만 보유자 → 뒤집는다(투게더룸으로). 미보유자는 그 방의 손님으로 남는다.
           }
-          meta.host = myUserId;
-          meta.channel = licensed ? 'togetherroom' : 'workingroom';
-          meta.openLic = !!licensed;
-          meta.openTs = _svNow();          // serverTimestamp는 트랜잭션 함수 안에서 못 쓴다
-          meta.ts = _svNow();
-          return meta;
+          /* 🧹 방금 열린 게 아니면 지난 방의 표지다 — 통째로 새로 쓴다. 마지막 사람이 나가도 `_meta` 는 서버 함수가
+             2분 넘게 지나서야 걷으므로(functions/room-stats.js), 그 사이 들어오면 지난 방의 채팅 탭 · 랜덤 허용(open) ·
+             채팅 잠금 · 되살림 표시(restoredTs)가 남아 있다. channel · host 만 덮으면 그것들을 물려받는다. */
+          const out = justOpened ? meta : {};
+          out.host = myUserId;
+          out.channel = licensed ? 'togetherroom' : 'workingroom';
+          out.openLic = !!licensed;
+          out.openTs = _svNow();          // serverTimestamp는 트랜잭션 함수 안에서 못 쓴다
+          out.ts = _svNow();
+          return out;
         });
         const val = res.snapshot ? res.snapshot.val() : null;
         const channel = (val && val.channel) || (licensed ? 'togetherroom' : 'workingroom');
@@ -2823,7 +2834,7 @@
       }catch(_){ return null; }
     },
     /* 🩹 [2026-09-16 제보 2] `_meta` 가 **없는** 방의 채널을 되살린다. 있으면 한 글자도 안 건드린다.
-       [무엇이 터졌나] `_meta` 를 지우는 코드는 퇴장 정리(위 _finalCleanup) 한 곳뿐인데, 동시 퇴장 대비
+       [무엇이 터졌나] 예전에는 퇴장 정리(위 _finalCleanup)가 `_meta` 를 지웠는데(지금은 서버 함수가 지운다 · 옛 앱은 그대로), 동시 퇴장 대비
          **시차 재조회**와 누군가의 재입장이 겹치면 「멤버는 있는데 `_meta` 만 없는」 방이 남는다.
          그 방은 입장 경로가 «빈 방이면 선점, 아니면 서버 채널을 읽기만» 이라 **아무도 `_meta` 를 다시 안 쓴다.**
          → 멤버도 방장도 워킹룸으로 떨어지고 영원히 못 돌아온다(실제 제보 방 `COZY-42W5`).
