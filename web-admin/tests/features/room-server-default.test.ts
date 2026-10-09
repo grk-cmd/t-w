@@ -8,6 +8,7 @@ import {
   NO_DEFAULT,
   parsePercentInput,
   PERCENT_STEPS,
+  percentLockReason,
   toDefaultInputs,
 } from '@/features/room-server/edit-default';
 import { auditsOf, fakeDb } from '../shared/fakeDb';
@@ -23,6 +24,13 @@ describe('기본 서버 · 비율 카드', () => {
       value: 'rooms-9',
       label: 'rooms-9 (표에 없음 — Firebase)',
     });
+  });
+
+  it('비율 칸이 잠긴 이유 — 서버를 고르면 없음 · 고를 서버가 없으면 등록부터', () => {
+    const opts = defaultOptions(['realtime-1'], null);
+    expect(percentLockReason('realtime-1', opts)).toBeNull();
+    expect(percentLockReason(NO_DEFAULT, opts)).toBe('기본 서버를 먼저 고르면 비율을 정할 수 있어요');
+    expect(percentLockReason(NO_DEFAULT, defaultOptions([], null))).toContain('서버 목록');
   });
 
   it('빠른 버튼 0 · 10 · 50 · 100', () => {

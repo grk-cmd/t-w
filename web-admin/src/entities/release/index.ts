@@ -15,4 +15,3 @@ export {
   type Release,
   type ReleaseDownloads,
 } from './model/release';
-export { ReleaseDownloadsView } from './ui/ReleaseDownloadsView';

@@ -1,5 +1,6 @@
 import type { User } from 'firebase/auth';
 import { useEffect, useState } from 'react';
+import { syncMyAdminName } from '@/entities/admin/name';
 import { isAdmin, queryClient, type Firebase } from '@/shared/api';
 
 export type AdminSession =
@@ -21,6 +22,8 @@ export function useAdminSession(fb: Firebase): AdminSession {
         let message: string;
         try {
           if (await isAdmin(fb.db)) {
+            // 할 일 작업자 목록에 보일 이름 — 같으면 쓰지 않는다. 실패해도 로그인은 그대로.
+            void syncMyAdminName(fb.db, user.uid, user.displayName);
             setSession({ state: 'admin', user });
             return;
           }

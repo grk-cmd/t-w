@@ -6,3 +6,4 @@ export { SelectionBar } from './SelectionBar';
 export { EmojiInput } from './EmojiInput';
 export { DailyBars, type DailyMarker, type DailyPoint } from './DailyBars';
 export { StatSection, type Stat } from './StatSection';
+export { useModalDialog } from './useModalDialog';
