@@ -1584,6 +1584,20 @@
   .race-close:hover{color:var(--ink);}
 
   /* ===== 머리 위 레벨/이름 이름표 + 말풍선 (DOM) — 저해상도 렌더 영향 안 받음, 텍스트 잘림 없음 ===== */
+  /* 🪑 방 «보이는 영역» 폭 손잡이 — 흔한 끌기 손잡이 모양: 짧은 알약(6×28) 안에 점 세 개(⋮), 띠 가장자리 세로 가운데.
+     평소엔 흐리게, 올리거나 끄는 동안만 또렷하게. 잡는 자리는 알약보다 조금 넓다(16×36).
+     클릭 통과 목록(UI_HIT_SEL)에 #roomBandHandle — 투명 창에서도 클릭을 받는다. */
+  #roomBandHandle{position:fixed;display:none;width:16px;height:36px;z-index:16;cursor:ew-resize;pointer-events:auto;
+    opacity:.35;transition:opacity .15s;}
+  #roomBandHandle .grip{position:absolute;left:5px;top:4px;width:6px;height:28px;border-radius:3px;box-sizing:border-box;
+    background:rgba(255,255,255,.72);border:1px solid rgba(0,0,0,.18);box-shadow:0 1px 2px rgba(0,0,0,.18);}
+  #roomBandHandle .grip i{position:absolute;left:50%;width:2px;height:2px;margin-left:-1px;border-radius:50%;background:rgba(40,48,60,.75);}
+  #roomBandHandle .grip i:nth-child(1){top:8px;} #roomBandHandle .grip i:nth-child(2){top:12px;} #roomBandHandle .grip i:nth-child(3){top:16px;}
+  #roomBandHandle:hover,#roomBandHandle.drag{opacity:1;}
+  @media (prefers-color-scheme: dark){
+    #roomBandHandle .grip{background:rgba(40,44,52,.72);border-color:rgba(255,255,255,.22);}
+    #roomBandHandle .grip i{background:rgba(235,238,245,.85);}
+  }
   #seatLabelsLayer{position:fixed;inset:0;pointer-events:none;z-index:15;
     --nameplate-size:15px;   /* 이름표 폰트 크기 — 설정 슬라이더로 조절 */
     --exp-bar-h:6px;         /* 경험치 바 두께 — 여기 한 곳만 고치면 전 좌석 반영 */
@@ -4647,6 +4661,8 @@
 
 <!-- 본인 활동 상태 칩 (자기 캐릭터 발 밑에 따라다님) -->
 <div id="seatLabelsLayer"></div>
+<!-- 🪑 방 «보이는 영역» 왼쪽 끝 손잡이(⋮ · 끌어서 폭 조절) — app.js _rowPlaceBandHandle -->
+<div id="roomBandHandle" title="끌어서 보이는 영역 폭 조절"><span class="grip"><i></i><i></i><i></i></span></div>
 <!-- ============================================================ 상태칩 (세로 아이콘 툴바 A안)
      위→아래 순서: [상태 dot+▾] / [💬 채팅] / [📢 알림] / [▼ 더보기]
      · 상태 메뉴/더보기 메뉴는 캐스케이드 스타일(app.js positionCascade가 좌우 자동 반전)
@@ -4995,6 +5011,16 @@
       <button class="fs-toggle-btn" id="fsDecoPartsToggle" type="button" style="white-space:nowrap;flex-shrink:0;">켜짐</button>
     </div>
     <div class="fs-hint" style="margin-top:0;">끄면 내 화면에서만 나와 상대의 꾸미기 파츠가 안 보여요</div>
+    <!-- 🪑 방에서 내 자리 — 줄 안에 함께(기본 · 다 같이 한 줄로 넘겨 봄) / 맨 오른쪽 고정(나는 그대로, 나머지만 넘겨 봄) -->
+    <div class="fs-toggle-row">
+      <span>방에서 내 자리</span>
+      <button class="fs-toggle-btn" id="fsRoomSeatModeToggle" type="button" style="white-space:nowrap;flex-shrink:0;">줄 안에 함께</button>
+    </div>
+    <div class="fs-toggle-row">
+      <span>방 줄 층 수</span>
+      <button class="fs-toggle-btn" id="fsRoomFloorsToggle" type="button" style="white-space:nowrap;flex-shrink:0;">1층</button>
+    </div>
+    <div class="fs-hint" style="margin-top:0;">방 줄은 «보이는 영역» 안에 서요 — 왼쪽 끝 손잡이(⋮)를 끌어 폭을 바꾸고, 휠 · 이름표 끌기로 넘겨 봐요. 2층이면 1층에 안 들어가는 사람이 위 선반에 서요</div>
 
     <div class="fs-label" style="margin-top:14px;">캐릭터 교체</div>
     <!-- 슬롯 5칸이 300px 패널에 안 들어가서 4칸씩 밀어 본다. 창(.fs-slotvp) 안의 줄을 화살표로 굴린다.

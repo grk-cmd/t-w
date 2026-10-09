@@ -1,13 +1,13 @@
-/* ═══ 🪑 방 좌석 줄 배치 — 나는 오른쪽 아래, 나머지는 내 왼쪽으로 한 줄 ══════════════════════════
-   [문제] 방에서는 줄 가운데를 화면 오른쪽(0.84)에 두고 나를 줄 오른쪽 끝에 세웠다. 인원이 많으면 줄 절반이
-     오른쪽 화면 밖으로 나가고, 맨 오른쪽인 내 캐릭터도 같이 사라졌다.
-   [해법] 방에서는 카메라 기준점을 «줄 가운데» 가 아니라 «내 자리» 로 바꾸고(내 자리는 혼자일 때와 같은 곳),
-     다른 사람은 내 왼쪽으로 붙인다. 넘치는 줄은 줄 오프셋(rowOffset, 월드 단위)으로 좌우로 훑는다.
-     ・오프셋 범위 = 줄 전체 폭 기준. A = (화면 왼쪽 끝) − (줄 왼쪽 끝).
-        A < 0(화면에 다 들어감): [A, 0] — 화면 안에서만 움직이고 내 쪽으로는 안 겹친다.
-        A > 0(넘침):            [0, A] — 왼쪽 끝 사람이 화면 왼쪽 끝에 올 때까지 훑을 수 있다.
-     ・넘친 줄을 오른쪽으로 밀면 내 자리를 지나는 사람이 생긴다 — 그 사람은 내 몸을 가로지르지 않고
-       내 오른쪽으로 건너간다(대부분 화면 밖). 그래서 숨기기(레이캐스트 · 이름표)를 새로 만들 필요가 없다.
+/* ═══ 🪑 방 좌석 줄 — «보이는 영역»(가로 띠) 안에 한 줄 ══════════════════════════════════════════
+   [문제] 방에서는 줄 가운데를 화면 오른쪽(0.84)에 두고 줄 전체가 들어오게 카메라를 물렸다. 사람이 많거나
+     캐릭터를 키우면 줄이 오른쪽 화면 밖으로 나가 맨 오른쪽인 내 캐릭터도 사라졌다.
+   [해법] 줄은 띠 안에 선다. 띠 오른쪽 끝 = 맨 오른쪽 좌석(카메라 기준점 · 프로그램 이동으로 같이 움직임),
+     폭 = 화면 폭 × 비율(왼쪽 손잡이로 조절). 캐릭터 크기는 사용자가 정한 그대로고, 띠보다 긴 줄은
+     오프셋(월드 단위)으로 휠 · 이름표 끌기로 넘겨 본다. 띠 밖은 앱이 그리지 않는다(가위 · 이름표 숨김).
+     ・내 자리 «줄 안에 함께»(기본): 순서는 예전 그대로, 줄 전체를 넘긴다 — rowRange.
+     ・내 자리 «맨 오른쪽 고정»: 나를 맨 앞(오른쪽)에 두고 나머지만 넘긴다 — offsetRange · placeRow
+       (내 자리를 지나는 사람은 내 오른쪽 = 띠 밖으로 건너간다).
+     범위는 단순하게 «처음 사람 ~ 끝 사람» 이다.
    이 파일은 숫자만 다룬다(THREE · DOM 없음). 검사: checks/sim-seat-layout.js */
 (function(){
 'use strict';
@@ -17,6 +17,9 @@ const WHEEL_LINE_PX = 16;        // deltaMode 1(줄 단위) 한 줄
 const WHEEL_PAGE_PX = 400;       // deltaMode 2(쪽 단위) 한 쪽
 const PAN_BASE_X = -0.34;        // applyCameraAndCanvas 의 기본 좌우 위치(기준점이 화면 0.84 에 온다)
 const PAN_MARGIN_FALLBACK = 0.02;
+const BAND_DEFAULT_FRAC = 0.6;     // 보이는 영역 기본 폭(화면 비율) — 예전 방 줄이 쓰던 오른쪽 아래 자리
+const BAND_MIN_FRAC = 0.08;
+const SEAT_MODE_ROW = 'row', SEAT_MODE_RIGHT = 'right';   // 내 자리: 줄 안에 함께(기본) · 맨 오른쪽 고정
 
 /* 기준 좌석(나 · 내가 탄 탑의 바닥)을 맨 앞에, 나머지는 원래 순서대로. */
 function orderRow(list, anchor){
@@ -91,6 +94,71 @@ function dragMove(st, x, y){
   return st.active ? dx : null;
 }
 
+/* «줄 안에 함께» 모드의 오프셋 범위 — 줄 전체(나 포함)를 띠 [bandL, bandR](월드) 안에서 넘겨 본다.
+   줄이 띠보다 짧으면 띠 안에서만, 길면 오른쪽 끝 사람 ~ 왼쪽 끝 사람까지. 0 은 «처음 자리»(오른쪽 끝이 띠 오른쪽). */
+function rowRange(xs, hws, bandL, bandR){
+  if(!xs.length || !isFinite(bandL) || !isFinite(bandR)) return { min: 0, max: 0 };
+  let left = Infinity, right = -Infinity;
+  for(let i = 0; i < xs.length; i++){ left = Math.min(left, xs[i] - hws[i]); right = Math.max(right, xs[i] + hws[i]); }
+  const a = bandR - right, b = bandL - left;
+  return { min: Math.min(a, b), max: Math.max(a, b) };
+}
+
+/* 층 나누기 — 줄 순서대로 1층을 띠 폭(월드)만큼 채우고 넘치는 사람은 2층으로(floors 가 1 이면 모두 1층).
+   층마다 맨 오른쪽 좌석이 x=0 이고 왼쪽으로 «반폭 + 여백 + 반폭». 1층에는 적어도 한 사람.
+   돌려주는 값: floor[i](0|1) · xs[i](그 층 안의 자리). */
+function splitFloors(hws, spacing, bandW, floors){
+  const n = hws.length, floor = new Array(n).fill(0), xs = new Array(n);
+  const two = floors === 2 && isFinite(bandW) && bandW > 0;
+  let x = 0, right = 0, prev = -1;
+  for(let i = 0; i < n; i++){
+    const nx = prev < 0 ? 0 : x - (hws[prev] + spacing + hws[i]);
+    if(prev < 0) right = hws[i];
+    if(two && prev >= 0 && floor[prev] === 0 && (right - (nx - hws[i])) > bandW + 1e-9){
+      // 1층이 찼다 — 여기부터 2층(맨 오른쪽에서 다시 시작)
+      for(let j = i; j < n; j++) floor[j] = 1;
+      let x2 = 0, p2 = -1;
+      for(let j = i; j < n; j++){ x2 = p2 < 0 ? 0 : x2 - (hws[p2] + spacing + hws[j]); xs[j] = x2; p2 = j; }
+      break;
+    }
+    xs[i] = nx; x = nx; prev = i;
+  }
+  return { floor, xs };
+}
+/* 2층 높이(월드) — 1층 머리 위 + 2층 이름표 자리(이름표 · 경험치 바는 발밑에 붙는다)만큼 올린다.
+   2층 머리가 화면 위로 나가면(yTopLimit) 그만큼 낮추되 1층 키의 minFrac 아래로는 안 내린다. */
+function floorLift(o){
+  const want = isFinite(o.want) ? o.want : (o.top1 || 0) + (o.labelsWorld || 0);
+  let y = want;
+  if(isFinite(o.yTopLimit)) y = Math.min(y, o.yTopLimit - (o.top2 || 0));
+  return Math.max((o.top1 || 0) * (isFinite(o.minFrac) ? o.minFrac : 0.6), y);
+}
+
+/* 보이는 영역(띠)의 화면 px. 오른쪽 끝 = 기준 좌석(맨 오른쪽 사람) 오른쪽 + 여백, 폭 = 화면 폭 × widthFrac.
+   좌석 하나는 늘 들어가게(minPx), 화면 밖으로는 안 나가게. */
+function bandRect(o){
+  const W = Math.max(1, o.screenW || 1);
+  const r = Math.max(1, Math.min(W, o.anchorPx + o.anchorHalfPx + (o.rightPad || 0)));
+  const minPx = Math.min(r, Math.max(40, o.minPx || 0));
+  const w = Math.max(minPx, Math.min(r, (isFinite(o.widthFrac) ? o.widthFrac : BAND_DEFAULT_FRAC) * W));
+  return { l: r - w, r: r, w: w };
+}
+/* 왼쪽 손잡이를 dx 만큼 끌었을 때 새 폭(화면 비율). 왼쪽으로 끌면 넓어진다. */
+function bandFracFromDrag(startFrac, dxPx, screenW){
+  const W = Math.max(1, screenW || 1);
+  const f = (isFinite(startFrac) ? startFrac : BAND_DEFAULT_FRAC) - (+dxPx || 0) / W;
+  return Math.max(BAND_MIN_FRAC, Math.min(1, f));
+}
+/* 단조 조건 ok(L) 를 처음 만족하는 L(작은 쪽) — 이분 탐색. lo 에서 이미 참이면 lo, hi 에서도 거짓이면 hi.
+   2층 높이를 화면 px 기준(원근 · 책상 앞면 포함)으로 맞출 때 쓴다. */
+function minLiftFor(ok, lo, hi, iters){
+  if(ok(lo)) return lo;
+  if(!ok(hi)) return hi;
+  for(let k = 0; k < (iters || 24); k++){ const m = (lo + hi) / 2; if(ok(m)) hi = m; else lo = m; }
+  return hi;
+}
+function inBand(px, band){ return !band || (px >= band.l && px <= band.r); }
+
 /* 프로그램 이동(상태칩)의 좌우 범위 — 기준점이 화면 [m, 1−m] 안. m = 내 좌석 반폭(화면 비율). */
 function clampPanX(px, halfFrac, extra){
   const m = (isFinite(halfFrac) && halfFrac > 0 && halfFrac < 0.5) ? halfFrac : PAN_MARGIN_FALLBACK;
@@ -115,8 +183,9 @@ function createSeatLayout(){
 }
 
 const api = { createSeatLayout, orderRow, naturalRow, offsetRange, clampOffset, placeRow,
+  rowRange, bandRect, bandFracFromDrag, inBand, splitFloors, floorLift, minLiftFor,
   wheelToRowPx, dragBegin, dragMove, clampPanX,
-  DRAG_THRESHOLD_PX, PAN_BASE_X, PAN_MARGIN_FALLBACK };
+  DRAG_THRESHOLD_PX, PAN_BASE_X, PAN_MARGIN_FALLBACK, BAND_DEFAULT_FRAC, BAND_MIN_FRAC, SEAT_MODE_ROW, SEAT_MODE_RIGHT };
 if(typeof window !== 'undefined') window.SeatLayout = api;
 if(typeof module !== 'undefined' && module && module.exports) module.exports = api;
 })();
