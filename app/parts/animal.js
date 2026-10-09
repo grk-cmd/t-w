@@ -1634,7 +1634,7 @@ function saveAnimalSlot(){
     closePreview();
     try{
       if(typeof openCreator==='function'){
-        openCreator({kind:'seat', seat:seatRef});
+        openCreator({kind:'seat', seat:seatRef, fromAnimal:true});   // fromAnimal — 동물 생성기로 되돌아가지 않고 책상부터
         if(typeof toast==='function') toast('🐾 수정했어요 — 책상·좌석을 확인하고 저장하세요');
       }
     }catch(e){ console.warn('[동물] 책상·좌석 진입 실패',e); }
@@ -1684,7 +1684,7 @@ function saveAnimalSlot(){
   closePreview();
   try{
     if(typeof openCreator==='function'){
-      openCreator({kind:'slot', edit:true, slot:savedIdx});
+      openCreator({kind:'slot', edit:true, slot:savedIdx, fromAnimal:true});   // fromAnimal — 동물 생성기로 되돌아가지 않고 책상부터
       if(typeof toast==='function') toast('🐾 이제 책상과 좌석을 설정하고 저장하면 완성돼요');
     }
   }catch(e){ console.warn('[동물] 책상·좌석 진입 실패',e); if(typeof toast==='function') toast('동물 캐릭터를 저장했어요'); }
@@ -1734,7 +1734,7 @@ window._setAnimalUnlockLevel = function(lv){
 window._animalUnlocked = function(){
   try{ return _unlockOk(); }catch(_){ return false; }
 };
-window.reopenAnimalCreator=function(def){
+window.reopenAnimalCreator=function(def, opts){
   // 어디서 돌아왔는지 기억 — 저장 시 원본 def에 병합하고, 좌석 편집이면 그 좌석에 직접 반영한다.
   _editSrcDef = def || null;
   _targetSlot = null;   // ★ 재편집은 원본이 꽂힌 칸을 따라가야 하므로 [＋] 타깃을 비운다
@@ -1788,7 +1788,9 @@ window.reopenAnimalCreator=function(def){
       // 슬라이더 UI 반영
       ['anpSx','anpSy','anpSa'].forEach(id=>{ const k=id==='anpSx'?'x':id==='anpSy'?'y':'all'; const el=overlay.querySelector('#'+id); if(el) el.value=scl[k]; const v=overlay.querySelector('#'+id+'V'); if(v) v.textContent=(scl[k]).toFixed(2); });
       if(typeof renderEarLists==='function') renderEarLists();
-      if(typeof window.__anpGoTab==='function') window.__anpGoTab('blink');   // 마지막 편집 지점(감은눈)으로
+      // 처음 들어올 땐 얼굴(opts.tab), 책상에서 [이전] 으로 돌아오면 마지막 편집 지점(감은눈)으로
+      const _tab = (opts && ['face','ear','paint','blink'].indexOf(opts.tab)>=0) ? opts.tab : 'blink';
+      if(typeof window.__anpGoTab==='function') window.__anpGoTab(_tab);
     }catch(e){ console.warn('[동물] 창 복원 실패',e); }
   };
   restore();

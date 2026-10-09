@@ -25393,6 +25393,17 @@ let currentCreatorDef = null;   // openCreator로 들어온 원본 def — 커�
 function isCommissionEditing(){ return !!(currentCreatorDef && currentCreatorDef.isCommission); }
 function isAnimalEditing(){ return !!(currentCreatorDef && currentCreatorDef.animal); }
 function isDeskSeatOnly(){ return isCommissionEditing() || isAnimalEditing(); }   // 페인트 단계 없이 책상·좌석만 하는 캐릭터
+/* 🐾 동물 편집 길잡이(animal-edit-route.js) — 모양은 동물 생성기, 책상·좌석은 여기 5·6단계.
+   모듈이 없으면(검사가 app.js 만 평가할 때 등) null — gotoStep · openCreator 가 예전처럼 책상부터 연다. */
+const _editRoute = (typeof window!=='undefined' && window.AnimalEditRoute) || null;
+/* 사람 생성기를 닫고 지금 편집 중인 동물을 동물 생성기로 연다(같은 슬롯·좌석 — creatorMode 를 animal.js 가 읽는다).
+   tab: 동물 생성기에서 처음 보일 탭 — 책상에서 돌아갈 땐 마지막(감은눈), 처음 들어갈 땐 얼굴. */
+function reopenAnimalFromCreator(tab){
+  const def=currentCreatorDef;
+  document.getElementById('creatorOverlay').classList.remove('on'); creatorOpen=false;
+  if(typeof window.reopenAnimalCreator==='function'){ window.reopenAnimalCreator(def, {tab}); return true; }
+  return false;
+}
 /* 🪑 책상 크기 슬라이더의 **기본값** — 흩어져 있던 0.175 리터럴의 단 하나의 출처.
    [왜 상수가 필요해졌나] '책상 위' 파츠가 이 슬라이더를 따라 커지고 작아지는 것을 끊으면서
      "무엇을 기준으로 안 따라가는가"를 정해야 했다. 답이 이 값이다 — 슬라이더가 기본값일 때가
@@ -26459,17 +26470,8 @@ function loadSkins(){const pngs=window.SKIN_PNGS||{};
       if(failed >= total){ try{ toast('피부 텍스처를 불러오지 못했어요 — 프로그램을 다시 설치해 주세요'); }catch(_){} }
     });}
 document.getElementById('crNext').addEventListener('click',()=>gotoStep(Math.min(6,crStep+1)));
-document.getElementById('crPrev').addEventListener('click',()=>{
-  // 🐾 동물: 책상(5)에서 [이전] → 얼굴·표정을 다시 편집하러 동물 생성기 창으로 복귀
-  //   (1~4단계는 동물에게 잠겨 있으므로 5에서 더 뒤로 갈 곳이 동물 창밖에 없음)
-  if(isAnimalEditing() && crStep<=5){
-    const def=currentCreatorDef;
-    document.getElementById('creatorOverlay').classList.remove('on'); creatorOpen=false;
-    if(typeof window.reopenAnimalCreator==='function') window.reopenAnimalCreator(def);
-    return;
-  }
-  gotoStep(Math.max(1,crStep-1));
-});
+// 🐾 동물이 책상(5)에서 [이전] 을 누르면 gotoStep 이 동물 생성기로 돌려보낸다(1~4는 사람용 단계).
+document.getElementById('crPrev').addEventListener('click',()=>gotoStep(Math.max(1,crStep-1)));
 // 상단 3단계 스텝퍼 클릭으로 이동 (캐릭터=1, 책상=5, 좌석=6)
 [...document.getElementById('crStages').children].forEach(el=>{ el.addEventListener('click',()=>{
   const stg=+el.dataset.stg; gotoStep(stg===0?Math.min(crStep,4):(stg===1?5:6)); }); });
@@ -28903,10 +28905,14 @@ function frameDeskCam(keepView){   // 캐릭터+책상 전체가 다 보이도�
   updateCreatorCam();
 }
 function gotoStep(n){
-  // 커미션·동물 캐릭터는 1~4단계(피부/표정/감은눈/색상) 접근 차단 — 5(책상)·6(좌석)만 허용
-  if(isDeskSeatOnly() && n<5){
-    if(isAnimalEditing()) toast('동물의 얼굴·표정은 동물 생성기에서 편집해요. 여기선 책상·좌석만 설정해요.');
-    else toast('커미션 캐릭터는 수정할 수 없어요.');
+  // 1~4단계(피부/표정/감은눈/색상)는 사람용 — 동물은 동물 생성기로, 커미션은 막고 책상(5)에 머문다
+  if(_editRoute){
+    const r=_editRoute.stepRoute(currentCreatorDef, n);
+    if(r.animal && reopenAnimalFromCreator('blink')) return;
+    if(r.toast) toast(r.toast);
+    n = r.animal ? 5 : r.step;
+  } else if(isDeskSeatOnly() && n<5){
+    if(isCommissionEditing()) toast('커미션 캐릭터는 수정할 수 없어요.');
     n = 5;
   }
   crStep=n;
@@ -28978,6 +28984,8 @@ function openCreator(mode){
   if(creatorMode.kind==='slot'&&creatorMode.edit) src=slots[creatorMode.slot];
   if(creatorMode.kind==='seat') src=creatorMode.seat.charDef;
   currentCreatorDef = src;   // 커미션 여부 등 판정용 (gotoStep·잠금에서 사용)
+  // 🐾 동물 편집은 모양(동물 생성기)부터 — 거기서 [다음 → 책상·좌석] 이 fromAnimal 을 달고 다시 이리로 온다
+  if(_editRoute && _editRoute.entryRoute(src, creatorMode)==='animal' && reopenAnimalFromCreator('face')) return;
   faceC.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);blinkC.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
   histF.length=0;histB.length=0;redoF.length=0;redoB.length=0;
   if(src){faceC.getContext('2d').drawImage(src.face,0,0);blinkC.getContext('2d').drawImage(src.blink,0,0);cTopColor=src.top;cBotColor=src.bot;skinIndex=src.skin||0;}
