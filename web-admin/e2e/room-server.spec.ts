@@ -14,7 +14,7 @@ test('방 서버 — 스위치 · 서버 목록 · 방 개수 상한 · 사용�
     friendCodes: { 'MATE-AB12': { userId: 'u1abc2345' }, 'MATE-CD34': { userId: 'u2abc2345' } },
     users: { u1abc2345: { profile: { name: '철수' } }, u2abc2345: { profile: { name: '영희' } } },
     accountSnap: {
-      u1abc2345: { license: 'ABCD-EFGH-JKLM-NPQR', friendCode: 'MATE-AB12', ver: '0.10.3' },
+      u1abc2345: { license: 'ABCD-EFGH-JKLM-NPQR', friendCode: 'MATE-AB12', ver: '0.11.0' },
       // 버전을 안 올리는 옛 앱(0.10.2 이하) — 서버를 못 고른다
       u2abc2345: { friendCode: 'MATE-CD34' },
     },
@@ -94,7 +94,7 @@ test('방 서버 — 스위치 · 서버 목록 · 방 개수 상한 · 사용�
   await users.getByLabel('사용자 찾기').fill('ab12');
   const pick = users.getByLabel('철수(MATE-AB12) 서버');
   await expect(pick).toHaveValue('');
-  await expect(users.locator('tr', { hasText: 'MATE-AB12' })).toContainText('0.10.3');
+  await expect(users.locator('tr', { hasText: 'MATE-AB12' })).toContainText('0.11.0');
   await pick.selectOption('realtime-1');
   await expect(users.getByText('철수(MATE-AB12) → realtime-1')).toBeVisible();
   expect(await dbGet('config/roomServer/allow')).toEqual({ u1abc2345: 'realtime-1' });
