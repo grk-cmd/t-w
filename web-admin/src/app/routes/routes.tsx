@@ -10,6 +10,7 @@ import { ReportsPage } from '@/pages/reports';
 import { RoomServerPage } from '@/pages/room-server';
 import { RoomsPage } from '@/pages/rooms';
 import { SettingsPage } from '@/pages/settings';
+import { TodosPage } from '@/pages/todos';
 import { UsagePage } from '@/pages/usage';
 import { UsersPage } from '@/pages/users';
 
@@ -34,6 +35,7 @@ export const ROUTE_GROUPS: RouteGroup[] = [
       { id: 'license', label: '🎟️ 라이선스', Page: LicensePage },
       { id: 'reports', label: '🚩 신고', Page: ReportsPage },
       { id: 'bugs', label: '🐞 제보', Page: BugBoardPage },
+      { id: 'todos', label: '📋 할 일', Page: TodosPage },
       { id: 'notices', label: '📣 공지', Page: NoticesPage },
     ],
   },

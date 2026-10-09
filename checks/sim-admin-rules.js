@@ -217,4 +217,91 @@ console.log('\n── 6. 관리자 작업 기록(adminLog) — 관리자만, 새
   }
 }
 
+console.log('\n── 7. 관리자 할 일(adminTodos) · 관리자 이름(adminNames) — 관리자 전용 · rev 로 덮어쓰기 막기');
+{
+  /* 6절처럼 규칙식을 굴린다. 이번엔 $id/$uid 이름과 newData.parent() 가 필요해 흉내를 넓힌다. */
+  const snap = (val, parent = null) => {
+    const s = {
+      exists: () => val !== null && val !== undefined,
+      val: () => val,
+      isNumber: () => typeof val === 'number',
+      isString: () => typeof val === 'string',
+      hasChildren: (ks) => ks.every(k => val && val[k] !== undefined),
+      parent: () => parent,
+    };
+    s.child = (k) => snap(val && val[k] !== undefined ? val[k] : null, s);
+    return s;
+  };
+  const A1 = 'adm1', A2 = 'adm2', NOW = Date.UTC(2026, 9, 10);
+  const ROOT = snap({ admins: { [A1]: true, [A2]: true } });
+  const run = (expr, ctx) => {
+    if (typeof expr !== 'string') return expr === true;
+    String.prototype.matches = function (re) { return re.test(String(this)); };   // eslint-disable-line no-extend-native
+    try {
+      return !!new Function('newData', 'data', 'now', 'auth', 'root', '$id', '$uid', '$rid', 'return (' + expr + ');')(
+        ctx.newSnap || snap(ctx.newVal), snap(ctx.oldVal), NOW, ctx.uid ? { uid: ctx.uid } : null, ROOT,
+        ctx.id || 't1', ctx.key || A1, ctx.rid || '');
+    } finally { delete String.prototype.matches; }
+  };
+  // 한 건 판정 — .write, (지우기가 아니면) 자기 .validate, 자식 .validate(없는 이름은 $other · reports 는 $rid).
+  const allowed = (node, ctx) => {
+    if (!run(node['.write'], ctx)) return false;
+    if (ctx.newVal === null) return true;                 // 지우기에는 .validate 가 안 돈다
+    if (!run(node['.validate'], ctx)) return false;
+    const me = snap(ctx.newVal);
+    return Object.keys(ctx.newVal).every(k => {
+      const c = node[k] || node.$other || {};
+      if (k === 'reports' && node.reports) {
+        return Object.keys(ctx.newVal.reports).every(rid =>
+          run(node.reports.$rid['.validate'], { ...ctx, newVal: ctx.newVal.reports[rid], rid, newSnap: undefined }));
+      }
+      return c['.validate'] === undefined ? true : run(c['.validate'], { ...ctx, newSnap: me.child(k), oldVal: null });
+    });
+  };
+  const todo = at('adminTodos/$id') || {};
+  const R1 = '-OaAAAAAAAAAAAAAAAA1';
+  const fresh = { title: '고치기', status: 'todo', createdBy: A1, createdAt: NOW, updatedBy: A1, updatedAt: NOW, rev: 0 };
+  const saved = { ...fresh, createdAt: NOW - 1000, updatedAt: NOW - 1000, rev: 2 };
+  const next = (extra = {}) => ({ ...saved, updatedBy: A1, updatedAt: NOW, rev: 3, ...extra });
+  const tw = (uid, newVal, oldVal = null, id) => allowed(todo, { uid, newVal, oldVal, id });
+
+  chk(isAdmin(r('adminTodos')) && /auth != null/.test(r('adminTodos')), '할 일 읽기는 관리자만');
+  chk(!w('adminTodos'), '  ↳ 모음째 쓰기 규칙은 없다 (한 건씩)');
+  chk(tw(A1, fresh), '관리자는 새 할 일을 만든다 (rev 0 · 만든 사람 = 나 · 서버 시각)');
+  chk(!tw('user9', { ...fresh, createdBy: 'user9', updatedBy: 'user9' }), '★ 관리자가 아니면 못 쓴다');
+  chk(!tw(null, fresh), '  ↳ 로그인 안 했으면 못 쓴다');
+  chk(!tw(A1, { ...fresh, rev: 1 }), '★ 새로 만들 때 rev 는 0 만');
+  chk(!tw(A1, { ...fresh, createdBy: A2 }) && !tw(A1, { ...fresh, createdAt: NOW - 5 }), '  ↳ 만든 사람 · 시각을 꾸미지 못한다');
+  chk(tw(A1, next(), saved), '고치기 — 지금 rev + 1 이면 받는다');
+  chk(!tw(A1, next({ rev: 3 }), { ...saved, rev: 3 }), '★ 화면에서 본 뒤 남이 먼저 고쳤으면(rev 가 이미 올랐으면) 거절 — 덮어쓰지 않는다');
+  chk(!tw(A1, next({ rev: 5 }), saved), '  ↳ rev 를 건너뛰어도 거절');
+  chk(!tw(A1, next({ createdBy: A2 }), saved) && !tw(A1, next({ createdAt: NOW }), saved), '  ↳ 고칠 때 만든 사람 · 시각은 그대로여야');
+  chk(!tw(A1, next({ updatedBy: A2 }), saved) && !tw(A1, next({ updatedAt: NOW - 1 }), saved), '★ 고친 사람은 나 · 고친 시각은 서버 시각만');
+  chk(tw(A1, next({ assignee: A2, assigneeName: '이관리' }), saved), '작업자는 관리자 중에서');
+  chk(!tw(A1, next({ assignee: 'user9' }), saved), '★ 관리자가 아닌 uid 는 작업자가 될 수 없다');
+  chk(!tw(A1, next({ assigneeName: '이관리' }), saved), '  ↳ 작업자 없이 이름만은 거절');
+  chk(!tw(A1, next({ assignee: A2, assigneeName: 'x'.repeat(41) }), saved), '  ↳ 이름 40자까지');
+  chk(!tw(A1, next({ status: 'closed' }), saved) && tw(A1, next({ status: 'done' }), saved), '상태는 todo · doing · done 만');
+  chk(!tw(A1, next({ title: '' }), saved) && !tw(A1, next({ title: 'x'.repeat(121) }), saved) && tw(A1, next({ title: 'x'.repeat(120) }), saved), '  ↳ 제목 1~120자');
+  chk(!tw(A1, next({ memo: 'x'.repeat(2001) }), saved) && tw(A1, next({ memo: 'x'.repeat(2000) }), saved), '  ↳ 메모 2000자까지');
+  chk(tw(A1, next({ reports: { [R1]: true } }), saved), '제보 연결 — 제보 id(20자 push 키) : true');
+  chk(!tw(A1, next({ reports: { 'p1': true } }), saved) && !tw(A1, next({ reports: { [R1]: 'yes' } }), saved), '  ↳ 제보 id 모양이 틀리거나 값이 true 가 아니면 거절');
+  chk(!tw(A1, next({ extra: 1 }), saved), '정해진 칸 밖의 필드는 거절');
+  chk(!tw(A1, fresh, null, 'a/b c'), '  ↳ 키는 짧은 id 모양만');
+  chk(tw(A1, null, saved) && !tw('user9', null, saved), '지우기는 관리자만');
+
+  const names = at('adminNames/$uid') || {};
+  const nw = (uid, key, newVal) => allowed(names, { uid, key, newVal, oldVal: null });
+  chk(isAdmin(r('adminNames')) && /auth != null/.test(r('adminNames')), '관리자 이름 읽기는 관리자만');
+  chk(nw(A1, A1, { name: '가관리', at: NOW }), '관리자는 자기 이름 칸을 쓴다');
+  chk(!nw(A1, A2, { name: '가관리', at: NOW }), '★ 남의 이름 칸은 못 쓴다');
+  chk(!nw('user9', 'user9', { name: '사칭', at: NOW }), '★ 관리자가 아니면 자기 칸도 못 만든다 (목록에 끼어들 수 없다)');
+  chk(!nw(A1, A1, { name: 'x'.repeat(41), at: NOW }) && !nw(A1, A1, { name: '', at: NOW }), '  ↳ 이름 1~40자');
+  chk(!nw(A1, A1, { name: '가', at: NOW - 1 }) && !nw(A1, A1, { name: '가', at: NOW, x: 1 }), '  ↳ 서버 시각 · 정해진 칸만');
+
+  const readFirst = (...ns) => { for (const n of ns) { try { return fs.readFileSync(n, 'utf8'); } catch (_) {} } return ''; };
+  const app = readFirst('app.js') + readFirst('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js');
+  chk(!!app && !/adminTodos|adminNames/.test(app), '앱(app.js · firebase-init.js)은 이 경로를 쓰지 않는다 — 웹 관리자 전용');
+}
+
 console.log(fail ? '\n✗ 실패 ' + fail + '건' : '\n✓ 전부 통과');

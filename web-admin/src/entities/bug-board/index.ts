@@ -7,6 +7,7 @@ export {
   getBugPost,
   getDayOrder,
   listBugPage,
+  useBugItem,
   useBugPage,
   useBugPost,
   useDayOrder,

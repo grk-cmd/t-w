@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { TodoBadge, todoByReport, useRefreshTodos, useTodos, type Todo } from '@/entities/admin/todo';
 import {
   BUG_CATS,
   BUG_FILTERS,
@@ -24,7 +25,7 @@ function Title({ item }: { item: BugItem }) {
   return <>{prv.data || <span className="soft">(제목 없음)</span>}</>;
 }
 
-function Row({ item, onOpen }: { item: BugItem; onOpen: (id: string) => void }) {
+function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: string) => void }) {
   const no = useBugNo(item);
   return (
     <tr>
@@ -35,6 +36,12 @@ function Row({ item, onOpen }: { item: BugItem; onOpen: (id: string) => void }) 
       </td>
       <td>
         <StatusChip status={item.status} />
+        {todo && (
+          <>
+            {' '}
+            <TodoBadge todo={todo} />
+          </>
+        )}
       </td>
       <td>{BUG_CATS[item.cat] ?? item.cat}</td>
       <td>{item.notice ? '📌 공지' : item.vis === 'pub' ? '공개' : '🔒 비공개'}</td>
@@ -64,6 +71,10 @@ export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
   const before = cursors[cursors.length - 1];
   const { data, error, isFetching } = useBugPage(filter, before);
   const refresh = useRefreshBugBoard();
+  // 할 일 전체를 한 번 받아 줄마다 찾는다 — 줄마다 읽지 않는다.
+  const todos = useTodos();
+  const refreshTodos = useRefreshTodos();
+  const byReport = useMemo(() => todoByReport(todos.data ?? []), [todos.data]);
 
   const pick = (next: BugFilter) => {
     setFilter(next);
@@ -75,7 +86,14 @@ export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
     <section className="card">
       <div className="card-head">
         <h2>🐞 버그 제보</h2>
-        <button type="button" className="btn" onClick={refresh}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            void refresh();
+            void refreshTodos();
+          }}
+        >
           새로고침
         </button>
       </div>
@@ -112,7 +130,7 @@ export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
             </thead>
             <tbody>
               {data.items.map((item) => (
-                <Row key={item.id} item={item} onOpen={onOpen} />
+                <Row key={item.id} item={item} todo={byReport.get(item.id)} onOpen={onOpen} />
               ))}
             </tbody>
           </table>
