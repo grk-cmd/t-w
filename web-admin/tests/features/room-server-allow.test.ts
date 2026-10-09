@@ -42,13 +42,14 @@ describe('사용자별 서버 드롭다운', () => {
     expect(opts.find((o) => o.value === 'lab')?.disabled).toBe(true);
   });
 
-  it('앱 버전 → 막는 이유(0.10.3 이상 · 같은 버전의 베타는 통과)', () => {
+  it('앱 버전 → 막는 이유(0.11.0 이상 · 같은 버전의 베타는 통과)', () => {
     const ok = (ver: string) => appVerBlock({ ver, hasAccount: true });
-    expect(ok('0.10.3')).toBeNull();
-    expect(ok('0.10.3-beta.2')).toBeNull();
-    expect(ok('0.10.4')).toBeNull();
     expect(ok('0.11.0')).toBeNull();
+    expect(ok('0.11.0-beta.2')).toBeNull();
+    expect(ok('0.11.1')).toBeNull();
+    expect(ok('0.12.0')).toBeNull();
     expect(ok('1.0.0')).toBeNull();
+    expect(ok('0.10.3-beta.2')).toBe('앱 업데이트 필요 (현재 0.10.3-beta.2)');
     expect(ok('0.10.2')).toBe('앱 업데이트 필요 (현재 0.10.2)');
     expect(ok('0.10.2-beta.9')).toBe('앱 업데이트 필요 (현재 0.10.2-beta.9)');
     expect(ok('0.9.99')).toBe('앱 업데이트 필요 (현재 0.9.99)');

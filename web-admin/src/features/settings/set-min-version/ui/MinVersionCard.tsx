@@ -26,7 +26,7 @@ const toParts = (v: string | null): Parts => {
 // 카드 아래 한 줄 — 무엇이 막히는지. app 은 이 장치가 든 판부터만 읽는다는 것도.
 const HINTS: Record<MinVersionKind, string | null> = {
   room: null,
-  app: '0.10.3 부터 든 장치예요 — 그보다 옛 앱은 이 값을 읽지 않아요.',
+  app: '0.11.0 부터 든 장치예요 — 그보다 옛 앱은 이 값을 읽지 않아요.',
 };
 
 // 숫자 세 칸 — 화살표 · 휠 · 키보드 ↑↓ 로 하나씩 올린다. 올리면 그보다 낮은 앱은 업데이트 전까지 막힌다.

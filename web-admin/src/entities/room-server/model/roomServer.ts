@@ -31,9 +31,10 @@ export const APP_SERVER_URLS = [
   'ws://127.0.0.1:8787',
   'ws://localhost:8787',
 ];
-// 방 서버에 붙을 수 있는 첫 앱 버전(room-server-gate.js 가 들어간 0.10.3). 이보다 낮으면 서버를 지정해도 그 사람 앱은 Firebase 로 연다.
-// 0.10.3-beta.N 도 같은 기능이 들어 있어 허용한다(꼬리는 보지 않음).
-export const ROOM_SERVER_MIN_APP_VER = '0.10.3';
+// 방 서버에 붙을 수 있는 첫 정식 앱 버전(room-server-gate.js 가 들어간 0.11.0 — 0.10.3 이라 부르던 판을 minor 로 냈다).
+// 이보다 낮으면 서버를 지정해도 그 사람 앱은 Firebase 로 연다. 0.11.0-beta.N 도 허용한다(꼬리는 보지 않음).
+// 그 전에 dev 로만 돌린 0.10.3-beta.N 시험판은 여기서 막힌다(정식 사용자 없음).
+export const ROOM_SERVER_MIN_APP_VER = '0.11.0';
 
 // 서버가 roomDir 에 적는 이름의 기본값(운영 · dev)
 export const DEFAULT_SERVER_NAMES = { prod: 'realtime-1', dev: 'realtime-dev-1' } as const;

@@ -1423,7 +1423,8 @@
   .lc-menu button#lcDelete{color:var(--terra);}
   .lc-menu button#lcDelete:hover{color:#fff;}
 
-  .toast{position:fixed;bottom:42px;left:50%;transform:translateX(-50%) translateY(18px);z-index:60;opacity:0;transition:.25s;
+  /* 🔔 알림은 창(83~92) · 마이홈(71) · 뽑기 화면(120) 위에 — 60 이면 창 뒤에서 떠서 안 보였다. 마이홈 팝업(9200~) · 충돌 대화상자(99990)보다는 아래. */
+  .toast{position:fixed;bottom:42px;left:50%;transform:translateX(-50%) translateY(18px);z-index:9100;opacity:0;transition:.25s;
     background:#FFFFE1;color:#000;font-weight:normal;font-size:12px;padding:8px 16px;pointer-events:none;
     border:1px solid #000;box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.3));font-family:var(--tw-font-legacy);}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}

@@ -51,7 +51,7 @@ export interface Presence {
   lastSeen: number | null;
   /** 접속 중일 때 들어가 있는 방 코드. 시크릿룸은 앱이 코드를 올리지 않아 늘 null 이다. */
   room: string | null;
-  /** 앱 버전 — 0.10.3 부터. 꺼진 뒤에도 남는다. 옛 앱은 null. */
+  /** 앱 버전 — 0.11.0 부터. 꺼진 뒤에도 남는다. 옛 앱은 null. */
   ver: string | null;
 }
 

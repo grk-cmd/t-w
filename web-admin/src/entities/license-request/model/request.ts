@@ -4,7 +4,7 @@ export interface LicenseRequest {
   name: string;
   friendCode: string;
   requestedAt: number;
-  /** 요청한 앱의 버전 — 0.10.3 부터. 옛 앱은 null. */
+  /** 요청한 앱의 버전 — 0.11.0 부터. 옛 앱은 null. */
   ver?: string | null;
 }
 
