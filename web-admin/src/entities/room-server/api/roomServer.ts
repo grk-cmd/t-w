@@ -56,6 +56,39 @@ export function setRoomLimits(
   return db.commit(withAudit(db, updates, 'roomServer.limits', 'limits', changes.join(' · ')));
 }
 
+export interface DefaultRouting {
+  /** 기본 서버 이름. null 이면 칸을 지운다(아무도 안 감). */
+  server: string | null;
+  percent: number;
+}
+
+const routingLabel = (r: DefaultRouting) => (r.server ? `${r.server} ${r.percent}%` : '없음');
+
+/**
+ * 기본 서버 · 비율 — 허용 목록에 없는 사람도 이 비율만큼 기본 서버에 방을 연다(앱은 다음 입장부터).
+ * 두 칸을 한 묶음으로 쓴다(반만 바뀐 채로 남지 않게). 서버가 없으면 두 칸 다 지운다.
+ */
+export function setDefaultRouting(
+  db: Db,
+  cfg: RoomServerConfig | undefined,
+  next: DefaultRouting,
+): Promise<void> {
+  const before: DefaultRouting = { server: cfg?.default ?? null, percent: cfg?.defaultPercent ?? 0 };
+  const updates = {
+    [`${ROOM_SERVER_PATH}/default`]: next.server,
+    [`${ROOM_SERVER_PATH}/defaultPercent`]: next.server ? next.percent : null,
+  };
+  return db.commit(
+    withAudit(
+      db,
+      updates,
+      'roomServer.default',
+      'default',
+      `${routingLabel(before)} → ${routingLabel(next)}`,
+    ),
+  );
+}
+
 export interface ServerHealth {
   rooms: number;
   workingroom: number;

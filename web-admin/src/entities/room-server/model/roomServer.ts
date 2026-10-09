@@ -8,6 +8,10 @@ export interface RoomServerConfig {
   allow: Record<string, string>;
   /** 채널별 방 개수 상한 — 칸이 없거나 틀리면 null(방 서버는 기본값 ROOM_LIMIT_DEFAULT). */
   limits: Record<Channel, number | null>;
+  /** 기본 서버 이름 — 허용 목록에 없는 사람도 defaultPercent 만큼 여기에 방을 연다. 칸이 없거나 틀리면 null. */
+  default: string | null;
+  /** 기본 서버로 보낼 비율 0~100(정수). 칸이 없거나 틀리면 0(아무도 안 감 — 앱도 같게 본다). */
+  defaultPercent: number;
 }
 
 export const CHANNELS = ['workingroom', 'togetherroom'] as const;
@@ -19,6 +23,8 @@ export const ROOM_LIMIT_MIN = 1;
 export const ROOM_LIMIT_MAX = 100_000;
 
 export const ROOM_SERVER_PATH = 'config/roomServer';
+export const DEFAULT_PERCENT_MIN = 0;
+export const DEFAULT_PERCENT_MAX = 100;
 export const SERVER_NAME_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 export const SERVER_URL_RE = /^wss?:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?$/;
 export const SERVER_URL_MAX = 200;
@@ -55,8 +61,14 @@ export function parseRoomServerConfig(raw: unknown): RoomServerConfig {
     servers: strMap(o.servers, (k) => SERVER_NAME_RE.test(k)),
     allow: strMap(o.allow, (k) => USER_CODE_RE.test(k)),
     limits: parseLimits(o.limits),
+    default: typeof o.default === 'string' && SERVER_NAME_RE.test(o.default) ? o.default : null,
+    defaultPercent: isDefaultPercent(o.defaultPercent) ? o.defaultPercent : 0,
   };
 }
+
+/** 기본 서버 비율 — 규칙 .validate 와 같은 검사(정수 0~100). 앱 room-server-gate.js defaultPercentOf 와 같은 뜻. */
+export const isDefaultPercent = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isInteger(v) && v >= DEFAULT_PERCENT_MIN && v <= DEFAULT_PERCENT_MAX;
 
 export const isRoomLimit = (v: unknown): v is number =>
   typeof v === 'number' && Number.isInteger(v) && v >= ROOM_LIMIT_MIN && v <= ROOM_LIMIT_MAX;

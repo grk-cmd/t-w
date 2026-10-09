@@ -2,9 +2,11 @@
  * 방 서버 문지기 검사 — room-server-gate.js 를 가짜 DB 읽기로 그대로 돌린다.
  * 1. 주소 거르기(운영 앱은 운영 주소만 · 로컬은 dev 앱만) · 개발용 켜기는 dev 에서만
  * 2. 만들기 — on + allow/{내 코드} = 서버 이름 → 그 서버 · 표에 없는 이름 · 낯선 주소 → Firebase
+ * 2-b. 기본 서버 · 비율 — 사용자 코드 해시 칸(0~99)이 늘 같음 · 0/100/중간 · 올리면 더해지기만 · 허용 목록이 먼저
+ *      · on:false · 표에 없는 이름 · 낯선 주소 · 틀린 비율 → Firebase · 들어가기(주소록 따라가기)는 그대로
  * 3. 들어가기 — 주소록(roomDir) 따라가기(on 이면 늘 · follow 칸은 안 읽음) · 허용된 사람 · 꺼짐
  * 4. 읽는 칸 — 칸 단위만(목록 통째 읽기 없음) · 꺼져 있으면 on 한 칸 · 서버 표 기억
- * 5. 규칙 — config 는 칸 단위 공개 · 쓰기 관리자만 · limits 정수 범위 · roomDir 앱 쓰기 막힘 · minRoomVer 그대로 공개
+ * 5. 규칙 — config 는 칸 단위 공개 · 쓰기 관리자만 · limits 정수 범위 · default 이름 · defaultPercent 정수 0~100 · roomDir 앱 쓰기 막힘 · minRoomVer 그대로 공개
  * 6. 연결 — firebase-init · app.js 가 문지기 한 곳(resolveRoomServer)으로 고른다
  */
 'use strict';
@@ -77,6 +79,80 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     chk((await g.gate.resolveRoomServer('X', { creating: true })).via === 'firebase', '내 코드가 없으면 Firebase');
   }
 
+  say('── 2-b. 기본 서버 · 비율');
+  {
+    const B = M.userBucket;
+    chk(B('u1abc234') === B('u1abc234') && B('u1abc234') === M.userBucket(String('u1abc234')), '사용자 코드 → 칸은 순수 함수(같은 코드는 늘 같은 칸)');
+    const codes = Array.from({ length: 5000 }, (_, i) => 'u' + (i * 7919 + 13).toString(36).padStart(7, '0'));
+    chk(codes.every((c) => { const b = B(c); return Number.isInteger(b) && b >= 0 && b <= 99; }), '  ↳ 칸은 0~99 정수');
+    const share = (p) => codes.filter((c) => M.inDefaultPercent(c, p)).length / codes.length;
+    chk(share(0) === 0 && share(100) === 1, '  ↳ 0% = 아무도 · 100% = 모두');
+    const s10 = share(10), s50 = share(50);
+    chk(s10 > 0.07 && s10 < 0.13 && s50 > 0.45 && s50 < 0.55, '  ↳ 고르게 퍼진다 (10% → ' + (s10 * 100).toFixed(1) + '% · 50% → ' + (s50 * 100).toFixed(1) + '%)');
+    chk(codes.every((c) => !M.inDefaultPercent(c, 10) || (M.inDefaultPercent(c, 50) && M.inDefaultPercent(c, 100))), '  ↳ 비율을 올리면 더해지기만(10% 안의 사람은 50% · 100% 에도)');
+    chk(!M.inDefaultPercent(null, 100) && !M.inDefaultPercent('', 100), '  ↳ 내 코드가 없으면 비율 밖');
+    chk(M.defaultPercentOf(2.5) === 0 && M.defaultPercentOf(101) === 0 && M.defaultPercentOf(-1) === 0 && M.defaultPercentOf('50') === 0 && M.defaultPercentOf(null) === 0 && M.defaultPercentOf(37) === 37,
+      '  ↳ 틀린 비율(소수 · 범위 밖 · 글자 · 없음)은 0');
+    const IN = codes.find((c) => B(c) < 10), OUT = codes.find((c) => B(c) >= 50);
+    const dflt = (pct, extra) => Object.assign(base(), { [C + '/servers/realtime-1']: PROD, [C + '/default']: 'realtime-1', [C + '/defaultPercent']: pct }, extra || {});
+    let g = mkGate(dflt(10), { uid: IN });
+    let r = await g.gate.resolveRoomServer('WORK-AB12', { creating: true });
+    chk(r.via === 'server' && r.server === 'realtime-1' && r.url === PROD && r.from === 'default', '허용 목록에 없어도 비율 안이면 기본 서버에 만든다(from default)');
+    chk(g.gate.mine() && g.gate.mine().name === 'realtime-1', '  ↳ «내 서버» 로 기억(방 개수 · 랜덤에 서버 몫이 섞인다)');
+    g = mkGate(dflt(10), { uid: OUT });
+    r = await g.gate.resolveRoomServer('WORK-AB12', { creating: true });
+    chk(r.via === 'firebase' && r.why === 'notAllowed' && g.gate.mine() === null, '비율 밖이면 Firebase');
+    g = mkGate(dflt(100), { uid: OUT });
+    chk((await g.gate.resolveRoomServer('X', { creating: true })).from === 'default', '100% 면 비율 밖이던 사람도 기본 서버로');
+    g = mkGate(dflt(0), { uid: IN });
+    chk((await g.gate.resolveRoomServer('X', { creating: true })).via === 'firebase', '0% 면 모두 Firebase');
+    g = mkGate(dflt(100, { [C + '/servers/rooms-1']: DEV.replace('-dev', ''), [C + '/allow/' + IN]: 'rooms-1' }), { uid: IN });
+    r = await g.gate.resolveRoomServer('X', { creating: true });
+    chk(r.via === 'server' && r.server === 'rooms-1' && r.from === 'allow', '허용 목록이 먼저(기본 서버가 있어도 지정된 서버로)');
+    g = mkGate(dflt(100, { [C + '/allow/' + IN]: 'gone-9' }), { uid: IN });
+    r = await g.gate.resolveRoomServer('X', { creating: true });
+    chk(r.via === 'server' && r.from === 'default', '  ↳ 허용 목록의 서버가 표에 없으면 기본 서버 · 비율을 본다');
+    g = mkGate(dflt(100, { [C + '/on']: false }), { uid: IN });
+    r = await g.gate.resolveRoomServer('X', { creating: true });
+    chk(r.via === 'firebase' && r.why === 'off' && g.reads.length === 1, 'on:false 면 비율이 100 이어도 모두 Firebase(on 한 칸만 읽음)');
+    g = mkGate(dflt(100, { [C + '/default']: 'nope-1' }), { uid: IN });
+    chk((await g.gate.resolveRoomServer('X', { creating: true })).via === 'firebase', '기본 서버 이름이 표에 없으면 Firebase');
+    g = mkGate(dflt(100, { [C + '/default']: 'BAD NAME' }), { uid: IN });
+    chk((await g.gate.resolveRoomServer('X', { creating: true })).via === 'firebase', '  ↳ 이름 형식이 틀려도 Firebase');
+    g = mkGate(dflt(100, { [C + '/servers/realtime-1']: 'wss://evil.example' }), { uid: IN });
+    chk((await g.gate.resolveRoomServer('X', { creating: true })).via === 'firebase', '  ↳ 기본 서버 주소가 낯설면(CSP 밖) Firebase');
+    g = mkGate(dflt(100, { [C + '/servers/realtime-1']: DEV }), { uid: IN });
+    chk((await g.gate.resolveRoomServer('X', { creating: true })).via === 'firebase', '  ↳ 운영 앱은 dev 서버 주소로 안 간다');
+    g = mkGate(dflt(100, { [C + '/servers/realtime-1']: DEV }), { uid: IN, env: 'dev' });
+    chk((await g.gate.resolveRoomServer('X', { creating: true })).url === DEV, '  ↳ dev 앱은 dev 서버로');
+    for(const bad of [2.5, 101, '100', true]){
+      g = mkGate(dflt(bad), { uid: IN });
+      chk((await g.gate.resolveRoomServer('X', { creating: true })).via === 'firebase', '  ↳ 틀린 비율(' + JSON.stringify(bad) + ') → Firebase');
+    }
+    g = mkGate(dflt(100), { uid: IN, fail: true });
+    chk((await g.gate.resolveRoomServer('X', { creating: true })).via === 'firebase', '읽기 실패 → Firebase');
+    g = mkGate(dflt(100), { uid: null });
+    chk((await g.gate.resolveRoomServer('X', { creating: true })).via === 'firebase', '내 코드가 없으면 Firebase');
+    // 들어가기 — 주소록 따라가기는 그대로 · 비율 밖 사람도 따라간다
+    const dirTo2 = { [C + '/servers/realtime-2']: PROD, 'roomDir/WORK-AB12': { srv: 'realtime-2' } };
+    g = mkGate(dflt(100, dirTo2), { uid: IN });
+    r = await g.gate.resolveRoomServer('WORK-AB12', {});
+    chk(r.via === 'server' && r.from === 'dir' && r.server === 'realtime-2', '들어가기 — 비율 안이어도 주소록이 먼저(다른 서버의 방이면 그 서버로)');
+    g = mkGate(dflt(0, dirTo2), { uid: OUT });
+    r = await g.gate.resolveRoomServer('WORK-AB12', {});
+    chk(r.via === 'server' && r.from === 'dir', '  ↳ 비율 밖(0%)이어도 서버에 있는 방은 따라간다');
+    g = mkGate(dflt(100), { uid: IN });
+    r = await g.gate.resolveRoomServer('WORK-ZZ99', {});
+    chk(r.via === 'server' && r.from === 'default', '  ↳ 비율 안 + 주소록에 없음 → 내 서버(허용된 사람과 같이 peek · Firebase 에 사람 있으면 Firebase — app.js)');
+    g = mkGate(dflt(10), { uid: OUT });
+    r = await g.gate.resolveRoomServer('WORK-ZZ99', {});
+    chk(r.via === 'firebase' && r.why === 'noDir', '  ↳ 비율 밖 + 주소록에 없음 → Firebase(peek 하러 붙지 않음)');
+    const h = mkGate(dflt(100), { uid: IN });
+    const m = await h.gate.refreshMine();
+    chk(m && m.name === 'realtime-1' && m.from === 'default' && !h.reads.some((p) => p.startsWith('roomDir')), 'refreshMine — 비율 안이면 기본 서버가 «내 서버»');
+    chk(!h.reads.some((p) => p === C || p === C + '/allow' || p === C + '/servers'), '  ↳ 기본 서버 · 비율도 칸 단위로만 읽는다(config 통째 없음)');
+  }
+
   say('── 3. 들어가기');
   {
     const dir = { 'roomDir/WORK-AB12': { srv: 'rooms-1', ts: 1 } };
@@ -108,16 +184,16 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     const g = mkGate(Object.assign(base(), { 'roomDir/WORK-AB12': { srv: 'rooms-1' } }));
     await g.gate.resolveRoomServer('WORK-AB12', {});
     const set = new Set(g.reads);
-    chk(g.reads.every((p) => p === C + '/on' || p === C + '/allow/u1abc234' || p === 'roomDir/WORK-AB12' || p === C + '/servers/rooms-1'),
-      '읽는 곳은 on · allow/{내 코드} · roomDir/{방 코드} · servers/{이름} 칸뿐 (' + [...set].join(', ') + ')');
+    chk(g.reads.every((p) => p === C + '/on' || p === C + '/allow/u1abc234' || p === 'roomDir/WORK-AB12' || p === C + '/servers/rooms-1' || p === C + '/default' || p === C + '/defaultPercent'),
+      '읽는 곳은 on · allow/{내 코드} · roomDir/{방 코드} · default · defaultPercent · servers/{이름} 칸뿐 (' + [...set].join(', ') + ')');
     chk(!g.reads.some((p) => p === C || p === C + '/allow' || p === C + '/servers' || p === 'roomDir'), '  ↳ 목록 통째 읽기 없음');
     const n = g.reads.length;
     await g.gate.resolveRoomServer('WORK-AB12', {});
-    chk(g.reads.length - n === 3, '  ↳ 서버 표는 5분 기억(두 번째 입장은 servers 를 다시 안 읽음)');
+    chk(g.reads.length - n === 5, '  ↳ 서버 표는 5분 기억(두 번째 입장은 servers 를 다시 안 읽음 · on · allow · roomDir · default · defaultPercent 다섯 칸)');
     g.adv(5 * 60 * 1000 + 1);
     const n2 = g.reads.length;
     await g.gate.resolveRoomServer('WORK-AB12', {});
-    chk(g.reads.length - n2 === 4, '  ↳ 5분이 지나면 다시 읽는다');
+    chk(g.reads.length - n2 === 6, '  ↳ 5분이 지나면 다시 읽는다');
     const h = mkGate(Object.assign(base(), { [C + '/allow/u1abc234']: 'rooms-1' }));
     const m = await h.gate.refreshMine();
     chk(m && m.name === 'rooms-1' && !h.reads.some((p) => p.startsWith('roomDir')), 'refreshMine — on · allow/{내 코드} (+서버 표)만');
@@ -143,6 +219,12 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     chk(lm['.read'] === true && !lm['.write'] && intRange((lm.workingroom || {})['.validate']) && intRange((lm.togetherroom || {})['.validate']),
       '  ↳ limits(방 개수 상한) — 누구나 읽기(키 없는 방 서버) · 쓰기는 roomServer 관리자 · 채널마다 정수 1~100000');
     chk(lm.$other && lm.$other['.validate'] === false && !(lm.workingroom || {})['.read'], '  ↳ limits 의 모르는 칸은 거절');
+    const df = rs.default || {}, dp = rs.defaultPercent || {};
+    chk(df['.read'] === true && !df['.write'] && /newData\.isString\(\)/.test(df['.validate'] || '') && (df['.validate'] || '').includes('[a-z0-9][a-z0-9-]{0,31}'),
+      '  ↳ default(기본 서버) — 누구나 한 칸 읽기 · 쓰기는 roomServer 관리자 · 값은 서버 이름 형식(32자까지)');
+    const pv = dp['.validate'] || '';
+    chk(dp['.read'] === true && !dp['.write'] && /newData\.isNumber\(\)/.test(pv) && pv.includes('% 1 === 0') && pv.includes('>= 0') && pv.includes('<= 100') && !pv.includes('<= 1000'),
+      '  ↳ defaultPercent — 누구나 한 칸 읽기 · 정수 0~100');
     chk(rs.$other && rs.$other['.validate'] === false, '  ↳ 모르는 칸은 거절');
     const rd = R.roomDir || {};
     chk(!rd['.read'] && rd.$code && rd.$code['.read'] === true && rd.$code['.write'] === false, 'roomDir — 방 코드 한 칸만 누구나 읽기 · 앱은 못 씀(방 서버가 관리자 키로)');
@@ -158,6 +240,8 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     const calls = (AC.match(/firebaseAPI\.resolveRoomServer\(/g) || []).length;
     chk(calls === 1, '«어디로» 를 묻는 곳은 app.js 에 한 곳(_startRoomOnServer) (' + calls + ')');
     chk(!/tw\.roomServer/.test(AC) && !/tw\.roomServer/.test(FC), '개발용 localStorage 키는 문지기만 본다');
+    chk(/const following = rs\.from === 'dir';/.test(AC) && !/from === 'allow'/.test(AC), 'app.js 는 «따라가기(dir)» 만 따로 본다 — 기본 서버(default)는 허용된 사람과 같은 길(peek · Firebase 사람 확인)');
+    chk(!/defaultPercent|config\/roomServer/.test(AC) && !/defaultPercent/.test(FC), '기본 서버 · 비율은 문지기만 읽는다(app.js · firebase-init 은 모름)');
     const ri = FC.indexOf('joinRoom(room, me, onChange, onPoked) {');
     chk(ri > 0 && FC.indexOf('roomAlive/${room}/${memberId}', ri) > ri, '💓 roomAlive 하트비트는 Firebase joinRoom 안에만 — 서버 방(provider.join)에서는 돌지 않는다');
   }
