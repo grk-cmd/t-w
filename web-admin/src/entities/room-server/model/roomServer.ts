@@ -31,6 +31,10 @@ export const APP_SERVER_URLS = [
   'ws://127.0.0.1:8787',
   'ws://localhost:8787',
 ];
+// 방 서버에 붙을 수 있는 첫 앱 버전(room-server-gate.js 가 들어간 0.10.3). 이보다 낮으면 서버를 지정해도 그 사람 앱은 Firebase 로 연다.
+// 0.10.3-beta.N 도 같은 기능이 들어 있어 허용한다(꼬리는 보지 않음).
+export const ROOM_SERVER_MIN_APP_VER = '0.10.3';
+
 // 서버가 roomDir 에 적는 이름의 기본값(운영 · dev)
 export const DEFAULT_SERVER_NAMES = { prod: 'realtime-1', dev: 'realtime-dev-1' } as const;
 
@@ -97,4 +101,15 @@ export function serverProblem(name: string, url: string): string | null {
 /** 서버를 빼면 안 되는 이유 — 그 서버를 쓰는 시범 이용자가 남아 있으면. */
 export function serverInUse(cfg: RoomServerConfig, name: string): number {
   return Object.values(cfg.allow).filter((s) => s === name).length;
+}
+
+/** /health 의 uptimeS → «켜진 지 2시간 13분». */
+export function uptimeLabel(sec: number): string {
+  const m = Math.floor(sec / 60);
+  if (m < 1) return '켜진 지 1분 미만';
+  const h = Math.floor(m / 60);
+  const d = Math.floor(h / 24);
+  if (d > 0) return `켜진 지 ${d}일 ${h % 24}시간`;
+  if (h > 0) return `켜진 지 ${h}시간 ${m % 60}분`;
+  return `켜진 지 ${m}분`;
 }

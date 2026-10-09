@@ -31,3 +31,7 @@
   color: var(--ok);
   font-weight: 600;
 }
+
+.block {
+  margin-left: 8px;
+}

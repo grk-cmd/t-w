@@ -14,6 +14,7 @@ import {
   setAllow,
   setRoomLimits,
   setRoomServerSwitch,
+  uptimeLabel,
 } from '@/entities/room-server';
 import { auditsOf, fakeDb } from '../shared/fakeDb';
 
@@ -151,6 +152,8 @@ describe('방 개수 상한', () => {
           togetherroom: 1,
           conns: 9,
           limits: { workingroom: 400, togetherroom: 250 },
+          uptimeS: 7980,
+          version: 'v0.1.0 (8998273)',
         }),
       ),
     ).toEqual({
@@ -159,10 +162,27 @@ describe('방 개수 상한', () => {
       togetherroom: 1,
       conns: 9,
       limits: { workingroom: 400, togetherroom: 250 },
+      version: 'v0.1.0 (8998273)',
+      uptimeS: 7980,
     });
-    expect((await fetchServerHealth('wss://a.b', ok({ rooms: 1 }))).limits).toBeNull();
+    // 옛 방 서버 — limits · version 칸이 없다
+    expect(await fetchServerHealth('wss://a.b', ok({ rooms: 1 }))).toMatchObject({
+      limits: null,
+      version: null,
+      uptimeS: null,
+    });
+    expect((await fetchServerHealth('wss://a.b', ok({ version: 7 }))).version).toBeNull();
     expect(asked[0]).toBe('https://a.b/health');
     const bad = (async () => new Response('', { status: 502 })) as typeof fetch;
     await expect(fetchServerHealth('wss://a.b', bad)).rejects.toThrow('502');
+  });
+});
+
+describe('방 서버 켜진 시간', () => {
+  it('초 → «켜진 지 …»', () => {
+    expect(uptimeLabel(30)).toBe('켜진 지 1분 미만');
+    expect(uptimeLabel(5 * 60 + 59)).toBe('켜진 지 5분');
+    expect(uptimeLabel(2 * 3600 + 13 * 60)).toBe('켜진 지 2시간 13분');
+    expect(uptimeLabel(3 * 86400 + 4 * 3600 + 59 * 60)).toBe('켜진 지 3일 4시간');
   });
 });

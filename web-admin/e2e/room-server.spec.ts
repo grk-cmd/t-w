@@ -11,9 +11,13 @@ const actions = async () =>
 
 test('방 서버 — 스위치 · 서버 목록 · 방 개수 상한 · 사용자별 서버 · 기록', async ({ page, seed }) => {
   await seed({
-    friendCodes: { 'MATE-AB12': { userId: 'u1abc2345' } },
-    users: { u1abc2345: { profile: { name: '철수' } } },
-    accountSnap: { u1abc2345: { license: 'ABCD-EFGH-JKLM-NPQR', friendCode: 'MATE-AB12' } },
+    friendCodes: { 'MATE-AB12': { userId: 'u1abc2345' }, 'MATE-CD34': { userId: 'u2abc2345' } },
+    users: { u1abc2345: { profile: { name: '철수' } }, u2abc2345: { profile: { name: '영희' } } },
+    accountSnap: {
+      u1abc2345: { license: 'ABCD-EFGH-JKLM-NPQR', friendCode: 'MATE-AB12', ver: '0.10.3' },
+      // 버전을 안 올리는 옛 앱(0.10.2 이하) — 서버를 못 고른다
+      u2abc2345: { friendCode: 'MATE-CD34' },
+    },
     licenses: { 'ABCD-EFGH-JKLM-NPQR': { valid: true, createdAt: 1, redeemedAt: 2 } },
   });
   await openMenu(page, 'roomServer');
@@ -55,11 +59,17 @@ test('방 서버 — 스위치 · 서버 목록 · 방 개수 상한 · 사용�
   await expect(limits.getByText('저장 · 1분 안에 서버에 반영')).toBeVisible();
   expect(await dbGet('config/roomServer/limits')).toEqual({ workingroom: 400, togetherroom: 250 });
 
-  // 사용자별 서버 — 목록에서 찾아 드롭다운으로 지정
+  // 사용자별 서버 — 옛 앱은 서버를 못 고른다(Firebase(기본)만)
   const users = card(page, '사용자별 서버');
+  await users.getByLabel('사용자 찾기').fill('cd34');
+  await expect(users.getByText('앱 업데이트 필요 (현재 0.10.2 이하)')).toBeVisible();
+  await expect(users.getByLabel('영희(MATE-CD34) 서버').locator('option[value="realtime-1"]')).toBeDisabled();
+
+  // 목록에서 찾아 드롭다운으로 지정
   await users.getByLabel('사용자 찾기').fill('ab12');
   const pick = users.getByLabel('철수(MATE-AB12) 서버');
   await expect(pick).toHaveValue('');
+  await expect(users.locator('tr', { hasText: 'MATE-AB12' })).toContainText('0.10.3');
   await pick.selectOption('realtime-1');
   await expect(users.getByText('철수(MATE-AB12) → realtime-1')).toBeVisible();
   expect(await dbGet('config/roomServer/allow')).toEqual({ u1abc2345: 'realtime-1' });
