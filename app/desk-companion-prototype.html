@@ -968,6 +968,8 @@
      한 번 배운 것을 다시 안 배운다. 여기서 새 규칙을 만들면 두 줄이 언젠가 갈라진다.
      ⚠️ 잠금은 흐리게만 한다. 줄을 감추면 «있던 것이 사라졌다»로 읽힌다. */
   .pk-bgrow.locked{opacity:.4;}
+  /* 필터는 일곱 칸 — 뒷배경(여섯)과 칸 수만 다르다. */
+  .pk-bgrow.pk-frow{grid-template-columns:repeat(7,1fr);gap:5px;}
   .pk-fbar{display:flex;align-items:baseline;gap:6px;margin:9px 0 6px;}
   .pk-fbar .pk-fmsg{margin-left:auto;font-size:11px;font-weight:normal;color:var(--win-error,#B5624A);}
   .pk-slots{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
@@ -7602,7 +7604,7 @@
         <!-- 📷 필터 — 촬영 중에도 바꿀 수 있지만 여기에도 둔다.
              여기가 없으면 첫 컷은 «지난번 값»으로 시작하고, 카운트다운 안에 골라야 한다. -->
         <h4 class="pk-h">필터 <span class="pk-sub">— 촬영 중에도 바꿀 수 있어요</span></h4>
-        <div class="pk-bgrow" id="pkFilterRowLobby"></div>
+        <div class="pk-bgrow pk-frow" id="pkFilterRowLobby"></div>
         <div class="pk-note" id="pkFilterNote"></div>
 
         <div class="pk-rule"></div>
@@ -7651,7 +7653,7 @@
           <h4 class="pk-h" style="margin:0;">필터 <span class="pk-sub">— 사진에 그대로 구워져요</span></h4>
           <span class="pk-fmsg" id="pkFilterMsg"></span>
         </div>
-        <div class="pk-bgrow" id="pkFilterRow"></div>
+        <div class="pk-bgrow pk-frow" id="pkFilterRow"></div>
         <div class="pk-lockbar" id="pkLockbar"></div>
         <div class="pk-keys">
           <span><b>← →</b> 또는 <b>A D</b> 좌우</span>
@@ -7946,6 +7948,7 @@
 <script src="parts/seat-slot.js"></script>   <!-- 🪑 평준화 중 «책상 위» 파츠를 자기 좌석 자리 안으로 -->
 <script src="parts/desk-item-origin.js"></script>   <!-- 🪑 생성기 책상 아이템의 «처음 자리»(⟲ 이동·회전 초기화) — app.js 보다 먼저 -->
 <script src="parts/frame-budget.js"></script>   <!-- 🔋 실행 화면 프레임 상한(60 · 손 안 대면 30 · 다른 창 20) · 해상도 배율 — app.js 보다 먼저 -->
+<script src="parts/animal-edit-route.js"></script>   <!-- 🐾 동물 편집 길잡이(모양 → 책상 → 좌석) — app.js 보다 먼저 -->
 <script src="parts/app.js"></script>
 <script src="parts/myhome-desktop.js"></script>
 <script src="parts/mallang.js"></script>
