@@ -1648,29 +1648,8 @@
   .race-close:hover{color:var(--ink);}
 
   /* ===== 머리 위 레벨/이름 이름표 + 말풍선 (DOM) — 저해상도 렌더 영향 안 받음, 텍스트 잘림 없음 ===== */
-  /* 🪑 방 «보이는 영역» 폭 손잡이 — 흔한 끌기 손잡이 모양: 짧은 알약(6×28) 안에 점 세 개(⋮), 띠 가장자리 세로 가운데.
-     평소엔 흐리게, 올리거나 끄는 동안만 또렷하게. 잡는 자리는 알약보다 조금 넓다(16×36).
-     클릭 통과 목록(UI_HIT_SEL)에 #roomBandHandle — 투명 창에서도 클릭을 받는다. */
-  #roomBandHandle{position:fixed;display:none;width:16px;height:36px;z-index:16;cursor:ew-resize;pointer-events:auto;
-    opacity:.35;transition:opacity .15s;}
-  #roomBandHandle .grip{position:absolute;left:5px;top:4px;width:6px;height:28px;border-radius:3px;box-sizing:border-box;
-    background:rgba(255,255,255,.72);border:1px solid rgba(0,0,0,.18);box-shadow:0 1px 2px rgba(0,0,0,.18);}
-  #roomBandHandle .grip i{position:absolute;left:50%;width:2px;height:2px;margin-left:-1px;border-radius:50%;background:rgba(40,48,60,.75);}
-  #roomBandHandle .grip i:nth-child(1){top:8px;} #roomBandHandle .grip i:nth-child(2){top:12px;} #roomBandHandle .grip i:nth-child(3){top:16px;}
-  #roomBandHandle:hover,#roomBandHandle.drag{opacity:1;}
-  /* ◀ ▶ 줄 넘기기 — 작은 동그란 단추, 평소 반투명 · 끝에 닿은 쪽은 더 흐리게. 클릭 통과 목록에 .room-band-arrow */
-  .room-band-arrow{position:fixed;display:none;width:24px;height:28px;z-index:16;padding:0;cursor:pointer;pointer-events:auto;
-    font-size:11px;line-height:26px;text-align:center;border-radius:12px;border:1px solid rgba(0,0,0,.18);
-    background:rgba(255,255,255,.72);color:rgba(40,48,60,.85);box-shadow:0 1px 2px rgba(0,0,0,.18);opacity:.6;transition:opacity .15s;}
-  .room-band-arrow:hover{opacity:1;}
-  .room-band-arrow.end{opacity:.25;}
   /* 이름표 · 책상 끌기로 자리를 바꿀 때 놓일 자리 */
   .seat-nameplate.drop-target{outline:2px dashed rgba(70,130,220,.9);outline-offset:2px;}
-  @media (prefers-color-scheme: dark){
-    #roomBandHandle .grip{background:rgba(40,44,52,.72);border-color:rgba(255,255,255,.22);}
-    #roomBandHandle .grip i{background:rgba(235,238,245,.85);}
-    .room-band-arrow{background:rgba(40,44,52,.72);border-color:rgba(255,255,255,.22);color:rgba(235,238,245,.9);}
-  }
   #seatLabelsLayer{position:fixed;inset:0;pointer-events:none;z-index:15;
     --nameplate-size:15px;   /* 이름표 폰트 크기 — 설정 슬라이더로 조절 */
     --exp-bar-h:6px;         /* 경험치 바 두께 — 여기 한 곳만 고치면 전 좌석 반영 */
@@ -4734,10 +4713,6 @@
 
 <!-- 본인 활동 상태 칩 (자기 캐릭터 발 밑에 따라다님) -->
 <div id="seatLabelsLayer"></div>
-<!-- 🪑 방 «보이는 영역» 왼쪽 끝 손잡이(⋮ · 끌어서 폭 조절) — app.js _rowPlaceBandHandle -->
-<div id="roomBandHandle" title="끌어서 보이는 영역 폭 조절 · 더블클릭하면 모두 보이게"><span class="grip"><i></i><i></i><i></i></span></div>
-<!-- 🪑 ◀ ▶ — 줄이 띠보다 길 때만, 휠 없이 넘기기(좌석 하나 폭쯤) -->
-<button id="roomBandPrev" class="room-band-arrow" type="button" title="왼쪽 사람 보기">◀</button><button id="roomBandNext" class="room-band-arrow" type="button" title="오른쪽으로 돌아가기">▶</button>
 <!-- ============================================================ 상태칩 (세로 아이콘 툴바 A안)
      위→아래 순서: [상태 dot+▾] / [💬 채팅] / [📢 알림] / [▼ 더보기]
      · 상태 메뉴/더보기 메뉴는 캐스케이드 스타일(app.js positionCascade가 좌우 자동 반전)
@@ -5078,7 +5053,7 @@
 
     <div class="fs-toggle-row" style="margin-top:14px;">
       <span>좌석 크기 평준화</span>
-      <button class="fs-toggle-btn" id="fsSeatEqToggle" type="button" style="white-space:nowrap;flex-shrink:0;" title="끄기 · 비율 맞추기(캐릭터 크기를 내 것에 · 책상 비율 그대로) · 사이즈 맞추기(동물 · 긴 책상까지 좌석 폭을 똑같이 — 좁은 영역에 많이 보이게)">끄기</button>
+      <button class="fs-toggle-btn" id="fsSeatEqToggle" type="button">꺼짐</button>
     </div>
     <!-- 🎁 꾸미기 파츠 표시 — 내 화면에서만, 나 포함 전 좌석의 가챠 파츠를 숨긴다. 책상 아이템은 그대로. 서버에 안 쓴다. [2026-09-17 시안 확정] -->
     <div class="fs-toggle-row">
@@ -5096,7 +5071,7 @@
       <button class="fs-toggle-btn" id="fsRoomFloorsToggle" type="button" style="white-space:nowrap;flex-shrink:0;">1층</button>
     </div>
     <div class="fs-hint" id="fsRoomFloorsNote" style="margin-top:0;display:none;"></div>
-    <div class="fs-hint" style="margin-top:0;">방 줄은 «보이는 영역» 안에 서요 — 왼쪽 끝 손잡이(⋮)로 폭을 바꾸고, 휠 · 가로 쓸기 · ◀ ▶ 로 넘겨 봐요. 이름표나 책상을 끌어 놓으면 자리(층 포함)가 바뀌어요. 층 수를 늘리면 아래층에 안 들어가는 사람이 위 선반에 서요(최대 3층)</div>
+    <div class="fs-hint" style="margin-top:0;">방에서는 모두가 화면에 들어오게 크기가 자동으로 맞춰져요(내가 정한 크기보다 커지지는 않아요). 이름표나 책상을 끌어 놓으면 자리(층 포함)가 바뀌어요. 가장 작게 해도 넘치면 휠로 넘겨 봐요. 층 수를 늘리면 아래층에 안 들어가는 사람이 위 선반에 서요(최대 3층)</div>
 
     <div class="fs-label" style="margin-top:14px;">캐릭터 교체</div>
     <!-- 슬롯 5칸이 300px 패널에 안 들어가서 4칸씩 밀어 본다. 창(.fs-slotvp) 안의 줄을 화살표로 굴린다.

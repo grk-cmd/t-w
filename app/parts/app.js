@@ -1281,9 +1281,7 @@ var _rowCache = null;                // {anchor, others, xs, hws, spacing} — �
 var _rowLayout = (window.SeatLayout && SeatLayout.createSeatLayout) ? SeatLayout.createSeatLayout() : null;
 var _rowDrag = null;                 // 이름표 끌기 상태(SeatLayout.dragBegin) — 클릭 통과 판정이 본다
 var _rowBandPx = null;               // 보이는 영역(띠) 화면 px {l, r, w} — 방일 때만
-var ROOM_BAND_KEY = 'tw.roomBandW';          // 보이는 영역 폭(화면 폭 비율)
 var ROOM_SEAT_MODE_KEY = 'tw.roomSeatMode';  // 내 자리: 'row'(줄 안에 함께 · 기본) | 'right'(맨 오른쪽 고정)
-var roomBandFrac = (()=>{ try{ const v = parseFloat(localStorage.getItem('tw.roomBandW')); if(isFinite(v) && v > 0 && v <= 1) return v; }catch(_){} return (window.SeatLayout ? SeatLayout.BAND_DEFAULT_FRAC : 0.6); })();
 var ROOM_FLOORS_KEY = 'tw.roomFloors';   // 방 줄 층 수: 1(기본) · 2 · 3 — 아래층이 띠에 넘치면 위 선반으로
 var roomFloors = (()=>{ try{ const v = parseInt(localStorage.getItem('tw.roomFloors'), 10); return (v >= 1 && v <= 3) ? v : 1; }catch(_){ return 1; } })();
 var roomSeatMode = (()=>{ try{ return localStorage.getItem('tw.roomSeatMode') === 'right' ? 'right' : 'row'; }catch(_){ return 'row'; } })();
@@ -1351,12 +1349,8 @@ try{ window.ANIMAL_RUN_SCALE = ANIMAL_RUN_SCALE; }catch(_){}
    ★ 🐾 동물 40%(ANIMAL_RUN_SCALE)는 **여기에 안 들어간다.** 40% 는 fitModel 의 baseScale 과
      setDeskScale 의 animCorr 에 있는 별개의 곱셈이고, 평준화가 갈아끼우는 것은 사람이 정한
      크기(userScale)뿐이다. 그래서 평준화를 켜도 동물은 여전히 사람의 40% 로 남는다. */
-/* 세 가지 — 'off'(기본) · 'char'(비율 맞추기 · 예전 «켜짐» 그대로) · 'fit'(사이즈 맞추기 · 좌석 폭을 내 좌석과 같게).
-   seatEqualizeOn 은 «off 가 아니다» 를 뜻한다(다른 곳 · 옛 검사가 이 이름을 본다). 저장값은 seat-layout.js 의
-   parseSeatEqMode / seatEqStoreValue 와 같은 규칙 — 여기서는 그 파일이 아직 안 실렸을 수도 있어 직접 읽는다. */
-let seatEqMode = 'off';
-try{ const _v = localStorage.getItem('tw.seatEq'); seatEqMode = (_v === '1' || _v === 'char') ? 'char' : (_v === 'fit' ? 'fit' : 'off'); }catch(_){}   // 기본 끄기(들쑥날쑥한 것도 재미) · 옛 '1' → 캐릭터 크기
-let seatEqualizeOn = seatEqMode !== 'off';
+let seatEqualizeOn = false;
+try{ seatEqualizeOn = (localStorage.getItem('tw.seatEq') === '1'); }catch(_){}   // 기본 끄기(들쑥날쑥한 것도 재미)
 /* 🎁 꾸미기 파츠 표시 — [2026-09-17 요청] 끄면 **내 화면에서만**, 나 포함 모든 좌석의 꾸미기 파츠(파츠 보관함의 가챠 파츠)가
    안 보인다. 서버에는 아무것도 안 쓴다(좌석 크기 평준화와 같은 «내 화면 전용» 설정).
    · 대상: 캐릭터에 붙는 파츠 wrapper(`__twPartWrap`) 전부 — 일반·겹치기·다중 인스턴스. **책상 위(bone:'desk') 카테고리는 제외** — 책상 설정의
@@ -1382,9 +1376,6 @@ function applyDecoPartsVisibility(seat){
 }
 function seatEqK(seat){
   if(!seatEqualizeOn || !seat || seat.isMe) return 1;
-  /* 📐 사이즈 맞추기 — 좌석 상자(책상) 폭을 내 좌석과 같게. 배율은 syncSeatEqualize 가 책상을 재서 미리 구해 둔다
-     (seatScale 은 매 프레임 여러 번 불리므로 여기서 재지 않는다). 아직 못 쟀으면 1. */
-  if(seatEqMode === 'fit') return (isFinite(seat._eqFitK) && seat._eqFitK > 0) ? seat._eqFitK : 1;
   /* ⚠️ 기준은 **내 주 좌석**이다. 자리추가(isExtra) 좌석도 맞추는 대상에 넣는다 —
      남만 맞추고 내 부캐가 들쑥날쑥하면 화면은 여전히 가지런하지 않다.
      원격만 맞추고 싶으면 위 조건에 `|| seat.isExtra` 를 더하면 된다(여기 한 줄). */
@@ -1417,22 +1408,6 @@ function charLiftWorld(seat){
   const animPos = (seat.charDef && seat.charDef.animal) ? ANIMAL_RUN_SCALE : 1;
   return clampCharY(seat.userY) * animPos * ((seatScale(seat) || 1) / raw);
 }
-/* 📐 사이즈 맞추기 배율을 잰다 — 좌석마다 «평준화 전» 책상 반폭(지금 잰 값 ÷ 지금 걸린 k)을 내 좌석 반폭과 맞춘다.
-   책상은 setDeskScale 이 eqK 를 곱해 걸므로 잰 폭은 k 에 정비례한다 → 나눠서 원래 폭을 되찾는다(몇 번 돌려도 같은 값).
-   책상이 숨은 좌석(올라탄 · 벤치)은 잴 수 없어 마지막으로 잰 값을 쓰고, 그것도 없으면 1.
-   ⚠️ 저장값(userScale · deskScale)은 건드리지 않는다 — 내 화면 전용(seatEqK 주석). */
-function _seatEqFitMeasure(){
-  const me = (typeof findMySeat === 'function') ? findMySeat() : null;
-  if(!me || typeof seatDeskHalfWidth !== 'function') return;
-  const raw = s=>{
-    const visible = s.desk && s.desk.visible !== false && !s.ridingOn;
-    if(visible){ const h = seatDeskHalfWidth(s) / ((isFinite(s._eqK) && s._eqK > 0) ? s._eqK : 1); if(isFinite(h) && h > 0) s._eqRawHalf = h; }
-    return s._eqRawHalf;
-  };
-  const ref = raw(me);
-  const fit = (window.SeatLayout && SeatLayout.fitScale) ? SeatLayout.fitScale : ((a, b)=>(a > 0 && b > 0) ? a / b : 1);
-  seats.forEach(s=>{ if(s === me){ s._eqFitK = 1; return; } const r = raw(s); s._eqFitK = (ref && r) ? fit(ref, r, 0.25, 4) : 1; });
-}
 /* 배율이 바뀐 좌석만 다시 적용한다. layoutSeats 앞에서 부르므로 자주 불리지만,
    k 가 그대로면 숫자 비교 몇 번으로 끝난다(fitModel 은 바뀐 좌석에만 돈다). */
 let _eqSyncing = false;
@@ -1440,7 +1415,6 @@ function syncSeatEqualize(){
   if(_eqSyncing) return;
   _eqSyncing = true;
   try{
-    if(seatEqualizeOn && seatEqMode === 'fit') _seatEqFitMeasure();
     seats.forEach(seat=>{
       const k = seatEqK(seat);
       if(seat._eqK === k) return;
@@ -4042,13 +4016,13 @@ function layoutSeats(){
     seats.forEach(s=>{ s._rowSide = null; s._rowFloorIdx = undefined; if(s._rowFloorY){ if(s.group && !s.ridingOn && !s.seatedOn) s.group.position.y = 0; s._rowFloorY = 0; } });
   }
   _cachedRowCenter = camX; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
-  applyCameraAndCanvas(camX, rowSpan);
-  _applyRowOffset(false);
+  _roomAutoFit(camX, rowSpan);   // 방이면 자동 맞춤(배율을 고르고 카메라 · 줄을 건다) · 혼자면 예전 그대로
 }
 /* 🪑 보이는 영역(띠)과 줄 오프셋을 좌석 자리에 반영한다(seat-layout.js). 카메라가 정해진 뒤라야 화면 px ↔ 월드를 안다.
    instant — 끌기 중에는 미끄러지지 않고 바로 그 자리로(이름표가 커서 밑에 남아야 한다).
    «맨 오른쪽 고정» 에서 한 사람이 내 자리를 건너가는 순간도 바로 옮긴다(내 몸을 가로질러 미끄러지지 않게). */
 const ROOM_BAND_RIGHT_PAD_PX = 8;
+const ROOM_BAND_LEFT_PAD_PX = 8;     // 화면 왼쪽 끝 여백
 const _rowRay = new THREE.Raycaster(), _rowNdc = new THREE.Vector2(), _rowPlane = new THREE.Plane(new THREE.Vector3(0,0,1), 0), _rowHit = new THREE.Vector3(), _rowP = new THREE.Vector3();
 /* 화면 x(px) 가 좌석 높이 · 깊이(z=0)에서 월드 x 로 어디인가 — 카메라 광선으로 정확히. */
 function _rowWorldAtPx(px){
@@ -4063,7 +4037,7 @@ function _rowWorldAtPx(px){
 function _rowWorldPerPx(){
   return (_deskViewW > 0) ? _deskViewW / Math.max(1, innerWidth) : 0;
 }
-function _applyRowOffset(instant){
+function _applyRowOffset(instant, dry){
   const c = _rowCache;
   if(!_rowRoomMode || !c || !_rowLayout) return;
   // 띠 = 맨 오른쪽 좌석(카메라 기준점 · 프로그램 이동으로 같이 움직임) 오른쪽 끝에서 왼쪽으로 폭만큼
@@ -4072,8 +4046,11 @@ function _applyRowOffset(instant){
   const anchorPx = (_rowP.x * 0.5 + 0.5) * innerWidth;
   const wpp = _rowWorldPerPx();
   const anchorHalfPx = wpp > 0 ? c.hws[0] / wpp : 0;
-  const band = SeatLayout.bandRect({ anchorPx, anchorHalfPx, rightPad: ROOM_BAND_RIGHT_PAD_PX, widthFrac: roomBandFrac,
+  /* 띠 = 맨 오른쪽 좌석 오른쪽 끝 ~ 화면 왼쪽 끝(여백) — 폭을 고르는 손잡이는 없앴다(자동 맞춤이 대신 크기를 맞춘다). */
+  const band0 = SeatLayout.bandRect({ anchorPx, anchorHalfPx, rightPad: ROOM_BAND_RIGHT_PAD_PX, widthFrac: 1,
     screenW: innerWidth, minPx: 2 * anchorHalfPx + 2 * ROOM_BAND_RIGHT_PAD_PX });
+  const _bl = Math.min(band0.r - 1, Math.max(band0.l, ROOM_BAND_LEFT_PAD_PX));
+  const band = { l: _bl, r: band0.r, w: band0.r - _bl };
   _rowBandPx = band;
   const bL = _rowWorldAtPx(band.l), bR = _rowWorldAtPx(band.r);
   /* 🏢 층 — 1층을 띠 폭만큼 채우고 넘치면 2층, 또 넘치면 3층(설정한 층 수까지). 줄 순서 · 내 자리 설정은 그대로
@@ -4114,8 +4091,26 @@ function _applyRowOffset(instant){
   const all = c.seats.map((_, i)=>i);
   const on1 = all.filter(i=>fl.floor[i] === 0), up = all.filter(i=>fl.floor[i] > 0);
   const xsAll = pick(on1, fl.xs).concat(pick(up, fl.xs)), hwAll = pick(on1, c.hws).concat(pick(up, c.hws));
-  // 맨 오른쪽 고정 — 나는 1층 0 그대로, 나머지만 띠 왼쪽 끝까지 · 줄 안에 함께 — 나 포함 모든 층을 띠 안에서
-  const s = _rowLayout.setRange(c.fixRight ? SeatLayout.offsetRange(xsAll, hwAll, bL) : SeatLayout.rowRange(xsAll, hwAll, bL, bR));
+  // 줄(가장 긴 층)이 띠보다 긴가 — 그럴 때만 휠로 넘긴다(자동 맞춤이 가장 작게 해도 안 들어간 경우)
+  const overflow = xsAll.length > 0 && (Math.max(...xsAll.map((x, k)=>x + hwAll[k])) - Math.min(...xsAll.map((x, k)=>x - hwAll[k]))) > bandW + 1e-6;
+  if(dry){
+    /* 자동 맞춤의 «이 크기면 다 들어가나» 검사 — 좌석은 안 건드린다. 띠 안에 설 좌석 중 가장 작게 보이는 캐릭터의 화면 키(px)도 같이 —
+       멀리(왼쪽) 선 좌석은 원근 때문에 x=0 보다 작게 보이므로, 최소 px 는 실제로 설 자리에서 잰다. */
+    let minPx = Infinity;
+    c.seats.forEach((st, i)=>{
+      if(st.ridingOn) return;
+      const b = bx(i), x = fl.xs[i], y = lifts[fl.floor[i]] || 0, h = isFinite(b.ownTop) ? b.ownTop : b.top;
+      _rowP.set(x, y, 0).project(camera); const px0 = (_rowP.x * 0.5 + 0.5) * innerWidth, y0 = (-_rowP.y * 0.5 + 0.5) * innerHeight;
+      if(!SeatLayout.inBand(px0, band)) return;
+      _rowP.set(x, y + h, 0).project(camera); const y1 = (-_rowP.y * 0.5 + 0.5) * innerHeight;
+      if(isFinite(y0 - y1) && y0 > y1) minPx = Math.min(minPx, y0 - y1);
+    });
+    return { fits: !overflow, floors: fl.count || 1, minPx: isFinite(minPx) ? minPx : 0 };
+  }
+  c.overflow = overflow;
+  // 다 들어가면 줄은 제자리(넘길 데 없음) · 넘치면 맨 오른쪽 고정: 나머지만 띠 왼쪽 끝까지 · 줄 안에 함께: 모든 층을 띠 안에서
+  const s = _rowLayout.setRange(!overflow ? { min: 0, max: 0 }
+    : (c.fixRight ? SeatLayout.offsetRange(xsAll, hwAll, bL) : SeatLayout.rowRange(xsAll, hwAll, bL, bR)));
   const outX = new Array(c.seats.length), outSide = new Array(c.seats.length);
   if(c.fixRight){
     const r1 = SeatLayout.placeRow(pick(on1, fl.xs), pick(on1, c.hws), s, c.spacing);
@@ -4125,8 +4120,6 @@ function _applyRowOffset(instant){
   }
   up.forEach(i=>{ outX[i] = fl.xs[i] + s; outSide[i] = 'L'; });
   c.natX = fl.xs.slice(); c.floor = fl.floor.slice(); c.lifts = lifts.slice();
-  // 줄(가장 긴 층)이 띠보다 긴가 — ◀ ▶ 는 이때만 보인다
-  c.overflow = xsAll.length > 0 && (Math.max(...xsAll.map((x, k)=>x + hwAll[k])) - Math.min(...xsAll.map((x, k)=>x - hwAll[k]))) > bandW + 1e-6;
   c.seats.forEach((seat, i)=>{
     seat.targetX = outX[i];
     const flipped = seat._rowSide && seat._rowSide !== outSide[i];
@@ -4168,7 +4161,7 @@ function _rowSeatBoxWithTower(seat){
   const b = _rowSeatBox(seat);
   const riders = seats.filter(r=>r !== seat && r.ridingOn && _rideBottom(r) === seat);
   if(!riders.length) return b;
-  return { top: SeatLayout.towerTop(b.top, riders.map(_rowSeatBox)), minY: b.minY, maxZ: b.maxZ, tower: riders.length };
+  return { top: SeatLayout.towerTop(b.top, riders.map(_rowSeatBox)), ownTop: b.top, minY: b.minY, maxZ: b.maxZ, tower: riders.length };
 }
 /* 📏 같은 층 좌석의 발밑을 화면에서 한 줄로 — 카메라가 살짝 옆(yaw 5°) · 위(pitch)에서 보므로 같은 높이라도
    왼쪽(먼) 좌석일수록 화면에서 조금씩 위로 보인다(좌석 하나에 4~5px). «맨 오른쪽 고정» 에서는 맨 오른쪽(가장 가까운)
@@ -4296,94 +4289,6 @@ function _rowClipLabels(){
     hide(s.namePlateEl); hide(s.expBarEl); hide(s.bubbleEl); hide(s.announceEl);
   }
 }
-/* ↔️ 보이는 영역 손잡이(⋮) — 띠 왼쪽 끝 · 세로 가운데. 방에서만 보이고, 평소엔 흐리게(마우스를 올리면 진하게).
-   끌면 폭이 바뀐다(가로만) · 놓으면 저장(tw.roomBandW, 화면 폭 비율이라 해상도가 바뀌어도 같은 비율). */
-function _rowPlaceBandHandle(){
-  const h = document.getElementById('roomBandHandle');
-  if(!h) return;
-  const c = _rowCache;
-  const on = _rowRoomMode && !!_rowBandPx && !moveMode && !!c;
-  if(!on){
-    if(h.style.display !== 'none') h.style.display = 'none';
-    ['roomBandPrev', 'roomBandNext'].forEach(id=>{ const el = document.getElementById(id); if(el && el.style.display !== 'none') el.style.display = 'none'; });
-    return;
-  }
-  /* 세로 자리 = 줄 전체(띠 밖 좌석 포함)가 화면에서 차지하는 높이의 가운데(머리 꼭대기 ~ 책상 아래 앞 모서리).
-     캐릭터 크기 · 동물(40%) · 층 수 · 화면 크기 · 사람이 바뀌어도 상자(c.boxes)와 카메라를 따라 다시 잡힌다.
-     2층이면 두 층을 합친 높이의 가운데 — 손잡이는 두 층을 함께 넓히고 좁히므로. */
-  const y = _rowBandYRange();
-  const cy = y ? (y.top + y.bottom) / 2 : innerHeight * 0.8;
-  h.style.display = 'block';
-  h.style.left = Math.round(_rowBandPx.l - 8) + 'px';
-  h.style.top = Math.round(Math.max(0, Math.min(innerHeight - 36, cy - 18))) + 'px';
-  // ◀ ▶ — 줄이 띠보다 길 때만(넘길 데가 있을 때). 끝에 닿은 쪽은 흐리게.
-  const prev = document.getElementById('roomBandPrev'), next = document.getElementById('roomBandNext');
-  const rg = _rowLayout ? _rowLayout.range : { min: 0, max: 0 }, off = _rowLayout ? _rowLayout.offset : 0;
-  const over = !!(c && c.overflow) && (rg.max - rg.min) > 1e-3 && _rowRoomMode;
-  const top = Math.round(Math.max(0, Math.min(innerHeight - 28, cy - 14))) + 'px';
-  [[prev, _rowBandPx.l + 10, off >= rg.max - 1e-4], [next, _rowBandPx.r - 10 - 24, off <= rg.min + 1e-4]].forEach(([el, x, atEnd])=>{
-    if(!el) return;
-    if(!over){ if(el.style.display !== 'none') el.style.display = 'none'; return; }
-    el.style.display = 'block'; el.style.left = Math.round(x) + 'px'; el.style.top = top;
-    el.classList.toggle('end', atEnd);
-  });
-}
-/* 줄 전체 좌석의 화면 세로 범위(px) — {top, bottom}. 상자는 배치 때 잰 값, 투영은 지금 카메라. */
-function _rowBandYRange(){
-  const c = _rowCache;
-  if(!c || !c.boxes || !c.boxes.length) return null;
-  let top = Infinity, bottom = -Infinity;
-  const sy = (y, z)=>{ _rowP.set(0, y, z).project(camera); return (-_rowP.y * 0.5 + 0.5) * innerHeight; };
-  for(let i = 0; i < c.seats.length; i++){
-    const b = c.boxes[i]; if(!b) continue;
-    // 띠 밖(안 보이는) 좌석까지 줄 전체로 잰다 — 보이는 좌석만 재면 줄을 넘길 때마다 손잡이 · ◀ ▶ 높이가 바뀐다
-    const fy = (c.floor && c.lifts) ? (c.lifts[c.floor[i]] || 0) : 0;
-    top = Math.min(top, sy(fy + b.top, 0));
-    bottom = Math.max(bottom, sy(fy + b.minY, b.maxZ));
-  }
-  return (isFinite(top) && isFinite(bottom)) ? { top, bottom } : null;
-}
-let _bandDrag = null;   // {x0, f0, pointerId}
-(function bindRoomBandHandle(){
-  const h = document.getElementById('roomBandHandle'); if(!h) return;
-  h.addEventListener('pointerdown', e=>{
-    if(e.button !== 0) return;
-    e.preventDefault(); e.stopPropagation();
-    _bandDrag = { x0: e.clientX, f0: roomBandFrac, pointerId: e.pointerId };
-    try{ h.setPointerCapture(e.pointerId); }catch(_){}
-    h.classList.add('drag');
-  });
-  h.addEventListener('pointermove', e=>{
-    if(!_bandDrag) return;
-    roomBandFrac = SeatLayout.bandFracFromDrag(_bandDrag.f0, e.clientX - _bandDrag.x0, innerWidth);
-    _applyRowOffset(true);
-    _rowPlaceBandHandle();
-  });
-  const end = ()=>{
-    if(!_bandDrag) return;
-    _bandDrag = null; h.classList.remove('drag');
-    try{ localStorage.setItem(ROOM_BAND_KEY, String(roomBandFrac)); }catch(_){}
-    _rowPlaceBandHandle();
-  };
-  h.addEventListener('pointerup', end);
-  h.addEventListener('pointercancel', end);
-  h.addEventListener('lostpointercapture', end);
-  /* 더블클릭 = 모두 보이게 — 줄이 넘치지 않는 가장 좁은 폭으로(층 수 설정 안에서). 다 못 넣으면 화면 끝까지. */
-  h.addEventListener('dblclick', e=>{
-    e.preventDefault(); e.stopPropagation();
-    if(!_rowRoomMode || !SeatLayout) return;
-    const keep = roomBandFrac;
-    let fit = 1;
-    for(let f = SeatLayout.BAND_MIN_FRAC; f <= 1.0001; f += 0.01){
-      roomBandFrac = Math.min(1, f); _applyRowOffset(true);
-      if(_rowCache && !_rowCache.overflow){ fit = roomBandFrac; break; }
-    }
-    roomBandFrac = (_rowCache || keep) ? fit : keep;
-    _applyRowOffset(false);
-    try{ localStorage.setItem(ROOM_BAND_KEY, String(roomBandFrac)); }catch(_){}
-    _rowPlaceBandHandle();
-  });
-})();
 /* 🖱 이름표 끌기 = 자리 바꾸기(책상 끌기와 같다) — 책상이 없거나 숨긴 사람도 이름표로 옮길 수 있게.
    5px 미만이면 끌기가 아니다 — 클릭 · 우클릭 메뉴는 그대로. 줄 넘기기는 휠 · 가로 쓸기 · ◀ ▶ 만.
    ★ 끄는 동안 전역 drag 를 책상 끌기(mode 'slot')와 같은 모양으로 세운다 — 프레임 루프가 그 좌석을 제자리로 끌어당기지 않고
@@ -4433,20 +4338,13 @@ window.addEventListener('click', e=>{
   _rowDragJustEnded = 0; _rowDragEndedEl = null;
   if(fresh && onPlate){ e.stopPropagation(); e.preventDefault(); }
 }, true);
-/* ◀ ▶ — 휠이 없는 사람을 위한 줄 넘기기(좌석 하나 폭쯤). 줄이 띠보다 길 때만 띠 양 끝에 보인다.
-   ◀ = 왼쪽 사람이 나오게(줄이 오른쪽으로) · ▶ = 오른쪽으로 돌아가게. */
-function _rowStepWorld(){ const c = _rowCache; return c ? (2 * (c.hws[0] || 0.85) + (c.spacing || 0)) : 1.7; }
-(function bindRoomBandArrows(){
-  const prev = document.getElementById('roomBandPrev'), next = document.getElementById('roomBandNext');
-  const on = (el, dir)=>{ if(!el) return; el.addEventListener('click', e=>{ e.stopPropagation(); nudgeRowOffset(dir * _rowStepWorld(), false); _rowPlaceBandHandle(); }); };
-  on(prev, +1); on(next, -1);
-})();
-/* 🛞 띠 안에서 휠 — 줄을 좌우로. 클릭을 받는 자리(사람 · 책상 · 이름표 · 손잡이)에서만 휠이 우리 창에 온다.
+/* 🛞 띠 안에서 휠 — 줄을 좌우로. 클릭을 받는 자리(사람 · 책상 · 이름표)에서만 휠이 우리 창에 온다.
    Ctrl+휠은 화면 크기(main 의 줌)라 건드리지 않는다. 다른 창(대화창 등) 위 휠도 그 창 몫이다. */
 window.addEventListener('wheel', e=>{
-  if(!_rowRoomMode || e.ctrlKey || !_rowCache || _rowCache.seats.length < 2) return;
+  // 마지막 수단 — 자동 맞춤으로 가장 작게 해도 다 안 들어갈 때(c.overflow)만 넘긴다
+  if(!_rowRoomMode || e.ctrlKey || !_rowCache || _rowCache.seats.length < 2 || !_rowCache.overflow) return;
   const t = e.target;
-  const onRow = t && (t.id === 'scene' || t.id === 'roomBandHandle' || (t.closest && t.closest('#seatLabelsLayer, .room-band-arrow')));
+  const onRow = t && (t.id === 'scene' || (t.closest && t.closest('#seatLabelsLayer')));
   if(!onRow || _rowBandBlocksPx(e.clientX)) return;
   const px = SeatLayout.wheelToRowPx(e);
   if(px) nudgeRowOffset(px * _rowWorldPerPx(), false);
@@ -4511,8 +4409,64 @@ if(window.companion && window.companion.firebaseEnv === 'dev'){
 //   좌석 배치 결과(_cachedRowCenter/_cachedRowSpan)만 재사용해서 카메라만 훨씬 가볍게 갱신함.
 //   (슬라이더를 빠르게 움직이면 무거운 계산이 밀려서 버벅이던/깜빡이던 문제 해결)
 function updateCameraOnly(){
-  applyCameraAndCanvas(_cachedRowCenter, _cachedRowSpan);
-  _applyRowOffset(false);   // 캐릭터 크기가 바뀌면 화면에 들어가는 줄 폭도 바뀐다
+  _roomAutoFit(_cachedRowCenter, _cachedRowSpan);   // 캐릭터 크기가 바뀌면 자동 맞춤 배율 · 줄 폭도 다시
+}
+/* 🔍 방 자동 맞춤 — 모두가 화면(설정한 층 수 안)에 들어오도록 방 줄 전체의 보기 배율(_roomFitCur)을 줄인다.
+   카메라 거리에만 들어간다(applyCameraAndCanvas 의 focusCharScale × _roomViewScale()) — 캐릭터 · 책상 · 라벨이 한 번에 같이 작아지고,
+   저장값(userScale · focusCharScale)과 서버는 건드리지 않는다.
+   · 위로는 1(내가 정한 크기)을 넘지 않는다. 아래로는 «가장 작은 캐릭터의 화면 키 ≥ MIN_CHAR_PX(px)» 까지(seat-layout.js 주석).
+   · 그래도 안 들어가면 그 최소 크기 + 층 + 휠 넘기기(마지막 수단).
+   · 사람이 오가거나 층 수 · 평준화 · 캐릭터 크기 · 창 크기가 바뀌면 layoutSeats/updateCameraOnly 를 지나며 다시 고른다.
+   · 떨림 막기: 줄일 땐 바로, 키울 땐 4% 넘게 커질 때만(fitHysteresis). 바뀐 배율로는 매 프레임 조금씩 옮겨 간다(_roomFitStep). */
+var _roomFitCur = 1, _roomFitTarget = 1, _roomFitWasRoom = false;
+function _roomViewScale(){ return _rowRoomMode ? _roomFitCur : 1; }
+/* 방에서 가장 작은 캐릭터(올라탄 사람 제외)의 화면 키(px) — 지금 카메라 기준. 좌석 상자 맨 위(머리) ~ 발밑. */
+function _roomMinCharPx(){
+  const c = _rowCache; if(!c || !c.boxes) return 0;
+  let minTop = Infinity;
+  c.boxes.forEach((b, i)=>{ if(b && c.seats[i] && !c.seats[i].ridingOn){ const own = isFinite(b.ownTop) ? b.ownTop : b.top; if(own > 0) minTop = Math.min(minTop, own); } });
+  if(!isFinite(minTop)) return 0;
+  camera.updateMatrixWorld();
+  _rowP.set(0, 0, 0).project(camera); const y0 = (-_rowP.y * 0.5 + 0.5) * innerHeight;
+  _rowP.set(0, minTop, 0).project(camera); const y1 = (-_rowP.y * 0.5 + 0.5) * innerHeight;
+  const px = y0 - y1;
+  return (isFinite(px) && px > 0) ? px : 0;
+}
+function _roomAutoFit(camX, rowSpan){
+  if(!_rowRoomMode || !_rowCache || !window.SeatLayout){
+    _roomFitCur = _roomFitTarget = 1; _roomFitWasRoom = false;
+    applyCameraAndCanvas(camX, rowSpan); _applyRowOffset(false);
+    return;
+  }
+  const keep = _roomFitCur;
+  const at = s=>{ _roomFitCur = s; applyCameraAndCanvas(camX, rowSpan); };
+  const fits = s=>{ at(s); const r = _applyRowOffset(false, true); return !!(r && r.fits); };
+  at(1);
+  /* 최소 배율 — 처음엔 맨 오른쪽 자리 기준으로 어림하고, 실제로 설 자리(멀리 선 좌석은 원근으로 더 작다)에서 다시 재 맞춘다(키는 배율에 거의 정비례). */
+  let sMin = SeatLayout.fitMinScale(_roomMinCharPx(), SeatLayout.MIN_CHAR_PX);
+  for(let k = 0; k < 3 && sMin < 1; k++){
+    at(sMin); const r = _applyRowOffset(false, true);
+    if(!r || !(r.minPx > 0) || r.minPx >= SeatLayout.MIN_CHAR_PX - 0.5) break;
+    sMin = Math.min(1, sMin * SeatLayout.MIN_CHAR_PX / r.minPx * 1.01);
+  }
+  const best = SeatLayout.maxScaleFor(fits, sMin, 1);
+  // 지금 배율로도 다 들어가면 조금 키울 수 있어도 그대로(떨림 막기) · 안 들어가면 바로 줄인다
+  const prevOk = _roomFitWasRoom && _roomFitTarget <= 1 && _roomFitTarget >= sMin && fits(_roomFitTarget);
+  _roomFitTarget = _roomFitWasRoom ? (prevOk ? SeatLayout.fitHysteresis(_roomFitTarget, best, 0.04) : best) : best;
+  // 방에 막 들어왔으면 바로 그 배율로(옮겨 가는 모습 없이), 이미 방이면 지금 값에서 옮겨 간다
+  _roomFitCur = _roomFitWasRoom ? keep : _roomFitTarget;
+  _roomFitWasRoom = true;
+  applyCameraAndCanvas(camX, rowSpan); _applyRowOffset(false);
+}
+/* 매 프레임 — 목표 배율로 조금씩(약 0.25초). 다 왔으면 아무것도 안 한다. */
+let _roomFitT = 0;
+function _roomFitStep(){
+  const now = performance.now(), dt = Math.min(0.1, (now - (_roomFitT || now)) / 1000); _roomFitT = now;
+  if(!_rowRoomMode || !_rowCache) return;
+  const d = _roomFitTarget - _roomFitCur;
+  if(Math.abs(d) < 1e-3){ if(d !== 0){ _roomFitCur = _roomFitTarget; applyCameraAndCanvas(_cachedRowCenter, _cachedRowSpan); _applyRowOffset(false); } return; }
+  _roomFitCur += d * Math.min(1, dt * 12);
+  applyCameraAndCanvas(_cachedRowCenter, _cachedRowSpan); _applyRowOffset(false);
 }
 function applyCameraAndCanvas(rowCenter, rowSpan){
   // 카메라가 바라보는 중심(c.y)을 살짝 낮춰서 바닥이 화면 중앙에 오도록 유도
@@ -4564,7 +4518,7 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
     const zoomOut = canvasH / Math.max(1, prevCanvasH);
     const distV=(contentH/2)/Math.tan(fov/2);
     const distH=(contentW/2)/Math.tan(Math.atan(Math.tan(fov/2)*aspect));
-    dist=(Math.max(distV,distH)+sz.z*0.45) * zoomOut / Math.max(0.1,focusCharScale) / CAMERA_ZOOM;
+    dist=(Math.max(distV,distH)+sz.z*0.45) * zoomOut / Math.max(0.01, Math.max(0.1,focusCharScale) * _roomViewScale()) / CAMERA_ZOOM;   // 방 자동 맞춤은 _roomViewScale(≤1)
   } else {
     const distV=(contentH/2)/Math.tan(fov/2);
     const distH=(contentW/2)/Math.tan(Math.atan(Math.tan(fov/2)*aspect));
@@ -8748,7 +8702,7 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     const coBtn=document.getElementById('fsChipOrientToggle');
     if(coBtn){ coBtn.textContent = chipHorizontal?'가로':'세로'; coBtn.classList.toggle('on', chipHorizontal); }
     const eqBtn=document.getElementById('fsSeatEqToggle');
-    if(eqBtn){ eqBtn.textContent = !seatEqualizeOn ? '끄기' : (seatEqMode === 'fit' ? '사이즈 맞추기' : '비율 맞추기'); eqBtn.classList.toggle('on', seatEqualizeOn); }
+    if(eqBtn){ eqBtn.textContent = seatEqualizeOn?'켜짐':'꺼짐'; eqBtn.classList.toggle('on', seatEqualizeOn); }
     const flBtn=document.getElementById('fsRoomFloorsToggle');
     if(flBtn){ flBtn.textContent = roomFloors + '층'; flBtn.classList.toggle('on', roomFloors > 1); }
     const rsBtn=document.getElementById('fsRoomSeatModeToggle');
@@ -8773,9 +8727,8 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     /* 🪑 캐릭터 자리(프로그램 이동 · tw.deskPan)와 방 좌석 줄 오프셋(저장 안 함 · 메모리)도 처음으로 —
        메모리 값을 같이 비우지 않으면 다음 이동 확정 때 옛 자리가 다시 저장된다. */
     try{ localStorage.removeItem(CHAR_POS_KEY); }catch(_){}
-    try{ localStorage.removeItem(ROOM_BAND_KEY); }catch(_){}
+    try{ localStorage.removeItem('tw.roomBandW'); }catch(_){}   // 옛 띠 폭 설정(없앤 기능) — 남은 값만 치운다
     deskPanX = 0; deskPanY = 0;
-    roomBandFrac = SeatLayout.BAND_DEFAULT_FRAC;   // 보이는 영역 폭도 처음으로
     if(_rowLayout) _rowLayout.reset();
     try{ layoutSeats(); if(typeof updateMyStatusChipPosition==='function') updateMyStatusChipPosition(); }catch(_){}
     /* 지금 떠 있는 창은 그 자리에서 기본 위치로 돌려놓는다 — 다시 열 때까지 기다리게 하면
@@ -8827,11 +8780,8 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
   /* 🪑 좌석 크기 평준화 — 내 화면에서만, 서버에는 안 쓴다(seatEqK 주석 참고). */
   const eqBtn=document.getElementById('fsSeatEqToggle');
   if(eqBtn) eqBtn.onclick=()=>{
-    /* 끄기 → 비율 맞추기(예전 «켜짐») → 사이즈 맞추기 → 끄기. 'char' 는 '1' 로 저장한다(옛 앱도 켜짐으로 읽는다). */
-    seatEqMode = !seatEqualizeOn ? 'char' : (seatEqMode === 'fit' ? 'off' : 'fit');
-    seatEqualizeOn = seatEqMode !== 'off';
-    try{ localStorage.setItem('tw.seatEq', seatEqMode === 'char' ? '1' : (seatEqMode === 'fit' ? 'fit' : '0')); }catch(_){}
-    seats.forEach(s=>{ s._eqK = undefined; });   // 같은 «켜짐» 이라도 방식이 바뀌면 k 가 달라진다 — 다시 걸게
+    seatEqualizeOn = !seatEqualizeOn;
+    try{ localStorage.setItem('tw.seatEq', seatEqualizeOn?'1':'0'); }catch(_){}
     refreshToggleBtns();
     /* ⚠️ syncSeatEqualize 를 직접 부르지 않고 layoutSeats 를 부른다 — 그 안에서 동기화가 먼저 돌고,
        이어서 바뀐 책상 폭으로 좌석 간격·카메라 줌까지 다시 잡힌다. 여기서 동기화만 하면
@@ -41049,7 +40999,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   const _sc = _rowScissorBegin();   // 🪑 방이면 보이는 영역(띠) 밖은 안 그린다
   if(!(document.body.classList.contains('desktop') && document.body.classList.contains('config'))) renderer.render(scene,camera);
   _rowScissorEnd(_sc);
-  _rowClipLabels(); _rowPlaceBandHandle();   // 🪑 띠 밖 이름표 숨기기 · 띠 손잡이 자리
+  _roomFitStep(); _rowClipLabels();   // 🪑 자동 맞춤 옮겨 가기 · 띠 밖 이름표 숨기기
   updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
   if(!manual) requestAnimationFrame(frame);
 }
@@ -45489,7 +45439,7 @@ if(desktopMode){
        두 곳에 따로 적어 두면 새 창을 추가할 때 한쪽만 고치게 되고, 그러면 main 과 렌더러가
        서로 다른 것을 보며 싸운다 — 그게 이번 제보의 정체였다(핸드오프5 §1-4).
        ⇒ body 에 붙는 팝업을 새로 만들면 **여기 한 곳에만** 추가하면 된다. */
-    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #appVerGateOverlay, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, #roomBandHandle, .room-band-arrow, .seat-nameplate';
+    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #appVerGateOverlay, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, .seat-nameplate';
     /* 📐 지금 화면에 떠 있는 "우리 창"들의 사각형 — main 에게 보낸다.
 
        [왜 필요한가 — 이번 제보의 뿌리] main 의 회수 안전장치(ⓕ·ⓖ)와 펜 근접 판정은 지금까지
@@ -46030,7 +45980,7 @@ if(desktopMode){
          드래그가 성립할 수 없으므로, 그 조합은 '드래그 중'이 아니라 '플래그가 남은 것'이다.
          → 그때는 건너뛰지 않고 다시 판정한다. drag 가 어떤 이유로 남더라도 유령이 되지 않는다. */
       if(drag && _ignoreSent === false) return;   // 진짜 드래그 중 — 무시 해제 상태 유지
-      if(((_rowDrag && _rowDrag.active) || _bandDrag) && _ignoreSent === false) return;   // 🪑 이름표로 줄 끌기 · 띠 손잡이 끌기 중 — 같은 이유(끝에 걸려 커서가 벗어나도)
+      if(_rowDrag && _rowDrag.active && _ignoreSent === false) return;   // 🪑 이름표로 줄 끌기 · 띠 손잡이 끌기 중 — 같은 이유(끝에 걸려 커서가 벗어나도)
       _updateIgnore(e.clientX, e.clientY);
     });
     // 드래그 중엔 캐릭터 밖으로 벗어나도 계속 잡아야 하므로, 드래그 동안은 무시 해제 유지

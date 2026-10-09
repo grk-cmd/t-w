@@ -1,13 +1,14 @@
 /* ═══ 🪑 방 좌석 줄 — «보이는 영역»(가로 띠) 안에 한 줄 ══════════════════════════════════════════
    [문제] 방에서는 줄 가운데를 화면 오른쪽(0.84)에 두고 줄 전체가 들어오게 카메라를 물렸다. 사람이 많거나
      캐릭터를 키우면 줄이 오른쪽 화면 밖으로 나가 맨 오른쪽인 내 캐릭터도 사라졌다.
-   [해법] 줄은 띠 안에 선다. 띠 오른쪽 끝 = 맨 오른쪽 좌석(카메라 기준점 · 프로그램 이동으로 같이 움직임),
-     폭 = 화면 폭 × 비율(왼쪽 손잡이로 조절). 캐릭터 크기는 사용자가 정한 그대로고, 띠보다 긴 줄은
-     오프셋(월드 단위)으로 휠 · 이름표 끌기로 넘겨 본다. 띠 밖은 앱이 그리지 않는다(가위 · 이름표 숨김).
+   [해법] 줄은 띠 안에 선다. 띠 = 맨 오른쪽 좌석(카메라 기준점 · 프로그램 이동으로 같이 움직임) 오른쪽 끝 ~ 화면 왼쪽 끝.
+     방에서는 «자동 맞춤» 이 모두가 화면(설정한 층 수 안)에 들어오도록 보기 배율을 줄인다 — 내가 정한 크기보다
+     커지지 않고, 가장 작은 캐릭터가 MIN_CHAR_PX 보다 작아지지 않는다. 그래도 넘치면 층 · 휠(오프셋)로 넘겨 본다.
+     띠 밖은 앱이 그리지 않는다(가위 · 이름표 숨김). 자리 바꾸기는 책상 · 이름표 끌기(층을 넘나든다).
      ・내 자리 «줄 안에 함께»(기본): 순서는 예전 그대로, 줄 전체를 넘긴다 — rowRange.
      ・내 자리 «맨 오른쪽 고정»: 나를 맨 앞(오른쪽)에 두고 나머지만 넘긴다 — offsetRange · placeRow
        (내 자리를 지나는 사람은 내 오른쪽 = 띠 밖으로 건너간다).
-     범위는 단순하게 «처음 사람 ~ 끝 사람» 이다.
+     넘길 때 범위는 단순하게 «처음 사람 ~ 끝 사람» 이다.
    이 파일은 숫자만 다룬다(THREE · DOM 없음). 검사: checks/sim-seat-layout.js */
 (function(){
 'use strict';
@@ -18,7 +19,6 @@ const WHEEL_PAGE_PX = 400;       // deltaMode 2(쪽 단위) 한 쪽
 const PAN_BASE_X = -0.34;        // applyCameraAndCanvas 의 기본 좌우 위치(기준점이 화면 0.84 에 온다)
 const PAN_MARGIN_FALLBACK = 0.02;
 const BAND_DEFAULT_FRAC = 0.6;     // 보이는 영역 기본 폭(화면 비율) — 예전 방 줄이 쓰던 오른쪽 아래 자리
-const BAND_MIN_FRAC = 0.08;
 const SEAT_MODE_ROW = 'row', SEAT_MODE_RIGHT = 'right';   // 내 자리: 줄 안에 함께(기본) · 맨 오른쪽 고정
 
 /* 기준 좌석(나 · 내가 탄 탑의 바닥)을 맨 앞에, 나머지는 원래 순서대로. */
@@ -144,17 +144,30 @@ function towerTop(ownTop, riders){
   (riders || []).forEach(r=>{ const h = (r && isFinite(r.top) && isFinite(r.minY)) ? r.top - r.minY : 0; if(h > 0) t += h; });
   return t;
 }
-/* 🪑 좌석 크기 평준화 세 가지 — 'off'(끄기 · 기본) · 'char'(비율 맞추기 · 예전 «켜짐») · 'fit'(사이즈 맞추기).
-   저장값(tw.seatEq): '1' = 예전 «켜짐» → 'char'(옛 앱도 '1' 을 켜짐으로 읽으므로 'char' 는 계속 '1' 로 쓴다) · 'fit' · 그 밖 = 꺼짐. */
-function parseSeatEqMode(v){ return v === '1' || v === 'char' ? 'char' : (v === 'fit' ? 'fit' : 'off'); }
-function seatEqStoreValue(mode){ return mode === 'char' ? '1' : (mode === 'fit' ? 'fit' : '0'); }
-function nextSeatEqMode(mode){ return mode === 'off' ? 'char' : (mode === 'char' ? 'fit' : 'off'); }
-/* 사이즈 맞추기 배율 — 좌석 상자(책상 폭) 반폭을 내 좌석과 같게: k = 내 반폭 ÷ 그 좌석 반폭(평준화 전 값).
-   동물(40%)은 커지고, 긴 책상 · 큰 캐릭터는 작아진다. 너무 튀지 않게 [lo, hi] 로 묶는다. */
-function fitScale(refHalf, rawHalf, lo, hi){
-  if(!(refHalf > 0) || !(rawHalf > 0)) return 1;
-  const k = refHalf / rawHalf;
-  return isFinite(k) ? Math.max(lo || 0.25, Math.min(hi || 4, k)) : 1;
+/* 🔍 자동 맞춤(방) — 모두가 화면(설정한 층 수 안)에 들어오도록 방 줄 전체의 보기 배율 s 를 줄인다. 내 화면 전용(저장값 안 건드림).
+   ★ 최소는 비율이 아니라 **화면 픽셀**이다: 방에서 가장 작은 캐릭터의 화면 키가 MIN_CHAR_PX(CSS px) 아래로 내려가지 않는다.
+     카메라 투영으로 잰 px 라 해상도 · DPI · 화면 크기(줌)와 상관없이 «눈으로 보이는 크기» 가 같다.
+     56px 은 얼굴 · 표정 · 상태 이모지가 알아볼 만한 가장 작은 키로 잡은 시작값(실기기에서 보고 조정).
+   ★ 위로는 1(사용자가 정한 크기)을 넘지 않는다 — 줄일 때만 쓴다. */
+const MIN_CHAR_PX = 56;
+/* 가장 작은 캐릭터가 s=1 에서 px1 이면, 최소 배율 = MIN_CHAR_PX ÷ px1 (1 을 넘으면 1 — 이미 작으면 더 줄이지 않는다). */
+function fitMinScale(px1, minPx){
+  const m = isFinite(minPx) && minPx > 0 ? minPx : MIN_CHAR_PX;
+  if(!(px1 > 0)) return 1;
+  return Math.max(0.01, Math.min(1, m / px1));
+}
+/* fits(s) 가 참인 가장 큰 s ∈ [lo, hi] — fits 는 s 가 작을수록 참(단조). hi 에서 참이면 hi, lo 에서도 거짓이면 lo. */
+function maxScaleFor(fits, lo, hi, iters){
+  if(fits(hi)) return hi;
+  if(!fits(lo)) return lo;
+  for(let k = 0; k < (iters || 14); k++){ const m = (lo + hi) / 2; if(fits(m)) lo = m; else hi = m; }
+  return lo;
+}
+/* 떨림 막기 — 줄여야 하면 바로 줄이고, 키울 때는 조금(gap) 넘게 커질 때만 키운다(숨쉬기 · 잰 값 흔들림으로 오르내리지 않게). */
+function fitHysteresis(prev, next, gap){
+  if(!isFinite(prev)) return next;
+  if(next < prev) return next;
+  return (next - prev) > (isFinite(gap) ? gap : 0.04) ? next : prev;
 }
 /* 단조 조건 ok(L) 를 처음 만족하는 L(작은 쪽) — 이분 탐색. lo 에서 이미 참이면 lo, hi 에서도 거짓이면 hi.
    층 높이를 화면 px 기준(원근 · 책상 앞면 포함)으로 맞출 때 쓴다. */
@@ -173,12 +186,6 @@ function bandRect(o){
   const minPx = Math.min(r, Math.max(40, o.minPx || 0));
   const w = Math.max(minPx, Math.min(r, (isFinite(o.widthFrac) ? o.widthFrac : BAND_DEFAULT_FRAC) * W));
   return { l: r - w, r: r, w: w };
-}
-/* 왼쪽 손잡이를 dx 만큼 끌었을 때 새 폭(화면 비율). 왼쪽으로 끌면 넓어진다. */
-function bandFracFromDrag(startFrac, dxPx, screenW){
-  const W = Math.max(1, screenW || 1);
-  const f = (isFinite(startFrac) ? startFrac : BAND_DEFAULT_FRAC) - (+dxPx || 0) / W;
-  return Math.max(BAND_MIN_FRAC, Math.min(1, f));
 }
 function inBand(px, band){ return !band || (px >= band.l && px <= band.r); }
 
@@ -206,10 +213,10 @@ function createSeatLayout(){
 }
 
 const api = { createSeatLayout, orderRow, naturalRow, offsetRange, clampOffset, placeRow,
-  rowRange, bandRect, bandFracFromDrag, inBand, splitFloors, planFloors, minLiftFor, towerTop, MAX_FLOORS,
-  parseSeatEqMode, seatEqStoreValue, nextSeatEqMode, fitScale,
+  rowRange, bandRect, inBand, splitFloors, planFloors, minLiftFor, towerTop, MAX_FLOORS,
+  fitMinScale, maxScaleFor, fitHysteresis,
   wheelToRowPx, dragBegin, dragMove, clampPanX,
-  DRAG_THRESHOLD_PX, PAN_BASE_X, PAN_MARGIN_FALLBACK, BAND_DEFAULT_FRAC, BAND_MIN_FRAC, SEAT_MODE_ROW, SEAT_MODE_RIGHT };
+  DRAG_THRESHOLD_PX, PAN_BASE_X, PAN_MARGIN_FALLBACK, BAND_DEFAULT_FRAC, MIN_CHAR_PX, SEAT_MODE_ROW, SEAT_MODE_RIGHT };
 if(typeof window !== 'undefined') window.SeatLayout = api;
 if(typeof module !== 'undefined' && module && module.exports) module.exports = api;
 })();
