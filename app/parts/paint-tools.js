@@ -43,88 +43,19 @@ const TOOL_CURSOR = {
   eraser: _cursor(ICON_BODY.eraser, 4, 19, 'cell'),    // 지우개 아래 모서리
 };
 
-/* 💧 스포이드 — 화면 픽셀(빛 · 그림자가 섞인 색)이 아니라 **캐릭터에 칠해진 색**을 읽는다.
-   layers = 아래부터 위로 [바탕, …, 그림 층]. 바탕은 캔버스(피부 · 파츠 원본 텍스처) 또는 색 문자열(동물 흰 바탕).
-   uv(0~1) 자리의 픽셀을 층마다 읽어 위에서 아래로 덮어 합친다 — 그림 층이 칠해져 있으면 그 색, 투명하면 바탕 색,
-   가장자리처럼 반투명이면 화면에 보이는 대로 섞인 색. 다 합쳐도 거의 투명하면 null(바꾸지 않는다).
-   uv 가 없으면(빈 곳을 누름) null. 층 크기가 달라도 된다(꾸미기 원본 텍스처는 512 가 아닐 수 있다). */
-const PICK_MIN_ALPHA = 8;   // 이보다 옅으면 «칠해진 곳이 아니다» — 예전 스포이드와 같은 문턱
-function _hexRgb(c){
-  const m = /^#?([0-9a-f]{6})$/i.exec(String(c || '').trim()); if(!m) return null;
-  const n = parseInt(m[1], 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255, 255];
-}
-function _layerPx(L, u, v){
-  if(!L) return null;
-  if(typeof L === 'string') return _hexRgb(L);
-  const w = L.width | 0, h = L.height | 0; if(!w || !h || typeof L.getContext !== 'function') return null;
-  const x = Math.max(0, Math.min(w - 1, Math.floor(u * w))), y = Math.max(0, Math.min(h - 1, Math.floor(v * h)));
-  try{ const d = L.getContext('2d').getImageData(x, y, 1, 1).data; return [d[0], d[1], d[2], d[3]]; }catch(_){ return null; }
-}
-function sampleLayers(layers, uv){
-  if(!uv || !isFinite(uv.x) || !isFinite(uv.y) || !Array.isArray(layers)) return null;
-  let r = 0, g = 0, b = 0, a = 0;   // 합친 색(미리 곱하지 않은 값) · 알파 0~1
-  for(const L of layers){
-    const p = _layerPx(L, uv.x, uv.y); if(!p) continue;
-    const ta = p[3] / 255; if(ta <= 0) continue;
-    const oa = ta + a * (1 - ta);
-    r = (p[0] * ta + r * a * (1 - ta)) / oa; g = (p[1] * ta + g * a * (1 - ta)) / oa; b = (p[2] * ta + b * a * (1 - ta)) / oa;
-    a = oa;
-  }
-  if(a * 255 < PICK_MIN_ALPHA) return null;
-  return '#' + [r, g, b].map(v=>Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
-}
-
-/* 🖱 우클릭 «콕» 판정 — 스포이드를 언제 부를지. 사람 · 동물 · 꾸미기가 같이 쓴다.
-   [왜] 우클릭은 플랫폼마다 이벤트 순서가 다르다.
-     · Windows: pointerdown → pointerup → contextmenu(뗄 때).
-     · mac: pointerdown → contextmenu(**누르는 순간**) → pointerup. 창 · 입력 환경에 따라 pointerup 이 안 오거나,
-       pointer 이벤트 없이 mouse 이벤트 · contextmenu 만 오기도 한다 — pointerup 에서만 스포이드를 부르던 예전 판은
-       그때 아무 일도 안 했다(제보: 동물 생성기 스포이드 무반응).
-     · mac 의 Ctrl+클릭은 button 0 + ctrlKey 로 오는 «우클릭» 이다.
-   규칙: 움직이지 않고 뗐으면(pointerup) 집는다. 누른 채 contextmenu 가 왔는데 pointerup 이 RC_HOLD_MS 안에 안 오고
-     움직이지도 않았으면 그때 집는다(오른쪽 끌기 회전은 움직이므로 색이 안 바뀐다). pointer 이벤트 없이 contextmenu 만
-     오면 바로 집는다. pointerup 바로 뒤 contextmenu(Windows)는 같은 클릭이라 건너뛴다(RC_UP_GAP_MS). 한 번 누름에 한 번만. */
-const RC_SLOP_PX = 4, RC_UP_GAP_MS = 400, RC_HOLD_MS = 600;
-const isSecondaryClick = (e)=>!!e && (e.button === 2 || (e.button === 0 && !!e.ctrlKey && !e.metaKey));
-function createRightPick(opts){
-  const o = opts || {};
-  const now = typeof o.now === 'function' ? o.now : ()=>Date.now();
-  const later = o.setTimeout || ((f, ms)=>setTimeout(f, ms)), unlater = o.clearTimeout || ((t)=>clearTimeout(t));
-  const pick = (e)=>{ if(typeof o.pick === 'function') o.pick(e); };
-  let down = null, lastUp = -1e12, timer = null;
-  const stop = ()=>{ if(timer != null){ unlater(timer); timer = null; } };
-  return {
-    down(e){ stop(); down = { x:e.clientX, y:e.clientY, moved:false, picked:false }; },
-    move(e){ if(down && !down.moved && Math.abs(e.clientX - down.x) + Math.abs(e.clientY - down.y) > RC_SLOP_PX){ down.moved = true; stop(); } },
-    active(){ return !!down; },
-    moved(){ return !!(down && down.moved); },
-    /* 뗐다 — 집었으면 true */
-    up(e){ stop(); const d = down; down = null; lastUp = now();
-      if(d && !d.moved && !d.picked){ d.picked = true; pick(e); return true; } return false; },
-    /* contextmenu — 바로 집었으면 true(누른 중이면 RC_HOLD_MS 뒤로 미룬다) */
-    menu(e){
-      if(down){
-        if(down.moved || down.picked || timer != null) return false;
-        const d = down;
-        timer = later(()=>{ timer = null; if(down === d && !d.moved && !d.picked){ d.picked = true; pick(e); } }, RC_HOLD_MS);
-        return false;
-      }
-      if(now() - lastUp > RC_UP_GAP_MS){ pick(e); return true; }
-      return false;
-    },
-    cancel(){ stop(); down = null; },
-  };
-}
-
 /* 🪣 페인트통 한 번. 칠할 자리가 있을 때만 되돌리기 한 칸(pushHistory)을 남기고 칠한 뒤 화면을 갱신(blit)한다.
-   칠한 삼각형 수를 돌려준다 — 0 이면 아무것도 안 했다(이력도 안 남긴다). 대칭 두 번째 칸은 pushHistory 없이 부른다. */
+   바꾼 텍셀 수를 돌려준다 — 0 이면 아무것도 안 했다(이력도 안 남긴다). 대칭 두 번째 칸은 pushHistory 없이 부른다. */
+/* 둘레 번짐(uv-fill.js fillRegion) — 같은 그림판을 쓰는 다른 조각(같은 메쉬의 다른 섬 + o.peers 메쉬들) 안쪽은 안 칠한다.
+   o.peers = 같은 캔버스에 UV 를 둔 다른 geometry 목록(동물 몸 ↔ 얼굴 · 꾸미기 파츠의 다른 메쉬). */
 function applyBucket(o){
   const U = o && o.uvFill;
   if(!U || !o.ctx || !o.geometry) return 0;
   const tris = U.islandTriangles(o.geometry, o.size, o.faceIndex, o.uv);
   if(!tris.length) return 0;
+  const others = U.otherIslandTriangles(o.geometry, o.size, o.faceIndex, o.uv);
+  (o.peers || []).forEach(g=>{ if(g && g !== o.geometry) U.uvTriangles(g, o.size).forEach(t=>others.push(t)); });
   if(typeof o.pushHistory === 'function') o.pushHistory();
-  const n = U.fillTriangles(o.ctx, tris, { color:o.color, erase:!!o.erase });
+  const n = U.fillRegion(o.ctx, o.size, tris, others, { color:o.color, erase:!!o.erase, bleed:o.bleed });
   if(typeof o.blit === 'function') o.blit();
   return n;
 }
@@ -210,7 +141,7 @@ function createPaintTools(deps){
   return { get, is, set, erasing, cursor, sync, toggleEraser, dropEraser, toolForKey, handleKey, pointerAction, bucket, mount };
 }
 
-const api = { PAINT_TOOLS, TOOL_BY_KEY, TOOL_INFO, TOOL_CURSOR, ICON, PICK_MIN_ALPHA, sampleLayers, RC_UP_GAP_MS, RC_HOLD_MS, isSecondaryClick, createRightPick, applyBucket, createPaintTools };
+const api = { PAINT_TOOLS, TOOL_BY_KEY, TOOL_INFO, TOOL_CURSOR, ICON, applyBucket, createPaintTools };
 if(typeof window !== 'undefined') window.PaintTools = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -9957,17 +9957,23 @@ function _wdPicSetFill(v){
   if(wdPaintTool){ if(v) wdPaintTool.set('bucket'); else if(wdPaintTool.is('bucket')) wdPaintTool.set('brush'); return; }
   _wdPic.fill = !!v;
 }
+/* 메쉬 하나를 둘레 번짐까지 채운다 — 같은 그림판을 쓰는 이 파츠의 다른 메쉬 안쪽은 안 덮는다(uv-fill.js fillRegion 주석: 테두리 실선) */
+function _wdPicFillMesh(ctx, wrp, mesh, opt){
+  const others=[];
+  ((wrp && wrp.userData.picMeshes) || []).forEach(m=>{ if(m!==mesh && m.geometry) UvFill.uvTriangles(m.geometry, CANVAS_SZ).forEach(t=>others.push(t)); });
+  return UvFill.fillRegion(ctx, CANVAS_SZ, UvFill.uvTriangles(mesh.geometry, CANVAS_SZ), others, opt);
+}
 function _wdPicFillHit(hit, erase){
   if(typeof UvFill === 'undefined' || !hit || !hit.object) return;
   const tgt=_wdPicTgtOf(hit.object);
   const opt={ color:_wdPic.color, erase:!!erase };
-  UvFill.fillMesh(tgt.user.getContext('2d'), hit.object.geometry, CANVAS_SZ, opt);
+  _wdPicFillMesh(tgt.user.getContext('2d'), tgt.wrp, hit.object, opt);
   _picBlit(tgt.wrp);
   /* 🐾 귀 대칭 — 반대쪽 귀의 같은 번호 메쉬도 채운다(파츠는 메쉬 전체라 대칭이 따로 필요 없다) */
   if(_wdPic.ear && _wdPic.sym){
     const mt=_wdPic.tgts.find(t=>t!==tgt);
     const om=mt && mt.wrp.userData.picMeshes[tgt.wrp.userData.picMeshes.indexOf(hit.object)];
-    if(om){ UvFill.fillMesh(mt.user.getContext('2d'), om.geometry, CANVAS_SZ, opt); _picBlit(mt.wrp); }
+    if(om){ _wdPicFillMesh(mt.user.getContext('2d'), mt.wrp, om, opt); _picBlit(mt.wrp); }
   }
 }
 function _wdPicSetSym(v){
@@ -10392,13 +10398,14 @@ function _wdPicMirrorCx(mesh){
 }
 /* 우클릭 스포이드 — 보이는 그대로(원본 텍스처 포함)에서 집는다. */
 function _wdPicEyedrop(e){
-  const hit=_wdPicHit(e);
-  if(!hit){ if(typeof toast==='function') toast('파츠 위를 우클릭하면 그 색을 집어요'); return false; }
-  /* 💧 칠해진 색 — 그린 층(user)이 비었으면 그 파츠의 바탕(picBase — 원본 텍스처, 없으면 원래 색을 구운 것). 생성기와 같은 규칙(sampleLayers) */
-  const tgt=_wdPicTgtOf(hit.object);
-  const hex=(typeof PaintTools!=='undefined') ? PaintTools.sampleLayers([hit.object.userData.picBase, tgt && tgt.user], hit.uv) : null;
-  if(!hex){ if(typeof toast==='function') toast('여기서는 색을 집을 수 없어요'); return false; }   // 투명한 자리 — 색을 안 바꾼다
-  _wdPic.color=hex;
+  const hit=_wdPicHit(e); if(!hit) return false;
+  const comp=hit.object.userData.picComp; if(!comp) return false;
+  const W=hit.object.userData.picW||comp.width, H=hit.object.userData.picH||comp.height;
+  const x=Math.max(0,Math.min(W-1,Math.floor(hit.uv.x*W)));
+  const y=Math.max(0,Math.min(H-1,Math.floor(hit.uv.y*H)));
+  let d; try{ d=comp.getContext('2d').getImageData(x,y,1,1).data; }catch(_){ return false; }
+  if(d[3]<8) return false;   // 빈 픽셀은 무시
+  _wdPic.color='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
   _wdPicSetEraser(false);
   const sw=document.getElementById('wdPicColor'); if(sw) sw.style.background=_wdPic.color;
   const dot=document.querySelector('#wdPicSection .wd-pic-dot'); if(dot) dot.style.background=_wdPic.color;
@@ -10431,15 +10438,11 @@ function _wdPicStrokeTo(e){
   }
   _wdPic.lsx=e.clientX; _wdPic.lsy=e.clientY;
 }
-const _wdRcPick=(typeof PaintTools!=='undefined') ? PaintTools.createRightPick({ pick:(e)=>{ if(_wdPic.on) _wdPicEyedrop(e); } }) : null;
 (function bindWdPicInput(){
   const cv=document.getElementById('wdPreviewCanvas'); if(!cv) return;
   cv.addEventListener('pointerdown', e=>{
     if(!_wdPic.on) return;
-    if(typeof PaintTools!=='undefined' ? PaintTools.isSecondaryClick(e) : e.button===2){   // 우클릭 · mac Ctrl+클릭 — 아래 pointerup / contextmenu 에서 판정
-      _wdPic.rc={x:e.clientX,y:e.clientY,moved:false}; if(_wdRcPick) _wdRcPick.down(e);
-      if(e.button===0){ e.preventDefault(); e.stopPropagation(); }   // Ctrl+클릭이 선택 클릭으로 같이 먹지 않게
-      return; }
+    if(e.button===2){ _wdPic.rc={x:e.clientX,y:e.clientY,moved:false}; return; }   // 우클릭은 아래 pointerup 에서 판정
     if(e.button!==0) return;
     const hit=_wdPicHit(e); if(!hit) return;
     e.preventDefault(); e.stopPropagation();   // 다중 인스턴스 선택 클릭이 같이 먹지 않게
@@ -10455,16 +10458,15 @@ const _wdRcPick=(typeof PaintTools!=='undefined') ? PaintTools.createRightPick({
     if(wdPaintTool){ const cu=wdPaintTool.cursor(); if(cv.style.cursor!==cu) cv.style.cursor=cu; }   // 🖌 커서 = 지금 도구
     if(_wdPic.rc && !_wdPic.rc.moved &&
        Math.abs(e.clientX-_wdPic.rc.x)+Math.abs(e.clientY-_wdPic.rc.y)>4) _wdPic.rc.moved=true;
-    if(_wdRcPick) _wdRcPick.move(e);
     if(!_wdPic.drawing) return;
     _wdPicStrokeTo(e);   // 🪡 한 이벤트가 크게 건너뛰었으면 그 사이를 쪼개서 훑는다
   }, true);
   const end=e=>{
     if(!_wdPic.on) return;
     /* 우클릭을 **안 움직이고** 뗐으면 스포이드. 움직였으면 그건 회전이었다(기존 오빗이 처리했다). */
-    if(_wdPic.rc){
+    if(e.button===2 && _wdPic.rc){
       const wasClick=!_wdPic.rc.moved; _wdPic.rc=null;
-      if(_wdRcPick) _wdRcPick.up(e); else if(wasClick) _wdPicEyedrop(e);
+      if(wasClick) _wdPicEyedrop(e);
       return;
     }
     if(!_wdPic.drawing) return;
@@ -10472,9 +10474,7 @@ const _wdRcPick=(typeof PaintTools!=='undefined') ? PaintTools.createRightPick({
     try{ cv.releasePointerCapture(e.pointerId); }catch(_){}
   };
   cv.addEventListener('pointerup', end, true);
-  cv.addEventListener('pointercancel', e=>{ _wdPic.rc=null; if(_wdRcPick) _wdRcPick.cancel(); end(e); }, true);
-  /* 💧 mac 은 contextmenu 가 누르는 순간 온다 — 먼저 오는 쪽에서 한 번만 집는다(paint-tools.js createRightPick) */
-  cv.addEventListener('contextmenu', e=>{ if(_wdPic.on && _wdRcPick){ e.preventDefault(); _wdRcPick.menu(e); } }, true);
+  cv.addEventListener('pointercancel', e=>{ _wdPic.rc=null; end(e); }, true);
 })();
 
 /* ── 단축키 ──
@@ -25799,10 +25799,12 @@ function eyedropFromEvent(e){ if(!isDrawStep()||!cBase)return false;
   _pndc.x=((e.clientX-r.left)/r.width)*2-1; _pndc.y=-((e.clientY-r.top)/r.height)*2+1;
   _pray.setFromCamera(_pndc,cCam);
   const _eh=_picIntersect(_pray.ray, [cBase.face]);   // 🩹 지금 자세로 맞힌다(리깅 · _stampFaceHit 주석)
-  if(!_eh||!_eh.uv){ if(typeof toast==='function') toast('얼굴 위를 우클릭하면 그 색을 집어요'); return false; }
-  /* 💧 칠해진 색을 읽는다 — 그림 층이 비었으면 그 자리 피부색(paint-tools.js sampleLayers). 빈 곳은 위에서 이미 false. */
-  const hex=(typeof PaintTools!=='undefined') ? PaintTools.sampleLayers([skinCanvasFor(skinIndex), actC()], _eh.uv) : null;
-  if(!hex){ if(typeof toast==='function') toast('여기서는 색을 집을 수 없어요'); return false; }
+  if(!_eh||!_eh.uv) return false;
+  const cx=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.x*CANVAS_SZ)));
+  const cy=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.y*CANVAS_SZ)));
+  let d; try{ d=actC().getContext('2d').getImageData(cx,cy,1,1).data; }catch(_){ return false; }
+  if(d[3]<8) return false;   // 빈 픽셀은 무시
+  const hex='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
   brushColor=hex; _crDropEraser();
   const bc=document.getElementById('brushCustom'); if(bc)bc.value=hex;
   [...swEl.children].forEach(x=>x.classList.remove('on'));
@@ -26241,27 +26243,22 @@ function bindStampOverlay(){
 }
 
 function bindPaint(){const cv=document.getElementById('creatorPreview');
-  /* 💧 우클릭 콕 = 스포이드 — pointerup · contextmenu 중 먼저 오는 쪽에서 한 번(paint-tools.js createRightPick: mac 순서 · Ctrl+클릭) */
-  const pickNow=(e)=>{ if(isDrawStep() && !stampMode){ if(crStep===3)blinkEdited=true; eyedropFromEvent(e); } };
-  const rcPick=(typeof PaintTools!=='undefined') ? PaintTools.createRightPick({ pick:pickNow }) : null;
-  const isRc=(e)=>(typeof PaintTools!=='undefined') ? PaintTools.isSecondaryClick(e) : e.button===2;
-  cv.addEventListener('contextmenu',e=>{ e.preventDefault(); if(rcPick) rcPick.menu(e); });
+  cv.addEventListener('contextmenu',e=>e.preventDefault());
   cv.addEventListener('pointerdown',e=>{
     // 🖱️ 우클릭: 드래그하면 카메라 회전, 움직임 없이 떼면 기존처럼 스포이드(그리기 단계에서만).
     //   어느 단계에서든 우클릭 드래그로 캐릭터를 돌려볼 수 있음 — 동물 생성기와 통일된 조작.
-    if(isRc(e)){ _rcOrbit={x:e.clientX,y:e.clientY,moved:false}; if(rcPick) rcPick.down(e); try{ cv.setPointerCapture(e.pointerId); }catch(_){} return; }
+    if(e.button===2){ _rcOrbit={x:e.clientX,y:e.clientY,moved:false}; cv.setPointerCapture(e.pointerId); return; }
     if(!isDrawStep())return;
     // 도장 편집 중에는 캔버스 클릭으로 그리지 않음(오버레이 조작 우선)
     if(stampMode) return;
     if(e.button!==0)return;
     const act=crPaintTool?crPaintTool.pointerAction(e):'stroke';
     if(act!=='stroke'){ bucketFromEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
-    if(crStep===3)blinkEdited=true;pushHistory();painting=true;_paintBreak();_pLastScr=null;paintFromEvent(e);try{ cv.setPointerCapture(e.pointerId); }catch(_){}   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
+    if(crStep===3)blinkEdited=true;pushHistory();painting=true;_paintBreak();_pLastScr=null;paintFromEvent(e);cv.setPointerCapture(e.pointerId);   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
   });
   cv.addEventListener('pointermove',e=>{
     if(_rcOrbit){
       const dx=e.clientX-_rcOrbit.x, dy=e.clientY-_rcOrbit.y;
-      if(rcPick) rcPick.move(e);
       if(_rcOrbit.moved || Math.abs(dx)+Math.abs(dy)>4){
         _rcOrbit.moved=true;
         camYaw += ORBIT_DRAG_DIR * dx*0.012;   // 오른쪽 드래그 = 앵글도 오른쪽으로 (부호는 ORBIT_DRAG_DIR 한 곳에서 관리 — 꾸미기 미리보기와 동일)
@@ -26287,8 +26284,8 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
   cv.addEventListener('pointerup',(e)=>{
     if(_rcOrbit){
       const was=_rcOrbit; _rcOrbit=null;
-      // 움직이지 않고 뗀 우클릭 = 스포이드(mac 에서 contextmenu 로 이미 집었으면 건너뜀)
-      if(rcPick) rcPick.up(e); else if(!was.moved) pickNow(e);
+      // 움직이지 않고 뗀 우클릭 = 기존 스포이드 동작 그대로
+      if(!was.moved && isDrawStep() && !stampMode){ if(crStep===3)blinkEdited=true; eyedropFromEvent(e); }
       return;
     }
     painting=false;lastPX=lastPY=null;lastSX=lastSY=null;

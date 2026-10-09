@@ -1,7 +1,7 @@
 /* ═══ 🪣 sim-uv-fill.js — 꾸미기 그리기 «채우기»: 누른 메쉬의 UV 자리만 칠한다 (2026-10-08 신설) ═══════════
    ・1절: uv-fill.js 를 실제 귀 GLB 와 손으로 만든 geometry 로 — 삼각형 좌표(uv × 크기) · 인덱스 유무 · UV 없음
    ・2절: fillMesh 를 가짜 2D 문맥으로 — 칠하기/지우기 합성 · 경계 넓히기(지울 때 1px 더) · 다른 상태를 안 남김
-   ・3절: app.js 배선 — 🪣 페인트통(도구 줄 · 2026-10-09 paint-tools.js 로) · G 키 · 한 번 누르면 끝(획 아님) · Shift = 지우기 ·
+   ・3절: app.js 배선 — 🪣 페인트통(도구 줄 · 2026-10-09 paint-tools.js 로) · 둘레 번짐(fillRegion) · G 키 · 한 번 누르면 끝(획 아님) · Shift = 지우기 ·
           되돌리기 한 칸 · 귀 대칭 · 나가면 꺼짐
    ・4절: html 로드
    ⚠️ 실제 픽셀은 2026-10-08 헤드리스 크로미움에서 실제 앱 페이지로 확인했다(왼 귀만 2145 · 오른 0 → 되돌리기 0 ·
@@ -75,9 +75,12 @@ const A = strip(APP);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;
   for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
 const fh = grab(A, '_wdPicFillHit');
-chk(/UvFill\.fillMesh\(tgt\.user\.getContext\('2d'\), hit\.object\.geometry, CANVAS_SZ, opt\);/.test(fh) && /_picBlit\(tgt\.wrp\);/.test(fh), '맞힌 메쉬의 geometry 만 · 맞힌 대상 그림판에');
+const fm = grab(A, '_wdPicFillMesh');
+chk(/_wdPicFillMesh\(tgt\.user\.getContext\('2d'\), tgt\.wrp, hit\.object, opt\);/.test(fh) && /_picBlit\(tgt\.wrp\);/.test(fh), '맞힌 메쉬만 · 맞힌 대상 그림판에');
+chk(/return UvFill\.fillRegion\(ctx, CANVAS_SZ, UvFill\.uvTriangles\(mesh\.geometry, CANVAS_SZ\), others, opt\);/.test(fm) && /if\(m!==mesh && m\.geometry\) UvFill\.uvTriangles\(m\.geometry, CANVAS_SZ\)\.forEach\(t=>others\.push\(t\)\)/.test(fm),
+  '둘레 번짐(fillRegion · 테두리 실선 막기) — 이 파츠의 다른 메쉬 안쪽은 안 덮는다');
 chk(/const opt=\{ color:_wdPic\.color, erase:!!erase \};/.test(fh) && /function _wdPicFillHit\(hit, erase\)/.test(fh), '지금 색 · 지우기는 Shift+클릭이 넘긴 값(지우개 도구와 동시에 켜질 수 없다)');
-chk(/if\(_wdPic\.ear && _wdPic\.sym\)\{/.test(fh) && /UvFill\.fillMesh\(mt\.user\.getContext\('2d'\), om\.geometry/.test(fh), '귀 대칭이면 반대쪽 귀의 같은 메쉬도');
+chk(/if\(_wdPic\.ear && _wdPic\.sym\)\{/.test(fh) && /_wdPicFillMesh\(mt\.user\.getContext\('2d'\), mt\.wrp, om, opt\)/.test(fh), '귀 대칭이면 반대쪽 귀의 같은 메쉬도');
 chk(/if\(typeof UvFill === 'undefined'/.test(fh), 'uv-fill.js 가 없으면 아무것도 안 한다(앱은 켜진다)');
 chk(/if\(_wdPic\.fill\)\{ _wdPicPush\(\); _wdPicFillHit\(hit, e\.shiftKey\); return; \}/.test(A), '좌클릭 — 채우기면 되돌리기 한 칸 남기고 한 번에 끝(끌기 획 아님) · Shift 면 지우기');
 chk(/if\(wdPaintTool\) wdPaintTool\.mount\(toolSeg\);/.test(A) && /\[toolSeg,symB,swat\]/.test(A), '그리기 줄에 도구 줄(붓 · 🪣 페인트통 · 지우개 — 하나만)');

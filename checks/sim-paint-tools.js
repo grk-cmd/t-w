@@ -2,12 +2,11 @@
    ・1절: uv-fill.js 섬 함수 — 손으로 만든 geometry · 실제 동물 몸/얼굴 GLB · 사람 얼굴 GLB
           (누른 조각만 · 다른 조각 안 섞임 · UV 로 찾기 · 넓이 0 조각은 안 칠함 · 캐시)
    ・2절: createPaintTools — 기본 붓 · 하나만 · onChange · C 토글 · 색 고르면 지우개만 붓으로 · 키(B G E · 맥 한글) · 클릭 동작 · 커서
-   ・3절: 페인트통 한 번 — 되돌리기 한 칸을 칠하기 **전에** · 칠할 게 없으면 이력 안 남김 · 지우기 합성 · 대칭 두 번째는 이력 없음
+   ・3절: 페인트통 한 번 — 되돌리기 한 칸을 칠하기 **전에** · 칠할 게 없으면 이력 안 남김 · 지우기 · 3-b 둘레 번짐(경계 텍셀 · 옆 조각 · 다른 메쉬 · 실제 몸)
    ・4절: 도구 줄 DOM(가짜 문서) — 버튼 셋 · 눌림 표시 · 한국어 툴팁 · 인라인 SVG(currentColor)
    ・5절: 배선 — app.js(사람 · 꾸미기 그리기) · animal.js(동물) · html 로드 순서 · 스타일
-   ・6절: 💧 스포이드(sampleLayers) — 그림 층에 칠한 색 · 투명하면 바탕(피부 · 흰 바탕 · 파츠 원본) · 빈 곳은 안 바꿈 · 세 곳 배선
-   ・7절: 🖱 우클릭 콕(createRightPick) — Windows · mac 순서 · pointerup 이 안 와도 · 끌기는 안 집음 · Ctrl+클릭 · 세 곳 배선
-   ・8절: 🪣 동물 양팔 — 실제 몸 GLB 의 왼팔 · 오른팔 조각이 따로 · 안 겹침 · 둘 다 채워짐 / 🔒 잠금 · 빈 곳 알림
+   ・6절: 🪣 동물 양팔 — 실제 몸 GLB 의 왼팔 · 오른팔 조각이 따로 · 안 겹침 · 둘 다 채워짐 / 🔒 잠금 · 빈 곳 알림(채우기 · 붓)
+   ※ 스포이드(우클릭)는 main 그대로라 여기서 보지 않는다(사용자 결정 2026-10-09).
    [실행] uv-fill.js · paint-tools.js · key-input.js · animal-glb.js · base-glb.js · app.js · animal.js ·
           desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
@@ -111,29 +110,68 @@ chk(/^url\("data:image\/svg\+xml,/.test(P.TOOL_CURSOR.bucket) && /, cell$/.test(
   '커서 — 붓 + · 페인트통 · 지우개 그림(인라인 SVG · 안 되면 cell)');
 
 say('── 3. 페인트통 한 번 — 되돌리기 · 화면');
-function fakeCtx(){
-  const log = [], st = { globalCompositeOperation:'source-over', fillStyle:'#000', strokeStyle:'#000', lineWidth:1, lineJoin:'miter' };
-  const saved = [];
-  return Object.assign({}, st, {
-    log, save(){ saved.push(Object.assign({}, this)); }, restore(){ const s = saved.pop(); Object.keys(st).forEach(k => { this[k] = s[k]; }); },
-    beginPath(){ log.push('begin'); }, moveTo(){ log.push('M'); }, lineTo(){}, closePath(){},
-    fill(){ log.push('fill:' + this.globalCompositeOperation + ':' + this.fillStyle); }, stroke(){},
-  });
+/* 픽셀 문맥 — getImageData/putImageData 만(uv-fill.js paintMask 가 텍셀을 직접 쓴다) */
+function pixCtx(size, log){
+  const data = new Uint8ClampedArray(size * size * 4);
+  return { data, size, getImageData:() => ({ data }), putImageData:() => { if(log) log.push('paint'); } };
 }
+const px = (c, x, y) => Array.from(c.data.slice((y * c.size + x) * 4, (y * c.size + x) * 4 + 4));
 const order = [];
-const c1 = fakeCtx(), _sv = c1.save; c1.save = function(){ order.push('paint'); _sv.call(this); };
+const c1 = pixCtx(100, order);
 const n1 = T.bucket({ ctx:c1, geometry:g1, size:100, faceIndex:3, color:'#ff0000', pushHistory:() => order.push('hist'), blit:() => order.push('blit') });
-chk(n1 === 2 && order.join() === 'hist,paint,blit', '되돌리기 한 칸을 칠하기 전에 → 칠하기 → 화면 갱신(붓 획과 같은 순서)');
+chk(n1 > 0 && order.join() === 'hist,paint,blit', '되돌리기 한 칸을 칠하기 전에 → 칠하기 → 화면 갱신(붓 획과 같은 순서)');
 const o2 = [];
-const n2 = T.bucket({ ctx:fakeCtx(), geometry:g1, size:100, faceIndex:4, pushHistory:() => o2.push('hist'), blit:() => o2.push('blit') });
+const n2 = T.bucket({ ctx:pixCtx(100), geometry:g1, size:100, faceIndex:4, pushHistory:() => o2.push('hist'), blit:() => o2.push('blit') });
 chk(n2 === 0 && o2.length === 0, '칠할 자리가 없으면(접힌 조각) 이력도 화면 갱신도 없다 — 빈 되돌리기 칸이 안 생긴다');
-const c3 = fakeCtx();
+const c3 = pixCtx(100); c3.data.fill(200);
 T.bucket({ ctx:c3, geometry:g1, size:100, faceIndex:0, erase:true });
-chk(c3.log.some(x => /^fill:destination-out/.test(x)) && c3.globalCompositeOperation === 'source-over', 'Shift(지우기) — 그 조각만 투명하게(바탕이 보인다) · 끝나면 합성 상태 되돌림');
-const c4 = fakeCtx();
+chk(px(c3, 20, 50)[3] === 0 && px(c3, 80, 50)[3] === 200, 'Shift(지우기) — 그 조각만 투명하게(바탕이 보인다) · 다른 조각은 그대로');
+const c4 = pixCtx(100);
 T.bucket({ ctx:c4, geometry:g1, size:100, faceIndex:0, color:'#123456' });
-chk(c4.log.includes('fill:source-over:#123456') && c4.log.filter(x => x === 'M').length === 2, '칠하기 — 지금 색 · 누른 조각 삼각형만');
-chk(P.applyBucket({ ctx:fakeCtx(), geometry:g1, size:100, faceIndex:0 }) === 0, 'uv-fill.js 가 없으면 아무것도 안 한다(앱은 켜진다)');
+chk(px(c4, 20, 50).join() === '18,52,86,255' && px(c4, 80, 50)[3] === 0, '칠하기 — 지금 색(불투명) · 누른 조각만');
+chk(P.applyBucket({ ctx:pixCtx(100), geometry:g1, size:100, faceIndex:0 }) === 0, 'uv-fill.js 가 없으면 아무것도 안 한다(앱은 켜진다)');
+
+say('── 3-b. 🧵 둘레 번짐(테두리 실선 막기)');
+chk(U.bleedFor(512) === 4 && U.bleedFor(1024) === 8 && U.bleedFor(100) === 2, '번짐 폭 = 그림판 크기 / 128(512 → 4텍셀 · 밉맵 2단계까지) · 최소 2');
+/* 섬 A: x 0~40 · 섬 B: x 60~100 (100×100) */
+const cA = pixCtx(100);
+T.bucket({ ctx:cA, geometry:g1, size:100, faceIndex:0, color:'#ff0000', bleed:4 });
+const isPainted = (c, x, y) => px(c, x, y)[3] === 255;
+chk(isPainted(cA, 39, 50) && isPainted(cA, 40, 50), '경계 텍셀(중심이 조각 밖이어도 걸친 칸)까지 칠한다 — 옛 색이 섞이던 칸');
+chk(isPainted(cA, 43, 50) && !isPainted(cA, 44, 50), '조각 밖으로 4텍셀까지 번진다 — 그 너머 빈 칸은 그대로');
+chk([60, 61, 70, 99].every(x => !isPainted(cA, x, 50)), '옆 조각(섬 B) 안쪽은 한 칸도 안 건드린다');
+/* 두 조각 사이가 4텍셀뿐이면 반씩 나눈다 — 이웃 조각의 둘레를 덮지 않는다 */
+const g2 = geo([0, 0, 0.4, 0, 0, 1, 0.4, 1,  0.44, 0, 1, 0, 0.44, 1, 1, 1], [0, 1, 2, 2, 1, 3,  4, 5, 6, 6, 5, 7]);
+const cB = pixCtx(100);
+T.bucket({ ctx:cB, geometry:g2, size:100, faceIndex:0, color:'#ff0000', bleed:4 });
+chk(isPainted(cB, 40, 50) && isPainted(cB, 41, 50) && !isPainted(cB, 43, 50) && !isPainted(cB, 44, 50), '조각 사이 여백이 좁으면 가까운 쪽 반만(40~41 은 이 조각 · 42~43 은 옆 조각 몫)');
+/* 다른 메쉬(같은 그림판) — peers 안쪽도 안 덮는다 */
+const g3 = geo([0, 0, 0.4, 0, 0, 1, 0.4, 1], [0, 1, 2, 2, 1, 3]), peer = geo([0.42, 0, 0.7, 0, 0.42, 1, 0.7, 1], [0, 1, 2, 2, 1, 3]);
+const cC = pixCtx(100), cD = pixCtx(100);
+T.bucket({ ctx:cC, geometry:g3, size:100, faceIndex:0, color:'#ff0000', bleed:4, peers:[peer] });
+T.bucket({ ctx:cD, geometry:g3, size:100, faceIndex:0, color:'#ff0000', bleed:4 });
+chk(!isPainted(cC, 42, 50) && !isPainted(cC, 43, 50) && isPainted(cD, 43, 50), '같은 그림판을 쓰는 다른 메쉬(동물 몸 ↔ 얼굴 · 꾸미기 파츠의 다른 메쉬) 안쪽도 안 덮는다');
+const cE = pixCtx(100); cE.data.fill(200);
+T.bucket({ ctx:cE, geometry:g1, size:100, faceIndex:0, erase:true, bleed:4 });
+chk(px(cE, 43, 50)[3] === 0 && px(cE, 60, 50)[3] === 200, 'Shift 지우기도 둘레까지(지운 자리에 옛 색 테두리가 안 남는다) · 옆 조각은 그대로');
+/* 실제 동물 몸 — 왼팔 조각을 512 로 채우면 다른 조각 텍셀은 0 개 · 둘레 2텍셀 고리는 전부 칠해짐 */
+{
+  const S = 512, armId = [...bSet].map(id => { const ts = trisOf(bIds, id); let x = 0, n = 0; ts.forEach(t => { for(let k = 0; k < 3; k++){ x += body.pos[body.index.getX(t * 3 + k) * 3]; n++; } }); return { id, ts, x:x / n }; }).sort((a, b) => a.x - b.x)[0];
+  const cR = pixCtx(S);
+  T.bucket({ ctx:cR, geometry:body, size:S, faceIndex:armId.ts[0], color:'#ff0000' });
+  const own = U.regionMask(S, U.islandTriangles(body, S, armId.ts[0], null), [], 0);
+  const oth = U.regionMask(S, U.otherIslandTriangles(body, S, armId.ts[0], null), [], 0);
+  let hitOther = 0, ring = 0, ringOk = 0;
+  for(let k = 0; k < S * S; k++){ if(oth[k] && cR.data[k * 4 + 3]) hitOther++; }
+  for(let y = 1; y < S - 1; y++) for(let x = 1; x < S - 1; x++){ const k = y * S + x; if(own[k] || oth[k]) continue;
+    /* 고리 = 이 조각에서 2텍셀 안 · 다른 조각에서는 4텍셀 밖(가운데 여백은 가까운 조각 몫이라 뺀다) */
+    let near = false, otherNear = false;
+    for(let dy = -4; dy <= 4; dy++) for(let dx = -4; dx <= 4; dx++){ const yy = y + dy, xx = x + dx; if(yy < 0 || yy >= S || xx < 0 || xx >= S) continue; const kk = yy * S + xx;
+      if(own[kk] && Math.abs(dx) <= 2 && Math.abs(dy) <= 2) near = true; if(oth[kk]) otherNear = true; }
+    if(near && !otherNear){ ring++; if(cR.data[k * 4 + 3]) ringOk++; } }
+  chk(hitOther === 0, '실제 동물 몸 왼팔 채우기 — 다른 조각(몸통 · 오른팔 · 다리) 텍셀 0개 침범');
+  chk(ring > 50 && ringOk === ring, `실제 동물 몸 왼팔 — 조각 둘레 2텍셀 고리 ${ringOk}/${ring} 전부 칠함(테두리 실선이 생기던 자리)`);
+}
 
 say('── 4. 도구 줄 DOM');
 function fakeDoc(){
@@ -190,7 +228,7 @@ chk(TW.get() === 'brush' && !seen.has('true/true'), '꾸미기 — 어떤 순서
 /* 동물 */
 const pb = grab(N, 'pBucketEvent');
 chk(/const tgt=_canvasForMesh\(hit\.object\);\s*if\(!_partAllowed\(tgt\)\)\{ _lockToast\(\); return false; \}/.test(pb), '동물 — 맞힌 메쉬의 캔버스(몸·얼굴 / 좌우 귀) · 부위 잠금 지킴(막히면 알림)');
-chk(/geometry:hit\.object\.geometry, faceIndex:hit\.faceIndex, uv:hit\.uv, pushHistory:pPushHist \}/.test(pb), '동물 — 그 메쉬의 조각만 · 되돌리기 pPushHist(몸 + 좌우 귀 세트)');
+chk(/geometry:hit\.object\.geometry, faceIndex:hit\.faceIndex, uv:hit\.uv, peers:_canvasPeers\(hit\.object\), pushHistory:pPushHist \}/.test(pb), '동물 — 그 메쉬의 조각만 · 같은 그림판의 다른 메쉬는 번짐 금지(peers) · 되돌리기 pPushHist(몸 + 좌우 귀 세트)');
 chk(/if\(pSym\)\{/.test(pb) && /_pMirrorHit\(hit\)/.test(pb) && /_partAllowed\(mt\) && aPaintTool\.bucket\(/.test(pb), '동물 — 대칭이면 거울 조각도(잠금 밖이면 생략)');
 chk(/const act=aPaintTool\?aPaintTool\.pointerAction\(e\):'stroke';\s*if\(act!=='stroke'\)\{ pBucketEvent\(e, act==='fillErase'\); return; \}\s*pPushHist\(\);/.test(N), '동물 — 좌클릭: 페인트통이면 한 번에 끝');
 chk(/onChange:\(t\)=>\{ pEraser=\(t==='eraser'\); if\(t!=='brush' && aStampMode\) aSetStampMode\(false\); syncPaintUI\(\); \}/.test(N), '동물 — pEraser 는 도구 줄에서만');
@@ -204,67 +242,7 @@ chk(sU > 0 && sU < sP && sP < sA && sA < sN, 'html — uv-fill.js → paint-tool
 chk(/<span id="crToolSeg"><\/span>/.test(HTML) && /<b>G<\/b> 페인트통/.test(HTML), 'html — 사람 도구 줄 자리 · 안내 줄');
 chk(/\.pt-seg\{display:inline-flex;/.test(HTML) && /\.cr-tools \.pt-seg button\{/.test(HTML), 'html — 도구 줄 스타일(.cr-tools 버튼 모양 · 눌림 .on 을 그대로)');
 
-say('── 6. 💧 스포이드 — 칠해진 색(화면 픽셀 아님)');
-/* 가짜 캔버스 — 칸마다 [r,g,b,a]. 읽은 좌표를 남겨 둔다(층 크기가 달라도 같은 uv 자리를 읽는지). */
-function fakeCv(w, h, fn){
-  const reads = [];
-  return { width:w, height:h, reads, getContext:() => ({ getImageData:(x, y) => { reads.push(x + ',' + y); return { data:fn(x, y) }; } }) };
-}
-const skin = fakeCv(512, 512, () => [240, 200, 170, 255]);
-const paint = fakeCv(512, 512, (x) => x < 256 ? [255, 0, 0, 255] : [0, 0, 0, 0]);   // 왼쪽 반만 빨갛게 칠함
-chk(P.sampleLayers([skin, paint], { x:0.1, y:0.5 }) === '#ff0000', '그림 층이 칠해진 자리 — 칠한 색(빛 · 그림자 없이)');
-chk(P.sampleLayers([skin, paint], { x:0.9, y:0.5 }) === '#f0c8aa', '그림 층이 투명한 자리 — 아래 바탕(피부) 색');
-chk(P.sampleLayers(['#ffffff', paint], { x:0.9, y:0.5 }) === '#ffffff' && P.sampleLayers(['#ffffff', paint], { x:0.1, y:0.5 }) === '#ff0000', '동물 — 바탕은 흰색 문자열 · 칠한 곳은 그 색');
-chk(P.sampleLayers([skin, paint], null) === null && P.sampleLayers([skin, paint], { x:NaN, y:0 }) === null, '빈 곳(아무것도 안 맞음 · uv 없음) — null = 색을 안 바꾼다');
-const empty = fakeCv(512, 512, () => [0, 0, 0, 0]), faint = fakeCv(512, 512, () => [9, 9, 9, 7]);
-chk(P.sampleLayers([null, empty], { x:0.5, y:0.5 }) === null && P.sampleLayers([faint], { x:0.5, y:0.5 }) === null, '바탕도 그림도 투명(문턱 ' + P.PICK_MIN_ALPHA + ' 아래) — null');
-const half = fakeCv(512, 512, () => [0, 0, 255, 128]);
-chk(P.sampleLayers(['#ffffff', half], { x:0.5, y:0.5 }) === '#7f7fff', '반투명 가장자리 — 보이는 대로 섞인 색(흰 바탕 위 파랑 반)');
-const big = fakeCv(1024, 256, () => [10, 20, 30, 255]); const pl = fakeCv(512, 512, () => [0, 0, 0, 0]);
-P.sampleLayers([big, pl], { x:0.5, y:0.25 });
-chk(big.reads[0] === '512,64' && pl.reads[0] === '256,128', '층 크기가 달라도 같은 uv 자리(꾸미기 원본 1024×256 · 그림 층 512)');
-chk(P.sampleLayers([fakeCv(4, 4, () => [1, 2, 3, 255])], { x:1, y:1 }) === '#010203', 'uv 1.0 은 마지막 칸으로 잘라 읽는다');
-const ed = grab(A, 'eyedropFromEvent'), wd = grab(A, '_wdPicEyedrop'), ap = grab(N, 'pPickColor');
-chk(/PaintTools\.sampleLayers\(\[skinCanvasFor\(skinIndex\), actC\(\)\], _eh\.uv\)/.test(ed) && /if\(!_eh\|\|!_eh\.uv\)\{ if\(typeof toast==='function'\) toast\([^)]*\); return false; \}/.test(ed) && /if\(!hex\)\{ if\(typeof toast==='function'\) toast\([^)]*\); return false; \}/.test(ed), '사람 — 맞힌 얼굴 UV 에서 그림 층 → 비었으면 그 자리 피부 · 빈 곳은 그대로');
-chk(/PaintTools\.sampleLayers\(\[P_BASE, tgt\.draw\], uv\)/.test(ap) && /const tgt=_canvasForMesh\(h\.object\);/.test(ap) && !/pDispC/.test(ap) && /if\(!hex\)\{ if\(typeof toast==='function'\) toast\([^)]*\); return; \}/.test(ap), '동물 — 맞힌 메쉬의 캔버스(귀는 그 귀) → 비었으면 흰 바탕 · 몸 화면 캔버스를 안 읽는다');
-chk(/PaintTools\.sampleLayers\(\[hit\.object\.userData\.picBase, tgt && tgt\.user\], hit\.uv\)/.test(wd) && /if\(!hex\)\{ if\(typeof toast==='function'\) toast\([^)]*\); return false; \}/.test(wd), '꾸미기 — 그린 층 → 비었으면 파츠 바탕(원본 텍스처) · 빈 곳은 그대로');
-
-say('── 7. 🖱 우클릭 콕 — 언제 스포이드를 부르나');
-/* 가짜 시계 · 타이머 — 순서만 본다 */
-function rcRig(){
-  const st = { t:1000, timers:[], picks:[] };
-  const R = P.createRightPick({ now:() => st.t, pick:(e) => st.picks.push(e.tag),
-    setTimeout:(f, ms) => { const h = { f, at:st.t + ms }; st.timers.push(h); return h; }, clearTimeout:(h) => { st.timers = st.timers.filter(x => x !== h); } });
-  st.R = R;
-  st.tick = (ms) => { st.t += ms; const due = st.timers.filter(h => h.at <= st.t); st.timers = st.timers.filter(h => h.at > st.t); due.forEach(h => h.f()); };
-  return st;
-}
-const E = (tag, x, y, extra) => Object.assign({ tag, clientX:x || 100, clientY:y || 100, button:2 }, extra || {});
-{ const s1 = rcRig(); s1.R.down(E('d')); s1.tick(80); s1.R.up(E('up')); s1.tick(5); s1.R.menu(E('menu')); s1.tick(1000);
-  chk(s1.picks.join() === 'up', 'Windows 순서(누름 → 뗌 → 메뉴) — 뗄 때 한 번, 뒤따르는 메뉴는 같은 클릭이라 건너뜀'); }
-{ const s2 = rcRig(); s2.R.down(E('d')); s2.R.menu(E('menu')); s2.tick(100); s2.R.up(E('up')); s2.tick(1000);
-  chk(s2.picks.join() === 'up', 'mac 순서(누름 → 메뉴 → 뗌) — 뗄 때 한 번(메뉴 때 미리 안 집음)'); }
-{ const s3 = rcRig(); s3.R.down(E('d')); s3.R.menu(E('menu')); s3.tick(P.RC_UP_GAP_MS); const early = s3.picks.length; s3.tick(1000);
-  chk(early === 0 && s3.picks.join() === 'menu', 'mac 에서 pointerup 이 안 와도 — 안 움직이면 ' + 'RC_HOLD_MS 뒤 한 번 집는다(예전엔 아무 일 없음)'); }
-{ const s4 = rcRig(); s4.R.down(E('d')); s4.R.menu(E('menu')); s4.R.move(E('m', 160, 100)); s4.tick(2000); s4.R.up(E('up', 160, 100)); s4.R.menu(E('menu2', 160, 100)); s4.tick(1000);
-  chk(s4.picks.length === 0, '오른쪽 끌기(회전) — mac · Windows 어느 순서든 색을 안 바꾼다'); }
-{ const s5 = rcRig(); s5.R.menu(E('menu')); s5.tick(1000);
-  chk(s5.picks.join() === 'menu', 'pointer 이벤트 없이 메뉴만 와도 집는다'); }
-{ const s6 = rcRig(); s6.R.down(E('d')); s6.R.move(E('m', 102, 101)); s6.R.up(E('up', 102, 101));
-  chk(s6.picks.join() === 'up', '손떨림(4px 이하)은 콕으로 본다'); }
-{ const s7 = rcRig(); s7.R.down(E('d')); s7.R.menu(E('menu')); s7.tick(1000); s7.R.up(E('up'));
-  chk(s7.picks.join() === 'menu', '오래 누르고 있다가 떼도 한 번만'); }
-chk(P.isSecondaryClick({ button:2 }) && P.isSecondaryClick({ button:0, ctrlKey:true }) && !P.isSecondaryClick({ button:0 }) && !P.isSecondaryClick({ button:0, ctrlKey:true, metaKey:true }), 'mac Ctrl+클릭도 우클릭(button 0 + ctrlKey)');
-const bp = A.slice(A.indexOf('function bindPaint('), A.indexOf('function bindPaint(') + 4000);
-chk(/PaintTools\.createRightPick\(\{ pick:pickNow \}\)/.test(bp) && /cv\.addEventListener\('contextmenu',e=>\{ e\.preventDefault\(\); if\(rcPick\) rcPick\.menu\(e\); \}\);/.test(bp)
-  && /if\(isRc\(e\)\)\{ _rcOrbit=/.test(bp) && /if\(rcPick\) rcPick\.up\(e\);/.test(bp), '사람 — 우클릭 · Ctrl+클릭 · 메뉴 · 뗌을 판정기에');
-chk(/createRightPick\(\{ pick:\(e\)=>\{ if\(paintTab\) pPickColor\(e\); \} \}\)/.test(N) && /cv\.addEventListener\('contextmenu',e=>\{ e\.preventDefault\(\); if\(_rcPick\) _rcPick\.menu\(e\); \}\);/.test(N)
-  && /if\(e\.button===0 && paintTab && !_isRc\(e\)\)\{/.test(N) && /if\(_rcPick\) _rcPick\.up\(e\);/.test(N), '동물 — 같은 판정기 · Ctrl+클릭은 칠하기가 아니라 스포이드');
-chk(/createRightPick\(\{ pick:\(e\)=>\{ if\(_wdPic\.on\) _wdPicEyedrop\(e\); \} \}\)/.test(A) && /cv\.addEventListener\('contextmenu', e=>\{ if\(_wdPic\.on && _wdRcPick\)\{ e\.preventDefault\(\); _wdRcPick\.menu\(e\); \} \}, true\);/.test(A)
-  && /if\(_wdRcPick\) _wdRcPick\.up\(e\);/.test(A), '꾸미기 — 같은 판정기');
-chk(!/[^{]\s*cv\.setPointerCapture\(e\.pointerId\);/.test(N.replace(/try\{ cv\.setPointerCapture\(e\.pointerId\); \}catch\(_\)\{\}/g, '')), '동물 — setPointerCapture 가 던져도(끝난 포인터) 판정이 안 끊긴다');
-
-say('── 8. 🪣 동물 양팔 · 🔒 알림');
+say('── 6. 🪣 동물 양팔 · 🔒 알림');
 const armIsl = [...bSet].map(id => { const ts = trisOf(bIds, id); let x = 0, n = 0; ts.forEach(t => { for(let k = 0; k < 3; k++){ x += body.pos[body.index.getX(t * 3 + k) * 3]; n++; } }); return { id, ts, x:x / n }; })
   .filter(o => Math.abs(o.x) > 0.3).sort((a, b) => a.x - b.x);
 chk(armIsl.length === 2 && armIsl[0].x < 0 && armIsl[1].x > 0, `동물 몸에 팔 조각 둘(x ${armIsl.map(o => o.x.toFixed(2)).join(' · ')}) — 서로 다른 섬`);
@@ -286,7 +264,6 @@ chk(/const LOCK_MSG=\{ ear:'지금은 귀만 칠할 수 있어요/.test(SRC['ani
 chk(/if\(!_partAllowed\(tgt\)\)\{ _lockToast\(\); return false; \}/.test(pb) && /if\(!_partAllowed\(tgt\)\)\{ pLastX=pLastY=null; _lockToast\(\); return; \}/.test(grab(N, 'pPaintEvent')), '🔒 페인트통 · 붓이 잠금에 막히면 알린다');
 chk(/if\(now-_lockToastAt<1500\) return;/.test(grab(N, '_lockToast')), '🔒 붓은 한 획에 여러 번 막히므로 1.5초에 한 번만');
 chk(/if\(!hit \|\| !hit\.object\)\{ if\(typeof toast==='function'\) toast\('캐릭터를 눌러 채워요'\); return false; \}/.test(pb) && /if\(!hit\)\{ if\(typeof toast==='function'\) toast\('얼굴을 눌러 채워요'\); return false; \}/.test(bf), '빈 곳을 페인트통으로 누르면 알린다(사람 · 동물)');
-chk(/if\(!hit\)\{ if\(typeof toast==='function'\) toast\('파츠 위를 우클릭하면 그 색을 집어요'\); return false; \}/.test(wd) && /toast\('캐릭터 위를 우클릭하면 그 색을 집어요'\)/.test(ap), '빈 곳 스포이드도 알린다(색은 그대로)');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

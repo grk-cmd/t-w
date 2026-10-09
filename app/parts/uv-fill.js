@@ -124,8 +124,104 @@ function islandTriangles(geometry, size, faceIndex, uv){
 function fillIsland(ctx, geometry, size, faceIndex, uv, opts){
   return fillTriangles(ctx, islandTriangles(geometry, size, faceIndex, uv), opts);
 }
+/* 같은 geometry 에서 누른 섬을 **뺀** 나머지 섬들의 삼각형 — 번짐(bleed)이 넘어가면 안 되는 자리. */
+function otherIslandTriangles(geometry, size, faceIndex, uv){
+  const ids = islandIds(geometry); if(!ids) return [];
+  let f = (typeof faceIndex === 'number' && faceIndex >= 0 && faceIndex < ids.length) ? (faceIndex | 0) : -1;
+  if(f < 0 && uv) f = triangleAtUv(geometry, uv.x, uv.y);
+  const id = f >= 0 ? ids[f] : -1, g = geometry, a = g.attributes.uv, out = [];
+  for(let t = 0; t < ids.length; t++){
+    if(ids[t] === id) continue;
+    const i0 = _vIdx(g, t * 3), i1 = _vIdx(g, t * 3 + 1), i2 = _vIdx(g, t * 3 + 2);
+    const tri = [a.getX(i0) * size, a.getY(i0) * size, a.getX(i1) * size, a.getY(i1) * size, a.getX(i2) * size, a.getY(i2) * size];
+    if(tri.every(v=>isFinite(v))) out.push(tri);
+  }
+  return out;
+}
 
-const api = { FILL_PAD_PX, uvTriangles, fillMesh, fillTriangles, islandIds, triangleAtUv, islandTriangles, fillIsland };
+/* ── 가장자리 번짐(bleed) ──
+   [왜] 조각 삼각형만 딱 맞게 칠하면 경계 바로 바깥 텍셀은 옛 색(안 칠한 바탕)으로 남는다. 텍스처는 쌍선형 필터와
+     밉맵(멀리서 볼 때 2×2 · 4×4 … 를 평균낸 작은 판)으로 읽혀서, 경계 텍셀이 그 옛 색을 섞어 **조각 둘레에 가는 테두리**가
+     보였다(제보). 원본 텍스처들이 조각 둘레에 «여백(gutter)» 을 같은 색으로 채워 두는 이유와 같다.
+   [방법] 텍셀 단위로 직접 칠한다.
+     ① 조각 · 다른 조각을 텍셀 중심으로 래스터화한다(라벨: 1 = 이 조각, 2 = 다른 조각).
+     ② 둘 다에서 동시에 한 칸씩 넓혀 간다(8방향 · 최대 bleed 칸). 빈 텍셀은 **먼저 닿은 쪽**(가장 가까운 조각)의 것이 된다 —
+        두 조각 사이 여백은 반씩 나눠 가지므로 이웃 조각의 둘레를 덮지 않는다. 다른 조각 안쪽(라벨 2)은 절대 안 칠한다.
+     ③ 라벨 1 인 텍셀만 지금 색(알파 255)으로 바꾼다(지우기면 알파 0).
+   bleed 기본은 크기의 1/128(512 → 4칸) — 밉맵 2단계(4×4 평균)까지 경계가 깨끗하다. */
+const BLEED_DIV = 128;
+const bleedFor = (size)=>Math.max(2, Math.round(size / BLEED_DIV));
+function _raster(tris, size, lab, val){
+  for(const t of tris){
+    const x0 = t[0], y0 = t[1], x1 = t[2], y1 = t[3], x2 = t[4], y2 = t[5];
+    const d = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2);
+    if(!(Math.abs(d) > 1e-9)) continue;
+    const minX = Math.max(0, Math.floor(Math.min(x0, x1, x2))), maxX = Math.min(size - 1, Math.ceil(Math.max(x0, x1, x2)));
+    const minY = Math.max(0, Math.floor(Math.min(y0, y1, y2))), maxY = Math.min(size - 1, Math.ceil(Math.max(y0, y1, y2)));
+    for(let y = minY; y <= maxY; y++){
+      const py = y + 0.5;
+      for(let x = minX; x <= maxX; x++){
+        const px = x + 0.5;
+        const l1 = ((y1 - y2) * (px - x2) + (x2 - x1) * (py - y2)) / d;
+        const l2 = ((y2 - y0) * (px - x2) + (x0 - x2) * (py - y2)) / d;
+        if(l1 >= 0 && l2 >= 0 && 1 - l1 - l2 >= 0){ const k = y * size + x; if(val === 1 || lab[k] !== 1) lab[k] = val; }
+      }
+    }
+  }
+}
+/* 칠할 텍셀 표(Uint8Array · 1 = 칠함). target 이 텍셀 하나도 못 덮으면(아주 가는 조각) 삼각형 꼭짓점 텍셀로 씨앗을 심는다. */
+function regionMask(size, target, others, bleed){
+  const n = size * size, lab = new Uint8Array(n);
+  _raster(others || [], size, lab, 2);
+  _raster(target || [], size, lab, 1);
+  const q = new Int32Array(n); let qh = 0, qt = 0;
+  let seeded = false;
+  for(let k = 0; k < n; k++) if(lab[k]){ q[qt++] = k; if(lab[k] === 1) seeded = true; }
+  if(!seeded) for(const t of (target || [])) for(let v = 0; v < 6; v += 2){
+    const x = Math.max(0, Math.min(size - 1, Math.floor(t[v]))), y = Math.max(0, Math.min(size - 1, Math.floor(t[v + 1]))), k = y * size + x;
+    if(!lab[k]){ lab[k] = 1; q[qt++] = k; }
+  }
+  const dist = new Uint8Array(n);
+  const B = bleed == null ? bleedFor(size) : Math.max(0, bleed | 0);
+  while(qh < qt){
+    const k = q[qh++], dk = dist[k]; if(dk >= B) continue;
+    const x = k % size, y = (k / size) | 0, L = lab[k];
+    for(let dy = -1; dy <= 1; dy++){ const yy = y + dy; if(yy < 0 || yy >= size) continue;
+      for(let dx = -1; dx <= 1; dx++){ const xx = x + dx; if((!dx && !dy) || xx < 0 || xx >= size) continue;
+        const kk = yy * size + xx; if(lab[kk]) continue;
+        lab[kk] = L; dist[kk] = dk + 1; q[qt++] = kk; } }
+  }
+  const out = new Uint8Array(n);
+  for(let k = 0; k < n; k++) out[k] = lab[k] === 1 ? 1 : 0;
+  return out;
+}
+function _rgb(c){
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(c || '').trim());
+  const v = m ? parseInt(m[1], 16) : 0; return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+}
+/* 표(mask)의 텍셀을 지금 색으로(erase 면 투명으로). 바꾼 텍셀 수를 돌려준다. */
+function paintMask(ctx, size, mask, opts){
+  const o = opts || {}, rgb = _rgb(o.color);
+  const img = ctx.getImageData(0, 0, size, size), d = img.data;
+  let c = 0;
+  for(let k = 0; k < mask.length; k++){
+    if(!mask[k]) continue;
+    const i = k * 4; c++;
+    if(o.erase){ d[i] = d[i + 1] = d[i + 2] = d[i + 3] = 0; }
+    else { d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2]; d[i + 3] = 255; }
+  }
+  if(c) ctx.putImageData(img, 0, 0);
+  return c;
+}
+/* 조각(target 삼각형)을 둘레 번짐까지 칠한다 — others(같은 그림판을 쓰는 다른 조각 · 다른 메쉬) 안쪽은 안 건드린다. */
+function fillRegion(ctx, size, target, others, opts){
+  if(!target || !target.length) return 0;
+  const o = opts || {};
+  return paintMask(ctx, size, regionMask(size, target, others, o.bleed), o);
+}
+
+const api = { FILL_PAD_PX, BLEED_DIV, bleedFor, uvTriangles, fillMesh, fillTriangles, islandIds, triangleAtUv, islandTriangles, otherIslandTriangles, fillIsland,
+              regionMask, paintMask, fillRegion };
 if(typeof window !== 'undefined') window.UvFill = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

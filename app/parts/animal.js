@@ -531,23 +531,20 @@ function buildOverlay(){
   // 회전: 드래그(상하좌우) + 휠 줌 + 좌우 화살표(15°)
   const cv=overlay.querySelector('#anpCv');
   // 🖱️ 우클릭 드래그 = 회전 (인간 생성기와 통일). 좌클릭은 기즈모 전용.
-  /* 💧 우클릭 콕 = 스포이드 — pointerup · contextmenu 중 먼저 오는 쪽에서 한 번(paint-tools.js createRightPick 주석: mac 순서) */
-  const _rcPick=(typeof PaintTools!=='undefined') ? PaintTools.createRightPick({ pick:(e)=>{ if(paintTab) pPickColor(e); } }) : null;
-  const _isRc=(e)=>(typeof PaintTools!=='undefined') ? PaintTools.isSecondaryClick(e) : e.button===2;
-  cv.addEventListener('contextmenu',e=>{ e.preventDefault(); if(_rcPick) _rcPick.menu(e); });
+  cv.addEventListener('contextmenu',e=>e.preventDefault());
   let _rcDown=null;   // 우클릭 상태 — 드래그면 회전, 콕이면 스포이드(페인트 탭)
   cv.addEventListener('pointerdown',e=>{
     if(_gizmoDragging) return;
-    if(e.button===0 && paintTab && !_isRc(e)){
+    if(e.button===0 && paintTab){
       if(aStampMode) return;   // 도장 편집 중 — 오버레이(이동·핸들)가 조작 담당, 캔버스 클릭은 그리지 않음(인간과 동일)
       const act=aPaintTool?aPaintTool.pointerAction(e):'stroke';
       if(act!=='stroke'){ pBucketEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
       pPushHist(); pPainting=true; pLastX=pLastY=null; pLastSX=pLastSY=null;   // 브러시
-      pPaintEvent(e,true); try{ cv.setPointerCapture(e.pointerId); }catch(_){} return;
+      pPaintEvent(e,true); cv.setPointerCapture(e.pointerId); return;
     }
-    if(!_isRc(e)) return;   // 오른쪽 버튼 · mac Ctrl+클릭
-    _rcDown={x:e.clientX,y:e.clientY,moved:false}; if(_rcPick) _rcPick.down(e);
-    dragging=true; lastX=e.clientX; lastY=e.clientY; try{ cv.setPointerCapture(e.pointerId); }catch(_){}
+    if(e.button!==2) return;
+    _rcDown={x:e.clientX,y:e.clientY,moved:false};
+    dragging=true; lastX=e.clientX; lastY=e.clientY; cv.setPointerCapture(e.pointerId);
   });
   cv.addEventListener('pointermove',e=>{
     /* 🖌 커서 = 지금 도구(페인트 탭에서만 · 도장 중엔 기본) */
@@ -555,14 +552,13 @@ function buildOverlay(){
     if(pPainting){ pPaintEvent(e,false); return; }
     if(!dragging) return;
     if(_rcDown && !_rcDown.moved && Math.abs(e.clientX-_rcDown.x)+Math.abs(e.clientY-_rcDown.y)>4) _rcDown.moved=true;
-    if(_rcPick) _rcPick.move(e);
     rotY += (e.clientX-lastX)*0.012;   // 오른쪽 드래그 = 앵글이 오른쪽으로 (사용자 확정 방향)
     rotX = Math.max(-0.55, Math.min(0.9, rotX + (e.clientY-lastY)*0.008));   // 위/아래에서 보기 (과회전 방지 클램프)
     lastX=e.clientX; lastY=e.clientY;
   });
   cv.addEventListener('pointerup',e=>{
     if(pPainting){ pPainting=false; pLastX=pLastY=null; pLastSX=pLastSY=null; return; }
-    if(_rcDown){ if(_rcPick) _rcPick.up(e); else if(!_rcDown.moved && paintTab) pPickColor(e); }   // 우클릭 콕 = 색 추출 (인간과 동일)
+    if(dragging && _rcDown && !_rcDown.moved && paintTab) pPickColor(e);   // 우클릭 콕 = 색 추출 (인간과 동일)
     _rcDown=null; dragging=false;
   });
   // ▲▼◀▶ — 좌우는 15° 앵글 회전, 상하는 카메라 이동(팬). 인간 생성기(cpLeft 등)와 같은 문법.
@@ -1500,7 +1496,7 @@ function _canvasForMesh(mesh){
   for(const side of ['L','R']){
     const w = side==='L'?earObjL:earObjR;
     if(w){ let hit=false; w.traverse(o=>{ if(o===mesh) hit=true; });
-      if(hit){ _ensureEarCv(side); return {draw:_earDraw(side), blit:()=>_blitEar(side), isEar:true, part:'ear', side}; } }
+      if(hit){ _ensureEarCv(side); return {draw:_earDraw(side), blit:()=>_blitEar(side), isEar:true, part:'ear'}; } }
   }
   // 몸/얼굴은 같은 캔버스를 쓰지만 부위는 구분해서 알려준다(부위 잠금용)
   return {draw:pActC(), blit:pBlit, isEar:false, part:_isFaceMesh(mesh)?'face':'body'};
@@ -1569,6 +1565,19 @@ function pPaintEvent(e, isStart){
 /* 🪣 페인트통 — 누른 메쉬의 조각(UV 섬)만 채운다(erase 면 그 조각만 지운다 → 흰 바탕).
    얼굴과 몸은 캔버스 한 장을 같이 쓰지만 메쉬가 달라서 조각은 서로 안 섞인다(전체 채우기 Shift+G 와 다른 점).
    부위 잠금(귀만 · 얼굴만 · 몸만) · 대칭은 붓과 같은 규칙. 되돌리기 한 칸(pPushHist — 몸 + 좌우 귀 세트). */
+/* 같은 그림판을 쓰는 다른 메쉬의 geometry — 페인트통 둘레 번짐이 그 안쪽을 덮지 않게(paint-tools.js applyBucket peers).
+   귀는 그 귀의 다른 메쉬, 몸 · 얼굴은 귀를 뺀 보이는 메쉬 전부(몸 ↔ 지금 얼굴형). 안 보이는 얼굴형은 빼도 된다 — 보일 때 다시 칠하면 된다. */
+function _canvasPeers(mesh){
+  const out=[];
+  for(const side of ['L','R']){
+    const w = side==='L'?earObjL:earObjR; let mine=false;
+    if(w) w.traverse(o=>{ if(o===mesh) mine=true; });
+    if(mine){ w.traverse(o=>{ if(o.isMesh && o!==mesh && o.geometry) out.push(o.geometry); }); return out; }
+  }
+  const ears=new Set(); [earObjL,earObjR].forEach(w=>{ if(w) w.traverse(o=>{ if(o.isMesh) ears.add(o); }); });
+  if(model) model.traverse(o=>{ if(o.isMesh && o.visible && o!==mesh && !ears.has(o) && o.geometry) out.push(o.geometry); });
+  return out;
+}
 function pBucketEvent(e, erase){
   if(!aPaintTool) return false;
   const hit=pHit(e);
@@ -1576,27 +1585,20 @@ function pBucketEvent(e, erase){
   const tgt=_canvasForMesh(hit.object);
   if(!_partAllowed(tgt)){ _lockToast(); return false; }
   const opt={ color:pColor, erase:!!erase, size:P_SZ };
-  const n=aPaintTool.bucket(Object.assign({ ctx:tgt.draw.getContext('2d'), geometry:hit.object.geometry, faceIndex:hit.faceIndex, uv:hit.uv, pushHistory:pPushHist }, opt));
+  const n=aPaintTool.bucket(Object.assign({ ctx:tgt.draw.getContext('2d'), geometry:hit.object.geometry, faceIndex:hit.faceIndex, uv:hit.uv, peers:_canvasPeers(hit.object), pushHistory:pPushHist }, opt));
   if(!n){ if(typeof toast==='function') toast('여기는 채울 그림 자리가 없어요'); return false; }
   tgt.blit();
   if(pSym){
     const mh=_pMirrorHit(hit);
     if(mh && mh.object){ const mt=_canvasForMesh(mh.object);
-      if(_partAllowed(mt) && aPaintTool.bucket(Object.assign({ ctx:mt.draw.getContext('2d'), geometry:mh.object.geometry, faceIndex:mh.faceIndex, uv:mh.uv }, opt))) mt.blit(); }
+      if(_partAllowed(mt) && aPaintTool.bucket(Object.assign({ ctx:mt.draw.getContext('2d'), geometry:mh.object.geometry, faceIndex:mh.faceIndex, uv:mh.uv, peers:_canvasPeers(mh.object) }, opt))) mt.blit(); }
   }
   return true;
 }
-/* 💧 스포이드 — 맞힌 메쉬의 그림 층(몸·얼굴 / 그 쪽 귀)에서 칠해진 색을, 비었으면 흰 바탕(P_BASE)을 읽는다.
-   ⚠️ 예전엔 귀를 눌러도 몸 화면 캔버스(pDispC)의 같은 UV 를 읽어 엉뚱한 색이 나왔다 — 귀는 캔버스가 따로다.
-   빈 곳(아무 메쉬도 안 맞음)은 색을 안 바꾼다. */
-const P_BASE='#ffffff';   // 안 칠한 곳 = 흰색(pBlit · _blitEar 와 같은 값)
 function pPickColor(e){
-  const h=pHit(e); const uv=h&&h.uv;
-  if(!uv||!h.object){ if(typeof toast==='function') toast('캐릭터 위를 우클릭하면 그 색을 집어요'); return; }
-  const tgt=_canvasForMesh(h.object);
-  const hex=(typeof PaintTools!=='undefined') ? PaintTools.sampleLayers([P_BASE, tgt.draw], uv) : null;
-  if(!hex){ if(typeof toast==='function') toast('여기서는 색을 집을 수 없어요'); return; }
-  pColor=hex;
+  const h=pHit(e); const uv=h&&h.uv; if(!uv||!pDispC) return;
+  const d=pDispC.getContext('2d').getImageData(Math.floor(uv.x*P_SZ),Math.floor(uv.y*P_SZ),1,1).data;
+  pColor='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
   /* 🎨 [2026-10-02] 인간 생성기 스포이드와 맞춘다 — 뽑은 색을 자유 색 칸에 넣고 칩 선택 표시를 끈다.
      그래야 기본 칩으로 갔다가 자유 색 칸을 눌러 이 색으로 돌아올 수 있다. */
   if(overlay){
