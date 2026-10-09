@@ -9,6 +9,7 @@ import {
   useBugPost,
   type BugPost,
 } from '@/entities/bug-board';
+import { ReportTodoButton, ReportTodos } from '@/features/admin-todo/edit-todo';
 import { AnswerForm } from '@/features/bug-board/answer-post';
 import { StatusButtons } from '@/features/bug-board/change-status';
 import { DeletePostButton } from '@/features/bug-board/delete-post';
@@ -73,6 +74,11 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
       </section>
 
       <section className={styles.section}>
+        <h3>할 일</h3>
+        <ReportTodos reportId={item.id} />
+      </section>
+
+      <section className={styles.section}>
         <h3>답변 {answers.length}</h3>
         {answers.length === 0 && <p className="soft">답변 없음</p>}
         {answers.map((a) => (
@@ -116,6 +122,9 @@ export function BugPostDetail({ id, onClose }: { id: string | null; onClose: () 
         <button type="button" className="btn" onClick={onClose}>
           닫기
         </button>
+        {open && data && (
+          <ReportTodoButton key={data.item.id} item={data.item} title={data.content?.title ?? ''} />
+        )}
       </div>
       {open && isLoading && <p className={`soft ${styles.pad}`}>불러오는 중…</p>}
       {open && error && (

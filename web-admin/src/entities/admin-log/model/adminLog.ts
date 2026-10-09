@@ -61,6 +61,9 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'improvements.add': '개선 기록 추가',
   'improvements.edit': '개선 기록 수정',
   'improvements.delete': '개선 기록 삭제',
+  'todo.create': '할 일 추가',
+  'todo.update': '할 일 수정',
+  'todo.delete': '할 일 삭제',
   'account.delete': '계정 삭제',
 };
 
@@ -76,6 +79,7 @@ export const LOG_GROUPS = [
   { id: 'room', label: '방' },
   { id: 'catalog', label: '카탈로그' },
   { id: 'bug', label: '제보' },
+  { id: 'todo', label: '할 일' },
   { id: 'improvements', label: '개선 기록' },
   { id: 'account', label: '계정' },
 ] as const;

@@ -1,0 +1,17 @@
+/* 머리줄(닫기 버튼 줄)은 오른쪽 정렬 flex — 닫기보다 앞(왼쪽)에 둔다. */
+.slot {
+  position: relative;
+  order: -1;
+  margin-right: 6px;
+  text-decoration: none;
+}
+
+.pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 2;
+  width: min(440px, calc(100vw - 32px));
+  box-shadow: 0 6px 24px rgb(0 0 0 / 18%);
+  text-align: left;
+}
