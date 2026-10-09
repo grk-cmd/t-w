@@ -85,7 +85,7 @@ const A = new Function(unexport(RA) + '\nreturn { ROOM_ALIVE_MIN_VER, ROOM_ALIVE
     const r2 = await f.sweepRoomAlive(db2, now);
     chk(!db2.removed.length && r2.kept === 1, '청소하는 사이에 도장을 다시 찍었으면(살아남) 그만둔다');
     const SRC = need('functions/room-stats.js');
-    chk(/if \(!light\)\{ try\{ alive = await sweepRoomAlive\(db, now\); \}/.test(SRC), '청소는 1분 주기 실행에서만 — 방 열림 · 닫힘 트리거(light)는 안 한다');
+    chk(/if \(!light\)\{\s*let tree = null;[\s\S]{0,200}if \(tree\)\{ try\{ alive = await sweepRoomAlive\(db, now, tree\); \}/.test(SRC), '청소는 1분 주기 실행에서만 — 방 열림 · 닫힘 트리거(light)는 안 한다 (roomAlive 트리는 빈 방 청소와 같이 한 번 읽는다)');
   }
 
   say('── 3. firebase-init.js 연결');

@@ -93,7 +93,12 @@ chk(!!ctv && ctv === rules.chatLog.$msgId['.validate'], '④ _chatTab 기록 검
 chk(!rules.chatTab, '  규칙에 `chatTab`(밑줄 없는) 자리는 없다');
 const mv = rules.$memberId['.validate'];
 chk(/newData\.child\('tab'\)\.val\(\)\.length <= 16/.test(mv) && /newData\.child\('chatTab'\)\.child\('text'\)\.val\(\)\.length <= 140/.test(mv), 'presence tab · chatTab 검증 (text ≤ 140)');
-chk(/if\(keys && keys\._chatTab\) await remove\(ref\(db, `rooms\/\$\{roomCodeForCleanup\}\/_chatTab`\)\)/.test(FB), '빈 방 정리 — _meta 와 함께 탭 기록도 지운다(탭 정의가 사라지므로)');
+{
+  const fc = (FB.match(/const _finalCleanup = async \(keys\)=>\{[\s\S]*?\n {10}\};/) || [''])[0];
+  const FN = read('functions/room-stats.js') || '';
+  chk(fc.length > 0 && !/\/_chatTab`/.test(fc) && /if \(keys && keys\._chatTab\) await db\.ref\('rooms\/' \+ code \+ '\/_chatTab'\)\.remove\(\);/.test(FN),
+      '빈 방 정리 — 탭 기록은 서버 함수가 _meta 와 함께 걷는다(앱 퇴장은 안 지운다 · sim-room-meta-cleanup.js)');
+}
 chk(/async deleteChatTab\(room, tabId\)\{[\s\S]{0,300}_meta\/tabs\/\$\{tabId\}`\] = null;[\s\S]{0,80}_chatTab\/\$\{tabId\}`\] = null;/.test(FB), '탭 삭제는 정의 · 기록을 한 묶음으로');
 chk(/runTransaction\(ref\(db, `rooms\/\$\{room\}\/_meta\/tabs`\)/.test(FB), '탭 추가는 트랜잭션 — 동시에 눌러도 셋째가 안 생긴다');
 chk(/방장 제한은 \*\*화면 수준\*\*/.test(FB) && /방장 제한은 \*\*화면 수준\*\*/.test(APP), '방장 제한이 화면 수준이라는 한계를 주석으로 남겼다');

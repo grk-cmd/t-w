@@ -10,7 +10,7 @@
 
    ★ 이 검사가 지키는 것 — 셋이 한 묶음이다. 하나만 어긋나도 제보가 그대로 돌아온다.
      §1 두 청소 자리가 chatLog 를 안 지운다 (플래그 한 곳으로 묶여 있다)
-     §2 _meta · roomIndex 삭제는 **살아 있다** — 그게 죽으면 유령 방·채널 오염이 돌아온다
+     §2 _meta 는 서버 함수가 걷고(2분 뒤 · 다시 보고) 퇴장은 roomIndex 줄에 비었음 표시 — 둘 다 죽으면 유령 방·채널 오염이 돌아온다
      §3 기록만 남은 방은 여전히 '빈 방'이다 (인원 세는 곳이 chatLog 를 멤버로 안 센다)
      §4 '처음 입장한 사람은 이전 기록을 못 본다'는 규칙이 **localStorage 에** 남아 있다
         — 기록을 지우는 것으로 대신하고 있었으므로, 지금부터는 이쪽이 유일한 담당이다
@@ -94,14 +94,18 @@ chk(/!KEEP_CHAT_LOG_ON_EMPTY && keys && keys\.chatLog/.test(HTML),
 say('');
 
 /* ── §2. 같이 지우면 안 되는 것 / 계속 지워야 하는 것 ───────────── */
-say('· §2 _meta · roomIndex 는 그대로 지운다');
+say('· §2 _meta 는 서버 함수가 걷는다 · roomIndex 줄엔 비었음 표시');
 
-const finalCleanup = (HTML.match(/const _finalCleanup = async \(keys\)=>\{[\s\S]*?\};/) || [''])[0];
+/* _meta 지우기는 앱 퇴장에서 서버 함수로 옮겼다(퇴장의 «확인 → 지우기» 경쟁) — sim-room-meta-cleanup.js 가 자세히 본다.
+   여기서는 «누군가는 여전히 지운다» · «chatLog 는 서버도 안 지운다» 만 붙잡는다. */
+const finalCleanup = (HTML.match(/const _finalCleanup = async \(keys\)=>\{[\s\S]*?\n {10}\};/) || [''])[0];
+const FN_RS = ['functions/room-stats.js', '../functions/room-stats.js'].map(f => fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '').join('');
 chk(finalCleanup.length > 0, '_finalCleanup 블록을 찾았다');
-chk(/rooms\/\$\{roomCodeForCleanup\}\/_meta/.test(finalCleanup) && !/KEEP_CHAT_LOG_ON_EMPTY[\s\S]*_meta`/.test(finalCleanup),
-    '\u2605 _meta 삭제는 조건 없이 남아 있다 (안 지우면 다음 사람이 남의 채널·방장을 물려받는다)');
-chk(/roomIndex\/\$\{roomCodeForCleanup\}/.test(finalCleanup),
-    '\u2605 roomIndex 삭제도 남아 있다 (\uD83D\uDCB0 요약 노드가 영구 잔류하면 카운트 비용이 는다)');
+chk(FN_RS.length > 0 && !/chatLog['`]\)\.remove/.test(FN_RS), '서버 함수도 chatLog 는 안 지운다');
+chk(/const r = await db\.ref\('rooms\/' \+ code \+ '\/_meta'\)\.transaction\(/.test(FN_RS),
+    '\u2605 _meta 는 서버 함수가 트랜잭션으로 지운다 (아무도 안 지우면 남은 표지가 쌓인다)');
+chk(/update\(ref\(db, `roomIndex\/\$\{roomCodeForCleanup\}`\), \{ lastSeen: 0, emptyAt: serverTimestamp\(\) \}\)/.test(finalCleanup),
+    '\u2605 마지막 퇴장은 roomIndex 줄에 비었음 표시를 남긴다 — 방 개수 · 랜덤 후보에서 바로 빠진다 (\uD83D\uDCB0 서버가 이 줄로 빈 방을 찾는다)');
 
 say('');
 
