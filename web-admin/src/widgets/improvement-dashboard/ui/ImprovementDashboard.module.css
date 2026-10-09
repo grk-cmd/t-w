@@ -1,0 +1,98 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.trend h2,
+.entry h2 {
+  margin: 0;
+}
+
+.trend > p {
+  margin: 2px 0 10px;
+  font-size: 13px;
+}
+
+.entryHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.entryHead p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+
+.items {
+  margin: 10px 0;
+  padding-left: 20px;
+  font-size: 14px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th,
+.table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th {
+  font-weight: normal;
+}
+
+.table tbody th,
+.table thead th:first-child {
+  text-align: left;
+}
+
+.table thead th small {
+  display: block;
+  font-size: 11px;
+}
+
+.down {
+  color: var(--ok);
+  font-weight: bold;
+}
+
+.saving {
+  margin: 10px 0 0;
+  font-size: 15px;
+}
+
+.saving strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.foot {
+  margin: 6px 0 0;
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .toolbar,
+  .entryHead {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
