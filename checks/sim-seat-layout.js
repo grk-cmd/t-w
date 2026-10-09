@@ -223,12 +223,12 @@ say('── 7. 층(최대 3)');
   chk(L.minLiftFor(x => x >= 2.5, 0, 8) - 2.5 < 1e-4 && L.minLiftFor(x => x >= 0, 0, 8) === 0 && L.minLiftFor(x => false, 0, 8) === 8, 'minLiftFor — 조건을 처음 만족하는 높이');
 }
 
-say('── 6. app.js 배선');
+say('── 7-1. 층 · 상태칩 · 손잡이 배선');
 {
   const A0 = SRC['app.js'];
   chk(/const plan = SeatLayout\.planFloors\(roomFloors, ROOM_FLOOR_GAPS\.length, \(n, g\)=>\{\n    const f = SeatLayout\.splitFloors\(c\.hws, c\.spacing, bandW, n\);/.test(A0) && /var ROOM_FLOORS_KEY = 'tw\.roomFloors';/.test(A0) && /roomFloors = \(roomFloors % SeatLayout\.MAX_FLOORS\) \+ 1;/.test(A0), '층 나누기: 띠 폭(월드)으로 · 설정 tw.roomFloors(1 → 2 → 3)');
   chk(/const bx = \(i\)=>\(c\.boxes && c\.boxes\[i\]\) \|\| _rowSeatBoxWithTower\(c\.seats\[i\]\);/.test(A0) && /const ROOM_FLOOR_GAPS = \[\{ labelsPx: 46, gapPx: 4 \}, \{ labelsPx: 38, gapPx: 0 \}\];/.test(A0), '층 높이: 실제 좌석 상자(캐릭터 크기 · 동물 40% · 책상) · 여백 보통 → 좁게');
-  chk(/if\(seat\.group && !seat\.ridingOn && !seat\.seatedOn && \(floorChanged/.test(A0) && /s\._rowFloorY = 0;/.test(A0), '층 높이는 올라탄 · 벤치 좌석은 건드리지 않고 · 방을 나가면 0 으로');
+  chk(/if\(seat\.group && !seat\.ridingOn && !seat\.seatedOn && Math\.abs\(seat\.group\.position\.y - fy\) > 1e-6\) seat\.group\.position\.y = fy;/.test(A0) && /s\._rowFloorY = 0;/.test(A0), '층 높이는 올라탄 · 벤치 좌석은 건드리지 않고 · 방을 나가면 0 으로');
   chk(/const cxChip = _chipNatDx \? /.test(A0) && /px0 = placeRight \? \(cxChip \+ CHAR_HALF_PX/.test(A0) && /_charBoundsLatest = \{ x: cx, y: cy/.test(A0), '상태칩은 줄을 넘겨도 처음 자리 — main 에 보내는 캐릭터 원은 실제 자리');
   chk(/if\(!_rowRoomMode \|\| !c \|\| c\.fixRight \|\| !c\.natX/.test(A0), '«맨 오른쪽 고정» 이면 칩은 원래대로');
   chk(/id="fsRoomFloorsToggle"/.test(SRC['desk-companion-prototype.html']), 'html: 캐릭터 탭 «방 줄 층 수»');
@@ -240,6 +240,25 @@ say('── 6. app.js 배선');
   chk(/if\(opts\.same\)\{ def = clone\(me\.charDef\); \}/.test(A0), '__devFakeSeats(n, {same:true}) — 예전처럼 내 캐릭터 복제');
   chk(/<div id="roomBandHandle"[^>]*><span class="grip"><i><\/i><i><\/i><i><\/i><\/span><\/div>/.test(SRC['desk-companion-prototype.html']) && /#roomBandHandle \.grip\{[^}]*width:6px;height:28px;border-radius:3px/.test(SRC['desk-companion-prototype.html']) && /prefers-color-scheme: dark/.test(SRC['desk-companion-prototype.html']), '손잡이 모양: 짧은 알약(6×28) · 점 세 개(⋮) · 밝은/어두운 테마');
 }
+say('── 8. 좌석 크기 평준화 세 가지 · 발밑 수평');
+{
+  chk(L.parseSeatEqMode('1') === 'char' && L.parseSeatEqMode('char') === 'char' && L.parseSeatEqMode('fit') === 'fit' && L.parseSeatEqMode(null) === 'off' && L.parseSeatEqMode('0') === 'off', "옛 저장값 '1'(켜짐) → 비율 맞추기 · 없거나 '0' → 끄기");
+  chk(L.seatEqStoreValue('char') === '1' && L.seatEqStoreValue('fit') === 'fit' && L.seatEqStoreValue('off') === '0', "비율 맞추기는 계속 '1' 로 저장(옛 앱도 켜짐으로 읽는다)");
+  chk(L.nextSeatEqMode('off') === 'char' && L.nextSeatEqMode('char') === 'fit' && L.nextSeatEqMode('fit') === 'off', '누를 때마다 끄기 → 비율 맞추기 → 사이즈 맞추기 → 끄기');
+  const ref = 0.85, raws = [0.85, 1.925, 0.475, 2.135, 1.105, 0.34];
+  const ks = raws.map(r => L.fitScale(ref, r, 0.25, 4));
+  chk(raws.every((r, i) => Math.abs(r * ks[i] - ref) < 1e-9), '사이즈 맞추기 — 모든 좌석 폭이 내 좌석과 같아진다(긴 책상은 작게 · 동물은 크게)');
+  chk(L.fitScale(ref, 0.34) > 2 && L.fitScale(ref, 2.135) < 0.5, '동물(40%)은 커지고 아주 긴 책상은 작아진다');
+  chk(L.fitScale(ref, 0.01, 0.25, 4) === 4 && L.fitScale(ref, 100, 0.25, 4) === 0.25 && L.fitScale(0, 1) === 1 && L.fitScale(ref, NaN) === 1, '배율은 [0.25, 4] · 못 재면 1');
+  const A = SRC['app.js'], H = SRC['desk-companion-prototype.html'];
+  chk(/seatEqMode = \(_v === '1' \|\| _v === 'char'\) \? 'char' : \(_v === 'fit' \? 'fit' : 'off'\);/.test(A) && /let seatEqualizeOn = seatEqMode !== 'off';/.test(A), "app.js 시작 때 옛 값 '1' → 비율 맞추기 · seatEqualizeOn = 끄기가 아님");
+  chk(/if\(seatEqMode === 'fit'\) return \(isFinite\(seat\._eqFitK\) && seat\._eqFitK > 0\) \? seat\._eqFitK : 1;/.test(A) && /if\(seatEqualizeOn && seatEqMode === 'fit'\) _seatEqFitMeasure\(\);/.test(A), '사이즈 맞추기 배율도 seatEqK 한 곳으로(seatScale · 책상 · 탑 · 칸 가두기가 같은 값) · 배치 때만 잰다');
+  const fm = (A.match(/function _seatEqFitMeasure\(\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(/const h = seatDeskHalfWidth\(s\) \/ \(\(isFinite\(s\._eqK\) && s\._eqK > 0\) \? s\._eqK : 1\);/.test(fm) && !/userScale\s*=|deskScale\s*=/.test(fm), '평준화 전 폭 = 잰 폭 ÷ 지금 k · 저장값(userScale · deskScale)은 안 건드린다');
+  chk(/eqBtn\.textContent = !seatEqualizeOn \? '끄기' : \(seatEqMode === 'fit' \? '사이즈 맞추기' : '비율 맞추기'\);/.test(A) && /id="fsSeatEqToggle"[^>]*>끄기</.test(H), '버튼 글자: 끄기 · 비율 맞추기 · 사이즈 맞추기');
+  chk(/const fy = base \+ _rowLevelY\(outX\[i\], base\);/.test(A) && /function _rowLevelY\(x, baseY\)\{/.test(A) && /const floorChanged = seat\._rowFloorIdx !== undefined && seat\._rowFloorIdx !== fIdx;/.test(A), '같은 층 발밑을 화면에서 한 줄로(맨 오른쪽 고정에서 나만 낮던 것) · 층이 바뀔 때만 바로 옮긴다');
+}
+
 say('── 6. app.js 배선');
 {
   const A = SRC['app.js'], H = SRC['desk-companion-prototype.html'];

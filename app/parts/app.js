@@ -1351,8 +1351,12 @@ try{ window.ANIMAL_RUN_SCALE = ANIMAL_RUN_SCALE; }catch(_){}
    ★ 🐾 동물 40%(ANIMAL_RUN_SCALE)는 **여기에 안 들어간다.** 40% 는 fitModel 의 baseScale 과
      setDeskScale 의 animCorr 에 있는 별개의 곱셈이고, 평준화가 갈아끼우는 것은 사람이 정한
      크기(userScale)뿐이다. 그래서 평준화를 켜도 동물은 여전히 사람의 40% 로 남는다. */
-let seatEqualizeOn = false;
-try{ seatEqualizeOn = (localStorage.getItem('tw.seatEq') === '1'); }catch(_){}   // 기본 끄기(들쑥날쑥한 것도 재미)
+/* 세 가지 — 'off'(기본) · 'char'(비율 맞추기 · 예전 «켜짐» 그대로) · 'fit'(사이즈 맞추기 · 좌석 폭을 내 좌석과 같게).
+   seatEqualizeOn 은 «off 가 아니다» 를 뜻한다(다른 곳 · 옛 검사가 이 이름을 본다). 저장값은 seat-layout.js 의
+   parseSeatEqMode / seatEqStoreValue 와 같은 규칙 — 여기서는 그 파일이 아직 안 실렸을 수도 있어 직접 읽는다. */
+let seatEqMode = 'off';
+try{ const _v = localStorage.getItem('tw.seatEq'); seatEqMode = (_v === '1' || _v === 'char') ? 'char' : (_v === 'fit' ? 'fit' : 'off'); }catch(_){}   // 기본 끄기(들쑥날쑥한 것도 재미) · 옛 '1' → 캐릭터 크기
+let seatEqualizeOn = seatEqMode !== 'off';
 /* 🎁 꾸미기 파츠 표시 — [2026-09-17 요청] 끄면 **내 화면에서만**, 나 포함 모든 좌석의 꾸미기 파츠(파츠 보관함의 가챠 파츠)가
    안 보인다. 서버에는 아무것도 안 쓴다(좌석 크기 평준화와 같은 «내 화면 전용» 설정).
    · 대상: 캐릭터에 붙는 파츠 wrapper(`__twPartWrap`) 전부 — 일반·겹치기·다중 인스턴스. **책상 위(bone:'desk') 카테고리는 제외** — 책상 설정의
@@ -1378,6 +1382,9 @@ function applyDecoPartsVisibility(seat){
 }
 function seatEqK(seat){
   if(!seatEqualizeOn || !seat || seat.isMe) return 1;
+  /* 📐 사이즈 맞추기 — 좌석 상자(책상) 폭을 내 좌석과 같게. 배율은 syncSeatEqualize 가 책상을 재서 미리 구해 둔다
+     (seatScale 은 매 프레임 여러 번 불리므로 여기서 재지 않는다). 아직 못 쟀으면 1. */
+  if(seatEqMode === 'fit') return (isFinite(seat._eqFitK) && seat._eqFitK > 0) ? seat._eqFitK : 1;
   /* ⚠️ 기준은 **내 주 좌석**이다. 자리추가(isExtra) 좌석도 맞추는 대상에 넣는다 —
      남만 맞추고 내 부캐가 들쑥날쑥하면 화면은 여전히 가지런하지 않다.
      원격만 맞추고 싶으면 위 조건에 `|| seat.isExtra` 를 더하면 된다(여기 한 줄). */
@@ -1410,6 +1417,22 @@ function charLiftWorld(seat){
   const animPos = (seat.charDef && seat.charDef.animal) ? ANIMAL_RUN_SCALE : 1;
   return clampCharY(seat.userY) * animPos * ((seatScale(seat) || 1) / raw);
 }
+/* 📐 사이즈 맞추기 배율을 잰다 — 좌석마다 «평준화 전» 책상 반폭(지금 잰 값 ÷ 지금 걸린 k)을 내 좌석 반폭과 맞춘다.
+   책상은 setDeskScale 이 eqK 를 곱해 걸므로 잰 폭은 k 에 정비례한다 → 나눠서 원래 폭을 되찾는다(몇 번 돌려도 같은 값).
+   책상이 숨은 좌석(올라탄 · 벤치)은 잴 수 없어 마지막으로 잰 값을 쓰고, 그것도 없으면 1.
+   ⚠️ 저장값(userScale · deskScale)은 건드리지 않는다 — 내 화면 전용(seatEqK 주석). */
+function _seatEqFitMeasure(){
+  const me = (typeof findMySeat === 'function') ? findMySeat() : null;
+  if(!me || typeof seatDeskHalfWidth !== 'function') return;
+  const raw = s=>{
+    const visible = s.desk && s.desk.visible !== false && !s.ridingOn;
+    if(visible){ const h = seatDeskHalfWidth(s) / ((isFinite(s._eqK) && s._eqK > 0) ? s._eqK : 1); if(isFinite(h) && h > 0) s._eqRawHalf = h; }
+    return s._eqRawHalf;
+  };
+  const ref = raw(me);
+  const fit = (window.SeatLayout && SeatLayout.fitScale) ? SeatLayout.fitScale : ((a, b)=>(a > 0 && b > 0) ? a / b : 1);
+  seats.forEach(s=>{ if(s === me){ s._eqFitK = 1; return; } const r = raw(s); s._eqFitK = (ref && r) ? fit(ref, r, 0.25, 4) : 1; });
+}
 /* 배율이 바뀐 좌석만 다시 적용한다. layoutSeats 앞에서 부르므로 자주 불리지만,
    k 가 그대로면 숫자 비교 몇 번으로 끝난다(fitModel 은 바뀐 좌석에만 돈다). */
 let _eqSyncing = false;
@@ -1417,6 +1440,7 @@ function syncSeatEqualize(){
   if(_eqSyncing) return;
   _eqSyncing = true;
   try{
+    if(seatEqualizeOn && seatEqMode === 'fit') _seatEqFitMeasure();
     seats.forEach(seat=>{
       const k = seatEqK(seat);
       if(seat._eqK === k) return;
@@ -4015,7 +4039,7 @@ function layoutSeats(){
       boxes: placed.map(_rowSeatBoxWithTower) };   // 좌석 상자 — 배치 때만 잰다(끌기 · 매 프레임엔 이 값을 다시 쓴다). 층 높이 · 손잡이 높이에 쓴다
   } else {
     _rowCache = null; _rowBandPx = null; _rowFloorsNote();
-    seats.forEach(s=>{ s._rowSide = null; if(s._rowFloorY){ if(s.group && !s.ridingOn && !s.seatedOn) s.group.position.y = 0; s._rowFloorY = 0; } });
+    seats.forEach(s=>{ s._rowSide = null; s._rowFloorIdx = undefined; if(s._rowFloorY){ if(s.group && !s.ridingOn && !s.seatedOn) s.group.position.y = 0; s._rowFloorY = 0; } });
   }
   _cachedRowCenter = camX; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
   applyCameraAndCanvas(camX, rowSpan);
@@ -4107,9 +4131,11 @@ function _applyRowOffset(instant){
     seat.targetX = outX[i];
     const flipped = seat._rowSide && seat._rowSide !== outSide[i];
     seat._rowSide = outSide[i];
-    const fy = lifts[fl.floor[i]] || 0;
-    const floorChanged = (seat._rowFloorY || 0) !== fy;
-    if(seat.group && !seat.ridingOn && !seat.seatedOn && (floorChanged || seat.group.position.y !== fy)) seat.group.position.y = fy;
+    const fIdx = fl.floor[i], base = lifts[fIdx] || 0;
+    const fy = base + _rowLevelY(outX[i], base);   // 층 높이 + 수평 맞춤(_rowLevelY 주석)
+    const floorChanged = seat._rowFloorIdx !== undefined && seat._rowFloorIdx !== fIdx;
+    seat._rowFloorIdx = fIdx;
+    if(seat.group && !seat.ridingOn && !seat.seatedOn && Math.abs(seat.group.position.y - fy) > 1e-6) seat.group.position.y = fy;
     seat._rowFloorY = fy;
     if((instant || flipped || floorChanged) && seat.group) seat.group.position.x = seat.targetX;   // 층을 옮기면 미끄러지지 않고 바로
   });
@@ -4143,6 +4169,17 @@ function _rowSeatBoxWithTower(seat){
   const riders = seats.filter(r=>r !== seat && r.ridingOn && _rideBottom(r) === seat);
   if(!riders.length) return b;
   return { top: SeatLayout.towerTop(b.top, riders.map(_rowSeatBox)), minY: b.minY, maxZ: b.maxZ, tower: riders.length };
+}
+/* 📏 같은 층 좌석의 발밑을 화면에서 한 줄로 — 카메라가 살짝 옆(yaw 5°) · 위(pitch)에서 보므로 같은 높이라도
+   왼쪽(먼) 좌석일수록 화면에서 조금씩 위로 보인다(좌석 하나에 4~5px). «맨 오른쪽 고정» 에서는 맨 오른쪽(가장 가까운)
+   내 좌석만 늘 줄 끝이라 «나만 낮다» 로 보였다. 기준 = 그 층 맨 오른쪽 자리(x=0)의 발밑, 좌석마다 그 차이만큼 월드 y 를 뺀다.
+   돌려주는 값은 월드 y(보통 수백분의 일). 방에서만 쓴다 — 혼자일 때는 예전 그대로. */
+function _rowLevelY(x, baseY){
+  if(!isFinite(x)) return 0;
+  const sy = (xx, y)=>{ _rowP.set(xx, y, 0).project(camera); return (Math.abs(_rowP.z) <= 1 && isFinite(_rowP.y)) ? (-_rowP.y * 0.5 + 0.5) * innerHeight : NaN; };
+  const y0 = sy(0, baseY), yx = sy(x, baseY), perY = y0 - sy(0, baseY + 1);
+  const d = (yx - y0) / perY;
+  return (isFinite(d) && perY > 0) ? Math.max(-0.5, Math.min(0.5, d)) : 0;
 }
 /* 층 사이 여백 단계 — 보통 → 좁게. labelsPx = 위층 발밑의 경험치 바 + 이름표 자리(좁혀도 이름표는 안 덮는다),
    gapPx = 그 아래 아래층 머리까지 띄우는 px. */
@@ -8711,7 +8748,7 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     const coBtn=document.getElementById('fsChipOrientToggle');
     if(coBtn){ coBtn.textContent = chipHorizontal?'가로':'세로'; coBtn.classList.toggle('on', chipHorizontal); }
     const eqBtn=document.getElementById('fsSeatEqToggle');
-    if(eqBtn){ eqBtn.textContent = seatEqualizeOn?'켜짐':'꺼짐'; eqBtn.classList.toggle('on', seatEqualizeOn); }
+    if(eqBtn){ eqBtn.textContent = !seatEqualizeOn ? '끄기' : (seatEqMode === 'fit' ? '사이즈 맞추기' : '비율 맞추기'); eqBtn.classList.toggle('on', seatEqualizeOn); }
     const flBtn=document.getElementById('fsRoomFloorsToggle');
     if(flBtn){ flBtn.textContent = roomFloors + '층'; flBtn.classList.toggle('on', roomFloors > 1); }
     const rsBtn=document.getElementById('fsRoomSeatModeToggle');
@@ -8790,8 +8827,11 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
   /* 🪑 좌석 크기 평준화 — 내 화면에서만, 서버에는 안 쓴다(seatEqK 주석 참고). */
   const eqBtn=document.getElementById('fsSeatEqToggle');
   if(eqBtn) eqBtn.onclick=()=>{
-    seatEqualizeOn = !seatEqualizeOn;
-    try{ localStorage.setItem('tw.seatEq', seatEqualizeOn?'1':'0'); }catch(_){}
+    /* 끄기 → 비율 맞추기(예전 «켜짐») → 사이즈 맞추기 → 끄기. 'char' 는 '1' 로 저장한다(옛 앱도 켜짐으로 읽는다). */
+    seatEqMode = !seatEqualizeOn ? 'char' : (seatEqMode === 'fit' ? 'off' : 'fit');
+    seatEqualizeOn = seatEqMode !== 'off';
+    try{ localStorage.setItem('tw.seatEq', seatEqMode === 'char' ? '1' : (seatEqMode === 'fit' ? 'fit' : '0')); }catch(_){}
+    seats.forEach(s=>{ s._eqK = undefined; });   // 같은 «켜짐» 이라도 방식이 바뀌면 k 가 달라진다 — 다시 걸게
     refreshToggleBtns();
     /* ⚠️ syncSeatEqualize 를 직접 부르지 않고 layoutSeats 를 부른다 — 그 안에서 동기화가 먼저 돌고,
        이어서 바뀐 책상 폭으로 좌석 간격·카메라 줌까지 다시 잡힌다. 여기서 동기화만 하면

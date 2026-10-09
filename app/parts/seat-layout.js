@@ -144,6 +144,18 @@ function towerTop(ownTop, riders){
   (riders || []).forEach(r=>{ const h = (r && isFinite(r.top) && isFinite(r.minY)) ? r.top - r.minY : 0; if(h > 0) t += h; });
   return t;
 }
+/* 🪑 좌석 크기 평준화 세 가지 — 'off'(끄기 · 기본) · 'char'(비율 맞추기 · 예전 «켜짐») · 'fit'(사이즈 맞추기).
+   저장값(tw.seatEq): '1' = 예전 «켜짐» → 'char'(옛 앱도 '1' 을 켜짐으로 읽으므로 'char' 는 계속 '1' 로 쓴다) · 'fit' · 그 밖 = 꺼짐. */
+function parseSeatEqMode(v){ return v === '1' || v === 'char' ? 'char' : (v === 'fit' ? 'fit' : 'off'); }
+function seatEqStoreValue(mode){ return mode === 'char' ? '1' : (mode === 'fit' ? 'fit' : '0'); }
+function nextSeatEqMode(mode){ return mode === 'off' ? 'char' : (mode === 'char' ? 'fit' : 'off'); }
+/* 사이즈 맞추기 배율 — 좌석 상자(책상 폭) 반폭을 내 좌석과 같게: k = 내 반폭 ÷ 그 좌석 반폭(평준화 전 값).
+   동물(40%)은 커지고, 긴 책상 · 큰 캐릭터는 작아진다. 너무 튀지 않게 [lo, hi] 로 묶는다. */
+function fitScale(refHalf, rawHalf, lo, hi){
+  if(!(refHalf > 0) || !(rawHalf > 0)) return 1;
+  const k = refHalf / rawHalf;
+  return isFinite(k) ? Math.max(lo || 0.25, Math.min(hi || 4, k)) : 1;
+}
 /* 단조 조건 ok(L) 를 처음 만족하는 L(작은 쪽) — 이분 탐색. lo 에서 이미 참이면 lo, hi 에서도 거짓이면 hi.
    층 높이를 화면 px 기준(원근 · 책상 앞면 포함)으로 맞출 때 쓴다. */
 function minLiftFor(ok, lo, hi, iters){
@@ -195,6 +207,7 @@ function createSeatLayout(){
 
 const api = { createSeatLayout, orderRow, naturalRow, offsetRange, clampOffset, placeRow,
   rowRange, bandRect, bandFracFromDrag, inBand, splitFloors, planFloors, minLiftFor, towerTop, MAX_FLOORS,
+  parseSeatEqMode, seatEqStoreValue, nextSeatEqMode, fitScale,
   wheelToRowPx, dragBegin, dragMove, clampPanX,
   DRAG_THRESHOLD_PX, PAN_BASE_X, PAN_MARGIN_FALLBACK, BAND_DEFAULT_FRAC, BAND_MIN_FRAC, SEAT_MODE_ROW, SEAT_MODE_RIGHT };
 if(typeof window !== 'undefined') window.SeatLayout = api;
