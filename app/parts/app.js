@@ -440,6 +440,12 @@ function buildDesk(plain){
 }
 /* 책상 위 소품(아이템) 시스템 — holder = 좌석 또는 생성기 미리보기 */
 function applyDeskAdj(p){ const a=p.userData.adj; p.position.set(a.x||0,a.y||0,a.z||0); p.rotation.set(0,a.rot||0,0); p.scale.setScalar(a.scale||1); }
+/* 🪑 생성기 아이템마다 «이번 편집에서 처음 나타난 자리» — ⟲ 이동·회전 초기화가 돌아갈 곳(desk-item-origin.js) */
+const deskItemOrigin = (typeof DeskItemOrigin === 'undefined') ? null : DeskItemOrigin.createDeskItemOrigin();
+function _rememberCrItemOrigin(holder, p){
+  if(!deskItemOrigin || !p || typeof cBase==='undefined' || holder!==cBase) return;
+  deskItemOrigin.remember(p, p.userData.adj);
+}
 const activeItemMixers = new Set();   // 매 프레임 업데이트해야 할 아이템 애니메이션 믹서들
 // ★ 어플 8: playMode='idle'로 등록된 아이템 pivot들 — 매 프레임 소유 좌석 상태에 따라 재생/정지 전환.
 //   ★ 이름이 헷갈리지만 요청 동작은 이거예요:
@@ -771,6 +777,7 @@ function equipDeskItem(holder,def,on){
       Object.assign(pivot.userData.adj, mem);
     }
     holder.deskItems[def.id]=pivot; holder.activeDeskItem=pivot; applyDeskAdj(pivot);
+    _rememberCrItemOrigin(holder, pivot);   // 새로 놓인 아이템의 처음 자리(불러온 저장값은 applyDeskItemsTo 가 다시 적는다)
     if(pivot.userData.colors) _applyItemColor(pivot);
     pivot.userData.holder = holder;   // 어플 8: idle 재생 판정에 필요 — 소유 좌석 상태를 알아야 함
     if(typeof cBase!=='undefined' && holder===cBase && typeof selectDeskItemForAdjust==='function') selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
@@ -824,6 +831,7 @@ function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Obj
       '| 지금 계산된 autoScale=', p.userData.autoScale, '| 최종 적용 scale=', savedAdj.scale,
       '| rot=', savedAdj.rot);   // 🔄 [제보 4] 회전이 저장까지 왔는지 한눈에
     Object.assign(p.userData.adj,savedAdj);applyDeskAdj(p);
+    _rememberCrItemOrigin(holder, p);   // 불러온 자리가 이 아이템의 처음 자리
     // ★ 런처3-1: 저장된 아이템 색상(colors) 복원 — 그룹별로 material.color/emissive를 갱신.
     //   저장된 colors에 없는 그룹은 원본색(origColor)으로 강제 복원 — 예전에 저장된 색이 남지 않게.
     if(p.userData.colorGroups){
@@ -27046,13 +27054,15 @@ document.getElementById('crItemRemove').onclick=()=>{
   if(itemGizmo) itemGizmo.update?.();
 };
 // ⟲ 이동·회전만 초기화 — 크기는 유지 (크기 초기화 버튼과 짝을 이룸)
+//   0 이 아니라 이번 편집에서 처음 나타난 자리로 — 0 은 커스텀 아이템을 책상 속에 묻는다(desk-item-origin.js)
 document.getElementById('crItemXfReset').onclick=()=>{
   const p=cBase&&cBase.activeDeskItem; if(!p){ toast('먼저 초기화할 아이템을 우클릭해서 선택해 주세요'); return; }
-  p.userData.adj.x=0; p.userData.adj.y=0; p.userData.adj.z=0; p.userData.adj.rot=0;
+  const back = deskItemOrigin ? deskItemOrigin.resetXf(p, p.userData.adj) : false;
+  if(!deskItemOrigin){ p.userData.adj.x=0; p.userData.adj.y=0; p.userData.adj.z=0; p.userData.adj.rot=0; }
   applyDeskAdj(p);
   if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
   if(itemGizmo) itemGizmo.update?.();
-  toast('위치·회전을 원래대로 되돌렸어요');
+  toast(back ? '처음 자리로 되돌렸어요' : '위치·회전을 원래대로 되돌렸어요');
 };
 document.getElementById('deskAddCode').onclick=()=>openAssetImport('desk');
 document.getElementById('itemAddCode').onclick=()=>openAssetImport('item');
@@ -29249,7 +29259,7 @@ function clearHolderDeskItems(holder){
   }
   holder.activeDeskItem=null;
 }
-function clearCreatorItems(){ clearHolderDeskItems(cBase); }
+function clearCreatorItems(){ clearHolderDeskItems(cBase); if(deskItemOrigin) deskItemOrigin.clear(); }
 /* 🪑 생성기 미리보기에 남아 있는 파츠 wrapper 를 전부 걷어낸다 — 창을 열 때마다 한 번.
    [경위] 본에 붙는 파츠는 베이스를 새로 만들 때(swapCreatorBaseTo*) 옛 root 와 함께 사라진다.
      그런데 '책상 위'(bone:'desk') 파츠는 cDesk 의 deskAnchor 에 붙고, 그 책상은
@@ -29269,6 +29279,7 @@ function clearCreatorParts(){
   if(typeof _sweepOrphanPartWrappers==='function') _sweepOrphanPartWrappers(cBase);
 }
 function closeCreator(){creatorOpen=false;document.getElementById('creatorOverlay').classList.remove('on');
+  if(deskItemOrigin) deskItemOrigin.clear();   // 🪑 처음 자리는 이번 편집에서만
   if(typeof detachItemGizmo==='function') detachItemGizmo();
   clearStampState();   // 도장 이미지·모드 모두 초기화 (다음 생성/수정 진입 시 깨끗한 상태로)
   // ★ 꾸미기/미리보기 창이 켜진 채로 런처가 다시 보이면 런처를 가리던 문제 방지(방어적으로 항상 닫음)
