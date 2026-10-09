@@ -1,5 +1,6 @@
 export { copyText, errorMessage, formatDate, formatHours } from './format';
 export { paginate } from './paginate';
+export { hashParts, useHashSub } from './hashRoute';
 export {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZES,
