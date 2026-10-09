@@ -4012,7 +4012,7 @@ function layoutSeats(){
     rowSpan = Math.max(1.2, 2 * halfWidthsForZoom[0]);
     _rowMeHalfW = _hwOf.get(placed[0]);
     _rowCache = { fixRight: _fixRight, seats: placed.slice(), xs: placed.map(s=>s.targetX), hws: placed.map(s=>_hwOf.get(s)), spacing,
-      boxes: placed.map(_rowSeatBox) };   // 좌석 상자 — 배치 때만 잰다(끌기 · 매 프레임엔 이 값을 다시 쓴다). 층 높이 · 손잡이 높이에 쓴다
+      boxes: placed.map(_rowSeatBoxWithTower) };   // 좌석 상자 — 배치 때만 잰다(끌기 · 매 프레임엔 이 값을 다시 쓴다). 층 높이 · 손잡이 높이에 쓴다
   } else {
     _rowCache = null; _rowBandPx = null; _rowFloorsNote();
     seats.forEach(s=>{ s._rowSide = null; if(s._rowFloorY){ if(s.group && !s.ridingOn && !s.seatedOn) s.group.position.y = 0; s._rowFloorY = 0; } });
@@ -4058,7 +4058,7 @@ function _applyRowOffset(instant){
      조건: 위층 책상 앞 아래 모서리 · 위층 이름표 자리(발밑 + px)가 아래층 머리 꼭대기보다 위, 맨 위층 머리는 화면 위 여백 안.
      안 들어가면 층 사이 여백을 좁혀 보고(이름표 자리는 남긴다), 그래도 안 되면 한 층씩 줄인다 — 설정 아래에 «이 화면에서는 N층까지». */
   const bandW = bR - bL;
-  const bx = (i)=>(c.boxes && c.boxes[i]) || _rowSeatBox(c.seats[i]);
+  const bx = (i)=>(c.boxes && c.boxes[i]) || _rowSeatBoxWithTower(c.seats[i]);
   // 카메라 뒤 · 너무 멀리(투영이 뒤집히는 곳)는 NaN — 아래 비교가 전부 거짓이 되어 «안 들어감» 으로 친다
   const sy = (y, z)=>{ _rowP.set(0, y, z).project(camera); return (Math.abs(_rowP.z) <= 1 && isFinite(_rowP.y)) ? (-_rowP.y * 0.5 + 0.5) * innerHeight : NaN; };
   let fl = null;
@@ -4134,6 +4134,14 @@ function _rowSeatBox(seat){
     return (isFinite(r.top) && r.top > 0.1 && isFinite(r.minY) && isFinite(r.maxZ)) ? r : def;
   }catch(_){ return def; }
 }
+/* 좌석 상자 + 머리 위 탑(올라탄 사람들) — 탑이 있으면 top 을 탑 꼭대기로. 올라타기 · 내리기는 mountRide · unmountRide 가
+   layoutSeats 를 부르므로 그때 다시 잰다. 올라탄 사람의 책상은 숨겨져 있어(mountRide) 키에 안 들어간다. */
+function _rowSeatBoxWithTower(seat){
+  const b = _rowSeatBox(seat);
+  const riders = seats.filter(r=>r !== seat && r.ridingOn && _rideBottom(r) === seat);
+  if(!riders.length) return b;
+  return { top: SeatLayout.towerTop(b.top, riders.map(_rowSeatBox)), minY: b.minY, maxZ: b.maxZ, tower: riders.length };
+}
 /* 층 사이 여백 단계 — 보통 → 좁게. labelsPx = 위층 발밑의 경험치 바 + 이름표 자리(좁혀도 이름표는 안 덮는다),
    gapPx = 그 아래 아래층 머리까지 띄우는 px. */
 const ROOM_FLOOR_LIFT_MAX = 10;        // 한 층을 올려 볼 최대 높이(월드) — 여기까지 안 되면 그 층 수는 안 된다
@@ -4164,6 +4172,22 @@ function _rowChipNaturalDx(base){
   if(i < 0) return 0;
   const d = c.natX[i] - base.group.position.x;
   return Math.abs(d) > 1e-6 ? d : 0;
+}
+/* 방에서 책상을 끌어 놓을 자리 — 끄는 좌석과 같은 층에서, 지금 x(wx)가 반폭 안에 들어간 다른 좌석의 seats 배열 순서.
+   없으면 -1(그대로). «맨 오른쪽 고정» 이면 내 좌석은 늘 맨 오른쪽이라 옮기지도, 그 자리로 끼어들지도 않는다. */
+function _rowSlotIndexAt(seat, wx){
+  const c = _rowCache;
+  if(!c || !c.floor) return -1;
+  const me = c.fixRight ? c.seats[0] : null;
+  if(seat === me) return -1;
+  const i0 = c.seats.indexOf(seat); if(i0 < 0) return -1;
+  let best = -1, bestD = Infinity;
+  c.seats.forEach((t, i)=>{
+    if(t === seat || t === me || c.floor[i] !== c.floor[i0]) return;
+    const d = Math.abs((t.targetX || 0) - wx);
+    if(d <= c.hws[i] && d < bestD){ bestD = d; best = i; }
+  });
+  return best < 0 ? -1 : seats.indexOf(c.seats[best]);
 }
 /* 줄을 dWorld 만큼 오른쪽으로(음수면 왼쪽). 휠 · 이름표 끌기 공용. */
 function nudgeRowOffset(dWorld, instant){
@@ -24040,8 +24064,7 @@ canvas.addEventListener('pointermove',e=>{
       drag.moved = true;
       if(drag.seat.pinned) drag.seat.pinned = false;   // 드래그 시작 → 액자 고정 해제
       // 새 규칙: 캐릭터 클릭→흔들기, 책상 클릭→슬롯 이동
-      /* 🪑 방에서는 책상 끌기로 자리를 바꾸지 않는다 — 줄은 이름표 끌기 · 휠로만 움직인다(띠 · 오프셋과 겹치지 않게). */
-      drag.mode = (drag.targetType === 'char') ? 'shake' : (_rowRoomMode ? 'none' : 'slot');
+      drag.mode = (drag.targetType === 'char') ? 'shake' : 'slot';
       if(drag.mode==='shake'){ drag.seat.beingShaken = true; drag.seat._wasShaken = true; }
     } else return;
   }
@@ -24052,9 +24075,18 @@ canvas.addEventListener('pointermove',e=>{
 
   if(drag.mode==='slot'){
     const wx=worldX(e)-drag.grabX; drag.seat.group.position.x=wx;
+    if(_rowRoomMode){
+      /* 🪑 방(보이는 영역 · 층 · 오프셋)에서는 «끌고 간 자리에 가장 가까운 같은 층 좌석» 의 순서로 옮긴다 —
+         예전 식(-wx/간격)은 줄이 오른쪽 끝 x=0 에서 한 줄로 늘어선다는 가정이라 넘겨 본 줄 · 2층에서 엉뚱한 자리가 된다.
+         줄 오프셋은 건드리지 않는다(줄 넘기기는 이름표 끌기 · 휠만). */
+      const idx = _rowSlotIndexAt(drag.seat, wx);
+      const cur = seats.indexOf(drag.seat);
+      if(idx >= 0 && idx !== cur){ seats.splice(cur,1); seats.splice(idx,0,drag.seat); layoutSeats(); renderSeatTabs(); }
+    } else {
     const n=seats.length; const _spacing = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING; let idx=Math.round(-wx/_spacing); idx=Math.max(0,Math.min(n-1,idx));
     const cur=seats.indexOf(drag.seat);
     if(idx!==cur){seats.splice(cur,1);seats.splice(idx,0,drag.seat);layoutSeats();renderSeatTabs();}
+    }
   } else if(drag.mode==='shake'){
     const r2=canvas.getBoundingClientRect();ndc.x=((e.clientX-r2.left)/r2.width)*2-1;ndc.y=-((e.clientY-r2.top)/r2.height)*2+1;
     ray.setFromCamera(ndc,camera);

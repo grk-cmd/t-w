@@ -214,6 +214,12 @@ say('── 7. 층(최대 3)');
   const pick1 = L.planFloors(3, 2, () => ({ ok: false }));
   chk(pick1.n === 1 && pick1.lifts.length === 1 && pick1.lifts[0] === 0, '끝까지 안 되면 1층');
   chk(L.planFloors(1, 2, () => { throw new Error('부르면 안 됨'); }).n === 1, '1층 설정이면 계산하지 않는다');
+  chk(Math.abs(L.towerTop(1.2, [{ top: 0.5, minY: -0.05 }, { top: 0.4, minY: 0 }]) - 2.15) < EPS && L.towerTop(1.2, []) === 1.2 && L.towerTop(1.2, [{ top: NaN, minY: 0 }]) === 1.2, '탑 높이 = 바닥 좌석 키 + 올라탄 사람마다 키(망가진 값은 뺌)');
+  { // 탑이 있으면 위층이 그만큼 올라가야 한다 — 같은 조건(위층 바닥 ≥ 아래층 꼭대기 + 이름표)으로 비교
+    const need = (top1) => L.minLiftFor(Lf => Lf - 0.05 >= top1 + 0.2, 0, 10);
+    chk(need(L.towerTop(1.2, [{ top: 0.5, minY: 0 }])) > need(1.2) + 0.49, '탑이 있는 층 위는 탑 키만큼 더 올라간다');
+  }
+  chk(/function _rowSeatBoxWithTower\(seat\)\{/.test(SRC['app.js']) && /seats\.filter\(r=>r !== seat && r\.ridingOn && _rideBottom\(r\) === seat\)/.test(SRC['app.js']) && /boxes: placed\.map\(_rowSeatBoxWithTower\)/.test(SRC['app.js']), '층 높이에 탑(올라탄 사람들) 키를 넣는다 — 올라타기 · 내리기 때 layoutSeats 가 다시 잰다');
   chk(L.minLiftFor(x => x >= 2.5, 0, 8) - 2.5 < 1e-4 && L.minLiftFor(x => x >= 0, 0, 8) === 0 && L.minLiftFor(x => false, 0, 8) === 8, 'minLiftFor — 조건을 처음 만족하는 높이');
 }
 
@@ -221,7 +227,7 @@ say('── 6. app.js 배선');
 {
   const A0 = SRC['app.js'];
   chk(/const plan = SeatLayout\.planFloors\(roomFloors, ROOM_FLOOR_GAPS\.length, \(n, g\)=>\{\n    const f = SeatLayout\.splitFloors\(c\.hws, c\.spacing, bandW, n\);/.test(A0) && /var ROOM_FLOORS_KEY = 'tw\.roomFloors';/.test(A0) && /roomFloors = \(roomFloors % SeatLayout\.MAX_FLOORS\) \+ 1;/.test(A0), '층 나누기: 띠 폭(월드)으로 · 설정 tw.roomFloors(1 → 2 → 3)');
-  chk(/const bx = \(i\)=>\(c\.boxes && c\.boxes\[i\]\) \|\| _rowSeatBox\(c\.seats\[i\]\);/.test(A0) && /const ROOM_FLOOR_GAPS = \[\{ labelsPx: 46, gapPx: 4 \}, \{ labelsPx: 38, gapPx: 0 \}\];/.test(A0), '층 높이: 실제 좌석 상자(캐릭터 크기 · 동물 40% · 책상) · 여백 보통 → 좁게');
+  chk(/const bx = \(i\)=>\(c\.boxes && c\.boxes\[i\]\) \|\| _rowSeatBoxWithTower\(c\.seats\[i\]\);/.test(A0) && /const ROOM_FLOOR_GAPS = \[\{ labelsPx: 46, gapPx: 4 \}, \{ labelsPx: 38, gapPx: 0 \}\];/.test(A0), '층 높이: 실제 좌석 상자(캐릭터 크기 · 동물 40% · 책상) · 여백 보통 → 좁게');
   chk(/if\(seat\.group && !seat\.ridingOn && !seat\.seatedOn && \(floorChanged/.test(A0) && /s\._rowFloorY = 0;/.test(A0), '층 높이는 올라탄 · 벤치 좌석은 건드리지 않고 · 방을 나가면 0 으로');
   chk(/const cxChip = _chipNatDx \? /.test(A0) && /px0 = placeRight \? \(cxChip \+ CHAR_HALF_PX/.test(A0) && /_charBoundsLatest = \{ x: cx, y: cy/.test(A0), '상태칩은 줄을 넘겨도 처음 자리 — main 에 보내는 캐릭터 원은 실제 자리');
   chk(/if\(!_rowRoomMode \|\| !c \|\| c\.fixRight \|\| !c\.natX/.test(A0), '«맨 오른쪽 고정» 이면 칩은 원래대로');
@@ -250,7 +256,8 @@ say('── 6. app.js 배선');
   chk(/function updateCameraOnly\(\)\{\n  applyCameraAndCanvas\(_cachedRowCenter, _cachedRowSpan\);\n  _applyRowOffset\(false\);/.test(A), '캐릭터 크기만 바꿔도 띠 · 범위 다시 계산');
   chk(/const _sc = _rowScissorBegin\(\);[^\n]*\n[^\n]*renderer\.render\(scene,camera\);\n  _rowScissorEnd\(_sc\);/.test(A) && /_rowClipLabels\(\); _rowPlaceBandHandle\(\);/.test(A), '띠 밖은 안 그린다(가위) · 이름표 숨김 · 손잡이 자리 — 매 프레임');
   chk(/if\(_cvEl && seats\.length && !_rowBandBlocksPx\(cx\)\)/.test(A) && /if\(_rowBandBlocksPx\(e\.clientX\)\) return;/.test(A), '띠 밖(안 그려진) 좌석은 클릭 판정 · 잡기에서 빠진다');
-  chk(/drag\.mode = \(drag\.targetType === 'char'\) \? 'shake' : \(_rowRoomMode \? 'none' : 'slot'\);/.test(A), '방에서는 책상 끌기로 자리를 바꾸지 않는다(줄은 이름표 · 휠로만)');
+  chk(/drag\.mode = \(drag\.targetType === 'char'\) \? 'shake' : 'slot';/.test(A) && /const idx = _rowSlotIndexAt\(drag\.seat, wx\);/.test(A) && /let idx=Math\.round\(-wx\/_spacing\);/.test(A), '책상 끌기 = 자리 바꾸기는 방에서도 그대로(방은 가까운 같은 층 좌석 순서로 · 혼자는 예전 식)');
+  chk(/if\(seat === me\) return -1;/.test(A) && /c\.floor\[i\] !== c\.floor\[i0\]/.test(A) && !/_rowLayout\./.test((A.match(/function _rowSlotIndexAt\(seat, wx\)\{[\s\S]*?\n\}/) || [''])[0]) && !/_rowLayout\./.test((A.match(/if\(_rowRoomMode\)\{\n      \/\* 🪑 방\(보이는 영역[\s\S]*?\} else \{/) || ['_rowLayout.'])[0]), '«맨 오른쪽 고정» 이면 내 좌석은 맨 오른쪽 그대로 · 같은 층끼리 · 책상 끌기는 줄을 넘기지 않는다');
   chk(/el\.addEventListener\('pointerdown', e=>_rowDragStart\(e, seat\)\);/.test(A) && /_seatCtxMenu\(e, seat\);/.test(A), '이름표: 끌기 시작 + 우클릭 메뉴 그대로');
   chk(/_rowDrag\.el = e\.currentTarget;\n  try\{ _rowDrag\.el\.setPointerCapture\(e\.pointerId\); \}catch\(_\)\{\}/.test(A) && !/e\.buttons === 0\)\{ _rowDragEnd/.test(A), '누르는 순간 포인터를 잡는다 · buttons 0 으로 끝내지 않는다(실제 앱에서 끌기가 안 되던 것)');
   chk(/window\.addEventListener\('lostpointercapture'/.test(A) && /window\.addEventListener\('blur', _rowDragEnd\)/.test(A), '끌기 끝: pointerup · cancel · lostpointercapture · blur');

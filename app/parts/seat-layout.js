@@ -137,6 +137,13 @@ function planFloors(want, gapLevels, tryFloors){
   }
   return { n: 1, gapLevel: 0, lifts: [0] };
 }
+/* 탑 높이 — 머리 위에 올라탄 사람(탑쌓기)이 있으면 그 키만큼 위로. 바닥 좌석 키 + 올라탄 사람마다 (맨 위 − 맨 아래).
+   층 높이 계산이 이 값을 그 좌석의 키로 쓴다 — 위층 책상 · 이름표가 탑을 덮지 않게. */
+function towerTop(ownTop, riders){
+  let t = isFinite(ownTop) ? ownTop : 0;
+  (riders || []).forEach(r=>{ const h = (r && isFinite(r.top) && isFinite(r.minY)) ? r.top - r.minY : 0; if(h > 0) t += h; });
+  return t;
+}
 /* 단조 조건 ok(L) 를 처음 만족하는 L(작은 쪽) — 이분 탐색. lo 에서 이미 참이면 lo, hi 에서도 거짓이면 hi.
    층 높이를 화면 px 기준(원근 · 책상 앞면 포함)으로 맞출 때 쓴다. */
 function minLiftFor(ok, lo, hi, iters){
@@ -187,7 +194,7 @@ function createSeatLayout(){
 }
 
 const api = { createSeatLayout, orderRow, naturalRow, offsetRange, clampOffset, placeRow,
-  rowRange, bandRect, bandFracFromDrag, inBand, splitFloors, planFloors, minLiftFor, MAX_FLOORS,
+  rowRange, bandRect, bandFracFromDrag, inBand, splitFloors, planFloors, minLiftFor, towerTop, MAX_FLOORS,
   wheelToRowPx, dragBegin, dragMove, clampPanX,
   DRAG_THRESHOLD_PX, PAN_BASE_X, PAN_MARGIN_FALLBACK, BAND_DEFAULT_FRAC, BAND_MIN_FRAC, SEAT_MODE_ROW, SEAT_MODE_RIGHT };
 if(typeof window !== 'undefined') window.SeatLayout = api;
