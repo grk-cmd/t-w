@@ -39,6 +39,7 @@
       "overlay-mac.js",
       "sysinput-win.js",
       "sysinput-mac.js",
+      "hover-poke.js",
       "oauth-config.js",
       "app/**/*"
     ],
