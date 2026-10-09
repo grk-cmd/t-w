@@ -95,7 +95,7 @@ const app = new Function(AVP.replace(/^export (function|const) /mg, '$1 ') + '\n
     chk(/visitPing — IP 기준 일일 방문자/.test(FX), '  ↳ 머리 주석의 함수 목록에도 적었다');
     let rules = null; try{ rules = JSON.parse(RULES).rules; }catch(_){}
     const mr = rules && rules.metrics;
-    chk(!!mr && /admins.*auth\.uid/.test(mr['.read']) && !JSON.stringify(mr).includes('.write'), '규칙: metrics(ip · pings 포함) 읽기 관리자만 · 쓰기 규칙 없음(함수만 쓴다)');
+    chk(!!mr && /admins.*auth\.uid/.test(mr['.read']) && !JSON.stringify(Object.assign({}, mr, { improvements: undefined })).includes('.write'), '규칙: metrics(ip · pings 포함) 읽기 관리자만 · 쓰기 규칙 없음(함수만 쓴다)');
   }
 
   say('── 5. 앱 모듈 (visit-ping.js)');

@@ -114,6 +114,38 @@
   pointer-events: none;
 }
 
+/* 세로 표시선 — 그날 칸의 왼쪽 끝. 막대 위에 겹쳐도 보이게 앞에 둔다 */
+.mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -2px;
+  z-index: 1;
+  border-left: 2px dashed var(--danger);
+}
+
+.mark b {
+  position: absolute;
+  top: 0;
+  left: 3px;
+  padding: 0 3px;
+  font-size: 10px;
+  font-weight: bold;
+  white-space: nowrap;
+  color: var(--danger);
+  background: var(--card);
+  border-radius: 3px;
+}
+
+.markLegend {
+  display: inline-block;
+  width: 0;
+  height: 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+  border-left: 2px dashed var(--danger);
+}
+
 .xAxis {
   display: flex;
   gap: 4px;

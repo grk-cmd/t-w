@@ -2,13 +2,14 @@ import { useAdminSession } from '@/features/auth';
 import { LoginPage } from '@/pages/login';
 import { useEnv, type Firebase } from '@/shared/api';
 import { AdminLayout } from '@/widgets/admin-layout';
-import { ROUTES } from '../routes/routes';
+import { DEFAULT_ROUTE_ID, ROUTE_GROUPS, ROUTES } from '../routes/routes';
 import { useHashRoute } from '../routes/useHashRoute';
 
 export function App({ fb }: { fb: Firebase }) {
   const session = useAdminSession(fb);
-  const [routeId, go] = useHashRoute(ROUTES[0].id);
-  const route = ROUTES.find((r) => r.id === routeId) ?? ROUTES[0];
+  const [routeId, go] = useHashRoute(DEFAULT_ROUTE_ID);
+  const route =
+    ROUTES.find((r) => r.id === routeId) ?? ROUTES.find((r) => r.id === DEFAULT_ROUTE_ID) ?? ROUTES[0];
   const env = useEnv();
 
   if (session.state !== 'admin') {
@@ -27,7 +28,7 @@ export function App({ fb }: { fb: Firebase }) {
     <AdminLayout
       env={env}
       account={{ label: session.user.email ?? session.user.uid, onSignOut: () => fb.signOut() }}
-      nav={{ items: ROUTES, current: route.id, onSelect: go }}
+      nav={{ groups: ROUTE_GROUPS, current: route.id, onSelect: go }}
       title={route.label}
     >
       <route.Page />

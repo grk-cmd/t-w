@@ -15397,7 +15397,7 @@ function _mhBindStickerResize(handle, sid){
     try{ const cs=getComputedStyle(nameEl); fs=cs.fontSize||fs; fw=cs.fontWeight||fw; }catch(_){}
     /* 폭은 #mhNameRow 를 꽉 채운다 — 왼쪽 열(#mhHomeLeft 200px, padding 20px)의 안쪽 160px 이라
        프로필 사진(160px)과 정확히 같은 줄에 선다. px 를 박으면 열 폭이 바뀔 때 혼자 어긋난다. */
-    inp.style.cssText='font-family:Tahoma,"Malgun Gothic",sans-serif;font-size:'+fs+';font-weight:'+fw+';'
+    inp.style.cssText='font-family:var(--tw-font-legacy);font-size:'+fs+';font-weight:'+fw+';'
       + 'width:100%;padding:1px 4px;box-sizing:border-box;';
     nameEl.style.display='none';
     if(editLink) editLink.style.display='none';   // 편집 중엔 링크도 비운다(눌러도 아무 일 없는 버튼을 남기지 않는다)
@@ -15450,7 +15450,7 @@ function _mhBindStickerResize(handle, sid){
     const cur=_myHomeData.postTitle||'';
     const inp=document.createElement('input');
     inp.id='mhPostTitleInput'; inp.type='text'; inp.maxLength=30; inp.value=cur;
-    inp.style.cssText='font-family:Tahoma,"Malgun Gothic",sans-serif;font-size:12px;font-weight:bold;width:220px;padding:1px 4px;';
+    inp.style.cssText='font-family:var(--tw-font-legacy);font-size:12px;font-weight:bold;width:220px;padding:1px 4px;';
     titleSpan.style.display='none';
     if(editBtn) editBtn.style.display='none';   // 편집 중엔 버튼도 비운다(눌러도 아무 일 없는 버튼을 남기지 않는다)
     titleSpan.parentNode.insertBefore(inp, titleSpan);
@@ -41627,7 +41627,7 @@ function _reportBox(title, width){
   const box = document.createElement('div');
   box.style.cssText = 'width:' + width + 'px;max-width:92vw;max-height:86vh;display:flex;flex-direction:column;background:var(--win-face);border:2px solid;'
     + 'border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);'
-    + 'box-shadow:4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,"Malgun Gothic",sans-serif;color:var(--ink);';
+    + 'box-shadow:4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);color:var(--ink);';
   const tb = document.createElement('div');
   tb.style.cssText = 'background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;flex:none;';
   tb.textContent = title;

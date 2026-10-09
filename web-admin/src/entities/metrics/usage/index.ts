@@ -1,4 +1,18 @@
-export { getDayUsage, usageDayCount, useRecentUsage, useRefreshRecentUsage } from './api/usage';
+export {
+  getDayUsage,
+  usageDayCount,
+  useRecentUsage,
+  useRefreshRecentUsage,
+  useServerNow,
+  useUsageDates,
+} from './api/usage';
+export {
+  deleteImprovement,
+  getImprovements,
+  saveImprovement,
+  useImprovements,
+  useRefreshImprovements,
+} from './api/improvement';
 export {
   ALERT_MIN_DAYS,
   ALERT_RATIO,
@@ -21,3 +35,30 @@ export {
   type MonthLine,
   type UsageStats,
 } from './model/usage';
+export {
+  ADOPT_DAYS_DEFAULT,
+  ADOPT_DAYS_MAX,
+  changePct,
+  cleanDraft,
+  draftProblem,
+  fromKstInput,
+  improvementResult,
+  improvementWindows,
+  ITEM_MAX,
+  ITEMS_MAX,
+  mbPerConnOf,
+  METRICS_IMPROVEMENTS,
+  MONTH_DAYS,
+  monthlySaving,
+  TITLE_MAX,
+  toImprovement,
+  toImprovements,
+  toKstInput,
+  VERSION_MAX,
+  WINDOW_DAYS,
+  windowStat,
+  type Improvement,
+  type ImprovementDraft,
+  type ImprovementResult,
+  type WindowStat,
+} from './model/improvement';

@@ -144,7 +144,7 @@
       /* ⚠️ 세로쓰기(vertical-rl)에서는 flex 축이 돌아간다 — align-items 가 **가로** 정렬이다.
          center 로 두어야 글자가 책등 한가운데 온다(제보: 오른쪽으로 쏠림). justify-content 는 위에서부터. */
       '.bm-book .bm-t{position:absolute;inset:6px 0 8px 0;writing-mode:vertical-rl;text-orientation:upright;',
-      '  font:bold 11px Tahoma,"Malgun Gothic",sans-serif;color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.6);',
+      '  font:bold 11px var(--tw-font-legacy);color:#fff;text-shadow:0 1px 0 rgba(0,0,0,.6);',
       '  display:flex;align-items:center;justify-content:flex-start;letter-spacing:1px;overflow:hidden;}',
       '.bm-book .bm-i{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}',
       '.bm-book .bm-pub{position:absolute;left:0;right:0;bottom:0;height:5px;background:#ffd34d;}',
@@ -331,7 +331,7 @@
     const m = document.createElement('div');
     m.style.cssText = 'position:fixed;min-width:132px;background:var(--win-face);border:2px solid;'
       + 'border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);'
-      + 'box-shadow:2px 2px 4px rgba(0,0,0,.35);padding:3px 0;font:11px Tahoma,"Malgun Gothic",sans-serif;color:var(--ink);';
+      + 'box-shadow:2px 2px 4px rgba(0,0,0,.35);padding:3px 0;font:11px var(--tw-font-legacy);color:var(--ink);';
     m.style.left = Math.min(ev.clientX, Math.max(0, window.innerWidth - 150)) + 'px';
     m.style.top  = Math.min(ev.clientY, Math.max(0, window.innerHeight - 110)) + 'px';
     const close = ()=>bd.remove();
@@ -428,7 +428,7 @@
     const box = document.createElement('div');
     box.style.cssText = 'width:300px;max-width:92vw;background:var(--win-face);border:2px solid;'
       + 'border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);'
-      + 'box-shadow:4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,"Malgun Gothic",sans-serif;color:var(--ink);';
+      + 'box-shadow:4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);color:var(--ink);';
     const tb = document.createElement('div');
     tb.style.cssText = 'background:linear-gradient(90deg,var(--win-title-a),var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;';
     tb.textContent = id ? '📚 책 고치기' : '📚 책 꽂기';

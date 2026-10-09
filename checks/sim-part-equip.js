@@ -124,7 +124,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
     chk(!/^const[^\n]*require\(/m.test(strip(need('functions/part-equip.js'))), 'part-equip.js 는 맨 위에서 아무것도 require 하지 않는다');
     let rules = null; try{ rules = JSON.parse(RULES).rules; }catch(_){}
     const mr = rules && rules.metrics;
-    chk(!!mr && /admins.*auth\.uid/.test(mr['.read']) && !JSON.stringify(mr).includes('.write'), '규칙: metrics 는 관리자만 읽고 쓰기 규칙 없음 — 서버만 쓴다 (규칙 변경 없음)');
+    chk(!!mr && /admins.*auth\.uid/.test(mr['.read']) && !JSON.stringify(Object.assign({}, mr, { improvements: undefined })).includes('.write'), '규칙: metrics 는 관리자만 읽고 쓰기 규칙 없음 — 서버만 쓴다 (규칙 변경 없음)');
     const APP = (read('app.js') || '') + (read('firebase-init.js') || '');
     chk(!!APP && !/metrics\/parts/.test(APP), '앱은 metrics/parts 를 읽거나 쓰지 않는다');
   }

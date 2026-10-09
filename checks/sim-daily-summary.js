@@ -106,7 +106,7 @@ const users = (...c) => Object.fromEntries(c.map(x => [x, true]));
       'daily-summary.js 는 daily-active.js 말고 맨 위에서 아무것도 require 하지 않는다');
     let rules = null; try{ rules = JSON.parse(RULES).rules; }catch(_){}
     const mr = rules && rules.metrics;
-    chk(!!mr && /admins.*auth\.uid/.test(mr['.read']) && !JSON.stringify(mr).includes('.write') && !('summary' in mr),
+    chk(!!mr && /admins.*auth\.uid/.test(mr['.read']) && !JSON.stringify(Object.assign({}, mr, { improvements: undefined })).includes('.write') && !('summary' in mr),
       '규칙: metrics/summary 도 metrics 아래 — 읽기 관리자만 · 쓰기 규칙 없음');
   }
 
