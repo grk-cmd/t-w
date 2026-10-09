@@ -1223,12 +1223,12 @@ let deskPanX=_savedPos.x, deskPanY=_savedPos.y;   // "프로그램 이동"으로
      0이면 예전 그대로, 키울수록 더 일찍(위에서) 멈춘다. */
 const PAN_DOWN_TRIM      = 0.05;  // ★ 아래쪽 한계를 위로 당기는 양(인간·동물 공통). 키우면 덜 내려간다.
 const PAN_UP_EXTRA       = 0.05;  // ★ 위쪽 한계를 더 올려주는 양(인간·동물 공통). 키우면 더 올라간다.
-/* ↑ 두 값은 '실측 여백(_myPanHalfFrac) 위에 얹는 취향 조정'이다.
+/* ↑ 두 값은 '여백(clampDeskPan) 위에 얹는 취향 조정'이다.
    예전엔 여백이 고정 상수라 화면·캐릭터 크기가 바뀌면 어긋났고, 그 오차를 이런 값들로 덧대다 보니
    한 해상도에 맞추면 다른 해상도에서 다시 틀어졌다. 지금은 여백이 자동으로 맞으므로
    이 값들은 순수하게 '얼마나 여유를 둘지'만 정한다(비율이라 해상도가 바뀌어도 유지됨). */
 const ANIMAL_PAN_UP_K    = 0;      // ★ 동물이 위로 더 갈 수 있는 여유 배수 (0이면 인간과 동일)
-                                   //   ★ 여백 실측(_myPanHalfFrac) 도입으로 0으로 정리 — 동물이 작다는 사실이
+                                   //   ★ 0으로 정리 — 동물이 작다는 사실이
                                    //     이미 실측 여백에 반영되므로, 여기서 또 넓히면 천장 밖으로 나간다.
 const ANIMAL_PAN_DOWN_K  = 0;     // ★ 동물이 아래로 더 갈 수 있는 여유 배수 (기본 0 — 아래는 안 넓힘)
 const ANIMAL_PAN_SIDE_K  = 0.0;   // ★ 동물 좌우 여유 배수
@@ -1243,50 +1243,22 @@ function _animalPanExtra(){
            up: 0.28 * (1 - r) * k * ANIMAL_PAN_UP_K,
            dn: 0.28 * (1 - r) * k * ANIMAL_PAN_DOWN_K };
 }
-/* 내 캐릭터(+책상)가 화면에서 차지하는 '절반 크기'를 뷰 비율(0~0.5)로 실측한다.
-   ★ 이동 한계의 여백은 원래 이 값이어야 한다. 예전엔 0.02 같은 고정 상수라서
-     화면 해상도·캐릭터 크기가 바뀌면 실제 절반 크기와 어긋나 화면 밖으로 삐져나갔다
-     (한 해상도에 맞춰 상수를 고쳐도 다른 크기에서 다시 틀어지던 원인).
-     실측하면 어떤 화면·어떤 크기·인간이든 동물이든 자동으로 맞는다. */
-function _myPanHalfFrac(){
-  try{
-    const me = (typeof seats!=='undefined') && seats.find(s=>s.isMe);
-    if(!me || !me.group || !_cvEl) return null;
-    const cr = _cvEl.getBoundingClientRect();
-    if(!cr.width || !cr.height) return null;
-    // ★ Box3.setFromObject는 '숨겨진 메시'도 포함한다(r128). 동물 좌석에는 인간 크기의 숨은
-    //   placeholder가 남아 있어서, 그대로 재면 박스가 실제보다 크고 위아래로 비대칭이 된다
-    //   (동물만 바닥이 더 가라앉던 원인). 보이는 메시만 골라서 잰다.
-    const box = new THREE.Box3(); const _tb = new THREE.Box3();
-    me.group.traverse(o=>{
-      if(!o.isMesh || o.visible === false) return;
-      let p=o, hidden=false;
-      while(p && p!==me.group){ if(p.visible===false){ hidden=true; break; } p=p.parent; }
-      if(hidden) return;
-      try{ _tb.setFromObject(o); if(!_tb.isEmpty()) box.union(_tb); }catch(_){}
-    });
-    if(box.isEmpty()) return null;
-    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; const v=new THREE.Vector3();
-    for(let i=0;i<8;i++){
-      v.set((i&1)?box.max.x:box.min.x,(i&2)?box.max.y:box.min.y,(i&4)?box.max.z:box.min.z).project(camera);
-      const px=(v.x*0.5+0.5)*cr.width, py=(-v.y*0.5+0.5)*cr.height;
-      if(px<x0)x0=px; if(px>x1)x1=px; if(py<y0)y0=py; if(py>y1)y1=py;
-    }
-    const hx = ((x1-x0)/2)/cr.width, hy = ((y1-y0)/2)/cr.height;
-    if(!isFinite(hx)||!isFinite(hy)||hx<=0||hy<=0||hx>0.5||hy>0.5) return null;
-    return { x:hx, y:hy };
-  }catch(_){ return null; }
+/* 프로그램 이동(상태칩) 좌우 여백 = 내 좌석 반폭(화면 비율). 방에서만 쓴다 — 방에서는 카메라 기준점이 내 자리라
+   이 여백이면 내 캐릭터가 화면 밖으로 못 나간다. 혼자일 때는 예전 고정 여백(0.02) 그대로 둔다(혼자 화면 모양 유지).
+   ⚠️ 예전 실측 함수(_myPanHalfFrac)는 클릭 통과 구역 안의 지역 변수(_cvEl)를 봐서 늘 null 이었다 — 지웠다.
+   이 값은 마지막 카메라의 화면 폭(_deskViewW)과 layoutSeats 가 잰 책상 반폭으로 계산해 가볍다. */
+function _panHalfFracX(){
+  if(!_rowRoomMode || !(_deskViewW > 0)) return null;
+  const f = _rowMeHalfW / _deskViewW;
+  return (isFinite(f) && f > 0 && f < 0.5) ? f : null;
 }
 function clampDeskPan(px, py){
-  const _hf = _myPanHalfFrac();
-  // ★ 버그 수정("여럿일 때 바닥 위에서 일찍 막힘"): 실측 여백(_myPanHalfFrac)은 _cvEl 스코프 문제로
-  //   항상 null이라 실제로는 늘 이 폴백이 쓰인다. 예전 폴백은 0.02+0.02*(n-1)로 좌석 수에 비례해
-  //   커져서, 친구가 들어올수록 이동 여백이 넓어져(=이동 가능 범위가 좁아져) 바닥·천장·옆에서 일찍
-  //   막혔다(혼자면 n=1이라 0.02로 정상). 인원수 가산을 제거해 여럿일 때도 혼자와 동일한 여백을 쓴다.
-  //   (각 좌석 간격/카메라 줌아웃은 layoutSeats가 이미 처리하므로 여기서 n을 또 반영할 필요가 없다.)
+  // ★ 예전 폴백은 0.02+0.02*(n-1)(좌석 수 비례)이라 여럿일 때 일찍 막혔다 — 인원수 가산은 없앴다.
+  //   위아래는 아래 PAN_* 조절값이 이 고정 여백에 맞춰져 있어 그대로 둔다.
   const PAN_MARGIN_FALLBACK = 0.02;
-  const PAN_MARGIN   = _hf ? _hf.x : PAN_MARGIN_FALLBACK;   // 좌우 여백 = 실제 반폭
-  const PAN_MARGIN_Y = _hf ? _hf.y : PAN_MARGIN_FALLBACK;   // 위아래 여백 = 실제 반높이
+  const _hfx = _panHalfFracX();
+  const PAN_MARGIN   = _hfx != null ? _hfx : PAN_MARGIN_FALLBACK;   // 좌우 여백 — 방에서는 내 좌석 반폭
+  const PAN_MARGIN_Y = PAN_MARGIN_FALLBACK;
   // ★ 세로 모니터(높이가 폭보다 큰 경우)는 화면에서 위아래로 이동할 수 있는 실제 여유 공간이 훨씬 많은데도
   //   가로 모니터와 똑같은 비율 범위를 쓰고 있어서 위아래 이동이 부자연스럽게 일찍 막히는 문제가 있었음 —
   //   세로 화면일 때는 위아래 범위를 더 넉넉하게 넓힘(가로 이동 범위는 그대로).
@@ -1309,6 +1281,16 @@ function clampDeskPan(px, py){
   return { x: Math.max(nxMin, Math.min(nxMax, px)), y: Math.max(nyMin, Math.min(nyMax, py)) };
 }
 let _deskViewH=0, _deskCanvasH=1;   // 이동 중 픽셀↔월드 정확한 변환을 위해 layoutSeats가 매 프레임 갱신
+/* 🪑 방 좌석 줄(seat-layout.js) — var 인 이유: layoutSeats 가 이 줄보다 먼저 불려도 TDZ 로 죽지 않게. */
+var _deskViewW = 0;                  // 실행 화면 카메라의 화면 폭(월드) — 프로그램 이동 좌우 여백 계산
+var _rowRoomMode = false;            // 지금 방 배치(나는 오른쪽 아래 · 나머지는 내 왼쪽)인가
+var _rowMeHalfW = 0.85;              // 내 좌석(기준 좌석) 책상 반폭(월드)
+var _rowCache = null;                // {anchor, others, xs, hws, spacing} — 오프셋만 바뀔 때 다시 재지 않게
+var _rowLayout = (window.SeatLayout && SeatLayout.createSeatLayout) ? SeatLayout.createSeatLayout() : null;
+var _rowDrag = null;                 // 이름표 끌기 상태(SeatLayout.dragBegin) — 클릭 통과 판정이 본다
+var _rowBandPx = null;               // 보이는 영역(띠) 화면 px {l, r, w} — 방일 때만
+var ROOM_SEAT_MODE_KEY = 'tw.roomSeatMode';  // 내 자리: 'row'(줄 안에 함께 · 기본) | 'right'(맨 오른쪽 고정)
+var roomSeatMode = (()=>{ try{ return localStorage.getItem('tw.roomSeatMode') === 'right' ? 'right' : 'row'; }catch(_){ return 'row'; } })();
 /* 설정 패널의 "캐릭터 크기" 슬라이더 값 — 데스크톱 run 모드 전용 배율 (localStorage에서 복원) */
 let focusCharScale=_loadCharScale();
 let dotRenderEnabled = (localStorage.getItem('tw.dotRender')==='1');   // 기본 꺼짐
@@ -4001,7 +3983,18 @@ function layoutSeats(){
        화면 폭 계산에 유령 자리가 남아 줌만 이상해진다. */
   const halfWidths = seats.map(seatDeskHalfWidth);
   const _hwOf = new Map(seats.map((s,i)=>[s, halfWidths[i]]));
-  const placed = seats.filter(s=>!s.ridingOn);
+  let placed = seats.filter(s=>!s.ridingOn);
+  /* 🪑 방(실행 화면 · 다른 사람 있음)이면 줄이 «보이는 영역»(가로 띠) 안에 놓인다(seat-layout.js).
+     내 자리 설정 — 줄 안에 함께(기본 · 순서는 예전 그대로) / 맨 오른쪽 고정(나를 맨 앞에, 나머지는 내 왼쪽).
+     혼자일 때(자리추가 포함)는 예전 그대로 — 혼자 화면 모양을 바꾸지 않는다. */
+  const _me = seats.find(s=>s.isMe);
+  const _meBase = _me ? (_me.ridingOn ? _rideBottom(_me) : _me) : null;
+  const _wasRoom = _rowRoomMode;
+  _rowRoomMode = !!(hasRemote && _meBase && placed.includes(_meBase) && window.SeatLayout && _rowLayout
+    && document.body.classList.contains('desktop') && document.body.classList.contains('runmode'));
+  const _fixRight = _rowRoomMode && roomSeatMode === SeatLayout.SEAT_MODE_RIGHT;
+  if(_fixRight) placed = SeatLayout.orderRow(placed, _meBase);
+  if(_rowRoomMode && !_wasRoom) _rowLayout.reset();   // 방에 들어올 때마다 처음 자리(오른쪽 끝이 띠 오른쪽)에서
   placed.forEach((s,i)=>{
     if(i===0){ s.targetX = 0; return; }   // 맨 오른쪽 고정
     const prev = placed[i-1];
@@ -4015,16 +4008,410 @@ function layoutSeats(){
   const rowCenter = (minX+maxX)/2;
   const leftIdx = xs.indexOf(minX), rightIdx = xs.indexOf(maxX);
   const halfWidthsForZoom = placed.map(s=>seatDeskHalfWidth(s, true));   // 카메라 줌은 상한선 적용된 값 사용(유난히 큰 책상 하나가 전체를 과하게 줌아웃시키지 않게)
-  const rowSpan = Math.max(1.2, (maxX-minX) + halfWidthsForZoom[leftIdx] + halfWidthsForZoom[rightIdx]);   // 카메라 줌 계산용 전체 폭(책상 폭까지 포함)
-  _cachedRowCenter = rowCenter; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
-  applyCameraAndCanvas(rowCenter, rowSpan);
+  let rowSpan = Math.max(1.2, (maxX-minX) + halfWidthsForZoom[leftIdx] + halfWidthsForZoom[rightIdx]);   // 카메라 줌 계산용 전체 폭(책상 폭까지 포함)
+  /* 방에서는 카메라 기준점 = 맨 오른쪽 좌석(x=0), 줌 = 그 좌석 하나 기준 — 사람이 늘어도 캐릭터 크기는
+     사용자가 정한 그대로다(예전엔 줄 전체가 들어오게 물러나서 사람이 많을수록 작아졌다). 넘치는 줄은 띠 안에서 넘겨 본다. */
+  const camX = _rowRoomMode ? 0 : rowCenter;
+  if(_rowRoomMode){
+    rowSpan = Math.max(1.2, 2 * halfWidthsForZoom[0]);
+    _rowMeHalfW = _hwOf.get(placed[0]);
+    _rowCache = { fixRight: _fixRight, seats: placed.slice(), xs: placed.map(s=>s.targetX), hws: placed.map(s=>_hwOf.get(s)), spacing,
+      boxes: placed.map(_rowSeatBoxWithTower) };   // 좌석 상자 — 배치 때만 잰다(끌기 · 매 프레임엔 이 값을 다시 쓴다). 자동 맞춤(최소 px · 탑이 화면 위로 나가는지)에 쓴다
+  } else {
+    _rowCache = null; _rowBandPx = null;
+    seats.forEach(s=>{ s._rowSide = null; if(s._rowFloorY){ if(s.group && !s.ridingOn && !s.seatedOn) s.group.position.y = 0; s._rowFloorY = 0; } });
+  }
+  _cachedRowCenter = camX; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
+  _roomAutoFit(camX, rowSpan);   // 방이면 자동 맞춤(배율을 고르고 카메라 · 줄을 건다) · 혼자면 예전 그대로
+}
+/* 🪑 보이는 영역(띠)과 줄 오프셋을 좌석 자리에 반영한다(seat-layout.js). 카메라가 정해진 뒤라야 화면 px ↔ 월드를 안다.
+   instant — 끌기 중에는 미끄러지지 않고 바로 그 자리로(이름표가 커서 밑에 남아야 한다).
+   «맨 오른쪽 고정» 에서 한 사람이 내 자리를 건너가는 순간도 바로 옮긴다(내 몸을 가로질러 미끄러지지 않게). */
+const ROOM_BAND_RIGHT_PAD_PX = 8;
+const ROOM_BAND_LEFT_PAD_PX = 8;     // 화면 왼쪽 끝 여백
+const _rowRay = new THREE.Raycaster(), _rowNdc = new THREE.Vector2(), _rowPlane = new THREE.Plane(new THREE.Vector3(0,0,1), 0), _rowHit = new THREE.Vector3(), _rowP = new THREE.Vector3();
+/* 화면 x(px) 가 좌석 높이 · 깊이(z=0)에서 월드 x 로 어디인가 — 카메라 광선으로 정확히. */
+function _rowWorldAtPx(px){
+  const W = innerWidth || 1;
+  camera.updateMatrixWorld();
+  _rowP.set(0, 0.5, 0).project(camera);
+  _rowNdc.set(-1 + 2 * px / W, isFinite(_rowP.y) ? _rowP.y : 0);
+  _rowRay.setFromCamera(_rowNdc, camera);
+  return _rowRay.ray.intersectPlane(_rowPlane, _rowHit) ? _rowHit.x : NaN;
+}
+/* 화면 1px 이 월드로 얼마인가(좌석 깊이 기준). */
+function _rowWorldPerPx(){
+  return (_deskViewW > 0) ? _deskViewW / Math.max(1, innerWidth) : 0;
+}
+function _applyRowOffset(instant, dry){
+  const c = _rowCache;
+  if(!_rowRoomMode || !c || !_rowLayout) return;
+  // 띠 = 맨 오른쪽 좌석(카메라 기준점 · 프로그램 이동으로 같이 움직임) 오른쪽 끝에서 왼쪽으로 폭만큼
+  camera.updateMatrixWorld();
+  _rowP.set(0, 0.5, 0).project(camera);
+  const anchorPx = (_rowP.x * 0.5 + 0.5) * innerWidth;
+  const wpp = _rowWorldPerPx();
+  const anchorHalfPx = wpp > 0 ? c.hws[0] / wpp : 0;
+  /* 띠 = 맨 오른쪽 좌석 오른쪽 끝 ~ 화면 왼쪽 끝(여백) — 폭을 고르는 손잡이는 없앴다(자동 맞춤이 대신 크기를 맞춘다). */
+  const band0 = SeatLayout.bandRect({ anchorPx, anchorHalfPx, rightPad: ROOM_BAND_RIGHT_PAD_PX, widthFrac: 1,
+    screenW: innerWidth, minPx: 2 * anchorHalfPx + 2 * ROOM_BAND_RIGHT_PAD_PX });
+  const _bl = Math.min(band0.r - 1, Math.max(band0.l, ROOM_BAND_LEFT_PAD_PX));
+  const band = { l: _bl, r: band0.r, w: band0.r - _bl };
+  _rowBandPx = band;
+  const bL = _rowWorldAtPx(band.l), bR = _rowWorldAtPx(band.r);
+  /* 한 줄 — 순서는 seats 그대로(«맨 오른쪽 고정» 이면 나를 맨 앞), 맨 오른쪽 좌석이 x=0 이고 왼쪽으로 «반폭 + 여백 + 반폭». */
+  const bandW = bR - bL;
+  const bx = (i)=>(c.boxes && c.boxes[i]) || _rowSeatBoxWithTower(c.seats[i]);
+  const xsAll = SeatLayout.naturalRow(c.hws, c.spacing), hwAll = c.hws;
+  // 줄이 띠보다 긴가 — 그럴 때만 휠로 넘긴다(자동 맞춤이 가장 작게 해도 안 들어간 경우)
+  const overflow = xsAll.length > 0 && (Math.max(...xsAll.map((x, k)=>x + hwAll[k])) - Math.min(...xsAll.map((x, k)=>x - hwAll[k]))) > bandW + 1e-6;
+  if(dry){
+    /* 자동 맞춤의 «이 크기면 다 들어가나» 검사 — 좌석은 안 건드린다. 띠 안에 설 좌석 중 가장 작게 보이는 캐릭터의 화면 키(px)도 같이 —
+       멀리(왼쪽) 선 좌석은 원근 때문에 x=0 보다 작게 보이므로, 최소 px 는 실제로 설 자리에서 잰다. */
+    let minPx = Infinity, towerOff = false;
+    c.seats.forEach((st, i)=>{
+      if(st.ridingOn) return;
+      const b = bx(i), x = xsAll[i], y = 0, h = isFinite(b.ownTop) ? b.ownTop : b.top;
+      _rowP.set(x, y, 0).project(camera); const px0 = (_rowP.x * 0.5 + 0.5) * innerWidth, y0 = (-_rowP.y * 0.5 + 0.5) * innerHeight;
+      if(!SeatLayout.inBand(px0, band)) return;
+      _rowP.set(x, y + h, 0).project(camera); const y1 = (-_rowP.y * 0.5 + 0.5) * innerHeight;
+      if(isFinite(y0 - y1) && y0 > y1) minPx = Math.min(minPx, y0 - y1);
+      // 머리 위 탑(올라탄 사람들)까지 화면 위로 나가면 «안 들어감» — 줄이면 탑도 같이 작아진다
+      _rowP.set(x, y + b.top, 0).project(camera); const yTop = (-_rowP.y * 0.5 + 0.5) * innerHeight;
+      if(!(yTop >= ROOM_TOP_MARGIN_PX)) towerOff = true;
+    });
+    return { fits: !overflow && !towerOff, minPx: isFinite(minPx) ? minPx : 0 };
+  }
+  c.overflow = overflow;
+  // 다 들어가면 줄은 제자리(넘길 데 없음) · 넘치면 맨 오른쪽 고정: 나머지만 띠 왼쪽 끝까지 · 줄 안에 함께: 줄 전체를 띠 안에서
+  const s = _rowLayout.setRange(!overflow ? { min: 0, max: 0 }
+    : (c.fixRight ? SeatLayout.offsetRange(xsAll, hwAll, bL) : SeatLayout.rowRange(xsAll, hwAll, bL, bR)));
+  const res = c.fixRight ? SeatLayout.placeRow(xsAll, hwAll, s, c.spacing) : { xs: xsAll.map(x=>x + s), side: xsAll.map(()=>'L') };
+  c.natX = xsAll.slice();
+  c.seats.forEach((seat, i)=>{
+    seat.targetX = res.xs[i];
+    const flipped = seat._rowSide && seat._rowSide !== res.side[i];
+    seat._rowSide = res.side[i];
+    const fy = _rowLevelY(res.xs[i], 0);   // 수평 맞춤(_rowLevelY 주석)
+    if(seat.group && !seat.ridingOn && !seat.seatedOn && Math.abs(seat.group.position.y - fy) > 1e-6) seat.group.position.y = fy;
+    seat._rowFloorY = fy;
+    if((instant || flipped) && seat.group) seat.group.position.x = seat.targetX;
+  });
+  // 올라탄 좌석의 UI 앵커는 탑 바닥의 targetX 를 읽는다 — 옮긴 자리로 다시 물려준다
+  seats.forEach(s=>{ if(s.ridingOn){ const b=_rideBottom(s); s.targetX = (b && b.targetX) || 0; } });
+}
+/* 좌석 상자(월드 · 좌석 원점 기준) — 보이는 메시만(동물 좌석의 숨은 사람 자리표시 등은 뺀다).
+   top: 맨 위(머리 · 머리 위 파츠) · minY: 맨 아래 · maxZ: 카메라 쪽 앞면(책상). 못 재면 사람 어림값. */
+function _rowSeatBox(seat){
+  const def = { top: 1.3, minY: 0, maxZ: 0.5 };
+  try{
+    if(!seat || !seat.group) return def;
+    seat.group.updateWorldMatrix(true, true);
+    const box = new THREE.Box3(), tb = new THREE.Box3();
+    seat.group.traverse(o=>{
+      if(!o.isMesh || o.visible === false) return;
+      for(let q = o.parent; q && q !== seat.group; q = q.parent){ if(q.visible === false) return; }
+      try{ tb.setFromObject(o); if(!tb.isEmpty()) box.union(tb); }catch(_){}
+    });
+    if(box.isEmpty()) return def;
+    const g = seat.group.position;
+    const r = { top: box.max.y - g.y, minY: box.min.y - g.y, maxZ: box.max.z - g.z };
+    return (isFinite(r.top) && r.top > 0.1 && isFinite(r.minY) && isFinite(r.maxZ)) ? r : def;
+  }catch(_){ return def; }
+}
+/* 좌석 상자 + 머리 위 탑(올라탄 사람들) — 탑이 있으면 top 을 탑 꼭대기로. 올라타기 · 내리기는 mountRide · unmountRide 가
+   layoutSeats 를 부르므로 그때 다시 잰다. 올라탄 사람의 책상은 숨겨져 있어(mountRide) 키에 안 들어간다. */
+function _rowSeatBoxWithTower(seat){
+  const b = _rowSeatBox(seat);
+  const riders = seats.filter(r=>r !== seat && r.ridingOn && _rideBottom(r) === seat);
+  if(!riders.length) return b;
+  return { top: SeatLayout.towerTop(b.top, riders.map(_rowSeatBox)), ownTop: b.top, minY: b.minY, maxZ: b.maxZ, tower: riders.length };
+}
+/* 📏 좌석들의 발밑을 화면에서 한 줄로 — 카메라가 살짝 옆(yaw 5°) · 위(pitch)에서 보므로 같은 높이라도
+   왼쪽(먼) 좌석일수록 화면에서 조금씩 위로 보인다(좌석 하나에 4~5px). «맨 오른쪽 고정» 에서는 맨 오른쪽(가장 가까운)
+   내 좌석만 늘 줄 끝이라 «나만 낮다» 로 보였다. 기준 = 맨 오른쪽 자리(x=0)의 발밑, 좌석마다 그 차이만큼 월드 y 를 뺀다.
+   돌려주는 값은 월드 y(보통 수백분의 일). 방에서만 쓴다 — 혼자일 때는 예전 그대로. */
+function _rowLevelY(x, baseY){
+  if(!isFinite(x)) return 0;
+  const sy = (xx, y)=>{ _rowP.set(xx, y, 0).project(camera); return (Math.abs(_rowP.z) <= 1 && isFinite(_rowP.y)) ? (-_rowP.y * 0.5 + 0.5) * innerHeight : NaN; };
+  const y0 = sy(0, baseY), yx = sy(x, baseY), perY = y0 - sy(0, baseY + 1);
+  const d = (yx - y0) / perY;
+  return (isFinite(d) && perY > 0) ? Math.max(-0.5, Math.min(0.5, d)) : 0;
+}
+const ROOM_TOP_MARGIN_PX = 8;   // 탑 꼭대기 위 화면 여백(자동 맞춤이 지킨다)
+/* 상태칩 고정 — «줄 안에 함께» 에서 줄을 넘기면 내 캐릭터도 같이 움직이지만 상태칩은 처음 자리(오프셋 0)에 남는다.
+   돌려주는 값 = (처음 자리 x) − (지금 실제 x), 월드. 미끄러지는 중에도 칩이 흔들리지 않게 실제 위치 기준으로 뺀다. */
+const _rowChipP = new THREE.Vector3();
+function _rowChipNaturalDx(base){
+  const c = _rowCache;
+  if(!_rowRoomMode || !c || c.fixRight || !c.natX || !base || !base.group) return 0;
+  const i = c.seats.indexOf(base);
+  if(i < 0) return 0;
+  const d = c.natX[i] - base.group.position.x;
+  return Math.abs(d) > 1e-6 ? d : 0;
+}
+/* 🪑 방에서 자리 바꾸기(책상 끌기 · 이름표 끌기 공용).
+   놓을 자리 = 커서에 화면(x · y)으로 가장 가까운 다른 좌석의
+   순서다. 끄는 동안 좌석은 커서를 따라 위아래로도 움직이고(좌석 깊이의 세로면 z=0 에서 잰다), 놓일 자리의 이름표에 표시를 한다.
+   ★ 순서는 **놓을 때 한 번만** 바꾼다 — 끄는 중에 바꾸면 줄이 다시 흐르며 대상이 움직여 앞뒤로 튄다.
+   «맨 오른쪽 고정» 이면 내 좌석은 끌리지도, 놓일 자리도 되지 않는다. 줄 오프셋은 건드리지 않는다. */
+const _slotPt = new THREE.Vector3(), _slotZ0 = new THREE.Plane(new THREE.Vector3(0,0,1), 0), _slotNdc = new THREE.Vector2(), _slotRay = new THREE.Raycaster(), _slotP = new THREE.Vector3();
+const ROW_DROP_MAX_PX = 220;   // 이보다 멀면 놓을 자리 없음(제자리)
+function _rowCursorWorld(e){
+  const r = renderer.domElement.getBoundingClientRect();
+  _slotNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  camera.updateMatrixWorld();
+  _slotRay.setFromCamera(_slotNdc, camera);
+  return _slotRay.ray.intersectPlane(_slotZ0, _slotPt) ? _slotPt : null;
+}
+function _rowSlotFixedMe(){ const c = _rowCache; return (c && c.fixRight) ? c.seats[0] : null; }
+function _rowSlotBegin(seat, e){
+  if(!_rowRoomMode || !seat || !seat.group || seat.ridingOn || seat === _rowSlotFixedMe()) return null;
+  const w = _rowCursorWorld(e); if(!w) return null;
+  return { grabX: w.x - seat.group.position.x, grabY: w.y - seat.group.position.y, target: null };
+}
+function _rowSlotFollow(seat, st, e){
+  if(!st) return;
+  const w = _rowCursorWorld(e);
+  if(w){ seat.group.position.x = w.x - st.grabX; seat.group.position.y = w.y - st.grabY; }
+  // 놓일 자리 — 커서에 화면으로 가장 가까운 다른 좌석(띠 안 · 올라탄 좌석 · 고정된 나 제외)
+  const me = _rowSlotFixedMe();
+  let best = null, bestD = ROW_DROP_MAX_PX;
+  for(const t of seats){
+    if(t === seat || t === me || t.ridingOn || !t.group) continue;
+    t.group.getWorldPosition(_slotP); _slotP.y += 0.5; _slotP.project(camera);
+    const x = (_slotP.x * 0.5 + 0.5) * innerWidth, y = (-_slotP.y * 0.5 + 0.5) * innerHeight;
+    if(!SeatLayout.inBand(x, _rowBandPx)) continue;
+    const d = Math.hypot(x - e.clientX, y - e.clientY);
+    if(d < bestD){ bestD = d; best = t; }
+  }
+  if(st.target !== best){
+    if(st.target && st.target.namePlateEl) st.target.namePlateEl.classList.remove('drop-target');
+    st.target = best;
+    if(best && best.namePlateEl) best.namePlateEl.classList.add('drop-target');
+  }
+}
+function _rowSlotDrop(seat, st){
+  if(!st) return;
+  const t = st.target;
+  if(t && t.namePlateEl) t.namePlateEl.classList.remove('drop-target');
+  if(t){
+    const ti = seats.indexOf(t), cur = seats.indexOf(seat);
+    if(ti >= 0 && cur >= 0 && ti !== cur){ seats.splice(cur, 1); seats.splice(ti, 0, seat); }   // 대상 자리로(앞으로 가면 대상 뒤, 뒤로 가면 대상 앞)
+    if(typeof renderSeatTabs === 'function') renderSeatTabs();
+  }
+  layoutSeats();   // 줄 다시 세우기 · 끌던 좌석 높이 되돌리기
+}
+/* 줄을 dWorld 만큼 오른쪽으로(음수면 왼쪽). 휠 · 이름표 끌기 공용. */
+function nudgeRowOffset(dWorld, instant){
+  if(!_rowRoomMode || !_rowLayout) return;
+  _rowLayout.nudge(dWorld);
+  _applyRowOffset(!!instant);
+}
+/* ✂️ 띠 밖은 안 보이게 — 3D 는 렌더러 가위(scissor, 가로만), 이름표 · 바 · 말풍선 · 공지는 좌석 가운데가 띠 밖이면 숨긴다.
+   클릭 판정(_pointHitsInteractive) · 잡기도 띠 밖의 좌석은 안 맞힌다(_rowBandBlocksPx). */
+const _rowScV = new THREE.Vector4(), _rowSzV = new THREE.Vector2(), _rowSeatP = new THREE.Vector3();
+function _rowBandBlocksPx(px){ return !!(_rowRoomMode && _rowBandPx && !SeatLayout.inBand(px, _rowBandPx)); }
+function _rowScissorBegin(){
+  if(!_rowRoomMode || !_rowBandPx) return false;
+  renderer.getSize(_rowSzV);
+  const k = _rowSzV.x / Math.max(1, innerWidth);   // 도트 렌더면 렌더 버퍼가 화면보다 작다
+  renderer.setScissor(Math.floor(_rowBandPx.l * k), 0, Math.ceil(_rowBandPx.w * k), _rowSzV.y);
+  renderer.setScissorTest(true);
+  return true;
+}
+function _rowScissorEnd(on){ if(on) renderer.setScissorTest(false); }
+function _rowClipLabels(){
+  if(!_rowRoomMode || !_rowBandPx) return;
+  const hide = el=>{ if(el && el.style.display !== 'none') el.style.display = 'none'; };
+  for(let i = 0; i < seats.length; i++){
+    const s = seats[i];
+    if(!s.group) continue;
+    s.group.getWorldPosition(_rowSeatP);
+    _rowSeatP.project(camera);
+    const px = (_rowSeatP.x * 0.5 + 0.5) * innerWidth;
+    if(SeatLayout.inBand(px, _rowBandPx)) continue;
+    hide(s.namePlateEl); hide(s.expBarEl); hide(s.bubbleEl); hide(s.announceEl);
+  }
+}
+/* 🖱 이름표 끌기 = 자리 바꾸기(책상 끌기와 같다) — 책상이 없거나 숨긴 사람도 이름표로 옮길 수 있게.
+   5px 미만이면 끌기가 아니다 — 클릭 · 우클릭 메뉴는 그대로. 줄 넘기기는 휠 · 가로 쓸기 · ◀ ▶ 만.
+   ★ 끄는 동안 전역 drag 를 책상 끌기(mode 'slot')와 같은 모양으로 세운다 — 프레임 루프가 그 좌석을 제자리로 끌어당기지 않고
+     (커서를 따라 움직임), 클릭 통과 판정도 «끄는 중» 으로 클릭을 계속 받는다. 캔버스 pointerup 은 이름표가 포인터를
+     잡고 있어 안 오므로 여기서(_rowDragEnd) 직접 걷는다.
+   ★ 누르는 순간 이름표에 포인터를 잡는다(setPointerCapture) — 끝은 pointerup · cancel · lostpointercapture · blur 로만. */
+let _rowDragJustEnded = 0, _rowDragEndedEl = null;
+function _rowDragStart(e, seat){
+  if(e.button !== 0 || !_rowRoomMode || !_rowLayout || !seat) return;
+  _rowDrag = SeatLayout.dragBegin(e.clientX, e.clientY, _rowLayout.offset);
+  _rowDrag.pointerId = e.pointerId;
+  _rowDrag.el = e.currentTarget;
+  _rowDrag.seat = seat;
+  try{ _rowDrag.el.setPointerCapture(e.pointerId); }catch(_){}
+}
+function _rowDragEnd(){
+  if(!_rowDrag) return;
+  const was = _rowDrag.active, el = _rowDrag.el, pid = _rowDrag.pointerId, seat = _rowDrag.seat, slot = _rowDrag.slot;
+  _rowDrag = null;
+  if(drag && drag.fromPlate) drag = null;
+  if(slot) _rowSlotDrop(seat, slot);   // 놓을 때 순서 바꾸기   // 이름표 끌기가 세운 drag 만 걷는다(캔버스 끌기는 자기 pointerup 이 걷는다)
+  if(was){ _rowDragJustEnded = performance.now(); _rowDragEndedEl = el; }
+  try{ if(el && el.hasPointerCapture && el.hasPointerCapture(pid)) el.releasePointerCapture(pid); }catch(_){}
+}
+window.addEventListener('pointermove', e=>{
+  if(!_rowDrag) return;
+  if(!_rowRoomMode){ _rowDragEnd(); return; }
+  const dx = SeatLayout.dragMove(_rowDrag, e.clientX, e.clientY);
+  if(dx == null) return;
+  const seat = _rowDrag.seat;
+  if(_rowDrag.slot === undefined){
+    // 처음 5px 를 넘은 순간 — 누른 자리에서 잡은 것처럼(시작점 기준으로 잡는다)
+    _rowDrag.slot = _rowSlotBegin(seat, { clientX: _rowDrag.x0, clientY: _rowDrag.y0 });
+    if(_rowDrag.slot && !drag) drag = { seat, startX: _rowDrag.x0, startY: _rowDrag.y0, moved: true, mode: 'slot', targetType: 'desk', fromPlate: true,
+      lastX: e.clientX, lastY: e.clientY, lastT: performance.now(), velX: 0, velY: 0, dizzy: 0 };
+  }
+  _rowSlotFollow(seat, _rowDrag.slot, e);
+}, true);
+window.addEventListener('pointerup', _rowDragEnd, true);
+window.addEventListener('pointercancel', _rowDragEnd, true);
+window.addEventListener('lostpointercapture', e=>{ if(_rowDrag && e.pointerId === _rowDrag.pointerId) _rowDragEnd(); }, true);
+window.addEventListener('blur', _rowDragEnd);
+// 끌기를 마친 직후의 click 은 클릭으로 치지 않는다
+window.addEventListener('click', e=>{
+  if(!_rowDragJustEnded) return;
+  const fresh = performance.now() - _rowDragJustEnded < 300, onPlate = _rowDragEndedEl && _rowDragEndedEl.contains(e.target);
+  _rowDragJustEnded = 0; _rowDragEndedEl = null;
+  if(fresh && onPlate){ e.stopPropagation(); e.preventDefault(); }
+}, true);
+/* 🛞 띠 안에서 휠 — 줄을 좌우로. 클릭을 받는 자리(사람 · 책상 · 이름표)에서만 휠이 우리 창에 온다.
+   Ctrl+휠은 화면 크기(main 의 줌)라 건드리지 않는다. 다른 창(대화창 등) 위 휠도 그 창 몫이다. */
+window.addEventListener('wheel', e=>{
+  // 마지막 수단 — 자동 맞춤으로 가장 작게 해도 다 안 들어갈 때(c.overflow)만 넘긴다
+  if(!_rowRoomMode || e.ctrlKey || !_rowCache || _rowCache.seats.length < 2 || !_rowCache.overflow) return;
+  const t = e.target;
+  const onRow = t && (t.id === 'scene' || (t.closest && t.closest('#seatLabelsLayer')));
+  if(!onRow || _rowBandBlocksPx(e.clientX)) return;
+  const px = SeatLayout.wheelToRowPx(e);
+  if(px) nudgeRowOffset(px * _rowWorldPerPx(), false);
+}, { passive: true });
+/* 🧪 개발용 — 가짜 사람 N명(dev Firebase 실행에서만: npm run start:dev). 방에 들어가지 않은 상태에서
+   콘솔(F12)에 __devFakeSeats(9) · 지우기 __devFakeSeats(0) · 예전처럼 내 캐릭터 복제만 __devFakeSeats(9, {same:true}).
+   기본은 **크기가 섞인 묶음**(DEV_FAKE_VARIANTS 를 돌아가며): 사람 · 동물(40%) · 몸 크기(xf.s) · 책상 크기 · 책상 길이 ·
+   책상 위 물건 있음/없음 · 동물 하나가 앞 사람 머리 위에 올라탐. 내 슬롯(런처)에 있는 캐릭터에서 사람 · 동물을 골라 만든다
+   (없는 쪽은 있는 쪽에서 animal 칸만 바꿔 만든다). 실제 방 동기화와 같은 길(syncFriendSeats)로 만든다.
+   ⚠️ 서버에는 아무것도 쓰지 않는다. 방에 들어가 있으면 진짜 동기화가 덮어쓰므로 막는다. */
+const DEV_FAKE_VARIANTS = [
+  { kind: 'human',  s: 0.7,  deskScale: 0.175, deskLenX: 1,   items: true,  label: '사람 · 보통' },
+  { kind: 'animal', s: 0.7,  deskScale: 0.175, deskLenX: 1,   items: false, label: '동물 · 보통' },
+  { kind: 'human',  s: 1.0,  deskScale: 0.22,  deskLenX: 1.8, items: true,  label: '사람 · 큼 · 넓은 책상' },
+  { kind: 'human',  s: 0.5,  deskScale: 0.14,  deskLenX: 0.7, items: false, label: '사람 · 작음 · 좁은 책상 · 물건 없음' },
+  { kind: 'animal', s: 1.0,  deskScale: 0.2,   deskLenX: 2.2, items: true,  label: '동물 · 큼 · 아주 넓은 책상' },
+  { kind: 'human',  s: 0.85, deskScale: 0.175, deskLenX: 1.3, items: false, label: '사람 · 약간 큼' },
+  { kind: 'animal', s: 0.5,  deskScale: 0.15,  deskLenX: 1,   items: false, label: '동물 · 작음' },
+  { kind: 'human',  s: 0.7,  deskScale: 0.175, deskLenX: 1,   items: true,  label: '사람 · 보통(아래 탑)' },
+  { kind: 'animal', s: 0.7,  deskScale: 0.175, deskLenX: 1,   items: false, rideOnPrev: true, label: '동물 · 앞 사람 머리 위' },
+];
+if(window.companion && window.companion.firebaseEnv === 'dev'){
+  window.__devFakeSeats = function(n, opts){
+    opts = opts || {};
+    n = Math.max(0, Math.min((typeof MAX_PEOPLE === 'number' ? MAX_PEOPLE : 10) - 1, n|0));
+    if(typeof Presence !== 'undefined' && Presence.active()) return '방에 들어가 있으면 쓸 수 없어요(진짜 동기화가 덮어씀)';
+    const me = seats.find(s=>s.isMe);
+    if(!me || !me.charDef) return '먼저 실행 화면으로 들어가세요';
+    const clone = d=>{ try{ return JSON.parse(JSON.stringify(d)); }catch(_){ return Object.assign({}, d); } };
+    const pool = (typeof slots !== 'undefined' ? slots : []).filter(Boolean).concat([me.charDef]);
+    const animalBase = pool.find(d=>d.animal) || null, humanBase = pool.find(d=>!d.animal) || null;
+    const baseOf = kind=>{
+      if(kind === 'animal' && animalBase) return clone(animalBase);
+      if(kind === 'human' && humanBase) return clone(humanBase);
+      // 없는 쪽 — 있는 캐릭터에서 animal 칸만 바꾼다(사람 모델 칸 type · skin · face · top · bot 은 동물 def 에도 있다)
+      const d = clone(animalBase || humanBase || me.charDef);
+      if(kind === 'human'){ delete d.animal; } else { d.animal = true; }
+      return d;
+    };
+    const names = ['가람','나래','다온','라온','마루','바다','사랑','아라','자람','차미','하늘','온새','이든','누리','별','솔'];
+    const friends = {}, made = [];
+    for(let i = 0; i < n; i++){
+      const id = '__fake' + i, v = DEV_FAKE_VARIANTS[i % DEV_FAKE_VARIANTS.length];
+      let def;
+      if(opts.same){ def = clone(me.charDef); }
+      else {
+        def = baseOf(v.kind);
+        def.xf = Object.assign({ s: 0.7, y: 0, z: 0, rot: 0, x: 0 }, def.xf || {}, { s: v.s });
+        def.deskScale = v.deskScale; def.deskLenX = v.deskLenX;
+        if(!v.items) def.deskItems = {};
+      }
+      friends[id] = { name: names[i % names.length] + (i + 1), def, level: 1 + i, state: 'idle', userId: 'fake-' + i };
+      if(!opts.same && v.rideOnPrev && i > 0) friends[id].ridingOn = 'fake-' + (i - 1);
+      made.push((i + 1) + ': ' + (opts.same ? '복제' : v.label));
+    }
+    syncFriendSeats(friends);
+    return n + '명 — 휠 · 가로 쓸기 · ◀ ▶ 로 줄을 넘기고, 이름표 · 책상을 끌어 자리를 바꿔 보세요\n' + made.join('\n');
+  };
 }
 // ★ 캐릭터 크기 슬라이더처럼 "좌석 배치는 그대로고 카메라 거리/줌만 다시 계산하면 되는" 경우 전용 —
 //   위 layoutSeats()의 무거운 책상 실측(Box3, updateMatrixWorld)을 건너뛰고, 마지막으로 계산해둔
 //   좌석 배치 결과(_cachedRowCenter/_cachedRowSpan)만 재사용해서 카메라만 훨씬 가볍게 갱신함.
 //   (슬라이더를 빠르게 움직이면 무거운 계산이 밀려서 버벅이던/깜빡이던 문제 해결)
 function updateCameraOnly(){
-  applyCameraAndCanvas(_cachedRowCenter, _cachedRowSpan);
+  _roomAutoFit(_cachedRowCenter, _cachedRowSpan);   // 캐릭터 크기가 바뀌면 자동 맞춤 배율 · 줄 폭도 다시
+}
+/* 🔍 방 자동 맞춤 — 모두가 한 줄로 화면에 들어오도록 방 줄 전체의 보기 배율(_roomFitCur)을 줄인다.
+   카메라 거리에만 들어간다(applyCameraAndCanvas 의 focusCharScale × _roomViewScale()) — 캐릭터 · 책상 · 라벨이 한 번에 같이 작아지고,
+   저장값(userScale · focusCharScale)과 서버는 건드리지 않는다.
+   · 위로는 1(내가 정한 크기)을 넘지 않는다. 아래로는 «가장 작은 캐릭터의 화면 키 ≥ MIN_CHAR_PX(px)» 까지(seat-layout.js 주석).
+   · 그래도 안 들어가면 그 최소 크기 + 휠 넘기기(마지막 수단). 머리 위 탑이 화면 위로 나가도 «안 들어감» 으로 친다.
+   · 사람이 오가거나 평준화 · 캐릭터 크기 · 창 크기가 바뀌면 layoutSeats/updateCameraOnly 를 지나며 다시 고른다.
+   · 떨림 막기: 줄일 땐 바로, 키울 땐 4% 넘게 커질 때만(fitHysteresis). 바뀐 배율로는 매 프레임 조금씩 옮겨 간다(_roomFitStep). */
+var _roomFitCur = 1, _roomFitTarget = 1, _roomFitWasRoom = false;
+function _roomViewScale(){ return _rowRoomMode ? _roomFitCur : 1; }
+/* 방에서 가장 작은 캐릭터(올라탄 사람 제외)의 화면 키(px) — 지금 카메라 기준. 좌석 상자 맨 위(머리) ~ 발밑. */
+function _roomMinCharPx(){
+  const c = _rowCache; if(!c || !c.boxes) return 0;
+  let minTop = Infinity;
+  c.boxes.forEach((b, i)=>{ if(b && c.seats[i] && !c.seats[i].ridingOn){ const own = isFinite(b.ownTop) ? b.ownTop : b.top; if(own > 0) minTop = Math.min(minTop, own); } });
+  if(!isFinite(minTop)) return 0;
+  camera.updateMatrixWorld();
+  _rowP.set(0, 0, 0).project(camera); const y0 = (-_rowP.y * 0.5 + 0.5) * innerHeight;
+  _rowP.set(0, minTop, 0).project(camera); const y1 = (-_rowP.y * 0.5 + 0.5) * innerHeight;
+  const px = y0 - y1;
+  return (isFinite(px) && px > 0) ? px : 0;
+}
+function _roomAutoFit(camX, rowSpan){
+  if(!_rowRoomMode || !_rowCache || !window.SeatLayout){
+    _roomFitCur = _roomFitTarget = 1; _roomFitWasRoom = false;
+    applyCameraAndCanvas(camX, rowSpan); _applyRowOffset(false);
+    return;
+  }
+  const keep = _roomFitCur;
+  const at = s=>{ _roomFitCur = s; applyCameraAndCanvas(camX, rowSpan); };
+  const fits = s=>{ at(s); const r = _applyRowOffset(false, true); return !!(r && r.fits); };
+  at(1);
+  /* 최소 배율 — 처음엔 맨 오른쪽 자리 기준으로 어림하고, 실제로 설 자리(멀리 선 좌석은 원근으로 더 작다)에서 다시 재 맞춘다(키는 배율에 거의 정비례). */
+  let sMin = SeatLayout.fitMinScale(_roomMinCharPx(), SeatLayout.MIN_CHAR_PX);
+  for(let k = 0; k < 3 && sMin < 1; k++){
+    at(sMin); const r = _applyRowOffset(false, true);
+    if(!r || !(r.minPx > 0) || r.minPx >= SeatLayout.MIN_CHAR_PX - 0.5) break;
+    sMin = Math.min(1, sMin * SeatLayout.MIN_CHAR_PX / r.minPx * 1.01);
+  }
+  const best = SeatLayout.maxScaleFor(fits, sMin, 1);
+  // 지금 배율로도 다 들어가면 조금 키울 수 있어도 그대로(떨림 막기) · 안 들어가면 바로 줄인다
+  const prevOk = _roomFitWasRoom && _roomFitTarget <= 1 && _roomFitTarget >= sMin && fits(_roomFitTarget);
+  _roomFitTarget = _roomFitWasRoom ? (prevOk ? SeatLayout.fitHysteresis(_roomFitTarget, best, 0.04) : best) : best;
+  // 방에 막 들어왔으면 바로 그 배율로(옮겨 가는 모습 없이), 이미 방이면 지금 값에서 옮겨 간다
+  _roomFitCur = _roomFitWasRoom ? keep : _roomFitTarget;
+  _roomFitWasRoom = true;
+  applyCameraAndCanvas(camX, rowSpan); _applyRowOffset(false);
+}
+/* 매 프레임 — 목표 배율로 조금씩(약 0.25초). 다 왔으면 아무것도 안 한다. */
+let _roomFitT = 0;
+function _roomFitStep(){
+  const now = performance.now(), dt = Math.min(0.1, (now - (_roomFitT || now)) / 1000); _roomFitT = now;
+  if(!_rowRoomMode || !_rowCache) return;
+  const d = _roomFitTarget - _roomFitCur;
+  if(Math.abs(d) < 1e-3){ if(d !== 0){ _roomFitCur = _roomFitTarget; applyCameraAndCanvas(_cachedRowCenter, _cachedRowSpan); _applyRowOffset(false); } return; }
+  _roomFitCur += d * Math.min(1, dt * 12);
+  applyCameraAndCanvas(_cachedRowCenter, _cachedRowSpan); _applyRowOffset(false);
 }
 function applyCameraAndCanvas(rowCenter, rowSpan){
   // 카메라가 바라보는 중심(c.y)을 살짝 낮춰서 바닥이 화면 중앙에 오도록 유도
@@ -4076,7 +4463,7 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
     const zoomOut = canvasH / Math.max(1, prevCanvasH);
     const distV=(contentH/2)/Math.tan(fov/2);
     const distH=(contentW/2)/Math.tan(Math.atan(Math.tan(fov/2)*aspect));
-    dist=(Math.max(distV,distH)+sz.z*0.45) * zoomOut / Math.max(0.1,focusCharScale) / CAMERA_ZOOM;
+    dist=(Math.max(distV,distH)+sz.z*0.45) * zoomOut / Math.max(0.01, Math.max(0.1,focusCharScale) * _roomViewScale()) / CAMERA_ZOOM;   // 방 자동 맞춤은 _roomViewScale(≤1)
   } else {
     const distV=(contentH/2)/Math.tan(fov/2);
     const distH=(contentW/2)/Math.tan(Math.atan(Math.tan(fov/2)*aspect));
@@ -4099,8 +4486,8 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
     const viewH = 2 * dist * Math.tan(fov/2);
     const viewW = viewH * aspect;
     // deskPanX/Y는 "뷰 비율"(unitless fraction) — 캐릭터 크기(focusCharScale)가 바뀌어도 항상 같은 화면 비율 위치 유지.
-    const panX = viewW * (-0.34 + deskPanX);   // 기본: 좌측 + 사용자 오프셋(비율)
-    const panY = viewH * (0.28 + deskPanY);    // 기본: 하단 + 사용자 오프셋(비율)
+    const panX = viewW * (-0.34 + deskPanX);   // 기본: 기준점이 화면 0.84(오른쪽) + 사용자 오프셋(비율)
+    const panY = viewH * (0.28 + deskPanY);    // 기본: 기준점이 화면 0.78(아래) + 사용자 오프셋(비율)
     // 🔭 축 분리 배치 — 좌우와 상하를 다른 방식으로 처리.
     //   · 좌우(X): 카메라 이동과 뷰 오프셋을 "섞어서" 원근 강도를 조절.
     //     SIDE_PERSP = 좌우 원근 강도 손잡이 (0.0=어느 위치든 각도 완전 고정, 1.0=위치 따라 최대로 변함).
@@ -4127,7 +4514,7 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
     const offY = -(panY / viewH) * canvasH;
     camera.setViewOffset(canvasW, canvasH, offX, offY, canvasW, canvasH);
     // 이동 모드에서 픽셀↔월드 정확한 변환을 위해 매 프레임 계산값을 전역에 노출
-    _deskViewH = viewH; _deskCanvasH = canvasH;
+    _deskViewH = viewH; _deskCanvasH = canvasH; _deskViewW = viewW;
   } else if(camera.view){
     camera.clearViewOffset();   // 실행 화면이 아니면 오프셋 잔존 방지 (미리보기 등)
   }
@@ -7495,10 +7882,14 @@ function updateMyStatusChipPosition(){
   // ⚠️ 위치와 같은 좌석을 재야 한다. 위치만 탑 바닥으로 옮기고 폭을 올라탄 동물로 재면 칩이 사람 몸에 겹친다.
   const _m = _chipCharMetrics(_uiAnchorSeat(me) || me);
   _wpTmp2.copy(_wpTmp); _wpTmp2.y += _m.topY;               // 발밑 → 머리 끝
+  const _chipNatDx = _rowChipNaturalDx(_uiAnchorSeat(me) || me);   // 🪑 줄 안에 함께: 줄을 넘겨도 칩은 처음 자리에
+  if(_chipNatDx){ _rowChipP.copy(_wpTmp); _rowChipP.x += _chipNatDx; _rowChipP.project(camera); }
   _wpTmp.project(camera);
   _wpTmp2.project(camera);
   const rect=renderer.domElement.getBoundingClientRect();
   const cx     =rect.left+(_wpTmp.x*0.5+0.5)*rect.width;
+  /* 칩만 이 x 를 쓴다 — 캐릭터 원(main 에 보내는 _charBoundsLatest)은 실제 캐릭터 자리 cx 그대로. */
+  const cxChip = _chipNatDx ? rect.left+(_rowChipP.x*0.5+0.5)*rect.width : cx;
   const cyFeet =rect.top +(-_wpTmp.y*0.5+0.5)*rect.height;   // 발밑 화면 y
   const cyTop  =rect.top +(-_wpTmp2.y*0.5+0.5)*rect.height;  // 머리 끝 화면 y
   const charPxH = Math.max(1, Math.abs(cyFeet - cyTop));     // 화면상 캐릭터 키(px)
@@ -7524,8 +7915,8 @@ function updateMyStatusChipPosition(){
   let placeRight = (_lastChipPlaceRight !== false);   // 기본 오른쪽
   // ⚠️ 아래 px0 이 실제로 쓰는 여백과 **같은 값**으로 재야 한다. 여기만 GAP 으로 남겨두면
   //   "오른쪽에 들어간다"고 판정해놓고 실제로는 그보다 더 밖에 놓여 화면 끝을 넘는다.
-  const rightSpace = innerWidth - (cx + CHAR_HALF_PX + GAP_CHAR);
-  const leftSpace  = cx - CHAR_HALF_PX - GAP_CHAR;
+  const rightSpace = innerWidth - (cxChip + CHAR_HALF_PX + GAP_CHAR);
+  const leftSpace  = cxChip - CHAR_HALF_PX - GAP_CHAR;
   if(placeRight){
     // 지금 오른쪽인데 오른쪽 공간이 툴바+여유(12)에도 부족하고 왼쪽에는 여유가 있으면 반전
     if(rightSpace < chipW0 + 12 && leftSpace > chipW0 + 24) placeRight = false;
@@ -7558,10 +7949,10 @@ function updateMyStatusChipPosition(){
   _labels.forEach(_r => { labelBottom = Math.max(labelBottom, _r.bottom); });
   let px0, py0;
   if(chipHorizontal){
-    px0 = cx - chipW0/2;
+    px0 = cxChip - chipW0/2;
     py0 = labelBottom + GAP;      // 바 아래가 아니라 '이름표 아래'
   }else{
-    px0 = placeRight ? (cx + CHAR_HALF_PX + GAP_CHAR) : (cx - CHAR_HALF_PX - GAP_CHAR - chipW0);
+    px0 = placeRight ? (cxChip + CHAR_HALF_PX + GAP_CHAR) : (cxChip - CHAR_HALF_PX - GAP_CHAR - chipW0);
     py0 = cy;   // 툴바 top = 어깨 화면 좌표
     /* 세로 배치에서는 칩 기둥이 어깨부터 발밑 라벨 띠까지 내려온다. 위로 올리면 머리 위로
        솟구치므로(기둥이 캐릭터보다 길다) **옆으로** 비킨다 — 이름표는 캐릭터보다 조금 넓을
@@ -7646,7 +8037,9 @@ function updateMyStatusChipPosition(){
 
   // 설정 패널 — 캐릭터 머리 위 중앙에 오도록, 상태칩과 별개로 "오프셋 없는" 캐릭터 중앙 x 사용
   const panel=document.getElementById('focusSettingsPanel');
-  if(panel && panel.classList.contains('on') && !window._fsPanelDragged){   // ✥ 드래그로 옮긴 뒤엔 머리 위 자동 따라가기 중단
+  /* 🪑 방 줄(휠 · ◀ ▶ 로 넘김)에서는 연 순간 한 번만 자리를 잡는다 — 계속 따라가면 줄을 넘길 때 내 캐릭터와 함께 창이 끌려간다. */
+  if(panel && panel.classList.contains('on') && !window._fsPanelDragged && !(_rowRoomMode && panel._rowPlaced)){   // ✥ 드래그로 옮긴 뒤엔 머리 위 자동 따라가기 중단
+    if(_rowRoomMode) panel._rowPlaced = true;
     _uiAnchorWorld(me, _wpTmp2); _wpTmp2.y = 1.55; _wpTmp2.project(camera);   // 올라탄 동안엔 제자리 기준
     let cx=rect.left+(_wpTmp2.x*0.5+0.5)*rect.width;
     let cy=rect.top +(-_wpTmp2.y*0.5+0.5)*rect.height;
@@ -8189,6 +8582,7 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     const willOpen = !panel.classList.contains('on');
     panel.classList.toggle('on', willOpen);
     if(willOpen){
+      panel._rowPlaced = false;   // 🪑 방 줄에서는 열 때마다 내 캐릭터 머리 위에 한 번 다시 잡는다
       if(typeof bringWinToFront==='function') bringWinToFront('focusSettingsPanel');   // 🪟 열 때는 맨 앞으로
       // ✥ 드래그로 옮긴 위치 기억 — 닫았다 열어도 그 자리. 단 화면 밖(해상도 변경 등)이면 머리 위 기본 위치로 복귀.
       if(window._fsPanelDragged){
@@ -8254,6 +8648,8 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     if(coBtn){ coBtn.textContent = chipHorizontal?'가로':'세로'; coBtn.classList.toggle('on', chipHorizontal); }
     const eqBtn=document.getElementById('fsSeatEqToggle');
     if(eqBtn){ eqBtn.textContent = seatEqualizeOn?'켜짐':'꺼짐'; eqBtn.classList.toggle('on', seatEqualizeOn); }
+    const rsBtn=document.getElementById('fsRoomSeatModeToggle');
+    if(rsBtn){ rsBtn.textContent = roomSeatMode==='right' ? '맨 오른쪽 고정' : '줄 안에 함께'; rsBtn.classList.toggle('on', roomSeatMode==='right'); }
     const dpBtn=document.getElementById('fsDecoPartsToggle');
     if(dpBtn){ dpBtn.textContent = decoPartsVisible?'켜짐':'꺼짐'; dpBtn.classList.toggle('on', decoPartsVisible); }
   }
@@ -8271,6 +8667,13 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     ['tw.wdPreviewPos','tw.gachaWinPos','tw.ideskInvPos','tw.playlistPos','tw.bellWinPos','tw_chat_win_pos']
       .forEach(k=>{ try{ localStorage.removeItem(k); }catch(_){} });
     (window.__winPosResetters||[]).forEach(fn=>{ try{ fn(); }catch(_){} });
+    /* 🪑 캐릭터 자리(프로그램 이동 · tw.deskPan)와 방 좌석 줄 오프셋(저장 안 함 · 메모리)도 처음으로 —
+       메모리 값을 같이 비우지 않으면 다음 이동 확정 때 옛 자리가 다시 저장된다. */
+    try{ localStorage.removeItem(CHAR_POS_KEY); }catch(_){}
+    try{ localStorage.removeItem('tw.roomBandW'); }catch(_){}   // 옛 띠 폭 설정(없앤 기능) — 남은 값만 치운다
+    deskPanX = 0; deskPanY = 0;
+    if(_rowLayout) _rowLayout.reset();
+    try{ layoutSeats(); if(typeof updateMyStatusChipPosition==='function') updateMyStatusChipPosition(); }catch(_){}
     /* 지금 떠 있는 창은 그 자리에서 기본 위치로 돌려놓는다 — 다시 열 때까지 기다리게 하면
        "눌러도 아무 일이 없다"로 보인다. 기본 위치는 CSS 가 정하므로 인라인 값만 지운다. */
     ['wdPreviewPanel','gachaInvWin','gachaDrawWin','ideskInvWin','myPlaylistBox','bellWin','chatWindow']
@@ -8335,6 +8738,15 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     try{ localStorage.setItem('tw.decoParts', decoPartsVisible?'1':'0'); }catch(_){}
     refreshToggleBtns();
     try{ seats.forEach(s => applyClothVisibility(s)); }catch(_){}
+  };
+  /* 🪑 방에서 내 자리 — 줄 안에 함께(기본) ↔ 맨 오른쪽 고정. 내 화면에서만(서버에 안 쓴다). 바꾸면 줄 오프셋은 처음으로. */
+  const rsBtn=document.getElementById('fsRoomSeatModeToggle');
+  if(rsBtn) rsBtn.onclick=()=>{
+    roomSeatMode = (roomSeatMode==='right') ? 'row' : 'right';
+    try{ localStorage.setItem(ROOM_SEAT_MODE_KEY, roomSeatMode); }catch(_){}
+    if(_rowLayout) _rowLayout.reset();
+    refreshToggleBtns();
+    layoutSeats();
   };
   const coBtn=document.getElementById('fsChipOrientToggle');
   if(coBtn) coBtn.onclick=()=>{
@@ -9721,13 +10133,23 @@ let _wdActivePartRef = null;   // refreshWdPreviewColorSection 이 정한 {cat, 
    wrp · user 는 첫 대상을 가리키는 옛 이름(이름표 · 파츠 판정에서 쓴다). earSym = 대칭을 반대쪽 귀에 긋는가. */
 const _wdPic = {
   on:false, wrp:null, xf:null, meshes:[], user:null, tgts:[], ear:false, symOk:true,
-  color:'#333333', size:11, eraser:false, sym:false, fill:false,   // fill = 🪣 클릭한 메쉬 채우기(uv-fill.js)
+  color:'#333333', size:11, eraser:false, sym:false, fill:false,   // fill = 🪣 클릭한 메쉬 채우기(uv-fill.js) · eraser · fill 은 아래 도구 줄(wdPaintTool)이 정한다
   hist:[], redo:[], orig:null,
   drawing:false, lx:null, ly:null, sx:null, sy:null,
   luv:null, smuv:null, lp:null, lobj:null,   // 🧵 직전 점의 UV·3D 위치·면 — 솔기를 건너뛰었는지 판정용
   lsx:null, lsy:null,   // 🪡 직전 포인터 화면 좌표 — 빠른 움직임을 쪼개는 기준
   rc:null   // 우클릭 눌린 자리 — 안 움직이고 떼면 스포이드
 };
+/* 🖌 꾸미기 그리기 도구 — 생성기와 같은 줄(paint-tools.js): 붓 · 페인트통 · 지우개 중 **하나만**.
+   예전엔 펜/지우개와 🪣 채우기가 따로 켜져서 «지우개 + 채우기» 가 같이 켜질 수 있었다. 이제 eraser · fill 은
+   도구에서만 나온다. 파츠를 통째로 지우는 일(예전 지우개 + 채우기)은 페인트통 Shift+클릭으로 옮겼다. */
+const wdPaintTool = (typeof PaintTools==='undefined') ? null : PaintTools.createPaintTools({
+  doc:document, btnClass:'wd-pic-btn',
+  hotkeyLetter:(typeof hotkeyLetter==='function'?hotkeyLetter:null),
+  tips:{ bucket:'페인트통 (G) — 누른 모델의 칠할 자리 전체를 지금 색으로 · Shift+클릭은 그 자리 지우기' },
+  onChange:(t)=>{ _wdPic.eraser=(t==='eraser'); _wdPic.fill=(t==='bucket');
+    if(t==='bucket' && _wdPic.on && typeof toast==='function') toast('🪣 페인트통 — 칠할 모델을 눌러요 (Shift+클릭 = 지우기)'); } });
+
 const WD_PIC_HIST_MAX = 30;
 
 function _wdPicSection(){ return document.getElementById('wdPicSection'); }
@@ -9884,7 +10306,9 @@ async function exitWdPicMode(save){
     });
   }
   _wdPic.wrp=null; _wdPic.xf=null; _wdPic.meshes=[]; _wdPic.user=null; _wdPic.orig=null;
-  _wdPic.tgts=[]; _wdPic.ear=false; _wdPic.symOk=true; _wdPic.fill=false;
+  _wdPic.tgts=[]; _wdPic.ear=false; _wdPic.symOk=true;
+  _wdPicSetFill(false); _wdPic.fill=false;   // 나가면 페인트통은 붓으로(다음에 들어와 한 번 눌렀는데 통째로 칠해지지 않게)
+  { const pc=document.getElementById('wdPreviewCanvas'); if(pc) pc.style.cursor=''; }
   _wdPic.hist.length=0; _wdPic.redo.length=0;
   const sec=_wdPicSection(); if(sec) sec.innerHTML='';
   try{ updateWdGizmoForActivePanel(); }catch(_){}
@@ -9935,28 +10359,32 @@ function _wdPicClear(){
 function _wdPicTgtOf(mesh){
   return _wdPic.tgts.find(t=>t.wrp.userData.picMeshes.indexOf(mesh) >= 0) || _wdPic.tgts[0];
 }
+/* 지우개 켜기 · 끄기. 끄기(색을 고름 · 스포이드)는 «지우개였으면 붓으로» — 페인트통은 그대로 둔다. */
 function _wdPicSetEraser(v){
+  if(wdPaintTool){ if(v) wdPaintTool.set('eraser'); else wdPaintTool.dropEraser(); return; }
   _wdPic.eraser = !!v;
-  const b=document.getElementById('wdPicEraser'); if(b) b.classList.toggle('on', _wdPic.eraser);
-  const p=document.getElementById('wdPicPen');    if(p) p.classList.toggle('on', !_wdPic.eraser);
 }
-/* 🪣 채우기 — 켜 두면 좌클릭이 획 대신 «맞힌 메쉬의 UV 자리 전체» 를 칠한다(지우개면 지운다) */
+/* 🪣 채우기(페인트통) — 켜 두면 좌클릭이 획 대신 «맞힌 메쉬의 UV 자리 전체» 를 칠한다(Shift 면 지운다) */
 function _wdPicSetFill(v){
+  if(wdPaintTool){ if(v) wdPaintTool.set('bucket'); else if(wdPaintTool.is('bucket')) wdPaintTool.set('brush'); return; }
   _wdPic.fill = !!v;
-  const b=document.getElementById('wdPicFill'); if(b) b.classList.toggle('on', _wdPic.fill);
-  if(_wdPic.fill && typeof toast==='function') toast('🪣 채우기 — 칠할 모델을 눌러요');
 }
-function _wdPicFillHit(hit){
+/* 메쉬 하나를 조각 사이 여백까지 채운다 — 같은 그림판을 쓰는 이 파츠의 다른 메쉬 안쪽은 안 덮는다(uv-fill.js 여백 몫 주석: 테두리 실선) */
+function _wdPicFillMesh(ctx, wrp, mesh, opt){
+  const peers=((wrp && wrp.userData.picMeshes) || []).filter(m=>m!==mesh && m.geometry).map(m=>m.geometry);
+  return UvFill.fillMeshOwned(ctx, CANVAS_SZ, mesh.geometry, peers, opt);
+}
+function _wdPicFillHit(hit, erase){
   if(typeof UvFill === 'undefined' || !hit || !hit.object) return;
   const tgt=_wdPicTgtOf(hit.object);
-  const opt={ color:_wdPic.color, erase:_wdPic.eraser };
-  UvFill.fillMesh(tgt.user.getContext('2d'), hit.object.geometry, CANVAS_SZ, opt);
+  const opt={ color:_wdPic.color, erase:!!erase };
+  _wdPicFillMesh(tgt.user.getContext('2d'), tgt.wrp, hit.object, opt);
   _picBlit(tgt.wrp);
   /* 🐾 귀 대칭 — 반대쪽 귀의 같은 번호 메쉬도 채운다(파츠는 메쉬 전체라 대칭이 따로 필요 없다) */
   if(_wdPic.ear && _wdPic.sym){
     const mt=_wdPic.tgts.find(t=>t!==tgt);
     const om=mt && mt.wrp.userData.picMeshes[tgt.wrp.userData.picMeshes.indexOf(hit.object)];
-    if(om){ UvFill.fillMesh(mt.user.getContext('2d'), om.geometry, CANVAS_SZ, opt); _picBlit(mt.wrp); }
+    if(om){ _wdPicFillMesh(mt.user.getContext('2d'), mt.wrp, om, opt); _picBlit(mt.wrp); }
   }
 }
 function _wdPicSetSym(v){
@@ -9986,16 +10414,11 @@ function _buildWdPicSection(){
   sec.appendChild(mk('div','wd-preview-color-head', _wdPic.ear ? '✎ 귀에 그리는 중' : '✎ '+_tname+' 에 그리는 중'));
 
   const tools=mk('div','wd-pic-row');
-  const penB=mk('button','wd-pic-btn on','펜');    penB.id='wdPicPen';
-  const eraB=mk('button','wd-pic-btn','지우개');   eraB.id='wdPicEraser';
+  const toolSeg=mk('span',null);   toolSeg.id='wdPicTools';   // 🖌 붓 · 페인트통 · 지우개 (paint-tools.js — 생성기와 같은 줄)
+  if(wdPaintTool) wdPaintTool.mount(toolSeg);
   const symB=mk('button','wd-pic-btn','대칭');     symB.id='wdPicSym';
-  const fillB=mk('button','wd-pic-btn','🪣 채우기'); fillB.id='wdPicFill'; fillB.title='G — 누른 모델의 칠할 자리 전체를 지금 색으로';
-  fillB.onclick=()=>_wdPicSetFill(!_wdPic.fill);
-  fillB.classList.toggle('on', _wdPic.fill);
   const swat=mk('button','wd-pic-swatch');         swat.id='wdPicColor';
   swat.style.background=_wdPic.color; swat.title='색 고르기';
-  penB.onclick=()=>_wdPicSetEraser(false);
-  eraB.onclick=()=>_wdPicSetEraser(true);
   symB.onclick=()=>_wdPicSetSym(!_wdPic.sym);
   symB.classList.toggle('on', _wdPic.sym);
   if(_wdPic.ear){
@@ -10021,7 +10444,7 @@ function _buildWdPicSection(){
     });
     setTimeout(()=>document.addEventListener('mousedown', outside, true), 0);
   };
-  [penB,eraB,symB,fillB,swat].forEach(b=>tools.appendChild(b));
+  [toolSeg,symB,swat].forEach(b=>tools.appendChild(b));
   sec.appendChild(tools);
 
   const sz=mk('div','wd-pic-row');
@@ -10045,7 +10468,7 @@ function _buildWdPicSection(){
 
   const hint=mk('div','wd-pic-hint');
   if(_wdPic.ear) sec.appendChild(mk('div','wd-pic-hint','귀를 눌러 그려요. 대칭을 켜면 반대쪽 귀에 좌우를 뒤집어 같이 그려요.'));
-  hint.innerHTML='Ctrl+Z 되돌리기 · Ctrl+Shift+Z 다시 · Delete 전체 지우기<br>X 대칭 · C 지우개 · G 채우기 · 우클릭 스포이드';
+  hint.innerHTML='Ctrl+Z 되돌리기 · Ctrl+Shift+Z 다시 · Delete 전체 지우기<br>B 붓 · G 페인트통(Shift+클릭 = 지우기) · E·C 지우개<br>X 대칭 · 우클릭 스포이드';
   sec.appendChild(hint);
 
   const foot=mk('div','wd-pic-row wd-pic-foot');
@@ -10139,7 +10562,8 @@ function _picSkinnedIntersect(ray, sm){
     _pskLB.copy(_pskB).applyMatrix4(_pskInv);
     _pskLC.copy(_pskC).applyMatrix4(_pskInv);
     _pskN.copy(_pskLC).sub(_pskLB).cross(_pskT.copy(_pskLA).sub(_pskLB)).normalize();
-    best={ object:sm, point:_pskP.clone(), face:{ normal:_pskN.clone() },
+    /* faceIndex — 페인트통(paint-tools.js)이 누른 삼각형의 UV 섬을 찾는다. three 기본 캐스트와 같은 번호(인덱스/3). */
+    best={ object:sm, point:_pskP.clone(), face:{ normal:_pskN.clone() }, faceIndex:t/3,
       uv:new THREE.Vector2(
         _pskUvA.x*_pskBary.x + _pskUvB.x*_pskBary.y + _pskUvC.x*_pskBary.z,
         _pskUvA.y*_pskBary.x + _pskUvB.y*_pskBary.y + _pskUvC.y*_pskBary.z) };
@@ -10433,7 +10857,7 @@ function _wdPicStrokeTo(e){
     if(e.button!==0) return;
     const hit=_wdPicHit(e); if(!hit) return;
     e.preventDefault(); e.stopPropagation();   // 다중 인스턴스 선택 클릭이 같이 먹지 않게
-    if(_wdPic.fill){ _wdPicPush(); _wdPicFillHit(hit); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
+    if(_wdPic.fill){ _wdPicPush(); _wdPicFillHit(hit, e.shiftKey); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다 · Shift = 그 자리 지우기
     _wdPicPush();
     _wdPic.drawing=true; _wdPicBreak();
     _wdPic.lsx=e.clientX; _wdPic.lsy=e.clientY;   // 🪡 쪼개기의 출발점
@@ -10442,6 +10866,7 @@ function _wdPicStrokeTo(e){
   }, true);
   cv.addEventListener('pointermove', e=>{
     if(!_wdPic.on) return;
+    if(wdPaintTool){ const cu=wdPaintTool.cursor(); if(cv.style.cursor!==cu) cv.style.cursor=cu; }   // 🖌 커서 = 지금 도구
     if(_wdPic.rc && !_wdPic.rc.moved &&
        Math.abs(e.clientX-_wdPic.rc.x)+Math.abs(e.clientY-_wdPic.rc.y)>4) _wdPic.rc.moved=true;
     if(!_wdPic.drawing) return;
@@ -10481,7 +10906,7 @@ function _wdPicKey(e){
   if(e.key==='Delete'){ stop(); _wdPicClear(); }
   else if(k==='x'){ stop(); _wdPicSetSym(!_wdPic.sym); }
   else if(k==='c'){ stop(); _wdPicSetEraser(!_wdPic.eraser); }
-  else if(k==='g'){ stop(); _wdPicSetFill(!_wdPic.fill); }   // 동물 생성기의 G(전체 채우기)와 같은 글자
+  else if(wdPaintTool && wdPaintTool.handleKey(e)){ stop(); }   // B 붓 · G 페인트통 · E 지우개 — 생성기와 같은 글자(한글 상태 맥 포함)
   else if(e.key==='Escape'){ stop(); exitWdPicMode(false); }   // 창이 같이 닫히지 않게 여기서 끊는다
 }
 window.addEventListener('keydown', _wdPicKey, true);
@@ -17911,7 +18336,9 @@ async function openPurikura(){
   let pv; try{ pv = await pk.peek(room, getMyUserId()); }catch(_){ pv = null; }
   if(pv && pv.busy){ toast('📷 지금 촬영 중이에요 — 끝나면 들어갈 수 있어요'); return; }
 
-  const r = await pk.open(room, { userId:getMyUserId(), name:getDisplayName() });
+  /* ⚠️ 서버가 자리 쓰기를 거부하면 open 이 던진다 — 받지 않으면 버튼을 눌러도 아무 반응이 없다. */
+  let r; try{ r = await pk.open(room, { userId:getMyUserId(), name:getDisplayName() }); }
+  catch(e){ console.warn('[스티커사진] 자리 잡기 실패', e); r = null; }
   if(!r || !r.ok){ toast(r && r.reason==='full' ? '자리가 다 찼어요 (4명까지)' : '지금은 들어갈 수 없어요'); return; }
 
   PK.open = true; PK.room = room; PK.slot = r.slot; PK.host = !!r.host;
@@ -22726,6 +23153,7 @@ function ensureSeatNamePlateEl(seat){
     if(typeof officeMode !== 'undefined' && officeMode && seat.remote) return;
     _seatCtxMenu(e, seat);
   });
+  el.addEventListener('pointerdown', e=>_rowDragStart(e, seat));   // 🪑 방에서 이름표를 5px 넘게 끌면 자리 바꾸기(책상 끌기와 같다)
   layer.appendChild(el);
   seat.namePlateEl=el; return el;
 }
@@ -23392,8 +23820,16 @@ function triggerPet(seat){ const now=performance.now(); seat.petStart=now; if(se
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),dragPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-0.4);
 let drag=null; // {seat, startX/Y, moved, mode:'slot'|'shake', targetType, grabX(slot), grabPlane/grabOffset(shake), lastX/Y/T, velX/Y, dizzy}
 function seatFromObject(o){let p=o;while(p){if(p.userData&&p.userData.seat)return p.userData.seat;p=p.parent;}return null;}
-function worldX(e){const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
-  ray.setFromCamera(ndc,camera);const pt=new THREE.Vector3();ray.ray.intersectPlane(dragPlane,pt);return pt?pt.x:0;}
+/* 커서 아래 월드 x. planeY 를 주면 그 높이의 수평면(층마다 다르다 — 2 · 3층 좌석은 group.position.y 만큼 위),
+   없으면 예전 dragPlane(y=0.4). 수평면을 못 맞히면(위층 · 비스듬한 광선) 좌석 깊이의 세로면(z=0)으로 잰다 —
+   예전엔 못 맞혀도 (0,0,0) 의 x=0 을 돌려줘서 2층 이상에서 책상 끌기가 늘 같은 자리로 읽혔다. */
+const _wxPlane = new THREE.Plane(new THREE.Vector3(0,1,0), -0.4), _wxPt = new THREE.Vector3(), _wxZ0 = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
+function worldX(e, planeY){const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(ndc,camera);
+  const pl = (planeY == null) ? dragPlane : (_wxPlane.constant = -planeY, _wxPlane);
+  if(ray.ray.intersectPlane(pl,_wxPt)) return _wxPt.x;
+  if(ray.ray.intersectPlane(_wxZ0,_wxPt)) return _wxPt.x;
+  return 0;}
 
 /* ─── 캐릭터 흔들기 — 시메지 컨셉
    · 캐릭터(rig 안의 mesh) 드래그 → 흔들기, 책상(desk/그림자/슬래브) 드래그 → 슬롯 이동
@@ -23625,6 +24061,7 @@ canvas.addEventListener('pointerdown',e=>{
   /* 🪄 때리기 조준도 같은 자리에서 가로챈다 — 여기보다 뒤에 두면 드래그(흔들기)가 먼저 잡고,
      때린 캐릭터가 마우스에 끌려간다. 말풍선 숨김(dismissSeatHeadBubble)도 pointerup 쪽이라 비켜 간다. */
   if(_bonkAiming){ _bonkAimClick(e); return; }
+  if(_rowBandBlocksPx(e.clientX)) return;   // 🪑 보이는 영역 밖(안 그려진 좌석)은 잡지 않는다
   const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(ndc,camera);
   const hit=_preferVisibleHit(_skipHiddenDesk(_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true))));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기) · 보이는 것 먼저(#7)
@@ -23655,7 +24092,8 @@ canvas.addEventListener('pointerdown',e=>{
   const groupWP = new THREE.Vector3(); seat.group.getWorldPosition(groupWP);
   drag={
     seat, startX:e.clientX, startY:e.clientY, moved:false, mode:null, targetType,
-    grabX: worldX(e) - seat.group.position.x,
+    slotY: seat.group.position.y + 0.4,                              // 이 좌석 높이의 평면(책상 끌기)
+    grabX: worldX(e, seat.group.position.y + 0.4) - seat.group.position.x,
     grabPlane, grabOffset, groupWP,
     lastX:e.clientX, lastY:e.clientY, lastT:performance.now(),
     velX:0, velY:0, dizzy:0
@@ -23681,10 +24119,16 @@ canvas.addEventListener('pointermove',e=>{
   drag.lastX = e.clientX; drag.lastY = e.clientY; drag.lastT = now;
 
   if(drag.mode==='slot'){
-    const wx=worldX(e)-drag.grabX; drag.seat.group.position.x=wx;
+    if(_rowRoomMode){
+      // 🪑 방 — 자리 바꾸기(이름표 끌기와 같은 함수). 순서는 놓을 때(pointerup) 바꾼다.
+      if(drag.roomSlot === undefined) drag.roomSlot = _rowSlotBegin(drag.seat, e);
+      _rowSlotFollow(drag.seat, drag.roomSlot, e);
+    } else {
+    const wx=worldX(e, drag.slotY)-drag.grabX; drag.seat.group.position.x=wx;
     const n=seats.length; const _spacing = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING; let idx=Math.round(-wx/_spacing); idx=Math.max(0,Math.min(n-1,idx));
     const cur=seats.indexOf(drag.seat);
     if(idx!==cur){seats.splice(cur,1);seats.splice(idx,0,drag.seat);layoutSeats();renderSeatTabs();}
+    }
   } else if(drag.mode==='shake'){
     const r2=canvas.getBoundingClientRect();ndc.x=((e.clientX-r2.left)/r2.width)*2-1;ndc.y=-((e.clientY-r2.top)/r2.height)*2+1;
     ray.setFromCamera(ndc,camera);
@@ -23717,6 +24161,7 @@ canvas.addEventListener('pointerup',e=>{
  try{
   if(!drag)return;
   const seat = drag.seat;
+  if(drag.mode==='slot' && drag.roomSlot){ _rowSlotDrop(seat, drag.roomSlot); drag.roomSlot = null; }   // 🪑 방 — 놓을 때 순서 바꾸기
   if(!drag.moved){
     if(drag.targetType && typeof drag.targetType==='object' && drag.targetType.type==='item'){
       playItemIdle(drag.targetType.pivot);   // 아이템 클릭 — idle 애니메이션 한 번 재생
@@ -23801,6 +24246,8 @@ canvas.addEventListener('pointerup',e=>{
 });
 /* 안전망 — pointerup 누락 시 stuck 회복 (캡처 해제/포커스 잃음 등) */
 function clearDragStuck(){
+  // 🪑 방 자리 바꾸기 중이었다면 표시를 걷고 줄을 되돌린다(순서는 안 바꾼다)
+  if(drag && drag.roomSlot){ const rs = drag.roomSlot; if(rs.target && rs.target.namePlateEl) rs.target.namePlateEl.classList.remove('drop-target'); drag.roomSlot = null; try{ layoutSeats(); }catch(_){} }
   if(drag){
     if(drag.seat){ drag.seat.beingShaken=false; }
     drag=null;
@@ -25641,6 +26088,9 @@ function clampDeskScale(v){ return Math.max(DESK_SCALE_MIN, Math.min(DESK_SCALE_
 let faceCamSaved=null;   // 1~3단계(피부/표정/감은눈) 카메라 각도 유지용
 let deskCamSaved=null;   // 5~6단계(책상/좌석) 카메라 각도 유지용
 let painting=false, lastPX=null, lastPY=null, lastSX=null, lastSY=null, symmetry=false;
+/* 🖌 칠하기 도구(붓 · 페인트통 · 지우개 — paint-tools.js). 아래 도구 줄을 만들 때 채운다. 없으면(모듈 누락) 붓만. */
+let crPaintTool=null;
+function _crDropEraser(){ if(crPaintTool) crPaintTool.dropEraser(); else eraser=false; }
 const histF=[], histB=[];
 const redoF=[], redoB=[];
 function isDrawStep(){return crStep===2||crStep===3;}
@@ -25744,6 +26194,19 @@ function paintAt(hit){ const ctx=actC().getContext('2d');ctx.lineCap='round';ctx
     }
     else { lastSX=lastSY=null; _pLastSUV=null; } }
   ctx.globalCompositeOperation='source-over'; blit(); }
+/* 🪣 페인트통 — 누른 얼굴 메쉬의 조각(UV 섬)만 지금 색으로 채운다(erase 면 그 조각만 지운다 → 피부가 보인다).
+   붓과 같은 광선(_paintHitAt — 앞면만 · 옷에 가려지면 안 칠함)을 쓰고, 그림 층(actC)에만 칠하므로
+   저장 · 되돌리기 · 감은눈 복사가 붓 획과 똑같이 다룬다. 대칭이면 거울 자리의 조각도 같은 되돌리기 한 칸에. */
+function bucketFromEvent(e, erase){ if(!isDrawStep()||!cBase||!crPaintTool)return false;
+  const hit=_paintHitAt(e.clientX, e.clientY);
+  if(!hit){ if(typeof toast==='function') toast('얼굴을 눌러 채워요'); return false; }   // 빈 곳 · 옷에 가려진 곳
+  const ctx=actC().getContext('2d'), g=hit.object&&hit.object.geometry;
+  const n=crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, faceIndex:hit.faceIndex, uv:hit.uv, color:brushColor, erase, pushHistory });
+  if(!n){ if(typeof toast==='function') toast('여기는 채울 자리가 없어요 — 얼굴을 눌러 주세요'); return false; }
+  if(symmetry){ const m=mirrorUV(hit); if(m) crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, uv:m, color:brushColor, erase }); }
+  if(crStep===3) blinkEdited=true;
+  blit();
+  return true; }
 const _pray=new THREE.Raycaster(), _pndc=new THREE.Vector2();
 const CR_PAINT_STEP_PX = 6, CR_PAINT_MAX_STEPS = 8;   // _wdPicStrokeTo 와 같은 값
 function paintFromEvent(e){ if(!isDrawStep()||!cBase)return;
@@ -25775,8 +26238,7 @@ function eyedropFromEvent(e){ if(!isDrawStep()||!cBase)return false;
   let d; try{ d=actC().getContext('2d').getImageData(cx,cy,1,1).data; }catch(_){ return false; }
   if(d[3]<8) return false;   // 빈 픽셀은 무시
   const hex='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
-  brushColor=hex; eraser=false;
-  const eb=document.getElementById('eraserBtn'); if(eb)eb.classList.remove('on');
+  brushColor=hex; _crDropEraser();
   const bc=document.getElementById('brushCustom'); if(bc)bc.value=hex;
   [...swEl.children].forEach(x=>x.classList.remove('on'));
   return true; }
@@ -25808,7 +26270,7 @@ function setStampMode(on){
   stampMode=on;
   const sb=document.getElementById('stampBtn'); if(sb)sb.classList.toggle('on',on);
   const sp=document.getElementById('stampPanel'); if(sp)sp.style.display=on?'flex':'none';
-  if(on){ eraser=false; const eb=document.getElementById('eraserBtn'); if(eb)eb.classList.remove('on');
+  if(on){ _crDropEraser();
     // 이전에 불러둔 이미지가 있으면 버튼 다시 노출 (모드 OFF→ON 복귀 시 이미지 유지)
     if(stampImg){
       const sa=document.getElementById('stampApply'); if(sa)sa.style.display='inline-block';
@@ -26223,6 +26685,8 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
     // 도장 편집 중에는 캔버스 클릭으로 그리지 않음(오버레이 조작 우선)
     if(stampMode) return;
     if(e.button!==0)return;
+    const act=crPaintTool?crPaintTool.pointerAction(e):'stroke';
+    if(act!=='stroke'){ bucketFromEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
     if(crStep===3)blinkEdited=true;pushHistory();painting=true;_paintBreak();_pLastScr=null;paintFromEvent(e);cv.setPointerCapture(e.pointerId);   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
   });
   cv.addEventListener('pointermove',e=>{
@@ -26237,6 +26701,8 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
       }
       return;
     }
+    /* 🖌 커서 = 지금 도구(붓 + · 페인트통 · 지우개). 단계 이동(gotoStep)이 crosshair 로 되돌려도 움직이면 다시 맞는다. */
+    if(crPaintTool && isDrawStep() && !stampMode){ const cu=crPaintTool.cursor(); if(cv.style.cursor!==cu) cv.style.cursor=cu; }
     if(!painting)return;
     const evs=(typeof e.getCoalescedEvents==='function')?e.getCoalescedEvents():null;
     /* 🖊️ [Mac 제보 2026-09-23] "표정을 그리면 선이 위아래로 튄다."
@@ -26284,8 +26750,12 @@ addEventListener('keydown',e=>{
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea')return;
     e.preventDefault();
-    const eb=document.getElementById('eraserBtn');
-    if(eb) eb.click();   // 기존 토글 핸들러 재사용 — eraser 변수와 버튼 클래스가 한 곳에서 관리됨
+    if(crPaintTool) crPaintTool.toggleEraser();   // 지우개 ↔ 붓 — eraser 변수와 버튼 표시는 도구 줄(onChange)이 맞춘다
+  }
+  // B 붓 · G 페인트통 · E 지우개 (paint-tools.js — 한글 상태 맥도 hotkeyLetter 로 같은 키)
+  if(crPaintTool && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
+    const tag=(e.target&&e.target.tagName||'').toLowerCase();
+    if(tag!=='input' && tag!=='textarea' && crPaintTool.handleKey(e)) e.preventDefault();
   }
   // X: 좌우 대칭 ON/OFF 토글
   if(hotkeyLetter(e)==='x' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
@@ -26325,22 +26795,27 @@ addEventListener('keydown',e=>{
 const swEl=document.getElementById('brushColors');
 ['#333333','#ffffff','#e0607a','#5a8fd8','#e0a050'].forEach((c,i)=>{const s=document.createElement('span');
   s.className='sw'+(i===0?' on':'');s.style.background=c;
-  s.onclick=()=>{brushColor=c;eraser=false;document.getElementById('eraserBtn').classList.remove('on');[...swEl.children].forEach(x=>x.classList.toggle('on',x===s));};
+  s.onclick=()=>{brushColor=c;_crDropEraser();[...swEl.children].forEach(x=>x.classList.toggle('on',x===s));};
   swEl.appendChild(s);});
-document.getElementById('brushCustom').addEventListener('input',e=>{brushColor=e.target.value;eraser=false;
-  document.getElementById('eraserBtn').classList.remove('on');[...swEl.children].forEach(x=>x.classList.remove('on'));});
+document.getElementById('brushCustom').addEventListener('input',e=>{brushColor=e.target.value;_crDropEraser();
+  [...swEl.children].forEach(x=>x.classList.remove('on'));});
 /* 🎨 [2026-10-02 제보] "자유 색으로 칠하다 기본 칩을 눌렀다가, 아까 그 자유 색으로 돌아가려고 칸을 다시
    눌러도 그 색이 안 잡힌다." — <input type="color"> 는 **값이 바뀔 때만** input/change 를 보낸다.
    같은 색 그대로 창을 닫으면 이벤트가 없어서 브러시가 기본 칩 색에 머물렀다.
    ⇒ 칸을 누르는 순간 지금 들어 있는 색(=마지막 자유 색·스포이드 색)을 바로 브러시로 잡는다.
      창은 평소처럼 열리고, 거기서 색을 바꾸면 위 input 이 그대로 이어받는다. */
-document.getElementById('brushCustom').addEventListener('click',e=>{brushColor=e.target.value;eraser=false;
-  document.getElementById('eraserBtn').classList.remove('on');[...swEl.children].forEach(x=>x.classList.remove('on'));});
+document.getElementById('brushCustom').addEventListener('click',e=>{brushColor=e.target.value;_crDropEraser();
+  [...swEl.children].forEach(x=>x.classList.remove('on'));});
 document.getElementById('brushSize').addEventListener('input',e=>brushSize=+e.target.value);
-document.getElementById('eraserBtn').addEventListener('click',e=>{
-  if(stampMode) setStampMode(false);   // 지우개와 도장은 동시 사용 X
-  eraser=!eraser; e.target.classList.toggle('on',eraser);
-});
+/* 🖌 도구 줄 — 붓 · 페인트통 · 지우개. eraser 변수(paintAt 이 본다)는 여기서만 맞춘다.
+   붓이 아닌 도구를 고르면 도장 모드를 닫는다(예전 «지우개와 도장은 동시 사용 X» 와 같은 이유 — 도장 중엔 캔버스 클릭이 안 칠한다). */
+if(typeof PaintTools!=='undefined'){
+  crPaintTool=PaintTools.createPaintTools({ doc:document, uvFill:(typeof UvFill!=='undefined'?UvFill:null),
+    hotkeyLetter:(typeof hotkeyLetter==='function'?hotkeyLetter:null),
+    onChange:(t)=>{ eraser=(t==='eraser'); if(t!=='brush' && stampMode) setStampMode(false);
+      const cv=document.getElementById('creatorPreview'); if(cv && isDrawStep() && !stampMode) cv.style.cursor=crPaintTool.cursor(); } });
+  crPaintTool.mount(document.getElementById('crToolSeg'));
+}
 document.getElementById('symBtn').addEventListener('click',e=>{symmetry=!symmetry;e.target.classList.toggle('on',symmetry);});
 document.getElementById('clearBtn').addEventListener('click',()=>{pushHistory();actC().getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);blit();});
 /* 도장 모드 + 파일 입력 + 슬라이더 */
@@ -40541,7 +41016,10 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   if(desktopMode){ renderer.clear(); }   // 투명 클리어 강제 — 프레임 사이 흰 잔상 방지
   /* 🍎 설정(런처) 화면에서는 #scene 이 display:none 이다(body.desktop.config) — 안 보이는 화면을 그리지 않는다.
      상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
+  const _sc = _rowScissorBegin();   // 🪑 방이면 보이는 영역(띠) 밖은 안 그린다
   if(!(document.body.classList.contains('desktop') && document.body.classList.contains('config'))) renderer.render(scene,camera);
+  _rowScissorEnd(_sc);
+  _roomFitStep(); _rowClipLabels();   // 🪑 자동 맞춤 옮겨 가기 · 띠 밖 이름표 숨기기
   updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
   if(!manual) requestAnimationFrame(frame);
 }
@@ -45148,7 +45626,7 @@ if(desktopMode){
         return true;
       }
       // 3D 캐릭터 위인지 (raycast)
-      if(_cvEl && seats.length){
+      if(_cvEl && seats.length && !_rowBandBlocksPx(cx)){   // 🪑 보이는 영역 밖 좌석은 안 그려지므로 클릭도 안 받는다
         const r = _cvEl.getBoundingClientRect();
         if(cx>=r.left && cx<=r.right && cy>=r.top && cy<=r.bottom){
           _ndcHit.x = ((cx - r.left)/r.width)*2 - 1;
@@ -45522,6 +46000,7 @@ if(desktopMode){
          드래그가 성립할 수 없으므로, 그 조합은 '드래그 중'이 아니라 '플래그가 남은 것'이다.
          → 그때는 건너뛰지 않고 다시 판정한다. drag 가 어떤 이유로 남더라도 유령이 되지 않는다. */
       if(drag && _ignoreSent === false) return;   // 진짜 드래그 중 — 무시 해제 상태 유지
+      if(_rowDrag && _rowDrag.active && _ignoreSent === false) return;   // 🪑 이름표로 줄 끌기 · 띠 손잡이 끌기 중 — 같은 이유(끝에 걸려 커서가 벗어나도)
       _updateIgnore(e.clientX, e.clientY);
     });
     // 드래그 중엔 캐릭터 밖으로 벗어나도 계속 잡아야 하므로, 드래그 동안은 무시 해제 유지

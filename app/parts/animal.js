@@ -286,6 +286,7 @@ function buildOverlay(){
           +'<div class="cr-groupbox">'
             +'<span class="cr-groupbox-label" id="anpPaintLabel">표정 + 몸 무늬 그리기</span>'
             +'<div class="cr-tools" id="anpTools">'
+              +'<span id="anpToolSeg"></span>'   /* 🖌 붓 · 페인트통 · 지우개 (paint-tools.js) */
               +'<span class="cr-swatches" id="anpBrushColors"></span>'
               +'<input id="anpBrushCustom" type="color" value="#333333" title="브러시 색">'
               +'<label>굵기<input id="anpBrush" type="range" min="2" max="34" value="9" style="width:58px;vertical-align:middle;"></label>'
@@ -294,7 +295,7 @@ function buildOverlay(){
               +'<label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--ink);cursor:pointer;white-space:nowrap;" title="체크하면 얼굴에만 칠해져요 (몸·귀 잠금)"><input type="checkbox" id="anpFaceMask" style="width:auto;margin:0;">얼굴만</label>'
               +'<label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--ink);cursor:pointer;white-space:nowrap;" title="체크하면 몸에만 칠해져요 (얼굴·귀 잠금)"><input type="checkbox" id="anpBodyMask" style="width:auto;margin:0;">몸만</label>'
               +'<button id="anpUndo" title="되돌리기 (Ctrl+Z)">↶ 되돌리기</button>'
-              +'<button id="anpEraser">지우개</button><button id="anpClear">지우기</button>'
+              +'<button id="anpClear">지우기</button>'
               +'<button id="anpStampBtn" title="이미지 도장 (Z)">이미지</button>'
               +'<button id="anpCopyFace" title="표정을 다시 복사" style="display:none;">⟳ 표정 복사</button>'
               /* 🙂 반대 방향 — 3 표정 탭에서 감은눈 그림을 가져온다(인간 생성기 faceCopyBlinkBtn 과 짝).
@@ -315,7 +316,7 @@ function buildOverlay(){
               +'<span style="color:var(--ink-soft);">이미지 위치를 잡아 Enter 또는 &#10003; 찍기 · Z=모드 켜기/끄기</span>'
             +'</div>'
             +'<div style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;margin:4px 2px -2px;opacity:.85;">'
-              +'✏ 우클릭으로 색 추출 · <b>Delete</b>로 전체 지우기 · <b>C</b> 지우개 · <b>X</b> 대칭 · <b>Z</b> 도장모드 · <b>Enter</b> 찍기 · <b>G</b> 전체 채우기 · <b>Ctrl+Shift+Z</b> 다시'
+              +'✏ <b>B</b> 붓 · <b>G</b> 페인트통(Shift+클릭 = 그 조각 지우기) · <b>E</b> 지우개 · 우클릭으로 색 추출 · <b>Delete</b>로 전체 지우기 · <b>X</b> 대칭 · <b>Z</b> 도장모드 · <b>Enter</b> 찍기 · <b>Shift+G</b> 전체 채우기 · <b>Ctrl+Shift+Z</b> 다시'
             +'</div>'
           +'</div>'
         +'</div>'/* /anpPanelPaint */
@@ -438,17 +439,17 @@ function buildOverlay(){
   };
   window.__anpSetEarSide=setEarAdjSide;
   // 페인트 도구
-  const bCustom=overlay.querySelector('#anpBrushCustom'); if(bCustom) bCustom.addEventListener('input',e=>{ pColor=e.target.value; pEraser=false;
+  const bCustom=overlay.querySelector('#anpBrushCustom'); if(bCustom) bCustom.addEventListener('input',e=>{ pColor=e.target.value; _aDropEraser();
     const swEl=overlay.querySelector('#anpBrushColors'); if(swEl)[...swEl.children].forEach(x=>x.classList.remove('on'));
     syncPaintUI(); });
   /* 🎨 [2026-10-02] 같은 색으로 창을 닫으면 input 이 안 와서 이전 자유 색을 다시 못 잡던 문제 —
      인간 생성기 brushCustom 의 click 주석과 같은 처리. 누르는 순간 칸의 색을 브러시로 잡는다. */
-  if(bCustom) bCustom.addEventListener('click',e=>{ pColor=e.target.value; pEraser=false;
+  if(bCustom) bCustom.addEventListener('click',e=>{ pColor=e.target.value; _aDropEraser();
     const swEl=overlay.querySelector('#anpBrushColors'); if(swEl)[...swEl.children].forEach(x=>x.classList.remove('on'));
     syncPaintUI(); });
   const bBrush=overlay.querySelector('#anpBrush'); if(bBrush) bBrush.addEventListener('input',e=>{ pSize=+e.target.value; });
   const bUndo=overlay.querySelector('#anpUndo'); if(bUndo) bUndo.onclick=()=>pUndo();
-  const bEr=overlay.querySelector('#anpEraser'); if(bEr) bEr.onclick=()=>{ pEraser=!pEraser; syncPaintUI(); };
+  if(aPaintTool) aPaintTool.mount(overlay.querySelector('#anpToolSeg'));   // 🖌 붓 · 페인트통 · 지우개
   const bCl=overlay.querySelector('#anpClear'); if(bCl) bCl.onclick=()=>pClearAll();
   // 이미지 → 도장 모드 (인간 생성기와 같은 흐름: 위치 조준 → 찍기)
   const stFile=overlay.querySelector('#anpStampFile');
@@ -536,6 +537,8 @@ function buildOverlay(){
     if(_gizmoDragging) return;
     if(e.button===0 && paintTab){
       if(aStampMode) return;   // 도장 편집 중 — 오버레이(이동·핸들)가 조작 담당, 캔버스 클릭은 그리지 않음(인간과 동일)
+      const act=aPaintTool?aPaintTool.pointerAction(e):'stroke';
+      if(act!=='stroke'){ pBucketEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
       pPushHist(); pPainting=true; pLastX=pLastY=null; pLastSX=pLastSY=null;   // 브러시
       pPaintEvent(e,true); cv.setPointerCapture(e.pointerId); return;
     }
@@ -544,6 +547,8 @@ function buildOverlay(){
     dragging=true; lastX=e.clientX; lastY=e.clientY; cv.setPointerCapture(e.pointerId);
   });
   cv.addEventListener('pointermove',e=>{
+    /* 🖌 커서 = 지금 도구(페인트 탭에서만 · 도장 중엔 기본) */
+    { const cu=(paintTab && !aStampMode && aPaintTool) ? aPaintTool.cursor() : 'default'; if(cv.style.cursor!==cu) cv.style.cursor=cu; }
     if(pPainting){ pPaintEvent(e,false); return; }
     if(!dragging) return;
     if(_rcDown && !_rcDown.moved && Math.abs(e.clientX-_rcDown.x)+Math.abs(e.clientY-_rcDown.y)>4) _rcDown.moved=true;
@@ -899,10 +904,12 @@ function onPanKey(e){
     if(k==='z'){ aSetStampMode(!aStampMode); e.preventDefault(); return; }   // Z=도장 모드 토글(인간과 동일)
     if(e.key==='Enter'){ if(aStampMode) aCommitStamp(); e.preventDefault(); return; }          // Enter=찍기
     if(e.key==='Escape'){ if(aStampMode) aSetStampMode(false); e.preventDefault(); return; }
-    if(k==='c'){ pEraser=!pEraser; syncPaintUI(); e.preventDefault(); return; }
+    if(k==='c' && !e.ctrlKey && !e.metaKey){ if(aPaintTool) aPaintTool.toggleEraser(); e.preventDefault(); return; }   // 예전부터 C = 지우개 켜고 끄기
     if(k==='x'){ pSym=!pSym; syncPaintUI(); e.preventDefault(); return; }
     if(e.key==='Delete'){ pClearAll(); e.preventDefault(); return; }
-    if(k==='g'){ pFillAll(); e.preventDefault(); return; }   // G=전체 채우기
+    /* G 는 이제 페인트통(누른 조각만 — 꾸미기 G 와 같은 뜻). 예전 G «전체 채우기» 는 Shift+G 로 옮겼다. */
+    if(k==='g' && e.shiftKey){ pFillAll(); e.preventDefault(); return; }
+    if(aPaintTool && aPaintTool.handleKey(e)){ e.preventDefault(); return; }   // B 붓 · G 페인트통 · E 지우개
   }
   const STEP=0.14; let used=true;
   if(e.key==='ArrowLeft') panX-=STEP;
@@ -965,6 +972,12 @@ function _copyPaintSide(from, to){
   });
 }
 let pColor='#333333', pSize=11, pEraser=false, pSym=false;
+/* 🖌 칠하기 도구(paint-tools.js). pEraser(pStroke 가 본다)는 onChange 에서만 맞춘다. 모듈이 없으면 붓만. */
+const aPaintTool=(typeof PaintTools==='undefined') ? null : PaintTools.createPaintTools({
+  doc:document, uvFill:(typeof UvFill!=='undefined'?UvFill:null),
+  hotkeyLetter:(typeof hotkeyLetter==='function'?hotkeyLetter:null),
+  onChange:(t)=>{ pEraser=(t==='eraser'); if(t!=='brush' && aStampMode) aSetStampMode(false); syncPaintUI(); } });
+function _aDropEraser(){ if(aPaintTool) aPaintTool.dropEraser(); else pEraser=false; }
 let pPainting=false, pLastX=null, pLastY=null, pLastSX=null, pLastSY=null;
 let _blinkTouched=false;   // 감은눈을 한 번이라도 직접 편집했는지 — 자동복사 재실행 방지
 /* ★ 부위 잠금 — 'ear'|'face'|'body'|null. 얼굴(face1~4)과 몸은 캔버스 한 장(P_SZ)을 공유하지만
@@ -1025,7 +1038,7 @@ function aSetStampMode(on){
   aStampMode=on;
   const sb=overlay&&overlay.querySelector('#anpStampBtn'); if(sb) sb.classList.toggle('on',on);
   const sp=overlay&&overlay.querySelector('#anpStampPanel'); if(sp) sp.style.display=on?'flex':'none';
-  if(on){ pEraser=false; syncPaintUI();
+  if(on){ _aDropEraser(); syncPaintUI();
     if(aStampImg){   // 이전에 불러둔 이미지가 있으면 찍기/취소 다시 노출 (인간과 동일)
       const sa=overlay.querySelector('#anpStampApply'); if(sa) sa.style.display='inline-block';
       const sc=overlay.querySelector('#anpStampCancel'); if(sc) sc.style.display='inline-block';
@@ -1488,6 +1501,16 @@ function _canvasForMesh(mesh){
   // 몸/얼굴은 같은 캔버스를 쓰지만 부위는 구분해서 알려준다(부위 잠금용)
   return {draw:pActC(), blit:pBlit, isEar:false, part:_isFaceMesh(mesh)?'face':'body'};
 }
+/* 🔒 부위 잠금으로 막혔을 때 알린다 — 조용히 아무 일도 안 하면 «고장» 으로 읽힌다(제보: 오른팔이 안 칠해진다).
+   붓은 획 하나에 여러 번 막히므로 1.5초에 한 번만. */
+const LOCK_MSG={ ear:'지금은 귀만 칠할 수 있어요 — «귀만» 을 끄면 다른 곳도 칠해요',
+                 face:'지금은 얼굴만 칠할 수 있어요 — «얼굴만» 을 끄면 다른 곳도 칠해요',
+                 body:'지금은 몸만 칠할 수 있어요 — «몸만» 을 끄면 다른 곳도 칠해요' };
+let _lockToastAt=0;
+function _lockToast(){
+  const now=Date.now(); if(now-_lockToastAt<1500) return; _lockToastAt=now;
+  if(typeof toast==='function') toast(LOCK_MSG[pPartMask]||'잠금 때문에 여기는 칠할 수 없어요');
+}
 /* 지금 잠금 설정에서 이 부위를 칠해도 되는가 */
 function _partAllowed(tgt){ return !pPartMask || (tgt && tgt.part===pPartMask); }
 /* 대칭 지점을 다시 맞힐 메쉬 — 얼굴은 얼굴, 몸은 몸, 왼귀는 오른귀.
@@ -1520,7 +1543,7 @@ function pPaintEvent(e, isStart){
   const uv=hit.uv;
   const cx=uv.x*P_SZ, cy=uv.y*P_SZ;   // flipY=false 규약 — uv 그대로 (인간과 동일)
   const tgt=_canvasForMesh(hit.object);   // 히트한 메쉬 소속 캔버스(몸/얼굴 or 귀L/R)
-  if(!_partAllowed(tgt)){ pLastX=pLastY=null; return; }   // 부위 잠금(귀만/얼굴만/몸만): 다른 부위 히트는 무시
+  if(!_partAllowed(tgt)){ pLastX=pLastY=null; _lockToast(); return; }   // 부위 잠금(귀만/얼굴만/몸만): 다른 부위 히트는 무시 · 알림
   // UV 점프 가드
   if(pLastX!=null && (Math.abs(cx-pLastX)+Math.abs(cy-pLastY)) > P_SZ*0.18){ pLastX=pLastY=null; }
   pStroke(pLastX,pLastY,cx,cy,tgt.draw); pLastX=cx; pLastY=cy;
@@ -1538,6 +1561,41 @@ function pPaintEvent(e, isStart){
   }
   return;
   pBlit();
+}
+/* 🪣 페인트통 — 누른 메쉬의 조각(UV 섬)만 채운다(erase 면 그 조각만 지운다 → 흰 바탕).
+   얼굴과 몸은 캔버스 한 장을 같이 쓰지만 메쉬가 달라서 조각은 서로 안 섞인다(전체 채우기 Shift+G 와 다른 점).
+   부위 잠금(귀만 · 얼굴만 · 몸만) · 대칭은 붓과 같은 규칙. 되돌리기 한 칸(pPushHist — 몸 + 좌우 귀 세트). */
+/* 같은 그림판을 쓰는 다른 메쉬의 geometry — 페인트통 둘레 번짐이 그 안쪽을 덮지 않게(paint-tools.js applyBucket peers).
+   귀는 그 귀의 다른 메쉬, 몸 · 얼굴은 귀를 뺀 **보이는** 메쉬 전부(몸 ↔ 지금 얼굴형).
+   ⚠️ 안 보이는 얼굴형은 넣지 않는다 — 얼굴형 넷의 UV 가 서로 겹쳐서, 넣으면 지금 얼굴 조각 바로 바깥 텍셀이 «다른 얼굴형 안쪽» 이
+     되어 못 칠하고, 머리에 실선이 그대로 남는다(헤드리스 확인). */
+function _canvasPeers(mesh){
+  const out=[];
+  for(const side of ['L','R']){
+    const w = side==='L'?earObjL:earObjR; let mine=false;
+    if(w) w.traverse(o=>{ if(o===mesh) mine=true; });
+    if(mine){ w.traverse(o=>{ if(o.isMesh && o!==mesh && o.geometry) out.push(o.geometry); }); return out; }
+  }
+  const ears=new Set(); [earObjL,earObjR].forEach(w=>{ if(w) w.traverse(o=>{ if(o.isMesh) ears.add(o); }); });
+  if(model) model.traverse(o=>{ if(o.isMesh && o.visible && o!==mesh && !ears.has(o) && o.geometry) out.push(o.geometry); });
+  return out;
+}
+function pBucketEvent(e, erase){
+  if(!aPaintTool) return false;
+  const hit=pHit(e);
+  if(!hit || !hit.object){ if(typeof toast==='function') toast('캐릭터를 눌러 채워요'); return false; }
+  const tgt=_canvasForMesh(hit.object);
+  if(!_partAllowed(tgt)){ _lockToast(); return false; }
+  const opt={ color:pColor, erase:!!erase, size:P_SZ };
+  const n=aPaintTool.bucket(Object.assign({ ctx:tgt.draw.getContext('2d'), geometry:hit.object.geometry, faceIndex:hit.faceIndex, uv:hit.uv, peers:_canvasPeers(hit.object), pushHistory:pPushHist }, opt));
+  if(!n){ if(typeof toast==='function') toast('여기는 채울 그림 자리가 없어요'); return false; }
+  tgt.blit();
+  if(pSym){
+    const mh=_pMirrorHit(hit);
+    if(mh && mh.object){ const mt=_canvasForMesh(mh.object);
+      if(_partAllowed(mt) && aPaintTool.bucket(Object.assign({ ctx:mt.draw.getContext('2d'), geometry:mh.object.geometry, faceIndex:mh.faceIndex, uv:mh.uv, peers:_canvasPeers(mh.object) }, opt))) mt.blit(); }
+  }
+  return true;
 }
 function pPickColor(e){
   const h=pHit(e); const uv=h&&h.uv; if(!uv||!pDispC) return;
@@ -1566,7 +1624,7 @@ function syncPaintUI(){
     cb.title = _blinkTouched ? '감은눈 그림을 표정으로 가져와요 (되돌리기 가능)'
                              : '아직 감은눈을 그린 적이 없어요 — 4 감은눈 탭에서 먼저 그려주세요';
   }
-  const er=overlay.querySelector('#anpEraser'); if(er) er.classList.toggle('on', pEraser);   // 인간과 같은 on 표시
+  if(aPaintTool) aPaintTool.sync();   // 도구 줄 눌림 표시
   const sy=overlay.querySelector('#anpSym'); if(sy) sy.classList.toggle('on', pSym);
   const swEl=overlay.querySelector('#anpBrushColors');
   if(swEl && !swEl.children.length){
@@ -1574,7 +1632,7 @@ function syncPaintUI(){
     ['#333333','#ffffff','#e0607a','#5a8fd8','#e0a050'].forEach((c,i)=>{
       const sw=document.createElement('span');
       sw.className='sw'+(i===0?' on':''); sw.style.background=c;
-      sw.onclick=()=>{ pColor=c; pEraser=false; syncPaintUI(); [...swEl.children].forEach(x=>x.classList.toggle('on',x===sw)); };
+      sw.onclick=()=>{ pColor=c; _aDropEraser(); syncPaintUI(); [...swEl.children].forEach(x=>x.classList.toggle('on',x===sw)); };
       swEl.appendChild(sw);
     });
   }
