@@ -7,6 +7,7 @@
    ・1절: 코드(주석 제외)에서 Tahoma 가 들어간 font-family / font 선언은 전부 한글 폰트를 함께 적는다.
           예외는 이모지 전용 목록(Segoe UI Emoji 로 시작) 하나뿐.
    ・2절: 기본 테마 --win-font 와 머리 위 말풍선·이름표에 맑은 고딕 · 버블 테마는 여전히 돋움이 먼저.
+   ・글꼴 토큰 var(--tw-font-…)(디자인 시스템 1단계)은 html 의 정의로 펼친 뒤 1 · 2절을 본다.
    [실행] desk-companion-prototype.html · app.js 가 있는 폴더에서(mallang.js · myhome-desktop.js 는 있으면 본다). */
 'use strict';
 const fs = require('fs');
@@ -20,10 +21,14 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const stripCss = (s) => s.replace(/<!--[\s\S]*?-->/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ');
 const stripJs  = (s) => stripCss(s).replace(/(^|[^:\\'"])\/\/[^\n]*/g, '$1 ');
 const KOR = /Malgun Gothic|맑은 고딕|Dotum|돋움/;
+/* 글꼴 토큰 var(--tw-font-…)은 html 의 정의로 펼쳐서 본다 — 토큰 안의 목록도 같은 규칙을 받는다 */
+const TW_FONT = {};
+for(const m of stripCss(HTML).matchAll(/(--tw-font-[\w-]+)\s*:\s*([^;]*);/g)) TW_FONT[m[1]] = m[2];
+const expand = (s) => s.replace(/var\((--tw-font-[\w-]+)\)/g, (m, n) => TW_FONT[n] || m);
 
 say('── 1. Tahoma 목록마다 한글 폰트');
-const files = [['desk-companion-prototype.html', stripCss(HTML)], ['app.js', stripJs(APP)]];
-for(const f of ['mallang.js', 'myhome-desktop.js']){ const t = read(f); if(t != null) files.push([f, stripJs(t)]); }
+const files = [['desk-companion-prototype.html', expand(stripCss(HTML))], ['app.js', expand(stripJs(APP))]];
+for(const f of ['mallang.js', 'myhome-desktop.js']){ const t = read(f); if(t != null) files.push([f, expand(stripJs(t))]); }
 for(const [name, code] of files){
   const decls = code.match(/font(?:-family)?\s*:[^;}\n]*Tahoma[^;}\n]*/g) || [];
   const bad = decls.filter(d => !KOR.test(d) && !/Emoji/.test(d));
@@ -34,14 +39,14 @@ for(const [name, code] of files){
 
 say('── 2. 핵심 자리');
 {
-  const css = stripCss(HTML);
+  const css = stripCss(HTML), cssX = expand(css);
   const winFonts = css.match(/--win-font\s*:[^;]*;/g) || [];
   chk(winFonts.length === 2, '--win-font 정의가 둘(기본·버블)이다 [' + winFonts.length + ']');
   chk(/^--win-font\s*:\s*Tahoma,'Malgun Gothic'/.test(winFonts[0] || ''), '★ 기본 테마 --win-font = Tahoma 다음 맑은 고딕 (영문은 그대로 Tahoma)');
   chk(/^--win-font\s*:\s*'Dotum'/.test(winFonts[1] || ''), '버블 테마는 여전히 돋움이 먼저 (건드리지 않았다)');
-  const rule = (sel) => { const i = css.indexOf('\n  ' + sel + '{'); return i < 0 ? '' : css.slice(i, css.indexOf('}', i)); };
-  chk(/font:bold 15px Tahoma,"Malgun Gothic"/.test(rule('.seat-bubble-dom')), '★ 머리 위 말풍선 15px — 맑은 고딕');
-  chk(/Tahoma,"Malgun Gothic"/.test(rule('.seat-nameplate')), '머리 위 이름표 — 맑은 고딕');
+  const rule = (sel) => { const i = cssX.indexOf('\n  ' + sel + '{'); return i < 0 ? '' : cssX.slice(i, cssX.indexOf('}', i)); };
+  chk(/font:bold 15px Tahoma,["']Malgun Gothic["']/.test(rule('.seat-bubble-dom')), '★ 머리 위 말풍선 15px — 맑은 고딕');
+  chk(/Tahoma,["']Malgun Gothic["']/.test(rule('.seat-nameplate')), '머리 위 이름표 — 맑은 고딕');
   chk(/Tahoma,'Malgun Gothic'/.test(rule('#chatWindow')), '대화창은 원래대로 맑은 고딕 (이번 제보에서 멀쩡했던 기준)');
 }
 
