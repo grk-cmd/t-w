@@ -70,6 +70,8 @@ export function ServersCard() {
     const used = cfg ? serverInUse(cfg, n) : 0;
     if (used)
       return setMessage({ text: `${n} 을 쓰는 시범 이용자 ${used}명 — 먼저 옮기거나 빼기`, error: true });
+    if (cfg?.default === n)
+      return setMessage({ text: `${n} 은 기본 서버 — 먼저 «기본 서버 · 비율» 에서 바꾸기`, error: true });
     if (!confirm(withProdMark(env, `${n} 빼기`))) return;
     remove.mutate(n, {
       onSuccess: () => setMessage({ text: `뺌 · ${n}`, error: false }),

@@ -25,6 +25,8 @@ describe('방 서버 설정 읽기', () => {
       servers: {},
       allow: {},
       limits: { workingroom: null, togetherroom: null },
+      default: null,
+      defaultPercent: 0,
     });
   });
 
@@ -35,13 +37,29 @@ describe('방 서버 설정 읽기', () => {
       servers: { 'rooms-1': 'wss://rooms.togetherworking.duckdns.org', BAD: 'wss://x', n: 3 },
       allow: { u1abc2345: 'rooms-1', 'MATE-AB12': 'rooms-1', u2abc2345: 7 },
       limits: { workingroom: 400, togetherroom: 2.5, other: 3 },
+      default: 'BAD NAME',
+      defaultPercent: 101,
     });
     expect(cfg).toEqual({
       on: true,
       servers: { 'rooms-1': 'wss://rooms.togetherworking.duckdns.org' },
       allow: { u1abc2345: 'rooms-1' },
       limits: { workingroom: 400, togetherroom: null },
+      default: null,
+      defaultPercent: 0,
     });
+  });
+
+  it('기본 서버 · 비율 — 이름 형식 · 정수 0~100 만', () => {
+    expect(parseRoomServerConfig({ default: 'realtime-1', defaultPercent: 50 })).toMatchObject({
+      default: 'realtime-1',
+      defaultPercent: 50,
+    });
+    for (const bad of [-1, 101, 2.5, '50', null, true])
+      expect(parseRoomServerConfig({ default: 'realtime-1', defaultPercent: bad }).defaultPercent).toBe(0);
+    expect(parseRoomServerConfig({ defaultPercent: 0 }).defaultPercent).toBe(0);
+    expect(parseRoomServerConfig({ defaultPercent: 100 }).defaultPercent).toBe(100);
+    expect(parseRoomServerConfig({ default: 'a'.repeat(33) }).default).toBeNull();
   });
 });
 
