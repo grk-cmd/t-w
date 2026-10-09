@@ -1,0 +1,20 @@
+{
+  "note": "sim-ui-tokens.js 기준선 — 아직 토큰으로 못 바꾼 자리 수. 늘리지 않는다. 줄였으면 --write-baseline 으로 내린다.",
+  "fonts": {
+    "desk-companion-prototype.html": 24,
+    "animal.js": 2,
+    "app-version-gate.js": 1,
+    "app.js": 16,
+    "mallang.js": 1,
+    "myhome-desktop.js": 18
+  },
+  "greys": {
+    "desk-companion-prototype.html": 145,
+    "animal.js": 6,
+    "app-version-gate.js": 4,
+    "app.js": 140,
+    "mallang.js": 20,
+    "myhome-desktop.js": 134,
+    "purikura-net.js": 2
+  }
+}
