@@ -62,6 +62,9 @@ export interface ServerHealth {
   togetherroom: number;
   conns: number;
   limits: Partial<Record<Channel, number>> | null;
+  /** 돌고 있는 코드(`v0.1.0 (8998273)` · `dev (abc1234)`). 옛 방 서버는 칸이 없어 null. */
+  version: string | null;
+  uptimeS: number | null;
 }
 
 /** 방 서버 /health(공개 · 개수뿐) — 서버 하나에 한 번, 누를 때 다시. Firebase 를 읽지 않는다. */
@@ -75,6 +78,7 @@ export async function fetchServerHealth(
   if (!res.ok) throw new Error(`응답 ${res.status}`);
   const o = (await res.json()) as Record<string, unknown>;
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const str = (v: unknown) => (typeof v === 'string' && v && v.length <= 80 ? v : null);
   const lim = o.limits && typeof o.limits === 'object' ? (o.limits as Record<string, unknown>) : null;
   return {
     rooms: num(o.rooms),
@@ -87,6 +91,8 @@ export async function fetchServerHealth(
           CHANNELS.filter((c) => typeof lim[c] === 'number').map((c) => [c, lim[c] as number]),
         )
       : null,
+    version: str(o.version),
+    uptimeS: typeof o.uptimeS === 'number' && Number.isFinite(o.uptimeS) ? o.uptimeS : null,
   };
 }
 

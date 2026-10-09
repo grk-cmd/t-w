@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
-import { useRoomServerConfig } from '@/entities/room-server';
+import { ROOM_SERVER_MIN_APP_VER, useRoomServerConfig } from '@/entities/room-server';
 import {
   isBadLicense,
   LICENSE_LABEL,
+  OLD_VER_LABEL,
   realName,
   useUserName,
   useUserPresence,
   type UserRow,
 } from '@/entities/user';
-import { ServerSelect } from '@/features/room-server/manage-allow';
+import { appVerBlock, ServerSelect } from '@/features/room-server/manage-allow';
 import { filterUsers } from '@/features/user/user-filter';
 import { useUserRows } from '@/features/user/user-rows';
 import { errorMessage, formatDate, usePaging } from '@/shared/lib';
@@ -23,9 +24,10 @@ function useRowName(row: UserRow): string | null {
   return row.name ?? realName(fetched.data) ?? null;
 }
 
+type PresenceQuery = ReturnType<typeof useUserPresence>;
+
 // 마지막 접속 — 보이는 쪽의 줄만 presence 한 칸씩 읽는다(사용자 화면과 같은 방식).
-function LastSeen({ uid }: { uid: string }) {
-  const p = useUserPresence(uid);
+function LastSeen({ p }: { p: PresenceQuery }) {
   if (p.isLoading) return <span className="soft">…</span>;
   if (p.error) return <span className="soft">읽지 못함</span>;
   if (p.data?.online) return <span className={styles.online}>접속 중</span>;
@@ -45,6 +47,10 @@ function UserLine({
 }) {
   const name = useRowName(row);
   const who = `${name ?? '이름 없음'}(${row.friendCode ?? row.userCode})`;
+  // 앱 버전 — 마지막 접속과 같은 presence 한 번(따로 안 읽음). presence 에 없으면 계정 요약 값.
+  const presence = useUserPresence(row.userCode);
+  const ver = presence.data?.ver ?? row.ver;
+  const block = presence.isLoading ? null : appVerBlock({ ver, hasAccount: row.hasAccount });
   return (
     <tr>
       <td>{name ?? <span className="soft">이름 없음</span>}</td>
@@ -57,7 +63,10 @@ function UserLine({
         </small>
       </td>
       <td>
-        <LastSeen uid={row.userCode} />
+        <LastSeen p={presence} />
+      </td>
+      <td>
+        <small className={block ? 'warn' : undefined}>{ver ?? (row.hasAccount ? OLD_VER_LABEL : '—')}</small>
       </td>
       <td>
         <ServerSelect
@@ -66,8 +75,10 @@ function UserLine({
           servers={servers}
           current={current}
           disabled={!row.hasAccount && !current}
+          blocked={block !== null}
           onResult={onResult}
         />
+        {block && (row.hasAccount || current) && <small className={`warn ${styles.block}`}>{block}</small>}
       </td>
     </tr>
   );
@@ -94,7 +105,8 @@ export function RoomServerUsers() {
         </button>
       </div>
       <p className="soft">
-        고른 서버에 방을 만든다 · 투게더룸을 열려면 라이선스 필요(서버 지정은 어디에 열지만 정함).
+        고른 서버에 방을 만든다 · 투게더룸을 열려면 라이선스 필요(서버 지정은 어디에 열지만 정함) · 앱{' '}
+        {ROOM_SERVER_MIN_APP_VER} 이상만.
       </p>
       <input
         type="search"
@@ -118,13 +130,14 @@ export function RoomServerUsers() {
                 <th>친구코드</th>
                 <th>라이선스</th>
                 <th>마지막 접속</th>
+                <th>앱 버전</th>
                 <th>서버</th>
               </tr>
             </thead>
             <tbody>
               {paging.items.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="soft">
+                  <td colSpan={6} className="soft">
                     맞는 사용자 없음
                   </td>
                 </tr>
