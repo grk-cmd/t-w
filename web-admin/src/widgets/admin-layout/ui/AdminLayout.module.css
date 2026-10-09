@@ -37,23 +37,35 @@
   display: flex;
   flex: 0 0 200px;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   padding: 12px;
   background: var(--card);
   border-right: 1px solid var(--line);
 }
 
+/* 묶음마다 위에 구분선 — 메뉴가 한 줄로 늘어서 보이지 않게 */
 .group {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
+.group + .group {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
 .groupLabel {
-  padding: 0 10px 2px;
+  padding: 2px 10px 4px;
   font-size: 12px;
   font-weight: bold;
+  letter-spacing: 0.02em;
   color: var(--soft);
+}
+
+/* 지금 보는 화면이 든 묶음 — 제목을 강조색으로 */
+.group.current .groupLabel {
+  color: var(--accent);
 }
 
 .side button {
@@ -91,26 +103,35 @@
   .side {
     flex: none;
     flex-direction: row;
-    gap: 12px;
+    gap: 8px;
+    padding: 8px 12px;
     overflow-x: auto;
     border-right: 0;
     border-bottom: 1px solid var(--line);
   }
 
+  /* 가로로 흐르는 메뉴에선 묶음마다 옅은 바탕 덩어리로 */
   .group {
     flex: none;
     flex-direction: row;
     align-items: center;
+    padding: 2px 4px 2px 10px;
+    background: var(--bg);
+    border-radius: 8px;
   }
 
   .group + .group {
-    padding-left: 12px;
-    border-left: 1px solid var(--line);
+    padding-top: 2px;
+    border-top: 0;
   }
 
   .groupLabel {
     padding: 0 4px 0 0;
     white-space: nowrap;
+  }
+
+  .side button:hover {
+    background: var(--line);
   }
 
   .side button {

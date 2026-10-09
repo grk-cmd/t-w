@@ -20,3 +20,11 @@ export {
   type Selection,
 } from './selection';
 export { DAY_MS, kstDateKey, kstDayStart, lastDateKeys } from './kstDate';
+export {
+  hasUnsavedInput,
+  isBackdropPress,
+  shouldDismissOnBackdrop,
+  type Box,
+  type DismissState,
+  type FieldLike,
+} from './dialogDismiss';

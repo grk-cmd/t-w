@@ -1,33 +1,22 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { INVITE_GRANT_MAX } from '@/entities/invite';
+import { useModalDialog } from '@/shared/ui';
 import styles from './InviteDialog.module.css';
 
 interface DialogProps {
   open: boolean;
   title: string;
-  /** 참이면 Esc 로 닫히지 않는다 — 전체 지급이 도는 중에 창이 사라지면 진행 상황을 볼 수 없다. */
+  /** 참이면 Esc · 바깥 클릭으로 닫히지 않는다 — 전체 지급이 도는 중에 창이 사라지면 진행 상황을 볼 수 없다. */
   locked?: boolean;
   onClose: () => void;
   children: ReactNode;
 }
 
 export function InviteDialog({ open, title, locked, onClose, children }: DialogProps) {
-  const ref = useRef<HTMLDialogElement>(null);
-
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
+  const { dialogProps } = useModalDialog({ open, onClose, locked });
 
   return (
-    <dialog
-      ref={ref}
-      className={styles.dialog}
-      onCancel={(e) => locked && e.preventDefault()}
-      onClose={onClose}
-    >
+    <dialog {...dialogProps} className={styles.dialog}>
       <h2>{title}</h2>
       {open && children}
     </dialog>

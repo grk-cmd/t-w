@@ -8,11 +8,14 @@ import {
   defaultOptions,
   NO_DEFAULT,
   PERCENT_STEPS,
+  percentLockReason,
   toDefaultInputs,
   useSetDefaultRouting,
   type DefaultInputs,
 } from '../model/editDefault';
 import styles from './DefaultCard.module.css';
+
+const HINT_ID = 'default-percent-hint';
 
 type Message = { text: string; error: boolean } | null;
 
@@ -27,6 +30,7 @@ export function DefaultCard() {
   const inputs = draft ?? toDefaultInputs(cfg);
   const options = defaultOptions(Object.keys(cfg?.servers ?? {}), cfg?.default ?? null);
   const noServer = inputs.server === NO_DEFAULT;
+  const lockReason = percentLockReason(inputs.server, options);
   const busy = isPending || save.isPending;
 
   const submit = (e: FormEvent) => {
@@ -83,6 +87,8 @@ export function DefaultCard() {
               max={100}
               step={1}
               aria-label="비율 %"
+              aria-describedby={lockReason ? HINT_ID : undefined}
+              title={lockReason ?? undefined}
               value={inputs.percent}
               disabled={busy || noServer}
               onChange={(e) => setDraft({ ...inputs, percent: e.target.value })}
@@ -94,6 +100,7 @@ export function DefaultCard() {
                 key={p}
                 type="button"
                 className="btn"
+                title={lockReason ?? undefined}
                 disabled={busy || noServer}
                 onClick={() => setDraft({ ...inputs, percent: String(p) })}
               >
@@ -104,6 +111,11 @@ export function DefaultCard() {
           <button type="submit" className="btn primary" disabled={busy}>
             저장
           </button>
+          {lockReason && (
+            <small id={HINT_ID} className={`soft ${styles.hint}`}>
+              {lockReason}
+            </small>
+          )}
         </form>
       )}
       {cfg && !cfg.on && cfg.default && cfg.defaultPercent > 0 && (
