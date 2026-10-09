@@ -44,6 +44,12 @@ try{
 }catch(_){}
 
 let overlay=null, renderer=null, scene=null, cam=null, model=null;
+/* 💡 원색 보기(creator-flat-view.js — 사람 생성기와 같은 모듈의 두 번째 인스턴스).
+   미리보기 재질은 emissive 를 0 으로 둔다(ensurePaintTex · _ensureEarTex) — 그래서 흰빛 앰비언트가
+   flatAmbient(0) = 1 이면 칠한 텍스처 값이 화면에 그대로 나온다. 실행 화면(_animLit)은 따로라 건드리지 않는다. */
+const AN_AMB_COLOR=0xfdfbf7, AN_AMB_INT=0.95, AN_KEY_COLOR=0xfdfaf5, AN_KEY_INT=1.0;
+const AN_PREVIEW_EMISSIVE=0;
+let aAmb=null, aKey=null, aFlat=null;
 let headBone=null, faceNodes=[], curFace=0, raf=0;
 let earBoneL=null, earBoneR=null;        // base의 좌/우 귀 본
 let handBoneL=null, handBoneR=null;      // base의 좌/우 손 본 — 미리보기 팔 각도를 실행화면과 맞추는 용도
@@ -217,6 +223,9 @@ function buildOverlay(){
         +'<button id="anpPresetBtn" type="button" title="프리셋 저장/불러오기" style="position:absolute;top:6px;left:6px;z-index:5;padding:4px 8px;font-size:11px;cursor:pointer;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);font-family:Tahoma,sans-serif;color:var(--ink);">📐 프리셋</button>'
         +'<div id="anpPresetPopup" style="display:none;position:absolute;top:34px;left:6px;z-index:6;background:var(--win-face);padding:10px;min-width:200px;border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:3px 3px 0 rgba(0,0,0,.35);font-family:Tahoma,sans-serif;"><div style="font-size:12px;font-weight:bold;color:var(--ink);margin-bottom:6px;">프리셋 저장/불러오기</div><div id="anpPresetSlots" style="display:flex;gap:5px;"></div><div style="font-size:10px;color:#8a8a8a;margin-top:5px;">클릭 = 불러오기 · 우클릭 = 저장/삭제</div></div>'
         +'<button id="anpResetBtn" title="카메라 앵글 초기화" style="position:absolute;left:8px;bottom:8px;z-index:4;width:28px;height:28px;font-size:14px;line-height:1;cursor:pointer;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);display:flex;align-items:center;justify-content:center;">↺</button>'
+        /* 💡 원색 보기 — 3 표정 · 4 감은눈 탭에서만 보인다(__anpGoTab). 모양은 사람 생성기 #cpFlat 과 같은 CSS. */
+        +'<button id="anpFlat" type="button" aria-pressed="false" aria-label="조명 끄고 원색 보기" title="조명 끄고 원색 보기 (L)" style="display:none;">💡</button>'
+        +'<div id="anpFlatBadge" style="display:none;">원색 보기 — 칠한 색 그대로</div>'
         +'<canvas id="anpCv" style="width:360px;height:398px;background:#e9e9ec;cursor:default;"></canvas>'
         +'<div id="anpStampOverlay" style="display:none;">'
           +'<img id="anpStampOverlayImg" draggable="false">'
@@ -316,7 +325,7 @@ function buildOverlay(){
               +'<span style="color:var(--ink-soft);">이미지 위치를 잡아 Enter 또는 &#10003; 찍기 · Z=모드 켜기/끄기</span>'
             +'</div>'
             +'<div style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;margin:4px 2px -2px;opacity:.85;">'
-              +'✏ <b>B</b> 붓 · <b>G</b> 페인트통(Shift+클릭 = 그 조각 지우기) · <b>E</b> 지우개 · 우클릭으로 색 추출 · <b>Delete</b>로 전체 지우기 · <b>X</b> 대칭 · <b>Z</b> 도장모드 · <b>Enter</b> 찍기 · <b>Shift+G</b> 전체 채우기 · <b>Ctrl+Shift+Z</b> 다시'
+              +'✏ <b>B</b> 붓 · <b>G</b> 페인트통(Shift+클릭 = 그 조각 지우기) · <b>E</b> 지우개 · 우클릭으로 색 추출 · <b>Delete</b>로 전체 지우기 · <b>X</b> 대칭 · <b>Z</b> 도장모드 · <b>L</b> 원색 보기 · <b>Enter</b> 찍기 · <b>Shift+G</b> 전체 채우기 · <b>Ctrl+Shift+Z</b> 다시'
             +'</div>'
           +'</div>'
         +'</div>'/* /anpPanelPaint */
@@ -329,6 +338,11 @@ function buildOverlay(){
     +'</div></div>';
   document.body.appendChild(overlay);
   overlay.querySelector('#anpClose').onclick=closePreview;
+  aFlat = (typeof CreatorFlatView === 'undefined') ? null : CreatorFlatView.createCreatorFlatView({
+    btn: overlay.querySelector('#anpFlat'), badge: overlay.querySelector('#anpFlatBadge'),
+    onChange: ()=>applyPreviewLights()
+  });
+  if(aFlat) overlay.querySelector('#anpFlat').addEventListener('click', ()=>aFlat.toggle());
   overlay.querySelector('#anpCloseBtn').onclick=()=>{
     const cur=overlay.querySelector('#anpTabs span.on')?.dataset.tab || 'face';
     const i=TAB_ORDER.indexOf(cur);
@@ -356,6 +370,7 @@ function buildOverlay(){
     const pp=overlay.querySelector('#anpPanelPaint'); if(pp) pp.style.display = (tab==='paint'||tab==='blink') ? '' : 'none';
     if(tab==='ear') renderEarLists();
     paintTab = (tab==='paint') ? 'face' : (tab==='blink' ? 'blink' : null);
+    if(aFlat) aFlat.show(!!paintTab);   // 그리기 탭에서만 · 벗어나면 원래 조명으로
     if(tab==='blink' && !_blinkTouched){
       // 감은눈 첫 진입 — 표정 그림을 자동으로 가져와 시작(눈만 고치면 되게). 이미 그렸으면 유지.
       _copyPaintSide('face','blink');
@@ -839,6 +854,7 @@ function openPreview(){
     if(window.companion && companion.setConfigMode) companion.setConfigMode(true, 'animal');   // 동물 전용 창 크기(860×640)
   }catch(e){ console.warn('[동물] 창 크기 직접 전환 실패:', e); }
   document.body.classList.add('animal-creator');
+  if(aFlat) aFlat.set(false);   // 지난번에 켜 둔 원색 보기를 다음 열기로 끌고 오지 않는다
   window.addEventListener('keydown', onPanKey);
   overlay.style.display='flex';
   console.log('[동물] 창 크기 확인 — innerWidth:', innerWidth, 'innerHeight:', innerHeight, '(기대: 860×440)');
@@ -851,8 +867,9 @@ function openPreview(){
     renderer.toneMapping=THREE.NoToneMapping;
     renderer.setSize(360,398,false);
     scene=new THREE.Scene();
-    scene.add(new THREE.AmbientLight(0xfdfbf7,0.95));                    // 인간 생성기와 동일 광원
-    const k=new THREE.DirectionalLight(0xfdfaf5,1.0); k.position.set(0,4,0); scene.add(k);
+    aAmb=new THREE.AmbientLight(AN_AMB_COLOR,AN_AMB_INT); scene.add(aAmb);   // 인간 생성기와 동일 광원
+    aKey=new THREE.DirectionalLight(AN_KEY_COLOR,AN_KEY_INT); aKey.position.set(0,4,0); scene.add(aKey);
+    applyPreviewLights();
     // 원근 없음(직교) — 비율 왜곡 없이 편집. 휠 줌은 cam.zoom으로.
     { const a=360/398, vh=3.3, vw=vh*a;
       cam=new THREE.OrthographicCamera(-vw/2, vw/2, vh/2, -vh/2, 0.1, 100); }
@@ -891,6 +908,17 @@ function openPreview(){
   };
   cancelAnimationFrame(raf); tick();
 }
+/* 미리보기 조명 — 원색 보기면 방향광을 끄고 앰비언트를 흰빛으로(emissive 와 합이 1). */
+function applyPreviewLights(){
+  if(!aAmb || !aKey) return;
+  if(aFlat && aFlat.isOn()){
+    aAmb.color.setRGB(1,1,1); aAmb.intensity=CreatorFlatView.flatAmbient(AN_PREVIEW_EMISSIVE);
+    aKey.intensity=0;
+  } else {
+    aAmb.color.setHex(AN_AMB_COLOR); aAmb.intensity=AN_AMB_INT;
+    aKey.intensity=AN_KEY_INT;
+  }
+}
 function onPanKey(e){
   if(!overlay || overlay.style.display==='none') return;
   const t=e.target; if(t && (t.tagName==='INPUT' || t.tagName==='TEXTAREA')) return;   // 슬라이더 조작 충돌 방지
@@ -906,6 +934,7 @@ function onPanKey(e){
     if(e.key==='Escape'){ if(aStampMode) aSetStampMode(false); e.preventDefault(); return; }
     if(k==='c' && !e.ctrlKey && !e.metaKey){ if(aPaintTool) aPaintTool.toggleEraser(); e.preventDefault(); return; }   // 예전부터 C = 지우개 켜고 끄기
     if(k==='x'){ pSym=!pSym; syncPaintUI(); e.preventDefault(); return; }
+    if(k==='l' && aFlat && !e.ctrlKey && !e.metaKey && !e.altKey){ aFlat.toggle(); e.preventDefault(); return; }   // L=원색 보기(사람과 같은 키)
     if(e.key==='Delete'){ pClearAll(); e.preventDefault(); return; }
     /* G 는 이제 페인트통(누른 조각만 — 꾸미기 G 와 같은 뜻). 예전 G «전체 채우기» 는 Shift+G 로 옮겼다. */
     if(k==='g' && e.shiftKey){ pFillAll(); e.preventDefault(); return; }
@@ -927,6 +956,7 @@ function closePreview(){
        저장본에서 새로 그리므로, 남아 있던 옛 스냅샷은 어차피 «되돌릴 자리»가 아니다. */
   try{ _clearPaintHistory(); }catch(_){}
   window.removeEventListener('keydown', onPanKey);
+  if(aFlat) aFlat.set(false);
   document.body.classList.remove('animal-creator');
   if(overlay) overlay.style.display='none';
   cancelAnimationFrame(raf); raf=0;
