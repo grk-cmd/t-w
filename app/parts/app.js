@@ -4101,6 +4101,8 @@ function _applyRowOffset(instant){
   }
   up.forEach(i=>{ outX[i] = fl.xs[i] + s; outSide[i] = 'L'; });
   c.natX = fl.xs.slice(); c.floor = fl.floor.slice(); c.lifts = lifts.slice();
+  // 줄(가장 긴 층)이 띠보다 긴가 — ◀ ▶ 는 이때만 보인다
+  c.overflow = xsAll.length > 0 && (Math.max(...xsAll.map((x, k)=>x + hwAll[k])) - Math.min(...xsAll.map((x, k)=>x - hwAll[k]))) > bandW + 1e-6;
   c.seats.forEach((seat, i)=>{
     seat.targetX = outX[i];
     const flipped = seat._rowSide && seat._rowSide !== outSide[i];
@@ -4173,21 +4175,57 @@ function _rowChipNaturalDx(base){
   const d = c.natX[i] - base.group.position.x;
   return Math.abs(d) > 1e-6 ? d : 0;
 }
-/* 방에서 책상을 끌어 놓을 자리 — 끄는 좌석과 같은 층에서, 지금 x(wx)가 반폭 안에 들어간 다른 좌석의 seats 배열 순서.
-   없으면 -1(그대로). «맨 오른쪽 고정» 이면 내 좌석은 늘 맨 오른쪽이라 옮기지도, 그 자리로 끼어들지도 않는다. */
-function _rowSlotIndexAt(seat, wx){
-  const c = _rowCache;
-  if(!c || !c.floor) return -1;
-  const me = c.fixRight ? c.seats[0] : null;
-  if(seat === me) return -1;
-  const i0 = c.seats.indexOf(seat); if(i0 < 0) return -1;
-  let best = -1, bestD = Infinity;
-  c.seats.forEach((t, i)=>{
-    if(t === seat || t === me || c.floor[i] !== c.floor[i0]) return;
-    const d = Math.abs((t.targetX || 0) - wx);
-    if(d <= c.hws[i] && d < bestD){ bestD = d; best = i; }
-  });
-  return best < 0 ? -1 : seats.indexOf(c.seats[best]);
+/* 🪑 방에서 자리 바꾸기(책상 끌기 · 이름표 끌기 공용) — **층을 넘나든다.**
+   층은 seats 순서 하나로 아래층부터 채워지므로, 놓을 자리 = 커서에 화면(x · y)으로 가장 가까운 다른 좌석(어느 층이든)의
+   순서다. 끄는 동안 좌석은 커서를 따라 위아래로도 움직이고(좌석 깊이의 세로면 z=0 에서 잰다), 놓일 자리의 이름표에 표시를 한다.
+   ★ 순서는 **놓을 때 한 번만** 바꾼다 — 끄는 중에 바꾸면 줄이 다시 흐르며 대상이 움직여 앞뒤로 튄다.
+   «맨 오른쪽 고정» 이면 내 좌석은 끌리지도, 놓일 자리도 되지 않는다. 줄 오프셋은 건드리지 않는다. */
+const _slotPt = new THREE.Vector3(), _slotZ0 = new THREE.Plane(new THREE.Vector3(0,0,1), 0), _slotNdc = new THREE.Vector2(), _slotRay = new THREE.Raycaster(), _slotP = new THREE.Vector3();
+const ROW_DROP_MAX_PX = 220;   // 이보다 멀면 놓을 자리 없음(제자리)
+function _rowCursorWorld(e){
+  const r = renderer.domElement.getBoundingClientRect();
+  _slotNdc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  camera.updateMatrixWorld();
+  _slotRay.setFromCamera(_slotNdc, camera);
+  return _slotRay.ray.intersectPlane(_slotZ0, _slotPt) ? _slotPt : null;
+}
+function _rowSlotFixedMe(){ const c = _rowCache; return (c && c.fixRight) ? c.seats[0] : null; }
+function _rowSlotBegin(seat, e){
+  if(!_rowRoomMode || !seat || !seat.group || seat.ridingOn || seat === _rowSlotFixedMe()) return null;
+  const w = _rowCursorWorld(e); if(!w) return null;
+  return { grabX: w.x - seat.group.position.x, grabY: w.y - seat.group.position.y, target: null };
+}
+function _rowSlotFollow(seat, st, e){
+  if(!st) return;
+  const w = _rowCursorWorld(e);
+  if(w){ seat.group.position.x = w.x - st.grabX; seat.group.position.y = w.y - st.grabY; }
+  // 놓일 자리 — 커서에 화면으로 가장 가까운 다른 좌석(띠 안 · 올라탄 좌석 · 고정된 나 제외)
+  const me = _rowSlotFixedMe();
+  let best = null, bestD = ROW_DROP_MAX_PX;
+  for(const t of seats){
+    if(t === seat || t === me || t.ridingOn || !t.group) continue;
+    t.group.getWorldPosition(_slotP); _slotP.y += 0.5; _slotP.project(camera);
+    const x = (_slotP.x * 0.5 + 0.5) * innerWidth, y = (-_slotP.y * 0.5 + 0.5) * innerHeight;
+    if(!SeatLayout.inBand(x, _rowBandPx)) continue;
+    const d = Math.hypot(x - e.clientX, y - e.clientY);
+    if(d < bestD){ bestD = d; best = t; }
+  }
+  if(st.target !== best){
+    if(st.target && st.target.namePlateEl) st.target.namePlateEl.classList.remove('drop-target');
+    st.target = best;
+    if(best && best.namePlateEl) best.namePlateEl.classList.add('drop-target');
+  }
+}
+function _rowSlotDrop(seat, st){
+  if(!st) return;
+  const t = st.target;
+  if(t && t.namePlateEl) t.namePlateEl.classList.remove('drop-target');
+  if(t){
+    const ti = seats.indexOf(t), cur = seats.indexOf(seat);
+    if(ti >= 0 && cur >= 0 && ti !== cur){ seats.splice(cur, 1); seats.splice(ti, 0, seat); }   // 대상 자리로(앞으로 가면 대상 뒤, 뒤로 가면 대상 앞)
+    if(typeof renderSeatTabs === 'function') renderSeatTabs();
+  }
+  layoutSeats();   // 층 다시 흐르기 · 끌던 좌석 높이 되돌리기(층 높이로)
 }
 /* 줄을 dWorld 만큼 오른쪽으로(음수면 왼쪽). 휠 · 이름표 끌기 공용. */
 function nudgeRowOffset(dWorld, instant){
@@ -4228,7 +4266,11 @@ function _rowPlaceBandHandle(){
   if(!h) return;
   const c = _rowCache;
   const on = _rowRoomMode && !!_rowBandPx && !moveMode && !!c;
-  if(!on){ if(h.style.display !== 'none') h.style.display = 'none'; return; }
+  if(!on){
+    if(h.style.display !== 'none') h.style.display = 'none';
+    ['roomBandPrev', 'roomBandNext'].forEach(id=>{ const el = document.getElementById(id); if(el && el.style.display !== 'none') el.style.display = 'none'; });
+    return;
+  }
   /* 세로 자리 = 띠 안 좌석들이 실제로 화면에서 차지하는 높이의 가운데(머리 꼭대기 ~ 책상 아래 앞 모서리).
      캐릭터 크기 · 동물(40%) · 층 수 · 화면 크기 · 사람이 바뀌어도 상자(c.boxes)와 카메라를 따라 다시 잡힌다.
      2층이면 두 층을 합친 높이의 가운데 — 손잡이는 두 층을 함께 넓히고 좁히므로. */
@@ -4237,6 +4279,17 @@ function _rowPlaceBandHandle(){
   h.style.display = 'block';
   h.style.left = Math.round(_rowBandPx.l - 8) + 'px';
   h.style.top = Math.round(Math.max(0, Math.min(innerHeight - 36, cy - 18))) + 'px';
+  // ◀ ▶ — 줄이 띠보다 길 때만(넘길 데가 있을 때). 끝에 닿은 쪽은 흐리게.
+  const prev = document.getElementById('roomBandPrev'), next = document.getElementById('roomBandNext');
+  const rg = _rowLayout ? _rowLayout.range : { min: 0, max: 0 }, off = _rowLayout ? _rowLayout.offset : 0;
+  const over = !!(c && c.overflow) && (rg.max - rg.min) > 1e-3 && _rowRoomMode;
+  const top = Math.round(Math.max(0, Math.min(innerHeight - 28, cy - 14))) + 'px';
+  [[prev, _rowBandPx.l + 10, off >= rg.max - 1e-4], [next, _rowBandPx.r - 10 - 24, off <= rg.min + 1e-4]].forEach(([el, x, atEnd])=>{
+    if(!el) return;
+    if(!over){ if(el.style.display !== 'none') el.style.display = 'none'; return; }
+    el.style.display = 'block'; el.style.left = Math.round(x) + 'px'; el.style.top = top;
+    el.classList.toggle('end', atEnd);
+  });
 }
 /* 띠 안 좌석의 화면 세로 범위(px) — {top, bottom}. 상자는 배치 때 잰 값, 투영은 지금 카메라. */
 function _rowBandYRange(){
@@ -4280,24 +4333,27 @@ let _bandDrag = null;   // {x0, f0, pointerId}
   h.addEventListener('pointercancel', end);
   h.addEventListener('lostpointercapture', end);
 })();
-/* 🖱 이름표를 좌우로 끌면 줄이 따라온다. 5px 미만이면 끌기가 아니다 — 클릭 · 우클릭 메뉴는 그대로.
-   몸 · 책상 끌기는 줄을 움직이지 않는다(쓰다듬기 · 흔들기 · 액자 고정 · 상호작용 책상과 겹친다).
-   ★ 누르는 순간 이름표에 포인터를 잡아 둔다(setPointerCapture). 예전엔 5px 를 넘은 뒤에 잡고, 그 사이
-     pointermove 의 buttons 가 0 이면 «놓친 pointerup» 으로 보고 끝냈다 — 실제 앱(Electron · CDP 입력)에서는
-     buttons 가 0 으로 오는 경우가 있어 끌기가 시작도 못 했다. 끝은 pointerup · pointercancel · lostpointercapture 로만. */
+/* 🖱 이름표 끌기 = 자리 바꾸기(책상 끌기와 같다) — 책상이 없거나 숨긴 사람도 이름표로 옮길 수 있게.
+   5px 미만이면 끌기가 아니다 — 클릭 · 우클릭 메뉴는 그대로. 줄 넘기기는 휠 · 가로 쓸기 · ◀ ▶ 만.
+   ★ 끄는 동안 전역 drag 를 책상 끌기(mode 'slot')와 같은 모양으로 세운다 — 프레임 루프가 그 좌석을 제자리로 끌어당기지 않고
+     (커서를 따라 움직임), 클릭 통과 판정도 «끄는 중» 으로 클릭을 계속 받는다. 캔버스 pointerup 은 이름표가 포인터를
+     잡고 있어 안 오므로 여기서(_rowDragEnd) 직접 걷는다.
+   ★ 누르는 순간 이름표에 포인터를 잡는다(setPointerCapture) — 끝은 pointerup · cancel · lostpointercapture · blur 로만. */
 let _rowDragJustEnded = 0, _rowDragEndedEl = null;
 function _rowDragStart(e, seat){
   if(e.button !== 0 || !_rowRoomMode || !_rowLayout || !seat) return;
-  if(_rowCache && _rowCache.fixRight && !seat.remote) return;   // 맨 오른쪽 고정이면 내 이름표는 줄을 안 움직인다
   _rowDrag = SeatLayout.dragBegin(e.clientX, e.clientY, _rowLayout.offset);
   _rowDrag.pointerId = e.pointerId;
   _rowDrag.el = e.currentTarget;
+  _rowDrag.seat = seat;
   try{ _rowDrag.el.setPointerCapture(e.pointerId); }catch(_){}
 }
 function _rowDragEnd(){
   if(!_rowDrag) return;
-  const was = _rowDrag.active, el = _rowDrag.el, pid = _rowDrag.pointerId;
+  const was = _rowDrag.active, el = _rowDrag.el, pid = _rowDrag.pointerId, seat = _rowDrag.seat, slot = _rowDrag.slot;
   _rowDrag = null;
+  if(drag && drag.fromPlate) drag = null;
+  if(slot) _rowSlotDrop(seat, slot);   // 놓을 때 순서 바꾸기   // 이름표 끌기가 세운 drag 만 걷는다(캔버스 끌기는 자기 pointerup 이 걷는다)
   if(was){ _rowDragJustEnded = performance.now(); _rowDragEndedEl = el; }
   try{ if(el && el.hasPointerCapture && el.hasPointerCapture(pid)) el.releasePointerCapture(pid); }catch(_){}
 }
@@ -4306,8 +4362,14 @@ window.addEventListener('pointermove', e=>{
   if(!_rowRoomMode){ _rowDragEnd(); return; }
   const dx = SeatLayout.dragMove(_rowDrag, e.clientX, e.clientY);
   if(dx == null) return;
-  _rowLayout.set(_rowDrag.s0 + dx * _rowWorldPerPx());
-  _applyRowOffset(true);
+  const seat = _rowDrag.seat;
+  if(_rowDrag.slot === undefined){
+    // 처음 5px 를 넘은 순간 — 누른 자리에서 잡은 것처럼(시작점 기준으로 잡는다)
+    _rowDrag.slot = _rowSlotBegin(seat, { clientX: _rowDrag.x0, clientY: _rowDrag.y0 });
+    if(_rowDrag.slot && !drag) drag = { seat, startX: _rowDrag.x0, startY: _rowDrag.y0, moved: true, mode: 'slot', targetType: 'desk', fromPlate: true,
+      lastX: e.clientX, lastY: e.clientY, lastT: performance.now(), velX: 0, velY: 0, dizzy: 0 };
+  }
+  _rowSlotFollow(seat, _rowDrag.slot, e);
 }, true);
 window.addEventListener('pointerup', _rowDragEnd, true);
 window.addEventListener('pointercancel', _rowDragEnd, true);
@@ -4320,12 +4382,20 @@ window.addEventListener('click', e=>{
   _rowDragJustEnded = 0; _rowDragEndedEl = null;
   if(fresh && onPlate){ e.stopPropagation(); e.preventDefault(); }
 }, true);
+/* ◀ ▶ — 휠이 없는 사람을 위한 줄 넘기기(좌석 하나 폭쯤). 줄이 띠보다 길 때만 띠 양 끝에 보인다.
+   ◀ = 왼쪽 사람이 나오게(줄이 오른쪽으로) · ▶ = 오른쪽으로 돌아가게. */
+function _rowStepWorld(){ const c = _rowCache; return c ? (2 * (c.hws[0] || 0.85) + (c.spacing || 0)) : 1.7; }
+(function bindRoomBandArrows(){
+  const prev = document.getElementById('roomBandPrev'), next = document.getElementById('roomBandNext');
+  const on = (el, dir)=>{ if(!el) return; el.addEventListener('click', e=>{ e.stopPropagation(); nudgeRowOffset(dir * _rowStepWorld(), false); _rowPlaceBandHandle(); }); };
+  on(prev, +1); on(next, -1);
+})();
 /* 🛞 띠 안에서 휠 — 줄을 좌우로. 클릭을 받는 자리(사람 · 책상 · 이름표 · 손잡이)에서만 휠이 우리 창에 온다.
    Ctrl+휠은 화면 크기(main 의 줌)라 건드리지 않는다. 다른 창(대화창 등) 위 휠도 그 창 몫이다. */
 window.addEventListener('wheel', e=>{
   if(!_rowRoomMode || e.ctrlKey || !_rowCache || _rowCache.seats.length < 2) return;
   const t = e.target;
-  const onRow = t && (t.id === 'scene' || t.id === 'roomBandHandle' || (t.closest && t.closest('#seatLabelsLayer')));
+  const onRow = t && (t.id === 'scene' || t.id === 'roomBandHandle' || (t.closest && t.closest('#seatLabelsLayer, .room-band-arrow')));
   if(!onRow || _rowBandBlocksPx(e.clientX)) return;
   const px = SeatLayout.wheelToRowPx(e);
   if(px) nudgeRowOffset(px * _rowWorldPerPx(), false);
@@ -4382,7 +4452,7 @@ if(window.companion && window.companion.firebaseEnv === 'dev'){
       made.push((i + 1) + ': ' + (opts.same ? '복제' : v.label));
     }
     syncFriendSeats(friends);
-    return n + '명 — 휠 · 이름표 끌기로 줄을 움직여 보세요\n' + made.join('\n');
+    return n + '명 — 휠 · 가로 쓸기 · ◀ ▶ 로 줄을 넘기고, 이름표 · 책상을 끌어 자리를 바꿔 보세요\n' + made.join('\n');
   };
 }
 // ★ 캐릭터 크기 슬라이더처럼 "좌석 배치는 그대로고 카메라 거리/줌만 다시 계산하면 되는" 경우 전용 —
@@ -23117,7 +23187,7 @@ function ensureSeatNamePlateEl(seat){
     if(typeof officeMode !== 'undefined' && officeMode && seat.remote) return;
     _seatCtxMenu(e, seat);
   });
-  el.addEventListener('pointerdown', e=>_rowDragStart(e, seat));   // 🪑 방에서 남의 이름표를 좌우로 끌면 줄이 움직인다(5px 넘게)
+  el.addEventListener('pointerdown', e=>_rowDragStart(e, seat));   // 🪑 방에서 이름표를 5px 넘게 끌면 자리 바꾸기(책상 끌기와 같다)
   layer.appendChild(el);
   seat.namePlateEl=el; return el;
 }
@@ -23784,8 +23854,16 @@ function triggerPet(seat){ const now=performance.now(); seat.petStart=now; if(se
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),dragPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-0.4);
 let drag=null; // {seat, startX/Y, moved, mode:'slot'|'shake', targetType, grabX(slot), grabPlane/grabOffset(shake), lastX/Y/T, velX/Y, dizzy}
 function seatFromObject(o){let p=o;while(p){if(p.userData&&p.userData.seat)return p.userData.seat;p=p.parent;}return null;}
-function worldX(e){const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
-  ray.setFromCamera(ndc,camera);const pt=new THREE.Vector3();ray.ray.intersectPlane(dragPlane,pt);return pt?pt.x:0;}
+/* 커서 아래 월드 x. planeY 를 주면 그 높이의 수평면(층마다 다르다 — 2 · 3층 좌석은 group.position.y 만큼 위),
+   없으면 예전 dragPlane(y=0.4). 수평면을 못 맞히면(위층 · 비스듬한 광선) 좌석 깊이의 세로면(z=0)으로 잰다 —
+   예전엔 못 맞혀도 (0,0,0) 의 x=0 을 돌려줘서 2층 이상에서 책상 끌기가 늘 같은 자리로 읽혔다. */
+const _wxPlane = new THREE.Plane(new THREE.Vector3(0,1,0), -0.4), _wxPt = new THREE.Vector3(), _wxZ0 = new THREE.Plane(new THREE.Vector3(0,0,1), 0);
+function worldX(e, planeY){const r=canvas.getBoundingClientRect();ndc.x=((e.clientX-r.left)/r.width)*2-1;ndc.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(ndc,camera);
+  const pl = (planeY == null) ? dragPlane : (_wxPlane.constant = -planeY, _wxPlane);
+  if(ray.ray.intersectPlane(pl,_wxPt)) return _wxPt.x;
+  if(ray.ray.intersectPlane(_wxZ0,_wxPt)) return _wxPt.x;
+  return 0;}
 
 /* ─── 캐릭터 흔들기 — 시메지 컨셉
    · 캐릭터(rig 안의 mesh) 드래그 → 흔들기, 책상(desk/그림자/슬래브) 드래그 → 슬롯 이동
@@ -24048,7 +24126,8 @@ canvas.addEventListener('pointerdown',e=>{
   const groupWP = new THREE.Vector3(); seat.group.getWorldPosition(groupWP);
   drag={
     seat, startX:e.clientX, startY:e.clientY, moved:false, mode:null, targetType,
-    grabX: worldX(e) - seat.group.position.x,
+    slotY: seat.group.position.y + 0.4,                              // 이 좌석 층 높이의 평면(책상 끌기 — 2 · 3층)
+    grabX: worldX(e, seat.group.position.y + 0.4) - seat.group.position.x,
     grabPlane, grabOffset, groupWP,
     lastX:e.clientX, lastY:e.clientY, lastT:performance.now(),
     velX:0, velY:0, dizzy:0
@@ -24074,15 +24153,12 @@ canvas.addEventListener('pointermove',e=>{
   drag.lastX = e.clientX; drag.lastY = e.clientY; drag.lastT = now;
 
   if(drag.mode==='slot'){
-    const wx=worldX(e)-drag.grabX; drag.seat.group.position.x=wx;
     if(_rowRoomMode){
-      /* 🪑 방(보이는 영역 · 층 · 오프셋)에서는 «끌고 간 자리에 가장 가까운 같은 층 좌석» 의 순서로 옮긴다 —
-         예전 식(-wx/간격)은 줄이 오른쪽 끝 x=0 에서 한 줄로 늘어선다는 가정이라 넘겨 본 줄 · 2층에서 엉뚱한 자리가 된다.
-         줄 오프셋은 건드리지 않는다(줄 넘기기는 이름표 끌기 · 휠만). */
-      const idx = _rowSlotIndexAt(drag.seat, wx);
-      const cur = seats.indexOf(drag.seat);
-      if(idx >= 0 && idx !== cur){ seats.splice(cur,1); seats.splice(idx,0,drag.seat); layoutSeats(); renderSeatTabs(); }
+      // 🪑 방 — 층을 넘나드는 자리 바꾸기(이름표 끌기와 같은 함수). 순서는 놓을 때(pointerup) 바꾼다.
+      if(drag.roomSlot === undefined) drag.roomSlot = _rowSlotBegin(drag.seat, e);
+      _rowSlotFollow(drag.seat, drag.roomSlot, e);
     } else {
+    const wx=worldX(e, drag.slotY)-drag.grabX; drag.seat.group.position.x=wx;
     const n=seats.length; const _spacing = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING; let idx=Math.round(-wx/_spacing); idx=Math.max(0,Math.min(n-1,idx));
     const cur=seats.indexOf(drag.seat);
     if(idx!==cur){seats.splice(cur,1);seats.splice(idx,0,drag.seat);layoutSeats();renderSeatTabs();}
@@ -24119,6 +24195,7 @@ canvas.addEventListener('pointerup',e=>{
  try{
   if(!drag)return;
   const seat = drag.seat;
+  if(drag.mode==='slot' && drag.roomSlot){ _rowSlotDrop(seat, drag.roomSlot); drag.roomSlot = null; }   // 🪑 방 — 놓을 때 순서 바꾸기
   if(!drag.moved){
     if(drag.targetType && typeof drag.targetType==='object' && drag.targetType.type==='item'){
       playItemIdle(drag.targetType.pivot);   // 아이템 클릭 — idle 애니메이션 한 번 재생
@@ -24203,6 +24280,8 @@ canvas.addEventListener('pointerup',e=>{
 });
 /* 안전망 — pointerup 누락 시 stuck 회복 (캡처 해제/포커스 잃음 등) */
 function clearDragStuck(){
+  // 🪑 방 자리 바꾸기 중이었다면 표시를 걷고 줄을 되돌린다(순서는 안 바꾼다)
+  if(drag && drag.roomSlot){ const rs = drag.roomSlot; if(rs.target && rs.target.namePlateEl) rs.target.namePlateEl.classList.remove('drop-target'); drag.roomSlot = null; try{ layoutSeats(); }catch(_){} }
   if(drag){
     if(drag.seat){ drag.seat.beingShaken=false; }
     drag=null;
@@ -45353,7 +45432,7 @@ if(desktopMode){
        두 곳에 따로 적어 두면 새 창을 추가할 때 한쪽만 고치게 되고, 그러면 main 과 렌더러가
        서로 다른 것을 보며 싸운다 — 그게 이번 제보의 정체였다(핸드오프5 §1-4).
        ⇒ body 에 붙는 팝업을 새로 만들면 **여기 한 곳에만** 추가하면 된다. */
-    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #appVerGateOverlay, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, #roomBandHandle, .seat-nameplate';
+    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #appVerGateOverlay, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, #roomBandHandle, .room-band-arrow, .seat-nameplate';
     /* 📐 지금 화면에 떠 있는 "우리 창"들의 사각형 — main 에게 보낸다.
 
        [왜 필요한가 — 이번 제보의 뿌리] main 의 회수 안전장치(ⓕ·ⓖ)와 펜 근접 판정은 지금까지

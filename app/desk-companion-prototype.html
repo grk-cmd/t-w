@@ -1594,9 +1594,18 @@
   #roomBandHandle .grip i{position:absolute;left:50%;width:2px;height:2px;margin-left:-1px;border-radius:50%;background:rgba(40,48,60,.75);}
   #roomBandHandle .grip i:nth-child(1){top:8px;} #roomBandHandle .grip i:nth-child(2){top:12px;} #roomBandHandle .grip i:nth-child(3){top:16px;}
   #roomBandHandle:hover,#roomBandHandle.drag{opacity:1;}
+  /* ◀ ▶ 줄 넘기기 — 작은 동그란 단추, 평소 반투명 · 끝에 닿은 쪽은 더 흐리게. 클릭 통과 목록에 .room-band-arrow */
+  .room-band-arrow{position:fixed;display:none;width:24px;height:28px;z-index:16;padding:0;cursor:pointer;pointer-events:auto;
+    font-size:11px;line-height:26px;text-align:center;border-radius:12px;border:1px solid rgba(0,0,0,.18);
+    background:rgba(255,255,255,.72);color:rgba(40,48,60,.85);box-shadow:0 1px 2px rgba(0,0,0,.18);opacity:.6;transition:opacity .15s;}
+  .room-band-arrow:hover{opacity:1;}
+  .room-band-arrow.end{opacity:.25;}
+  /* 이름표 · 책상 끌기로 자리를 바꿀 때 놓일 자리 */
+  .seat-nameplate.drop-target{outline:2px dashed rgba(70,130,220,.9);outline-offset:2px;}
   @media (prefers-color-scheme: dark){
     #roomBandHandle .grip{background:rgba(40,44,52,.72);border-color:rgba(255,255,255,.22);}
     #roomBandHandle .grip i{background:rgba(235,238,245,.85);}
+    .room-band-arrow{background:rgba(40,44,52,.72);border-color:rgba(255,255,255,.22);color:rgba(235,238,245,.9);}
   }
   #seatLabelsLayer{position:fixed;inset:0;pointer-events:none;z-index:15;
     --nameplate-size:15px;   /* 이름표 폰트 크기 — 설정 슬라이더로 조절 */
@@ -4663,6 +4672,8 @@
 <div id="seatLabelsLayer"></div>
 <!-- 🪑 방 «보이는 영역» 왼쪽 끝 손잡이(⋮ · 끌어서 폭 조절) — app.js _rowPlaceBandHandle -->
 <div id="roomBandHandle" title="끌어서 보이는 영역 폭 조절"><span class="grip"><i></i><i></i><i></i></span></div>
+<!-- 🪑 ◀ ▶ — 줄이 띠보다 길 때만, 휠 없이 넘기기(좌석 하나 폭쯤) -->
+<button id="roomBandPrev" class="room-band-arrow" type="button" title="왼쪽 사람 보기">◀</button><button id="roomBandNext" class="room-band-arrow" type="button" title="오른쪽으로 돌아가기">▶</button>
 <!-- ============================================================ 상태칩 (세로 아이콘 툴바 A안)
      위→아래 순서: [상태 dot+▾] / [💬 채팅] / [📢 알림] / [▼ 더보기]
      · 상태 메뉴/더보기 메뉴는 캐스케이드 스타일(app.js positionCascade가 좌우 자동 반전)
@@ -5021,7 +5032,7 @@
       <button class="fs-toggle-btn" id="fsRoomFloorsToggle" type="button" style="white-space:nowrap;flex-shrink:0;">1층</button>
     </div>
     <div class="fs-hint" id="fsRoomFloorsNote" style="margin-top:0;display:none;"></div>
-    <div class="fs-hint" style="margin-top:0;">방 줄은 «보이는 영역» 안에 서요 — 왼쪽 끝 손잡이(⋮)를 끌어 폭을 바꾸고, 휠 · 이름표 끌기로 넘겨 봐요. 층 수를 늘리면 아래층에 안 들어가는 사람이 위 선반에 서요(최대 3층)</div>
+    <div class="fs-hint" style="margin-top:0;">방 줄은 «보이는 영역» 안에 서요 — 왼쪽 끝 손잡이(⋮)로 폭을 바꾸고, 휠 · 가로 쓸기 · ◀ ▶ 로 넘겨 봐요. 이름표나 책상을 끌어 놓으면 자리(층 포함)가 바뀌어요. 층 수를 늘리면 아래층에 안 들어가는 사람이 위 선반에 서요(최대 3층)</div>
 
     <div class="fs-label" style="margin-top:14px;">캐릭터 교체</div>
     <!-- 슬롯 5칸이 300px 패널에 안 들어가서 4칸씩 밀어 본다. 창(.fs-slotvp) 안의 줄을 화살표로 굴린다.
