@@ -33,11 +33,16 @@ function createHoverPoke(opts){
   const o = opts || {};
   const repokeMs = typeof o.repokeMs === 'number' ? o.repokeMs : HOVER_REPOKE_MS;
   const minPx = typeof o.minPx === 'number' ? o.minPx : HOVER_MOVE_MIN_PX;
-  let wasOn = false, pokedAt = 0, pokedPt = null;
-  function reset(){ wasOn = false; pokedAt = 0; pokedPt = null; }
+  let known = false, wasOn = false, pokedAt = 0, pokedPt = null;
+  function reset(){ known = false; wasOn = false; pokedAt = 0; pokedPt = null; }
   function step(inp){
-    if(!inp || !inp.onUI){ reset(); return null; }   // 밖 — 다음에 들어오면 다시 «들어옴»
+    if(!inp) return null;
     const now = inp.now, pt = { x: inp.x, y: inp.y };
+    /* ★ 감시를 새로 켠 첫 틱은 기준만 잡는다 — 이미 안에 있던 커서는 «들어옴» 이 아니다.
+       통과로 넘어간 까닭이 렌더러 판정이든 main 안전장치(ⓖ 다른 앱 키 입력 회수 등)든, 세워 둔 커서로
+       다시 물으면 그 판정을 0.1초 만에 뒤집는다. 세워 둔 커서는 유령 감시(포기 한도 있음)가 맡는다. */
+    if(!known){ known = true; wasOn = !!inp.onUI; pokedAt = now; pokedPt = pt; return null; }
+    if(!inp.onUI){ wasOn = false; pokedPt = null; return null; }   // 밖 — 다음에 들어오면 다시 «들어옴»
     if(!wasOn){
       wasOn = true; pokedAt = now; pokedPt = pt;
       return 'enter';

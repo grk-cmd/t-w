@@ -72,7 +72,29 @@ say('── 2. createHoverPoke — 들어오는 순간 한 번');
   chk(P.step({ onUI: true, x: 30, y: 40, now: 160 }) === 'repoke', '★ 150ms 지나면 옮겨 간 자리로 다시 묻는다(멈춘 뒤라도 — 마지막으로 물은 자리와 비교)');
   chk(P.step({ onUI: true, x: 30, y: 40, now: 600 }) === null, '  그 자리에 멈춰 있으면 더는 안 묻는다');
   P.reset();
-  chk(P.step({ onUI: true, x: 30, y: 40, now: 700 }) === 'enter', 'reset 뒤 첫 틱은 «enter»(타이머를 새로 켤 때)');
+  chk(P.step({ onUI: true, x: 30, y: 40, now: 700 }) === null, '★ reset 뒤 첫 틱은 기준만 — 이미 안에 있던 커서로는 안 묻는다(타이머를 새로 켤 때)');
+  chk(P.step({ onUI: true, x: 30, y: 40, now: 1500 }) === null, '  세워 둔 채면 계속 안 묻는다(유령 감시가 맡는다)');
+  chk(P.step({ onUI: true, x: 60, y: 40, now: 1620 }) === 'repoke', '  안에서 실제로 움직이면 묻는다');
+}
+{
+  // 첫 틱이 밖이면 기준만 잡고, 그다음 들어오는 순간은 그대로 «enter»
+  const P = H.createHoverPoke();
+  chk(P.step({ onUI: false, x: 0, y: 0, now: 0 }) === null, '첫 틱이 밖 — 기준만');
+  chk(P.step({ onUI: true, x: 100, y: 100, now: 120 }) === 'enter', '★ 감시 중에 밖 → 안 은 «enter»');
+}
+{
+  /* ★ 다른 앱(게임 등)에 키를 치는데 커서가 캐릭터 위에 세워져 있다 — main 의 ⓖ 가 통과로 회수하면
+     _syncHoverWatcher 가 감시를 새로 켠다(reset). 거기서 다시 물으면 회수를 0.1초 만에 뒤집는다(실기기 재현:
+     키 5번에 5번 모두 0.13초 뒤 클릭받기 복귀). 회수 → 재시작 → 세워 둔 커서 → 안 묻는다. */
+  const P = H.createHoverPoke();
+  let asked = 0;
+  for(let k = 0; k < 5; k++){
+    P.reset();                                         // ⓖ 회수 → 통과 → 감시 다시 켬
+    for(let t = 0; t < 2500; t += H.HOVER_POLL_MS){
+      if(P.step({ onUI: true, x: 1590, y: 740, now: k * 2500 + t })) asked++;
+    }
+  }
+  chk(asked === 0, '★ ⓖ 회수 뒤 세워 둔 커서로 다시 묻지 않는다(' + asked + '회)');
 }
 
 say('── 3. 시간 흉내 — 첫 재판정까지');
