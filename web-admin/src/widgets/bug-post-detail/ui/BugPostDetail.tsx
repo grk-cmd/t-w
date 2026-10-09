@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BUG_CATS,
   bugNoLabel,
@@ -12,6 +12,7 @@ import {
 import { AnswerForm } from '@/features/bug-board/answer-post';
 import { StatusButtons } from '@/features/bug-board/change-status';
 import { DeletePostButton } from '@/features/bug-board/delete-post';
+import { EditPostForm } from '@/features/bug-board/edit-post';
 import { errorMessage, formatDate } from '@/shared/lib';
 import styles from './BugPostDetail.module.css';
 
@@ -20,6 +21,7 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
   const bugNo = useBugNo(item);
   // 작업 기록 · 확인 문구용 — 임시 번호면 «(임시)» 까지.
   const no = bugNoLabel(bugNo);
+  const [editing, setEditing] = useState(false);
 
   return (
     <>
@@ -44,8 +46,17 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
       </div>
 
       <section className={styles.section}>
-        <h3>내용</h3>
-        {content ? (
+        <div className={styles.sectionHead}>
+          <h3>내용</h3>
+          {!editing && (
+            <button type="button" className="btn" onClick={() => setEditing(true)}>
+              수정
+            </button>
+          )}
+        </div>
+        {editing ? (
+          <EditPostForm item={item} content={content} label={no} onDone={() => setEditing(false)} />
+        ) : content ? (
           <>
             <p className={styles.text}>{content.body}</p>
             {content.env && <p className="soft">환경 · {content.env}</p>}
@@ -122,7 +133,7 @@ export function BugPostDetail({ id, onClose }: { id: string | null; onClose: () 
         <p className={`msg err ${styles.pad}`}>{errorMessage(error, '제보 불러오기 실패')}</p>
       )}
       {open && !isLoading && !error && data === null && <p className={`soft ${styles.pad}`}>글 없음</p>}
-      {open && data && <Body post={data} onClose={onClose} />}
+      {open && data && <Body key={data.item.id} post={data} onClose={onClose} />}
     </dialog>
   );
 }

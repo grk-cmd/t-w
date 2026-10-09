@@ -12,6 +12,9 @@ import { kstDateKey } from '@/shared/lib';
 export const BUG_ROOT = 'bugBoard';
 export const BUG_LIST = `${BUG_ROOT}/list`;
 export const BUG_PAGE = 20; // 규칙 list .read limitToLast ≤ 20
+// 앱 bug-board.js BUG_TITLE_MAX · BUG_BODY_MAX 와 규칙 bugBoard/pub · prv .validate 길이와 같다.
+export const BUG_TITLE_MAX = 60;
+export const BUG_BODY_MAX = 2000;
 export const BUG_ANS_MAX = 1000;
 export const BUG_KAKAO_MAX = 300;
 export const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
@@ -307,4 +310,82 @@ export function toAnswers(pub: unknown, prv: unknown): BugAnswer[] {
       })
       .filter((a): a is BugAnswer => !!a);
   return [...pick(pub, 'pub'), ...pick(prv, 'prv')].sort((a, b) => a.ts - b.ts);
+}
+
+/** 관리자 글 수정 — 바꿀 수 있는 칸만. env · 번호 · 시각 · 상태 · 공감 · 답변 수는 그대로 둔다. */
+export interface EditInput {
+  title: string;
+  body: string;
+  cat: string;
+  vis: BugVis;
+}
+
+/** 수정 입력 확인 — 앱 checkPost 와 같은 기준. 문제없으면 null. */
+export function checkEdit(item: Pick<BugItem, 'notice'>, input: EditInput): string | null {
+  const title = input.title.trim();
+  const body = input.body.trim();
+  if (!title) return '제목 필요';
+  if (!body) return '본문 필요';
+  if (title.length > BUG_TITLE_MAX) return `제목은 ${BUG_TITLE_MAX}자까지`;
+  if (body.length > BUG_BODY_MAX) return `본문은 ${BUG_BODY_MAX}자까지`;
+  if (input.vis !== 'pub' && input.vis !== 'prv') return '공개 범위 필요';
+  if (!Object.hasOwn(BUG_CATS, input.cat)) return '분류 필요';
+  if (item.notice && input.vis !== 'pub') return '공지는 공개 글만';
+  return null;
+}
+
+const contentPath = (item: Pick<BugItem, 'id' | 'authUid'>, vis: BugVis) =>
+  vis === 'pub' ? `${BUG_ROOT}/pub/${item.id}` : `${BUG_ROOT}/prv/${item.authUid}/${item.id}`;
+
+/** 무엇이 바뀌었나 — 작업 기록 detail 용. 제목 · 본문 글자는 넣지 않는다(비공개 글이 기록으로 새지 않게). */
+export function editChanges(
+  item: Pick<BugItem, 'vis' | 'cat'>,
+  content: Pick<BugContent, 'title' | 'body'> | null,
+  input: EditInput,
+): string[] {
+  const out: string[] = [];
+  if (input.title.trim() !== (content?.title ?? '')) out.push('제목');
+  if (input.body.trim() !== (content?.body ?? '')) out.push('본문');
+  if (input.cat !== item.cat) out.push(`분류 ${BUG_CATS[item.cat] ?? item.cat} → ${BUG_CATS[input.cat]}`);
+  if (input.vis !== item.vis) out.push(input.vis === 'prv' ? '공개 → 비공개' : '비공개 → 공개');
+  return out;
+}
+
+/**
+ * 수정 쓰기 한 묶음 — 앱 listEntry · contentEntry 와 같은 모양으로 맞춘다.
+ *   목록 줄: vis · cat · title(공개 글만 — 비공개 글 목록 줄엔 제목을 두지 않는다. 누구나 읽는 노드다)
+ *   내용: 공개면 pub/{id}, 비공개면 prv/{authUid}/{id}. 공개 범위가 바뀌면 옛 자리는 null. env 는 그대로 옮긴다.
+ *   공개 → 비공개: 공개 답변(ans/pub — 누구나 읽음)을 같은 id 로 ans/prv 에 옮긴다.
+ *     앱은 비공개 글의 ans/pub 을 읽지 않아, 그대로 두면 답변이 안 보이면서 바깥에선 읽힌다.
+ *   비공개 → 공개: 비공개 답변은 비공개로 남긴다(공개 글도 비공개 답변을 가질 수 있다).
+ */
+export function editWrite(
+  item: Pick<BugItem, 'id' | 'vis' | 'authUid'>,
+  content: BugContent | null,
+  answers: BugAnswer[],
+  input: EditInput,
+): Record<string, unknown> {
+  const title = input.title.trim().slice(0, BUG_TITLE_MAX);
+  const body = input.body.trim().slice(0, BUG_BODY_MAX);
+  const base = `${BUG_LIST}/${item.id}`;
+  const from = contentPath(item, item.vis);
+  const to = contentPath(item, input.vis);
+  const updates: Record<string, unknown> = {
+    [`${base}/vis`]: input.vis,
+    [`${base}/cat`]: input.cat,
+    [`${base}/title`]: input.vis === 'pub' ? title : null,
+    [to]: { title, body, ...(content?.env ? { env: content.env } : {}) },
+  };
+  if (from !== to) updates[from] = null;
+  if (item.vis === 'pub' && input.vis === 'prv') {
+    const pub = answers.filter((a) => a.vis === 'pub');
+    for (const a of pub)
+      updates[`${BUG_ROOT}/ans/prv/${item.id}/${a.id}`] = {
+        text: a.text,
+        ts: a.ts,
+        ...(a.kakao ? { kakao: a.kakao } : {}),
+      };
+    if (pub.length) updates[`${BUG_ROOT}/ans/pub/${item.id}`] = null;
+  }
+  return updates;
 }

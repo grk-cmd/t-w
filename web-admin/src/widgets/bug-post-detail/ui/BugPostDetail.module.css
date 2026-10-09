@@ -99,3 +99,14 @@
   font-size: 12px;
   overflow-wrap: anywhere;
 }
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sectionHead button {
+  margin-top: 4px;
+}

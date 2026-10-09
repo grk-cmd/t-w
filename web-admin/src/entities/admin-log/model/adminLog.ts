@@ -56,6 +56,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'bug.answer': '제보 답변',
   'bug.status': '제보 상태',
   'bug.delete': '제보 삭제',
+  'bug.edit': '제보 수정',
   'improvements.add': '개선 기록 추가',
   'improvements.edit': '개선 기록 수정',
   'improvements.delete': '개선 기록 삭제',
