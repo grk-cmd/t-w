@@ -546,7 +546,7 @@
       return r;
     },
     roomServerMineNow(){ return _roomServerGate.mine(); },
-    // 방 개수 · 랜덤 입장 — «내 서버»(허용 목록) 만. 없으면 null.
+    // 방 개수 · 랜덤 입장 — «내 서버»(허용 목록 · 기본 서버 비율) 만. 없으면 null.
     async roomServerMine(refresh){
       const m = refresh ? await _roomServerGate.refreshMine() : _roomServerGate.mine();
       if(m && !_roomServer.inRoom()) _rsUrl = m.url;

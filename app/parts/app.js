@@ -31893,7 +31893,7 @@ function _roomServerNet(){
   try{ return (window.firebaseAPI && typeof firebaseAPI.roomServerNet === 'function') ? firebaseAPI.roomServerNet() : null; }
   catch(_){ return null; }
 }
-// 방 개수 · 랜덤 입장에 서버 몫을 섞을지 — «내 서버»(허용 목록)가 있을 때만. 마지막으로 확인한 값(읽기 없음).
+// 방 개수 · 랜덤 입장에 서버 몫을 섞을지 — «내 서버»(허용 목록 · 기본 서버 비율)가 있을 때만. 마지막으로 확인한 값(읽기 없음).
 function _roomServerOn(){
   try{ return !!(_roomServerNet() && firebaseAPI.roomServerMineNow && firebaseAPI.roomServerMineNow()); }catch(_){ return false; }
 }
@@ -31957,13 +31957,13 @@ function _roomServerJoinMessage(code, isSecret){
 }
 /* startRoom 의 서버 갈래. 'firebase' = 아래 기존 흐름으로 계속 · 그 밖 = 여기서 끝났다.
    어디로 갈지는 firebaseAPI.resolveRoomServer(문지기 · room-server-gate.js) 한 곳이 정한다.
-     · 만들기 → 허용 목록에 있으면 내 서버에 create 로(서버가 roomDir 에 적는다). 없으면 Firebase.
+     · 만들기 → 허용 목록에 있거나 기본 서버 비율 안이면 내 서버에 create 로(서버가 roomDir 에 적는다). 아니면 Firebase.
      · 코드로 들어가기
          주소록(roomDir)에 있는 방(from 'dir') → peek 없이 그 서버에 바로 join.
            서버가 재시작 직후면 그 방은 «되살릴 후보» 라 peek 에 안 나오지만 join 하면 원래 설정으로 되살아난다.
            join 이 실패(못 붙음 · 거절 · 시간 초과)할 때만 Firebase 로 — 칸이 낡았는지는 join 결과로만 판단한다.
            허용 목록에 없는 사람도 방 서버가 켜져 있으면 늘 여기로 온다(따라가기).
-         허용된 사람(from 'allow' · 'dev')인데 주소록에 없음 → peek: 서버에 있으면 서버로.
+         허용된 사람(from 'allow' · 'default' · 'dev')인데 주소록에 없음 → peek: 서버에 있으면 서버로.
            없으면 Firebase 에 살아 있는 사람이 있나 본다 → 있으면 Firebase 로(옛 앱 사람들이 있는 방). 둘 다 없으면 서버가 연다.
        peek 을 못 물었으면(시간 초과 · peek 을 모르는 서버) «서버에 없음» 으로 본다.
      · 서버에 못 붙으면(꺼짐 · 인증 거절 · 버전 · 시간 초과) Firebase 로. 못 붙은 주소는 1분 동안 다시 기다리지 않는다.
@@ -32044,7 +32044,7 @@ async function _withServerRoomCounts(c){
 }
 /* 랜덤 입장 후보 — 서버 방을 먼저 본다. 서버가 이미 «열린 워킹룸 · 1~9명» 만 준다. 꺼져 있거나 못 받으면 []. */
 async function _serverRandomRooms(limit){
-  let mine = null;   // 랜덤은 입장 직전이라 «내 서버» 를 다시 확인한다(on · allow/{내 코드} 두 칸)
+  let mine = null;   // 랜덤은 입장 직전이라 «내 서버» 를 다시 확인한다(on · allow/{내 코드} · default · defaultPercent)
   try{ mine = (_roomServerNet() && firebaseAPI.roomServerMine) ? await firebaseAPI.roomServerMine(true) : null; }catch(_){ mine = null; }
   if(!mine) return [];
   const net = _roomServerNet();
