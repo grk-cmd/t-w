@@ -9713,13 +9713,23 @@ let _wdActivePartRef = null;   // refreshWdPreviewColorSection 이 정한 {cat, 
    wrp · user 는 첫 대상을 가리키는 옛 이름(이름표 · 파츠 판정에서 쓴다). earSym = 대칭을 반대쪽 귀에 긋는가. */
 const _wdPic = {
   on:false, wrp:null, xf:null, meshes:[], user:null, tgts:[], ear:false, symOk:true,
-  color:'#333333', size:11, eraser:false, sym:false, fill:false,   // fill = 🪣 클릭한 메쉬 채우기(uv-fill.js)
+  color:'#333333', size:11, eraser:false, sym:false, fill:false,   // fill = 🪣 클릭한 메쉬 채우기(uv-fill.js) · eraser · fill 은 아래 도구 줄(wdPaintTool)이 정한다
   hist:[], redo:[], orig:null,
   drawing:false, lx:null, ly:null, sx:null, sy:null,
   luv:null, smuv:null, lp:null, lobj:null,   // 🧵 직전 점의 UV·3D 위치·면 — 솔기를 건너뛰었는지 판정용
   lsx:null, lsy:null,   // 🪡 직전 포인터 화면 좌표 — 빠른 움직임을 쪼개는 기준
   rc:null   // 우클릭 눌린 자리 — 안 움직이고 떼면 스포이드
 };
+/* 🖌 꾸미기 그리기 도구 — 생성기와 같은 줄(paint-tools.js): 붓 · 페인트통 · 지우개 중 **하나만**.
+   예전엔 펜/지우개와 🪣 채우기가 따로 켜져서 «지우개 + 채우기» 가 같이 켜질 수 있었다. 이제 eraser · fill 은
+   도구에서만 나온다. 파츠를 통째로 지우는 일(예전 지우개 + 채우기)은 페인트통 Shift+클릭으로 옮겼다. */
+const wdPaintTool = (typeof PaintTools==='undefined') ? null : PaintTools.createPaintTools({
+  doc:document, btnClass:'wd-pic-btn',
+  hotkeyLetter:(typeof hotkeyLetter==='function'?hotkeyLetter:null),
+  tips:{ bucket:'페인트통 (G) — 누른 모델의 칠할 자리 전체를 지금 색으로 · Shift+클릭은 그 자리 지우기' },
+  onChange:(t)=>{ _wdPic.eraser=(t==='eraser'); _wdPic.fill=(t==='bucket');
+    if(t==='bucket' && _wdPic.on && typeof toast==='function') toast('🪣 페인트통 — 칠할 모델을 눌러요 (Shift+클릭 = 지우기)'); } });
+
 const WD_PIC_HIST_MAX = 30;
 
 function _wdPicSection(){ return document.getElementById('wdPicSection'); }
@@ -9876,7 +9886,9 @@ async function exitWdPicMode(save){
     });
   }
   _wdPic.wrp=null; _wdPic.xf=null; _wdPic.meshes=[]; _wdPic.user=null; _wdPic.orig=null;
-  _wdPic.tgts=[]; _wdPic.ear=false; _wdPic.symOk=true; _wdPic.fill=false;
+  _wdPic.tgts=[]; _wdPic.ear=false; _wdPic.symOk=true;
+  _wdPicSetFill(false); _wdPic.fill=false;   // 나가면 페인트통은 붓으로(다음에 들어와 한 번 눌렀는데 통째로 칠해지지 않게)
+  { const pc=document.getElementById('wdPreviewCanvas'); if(pc) pc.style.cursor=''; }
   _wdPic.hist.length=0; _wdPic.redo.length=0;
   const sec=_wdPicSection(); if(sec) sec.innerHTML='';
   try{ updateWdGizmoForActivePanel(); }catch(_){}
@@ -9927,21 +9939,20 @@ function _wdPicClear(){
 function _wdPicTgtOf(mesh){
   return _wdPic.tgts.find(t=>t.wrp.userData.picMeshes.indexOf(mesh) >= 0) || _wdPic.tgts[0];
 }
+/* 지우개 켜기 · 끄기. 끄기(색을 고름 · 스포이드)는 «지우개였으면 붓으로» — 페인트통은 그대로 둔다. */
 function _wdPicSetEraser(v){
+  if(wdPaintTool){ if(v) wdPaintTool.set('eraser'); else wdPaintTool.dropEraser(); return; }
   _wdPic.eraser = !!v;
-  const b=document.getElementById('wdPicEraser'); if(b) b.classList.toggle('on', _wdPic.eraser);
-  const p=document.getElementById('wdPicPen');    if(p) p.classList.toggle('on', !_wdPic.eraser);
 }
-/* 🪣 채우기 — 켜 두면 좌클릭이 획 대신 «맞힌 메쉬의 UV 자리 전체» 를 칠한다(지우개면 지운다) */
+/* 🪣 채우기(페인트통) — 켜 두면 좌클릭이 획 대신 «맞힌 메쉬의 UV 자리 전체» 를 칠한다(Shift 면 지운다) */
 function _wdPicSetFill(v){
+  if(wdPaintTool){ if(v) wdPaintTool.set('bucket'); else if(wdPaintTool.is('bucket')) wdPaintTool.set('brush'); return; }
   _wdPic.fill = !!v;
-  const b=document.getElementById('wdPicFill'); if(b) b.classList.toggle('on', _wdPic.fill);
-  if(_wdPic.fill && typeof toast==='function') toast('🪣 채우기 — 칠할 모델을 눌러요');
 }
-function _wdPicFillHit(hit){
+function _wdPicFillHit(hit, erase){
   if(typeof UvFill === 'undefined' || !hit || !hit.object) return;
   const tgt=_wdPicTgtOf(hit.object);
-  const opt={ color:_wdPic.color, erase:_wdPic.eraser };
+  const opt={ color:_wdPic.color, erase:!!erase };
   UvFill.fillMesh(tgt.user.getContext('2d'), hit.object.geometry, CANVAS_SZ, opt);
   _picBlit(tgt.wrp);
   /* 🐾 귀 대칭 — 반대쪽 귀의 같은 번호 메쉬도 채운다(파츠는 메쉬 전체라 대칭이 따로 필요 없다) */
@@ -9978,16 +9989,11 @@ function _buildWdPicSection(){
   sec.appendChild(mk('div','wd-preview-color-head', _wdPic.ear ? '✎ 귀에 그리는 중' : '✎ '+_tname+' 에 그리는 중'));
 
   const tools=mk('div','wd-pic-row');
-  const penB=mk('button','wd-pic-btn on','펜');    penB.id='wdPicPen';
-  const eraB=mk('button','wd-pic-btn','지우개');   eraB.id='wdPicEraser';
+  const toolSeg=mk('span',null);   toolSeg.id='wdPicTools';   // 🖌 붓 · 페인트통 · 지우개 (paint-tools.js — 생성기와 같은 줄)
+  if(wdPaintTool) wdPaintTool.mount(toolSeg);
   const symB=mk('button','wd-pic-btn','대칭');     symB.id='wdPicSym';
-  const fillB=mk('button','wd-pic-btn','🪣 채우기'); fillB.id='wdPicFill'; fillB.title='G — 누른 모델의 칠할 자리 전체를 지금 색으로';
-  fillB.onclick=()=>_wdPicSetFill(!_wdPic.fill);
-  fillB.classList.toggle('on', _wdPic.fill);
   const swat=mk('button','wd-pic-swatch');         swat.id='wdPicColor';
   swat.style.background=_wdPic.color; swat.title='색 고르기';
-  penB.onclick=()=>_wdPicSetEraser(false);
-  eraB.onclick=()=>_wdPicSetEraser(true);
   symB.onclick=()=>_wdPicSetSym(!_wdPic.sym);
   symB.classList.toggle('on', _wdPic.sym);
   if(_wdPic.ear){
@@ -10013,7 +10019,7 @@ function _buildWdPicSection(){
     });
     setTimeout(()=>document.addEventListener('mousedown', outside, true), 0);
   };
-  [penB,eraB,symB,fillB,swat].forEach(b=>tools.appendChild(b));
+  [toolSeg,symB,swat].forEach(b=>tools.appendChild(b));
   sec.appendChild(tools);
 
   const sz=mk('div','wd-pic-row');
@@ -10037,7 +10043,7 @@ function _buildWdPicSection(){
 
   const hint=mk('div','wd-pic-hint');
   if(_wdPic.ear) sec.appendChild(mk('div','wd-pic-hint','귀를 눌러 그려요. 대칭을 켜면 반대쪽 귀에 좌우를 뒤집어 같이 그려요.'));
-  hint.innerHTML='Ctrl+Z 되돌리기 · Ctrl+Shift+Z 다시 · Delete 전체 지우기<br>X 대칭 · C 지우개 · G 채우기 · 우클릭 스포이드';
+  hint.innerHTML='Ctrl+Z 되돌리기 · Ctrl+Shift+Z 다시 · Delete 전체 지우기<br>B 붓 · G 페인트통(Shift+클릭 = 지우기) · E·C 지우개<br>X 대칭 · 우클릭 스포이드';
   sec.appendChild(hint);
 
   const foot=mk('div','wd-pic-row wd-pic-foot');
@@ -10131,7 +10137,8 @@ function _picSkinnedIntersect(ray, sm){
     _pskLB.copy(_pskB).applyMatrix4(_pskInv);
     _pskLC.copy(_pskC).applyMatrix4(_pskInv);
     _pskN.copy(_pskLC).sub(_pskLB).cross(_pskT.copy(_pskLA).sub(_pskLB)).normalize();
-    best={ object:sm, point:_pskP.clone(), face:{ normal:_pskN.clone() },
+    /* faceIndex — 페인트통(paint-tools.js)이 누른 삼각형의 UV 섬을 찾는다. three 기본 캐스트와 같은 번호(인덱스/3). */
+    best={ object:sm, point:_pskP.clone(), face:{ normal:_pskN.clone() }, faceIndex:t/3,
       uv:new THREE.Vector2(
         _pskUvA.x*_pskBary.x + _pskUvB.x*_pskBary.y + _pskUvC.x*_pskBary.z,
         _pskUvA.y*_pskBary.x + _pskUvB.y*_pskBary.y + _pskUvC.y*_pskBary.z) };
@@ -10425,7 +10432,7 @@ function _wdPicStrokeTo(e){
     if(e.button!==0) return;
     const hit=_wdPicHit(e); if(!hit) return;
     e.preventDefault(); e.stopPropagation();   // 다중 인스턴스 선택 클릭이 같이 먹지 않게
-    if(_wdPic.fill){ _wdPicPush(); _wdPicFillHit(hit); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
+    if(_wdPic.fill){ _wdPicPush(); _wdPicFillHit(hit, e.shiftKey); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다 · Shift = 그 자리 지우기
     _wdPicPush();
     _wdPic.drawing=true; _wdPicBreak();
     _wdPic.lsx=e.clientX; _wdPic.lsy=e.clientY;   // 🪡 쪼개기의 출발점
@@ -10434,6 +10441,7 @@ function _wdPicStrokeTo(e){
   }, true);
   cv.addEventListener('pointermove', e=>{
     if(!_wdPic.on) return;
+    if(wdPaintTool){ const cu=wdPaintTool.cursor(); if(cv.style.cursor!==cu) cv.style.cursor=cu; }   // 🖌 커서 = 지금 도구
     if(_wdPic.rc && !_wdPic.rc.moved &&
        Math.abs(e.clientX-_wdPic.rc.x)+Math.abs(e.clientY-_wdPic.rc.y)>4) _wdPic.rc.moved=true;
     if(!_wdPic.drawing) return;
@@ -10473,7 +10481,7 @@ function _wdPicKey(e){
   if(e.key==='Delete'){ stop(); _wdPicClear(); }
   else if(k==='x'){ stop(); _wdPicSetSym(!_wdPic.sym); }
   else if(k==='c'){ stop(); _wdPicSetEraser(!_wdPic.eraser); }
-  else if(k==='g'){ stop(); _wdPicSetFill(!_wdPic.fill); }   // 동물 생성기의 G(전체 채우기)와 같은 글자
+  else if(wdPaintTool && wdPaintTool.handleKey(e)){ stop(); }   // B 붓 · G 페인트통 · E 지우개 — 생성기와 같은 글자(한글 상태 맥 포함)
   else if(e.key==='Escape'){ stop(); exitWdPicMode(false); }   // 창이 같이 닫히지 않게 여기서 끊는다
 }
 window.addEventListener('keydown', _wdPicKey, true);
@@ -25613,6 +25621,9 @@ function clampDeskScale(v){ return Math.max(DESK_SCALE_MIN, Math.min(DESK_SCALE_
 let faceCamSaved=null;   // 1~3단계(피부/표정/감은눈) 카메라 각도 유지용
 let deskCamSaved=null;   // 5~6단계(책상/좌석) 카메라 각도 유지용
 let painting=false, lastPX=null, lastPY=null, lastSX=null, lastSY=null, symmetry=false;
+/* 🖌 칠하기 도구(붓 · 페인트통 · 지우개 — paint-tools.js). 아래 도구 줄을 만들 때 채운다. 없으면(모듈 누락) 붓만. */
+let crPaintTool=null;
+function _crDropEraser(){ if(crPaintTool) crPaintTool.dropEraser(); else eraser=false; }
 const histF=[], histB=[];
 const redoF=[], redoB=[];
 function isDrawStep(){return crStep===2||crStep===3;}
@@ -25716,6 +25727,18 @@ function paintAt(hit){ const ctx=actC().getContext('2d');ctx.lineCap='round';ctx
     }
     else { lastSX=lastSY=null; _pLastSUV=null; } }
   ctx.globalCompositeOperation='source-over'; blit(); }
+/* 🪣 페인트통 — 누른 얼굴 메쉬의 조각(UV 섬)만 지금 색으로 채운다(erase 면 그 조각만 지운다 → 피부가 보인다).
+   붓과 같은 광선(_paintHitAt — 앞면만 · 옷에 가려지면 안 칠함)을 쓰고, 그림 층(actC)에만 칠하므로
+   저장 · 되돌리기 · 감은눈 복사가 붓 획과 똑같이 다룬다. 대칭이면 거울 자리의 조각도 같은 되돌리기 한 칸에. */
+function bucketFromEvent(e, erase){ if(!isDrawStep()||!cBase||!crPaintTool)return false;
+  const hit=_paintHitAt(e.clientX, e.clientY); if(!hit) return false;
+  const ctx=actC().getContext('2d'), g=hit.object&&hit.object.geometry;
+  const n=crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, faceIndex:hit.faceIndex, uv:hit.uv, color:brushColor, erase, pushHistory });
+  if(!n){ if(typeof toast==='function') toast('여기는 채울 자리가 없어요 — 얼굴을 눌러 주세요'); return false; }
+  if(symmetry){ const m=mirrorUV(hit); if(m) crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, uv:m, color:brushColor, erase }); }
+  if(crStep===3) blinkEdited=true;
+  blit();
+  return true; }
 const _pray=new THREE.Raycaster(), _pndc=new THREE.Vector2();
 const CR_PAINT_STEP_PX = 6, CR_PAINT_MAX_STEPS = 8;   // _wdPicStrokeTo 와 같은 값
 function paintFromEvent(e){ if(!isDrawStep()||!cBase)return;
@@ -25747,8 +25770,7 @@ function eyedropFromEvent(e){ if(!isDrawStep()||!cBase)return false;
   let d; try{ d=actC().getContext('2d').getImageData(cx,cy,1,1).data; }catch(_){ return false; }
   if(d[3]<8) return false;   // 빈 픽셀은 무시
   const hex='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
-  brushColor=hex; eraser=false;
-  const eb=document.getElementById('eraserBtn'); if(eb)eb.classList.remove('on');
+  brushColor=hex; _crDropEraser();
   const bc=document.getElementById('brushCustom'); if(bc)bc.value=hex;
   [...swEl.children].forEach(x=>x.classList.remove('on'));
   return true; }
@@ -25780,7 +25802,7 @@ function setStampMode(on){
   stampMode=on;
   const sb=document.getElementById('stampBtn'); if(sb)sb.classList.toggle('on',on);
   const sp=document.getElementById('stampPanel'); if(sp)sp.style.display=on?'flex':'none';
-  if(on){ eraser=false; const eb=document.getElementById('eraserBtn'); if(eb)eb.classList.remove('on');
+  if(on){ _crDropEraser();
     // 이전에 불러둔 이미지가 있으면 버튼 다시 노출 (모드 OFF→ON 복귀 시 이미지 유지)
     if(stampImg){
       const sa=document.getElementById('stampApply'); if(sa)sa.style.display='inline-block';
@@ -26195,6 +26217,8 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
     // 도장 편집 중에는 캔버스 클릭으로 그리지 않음(오버레이 조작 우선)
     if(stampMode) return;
     if(e.button!==0)return;
+    const act=crPaintTool?crPaintTool.pointerAction(e):'stroke';
+    if(act!=='stroke'){ bucketFromEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
     if(crStep===3)blinkEdited=true;pushHistory();painting=true;_paintBreak();_pLastScr=null;paintFromEvent(e);cv.setPointerCapture(e.pointerId);   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
   });
   cv.addEventListener('pointermove',e=>{
@@ -26209,6 +26233,8 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
       }
       return;
     }
+    /* 🖌 커서 = 지금 도구(붓 + · 페인트통 · 지우개). 단계 이동(gotoStep)이 crosshair 로 되돌려도 움직이면 다시 맞는다. */
+    if(crPaintTool && isDrawStep() && !stampMode){ const cu=crPaintTool.cursor(); if(cv.style.cursor!==cu) cv.style.cursor=cu; }
     if(!painting)return;
     const evs=(typeof e.getCoalescedEvents==='function')?e.getCoalescedEvents():null;
     /* 🖊️ [Mac 제보 2026-09-23] "표정을 그리면 선이 위아래로 튄다."
@@ -26256,8 +26282,12 @@ addEventListener('keydown',e=>{
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea')return;
     e.preventDefault();
-    const eb=document.getElementById('eraserBtn');
-    if(eb) eb.click();   // 기존 토글 핸들러 재사용 — eraser 변수와 버튼 클래스가 한 곳에서 관리됨
+    if(crPaintTool) crPaintTool.toggleEraser();   // 지우개 ↔ 붓 — eraser 변수와 버튼 표시는 도구 줄(onChange)이 맞춘다
+  }
+  // B 붓 · G 페인트통 · E 지우개 (paint-tools.js — 한글 상태 맥도 hotkeyLetter 로 같은 키)
+  if(crPaintTool && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
+    const tag=(e.target&&e.target.tagName||'').toLowerCase();
+    if(tag!=='input' && tag!=='textarea' && crPaintTool.handleKey(e)) e.preventDefault();
   }
   // X: 좌우 대칭 ON/OFF 토글
   if(hotkeyLetter(e)==='x' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
@@ -26290,22 +26320,27 @@ addEventListener('keydown',e=>{
 const swEl=document.getElementById('brushColors');
 ['#333333','#ffffff','#e0607a','#5a8fd8','#e0a050'].forEach((c,i)=>{const s=document.createElement('span');
   s.className='sw'+(i===0?' on':'');s.style.background=c;
-  s.onclick=()=>{brushColor=c;eraser=false;document.getElementById('eraserBtn').classList.remove('on');[...swEl.children].forEach(x=>x.classList.toggle('on',x===s));};
+  s.onclick=()=>{brushColor=c;_crDropEraser();[...swEl.children].forEach(x=>x.classList.toggle('on',x===s));};
   swEl.appendChild(s);});
-document.getElementById('brushCustom').addEventListener('input',e=>{brushColor=e.target.value;eraser=false;
-  document.getElementById('eraserBtn').classList.remove('on');[...swEl.children].forEach(x=>x.classList.remove('on'));});
+document.getElementById('brushCustom').addEventListener('input',e=>{brushColor=e.target.value;_crDropEraser();
+  [...swEl.children].forEach(x=>x.classList.remove('on'));});
 /* 🎨 [2026-10-02 제보] "자유 색으로 칠하다 기본 칩을 눌렀다가, 아까 그 자유 색으로 돌아가려고 칸을 다시
    눌러도 그 색이 안 잡힌다." — <input type="color"> 는 **값이 바뀔 때만** input/change 를 보낸다.
    같은 색 그대로 창을 닫으면 이벤트가 없어서 브러시가 기본 칩 색에 머물렀다.
    ⇒ 칸을 누르는 순간 지금 들어 있는 색(=마지막 자유 색·스포이드 색)을 바로 브러시로 잡는다.
      창은 평소처럼 열리고, 거기서 색을 바꾸면 위 input 이 그대로 이어받는다. */
-document.getElementById('brushCustom').addEventListener('click',e=>{brushColor=e.target.value;eraser=false;
-  document.getElementById('eraserBtn').classList.remove('on');[...swEl.children].forEach(x=>x.classList.remove('on'));});
+document.getElementById('brushCustom').addEventListener('click',e=>{brushColor=e.target.value;_crDropEraser();
+  [...swEl.children].forEach(x=>x.classList.remove('on'));});
 document.getElementById('brushSize').addEventListener('input',e=>brushSize=+e.target.value);
-document.getElementById('eraserBtn').addEventListener('click',e=>{
-  if(stampMode) setStampMode(false);   // 지우개와 도장은 동시 사용 X
-  eraser=!eraser; e.target.classList.toggle('on',eraser);
-});
+/* 🖌 도구 줄 — 붓 · 페인트통 · 지우개. eraser 변수(paintAt 이 본다)는 여기서만 맞춘다.
+   붓이 아닌 도구를 고르면 도장 모드를 닫는다(예전 «지우개와 도장은 동시 사용 X» 와 같은 이유 — 도장 중엔 캔버스 클릭이 안 칠한다). */
+if(typeof PaintTools!=='undefined'){
+  crPaintTool=PaintTools.createPaintTools({ doc:document, uvFill:(typeof UvFill!=='undefined'?UvFill:null),
+    hotkeyLetter:(typeof hotkeyLetter==='function'?hotkeyLetter:null),
+    onChange:(t)=>{ eraser=(t==='eraser'); if(t!=='brush' && stampMode) setStampMode(false);
+      const cv=document.getElementById('creatorPreview'); if(cv && isDrawStep() && !stampMode) cv.style.cursor=crPaintTool.cursor(); } });
+  crPaintTool.mount(document.getElementById('crToolSeg'));
+}
 document.getElementById('symBtn').addEventListener('click',e=>{symmetry=!symmetry;e.target.classList.toggle('on',symmetry);});
 document.getElementById('clearBtn').addEventListener('click',()=>{pushHistory();actC().getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);blit();});
 /* 도장 모드 + 파일 입력 + 슬라이더 */

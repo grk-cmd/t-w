@@ -1514,6 +1514,14 @@
      "감은눈을 아직 안 그린" 동안 이 상태로 선다. 왜 잠겼는지는 title 툴팁이 말한다. */
   .cr-tools button:disabled{color:var(--ink-soft);opacity:.5;cursor:default;
     box-shadow:none;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  /* 🖌 칠하기 도구 줄(paint-tools.js) — 붓 · 페인트통 · 지우개 중 하나만 눌린다. 버튼 모양은 위 .cr-tools button 그대로,
+     아이콘은 currentColor 라 글자색(테마)을 따라간다. */
+  .pt-seg{display:inline-flex;gap:2px;}
+  .cr-tools .pt-seg button{padding:3px 6px;line-height:0;}
+  .pt-seg svg{display:block;}
+  /* 꾸미기 ✎ 그리기 줄 — 도구 셋이 한 칸씩(.wd-pic-btn 모양 · 눌림 .on 그대로) */
+  .wd-pic-row .pt-seg{flex:3;min-width:0;}
+  .wd-pic-row .pt-seg .wd-pic-btn{display:flex;align-items:center;justify-content:center;line-height:0;}
   .cr-tools input[type=color]{width:24px;height:22px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);cursor:pointer;background:none;padding:0;border-radius:var(--win-radius-el) !important;}
   .cr-colors{display:flex;flex-direction:column;gap:10px;font-size:12px;font-weight:bold;color:var(--ink);align-items:flex-start;}
   .cr-colors input[type=color]{width:36px;height:24px;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);cursor:pointer;background:none;padding:0;border-radius:var(--win-radius-el) !important;}
@@ -6897,12 +6905,13 @@
           <span class="cr-groupbox-label" id="crHint">피부색을 골라주세요</span>
           <div class="skin-row" id="skinRow"></div>
           <div class="cr-tools" id="crTools">
+            <span id="crToolSeg"></span>
             <span class="cr-swatches" id="brushColors"></span>
             <input id="brushCustom" type="color" value="#333333" title="브러시 색">
             <label>굵기<input id="brushSize" type="range" min="2" max="34" value="9" style="width:58px;vertical-align:middle;"></label>
             <button id="symBtn" title="좌우 대칭">&#8651; 대칭</button>
             <button id="undoBtn" title="되돌리기 (Ctrl+Z)">↶ 되돌리기</button>
-            <button id="eraserBtn">지우개</button><button id="clearBtn">지우기</button>
+            <button id="clearBtn">지우기</button>
             <button id="stampBtn" title="이미지 도장 (Z)">이미지</button>
             <button id="blinkResetBtn" title="표정을 다시 복사" style="display:none;">⟳ 표정 복사</button>
             <!-- 🙂 반대 방향 복사 — 2단계(표정)에서 감은눈 그림을 가져온다.
@@ -6925,7 +6934,7 @@
             <span id="stampHint" style="color:var(--ink-soft);">이미지 위치를 잡아 Enter 또는 ✓ 찍기 · Z=모드 켜기/끄기</span>
           </div>
           <div id="penHint" style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;margin:4px 2px -2px;opacity:.85;">
-            ✏ 우클릭으로 색 추출 · <b>Delete</b>로 전체 지우기 · <b>C</b> 지우개 · <b>X</b> 대칭 · <b>Z</b> 도장모드 · <b>Enter</b> 찍기 · <b>Ctrl+Shift+Z</b> 다시
+            ✏ <b>B</b> 붓 · <b>G</b> 페인트통(Shift+클릭 = 그 조각 지우기) · <b>E</b> 지우개 · 우클릭으로 색 추출 · <b>Delete</b>로 전체 지우기 · <b>X</b> 대칭 · <b>Z</b> 도장모드 · <b>Enter</b> 찍기 · <b>Ctrl+Shift+Z</b> 다시
           </div>
         </div>
         <div class="cr-colors" id="crColors" style="display:none;"><label>상의 <input id="topColor" type="color" value="#9dba8a"></label>
@@ -7878,6 +7887,7 @@
 <script src="parts/human-ear.js"></script>   <!-- 🐾 사람 귀(꾸미기 › 머리 › 귀) — app.js 보다 먼저. 귀 GLB 는 ears-glb.js 가 나중에 채운다 -->
 <script src="parts/wd-ear.js"></script>   <!-- 🐾 꾸미기 › 머리 › 귀 탭 — app.js 보다 먼저(app.js 가 createWdEar 로 만든다) -->
 <script src="parts/uv-fill.js"></script>   <!-- 🪣 꾸미기 그리기 «채우기» — 누른 메쉬의 UV 자리만 칠한다 -->
+<script src="parts/paint-tools.js"></script>   <!-- 🖌 생성기 칠하기 도구 줄(붓 · 페인트통 · 지우개) — uv-fill.js 뒤 · app.js · animal.js 보다 먼저 -->
 <script src="parts/name-guard.js"></script>   <!-- 🏷️ 운영진처럼 보이는 이름 막기(isStaffName) — app.js 보다 먼저 -->
 <script src="parts/seat-slot.js"></script>   <!-- 🪑 평준화 중 «책상 위» 파츠를 자기 좌석 자리 안으로 -->
 <script src="parts/frame-budget.js"></script>   <!-- 🔋 실행 화면 프레임 상한(60 · 손 안 대면 30 · 다른 창 20) · 해상도 배율 — app.js 보다 먼저 -->
