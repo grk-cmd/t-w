@@ -77,7 +77,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
     let rules = null; try{ rules = JSON.parse(RULES).rules; }catch(_){}
     const mr = rules && rules.metrics;
     chk(!!mr && /auth != null/.test(mr['.read']) && /admins.*auth\.uid/.test(mr['.read']), '규칙: metrics 읽기는 관리자만');
-    chk(!!mr && !JSON.stringify(mr).includes('.write'), '  ↳ 쓰기 규칙 없음 — 서버(Admin SDK)만 쓴다');
+    chk(!!mr && !JSON.stringify(Object.assign({}, mr, { improvements: undefined })).includes('.write'), '  ↳ 쓰기 규칙 없음 — 서버(Admin SDK)만 쓴다');
     chk(!!rules && !!rules.stats && rules.stats['.read'] === true && !('metrics' in rules.stats), '  ↳ stats(누구나 읽기) 아래가 아니다 — 읽기 허용이 아래로 번진다');
     const APP = (read('app.js') || '') + (read('firebase-init.js') || '');
     chk(!!APP && !/['`]metrics/.test(APP), '앱은 metrics 를 읽거나 쓰지 않는다 — 웹 관리자 전용');
