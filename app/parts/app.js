@@ -26295,6 +26295,13 @@ addEventListener('keydown',e=>{
     const sb=document.getElementById('symBtn');
     if(sb) sb.click();
   }
+  // L: 원색 보기(조명 끄고 칠한 색 그대로) 켬/끔
+  if(hotkeyLetter(e)==='l' && isDrawStep() && crFlatView && !e.ctrlKey && !e.metaKey && !e.altKey){
+    const tag=(e.target&&e.target.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea')return;
+    e.preventDefault();
+    crFlatView.toggle();
+  }
   // Z: 도장 모드 ON/OFF 토글 (찍기는 Enter 또는 ✓ 버튼)
   if(hotkeyLetter(e)==='z' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
@@ -28708,12 +28715,23 @@ function setFaceMap(mat, tex){ if(!mat||!tex)return; mat.map=tex; mat.emissiveMa
     }
   }
 }
+/* 💡 표정 그리기 «원색 보기» 버튼(미리보기 오른쪽 아래). 모듈이 없어도 생성기는 그대로 돈다. */
+const crFlatView = (typeof CreatorFlatView === 'undefined') ? null : CreatorFlatView.createCreatorFlatView({
+  btn: document.getElementById('cpFlat'), badge: document.getElementById('cpFlatBadge'),
+  onChange: ()=>updateCreatorLights()
+});
+if(crFlatView) document.getElementById('cpFlat').addEventListener('click', ()=>crFlatView.toggle());
 function updateCreatorLights(){ if(!cAmb||!cKey)return;
   const b=LIGHT_PRESET.b, h=LIGHT_PRESET.h, e=LIGHT_PRESET.e;
   cAmb.intensity=0.95*b*e; cKey.intensity=1.0*b*e*_KEY_LIGHT_MUL;   // 밝기(strength) × 노출(조명 페이드) · 키는 정수리 배율까지
   if(cFill) cFill.intensity=1.0*b*e*_FILL_LIGHT_MUL;                // 정면 필 — 실행 화면과 같은 몫
   const col=new THREE.Color().setHSL(h,0.45,0.85);           // 색상(color)
   cKey.color.copy(col); cAmb.color.copy(col); if(cFill) cFill.color.copy(col);
+  /* 💡 원색 보기 — 방향광을 끄고 흰빛 앰비언트 + emissive 합을 1 로. 칠한 색이 그대로 보인다(creator-flat-view.js). */
+  if(crFlatView && crFlatView.isOn()){
+    cAmb.intensity=CreatorFlatView.flatAmbient(FLAT_EMISSIVE); cAmb.color.setRGB(1,1,1);
+    cKey.intensity=0; if(cFill) cFill.intensity=0;
+  }
   const flat=FLAT_EMISSIVE;                                  // 플랫 조명 배율(전역 손잡이)
   if(cBase){
     if(cBase.faceMat){ if(cBase.faceMat.emissiveMap!==cBase.faceMat.map){cBase.faceMat.emissiveMap=cBase.faceMat.map;cBase.faceMat.needsUpdate=true;} cBase.faceMat.emissive.setScalar(flat); }
@@ -28942,6 +28960,7 @@ function gotoStep(n){
   if(typeof _syncCrColorSwatches==='function') _syncCrColorSwatches();
   if(n===3 && !blinkEdited){ const bx=blinkC.getContext('2d'); bx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); bx.drawImage(faceC,0,0); histB.length=0; redoB.length=0; }  // 아직 감은눈을 안 고쳤으면 최신 표정을 복사해서 시작
   const draw=isDrawStep(), skin=(n===1), color=(n===4), faceView=(n<=3);
+  if(crFlatView) crFlatView.show(draw);   // 그리기 단계에서만 · 벗어나면 원래 조명으로
   const stage = n<=4?0 : (n===5?1:2);
   showEl('charStage', n<=4); showEl('deskStage', n===5); showEl('seatStage', n===6);
   document.getElementById('skinRow').style.display=skin?'flex':'none';
@@ -29082,6 +29101,7 @@ function openCreator(mode){
   }
   document.getElementById('creatorOverlay').classList.add('on');document.getElementById('launcher').classList.remove('on');
   creatorOpen=true;
+  if(crFlatView) crFlatView.set(false);   // 지난번에 켜 둔 원색 보기를 다음 열기로 끌고 오지 않는다
   // 커미션 캐릭터면 책상 세팅(5단계)부터 진입 + cBase의 베이스 GLB를 커미션 GLB로 교체
       if(src && src.animal){
         gotoStep(_editRoute ? _editRoute.deskStep(creatorMode) : 5);   // 🐾 동물 생성기 «좌석 세팅» 으로 왔으면 6
