@@ -5529,6 +5529,7 @@ document.addEventListener('pointerdown', e=>{
 const ESC_CLOSE_ORDER = 'lifo';   // 'lifo' = 마지막에 연 것부터 · 'fifo' = 처음 연 것부터. 이 한 단어가 방향의 전부다.
 const ESC_YIELD_SEL = [
   '#mhFriendSearch.on',       // 🔍 마이홈 친구검색 줄 — 자기 캡처 핸들러가 먼저 닫는다
+  '#myHomeOverlay.on #mhRoomPreview.mhd-ff-arrange',   // 📂 폴더 자유배치 중 — folder-free.js 가 window 캡처에서 먼저 끝낸다
 ].join(', ');
 const _escWins  = [];   // 등록된 창 — [{key, el, isOpen, close}]
 const _escOrder = [];   // 열린 순서대로 쌓인 key

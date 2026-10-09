@@ -98,7 +98,16 @@ function createFolderFree(deps){
     draft[d.it.id] = pxToRatio(d.it.el.offsetLeft, d.it.el.offsetTop, b.W, b.H);
     d.it.el.classList.add('mhd-ff-placed');
   }
-  function key(e){ if(arranging && e.key === 'Escape'){ e.preventDefault(); finish(); } }
+  /* Esc = [완료]. ⚠️ **window 캡처에서 먹는다.** 마이홈을 닫는 Esc(app.js ESC 스택)가 document 캡처에
+     걸려 있어서, 버블에서 잡으면 마이홈이 먼저 닫힌다(배치 모드가 남거나, 닫히면서 저장되거나).
+     window 캡처는 document 캡처보다 먼저 지나가므로 여기서 끊으면 이번 Esc 는 배치만 끝내고, 다음 Esc 가 마이홈을 닫는다. */
+  function key(e){
+    if(!arranging || e.key !== 'Escape') return;
+    e.preventDefault();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    e.stopPropagation();
+    finish();
+  }
 
   function bind(on){
     const r = deps.room(); if(!r) return;
@@ -108,13 +117,13 @@ function createFolderFree(deps){
       ['click', 'contextmenu', 'dblclick'].forEach(t=>r.addEventListener(t, swallow, true));
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', up);
-      window.addEventListener('keydown', key);
+      window.addEventListener('keydown', key, true);
     }else if(!on && bound){
       bound.removeEventListener('pointerdown', down, true);
       ['click', 'contextmenu', 'dblclick'].forEach(t=>bound.removeEventListener(t, swallow, true));
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      window.removeEventListener('keydown', key);
+      window.removeEventListener('keydown', key, true);
       bound = null;
     }
   }
@@ -147,8 +156,17 @@ function createFolderFree(deps){
     if(arranging){ draft = {}; apply(); toast('처음 자리로 돌렸어요 — [완료]를 누르면 저장돼요'); return; }
     if(Object.keys(cleanPos(deps.getPos())).length){ deps.onSave({}); apply(); }
   }
+  /* 마이홈 창이 어느 길로 닫혀도(✕ · 단축키 · 런처로 전환 등) 배치를 끝낸다 — 닫는 길마다 훅을 심지 않고
+     창의 class · style 을 본다(ESC 스택과 같은 방법). 안 끝내면 다시 열었을 때 [완료] 띠가 남는다.
+     끝내기는 [완료] · Esc · 집 나가기와 같다 — 옮긴 게 있으면 저장하고 알린다(마이홈 닫기가 편집을 저장하는 것과 같은 약속). */
+  function watchHost(el, isOpen){
+    const MO = typeof window !== 'undefined' && window.MutationObserver;
+    if(!el || !MO) return false;
+    new MO(()=>{ if(arranging && !isOpen()) finish(); }).observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
+    return true;
+  }
   return { apply, start, finish, toggle(){ return arranging ? (finish(), false) : start(); },
-           resetAll, isArranging: () => arranging };
+           resetAll, watchHost, isArranging: () => arranging };
 }
 
 const api = { cleanPos, samePos, ratioToPx, pxToRatio, createFolderFree };

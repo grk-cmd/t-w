@@ -5657,6 +5657,9 @@ function mhdFfInit(){
      창 크기가 바뀌면 비율로 다시 놓는다. */
   try{ new MutationObserver(()=>mhdFF.apply()).observe(room, { childList:true }); }catch(_){}
   try{ new ResizeObserver(()=>mhdFF.apply()).observe(room); }catch(_){}
+  /* 마이홈이 닫히면(어느 길로든) 배치를 끝낸다 — 다시 열었을 때 [완료] 띠가 남지 않게. */
+  const ov = document.getElementById('myHomeOverlay');
+  try{ mhdFF.watchHost(ov, ()=>!!ov && ov.classList.contains('on')); }catch(_){}
 }
 
 /* ─────────────────────────── 창 열기/닫기 ─────────────────────────── */

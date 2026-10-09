@@ -4,6 +4,8 @@
    ・2절: createFolderFree 를 가짜 요소로 실제로 돌림 — 끌기 · 배치 중 클릭 막기 · [완료] 때만 저장 · 처음 자리로 ·
           못 하는 이유(남의 집 · 폴더 숨김) · Esc
    ・3절: myhome-desktop.js 배선 — 저장 · 서버 기록 · 다른 기기 맞춤 · 방문자는 집주인 배치 · 메뉴 · 늦게 생기는 폴더
+   ・2-b절: 마이홈 창과 함께 — 배치 중 Esc 는 배치만 끝냄([완료] 와 같음 · 창은 안 닫힘) · 아니면 Esc 가 창을 닫음 ·
+          창이 어느 길로 닫혀도 배치 모드가 남지 않음(2026-10-09 #74 뒤 통합 시험에서 발견)
    ・4절: html — 스크립트 순서
    ⚠️ 실제 화면은 2026-10-09 헤드리스 크로미움에서 확인했다(실제 앱 페이지 — 북마크 · 말랑이 폴더를 끌어 옮김 ·
      배치 중 클릭으로 안 열림 · [완료] 뒤 열림 · 창 크기를 바꿔도 비율 그대로 · 처음 자리로 · 페이지 오류 0).
@@ -101,9 +103,60 @@ sec('── 2. 끌기 · 저장', () => {
   chk(saved.length === 1, '안 옮기고 끝내면 저장하지 않는다');
   ff.start(); ff.resetAll();
   chk(resets === 1 && saved.length === 1, '[처음 자리로] — 원래 자리 규칙으로 돌리고 [완료] 전에는 저장 안 함');
-  win.fire('keydown', { key: 'Escape', preventDefault(){} });
+  win.fire('keydown', { key: 'Escape', preventDefault(){}, stopPropagation(){} });
   chk(!ff.isArranging() && saved.length === 2 && JSON.stringify(saved[1]) === '{}', 'Esc 로 끝내도 저장 — 빈 배치(처음 자리)');
   chk((win.ls.pointermove || []).length === 0 && (room.ls.click || []).length === 0, '끝나면 건 처리기를 모두 뗀다');
+});
+
+/* 2-b. 마이홈 창과 함께 — Esc 가 창까지 닫던 것(#74 뒤 통합 시험에서 발견) · 다른 길로 닫혀도 배치 모드가 남지 않게.
+   이벤트 흐름을 브라우저 순서대로 흉내 낸다: window 캡처 → document 캡처(app.js ESC 스택 = 마이홈 닫기) → window 버블. */
+sec('── 2-b. Esc · 마이홈 닫기', () => {
+  const mos = [];
+  win.MutationObserver = function(cb){ this.cb = cb; this.observe = (el, o) => { this.el = el; this.o = o; }; mos.push(this); };
+  const room = Object.assign(target(), { clientWidth: 420, clientHeight: 220, classList: { toggle(){} } });
+  const ml = el('ml', 344, 136);
+  let stored = {}, saved = [];
+  const band = { style: { display: 'none' } };
+  const ff = F.createFolderFree({ room: () => room, items: () => [{ id: 'mallang', el: ml, reset(){} }], getPos: () => stored, band,
+    onSave: (p) => { saved.push(p); stored = p; } });
+  const home = { open: true, closes: 0 };
+  const pressEsc = () => {
+    const e = { key: 'Escape', stopped: false, dp: false, preventDefault(){ this.dp = true; },
+      stopPropagation(){ this.stopped = true; }, stopImmediatePropagation(){ this.stopped = true; } };
+    for(const x of (win.ls.keydown || []).slice()) if(x.cap && !e.stopped) x.f(e);
+    if(!e.stopped && !e.dp && home.open){ e.dp = true; e.stopped = true; home.open = false; home.closes++; }   // ESC 스택 — 마이홈 닫기
+    if(!e.stopped) for(const x of (win.ls.keydown || []).slice()) if(!x.cap) x.f(e);
+    return e;
+  };
+  const drag = () => {
+    room.fire('pointerdown', { button: 0, target: ml, clientX: 370, clientY: 150, preventDefault(){}, stopPropagation(){} });
+    win.fire('pointermove', { clientX: 300, clientY: 100 }); win.fire('pointerup', {});
+  };
+
+  ff.start(); drag();
+  chk((win.ls.keydown || []).length === 1 && win.ls.keydown[0].cap, 'Esc 는 window «캡처»에서 듣는다(마이홈 닫기 Esc 보다 먼저)');
+  const e1 = pressEsc();
+  chk(home.open && home.closes === 0 && e1.stopped, '배치 중 Esc — 마이홈은 그대로 · 이번 Esc 는 여기서 끊긴다');
+  chk(!ff.isArranging() && band.style.display === 'none' && saved.length === 1 && saved[0].mallang, '배치 중 Esc = [완료] — 옮긴 자리를 저장하고 띠가 사라진다(#74 약속 그대로)');
+  chk((win.ls.keydown || []).length === 0, '끝나면 Esc 처리기도 뗀다');
+  const e2 = pressEsc();
+  chk(!home.open && home.closes === 1, '배치 중이 아니면 Esc 는 예전처럼 마이홈을 닫는다');
+
+  home.open = true;
+  chk(ff.watchHost({ id: 'myHomeOverlay' }, () => home.open) === true && mos.length === 1
+    && mos[0].o.attributes && mos[0].o.attributeFilter.indexOf('class') >= 0, '마이홈 창의 class · style 을 지켜본다(닫는 길마다 훅을 심지 않음)');
+  mos[0].cb();
+  chk(saved.length === 1, '배치 중이 아닐 때 창 변화는 아무것도 하지 않는다');
+  ff.start(); drag();
+  home.open = false; mos[0].cb();   // ✕ · 단축키 · 런처로 전환 — 어느 길이든 class 가 빠진다
+  chk(!ff.isArranging() && band.style.display === 'none' && (win.ls.pointermove || []).length === 0, '배치 중 마이홈이 닫히면 배치 모드를 끝낸다 — 다시 열어도 [완료] 띠가 안 남는다');
+  chk(saved.length === 2, '닫힐 때 끝내기도 [완료] 와 같다 — 옮긴 게 있으면 저장(알림과 함께)');
+  home.open = true; ff.start(); home.open = true; mos[0].cb();
+  chk(ff.isArranging(), '창이 열려 있는 동안의 변화(크기 · 앞으로 오기)로는 끝나지 않는다');
+  ff.finish();
+  chk(saved.length === 2, '안 옮기고 닫히면 저장하지 않는다');
+  delete win.MutationObserver;
+  chk(ff.watchHost({}, () => true) === false, 'MutationObserver 가 없는 곳에서도 던지지 않는다');
 });
 
 sec('── 3. myhome-desktop.js 배선', () => {
@@ -121,6 +174,7 @@ sec('── 3. myhome-desktop.js 배선', () => {
   chk(/new ResizeObserver\(\(\)=>mhdFF\.apply\(\)\)\.observe\(room\)/.test(M), '창 크기가 바뀌면 다시 놓는다');
   chk(/window\._advApplyVisitUI = function\(visiting, ownerId\)\{\s*if\(mhdFF && mhdFF\.isArranging\(\)\) mhdFF\.finish\(\);/.test(M), '옮기던 중에 집을 나가면 내 배치로 저장하고 끝낸다');
   chk(/advBindEvents\(\);\s*mhdFfInit\(\);\s*advApplyBg\(\);/.test(M) && /^let mhdFF = null;/m.test(M), '배경 적용보다 먼저 준비 · 변수는 파일 위에(이른 호출에도 안전)');
+  chk(/const ov = document\.getElementById\('myHomeOverlay'\);\s*try\{ mhdFF\.watchHost\(ov, \(\)=>!!ov && ov\.classList\.contains\('on'\)\); \}catch\(_\)\{\}/.test(M), '마이홈 창(#myHomeOverlay)이 닫히면 배치를 끝낸다');
   chk(SRC['myhome-desktop.js'].indexOf('북마크') < 0, "myhome-desktop.js 에 '북마크' 글자 없음(sim-bookmark 약속 그대로)");
 });
 
@@ -128,6 +182,8 @@ sec('── 4. html', () => {
   const H = SRC['desk-companion-prototype.html'];
   const iF = H.indexOf('<script src="parts/folder-free.js">'), iM = H.indexOf('<script src="parts/myhome-desktop.js">');
   chk(iF > 0 && iF < iM, 'folder-free.js 를 myhome-desktop.js 앞에 싣는다');
+  const iO = H.indexOf('id="myHomeOverlay"'), iR = H.indexOf('id="mhRoomPreview"');
+  chk(iO > 0 && iO < iR, '#mhRoomPreview 가 #myHomeOverlay 안에 있다(지켜볼 창이 먼저 있다)');
 });
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
