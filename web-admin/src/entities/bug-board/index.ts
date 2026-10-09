@@ -13,6 +13,7 @@ export {
   usePrvTitle,
   useBugNo,
   useRefreshBugBoard,
+  useRefreshPrvTitle,
   type BugPost,
 } from './api/bugBoard';
 export {
@@ -32,6 +33,12 @@ export {
   isStaffPost,
   parseBugDailyMax,
   BUG_ANS_MAX,
+  BUG_BODY_MAX,
+  BUG_TITLE_MAX,
+  checkEdit,
+  editChanges,
+  editWrite,
+  type EditInput,
   BUG_CATS,
   BUG_FILTERS,
   BUG_KAKAO_MAX,

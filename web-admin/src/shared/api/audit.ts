@@ -53,6 +53,7 @@ export const AUDIT_ACTIONS = [
   'bug.answer',
   'bug.status',
   'bug.delete',
+  'bug.edit',
   'improvements.add',
   'improvements.edit',
   'improvements.delete',

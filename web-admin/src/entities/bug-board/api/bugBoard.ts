@@ -153,6 +153,12 @@ export function saveBugDailyMax(db: Db, max: number, before: number | null): Pro
   );
 }
 
+/** 비공개 제목은 staleTime Infinity 라 글을 고친 뒤엔 그 글 것만 다시 받는다. */
+export function useRefreshPrvTitle() {
+  const client = useQueryClient();
+  return (id: string) => client.invalidateQueries({ queryKey: [...BUG_KEY, 'prvTitle', id] });
+}
+
 /** 목록 · 상세 · 오늘 순번을 다시 받는다(지난 날짜 순번 · 비공개 제목은 그대로). */
 export function useRefreshBugBoard() {
   const client = useQueryClient();
