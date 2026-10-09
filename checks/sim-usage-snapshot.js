@@ -2,6 +2,7 @@
  * 사용량(비용) 기록 검사. functions/usage-snapshot.js 를 그대로 불러 가짜 Monitoring 응답 · 가짜 DB 로 돌린다.
  * 1. 날짜 · 구간  2. 하루 합계(합 · 최대 · 마지막 값 · 날짜 경계)  3. 쓰기 묶음(빈 응답 · 못 받은 지표 · 버킷)
  * 4. 처리기(가짜 fetch · 페이지 · 실패 하나)  5. index.js 연결 · 규칙
+ * 6. scripts/backfill-usage.js — 빠진 날짜만 · 표본 없는 날은 0 으로 채우지 않음 · 미리 보기 기본 · --project 필수
  */
 'use strict';
 const fs = require('fs');
@@ -147,6 +148,45 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
     let rules = null; try{ rules = JSON.parse(RULES).rules; }catch(_){}
     const mr = rules && rules.metrics;
     chk(!!mr && /admins.*auth\.uid/.test(mr['.read']) && !JSON.stringify(Object.assign({}, mr, { improvements: undefined })).includes('.write') && !('usage' in mr), '규칙: metrics(아래 usage 포함) 읽기는 관리자만 · 쓰기 규칙 없음(서버만)');
+  }
+
+  say('── 6. 빠진 날짜 채우기(scripts/backfill-usage.js)');
+  {
+    const BF = need('scripts/backfill-usage.js');
+    const b = require(path.resolve('scripts/backfill-usage.js'));
+    const now = T('2026-10-09T03:00:00Z');   // 서울 10-09 12:00
+    const ds = b.candidateDates(now, 5);
+    chk(JSON.stringify(ds) === JSON.stringify(['2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07']), '볼 날짜 = n 일 전 ~ 그제(어제 · 오늘은 함수 몫)');
+    const rg = b.fetchRange(ds);
+    chk(rg.start === T('2026-10-02T15:00:00Z') && rg.end === T('2026-10-07T15:00:00Z'), '  ↳ 받는 구간 = 첫날 하루 전 서울 자정 ~ 어제 서울 자정');
+    // 10-04 표본 없음(보존 기간 밖) · 10-05 · 10-06 있음 · 10-07 은 이미 있음
+    const h = (date, hh) => new Date(T(date + 'T00:00:00Z') - 9 * 3600e3 + hh * 3600e3).toISOString();
+    const res = {
+      dbSent: [ser([pt(h('2026-10-05', 1), 100), pt(h('2026-10-06', 1), 70), pt(h('2026-10-07', 1), 50)])],
+      dbStored: [ser([pt(h('2026-10-05', 1), 9)])],
+      dbConn: [ser([pt(h('2026-10-05', 1), 4), pt(h('2026-10-06', 1), 5), pt(h('2026-10-07', 1), 6)])],
+      fnCalls: [ser([pt(h('2026-10-05', 2), 3)], { function_name: 'roomStats' })],
+      stSent: [ser([pt(h('2026-10-06', 2), 8)], { bucket_name: 'other' })],
+      stStored: [],
+      hostSent: [],
+    };
+    const plan = b.backfillPlan(res, ds, new Set(['2026-10-07']), now, 'b');
+    chk(JSON.stringify(plan.fill) === JSON.stringify(['2026-10-05', '2026-10-06']) && JSON.stringify(plan.empty) === JSON.stringify(['2026-10-04']) && JSON.stringify(plan.have) === JSON.stringify(['2026-10-07']),
+      '채움 = 칸이 없고 표본이 있는 날 · 표본 없는 날은 건너뜀 · 있는 날은 «있음»');
+    chk(!Object.keys(plan.updates).some((k) => k.includes('2026-10-07')), '  ↳ 이미 있는 날짜는 절대 쓰지 않는다');
+    chk(!Object.keys(plan.updates).some((k) => k.includes('2026-10-04')), '  ↳ 표본 없는 날을 0 으로 채우지 않는다');
+    const d5 = plan.updates['metrics/usage/2026-10-05/db'];
+    chk(!!d5 && d5.sentBytes === 100 && d5.peakConnections === 4 && d5.storedBytes === 9, '  ↳ 값은 함수와 같은 집계(합 · 최대 · 마지막 값)');
+    chk('metrics/usage/2026-10-05/functions' in plan.updates && !('metrics/usage/2026-10-06/functions' in plan.updates), '  ↳ 함수 호출은 그날 표본이 있을 때만');
+    chk(!Object.keys(plan.updates).some((k) => /\/(storage|hosting)$/.test(k)), '  ↳ Storage(다른 버킷만 있음) · Hosting(표본 없음)은 안 쓴다');
+    const noConn = b.backfillPlan({ ...res, dbConn: undefined }, ds, new Set(), now, 'b');
+    chk(noConn.fill.length === 0 && !Object.keys(noConn.updates).length, '  ↳ 동시 접속을 못 받으면 아무 날도 안 쓴다');
+    const BC = strip(BF);
+    chk(/if \(!PROJECT\)/.test(BC) && /process\.exit\(2\)/.test(BC), '--project 없으면 멈춘다(기본 프로젝트가 운영)');
+    chk(/const WRITE = args\.includes\('--write'\)/.test(BC) && /if \(!WRITE\) \{[^}]*return; \}/.test(BC), '미리 보기가 기본 — --write 일 때만 쓴다');
+    chk(/shallow=true/.test(BC) && !/database:get/.test(BC), 'metrics/usage 는 날짜 키만(shallow) 읽는다');
+    chk(/const again = await readKeys\(\)/.test(BC), '쓰기 직전에 날짜 키를 다시 읽어 그사이 생긴 날짜는 뺀다');
+    chk(/if \(require\.main === module\)/.test(BC), '불러오기만 하면 아무것도 하지 않는다(검사가 require 한다)');
   }
 
   say(`\n${pass} · ${fail}`);
