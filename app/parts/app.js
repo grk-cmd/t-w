@@ -440,6 +440,12 @@ function buildDesk(plain){
 }
 /* 책상 위 소품(아이템) 시스템 — holder = 좌석 또는 생성기 미리보기 */
 function applyDeskAdj(p){ const a=p.userData.adj; p.position.set(a.x||0,a.y||0,a.z||0); p.rotation.set(0,a.rot||0,0); p.scale.setScalar(a.scale||1); }
+/* 🪑 생성기 아이템마다 «이번 편집에서 처음 나타난 자리» — ⟲ 이동·회전 초기화가 돌아갈 곳(desk-item-origin.js) */
+const deskItemOrigin = (typeof DeskItemOrigin === 'undefined') ? null : DeskItemOrigin.createDeskItemOrigin();
+function _rememberCrItemOrigin(holder, p){
+  if(!deskItemOrigin || !p || typeof cBase==='undefined' || holder!==cBase) return;
+  deskItemOrigin.remember(p, p.userData.adj);
+}
 const activeItemMixers = new Set();   // 매 프레임 업데이트해야 할 아이템 애니메이션 믹서들
 // ★ 어플 8: playMode='idle'로 등록된 아이템 pivot들 — 매 프레임 소유 좌석 상태에 따라 재생/정지 전환.
 //   ★ 이름이 헷갈리지만 요청 동작은 이거예요:
@@ -771,6 +777,7 @@ function equipDeskItem(holder,def,on){
       Object.assign(pivot.userData.adj, mem);
     }
     holder.deskItems[def.id]=pivot; holder.activeDeskItem=pivot; applyDeskAdj(pivot);
+    _rememberCrItemOrigin(holder, pivot);   // 새로 놓인 아이템의 처음 자리(불러온 저장값은 applyDeskItemsTo 가 다시 적는다)
     if(pivot.userData.colors) _applyItemColor(pivot);
     pivot.userData.holder = holder;   // 어플 8: idle 재생 판정에 필요 — 소유 좌석 상태를 알아야 함
     if(typeof cBase!=='undefined' && holder===cBase && typeof selectDeskItemForAdjust==='function') selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
@@ -824,6 +831,7 @@ function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Obj
       '| 지금 계산된 autoScale=', p.userData.autoScale, '| 최종 적용 scale=', savedAdj.scale,
       '| rot=', savedAdj.rot);   // 🔄 [제보 4] 회전이 저장까지 왔는지 한눈에
     Object.assign(p.userData.adj,savedAdj);applyDeskAdj(p);
+    _rememberCrItemOrigin(holder, p);   // 불러온 자리가 이 아이템의 처음 자리
     // ★ 런처3-1: 저장된 아이템 색상(colors) 복원 — 그룹별로 material.color/emissive를 갱신.
     //   저장된 colors에 없는 그룹은 원본색(origColor)으로 강제 복원 — 예전에 저장된 색이 남지 않게.
     if(p.userData.colorGroups){
@@ -18315,7 +18323,9 @@ async function openPurikura(){
   let pv; try{ pv = await pk.peek(room, getMyUserId()); }catch(_){ pv = null; }
   if(pv && pv.busy){ toast('📷 지금 촬영 중이에요 — 끝나면 들어갈 수 있어요'); return; }
 
-  const r = await pk.open(room, { userId:getMyUserId(), name:getDisplayName() });
+  /* ⚠️ 서버가 자리 쓰기를 거부하면 open 이 던진다 — 받지 않으면 버튼을 눌러도 아무 반응이 없다. */
+  let r; try{ r = await pk.open(room, { userId:getMyUserId(), name:getDisplayName() }); }
+  catch(e){ console.warn('[스티커사진] 자리 잡기 실패', e); r = null; }
   if(!r || !r.ok){ toast(r && r.reason==='full' ? '자리가 다 찼어요 (4명까지)' : '지금은 들어갈 수 없어요'); return; }
 
   PK.open = true; PK.room = room; PK.slot = r.slot; PK.host = !!r.host;
@@ -18341,6 +18351,7 @@ async function openPurikura(){
     PK.members = o || {};
     const pk2 = _purikura(); if(pk2) pk2.adoptSlots(PK.members);
     _pkPaintSlots();
+    _pkPaintFilterNote();
   });
   PK.unframes = firebaseAPI.pkOnValue('rooms/'+room+'/_photo/frames', o=>{ _pkOnFrames(o||{}); });
 
@@ -18563,7 +18574,7 @@ function _pkPaintBg(){
 
 /* 📷 필터 줄 — 로비와 무대 아래에 **같은 줄**이 선다(시안 filter-v1 의 «안 A»).
    ★ 두 자리가 같은 함수로 그려진다. 따로 만들면 하나만 잠기거나 하나만 갱신되는 날이 온다.
-   ⚠️ 축소판은 3D 가 아니라 실루엣이다(계층의 drawFilterSample). 무대를 여섯 번 더 그릴 수는 없고,
+   ⚠️ 축소판은 3D 가 아니라 실루엣이다(계층의 drawFilterSample). 무대를 일곱 번 더 그릴 수는 없고,
      고르는 데 필요한 것은 «색과 결»이라 이걸로 충분하다. 진짜 모습은 바로 위 무대에 있다. */
 function _pkFilterLocked(){
   if(PK.state !== 'shooting') return false;
@@ -18599,12 +18610,20 @@ function _pkPaintFilter(){
       row.appendChild(btn);
     });
   });
+  _pkPaintFilterNote();
+}
+/* 필터 안내 글. 자리가 바뀔 때도 부른다(업데이트 안 한 사람이 들어오고 나갈 때) — 축소판은 다시 안 그린다. */
+function _pkPaintFilterNote(){
+  const P = _pkP(), locked = _pkFilterLocked();
+  /* 🆙 업데이트 안 한 참가자는 이 필터를 몰라서 그 사람 사진만 필터 없이 찍힌다. 막지 않고 방장에게만 알린다. */
+  const lag = (PK.host && P.filterLaggards) ? P.filterLaggards(PK.members, PK.filter, getMyUserId()) : [];
+  const lagMsg = lag.length ? lag.join(' · ') + '님은 업데이트가 필요해서 필터 없이 찍혀요' : '';
   const msg = _pkEl('pkFilterMsg');
   if(msg) msg.textContent = locked ? '곧 찍어요 — 이번 컷은 이대로'
-                          : (PK.host ? '' : '방장이 고른 필터예요');
+                          : (PK.host ? lagMsg : '방장이 고른 필터예요');
   const note = _pkEl('pkFilterNote');
   if(note) note.textContent = PK.host
-    ? '«' + P.filterOf(PK.filter).name + '» — 사진에 그대로 구워져서 꾸미기에서는 못 되돌려요.'
+    ? (lagMsg || '«' + P.filterOf(PK.filter).name + '» — 사진에 그대로 구워져서 꾸미기에서는 못 되돌려요.')
     : '방장이 고른 필터로 함께 찍혀요.';
 }
 /* 필터를 고른 순간. ★ 촬영 중과 로비가 **다른 길로 나간다.**
@@ -25825,6 +25844,17 @@ let currentCreatorDef = null;   // openCreator로 들어온 원본 def — 커�
 function isCommissionEditing(){ return !!(currentCreatorDef && currentCreatorDef.isCommission); }
 function isAnimalEditing(){ return !!(currentCreatorDef && currentCreatorDef.animal); }
 function isDeskSeatOnly(){ return isCommissionEditing() || isAnimalEditing(); }   // 페인트 단계 없이 책상·좌석만 하는 캐릭터
+/* 🐾 동물 편집 길잡이(animal-edit-route.js) — 모양은 동물 생성기, 책상·좌석은 여기 5·6단계.
+   모듈이 없으면(검사가 app.js 만 평가할 때 등) null — gotoStep · openCreator 가 예전처럼 책상부터 연다. */
+const _editRoute = (typeof window!=='undefined' && window.AnimalEditRoute) || null;
+/* 사람 생성기를 닫고 지금 편집 중인 동물을 동물 생성기로 연다(같은 슬롯·좌석 — creatorMode 를 animal.js 가 읽는다).
+   tab: 동물 생성기에서 처음 보일 탭 — 책상에서 돌아갈 땐 마지막(감은눈), 처음 들어갈 땐 얼굴. */
+function reopenAnimalFromCreator(tab){
+  const def=currentCreatorDef;
+  document.getElementById('creatorOverlay').classList.remove('on'); creatorOpen=false;
+  if(typeof window.reopenAnimalCreator==='function'){ window.reopenAnimalCreator(def, {tab}); return true; }
+  return false;
+}
 /* 🪑 책상 크기 슬라이더의 **기본값** — 흩어져 있던 0.175 리터럴의 단 하나의 출처.
    [왜 상수가 필요해졌나] '책상 위' 파츠가 이 슬라이더를 따라 커지고 작아지는 것을 끊으면서
      "무엇을 기준으로 안 따라가는가"를 정해야 했다. 답이 이 값이다 — 슬라이더가 기본값일 때가
@@ -26699,6 +26729,13 @@ addEventListener('keydown',e=>{
     const sb=document.getElementById('symBtn');
     if(sb) sb.click();
   }
+  // L: 원색 보기(조명 끄고 칠한 색 그대로) 켬/끔
+  if(hotkeyLetter(e)==='l' && isDrawStep() && crFlatView && !e.ctrlKey && !e.metaKey && !e.altKey){
+    const tag=(e.target&&e.target.tagName||'').toLowerCase();
+    if(tag==='input'||tag==='textarea')return;
+    e.preventDefault();
+    crFlatView.toggle();
+  }
   // Z: 도장 모드 ON/OFF 토글 (찍기는 Enter 또는 ✓ 버튼)
   if(hotkeyLetter(e)==='z' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
@@ -26891,18 +26928,11 @@ function loadSkins(){const pngs=window.SKIN_PNGS||{};
       if(failed >= total){ try{ toast('피부 텍스처를 불러오지 못했어요 — 프로그램을 다시 설치해 주세요'); }catch(_){} }
     });}
 document.getElementById('crNext').addEventListener('click',()=>gotoStep(Math.min(6,crStep+1)));
-document.getElementById('crPrev').addEventListener('click',()=>{
-  // 🐾 동물: 책상(5)에서 [이전] → 얼굴·표정을 다시 편집하러 동물 생성기 창으로 복귀
-  //   (1~4단계는 동물에게 잠겨 있으므로 5에서 더 뒤로 갈 곳이 동물 창밖에 없음)
-  if(isAnimalEditing() && crStep<=5){
-    const def=currentCreatorDef;
-    document.getElementById('creatorOverlay').classList.remove('on'); creatorOpen=false;
-    if(typeof window.reopenAnimalCreator==='function') window.reopenAnimalCreator(def);
-    return;
-  }
-  gotoStep(Math.max(1,crStep-1));
-});
+// 🐾 동물이 책상(5)에서 [이전] 을 누르면 gotoStep 이 동물 생성기로 돌려보낸다(1~4는 사람용 단계).
+document.getElementById('crPrev').addEventListener('click',()=>gotoStep(Math.max(1,crStep-1)));
 // 상단 3단계 스텝퍼 클릭으로 이동 (캐릭터=1, 책상=5, 좌석=6)
+/* 1 피부 · 2 표정 · 3 감은눈 · 4 색상 — 눌러서 그 단계로(위 큰 탭과 같은 길). 동물 · 커미션은 gotoStep 이 알아서 돌려보낸다. */
+[...document.getElementById('crSteps').children].forEach((el,i)=>{ el.style.cursor='pointer'; el.addEventListener('click',()=>gotoStep(i+1)); });
 [...document.getElementById('crStages').children].forEach(el=>{ el.addEventListener('click',()=>{
   const stg=+el.dataset.stg; gotoStep(stg===0?Math.min(crStep,4):(stg===1?5:6)); }); });
 /* === 책상 세팅(5단계): 책상 색 + 책상 위 아이템(소품) + 위치조작 === */
@@ -27465,13 +27495,15 @@ document.getElementById('crItemRemove').onclick=()=>{
   if(itemGizmo) itemGizmo.update?.();
 };
 // ⟲ 이동·회전만 초기화 — 크기는 유지 (크기 초기화 버튼과 짝을 이룸)
+//   0 이 아니라 이번 편집에서 처음 나타난 자리로 — 0 은 커스텀 아이템을 책상 속에 묻는다(desk-item-origin.js)
 document.getElementById('crItemXfReset').onclick=()=>{
   const p=cBase&&cBase.activeDeskItem; if(!p){ toast('먼저 초기화할 아이템을 우클릭해서 선택해 주세요'); return; }
-  p.userData.adj.x=0; p.userData.adj.y=0; p.userData.adj.z=0; p.userData.adj.rot=0;
+  const back = deskItemOrigin ? deskItemOrigin.resetXf(p, p.userData.adj) : false;
+  if(!deskItemOrigin){ p.userData.adj.x=0; p.userData.adj.y=0; p.userData.adj.z=0; p.userData.adj.rot=0; }
   applyDeskAdj(p);
   if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
   if(itemGizmo) itemGizmo.update?.();
-  toast('위치·회전을 원래대로 되돌렸어요');
+  toast(back ? '처음 자리로 되돌렸어요' : '위치·회전을 원래대로 되돌렸어요');
 };
 document.getElementById('deskAddCode').onclick=()=>openAssetImport('desk');
 document.getElementById('itemAddCode').onclick=()=>openAssetImport('item');
@@ -29117,12 +29149,23 @@ function setFaceMap(mat, tex){ if(!mat||!tex)return; mat.map=tex; mat.emissiveMa
     }
   }
 }
+/* 💡 표정 그리기 «원색 보기» 버튼(미리보기 오른쪽 아래). 모듈이 없어도 생성기는 그대로 돈다. */
+const crFlatView = (typeof CreatorFlatView === 'undefined') ? null : CreatorFlatView.createCreatorFlatView({
+  btn: document.getElementById('cpFlat'), badge: document.getElementById('cpFlatBadge'),
+  onChange: ()=>updateCreatorLights()
+});
+if(crFlatView) document.getElementById('cpFlat').addEventListener('click', ()=>crFlatView.toggle());
 function updateCreatorLights(){ if(!cAmb||!cKey)return;
   const b=LIGHT_PRESET.b, h=LIGHT_PRESET.h, e=LIGHT_PRESET.e;
   cAmb.intensity=0.95*b*e; cKey.intensity=1.0*b*e*_KEY_LIGHT_MUL;   // 밝기(strength) × 노출(조명 페이드) · 키는 정수리 배율까지
   if(cFill) cFill.intensity=1.0*b*e*_FILL_LIGHT_MUL;                // 정면 필 — 실행 화면과 같은 몫
   const col=new THREE.Color().setHSL(h,0.45,0.85);           // 색상(color)
   cKey.color.copy(col); cAmb.color.copy(col); if(cFill) cFill.color.copy(col);
+  /* 💡 원색 보기 — 방향광을 끄고 흰빛 앰비언트 + emissive 합을 1 로. 칠한 색이 그대로 보인다(creator-flat-view.js). */
+  if(crFlatView && crFlatView.isOn()){
+    cAmb.intensity=CreatorFlatView.flatAmbient(FLAT_EMISSIVE); cAmb.color.setRGB(1,1,1);
+    cKey.intensity=0; if(cFill) cFill.intensity=0;
+  }
   const flat=FLAT_EMISSIVE;                                  // 플랫 조명 배율(전역 손잡이)
   if(cBase){
     if(cBase.faceMat){ if(cBase.faceMat.emissiveMap!==cBase.faceMat.map){cBase.faceMat.emissiveMap=cBase.faceMat.map;cBase.faceMat.needsUpdate=true;} cBase.faceMat.emissive.setScalar(flat); }
@@ -29335,10 +29378,14 @@ function frameDeskCam(keepView){   // 캐릭터+책상 전체가 다 보이도�
   updateCreatorCam();
 }
 function gotoStep(n){
-  // 커미션·동물 캐릭터는 1~4단계(피부/표정/감은눈/색상) 접근 차단 — 5(책상)·6(좌석)만 허용
-  if(isDeskSeatOnly() && n<5){
-    if(isAnimalEditing()) toast('동물의 얼굴·표정은 동물 생성기에서 편집해요. 여기선 책상·좌석만 설정해요.');
-    else toast('커미션 캐릭터는 수정할 수 없어요.');
+  // 1~4단계(피부/표정/감은눈/색상)는 사람용 — 동물은 동물 생성기로, 커미션은 막고 책상(5)에 머문다
+  if(_editRoute){
+    const r=_editRoute.stepRoute(currentCreatorDef, n);
+    if(r.animal && reopenAnimalFromCreator('blink')) return;
+    if(r.toast) toast(r.toast);
+    n = r.animal ? 5 : r.step;
+  } else if(isDeskSeatOnly() && n<5){
+    if(isCommissionEditing()) toast('커미션 캐릭터는 수정할 수 없어요.');
     n = 5;
   }
   crStep=n;
@@ -29347,6 +29394,7 @@ function gotoStep(n){
   if(typeof _syncCrColorSwatches==='function') _syncCrColorSwatches();
   if(n===3 && !blinkEdited){ const bx=blinkC.getContext('2d'); bx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); bx.drawImage(faceC,0,0); histB.length=0; redoB.length=0; }  // 아직 감은눈을 안 고쳤으면 최신 표정을 복사해서 시작
   const draw=isDrawStep(), skin=(n===1), color=(n===4), faceView=(n<=3);
+  if(crFlatView) crFlatView.show(draw);   // 그리기 단계에서만 · 벗어나면 원래 조명으로
   const stage = n<=4?0 : (n===5?1:2);
   showEl('charStage', n<=4); showEl('deskStage', n===5); showEl('seatStage', n===6);
   document.getElementById('skinRow').style.display=skin?'flex':'none';
@@ -29410,6 +29458,8 @@ function openCreator(mode){
   if(creatorMode.kind==='slot'&&creatorMode.edit) src=slots[creatorMode.slot];
   if(creatorMode.kind==='seat') src=creatorMode.seat.charDef;
   currentCreatorDef = src;   // 커미션 여부 등 판정용 (gotoStep·잠금에서 사용)
+  // 🐾 동물 편집은 모양(동물 생성기)부터 — 거기서 [다음 → 책상·좌석] 이 fromAnimal 을 달고 다시 이리로 온다
+  if(_editRoute && _editRoute.entryRoute(src, creatorMode)==='animal' && reopenAnimalFromCreator('face')) return;
   faceC.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);blinkC.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
   histF.length=0;histB.length=0;redoF.length=0;redoB.length=0;
   if(src){faceC.getContext('2d').drawImage(src.face,0,0);blinkC.getContext('2d').drawImage(src.blink,0,0);cTopColor=src.top;cBotColor=src.bot;skinIndex=src.skin||0;}
@@ -29485,9 +29535,10 @@ function openCreator(mode){
   }
   document.getElementById('creatorOverlay').classList.add('on');document.getElementById('launcher').classList.remove('on');
   creatorOpen=true;
+  if(crFlatView) crFlatView.set(false);   // 지난번에 켜 둔 원색 보기를 다음 열기로 끌고 오지 않는다
   // 커미션 캐릭터면 책상 세팅(5단계)부터 진입 + cBase의 베이스 GLB를 커미션 GLB로 교체
       if(src && src.animal){
-        gotoStep(5);
+        gotoStep(_editRoute ? _editRoute.deskStep(creatorMode) : 5);   // 🐾 동물 생성기 «좌석 세팅» 으로 왔으면 6
         swapCreatorBaseToAnimal(src).then(()=>{
           if(cBase) fitCreator('app');
           // 진단(임시) — 실행 쪽과 같은 조건(책상 GLB 비동기 로드 완료 후)에서 재야 비교가 성립한다.
@@ -29662,7 +29713,7 @@ function clearHolderDeskItems(holder){
   }
   holder.activeDeskItem=null;
 }
-function clearCreatorItems(){ clearHolderDeskItems(cBase); }
+function clearCreatorItems(){ clearHolderDeskItems(cBase); if(deskItemOrigin) deskItemOrigin.clear(); }
 /* 🪑 생성기 미리보기에 남아 있는 파츠 wrapper 를 전부 걷어낸다 — 창을 열 때마다 한 번.
    [경위] 본에 붙는 파츠는 베이스를 새로 만들 때(swapCreatorBaseTo*) 옛 root 와 함께 사라진다.
      그런데 '책상 위'(bone:'desk') 파츠는 cDesk 의 deskAnchor 에 붙고, 그 책상은
@@ -29682,6 +29733,7 @@ function clearCreatorParts(){
   if(typeof _sweepOrphanPartWrappers==='function') _sweepOrphanPartWrappers(cBase);
 }
 function closeCreator(){creatorOpen=false;document.getElementById('creatorOverlay').classList.remove('on');
+  if(deskItemOrigin) deskItemOrigin.clear();   // 🪑 처음 자리는 이번 편집에서만
   if(typeof detachItemGizmo==='function') detachItemGizmo();
   clearStampState();   // 도장 이미지·모드 모두 초기화 (다음 생성/수정 진입 시 깨끗한 상태로)
   // ★ 꾸미기/미리보기 창이 켜진 채로 런처가 다시 보이면 런처를 가리던 문제 방지(방어적으로 항상 닫음)
