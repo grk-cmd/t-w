@@ -60,11 +60,6 @@
   font-size: 12px;
   font-weight: bold;
   letter-spacing: 0.02em;
-  color: var(--soft);
-}
-
-/* 지금 보는 화면이 든 묶음 — 제목을 강조색으로 */
-.group.current .groupLabel {
   color: var(--accent);
 }
 

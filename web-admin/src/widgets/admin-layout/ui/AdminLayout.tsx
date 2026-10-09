@@ -44,16 +44,7 @@ export function AdminLayout({ env, account, nav, title, children }: Props) {
             {nav.groups
               .filter((group) => group.items.length > 0)
               .map((group) => (
-                <div
-                  key={group.label}
-                  className={
-                    group.items.some((item) => item.id === nav.current)
-                      ? `${styles.group} ${styles.current}`
-                      : styles.group
-                  }
-                  role="group"
-                  aria-label={group.label}
-                >
+                <div key={group.label} className={styles.group} role="group" aria-label={group.label}>
                   <span className={styles.groupLabel} aria-hidden="true">
                     {group.label}
                   </span>
