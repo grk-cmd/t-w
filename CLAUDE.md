@@ -45,6 +45,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 ## 코드 컨벤션
 - 앱(Electron)은 순수 JS, 번들러·TS 없음. **`web-admin/` 은 예외** — Vite + React + TS(strict), Prettier(`npm --prefix web-admin run format`), 조각 전용 스타일은 옆에 `*.module.css`. 여러 경로를 함께 쓰는 쓰기는 `db.commit` 한 묶음으로. `const` 위주, 2칸 들여쓰기, 작은따옴표, 세미콜론. 앱 쪽은 `if(`, `functions/` 는 `if (`.
 - 새 로직은 `firebase-init.js` · `app.js` 에 쌓지 말고 도메인 모듈 파일로 만든다(위 구조 표). 모듈마다 검사(`sim-*.js`)를 붙인다.
+- UI 를 고치거나 새로 만들 때는 `docs/design-system/` (원칙 · 토큰 · 부품 지침)을 따른다. 그 폴더를 고쳤으면 `npm run design:build` 로 `hosting/design/` 도 다시 만든다.
 - 주석은 한국어로, **코드만 봐서는 모를 이유**만 짧게. 변경 이력 · 날짜 · 실측치는 커밋 메시지와 PR 에 적고, 이모지 꼬리표는 쓰지 않는다. 할 일은 `TODO:`.
 - 여러 곳에서 쓰는 값(채널 이름, 접두사 등)은 상수로 둔다.
 - localStorage 키는 `tw.` 접두사.
@@ -69,4 +70,5 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 ## 문서
 - `docs/GIT_CONVENTION.md` 커밋·브랜치·릴리스 규칙
 - `docs/GUIDE_NON_DEVELOPER.md` 비개발자용 VS Code · Claude Code · git 안내
+- `docs/design-system/` 디자인 시스템(원칙 · 토큰 · 부품) — 웹으로는 https://together-working.web.app/design/
 - `handoff-*.md` 세션 인수인계 기록 (설계 배경)

@@ -1,0 +1,16 @@
+<!-- @dsCard group="동작" height=120 subtitle="붓 · 채우기 · 지우개" -->
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"></head>
+<body>
+<div class="tw-stage" style="flex-direction:column;gap:8px">
+ <div class="tw-seg" role="group" aria-label="그리기 도구">
+  <button aria-pressed="true"><svg viewBox="0 0 16 16"><path d="M3 13c2 0 3-1 3-2.5S7.5 8 9 8l4-5-1-1-5 4C5.5 6 5 7 5 8.5S3 11 3 13z"/></svg>붓 <kbd>B</kbd></button>
+  <button aria-pressed="false"><svg viewBox="0 0 16 16"><path d="M3 7l5-5 5 5-5 5z"/><path d="M13 9.5c0 1 .7 2 1 2.5"/></svg>채우기 <kbd>G</kbd></button>
+  <button aria-pressed="false"><svg viewBox="0 0 16 16"><path d="M6 13h7M3 10l6-6 4 4-5 5H5z"/></svg>지우개 <kbd>C</kbd></button>
+ </div>
+ <div class="tw-cap">하나만 켜진다 · 켜진 칸은 바닥에 강조 줄</div>
+</div>
+<script>var bs=document.querySelectorAll('.tw-seg button');bs.forEach(function(b){b.addEventListener('click',function(){bs.forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});});});</script>
+</body>
+</html>
