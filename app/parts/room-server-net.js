@@ -29,6 +29,9 @@ const TOKEN_FALLBACK_MS = 50 * 60 * 1000;
 const TOKEN_MIN_MS = 60 * 1000;
 const IDLE_CLOSE_MS = 60 * 1000;     // 방 밖에서 개수 · 랜덤만 물은 연결은 이만큼 쉬면 닫는다
 const FAIL_COOLDOWN_MS = 60 * 1000;
+// 끊긴 동안의 말 · 찌르기는 종류마다 마지막 몇 개만 들고 있다가 다시 붙으면 보낸다 — 오래된 건 뒤늦게 터지면 어색해서 버린다
+const HELD_MAX = 5;
+const HELD_TTL_MS = 15 * 1000;
 /* 방 안에서 끊긴 뒤 이만큼 못 돌아오면 그 방은 포기한다(onLost 'unreachable' → app.js 가 같은 코드로 Firebase 에 다시 들어간다).
    재시작 한 번(몇 초)은 재연결로 이어 붙는다 — 재연결 간격 1·2·4·8·15초를 다 써 볼 만큼(30초)은 기다린다. */
 export const ROOM_LOST_AFTER_MS = 30 * 1000;  // 못 붙었으면 이만큼은 다시 시도하지 않는다 — 서버가 죽었을 때 입장마다 5초씩 기다리지 않게
@@ -419,6 +422,7 @@ export function createRoomServerNet(deps){
 
   function detach(P){
     P.inRoom = false;
+    P.held = { chat: [], poke: [] };
     if(active === P) downSince = null;
     stopTimers(P);
     notifyLeft(P);
@@ -534,8 +538,13 @@ export function createRoomServerNet(deps){
           try{ if(P.hooks.onJoined) P.hooks.onJoined(P.room); }catch(_){}
           finishJoin(P, { ok: true, memberId: m.memberId, others: Object.keys(mem).length, meta: m.meta || null });
         }else if(m.resumed){
-          flush(P, null);   // 끊겨 있던 사이 바뀐 칸만 보낸다
+          /* 죽어 가던 소켓에 보낸 칸은 «보냄» 으로 적혔어도 서버에 안 닿았을 수 있다 — 지금 상태 전체를 한 번 다시 보낸다
+             (Firebase 가 다시 붙을 때 내 노드를 통째로 다시 쓰는 것과 같다). */
+          P.sent = {};
+          if(P.def) P.defDirty = true;
         }
+        flush(P, null);   // welcome 을 기다리는 사이 바뀐 칸도 여기서 나간다
+        sendHeld(P);
         emit(P);
         return;
       }
@@ -605,9 +614,25 @@ export function createRoomServerNet(deps){
     P.stateTimer = tSet(() => { P.stateTimer = null; flush(P, null); }, wait);
   }
 
+  function hold(P, kind, msg){
+    if(!P.inRoom) return;
+    const q = P.held[kind];
+    q.push({ msg, at: now() });
+    if(q.length > HELD_MAX) q.shift();
+  }
+  function sendHeld(P){
+    for(const kind of ['chat', 'poke']){
+      const q = P.held[kind]; P.held[kind] = [];
+      for(const h of q){
+        if(now() - h.at > HELD_TTL_MS) continue;
+        send(h.msg.to === null ? Object.assign({}, h.msg, { to: P.memberId }) : h.msg);   // to null = 나(pokeSelf) — 새 memberId 로
+      }
+    }
+  }
+
   // 바뀐 칸만 보낸다. state 는 1초에 한 번 — 그 사이 값은 버리고 마지막 값을 보낸다.
   function flush(P, chat){
-    if(!canSend(P)) return;
+    if(!canSend(P)){ if(chat) hold(P, 'chat', Object.assign({ t: 'chat' }, chat)); return; }
     const patch = {};
     let n = 0;
     for(const k of MEMBER_FIELDS){
@@ -637,7 +662,7 @@ export function createRoomServerNet(deps){
       hooks: hooks || {}, create: (opts && opts.create) || null,
       room: null, url: null, memberId: null, resume: null, userId: null,
       inRoom: false, joined: false, leaving: false, leftNotified: false, awaitingWelcome: false, sentAnyJoin: false,
-      current: {}, sent: {}, def: null, defDirty: false,
+      current: {}, sent: {}, def: null, defDirty: false, held: { chat: [], poke: [] },
       members: {}, meta: null, defCache: {}, seq: 0,
       changeCb: null, onPoked: null, joinWaiter: null, leaveWaiter: null, metaWaiters: [],
       stateTimer: null, expTimer: null, lastStateAt: -Infinity,
@@ -671,14 +696,15 @@ export function createRoomServerNet(deps){
         flush(P, s.chat);
       },
       poke(targetId, type){
-        if(!targetId || !canSend(P)) return;
+        if(!targetId) return;
         const msg = { t: 'poke', to: targetId, type: String(type) };
         if(isRoomWidePoke(type)) msg.all = true;
-        send(msg);
+        if(canSend(P)) send(msg); else hold(P, 'poke', msg);
       },
       pokeSelf(type){
-        if(!canSend(P)) return;
-        send({ t: 'poke', to: P.memberId, type: String(type) });   // to 가 나 자신이면 서버가 방 전원(나 포함)에게 보낸다
+        // to 가 나 자신이면 서버가 방 전원(나 포함)에게 보낸다
+        if(canSend(P)) send({ t: 'poke', to: P.memberId, type: String(type) });
+        else hold(P, 'poke', { t: 'poke', to: null, type: String(type) });
       },
       // 방장만 — chatOff · open · tabs({ s1: { name } | null }). 서버가 바뀐 meta 를 돌려주면 ok.
       setMeta(fields){
