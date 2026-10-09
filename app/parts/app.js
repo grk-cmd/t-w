@@ -1879,6 +1879,25 @@ function _skipHiddenDesk(hits){
   for(let i = 0; i < hits.length; i++){ if(_hitInHiddenDesk(hits[i].object)){ drop = true; break; } }
   return drop ? hits.filter(h=>!_hitInHiddenDesk(h.object)) : hits;
 }
+/* 🩹 날아가는 캐릭터(💣 · 🔫 룰렛 · 🎲 · 깜짝쇼)는 클릭 통과 판정에서 뺀다.
+   [제보] «날리기 할 때 클릭 통과가 안 먹어서 뒤의 작업이 막힌다.»
+   [원인] 비행 중인 rig 는 10초 동안 화면 전체를 튕겨 다닌다. 다른 앱을 쓰던 커서 밑을 지나가면
+     _pointHitsInteractive 의 레이캐스트가 «캐릭터 위» 로 잡아 클릭받기로 바꾸고, 그 순간의 클릭이
+     투명 창에 꽂혀 쓰던 앱의 포커스를 뺏는다.
+   [왜 빼도 되나] 날아가는 캐릭터는 누를 일이 없다 — 잡기(pointerdown)는 seat.fly 면 그냥 돌아가고,
+     💣 · 🪄 조준도 비행 중인 표적은 거절한다. 받아 봐야 쓸 데 없는 클릭이다.
+   ★ rig(움직이는 몸)만 뺀다. 같은 좌석의 책상은 제자리에 있으므로 예전처럼 판정한다.
+   ⚡ 날고 있는 좌석이 없으면 같은 배열을 그대로 돌려준다 — 빈 공간 판정의 추가 비용 0. */
+function _hitInFlyingRig(obj){
+  for(let o = obj; o; o = o.parent){
+    for(let i = 0; i < seats.length; i++){ if(seats[i].fly && seats[i].rig === o) return true; }
+  }
+  return false;
+}
+function _skipFlyingRigs(hits){
+  if(!_flyActive || !hits || !hits.length) return hits;   // startFlight 가 바로 올리고, 매 프레임 다시 센다
+  return hits.filter(h=>!_hitInFlyingRig(h.object));
+}
 /* 🩹 [2026-10-08 제보 #7] 잡기 — **보이는 것에 맞은 히트를 먼저.** 없으면 예전처럼 첫 히트.
    [증상] 자리비움 이미지를 건 사람 머리 위의 동물을 눌러도 안 내려오고, 그 사람(이미지째)이 흔들린다.
    [원인] 자리비움이면 몸 메시를 visible=false 로 숨기는데(setSeatOpacity) three r128 레이캐스트는 visible 을 안 본다.
@@ -45212,7 +45231,7 @@ if(desktopMode){
           const _ix0 = ray.intersectObjects(_hitObjs, true);
           /* 🩹 #7 — 올라탄 동물 좌석의 숨긴 책상이 머리 위 허공에 떠서 다른 앱 클릭을 가로챘다(_hitInHiddenDesk 주석).
              ⚡ 맞은 게 없으면 거르지 않는다 — 대부분의 호출(빈 공간)은 추가 비용 0 이다. */
-          const _ix = _skipHiddenDesk(_ix0);
+          const _ix = _skipHiddenDesk(_skipFlyingRigs(_ix0));   // 🪑 날아가는 몸은 누를 일이 없다(_skipFlyingRigs 주석)
           if(_ix.length){
             let _si = -1;
             for(let o = _ix[0].object; o && _si < 0; o = o.parent){
