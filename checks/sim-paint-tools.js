@@ -5,6 +5,7 @@
    ・3절: 페인트통 한 번 — 되돌리기 한 칸을 칠하기 **전에** · 칠할 게 없으면 이력 안 남김 · 지우기 합성 · 대칭 두 번째는 이력 없음
    ・4절: 도구 줄 DOM(가짜 문서) — 버튼 셋 · 눌림 표시 · 한국어 툴팁 · 인라인 SVG(currentColor)
    ・5절: 배선 — app.js(사람 · 꾸미기 그리기) · animal.js(동물) · html 로드 순서 · 스타일
+   ・6절: 💧 스포이드(sampleLayers) — 그림 층에 칠한 색 · 투명하면 바탕(피부 · 흰 바탕 · 파츠 원본) · 빈 곳은 안 바꿈 · 세 곳 배선
    [실행] uv-fill.js · paint-tools.js · key-input.js · animal-glb.js · base-glb.js · app.js · animal.js ·
           desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
@@ -200,6 +201,31 @@ const sU = HTML.indexOf('<script src="parts/uv-fill.js">'), sP = HTML.indexOf('<
 chk(sU > 0 && sU < sP && sP < sA && sA < sN, 'html — uv-fill.js → paint-tools.js → app.js → animal.js');
 chk(/<span id="crToolSeg"><\/span>/.test(HTML) && /<b>G<\/b> 페인트통/.test(HTML), 'html — 사람 도구 줄 자리 · 안내 줄');
 chk(/\.pt-seg\{display:inline-flex;/.test(HTML) && /\.cr-tools \.pt-seg button\{/.test(HTML), 'html — 도구 줄 스타일(.cr-tools 버튼 모양 · 눌림 .on 을 그대로)');
+
+say('── 6. 💧 스포이드 — 칠해진 색(화면 픽셀 아님)');
+/* 가짜 캔버스 — 칸마다 [r,g,b,a]. 읽은 좌표를 남겨 둔다(층 크기가 달라도 같은 uv 자리를 읽는지). */
+function fakeCv(w, h, fn){
+  const reads = [];
+  return { width:w, height:h, reads, getContext:() => ({ getImageData:(x, y) => { reads.push(x + ',' + y); return { data:fn(x, y) }; } }) };
+}
+const skin = fakeCv(512, 512, () => [240, 200, 170, 255]);
+const paint = fakeCv(512, 512, (x) => x < 256 ? [255, 0, 0, 255] : [0, 0, 0, 0]);   // 왼쪽 반만 빨갛게 칠함
+chk(P.sampleLayers([skin, paint], { x:0.1, y:0.5 }) === '#ff0000', '그림 층이 칠해진 자리 — 칠한 색(빛 · 그림자 없이)');
+chk(P.sampleLayers([skin, paint], { x:0.9, y:0.5 }) === '#f0c8aa', '그림 층이 투명한 자리 — 아래 바탕(피부) 색');
+chk(P.sampleLayers(['#ffffff', paint], { x:0.9, y:0.5 }) === '#ffffff' && P.sampleLayers(['#ffffff', paint], { x:0.1, y:0.5 }) === '#ff0000', '동물 — 바탕은 흰색 문자열 · 칠한 곳은 그 색');
+chk(P.sampleLayers([skin, paint], null) === null && P.sampleLayers([skin, paint], { x:NaN, y:0 }) === null, '빈 곳(아무것도 안 맞음 · uv 없음) — null = 색을 안 바꾼다');
+const empty = fakeCv(512, 512, () => [0, 0, 0, 0]), faint = fakeCv(512, 512, () => [9, 9, 9, 7]);
+chk(P.sampleLayers([null, empty], { x:0.5, y:0.5 }) === null && P.sampleLayers([faint], { x:0.5, y:0.5 }) === null, '바탕도 그림도 투명(문턱 ' + P.PICK_MIN_ALPHA + ' 아래) — null');
+const half = fakeCv(512, 512, () => [0, 0, 255, 128]);
+chk(P.sampleLayers(['#ffffff', half], { x:0.5, y:0.5 }) === '#7f7fff', '반투명 가장자리 — 보이는 대로 섞인 색(흰 바탕 위 파랑 반)');
+const big = fakeCv(1024, 256, () => [10, 20, 30, 255]); const pl = fakeCv(512, 512, () => [0, 0, 0, 0]);
+P.sampleLayers([big, pl], { x:0.5, y:0.25 });
+chk(big.reads[0] === '512,64' && pl.reads[0] === '256,128', '층 크기가 달라도 같은 uv 자리(꾸미기 원본 1024×256 · 그림 층 512)');
+chk(P.sampleLayers([fakeCv(4, 4, () => [1, 2, 3, 255])], { x:1, y:1 }) === '#010203', 'uv 1.0 은 마지막 칸으로 잘라 읽는다');
+const ed = grab(A, 'eyedropFromEvent'), wd = grab(A, '_wdPicEyedrop'), ap = grab(N, 'pPickColor');
+chk(/PaintTools\.sampleLayers\(\[skinCanvasFor\(skinIndex\), actC\(\)\], _eh\.uv\)/.test(ed) && /if\(!_eh\|\|!_eh\.uv\) return false;/.test(ed) && /if\(!hex\) return false;/.test(ed), '사람 — 맞힌 얼굴 UV 에서 그림 층 → 비었으면 그 자리 피부 · 빈 곳은 그대로');
+chk(/PaintTools\.sampleLayers\(\[P_BASE, tgt\.draw\], uv\)/.test(ap) && /const tgt=_canvasForMesh\(h\.object\);/.test(ap) && !/pDispC/.test(ap) && /if\(!hex\) return;/.test(ap), '동물 — 맞힌 메쉬의 캔버스(귀는 그 귀) → 비었으면 흰 바탕 · 몸 화면 캔버스를 안 읽는다');
+chk(/PaintTools\.sampleLayers\(\[hit\.object\.userData\.picBase, tgt && tgt\.user\], hit\.uv\)/.test(wd) && /if\(!hex\) return false;/.test(wd), '꾸미기 — 그린 층 → 비었으면 파츠 바탕(원본 텍스처) · 빈 곳은 그대로');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

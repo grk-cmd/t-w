@@ -10385,13 +10385,11 @@ function _wdPicMirrorCx(mesh){
 /* 우클릭 스포이드 — 보이는 그대로(원본 텍스처 포함)에서 집는다. */
 function _wdPicEyedrop(e){
   const hit=_wdPicHit(e); if(!hit) return false;
-  const comp=hit.object.userData.picComp; if(!comp) return false;
-  const W=hit.object.userData.picW||comp.width, H=hit.object.userData.picH||comp.height;
-  const x=Math.max(0,Math.min(W-1,Math.floor(hit.uv.x*W)));
-  const y=Math.max(0,Math.min(H-1,Math.floor(hit.uv.y*H)));
-  let d; try{ d=comp.getContext('2d').getImageData(x,y,1,1).data; }catch(_){ return false; }
-  if(d[3]<8) return false;   // 빈 픽셀은 무시
-  _wdPic.color='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
+  /* 💧 칠해진 색 — 그린 층(user)이 비었으면 그 파츠의 바탕(picBase — 원본 텍스처, 없으면 원래 색을 구운 것). 생성기와 같은 규칙(sampleLayers) */
+  const tgt=_wdPicTgtOf(hit.object);
+  const hex=(typeof PaintTools!=='undefined') ? PaintTools.sampleLayers([hit.object.userData.picBase, tgt && tgt.user], hit.uv) : null;
+  if(!hex) return false;   // 빈 곳 · 투명한 자리 — 색을 안 바꾼다
+  _wdPic.color=hex;
   _wdPicSetEraser(false);
   const sw=document.getElementById('wdPicColor'); if(sw) sw.style.background=_wdPic.color;
   const dot=document.querySelector('#wdPicSection .wd-pic-dot'); if(dot) dot.style.background=_wdPic.color;
@@ -25765,11 +25763,9 @@ function eyedropFromEvent(e){ if(!isDrawStep()||!cBase)return false;
   _pray.setFromCamera(_pndc,cCam);
   const _eh=_picIntersect(_pray.ray, [cBase.face]);   // 🩹 지금 자세로 맞힌다(리깅 · _stampFaceHit 주석)
   if(!_eh||!_eh.uv) return false;
-  const cx=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.x*CANVAS_SZ)));
-  const cy=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.y*CANVAS_SZ)));
-  let d; try{ d=actC().getContext('2d').getImageData(cx,cy,1,1).data; }catch(_){ return false; }
-  if(d[3]<8) return false;   // 빈 픽셀은 무시
-  const hex='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
+  /* 💧 칠해진 색을 읽는다 — 그림 층이 비었으면 그 자리 피부색(paint-tools.js sampleLayers). 빈 곳은 위에서 이미 false. */
+  const hex=(typeof PaintTools!=='undefined') ? PaintTools.sampleLayers([skinCanvasFor(skinIndex), actC()], _eh.uv) : null;
+  if(!hex) return false;
   brushColor=hex; _crDropEraser();
   const bc=document.getElementById('brushCustom'); if(bc)bc.value=hex;
   [...swEl.children].forEach(x=>x.classList.remove('on'));

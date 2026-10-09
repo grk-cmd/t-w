@@ -1484,7 +1484,7 @@ function _canvasForMesh(mesh){
   for(const side of ['L','R']){
     const w = side==='L'?earObjL:earObjR;
     if(w){ let hit=false; w.traverse(o=>{ if(o===mesh) hit=true; });
-      if(hit){ _ensureEarCv(side); return {draw:_earDraw(side), blit:()=>_blitEar(side), isEar:true, part:'ear'}; } }
+      if(hit){ _ensureEarCv(side); return {draw:_earDraw(side), blit:()=>_blitEar(side), isEar:true, part:'ear', side}; } }
   }
   // 몸/얼굴은 같은 캔버스를 쓰지만 부위는 구분해서 알려준다(부위 잠금용)
   return {draw:pActC(), blit:pBlit, isEar:false, part:_isFaceMesh(mesh)?'face':'body'};
@@ -1559,10 +1559,16 @@ function pBucketEvent(e, erase){
   }
   return true;
 }
+/* 💧 스포이드 — 맞힌 메쉬의 그림 층(몸·얼굴 / 그 쪽 귀)에서 칠해진 색을, 비었으면 흰 바탕(P_BASE)을 읽는다.
+   ⚠️ 예전엔 귀를 눌러도 몸 화면 캔버스(pDispC)의 같은 UV 를 읽어 엉뚱한 색이 나왔다 — 귀는 캔버스가 따로다.
+   빈 곳(아무 메쉬도 안 맞음)은 색을 안 바꾼다. */
+const P_BASE='#ffffff';   // 안 칠한 곳 = 흰색(pBlit · _blitEar 와 같은 값)
 function pPickColor(e){
-  const h=pHit(e); const uv=h&&h.uv; if(!uv||!pDispC) return;
-  const d=pDispC.getContext('2d').getImageData(Math.floor(uv.x*P_SZ),Math.floor(uv.y*P_SZ),1,1).data;
-  pColor='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
+  const h=pHit(e); const uv=h&&h.uv; if(!uv||!h.object) return;
+  const tgt=_canvasForMesh(h.object);
+  const hex=(typeof PaintTools!=='undefined') ? PaintTools.sampleLayers([P_BASE, tgt.draw], uv) : null;
+  if(!hex) return;
+  pColor=hex;
   /* 🎨 [2026-10-02] 인간 생성기 스포이드와 맞춘다 — 뽑은 색을 자유 색 칸에 넣고 칩 선택 표시를 끈다.
      그래야 기본 칩으로 갔다가 자유 색 칸을 눌러 이 색으로 돌아올 수 있다. */
   if(overlay){
