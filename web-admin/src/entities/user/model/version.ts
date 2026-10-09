@@ -1,6 +1,6 @@
 import type { UserRow } from './userRow';
 
-// 앱은 0.10.3 부터 계정 요약에 버전을 올린다 — 계정은 있는데 버전이 없으면 그보다 옛 앱이다.
+// 앱은 0.11.0 부터 계정 요약에 버전을 올린다 — 계정은 있는데 버전이 없으면 그보다 옛 앱이다.
 export const OLD_VER_LABEL = '0.10.2 이하';
 
 const VER_MAX = 20;
