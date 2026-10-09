@@ -34,15 +34,18 @@ const FN = '함수 호출';
 const ST = 'Storage';
 const STORE = 'DB 저장 용량 · 최대 동시 접속';
 
-test('사용량은 지표 바로 뒤 마지막 메뉴이고, 다운로드 · 함수 · 저장 용량 · 추정 금액을 보여 준다', async ({
+test('사용량은 «성능 · 비용» 묶음에서 지표 바로 뒤 메뉴이고, 다운로드 · 함수 · 저장 용량 · 추정 금액을 보여 준다', async ({
   page,
   seed,
 }) => {
   await seed(usageData());
   await page.goto('/admin/');
-  const menu = page.getByRole('navigation').getByRole('button');
-  await expect(menu.last()).toHaveText(/사용량/);
-  await expect(menu.nth(-2)).toHaveText(/지표/);
+  const menu = page
+    .getByRole('navigation')
+    .getByRole('group', { name: '📊 성능 · 비용' })
+    .getByRole('button');
+  await expect(menu.nth(0)).toHaveText(/지표/);
+  await expect(menu.nth(1)).toHaveText(/사용량/);
   await openMenu(page, 'usage');
 
   await expect(page.getByText('금액은 추정')).toBeVisible();

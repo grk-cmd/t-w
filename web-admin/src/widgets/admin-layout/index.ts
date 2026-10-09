@@ -1,1 +1,1 @@
-export { AdminLayout, type NavItem } from './ui/AdminLayout';
+export { AdminLayout, type NavGroup, type NavItem } from './ui/AdminLayout';
