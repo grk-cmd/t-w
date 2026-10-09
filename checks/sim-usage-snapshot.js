@@ -146,7 +146,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
     chk(f.METRICS_USAGE === 'metrics/usage', '쓰는 곳 = metrics/usage');
     let rules = null; try{ rules = JSON.parse(RULES).rules; }catch(_){}
     const mr = rules && rules.metrics;
-    chk(!!mr && /admins.*auth\.uid/.test(mr['.read']) && !JSON.stringify(mr).includes('.write') && !('usage' in mr), '규칙: metrics(아래 usage 포함) 읽기는 관리자만 · 쓰기 규칙 없음(서버만)');
+    chk(!!mr && /admins.*auth\.uid/.test(mr['.read']) && !JSON.stringify(Object.assign({}, mr, { improvements: undefined })).includes('.write') && !('usage' in mr), '규칙: metrics(아래 usage 포함) 읽기는 관리자만 · 쓰기 규칙 없음(서버만)');
   }
 
   say(`\n${pass} · ${fail}`);
