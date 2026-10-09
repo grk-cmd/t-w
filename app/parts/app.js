@@ -14923,7 +14923,7 @@ function _mhBindStickerResize(handle, sid){
     try{ const cs=getComputedStyle(nameEl); fs=cs.fontSize||fs; fw=cs.fontWeight||fw; }catch(_){}
     /* 폭은 #mhNameRow 를 꽉 채운다 — 왼쪽 열(#mhHomeLeft 200px, padding 20px)의 안쪽 160px 이라
        프로필 사진(160px)과 정확히 같은 줄에 선다. px 를 박으면 열 폭이 바뀔 때 혼자 어긋난다. */
-    inp.style.cssText='font-family:Tahoma,"Malgun Gothic",sans-serif;font-size:'+fs+';font-weight:'+fw+';'
+    inp.style.cssText='font-family:var(--tw-font-legacy);font-size:'+fs+';font-weight:'+fw+';'
       + 'width:100%;padding:1px 4px;box-sizing:border-box;';
     nameEl.style.display='none';
     if(editLink) editLink.style.display='none';   // 편집 중엔 링크도 비운다(눌러도 아무 일 없는 버튼을 남기지 않는다)
@@ -14976,7 +14976,7 @@ function _mhBindStickerResize(handle, sid){
     const cur=_myHomeData.postTitle||'';
     const inp=document.createElement('input');
     inp.id='mhPostTitleInput'; inp.type='text'; inp.maxLength=30; inp.value=cur;
-    inp.style.cssText='font-family:Tahoma,"Malgun Gothic",sans-serif;font-size:12px;font-weight:bold;width:220px;padding:1px 4px;';
+    inp.style.cssText='font-family:var(--tw-font-legacy);font-size:12px;font-weight:bold;width:220px;padding:1px 4px;';
     titleSpan.style.display='none';
     if(editBtn) editBtn.style.display='none';   // 편집 중엔 버튼도 비운다(눌러도 아무 일 없는 버튼을 남기지 않는다)
     titleSpan.parentNode.insertBefore(inp, titleSpan);
@@ -17935,6 +17935,7 @@ async function openPurikura(){
     PK.members = o || {};
     const pk2 = _purikura(); if(pk2) pk2.adoptSlots(PK.members);
     _pkPaintSlots();
+    _pkPaintFilterNote();
   });
   PK.unframes = firebaseAPI.pkOnValue('rooms/'+room+'/_photo/frames', o=>{ _pkOnFrames(o||{}); });
 
@@ -18157,7 +18158,7 @@ function _pkPaintBg(){
 
 /* 📷 필터 줄 — 로비와 무대 아래에 **같은 줄**이 선다(시안 filter-v1 의 «안 A»).
    ★ 두 자리가 같은 함수로 그려진다. 따로 만들면 하나만 잠기거나 하나만 갱신되는 날이 온다.
-   ⚠️ 축소판은 3D 가 아니라 실루엣이다(계층의 drawFilterSample). 무대를 여섯 번 더 그릴 수는 없고,
+   ⚠️ 축소판은 3D 가 아니라 실루엣이다(계층의 drawFilterSample). 무대를 일곱 번 더 그릴 수는 없고,
      고르는 데 필요한 것은 «색과 결»이라 이걸로 충분하다. 진짜 모습은 바로 위 무대에 있다. */
 function _pkFilterLocked(){
   if(PK.state !== 'shooting') return false;
@@ -18193,12 +18194,20 @@ function _pkPaintFilter(){
       row.appendChild(btn);
     });
   });
+  _pkPaintFilterNote();
+}
+/* 필터 안내 글. 자리가 바뀔 때도 부른다(업데이트 안 한 사람이 들어오고 나갈 때) — 축소판은 다시 안 그린다. */
+function _pkPaintFilterNote(){
+  const P = _pkP(), locked = _pkFilterLocked();
+  /* 🆙 업데이트 안 한 참가자는 이 필터를 몰라서 그 사람 사진만 필터 없이 찍힌다. 막지 않고 방장에게만 알린다. */
+  const lag = (PK.host && P.filterLaggards) ? P.filterLaggards(PK.members, PK.filter, getMyUserId()) : [];
+  const lagMsg = lag.length ? lag.join(' · ') + '님은 업데이트가 필요해서 필터 없이 찍혀요' : '';
   const msg = _pkEl('pkFilterMsg');
   if(msg) msg.textContent = locked ? '곧 찍어요 — 이번 컷은 이대로'
-                          : (PK.host ? '' : '방장이 고른 필터예요');
+                          : (PK.host ? lagMsg : '방장이 고른 필터예요');
   const note = _pkEl('pkFilterNote');
   if(note) note.textContent = PK.host
-    ? '«' + P.filterOf(PK.filter).name + '» — 사진에 그대로 구워져서 꾸미기에서는 못 되돌려요.'
+    ? (lagMsg || '«' + P.filterOf(PK.filter).name + '» — 사진에 그대로 구워져서 꾸미기에서는 못 되돌려요.')
     : '방장이 고른 필터로 함께 찍혀요.';
 }
 /* 필터를 고른 순간. ★ 촬영 중과 로비가 **다른 길로 나간다.**
@@ -41155,7 +41164,7 @@ function _reportBox(title, width){
   const box = document.createElement('div');
   box.style.cssText = 'width:' + width + 'px;max-width:92vw;max-height:86vh;display:flex;flex-direction:column;background:var(--win-face);border:2px solid;'
     + 'border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);'
-    + 'box-shadow:4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,"Malgun Gothic",sans-serif;color:var(--ink);';
+    + 'box-shadow:4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);color:var(--ink);';
   const tb = document.createElement('div');
   tb.style.cssText = 'background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;flex:none;';
   tb.textContent = title;

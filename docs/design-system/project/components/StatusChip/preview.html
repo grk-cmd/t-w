@@ -1,0 +1,22 @@
+<!-- @dsCard group="오버레이" height=200 subtitle="세로 · 가로 묶음" -->
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"></head>
+<body>
+<div style="display:flex;gap:24px;padding:12px;align-items:flex-start;background:repeating-linear-gradient(0deg,#F7F7F7 0 18px,#E6E6E6 18px 19px);min-height:170px">
+ <div class="tw-chipgroup" aria-label="내 상태">
+  <button class="tw-btn tw-btn--icon" aria-label="상태: 활동중"><span class="tw-sdot" style="background:var(--status-focus)"></span></button>
+  <button class="tw-btn tw-btn--icon" aria-label="대화">💬<span class="tw-dot"></span></button>
+  <button class="tw-btn tw-btn--icon" aria-label="알림">🔔</button>
+  <button class="tw-btn tw-btn--icon" aria-label="음악">♪</button>
+  <button class="tw-btn tw-btn--icon" aria-label="더보기">▾</button>
+ </div>
+ <div class="tw-chipgroup horz" aria-label="내 상태(가로)">
+  <button class="tw-btn tw-btn--icon" aria-label="상태: 평소"><span class="tw-sdot" style="background:var(--status-idle)"></span></button>
+  <button class="tw-btn tw-btn--icon" aria-label="대화">💬</button>
+  <button class="tw-btn tw-btn--icon" aria-label="더보기">▾</button>
+ </div>
+ <div class="tw-cap" style="color:#444">상태 점: <span class="tw-sdot" style="display:inline-block;background:var(--status-idle)"></span> 평소 <span class="tw-sdot" style="display:inline-block;background:var(--status-focus)"></span> 활동중 <span class="tw-sdot" style="display:inline-block;background:var(--status-sleep)"></span> 잠듦</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<!-- @dsCard group="탐색" height=140 subtitle="폴더 탭" -->
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8"></head>
+<body>
+<div class="tw-stage"><div style="width:280px">
+ <div class="tw-tabs" role="tablist"><button class="tw-tab on" role="tab" aria-selected="true">캐릭터</button><button class="tw-tab" role="tab">화면</button><button class="tw-tab" role="tab">알림</button><button class="tw-tab" role="tab">계정</button></div>
+ <div class="tw-tabpage">이름표 크기 <span class="tw-cap">15px</span></div>
+</div></div>
+<script>var ts=document.querySelectorAll('.tw-tab');ts.forEach(function(t){t.addEventListener('click',function(){ts.forEach(function(x){x.classList.toggle('on',x===t);});});});</script>
+</body>
+</html>

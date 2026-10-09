@@ -67,6 +67,9 @@
               "at": {
                 ".validate": "newData.isNumber()"
               },
+              "fx": {
+                ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 99"
+              },
               "$other": {
                 ".validate": false
               }
@@ -84,7 +87,7 @@
               ".validate": "newData.isString() && newData.val().length <= 40 && newData.val().matches(/^(white|sky|sepia|blue|red|gray)(,(white|sky|sepia|blue|red|gray))*$/)"
             },
             "filter": {
-              ".validate": "newData.val() === 'none' || newData.val() === 'soft' || newData.val() === 'ps1' || newData.val() === 'mono' || newData.val() === 'dawn' || newData.val() === 'vint' || newData.val() === 'toon'"
+              ".validate": "newData.val() === 'none' || newData.val() === 'soft' || newData.val() === 'ps1' || newData.val() === 'fish' || newData.val() === 'mono' || newData.val() === 'dawn' || newData.val() === 'vint' || newData.val() === 'toon'"
             },
             "camH": {
               ".validate": "newData.isNumber() && newData.val() >= 0.5 && newData.val() <= 2.6"
@@ -1141,7 +1144,21 @@
       }
     },
     "metrics": {
-      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true"
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "improvements": {
+        "$id": {
+          ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+          ".validate": "$id.matches(/^[A-Za-z0-9_-]{1,32}$/) && newData.hasChildren(['version','releasedAt','title','items'])",
+          "version": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
+          "releasedAt": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() > 0 && newData.val() <= now + 31536000000" },
+          "title": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 80" },
+          "items": {
+            "$i": { ".validate": "$i.matches(/^1?[0-9]$/) && newData.isString() && newData.val().length >= 1 && newData.val().length <= 120" }
+          },
+          "adoptDays": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 30" },
+          "$other": { ".validate": false }
+        }
+      }
     },
     "admins": {
       ".read": false,

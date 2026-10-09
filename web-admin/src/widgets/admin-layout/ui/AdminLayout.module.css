@@ -37,10 +37,23 @@
   display: flex;
   flex: 0 0 200px;
   flex-direction: column;
-  gap: 2px;
+  gap: 14px;
   padding: 12px;
   background: var(--card);
   border-right: 1px solid var(--line);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.groupLabel {
+  padding: 0 10px 2px;
+  font-size: 12px;
+  font-weight: bold;
+  color: var(--soft);
 }
 
 .side button {
@@ -78,9 +91,30 @@
   .side {
     flex: none;
     flex-direction: row;
+    gap: 12px;
     overflow-x: auto;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  .group {
+    flex: none;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .group + .group {
+    padding-left: 12px;
+    border-left: 1px solid var(--line);
+  }
+
+  .groupLabel {
+    padding: 0 4px 0 0;
+    white-space: nowrap;
+  }
+
+  .side button {
+    white-space: nowrap;
   }
 
   .content {
