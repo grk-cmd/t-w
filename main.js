@@ -78,6 +78,8 @@ const sysinput = process.platform === 'darwin'
 sysinput.init({
   log: (msg) => _diagLog(msg),
 });
+/* 🖱 호버 찌르기 판단(제보 #5) — 판단만 떼어 낸 모듈이다. 타이머 · IPC 는 아래 _syncHoverWatcher. */
+const HoverPoke = require('./hover-poke');
 /* 호출부 17곳의 이름·형태를 그대로 두기 위한 이음매 — 본문은 모듈에 있다.
    ⚠️ 화살표 상수가 아니라 **함수 선언**이다. 원래가 그랬고(호이스팅), 여기서 모양을 바꾸면
      정의보다 앞선 자리에서 부르는 코드가 생겼을 때 조용히 TDZ 로 죽는다. */
@@ -1015,6 +1017,7 @@ function _reapplyIgnoreMouse(){
   mainWindow.setIgnoreMouseEvents(!!_lastIgnoreRequested, { forward });
   // 펜 앱 활성 상태에 맞춰 커서 감시 타이머 시작/중지
   _syncCursorWatcher();
+  try{ _syncHoverWatcher(); }catch(_){}   // 일반 앱 호버 감시 — 통과로 넘어가는 순간 켜고, 클릭받기면 끈다
 }
 
 // ── 스마트 감지: 커서 위치 폴링 (Electron 내장 API) ──
@@ -1183,6 +1186,64 @@ function _sendHitTest(payload){
   try{ mainWindow.webContents.send('companion:penHitTest', p); }catch(_){}
 }
 
+/* ═══ 🖱 [2026-10-09 제보 #5] 일반 앱 호버 감시 — 우리 UI 위로 올린 커서를 바로 렌더러에 알린다 ═══
+   [증상] 오버레이 위에 마우스를 올려도 클릭이 바로 안 잡히고 몇 초 흔들어야 된다.
+   [원인] 일부 전경 앱이 있으면 forward mousemove 가 끊긴다(electron#30808/#33281). 펜 앱은 50ms 감시
+     (_checkCursorNearChar)가 따로 있지만 일반 앱은 500ms 유령 감시(GHOST_MS_PLAIN)뿐이라 0.5~1초 늦었다.
+   [대응] 일반 앱 · 통과 중 · 커서가 오버레이 위일 때만 120ms 로 커서를 읽고, 우리 UI(_ptOnOurUI) 안으로
+     **들어오는 순간 한 번** 재판정을 시킨다. 안에서 움직이면 150ms 에 한 번까지(원 안 빈 자리 → 몸 위).
+     판단 규칙은 hover-poke.js (sim-hover-poke.js 가 지킨다).
+   ★ 찌르기만 한다. setIgnoreMouseEvents 를 다시 걸지 않고 _forwardFor 도 안 본다 — 판단은 렌더러가 한다.
+     렌더러는 pen=false 재판정을 생존 신호로 치지 않으므로(app.js _notePoke) 사다리 시계를 되감지 않는다.
+   ⚠️ 펜 앱에서는 돌지 않는다 — 클립 스튜디오 보호 장치(_forwardFor · 사다리 생략)와 얽힌 50ms 감시가 맡는다.
+   ⚠️ Windows 만 — 맥은 새 타이머를 늘리지 않는다(HoverPoke.shouldPoll 의 win32). */
+let _hoverTimer = null;
+const _hoverPoke = HoverPoke.createHoverPoke();
+let _hoverPokedAt = 0, _hoverLogAt = 0;
+const HOVER_LOG_GAP_MS = 30000;   // «호버 감시로 클릭받기» 진단 줄은 30초에 한 줄까지(_diagLog 회전 주석)
+function _hoverState(pt){
+  let visible = false;
+  try{ visible = mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){}
+  return {
+    win32: process.platform === 'win32',
+    run: !_isConfigMode,
+    ignoring: !!_lastIgnoreRequested,
+    penApp: !!_penAppActive,
+    visible,
+    hasTargets: !!_mainWinScreenBounds && (!!_lastCharBounds || _lastRegions.length > 0),
+    onOverlay: !!pt && _ptOnOverlayWindow(pt),
+  };
+}
+function _stopHoverWatcher(){
+  if(_hoverTimer){ clearInterval(_hoverTimer); _hoverTimer = null; }
+  _hoverPoke.reset();
+}
+/* 켜고 끄기만 한다. 활성 창 폴링(500ms)과 _reapplyIgnoreMouse 에서 불린다 — 다른 모니터에서 돌아오거나
+   창이 다시 보이면 500ms 안에 다시 켜진다. */
+function _syncHoverWatcher(){
+  if(!mainWindow || mainWindow.isDestroyed()){ _stopHoverWatcher(); return; }
+  if(process.platform !== 'win32') return;
+  let pt = null; try{ pt = screen.getCursorScreenPoint(); }catch(_){}
+  const ok = HoverPoke.shouldPoll(_hoverState(pt));
+  if(ok && !_hoverTimer){
+    _hoverPoke.reset();
+    _hoverTimer = setInterval(_hoverTick, HoverPoke.HOVER_POLL_MS);
+  } else if(!ok && _hoverTimer){
+    _stopHoverWatcher();
+  }
+}
+function _hoverTick(){
+  if(!mainWindow || mainWindow.isDestroyed()){ _stopHoverWatcher(); return; }
+  let pt; try{ pt = screen.getCursorScreenPoint(); }catch(_){ return; }   // DIP 좌표
+  if(!HoverPoke.shouldPoll(_hoverState(pt))){ _stopHoverWatcher(); return; }   // 클릭받기 · 다른 모니터 · 숨김 → 멈춤
+  const cx = pt.x - _mainWinScreenBounds.x, cy = pt.y - _mainWinScreenBounds.y;
+  const now = Date.now();
+  const act = _hoverPoke.step({ onUI: _ptOnOurUI(cx, cy), x: pt.x, y: pt.y, now });
+  if(!act) return;
+  _hoverPokedAt = now;
+  try{ _sendHitTest({ x: cx, y: cy }); }catch(_){}
+}
+
 // 마지막으로 "우리 앱이 아닌 다른 창"에 포커스가 있었을 때의 정보. 설정 패널에서 1~4번 버튼을
 // 누르면 이 값을 그 슬롯에 등록한다(=버튼 누르기 직전까지 쓰고 있던 프로그램).
 let lastForeignWindow = null;   // { key, name, path, title } — key 가 판정 축이다(focusKeyOf)
@@ -1268,6 +1329,7 @@ function startActiveWinPolling(){
       //   이게 안 돌면 렌더러가 멈춘 뒤 클릭을 계속 가로채는 상태에서 스스로 빠져나올 길이 없다.
       try{ _guardStuckClickCapture(); }catch(_){}
       try{ _guardStaleCapture(); }catch(_){}   // ⓕ — forward 가 죽어 굳은 '클릭 받는 중' 회수
+      try{ _syncHoverWatcher(); }catch(_){}    // 🖱 일반 앱 호버 감시 켜고 끄기(다른 모니터에서 돌아옴 · 다시 보임)
       /* 🖱 [2026-09-12] 마우스 «이동만» 하는 활동 — **모니터를 가리지 않는다.**
          렌더러의 DOM mousemove 는 오버레이 창 위에서만 오므로, 오버레이가 없는 모니터에서
          마우스만 움직이면 활동이 통째로 안 잡혔다(제보). 커서 좌표는 창과 무관하게 읽히므로
@@ -3386,6 +3448,14 @@ function createWindow() {
       try{ _diagLog('유령 해제 — 재판정 ' + _ghostPokes + '회째에 렌더러가 클릭받기로 복귀'
         + ' (이유=' + _lastIgnoreWhy + ')'); }catch(_){}
       _ghostSince = 0; _ghostPokes = 0;
+    }
+    /* 🩺 [제보 #5] 호버 감시가 찌른 직후에 클릭받기로 돌아왔는지 — Windows 실기기 확인용. 30초에 한 줄. */
+    if(prev && !_lastIgnoreRequested && _hoverPokedAt){
+      const _now = Date.now(), _ago = _now - _hoverPokedAt;
+      if(_ago < 1000 && _now - _hoverLogAt > HOVER_LOG_GAP_MS){
+        _hoverLogAt = _now;
+        try{ _diagLog('호버 감시 — 찌른 뒤 ' + _ago + 'ms 에 클릭받기 pen=' + (_penAppActive ? 1 : 0)); }catch(_){}
+      }
     }
     _reapplyIgnoreMouse();
   });
