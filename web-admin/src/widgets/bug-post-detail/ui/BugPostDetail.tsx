@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
   BUG_CATS,
   bugNoLabel,
@@ -14,6 +14,7 @@ import { StatusButtons } from '@/features/bug-board/change-status';
 import { DeletePostButton } from '@/features/bug-board/delete-post';
 import { EditPostForm } from '@/features/bug-board/edit-post';
 import { errorMessage, formatDate } from '@/shared/lib';
+import { useModalDialog } from '@/shared/ui';
 import styles from './BugPostDetail.module.css';
 
 function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
@@ -105,24 +106,12 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
 
 /** 오른쪽 패널 — 내용 · 답변 · 상태 변경 · 답변 등록. 여는 동안만 그 글을 읽는다. */
 export function BugPostDetail({ id, onClose }: { id: string | null; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
   const { data, error, isLoading } = useBugPost(id);
   const open = !!id;
-
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
+  const { dialogProps } = useModalDialog({ open, onClose });
 
   return (
-    <dialog
-      ref={ref}
-      className={styles.panel}
-      // 안쪽 확인 창 등의 close 는 받지 않는다 — 이 패널 자신의 것만.
-      onClose={(e) => e.target === e.currentTarget && onClose()}
-    >
+    <dialog {...dialogProps} className={styles.panel}>
       <div className={styles.close}>
         <button type="button" className="btn" onClick={onClose}>
           닫기

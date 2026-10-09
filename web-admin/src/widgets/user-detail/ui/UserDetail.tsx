@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { inviterKind, useIssuedInvites, useUserInvite } from '@/entities/invite';
 import { REPORT_ADMIN_MIN, useUserReportCount } from '@/entities/report';
 import { formatDay, secretRoomState, useUserSecretRoom } from '@/entities/secret-room';
@@ -16,7 +16,7 @@ import {
 import { DeleteAccountButton } from '@/features/user/delete-account';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
 import { copyText, formatDate, formatHours } from '@/shared/lib';
-import { useToast } from '@/shared/ui';
+import { useModalDialog, useToast } from '@/shared/ui';
 import styles from './UserDetail.module.css';
 
 interface Q<T> {
@@ -341,26 +341,13 @@ interface Props {
 
 /** 한 사람을 한 화면에 — 창을 열 때만, 그 사람 몫의 작은 칸들만 읽는다(users/{uid} 통째는 마이홈 · 캐릭터까지 딸려 와 크다). */
 export function UserDetail({ row, rows, onOpen, onClose, onDeleted }: Props) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const open = row !== null;
-
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
+  // 안에 있는 초대권 지급 · 계정 삭제 창의 close 는 훅이 걸러 낸다 — 이 창 자신의 것만 받는다.
+  const { dialogProps } = useModalDialog({ open: row !== null, onClose });
 
   const title = row ? `${whoOf(row)} 상세` : '사용자 상세';
 
   return (
-    <dialog
-      ref={ref}
-      className={styles.panel}
-      aria-label={title}
-      // 안에 있는 초대권 지급 창이 닫힐 때의 close 가 React 트리를 타고 올라온다 — 이 창 자신의 것만 받는다.
-      onClose={(e) => e.target === e.currentTarget && onClose()}
-    >
+    <dialog {...dialogProps} className={styles.panel} aria-label={title}>
       <div className={styles.head}>
         <div className={styles.avatar} aria-hidden="true">
           {row ? whoOf(row).slice(0, 1) : ''}
