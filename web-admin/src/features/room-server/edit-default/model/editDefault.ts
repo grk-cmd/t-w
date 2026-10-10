@@ -35,6 +35,17 @@ export function defaultOptions(servers: readonly string[], current: string | nul
   return out;
 }
 
+/**
+ * 비율 칸 · 숫자 버튼이 잠긴 이유 — 잠기지 않았으면 null.
+ * 말없이 회색이면 «눌러도 안 된다» 로만 보여서, 무엇을 먼저 해야 하는지 적는다.
+ */
+export function percentLockReason(server: string, options: readonly DefaultOption[]): string | null {
+  if (server !== NO_DEFAULT) return null;
+  if (options.every((o) => o.value === NO_DEFAULT))
+    return '등록된 방 서버가 없어요 — 위 «서버 목록» 에서 먼저 추가';
+  return '기본 서버를 먼저 고르면 비율을 정할 수 있어요';
+}
+
 export const toDefaultInputs = (cfg: RoomServerConfig | undefined): DefaultInputs => ({
   server: cfg?.default ?? NO_DEFAULT,
   percent: String(cfg?.defaultPercent ?? 0),

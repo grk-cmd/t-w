@@ -52,6 +52,16 @@ export async function getBugItem(db: Db, id: string): Promise<BugItem | null> {
   return toBugItem(id, await db.get<unknown>(`${BUG_LIST}/${id}`));
 }
 
+/** 목록 한 줄 하나 — 할 일 화면이 연결된 제보 번호를 보일 때. 글이 지워졌으면 null. */
+export function useBugItem(id: string) {
+  const db = useDb();
+  return useQuery({
+    queryKey: [...BUG_KEY, 'item', id],
+    queryFn: () => getBugItem(db, id),
+    staleTime: 60_000,
+  });
+}
+
 /** 그날(서울) 올라온 글의 순번 — ts 범위 쿼리로 그날 것만, 20개씩 거슬러 받는다. */
 export async function getDayOrder(db: Db, day: string): Promise<Map<string, number>> {
   const start = kstDayStart(day);

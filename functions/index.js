@@ -216,12 +216,14 @@ exports.roomStats = onSchedule({ schedule: 'every 1 minutes', timeoutSeconds: 60
 
 // 방이 열리면(roomIndex 줄 생성) 바로 다시 센다. 하트비트(줄 수정)에는 반응하지 않는다.
 exports.roomStatsOnOpen = onValueCreated({ ref: '/roomIndex/{room}', timeoutSeconds: 60, maxInstances: 2 },
-  async () => {
+  async (event) => {
+    if (require('./room-stats').isEmptyMark(event.data && event.data.val())) return;   // 비었음 표시로 생긴 줄(시크릿룸 등) — 셀 것이 없다
     const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
     await require('./room-stats').runRoomStats(getDatabase(), Date.now(), { drop: false });
   });
 
-// 마지막 사람이 나가면 앱이 roomIndex 줄을 지운다(firebase-init.js _finalCleanup). 그때 바로 다시 센다.
+// 마지막 사람이 나가면 옛 앱(0.11.x 이하)은 roomIndex 줄을 지운다. 그때 바로 다시 센다.
+// 새 앱은 줄에 «비었음» 만 남기고(firebase-init.js _finalCleanup) 1분 주기가 센다 · 표지를 걷는다(room-stats.js sweepEmptyRooms).
 // 서버(roomStats 청소)가 지운 건 건너뛴다 — 청소가 이미 셌고, 한 번에 수백 줄을 지우면 그만큼 다시 돈다.
 // 강제 종료 · 절전처럼 줄을 지울 사람이 없는 방은 1분 주기가 처리한다.
 exports.roomStatsOnClose = onValueDeleted({ ref: '/roomIndex/{room}', timeoutSeconds: 60, maxInstances: 2 },

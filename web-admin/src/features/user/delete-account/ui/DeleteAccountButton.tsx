@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { callErrorMessage, useEnv, withProdMark } from '@/shared/api';
-import { useToast } from '@/shared/ui';
+import { useModalDialog, useToast } from '@/shared/ui';
 import { authLabel, confirmMatches, doneSummary, type AccountDeleteResult } from '../model/deleteAccount';
 import { useAccountDelete, useAccountDeletePreview } from '../model/useDeleteAccount';
 import styles from './DeleteAccount.module.css';
@@ -190,22 +190,16 @@ function Body({ code: initial, onDone }: { code?: string; onDone: (r: AccountDel
 
 export function DeleteAccountButton({ code, onDeleted }: Props) {
   const toast = useToast();
-  const ref = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const [deleted, setDeleted] = useState(false);
-
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
 
   const close = () => {
     setOpen(false);
     if (deleted) onDeleted?.();
     setDeleted(false);
   };
+  // 사용자 상세 창 안에서 열린다 — 훅이 이 창 자신의 close 만 받는다.
+  const { dialogProps } = useModalDialog({ open, onClose: close });
 
   const done = (r: AccountDeleteResult) => {
     setDeleted(true);
@@ -217,13 +211,7 @@ export function DeleteAccountButton({ code, onDeleted }: Props) {
       <button type="button" className="btn danger" onClick={() => setOpen(true)}>
         계정 삭제
       </button>
-      <dialog
-        ref={ref}
-        className={styles.dialog}
-        aria-label="계정 삭제"
-        // 사용자 상세 창 안에서 열린다 — 이 창의 close 만 받는다.
-        onClose={(e) => e.target === e.currentTarget && close()}
-      >
+      <dialog {...dialogProps} className={styles.dialog} aria-label="계정 삭제">
         <div className={styles.head}>
           <h2>계정 삭제</h2>
           <button type="button" className="btn" onClick={close}>

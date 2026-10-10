@@ -1879,6 +1879,25 @@ function _skipHiddenDesk(hits){
   for(let i = 0; i < hits.length; i++){ if(_hitInHiddenDesk(hits[i].object)){ drop = true; break; } }
   return drop ? hits.filter(h=>!_hitInHiddenDesk(h.object)) : hits;
 }
+/* 🩹 날아가는 캐릭터(💣 · 🔫 룰렛 · 🎲 · 깜짝쇼)는 클릭 통과 판정에서 뺀다.
+   [제보] «날리기 할 때 클릭 통과가 안 먹어서 뒤의 작업이 막힌다.»
+   [원인] 비행 중인 rig 는 10초 동안 화면 전체를 튕겨 다닌다. 다른 앱을 쓰던 커서 밑을 지나가면
+     _pointHitsInteractive 의 레이캐스트가 «캐릭터 위» 로 잡아 클릭받기로 바꾸고, 그 순간의 클릭이
+     투명 창에 꽂혀 쓰던 앱의 포커스를 뺏는다.
+   [왜 빼도 되나] 날아가는 캐릭터는 누를 일이 없다 — 잡기(pointerdown)는 seat.fly 면 그냥 돌아가고,
+     💣 · 🪄 조준도 비행 중인 표적은 거절한다. 받아 봐야 쓸 데 없는 클릭이다.
+   ★ rig(움직이는 몸)만 뺀다. 같은 좌석의 책상은 제자리에 있으므로 예전처럼 판정한다.
+   ⚡ 날고 있는 좌석이 없으면 같은 배열을 그대로 돌려준다 — 빈 공간 판정의 추가 비용 0. */
+function _hitInFlyingRig(obj){
+  for(let o = obj; o; o = o.parent){
+    for(let i = 0; i < seats.length; i++){ if(seats[i].fly && seats[i].rig === o) return true; }
+  }
+  return false;
+}
+function _skipFlyingRigs(hits){
+  if(!_flyActive || !hits || !hits.length) return hits;   // startFlight 가 바로 올리고, 매 프레임 다시 센다
+  return hits.filter(h=>!_hitInFlyingRig(h.object));
+}
 /* 🩹 [2026-10-08 제보 #7] 잡기 — **보이는 것에 맞은 히트를 먼저.** 없으면 예전처럼 첫 히트.
    [증상] 자리비움 이미지를 건 사람 머리 위의 동물을 눌러도 안 내려오고, 그 사람(이미지째)이 흔들린다.
    [원인] 자리비움이면 몸 메시를 visible=false 로 숨기는데(setSeatOpacity) three r128 레이캐스트는 visible 을 안 본다.
@@ -13703,6 +13722,19 @@ function _mhSubscribeDMForSelected(){ /* 수령함으로 대체됨 */ }
 
 /* ============================================================ 🏠 마이홈 (2단계: 프로필/게시글/스티커) */
 let _myHomeData = { avatar:null, bio:'', postTitle:'', post:'', stickers:{}, bgm:null, bg:null, theme:null };
+/* 서버에서 받은 users/{uid}/home 을 _myHomeData 모양으로 옮긴다 — 내 홈 · 친구 홈 둘 다 여기를 탄다.
+   ⚠️ 저장(saveMyHome)은 _myHomeData 를 홈 노드에 **통째로 set** 한다. 여기서 빠진 칸은 화면에서만
+     안 보이는 게 아니라 다음 저장 때 서버에서도 지워진다. _myHomeData 에 새 칸을 만들면 여기에도 넣을 것.
+     (👑 디자인 프리셋 themePresets · themePresetCur 가 빠져 있어서, 이름을 바꿔도 다시 열면 1 2 3 으로
+     돌아가고 담아 둔 색까지 사라졌다 — sim-myhome-load.js) */
+function _mhHomeFromServer(data){
+  data = data || {};
+  return { avatar:data.avatar||null, bio:data.bio||'', postTitle:data.postTitle||'', post:data.post||'',
+    theme:data.theme||null,
+    stickers:data.stickers||{}, bgm:data.bgm||null, bg:data.bg||null,
+    themePresets:data.themePresets||null,
+    themePresetCur:(data.themePresetCur!=null ? data.themePresetCur : null) };
+}
 let _myHomeLoaded = false;
 /* 🪪 [2026-10-08 제보 #2] 마이홈을 **어느 계정 코드로** 불러왔는가. 저장 때 지금 코드와 다르면 거부한다.
    [가설] 계정 탭에서 다른 계정으로 갈아탄 뒤 재시작 전에 자동 저장(창 닫기 · 탭 전환)이 돌면, 먼저 불러온
@@ -13745,9 +13777,7 @@ async function openFriendHomeView(friendId, nameHint){
     window._mhPreviewMode = false;   // 👁 미리보기 중이었으면 해제 (실제 방문으로 전환)
     _mhViewingUserId = friendId;
     // ★ theme 포함 — 관람 모드에서도 친구의 👑 프리미엄 디자인이 그대로 보이게 (loadMyHomePage와 동일한 누락 버그 수정)
-    _myHomeData = { avatar:data.avatar||null, bio:data.bio||'', postTitle:data.postTitle||'', post:data.post||'',
-      theme:data.theme||null,
-      stickers:data.stickers||{}, bgm:data.bgm||null, bg:data.bg||null };
+    _myHomeData = _mhHomeFromServer(data);
     // 마이홈 창을 안 열려있으면 열기 + 마이홈 탭으로 전환 (loadMyHomePage 트리거 없이 수동 전환)
     const overlay=document.getElementById('myHomeOverlay');
     if(overlay && !overlay.classList.contains('on')){ overlay.classList.add('on'); myHomeOpen = true; }
@@ -13977,9 +14007,7 @@ async function loadMyHomePage(){
     const data = await firebaseAPI.getMyHome(_loadUid) || {};
     if(_mhViewingUserId) return;   // ★ 로드가 진행되는 사이 친구 홈 관람으로 전환됐으면 덮어쓰지 않음(비동기 경쟁 방지)
     if(getMyUserId() !== _loadUid) return;   // 🪪 불러오는 사이 계정이 바뀌었다 — 옛 계정 데이터를 붙들지 않는다
-    _myHomeData = { avatar:data.avatar||null, bio:data.bio||'', postTitle:data.postTitle||'', post:data.post||'',
-      theme:data.theme||null,
-      stickers:data.stickers||{}, bgm:data.bgm||null, bg:data.bg||null };
+    _myHomeData = _mhHomeFromServer(data);
     _myHomeLoaded = true;
     _myHomeUid = _loadUid;
   }catch(e){
@@ -26704,6 +26732,11 @@ function renderCrItems(){
         try{ await resolveCatalogGlb(rec); }catch(_){}
       }
       if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
+      /* 📦 코드로 넣은 책상만 GLB 가 def 에 실린다(카탈로그 책상은 id 만) — crDone 과 같은 갈래. */
+      if(!rec.fromCatalog){
+        const _sz = _creatorSizeGrow(d=>{ d.deskGlb = rec.glb; delete d.deskCatalogId; });
+        if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
+      }
       try{ const sc=await parseGlbBytes(b64ToBuf(rec.glb));
         cDeskTemplate=sc; cDeskGlbB64=rec.glb; cDeskScale=clampDeskScale(cDeskScale||DESK_SCALE_DEFAULT); activeCustomDeskId=rec.id;
         if(cDesk){ swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
@@ -26794,7 +26827,13 @@ function renderCrItems(){
     } else if(!isAdmin){
       it.oncontextmenu=e=>{ e.preventDefault(); if(on && cBase.deskItems[def.id]) selectDeskItemForAdjust(cBase.deskItems[def.id]); };   // 일반모드: 이미 장착돼있으면 우클릭으로 바로 선택
     }
-    it.onclick=()=>{ if(!cBase||!cBase.deskAnchor)return; equipDeskItem(cBase,def,!on); renderCrItems(); autoSaveDeskItemsNow(); };
+    it.onclick=()=>{ if(!cBase||!cBase.deskAnchor)return;
+      /* 📦 켜는 것만 잰다 — 카탈로그 아이템은 GLB 를 def 에 안 싣는다(crDone 과 같은 갈래). */
+      if(!on && !(rec && rec.fromCatalog)){
+        const _sz = _creatorSizeGrow(d=>{ d.customItems = d.customItems || {}; d.customItems[def.id] = { name: def.name, glb: def.glb }; });
+        if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
+      }
+      equipDeskItem(cBase,def,!on); renderCrItems(); autoSaveDeskItemsNow(); };
     row.appendChild(it);
   });
   // 페이지 버튼 렌더 — 페이지가 2개 이상일 때만 표시
@@ -27299,6 +27338,16 @@ document.getElementById('assetImpGo').onclick=async()=>{
     const _maxAssets = (kind==='desk') ? MAX_CUSTOM_ASSETS : (kind==='part') ? MAX_PARTS_PER_CAT : MAX_CUSTOM_ITEMS;
     if(arr.length>=_maxAssets){ toast('최대 '+_maxAssets+'개까지 추가할 수 있어요. 카드의 X로 지운 뒤 다시 시도해 주세요'); return; }
     const glbB64=_b64(u.glbBuf);
+    /* 📦 넣자마자 이 캐릭터에 실리는 것(책상 · 아이템)은 파일 하나로 남은 용량을 넘으면 받지 않는다.
+       책상은 지금 책상 자리를 비운 나머지와 견준다(바꿔 끼우는 것이라). 파츠는 def 에 GLB 가 안 실린다. */
+    if(creatorOpen && cBase && (kind==='desk' || kind==='item')){
+      const _rest = _creatorBuildDef(true);
+      if(kind==='desk'){ delete _rest.deskGlb; delete _rest.deskCatalogId; }
+      const _add = (typeof DefSize==='undefined') ? 0
+        : (kind==='desk' ? DefSize.jsonBytes(glbB64) + 12 : DefSize.jsonBytes({ name: u.name, glb: glbB64 }) + 20);
+      const _sz = _defSizeFile(_rest, _add);
+      if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
+    }
     const {scene, animations}=await parseGlbFull(u.glbBuf.slice(0));
     const id='c'+Date.now().toString(36);
     const rec={id, name:u.name, icon:u.icon||'', glb:glbB64};
@@ -29357,22 +29406,13 @@ function closeCreator(){creatorOpen=false;document.getElementById('creatorOverla
   if(creatorMode.cameFromLauncher && !creatorMode.afterApp){document.getElementById('launcher').classList.add('on');renderLauncher();}
   if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();}
 document.getElementById('creatorClose').addEventListener('click',closeCreator);
-document.getElementById('crDone').addEventListener('click',()=>{
-  /* 🛡️ [얼굴 영구 소실 방어 · 확인] 그림이 있던 캐릭터를 «빈 얼굴»로 저장하려 하면 한 번 묻는다.
-     [왜 여기가 필요한가] 아래 saveSlots 의 공백 방어는 «사고»를 막는 장치라, 그것만 두면
-       «정말로 다 지우고 새로 시작하려는» 사용자까지 막아 버린다. 뜻이 있는 저장은 여기서 통과시킨다.
-     [왜 여기서만 묻는가] 생성기 [완료] 는 사용자가 그림 상태를 눈으로 보고 누르는 유일한 자리다.
-       파츠·슬라이더·가챠 정리 등에서 도는 자동 저장에는 물을 사람이 없다 — 거긴 무조건 막는 게 맞다.
-     ⚠️ confirm() 뒤 window.focus() 는 Electron 포커스 함정 보정이다(audit 검사 4). 빼지 말 것. */
-  if(currentCreatorDef && _isBlankDraw(faceC) && !_isBlankDraw(currentCreatorDef.face)){
-    if(!confirm('얼굴 그림이 비어 있어요.\n이대로 저장하면 원래 그림은 되돌릴 수 없어요.\n\n정말 저장할까요?')){ window.focus(); return; }
-    window.focus();
-    _blankFaceConfirmed = true;   // 바로 아래 saveSlots 1회만 소비한다
-  }
-  const def=charDef(skinIndex,snapCanvas(faceC),snapCanvas(blinkC),cTopColor,cBotColor);
+/* 생성기 지금 상태 → def. [완료] 저장과 📦 용량 재기(forSize)가 같은 함수를 탄다 — 따로 두면 재는 것과 저장하는 것이 갈라진다.
+   forSize: 그림은 복사하지 않고(재기에선 URL 자리표시로 바뀐다) 섬네일도 안 찍는다(방에 안 나간다). 결과를 저장에 쓰지 말 것. */
+function _creatorBuildDef(forSize){
+  const def=charDef(skinIndex, forSize ? faceC : snapCanvas(faceC), forSize ? blinkC : snapCanvas(blinkC), cTopColor, cBotColor);
   // ★ 슬롯 미리보기(캐릭터 교체/자리 추가)용 스냅샷 — 지금 생성기 3D 미리보기 화면을 그대로 캡처.
   //   런처 미리보기와 똑같은 실제 렌더 결과라 커미션 캐릭터도 진짜 모습 그대로 나옴(2D 합성 아이콘 아님).
-  try{ if(cRenderer && cScene && cCam){ cRenderer.render(cScene, cCam); def.thumb = cRenderer.domElement.toDataURL('image/png'); } }catch(e){}
+  if(!forSize) try{ if(cRenderer && cScene && cCam){ cRenderer.render(cScene, cCam); def.thumb = cRenderer.domElement.toDataURL('image/png'); } }catch(e){}
   // 커미션 캐릭터로 진입했다면 GLB·이름·플래그를 새 def에 복사 (안 그러면 기본 GLB로 돌아감)
   if(currentCreatorDef && currentCreatorDef.isCommission){
     def.isCommission = true;
@@ -29416,6 +29456,43 @@ document.getElementById('crDone').addEventListener('click',()=>{
   // 🪑 전부 0(기본 위치)이면 저장하지 않는다 — 옛 저장분과 모양을 갈라놓지 않기 위해서다.
   if(cDeskPos && (cDeskPos.x || cDeskPos.y || cDeskPos.z)) def.deskPos={x:cDeskPos.x, y:cDeskPos.y, z:cDeskPos.z};
   if(cDeskLenX!==1) def.deskLenX=cDeskLenX; else if(def.deskLenX!=null) delete def.deskLenX;
+  return def;
+}
+/* 📦 생성기에서 디자인을 키우기 전에 — patch(def) 로 바꾼 모습을 지금 모습과 견준다(def-size.js).
+   실제로 바꾸지 않고 재기만 하므로, 막혀도 되돌릴 것이 없다. 모듈이 없으면 늘 통과(옛 동작). */
+const DEF_SIZE_TOAST_MS = 4000;
+function _creatorSizeGrow(patch){
+  if(typeof DefSize==='undefined') return { ok: true };
+  const base = _creatorBuildDef(true);
+  const next = Object.assign({}, base);
+  if(base.customItems) next.customItems = Object.assign({}, base.customItems);
+  patch(next);
+  return DefSize.checkGrowth(defWireForSize(base), defWireForSize(next), _defSizeNames(next));
+}
+/* 파일 하나(base64)를 넣기 전 — clear(def) 로 그 파일이 들어갈 자리를 비운 나머지와 견준다. */
+function _defSizeFile(restDef, addBytes){
+  if(typeof DefSize==='undefined') return { ok: true };
+  return DefSize.checkFile(defWireForSize(restDef), addBytes);
+}
+document.getElementById('crDone').addEventListener('click',()=>{
+  /* 🛡️ [얼굴 영구 소실 방어 · 확인] 그림이 있던 캐릭터를 «빈 얼굴»로 저장하려 하면 한 번 묻는다.
+     [왜 여기가 필요한가] 아래 saveSlots 의 공백 방어는 «사고»를 막는 장치라, 그것만 두면
+       «정말로 다 지우고 새로 시작하려는» 사용자까지 막아 버린다. 뜻이 있는 저장은 여기서 통과시킨다.
+     [왜 여기서만 묻는가] 생성기 [완료] 는 사용자가 그림 상태를 눈으로 보고 누르는 유일한 자리다.
+       파츠·슬라이더·가챠 정리 등에서 도는 자동 저장에는 물을 사람이 없다 — 거긴 무조건 막는 게 맞다.
+     ⚠️ confirm() 뒤 window.focus() 는 Electron 포커스 함정 보정이다(audit 검사 4). 빼지 말 것. */
+  if(currentCreatorDef && _isBlankDraw(faceC) && !_isBlankDraw(currentCreatorDef.face)){
+    if(!confirm('얼굴 그림이 비어 있어요.\n이대로 저장하면 원래 그림은 되돌릴 수 없어요.\n\n정말 저장할까요?')){ window.focus(); return; }
+    window.focus();
+    _blankFaceConfirmed = true;   // 바로 아래 saveSlots 1회만 소비한다
+  }
+  const def=_creatorBuildDef(false);
+  /* 📦 마지막 안전망 — 용량을 넘긴 채로 키웠으면 저장하지 않는다(생성기는 열린 채 그대로라 고친 것은 남는다).
+     원래 캐릭터보다 커지지 않았으면 통과 — 이미 넘은 옛 캐릭터도 계속 고칠 수 있게. */
+  if(typeof DefSize!=='undefined'){
+    const _sz = DefSize.checkGrowth(currentCreatorDef ? defWireForSize(currentCreatorDef) : null, defWireForSize(def), _defSizeNames(def));
+    if(!_sz.ok){ _blankFaceConfirmed = false; toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
+  }
   if(creatorMode.kind==='seat'){
     applyCharToSeat(creatorMode.seat,def);
     // ★ 실행(run) 좌석은 slot 속성이 없어서 슬롯 저장이 스킵되던 버그 —
@@ -29884,6 +29961,12 @@ document.getElementById('commImpGo').onclick=async()=>{
     def.commName = payload.name || '커미션';
     def.commGlb = payload.glb;           // base64 GLB (베이스 모델)
     def.xf = {s:0.7,y:0,z:0,rot:0,x:0};
+    /* 📦 커미션 3D 파일 하나로 디자인 용량을 넘으면 등록하지 않는다(def-size.js). */
+    if(typeof DefSize!=='undefined'){
+      const _rest = Object.assign({}, def); delete _rest.commGlb;
+      const _sz = _defSizeFile(_rest, DefSize.jsonBytes(payload.glb) + 12);
+      if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
+    }
     // 슬롯에 저장 + 영구 저장
     if(typeof _charsBoxFull==='function' && _charsBoxFull()) return;   // 🧬 보관함 20 문턱
     slots[idx]=def;
@@ -30508,7 +30591,14 @@ function launchApp(opts){ opts=opts||{};
   appMode = (opts.mode==='edit') ? 'editseat' : 'run';
   applyAppMode();
   document.getElementById('launcher').classList.remove('on');
-  if(Presence.active()) syncFriendSeats(Presence.friendsObj());   // 초대된 친구 복원
+  if(Presence.active()){
+    syncFriendSeats(Presence.friendsObj());   // 초대된 친구 복원
+    /* 방에 있는 채로 런처에서 캐릭터를 고쳤거나(⚙ 캐릭터 수정 · 생성기 kind:'slot') 다른 칸을 골라 돌아왔으면
+       방에 나간 def 와 지금 def 가 다르다 — 생성기 kind:'slot' 저장은 슬롯에만 쓰고 방으로는 안 보낸다.
+       그대로 두면 내 화면만 바뀌고 남의 화면은 옛 모습이다. 캐릭터 교체(switchMainCharacter)와 같은 길로 보낸다.
+       슬롯 저장은 새 def 객체를 만들므로 같은 객체면 바뀐 것이 없다 — 런처만 다녀온 왕복은 아무것도 안 보낸다. */
+    if(Presence.myDef() !== myDef) Presence.updateDef(myDef);
+  }
   else extraSeatSlots.forEach(i=>{ if(i!==curSlot && slots[i]) addExtraSeat(i); });   // 솔로모드 — 저장해둔 자리추가 좌석들 복원(주캐릭터 슬롯과 겹치면 제외 — 자기 복제 방지)
   layoutSeats();
   // 💡 상태칩 Tab 힌트 — run 모드로 들어올 때마다(런처 나갔다 다시 들어와도) 한 번만 안내.
@@ -31096,6 +31186,7 @@ const Presence=(()=>{
               "다음 상태 틱까지 기다리면 늦는" 값이 생겼을 때 부른다. */
            broadcastNow: broadcastRide,
            active:()=>!!provider, roomCode:()=>room, friendsObj:()=>friends,
+           myDef:()=>myDef,   // 방에 마지막으로 보낸(입장 · updateDef) 내 def — launchApp 이 바뀌었는지 본다
            // 🛰 지금 방이 방 서버로 붙어 있으면 그 provider(방장 설정 chatOff 를 서버로 보낼 때) · 아니면 null
            serverProvider:()=>(provider && provider.kind === 'server') ? provider : null };
 })();
@@ -31219,8 +31310,9 @@ async function ensureRoomFaceUrls(def){
   }catch(_){}
   return def;
 }
-function serializeDefForNetwork(def){
+function serializeDefForNetwork(def, opts){
   if(!def) return def;
+  const _quiet = !!(opts && opts.quiet);   // 📦 용량 재기(defWireForSize)는 콘솔에 안 찍는다
   const out=Object.assign({}, def);
   if(def.face && typeof def.face.toDataURL==='function') out.face=def.face.toDataURL('image/png');
   if(def.blink && typeof def.blink.toDataURL==='function') out.blink=def.blink.toDataURL('image/png');
@@ -31288,12 +31380,32 @@ function serializeDefForNetwork(def){
       _walk(_eq);
       if(_picStripped) out.equippedParts = _eq;
     }catch(_){}
-    if(_picStripped) console.warn('[파츠 그림] 업로드 안 된 그림 ' + _picStripped + '장을 방 전송에서 뺐습니다 — 내 화면에는 그대로 있고, 다음 저장 때 다시 올립니다.');
+    if(_picStripped && !_quiet) console.warn('[파츠 그림] 업로드 안 된 그림 ' + _picStripped + '장을 방 전송에서 뺐습니다 — 내 화면에는 그대로 있고, 다음 저장 때 다시 올립니다.');
   }
   /* 🐾 귀 그림도 URL 만 — 위 파츠 그림 안전망과 같은 이유(업로드 실패 때 dataURL 이 남는다) */
   ['earPicL','earPicR'].forEach(k=>{ if(typeof out[k]==='string' && out[k].startsWith('data:')) delete out[k]; });
-  _defPayloadDiag(out);
+  if(!_quiet) _defPayloadDiag(out);
   return out;
+}
+/* 📦 용량 재기용 직렬화(def-size.js) — 실제 전송과 같은 serializeDefForNetwork 를 탄다.
+   단 그림(얼굴 · 감은눈 · 동물 페인트)은 보내기 전에 ensureRoomFaceUrls 가 Storage 에 올려 URL 만 나가므로
+   URL 자리표시로 바꿔 잰다 — 캔버스를 PNG 로 굽지 않아 싸고, 재는 값도 실제로 나가는 크기와 맞는다. */
+const _DEF_SIZE_URL = 'https://firebasestorage.googleapis.com/v0/b/together-working.appspot.com/o/users%2F'
+  + 'x'.repeat(28) + '%2Froomface_face_h2xxxxxxxxxx.png?alt=media&token=' + 'x'.repeat(36);
+const _DEF_SIZE_IMGS = [['face','_faceUrl'],['blink','_blinkUrl'],['animalBody','_aBodyUrl'],
+  ['animalEarPaintL','_aEarLUrl'],['animalEarPaintR','_aEarRUrl'],['animalEarBlinkL','_aEarLBUrl'],
+  ['animalEarBlinkR','_aEarRBUrl'],['animalBlink','_aBlinkUrl']];
+function defWireForSize(def){
+  if(!def) return null;
+  const d = Object.assign({}, def);
+  _DEF_SIZE_IMGS.forEach(([k, u])=>{ if(d[k]){ d[u] = (typeof def[u]==='string') ? def[u] : _DEF_SIZE_URL; d[k] = null; } });
+  return serializeDefForNetwork(d, { quiet: true });
+}
+/* 안내에 붙일 이름 — 책상 3D 는 def 에 이름이 없어서 보관함(savedDesks)에서 찾는다. */
+function _defSizeNames(def){
+  const n = {};
+  try{ const r = def && def.deskGlb && savedDesks.find(d=>d.glb && d.glb===def.deskGlb); if(r && r.name) n.deskGlb = r.name; }catch(_){}
+  return n;
 }
 /* 🔬 [def-diag] 방으로 나가는 def의 필드별 바이트 — 무엇이 무거운지 추측 대신 실측한다.
    같은 지문이면 다시 찍지 않는다(입장·상태변경마다 콘솔이 도배되지 않게).
@@ -45215,7 +45327,7 @@ if(desktopMode){
           const _ix0 = ray.intersectObjects(_hitObjs, true);
           /* 🩹 #7 — 올라탄 동물 좌석의 숨긴 책상이 머리 위 허공에 떠서 다른 앱 클릭을 가로챘다(_hitInHiddenDesk 주석).
              ⚡ 맞은 게 없으면 거르지 않는다 — 대부분의 호출(빈 공간)은 추가 비용 0 이다. */
-          const _ix = _skipHiddenDesk(_ix0);
+          const _ix = _skipHiddenDesk(_skipFlyingRigs(_ix0));   // 🪑 날아가는 몸은 누를 일이 없다(_skipFlyingRigs 주석)
           if(_ix.length){
             let _si = -1;
             for(let o = _ix[0].object; o && _si < 0; o = o.parent){
