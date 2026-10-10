@@ -1,3 +1,5 @@
+할 일: <!-- node scripts/todo.js start 로 받은 id (예: tmv1tiuezg94bz0) · 머지되면 done <id> --release <버전> -->
+
 ## 무엇을
 
 ## 왜

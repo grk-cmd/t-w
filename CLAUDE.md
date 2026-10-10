@@ -13,6 +13,13 @@
 - **PR**: 한 PR = 한 의도(버그 수정 묶음과 새 기능은 나눈다). 제목은 커밋 제목 형식(이모지 없음), 본문은 `.github/pull_request_template.md` 틀 그대로 — «무엇을» 은 커밋과 1:1. 자세한 건 `docs/GIT_CONVENTION.md` 3장.
 - 절대 커밋하지 않는 것: `oauth-config.js`(OAuth 시크릿), `.env*`, `.idea/`, `*.iml`, `dist/`.
 
+## 작업 전 할 일 확인
+여럿이 같이 고치니 같은 일을 겹쳐 하지 않게 웹 관리자 📋 할 일(`adminTodos`)을 먼저 본다. 자세한 건 `/todo` 스킬.
+1. **확인** — 코드 작업을 시작하기 전에 `node scripts/todo.js find <낱말>` · `brief`. 비슷한 일이 진행 중이면 멈추고 사용자에게 묻는다.
+2. **등록** — 겹치지 않으면 `node scripts/todo.js start "<제목>" --type feat|bug`. 나온 id 를 PR 본문 `할 일:` 줄에.
+3. **완료** — PR 이 머지되면 `node scripts/todo.js done <id> --release <다음 버전>`.
+- 관리자 Google 계정으로 `gcloud auth login` 한 사람만 쓴다. 처음 한 번 `node scripts/todo.js setup`. 세션 시작 때 진행 중인 할 일이 자동으로 보인다(관리자가 아니면 조용히 안 나온다).
+
 ## 구조
 | 위치 | 내용 |
 |---|---|
