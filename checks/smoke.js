@@ -313,6 +313,8 @@ PRELOAD.push('guestbook.js');
 PRELOAD.push('friend-manage.js');
 /* pomodoro.js — 🍅 뽀모도로(앱 FSD 6번). 같은 까닭 — 만들 때 하는 일(tw.pomo 읽기 · 버튼 연결 · 1초 tick · window._pomoShowText 고리)을 같이 굴린다. */
 PRELOAD.push('pomodoro.js');
+/* myhome-sticker.js — 🎨 마이홈 스티커 관리 창 · 편집모드 · 드래그 · 회전 · 크기(앱 FSD 7번). 같은 까닭 — 만들 때 하는 일(#stMgrClose · #stMgrBringAll 연결)을 같이 굴린다. */
+PRELOAD.push('myhome-sticker.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
