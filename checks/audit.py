@@ -350,7 +350,9 @@ _callers = {}
 # weekly-challenge.js — 👑 달성표(앱 FSD 2번). loadChal · saveChal · addChalBonus · loadChalBonus 를 부른다.
 # purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). pkOnValue · pkUpdate · pkUploadFrame · serverNow 를 부른다.
 # guestbook.js — 📖 방명록(앱 FSD 4번). subscribeGuestbook · subscribeClap · addGuestbookEntry · deleteGuestbookEntry · clapOnce · setClapEmoji · setClapImage 를 부른다.
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js'):
+# friend-manage.js — 👥 친구 관리(앱 FSD 5번). acceptFriendRequest · rejectFriendRequest · getSentFriendRequests · isFriendRequestAlive · pruneSentFriendRequest · cancelFriendRequest · getUserNameById 를 부른다.
+# bug-board-ui.js — 🐞 버그 제보 탭(오픈카톡 기본 링크)을 app.js 에서 이 파일 끝으로 옮겼다(앱 FSD 5번). setBugReport · subscribeBugReport 를 부른다.
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js'):
     try: _cs = _strip_js_comments(open(_cf, encoding='utf-8').read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):

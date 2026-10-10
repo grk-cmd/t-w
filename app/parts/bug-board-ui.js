@@ -314,3 +314,71 @@
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
 })();
+
+/* ↓ app.js 에서 옮긴 🐞 버그 제보 탭(오픈카톡 기본 링크) — 앱 FSD 5번 · docs/APP_FSD_MAP.md.
+   ★ 글자 그대로(들여쓰기도) 옮겼다. 위 게시판 IIFE 밖 맨 앞 칸이라 예전처럼 전역 이름(_bugReportConf · window._bugReportLink)이다.
+   ★ 이 파일은 app.js 뒤에 싣지만 firebase-init.js(type="module")보다 앞이라 «firebase-ready» 를 기다리는 구독 시작 때가 예전과 같다.
+     버튼 연결도 사람이 누를 수 있기 전에 끝난다. window._bugReportLink 는 위 답변 칸의 [💬 오픈카톡] 이 누를 때 부른다.
+   ⚠️ app.js 의 isAdmin · toast · _saveFailMsg 를 그대로 쓴다(위 게시판과 같은 방식). */
+/* ═══════════════════ 🐞 버그 제보 탭 — 오픈카톡 기본 링크 ═══════════════════
+   게시판 화면은 parts/bug-board-ui.js 다. 여기는 bugReport/current 만 맡는다.
+   ★ 예전 공지(notice)는 첫 공지글로 옮겨졌다(bug-board.js migrateNotice). current.link 는
+     답변에 붙는 [💬 오픈카톡] 의 기본 주소로 계속 쓴다. 편집은 관리자만(.admin-only + 저장 때 isAdmin 재확인). */
+let _bugReportConf = null;   // { notice, link, ts }
+window._bugReportLink = ()=> (_bugReportConf && _bugReportConf.link) || '';
+
+(function bindBugReport(){
+  const editBtn   = document.getElementById('mhBugEditBtn');
+  const form      = document.getElementById('mhBugEditForm');
+  const linkIn    = document.getElementById('mhBugLinkInput');
+  const saveBtn   = document.getElementById('mhBugSaveBtn');
+  const cancelBtn = document.getElementById('mhBugCancelBtn');
+  const msgEl     = document.getElementById('mhBugEditMsg');
+
+  const showMsg = (text, isErr)=>{
+    if(!msgEl) return;
+    msgEl.textContent = text;
+    msgEl.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
+    msgEl.style.display = text ? 'block' : 'none';
+  };
+  const closeForm = ()=>{ if(form) form.style.display = 'none'; };
+
+  if(editBtn){
+    editBtn.addEventListener('click', ()=>{
+      if(!isAdmin) return;   // .admin-only로 숨겨져 있지만 한 번 더 확인
+      if(form && form.style.display !== 'none'){ closeForm(); return; }
+      if(linkIn) linkIn.value = window._bugReportLink();
+      showMsg('', false);
+      if(form) form.style.display = 'block';
+      if(linkIn) linkIn.focus();
+    });
+  }
+  if(cancelBtn) cancelBtn.addEventListener('click', closeForm);
+
+  if(saveBtn){
+    saveBtn.addEventListener('click', async ()=>{
+      if(!isAdmin){ toast('관리자만 수정할 수 있어요'); return; }
+      if(!window.firebaseAPI || !firebaseAPI.setBugReport){ toast('네트워크 연결이 필요해요'); return; }
+      const link = (linkIn ? linkIn.value : '').trim();
+      if(link && !/^https:\/\/open\.kakao\.com\//.test(link)){ showMsg('오픈카톡 링크는 https://open.kakao.com/ 으로 시작해야 해요', true); return; }
+      /* ⚠️ 규칙이 notice 를 필수로 본다(웹 관리자도 같은 노드를 쓴다) — 있던 글을 그대로 실어 보낸다. */
+      const notice = (_bugReportConf && _bugReportConf.notice) || '버그 제보는 버그제보 게시판에 남겨 주세요.';
+      saveBtn.disabled = true; showMsg('저장 중…', false);
+      try{
+        await firebaseAPI.setBugReport(notice, link);
+        toast('오픈카톡 기본 링크를 저장했어요');
+        closeForm();
+      }catch(e){
+        showMsg(_saveFailMsg(e, '저장에 실패했어요 — 인터넷 연결을 확인해 주세요'), true);
+      }
+      saveBtn.disabled = false;
+    });
+  }
+
+  const sub = ()=>{
+    if(!window.firebaseAPI || !firebaseAPI.subscribeBugReport) return;
+    firebaseAPI.subscribeBugReport(conf=>{ _bugReportConf = conf; });
+  };
+  if(window.firebaseAPI) sub();
+  else window.addEventListener('firebase-ready', sub, { once:true });
+})();

@@ -309,6 +309,8 @@ PRELOAD.push('weekly-challenge.js');
 PRELOAD.push('purikura-ui.js');
 /* guestbook.js — 📖 방명록(앱 FSD 4번). 같은 까닭 — 만들 때 하는 일(#mhGuestbookBtn 연결 · window 고리 등록)을 같이 굴린다. */
 PRELOAD.push('guestbook.js');
+/* friend-manage.js — 👥 친구 관리 · 👋 새 친구 요청 팝업(앱 FSD 5번). 같은 까닭 — 만들 때 하는 일은 없지만(상태 초기값뿐) 부르는 곳이 빈 껍데기가 아닌 진짜를 부르게 같이 싣는다. */
+PRELOAD.push('friend-manage.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

@@ -7990,13 +7990,14 @@
 <script src="parts/weekly-challenge.js"></script>   <!-- 👑 달성표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWeeklyChallenge.createWeeklyChallenge 로 만든다) -->
 <script src="parts/purikura-ui.js"></script>   <!-- 📷 스티커사진 창(화면 쪽) — purikura-net.js 뒤 · app.js 보다 먼저(app.js 가 원래 자리에서 TwPurikuraUi.createPurikuraUi 로 만든다) -->
 <script src="parts/guestbook.js"></script>   <!-- 📖 방명록(새 글 배지 · 독립 팝업 창) — app.js 보다 먼저(app.js 가 원래 자리에서 TwGuestbook.createGuestbook 으로 만든다) -->
+<script src="parts/friend-manage.js"></script>   <!-- 👥 친구 관리(받은 요청 · 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFriendManage.createFriendManage 로 만든다) -->
 <script src="parts/app.js"></script>
 <script src="parts/folder-free.js"></script>   <!-- 📂 마이홈 바탕화면 «폴더 자유배치» — myhome-desktop.js 보다 먼저 -->
 <script src="parts/myhome-desktop.js"></script>
 <script src="parts/mallang.js"></script>
 <!-- 📚 마이홈 북마크 책장 — MYHOME_DESKTOP.addFolder 로만 붙는다(myhome-desktop.js 는 host:'side' 한 항목만 늘었다). -->
 <script src="parts/bookmark.js"></script>
-<script src="parts/bug-board-ui.js"></script>   <!-- 🐞 버그제보 게시판 화면 — app.js 뒤(isAdmin · toast · escHtml) -->
+<script src="parts/bug-board-ui.js"></script>   <!-- 🐞 버그제보 게시판 화면 · 버그 제보 탭(오픈카톡 기본 링크) — app.js 뒤(isAdmin · toast · escHtml · _saveFailMsg) · firebase-init.js(module)보다 앞 -->
 <!-- 🌙 백색소음 — 소리 자료(base64 · 약 620KB)를 먼저, 재생기를 뒤에. 둘 다 app.js 뒤여야 한다(seats · seatState · Presence 를 읽는다). -->
 <script src="parts/noise-sounds.js"></script>
 <script src="parts/noise.js"></script>
