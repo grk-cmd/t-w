@@ -1,5 +1,6 @@
 /* sim-gacha-race.js — 🎰 가챠 파츠 재장착 검증기 (핸드오프 §2)
-   실행:  node sim-gacha-race.js   (app.js · smoke.js 와 같은 폴더에서)
+   실행:  node sim-gacha-race.js   (app.js · gacha.js · smoke.js 와 같은 폴더에서)
+   ※ 🎰 가챠 코어는 parts/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가한다(가챠 파츠 판정 · 회수가 진짜로 돈다).
 
    ★ 무엇을 잡았는가 — 핸드오프의 "비동기 커밋 경쟁" 가설이 아니라 결정론적 버그였다.
      equipPartOnSeat 도입부가 stackedPartObjs[cat]={} 를 보장해도, 바로 아래
@@ -40,6 +41,8 @@ const probe = `
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
 try {
+  if (!fs.existsSync('gacha.js')) { console.log = say; say('  ? 원본 못 찾음 — gacha.js'); process.exit(2); }
+  vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' });
   vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' });
 } catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,4).join('\n')); process.exit(1); }
 console.log = say;

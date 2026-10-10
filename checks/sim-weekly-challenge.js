@@ -327,7 +327,8 @@ await sec('── 7. app.js 배선', () => {
   const call = (APP.match(/TwWeeklyChallenge\.createWeeklyChallenge\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   chk(deps.length === 13 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|[A-Z_]+,$)/.test(l)), 'deps 13개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만');
-  chk(/appMode: \(\)=>appMode,/.test(call) && /gachaBonus: \(\)=>_gachaBonus,/.test(call), '다시 대입되는 let(appMode · _gachaBonus)은 읽는 함수로');
+  /* 🎰 가챠는 gacha.js 로 옮겼다(앱 FSD 8번) — _gachaBonus 는 그 모듈의 let 이라 gachaMod.bonus() 로 읽는다 */
+  chk(/appMode: \(\)=>appMode,/.test(call) && /gachaBonus: \(\)=>gachaMod\.bonus\(\),/.test(call), '다시 대입되는 let(appMode · 가챠 _gachaBonus)은 읽는 함수로');
   const iW = HTML.indexOf('<script src="parts/weekly-challenge.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iW > 0 && iW < iA, 'html — weekly-challenge.js 를 app.js 앞에 싣는다');
   /* #103 교훈 — 크로미움 내장 전역(Scheduler 등)과 겹치면 typeof 가드가 늘 통과한다. 접두사로 피한다(헤드리스 크로미움에서 typeof 확인) */
