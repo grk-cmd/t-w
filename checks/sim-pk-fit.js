@@ -6,13 +6,16 @@
    ・2절: `_pkVisibleBox` 와 `_pkCloneChar` 의 맞춤 블록을 떼어 와 **가짜 THREE** 위에서 실제로 돌린다 —
           파츠 있/없 캐릭터의 배율이 같은가, 모자는 그려지는가(측정에서만 빠진다), 발 아래 파츠는 바닥에 닿는가,
           상한, 옆으로 뻗은 파츠가 중심을 안 미는가, 숨은 placeholder 제외, 파츠 밑 스킨드메시 제외, 보이는 것이 없으면 옛 방식, 동물 배율.
-   [실행] app.js 가 있는 폴더에서. `purikura-net.js` 가 있으면 CHAR_H·ANIMAL_H 를 거기서 읽고, 없으면 1.7·1.15 로 둔다
+   [실행] app.js · purikura-ui.js 가 있는 폴더에서. `purikura-net.js` 가 있으면 CHAR_H·ANIMAL_H 를 거기서 읽고, 없으면 1.7·1.15 로 둔다
      (값만 다르고 규칙은 같다 — 판정은 전부 «비율»로 본다).
    ⚠️ 가짜 THREE 는 **균일 배율 + 평행이동**만 안다. 회전은 이 블록이 0 으로 지우므로(g.rotation.set) 충분하다.
    판정 줄은 맨 끝. */
 'use strict';
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+/* 📷 무대(_pkVisibleBox · _pkCloneChar)는 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 못 찾은 함수로 빨개지지 않게. */
+let PU = null; try{ PU = fs.readFileSync('purikura-ui.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — purikura-ui.js'); process.exit(2); }
+const SRC = fs.readFileSync('app.js', 'utf8') + '\n' + PU;
 
 let pass = 0, fail = 0, huhs = 0;
 const say = (s) => console.log(s);

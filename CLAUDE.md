@@ -26,9 +26,10 @@
 | `main.js` · `preload.js` | Electron 메인 프로세스, IPC(`window.companion`) |
 | `overlay-{win,mac}.js` · `sysinput-{win,mac}.js` | 플랫폼 모듈. 두 파일은 **export 이름이 같아야** 한다 |
 | `app/desk-companion-prototype.html` | 렌더러 진입 HTML (CSP 정의) |
-| `app/parts/app.js` | 렌더러 본체 (~44k줄, 전역 스코프). `/* ═══ 제목 ═══ */` 구역으로 나뉜다 — 줄 상한 검사 `sim-app-size` · 구역 지도 · 옮길 순서 `docs/APP_FSD_MAP.md` |
+| `app/parts/app.js` | 렌더러 본체 (~41k줄, 전역 스코프). `/* ═══ 제목 ═══ */` 구역으로 나뉜다 — 줄 상한 검사 `sim-app-size` · 구역 지도 · 옮길 순서 `docs/APP_FSD_MAP.md` |
 | `app/parts/scheduler.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 1번) — 📅 스케줄러 · 🔔 일정 알림. classic script(`window.MhScheduler` — 크로미움 내장 `Scheduler` 와 겹치지 않게) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createScheduler(deps)` |
 | `app/parts/weekly-challenge.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 2번) — 👑 달성표(주간 규칙 · 기록 · 보상 · 화면). classic script(`window.TwWeeklyChallenge`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createWeeklyChallenge(deps)` · 부르는 곳은 `weeklyChal.이름` |
+| `app/parts/purikura-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 3번) — 📷 스티커사진 창(촬영 창 · 로비 · 무대 · 촬영 · 꾸미기). 통신 · 요금은 짝인 `purikura-net.js`(`window.Purikura`), 세션 입구 `_purikura()` 는 app.js. classic script(`window.TwPurikuraUi`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createPurikuraUi(deps)` · 부르는 곳은 `purikuraUi.이름` |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
 | `app/parts/room-*.js` · `invite-account.js` | 도메인 모듈 — `createXxx(deps)` 로 필요한 함수 · 상태를 받는다(Firebase 직접 import 없음). `firebase-init.js` 는 연결만 |
 | `firebase-database-rules.json` | **Realtime Database 보안 규칙 — 서버 쪽 검증의 전부** |
@@ -65,7 +66,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 
 ## Firebase 규칙 · 배포
 - `firebase deploy` 는 **모든 사용자에게 즉시 적용**된다. 기본 프로젝트(`.firebaserc`)는 **운영 `together-working`**.
-- 규칙을 바꾸면 순서: ① 앱에서 그 경로를 쓰는 곳을 전부 grep(`firebase-init.js`, `app.js`, `purikura-net.js`, `functions/`) ② `npm run check` ③ **dev 에 먼저**: `firebase deploy --only database --project together-working-dev` ④ 확인 후 운영 배포.
+- 규칙을 바꾸면 순서: ① 앱에서 그 경로를 쓰는 곳을 전부 grep(`firebase-init.js`, `app.js`, `purikura-net.js`, `purikura-ui.js`, `functions/`) ② `npm run check` ③ **dev 에 먼저**: `firebase deploy --only database --project together-working-dev` ④ 확인 후 운영 배포.
 - 규칙 함정: 상위 `.write` 가 하위 삭제를 대신 받아 주는 곳이 있다(예: `rooms/$room` ↔ `_photo`). 삭제(null)에는 `.validate` 가 안 돈다. 권한이 거부된 `onValue` 구독은 재시도 없이 끊긴다.
 - 자동화(GitHub Actions): `main` 에 규칙이 바뀌어 push 되면 `deploy-dev.yml` 이 **dev 에 자동 반영**, 운영 규칙은 **사람이 태그 전에 직접** 배포한다(`release.yml` 은 규칙을 다루지 않는다). `config/minRoomVer` 는 웹 관리자 ⚙️ 설정에서(최신 릴리스까지만 · 작업 기록에 남음). `min-room-ver.yml` 은 운영 권한 변수가 생기기 전까지 동작하지 않는다. 릴리스 절차는 `docs/RELEASE.md`.
 - 운영 DB 데이터를 대량으로 읽거나 고치기 전에는 몇 건·무엇을 읽는지 먼저 말하고 확인받는다.

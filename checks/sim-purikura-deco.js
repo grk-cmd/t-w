@@ -1,5 +1,5 @@
 /* sim-purikura-deco.js — 🎨 꾸미기 창 검사
-   실행:  node sim-purikura-deco.js   (app.js · desk-companion-prototype.html 과 같은 폴더에서)
+   실행:  node sim-purikura-deco.js   (app.js · purikura-ui.js · desk-companion-prototype.html 과 같은 폴더에서)
 
    ★ 왜 이 검사가 있는가
      이 화면의 사고는 **저장하고 나서야 보인다.** 화면(360px)에서는 선이 멀쩡한데
@@ -18,7 +18,10 @@
 'use strict';
 const fs = require('fs');
 const P = require('./purikura-net.js');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+/* 📷 촬영 창 · 무대 · 꾸미기 화면은 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+let PU = null; try{ PU = fs.readFileSync('purikura-ui.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — purikura-ui.js'); process.exit(2); }
+const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + PU;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;
@@ -319,7 +322,8 @@ say('· §5 회사원 모드 — 못 열고, 열려 있던 것도 접히는가')
       '★ 게이트가 세션을 만들기 **전**이다 (뒤면 자리를 잡아 놓고 막는 꼴이 된다)');
 
   const open = /async function openPurikura\(\)\{[\s\S]*?_pkBuildStage\(\);/.exec(SRC);
-  chk(!!open && /officeMode\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}/.test(open[0]),
+  /* officeMode() — purikura-ui.js 는 app.js 의 let 을 읽는 함수로 받는다(앱 FSD 3번) */
+  chk(!!open && /officeMode\(\)\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}/.test(open[0]),
       '★ openPurikura 안에도 그물이 있다 (문은 여기 하나뿐 — 다른 입구가 생겨도 샌다)');
   chk(!!open && /typeof officeMode !== 'undefined'/.test(open[0]),
       "officeMode 가 아직 없을 때도 안 터진다 (부팅 순서에 안 기댄다)");
@@ -330,9 +334,11 @@ say('· §5 회사원 모드 — 못 열고, 열려 있던 것도 접히는가')
 
   /* 켜는 순간 이미 열려 있던 창 — 못 열게만 막으면 모드의 목적이 통째로 무너진다. */
   const tog = /officeMode = !officeMode;[\s\S]*?refreshOfficeChipUI\(\);/.exec(SRC);
-  chk(!!tog && /PK\.open/.test(tog[0]) && /closePurikura\(true\)/.test(tog[0]),
+  /* 창은 purikura-ui.js 모듈 — app.js 는 purikuraUi.isOpen · phase · close 로 부른다(앱 FSD 3번) */
+  chk(!!tog && /purikuraUi\.isOpen\(\)/.test(tog[0]) && /purikuraUi\.close\(true\)/.test(tog[0]) && /close: closePurikura,/.test(PU),
       '★ 모드를 켜면 떠 있던 📷 창을 접는다 (force — 되묻지 않는다)');
-  chk(!!tog && /PK\.state === 'shooting'/.test(tog[0]) && tog[0].indexOf("'shooting'") < tog[0].indexOf('closePurikura(true)'),
+  chk(!!tog && /purikuraUi\.phase\(\) === 'shooting'/.test(tog[0]) && tog[0].indexOf("'shooting'") < tog[0].indexOf('purikuraUi.close(true)')
+      && /phase: \(\)=>PK\.state,/.test(PU),
       '★ 촬영 중에는 안 닫는다 (방장이 빠지면 남은 사람이 창을 닫지도 못하는 상태로 굳는다)');
   chk(!!tog && /_offNote/.test(tog[0]) && /'회사원 모드가 꺼졌어요'\) \+ _offNote\)/.test(SRC),
       '안내를 한 줄로 합친다 (toast 는 마지막 것만 남아서 따로 띄우면 안 보인다)');
@@ -916,7 +922,7 @@ say('· §14 BGM — 창이 열려 있는 동안만, 그리고 소리가 겹치�
   chk(!!el && /console\.warn/.test(el[0]),
       '★ 다 떨어지면 알린다 (조용히 삼키면 «소리가 안 난다»의 원인을 다음에 또 못 찾는다)');
   const st = /function _pkBgmStart\(\)\{[\s\S]*?\n\}/.exec(SRC);
-  chk(!!st && /officeMode\) return;/.test(st[0]),
+  chk(!!st && /officeMode\(\)\) return;/.test(st[0]),
       '★ 회사원 모드에서는 소리를 안 낸다 (소리 내는 자리는 예외 없이 이 게이트를 지난다)');
   chk(!!st && /pr\.catch/.test(st[0]),
       '자동재생이 막히면 콘솔에 남긴다');
@@ -925,7 +931,7 @@ say('· §14 BGM — 창이 열려 있는 동안만, 그리고 소리가 겹치�
   const hush = /function _pkHushOthers\(\)\{[\s\S]*?\n\}/.exec(SRC);
   chk(!!hush && (hush[0].match(/companion\.pauseBgm/g) || []).length === 2,
       '★ 재우는 호출이 한 번뿐이다 (창을 공유하므로 두 번 부를 이유가 없다)');
-  chk(!!hush && /_plPlaying = false/.test(hush[0]) && /_mhBgmSetPlaying/.test(hush[0]),
+  chk(!!hush && /_setPlPlaying\(false\)/.test(hush[0]) && /_mhBgmSetPlaying/.test(hush[0]),   // _plPlaying 은 app.js 의 let — 모듈은 setPlPlaying 으로 쓴다
       '★ 양쪽의 «재생 중» 표시도 내린다 (안 내리면 ▶ 버튼이 재생 중인 척한다)');
   chk(!!hush && /PK\.hushed = \{ pl:pl, home:home \}/.test(hush[0]),
       '★ 누가 나고 있었는지 기억한다 (안 하면 안 듣던 것까지 켜 준다)');

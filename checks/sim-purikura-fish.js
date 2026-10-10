@@ -8,14 +8,14 @@
    ・6절: 규칙 — meta/filter 에 fish · slots/$i 에 fx
    ・7절: app.js · html 배선 — 줄 일곱 칸 · 자리가 바뀌면 안내를 다시
    ⚠️ 실제 무대 · 사진은 2026-10-08 헤드리스 크로미움에서 확인했다.
-   [실행] purikura-net.js · firebase-database-rules.json · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
+   [실행] purikura-net.js · firebase-database-rules.json · app.js · purikura-ui.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['purikura-net.js', 'firebase-database-rules.json', 'app.js', 'desk-companion-prototype.html'];
+const need = ['purikura-net.js', 'firebase-database-rules.json', 'app.js', 'purikura-ui.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const P = require(require('path').resolve('purikura-net.js'));
@@ -153,7 +153,8 @@ sec('── 6. 규칙', () => {
 
 sec('── 7. app.js · html', () => {
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
-  const A = strip(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'];
+  /* 📷 화면 쪽은 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 렌더러 쪽 한 벌 = app.js + 그 파일 */
+  const A = strip(SRC['app.js'] + '\n' + SRC['purikura-ui.js']), HTML = SRC['desk-companion-prototype.html'];
   chk(/P\.filterLaggards\(PK\.members, PK\.filter, getMyUserId\(\)\)/.test(A) && /'님은 업데이트가 필요해서 필터 없이 찍혀요'/.test(A), '방장 화면에 «○○님은 업데이트가 필요해서 필터 없이 찍혀요»');
   chk(/const lag = \(PK\.host && /.test(A), '안내는 방장에게만');
   chk(/_pkPaintSlots\(\);\s*_pkPaintFilterNote\(\);/.test(A), '자리가 바뀌면 안내를 다시 쓴다(축소판은 다시 안 그린다)');
