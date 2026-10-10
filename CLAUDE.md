@@ -32,6 +32,7 @@
 | `app/parts/purikura-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 3번) — 📷 스티커사진 창(촬영 창 · 로비 · 무대 · 촬영 · 꾸미기). 통신 · 요금은 짝인 `purikura-net.js`(`window.Purikura`), 세션 입구 `_purikura()` 는 app.js. classic script(`window.TwPurikuraUi`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createPurikuraUi(deps)` · 부르는 곳은 `purikuraUi.이름` |
 | `app/parts/guestbook.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 4번) — 📖 방명록(새 글 배지 · 독립 팝업 창 — 웹박수 · 폭죽 · 글 목록 · 쓰기). classic script(`window.TwGuestbook`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createGuestbook(deps)` · 부르는 곳은 예전처럼 window 고리(`openMyGuestbook` · `_mhGb*`) |
 | `app/parts/friend-manage.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 5번) — 👥 친구 관리(받은 요청 · 📤 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 · 친구 탭 배지. classic script(`window.TwFriendManage`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createFriendManage(deps)` · 부르는 곳은 `friendManage.이름`. 같은 구역에 있던 🐞 버그 제보 탭(오픈카톡 기본 링크)은 `bug-board-ui.js` 끝 |
+| `app/parts/pomodoro.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 6번) — 🍅 뽀모도로(포커스 기록창 안쪽 서랍 · 집중 / 휴식 타이머 · 미니미 줄). classic script(`window.TwPomodoro`) 를 app.js 앞에 싣고, app.js 가 원래 자리(👑 달성표 연결 뒤)에서 `createPomodoro(deps)`. 머리 위 «🍅 집중 18분» 은 `_focusShowConf` 가 만드는 줄보다 먼저 불려서 예전처럼 window 고리 `_pomoShowText`(typeof 가드) |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
 | `app/parts/room-*.js` · `invite-account.js` | 도메인 모듈 — `createXxx(deps)` 로 필요한 함수 · 상태를 받는다(Firebase 직접 import 없음). `firebase-init.js` 는 연결만 |
 | `firebase-database-rules.json` | **Realtime Database 보안 규칙 — 서버 쪽 검증의 전부** |
