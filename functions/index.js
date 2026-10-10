@@ -10,6 +10,8 @@
      비밀 값 METRICS_IP_SALT 가 있어야 배포된다: firebase functions:secrets:set METRICS_IP_SALT (길고 무작위한 값).
    usageSnapshot — 사용량(비용) 기록(매시간). Cloud Monitoring 하루 합계를 metrics/usage/{서울 날짜} 에. 로직은 usage-snapshot.js.
    adminDeleteAccount — 계정 삭제(호출형 · 관리자만). 웹 관리자 사용자 페이지가 부른다. 로직은 account-delete.js.
+   todoMergeDone — PR 머지 → 할 일 완료(HTTPS · POST). GitHub Actions todo-merge.yml 이 공유 비밀로 부른다. 로직은 todo-merge.js.
+     비밀 값 TODO_MERGE_TOKEN 이 있어야 배포된다: firebase functions:secrets:set TODO_MERGE_TOKEN (GitHub 저장소 비밀과 같은 값).
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -27,7 +29,7 @@
    ⚠️ cleanTrash 는 **예약 함수**라 Cloud Scheduler 를 쓴다(Blaze · 한 달 작업 3개까지 무료). 처음 배포할 때
      Cloud Scheduler API 를 켜라는 질문이 나오면 «예». 배포: firebase deploy --only functions */
 'use strict';
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onValueCreated, onValueDeleted, onValueWritten } = require('firebase-functions/v2/database');
 const { setGlobalOptions } = require('firebase-functions/v2');
@@ -299,5 +301,20 @@ exports.adminDeleteAccount = onCall({ timeoutSeconds: 300, maxInstances: 2 },
       if (e && e.httpsCode) throw new HttpsError(e.httpsCode, e.message);
       console.error('[adminDeleteAccount] 실패', e && e.message);
       throw new HttpsError('internal', '삭제 중에 문제가 생겼어요 — 다시 미리 보기로 남은 것을 확인해 주세요');
+    }
+  });
+
+/* PR 머지 → 할 일 완료 — GitHub Actions(todo-merge.yml)가 부른다. Google 로그인 대신 공유 비밀(Authorization: Bearer)로 막는다.
+   누구나 주소는 부를 수 있으니 비밀이 틀리면 아무것도 읽지 않고 401. 한 번에 할 일 10개까지 · 새로 만들지 않는다. */
+const TODO_MERGE_TOKEN = defineSecret('TODO_MERGE_TOKEN');
+exports.todoMergeDone = onRequest({ secrets: [TODO_MERGE_TOKEN], timeoutSeconds: 30, maxInstances: 1, invoker: 'public' },
+  async (req, res) => {
+    try {
+      const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+      const r = await require('./todo-merge').handleTodoMerge(getDatabase(), req, TODO_MERGE_TOKEN.value(), Date.now());
+      res.status(r.status).json(r.body);
+    } catch (e) {
+      console.error('[todoMergeDone] 실패', e && e.message);
+      res.status(500).json({ error: '처리 중 문제' });
     }
   });

@@ -38,6 +38,8 @@ node scripts/todo.js start "<무엇을 — 한 줄 제목>" --type feat|bug [--m
 `.github/pull_request_template.md` 의 `할 일:` 줄에 id 를 적는다. 예: `할 일: tmv1tiuezg94bz0`
 
 ### 4. 머지된 뒤 — 완료
+PR 본문에 `할 일: <id>` 가 있으면 main 에 머지될 때 **자동으로** 완료 + 다음 버전(main 의 package.json 다음 patch) + 메모 «PR #N 머지» 가 된다(`.github/workflows/todo-merge.yml` → 함수 `todoMergeDone`). 이미 적어 둔 버전은 덮지 않는다.
+머지 뒤 Actions 의 todo-merge 로그에 «건너뜀» 이 찍혔거나(설정 전) 버전을 바꿔야 할 때만 손으로:
 ```bash
 node scripts/todo.js done <id> --release <다음 버전> [--memo "PR #123"]
 ```
