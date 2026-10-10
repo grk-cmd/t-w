@@ -6,7 +6,7 @@ import styles from './ReportTodoButton.module.css';
 
 /**
  * 제보 상세 머리줄의 버튼 — 걸린 할 일이 있으면 «📋 할 일 보기»(그 할 일로), 없으면 «📋 할 일에 등록».
- * 등록은 이 제보가 연결된 새 할 일 — 제목은 제보 번호 + 공개 글 제목으로 채워 두고 고칠 수 있다.
+ * 등록은 이 제보가 연결된 새 할 일(종류 기본 🐞 버그) — 제목은 제보 번호 + 공개 글 제목으로 채워 두고 고칠 수 있다.
  * 비공개 글 제목은 넣지 않는다(할 일 제목은 작업 기록 대상 칸에 남는다).
  */
 export function ReportTodoButton({ item, title }: { item: BugItem; title: string }) {
@@ -26,6 +26,7 @@ export function ReportTodoButton({ item, title }: { item: BugItem; title: string
   const initial = emptyDraft(
     [item.id],
     `${no} ${item.vis === 'pub' ? title : ''}`.trim().slice(0, TODO_TITLE_MAX),
+    'bug',
   );
   return (
     <span className={styles.slot}>

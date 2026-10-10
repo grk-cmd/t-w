@@ -38,6 +38,7 @@ console.log('\n── 1. 관리자만 쓸 수 있어야 하는 곳');
   ['config/minRoomVer',          '최소 버전(전원 접속 차단 가능)'],
   ['config/minAppVer',           '앱 최소 버전(옛 앱 전체 차단)'],
   ['config/bugDailyMax',         '버그 제보 하루 상한'],
+  ['config/releaseAnswerTpl',    '릴리스 반영 답변 템플릿(웹 관리자)'],
   ['inboxBroadcast',             '전체 우편함 발송'],
   ['inboxBroadcastMeta',         '공용 공지 버전(앱 캐시 무효화)'],
 ].forEach(([p, name])=> chk(isAdmin(w(p)), name + '  (' + p + ')'));
@@ -290,6 +291,8 @@ console.log('\n── 7. 관리자 할 일(adminTodos) · 관리자 이름(admin
   chk(!tw(A1, next({ release: '' }), saved) && !tw(A1, next({ release: 'v0.11.3' }), saved) && !tw(A1, next({ release: '0.11' }), saved) && !tw(A1, next({ release: '0.11.3 릴리스 대기' }), saved), '  ↳ 빈 값 · v 붙임 · 두 자리 · 글 섞임은 거절');
   chk(!tw(A1, next({ release: '0.11.3-Beta.1' }), saved) && !tw(A1, next({ release: '0.11.3-beta' }), saved) && !tw(A1, next({ release: 11 }), saved), '  ↳ 베타 꼬리는 소문자.숫자 · 숫자값은 거절');
   chk(!tw(A1, next({ release: '1000000.0.0-beta.1000' }), saved) && tw(A1, next({ release: '100000.0.0-beta.10' }), saved), '  ↳ 20자까지');
+  chk(tw(A1, next({ type: 'feat' }), saved) && tw(A1, next({ type: 'bug' }), saved) && tw(A1, { ...fresh, type: 'bug' }), '종류(type) — feat · bug (칸이 없어도 된다 · 화면에서 «미분류»)');
+  chk(!tw(A1, next({ type: '' }), saved) && !tw(A1, next({ type: 'chore' }), saved) && !tw(A1, next({ type: 'Bug' }), saved) && !tw(A1, next({ type: 1 }), saved), '  ↳ 빈 값 · 다른 종류 · 대문자 · 숫자값은 거절');
   chk(!tw(A1, next({ extra: 1 }), saved), '정해진 칸 밖의 필드는 거절');
   chk(!tw(A1, fresh, null, 'a/b c'), '  ↳ 키는 짧은 id 모양만');
   chk(tw(A1, null, saved) && !tw('user9', null, saved), '지우기는 관리자만');
@@ -306,6 +309,16 @@ console.log('\n── 7. 관리자 할 일(adminTodos) · 관리자 이름(admin
   const readFirst = (...ns) => { for (const n of ns) { try { return fs.readFileSync(n, 'utf8'); } catch (_) {} } return ''; };
   const app = readFirst('app.js') + readFirst('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js');
   chk(!!app && !/adminTodos|adminNames/.test(app), '앱(app.js · firebase-init.js)은 이 경로를 쓰지 않는다 — 웹 관리자 전용');
+
+  /* 🏷 릴리스 반영 답변 템플릿 — 관리자끼리 같은 문구를 쓰게 DB 에. 지우면 웹 관리자가 코드 기본 문구를 쓴다. */
+  const tpl = at('config/releaseAnswerTpl') || {};
+  const tplOk = (uid, v) => run(tpl['.write'], { uid, newVal: v }) && (v === null || run(tpl['.validate'], { uid, newVal: v }));
+  chk(tplOk(A1, '{version} 에서 고쳐졌어요') && tplOk(A1, 'x'.repeat(1000)), '릴리스 답변 템플릿(config/releaseAnswerTpl) — 관리자가 1~1000자 글자로 쓴다');
+  chk(!tplOk(A1, '') && !tplOk(A1, 'x'.repeat(1001)) && !tplOk(A1, 5), '  ↳ 빈 값 · 1000자 넘음 · 숫자는 거절');
+  chk(!tplOk('user9', '{version}') && !tplOk(null, '{version}'), '★ 관리자가 아니면 못 쓴다');
+  chk(tplOk(A1, null) && !tplOk('user9', null), '  ↳ 지우기(기본 문구로 되돌리기)도 관리자만');
+  chk(tpl['.read'] === undefined && isAdmin(r('config')), '  ↳ 읽기는 config 통째 규칙대로 관리자만 (누구나 읽기 칸을 두지 않는다)');
+  chk(!!app && !/releaseAnswerTpl/.test(app), '  ↳ 앱은 이 칸을 쓰지 않는다 — 웹 관리자 전용');
 }
 
 console.log(fail ? '\n✗ 실패 ' + fail + '건' : '\n✓ 전부 통과');
