@@ -1,4 +1,4 @@
-할 일: <!-- node scripts/todo.js start 로 받은 id (예: tmv1tiuezg94bz0 · 여럿이면 쉼표로) · main 에 머지되면 자동으로 완료 + 다음 버전(todo-merge.yml) -->
+할 일: <!-- node scripts/todo.js start 로 받은 id (예: tmv1tiuezg94bz0) · 머지되면 done <id> --release <버전> -->
 
 ## 무엇을
 
