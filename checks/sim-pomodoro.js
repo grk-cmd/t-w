@@ -6,11 +6,13 @@
           달성표와 서랍 하나만 · 포커스 기록(addFocusSeconds)을 건드리지 않는다 · 알림음 풀은 자동재생 잠금 해제 등록보다 **앞**에서 만든다 ·
           머리 위 문구는 _focusShowConf 의 typeof 가드로만(새 필드 없음).
    ・3절: 동작 — 실제 함수(_pomoStartPhase · _pomoAdvance · _pomoTick · _pomoShowText · _pomoLeftMs)를 떼어 시계를 돌려 본다.
-   [실행] app.js · desk-companion-prototype.html 이 있는 폴더에서. */
+   [실행] app.js · weekly-challenge.js · desk-companion-prototype.html 이 있는 폴더에서.
+   ※ 👑 달성표는 parts/weekly-challenge.js 로 옮겼다(앱 FSD 2번) — _chalOpen 은 그 파일에서 찾고, 뽀모 쪽은 weeklyChal.open(false) 로 부른다. */
 'use strict';
 const fs = require('fs');
 const SRC  = fs.readFileSync('app.js', 'utf8');
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
+let WC = null; try{ WC = fs.readFileSync('weekly-challenge.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — weekly-challenge.js'); process.exit(2); }
 
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -53,8 +55,8 @@ say('── 2. 배선');
   chk(/typeof _pomoShowText === 'function'/.test(conf), '★ _focusShowConf 는 typeof 가드로만 뽀모를 본다');
   const iSh = conf.indexOf('_pomoShowText()'), iOf = conf.indexOf('officeMode');
   chk(iSh > iOf && iOf > 0, '회사원 모드 · 꺼짐 판정이 먼저 — 뽀모 문구도 그 게이트 뒤');
-  chk(/if\(on\) win\.classList\.remove\('pomo-on'\)/.test(strip(grabFn('_chalOpen'))), '달성표를 열면 뽀모 서랍이 닫힌다');
-  chk(/if\(on\)\{ try\{ _chalOpen\(false\); \}catch\(_\)\{\} \}/.test(strip(grabFn('_pomoOpen'))), '뽀모 서랍을 열면 달성표가 닫힌다');
+  chk(/if\(on\) win\.classList\.remove\('pomo-on'\)/.test(strip(grabFn('_chalOpen', WC))), '달성표를 열면 뽀모 서랍이 닫힌다');
+  chk(/if\(on\)\{ try\{ weeklyChal\.open\(false\); \}catch\(_\)\{\} \}/.test(strip(grabFn('_pomoOpen'))), '뽀모 서랍을 열면 달성표가 닫힌다');
   chk(!/addFocusSeconds|_focusTotalSec|_focusTodaySec|_focusSessionSec/.test(strip(POMO)), '★ 포커스 기록을 건드리지 않는다(같은 시간 두 번 · 레벨·달성표 판정 변화 방지)');
   const iPool = CODE.indexOf("_mkSndPool('pomo', POMO_SND_SRC");
   const iPrime = CODE.indexOf("_sndPools.forEach(P=>{ try{ P.prime(); }catch(_){} });");
