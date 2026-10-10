@@ -306,9 +306,24 @@ console.log('\n── 7. 관리자 할 일(adminTodos) · 관리자 이름(admin
   chk(!nw(A1, A1, { name: 'x'.repeat(41), at: NOW }) && !nw(A1, A1, { name: '', at: NOW }), '  ↳ 이름 1~40자');
   chk(!nw(A1, A1, { name: '가', at: NOW - 1 }) && !nw(A1, A1, { name: '가', at: NOW, x: 1 }), '  ↳ 서버 시각 · 정해진 칸만');
 
+  /* 📝 할 일 공용 메모 — 한 칸(adminTodoNote). 할 일처럼 rev + 1 로 남이 먼저 고친 걸 덮지 않는다. */
+  const note = at('adminTodoNote') || {};
+  const noteSaved = { text: '이번 주는 0.11.3', rev: 4, updatedBy: A2, updatedAt: NOW - 1000 };
+  const nt = (uid, newVal, oldVal = null) => allowed(note, { uid, newVal, oldVal });
+  const nextNote = (extra = {}) => ({ text: '고친 메모', rev: 5, updatedBy: A1, updatedAt: NOW, ...extra });
+  chk(isAdmin(r('adminTodoNote')) && /auth != null/.test(r('adminTodoNote')), '할 일 공용 메모(adminTodoNote) 읽기는 관리자만');
+  chk(nt(A1, { text: '처음', rev: 0, updatedBy: A1, updatedAt: NOW }), '관리자는 메모를 처음 쓴다 (rev 0 · 고친 사람 = 나 · 서버 시각)');
+  chk(nt(A1, nextNote(), noteSaved) && nt(A1, nextNote({ text: '' }), noteSaved), '고치기 — 지금 rev + 1 이면 받는다 (빈 글자로 비우기도)');
+  chk(!nt(A1, nextNote({ rev: 4 }), noteSaved) && !nt(A1, nextNote({ rev: 6 }), noteSaved), '★ 남이 먼저 고쳤으면(rev 가 다르면) 거절 — 덮어쓰지 않는다');
+  chk(!nt(A1, { text: 'x', rev: 3, updatedBy: A1, updatedAt: NOW }), '  ↳ 처음 쓸 때 rev 는 0 만');
+  chk(!nt('user9', nextNote({ updatedBy: 'user9' }), noteSaved) && !nt(null, nextNote(), noteSaved), '★ 관리자가 아니면 못 쓴다');
+  chk(!nt(A1, nextNote({ updatedBy: A2 }), noteSaved) && !nt(A1, nextNote({ updatedAt: NOW - 1 }), noteSaved), '  ↳ 고친 사람은 나 · 고친 시각은 서버 시각만');
+  chk(nt(A1, nextNote({ text: 'x'.repeat(2000) }), noteSaved) && !nt(A1, nextNote({ text: 'x'.repeat(2001) }), noteSaved) && !nt(A1, nextNote({ text: 5 }), noteSaved), '  ↳ 글자 2000자까지 · 숫자값 거절');
+  chk(!nt(A1, nextNote({ extra: 1 }), noteSaved) && !nt(A1, { text: 'x', updatedBy: A1, updatedAt: NOW }), '  ↳ 정해진 칸 밖 · 빠진 칸(rev)은 거절');
+
   const readFirst = (...ns) => { for (const n of ns) { try { return fs.readFileSync(n, 'utf8'); } catch (_) {} } return ''; };
   const app = readFirst('app.js') + readFirst('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js');
-  chk(!!app && !/adminTodos|adminNames/.test(app), '앱(app.js · firebase-init.js)은 이 경로를 쓰지 않는다 — 웹 관리자 전용');
+  chk(!!app && !/adminTodos|adminTodoNote|adminNames/.test(app), '앱(app.js · firebase-init.js)은 이 경로를 쓰지 않는다 — 웹 관리자 전용');
 
   /* 🏷 릴리스 반영 답변 템플릿 — 관리자끼리 같은 문구를 쓰게 DB 에. 지우면 웹 관리자가 코드 기본 문구를 쓴다. */
   const tpl = at('config/releaseAnswerTpl') || {};
