@@ -30,6 +30,7 @@
 | `app/parts/scheduler.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 1번) — 📅 스케줄러 · 🔔 일정 알림. classic script(`window.MhScheduler` — 크로미움 내장 `Scheduler` 와 겹치지 않게) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createScheduler(deps)` |
 | `app/parts/weekly-challenge.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 2번) — 👑 달성표(주간 규칙 · 기록 · 보상 · 화면). classic script(`window.TwWeeklyChallenge`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createWeeklyChallenge(deps)` · 부르는 곳은 `weeklyChal.이름` |
 | `app/parts/purikura-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 3번) — 📷 스티커사진 창(촬영 창 · 로비 · 무대 · 촬영 · 꾸미기). 통신 · 요금은 짝인 `purikura-net.js`(`window.Purikura`), 세션 입구 `_purikura()` 는 app.js. classic script(`window.TwPurikuraUi`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createPurikuraUi(deps)` · 부르는 곳은 `purikuraUi.이름` |
+| `app/parts/guestbook.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 4번) — 📖 방명록(새 글 배지 · 독립 팝업 창 — 웹박수 · 폭죽 · 글 목록 · 쓰기). classic script(`window.TwGuestbook`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createGuestbook(deps)` · 부르는 곳은 예전처럼 window 고리(`openMyGuestbook` · `_mhGb*`) |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
 | `app/parts/room-*.js` · `invite-account.js` | 도메인 모듈 — `createXxx(deps)` 로 필요한 함수 · 상태를 받는다(Firebase 직접 import 없음). `firebase-init.js` 는 연결만 |
 | `firebase-database-rules.json` | **Realtime Database 보안 규칙 — 서버 쪽 검증의 전부** |
