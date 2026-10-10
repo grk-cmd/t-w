@@ -29,3 +29,11 @@ export {
   type DismissState,
   type FieldLike,
 } from './dialogDismiss';
+export {
+  cleanVersionPart,
+  joinVersionParts,
+  toVersionParts,
+  VERSION_PART_MAX_DIGITS,
+  versionPartsFilled,
+  type VersionParts,
+} from './versionParts';

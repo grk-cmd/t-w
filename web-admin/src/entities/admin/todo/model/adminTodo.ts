@@ -1,3 +1,5 @@
+import { joinVersionParts, versionPartsFilled, type VersionParts } from '@/shared/lib';
+
 /*
  * 📋 관리자 할 일 — adminTodos/{id}. 관리자만 읽고 쓴다(규칙). 앱 · 제보 공개 칸과는 따로다.
  *   { title, memo?, status, type?, assignee?, assigneeName?, reports?: { <제보 id>: true }, release?,
@@ -230,6 +232,18 @@ export function nextRelease(latest: string | null | undefined): string {
   if (!latest || !TODO_RELEASE_RE.test(latest.replace(/^v/i, ''))) return '';
   const [a, b, c] = verParts(latest).nums;
   return `${a}.${b}.${c + 1}`;
+}
+
+/**
+ * 입력 세 칸 → 릴리스 버전. 모두 빈 칸이면 '' (버전 없음), 일부만 차 있으면 안내 — 빈 칸을 0 으로 보지 않는다.
+ * tail 은 지금 값의 베타 꼬리(-beta.1) — 세 칸에는 넣지 않고 그대로 이어 붙인다.
+ */
+export function releaseFromParts(parts: VersionParts, tail = ''): { release: string } | { error: string } {
+  const filled = versionPartsFilled(parts);
+  if (filled === 'none') return { release: '' };
+  if (filled === 'some')
+    return { error: '릴리스 버전은 세 칸(주 . 부 . 수)을 모두 채우거나 모두 비워 주세요' };
+  return { release: `${joinVersionParts(parts)}${tail}` };
 }
 
 export const draftOf = (t: Todo): TodoDraft => ({

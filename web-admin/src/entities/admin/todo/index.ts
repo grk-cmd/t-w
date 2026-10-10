@@ -15,6 +15,7 @@ export {
   emptyDraft,
   filterTodos,
   nextRelease,
+  releaseFromParts,
   releasesOf,
   releaseState,
   REPORT_ID_RE,

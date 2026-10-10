@@ -8,20 +8,12 @@ import {
 } from '@/entities/min-version';
 import { useReleaseDownloads } from '@/entities/release';
 import { useEnv, withProdMark } from '@/shared/api';
-import { errorMessage } from '@/shared/lib';
+import { errorMessage, toVersionParts, type VersionParts } from '@/shared/lib';
+import { VersionInput } from '@/shared/ui';
 import { useSaveMinVersion } from '../model/useSaveMinVersion';
 import styles from './MinVersionCard.module.css';
 
 type Message = { text: string; error: boolean } | null;
-type Parts = [string, string, string];
-
-const PART_LABELS = ['주', '부', '수'] as const;
-const PART_MAX = 9999;
-
-const toParts = (v: string | null): Parts => {
-  const [a = '0', b = '0', c = '0'] = (v ?? '0.0.0').split('-')[0].split('.');
-  return [a, b, c];
-};
 
 // 카드 아래 한 줄 — 무엇이 막히는지. app 은 이 장치가 든 판부터만 읽는다는 것도.
 const HINTS: Record<MinVersionKind, string | null> = {
@@ -39,16 +31,13 @@ export function MinVersionCard({ kind }: { kind: MinVersionKind }) {
   const save = useSaveMinVersion(kind);
   const before = current ?? null;
   // 고치기 전에는 지금 값을 그대로 보여 준다.
-  const [draft, setDraft] = useState<Parts | null>(null);
+  const [draft, setDraft] = useState<VersionParts | null>(null);
   const [message, setMessage] = useState<Message>(null);
-  const parts = draft ?? toParts(before);
+  const parts = draft ?? toVersionParts(before, '0').parts;
   const next = parts.map((p) => String(Number(p) || 0)).join('.');
 
-  const setPart = (i: number, value: string) => {
-    const digits = value.replace(/\D/g, '').slice(0, 4);
-    const copy: Parts = [...parts];
-    copy[i] = digits;
-    setDraft(copy);
+  const setParts = (next: VersionParts) => {
+    setDraft(next);
     setMessage(null);
   };
 
@@ -87,22 +76,7 @@ export function MinVersionCard({ kind }: { kind: MinVersionKind }) {
             <span className="soft">최신 릴리스 {latest ?? (releases.isLoading ? '…' : '확인 못 함')}</span>
           </p>
           <form className={styles.row} onSubmit={submit}>
-            {parts.map((p, i) => (
-              <span key={PART_LABELS[i]} className={styles.part}>
-                {i > 0 && <b className="soft">.</b>}
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={PART_MAX}
-                  step={1}
-                  aria-label={`${PART_LABELS[i]} 버전`}
-                  disabled={isPending}
-                  value={p}
-                  onChange={(e) => setPart(i, e.target.value)}
-                />
-              </span>
-            ))}
+            <VersionInput value={parts} onChange={setParts} disabled={isPending} />
             <button
               type="submit"
               className="btn primary"

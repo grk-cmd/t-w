@@ -1,0 +1,21 @@
+.parts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: bold;
+}
+
+.part {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 숫자 네 자리까지 — 전역 input 의 flex: 1 보다 세게 */
+.part input {
+  flex: 0 0 4.5em;
+  width: 4.5em;
+  padding: 6px 4px 6px 8px;
+  text-align: right;
+}
