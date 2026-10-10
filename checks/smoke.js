@@ -311,6 +311,8 @@ PRELOAD.push('purikura-ui.js');
 PRELOAD.push('guestbook.js');
 /* friend-manage.js — 👥 친구 관리 · 👋 새 친구 요청 팝업(앱 FSD 5번). 같은 까닭 — 만들 때 하는 일은 없지만(상태 초기값뿐) 부르는 곳이 빈 껍데기가 아닌 진짜를 부르게 같이 싣는다. */
 PRELOAD.push('friend-manage.js');
+/* pomodoro.js — 🍅 뽀모도로(앱 FSD 6번). 같은 까닭 — 만들 때 하는 일(tw.pomo 읽기 · 버튼 연결 · 1초 tick · window._pomoShowText 고리)을 같이 굴린다. */
+PRELOAD.push('pomodoro.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

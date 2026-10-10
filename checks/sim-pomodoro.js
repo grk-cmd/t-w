@@ -6,13 +6,16 @@
           달성표와 서랍 하나만 · 포커스 기록(addFocusSeconds)을 건드리지 않는다 · 알림음 풀은 자동재생 잠금 해제 등록보다 **앞**에서 만든다 ·
           머리 위 문구는 _focusShowConf 의 typeof 가드로만(새 필드 없음).
    ・3절: 동작 — 실제 함수(_pomoStartPhase · _pomoAdvance · _pomoTick · _pomoShowText · _pomoLeftMs)를 떼어 시계를 돌려 본다.
-   [실행] app.js · weekly-challenge.js · desk-companion-prototype.html 이 있는 폴더에서.
-   ※ 👑 달성표는 parts/weekly-challenge.js 로 옮겼다(앱 FSD 2번) — _chalOpen 은 그 파일에서 찾고, 뽀모 쪽은 weeklyChal.open(false) 로 부른다. */
+   [실행] app.js · weekly-challenge.js · pomodoro.js · desk-companion-prototype.html 이 있는 폴더에서.
+   ※ 👑 달성표는 parts/weekly-challenge.js 로 옮겼다(앱 FSD 2번) — _chalOpen 은 그 파일에서 찾고, 뽀모 쪽은 weeklyChal.open(false) 로 부른다.
+   ※ 🍅 뽀모 본체는 parts/pomodoro.js 로 옮겼다(앱 FSD 6번) — 뽀모 블록 · _pomo* 함수는 그 파일에서 찾는다. 알림음 풀 · _focusShowConf 는 app.js.
+     만들 때 배선 · 버튼 흐름은 sim-pomodoro-module 이 본다. */
 'use strict';
 const fs = require('fs');
 const SRC  = fs.readFileSync('app.js', 'utf8');
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 let WC = null; try{ WC = fs.readFileSync('weekly-challenge.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — weekly-challenge.js'); process.exit(2); }
+let PM = null; try{ PM = fs.readFileSync('pomodoro.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — pomodoro.js'); process.exit(2); }
 
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -20,9 +23,9 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const grabFn = (name, src = SRC) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0; for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
 const CODE = strip(SRC);
-/* 뽀모 블록 — 머리 주석부터 bindPomo IIFE 끝까지 */
-const P0 = SRC.indexOf('var POMO_KEY'), P1 = SRC.indexOf('setInterval(_pomoTick, 1000);', P0);
-const POMO = (P0 > 0 && P1 > P0) ? SRC.slice(P0, P1 + 60) : '';
+/* 뽀모 블록 — 머리 주석부터 bindPomo IIFE 끝까지(pomodoro.js) */
+const P0 = PM.indexOf('var POMO_KEY'), P1 = PM.indexOf('setInterval(_pomoTick, 1000);', P0);
+const POMO = (P0 > 0 && P1 > P0) ? PM.slice(P0, P1 + 60) : '';
 
 say('── 1. 마크업 · CSS');
 {
@@ -50,21 +53,22 @@ say('── 1. 마크업 · CSS');
 say('── 2. 배선');
 {
   chk(!!POMO, '뽀모 블록을 찾았다(var POMO_KEY … setInterval(_pomoTick))');
-  chk(/^var _pomoRun = null;/m.test(SRC) && /^var _pomoCfg = /m.test(SRC) && !/^(let|const) _pomo(Run|Cfg)\b/m.test(SRC), '★ 상태 변수는 var — let 이면 _focusShowConf 가 로드 중에 TDZ 로 터진다');
+  chk(/^var _pomoRun = null;/m.test(PM) && /^var _pomoCfg = /m.test(PM) && !/^(let|const) _pomo(Run|Cfg)\b/m.test(PM), '상태 변수는 var 그대로(모듈 본문은 app.js 글자 그대로)');
+  chk(!/(^|\n)\s*(var|let|const) _pomo(Run|Cfg)\b|function _pomo\w*\(/.test(CODE), '★ app.js 에는 뽀모 상태 · 함수 정의가 없다(모듈에만) — 로드 중 _focusShowConf 는 typeof 가드로 window 고리만 본다');
   const conf = strip(grabFn('_focusShowConf'));
   chk(/typeof _pomoShowText === 'function'/.test(conf), '★ _focusShowConf 는 typeof 가드로만 뽀모를 본다');
   const iSh = conf.indexOf('_pomoShowText()'), iOf = conf.indexOf('officeMode');
   chk(iSh > iOf && iOf > 0, '회사원 모드 · 꺼짐 판정이 먼저 — 뽀모 문구도 그 게이트 뒤');
   chk(/if\(on\) win\.classList\.remove\('pomo-on'\)/.test(strip(grabFn('_chalOpen', WC))), '달성표를 열면 뽀모 서랍이 닫힌다');
-  chk(/if\(on\)\{ try\{ weeklyChal\.open\(false\); \}catch\(_\)\{\} \}/.test(strip(grabFn('_pomoOpen'))), '뽀모 서랍을 열면 달성표가 닫힌다');
+  chk(/if\(on\)\{ try\{ weeklyChal\.open\(false\); \}catch\(_\)\{\} \}/.test(strip(grabFn('_pomoOpen', PM))), '뽀모 서랍을 열면 달성표가 닫힌다');
   chk(!/addFocusSeconds|_focusTotalSec|_focusTodaySec|_focusSessionSec/.test(strip(POMO)), '★ 포커스 기록을 건드리지 않는다(같은 시간 두 번 · 레벨·달성표 판정 변화 방지)');
   const iPool = CODE.indexOf("_mkSndPool('pomo', POMO_SND_SRC");
   const iPrime = CODE.indexOf("_sndPools.forEach(P=>{ try{ P.prime(); }catch(_){} });");
   chk(iPool > 0 && iPrime > iPool, '★ 알림음 풀은 잠금 해제 등록(once:true) **앞**에서 만든다 — 뒤면 창을 안 볼 때 조용하다');
   chk(/const POMO_SND_SRC = \['parts\/pomodoro-alarm\.mp3', 'pomodoro-alarm\.mp3'\];/.test(CODE), '알림음 경로 parts/pomodoro-alarm.mp3 (+ 같은 폴더 폴백)');
-  chk(/_pomoSnd\.play\(\)/.test(strip(grabFn('_pomoChime'))) && /if\(!_pomoCfg\.sound\) return;/.test(strip(grabFn('_pomoChime'))), '소리는 지정 파일 하나 · 「끝날 때 소리」 꺼짐이면 안 남');
+  chk(/_pomoSnd\.play\(\)/.test(strip(grabFn('_pomoChime', PM))) && /if\(!_pomoCfg\.sound\) return;/.test(strip(grabFn('_pomoChime', PM))), '소리는 지정 파일 하나 · 「끝날 때 소리」 꺼짐이면 안 남');
   chk(!/AudioContext|createOscillator/.test(strip(POMO)), '합성음(WebAudio 삑) 흔적이 없다 — 지정 파일로 바꿨다');
-  chk(/endAt/.test(strip(grabFn('_pomoLeftMs'))), '남은 시간은 끝나는 시각(벽시계)에서 — setInterval 지연에 밀리지 않는다');
+  chk(/endAt/.test(strip(grabFn('_pomoLeftMs', PM))), '남은 시간은 끝나는 시각(벽시계)에서 — setInterval 지연에 밀리지 않는다');
   if(!fs.existsSync('pomodoro-alarm.mp3') && !fs.existsSync('parts/pomodoro-alarm.mp3'))
     say('  · 참고: 이 폴더에 pomodoro-alarm.mp3 가 안 보인다 — 배포본 app/parts/ 에 넣었는지 확인(검사 판정에는 안 넣는다)');
 }
@@ -72,7 +76,7 @@ say('── 2. 배선');
 say('── 3. 동작');
 {
   const env = { now: 1e12, toasts: [], pushes: 0, plays: 0, ls: {} };
-  const fns = ['_pomoClampMin','_pomoSaveCfg','_pomoSaveRun','_pomoPhaseMs','_pomoLeftMs','_pomoFmt','_pomoShowText','_pomoStartPhase','_pomoChime','_pomoAdvance','_pomoTick'].map(n => grabFn(n)).join('\n');
+  const fns = ['_pomoClampMin','_pomoSaveCfg','_pomoSaveRun','_pomoPhaseMs','_pomoLeftMs','_pomoFmt','_pomoShowText','_pomoStartPhase','_pomoChime','_pomoAdvance','_pomoTick'].map(n => grabFn(n, PM)).join('\n');
   const T = new Function('env', `
     const Date = { now: () => env.now };
     const localStorage = { setItem:(k,v)=>{ env.ls[k]=String(v); }, getItem:(k)=>env.ls[k] ?? null, removeItem:(k)=>{ delete env.ls[k]; } };
