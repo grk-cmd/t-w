@@ -21,6 +21,7 @@ export {
   type Selection,
 } from './selection';
 export { DAY_MS, kstDateKey, kstDayStart, lastDateKeys } from './kstDate';
+export { BOT_NAMES, botName } from './botNames';
 export {
   hasUnsavedInput,
   isBackdropPress,

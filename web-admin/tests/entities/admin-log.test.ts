@@ -30,6 +30,7 @@ describe('작업 기록 목록', () => {
     expect(whoLabel('uadmin123', 'uadmin123')).toBe('나');
     expect(whoLabel('uadmin123', 'other')).toBe('uadmin…');
     expect(whoLabel('abc', null)).toBe('abc');
+    expect(whoLabel('github-merge', 'other')).toBe('GitHub 머지');
   });
 
   it('종류 칩 · 화면 이름', () => {

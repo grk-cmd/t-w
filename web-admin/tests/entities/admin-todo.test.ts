@@ -243,6 +243,7 @@ describe('관리자 이름', () => {
     ]);
     expect(adminNameOf('u1', names)).toBe('가나');
     expect(adminNameOf('abcdefghij', names)).toBe('abcdef…');
+    expect(adminNameOf('github-merge', names)).toBe('GitHub 머지');
     expect(adminOptions(names).map((o) => o.name)).toEqual(['가나', '다라']);
   });
 
