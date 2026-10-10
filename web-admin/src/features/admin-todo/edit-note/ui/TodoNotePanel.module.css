@@ -1,0 +1,74 @@
+.panel {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.edit {
+  margin-left: auto;
+}
+
+.view {
+  display: block;
+  width: 100%;
+  padding: 4px 0;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: none;
+  border: 0;
+  cursor: text;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form textarea {
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  resize: vertical;
+  color-scheme: light dark;
+}
+
+.count {
+  align-self: flex-end;
+}
+
+.mine > summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--soft);
+}
+
+.mine textarea {
+  width: 100%;
+  margin-top: 6px;
+  box-sizing: border-box;
+}
+
+.foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}

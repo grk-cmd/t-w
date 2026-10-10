@@ -50,6 +50,29 @@
   border-radius: 999px;
 }
 
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--soft);
+}
+
+.version {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.tail {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .x {
   padding: 0 4px;
   font: inherit;

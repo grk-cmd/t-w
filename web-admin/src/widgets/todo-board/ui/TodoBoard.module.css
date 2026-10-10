@@ -16,6 +16,27 @@
   color-scheme: light dark;
 }
 
+.search {
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color-scheme: light dark;
+}
+
+.searchInfo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
 .mine {
   display: inline-flex;
   align-items: center;

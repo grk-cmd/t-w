@@ -13,6 +13,7 @@ export {
   useDayOrder,
   usePrvTitle,
   useBugNo,
+  useBugNos,
   useRefreshBugBoard,
   useRefreshPrvTitle,
   type BugPost,

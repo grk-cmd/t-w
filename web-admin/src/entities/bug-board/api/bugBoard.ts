@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDb, withAudit, type Db } from '@/shared/api';
 import { DAY_MS, kstDateKey, kstDayStart } from '@/shared/lib';
 import {
@@ -59,6 +59,28 @@ export function useBugItem(id: string) {
     queryKey: [...BUG_KEY, 'item', id],
     queryFn: () => getBugItem(db, id),
     staleTime: 60_000,
+  });
+}
+
+/**
+ * 제보 id → 고정 번호(B-MMDD-n) — 할 일 검색용. useBugItem 과 같은 캐시를 써서, 할 일 카드가 이미 받은 줄이면 다시 읽지 않는다.
+ * 고정 번호가 없는 옛 글 · 지워진 글은 빠진다(임시 번호는 날마다 순번을 세야 해서 검색에 쓰지 않는다).
+ */
+export function useBugNos(ids: readonly string[]): Map<string, string> {
+  const db = useDb();
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: [...BUG_KEY, 'item', id],
+      queryFn: () => getBugItem(db, id),
+      staleTime: 60_000,
+    })),
+    combine: (results) => {
+      const out = new Map<string, string>();
+      results.forEach((r, i) => {
+        if (r.data?.no) out.set(ids[i], r.data.no);
+      });
+      return out;
+    },
   });
 }
 

@@ -1,3 +1,5 @@
+import { joinVersionParts, versionPartsFilled, type VersionParts } from '@/shared/lib';
+
 /*
  * 📋 관리자 할 일 — adminTodos/{id}. 관리자만 읽고 쓴다(규칙). 앱 · 제보 공개 칸과는 따로다.
  *   { title, memo?, status, type?, assignee?, assigneeName?, reports?: { <제보 id>: true }, release?,
@@ -156,6 +158,32 @@ export function filterTodos(list: readonly Todo[], f: TodoFilter, me: string | n
   );
 }
 
+/** 검색어 → 낱말 — 공백(여러 칸 · 전각 공백 포함)으로 나누고 대소문자 무시. 맥에서 붙여 넣은 풀린 한글(NFD)도 같게. */
+export function searchWords(q: string): string[] {
+  return q.normalize('NFC').toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+/**
+ * 검색 — 낱말이 모두(AND) 제목 · 메모 · 연결된 제보(번호 B-1009-1 · id) · 릴리스 버전 어딘가에 들어 있는 것만.
+ * reportNos 는 제보 id → 번호(B-MMDD-n) — 화면이 이미 받아 둔 것만 넘긴다(검색하려고 따로 읽지 않는다).
+ * 낱말이 없으면 그대로.
+ */
+export function searchTodos(
+  list: readonly Todo[],
+  q: string,
+  reportNos: ReadonlyMap<string, string> = new Map(),
+): Todo[] {
+  const ws = searchWords(q);
+  if (!ws.length) return [...list];
+  return list.filter((t) => {
+    const hay = [t.title, t.memo, t.release, ...t.reports.flatMap((r) => [r, reportNos.get(r) ?? ''])]
+      .join('\n')
+      .normalize('NFC')
+      .toLowerCase();
+    return ws.every((w) => hay.includes(w));
+  });
+}
+
 const verParts = (v: string) => {
   const [core = '', pre = ''] = v.replace(/^v/i, '').split('-');
   const nums = core.split('.').map((n) => parseInt(n, 10) || 0);
@@ -204,6 +232,18 @@ export function nextRelease(latest: string | null | undefined): string {
   if (!latest || !TODO_RELEASE_RE.test(latest.replace(/^v/i, ''))) return '';
   const [a, b, c] = verParts(latest).nums;
   return `${a}.${b}.${c + 1}`;
+}
+
+/**
+ * 입력 세 칸 → 릴리스 버전. 모두 빈 칸이면 '' (버전 없음), 일부만 차 있으면 안내 — 빈 칸을 0 으로 보지 않는다.
+ * tail 은 지금 값의 베타 꼬리(-beta.1) — 세 칸에는 넣지 않고 그대로 이어 붙인다.
+ */
+export function releaseFromParts(parts: VersionParts, tail = ''): { release: string } | { error: string } {
+  const filled = versionPartsFilled(parts);
+  if (filled === 'none') return { release: '' };
+  if (filled === 'some')
+    return { error: '릴리스 버전은 세 칸(주 . 부 . 수)을 모두 채우거나 모두 비워 주세요' };
+  return { release: `${joinVersionParts(parts)}${tail}` };
 }
 
 export const draftOf = (t: Todo): TodoDraft => ({

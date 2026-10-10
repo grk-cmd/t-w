@@ -5,12 +5,15 @@ import {
   filterTodos,
   ReleaseBadge,
   releasesOf,
+  searchTodos,
+  searchWords,
   TODO_STATUS,
   TODO_STATUSES,
   TODO_TYPE,
   TODO_TYPE_NONE,
   TODO_TYPES,
   TypeBadge,
+  useRefreshTodoNote,
   useRefreshTodos,
   useTodos,
   type Todo,
@@ -18,12 +21,13 @@ import {
   type TodoStatus,
   type TodoType,
 } from '@/entities/admin/todo';
-import { BugNoText, useBugItem, useBugNo, type BugItem } from '@/entities/bug-board';
+import { BugNoText, useBugItem, useBugNo, useBugNos, type BugItem } from '@/entities/bug-board';
 import { useReleaseDownloads } from '@/entities/release';
 import { ApplyReleaseButton, ReleaseTplPanel } from '@/features/admin-todo/apply-release';
+import { TodoNotePanel } from '@/features/admin-todo/edit-note';
 import { DeleteTodoButton, TodoForm } from '@/features/admin-todo/edit-todo';
 import { useDb } from '@/shared/api';
-import { errorMessage, formatDate, useHashSub } from '@/shared/lib';
+import { errorMessage, formatDate, useHashParam, useHashSub } from '@/shared/lib';
 import styles from './TodoBoard.module.css';
 
 function ReportNo({ item }: { item: BugItem }) {
@@ -126,11 +130,19 @@ function TodoCard({
 export function TodoBoard() {
   const me = useDb().uid();
   const todos = useTodos();
-  const refresh = useRefreshTodos();
+  const refreshTodos = useRefreshTodos();
+  const refreshNote = useRefreshTodoNote();
+  const refresh = () => {
+    void refreshTodos();
+    void refreshNote();
+  };
   const names = useAdminNames().data ?? new Map<string, string>();
   const focusId = useHashSub();
   const [filter, setFilter] = useState<TodoFilter>(ALL_TODOS);
   const [adding, setAdding] = useState(false);
+  // 검색어는 주소(#/todos?q=…)에 — 주소를 복사해 주면 같은 검색으로 열린다.
+  const [query, setQuery] = useHashParam('q');
+  const searching = searchWords(query).length > 0;
   // 출시 여부 배지용 — 화면을 열 때 한 번(자동 재조회 없음 · 다운로드 화면과 같은 캐시). 실패하면 버전만.
   const latest = useReleaseDownloads().data?.[0]?.version;
   const versions = releasesOf(todos.data ?? []);
@@ -138,7 +150,10 @@ export function TodoBoard() {
   if (filter.release !== 'all' && filter.release !== 'none' && !versions.includes(filter.release))
     versions.push(filter.release);
 
-  const shown = filterTodos(todos.data ?? [], filter, me);
+  // 연결된 제보 번호 — 카드가 보이려고 받는 것과 같은 캐시(검색하려고 더 읽지 않는다).
+  const reportNos = useBugNos([...new Set((todos.data ?? []).flatMap((t) => t.reports))]);
+  const filtered = filterTodos(todos.data ?? [], filter, me);
+  const shown = searchTodos(filtered, query, reportNos);
   const active = shown.filter((t) => t.status !== 'done');
   const done = shown.filter((t) => t.status === 'done');
   const focusDone = done.some((t) => t.id === focusId);
@@ -161,7 +176,16 @@ export function TodoBoard() {
         </span>
       </div>
       <ReleaseTplPanel />
+      <TodoNotePanel />
       <div className={styles.filters}>
+        <input
+          type="search"
+          className={styles.search}
+          aria-label="할 일 검색"
+          placeholder="검색 — 제목 · 메모 · 제보 번호 · 버전"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
         <select
           aria-label="상태"
           value={filter.status}
@@ -229,12 +253,23 @@ export function TodoBoard() {
       )}
       {todos.error && <p className="msg err">{errorMessage(todos.error, '할 일 불러오기 실패')}</p>}
       {!todos.error && !todos.data && <p className="soft">불러오는 중…</p>}
+      {todos.data && searching && (
+        <p className={styles.searchInfo}>
+          <span>
+            «{query.trim()}» 검색 결과 {shown.length}건
+            {filtered.length !== shown.length && <span className="soft"> (거른 {filtered.length}건 중)</span>}
+          </span>
+          <button type="button" className="btn" onClick={() => setQuery('')}>
+            검색어 지우기
+          </button>
+        </p>
+      )}
       {todos.data && shown.length === 0 && <p className="soft">해당 할 일 없음</p>}
       <div className={styles.list}>{active.map(card)}</div>
       {done.length > 0 && (
         <details
           className={styles.done}
-          open={focusDone || filter.status === 'done' || filter.release !== 'all'}
+          open={focusDone || searching || filter.status === 'done' || filter.release !== 'all'}
         >
           <summary>완료 {done.length}</summary>
           <div className={styles.list}>{done.map(card)}</div>

@@ -5,8 +5,8 @@ import {
   draftOf,
   emptyDraft,
   nextRelease,
+  releaseFromParts,
   TODO_MEMO_MAX,
-  TODO_RELEASE_MAX,
   TODO_STATUS,
   TODO_STATUSES,
   TODO_TITLE_MAX,
@@ -21,8 +21,8 @@ import {
 } from '@/entities/admin/todo';
 import { useReleaseDownloads } from '@/entities/release';
 import { useDb } from '@/shared/api';
-import { errorMessage } from '@/shared/lib';
-import { useToast } from '@/shared/ui';
+import { errorMessage, toVersionParts, versionPartsFilled, type VersionParts } from '@/shared/lib';
+import { useToast, VersionInput } from '@/shared/ui';
 import { resultMessage } from '../model/saveTodo';
 import { useSaveTodo } from '../model/useSaveTodo';
 import styles from './TodoForm.module.css';
@@ -46,16 +46,22 @@ export function TodoForm({ todo, initial, onDone }: Props) {
   const [seen, setSeen] = useState<Todo | null>(todo ?? null);
   const [draft, setDraft] = useState<TodoDraft>(() => (todo ? draftOf(todo) : (initial ?? emptyDraft())));
   const [error, setError] = useState<string | null>(null);
+  // 릴리스 버전 — 숫자 세 칸. 베타 꼬리(-beta.1)는 칸에 넣지 않고 따로 두었다가 저장 때 그대로 붙인다(× 로 뗄 수 있다).
+  const [relParts, setRelParts] = useState<VersionParts>(() => toVersionParts(draft.release).parts);
+  const [relTail, setRelTail] = useState(() => toVersionParts(draft.release).tail);
+  const loadRelease = (release: string) => {
+    const v = toVersionParts(release);
+    setRelParts(v.parts);
+    setRelTail(v.tail);
+  };
   const set = <K extends keyof TodoDraft>(k: K, v: TodoDraft[K]) => setDraft({ ...draft, [k]: v });
   // 다음 버전 제안 — 최신 공개 릴리스의 다음 patch. 조회 실패 · 아직이면 ''.
   const suggest = nextRelease(useReleaseDownloads().data?.[0]?.version);
-  // 완료로 바꿀 때 버전이 비어 있으면 제안값을 채워 둔다(고쳐 쓸 수 있다).
-  const setStatus = (status: TodoStatus) =>
-    setDraft({
-      ...draft,
-      status,
-      release: status === 'done' && !draft.release.trim() && suggest ? suggest : draft.release,
-    });
+  // 완료로 바꿀 때 버전이 비어 있으면 제안값을 세 칸에 채워 둔다(고쳐 쓸 수 있다).
+  const setStatus = (status: TodoStatus) => {
+    setDraft({ ...draft, status });
+    if (status === 'done' && versionPartsFilled(relParts) === 'none' && suggest) loadRelease(suggest);
+  };
 
   const options = adminOptions(names);
   // 이름표에 없는 작업자(이름을 아직 안 남긴 관리자)도 고를 수 있게 남겨 둔다.
@@ -70,15 +76,18 @@ export function TodoForm({ todo, initial, onDone }: Props) {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    const rel = releaseFromParts(relParts, relTail);
+    if ('error' in rel) return setError(rel.error);
+    const toSave: TodoDraft = { ...draft, release: rel.release };
     const markFixed =
-      becomesDone(seen, draft) &&
-      draft.reports.length > 0 &&
+      becomesDone(seen, toSave) &&
+      toSave.reports.length > 0 &&
       confirm(
-        `연결된 제보 ${draft.reports.length}건을 «수정 완료» 로 바꿀까요?\n(취소하면 할 일만 완료 — 이미 해결된 제보는 그대로)`,
+        `연결된 제보 ${toSave.reports.length}건을 «수정 완료» 로 바꿀까요?\n(취소하면 할 일만 완료 — 이미 해결된 제보는 그대로)`,
       );
     setError(null);
     save.mutate(
-      { id, seen, draft, names, markFixed },
+      { id, seen, draft: toSave, names, markFixed },
       {
         onSuccess: (r) => {
           if (r.ok) {
@@ -95,6 +104,7 @@ export function TodoForm({ todo, initial, onDone }: Props) {
           }
           setSeen(r.latest);
           setDraft(draftOf(r.latest));
+          loadRelease(r.latest.release);
         },
         onError: (err) => setError(errorMessage(err, '저장 실패')),
       },
@@ -149,17 +159,43 @@ export function TodoForm({ todo, initial, onDone }: Props) {
             ))}
           </select>
         </label>
-        <label>
-          릴리스 버전 — 선택
-          <input
-            type="text"
-            inputMode="decimal"
-            maxLength={TODO_RELEASE_MAX}
-            placeholder={`예: ${suggest || '0.11.3'}`}
-            value={draft.release}
-            onChange={(e) => set('release', e.target.value)}
+      </div>
+      <div className={styles.field} role="group" aria-label="릴리스 버전">
+        <span>릴리스 버전 — 선택 · 비워 두면 «버전 없음»</span>
+        <span className={styles.version}>
+          <VersionInput
+            label="릴리스"
+            value={relParts}
+            onChange={setRelParts}
+            placeholder={toVersionParts(suggest || '0.11.3').parts}
           />
-        </label>
+          {relTail && (
+            <span className={styles.tail}>
+              <span className="key">{relTail}</span>
+              <button
+                type="button"
+                className={styles.x}
+                aria-label="베타 꼬리 떼기"
+                title="베타 꼬리 떼기 — 정식 버전으로"
+                onClick={() => setRelTail('')}
+              >
+                ×
+              </button>
+            </span>
+          )}
+          {versionPartsFilled(relParts) !== 'none' && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                setRelParts(['', '', '']);
+                setRelTail('');
+              }}
+            >
+              비우기
+            </button>
+          )}
+        </span>
       </div>
       <label>
         메모 — 선택 · {TODO_MEMO_MAX}자까지

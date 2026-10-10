@@ -1,6 +1,6 @@
 export { copyText, errorMessage, formatDate, formatHours } from './format';
 export { paginate } from './paginate';
-export { hashParts, useHashSub } from './hashRoute';
+export { hashParam, hashParts, useHashParam, useHashSub, withHashParam } from './hashRoute';
 export {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZES,
@@ -29,3 +29,11 @@ export {
   type DismissState,
   type FieldLike,
 } from './dialogDismiss';
+export {
+  cleanVersionPart,
+  joinVersionParts,
+  toVersionParts,
+  VERSION_PART_MAX_DIGITS,
+  versionPartsFilled,
+  type VersionParts,
+} from './versionParts';
