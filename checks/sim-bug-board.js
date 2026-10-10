@@ -10,6 +10,10 @@
               ④ inbox tag 에 bug  + 목록에 title 은 공개 글만 · kakao 는 open.kakao.com 만 · 하루 작성 수 본인만
      §2 bug-board.js 를 실제로 돌린다 — ⑤ 비공개 글의 목록 줄에 title 이 없다 · 입력 확인 · 배지 수
      §3 연결 — firebase-init · 우편함 · 화면 스크립트 순서 · 비공개 행은 누를 수 없다
+     §4 쪽 넘김 — 가짜 RTDB(정렬 · endBefore · limitToLast 를 흉내)에 글 45개 + 공지 2개를 넣고 [다음] 으로 끝까지 걷는다.
+        한 번에 20개 넘게 받지 않는다 · 빠짐 · 겹침 없음 · [이전] 은 같은 쪽 · 미해결도 같은 방식
+     §5 창이 안 늘어난다 — 버그제보 페이지 높이 고정(440px) · 목록은 #bbRows 안에서 스크롤 · [이전]/[다음] 은 안 줄어든다
+        (예전엔 min-height 만 있어 [전체] 20줄 + 공지만큼 마이홈 창이 세로로 화면 끝까지 늘어났다)
    ⚠️ 규칙을 **실제로 돌려 본 것**은 이 검사가 아니다(에뮬레이터 필요). 그 결과는 커밋 메시지에 남겼다. */
 'use strict';
 const fs = require('fs');
@@ -167,6 +171,113 @@ chk(/prvOnly \? ' checked disabled'/.test(UI), '비공개 글이면 답변 공�
 const noC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 chk(!/\b(alert|confirm|prompt)\(/.test(noC(UI)), 'alert · confirm · prompt 를 쓰지 않는다');
 chk(!/innerHTML[^;]*\+\s*(it|ct|a|post)\.(title|body|text|name|env|kakao)\b/.test(UI), '사용자 문자열은 esc() 를 거쳐 innerHTML 에 들어간다');
+
+say('§4 쪽 넘김 (가짜 RTDB)');
+{
+  /* RTDB 정렬 흉내 — orderByChild 값이 없는 글(null)이 맨 앞, 그다음 숫자 오름차순, 같으면 키 순.
+     endBefore(v) 는 v 보다 앞(= null 포함), limitToLast(n) 은 뒤에서 n 개. */
+  const mk = (n0, extra) => {
+    const DB = {};
+    for (let i = 0; i < 45; i++) {
+      const id = 'p' + String(i).padStart(2, '0');
+      DB[id] = { vis: 'pub', status: i % 3 ? 'fixed' : 'new', cat: 'bug', title: '글 ' + i, ts: 10000 + i * 10 };
+      if (DB[id].status === 'new') DB[id].openTs = DB[id].ts;
+    }
+    // 공지 둘 — 가장 최근 쪽에 끼워 둔다(1쪽에서 걸러져도 [다음] 이 켜져야 한다)
+    DB.n1 = { vis: 'pub', status: 'new', cat: 'etc', title: '공지1', notice: true, ts: 10445, nts: 10445 };
+    DB.n2 = { vis: 'pub', status: 'new', cat: 'etc', title: '공지2', notice: true, ts: 10305, nts: 10305 };
+    return Object.assign(DB, extra || {});
+  };
+  const fake = (DB) => {
+    const reads = [];
+    const cmp = (k) => (a, b) => {
+      const va = DB[a][k], vb = DB[b][k];
+      const na = typeof va === 'number', nb = typeof vb === 'number';
+      if (na !== nb) return na ? 1 : -1;
+      if (na && va !== vb) return va - vb;
+      return a < b ? -1 : a > b ? 1 : 0;
+    };
+    const deps = {
+      db: {}, ref: (_, p) => ({ path: p || '' }),
+      query: (r, ...cs) => ({ path: r.path, cs }),
+      orderByChild: (k) => ({ t: 'o', k }), limitToLast: (n) => ({ t: 'l', n }), endBefore: (v) => ({ t: 'e', v }), equalTo: (v) => ({ t: 'q', v }),
+      get: async (q) => {
+        if (!q.cs || q.path !== 'bugBoard/list') return { val: () => null };
+        const o = q.cs.find(c => c.t === 'o'), l = q.cs.find(c => c.t === 'l'), e = q.cs.find(c => c.t === 'e'), eq = q.cs.find(c => c.t === 'q');
+        let ids = Object.keys(DB).sort(cmp(o.k));
+        if (eq) ids = ids.filter(id => DB[id][o.k] === eq.v);
+        if (e) ids = ids.filter(id => !(typeof DB[id][o.k] === 'number') || DB[id][o.k] < e.v);
+        if (l) ids = ids.slice(-l.n);
+        reads.push({ limit: l ? l.n : Infinity, got: ids.length });
+        const out = {}; ids.forEach(id => { out[id] = DB[id]; });
+        return { val: () => (ids.length ? out : null) };
+      },
+      update: async () => {}, push: () => ({ key: 'k' }), runTransaction: async () => {}, authUid: () => 'uA', now: () => 1,
+    };
+    return { bb: M.createBugBoard(deps), reads };
+  };
+  // [다음] 을 끝까지 누른다 — 화면(bug-board-ui.js)처럼 커서를 쌓는다
+  const walk = async (bb, filter) => {
+    const cursors = [null], pages = [];
+    for (let guard = 0; guard < 10; guard++) {
+      const r = await bb.listPage(filter, cursors[cursors.length - 1]);
+      pages.push(r.items.map(it => it.id));
+      if (r.next == null) break;
+      cursors.push(r.next);
+    }
+    return { pages, cursors };
+  };
+  pending.push((async () => {
+    const DB = mk();
+    const { bb, reads } = fake(DB);
+    const { pages, cursors } = await walk(bb, 'all');
+    const ids = [].concat(...pages);
+    chk(pages[0].length === 18 && !pages[0].some(id => /^n/.test(id)), '§4 전체 1쪽: 받은 20개 중 공지 2개는 빼고 18개 (공지는 위에 따로 고정)');
+    chk(pages.length === 3 && pages[1].length === 20 && pages[2].length === 7, '§4 전체: 글 45개 + 공지 2개 → 18 · 20 · 7 세 쪽 (' + pages.map(p => p.length).join(' · ') + ')');
+    chk(ids.length === 45 && new Set(ids).size === 45, '§4 전체: 45개가 빠짐 · 겹침 없이 다 나온다');
+    chk(ids.every((id, i) => i === 0 || DB[ids[i - 1]].ts > DB[id].ts), '§4 전체: 쪽을 넘겨도 최근 → 오래된 순서가 이어진다');
+    chk(reads.every(r => r.limit <= 20 && r.got <= 20), '§4 한 번에 20개 넘게 받지 않는다 (노드를 통째로 안 받는다 · 받은 수 ' + reads.map(r => r.got).join('/') + ')');
+    const back = await bb.listPage('all', cursors[1]);
+    chk(JSON.stringify(back.items.map(it => it.id)) === JSON.stringify(pages[1]), '§4 [이전] 으로 돌아와도 같은 쪽');
+    const notes = await bb.notices();
+    chk(notes.length === 2 && notes[0].id === 'n1', '§4 공지는 따로 읽어 맨 위(최근 것 먼저)');
+  })());
+  pending.push((async () => {
+    const DB = mk();
+    const { bb, reads } = fake(DB);
+    const { pages } = await walk(bb, 'open');
+    const ids = [].concat(...pages);
+    const want = Object.keys(DB).filter(id => typeof DB[id].openTs === 'number');
+    chk(ids.length === want.length && new Set(ids).size === want.length && ids.every(id => typeof DB[id].openTs === 'number'),
+      '§4 미해결: ' + want.length + '개가 빠짐 · 겹침 없이 · 해결된 글은 안 섞인다');
+    chk(reads.every(r => r.got <= 20), '§4 미해결도 한 번에 20개까지');
+  })());
+  pending.push((async () => {
+    // 딱 20개면 [다음] 이 한 번 켜지고 2쪽은 비어 «더 이전 제보가 없어요» (규칙이 21개 미리보기를 막아서 생기는 헛걸음 한 번)
+    const DB = {};
+    for (let i = 0; i < 20; i++) DB['q' + i] = { vis: 'pub', status: 'fixed', cat: 'bug', ts: 500 + i };
+    const { bb } = fake(DB);
+    const { pages } = await walk(bb, 'all');
+    chk(pages.length === 2 && pages[0].length === 20 && pages[1].length === 0, '§4 딱 20개 → 1쪽 20 · 2쪽 빈 쪽에서 끝');
+  })());
+}
+
+say('§5 창이 안 늘어난다 (CSS)');
+{
+  const rule = (sel) => {
+    const re = new RegExp('(^|\\n)\\s*' + sel.replace(/[.*+?^${}()|[\]\\#]/g, '\\$&') + '\\{([^}]*)\\}');
+    const m = HTML.match(re); return m ? m[2].replace(/\s+/g, '') : '';
+  };
+  const pg = rule('#mhPageBugreport'), rows = rule('#bbRows'), lv = rule('#bbListView'), board = rule('#bbBoard'), pager = rule('.bb-pager');
+  const fr = (HTML.match(/#mhPageFriend\.on\{[^}]*height:(\d+)px/) || [])[1];
+  chk(/(^|;)height:440px/.test(pg) && /overflow-y:auto/.test(pg) && fr === '440',
+    '§5 버그제보 페이지 높이는 440px 로 고정(친구 탭과 같음) — min-height 만 두면 목록만큼 창이 늘어난다');
+  chk(/height:100%/.test(board) && /display:flex/.test(lv) && /flex-direction:column/.test(lv) && /height:100%/.test(lv),
+    '§5 목록 화면은 페이지 높이를 채우는 세로 flex');
+  chk(/overflow-y:auto/.test(rows) && /flex:11(0|0px)/.test(rows), '§5 #bbRows 가 남은 높이를 받고 그 안에서 스크롤한다');
+  chk(/flex-shrink:0/.test(pager) && /flex-shrink:0/.test(rule('.bb-bar')), '§5 [이전]/[다음] · 위 단추 줄은 줄어들지 않는다(늘 보인다)');
+  chk(/rows\.scrollTop = 0/.test(UI), '§5 쪽을 넘기면 목록 스크롤을 맨 위로');
+}
 
 Promise.all(pending).catch(e => chk(false, '검사가 던졌다: ' + (e && e.stack || e))).then(() => {
   say('');
