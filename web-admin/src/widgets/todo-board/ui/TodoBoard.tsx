@@ -13,6 +13,7 @@ import {
   TODO_TYPE_NONE,
   TODO_TYPES,
   TypeBadge,
+  useRefreshTodoNote,
   useRefreshTodos,
   useTodos,
   type Todo,
@@ -23,6 +24,7 @@ import {
 import { BugNoText, useBugItem, useBugNo, useBugNos, type BugItem } from '@/entities/bug-board';
 import { useReleaseDownloads } from '@/entities/release';
 import { ApplyReleaseButton, ReleaseTplPanel } from '@/features/admin-todo/apply-release';
+import { TodoNotePanel } from '@/features/admin-todo/edit-note';
 import { DeleteTodoButton, TodoForm } from '@/features/admin-todo/edit-todo';
 import { useDb } from '@/shared/api';
 import { errorMessage, formatDate, useHashParam, useHashSub } from '@/shared/lib';
@@ -128,7 +130,12 @@ function TodoCard({
 export function TodoBoard() {
   const me = useDb().uid();
   const todos = useTodos();
-  const refresh = useRefreshTodos();
+  const refreshTodos = useRefreshTodos();
+  const refreshNote = useRefreshTodoNote();
+  const refresh = () => {
+    void refreshTodos();
+    void refreshNote();
+  };
   const names = useAdminNames().data ?? new Map<string, string>();
   const focusId = useHashSub();
   const [filter, setFilter] = useState<TodoFilter>(ALL_TODOS);
@@ -169,6 +176,7 @@ export function TodoBoard() {
         </span>
       </div>
       <ReleaseTplPanel />
+      <TodoNotePanel />
       <div className={styles.filters}>
         <input
           type="search"
