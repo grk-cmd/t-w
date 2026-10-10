@@ -17,3 +17,12 @@
   border-color: var(--accent);
   font-weight: bold;
 }
+
+.pending {
+  border-style: dashed;
+}
+
+.released {
+  border-color: var(--ok);
+  color: var(--ok);
+}

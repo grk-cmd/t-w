@@ -4,7 +4,9 @@ import {
   becomesDone,
   draftOf,
   emptyDraft,
+  nextRelease,
   TODO_MEMO_MAX,
+  TODO_RELEASE_MAX,
   TODO_STATUS,
   TODO_STATUSES,
   TODO_TITLE_MAX,
@@ -13,6 +15,7 @@ import {
   type TodoDraft,
   type TodoStatus,
 } from '@/entities/admin/todo';
+import { useReleaseDownloads } from '@/entities/release';
 import { useDb } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
@@ -40,6 +43,15 @@ export function TodoForm({ todo, initial, onDone }: Props) {
   const [draft, setDraft] = useState<TodoDraft>(() => (todo ? draftOf(todo) : (initial ?? emptyDraft())));
   const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof TodoDraft>(k: K, v: TodoDraft[K]) => setDraft({ ...draft, [k]: v });
+  // 다음 버전 제안 — 최신 공개 릴리스의 다음 patch. 조회 실패 · 아직이면 ''.
+  const suggest = nextRelease(useReleaseDownloads().data?.[0]?.version);
+  // 완료로 바꿀 때 버전이 비어 있으면 제안값을 채워 둔다(고쳐 쓸 수 있다).
+  const setStatus = (status: TodoStatus) =>
+    setDraft({
+      ...draft,
+      status,
+      release: status === 'done' && !draft.release.trim() && suggest ? suggest : draft.release,
+    });
 
   const options = adminOptions(names);
   // 이름표에 없는 작업자(이름을 아직 안 남긴 관리자)도 고를 수 있게 남겨 둔다.
@@ -100,7 +112,7 @@ export function TodoForm({ todo, initial, onDone }: Props) {
       <div className={styles.row}>
         <label>
           상태
-          <select value={draft.status} onChange={(e) => set('status', e.target.value as TodoStatus)}>
+          <select value={draft.status} onChange={(e) => setStatus(e.target.value as TodoStatus)}>
             {TODO_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {TODO_STATUS[s]}
@@ -118,6 +130,17 @@ export function TodoForm({ todo, initial, onDone }: Props) {
               </option>
             ))}
           </select>
+        </label>
+        <label>
+          릴리스 버전 — 선택
+          <input
+            type="text"
+            inputMode="decimal"
+            maxLength={TODO_RELEASE_MAX}
+            placeholder={`예: ${suggest || '0.11.3'}`}
+            value={draft.release}
+            onChange={(e) => set('release', e.target.value)}
+          />
         </label>
       </div>
       <label>

@@ -1,6 +1,6 @@
 /*
  * 📋 관리자 할 일 — adminTodos/{id}. 관리자만 읽고 쓴다(규칙). 앱 · 제보 공개 칸과는 따로다.
- *   { title, memo?, status, assignee?, assigneeName?, reports?: { <제보 id>: true },
+ *   { title, memo?, status, assignee?, assigneeName?, reports?: { <제보 id>: true }, release?,
  *     createdBy, createdAt, updatedBy, updatedAt, rev }
  * rev — 고칠 때마다 +1. 규칙이 «지금 rev + 1» 만 받아서, 화면에서 본 뒤 남이 먼저 고쳤으면 내 쓰기가 거절된다.
  */
@@ -12,6 +12,9 @@ export const TODO_MEMO_MAX = 2000;
 export const REPORT_ID_RE = /^[A-Za-z0-9_-]{20}$/;
 // 화면에서만 거는 상한 — 한 할 일에 제보를 끝없이 붙이지 않게.
 export const TODO_REPORTS_MAX = 30;
+// 릴리스 버전 — 이 일이 실려 나가는(나간) 앱 버전. 규칙 adminTodos/$id/release 와 같은 모양 · 길이.
+export const TODO_RELEASE_RE = /^\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/;
+export const TODO_RELEASE_MAX = 20;
 
 export type TodoStatus = 'todo' | 'doing' | 'done';
 export const TODO_STATUS: Record<TodoStatus, string> = {
@@ -31,6 +34,8 @@ export interface Todo {
   assignee: string | null;
   assigneeName: string;
   reports: string[];
+  /** 릴리스 버전 — 없으면 ''. */
+  release: string;
   createdBy: string;
   createdAt: number;
   updatedBy: string;
@@ -45,6 +50,7 @@ export interface TodoDraft {
   status: TodoStatus;
   assignee: string | null;
   reports: string[];
+  release: string;
 }
 
 const isStatus = (v: unknown): v is TodoStatus => typeof v === 'string' && Object.hasOwn(TODO_STATUS, v);
@@ -66,6 +72,8 @@ export function toTodo(id: string, v: unknown): Todo | null {
     assignee: typeof r.assignee === 'string' ? r.assignee : null,
     assigneeName: typeof r.assigneeName === 'string' ? r.assigneeName : '',
     reports,
+    // 칸이 없던 옛 할 일 · 모양이 틀린 값은 «버전 없음».
+    release: typeof r.release === 'string' && TODO_RELEASE_RE.test(r.release) ? r.release : '',
     createdBy: String(r.createdBy ?? ''),
     createdAt: typeof r.createdAt === 'number' ? r.createdAt : 0,
     updatedBy: String(r.updatedBy ?? ''),
@@ -108,17 +116,70 @@ export interface TodoFilter {
   /** 'all' · 'none'(작업자 없음) · 관리자 uid */
   assignee: string;
   mine: boolean;
+  /** 'all' · 'none'(버전 없음) · 버전 */
+  release: string;
 }
 
-export const ALL_TODOS: TodoFilter = { status: 'all', assignee: 'all', mine: false };
+export const ALL_TODOS: TodoFilter = { status: 'all', assignee: 'all', mine: false, release: 'all' };
 
 export function filterTodos(list: readonly Todo[], f: TodoFilter, me: string | null): Todo[] {
   return list.filter(
     (t) =>
       (f.status === 'all' || t.status === f.status) &&
       (f.assignee === 'all' || (f.assignee === 'none' ? !t.assignee : t.assignee === f.assignee)) &&
-      (!f.mine || (!!me && t.assignee === me)),
+      (!f.mine || (!!me && t.assignee === me)) &&
+      (f.release === 'all' || (f.release === 'none' ? !t.release : t.release === f.release)),
   );
+}
+
+const verParts = (v: string) => {
+  const [core = '', pre = ''] = v.replace(/^v/i, '').split('-');
+  const nums = core.split('.').map((n) => parseInt(n, 10) || 0);
+  return { nums: [nums[0] ?? 0, nums[1] ?? 0, nums[2] ?? 0], pre };
+};
+
+const compareCore = (a: string, b: string) => {
+  const x = verParts(a).nums;
+  const y = verParts(b).nums;
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i];
+  return 0;
+};
+
+/** a < b 면 음수 — 같은 번호면 베타(0.11.3-beta.1)가 정식(0.11.3)보다 앞이다. */
+export function compareRelease(a: string, b: string): number {
+  const c = compareCore(a, b);
+  if (c) return c;
+  const pa = verParts(a).pre;
+  const pb = verParts(b).pre;
+  if (pa === pb) return 0;
+  if (!pa) return 1;
+  if (!pb) return -1;
+  const [na = '', ia = '0'] = pa.split('.');
+  const [nb = '', ib = '0'] = pb.split('.');
+  return na === nb ? parseInt(ia, 10) - parseInt(ib, 10) : na < nb ? -1 : 1;
+}
+
+/** 목록에 있는 버전 — 새 버전부터(거르기 칸). */
+export function releasesOf(list: readonly Todo[]): string[] {
+  return [...new Set(list.map((t) => t.release).filter(Boolean))].sort((a, b) => compareRelease(b, a));
+}
+
+export type ReleaseState = 'released' | 'pending';
+
+/**
+ * 출시 여부 — latest 는 GitHub 최신 공개(정식) 릴리스. 모르면(조회 실패 · 아직) null.
+ * 번호가 latest 이하면 출시됨 — 0.11.3-beta.1 도 정식 0.11.3 이 나왔으면 그 안에 실려 나갔다.
+ */
+export function releaseState(release: string, latest: string | null | undefined): ReleaseState | null {
+  if (!release || !latest) return null;
+  return compareCore(release, latest) <= 0 ? 'released' : 'pending';
+}
+
+/** 다음 버전 제안 — 최신 공개 릴리스의 다음 patch(0.11.2 → 0.11.3). 모르면 ''. */
+export function nextRelease(latest: string | null | undefined): string {
+  if (!latest || !TODO_RELEASE_RE.test(latest.replace(/^v/i, ''))) return '';
+  const [a, b, c] = verParts(latest).nums;
+  return `${a}.${b}.${c + 1}`;
 }
 
 export const draftOf = (t: Todo): TodoDraft => ({
@@ -127,6 +188,7 @@ export const draftOf = (t: Todo): TodoDraft => ({
   status: t.status,
   assignee: t.assignee,
   reports: [...t.reports],
+  release: t.release,
 });
 
 export const emptyDraft = (reports: string[] = [], title = ''): TodoDraft => ({
@@ -135,6 +197,7 @@ export const emptyDraft = (reports: string[] = [], title = ''): TodoDraft => ({
   status: 'todo',
   assignee: null,
   reports,
+  release: '',
 });
 
 /** 입력 확인 — 문제없으면 null. */
@@ -146,12 +209,15 @@ export function checkDraft(d: TodoDraft): string | null {
   if (!isStatus(d.status)) return '상태 필요';
   if (d.reports.some((r) => !REPORT_ID_RE.test(r))) return '제보 id 모양이 틀림';
   if (new Set(d.reports).size > TODO_REPORTS_MAX) return `제보는 ${TODO_REPORTS_MAX}개까지`;
+  const release = d.release.trim();
+  if (release.length > TODO_RELEASE_MAX) return `릴리스 버전은 ${TODO_RELEASE_MAX}자까지`;
+  if (release && !TODO_RELEASE_RE.test(release)) return '릴리스 버전은 0.11.3 · 0.12.0-beta.1 모양으로';
   return null;
 }
 
 /**
  * 저장할 값 한 덩어리 — 새로 만들면 rev 0 · 만든 사람 · 만든 시각, 고치면 본 값(prev)의 것을 그대로 두고 rev + 1.
- * 빈 메모 · 작업자 없음 · 제보 없음은 칸을 두지 않는다(규칙이 빈 글자를 받지 않는다).
+ * 빈 메모 · 작업자 없음 · 제보 없음 · 버전 없음은 칸을 두지 않는다(규칙이 빈 글자를 받지 않는다).
  */
 export function todoValue(
   d: TodoDraft,
@@ -163,12 +229,14 @@ export function todoValue(
   const memo = d.memo.trim().slice(0, TODO_MEMO_MAX);
   const reports = [...new Set(d.reports)].filter((r) => REPORT_ID_RE.test(r));
   const name = assigneeName.trim().slice(0, 40);
+  const release = d.release.trim();
   return {
     title: d.title.trim().slice(0, TODO_TITLE_MAX),
     ...(memo ? { memo } : {}),
     status: d.status,
     ...(d.assignee ? { assignee: d.assignee, ...(name ? { assigneeName: name } : {}) } : {}),
     ...(reports.length ? { reports: Object.fromEntries(reports.map((r) => [r, true])) } : {}),
+    ...(release && TODO_RELEASE_RE.test(release) ? { release } : {}),
     createdBy: prev ? prev.createdBy : me,
     createdAt: prev ? prev.createdAt : now,
     updatedBy: me,
@@ -184,6 +252,7 @@ export function todoChanges(prev: Todo | null, d: TodoDraft, nameOf: (uid: strin
     const parts = [TODO_STATUS[d.status]];
     if (d.assignee) parts.push(`작업자 ${who(d.assignee)}`);
     if (d.reports.length) parts.push(`제보 ${d.reports.length}건`);
+    if (d.release.trim()) parts.push(`릴리스 ${d.release.trim()}`);
     return parts.join(' · ');
   }
   const out: string[] = [];
@@ -191,6 +260,8 @@ export function todoChanges(prev: Todo | null, d: TodoDraft, nameOf: (uid: strin
   if (prev.assignee !== d.assignee) out.push(`작업자 ${who(prev.assignee)} → ${who(d.assignee)}`);
   if (prev.title !== d.title.trim()) out.push('제목');
   if (prev.memo !== d.memo.trim()) out.push('메모');
+  if (prev.release !== d.release.trim())
+    out.push(`릴리스 ${prev.release || '없음'} → ${d.release.trim() || '없음'}`);
   const before = new Set(prev.reports);
   const after = new Set(d.reports);
   const added = [...after].filter((r) => !before.has(r)).length;
