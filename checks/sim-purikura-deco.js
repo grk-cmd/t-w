@@ -21,7 +21,10 @@ const P = require('./purikura-net.js');
 /* 📷 촬영 창 · 무대 · 꾸미기 화면은 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 let PU = null; try{ PU = fs.readFileSync('purikura-ui.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — purikura-ui.js'); process.exit(2); }
-const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + PU;
+/* 🏠 마이홈 BGM 창구(_mhBgmPlaying · _mhBgmSetPlaying)는 parts/myhome-edit.js 가 건다(앱 FSD 7-2) — 같은 방식으로 이어 붙인다.
+   ⚠️ 빼면 «창구는 표시만 바꾼다»(없어야 할 글을 찾는 검사)가 아무것도 안 보고 초록이 된다. */
+let ME = null; try{ ME = fs.readFileSync('myhome-edit.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
+const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + PU + '\n' + ME;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;
