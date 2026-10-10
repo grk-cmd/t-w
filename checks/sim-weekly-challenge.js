@@ -7,7 +7,8 @@
    ・5절: 🎯집중 · 🔁반복 — 판정 키 · 다른 플랫폼 조건은 안 셈 · keyAlt · 반복 알림 팝업 · 못 채우는 날 확정
    ・6절: 로그아웃 지우기(resetMemory) · 서버 동기화(ts 최신 승 · 읽기 실패면 아무것도 안 함)
    ・7절: app.js 배선 — 정의는 모듈에만 · createWeeklyChallenge 는 원래 자리 · 부르는 곳은 weeklyChal.이름 · CHAL_KEY 는 app.js · html 순서 · 전역 이름
-   [실행] weekly-challenge.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
+   [실행] weekly-challenge.js · app.js · pomodoro.js · desk-companion-prototype.html 이 있는 폴더에서.
+   ※ 🍅 뽀모 서랍은 parts/pomodoro.js 로 옮겼다(앱 FSD 6번) — 뽀모 쪽이 weeklyChal.open(false) 를 부르는 곳은 그 파일에서 본다. */
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
@@ -15,10 +16,10 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['weekly-challenge.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['weekly-challenge.js', 'app.js', 'desk-companion-prototype.html', 'pomodoro.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['weekly-challenge.js'];
+const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['weekly-challenge.js'], POMO = SRC['pomodoro.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 6) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
 
@@ -314,12 +315,12 @@ await sec('── 7. app.js 배선', () => {
   chk(!/function _chal\w+\(|\blet chalRec\b|const CHAL_PHASE\b|function syncChalToServer\(/.test(code), '달성표 정의는 app.js 에 없다(모듈에만)');
   chk(/function _chalTick\(/.test(MOD) && /function syncChalToServer\(/.test(MOD) && /window\.TwWeeklyChallenge = api/.test(MOD), '모듈이 정의 · window.TwWeeklyChallenge');
   chk((code.match(/TwWeeklyChallenge\.createWeeklyChallenge\(/g) || []).length === 1, 'createWeeklyChallenge 는 한 곳');
-  const iMk = code.indexOf('TwWeeklyChallenge.createWeeklyChallenge('), iAct = code.indexOf('function _applyActiveAppState('), iPomo = APP.indexOf('/* ═══ 🍅 뽀모도로');
+  const iMk = code.indexOf('TwWeeklyChallenge.createWeeklyChallenge('), iAct = code.indexOf('function _applyActiveAppState('), iPomo = APP.indexOf('TwPomodoro.createPomodoro(');   // 🍅 뽀모도로는 pomodoro.js 로(앱 FSD 6번) — 그 자리의 연결 줄
   chk(iAct > 0 && iMk > iAct && strip(APP.slice(0, iPomo)).length >= iMk, '원래 자리 — 활성 앱 판정 뒤 · 🍅 뽀모도로 앞');
   chk(/const CHAL_KEY = 'tw\.chal';/.test(APP) && !/'tw\.chal'/.test(strip(MOD)) && /storageKey: CHAL_KEY/.test(APP), 'CHAL_KEY 는 app.js(계정 전환 지움 목록) — 모듈은 deps 로');
   chk(/weeklyChal\.syncChalToServer\('launcher'\)/.test(code) && /call\(weeklyChal\.syncChalToServer, 'logout'\)/.test(code) && /weeklyChal\.resetMemory\(\)/.test(code)
-    && /!pcNotFocusing\) weeklyChal\.focusTick\(state, dt\)/.test(code) && /weeklyChal\.setKeyPlatform\(/.test(code) && /weeklyChal\.open\(false\)/.test(code),
-    '부르는 곳 — 런처 동기화 · 로그아웃 flush · 메모리 지우기 · 🎯 초 · 플랫폼 · 뽀모 서랍');
+    && /!pcNotFocusing\) weeklyChal\.focusTick\(state, dt\)/.test(code) && /weeklyChal\.setKeyPlatform\(/.test(code) && /weeklyChal\.open\(false\)/.test(strip(POMO)) && /weeklyChal: weeklyChal,/.test(code),
+    '부르는 곳 — 런처 동기화 · 로그아웃 flush · 메모리 지우기 · 🎯 초 · 플랫폼 · 뽀모 서랍(pomodoro.js — weeklyChal 을 deps 로)');
   const off = (APP.match(/const WEEKLY_CHAL_OFF = \{([^\n]*)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/weeklyChal\.(\w+)/g) || []).map(s => s.split('.')[1]))];
   chk(off && used.every(n => new RegExp('\\b' + n + '\\b').test(off)), '빈 껍데기 WEEKLY_CHAL_OFF 가 부르는 이름을 다 갖는다 (' + used.join(' · ') + ')');
