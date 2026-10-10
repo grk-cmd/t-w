@@ -64,6 +64,8 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'todo.create': '할 일 추가',
   'todo.update': '할 일 수정',
   'todo.delete': '할 일 삭제',
+  'todo.applyRelease': '릴리스 반영',
+  'todo.releaseTpl': '릴리스 답변 템플릿',
   'account.delete': '계정 삭제',
 };
 

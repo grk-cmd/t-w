@@ -15,6 +15,7 @@ import {
 } from '@/entities/admin/todo';
 import { BugNoText, useBugItem, useBugNo, type BugItem } from '@/entities/bug-board';
 import { useReleaseDownloads } from '@/entities/release';
+import { ApplyReleaseButton, ReleaseTplPanel } from '@/features/admin-todo/apply-release';
 import { DeleteTodoButton, TodoForm } from '@/features/admin-todo/edit-todo';
 import { useDb } from '@/shared/api';
 import { errorMessage, formatDate, useHashSub } from '@/shared/lib';
@@ -147,11 +148,13 @@ export function TodoBoard() {
           <button type="button" className="btn primary" onClick={() => setAdding(true)} disabled={adding}>
             새 할 일
           </button>
+          <ApplyReleaseButton />
           <button type="button" className="btn" onClick={refresh}>
             새로고침
           </button>
         </span>
       </div>
+      <ReleaseTplPanel />
       <div className={styles.filters}>
         <select
           aria-label="상태"
