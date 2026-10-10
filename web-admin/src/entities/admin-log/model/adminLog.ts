@@ -1,5 +1,4 @@
 import type { AuditAction, AuditRecord } from '@/shared/api';
-import { botName } from '@/shared/lib';
 
 // adminLog/{id} = { at, by, action, target, detail? } — 쓰는 쪽은 shared/api/audit.ts.
 export interface AdminLogEntry {
@@ -95,9 +94,9 @@ export const actionLabel = (action: string): string =>
 export const inGroup = (entry: AdminLogEntry, group: LogGroup): boolean =>
   group === 'all' || entry.action.split('.')[0] === group;
 
-/** 관리자 이메일은 남기지 않는다 — 나면 «나», 봇이면 그 이름, 아니면 uid 앞부분. */
+/** 관리자 이메일은 남기지 않는다 — 나면 «나», 아니면 uid 앞부분. */
 export const whoLabel = (by: string, me: string | null): string =>
-  by === me ? '나' : (botName(by) ?? (by.length > 6 ? `${by.slice(0, 6)}…` : by));
+  by === me ? '나' : by.length > 6 ? `${by.slice(0, 6)}…` : by;
 
 /** 최근 것부터. 모양이 틀린 줄은 뺀다. */
 export function toLogEntries(all: Record<string, Partial<AuditRecord>>): AdminLogEntry[] {

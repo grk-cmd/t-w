@@ -3,8 +3,6 @@
  * admins 는 규칙상 아무도 못 읽어서, 관리자 목록 · 이름은 여기서만 안다.
  * 웹 관리자에 들어올 때 구글 이름으로 본인 칸을 채운다 — 한 번도 안 들어온 관리자는 목록에 없다.
  */
-import { botName } from '@/shared/lib';
-
 export const ADMIN_NAMES_ROOT = 'adminNames';
 export const ADMIN_NAME_MAX = 40; // 규칙 adminNames/$uid/name
 
@@ -23,7 +21,7 @@ export function toAdminNames(raw: unknown): Map<string, string> {
 export const shortUid = (uid: string) => (uid.length > 6 ? `${uid.slice(0, 6)}…` : uid);
 
 export const adminNameOf = (uid: string, names: ReadonlyMap<string, string>) =>
-  names.get(uid) ?? botName(uid) ?? shortUid(uid);
+  names.get(uid) ?? shortUid(uid);
 
 /** 구글 이름 → 저장할 이름. 비었으면 null(쓰지 않는다). */
 export function cleanAdminName(displayName: string | null | undefined): string | null {
