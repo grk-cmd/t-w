@@ -4,20 +4,22 @@
     "desk-companion-prototype.html": 24,
     "animal.js": 2,
     "app-version-gate.js": 1,
-    "app.js": 12,
+    "app.js": 4,
     "friend-manage.js": 1,
     "guestbook.js": 3,
     "mallang.js": 1,
-    "myhome-desktop.js": 18
+    "myhome-desktop.js": 18,
+    "myhome-edit.js": 8
   },
   "greys": {
     "desk-companion-prototype.html": 145,
     "animal.js": 6,
     "app-version-gate.js": 4,
-    "app.js": 110,
+    "app.js": 44,
     "guestbook.js": 27,
     "mallang.js": 20,
     "myhome-desktop.js": 134,
+    "myhome-edit.js": 66,
     "purikura-net.js": 2,
     "purikura-ui.js": 2,
     "scheduler.js": 1

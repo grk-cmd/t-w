@@ -178,11 +178,14 @@ say('§2 계정을 바꾼 뒤 자동 저장이 옛 계정 마이홈으로 덮어
   const load = (APP.match(/async function loadMyHomePage\(\)\{[\s\S]*?\n\}/) || [''])[0];
   chk(/const _loadUid = getMyUserId\(\);/.test(load) && /if\(getMyUserId\(\) !== _loadUid\) return;/.test(load) && /_myHomeUid = _loadUid;/.test(load),
     '★ 불러올 때 계정 코드를 적어 둔다 · 불러오는 사이 계정이 바뀌면 붙들지 않는다');
-  const i = APP.indexOf('async function commitMyHomePage(silent){');
-  const commit = APP.slice(i, i + 2500);
-  const iUid = commit.indexOf('if(_myHomeLoaded && _myHomeUid !== getMyUserId()){'), iSave = commit.indexOf('firebaseAPI.saveMyHome(');
-  chk(iUid > 0 && iSave > iUid, '★ 저장 전에 «불러온 계정 = 지금 계정» 을 본다');
-  chk(/_myHomeLoaded = false;[\s\S]{0,200}return;/.test(commit.slice(iUid, iUid + 400)), '  다르면 저장하지 않고 불러온 상태도 무효로');
+  /* 자동 저장(commitMyHomePage)은 myhome-edit.js 로 옮겼다(앱 FSD 7-2) — 거기서는 app.js 의 let 을
+     읽는 함수 _myHomeLoaded() · _myHomeUid() 와 쓰는 함수 _setMyHomeLoaded(false) 로 다룬다. */
+  const EDIT = read('myhome-edit.js') || '';
+  const i = EDIT.indexOf('async function commitMyHomePage(silent){');
+  const commit = i < 0 ? '' : EDIT.slice(i, i + 2500);
+  const iUid = commit.indexOf('if(_myHomeLoaded() && _myHomeUid() !== getMyUserId()){'), iSave = commit.indexOf('firebaseAPI.saveMyHome(');
+  chk(iUid > 0 && iSave > iUid, '★ 저장 전에 «불러온 계정 = 지금 계정» 을 본다' + (EDIT ? '' : ' — myhome-edit.js 를 못 찾음'));
+  chk(/_setMyHomeLoaded\(false\);[\s\S]{0,200}return;/.test(commit.slice(iUid, iUid + 400)), '  다르면 저장하지 않고 불러온 상태도 무효로');
   // 흉내 — 계정 A 로 불러온 뒤 B 로 바뀐 상태에서 저장
   const sim = (loadedUid, nowUid) => { let loaded = true, saved = false; if (loaded && loadedUid !== nowUid) { loaded = false; return { saved, loaded }; } saved = true; return { saved, loaded }; };
   chk(!sim('uA', 'uB').saved && sim('uA', 'uA').saved, '  흉내 — 바뀐 계정이면 안 쓰고, 같은 계정이면 쓴다');

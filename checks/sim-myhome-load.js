@@ -18,6 +18,10 @@ const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const APP = read('app.js');
 if (!APP) { say('  ? 원본 못 찾음 — app.js'); process.exit(2); }
+/* 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 · 프리셋은 myhome-edit.js 로 옮겼다(앱 FSD 7-2).
+   거기서는 _myHomeData 가 app.js 의 let 을 읽는 함수라 _myHomeData().X 로 쓴다. */
+const EDIT = read('myhome-edit.js');
+if (!EDIT) { say('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
 
 /* 이름으로 함수 본문을 중괄호 짝으로 떼어 온다(문자열 속 중괄호는 이 함수들에 없다). */
 function fnSrc(src, name){
@@ -29,8 +33,8 @@ function fnSrc(src, name){
 }
 const constVal = (src, name) => { const m = src.match(new RegExp('const ' + name + '\\s*=\\s*(\\d+)')); return m ? +m[1] : null; };
 
-/* app.js 에서 _myHomeData 에 쓰는 칸 이름 전부 */
-const writtenKeys = [...new Set([...APP.matchAll(/_myHomeData\.([A-Za-z_]\w*)\s*=(?!=)/g)].map(m => m[1]))];
+/* app.js · myhome-edit.js 에서 _myHomeData 에 쓰는 칸 이름 전부(모듈 쪽은 _myHomeData().X = …) */
+const writtenKeys = [...new Set([...(APP + '\n' + EDIT).matchAll(/_myHomeData(?:\(\))?\.([A-Za-z_]\w*)\s*=(?!=)/g)].map(m => m[1]))];
 
 function judge(fromSrc, quiet){
   let bad = 0;
@@ -61,10 +65,10 @@ function judge(fromSrc, quiet){
   c(!!again.themePresets && again.themePresets[2] && again.themePresets[2].name === '겨울', '두 번째 저장에도 프리셋이 남는다');
 
   /* 디자인 스튜디오가 칸 이름을 그리는 함수를 그대로 떼어 와 돌린다 */
-  const presetFns = ['_mhPresets', '_mhPresetCur', '_mhPresetLabel'].map(n => fnSrc(APP, n));
+  const presetFns = ['_mhPresets', '_mhPresetCur', '_mhPresetLabel'].map(n => fnSrc(EDIT, n));
   if (presetFns.every(Boolean)){
     const lab = new Function('_myHomeData', 'MH_PRESET_MAX', 'MH_PRESET_NAME_MAX',
-      presetFns.join('\n') + '\nreturn { label:_mhPresetLabel, cur:_mhPresetCur };')(back, constVal(APP, 'MH_PRESET_MAX') || 3, constVal(APP, 'MH_PRESET_NAME_MAX') || 8);
+      presetFns.join('\n') + '\nreturn { label:_mhPresetLabel, cur:_mhPresetCur };')(() => back, constVal(EDIT, 'MH_PRESET_MAX') || 3, constVal(EDIT, 'MH_PRESET_NAME_MAX') || 8);
     c(lab.label(0) === '봄' && lab.label(1) === '2' && lab.label(2) === '겨울', '★ 다시 연 디자인 스튜디오 프리셋 이름 — 봄 · 2 · 겨울 (지금: ' + [0, 1, 2].map(lab.label).join(' · ') + ')');
     c(lab.cur() === 2, '고른 칸(themePresetCur)이 되살아난다');
   } else c(false, '프리셋 함수(_mhPresets · _mhPresetCur · _mhPresetLabel)를 못 찾음');
