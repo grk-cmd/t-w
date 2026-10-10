@@ -16889,7 +16889,10 @@ async function _chatDelRun(){
 }
 /* 🎛️ 방 메타가 바뀔 때마다 firebase-init 의 _meta 리스너가 부른다.
    방장 승계·채널 변경도 같은 값으로 오므로 멤버줄(👑)도 여기서 같이 갱신한다. */
-window._onRoomMeta = function(){
+window._onRoomMeta = function(meta){
+  /* 채널도 표지를 따라간다 — 예전에는 입장할 때 한 번만 정해서, 도중에 표지가 바뀌거나 되살아나면 같은 방 안에서
+     누구는 채팅 · 누구는 이모티콘으로 갈렸다. 표지가 잠깐 비는 순간(null · channel 없음)은 그대로 둔다. */
+  if(meta && (meta.channel === 'togetherroom' || meta.channel === 'workingroom')) window._activeChannel = (meta.channel === 'togetherroom') ? 2 : 1;
   try{ _chatTabsOnMeta(); }catch(_){}
   try{ _chatOffRefreshUI(); }catch(_){}
   try{ if(typeof _refreshChatMembers==='function') _refreshChatMembers(); }catch(_){}
@@ -32344,7 +32347,7 @@ async function startRoom(code){
           _channel = (_rec && _rec.channel) || 'workingroom';
           if(_rec && _rec.recovered){
             console.log('[방] 표지가 없어 채널을 다시 세웠어요 —', code, _channel);
-            if(_channel === 'togetherroom') toast('방 정보가 비어 있어 투게더룸으로 다시 세웠어요 👑');
+            if(_channel === 'togetherroom') toast('방 정보가 비어 있어 투게더룸으로 다시 세웠어요' + (_iAmLicensed2 ? ' 👑' : ''));
           }
         } else {
           _channel = await firebaseAPI.getRoomChannel(code);   // 구버전 폴백 · 읽기 실패

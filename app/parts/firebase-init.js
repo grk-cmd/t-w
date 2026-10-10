@@ -34,6 +34,7 @@
   import { firebaseConfig, FIREBASE_ENV } from "./firebase-config.js";
   import { createGhostHeal } from "./room-ghost-heal.js";
   import { createRoomIndex } from "./room-index.js";
+  import { recoverChannelFor } from "./room-channel.js";
   import { createRoomStats } from "./room-stats.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room-alive.js";
   import { createInviteAccount } from "./invite-account.js";
@@ -2848,11 +2849,14 @@
     async recoverRoomChannel(room, myUserId, licensed){
       try{
         let had = false;
+        const want = recoverChannelFor(room, licensed);   // PLAY-/WORK- 는 접두어대로 — 들어오는 사람의 라이선스가 아니다
         const res = await runTransaction(ref(db, `rooms/${room}/_meta`), cur => {
           if(cur && cur.channel){ had = true; return; }   // 이미 있다 — 중단(아무것도 안 쓴다)
           const meta = cur || {};
-          meta.channel = licensed ? 'togetherroom' : 'workingroom';
-          if(!meta.host && myUserId) meta.host = myUserId;   // 방장이 비었을 때만 — 남의 방장을 뺏지 않는다
+          meta.channel = want;
+          // 방장은 비었을 때만 채운다(남의 방장을 뺏지 않는다). 투게더룸은 보유자만 — 무료 사용자가 방장이면
+          // 그 사람이 나갈 때 승계할 보유자가 없어 방이 해산된다. 방장 칸이 빈 방은 승계 · 해산 대상이 아니다(_maybeSucceedHost).
+          if(!meta.host && myUserId && (want !== 'togetherroom' || licensed)) meta.host = myUserId;
           meta.ts = _svNow();
           return meta;
         });
