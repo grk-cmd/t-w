@@ -1,7 +1,7 @@
 # 릴리스 방법: 버전 올리기부터 배포까지
 
 > 릴리스 순서는 **① 규칙 → ② 최신화 → ③ 빌드**입니다. 이 문서는 ②와 ③을 다룹니다.
-> ①(Firebase 규칙)은 자동입니다. 규칙 파일을 바꿔 `main`에 push하면 **dev에 자동 반영**되고(`deploy-dev.yml`), 버전 태그를 push하면 규칙이 바뀐 경우에만 **승인을 거쳐 운영에 반영**된 뒤 빌드됩니다(`release.yml`). GCP 설정 전이라 건너뛰면 경고가 뜨니, 그때는 직접 배포합니다 → [GIT_CONVENTION.md 4장](GIT_CONVENTION.md#4-firebase-규칙--functions-배포)
+> ①(Firebase 규칙)은 dev 만 자동입니다. 규칙 파일을 바꿔 `main`에 push하면 **dev에 자동 반영**되고(`deploy-dev.yml`), **운영은 태그 전에 사람이 직접** `firebase deploy --only database --project together-working` 합니다. `release.yml` 은 규칙을 확인하거나 배포하지 않습니다.
 
 ---
 
@@ -85,7 +85,7 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 | Windows 검사 | `latest.yml` 버전 · sha512 가 exe 와 맞는가 · 앱이 켜져 20초 살아 있는가 | 자동 업데이트가 깨질 파일 · 켜자마자 꺼지는 앱 |
 | Mac 검사 | dmg 가 열리는가(`hdiutil verify`) · 안의 앱 버전 · arch · 켜져 20초 살아 있는가 | 손상된 dmg(0.10.2 때) · 버전이 섞인 dmg |
 | Releases 초안 | 파일이 정확히 5개인가 · 모든 파일을 **한 초안**에 업로드 · 올라간 파일 sha256 = 원본 | 이름 겹침 · 업로드 중 손상. 이미 **공개된** 릴리스는 덮어쓰지 않음 |
-| 공개 | 위가 전부 통과하면 Publish. 정식은 «Latest», 베타는 Pre-release | 규칙이 바뀌었는데 운영 배포가 안 됐으면 **초안으로 둠**(아래 5번) |
+| 공개 | 위가 전부 통과하면 Publish. 정식은 «Latest», 베타는 Pre-release | |
 
 ---
 
@@ -100,7 +100,6 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 
 **초안으로 남는 경우**
 - 검사가 빨강: Actions › release 에서 원인을 보고 고친 뒤 새 버전으로 다시 냅니다. 초안은 지웁니다.
-- 규칙이 바뀌었는데 운영 자동 배포가 꺼져 있을 때(GCP 설정 전): `firebase deploy --only database --project together-working` 으로 규칙을 먼저 배포하고, Releases 에서 초안을 열어 **Publish release** 를 누릅니다.
 
 **공개 후 (해당할 때만)**: 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 `config/minRoomVer`를 새 버전으로 바꿉니다. 웹 관리자(https://together-working.web.app/admin/) → ⚙️ 설정 → **방 입장 최소 버전** → 숫자 세 칸에 버전(예: `0 . 10 . 2`) → 저장 → 확인. 공개된 최신 릴리스보다 높은 값은 막힌다. 올리면 그보다 낮은 앱은 업데이트 전까지 방에 못 들어가니, 맥(직접 설치)까지 고려해 공지 뒤 며칠 두고 올린다.
 
@@ -120,7 +119,7 @@ git push --follow-tags
 | | 테스트 빌드 (`v0.10.2-beta.0`) | 정식 빌드 (`v0.10.2`) |
 |---|---|---|
 | 앱이 접속하는 Firebase | **dev (`together-working-dev`)** | 운영 (`together-working`) |
-| 운영 규칙 배포 | 하지 않음 | 규칙이 바뀌었으면 승인 후 배포 |
+| 운영 규칙 배포 | 하지 않음 | 하지 않음(태그 전에 사람이 직접) |
 | Releases 표시 | **Pre-release** | Latest |
 | 일반 사용자 자동 업데이트 | **받지 않음** | 받음 |
 | 설치 | 내부 사람이 Releases 페이지에서 직접 받음 | 자동 |

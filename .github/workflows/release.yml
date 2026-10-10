@@ -9,9 +9,8 @@
 # ★ 초안에 모두 올린 뒤 한 번에 공개한다 — 파일이 하나씩 공개되면 latest.yml 만 먼저 보인 사이에
 #   업데이트를 확인한 앱이 아직 없는 exe 를 받으려다 실패한다.
 #   검사로 못 잡는 것(로그인 · 방 입장 같은 기능)은 베타로 미리 써 보고 정식을 누른다.
-# ① 규칙: 이전 태그 이후 firebase-database-rules.json 이 바뀌었으면 **운영 배포(production 환경 승인)** 를 빌드보다 먼저 한다.
-#   dev 는 main push 때 deploy-dev.yml 이 이미 반영했다. GCP 설정(vars) 전이면 이 단계는 건너뛴다(⚠️ 그땐 사람이 직접 배포).
-#   Functions 배포는 권한이 넓어서 넣지 않는다.
+# ① 규칙: 워크플로는 규칙을 다루지 않는다 — 운영 규칙 배포는 사람이 태그 전에 직접 한다(firebase deploy --only database).
+#   dev 는 main push 때 deploy-dev.yml 이 반영한다. Functions 도 직접 배포.
 # 🔐 oauth-config.js(시크릿)는 npm ci **뒤에** 만든다 — 의존성 설치 스크립트가 시크릿 파일을 읽을 틈을 주지 않는다.
 # 🧪 테스트 빌드: 태그에 '-' 가 붙으면(예: v0.10.2-beta.0 ← npm version prerelease --preid=beta) 프리릴리스로 본다.
 #   · package.json 에 `twFirebase: dev` 를 박아(--config.extraMetadata) **dev Firebase 에 붙는** 앱을 만든다
@@ -80,61 +79,10 @@ jobs:
             process.exit(1);
           ' "$TAG" "$LAST"
 
-  # ── ① 규칙: 이전 태그 이후 규칙 파일이 바뀌었나 ──
-  rules-check:
-    name: 규칙 변경 확인
-    needs: verify
-    runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.d.outputs.changed }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.TAG }}
-          fetch-depth: 0
-      - id: d
-        run: |
-          # 정식 태그끼리만 비교한다 — 베타 태그(v*-*)를 «이전» 으로 잡으면 베타 때 이미 들어간 규칙 변경을
-          # «안 바뀜» 으로 보고 운영 배포를 건너뛴다(운영에는 아직 없는데).
-          PREV=$(git describe --tags --abbrev=0 --match 'v*' --exclude 'v*-*' "$TAG^" 2>/dev/null || true)
-          echo "이전 태그: ${PREV:-없음}"
-          case "$TAG" in *-*) echo "테스트 빌드 — 운영 규칙 배포 대상 아님"; echo "changed=false" >> "$GITHUB_OUTPUT"; exit 0;; esac
-          if [ -z "$PREV" ] || ! git diff --quiet "$PREV" "$TAG" -- firebase-database-rules.json; then
-            echo "규칙 파일이 바뀌었다 → 운영 배포 대상"; echo "changed=true" >> "$GITHUB_OUTPUT"
-            if [ -z "${{ vars.GCP_WIF_PROVIDER }}" ]; then echo "::warning::규칙이 바뀌었지만 GCP 설정(vars)이 없어 자동 배포를 건너뛴다 — Publish 전에 사람이 firebase deploy --only database 를 할 것"; fi
-          else
-            echo "규칙 변경 없음"; echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  # ── ① 규칙 → 운영 (production 환경: 승인자가 눌러야 시작한다) ──
-  rules-prod:
-    name: 규칙 → 운영
-    needs: [verify, rules-check]
-    if: needs.verify.outputs.prerelease != 'true' && needs.rules-check.outputs.changed == 'true' && vars.GCP_WIF_PROVIDER != '' && vars.GCP_SA_EMAIL != ''
-    runs-on: ubuntu-latest
-    environment: production
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.TAG }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SA_EMAIL }}
-      - name: firebase deploy --only database (운영)
-        run: npx --yes firebase-tools@15.32.1 deploy --only database --project together-working --non-interactive
-
   # ── Windows: exe · blockmap · latest.yml (latest.yml 은 Windows 자동 업데이트가 읽는다) ──
   build-win:
     name: Windows x64
-    needs: [verify, rules-prod]
-    if: always() && needs.verify.result == 'success' && (needs.rules-prod.result == 'success' || needs.rules-prod.result == 'skipped')
+    needs: [verify]
     # windows-latest(Server 2025) 에서는 node-gyp 가 Visual Studio 를 못 찾아 node-window-manager 빌드가 실패했다.
     # VS 2022 + C++ 도구가 들어 있는 이미지로 고정한다. 이미지가 은퇴하면 node-gyp 를 올려 새 이미지로 옮길 것.
     runs-on: windows-2022
@@ -210,8 +158,7 @@ jobs:
   # ── Mac: arm64 · x64 따로 (mac-probe 와 같은 이유 — 한쪽이 죽어도 다른 쪽을 잃지 않게) ──
   build-mac:
     name: macOS ${{ matrix.arch }}
-    needs: [verify, rules-prod]
-    if: always() && needs.verify.result == 'success' && (needs.rules-prod.result == 'success' || needs.rules-prod.result == 'skipped')
+    needs: [verify]
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -291,9 +238,7 @@ jobs:
   # ── 한 초안에 모아 올린다 (병렬 업로드로 초안이 둘 생기는 경쟁을 피하려고 마지막에 한 번) ──
   publish-draft:
     name: Releases 초안
-    needs: [verify, rules-check, rules-prod, build-win, build-mac]
-    # 위 빌드들은 rules-prod 를 needs 로 거친다. 그 단계가 건너뛰어지면(베타 · 규칙이 안 바뀐 릴리스) GitHub 은
-    # 기본 조건(success())으로 이 job 까지 건너뛴다 — always() 로 받고 셋의 결과를 직접 본다.
+    needs: [verify, build-win, build-mac]
     if: always() && needs.verify.result == 'success' && needs.build-win.result == 'success' && needs.build-mac.result == 'success'
     runs-on: ubuntu-latest
     permissions:
@@ -361,17 +306,9 @@ jobs:
           done
           exit $BAD
       - name: 공개 (Publish)
-        env:
-          RULES_CHANGED: ${{ needs.rules-check.outputs.changed }}
-          RULES_PROD: ${{ needs.rules-prod.result }}
         run: |
           # 위 검사가 하나라도 빨강이면 여기까지 오지 않는다 — 초안으로 남는다.
           REPO=${{ github.repository }}
-          # 규칙이 바뀌었는데 운영 배포를 못 했으면(GCP 설정 전) 새 앱이 옛 규칙에 막힐 수 있다 — 사람이 배포하고 누르게 둔다.
-          if [ "$PRERELEASE" != "true" ] && [ "$RULES_CHANGED" = "true" ] && [ "$RULES_PROD" != "success" ]; then
-            echo "::warning::규칙이 바뀌었는데 운영 배포가 안 됐다 — 초안으로 둔다. firebase deploy --only database --project together-working 후 Releases 에서 Publish"
-            exit 0
-          fi
           if [ "$PRERELEASE" = "true" ]; then
             gh release edit "$TAG" -R "$REPO" --draft=false --prerelease
           else
