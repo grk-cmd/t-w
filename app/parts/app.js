@@ -11775,7 +11775,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
     // 🎨 스티커 관리/움직임 창도 마이홈에 종속된 UI — 같이 닫는다.
     //   안 닫으면 마이홈이 사라진 화면 한가운데에 창만 덩그러니 남는다(움직임 창에서 실제로 겪은 종류).
     _step('스티커 창', ()=>{
-      if(typeof closeStickerMgr==='function') closeStickerMgr();
+      myHomeSticker.close();
       if(typeof _mhCloseStickerAnim==='function') _mhCloseStickerAnim();
     });
     _step('창 크기 복귀', ()=>{ if(typeof applyDesktopRunClass==='function') applyDesktopRunClass(); });   // 창 크기 원래대로 복귀
@@ -12560,7 +12560,7 @@ function renderMyHomeStickers(){
   const activeTab = document.querySelector('#myHomeTabs .mh-tab.on');
   const onHomeTab = activeTab && activeTab.dataset.tab === 'home';
   zone.classList.toggle('hidden', !onHomeTab);
-  if(!onHomeTab){ _mhStickerEditEnd(); return; }
+  if(!onHomeTab){ myHomeSticker.editEnd(); return; }
 
   const data = _mhStickersData();
   const canEdit = _mhCanEditStickers();
@@ -12608,7 +12608,7 @@ function renderMyHomeStickers(){
     el.addEventListener('contextmenu', e=>{
       e.preventDefault(); e.stopPropagation();
       if(!canEdit) return;
-      _mhStickerEditStart(sid);
+      myHomeSticker.editStart(sid);
     });
 
     if(canEdit){
@@ -12617,7 +12617,7 @@ function renderMyHomeStickers(){
       del.onclick=e=>{
         e.stopPropagation();
         delete _myHomeData.stickers[sid];
-        _mhStickerEditEnd();
+        myHomeSticker.editEnd();
         renderMyHomeStickers(); commitMyHomePage(true);
       };
       el.appendChild(del);
@@ -12630,7 +12630,7 @@ function renderMyHomeStickers(){
 
       // 크기 조절 핸들 (편집모드에서만 보임)
       const handle=document.createElement('div'); handle.className='mh-sticker-handle';
-      _mhBindStickerResize(handle, sid);
+      myHomeSticker.bindResize(handle, sid);
       el.appendChild(handle);
 
       // 회전 핸들 + 각도 라벨 + 회전 초기화 버튼
@@ -12640,136 +12640,47 @@ function renderMyHomeStickers(){
 
       const rot=document.createElement('div'); rot.className='mh-sticker-rot';
       rot.title='드래그해서 회전 (3° 단위)';
-      _mhBindStickerRotate(rot, sid, rotLbl);
+      myHomeSticker.bindRotate(rot, sid, rotLbl);
       el.appendChild(rot);
 
 
       // 드래그로 이동 (편집모드에서만)
-      _mhBindStickerDrag(el, sid);
+      myHomeSticker.bindDrag(el, sid);
     }
     zone.appendChild(el);
   });
 }
 
-/* ============================================================ 🎨 스티커 관리 창
-   [왜 필요했나] 스티커를 드래그하다 마이홈 창 밖으로 밀어내면 화면에서 통째로 사라지는데,
-   보이지 않는 것은 우클릭도 드래그도 못 하니 되돌릴 방법이 아예 없었다(제보 증상).
-   목록으로 두면 밖으로 나갔든 다른 스티커에 완전히 가려졌든 언제나 손이 닿는다.
-   ★ 밀려나는 것 자체는 _mhClampStickerPos로 막았다 — 이 창은 그 전에 이미 밀려난 것의 구제 수단이자,
-     "붙인 스티커가 지금 몇 개이고 어디 있는지"를 한눈에 보는 자리다.
-   ⚠️ 관람 중(_mhViewingUserId)에는 열지 않는다. 남의 스티커를 옮기거나 지우면 안 된다. */
-function openStickerMgr(){
-  if(_mhViewingUserId){ toast('친구 홈에서는 스티커를 관리할 수 없어요'); return; }
-  const ov=document.getElementById('mhStickerMgrOverlay'); if(!ov) return;
-  ov.classList.add('on');
-  renderStickerMgr();
-}
-function closeStickerMgr(){
-  const ov=document.getElementById('mhStickerMgrOverlay'); if(ov) ov.classList.remove('on');
-}
-function renderStickerMgr(){
-  const ov=document.getElementById('mhStickerMgrOverlay');
-  if(!ov || !ov.classList.contains('on')) return;
-  const list=document.getElementById('stMgrList'); if(!list) return;
-  const data=(_myHomeData && _myHomeData.stickers) || {};
-  const ids=Object.keys(data);
-  const cnt=document.getElementById('stMgrCount');
-  if(cnt) cnt.textContent = ids.length + ' / ' + STICKER_MAX;
-  const addBtn=document.getElementById('stMgrAdd');
-  if(addBtn) addBtn.disabled = ids.length >= STICKER_MAX;
-  const outCount = ids.filter(id=>_mhStickerOutOfView(data[id])).length;
-  const allBtn=document.getElementById('stMgrBringAll');
-  if(allBtn) allBtn.disabled = outCount === 0;
-
-  list.innerHTML='';
-  if(!ids.length){
-    const d=document.createElement('div'); d.className='st-mgr-empty';
-    d.textContent='아직 붙인 스티커가 없어요.\n[＋ 새 스티커]로 이미지를 골라 붙여보세요.';
-    d.style.whiteSpace='pre-line';
-    list.appendChild(d); return;
-  }
-  ids.forEach(sid=>{
-    const s=data[sid];
-    const row=document.createElement('div'); row.className='st-mgr-row';
-
-    const th=document.createElement('div'); th.className='st-mgr-th';
-    if(s.img){ const im=document.createElement('img'); im.src=s.img; im.draggable=false; th.appendChild(im); }
-    else th.textContent = s.emoji || '⭐';
-    row.appendChild(th);
-
-    const meta=document.createElement('div'); meta.className='st-mgr-meta';
-    const out=_mhStickerOutOfView(s);
-    const pos=document.createElement('div');
-    pos.innerHTML = '위치 ' + Math.round(s.x||0) + ', ' + Math.round(s.y||0)
-      + ' · 크기 ' + Math.round(((typeof s.size==='number'&&s.size>0)?s.size:1)*100) + '%'
-      + (out ? ' <span class="st-mgr-out">· 화면 밖</span>' : '');
-    meta.appendChild(pos);
-    const lk=document.createElement('span'); lk.className='lk';
-    lk.textContent = s.link ? ('🔗 ' + s.link) : '링크 없음';
-    lk.title = s.link || '';
-    meta.appendChild(lk);
-    row.appendChild(meta);
-
-    const btns=document.createElement('div'); btns.className='st-mgr-btns';
-    const mk=(txt, title, fn)=>{ const b=document.createElement('button'); b.type='button';
-      b.textContent=txt; b.title=title; b.onclick=fn; btns.appendChild(b); return b; };
-
-    mk('◎', '보이는 자리로 데려오기', ()=>{
-      _mhBringStickerIn(sid);
-      renderMyHomeStickers(); commitMyHomePage(true); renderStickerMgr();
-    });
-    /* ★ 편집은 관리 창을 닫고 스티커 자체로 넘긴다 — 이동·크기·회전은 실제 화면에서 봐야 맞출 수 있다.
-       화면 밖에 있던 스티커라면 먼저 데려온 뒤 편집모드로 들어간다(안 그러면 또 안 보인다). */
-    mk('✎', '편집 (이동·크기·회전)', ()=>{
-      if(_mhStickerOutOfView(s)){ _mhBringStickerIn(sid); commitMyHomePage(true); }
-      closeStickerMgr();
-      renderMyHomeStickers();
-      _mhStickerEditStart(sid);
-    });
-    mk('✨', '움직임 고르기', ()=>{ _mhOpenStickerAnim(sid); });
-    /* 🔗 링크 수정 — 예전엔 "등록 후에는 못 바꾼다"고 안내하고 삭제 후 재등록을 시켰다.
-       고칠 자리가 생겼으니 여기서 바꾼다(이미지를 다시 고를 필요가 없다). */
-    mk('🔗', '링크 바꾸기', async ()=>{
-      const v=await asyncPrompt({ title:'스티커 링크',
-        message:'클릭 시 이동할 링크 (비우면 링크 없음)\n\n※ 시스템 기본 브라우저에서 열려요.',
-        defaultValue:s.link||'', maxLength:300 });
-      if(v===null || v===undefined) return;                 // 취소 — 그대로 둔다
-      const u=(v||'').trim().slice(0,300);
-      if(u && !/^https?:\/\//i.test(u)){ toast('http:// 또는 https:// 로 시작하는 주소만 넣을 수 있어요'); return; }
-      s.link = u || null;
-      renderMyHomeStickers(); commitMyHomePage(true); renderStickerMgr();
-    });
-    mk('×', '삭제', ()=>{
-      if(!confirm('이 스티커를 지울까요?')){ window.focus(); return; } window.focus();
-      delete _myHomeData.stickers[sid];
-      if(_mhStickerEditSid===sid) _mhStickerEditEnd();
-      renderMyHomeStickers(); commitMyHomePage(true); renderStickerMgr();
-    });
-    row.appendChild(btns);
-    list.appendChild(row);
-  });
-}
-/* 스티커를 보이는 자리로 — 창 밖이면 창 안으로 당기고, 이미 안이면 눈에 띄게 가운데로 옮긴다.
-   "◎를 눌렀는데 아무 일도 안 일어난다"가 없도록 두 경우 모두 무언가는 움직인다. */
-function _mhBringStickerIn(sid){
-  const s=(_myHomeData && _myHomeData.stickers || {})[sid]; if(!s) return;
-  if(!_mhStickerOutOfView(s)){
-    const { W, H } = _mhHomeWinSize();
-    const d = _mhStickerDispSize(s);
-    s.x = Math.round((W - d.w)/2); s.y = Math.round((H - d.h)/2);
-  }
-  _mhClampStickerPos(s);
-}
-try{
-  document.getElementById('stMgrClose').onclick = closeStickerMgr;
-  document.getElementById('stMgrBringAll').onclick = ()=>{
-    const data=(_myHomeData && _myHomeData.stickers) || {};
-    let n=0;
-    Object.keys(data).forEach(sid=>{ if(_mhStickerOutOfView(data[sid])){ _mhClampStickerPos(data[sid]); n++; } });
-    if(n){ renderMyHomeStickers(); commitMyHomePage(true); toast(n+'개를 화면 안으로 데려왔어요'); }
-    renderStickerMgr();
-  };
-}catch(_){}
+/* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
+   ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다.
+   함수 deps 는 화살표로 감싼다(부를 때 찾게) — renderMyHomeStickers 는 아래 bindMyHomePage 가 감싸 다시 대입하고,
+   commitMyHomePage 는 그 묶음이 window 에 거는 이름이다. _myHomeData · _mhViewingUserId · _mhStickerEditSid 는 다시 대입되는 let 이라
+   읽는 함수로, _mhStickerEditSid · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다(두 let 은 renderMyHomeStickers 가 읽어서 여기 둔다).
+   STICKER_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로. 부르는 곳은 myHomeSticker.이름(전부 마이홈을 연 뒤에 돈다).
+   🔗 마이홈 본문 링크(bindMyHomeExternalLinks)와 bindMyHomePage(마이홈 페이지 편집 묶음)는 스티커 관리 창이 아니라 여기 남겼다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const MYHOME_STICKER_OFF = { open(){}, close(){}, render(){}, bringIn(){}, editStart(){}, editEnd(){},
+  bindDrag(){}, bindRotate(){}, bindResize(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
+const myHomeSticker = (typeof TwMyHomeSticker === 'undefined') ? MYHOME_STICKER_OFF : TwMyHomeSticker.createMyHomeSticker({
+  toast: (...a)=>toast(...a),
+  asyncPrompt: (...a)=>asyncPrompt(...a),
+  commitMyHomePage: (...a)=>commitMyHomePage(...a),
+  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  mhStickerOutOfView: (...a)=>_mhStickerOutOfView(...a),
+  mhClampStickerPos: (...a)=>_mhClampStickerPos(...a),
+  mhStickerDispSize: (...a)=>_mhStickerDispSize(...a),
+  mhHomeWinSize: (...a)=>_mhHomeWinSize(...a),
+  mhStickerTransform: (...a)=>_mhStickerTransform(...a),
+  mhOpenStickerAnim: (...a)=>_mhOpenStickerAnim(...a),
+  myHomeData: ()=>_myHomeData,
+  mhViewingUserId: ()=>_mhViewingUserId,
+  mhStickerEditSid: ()=>_mhStickerEditSid,
+  setMhStickerEditSid: (v)=>{ _mhStickerEditSid = v; },
+  setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },
+  stickerMax: STICKER_MAX,
+  stickerBase: STICKER_BASE,
+  stickerRotSnap: STICKER_ROT_SNAP,
+});
 
 /* 🔗 마이홈 본문(자기소개·게시글) 안의 링크 — 시스템 기본 브라우저로 연다.
    [증상] 마이홈 글에 링크를 걸고 누르면 그 페이지가 **앱 창 안에서** 열린다.
@@ -12799,143 +12710,6 @@ try{
     else { try{ window.open(href, '_blank', 'noopener'); }catch(_){} }
   }, true);
 })();
-
-function _mhStickerEditStart(sid){
-  _mhStickerEditSid = sid;
-  const hint = document.getElementById('mhStickerEditHint');
-  if(hint) hint.classList.add('on');
-  renderMyHomeStickers();
-  // 빈 곳을 누르면 편집 종료
-  setTimeout(()=>document.addEventListener('mousedown', _mhStickerEditCloser, true), 0);
-}
-function _mhStickerEditEnd(){
-  if(_mhStickerEditSid === null) return;
-  _mhStickerEditSid = null;
-  const hint = document.getElementById('mhStickerEditHint');
-  if(hint) hint.classList.remove('on');
-  document.removeEventListener('mousedown', _mhStickerEditCloser, true);
-  renderMyHomeStickers();
-}
-function _mhStickerEditCloser(ev){
-  // 편집 중인 스티커(핸들·삭제버튼 포함) 안을 누른 거면 유지
-  if(ev.target.closest && ev.target.closest('.mh-sticker.editing')) return;
-  _mhStickerEditEnd();
-}
-
-/* 스티커 드래그 이동 — 편집모드일 때만. 좌표는 마이홈 창 기준. */
-function _mhBindStickerDrag(el, sid){
-  let dragging=false, sx=0, sy=0, ox=0, oy=0;
-  el.addEventListener('pointerdown', e=>{
-    if(!el.classList.contains('editing')) return;                 // 편집모드 아니면 이동 안 함
-    if(e.target.classList.contains('mh-sticker-handle')) return;  // 핸들은 크기 조절 담당
-    if(e.target.classList.contains('mh-sticker-del')) return;
-    if(e.target.classList.contains('mh-sticker-anim')) return;    // ✨ 움직임 버튼 — 드래그로 삼키지 않게
-    e.preventDefault(); e.stopPropagation();
-    const s = (_myHomeData.stickers||{})[sid]; if(!s) return;
-    dragging=true; sx=e.clientX; sy=e.clientY;
-    ox=s.x||0; oy=s.y||0; _mhStickerDragDist=0;
-    try{ el.setPointerCapture(e.pointerId); }catch(_){}
-  });
-  el.addEventListener('pointermove', e=>{
-    if(!dragging) return;
-    const s = (_myHomeData.stickers||{})[sid]; if(!s) return;
-    const dx=e.clientX-sx, dy=e.clientY-sy;
-    _mhStickerDragDist = Math.abs(dx)+Math.abs(dy);
-    // 창 밖으로 나가지 않게 통째로 안에 붙잡는다 (_mhClampStickerPos 주석 참고 — 나가면 되찾을 수가 없다)
-    s.x = ox+dx; s.y = oy+dy;
-    _mhClampStickerPos(s);
-    el.style.left=s.x+'px'; el.style.top=s.y+'px';
-  });
-  const end=e=>{
-    if(!dragging) return;
-    dragging=false;
-    try{ el.releasePointerCapture(e.pointerId); }catch(_){}
-    commitMyHomePage(true);
-  };
-  el.addEventListener('pointerup', end);
-  el.addEventListener('pointercancel', end);
-}
-
-/* 회전 핸들 — 스티커 중심을 기준으로 마우스 각도를 따라 돎. 3도 단위로 스냅.
-   Shift를 누르면 15도 단위로 더 크게 스냅(빠르게 직각 맞추기). */
-function _mhBindStickerRotate(handle, sid, lblEl){
-  let dragging=false, cx=0, cy=0, startAngle=0, startRot=0;
-  const el = ()=>handle.parentElement;
-
-  const angleOf = (e)=>{
-    // 화면상 스티커 중심에서 커서까지의 각도(도). 위쪽(-90°)을 0으로 보정.
-    return Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI + 90;
-  };
-
-  handle.addEventListener('pointerdown', e=>{
-    e.preventDefault(); e.stopPropagation();
-    const s=(_myHomeData.stickers||{})[sid]; if(!s) return;
-    const node = el(); if(!node) return;
-    const r = node.getBoundingClientRect();
-    cx = r.left + r.width/2;
-    cy = r.top  + r.height/2;
-    dragging=true;
-    startAngle = angleOf(e);
-    startRot = (typeof s.rot==='number') ? s.rot : 0;
-    node.classList.add('rotating');
-    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
-  });
-
-  handle.addEventListener('pointermove', e=>{
-    if(!dragging) return;
-    const s=(_myHomeData.stickers||{})[sid]; if(!s) return;
-    const snap = e.shiftKey ? 15 : STICKER_ROT_SNAP;   // Shift = 15° 단위로 크게
-    let deg = startRot + (angleOf(e) - startAngle);
-    deg = Math.round(deg / snap) * snap;               // 자석처럼 스냅
-    // -180 ~ 180 범위로 정규화 (표시용)
-    while(deg > 180) deg -= 360;
-    while(deg <= -180) deg += 360;
-    s.rot = deg;
-    const node = el();
-    if(node) node.style.transform = _mhStickerTransform(s);
-    if(lblEl) lblEl.textContent = Math.round(deg) + '°';
-  });
-
-  const end=e=>{
-    if(!dragging) return;
-    dragging=false;
-    const node = el();
-    if(node) node.classList.remove('rotating');
-    try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
-    commitMyHomePage(true);
-  };
-  handle.addEventListener('pointerup', end);
-  handle.addEventListener('pointercancel', end);
-}
-
-/* 코너 핸들로 크기 조절 — 우하단으로 끌면 커짐 */
-function _mhBindStickerResize(handle, sid){
-  let dragging=false, sx=0, sy=0, startSize=1;
-  handle.addEventListener('pointerdown', e=>{
-    e.preventDefault(); e.stopPropagation();
-    const s=(_myHomeData.stickers||{})[sid]; if(!s) return;
-    dragging=true; sx=e.clientX; sy=e.clientY;
-    startSize=(typeof s.size==='number' && s.size>0)?s.size:1;
-    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
-  });
-  handle.addEventListener('pointermove', e=>{
-    if(!dragging) return;
-    const s=(_myHomeData.stickers||{})[sid]; if(!s) return;
-    const dx=e.clientX-sx, dy=e.clientY-sy;
-    const delta = (dx + dy) / (STICKER_BASE*2);
-    s.size = Math.max(0.3, Math.min(8, startSize + delta));   // 창 전체를 쓰므로 상한을 넉넉히
-    const el = handle.parentElement;
-    if(el) el.style.transform = _mhStickerTransform(s);   // 회전값도 함께 유지
-  });
-  const end=e=>{
-    if(!dragging) return;
-    dragging=false;
-    try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
-    commitMyHomePage(true);
-  };
-  handle.addEventListener('pointerup', end);
-  handle.addEventListener('pointercancel', end);
-}
 
 (function bindMyHomePage(){
   // ★ 저장 버튼 없이 자동저장 — 아래 여러 지점(사진 변경/스티커 추가삭제이동/텍스트칸에서 포커스 벗어남)에서
@@ -13209,7 +12983,7 @@ function _mhBindStickerResize(handle, sid){
   const stickerAddBtn=document.getElementById('mhStickerAddBtn');
   const stickerFile=document.getElementById('mhStickerFileInput');
   if(stickerAddBtn && stickerFile){
-    stickerAddBtn.addEventListener('click', ()=>{ openStickerMgr(); });
+    stickerAddBtn.addEventListener('click', ()=>{ myHomeSticker.open(); });
     const pickNewSticker = ()=>{
       if(Object.keys(_myHomeData.stickers||{}).length>=STICKER_MAX){
         toast(`스티커는 최대 ${STICKER_MAX}개까지만 붙일 수 있어요`); return;
@@ -13246,7 +13020,7 @@ function _mhBindStickerResize(handle, sid){
         _mhClampStickerPos(_myHomeData.stickers[sid]);   // 창이 작으면 처음부터 밖에 놓일 수 있다
         renderMyHomeStickers();
         commitMyHomePage(true);
-        renderStickerMgr();               // 관리 창이 열려 있으면 방금 붙인 것이 목록에 바로 뜬다
+        myHomeSticker.render();           // 관리 창이 열려 있으면 방금 붙인 것이 목록에 바로 뜬다
       }; img.src=e.target.result; };
       reader.readAsDataURL(file);
     });
