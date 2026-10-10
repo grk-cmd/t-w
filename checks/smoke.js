@@ -299,6 +299,10 @@ let failed = null;
 /* html 이 app.js **앞에** 싣고 app.js 가 최상위에서 바로 쓰는 모듈 — 같은 순서로 먼저 평가한다.
    (스텁이 아니라 진짜 파일이다. 빠지면 app.js 가 첫 줄에서 «정의 안 됨» 으로 서는데, 그건 앱의 버그가 아니다) */
 const PRELOAD = ['human-ear.js', 'wd-ear.js'];
+/* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
+   (버튼 연결 · 알림 구독 · 자정 타이머)을 아무도 안 굴린다 — 여기서 같이 싣고 굴린다.
+   ⚠️ 윗줄 모양은 sim-wd-ear.js 가 글자 그대로 본다 — 목록에 끼우지 말고 여기서 붙인다. */
+PRELOAD.push('scheduler.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

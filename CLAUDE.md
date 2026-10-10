@@ -27,6 +27,7 @@
 | `overlay-{win,mac}.js` · `sysinput-{win,mac}.js` | 플랫폼 모듈. 두 파일은 **export 이름이 같아야** 한다 |
 | `app/desk-companion-prototype.html` | 렌더러 진입 HTML (CSP 정의) |
 | `app/parts/app.js` | 렌더러 본체 (~46k줄, 전역 스코프). `/* ═══ 제목 ═══ */` 구역으로 나뉜다 — 줄 상한 검사 `sim-app-size` · 구역 지도 · 옮길 순서 `docs/APP_FSD_MAP.md` |
+| `app/parts/scheduler.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 1번) — 📅 스케줄러 · 🔔 일정 알림. classic script(`window.MhScheduler` — 크로미움 내장 `Scheduler` 와 겹치지 않게) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createScheduler(deps)` |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
 | `app/parts/room-*.js` · `invite-account.js` | 도메인 모듈 — `createXxx(deps)` 로 필요한 함수 · 상태를 받는다(Firebase 직접 import 없음). `firebase-init.js` 는 연결만 |
 | `firebase-database-rules.json` | **Realtime Database 보안 규칙 — 서버 쪽 검증의 전부** |
