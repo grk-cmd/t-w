@@ -26,11 +26,12 @@
 | `main.js` · `preload.js` | Electron 메인 프로세스, IPC(`window.companion`) |
 | `overlay-{win,mac}.js` · `sysinput-{win,mac}.js` | 플랫폼 모듈. 두 파일은 **export 이름이 같아야** 한다 |
 | `app/desk-companion-prototype.html` | 렌더러 진입 HTML (CSP 정의) |
-| `app/parts/app.js` | 렌더러 본체 (~41k줄, 전역 스코프). `/* ═══ 제목 ═══ */` 구역으로 나뉜다 — 줄 상한 검사 `sim-app-size` · 구역 지도 · 옮길 순서 `docs/APP_FSD_MAP.md` |
+| `app/parts/app.js` | 렌더러 본체 (~40k줄, 전역 스코프). `/* ═══ 제목 ═══ */` 구역으로 나뉜다 — 줄 상한 검사 `sim-app-size` · 구역 지도 · 옮길 순서 `docs/APP_FSD_MAP.md` |
 | `app/parts/scheduler.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 1번) — 📅 스케줄러 · 🔔 일정 알림. classic script(`window.MhScheduler` — 크로미움 내장 `Scheduler` 와 겹치지 않게) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createScheduler(deps)` |
 | `app/parts/weekly-challenge.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 2번) — 👑 달성표(주간 규칙 · 기록 · 보상 · 화면). classic script(`window.TwWeeklyChallenge`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createWeeklyChallenge(deps)` · 부르는 곳은 `weeklyChal.이름` |
 | `app/parts/purikura-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 3번) — 📷 스티커사진 창(촬영 창 · 로비 · 무대 · 촬영 · 꾸미기). 통신 · 요금은 짝인 `purikura-net.js`(`window.Purikura`), 세션 입구 `_purikura()` 는 app.js. classic script(`window.TwPurikuraUi`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createPurikuraUi(deps)` · 부르는 곳은 `purikuraUi.이름` |
 | `app/parts/guestbook.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 4번) — 📖 방명록(새 글 배지 · 독립 팝업 창 — 웹박수 · 폭죽 · 글 목록 · 쓰기). classic script(`window.TwGuestbook`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createGuestbook(deps)` · 부르는 곳은 예전처럼 window 고리(`openMyGuestbook` · `_mhGb*`) |
+| `app/parts/friend-manage.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 5번) — 👥 친구 관리(받은 요청 · 📤 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 · 친구 탭 배지. classic script(`window.TwFriendManage`) 를 app.js 앞에 싣고, app.js 가 원래 자리에서 `createFriendManage(deps)` · 부르는 곳은 `friendManage.이름`. 같은 구역에 있던 🐞 버그 제보 탭(오픈카톡 기본 링크)은 `bug-board-ui.js` 끝 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
 | `app/parts/room-*.js` · `invite-account.js` | 도메인 모듈 — `createXxx(deps)` 로 필요한 함수 · 상태를 받는다(Firebase 직접 import 없음). `firebase-init.js` 는 연결만 |
 | `firebase-database-rules.json` | **Realtime Database 보안 규칙 — 서버 쪽 검증의 전부** |

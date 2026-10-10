@@ -94,7 +94,8 @@ chk(/_giftStat\('⭐ '\+starN\+'\/'\+lim\.starMax\+' · 보관 '\+keys\.length\+
 const HTML = read('desk-companion-prototype.html') || '';
 const fmTabs = (HTML.match(/<div id="mhFmTabs">[\s\S]*?<\/div>/) || [''])[0];
 chk(/id="mhGiftStat"/.test(fmTabs), '그 표시는 서브탭 줄(#mhFmTabs) 안에 있다 — 격자 위에 줄을 더하면 스크롤이 생긴다');
-chk(/function renderFriendManage\(\)\{\s*if\(_fmTab !== 'gift'\) _giftStat\(''\)/.test(APP), '다른 서브탭으로 가면 표시를 비운다');
+/* renderFriendManage 는 parts/friend-manage.js 로 옮겼다(앱 FSD 5번). */
+chk(/function renderFriendManage\(\)\{\s*if\(_fmTab !== 'gift'\) _giftStat\(''\)/.test(read('friend-manage.js') || ''),'다른 서브탭으로 가면 표시를 비운다');
 chk(/getElementById\('myHomeWin'\)/.test(ask) && /win\.appendChild\(ov\)/.test(ask) && !/document\.body\.appendChild/.test(ask),
   '확인창은 #myHomeWin 의 자식 (body 로 빼면 run 모드에서 클릭이 뚫린다)');
 const noComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');

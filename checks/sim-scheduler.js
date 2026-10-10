@@ -205,8 +205,8 @@ sec('── 5. app.js 배선 · html', () => {
   chk(left.length === 0, '정의는 모듈에만 — app.js 에 같은 이름의 함수가 없다' + (left.length ? ' (남음: ' + left.join(' ') + ')' : ''));
   chk(NAMES.every(n => new RegExp('function ' + n + '\\(').test(MOD)), '  모듈에 다 있다');
   chk(!/═+ 📅 스케줄러|═+ 🔔 일정 알림/.test(APP) && /═+ 📅 스케줄러/.test(MOD) && /═+ 🔔 일정 알림/.test(MOD), '구역 머리 둘이 모듈로 옮겨 갔다');
-  const iC = APP.indexOf('MhScheduler.createScheduler('), iV = APP.indexOf('let _mhViewingUserId'), iB = APP.indexOf('═ 🐞 버그 제보 탭');
-  chk(iC > 0 && iC < iB && iC < iV, 'createScheduler 는 원래 자리(🐞 버그 제보 탭 바로 앞)에서 부른다');
+  const iC = APP.indexOf('MhScheduler.createScheduler('), iV = APP.indexOf('let _mhViewingUserId'), iB = APP.indexOf('TwFriendManage.createFriendManage(');   // 🐞 버그 제보 탭 구역은 옮겼다(앱 FSD 5번) — 그 자리의 👥 친구 관리 연결
+  chk(iC > 0 && iC < iB && iC < iV, 'createScheduler 는 원래 자리(옛 🐞 버그 제보 탭 — 지금은 👥 친구 관리 연결 — 바로 앞)에서 부른다');
   chk(/const mhScheduler = \(typeof MhScheduler === 'undefined'\) \? SCHEDULER_OFF/.test(APP), '  모듈이 없으면 빈 껍데기(SCHEDULER_OFF) — 앱 · 검사가 안 선다');
   chk(/viewingUserId: \(\)=>_mhViewingUserId/.test(APP) && /myHomeFriends: \(\)=>_myHomeFriends/.test(APP), '  다시 대입되는 let 둘은 읽는 함수로 넘긴다');
   chk(/const BELL_SEEN_KEY = 'tw\.bellSeenTs';/.test(APP) && /bellSeenKey: BELL_SEEN_KEY/.test(APP) && !/'tw\.bellSeenTs';/.test(MOD.replace(/\/\/.*$/gm, '')),

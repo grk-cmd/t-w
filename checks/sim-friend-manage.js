@@ -1,5 +1,5 @@
 /* sim-friend-manage.js — 👥 친구 관리(탭 재편 2단계) 검사
-   실행:  node sim-friend-manage.js   (app.js · desk-companion-prototype.html · smoke.js 와 같은 폴더에서)
+   실행:  node sim-friend-manage.js   (app.js · friend-manage.js · desk-companion-prototype.html · smoke.js 와 같은 폴더에서)
 
    ★ 왜 이 검사가 있는가 — 이 화면에는 **조용히 깨지는 자리가 둘** 있다.
 
@@ -29,7 +29,11 @@
 'use strict';
 const fs = require('fs'), vm = require('vm');
 
-const SRC  = fs.readFileSync('app.js', 'utf8');
+/* 👥 친구 관리 · 요청 팝업은 parts/friend-manage.js 로 옮겼다(앱 FSD 5번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 못 찾은 문자열로 빨개지지 않게. */
+let FMSRC = null; try{ FMSRC = fs.readFileSync('friend-manage.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — friend-manage.js'); process.exit(2); }
+const APPSRC = fs.readFileSync('app.js', 'utf8');
+const SRC  = APPSRC + '\n' + FMSRC;
 /* 🔒 CSP(3절) — 예전엔 firebase 초기화·API 전체가 HTML 안의 인라인 모듈이었다. `script-src` 에서
    'unsafe-inline' 을 버리려고 `parts/firebase-init.js` 로 뺐다. 이 검사는 친구 요청 함수들을
    **HTML 안에서** 찾으므로, 파일이 있으면 이어 붙여 외부화 전과 같은 시야를 만든다.
@@ -77,7 +81,7 @@ chk(/id="mhFmList"/.test(HTML), '요청·선물함을 그리는 새 칸 #mhFmLis
 const seenCalls = [...SRC.matchAll(/^.*_mallangSeenGifts\(\).*$/gm)]
   .map(m => m[0].trim()).filter(l => !l.startsWith('*') && !l.startsWith('//'));
 chk(seenCalls.length === 1, '_mallangSeenGifts() 호출부가 하나뿐이다 (' + seenCalls.length + '곳)');
-chk(seenCalls.length === 1 && /_fmTab\s*===\s*'gift'/.test(seenCalls[0]),
+chk(seenCalls.length === 1 && /(?:_fmTab|friendManage\.tab\(\))\s*===\s*'gift'/.test(seenCalls[0]),
     '그 한 곳이 선물함 서브탭 클릭이다');
 const giftBox = (SRC.match(/function renderGiftBox\([\s\S]*?\n\}/) || [''])[0];
 chk(!!giftBox && !giftBox.includes('_mallangSeenGifts'),
@@ -90,12 +94,12 @@ const srcLines = SRC.split('\n');
 const popupAt = srcLines
   .map((l, i) => ({ l: l.trim(), i }))
   .filter(o => /showFriendRequestPopup\(/.test(o.l))
-  .filter(o => !/^\/|^\*|function showFriendRequestPopup/.test(o.l));
+  .filter(o => !/^\/|^\*|function showFriendRequestPopup|showFriendRequestPopup\(\)\{\}/.test(o.l));   // 마지막 = app.js 의 빈 껍데기 FRIEND_MANAGE_OFF
 chk(popupAt.length === 1, '팝업 호출부가 하나뿐이다 (' + popupAt.length + '곳)');
 const around = popupAt.length === 1
   ? srcLines.slice(Math.max(0, popupAt[0].i - 3), popupAt[0].i + 2).join('\n')
   : '';
-chk(/newIds/.test(around) && /_fmReqVisible\(\)/.test(around),
+chk(/newIds/.test(around) && /(?:_fmReqVisible|friendManage\.reqVisible)\(\)/.test(around),
     '그 호출이 새 요청(newIds)에만, 그리고 목록을 보고 있지 않을 때만 뜬다');
 chk(!/setTimeout\([^)]*showFriendRequestPopup/.test(SRC),
     '마이홈 열 때 밀린 요청을 전부 묻던 자동 팝업이 없다 (관리 화면을 가리지 않는다)');
@@ -188,26 +192,29 @@ globalThis.Image = class {
 };
 globalThis.HTMLImageElement = globalThis.Image;
 
+/* friend-manage.js 를 app.js 앞에 먼저 평가한다(html 순서) — 그래야 app.js 가 빈 껍데기가 아닌 진짜 모듈을 만든다. */
 const probe = `
 ;globalThis.__F = {
   FRIEND_MAX,
-  acceptOne: _fmAcceptOne,
-  bulkAccept: _fmBulkAccept,
-  seatsLeft:  _fmSeatsLeft,
+  real:       friendManage !== FRIEND_MANAGE_OFF,
+  acceptOne:  friendManage.acceptOne,
+  bulkAccept: friendManage.bulkAccept,
+  seatsLeft:  friendManage.seatsLeft,
   setReqs:    r => { _myFriendRequests = r; },
   getReqs:    () => _myFriendRequests,
   setFriends: f => { _myHomeFriends = f; },
-  picked:     () => _fmPicked,
-  setTab:     t => { _fmTab = t; },
+  picked:     () => friendManage.picked,
+  setTab:     t => { friendManage.setTab(t); },
 };`;
 
 const _log = console.log, _warn = console.warn;
 console.log = () => {}; console.warn = () => {};
-try { vm.runInThisContext(SRC + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(FMSRC, { filename: 'friend-manage.js' }); vm.runInThisContext(APPSRC + probe, { filename: 'app.js' }); }
 catch (e) { console.log = _log; say('  ✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 console.log = _log; console.warn = _warn;
 
 const F = globalThis.__F;
+chk(F.real, 'app.js 가 friend-manage.js 의 진짜 모듈을 만들었다 (빈 껍데기가 아니다)');
 
 /* 서버 스텁 — ⚠ **수락해도 _myHomeFriends 를 그 자리에서 늘리지 않는다.**
    실제로도 구독 콜백이 와야 늘어난다. 이 시차가 바로 이 검사가 재현하려는 함정이다. */
