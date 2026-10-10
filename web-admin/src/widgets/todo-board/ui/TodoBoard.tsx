@@ -3,6 +3,8 @@ import { adminNameOf, adminOptions, useAdminNames } from '@/entities/admin/name'
 import {
   ALL_TODOS,
   filterTodos,
+  ReleaseBadge,
+  releasesOf,
   TODO_STATUS,
   TODO_STATUSES,
   useRefreshTodos,
@@ -12,6 +14,7 @@ import {
   type TodoStatus,
 } from '@/entities/admin/todo';
 import { BugNoText, useBugItem, useBugNo, type BugItem } from '@/entities/bug-board';
+import { useReleaseDownloads } from '@/entities/release';
 import { DeleteTodoButton, TodoForm } from '@/features/admin-todo/edit-todo';
 import { useDb } from '@/shared/api';
 import { errorMessage, formatDate, useHashSub } from '@/shared/lib';
@@ -45,11 +48,14 @@ function TodoCard({
   names,
   me,
   focus,
+  latest,
 }: {
   todo: Todo;
   names: ReadonlyMap<string, string>;
   me: string | null;
   focus: boolean;
+  /** GitHub 최신 공개 릴리스 — 모르면 undefined(배지에 버전만). */
+  latest: string | undefined;
 }) {
   const [editing, setEditing] = useState(false);
   const ref = useRef<HTMLElement>(null);
@@ -79,6 +85,7 @@ function TodoCard({
               {TODO_STATUS[todo.status]}
             </span>
             <b className={styles.title}>{todo.title}</b>
+            <ReleaseBadge release={todo.release} latest={latest} />
             <span className={styles.assignee}>
               {assignee ? `👤 ${assignee}` : <span className="soft">작업자 없음</span>}
             </span>
@@ -117,12 +124,20 @@ export function TodoBoard() {
   const focusId = useHashSub();
   const [filter, setFilter] = useState<TodoFilter>(ALL_TODOS);
   const [adding, setAdding] = useState(false);
+  // 출시 여부 배지용 — 화면을 열 때 한 번(자동 재조회 없음 · 다운로드 화면과 같은 캐시). 실패하면 버전만.
+  const latest = useReleaseDownloads().data?.[0]?.version;
+  const versions = releasesOf(todos.data ?? []);
+  // 고르고 있던 버전이 목록에서 사라져도(고쳐서) 칸에서 빠지지 않게.
+  if (filter.release !== 'all' && filter.release !== 'none' && !versions.includes(filter.release))
+    versions.push(filter.release);
 
   const shown = filterTodos(todos.data ?? [], filter, me);
   const active = shown.filter((t) => t.status !== 'done');
   const done = shown.filter((t) => t.status === 'done');
   const focusDone = done.some((t) => t.id === focusId);
-  const card = (t: Todo) => <TodoCard key={t.id} todo={t} names={names} me={me} focus={t.id === focusId} />;
+  const card = (t: Todo) => (
+    <TodoCard key={t.id} todo={t} names={names} me={me} focus={t.id === focusId} latest={latest} />
+  );
 
   return (
     <section className="card">
@@ -163,6 +178,19 @@ export function TodoBoard() {
             </option>
           ))}
         </select>
+        <select
+          aria-label="릴리스 버전"
+          value={filter.release}
+          onChange={(e) => setFilter({ ...filter, release: e.target.value })}
+        >
+          <option value="all">버전 전체</option>
+          <option value="none">버전 없음</option>
+          {versions.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
         <label className={styles.mine}>
           <input
             type="checkbox"
@@ -182,7 +210,10 @@ export function TodoBoard() {
       {todos.data && shown.length === 0 && <p className="soft">해당 할 일 없음</p>}
       <div className={styles.list}>{active.map(card)}</div>
       {done.length > 0 && (
-        <details className={styles.done} open={focusDone || filter.status === 'done'}>
+        <details
+          className={styles.done}
+          open={focusDone || filter.status === 'done' || filter.release !== 'all'}
+        >
           <summary>완료 {done.length}</summary>
           <div className={styles.list}>{done.map(card)}</div>
         </details>

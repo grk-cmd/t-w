@@ -286,6 +286,10 @@ console.log('\n── 7. 관리자 할 일(adminTodos) · 관리자 이름(admin
   chk(!tw(A1, next({ memo: 'x'.repeat(2001) }), saved) && tw(A1, next({ memo: 'x'.repeat(2000) }), saved), '  ↳ 메모 2000자까지');
   chk(tw(A1, next({ reports: { [R1]: true } }), saved), '제보 연결 — 제보 id(20자 push 키) : true');
   chk(!tw(A1, next({ reports: { 'p1': true } }), saved) && !tw(A1, next({ reports: { [R1]: 'yes' } }), saved), '  ↳ 제보 id 모양이 틀리거나 값이 true 가 아니면 거절');
+  chk(tw(A1, next({ release: '0.11.3' }), saved) && tw(A1, next({ release: '0.12.0-beta.1' }), saved) && tw(A1, { ...fresh, release: '1.0.0' }), '릴리스 버전 — 0.11.3 · 0.12.0-beta.1 모양 (칸이 없어도 된다)');
+  chk(!tw(A1, next({ release: '' }), saved) && !tw(A1, next({ release: 'v0.11.3' }), saved) && !tw(A1, next({ release: '0.11' }), saved) && !tw(A1, next({ release: '0.11.3 릴리스 대기' }), saved), '  ↳ 빈 값 · v 붙임 · 두 자리 · 글 섞임은 거절');
+  chk(!tw(A1, next({ release: '0.11.3-Beta.1' }), saved) && !tw(A1, next({ release: '0.11.3-beta' }), saved) && !tw(A1, next({ release: 11 }), saved), '  ↳ 베타 꼬리는 소문자.숫자 · 숫자값은 거절');
+  chk(!tw(A1, next({ release: '1000000.0.0-beta.1000' }), saved) && tw(A1, next({ release: '100000.0.0-beta.10' }), saved), '  ↳ 20자까지');
   chk(!tw(A1, next({ extra: 1 }), saved), '정해진 칸 밖의 필드는 거절');
   chk(!tw(A1, fresh, null, 'a/b c'), '  ↳ 키는 짧은 id 모양만');
   chk(tw(A1, null, saved) && !tw('user9', null, saved), '지우기는 관리자만');
