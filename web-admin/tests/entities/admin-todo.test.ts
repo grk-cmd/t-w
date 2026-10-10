@@ -28,6 +28,7 @@ const todo = (id: string, extra: Partial<Todo> = {}): Todo => ({
   title: `제목 ${id}`,
   memo: '',
   status: 'todo',
+  type: null,
   assignee: null,
   assigneeName: '',
   reports: [],
@@ -196,7 +197,7 @@ describe('할 일 — 입력 · 저장 값', () => {
   it('고치면 만든 사람 · 시각은 그대로, rev + 1 · 작업자 이름 · 제보 묶음', () => {
     const prev = todo('t', { createdBy: 'a1', createdAt: 5, rev: 3 });
     const v = todoValue(
-      { title: 't', memo: 'm', status: 'doing', assignee: 'b', reports: [R1, R1], release: '' },
+      { title: 't', memo: 'm', status: 'doing', type: null, assignee: 'b', reports: [R1, R1], release: '' },
       prev,
       'me',
       '비',
@@ -263,5 +264,36 @@ describe('주소 하위 부분', () => {
     expect(hashParts('#/bugs')).toEqual({ id: 'bugs', sub: '' });
     expect(hashParts('')).toEqual({ id: '', sub: '' });
     expect(hashParts('#bugs/-Oa_x')).toEqual({ id: 'bugs', sub: '-Oa_x' });
+  });
+});
+
+describe('할 일 종류(type)', () => {
+  it('읽기 — feat · bug 만, 없거나 틀리면 null(미분류)', () => {
+    const base = { title: 't', status: 'todo', rev: 0 };
+    expect(toTodo('x', { ...base, type: 'feat' })?.type).toBe('feat');
+    expect(toTodo('x', { ...base, type: 'bug' })?.type).toBe('bug');
+    expect(toTodo('x', base)?.type).toBeNull();
+    expect(toTodo('x', { ...base, type: 'chore' })?.type).toBeNull();
+  });
+
+  it('저장 값 — 고르면 칸, 미분류면 칸 없음 · 틀린 값은 입력 확인에서 막는다', () => {
+    const d = { ...emptyDraft(), title: 'a' };
+    expect(todoValue({ ...d, type: 'feat' }, null, 'me', '', 'NOW')).toMatchObject({ type: 'feat' });
+    expect(todoValue(d, null, 'me', '', 'NOW')).not.toHaveProperty('type');
+    expect(checkDraft({ ...d, type: 'chore' as never })).toMatch(/종류/);
+    expect(checkDraft({ ...d, type: 'bug' })).toBeNull();
+    expect(emptyDraft([R1], '제보', 'bug').type).toBe('bug');
+    expect(draftOf(todo('t', { type: 'feat' })).type).toBe('feat');
+  });
+
+  it('바뀐 것 요약 · 거르기', () => {
+    expect(todoChanges(null, { ...emptyDraft(), title: 'a', type: 'bug' }, (u) => u)).toBe('할 일 · 🐞 버그');
+    expect(todoChanges(todo('t'), { ...draftOf(todo('t')), type: 'feat' }, (u) => u)).toBe(
+      '종류 미분류 → 🆕 기능',
+    );
+    const list = [todo('1', { type: 'feat' }), todo('2', { type: 'bug' }), todo('3')];
+    expect(filterTodos(list, { ...ALL_TODOS, type: 'bug' }, 'me').map((t) => t.id)).toEqual(['2']);
+    expect(filterTodos(list, { ...ALL_TODOS, type: 'none' }, 'me').map((t) => t.id)).toEqual(['3']);
+    expect(filterTodos(list, ALL_TODOS, 'me')).toHaveLength(3);
   });
 });

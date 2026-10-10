@@ -7,14 +7,20 @@ import {
   releasesOf,
   TODO_STATUS,
   TODO_STATUSES,
+  TODO_TYPE,
+  TODO_TYPE_NONE,
+  TODO_TYPES,
+  TypeBadge,
   useRefreshTodos,
   useTodos,
   type Todo,
   type TodoFilter,
   type TodoStatus,
+  type TodoType,
 } from '@/entities/admin/todo';
 import { BugNoText, useBugItem, useBugNo, type BugItem } from '@/entities/bug-board';
 import { useReleaseDownloads } from '@/entities/release';
+import { ApplyReleaseButton, ReleaseTplPanel } from '@/features/admin-todo/apply-release';
 import { DeleteTodoButton, TodoForm } from '@/features/admin-todo/edit-todo';
 import { useDb } from '@/shared/api';
 import { errorMessage, formatDate, useHashSub } from '@/shared/lib';
@@ -84,6 +90,7 @@ function TodoCard({
               {todo.status === 'doing' ? '🔧' : todo.status === 'done' ? '✅' : '📋'}{' '}
               {TODO_STATUS[todo.status]}
             </span>
+            <TypeBadge type={todo.type} />
             <b className={styles.title}>{todo.title}</b>
             <ReleaseBadge release={todo.release} latest={latest} />
             <span className={styles.assignee}>
@@ -147,11 +154,13 @@ export function TodoBoard() {
           <button type="button" className="btn primary" onClick={() => setAdding(true)} disabled={adding}>
             새 할 일
           </button>
+          <ApplyReleaseButton />
           <button type="button" className="btn" onClick={refresh}>
             새로고침
           </button>
         </span>
       </div>
+      <ReleaseTplPanel />
       <div className={styles.filters}>
         <select
           aria-label="상태"
@@ -164,6 +173,19 @@ export function TodoBoard() {
               {TODO_STATUS[s]}
             </option>
           ))}
+        </select>
+        <select
+          aria-label="종류"
+          value={filter.type}
+          onChange={(e) => setFilter({ ...filter, type: e.target.value as TodoType | 'all' | 'none' })}
+        >
+          <option value="all">종류 전체</option>
+          {TODO_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {TODO_TYPE[t]}
+            </option>
+          ))}
+          <option value="none">{TODO_TYPE_NONE}</option>
         </select>
         <select
           aria-label="작업자"

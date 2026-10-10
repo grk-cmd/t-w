@@ -27,6 +27,9 @@ export {
   TODO_STATUS,
   TODO_STATUSES,
   TODO_TITLE_MAX,
+  TODO_TYPE,
+  TODO_TYPE_NONE,
+  TODO_TYPES,
   todoByReport,
   todoChanges,
   todoId,
@@ -38,6 +41,8 @@ export {
   type ReleaseState,
   type TodoFilter,
   type TodoStatus,
+  type TodoType,
 } from './model/adminTodo';
 export { ReleaseBadge } from './ui/ReleaseBadge';
 export { TodoBadge } from './ui/TodoBadge';
+export { TypeBadge } from './ui/TypeBadge';

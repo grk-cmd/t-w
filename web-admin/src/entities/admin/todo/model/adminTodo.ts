@@ -1,6 +1,6 @@
 /*
  * 📋 관리자 할 일 — adminTodos/{id}. 관리자만 읽고 쓴다(규칙). 앱 · 제보 공개 칸과는 따로다.
- *   { title, memo?, status, assignee?, assigneeName?, reports?: { <제보 id>: true }, release?,
+ *   { title, memo?, status, type?, assignee?, assigneeName?, reports?: { <제보 id>: true }, release?,
  *     createdBy, createdAt, updatedBy, updatedAt, rev }
  * rev — 고칠 때마다 +1. 규칙이 «지금 rev + 1» 만 받아서, 화면에서 본 뒤 남이 먼저 고쳤으면 내 쓰기가 거절된다.
  */
@@ -23,6 +23,17 @@ export const TODO_STATUS: Record<TodoStatus, string> = {
   done: '완료',
 };
 export const TODO_STATUSES = Object.keys(TODO_STATUS) as TodoStatus[];
+
+// 종류 — 규칙 adminTodos/$id/type 과 같다. 칸이 없으면(옛 할 일 · 고르지 않음) «미분류».
+export type TodoType = 'feat' | 'bug';
+export const TODO_TYPE: Record<TodoType, string> = {
+  feat: '🆕 기능',
+  bug: '🐞 버그',
+};
+export const TODO_TYPES = Object.keys(TODO_TYPE) as TodoType[];
+export const TODO_TYPE_NONE = '미분류';
+const isType = (v: unknown): v is TodoType => typeof v === 'string' && Object.hasOwn(TODO_TYPE, v);
+const typeLabel = (t: TodoType | null) => (t ? TODO_TYPE[t] : TODO_TYPE_NONE);
 // 목록 순서 — 진행 중 → 할 일 → 완료.
 const ORDER: Record<TodoStatus, number> = { doing: 0, todo: 1, done: 2 };
 
@@ -31,6 +42,8 @@ export interface Todo {
   title: string;
   memo: string;
   status: TodoStatus;
+  /** 종류 — 없으면 null(«미분류»). */
+  type: TodoType | null;
   assignee: string | null;
   assigneeName: string;
   reports: string[];
@@ -48,6 +61,7 @@ export interface TodoDraft {
   title: string;
   memo: string;
   status: TodoStatus;
+  type: TodoType | null;
   assignee: string | null;
   reports: string[];
   release: string;
@@ -69,6 +83,7 @@ export function toTodo(id: string, v: unknown): Todo | null {
     title: r.title,
     memo: typeof r.memo === 'string' ? r.memo : '',
     status: r.status,
+    type: isType(r.type) ? r.type : null,
     assignee: typeof r.assignee === 'string' ? r.assignee : null,
     assigneeName: typeof r.assigneeName === 'string' ? r.assigneeName : '',
     reports,
@@ -118,9 +133,17 @@ export interface TodoFilter {
   mine: boolean;
   /** 'all' · 'none'(버전 없음) · 버전 */
   release: string;
+  /** 'all' · 'none'(미분류) · 종류 */
+  type: TodoType | 'all' | 'none';
 }
 
-export const ALL_TODOS: TodoFilter = { status: 'all', assignee: 'all', mine: false, release: 'all' };
+export const ALL_TODOS: TodoFilter = {
+  status: 'all',
+  assignee: 'all',
+  mine: false,
+  release: 'all',
+  type: 'all',
+};
 
 export function filterTodos(list: readonly Todo[], f: TodoFilter, me: string | null): Todo[] {
   return list.filter(
@@ -128,7 +151,8 @@ export function filterTodos(list: readonly Todo[], f: TodoFilter, me: string | n
       (f.status === 'all' || t.status === f.status) &&
       (f.assignee === 'all' || (f.assignee === 'none' ? !t.assignee : t.assignee === f.assignee)) &&
       (!f.mine || (!!me && t.assignee === me)) &&
-      (f.release === 'all' || (f.release === 'none' ? !t.release : t.release === f.release)),
+      (f.release === 'all' || (f.release === 'none' ? !t.release : t.release === f.release)) &&
+      (f.type === 'all' || (f.type === 'none' ? !t.type : t.type === f.type)),
   );
 }
 
@@ -186,15 +210,17 @@ export const draftOf = (t: Todo): TodoDraft => ({
   title: t.title,
   memo: t.memo,
   status: t.status,
+  type: t.type,
   assignee: t.assignee,
   reports: [...t.reports],
   release: t.release,
 });
 
-export const emptyDraft = (reports: string[] = [], title = ''): TodoDraft => ({
+export const emptyDraft = (reports: string[] = [], title = '', type: TodoType | null = null): TodoDraft => ({
   title,
   memo: '',
   status: 'todo',
+  type,
   assignee: null,
   reports,
   release: '',
@@ -207,6 +233,7 @@ export function checkDraft(d: TodoDraft): string | null {
   if (title.length > TODO_TITLE_MAX) return `제목은 ${TODO_TITLE_MAX}자까지`;
   if (d.memo.trim().length > TODO_MEMO_MAX) return `메모는 ${TODO_MEMO_MAX}자까지`;
   if (!isStatus(d.status)) return '상태 필요';
+  if (d.type !== null && !isType(d.type)) return '종류는 기능 · 버그 중에서';
   if (d.reports.some((r) => !REPORT_ID_RE.test(r))) return '제보 id 모양이 틀림';
   if (new Set(d.reports).size > TODO_REPORTS_MAX) return `제보는 ${TODO_REPORTS_MAX}개까지`;
   const release = d.release.trim();
@@ -234,6 +261,7 @@ export function todoValue(
     title: d.title.trim().slice(0, TODO_TITLE_MAX),
     ...(memo ? { memo } : {}),
     status: d.status,
+    ...(isType(d.type) ? { type: d.type } : {}),
     ...(d.assignee ? { assignee: d.assignee, ...(name ? { assigneeName: name } : {}) } : {}),
     ...(reports.length ? { reports: Object.fromEntries(reports.map((r) => [r, true])) } : {}),
     ...(release && TODO_RELEASE_RE.test(release) ? { release } : {}),
@@ -250,6 +278,7 @@ export function todoChanges(prev: Todo | null, d: TodoDraft, nameOf: (uid: strin
   const who = (uid: string | null) => (uid ? nameOf(uid) : '없음');
   if (!prev) {
     const parts = [TODO_STATUS[d.status]];
+    if (d.type) parts.push(typeLabel(d.type));
     if (d.assignee) parts.push(`작업자 ${who(d.assignee)}`);
     if (d.reports.length) parts.push(`제보 ${d.reports.length}건`);
     if (d.release.trim()) parts.push(`릴리스 ${d.release.trim()}`);
@@ -257,6 +286,7 @@ export function todoChanges(prev: Todo | null, d: TodoDraft, nameOf: (uid: strin
   }
   const out: string[] = [];
   if (prev.status !== d.status) out.push(`${TODO_STATUS[prev.status]} → ${TODO_STATUS[d.status]}`);
+  if (prev.type !== d.type) out.push(`종류 ${typeLabel(prev.type)} → ${typeLabel(d.type)}`);
   if (prev.assignee !== d.assignee) out.push(`작업자 ${who(prev.assignee)} → ${who(d.assignee)}`);
   if (prev.title !== d.title.trim()) out.push('제목');
   if (prev.memo !== d.memo.trim()) out.push('메모');
