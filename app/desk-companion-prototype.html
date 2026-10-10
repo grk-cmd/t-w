@@ -3218,10 +3218,15 @@
 
   /* 🐞 버그제보 게시판 — 탭 안에서 목록 → 상세 → 글쓰기 세 화면을 바꿔 끼운다(bug-board-ui.js).
      ⚠️ 색은 전부 토큰 경유(audit 검사 12·13). 확인창·메뉴를 새로 띄우지 않는다 — 전부 탭 안 화면이다. */
-  #mhPageBugreport{padding:12px 16px;overflow-y:auto;}
+  /* 📏 높이를 못 박는다 — 친구 · 우편함 탭과 같은 440px. 목록은 #bbRows 안에서 스크롤하고 [이전]/[다음] 은 늘 아래에 보인다.
+     [경위] min-height 만 있어서 [전체] 20줄 + 공지가 들어오면 페이지가 그만큼 늘고, 마이홈 창은 화면 중앙 기준(translate -50%)이라
+       위아래로 화면 끝까지 늘어났다. 옛 공지 상자(#mhBugNotice)에 있던 높이 상한이 게시판으로 바뀔 때(#43) 같이 빠졌다.
+     상세 · 글쓰기는 길면 페이지(#mhPageBugreport)가 스크롤한다. */
+  #mhPageBugreport{padding:12px 16px;overflow-y:auto;height:440px;}
   #mhPageScheduler{position:relative;}
-  #bbBoard{max-width:640px;margin:0 auto;font-size:11.5px;color:var(--ink);}
-  .bb-bar{display:flex;align-items:center;gap:4px;margin-bottom:6px;}
+  #bbBoard{max-width:640px;margin:0 auto;font-size:11.5px;color:var(--ink);height:100%;}
+  #bbListView{display:flex;flex-direction:column;height:100%;}
+  .bb-bar{display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-shrink:0;}
   .bb-sp{flex:1;}
   .bb-btn, .bb-flt{font-family:var(--tw-font-legacy);font-size:11px;padding:3px 10px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -3232,7 +3237,8 @@
   .bb-dot{display:none;position:absolute;top:-3px;right:-3px;width:8px;height:8px;border-radius:50%;background:var(--win-error);}
   .bb-dot.on{display:block;}
   #bbRows{background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-    border-radius:var(--win-radius-el) !important;min-height:120px;}
+    border-radius:var(--win-radius-el) !important;min-height:120px;
+    flex:1 1 0;overflow-y:auto;}
   .bb-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--win-face-2);cursor:pointer;}
   .bb-row:hover{background:var(--win-select-bg);}
   .bb-row.notice{background:var(--win-star-bg);}
@@ -3251,7 +3257,7 @@
   .bb-chip.norepro{background:var(--win-lo);}
   .bb-chip.notice{background:var(--win-error);}
   .bb-empty{padding:30px 8px;text-align:center;color:var(--ink-soft);}
-  .bb-pager{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:6px;font-size:11px;}
+  .bb-pager{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:6px;font-size:11px;flex-shrink:0;}
   /* 상세 */
   .bb-back{margin-bottom:8px;}
   .bb-dhead{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:bold;}
@@ -3293,7 +3299,7 @@
   .bb-form label{cursor:pointer;margin-right:12px;}
   .bb-foot{display:flex;justify-content:flex-end;gap:6px;margin-top:10px;}
   /* 오픈카톡 기본 링크(관리자) — 예전 공지 편집 폼을 줄인 것 */
-  #mhBugEditForm{margin:10px 0;padding:8px;border:1px solid var(--win-lo);background:var(--win-face-2);}
+  #mhBugEditForm{margin:10px 0;padding:8px;border:1px solid var(--win-lo);background:var(--win-face-2);flex-shrink:0;}
   .mh-bug-lbl{font-size:11px;font-weight:bold;color:var(--ink-soft);margin:0 0 3px;}
   #mhBugLinkInput{
     width:100%;box-sizing:border-box;font-family:var(--tw-font-legacy);font-size:11.5px;padding:6px 8px;

@@ -94,6 +94,7 @@
       rows.innerHTML = '<div class="bb-empty">목록을 불러오지 못했어요 — 네트워크를 확인해 주세요</div>';
       nextCursor = null;
     }
+    rows.scrollTop = 0;   // 목록은 #bbRows 안에서 스크롤한다(창 높이 고정) — 쪽을 넘기면 맨 위부터
     $('bbPageNo').textContent = String(page);
     $('bbPrev').disabled = page <= 1;
     $('bbNext').disabled = !nextCursor;
