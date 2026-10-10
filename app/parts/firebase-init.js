@@ -320,10 +320,7 @@
     //    후원자가 잠깐 나간 사이에 자기 방이 남의 방이 되거나 방이 터지면 안 되기 때문.
     //    (startRoom이 입장할 때마다 host를 owner로 다시 써주는 것과 한 쌍)
     if(String(room||'').indexOf('SCRT-') === 0) return;
-    if(!meta) return;
-    // 방장 칸이 빈 투게더룸(표지를 되살린 방 — recoverRoomChannel 은 무료 사용자를 방장으로 세우지 않는다)은
-    // 안에 있는 보유자가 이어받기만 한다. 보유자가 없어도 해산하지 않는다 — 원래 방장이 누구였는지 모른다.
-    const vacant = !meta.host;
+    if(!meta || !meta.host) return;                    // 방장 정보가 없는 방 → 승계 대상 아님
     if(meta.restoredTs && (_svNow() - meta.restoredTs) < ROOM_RESTORE_GRACE_MS) return;   // 🛰 되살린 방 — 방장이 넘어오는 중
     // ★ 무료방(워킹룸)은 승계하지 않는다 — 방장 권한이 '프리미엄 방 생성 자격'뿐이라 무료방에선 의미가 없다.
     //   참여·채팅 모두 방장과 무관하므로 방장이 나가도 남은 사람들은 그대로 쓰면 된다.
@@ -334,13 +331,12 @@
     if(ids.indexOf(myMemberId) < 0) return;
     // 1) 방장이 아직 살아있나? (살아있는 멤버의 userId 중 host가 있으면 정상)
     const aliveUserIds = ids.map(id => friends[id] && friends[id].userId).filter(Boolean);
-    if(!vacant && aliveUserIds.indexOf(meta.host) >= 0) return;    // 방장 건재 → 할 일 없음
+    if(aliveUserIds.indexOf(meta.host) >= 0) return;    // 방장 건재 → 할 일 없음
     // 2) 방장 이탈 — 입장순(memberId 오름차순) 정렬
     const sorted = ids.slice().sort();                  // memberId 앞부분이 입장시각(Date.now 36진수)이라 문자열 정렬=입장순
     // 3) 후보 선출 (프리미엄 방 전용)
     const candidate = sorted.find(id => friends[id] && friends[id].lic);   // 라이선스 보유자 중 입장순 첫
     if(!candidate){
-      if(vacant) return;                                // 빈 방장 칸 — 해산하지 않고 보유자가 들어오길 기다린다
       /* ★ 이어받을 라이선스 보유자가 없다 → 무료 워킹룸 강등이 아니라 '방 해산'.
          남은 사람들은 방 없이 각자 솔로 모드로 돌아간다.
          구현: 서버에 해산 표시를 쓰지 않는다. 이 판정은 모든 클라이언트가 같은 입력
@@ -2859,7 +2855,7 @@
           const meta = cur || {};
           meta.channel = want;
           // 방장은 비었을 때만 채운다(남의 방장을 뺏지 않는다). 투게더룸은 보유자만 — 무료 사용자가 방장이면
-          // 그 사람이 나갈 때 승계할 보유자가 없어 방이 해산된다. 비워 두면 안에 있는 보유자가 이어받는다(_maybeSucceedHost).
+          // 그 사람이 나갈 때 승계할 보유자가 없어 방이 해산된다. 방장 칸이 빈 방은 승계 · 해산 대상이 아니다(_maybeSucceedHost).
           if(!meta.host && myUserId && (want !== 'togetherroom' || licensed)) meta.host = myUserId;
           meta.ts = _svNow();
           return meta;

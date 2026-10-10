@@ -10,7 +10,7 @@
    [2026-10-10 제보] 표지를 잃은 PLAY- 방에 무료 사용자가 먼저 들어와 워킹룸으로 굳고(PLAY-FVNJ),
      그 뒤에 들어온 사람만 채팅 대신 이모티콘 버튼을 봤다. 다시 들어와도 그대로였다.
    ・2절 뒷부분 · 5절: 되살릴 채널은 코드 접두어대로(room-channel.js recoverChannelFor). 투게더룸 방장은 보유자만.
-   ・6절: 방장 칸이 빈 투게더룸 — 보유자가 이어받고, 없으면 해산하지 않는다.
+   ・6절: 승계 · 해산은 예전 그대로 — 방장 칸이 빈 방은 대상이 아니고, 방장이 나갔는데 보유자가 없으면 해산.
    ・7절: Firebase 방도 _meta.channel 이 바뀌면 _activeChannel 이 따라간다(같은 방 안에서 갈리지 않게).
    [실행] app.js · firebase-init.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
@@ -123,7 +123,7 @@ chk(RC.recoverChannelFor('COZY-AB12', true) === 'togetherroom' && RC.recoverChan
 chk(/import \{ recoverChannelFor \} from "\.\/room-channel\.js";/.test(FI), 'firebase-init 이 room-channel.js 에서 가져다 쓴다');
 
 /* ── 6. 방장 칸이 빈 투게더룸 ── */
-say('── 6. _maybeSucceedHost — 방장 칸이 비면 보유자가 이어받고, 없으면 해산하지 않는다');
+say('── 6. _maybeSucceedHost — 승계 · 해산은 예전 그대로(빈 방장 칸은 대상 아님)');
 const msh = grabFn(FI, '_maybeSucceedHost', 'async function ');
 if(!msh){ huh('_maybeSucceedHost 를 못 떼어 옴'); }
 else{
@@ -139,11 +139,13 @@ else{
   const friendsFree = { m1: { userId: 'a', lic: false }, m2: { userId: 'b', lic: false } };
   const friendsLic  = { m1: { userId: 'a', lic: false }, m2: { userId: 'b', lic: true } };
   const t1 = mk(); t1.f('PLAY-X', 'm1', { channel: 'togetherroom' }, friendsFree);
-  chk(t1.log.disband === 0, '★ 방장 칸이 빈 투게더룸 + 보유자 없음 → 해산하지 않는다(되살린 방에서 전원이 튕기지 않게)');
+  chk(t1.log.disband === 0 && t1.log.claim.length === 0, '★ 방장 칸이 빈 투게더룸(무료 사용자가 되살린 방) + 보유자 없음 → 해산하지 않는다 — 빈 방장 칸은 예전부터 승계 · 해산 대상이 아니다');
   const t2 = mk(); t2.f('PLAY-X', 'm2', { channel: 'togetherroom' }, friendsLic);
-  chk(t2.log.claim.length === 1 && t2.log.claim[0].uid === 'b', '★ 방장 칸이 빈 투게더룸 + 안에 보유자 → 그 보유자가 방장을 가져간다');
+  chk(t2.log.disband === 0 && t2.log.claim.length === 0, '  방장 칸이 빈 투게더룸 + 안에 보유자 → 예전처럼 손대지 않는다');
   const t3 = mk(); t3.f('PLAY-X', 'm1', { channel: 'togetherroom', host: 'gone' }, friendsFree);
-  chk(t3.log.disband === 1, '  방장이 있었는데 나갔고 보유자가 없으면 예전처럼 해산(설계 그대로)');
+  chk(t3.log.disband === 1, '★ 방장이 나갔고 보유자가 없으면 해산 — 설계 그대로');
+  const t3b = mk(); t3b.f('PLAY-X', 'm2', { channel: 'togetherroom', host: 'gone' }, friendsLic);
+  chk(t3b.log.disband === 0 && t3b.log.claim.length === 1 && t3b.log.claim[0].uid === 'b', '  방장이 나갔고 안에 보유자가 있으면 그 보유자가 이어받는다');
   const t4 = mk(); t4.f('PLAY-X', 'm1', { channel: 'togetherroom', host: 'a' }, friendsFree);
   chk(t4.log.disband === 0 && t4.log.claim.length === 0, '  방장이 안에 있으면 아무것도 안 한다');
   const t5 = mk(); t5.f('PLAY-X', 'm1', null, friendsFree);
