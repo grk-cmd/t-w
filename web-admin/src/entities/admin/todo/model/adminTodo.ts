@@ -156,6 +156,32 @@ export function filterTodos(list: readonly Todo[], f: TodoFilter, me: string | n
   );
 }
 
+/** 검색어 → 낱말 — 공백(여러 칸 · 전각 공백 포함)으로 나누고 대소문자 무시. 맥에서 붙여 넣은 풀린 한글(NFD)도 같게. */
+export function searchWords(q: string): string[] {
+  return q.normalize('NFC').toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+/**
+ * 검색 — 낱말이 모두(AND) 제목 · 메모 · 연결된 제보(번호 B-1009-1 · id) · 릴리스 버전 어딘가에 들어 있는 것만.
+ * reportNos 는 제보 id → 번호(B-MMDD-n) — 화면이 이미 받아 둔 것만 넘긴다(검색하려고 따로 읽지 않는다).
+ * 낱말이 없으면 그대로.
+ */
+export function searchTodos(
+  list: readonly Todo[],
+  q: string,
+  reportNos: ReadonlyMap<string, string> = new Map(),
+): Todo[] {
+  const ws = searchWords(q);
+  if (!ws.length) return [...list];
+  return list.filter((t) => {
+    const hay = [t.title, t.memo, t.release, ...t.reports.flatMap((r) => [r, reportNos.get(r) ?? ''])]
+      .join('\n')
+      .normalize('NFC')
+      .toLowerCase();
+    return ws.every((w) => hay.includes(w));
+  });
+}
+
 const verParts = (v: string) => {
   const [core = '', pre = ''] = v.replace(/^v/i, '').split('-');
   const nums = core.split('.').map((n) => parseInt(n, 10) || 0);

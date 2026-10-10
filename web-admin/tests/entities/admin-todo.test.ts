@@ -11,6 +11,8 @@ import {
   nextRelease,
   releasesOf,
   releaseState,
+  searchTodos,
+  searchWords,
   todoByReport,
   todoChanges,
   todoValue,
@@ -18,7 +20,7 @@ import {
   toTodos,
   type Todo,
 } from '@/entities/admin/todo';
-import { hashParts } from '@/shared/lib';
+import { hashParam, hashParts, withHashParam } from '@/shared/lib';
 
 const R1 = '-OaAAAAAAAAAAAAAAAA1';
 const R2 = '-OaAAAAAAAAAAAAAAAA2';
@@ -295,5 +297,78 @@ describe('할 일 종류(type)', () => {
     expect(filterTodos(list, { ...ALL_TODOS, type: 'bug' }, 'me').map((t) => t.id)).toEqual(['2']);
     expect(filterTodos(list, { ...ALL_TODOS, type: 'none' }, 'me').map((t) => t.id)).toEqual(['3']);
     expect(filterTodos(list, ALL_TODOS, 'me')).toHaveLength(3);
+  });
+});
+
+describe('할 일 검색(searchTodos)', () => {
+  const list = [
+    todo('a', { title: '채팅 탭 이름 잘림', memo: '줄임표로 처리', release: '0.11.3', reports: [R1] }),
+    todo('b', { title: 'Mac 창 제목 크래시', memo: 'getWindowTitle NULL', status: 'done' }),
+    todo('c', { title: '이모티콘 채널', reports: [R2], release: '0.12.0-beta.1' }),
+  ];
+  const nos = new Map([
+    [R1, 'B-1009-1'],
+    [R2, 'B-1010-12'],
+  ]);
+  const ids = (q: string) => searchTodos(list, q, nos).map((t) => t.id);
+
+  it('낱말 나누기 — 여러 칸 · 전각 공백 · 앞뒤 공백 무시, 소문자', () => {
+    expect(searchWords('  채팅   Tab\u3000x ')).toEqual(['채팅', 'tab', 'x']);
+    expect(searchWords('   ')).toEqual([]);
+  });
+
+  it('빈 검색어면 그대로(완료 포함)', () => {
+    expect(ids('')).toEqual(['a', 'b', 'c']);
+    expect(ids('   ')).toEqual(['a', 'b', 'c']);
+  });
+
+  it('제목 · 메모 — 대소문자 무시 · 한글', () => {
+    expect(ids('mac')).toEqual(['b']);
+    expect(ids('GETWINDOWTITLE')).toEqual(['b']);
+    expect(ids('줄임표')).toEqual(['a']);
+    expect(ids('채')).toEqual(['a', 'c']);
+  });
+
+  it('여러 낱말은 모두 들어 있어야(AND) — 칸이 달라도 된다', () => {
+    expect(ids('채팅 줄임표')).toEqual(['a']);
+    expect(ids('채팅 0.11.3')).toEqual(['a']);
+    expect(ids('채팅 크래시')).toEqual([]);
+  });
+
+  it('제보 번호 · 제보 id · 릴리스 버전', () => {
+    expect(ids('b-1009-1')).toEqual(['a']);
+    expect(ids('B-1010')).toEqual(['c']);
+    expect(ids(R2)).toEqual(['c']);
+    expect(ids('beta')).toEqual(['c']);
+    expect(ids('0.1')).toEqual(['a', 'c']);
+  });
+
+  it('번호를 모르는 제보(아직 안 받음 · 옛 글)는 번호로 안 걸린다', () => {
+    expect(searchTodos(list, 'B-1009-1').map((t) => t.id)).toEqual([]);
+  });
+
+  it('완료도 검색된다 · 다른 거르기와 함께', () => {
+    const done = filterTodos(list, { ...ALL_TODOS, status: 'done' }, null);
+    expect(searchTodos(done, '크래시', nos).map((t) => t.id)).toEqual(['b']);
+    expect(searchTodos(done, '채팅', nos)).toEqual([]);
+  });
+
+  it('맥에서 붙여 넣은 풀린 한글(NFD)도 같게', () => {
+    expect(ids('채팅'.normalize('NFD'))).toEqual(['a']);
+  });
+});
+
+describe('주소 해시의 검색어(?q=)', () => {
+  it('경로와 검색어를 나눠 읽는다', () => {
+    expect(hashParts('#/todos?q=%EC%B1%84%ED%8C%85')).toEqual({ id: 'todos', sub: '' });
+    expect(hashParts('#/todos/t1?q=a')).toEqual({ id: 'todos', sub: 't1' });
+    expect(hashParam('#/todos?q=%EC%B1%84%ED%8C%85+%ED%83%AD', 'q')).toBe('채팅 탭');
+    expect(hashParam('#/todos', 'q')).toBe('');
+  });
+
+  it('검색어 넣기 · 빼기 — 경로는 그대로', () => {
+    expect(withHashParam('#/todos', 'q', '채팅 탭')).toBe('#/todos?q=%EC%B1%84%ED%8C%85+%ED%83%AD');
+    expect(withHashParam('#/todos/t1?q=a', 'q', '')).toBe('#/todos/t1');
+    expect(hashParam(withHashParam('#/todos', 'q', 'a&b=c'), 'q')).toBe('a&b=c');
   });
 });

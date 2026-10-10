@@ -18,6 +18,8 @@ export {
   releasesOf,
   releaseState,
   REPORT_ID_RE,
+  searchTodos,
+  searchWords,
   sortTodos,
   TODO_MEMO_MAX,
   TODO_RELEASE_MAX,
