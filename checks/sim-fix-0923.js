@@ -4,7 +4,7 @@
    ・3절: 🎨 게시글 글자 배경색 — 서식 태그(FONT·B·STRONG·I·EM·U)의 style 을 남긴다(값은 다섯 속성만)
    ・4절: 😑 스티커사진 동물 눈 감기 — 원본 재질 하나 → 복제본 하나(Map). 동물은 몸+face1~4 가 한 재질(animal.js)
    ・5절: 🫨 말랑이 제자리 떨림 — 짧은 간격으로 세 번째 돌아서려 하면 쉰다
-   [실행] app.js · desk-companion-prototype.html · mallang.js · animal.js 가 있는 폴더에서. */
+   [실행] app.js · purikura-ui.js · desk-companion-prototype.html · mallang.js · animal.js 가 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -13,6 +13,9 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const SRC = read('app.js'), ML = read('mallang.js'), AN = read('animal.js');
 if(!SRC || !ML){ say('  ? 원본 못 찾음 — app.js · mallang.js'); process.exit(2); }
+/* 📷 스티커사진 무대(_pkCloneChar)는 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 4절은 그 파일을 본다 */
+const PU = read('purikura-ui.js');
+if(!PU){ say('  ? 원본 못 찾음 — purikura-ui.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(SRC), MLC = strip(ML);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;
@@ -70,7 +73,7 @@ say('── 3. 🎨 서식 태그의 배경색');
 
 say('── 4. 😑 스티커사진 눈 감기 짝');
 {
-  const cc = strip(grab(SRC, '_pkCloneChar'));
+  const cc = strip(grab(PU, '_pkCloneChar'));
   /* [2026-10-03] 복제와 등록 사이에 색조 셰이더(_hueOBC) 옮기기가 들어왔다(제보 #8) — 한 줄 모양 대신
      «표에 없을 때만 clone → 같은 if 안에서 set → 그 사본을 돌려준다» 를 본다. */
   chk(/const _cl = new Map\(\);/.test(cc)

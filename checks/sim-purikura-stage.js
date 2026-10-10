@@ -1,5 +1,5 @@
 /* sim-purikura-stage.js — 📷 촬영 창 + 무대 검사
-   실행:  node sim-purikura-stage.js   (app.js · desk-companion-prototype.html 과 같은 폴더에서)
+   실행:  node sim-purikura-stage.js   (app.js · purikura-ui.js · desk-companion-prototype.html 과 같은 폴더에서)
 
    ★ 왜 이 검사가 있는가
      이 화면의 사고는 **전부 화면에 표시가 안 난다.** 무대 비율이 컷 비율과 어긋나도 무대는
@@ -16,7 +16,10 @@
 'use strict';
 const fs = require('fs');
 const P = require('./purikura-net.js');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+/* 📷 촬영 창 · 무대 · 꾸미기 화면은 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+let PU = null; try{ PU = fs.readFileSync('purikura-ui.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — purikura-ui.js'); process.exit(2); }
+const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + PU;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const INIT = fs.readFileSync('firebase-init.js', 'utf8');
 const RULES = JSON.parse(fs.readFileSync('firebase-database-rules.json', 'utf8'));
@@ -206,7 +209,7 @@ say('· §4 소스 — 창·키·캡처·업로드의 규약');
       '#pkOverlay 가 창 층 사다리에 있다 (없으면 눌러도 앞으로 안 나온다)');
   chk(/OPEN_MODAL_SEL\s*=\s*'[^']*#pkOverlay\.on/.test(SRC),
       '★ #pkOverlay.on 이 F 키 잠금 목록에 있다 (없으면 촬영 중 F5 로 대화창이 열린다)');
-  chk(/_pkIsOpen\(\)\)\s*return;/.test(SRC),
+  chk(/purikuraUi\.isOpen\(\)\)\s*return;/.test(SRC) && /isOpen: _pkIsOpen,/.test(PU),   // 때리기 핸들러는 app.js — 모듈이 내놓는 isOpen 으로 본다
       "★ 'b' 조준 단축키가 촬영 중에는 안 먹는다");
   chk(/_pkKey[\s\S]{0,400}_pkTyping\(\)\)\s*return/.test(SRC),
       '★ 입력칸에 포커스가 있으면 키를 안 가져간다 (안 그러면 어디서도 글자를 못 친다)');

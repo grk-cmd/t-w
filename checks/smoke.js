@@ -305,6 +305,8 @@ const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 PRELOAD.push('scheduler.js');
 /* weekly-challenge.js — 👑 달성표(앱 FSD 2번). 같은 까닭 — 만들 때 하는 일(로컬 기록 읽기 · 부팅 동기화 · 20초 tick · 버튼 연결)을 같이 굴린다. */
 PRELOAD.push('weekly-challenge.js');
+/* purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 같은 까닭 — 만들 때 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)을 같이 굴린다. */
+PRELOAD.push('purikura-ui.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
