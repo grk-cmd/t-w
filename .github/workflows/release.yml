@@ -4,6 +4,7 @@
 #   ③ 빌드(여기):    태그 push 가 트리거 → exe · dmg ×2 · latest.yml 을 **한 초안**에 올린다
 #   ④ 검사 → 공개:   빌드마다 «열리는가 · 버전 · arch · 켜지는가», 초안은 «올라간 파일 = 원본» 을 본다.
 #                    전부 통과해야 공개(Publish)한다. 하나라도 빨강이면 초안으로 남고 사용자에게 가지 않는다.
+#                    publish=draft(release-start «초안으로 대기») 면 검사까지 똑같이 하고 공개만 사람이 Releases 에서 누른다.
 # ★ 왜 태그인가 — exe 와 dmg 가 **같은 커밋 · 같은 버전**으로 빌드된다. 예전엔 exe 는 개발자 PC(로컬 버전),
 #   dmg 는 mac-probe(main 의 버전)로 따로 만들어 0.10.0 릴리스에 0.9.8 dmg 가 올라간 일이 두 번 있었다.
 # ★ 초안에 모두 올린 뒤 한 번에 공개한다 — 파일이 하나씩 공개되면 latest.yml 만 먼저 보인 사이에
@@ -28,6 +29,11 @@ on:
       tag:
         description: '다시 빌드할 태그 (예: v0.10.1 · 테스트 v0.10.2-beta.0) — 이미 있는 태그여야 한다'
         required: true
+      publish:
+        description: '공개 방식 — auto: 검사를 모두 통과하면 바로 공개 · draft: 초안까지만(Releases 에서 사람이 Publish)'
+        type: choice
+        options: [auto, draft]
+        default: auto
 
 permissions:
   contents: read
@@ -38,6 +44,8 @@ concurrency:
 
 env:
   TAG: ${{ github.event.inputs.tag || github.ref_name }}
+  # 태그 push 로 깨어나면 입력이 없다 — 예전처럼 자동 공개.
+  PUBLISH: ${{ github.event.inputs.publish || 'auto' }}
 
 jobs:
   # ── 태그와 package.json 버전이 같은가 — 다르면 여기서 멈춘다(버전 어긋남을 원천 차단) ──
@@ -95,6 +103,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          # 내려받은 패키지(~/.npm)만 저장해 둔다 — node_modules 는 매번 새로 깔리므로
+          # node-window-manager 컴파일 · postinstall 패치(scripts/patch-nwm.js)는 그대로 돈다.
+          cache: npm
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - name: oauth-config.js 만들기
         shell: bash
@@ -173,6 +185,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          # 내려받은 패키지(~/.npm)만 저장해 둔다 — node_modules 는 매번 새로 깔리므로
+          # node-window-manager 컴파일 · postinstall 패치(scripts/patch-nwm.js)는 그대로 돈다.
+          cache: npm
+          cache-dependency-path: package-lock.json
       - run: npm ci
       - name: oauth-config.js 만들기
         env:
@@ -305,7 +321,25 @@ jobs:
             if [ "$WANT" = "$GOT" ]; then echo "같음: $f"; else echo "::error::$f — 원본 $WANT · 릴리스 ${GOT:-없음}"; BAD=1; fi
           done
           exit $BAD
+      - name: 초안으로 대기 (공개는 사람이)
+        if: env.PUBLISH == 'draft'
+        run: |
+          URL=$(gh release view "$TAG" -R ${{ github.repository }} --json url -q .url)
+          if [ "$PRERELEASE" = "true" ]; then
+            HOW="Publish release 를 누르면 Pre-release 로 공개된다(일반 사용자 앱은 받지 않는다)."
+          else
+            HOW="Publish release 를 누르기 전에 «Set as the latest release» 가 체크돼 있는지 본다 — Latest 여야 사용자 앱이 업데이트를 받는다."
+          fi
+          echo "초안 대기 — GitHub Releases 에서 Publish 를 누르면 공개: $URL"
+          {
+            echo "### 📝 $TAG 초안 대기 — GitHub Releases 에서 Publish 를 누르면 공개"
+            echo "설치 파일 검사는 모두 통과했다. 파일(latest.yml 포함)은 이미 다 올라가 있다."
+            echo ""
+            echo "- 초안: $URL"
+            echo "- $HOW"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: 공개 (Publish)
+        if: env.PUBLISH != 'draft'
         run: |
           # 위 검사가 하나라도 빨강이면 여기까지 오지 않는다 — 초안으로 남는다.
           REPO=${{ github.repository }}

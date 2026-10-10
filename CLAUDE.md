@@ -63,7 +63,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 
 ## 릴리스 순서: ① 서버 → ② 버전 태그(→ 자동 공개)
 1. **서버** (바뀐 것만): 함수는 자동 배포가 없으니 `firebase deploy --only functions:<이름> --project together-working` 을 앱 릴리스 **전에** 직접. 운영 규칙도 바뀌었으면 태그 전에 직접 `firebase deploy --only database --project together-working`. 옛 앱이 깨지지 않는지 확인한다.
-2. **버전 태그**: Actions › **release-start** › Run workflow(patch · minor · beta) 버튼, 또는 main 에서 `git pull --rebase` → `npm run check` → `npm version patch -m "chore: %s"` → `git push --follow-tags`. 태그가 올라가면 `release.yml` 이 Windows · Mac 빌드 → 설치 파일 검사(dmg 열림 · 버전 · arch · 켜짐 · yml sha512 · 업로드 sha256) → **통과하면 공개**까지 자동. 빨강이면 초안으로 남는다. 테스트 빌드는 `npm version prerelease --preid=beta`(dev 에 붙고 일반 사용자에겐 안 감).
+2. **버전 태그**: Actions › **release-start** › Run workflow(patch · minor · beta) 버튼, 또는 main 에서 `git pull --rebase` → `npm run check` → `npm version patch -m "chore: %s"` → `git push --follow-tags`. 태그가 올라가면 `release.yml` 이 Windows · Mac 빌드 → 설치 파일 검사(dmg 열림 · 버전 · arch · 켜짐 · yml sha512 · 업로드 sha256) → **통과하면 공개**까지 자동. 빨강이면 초안으로 남는다. 버튼의 «공개 방식» 을 `초안으로 대기` 로 고르면 검사까지 같고 공개만 Releases 에서 사람이 누른다(정식은 «Set as the latest release» 체크 확인). 버튼은 main 의 그 커밋에 `checks.yml` 이 이미 초록이면 검사를 건너뛴다(없으면 직접 돌림). 테스트 빌드는 `npm version prerelease --preid=beta`(dev 에 붙고 일반 사용자에겐 안 감).
 3. 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 웹 관리자 ⚙️ 설정의 «방 입장 최소 버전» 으로 `config/minRoomVer` 를 올린다(올리면 낮은 앱은 방 입장이 막힌다). 자세한 절차는 `docs/RELEASE.md`.
 
 ## 문서
