@@ -354,6 +354,26 @@ let SETTINGS_PATH = null;
 const SETTINGS_VER = 1;
 let _settingsReset = null;          // 초기화했으면 옛 값 요약 — 부팅 로그 · 렌더러 안내에 쓴다
 let _settingsResetNotice = false;   // 렌더러가 안내를 한 번 가져가면 끈다
+/* 🎬 [2026-10-10] 영상 겹침 실험 — 위 초기화가 끈 사람 · 시험 켜기 · 설정 › 시스템 안내.
+   [경위] 위 초기화는 실험을 켜 둔 사람의 실험도 꺼 버렸다. 영상 깜빡임 때문에 켠 사람들이라 업데이트 뒤 증상이 돌아왔고
+     (0.11.2 제보 2건), 알림은 9초 토스트뿐이라 무엇이 꺼졌는지 몰랐다.
+   [왜 자동으로 되살리지 않나] 초기화가 실제로 구한 사람은 GPU 합성이 **켜진** PC 다 — 꺼진 PC 는 10-01 보호(overlay-win.js)가
+     이미 레이어드를 안 건다. 그러니 «GPU 합성 켜짐» 은 되살려도 된다는 신호가 아니고(electron#40515 계열),
+     말없이 되살리면 그 사람 창이 다시 안 보인다(#43 재발). 초기화 뒤 사용자가 일부러 껐는지도 파일로는 못 가른다(둘 다 0).
+   ⇒ 설정 › 시스템에 «꺼졌어요 — [다시 켜기]» 를 답할 때까지 띄운다. 초기화를 겪은 사람이 다시 켜면 **시험 켜기**:
+     «잘 보여요» 를 눌러야 확정되고, 안 누른 채 끝나면 다음 실행에서 꺼짐으로 되돌린다
+     (창이 안 보이면 누를 수 없으니 재시작만으로 풀린다). */
+let _labResetGroup = false;     // tw-settings.before-reset.json 에 실험 켜짐이 남아 있다 = 초기화를 겪은 사람
+let _labTrial = false;          // 시험 켜기 중(확인 전) — 파일에도 적어 다음 부팅이 안다
+let _labConfirmed = false;      // 다시 켠 뒤 «잘 보여요» 를 눌렀다 — 그 뒤로는 보통 토글
+let _labNoticeDone = false;     // 안내에 답했다([괜찮아요] · 토글을 직접 누름) — 다시 안 띄운다
+let _labTrialReverted = false;  // 이번 부팅에 확인 없는 시험 켜기를 되돌렸다
+let _labRetryGaveUp = false;    // GPU 상태를 끝내 못 읽어 이번 실행엔 적용 못 함(_armLayeredRetry)
+function _labReadResetGroup(){
+  try{
+    return _settingsLegacyRisky(JSON.parse(fs.readFileSync(SETTINGS_PATH.replace(/\.json$/, '') + '.before-reset.json', 'utf8')));
+  }catch(_){ return false; }
+}
 function _settingsLegacyRisky(data){
   const a = data && data.overlayLayeredAlpha;
   return typeof a === 'number' && isFinite(a) && a > 0 && a < 255;
@@ -369,6 +389,7 @@ function loadSettings(){
       try{ fs.copyFileSync(SETTINGS_PATH, SETTINGS_PATH.replace(/\.json$/, '') + '.before-reset.json'); }catch(_){}
       _settingsReset = { alpha: data.overlayLayeredAlpha, zoom: data.uiZoom, display: data.runDisplayId, gap: data.overlayBottomGap };
       _settingsResetNotice = true;
+      _labResetGroup = true;
       return;   // 값을 하나도 읽지 않는다 = 전부 기본값. 파일은 createWindow 에서 새 세대로 다시 쓴다.
     }
     if(typeof data.runDisplayId === 'number') runDisplayId = data.runDisplayId;
@@ -395,6 +416,13 @@ function loadSettings(){
     if(typeof data.overlayLayeredAlpha === 'number' && isFinite(data.overlayLayeredAlpha)){
       overlay.setAlpha(Math.max(0, Math.min(255, Math.round(data.overlayLayeredAlpha))));
     }
+    _labResetGroup = _labReadResetGroup();
+    _labConfirmed = data.overlayLayeredConfirmed === true;
+    _labNoticeDone = data.overlayLayeredNoticeDone === true;
+    /* 초기화 뒤 0.11.x 에서 스스로 다시 켜 쓰던 사람 — 그 실행에서 보였으니 확인한 것으로 본다(다시 껐다 켜도 시험 켜기 아님). */
+    if(_labResetGroup && overlay.alpha() > 0 && overlay.alpha() < 255 && data.overlayLayeredTrial !== true) _labConfirmed = true;
+    /* 시험 켜기를 확인하지 않고 끝났다 — 창이 안 보였을 수 있다. 이번엔 꺼짐으로 뜬다(위 🎬 주석). */
+    if(data.overlayLayeredTrial === true && overlay.alpha() > 0){ overlay.setAlpha(0); _labTrialReverted = true; }
     /* 🔍 전체 화면 크기 — 없거나 깨졌으면 100%. 창이 아직 없을 수 있으므로 값만 들고 있다가
        createWindow 의 did-finish-load 에서 applyUiZoom 이 실제로 건다. */
     if(typeof data.uiZoom === 'number' && isFinite(data.uiZoom)) uiZoom = _clampZoom(data.uiZoom);
@@ -517,6 +545,7 @@ function saveSettings(){
       overlayBottomGap: overlay.gap(),
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
+      overlayLayeredTrial: _labTrial, overlayLayeredConfirmed: _labConfirmed, overlayLayeredNoticeDone: _labNoticeDone,   // 🎬 위 🎬 주석
       uiZoom }));                              // 🔍 전체 화면 크기 — applyUiZoom 만 바꾼다
     _saveFailLogged = false;
     return true;
@@ -1906,6 +1935,59 @@ function _logGpuOnce(win){
   app.once('gpu-info-update', go);
   if(win && !win.isDestroyed()) win.webContents.once('did-finish-load', () => setTimeout(go, 1500));
 }
+/* 🔁 레이어드 재시도 — [2026-10-08 제보 #4] 의 «한 번뿐» 을 [2026-10-10] «GPU 상태가 정해질 때까지(상한 있음)» 로.
+   [왜] app.getGPUFeatureStatus() 는 gpu-info-update 전에는 '?' 다. 예전엔 '?' 를 꺼짐으로 보고 한 번만 다시 봤는데,
+     그때도 '?' 면 그 실행 내내 «토글은 켜짐 · 효과는 꺼짐» 이었다(0.11.2 제보 2건 — 윈도우 시작 자동 실행처럼 GPU 가 늦게 뜨는 PC).
+   ★ '?' 인 동안 applyLayered 는 창을 건드리지 않고 상태만 'wait' 로 둔다(overlay-win.js) — 그래서 이 재시도는 스타일을 두들기지 않는다.
+     enabled 가 오면 그때 한 번 setOpacity, disabled 면 blocked(10-01 보호 그대로) — 정해지면 즉시 멈춘다.
+     처음부터 blocked(정해진 꺼짐)였으면 예전처럼 한 번만 다시 보고 멈춘다.
+   ⚠️ 주기 호출이 아니다: 정해진 시각(LAY_RETRY_AT_MS) · gpu-info-update 뿐이고 LAY_RETRY_MAX 번이 상한이다. 끝내 모르면
+     이번 실행엔 적용하지 않는다(설정 › 시스템에 «재시작하면 다시 시도»). */
+const LAY_RETRY_AT_MS = [1500, 5000, 15000, 40000];   // 화면 로드 뒤 — 마지막까지 '?' 면 포기
+const LAY_RETRY_MAX = 8;
+let _layRetry = null;
+function _armLayeredRetry(why, afterLoad){
+  if(_layRetry) return;   // 이미 기다리는 중
+  if(!(overlay.alpha() > 0 && overlay.alpha() < 255) || !/^(blocked|wait)/.test(overlay.layeredState())) return;
+  const st = { n: 0, timers: [] };
+  _layRetry = st;
+  _labRetryGaveUp = false;
+  const stop = (res) => {
+    if(_layRetry !== st) return;
+    _layRetry = null;
+    app.removeListener('gpu-info-update', onGpu);
+    st.timers.forEach(clearTimeout);
+    _diagLog('[오버레이] 레이어드 재시도 끝(' + why + ') — ' + res + ' · ' + st.n + '번');
+  };
+  const tryOnce = (w, last) => {
+    if(_layRetry !== st) return;
+    if(!mainWindow || mainWindow.isDestroyed() || !(overlay.alpha() > 0 && overlay.alpha() < 255)) return stop('창 없음 · 실험 꺼짐');
+    st.n++;
+    overlay.applyLayered('재시도(' + w + ')');
+    const s = overlay.layeredState();
+    if(!/^wait/.test(s)) return stop(s);
+    if(last || st.n >= LAY_RETRY_MAX){ _labRetryGaveUp = true; stop('GPU 상태를 끝내 못 읽음 — 이번 실행엔 적용 안 함 · 재시작하면 다시 시도'); }
+  };
+  const onGpu = () => tryOnce('gpu-info-update', false);
+  app.on('gpu-info-update', onGpu);
+  const arm = () => _layRetry === st && LAY_RETRY_AT_MS.forEach((ms, k) => {   // 화면이 뜨기 전에 이미 끝났으면 안 건다
+    st.timers.push(setTimeout(() => tryOnce(ms + 'ms', k === LAY_RETRY_AT_MS.length - 1), ms));
+  });
+  // 부팅이면 화면이 다 뜬 뒤부터 센다(gpu-info-update 가 이미 지나갔을 수 있다), 토글이면 지금부터
+  if(afterLoad && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.once('did-finish-load', arm);
+  else arm();
+}
+/* 🎬 설정 › 시스템 안내 종류 — 렌더러(lab-video-notice.js)가 글과 버튼을 고른다. 위 🎬 주석. */
+function _labNotice(){
+  const on = overlay.alpha() > 0 && overlay.alpha() < 255;
+  const st = overlay.layeredState();
+  if(on && /^wait/.test(st)) return _labRetryGaveUp ? 'unknown' : 'wait';
+  if(on && /^blocked/.test(st)) return 'blocked';
+  if(on && _labTrial && /^on/.test(st)) return 'trial';
+  if(!on && _labTrialReverted) return 'trial-reverted';
+  if(!on && process.platform === 'win32' && _labResetGroup && !_labNoticeDone && !_labConfirmed) return 'reset';
+  return null;
+}
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
@@ -1940,23 +2022,8 @@ function createWindow() {
        주기적으로 다시 부르지 말 것 — 스타일 변경 자체가 크로미움의 가려짐 재계산 훅을
        두들겨서(핸드오프4 §4-2 의 906회 사고) 고치려던 깜빡임을 우리 손으로 만들게 된다. */
   overlay.applyLayered('부팅');
-  /* 🔁 [2026-10-08 제보 #4] 부팅 판정이 «GPU 합성 꺼짐» 이면 GPU 정보가 준비된 뒤 **딱 한 번** 다시 본다.
-     [왜] app.getGPUFeatureStatus() 는 gpu-info-update 전에는 믿을 수 없다. 윈도우 시작 자동 실행처럼 GPU 가 덜 준비된
-       순간이면 '?' 가 나와 꺼짐으로 판정되고, 예전엔 다시 시도하지 않아서 «토글은 켜짐인데 효과는 꺼짐» 이 됐다
-       (토글을 껐다 켜면 그때는 준비돼 있어 적용됐다 — 제보와 일치).
-     ★ 재시도도 같은 함수(_applyOverlayLayered)를 지난다 — 그때도 enabled 가 아니면 그대로 건너뛴다(10-01 보호 유지).
-     ⚠️ 한 번뿐이다. 주기적으로 다시 부르지 말 것(위 주석 — 스타일 변경이 가려짐 재계산 훅을 두들긴다). */
-  if(/^blocked/.test(overlay.layeredState()) && overlay.alpha() > 0 && overlay.alpha() < 255){
-    let _layRetried = false;
-    const _layRetry = (why)=>{
-      if(_layRetried || !mainWindow || mainWindow.isDestroyed()) return;
-      _layRetried = true;
-      overlay.applyLayered('재시도(' + why + ')');
-    };
-    app.once('gpu-info-update', ()=>_layRetry('gpu-info-update'));
-    // gpu-info-update 가 이미 지나갔을 수 있다 — 화면이 다 뜬 뒤 한 번 더 기회를 준다
-    mainWindow.webContents.once('did-finish-load', ()=>setTimeout(()=>_layRetry('did-finish-load'), 1500));
-  }
+  /* 🔁 부팅 판정이 «GPU 상태 모름(wait)» · «GPU 합성 꺼짐(blocked)» 이고 실험이 켜져 있으면 GPU 정보가 정해진 뒤 다시 본다 — _armLayeredRetry 주석. */
+  _armLayeredRetry('부팅', true);
   /* 🚚 갭 승격이 일어났으면 한 줄 남긴다 — 제보 로그에서 "이 사람은 옛 값을 쓰고 있었다"가
      바로 보여야 한다. loadSettings 시점에는 app 이 아직 ready 가 아니라 여기서 찍는다. */
   if(_settingsReset){
@@ -1965,6 +2032,12 @@ function createWindow() {
       + ' | 원본은 tw-settings.before-reset.json');
     try{ saveSettings(); }catch(_){}
     _settingsReset = null;
+  }
+  if(_labTrialReverted){
+    _diagLog('[설정] 영상 겹침 실험 — 지난 실행에 다시 켠 뒤 «잘 보여요» 확인이 없어 꺼짐으로 되돌림(창이 안 보였을 수 있음) · 설정 › 시스템에 [다시 켜기] 안내');
+    try{ saveSettings(); }catch(_){}
+  } else if(_labNotice() === 'reset'){
+    _diagLog('[설정] 영상 겹침 실험 — 0.11.0 초기화로 꺼진 사람(before-reset 에 켜짐) · 자동 복원 안 함(electron#40515 위험) · 설정 › 시스템에 [다시 켜기] 안내');
   }
   if(_gapMigratedFrom != null){
     _diagLog('[오버레이] 갭 승격 — 옛 기본값 ' + _gapMigratedFrom + ' → ' + overlay.GAP_DEFAULT + ' (설정 파일 세대 갱신)');
@@ -3474,15 +3547,34 @@ function createWindow() {
   });
   /* state — 실제로 걸렸는지(overlay.layeredState). 켜 두었는데 'blocked…' 면 화면이 「켜짐」 대신 「이 PC 에서는 적용 안 됨」. */
   ipcMain.handle('companion:getLabVideo', () => {
-    return { on: overlay.alpha() > 0 && overlay.alpha() < 255, alpha: overlay.alpha(), state: overlay.layeredState() };
+    return { on: overlay.alpha() > 0 && overlay.alpha() < 255, alpha: overlay.alpha(), state: overlay.layeredState(), notice: _labNotice() };
   });
   ipcMain.handle('companion:setLabVideo', (e, on) => {
     overlay.setAlpha(on ? overlay.LAYERED_ALPHA_ON : 0);
+    const isOn = overlay.alpha() > 0 && overlay.alpha() < 255;
+    /* 직접 고른 값이다 — 안내는 다시 안 띄운다. 초기화를 겪은 사람이 켜면 확인 전까지 시험 켜기(위 🎬 주석). */
+    _labNoticeDone = true;
+    _labTrialReverted = false;
+    _labTrial = isOn && _labResetGroup && !_labConfirmed;
     try{ saveSettings(); }catch(_){}
     /* 즉시 반영한다 — 재시작을 요구하지 않는다. 스타일 변경은 재계산 훅이지만 이건 사람이
        버튼을 누른 순간 한 번뿐이라, 주기 호출 금지 원칙(위 주석)에 어긋나지 않는다. */
     overlay.applyLayered(on ? '토글 켜기' : '토글 끄기');
-    return { ok: true, on: overlay.alpha() > 0 && overlay.alpha() < 255, state: overlay.layeredState() };
+    if(_labTrial) _diagLog('[설정] 영상 겹침 실험 시험 켜기 — «잘 보여요» 전에는 다음 실행 때 꺼짐으로 돌아간다');
+    _armLayeredRetry('토글', false);   // GPU 상태를 아직 모르면 정해질 때까지
+    return { ok: true, on: overlay.alpha() > 0 && overlay.alpha() < 255, state: overlay.layeredState(), notice: _labNotice() };
+  });
+  /* 🎬 설정 › 시스템 안내에 답하기 — 'confirm'(시험 켜기가 잘 보인다) · 'dismiss'(괜찮아요 — 다시 안 띄움). */
+  ipcMain.handle('companion:labVideoNotice', (e, act) => {
+    if(act === 'confirm' && _labTrial && /^on/.test(overlay.layeredState())){
+      _labTrial = false; _labConfirmed = true;
+      _diagLog('[설정] 영상 겹침 실험 — «잘 보여요» 확인 · 켜짐으로 확정');
+    } else if(act === 'dismiss'){
+      _labNoticeDone = true; _labTrialReverted = false;
+      _diagLog('[설정] 영상 겹침 실험 안내 — [괜찮아요] · 꺼짐 유지');
+    }
+    try{ saveSettings(); }catch(_){}
+    return { ok: true, on: overlay.alpha() > 0 && overlay.alpha() < 255, state: overlay.layeredState(), notice: _labNotice() };
   });
 
   /* 🩺 진단 기록 폴더 열기 — 제보를 받을 때 "이 경로의 파일을 보내주세요" 대신 버튼 하나로.

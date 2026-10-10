@@ -31442,7 +31442,10 @@ setTimeout(()=>{
   try{
     if(!(window.companion && companion.takeSettingsNotice)) return;   // 구버전 preload
     companion.takeSettingsNotice().then(r=>{
-      if(r && r.reset) toast('업데이트하면서 화면 설정(모니터 · 화면 크기 · 영상 겹침 실험)을 기본값으로 되돌렸어요', null, 9000);
+      if(r && r.reset) toast('업데이트하면서 화면 설정(모니터 · 화면 크기 · 영상 겹침 실험)을 기본값으로 되돌렸어요 — 영상 겹침 실험은 설정 › 시스템에서 다시 켤 수 있어요', null, 9000);
+      // 🎬 영상 겹침 실험이 꺼졌으면(이전 업데이트 · 확인 없는 시험 켜기) 한 번 알린다 — 방금 위 토스트를 띄웠으면 표시만 남긴다
+      if(!(companion.getLabVideo && window.LabVideoNotice)) return;
+      return companion.getLabVideo().then(v=>{ LabVideoNotice.bootToast(v, (r && r.reset) ? ()=>{} : toast); });
     }).catch(()=>{});
   }catch(_){}
 }, 2500);
@@ -31450,11 +31453,29 @@ setTimeout(()=>{
    ★ .on 은 «값» 기준 그대로 둔다 — 누르면 꺼짐으로 가야 한다. 글자만 사실대로. */
 function _labVideoShow(btn, r){
   const on = !!(r && r.on);
-  const blocked = on && /^blocked/.test(String((r && r.state) || ''));
-  btn.textContent = blocked ? '적용 안 됨' : (on ? '켜짐' : '꺼짐');
-  btn.title = blocked ? '켜 두었지만 이 PC 에서는 적용되지 않아요(그래픽 가속이 꺼져 있어요). 누르면 꺼져요.' : '';
+  const st = String((r && r.state) || '');
+  const waiting = on && /^wait/.test(st) && !!(r && r.notice === 'wait');   // GPU 상태를 기다리는 중(main 재시도) — 곧 정해진다
+  const blocked = on && /^(blocked|wait)/.test(st) && !waiting;
+  btn.textContent = waiting ? '확인 중' : (blocked ? '적용 안 됨' : (on ? '켜짐' : '꺼짐'));
+  btn.title = waiting ? '켜 두었어요. 그래픽 정보를 확인하는 중이라 곧 적용돼요. 누르면 꺼져요.'
+    : (blocked ? '켜 두었지만 이번 실행에는 적용되지 않았어요. 누르면 꺼져요.' : '');
   btn.classList.toggle('on', on);
-  return { on, blocked };
+  return { on, blocked, waiting };
+}
+/* 🎬 칸 아래 안내(lab-video-notice.js) — 버튼을 누르면 main 에 묻고 받은 상태로 칸과 안내를 다시 그린다. */
+function _labVideoNotice(r){
+  const box = document.getElementById('progLabVideoNotice');
+  if(!box || !window.LabVideoNotice) return;
+  LabVideoNotice.render(box, r, async (act)=>{
+    try{
+      const res = (act === 'on' || act === 'off') ? await companion.setLabVideo(act === 'on')
+        : (companion.labVideoNotice ? await companion.labVideoNotice(act) : null);
+      if(!res) return;
+      const btn = document.getElementById('progLabVideoToggle');
+      if(btn) _labVideoShow(btn, res);
+      _labVideoNotice(res);
+    }catch(_){ toast('설정에 실패했어요'); }
+  });
 }
 function refreshLabVideoUI(){
   const row = document.getElementById('progLabVideoRow');
@@ -31468,7 +31489,7 @@ function refreshLabVideoUI(){
   }
   row.style.display = '';
   if(hint) hint.style.display = '';
-  companion.getLabVideo().then(r=>{ _labVideoShow(btn, r); }).catch(()=>{ /* 조회 실패 — 마지막 표시를 그대로 둔다(값을 멋대로 꺼짐으로 보이면 안 된다) */ });
+  companion.getLabVideo().then(r=>{ _labVideoShow(btn, r); _labVideoNotice(r); }).catch(()=>{ /* 조회 실패 — 마지막 표시를 그대로 둔다(값을 멋대로 꺼짐으로 보이면 안 된다) */ });
 }
 if(document.getElementById('progLabVideoToggle')){
   document.getElementById('progLabVideoToggle').onclick = async ()=>{
@@ -31478,7 +31499,8 @@ if(document.getElementById('progLabVideoToggle')){
     try{
       const r = await companion.setLabVideo(wantOn);
       const v = _labVideoShow(btn, r);
-      toast(v.blocked ? '켜 두었지만 이 PC 에서는 적용되지 않아요' : (v.on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요'));
+      _labVideoNotice(r);
+      toast(v.waiting ? '켜 두었어요 — 그래픽 정보를 확인한 뒤 적용돼요' : (v.blocked ? '켜 두었지만 이번 실행에는 적용되지 않았어요' : (v.on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요')));
     }catch(e){ toast('설정에 실패했어요'); }
   };
 }

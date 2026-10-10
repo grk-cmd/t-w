@@ -270,6 +270,10 @@ contextBridge.exposeInMainWorld('companion', {
   setLabVideo(on) {
     return ipcRenderer.invoke('companion:setLabVideo', !!on);
   },
+  // 🎬 설정 › 시스템 안내에 답하기 — 'confirm'(시험 켜기가 잘 보인다) · 'dismiss'(괜찮아요). 돌려받는 모양은 getLabVideo 와 같다.
+  labVideoNotice(act) {
+    return ipcRenderer.invoke('companion:labVideoNotice', act === 'confirm' ? 'confirm' : 'dismiss');
+  },
 
   // 🩺 진단 기록(tw-mouse-diag.log)이 있는 폴더를 파일 탐색기로 연다: Promise<{ok}>
   //   제보를 받을 때 "이 폴더의 파일을 보내주세요" 대신 버튼 하나로 끝내려는 것.

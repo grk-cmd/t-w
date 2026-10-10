@@ -66,24 +66,26 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
     chk(/ipcMain\.handle\('companion:takeSettingsNotice'[\s\S]{0,200}_settingsResetNotice = false;/.test(MAIN), '안내는 한 번 돌려주면 끈다');
     chk(/takeSettingsNotice\(\) \{\s*return ipcRenderer\.invoke\('companion:takeSettingsNotice'\);/.test(PRE), 'preload 통로');
-    chk(/if\(!\(window\.companion && companion\.takeSettingsNotice\)\) return;/.test(APP) && /기본값으로 되돌렸어요', null, 9000\)/.test(APP), '렌더러 안내(구버전 preload 면 조용히 건너뜀)');
+    chk(/if\(!\(window\.companion && companion\.takeSettingsNotice\)\) return;/.test(APP) && /기본값으로 되돌렸어요 — 영상 겹침 실험은 설정 › 시스템에서 다시 켤 수 있어요', null, 9000\)/.test(APP), '렌더러 안내(구버전 preload 면 조용히 건너뜀)');
   }
 }
 
-say('§4 영상 겹침 실험이 재부팅 후 꺼짐 — 부팅 판정이 막히면 GPU 준비 뒤 한 번 더');
+say('§4 영상 겹침 실험이 재부팅 후 꺼짐 — 부팅 판정이 막히면 GPU 준비 뒤 다시 (2026-10-10: GPU 상태 모름이면 정해질 때까지 · sim-lab-video-restore.js)');
 {
   const MAIN = (() => { for (const c of ['main.js', '../main.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
   if (!MAIN) chk(false, 'main.js 를 찾았다');
   else {
     const i = MAIN.indexOf("overlay.applyLayered('부팅');");
-    const blk = MAIN.slice(i, i + 2200);
-    chk(i > 0 && /if\(\/\^blocked\/\.test\(overlay\.layeredState\(\)\) && overlay\.alpha\(\) > 0 && overlay\.alpha\(\) < 255\)\{/.test(blk), '★ 부팅이 blocked 이고 실험이 켜져 있을 때만 재시도를 건다');
-    chk(/app\.once\('gpu-info-update'/.test(blk) && /webContents\.once\('did-finish-load'/.test(blk), '  gpu-info-update · did-finish-load 중 먼저 오는 쪽');
-    chk(/if\(_layRetried \|\| !mainWindow \|\| mainWindow\.isDestroyed\(\)\) return;\s*_layRetried = true;/.test(blk), '  딱 한 번 (주기 호출 없음)');
-    chk(/overlay\.applyLayered\('재시도\(' \+ why \+ '\)'\)/.test(blk), '  재시도도 같은 함수 — GPU 합성 꺼짐 보호(10-01)를 그대로 지난다');
+    const blk = MAIN.slice(i, i + 400);
+    const arm = (MAIN.match(/function _armLayeredRetry\(why, afterLoad\)\{[\s\S]*?\n\}/) || [''])[0];
+    chk(i > 0 && /_armLayeredRetry\('부팅', true\);/.test(blk), '★ 부팅 직후 재시도를 건다(화면 로드 뒤부터 센다)');
+    chk(/if\(!\(overlay\.alpha\(\) > 0 && overlay\.alpha\(\) < 255\) \|\| !\/\^\(blocked\|wait\)\/\.test\(overlay\.layeredState\(\)\)\) return;/.test(arm), '  실험이 켜져 있고 blocked · wait 일 때만');
+    chk(/app\.on\('gpu-info-update', onGpu\)/.test(arm) && /app\.removeListener\('gpu-info-update', onGpu\)/.test(arm) && /webContents\.once\('did-finish-load', arm\)/.test(arm), '  gpu-info-update 마다 · 화면 로드 뒤 정해진 시각 — 끝나면 듣기를 뗀다');
+    chk(/if\(!\/\^wait\/\.test\(s\)\) return stop\(s\);/.test(arm) && /st\.n >= LAY_RETRY_MAX/.test(arm), '  정해지면(on · blocked) 바로 멈춘다 · 상한 (주기 호출 없음)');
+    chk(/overlay\.applyLayered\('재시도\(' \+ w \+ '\)'\)/.test(arm), '  재시도도 같은 함수 — GPU 합성 꺼짐 보호(10-01)를 그대로 지난다');
     const W = (() => { for (const c of ['overlay-win.js', '../overlay-win.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
     chk(!!W && /if\(_gpuCompositingOff\(\)\)\{\s*_layeredState = 'blocked\(GPU 합성 꺼짐\)';/.test(W), '  그 보호 줄이 overlay-win.js 에 그대로 있다');
-    chk(/companion:getLabVideo'[\s\S]{0,200}state: overlay\.layeredState\(\)/.test(MAIN) && /setLabVideo'[\s\S]{0,700}state: overlay\.layeredState\(\)/.test(MAIN), '설정 조회 · 토글이 실제 적용 상태(state)를 돌려준다');
+    chk(/companion:getLabVideo'[\s\S]{0,200}state: overlay\.layeredState\(\)/.test(MAIN) && /setLabVideo'[\s\S]{0,1600}state: overlay\.layeredState\(\)/.test(MAIN), '설정 조회 · 토글이 실제 적용 상태(state)를 돌려준다');
     // 화면 흉내
     const fn = (APP.match(/function _labVideoShow\(btn, r\)\{[\s\S]*?\n\}/) || [''])[0];
     const show = new Function(fn + '\nreturn _labVideoShow;')();

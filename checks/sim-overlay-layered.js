@@ -216,10 +216,12 @@ say('\n── 4. ★ 부르는 자리가 둘뿐인가 (스타일 변경 자체�
     const calls = (code.match(new RegExp(callRe + '\\s*\\(', 'g')) || []).length - (SPLIT ? 0 : 1);
     /* 🔁 [2026-10-08 제보 #4] 셋째 자리 = 부팅 판정이 blocked 일 때 GPU 준비 뒤 **한 번만** 도는 재시도.
        주기 호출이 아님을 플래그(_layRetried)와 once 리스너로 같이 확인한다. 넷째가 생기면 다시 따질 것. */
-    const retryOnce = new RegExp("if\\(_layRetried[^\\n]*return;\\s*_layRetried = true;\\s*overlay\\." + (faceName || 'applyLayered') + "\\('재시도").test(code)
-      && /app\.once\('gpu-info-update'/.test(code);
-    chk(calls === 3 && retryOnce, '★ 부르는 자리가 3곳이다(부팅 · 토글 · 부팅 재시도 1회) — 실제 ' + calls
-      + '곳' + (retryOnce ? '' : ' · 재시도가 한 번뿐인지 확인 못 함') + '. 늘었다면 주기 호출이 아닌지 확인할 것');
+    /* 🔁 [2026-10-10] «한 번뿐» → «GPU 상태가 정해질 때까지(상한)». '?' 인 동안 applyLayered 는 창을 안 건드리고(wait),
+       정해지면(on · blocked) 바로 멈춘다 — 그래서 주기 호출이 아니다. 멈춤 줄 · 상한 · 듣기 떼기를 같이 확인한다. */
+    const retryOnce = new RegExp("overlay\\." + (faceName || 'applyLayered') + "\\('재시도\\(' \\+ w \\+ '\\)'\\);\\s*const s = overlay\\.layeredState\\(\\);\\s*if\\(!/\\^wait/\\.test\\(s\\)\\) return stop\\(s\\);").test(code)
+      && /st\.n >= LAY_RETRY_MAX/.test(code) && /app\.removeListener\('gpu-info-update', onGpu\)/.test(code);
+    chk(calls === 3 && retryOnce, '★ 부르는 자리가 3곳이다(부팅 · 토글 · 재시도 — 정해지면 멈춤) — 실제 ' + calls
+      + '곳' + (retryOnce ? '' : ' · 재시도가 정해지면 멈추는지 확인 못 함') + '. 늘었다면 주기 호출이 아닌지 확인할 것');
     chk(new RegExp(callRe + "\\s*\\(\\s*'부팅'").test(code), '  부팅 때 한 번 건다');
     /* ★ 글자 수 창(`{0,400}`)을 쓰지 않는다 — 주석 몇 줄이 늘면 그대로 어긋난다.
        핸들러 본문을 중괄호로 떼어 본다(핸드오프 §5-① · gap 4절과 같은 방식). */

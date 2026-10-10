@@ -224,6 +224,13 @@ function _applyOverlayLayered(where){
          --disable-gpu 로도 그대로였다(강제로 이 갈래를 타게 되므로 당연한 결과).
        GPU 합성(DirectComposition)인 대다수 PC 에서는 무해해서 지금까지 안 드러났다.
      ⇒ 이 갈래에서는 토글을 켜 두었어도 건너뛴다. 이미 걸린 창은 되돌릴 통로가 없으니 애초에 안 거는 것뿐이다. */
+  /* 🔁 [2026-10-10] 켜려는데 GPU 상태를 아직 모르면('?' — gpu-info-update 전) 꺼짐으로 단정하지 않고 «기다림» 으로 둔다.
+     창은 건드리지 않는다(안 거는 것은 위 보호와 같다). main.js 의 _armLayeredRetry 가 정해질 때까지 다시 부른다. */
+  if(a > 0 && a < 255 && _gpuCompStatus() === '?'){
+    _layeredState = 'wait(GPU 상태 모름)';
+    if(where) _diagLog('[오버레이] 레이어드 알파 ' + where + ' — ' + _layeredState);
+    return;
+  }
   if(_gpuCompositingOff()){
     _layeredState = 'blocked(GPU 합성 꺼짐)';
     if(where) _diagLog('[오버레이] 레이어드 알파 ' + where + ' — ' + _layeredState + ' | gpu_compositing=' + _gpuCompStatus());
