@@ -57,10 +57,11 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
     vm.runInContext(`
       const MOBILE_MAX_ON_MS = ${maxM[1]};
       let _mobileFocus = { on:false, app:'', since:0, seen:false };
-      let lastActivity = 0, figureMode = false, focusGateSleep = true, _penAppFocused = false, _chalKeyPlatform = null;
+      let lastActivity = 0, figureMode = false, focusGateSleep = true, _penAppFocused = false;
       function focusWindowMs(){ return 1500; }
       function addFocusSeconds(d){ env.added += d; }
-      function _chalFocusTick(s, d){ env.chal += d; }
+      /* 👑 달성표는 weekly-challenge.js 모듈(앱 FSD 2번) — app.js 는 weeklyChal.focusTick · setKeyPlatform 으로 부른다 */
+      const weeklyChal = { focusTick(s, d){ env.chal += d; }, setKeyPlatform(v){ env.plat = v; } };
       let _focusLastTick = performance.now(), _focusWasActive = false;
       ${parts.join('\n')}
       this.api = { apply: _applyActiveAppState, on: _mobileOn, label: _mobileRoomLabel,
@@ -100,7 +101,7 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
     chk(A.get().gate === false, '피규어 모드 분기는 그대로'); }
   }
   const ap = strip(grabFn('_applyActiveAppState') || '');
-  chk(/_chalFocusTick\(state, dt\)/.test(ap) && /!pcNotFocusing\) _chalFocusTick/.test(ap), '달성표는 PC 입력 기준(pcNotFocusing)을 본다');
+  chk(/weeklyChal\.focusTick\(state, dt\)/.test(ap) && /!pcNotFocusing\) weeklyChal\.focusTick/.test(ap), '달성표는 PC 입력 기준(pcNotFocusing)을 본다');
 }
 
 say('── 2. 곁가지');

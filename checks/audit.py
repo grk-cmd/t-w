@@ -347,7 +347,8 @@ else:
 section('검사 8 · firebaseAPI 호출-정의 계약 (파일 버전 어긋남 감지)')
 _callers = {}
 # scheduler.js — app.js 에서 옮긴 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). 빼면 일정 · D-day 호출이 이 검사의 시야에서 사라진다.
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js'):
+# weekly-challenge.js — 👑 달성표(앱 FSD 2번). loadChal · saveChal · addChalBonus · loadChalBonus 를 부른다.
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js'):
     try: _cs = _strip_js_comments(open(_cf, encoding='utf-8').read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):

@@ -119,7 +119,8 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' + [
       "const syncFocusTotalToServer=async(r)=>{ env.calls.push('flush:focus:'+r); env.mark = env.total; env.hasMark = true; };",
       "const syncGachaToServer=async(r)=>{ env.calls.push('flush:gacha:'+r); };",
-      "const syncChalToServer=async(r)=>{ env.calls.push('flush:chal:'+r); };",
+      /* 👑 달성표는 weekly-challenge.js 모듈 — app.js 는 weeklyChal.syncChalToServer · resetMemory 로 부른다. 메모리 칸은 여기 let 이 대신한다 */
+      "const weeklyChal={ syncChalToServer:async(r)=>{ env.calls.push('flush:chal:'+r); }, resetMemory(){ env.calls.push('chal:reset'); chalRec = _chalBlank(); _chalDirty = false; } };",
       "const syncSlotsToServer=async(r)=>{ env.calls.push('flush:slots:'+r); };",
       "let _slotsPushTimer = env.pushTimer || null; const clearTimeout=()=>{ env.calls.push('clearPushTimer'); };",
       "const setTimeout=(fn,ms)=>{ if(env.fastTimeout && typeof fn==='function') fn(); return 0; };",
@@ -168,7 +169,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
         '★ 테마·볼륨·카탈로그·프리셋은 남았다 (이 컴퓨터의 것)');
     const m = e.m.mem();
     chk(m.total === 0 && Object.keys(m.gacha).length === 0 && m.gts === 0 && m.bonus === 0, '★ 메모리도 비웠다 — 누적·가챠·시각·보너스 = 0');
-    chk(m.chalDirty === false && m.chalTs === 0, '  달성표 dirty=false (beforeunload 의 _chalSave 가 지운 키를 도로 안 쓴다)');
+    chk(m.chalDirty === false && m.chalTs === 0 && e.calls.includes('chal:reset'), '  달성표 dirty=false (beforeunload 의 _chalSave 가 지운 키를 도로 안 쓴다 · weeklyChal.resetMemory)');
     chk(m.slotsTs === 0 && m.extra.length === 0 && m.sig === null && m.sets.every(s => !s.items.length), '  슬롯 ts·추가 좌석·플레이리스트 지문 초기화');
     chk(m.detached === true, '  _acctDetached 가 섰다 (3절의 근거)');
 
@@ -195,7 +196,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
        여기선 **마크를 안 옮기는 flush**(쓰기가 거부된 기기)로 바꿔 끼운다. */
     const g = new Function('env', 'localStorage', 'window',
       Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' +
-      "const syncFocusTotalToServer=async()=>{}; const syncGachaToServer=async()=>{}; const syncChalToServer=async()=>{}; const syncSlotsToServer=async()=>{};\n" +
+      "const syncFocusTotalToServer=async()=>{}; const syncGachaToServer=async()=>{}; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const syncSlotsToServer=async()=>{};\n" +
       "let _slotsPushTimer=null; const clearTimeout=()=>{}; const setTimeout=()=>0; const _slotsHasLocal=()=>false;\n" +
       "let gachaOwned={}; let _gachaTs=0; let _gachaBonus=0; let _focusTotalSec=env.total, _focusTodaySec=0;\n" +
       "const _hasFocusSyncedMark=()=>env.hasMark; const _getFocusSyncedMark=()=>env.mark;\n" +

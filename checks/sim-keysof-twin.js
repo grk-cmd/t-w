@@ -345,9 +345,12 @@ function selftest(mainSrc, appSrc){
 
 /* ═══ 진입 ═══ */
 const mainSrc = read('main.js');
-const appSrc  = read('app.js');
+/* 👑 달성표(_chalKeysOf · 근거 주석)는 weekly-challenge.js 로 옮겼다(앱 FSD 2번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 «? 못 찾음» 으로 초록인 척하지 않게. */
+const wcSrc   = read('weekly-challenge.js');
+const appSrc  = (read('app.js') != null && wcSrc != null) ? read('app.js') + '\n' + wcSrc : null;
 if(mainSrc == null || appSrc == null){
-  console.log('✗ main.js / app.js 를 같은 폴더에서 못 찾음');
+  console.log('✗ main.js / app.js / weekly-challenge.js 를 같은 폴더에서 못 찾음');
   process.exit(2);
 }
 
