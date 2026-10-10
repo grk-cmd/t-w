@@ -10,10 +10,14 @@ import {
   TODO_STATUS,
   TODO_STATUSES,
   TODO_TITLE_MAX,
+  TODO_TYPE,
+  TODO_TYPE_NONE,
+  TODO_TYPES,
   todoId,
   type Todo,
   type TodoDraft,
   type TodoStatus,
+  type TodoType,
 } from '@/entities/admin/todo';
 import { useReleaseDownloads } from '@/entities/release';
 import { useDb } from '@/shared/api';
@@ -116,6 +120,20 @@ export function TodoForm({ todo, initial, onDone }: Props) {
             {TODO_STATUSES.map((s) => (
               <option key={s} value={s}>
                 {TODO_STATUS[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          종류
+          <select
+            value={draft.type ?? ''}
+            onChange={(e) => set('type', (e.target.value || null) as TodoType | null)}
+          >
+            <option value="">{TODO_TYPE_NONE}</option>
+            {TODO_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {TODO_TYPE[t]}
               </option>
             ))}
           </select>

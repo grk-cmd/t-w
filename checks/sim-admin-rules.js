@@ -291,6 +291,8 @@ console.log('\n── 7. 관리자 할 일(adminTodos) · 관리자 이름(admin
   chk(!tw(A1, next({ release: '' }), saved) && !tw(A1, next({ release: 'v0.11.3' }), saved) && !tw(A1, next({ release: '0.11' }), saved) && !tw(A1, next({ release: '0.11.3 릴리스 대기' }), saved), '  ↳ 빈 값 · v 붙임 · 두 자리 · 글 섞임은 거절');
   chk(!tw(A1, next({ release: '0.11.3-Beta.1' }), saved) && !tw(A1, next({ release: '0.11.3-beta' }), saved) && !tw(A1, next({ release: 11 }), saved), '  ↳ 베타 꼬리는 소문자.숫자 · 숫자값은 거절');
   chk(!tw(A1, next({ release: '1000000.0.0-beta.1000' }), saved) && tw(A1, next({ release: '100000.0.0-beta.10' }), saved), '  ↳ 20자까지');
+  chk(tw(A1, next({ type: 'feat' }), saved) && tw(A1, next({ type: 'bug' }), saved) && tw(A1, { ...fresh, type: 'bug' }), '종류(type) — feat · bug (칸이 없어도 된다 · 화면에서 «미분류»)');
+  chk(!tw(A1, next({ type: '' }), saved) && !tw(A1, next({ type: 'chore' }), saved) && !tw(A1, next({ type: 'Bug' }), saved) && !tw(A1, next({ type: 1 }), saved), '  ↳ 빈 값 · 다른 종류 · 대문자 · 숫자값은 거절');
   chk(!tw(A1, next({ extra: 1 }), saved), '정해진 칸 밖의 필드는 거절');
   chk(!tw(A1, fresh, null, 'a/b c'), '  ↳ 키는 짧은 id 모양만');
   chk(tw(A1, null, saved) && !tw('user9', null, saved), '지우기는 관리자만');

@@ -26,6 +26,7 @@ const todo = (id: string, extra: Partial<Todo> = {}): Todo => ({
   title: `할 일 ${id}`,
   memo: '',
   status: 'done',
+  type: null,
   assignee: null,
   assigneeName: '',
   reports: [],
@@ -298,5 +299,20 @@ describe('릴리스 반영 — 쓰기', () => {
       }),
     ).rejects.toThrow();
     expect(fail.writes).toEqual([]);
+  });
+});
+
+describe('릴리스 반영 — 종류와 상관없이', () => {
+  it('기능 · 버그 · 미분류 할 일 모두 연결 제보만 본다', () => {
+    const fixes = releasedReports(
+      [
+        todo('t1', { reports: [R1], type: 'feat' }),
+        todo('t2', { reports: [R2], type: 'bug' }),
+        todo('t3', { reports: [R3], type: null }),
+        todo('t4', { reports: [], type: 'bug' }),
+      ],
+      '0.11.3',
+    );
+    expect(fixes.map((f) => f.rid)).toEqual([R1, R2, R3]);
   });
 });

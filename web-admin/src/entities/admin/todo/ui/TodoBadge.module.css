@@ -26,3 +26,8 @@
   border-color: var(--ok);
   color: var(--ok);
 }
+
+.untyped {
+  color: var(--soft);
+  border-style: dashed;
+}

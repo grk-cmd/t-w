@@ -53,6 +53,7 @@ const seenOf = (id: string, v: Record<string, unknown>): Todo => ({
   title: String(v.title),
   memo: '',
   status: v.status as Todo['status'],
+  type: (v.type as Todo['type']) ?? null,
   assignee: (v.assignee as string) ?? null,
   assigneeName: (v.assigneeName as string) ?? '',
   reports: Object.keys((v.reports as object) ?? {}),
@@ -96,7 +97,15 @@ describe('할 일 쓰기 — 본 rev 그대로일 때만', () => {
     const r = await saveTodo(db, {
       id: 't1',
       seen,
-      draft: { title: '고치기', memo: '', status: 'doing', assignee: ADMIN_UID, reports: [], release: '' },
+      draft: {
+        title: '고치기',
+        memo: '',
+        status: 'doing',
+        type: null,
+        assignee: ADMIN_UID,
+        reports: [],
+        release: '',
+      },
       names,
     });
     expect(r).toEqual({ ok: true, id: 't1', fixed: 0 });
@@ -244,6 +253,7 @@ describe('완료 → 연결된 제보 «수정 완료»', () => {
         title: '고치기',
         memo: '',
         status: 'done',
+        type: 'bug',
         assignee: null,
         reports: [R1, R2, '-OaAAAAAAAAAAAAAAAA3'],
         release: '',
