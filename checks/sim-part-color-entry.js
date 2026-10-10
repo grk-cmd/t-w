@@ -1,7 +1,9 @@
 /* sim-part-color-entry.js — 🎨 꾸미기창 하단 색상 영역: "색칠 대상 메쉬"와 "저장 대상 entry" 가
    같은 파츠를 가리키는가 (핸드오프 ② 후보 ⓐ)
 
-   실행:  node sim-part-color-entry.js   (app.js · smoke.js 와 같은 폴더에서)
+   실행:  node sim-part-color-entry.js   (app.js · gacha.js · smoke.js 와 같은 폴더에서)
+   ※ 🎰 가챠(보관함 · 보유분)는 parts/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가한다.
+     보관함이 열렸는지는 그 모듈이 #gachaInvOverlay 의 display 로 판정하므로 그 칸을 바꿔 연다 · 닫는다.
 
    ★ 무엇을 보는가
      refreshWdPreviewColorSection 은 두 값을 **서로 다른 근거로** 고른다.
@@ -31,14 +33,15 @@ const probe = `
   setPreview: v=>{ wdPreviewBase = v; },
   setTab: v=>{ currentWdTab = v; },
   setAdj: v=>{ activeWdAdj = v; },
-  setGachaOpen: fn=>{ _gachaInvOpen = fn; },
-  setGachaSel: v=>{ _gachaSelId = v; },
-  setOwned: v=>{ gachaOwned = v; },
+  setGachaOpen: fn=>{ document.getElementById('gachaInvOverlay').style.display = fn() ? 'block' : 'none'; },
+  setGachaSel: v=>{ gachaMod.state.setSelId(v); },
+  setOwned: v=>{ gachaMod.state.setOwned(v); },
   wrapBuildColorRows: fn=>{ const o = buildColorRows; buildColorRows = (...a)=>{ fn(...a); return o(...a); }; },
 };`;
 
 const say = console.log; console.log = () => {}; console.warn = () => {};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+if (!fs.existsSync('gacha.js')) { say('  ? 원본 못 찾음 — gacha.js'); process.exit(2); }
+try { vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 console.log = say;
 

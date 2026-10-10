@@ -1,5 +1,6 @@
 /* sim-gacha-prune.js — 🎰 미보유 가챠 파츠 자동 해제(pruneUnownedGachaParts) 검증기
-   실행: node sim-gacha-prune.js  (app.js · smoke.js 와 같은 폴더에서)
+   실행: node sim-gacha-prune.js  (app.js · gacha.js · smoke.js 와 같은 폴더에서)
+   ※ 🎰 가챠 코어는 parts/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가하고, 보유분 · 회수 · 동기화는 gachaMod 로 부른다.
 
    제보 재현:
      · A기기에서 뽑아 착용 → B기기 연동 → 보관함은 ❔인데 화면엔 그대로 붙어 있다
@@ -23,18 +24,20 @@ const probe = `
 ;globalThis.__P = {
   seats, slots,
   getSaved: ()=>savedParts, setSaved: v=>{ savedParts = v; },
-  getOwned: ()=>gachaOwned,  setOwned: v=>{ gachaOwned = v; },
-  prune: ()=>pruneUnownedGachaParts(),
+  getOwned: ()=>gachaMod.owned(),  setOwned: v=>{ gachaMod.state.setOwned(v); },
+  prune: ()=>gachaMod.pruneUnownedGachaParts(),
   merge: o=>mergeCatalogIntoSavedParts(o),
   stubScene: fn=>{ getPartScene = fn; },
-  sync: (r,m)=>syncGachaToServer(r,m),
+  sync: (r,m)=>gachaMod.syncGachaToServer(r,m),
   catIds: (d,c)=>catEquippedIds(d,c),
   addEntry: (d,c,e)=>addEntryToCat(d,c,e),
   setAdmin: v=>{ isAdmin = v; },
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+/* gacha.js 가 없으면 «못 찾음» 으로 멈춘다 — app.js 만 굴리면 빈 껍데기(GACHA_OFF)라 아무것도 안 지킨 채 초록이 된다. */
+if (!fs.existsSync('gacha.js')) { say('  ? 원본 못 찾음 — gacha.js'); process.exit(2); }
+try { vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,5).join('\n')); process.exit(1); }
 console.log = say;
 
