@@ -307,6 +307,8 @@ PRELOAD.push('scheduler.js');
 PRELOAD.push('weekly-challenge.js');
 /* purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 같은 까닭 — 만들 때 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)을 같이 굴린다. */
 PRELOAD.push('purikura-ui.js');
+/* guestbook.js — 📖 방명록(앱 FSD 4번). 같은 까닭 — 만들 때 하는 일(#mhGuestbookBtn 연결 · window 고리 등록)을 같이 굴린다. */
+PRELOAD.push('guestbook.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

@@ -6,10 +6,13 @@
           자식이 쓰는 --win-*·--acc-* 는 전부 THEME_CHILD_TOKENS 에 있다(없으면 조용히 폴백으로 떨어진다).
    ・2절: 디자인 창 타이틀은 두 테마 모두 금색(--win-title-premium) — 액센트(--win-title-grad)를 안 탄다.
    ・3절: 배선 — 열 때 주입, applyTheme 전파, 토큰이 메인 HTML 에 실제로 정의돼 있다.
-   [실행] app.js · desk-companion-prototype.html 이 있는 폴더에서. 판정 줄은 맨 끝. */
+   [실행] app.js · guestbook.js · desk-companion-prototype.html 이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+/* 📖 방명록 창(GB_HTML · 여는 곳)은 parts/guestbook.js 로 옮겼다(앱 FSD 4번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 못 찾은 문자열로 빨개지지 않게. */
+let GBF = null; try{ GBF = fs.readFileSync('guestbook.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — guestbook.js'); process.exit(2); }
+const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + GBF;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 
 let pass = 0, fail = 0, huhs = 0;
