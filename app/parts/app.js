@@ -2397,6 +2397,7 @@ function _bonkFrame(seat, now){
   s.set(s.x * inv, s.y * q, s.z * inv);
 }
 
+/* ═══ 🔊 효과음 공장(_mkSndPool) — 때리기 · 클릭음 · 채팅 · 뽀모도로 알림음 풀 ═══ */
 /* 🔊 효과음 — 회사원 모드면 소리를 내지 않는다.
    ★ 게이트는 **보는 사람 기준**이다(사양 9번). 내가 회사원 모드면 남이 남을 때리는 것도 조용해야
      하므로, 때리는 쪽이 아니라 재생하는 쪽에서 본다.
@@ -2519,6 +2520,7 @@ try{
     _sndPools.forEach(P=>{ try{ P.prime(); }catch(_){} });
   }, { once:true, capture:true }));
 }catch(_){}
+/* ═══ 🪄 때리기 — 말풍선 · 재생 · 전파 · 조준 모드 ═══ */
 function _bonkPlaySound(){ _bonkSnd.play(); }
 
 /* 🪄 때리기 말풍선에 넣는 **전용 마커**와 그 그림(뿅망치).
@@ -2690,6 +2692,7 @@ window.addEventListener('keydown', e=>{
   if(e.key === 'Escape' && _bonkAiming){ e.stopPropagation(); setBonkAiming(false); }
 }, true);
 
+/* ═══ 🗼 올라타기(탑) · 벤치 좌석 자리 잡기 ═══ */
 function _checkCircusBalance(now){
   try{
     /* 🎪 흔들림 타이머 해제 — 바닥과 그 위 인원의 표식을 함께 지운다.
@@ -3994,6 +3997,7 @@ function _restoreIdeskPos(){
   // ⎋ Esc로 닫기
   document.addEventListener('keydown', e=>{ if(e.key==='Escape' && _ideskOpen()){ e.stopPropagation(); closeIdeskInventory(); } });
 })();
+/* ═══ 🪑 좌석 배치(layoutSeats) · 카메라 · 도트 텍스처 필터 ═══ */
 function layoutSeats(){
   /* 🪑 좌석 간격·카메라 줌은 바로 아래에서 **책상 폭을 실측**한다. 평준화로 책상이 커지거나
      작아졌다면 그 전에 반영돼 있어야 간격이 한 박자 늦지 않는다. 바뀐 좌석이 없으면 숫자 비교뿐이다. */
@@ -5065,6 +5069,7 @@ function _closeChipPopups(exceptId, force){
   if(csBtn && typeof userStatus!=='undefined' && userStatus==='custom') csBtn.classList.add('on');
 }
 
+/* ═══ 🪟 창 겹침 — 누른 창 맨 앞(bringWinToFront) · ESC 스택(escRegisterWindow) ═══ */
 /* 🪟 창 앞뒤(z-index) — **누른 창이 맨 앞으로 온다.**
 
    [무엇을 푸는가] 설정·채팅·플레이리스트를 다 열어 두면 앞뒤가 CSS 에 박힌 숫자로만 정해져서,
@@ -5213,6 +5218,7 @@ document.addEventListener('keydown', e=>{
   _escSync();                           // 관찰 콜백을 기다리지 않고 즉시 반영 — 연타가 빠를 때를 위해
 }, true);
 
+/* ═══ 📐 상태칩 팝업 · 입력창 자리 계산 · 캐릭터 실측 ═══ */
 function hexToRgba(hex,a){ const n=hex.replace('#',''); const r=parseInt(n.substr(0,2),16),g=parseInt(n.substr(2,2),16),b=parseInt(n.substr(4,2),16); return `rgba(${r},${g},${b},${a})`; }
 /* ── 세로 배열 A안 팝업 위치 계산 ──────────────────────────────────────
    상태·더보기 캐스케이드 메뉴는 세로 툴바 옆으로 튀어나옴. 툴바가 캐릭터 좌/우 어디에 있든
@@ -6027,6 +6033,7 @@ function _starPaint(el, star){
   if(star && star.color) el.style.setProperty('--pre-c', star.color);
   else el.style.removeProperty('--pre-c');
 }
+/* ═══ 🎵 플레이리스트 화면 — 명함 · 목록 · 흐르는 제목 · 미니미 · 파도타기 ═══ */
 /* 레벨 배지 — 친구 목록(_lvBadge)과 **같은 함수**를 쓴다.
    ★ 레벨을 모르는 상대(구버전 접속)는 배지를 아예 숨긴다 — Lv.1 로 오해되지 않게. */
 function _plFillLv(el, lv, star){
@@ -7402,6 +7409,7 @@ function _plApplyVolSoon(){
        하나여야 하고, 여기 캡처 핸들러가 남아 있으면 그 결정을 앞질러 가로챈다. */
 })();
 
+/* ═══ 🩺 렌더러 생존 신호 · 캐릭터 화면 좌표 ═══ */
 // ── 스마트 감지용 throttle timestamp (companion.setCharBounds 호출 제한) ──
 //   초당 60번 IPC보다 100ms 간격이 훨씬 가볍고, 판정 정확도는 그대로 유지됨(사람 마우스 이동 속도 대비 충분).
 /* ── 🩺 렌더러 생존 신호 (main.js '클릭 고착 안전장치'가 이걸 본다) ─────────────────
@@ -7463,6 +7471,7 @@ try{
     }catch(_){}
   }, 100);
 }catch(_){}
+/* ═══ 📍 상태칩 자리 · 칩 클릭 · Tab 접기 ═══ */
 let _lastChipPlaceRight = true;   // 상태칩 좌우 반전 히스테리시스 — 방향이 매 프레임 튀지 않게 마지막 판정을 기억
 
 /* 칩 위치를 매 프레임 자기 좌석 발 밑(화면 좌표)에 맞춤. 설정 패널이 열려있으면 그 위치도 같이 갱신. */
@@ -7986,6 +7995,7 @@ document.addEventListener('keydown', e=>{
   });
 });
 
+/* ═══ ⚙ 설정 패널 — 포커싱 어플 · 화면 표시 · 캐릭터 크기 · 탭 · 광고 배너 ═══ */
 /* ⚙ 설정 패널 — 포커싱 어플 슬롯 / 캐릭터 크기 / 프로그램 이동 */
 let moveMode=false;   // "프로그램 이동" 진행 중 여부 (true면 캐릭터가 마우스를 따라다니다 클릭으로 확정)
 let _suppressNextContextMenu=false;   // 이동 모드를 우클릭으로 확정한 직후, 뒤이어 뜨는 contextmenu 1회를 무시하기 위한 플래그
@@ -8560,6 +8570,7 @@ function refreshFsAdBanner(){
   //   호출하도록 이미 연결해뒀음(그 시점엔 전체 스크립트가 다 로드된 뒤라 안전).
 })();
 
+/* ═══ 🕒 포커스 기록 팝업 ═══ */
 /* 포커스 기록 팝업 — [기록 열기] 클릭 시 오늘 누적 포커스 시간(hh:mm:ss)을 보여주고, 타이틀바 드래그로 위치 이동 가능 */
 (function bindFocusLog(){
   const overlay=document.getElementById('focusLogOverlay');
@@ -8685,6 +8696,7 @@ function refreshFsAdBanner(){
   });
   window.addEventListener('mouseup', ()=>{ dragging=false; });
 })();
+/* ═══ ✥ 프로그램 이동 모드 ═══ */
 /* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
    카메라 각도는 고정한 채 평행이동만 하므로 앵글이 안 흔들리고, 상태칩도 camera 기준 재계산이라 정확히 따라옴.
    deskPanX/Y는 월드 단위 절대 오프셋 — _deskViewH/_deskCanvasH 비율로 픽셀을 정확히 월드로 환산해 1:1 매칭. */
@@ -8726,6 +8738,7 @@ function refreshFsAdBanner(){
   // 이동 시작 트리거는 moveBtn 클릭 시점(bindFocusSettings)에서 moveMode=true로 바뀌자마자 다음 mousemove에서 자동 시작됨
 })();
 
+/* ═══ ⌨️ 함수키 단축키(F1 ~ F4) ═══ */
 /* ⌨️ 함수키 단축키 — F1 ⚙설정 / F2 🎨꾸미기 / F3 ✥이동(드래그) / F4 🏠마이홈
    ── 안전장치:
      · 실행 모드에서만 동작 (런처·생성기·config 모드는 무시)
@@ -8831,6 +8844,7 @@ function refreshFsAdBanner(){
   });
 })();
 
+/* ═══ 🎨 꾸미기 사이드 패널 열고 닫기 ═══ */
 /* 🎨 꾸미기 사이드 패널 — 열고 닫기 + 콘텐츠 렌더 */
 (function bindWardrobe(){
   const btn=document.getElementById('myWardrobeBtn');
@@ -8895,6 +8909,7 @@ function refreshFsAdBanner(){
   });
 })();
 
+/* ═══ 👀 꾸미기 미리보기 — 렌더러 · 기즈모 · 창 자리 · 카메라 ═══ */
 /* 🎨 꾸미기 미리보기 — 꾸미기 패널 옆에 뜨는 정적 3D 미리보기.
    ★ 실제 실행 화면처럼 타이핑/졸음 등 절차적 애니메이션까지는 재현하지 않고(모델이 그대로 서 있는 정적
    미리보기), 몸통+꾸미기 파츠가 어떻게 보이는지만 확인하는 용도 — defToBase/applyEquippedPartsToSeat
@@ -9257,6 +9272,7 @@ function updateWdCam(){
   wdCam.position.set(x, y, z);
   wdCam.lookAt(wdCamCenter.x, wdCamLookY + wdHeightOffset + _lift, wdCamCenter.z);
 }
+/* ═══ 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(commitWdDraft) · 색 영역 ═══ */
 // ★ 꾸미기 임시본(draft) — 요청사항: 꾸미기 조정은 "미리보기"에서만 즉시 보이고, 실제 실행 중인
 //   캐릭터(런처 메인)에는 미리보기의 "저장" 버튼을 눌러야만 반영됨. 그래서 toggleEquip/상세조정은
 //   이제 mySeat.charDef를 직접 건드리지 않고, 이 draft(원본을 복제한 임시 def)만 건드림.
@@ -10642,6 +10658,7 @@ function _deviceSessionContinueHere(){
   if(b2) b2.onclick = ()=>{ try{ if(window.companion && companion.quitApp) companion.quitApp(); else window.close(); }catch(_){} };
 }
 
+/* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
 let _ownerWriteWarned = false;
 function _warnOwnerWriteDenied(what, err){
   const denied = String((err && (err.code || err.message)) || '').toLowerCase().includes('permission');
@@ -10754,6 +10771,7 @@ async function initMyHome(){
     }catch(e){ console.warn('마이홈 초기화 실패', e); }
   });
 }
+/* ═══ 📩 수령함 상태 · 안 읽은 수 · 친구 탭 배지 ═══ */
 let _mhSelectedFriend = null;   // (구 DM 자리) 지금은 사용하지 않지만 다른 곳에서 참조할 수 있어 유지
 let _myInbox = {};              // 📩 개인 수령함(보상 등) { id: {tag, title, body, ts, read} }
 /* 수령함이 서버에서 **한 번이라도 도착했는가.** 빈 객체는 '비었다'와 '아직 안 왔다'를 구분하지
@@ -10803,6 +10821,7 @@ function _refreshFriendTabBadge(){
 }
 let _inboxFilter = 'all';       // 태그 필터: 'all' | 'notice' | 'update' | 'reward'
 let _inboxOpenId = null;        // 지금 펼쳐진 메시지 id
+/* ═══ 🛡️ 공용 HTML 이스케이프(escHtml) ═══ */
 /* 🛡️ 공용 HTML 이스케이프 — **다섯 문자 전부**(`& < > " '`)를 막는다.
    [경위] 예전엔 강도가 다른 헬퍼가 셋이었다: `_chatEsc`(다섯 전부) · `_mhEsc`(`&`·`<` 둘뿐) ·
      `_linkifyText` 내부(`'` 만 빠짐). 약한 쪽이 **속성값 안에서** 쓰이면 닉네임에 `"` 를 넣어
@@ -10820,6 +10839,7 @@ function escHtml(s){
   ));
 }
 
+/* ═══ 💬 채팅창 투명도 · 글자 크기 ═══ */
 /* 💬 채팅창 투명도 (기기별 로컬 저장) — 글자 크기·창 위치와 같은 성격이라 서버에 안 올린다.
    ★ 대상은 요소 전체의 opacity 다. 배경만 흐리게 하는 방법(--win-face 를 rgba 로 합성)도 있었지만,
      "입력창 글자까지 같이 흐려지는 쪽"으로 정했다. 그래서 여기서는 style.opacity 하나만 쓴다 —
@@ -10891,6 +10911,7 @@ function _setChatFontSize(px){
   if(box) box.scrollTop = box.scrollHeight;
 }
 
+/* ═══ 🔔 채팅 알림음 — 상태 · 저장 · 메뉴 ═══ */
 /* 🔔 채팅 알림음 — 상태·저장·메뉴 표시. 소리 풀과 상수는 효과음 공장 옆(CHAT_SFX_LIST)에 있다. */
 function _chatSfxOn(){
   let v = null;
@@ -10960,6 +10981,7 @@ function _chatNotifyIncoming(){
   _chatSfxPreview(_chatSfxId());   // 회사원 모드 게이트는 풀(_mkSndPool.play) 안에 있다
 }
 
+/* ═══ 🛡️ 리치 텍스트 sanitize · 저장 · 글자 수 ═══ */
 // ★ 마이홈 4: 리치 텍스트 sanitize / load / count 헬퍼
 //   허용 태그: B/STRONG, I/EM, U, SPAN·DIV·P(style), FONT(color, size — execCommand가 만듦),
 //   BR, A(href), IMG(src, alt). 그 외 태그·이벤트 속성은 전부 제거.
@@ -11146,6 +11168,7 @@ function _mhStripHtml(html){
   }
 }
 
+/* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */
 /* ── 🔍 Ctrl+F 친구 검색 ────────────────────────────────────────────────
    순수 클라이언트 필터다 — 서버·규칙과 무관하고, 이미 구독으로 받아둔 _myHomeFriends 만 본다.
    🔍 버튼은 만들지 않는다. 헤더 오른쪽의 'Ctrl+F 검색'은 **글자 힌트**이지 클릭 대상이 아니다. */
@@ -11325,6 +11348,7 @@ function renderMyHomeFriendList(){
   addGroup('오프라인', offline);
   renderMhChat();
 }
+/* ═══ 📩 수령함 · 💝 선물함 그리기 ═══ */
 /* 📩 수령함 렌더 — 태그 필터 + 목록. 클릭하면 본문이 펼쳐지고 자동으로 읽음 처리.
    구 DM 대화 패널(mhChatInline) 자리를 그대로 씀. renderMhChat 이름은 여러 곳에서 호출하므로 유지. */
 function renderMhChat(){ renderInbox(); renderMhProfileRail(); }
@@ -11640,6 +11664,7 @@ function renderInbox(){
     listEl.appendChild(item);
   });
 }
+/* ═══ 🏠 마이홈 창 버튼 연결(bindMyHomeUI) ═══ */
 // 🖼 우측 프로필 레일 — 위 칸: 선택한 친구의 마이홈 프로필 사진(없으면 [상대 없음] 빈 박스),
 //   아래 칸: 내 마이홈 프로필 사진(마이홈 탭에서 등록한 사진과 자동 연동, 없으면 안내 문구).
 // 프로필 레일은 수령함 확장으로 제거됨 — 기존 호출부가 있어 no-op으로 유지
@@ -12344,6 +12369,7 @@ window.__mhClickDiag = function(){
   return out;
 };
 
+/* ═══ 🏠 마이홈 페이지 불러오기 · 그리기 ═══ */
 async function loadMyHomePage(){
   // ★ 마이홈2-B: 관람 중이면 절대 내 데이터로 덮어쓰지 않음 (친구 홈 데이터가 순간적으로 사라지는 버그 방지)
   if(_mhViewingUserId) return;
@@ -12395,6 +12421,7 @@ function renderMyHomePage(){
   _safe('theme', ()=>{ if(typeof window._mhApplyTheme==='function') window._mhApplyTheme(); });
 }
 let _mhStickerDragDist = 0;   // 마지막 드래그 이동거리 — 드래그 직후 링크가 열리는 오작동 방지용
+/* ═══ ✏️ 인앱 프롬프트(asyncPrompt) ═══ */
 // ✏️ 인앱 프롬프트 — Electron은 window.prompt()가 비활성화(no-op)라서 native prompt를 못 씀.
 //   이 함수를 native prompt 대용으로 사용. 취소/× 는 null 반환(prompt와 동일 계약).
 function asyncPrompt({title, message, defaultValue, placeholder, maxLength}={}){
@@ -12443,6 +12470,7 @@ function asyncPrompt({title, message, defaultValue, placeholder, maxLength}={}){
   });
 }
 window.asyncPrompt = asyncPrompt;
+/* ═══ 🎨 마이홈 스티커 배치 · 그리기(renderMyHomeStickers) · 관리 창 연결 ═══ */
 /* 🎨 스티커 — 마이홈 "창 전체"에 자유 배치.
    · 좌표는 마이홈 창(#myHomeWin) 좌상단 기준 px. 탭을 바꿔도 같은 자리에 있음.
    · 친구 탭에서는 숨김(목록이 빽빽해서 가리면 곤란) + 친구 홈 관람 중엔 그 사람 스티커만 보임.
@@ -12682,6 +12710,7 @@ const myHomeSticker = (typeof TwMyHomeSticker === 'undefined') ? MYHOME_STICKER_
   stickerRotSnap: STICKER_ROT_SNAP,
 });
 
+/* ═══ 🔗 마이홈 본문 링크 ═══ */
 /* 🔗 마이홈 본문(자기소개·게시글) 안의 링크 — 시스템 기본 브라우저로 연다.
    [증상] 마이홈 글에 링크를 걸고 누르면 그 페이지가 **앱 창 안에서** 열린다.
    [원인] 마이홈 본문은 contenteditable 리치텍스트라 <a href>가 그대로 들어간다. 내 홈에서 편집 중일
@@ -12711,6 +12740,7 @@ const myHomeSticker = (typeof TwMyHomeSticker === 'undefined') ? MYHOME_STICKER_
   }, true);
 })();
 
+/* ═══ 🏠 마이홈 페이지 편집 묶음 · 📖 방명록 모듈 연결 ═══ */
 /* 🏠 마이홈 페이지 편집 묶음(자동저장 · 프로필 사진 · 글 서식 · 새 스티커 붙이기 · 스티커 끌기 · 닉네임 · 게시글 제목 · 🎵 BGM ·
    바깥 배경 · 테마 · 👑 디자인 스튜디오 · 프리셋 — 옛 bindMyHomePage)은 parts/myhome-edit.js 로 옮겼다(앱 FSD 7-2 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 만들 때 바로 도는 일(버튼 · 입력칸 연결 · window 고리 · companion.onBgmClosed · onBgmMode 구독)이
@@ -12780,6 +12810,7 @@ const guestbook = (typeof TwGuestbook === 'undefined') ? GUESTBOOK_OFF : TwGuest
   myHomeFriends: ()=>_myHomeFriends,
 });
 
+/* ═══ 💬 머리 위 채팅 말풍선(showChatBubble) ═══ */
 // 💬 채팅 말풍선 표시 시간(ms) — 이 시간 동안은 상태 말풍선 대신 채팅 내용이 보임.
 const CHAT_BUBBLE_MS = 5000;
 function showChatBubble(seat, text){
@@ -14476,6 +14507,7 @@ function _rollRoulette(){
   _selfFlyAfterDice();
 }
 
+/* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */
 // ── 대화창 배선 (한 번만)
 (function _wireChatWindow(){
   const close=document.getElementById('chatCloseBtn');
@@ -14811,6 +14843,7 @@ function _rollRoulette(){
   if(fi){ fi.addEventListener('change', ()=>{ const f=fi.files&&fi.files[0]; _onEmojiFilePicked(f||null); }); }
 })();
 
+/* ═══ 🎛️ 꾸미기 상세조정 패널 · 색 고르기 ═══ */
 /* 꾸미기 패널 콘텐츠 렌더링 및 파츠 조절 로직 */
 let activeWdAdj = null;
 // 런처9: 다중 파츠 상세조정 패널의 현재 활성 인스턴스 — 패널이 재생성돼도 유지되도록 모듈 스코프에 보관.
@@ -15157,6 +15190,7 @@ function createWardrobeAdjPanel(cat, id) {
 //   "항상 보이는 색상 탭"(요청사항: 우클릭 안 해도 바로 색 바꿀 수 있게) 양쪽에서 같이 씀.
 //   syncFn은 색을 바꾼 뒤 호출할 콜백(위치조정 패널에서는 위치도 다시 반영하는 sync, 미리보기
 //   전용 섹션에서는 딱히 할 일이 없으면 빈 함수를 넘기면 됨).
+/* ═══ 🎨 텍스처 파츠 색조 셰이더 ═══ */
 /* 🎨 텍스처 파츠 색조 변경 ─────────────────────────────────────────────────
    _col 메쉬 중 텍스처(map)가 있는 것은 material.color를 갈아끼우면 "텍스처 × 색" 곱셈이 되어
    무늬가 어두워지고 탁해진다. 그래서 텍스처가 있으면 색을 덮어쓰는 대신 셰이더에서 '색조(Hue)만'
@@ -15266,6 +15300,7 @@ function _hsvToHex(h, sv, v){
   return '#' + c.getHexString();
 }
 
+/* ═══ 🖍️ 파츠 그림칸(_pic) · UV 구제 · 그림 올리기 ═══ */
 /* 🖍️ 파츠 그림칸(_pic) ────────────────────────────────────────────────────────
    메쉬(또는 머티리얼) 이름에 _pic 이 붙어 있으면 그 면에 유저가 직접 그릴 수 있다.
    판정 규칙은 _col 과 **똑같은 모양**이다(대소문자 무관 · 번호 허용 · 메쉬/머티리얼 어느
@@ -15456,6 +15491,7 @@ async function uploadPartPic(dataUrl){
   }catch(e){ console.warn('[파츠 그림] 업로드 실패', e); return null; }
 }
 
+/* ═══ 🎨 꾸미기 색 줄(buildColorRows) · 탭 상태 ═══ */
 function buildColorRows(cat, xf, wrapper, syncFn){
   const rows=[];
   const colorGroups = wrapper && wrapper.userData && wrapper.userData.colorGroups;
@@ -15817,6 +15853,7 @@ function renderWdDeskSection(wrap){
   sec.appendChild(box);
   wrap.appendChild(sec);
 }
+/* ═══ 🎨 꾸미기 창 그리기(renderWardrobe) · 파츠 착용(toggleEquip) ═══ */
 function renderWardrobe(){
   const wrap=document.getElementById('wardrobeContent');
   const tabsWrap=document.getElementById('wardrobeTabs');
@@ -16137,6 +16174,7 @@ async function toggleEquip(cat, id){
   renderWardrobe();
 }
 
+/* ═══ 🗂️ 카탈로그 파츠 페이로드 · 파츠 삭제(관리자) ═══ */
 /* 🗂️ 카탈로그 파츠 노드가 담는 필드의 **단일 목록**과 그 페이로드를 만드는 유일한 함수.
    [왜 있는가] `publishPart` 는 set() = **노드 전체 교체**다. 페이로드에 안 실은 필드는
      서버에서 **그냥 사라진다.** 그런데 로컬 rec 는 안 사라지므로 **관리자 화면만 멀쩡하고
@@ -16212,6 +16250,7 @@ function deletePart(id){
   renderWardrobe();
 }
 
+/* ═══ 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) ═══ */
 /* 파츠 등록 모달 (관리자) — editRec이 있으면 기존 파츠 수정, 없으면 신규 등록 */
 let _partRegCat=null, _partRegEditId=null;
 /* 🎰 가챠를 켜면 🔗 함께 착용을 같이 켜고 잠근다. 저장 쪽에서도 강제하지만(등록 핸들러),
@@ -16573,6 +16612,7 @@ function openDeskRegister(kind, editId){
 })();
 document.getElementById('deskRegBtn').onclick=()=>openDeskRegister('desk',null);
 document.getElementById('itemRegBtn').onclick=()=>openDeskRegister('item',null);
+/* ═══ 🫧 상태 이모지 그림 · UI 아이콘 · 책상 위 이모지 ═══ */
 const _emojiTexCache={};
 /* 🫧 상태 이모지 중 일부는 시스템 글리프 대신 **번들 그림**으로 굽는다 (책상 스프라이트 전용).
    ★ 그림을 파일이 아니라 data: URL 로 박아 둔 이유가 둘 있다.
@@ -16687,6 +16727,7 @@ function setSeatDeskEmoji(seat, em){
   sp.material.map=makeEmojiTexture(em); sp.material.needsUpdate=true; sp.visible=true;
 }
 
+/* ═══ 🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너 ═══ */
 /* ── 머리 위 레벨/이름 이름표 + 말풍선 — DOM 요소로 구현(3D 스프라이트 아님).
    이유: 1) 저해상도(도트) 렌더는 WebGL 캔버스 전체 해상도를 낮추는 방식이라 3D 스프라이트도 같이 뭉개졌는데,
         DOM은 별도 레이어라 전혀 영향 안 받음. 2) 캔버스 텍스처는 고정 폭이라 긴 이름이 잘렸는데, DOM 텍스트는
@@ -16949,6 +16990,7 @@ function _initAnnounceSubscription(){
 }
 if(document.readyState === 'complete') _initAnnounceSubscription();
 else window.addEventListener('firebase-ready', _initAnnounceSubscription);
+/* ═══ 💬 머리 위 말풍선 · 회사원 모드 라벨 ═══ */
 /* 🔻 반전 배치(캐릭터가 화면 위쪽에 있어 라벨이 발 밑으로 뒤집힌 경우) 말풍선 여백(px).
    두 값을 나눠 쓴다 — 위에 라벨이 있을 때와 없을 때 필요한 여백이 다르다.
      ・LABEL: 이름표·공지 아래벽에 바로 붙일 때. 라벨끼리는 촘촘한 게 한 묶음으로 읽힌다.
@@ -17291,6 +17333,7 @@ function removeSeatLabels(seat){
   if(seat.expBarEl){ seat.expBarEl.remove(); seat.expBarEl=null; seat.expFillEl=null; }
 }
 
+/* ═══ 👻 캐릭터 투명도 · 활동 판정(seatState) · 쓰다듬기 ═══ */
 /* 캐릭터 opacity (자리비움 영혼 효과) — bodyWrap 하위 모든 mesh의 material에 적용 */
 function setSeatOpacity(seat, op){
   if(seat._lastOp===op) return;
@@ -22602,6 +22645,7 @@ function restoreLicenseHeldAssets(){
   console.warn('[라이선스] 접어 뒀던 전용 자산 ' + n + '개를 되돌렸습니다');
   return n;
 }
+/* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
 // 앱 시작 시: 로컬에 저장된 키가 있으면 일단 프리미엄으로 간주(오프라인에서도 꾸미기 사용 가능하게),
 // 동시에 백그라운드로 재검증해서 (관리자가 비활성화한 경우 등) 무효화됐으면 조용히 잠금.
 (function initLicense(){
@@ -22757,6 +22801,7 @@ function refreshAdminVisibility(){
     tryEnterAdmin();
   }, true);   // capture 단계에서 가로채기 — 일반 클릭 핸들러보다 먼저
 })();
+/* ═══ 💡 얼굴 텍스처 갈아끼우기 · 생성기 조명 ═══ */
 /* face material의 map을 갈아끼울 때 emissiveMap도 같이 동기화. 안 그러면 졸기 등 map 교체 시 이전 텍스처가 emissive로 남아 합성됨(blink 흐릿함 원인) */
 /* 🐾 동물 귀는 몸과 다른 재질이라 이 한 줄로는 안 바뀐다 — 몸 재질에 달아 둔 등록표
    (animal.js buildAnimalBase 의 mat.userData.animalEars)를 보고 함께 갈아끼운다.
@@ -22829,6 +22874,7 @@ function applyLightPresetToInstance(inst){ if(!inst)return;
 }
 /* 조명 슬라이더 UI 제거됨 — LIGHT_PRESET 상수로 한 번 적용 */
 
+/* ═══ 🧍 생성기 미리보기 — 렌더러 · 카메라 · 열기 · 닫기 · 완료 ═══ */
 /* --- 생성기 미리보기 렌더러 --- */
 let cRenderer=null,cScene=null,cCam=null,cBase=null,creatorOpen=false,cAmb=null,cKey=null,cFill=null,cDesk=null,cDeskMat=null,cFloor=null;
 let camDist=1.5,camYaw=0,camPitch=0.05,orbiting=false,lastMX=0,lastMY=0;
@@ -23495,6 +23541,7 @@ document.getElementById('crDone').addEventListener('click',()=>{
     creatorOpen=false;document.getElementById('creatorOverlay').classList.remove('on');clearStampState();toast('책상에 추가했어요');}
   else{closeCreator();toast('슬롯에 저장했어요');}});
 
+/* ═══ 🖼️ 런처 미리보기 · 슬롯 섬네일 ═══ */
 /* --- 런처 미리보기 렌더러 --- */
 let lRenderer=null,lScene=null,lCam=null,lChar=null,lBlinkT=0,lBlinkOn=false,lHolder=null,lDeskMat=null,lScaleHint=1;
 let lCharBaseY=0;   // 런처 미리보기 캐릭터의 기준 y — 발바닥이 y=0에 오도록 실측 정렬한 값 (둥둥 애니의 중심)
@@ -23705,6 +23752,7 @@ function renderLauncher(){
   sizeLauncherPreview();setLauncherChar(def);closeGearMenu();
   try{ _slotsRenderBand(); }catch(_){}}   // 🛟 연동 띠(3-7-2 A안)
 
+/* ═══ 🎛️ 런처 컨트롤 — 슬롯 넘기기 · 톱니 메뉴 · 삭제 · 보관함 이동 ═══ */
 /* --- 런처 컨트롤 --- */
 const gearMenu=document.getElementById('lcGearMenu');
 function closeGearMenu(){gearMenu.classList.remove('on'); try{ lcDeleteAskEnd(); }catch(_){}}
@@ -23816,6 +23864,7 @@ async function doMoveCurSlotToBox(){
   saveSlots(); if(typeof saveCurSlot === 'function') saveCurSlot();
   renderLauncher(); toast('보관함으로 옮겼어요');
 }
+/* ═══ 🐾 종족 선택창 ═══ */
 /* 종족 선택창: 신규 생성 진입 전에 1단계 추가 (수정·친구추가 흐름은 그대로) */
 let rRenderer=null, rScene=null, rCam=null, rChar=null;
 function initRacePreview(){
@@ -24750,6 +24799,7 @@ function _autoExitWarn(){
   }, 250);
 }
 
+/* ═══ 🛰 방 접속 상태(Presence) ═══ */
 const Presence=(()=>{
   let provider=null, room=null, friends={}, myDef=null, myName='나', myState='idle', myUserStatus=null, myLevel=1, onChange=null;
   /* 🛰 내 노드 poke 의 중복·유통기한 판정용. friends 쪽 `_lastPokeTs` 와 같은 역할이다.
@@ -25154,6 +25204,7 @@ const Presence=(()=>{
            serverProvider:()=>(provider && provider.kind === 'server') ? provider : null };
 })();
 
+/* ═══ 📦 방으로 보내는 def — 직렬화 · 얼굴 URL · 델타 전송 · Firebase provider ═══ */
 /* Firebase Realtime Database 연동 — 실제 함수는 HTML의 <script type="module">이 window.firebaseAPI로 노출.
    Presence가 기대하는 join/update/leave 인터페이스로 감싸기만 함. */
 // ★ Canvas 객체는 Firebase(JSON 기반)로 그대로 못 보냄 — 보낼 때 dataURL 문자열로 바꾸고,
@@ -28249,6 +28300,7 @@ async function _restoreOwnedDataAfterTransfer(){
 /* (걷음 · 개정 56) _claimFriendCodeAfterTransfer — 로그인 직후 로컬 코드의 주인을 새 uid 로 강제로 바꾸던 것. 남의 계정 코드를 가져가는 길이라
    걷었다(설계 §6 «남는 것» · 소유권 쪽). 대신 _adoptAccountFriendCode 가 **로컬 표시만** 계정 것으로 맞춘다. */
 
+/* ═══ 🔢 방 개수 · 방 만들기 · 랜덤 참여 · 갈아타기 ═══ */
 /* --- 방 개수 표시(n/상한) + 정원 초과 시 생성 차단 --- */
 /* ★ 채널별 방 개수 상한. 워킹룸(무료) 250 / 투게더룸(프리미엄) 250 — [2026-09-17] 60/70 에서 올림.
    ⚠️ 이 상한은 **클라이언트에서만** 검사한다 — firebase-database-rules.json의 rooms/$room 은
@@ -28425,6 +28477,7 @@ async function doHopRandomRoom(){
     if(typeof refreshInviteUI === 'function') refreshInviteUI();
   }
 }
+/* ═══ 🚪 방 입장 · 나가기 · 승계 · 해산 · 코드 입력칸 ═══ */
 /* 채널 선택 화면 표시/복귀 + 라이선스 잠금 반영 */
 /* 방 만들기 화면(채널 카드 + 참여 코드)이 상시 표시되므로, 여는 시점에 이 함수로 잠금·카운트만 갱신한다. */
 /* 프리미엄(투게더룸) 잠금 상태 + 채널별 카운트 갱신 */
@@ -28758,6 +28811,7 @@ function _setupSecretCodeInput(inputEl){
 _setupSecretCodeInput(document.getElementById('inviteSecretCode'));
 _setupSecretCodeInput(document.getElementById('fsInviteSecretCode'));
 
+/* ═══ 🔑 라이선스 등록 UI ═══ */
 /* --- 라이선스 등록 UI --- */
 function refreshLicenseUI(){
   const box=document.getElementById('licenseActiveBox');
@@ -28794,6 +28848,7 @@ let licenseReqUnlocked = false;
    발급(수령함 전송)하는 방식으로 대체되어, 유저 요청 경로는 비활성화함. 섹션 HTML은 남아 있어도
    열리지 않으므로 표시되지 않는다. */
 (function bindLicenseReqSecret(){ /* 비활성화 */ })();
+/* ═══ 🪟 런처 타이틀바 · 팝업 흐림 ═══ */
 /* 런처 타이틀바 — 드래그로 창 이동(위치 기억은 main.js가 처리) + 최소화/최대화/닫기 */
 /* 런처 타이틀바 드래그 이동은 CSS -webkit-app-region:drag(네이티브)로 처리 — JS 기반보다 안정적.
    여기서는 X 버튼(앱 종료)만 바인딩. */
@@ -28826,6 +28881,7 @@ let licenseReqUnlocked = false;
   refresh();
 })();
 
+/* ═══ 📢 런처 광고 배너 · ⚙️ 게임 설정 ═══ */
 /* 광고 배너 — localStorage에 저장된 이미지/링크를 런처 하단에 표시. 관리자만 편집 가능. */
 const AD_BANNER_KEY = 'tw.adBanner';
 let _lcAdSlides=[], _lcAdIdx=0, _lcAdTimer=null;
@@ -28972,6 +29028,7 @@ refreshAdBanner();
   _sub();
 })();
 
+/* ═══ 🔑 라이선스 키 등록 · 해제 버튼 ═══ */
 document.getElementById('licenseSubmitBtn').onclick=async ()=>{
   const input=document.getElementById('licenseKeyInput');
   const err=document.getElementById('licenseErrorMsg');
@@ -28994,6 +29051,7 @@ document.getElementById('licenseDeactivateBtn').onclick=()=>{
 };
 document.getElementById('licenseKeyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('licenseSubmitBtn').click(); });
 
+/* ═══ 🪟 팝업 바깥 클릭으로 닫기 ═══ */
 /* 팝업 바깥 클릭 시 자동 닫기 — 생성기(creatorOverlay)·꾸미기(wardrobePanel)는 편집 중 실수로 닫히는 걸 막기 위해 계속 제외
    런처3: 등록 관련 모든 창(파츠·책상·아이템 등록/코드 추가/GLB 인코드/GLB 로드/자산 생성/커미션 생성/초대장 등)도
    실수로 닫히면 입력 내용이 다 날아가므로 이 목록에서 제외 — 명시적으로 [닫기] 버튼으로만 닫히게. */
@@ -29032,6 +29090,7 @@ document.addEventListener('click', e=>{
   });
 });
 
+/* ═══ 📨 라이선스 요청 · 관리자 비밀번호 모달 ═══ */
 /* --- 라이선스 요청(일반 유저 → 관리자) --- */
 const LICENSE_REQ_ID_KEY='tw.licenseReqId';
 function _showLicenseReqState(state){
@@ -29107,6 +29166,7 @@ document.getElementById('adminPassCancel').onclick=()=>{
 };
 document.getElementById('adminPassInput').addEventListener('keydown', e=>{ if(e.key==='Enter') _submitAdminPass(); });
 
+/* ═══ 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) ═══ */
 /* --- 라이선스 키 발급 (관리자 전용) --- */
 let _licenseAllCache = null;   // 검색 필터링 시 재조회 없이 캐시로 다시 그림
 async function renderLicenseGenList(){
@@ -30003,6 +30063,7 @@ async function _lxWriteXlsx(rows, sheetName){
   window._lxHideWin = hideWin;
 })();
 
+/* ═══ 🔒 시크릿룸 발급(관리자) ═══ */
 /* 🔒 시크릿룸 발급 (관리자) — 후원자 친구코드 + 발급 열쇠.
    열쇠는 DB의 srKey/v 와 서버에서 대조된다. 그 노드에는 .read 가 없어 앱이 읽을 수 없으므로,
    관리자 화면이 열려 있어도 열쇠를 모르면 발급이 거부된다.
@@ -30245,6 +30306,7 @@ async function _lxWriteXlsx(rows, sheetName){
   keyInp.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
 })();
 
+/* ═══ 👥 책상에서 친구 추가 ═══ */
 /* --- 책상에서 친구 추가: 저장 캐릭터 선택 or 새로 만들기 --- */
 function drawFaceThumb(cv,def){const x=cv.getContext('2d');
   x.fillStyle=skinColorFor(def.skin);x.beginPath();x.arc(40,40,33,0,7);x.fill();
@@ -30269,6 +30331,7 @@ function openAddFriend(){
   document.getElementById('friendPicker').classList.add('on');}
 document.getElementById('fpCancel').onclick=()=>document.getElementById('friendPicker').classList.remove('on');
 
+/* ═══ 💾 슬롯 저장 · 복원(saveSlots · loadSlots) ═══ */
 /* --- 저장/복원 (localStorage). 로컬 실행·Electron에선 동작, 챗 미리보기 샌드박스에선 무시됨 --- */
 const LS_KEY='deskFriends.slots.v1';
 /* 캔버스 → dataURL. 이미 dataURL 문자열이면 그대로 통과시킨다(네트워크에서 온 def 등).
@@ -32722,6 +32785,7 @@ function reorderSavedPart(draggedId, targetId, cat){
     }
   }
 }
+/* ═══ 🧊 파츠 GLB 파싱 캐시 · 썸네일 ═══ */
 /* 파츠 GLB 파싱 캐시: id → THREE.Object3D(원본 씬) */
 // ★ 반투명 파츠가 데스크탑 배경 영향받는 문제 해결용 헬퍼.
 //   Electron 투명 창은 프레임버퍼 alpha < 1인 픽셀을 데스크탑 배경과 블렌드하기 때문에,
@@ -32886,6 +32950,7 @@ window.generateAllPartThumbnails = async function(force){
 };
 loadSavedParts();
 
+/* ═══ 💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결 ═══ */
 /* ── 파츠 카탈로그 실시간 동기화 ──────────────────────────────────────────
    로컬(localStorage)에 저장된 savedParts와 별개로, Firebase catalog/parts를 구독해서
    "관리자가 이 앱을 배포한 뒤에도 새 파츠를 등록하면 이미 설치한 모든 사용자에게 자동으로 반영"되게 함.
@@ -32992,6 +33057,7 @@ async function resolveCatalogGlbAll(catalogObj){
   return catalogObj;
 }
 
+/* ═══ 🧹 관리자 콘솔 도구 — 카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 ═══ */
 /* 🧹 Storage 이관 뒷정리 콘솔 도구 — DB에 남은 base64 glb만 삭제해 onValue 다운로드 비용을 줄인다.
    1) previewCatalogCleanup() 으로 먼저 몇 개/몇 MB 지울지 확인(아무것도 안 지움)
    2) 결과가 맞으면 runCatalogCleanup() 실행 → 실제 삭제. glbUrl 없는 항목은 자동으로 건너뜀(안전). */
@@ -33137,6 +33203,7 @@ window.migrateCatalogThumbsToStorage = async function(){
   return results;
 };
 
+/* ═══ 🔄 카탈로그 실시간 동기화 — 아이템 · 책상 · 파츠 · 카테고리 ═══ */
 async function mergeCatalogIntoSavedItems(catalogObj){
   const catalogList = Object.keys(catalogObj||{}).map(id=>({ id, ...catalogObj[id], fromCatalog:true }));
   // ★ order 필드 기준 오름차순 정렬 — 관리자가 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
@@ -33399,6 +33466,7 @@ function subscribeCatOverrides(){
 }
 if(window.firebaseAPI){ subscribeCustomCats(); subscribeCatOverrides(); }
 else window.addEventListener('firebase-ready', ()=>{ subscribeCustomCats(); subscribeCatOverrides(); }, { once:true });
+/* ═══ 🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기 ═══ */
 /* 🩹 [2026-10-02 제보 #11] «부팅 직후 첫 실행에서 가끔 책상 위 오브젝트가 죄그매진다 — 런처 갔다 오면 회복»
    [원인] 캐릭터를 좌석·런처·생성기에 올리는 세 경로가 def.customItems 의 아이템을
      `registerCustomItem(id, name, glb, scene, '', animations)` 로 **크기(defaultSize) 없이** 등록한다 → 0.8 로 고정.
@@ -33603,6 +33671,7 @@ function setDeskScale(deskGroup,scale,lenX){ if(!deskGroup) return;
 //   실행보다 20% 크게 그렸는데, 그 결과 "실행 화면이 미리보기보다 작다"는 인식이 생김.
 const CREATOR_DESK_VISUAL_OFFSET = 1;
 function setCreatorDeskScale(scale){ setDeskScale(cDesk, (scale||1) * CREATOR_DESK_VISUAL_OFFSET, cDeskLenX); }
+/* ═══ 📌 책상 위 파츠 앵커 · 책상 위치 · 배율 ═══ */
 /* 🪑📌 '책상 위' **파츠**가 붙는 자리 — deskAnchor 안의 작은 자식 하나.
    [무엇을 푸는가] 생성기에서 책상 위치 기즈모로 책상을 옮기면 파츠보관함의 '책상 위' 파츠까지
      따라 움직였다(제보). 파츠의 자리는 보관함 상세조정(xf)에서만 정하고 싶다는 요청이다.
@@ -33813,6 +33882,7 @@ function syncSeatDeskZ(deskGroup){
        이 한 줄 덕분에 파츠 상쇄를 따로 챙길 필요가 없다. 여기서 빼지 말 것. */
   syncDeskPartAnchor(deskGroup);
 }
+/* ═══ 📦 복제 코드 불러오기 · 내보내기 · 풀 GLB ═══ */
 let cDeskTemplate=null, cDeskGlbB64=null;   // 생성기 세션의 커스텀 책상
 function downloadBlob(buf,filename){const bl=new Blob([buf],{type:'application/octet-stream'});const u=URL.createObjectURL(bl);
   const a=document.createElement('a');a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1500);}
@@ -33985,6 +34055,7 @@ document.getElementById('glbLoadGo').onclick=async()=>{const fi=document.getElem
     loadEncryptedGlbAsSeat(glbBuf,fi.name.replace(/\.dcc$/i,'')+'.glb');toast('불러왔어요');}
   catch(e){toast('비밀번호가 틀렸거나 파일이 손상됐어요');}};
 
+/* ═══ 🍞 토스트(toast) · 저장 실패 문구 ═══ */
 /* --- toast --- */
 /* 🔐 서버가 거부한 건가, 인터넷이 끊긴 건가 — 관리자 저장 실패 문구를 가른다.
    [왜 필요한가] 관리자 경로(라이선스 발급·파츠 등록·공지)는 이제 규칙에서 `admins/$uid` 를 본다.
@@ -35457,6 +35528,7 @@ async function _openReportAdmin(){
   if(b) b.addEventListener('click', e=>{ e.stopPropagation(); _openReportAdmin(); });
 })();
 
+/* ═══ ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 ═══ */
 /* 레벨이 바뀐 순간에만 프로필을 갱신한다(친구 목록 레벨 배지용).
    매초 쓰면 비용이 커지므로, 값이 실제로 달라졌을 때만 1회 쓴다. */
 let _lastPushedLevel = 0, _lastPushedStar = '';
@@ -35700,6 +35772,7 @@ function starFromRemote(o){
   return { cyc, lv, color: _starColorOk(o.starC) ? o.starC : STAR_PALETTE[0][0] };
 }
 
+/* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
 /* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 parts/gacha.js 로 옮겼다
    (앱 FSD 8번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(localStorage 읽기 · 시각 부트스트랩 · 부팅 동기화 4.2초 타이머 · 10분 tick ·
@@ -36389,6 +36462,7 @@ setInterval(()=>{
   try{ _mobRenderPanel(); }catch(_){}
 }, 60*1000);
 
+/* ═══ 🖥️ 활성 앱 판정(_applyActiveAppState) ═══ */
 let _focusLastTick=performance.now(), _focusWasActive=false;
 function _applyActiveAppState(state){
   if(!state) return;
@@ -36418,6 +36492,7 @@ function _applyActiveAppState(state){
   _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
 }
 
+/* ═══ 👑 달성표 · 🍅 뽀모도로 모듈 연결 ═══ */
 /* 👑 달성표(주간 규칙 · 기록 · 화면) — parts/weekly-challenge.js 로 옮겼다(앱 FSD 2번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(localStorage 읽기 · 부팅 동기화 타이머 · 20초 tick · 버튼 연결)이
      예전과 같은 때 돈다. 함수 deps 는 화살표로 감싼다(부를 때 찾게). appMode · _gachaBonus 는 다시 대입되는 let 이라 읽는 함수로.
@@ -36455,6 +36530,7 @@ const pomodoro = (typeof TwPomodoro === 'undefined') ? POMODORO_OFF : TwPomodoro
   pomoSnd: _pomoSnd,
 });
 
+/* ═══ 🖥️ 데스크탑 실행 화면 — 창 크기 · 업데이트 배너 · 전역 입력 · 클릭 통과 · 하트비트 ═══ */
 let myHomeOpen = false;   // ★ 마이홈 팝업이 "런처에서" 열려있는지 — 이때만 창 크기를 생성기처럼 키움
                           //   (실행 화면은 이미 전체화면이라 그 안에서 여는 건 그대로 둬도 잘 맞음)
 function applyDesktopRunClass(){ if(!desktopMode) return;
