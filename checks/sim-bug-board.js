@@ -7,7 +7,7 @@
 
    ★ 무엇을 보는가 (핸드오프 ③ 확인 ①~⑤ + 순수 함수)
      §1 규칙 — ① prv · ans/prv 읽기가 관리자/본인 조건 ② ans 쓰기가 관리자 전용 ③ list 읽기에 limitToLast 상한
-              ④ inbox tag 에 bug  + 글쓴이의 새 비공개 글은 이름이 «익명» · kakao 는 open.kakao.com 만 · 하루 작성 수 본인만
+              ④ inbox tag 에 bug  + 비공개 글 이름 «익명» 은 앱이 넣는다(규칙은 0.11.2 이하 앱 때문에 아직 안 본다) · kakao 는 open.kakao.com 만 · 하루 작성 수 본인만
      §2 bug-board.js 를 실제로 돌린다 — ⑤ 비공개 글의 목록 줄은 제목은 있고 이름은 «익명» · 입력 확인 · 배지 수
      §3 연결 — firebase-init · 우편함 · 화면 스크립트 순서 · 비공개 행은 누를 수 없다
      §4 쪽 넘김 — 가짜 RTDB(정렬 · endBefore · limitToLast 를 흉내)에 글 45개 + 공지 2개를 넣고 [다음] 으로 끝까지 걷는다.
@@ -62,8 +62,10 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 {
   const v = S(at('bugBoard/list/$id')['.validate']);
   chk(/!newData\.child\('title'\)\.exists\(\) \|\| \(newData\.child\('title'\)\.isString\(\)/.test(v) && /title'\)\.val\(\)\.length <= 60/.test(v), '목록의 title 은 공개 · 비공개 모두 받는다(60자)');
-  chk(/\(newData\.child\('vis'\)\.val\(\) === 'pub' \|\| newData\.child\('name'\)\.val\(\) === '익명'\)\)/.test(S(at('bugBoard/list/$id')['.write'])),
-    '글쓴이의 새 비공개 글은 이름이 «익명» 이어야 써진다(실명이 공개 목록에 안 남는다)');
+  /* 0.11.2 이하 앱은 비공개 글에도 실명을 보낸다 — 규칙이 «익명» 을 요구하면 그 앱의 비공개 제보가 통째로 거부된다(#116 뒤 운영에서 남).
+     사용자 대부분이 «익명» 을 보내는 앱으로 올라온 뒤 다시 넣는다(TODO: firebase-database-rules.json bugBoard/list/$id .write). */
+  chk(!/newData\.child\('name'\)\.val\(\) === '익명'/.test(S(at('bugBoard/list/$id')['.write'])),
+    '글쓴이 새 글 규칙은 아직 이름 «익명» 을 요구하지 않는다 — 옛 앱(0.11.2 이하)의 비공개 제보가 거부되지 않게');
   chk(!!at('bugBoard/list/$id/$other') && at('bugBoard/list/$id/$other')['.validate'] === 'false', '  목록에 정해지지 않은 칸은 못 넣는다');
   const w = S(at('bugBoard/list/$id')['.write']);
   chk(/newData\.child\('status'\)\.val\(\) === 'new'/.test(w) && /!newData\.child\('notice'\)\.exists\(\)/.test(w), '  글쓴이는 상태 · 공지를 정하지 못한다');
