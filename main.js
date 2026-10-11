@@ -354,6 +354,10 @@ let SETTINGS_PATH = null;
 const SETTINGS_VER = 1;
 let _settingsReset = null;          // 초기화했으면 옛 값 요약 — 부팅 로그 · 렌더러 안내에 쓴다
 let _settingsResetNotice = false;   // 렌더러가 안내를 한 번 가져가면 끈다
+/* 🎬 [B-1010-21 · B-1011-1] 위 초기화로 영상 겹침 실험이 꺼진 사람에게 «다시 켤까요?» 를 한 번 묻는다.
+   [왜] 초기화 안내는 9초짜리 토스트 하나뿐이라 못 본 사람은 «업데이트하고부터 다시 검어진다» 로 제보했다.
+   ★ 물었으면(켜든 말든) labVideoAsked 를 파일에 적어 다시 묻지 않는다. 판정은 _labVideoRestoreOffer 한 곳. */
+let _labVideoAsked = false;
 function _settingsLegacyRisky(data){
   const a = data && data.overlayLayeredAlpha;
   return typeof a === 'number' && isFinite(a) && a > 0 && a < 255;
@@ -398,6 +402,7 @@ function loadSettings(){
     /* 🔍 전체 화면 크기 — 없거나 깨졌으면 100%. 창이 아직 없을 수 있으므로 값만 들고 있다가
        createWindow 의 did-finish-load 에서 applyUiZoom 이 실제로 건다. */
     if(typeof data.uiZoom === 'number' && isFinite(data.uiZoom)) uiZoom = _clampZoom(data.uiZoom);
+    if(data.labVideoAsked === true) _labVideoAsked = true;
     /* 🗑️ [2026-08-26] `overlayNoActivate` 는 **읽지 않는다.** 아래 saveSettings 도 안 쓴다.
        NOACTIVATE 실험이 폐기됐기 때문이다(핸드오프5 §7). 옛 파일에 값이 남아 있어도 그냥 무시되고,
        다음 저장 때 키가 사라진다 — 실험을 켠 채로 제보한 사용자가 앱만 새로 받으면 복구된다. */
@@ -517,6 +522,7 @@ function saveSettings(){
       overlayBottomGap: overlay.gap(),
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
+      labVideoAsked: _labVideoAsked,          // 🎬 초기화로 꺼진 실험을 «다시 켤까요?» 로 이미 물었는가
       uiZoom }));                              // 🔍 전체 화면 크기 — applyUiZoom 만 바꾼다
     _saveFailLogged = false;
     return true;
@@ -1906,6 +1912,66 @@ function _logGpuOnce(win){
   app.once('gpu-info-update', go);
   if(win && !win.isDestroyed()) win.webContents.once('did-finish-load', () => setTimeout(go, 1500));
 }
+/* 🎬 초기화(SETTINGS_VER)로 꺼진 실험을 다시 켤지 묻는 대상인가 — 백업 파일에 실험이 켜져 있었고, 지금은 꺼져 있고, 아직 안 물었다.
+   ★ 0.11.0 ~ 0.11.2 에서 이미 초기화된 사람도 백업 파일로 알아본다(그 버전엔 묻는 창이 없었다). */
+/* 부팅 재시도 상한 — 막힌 동안의 시도는 창을 안 건드리고 로그 한 줄만 남기므로 넉넉히 둔다(gpu-info-update 는 여러 번 온다).
+   [B-1010-21] 윈도우 시작 자동 실행이면 GPU 준비가 1분을 넘길 수 있어 시간 재시도는 10분까지 본다. */
+const LAY_RETRY_MAX = 30;
+const LAY_RETRY_DELAYS_MS = [1500, 5000, 15000, 60000, 180000, 600000];   // 화면이 뜬 뒤 다시 볼 때
+const LAY_RETRY_LAST = 'did-finish-load+마지막';
+const LAB_RESTORE_ASK_DELAY_MS = 6000;
+/* 🎬 부팅 재시도를 끝까지 했는데도 «GPU 합성 꺼짐» 이면 무엇을 하면 되는지 한 번 알린다.
+   [왜] 토글은 «켜짐» 인데 효과가 없으면 사용자는 고장인지 모른다(B-1010-21). 설정 › 시스템의 안내(app.js
+     LAB_VIDEO_BLOCKED_GUIDE)와 같은 순서 — 껐다 켜기 → 그래도면 버그제보.
+   ★ 실행당 한 번 · «다시 보지 않기» 면 userData/lab-video-guide-off 로 그 뒤 안 띄운다(_kbShowGuide 와 같은 방식). */
+let _labGuideShown = false;
+function _labGuideOffPath(){ try{ return path.join(app.getPath('userData'), 'lab-video-guide-off'); }catch(_){ return null; } }
+function _showLabBlockedGuide(){
+  if(_labGuideShown || !mainWindow || mainWindow.isDestroyed()) return;
+  if(!/^blocked/.test(overlay.layeredState()) || !(overlay.alpha() > 0 && overlay.alpha() < 255)) return;
+  _labGuideShown = true;
+  _diagLog('[오버레이] 레이어드 알파 — 부팅 재시도 끝까지 막힘(' + overlay.layeredState() + ') · 안내 창');
+  try{ const f = _labGuideOffPath(); if(f && fs.existsSync(f)) return; }catch(_){}
+  dialog.showMessageBox(mainWindow, {
+    type: 'warning', title: 'Together Working',
+    message: '«영상 겹침 실험» 이 켜져 있지만 적용되지 못했어요',
+    detail: '그래서 유튜브 · 디스코드 · 트위치 화면이 검어지거나 깜빡일 수 있어요.\n\n'
+      + '① 설정 › 시스템 › 영상 겹침 실험 버튼을 눌러 끈 뒤, 한 번 더 눌러 다시 켜 주세요.\n'
+      + '② 그래도 «적용 안 됨» 이면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 시스템 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
+    buttons: ['확인'], defaultId: 0, cancelId: 0,
+    checkboxLabel: '다시 보지 않기',
+  }).then(r=>{
+    if(r && r.checkboxChecked){ try{ const f = _labGuideOffPath(); if(f) fs.writeFileSync(f, String(Date.now())); }catch(_){} }
+  }).catch(()=>{});
+}
+function _labVideoRestoreOffer(){
+  if(process.platform !== 'win32' || _labVideoAsked || !SETTINGS_PATH) return false;
+  if(overlay.alpha() > 0 && overlay.alpha() < 255) return false;
+  try{
+    const bak = JSON.parse(fs.readFileSync(SETTINGS_PATH.replace(/\.json$/, '') + '.before-reset.json', 'utf8'));
+    return _settingsLegacyRisky(bak);
+  }catch(_){ return false; }
+}
+function _askLabVideoRestore(){
+  if(!_labVideoRestoreOffer() || !mainWindow || mainWindow.isDestroyed()) return;
+  _labVideoAsked = true;
+  try{ saveSettings(); }catch(_){}
+  _diagLog('[설정] 초기화로 꺼진 영상 겹침 실험 — 다시 켤지 묻는다');
+  dialog.showMessageBox(mainWindow, {
+    type: 'question', title: 'Together Working',
+    message: '«영상 겹침 실험» 을 다시 켤까요?',
+    detail: '업데이트하면서 화면 설정을 기본값으로 되돌려 이 실험이 꺼졌어요.\n\n'
+      + '이전에 켜서 유튜브 · 디스코드 · 트위치 화면이 검어지거나 깜빡이는 것을 막았다면 [다시 켜기] 를 눌러 주세요.\n'
+      + '나중에 설정 › 시스템 › 영상 겹침 실험 에서도 켜고 끌 수 있어요.',
+    buttons: ['다시 켜기', '그대로 두기'], defaultId: 0, cancelId: 1,
+  }).then(r=>{
+    if(!r || r.response !== 0 || !mainWindow || mainWindow.isDestroyed()) return;
+    overlay.setAlpha(overlay.LAYERED_ALPHA_ON);
+    try{ saveSettings(); }catch(_){}
+    overlay.applyLayered('초기화 뒤 다시 켜기');
+  }).catch(()=>{});
+}
+
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
@@ -1940,23 +2006,33 @@ function createWindow() {
        주기적으로 다시 부르지 말 것 — 스타일 변경 자체가 크로미움의 가려짐 재계산 훅을
        두들겨서(핸드오프4 §4-2 의 906회 사고) 고치려던 깜빡임을 우리 손으로 만들게 된다. */
   overlay.applyLayered('부팅');
-  /* 🔁 [2026-10-08 제보 #4] 부팅 판정이 «GPU 합성 꺼짐» 이면 GPU 정보가 준비된 뒤 **딱 한 번** 다시 본다.
+  /* 🔁 [2026-10-08 제보 #4] 부팅 판정이 «GPU 합성 꺼짐» 이면 GPU 정보가 준비된 뒤 다시 본다.
      [왜] app.getGPUFeatureStatus() 는 gpu-info-update 전에는 믿을 수 없다. 윈도우 시작 자동 실행처럼 GPU 가 덜 준비된
        순간이면 '?' 가 나와 꺼짐으로 판정되고, 예전엔 다시 시도하지 않아서 «토글은 켜짐인데 효과는 꺼짐» 이 됐다
        (토글을 껐다 켜면 그때는 준비돼 있어 적용됐다 — 제보와 일치).
-     ★ 재시도도 같은 함수(_applyOverlayLayered)를 지난다 — 그때도 enabled 가 아니면 그대로 건너뛴다(10-01 보호 유지).
-     ⚠️ 한 번뿐이다. 주기적으로 다시 부르지 말 것(위 주석 — 스타일 변경이 가려짐 재계산 훅을 두들긴다). */
+     [B-1010-21 · B-1011-1] 재시도를 «딱 한 번» 으로 두었더니 첫 gpu-info-update 때도 덜 준비돼 있으면 그 한 번을 쓰고
+       끝났다(제보자 로그 · 토글을 껐다 켜니 나음). 그래서 **풀릴 때까지**(gpu-info-update 마다 · 화면이 뜬 뒤 1.5초 ~ 10분) 본다.
+     ★ 막혀 있는 동안의 재시도는 창 스타일을 건드리지 않는다(_applyOverlayLayered 가 blocked 갈래에서 바로 돌아간다).
+       창에 실제로 거는 것은 풀린 그 한 번뿐이라 «주기적으로 다시 부르지 말 것»(위 주석)과 어긋나지 않는다.
+     ★ 재시도도 같은 함수(_applyOverlayLayered)를 지난다 — 그때도 enabled 가 아니면 그대로 건너뛴다(10-01 보호 유지). */
   if(/^blocked/.test(overlay.layeredState()) && overlay.alpha() > 0 && overlay.alpha() < 255){
-    let _layRetried = false;
+    let _layTries = 0, _layDone = false;
     const _layRetry = (why)=>{
-      if(_layRetried || !mainWindow || mainWindow.isDestroyed()) return;
-      _layRetried = true;
-      overlay.applyLayered('재시도(' + why + ')');
+      if(_layDone || !mainWindow || mainWindow.isDestroyed()) return;
+      if(++_layTries > LAY_RETRY_MAX){ _layDone = true; app.removeListener('gpu-info-update', _layOnGpu); _showLabBlockedGuide(); return; }
+      overlay.applyLayered('재시도 ' + _layTries + '(' + why + ')');
+      if(!/^blocked/.test(overlay.layeredState())){ _layDone = true; app.removeListener('gpu-info-update', _layOnGpu); }
+      else if(why === LAY_RETRY_LAST){ _layDone = true; app.removeListener('gpu-info-update', _layOnGpu); _showLabBlockedGuide(); }
     };
-    app.once('gpu-info-update', ()=>_layRetry('gpu-info-update'));
-    // gpu-info-update 가 이미 지나갔을 수 있다 — 화면이 다 뜬 뒤 한 번 더 기회를 준다
-    mainWindow.webContents.once('did-finish-load', ()=>setTimeout(()=>_layRetry('did-finish-load'), 1500));
+    const _layOnGpu = ()=>_layRetry('gpu-info-update');
+    app.on('gpu-info-update', _layOnGpu);
+    // gpu-info-update 가 이미 지나갔을 수 있다 — 화면이 다 뜬 뒤 몇 번 더 기회를 준다
+    mainWindow.webContents.once('did-finish-load', ()=>{
+      LAY_RETRY_DELAYS_MS.forEach((ms, i) => setTimeout(()=>_layRetry(i === LAY_RETRY_DELAYS_MS.length - 1 ? LAY_RETRY_LAST : 'did-finish-load+' + (ms / 1000) + 's'), ms));
+    });
   }
+  /* 🎬 초기화로 꺼진 실험을 다시 켤지 — 화면이 뜨고 초기화 안내 토스트(2.5초) 뒤에 한 번 */
+  mainWindow.webContents.once('did-finish-load', ()=>setTimeout(_askLabVideoRestore, LAB_RESTORE_ASK_DELAY_MS));
   /* 🚚 갭 승격이 일어났으면 한 줄 남긴다 — 제보 로그에서 "이 사람은 옛 값을 쓰고 있었다"가
      바로 보여야 한다. loadSettings 시점에는 app 이 아직 ready 가 아니라 여기서 찍는다. */
   if(_settingsReset){
