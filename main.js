@@ -1914,8 +1914,10 @@ function _logGpuOnce(win){
 }
 /* 🎬 초기화(SETTINGS_VER)로 꺼진 실험을 다시 켤지 묻는 대상인가 — 백업 파일에 실험이 켜져 있었고, 지금은 꺼져 있고, 아직 안 물었다.
    ★ 0.11.0 ~ 0.11.2 에서 이미 초기화된 사람도 백업 파일로 알아본다(그 버전엔 묻는 창이 없었다). */
-const LAY_RETRY_MAX = 8;                                   // 부팅 재시도 상한(gpu-info-update 는 여러 번 올 수 있다)
-const LAY_RETRY_DELAYS_MS = [1500, 5000, 15000, 60000];   // 화면이 뜬 뒤 다시 볼 때
+/* 부팅 재시도 상한 — 막힌 동안의 시도는 창을 안 건드리고 로그 한 줄만 남기므로 넉넉히 둔다(gpu-info-update 는 여러 번 온다).
+   [B-1010-21] 윈도우 시작 자동 실행이면 GPU 준비가 1분을 넘길 수 있어 시간 재시도는 10분까지 본다. */
+const LAY_RETRY_MAX = 30;
+const LAY_RETRY_DELAYS_MS = [1500, 5000, 15000, 60000, 180000, 600000];   // 화면이 뜬 뒤 다시 볼 때
 const LAB_RESTORE_ASK_DELAY_MS = 6000;
 function _labVideoRestoreOffer(){
   if(process.platform !== 'win32' || _labVideoAsked || !SETTINGS_PATH) return false;
@@ -1984,7 +1986,7 @@ function createWindow() {
        순간이면 '?' 가 나와 꺼짐으로 판정되고, 예전엔 다시 시도하지 않아서 «토글은 켜짐인데 효과는 꺼짐» 이 됐다
        (토글을 껐다 켜면 그때는 준비돼 있어 적용됐다 — 제보와 일치).
      [B-1010-21 · B-1011-1] 재시도를 «딱 한 번» 으로 두었더니 첫 gpu-info-update 때도 덜 준비돼 있으면 그 한 번을 쓰고
-       끝났다. 그래서 **풀릴 때까지 정해진 몇 번**(gpu-info-update 마다 · 화면이 뜬 뒤 1.5 · 5 · 15 · 60초)만 본다.
+       끝났다(제보자 로그 · 토글을 껐다 켜니 나음). 그래서 **풀릴 때까지**(gpu-info-update 마다 · 화면이 뜬 뒤 1.5초 ~ 10분) 본다.
      ★ 막혀 있는 동안의 재시도는 창 스타일을 건드리지 않는다(_applyOverlayLayered 가 blocked 갈래에서 바로 돌아간다).
        창에 실제로 거는 것은 풀린 그 한 번뿐이라 «주기적으로 다시 부르지 말 것»(위 주석)과 어긋나지 않는다.
      ★ 재시도도 같은 함수(_applyOverlayLayered)를 지난다 — 그때도 enabled 가 아니면 그대로 건너뛴다(10-01 보호 유지). */

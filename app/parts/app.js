@@ -26698,7 +26698,7 @@ function openProgramSettings(tab){
   setProgSettingsTab(tab||'license');
   refreshLicenseUI();
   if((tab||'license')==='display') { renderProgMonitors(); refreshThemeUI(); }
-  if((tab||'license')==='system')  { refreshAutoLaunchUI(); refreshFigureModeUI(); refreshOfficeModeUI(); refreshAppVersionUI(); }
+  if((tab||'license')==='system')  { refreshAutoLaunchUI(); refreshFigureModeUI(); refreshOfficeModeUI(); refreshLabVideoUI(); refreshAppVersionUI(); }   // 🎬 시스템 탭으로 바로 열려도 실제 적용 상태(적용 안 됨)를 보인다
 }
 function closeProgramSettings(){
   const o=document.getElementById('programSettingsOverlay'); if(!o) return;
