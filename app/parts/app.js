@@ -36715,6 +36715,16 @@ if(desktopMode){
       if(!focusGateSleep) activity();      // 기록·집중 포즈 — 등록한 포커싱 어플을 쓰는 중일 때만
     });
   }
+  /* 🎮 게임패드 — 버튼 · 스틱 값이 실제로 바뀌었을 때만(parts/gamepad-activity.js). 처리는 펜 활동과 같다.
+     창이 뒤에 있을 때 값이 안 들어오는 OS 면 신호가 없을 뿐이다(모듈 주석). */
+  if(window.TwGamepadActivity && navigator.getGamepads){
+    try{
+      TwGamepadActivity.createGamepadActivity({
+        getPads: ()=>navigator.getGamepads(),
+        onActivity: ()=>{ anyInput(); if(!focusGateSleep) activity(); },
+      }).start();
+    }catch(_){}
+  }
   if(USE_OS_IDLE_FOR_FOCUS && window.companion && companion.getIdleSeconds){
     setInterval(async ()=>{
       try{
