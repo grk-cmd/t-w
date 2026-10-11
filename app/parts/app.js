@@ -9557,6 +9557,8 @@ async function _commitWdDraftNow(silent){
   def.partXfMemory = JSON.parse(JSON.stringify(draft.partXfMemory||{}));
   /* 🐾 귀는 파츠 배관 밖이라 따로 옮기고, 바뀌었으면 좌석 귀를 다시 붙인다 */
   try{ if(wdEar.commit(def, draft)) _attachHumanEars(mySeat.modelRoot, def); }catch(e){ console.warn('[사람 귀] 저장', e); }
+  /* 💾 저장이 먼저다 — 아래 파츠 GLB 받기는 몇 초 걸려서, 그 사이 앱이 꺼지면 꾸민 것이 통째로 사라졌다 */
+  if(typeof saveSlots==='function') saveSlots();
   // 실제 캐릭터에서 "뺀 파츠"를 먼저 걷어냄 — 🔗 stackable은 id 단위까지 대조 (안 하면 예전 파츠가 유령으로 남음)
   pruneSeatPartsAgainstDef(mySeat, def);
   await applyEquippedPartsToSeat(mySeat, def);   // 남아있는/새로 생긴 파츠는 적용(같은 카테고리 교체도 내부에서 처리됨)
@@ -9564,7 +9566,7 @@ async function _commitWdDraftNow(silent){
      ⚠️ 이 호출이 없으면 욕조를 벗은 뒤에도 캐릭터가 그 깊이만큼 뜬 채로 남아 있다가 다음 실행에서야
        제자리로 돌아온다. 부팅 경로(applyCharToSeat)에는 이미 같은 재계산이 있다. */
   try{ if(mySeat && mySeat.gltfRoot && typeof fitModel==='function') fitModel(mySeat); }catch(_){}
-  if(typeof saveSlots==='function') saveSlots();
+  if(typeof saveSlots==='function') saveSlots();   // 적용 중 def 가 정리됐으면(옷 겹침 등) 한 번 더 — 그대로면 아무 일 없다
   if(mySeat.isMe && typeof Presence!=='undefined' && Presence.active()){
     Presence.updateDef(def);
     if(!silent) toast('저장했어요 — 같은 방 친구에게 바로 반영돼요');
@@ -9592,13 +9594,14 @@ async function _commitWdDraftToOwner(draft, silent){
   /* 🐾 귀도 원래 주인에게 — _commitWdDraftNow 와 같은 짝. 빠지면 교체 직전에 고른 귀만 사라진다 */
   let _earChanged = false;
   try{ _earChanged = wdEar.commit(src, draft); }catch(e){ console.warn('[사람 귀] 저장', e); }
+  if(typeof saveSlots==='function') saveSlots();   // 💾 파츠 받기를 기다리기 전에 — _commitWdDraftNow 와 같은 이유
   if(seat){
     if(_earChanged) _attachHumanEars(seat.modelRoot, src);
     pruneSeatPartsAgainstDef(seat, src);
     await applyEquippedPartsToSeat(seat, src);
     try{ if(seat.gltfRoot && typeof fitModel==='function') fitModel(seat); }catch(_){}
+    if(typeof saveSlots==='function') saveSlots();
   }
-  if(typeof saveSlots==='function') saveSlots();
   if(seat && seat.isMe && typeof Presence!=='undefined' && Presence.active()) Presence.updateDef(src);
   if(!silent) toast('꾸민 내용은 원래 캐릭터에 저장했어요');
   try{ gachaMod.pruneUnownedGachaParts(); }catch(_){}
@@ -23176,8 +23179,10 @@ function gotoStep(n){
   blit();}
 function openCreator(mode){
   ensureCreatorPreview();
-  // ★ 꾸미기 창이 켜진 채로 생성기를 열면 같은 종류의 "떠 있는 채 안 닫힘" 문제가 생길 수 있어 미리 닫음.
-  const wp=document.getElementById('wardrobePanel'); if(wp) wp.classList.remove('on');
+  // ★ 꾸미기 창이 켜진 채로 생성기를 열면 같은 종류의 "떠 있는 채 안 닫힘" 문제가 생길 수 있어 미리 닫음(저장하며 — backToLauncher 와 같다).
+  const wp=document.getElementById('wardrobePanel');
+  if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
+  if(wp) wp.classList.remove('on');
   const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
   creatorMode=mode||{kind:'slot',edit:false};
   // ★ 진입 시점에 런처 화면이 보이고 있었는지 기록 — 아래에서 launcher의 'on'을 강제로 뺄 것이므로,
@@ -24701,7 +24706,10 @@ function backToLauncher(){
   document.getElementById('launcher').classList.add('on');
   // ★ 꾸미기 창이 켜진 채로 런처에 돌아가면 그대로 떠 있던 채 따라오던 문제 — 런처로 돌아갈 땐 항상 닫음.
   //   (이 상태가 이어져서 이후 관리자 모드에서 꾸미기 아이콘이 안 먹히는 것처럼 보이던 문제도 같이 방지됨)
-  const wp=document.getElementById('wardrobePanel'); if(wp) wp.classList.remove('on');
+  //   💾 닫는 것이 곧 저장이라 closeWardrobe 로 닫는다 — 창만 숨기면 꾸민 것이 저장되지 않았다(설정 패널 «런처로» 버튼 길)
+  const wp=document.getElementById('wardrobePanel');
+  if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
+  if(wp) wp.classList.remove('on');
   const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
   // ★ 마이홈도 동일한 이유로 닫음 — 켜진 채로 런처에 오면 그대로 남아 실행 화면 위에 겹쳐 보임.
   //   commitMyHomePage(true)로 저장까지 처리한 뒤 닫기.
@@ -30421,6 +30429,21 @@ function slotToObj(d){return d?{skin:d.skin||0,top:d.top,bot:d.bot,xf:d.xf||null
   //   ⚠️ thumbUrl 처럼 **있을 때만** 싣는다 — 늘 실으면 귀가 없는 옛 칸까지 첫 저장이 «달라짐» 이 되어 slots ts 가 일제히 오른다
   ...(d.earL?{earL:d.earL}:{}),...(d.earR?{earR:d.earR}:{}),...(d.earAdj?{earAdj:d.earAdj}:{}),
   ...(typeof d.earPicL==='string'&&d.earPicL?{earPicL:d.earPicL}:{}),...(typeof d.earPicR==='string'&&d.earPicR?{earPicR:d.earPicR}:{})}:null;}
+/* 🔗 서버에서 받아 slots[] 를 새 객체로 갈아 끼운 뒤 — 책상 위 내 좌석의 charDef 를 같은 칸의 새 객체로 다시 잇는다.
+   [왜] 좌석은 옛 객체를 쥔 채 남아, 그 뒤 꾸미기 · 가챠 착용 · 크기 조정이 slots[] 밖의 객체에 저장됐다
+     → saveSlots 가 «안 바뀜» 으로 보고 넘어가 재부팅하면 초기화(제보). 화면 모델은 그대로 두고(받은 모습은 다음 실행부터 — 토스트 문구) 저장 대상만 맞춘다.
+   oldSlots: 갈아 끼우기 전 slots 사본 · skip: 다른 캐릭터가 됐거나 비워진 칸(그 칸은 잇지 않는다) */
+function _relinkSeatsToSlots(oldSlots, skip){
+  try{
+    seats.forEach(s=>{
+      if(!s || s.remote || s.slot==null || (skip && skip.has(s.slot))) return;
+      const old = oldSlots[s.slot], cur = slots[s.slot];
+      if(!cur || s.charDef !== old || old === cur) return;
+      s.charDef = cur;
+      if(wdDraftDef && wdDraftDef._srcDef === old) wdDraftDef._srcDef = cur;   // 열린 꾸미기 초안도 새 객체로 저장되게
+    });
+  }catch(e){ console.warn('[슬롯] 좌석 다시 잇기 실패', e); }
+}
 /* ⚠️ 예전엔 `slots.map(slotToObj)` 를 통째로 try 하나에 넣고 catch 를 비워 뒀다.
      slotToObj 는 `d.face.toDataURL(...)` 를 가드 없이 부르므로, face 가 캔버스가 아닌 슬롯이
      **하나만** 있어도 map 이 그 자리에서 던지고 **세 칸 전부**가 저장되지 않는다. 그것도 조용히 —
@@ -31625,8 +31648,10 @@ async function _charsLocalAdopt(uid){
     localStorage.setItem(CHARS_BOX_KEY, JSON.stringify(p.box));
   }catch(e){ return { ok: false, reason: '보관함 저장 실패(저장 공간)' }; }
   if(changed){
+    const _old = slots.slice();
     for(let i = 0; i < CHAR_SLOT_MAX; i++){ slots[i] = null; _faceEverDrawn[i] = false; _blinkEverDrawn[i] = false; }
     try{ await loadSlots(); }catch(_){}
+    _relinkSeatsToSlots(_old, new Set(p.unseat));   // 바꿔 앉힌 칸은 같은 캐릭터(cid)라 잇는다 · 비운 칸만 뺀다
     try{ if(typeof renderLauncher === 'function') renderLauncher(); }catch(_){}
     try{ if(typeof renderCharSlots === 'function') renderCharSlots(); }catch(_){}
   }
@@ -32070,8 +32095,10 @@ async function _charsSync(reason){
       localStorage.setItem(tsKey, String(typeof w === 'number' ? w : (Object.keys(entries).length ? 0 : ts)));
     }catch(e){ return { ok: false, reason: '보관함 저장 실패(저장 공간)' }; }
     if(changed){
+      const _old = slots.slice();
       for(let i = 0; i < CHAR_SLOT_MAX; i++){ slots[i] = null; _faceEverDrawn[i] = false; _blinkEverDrawn[i] = false; }
       try{ await loadSlots(); }catch(_){}
+      _relinkSeatsToSlots(_old, new Set(p.unseat));
       /* 🩹 #9 — loadSlots 를 기다리는 사이 보관함 이동 등으로 칸이 또 바뀌었으면 옛 모양을 다시 저장하지 않는다
          (보관함과 슬롯 양쪽에 남던 자리). 다음 판이 다시 맞춘다. */
       if(gen !== _charsGen){ _charsSyncAgain = true; return { ok: true, did: '불러오는 중 바뀜 — 다시' }; }
@@ -36360,6 +36387,13 @@ setInterval(()=>{ try{ syncFocusTotalToServer('tick'); }catch(_){} }, FOCUS_SYNC
 /* 창이 닫힐 때 마지막으로 한 번 — 비동기라 완료가 보장되진 않지만, 성공하면 위 주기의
    최대 10분 공백을 메워 준다. 실패해도 다음 부팅에서 max 로 그대로 복구된다. */
 window.addEventListener('beforeunload', ()=>{ try{ syncFocusTotalToServer('quit'); }catch(_){} });
+/* 💾 꾸미기를 연 채 앱을 끄면 — 닫는 것이 곧 저장이라 여기서 닫아 준다. 슬롯 저장은 파츠 받기를 기다리기 전에 도니
+   종료 전에 끝난다(_commitWdDraftNow). 계정을 놓은 뒤(_wipeAccountLocal)에는 지운 칸을 도로 쓰지 않게 건너뛴다. */
+window.addEventListener('beforeunload', ()=>{
+  if(_acctDetached || !wdDraftDef) return;
+  const wp = document.getElementById('wardrobePanel');
+  if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
+});
 
 function formatHMS(sec){ sec=Math.max(0,Math.floor(sec));
   const h=String(Math.floor(sec/3600)).padStart(2,'0'), m=String(Math.floor((sec%3600)/60)).padStart(2,'0'), s=String(sec%60).padStart(2,'0');

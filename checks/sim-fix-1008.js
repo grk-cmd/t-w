@@ -373,7 +373,7 @@ say('§13 꾸미기 초안 — 캐릭터를 바꾼 뒤 저장해도 원래 캐�
     Promise.all([run(e1), run(e2), run(e3)]).then(([r1, r2, r3]) => {
       chk(t1.A.equippedParts.face && t1.A.equippedParts.hat.id === 'ribbon' && t1.B.equippedParts.hat.id === 'b' && !t1.B.equippedParts.face,
         '★ 실행 — 자리 교체 뒤: A 에 저장 · B 는 그대로');
-      chk(t1.applied.join() === 'A' && t1.presence === 0 && t1.saved === 1 && r1.left === null, '  자리추가로 남은 A 좌석에만 입히고, 방에는 안 보낸다 · 초안 버림');
+      chk(t1.applied.join() === 'A' && t1.presence === 0 && t1.saved === 2 && r1.left === null, '  자리추가로 남은 A 좌석에만 입히고, 방에는 안 보낸다 · 초안 버림 · 저장은 파츠 받기 전 · 뒤 두 번');
       chk(t2.A.equippedParts.hat.id === 'ribbon' && t2.B.equippedParts.hat.id === 'b' && t2.applied.length === 0 && t2.saved === 1, '★ 실행 — 캐릭터 교체 뒤: 슬롯의 A 에만 저장 · B 는 그대로');
       chk(r3.r === false && t3.B.equippedParts.hat.id === 'b' && t3.saved === 0 && r3.left === null, '  실행 — A 를 못 찾으면 아무 데도 안 쓴다');
       done13();
