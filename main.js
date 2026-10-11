@@ -1266,6 +1266,18 @@ function _hoverTick(){
 // 마지막으로 "우리 앱이 아닌 다른 창"에 포커스가 있었을 때의 정보. 설정 패널에서 1~4번 버튼을
 // 누르면 이 값을 그 슬롯에 등록한다(=버튼 누르기 직전까지 쓰고 있던 프로그램).
 let lastForeignWindow = null;   // { key, name, path, title } — key 가 판정 축이다(focusKeyOf)
+/* 🧭 [2026-10-11 제보: 한글 · PDF · 크롬이 포커싱 등록이 안 된다] 슬롯 좌클릭 «자동 등록» 이 집는 창.
+   lastForeignWindow 는 바탕화면 · 작업표시줄(explorer.exe) · 시작 메뉴 · 검색 같은 **셸 창도** 받는다 — 문서 창에서
+   작업표시줄을 거쳐 투게더워킹을 누르면 그 사이 셸 창이 마지막 앞창이 되어, 한글 대신 explorer.exe 가 등록됐다.
+   ⇒ 등록용은 셸 목록(sysinput.WINLIST_SKIP — 「목록에서 직접 고르기」 가 거르는 것과 같은 목록)을 건너뛴 마지막 창.
+   lastForeignWindow(진단 로그 «앞창=») 는 그대로 둔다 — 로그는 실제 앞창을 보여야 한다. */
+let lastRegistrableWindow = null;
+function _noteForeignWindow(exeName, ownerPath, w){
+  lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
+  let shell = false;
+  try{ shell = !!(sysinput.WINLIST_SKIP && sysinput.WINLIST_SKIP.has(exeName)); }catch(_){}
+  if(!shell) lastRegistrableWindow = lastForeignWindow;
+}
 
 // uiohook 전역 클릭/키 이벤트에 실어 보낼, 매 순간의 "활성 프로세스 판정" 캐시.
 // (500ms 폴링에서 갱신 — uiohook 이벤트마다 activeWin()을 새로 부르면 느리므로 캐시 재사용)
@@ -1302,7 +1314,7 @@ function startActiveWinPolling(){
       const ownerPath = w.owner.path || w.owner.name || '';
       const exeName = sysinput.procNameOf(ownerPath);
       if(exeName && exeName !== SELF_EXE){
-        lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
+        _noteForeignWindow(exeName, ownerPath, w);
       }
       /* ★ 등록 판정은 keysOf 한 통로로만 나간다 — 이름을 직접 비교하지 말 것.
            여기서 `f.name === exeName` 로 되돌리면 mac 에서 조용히 전부 미등록이 된다. */
@@ -2495,7 +2507,7 @@ function createWindow() {
         const ownerPath = w.owner.path || w.owner.name || '';
         const exeName = sysinput.procNameOf(ownerPath);
         if(exeName && exeName !== SELF_EXE){
-          lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
+          _noteForeignWindow(exeName, ownerPath, w);
         }
       }catch(_){}
     }, 100);
@@ -3236,7 +3248,7 @@ function createWindow() {
   ipcMain.handle('companion:registerFocusApp', async (e, idx) => {
     if(idx<0 || idx>=FOCUS_APP_SLOTS) return { ok:false, reason:'bad-index' };
     // ── Fallback: lastForeignWindow가 null이면 즉시 activeWin 최대 3번 재시도 (200ms 간격) ──
-    for(let attempt=0; attempt<3 && !lastForeignWindow; attempt++){
+    for(let attempt=0; attempt<3 && !lastRegistrableWindow && !lastForeignWindow; attempt++){
       if(attempt > 0) await new Promise(r=>setTimeout(r, 200));
       try{
         const w = await activeWin();
@@ -3245,7 +3257,7 @@ function createWindow() {
           const ownerPath = w.owner.path || w.owner.name || '';
           const exeName = sysinput.procNameOf(ownerPath);
           if(exeName && exeName !== SELF_EXE){
-            lastForeignWindow = { key: focusKeyOf(exeName), name: sysinput.displayNameOf(ownerPath), path: w.owner.path || '', title: w.title || '' };
+            _noteForeignWindow(exeName, ownerPath, w);
           }
         }
       }catch(_){}
@@ -3269,7 +3281,10 @@ function createWindow() {
       }
       return { ok:false, reason:'no-window', diag, self: SELF_EXE };
     }
-    focusApps[idx] = { ...lastForeignWindow };
+    /* 셸 창(작업표시줄 등)을 거쳐 왔으면 그 앞의 일반 창을 — 셸 창밖에 본 적이 없으면 예전처럼 그것을(lastRegistrableWindow 주석) */
+    focusApps[idx] = { ...(lastRegistrableWindow || lastForeignWindow) };
+    if(lastRegistrableWindow && lastRegistrableWindow !== lastForeignWindow)
+      _diagLog('[등록] 셸 창(' + lastForeignWindow.name + ')을 건너뛰고 ' + lastRegistrableWindow.name + ' 를 등록');
     saveFocusApps();
     return { ok:true, app: focusApps[idx] };
   });

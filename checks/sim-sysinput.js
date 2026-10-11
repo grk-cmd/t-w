@@ -358,6 +358,26 @@ say('\n── 6. focus-apps 저장 포맷을 못 박아 둔다 (마이그레이�
   }
 }
 
+say('\n── 7. 자동 등록은 셸 창(작업표시줄 · 바탕화면)을 건너뛴다 (2026-10-11 제보: 한글 · PDF · 크롬이 등록 안 됨)');
+{
+  const fn = (mainSrc.match(/function _noteForeignWindow\(exeName, ownerPath, w\)\{[\s\S]*?\n\}/) || [''])[0];
+  if(!fn) huh('_noteForeignWindow 를 못 찾음');
+  else {
+    const T = new Function('sysinput', 'focusKeyOf', 'let lastForeignWindow = null, lastRegistrableWindow = null;\n' + fn
+      + '\nreturn { note: _noteForeignWindow, fg: () => lastForeignWindow, reg: () => lastRegistrableWindow };')(
+      { displayNameOf: p => p, WINLIST_SKIP: new Set(['explorer.exe', 'searchhost.exe']) }, n => 'win:' + n);
+    const w = (p) => ({ owner: { path: p }, title: 't' });
+    T.note('hwp.exe', 'hwp.exe', w('C:/Hnc/hwp.exe'));
+    T.note('explorer.exe', 'explorer.exe', w('C:/Windows/explorer.exe'));
+    chk(T.fg().key === 'win:explorer.exe' && T.reg().key === 'win:hwp.exe', '★ 한글 → 작업표시줄을 거쳐 오면 등록 후보는 한글 그대로(앞창 로그는 explorer)');
+    T.note('chrome.exe', 'chrome.exe', w('C:/G/chrome.exe'));
+    chk(T.reg().key === 'win:chrome.exe' && T.fg().key === 'win:chrome.exe', '  일반 창은 둘 다 그 창');
+  }
+  chk(/focusApps\[idx\] = \{ \.\.\.\(lastRegistrableWindow \|\| lastForeignWindow\) \};/.test(mainCode), '  등록은 셸이 아닌 마지막 창 — 셸 창밖에 본 적 없으면 예전처럼');
+  chk(count(mainCode, /lastForeignWindow = \{ key: focusKeyOf\(exeName\)/g) === 1 && count(mainCode, /_noteForeignWindow\(exeName, ownerPath, w\);/g) === 3,
+    '  앞창을 적는 세 자리(폴링 · 클릭 직후 · 등록 재시도)가 모두 한 함수를 지난다');
+}
+
 say('');
 say('통과 ' + pass + ' · 실패 ' + fail + ' · 검사못함 ' + unknown);
 if (unknown) say('  ? 는 심볼이 개명·이동됐다는 뜻이다. main.js 를 고쳤다면 **이 파일도 같이 고칠 것.**');
