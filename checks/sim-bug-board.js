@@ -7,13 +7,13 @@
 
    ★ 무엇을 보는가 (핸드오프 ③ 확인 ①~⑤ + 순수 함수)
      §1 규칙 — ① prv · ans/prv 읽기가 관리자/본인 조건 ② ans 쓰기가 관리자 전용 ③ list 읽기에 limitToLast 상한
-              ④ inbox tag 에 bug  + 목록에 title 은 공개 글만 · kakao 는 open.kakao.com 만 · 하루 작성 수 본인만
-     §2 bug-board.js 를 실제로 돌린다 — ⑤ 비공개 글의 목록 줄에 title 이 없다 · 입력 확인 · 배지 수
+              ④ inbox tag 에 bug  + 글쓴이의 새 비공개 글은 이름이 «익명» · kakao 는 open.kakao.com 만 · 하루 작성 수 본인만
+     §2 bug-board.js 를 실제로 돌린다 — ⑤ 비공개 글의 목록 줄은 제목은 있고 이름은 «익명» · 입력 확인 · 배지 수
      §3 연결 — firebase-init · 우편함 · 화면 스크립트 순서 · 비공개 행은 누를 수 없다
      §4 쪽 넘김 — 가짜 RTDB(정렬 · endBefore · limitToLast 를 흉내)에 글 45개 + 공지 2개를 넣고 [다음] 으로 끝까지 걷는다.
-        한 번에 20개 넘게 받지 않는다 · 빠짐 · 겹침 없음 · [이전] 은 같은 쪽 · 미해결도 같은 방식
+        한 쪽은 BUG_PAGE(8)개 · 한 번에 20개 넘게 받지 않는다 · 빠짐 · 겹침 없음 · [이전] 은 같은 쪽 · 미해결도 같은 방식
      §5 창이 안 늘어난다 — 버그제보 페이지 높이 고정(440px) · 목록은 #bbRows 안에서 스크롤 · [이전]/[다음] 은 안 줄어든다
-        (예전엔 min-height 만 있어 [전체] 20줄 + 공지만큼 마이홈 창이 세로로 화면 끝까지 늘어났다)
+        (예전엔 min-height 만 있어 [전체] 한 쪽 + 공지만큼 마이홈 창이 세로로 화면 끝까지 늘어났다)
    ⚠️ 규칙을 **실제로 돌려 본 것**은 이 검사가 아니다(에뮬레이터 필요). 그 결과는 커밋 메시지에 남겼다. */
 'use strict';
 const fs = require('fs');
@@ -61,7 +61,9 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 }
 {
   const v = S(at('bugBoard/list/$id')['.validate']);
-  chk(/!newData\.child\('title'\)\.exists\(\) \|\| \(newData\.child\('vis'\)\.val\(\) === 'pub'/.test(v), '목록의 title 은 공개 글일 때만 받는다');
+  chk(/!newData\.child\('title'\)\.exists\(\) \|\| \(newData\.child\('title'\)\.isString\(\)/.test(v) && /title'\)\.val\(\)\.length <= 60/.test(v), '목록의 title 은 공개 · 비공개 모두 받는다(60자)');
+  chk(/\(newData\.child\('vis'\)\.val\(\) === 'pub' \|\| newData\.child\('name'\)\.val\(\) === '익명'\)\)/.test(S(at('bugBoard/list/$id')['.write'])),
+    '글쓴이의 새 비공개 글은 이름이 «익명» 이어야 써진다(실명이 공개 목록에 안 남는다)');
   chk(!!at('bugBoard/list/$id/$other') && at('bugBoard/list/$id/$other')['.validate'] === 'false', '  목록에 정해지지 않은 칸은 못 넣는다');
   const w = S(at('bugBoard/list/$id')['.write']);
   chk(/newData\.child\('status'\)\.val\(\) === 'new'/.test(w) && /!newData\.child\('notice'\)\.exists\(\)/.test(w), '  글쓴이는 상태 · 공지를 정하지 못한다');
@@ -83,11 +85,11 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 
 say('§2 bug-board.js (실행)');
 const M = new Function(BB.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, BUG_DAILY_MAX_PATH, createBugBoard };')();
+  '\nreturn { BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, BUG_DAILY_MAX_PATH, createBugBoard };')();
 const who = { name: '에이', code: 'CA', authUid: 'uA' };
 const prv = M.listEntry({ vis: 'prv', cat: 'bug', title: '비밀 제목', body: 'b' }, who, 1000);
-chk(!('title' in prv) && !JSON.stringify(prv).includes('비밀 제목'), '⑤ 비공개 글의 목록 줄에는 제목이 없다');
-// 우편함은 누구나 읽고 글쓴이 코드는 공개 목록에 있다 — 비공개 글의 답변 알림에 제목이 실리면 그 길로 샌다
+chk(prv.title === '비밀 제목' && prv.name === M.BUG_ANON && M.BUG_ANON === '익명' && !JSON.stringify(prv).includes('에이'), '⑤ 비공개 글의 목록 줄 — 제목은 보이고 이름은 «익명»(실명 없음)');
+// 우편함은 누구나 읽고 우편함 주소가 글쓴이 코드다 — 비공개 글의 답변 알림에 제목이 실리면 «누가 그 글을 썼는지» 가 샌다
 chk(!M.answerNoticeBody('prv', '비밀 제목', false).includes('비밀 제목') && !M.answerNoticeBody('prv', '비밀 제목', true).includes('비밀 제목'),
   '⑥ 비공개 글의 답변 알림(우편함) 본문에는 제목이 없다');
 // ⑦ 쪽 넘김 — 공지가 섞여도 [다음] 이 켜진다(거르기 전 원본으로 센다)
@@ -96,13 +98,13 @@ chk(!M.answerNoticeBody('prv', '비밀 제목', false).includes('비밀 제목')
   raw[19].notice = true;
   const pg = M.pageOf('all', raw);
   chk(pg.items.length === 19 && pg.next === 1000, '⑦ 전체: 공지 1개 섞인 20개 → 19개 보이고 [다음] 켜짐(커서 = 가장 오래된 ts)');
-  chk(M.pageOf('all', raw.slice(0, 7)).next === null, '⑦ 전체: 20개 미만이면 끝');
+  chk(M.pageOf('all', raw.slice(0, M.BUG_PAGE - 1)).next === null, '⑦ 전체: 한 쪽(' + M.BUG_PAGE + '개) 미만이면 끝');
   const open = raw.map((it, i) => Object.assign({}, it, { openTs: 2000 + i }));
   chk(M.pageOf('open', open).next === 2000, '⑦ 미해결: 꽉 차면 커서 = 가장 작은 openTs');
-  const mixed = open.slice(0, 15).concat(Array.from({ length: 5 }, (_, i) => ({ id: 'z' + i, ts: 1 + i })));
-  chk(M.pageOf('open', mixed).next === null && M.pageOf('open', mixed).items.length === 15, '⑦ 미해결: openTs 없는 글이 딸려 와도 끝으로 본다');
+  const mixed = open.slice(0, M.BUG_PAGE - 3).concat(Array.from({ length: 5 }, (_, i) => ({ id: 'z' + i, ts: 1 + i })));
+  chk(M.pageOf('open', mixed).next === null && M.pageOf('open', mixed).items.length === M.BUG_PAGE - 3, '⑦ 미해결: openTs 없는 글이 딸려 와도 끝으로 본다');
   chk(M.pageOf('mine', raw).next === null, '⑦ 내 글은 쪽을 넘기지 않는다');
-  chk(/더 이전 제보가 없어요/.test(UI) && /emptyText\(filter, page\)/.test(UI), '⑦ 딱 20의 배수라 빈 2쪽이 나오면 «더 이전 제보가 없어요»');
+  chk(/더 이전 제보가 없어요/.test(UI) && /emptyText\(filter, page\)/.test(UI), '⑦ 딱 한 쪽의 배수라 빈 2쪽이 나오면 «더 이전 제보가 없어요»');
 }
 chk(M.answerNoticeBody('pub', '공개 제목', true).startsWith('공개 제목') && M.answerNoticeBody('pub', '공개 제목', true).includes('오픈카톡'),
   '⑥ 공개 글은 제목 + 오픈카톡 안내');
@@ -112,17 +114,18 @@ chk(pub.title === '공개 제목' && pub.status === 'new' && pub.openTs === 1000
 const nt = M.listEntry({ vis: 'pub', cat: 'etc', title: '공지', body: 'b', notice: true }, who, 1000);
 chk(nt.notice === true && nt.nts === 1000 && !('openTs' in nt), '  공지는 nts 로 고정 · 미해결 목록에 안 낀다');
 {
-  // 정적: 목록 줄을 만드는 곳에서 title 은 vis === 'pub' 분기 안에서만
+  // 정적: 목록 줄의 이름은 비공개면 BUG_ANON — 실명이 들어가는 갈래는 공개 글뿐
   const le = (BB.match(/export function listEntry\([\s\S]*?\n\}/) || [''])[0];
-  const titleLines = le.split('\n').filter(l => /\.title\b/.test(l) && !/^\s*\/[*\/]/.test(l));
-  chk(titleLines.length === 1 && /if\(p\.vis === 'pub'\) e\.title =/.test(titleLines[0]), '⑤ (정적) listEntry 의 title 쓰기는 공개 분기 한 줄뿐');
+  chk(/name: p\.vis === 'prv' \? BUG_ANON : String\(who\.name/.test(le), '⑤ (정적) listEntry 의 이름은 비공개면 BUG_ANON');
+  chk(/limitToLast\(BUG_MINE_MAX\)/.test(BB) && M.BUG_MINE_MAX === 20, '  «내 글» 은 쪽 크기와 따로 최근 20개(새 답변 배지가 그 안에서 센다)');
+  chk(/const whoName = \(it\) => \(it\.vis === 'prv' \? esc\(C\(\)\.anon\)/.test(UI), '  화면의 이름도 비공개 글이면 «익명»(옛 글에 실명이 남아 있어도)');
 }
 chk(M.checkPost({ vis: 'pub', cat: 'bug', title: '', body: 'x' }) && M.checkPost({ vis: 'pub', cat: 'zzz', title: 't', body: 'x' })
   && M.checkPost({ vis: 'prv', cat: 'bug', title: 't', body: 'x', notice: true }) && M.checkPost({ vis: 'pub', cat: 'bug', title: 'x'.repeat(61), body: 'x' })
   && M.checkPost({ vis: 'pub', cat: 'bug', title: 't', body: 'x' }) === null, '입력 확인 — 빈 제목 · 없는 분류 · 비공개 공지 · 61자 거부, 정상은 통과');
 const ruleCats = (S(at('bugBoard/list/$id')['.validate']).match(/cat'\)\.val\(\)\.matches\(\/\^\(([^)]*)\)\$\/\)/) || [, ''])[1].split('|');
 chk(M.BUG_CATS.map(c => c[0]).join('|') === ruleCats.join('|'), '분류 목록이 규칙과 같다 (' + ruleCats.join(',') + ')');
-chk(M.BUG_DAILY_MAX === 5 && M.BUG_PAGE === 20, '하루 기본 5건 · 20개 단위');
+chk(M.BUG_DAILY_MAX === 5 && M.BUG_PAGE === 8, '하루 기본 5건 · 한 쪽 8개');
 chk(/const whoName = \(it\) =>/.test(UI) && /it\.byAdmin === true \|\| it\.notice/.test(UI) && (UI.match(/whoName\(it\)/g) || []).length >= 3 && /🛡 운영자 답변/.test(UI),
   '🛡 — 글 이름 옆(byAdmin · 공지, 이름으로 가르지 않음) · 운영자 답변');
 chk(/api\(\)\.loadDailyMax\(\)/.test(UI) && /api\(\)\.dailyMax\(\)/.test(UI), '게시판을 열 때 상한을 한 번 읽고 «오늘 n건 남음» 에 쓴다');
@@ -232,8 +235,10 @@ say('§4 쪽 넘김 (가짜 RTDB)');
     const { bb, reads } = fake(DB);
     const { pages, cursors } = await walk(bb, 'all');
     const ids = [].concat(...pages);
-    chk(pages[0].length === 18 && !pages[0].some(id => /^n/.test(id)), '§4 전체 1쪽: 받은 20개 중 공지 2개는 빼고 18개 (공지는 위에 따로 고정)');
-    chk(pages.length === 3 && pages[1].length === 20 && pages[2].length === 7, '§4 전체: 글 45개 + 공지 2개 → 18 · 20 · 7 세 쪽 (' + pages.map(p => p.length).join(' · ') + ')');
+    const P = M.BUG_PAGE;
+    chk(pages[0].length === P - 1 && !pages[0].some(id => /^n/.test(id)), '§4 전체 1쪽: 받은 ' + P + '개 중 공지 1개는 빼고 ' + (P - 1) + '개 (공지는 위에 따로 고정)');
+    chk(pages.map(p => p.length).join(' · ') === '7 · 7 · 8 · 8 · 8 · 7', '§4 전체: 글 45개 + 공지 2개 → 7 · 7 · 8 · 8 · 8 · 7 여섯 쪽 (' + pages.map(p => p.length).join(' · ') + ')');
+    chk(pages.every(p => p.length <= P), '§4 한 쪽에 ' + P + '개 넘게 안 보인다');
     chk(ids.length === 45 && new Set(ids).size === 45, '§4 전체: 45개가 빠짐 · 겹침 없이 다 나온다');
     chk(ids.every((id, i) => i === 0 || DB[ids[i - 1]].ts > DB[id].ts), '§4 전체: 쪽을 넘겨도 최근 → 오래된 순서가 이어진다');
     chk(reads.every(r => r.limit <= 20 && r.got <= 20), '§4 한 번에 20개 넘게 받지 않는다 (노드를 통째로 안 받는다 · 받은 수 ' + reads.map(r => r.got).join('/') + ')');
@@ -253,12 +258,12 @@ say('§4 쪽 넘김 (가짜 RTDB)');
     chk(reads.every(r => r.got <= 20), '§4 미해결도 한 번에 20개까지');
   })());
   pending.push((async () => {
-    // 딱 20개면 [다음] 이 한 번 켜지고 2쪽은 비어 «더 이전 제보가 없어요» (규칙이 21개 미리보기를 막아서 생기는 헛걸음 한 번)
+    // 딱 한 쪽만큼이면 [다음] 이 한 번 켜지고 2쪽은 비어 «더 이전 제보가 없어요» (하나 더 미리 보지 않아서 생기는 헛걸음 한 번)
     const DB = {};
-    for (let i = 0; i < 20; i++) DB['q' + i] = { vis: 'pub', status: 'fixed', cat: 'bug', ts: 500 + i };
+    for (let i = 0; i < M.BUG_PAGE; i++) DB['q' + i] = { vis: 'pub', status: 'fixed', cat: 'bug', ts: 500 + i };
     const { bb } = fake(DB);
     const { pages } = await walk(bb, 'all');
-    chk(pages.length === 2 && pages[0].length === 20 && pages[1].length === 0, '§4 딱 20개 → 1쪽 20 · 2쪽 빈 쪽에서 끝');
+    chk(pages.length === 2 && pages[0].length === M.BUG_PAGE && pages[1].length === 0, '§4 딱 ' + M.BUG_PAGE + '개 → 1쪽 ' + M.BUG_PAGE + ' · 2쪽 빈 쪽에서 끝');
   })());
 }
 
@@ -281,6 +286,6 @@ say('§5 창이 안 늘어난다 (CSS)');
 
 Promise.all(pending).catch(e => chk(false, '검사가 던졌다: ' + (e && e.stack || e))).then(() => {
   say('');
-  say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 비공개 제보는 서버에서 막히고, 답변 알림이 우편함으로 간다');
+  say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 비공개 제보 본문은 서버에서 막히고(제목만 공개 · 이름은 익명), 답변 알림이 우편함으로 간다');
   process.exit(fail ? 1 : 0);
 });

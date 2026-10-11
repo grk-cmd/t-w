@@ -56,12 +56,12 @@ describe('수정 쓰기 — 경로', () => {
     });
   });
 
-  it('공개 → 비공개: 목록 제목 지움 · 내용 prv 로 이사 · 공개 답변도 prv 로', () => {
+  it('공개 → 비공개: 목록 제목은 남김 · 내용 prv 로 이사 · 공개 답변도 prv 로', () => {
     const w = editWrite(item, content, [pubAns, prvAns], input({ vis: 'prv' }));
     expect(w).toEqual({
       'bugBoard/list/p1/vis': 'prv',
       'bugBoard/list/p1/cat': 'bug',
-      'bugBoard/list/p1/title': null,
+      'bugBoard/list/p1/title': '새 제목',
       'bugBoard/prv/uid1/p1': { title: '새 제목', body: '새 본문', env: 'Windows 11' },
       'bugBoard/pub/p1': null,
       'bugBoard/ans/prv/p1/r1': { text: '공개 답', ts: 10, kakao: 'https://open.kakao.com/o/x' },
@@ -69,7 +69,7 @@ describe('수정 쓰기 — 경로', () => {
     });
   });
 
-  it('비공개 → 공개: 목록에 제목 되살림 · 내용 pub 로 · 비공개 답변은 그대로', () => {
+  it('비공개 → 공개: 목록에 제목 · 내용 pub 로 · 비공개 답변은 그대로', () => {
     const prvItem = { ...item, vis: 'prv' as const };
     const w = editWrite(prvItem, { title: 'a', body: 'b' }, [prvAns], input({ vis: 'pub' }));
     expect(w).toEqual({
@@ -81,10 +81,10 @@ describe('수정 쓰기 — 경로', () => {
     });
   });
 
-  it('비공개 그대로: 목록 줄에 제목을 넣지 않는다', () => {
+  it('비공개 그대로: 목록 줄에도 제목을 둔다(공개로 보인다)', () => {
     const prvItem = { ...item, vis: 'prv' as const };
     const w = editWrite(prvItem, content, [], input({ vis: 'prv' }));
-    expect(w['bugBoard/list/p1/title']).toBeNull();
+    expect(w['bugBoard/list/p1/title']).toBe('새 제목');
     expect(w['bugBoard/prv/uid1/p1']).toEqual({ title: '새 제목', body: '새 본문', env: 'Windows 11' });
     expect(Object.keys(w)).not.toContain('bugBoard/pub/p1');
   });

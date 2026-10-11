@@ -2,7 +2,7 @@
  * 🐞 버그제보 게시판 — 데이터 쪽. Firebase 를 직접 import 하지 않는다(deps 로 받는다 · 검사 sim-bug-board.js).
  *
  * [왜 노드를 나눴나] RTDB 는 목록 안 항목을 골라 숨기지 못한다. 공개/비공개를 한 노드에 두면 화면에서만 가려진다.
- *   bugBoard/list/{id}            누구나(쿼리 limitToLast ≤ 20 만) — 상태 · 분류 · 이름 · 시각. **비공개 글은 제목이 없다.**
+ *   bugBoard/list/{id}            누구나(쿼리 limitToLast ≤ 20 만) — 상태 · 분류 · 제목 · 이름 · 시각. **비공개 글은 이름이 «익명»** (제목은 보인다).
  *   bugBoard/pub/{id}             공개 글 · 공지의 제목 · 본문
  *   bugBoard/prv/{authUid}/{id}   비공개 글 — 글쓴이 · 관리자만 읽는다(규칙)
  *   bugBoard/ans/{pub|prv}/{id}   운영자 답변(관리자만 쓴다) · prv 는 글쓴이 · 관리자만 읽는다
@@ -15,7 +15,9 @@
  *   규칙이 userAuth/{code} === auth.uid 를 본다.
  */
 
-export const BUG_PAGE = 20;
+export const BUG_PAGE = 8;          // 전체 · 미해결 한 쪽
+export const BUG_MINE_MAX = 20;     // 내 글(쪽을 못 넘긴다 — 새 답변 배지도 이 안에서 센다)
+export const BUG_ANON = '익명';     // 비공개 글 목록 줄의 이름 — 규칙이 글쓴이 새 글에서 이 값을 본다
 export const BUG_DAILY_MAX = 5;
 export const BUG_TITLE_MAX = 60, BUG_BODY_MAX = 2000, BUG_ENV_MAX = 120, BUG_ANS_MAX = 1000;
 export const BUG_NOTICE_MAX = 5;
@@ -58,11 +60,11 @@ export function checkPost(p){
   if(p.notice && p.vis !== 'pub') return '공지는 공개 글이어야 해요';
   return null;
 }
-/* 목록 한 줄(list/{id}) — 비공개 글에는 title 을 **절대 넣지 않는다**(누구나 읽는 노드다). 규칙도 vis 가 pub 일 때만 받는다. */
+/* 목록 한 줄(list/{id}) — 누구나 읽는 노드다. 비공개 글은 제목은 싣고 이름은 «익명» 만(규칙이 본다). 본문은 prv 쪽에만. */
 export function listEntry(p, who, now){
-  const e = { vis: p.vis, status: 'new', cat: p.cat, name: String(who.name || '').slice(0, 20),
-              authUid: who.authUid, code: who.code, ts: now, openTs: now };
-  if(p.vis === 'pub') e.title = String(p.title).trim().slice(0, BUG_TITLE_MAX);
+  const e = { vis: p.vis, status: 'new', cat: p.cat, name: p.vis === 'prv' ? BUG_ANON : String(who.name || '').slice(0, 20),
+              authUid: who.authUid, code: who.code, ts: now, openTs: now,
+              title: String(p.title).trim().slice(0, BUG_TITLE_MAX) };
   if(p.notice){ e.notice = true; e.nts = now; delete e.openTs; }   // 공지는 미해결 목록에 안 낀다
   return e;
 }
@@ -106,12 +108,12 @@ export function createBugBoard(deps){
   const L = 'bugBoard/list';
 
   /* 목록 한 쪽. filter: all · open · mine. before: 이전 쪽의 가장 오래된 값(그보다 앞만).
-     ⚠️ mine 은 equalTo 라 쪽을 넘기지 못한다 — 최근 20개만. */
+     ⚠️ mine 은 equalTo 라 쪽을 넘기지 못한다 — 최근 BUG_MINE_MAX 개만. */
   async function listPage(filter, before){
     let q;
     if(filter === 'mine'){
       const me = uid(); if(!me) return { items: [], next: null };
-      q = query(ref(db, L), orderByChild('authUid'), equalTo(me), limitToLast(BUG_PAGE));
+      q = query(ref(db, L), orderByChild('authUid'), equalTo(me), limitToLast(BUG_MINE_MAX));
     }else{
       const key = filter === 'open' ? 'openTs' : 'ts';
       q = (before != null)
@@ -213,9 +215,10 @@ export function createBugBoard(deps){
     }
     return { ok: false };
   }
-  /* 비공개 글 제목 — 글쓴이 · 관리자만 읽힌다(규칙). 못 읽으면 null. */
+  /* 비공개 글 제목 — 목록 줄에 제목이 없는 옛 글만 prv 쪽에서 읽는다(글쓴이 · 관리자만 읽힌다 · 규칙). 못 읽으면 null. */
   async function prvTitle(it){
     if(!it || it.vis !== 'prv') return null;
+    if(it.title) return it.title;
     try{ return (await get(ref(db, 'bugBoard/prv/' + it.authUid + '/' + it.id + '/title'))).val(); }catch(_){ return null; }
   }
   async function getSeen(code){
@@ -240,7 +243,7 @@ export function createBugBoard(deps){
     if(!body) return { ok: true, skipped: true };
     return createPost({ vis: 'pub', cat: 'etc', title: '버그 제보 안내', body, notice: true }, who);
   }
-  const C = { cats: BUG_CATS, status: BUG_STATUS, page: BUG_PAGE, dailyMax: BUG_DAILY_MAX, titleMax: BUG_TITLE_MAX,
+  const C = { cats: BUG_CATS, status: BUG_STATUS, page: BUG_PAGE, anon: BUG_ANON, dailyMax: BUG_DAILY_MAX, titleMax: BUG_TITLE_MAX,
               bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE, answerNoticeBody };
   return { C, checkPost, listPage, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, like, getSeen, setSeen, unseen, migrateNotice };
 }
