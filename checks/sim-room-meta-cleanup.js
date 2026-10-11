@@ -78,7 +78,12 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     const mkDb = (srv, o) => {
       o = o || {};
       const L = { srv, ops: [], reads: [] };
-      const val = (p) => (srv[p] !== undefined ? srv[p] : null);
+      const val = (p) => {
+        if(srv[p] !== undefined) return srv[p];
+        // 한 단계 안쪽(roomIndex/{방}/channel 같은) — 부모 키의 객체에서 찾는다
+        for(const k in srv){ if(p.startsWith(k + '/') && srv[k] && typeof srv[k] === 'object'){ let v = srv[k]; for(const part of p.slice(k.length + 1).split('/')){ v = (v && typeof v === 'object') ? v[part] : undefined; } return v === undefined ? null : v; } }
+        return null;
+      };
       const db = { ref: (p) => ({
         toString: () => 'https://x.firebaseio.com/' + (p || ''),
         get: async () => {
@@ -122,7 +127,14 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     let r = await run(room('P1'));
     chk(!('rooms/P1/_meta' in r.srv) && !Object.keys(r.srv).some(k => k.startsWith('rooms/P1/_chatTab')) && !('roomIndex/P1' in r.srv),
       '빈 채로 2분 넘은 방 — _meta · _chatTab · 줄을 걷는다');
-    chk('rooms/P1/chatLog/k1' in r.srv, '  ↳ chatLog 는 남긴다 (KEEP_CHAT_LOG_ON_EMPTY)');
+    chk(!('rooms/P1/chatLog/k1' in r.srv), '★ 투게더룸(공용 · 대여룸)은 #일반 대화(chatLog)까지 지운다 — 다음 사람에게 개인 기록이 안 남게');
+    r = await run(room('PW', { 'roomIndex/PW': { lastSeen: 0, emptyAt: now - 3 * MIN, channel: 'workingroom' }, 'rooms/PW/_meta': { channel: 'workingroom', host: 'uA', ts: now - 30 * MIN, openTs: now - 30 * MIN } }));
+    chk(!('rooms/PW/_meta' in r.srv) && 'rooms/PW/chatLog/k1' in r.srv, '  ↳ 워킹룸은 chatLog 를 남긴다 (KEEP_CHAT_LOG_ON_EMPTY)');
+    r = await run(room('SCRT-AB', {}));
+    chk('rooms/SCRT-AB/chatLog/k1' in r.srv, '  ↳ 시크릿룸(SCRT-)은 채널이 투게더여도 chatLog 를 남긴다 (비어도 유지되는 방)');
+    r = await run(room('PT', { 'rooms/PT/_meta': null }));
+    chk(!('rooms/PT/chatLog/k1' in r.srv), '  ↳ _meta 가 이미 없어도 roomIndex 줄의 채널(투게더)로 알아본다');
+    r = await run(room('P1'));
     chk(r.sum.emptied && r.sum.emptied.cleared === 1, '  ↳ 요약에 남는다 (emptied.cleared 1)');
     chk(r.L.reads.filter(p => p === 'roomAlive').length === 1, '  ↳ roomAlive 트리는 한 번만 읽는다 (유령 청소와 같이 쓴다)');
     chk(!r.L.reads.some(p => /^rooms\/[^/]+$/.test(p) || p === 'rooms'), '  ↳ 방 노드를 통째로 받지 않는다 (shallow · 칸 하나씩)');

@@ -101,7 +101,9 @@ say('· §2 _meta 는 서버 함수가 걷는다 · roomIndex 줄엔 비었음 �
 const finalCleanup = (HTML.match(/const _finalCleanup = async \(keys\)=>\{[\s\S]*?\n {10}\};/) || [''])[0];
 const FN_RS = ['functions/room-stats.js', '../functions/room-stats.js'].map(f => fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '').join('');
 chk(finalCleanup.length > 0, '_finalCleanup 블록을 찾았다');
-chk(FN_RS.length > 0 && !/chatLog['`]\)\.remove/.test(FN_RS), '서버 함수도 chatLog 는 안 지운다');
+chk(FN_RS.length > 0 && (FN_RS.match(/chatLog'\)\.remove/g) || []).length === 1
+    && /if \(keys && keys\.chatLog && await isPublicTogether\(db, code, metaChannel\)\) await db\.ref\('rooms\/' \+ code \+ '\/chatLog'\)\.remove\(\);/.test(FN_RS),
+  '서버 함수는 chatLog 를 공용 투게더룸(시크릿 제외)일 때 한 곳에서만 지운다 — 워킹룸 · 시크릿룸은 남긴다');
 chk(/const r = await db\.ref\('rooms\/' \+ code \+ '\/_meta'\)\.transaction\(/.test(FN_RS),
     '\u2605 _meta 는 서버 함수가 트랜잭션으로 지운다 (아무도 안 지우면 남은 표지가 쌓인다)');
 chk(/update\(ref\(db, `roomIndex\/\$\{roomCodeForCleanup\}`\), \{ lastSeen: 0, emptyAt: serverTimestamp\(\) \}\)/.test(finalCleanup),

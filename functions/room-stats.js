@@ -21,7 +21,9 @@
  *   ② 지우기 직전에 멤버를 다시 본다 — roomAlive 도장(이미 읽은 트리) · 멤버 키(shallow) · 멤버마다 hb · lastSeen
  *   ③ `_meta` 는 트랜잭션으로 지운다 — 그새 누가 열었으면(ts · openTs · restoredTs 가 EMPTY_GRACE_MS 안) 그만둔다.
  *      빈 방에 들어오는 길(빈 방 선점 · 만들기 · 시크릿룸 · 되살리기)은 전부 `_meta.ts` 를 먼저 쓴다.
- *   그 뒤 `_chatTab` 과 줄을 지운다. chatLog 는 남긴다(앱 KEEP_CHAT_LOG_ON_EMPTY).
+ *   그 뒤 `_chatTab` 과 줄을 지운다. chatLog 는 남긴다(앱 KEEP_CHAT_LOG_ON_EMPTY) — **투게더룸만 빼고**:
+ *   투게더룸은 누구나 들어오는 공용 방이라 방장까지 다 나가 비면 #일반 대화(chatLog)까지 지운다(2026-10-11 결정).
+ *   워킹룸 · 시크릿룸(SCRT-)은 예전처럼 남긴다. 채널은 지우는 `_meta` 트랜잭션이 본 값, 없으면 roomIndex 줄의 값.
  *   비었음 표시 없이 조용해진 방(강제 종료 · 절전)은 건드리지 않는다 — 절전에서 깨어난, 혼자 있던 사람이 표지를 잃는다.
  *   옛 앱(0.11.x 이하)은 예전처럼 직접 지운다 — 그 방은 줄이 없어 여기 오지 않는다.
  *
@@ -183,6 +185,13 @@ function adminShallow(db){
 }
 
 // 비었음 표시가 EMPTY_GRACE_MS 넘게 그대로인 방의 `_meta` · `_chatTab` · 줄을 걷는다(맨 위 🧹).
+/* 공용 투게더룸인가 — 시크릿룸(SCRT-)은 아니다. 채널은 _meta 에서 본 값, 없으면(옛 방 · 이미 지워진 _meta) roomIndex 줄. */
+async function isPublicTogether(db, code, metaChannel){
+  if (String(code).indexOf(SECRET_ROOM_PREFIX) === 0) return false;
+  let ch = metaChannel;
+  if (!ch){ try{ ch = (await db.ref('roomIndex/' + code + '/channel').get()).val(); }catch(_){ ch = null; } }
+  return ch === CHANNEL.TOGETHER;
+}
 async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
   const done = new Set();
   let cleared = 0, busy = 0, kept = 0, failed = 0;
@@ -205,13 +214,16 @@ async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
         busy++; continue;
       }
       // 첫 호출의 cur 는 로컬 추측값이라 null 을 돌려줘야 서버 값으로 다시 불린다. 그새 누가 열었으면 그만둔다.
+      let metaChannel = null;
       const r = await db.ref('rooms/' + code + '/_meta').transaction(cur => {
         if (cur === null) return null;
         if (now - metaTouchedAt(cur) < EMPTY_GRACE_MS) return;
+        metaChannel = cur.channel || null;   // 마지막(서버 값) 호출의 것이 남는다
         return null;
       }, undefined, false);
       if (!r.committed){ kept++; continue; }
       if (keys && keys._chatTab) await db.ref('rooms/' + code + '/_chatTab').remove();
+      if (keys && keys.chatLog && await isPublicTogether(db, code, metaChannel)) await db.ref('rooms/' + code + '/chatLog').remove();
       await db.ref('roomIndex/' + code).transaction(cur => {
         if (cur === null) return null;
         if (!isEmptyMark(cur) || now - Number(cur.emptyAt) < EMPTY_GRACE_MS) return;   // 그새 하트비트 · 새 표시
