@@ -24,6 +24,8 @@
  *   그 뒤 `_chatTab` 과 줄을 지운다. chatLog 는 남긴다(앱 KEEP_CHAT_LOG_ON_EMPTY) — **투게더룸만 빼고**:
  *   투게더룸은 누구나 들어오는 공용 방이라 방장까지 다 나가 비면 #일반 대화(chatLog)까지 지운다(2026-10-11 결정).
  *   워킹룸 · 시크릿룸(SCRT-)은 예전처럼 남긴다. 채널은 지우는 `_meta` 트랜잭션이 본 값, 없으면 roomIndex 줄의 값.
+ *   🔒 시크릿룸은 비어도 방이 유지된다(2026-10-11 결정) — `_meta`(채팅 탭 목록 · 방장) · `_chatTab` · chatLog 를 모두 남기고
+ *   비었음 줄만 걷는다. 다시 들어올 때 앱은 `_meta` 를 update 로 고쳐 쓰므로(setRoomChannel) 탭 목록이 그대로 이어진다.
  *   비었음 표시 없이 조용해진 방(강제 종료 · 절전)은 건드리지 않는다 — 절전에서 깨어난, 혼자 있던 사람이 표지를 잃는다.
  *   옛 앱(0.11.x 이하)은 예전처럼 직접 지운다 — 그 방은 줄이 없어 여기 오지 않는다.
  *
@@ -185,6 +187,14 @@ function adminShallow(db){
 }
 
 // 비었음 표시가 EMPTY_GRACE_MS 넘게 그대로인 방의 `_meta` · `_chatTab` · 줄을 걷는다(맨 위 🧹).
+/* 비었음 줄을 걷는다 — 그새 하트비트가 찍혔거나 새 표시면 그대로 둔다. 첫 호출의 cur 는 로컬 추측값이라 null 을 돌려줘야 서버 값으로 다시 불린다. */
+function dropEmptyRow(db, code, now){
+  return db.ref('roomIndex/' + code).transaction(cur => {
+    if (cur === null) return null;
+    if (!isEmptyMark(cur) || now - Number(cur.emptyAt) < EMPTY_GRACE_MS) return;   // 그새 하트비트 · 새 표시
+    return null;
+  }, undefined, false);
+}
 /* 공용 투게더룸인가 — 시크릿룸(SCRT-)은 아니다. 채널은 _meta 에서 본 값, 없으면(옛 방 · 이미 지워진 _meta) roomIndex 줄. */
 async function isPublicTogether(db, code, metaChannel){
   if (String(code).indexOf(SECRET_ROOM_PREFIX) === 0) return false;
@@ -194,7 +204,7 @@ async function isPublicTogether(db, code, metaChannel){
 }
 async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
   const done = new Set();
-  let cleared = 0, busy = 0, kept = 0, failed = 0;
+  let cleared = 0, busy = 0, kept = 0, failed = 0, secretKept = 0;
   for (const code of codes){
     try{
       const keys = await shallow('rooms/' + code);   // 방 노드가 없으면 null
@@ -213,6 +223,11 @@ async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
         }, undefined, false);
         busy++; continue;
       }
+      if (String(code).indexOf(SECRET_ROOM_PREFIX) === 0){
+        // 🔒 시크릿룸 — 방 표지 · 탭 · 대화는 남기고 비었음 줄만 걷는다(위 머리 주석)
+        await dropEmptyRow(db, code, now);
+        done.add(code); secretKept++; continue;
+      }
       // 첫 호출의 cur 는 로컬 추측값이라 null 을 돌려줘야 서버 값으로 다시 불린다. 그새 누가 열었으면 그만둔다.
       let metaChannel = null;
       const r = await db.ref('rooms/' + code + '/_meta').transaction(cur => {
@@ -224,15 +239,11 @@ async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
       if (!r.committed){ kept++; continue; }
       if (keys && keys._chatTab) await db.ref('rooms/' + code + '/_chatTab').remove();
       if (keys && keys.chatLog && await isPublicTogether(db, code, metaChannel)) await db.ref('rooms/' + code + '/chatLog').remove();
-      await db.ref('roomIndex/' + code).transaction(cur => {
-        if (cur === null) return null;
-        if (!isEmptyMark(cur) || now - Number(cur.emptyAt) < EMPTY_GRACE_MS) return;   // 그새 하트비트 · 새 표시
-        return null;
-      }, undefined, false);
+      await dropEmptyRow(db, code, now);
       done.add(code); cleared++;
     }catch(e){ failed++; }
   }
-  return { done, cleared, busy, kept, failed };
+  return { done, cleared, busy, kept, failed, secretKept };
 }
 
 // opts.drop === false 면 세기만 한다(열림 · 닫힘 트리거). 낡은 줄 지우기 · channel 채우기는 주기 실행만.
@@ -245,7 +256,7 @@ async function runRoomStats(db, now, opts){
   await db.ref('roomStats').transaction(cur => ((cur && Number(cur.at) > stats.at) ? undefined : stats), undefined, false);
   // 💓 유령 멤버를 먼저 걷고(빈 방 판정이 유령 hb:2 노드에 걸리지 않게) 같은 roomAlive 트리로 빈 방을 본다 — 트리는 한 번만 읽는다.
   let alive = { ghosts: 0, orphans: 0, kept: 0, failed: 0 };
-  let emptied = { done: new Set(), cleared: 0, busy: 0, kept: 0, failed: 0 };
+  let emptied = { done: new Set(), cleared: 0, busy: 0, kept: 0, failed: 0, secretKept: 0 };
   if (!light){
     let tree = null;
     try{ tree = (await db.ref('roomAlive').get()).val() || {}; }catch(e){ alive.failed++; }
@@ -281,7 +292,7 @@ async function runRoomStats(db, now, opts){
   }
   const sum = { live: stats.workingroom + stats.togetherroom, working: stats.workingroom, together: stats.togetherroom,
                 rows: Object.keys(idx).length, dropped, kept, failed, repaired, alive,
-                emptied: { cleared: emptied.cleared, busy: emptied.busy, kept: emptied.kept, failed: emptied.failed } };
+                emptied: { cleared: emptied.cleared, busy: emptied.busy, kept: emptied.kept, failed: emptied.failed, secretKept: emptied.secretKept } };
   if (dropped || failed || repaired || alive.ghosts || alive.failed || emptied.cleared || emptied.failed) console.log('[roomStats]', JSON.stringify(sum));
   return sum;
 }

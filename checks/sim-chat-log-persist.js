@@ -104,6 +104,8 @@ chk(finalCleanup.length > 0, '_finalCleanup 블록을 찾았다');
 chk(FN_RS.length > 0 && (FN_RS.match(/chatLog'\)\.remove/g) || []).length === 1
     && /if \(keys && keys\.chatLog && await isPublicTogether\(db, code, metaChannel\)\) await db\.ref\('rooms\/' \+ code \+ '\/chatLog'\)\.remove\(\);/.test(FN_RS),
   '서버 함수는 chatLog 를 공용 투게더룸(시크릿 제외)일 때 한 곳에서만 지운다 — 워킹룸 · 시크릿룸은 남긴다');
+chk(/if \(String\(code\)\.indexOf\(SECRET_ROOM_PREFIX\) === 0\)\{\s*\/\/[^\n]*\n\s*await dropEmptyRow\(db, code, now\);\s*done\.add\(code\); secretKept\+\+; continue;/.test(FN_RS),
+  '  시크릿룸은 _meta(탭 목록) · _chatTab 지우기보다 먼저 빠진다 — 비었음 줄만 걷고 방은 유지');
 chk(/const r = await db\.ref\('rooms\/' \+ code \+ '\/_meta'\)\.transaction\(/.test(FN_RS),
     '\u2605 _meta 는 서버 함수가 트랜잭션으로 지운다 (아무도 안 지우면 남은 표지가 쌓인다)');
 chk(/update\(ref\(db, `roomIndex\/\$\{roomCodeForCleanup\}`\), \{ lastSeen: 0, emptyAt: serverTimestamp\(\) \}\)/.test(finalCleanup),
