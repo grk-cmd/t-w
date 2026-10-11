@@ -1,6 +1,7 @@
 /* ═══ 🐞 버그제보 게시판 화면 — parts/bug-board-ui.js ═══════════════════════════════
    마이홈 「버그제보」 탭 안에서 목록 → 상세 → 글쓰기 세 화면을 바꿔 끼운다. 데이터는 firebaseAPI.bugBoard(bug-board.js).
-   ★ 비공개 글 — 남에게는 한 줄(「🔒 비공개 제보예요」)만, 누를 수 없다. 내용은 서버 규칙이 막고 여기는 모양만 맞춘다.
+   ★ 비공개 글 — 남에게는 제목과 «익명» 만 보이고 누를 수 없다. 본문 · 답변은 서버 규칙이 막고 여기는 모양만 맞춘다.
+     목록 줄에 제목이 없는 옛 비공개 글은 남에게 «🔒 비공개 제보예요», 이름은 옛 글도 «익명» 으로 보인다.
    ★ 답변 알림은 우편함 tag 'bug' + bugId. 우편함에서 누르면 window._bugBoardOpen(id) 로 이 글이 열린다.
    ★ 탭 배지 = 내 글 중 lastReplyTs > bugSeen[id] 개수. 글을 열면 bugSeen[id] = 지금.
    ⚠️ app.js 뒤에 싣는다 — isAdmin · toast · escHtml · getMyUserId · getDisplayName 을 그대로 쓴다.
@@ -9,7 +10,7 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const api = () => (window.firebaseAPI && firebaseAPI.bugBoard) || null;
-  const C = () => (api() && api().C) || { cats: [], status: {}, page: 20, kakaoRe: /^https:\/\/open\.kakao\.com\//, answerNoticeBody: () => '버그제보 탭에서 확인해 주세요' };
+  const C = () => (api() && api().C) || { cats: [], status: {}, page: 8, anon: '익명', kakaoRe: /^https:\/\/open\.kakao\.com\//, answerNoticeBody: () => '버그제보 탭에서 확인해 주세요' };
   const esc = (s) => escHtml(String(s == null ? '' : s));
   const myUid = () => { try{ return firebaseAPI.authCurrentUid(); }catch(_){ return null; } };
   const admin = () => (typeof isAdmin !== 'undefined') && !!isAdmin;
@@ -17,7 +18,7 @@
 
   let filter = 'all', cursors = [null], nextCursor = null;
   let unseenIds = new Set();
-  const titleCache = new Map();   // 비공개 글 제목(글쓴이 · 관리자만 읽힌다)
+  const titleCache = new Map();   // 목록 줄에 제목이 없는 옛 비공개 글의 제목(글쓴이 · 관리자만 읽힌다)
   let migrated = false;
 
   function fmtDate(ts, withTime){
@@ -32,7 +33,8 @@
     : '<span class="bb-chip ' + esc(it.status) + '">' + esc(C().status[it.status] || '접수') + '</span>';
   const canSeePrv = (it) => it.authUid === myUid() || admin();
   // 🛡 운영진 글 — 이름이 아니라 byAdmin(규칙상 관리자만 쓸 수 있는 칸)으로 가른다. 공지도 관리자만 쓴다.
-  const whoName = (it) => esc(it.name) + ((it.byAdmin === true || it.notice) ? ' <span class="bb-adm" title="운영진">🛡</span>' : '');
+  // 비공개 글은 늘 «익명» — 옛 글은 목록 줄에 실명이 남아 있어도 화면에서는 가린다.
+  const whoName = (it) => (it.vis === 'prv' ? esc(C().anon) : esc(it.name)) + ((it.byAdmin === true || it.notice) ? ' <span class="bb-adm" title="운영진">🛡</span>' : '');
 
   function show(view){
     $('bbListView').style.display = view === 'list' ? '' : 'none';
@@ -46,11 +48,11 @@
     const mine = it.authUid === myUid();
     if(it.vis === 'prv' && !canSeePrv(it)){
       return '<div class="bb-row locked" title="글쓴이와 관리자만 볼 수 있어요">' + chip(it) +
-        '<div class="bb-main"><div class="bb-title"><span class="bb-tag">[비공개]</span>🔒 비공개 제보예요</div></div>' +
+        '<div class="bb-main"><div class="bb-title"><span class="bb-tag">[비공개]</span>🔒 ' + esc(it.title || '비공개 제보예요') + '</div></div>' +
         '<div class="bb-who">' + whoName(it) + '<br>' + fmtDate(it.ts) + '</div></div>';
     }
     const tag = it.notice ? '📌' : (it.vis === 'pub' ? '[공개]' : '[비공개]');
-    const title = it.vis === 'pub' ? (it.title || '(제목 없음)') : (titleCache.get(it.id) || '…');
+    const title = it.vis === 'pub' ? (it.title || '(제목 없음)') : (it.title || titleCache.get(it.id) || '…');
     const isNew = mine && unseenIds.has(it.id);
     return '<div class="bb-row' + (it.notice ? ' notice' : '') + '" data-id="' + esc(it.id) + '">' + chip(it) +
       '<div class="bb-main"><div class="bb-title"><span class="bb-tag">' + tag + '</span><span class="bb-tt" data-tid="' + esc(it.id) + '">' + esc(title) + '</span>' +
@@ -58,9 +60,9 @@
       (it.notice ? '' : '<div class="bb-sub">' + esc(catName(it.cat)) + ' · 👍' + (it.likeN || 0) + ' · 답변 ' + (it.ansN || 0) + '</div>') +
       '</div><div class="bb-who">' + whoName(it) + '<br>' + fmtDate(it.ts) + '</div></div>';
   }
-  /* 비공개 글 제목은 행마다 따로 읽는다(목록 노드에는 없다 — 누구나 읽는 곳이라). */
+  /* 목록 줄에 제목이 없는 옛 비공개 글만 행마다 따로 읽는다. */
   function fillPrvTitles(items){
-    items.filter(it => it.vis === 'prv' && canSeePrv(it) && !titleCache.has(it.id)).forEach(it => {
+    items.filter(it => it.vis === 'prv' && !it.title && canSeePrv(it) && !titleCache.has(it.id)).forEach(it => {
       api().prvTitle(it).then(t => {
         titleCache.set(it.id, t || '(제목 없음)');
         const el = document.querySelector('#bbRows .bb-tt[data-tid="' + CSS.escape(it.id) + '"]');
@@ -68,8 +70,8 @@
       });
     });
   }
-  /* 빈 목록 문구. 2쪽부터 빈 것은 «글이 딱 20의 배수라 [다음] 이 켜졌는데 더 없던» 경우다 —
-     규칙이 한 번에 20개까지만 받게 해서(21개로 미리 볼 수 없음) 헛걸음 한 번은 생긴다. */
+  /* 빈 목록 문구. 2쪽부터 빈 것은 «글이 딱 한 쪽(BUG_PAGE)의 배수라 [다음] 이 켜졌는데 더 없던» 경우다 —
+     한 쪽만큼만 받아서(하나 더 미리 보지 않음) 헛걸음 한 번은 생긴다. */
   function emptyText(f, page){
     if(page > 1) return f === 'open' ? '더 이전 미해결 제보가 없어요' : '더 이전 제보가 없어요';
     return f === 'mine' ? '아직 쓴 제보가 없어요' : f === 'open' ? '미해결 제보가 없어요' : '아직 제보가 없어요';
