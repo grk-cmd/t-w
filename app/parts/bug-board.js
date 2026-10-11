@@ -17,7 +17,7 @@
 
 export const BUG_PAGE = 8;          // 전체 · 미해결 한 쪽
 export const BUG_MINE_MAX = 20;     // 내 글(쪽을 못 넘긴다 — 새 답변 배지도 이 안에서 센다)
-export const BUG_ANON = '익명';     // 비공개 글 목록 줄의 이름 — 규칙이 글쓴이 새 글에서 이 값을 본다
+export const BUG_ANON = '익명';     // 비공개 글 목록 줄의 이름 — 옛 앱(실명)과 함께 쓰는 동안 규칙은 이 값을 요구하지 않는다(sim-bug-board 주석)
 export const BUG_DAILY_MAX = 5;
 export const BUG_TITLE_MAX = 60, BUG_BODY_MAX = 2000, BUG_ENV_MAX = 120, BUG_ANS_MAX = 1000;
 export const BUG_NOTICE_MAX = 5;
@@ -60,7 +60,7 @@ export function checkPost(p){
   if(p.notice && p.vis !== 'pub') return '공지는 공개 글이어야 해요';
   return null;
 }
-/* 목록 한 줄(list/{id}) — 누구나 읽는 노드다. 비공개 글은 제목은 싣고 이름은 «익명» 만(규칙이 본다). 본문은 prv 쪽에만. */
+/* 목록 한 줄(list/{id}) — 누구나 읽는 노드다. 비공개 글은 제목은 싣고 이름은 «익명» 만. 본문은 prv 쪽에만. */
 export function listEntry(p, who, now){
   const e = { vis: p.vis, status: 'new', cat: p.cat, name: p.vis === 'prv' ? BUG_ANON : String(who.name || '').slice(0, 20),
               authUid: who.authUid, code: who.code, ts: now, openTs: now,
