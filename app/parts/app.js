@@ -13318,8 +13318,8 @@ function openChatWindow(){
   const room = (typeof Presence!=='undefined' && Presence.roomCode) ? Presence.roomCode() : null;
   if(typeof _stopChatBadgeSub==='function') _stopChatBadgeSub();   // 본문 구독과 중복되지 않게 뱃지 구독 해제
   if(typeof _setChatBadge==='function') _setChatBadge(0);
-  /* 💬 탭 — 방이 바뀌었으면 #일반부터. 같은 방이면 마지막에 보던 탭 그대로(창을 닫아도 유지). */
-  if(_chatTabRoom !== room){ _chatTabRoom = room; _chatMyTab = 'general'; }
+  /* 💬 탭 — 방이 바뀌었으면 그 방에서 마지막에 보던 탭(이 PC 에 기억 · 없으면 #일반). 같은 방이면 그대로. */
+  _chatTabSyncRoom(room);
   _chatSubscribeTab(room);
   _chatOffRefreshUI();   // 입력칸 안내문의 #탭 이름을 방 · 탭이 정해진 뒤에 다시
   const inp=document.getElementById('chatInput'); if(inp){ inp.value=''; setTimeout(()=>inp.focus(),0); }
@@ -13561,13 +13561,26 @@ function _refreshChatMembers(){
 }
 /* ═══ 💬 채팅 탭(채널) — 투게더룸 · 시크릿룸 대화창 ═══
    규칙(이름 · 상한 · 인원 · 경로)은 chat-tabs.js. 여기는 화면 · 구독 · 전환.
-   ★ 내가 있는 탭 = 마지막으로 누른 탭. 창을 닫거나 접어도 유지, 방에 들어오면 #일반, 그 탭이 지워지면 #일반.
+   ★ 내가 있는 탭 = 마지막으로 누른 탭. 창을 닫거나 접어도 유지, 그 탭이 지워지면 #일반.
+     방에 들어오면(재부팅 포함) 그 방에서 마지막에 보던 탭 — 방마다 localStorage(CHAT_TAB_LS_PREFIX + 방 코드)에 기억한다(제보:
+     재부팅하면 #일반으로 돌아갔다). 방 메타(탭 목록)가 아직 안 왔을 때는 «지워졌다» 로 보지 않고 기다린다.
    ★ 읽음 구분선 · 입장 컷 · [지우기] 는 ChatTabs.markKey(방, 탭) 를 방 코드 자리에 써서 탭마다 따로 간다
      (#일반은 예전 방 코드 그대로라 기존 표식이 그대로 이어진다).
    ⚠️ 방장 제한은 **화면 수준**이다(Firebase 방) — `_meta.host` 는 문자열일 뿐이라 서버가 방장을 검증하지 못한다
      (채팅 켜짐/꺼짐과 같은 수준). 규칙은 탭 개수(≤ 2)와 이름 길이만 막는다. 🛰 서버 방은 방 서버가 방장만 받는다. */
 let _chatMyTab = 'general';
-let _chatTabRoom = null;          // _chatMyTab 이 어느 방 것인가 — 방이 바뀌면 #일반으로
+let _chatTabRoom = null;          // _chatMyTab 이 어느 방 것인가 — 방이 바뀌면 그 방의 기억한 탭으로
+const CHAT_TAB_LS_PREFIX = 'tw.chatTab.';   // + 방 코드 → 마지막에 보던 탭 id (#일반이면 지운다)
+function _chatTabLoad(room){ try{ return (room && localStorage.getItem(CHAT_TAB_LS_PREFIX + room)) || 'general'; }catch(_){ return 'general'; } }
+function _chatTabSave(room, id){
+  if(!room) return;
+  try{ if(id && id !== 'general') localStorage.setItem(CHAT_TAB_LS_PREFIX + room, id); else localStorage.removeItem(CHAT_TAB_LS_PREFIX + room); }catch(_){}
+}
+/* 방이 바뀌었으면 그 방에서 기억한 탭으로 — 창을 열 때 · 탭 id 를 물을 때(창을 열기 전 말풍선 · presence 도 같은 탭을 보게) */
+function _chatTabSyncRoom(room){
+  if(!room || _chatTabRoom === room) return;
+  _chatTabRoom = room; _chatMyTab = _chatTabLoad(room);
+}
 const _chatTabUnread = {};        // tabId → 안 읽은 수 (창이 열려 있는 동안, 보고 있지 않은 탭만)
 let _chatTabUnreadUnsubs = [];
 const CHAT_TAB_UNREAD_LIMIT = 30;
@@ -13602,6 +13615,7 @@ function _chatTabMeta(){ try{ return (window._roomMetaCache && window._roomMetaC
 function _chatTabResolve(id){ return window.ChatTabs ? ChatTabs.resolve(id, _chatTabMeta()) : 'general'; }
 function _chatMyTabId(){
   if(window._activeChannel !== 2) return 'general';   // 워킹룸에는 탭이 없다
+  _chatTabSyncRoom(_chatRoomCode());
   return _chatTabResolve(_chatMyTab);
 }
 /* presence 에 싣는 값 — #일반이면 null(칸을 지운다 · 구버전과 같은 모양) */
@@ -13658,6 +13672,7 @@ function _chatSwitchTab(id){
   if(next === _chatMyTabId()) return;
   _markChatRead();                 // 떠나는 탭은 여기까지 읽음
   _chatMyTab = next; _chatTabRoom = room;
+  _chatTabSave(room, next);        // 다음에 이 방에 들어오면(재부팅 포함) 이 탭부터
   _chatSubscribeTab(room);
   _chatOffRefreshUI();             // 입력칸 안내문(#이름)
   _refreshChatMembers();
@@ -13669,9 +13684,16 @@ function _chatTabsOnMeta(){
   if(!window.ChatTabs) return;
   const room = _chatRoomCode();
   const sig = ChatTabs.list(_chatTabMeta()).map(t => t.id + ':' + t.name).join('|');
-  if(_chatMyTab !== 'general' && _chatTabResolve(_chatMyTab) === 'general'){
-    _chatMyTab = 'general';
+  _chatTabSyncRoom(room);
+  /* 방 메타가 아직 안 왔으면(재부팅 직후) 탭 목록이 비어 보일 뿐이다 — 기억한 탭을 «지워졌다» 로 보지 않는다. */
+  const metaReady = !!window._roomMetaCache;
+  if(metaReady && _chatMyTab !== 'general' && _chatTabResolve(_chatMyTab) === 'general'){
+    _chatMyTab = 'general'; _chatTabSave(room, 'general');
     if(_chatWindowIsOpen() && room){ _chatSubscribeTab(room); toast('채널이 삭제되어 #일반으로 옮겼어요'); }
+    if(typeof Presence!=='undefined' && Presence.broadcastNow) Presence.broadcastNow();
+  }else if(_chatWindowIsOpen() && room && _chatReadRoom !== _chatMarkKey(room, _chatMyTabId())){
+    // 기억한 탭이 메타가 온 뒤에야 풀렸다 — #일반으로 열어 둔 구독을 그 탭으로 옮긴다
+    _chatSubscribeTab(room); _chatOffRefreshUI();
     if(typeof Presence!=='undefined' && Presence.broadcastNow) Presence.broadcastNow();
   }else if(sig !== _chatTabSig && _chatWindowIsOpen()){
     _chatTabUnreadStart(room);
