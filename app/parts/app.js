@@ -12565,20 +12565,13 @@ function _mhStickerBox(s){
    [왜] 예전엔 스티커 폭의 60%까지 창 밖으로 나가는 걸 허용했다. 그런데 마이홈 창은 overflow가 잘려서,
         일단 밖으로 나가면 화면에 아무것도 안 남는다 — 보이지 않으니 우클릭도 드래그도 못 하고,
         그 스티커는 되찾을 방법이 없어졌다(제보 증상). 통째로 안에 두는 편이 잃는 게 없다.
-   [제보] 크기 조절 · 회전은 이 함수를 안 거쳐서 창 밖으로 삐져나갔다. 실행 화면은 창이 화면 전체라 보이지만
-        런처는 OS 창이 마이홈보다 조금만 커서(MODE_SIZE.myhome) 그 부분이 잘렸다 — 그래서 회전한 바깥 상자로 보고,
-        창보다 크면 크기(size)부터 줄인다.
+   ★ 회전한 바깥 상자(_mhStickerBox)로 본다. 크기 조절 · 회전은 이 함수를 안 거친다 — 창 밖으로 걸쳐 두는 것은
+     꾸미기라서 막지 않고, 런처에서도 보이게 창을 넓힌다(_mhStickerOverhang).
    ★ 그래도 이미 밖으로 나간 옛 스티커가 있으므로, 관리 창의 [가운데로]가 구제 수단으로 남는다. */
 function _mhClampStickerPos(s){
   if(!s) return s;
   const { W, H } = _mhHomeWinSize();
-  let b = _mhStickerBox(s);
-  if(b.w > W || b.h > H){
-    const k = Math.min(W / b.w, H / b.h);
-    const cur = (typeof s.size === 'number' && s.size > 0) ? s.size : 1;
-    s.size = Math.max(0.3, Math.floor(cur * k * 100) / 100);
-    b = _mhStickerBox(s);
-  }
+  const b = _mhStickerBox(s);
   s.x = Math.round(Math.max(-b.dx, Math.min(s.x||0, W - b.w - b.dx)));
   s.y = Math.round(Math.max(-b.dy, Math.min(s.y||0, H - b.h - b.dy)));
   return s;
@@ -12591,6 +12584,29 @@ function _mhStickerOutOfView(s){
   const x = (s.x||0) + b.dx, y = (s.y||0) + b.dy;
   return x < -0.5 || y < -0.5 || (x + b.w) > W + 0.5 || (y + b.h) > H + 0.5;
 }
+
+/* 🎨 스티커가 마이홈 창 밖으로 나간 만큼(CSS px) — 런처에서 마이홈 OS 창을 이만큼 양쪽으로 넓힌다(main.js _modeSize).
+   [왜] 실행 화면은 전체화면이라 창 밖 스티커도 보이는데, 런처는 OS 창이 마이홈보다 조금만 커서 잘렸다(제보).
+   마이홈 탭이 아니면 스티커를 안 그리므로 0. 관람 중이면 그 친구 스티커로 잰다(_mhStickersData). */
+function _mhStickerOverhang(){
+  const zone = document.getElementById('mhStickerZone');
+  if(!zone || zone.classList.contains('hidden')) return { x: 0, y: 0 };
+  const { W, H } = _mhHomeWinSize();
+  const data = _mhStickersData();
+  let x = 0, y = 0;
+  Object.keys(data).forEach(sid=>{
+    const s = data[sid]; if(!s) return;
+    const b = _mhStickerBox(s);
+    const l = (s.x||0) + b.dx, t = (s.y||0) + b.dy;
+    x = Math.max(x, -l, l + b.w - W);
+    y = Math.max(y, -t, t + b.h - H);
+  });
+  return { x: Math.max(0, Math.ceil(x)), y: Math.max(0, Math.ceil(y)) };
+}
+/* 크기 · 회전 핸들을 놓았을 때(myhome-sticker.js) · 스티커를 다시 그렸을 때 — 창 밖으로 나간 만큼 다시 넓힌다.
+   ⚠️ 부팅 중엔 applyDesktopRunClass 가 아직 못 쓰는 이름(desktopMode)을 볼 수 있어 try 로 감싼다. 같은 크기면 main 이 건너뛴다. */
+function _mhFitWindowSafe(){ try{ applyDesktopRunClass(); }catch(_){} }
+window._mhFitWindow = _mhFitWindowSafe;
 
 /* 지금 화면에 그릴 스티커 데이터 — 관람 중이면 그 친구 것, 아니면 내 것 */
 function _mhStickersData(){
@@ -12607,7 +12623,7 @@ function renderMyHomeStickers(){
   const activeTab = document.querySelector('#myHomeTabs .mh-tab.on');
   const onHomeTab = activeTab && activeTab.dataset.tab === 'home';
   zone.classList.toggle('hidden', !onHomeTab);
-  if(!onHomeTab){ myHomeSticker.editEnd(); return; }
+  if(!onHomeTab){ _mhFitWindowSafe(); myHomeSticker.editEnd(); return; }
 
   const data = _mhStickersData();
   const canEdit = _mhCanEditStickers();
@@ -12623,10 +12639,7 @@ function renderMyHomeStickers(){
     }
     if(s.anim) el.classList.add('a-'+s.anim);
     if(s.animSpd) el.classList.add('spd-'+s.animSpd);
-    // 밖에 나가 있는 옛 스티커는 **그릴 때만** 창 안으로 — 저장 값은 그대로 둔다(관람 중인 친구 것일 수도 있다).
-    //   런처는 OS 창이 마이홈보다 조금만 커서 밖에 나간 부분이 잘린다(_mhClampStickerPos 주석).
-    const pos = _mhStickerOutOfView(s) ? _mhClampStickerPos(Object.assign({}, s)) : s;
-    el.style.left=(pos.x||0)+'px'; el.style.top=(pos.y||0)+'px'; el.dataset.sid=sid;
+    el.style.left=(s.x||0)+'px'; el.style.top=(s.y||0)+'px'; el.dataset.sid=sid;
     // 새 스티커는 원본 비율(w/h)을 가짐. 옛 스티커는 w/h가 없으므로 CSS 기본(40×40 정사각) 유지.
     if(s.w && s.h){
       const baseW = Math.min(s.w, STICKER_BASE * 2.2);   // 화면상 기본 표시 폭(size=1일 때)
@@ -12634,7 +12647,7 @@ function renderMyHomeStickers(){
       el.style.height = Math.round(baseW * (s.h / s.w)) + 'px';
     }
     const alpha = (typeof s.alpha==='number') ? Math.max(0, Math.min(1, s.alpha)) : 1;
-    const tf = _mhStickerTransform(pos);
+    const tf = _mhStickerTransform(s);
     if(tf) el.style.transform = tf;
     if(alpha !== 1) el.style.opacity = String(alpha);
 
@@ -12699,6 +12712,7 @@ function renderMyHomeStickers(){
     }
     zone.appendChild(el);
   });
+  _mhFitWindowSafe();   // 🎨 런처 마이홈이면 창 밖으로 나간 스티커만큼 창을 넓힌다
 }
 
 /* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
@@ -36584,7 +36598,9 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
   // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
   const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
-  if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode);
+  // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
+  const extra = (mode === 'myhome') ? _mhStickerOverhang() : null;
+  if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);
 }
 if(desktopMode){
   document.body.classList.add('desktop');

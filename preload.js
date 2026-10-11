@@ -9,8 +9,9 @@ contextBridge.exposeInMainWorld('companion', {
 
   // 설정 화면(런처/생성기) ↔ 실행 화면 전환. isConfig=true면 작은 창, false면 전체화면 투명.
   // mode: 'launcher'|'creator'|'run' — 화면별 창 크기 구분용
-  setConfigMode(isConfig, mode) {
-    ipcRenderer.send('companion:setConfigMode', !!isConfig, mode || 'launcher');
+  // extra: mode 가 'myhome' 일 때 { x, y } — 스티커가 마이홈 창 밖으로 나간 만큼(CSS px). 그만큼 창을 넓힌다(main.js _modeSize)
+  setConfigMode(isConfig, mode, extra) {
+    ipcRenderer.send('companion:setConfigMode', !!isConfig, mode || 'launcher', extra || null);
   },
 
   // 컨트롤 바 grip을 드래그해서 창을 옮길 때 (dx, dy = 이전 프레임 대비 이동량)

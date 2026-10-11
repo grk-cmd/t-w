@@ -38,7 +38,7 @@ const mk = (cfg, wa) => {
     webContents: { setZoomFactor(){}, send(){} } };
   const scr = { getDisplayMatching: () => ({ workArea: WA }) };
   const f = new Function('mainWindow', 'screen', 'E',
-    'let uiZoom = 1; let _isConfigMode = E.cfg; const savedPos = {}; const _fittedSize = {}; const SIZE_MATCH_TOL = 3;\n'
+    'let uiZoom = 1; let _isConfigMode = E.cfg; const savedPos = {}; const _fittedSize = {}; const SIZE_MATCH_TOL = 3; let _mhPad = { x: 0, y: 0 };\n'
     + 'const MODE_SIZE = { launcher:{ w:380, h:680 }, creator:{ w:740, h:620 }, animal:{ w:860, h:440 }, myhome:{ w:800, h:580 } };\n'
     + consts + '\nconst saveSettings=()=>{}; const _diagLog=()=>{}; const _noteApplied=()=>{}; let _onUiZoomChanged=null;\n'
     + src.join('\n') + '\nreturn { zoom: (op) => applyUiZoom(op, "t"), fit: _fitConfigRect, ms: _modeSize, mode: () => _cfgModeForZoom() };');

@@ -260,9 +260,8 @@ function _mhBindStickerRotate(handle, sid, lblEl){
     while(deg > 180) deg -= 360;
     while(deg <= -180) deg += 360;
     s.rot = deg;
-    _mhClampStickerPos(s);   // 돌리면 모서리가 나온다 — 창 안으로(런처에서 잘리지 않게)
     const node = el();
-    if(node){ node.style.transform = _mhStickerTransform(s); node.style.left = s.x + 'px'; node.style.top = s.y + 'px'; }
+    if(node) node.style.transform = _mhStickerTransform(s);
     if(lblEl) lblEl.textContent = Math.round(deg) + '°';
   });
 
@@ -273,6 +272,7 @@ function _mhBindStickerRotate(handle, sid, lblEl){
     if(node) node.classList.remove('rotating');
     try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
     commitMyHomePage(true);
+    if(typeof window._mhFitWindow === 'function') window._mhFitWindow();   // 창 밖으로 나간 만큼 런처 창을 넓힌다(app.js _mhStickerOverhang)
   };
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
@@ -294,15 +294,15 @@ function _mhBindStickerResize(handle, sid){
     const dx=e.clientX-sx, dy=e.clientY-sy;
     const delta = (dx + dy) / (STICKER_BASE*2);
     s.size = Math.max(0.3, Math.min(8, startSize + delta));   // 창 전체를 쓰므로 상한을 넉넉히
-    _mhClampStickerPos(s);   // 키우면 창 밖으로 나간다 — 창보다 크면 크기도 줄인다(런처에서 잘리지 않게)
     const el = handle.parentElement;
-    if(el){ el.style.transform = _mhStickerTransform(s); el.style.left = s.x + 'px'; el.style.top = s.y + 'px'; }   // 회전값도 함께 유지
+    if(el) el.style.transform = _mhStickerTransform(s);   // 회전값도 함께 유지
   });
   const end=e=>{
     if(!dragging) return;
     dragging=false;
     try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
     commitMyHomePage(true);
+    if(typeof window._mhFitWindow === 'function') window._mhFitWindow();   // 창 밖으로 나간 만큼 런처 창을 넓힌다(app.js _mhStickerOverhang)
   };
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
