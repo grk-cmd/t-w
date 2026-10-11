@@ -80,7 +80,34 @@ chk(/id="chatTabs"/.test(HTML.slice(HTML.indexOf('<div id="chatWindow">'), HTML.
 chk(/#chatWindow\.min \.chat-tabs/.test(HTML), '접으면 탭 줄도 숨는다');
 chk(/'#' \+ _chatTabName\(_chatMyTabId\(\)\) \+ '에 메시지 입력 후 Enter'/.test(APP), '입력칸 안내 「#이름에 메시지 입력 후 Enter」');
 chk(/clearChatLog\(room, _chatMyTabId\(\)\)/.test(APP), '🗑 기록 삭제는 지금 보는 탭만');
-chk(/if\(_chatTabRoom !== room\)\{ _chatTabRoom = room; _chatMyTab = 'general'; \}/.test(APP), '방에 들어오면 #일반 · 같은 방이면 보던 탭 유지');
+/* 방에 들어오면(재부팅 포함) 그 방에서 마지막에 보던 탭 — 제보: 재부팅하면 #일반으로 돌아갔다. 함수를 떼어 실제로 돌린다. */
+{
+  const grab = (n) => { const i = APP.indexOf('function ' + n + '('); if(i < 0) return ''; const j = APP.indexOf('\n}', i); const line = APP.indexOf('\n', i); return (APP.slice(i, line).trim().endsWith('}') ? APP.slice(i, line) : APP.slice(i, j + 2)); };
+  const pre = (APP.match(/const CHAT_TAB_LS_PREFIX = '([^']+)';/) || [])[1];
+  const src = ['_chatTabLoad', '_chatTabSave', '_chatTabSyncRoom'].map(grab);
+  chk(pre === 'tw.chatTab.' && src.every(Boolean), '기억 키는 tw. 접두사(tw.chatTab.<방>) · 읽기 · 쓰기 · 방 맞추기 셋');
+  const store = {};
+  const LS = { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } };
+  const T = new Function('localStorage', 'let _chatMyTab = "general", _chatTabRoom = null; const CHAT_TAB_LS_PREFIX = ' + JSON.stringify(pre) + ';\n' + src.join('\n')
+    + '\nreturn { sync: _chatTabSyncRoom, save: _chatTabSave, cur: () => _chatMyTab, set: v => { _chatMyTab = v; } };')(LS);
+  T.sync('ROOM-A'); const t0 = T.cur();
+  T.save('ROOM-A', 's1'); T.set('s1');
+  T.sync('ROOM-A'); const t1 = T.cur();
+  T.sync('ROOM-B'); const t2 = T.cur();
+  // 재부팅 — 메모리는 비고 localStorage 만 남는다
+  const T2 = new Function('localStorage', 'let _chatMyTab = "general", _chatTabRoom = null; const CHAT_TAB_LS_PREFIX = ' + JSON.stringify(pre) + ';\n' + src.join('\n')
+    + '\nreturn { sync: _chatTabSyncRoom, cur: () => _chatMyTab };')(LS);
+  T2.sync('ROOM-A'); const t3 = T2.cur();
+  T.save('ROOM-A', 'general');
+  chk(t0 === 'general' && t1 === 's1' && t2 === 'general' && t3 === 's1', '★ 처음은 #일반 · 같은 방이면 그대로 · 다른 방은 그 방 기억(#일반) · 재부팅해도 마지막 탭(s1)');
+  chk(!('tw.chatTab.ROOM-A' in store), '  #일반으로 돌아가면 기억을 지운다(키가 쌓이지 않게)');
+  chk(/_chatTabSyncRoom\(room\);\s*_chatSubscribeTab\(room\);/.test(APP) && /return 'general';[^\n]*\n\s*_chatTabSyncRoom\(_chatRoomCode\(\)\);\s*return _chatTabResolve\(_chatMyTab\);/.test(APP),
+    '  창을 열 때 · 탭 id 를 물을 때(창을 열기 전 말풍선 · presence) 같은 방 맞추기를 지난다');
+  chk(/_chatMyTab = next; _chatTabRoom = room;\s*_chatTabSave\(room, next\);/.test(APP), '  탭을 바꾸면 기억한다');
+  chk(/const metaReady = !!window\._roomMetaCache;\s*if\(metaReady && _chatMyTab !== 'general' && _chatTabResolve\(_chatMyTab\) === 'general'\)\{\s*_chatMyTab = 'general'; _chatTabSave\(room, 'general'\);/.test(APP),
+    '★ 방 메타가 오기 전에는 기억한 탭을 «지워졌다» 로 보지 않는다(재부팅 직후 탭 목록이 비어 보일 뿐)');
+  chk(/_chatReadRoom !== _chatMarkKey\(room, _chatMyTabId\(\)\)\)\{[^}]*_chatSubscribeTab\(room\); _chatOffRefreshUI\(\);/.test(APP), '  메타가 온 뒤 기억한 탭이 풀리면 #일반으로 열어 둔 구독을 그 탭으로 옮긴다');
+}
 
 say('§4 규칙 · 정리');
 const rules = JSON.parse(RULES).rules.rooms.$room;
