@@ -470,10 +470,23 @@ function applyUiZoom(op, why){
      _fitConfigRect 가 늘 하던 대로 줄이고, 그 실제 크기를 _fittedSize 에 남기므로 sizeToMode 가 줌 걸린 창도
      같은 모드로 알아본다(sizeToMode 는 안 고쳤다 — _fittedSize 를 이미 본다 · sim-cfg-fit 3절).
    ★ 줌을 바꾸는 순간에도 맞춘다(_refitConfigForZoom) — 좌상단을 그대로 두고 크기만 바꾼 뒤 작업영역 안으로 민다. */
+/* 🎨 [2026-10-11 제보] 마이홈 스티커가 창 밖으로 나가 있으면 런처에서 그만큼 잘렸다(실행 화면은 전체화면이라 보임).
+   렌더러가 «창 밖으로 나간 만큼» 을 CSS px 로 보내 오면(setConfigMode 셋째 인자) 마이홈 창을 양쪽으로 그만큼 넓힌다.
+   ★ 양쪽 같은 폭으로 넓힌다 — 마이홈 창은 OS 창 가운데에 놓이므로(#myHomeWin left/top 50%) 한쪽만 넓히면 마이홈이 움직인다.
+   ★ 크기를 정하는 자리가 전부 _modeSize 를 지나므로(줌 · 모니터 변경 · 표시 설정) 여기 한 곳에 더한다.
+   _mhPadApplied 는 지금 창에 얹힌 여백(DIP) — 여백이 바뀔 때 창 좌상단을 그만큼 옮겨 마이홈이 제자리에 있게 한다. */
+const MH_PAD_MAX = 400;               // 한쪽 여백 상한(CSS px) — 아주 멀리 나간 옛 스티커 하나로 창이 끝없이 커지지 않게
+let _mhPad = { x: 0, y: 0 };          // CSS px
+let _mhPadApplied = { x: 0, y: 0 };   // DIP
+function _mhPadOf(v){
+  const n = (k) => { const x = Number(v && v[k]); return isFinite(x) && x > 0 ? Math.min(MH_PAD_MAX, Math.ceil(x)) : 0; };
+  return { x: n('x'), y: n('y') };
+}
 function _modeSize(mode){
   const s = MODE_SIZE[mode] || MODE_SIZE.launcher;
   const z = (uiZoom > 0) ? uiZoom : 1;
-  return { w: Math.round(s.w * z), h: Math.round(s.h * z) };
+  const p = (mode === 'myhome') ? _mhPad : { x: 0, y: 0 };
+  return { w: Math.round((s.w + 2 * p.x) * z), h: Math.round((s.h + 2 * p.y) * z) };
 }
 function _cfgModeForZoom(){
   try{
@@ -3379,7 +3392,7 @@ function createWindow() {
 
   // config 모드(런처/생성기) ↔ run 모드(캐릭터 실행) 전환
   // mode: 'launcher' | 'creator' | 'run'
-  ipcMain.on('companion:setConfigMode', (e, isConfig, mode) => {
+  ipcMain.on('companion:setConfigMode', (e, isConfig, mode, extra) => {
     _isConfigMode = !!isConfig;   // ★ 안전장치는 전체화면 오버레이(run)에서만 동작해야 함
     if (!mainWindow) return;
     // ★ 마이홈은 "런처가 지금 떠 있는 모니터" 기준으로 중앙 계산 — 캐릭터 실행용 모니터(getRunDisplay)와
@@ -3416,6 +3429,12 @@ function createWindow() {
         // ★ 마이홈 위치 기억(요청사항) — 유저가 옮겨둔 위치가 있으면 거기로, 없으면(첫 열기) 런처가 있는
         //   모니터 중앙. 'moved' 핸들러가 sizeToMode('myhome')로 위치를 계속 기록해줌.
         remembered = savedPos.myhome || null;
+        /* 🎨 스티커 여백 — 옛 렌더러(셋째 인자 없음)면 0. 여백이 바뀐 만큼 좌상단을 옮겨 마이홈을 제자리에 둔다. */
+        _mhPad = _mhPadOf(extra);
+        const _z = (uiZoom > 0) ? uiZoom : 1;
+        const padDip = { x: Math.round(_mhPad.x * _z), y: Math.round(_mhPad.y * _z) };
+        if(remembered) remembered = { x: remembered.x - (padDip.x - _mhPadApplied.x), y: remembered.y - (padDip.y - _mhPadApplied.y) };
+        _mhPadApplied = padDip;
       }
       /* 📐 [2026-09-15 제보 1·2] 크기·위치를 작업영역에 맞춘다 — 근거는 _fitConfigRect 위 주석.
          예전 «remembered ? 그대로 : 중앙» 은 그 함수 안에 그대로 있다. 여기서 직접 계산으로 되돌리지 말 것. */

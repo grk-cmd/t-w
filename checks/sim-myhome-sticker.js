@@ -288,40 +288,59 @@ await sec('── 6. app.js 배선', () => {
   chk(!!got && typeof got.open === 'function' && got.close() === undefined && got.editEnd() === undefined, '모듈이 안 실려도 그 자리는 서지 않는다(빈 껍데기)');
 });
 
-await sec('── 7. 런처에서 잘리지 않게 — 크기 · 회전도 창 안으로 (app.js 판정 실행)', () => {
-  /* 런처는 OS 창(MODE_SIZE.myhome 800×580)이 마이홈(760 폭)보다 조금만 커서, 창 밖으로 삐져나간 스티커가 잘린다.
-     실행 화면은 창이 화면 전체라 보였다 — 그래서 «실행에선 보이고 런처에선 잘린다» 는 제보가 됐다. */
+await sec('── 7. 런처에서도 창 밖 스티커가 그 자리에 보이게 — 창을 넓힌다 (app.js · main.js 실행)', () => {
+  /* 실행 화면은 창이 화면 전체라 마이홈 밖에 걸친 스티커도 보이는데, 런처는 OS 창(MODE_SIZE.myhome 800×580)이
+     마이홈(760 폭)보다 조금만 커서 잘렸다. 스티커를 안으로 당기지 않고(꾸미기 그대로) 런처 창을 그만큼 넓힌다. */
   const grab = (name) => (APP.match(new RegExp('function ' + name + '\\([^)]*\\)\\{[\\s\\S]*?\\n\\}')) || [''])[0];
-  const fns = ['_mhStickerDispSize', '_mhStickerBox', '_mhClampStickerPos', '_mhStickerOutOfView'].map(grab);
-  chk(fns.every(Boolean), 'app.js 에서 크기 · 바깥 상자 · 붙잡기 · 밖 판정 넷을 찾았다');
-  const box = { Math, STICKER_BASE: 40, _mhHomeWinSize: () => ({ W: 760, H: 520 }) };
-  vm.runInNewContext(fns.join('\n') + '\nthis.F = { box: _mhStickerBox, clamp: _mhClampStickerPos, out: _mhStickerOutOfView };', box);
+  const fns = ['_mhStickerDispSize', '_mhStickerBox', '_mhClampStickerPos', '_mhStickerOutOfView', '_mhStickerOverhang'].map(grab);
+  chk(fns.every(Boolean), 'app.js 에서 크기 · 바깥 상자 · 붙잡기 · 밖 판정 · 넘친 만큼 다섯을 찾았다');
+  let DATA = {}, hidden = false;
+  const box = { Math, STICKER_BASE: 40, _mhHomeWinSize: () => ({ W: 760, H: 520 }), _mhStickersData: () => DATA,
+    document: { getElementById: () => ({ classList: { contains: () => hidden } }) } };
+  vm.runInNewContext(fns.join('\n') + '\nthis.F = { box: _mhStickerBox, clamp: _mhClampStickerPos, out: _mhStickerOutOfView, over: _mhStickerOverhang };', box);
   const F = box.F;
-  const inside = (st) => { const b = F.box(st); const x = st.x + b.dx, y = st.y + b.dy; return x >= -0.6 && y >= -0.6 && x + b.w <= 760.6 && y + b.h <= 520.6; };
-  // 회전 없음 — 예전과 같다
   const a = F.clamp({ x: 900, y: 600 });
-  chk(a.x === 720 && a.y === 480 && !a.size, '  회전 · 크기 없으면 예전 규칙 그대로(40px 상자를 창 안으로)');
-  // 45° 회전 — 모서리까지 창 안
+  chk(a.x === 720 && a.y === 480 && !a.size, '  끌기 · 붙이기 붙잡기는 예전 그대로(40px 상자를 창 안으로 · 크기는 안 건드림)');
   const r = F.clamp({ x: 740, y: 0, rot: 45 });
-  chk(inside(r) && r.x < 720 && r.y > 0, '★ 45° 돌린 스티커는 튀어나온 모서리까지 창 안으로 (x ' + r.x + ' · y ' + r.y + ')');
-  // 크기 8배(320px) 를 오른쪽 아래 구석에서 — 창 안으로 당겨짐
-  const big = F.clamp({ x: 700, y: 480, size: 8 });
-  chk(inside(big) && big.size === 8, '★ 크게 키운 스티커는 창 안으로 당겨진다(크기는 그대로 · 창에 들어가면)');
-  // 창보다 큰 크기 — 크기를 줄여 들어가게
-  const huge = F.clamp({ x: 0, y: 0, w: 400, h: 400, size: 8 });   // 표시 폭 88 × 8 = 704 정사각 → 세로 520 초과
-  chk(inside(huge) && huge.size < 8 && huge.size >= 0.3, '★ 창보다 크면 크기부터 줄인다 (size ' + huge.size + ')');
-  chk(F.out({ x: 700, y: 480, size: 8 }) && !F.out(big) && F.out({ x: 740, y: 0, rot: 45 }) && !F.out(r), '  밖 판정도 회전 · 크기 바깥 상자로 본다');
-  // 손잡이 — 크기 · 회전 중에도 붙잡는다
+  chk(r.x < 720 && r.y > 0 && !F.out(r), '  돌린 스티커는 튀어나온 모서리까지 보고 붙잡는다');
+  DATA = {};
+  chk(JSON.stringify(F.over()) === '{"x":0,"y":0}', '★ 창 안 스티커뿐이면 넓히지 않는다(0)');
+  DATA = { a: { x: 740, y: 10 }, b: { x: -30, y: 500 } };   // 오른쪽 20 · 왼쪽 30 · 아래 20 넘침
+  const o = F.over();
+  chk(o.x === 30 && o.y === 20, '★ 넘친 만큼 — 좌우 큰 쪽 · 위아래 큰 쪽 (x ' + o.x + ' · y ' + o.y + ')');
+  DATA = { c: { x: 700, y: 480, size: 8 } };   // 320px — 오른쪽 260 · 아래 280
+  const big = F.over();
+  chk(big.x === 260 && big.y === 280, '★ 크게 키운 스티커도 그 크기만큼 (x ' + big.x + ' · y ' + big.y + ')');
+  hidden = true;
+  chk(JSON.stringify(F.over()) === '{"x":0,"y":0}', '  마이홈 탭이 아니면(스티커 안 그림) 0');
+  // 그리기 · 핸들 — 안으로 당기지 않는다
+  const rd = (APP.match(/function renderMyHomeStickers\(\)\{[\s\S]*?\n\}/) || [''])[0];
   const rz = (MOD.match(/function _mhBindStickerResize\([\s\S]*?\n\}/) || [''])[0];
   const rt = (MOD.match(/function _mhBindStickerRotate\([\s\S]*?\n\}/) || [''])[0];
-  chk(/s\.size = Math\.max\(0\.3, Math\.min\(8, startSize \+ delta\)\);[^\n]*\n\s*_mhClampStickerPos\(s\);/.test(rz) && /el\.style\.left = s\.x \+ 'px'; el\.style\.top = s\.y \+ 'px';/.test(rz),
-    '★ 크기 핸들 — 끄는 동안 창 안으로 붙잡고 자리도 다시 그린다');
-  chk(/s\.rot = deg;\s*_mhClampStickerPos\(s\);/.test(rt) && /node\.style\.left = s\.x \+ 'px'; node\.style\.top = s\.y \+ 'px';/.test(rt),
-    '★ 회전 핸들 — 돌리는 동안 창 안으로 붙잡고 자리도 다시 그린다');
-  // 그리기 — 이미 밖에 있는 옛 스티커는 그릴 때만 안으로(저장 값은 그대로)
-  const rd = (APP.match(/function renderMyHomeStickers\(\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(/const pos = _mhStickerOutOfView\(s\) \? _mhClampStickerPos\(Object\.assign\(\{\}, s\)\) : s;/.test(rd) && /el\.style\.left=\(pos\.x\|\|0\)\+'px'; el\.style\.top=\(pos\.y\|\|0\)\+'px';/.test(rd)
-    && /_mhStickerTransform\(pos\)/.test(rd), '★ 밖에 나간 옛 스티커는 그릴 때만 창 안으로 — 복사본으로(관람 중인 친구 것 · 저장 값을 안 바꾼다)');
+  chk(/el\.style\.left=\(s\.x\|\|0\)\+'px'; el\.style\.top=\(s\.y\|\|0\)\+'px';/.test(rd) && !/_mhClampStickerPos/.test(rd) && !/_mhClampStickerPos/.test(rz + rt),
+    '★ 그리기 · 크기 · 회전은 안으로 당기지 않는다 — 저장된 자리 그대로');
+  chk((rd.match(/_mhFitWindowSafe\(\)/g) || []).length === 2 && /window\._mhFitWindow\(\)/.test(rz) && /window\._mhFitWindow\(\)/.test(rt),
+    '★ 다시 그릴 때(두 갈래) · 크기 · 회전 핸들을 놓을 때 창 크기를 다시 맞춘다');
+  chk(/const extra = \(mode === 'myhome'\) \? _mhStickerOverhang\(\) : null;/.test(APP) && /companion\.setConfigMode\(config, mode, extra\)/.test(APP),
+    '  런처 마이홈일 때만 넘친 만큼을 같이 보낸다');
+  // main.js — 받은 만큼 양쪽으로 넓히고 마이홈을 제자리에
+  const MAIN = read('main.js'), PRE = read('preload.js');
+  if(!MAIN || !PRE){ chk(false, 'main.js · preload.js 를 찾았다'); return; }
+  const ms = (MAIN.match(/function _modeSize\(mode\)\{[\s\S]*?\n\}/) || [''])[0], po = (MAIN.match(/function _mhPadOf\(v\)\{[\s\S]*?\n\}/) || [''])[0];
+  const mx = (MAIN.match(/const MH_PAD_MAX = (\d+);/) || [])[1];
+  const G = vm.runInNewContext('const MODE_SIZE = { launcher:{w:380,h:680}, myhome:{w:800,h:580} }; let uiZoom = 1; let _mhPad = { x: 0, y: 0 }; const MH_PAD_MAX = ' + mx + ';\n'
+    + ms + '\n' + po + '\n({ ms: _modeSize, po: _mhPadOf, set: (p, z) => { _mhPad = p; uiZoom = z; } })', {});
+  G.set({ x: 30, y: 20 }, 1);
+  const s1 = G.ms('myhome'), s2 = G.ms('launcher');
+  G.set({ x: 30, y: 20 }, 1.5);
+  const s3 = G.ms('myhome');
+  chk(s1.w === 860 && s1.h === 620 && s2.w === 380 && s3.w === 1290, '★ main _modeSize — 마이홈만 양쪽으로 넓힌다 · 줌도 곱한다 (' + s1.w + '×' + s1.h + ' · 줌 150% ' + s3.w + ')');
+  chk(JSON.stringify(G.po({ x: 12.2, y: -5 })) === '{"x":13,"y":0}' && G.po({ x: 99999 }).x === +mx && JSON.stringify(G.po(null)) === '{"x":0,"y":0}' && JSON.stringify(G.po({ x: 'a' })) === '{"x":0,"y":0}',
+    '  받은 값 — 올림 · 음수 · 이상한 값은 0 · 상한 ' + mx + ' · 옛 렌더러(없음)는 0');
+  chk(/ipcMain\.on\('companion:setConfigMode', \(e, isConfig, mode, extra\) =>/.test(MAIN) && /_mhPad = _mhPadOf\(extra\);/.test(MAIN)
+    && /if\(remembered\) remembered = \{ x: remembered\.x - \(padDip\.x - _mhPadApplied\.x\), y: remembered\.y - \(padDip\.y - _mhPadApplied\.y\) \};/.test(MAIN),
+    '★ 여백이 바뀐 만큼 창 좌상단을 옮겨 마이홈이 제자리에 있다');
+  chk(/setConfigMode\(isConfig, mode, extra\) \{\s*ipcRenderer\.send\('companion:setConfigMode', !!isConfig, mode \|\| 'launcher', extra \|\| null\);/.test(PRE), '  preload 가 셋째 인자를 넘긴다');
 });
 
 say('');
