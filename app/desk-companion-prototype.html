@@ -6907,6 +6907,9 @@
         </div>
         <p id="progLabVideoHint" style="display:none;margin:8px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">
           화면공유 영상이 검어지거나 깜빡일 때만 켜세요. 그런 일이 없으면 그냥 두세요.</p>
+        <!-- 🎬 «적용 안 됨» 일 때만 보이는 안내 — 무엇을 하면 되는지(껐다 켜기 → 그래도면 버그제보). 글은 app.js LAB_VIDEO_BLOCKED_GUIDE -->
+        <p id="progLabVideoWarn" style="display:none;margin:8px 0 0;padding:8px 10px;font-size:10.5px;line-height:1.6;
+          color:var(--ink);background:var(--win-face);border:1px dashed var(--ink-soft);white-space:pre-line;"></p>
 
         <!-- ❌ [폐기 2026-08-26] 여기 있던 🧪 실험실 칸('다른 프로그램 방해 안 함' = 창 활성화 차단)은
              통째로 지웠다. WS_EX_NOACTIVATE 창에서는 한/영 전환이 **원리적으로** 불가능하고

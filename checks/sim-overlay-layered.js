@@ -199,7 +199,7 @@ say('\n── 3. 알파를 거는 함수');
 }
 
 /* ══ 4. ★ 호출 자리 — 주기 호출이 §2-1(setBounds 폭풍)을 재현한다 ════════ */
-say('\n── 4. ★ 부르는 자리가 둘뿐인가 (스타일 변경 자체가 재계산 훅이다)');
+say('\n── 4. ★ 부르는 자리가 정해진 곳뿐인가 (스타일 변경 자체가 재계산 훅이다)');
 {
   /* ★ 이음매에서 이름이 갈린다 — 모듈 안은 `_applyOverlayLayered`, 밖에서는 `overlay.applyLayered`.
      둘 다 "부르는 것"이다. 분리 후에 모듈 안 이름만 세면 호출 2곳이 통째로 안 보인다. */
@@ -214,12 +214,16 @@ say('\n── 4. ★ 부르는 자리가 둘뿐인가 (스타일 변경 자체�
     /* 분리 전에는 정의와 호출이 한 파일에 있어 정의 1 을 뺀다.
        분리 후에는 호출이 main.js 에만, 정의가 모듈에만 있어 뺄 것이 없다. */
     const calls = (code.match(new RegExp(callRe + '\\s*\\(', 'g')) || []).length - (SPLIT ? 0 : 1);
-    /* 🔁 [2026-10-08 제보 #4] 셋째 자리 = 부팅 판정이 blocked 일 때 GPU 준비 뒤 **한 번만** 도는 재시도.
-       주기 호출이 아님을 플래그(_layRetried)와 once 리스너로 같이 확인한다. 넷째가 생기면 다시 따질 것. */
-    const retryOnce = new RegExp("if\\(_layRetried[^\\n]*return;\\s*_layRetried = true;\\s*overlay\\." + (faceName || 'applyLayered') + "\\('재시도").test(code)
-      && /app\.once\('gpu-info-update'/.test(code);
-    chk(calls === 3 && retryOnce, '★ 부르는 자리가 3곳이다(부팅 · 토글 · 부팅 재시도 1회) — 실제 ' + calls
-      + '곳' + (retryOnce ? '' : ' · 재시도가 한 번뿐인지 확인 못 함') + '. 늘었다면 주기 호출이 아닌지 확인할 것');
+    /* 🔁 [2026-10-08 제보 #4] 셋째 자리 = 부팅 판정이 blocked 일 때 GPU 준비 뒤 도는 재시도.
+       [B-1010-21 · B-1011-1] 한 번 → «풀릴 때까지 상한(LAY_RETRY_MAX)만큼». 막힌 동안은 창 스타일을 안 건드리고,
+         풀리면 리스너를 떼고 멈춘다 — 주기 호출이 아님을 상한 · 멈춤 두 줄로 같이 확인한다.
+       넷째 = 초기화로 꺼진 실험을 «다시 켜기» 로 고른 순간 한 번(사람이 누른 것 — 토글과 같다). 다섯째가 생기면 다시 따질 것. */
+    const fn = faceName || 'applyLayered';
+    const retryBounded = new RegExp("if\\(\\+\\+_layTries > LAY_RETRY_MAX\\)\\{ _layDone = true; app\\.removeListener\\('gpu-info-update', _layOnGpu\\); (_showLabBlockedGuide\\(\\); )?return; \\}\\s*overlay\\." + fn + "\\('재시도").test(code)
+      && /if\(!\/\^blocked\/\.test\(overlay\.layeredState\(\)\)\)\{ _layDone = true; app\.removeListener/.test(code);
+    const restoreOnce = new RegExp("overlay\\." + fn + "\\('초기화 뒤 다시 켜기'\\)").test(code) && /_labVideoAsked = true;\s*try\{ saveSettings\(\); \}catch\(_\)\{\}/.test(code);
+    chk(calls === 4 && retryBounded && restoreOnce, '★ 부르는 자리가 4곳이다(부팅 · 토글 · 부팅 재시도(상한 · 풀리면 멈춤) · 초기화 뒤 다시 켜기 1회) — 실제 ' + calls
+      + '곳' + (retryBounded ? '' : ' · 재시도 상한/멈춤 확인 못 함') + (restoreOnce ? '' : ' · 다시 켜기가 한 번뿐인지 확인 못 함') + '. 늘었다면 주기 호출이 아닌지 확인할 것');
     chk(new RegExp(callRe + "\\s*\\(\\s*'부팅'").test(code), '  부팅 때 한 번 건다');
     /* ★ 글자 수 창(`{0,400}`)을 쓰지 않는다 — 주석 몇 줄이 늘면 그대로 어긋난다.
        핸들러 본문을 중괄호로 떼어 본다(핸드오프 §5-① · gap 4절과 같은 방식). */
