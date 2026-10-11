@@ -353,7 +353,7 @@ export function editChanges(
 
 /**
  * 수정 쓰기 한 묶음 — 앱 listEntry · contentEntry 와 같은 모양으로 맞춘다.
- *   목록 줄: vis · cat · title(비공개 글도 제목은 목록 줄에 둔다 — 이름은 앱이 «익명» 으로 가린다)
+ *   목록 줄: vis · cat · title(공개 글만 — 비공개 글 목록 줄엔 제목을 두지 않는다. 누구나 읽는 노드다)
  *   내용: 공개면 pub/{id}, 비공개면 prv/{authUid}/{id}. 공개 범위가 바뀌면 옛 자리는 null. env 는 그대로 옮긴다.
  *   공개 → 비공개: 공개 답변(ans/pub — 누구나 읽음)을 같은 id 로 ans/prv 에 옮긴다.
  *     앱은 비공개 글의 ans/pub 을 읽지 않아, 그대로 두면 답변이 안 보이면서 바깥에선 읽힌다.
@@ -373,7 +373,7 @@ export function editWrite(
   const updates: Record<string, unknown> = {
     [`${base}/vis`]: input.vis,
     [`${base}/cat`]: input.cat,
-    [`${base}/title`]: title,
+    [`${base}/title`]: input.vis === 'pub' ? title : null,
     [to]: { title, body, ...(content?.env ? { env: content.env } : {}) },
   };
   if (from !== to) updates[from] = null;
