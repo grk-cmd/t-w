@@ -288,6 +288,42 @@ await sec('── 6. app.js 배선', () => {
   chk(!!got && typeof got.open === 'function' && got.close() === undefined && got.editEnd() === undefined, '모듈이 안 실려도 그 자리는 서지 않는다(빈 껍데기)');
 });
 
+await sec('── 7. 런처에서 잘리지 않게 — 크기 · 회전도 창 안으로 (app.js 판정 실행)', () => {
+  /* 런처는 OS 창(MODE_SIZE.myhome 800×580)이 마이홈(760 폭)보다 조금만 커서, 창 밖으로 삐져나간 스티커가 잘린다.
+     실행 화면은 창이 화면 전체라 보였다 — 그래서 «실행에선 보이고 런처에선 잘린다» 는 제보가 됐다. */
+  const grab = (name) => (APP.match(new RegExp('function ' + name + '\\([^)]*\\)\\{[\\s\\S]*?\\n\\}')) || [''])[0];
+  const fns = ['_mhStickerDispSize', '_mhStickerBox', '_mhClampStickerPos', '_mhStickerOutOfView'].map(grab);
+  chk(fns.every(Boolean), 'app.js 에서 크기 · 바깥 상자 · 붙잡기 · 밖 판정 넷을 찾았다');
+  const box = { Math, STICKER_BASE: 40, _mhHomeWinSize: () => ({ W: 760, H: 520 }) };
+  vm.runInNewContext(fns.join('\n') + '\nthis.F = { box: _mhStickerBox, clamp: _mhClampStickerPos, out: _mhStickerOutOfView };', box);
+  const F = box.F;
+  const inside = (st) => { const b = F.box(st); const x = st.x + b.dx, y = st.y + b.dy; return x >= -0.6 && y >= -0.6 && x + b.w <= 760.6 && y + b.h <= 520.6; };
+  // 회전 없음 — 예전과 같다
+  const a = F.clamp({ x: 900, y: 600 });
+  chk(a.x === 720 && a.y === 480 && !a.size, '  회전 · 크기 없으면 예전 규칙 그대로(40px 상자를 창 안으로)');
+  // 45° 회전 — 모서리까지 창 안
+  const r = F.clamp({ x: 740, y: 0, rot: 45 });
+  chk(inside(r) && r.x < 720 && r.y > 0, '★ 45° 돌린 스티커는 튀어나온 모서리까지 창 안으로 (x ' + r.x + ' · y ' + r.y + ')');
+  // 크기 8배(320px) 를 오른쪽 아래 구석에서 — 창 안으로 당겨짐
+  const big = F.clamp({ x: 700, y: 480, size: 8 });
+  chk(inside(big) && big.size === 8, '★ 크게 키운 스티커는 창 안으로 당겨진다(크기는 그대로 · 창에 들어가면)');
+  // 창보다 큰 크기 — 크기를 줄여 들어가게
+  const huge = F.clamp({ x: 0, y: 0, w: 400, h: 400, size: 8 });   // 표시 폭 88 × 8 = 704 정사각 → 세로 520 초과
+  chk(inside(huge) && huge.size < 8 && huge.size >= 0.3, '★ 창보다 크면 크기부터 줄인다 (size ' + huge.size + ')');
+  chk(F.out({ x: 700, y: 480, size: 8 }) && !F.out(big) && F.out({ x: 740, y: 0, rot: 45 }) && !F.out(r), '  밖 판정도 회전 · 크기 바깥 상자로 본다');
+  // 손잡이 — 크기 · 회전 중에도 붙잡는다
+  const rz = (MOD.match(/function _mhBindStickerResize\([\s\S]*?\n\}/) || [''])[0];
+  const rt = (MOD.match(/function _mhBindStickerRotate\([\s\S]*?\n\}/) || [''])[0];
+  chk(/s\.size = Math\.max\(0\.3, Math\.min\(8, startSize \+ delta\)\);[^\n]*\n\s*_mhClampStickerPos\(s\);/.test(rz) && /el\.style\.left = s\.x \+ 'px'; el\.style\.top = s\.y \+ 'px';/.test(rz),
+    '★ 크기 핸들 — 끄는 동안 창 안으로 붙잡고 자리도 다시 그린다');
+  chk(/s\.rot = deg;\s*_mhClampStickerPos\(s\);/.test(rt) && /node\.style\.left = s\.x \+ 'px'; node\.style\.top = s\.y \+ 'px';/.test(rt),
+    '★ 회전 핸들 — 돌리는 동안 창 안으로 붙잡고 자리도 다시 그린다');
+  // 그리기 — 이미 밖에 있는 옛 스티커는 그릴 때만 안으로(저장 값은 그대로)
+  const rd = (APP.match(/function renderMyHomeStickers\(\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(/const pos = _mhStickerOutOfView\(s\) \? _mhClampStickerPos\(Object\.assign\(\{\}, s\)\) : s;/.test(rd) && /el\.style\.left=\(pos\.x\|\|0\)\+'px'; el\.style\.top=\(pos\.y\|\|0\)\+'px';/.test(rd)
+    && /_mhStickerTransform\(pos\)/.test(rd), '★ 밖에 나간 옛 스티커는 그릴 때만 창 안으로 — 복사본으로(관람 중인 친구 것 · 저장 값을 안 바꾼다)');
+});
+
 say('');
 say(fail ? ('✗ ' + fail + '건 어긋남 · 통과 ' + pass) : ('✅ 전부 통과 ' + pass));
 console.log(pass + ' · ' + fail);
