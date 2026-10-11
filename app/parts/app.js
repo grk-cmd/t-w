@@ -12551,26 +12551,45 @@ function _mhHomeWinSize(){
   const win = document.getElementById('myHomeWin');
   return { W: (win && win.clientWidth) || 760, H: (win && win.clientHeight) || 560 };
 }
+/* 📐 화면에 실제로 차지하는 사각형 — (x, y) 에서 얼마나 떨어진 곳(dx, dy)에 얼마만한(w, h) 상자인가.
+   .mh-sticker 의 회전은 크기 맞춘 상자의 **가운데**를 축으로 돈다(_mhStickerTransform) — 돌리면 모서리가
+   원래 상자 밖으로 나오므로 그 바깥 상자까지 본다. 회전이 없으면 dx = dy = 0, 크기는 _mhStickerDispSize 그대로. */
+function _mhStickerBox(s){
+  const d = _mhStickerDispSize(s);
+  const rad = ((s && typeof s.rot === 'number') ? s.rot : 0) * Math.PI / 180;
+  const c = Math.abs(Math.cos(rad)), n = Math.abs(Math.sin(rad));
+  const w = d.w * c + d.h * n, h = d.w * n + d.h * c;
+  return { dx: (d.w - w) / 2, dy: (d.h - h) / 2, w, h };
+}
 /* 스티커를 마이홈 창 안에 붙잡아 둔다.
    [왜] 예전엔 스티커 폭의 60%까지 창 밖으로 나가는 걸 허용했다. 그런데 마이홈 창은 overflow가 잘려서,
         일단 밖으로 나가면 화면에 아무것도 안 남는다 — 보이지 않으니 우클릭도 드래그도 못 하고,
         그 스티커는 되찾을 방법이 없어졌다(제보 증상). 통째로 안에 두는 편이 잃는 게 없다.
+   [제보] 크기 조절 · 회전은 이 함수를 안 거쳐서 창 밖으로 삐져나갔다. 실행 화면은 창이 화면 전체라 보이지만
+        런처는 OS 창이 마이홈보다 조금만 커서(MODE_SIZE.myhome) 그 부분이 잘렸다 — 그래서 회전한 바깥 상자로 보고,
+        창보다 크면 크기(size)부터 줄인다.
    ★ 그래도 이미 밖으로 나간 옛 스티커가 있으므로, 관리 창의 [가운데로]가 구제 수단으로 남는다. */
 function _mhClampStickerPos(s){
   if(!s) return s;
   const { W, H } = _mhHomeWinSize();
-  const d = _mhStickerDispSize(s);
-  s.x = Math.round(Math.max(0, Math.min(s.x||0, Math.max(0, W - d.w))));
-  s.y = Math.round(Math.max(0, Math.min(s.y||0, Math.max(0, H - d.h))));
+  let b = _mhStickerBox(s);
+  if(b.w > W || b.h > H){
+    const k = Math.min(W / b.w, H / b.h);
+    const cur = (typeof s.size === 'number' && s.size > 0) ? s.size : 1;
+    s.size = Math.max(0.3, Math.floor(cur * k * 100) / 100);
+    b = _mhStickerBox(s);
+  }
+  s.x = Math.round(Math.max(-b.dx, Math.min(s.x||0, W - b.w - b.dx)));
+  s.y = Math.round(Math.max(-b.dy, Math.min(s.y||0, H - b.h - b.dy)));
   return s;
 }
 /* 지금 마이홈 창 밖으로 (일부라도) 나가 있는가 — 관리 창의 '화면 밖' 배지 판정 */
 function _mhStickerOutOfView(s){
   if(!s) return false;
   const { W, H } = _mhHomeWinSize();
-  const d = _mhStickerDispSize(s);
-  const x = s.x||0, y = s.y||0;
-  return x < 0 || y < 0 || (x + d.w) > W || (y + d.h) > H;
+  const b = _mhStickerBox(s);
+  const x = (s.x||0) + b.dx, y = (s.y||0) + b.dy;
+  return x < -0.5 || y < -0.5 || (x + b.w) > W + 0.5 || (y + b.h) > H + 0.5;
 }
 
 /* 지금 화면에 그릴 스티커 데이터 — 관람 중이면 그 친구 것, 아니면 내 것 */
@@ -12604,7 +12623,10 @@ function renderMyHomeStickers(){
     }
     if(s.anim) el.classList.add('a-'+s.anim);
     if(s.animSpd) el.classList.add('spd-'+s.animSpd);
-    el.style.left=(s.x||0)+'px'; el.style.top=(s.y||0)+'px'; el.dataset.sid=sid;
+    // 밖에 나가 있는 옛 스티커는 **그릴 때만** 창 안으로 — 저장 값은 그대로 둔다(관람 중인 친구 것일 수도 있다).
+    //   런처는 OS 창이 마이홈보다 조금만 커서 밖에 나간 부분이 잘린다(_mhClampStickerPos 주석).
+    const pos = _mhStickerOutOfView(s) ? _mhClampStickerPos(Object.assign({}, s)) : s;
+    el.style.left=(pos.x||0)+'px'; el.style.top=(pos.y||0)+'px'; el.dataset.sid=sid;
     // 새 스티커는 원본 비율(w/h)을 가짐. 옛 스티커는 w/h가 없으므로 CSS 기본(40×40 정사각) 유지.
     if(s.w && s.h){
       const baseW = Math.min(s.w, STICKER_BASE * 2.2);   // 화면상 기본 표시 폭(size=1일 때)
@@ -12612,7 +12634,7 @@ function renderMyHomeStickers(){
       el.style.height = Math.round(baseW * (s.h / s.w)) + 'px';
     }
     const alpha = (typeof s.alpha==='number') ? Math.max(0, Math.min(1, s.alpha)) : 1;
-    const tf = _mhStickerTransform(s);
+    const tf = _mhStickerTransform(pos);
     if(tf) el.style.transform = tf;
     if(alpha !== 1) el.style.opacity = String(alpha);
 
