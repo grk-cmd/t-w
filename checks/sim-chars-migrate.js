@@ -204,7 +204,7 @@ async function sec7(){
   const mk7 = (enabled, localTs) => new Function('window', 'firebaseAPI', 'localStorage', 'MY_USER_ID_KEY', 'LS_KEY', '_slotsTs', '_slotsNow', 'CHAR_SLOT_MAX', 'SLOTS_TS_SKEW_TOL_MS', 'console',
       '_roomFaceCacheLoad', '_roomFaceCacheSave', '_slotGlbCacheLoad', '_slotGlbCacheSave', '_slotToServerObj', '_slotFromServerObj', 'SLOT_JSON_MAX',
       '_slotsBackupSave', '_slotsFilledCount', 'slots', '_faceEverDrawn', '_blinkEverDrawn', 'loadSlots',
-      quick + '\n' + fields + '\n' + merge + '\n' + body + '\n' + orch.replace(/const CHARS_SYNC_ENABLED = (?:true|false);/, 'const CHARS_SYNC_ENABLED = ' + (enabled ? 'true' : 'false') + ';') +
+      'function _relinkSeatsToSlots(){}\n' + quick + '\n' + fields + '\n' + merge + '\n' + body + '\n' + orch.replace(/const CHARS_SYNC_ENABLED = (?:true|false);/, 'const CHARS_SYNC_ENABLED = ' + (enabled ? 'true' : 'false') + ';') +
       '\nreturn { _charsPlanLocalAdopt, _charsLocalAdopt };')(
       { firebaseAPI: api }, api,
       { getItem: k => (k in lsx ? lsx[k] : null), setItem: (k, v) => { lsx[k] = String(v); } },
@@ -309,7 +309,7 @@ async function sec8(){
     const f = new Function('window', 'firebaseAPI', 'localStorage', 'MY_USER_ID_KEY', 'LS_KEY', '_slotsTs', '_slotsNow', 'CHAR_SLOT_MAX', 'SLOTS_TS_SKEW_TOL_MS', 'console',
       '_roomFaceCacheLoad', '_roomFaceCacheSave', '_slotGlbCacheLoad', '_slotGlbCacheSave', '_slotToServerObj', '_slotFromServerObj', 'SLOT_JSON_MAX',
       '_slotsBackupSave', '_slotsFilledCount', 'slots', '_faceEverDrawn', '_blinkEverDrawn', 'loadSlots', 'saveSlots', 'toast', 'creatorOpen', 'setTimeout', 'clearTimeout',
-      quick + '\n' + fields + '\n' + merge + '\n' + body + '\n' + orch.replace(/const CHARS_SYNC_ENABLED = (?:true|false);/, 'const CHARS_SYNC_ENABLED = ' + (enabled ? 'true' : 'false') + ';') +
+      'function _relinkSeatsToSlots(){}\n' + quick + '\n' + fields + '\n' + merge + '\n' + body + '\n' + orch.replace(/const CHARS_SYNC_ENABLED = (?:true|false);/, 'const CHARS_SYNC_ENABLED = ' + (enabled ? 'true' : 'false') + ';') +
       '\nreturn { ' + need.concat(has10).join(', ') + ', gen: () => _charsGen, bump: () => { _charsGen++; } };');
     const o = f({ firebaseAPI: api }, api,
       { getItem: k => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); }, removeItem: k => { delete ls[k]; } },
@@ -676,7 +676,7 @@ else{
   };
   const ls = {};
   const run = (stub, enabled, slotsTs) => new Function('window', 'firebaseAPI', 'localStorage', 'MY_USER_ID_KEY', 'LS_KEY', '_slotsTs', '_slotsNow', 'CHAR_SLOT_MAX', 'SLOTS_TS_SKEW_TOL_MS', 'console',
-      quick + '\n' + fields + '\n' + merge + '\n' + body + '\n' + orch.replace(/const CHARS_SYNC_ENABLED = (?:true|false);/, 'const CHARS_SYNC_ENABLED = ' + (enabled ? 'true' : 'false') + ';') +
+      'function _relinkSeatsToSlots(){}\n' + quick + '\n' + fields + '\n' + merge + '\n' + body + '\n' + orch.replace(/const CHARS_SYNC_ENABLED = (?:true|false);/, 'const CHARS_SYNC_ENABLED = ' + (enabled ? 'true' : 'false') + ';') +
       '\nreturn { _charsServerMigrate, charsMigrateDryRun };')(
       { firebaseAPI: stub.api }, stub.api,
       { getItem: k => (k in ls ? ls[k] : null), setItem: (k, v) => { ls[k] = String(v); } },
