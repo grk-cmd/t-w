@@ -70,7 +70,7 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
   }
 }
 
-say('§4 영상 겹침 실험이 재부팅 후 꺼짐 — 부팅 판정이 막히면 GPU 준비 뒤 한 번 더');
+say('§4 영상 겹침 실험이 재부팅 후 꺼짐 — 부팅 판정이 막히면 GPU 준비 뒤 풀릴 때까지 몇 번 더');
 {
   const MAIN = (() => { for (const c of ['main.js', '../main.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
   if (!MAIN) chk(false, 'main.js 를 찾았다');
@@ -78,9 +78,39 @@ say('§4 영상 겹침 실험이 재부팅 후 꺼짐 — 부팅 판정이 막�
     const i = MAIN.indexOf("overlay.applyLayered('부팅');");
     const blk = MAIN.slice(i, i + 2200);
     chk(i > 0 && /if\(\/\^blocked\/\.test\(overlay\.layeredState\(\)\) && overlay\.alpha\(\) > 0 && overlay\.alpha\(\) < 255\)\{/.test(blk), '★ 부팅이 blocked 이고 실험이 켜져 있을 때만 재시도를 건다');
-    chk(/app\.once\('gpu-info-update'/.test(blk) && /webContents\.once\('did-finish-load'/.test(blk), '  gpu-info-update · did-finish-load 중 먼저 오는 쪽');
-    chk(/if\(_layRetried \|\| !mainWindow \|\| mainWindow\.isDestroyed\(\)\) return;\s*_layRetried = true;/.test(blk), '  딱 한 번 (주기 호출 없음)');
-    chk(/overlay\.applyLayered\('재시도\(' \+ why \+ '\)'\)/.test(blk), '  재시도도 같은 함수 — GPU 합성 꺼짐 보호(10-01)를 그대로 지난다');
+    chk(/app\.on\('gpu-info-update', _layOnGpu\)/.test(blk) && /webContents\.once\('did-finish-load'[\s\S]{0,80}LAY_RETRY_DELAYS_MS\.forEach/.test(blk), '  gpu-info-update 마다 · 화면이 뜬 뒤 몇 번(LAY_RETRY_DELAYS_MS)');
+    chk(/if\(\+\+_layTries > LAY_RETRY_MAX\)\{ _layDone = true; app\.removeListener\('gpu-info-update', _layOnGpu\); return; \}/.test(blk)
+      && /if\(!\/\^blocked\/\.test\(overlay\.layeredState\(\)\)\)\{ _layDone = true; app\.removeListener/.test(blk), '★ 풀리면 바로 멈추고 상한(LAY_RETRY_MAX)도 있다 — 주기 호출 없음 (B-1010-21 · B-1011-1: 예전엔 첫 시도에 덜 준비돼 있으면 끝이었다)');
+    {
+      const m = MAIN.match(/const LAY_RETRY_MAX = (\d+);[^\n]*\nconst LAY_RETRY_DELAYS_MS = \[([\d, ]+)\];/);
+      chk(!!m && +m[1] <= 10 && m[2].split(',').length <= 5, '  상한 ≤ 10번 · 시간 재시도 ≤ 5번 (' + (m ? m[1] + ' · ' + m[2] : '없음') + ')');
+    }
+    chk(/overlay\.applyLayered\('재시도 ' \+ _layTries \+ '\(' \+ why \+ '\)'\)/.test(blk), '  재시도도 같은 함수 — GPU 합성 꺼짐 보호(10-01)를 그대로 지난다');
+    // 흉내: gpu-info-update 가 세 번 오는데 처음 두 번은 아직 막힘 → 셋째에 걸리고 그 뒤로는 안 부른다
+    {
+      const src = (blk.match(/let _layTries = 0[\s\S]*?const _layOnGpu = \(\)=>_layRetry\('gpu-info-update'\);/) || [''])[0];
+      let state = 'blocked', calls = 0, removed = 0, unblockAt = 3;
+      const ov = { applyLayered() { calls++; if (calls >= unblockAt) state = 'on(alpha 252)'; }, layeredState: () => state };
+      const appS = { removeListener() { removed++; } };
+      const f = new Function('overlay', 'app', 'mainWindow', 'LAY_RETRY_MAX', src + '\nreturn _layOnGpu;')(ov, appS, { isDestroyed: () => false }, 8);
+      for (let i = 0; i < 6; i++) f();
+      chk(calls === 3 && removed === 1, '  흉내 — 두 번 막혀도 셋째에 걸리고 그 뒤로는 안 부른다 (부른 수 ' + calls + ')');
+      state = 'blocked'; calls = 0; removed = 0; unblockAt = 999;
+      const g = new Function('overlay', 'app', 'mainWindow', 'LAY_RETRY_MAX', src + '\nreturn _layOnGpu;')(ov, appS, { isDestroyed: () => false }, 8);
+      for (let i = 0; i < 20; i++) g();
+      chk(calls === 8 && removed === 1, '  흉내 — 끝내 안 풀리면 8번에서 멈춘다 (부른 수 ' + calls + ')');
+    }
+    // 초기화로 꺼진 실험을 다시 켤지 묻기 (B-1010-21 · B-1011-1)
+    {
+      const offer = (MAIN.match(/function _labVideoRestoreOffer\(\)\{[\s\S]*?\n\}/) || [''])[0];
+      const ask = (MAIN.match(/function _askLabVideoRestore\(\)\{[\s\S]*?\n\}/) || [''])[0];
+      chk(/_labVideoAsked/.test(offer) && /before-reset\.json/.test(offer) && /_settingsLegacyRisky\(bak\)/.test(offer) && /overlay\.alpha\(\) > 0 && overlay\.alpha\(\) < 255\) return false/.test(offer),
+        '★ 다시 켤지 묻는 대상 = 백업에 실험이 켜져 있었고 · 지금 꺼져 있고 · 아직 안 물었다');
+      chk(/_labVideoAsked = true;\s*try\{ saveSettings\(\); \}catch\(_\)\{\}/.test(ask) && /buttons: \['다시 켜기', '그대로 두기'\]/.test(ask)
+        && /overlay\.setAlpha\(overlay\.LAYERED_ALPHA_ON\);[\s\S]*?overlay\.applyLayered\(/.test(ask), '  묻기 전에 «물었음» 을 저장(한 번만) · [다시 켜기] 는 토글과 같은 길(setAlpha → 저장 → applyLayered)');
+      chk(/labVideoAsked: _labVideoAsked/.test(MAIN) && /if\(data\.labVideoAsked === true\) _labVideoAsked = true;/.test(MAIN), '  «물었음» 이 설정 파일에 남는다');
+      chk(/webContents\.once\('did-finish-load', \(\)=>setTimeout\(_askLabVideoRestore, LAB_RESTORE_ASK_DELAY_MS\)\)/.test(MAIN), '  화면이 뜬 뒤(초기화 안내 토스트 다음)에 묻는다');
+    }
     const W = (() => { for (const c of ['overlay-win.js', '../overlay-win.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
     chk(!!W && /if\(_gpuCompositingOff\(\)\)\{\s*_layeredState = 'blocked\(GPU 합성 꺼짐\)';/.test(W), '  그 보호 줄이 overlay-win.js 에 그대로 있다');
     chk(/companion:getLabVideo'[\s\S]{0,200}state: overlay\.layeredState\(\)/.test(MAIN) && /setLabVideo'[\s\S]{0,700}state: overlay\.layeredState\(\)/.test(MAIN), '설정 조회 · 토글이 실제 적용 상태(state)를 돌려준다');

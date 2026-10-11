@@ -26673,7 +26673,8 @@ if(document.getElementById('progLabVideoToggle')){
     try{
       const r = await companion.setLabVideo(wantOn);
       const v = _labVideoShow(btn, r);
-      toast(v.blocked ? '켜 두었지만 이 PC 에서는 적용되지 않아요' : (v.on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요'));
+      // 켰다 끈 창은 앱을 다시 켤 때까지 불투명 레이어드로 남아 처음(미적용)보다 영상을 더 가린다 — overlay-win.js 끄기 갈래
+      toast(v.blocked ? '켜 두었지만 이 PC 에서는 적용되지 않아요' : (v.on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요 — 앱을 다시 켜면 완전히 꺼져요'), null, v.on ? 0 : 5000);
     }catch(e){ toast('설정에 실패했어요'); }
   };
 }
