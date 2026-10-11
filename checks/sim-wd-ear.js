@@ -267,6 +267,31 @@ const cam = grab(A, 'updateWdCam');
 chk(/_wdEarCamOn\(\)/.test(cam) && /WD_EAR_CAM_ZOOM/.test(cam) && /WD_EAR_CAM_LIFT/.test(cam), '귀 탭 — 미리보기 구도를 올리고 물러선다(귀가 화면 밖이던 것)');
 chk(/try\{ return wdEar\.isActive\(\); \}catch\(_\)\{ return false; \}/.test(grab(A, '_wdEarCamOn')), '구도 판정은 wdEar 준비 전에도 안전');
 
+say('── 3-e. 저장 · 불러오기 — 껐다 켜도 귀가 남는다 (제보: 귀를 고르고 재부팅하면 초기화)');
+{
+  /* slotToObj 를 떼어 실제로 돌린다 — 귀 다섯 칸이 실리는지, 귀가 없는 칸은 예전과 한 글자도 같은지(옛 칸 ts 가 일제히 오르면 안 된다) */
+  const grabFn = (name) => { const i = APP.indexOf('function ' + name + '('); if(i < 0) return null; const j = APP.indexOf('\n}', i); const k = APP.indexOf(':null;}', i); const end = (k > 0 && (j < 0 || k < j)) ? k + 7 : j + 2; return APP.slice(i, end); };
+  const s2o = grabFn('slotToObj'), img = grabFn('_slotImgToDataUrl');
+  let F = null;
+  try{ F = new Function(img + '\n' + s2o + '\nreturn slotToObj;')(); }catch(e){ chk(false, 'slotToObj 를 떼어 오지 못함 — ' + e.message); }
+  if(F){
+    const base = { skin: 1, top: 2, bot: 3, face: 'data:image/png;base64,AA', blink: 'data:image/png;base64,BB' };
+    const noEar = F(base);
+    chk(!['earL', 'earR', 'earAdj', 'earPicL', 'earPicR'].some(k => k in noEar), '★ 귀가 없는 칸은 귀 칸을 아예 안 싣는다(옛 저장본과 같은 글자 — 첫 저장이 «달라짐» 이 되지 않는다)');
+    const withEar = F(Object.assign({}, base, { earL: 'cat', earR: 'fox', earAdj: { L: { s: 1.2 }, R: { s: 1 } }, earPicL: 'https://fb/l.png', earPicR: 'data:image/png;base64,EE' }));
+    chk(withEar.earL === 'cat' && withEar.earR === 'fox' && withEar.earAdj.L.s === 1.2 && withEar.earPicL === 'https://fb/l.png' && withEar.earPicR === 'data:image/png;base64,EE',
+      '★ slotToObj 가 귀 종류 · 조정값 · 그림(올리기 전 dataURL 포함)을 싣는다 — 로컬 저장은 그림이 사라지지 않게');
+  }
+  chk(/if\(o\.earL\)_d\.earL=o\.earL;if\(o\.earR\)_d\.earR=o\.earR;if\(o\.earAdj\)_d\.earAdj=o\.earAdj;if\(o\.earPicL\)_d\.earPicL=o\.earPicL;if\(o\.earPicR\)_d\.earPicR=o\.earPicR;/.test(APP),
+    '★ loadSlots 가 귀 다섯 칸을 되살린다(slotToObj 와 1:1)');
+  chk(/\['earPicL','earPicR'\]\.forEach\(k=>\{ if\(typeof out\[k\]==='string' && out\[k\]\.startsWith\('data:'\)\) delete out\[k\]; \}\);\s*return out;\s*\}/.test(APP),
+    '  서버로 올릴 때 dataURL 귀 그림은 뺀다(칸 상한 150KB · 방 전송과 같은 규칙)');
+  chk(/\['earL','earR','earAdj','earPicL','earPicR'\]\.forEach\(k=>\{ if\(currentCreatorDef\[k\]!=null\) def\[k\]=currentCreatorDef\[k\]; \}\);/.test(APP),
+    '  생성기 [완료] 가 귀를 이어받는다(꾸미기 파츠와 같은 이유)');
+  chk(/earL:def\.earL\|\|null,earR:def\.earR\|\|null,earAdj:def\.earAdj\|\|null,/.test(APP) && /if\(!o\.animal\)\{ if\(o\.earL\)_d\.earL=o\.earL;/.test(APP),
+    '  캐릭터 코드 내보내기 · 가져오기에도 귀');
+}
+
 say('── 4. html · smoke');
 const HTML = SRC['desk-companion-prototype.html'];
 const iH = HTML.indexOf('<script src="parts/human-ear.js">'), iW = HTML.indexOf('<script src="parts/wd-ear.js">'), iA = HTML.indexOf('<script src="parts/app.js">');

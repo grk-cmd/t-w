@@ -23470,6 +23470,10 @@ function _creatorBuildDef(forSize){
   //   있던 값을 그대로 이어받음.
   if(currentCreatorDef && currentCreatorDef.equippedParts) def.equippedParts = currentCreatorDef.equippedParts;
   if(currentCreatorDef && currentCreatorDef.partXfMemory) def.partXfMemory = currentCreatorDef.partXfMemory;
+  // 👂 사람 귀도 꾸미기에서 정한다 — 같은 이유로 그대로 이어받는다(필드는 slotToObj/loadSlots 와 1:1)
+  if(currentCreatorDef && !currentCreatorDef.animal){
+    ['earL','earR','earAdj','earPicL','earPicR'].forEach(k=>{ if(currentCreatorDef[k]!=null) def[k]=currentCreatorDef[k]; });
+  }
   // 🐾 동물 캐릭터로 진입했다면 동물 확장 필드를 새 def에 그대로 승계 — 이게 빠져 있어서 책상·좌석 세팅 후
   //   [완료]를 누르는 순간 슬롯이 순수 인간 def로 덮어써지고(animal 표식까지 소실), 런처 카드·실행화면 모두
   //   기본 캐릭터로 나오던 버그의 근본 원인. 필드 목록은 slotToObj/loadSlots와 1:1로 맞출 것.
@@ -30390,7 +30394,11 @@ function _slotImgToDataUrl(c, what){
 }
 function slotToObj(d){return d?{skin:d.skin||0,top:d.top,bot:d.bot,xf:d.xf||null,decor:d.decor||null,deskColor:d.deskColor||null,deskItems:d.deskItems||null,deskGlb:d.deskGlb||null,deskCatalogId:d.deskCatalogId||null,deskScale:d.deskScale||null,deskLenX:d.deskLenX||null,deskPos:d.deskPos||null,customItems:d.customItems||null,isCommission:d.isCommission||false,commName:d.commName||null,commGlb:d.commGlb||null,equippedParts:d.equippedParts||null,partXfMemory:d.partXfMemory||null,thumb:d.thumb||null,...(d.thumbUrl?{thumbUrl:d.thumbUrl}:{}),face:_slotImgToDataUrl(d.face,'얼굴'),blink:_slotImgToDataUrl(d.blink,'감은눈'),
   // 🐾 동물 캐릭터 확장 필드 — 구버전은 이 키들을 무시하고 기본 인간으로 폴백
-  animal:d.animal||false,animalFace:d.animalFace||0,animalScl:d.animalScl||null,animalEarL:d.animalEarL||null,animalEarR:d.animalEarR||null,animalEarAdj:d.animalEarAdj||null,animalBody:d.animalBody||null,animalEarPaintL:d.animalEarPaintL||null,animalEarPaintR:d.animalEarPaintR||null,animalEarBlinkL:d.animalEarBlinkL||null,animalEarBlinkR:d.animalEarBlinkR||null,animalBlink:d.animalBlink||null}:null;}
+  animal:d.animal||false,animalFace:d.animalFace||0,animalScl:d.animalScl||null,animalEarL:d.animalEarL||null,animalEarR:d.animalEarR||null,animalEarAdj:d.animalEarAdj||null,animalBody:d.animalBody||null,animalEarPaintL:d.animalEarPaintL||null,animalEarPaintR:d.animalEarPaintR||null,animalEarBlinkL:d.animalEarBlinkL||null,animalEarBlinkR:d.animalEarBlinkR||null,animalBlink:d.animalBlink||null,
+  // 👂 사람 귀(꾸미기 › 머리 › 귀 — wd-ear.js) — 이 다섯 칸이 빠져 있어서 귀를 고르고 껐다 켜면 사라졌다(제보). loadSlots 와 1:1
+  //   ⚠️ thumbUrl 처럼 **있을 때만** 싣는다 — 늘 실으면 귀가 없는 옛 칸까지 첫 저장이 «달라짐» 이 되어 slots ts 가 일제히 오른다
+  ...(d.earL?{earL:d.earL}:{}),...(d.earR?{earR:d.earR}:{}),...(d.earAdj?{earAdj:d.earAdj}:{}),
+  ...(typeof d.earPicL==='string'&&d.earPicL?{earPicL:d.earPicL}:{}),...(typeof d.earPicR==='string'&&d.earPicR?{earPicR:d.earPicR}:{})}:null;}
 /* ⚠️ 예전엔 `slots.map(slotToObj)` 를 통째로 try 하나에 넣고 catch 를 비워 뒀다.
      slotToObj 는 `d.face.toDataURL(...)` 를 가드 없이 부르므로, face 가 캔버스가 아닌 슬롯이
      **하나만** 있어도 map 이 그 자리에서 던지고 **세 칸 전부**가 저장되지 않는다. 그것도 조용히 —
@@ -30496,6 +30504,8 @@ async function loadSlots(){let raw;try{raw=localStorage.getItem(LS_KEY);}catch(e
         if(o.equippedParts)_d.equippedParts=o.equippedParts;
         if(o.partXfMemory)_d.partXfMemory=o.partXfMemory;
         if(o.thumb)_d.thumb=o.thumb;if(o.thumbUrl)_d.thumbUrl=o.thumbUrl;
+        // 👂 사람 귀 복원 — slotToObj 와 1:1
+        if(o.earL)_d.earL=o.earL;if(o.earR)_d.earR=o.earR;if(o.earAdj)_d.earAdj=o.earAdj;if(o.earPicL)_d.earPicL=o.earPicL;if(o.earPicR)_d.earPicR=o.earPicR;
         // 🐾 동물 확장 복원
         if(o.animal){ _d.animal=true; _d.animalFace=o.animalFace||0; _d.animalScl=o.animalScl||null;
           _d.animalEarL=o.animalEarL||null; _d.animalEarR=o.animalEarR||null; _d.animalEarAdj=o.animalEarAdj||null;
@@ -30814,6 +30824,8 @@ async function _slotToServerObj(uid, o, faceSt, glbSt){
       walk(eq); out.equippedParts = eq;
     }catch(_){}
   }
+  // 👂 귀 그림도 같다 — 올리기 전 dataURL 이면 빼고(방 전송 serializeDefForNetwork 와 같은 규칙), 다음 저장에서 URL 로 실린다
+  ['earPicL','earPicR'].forEach(k=>{ if(typeof out[k]==='string' && out[k].startsWith('data:')) delete out[k]; });
   return out;
 }
 /* 서버용 한 칸 → 로컬 저장본(dataURL·base64). loadSlots 가 읽는 모양 그대로 — 그래서 loadSlots 는
@@ -32307,6 +32319,9 @@ async function encryptCode(def,pass){
   //   dataURL/JSON 형태라 그대로 담으면 된다(캔버스는 face/blink 두 개뿐).
   const payload=JSON.stringify({t:'creator',skin:def.skin||0,top:def.top,bot:def.bot,xf:def.xf||null,decor:def.decor||null,deskColor:def.deskColor||null,deskItems:def.deskItems||null,deskGlb:def.deskGlb||null,deskCatalogId:def.deskCatalogId||null,deskScale:def.deskScale||null,deskPos:def.deskPos||null,customItems:def.customItems||null,isCommission:def.isCommission||false,commName:def.commName||null,commGlb:def.commGlb||null,
     animal:def.animal||false,animalFace:def.animalFace||0,animalScl:def.animalScl||null,animalEarL:def.animalEarL||null,animalEarR:def.animalEarR||null,animalEarAdj:def.animalEarAdj||null,animalBody:_aTex[0],animalEarPaintL:_aTex[1],animalEarPaintR:_aTex[2],animalBlink:_aTex[3],animalEarBlinkL:_aTex[4],animalEarBlinkR:_aTex[5],
+    // 👂 사람 귀 — 종류 · 조정값 · 올린 그림(URL 만 — dataURL 은 코드가 너무 커진다)
+    earL:def.earL||null,earR:def.earR||null,earAdj:def.earAdj||null,
+    earPicL:(typeof def.earPicL==='string'&&!def.earPicL.startsWith('data:'))?def.earPicL:null,earPicR:(typeof def.earPicR==='string'&&!def.earPicR.startsWith('data:'))?def.earPicR:null,
     face:def.face.toDataURL('image/png'),blink:def.blink.toDataURL('image/png')});
   const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
   const key=await _deriveKey(pass,salt);
@@ -32324,6 +32339,8 @@ async function decryptCode(code,pass){
   const fc=newCanvas();fc.getContext('2d').drawImage(f,0,0);const bc=newCanvas();bc.getContext('2d').drawImage(b,0,0);
   {const _d=charDef(o.skin||0,fc,bc,o.top,o.bot);if(o.xf)_d.xf=o.xf;if(o.decor)_d.decor=o.decor;if(o.deskColor)_d.deskColor=o.deskColor;if(o.deskItems)_d.deskItems=o.deskItems;if(o.deskGlb)_d.deskGlb=o.deskGlb;if(o.deskCatalogId)_d.deskCatalogId=o.deskCatalogId;if(o.deskScale)_d.deskScale=o.deskScale;if(o.deskPos)_d.deskPos=o.deskPos;if(o.customItems)_d.customItems=o.customItems;
     if(o.isCommission){_d.isCommission=true;_d.commName=o.commName||'커미션';_d.commGlb=o.commGlb||null;}
+    // 👂 사람 귀 복원(옛 코드엔 없다)
+    if(!o.animal){ if(o.earL)_d.earL=o.earL; if(o.earR)_d.earR=o.earR; if(o.earAdj)_d.earAdj=o.earAdj; if(o.earPicL)_d.earPicL=o.earPicL; if(o.earPicR)_d.earPicR=o.earPicR; }
     // 🐾 동물 필드 복원 — slotToObj/objToSlot이 쓰는 필드명과 1:1 (crDone 승계 목록과 동일 세트)
     if(o.animal){
       _d.animal=true; _d.animalFace=o.animalFace||0; _d.animalScl=o.animalScl||null;
