@@ -178,7 +178,10 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     chk('rooms/PE/_meta' in r.srv, '멤버 칸을 못 읽어도 안 지운다');
 
     r = await run(room('SCRT-Q'));
-    chk(!('rooms/SCRT-Q/_meta' in r.srv) && !('roomIndex/SCRT-Q' in r.srv), '시크릿룸도 같은 길 — 줄은 비었음 표시로만 생기고 같이 걷힌다');
+    chk(!('roomIndex/SCRT-Q' in r.srv) && r.sum.emptied.secretKept === 1, '시크릿룸도 비었음 줄은 걷는다 (secretKept)');
+    chk('rooms/SCRT-Q/_meta' in r.srv && r.srv['rooms/SCRT-Q/_meta'].tabs && r.srv['rooms/SCRT-Q/_meta'].tabs.s1.name === '공부'
+      && 'rooms/SCRT-Q/_chatTab/s1/k1' in r.srv && 'rooms/SCRT-Q/chatLog/k1' in r.srv,
+      '★ 시크릿룸은 비어도 유지 — 방 표지(채팅 탭 목록) · 탭 대화 · #일반 대화를 모두 남긴다');
     r = await run({ 'roomIndex/GONE': { lastSeen: 0, emptyAt: now - 3 * MIN } });
     chk(!('roomIndex/GONE' in r.srv), '방 노드가 아예 없으면 줄만 걷는다');
 
