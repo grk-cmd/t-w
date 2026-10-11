@@ -26647,9 +26647,18 @@ function _labVideoShow(btn, r){
   const on = !!(r && r.on);
   const blocked = on && /^blocked/.test(String((r && r.state) || ''));
   btn.textContent = blocked ? '적용 안 됨' : (on ? '켜짐' : '꺼짐');
-  btn.title = blocked ? '켜 두었지만 이 PC 에서는 적용되지 않아요(그래픽 가속이 꺼져 있어요). 누르면 꺼져요.' : '';
+  btn.title = blocked ? '켜 두었지만 이 PC 에서는 적용되지 않았어요. 눌러 끈 뒤 다시 눌러 켜 보세요.' : '';
   btn.classList.toggle('on', on);
   return { on, blocked };
+}
+/* «적용 안 됨» 안내 — main.js 의 부팅 안내 창(_showLabBlockedGuide)과 같은 순서로 말한다. */
+const LAB_VIDEO_BLOCKED_GUIDE = '⚠️ 토글은 켜져 있지만 이 PC 에서 실제로는 적용되지 못했어요.\n'
+  + '① 버튼을 눌러 끈 뒤, 한 번 더 눌러 다시 켜 주세요.\n'
+  + '② 그래도 «적용 안 됨» 이면 마이홈 › 버그제보 탭에 알려 주세요. 아래 «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.';
+function _labVideoWarn(blocked){
+  const w = document.getElementById('progLabVideoWarn'); if(!w) return;
+  w.textContent = blocked ? LAB_VIDEO_BLOCKED_GUIDE : '';
+  w.style.display = blocked ? '' : 'none';
 }
 function refreshLabVideoUI(){
   const row = document.getElementById('progLabVideoRow');
@@ -26663,7 +26672,7 @@ function refreshLabVideoUI(){
   }
   row.style.display = '';
   if(hint) hint.style.display = '';
-  companion.getLabVideo().then(r=>{ _labVideoShow(btn, r); }).catch(()=>{ /* 조회 실패 — 마지막 표시를 그대로 둔다(값을 멋대로 꺼짐으로 보이면 안 된다) */ });
+  companion.getLabVideo().then(r=>{ _labVideoWarn(_labVideoShow(btn, r).blocked); }).catch(()=>{ /* 조회 실패 — 마지막 표시를 그대로 둔다(값을 멋대로 꺼짐으로 보이면 안 된다) */ });
 }
 if(document.getElementById('progLabVideoToggle')){
   document.getElementById('progLabVideoToggle').onclick = async ()=>{
@@ -26673,8 +26682,9 @@ if(document.getElementById('progLabVideoToggle')){
     try{
       const r = await companion.setLabVideo(wantOn);
       const v = _labVideoShow(btn, r);
+      _labVideoWarn(v.blocked);
       // 켰다 끈 창은 앱을 다시 켤 때까지 불투명 레이어드로 남아 처음(미적용)보다 영상을 더 가린다 — overlay-win.js 끄기 갈래
-      toast(v.blocked ? '켜 두었지만 이 PC 에서는 적용되지 않아요' : (v.on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요 — 앱을 다시 켜면 완전히 꺼져요'), null, v.on ? 0 : 5000);
+      toast(v.blocked ? '켜 두었지만 이 PC 에서는 적용되지 않았어요 — 아래 안내를 봐 주세요' : (v.on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요 — 앱을 다시 켜면 완전히 꺼져요'), null, v.on ? 0 : 5000);
     }catch(e){ toast('설정에 실패했어요'); }
   };
 }

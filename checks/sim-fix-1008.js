@@ -9,6 +9,7 @@ const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const APP = read('app.js');
 if (!APP) { say('  ? 원본 못 찾음 — app.js'); process.exit(2); }
+const HTML_SRC = (() => { for (const c of ['desk-companion-prototype.html', 'app/desk-companion-prototype.html']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return ''; })();
 
 say('§6 편집 → 완성 후 조는데 눈 뜸');
 {
@@ -79,7 +80,7 @@ say('§4 영상 겹침 실험이 재부팅 후 꺼짐 — 부팅 판정이 막�
     const blk = MAIN.slice(i, i + 2200);
     chk(i > 0 && /if\(\/\^blocked\/\.test\(overlay\.layeredState\(\)\) && overlay\.alpha\(\) > 0 && overlay\.alpha\(\) < 255\)\{/.test(blk), '★ 부팅이 blocked 이고 실험이 켜져 있을 때만 재시도를 건다');
     chk(/app\.on\('gpu-info-update', _layOnGpu\)/.test(blk) && /webContents\.once\('did-finish-load'[\s\S]{0,80}LAY_RETRY_DELAYS_MS\.forEach/.test(blk), '  gpu-info-update 마다 · 화면이 뜬 뒤 몇 번(LAY_RETRY_DELAYS_MS)');
-    chk(/if\(\+\+_layTries > LAY_RETRY_MAX\)\{ _layDone = true; app\.removeListener\('gpu-info-update', _layOnGpu\); return; \}/.test(blk)
+    chk(/if\(\+\+_layTries > LAY_RETRY_MAX\)\{ _layDone = true; app\.removeListener\('gpu-info-update', _layOnGpu\); (_showLabBlockedGuide\(\); )?return; \}/.test(blk)
       && /if\(!\/\^blocked\/\.test\(overlay\.layeredState\(\)\)\)\{ _layDone = true; app\.removeListener/.test(blk), '★ 풀리면 바로 멈추고 상한(LAY_RETRY_MAX)도 있다 — 주기 호출 없음 (B-1010-21 · B-1011-1: 예전엔 첫 시도에 덜 준비돼 있으면 끝이었다 · 제보자 로그로 확인)');
     {
       const m = MAIN.match(/const LAY_RETRY_MAX = (\d+);[^\n]*\nconst LAY_RETRY_DELAYS_MS = \[([\d, ]+)\];/);
@@ -93,13 +94,28 @@ say('§4 영상 겹침 실험이 재부팅 후 꺼짐 — 부팅 판정이 막�
       let state = 'blocked', calls = 0, removed = 0, unblockAt = 3;
       const ov = { applyLayered() { calls++; if (calls >= unblockAt) state = 'on(alpha 252)'; }, layeredState: () => state };
       const appS = { removeListener() { removed++; } };
-      const f = new Function('overlay', 'app', 'mainWindow', 'LAY_RETRY_MAX', src + '\nreturn _layOnGpu;')(ov, appS, { isDestroyed: () => false }, 8);
-      for (let i = 0; i < 6; i++) f();
-      chk(calls === 3 && removed === 1, '  흉내 — 두 번 막혀도 셋째에 걸리고 그 뒤로는 안 부른다 (부른 수 ' + calls + ')');
+      let guide = 0;
+      const mkF = () => new Function('overlay', 'app', 'mainWindow', 'LAY_RETRY_MAX', 'LAY_RETRY_LAST', '_showLabBlockedGuide', src + '\nreturn _layRetry;')(ov, appS, { isDestroyed: () => false }, 8, '마지막', () => { guide++; });
+      const f = mkF();
+      for (let i = 0; i < 6; i++) f('gpu-info-update');
+      chk(calls === 3 && removed === 1 && guide === 0, '  흉내 — 두 번 막혀도 셋째에 걸리고 그 뒤로는 안 부른다 · 안내 창 없음 (부른 수 ' + calls + ')');
       state = 'blocked'; calls = 0; removed = 0; unblockAt = 999;
-      const g = new Function('overlay', 'app', 'mainWindow', 'LAY_RETRY_MAX', src + '\nreturn _layOnGpu;')(ov, appS, { isDestroyed: () => false }, 8);
-      for (let i = 0; i < 20; i++) g();
-      chk(calls === 8 && removed === 1, '  흉내 — 끝내 안 풀리면 8번에서 멈춘다 (부른 수 ' + calls + ')');
+      const g = mkF();
+      for (let i = 0; i < 20; i++) g('gpu-info-update');
+      chk(calls === 8 && removed === 1 && guide === 1, '  흉내 — 끝내 안 풀리면 8번에서 멈추고 안내 창을 한 번 (부른 수 ' + calls + ' · 안내 ' + guide + ')');
+      state = 'blocked'; calls = 0; removed = 0; guide = 0;
+      const h = mkF();
+      h('did-finish-load+1.5s'); h('마지막'); h('gpu-info-update');
+      chk(calls === 2 && removed === 1 && guide === 1, '  흉내 — 마지막 시간 재시도까지 막혀 있으면 멈추고 안내 창을 한 번');
+    }
+    // «적용 안 됨» 안내 — 부팅 창 · 설정 화면 (B-1010-21)
+    {
+      const gd = (MAIN.match(/function _showLabBlockedGuide\(\)\{[\s\S]*?\n\}/) || [''])[0];
+      chk(/if\(_labGuideShown \|\|/.test(gd) && /_labGuideShown = true;/.test(gd) && /if\(!\/\^blocked\/\.test\(overlay\.layeredState\(\)\) \|\| !\(overlay\.alpha\(\) > 0/.test(gd)
+        && /lab-video-guide-off/.test(MAIN) && /checkboxLabel: '다시 보지 않기'/.test(gd), '★ 끝까지 막혔을 때만 · 실행당 한 번 · «다시 보지 않기» 가 있는 안내 창');
+      chk(/껐다|끈 뒤/.test(gd) && /버그제보/.test(gd), '  안내 — 껐다 켜기 → 그래도면 버그제보');
+      chk(/<p id="progLabVideoWarn"/.test(HTML_SRC) && /const LAB_VIDEO_BLOCKED_GUIDE = /.test(APP) && /_labVideoWarn\(_labVideoShow\(btn, r\)\.blocked\)/.test(APP) && /_labVideoWarn\(v\.blocked\);/.test(APP),
+        '  설정 › 시스템에도 «적용 안 됨» 이면 같은 안내가 보인다(조회 · 토글 둘 다)');
     }
     // 초기화로 꺼진 실험을 다시 켤지 묻기 (B-1010-21 · B-1011-1)
     {

@@ -1918,7 +1918,32 @@ function _logGpuOnce(win){
    [B-1010-21] 윈도우 시작 자동 실행이면 GPU 준비가 1분을 넘길 수 있어 시간 재시도는 10분까지 본다. */
 const LAY_RETRY_MAX = 30;
 const LAY_RETRY_DELAYS_MS = [1500, 5000, 15000, 60000, 180000, 600000];   // 화면이 뜬 뒤 다시 볼 때
+const LAY_RETRY_LAST = 'did-finish-load+마지막';
 const LAB_RESTORE_ASK_DELAY_MS = 6000;
+/* 🎬 부팅 재시도를 끝까지 했는데도 «GPU 합성 꺼짐» 이면 무엇을 하면 되는지 한 번 알린다.
+   [왜] 토글은 «켜짐» 인데 효과가 없으면 사용자는 고장인지 모른다(B-1010-21). 설정 › 시스템의 안내(app.js
+     LAB_VIDEO_BLOCKED_GUIDE)와 같은 순서 — 껐다 켜기 → 그래도면 버그제보.
+   ★ 실행당 한 번 · «다시 보지 않기» 면 userData/lab-video-guide-off 로 그 뒤 안 띄운다(_kbShowGuide 와 같은 방식). */
+let _labGuideShown = false;
+function _labGuideOffPath(){ try{ return path.join(app.getPath('userData'), 'lab-video-guide-off'); }catch(_){ return null; } }
+function _showLabBlockedGuide(){
+  if(_labGuideShown || !mainWindow || mainWindow.isDestroyed()) return;
+  if(!/^blocked/.test(overlay.layeredState()) || !(overlay.alpha() > 0 && overlay.alpha() < 255)) return;
+  _labGuideShown = true;
+  _diagLog('[오버레이] 레이어드 알파 — 부팅 재시도 끝까지 막힘(' + overlay.layeredState() + ') · 안내 창');
+  try{ const f = _labGuideOffPath(); if(f && fs.existsSync(f)) return; }catch(_){}
+  dialog.showMessageBox(mainWindow, {
+    type: 'warning', title: 'Together Working',
+    message: '«영상 겹침 실험» 이 켜져 있지만 적용되지 못했어요',
+    detail: '그래서 유튜브 · 디스코드 · 트위치 화면이 검어지거나 깜빡일 수 있어요.\n\n'
+      + '① 설정 › 시스템 › 영상 겹침 실험 버튼을 눌러 끈 뒤, 한 번 더 눌러 다시 켜 주세요.\n'
+      + '② 그래도 «적용 안 됨» 이면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 시스템 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
+    buttons: ['확인'], defaultId: 0, cancelId: 0,
+    checkboxLabel: '다시 보지 않기',
+  }).then(r=>{
+    if(r && r.checkboxChecked){ try{ const f = _labGuideOffPath(); if(f) fs.writeFileSync(f, String(Date.now())); }catch(_){} }
+  }).catch(()=>{});
+}
 function _labVideoRestoreOffer(){
   if(process.platform !== 'win32' || _labVideoAsked || !SETTINGS_PATH) return false;
   if(overlay.alpha() > 0 && overlay.alpha() < 255) return false;
@@ -1994,15 +2019,16 @@ function createWindow() {
     let _layTries = 0, _layDone = false;
     const _layRetry = (why)=>{
       if(_layDone || !mainWindow || mainWindow.isDestroyed()) return;
-      if(++_layTries > LAY_RETRY_MAX){ _layDone = true; app.removeListener('gpu-info-update', _layOnGpu); return; }
+      if(++_layTries > LAY_RETRY_MAX){ _layDone = true; app.removeListener('gpu-info-update', _layOnGpu); _showLabBlockedGuide(); return; }
       overlay.applyLayered('재시도 ' + _layTries + '(' + why + ')');
       if(!/^blocked/.test(overlay.layeredState())){ _layDone = true; app.removeListener('gpu-info-update', _layOnGpu); }
+      else if(why === LAY_RETRY_LAST){ _layDone = true; app.removeListener('gpu-info-update', _layOnGpu); _showLabBlockedGuide(); }
     };
     const _layOnGpu = ()=>_layRetry('gpu-info-update');
     app.on('gpu-info-update', _layOnGpu);
     // gpu-info-update 가 이미 지나갔을 수 있다 — 화면이 다 뜬 뒤 몇 번 더 기회를 준다
     mainWindow.webContents.once('did-finish-load', ()=>{
-      LAY_RETRY_DELAYS_MS.forEach(ms => setTimeout(()=>_layRetry('did-finish-load+' + (ms / 1000) + 's'), ms));
+      LAY_RETRY_DELAYS_MS.forEach((ms, i) => setTimeout(()=>_layRetry(i === LAY_RETRY_DELAYS_MS.length - 1 ? LAY_RETRY_LAST : 'did-finish-load+' + (ms / 1000) + 's'), ms));
     });
   }
   /* 🎬 초기화로 꺼진 실험을 다시 켤지 — 화면이 뜨고 초기화 안내 토스트(2.5초) 뒤에 한 번 */

@@ -219,7 +219,7 @@ say('\n── 4. ★ 부르는 자리가 정해진 곳뿐인가 (스타일 변�
          풀리면 리스너를 떼고 멈춘다 — 주기 호출이 아님을 상한 · 멈춤 두 줄로 같이 확인한다.
        넷째 = 초기화로 꺼진 실험을 «다시 켜기» 로 고른 순간 한 번(사람이 누른 것 — 토글과 같다). 다섯째가 생기면 다시 따질 것. */
     const fn = faceName || 'applyLayered';
-    const retryBounded = new RegExp("if\\(\\+\\+_layTries > LAY_RETRY_MAX\\)\\{ _layDone = true; app\\.removeListener\\('gpu-info-update', _layOnGpu\\); return; \\}\\s*overlay\\." + fn + "\\('재시도").test(code)
+    const retryBounded = new RegExp("if\\(\\+\\+_layTries > LAY_RETRY_MAX\\)\\{ _layDone = true; app\\.removeListener\\('gpu-info-update', _layOnGpu\\); (_showLabBlockedGuide\\(\\); )?return; \\}\\s*overlay\\." + fn + "\\('재시도").test(code)
       && /if\(!\/\^blocked\/\.test\(overlay\.layeredState\(\)\)\)\{ _layDone = true; app\.removeListener/.test(code);
     const restoreOnce = new RegExp("overlay\\." + fn + "\\('초기화 뒤 다시 켜기'\\)").test(code) && /_labVideoAsked = true;\s*try\{ saveSettings\(\); \}catch\(_\)\{\}/.test(code);
     chk(calls === 4 && retryBounded && restoreOnce, '★ 부르는 자리가 4곳이다(부팅 · 토글 · 부팅 재시도(상한 · 풀리면 멈춤) · 초기화 뒤 다시 켜기 1회) — 실제 ' + calls
