@@ -17,6 +17,7 @@
   const who = () => ({ name: getDisplayName(), code: getMyUserId(), isAdmin: admin() });
 
   let filter = 'all', cursors = [null], nextCursor = null;
+  let mineCache = null;   // 내 글 — 1쪽을 열 때 받아 두고 다음 쪽은 여기서 자른다(pageItems)
   let unseenIds = new Set();
   const titleCache = new Map();   // 목록 줄에 제목이 없는 옛 비공개 글의 제목(글쓴이 · 관리자만 읽힌다)
   let migrated = false;
@@ -84,7 +85,7 @@
     const page = cursors.length;
     try{
       const [res, notes] = await Promise.all([
-        api().listPage(filter, cursors[cursors.length - 1]),
+        pageItems(page),
         (filter === 'all' && page === 1) ? api().notices() : Promise.resolve([]),
       ]);
       nextCursor = res.next;
@@ -100,7 +101,14 @@
     $('bbPageNo').textContent = String(page);
     $('bbPrev').disabled = page <= 1;
     $('bbNext').disabled = !nextCursor;
-    document.querySelector('#bbListView .bb-pager').style.display = filter === 'mine' ? 'none' : '';
+  }
+  /* 한 쪽 받기. 내 글은 서버에서 쪽을 넘기지 못해(equalTo · bug-board.js listPage) 1쪽에서 한 번에(최대 BUG_MINE_MAX) 받아 두고
+     화면에서만 한 쪽(C().page)씩 나눈다 — 받는 양 · 새 답변 배지 범위는 그대로. next 는 다음 쪽 번호(없으면 null). */
+  async function pageItems(page){
+    if(filter !== 'mine') return api().listPage(filter, cursors[cursors.length - 1]);
+    if(page === 1 || !mineCache) mineCache = (await api().listPage('mine')).items;
+    const n = C().page, from = (page - 1) * n;
+    return { items: mineCache.slice(from, from + n), next: from + n < mineCache.length ? page + 1 : null };
   }
 
   /* ── 상세 ───────────────────────────────────────────── */
