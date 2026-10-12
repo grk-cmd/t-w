@@ -297,6 +297,6 @@ async function runRoomStats(db, now, opts){
   return sum;
 }
 
-module.exports = { roomStatsFrom, runRoomStats, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, isEmptyMark, quietSince,
+module.exports = { roomStatsFrom, runRoomStats, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, isEmptyMark, quietSince,
   ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_DROP_MAX, ROOM_REPAIR_MAX, ROOM_ALIVE_STALE_MS, ROOM_ALIVE_HB,
   EMPTY_GRACE_MS, MEMBER_GONE_MS, EMPTY_SWEEP_MAX };

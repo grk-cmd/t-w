@@ -349,7 +349,7 @@ chk(/classList\.toggle\('on', okLv\)/.test(refresh),
 // 체크 상태는 세션만 — 저장하면 «왜 자꾸 날아가지»가 된다
 chk(!/localStorage[^\n]{0,60}_chatFlyOn/.test(SRC) && !/_chatFlyOn[^\n]{0,60}localStorage/.test(SRC),
     '★ 체크 상태를 저장하지 않는다 (세션 변수)');
-const leave = (SRC.match(/async function doLeaveRoom\(\)[\s\S]*?\n\}/) || [''])[0];
+const leave = (SRC.match(/async function doLeaveRoom\([^)]*\)[\s\S]*?\n\}/) || [''])[0];   // 인자(opt.wipeChat — 대화 기록)가 붙어도 같은 함수
 chk(/_chatFlyOn = false/.test(leave) && /flyLayer/.test(leave),
     '★ 방을 나가면 흐르던 글자를 걷고 체크도 푼다');
 
