@@ -46,7 +46,7 @@ export function releasedReports(todos: readonly Todo[], latest: string | null | 
   return [...out.values()];
 }
 
-/** 아직 미해결(접수 · 확인 중)인 제보만 — 수정 완료 · 재현 안 됨 · 지워진 글은 건드리지 않는다. 오래된 글부터. */
+/** 아직 미해결(접수 · 확인 중 · 해결 안 됨)인 제보만 — 수정 완료 · 재현 안 됨 · 지워진 글은 건드리지 않는다. 오래된 글부터. */
 export function fixTargets(
   fixes: readonly ReleaseFix[],
   items: ReadonlyMap<string, BugItem | null>,

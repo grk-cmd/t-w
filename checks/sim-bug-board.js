@@ -14,6 +14,7 @@
         한 쪽은 BUG_PAGE(8)개 · 한 번에 20개 넘게 받지 않는다 · 빠짐 · 겹침 없음 · [이전] 은 같은 쪽 · 미해결도 같은 방식
      §5 창이 안 늘어난다 — 버그제보 페이지 높이 고정(440px) · 목록은 #bbRows 안에서 스크롤 · [이전]/[다음] 은 안 줄어든다
         (예전엔 min-height 만 있어 [전체] 한 쪽 + 공지만큼 마이홈 창이 세로로 화면 끝까지 늘어났다)
+     §6 글쓴이 답글 — rep 노드 규칙(글쓴이만 · 서버 시각 · userReplyTs 짝 · 10초) · 글쓴이 상태 셋 · addReply 실행 · 화면
    ⚠️ 규칙을 **실제로 돌려 본 것**은 이 검사가 아니다(에뮬레이터 필요). 그 결과는 커밋 메시지에 남겼다. */
 'use strict';
 const fs = require('fs');
@@ -87,7 +88,7 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 
 say('§2 bug-board.js (실행)');
 const M = new Function(BB.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, BUG_DAILY_MAX_PATH, createBugBoard };')();
+  '\nreturn { BUG_STATUS, BUG_AUTHOR_STATUS, isOpenStatus, hasAuthorReply, BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, BUG_DAILY_MAX_PATH, createBugBoard };')();
 const who = { name: '에이', code: 'CA', authUid: 'uA' };
 const prv = M.listEntry({ vis: 'prv', cat: 'bug', title: '비밀 제목', body: 'b' }, who, 1000);
 chk(prv.title === '비밀 제목' && prv.name === M.BUG_ANON && M.BUG_ANON === '익명' && !JSON.stringify(prv).includes('에이'), '⑤ 비공개 글의 목록 줄 — 제목은 보이고 이름은 «익명»(실명 없음)');
@@ -284,6 +285,84 @@ say('§5 창이 안 늘어난다 (CSS)');
   chk(/overflow-y:auto/.test(rows) && /flex:11(0|0px)/.test(rows), '§5 #bbRows 가 남은 높이를 받고 그 안에서 스크롤한다');
   chk(/flex-shrink:0/.test(pager) && /flex-shrink:0/.test(rule('.bb-bar')), '§5 [이전]/[다음] · 위 단추 줄은 줄어들지 않는다(늘 보인다)');
   chk(/rows\.scrollTop = 0/.test(UI), '§5 쪽을 넘기면 목록 스크롤을 맨 위로');
+}
+
+say('§6 글쓴이 답글');
+{
+  const AU = /bugBoard\/list\/'\+\$id\+'\/authUid'\)\.val\(\) === auth\.uid/;
+  for (const v of ['pub', 'prv']) {
+    const n = at('bugBoard/rep/' + v + '/$id/$rid') || {};
+    const w = S(n['.write']);
+    chk(AU.test(w) && /!data\.exists\(\)/.test(w) && new RegExp("vis'\\)\\.val\\(\\) === '" + v + "'").test(w) && /!root\.child\('bugBoard\/list\/'\+\$id\+'\/notice'\)\.exists\(\)/.test(w),
+      '§6 rep/' + v + ' 쓰기 = 그 글의 글쓴이 · 새 답글만 · 글의 공개 범위 갈래 · 공지 아님');
+    chk(/newData\.child\('ts'\)\.val\(\) === now/.test(w) && /child\('list\/'\+\$id\+'\/userReplyTs'\)\.val\(\) === now/.test(w), '  ↳ 답글 ts 는 서버 시각 · 같은 묶음에 userReplyTs === now 짝');
+    const vd = S(n['.validate']);
+    chk(/length <= 1000/.test(vd) && /st'\)\.val\(\)\.matches\(\/\^\(checking\|unfixed\|fixed\)\$\/\)/.test(vd) && (n.$other || {})['.validate'] === 'false', '  ↳ 1000자 · st 는 글쓴이 상태 셋만 · 다른 칸 못 넣음');
+  }
+  chk(S(at('bugBoard/rep/pub/$id')['.read']) === 'true' && AU.test(S(at('bugBoard/rep/prv/$id')['.read'])) && ADMIN.test(S(at('bugBoard/rep/prv/$id')['.read'])),
+    '§6 비공개 글의 답글은 글쓴이 · 관리자만 읽는다 (공개 글은 누구나)');
+  chk(at('bugBoard/rep')['.read'] === undefined && at('bugBoard/rep/prv')['.read'] === undefined, '  rep · rep/prv 통째 읽기는 열려 있지 않다');
+  const ur = S(at('bugBoard/list/$id/userReplyTs')['.write']);
+  chk(/data\.parent\(\)\.child\('authUid'\)\.val\(\) === auth\.uid/.test(ur) && /newData\.val\(\) === now/.test(ur) && /now - data\.val\(\) >= 10000/.test(ur) && /rep\/'\+data\.parent\(\)\.child\('vis'\)\.val\(\)/.test(ur),
+    '§6 userReplyTs = 글쓴이만 · 서버 시각 · 10초에 한 번 · 답글이 있어야');
+  const sw = S(at('bugBoard/list/$id/status')['.write']);
+  chk(/matches\(\/\^\(checking\|unfixed\|fixed\)\$\/\)/.test(sw) && /userReplyTs'\)\.val\(\) === now/.test(sw) && /!data\.parent\(\)\.child\('notice'\)\.exists\(\)/.test(sw),
+    '§6 글쓴이 상태 변경은 확인 중 · 해결 안 됨 · 해결 완료만 · 답글과 한 묶음 · 공지 아님 (접수 · 재현 안 됨은 관리자만)');
+  const ow = S(at('bugBoard/list/$id/openTs')['.write']);
+  chk(/newData\.val\(\) === data\.parent\(\)\.child\('ts'\)\.val\(\)/.test(ow) && /!newData\.exists\(\)/.test(ow) && /\(new\|checking\|unfixed\)/.test(ow), '  ↳ openTs 는 미해결이면 그 글의 ts, 아니면 지움 — 다른 값은 못 넣는다');
+  const ruleSt = (S(at('bugBoard/list/$id')['.validate']).match(/status'\)\.val\(\)\.matches\(\/\^\(([^)]*)\)\$\/\)/) || [, ''])[1].split('|').sort().join('|');
+  chk(Object.keys(M.BUG_STATUS).sort().join('|') === ruleSt, '§6 상태 목록이 규칙과 같다 (' + ruleSt + ')');
+  chk(M.BUG_AUTHOR_STATUS.map(x => x[0]).join('|') === 'checking|unfixed|fixed' && M.BUG_AUTHOR_STATUS.find(x => x[0] === 'fixed')[1] === '해결 완료', '§6 글쓴이 버튼 — 확인 중 · 해결 안 됨 · 해결 완료(= fixed)');
+  chk(M.isOpenStatus('unfixed') && M.isOpenStatus('new') && M.isOpenStatus('checking') && !M.isOpenStatus('fixed') && !M.isOpenStatus('norepro'), '§6 «해결 안 됨» 은 미해결 목록에 낀다');
+  chk(M.hasAuthorReply({ userReplyTs: 9, lastReplyTs: 5 }) && M.hasAuthorReply({ userReplyTs: 9 }) && !M.hasAuthorReply({ userReplyTs: 5, lastReplyTs: 9 }) && !M.hasAuthorReply({}),
+    '§6 관리자 «✍ 글쓴이 답글» = 운영자 마지막 답변보다 뒤');
+
+  const SV = { '.sv': 'timestamp' };
+  const mkBB = (item, me) => {
+    const writes = [], reads = [];
+    const bb = M.createBugBoard({ db: {}, ref: (_, p) => p || '',
+      get: async (p) => { reads.push(p); return { val: () => (p === 'bugBoard/list/p1' ? item : p === 'bugBoard/rep/prv/p1' ? { r0: { text: '앞 답글', ts: 50, st: 'unfixed' } } : p === 'bugBoard/ans/prv/p1' ? { a0: { text: '운영', ts: 40 } } : null) }; },
+      update: async (_, w) => { writes.push(w); }, push: () => ({ key: 'r1' }), runTransaction: async () => {},
+      query: () => null, orderByChild: () => null, limitToLast: () => null, endBefore: () => null, equalTo: () => null,
+      authUid: () => me, now: () => 1000, serverTs: () => SV });
+    return { bb, writes, reads };
+  };
+  const base = { vis: 'prv', status: 'fixed', cat: 'bug', authUid: 'uA', code: 'CA', ts: 77, ansN: 1, lastReplyTs: 40 };
+  pending.push((async () => {
+    let t = mkBB(base, 'uA');
+    let r = await t.bb.addReply('p1', { text: ' 아직 그대로예요 ', status: 'unfixed' });
+    const w = t.writes[0] || {};
+    chk(r.ok && JSON.stringify(w) === JSON.stringify({ 'bugBoard/rep/prv/p1/r1': { text: '아직 그대로예요', ts: SV, st: 'unfixed' }, 'bugBoard/list/p1/userReplyTs': SV, 'bugBoard/list/p1/status': 'unfixed', 'bugBoard/list/p1/openTs': 77 }),
+      '§6 addReply(해결 안 됨) — 답글 · userReplyTs(서버 시각) · 상태 · openTs=글 ts 한 묶음, lastReplyTs · ansN 은 안 건드림');
+    t = mkBB(Object.assign({}, base, { status: 'unfixed', openTs: 77 }), 'uA');
+    await t.bb.addReply('p1', { text: '고쳐졌어요', status: 'fixed' });
+    chk(t.writes[0]['bugBoard/list/p1/openTs'] === null && t.writes[0]['bugBoard/list/p1/status'] === 'fixed', '§6 해결 완료 → 미해결 목록에서 빠진다(openTs 지움)');
+    t = mkBB(base, 'uA');
+    await t.bb.addReply('p1', { text: '덧붙여요', status: '' });
+    chk(Object.keys(t.writes[0]).join() === 'bugBoard/rep/prv/p1/r1,bugBoard/list/p1/userReplyTs' && !('st' in t.writes[0]['bugBoard/rep/prv/p1/r1']), '§6 «그대로» 면 답글 · userReplyTs 만 (상태 안 바꿈)');
+    t = mkBB(base, 'uA');
+    await t.bb.addReply('p1', { text: 'x', status: 'norepro' });
+    chk(!('bugBoard/list/p1/status' in t.writes[0]), '  ↳ 글쓴이 상태 셋 밖(재현 안 됨)은 무시');
+    t = mkBB(base, 'uB');
+    r = await t.bb.addReply('p1', { text: 'x' });
+    chk(!r.ok && !t.writes.length, '§6 남의 글에는 답글을 못 단다');
+    t = mkBB(Object.assign({}, base, { vis: 'pub', notice: true }), 'uA');
+    r = await t.bb.addReply('p1', { text: 'x' });
+    chk(!r.ok && !t.writes.length, '  ↳ 공지에도 못 단다');
+    t = mkBB(base, 'uA');
+    r = await t.bb.addReply('p1', { text: '   ' });
+    chk(!r.ok && !t.writes.length, '  ↳ 빈 답글은 안 보낸다');
+    t = mkBB(Object.assign({}, base, { userReplyTs: 50 }), 'uA');
+    const d = await t.bb.getPost('p1');
+    chk(d.answers.map(a => (a.byAuthor ? '글쓴이' : '운영') + ':' + a.ts).join(',') === '운영:40,글쓴이:50' && d.answers[1].st === 'unfixed', '§6 상세 — 운영자 답변과 글쓴이 답글을 시간순으로');
+    t = mkBB(base, 'uA');
+    await t.bb.getPost('p1');
+    chk(!t.reads.some(p => /rep\//.test(p)), '  ↳ 답글을 단 적 없는 글(userReplyTs 없음)은 rep 를 읽지 않는다');
+  })());
+  chk(/else if\(it\.authUid === myUid\(\) && !it\.notice\) h\.push\(authorForm\(it\)\)/.test(UI) && /if\(admin\(\)\) h\.push\(adminForm\(it\)\);\n\s*else if/.test(UI), '§6 답글 칸은 내 글 · 공지 아님 · 관리자가 아닐 때(관리자는 답변 칸)');
+  chk(/class="bb-new mine">✍ 글쓴이 답글/.test(UI) && /admin\(\) && C\(\)\.hasAuthorReply/.test(UI), '§6 관리자 목록 줄에 «✍ 글쓴이 답글»');
+  chk(/✍ 글쓴이 답글<span class="bb-ans-v">/.test(UI) && /if\(a\.byAuthor\)/.test(UI), '§6 상세의 글쓴이 답글은 «🛡 운영자 답변» 과 따로 그린다');
+  chk(/\.bb-chip\.unfixed\{/.test(HTML) && /\.bb-ans\.mine\{/.test(HTML) && /\.bb-row2 \.bb-rst\.on\{/.test(HTML), '§6 CSS — 해결 안 됨 칩 · 글쓴이 답글 · 고른 상태 버튼(오픈카톡 .bb-btn.on 보다 강하게)');
 }
 
 Promise.all(pending).catch(e => chk(false, '검사가 던졌다: ' + (e && e.stack || e))).then(() => {

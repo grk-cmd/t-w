@@ -79,3 +79,14 @@
   gap: 10px;
   margin-top: 12px;
 }
+
+/* 운영자 답변 뒤에 글쓴이가 답글을 단 글 — 관리자가 볼 차례 */
+.authorReply {
+  margin-left: 6px;
+  padding: 0 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--ok);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}

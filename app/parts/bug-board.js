@@ -6,8 +6,12 @@
  *   bugBoard/pub/{id}             공개 글 · 공지의 제목 · 본문
  *   bugBoard/prv/{authUid}/{id}   비공개 글 — 글쓴이 · 관리자만 읽는다(규칙)
  *   bugBoard/ans/{pub|prv}/{id}   운영자 답변(관리자만 쓴다) · prv 는 글쓴이 · 관리자만 읽는다
+ *   bugBoard/rep/{pub|prv}/{id}   글쓴이 답글(글쓴이만 쓴다 · 읽기는 ans 와 같다). ans 와 나눈 것은 옛 앱(0.11.2 이하)이 ans 를 전부
+ *                                 «운영자 답변» 으로 그리기 때문 — 옛 앱에는 글쓴이 답글이 안 보일 뿐 잘못 보이지는 않는다.
  *   bugBoard/likes/{id}/{authUid} 👍 — 공개 글만 · 한 사람 1회(규칙이 likeN +1 과 짝을 본다)
  *
+ * [userReplyTs] 글쓴이가 마지막으로 답글을 단 시각(서버). lastReplyTs(운영자 답변)보다 뒤면 관리자 목록에 «✍ 글쓴이 답글».
+ *   글쓴이의 «새 답변» 배지는 lastReplyTs 만 보므로 자기 답글로는 켜지지 않는다. 규칙이 같은 사람 10초 안 연달아 쓰기를 막는다.
  * [쿼리용 숨은 칸] openTs = 미해결이면 ts(해결되면 지움) · nts = 공지면 ts.
  *   orderByChild 로 그 칸을 고르면 값이 없는 글은 맨 앞(null)으로 몰리므로 limitToLast 가 미해결 · 공지만 집는다.
  *   **규칙이 허용하는 정렬은 ts · openTs · nts · authUid(=내 uid) 넷뿐이다.** 하나 늘리면 규칙도 같이.
@@ -26,9 +30,15 @@ export const BUG_CATS = [
   ['bug', '오류 · 멈춤'], ['ui', '화면 · 표시'], ['room', '방 · 접속'],
   ['chat', '채팅'], ['myhome', '마이홈'], ['etc', '기타'],
 ];
-export const BUG_STATUS = { new: '접수', checking: '확인 중', fixed: '수정 완료', norepro: '재현 안 됨' };
+/* 상태 — 규칙(status 정규식)과 짝이다. unfixed 는 글쓴이가 «해결 안 됨» 으로 되돌린 글(미해결 목록에 낀다). */
+export const BUG_STATUS = { new: '접수', checking: '확인 중', fixed: '수정 완료', norepro: '재현 안 됨', unfixed: '해결 안 됨' };
+/* 글쓴이가 답글과 함께 고를 수 있는 상태 — 규칙 rep · list/status 의 글쓴이 갈래와 짝. 버튼 이름은 글쓴이 말투로. */
+export const BUG_AUTHOR_STATUS = [['checking', '확인 중'], ['unfixed', '해결 안 됨'], ['fixed', '해결 완료']];
 export const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
-const OPEN = (st) => st === 'new' || st === 'checking';
+export const isOpenStatus = (st) => st === 'new' || st === 'checking' || st === 'unfixed';
+const OPEN = isOpenStatus;
+/* 관리자 목록 «✍ 글쓴이 답글» — 글쓴이 답글이 운영자의 마지막 답변보다 뒤. */
+export const hasAuthorReply = (it) => !!it && (it.userReplyTs || 0) > (it.lastReplyTs || 0);
 
 /* 답변 알림(우편함) 본문. 우편함은 규칙상 누구나 읽고 글쓴이 코드는 공개 목록에 있어서,
    비공개 글의 제목을 넣으면 그 길로 새어 나간다 — 비공개 글은 고정 문구만. 어느 글인지는 함께 보내는 bugId 로 연다. */
@@ -135,14 +145,18 @@ export function createBugBoard(deps){
     const it = await getItem(id); if(!it) return null;
     const safe = (p) => get(ref(db, p)).then(s => s.val()).catch(() => null);
     const me = uid();
-    const [content, aPub, aPrv, liked] = await Promise.all([
+    const [content, aPub, aPrv, liked, rep] = await Promise.all([
       safe(it.vis === 'pub' ? 'bugBoard/pub/' + id : 'bugBoard/prv/' + it.authUid + '/' + id),
       it.vis === 'pub' ? safe('bugBoard/ans/pub/' + id) : Promise.resolve(null),
       safe('bugBoard/ans/prv/' + id),
       (me && it.vis === 'pub') ? safe('bugBoard/likes/' + id + '/' + me) : Promise.resolve(null),
+      // 답글을 단 적이 없는 글은 읽지 않는다(대부분의 글)
+      it.userReplyTs ? safe('bugBoard/rep/' + it.vis + '/' + id) : Promise.resolve(null),
     ]);
+    // 운영자 답변과 글쓴이 답글(byAuthor)을 시간순 한 줄로
     const answers = toArr(aPub).map(a => Object.assign(a, { vis: 'pub' }))
       .concat(toArr(aPrv).map(a => Object.assign(a, { vis: 'prv' })))
+      .concat(toArr(rep).map(a => Object.assign(a, { vis: it.vis, byAuthor: true })))
       .sort((a, b) => (a.ts || 0) - (b.ts || 0));
     return { item: it, content, answers, liked: !!liked };
   }
@@ -203,6 +217,33 @@ export function createBugBoard(deps){
     await update(ref(db), w);
     return { ok: true, item: Object.assign({}, it, { status: st, lastReplyTs: t }), vis, kakao };
   }
+  /* 글쓴이 답글 + (고르면) 상태 — 한 묶음으로. 규칙이 «같은 묶음에 userReplyTs === 서버 시각» 을 짝으로 본다.
+     상태를 안 고르면(그대로) 답글 · userReplyTs 만. lastReplyTs · ansN 은 운영자 답변 칸이라 건드리지 않는다. */
+  async function addReply(id, a){
+    const it = await getItem(id); if(!it) return { ok: false, reason: '글을 찾지 못했어요' };
+    const me = uid();
+    if(!me || it.authUid !== me) return { ok: false, reason: '글쓴이만 답글을 달 수 있어요' };
+    if(it.notice) return { ok: false, reason: '공지에는 답글을 달 수 없어요' };
+    const text = String((a && a.text) || '').trim().slice(0, BUG_ANS_MAX);
+    if(!text) return { ok: false, reason: '답글을 적어 주세요' };
+    const st = BUG_AUTHOR_STATUS.some(s => s[0] === (a && a.status)) ? a.status : null;
+    const t = deps.serverTs ? deps.serverTs() : now();
+    const rid = push(ref(db, 'bugBoard/rep/' + it.vis + '/' + id)).key;
+    const reply = { text, ts: t }; if(st) reply.st = st;
+    const w = {};
+    w['bugBoard/rep/' + it.vis + '/' + id + '/' + rid] = reply;
+    w[L + '/' + id + '/userReplyTs'] = t;
+    if(st){
+      w[L + '/' + id + '/status'] = st;
+      w[L + '/' + id + '/openTs'] = OPEN(st) ? it.ts : null;
+    }
+    try{ await update(ref(db), w); }
+    catch(e){
+      // 규칙이 거부하는 흔한 경우는 10초 안에 또 누른 것이다
+      return { ok: false, reason: /permission|denied/i.test(String((e && e.message) || e)) ? '잠시 뒤에 다시 등록해 주세요' : '등록하지 못했어요 — 네트워크를 확인해 주세요' };
+    }
+    return { ok: true, item: Object.assign({}, it, st ? { status: st } : {}) };
+  }
   /* 👍 — likes/{id}/{나} 와 likeN +1 을 한 묶음으로(규칙이 짝을 본다). 동시에 누르면 한쪽이 거부되니 한 번 더. */
   async function like(id){
     const me = uid(); if(!me) return { ok: false };
@@ -244,6 +285,7 @@ export function createBugBoard(deps){
     return createPost({ vis: 'pub', cat: 'etc', title: '버그 제보 안내', body, notice: true }, who);
   }
   const C = { cats: BUG_CATS, status: BUG_STATUS, page: BUG_PAGE, anon: BUG_ANON, dailyMax: BUG_DAILY_MAX, titleMax: BUG_TITLE_MAX,
-              bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE, answerNoticeBody };
-  return { C, checkPost, listPage, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, like, getSeen, setSeen, unseen, migrateNotice };
+              bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE, answerNoticeBody,
+              authorStatus: BUG_AUTHOR_STATUS, hasAuthorReply };
+  return { C, checkPost, listPage, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, addReply, like, getSeen, setSeen, unseen, migrateNotice };
 }
