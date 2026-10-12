@@ -34,6 +34,7 @@
         },
         "chatLog": {
           ".write": true,
+          ".indexOn": ["ts"],
           "$msgId": {
             ".write": true,
             ".validate": "newData.hasChildren(['name','text','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('text').isString() && newData.child('text').val().length <= 1200 && newData.child('ts').isNumber() && (!newData.child('uid').exists() || (newData.child('uid').isString() && newData.child('uid').val().length <= 40))"
@@ -44,6 +45,7 @@
           "$tabId": {
             ".write": true,
             ".validate": "$tabId.matches(/^s[12]$/)",
+            ".indexOn": ["ts"],
             "$msgId": {
               ".write": true,
               ".validate": "newData.hasChildren(['name','text','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('text').isString() && newData.child('text').val().length <= 1200 && newData.child('ts').isNumber() && (!newData.child('uid').exists() || (newData.child('uid').isString() && newData.child('uid').val().length <= 40))"

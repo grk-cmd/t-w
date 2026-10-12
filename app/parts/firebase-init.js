@@ -9,7 +9,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getDatabase, ref as _dbRef, set, update as _dbUpdate, remove, onValue, off, onDisconnect, serverTimestamp, get, runTransaction,
-    push, query, limitToLast, orderByChild, orderByKey, startAt, endBefore, equalTo, onChildAdded
+    push, query, limitToLast, orderByChild, orderByKey, startAt, endBefore, equalTo, onChildAdded, onChildChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
@@ -42,6 +42,7 @@
   import { createAppVersion } from "./app-version.js";
   import { createAppVersionGate, createAppVersionGateDom } from "./app-version-gate.js";
   import { createBugBoard } from "./bug-board.js";
+  import { createChatHistory, createIdbChatStore, chatOrder } from "./chat-history.js";
   import { createCatalogSync } from "./catalog-cache.js";
   import { createBroadcastSync } from "./broadcast-cache.js";
   import { createVisitPing } from "./visit-ping.js";
@@ -170,10 +171,7 @@
      ★ '처음 들어온 사람은 이전 기록을 못 본다'는 규칙은 **여기가 아니라** app.js 의
        입장 컷(`tw_chat_join:` · localStorage)이 맡는다. 기록을 지우는 것으로 대신하고 있었던 셈이라,
        기록을 남기는 지금부터 그 컷이 제 일을 한다(재부팅해도 남으므로 두 번째부터는 다 보인다).
-     ⚠️ 저장이 무한히 늘 수 있다. 읽기는 `subscribeChatLog` 의 limitToLast(≤200)로 이미 묶여 있어
-       트래픽은 그대로지만, 용량은 관리자 [🧹 유령 방 청소]가 유일한 배출구가 된다
-       (그 버튼은 살아있는 멤버가 없는 방의 하위 키를 전부 지우므로 **기록도 함께 사라진다**).
-       자동 보존 기간이 필요하면 그건 별도 작업이다 — 규칙(chatLog 하위 삭제 권한)부터 확인할 것.
+     ★ 서버 보관은 3일이다 — functions/chat-expire.js 가 매일 지운다. 그보다 오래된 대화는 각자 PC 저장(chat-history.js)에만 남는다.
      🔵 되돌리려면 이 값을 false 로. 두 청소 자리가 같이 예전 동작으로 돌아간다. */
   const KEEP_CHAT_LOG_ON_EMPTY = true;
   /* 💬 채팅 탭 기록 경로 — #일반은 chatLog, 그 외는 _chatTab/{tabId} (chat-tabs.js 주석 참고) */
@@ -207,13 +205,7 @@
      ★ ts 가 같거나(같은 밀리초) 없으면 key 로 가른다 — 정렬이 흔들리지 않게 항상 결말이 있어야 한다.
      ⚠️ 방금 보낸 내 글은 서버 확정 전까지 ts 가 **추정값**(내 시계 기준)이다. 시계가 어긋나 있으면
        그 잠깐 동안만 자리가 틀리고, 서버 값이 오는 순간 제자리로 간다. 예전처럼 굳지 않는다. */
-  const _chatOrder = (a, b) => {
-    const ta = (typeof a.ts === 'number' && a.ts > 0) ? a.ts : null;
-    const tb = (typeof b.ts === 'number' && b.ts > 0) ? b.ts : null;
-    if(ta !== null && tb !== null && ta !== tb) return ta - tb;
-    const ka = String(a.id || ''), kb = String(b.id || '');
-    return ka < kb ? -1 : (ka > kb ? 1 : 0);
-  };
+  const _chatOrder = chatOrder;   // 본문은 chat-history.js — 대화 기록(커서 · 저장)도 같은 순서를 쓴다
   let _svTimeOffset = 0;
   try{ onValue(ref(db, '.info/serverTimeOffset'), s => { _svTimeOffset = s.val() || 0; }); }catch(e){}
   const _svNow = () => Date.now() + _svTimeOffset;
@@ -2997,7 +2989,8 @@
           uid: msg.uid || null,
           name: (msg.name!=null ? String(msg.name).slice(0,20) : '?'),
           text: _t,
-          ts: serverTimestamp()
+          ts: serverTimestamp(),
+          ...(msg.sys ? { sys: String(msg.sys).slice(0, 10) } : {})   // 💬 방장 지우기 표시(chat-history.js CLEAR_SYS)
         });
         return { ok:true };
       }catch(e){
@@ -3026,6 +3019,18 @@
         onValue(q, cb);
         return () => { try{ off(q, 'value', cb); }catch(_){} };
       }catch(_){ return ()=>{}; }
+    },
+    /* 💬 이어 받기 — since(서버 ts)부터 전부, 없으면 마지막 limit 줄. 한 줄씩 넘기고(새 줄 · ts 확정) 처음 받기가 끝나면 onReady.
+       ★ 지워진 줄(서버 3일 정리)은 넘기지 않는다 — 이미 받은 것은 남긴다(chat-history.js). ts 색인은 규칙 chatLog · _chatTab .indexOn */
+    subscribeChatSince(room, tabId, since, onMsg, onReady, limit){
+      try{
+        const r = ref(db, _chatLogPath(room, tabId));
+        const q = (typeof since === 'number') ? query(r, orderByChild('ts'), startAt(since)) : query(r, limitToLast(limit || 100));
+        const one = snap => onMsg(Object.assign({ id: snap.key }, snap.val()));
+        const offA = onChildAdded(q, one), offC = onChildChanged(q, one);
+        onValue(q, () => { if(onReady) onReady(); }, { onlyOnce: true });   // child_added 가 다 온 뒤에 한 번
+        return () => { try{ offA(); offC(); }catch(_){} };
+      }catch(_){ if(onReady) onReady(); return ()=>{}; }
     },
     /* ★ 커스텀 이모티콘 — 내 계정(users/{uid}/emojis)에 저장. 어느 프리미엄 방에서도 로드된다.
        이미지는 Storage에 올려 1년 캐시 URL만 RTDB에 둔다(메시지엔 URL만 실려 방 사용량 최소).
@@ -3186,6 +3191,13 @@
     bugBoard: createBugBoard({ db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo, runTransaction, push,
                                serverTs: () => serverTimestamp(),
                                authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),
+    /* 💬 대화 기록(서버 3일 · 이 PC 저장 · 커서 이어 받기) — 규칙은 chat-history.js. 여기는 연결만. */
+    chatHistory: createChatHistory({
+      store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
+      channel: () => (window._activeChannel === 2 ? 'togetherroom' : 'workingroom'),
+      subscribeSince: (room, tab, since, onMsg, onReady) => window.firebaseAPI.subscribeChatSince(room, tab, since, onMsg, onReady),
+      clearLog: (room, tab) => window.firebaseAPI.clearChatLog(room, tab),
+      sendLog: (room, msg, tab) => window.firebaseAPI.sendChatLog(room, msg, tab) }),
     getInviteAccount: createInviteAccount({ db, ref, get, databaseURL: db && db.app && db.app.options && db.app.options.databaseURL }),
     // 기존 유저 grandfather 처리 — 초대 정보가 없으면 5장 부여하고 통과
     async grandfatherInvite(userId, grantCount){
@@ -4443,4 +4455,5 @@
      ★ 2026-09-23: 쓰는 사람이 없음을 확인하고 **서버 규칙에서도 `mysRooms` 를 내렸다**(개정 63).
         남은 것은 콘솔의 옛 데이터뿐 — 규칙이 내려간 뒤에 지운다(순서가 반대면 지우자마자 다시 생길 수 있다). */
 
+  try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { if(typeof window.toast === 'function') window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
   window.dispatchEvent(new Event('firebase-ready'));

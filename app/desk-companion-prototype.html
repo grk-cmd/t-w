@@ -6944,6 +6944,9 @@
              버전 바로 아래가 자리다. 제보할 때 쓰는 것 둘(버전·기록)이 한 칸에 모인다. -->
         <button id="progOpenDiagBtn" type="button" style="margin-top:8px;background:none;border:none;
           color:var(--ink-soft);font-size:10.5px;cursor:pointer;text-decoration:underline;padding:0;">진단 기록 폴더 열기</button>
+        <!-- 💬 이 PC 에 저장된 대화(워킹룸 · 시크릿룸) 지우기 — 처리방침 §7 의 «설정에서 지우면 삭제». 두 번 눌러야 지운다(chat-history.js bindSettings) -->
+        <br><button id="progChatHistWipe" type="button" style="margin-top:6px;background:none;border:none;
+          color:var(--ink-soft);font-size:10.5px;cursor:pointer;text-decoration:underline;padding:0;">이 PC 에 저장된 대화 지우기</button>
         <!-- 🎨 아이콘 출처 표기 — 링크는 앱 안에서 열면 안 된다(단일 페이지 오버레이라 캐릭터·씬이 통째로
              날아간다). app.js 의 _bindDonate 가 클릭을 가로채 companion.openBrowser = 시스템 기본
              브라우저로 넘긴다. 후원 링크·광고 배너와 같은 처리다.

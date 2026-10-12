@@ -8,6 +8,7 @@
    partEquipCount — 카탈로그 항목별 장착 사용자 수. users/{코드}/slots 쓰기마다 장착 집합의 차이만 metrics/parts/equipped 에 더하고 뺀다. 로직은 part-equip.js.
    visitPing — IP 기준 일일 방문자(호출형 · 로그인 없이). 앱이 켜질 때 한 번 부른다. IP 는 해시로만 적는다. 로직은 visit-ping.js.
      비밀 값 METRICS_IP_SALT 가 있어야 배포된다: firebase functions:secrets:set METRICS_IP_SALT (길고 무작위한 값).
+   chatExpire — 서버 대화 3일 보관(매일 04:30). 3일 지난 chatLog · _chatTab 줄을 지운다(방장 지우기 표시 줄은 남김). 로직은 chat-expire.js.
    usageSnapshot — 사용량(비용) 기록(매시간). Cloud Monitoring 하루 합계를 metrics/usage/{서울 날짜} 에. 로직은 usage-snapshot.js.
    adminDeleteAccount — 계정 삭제(호출형 · 관리자만). 웹 관리자 사용자 페이지가 부른다. 로직은 account-delete.js.
 
@@ -206,6 +207,14 @@ exports.countSlotsWindow = onSchedule({ schedule: '10 5 1 1 *', timeZone: 'Asia/
     await runCountSlotsWindow(getDatabase(), Date.now());
   });
 
+
+// 서버 대화 3일 보관 — chat-expire.js. 오래된 줄만 ts 색인으로 받아 지운다(규칙 chatLog · _chatTab .indexOn).
+exports.chatExpire = onSchedule({ schedule: 'every day 04:30', timeZone: 'Asia/Seoul', timeoutSeconds: 540, retryCount: 0, maxInstances: 1 },
+  async () => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const db = getDatabase();
+    await require('./chat-expire').runChatExpire(db, Date.now(), require('./room-stats').adminShallow(db));
+  });
 
 // 열린 방 개수 요약 — room-stats.js
 exports.roomStats = onSchedule({ schedule: 'every 1 minutes', timeoutSeconds: 60, retryCount: 0, maxInstances: 1 },

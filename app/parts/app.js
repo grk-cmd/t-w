@@ -13505,7 +13505,8 @@ async function _chatDelRun(){
      ⚠️ 낙관적 반영은 하지 않는다([채팅 켜짐]과 다른 점). 지우기는 되돌릴 수 없어서,
        실패했는데 화면만 빈 상태가 제일 위험하다 — 서버가 지웠다고 답한 뒤에 비운다. */
   if(ok){ ok.disabled = true; ok.textContent = '지우는 중…'; }
-  const r = await firebaseAPI.clearChatLog(room, _chatMyTabId());   // 💬 지금 보는 탭만
+  const _ch = firebaseAPI.chatHistory;   // 💬 지우기 표시 줄까지 남겨 각자 PC 저장도 비운다(chat-history.js clear)
+  const r = await (_ch ? _ch.clear(room, _chatMyTabId()) : firebaseAPI.clearChatLog(room, _chatMyTabId()));   // 지금 보는 탭만
   if(!(r && r.ok)){
     if(ok){ ok.disabled = false; ok.textContent = '삭제'; }
     toast('지우지 못했어요 — 네트워크나 권한을 확인해 주세요');
@@ -13654,10 +13655,11 @@ function _chatSubscribeTab(room){
   if(_chatLogUnsub){ try{ _chatLogUnsub(); }catch(_){} _chatLogUnsub=null; }
   _chatLogCache = [];
   try{ _renderChatLog([]); }catch(_){}
-  if(room && window.firebaseAPI && firebaseAPI.subscribeChatLog){
-    // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
-    _chatLogUnsub = firebaseAPI.subscribeChatLog(room, list => { _noteChatJoin(key, list); _renderChatLog(list); }, undefined, tab);
-  }
+  // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
+  const _onList = list => { _noteChatJoin(key, list); _renderChatLog(list); };
+  // 💬 이 PC 저장 + 그 뒤만 이어 받기(chat-history.js) — 옛 firebase-init 이면 예전 통째 구독
+  if(room && window.firebaseAPI && firebaseAPI.chatHistory) _chatLogUnsub = firebaseAPI.chatHistory.open(room, tab, _onList);
+  else if(room && window.firebaseAPI && firebaseAPI.subscribeChatLog) _chatLogUnsub = firebaseAPI.subscribeChatLog(room, _onList, undefined, tab);
   _chatTabUnreadStart(room);
   _chatTabsRender();
 }
@@ -13704,6 +13706,7 @@ function _chatTabsOnMeta(){
   const sig = ChatTabs.list(_chatTabMeta()).map(t => t.id + ':' + t.name).join('|');
   _chatTabSyncRoom(room);
   /* 방 메타가 아직 안 왔으면(재부팅 직후) 탭 목록이 비어 보일 뿐이다 — 기억한 탭을 «지워졌다» 로 보지 않는다. */
+  if(window._roomMetaCache && room && window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.syncTabs(room, _chatTabMeta()).catch(()=>{});   // 지운 채널의 PC 저장
   const metaReady = !!window._roomMetaCache;
   if(metaReady && _chatMyTab !== 'general' && _chatTabResolve(_chatMyTab) === 'general'){
     _chatMyTab = 'general'; _chatTabSave(room, 'general');
@@ -27282,6 +27285,7 @@ function _wipeAccountLocal(){
   }catch(_){}
   /* 메모리 — 위 주석 참고. 각 값은 그 모듈의 «빈 기기» 초기값과 같다. */
   try{ _focusTotalSec = 0; _focusTodaySec = 0; }catch(_){}
+  try{ if(window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeAll(); }catch(_){}   // 💬 이 PC 대화 저장(chat-history.js)
   try{ gachaMod.resetMemory(); }catch(_){}   // 🎰 가챠 — gachaOwned = {} · _gachaTs = 0 · _gachaBonus = 0 (gacha.js)
   try{ weeklyChal.resetMemory(); }catch(_){}   // 👑 달성표 — chalRec = 빈 기록 · dirty=false (weekly-challenge.js)
   try{ _slotsTs = 0; _slotsSeen = 0; _slotsConflict = null; extraSeatSlots = []; }catch(_){}
@@ -28553,7 +28557,7 @@ async function doHopRandomRoom(){
   try{
     const _srv = (await _serverRandomRooms(12)).filter(c => c !== cur);   // 🛰 서버 방 먼저(켜져 있을 때만)
     if(_srv.length){
-      await doLeaveRoom();
+      await doLeaveRoom({ wipeChat: true });
       await startRoom(_srv[0]);
       if(!Presence.active()) toast('방을 옮기지 못했어요 — 참여를 다시 눌러주세요');
       return;
@@ -28577,7 +28581,7 @@ async function doHopRandomRoom(){
       target = code; break;
     }
     if(!target){ toast('지금은 옮겨갈 다른 방이 없어요 — 조금 뒤에 다시 눌러보세요 🎲'); return; }
-    await doLeaveRoom();
+    await doLeaveRoom({ wipeChat: true });
     await startRoom(target);
     /* startRoom 이 조용히 되돌아가는 경로가 여럿 있다(정원 재확인·버전 게이트 등).
        그 경우 방 밖에 남으므로, 나갔다는 사실만이라도 분명히 알려준다. */
@@ -28748,7 +28752,7 @@ window._onRoomDisbanded = function(){
   try{
     toast('방장이 나가고 이어받을 사람이 없어 방이 해산됐어요');
     if(typeof doLeaveRoom==='function'){
-      Promise.resolve(doLeaveRoom()).catch(()=>{}).then(()=>{ window._roomDisbanding = false; });
+      Promise.resolve(doLeaveRoom({ wipeChat: true })).catch(()=>{}).then(()=>{ window._roomDisbanding = false; });
     }else{
       window._roomDisbanding = false;
     }
@@ -28773,7 +28777,11 @@ window._onRoomOverCapacity = function(cap){
   }catch(_){ window._roomOverCapLeaving = false; }
 };
 
-async function doLeaveRoom(){
+/* opt.wipeChat === true — 내가 직접 나갈 때만(버튼 · 다른 방으로 옮김 · 초대 이동 · 해산) 이 방의 PC 대화 저장을 지운다.
+   연결 끊김 · 정원 초과 · 다른 기기 로그인 같은 «튕김» 은 다시 들어오면 이어져야 해서 안 지운다(chat-history.js). */
+async function doLeaveRoom(opt){
+  const _leftRoom = (typeof Presence!=='undefined' && Presence.roomCode) ? Presence.roomCode() : null;
+  if(opt && opt.wipeChat === true && _leftRoom && window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeRoom(_leftRoom);
   _clearHiddenSeats();   // 🙈 방을 나가면 숨김 목록도 비운다
   await Presence.stop();   // 서버에 내 항목 삭제가 반영된 뒤 진행 — 바로 재접속해도 내가 복제되어 보이는 문제 방지
   window._activeChannel = 1;          // ★ 방을 나가면 채널 원복 → 채팅 훅(===2) 자동 비활성
@@ -28809,7 +28817,7 @@ async function doCopyRoomCode(){
   }; }
 document.getElementById('inviteJoin').onclick=()=>doJoinRoom(document.getElementById('inviteCode'));
 { const b=document.getElementById('inviteSecretJoin'); if(b) b.onclick=()=>doJoinSecretRoom(document.getElementById('inviteSecretCode')); }
-document.getElementById('inviteLeave').onclick=doLeaveRoom;
+document.getElementById('inviteLeave').onclick=()=>doLeaveRoom({ wipeChat: true });
 { const b=document.getElementById('inviteHopRandom'); if(b) b.onclick=doHopRandomRoom; }
 document.getElementById('inviteRoomCopy').addEventListener('click', e=>{ e.preventDefault(); doCopyRoomCode(); });
 // ★ 설정 패널 "멀티모드" 탭 — 모달(inviteOverlay)과 완전히 동일한 동작을 하는 버튼들. 로직은 위 공용
@@ -28821,7 +28829,7 @@ const fsInviteCreate=document.getElementById('fsInviteCreate'); if(fsInviteCreat
 };
 const fsInviteJoinBtn=document.getElementById('fsInviteJoin'); if(fsInviteJoinBtn) fsInviteJoinBtn.onclick=()=>doJoinRoom(document.getElementById('fsInviteCode'));
 { const b=document.getElementById('fsInviteSecretJoin'); if(b) b.onclick=()=>doJoinSecretRoom(document.getElementById('fsInviteSecretCode')); }
-const fsInviteLeaveBtn=document.getElementById('fsInviteLeave'); if(fsInviteLeaveBtn) fsInviteLeaveBtn.onclick=doLeaveRoom;
+const fsInviteLeaveBtn=document.getElementById('fsInviteLeave'); if(fsInviteLeaveBtn) fsInviteLeaveBtn.onclick=()=>doLeaveRoom({ wipeChat: true });
 { const b=document.getElementById('fsInviteHopRandom'); if(b) b.onclick=doHopRandomRoom; }
 const fsInviteRoomCopyBtn=document.getElementById('fsInviteRoomCopy'); if(fsInviteRoomCopyBtn) fsInviteRoomCopyBtn.addEventListener('click', e=>{ e.preventDefault(); doCopyRoomCode(); });
 
@@ -37684,7 +37692,7 @@ function _bindRoomInviteReceiver(){
       try{ await firebaseAPI.clearRoomInvite(myId, fromId); }catch(_){}
       if(accepted && inv.roomCode){
         // 이미 다른 방이면 나간 뒤 이동
-        try{ if(typeof Presence!=='undefined' && Presence.active()) await doLeaveRoom(); }catch(_){}
+        try{ if(typeof Presence!=='undefined' && Presence.active()) await doLeaveRoom({ wipeChat: true }); }catch(_){}
         if(typeof startRoom==='function'){
           startRoom(inv.roomCode);
         }
