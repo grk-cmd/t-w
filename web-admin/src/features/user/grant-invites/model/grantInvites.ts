@@ -1,5 +1,6 @@
 import {
   addInvitesLeft,
+  clearInvitesLeft,
   createInviteCode,
   INVITE_CODE_MAX,
   isGrantCount,
@@ -47,37 +48,52 @@ const CHUNK = 20;
 /** 여러 명 지급의 범위 — 기록에서 «선택» 과 «전체» 를 가른다. */
 export type GrantScope = 'selected' | 'all';
 
-export async function grantInvitesAll(
-  db: Db,
+interface BatchOpts {
+  onProgress?: (done: number, total: number) => void;
+  shouldStop?: () => boolean;
+  scope?: GrantScope;
+}
+
+/** CHUNK 명씩 동시에 one 을 돌린다. 멈추면 다음 묶음부터 서고, 멈췄는지를 돌려준다. */
+async function runChunked(
   uids: string[],
-  count: number,
-  opts: {
-    onProgress?: (done: number, total: number) => void;
-    shouldStop?: () => boolean;
-    scope?: GrantScope;
-  } = {},
-): Promise<GrantAllResult> {
-  if (!isGrantCount(count)) throw new Error(`지급 장수가 범위를 벗어났어요: ${count}`);
-  const result: GrantAllResult = { total: uids.length, granted: 0, skipped: 0, failed: 0, stopped: false };
+  one: (uid: string) => Promise<void>,
+  opts: BatchOpts,
+): Promise<boolean> {
   let done = 0;
   for (let i = 0; i < uids.length; i += CHUNK) {
-    if (opts.shouldStop?.()) {
-      result.stopped = true;
-      break;
-    }
+    if (opts.shouldStop?.()) return true;
     await Promise.all(
       uids.slice(i, i + CHUNK).map(async (uid) => {
-        try {
-          const r = await addInvites(db, uid, count);
-          if (r.ok) result.granted++;
-          else result.skipped++;
-        } catch {
-          result.failed++;
-        }
+        await one(uid);
         opts.onProgress?.(++done, uids.length);
       }),
     );
   }
+  return false;
+}
+
+export async function grantInvitesAll(
+  db: Db,
+  uids: string[],
+  count: number,
+  opts: BatchOpts = {},
+): Promise<GrantAllResult> {
+  if (!isGrantCount(count)) throw new Error(`지급 장수가 범위를 벗어났어요: ${count}`);
+  const result: GrantAllResult = { total: uids.length, granted: 0, skipped: 0, failed: 0, stopped: false };
+  result.stopped = await runChunked(
+    uids,
+    async (uid) => {
+      try {
+        const r = await addInvites(db, uid, count);
+        if (r.ok) result.granted++;
+        else result.skipped++;
+      } catch {
+        result.failed++;
+      }
+    },
+    opts,
+  );
   // 사람마다가 아니라 한 번에 한 줄 — 몇 명에게 갔는지만.
   if (result.granted)
     await auditAfter(
@@ -85,6 +101,58 @@ export async function grantInvitesAll(
       opts.scope === 'all' ? 'invite.grantAll' : 'invite.grantSelected',
       `${result.total}명`,
       `+${count} · 지급 ${result.granted} · 건너뜀 ${result.skipped} · 실패 ${result.failed}` +
+        (result.stopped ? ' · 중간에 멈춤' : ''),
+    );
+  return result;
+}
+
+export interface RevokeAllResult {
+  total: number;
+  /** 0 장으로 바꾼 사람. */
+  revoked: number;
+  /** 거둔 장수의 합. */
+  taken: number;
+  /** 초대권 칸이 없거나 이미 0 장 이하인 사람. */
+  skipped: number;
+  failed: number;
+  stopped: boolean;
+}
+
+/** 여러 명의 남은 초대권을 0 장으로 — 지급과 같이 20명씩 동시에, 기록은 끝나고 한 줄. */
+export async function revokeInvitesAll(
+  db: Db,
+  uids: string[],
+  opts: BatchOpts = {},
+): Promise<RevokeAllResult> {
+  const result: RevokeAllResult = {
+    total: uids.length,
+    revoked: 0,
+    taken: 0,
+    skipped: 0,
+    failed: 0,
+    stopped: false,
+  };
+  result.stopped = await runChunked(
+    uids,
+    async (uid) => {
+      try {
+        const r = await clearInvitesLeft(db, uid);
+        if (r.ok) {
+          result.revoked++;
+          result.taken += r.before;
+        } else result.skipped++;
+      } catch {
+        result.failed++;
+      }
+    },
+    opts,
+  );
+  if (result.revoked)
+    await auditAfter(
+      db,
+      opts.scope === 'all' ? 'invite.revokeAll' : 'invite.revokeSelected',
+      `${result.total}명`,
+      `→ 0장 · 회수 ${result.revoked}명(${result.taken}장) · 건너뜀 ${result.skipped} · 실패 ${result.failed}` +
         (result.stopped ? ' · 중간에 멈춤' : ''),
     );
   return result;

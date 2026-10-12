@@ -43,3 +43,25 @@
   padding: 0;
   list-style: none;
 }
+
+/* 회수처럼 되돌릴 수 없는 실행 버튼 — 지급(primary)과 헷갈리지 않게 빨강으로 채운다. */
+.dangerFill {
+  color: var(--card);
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.rules {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0;
+  padding: 0;
+  font-size: 13px;
+  list-style: none;
+}
+
+.rules li {
+  display: grid;
+  grid-template-columns: 7.5em 1fr;
+  gap: 6px;
+}

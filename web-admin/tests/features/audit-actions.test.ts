@@ -10,7 +10,12 @@ import { grantRow, type PlanRow } from '@/features/license/bulk-grant';
 import { grantByFriendCode } from '@/features/license/grant-by-code';
 import { removeKeys, revokeKeys } from '@/features/license/revoke-key';
 import { closeAllRooms } from '@/features/room/close-room';
-import { createInviteCodes, grantInvites, grantInvitesAll } from '@/features/user/grant-invites';
+import {
+  createInviteCodes,
+  grantInvites,
+  grantInvitesAll,
+  revokeInvitesAll,
+} from '@/features/user/grant-invites';
 import { dismissReportsMany, takeDownAwayImg } from '@/features/user/moderate-report';
 import { auditsOf, fakeDb, type Write } from '../shared/fakeDb';
 import { fakeFiles } from '../shared/fakeFiles';
@@ -125,6 +130,15 @@ describe('작업 기록 — 묶을 수 없어 끝난 뒤 따로', () => {
     expect(brief(writes)).toEqual([
       ['invite.grantSelected', '3명', '+2 · 지급 2 · 건너뜀 1 · 실패 0'],
       ['invite.grantAll', '1명', '+1 · 지급 1 · 건너뜀 0 · 실패 0'],
+    ]);
+  });
+
+  it('초대권 회수 — 한 줄 · 아무도 안 바뀌었으면 기록 없음', async () => {
+    const { db, writes } = fakeDb({ [left('u1')]: 3, [left('u2')]: 0 });
+    await revokeInvitesAll(db, ['u1', 'u2', 'u3'], { scope: 'selected' });
+    await revokeInvitesAll(db, ['u1', 'u2'], { scope: 'all' }); // 이미 둘 다 0 장
+    expect(brief(writes)).toEqual([
+      ['invite.revokeSelected', '3명', '→ 0장 · 회수 1명(3장) · 건너뜀 2 · 실패 0'],
     ]);
   });
 
