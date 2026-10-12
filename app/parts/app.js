@@ -8168,6 +8168,8 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
             toast(msg);
             console.warn('[포커싱어플] 등록 실패 —', res && res.reason, '| diag =', d, '| self =', res && res.self);
           }
+          // 🧭 셸 창(작업표시줄 · 바탕화면 · 파일 탐색기 · UWP 앱)을 건너뛰고 그 앞 창을 등록했으면 알린다 — 조용히 다른 앱이 등록되지 않게
+          else if(res.skipped) toast('«' + res.skipped + '» 대신 직전에 쓰던 «' + (res.app.name||'앱') + '» 을(를) 등록했어요 — 원하는 창이 아니면 우클릭으로 직접 골라 주세요', null, 6000);
           else{ toast((res.app.name||'앱')+' 등록됨'); }
           renderSlots();
         }

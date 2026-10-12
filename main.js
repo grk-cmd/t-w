@@ -3286,7 +3286,9 @@ function createWindow() {
     if(lastRegistrableWindow && lastRegistrableWindow !== lastForeignWindow)
       _diagLog('[등록] 셸 창(' + lastForeignWindow.name + ')을 건너뛰고 ' + lastRegistrableWindow.name + ' 를 등록');
     saveFocusApps();
-    return { ok:true, app: focusApps[idx] };
+    /* skipped — 건너뛴 셸 창 이름. 렌더러가 «무엇 대신 무엇을 등록했는지» 알린다(파일 탐색기 · UWP 앱처럼 셸 목록에 든 창을 등록하려던 경우) */
+    const skipped = (lastRegistrableWindow && lastRegistrableWindow !== lastForeignWindow && lastForeignWindow) ? lastForeignWindow.name : null;
+    return { ok:true, app: focusApps[idx], skipped };
   });
 
   /* 📋 실행 중인 창 목록 — "목록에서 직접 고르기"용.
