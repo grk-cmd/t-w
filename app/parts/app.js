@@ -1375,6 +1375,7 @@ try{ window.ANIMAL_RUN_SCALE = ANIMAL_RUN_SCALE; }catch(_){}
      크기(userScale)뿐이다. 그래서 평준화를 켜도 동물은 여전히 사람의 40% 로 남는다. */
 let seatEqualizeOn = false;
 try{ seatEqualizeOn = (localStorage.getItem('tw.seatEq') === '1'); }catch(_){}   // 기본 끄기(들쑥날쑥한 것도 재미)
+let roomSeatMode = window.TwSeatPin ? TwSeatPin.loadMode(localStorage) : 'row';   // 🪑 방에서 내 자리 — 줄 안에 함께 · 맨 오른쪽 고정(seat-pin.js)
 /* 🎁 꾸미기 파츠 표시 — [2026-09-17 요청] 끄면 **내 화면에서만**, 나 포함 모든 좌석의 꾸미기 파츠(파츠 보관함의 가챠 파츠)가
    안 보인다. 서버에는 아무것도 안 쓴다(좌석 크기 평준화와 같은 «내 화면 전용» 설정).
    · 대상: 캐릭터에 붙는 파츠 wrapper(`__twPartWrap`) 전부 — 일반·겹치기·다중 인스턴스. **책상 위(bone:'desk') 카테고리는 제외** — 책상 설정의
@@ -4002,6 +4003,8 @@ function layoutSeats(){
   /* 🪑 좌석 간격·카메라 줌은 바로 아래에서 **책상 폭을 실측**한다. 평준화로 책상이 커지거나
      작아졌다면 그 전에 반영돼 있어야 간격이 한 박자 늦지 않는다. 바뀐 좌석이 없으면 숫자 비교뿐이다. */
   if(typeof syncSeatEqualize === 'function') syncSeatEqualize();
+  // 🪑 맨 오른쪽 고정이면 방에서 나를 0번(맨 오른쪽)으로 — 다른 사람이 들어온 뒤에도(seat-pin.js)
+  if(window.TwSeatPin && TwSeatPin.pinFirst(seats, roomSeatMode) && typeof renderSeatTabs === 'function') renderSeatTabs();
   // ★ 인원 수가 바뀔 때마다(친구 참여/퇴장 등) 지금 팬 위치가 여전히 안전 범위인지 재검증 —
   //   안 그러면 팬을 한쪽 구석에 걸어둔 상태에서 인원이 늘어날 때 화면 밖으로 밀려날 수 있음.
   { const _c = clampDeskPan(deskPanX, deskPanY); deskPanX=_c.x; deskPanY=_c.y; }
@@ -8288,6 +8291,8 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     if(eqBtn){ eqBtn.textContent = seatEqualizeOn?'켜짐':'꺼짐'; eqBtn.classList.toggle('on', seatEqualizeOn); }
     const dpBtn=document.getElementById('fsDecoPartsToggle');
     if(dpBtn){ dpBtn.textContent = decoPartsVisible?'켜짐':'꺼짐'; dpBtn.classList.toggle('on', decoPartsVisible); }
+    const rsBtn=document.getElementById('fsRoomSeatModeToggle');
+    if(rsBtn && window.TwSeatPin){ rsBtn.textContent = TwSeatPin.label(roomSeatMode); rsBtn.classList.toggle('on', roomSeatMode === TwSeatPin.RIGHT); }
   }
   /* 🪟 창 위치 초기화 — 화면 밖으로 나가 안 보이는 창을 되돌린다.
      [경위] "꾸미기창·파츠 보관함 미리보기가 사라졌다"는 제보. 창 자리는 저마다 localStorage 에
@@ -8358,6 +8363,14 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
     /* ⚠️ syncSeatEqualize 를 직접 부르지 않고 layoutSeats 를 부른다 — 그 안에서 동기화가 먼저 돌고,
        이어서 바뀐 책상 폭으로 좌석 간격·카메라 줌까지 다시 잡힌다. 여기서 동기화만 하면
        크기는 바뀌었는데 간격은 옛 폭 그대로라 좌석이 겹치거나 벌어진다. */
+    layoutSeats();
+  };
+  /* 🪑 방에서 내 자리 — 줄 안에 함께(기본) ↔ 맨 오른쪽 고정. 내 화면에서만(서버에 안 쓴다). 고정하면 layoutSeats 가 나를 0번으로 옮긴다. */
+  const rsBtn=document.getElementById('fsRoomSeatModeToggle');
+  if(rsBtn && window.TwSeatPin) rsBtn.onclick=()=>{
+    roomSeatMode = TwSeatPin.next(roomSeatMode);
+    TwSeatPin.saveMode(localStorage, roomSeatMode);
+    refreshToggleBtns();
     layoutSeats();
   };
   /* 🎁 꾸미기 파츠 표시 — 내 화면에서만. 전 좌석(나·친구·추가 좌석)에 바로 적용한다. */
@@ -17799,6 +17812,7 @@ canvas.addEventListener('pointermove',e=>{
   if(drag.mode==='slot'){
     const wx=worldX(e)-drag.grabX; drag.seat.group.position.x=wx;
     const n=seats.length; const _spacing = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING; let idx=Math.round(-wx/_spacing); idx=Math.max(0,Math.min(n-1,idx));
+    if(window.TwSeatPin) idx = TwSeatPin.dragIndex(idx, drag.seat, seats, roomSeatMode);   // 🪑 맨 오른쪽 고정이면 내 자리는 그대로
     const cur=seats.indexOf(drag.seat);
     if(idx!==cur){seats.splice(cur,1);seats.splice(idx,0,drag.seat);layoutSeats();renderSeatTabs();}
   } else if(drag.mode==='shake'){
