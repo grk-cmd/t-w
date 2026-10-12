@@ -13,6 +13,7 @@ import {
 import { ReportTodoButton, ReportTodos } from '@/features/admin-todo/edit-todo';
 import { AnswerForm } from '@/features/bug-board/answer-post';
 import { StatusButtons } from '@/features/bug-board/change-status';
+import { DeleteAnswerButton } from '@/features/bug-board/delete-answer';
 import { DeletePostButton } from '@/features/bug-board/delete-post';
 import { EditAnswerForm } from '@/features/bug-board/edit-answer';
 import { EditPostForm } from '@/features/bug-board/edit-post';
@@ -96,9 +97,12 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
                   {a.st && <> · 상태 → {BUG_STATUS[a.st]}</>}
                 </small>
                 {!a.byAuthor && editingAns !== key && (
-                  <button type="button" className="btn" onClick={() => setEditingAns(key)}>
-                    수정
-                  </button>
+                  <span className={styles.answerActions}>
+                    <button type="button" className="btn" onClick={() => setEditingAns(key)}>
+                      수정
+                    </button>
+                    <DeleteAnswerButton postId={item.id} answer={a} label={no} />
+                  </span>
                 )}
               </div>
               {editingAns === key ? (
@@ -132,7 +136,7 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
   );
 }
 
-/** 오른쪽 패널 — 내용 · 답변(운영자 답변은 수정) · 상태 변경 · 답변 등록. 여는 동안만 그 글을 읽는다. */
+/** 오른쪽 패널 — 내용 · 답변(운영자 답변은 수정 · 삭제) · 상태 변경 · 답변 등록. 여는 동안만 그 글을 읽는다. */
 export function BugPostDetail({ id, onClose }: { id: string | null; onClose: () => void }) {
   const { data, error, isLoading } = useBugPost(id);
   const open = !!id;
