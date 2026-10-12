@@ -104,7 +104,14 @@ console.log('\n── 3. 새는 곳이 없는가');
         && /<= 30/.test(v('adoptDays')) && /isNumber/.test(v('releasedAt')) && (im.$other || {})['.validate'] === false,
         '  ↳ 모양: 버전 ≤20 · 제목 ≤80 · 항목 0~19번(20개) 각 ≤120 · 적용 일수 0~30 · 모르는 칸 거절');
   }
-  chk(r('admins') === false, '관리자 명단은 앱에서 읽을 수 없다');
+  /* 관리자 서버(API 읽기 DB)용 봇 계정 — apiBots/{uid}: true 인 계정만 admins · licenses 를 읽는다(쓰기 없음).
+     봇 명단 자체는 앱에서 읽지도 쓰지도 못한다(콘솔에서만). */
+  const isBot = v => typeof v === 'string' && /auth != null && root\.child\('apiBots'\)\.child\(auth\.uid\)\.val\(\) === true/.test(v);
+  chk(isBot(r('admins')) && !/admins/.test(String(r('admins'))), '관리자 명단은 앱에서 읽을 수 없다 — 관리자 서버 봇(apiBots)만 읽기');
+  chk(r('apiBots') === false && !!at('apiBots/$uid') && at('apiBots/$uid')['.write'] === false && Object.keys(at('apiBots') || {}).every(k => k === '.read' || k === '$uid'),
+      '봇 명단(apiBots)은 앱에서 읽지도 쓰지도 못한다 (콘솔에서만)');
+  chk(isAdmin(r('licenses')) && isBot(r('licenses')) && !w('licenses'),
+      '라이선스 전체 읽기는 관리자 또는 봇 — 봇에게 쓰기 길 없음');
   chk(!!at('admins/$uid') && at('admins/$uid')['.write'] === false, '관리자 명단은 앱에서 쓸 수 없다 (콘솔에서만)');
   chk(r('srKey') === false && w('srKey') === false, '시크릿룸 발급 키는 그대로 잠겨 있다');
   chk(/srKey\/v/.test(String(w('secretRooms/$code'))), '시크릿룸 발급은 기존 키 방식 그대로다');
