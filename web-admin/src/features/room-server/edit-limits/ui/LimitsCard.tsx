@@ -20,6 +20,7 @@ const toInputs = (cfg: RoomServerConfig | undefined): LimitInputs => ({
 });
 
 // 서버 한 대의 지금 방 개수 — 방 서버 /health(공개 · 개수뿐). Firebase 는 읽지 않는다.
+// 시크릿룸은 채널 상한 밖이라 «/상한» 없이 따로 센다.
 function ServerCount({ name, url }: { name: string; url: string }) {
   const h = useServerHealth(url);
   return (
@@ -41,7 +42,10 @@ function ServerCount({ name, url }: { name: string; url: string }) {
               </span>
             );
           })}
-          <small className="soft">연결 {h.data.conns}</small>
+          {h.data.secret !== null && <span className={styles.count}>시크릿룸 {h.data.secret}</span>}
+          <small className="soft">
+            {h.data.members !== null && `방 안 ${h.data.members}명 · `}연결 {h.data.conns}
+          </small>
         </span>
       )}
       <button type="button" className="btn" disabled={h.isFetching} onClick={() => void h.refetch()}>
