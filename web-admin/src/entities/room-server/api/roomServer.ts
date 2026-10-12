@@ -94,6 +94,9 @@ export interface ServerHealth {
   workingroom: number;
   togetherroom: number;
   conns: number;
+  /** 시크릿룸 수 · 방 안 사람 수 — 채널 상한(limits)에는 안 들어간다. 옛 방 서버는 칸이 없어 null. */
+  secret: number | null;
+  members: number | null;
   limits: Partial<Record<Channel, number>> | null;
   /** 돌고 있는 코드(`v0.1.0 (8998273)` · `dev (abc1234)`). 옛 방 서버는 칸이 없어 null. */
   version: string | null;
@@ -111,6 +114,7 @@ export async function fetchServerHealth(
   if (!res.ok) throw new Error(`응답 ${res.status}`);
   const o = (await res.json()) as Record<string, unknown>;
   const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+  const optNum = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   const str = (v: unknown) => (typeof v === 'string' && v && v.length <= 80 ? v : null);
   const lim = o.limits && typeof o.limits === 'object' ? (o.limits as Record<string, unknown>) : null;
   return {
@@ -118,6 +122,8 @@ export async function fetchServerHealth(
     workingroom: num(o.workingroom),
     togetherroom: num(o.togetherroom),
     conns: num(o.conns),
+    secret: optNum(o.secret),
+    members: optNum(o.members),
     // 옛 방 서버는 limits 칸이 없다 — 그때는 null(화면은 설정값만 보여 준다).
     limits: lim
       ? Object.fromEntries(
