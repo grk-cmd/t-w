@@ -218,7 +218,7 @@ export function createBugBoard(deps){
     return { ok: true, item: Object.assign({}, it, { status: st, lastReplyTs: t }), vis, kakao };
   }
   /* 글쓴이 답글 + (고르면) 상태 — 한 묶음으로. 규칙이 «같은 묶음에 userReplyTs === 서버 시각» 을 짝으로 본다.
-     상태를 안 고르면(그대로) 답글 · userReplyTs 만. lastReplyTs · ansN 은 운영자 답변 칸이라 건드리지 않는다. */
+     상태가 없으면 답글 · userReplyTs 만(화면은 늘 하나를 골라 보낸다 — 규칙도 상태 없는 답글을 받는다). lastReplyTs · ansN 은 운영자 답변 칸이라 건드리지 않는다. */
   async function addReply(id, a){
     const it = await getItem(id); if(!it) return { ok: false, reason: '글을 찾지 못했어요' };
     const me = uid();

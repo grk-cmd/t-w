@@ -339,7 +339,7 @@ say('§6 글쓴이 답글');
     chk(t.writes[0]['bugBoard/list/p1/openTs'] === null && t.writes[0]['bugBoard/list/p1/status'] === 'fixed', '§6 해결 완료 → 미해결 목록에서 빠진다(openTs 지움)');
     t = mkBB(base, 'uA');
     await t.bb.addReply('p1', { text: '덧붙여요', status: '' });
-    chk(Object.keys(t.writes[0]).join() === 'bugBoard/rep/prv/p1/r1,bugBoard/list/p1/userReplyTs' && !('st' in t.writes[0]['bugBoard/rep/prv/p1/r1']), '§6 «그대로» 면 답글 · userReplyTs 만 (상태 안 바꿈)');
+    chk(Object.keys(t.writes[0]).join() === 'bugBoard/rep/prv/p1/r1,bugBoard/list/p1/userReplyTs' && !('st' in t.writes[0]['bugBoard/rep/prv/p1/r1']), '§6 상태 없이 부르면 답글 · userReplyTs 만 (데이터 함수 · 화면은 늘 하나를 고른다)');
     t = mkBB(base, 'uA');
     await t.bb.addReply('p1', { text: 'x', status: 'norepro' });
     chk(!('bugBoard/list/p1/status' in t.writes[0]), '  ↳ 글쓴이 상태 셋 밖(재현 안 됨)은 무시');
@@ -362,6 +362,8 @@ say('§6 글쓴이 답글');
   chk(/else if\(it\.authUid === myUid\(\) && !it\.notice\) h\.push\(authorForm\(it\)\)/.test(UI) && /if\(admin\(\)\) h\.push\(adminForm\(it\)\);\n\s*else if/.test(UI), '§6 답글 칸은 내 글 · 공지 아님 · 관리자가 아닐 때(관리자는 답변 칸)');
   chk(/class="bb-new mine">✍ 글쓴이 답글/.test(UI) && /admin\(\) && C\(\)\.hasAuthorReply/.test(UI), '§6 관리자 목록 줄에 «✍ 글쓴이 답글»');
   chk(/✍ 글쓴이 답글<span class="bb-ans-v">/.test(UI) && /if\(a\.byAuthor\)/.test(UI), '§6 상세의 글쓴이 답글은 «🛡 운영자 답변» 과 따로 그린다');
+  chk(!/'그대로'/.test(UI) && /const AUTHOR_DEFAULT_ST = 'unfixed';/.test(UI) && /const sts = C\(\)\.authorStatus \|\| \[\];/.test(UI) && /s\[0\] === AUTHOR_DEFAULT_ST \? ' on'/.test(UI),
+    '§6 상태 버튼은 셋(확인 중 · 해결 안 됨 · 해결 완료) · «그대로» 없음 · 기본은 해결 안 됨');
   chk(/\.bb-chip\.unfixed\{/.test(HTML) && /\.bb-ans\.mine\{/.test(HTML) && /\.bb-row2 \.bb-rst\.on\{/.test(HTML), '§6 CSS — 해결 안 됨 칩 · 글쓴이 답글 · 고른 상태 버튼(오픈카톡 .bb-btn.on 보다 강하게)');
 }
 
