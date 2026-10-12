@@ -315,6 +315,46 @@ export function answerId(): string {
   return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+/** 운영자 답변 한 개의 자리. */
+export const answerPath = (postId: string, answer: Pick<BugAnswer, 'id' | 'vis'>) =>
+  `${BUG_ROOT}/ans/${answer.vis}/${postId}/${answer.id}`;
+
+/** 운영자 답변 고치기 — 내용 · 오픈카톡 링크만. 공개 범위 · 시각은 그대로. */
+export interface AnswerEditInput {
+  text: string;
+  kakao?: string;
+}
+
+/** 무엇이 바뀌었나 — 작업 기록 detail 용. 답변 글자는 넣지 않는다(비공개 답변이 기록으로 새지 않게). */
+export function answerEditChanges(
+  answer: Pick<BugAnswer, 'text' | 'kakao'>,
+  input: AnswerEditInput,
+): string[] {
+  const out: string[] = [];
+  if (input.text.trim() !== answer.text) out.push('내용');
+  if ((input.kakao?.trim() ?? '') !== (answer.kakao ?? '')) out.push('오픈카톡 링크');
+  return out;
+}
+
+/**
+ * 답변 한 개를 통째로 다시 쓴다 — 링크를 비우면 kakao 칸이 빠지게.
+ * ts 는 처음 단 시각 그대로(목록 순서 · lastReplyTs 와 어긋나지 않게), ansN · 상태 · 알림은 건드리지 않는다.
+ */
+export function answerEditWrite(
+  postId: string,
+  answer: Pick<BugAnswer, 'id' | 'vis' | 'ts'>,
+  input: AnswerEditInput,
+): Record<string, unknown> {
+  const kakao = input.kakao?.trim() ?? '';
+  return {
+    [answerPath(postId, answer)]: {
+      text: input.text.trim().slice(0, BUG_ANS_MAX),
+      ts: answer.ts,
+      ...(kakao ? { kakao } : {}),
+    },
+  };
+}
+
 /** ans/{vis}/{id} 두 갈래와 글쓴이 답글(rep — 글의 공개 범위 갈래 하나)을 합쳐 오래된 순으로. */
 export function toAnswers(pub: unknown, prv: unknown, rep?: { vis: BugVis; all: unknown }): BugAnswer[] {
   const pick = (all: unknown, vis: BugVis, byAuthor: boolean): BugAnswer[] =>

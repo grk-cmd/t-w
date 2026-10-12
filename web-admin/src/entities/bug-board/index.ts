@@ -19,6 +19,9 @@ export {
   type BugPost,
 } from './api/bugBoard';
 export {
+  answerEditChanges,
+  answerEditWrite,
+  answerPath,
   answerId,
   answerNoticeBody,
   answerVis,
@@ -60,6 +63,7 @@ export {
   toAnswers,
   toBugItem,
   toBugPage,
+  type AnswerEditInput,
   type AnswerInput,
   type BugAnswer,
   type BugContent,

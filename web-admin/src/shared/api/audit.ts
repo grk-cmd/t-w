@@ -53,6 +53,7 @@ export const AUDIT_ACTIONS = [
   'catalog.editInfo',
   'catalog.cleanGlb',
   'bug.answer',
+  'bug.answerEdit',
   'bug.status',
   'bug.delete',
   'bug.edit',

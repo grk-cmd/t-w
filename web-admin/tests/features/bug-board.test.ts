@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUG_PRV_NOTICE_BODY } from '@/entities/bug-board';
-import { answerPost } from '@/features/bug-board/answer-post';
+import { ANSWER_BUSY, answerPost } from '@/features/bug-board/answer-post';
 import { changeStatus } from '@/features/bug-board/change-status';
 import { deleteAsk, deletePost } from '@/features/bug-board/delete-post';
 import { auditsOf, fakeDb, NOW, withoutAudits } from '../shared/fakeDb';
@@ -60,6 +60,24 @@ describe('답변 등록', () => {
     });
     expect(await answerPost(db, 'gone', { text: 'a', vis: 'pub' }, 'n')).toMatchObject({ ok: false });
     expect(writes).toEqual([]);
+  });
+
+  it('답변 칸을 연 뒤 다른 관리자 답변이 달렸으면 쓰지 않는다 — 다시 보고 누르면 등록', async () => {
+    const { db, writes } = fakeDb({ 'bugBoard/list/p1': entry({ lastReplyTs: 200 }) });
+    const input = { text: '고쳤어요', vis: 'pub' as const };
+    expect(await answerPost(db, 'p1', input, 'n', { lastReplyTs: 150 })).toEqual({
+      ok: false,
+      reason: ANSWER_BUSY,
+      busy: true,
+    });
+    expect(await answerPost(db, 'p1', input, 'n', {})).toMatchObject({ busy: true });
+    expect(writes).toEqual([]);
+    expect(await answerPost(db, 'p1', input, 'n', { lastReplyTs: 200 })).toEqual({ ok: true });
+  });
+
+  it('답변이 하나도 없던 글은 그대로 등록', async () => {
+    const { db } = fakeDb({ 'bugBoard/list/p1': entry({ ansN: 0 }) });
+    expect(await answerPost(db, 'p1', { text: 'a', vis: 'pub' }, 'n', {})).toEqual({ ok: true });
   });
 
   it('묶음이 거절되면 답변도 알림도 남지 않는다', async () => {

@@ -18,7 +18,7 @@ import styles from './AnswerForm.module.css';
 /** 답변 등록 — 글쓴이 우편함 알림까지 한 번에. 비공개 글엔 비공개 답변만. */
 export function AnswerForm({ item, label }: { item: BugItem; label: string }) {
   const toast = useToast();
-  const answer = useAnswerPost(item.id, label);
+  const answer = useAnswerPost(item.id, label, item);
   const [text, setText] = useState('');
   const [kakao, setKakao] = useState('');
   const [vis, setVis] = useState<BugVis>(item.vis);

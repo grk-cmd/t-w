@@ -14,6 +14,7 @@ import { ReportTodoButton, ReportTodos } from '@/features/admin-todo/edit-todo';
 import { AnswerForm } from '@/features/bug-board/answer-post';
 import { StatusButtons } from '@/features/bug-board/change-status';
 import { DeletePostButton } from '@/features/bug-board/delete-post';
+import { EditAnswerForm } from '@/features/bug-board/edit-answer';
 import { EditPostForm } from '@/features/bug-board/edit-post';
 import { errorMessage, formatDate } from '@/shared/lib';
 import { useModalDialog } from '@/shared/ui';
@@ -25,6 +26,8 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
   // 작업 기록 · 확인 문구용 — 임시 번호면 «(임시)» 까지.
   const no = bugNoLabel(bugNo);
   const [editing, setEditing] = useState(false);
+  // 고치는 중인 운영자 답변 — 한 번에 하나만.
+  const [editingAns, setEditingAns] = useState<string | null>(null);
 
   return (
     <>
@@ -82,23 +85,37 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
       <section className={styles.section}>
         <h3>답변 · 답글 {answers.length}</h3>
         {answers.length === 0 && <p className="soft">답변 없음</p>}
-        {answers.map((a) => (
-          <div
-            key={`${a.byAuthor ? 'rep' : 'ans'}-${a.vis}-${a.id}`}
-            className={a.byAuthor ? `${styles.answer} ${styles.authorAnswer}` : styles.answer}
-          >
-            <small className="soft">
-              {a.byAuthor ? '✍ 글쓴이 답글' : a.vis === 'pub' ? '공개' : '🔒 비공개'} · {formatDate(a.ts)}
-              {a.st && <> · 상태 → {BUG_STATUS[a.st]}</>}
-            </small>
-            <p className={styles.text}>{a.text}</p>
-            {a.kakao && (
-              <a href={a.kakao} target="_blank" rel="noreferrer">
-                💬 {a.kakao}
-              </a>
-            )}
-          </div>
-        ))}
+        {answers.map((a) => {
+          const key = `${a.byAuthor ? 'rep' : 'ans'}-${a.vis}-${a.id}`;
+          return (
+            <div key={key} className={a.byAuthor ? `${styles.answer} ${styles.authorAnswer}` : styles.answer}>
+              <div className={styles.sectionHead}>
+                <small className="soft">
+                  {a.byAuthor ? '✍ 글쓴이 답글' : a.vis === 'pub' ? '공개' : '🔒 비공개'} ·{' '}
+                  {formatDate(a.ts)}
+                  {a.st && <> · 상태 → {BUG_STATUS[a.st]}</>}
+                </small>
+                {!a.byAuthor && editingAns !== key && (
+                  <button type="button" className="btn" onClick={() => setEditingAns(key)}>
+                    수정
+                  </button>
+                )}
+              </div>
+              {editingAns === key ? (
+                <EditAnswerForm postId={item.id} answer={a} label={no} onDone={() => setEditingAns(null)} />
+              ) : (
+                <>
+                  <p className={styles.text}>{a.text}</p>
+                  {a.kakao && (
+                    <a href={a.kakao} target="_blank" rel="noreferrer">
+                      💬 {a.kakao}
+                    </a>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
       </section>
 
       <section className={styles.section}>
@@ -115,7 +132,7 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
   );
 }
 
-/** 오른쪽 패널 — 내용 · 답변 · 상태 변경 · 답변 등록. 여는 동안만 그 글을 읽는다. */
+/** 오른쪽 패널 — 내용 · 답변(운영자 답변은 수정) · 상태 변경 · 답변 등록. 여는 동안만 그 글을 읽는다. */
 export function BugPostDetail({ id, onClose }: { id: string | null; onClose: () => void }) {
   const { data, error, isLoading } = useBugPost(id);
   const open = !!id;
