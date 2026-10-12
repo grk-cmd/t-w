@@ -142,13 +142,26 @@ export async function getBugPost(db: Db, id: string): Promise<BugPost | null> {
   const item = await getBugItem(db, id);
   if (!item) return null;
   const contentPath = item.vis === 'pub' ? `${BUG_ROOT}/pub/${id}` : `${BUG_ROOT}/prv/${item.authUid}/${id}`;
-  const [content, pub, prv, rep] = await Promise.all([
+  const [content, [pub, prv], rep] = await Promise.all([
     db.get<BugContent>(contentPath),
-    item.vis === 'pub' ? db.get<unknown>(`${BUG_ROOT}/ans/pub/${id}`) : Promise.resolve(null),
-    db.get<unknown>(`${BUG_ROOT}/ans/prv/${id}`),
+    getStaffAnswersRaw(db, item),
     item.userReplyTs ? db.get<unknown>(`${BUG_ROOT}/rep/${item.vis}/${id}`) : Promise.resolve(null),
   ]);
   return { item, content, answers: toAnswers(pub, prv, { vis: item.vis, all: rep }) };
+}
+
+/** 운영자 답변 두 갈래 원본 — 공개 글이 아니면 공개 답변 칸은 읽지 않는다(앱도 안 읽는 자리). */
+function getStaffAnswersRaw(db: Db, item: Pick<BugItem, 'id' | 'vis'>): Promise<[unknown, unknown]> {
+  return Promise.all([
+    item.vis === 'pub' ? db.get<unknown>(`${BUG_ROOT}/ans/pub/${item.id}`) : Promise.resolve(null),
+    db.get<unknown>(`${BUG_ROOT}/ans/prv/${item.id}`),
+  ]);
+}
+
+/** 운영자 답변만(글쓴이 답글 빼고) 오래된 순 — 답변 지우기 직전 다시 셀 때. */
+export async function getStaffAnswers(db: Db, item: Pick<BugItem, 'id' | 'vis'>): Promise<BugAnswer[]> {
+  const [pub, prv] = await getStaffAnswersRaw(db, item);
+  return toAnswers(pub, prv);
 }
 
 export function useBugPost(id: string | null) {

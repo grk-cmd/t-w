@@ -6,6 +6,7 @@ export {
   getBugItem,
   getBugPost,
   getDayOrder,
+  getStaffAnswers,
   listBugPage,
   useBugItem,
   useBugPage,
@@ -19,6 +20,7 @@ export {
   type BugPost,
 } from './api/bugBoard';
 export {
+  answerDeleteWrite,
   answerEditChanges,
   answerEditWrite,
   answerPath,

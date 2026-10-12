@@ -111,6 +111,12 @@
   margin-top: 4px;
 }
 
+.answerActions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 /* 글쓴이 답글 — 운영자 답변과 구분되게 왼쪽 줄 */
 .authorAnswer {
   padding-left: 10px;

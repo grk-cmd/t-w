@@ -355,6 +355,25 @@ export function answerEditWrite(
   };
 }
 
+/**
+ * 운영자 답변 한 개 지우기 — 답변 null + 목록 줄 ansN · lastReplyTs 를 남은 운영자 답변으로 다시 센다.
+ * rest 는 지운 뒤 남는 운영자 답변(글쓴이 답글 제외). lastReplyTs 는 남은 답변 중 가장 늦은 ts, 없으면 칸을 비운다
+ * — «글쓴이 답글» 표시(userReplyTs > lastReplyTs)가 남은 답변 기준으로 맞게. 상태 · 알림은 건드리지 않는다.
+ */
+export function answerDeleteWrite(
+  postId: string,
+  answer: Pick<BugAnswer, 'id' | 'vis'>,
+  rest: Pick<BugAnswer, 'ts' | 'byAuthor'>[],
+): Record<string, unknown> {
+  const left = rest.filter((a) => !a.byAuthor);
+  const base = `${BUG_LIST}/${postId}`;
+  return {
+    [answerPath(postId, answer)]: null,
+    [`${base}/ansN`]: left.length,
+    [`${base}/lastReplyTs`]: left.length ? Math.max(...left.map((a) => a.ts)) : null,
+  };
+}
+
 /** ans/{vis}/{id} 두 갈래와 글쓴이 답글(rep — 글의 공개 범위 갈래 하나)을 합쳐 오래된 순으로. */
 export function toAnswers(pub: unknown, prv: unknown, rep?: { vis: BugVis; all: unknown }): BugAnswer[] {
   const pick = (all: unknown, vis: BugVis, byAuthor: boolean): BugAnswer[] =>
