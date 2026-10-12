@@ -1,4 +1,5 @@
 export { copyText, errorMessage, formatDate, formatHours } from './format';
+export { useDebouncedValue } from './debounce';
 export { paginate } from './paginate';
 export { hashParam, hashParts, useHashParam, useHashSub, withHashParam } from './hashRoute';
 export {

@@ -4,6 +4,7 @@ import {
   DbProvider,
   EnvContext,
   queryClient,
+  type Api,
   type Db,
   type Env,
   type Files,
@@ -15,15 +16,16 @@ interface Props {
   db: Db;
   files: Files;
   fns: Functions;
+  api: Api | null;
   env: Env;
   children: ReactNode;
 }
 
-export function Providers({ db, files, fns, env, children }: Props) {
+export function Providers({ db, files, fns, api, env, children }: Props) {
   return (
     <QueryClientProvider client={queryClient}>
       <EnvContext.Provider value={env}>
-        <DbProvider db={db} files={files} fns={fns}>
+        <DbProvider db={db} files={files} fns={fns} api={api}>
           <ToastProvider>{children}</ToastProvider>
         </DbProvider>
       </EnvContext.Provider>

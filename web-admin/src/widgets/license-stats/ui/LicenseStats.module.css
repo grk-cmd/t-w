@@ -14,6 +14,12 @@
   font-size: 22px;
 }
 
+/* 어디서 · 언제 기준으로 읽었는지 — 숫자보다 눈에 덜 띄게 */
+.source {
+  color: var(--soft);
+  font-size: 11px;
+}
+
 @media (max-width: 720px) {
   .stats {
     grid-template-columns: 1fr;

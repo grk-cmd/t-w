@@ -1,11 +1,20 @@
 export {
   createLicense,
+  fetchLicensePage,
+  fetchLicenseStats,
   listLicenses,
   newLicenseWrite,
+  patchLicenseRows,
+  refreshLicenses,
   removeLicensesWrite,
+  REPLICA_LAG_MS,
   revokeLicensesWrite,
+  useLicensePage,
   useLicenses,
+  useLicenseStats,
+  useLoadAllLicenses,
   useRefreshLicenses,
+  useReloadLicenses,
 } from './api/license';
 export {
   countLicenses,
@@ -18,3 +27,22 @@ export {
   type LicenseCounts,
   type LicenseStatus,
 } from './model/license';
+export {
+  LICENSE_QUERY_MAX,
+  pageFromAll,
+  pageFromApi,
+  rowFromApi,
+  rowFromLicense,
+  sourceNote,
+  statsFromAll,
+  statsFromApi,
+  type ApiLicenseItem,
+  type ApiLicensePage,
+  type ApiLicenseStats,
+  type LicenseFallback,
+  type LicensePageQuery,
+  type LicensePageView,
+  type LicenseRow,
+  type LicenseSource,
+  type LicenseStatsView,
+} from './model/licenseView';

@@ -1,14 +1,13 @@
-import { useMemo } from 'react';
-import { countLicenses, useLicenses } from '@/entities/license';
+import { sourceNote, useLicenseStats } from '@/entities/license';
 import { useUserCount } from '@/entities/user-count';
 import { errorMessage } from '@/shared/lib';
 import styles from './LicenseStats.module.css';
 
-// 키 목록은 아래 «발급된 키» 와 같은 캐시를 쓴다 — 요약 때문에 licenses 를 한 번 더 받지 않는다.
+// 숫자는 API(읽기 사본)의 집계 — 닿지 못하면 예전처럼 licenses 를 통째로 받아 센다(아래 목록과 같은 한 번을 나눠 쓴다).
 export function LicenseStats() {
   const users = useUserCount();
-  const licenses = useLicenses();
-  const counts = useMemo(() => (licenses.data ? countLicenses(licenses.data) : null), [licenses.data]);
+  const stats = useLicenseStats();
+  const counts = stats.data?.counts;
   const n = (v: number | undefined) => (v === undefined ? '…' : v.toLocaleString());
 
   return (
@@ -30,10 +29,13 @@ export function LicenseStats() {
         <span className="meta">🎟️ 발급된 키</span>
         <strong className={styles.num}>{n(counts?.total)}개</strong>
         <small className="soft">
-          {licenses.error
-            ? errorMessage(licenses.error, '불러오지 못했어요')
+          {stats.error
+            ? errorMessage(stats.error, '불러오지 못했어요')
             : `사용 ${n(counts?.used)} · 미사용 ${n(counts?.unused)} · 회수 ${n(counts?.revoked)}`}
         </small>
+        {stats.data && (
+          <small className={styles.source}>{sourceNote(stats.data.source, stats.data.syncedAt)}</small>
+        )}
       </div>
     </section>
   );
