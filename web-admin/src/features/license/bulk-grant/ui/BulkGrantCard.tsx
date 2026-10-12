@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLicenses, useRefreshLicenses } from '@/entities/license';
+import { useLoadAllLicenses, useRefreshLicenses } from '@/entities/license';
 import { useDb, useEnv, withProdMark } from '@/shared/api';
 import { copyText, usePaging } from '@/shared/lib';
 import { Pager, useToast } from '@/shared/ui';
@@ -60,7 +60,7 @@ export function BulkGrantCard() {
   const db = useDb();
   const env = useEnv();
   const toast = useToast();
-  const { data: licenses } = useLicenses();
+  const loadAllLicenses = useLoadAllLicenses();
   const refreshLicenses = useRefreshLicenses();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -117,8 +117,14 @@ export function BulkGrantCard() {
       return;
     }
     const head = `${file.name} · ${data.length}행${cut ? ` (앞 ${MAX_ROWS}행만)` : ''}`;
-    // 발급된 키 목록은 아래 목록 · 통계와 같은 캐시다. 아직 못 받았으면 «발급한 적 있음» 판정만 빠진다.
-    const issued = licenses ? issuedIndex(licenses) : null;
+    // 발급 이력은 RTDB 통째 목록이 있어야 본다 — 화면을 열 때가 아니라 파일을 고른 뒤에만 받는다(받아 둔 게 있으면 그대로).
+    // 못 받으면 «발급한 적 있음» 판정만 빠진다.
+    let issued: IssuedIndex | null = null;
+    try {
+      issued = issuedIndex(await loadAllLicenses());
+    } catch {
+      issued = null;
+    }
     setInfo(`${head} · 확인 중…`);
     const planned = await lookupRows(db, data, (n, total) => setInfo(`${head} · 확인 중… ${n}/${total}`));
     setSheet({ fileName: file.name, grid, map: { ...map, data }, cut, issued });

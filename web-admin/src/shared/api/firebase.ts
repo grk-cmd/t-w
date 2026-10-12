@@ -29,6 +29,7 @@ import {
 } from 'firebase/database';
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions';
 import { connectStorageEmulator, deleteObject, getStorage, ref as storageRef } from 'firebase/storage';
+import { apiBaseUrl, createApi, type Api } from './api';
 import { isPermissionDenied, type Db } from './db';
 import type { Files } from './files';
 import { FUNCTIONS_REGION, type Functions } from './functions';
@@ -37,6 +38,8 @@ const PROD_PROJECT_ID = 'together-working';
 
 // e2e 빌드(VITE_E2E=1)에서만 에뮬레이터에 붙는다. 일반 빌드에서는 이 값이 false 로 굳어 아래 갈래가 빠진다.
 const E2E = import.meta.env.VITE_E2E === '1';
+// 빌드 때 API 주소를 바꾸고 싶을 때만(예: 로컬에서 dev API 로 붙여 보기). 없으면 프로젝트로 고른다 — apiBaseUrl
+const API_BASE_OVERRIDE: string | undefined = import.meta.env.VITE_API_BASE_URL;
 const E2E_PROJECT_ID = 'demo-tw';
 const E2E_HOST = '127.0.0.1';
 const E2E_PORTS = { auth: 9099, database: 9000, storage: 9199, functions: 5001 };
@@ -61,6 +64,8 @@ export interface Firebase {
   db: Db;
   files: Files;
   fns: Functions;
+  /** 자체 API 서버. 이 환경에 없으면 null(dev · e2e) — 기능은 예전 방식(RTDB)으로 읽는다. */
+  api: Api | null;
   signIn(): Promise<void>;
   signOut(): Promise<void>;
   onAuth(callback: (user: User | null) => void): () => void;
@@ -162,12 +167,18 @@ export async function connectFirebase(): Promise<Firebase> {
     call: async <T>(name: string, data: unknown) => (await httpsCallable(functions, name)(data)).data as T,
   };
 
+  const baseUrl = E2E ? null : apiBaseUrl(config.projectId, API_BASE_OVERRIDE);
+  const api = baseUrl
+    ? createApi({ baseUrl, token: async () => (await auth.currentUser?.getIdToken()) ?? null })
+    : null;
+
   return {
     projectId: config.projectId,
     isProd: config.projectId === PROD_PROJECT_ID,
     db,
     files,
     fns,
+    api,
     signIn: async () => {
       await signInWithPopup(auth, new GoogleAuthProvider());
     },
