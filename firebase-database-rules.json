@@ -190,7 +190,7 @@
       ".read": true
     },
     "licenses": {
-      ".read": "root.child('admins').child(auth.uid).val() === true",
+      ".read": "root.child('admins').child(auth.uid).val() === true || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       "$key": {
         ".read": true,
         ".write": "root.child('admins').child(auth.uid).val() === true",
@@ -1268,6 +1268,12 @@
       }
     },
     "admins": {
+      ".read": "(auth != null && root.child('apiBots').child(auth.uid).val() === true)",
+      "$uid": {
+        ".write": false
+      }
+    },
+    "apiBots": {
       ".read": false,
       "$uid": {
         ".write": false
