@@ -38,6 +38,7 @@
   import { createRoomStats } from "./room-stats.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room-alive.js";
   import { createInviteAccount } from "./invite-account.js";
+  import { createInviteRevokeAll } from "./invite-revoke.js";
   import { createAppVersion } from "./app-version.js";
   import { createAppVersionGate, createAppVersionGateDom } from "./app-version-gate.js";
   import { createBugBoard } from "./bug-board.js";
@@ -3431,6 +3432,7 @@
         return { ok:true, cleaned: ok, failed: fail, total: Object.keys(all).length };
       }catch(e){ return { ok:false, error:String(e&&e.message||e) }; }
     },
+    revokeInvitesAll: createInviteRevokeAll({ db, ref, get, runTransaction }),
     async reclaimInvitesSince(sinceMs, amount, dryRun, allowNegative){
       const snap = await get(ref(db, 'users'));
       const all = snap.val() || {};

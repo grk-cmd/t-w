@@ -1,7 +1,14 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 155 (💾 꾸미기 · 가챠 파츠가 재부팅하면 초기화되던 것 · `sim-wd-parts-persist.js` 신설)
-대상: `sim-*.js` 156개 + `smoke.js` + `audit.py` = **158개** (개정 155 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 156 (🎟️ 관리자 초대권 전체 회수 · `sim-invite-revoke.js` 신설)
+대상: `sim-*.js` 157개 + `smoke.js` + `audit.py` = **159개** (개정 156 기준 — 폴더를 센 값)
+
+**개정 156 에서 한 것 (2026-10-12 · 🎟️ 관리자 초대권 전체 회수 — 남은 초대권을 0 장으로)**
+- 요청: 관리자 초대권 지급에 «전체 초대장 일괄 회수(0장으로)» 를 더하고, 앱에서는 «전체 유저에게 지급» 버튼을 우클릭하면 회수 게이트로.
+- 앱: `app/parts/invite-revoke.js` 신설(`createInviteRevokeAll` — firebase-init 이 `firebaseAPI.revokeInvitesAll` 로 연결). 대상은 전체 지급과 같이 friendCodes, 1장 이상만 트랜잭션으로 0 · 0장 · 마이너스(빚) · 칸 없음은 건너뜀 · 20명씩 동시에. app.js 는 같은 버튼에 우클릭 두 번(4초) 게이트 — 좌클릭 지급과 걸림을 따로 둔다.
+- 웹 관리자: 사용자 탭 «전체 초대권 회수»(«전체 회수» 입력) · 선택 줄 «선택 초대권 회수». 작업 기록 `invite.revokeAll` · `invite.revokeSelected` 한 줄.
+- 규칙: 바꾸지 않음 — `users/$userId/invite` 는 이미 관리자 쓰기 · invitesLeft 0 을 받는다.
+- 검사: `sim-invite-revoke.js` 신설 **19·0** / `audit.py` 검사 9 friendCodes 통째 get 기준선 1 → 2(관리자 버튼 1회).
 
 **개정 155 에서 한 것 (2026-10-11 · 💾 꾸미기 · 가챠 파츠가 재부팅하면 초기화되던 것)**
 - 제보: 꾸미기창 파츠 · 가챠 파츠를 저장했는데 재부팅하면 초기화된다. 저장 칸(slotToObj · loadSlots)은 빠진 것이 없었다(귀는 개정 149). 저장이 **안 되는** 길이 셋이었다.
@@ -1289,7 +1296,7 @@
 
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
-| **audit.py** | 861 | **33d184da8980** ← **개정 140 검사 8 시야에 myhome-edit.js(🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 — app.js 에서 옮김)** · **개정 139 검사 8 시야에 gacha.js(🎰 파츠 가챠 — app.js 에서 옮김)** · **개정 136 검사 8 시야에 friend-manage.js(👥 친구 관리) · bug-board-ui.js(🐞 버그 제보 탭 — app.js 에서 옮김)** · **개정 135 검사 8 시야에 guestbook.js(📖 방명록 — app.js 에서 옮김)** · **개정 134 검사 8 시야에 purikura-ui.js(📷 스티커사진 창 — app.js 에서 옮김)** · **개정 133 검사 8 시야에 weekly-challenge.js(👑 달성표 — app.js 에서 옮김)** · **개정 131 검사 8 시야에 scheduler.js(📅 스케줄러 · 🔔 일정 알림 — app.js 에서 옮김)** · 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) · **개정 60 검사 9 기준선 reports 1** · **개정 71 검사 17 (e) 회차** · **2026-10-03 검사 9 기준선 roomStats 1** · **2026-10-03 검사 10 ES 모듈 문법 · firebase-init import 모듈도 시야에** · **2026-10-06 검사 9 기준선 roomAlive(전체 1 · 방 단위 2)** |
+| **audit.py** | 861 | **b11279eb32b5** ← **개정 156 검사 9 friendCodes 통째 get 기준선 1 → 2(invite-revoke.js 전체 회수)** · **개정 140 검사 8 시야에 myhome-edit.js(🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 — app.js 에서 옮김)** · **개정 139 검사 8 시야에 gacha.js(🎰 파츠 가챠 — app.js 에서 옮김)** · **개정 136 검사 8 시야에 friend-manage.js(👥 친구 관리) · bug-board-ui.js(🐞 버그 제보 탭 — app.js 에서 옮김)** · **개정 135 검사 8 시야에 guestbook.js(📖 방명록 — app.js 에서 옮김)** · **개정 134 검사 8 시야에 purikura-ui.js(📷 스티커사진 창 — app.js 에서 옮김)** · **개정 133 검사 8 시야에 weekly-challenge.js(👑 달성표 — app.js 에서 옮김)** · **개정 131 검사 8 시야에 scheduler.js(📅 스케줄러 · 🔔 일정 알림 — app.js 에서 옮김)** · 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) · **개정 60 검사 9 기준선 reports 1** · **개정 71 검사 17 (e) 회차** · **2026-10-03 검사 9 기준선 roomStats 1** · **2026-10-03 검사 10 ES 모듈 문법 · firebase-init import 모듈도 시야에** · **2026-10-06 검사 9 기준선 roomAlive(전체 1 · 방 단위 2)** |
 | **smoke.js** | 364 | **d19e55641a66** ← **개정 140 myhome-edit.js 도 먼저 평가(PRELOAD.push)** · **개정 139 gacha.js 도 먼저 평가(PRELOAD.push)** · **개정 138 myhome-sticker.js 도 먼저 평가(PRELOAD.push)** · **개정 137 pomodoro.js 도 먼저 평가(PRELOAD.push)** · **개정 136 friend-manage.js 도 먼저 평가(PRELOAD.push)** · **개정 135 guestbook.js 도 먼저 평가(PRELOAD.push)** · **개정 134 purikura-ui.js 도 먼저 평가(PRELOAD.push)** · **개정 133 weekly-challenge.js 도 먼저 평가(PRELOAD.push)** · **개정 131 scheduler.js 도 먼저 평가(PRELOAD.push — 목록 줄은 sim-wd-ear 가 글자 그대로 봐서 그대로 둠)(app.js 가 원래 자리에서 createScheduler)** · **개정 85 html 이 앞에 싣는 귀 모듈 둘을 먼저 평가** · 2026-09-14 판정 줄 (§10) |
 | **sim-account-switch.js** | 385 | **f04f9ac0f358** ← **개정 139 가챠 flush · 검문 · 메모리 지우기 · 연동 pull 스텁을 gachaMod 통로로(gacha.js)** · **개정 133 달성표 flush · 메모리 지우기 스텁을 weeklyChal 통로로(weekly-challenge.js)** · 2026-09-16 신규 · 제보 4 계정 전환 소지품 정리 (§18) · 2026-09-20 ⑧ 로그아웃 출구 + 스텁 고침 (개정 28) · **2026-09-22 연동 해제 걷음 · 2절 상수 표에 슬롯 기록 키 넷(가려져 있던 2절 되살림) (개정 45)** · **개정 56 버린 uid 목록 걷음** |
 | **sim-admin-rules.js** | 339 | **c0bb8ee4d762** ← **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
@@ -1340,6 +1347,7 @@
 | **sim-app-version.js** | 152 | **11f90aed8615** ← **2026-10-06 신규 · 🏷️ 앱 버전(ver)을 presence · 라이선스 요청 · accountSnap 에 — app-version.js 를 그대로 돌림 · presence 를 통째로 쓰는 자리 전부 ver · 늦게 오면 update · 규칙 셋(없어도 통과 · 문자열 20자) · 규칙 배포 전이면 accountSnap 은 ver 빼고 다시** |
 | **sim-app-version-gate.js** | 175 | **4c32b7dd2506** ← **개정 87 신설 · 🚪 앱 최소 버전(config/minAppVer) — 숫자 비교 · 낮으면 막음 · 실패 · 오프라인 · 값 없음은 안 막음 · 단추(재시작 설치 · 맥 릴리스 · 받는 중 · 다시 시도) · 닫기 없는 화면 · 클릭 통과 목록 · firebase-init 연결 · 규칙** |
 | **sim-invite-account.js** | 79 | **9974af64f5c8** ← **2026-10-03 신규 · 초대 계정 읽기 — 판정 = 예전 판정 · invite 먼저 · 폴백 · 런처 동작 그대로** |
+| **sim-invite-revoke.js** | 97 | **cd6581f5a9d0** ← **2026-10-12 신규 · 관리자 초대권 전체 회수 — 1장 이상만 0 · 빚은 그대로 · 트랜잭션 · 우클릭 두 번 게이트** |
 | **sim-room-invite-wait.js** | 43 | **7161a20222f3** ← **개정 78 신설 · ⏳ 방 초대 팝업이 화면을 막지 않음 · 3분 뒤 자동 거절** |
 | **sim-focus-auth.js** | 90 | **58a1ca1bdfad** ← 2026-09-16 (제보 6 포커스 auth) · 개정 10 등재 |
 | **sim-focus-sync.js** | 172 | **5eac3ccdef75** ← 개정 38 준비 한 줄(uid 심기 · 판정 무변경) |
