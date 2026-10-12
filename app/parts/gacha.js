@@ -1277,7 +1277,7 @@ function toggleGachaInv(){
        같이 사라진다 — 꾸미기가 쓰는 modalOpen 가드를 그대로 가져온다. */
   window.addEventListener('blur', ()=>{
     if(!(_gachaInvOpen() || _gachaDrawOpen())) return;
-    const modalOpen = document.querySelector('#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #creatorOverlay.on, #programSettingsOverlay.on, #myHomeOverlay.on, #categoryManageOverlay.on, #pkOverlay.on');
+    const modalOpen = document.querySelector('#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #creatorOverlay.on, #programSettingsOverlay.on, #myHomeOverlay.on, #categoryManageOverlay.on, #pkOverlay.on');
     if(modalOpen) return;
     closeGachaInv();
   });

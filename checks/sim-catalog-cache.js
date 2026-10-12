@@ -51,15 +51,13 @@ say('── 1. firebase-init.js 연결');
   chk(!new RegExp('(?:set|remove)\\(ref\\(db,\\s*[`\'"]catalog\\/' + KIND + '\\/').test(CODE), 'catalog/{종류}/… 에 set·remove 를 직접 부르는 곳이 없다');
   chk(!/(?:set|remove)\(ref\(db,\s*`\$\{(?:node|other)\}/.test(CODE), '  ↳ _partPath 로 만든 경로에도 set·remove 를 직접 부르지 않는다');
   const writers = ['publishDesk', 'unpublishDesk', 'publishItem', 'unpublishItem', 'updateDesksOrder', 'updateItemsOrder',
-                   'publishPart', 'unpublishPart', 'updatePartsOrder', 'cleanupCatalogBase64', 'migrateGachaCatalog'];
+                   'publishPart', 'unpublishPart', 'updatePartsOrder', 'migrateGachaCatalog'];
   for(const w of writers){
     const b = body(w);
     chk(!!b && /_catalogUpdate\(/.test(b) && !/await update\(ref\(db\)/.test(b), w + ' — _catalogUpdate 로 쓴다 (버전 같이 올림)');
   }
   chk(/_catalogUpdate\(\{\s*\[`\$\{node\}\/\$\{id\}`\][\s\S]{0,120}\[`\$\{other\}\/\$\{id\}`\]: null,\s*\}, \['parts', 'gachaParts'\]\)/.test(body('publishPart')),
       '  ↳ publishPart 는 반대편 통 정리까지 한 update 로 · 두 통 버전 다');
-  chk(/touched\.push\(kind\)/.test(body('cleanupCatalogBase64')) && /_catalogUpdate\(updates, touched\)/.test(body('cleanupCatalogBase64')),
-      '  ↳ cleanupCatalogBase64 는 실제로 지운 종류만 버전을 올린다');
   /* 이 파일 안에서 카탈로그 경로에 쓰는 메서드가 위 목록 밖에서 새로 생기면 알린다 */
   /* 여러 줄짜리 메서드만(한 줄짜리 _partPath 는 본문이 다음 메서드까지 번진다) · if/for 같은 문장은 뺀다 */
   const all = [...CODE.matchAll(/\n    (?:async )?(\w+)\([^)]*\)\{\s*\n/g)].map(m => m[1])

@@ -107,7 +107,7 @@ const A = new Function(unexport(RA) + '\nreturn { ROOM_ALIVE_MIN_VER, ROOM_ALIVE
     chk(/if\(_myAliveRef\)\{[\s\S]{0,200}onDisconnect\(aref\)\.cancel\(\)[\s\S]{0,80}remove\(aref\)/.test(CODE), '나갈 때 도장도 지운다');
     chk((CODE.match(/isProbeAlive\(/g) || []).length === 2 && (CODE.match(/get\(ref\(db, `roomAlive\/\$\{room\}`\)\)/g) || []).length === 2, '입장 검사 둘(정원 · 시크릿룸)이 그 방 도장을 한 번씩 본다');
     chk(/m\.hb === ROOM_ALIVE_HB\) count\+\+/.test(CODE), '  ↳ 정원 검사 폴백(방 전체 읽기)도 hb:2 를 센다');
-    chk(/aliveTree\[code\] && aliveTree\[code\]\[k\][\s\S]{0,160}ROOM_ALIVE_STALE_MS/.test(CODE), '관리자 유령 방 청소가 도장을 본다 — hb:2 방을 유령으로 지우지 않게');
+    chk(!/async cleanGhostRooms\(/.test(CODE), '유령 방 청소는 앱에 없다 — 웹 관리자 🚪 방(roomAlive 도장까지 본다)');
   }
 
   say('── 4. 규칙');

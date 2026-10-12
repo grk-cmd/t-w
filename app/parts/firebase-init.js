@@ -36,9 +36,8 @@
   import { createRoomIndex } from "./room-index.js";
   import { recoverChannelFor } from "./room-channel.js";
   import { createRoomStats } from "./room-stats.js";
-  import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room-alive.js";
+  import { ROOM_ALIVE_HB, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room-alive.js";
   import { createInviteAccount } from "./invite-account.js";
-  import { createInviteRevokeAll } from "./invite-revoke.js";
   import { createAppVersion } from "./app-version.js";
   import { createAppVersionGate, createAppVersionGateDom } from "./app-version-gate.js";
   import { createBugBoard } from "./bug-board.js";
@@ -459,8 +458,6 @@
   }
 
   /* 공용 공지 버전 확인 + 로컬 캐시 — 구조는 broadcast-cache.js 머리말. 경로를 여기 두는 이유는 위 카탈로그와 같다. */
-  const BROADCAST_OWN_WRITE_MS = 15000;   // 이 기기에서 쓴 뒤 이만큼은 공지 바뀜을 모으지 않는다(아래 liveNow)
-  let _broadcastWroteAt = 0;
   const _subscribeBroadcast = createBroadcastSync({
     metaRef:     () => ref(db, 'inboxBroadcastMeta'),
     fullRef:     () => ref(db, 'inboxBroadcast'),
@@ -468,24 +465,8 @@
     pinnedQuery: () => query(ref(db, 'inboxBroadcast'), orderByChild('pinned'), equalTo(true)),
     onValue, get,
     scope: (firebaseConfig && (firebaseConfig.databaseURL || firebaseConfig.projectId)) || '',
-    /* 이 기기에서 방금 쓴 바뀜은 모으지 않고 바로 받는다 — 관리자가 보낸 · 지운 공지가 자기 화면에 늦게 반영되지 않게 */
-    liveNow: () => Date.now() - _broadcastWroteAt < BROADCAST_OWN_WRITE_MS,
   });
-  /* 공용 공지 쓰기(보내기 · 고정 · 삭제)는 전부 여기를 지난다 — 같은 다중 경로 update 로 inboxBroadcastMeta(서버 시각)도 올린다.
-     빠지면 사용자는 캐시해 둔 옛 공지를 캐시 수명(24시간)까지 본다. 웹 관리자는 broadcastCommit 이 같은 일을 한다.
-     규칙에 inboxBroadcastMeta 가 아직 없으면 update 가 통째로 거부된다 — 그때만 버전 없이 공지만 한 번 더 쓴다
-     (그 DB 를 쓰는 앱은 버전 구독이 거부돼 통째 구독으로 돌고 있으므로 바로 반영된다). */
-  async function _broadcastUpdate(updates){
-    _broadcastWroteAt = Date.now();   // update 를 부르는 순간 버전 구독이 (서버 시각 추정값으로) 먼저 울린다 — 그 전에 표시
-    try{
-      await update(ref(db), Object.assign({}, updates, { inboxBroadcastMeta: serverTimestamp() }));
-    }catch(e){
-      const code = String((e && (e.code || e.message)) || '');
-      if(!/permission|PERMISSION_DENIED/i.test(code)) throw e;
-      await update(ref(db), updates);   // 이것도 거부면(관리자 아님 · 형식 오류) 그 오류를 그대로 던진다
-      console.warn('[broadcast-cache] inboxBroadcastMeta 규칙이 없어 버전 없이 공지만 썼다');
-    }
-  }
+  /* 공용 공지 쓰기(보내기 · 고정 · 삭제)는 앱에 없다 — 웹 관리자 broadcastCommit 이 inboxBroadcastMeta(서버 시각)를 같이 올린다. */
 
   /* ★ Storage Phase 2: 유저 이미지(프로필/배경/스티커/박수)를 Realtime DB의 base64 대신 Storage에 저장.
      dataURL("data:image/...;base64,...")이 들어오면 Storage에 올리고 다운로드 URL을 돌려줌.
@@ -583,16 +564,6 @@
     },
     // ===== 마이홈 친구 시스템 =====
     // 친추코드 → userId 조회. 없으면 null.
-    /* 🔴 그 계정이 마지막으로 접속한 시각(ms) — 없으면 null.
-       시크릿룸/라이선스 발급 전에 "친구코드가 가리키는 계정이 살아 있는가"를 보는 데 쓴다.
-       (계정 이전으로 friendCodes가 버린 uid를 가리키면 발급이 조용히 허공으로 간다) */
-    async getUserLastSeen(uid){
-      try{
-        const snap = await get(ref(db, `users/${uid}/presence`));
-        const p = snap.val();
-        return (p && typeof p.lastSeen === 'number') ? p.lastSeen : null;
-      }catch(_){ return null; }
-    },
     async getUserNameById(uid){
       try{ const snap = await get(ref(db, `users/${uid}/profile`)); const p = snap.val(); return (p && p.name) ? String(p.name) : null; }
       catch(_){ return null; }
@@ -1265,7 +1236,7 @@
          [왜] onDisconnect 의 payload 는 **등록 시점에 고정**된다. 즉 앱을 끄면 '앱을 켠 시각'이
            lastSeen 으로 남고, 켜 두는 동안에는 아무도 갱신하지 않는다.
            그러면 앱을 8일 내리 켜 둔 사람의 lastSeen 이 8일 전이 되어, 매일 쓰는 사람인데도
-           시크릿룸 발급 판정(app.js SR_STALE_DAYS=7)에서 '버려진 계정'으로 보인다(예전엔 친추 코드 되찾기도 —
+           시크릿룸 발급 판정(웹 관리자 staleReason · 7일)에서 '버려진 계정'으로 보인다(예전엔 친추 코드 되찾기도 —
            개정 56 에서 걷었다).
          ⚠️ 주기를 짧게 잡을 이유가 없다. 이 값은 '며칠 단위'로만 쓰이므로 6시간이면 충분하고,
            유저당 하루 4번의 아주 작은 쓰기로 끝난다. */
@@ -1589,22 +1560,6 @@
       try{ await set(ref(db, `reports/${targetId}/${reporterId}`), v); return { ok:true }; }
       catch(e){ console.warn('[report] 실패', e); return { ok:false, reason:'denied' }; }
     },
-    /* 관리자 — 전체 신고(대상별 묶음). 규칙상 관리자만 읽힌다. */
-    async listReports(){
-      try{ const v=(await get(ref(db, 'reports'))).val(); return { ok:true, reports: v || {} }; }
-      catch(e){ return { ok:false, reports:{} }; }
-    },
-    async clearReports(targetId){
-      try{ await remove(ref(db, `reports/${targetId}`)); return { ok:true }; }catch(e){ return { ok:false }; }
-    },
-    /* 관리자 목록 한 줄에 필요한 것만 — 이름 · 친구 코드 · 자리비움 그림. */
-    async getUserBrief(userId){
-      const out = { name:null, friendCode:null, awayImg:null };
-      try{ const p=(await get(ref(db, `users/${userId}/profile/name`))).val(); if(typeof p==='string') out.name=p; }catch(_){}
-      try{ const c=(await get(ref(db, `users/${userId}/friendCode`))).val(); if(typeof c==='string') out.friendCode=c; }catch(_){}
-      try{ const a=(await get(ref(db, `users/${userId}/awayImg`))).val(); if(typeof a==='string') out.awayImg=a; }catch(_){}
-      return out;
-    },
 
     /* ── 🎁 말랑이 선물 ──
        users/{받는사람}/mallangGifts/{giftId} = {imgUrl, fromName, fromId, ts}
@@ -1680,14 +1635,6 @@
     },
     subscribeBugReport(onChange){
       onValue(ref(db, 'bugReport/current'), snap => onChange(snap.val() || null));
-    },
-    async setBugReport(notice, link){
-      await set(ref(db, 'bugReport/current'), {
-        notice: String(notice||'').slice(0,600),
-        link:   String(link||'').slice(0,300),
-        ts: Date.now(),
-      });
-      return { ok:true };
     },
 
     /* ═══════════ 👋 친구 요청 (수락/거절) ═══════════
@@ -2908,7 +2855,7 @@
        ⚠️ 열쇠는 config 밑에 두면 안 된다 — config 는 .read:true 이고 읽기 권한은 아래로
           캐스케이드되며 하위에서 취소할 수 없다(1-7의 반대 방향). 반드시 별도 최상위 노드.
        ⚠️ 삭제(remove)는 newData 가 없어 k 검사를 통과할 수 없다 — 규칙상 이 노드는 지울 수 없다.
-          그래서 '못 들어가게 하는 것'은 삭제가 아니라 set() 으로 한다(expireSecretRoom).
+          그래서 '못 들어가게 하는 것'은 삭제가 아니라 set() 으로 만료를 내린다(발급 · 만료는 웹 관리자 🎟️ 라이선스).
        🗑️ revokeSecretRoom(owner 를 빈 문자열로 만들어 회수) 은 폐기됐다. 입장 문구가
           "없는 시크릿룸 코드예요" 로 나가 거짓말이 되고, owner 가 사라져 같은 코드로 재발급하는
           연장 경로가 끊기며, 누구 것이었는지 기록도 날아간다. 만료로 내리는 편이 전부 낫다. */
@@ -2916,58 +2863,10 @@
       try{ const s = await get(ref(db, `secretRooms/${code}/pub`)); return s.val() || null; }
       catch(_){ return null; }
     },
-    /* 📅 expMs — 이용 기간이 끝나는 시각(ms). 넘기지 않거나 0이면 영구.
-       exp 는 pub 안에 둔다 — 입장하려는 사람(주인이 아닌 친구 포함)이 읽어야 판정할 수 있고,
-       pub 만 .read:true 이기 때문. 규칙의 pub .validate 는 owner/ts/name 만 보고 나머지 자식은
-       제한하지 않으므로 규칙 JSON을 고치지 않아도 통과한다.
-       ⚠️ set() 은 노드를 통째로 갈아치우므로, expMs 없이 부르면 기존 exp가 사라진다 —
-          그게 의도다(같은 코드로 '영구'로 재발급 = 만료 해제). */
-    async issueSecretRoom(code, ownerUserId, name, key, expMs){
-      try{
-        const pub = { owner: String(ownerUserId || ''), name: String(name || '').slice(0, 20), ts: Date.now() };
-        if(typeof expMs === 'number' && isFinite(expMs) && expMs > 0) pub.exp = Math.floor(expMs);
-        await set(ref(db, `secretRooms/${code}`), { k: String(key || ''), pub });
-        return { ok:true };
-      }catch(e){
-        // 1-7: permission_denied 를 "네트워크 오류"로 뭉뚱그리지 않는다 — 그게 원인을 가린다.
-        const msg = String((e && (e.code || e.message)) || '');
-        console.warn('[시크릿룸] 발급 실패', e);
-        return { ok:false, denied: /permission[_ ]denied/i.test(msg), reason: msg };
-      }
-    },
-    /* 📅 만료 처리 — owner·name 은 그대로 두고 exp 만 '지금'으로 내린다.
-       '회수'(owner 를 비워 없는 코드로 만들기)가 아니라 만료로 내리는 이유:
-         · 입장 문구가 자연스럽다 — "없는 코드예요" 대신 기존 만료 안내가 그대로 뜬다
-         · owner 가 남아 있어 같은 코드로 재발급 = 연장 경로로 되살릴 수 있다
-         · 누구 것이었는지 기록이 남는다
-       ⚠️ issueSecretRoom 과 마찬가지로 set() 이라 노드를 통째로 갈아치운다 —
-          기존 pub 을 먼저 읽어서 얹지 않으면 name·ts 가 날아간다.
-       ⚠️ 쓰기에 발급 열쇠(k)가 필요하다(규칙이 newData.k === root.srKey/v 를 본다).
-          즉 관리자만 할 수 있고, 앱이 자동으로 처리할 수는 없다 — srKey 는 .read 가 없다.
-       ⚠️ exp 를 정확히 Date.now() 로 두면 입장 게이트의 `Date.now() > exp` 가 같은 밀리초에
-          거짓이라 통과한다. 1초 과거로 내려 즉시 만료가 되게 한다. */
-    async expireSecretRoom(code, key){
-      try{
-        const pub = await firebaseAPI.getSecretRoomPub(code);
-        if(!pub || !pub.owner) return { ok:false, reason:'not-issued' };
-        await set(ref(db, `secretRooms/${code}`),
-                  { k: String(key || ''), pub: { ...pub, exp: Date.now() - 1000 } });
-        return { ok:true };
-      }catch(e){
-        const msg = String((e && (e.code || e.message)) || '');
-        console.warn('[시크릿룸] 만료 처리 실패', e);
-        return { ok:false, denied: /permission[_ ]denied/i.test(msg), reason: msg };
-      }
-    },
     // 후원자 본인 코드 조회 — 참여 화면이 "내 시크릿룸"을 자동으로 펼치고 채워넣는 데 쓴다.
     async getMySecretRoom(userId){
       try{ const s = await get(ref(db, `users/${userId}/secretRoom`)); return s.val() || null; }
       catch(_){ return null; }
-    },
-    // 후원자 본인 노드에 코드 기록 — 참여 화면이 위 getMySecretRoom으로 읽는다.
-    async setMySecretRoom(userId, code){
-      try{ await set(ref(db, `users/${userId}/secretRoom`), code || null); return { ok:true }; }
-      catch(_){ return { ok:false }; }
     },
     /* ★ 프리미엄 채팅 기록 — rooms/{room}/chatLog 아래에 push로 쌓는다.
        ⚠️ 예전 주석: "방이 폭파되면 기록도 함께 사라진다(원하는 동작)". **더 이상 아니다** —
@@ -3110,54 +3009,10 @@
     // ---- 라이선스 (관리자 직접 발급 방식) ----
     // licenses/{key} = { valid:true, note, createdAt, redeemedAt|null, redeemedBy|null(기기 식별용, 선택) }
 
-    // 관리자: 새 라이선스 키 발급. key는 호출부(app.js)에서 랜덤 생성해 넘김.
-    async createLicense(key, note){
-      await set(ref(db, `licenses/${key}`), { valid:true, note: note||'', createdAt: serverTimestamp(), redeemedAt:null });
-      return { ok:true };
-    },
 
-    // 관리자: 발급된 키 전체 목록 조회 (최근 것부터 보여주려면 app.js에서 정렬) — 규칙상 관리자만 읽힌다(개정 55)
-    async listLicenses(){
-      const snap = await get(ref(db, 'licenses'));
-      return snap.val() || {};
-    },
 
-    // 📊 관리자 통계 — 가입 유저 수 + 라이선스(프리미엄) 보유 유저 수.
-    //   · 가입 유저 = users 노드의 자식 수 (invite/profile 등 실사용 흔적이 있는 계정)
-    //   · 라이선스 보유 = 유효한(valid) 라이선스가 등록된 유저. licenses 노드에서 valid && usedBy가 있는 것을 셈.
-    async getAdminStats(){
-      // 👥 가입 유저 수 = stats/userCount 카운터 (users 전체를 읽지 않아 프라이버시 보호)
-      // 👑 프리미엄 유저 = licenses 노드에서 valid + usedBy 집계 — 모음 읽기는 **관리자만**(개정 55 · 키 목록이 공개였다). 관리자 화면에서만 부른다.
-      const [cntSnap, licSnap] = await Promise.all([
-        get(ref(db, 'stats/userCount')),
-        get(ref(db, 'licenses')),
-      ]);
-      const totalUsers = cntSnap.val() || 0;
-      const lics = licSnap.val() || {};
-      let licValid = 0, licUsed = 0;
-      const usedById = {};
-      for(const key in lics){
-        const L = lics[key] || {};
-        if(L.valid){ licValid++; if(L.usedBy){ licUsed++; usedById[L.usedBy] = true; } }
-      }
-      const premiumUsers = Object.keys(usedById).length;
-      return { totalUsers, licValid, licUsed, premiumUsers };
-    },
-    // 관리자: 카운터를 실제 값으로 보정(선택) — 카운터 도입 이전 가입자를 반영하고 싶을 때 수동 세팅
-    async setUserCount(n){ try{ await set(ref(db, 'stats/userCount'), n); return { ok:true }; }catch(e){ return { ok:false }; } },
 
-    // 관리자: 이미 발급한 키 회수(비활성화). 환불 등으로 취소해야 할 때 사용 — valid:false로 바뀌면
-    // 다음에 그 사용자가 앱을 켤 때(백그라운드 재검증)나 이 키로 새로 등록 시도할 때 자동으로 막힘.
-    async revokeLicense(key){
-      await update(ref(db, `licenses/${key}`), { valid:false, revokedAt: serverTimestamp() });
-      return { ok:true };
-    },
 
-    // 관리자: 회수된 키를 목록에서 완전히 삭제(정리용). 아직 유효한 키는 앱에서 먼저 회수를 요구함.
-    async deleteLicense(key){
-      await remove(ref(db, `licenses/${key}`));
-      return { ok:true };
-    },
 
     // 사용자: 키 검증 + 등록(redeemed 처리). 이미 등록된 키도 "같은 기기 재설치" 허용을 위해 valid하면 통과시킴.
     async redeemLicense(key){
@@ -3304,147 +3159,10 @@
       const v = snap.val();
       return (typeof v === 'number') ? v : 0;
     },
-    // 관리자: 특정 유저에게 초대권 추가 지급 (기존 값에 더함)
-    // 🎟️ 전체 유저 일괄 지급 — invite 노드가 "이미 있는" 유저에게만 count장씩 더함.
-    //   노드 없는 계정(게이트 통과 전 유령 계정 등)에 지급하면 노드가 새로 생겨
-    //   비정상 계정이 초대권을 갖게 되므로 반드시 제외.
-    /* 🎟️ 전체 유저 일괄 지급.
-       ★ 예전엔 get(ref(db,'users'))로 유저 노드를 통째로 읽었는데, 규칙상 .read는 users/$userId에만
-         있고 users에는 없다. 읽기 권한은 아래로만 전파되므로 이 호출은 항상 거부됐고,
-         호출부의 catch가 그걸 "네트워크 오류"로 표시해 원인을 찾기 어려웠다.
-         friendCodes(code→{userId})는 모든 유저에 이미 채워져 있는 가장 가벼운 uid 인덱스라
-         users 전체를 공개하지 않고도 대상 목록을 얻을 수 있다(유저당 약 50바이트). */
-    async grantInvitesAll(count){
-      const snap = await get(ref(db, 'friendCodes'));
-      const codes = snap.val() || {};
-      const seen = {}, uids = [];
-      for(const c in codes){
-        const uid = codes[c] && codes[c].userId;
-        if(uid && !seen[uid]){ seen[uid] = 1; uids.push(uid); }
-      }
-      let granted = 0, skipped = 0;
-      const MAX_INVITES = 999;   // 규칙의 .validate 상한 — 넘기면 쓰기가 거부되므로 미리 자름
-      const grantOne = async uid => {
-        try{
-          const p = ref(db, `users/${uid}/invite/invitesLeft`);
-          // ★ 사전 get — 트랜잭션은 로컬 캐시가 비면 첫 시도에 cur=null로 들어온다.
-          //   그걸 "초대권 없는 계정"으로 오해하면 전원이 skip되므로 실제 값을 먼저 확인한다.
-          const cur = await get(p);
-          const base = cur.val();
-          if(typeof base !== 'number'){ skipped++; return; }   // 초대권 노드가 없는 계정은 대상 아님
-          await runTransaction(p, v => {
-            const n = (typeof v === 'number') ? v : base;
-            return Math.min(MAX_INVITES, n + count);
-          });
-          granted++;
-        }catch(e){ skipped++; }
-      };
-      // 순차로 돌리면 유저 수만큼 왕복이 쌓여 매우 느리다 — 20개씩 묶어서 병렬 처리.
-      const CHUNK = 20;
-      for(let i=0; i<uids.length; i+=CHUNK){
-        await Promise.all(uids.slice(i, i+CHUNK).map(grantOne));
-      }
-      return { ok:true, granted, skipped, total: uids.length };
-    },
-    // 🎟️ 특정 날짜 이후 가입자의 초대권 회수 — 옛 버전으로 가입해 2장을 받은 계정 정리용.
+    // 🎟️ 특정 날짜 이후 가입자의 초대권 회수 — 옛 버전으로 가입해 2장을 받은 계정 정리용(관리자 콘솔 reclaimInvitesSince).
     //   invite.joinedAt(가입 시각) 기준. dryRun=true면 실제로 바꾸지 않고 대상만 조사해서 돌려줌.
     //   · 대상: joinedAt >= sinceMs 이고 invitesLeft > 0 인 계정
     //   · 처리: invitesLeft에서 amount만큼 빼되 0 밑으로는 내려가지 않음
-    // 🧹 유령 방 청소 — 멤버 없이 _meta만 남은 방을 일괄 정리(관리자 전용, dryRun 기본).
-    //   예전엔 마지막 사람이 나가도 _meta가 남아 방이 유령으로 남았음. leaveRoom을 고쳤지만
-    //   이미 남아있던 옛 유령 방을 청소하는 용도.
-    async cleanupGhostRooms(dryRun){
-      const snap = await get(ref(db, 'rooms'));
-      const all = snap.val() || {};
-      const ghosts = [];
-      const now = _svNow(); const DEAD = 10*60*1000;   // 삭제는 보수적으로 10분 기준(순간 재연결 보호)
-      for(const code in all){
-        const room = all[code] || {};
-        const members = Object.keys(room).filter(k => k !== '_meta');
-        const anyRecent = members.some(k =>
-          room[k] && room[k].lastSeen && (now - room[k].lastSeen) < DEAD);
-        if(members.length === 0 || !anyRecent) ghosts.push(code);   // 빈 방 또는 전원 사망(10분+) 방
-      }
-      if(dryRun !== false){ return { ok:true, dryRun:true, count:ghosts.length, ghosts }; }
-      let removed = 0, failed = 0;
-      for(const code of ghosts){
-        try{ await remove(ref(db, `rooms/${code}`)); removed++; }catch(_){ failed++; }
-        await remove(ref(db, `roomIndex/${code}`)).catch(()=>{});   // 💰 요약 노드도 함께 정리
-      }
-      return { ok:true, dryRun:false, removed, failed, ghosts };
-    },
-    /* ★ 점검용 — 모든 멀티플레이 방을 즉시 종료(관리자 전용).
-       rooms 노드를 통째로 비우면, 각 방의 리스너가 '빈 방' 스냅샷을 받아 안에 있던 사람들이 자동으로 튕긴다.
-       (별도 강제 퇴장 신호가 필요 없음 — 기존 리스너 구조가 그대로 처리) */
-    async closeAllRooms(){
-      try{
-        const snap = await get(ref(db, 'rooms'));
-        const all = snap.val() || {};
-        const codes = Object.keys(all);
-        // ★ 방을 하나씩 삭제 — rooms 최상위 통째 remove는 규칙(상위 .write 없음)에 막히므로,
-        //   rooms/{code}별로 지운다(각 방은 $room 규칙의 삭제 허용으로 처리). 일부 실패해도 나머지는 진행.
-        let ok=0, fail=0;
-        await Promise.all(codes.map(async code=>{
-          try{ await remove(ref(db, `rooms/${code}`)); ok++; }
-          catch(_){ fail++; }
-        }));
-        await Promise.all(codes.map(code => remove(ref(db, `roomIndex/${code}`)).catch(()=>{})));   // 💰 요약 노드도 정리
-        return { ok:true, count: ok, failed: fail, codes };
-      }catch(e){ return { ok:false, error:String(e&&e.message||e) }; }
-    },
-    // 🧹 관리자: 유령 방 일괄 청소 — 살아있는 멤버(90초 내 하트비트)가 하나도 없는데
-    //   _meta/chatLog만 남은 방을 통째로 삭제. 정상 방(살아있는 멤버 있음)은 절대 안 건드림.
-    async cleanGhostRooms(){
-      try{
-        const snap = await get(ref(db, 'rooms'));
-        const all = snap.val() || {};
-        /* 🕒 관리자 PC 시계가 앞서 있으면 **살아 있는 방을 유령으로 보고 지운다** — 여기는
-           되돌릴 수 없는 삭제라 다른 자리보다 위험하다. 오프셋 보정본을 쓴다. */
-        const now = _svNow(); const STALE = 90*1000;
-        // 💓 새 하트비트(hb:2) 멤버는 lastSeen 이 입장 때 값에 머문다 — roomAlive 도장으로 본다(room-alive.js)
-        const aliveTree = await get(ref(db, 'roomAlive')).then(s => s.val() || {}).catch(() => ({}));
-        const ghosts = [];
-        for(const code in all){
-          const room = all[code] || {};
-          let alive = false;
-          for(const k in room){
-            if(k === '_meta' || k === 'chatLog') continue;
-            const mm = room[k];
-            if(mm && mm.lastSeen && (now - mm.lastSeen) < STALE){ alive = true; break; }
-            const at = aliveTree[code] && aliveTree[code][k];
-            if(mm && mm.hb === ROOM_ALIVE_HB && typeof at === 'number' && (now - at) < ROOM_ALIVE_STALE_MS){ alive = true; break; }
-          }
-          if(!alive) ghosts.push(code);   // 살아있는 멤버 없음 = 유령 방
-        }
-        let ok=0, fail=0;
-        await Promise.all(ghosts.map(async code=>{
-          try{
-            // 통째 remove(rooms/{code})는 $room 삭제 규칙 게시가 필요하므로,
-            // 규칙 게시 없이도 되도록 하위 노드를 개별 삭제(각 하위는 예전부터 .write:true).
-            const room = all[code] || {};
-            const dels = [];
-            for(const k in room){ dels.push(remove(ref(db, `rooms/${code}/${k}`)).catch(()=>{})); }
-            if(aliveTree[code]) dels.push(remove(ref(db, `roomAlive/${code}`)).catch(()=>{}));
-            await Promise.all(dels);
-            ok++;
-          }catch(_){ fail++; }
-        }));
-        // 💰 roomIndex 정리 — 방금 지운 방 + rooms에 더 이상 없는 고아 인덱스를 함께 제거.
-        //   (마지막 사람이 강제종료로 나가면 leaveRoom이 못 돌아서 인덱스만 남을 수 있음 —
-        //    카운트는 lastSeen 90초 기준이라 어차피 안 세지만, 쓰레기가 쌓이지 않게 여기서 청소)
-        try{
-          const isnap = await get(ref(db, 'roomIndex'));
-          const idx = isnap.val() || {};
-          const dels = [];
-          for(const code in idx){
-            if(!(code in all) || ghosts.indexOf(code) !== -1) dels.push(remove(ref(db, `roomIndex/${code}`)).catch(()=>{}));
-          }
-          await Promise.all(dels);
-        }catch(_){}
-        return { ok:true, cleaned: ok, failed: fail, total: Object.keys(all).length };
-      }catch(e){ return { ok:false, error:String(e&&e.message||e) }; }
-    },
-    revokeInvitesAll: createInviteRevokeAll({ db, ref, get, runTransaction }),
     async reclaimInvitesSince(sinceMs, amount, dryRun, allowNegative){
       const snap = await get(ref(db, 'users'));
       const all = snap.val() || {};
@@ -3470,19 +3188,6 @@
       }
       return { ok:true, dryRun:false, changed, failed, skipped, targets };
     },
-    async grantInvites(userId, count){
-      try{
-        const leftRef = ref(db, `users/${userId}/invite/invitesLeft`);
-        const r = await runTransaction(leftRef, cur=>{
-          const n = (typeof cur === 'number') ? cur : 0;
-          return n + count;
-        });
-        if(!r || !r.committed) return { ok:false, reason:'지급에 실패했어요' };
-        return { ok:true, invitesLeft: r.snapshot.val() };
-      }catch(e){
-        return { ok:false, reason:'네트워크 오류' };
-      }
-    },
 
     // ---- 라이선스 요청 (일반 유저가 앱 안에서 요청 → 관리자가 확인 후 발급) ----
     // licenseRequests/{reqId} = { name, status:'pending'|'approved', requestedAt, issuedKey|null, approvedAt|null, ver? }
@@ -3493,21 +3198,6 @@
       await _appVer.ready;
       await set(ref(db, `licenseRequests/${reqId}`), _appVer.withVer({ name: name||'(이름 없음)', status:'pending', requestedAt: serverTimestamp(), issuedKey:null }));
       return reqId;
-    },
-    // 관리자: 대기 중인 요청 목록 실시간 구독
-    subscribeLicenseRequests(onChange){
-      onValue(ref(db, 'licenseRequests'), snap => onChange(snap.val()||{}));
-    },
-    // 관리자: 요청 하나를 승인하며 새 키 발급(키 생성은 app.js에서), 요청 노드에도 발급된 키를 남겨서 요청자가 실시간으로 받아볼 수 있게 함
-    async approveLicenseRequest(reqId, key, note){
-      await set(ref(db, `licenses/${key}`), { valid:true, note: note||'', createdAt: serverTimestamp(), redeemedAt:null });
-      await update(ref(db, `licenseRequests/${reqId}`), { status:'approved', issuedKey:key, approvedAt: serverTimestamp() });
-      return { ok:true };
-    },
-    // 관리자: 요청 거절 — 요청 노드를 아예 삭제함(승인 대기 목록에서 사라지고, 요청자 쪽은 다시 처음부터 요청 가능해짐)
-    async rejectLicenseRequest(reqId){
-      await remove(ref(db, `licenseRequests/${reqId}`));
-      return { ok:true };
     },
     // 사용자: 내가 보낸 요청이 승인됐는지(발급된 키가 들어왔는지) 실시간 구독
     subscribeMyLicenseRequest(reqId, onChange){
@@ -3568,24 +3258,16 @@
       return _subscribeCatalogKind('items', onChange);
     },
 
-    // ---- 광고 배너 ----
-    async publishAdBanner(slides){
-      await set(ref(db, 'catalog/adBanner'), slides);
-      return { ok:true };
-    },
+    // ---- 광고 배너(catalog/adBanner) — 편집은 웹 관리자 ⚙️ 설정 ----
     subscribeAdBanner(onChange){
       const r = ref(db, 'catalog/adBanner');
       onValue(r, snap => onChange(snap.val() || []));
       return () => off(r, 'value');
     },
 
-    /* ---- 게임 설정(관리자 전용) ----
-       동물 해금 레벨처럼 '앱을 새로 배포하지 않고 바꾸고 싶은 값'을 서버에 둔다.
-       광고 배너(catalog/adBanner)와 같은 방식 — 관리자가 저장하면 모든 유저에게 즉시 반영된다. */
-    async publishGameConfig(cfg){
-      await set(ref(db, 'catalog/gameConfig'), cfg);
-      return { ok:true };
-    },
+    /* ---- 게임 설정 ----
+       동물 해금 레벨처럼 '앱을 새로 배포하지 않고 바꾸고 싶은 값'을 서버(catalog/gameConfig)에 둔다.
+       웹 관리자 ⚙️ 설정에서 저장하면 모든 유저에게 즉시 반영된다. */
     subscribeGameConfig(onChange){
       const r = ref(db, 'catalog/gameConfig');
       onValue(r, snap => onChange(snap.val() || {}));
@@ -3628,70 +3310,12 @@
       if(Object.keys(updates).length) await _catalogUpdate(updates, kinds);
       return { ok:true };
     },
-    /* 🧹 Storage 이관 뒷정리 — 이미 glbUrl이 있는(=Storage로 옮겨진) catalog 항목의 남은 base64 glb 필드만
-       DB에서 삭제. glbUrl이 없는 항목은 안전하게 건너뜀(원본 소실 방지). onValue 다운로드 비용의 주범 제거.
-       dryRun=true면 실제로 지우지 않고 대상 수/용량만 계산해서 반환. */
-    async cleanupCatalogBase64(dryRun){
-      const kinds = ['parts','desks','items'];
-      const report = { willDelete:0, skipNoUrl:0, alreadyClean:0, bytes:0, byKind:{} };
-      const updates = {};
-      const touched = [];   // 실제로 지운 종류 — 그 종류의 catalogMeta 버전만 올린다
-      for(const kind of kinds){
-        report.byKind[kind] = { del:0, skip:0 };
-        let snap;
-        try{ snap = await get(ref(db, 'catalog/'+kind)); }catch(_){ continue; }
-        const obj = snap.val() || {};
-        for(const id in obj){
-          const rec = obj[id] || {};
-          if(!rec.glb){ report.alreadyClean++; continue; }        // 이미 base64 없음
-          if(!rec.glbUrl){ report.skipNoUrl++; report.byKind[kind].skip++; continue; }  // Storage 미이관 → 절대 건드리지 않음
-          report.willDelete++; report.byKind[kind].del++;
-          report.bytes += (rec.glb.length||0);
-          if(!dryRun){
-            updates[`catalog/${kind}/${id}/glb`] = null;  // 이 필드만 삭제(다른 필드 유지)
-            if(touched.indexOf(kind) < 0) touched.push(kind);
-          }
-        }
-      }
-      report.mb = (report.bytes/1048576).toFixed(2);
-      /* 정리도 카탈로그 쓰기다 — 버전을 안 올리면 사용자 캐시에 base64 가 남은 옛 레코드가 그대로 산다. */
-      if(!dryRun && Object.keys(updates).length) await _catalogUpdate(updates, touched);
-      return report;
-    },
     async unpublishPart(id){
       await _tryDeleteStorage('catalog/parts/'+id+'.glb');
       /* 어느 통에 있는지 호출자가 알 필요 없게 양쪽 다 지운다 — 없는 쪽 null 은 no-op.
          한 update 로 묶고 두 통의 버전을 같이 올린다(publishPart 와 같은 이유). */
       await _catalogUpdate({ [`catalog/parts/${id}`]: null, [`catalog/gachaParts/${id}`]: null }, ['parts', 'gachaParts']);
       return { ok:true };
-    },
-    // 🔍 카탈로그 용량 진단 — 어떤 레코드가 DB 용량(=모든 사용자 다운로드)을 먹는지 측정.
-    //   base64가 DB에 남아 있으면 그 레코드를 모든 사용자가 앱 켤 때마다 통째로 받게 됨.
-    async analyzeCatalog(){
-      const out = {};
-      for(const kind of ['parts','desks','items']){
-        const snap = await get(ref(db, `catalog/${kind}`));
-        const all = snap.val() || {};
-        const recs = [];
-        let total = 0, base64Count = 0;
-        for(const id in all){
-          const r = all[id] || {};
-          const size = JSON.stringify(r).length;
-          total += size;
-          const heavy = [];
-          for(const k in r){
-            const v = r[k];
-            if(typeof v === 'string' && v.length > 2000){
-              heavy.push(k + '(' + Math.round(v.length/1024) + 'KB' + (v.startsWith('data:') ? ', base64' : '') + ')');
-              if(v.startsWith('data:')) base64Count++;
-            }
-          }
-          recs.push({ id, name: r.name || '', kb: Math.round(size/1024*10)/10, heavy });
-        }
-        recs.sort((a,b)=> b.kb - a.kb);
-        out[kind] = { totalKB: Math.round(total/1024*10)/10, count: recs.length, base64Fields: base64Count, top: recs.slice(0,10) };
-      }
-      return out;
     },
     subscribeCatalogParts(onChange){
       /* 🎰 두 통(parts + gachaParts)을 합쳐서 한 객체로 넘긴다 — 앱 쪽 병합/삭제 감지는
@@ -3803,34 +3427,17 @@
       for(let i=0; i<bytes.length; i+=CHUNK) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CHUNK));
       return btoa(bin);
     },
-    // ===== 📣 확성기 공지 (관리자 → 전체 유저 브로드캐스트, 1분간 유효) — 런처5 =====
+    // ===== 📣 확성기 공지 (웹 관리자 📢 공지 → 전체 유저, 1분간 유효) =====
     // announce: { text, ts(발행 시각 ms), duration(ms) } — 발행 순간부터 duration 안이면 표시.
-    async publishAnnounce(text, durationMs){
-      await set(ref(db, 'announce/current'), { text: String(text||'').slice(0,140), ts: Date.now(), duration: +durationMs||60000 });
-      return { ok:true };
-    },
-    async clearAnnounce(){
-      await remove(ref(db, 'announce/current'));
-      return { ok:true };
-    },
     // 전체 유저가 구독 — 초기 접속 시 즉시 1회 + 발행/삭제 시마다 호출. null이면 공지 없음.
     subscribeAnnounce(onChange){
       const r = ref(db, 'announce/current');
       onValue(r, snap => onChange(snap.val() || null));
       return () => off(r, 'value');
     },
-    // ===== 📰 업데이트 공지 (관리자가 발행 → 유저 앱 시작 시 팝업) =====
+    // ===== 📰 업데이트 공지 (웹 관리자 📢 공지에서 발행 → 유저 앱 시작 시 팝업) =====
     // updateNotice/current = { title, body, ts } — ts는 발행 시각(버전 구분자로도 씀).
     //   유저가 "다시 보지 않기" 체크하면 localStorage에 그 ts를 기록해서 같은 ts면 스킵.
-    async publishUpdateNotice(title, body){
-      await set(ref(db, 'updateNotice/current'), {
-        title: String(title||'').slice(0,60),
-        body: String(body||'').slice(0,800),
-        ts: Date.now()
-      });
-      return { ok:true };
-    },
-    async clearUpdateNotice(){ await remove(ref(db, 'updateNotice/current')); return { ok:true }; },
     async getUpdateNotice(){
       const snap = await get(ref(db, 'updateNotice/current'));
       return snap.val() || null;
@@ -3875,38 +3482,11 @@
       await set(ref(db, `inbox/${toId}/${id}`), rec);
       return { ok:true, id };
     },
-    // 관리자: 모든 유저에게 일괄 전송 — users 목록을 읽어서 각자의 inbox에 같은 메시지를 뿌림
-    async sendInboxBroadcast(tag, title, body, pinned){
-      // ★ 공용 공지 노드(inboxBroadcast)에 1회만 씀 — 모든 유저가 이 노드를 읽음.
-      //   (예전엔 users 전체를 읽어 개인 inbox마다 복사했는데, users 전체 읽기가 규칙상 막혀 실패했음.
-      //    공지는 내용이 모두 같으니 공용 노드 하나가 맞음. "읽음"은 각자 로컬에 저장.)
-      //   📌 pinned=true면 수령함에서 시간과 무관하게 항상 최상단 고정(관리자만 지정).
-      const now = Date.now();
-      const tagFinal = (tag==='update'||tag==='reward') ? tag : 'notice';
-      const id = 'b' + now.toString(36) + Math.random().toString(36).slice(2,6);
-      const rec = {
-        tag:tagFinal, title:String(title||'').slice(0,80), body:String(body||'').slice(0,600), ts: now
-      };
-      if(pinned) rec.pinned = true;   // 고정 아닐 땐 아예 키를 안 써서 기존 규칙/데이터와 호환
-      await _broadcastUpdate({ [`inboxBroadcast/${id}`]: rec });
-      return { ok:true, count:'전체' };
-    },
-    // 📌 관리자: 기존 공지의 고정 상태만 토글 (내용은 그대로 두고 pinned만 갱신)
-    async setInboxBroadcastPinned(msgId, pinned){
-      try{
-        await _broadcastUpdate({ [`inboxBroadcast/${msgId}/pinned`]: pinned ? true : null });
-        return { ok:true };
-      }catch(_){ return { ok:false }; }
-    },
     // 공용 공지 구독 → onChange({ id:{tag,title,body,ts} }) — 버전 확인 + 로컬 캐시(broadcast-cache.js).
     //   통째가 아니라 최근 30개 + 고정 공지만 온다. 콜백 모양은 예전 통째 onValue 때와 같다.
     subscribeInboxBroadcast(onChange){
       const unsub = _subscribeBroadcast(v => onChange(v || {}));
       return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    // 관리자: 공용 공지 삭제
-    async deleteInboxBroadcast(msgId){
-      try{ await _broadcastUpdate({ [`inboxBroadcast/${msgId}`]: null }); }catch(_){}
     },
 
     /* ═══════════ 🔑 구글 로그인 — 계정과 유저 코드를 묶는다 ═══════════

@@ -351,7 +351,7 @@ _callers = {}
 # purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). pkOnValue · pkUpdate · pkUploadFrame · serverNow 를 부른다.
 # guestbook.js — 📖 방명록(앱 FSD 4번). subscribeGuestbook · subscribeClap · addGuestbookEntry · deleteGuestbookEntry · clapOnce · setClapEmoji · setClapImage 를 부른다.
 # friend-manage.js — 👥 친구 관리(앱 FSD 5번). acceptFriendRequest · rejectFriendRequest · getSentFriendRequests · isFriendRequestAlive · pruneSentFriendRequest · cancelFriendRequest · getUserNameById 를 부른다.
-# bug-board-ui.js — 🐞 버그 제보 탭(오픈카톡 기본 링크)을 app.js 에서 이 파일 끝으로 옮겼다(앱 FSD 5번). setBugReport · subscribeBugReport 를 부른다.
+# bug-board-ui.js — 🐞 버그 제보 탭(오픈카톡 기본 링크)을 app.js 에서 이 파일 끝으로 옮겼다(앱 FSD 5번). subscribeBugReport 를 부른다(편집은 웹 관리자).
 # gacha.js — 🎰 파츠 가챠 코어 · 보관함(앱 FSD 8번). loadGachaOwned · saveGachaOwned 를 부른다.
 # myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오(앱 FSD 7-2). saveMyHome · uploadUserImage 를 부른다.
 for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js'):
@@ -371,7 +371,7 @@ else:
 section('검사 9 · RTDB 비용 회귀 가드 (rooms 전체 읽기 재발 방지)')
 ok9 = True
 # (a) 최상위 노드 "통째" 실시간 구독 — rooms는 절대 금지, 그 외도 허용 목록만
-_ALLOW_SUB = {'licenseRequests', 'roomStats'}   # 기존부터 있던 소형·관리자성 구독
+_ALLOW_SUB = {'roomStats'}   # licenseRequests(관리자 요청 목록)는 웹 관리자로 옮겨 앱에서 걷었다
 # roomStats = 서버가 세어 둔 방 개수 세 칸(수십 바이트). 방 창이 열려 있는 동안만 구독한다(room-stats.js watch).
 for _mm in re.finditer(r"onValue\(ref\(db,\s*[`'\"]([^`'\"/$]+)[`'\"]", html_code):
     _n = _mm.group(1)
@@ -381,15 +381,11 @@ for _mm in re.finditer(r"onValue\(ref\(db,\s*[`'\"]([^`'\"/$]+)[`'\"]", html_cod
         print(f'  ⚠️ onValue 전체 구독: {_n} @~{_ln}')
         ok9 = False
 # (b) 최상위 노드 통째 get() — 알려진 기준선 초과 시 경보 (기준: 패치 시점)
-_BASELINE_GET = {'rooms': 3, 'users': 2, 'licenses': 2, 'parties': 1, 'roomIndex': 99,
-                 'friendCodes': 2, 'reports': 1, 'roomStats': 1, 'roomAlive': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
-# roomAlive 1곳 = 💓 cleanGhostRooms(관리자 전용 · 버튼 누를 때 1회 · 규칙상 관리자만 읽힘). 멤버당 숫자 하나(수십 바이트).
+_BASELINE_GET = {'users': 1, 'parties': 1, 'roomIndex': 99, 'roomStats': 1}
+# rooms · licenses · reports · friendCodes · roomAlive 통째 get 은 관리자 기능(방 종료 · 유령 방 청소 · 키 목록 · 신고 목록 ·
+#   초대권 일괄 지급 · 회수)뿐이었다 — 웹 관리자로 옮겨 앱에서 걷었으니 0곳. 다시 생기면 «신규» 로 걸린다.
 # roomStats 1곳 = room-stats.js read() — 서버가 세어 둔 방 개수 요약(수백 바이트).
 #   30초 폴링이 roomIndex(약 24KB) 대신 이걸 읽는다. 늘어나면 같은 요약을 두 번 읽는 자리가 생긴 것.
-# reports 1곳 = 🚩 listReports(관리자 전용 · [신고 목록] 버튼 누를 때 1회 · 규칙상 관리자만 읽힘 · 2026-09-23 개정 60).
-# friendCodes 2곳 = 🎟️ grantInvitesAll · invite-revoke.js 전체 회수(둘 다 관리자 전용, 버튼 누를 때 1회).
-#   users 전체 읽기는 규칙상 거부되므로(.read는 users/$userId에만 존재) uid 목록을 얻는 대체 인덱스로 사용.
-#   code→{userId}만 담겨 유저당 약 50바이트 — users 전체(수 KB/명)보다 훨씬 가볍다.
 _gets = {}
 for _mm in re.finditer(r"get\(ref\(db,\s*[`'\"]([^`'\"/$]+)[`'\"]", html_code):
     _gets[_mm.group(1)] = _gets.get(_mm.group(1), 0) + 1
@@ -405,7 +401,7 @@ for _n, _c in sorted(_gets.items()):
 #   최상위 검사(a)(b)는 이걸 못 본다. users/{uid} 는 캐릭터 · 슬롯이 들어오며 평균 22KB(큰 사람은 MB)가 됐고,
 #   런처마다 통째로 읽던 한 줄이 운영 다운로드의 27%였다(2026-10-03). 기준선보다 늘면 경보 — 필요한 하위 경로만 읽을 것.
 #   users 1곳 = invite-account.js 의 폴백(shallow 실패 때만). rooms 2곳 = 정원 · 생존 확인의 폴백.
-_BASELINE_GET1 = {'accountSnap': 1, 'authUsers': 2, 'bookmarks': 1, 'bookmarksPub': 1, 'catalog': 1, 'friendCodes': 1,
+_BASELINE_GET1 = {'accountSnap': 1, 'authUsers': 2, 'bookmarks': 1, 'bookmarksPub': 1, 'friendCodes': 1,
                   'inbox': 1, 'licenseRequests': 1, 'licenses': 2, 'rooms': 2, 'roomAlive': 2, 'sentFriendRequests': 1, 'userAuth': 2, 'users': 1}
 #   roomAlive 2곳 = 💓 checkRoomCapacity · checkSecretRoomEntry — 입장할 때 한 번, 그 방 도장(멤버당 숫자 하나)만.
 _gets1 = {}

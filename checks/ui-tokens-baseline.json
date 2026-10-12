@@ -1,10 +1,10 @@
 {
   "note": "sim-ui-tokens.js 기준선 — 아직 토큰으로 못 바꾼 자리 수. 늘리지 않는다. 줄였으면 --write-baseline 으로 내린다.",
   "fonts": {
-    "desk-companion-prototype.html": 24,
+    "desk-companion-prototype.html": 23,
     "animal.js": 2,
     "app-version-gate.js": 1,
-    "app.js": 4,
+    "app.js": 1,
     "friend-manage.js": 1,
     "guestbook.js": 3,
     "mallang.js": 1,
@@ -12,10 +12,10 @@
     "myhome-edit.js": 8
   },
   "greys": {
-    "desk-companion-prototype.html": 145,
+    "desk-companion-prototype.html": 144,
     "animal.js": 6,
     "app-version-gate.js": 4,
-    "app.js": 44,
+    "app.js": 37,
     "guestbook.js": 27,
     "mallang.js": 20,
     "myhome-desktop.js": 134,

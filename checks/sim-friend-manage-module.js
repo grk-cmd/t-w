@@ -271,23 +271,12 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
   chk(typeof ctx._bugReportLink === 'function' && ctx._bugReportLink() === '', 'window._bugReportLink — 아직 안 받았으면 빈 문자열');
   chk(typeof env.L['firebase-ready'] === 'function', 'firebaseAPI 가 아직 없으면 firebase-ready 를 기다린다');
   let subCb = null;
-  ctx.firebaseAPI = { subscribeBugReport: (cb) => { subCb = cb; }, setBugReport: async (n, l) => { if(env.failSave) throw new Error('denied'); env.saved.push([n, l]); } };
+  ctx.firebaseAPI = { subscribeBugReport: (cb) => { subCb = cb; } };
   env.L['firebase-ready']();
   subCb({ notice: '공지글', link: 'https://open.kakao.com/o/abc', ts: 1 });
   chk(ctx._bugReportLink() === 'https://open.kakao.com/o/abc', '구독이 오면 기본 링크를 돌려준다');
-  const form = els.mhBugEditForm; form.style.display = 'none';
-  els.mhBugEditBtn._L.click[0]();
-  chk(form.style.display === 'none', '관리자가 아니면 편집 칸을 안 연다');
-  env.admin = true; els.mhBugEditBtn._L.click[0]();
-  chk(form.style.display === 'block' && els.mhBugLinkInput.value === 'https://open.kakao.com/o/abc', '관리자 — 편집 칸에 지금 링크');
-  els.mhBugLinkInput.value = 'http://evil.example/'; await els.mhBugSaveBtn._L.click[0]();
-  chk(env.saved.length === 0 && /open\.kakao\.com/.test(els.mhBugEditMsg.textContent), '오픈카톡 주소가 아니면 저장 안 함');
-  els.mhBugLinkInput.value = ' https://open.kakao.com/o/new '; await els.mhBugSaveBtn._L.click[0](); await flush();
-  chk(env.saved.length === 1 && env.saved[0][0] === '공지글' && env.saved[0][1] === 'https://open.kakao.com/o/new' && form.style.display === 'none', '저장 — 있던 공지글을 그대로 실어(규칙이 notice 필수) · 칸 닫기');
-  env.failSave = true; els.mhBugEditBtn._L.click[0](); await els.mhBugSaveBtn._L.click[0](); await flush();
-  chk(/^F:저장에 실패했어요/.test(els.mhBugEditMsg.textContent) && els.mhBugSaveBtn.disabled === false, '실패 — _saveFailMsg 안내 · 버튼 다시 풀림');
-  env.admin = false; await els.mhBugSaveBtn._L.click[0]();
-  chk(env.toasts.includes('관리자만 수정할 수 있어요'), '저장 때 관리자를 한 번 더 확인');
+  /* 오픈카톡 기본 링크 편집(관리자)은 웹 관리자 📢 공지(버그 제보 안내)로 옮겼다 — 앱은 읽기만 */
+  chk(!/mhBugEditBtn|setBugReport/.test(BUG) && !/id="mhBugEditBtn"|id="mhBugEditForm"/.test(HTML), '편집 칸 · 저장은 앱에 없다 (웹 관리자)');
 });
 
 say('');

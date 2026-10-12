@@ -255,8 +255,8 @@ say('');
 
 /* ── §4. 남의 이름을 그리는 나머지 자리 ───────────────────────────── */
 say('· §4 라이선스 요청 이름 (관리자 화면)');
-chk(/🙋 <b>\$\{_chatEsc\(/.test(SRC),
-    '★ req.name 이 이스케이프를 거친다 (licenseRequests 는 .write:true 다)');
+chk(!/licenseReqList|🙋 <b>\$\{/.test(SRC),
+    '★ 요청 목록은 앱에 없다 — req.name(licenseRequests 는 .write:true)은 웹 관리자가 텍스트로 그린다');
 
 say('');
 /* ⚠️ 마지막 줄은 러너가 읽는다 — run.js 의 FAIL_LINE 은 **줄 전체가 그 말일 때만**,

@@ -367,7 +367,6 @@
   html[data-theme="bubble"] #raceModal,
   html[data-theme="bubble"] #mhDdayEdit,
   html[data-theme="bubble"] #mhGiftModal,
-  html[data-theme="bubble"] #mhInboxCompose,
   html[data-theme="bubble"] #chatEmojiWin,
   html[data-theme="bubble"] #wardrobePanel,
   html[data-theme="bubble"] #wdPreviewPanel,
@@ -414,7 +413,6 @@
   html[data-theme="bubble"] .lc-bar,
   html[data-theme="bubble"] .mh-dde-head,
   html[data-theme="bubble"] .mh-gift-head,
-  html[data-theme="bubble"] .mh-ibc-head,
   html[data-theme="bubble"] .wd-top,
   html[data-theme="bubble"] .win98titlebar
 {
@@ -3308,15 +3306,6 @@
   .bb-form textarea{height:160px;resize:vertical;line-height:1.6;}
   .bb-form label{cursor:pointer;margin-right:12px;}
   .bb-foot{display:flex;justify-content:flex-end;gap:6px;margin-top:10px;}
-  /* 오픈카톡 기본 링크(관리자) — 예전 공지 편집 폼을 줄인 것 */
-  #mhBugEditForm{margin:10px 0;padding:8px;border:1px solid var(--win-lo);background:var(--win-face-2);flex-shrink:0;}
-  .mh-bug-lbl{font-size:11px;font-weight:bold;color:var(--ink-soft);margin:0 0 3px;}
-  #mhBugLinkInput{
-    width:100%;box-sizing:border-box;font-family:var(--tw-font-legacy);font-size:11.5px;padding:6px 8px;
-    background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-    box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
-  #mhBugEditMsg{display:none;font-size:11px;margin-top:6px;}
-  #mhBugEditBtns{display:flex;gap:8px;margin-top:8px;justify-content:flex-end;}
   /* 👋 친구 요청 행 — [체크박스] 이름/시각 + [수락][거절]
      ⚠️ 예전엔 이 줄이 친구 목록 위 238px 칸(#mhReqSection)에 있어서 아주 납작했다.
        친구 관리(오른쪽 칸)로 나오면서 폭이 3배가 됐으므로 카드 모양으로 바꿨다. */
@@ -3439,11 +3428,6 @@
   .mh-ibx-item.pinned.unread{background:#fef2df;}
   .mh-ibx-item.pinned:hover{background:#fdeecb;}
   .mh-ibx-pin{flex-shrink:0;font-size:10px;margin-right:1px;line-height:1;}
-  .mh-ibx-pinbtn{flex-shrink:0;cursor:pointer;font-size:11px;opacity:.35;filter:grayscale(1);padding:0 2px;line-height:1;}
-  .mh-ibx-pinbtn:hover{opacity:.8;filter:none;}
-  .mh-ibx-pinbtn.on{opacity:1;filter:none;}
-  .mh-ibc-pin{display:flex;align-items:center;gap:6px;font-size:11px;margin-top:8px;cursor:pointer;user-select:none;}
-  .mh-ibc-pin input{cursor:pointer;}
 
   .mh-ibx-head{display:flex;align-items:center;gap:6px;font-size:11px;}
   .mh-ibx-tag{padding:1px 6px;font-size:9.5px;font-weight:bold;color:#fff;flex-shrink:0;}
@@ -3479,31 +3463,6 @@
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
 
-  /* 관리자 작성 모달 */
-  #mhInboxCompose{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10;
-    width:320px;background:var(--win-face);border:2px solid;
-    border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow:var(--win-drop-el, 3px 3px 0 rgba(0,0,0,.35));font-family:var(--tw-font-legacy);border-radius:var(--win-radius-el) !important;}
-  .mh-ibc-head{font-size:12px;font-weight:bold;color:#fff;padding:5px 8px;
-    background:linear-gradient(90deg,var(--win-title-a),var(--win-title-b));}
-  .mh-ibc-body{padding:10px;}
-  .mh-ibc-lbl{font-size:10px;font-weight:bold;color:var(--ink-soft);margin:6px 0 3px;}
-  .mh-ibc-lbl:first-child{margin-top:0;}
-  .mh-ibc-tags{display:flex;gap:10px;font-size:11px;color:var(--ink);}
-  .mh-ibc-tags label{display:flex;align-items:center;gap:3px;cursor:pointer;}
-  .mh-ibc-tags input{width:auto;margin:0;}
-  #mhInboxComposeTitle, #mhInboxComposeBody{width:100%;box-sizing:border-box;font-family:var(--tw-font-legacy);font-size:11px;
-    padding:5px 7px;background:#fff;border:2px solid;
-    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-    box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
-  #mhInboxComposeBody{height:120px;resize:vertical;line-height:1.5;}
-  #mhInboxComposeMsg{display:none;font-size:10px;margin-top:6px;}
-  .mh-ibc-foot{display:flex;gap:5px;justify-content:flex-end;padding:8px 10px;border-top:1px solid #ccc;}
-  .mh-ibc-foot button{font-family:var(--tw-font-legacy);font-size:10.5px;padding:5px 12px;cursor:pointer;color:var(--ink);
-    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
-  .mh-ibc-foot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
-    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
   /* 🎨 마이홈 수정(타이틀바) + 배경 메뉴 */
   #mhEditHomeBtn{font-size:10.5px;font-weight:normal;color:#dfe6ff;text-decoration:underline;cursor:pointer;margin-right:8px;}
   #mhEditHomeBtn:hover{color:#fff;}
@@ -5510,7 +5469,6 @@
         <div id="mhInboxTop">
           <span>📩 수령함 <span id="mhInboxCount"></span></span>
           <span style="display:flex;gap:10px;align-items:center;">
-            <span id="mhInboxComposeBtn" class="admin-only" title="전체 유저에게 공지·업데이트·우편 보내기">✎ 작성</span>
             <span id="mhInboxReadAllBtn" title="모두 읽음 처리">전체 읽음</span>
           </span>
         </div>
@@ -5525,29 +5483,6 @@
                .mh-ibx-tab.gift CSS 규칙은 지우지 말 것: 옮겨간 버튼이 그 규칙을 그대로 쓴다. -->
         </div>
         <div id="mhInboxList"></div>
-      </div>
-
-      <!-- 관리자: 브로드캐스트 작성 모달 -->
-      <div id="mhInboxCompose" style="display:none;">
-        <div class="mh-ibc-head">✎ 전체 유저에게 보내기</div>
-        <div class="mh-ibc-body">
-          <div class="mh-ibc-lbl">태그</div>
-          <div class="mh-ibc-tags">
-            <label><input type="radio" name="ibcTag" value="notice" checked> 📢 공지</label>
-            <label><input type="radio" name="ibcTag" value="update"> 🆕 업데이트</label>
-            <label><input type="radio" name="ibcTag" value="reward"> 📩 우편</label>
-          </div>
-          <div class="mh-ibc-lbl">제목</div>
-          <input id="mhInboxComposeTitle" type="text" maxlength="80" placeholder="예: v0.3.0 업데이트 안내">
-          <div class="mh-ibc-lbl">내용</div>
-          <textarea id="mhInboxComposeBody" maxlength="600" placeholder="본문 (최대 600자)"></textarea>
-          <label class="mh-ibc-pin"><input id="mhInboxComposePin" type="checkbox"> 📌 상단에 고정 (시간과 무관하게 항상 맨 위)</label>
-          <div id="mhInboxComposeMsg"></div>
-        </div>
-        <div class="mh-ibc-foot">
-          <button id="mhInboxComposeSend" type="button">전송</button>
-          <button id="mhInboxComposeCancel" type="button">취소</button>
-        </div>
       </div>
     </div>
     <!-- 📅 스케줄러 — 좌: 월별 달력 / 우: D-day 목록 -->
@@ -5668,18 +5603,7 @@
             <button class="bb-flt" data-f="mine" type="button">내 글<span class="bb-dot" id="bbMineDot"></span></button>
             <button class="bb-flt" data-f="open" type="button">미해결</button>
             <span class="bb-sp"></span>
-            <button id="mhBugEditBtn" class="bb-btn admin-only" type="button" title="답변의 오픈카톡 버튼에 미리 채워질 주소">🔗 오픈카톡 링크</button>
             <button id="bbWriteBtn" class="bb-btn" type="button">✎ 제보하기</button>
-          </div>
-          <!-- 관리자: 오픈카톡 기본 링크(bugReport/current.link) — 예전 공지·링크 편집 폼을 줄인 것 -->
-          <div id="mhBugEditForm" style="display:none;">
-            <div class="mh-bug-lbl">오픈카톡 기본 링크</div>
-            <input id="mhBugLinkInput" type="text" maxlength="300" placeholder="https://open.kakao.com/...">
-            <div id="mhBugEditMsg"></div>
-            <div id="mhBugEditBtns">
-              <button id="mhBugCancelBtn" class="bb-btn" type="button">취소</button>
-              <button id="mhBugSaveBtn" class="bb-btn" type="button">저장</button>
-            </div>
           </div>
           <div id="bbRows"><div class="bb-empty">불러오는 중…</div></div>
           <div class="bb-pager">
@@ -5807,7 +5731,7 @@
         🎟️ 초대장
       </button>
     </div>
-    <div class="lc-foot"><button id="lcGlbLoad" class="admin-only">암호화 GLB 불러오기</button><span class="admin-only">·</span><button id="lcAssetGen" class="admin-only">📦 책상·아이템 코드 만들기</button><span class="admin-only">·</span><button id="lcCommissionGen" class="admin-only">🎁 커미션 캐릭터 등록</button><span class="admin-only">·</span><button id="lcLicenseGen" class="admin-only">🎟️ 라이선스 키 발급</button><span class="admin-only">·</span><button id="lcAnnounce" class="admin-only">📣 확성기 공지</button><span class="admin-only">·</span><button id="lcUpdateNotice" class="admin-only">📰 업데이트 공지</button><span class="admin-only">·</span><button id="lcCategoryManage" class="admin-only">📁 카테고리 관리</button><span class="admin-only">·</span><button id="lcAdBannerEdit" class="admin-only">📢 광고 배너 편집</button><span class="admin-only">·</span><button id="lcInviteGrant" class="admin-only">🎟️ 유저 초대권 지급</button><span class="admin-only">·</span><button id="lcGameCfg" class="admin-only">⚙️ 게임 설정</button><span class="admin-only">·</span><button id="lcCloseAllRooms" class="admin-only">🛑 전체 방 종료</button><span class="admin-only">·</span><button id="lcCleanGhostRooms" class="admin-only">🧹 유령 방 청소</button><span class="admin-only">·</span><button id="lcReportList" class="admin-only">🚩 신고 목록</button></div>
+    <div class="lc-foot"><button id="lcWebAdmin" class="admin-only">🛠️ 웹 관리자 열기</button><span class="admin-only">·</span><button id="lcGlbLoad" class="admin-only">암호화 GLB 불러오기</button><span class="admin-only">·</span><button id="lcAssetGen" class="admin-only">📦 책상·아이템 코드 만들기</button><span class="admin-only">·</span><button id="lcCommissionGen" class="admin-only">🎁 커미션 캐릭터 등록</button><span class="admin-only">·</span><button id="lcCategoryManage" class="admin-only">📁 카테고리 관리</button></div>
 
     <!-- 🪪 [내 정보] — 런처 화면이 바뀐다(CHECKS 개정 48 · 사용자 결정 · 시안 «런처 전환»). ◀ 로 런처로 돌아간다.
          회원가입 설계 §7 B2 · C4 · D · G 를 이 자리로: 작은 머리(사진 · 닉네임 + 레벨 배지 + [수정] · 친구 코드 + [복사]) · 탭 [보관함] [휴지통](숨김 · E) [계정].
@@ -6042,47 +5966,6 @@
   </div>
   <div id="bellBody">
     <div id="bellList"></div>
-  </div>
-</div>
-
-<!-- 🎟️ 관리자: 유저 초대권 지급 — 대상 친추코드 + 지급 장수를 한 창에서 입력 -->
-<div id="inviteGrantOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
-  background:none;pointer-events:none;">
-  <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:300px;max-width:92vw;font-family:var(--tw-font-legacy);">
-    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🎟️ 유저 초대권 지급</div>
-    <div style="padding:14px;">
-      <div style="font-size:11px;color:var(--ink-soft);margin-bottom:4px;">초대권을 줄 유저의 친추코드</div>
-      <input id="inviteGrantCode" type="text" placeholder="COZY-XXXX" maxlength="9" autocomplete="off"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;text-transform:uppercase;letter-spacing:1px;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;margin-bottom:10px;">
-
-      <div style="font-size:11px;color:var(--ink-soft);margin-bottom:4px;">지급할 초대권 수</div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;">
-        <button id="inviteGrantMinus" type="button" style="width:28px;height:26px;padding:0;cursor:pointer;
-          font-family:var(--tw-font-legacy);font-size:13px;font-weight:bold;
-          background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-          box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);">◀</button>
-        <div id="inviteGrantCount" style="min-width:44px;text-align:center;font-size:15px;font-weight:bold;
-          padding:5px 0;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-          box-shadow: inset 1px 1px 0 var(--win-lo-2);">1</div>
-        <button id="inviteGrantPlus" type="button" style="width:28px;height:26px;padding:0;cursor:pointer;
-          font-family:var(--tw-font-legacy);font-size:13px;font-weight:bold;
-          background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-          box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);">▶</button>
-      </div>
-
-      <div id="inviteGrantMsg" style="display:none;font-size:11px;margin:-4px 0 8px;"></div>
-      <button id="inviteGrantOk" class="lc-btn" style="margin-top:0;">확인</button>
-      <button id="inviteGrantCancel" class="lc-btn ghost">취소</button>
-    </div>
-    <div style="border-top:1px solid var(--win-lo);margin-top:10px;padding-top:10px;">
-      <div style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;">📢 전체 유저 일괄 지급 — 초대권을 가진 모든 유저에게 위 장수만큼 지급 · 우클릭 두 번은 전체 회수(0장으로)</div>
-      <button id="inviteGrantAll" class="lc-btn ghost" style="width:100%;">전체 유저에게 지급 (+N장)</button>
-    </div>
   </div>
 </div>
 
@@ -6418,201 +6301,6 @@
   </div>
 </div>
 
-<!-- 라이선스 키 생성 모달 (관리자 전용) -->
-<div id="licenseGenOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
-  gap:12px;flex-wrap:wrap;background:none;pointer-events:none;">
-  <div style="pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:340px;max-width:90vw;font-family:var(--tw-font-legacy);">
-    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🎟️ 라이선스 키 발급</div>
-    <div style="padding:14px;">
-    <!-- ★ 친구코드로 바로 발급 — 코드 보유자의 수령함(보상)으로 라이선스 키 발송 -->
-    <label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">친구코드로 발급 (해당 유저 수령함으로 전송)</label>
-    <div style="display:flex;gap:6px;margin-bottom:6px;">
-      <input id="licenseGrantCode" type="text" placeholder="예: MATE-9K2M 또는 9K2M" maxlength="20"
-        style="flex:1;min-width:0;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;text-transform:uppercase;">
-      <button id="licenseGrantBtn" class="lc-btn" style="margin-top:0;white-space:nowrap;flex:0 0 auto;width:auto;padding:7px 14px;">📮 발급</button>
-    </div>
-    <div id="licenseGrantMsg" style="display:none;font-size:10.5px;margin-bottom:10px;"></div>
-    <!-- 📄 [2026-10-02] 엑셀(xlsx·csv)로 일괄 발급 — 옆에 #licenseXlsxWin 창을 연다(app.js bindLicenseXlsxBulk) -->
-    <button id="licenseXlsxOpenBtn" class="lc-btn" style="margin-top:0;margin-bottom:10px;">📄 엑셀로 일괄 발급…</button>
-    <div style="border-top:1px solid var(--win-lo-2);margin:4px 0 12px;"></div>
-
-    <label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">구매자 메모(선택, 나만 봄)</label>
-    <input id="licenseGenNote" type="text" placeholder="예: 트위터 @xxxx 님, 커미션 3번"
-      style="width:100%;padding:7px 8px;box-sizing:border-box;
-      background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-      box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:10px;">
-    <button id="licenseGenBtn" class="lc-btn" style="margin-top:0;">새 키 발급</button>
-    <div id="licenseGenResult" style="display:none;margin-top:12px;background:var(--win-select-bg);
-      border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:10px 12px;">
-      <div style="font-size:11px;color:var(--ink-soft);margin-bottom:4px;">발급된 키 (구매자에게 전달):</div>
-      <div id="licenseGenKeyText" style="font-family:'Courier New',monospace;font-size:13px;font-weight:bold;color:var(--ink);
-        user-select:all;cursor:pointer;" title="클릭해서 선택"></div>
-      <button id="licenseGenCopyBtn" style="margin-top:6px;background:none;border:none;color:var(--win-select);font-size:11px;
-        cursor:pointer;text-decoration:underline;padding:0;">복사하기</button>
-    </div>
-    <!-- 🔒 시크릿룸 발급 — 서버가 발급 열쇠(srKey/v)로 검증한다. 열쇠는 여기 어디에도 저장하지 않는다. -->
-    <div style="margin-top:14px;border-top:2px solid var(--win-lo);padding-top:10px;">
-      <div style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;">🔒 시크릿룸 발급 (방 개수에 안 잡히는 고정 투게더룸)</div>
-      <input id="srGrantCode" type="text" placeholder="친구코드(MATE-9K2M) 또는 유저 코드(u… 로 시작)" maxlength="48"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:6px;">
-      <input id="srGrantWant" type="text" placeholder="원하는 코드 4자리 (비우면 자동 생성)" maxlength="4"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;text-transform:uppercase;margin-bottom:6px;">
-      <!-- 📅 이용 기간 — 비우면 영구. 숫자를 넣으면 그 개월 뒤 만료되고 그 뒤엔 입장이 막힌다.
-           같은 코드로 다시 발급하면 기간이 새로 계산되므로 이 칸이 연장·영구전환 수단도 된다. -->
-      <input id="srGrantMonths" type="text" inputmode="numeric" placeholder="이용 기간 개월 수 (비우면 영구)" maxlength="3"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:6px;">
-      <input id="srGrantKey" type="password" placeholder="발급 열쇠 (앱에 저장되지 않아요)" maxlength="64"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:6px;">
-      <button id="srGrantBtn" class="lc-btn" style="margin-top:0;">🔒 시크릿룸 발급</button>
-      <div id="srGrantMsg" style="display:none;font-size:10.5px;margin-top:6px;"></div>
-    </div>
-    <div style="margin-top:14px;border-top:2px solid var(--win-lo);padding-top:10px;">
-      <div style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
-        <span>🙋 대기 중인 요청</span>
-        <button id="licenseBulkBtn" style="padding:2px 8px;font-size:10.5px;cursor:pointer;display:none;">전체 일괄 발급</button>
-      </div>
-      <div id="licenseReqList" style="max-height:120px;overflow-y:auto;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">대기 중인 요청이 없어요</div>
-    </div>
-    <div style="margin-top:14px;border-top:2px solid var(--win-lo);padding-top:10px;">
-      <div style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;">발급된 키 목록</div>
-      <input id="licenseGenSearch" type="text" placeholder="🔍 닉네임/메모/키 검색"
-        style="width:100%;padding:5px 7px;box-sizing:border-box;margin-bottom:6px;font-size:11px;
-        background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
-      <div id="licenseGenList" style="max-height:140px;overflow-y:auto;font-size:11px;color:var(--ink-soft);"></div>
-    </div>
-    <button id="licenseGenClose" class="lc-btn ghost" style="margin-top:12px;">닫기</button>
-    </div>
-  </div>
-  <!-- 📄 [2026-10-02] 엑셀로 일괄 발급 — 발급 창 **옆에** 서는 두 번째 창(같은 #licenseGenOverlay 안이라
-       클릭 통과 목록·ESC 사다리·창 층을 새로 등록할 필요가 없다). 미리보기 단계에서는 아무것도 쓰지 않는다. -->
-  <div id="licenseXlsxWin" style="display:none;pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:440px;max-width:90vw;font-family:var(--tw-font-legacy);">
-    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;display:flex;align-items:center;justify-content:space-between;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">
-      <span>📄 엑셀로 일괄 발급</span>
-      <button id="licenseXlsxClose" title="닫기" style="width:18px;height:16px;padding:0;font-size:10px;line-height:12px;cursor:pointer;">✕</button>
-    </div>
-    <div style="padding:14px;font-size:11px;color:var(--ink);">
-      <input id="licenseXlsxFile" type="file" accept=".xlsx,.csv" style="display:none;">
-      <div style="display:flex;gap:6px;align-items:center;">
-        <div id="licenseXlsxFileInfo" style="flex:1;min-width:0;padding:8px 10px;background:#fff;border:2px dashed var(--win-lo);font-size:11.5px;color:var(--ink-soft);
-          overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 .xlsx 또는 .csv 파일을 골라 주세요</div>
-        <button id="licenseXlsxFileBtn" style="padding:6px 10px;font-size:11px;cursor:pointer;white-space:nowrap;">파일 고르기</button>
-      </div>
-      <div id="licenseXlsxSum" style="display:none;gap:8px;flex-wrap:wrap;margin:8px 0 2px;"></div>
-      <div id="licenseXlsxPreview" style="display:none;max-height:210px;overflow:auto;margin-top:6px;background:#fff;
-        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"></div>
-      <div id="licenseXlsxOpts" style="display:none;margin-top:8px;">
-        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;margin-bottom:4px;"><input type="checkbox" id="licenseXlsxDupFirst" checked> 같은 친구코드가 여러 번 나오면 첫 행만 발급</label>
-        <label style="display:flex;gap:6px;align-items:center;cursor:pointer;"><input type="checkbox" id="licenseXlsxReissue"> 전에 발급한 적 있는 친구코드도 다시 발급 <span style="color:var(--ink-soft);">(기본: 건너뜀)</span></label>
-      </div>
-      <div id="licenseXlsxActs" style="display:none;gap:6px;margin-top:12px;">
-        <button id="licenseXlsxRunBtn" class="lc-btn" style="margin-top:0;flex:1;">🎟️ 발급</button>
-        <button id="licenseXlsxCancelBtn" class="lc-btn ghost" style="margin-top:0;width:auto;padding:8px 14px;">취소</button>
-      </div>
-      <div id="licenseXlsxProg" style="display:none;margin-top:10px;">
-        <div id="licenseXlsxProgText">발급 중…</div>
-        <div style="height:16px;padding:2px;margin:6px 0 4px;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
-          <div id="licenseXlsxProgBar" style="height:100%;width:0%;background:repeating-linear-gradient(90deg,var(--win-select) 0 9px,transparent 9px 11px);"></div>
-        </div>
-        <div style="color:var(--ink-soft);font-size:10.5px;">창을 닫지 마세요. 한 명씩 순서대로 보내요.</div>
-      </div>
-      <div id="licenseXlsxDone" style="display:none;margin-top:10px;">
-        <div style="font-size:12px;font-weight:bold;margin-bottom:6px;">✅ 일괄 발급 완료</div>
-        <div id="licenseXlsxDoneSum" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
-        <div id="licenseXlsxKeyOnly" style="display:none;padding:6px 8px;margin-top:8px;font-size:10.5px;line-height:1.7;max-height:120px;overflow:auto;background:#fff;
-          border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"></div>
-        <button id="licenseXlsxSaveBtn" class="lc-btn">💾 결과 엑셀 저장</button>
-        <div style="color:var(--ink-soft);font-size:10.5px;margin-top:6px;line-height:1.55;">원본 열 뒤에 <b>발급 키 · 결과 · 사유</b> 열을 붙여 저장해요. 실패·건너뜀 행만 고쳐 그대로 다시 올리면 됩니다.</div>
-      </div>
-      <div style="border-top:1px solid var(--win-lo-2);margin:12px 0 8px;"></div>
-      <div style="color:var(--ink-soft);font-size:10.5px;line-height:1.6;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-          <span><b>파일 양식</b> — 첫 줄은 제목, 둘째 줄부터 한 줄에 한 명</span>
-          <button id="licenseXlsxTplBtn" style="padding:2px 8px;font-size:10.5px;cursor:pointer;white-space:nowrap;">⬇ 양식 받기</button>
-        </div>
-        <div>· <b>친구코드</b> 칸: MATE-9K2M 또는 뒷 4자리. 비우면 키만 만들어 결과 파일에 담아요.</div>
-        <div>· <b>메모</b> 칸(선택): 발급 목록 메모에 붙어요(나만 봄).</div>
-        <div>· 첫 시트만 읽어요. 제목 줄에 «친구코드»·«메모»가 있으면 그 열을, 없으면 A·B 열을 써요.</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- 📣 확성기 공지 모달 (관리자 전용) — 런처5:
-     짧은 공지를 firebase에 발행하면 접속 중인 모든 유저의 캐릭터 위(레벨 닉네임 위)에 1분간 표시.
-     200px 폭 마퀴로 왼쪽으로 흘러가고, 다른 유저가 나중에 접속해도 60초 이내면 남은 시간만큼 표시. -->
-<div id="announceOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
-  background:none;pointer-events:none;">
-  <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:340px;max-width:90vw;font-family:var(--tw-font-legacy);">
-    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">📣 확성기 공지</div>
-    <div style="padding:14px;">
-      <label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:4px;">공지 문구 (긴 문구는 자동 스크롤)</label>
-      <input id="announceInput" type="text" maxlength="140" placeholder="예: 오늘 밤 10시 이벤트 시작!"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:8px;">
-      <div style="font-size:10.5px;color:var(--ink-soft);margin-bottom:12px;">
-        지금 접속 중인 모든 유저의 캐릭터 위에 <b>1분간</b> 표시됩니다. 새로 접속한 유저에게도 남은 시간만큼 보여요.
-      </div>
-      <div style="display:flex;gap:6px;">
-        <button id="announceSendBtn" class="lc-btn" style="margin-top:0;flex:1;">발송</button>
-        <button id="announceClearBtn" class="lc-btn ghost" style="margin-top:0;flex:1;" title="현재 공지 즉시 종료">지금 종료</button>
-      </div>
-      <button id="announceCloseBtn" class="lc-btn ghost" style="margin-top:12px;">닫기</button>
-    </div>
-  </div>
-</div>
-
-<!-- 업데이트 공지 편집 모달 (관리자) — 팝업으로 제목/본문을 저장, 유저에게 첫 실행 시 한 번 팝업 -->
-<div id="updateNoticeAdminOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
-  background:none;pointer-events:none;">
-  <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:420px;max-width:90vw;font-family:var(--tw-font-legacy);">
-    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">📰 업데이트 공지 편집</div>
-    <div style="padding:14px;">
-      <label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:3px;">제목</label>
-      <input id="updateNoticeTitle" type="text" maxlength="60" placeholder="예: v1.2 업데이트 안내"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;background:#fff;
-        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:8px;">
-      <label style="display:block;font-size:11px;color:var(--ink-soft);margin-bottom:3px;">본문</label>
-      <textarea id="updateNoticeBody" maxlength="800" placeholder="업데이트 내역, 안내 사항 등을 적어주세요"
-        style="width:100%;height:140px;padding:7px 8px;box-sizing:border-box;background:#fff;
-        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;resize:vertical;font-family:inherit;margin-bottom:8px;"></textarea>
-      <div style="font-size:10.5px;color:var(--ink-soft);margin-bottom:12px;">
-        저장하면 <b>모든 유저</b>의 앱 시작 시 이 공지가 팝업됩니다.
-        유저는 "다시 보지 않기"에 체크해 이 공지를 숨길 수 있어요 (버전을 바꿔서 새로 발행하면 다시 표시됨).
-      </div>
-      <div style="display:flex;gap:6px;">
-        <button id="updateNoticeSaveBtn" class="lc-btn" style="margin-top:0;flex:1;">저장 · 발행</button>
-        <button id="updateNoticeClearBtn" class="lc-btn ghost" style="margin-top:0;flex:1;" title="현재 공지 삭제">공지 삭제</button>
-      </div>
-      <button id="updateNoticeAdminCloseBtn" class="lc-btn ghost" style="margin-top:8px;">닫기</button>
-    </div>
-  </div>
-</div>
-
 <!-- 업데이트 공지 팝업 (유저) — 앱 시작 시 발행된 공지가 있으면 한 번 표시 -->
 <div id="updateNoticeUserOverlay" style="position:fixed;inset:0;z-index:75;display:none;align-items:center;justify-content:center;
   background:transparent;pointer-events:none;">
@@ -6737,77 +6425,6 @@
       <div class="mob-key">연결 키 <code id="mobLinkKey">••••</code><button class="mob-b" id="mobLinkCopy" type="button">복사</button></div>
       <div class="mob-btns"><button class="mob-b" id="mobLinkRenew" type="button">키 새로 만들기</button><button class="mob-b" id="mobLinkDone" type="button">닫기</button></div>
       <div class="mob-warn">키를 새로 만들면 예전 폰 연결은 끊겨요</div>
-    </div>
-  </div>
-</div>
-<div id="gameCfgOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
-  background:none;pointer-events:none;">
-  <div style="pointer-events:auto;width:300px;max-width:90vw;
-    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);">
-    <div style="font-family:var(--tw-font-legacy);font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">⚙️ 게임 설정</div>
-    <div style="padding:14px;">
-      <label style="display:block;font-size:11px;font-weight:bold;color:var(--ink);margin-bottom:4px;">🐾 동물 캐릭터 해금 레벨</label>
-      <input id="gameCfgAnimalLv" type="number" min="1" max="999" step="1"
-        style="width:100%;box-sizing:border-box;padding:4px 6px;font-size:12px;margin-bottom:6px;">
-      <div style="font-size:10px;color:var(--ink-soft);line-height:1.5;margin-bottom:12px;">
-        저장하면 모든 유저에게 즉시 반영됩니다.<br>주말 이벤트로 낮췄다가 되돌릴 수 있어요.
-      </div>
-      <button id="gameCfgSaveBtn" class="lc-btn" style="margin-top:0;">저장</button>
-      <button id="gameCfgCloseBtn" class="lc-btn ghost">닫기</button>
-    </div>
-  </div>
-</div>
-<div id="adBannerOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
-  background:none;pointer-events:none;">
-  <div style="pointer-events:auto;width:320px;max-width:90vw;max-height:88vh;overflow-y:auto;
-    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);">
-    <div style="font-family:var(--tw-font-legacy);font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">📢 광고 배너 편집 (최대 3개, 슬라이드)</div>
-    <div style="padding:14px;">
-      <div id="adBannerSlot0" style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--win-lo);">
-        <label style="display:block;font-size:11px;font-weight:bold;color:var(--ink);margin-bottom:4px;">배너 1</label>
-        <label style="display:block;font-size:10.5px;color:var(--ink-soft);margin-bottom:3px;">이미지 URL (비우면 이 슬롯 숨김)</label>
-        <input id="adBannerImgInput0" type="text" placeholder="https://..."
-          style="width:100%;padding:6px 8px;box-sizing:border-box;margin-bottom:6px;
-          background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-          box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11px;">
-        <label style="display:block;font-size:10.5px;color:var(--ink-soft);margin-bottom:3px;">클릭 시 이동할 링크</label>
-        <input id="adBannerLinkInput0" type="text" placeholder="https://..."
-          style="width:100%;padding:6px 8px;box-sizing:border-box;
-          background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-          box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11px;">
-      </div>
-      <div id="adBannerSlot1" style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--win-lo);">
-        <label style="display:block;font-size:11px;font-weight:bold;color:var(--ink);margin-bottom:4px;">배너 2</label>
-        <label style="display:block;font-size:10.5px;color:var(--ink-soft);margin-bottom:3px;">이미지 URL (비우면 이 슬롯 숨김)</label>
-        <input id="adBannerImgInput1" type="text" placeholder="https://..."
-          style="width:100%;padding:6px 8px;box-sizing:border-box;margin-bottom:6px;
-          background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-          box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11px;">
-        <label style="display:block;font-size:10.5px;color:var(--ink-soft);margin-bottom:3px;">클릭 시 이동할 링크</label>
-        <input id="adBannerLinkInput1" type="text" placeholder="https://..."
-          style="width:100%;padding:6px 8px;box-sizing:border-box;
-          background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-          box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11px;">
-      </div>
-      <div id="adBannerSlot2" style="margin-bottom:12px;">
-        <label style="display:block;font-size:11px;font-weight:bold;color:var(--ink);margin-bottom:4px;">배너 3</label>
-        <label style="display:block;font-size:10.5px;color:var(--ink-soft);margin-bottom:3px;">이미지 URL (비우면 이 슬롯 숨김)</label>
-        <input id="adBannerImgInput2" type="text" placeholder="https://..."
-          style="width:100%;padding:6px 8px;box-sizing:border-box;margin-bottom:6px;
-          background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-          box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11px;">
-        <label style="display:block;font-size:10.5px;color:var(--ink-soft);margin-bottom:3px;">클릭 시 이동할 링크</label>
-        <input id="adBannerLinkInput2" type="text" placeholder="https://..."
-          style="width:100%;padding:6px 8px;box-sizing:border-box;
-          background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-          box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11px;">
-      </div>
-      <button id="adBannerSaveBtn" class="lc-btn" style="margin-top:0;">저장</button>
-      <button id="adBannerCloseBtn" class="lc-btn ghost">닫기</button>
     </div>
   </div>
 </div>
@@ -7421,22 +7038,6 @@
     <textarea id="assetImpCode" class="code-box" placeholder="DCK1... 코드 붙여넣기"></textarea>
     <input id="assetImpPass" class="code-pass" type="text" placeholder="비밀번호 입력" autocomplete="off">
     <div class="code-btns"><button id="assetImpCancel">닫기</button><button id="assetImpGo">추가</button></div>
-  </div>
-</div>
-
-<!-- 📊 관리자 Total 통계 -->
-<div id="totalStatsOverlay" style="display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:rgba(0,0,0,.35);pointer-events:auto;">
-  <div style="width:320px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);">
-    <div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">
-      <span>📊 전체 통계</span>
-      <span id="totalStatsClose" class="mh-x" style="cursor:pointer;">✕</span>
-    </div>
-    <div id="totalStatsBody" style="padding:16px 18px;color:var(--ink);font-size:12px;line-height:2;">
-      <div style="text-align:center;color:var(--ink-soft);">불러오는 중…</div>
-    </div>
-    <div style="padding:0 14px 14px;text-align:right;">
-      <button id="totalStatsRefresh" class="lc-btn ghost" style="min-width:70px;">새로고침</button>
-    </div>
   </div>
 </div>
 

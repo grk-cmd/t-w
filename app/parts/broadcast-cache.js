@@ -4,7 +4,7 @@
  *
  * [구조] 카탈로그와 같다(catalog-cache.js 의 createCatalogSync 를 그대로 쓴다).
  *   관리자가 공지를 쓰거나 · 고정을 바꾸거나 · 지울 때 같은 다중 경로 update 로 inboxBroadcastMeta 에 서버 시각을 쓴다
- *   (앱 firebase-init.js _broadcastUpdate · 웹 관리자 entities/inbox broadcastCommit).
+ *   (웹 관리자 entities/inbox broadcastCommit — 앱은 쓰지 않는다).
  *   앱은 inboxBroadcastMeta(숫자 하나)만 구독하고, 캐시와 버전이 같으면 캐시, 다르면 한 번 받는다.
  *   받을 때는 통째가 아니라 최근 BROADCAST_LATEST 개(ts 순) + 고정 공지 전부를 받아 id 로 합친다
  *   — 웹 관리자 listBroadcasts 와 같은 모양. 고정은 오래돼도 맨 위에 보여야 하므로 개수와 상관없이 받는다.

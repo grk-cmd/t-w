@@ -1025,7 +1025,7 @@ function genFriendCodeCandidate(){
    ⚠️ 이 값을 true로 만드는 것은 "확인을 마쳤다"는 뜻이다. 조회 자체가 실패했을 때는
       반드시 false로 되돌려야 한다 — 안 그러면 오프라인 실행 한 번으로 검증이 영구히 건너뛰어진다. */
 let _fcOwnerChecked = false;
-/* (걷음 · 개정 56) FC_STALE_DAYS — 친추코드 «7일 조용하면 되찾기» 갈래와 함께. 시크릿룸 발급 게이트는 제 상수(SR_STALE_DAYS)를 쓴다. */
+/* (걷음 · 개정 56) FC_STALE_DAYS — 친추코드 «7일 조용하면 되찾기» 갈래와 함께. 시크릿룸 발급 게이트(7일)는 웹 관리자로 옮겼다. */
 // 내 친추코드 확보 — 로컬에 이미 있으면 그대로 쓰고, 없으면 새로 만들어서 Firebase에 등록(충돌 시 재시도).
 /* 🪞 [회원가입 설계 §3 ⑥ · 개정 12] 친구 코드 거울 정정 — 계정 거울(users/{uid}/friendCode)이 이 기기 코드와 다르면 **로컬만** 고친다.
    [왜] 코드 = 로그인 아이디다. 코드가 틀리게 보이는 PC 는 로그인 아이디를 틀리게 보여 주는 PC 다.
@@ -8764,7 +8764,7 @@ function refreshFsAdBanner(){
      (예: F2를 다시 누르면 꾸미기 창이 닫히면서 commitWdDraft로 자동 저장까지 자동 처리) */
 (function bindHotkeys(){
   // 이미 열려있으면 스킵할 모달 셀렉터 — updateMyStatusChipPosition 근처의 다른 모달 셀렉터와 동일한 세트.
-  const OPEN_MODAL_SEL = '#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #codeOverlay.on, #programSettingsOverlay.on, #pkOverlay.on';
+  const OPEN_MODAL_SEL = '#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #codeOverlay.on, #programSettingsOverlay.on, #pkOverlay.on';
   function isTyping(){
     const a = document.activeElement;
     if(!a) return false;
@@ -8908,7 +8908,7 @@ function refreshFsAdBanner(){
        _GACHA_KEEP 에 #wardrobePanel 을 넣어 두어 반대 방향은 이미 막혀 있었는데 여기만 없었다.
        그래서 꾸미기를 열어 둔 채 보관함 안을 클릭하면 여기서 close() 가 돌고, 그 close() 가
        두 창이 함께 쓰는 미리보기 패널의 .on 까지 떼어 갔다(제보: "보관함 미리보기창이 안 보임"). */
-    if(e.target.closest && e.target.closest('#gachaInvOverlay, #gachaDrawOverlay, #partRegOverlay, #deskRegOverlay, #assetImpOverlay, #assetGenOverlay, #glbEncOverlay, #glbLoadOverlay, #exportOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #commGenOverlay, #inviteOverlay, #raceOverlay, #codeOverlay, #creatorOverlay, #programSettingsOverlay, #focusSettingsPanel, #myHomeOverlay, .toast')) return;
+    if(e.target.closest && e.target.closest('#gachaInvOverlay, #gachaDrawOverlay, #partRegOverlay, #deskRegOverlay, #assetImpOverlay, #assetGenOverlay, #glbEncOverlay, #glbLoadOverlay, #exportOverlay, #adminPassOverlay, #commGenOverlay, #inviteOverlay, #raceOverlay, #codeOverlay, #creatorOverlay, #programSettingsOverlay, #focusSettingsPanel, #myHomeOverlay, .toast')) return;
     close();
   });
   // ★ 투명 배경(클릭통과 처리되는 영역)을 클릭하면 그 클릭 이벤트 자체가 우리 창에 전달되지 않아서
@@ -8918,7 +8918,7 @@ function refreshFsAdBanner(){
     if(!panel.classList.contains('on')) return;
     // ★ 파츠 등록 등 우리 모달이 열려있는 상태에서 파일 선택 다이얼로그를 띄우면 Electron 창의 포커스가
     //   잠깐 빠지는데, 그때 여기서 닫아버리면 등록 창까지 같이 사라져 버림 — 모달이 하나라도 열려있으면 blur 무시.
-    const modalOpen = document.querySelector('#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #creatorOverlay.on, #programSettingsOverlay.on, #myHomeOverlay.on, #pkOverlay.on');
+    const modalOpen = document.querySelector('#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #creatorOverlay.on, #programSettingsOverlay.on, #myHomeOverlay.on, #pkOverlay.on');
     if(modalOpen) return;
     close();
   });
@@ -11628,36 +11628,14 @@ function renderInbox(){
     x.onclick = async (e)=>{
       e.stopPropagation();
       if(m._src === 'broadcast'){
-        // 공용 공지: 관리자면 전체 삭제, 일반 유저는 "로컬 숨김(읽음 처리)"만
-        if(isAdmin && firebaseAPI.deleteInboxBroadcast){ try{ await firebaseAPI.deleteInboxBroadcast(id); }catch(err){} }
-        else { _inboxBcMarkRead(id); renderInbox(); mhScheduler.refreshBellBadge(); }
+        // 공용 공지: 이 기기에서만 숨김(읽음 처리) — 전체 삭제 · 고정은 웹 관리자 📢 공지
+        _inboxBcMarkRead(id); renderInbox(); mhScheduler.refreshBellBadge();
         return;
       }
       if(!window.firebaseAPI || !firebaseAPI.deleteInboxMessage) return;
       try{ await firebaseAPI.deleteInboxMessage(getMyUserId(), id); }catch(err){}
     };
-    // 📌 관리자 전용 고정 토글 — 공용 공지(broadcast)에만 노출. 클릭하면 pinned를 켜고/끄고 즉시 재정렬.
-    let pinBtn = null;
-    if(isAdmin && m._src === 'broadcast' && firebaseAPI.setInboxBroadcastPinned){
-      pinBtn = document.createElement('span');
-      pinBtn.className = 'mh-ibx-pinbtn' + (m.pinned ? ' on' : '');
-      pinBtn.textContent = '📌';
-      pinBtn.title = m.pinned ? '고정 해제' : '상단 고정';
-      pinBtn.onclick = async (e)=>{
-        e.stopPropagation();
-        const next = !m.pinned;
-        try{
-          const r = await firebaseAPI.setInboxBroadcastPinned(id, next);
-          if(r && r.ok){
-            if(_inboxBroadcast[id]){ if(next) _inboxBroadcast[id].pinned = true; else delete _inboxBroadcast[id].pinned; }
-            toast(next ? '📌 상단에 고정했어요' : '고정을 해제했어요');
-            renderInbox();
-          } else toast('변경에 실패했어요');
-        }catch(_){ toast('변경에 실패했어요'); }
-      };
-    }
     head.appendChild(tagEl); head.appendChild(title); head.appendChild(time);
-    if(pinBtn) head.appendChild(pinBtn);
     head.appendChild(x);
 
     const body = document.createElement('div'); body.className='mh-ibx-body';
@@ -11972,7 +11950,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
       : '<span class="mh-fdot off"></span> 오프라인 <small>(누르면 온라인)</small>';
     toast(_mhPresenceOnline ? '이제 친구들에게 온라인으로 보여요' : '이제 친구들에게 오프라인으로 보여요');
   });
-  /* 📩 수령함 UI 바인딩 — 태그 필터, 전체 읽음, 관리자 작성.
+  /* 📩 수령함 UI 바인딩 — 태그 필터, 전체 읽음.
      ⚠️ 반드시 #mhInboxTabs 안으로 좁힐 것 — 친구 관리 서브탭이 같은 .mh-ibx-tab 클래스라
        전역으로 걸면 '받은 요청'을 눌렀을 때 수령함 필터가 undefined→'all' 로 같이 바뀐다. */
   document.querySelectorAll('#mhInboxTabs .mh-ibx-tab').forEach(tab=>{
@@ -12046,63 +12024,10 @@ function renderMhProfileRail(){ /* 제거됨 */ }
     catch(e){ toast('처리에 실패했어요'); }
   });
 
-  // 관리자 작성 모달 — .admin-only 클래스로 숨김/표시가 자동 관리됨
-  const composeBtn    = document.getElementById('mhInboxComposeBtn');
-  const composeOv     = document.getElementById('mhInboxCompose');
-  const composeTitle  = document.getElementById('mhInboxComposeTitle');
-  const composeBody   = document.getElementById('mhInboxComposeBody');
-  const composeMsg    = document.getElementById('mhInboxComposeMsg');
-  const composeSend   = document.getElementById('mhInboxComposeSend');
-  const composeCancel = document.getElementById('mhInboxComposeCancel');
-  const showComposeMsg = (text, isErr)=>{
-    if(!composeMsg) return;
-    composeMsg.textContent = text;
-    composeMsg.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
-    composeMsg.style.display = text ? 'block' : 'none';
-  };
-  if(composeBtn && composeOv){
-    composeBtn.addEventListener('click', ()=>{
-      if(!isAdmin) return;
-      if(composeTitle) composeTitle.value = '';
-      if(composeBody) composeBody.value = '';
-      showComposeMsg('', false);
-      const firstRadio = composeOv.querySelector('input[name="ibcTag"][value="notice"]');
-      if(firstRadio) firstRadio.checked = true;
-      composeOv.style.display = 'block';
-      if(composeTitle) composeTitle.focus();
-    });
-  }
-  if(composeCancel && composeOv) composeCancel.addEventListener('click', ()=>{ composeOv.style.display='none'; });
   // 💝 선물 모달 닫기
   const giftClose = document.getElementById('mhGiftClose');
   const giftModal = document.getElementById('mhGiftModal');
   if(giftClose && giftModal) giftClose.addEventListener('click', ()=>{ giftModal.style.display='none'; });
-  if(composeSend){
-    composeSend.addEventListener('click', async ()=>{
-      if(!isAdmin){ toast('관리자만 전송할 수 있어요'); return; }
-      if(!window.firebaseAPI || !firebaseAPI.sendInboxBroadcast){ toast('네트워크 연결이 필요해요'); return; }
-      const title = (composeTitle ? composeTitle.value : '').trim();
-      const body  = (composeBody  ? composeBody.value  : '').trim();
-      const tagInput = composeOv.querySelector('input[name="ibcTag"]:checked');
-      const tag = tagInput ? tagInput.value : 'notice';
-      const pinEl = document.getElementById('mhInboxComposePin');
-      const pinned = !!(pinEl && pinEl.checked);
-      if(!title){ showComposeMsg('제목을 입력해 주세요', true); return; }
-      if(!body){ showComposeMsg('내용을 입력해 주세요', true); return; }
-      // 전체 유저에게 뿌리는 작업이라 명시적 확인
-      if(!confirm(`전체 유저에게 [${_inboxTagLabel(tag)}]${pinned?' 📌고정':''} "${title}" 메시지를 보낼까요?`)){ window.focus(); return; } window.focus();
-      composeSend.disabled = true; showComposeMsg('전송 중…', false);
-      try{
-        const r = await firebaseAPI.sendInboxBroadcast(tag, title, body, pinned);
-        if(r && r.ok){
-          toast(`${r.count}명에게 전송했어요`);
-          composeOv.style.display = 'none';
-          if(pinEl) pinEl.checked = false;   // 다음 작성 때 기본값 복귀
-        } else showComposeMsg('전송에 실패했어요', true);
-      }catch(e){ showComposeMsg(_saveFailMsg(e, '전송에 실패했어요 — 네트워크 확인'), true); }
-      composeSend.disabled = false;
-    });
-  }
 })();
 
 // 📩 수령함으로 대체 — 친구 선택 시 별도 구독은 필요 없음(수령함은 사용자 계정 단위 구독).
@@ -21657,7 +21582,6 @@ async function _inviteFinishPending(){
 const INVITE_GRANDFATHER_COUNT = 2;         // 🎟️ 일괄 2장 정책 — 기존유저 grandfather도 신규 초대 유저도 2장.
                                             //   0장이 돼도 재지급 없음: 지급 경로(grandfather/self-heal)는 전부
                                             //   "invite 노드가 아예 없을 때"만 발동하고, 0장은 노드가 있는 상태라 안 걸림.
-const INVITE_GRANT_MAX = 3;                 // 관리자가 한 번에 지급할 수 있는 최대 초대권 수
 
 function _genInviteCode(){
   const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 헷갈리는 0/O, 1/I 제외
@@ -22332,150 +22256,6 @@ async function _inviteConfirmIssue(){
       catch(e){ toast('복사에 실패했어요 — 직접 선택해서 복사해 주세요'); }
     });
   }
-
-  // 📊 관리자: 전체 통계 (가입 유저 수 / 프리미엄 유저 수)
-  (function bindTotalStats(){
-    const btn = document.getElementById('lcTotalStats');
-    const ov  = document.getElementById('totalStatsOverlay');
-    const body= document.getElementById('totalStatsBody');
-    const closeBtn = document.getElementById('totalStatsClose');
-    const refreshBtn = document.getElementById('totalStatsRefresh');
-    if(!btn || !ov) return;
-    const load = async ()=>{
-      if(body) body.innerHTML = '<div style="text-align:center;color:var(--ink-soft);">불러오는 중…</div>';
-      if(!window.firebaseAPI || !firebaseAPI.getAdminStats){ if(body) body.innerHTML='<div style="color:#c33;">네트워크 연결이 필요해요</div>'; return; }
-      try{
-        const st = await firebaseAPI.getAdminStats();
-        if(body) body.innerHTML =
-          '<div style="display:flex;justify-content:space-between;"><span>👥 가입 유저</span><b>'+st.totalUsers+'명</b></div>' +
-          '<div style="border-top:1px solid var(--win-lo);margin:6px 0;"></div>' +
-          '<div style="display:flex;justify-content:space-between;"><span>👑 프리미엄 유저</span><b>'+st.premiumUsers+'명</b></div>' +
-          '<div style="display:flex;justify-content:space-between;color:var(--ink-soft);font-size:11px;"><span>&nbsp;&nbsp;└ 유효 라이선스 키</span><span>'+st.licValid+'개 (사용 '+st.licUsed+')</span></div>' +
-          '<div style="border-top:1px solid var(--win-lo);margin:8px 0 6px;"></div>' +
-          '<div style="display:flex;gap:6px;align-items:center;font-size:11px;color:var(--ink-soft);">' +
-            '<span>카운터 보정:</span>' +
-            '<input id="totalStatsSetInput" type="number" min="0" style="width:70px;font-size:11px;padding:2px 4px;" placeholder="'+st.totalUsers+'">' +
-            '<button id="totalStatsSetBtn" class="lc-btn ghost" style="min-width:44px;font-size:11px;padding:3px 8px;margin:0;">설정</button>' +
-          '</div>';
-        const setBtn = document.getElementById('totalStatsSetBtn');
-        if(setBtn) setBtn.onclick = async ()=>{
-          const v = parseInt((document.getElementById('totalStatsSetInput')||{}).value, 10);
-          if(!isFinite(v) || v < 0){ toast('0 이상의 숫자를 입력하세요'); return; }
-          if(firebaseAPI.setUserCount){ await firebaseAPI.setUserCount(v); toast('가입 수를 '+v+'명으로 설정했어요'); load(); }
-        };
-      }catch(e){ if(body) body.innerHTML='<div style="color:#c33;">통계를 불러오지 못했어요</div>'; }
-    };
-    btn.addEventListener('click', ()=>{ ov.style.display='flex'; load(); });
-    if(closeBtn) closeBtn.addEventListener('click', ()=>{ ov.style.display='none'; });
-    if(refreshBtn) refreshBtn.addEventListener('click', load);
-    ov.addEventListener('mousedown', e=>{ if(e.target===ov) ov.style.display='none'; });
-  })();
-
-  // 관리자: 유저에게 초대권 추가 지급 — 친추코드 + 장수를 한 창에서 입력
-  const grantBtn    = document.getElementById('lcInviteGrant');
-  const grantOv     = document.getElementById('inviteGrantOverlay');
-  const grantCode   = document.getElementById('inviteGrantCode');
-  const grantCount  = document.getElementById('inviteGrantCount');
-  const grantMinus  = document.getElementById('inviteGrantMinus');
-  const grantPlus   = document.getElementById('inviteGrantPlus');
-  const grantOk     = document.getElementById('inviteGrantOk');
-  const grantCancel = document.getElementById('inviteGrantCancel');
-  const grantMsg    = document.getElementById('inviteGrantMsg');
-  if(grantBtn && grantOv && grantCode && grantCount && grantOk){
-    let _grantN = 1;
-    const renderN = ()=>{
-      grantCount.textContent = String(_grantN);
-      grantMinus.disabled = _grantN <= 1;
-      grantPlus.disabled  = _grantN >= INVITE_GRANT_MAX;
-      grantMinus.style.opacity = _grantN <= 1 ? '.4' : '';
-      grantPlus.style.opacity  = _grantN >= INVITE_GRANT_MAX ? '.4' : '';
-    };
-    const showMsg = (text, isErr)=>{
-      if(!grantMsg) return;
-      grantMsg.textContent = text;
-      grantMsg.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
-      grantMsg.style.display = text ? 'block' : 'none';
-    };
-    const closeGrant = ()=>{ grantOv.style.display='none'; };
-
-    grantBtn.addEventListener('click', ()=>{
-      if(!window.firebaseAPI || !firebaseAPI.grantInvites){ toast('네트워크 연결이 필요해요'); return; }
-      grantCode.value = ''; _grantN = 1; renderN(); showMsg('', false);
-      grantOv.style.display = 'flex';
-      setTimeout(()=>grantCode.focus(), 50);
-    });
-    if(grantMinus) grantMinus.addEventListener('click', ()=>{ if(_grantN>1){ _grantN--; renderN(); } });
-    if(grantPlus)  grantPlus.addEventListener('click',  ()=>{ if(_grantN<INVITE_GRANT_MAX){ _grantN++; renderN(); } });
-    if(grantCancel) grantCancel.addEventListener('click', closeGrant);
-
-    // 📢 전체 유저 일괄 지급 — confirm() 대신 2단계 클릭(Electron 투명창 confirm 멈춤 방지)
-    const grantAllBtn = document.getElementById('inviteGrantAll');
-    if(grantAllBtn){
-      // _armed: 첫 클릭으로 걸린 쪽 — 'grant'(좌클릭 지급) · 'revoke'(우클릭 전체 회수). 다른 쪽을 누르면 그쪽으로 새로 건다.
-      let _armed = null, _armT = null;
-      grantAllBtn.title = '우클릭 두 번: 전체 유저 초대권을 0장으로 회수';
-      const disarm = ()=>{ _armed=null; grantAllBtn.textContent='전체 유저에게 지급'; if(_armT){clearTimeout(_armT);_armT=null;} };
-      const arm = (mode, text)=>{ disarm(); _armed = mode; grantAllBtn.textContent = text; _armT = setTimeout(disarm, 4000); };   // 4초 내 재클릭 없으면 해제
-      grantOv.addEventListener('mousedown', e=>{ if(e.target!==grantAllBtn && _armed) disarm(); });
-      const failMsg = (e, what)=>{
-        const msg = String((e && e.message) || e || '');
-        console.error('[invite] ' + what + ' 실패', e);
-        showMsg(/permission|denied/i.test(msg) ? '권한 거부 — DB 규칙을 확인해 주세요' : ('실패: ' + msg.slice(0,80)), true);
-      };
-      grantAllBtn.addEventListener('contextmenu', async e=>{
-        e.preventDefault();
-        if(!window.firebaseAPI || !firebaseAPI.revokeInvitesAll){ toast('네트워크 연결이 필요해요'); return; }
-        if(_armed !== 'revoke'){ arm('revoke', '⚠️ 정말 전체 초대권을 0장으로? (다시 우클릭)'); return; }
-        disarm();
-        grantAllBtn.disabled = true; showMsg('전체 회수 중… (유저 수에 따라 수십 초 걸릴 수 있어요)', false);
-        try{
-          const r = await firebaseAPI.revokeInvitesAll();
-          closeGrant();
-          toast(`🧹 전체 회수 완료 — ${r.revoked}명에게서 ${r.taken}장 (건너뜀 ${r.skipped}명${r.failed ? ` · 실패 ${r.failed}명` : ''})`);
-        }catch(e){ failMsg(e, '전체 회수'); }
-        grantAllBtn.disabled = false;
-      });
-      grantAllBtn.addEventListener('click', async ()=>{
-        if(!window.firebaseAPI || !firebaseAPI.grantInvitesAll){ toast('네트워크 연결이 필요해요'); return; }
-        if(_armed !== 'grant'){ arm('grant', `⚠️ 정말 전체에게 ${_grantN}장씩? (다시 클릭)`); return; }
-        disarm();
-        grantAllBtn.disabled = true; showMsg('전체 지급 중… (유저 수에 따라 수십 초 걸릴 수 있어요)', false);
-        try{
-          const r = await firebaseAPI.grantInvitesAll(_grantN);
-          if(r && r.ok){
-            closeGrant();
-            toast(`📢 전체 지급 완료 — ${r.granted}명에게 ${_grantN}장씩 (제외 ${r.skipped}명)`);
-          } else showMsg('전체 지급에 실패했어요', true);
-        }catch(e){
-          // ★ 예전엔 무조건 "네트워크 오류"라 원인이 가려졌다(실제로는 DB 규칙 거부였음) — 실제 사유를 그대로 보여준다.
-          failMsg(e, '전체 지급');
-        }
-        grantAllBtn.disabled = false;
-      });
-    }
-
-    const submitGrant = async ()=>{
-      const code = (grantCode.value||'').trim().toUpperCase();
-      if(!code){ showMsg('친추코드를 입력해 주세요', true); return; }
-      grantOk.disabled = true; showMsg('확인 중…', false);
-      try{
-        const uid = await firebaseAPI.lookupFriendCode(code);
-        if(!uid){ showMsg('해당 친추코드를 가진 유저를 찾을 수 없어요', true); grantOk.disabled=false; return; }
-        const r = await firebaseAPI.grantInvites(uid, _grantN);
-        if(r && r.ok){
-          closeGrant();
-          toast(`초대권 ${_grantN}장 지급 완료 (현재 ${r.invitesLeft}장)`);
-        } else {
-          showMsg((r && r.reason) || '지급에 실패했어요', true);
-        }
-      }catch(e){
-        showMsg('네트워크 오류 — 인터넷 연결을 확인해 주세요', true);
-      }
-      grantOk.disabled = false;
-    };
-    grantOk.addEventListener('click', submitGrant);
-    grantCode.addEventListener('keydown', e=>{ if(e.key==='Enter') submitGrant(); });
-  }
 })();
 
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';
@@ -22494,13 +22274,6 @@ function _setPremium(v){
   if(isPremium === v) return;
   isPremium = v;
   _refreshPremiumGatedUI();
-}
-
-function _genLicenseKey(){
-  // XXXX-XXXX-XXXX-XXXX 형식, 헷갈리기 쉬운 0/O, 1/I 제외
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const seg = () => Array.from({length:4}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
-  return `${seg()}-${seg()}-${seg()}-${seg()}`;
 }
 
 async function verifyLicense(key){
@@ -22872,6 +22645,15 @@ function refreshAdminVisibility(){
   // 🎟️ 관리자는 초대장 무제한 — 버튼 표시도 그에 맞게 갱신
   if(typeof refreshInviteBtn==='function') refreshInviteBtn();
 }
+/* 🛠️ 웹 관리자 열기 — 라이선스 · 공지 · 신고 · 방 · 초대권 · 광고 배너 · 게임 설정은 웹 관리자에서 한다(앱에서 걷었다).
+   dev 는 호스팅이 없어서 dev DB 에 붙는 로컬 웹 관리자(npm run admin:dev)를 연다. */
+const WEB_ADMIN_URL = { prod: 'https://together-working.web.app/admin/', dev: 'http://localhost:5173/admin/' };
+function webAdminUrl(){
+  return WEB_ADMIN_URL[(window.companion && companion.firebaseEnv === 'dev') ? 'dev' : 'prod'];
+}
+document.getElementById('lcWebAdmin').addEventListener('click', ()=>{
+  if(window.companion && companion.openBrowser) companion.openBrowser(webAdminUrl());
+});
 /* 진입 트리거: Ctrl + ("후원" 또는 "캐릭터 생성" 또는 🎨 꾸미기 또는 광고배너) **한 번** 클릭
    [왜 5연타를 걷었나] 연타는 "비밀번호 창이 뜨는 것 자체"를 숨기려는 장치였다. 그런데 이제
      실제 권한은 서버 규칙(admins/$uid)이 쥐고 있어서, 창이 떠도 로그인 없이는 아무것도 못 한다.
@@ -28986,8 +28768,7 @@ let licenseReqUnlocked = false;
   if(!card) return;
   const overlaySelectors = ['#codeOverlay','#exportOverlay','#glbEncOverlay','#glbLoadOverlay',
     '#assetGenOverlay','#assetImpOverlay','#inviteOverlay','#commGenOverlay','#commImpOverlay',
-    '#partRegOverlay','#creatorOverlay','#programSettingsOverlay','#adminPassOverlay','#licenseGenOverlay',
-    '#adBannerOverlay','#gameCfgOverlay','#raceOverlay'];
+    '#partRegOverlay','#creatorOverlay','#programSettingsOverlay','#adminPassOverlay','#raceOverlay'];
   function refresh(){
     const anyOpen = overlaySelectors.some(sel=>{ const el=document.querySelector(sel); return el && el.classList.contains('on'); });
     card.classList.toggle('dimmed', anyOpen);
@@ -29000,7 +28781,7 @@ let licenseReqUnlocked = false;
 })();
 
 /* ═══ 📢 런처 광고 배너 · ⚙️ 게임 설정 ═══ */
-/* 광고 배너 — localStorage에 저장된 이미지/링크를 런처 하단에 표시. 관리자만 편집 가능. */
+/* 광고 배너 — 서버(catalog/adBanner)에서 받아 localStorage 에 둔 이미지/링크를 런처 하단에 표시. 편집은 웹 관리자 ⚙️ 설정. */
 const AD_BANNER_KEY = 'tw.adBanner';
 let _lcAdSlides=[], _lcAdIdx=0, _lcAdTimer=null;
 function refreshAdBanner(){
@@ -29019,8 +28800,8 @@ document.getElementById('lcAdBanner').addEventListener('click', e=>{
   if(e.ctrlKey || e.metaKey) return;   // Ctrl+클릭은 관리자 진입 시도용 — 배너 링크는 열지 않음
   if(href && href!=='#' && window.companion && companion.openBrowser) companion.openBrowser(href);
 });
-/* ⚙️ 게임 설정 — 앱을 새로 배포하지 않고 바꾸고 싶은 값(동물 해금 레벨 등)을 서버에 저장.
-   광고 배너와 같은 방식이라 관리자가 저장하면 모든 유저에게 즉시 반영된다. */
+/* ⚙️ 게임 설정 — 앱을 새로 배포하지 않고 바꾸고 싶은 값(동물 해금 레벨 등)을 서버에서 받는다.
+   웹 관리자 ⚙️ 설정에서 저장하면 모든 유저에게 즉시 반영된다. */
 let _gameCfg = {};
 function _applyGameCfg(cfg){
   _gameCfg = cfg || {};
@@ -29035,98 +28816,6 @@ try{
     try{ firebaseAPI.subscribeGameConfig(_applyGameCfg); }catch(_){}
   }, { once:true });
 }catch(_){}
-{
-  // ★ 점검용 — 전체 방 종료(관리자). 실수 방지를 위해 '종료'를 직접 입력해야 실행된다(모달이라 Electron 포커스 문제 없음).
-  { const _car = document.getElementById('lcCloseAllRooms');
-    if(_car) _car.onclick = async ()=>{
-      if(!isAdmin){ toast('관리자만 사용할 수 있어요'); return; }
-      const typed = await asyncPrompt({
-        title:'전체 방 종료',
-        message:'지금 열려 있는 모든 방(워킹룸·투게더룸)을 즉시 종료합니다.\n안에 있던 사람들은 방에서 튕겨납니다.\n진행하려면 종료 라고 입력하세요.',
-        placeholder:'종료'
-      });
-      if(typed==null) return;                      // 취소
-      if(String(typed).trim() !== '종료'){ toast('입력이 일치하지 않아 취소했어요'); return; }
-      if(!(window.firebaseAPI && firebaseAPI.closeAllRooms)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
-      const r = await firebaseAPI.closeAllRooms();
-      if(r && r.ok){
-        if(r.failed>0) toast(`방 ${r.count}개 종료 (실패 ${r.failed}개 — 규칙 게시 여부 확인)`);
-        else toast(`방 ${r.count}개를 종료했어요`);
-      } else toast('종료에 실패했어요' + (r&&r.error?(' — '+r.error):''));
-    };
-  }
-  // 🧹 유령 방 청소 — 살아있는 멤버 없이 _meta/chatLog만 남은 방 정리(정상 방은 안 건드림)
-  { const _cgr = document.getElementById('lcCleanGhostRooms');
-    if(_cgr) _cgr.onclick = async ()=>{
-      if(!isAdmin){ toast('관리자만 사용할 수 있어요'); return; }
-      if(!(window.firebaseAPI && firebaseAPI.cleanGhostRooms)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
-      // ★ 키워드 확인 제거 — 유령 방(사람 없이 데이터만 남은 방) 정리는 정상 방을 안 건드리는 안전한 작업이라
-      //   버튼 클릭 즉시 실행. 연타만 방지.
-      if(_cgr._cleaning) return; _cgr._cleaning = true;
-      toast('청소 중…');
-      const r = await firebaseAPI.cleanGhostRooms();
-      _cgr._cleaning = false;   // 완료 — 다음 청소 허용
-      if(r && r.ok){
-        if(r.cleaned>0) toast(`유령 방 ${r.cleaned}개를 정리했어요` + (r.failed>0?` (실패 ${r.failed}개)`:''));
-        else toast('정리할 유령 방이 없어요');
-      } else toast('청소에 실패했어요' + (r&&r.error?(' — '+r.error):''));
-    };
-  }
-  const _btn = document.getElementById('lcGameCfg');
-  if(_btn) _btn.onclick = ()=>{
-    const o=document.getElementById('gameCfgOverlay'); if(!o) return;
-    o.classList.add('on'); o.style.display='flex';
-    const inp=document.getElementById('gameCfgAnimalLv');
-    // 서버값이 없으면 animal.js의 기본값을 보여준다.
-    if(inp) inp.value = (_gameCfg.animalUnlockLevel != null) ? _gameCfg.animalUnlockLevel
-                        : (window._animalUnlockLevel || 50);
-  };
-  const _close = ()=>{ const o=document.getElementById('gameCfgOverlay'); if(o){ o.classList.remove('on'); o.style.display='none'; } };
-  const _cb = document.getElementById('gameCfgCloseBtn'); if(_cb) _cb.onclick = _close;
-  const _sb = document.getElementById('gameCfgSaveBtn');
-  if(_sb) _sb.onclick = async ()=>{
-    const inp=document.getElementById('gameCfgAnimalLv');
-    const n = parseInt(inp && inp.value, 10);
-    if(!isFinite(n) || n < 1 || n > 999){ toast('1~999 사이 숫자를 넣어주세요'); return; }
-    try{
-      await firebaseAPI.publishGameConfig(Object.assign({}, _gameCfg, { animalUnlockLevel:n }));
-      toast('⚙️ 저장했어요 — 동물 해금 Lv.'+n);
-      _close();
-    }catch(e){ console.warn('[게임설정] 저장 실패', e); toast('저장에 실패했어요'); }
-  };
-}
-document.getElementById('lcAdBannerEdit').onclick=()=>{
-  const o=document.getElementById('adBannerOverlay'); o.classList.add('on'); o.style.display='flex';
-  try{
-    const raw = JSON.parse(localStorage.getItem(AD_BANNER_KEY)||'null');
-    const arr = Array.isArray(raw) ? raw : (raw && raw.img ? [raw] : []);   // 예전 단일 객체 저장 방식 호환
-    for(let i=0;i<3;i++){
-      document.getElementById('adBannerImgInput'+i).value = (arr[i]&&arr[i].img)||'';
-      document.getElementById('adBannerLinkInput'+i).value = (arr[i]&&arr[i].link)||'';
-    }
-  }catch(e){}
-};
-document.getElementById('adBannerCloseBtn').onclick=()=>{
-  const o=document.getElementById('adBannerOverlay'); o.classList.remove('on'); o.style.display='none';
-};
-document.getElementById('adBannerSaveBtn').onclick=()=>{
-  const slides=[];
-  for(let i=0;i<3;i++){
-    const imgVal=document.getElementById('adBannerImgInput'+i).value.trim();
-    const linkVal=document.getElementById('adBannerLinkInput'+i).value.trim();
-    if(imgVal) slides.push({img:imgVal, link:linkVal});
-  }
-  if(slides.length){ localStorage.setItem(AD_BANNER_KEY, JSON.stringify(slides)); toast('배너가 저장됐어요 ('+slides.length+'개)'); }
-  else { localStorage.removeItem(AD_BANNER_KEY); toast('배너가 숨겨졌어요'); }
-  // 🌐 서버에도 게시 — 예전엔 localStorage에만 저장돼서 관리자 본인 PC에만 보이고
-  //   다른 사용자에겐 배너가 전혀 안 나가던 문제. 이제 모든 사용자에게 실시간 반영됨.
-  if(window.firebaseAPI && firebaseAPI.publishAdBanner){
-    firebaseAPI.publishAdBanner(slides).then(r=>{ if(!(r&&r.ok)) toast('⚠ 서버 게시 실패 — 다른 유저에겐 반영 안 됐어요'); })
-      .catch(()=>toast('⚠ 서버 게시 실패 — 다른 유저에겐 반영 안 됐어요'));
-  }
-  refreshAdBanner();
-  const o=document.getElementById('adBannerOverlay'); o.classList.remove('on'); o.style.display='none';
-};
 refreshAdBanner();
 // 🌐 서버 배너 구독 — 관리자가 게시한 배너를 모든 사용자가 받아 localStorage에 반영 후 다시 그림.
 //   (표시 로직은 기존 localStorage 경로를 그대로 재사용 — 서버는 동기화만 담당)
@@ -29175,8 +28864,7 @@ document.getElementById('licenseKeyInput').addEventListener('keydown', e=>{ if(e
    실수로 닫히면 입력 내용이 다 날아가므로 이 목록에서 제외 — 명시적으로 [닫기] 버튼으로만 닫히게. */
 const OUTSIDE_CLOSE_OVERLAYS=[
   ['raceOverlay','raceCancel'],
-  ['licenseGenOverlay','licenseGenClose'], ['adminPassOverlay','adminPassCancel'],
-  ['adBannerOverlay','adBannerCloseBtn'], ['exportOverlay','exportCancel'],
+  ['adminPassOverlay','adminPassCancel'], ['exportOverlay','exportCancel'],
   ['codeOverlay','codeCancel'],
   ['programSettingsOverlay','progSettingsCloseBtn'],
 ];
@@ -29200,9 +28888,6 @@ document.addEventListener('click', e=>{
       // ★ 파츠 등록창은 등록하려는 파츠를 미리보기에서 실시간으로 조정할 수 있게 열어두는 창이므로,
       //   미리보기 패널(#wdPreviewPanel — 기즈모 조작 포함) 위의 클릭은 "바깥 클릭"으로 취급하지 않음(요청사항).
       if(overlayId==='partRegOverlay' && e.target && e.target.closest && e.target.closest('#wdPreviewPanel')) return;
-      /* 📄 [2026-10-02] 라이선스 발급 창 옆의 «엑셀로 일괄 발급» 창(#licenseXlsxWin)은 같은 오버레이의 **두 번째 자식**이라
-         위 box(첫 자식) 기준으로는 바깥으로 읽힌다 — 그 창 안 클릭이 발급 창을 통째로 닫지 않게 뺀다. */
-      if(overlayId==='licenseGenOverlay' && e.target && e.target.closest && e.target.closest('#licenseXlsxWin')) return;
       const btn=document.getElementById(closeBtnId); if(btn) btn.click();
     }
   });
@@ -29284,142 +28969,8 @@ document.getElementById('adminPassCancel').onclick=()=>{
 };
 document.getElementById('adminPassInput').addEventListener('keydown', e=>{ if(e.key==='Enter') _submitAdminPass(); });
 
-/* ═══ 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) ═══ */
-/* --- 라이선스 키 발급 (관리자 전용) --- */
-let _licenseAllCache = null;   // 검색 필터링 시 재조회 없이 캐시로 다시 그림
-async function renderLicenseGenList(){
-  const listEl=document.getElementById('licenseGenList');
-  if(!listEl || !window.firebaseAPI) return;
-  listEl.textContent='불러오는 중...';
-  try{
-    const all = await window.firebaseAPI.listLicenses();
-    _licenseAllCache = all;
-    _renderLicenseGenListFiltered();
-  }catch(e){ listEl.textContent='목록을 불러오지 못했어요'; }
-}
-// ★ 검색어(닉네임/메모/키)로 필터해서 목록 표시 — 발급 키가 많아질 때 확인 편하게(요청사항)
-function _renderLicenseGenListFiltered(){
-  const listEl=document.getElementById('licenseGenList');
-  if(!listEl || !_licenseAllCache) return;
-  const q=(document.getElementById('licenseGenSearch')?.value||'').trim().toLowerCase();
-  const all=_licenseAllCache;
-  let keys = Object.keys(all);
-  if(q){
-    keys = keys.filter(k=>{
-      const d=all[k]||{};
-      return k.toLowerCase().includes(q) || String(d.note||'').toLowerCase().includes(q);
-    });
-  }
-  if(!keys.length){ listEl.textContent = q ? '검색 결과가 없어요' : '아직 발급된 키가 없어요'; return; }
-  listEl.innerHTML='';
-  keys.reverse().forEach(k=>{
-      const d=all[k];
-      const row=document.createElement('div');
-      row.style.cssText='padding:4px 0;border-bottom:1px solid rgba(201,165,123,.15);display:flex;justify-content:space-between;align-items:center;gap:6px;';
-      const statusTxt = d.valid===false ? '🚫 회수됨' : (d.redeemedAt?'✅ 사용됨':'⬜ 미사용');
-      const left=document.createElement('span');
-      left.innerHTML = `<span style="font-family:'Courier New',monospace;">${k}</span>`;
-      const right=document.createElement('span');
-      right.style.cssText='text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px;';
-      right.innerHTML = `<span>${statusTxt} ${d.note?('· '+d.note):''}</span>`;
-      if(d.valid!==false){
-        const revokeBtn=document.createElement('button');
-        revokeBtn.textContent='회수'; revokeBtn.style.cssText='flex-shrink:0;padding:2px 8px;font-size:10.5px;cursor:pointer;color:var(--win-error);';
-        revokeBtn.onclick=async ()=>{
-          if(!confirm(k+' 키를 회수할까요? 이 키를 쓰던 사람은 다음 접속 시 라이선스가 풀려요.')){ window.focus(); return; } window.focus();
-          revokeBtn.disabled=true; revokeBtn.textContent='회수 중...';
-          try{ await window.firebaseAPI.revokeLicense(k); toast('회수했어요'); renderLicenseGenList(); }
-          catch(e){ toast('회수 실패'); revokeBtn.disabled=false; revokeBtn.textContent='회수'; }
-        };
-        right.appendChild(revokeBtn);
-      } else {
-        const delBtn=document.createElement('button');
-        delBtn.textContent='삭제'; delBtn.style.cssText='flex-shrink:0;padding:2px 8px;font-size:10.5px;cursor:pointer;color:var(--win-error);';
-        delBtn.onclick=async ()=>{
-          if(!confirm(k+' 키를 목록에서 완전히 삭제할까요? (되돌릴 수 없어요)')){ window.focus(); return; } window.focus();
-          delBtn.disabled=true; delBtn.textContent='삭제 중...';
-          try{ await window.firebaseAPI.deleteLicense(k); toast('삭제했어요'); renderLicenseGenList(); }
-          catch(e){ toast('삭제 실패'); delBtn.disabled=false; delBtn.textContent='삭제'; }
-        };
-        right.appendChild(delBtn);
-      }
-      row.appendChild(left); row.appendChild(right);
-      listEl.appendChild(row);
-    });
-}
-document.getElementById('lcLicenseGen').onclick=()=>{
-  const o=document.getElementById('licenseGenOverlay'); o.classList.add('on'); o.style.display='flex';
-  if(typeof window._lxHideWin==='function') window._lxHideWin();   // 일괄 창만 보이던 채로 닫혔어도 발급 창부터 연다
-  document.getElementById('licenseGenResult').style.display='none';
-  document.getElementById('licenseGenNote').value='';
-  renderLicenseGenList();
-  subscribeLicenseReqList();
-};
-// 런처5 — 확성기 공지 (관리자 전용)
-document.getElementById('lcAnnounce').onclick=()=>{
-  const o=document.getElementById('announceOverlay'); if(!o) return;
-  o.classList.add('on'); o.style.display='flex';
-  document.getElementById('announceInput').value='';
-  setTimeout(()=>document.getElementById('announceInput').focus(), 30);
-};
-document.getElementById('announceCloseBtn').onclick=()=>{
-  const o=document.getElementById('announceOverlay'); o.classList.remove('on'); o.style.display='none';
-};
-document.getElementById('announceSendBtn').onclick=async ()=>{
-  const t=document.getElementById('announceInput').value.trim();
-  if(!t){ toast('공지 문구를 입력해주세요'); return; }
-  if(!(window.firebaseAPI && firebaseAPI.publishAnnounce)){ toast('네트워크 연결을 확인해 주세요'); return; }
-  try{
-    await firebaseAPI.publishAnnounce(t, 60000);   // 1분
-    toast('공지를 발송했어요 (1분간 표시)');
-    const o=document.getElementById('announceOverlay'); o.classList.remove('on'); o.style.display='none';
-  } catch(e){ toast('발송 실패 — 다시 시도해주세요'); }
-};
-document.getElementById('announceClearBtn').onclick=async ()=>{
-  if(!(window.firebaseAPI && firebaseAPI.clearAnnounce)){ toast('네트워크 연결을 확인해 주세요'); return; }
-  try{ await firebaseAPI.clearAnnounce(); toast('공지를 종료했어요'); }
-  catch(e){ toast('종료 실패'); }
-};
-
-// 📰 업데이트 공지 (관리자 편집 + 유저 팝업)
-document.getElementById('lcUpdateNotice').onclick=async ()=>{
-  const o=document.getElementById('updateNoticeAdminOverlay'); if(!o) return;
-  o.classList.add('on'); o.style.display='flex';
-  // 현재 공지가 있으면 폼에 미리 채워서 수정 가능하게
-  if(window.firebaseAPI && firebaseAPI.getUpdateNotice){
-    try{
-      const cur = await firebaseAPI.getUpdateNotice();
-      document.getElementById('updateNoticeTitle').value = cur ? (cur.title||'') : '';
-      document.getElementById('updateNoticeBody').value = cur ? (cur.body||'') : '';
-    }catch(_){}
-  }
-  setTimeout(()=>document.getElementById('updateNoticeTitle').focus(), 30);
-};
-document.getElementById('updateNoticeAdminCloseBtn').onclick=()=>{
-  const o=document.getElementById('updateNoticeAdminOverlay'); o.classList.remove('on'); o.style.display='none';
-};
-document.getElementById('updateNoticeSaveBtn').onclick=async ()=>{
-  const title=document.getElementById('updateNoticeTitle').value.trim();
-  const body=document.getElementById('updateNoticeBody').value.trim();
-  if(!title || !body){ toast('제목과 본문을 모두 입력해주세요'); return; }
-  if(!(window.firebaseAPI && firebaseAPI.publishUpdateNotice)){ toast('네트워크 연결을 확인해 주세요'); return; }
-  try{
-    await firebaseAPI.publishUpdateNotice(title, body);
-    toast('공지를 발행했어요 (유저가 앱을 켤 때 자동 팝업)');
-    const o=document.getElementById('updateNoticeAdminOverlay'); o.classList.remove('on'); o.style.display='none';
-  } catch(e){ toast('발행 실패 — 다시 시도해주세요'); }
-};
-document.getElementById('updateNoticeClearBtn').onclick=async ()=>{
-  if(!confirm('현재 업데이트 공지를 삭제할까요?')){ window.focus(); return; } window.focus();
-  if(!(window.firebaseAPI && firebaseAPI.clearUpdateNotice)){ toast('네트워크 연결을 확인해 주세요'); return; }
-  try{
-    await firebaseAPI.clearUpdateNotice();
-    document.getElementById('updateNoticeTitle').value = '';
-    document.getElementById('updateNoticeBody').value = '';
-    toast('공지를 삭제했어요');
-  }catch(e){ toast('삭제 실패'); }
-};
-
+/* ═══ 📰 업데이트 안내 팝업(유저) ═══ */
+/* 라이선스 발급 · 요청 승인 · 확성기 공지 · 업데이트 공지 쓰기는 웹 관리자(🎟️ 라이선스 · 📢 공지)로 옮겼다. */
 // 유저: 앱 시작 시 공지 확인 → 미표시 조건 아니면 팝업
 async function _checkUpdateNoticeOnStartup(){
   if(!(window.firebaseAPI && firebaseAPI.getUpdateNotice)) return;
@@ -29590,839 +29141,6 @@ document.getElementById('cmAddGoBtn').onclick=async ()=>{
     _cmAddingGroup = null;
   }catch(e){ toast('추가 실패'); }
 };
-
-/* 대기 중인 라이선스 요청 목록 — 관리자 화면 열려있는 동안 실시간 갱신 */
-let _licenseReqSubStarted=false;
-let _licensePendingCache = [];   // 일괄 발급용 — 현재 대기중 요청 스냅샷
-function subscribeLicenseReqList(){
-  if(_licenseReqSubStarted || !window.firebaseAPI || !window.firebaseAPI.subscribeLicenseRequests) return;
-  _licenseReqSubStarted=true;
-  window.firebaseAPI.subscribeLicenseRequests(renderLicenseReqList);
-}
-function renderLicenseReqList(all){
-  const listEl=document.getElementById('licenseReqList'); if(!listEl) return;
-  const pending=Object.keys(all||{}).filter(id=>all[id].status==='pending');
-  _licensePendingCache = pending.map(id=>({ id, name:(all[id].name||'') }));   // 일괄 발급용 캐시
-  const bulkBtn=document.getElementById('licenseBulkBtn');
-  if(bulkBtn) bulkBtn.style.display = pending.length>=2 ? 'inline-block' : 'none';   // 2건 이상일 때만 노출
-  if(!pending.length){ listEl.textContent='대기 중인 요청이 없어요'; return; }
-  listEl.innerHTML='';
-  pending.forEach(id=>{
-    const req=all[id];
-    const row=document.createElement('div');
-    row.style.cssText='padding:5px 0;border-bottom:1px solid rgba(201,165,123,.15);display:flex;justify-content:space-between;align-items:center;gap:6px;';
-    /* 🛡️ `req.name` 은 `licenseRequests/$reqId`(`.write:true`)에서 온 **남의 문자열**이고
-         여기는 관리자 화면이다. 이스케이프가 아예 없었다 — `_chatEsc` 로 막는다
-         (지금 `_chatEsc` 는 공용 `escHtml` 의 별칭이다). */
-    row.innerHTML = `<span>🙋 <b>${_chatEsc(req.name||'(이름 없음)')}</b></span>`;
-    const btn=document.createElement('button');
-    btn.textContent='발급'; btn.style.cssText='flex-shrink:0;padding:3px 10px;font-size:11px;cursor:pointer;';
-    btn.onclick=async ()=>{
-      btn.disabled=true; btn.textContent='발급 중...';
-      try{
-        const key=_genLicenseKey();
-        await window.firebaseAPI.approveLicenseRequest(id, key, '요청: '+(req.name||''));
-        toast(req.name+' 님에게 발급했어요');
-        renderLicenseGenList();
-      }catch(e){ toast('발급 실패'); btn.disabled=false; btn.textContent='발급'; }
-    };
-    const rejectBtn=document.createElement('button');
-    rejectBtn.textContent='거절'; rejectBtn.style.cssText='flex-shrink:0;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--win-error);';
-    rejectBtn.onclick=async ()=>{
-      if(!confirm(req.name+' 님의 요청을 거절할까요? (거절해도 상대는 다시 요청할 수 있어요)')){ window.focus(); return; } window.focus();
-      rejectBtn.disabled=true; rejectBtn.textContent='거절 중...';
-      try{ await window.firebaseAPI.rejectLicenseRequest(id); toast(req.name+' 님의 요청을 거절했어요'); }
-      catch(e){ toast('거절 실패'); rejectBtn.disabled=false; rejectBtn.textContent='거절'; }
-    };
-    row.appendChild(btn);
-    row.appendChild(rejectBtn);
-    listEl.appendChild(row);
-  });
-}
-document.getElementById('licenseGenClose').onclick=()=>{
-  const o=document.getElementById('licenseGenOverlay'); o.classList.remove('on'); o.style.display='none';
-};
-// 🔍 발급된 키 검색 — 입력할 때마다 캐시에서 즉시 필터 (재조회 없음)
-document.getElementById('licenseGenSearch')?.addEventListener('input', ()=>{ _renderLicenseGenListFiltered(); });
-// 📦 대기 요청 전체 일괄 발급 — 각각 키를 새로 만들어 순서대로 승인
-document.getElementById('licenseBulkBtn')?.addEventListener('click', async ()=>{
-  const targets=_licensePendingCache.slice();
-  if(!targets.length) return;
-  if(!confirm('대기 중인 요청 '+targets.length+'건에 전부 키를 발급할까요?')){ window.focus(); return; } window.focus();
-  const bulkBtn=document.getElementById('licenseBulkBtn');
-  bulkBtn.disabled=true; bulkBtn.textContent='발급 중...';
-  let ok=0, fail=0;
-  for(const t of targets){
-    try{
-      const key=_genLicenseKey();
-      await window.firebaseAPI.approveLicenseRequest(t.id, key, '요청: '+t.name);
-      ok++;
-    }catch(e){ fail++; }
-  }
-  bulkBtn.disabled=false; bulkBtn.textContent='전체 일괄 발급';
-  toast('일괄 발급 완료 — 성공 '+ok+'건'+(fail?(', 실패 '+fail+'건'):''));
-  renderLicenseGenList();
-});
-document.getElementById('licenseGenBtn').onclick=async ()=>{
-  if(!window.firebaseAPI){ toast('네트워크 연결을 확인해 주세요'); return; }
-  const note=document.getElementById('licenseGenNote').value.trim();
-  const key=_genLicenseKey();
-  const btn=document.getElementById('licenseGenBtn');
-  btn.disabled=true; btn.textContent='발급 중...';
-  try{
-    await window.firebaseAPI.createLicense(key, note);
-    document.getElementById('licenseGenKeyText').textContent=key;
-    document.getElementById('licenseGenResult').style.display='block';
-    renderLicenseGenList();
-  }catch(e){ toast(_saveFailMsg(e, '발급 실패 — 네트워크를 확인해 주세요')); }
-  btn.disabled=false; btn.textContent='새 키 발급';
-};
-document.getElementById('licenseGenCopyBtn').onclick=()=>{
-  const text=document.getElementById('licenseGenKeyText').textContent;
-  try{ navigator.clipboard.writeText(text); toast('복사됐어요'); }
-  catch(e){ toast('복사 실패 — 직접 드래그해서 복사해 주세요'); }
-};
-
-/* ★ 친구코드로 라이선스 발급 — 코드 보유자를 찾아 키를 생성하고, 그 유저의 수령함(보상)으로 발송.
-   유저는 수령함에서 키를 받아 라이선스 등록창에 입력하면 프리미엄이 된다(기존 검증 구조 그대로 사용). */
-(function bindLicenseGrantByCode(){
-  const btn  = document.getElementById('licenseGrantBtn');
-  const codeInp = document.getElementById('licenseGrantCode');
-  const msgEl = document.getElementById('licenseGrantMsg');
-  if(!btn || !codeInp) return;
-  const showMsg=(text,isErr)=>{
-    if(!msgEl) return;
-    msgEl.textContent=text;
-    msgEl.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
-    msgEl.style.display = text ? 'block' : 'none';
-  };
-  const submit = async ()=>{
-    if(!window.firebaseAPI || !firebaseAPI.lookupFriendCode || !firebaseAPI.createLicense || !firebaseAPI.sendInboxMessage){
-      showMsg('네트워크 연결이 필요해요', true); return;
-    }
-    let code=(codeInp.value||'').trim().toUpperCase();
-    if(!code){ showMsg('친구코드를 입력해 주세요', true); return; }
-    // 뒷 4자리만 입력해도 되게 접두어 자동 보완 (친구 추가와 동일 규칙)
-    let candidates;
-    if(/^[A-Z0-9]{4}$/.test(code)){ candidates=['MATE-'+code, 'COZY-'+code]; }
-    else if(/^(MATE|COZY)-[A-Z0-9]{4}$/.test(code)){ candidates=[code]; }
-    else { candidates=[code]; }
-    btn.disabled=true; showMsg('확인 중…', false);
-    try{
-      // 코드 → uid 조회 (여러 후보 순차 시도)
-      let uid=null;
-      for(const c of candidates){
-        try{ const u=await firebaseAPI.lookupFriendCode(c); if(u){ uid=u; break; } }catch(_){}
-      }
-      if(!uid){ showMsg('해당 친구코드를 가진 유저를 찾을 수 없어요', true); btn.disabled=false; return; }
-      // 유저 닉네임 조회 — note에 넣어 목록에서 이름으로 검색 가능하게
-      let _userName=null;
-      try{ if(firebaseAPI.getUserNameById) _userName = await firebaseAPI.getUserNameById(uid); }catch(_){}
-      // 키 생성 + 라이선스 등록
-      const key=_genLicenseKey();
-      const note = _userName ? (_userName+' · 친구코드 '+code) : ('친구코드 발급: '+code);
-      await firebaseAPI.createLicense(key, note);
-      // 유저 수령함(보상)으로 키 발송
-      const title='🎫 라이선스가 도착했어요';
-      const body='아래 키를 [라이선스 등록] 창에 입력하면 프리미엄 기능을 쓸 수 있어요.\n\n'+key+'\n\n(설정 → 라이선스 등록)';
-      const r=await firebaseAPI.sendInboxMessage(uid, 'reward', title, body);
-      if(r && r.ok!==false){
-        showMsg('발급 완료 — 해당 유저 수령함(보상)으로 보냈어요', false);
-        codeInp.value='';
-        renderLicenseGenList();
-        toast('📮 라이선스를 '+code+' 유저에게 발급했어요');
-      }else{
-        showMsg('수령함 전송에 실패했어요 (키는 생성됨: '+key+')', true);
-      }
-    }catch(e){
-      showMsg(_saveFailMsg(e, '오류가 났어요 — 인터넷 연결을 확인해 주세요'), true);
-    }
-    btn.disabled=false;
-  };
-  btn.addEventListener('click', submit);
-  codeInp.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
-})();
-
-/* ═══ 📄 [2026-10-02] 엑셀(xlsx·csv)로 라이선스 일괄 발급 — 시안 확정(입구 = 친구코드 발급 아래 · 빈 코드 = 키만 · 전에 발급한 코드 = 건너뜀) ═══
-   흐름: ① 파일 고르기 → ② 미리보기(친구코드 **조회만** — 키 생성·수령함 발송 없음) → ③ [N건 발급] → ④ 결과 엑셀 저장.
-   ★ 외부 라이브러리를 새로 넣지 않는다. xlsx 는 «XML 몇 장을 담은 zip» 이라, 이미 실려 있는 JSZip(vendor/jszip.min.js)과
-     브라우저 DOMParser 로 첫 시트의 글자만 읽고, 결과 파일도 같은 방식으로 쓴다. (SheetJS npm 판은 알려진 취약점이 있고
-     최신판은 npm 밖에서만 받을 수 있어 일부러 피했다.) 옛 .xls(이진 형식)는 못 읽는다 — 안내 문구로 막는다.
-   ★ 발급 한 건 = 단건 「친구코드로 발급」(bindLicenseGrantByCode)과 **같은 순서·같은 문구**다: createLicense → sendInboxMessage(reward).
-     note 는 규칙 상한(licenses/$key/note ≤ 100자)에 맞춰 자른다.
-   ★ «전에 발급한 적 있음» 은 발급된 키 목록(listLicenses)의 메모에서 친구코드를 찾아 판정한다. 관리자 화면에서는 그 사람이
-     **지금 프리미엄인지는 알 수 없다**(accountSnap 은 본인만 읽음) — 그래서 이 기준을 쓴다.
-   ⚠️ 한 명씩 순서대로 보낸다(동시에 쏘지 않는다). 중간에 끊겨도 결과 표에 어디까지 됐는지 남는다. */
-const LX_MAX_ROWS = 500;          // 한 파일 상한 — 넘으면 앞 500행만(안내)
-const LX_NOTE_MAX = 100;          // 규칙 licenses/$key/note 상한
-const LX_CODE_RE = /^(?:(MATE|COZY)-)?([A-Z0-9]{4})$/;
-
-/* xml 문서에서 이름(네임스페이스 무시)으로 자식 찾기 */
-function _lxKids(el, name){ return Array.from(el.getElementsByTagNameNS('*', name)); }
-/* 'B12' → 1 (0부터) */
-function _lxColIdx(ref){
-  const m = /^([A-Z]+)/.exec(String(ref || '').toUpperCase()); if(!m) return -1;
-  let n = 0; for(const ch of m[1]) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1;
-}
-/* sharedStrings 의 <si> 하나 → 글자. 서식 조각(<r><t>)은 잇고, 일본어·한글 후리가나(<rPh>)는 뺀다. */
-function _lxSiText(si){
-  let out = '';
-  for(const ch of Array.from(si.childNodes)){
-    const ln = ch.localName;
-    if(ln === 't') out += ch.textContent;
-    else if(ln === 'r'){ for(const t of _lxKids(ch, 't')) out += t.textContent; }
-  }
-  return out;
-}
-/* xlsx(ArrayBuffer) → 첫 시트의 2차원 글자 배열. 실패하면 Error(사람이 읽는 문구). */
-async function _lxReadXlsx(buf){
-  if(typeof JSZip === 'undefined') throw new Error('JSZip 라이브러리가 로드되지 않았어요');
-  let z;
-  try{ z = await JSZip.loadAsync(buf); }catch(_){ throw new Error('엑셀 파일을 열 수 없어요 — .xlsx 로 다시 저장해 주세요(옛 .xls 는 못 읽어요)'); }
-  const P = new DOMParser();
-  const xml = async (path)=>{ const f = z.file(path); if(!f) return null; return P.parseFromString(await f.async('string'), 'application/xml'); };
-  const wb = await xml('xl/workbook.xml');
-  if(!wb) throw new Error('엑셀 파일이 아니에요 — .xlsx 로 다시 저장해 주세요');
-  const sheet = _lxKids(wb, 'sheet')[0];
-  if(!sheet) throw new Error('시트가 없어요');
-  /* 첫 시트의 실제 경로 — r:id → workbook.xml.rels 의 Target. 못 찾으면 관례 경로. */
-  let path = 'xl/worksheets/sheet1.xml';
-  const rid = sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id') || sheet.getAttribute('r:id');
-  const rels = await xml('xl/_rels/workbook.xml.rels');
-  if(rels && rid){
-    const rel = _lxKids(rels, 'Relationship').find(r => r.getAttribute('Id') === rid);
-    const tgt = rel && rel.getAttribute('Target');
-    if(tgt) path = tgt.charAt(0) === '/' ? tgt.slice(1) : ('xl/' + tgt.replace(/^\.\//, ''));
-  }
-  const sh = await xml(path);
-  if(!sh) throw new Error('첫 시트를 읽을 수 없어요');
-  const ssDoc = await xml('xl/sharedStrings.xml');
-  const ss = ssDoc ? _lxKids(ssDoc, 'si').map(_lxSiText) : [];
-  const rows = [];
-  for(const row of _lxKids(sh, 'row')){
-    const rn = parseInt(row.getAttribute('r'), 10);
-    const ri = (rn > 0) ? rn - 1 : rows.length;
-    const cells = [];
-    let ci = 0;
-    for(const c of _lxKids(row, 'c')){
-      const ix = _lxColIdx(c.getAttribute('r')); if(ix >= 0) ci = ix;
-      const t = c.getAttribute('t') || 'n';
-      const v = _lxKids(c, 'v')[0];
-      let val = '';
-      if(t === 's') val = v ? (ss[parseInt(v.textContent, 10)] || '') : '';
-      else if(t === 'inlineStr'){ const is = _lxKids(c, 'is')[0]; val = is ? _lxSiText(is) : ''; }
-      else val = v ? v.textContent : '';
-      cells[ci] = String(val);
-      ci++;
-    }
-    for(let i = 0; i < cells.length; i++) if(cells[i] === undefined) cells[i] = '';
-    rows[ri] = cells;
-  }
-  for(let i = 0; i < rows.length; i++) if(!rows[i]) rows[i] = [];
-  return rows;
-}
-/* csv 바이트 → 글자. BOM 이 있으면 UTF-8, 없으면 UTF-8 로 엄격히 읽어 보고 깨지면 EUC-KR(한글 엑셀이 저장한 csv). */
-function _lxDecodeCsv(buf){
-  const u8 = new Uint8Array(buf);
-  if(u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF) return new TextDecoder('utf-8').decode(u8.subarray(3));
-  try{ return new TextDecoder('utf-8', { fatal:true }).decode(u8); }
-  catch(_){ try{ return new TextDecoder('euc-kr').decode(u8); }catch(__){ return new TextDecoder('utf-8').decode(u8); } }
-}
-/* csv 글자 → 2차원 배열(따옴표·따옴표 안 줄바꿈·"" 이스케이프). 쉼표가 없고 탭이 있으면 탭으로 가른다. */
-function _lxParseCsv(text){
-  const s = String(text || '');
-  const firstLine = s.split(/\r?\n/, 1)[0] || '';
-  const sep = (firstLine.indexOf(',') < 0 && firstLine.indexOf('\t') >= 0) ? '\t' : ',';
-  const rows = []; let row = [], cur = '', q = false;
-  for(let i = 0; i < s.length; i++){
-    const ch = s[i];
-    if(q){
-      if(ch === '"'){ if(s[i+1] === '"'){ cur += '"'; i++; } else q = false; }
-      else cur += ch;
-    }else if(ch === '"' && cur === '') q = true;
-    else if(ch === sep){ row.push(cur); cur = ''; }
-    else if(ch === '\n' || ch === '\r'){
-      if(ch === '\r' && s[i+1] === '\n') i++;
-      row.push(cur); rows.push(row); row = []; cur = '';
-    }else cur += ch;
-  }
-  if(cur !== '' || row.length) { row.push(cur); rows.push(row); }
-  return rows;
-}
-/* 2차원 배열 → { header:[…]|null, codeCol, memoCol, data:[{line, cells, code, memo}] }
-   제목 줄 판정: 첫 줄 A칸이 친구코드처럼 생겼으면 제목 없이 바로 자료로 본다. */
-function _lxMapRows(rows){
-  const norm = v => String(v == null ? '' : v).trim();
-  const first = (rows[0] || []).map(norm);
-  const looksCode = LX_CODE_RE.test(norm(first[0]).toUpperCase().replace(/\s+/g, ''));
-  const hasHeader = rows.length > 0 && !looksCode;
-  let codeCol = 0, memoCol = 1, keyCol = -1;
-  if(hasHeader){
-    const h = first.map(x => x.toLowerCase().replace(/\s+/g, ''));
-    const ci = h.findIndex(x => /친구코드|^코드$|code/.test(x));
-    const mi = h.findIndex(x => /메모|비고|note|memo/.test(x));
-    if(ci >= 0) codeCol = ci;
-    if(mi >= 0 && mi !== codeCol) memoCol = mi; else if(ci >= 0) memoCol = (ci === 0 ? 1 : 0);
-    /* 결과 파일을 고쳐 다시 올린 경우 — «발급 키» 열에 값이 있는 행은 이미 키가 나간 행이다(아래 hasKey). */
-    keyCol = h.findIndex(x => x === '발급키');
-  }
-  const data = [];
-  for(let i = hasHeader ? 1 : 0; i < rows.length; i++){
-    const cells = (rows[i] || []).map(norm);
-    if(!cells.some(Boolean)) continue;               // 빈 줄은 조용히 넘긴다
-    data.push({ line: i + 1, cells, code: cells[codeCol] || '', memo: cells[memoCol] || '', hasKey: keyCol >= 0 && !!cells[keyCol] });
-  }
-  return { header: hasHeader ? first : null, codeCol, memoCol, keyCol, data };
-}
-/* 친구코드 입력 → 조회 후보. 단건 발급과 같은 규칙(뒷 4자리면 MATE-·COZY- 둘 다). 빈 값이면 []. */
-function _lxCandidates(raw){
-  const c = String(raw || '').toUpperCase().replace(/\s+/g, '');
-  if(!c) return [];
-  if(/^[A-Z0-9]{4}$/.test(c)) return ['MATE-' + c, 'COZY-' + c];
-  return [c];
-}
-/* 발급된 키 목록 → 이미 받은 친구코드 표. 단건 발급 메모 모양 둘(«닉 · 친구코드 MATE-XXXX» · «친구코드 발급: XXXX»)을 다 읽는다.
-   full: 'MATE-9K2M' 꼴 · tail: 접두어 없이 적힌 4자리(옛 단건 발급이 입력 그대로 남긴 것). */
-function _lxIssuedIndex(all){
-  const full = new Set(), tail = new Set();
-  Object.keys(all || {}).forEach(k=>{
-    const note = String((all[k] || {}).note || '').toUpperCase();
-    (note.match(/\b(?:MATE|COZY)-[A-Z0-9]{4}\b/g) || []).forEach(x => full.add(x));
-    const m = /친구코드(?: 발급:)? ([A-Z0-9]{4})(?![A-Z0-9-])/.exec(note);
-    if(m) tail.add(m[1]);
-  });
-  return { full, tail };
-}
-function _lxWasIssued(idx, code){
-  if(!idx || !code) return false;
-  return idx.full.has(code) || idx.tail.has(code.replace(/^(MATE|COZY)-/, ''));
-}
-/* 2차원 글자 배열 → xlsx(Uint8Array). 모든 칸은 inlineStr(숫자도 글자로 — 키·코드가 숫자로 바뀌지 않게). */
-async function _lxWriteXlsx(rows, sheetName){
-  if(typeof JSZip === 'undefined') throw new Error('JSZip 라이브러리가 로드되지 않았어요');
-  const esc = v => String(v == null ? '' : v)
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const colName = i => { let s = ''; i++; while(i > 0){ const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
-  const width = [];
-  rows.forEach(r => r.forEach((v, i) => { width[i] = Math.max(width[i] || 8, Math.min(48, String(v || '').length * 1.6 + 2)); }));
-  const cols = width.length ? '<cols>' + width.map((w, i) => '<col min="' + (i+1) + '" max="' + (i+1) + '" width="' + w.toFixed(1) + '" customWidth="1"/>').join('') + '</cols>' : '';
-  const body = rows.map((r, ri) => '<row r="' + (ri+1) + '">' + r.map((v, ci) =>
-      '<c r="' + colName(ci) + (ri+1) + '" t="inlineStr"' + (ri === 0 ? ' s="1"' : '') + '><is><t xml:space="preserve">' + esc(v) + '</t></is></c>').join('') + '</row>').join('');
-  const z = new JSZip();
-  z.file('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-    + '<Default Extension="xml" ContentType="application/xml"/>'
-    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-    + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-    + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
-    + '</Types>');
-  z.file('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
-    + '</Relationships>');
-  z.file('xl/workbook.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-    + '<sheets><sheet name="' + esc(String(sheetName || 'Sheet1').slice(0, 31).replace(/[\\\/?*\[\]:]/g, ' ')) + '" sheetId="1" r:id="rId1"/></sheets></workbook>');
-  z.file('xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-    + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
-    + '</Relationships>');
-  z.file('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    + '<fonts count="2"><font><sz val="11"/><name val="Malgun Gothic"/></font><font><b/><sz val="11"/><name val="Malgun Gothic"/></font></fonts>'
-    + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
-    + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
-    + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-    + '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
-    + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
-    + '</styleSheet>');
-  z.file('xl/worksheets/sheet1.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' + cols + '<sheetData>' + body + '</sheetData></worksheet>');
-  return z.generateAsync({ type:'uint8array', compression:'DEFLATE' });
-}
-
-(function bindLicenseXlsxBulk(){
-  const $ = id => document.getElementById(id);
-  const win = $('licenseXlsxWin'), openBtn = $('licenseXlsxOpenBtn');
-  if(!win || !openBtn) return;
-  const fileInp = $('licenseXlsxFile'), info = $('licenseXlsxFileInfo'), sumEl = $('licenseXlsxSum'), pv = $('licenseXlsxPreview');
-  const opts = $('licenseXlsxOpts'), acts = $('licenseXlsxActs'), runBtn = $('licenseXlsxRunBtn');
-  const prog = $('licenseXlsxProg'), progText = $('licenseXlsxProgText'), progBar = $('licenseXlsxProgBar');
-  const done = $('licenseXlsxDone'), doneSum = $('licenseXlsxDoneSum'), keyOnly = $('licenseXlsxKeyOnly');
-  const dupFirst = $('licenseXlsxDupFirst'), reissue = $('licenseXlsxReissue');
-  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
-  /* 상태: rows(판정된 행) · map(파일 열 정보) · fileName · running · finished */
-  let S = { rows: [], map: null, fileName: '', running: false, finished: false };
-  const CHIP = {
-    send:   ['✓ 발송', 'var(--win-select)'],
-    key:    ['🔑 키만', 'var(--win-accent)'],
-    nouser: ['✗ 유저 없음', 'var(--win-error)'],
-    dup:    ['✗ 중복', 'var(--win-error)'],
-    issued: ['⚠ 발급한 적 있음', '#9A6B00'],
-    badcode:['✗ 코드 형식', 'var(--win-error)'],
-    neterr: ['✗ 조회 실패', 'var(--win-error)'],
-    haskey: ['⚠ 이미 키 있음', '#9A6B00'],
-    ok:     ['✓ 보냄', '#2E7D4F'],
-    okkey:  ['🔑 키 생성', '#2E7D4F'],
-    sendfail:['⚠ 수령함 실패', '#9A6B00'],
-    fail:   ['✗ 발급 실패', 'var(--win-error)'],
-  };
-  const chip = (st, extra) => { const c = CHIP[st] || [st, 'var(--ink-soft)'];
-    return '<span style="display:inline-block;font-size:10px;padding:0 5px;border:1px solid ' + escHtml(c[1]) + ';color:' + escHtml(c[1]) + ';white-space:nowrap;">' + esc(c[0] + (extra || '')) + '</span>'; };
-  const actionable = r => r.st === 'send' || r.st === 'key';
-  const show = (el, on, disp) => { if(el) el.style.display = on ? (disp || 'block') : 'none'; };
-
-  function resetView(){
-    show(sumEl, false); show(pv, false); show(opts, false); show(acts, false); show(prog, false); show(done, false);
-  }
-  function renderPreview(){
-    const n = { send:0, key:0, skip:0 };
-    S.rows.forEach(r => { if(r.st === 'send') n.send++; else if(r.st === 'key') n.key++; else n.skip++; });
-    sumEl.innerHTML = chip('send', ' ' + n.send).replace('✓ 발송', '수령함 발송') + chip('key', ' ' + n.key).replace('🔑 키만', '키만 발급')
-      + (n.skip ? chip('nouser', ' ' + n.skip).replace('✗ 유저 없음', '건너뜀') : '');
-    show(sumEl, true, 'flex');
-    let h = '<table style="width:100%;border-collapse:collapse;font-size:10.5px;"><tr>'
-      + ['행','친구코드','받는 사람','메모','상태'].map(t => '<th style="position:sticky;top:0;background:var(--win-face-2);text-align:left;padding:4px 5px;border-bottom:1px solid var(--win-lo);">' + t + '</th>').join('') + '</tr>';
-    S.rows.forEach(r => {
-      const dim = actionable(r) || r.res ? '' : 'color:#999;';
-      const st = r.res || r.st;
-      h += '<tr style="' + escHtml(dim) + '"><td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + r.line + '</td>'
-        + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + (r.raw ? esc(r.raw) + (r.code && r.code !== r.raw.toUpperCase().replace(/\s+/g,'') ? ' <span style="color:var(--ink-soft);">→ ' + esc(r.code) + '</span>' : '') : '<span style="color:var(--ink-soft);">(비어 있음)</span>') + '</td>'
-        + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + esc(r.name || '—') + '</td>'
-        + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.memo) + '">' + esc(r.memo) + '</td>'
-        + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + chip(st, r.st === 'dup' && !r.res ? ' (' + r.dupOf + '행)' : '') + '</td></tr>';
-    });
-    pv.innerHTML = h + '</table>';
-    show(pv, true);
-    const go = S.rows.filter(actionable).length;
-    runBtn.textContent = '🎟️ ' + go + '건 발급';
-    runBtn.disabled = !go || S.running || S.finished;
-    show(opts, !S.finished); show(acts, !S.finished, 'flex');
-  }
-  /* 판정 — 중복·전에 발급함은 옵션에 따라 다시 계산한다(조회는 다시 안 한다). */
-  function judge(){
-    const seen = new Map();
-    S.rows.forEach(r => {
-      r.st = r.base;
-      if(r.base === 'haskey' && r.code && !seen.has(r.code)) seen.set(r.code, r.line);
-      if(r.base !== 'send') return;
-      if(dupFirst.checked && seen.has(r.code)){ r.st = 'dup'; r.dupOf = seen.get(r.code); return; }
-      if(!seen.has(r.code)) seen.set(r.code, r.line);
-      if(!reissue.checked && _lxWasIssued(S.issued, r.code)) r.st = 'issued';
-    });
-  }
-  async function loadFile(f){
-    if(S.running) return;
-    S = { rows: [], map: null, fileName: f.name, running: false, finished: false };
-    resetView();
-    info.textContent = '📎 ' + f.name + ' · 읽는 중…';
-    let grid;
-    try{
-      const buf = await f.arrayBuffer();
-      if(/\.csv$/i.test(f.name)) grid = _lxParseCsv(_lxDecodeCsv(buf));
-      else if(/\.xls$/i.test(f.name)) throw new Error('옛 .xls 는 못 읽어요 — 엑셀에서 .xlsx 로 다시 저장해 주세요');
-      else grid = await _lxReadXlsx(buf);
-    }catch(e){ info.textContent = '⚠ ' + ((e && e.message) || '파일을 읽지 못했어요'); return; }
-    const map = _lxMapRows(grid);
-    let data = map.data;
-    const cut = data.length > LX_MAX_ROWS;
-    if(cut) data = data.slice(0, LX_MAX_ROWS);
-    if(!data.length){ info.textContent = '⚠ ' + f.name + ' — 발급할 줄이 없어요(첫 줄은 제목으로 봐요)'; return; }
-    S.map = map; S.grid = grid;
-    info.textContent = '📎 ' + f.name + ' · ' + data.length + '행 · 확인 중…' + (cut ? ' (앞 ' + LX_MAX_ROWS + '행만)' : '');
-    /* 전에 발급한 코드 표 — 실패해도 미리보기는 계속(그때는 이 판정만 빠진다) */
-    try{ S.issued = _lxIssuedIndex(await firebaseAPI.listLicenses()); }catch(_){ S.issued = null; }
-    /* 조회 — 같은 코드는 한 번만, 다섯 개씩 나란히 */
-    const look = new Map();
-    const uniq = [...new Set(data.map(d => d.code.toUpperCase().replace(/\s+/g, '')).filter(Boolean))];
-    let doneN = 0;
-    const one = async raw => {
-      const cands = _lxCandidates(raw);
-      let hit = null, err = false;
-      for(const c of cands){
-        try{ const u = await firebaseAPI.lookupFriendCode(c); if(u){ hit = { uid: u, code: c }; break; } }catch(_){ err = true; }
-      }
-      if(hit){ try{ if(firebaseAPI.getUserNameById) hit.name = await firebaseAPI.getUserNameById(hit.uid); }catch(_){} }
-      look.set(raw, hit || (err ? 'err' : null));
-      doneN++; info.textContent = '📎 ' + f.name + ' · ' + data.length + '행 · 확인 중… ' + doneN + '/' + uniq.length;
-    };
-    for(let i = 0; i < uniq.length; i += 5) await Promise.all(uniq.slice(i, i + 5).map(one));
-    S.rows = data.map(d => {
-      const raw = d.code, k = raw.toUpperCase().replace(/\s+/g, '');
-      const r = { line: d.line, cells: d.cells, raw, memo: d.memo, code: '', uid: null, name: '', base: 'key' };
-      if(k){
-        const h = look.get(k);
-        if(h === 'err') r.base = 'neterr';
-        else if(h){ r.base = 'send'; r.uid = h.uid; r.code = h.code; r.name = h.name || ''; }
-        else r.base = LX_CODE_RE.test(k) ? 'nouser' : 'badcode';
-      }
-      /* 결과 파일을 다시 올렸을 때 — 키가 이미 나간 행은 또 만들지 않는다. 코드는 위에서 풀어 두었으니
-         judge() 가 «같은 코드의 뒷 행» 을 중복으로 거를 때 이 행도 센다. */
-      if(d.hasKey) r.base = 'haskey';
-      return r;
-    });
-    judge();
-    info.textContent = '📎 ' + f.name + ' · ' + S.rows.length + '행' + (cut ? ' (앞 ' + LX_MAX_ROWS + '행만)' : '') + (S.issued ? '' : ' · ⚠ 발급 목록을 못 읽어 «발급한 적 있음» 판정 없음');
-    renderPreview();
-  }
-  async function run(){
-    const todo = S.rows.filter(actionable);
-    if(!todo.length || S.running) return;
-    if(!(window.firebaseAPI && firebaseAPI.createLicense && firebaseAPI.sendInboxMessage)){ toast('네트워크 연결이 필요해요'); return; }
-    const nSend = todo.filter(r => r.st === 'send').length;
-    if(!confirm(todo.length + '건을 발급할까요?\n· 수령함으로 보냄 ' + nSend + '건\n· 키만 만듦 ' + (todo.length - nSend) + '건')){ window.focus(); return; }
-    window.focus();
-    S.running = true;
-    show(opts, false); show(acts, false); show(prog, true);
-    let i = 0;
-    for(const r of todo){
-      i++;
-      progText.innerHTML = '발급 중… <b>' + i + ' / ' + todo.length + '</b>';
-      progBar.style.width = Math.round((i - 1) / todo.length * 100) + '%';
-      const key = _genLicenseKey();
-      const tail = r.memo ? ' · ' + r.memo : '';
-      const note = (r.st === 'send'
-        ? (r.name ? r.name + ' · ' : '') + '친구코드 ' + r.code + tail
-        : '엑셀 일괄' + tail).slice(0, LX_NOTE_MAX);
-      try{
-        await firebaseAPI.createLicense(key, note);
-        r.key = key;
-      }catch(e){ r.res = 'fail'; r.why = (typeof _saveFailMsg === 'function') ? _saveFailMsg(e, '키 생성 실패') : '키 생성 실패'; continue; }
-      if(r.st !== 'send'){ r.res = 'okkey'; continue; }
-      try{
-        const title = '🎫 라이선스가 도착했어요';
-        const body = '아래 키를 [라이선스 등록] 창에 입력하면 프리미엄 기능을 쓸 수 있어요.\n\n' + key + '\n\n(설정 → 라이선스 등록)';
-        const res = await firebaseAPI.sendInboxMessage(r.uid, 'reward', title, body);
-        if(res && res.ok === false){ r.res = 'sendfail'; r.why = '키는 만들어짐 — 직접 전달해 주세요'; }
-        else r.res = 'ok';
-      }catch(_){ r.res = 'sendfail'; r.why = '키는 만들어짐 — 직접 전달해 주세요'; }
-    }
-    progBar.style.width = '100%';
-    S.running = false; S.finished = true;
-    show(prog, false);
-    const c = k => S.rows.filter(r => r.res === k).length;
-    const skip = S.rows.filter(r => !actionable(r)).length;
-    doneSum.innerHTML = chip('ok', ' ' + c('ok')).replace('✓ 보냄', '수령함 발송') + chip('okkey', ' ' + c('okkey')).replace('🔑 키 생성', '키만 발급')
-      + (c('sendfail') ? chip('sendfail', ' ' + c('sendfail')) : '') + chip('fail', ' ' + c('fail')).replace('✗ 발급 실패', '실패')
-      + (skip ? chip('issued', ' ' + skip).replace('⚠ 발급한 적 있음', '건너뜀') : '');
-    const hand = S.rows.filter(r => r.key && r.res !== 'ok');
-    keyOnly.innerHTML = hand.map(r => '<div>' + r.line + '행 · ' + esc(r.memo || r.raw || '—') + ' · <span style="font-family:\'Courier New\',monospace;font-weight:bold;user-select:all;">' + esc(r.key) + '</span></div>').join('')
-      + (hand.length ? '<div style="color:var(--ink-soft);">↑ 이 키들은 직접 전달해야 해요 (결과 엑셀에도 들어 있어요)</div>' : '');
-    show(keyOnly, hand.length > 0);
-    show(done, true);
-    renderPreview();
-    show(acts, false); show(opts, false); show(sumEl, false);   // 위 요약은 «발급 전» 숫자라 끝나면 내린다(아래 완료 요약이 대신한다)
-    try{ renderLicenseGenList(); }catch(_){}
-    toast('일괄 발급 완료 — 수령함 ' + c('ok') + ' · 키만 ' + c('okkey') + (c('fail') + c('sendfail') ? ' · 확인 필요 ' + (c('fail') + c('sendfail')) : ''));
-  }
-  async function saveResult(){
-    if(!S.rows.length) return;
-    const width = Math.max(1, ...S.grid.map(r => r.length));
-    const head = (S.map.header ? S.map.header.slice() : Array.from({ length: width }, (_, i) => i === S.map.codeCol ? '친구코드' : (i === S.map.memoCol ? '메모' : '')));
-    while(head.length < width) head.push('');
-    const LABEL = { send:'발급 안 함', key:'발급 안 함', haskey:'건너뜀', nouser:'건너뜀', dup:'건너뜀', issued:'건너뜀', badcode:'건너뜀', neterr:'건너뜀',
-                    ok:'수령함 발송', okkey:'키만 발급', sendfail:'수령함 실패', fail:'실패' };
-    const WHY = { haskey:'이미 발급 키가 있는 행', nouser:'친구코드를 가진 유저가 없음', badcode:'친구코드 형식이 아님', neterr:'조회 실패(네트워크)', issued:'전에 발급한 적 있음' };
-    /* 결과 파일을 다시 올린 것이면 그 세 열을 **채운다**(덧붙이면 열이 두 벌이 된다). 그 행의 옛 키는 지우지 않는다. */
-    const hn = head.map(x => String(x || '').replace(/\s+/g, ''));
-    let ki = hn.indexOf('발급키'), ri = hn.indexOf('결과'), wi = hn.indexOf('사유');
-    if(ki < 0 || ri < 0 || wi < 0){ ki = head.length; ri = ki + 1; wi = ki + 2; head.push('발급 키', '결과', '사유'); }
-    const out = [head];
-    S.rows.forEach(r => {
-      const cells = r.cells.slice(); while(cells.length < head.length) cells.push('');
-      const st = r.res || r.st;
-      const why = r.why || (r.st === 'dup' ? (r.dupOf + '행과 같은 친구코드') : (WHY[st] || '')) || (r.name ? '받는 사람: ' + r.name : '');
-      if(r.key) cells[ki] = r.key;
-      /* 이미 키가 있던 행(다시 올린 결과 파일)은 그때의 결과·사유를 그대로 둔다 — 덮으면 «수령함 발송» 기록이 사라진다. */
-      if(!(st === 'haskey' && (cells[ri] || cells[wi]))){ cells[ri] = LABEL[st] || st; cells[wi] = why; }
-      out.push(cells);
-    });
-    try{
-      const bin = await _lxWriteXlsx(out, '발급 결과');
-      const base = (S.fileName || '라이선스').replace(/\.(xlsx|csv)$/i, '');
-      downloadBlob(bin, base + '_발급결과.xlsx');
-    }catch(e){ toast('결과 파일을 만들지 못했어요'); }
-  }
-  async function saveTemplate(){
-    try{ downloadBlob(await _lxWriteXlsx([['친구코드', '메모']], '라이선스 발급'), '라이선스_일괄발급_양식.xlsx'); }
-    catch(_){ toast('양식 파일을 만들지 못했어요'); }
-  }
-  /* 두 창은 오버레이 안에서 옆으로 나란히 선다(flex-wrap). 런처 창처럼 좁은 OS 창에서는 일괄 창이 아래 줄로
-     밀려나 잘렸다 → 옆에 설 자리가 없으면 발급 창을 숨기고 일괄 창만 보인다(✕ 로 닫으면 발급 창이 돌아온다). */
-  const mainBox = win.parentElement && win.parentElement.firstElementChild;
-  const setSolo = (on) => { if(mainBox && mainBox !== win) mainBox.style.display = on ? 'none' : ''; };
-  function hideWin(){ win.style.display = 'none'; setSolo(false); }
-  function closeWin(){
-    if(S.running){ toast('발급 중이에요 — 끝날 때까지 기다려 주세요'); return; }
-    hideWin();
-  }
-  openBtn.addEventListener('click', ()=>{
-    if(!(window.firebaseAPI && firebaseAPI.lookupFriendCode && firebaseAPI.listLicenses)){ toast('네트워크 연결이 필요해요'); return; }
-    const ov = win.parentElement, GAP = 12, WIN_W = 440;
-    const fits = !ov || !mainBox || ov.clientWidth >= mainBox.offsetWidth + GAP + WIN_W + 16;
-    setSolo(!fits);
-    win.style.display = 'block';
-  });
-  $('licenseXlsxClose').addEventListener('click', closeWin);
-  $('licenseXlsxCancelBtn').addEventListener('click', ()=>{ if(S.running) return; S = { rows: [], map: null, fileName: '', running: false, finished: false }; resetView(); info.textContent = '📎 .xlsx 또는 .csv 파일을 골라 주세요'; });
-  $('licenseXlsxFileBtn').addEventListener('click', ()=>{ if(S.running) return; fileInp.value = ''; fileInp.click(); });
-  fileInp.addEventListener('change', ()=>{ const f = fileInp.files && fileInp.files[0]; if(f) loadFile(f); });
-  dupFirst.addEventListener('change', ()=>{ if(S.rows.length && !S.finished){ judge(); renderPreview(); } });
-  reissue.addEventListener('change', ()=>{ if(S.rows.length && !S.finished){ judge(); renderPreview(); } });
-  runBtn.addEventListener('click', run);
-  $('licenseXlsxSaveBtn').addEventListener('click', saveResult);
-  $('licenseXlsxTplBtn').addEventListener('click', saveTemplate);
-  /* 발급 창을 닫으면 이 창도 숨긴다(발급 중이면 진행은 계속되고, 다시 열면 결과가 남아 있다). */
-  const gc = $('licenseGenClose');
-  if(gc) gc.addEventListener('click', hideWin);
-  window._lxHideWin = hideWin;
-})();
-
-/* ═══ 🔒 시크릿룸 발급(관리자) ═══ */
-/* 🔒 시크릿룸 발급 (관리자) — 후원자 친구코드 + 발급 열쇠.
-   열쇠는 DB의 srKey/v 와 서버에서 대조된다. 그 노드에는 .read 가 없어 앱이 읽을 수 없으므로,
-   관리자 화면이 열려 있어도 열쇠를 모르면 발급이 거부된다.
-   (ADMIN_PASS_HASH가 배포본에 그대로 들어 있어 관리자 모드는 보안 경계가 아니다 — 그래서 필요한 장치다.)
-   ⚠️ 열쇠는 localStorage에도, 변수에도 남기지 않는다. 저장하는 순간 배포본에서 그대로 읽힌다. */
-(function bindSecretRoomGrant(){
-  const btn = document.getElementById('srGrantBtn');
-  const codeInp = document.getElementById('srGrantCode');
-  const keyInp = document.getElementById('srGrantKey');
-  const wantInp = document.getElementById('srGrantWant');   // 원하는 코드(선택) — 비우면 자동 생성
-  const monInp = document.getElementById('srGrantMonths'); // 이용 기간(개월, 선택) — 비우면 영구
-  const msgEl = document.getElementById('srGrantMsg');
-  if(!btn || !codeInp || !keyInp) return;
-  /* 📅 개월 더하기 — 30일 곱셈으로 하면 달마다 어긋난다(1/31 + 1개월이 3/2가 되는 식).
-     달을 먼저 올린 뒤, 그 달에 없는 날짜면 말일로 당긴다(1/31 +1개월 = 2/28).
-     끝나는 날은 그 날 23:59:59까지 — "1개월"을 샀으면 만료일 당일은 쓸 수 있어야 한다. */
-  const _srAddMonths = (fromMs, months)=>{
-    const d = new Date(fromMs);
-    const day = d.getDate();
-    d.setDate(1);                                    // 말일에서 setMonth 하면 다음 달로 넘치므로 1일로 내려놓고 올린다
-    d.setMonth(d.getMonth() + months);
-    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    d.setDate(Math.min(day, last));
-    d.setHours(23, 59, 59, 999);
-    return d.getTime();
-  };
-  const showMsg=(text,isErr)=>{
-    if(!msgEl) return;
-    msgEl.textContent=text;
-    msgEl.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
-    msgEl.style.display = text ? 'block' : 'none';
-  };
-  // genRoomCode와 같은 알파벳(혼동 글자 제외 32자) — 4자리 ≈ 105만 조합
-  const genSecretCode = ()=>{ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='SCRT-'; for(let i=0;i<4;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; };
-  /* 이미 쓰이는 코드에 다시 발급할 때, 한 번 경고하고 두 번째 누르면 덮어쓴다.
-     계정 이전으로 friendCodes가 옛 uid를 가리키면 엉뚱한 사람에게 발급되는데, 그때
-     같은 코드로 정정 발급할 길이 필요하다(코드를 이미 후원자에게 알려준 상태일 수 있다). */
-  let _srOverwriteArmed = '';
-  /* 🔴 친구코드 → uid 해석이 죽은 계정을 가리킬 때의 확인 게이트.
-     계정 이전 스냅샷에 friendCode가 없던 등록분은 friendCodes/{코드}가 '그 기기가 버린 uid'를
-     계속 가리킨다(3장 13번). 그 uid로 발급하면 쓰기는 전부 성공해서 "보냈어요"가 뜨는데
-     후원자 수령함에는 영원히 안 온다 — 이번에 실제로 그렇게 나갔다.
-     그래서 마지막 접속이 오래된 계정이면 한 번 막고 uid 직접 입력을 권한다. */
-  let _srStaleArmed = '';
-  const SR_STALE_DAYS = 7;   // 이 이상 접속 기록이 없으면 '버려진 계정' 의심
-  const submit = async ()=>{
-    if(!window.firebaseAPI || !firebaseAPI.lookupFriendCode || !firebaseAPI.issueSecretRoom){
-      showMsg('네트워크 연결이 필요해요', true); return;
-    }
-    const raw=(codeInp.value||'').trim();
-    const key=(keyInp.value||'').trim();
-    if(!raw){ showMsg('친구코드 또는 유저 코드를 입력해 주세요', true); return; }
-    if(!key){ showMsg('발급 열쇠를 입력해 주세요', true); return; }
-    /* 📅 이용 기간 — 빈칸이면 영구(months=0). 숫자면 1~120개월.
-       공백만 있는 경우도 빈칸으로 본다. 숫자가 아니면 조용히 영구로 삼지 않고 막는다 —
-       "3개월"이라고 적었는데 영구로 나가버리면 되돌릴 수는 있어도 이미 코드를 알려준 뒤다. */
-    const monRaw = ((monInp && monInp.value) || '').trim();
-    let months = 0;
-    if(monRaw){
-      if(!/^\d{1,3}$/.test(monRaw)){ showMsg('이용 기간은 숫자(개월)만 넣어 주세요 — 영구로 발급하려면 비워 두세요', true); return; }
-      months = parseInt(monRaw, 10);
-      if(months < 1 || months > 120){ showMsg('이용 기간은 1~120개월 사이로 넣어 주세요', true); return; }
-    }
-    /* 🆔 유저 코드(uid) 직접 입력 지원 —
-       계정 이전 스냅샷에 friendCode가 없던 계정은 friendCodes/{코드}가 옛 uid를 계속 가리킨다
-       (app.js의 _applyTransferSnapshot 참고). 그 상태에서 친구코드로 발급하면 엉뚱한 계정으로 간다.
-       uid를 직접 받으면 그 경로를 우회할 수 있다. 형식은 계정 이전과 같은 판정('u'+base36, 13자 이상). */
-    const isUid = /^u[0-9a-z]{12,}$/.test(raw);
-    const code = isUid ? raw : raw.toUpperCase();
-    // 뒷 4자리만 입력해도 되게 접두어 보완 — 라이선스 발급과 동일 규칙
-    const candidates = /^[A-Z0-9]{4}$/.test(code) ? ['MATE-'+code, 'COZY-'+code] : [code];
-    btn.disabled=true; showMsg('확인 중…', false);
-    try{
-      let uid=null;
-      if(isUid) uid = code;
-      else for(const c of candidates){ try{ const u=await firebaseAPI.lookupFriendCode(c); if(u){ uid=u; break; } }catch(_){} }
-      if(!uid){ showMsg('해당 친구코드를 가진 유저를 찾을 수 없어요', true); btn.disabled=false; return; }
-      let uname=null;
-      try{ if(firebaseAPI.getUserNameById) uname = await firebaseAPI.getUserNameById(uid); }catch(_){}
-      /* 🔴 수신 계정이 살아 있는지 확인 — 친구코드로 해석한 경우에만.
-         (uid를 직접 받은 경우는 관리자가 후원자에게 확인한 값이므로 게이트를 걸지 않는다) */
-      if(!isUid && firebaseAPI.getUserLastSeen){
-        let seen = null;
-        try{ seen = await firebaseAPI.getUserLastSeen(uid); }catch(_){}
-        // 조회 실패(null)와 '기록 없음'을 구분하지 않는다 — 둘 다 확인이 필요한 상태다
-        const days = (typeof seen === 'number' && seen > 0) ? Math.floor((Date.now() - seen) / 86400000) : null;
-        /* 🪞 [2026-09-17 제보 4] **거울 대조** — users/{uid}/friendCode 가 이 코드와 다르면 의심한다.
-             [왜 lastSeen 만으로 부족한가] 계정 이전 뒤 friendCodes/{코드} 는 옛 uid 를 가리키고, 옛 uid 의
-               lastSeen 은 이전 직전 값으로 남는다. 위 7일 게이트는 그 7일 동안 조용하다 — 그 사이 친구코드로
-               발급하면 pub.owner 가 옛 uid 가 되어 «방장 부여가 안 되는» 제보 그대로다. (예전엔 친추코드
-               되찾기도 같은 7일을 기다렸다 — 개정 56 에서 걷었다.)
-             거울은 코드를 발급·되찾을 때마다 계정에 적히므로(setUserFriendCode), 살아 있는 계정이라면 입력
-               코드와 같다. 다르거나 없으면 «이 코드의 주인이 다른 uid 로 갔거나 아주 옛 계정» 이다.
-             ⚠️ 거울이 생기기 전의 옛 계정도 여기 걸린다 — 그래서 막지 않고 한 번 더 누르게만 한다. */
-        let mirror = undefined;   // undefined = 조회 못 함(경고 안 함) · null = 없음 · 문자열 = 값
-        try{ if(firebaseAPI.getUserFriendCode) mirror = await firebaseAPI.getUserFriendCode(uid); }catch(_){}
-        const mirrorOff = (mirror !== undefined) && (String(mirror || '').toUpperCase() !== code);
-        if(days === null || days >= SR_STALE_DAYS || mirrorOff){
-          if(_srStaleArmed !== uid){
-            _srStaleArmed = uid;
-            const why = (days === null || days >= SR_STALE_DAYS)
-              ? (days === null ? '접속 기록이 없어요' : days + '일째 접속이 없어요')
-              : ('이 계정에 적힌 친추코드는 ' + (mirror ? mirror : '(없음)') + ' 이에요');
-            showMsg('⚠️ 이 친구코드는 ' + uid + (uname ? ' ('+uname+')' : '')
-              + ' 를 가리키는데, ' + why
-              + '. 계정 이전으로 코드가 어긋난 계정일 수 있어요 — 후원자에게 유저 코드(u…)를 받아 넣는 편이 안전해요.'
-              + ' 그대로 보내려면 같은 버튼을 다시 누르세요.', true);
-            btn.disabled=false; return;
-          }
-        }
-        _srStaleArmed = '';
-      }
-      /* 코드 결정 — 원하는 코드를 적었으면 그걸 쓰고, 비었으면 자동 생성.
-         지정 코드는 join 입력칸이 받아주는 범위(A-Z0-9 4자)와 같아야 한다 — 자동 생성은
-         혼동 글자(0·O·1·I)를 뺀 32자만 쓰지만, 지정은 관리자가 의도한 단어일 수 있어 전부 허용한다.
-         대신 혼동 글자가 들어가면 안내만 띄운다(후원자가 코드를 불러줄 때 헷갈리는 자리). */
-      const want = ((wantInp && wantInp.value) || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-      let sr=null, confusing=false;
-      let _prevPub = null;   // ⏳ 같은 코드로 다시 발급하는 경우의 기존 발급 정보(연장 계산에 쓴다)
-      if(want){
-        if(want.length !== 4){ showMsg('원하는 코드는 영문·숫자 4자리여야 해요', true); btn.disabled=false; return; }
-        let taken=null;
-        try{ taken = await firebaseAPI.getSecretRoomPub('SCRT-'+want); }catch(_){}
-        _prevPub = taken;
-        /* 확인 게이트의 표식에 **개월수까지** 넣는다. 코드만 표식으로 삼으면, 경고를 띄운 뒤
-           개월수 칸을 고치고 다시 눌렀을 때 경고에 적힌 것과 다른 기간이 그대로 나간다. */
-        const _armKey = want + '|' + months;
-        if(taken && taken.owner && _srOverwriteArmed !== _armKey){
-          _srOverwriteArmed = _armKey;   // 한 번 경고 → 같은 조건으로 다시 누르면 덮어쓴다
-          // 기존 기간도 같이 보여준다 — 연장하려고 같은 코드를 다시 넣는 경우가 많아, 지금 며칠 남았는지가 판단 근거다
-          const _oldExp = (typeof taken.exp === 'number' && taken.exp > 0) ? taken.exp : 0;
-          const _same = (taken.owner === uid);
-          showMsg('SCRT-'+want+' 는 이미 '+taken.owner+' 에게 발급돼 있어요'
-            + (_oldExp ? ' (현재 기간 ' + _srFmtDate(_oldExp) + ' 까지'
-                          + (Date.now() > _oldExp ? ', 이미 만료' : '') + ')' : ' (현재 영구)')
-            + '. 같은 버튼을 다시 누르면 '
-            + (_same ? (_oldExp ? (Date.now() > _oldExp ? '지금부터 다시 시작합니다.' : '남은 기간에 이어붙입니다.')
-                                : (months ? '⚠️ 영구가 풀리고 지금부터 ' + months + '개월 기간제로 바뀝니다.'
-                                          : '영구를 그대로 둡니다.'))
-                     : '다른 사람에게 덮어씁니다(기존 기간은 사라집니다).') , true);
-          btn.disabled=false; return;
-        }
-        _srOverwriteArmed = '';
-        sr = 'SCRT-'+want;
-        confusing = /[0O1I]/.test(want);
-      }else{
-        // 자동 생성 — 이미 쓰이는 코드면 다시 뽑는다
-        for(let i=0;i<5;i++){
-          const cand=genSecretCode();
-          let taken=null;
-          try{ taken = await firebaseAPI.getSecretRoomPub(cand); }catch(_){}
-          if(!(taken && taken.owner)){ sr=cand; break; }
-        }
-      }
-      if(!sr){ showMsg('코드 생성에 실패했어요 — 다시 시도해 주세요', true); btn.disabled=false; return; }
-      /* ⏳ 만료 시각 — 같은 사람에게 같은 코드로 다시 발급하는 것은 '연장'이다.
-         ★ 남은 기간에 이어붙인다. 지금부터 다시 N개월로 잡으면 만료 전에 후원한 사람이 손해를 본다
-           (6개월권을 2개월 쓴 사람이 3개월을 더 후원했는데 오히려 1개월이 줄어든다).
-         · 기존이 영구인데 개월수를 넣으면 **영구가 풀리고 지금부터 기간제로 바뀐다**(요청사항).
-           영구에는 이어붙일 남은 기간이 없으므로 기준은 언제나 '지금'이다.
-           ⚠️ 되돌리기 어려운 방향이라 위 확인 게이트가 반드시 한 번 막는다 — 경고 문구에
-             '영구가 풀린다'를 명시하고, 개월수를 고치면 표식이 달라져 다시 경고한다.
-             기간제로 바꿀 생각이 없으면 개월수 칸을 비우면 된다(그때는 영구 그대로다).
-         · 이미 만료됐거나 주인이 다른 사람이면 이어붙이지 않고 지금부터 새로 센다.
-         · 빈칸(months=0)으로 다시 발급하면 영구가 된다(issueSecretRoom이 set으로 통째 교체). */
-      const _prevMine = !!(_prevPub && _prevPub.owner && _prevPub.owner === uid);
-      const _prevExp = (_prevPub && typeof _prevPub.exp === 'number' && _prevPub.exp > 0) ? _prevPub.exp : 0;
-      const _prevPerm = _prevMine && !_prevExp;               // 기존이 영구
-      let _base = Date.now(), _kept = '';
-      if(_prevMine && _prevExp > _base){ _base = _prevExp; _kept = ' · 남은 기간에 이어붙임'; }
-      let expMs = months ? _srAddMonths(_base, months) : 0;
-      if(_prevPerm && months) _kept = ' · 기존 영구 해제 → 기간제';
-      const periodTxt = expMs ? (months + '개월 · ' + _srFmtDate(expMs) + ' 까지' + _kept) : ('영구' + _kept);
-      const r = await firebaseAPI.issueSecretRoom(sr, uid, uname||'', key, expMs);
-      if(!r || !r.ok){
-        showMsg(r && r.denied ? '발급 열쇠가 맞지 않아요 — 서버가 거부했어요'
-                              : ('발급에 실패했어요' + ((r&&r.reason) ? (' — '+r.reason) : '')), true);
-        btn.disabled=false; return;
-      }
-      /* 📅 옛 코드 만료 — 코드를 '교체'하면 옛 코드가 그대로 살아남아 시크릿룸이 두 개가 된다.
-         발급이 하는 쓰기는 secretRooms/{새코드} 생성 + users/{uid}/secretRoom 덮어쓰기뿐이라
-         옛 노드는 아무도 안 건드리고, owner 가 살아 있으니 그 유저도 코드를 아는 친구들도 계속 들어간다.
-         회수(owner 비우기)가 아니라 exp 를 지금으로 내린다 — 기간 만료와 똑같이 막히고,
-         나중에 같은 코드로 재발급하면 연장 경로 그대로 되살릴 수 있다.
-         ⚠️ setMySecretRoom 보다 먼저 읽어야 한다 — 그게 옛 코드를 덮어쓴다.
-         ⚠️ 실패해도 되돌리지 않는다 — 새 코드 발급은 이미 성공했다. 알리고 넘어간다. */
-      let _expiredOld = '', _expireWarn = '';
-      try{
-        const _oldCode = firebaseAPI.getMySecretRoom ? await firebaseAPI.getMySecretRoom(uid) : null;
-        // 같은 코드로 다시 발급한 것은 '연장'이다 — 방금 쓴 새 코드를 만료시키면 안 된다.
-        if(_oldCode && _oldCode !== sr && firebaseAPI.expireSecretRoom){
-          /* ⚠️ 그새 이 코드가 다른 사람에게 재발급됐으면 절대 손대지 않는다 — 남의 방을 만료시키게 된다.
-             users/{uid}/secretRoom 은 '이 유저에게 마지막으로 준 코드'일 뿐, 소유의 증거가 아니다. */
-          const _oldPub = await firebaseAPI.getSecretRoomPub(_oldCode);
-          if(_oldPub && _oldPub.owner === uid){
-            const _er = await firebaseAPI.expireSecretRoom(_oldCode, key);
-            if(_er && _er.ok) _expiredOld = _oldCode; else _expireWarn = _oldCode;
-          }
-        }
-      }catch(_){ _expireWarn = _expireWarn || '?'; }
-      try{ if(firebaseAPI.setMySecretRoom) await firebaseAPI.setMySecretRoom(uid, sr); }catch(_){}
-      let sent=false;
-      try{
-        if(firebaseAPI.sendInboxMessage){
-          const body='후원 감사합니다! 아래 코드로 ' + (expMs ? _srFmtDate(expMs) + ' 까지' : '언제든')
-            + ' 내 전용 투게더룸에 들어갈 수 있어요.\n\n'
-            + sr + '\n\n[방 만들기 / 참여] 창의 SCRT- 칸에 뒤 4자리를 넣으면 입장돼요.\n'
-            + '친구에게 코드를 알려주면 같이 쓸 수 있고, 내가 나가도 방은 그대로 유지돼요.'
-            + (expMs ? '\n\n이용 기간은 ' + _srFmtDate(expMs)
-                        + ' 까지예요. 그 뒤로는 이 코드로 입장할 수 없어요. 만료 7일 전부터는 입장할 때 안내가 떠요.' : '')
-            /* 받는 앱은 _mySecretRoomCode 를 세션당 1회만 조회해 캐시한다(_refreshSecretRoomUI) —
-               앱을 다시 켜야 참여 화면 자동 채움이 새 코드로 바뀐다. 무효화할 경로가 없어 문구로 안내한다. */
-            + (_expiredOld ? '\n\n예전 코드 ' + _expiredOld + ' 로는 이제 입장할 수 없어요.'
-                             + ' 앱을 다시 켜면 참여 화면에 새 코드가 자동으로 떠요.' : '');
-          const ir = await firebaseAPI.sendInboxMessage(uid, 'reward', '🔒 시크릿룸이 열렸어요', body);
-          sent = !!(ir && ir.ok!==false);
-        }
-      }catch(_){}
-      // 수신 uid를 항상 함께 남긴다 — 잘못 간 뒤에 어디로 갔는지 되짚을 수 있어야 한다
-      showMsg('발급 완료: ' + sr + ' [' + periodTxt + ']'
-        + (sent ? ' — 수령함으로 보냈어요' : ' (수령함 전송 실패 — 코드를 직접 전달해 주세요)')
-        + '  받는 계정 ' + uid + (uname ? ' ('+uname+')' : '')
-        + (confusing ? '  ⚠️ 0·O·1·I 가 섞여 있어 불러줄 때 헷갈릴 수 있어요' : '')
-        + (_expiredOld ? '  · 옛 코드 ' + _expiredOld + ' 를 만료 처리했어요' : '')
-        + (_expireWarn ? '  ⚠️ 옛 코드 ' + _expireWarn + ' 만료 처리에 실패했어요 — 그 코드로도 계속 입장됩니다'
-                         + ' (열쇠가 맞는지 확인하고 다시 발급해 보세요)' : ''),
-        (!sent || !!_expireWarn));
-      codeInp.value='';
-      if(wantInp) wantInp.value='';
-      // 개월수 칸은 일부러 비우지 않는다 — 같은 기간으로 여러 명에게 연달아 발급하는 경우가 대부분이다.
-      // 대신 위 메시지와 아래 토스트에 항상 기간을 박아, 남아 있는 값이 조용히 따라가지 않게 한다.
-      toast('🔒 시크릿룸 ' + sr + ' 발급 (' + periodTxt + ')');
-    }catch(e){
-      console.warn('[시크릿룸] 발급 중 오류', e);
-      showMsg(_saveFailMsg(e, '오류가 났어요 — 인터넷 연결을 확인해 주세요'), true);
-    }
-    btn.disabled=false;
-  };
-  btn.addEventListener('click', submit);
-  keyInp.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
-})();
 
 /* ═══ 👥 책상에서 친구 추가 ═══ */
 /* --- 책상에서 친구 추가: 저장 캐릭터 선택 or 새로 만들기 --- */
@@ -33207,28 +31925,9 @@ async function resolveCatalogGlbAll(catalogObj){
   return catalogObj;
 }
 
-/* ═══ 🧹 관리자 콘솔 도구 — 카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 ═══ */
-/* 🧹 Storage 이관 뒷정리 콘솔 도구 — DB에 남은 base64 glb만 삭제해 onValue 다운로드 비용을 줄인다.
-   1) previewCatalogCleanup() 으로 먼저 몇 개/몇 MB 지울지 확인(아무것도 안 지움)
-   2) 결과가 맞으면 runCatalogCleanup() 실행 → 실제 삭제. glbUrl 없는 항목은 자동으로 건너뜀(안전). */
-window.previewCatalogCleanup = async function(){
-  if(!(window.firebaseAPI && firebaseAPI.cleanupCatalogBase64)){ console.warn('cleanup API 없음 — 앱 새로고침 필요'); return; }
-  const r = await firebaseAPI.cleanupCatalogBase64(true);
-  console.log('🧹 [미리보기] 삭제 예정:', r.willDelete, '개 /', r.mb, 'MB');
-  console.log('   건너뜀(Storage 미이관, 안전 보존):', r.skipNoUrl, '개');
-  console.log('   이미 깨끗(base64 없음):', r.alreadyClean, '개');
-  console.log('   종류별:', JSON.stringify(r.byKind));
-  console.log(r.skipNoUrl>0 ? '⚠️ 미이관 항목이 있어요 — 먼저 migrateCatalogGlbToStorage() 권장' : '✅ 전부 이관 완료 상태 — runCatalogCleanup() 실행해도 안전');
-  return r;
-};
-window.runCatalogCleanup = async function(){
-  if(!(window.firebaseAPI && firebaseAPI.cleanupCatalogBase64)){ console.warn('cleanup API 없음 — 앱 새로고침 필요'); return; }
-  const r = await firebaseAPI.cleanupCatalogBase64(false);
-  console.log('🧹 [완료] 삭제됨:', r.willDelete, '개 /', r.mb, 'MB DB에서 제거. 건너뜀:', r.skipNoUrl, '개');
-  console.log('   이제 onValue가 인덱스만 나릅니다. 앱을 새로고침하면 반영됩니다.');
-  return r;
-};
-
+/* ═══ 🧹 관리자 콘솔 도구 — 카탈로그 Storage 이관 · 초대권 회수 ═══ */
+/* 카탈로그 진단 · base64 정리 · 유령 방 청소는 웹 관리자(🗂️ 카탈로그 · 🚪 방)로 옮겨 여기서는 걷었다.
+   남은 셋은 웹 관리자에 없다 — 이관 둘은 앱의 publishXxx(Storage 업로드)를 그대로 써야 해서다. */
 // ★ 관리자 전용 마이그레이션: 기존 catalog/*의 base64 glb를 Storage로 옮기고 DB엔 glbUrl만 남김.
 //   콘솔(F12)에서 `migrateCatalogGlbToStorage()` 실행 — 한 번만 하면 되고, 이후 신규 등록은 자동으로 Storage 사용.
 //   진행 상황을 콘솔에 찍고, 성공/실패 카운트 반환. Firebase 규칙에 이 유저가 write 권한이 있어야 함(catalog/*).
@@ -33269,38 +31968,6 @@ window.migrateCatalogGlbToStorage = async function(){
      reclaimInvitesSince('2026-07-18', 2, true) ← 실제 회수(2장씩 차감, 0 밑으로는 안 내려감)
      reclaimInvitesSince('2026-07-18', 2, true, true) ← 음수 허용(1장 쓴 사람은 -1이 됨)
    날짜는 그 날 00:00(현지 시각)부터로 계산됨. */
-/* 🔍 카탈로그 용량 진단 — F12 콘솔에서 `analyzeCatalog()`
-   DB에 남아있는 큰 문자열(특히 base64)을 찾아준다. 그게 곧 모든 사용자의 다운로드 비용. */
-window.analyzeCatalog = async function(){
-  if(!(window.firebaseAPI && firebaseAPI.analyzeCatalog)){ console.warn('firebaseAPI 없음'); return null; }
-  const r = await firebaseAPI.analyzeCatalog();
-  for(const kind in r){
-    const k = r[kind];
-    console.log('━━━ ' + kind + ' : ' + k.count + '개, 합계 ' + k.totalKB + 'KB, base64 필드 ' + k.base64Fields + '개');
-    k.top.forEach(t=>console.log('   ' + t.kb + 'KB  ' + t.id + ' ' + (t.name||'') + (t.heavy.length ? '  ← ' + t.heavy.join(', ') : '')));
-  }
-  const totalKB = Object.values(r).reduce((s,k)=>s+k.totalKB,0);
-  console.log('▶ 카탈로그 총합: ' + Math.round(totalKB) + 'KB — 앱을 켜는 모든 사용자가 이만큼 내려받습니다');
-  return r;
-};
-
-/* 🧹 유령 방 청소 — 관리자 F12 콘솔에서:
-     cleanupGhostRooms()      ← 미리보기(개수와 코드 나열)
-     cleanupGhostRooms(true)  ← 실제 삭제 */
-window.cleanupGhostRooms = async function(apply){
-  if(!(window.firebaseAPI && firebaseAPI.cleanupGhostRooms)){ console.warn('firebaseAPI 없음'); return null; }
-  const r = await firebaseAPI.cleanupGhostRooms(!apply);
-  if(!r || !r.ok){ console.warn('실패'); return r; }
-  if(r.dryRun){
-    console.log('[유령 방 · 미리보기] ' + r.count + '개 발견 (아직 삭제 안 함)');
-    r.ghosts.forEach(c=>console.log('  ' + c));
-    if(r.count) console.log('삭제하려면: cleanupGhostRooms(true)');
-  } else {
-    console.log('[유령 방 · 완료] ' + r.removed + '개 삭제, 실패 ' + r.failed);
-  }
-  return r;
-};
-
 window.reclaimInvitesSince = async function(dateStr, amount, apply, allowNegative){
   if(!(window.firebaseAPI && firebaseAPI.reclaimInvitesSince)){ console.warn('firebaseAPI 없음'); return null; }
   const n = (typeof amount === 'number') ? amount : 2;
@@ -35494,7 +34161,7 @@ function _awayBootSync(tries){
      같은 사람을 또 신고하면 같은 칸을 덮는다 = 칸 수가 곧 «서로 다른 신고자 수».
    ★ 신고자에 대해 남기는 것은 **닉네임 + 친구 코드 뒷자리 4자리 + 사유**뿐(요청).
    ★ 신고하면 내 화면에서 그 사람을 숨긴다(_reportHiddenUids · 계정 기준 · 모든 방).
-   ★ 관리자 목록(_openReportAdmin)에는 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람만 뜬다. */
+   ★ 웹 관리자 🚩 신고 목록에는 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람만 뜬다. */
 var REPORT_ADMIN_MIN = 3;
 var REPORT_KINDS = [
   { k:'char', label:'캐릭터 신고', sub:'모습 · 꾸미기', short:'캐릭터' },
@@ -35592,91 +34259,6 @@ function _openReportDialog(seat){
   document.body.appendChild(ov);
   _reportOv = ov;
 }
-/* 관리자 — 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람 목록. 순수 함수로 떼어 둔다(검사). */
-function _reportAdminRows(all){
-  const out = [];
-  for(const t of Object.keys(all || {})){
-    const recs = Object.values(all[t] || {}).filter(r=>r && typeof r === 'object' && typeof r.kind === 'string');
-    if(recs.length >= REPORT_ADMIN_MIN) out.push({ target:t, recs: recs.sort((a,b)=>(b.ts||0)-(a.ts||0)) });
-  }
-  return out.sort((a,b)=>b.recs.length - a.recs.length);
-}
-function _reportReasonText(r){
-  const kd = REPORT_KINDS.find(x=>x.k === r.kind);
-  const base = kd ? kd.short : '기타';
-  return (r.kind === 'etc' && r.note) ? base + ' · ' + r.note : base;
-}
-async function _openReportAdmin(){
-  if(typeof isAdmin === 'undefined' || !isAdmin) return;
-  const api = window.firebaseAPI;
-  if(!api || !api.listReports){ if(typeof toast === 'function') toast('아직 준비 중이에요'); return; }
-  _reportClose();
-  const { ov, body } = _reportBox('🚩 신고 목록', 460);
-  body.textContent = '불러오는 중…';
-  ov.addEventListener('mousedown', e=>{ if(e.target === ov) _reportClose(); });
-  _reportEsc = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _reportClose(); } };
-  document.addEventListener('keydown', _reportEsc, true);
-  document.body.appendChild(ov); _reportOv = ov;
-  const res = await api.listReports();
-  if(_reportOv !== ov) return;
-  if(!res || !res.ok){ body.textContent = '목록을 읽지 못했어요(관리자 로그인 확인).'; return; }
-  const rows = _reportAdminRows(res.reports);
-  body.textContent = '';
-  const head = document.createElement('div'); head.style.cssText = 'font-size:10.5px;color:var(--ink-soft);margin-bottom:6px;';
-  head.textContent = '서로 다른 ' + REPORT_ADMIN_MIN + '명 이상이 신고한 사람만 보여요 · ' + rows.length + '명';
-  body.appendChild(head);
-  if(!rows.length) return;
-  const list = document.createElement('div');
-  list.style.cssText = 'border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:#fff;';
-  body.appendChild(list);
-  const briefs = await Promise.all(rows.map(r=>api.getUserBrief ? api.getUserBrief(r.target).catch(()=>({})) : Promise.resolve({})));
-  if(_reportOv !== ov) return;
-  rows.forEach((r, i)=>{
-    const b = briefs[i] || {};
-    const it = document.createElement('div'); it.style.cssText = 'display:flex;gap:8px;align-items:flex-start;padding:6px;border-bottom:1px solid #d4d0c8;';
-    const th = document.createElement('div');
-    th.style.cssText = 'width:48px;height:48px;flex:none;box-sizing:border-box;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);'
-      + 'background:#fff repeating-conic-gradient(#e6e6e6 0% 25%, #fff 0% 50%) 0 0/8px 8px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink-soft);';
-    if(_awayUrlOk(b.awayImg)){ const im = document.createElement('img'); im.src = b.awayImg; im.alt = ''; im.style.cssText = 'max-width:100%;max-height:100%;'; th.appendChild(im); }
-    else th.textContent = '그림 없음';
-    const mid = document.createElement('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;';
-    const nm = document.createElement('div');
-    const nb = document.createElement('b'); nb.textContent = b.name || '(이름 없음)'; nm.appendChild(nb);
-    const cd = document.createElement('span'); cd.style.cssText = 'font-family:"Courier New",monospace;font-size:10.5px;margin-left:5px;'; cd.textContent = b.friendCode || r.target;
-    nm.appendChild(cd); mid.appendChild(nm);
-    const cnt = document.createElement('span'); cnt.style.cssText = 'color:#B22222;font-weight:bold;font-size:10.5px;'; cnt.textContent = '🚩 ' + r.recs.length + '명';
-    mid.appendChild(cnt);
-    r.recs.forEach(rc=>{
-      const ln = document.createElement('div'); ln.style.cssText = 'font-size:10.5px;word-break:break-all;';
-      ln.textContent = '· ' + (rc.nick || '(이름 없음)') + ' #' + (rc.code4 || '----') + ' — ' + _reportReasonText(rc);
-      mid.appendChild(ln);
-    });
-    const act = document.createElement('div'); act.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:none;';
-    const mkb = (t, red)=>{ const x = document.createElement('button'); x.className = 'lc-btn'; x.type = 'button'; x.textContent = t;
-      x.style.cssText = 'width:auto;margin:0;padding:2px 7px;font-size:10.5px;' + (red ? 'color:#B22222;' : ''); act.appendChild(x); return x; };
-    if(_awayUrlOk(b.awayImg)){
-      const down = mkb('그림 내리기', true);
-      down.onclick = async ()=>{
-        down.disabled = true;
-        const ok = await api.setAwayImg(r.target, null);
-        if(ok && ok.ok){ try{ await api.deleteStorageUrl(b.awayImg); }catch(_){} th.textContent = '그림 없음'; down.remove(); if(typeof toast === 'function') toast('자리비움 그림을 내렸어요'); }
-        else { down.disabled = false; if(typeof toast === 'function') toast('내리지 못했어요'); }
-      };
-    }
-    const fine = mkb('문제없음', false);
-    fine.onclick = async ()=>{
-      fine.disabled = true;
-      const ok = await api.clearReports(r.target);
-      if(ok && ok.ok){ it.remove(); if(typeof toast === 'function') toast('신고를 비웠어요'); }
-      else { fine.disabled = false; if(typeof toast === 'function') toast('비우지 못했어요'); }
-    };
-    it.appendChild(th); it.appendChild(mid); it.appendChild(act); list.appendChild(it);
-  });
-}
-(function bindReportAdmin(){
-  const b = document.getElementById('lcReportList');
-  if(b) b.addEventListener('click', e=>{ e.stopPropagation(); _openReportAdmin(); });
-})();
 
 /* ═══ ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 ═══ */
 /* 레벨이 바뀐 순간에만 프로필을 갱신한다(친구 목록 레벨 배지용).
@@ -36860,7 +35442,7 @@ if(desktopMode){
        두 곳에 따로 적어 두면 새 창을 추가할 때 한쪽만 고치게 되고, 그러면 main 과 렌더러가
        서로 다른 것을 보며 싸운다 — 그게 이번 제보의 정체였다(핸드오프5 §1-4).
        ⇒ body 에 붙는 팝업을 새로 만들면 **여기 한 곳에만** 추가하면 된다. */
-    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #appVerGateOverlay, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, .seat-nameplate';
+    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #appVerGateOverlay, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, .seat-nameplate';
     /* 📐 지금 화면에 떠 있는 "우리 창"들의 사각형 — main 에게 보낸다.
 
        [왜 필요한가 — 이번 제보의 뿌리] main 의 회수 안전장치(ⓕ·ⓖ)와 펜 근접 판정은 지금까지

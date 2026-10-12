@@ -4,8 +4,7 @@
           «memberId 오름차순 = 입장순» 으로 늦게 온 사람을 가르는데, 각자 PC 시계(Date.now)로 만들면 시계가 앞선
           사람이 방이 찰 때마다 «늦게 온 사람» 으로 계산돼 쫓겨난다(제보 2). 정렬 로직·id 형식은 안 바뀐다.
           _svNow 를 흉내내 «시계가 5분 앞선 먼저 온 사람» 이 보정 뒤에는 앞자리에 서는지 실제로 돌려 본다.
-   ・2절: app.js 관리자 시크릿룸 발급 — friendCodes 로 푼 uid 의 거울(users/{uid}/friendCode)이 입력 코드와
-          다르면 7일 게이트와 같은 «한 번 더 누르기» 경고(제보 4). uid 직접 입력은 게이트 없음(예전 그대로).
+   ・2절: 관리자 시크릿룸 발급(거울 대조 · 7일 게이트 — 제보 4)은 웹 관리자로 옮겼다 — 앱에 발급 코드가 없는지만 본다.
    ・3절: app.js startRoom — pub.owner 가 내가 버린 uid 면 재발급 안내 토스트. 방장으로 쳐 주지는 않는다.
    [실행] app.js · firebase-init.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
@@ -42,17 +41,11 @@ say('── 1. firebase-init.js joinRoom — memberId 는 서버 시계 보정�
   chk(mk(A_srv).length === mk(A_local).length, '  id 길이 그대로(구버전 클라이언트와 같은 정렬 공간)');
 }
 
-/* ── 2. 관리자 발급 거울 대조 ── */
-say('── 2. app.js 시크릿룸 발급 — 거울(users/{uid}/friendCode) 불일치 경고');
+/* ── 2. 관리자 발급은 웹 관리자로 ── */
+say('── 2. 시크릿룸 발급 — 앱에서 걷었다(웹 관리자 🎟️ 라이선스 · 거울 대조 · 7일 게이트는 그쪽 staleReason)');
 {
-  const i = SRC.indexOf('if(!isUid && firebaseAPI.getUserLastSeen){');
-  const gate = SRC.slice(i, i + 3000);
-  chk(i >= 0, '7일 게이트를 찾았다');
-  chk(/mirror = await firebaseAPI\.getUserFriendCode\(uid\)/.test(gate), '★ 거울을 읽는다');
-  chk(/const mirrorOff = \(mirror !== undefined\) && \(String\(mirror \|\| ''\)\.toUpperCase\(\) !== code\);/.test(gate), '  조회 실패(undefined)는 경고 안 함 · 없음(null)·다름은 경고');
-  chk(/if\(days === null \|\| days >= SR_STALE_DAYS \|\| mirrorOff\)/.test(gate), '  7일 게이트와 같은 자리·같은 «한 번 더 누르기»');
-  chk(/이 계정에 적힌 친추코드는/.test(gate), '  경고 문구가 거울 값을 보여 준다');
-  chk(/getUserFriendCode\(uid\)\{/.test(FB), '  firebase-init.js 에 getUserFriendCode 가 있다(있는 API 만 쓴다)');
+  chk(!/issueSecretRoom|SR_STALE_DAYS|bindSecretRoomGrant/.test(SRC) && !/issueSecretRoom\(/.test(FB), '앱에 시크릿룸 발급 코드가 없다');
+  chk(/getUserFriendCode\(uid\)\{/.test(FB), '  firebase-init.js 에 getUserFriendCode 가 남아 있다(앱의 다른 곳이 쓴다)');
 }
 
 /* ── 3. 입장 — «버린 uid» 안내는 걷었다 (개정 56 · 회원가입 설계 §6-⑥) ──

@@ -125,10 +125,8 @@ const capacityFilters = (HTML.match(/id !== 'chatLog'|id\.charAt\(0\) !== '_' &&
 chk(capacityFilters >= 3,
     '인원 계산 쪽도 chatLog 를 멤버에서 뺀다 (' + capacityFilters + '곳) — 빈 방이 만석으로 보이지 않는다');
 
-// 유령 방 판정도 같은 규칙 (관리자 청소가 유일한 배출구라 여기가 틀리면 아무것도 못 걷는다)
-const ghost = (HTML.match(/async cleanGhostRooms\(\)\{[\s\S]*?\n    \},/) || [''])[0];
-chk(/k === '_meta' \|\| k === 'chatLog'/.test(ghost),
-    '유령 방 판정도 chatLog 를 멤버로 세지 않는다 (관리자 청소가 용량 배출구다)');
+// 유령 방 청소(용량 배출구)는 웹 관리자 🚪 방으로 옮겼다 — 앱에는 없다
+chk(!/async cleanGhostRooms\(/.test(HTML), '유령 방 청소는 앱에 없다 (웹 관리자 🚪 방)');
 
 say('');
 

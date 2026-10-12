@@ -2,13 +2,13 @@
    [무엇을 보는가] 부팅마다 inboxBroadcast 를 통째로 onValue 하던 것을 inboxBroadcastMeta 버전 확인 + 로컬 캐시 +
      «최근 30개 + 고정 공지» 받기로 바꿨다. 구독기 자체는 카탈로그와 같은 것(catalog-cache.js createCatalogSync)이라
      안전장치 하나하나는 sim-catalog-cache.js 가 본다. 이 검사는
-       · 공지를 쓰는 함수(보내기 · 고정 · 삭제)가 하나도 빠짐없이 버전을 같이 올리는가
+       · 앱에 공지를 쓰는 곳이 없는가(보내기 · 고정 · 삭제는 웹 관리자가 버전과 같이 쓴다)
        · 버전이 없거나 거부되거나 받기가 실패하면 예전처럼 통째 구독하는가
        · 받을 때 최근 30개 + 고정 공지를 id 로 합치는가 (30개보다 오래된 고정 공지도 들어오는가)
        · 버전이 바뀌면 지운 공지가 사라지는가 · 캐시가 맞으면 받지 않는가 · 오프라인이면 캐시를 먼저 보여 주는가
        · 읽음 표시(각 기기 localStorage)는 그대로인가
      를 본다. 웹 관리자 쪽 버전 올림은 web-admin/tests/entities/broadcast-version.test.ts 가 본다.
-   ・1절: firebase-init.js — import · 구독 연결 · 쓰기가 전부 _broadcastUpdate 를 지나는가
+   ・1절: firebase-init.js — import · 구독 연결 · 앱에 공지 쓰기가 없는가
    ・2절: firebase-database-rules.json — inboxBroadcastMeta 규칙
    ・3절: broadcast-cache.js — 합치기(순수 함수)
    ・4절: 구독기를 가짜 DB · 가짜 저장소로 돌려 본다
@@ -42,28 +42,13 @@ say('── 1. firebase-init.js 연결');
   chk(/latestQuery:\s*\(n\) => query\(ref\(db, 'inboxBroadcast'\), orderByChild\('ts'\), limitToLast\(n\)\)/.test(CODE), '최근 n 개 = ts 순 limitToLast');
   chk(/pinnedQuery:\s*\(\) => query\(ref\(db, 'inboxBroadcast'\), orderByChild\('pinned'\), equalTo\(true\)\)/.test(CODE), '고정 공지 = pinned equalTo(true)');
   chk(/createBroadcastSync\(\{[\s\S]{0,700}scope: \(firebaseConfig && \(firebaseConfig\.databaseURL/.test(CODE), '캐시 키 앞머리 = DB 주소 (운영/dev 섞임 방지)');
-  chk(/liveNow: \(\) => Date\.now\(\) - _broadcastWroteAt < BROADCAST_OWN_WRITE_MS/.test(CODE), '이 기기가 방금 쓴 바뀜은 모으지 않고 바로 받는다 (관리자 화면)');
   const sb = body('subscribeInboxBroadcast');
   chk(/_subscribeBroadcast\(/.test(sb) && !/onValue\(/.test(sb), 'subscribeInboxBroadcast → 버전 확인 + 캐시 (통째 onValue 없음)');
   chk(!/onValue\(\s*(?:ref\(db,\s*['`"]inboxBroadcast['`"]\)|r)\s*,/.test(sb), '  ↳ inboxBroadcast 를 직접 통째 구독하지 않는다');
   chk(!/(?:set|remove)\(ref\(db,\s*[`'"]inboxBroadcast\//.test(CODE), 'inboxBroadcast/… 에 set·remove 를 직접 부르는 곳이 없다');
-  const writers = ['sendInboxBroadcast', 'setInboxBroadcastPinned', 'deleteInboxBroadcast'];
-  for(const w of writers){
-    const b = body(w);
-    chk(!!b && /_broadcastUpdate\(/.test(b) && !/await (?:set|update|remove)\(ref\(db/.test(b), w + ' — _broadcastUpdate 로 쓴다 (버전 같이 올림)');
-  }
-  chk(/_broadcastUpdate\(\{ \[`inboxBroadcast\/\$\{msgId\}\/pinned`\]: pinned \? true : null \}\)/.test(body('setInboxBroadcastPinned')),
-      '  ↳ 고정 해제는 키를 지운다 (pinned:false 를 남기지 않는다 — 고정 query 가 equalTo(true))');
-  const all = [...CODE.matchAll(/\n    (?:async )?(\w+)\([^)]*\)\{\s*\n/g)].map(m => m[1])
-    .filter(n => !/^(?:if|for|while|switch|catch|function)$/.test(n));
-  const extra = all.filter(n => !writers.includes(n) && /_broadcastUpdate\(|`inboxBroadcast\/\$\{/.test(body(n)));
-  chk(extra.length === 0, '목록 밖에서 공지를 쓰는 메서드가 없다' + (extra.length ? ' — ' + extra.join(',') + ' (목록에 넣고 버전 확인)' : ''));
-  const bu = (CODE.match(/async function _broadcastUpdate\(updates\)\{[\s\S]*?\n  \}/) || [''])[0];
-  chk(/inboxBroadcastMeta: serverTimestamp\(\)/.test(bu) && /update\(ref\(db\), Object\.assign\(\{\}, updates/.test(bu),
-      '_broadcastUpdate — 같은 다중 경로 update 에 inboxBroadcastMeta = 서버 시각');
-  chk(/permission\|PERMISSION_DENIED/.test(bu) && /await update\(ref\(db\), updates\);/.test(bu), '  ↳ 규칙 배포 전(inboxBroadcastMeta 거부)엔 공지만 다시 쓴다');
-  chk(bu.indexOf('_broadcastWroteAt = Date.now()') >= 0 && bu.indexOf('_broadcastWroteAt = Date.now()') < bu.indexOf('await update('),
-      '  ↳ 쓴 시각 표시는 update 보다 먼저 (버전 구독이 update 를 부르는 순간 울린다)');
+  /* 공지 쓰기(보내기 · 고정 · 삭제)는 웹 관리자로 옮겼다(broadcastCommit 이 inboxBroadcastMeta 를 같이 올린다) — 앱에는 쓰는 곳이 없어야 한다 */
+  chk(!/sendInboxBroadcast|setInboxBroadcastPinned|deleteInboxBroadcast|_broadcastUpdate/.test(CODE), '앱에 공지 쓰기가 없다 (웹 관리자 📢 공지)');
+  chk(!/`inboxBroadcast\/\$\{|inboxBroadcastMeta:/.test(CODE), '  ↳ inboxBroadcast/… · inboxBroadcastMeta 에 쓰는 줄이 없다');
 }
 
 say('── 2. 규칙 — inboxBroadcastMeta');

@@ -2,7 +2,7 @@
    ・1절: 자리비움 그림 — [내 정보] 머리 아래 한 구획 · 500×500 WebP · 300KB · Storage away/ · URL 은 Storage 주소만 ·
           방 payload awayImg · 캐릭터 자리 스프라이트(자리비움 · 안 숨김 · 회사원 아님 · 불러온 뒤에만) · 그땐 책상 🫧 없음.
    ・2절: 신고하기 — 남의 좌석 메뉴 끝 «🚩 신고하기…»(채널 무관) · 사유 넷(기타 40자) · 그림 없으면 자리비움 줄 잠김 ·
-          신고자 정보는 닉네임 + 코드 뒷자리 4 + 사유뿐 · 신고 성공 = 내 화면에서 숨김 · 관리자 목록은 서로 다른 3명 이상.
+          신고자 정보는 닉네임 + 코드 뒷자리 4 + 사유뿐 · 신고 성공 = 내 화면에서 숨김 · 관리자 목록은 웹 관리자로(앱에 없음).
    ・3절: 규칙 — users/$userId/awayImg · reports(관리자만 읽기 · 본인 칸만 쓰기 · 자기 자신 금지 · $other 거절).
    ・4절: 이름표 우클릭 = 좌석 메뉴(조준 · 회사원 게이트) · 클릭 받기(CSS · UI_HIT_SEL).
    [실행] app.js · desk-companion-prototype.html · firebase-init.js · firebase-database-rules.json 이 있는 폴더에서. */
@@ -74,16 +74,9 @@ say('── 2. 신고하기');
   chk(/reportUser\(target, me, \{ kind:picked, note:txt, nick:[^}]*code4:_myCode4\(\) \}\)/.test(dlg), '신고자 정보 = 닉네임 + 코드 뒷자리 4 + 사유뿐');
   chk(/String\(localStorage\.getItem\(MY_FRIEND_CODE_KEY\) \|\| ''\)\.slice\(-4\)/.test(CODE), '코드 뒷자리 4자리');
   chk(/_reportHiddenUids\.add\(target\); _reportHiddenSave\(\);/.test(dlg), '신고하면 내 화면에서 숨김');
-  const rows = new Function(`var REPORT_ADMIN_MIN = 3; ${grabFn('_reportAdminRows')} return _reportAdminRows;`)();
-  const all = { uA:{ r1:{kind:'away',ts:1}, r2:{kind:'nick',ts:3}, r3:{kind:'etc',note:'x',ts:2} }, uB:{ r1:{kind:'char',ts:1}, r2:{kind:'char',ts:2} },
-                uC:{ r1:{kind:'away',ts:1}, r2:{kind:'away',ts:1}, r3:{kind:'away',ts:1}, r4:{kind:'nick',ts:9} } };
-  const out = rows(all);
-  chk(out.length === 2 && out[0].target === 'uC' && out[1].target === 'uA', '서로 다른 3명 이상만 · 많은 순');
-  chk(out[1].recs[0].ts === 3, '최근 신고가 위');
-  chk(/_openReportAdmin\(\)/.test(CODE) && /id="lcReportList" class="admin-only"/.test(HTML), '관리자 줄 [🚩 신고 목록]');
-  const adm = strip(grabFn('_openReportAdmin'));
-  chk(/isAdmin/.test(adm.split('listReports')[0]), '관리자가 아니면 안 연다');
-  chk(!/innerHTML/.test(dlg + adm), '이름 · 사유는 textContent 로만(innerHTML 없음)');
+  // 🚩 신고 목록(관리자)은 웹 관리자로 옮겨 앱에서 걷었다 — 앱에는 목록 · 버튼이 없어야 한다
+  chk(!/_openReportAdmin|listReports/.test(CODE) && !/id="lcReportList"/.test(HTML), '관리자 신고 목록은 앱에 없다(웹 관리자 🚩 신고)');
+  chk(!/innerHTML/.test(dlg), '이름 · 사유는 textContent 로만(innerHTML 없음)');
   chk(/ov\.className = 'app-popup-ov'/.test(strip(grabFn('_reportBox'))), '팝업은 app-popup-ov(클릭 통과 화이트리스트)');
 }
 

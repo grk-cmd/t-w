@@ -86,9 +86,7 @@ console.log('\n── 3. 새는 곳이 없는가');
     else {
       const code = fb.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
       const whole = (code.match(/ref\(db, *'licenses'\)/g) || []).length;
-      const owner = s => { const i = code.indexOf(s); return i < 0 ? '' : code.slice(i, code.indexOf('\n    },', i)); };
-      const inAdmin = (owner('async listLicenses(').match(/ref\(db, *'licenses'\)/g) || []).length + (owner('async getAdminStats(').match(/ref\(db, *'licenses'\)/g) || []).length;
-      chk(whole === 2 && inAdmin === 2, '  ↳ 모음을 읽는 곳은 관리자 통로 둘(listLicenses · getAdminStats)뿐이다 (' + whole + '곳)');
+      chk(whole === 0, '  ↳ 앱은 모음을 읽지 않는다 — 키 목록 · 통계는 웹 관리자만 (' + whole + '곳)');
     }
   }
   chk(isAdmin(r('metrics')) && /auth != null/.test(r('metrics')) && !JSON.stringify(Object.assign({}, at('metrics') || {}, { improvements: undefined })).includes('.write'),
@@ -115,8 +113,8 @@ console.log('\n── 4. 앱이 거부를 조용히 넘기지 않는가');
   const src = fs.readFileSync('app.js', 'utf8');
   chk(/function _saveFailMsg/.test(src), '권한 거부와 네트워크 오류를 가르는 헬퍼가 있다');
   chk(/permission\[_-\]\?denied/i.test(src), 'PERMISSION_DENIED 를 알아본다');
-  chk((src.match(/_saveFailMsg\(/g) || []).length >= 5,
-      '관리자 저장 자리들이 그 헬퍼를 쓴다 (' + (src.match(/_saveFailMsg\(/g) || []).length + '곳)');
+  chk((src.match(/_saveFailMsg\(/g) || []).length >= 2,
+      '저장 자리가 그 헬퍼를 쓴다 (' + (src.match(/_saveFailMsg\(/g) || []).length + '곳)');
 }
 
 console.log('\n── 5. 관리자 모드 진입 — 화면과 실제 권한이 어긋나지 않는가');
