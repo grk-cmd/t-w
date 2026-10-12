@@ -22,6 +22,8 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'invite.grant': '초대권 지급',
   'invite.grantSelected': '초대권 선택 지급',
   'invite.grantAll': '초대권 전체 지급',
+  'invite.revokeSelected': '초대권 선택 회수',
+  'invite.revokeAll': '초대권 전체 회수',
   'invite.codes': '초대 코드 만들기',
   'report.takeDown': '그림 내리기',
   'report.dismiss': '신고 문제없음',

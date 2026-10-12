@@ -913,7 +913,7 @@
         "$id": {
           ".read": true,
           ".write": "(auth != null && !data.exists() && newData.child('authUid').val() === auth.uid && root.child('userAuth/'+newData.child('code').val()).val() === auth.uid && newData.child('status').val() === 'new' && !newData.child('notice').exists() && !newData.child('nts').exists() && !newData.child('lastReplyTs').exists() && !newData.child('likeN').exists() && !newData.child('ansN').exists() && !newData.child('no').exists() && newData.child('ts').val() === now && newData.child('openTs').val() === now) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
-          ".validate": "newData.hasChildren(['vis','status','cat','name','authUid','code','ts']) && newData.child('vis').isString() && newData.child('vis').val().matches(/^(pub|prv)$/) && newData.child('status').isString() && newData.child('status').val().matches(/^(new|checking|fixed|norepro)$/) && newData.child('cat').isString() && newData.child('cat').val().matches(/^(bug|ui|room|chat|myhome|etc)$/) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('authUid').isString() && newData.child('authUid').val().length <= 128 && newData.child('code').isString() && newData.child('code').val().length <= 40 && newData.child('ts').isNumber() && (!newData.child('notice').exists() || (newData.child('notice').val() === true && newData.child('vis').val() === 'pub')) && (!newData.child('lastReplyTs').exists() || (newData.child('lastReplyTs').isNumber())) && (!newData.child('openTs').exists() || (newData.child('openTs').isNumber())) && (!newData.child('nts').exists() || (newData.child('nts').isNumber())) && (!newData.child('ansN').exists() || (newData.child('ansN').isNumber() && newData.child('ansN').val() >= 0)) && (!newData.child('title').exists() || (newData.child('title').isString() && newData.child('title').val().length >= 1 && newData.child('title').val().length <= 60)) && (!newData.child('no').exists() || (newData.child('no').isString() && newData.child('no').val().matches(/^B-[0-9]{4}-[0-9]{1,4}$/)))",
+          ".validate": "newData.hasChildren(['vis','status','cat','name','authUid','code','ts']) && newData.child('vis').isString() && newData.child('vis').val().matches(/^(pub|prv)$/) && newData.child('status').isString() && newData.child('status').val().matches(/^(new|checking|fixed|norepro|unfixed)$/) && newData.child('cat').isString() && newData.child('cat').val().matches(/^(bug|ui|room|chat|myhome|etc)$/) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('authUid').isString() && newData.child('authUid').val().length <= 128 && newData.child('code').isString() && newData.child('code').val().length <= 40 && newData.child('ts').isNumber() && (!newData.child('notice').exists() || (newData.child('notice').val() === true && newData.child('vis').val() === 'pub')) && (!newData.child('lastReplyTs').exists() || (newData.child('lastReplyTs').isNumber())) && (!newData.child('openTs').exists() || (newData.child('openTs').isNumber())) && (!newData.child('nts').exists() || (newData.child('nts').isNumber())) && (!newData.child('ansN').exists() || (newData.child('ansN').isNumber() && newData.child('ansN').val() >= 0)) && (!newData.child('title').exists() || (newData.child('title').isString() && newData.child('title').val().length >= 1 && newData.child('title').val().length <= 60)) && (!newData.child('no').exists() || (newData.child('no').isString() && newData.child('no').val().matches(/^B-[0-9]{4}-[0-9]{1,4}$/)))",
           "likeN": {
             ".write": "auth != null && newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1 && root.child('bugBoard/list/'+$id+'/vis').val() === 'pub' && !root.child('bugBoard/likes/'+$id+'/'+auth.uid).exists() && newData.parent().parent().parent().child('likes/'+$id+'/'+auth.uid).val() === true",
             ".validate": "newData.isNumber() && newData.val() >= 0"
@@ -925,6 +925,7 @@
             ".validate": "true"
           },
           "status": {
+            ".write": "auth != null && data.parent().child('authUid').val() === auth.uid && !data.parent().child('notice').exists() && newData.parent().child('userReplyTs').val() === now && newData.isString() && newData.val().matches(/^(checking|unfixed|fixed)$/)",
             ".validate": "true"
           },
           "cat": {
@@ -946,6 +947,7 @@
             ".validate": "true"
           },
           "openTs": {
+            ".write": "auth != null && data.parent().child('authUid').val() === auth.uid && !data.parent().child('notice').exists() && newData.parent().child('userReplyTs').val() === now && ((newData.parent().child('status').val().matches(/^(new|checking|unfixed)$/) && newData.val() === data.parent().child('ts').val()) || (!newData.parent().child('status').val().matches(/^(new|checking|unfixed)$/) && !newData.exists()))",
             ".validate": "true"
           },
           "nts": {
@@ -953,6 +955,10 @@
           },
           "ansN": {
             ".validate": "true"
+          },
+          "userReplyTs": {
+            ".write": "auth != null && data.parent().child('authUid').val() === auth.uid && !data.parent().child('notice').exists() && newData.val() === now && (!data.exists() || now - data.val() >= 10000) && newData.parent().parent().parent().child('rep/'+data.parent().child('vis').val()+'/'+$id).exists()",
+            ".validate": "newData.isNumber()"
           },
           "title": {
             ".validate": "true"
@@ -1048,6 +1054,50 @@
                 ".validate": "true"
               },
               "kakao": {
+                ".validate": "true"
+              },
+              "$other": {
+                ".validate": "false"
+              }
+            }
+          }
+        }
+      },
+      "rep": {
+        "pub": {
+          "$id": {
+            ".read": true,
+            "$rid": {
+              ".write": "auth != null && !data.exists() && root.child('bugBoard/list/'+$id+'/authUid').val() === auth.uid && root.child('bugBoard/list/'+$id+'/vis').val() === 'pub' && !root.child('bugBoard/list/'+$id+'/notice').exists() && newData.child('ts').val() === now && newData.parent().parent().parent().parent().child('list/'+$id+'/userReplyTs').val() === now",
+              ".validate": "newData.hasChildren(['text','ts']) && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 1000 && newData.child('ts').isNumber() && (!newData.child('st').exists() || (newData.child('st').isString() && newData.child('st').val().matches(/^(checking|unfixed|fixed)$/)))",
+              "text": {
+                ".validate": "true"
+              },
+              "ts": {
+                ".validate": "true"
+              },
+              "st": {
+                ".validate": "true"
+              },
+              "$other": {
+                ".validate": "false"
+              }
+            }
+          }
+        },
+        "prv": {
+          "$id": {
+            ".read": "auth != null && (root.child('bugBoard/list/'+$id+'/authUid').val() === auth.uid || root.child('admins').child(auth.uid).val() === true)",
+            "$rid": {
+              ".write": "auth != null && !data.exists() && root.child('bugBoard/list/'+$id+'/authUid').val() === auth.uid && root.child('bugBoard/list/'+$id+'/vis').val() === 'prv' && !root.child('bugBoard/list/'+$id+'/notice').exists() && newData.child('ts').val() === now && newData.parent().parent().parent().parent().child('list/'+$id+'/userReplyTs').val() === now",
+              ".validate": "newData.hasChildren(['text','ts']) && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 1000 && newData.child('ts').isNumber() && (!newData.child('st').exists() || (newData.child('st').isString() && newData.child('st').val().matches(/^(checking|unfixed|fixed)$/)))",
+              "text": {
+                ".validate": "true"
+              },
+              "ts": {
+                ".validate": "true"
+              },
+              "st": {
                 ".validate": "true"
               },
               "$other": {

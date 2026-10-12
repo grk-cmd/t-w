@@ -137,17 +137,18 @@ export interface BugPost {
   answers: BugAnswer[];
 }
 
-/** 상세 — 목록 줄 · 내용 · 답변. 공개 글이 아니면 공개 답변 칸은 읽지 않는다(있을 수 없다). */
+/** 상세 — 목록 줄 · 내용 · 답변 · 글쓴이 답글. 공개 글이 아니면 공개 답변 칸은, 답글을 단 적 없는 글은 답글 칸을 읽지 않는다. */
 export async function getBugPost(db: Db, id: string): Promise<BugPost | null> {
   const item = await getBugItem(db, id);
   if (!item) return null;
   const contentPath = item.vis === 'pub' ? `${BUG_ROOT}/pub/${id}` : `${BUG_ROOT}/prv/${item.authUid}/${id}`;
-  const [content, pub, prv] = await Promise.all([
+  const [content, pub, prv, rep] = await Promise.all([
     db.get<BugContent>(contentPath),
     item.vis === 'pub' ? db.get<unknown>(`${BUG_ROOT}/ans/pub/${id}`) : Promise.resolve(null),
     db.get<unknown>(`${BUG_ROOT}/ans/prv/${id}`),
+    item.userReplyTs ? db.get<unknown>(`${BUG_ROOT}/rep/${item.vis}/${id}`) : Promise.resolve(null),
   ]);
-  return { item, content, answers: toAnswers(pub, prv) };
+  return { item, content, answers: toAnswers(pub, prv, { vis: item.vis, all: rep }) };
 }
 
 export function useBugPost(id: string | null) {

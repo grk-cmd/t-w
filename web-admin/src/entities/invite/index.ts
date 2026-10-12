@@ -1,5 +1,6 @@
 export {
   addInvitesLeft,
+  clearInvitesLeft,
   createInviteCode,
   listIssuedInvites,
   useIssuedInvites,
@@ -12,6 +13,7 @@ export {
   useInvitesLeft,
   useSetInvitesLeftCache,
   type AddInvitesResult,
+  type ClearInvitesResult,
 } from './api/invite';
 export {
   addInvites,

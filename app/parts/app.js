@@ -8168,6 +8168,8 @@ let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMod
             toast(msg);
             console.warn('[포커싱어플] 등록 실패 —', res && res.reason, '| diag =', d, '| self =', res && res.self);
           }
+          // 🧭 셸 창(작업표시줄 · 바탕화면 · 파일 탐색기 · UWP 앱)을 건너뛰고 그 앞 창을 등록했으면 알린다 — 조용히 다른 앱이 등록되지 않게
+          else if(res.skipped) toast('«' + res.skipped + '» 대신 직전에 쓰던 «' + (res.app.name||'앱') + '» 을(를) 등록했어요 — 원하는 창이 아니면 우클릭으로 직접 골라 주세요', null, 6000);
           else{ toast((res.app.name||'앱')+' 등록됨'); }
           renderSlots();
         }
@@ -22395,17 +22397,33 @@ async function _inviteConfirmIssue(){
     // 📢 전체 유저 일괄 지급 — confirm() 대신 2단계 클릭(Electron 투명창 confirm 멈춤 방지)
     const grantAllBtn = document.getElementById('inviteGrantAll');
     if(grantAllBtn){
-      let _armed = false, _armT = null;
-      const disarm = ()=>{ _armed=false; grantAllBtn.textContent='전체 유저에게 지급'; if(_armT){clearTimeout(_armT);_armT=null;} };
+      // _armed: 첫 클릭으로 걸린 쪽 — 'grant'(좌클릭 지급) · 'revoke'(우클릭 전체 회수). 다른 쪽을 누르면 그쪽으로 새로 건다.
+      let _armed = null, _armT = null;
+      grantAllBtn.title = '우클릭 두 번: 전체 유저 초대권을 0장으로 회수';
+      const disarm = ()=>{ _armed=null; grantAllBtn.textContent='전체 유저에게 지급'; if(_armT){clearTimeout(_armT);_armT=null;} };
+      const arm = (mode, text)=>{ disarm(); _armed = mode; grantAllBtn.textContent = text; _armT = setTimeout(disarm, 4000); };   // 4초 내 재클릭 없으면 해제
       grantOv.addEventListener('mousedown', e=>{ if(e.target!==grantAllBtn && _armed) disarm(); });
+      const failMsg = (e, what)=>{
+        const msg = String((e && e.message) || e || '');
+        console.error('[invite] ' + what + ' 실패', e);
+        showMsg(/permission|denied/i.test(msg) ? '권한 거부 — DB 규칙을 확인해 주세요' : ('실패: ' + msg.slice(0,80)), true);
+      };
+      grantAllBtn.addEventListener('contextmenu', async e=>{
+        e.preventDefault();
+        if(!window.firebaseAPI || !firebaseAPI.revokeInvitesAll){ toast('네트워크 연결이 필요해요'); return; }
+        if(_armed !== 'revoke'){ arm('revoke', '⚠️ 정말 전체 초대권을 0장으로? (다시 우클릭)'); return; }
+        disarm();
+        grantAllBtn.disabled = true; showMsg('전체 회수 중… (유저 수에 따라 수십 초 걸릴 수 있어요)', false);
+        try{
+          const r = await firebaseAPI.revokeInvitesAll();
+          closeGrant();
+          toast(`🧹 전체 회수 완료 — ${r.revoked}명에게서 ${r.taken}장 (건너뜀 ${r.skipped}명${r.failed ? ` · 실패 ${r.failed}명` : ''})`);
+        }catch(e){ failMsg(e, '전체 회수'); }
+        grantAllBtn.disabled = false;
+      });
       grantAllBtn.addEventListener('click', async ()=>{
         if(!window.firebaseAPI || !firebaseAPI.grantInvitesAll){ toast('네트워크 연결이 필요해요'); return; }
-        if(!_armed){
-          _armed = true;
-          grantAllBtn.textContent = `⚠️ 정말 전체에게 ${_grantN}장씩? (다시 클릭)`;
-          _armT = setTimeout(disarm, 4000);   // 4초 내 재클릭 없으면 해제
-          return;
-        }
+        if(_armed !== 'grant'){ arm('grant', `⚠️ 정말 전체에게 ${_grantN}장씩? (다시 클릭)`); return; }
         disarm();
         grantAllBtn.disabled = true; showMsg('전체 지급 중… (유저 수에 따라 수십 초 걸릴 수 있어요)', false);
         try{
@@ -22415,11 +22433,8 @@ async function _inviteConfirmIssue(){
             toast(`📢 전체 지급 완료 — ${r.granted}명에게 ${_grantN}장씩 (제외 ${r.skipped}명)`);
           } else showMsg('전체 지급에 실패했어요', true);
         }catch(e){
-          // ★ 예전엔 무조건 "네트워크 오류"라 원인이 가려졌다(실제로는 DB 규칙 거부였음).
-          //   permission_denied 등 실제 사유를 그대로 보여준다.
-          const msg = String((e && e.message) || e || '');
-          console.error('[invite] 전체 지급 실패', e);
-          showMsg(/permission|denied/i.test(msg) ? '권한 거부 — DB 규칙을 확인해 주세요' : ('실패: ' + msg.slice(0,80)), true);
+          // ★ 예전엔 무조건 "네트워크 오류"라 원인이 가려졌다(실제로는 DB 규칙 거부였음) — 실제 사유를 그대로 보여준다.
+          failMsg(e, '전체 지급');
         }
         grantAllBtn.disabled = false;
       });

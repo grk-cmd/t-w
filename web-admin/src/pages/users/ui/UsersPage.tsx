@@ -5,6 +5,8 @@ import {
   CreateInviteCodesButton,
   GrantInvitesAllButton,
   GrantInvitesSelectedButton,
+  RevokeInvitesAllButton,
+  RevokeInvitesSelectedButton,
 } from '@/features/user/grant-invites';
 import {
   filterUsers,
@@ -83,6 +85,7 @@ export function UsersPage() {
         </span>
         <CreateInviteCodesButton />
         <GrantInvitesAllButton />
+        <RevokeInvitesAllButton />
         <DeleteAccountButton onDeleted={afterDelete} />
         <button type="button" className="btn" onClick={refresh}>
           새로고침
@@ -96,6 +99,7 @@ export function UsersPage() {
         <>
           <SelectionBar count={selection.selected.length} onClear={selection.clear}>
             <GrantInvitesSelectedButton uids={selection.selected} onDone={selection.clear} />
+            <RevokeInvitesSelectedButton uids={selection.selected} onDone={selection.clear} />
           </SelectionBar>
           <UserTable
             rows={paging.items}

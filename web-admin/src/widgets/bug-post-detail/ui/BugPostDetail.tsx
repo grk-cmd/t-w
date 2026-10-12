@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   BUG_CATS,
+  BUG_STATUS,
   bugNoLabel,
   BugNoText,
   isStaffPost,
@@ -79,12 +80,16 @@ function Body({ post, onClose }: { post: BugPost; onClose: () => void }) {
       </section>
 
       <section className={styles.section}>
-        <h3>답변 {answers.length}</h3>
+        <h3>답변 · 답글 {answers.length}</h3>
         {answers.length === 0 && <p className="soft">답변 없음</p>}
         {answers.map((a) => (
-          <div key={`${a.vis}-${a.id}`} className={styles.answer}>
+          <div
+            key={`${a.byAuthor ? 'rep' : 'ans'}-${a.vis}-${a.id}`}
+            className={a.byAuthor ? `${styles.answer} ${styles.authorAnswer}` : styles.answer}
+          >
             <small className="soft">
-              {a.vis === 'pub' ? '공개' : '🔒 비공개'} · {formatDate(a.ts)}
+              {a.byAuthor ? '✍ 글쓴이 답글' : a.vis === 'pub' ? '공개' : '🔒 비공개'} · {formatDate(a.ts)}
+              {a.st && <> · 상태 → {BUG_STATUS[a.st]}</>}
             </small>
             <p className={styles.text}>{a.text}</p>
             {a.kakao && (
