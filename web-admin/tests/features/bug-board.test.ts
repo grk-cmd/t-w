@@ -104,7 +104,7 @@ describe('제보 삭제', () => {
     ts: 100,
   } as const;
 
-  it('한 묶음 — 목록 · 비공개 내용 · 답변 · 공감 + 기록(대상은 번호만)', async () => {
+  it('한 묶음 — 목록 · 비공개 내용 · 답변 · 글쓴이 답글 · 공감 + 기록(대상은 번호만)', async () => {
     const { db, writes } = fakeDb();
     await deletePost(db, item, 'B-1009-1');
     expect(writes.every((w) => w[0] === 'commit')).toBe(true);
@@ -113,6 +113,8 @@ describe('제보 삭제', () => {
       ['commit', 'bugBoard/prv/uid1/p1', null],
       ['commit', 'bugBoard/ans/pub/p1', null],
       ['commit', 'bugBoard/ans/prv/p1', null],
+      ['commit', 'bugBoard/rep/pub/p1', null],
+      ['commit', 'bugBoard/rep/prv/p1', null],
       ['commit', 'bugBoard/likes/p1', null],
     ]);
     expect(writes.some((w) => w[1].startsWith('inbox/') || w[1].startsWith('bugBoard/seq'))).toBe(false);

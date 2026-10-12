@@ -81,6 +81,16 @@ describe('수정 쓰기 — 경로', () => {
     });
   });
 
+  it('공개 범위가 바뀌면 글쓴이 답글(rep)도 새 갈래로 — 운영자 답변 옮기기에는 끼지 않는다', () => {
+    const rep: BugAnswer = { id: 'q1', vis: 'pub', text: '아직요', ts: 30, byAuthor: true, st: 'unfixed' };
+    const w = editWrite(item, content, [pubAns, rep], input({ vis: 'prv' }));
+    expect(w['bugBoard/rep/prv/p1/q1']).toEqual({ text: '아직요', ts: 30, st: 'unfixed' });
+    expect(w['bugBoard/rep/pub/p1']).toBeNull();
+    expect(w).not.toHaveProperty(['bugBoard/ans/prv/p1/q1']);
+    const same = editWrite(item, content, [rep], input());
+    expect(Object.keys(same).some((p) => p.includes('/rep/'))).toBe(false);
+  });
+
   it('비공개 그대로: 목록 줄에도 제목을 둔다(공개로 보인다)', () => {
     const prvItem = { ...item, vis: 'prv' as const };
     const w = editWrite(prvItem, content, [], input({ vis: 'prv' }));

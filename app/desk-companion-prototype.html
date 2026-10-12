@@ -3255,6 +3255,7 @@
   .bb-chip.checking{background:var(--win-star);}
   .bb-chip.fixed{background:var(--win-accent);}
   .bb-chip.norepro{background:var(--win-lo);}
+  .bb-chip.unfixed{background:var(--win-error);}
   .bb-chip.notice{background:var(--win-error);}
   .bb-empty{padding:30px 8px;text-align:center;color:var(--ink-soft);}
   .bb-pager{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:6px;font-size:11px;flex-shrink:0;}
@@ -3274,6 +3275,10 @@
   .bb-ans-h{font-size:10.5px;font-weight:bold;margin-bottom:3px;}
   .bb-ans-h .bb-ans-v{font-weight:normal;color:var(--ink-soft);margin-left:6px;}
   .bb-ans.prv .bb-ans-v{color:var(--win-private);}
+  /* 글쓴이 답글 — 운영자 답변(파랑 · 보라)과 다른 청록. 상태를 바꿨으면 머리줄 끝에 «상태 → …» */
+  .bb-ans.mine{background:var(--win-face-2);border-left-color:var(--win-accent);}
+  .bb-ans-st{font-weight:normal;margin-left:6px;color:var(--ink-soft);}
+  .bb-ans-st b{color:var(--ink);}
   .bb-ans-t{white-space:pre-wrap;word-break:break-word;line-height:1.6;}
   .bb-kakao{margin-top:6px;}
   .bb-kakao button{font-family:var(--tw-font-legacy);font-size:11px;padding:4px 12px;cursor:pointer;color:#3a1d1d;
@@ -3284,6 +3289,11 @@
     width:100%;box-sizing:border-box;font-family:var(--tw-font-legacy);font-size:11.5px;padding:5px 7px;background:#fff;color:var(--ink);
     border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
   .bb-admin textarea{height:70px;resize:vertical;}
+  .bb-admin.mine{border-color:var(--win-accent);}
+  .bb-k{font-size:10.5px;color:var(--ink-soft);}
+  .bb-row2 .bb-rst{padding:3px 8px;}
+  .bb-row2 .bb-rst.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);background:var(--win-face-2);font-weight:bold;}
+  .bb-new.mine{background:var(--win-accent);}
   .bb-row2{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px;}
   .bb-row2 select{width:auto;}
   .bb-btn.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);background:var(--kakao);}
