@@ -165,13 +165,15 @@
       '<div class="bb-kk" id="bbAKk">💬 답변 아래에 오픈카톡 버튼이 붙어요 · 링크 <input id="bbAKakao" type="text" maxlength="300"><span class="bb-kk-x" data-act="kakaoX" title="취소">✕</span></div>' +
       '<div class="bb-err" id="bbAErr"></div><div class="bb-hint">등록하면 글쓴이 우편함에 알림이 가요.</div></div>';
   }
-  /* 글쓴이 답글 칸 — 상태 버튼 «그대로» 가 기본(상태를 안 바꾼다). 고른 버튼은 눌린 모양(.on). */
+  /* 글쓴이 답글 칸 — 상태는 늘 하나를 고른다(기본 «해결 안 됨» — 답글을 다는 건 대개 아직 안 고쳐져서다).
+     «그대로» 버튼은 해결 안 됨과 같은 뜻으로 읽혀 뺐다. 고른 버튼은 눌린 모양(.on). */
+  const AUTHOR_DEFAULT_ST = 'unfixed';
   function authorForm(it){
-    const sts = [['', '그대로']].concat(C().authorStatus || []);
+    const sts = C().authorStatus || [];
     return '<div class="bb-admin mine"><div class="bb-ans-h">✍ 답글 달기 (글쓴이)</div>' +
       '<textarea id="bbRText" maxlength="' + (C().ansMax || 1000) + '" placeholder="업데이트 후에도 그런지, 더 알려 줄 내용"></textarea>' +
       '<div class="bb-row2"><span class="bb-k">상태</span>' +
-      sts.map(s => '<button class="bb-btn bb-rst' + (s[0] ? '' : ' on') + '" type="button" data-act="rst" data-st="' + s[0] + '">' + esc(s[1]) + '</button>').join('') +
+      sts.map(s => '<button class="bb-btn bb-rst' + (s[0] === AUTHOR_DEFAULT_ST ? ' on' : '') + '" type="button" data-act="rst" data-st="' + s[0] + '">' + esc(s[1]) + '</button>').join('') +
       '</div><div class="bb-row2">' +
       (it.vis === 'prv' ? '<span class="bb-hint">비공개 글이라 답글도 글쓴이 · 관리자만 봐요.</span>' : '<span class="bb-hint">공개 글이라 답글도 모두에게 보여요.</span>') +
       '<span class="bb-sp"></span><button class="bb-btn" type="button" data-act="reply">답글 등록</button></div>' +
