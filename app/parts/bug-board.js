@@ -19,8 +19,8 @@
  *   규칙이 userAuth/{code} === auth.uid 를 본다.
  */
 
-export const BUG_PAGE = 8;          // 전체 · 미해결 한 쪽
-export const BUG_MINE_MAX = 20;     // 내 글(쪽을 못 넘긴다 — 새 답변 배지도 이 안에서 센다)
+export const BUG_PAGE = 8;          // 한 쪽(전체 · 미해결 · 내 글 모두)
+export const BUG_MINE_MAX = 20;     // 내 글을 한 번에 받는 수(서버에서 쪽을 못 넘긴다 — 화면이 BUG_PAGE 씩 나눈다 · 새 답변 배지도 이 안에서 센다)
 export const BUG_ANON = '익명';     // 비공개 글 목록 줄의 이름 — 옛 앱(실명)과 함께 쓰는 동안 규칙은 이 값을 요구하지 않는다(sim-bug-board 주석)
 export const BUG_DAILY_MAX = 5;
 export const BUG_TITLE_MAX = 60, BUG_BODY_MAX = 2000, BUG_ENV_MAX = 120, BUG_ANS_MAX = 1000;

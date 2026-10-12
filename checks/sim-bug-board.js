@@ -106,7 +106,9 @@ chk(!M.answerNoticeBody('prv', '비밀 제목', false).includes('비밀 제목')
   chk(M.pageOf('open', open).next === 2000, '⑦ 미해결: 꽉 차면 커서 = 가장 작은 openTs');
   const mixed = open.slice(0, M.BUG_PAGE - 3).concat(Array.from({ length: 5 }, (_, i) => ({ id: 'z' + i, ts: 1 + i })));
   chk(M.pageOf('open', mixed).next === null && M.pageOf('open', mixed).items.length === M.BUG_PAGE - 3, '⑦ 미해결: openTs 없는 글이 딸려 와도 끝으로 본다');
-  chk(M.pageOf('mine', raw).next === null, '⑦ 내 글은 쪽을 넘기지 않는다');
+  chk(M.pageOf('mine', raw).next === null, '⑦ 내 글은 서버에서 쪽을 넘기지 않는다');
+  chk(/mineCache\.slice\(from, from \+ n\)/.test(UI) && /const n = C\(\)\.page/.test(UI) && !/filter === 'mine' \? 'none'/.test(UI),
+    '⑦ 내 글은 한 번에 받아 화면에서 한 쪽(BUG_PAGE)씩 나눈다 — [이전]/[다음] 을 숨기지 않는다');
   chk(/더 이전 제보가 없어요/.test(UI) && /emptyText\(filter, page\)/.test(UI), '⑦ 딱 한 쪽의 배수라 빈 2쪽이 나오면 «더 이전 제보가 없어요»');
 }
 chk(M.answerNoticeBody('pub', '공개 제목', true).startsWith('공개 제목') && M.answerNoticeBody('pub', '공개 제목', true).includes('오픈카톡'),
