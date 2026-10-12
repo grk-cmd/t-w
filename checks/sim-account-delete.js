@@ -295,6 +295,10 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     let csp = '';
     try{ csp = (JSON.parse(FB).hosting.headers.find((h) => h.source === '/admin/**').headers.find((h) => h.key === 'Content-Security-Policy') || {}).value || ''; }catch(_){}
     chk(/connect-src[^;]*https:\/\/\*\.cloudfunctions\.net/.test(csp), '웹 관리자 CSP connect-src 에 호출형 함수 주소(*.cloudfunctions.net)');
+    /* 관리자 API(읽기 DB) — 웹 관리자가 부르는 주소(shared/api PROD_API_BASE_URL)가 CSP 에 없으면 브라우저가 막아 늘 RTDB 통째 읽기로 폴백한다(2026-10-13 실제로 그랬다). */
+    const apiBase = 'https://api.togetherworking.duckdns.org';   // web-admin/src/shared/api/api.ts PROD_API_BASE_URL 와 같아야 한다
+    chk(!!apiBase && new RegExp('connect-src[^;]*' + apiBase.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&') + '(\\s|;|$)').test(csp),
+        '웹 관리자 CSP connect-src 에 관리자 API 주소(' + (apiBase || '?') + ') — 없으면 API 대신 늘 폴백');
   }
 
   say(`\n${pass} · ${fail}`);
