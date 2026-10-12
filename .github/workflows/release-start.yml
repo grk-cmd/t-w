@@ -19,7 +19,7 @@ on:
         options: [patch, minor, beta]
         default: patch
       publish:
-        description: '공개 방식 — 자동 공개: 검사를 모두 통과하면 바로 공개 · 초안으로 대기: 초안까지 올리고 GitHub Releases 에서 사람이 Publish'
+        description: '공개 방식 — 자동 공개: 검사를 모두 통과하면 바로 공개 · 초안으로 대기: 초안까지 올리고 공개는 Actions › release-publish 버튼으로'
         type: choice
         options: [자동 공개, 초안으로 대기]
         default: 자동 공개

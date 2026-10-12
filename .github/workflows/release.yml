@@ -330,13 +330,15 @@ jobs:
           else
             HOW="Publish release 를 누르기 전에 «Set as the latest release» 가 체크돼 있는지 본다 — Latest 여야 사용자 앱이 업데이트를 받는다."
           fi
+          # 손으로 누르기보다 release-publish 버튼 — 초안만 골라 공개하고 업데이트 정보(yml)까지 확인한다.
           echo "초안 대기 — GitHub Releases 에서 Publish 를 누르면 공개: $URL"
           {
-            echo "### 📝 $TAG 초안 대기 — GitHub Releases 에서 Publish 를 누르면 공개"
+            echo "### 📝 $TAG 초안 대기 — Actions › **release-publish** › Run workflow 로 공개"
             echo "설치 파일 검사는 모두 통과했다. 파일(latest.yml 포함)은 이미 다 올라가 있다."
             echo ""
-            echo "- 초안: $URL"
-            echo "- $HOW"
+            echo "- 공개: Actions › release-publish › Run workflow (버전 칸은 비워도 된다 — 가장 최근 초안)"
+            echo "- 손으로 공개하려면 이 초안 주소에서: $URL"
+            echo "  - $HOW"
           } >> "$GITHUB_STEP_SUMMARY"
       - name: 공개 (Publish)
         if: env.PUBLISH != 'draft'

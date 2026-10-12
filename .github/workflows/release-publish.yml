@@ -1,0 +1,106 @@
+# ═══ 📢 release-publish — «초안으로 대기» 로 올린 릴리스를 Actions 버튼 하나로 공개 ═══════════════════
+# release.yml 이 «초안으로 대기» 로 끝나면 파일 5개(latest.yml 포함)는 이미 초안에 올라가 있다. 이 버튼은 그 초안만 골라
+# 공개하고(정식은 Latest · 베타는 Pre-release), 사용자 앱이 보는 업데이트 정보(yml)가 실제로 받아지는지까지 본다.
+# ★ Releases 화면에서 손으로 누르지 않는 이유 — `releases/edit/<태그>` 같은 주소는 초안을 못 찾아 «이 태그로 새 릴리스»
+#   화면을 띄운다. 거기서 Publish 하면 파일 없는 릴리스가 Latest 가 되어 자동 업데이트가 깨진다(0.11.3 때 실제로 일어남).
+# ★ 같은 태그에 공개된 릴리스가 이미 있거나, 초안이 없거나 둘이거나, 파일이 5개가 아니면 아무것도 바꾸지 않고 멈춘다.
+
+name: release-publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '공개할 버전 (예 0.11.4) — 비우면 가장 최근 초안'
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: write   # 초안 → 공개
+
+concurrency:
+  group: release-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: 초안 공개 → 업데이트 정보 확인
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      WANT: ${{ github.event.inputs.version }}
+    steps:
+      - name: 공개할 초안 고르기
+        id: pick
+        run: |
+          # 초안은 태그로 조회되지 않는다(releases/tags/<태그> 는 공개본만) — 목록에서 고른다.
+          gh api "repos/$REPO/releases?per_page=30" > rel.json
+          WANT="${WANT#v}"
+          if [ -n "$WANT" ]; then
+            TAG="v$WANT"
+          else
+            TAG=$(jq -r '[.[] | select(.draft)] | sort_by(.created_at) | last | .tag_name // empty' rel.json)
+            [ -n "$TAG" ] || { echo "::error::초안 릴리스가 없다 — release-start 를 «초안으로 대기» 로 돌렸는지 확인"; exit 1; }
+          fi
+          echo "공개할 태그: $TAG"
+          PUB=$(jq --arg t "$TAG" '[.[] | select(.tag_name == $t and (.draft | not))] | length' rel.json)
+          [ "$PUB" -eq 0 ] || { echo "::error::$TAG 에 이미 공개된 릴리스가 있다 — 파일 없는 릴리스면 먼저 지울 것"; exit 1; }
+          N=$(jq --arg t "$TAG" '[.[] | select(.tag_name == $t and .draft)] | length' rel.json)
+          [ "$N" -eq 1 ] || { echo "::error::$TAG 초안이 $N 개다 (1개여야 한다)"; exit 1; }
+          jq -r --arg t "$TAG" '.[] | select(.tag_name == $t and .draft) | "\(.id) \(.prerelease) \(.name)"' rel.json > pick.txt
+          read -r ID PRE NAME < pick.txt
+          VERSION="${TAG#v}"
+          # release.yml 이 올린 다섯 파일이 그대로 있는가 — 업데이트 정보 파일은 정식 latest.yml · 베타 beta.yml 등
+          jq -r --arg t "$TAG" '.[] | select(.tag_name == $t and .draft) | .assets[].name' rel.json | sort > assets.txt
+          cat assets.txt
+          [ "$(wc -l < assets.txt)" -eq 5 ] || { echo "::error::$TAG 초안 파일이 5개가 아니다"; exit 1; }
+          for pat in "-Setup-$VERSION.exe" "-Setup-$VERSION.exe.blockmap" "-$VERSION-arm64.dmg" "-$VERSION-x64.dmg"; do
+            grep -qF -- "$pat" assets.txt || { echo "::error::*$pat 가 없다"; exit 1; }
+          done
+          YML=$(grep -E '^(latest|beta|alpha|rc)\.yml$' assets.txt | head -n 1)
+          [ -n "$YML" ] || { echo "::error::업데이트 정보 파일(yml)이 없다"; exit 1; }
+          echo "초안 «${NAME}» (id ${ID} · 프리릴리스 ${PRE} · ${YML})"
+          { echo "id=$ID"; echo "pre=$PRE"; echo "tag=$TAG"; echo "version=$VERSION"; echo "yml=$YML"; } >> "$GITHUB_OUTPUT"
+
+      - name: 공개 (Publish)
+        env:
+          ID: ${{ steps.pick.outputs.id }}
+          PRE: ${{ steps.pick.outputs.pre }}
+        run: |
+          # 태그가 아니라 id 로 고친다 — 같은 태그의 다른 릴리스를 건드리지 않게.
+          if [ "$PRE" = "true" ]; then
+            gh api -X PATCH "repos/$REPO/releases/$ID" -F draft=false -f make_latest=false --jq '"공개됨 · \(.name) · 프리릴리스 \(.prerelease) · \(.html_url)"'
+          else
+            gh api -X PATCH "repos/$REPO/releases/$ID" -F draft=false -f make_latest=true --jq '"공개됨 · \(.name) · Latest · \(.html_url)"'
+          fi
+
+      - name: 사용자 앱이 보는 업데이트 정보가 받아지는가
+        env:
+          TAG: ${{ steps.pick.outputs.tag }}
+          VERSION: ${{ steps.pick.outputs.version }}
+          YML: ${{ steps.pick.outputs.yml }}
+          PRE: ${{ steps.pick.outputs.pre }}
+        run: |
+          # 정식은 앱이 «최신 릴리스» 주소로 latest.yml 을 받는다 — 그 주소가 이 버전을 가리켜야 한다.
+          if [ "$PRE" = "true" ]; then
+            URL="https://github.com/$REPO/releases/download/$TAG/$YML"
+          else
+            URL="https://github.com/$REPO/releases/latest/download/$YML"
+          fi
+          for i in 1 2 3 4 5 6; do
+            if curl -fsSL "$URL" -o got.yml && grep -q "^version: $VERSION$" got.yml; then
+              echo "확인: $URL → version $VERSION"
+              {
+                echo "### 📢 $TAG 공개됨"
+                echo "- 업데이트 정보: \`$URL\` → version $VERSION"
+                [ "$PRE" = "true" ] && echo "- Pre-release — 일반 사용자 앱은 받지 않는다" || echo "- Latest — 사용자 앱이 업데이트를 받기 시작한다"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$URL 이 version $VERSION 을 주지 않는다 — Releases 에서 Latest 가 무엇인지 확인"
+          cat got.yml 2>/dev/null || true
+          exit 1
