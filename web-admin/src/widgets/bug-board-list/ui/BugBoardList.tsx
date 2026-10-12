@@ -4,6 +4,7 @@ import {
   BUG_CATS,
   BUG_FILTERS,
   BugNoText,
+  commentSummary,
   hasAuthorReply,
   isStaffPost,
   StatusChip,
@@ -24,6 +25,18 @@ function Title({ item }: { item: BugItem }) {
   if (prv.isLoading) return <span className="soft">…</span>;
   if (prv.error) return <span className="soft">읽지 못함</span>;
   return <>{prv.data || <span className="soft">(제목 없음)</span>}</>;
+}
+
+function Comments({ item }: { item: BugItem }) {
+  const { answers, authorReplied } = commentSummary(item);
+  if (!answers && !authorReplied) return <span className="soft">없음</span>;
+  return (
+    <span className={styles.comments}>
+      {answers > 0 && <span title={`운영자 답변 ${answers}개`}>💬 {answers}</span>}
+      {answers > 0 && authorReplied && ' · '}
+      {authorReplied && <span title="글쓴이 답글이 있어요">✍</span>}
+    </span>
+  );
 }
 
 function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: string) => void }) {
@@ -62,7 +75,9 @@ function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: 
         <small className="soft key">{item.code}</small>
       </td>
       <td>{formatDate(item.ts)}</td>
-      <td className={styles.num}>{item.ansN ?? 0}</td>
+      <td className={styles.num}>
+        <Comments item={item} />
+      </td>
     </tr>
   );
 }
@@ -131,7 +146,7 @@ export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
                 <th>제목</th>
                 <th>작성자</th>
                 <th>작성</th>
-                <th>답변</th>
+                <th>댓글</th>
               </tr>
             </thead>
             <tbody>

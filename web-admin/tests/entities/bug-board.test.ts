@@ -16,6 +16,7 @@ import {
   deleteWrite,
   getBugPost,
   getDayOrder,
+  commentSummary,
   hasAuthorReply,
   isOpen,
   listBugPage,
@@ -269,6 +270,17 @@ describe('글쓴이 답글 · 해결 안 됨', () => {
     expect(hasAuthorReply(item({ userReplyTs: 20 }))).toBe(true);
     expect(hasAuthorReply(item({ userReplyTs: 10, lastReplyTs: 20 }))).toBe(false);
     expect(hasAuthorReply(item())).toBe(false);
+  });
+
+  it('목록 «댓글» 칸 — 운영자 답변 수 · 글쓴이 답글 여부(운영자가 그 뒤에 답해도 남는다)', () => {
+    expect(commentSummary(item())).toEqual({ answers: 0, authorReplied: false });
+    expect(commentSummary(item({ ansN: 2 }))).toEqual({ answers: 2, authorReplied: false });
+    expect(commentSummary(item({ ansN: 2, userReplyTs: 10, lastReplyTs: 20 }))).toEqual({
+      answers: 2,
+      authorReplied: true,
+    });
+    expect(commentSummary(item({ userReplyTs: 10 }))).toEqual({ answers: 0, authorReplied: true });
+    expect(commentSummary(item({ ansN: -1 })).answers).toBe(0);
     expect(toBugItem('p1', row(DAY, { userReplyTs: 5 }))?.userReplyTs).toBe(5);
   });
 
