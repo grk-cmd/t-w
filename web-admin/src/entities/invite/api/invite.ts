@@ -40,6 +40,24 @@ export async function addInvitesLeft(db: Db, uid: string, count: number): Promis
   return { ok: true, before: seen.before, after: r.value };
 }
 
+export type ClearInvitesResult = { ok: true; before: number } | { ok: false; reason: 'no-invite' | 'empty' };
+
+/**
+ * 남은 초대권을 0 장으로. 1장 이상일 때만 쓴다 — 마이너스(앱이 회수로 깎아 둔 빚)는 0 으로 올리면 빚이 지워지므로 그대로 둔다.
+ * 트랜잭션이라 그 사이 본인이 초대장을 써도 그 값을 보고 다시 판단한다.
+ */
+export async function clearInvitesLeft(db: Db, uid: string): Promise<ClearInvitesResult> {
+  const seen: { before: number | null } = { before: null };
+  const r = await db.transaction<unknown>(`users/${uid}/invite/invitesLeft`, (current) => {
+    seen.before = typeof current === 'number' ? current : null;
+    if (seen.before === null || seen.before <= 0) return undefined;
+    return 0;
+  });
+  if (seen.before === null) return { ok: false, reason: 'no-invite' };
+  if (!r.committed) return { ok: false, reason: 'empty' };
+  return { ok: true, before: seen.before };
+}
+
 /** 한 사람 몫 한 칸 — 지급 창을 열 때만 읽는다. */
 export function useInvitesLeft(uid: string, enabled: boolean) {
   const db = useDb();

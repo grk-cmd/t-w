@@ -18,6 +18,8 @@ export const AUDIT_ACTIONS = [
   'invite.grant',
   'invite.grantSelected',
   'invite.grantAll',
+  'invite.revokeSelected',
+  'invite.revokeAll',
   'invite.codes',
   'report.takeDown',
   'report.dismiss',

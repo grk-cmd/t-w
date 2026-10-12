@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { grantInvites, grantInvitesAll, uniqueUserIds } from '@/features/user/grant-invites';
+import {
+  grantInvites,
+  grantInvitesAll,
+  revokeInvitesAll,
+  uniqueUserIds,
+} from '@/features/user/grant-invites';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
 const left = (uid: string) => `users/${uid}/invite/invitesLeft`;
@@ -100,5 +105,43 @@ describe('초대권 지급 — 선택', () => {
       ['transaction', left('a'), 4],
       ['transaction', left('c'), 4],
     ]);
+  });
+});
+
+describe('초대권 회수 — 0장으로', () => {
+  it('1장 이상만 0으로 · 0장 · 마이너스 · 칸 없음은 건너뛰고 거둔 장수를 센다', async () => {
+    const { db, writes } = fakeDb({ [left('a')]: 3, [left('b')]: 0, [left('c')]: -2, [left('e')]: 999 });
+    const r = await revokeInvitesAll(db, ['a', 'b', 'c', 'd', 'e']);
+    expect(r).toEqual({ total: 5, revoked: 2, taken: 1002, skipped: 3, failed: 0, stopped: false });
+    expect(withoutAudits(writes)).toEqual([
+      ['transaction', left('a'), 0],
+      ['transaction', left('e'), 0],
+    ]);
+  });
+
+  it('그 사이 본인이 다 써서 0이 됐으면 쓰지 않고 건너뜀으로 센다', async () => {
+    const { db, writes } = fakeDb({ [left('a')]: 1 });
+    const tx = db.transaction;
+    db.transaction = async <T>(path: string, change: (c: T | null) => T | undefined) => {
+      change(1 as T);
+      return tx<T>(path, (c) => change((c === null ? null : 0) as T | null));
+    };
+    const r = await revokeInvitesAll(db, ['a']);
+    expect(r).toMatchObject({ revoked: 0, skipped: 1 });
+    expect(withoutAudits(writes)).toEqual([]);
+  });
+
+  it('실패를 따로 세고, 멈추면 다음 묶음부터 쓰지 않는다', async () => {
+    const uids = Array.from({ length: 45 }, (_, i) => `u${i}`);
+    const { db, writes } = fakeDb(Object.fromEntries(uids.map((u) => [left(u), 2])), (p) =>
+      p.startsWith('users/u0/'),
+    );
+    let stop = false;
+    const r = await revokeInvitesAll(db, uids, {
+      onProgress: (done) => (stop = done >= 20),
+      shouldStop: () => stop,
+    });
+    expect(r).toMatchObject({ revoked: 19, failed: 1, stopped: true });
+    expect(withoutAudits(writes)).toHaveLength(19);
   });
 });
