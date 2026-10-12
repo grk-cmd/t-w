@@ -103,6 +103,12 @@ export const isOpen = (st: BugStatus) => st === 'new' || st === 'checking' || st
 export const hasAuthorReply = (item: Pick<BugItem, 'userReplyTs' | 'lastReplyTs'>) =>
   (item.userReplyTs ?? 0) > (item.lastReplyTs ?? 0);
 
+/** 목록 «댓글» 칸 — 운영자 답변 수와 글쓴이 답글이 한 번이라도 있었는지(답글 수 칸은 없다). */
+export const commentSummary = (item: Pick<BugItem, 'ansN' | 'userReplyTs'>) => ({
+  answers: Math.max(0, item.ansN ?? 0),
+  authorReplied: (item.userReplyTs ?? 0) > 0,
+});
+
 const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
 

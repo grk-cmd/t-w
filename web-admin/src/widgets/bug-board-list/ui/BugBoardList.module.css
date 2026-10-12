@@ -55,6 +55,11 @@
   text-align: right;
 }
 
+.comments {
+  font-weight: bold;
+  white-space: nowrap;
+}
+
 .link {
   max-width: 100%;
   padding: 0;
