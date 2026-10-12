@@ -21,3 +21,9 @@
 .norepro {
   color: var(--soft);
 }
+
+/* 글쓴이가 «해결 안 됨» 으로 되돌린 글 — 접수와 같이 눈에 띄게 */
+.unfixed {
+  color: var(--danger);
+  font-weight: 600;
+}

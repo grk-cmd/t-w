@@ -16,6 +16,8 @@ import {
   deleteWrite,
   getBugPost,
   getDayOrder,
+  hasAuthorReply,
+  isOpen,
   listBugPage,
   shortNo,
   statusWrite,
@@ -90,12 +92,14 @@ describe('고정 번호', () => {
     expect(BUG_NO_RE.test('B-1009-1') && !BUG_NO_RE.test('B-1009-12345')).toBe(true);
   });
 
-  it('지우기 — 목록 · 내용(공개/비공개 자리) · 답변 둘 · 공감, 카운터는 건드리지 않는다', () => {
+  it('지우기 — 목록 · 내용(공개/비공개 자리) · 답변 둘 · 글쓴이 답글 둘 · 공감, 카운터는 건드리지 않는다', () => {
     expect(deleteWrite(item())).toEqual({
       'bugBoard/list/p1': null,
       'bugBoard/pub/p1': null,
       'bugBoard/ans/pub/p1': null,
       'bugBoard/ans/prv/p1': null,
+      'bugBoard/rep/pub/p1': null,
+      'bugBoard/rep/prv/p1': null,
       'bugBoard/likes/p1': null,
     });
     const prv = deleteWrite(item({ vis: 'prv' }));
@@ -247,5 +251,46 @@ describe('상세', () => {
     expect(post?.content).toEqual({ title: '비밀', body: '본문' });
     expect(post?.answers.map((a) => a.text)).toEqual(['하나', '둘']);
     expect(asked).not.toContain('bugBoard/ans/pub/p1');
+  });
+});
+
+describe('글쓴이 답글 · 해결 안 됨', () => {
+  it('«해결 안 됨» 은 미해결 — 상태만 바꾸면 openTs 를 되살린다', () => {
+    expect(isOpen('unfixed')).toBe(true);
+    expect(toBugItem('p1', row(DAY, { status: 'unfixed' }))?.status).toBe('unfixed');
+    expect(statusWrite(item({ status: 'fixed', openTs: undefined }), 'unfixed')).toEqual({
+      'bugBoard/list/p1/status': 'unfixed',
+      'bugBoard/list/p1/openTs': DAY + 1000,
+    });
+  });
+
+  it('글쓴이 답글 표시 — 운영자 마지막 답변보다 뒤일 때만', () => {
+    expect(hasAuthorReply(item({ userReplyTs: 20, lastReplyTs: 10 }))).toBe(true);
+    expect(hasAuthorReply(item({ userReplyTs: 20 }))).toBe(true);
+    expect(hasAuthorReply(item({ userReplyTs: 10, lastReplyTs: 20 }))).toBe(false);
+    expect(hasAuthorReply(item())).toBe(false);
+    expect(toBugItem('p1', row(DAY, { userReplyTs: 5 }))?.userReplyTs).toBe(5);
+  });
+
+  it('상세 — 답글을 단 글만 글의 공개 범위 갈래(rep)를 읽고, 운영자 답변과 시간순으로 섞는다', async () => {
+    const base = { ...row(DAY), vis: 'prv', userReplyTs: 30 };
+    const { db } = fakeDb({
+      'bugBoard/list/p1': base,
+      'bugBoard/prv/uid1/p1': { title: 't', body: 'b' },
+      'bugBoard/ans/prv/p1': { a1: { text: '운영자', ts: 10 } },
+      'bugBoard/rep/prv/p1': { r1: { text: '아직이요', ts: 30, st: 'unfixed' }, bad: { text: 1 } },
+      'bugBoard/rep/pub/p1': { x: { text: '읽으면 안 됨', ts: 20 } },
+    });
+    const post = await getBugPost(db, 'p1');
+    expect(post?.answers).toEqual([
+      { id: 'a1', vis: 'prv', text: '운영자', ts: 10 },
+      { id: 'r1', vis: 'prv', text: '아직이요', ts: 30, byAuthor: true, st: 'unfixed' },
+    ]);
+    const read: string[] = [];
+    const quiet = fakeDb({ 'bugBoard/list/p1': row(DAY) }).db;
+    const get = quiet.get;
+    quiet.get = (p) => (read.push(p), get(p));
+    await getBugPost(quiet, 'p1');
+    expect(read.some((p) => p.startsWith('bugBoard/rep/'))).toBe(false);
   });
 });

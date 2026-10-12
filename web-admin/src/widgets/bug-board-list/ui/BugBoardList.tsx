@@ -4,6 +4,7 @@ import {
   BUG_CATS,
   BUG_FILTERS,
   BugNoText,
+  hasAuthorReply,
   isStaffPost,
   StatusChip,
   useBugNo,
@@ -36,6 +37,11 @@ function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: 
       </td>
       <td>
         <StatusChip status={item.status} />
+        {hasAuthorReply(item) && (
+          <span className={styles.authorReply} title="운영자 답변 뒤에 글쓴이가 답글을 달았어요">
+            ✍ 글쓴이 답글
+          </span>
+        )}
         {todo && (
           <>
             {' '}

@@ -51,6 +51,7 @@ export {
   BUG_STATUSES,
   checkAnswer,
   dayOrder,
+  hasAuthorReply,
   isOpen,
   KAKAO_RE,
   shortNo,

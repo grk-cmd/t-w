@@ -6,7 +6,8 @@ import { kstDateKey } from '@/shared/lib';
  *   bugBoard/pub/{id}             공개 글 제목 · 본문
  *   bugBoard/prv/{authUid}/{id}   비공개 글 — 글쓴이 · 관리자만
  *   bugBoard/ans/{pub|prv}/{id}   운영자 답변
- * openTs = 미해결(new · checking)일 때만 ts, nts = 공지면 ts — 목록 쿼리가 이 칸으로 미해결 · 공지만 집는다.
+ *   bugBoard/rep/{pub|prv}/{id}   글쓴이 답글(글쓴이만 쓴다 · 글의 공개 범위 갈래에 둔다). userReplyTs = 마지막 글쓴이 답글 시각
+ * openTs = 미해결(new · checking · unfixed)일 때만 ts, nts = 공지면 ts — 목록 쿼리가 이 칸으로 미해결 · 공지만 집는다.
  */
 
 export const BUG_ROOT = 'bugBoard';
@@ -22,7 +23,7 @@ export const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
 export const BUG_NO_RE = /^B-\d{4}-\d{1,4}$/;
 
 export type BugVis = 'pub' | 'prv';
-export type BugStatus = 'new' | 'checking' | 'fixed' | 'norepro';
+export type BugStatus = 'new' | 'checking' | 'fixed' | 'norepro' | 'unfixed';
 export type BugFilter = 'open' | 'all' | 'notice';
 
 export const BUG_STATUS: Record<BugStatus, string> = {
@@ -30,6 +31,8 @@ export const BUG_STATUS: Record<BugStatus, string> = {
   checking: '확인 중',
   fixed: '수정 완료',
   norepro: '재현 안 됨',
+  // 글쓴이가 답글로 «해결 안 됨» 을 고른 글 — 미해결에 낀다(앱 BUG_STATUS · 규칙 status 정규식과 짝)
+  unfixed: '해결 안 됨',
 };
 export const BUG_STATUSES = Object.keys(BUG_STATUS) as BugStatus[];
 
@@ -64,6 +67,8 @@ export interface BugItem {
   nts?: number;
   notice?: boolean;
   lastReplyTs?: number;
+  /** 글쓴이가 마지막으로 답글을 단 시각 — lastReplyTs(운영자 답변)보다 뒤면 «글쓴이 답글» 표시. */
+  userReplyTs?: number;
   ansN?: number;
   likeN?: number;
   /** 공개 글만 — 비공개 글 제목은 prv 에서 따로 읽는다. */
@@ -86,9 +91,17 @@ export interface BugAnswer {
   text: string;
   ts: number;
   kakao?: string;
+  /** 글쓴이 답글(rep) — 없으면 운영자 답변(ans). */
+  byAuthor?: boolean;
+  /** 글쓴이가 답글과 함께 고른 상태. */
+  st?: BugStatus;
 }
 
-export const isOpen = (st: BugStatus) => st === 'new' || st === 'checking';
+export const isOpen = (st: BugStatus) => st === 'new' || st === 'checking' || st === 'unfixed';
+
+/** 운영자의 마지막 답변 뒤에 글쓴이 답글이 있다 — 관리자가 볼 차례. */
+export const hasAuthorReply = (item: Pick<BugItem, 'userReplyTs' | 'lastReplyTs'>) =>
+  (item.userReplyTs ?? 0) > (item.lastReplyTs ?? 0);
 
 const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined);
 const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
@@ -113,6 +126,7 @@ export function toBugItem(id: string, v: unknown): BugItem | null {
     nts: num(r.nts),
     notice: r.notice === true,
     lastReplyTs: num(r.lastReplyTs),
+    userReplyTs: num(r.userReplyTs),
     ansN: num(r.ansN),
     likeN: num(r.likeN),
     title: str(r.title),
@@ -202,7 +216,7 @@ export function bugNo(item: Pick<BugItem, 'ts' | 'no'>, n: number | undefined): 
 export const bugNoLabel = (b: BugNo) => (b.temp ? `${b.no}(임시)` : b.no);
 
 /**
- * 글 지우기 — 목록 줄 · 내용 · 답변 · 공감을 한 묶음으로 null.
+ * 글 지우기 — 목록 줄 · 내용 · 답변 · 글쓴이 답글 · 공감을 한 묶음으로 null.
  * 그날 카운터(bugBoard/seq)는 건드리지 않는다 — 번호는 늘기만 해서 지운 글의 번호가 다시 쓰이지 않는다.
  * 글쓴이 우편함에 이미 간 답변 알림은 그대로 둔다(누르면 «글을 찾지 못했어요»).
  */
@@ -214,6 +228,8 @@ export function deleteWrite(item: Pick<BugItem, 'id' | 'vis' | 'authUid'>): Reco
     [content]: null,
     [`${BUG_ROOT}/ans/pub/${item.id}`]: null,
     [`${BUG_ROOT}/ans/prv/${item.id}`]: null,
+    [`${BUG_ROOT}/rep/pub/${item.id}`]: null,
+    [`${BUG_ROOT}/rep/prv/${item.id}`]: null,
     [`${BUG_ROOT}/likes/${item.id}`]: null,
   };
 }
@@ -293,9 +309,9 @@ export function answerId(): string {
   return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
-/** ans/{vis}/{id} 두 갈래를 합쳐 오래된 순으로. */
-export function toAnswers(pub: unknown, prv: unknown): BugAnswer[] {
-  const pick = (all: unknown, vis: BugVis): BugAnswer[] =>
+/** ans/{vis}/{id} 두 갈래와 글쓴이 답글(rep — 글의 공개 범위 갈래 하나)을 합쳐 오래된 순으로. */
+export function toAnswers(pub: unknown, prv: unknown, rep?: { vis: BugVis; all: unknown }): BugAnswer[] {
+  const pick = (all: unknown, vis: BugVis, byAuthor: boolean): BugAnswer[] =>
     Object.entries((all && typeof all === 'object' ? all : {}) as Record<string, unknown>)
       .map(([id, v]) => {
         const r = (v && typeof v === 'object' ? v : {}) as Record<string, unknown>;
@@ -305,11 +321,17 @@ export function toAnswers(pub: unknown, prv: unknown): BugAnswer[] {
           vis,
           text: r.text,
           ts: r.ts,
-          ...(typeof r.kakao === 'string' ? { kakao: r.kakao } : {}),
+          ...(typeof r.kakao === 'string' && !byAuthor ? { kakao: r.kakao } : {}),
+          ...(byAuthor ? { byAuthor: true } : {}),
+          ...(byAuthor && BUG_STATUSES.includes(r.st as BugStatus) ? { st: r.st as BugStatus } : {}),
         };
       })
       .filter((a): a is BugAnswer => !!a);
-  return [...pick(pub, 'pub'), ...pick(prv, 'prv')].sort((a, b) => a.ts - b.ts);
+  return [
+    ...pick(pub, 'pub', false),
+    ...pick(prv, 'prv', false),
+    ...(rep ? pick(rep.all, rep.vis, true) : []),
+  ].sort((a, b) => a.ts - b.ts);
 }
 
 /** 관리자 글 수정 — 바꿀 수 있는 칸만. env · 번호 · 시각 · 상태 · 공감 · 답변 수는 그대로 둔다. */
@@ -358,6 +380,7 @@ export function editChanges(
  *   공개 → 비공개: 공개 답변(ans/pub — 누구나 읽음)을 같은 id 로 ans/prv 에 옮긴다.
  *     앱은 비공개 글의 ans/pub 을 읽지 않아, 그대로 두면 답변이 안 보이면서 바깥에선 읽힌다.
  *   비공개 → 공개: 비공개 답변은 비공개로 남긴다(공개 글도 비공개 답변을 가질 수 있다).
+ *   글쓴이 답글(rep)은 공개 범위가 바뀌면 통째로 새 갈래로 옮긴다 — 앱은 글의 공개 범위 갈래만 읽고, 규칙도 그 갈래에만 쓰게 한다.
  */
 export function editWrite(
   item: Pick<BugItem, 'id' | 'vis' | 'authUid'>,
@@ -378,7 +401,7 @@ export function editWrite(
   };
   if (from !== to) updates[from] = null;
   if (item.vis === 'pub' && input.vis === 'prv') {
-    const pub = answers.filter((a) => a.vis === 'pub');
+    const pub = answers.filter((a) => a.vis === 'pub' && !a.byAuthor);
     for (const a of pub)
       updates[`${BUG_ROOT}/ans/prv/${item.id}/${a.id}`] = {
         text: a.text,
@@ -386,6 +409,16 @@ export function editWrite(
         ...(a.kakao ? { kakao: a.kakao } : {}),
       };
     if (pub.length) updates[`${BUG_ROOT}/ans/pub/${item.id}`] = null;
+  }
+  const replies = answers.filter((a) => a.byAuthor);
+  if (item.vis !== input.vis && replies.length) {
+    for (const r of replies)
+      updates[`${BUG_ROOT}/rep/${input.vis}/${item.id}/${r.id}`] = {
+        text: r.text,
+        ts: r.ts,
+        ...(r.st ? { st: r.st } : {}),
+      };
+    updates[`${BUG_ROOT}/rep/${item.vis}/${item.id}`] = null;
   }
   return updates;
 }

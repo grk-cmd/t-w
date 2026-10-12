@@ -4,6 +4,8 @@
      목록 줄에 제목이 없는 옛 비공개 글은 남에게 «🔒 비공개 제보예요», 이름은 옛 글도 «익명» 으로 보인다.
    ★ 답변 알림은 우편함 tag 'bug' + bugId. 우편함에서 누르면 window._bugBoardOpen(id) 로 이 글이 열린다.
    ★ 탭 배지 = 내 글 중 lastReplyTs > bugSeen[id] 개수. 글을 열면 bugSeen[id] = 지금.
+   ★ 글쓴이 답글 — 내 글 상세 맨 아래 칸. 답글과 함께 상태(확인 중 · 해결 안 됨 · 해결 완료)를 고를 수 있다.
+     관리자 목록에는 운영자 답변보다 늦은 글쓴이 답글이 있으면 «✍ 글쓴이 답글».
    ⚠️ app.js 뒤에 싣는다 — isAdmin · toast · escHtml · getMyUserId · getDisplayName 을 그대로 쓴다.
    ⚠️ 확인창·메뉴를 따로 띄우지 않는다(전부 탭 안 화면). alert/confirm 금지(audit 검사 4). */
 (function(){
@@ -57,7 +59,8 @@
     const isNew = mine && unseenIds.has(it.id);
     return '<div class="bb-row' + (it.notice ? ' notice' : '') + '" data-id="' + esc(it.id) + '">' + chip(it) +
       '<div class="bb-main"><div class="bb-title"><span class="bb-tag">' + tag + '</span><span class="bb-tt" data-tid="' + esc(it.id) + '">' + esc(title) + '</span>' +
-      (isNew ? '<span class="bb-new">새 답변</span>' : '') + '</div>' +
+      (isNew ? '<span class="bb-new">새 답변</span>' : '') +
+      ((admin() && C().hasAuthorReply && C().hasAuthorReply(it)) ? '<span class="bb-new mine">✍ 글쓴이 답글</span>' : '') + '</div>' +
       (it.notice ? '' : '<div class="bb-sub">' + esc(catName(it.cat)) + ' · 👍' + (it.likeN || 0) + ' · 답변 ' + (it.ansN || 0) + '</div>') +
       '</div><div class="bb-who">' + whoName(it) + '<br>' + fmtDate(it.ts) + '</div></div>';
   }
@@ -139,12 +142,19 @@
       h.push('<button class="bb-btn bb-like' + (d.liked ? ' on' : '') + '" type="button" data-act="like"' + (d.liked ? ' disabled' : '') + '>👍 나도 겪었어요 ' + (it.likeN || 0) + '</button>');
     }
     d.answers.forEach(a => {
+      if(a.byAuthor){
+        const stName = a.st && C().authorStatus ? (C().authorStatus.find(x => x[0] === a.st) || [])[1] : '';
+        h.push('<div class="bb-ans mine"><div class="bb-ans-h">✍ 글쓴이 답글<span class="bb-ans-v">' + fmtDate(a.ts, true) + '</span>' +
+          (stName ? '<span class="bb-ans-st">상태 → <b>' + esc(stName) + '</b></span>' : '') + '</div><div class="bb-ans-t">' + esc(a.text) + '</div></div>');
+        return;
+      }
       h.push('<div class="bb-ans' + (a.vis === 'prv' ? ' prv' : '') + '"><div class="bb-ans-h">🛡 운영자 답변<span class="bb-ans-v">' +
         (a.vis === 'prv' ? '🔒 비공개' : '공개') + ' · ' + fmtDate(a.ts, true) + '</span></div><div class="bb-ans-t">' + esc(a.text) + '</div>' +
         ((a.kakao && C().kakaoRe.test(a.kakao)) ? '<div class="bb-kakao"><button type="button" data-kakao="' + esc(a.kakao) + '">💬 오픈카톡으로 이야기하기</button><small>' + esc(a.kakao) + '</small></div>' : '') +
         '</div>');
     });
     if(admin()) h.push(adminForm(it));
+    else if(it.authUid === myUid() && !it.notice) h.push(authorForm(it));
     box.innerHTML = h.join('');
     box._post = { id, it, title };
   }
@@ -162,6 +172,33 @@
       (prvOnly ? '<div class="bb-hint">비공개 글이라 답변도 비공개로만 달려요.</div>' : '') +
       '<div class="bb-kk" id="bbAKk">💬 답변 아래에 오픈카톡 버튼이 붙어요 · 링크 <input id="bbAKakao" type="text" maxlength="300"><span class="bb-kk-x" data-act="kakaoX" title="취소">✕</span></div>' +
       '<div class="bb-err" id="bbAErr"></div><div class="bb-hint">등록하면 글쓴이 우편함에 알림이 가요.</div></div>';
+  }
+  /* 글쓴이 답글 칸 — 상태는 늘 하나를 고른다(기본 «해결 안 됨» — 답글을 다는 건 대개 아직 안 고쳐져서다).
+     «그대로» 버튼은 해결 안 됨과 같은 뜻으로 읽혀 뺐다. 고른 버튼은 눌린 모양(.on). */
+  const AUTHOR_DEFAULT_ST = 'unfixed';
+  function authorForm(it){
+    const sts = C().authorStatus || [];
+    return '<div class="bb-admin mine"><div class="bb-ans-h">✍ 답글 달기 (글쓴이)</div>' +
+      '<textarea id="bbRText" maxlength="' + (C().ansMax || 1000) + '" placeholder="업데이트 후에도 그런지, 더 알려 줄 내용"></textarea>' +
+      '<div class="bb-row2"><span class="bb-k">상태</span>' +
+      sts.map(s => '<button class="bb-btn bb-rst' + (s[0] === AUTHOR_DEFAULT_ST ? ' on' : '') + '" type="button" data-act="rst" data-st="' + s[0] + '">' + esc(s[1]) + '</button>').join('') +
+      '</div><div class="bb-row2">' +
+      (it.vis === 'prv' ? '<span class="bb-hint">비공개 글이라 답글도 글쓴이 · 관리자만 봐요.</span>' : '<span class="bb-hint">공개 글이라 답글도 모두에게 보여요.</span>') +
+      '<span class="bb-sp"></span><button class="bb-btn" type="button" data-act="reply">답글 등록</button></div>' +
+      '<div class="bb-err" id="bbRErr"></div></div>';
+  }
+  async function submitReply(btn){
+    const box = $('bbDetailView'), post = box._post; if(!post) return;
+    const err = $('bbRErr');
+    const on = box.querySelector('.bb-rst.on');
+    btn.disabled = true; err.textContent = '';
+    let r = null;
+    try{ r = await api().addReply(post.id, { text: $('bbRText').value, status: on ? on.dataset.st : '' }); }
+    catch(_){ r = { ok: false, reason: '등록하지 못했어요 — 네트워크를 확인해 주세요' }; }
+    btn.disabled = false;
+    if(!r || !r.ok){ err.textContent = (r && r.reason) || '등록하지 못했어요'; return; }
+    toast('답글을 등록했어요');
+    openPost(post.id);
   }
   async function submitAnswer(btn){
     const box = $('bbDetailView'), post = box._post; if(!post || !admin()) return;
@@ -309,6 +346,8 @@
       if(act === 'back'){ show('list'); loadList(); }
       else if(act === 'like') likePost(el);
       else if(act === 'answer') submitAnswer(el);
+      else if(act === 'reply') submitReply(el);
+      else if(act === 'rst'){ el.parentNode.querySelectorAll('.bb-rst').forEach(b => b.classList.toggle('on', b === el)); }
       else if(act === 'kakao'){
         const kk = $('bbAKk'), on = !kk.classList.contains('on');
         kk.classList.toggle('on', on); el.classList.toggle('on', on);
