@@ -386,6 +386,8 @@ PRELOAD.push('desktop-run.js');
 PRELOAD.push('room-entry.js');
 /* overhead.js — 💬 머리 위 말풍선 · 🏷️ 이름표(앱 FSD 34번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createOverhead 를 같이 굴린다. */
 PRELOAD.push('overhead.js');
+/* room-sync.js — 📦 방 def 전송 · poke · 자동 퇴장 · 감시견(앱 FSD 35번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomSync 를 같이 굴린다. */
+PRELOAD.push('room-sync.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
