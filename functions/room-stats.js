@@ -29,6 +29,12 @@
  *   비었음 표시 없이 조용해진 방(강제 종료 · 절전)은 건드리지 않는다 — 절전에서 깨어난, 혼자 있던 사람이 표지를 잃는다.
  *   옛 앱(0.11.x 이하)은 예전처럼 직접 지운다 — 그 방은 줄이 없어 여기 오지 않는다.
  *
+ * 🛰 방 서버 줄 — 방 서버(t-w-server realtime)도 자기 방(시크릿룸 제외)을 roomIndex/{코드} = { lastSeen, channel, srv } 로 올리고
+ * 30초마다 갱신한다. roomIndex 가 Firebase 방 + 서버 방의 단일 장부라 여기서 세는 값이 곧 전체 개수(채널 상한 250 기준)다.
+ * `srv` 가 있는 줄은 Firebase rooms/{코드} 에 사람이 없어도 정상이므로 빈 방 청소 · channel 채우기 · `_meta` 옮기기 대상이 아니다.
+ * 개수에는 넣고(stats.server 에 서버 몫을 따로도 적는다), 서버가 죽어 lastSeen 이 낡으면 일반 줄처럼 90초 뒤 개수에서 빠지고
+ * ROOM_INDEX_DROP_MS 뒤 줄만 지운다.
+ *
  * 📈 지난날 지표 요약(daily-summary.js) — 1분 주기 실행이 어제 요약이 없을 때 한 번 만든다. 새 예약 함수를 늘리지 않으려고 여기 붙였다.
  */
 'use strict';
@@ -51,6 +57,10 @@ function quietSince(e){
   const a = Number(e && e.lastSeen), b = Number(e && e.emptyAt);
   return Math.max(Number.isFinite(a) ? a : 0, Number.isFinite(b) ? b : 0);
 }
+// 방 서버가 올린 줄인가(맨 위 🛰) — srv 는 방 서버 이름.
+function isServerRow(e){
+  return !!(e && typeof e === 'object' && typeof e.srv === 'string' && e.srv);
+}
 // 비었음 표시가 그대로인가 — 표시 뒤에 하트비트가 찍혔으면(다시 들어옴) 아니다.
 function isEmptyMark(e){
   const at = Number(e && e.emptyAt);
@@ -58,20 +68,23 @@ function isEmptyMark(e){
 }
 
 function roomStatsFrom(idx, now){
-  const out = { [CHANNEL.WORKING]: 0, [CHANNEL.TOGETHER]: 0, at: now };
+  // server = 그중 방 서버 몫(이미 위 두 칸에 들어 있다 — 따로 더하지 않는다)
+  const out = { [CHANNEL.WORKING]: 0, [CHANNEL.TOGETHER]: 0, at: now, server: { [CHANNEL.WORKING]: 0, [CHANNEL.TOGETHER]: 0 } };
   const drop = [], repair = [], empty = [];
   for (const code in (idx || {})){
     const e = idx[code];
     if (!e || typeof e !== 'object') continue;
     const seen = Number(e.lastSeen);
     if (!Number.isFinite(seen)) continue;
-    if (isEmptyMark(e) && now - Number(e.emptyAt) >= EMPTY_GRACE_MS) empty.push(code);
+    const srv = isServerRow(e);
+    if (!srv && isEmptyMark(e) && now - Number(e.emptyAt) >= EMPTY_GRACE_MS) empty.push(code);
     if (now - quietSince(e) >= ROOM_INDEX_DROP_MS){ drop.push(code); continue; }
     if (code.indexOf(SECRET_ROOM_PREFIX) === 0) continue;
     if (now - seen >= ROOM_LIVE_MS) continue;
-    if (e.channel !== CHANNEL.WORKING && e.channel !== CHANNEL.TOGETHER) repair.push(code);
+    if (!srv && e.channel !== CHANNEL.WORKING && e.channel !== CHANNEL.TOGETHER) repair.push(code);
     const ch = (e.channel === CHANNEL.TOGETHER) ? CHANNEL.TOGETHER : CHANNEL.WORKING;
     out[ch]++;
+    if (srv) out.server[ch]++;
   }
   return { stats: out, drop: drop.slice(0, ROOM_DROP_MAX), repair: repair.slice(0, ROOM_REPAIR_MAX), empty: empty.slice(0, EMPTY_SWEEP_MAX) };
 }
@@ -272,7 +285,8 @@ async function runRoomStats(db, now, opts){
   const cutoff = now - ROOM_INDEX_DROP_MS;
   for (const code of drop){
     try{
-      await keepInMeta(db, code, idx[code]);
+      // 방 서버 줄은 Firebase 방이 아니다 — 같은 코드의 옛 Firebase `_meta` 에 channel · open 을 옮기지 않는다.
+      if (!isServerRow(idx[code])) await keepInMeta(db, code, idx[code]);
       // 첫 호출의 cur 는 로컬 추측값(대개 null)이라 null 을 돌려줘야 서버 값으로 다시 불린다.
       // 그새 다시 들어와 lastSeen 이 새로워진 줄은 그만둔다(undefined).
       const r = await db.ref('roomIndex/' + code).transaction(cur => {
@@ -291,12 +305,13 @@ async function runRoomStats(db, now, opts){
     }catch(e){ console.warn('[roomStats] 지표 요약 못 함', e && e.message); }
   }
   const sum = { live: stats.workingroom + stats.togetherroom, working: stats.workingroom, together: stats.togetherroom,
+                server: stats.server.workingroom + stats.server.togetherroom,
                 rows: Object.keys(idx).length, dropped, kept, failed, repaired, alive,
                 emptied: { cleared: emptied.cleared, busy: emptied.busy, kept: emptied.kept, failed: emptied.failed, secretKept: emptied.secretKept } };
   if (dropped || failed || repaired || alive.ghosts || alive.failed || emptied.cleared || emptied.failed) console.log('[roomStats]', JSON.stringify(sum));
   return sum;
 }
 
-module.exports = { roomStatsFrom, runRoomStats, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, isEmptyMark, quietSince,
+module.exports = { roomStatsFrom, runRoomStats, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, isEmptyMark, quietSince, isServerRow,
   ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_DROP_MAX, ROOM_REPAIR_MAX, ROOM_ALIVE_STALE_MS, ROOM_ALIVE_HB,
   EMPTY_GRACE_MS, MEMBER_GONE_MS, EMPTY_SWEEP_MAX };

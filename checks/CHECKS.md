@@ -1,7 +1,15 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 169 (앱 FSD 14번 — 💬 대화창 배선을 `chat-window.js` 로 · `sim-chat-window.js` 신설)
-대상: `sim-*.js` 163개 + `smoke.js` + `audit.py` = **165개** (개정 169 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 170 (🛰 방 서버 방도 roomIndex 장부에 — functions roomStats 가 srv 줄을 세되 청소하지 않음 · `sim-room-stats.js` 절 추가)
+대상: `sim-*.js` 163개 + `smoke.js` + `audit.py` = **165개** (개정 170 기준 — 폴더를 센 값)
+
+**개정 170 에서 한 것 (2026-10-13 · 🛰 방 개수 전체 상한을 Firebase 한 곳에서 — 방 서버 방도 roomIndex 장부에)**
+- 까닭: 방 서버(t-w-server realtime) 방이 `roomIndex` 에 안 올라가 앱 · 함수는 Firebase 방만, 방 서버는 자기 방만 세어 채널 합계가 250 을 넘었다(운영 투게더룸 Firebase 241 + 방 서버 96). 방 서버가 `roomIndex/{코드} = { lastSeen, channel, srv }` 를 쓰게 하는 짝 PR(mihioon/t-w-server#37)과 함께 간다.
+- 함수: `functions/room-stats.js` — `srv` 가 있는 줄(`isServerRow`)은 개수에 넣고(`roomStats.server` 에 서버 몫도 따로) 빈 방 청소 · channel 채우기 · `_meta` 옮기기에서 뺀다. 10분 넘게 낡으면(서버가 죽음) 줄만 지운다.
+- 앱: `room-stats.js` 는 `roomStats.server` 가 있으면 `inclServer` · `getRoomCounts` 는 srv 줄을 보면 `inclServer` → app.js `_addServerRoomCounts` 가 방 서버 stats 를 또 더하지 않는다(두 번 세기). 관리자 유령 방 청소(`cleanGhostRooms`)는 srv 줄을 «rooms 에 없는 고아» 로 지우지 않는다.
+- 웹 관리자: 방 목록에 🛰 방 서버(유령 · 정리 · 종료 · 고르기 대상 아님), 서버 집계에 «방 서버 N개 포함», ⚙️ 방 개수 상한 카드에 «전체 = Firebase N + 방 서버 M / 250»(닿으면 빨강) · 문구 «서버 한 대 보호용».
+- 검사: `sim-room-stats.js` §1 에 서버 줄 절(세기 · server 몫 · 빈 방 청소 아님 · channel 채우기 아님 · 낡으면 줄만 · 같은 코드 `_meta` 안 건드림 · 살아 있는 줄 안 지움) · §3 inclServer · §4 getRoomCounts · app.js · cleanGhostRooms 배선 — **60·0**.
+- 규칙: 바뀌지 않음(`roomIndex/$room` 은 `.write: true` · `.validate` 가 `srv` 칸을 막지 않는다 · 방 서버는 관리자 권한).
 
 **개정 169 에서 한 것 (2026-10-13 · 앱 FSD 14번 — 💬 대화창 배선을 모듈로 · 동작 변화 없음)**
 - 앱: app.js «💬 대화창 배선» 머리 아래 본문 334줄(설명 한 줄 · 즉시 실행 함수 `_wireChatWindow`)을 `app/parts/chat-window.js`(classic script `window.TwChatWindow`)로 글자 그대로 옮겼다. 바뀐 줄 8 — 읽는 함수 `officeMode()`(두 줄) · `_flyAiming()` · `isAdmin()` · `_emojiCache()`, 쓰는 함수 `_setChatFlyOn(x)` · `_setChatFlySize(x)` · `_setChatFlyColor(x)`. `officeMode` · `isAdmin` 은 만드는 줄보다 뒤에 선언되는 let 이라 값이면 TDZ. 밖에서 쓰는 이름 0(반환값 빈 객체). deps 49 — 함수 37 은 화살표 · 상수 셋 · `seats` · `purikuraUi` 는 값.
@@ -1412,7 +1420,7 @@
 | **sim-fly-roulette.js** | 147 | **a96af26bba03** ← **개정 58 신설 · 🔫 러시안룰렛** · **개정 58-b 4절 투게더룸 🎲 도 룰렛** · **개정 59 기록 문장 꼬리 없음** · **개정 63 투게더룸에서 숨김** · **개정 76 5절 🎟️ 하루 6번** |
 | **sim-license-xlsx.js** | 82 | **eb779c819cb0** ← **개정 76 신설 · 📄 관리자 라이선스 엑셀(xlsx·csv) 일괄 발급** · **개정 82 1절 좁은 창이면 일괄 창만** |
 | **sim-room-meta-cleanup.js** | 249 | **c57ff0999109** ← **개정 154 시크릿룸은 줄만 걷고 탭 · 탭 대화 · #일반 대화 유지(secretKept)** · ← **개정 153 투게더룸은 chatLog 까지 · 워킹 · 시크릿은 남김 · _meta 없으면 roomIndex 채널** · ← **개정 119 신규 · 🧹 빈 방 표지(_meta · _chatTab) 청소를 앱 퇴장에서 서버 함수로 — ① 퇴장은 _meta/openTs 걷기 · roomIndex 비었음 표시만(떼어 와 돌림) ② functions/room-stats.js 비었음 2분 뒤 · 멤버 재확인(roomAlive · shallow · hb · lastSeen 10분) · _meta 트랜잭션(재확인 뒤 선점 흉내) · 실패면 안 지움 · 표시 없는 조용한 방은 안 건드림 · 트리거 ③ 남은 _meta 빈 방 선점은 새로 · 시크릿룸 · 되살리기 · 방 서버 · 새 탭 빈 기록** |
-| **sim-room-stats.js** | 188 | **850949fe9a49** ← **개정 119 줄 생성 트리거 정규식 폭(비었음 표시 건너뛰기 한 줄)** · **2026-10-03 신규 · 📊 방 개수 서버 요약 — functions/room-stats.js 집계 · room-index.js channel·open 다시 싣기 · room-stats.js 신선도 · firebase-init 연결 · 규칙 읽기 전용 (모듈을 그대로 불러 가짜 DB)** |
+| **sim-room-stats.js** | 224 | **66524117e889** ← **개정 170 🛰 방 서버 줄(srv) — 세고 · 청소 안 함 · 낡으면 줄만 · inclServer 배선** · **개정 119 줄 생성 트리거 정규식 폭(비었음 표시 건너뛰기 한 줄)** · **2026-10-03 신규 · 📊 방 개수 서버 요약 — functions/room-stats.js 집계 · room-index.js channel·open 다시 싣기 · room-stats.js 신선도 · firebase-init 연결 · 규칙 읽기 전용 (모듈을 그대로 불러 가짜 DB)** |
 | **sim-room-alive.js** | 125 | **965f9cbf6709** ← **개정 119 유령 청소 호출 줄 — roomAlive 트리를 빈 방 청소와 같이 한 번 읽음** · **2026-10-06 신규 · 💓 새 하트비트 — room-alive.js 판정(hb:2 · 버전 문턱 · 중복 세션 · roomIndex 한 명 · 입장 검사) · functions/room-stats.js 유령 청소(가짜 DB · 다시 찍으면 그만둠) · firebase-init 연결 · 규칙 roomAlive** |
 | **sim-daily-active.js** | 88 | **f312ac82a73b** ← **개정 99 metrics 쓰기 규칙 없음 — improvements 만 빼고** · **2026-10-07 신규 · 📈 일일 접속 집계(DAU · 방문 수) — functions/daily-active.js 서울 날짜 경계 · 쓰기 묶음(고유 사용자 + 방문 수 증가) · 지우기 무시 · 틀린 코드 거절(가짜 DB) · index.js onValueWritten 연결 · 규칙 metrics 관리자만 읽기 · 앱은 안 씀** |
 | **sim-visit-ping.js** | 163 | **a1391124f386** ← **개정 99 metrics 쓰기 규칙 없음 — improvements 만 빼고** · **2026-10-07 신규 · 🌐 IP 기준 일일 방문자 — functions/visit-ping.js 접속 IP 고르기(x-forwarded-for 맨 앞 · ::ffff: 벗김) · HMAC 해시(날마다 · 비밀마다 다름 · 16자) · 쓰기 묶음(ip 해시 + pings 증가 · IP 원문 없음) · 비밀 없으면 안 씀(가짜 DB) · index.js onCall(비밀 · 인증 안 봄 · 늘 ok) · 앱 visit-ping.js(한 번 · 8초 뒤 · 실패 삼킴 · 다시 시도 없음) · firebase-init 연결 · CSP 함수 호스트** |
