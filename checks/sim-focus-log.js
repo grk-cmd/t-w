@@ -11,6 +11,7 @@
    ・7절: 일부러 깨 보기 — 모듈 글을 조금씩 망가뜨려 2~5절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] focus-log.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0, done = false, quiet = false, qfail = 0;
@@ -20,7 +21,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['focus-log.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ console.log('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['focus-log.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['focus-log.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 
 const IDS = ['focusLogOverlay', 'focusLogWin', 'focusLogTitle', 'focusLogTime', 'focusLogCaption', 'fsFocusLogBtn', 'focusLogClose', 'focusLogOk',

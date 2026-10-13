@@ -50,6 +50,7 @@
 | `app/parts/tricks.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 25번) — 💃 깜짝쇼(날아가기 · 어지러움) · 🪄 때리기(말풍선 · 재생 · 방 전파 · 조준 모드). classic script(`window.TwTricks`), 부르는 곳은 `tricksMod.이름`. 효과음 공장은 app.js |
 | `app/parts/ride-bench.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 30번) — 🗼 올라타기(탑 · 서커스 흔들림) · 🪑 멀티좌석 책상(2·3인승 벤치 — 끌어서 슬롯에 앉히기). classic script(`window.TwRideBench`), 부르는 곳은 `rideBenchMod.이름` |
 | `app/parts/part-paint.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 21번) — 🖍️ 파츠에 직접 그리기(그리기 모드 · 광선 · 도장 감싸기) · 파츠 그림칸(_pic) · UV 구제 · 그림 올리기. classic script(`window.TwPartPaint`), 부르는 곳은 `partPaintMod.이름`. animal.js 가 전역으로 부르는 3개는 app.js 에 «옛 전역 이름» 한 줄씩 |
+| `app/parts/focus-level.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 26번) — ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 · 🕒 포커스 누적 기기 간 공유 · 📱 태블릿·폰 포커싱 연결. classic script(`window.TwFocusLevel`), 부르는 곳은 `focusLevelMod.이름`. 누적 초(`_focusTotalSec` 등)는 app.js 에 두고 읽는 · 쓰는 함수로 넘긴다 |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |

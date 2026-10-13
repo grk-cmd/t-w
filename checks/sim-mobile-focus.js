@@ -12,6 +12,7 @@
           새 클래스에 fly 없음 · 키는 주소의 # 뒤 · 안내 페이지.
    [실행] app.js · desk-companion-prototype.html · firebase-init.js · firebase-database-rules.json 이 있는 폴더에서(run.js 가 맞춰 준다). */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), path = require('path'), vm = require('vm');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -19,7 +20,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 /* 찾던 함수가 없으면(개명·삭제) 도중에 멈춘다 — 멈춘 것도 빨강으로 센다(판정 줄은 남긴다). */
 process.on('uncaughtException', (e) => { fail++; say('  ✗ 판정 도중 멈춤 — 찾던 함수·글자가 없다(개명·삭제?): ' + (e && e.message)); say(`\n✗ 통과 ${pass} · 실패 ${fail}`); process.exit(1); });
 const read = (...fs_) => { for(const f of fs_){ try{ return fs.readFileSync(f, 'utf8'); }catch(_){} } return null; };
-const SRC = read('app.js'), HTML = read('desk-companion-prototype.html'), FBI = read('firebase-init.js'), RULES = read('firebase-database-rules.json');
+const SRC = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html'), FBI = read('firebase-init.js'), RULES = read('firebase-database-rules.json');
 if(!SRC || !HTML || !FBI || !RULES){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html · firebase-init.js · firebase-database-rules.json'); process.exit(2); }
 const QRLIB = read('vendor/qrcode.js', path.join('app', 'vendor', 'qrcode.js'), path.join('..', 'app', 'vendor', 'qrcode.js'));
 const HOST  = read('hosting/link.html', path.join('..', 'hosting', 'link.html'));

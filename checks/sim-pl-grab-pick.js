@@ -4,6 +4,7 @@
    · 고르면 그 프리셋으로 들어가고 메뉴는 닫힌다. 보고 있던 프리셋(_plCur)은 안 바뀐다.
    실행: node sim-pl-grab-pick.js  (app.js · smoke.js 와 같은 폴더에서) */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -39,7 +40,7 @@ const probe = `
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
-try { vm.runInThisContext(PL_SRC, { filename: 'playlist.js' }); vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(PL_SRC, { filename: 'playlist.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,5).join('\n')); process.exit(1); }
 console.log = say;
 
