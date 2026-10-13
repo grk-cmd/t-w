@@ -28,7 +28,12 @@ const chk = (c, m) => (c ? ok(m) : bad(m));
 const need = f => { const p = path.join(__dirname, f);
   if(!fs.existsSync(p)){ say('✗ ' + f + ' 를 찾을 수 없다 — 같은 폴더에서 실행할 것'); process.exit(2); }
   return fs.readFileSync(p, 'utf8'); };
-const APP = need('app.js'), MAIN = need('main.js'), PRELOAD = need('preload.js');
+/* 🎵 플레이리스트는 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const needPart = f => { for(const c of [path.join(__dirname, f), path.join(__dirname, 'parts', f), path.join(__dirname, 'app', 'parts', f)])
+    if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8');
+  say('✗ ' + f + ' 를 찾을 수 없다 — 같은 폴더에서 실행할 것'); process.exit(2); };
+const APP = need('app.js') + '\n' + needPart('playlist.js'), MAIN = need('main.js'), PRELOAD = need('preload.js');
 
 /* 이름 있는 함수를 중괄호 균형으로 오려 globalThis 에 얹는다(vm 에서 const/function 은 전역 속성이 안 된다). */
 function cutFn(src, name){
