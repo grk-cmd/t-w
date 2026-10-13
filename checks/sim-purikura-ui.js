@@ -9,7 +9,7 @@
    ・4절: 세션 콜백 — onPeers · onMeta · onPeerEvent · onShot 이 창이 닫혀 있어도 안 터진다
    ・5절: app.js 배선 — 정의는 모듈에만 · createPurikuraUi 는 원래 자리(세션 입구 _purikura 뒤 · 🎟️ 하루 횟수 앞) ·
           부르는 곳은 purikuraUi.이름 · 빈 껍데기 · deps 모양 · html 순서 · 전역 이름
-   [실행] purikura-ui.js · purikura-net.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
+   [실행] purikura-ui.js · purikura-net.js · app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
@@ -17,10 +17,11 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['purikura-ui.js', 'purikura-net.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['purikura-ui.js', 'purikura-net.js', 'app.js', 'desk-companion-prototype.html', 'chat-window.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['purikura-ui.js'], NET = SRC['purikura-net.js'];
+const CW = SRC['chat-window.js'];   // 💬 대화창 배선(📷 버튼)은 chat-window.js 로 옮겼다(앱 FSD 14번)
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 8) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
 
@@ -216,9 +217,9 @@ await sec('── 5. app.js 배선', () => {
   chk(/onPeers: p => \{ purikuraUi\.onPeers\(p\); \}/.test(APP) && /onMeta : m => \{ purikuraUi\.onMeta\(m\); \}/.test(APP)
     && /onEvent: \(slot, ev\) => \{ purikuraUi\.onPeerEvent\(slot, ev\); \}/.test(APP) && /onShot : s => \{ purikuraUi\.onShot\(s\); \}/.test(APP),
     '세션 콜백 넷이 모듈로 들어간다');
-  chk(/try\{ if\(purikuraUi\.isOpen\(\)\) return; \}catch\(_\)\{\}/.test(code) && /try\{ await purikuraUi\.open\(\); \}/.test(code)
+  chk(/try\{ if\(purikuraUi\.isOpen\(\)\) return; \}catch\(_\)\{\}/.test(code) && /try\{ await purikuraUi\.open\(\); \}/.test(strip(CW))
     && /if\(purikuraUi\.isOpen\(\)\)\{\s*if\(purikuraUi\.phase\(\) === 'shooting'\)[^\n]*\n\s*else if\(purikuraUi\.close\(true\)\)/.test(code),
-    '부르는 곳 — 때리기 조준 키 · 📷 버튼 · 회사원 모드 켜기');
+    '부르는 곳 — 때리기 조준 키 · 📷 버튼(chat-window.js) · 회사원 모드 켜기');
   const off = (APP.match(/const PURIKURA_UI_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/purikuraUi\.(\w+)/g) || []).map(s => s.split('.')[1]))];
   chk(off && used.every(n => new RegExp('\\b' + n + '\\b').test(off)), '빈 껍데기 PURIKURA_UI_OFF 가 부르는 이름을 다 갖는다 (' + used.join(' · ') + ')');
