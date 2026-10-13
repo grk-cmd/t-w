@@ -319,6 +319,8 @@ PRELOAD.push('myhome-sticker.js');
 PRELOAD.push('gacha.js');
 /* myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 · 프리셋(앱 FSD 7-2). 같은 까닭 — 만들 때 하는 일(버튼 · 입력칸 연결 · window 고리 · BGM 창 구독)을 같이 굴린다. */
 PRELOAD.push('myhome-edit.js');
+/* room-invite-ui.js — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기 팝업(앱 FSD 10번). 같은 까닭 — 만들 때 하는 일(친구 고르기 창 버튼 · 끌기 · resize 연결 · 초대 수신 구독 또는 firebase-ready 기다림)을 같이 굴린다. */
+PRELOAD.push('room-invite-ui.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
