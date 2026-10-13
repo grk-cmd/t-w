@@ -350,6 +350,8 @@ PRELOAD.push('admin-asset.js');
 /* admin/admin-mode.js — 🛠️ 🔐 관리자 모드 진입(관리자 코드 admin 폴더 7번). 같은 까닭 — 만들 때 하는 일(비밀번호 창 연결 · Ctrl+E · Ctrl·⌘+클릭 가로채기)과
    app.js 가 원래 자리에서 부르는 createAdminMode · 부팅 때 adminMode.refreshAdminVisibility 를 같이 굴린다. */
 PRELOAD.push('admin-mode.js');
+/* report.js · admin/admin-report.js — 🚩 신고하기 · 관리자 신고 목록(앱 FSD 11번). 같은 까닭 — 만들 때 하는 일(관리자 버튼 연결)과 create 둘. */
+PRELOAD.push('report.js', 'admin-report.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
