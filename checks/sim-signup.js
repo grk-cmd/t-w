@@ -29,14 +29,8 @@ let pass = 0, fail = 0;
 const say = s => console.log(s);
 const chk = (c, m) => { if (c) { pass++; say('  ✓ ' + m); } else { fail++; say('  ✗ ' + m); } };
 
-/* 🪪 [내 정보] 화면은 앱 FSD 17번에서 my-info.js 로 옮겼다 — 판정은 예전 글 모양으로 본다:
-   app.js 에서 부르는 자리의 «myInfoMod.» 를 떼고(옮기기 전과 같은 글) 그 뒤에 my-info.js 를 잇는다. 없으면(옮기기 전 판) app.js 그대로. */
-const _MI_SRC = (['my-info.js', 'parts/my-info.js', 'app/parts/my-info.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '')
-  /* 모듈 안에서 읽는 함수 · 쓰는 함수로 바꾼 자리를 옮기기 전 글로 되돌린다(판정은 예전 글 그대로 본다) */
-  .replace(/\b(CHARS_BOX_MAX|EXP_CELLS|EXP_SEC_PER_CELL|EXP_SEC_PER_LEVEL|FOCUS_CYCLE_SEC|FOCUS_LEVEL_CAP_HOURS|STAR_PALETTE|_acctDetached|_focusTotalSec|_myHomeData|curSlot)\(\)/g, '$1')
-  .replace(/\bsetCurSlot\(([^()]*)\)/g, 'curSlot = $1')
-  .replace(/^const [\w$]+ = deps\.[\w$]+;.*\n/gm, '');   // deps 받는 줄은 옮기기 전에 없던 줄
-const APP = fs.readFileSync('app.js', 'utf8').replace(/myInfoMod\./g, '') + (_MI_SRC ? '\n' + _MI_SRC : '');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const APP = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const FI  = fs.readFileSync('firebase-init.js', 'utf8');
 
 /* 함수 본문 떼어 오기 — `function 이름(` 부터 짝 맞는 `}` 까지. 문자열·주석 안의 괄호는 이 파일들에선 짝이 맞는다. */
