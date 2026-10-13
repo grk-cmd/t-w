@@ -17,6 +17,9 @@ if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-proto
 /* 일괄 발급 본문은 관리자 코드 admin 폴더로 옮겼다 — 저장소 루트에서 돌 때도 찾게 자리를 몇 곳 본다 */
 const LB = ['admin-license-bulk.js', 'parts/admin/admin-license-bulk.js', 'app/parts/admin/admin-license-bulk.js'].map(read).find(Boolean);
 if(!LB){ say('  ? 원본 못 찾음 — admin-license-bulk.js'); process.exit(2); }
+/* 발급 창 열기 handler(lcLicenseGen)는 관리자 3번에서 admin/admin-license.js 로 옮겼다 — 판정은 그 파일 */
+const LIC = ['admin-license.js', 'parts/admin/admin-license.js', 'app/parts/admin/admin-license.js'].map(read).find(Boolean);
+if(!LIC){ say('  ? 원본 못 찾음 — admin-license.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const grab = (name) => { const i = LB.indexOf('function ' + name + '('); if(i < 0) return ''; let k = LB.indexOf('{', i), d = 0;
   for(; k < LB.length; k++){ if(LB[k] === '{') d++; else if(LB[k] === '}' && --d === 0) return LB.slice(i, k + 1); } return ''; };
@@ -38,7 +41,7 @@ say('── 1. 배선');
   chk(/const fits = [^;]*ov\.clientWidth >= mainBox\.offsetWidth \+ GAP \+ WIN_W/.test(B) && /setSolo\(!fits\);/.test(B), '옆에 설 자리가 없으면 일괄 창만 보인다');
   chk(/function hideWin\(\)\{ win\.style\.display = 'none'; setSolo\(false\); \}/.test(B) && /gc\.addEventListener\('click', hideWin\)/.test(B)
     && /window\._lxHideWin = hideWin;/.test(B), '닫으면(✕ · 발급 창 닫기) 발급 창이 돌아온다');
-  chk(/o\.style\.display='flex';\s*if\(typeof window\._lxHideWin==='function'\) window\._lxHideWin\(\);/.test(SRC), '발급 창을 다시 열면 발급 창부터');
+  chk(/o\.style\.display='flex';\s*if\(typeof window\._lxHideWin==='function'\) window\._lxHideWin\(\);/.test(LIC), '발급 창을 다시 열면 발급 창부터');
   chk(/JSZip\.loadAsync\(buf\)/.test(grab('_lxReadXlsx')) && /new JSZip\(\)/.test(grab('_lxWriteXlsx')), '읽기·쓰기 모두 JSZip');
 }
 
@@ -87,7 +90,7 @@ say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
   chk(!/function _lx|LX_MAX_ROWS|bindLicenseXlsxBulk|bindSecretRoomGrant/.test(strip(SRC)), 'app.js 에 옮긴 본문이 남지 않았다(두 벌이면 버튼이 두 번 걸린다)');
   const mk = (SRC.match(/const adminLicenseBulk = \(typeof TwAdminLicenseBulk === 'undefined'\) \? ADMIN_LICENSE_BULK_OFF : TwAdminLicenseBulk\.createAdminLicenseBulk\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
-  chk(deps.length === 7 && deps.every(l => /^\w+: \(\.\.\.a\)=>[\w$]+\(\.\.\.a\),$/.test(l)), 'app.js 가 원래 자리에서 만든다 — deps 7개 · 모두 화살표(나중에 선언된 함수도 부를 때 찾는다)');
+  chk(deps.length === 7 && deps.every(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l)), 'app.js 가 원래 자리에서 만든다 — deps 7개 · 모두 화살표(나중에 선언된 함수도 부를 때 찾는다 · 목록 다시 그리기는 adminLicense.이름)');
   chk(/const ADMIN_LICENSE_BULK_OFF = \{\};/.test(SRC), '모듈이 없으면 빈 껍데기 — app.js 만 굴리는 검사가 서지 않는다');
   const hA = SRC.indexOf('/* ═══ 📄 [2026-10-02]'), hS = SRC.indexOf('/* ═══ 🔒 시크릿룸 발급(관리자) ═══ */'), hM = SRC.indexOf('const adminLicenseBulk =');
   chk(hA > 0 && hS > hA && hM > hS, '만드는 줄은 원래 자리(두 구역 머리 아래) — 버튼을 거는 때가 예전과 같다');

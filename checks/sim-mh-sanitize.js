@@ -257,8 +257,11 @@ chk(/createElement\(\s*['"]img['"]\s*\)[\s\S]{0,200}\.src\s*=/.test(ROW),
 say('');
 
 /* ── §4. 남의 이름을 그리는 나머지 자리 ───────────────────────────── */
-say('· §4 라이선스 요청 이름 (관리자 화면)');
-chk(/🙋 <b>\$\{_chatEsc\(/.test(SRC),
+say('· §4 라이선스 요청 이름 (관리자 화면 — admin/admin-license.js 로 옮김 · 관리자 코드 admin 폴더 3번)');
+const LIC = ['admin-license.js', 'parts/admin/admin-license.js', 'app/parts/admin/admin-license.js']
+  .map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);
+if(!LIC){ console.log('  ? 원본 못 찾음 — admin-license.js'); process.exit(2); }
+chk(/🙋 <b>\$\{_chatEsc\(/.test(LIC),
     '★ req.name 이 이스케이프를 거친다 (licenseRequests 는 .write:true 다)');
 
 say('');

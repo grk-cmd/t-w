@@ -4,20 +4,21 @@
     "desk-companion-prototype.html": 24,
     "animal.js": 2,
     "app-version-gate.js": 1,
-    "app.js": 2,
+    "app.js": 1,
     "friend-manage.js": 1,
     "guestbook.js": 3,
     "mallang.js": 1,
     "myhome-desktop.js": 18,
     "myhome-edit.js": 8,
     "room-invite-ui.js": 1,
-    "admin/admin-license-bulk.js": 1
+    "admin/admin-license-bulk.js": 1,
+    "admin/admin-license.js": 1
   },
   "greys": {
     "desk-companion-prototype.html": 145,
     "animal.js": 6,
     "app-version-gate.js": 4,
-    "app.js": 37,
+    "app.js": 28,
     "guestbook.js": 27,
     "mallang.js": 20,
     "myhome-desktop.js": 134,
@@ -26,6 +27,7 @@
     "purikura-ui.js": 2,
     "room-invite-ui.js": 1,
     "scheduler.js": 1,
+    "admin/admin-category.js": 9,
     "admin/admin-license-bulk.js": 6
   }
 }

@@ -26635,140 +26635,22 @@ document.getElementById('adminPassCancel').onclick=()=>{
 document.getElementById('adminPassInput').addEventListener('keydown', e=>{ if(e.key==='Enter') _submitAdminPass(); });
 
 /* ═══ 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) ═══ */
-/* --- 라이선스 키 발급 (관리자 전용) --- */
-let _licenseAllCache = null;   // 검색 필터링 시 재조회 없이 캐시로 다시 그림
-async function renderLicenseGenList(){
-  const listEl=document.getElementById('licenseGenList');
-  if(!listEl || !window.firebaseAPI) return;
-  listEl.textContent='불러오는 중...';
-  try{
-    const all = await window.firebaseAPI.listLicenses();
-    _licenseAllCache = all;
-    _renderLicenseGenListFiltered();
-  }catch(e){ listEl.textContent='목록을 불러오지 못했어요'; }
-}
-// ★ 검색어(닉네임/메모/키)로 필터해서 목록 표시 — 발급 키가 많아질 때 확인 편하게(요청사항)
-function _renderLicenseGenListFiltered(){
-  const listEl=document.getElementById('licenseGenList');
-  if(!listEl || !_licenseAllCache) return;
-  const q=(document.getElementById('licenseGenSearch')?.value||'').trim().toLowerCase();
-  const all=_licenseAllCache;
-  let keys = Object.keys(all);
-  if(q){
-    keys = keys.filter(k=>{
-      const d=all[k]||{};
-      return k.toLowerCase().includes(q) || String(d.note||'').toLowerCase().includes(q);
-    });
-  }
-  if(!keys.length){ listEl.textContent = q ? '검색 결과가 없어요' : '아직 발급된 키가 없어요'; return; }
-  listEl.innerHTML='';
-  keys.reverse().forEach(k=>{
-      const d=all[k];
-      const row=document.createElement('div');
-      row.style.cssText='padding:4px 0;border-bottom:1px solid rgba(201,165,123,.15);display:flex;justify-content:space-between;align-items:center;gap:6px;';
-      const statusTxt = d.valid===false ? '🚫 회수됨' : (d.redeemedAt?'✅ 사용됨':'⬜ 미사용');
-      const left=document.createElement('span');
-      left.innerHTML = `<span style="font-family:'Courier New',monospace;">${k}</span>`;
-      const right=document.createElement('span');
-      right.style.cssText='text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px;';
-      right.innerHTML = `<span>${statusTxt} ${d.note?('· '+d.note):''}</span>`;
-      if(d.valid!==false){
-        const revokeBtn=document.createElement('button');
-        revokeBtn.textContent='회수'; revokeBtn.style.cssText='flex-shrink:0;padding:2px 8px;font-size:10.5px;cursor:pointer;color:var(--win-error);';
-        revokeBtn.onclick=async ()=>{
-          if(!confirm(k+' 키를 회수할까요? 이 키를 쓰던 사람은 다음 접속 시 라이선스가 풀려요.')){ window.focus(); return; } window.focus();
-          revokeBtn.disabled=true; revokeBtn.textContent='회수 중...';
-          try{ await window.firebaseAPI.revokeLicense(k); toast('회수했어요'); renderLicenseGenList(); }
-          catch(e){ toast('회수 실패'); revokeBtn.disabled=false; revokeBtn.textContent='회수'; }
-        };
-        right.appendChild(revokeBtn);
-      } else {
-        const delBtn=document.createElement('button');
-        delBtn.textContent='삭제'; delBtn.style.cssText='flex-shrink:0;padding:2px 8px;font-size:10.5px;cursor:pointer;color:var(--win-error);';
-        delBtn.onclick=async ()=>{
-          if(!confirm(k+' 키를 목록에서 완전히 삭제할까요? (되돌릴 수 없어요)')){ window.focus(); return; } window.focus();
-          delBtn.disabled=true; delBtn.textContent='삭제 중...';
-          try{ await window.firebaseAPI.deleteLicense(k); toast('삭제했어요'); renderLicenseGenList(); }
-          catch(e){ toast('삭제 실패'); delBtn.disabled=false; delBtn.textContent='삭제'; }
-        };
-        right.appendChild(delBtn);
-      }
-      row.appendChild(left); row.appendChild(right);
-      listEl.appendChild(row);
-    });
-}
-document.getElementById('lcLicenseGen').onclick=()=>{
-  const o=document.getElementById('licenseGenOverlay'); o.classList.add('on'); o.style.display='flex';
-  if(typeof window._lxHideWin==='function') window._lxHideWin();   // 일괄 창만 보이던 채로 닫혔어도 발급 창부터 연다
-  document.getElementById('licenseGenResult').style.display='none';
-  document.getElementById('licenseGenNote').value='';
-  renderLicenseGenList();
-  subscribeLicenseReqList();
-};
-// 런처5 — 확성기 공지 (관리자 전용)
-document.getElementById('lcAnnounce').onclick=()=>{
-  const o=document.getElementById('announceOverlay'); if(!o) return;
-  o.classList.add('on'); o.style.display='flex';
-  document.getElementById('announceInput').value='';
-  setTimeout(()=>document.getElementById('announceInput').focus(), 30);
-};
-document.getElementById('announceCloseBtn').onclick=()=>{
-  const o=document.getElementById('announceOverlay'); o.classList.remove('on'); o.style.display='none';
-};
-document.getElementById('announceSendBtn').onclick=async ()=>{
-  const t=document.getElementById('announceInput').value.trim();
-  if(!t){ toast('공지 문구를 입력해주세요'); return; }
-  if(!(window.firebaseAPI && firebaseAPI.publishAnnounce)){ toast('네트워크 연결을 확인해 주세요'); return; }
-  try{
-    await firebaseAPI.publishAnnounce(t, 60000);   // 1분
-    toast('공지를 발송했어요 (1분간 표시)');
-    const o=document.getElementById('announceOverlay'); o.classList.remove('on'); o.style.display='none';
-  } catch(e){ toast('발송 실패 — 다시 시도해주세요'); }
-};
-document.getElementById('announceClearBtn').onclick=async ()=>{
-  if(!(window.firebaseAPI && firebaseAPI.clearAnnounce)){ toast('네트워크 연결을 확인해 주세요'); return; }
-  try{ await firebaseAPI.clearAnnounce(); toast('공지를 종료했어요'); }
-  catch(e){ toast('종료 실패'); }
-};
+/* 관리자 몫(라이선스 키 발급 · 목록 · 요청, 📣 확성기 공지 · 📰 업데이트 공지 편집)은 admin/admin-license.js · admin/admin-notice.js 로 옮겼다.
+   사용자 쪽(앱을 켤 때 업데이트 공지 팝업)은 아래에 그대로 둔다. 라이선스 요청 · 발급 버튼(옛 «관리자 카테고리 관리» 뒤쪽)도 같은 모듈이라
+   거는 때가 그 구역보다 조금 앞당겨졌다 — 모두 버튼 클릭 handler 라 순서와 상관없다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const ADMIN_LICENSE_OFF = {};   // 모듈이 없으면 빈 껍데기
+const adminLicense = (typeof TwAdminLicense === 'undefined') ? ADMIN_LICENSE_OFF : TwAdminLicense.createAdminLicense({
+  toast: (...a)=>toast(...a),
+  chatEsc: (...a)=>_chatEsc(...a),
+  genLicenseKey: (...a)=>_genLicenseKey(...a),
+  saveFailMsg: (...a)=>_saveFailMsg(...a),
+});
+const ADMIN_NOTICE_OFF = {};
+const adminNotice = (typeof TwAdminNotice === 'undefined') ? ADMIN_NOTICE_OFF : TwAdminNotice.createAdminNotice({
+  toast: (...a)=>toast(...a),
+});
 
-// 📰 업데이트 공지 (관리자 편집 + 유저 팝업)
-document.getElementById('lcUpdateNotice').onclick=async ()=>{
-  const o=document.getElementById('updateNoticeAdminOverlay'); if(!o) return;
-  o.classList.add('on'); o.style.display='flex';
-  // 현재 공지가 있으면 폼에 미리 채워서 수정 가능하게
-  if(window.firebaseAPI && firebaseAPI.getUpdateNotice){
-    try{
-      const cur = await firebaseAPI.getUpdateNotice();
-      document.getElementById('updateNoticeTitle').value = cur ? (cur.title||'') : '';
-      document.getElementById('updateNoticeBody').value = cur ? (cur.body||'') : '';
-    }catch(_){}
-  }
-  setTimeout(()=>document.getElementById('updateNoticeTitle').focus(), 30);
-};
-document.getElementById('updateNoticeAdminCloseBtn').onclick=()=>{
-  const o=document.getElementById('updateNoticeAdminOverlay'); o.classList.remove('on'); o.style.display='none';
-};
-document.getElementById('updateNoticeSaveBtn').onclick=async ()=>{
-  const title=document.getElementById('updateNoticeTitle').value.trim();
-  const body=document.getElementById('updateNoticeBody').value.trim();
-  if(!title || !body){ toast('제목과 본문을 모두 입력해주세요'); return; }
-  if(!(window.firebaseAPI && firebaseAPI.publishUpdateNotice)){ toast('네트워크 연결을 확인해 주세요'); return; }
-  try{
-    await firebaseAPI.publishUpdateNotice(title, body);
-    toast('공지를 발행했어요 (유저가 앱을 켤 때 자동 팝업)');
-    const o=document.getElementById('updateNoticeAdminOverlay'); o.classList.remove('on'); o.style.display='none';
-  } catch(e){ toast('발행 실패 — 다시 시도해주세요'); }
-};
-document.getElementById('updateNoticeClearBtn').onclick=async ()=>{
-  if(!confirm('현재 업데이트 공지를 삭제할까요?')){ window.focus(); return; } window.focus();
-  if(!(window.firebaseAPI && firebaseAPI.clearUpdateNotice)){ toast('네트워크 연결을 확인해 주세요'); return; }
-  try{
-    await firebaseAPI.clearUpdateNotice();
-    document.getElementById('updateNoticeTitle').value = '';
-    document.getElementById('updateNoticeBody').value = '';
-    toast('공지를 삭제했어요');
-  }catch(e){ toast('삭제 실패'); }
-};
 
 // 유저: 앱 시작 시 공지 확인 → 미표시 조건 아니면 팝업
 async function _checkUpdateNoticeOnStartup(){
@@ -26804,294 +26686,18 @@ if(window.firebaseAPI) _checkUpdateNoticeOnStartup();
 else window.addEventListener('firebase-ready', ()=>_checkUpdateNoticeOnStartup(), { once:true });
 
 // ===== Phase 3: 관리자 카테고리 관리 =====
-let _cmAddingGroup = null;   // 지금 [+ 추가] 폼이 열려있는 그룹
-function openCategoryManage(){
-  const o=document.getElementById('categoryManageOverlay'); if(!o) return;
-  o.classList.add('on'); o.style.display='flex';
-  renderCategoryManager();
-}
-function closeCategoryManage(){
-  const o=document.getElementById('categoryManageOverlay'); if(!o) return;
-  o.classList.remove('on'); o.style.display='none';
-  _cmAddingGroup = null;
-  const form=document.getElementById('cmAddForm'); if(form) form.style.display='none';
-}
-function renderCategoryManager(){
-  const listEl=document.getElementById('cmGroupList'); if(!listEl) return;
-  listEl.innerHTML='';
-  PART_GROUPS.forEach(g=>{
-    const catsInGroup = PART_CATS.filter(c=>c.group===g.group && !c.animalOnly);   // 🐾 동물 전용 카테고리는 인간 꾸미기 창에 절대 노출 안 함(등록도 동물 생성기 안에서)
-    const sec=document.createElement('div'); sec.style.cssText='margin-bottom:14px;';
-    // 그룹 헤더
-    const head=document.createElement('div');
-    head.style.cssText='font-size:11px;font-weight:bold;color:#333;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #a0a0a0;display:flex;justify-content:space-between;';
-    head.innerHTML='<span>'+g.icon+' '+g.label+'</span><span style="color:#666;font-weight:normal;font-size:10px;">'+catsInGroup.length+'개 카테고리</span>';
-    sec.appendChild(head);
-    // 카테고리 목록
-    const catRow=document.createElement('div');
-    catRow.style.cssText='display:flex;flex-wrap:wrap;gap:4px;';
-    catsInGroup.forEach(c=>{
-      const chip=document.createElement('div');
-      const isBuiltin = c.builtin;
-      chip.style.cssText='display:inline-flex;align-items:center;gap:3px;padding:4px 8px;font-size:11px;color:#333;border:1px solid #a0a0a0;'
-        + (isBuiltin ? 'background:#d4d0c8;' : 'background:#fff4d0;border-color:#d4a020;');
-      chip.innerHTML = c.icon+' '+c.label + (isBuiltin ? ' <span style="font-size:9px;color:#666;">기본</span>' : '');
-      if(isBuiltin){
-        // ✎ 기본 카테고리 이름/아이콘 수정 — cat 식별자와 동작(부착 본·숨김 규칙)은 그대로 두고 표시 이름만 바꿈.
-        //   모든 사용자에게 반영됨(catalog/catOverrides).
-        const ed=document.createElement('span');
-        ed.style.cssText='color:#2a6ea0;cursor:pointer;margin-left:4px;font-weight:bold;';
-        ed.textContent='✎';
-        ed.title='이름 바꾸기 (예: 망토 → 겉옷)';
-        ed.onclick=async ()=>{
-          const cur = c.label;
-          const name = await asyncPrompt({ title:'카테고리 이름 바꾸기', message:'새 이름을 입력하세요 (예: 겉옷)', defaultValue:cur, maxLength:20 });
-          if(name===null) return;
-          const nm = String(name).trim();
-          if(!nm){ toast('이름을 입력해주세요'); return; }
-          const ic = await asyncPrompt({ title:'카테고리 아이콘', message:'아이콘 이모지 (비우면 기존 아이콘 유지)', defaultValue:c.icon||'', maxLength:8 });
-          if(!window.firebaseAPI || !window.firebaseAPI.publishCatOverride){ toast('네트워크 연결을 확인해주세요'); return; }
-          try{
-            const payload = { label: nm };
-            const icv = (ic==null) ? '' : String(ic).trim();
-            if(icv) payload.icon = icv;
-            await window.firebaseAPI.publishCatOverride(c.cat, payload);
-            toast('"'+nm+'"(으)로 바꿨어요');
-          }catch(_){ toast('변경 실패'); }
-        };
-        chip.appendChild(ed);
-        // ↺ 기본 이름으로 되돌리기 — 덮어쓴 적 있을 때만
-        if(partCatOverrides && partCatOverrides[c.cat]){
-          const rs=document.createElement('span');
-          rs.style.cssText='color:#666;cursor:pointer;margin-left:3px;font-weight:bold;';
-          rs.textContent='↺';
-          rs.title='원래 이름으로 되돌리기';
-          rs.onclick=async ()=>{
-            if(!window.firebaseAPI || !window.firebaseAPI.unpublishCatOverride){ toast('네트워크 연결을 확인해주세요'); return; }
-            try{ await window.firebaseAPI.unpublishCatOverride(c.cat); toast('원래 이름으로 되돌렸어요'); }
-            catch(_){ toast('되돌리기 실패'); }
-          };
-          chip.appendChild(rs);
-        }
-      }
-      if(!isBuiltin){
-        const del=document.createElement('span');
-        del.style.cssText='color:#c04040;cursor:pointer;margin-left:4px;font-weight:bold;';
-        del.textContent='✕';
-        del.title='이 카테고리 삭제 (파츠 데이터는 유지)';
-        del.onclick=async ()=>{
-          if(!confirm('"'+c.label+'" 카테고리를 삭제할까요?\n(파츠 데이터는 유지되지만 카테고리가 사라지면 파츠가 안 보여요)')){ window.focus(); return; } window.focus();
-          if(!window.firebaseAPI || !window.firebaseAPI.unpublishCustomCat){ toast('네트워크 연결을 확인해주세요'); return; }
-          try{ await window.firebaseAPI.unpublishCustomCat(c.cat); toast('삭제했어요'); }
-          catch(_){ toast('삭제 실패'); }
-        };
-        chip.appendChild(del);
-      }
-      catRow.appendChild(chip);
-    });
-    // + 추가 버튼
-    const addBtn=document.createElement('div');
-    addBtn.style.cssText='display:inline-flex;align-items:center;padding:4px 8px;font-size:11px;color:#666;background:#fff;border:1.5px dashed #808080;cursor:pointer;';
-    addBtn.textContent='＋ 추가';
-    addBtn.onclick=()=>{
-      _cmAddingGroup = g.group;
-      const lbl=document.getElementById('cmAddGroupLbl');
-      if(lbl) lbl.textContent = '('+g.label+' 그룹)';
-      document.getElementById('cmAddName').value='';
-      document.getElementById('cmAddIcon').value='';
-      document.getElementById('cmAddId').value='';
-      // 그룹별로 기본 bone 자동 선택
-      const boneSel=document.getElementById('cmAddBone');
-      const defaultBone = { head:'head', cloth:'spine', deco:'spine', hand:'handR' }[g.group] || 'head';
-      if(boneSel) boneSel.value = defaultBone;
-      const form=document.getElementById('cmAddForm');
-      if(form) form.style.display='block';
-      setTimeout(()=>document.getElementById('cmAddName').focus(), 30);
-    };
-    catRow.appendChild(addBtn);
-    sec.appendChild(catRow);
-    listEl.appendChild(sec);
-  });
-}
-// 이벤트 바인딩
-document.getElementById('lcCategoryManage').onclick=openCategoryManage;
-// 꾸미기 창 하단의 카테고리 관리 버튼 (관리자 전용)
-{ const wcm=document.getElementById('wardrobeCategoryManageBtn'); if(wcm) wcm.onclick=openCategoryManage; }
-document.getElementById('cmCloseX').onclick=closeCategoryManage;
-document.getElementById('cmAddCancelBtn').onclick=()=>{
-  const form=document.getElementById('cmAddForm'); if(form) form.style.display='none';
-  _cmAddingGroup = null;
-};
-document.getElementById('cmAddGoBtn').onclick=async ()=>{
-  if(!_cmAddingGroup){ toast('그룹이 선택되지 않았어요'); return; }
-  const name=document.getElementById('cmAddName').value.trim();
-  const icon=document.getElementById('cmAddIcon').value.trim();
-  const catId=document.getElementById('cmAddId').value.trim().toLowerCase().replace(/[^a-z0-9_]/g,'');
-  const bone=document.getElementById('cmAddBone').value;
-  if(!name || !catId){ toast('이름과 ID를 입력해주세요'); return; }
-  if(!/^[a-z][a-z0-9_]*$/.test(catId)){ toast('ID는 영문 소문자로 시작하고 영문/숫자/언더스코어만 사용 가능해요'); return; }
-  // 기존 카테고리와 ID 겹침 방지
-  if(PART_CATS.find(c=>c.cat===catId)){ toast('이미 있는 ID예요 — 다른 ID를 써주세요'); return; }
-  if(!window.firebaseAPI || !window.firebaseAPI.publishCustomCat){ toast('네트워크 연결을 확인해주세요'); return; }
-  try{
-    await window.firebaseAPI.publishCustomCat(catId, { cat:catId, label:name, icon:icon||'🏷️', group:_cmAddingGroup, bone });
-    toast('"'+name+'" 카테고리를 추가했어요');
-    const form=document.getElementById('cmAddForm'); if(form) form.style.display='none';
-    _cmAddingGroup = null;
-  }catch(e){ toast('추가 실패'); }
-};
-
-/* 대기 중인 라이선스 요청 목록 — 관리자 화면 열려있는 동안 실시간 갱신 */
-let _licenseReqSubStarted=false;
-let _licensePendingCache = [];   // 일괄 발급용 — 현재 대기중 요청 스냅샷
-function subscribeLicenseReqList(){
-  if(_licenseReqSubStarted || !window.firebaseAPI || !window.firebaseAPI.subscribeLicenseRequests) return;
-  _licenseReqSubStarted=true;
-  window.firebaseAPI.subscribeLicenseRequests(renderLicenseReqList);
-}
-function renderLicenseReqList(all){
-  const listEl=document.getElementById('licenseReqList'); if(!listEl) return;
-  const pending=Object.keys(all||{}).filter(id=>all[id].status==='pending');
-  _licensePendingCache = pending.map(id=>({ id, name:(all[id].name||'') }));   // 일괄 발급용 캐시
-  const bulkBtn=document.getElementById('licenseBulkBtn');
-  if(bulkBtn) bulkBtn.style.display = pending.length>=2 ? 'inline-block' : 'none';   // 2건 이상일 때만 노출
-  if(!pending.length){ listEl.textContent='대기 중인 요청이 없어요'; return; }
-  listEl.innerHTML='';
-  pending.forEach(id=>{
-    const req=all[id];
-    const row=document.createElement('div');
-    row.style.cssText='padding:5px 0;border-bottom:1px solid rgba(201,165,123,.15);display:flex;justify-content:space-between;align-items:center;gap:6px;';
-    /* 🛡️ `req.name` 은 `licenseRequests/$reqId`(`.write:true`)에서 온 **남의 문자열**이고
-         여기는 관리자 화면이다. 이스케이프가 아예 없었다 — `_chatEsc` 로 막는다
-         (지금 `_chatEsc` 는 공용 `escHtml` 의 별칭이다). */
-    row.innerHTML = `<span>🙋 <b>${_chatEsc(req.name||'(이름 없음)')}</b></span>`;
-    const btn=document.createElement('button');
-    btn.textContent='발급'; btn.style.cssText='flex-shrink:0;padding:3px 10px;font-size:11px;cursor:pointer;';
-    btn.onclick=async ()=>{
-      btn.disabled=true; btn.textContent='발급 중...';
-      try{
-        const key=_genLicenseKey();
-        await window.firebaseAPI.approveLicenseRequest(id, key, '요청: '+(req.name||''));
-        toast(req.name+' 님에게 발급했어요');
-        renderLicenseGenList();
-      }catch(e){ toast('발급 실패'); btn.disabled=false; btn.textContent='발급'; }
-    };
-    const rejectBtn=document.createElement('button');
-    rejectBtn.textContent='거절'; rejectBtn.style.cssText='flex-shrink:0;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--win-error);';
-    rejectBtn.onclick=async ()=>{
-      if(!confirm(req.name+' 님의 요청을 거절할까요? (거절해도 상대는 다시 요청할 수 있어요)')){ window.focus(); return; } window.focus();
-      rejectBtn.disabled=true; rejectBtn.textContent='거절 중...';
-      try{ await window.firebaseAPI.rejectLicenseRequest(id); toast(req.name+' 님의 요청을 거절했어요'); }
-      catch(e){ toast('거절 실패'); rejectBtn.disabled=false; rejectBtn.textContent='거절'; }
-    };
-    row.appendChild(btn);
-    row.appendChild(rejectBtn);
-    listEl.appendChild(row);
-  });
-}
-document.getElementById('licenseGenClose').onclick=()=>{
-  const o=document.getElementById('licenseGenOverlay'); o.classList.remove('on'); o.style.display='none';
-};
-// 🔍 발급된 키 검색 — 입력할 때마다 캐시에서 즉시 필터 (재조회 없음)
-document.getElementById('licenseGenSearch')?.addEventListener('input', ()=>{ _renderLicenseGenListFiltered(); });
-// 📦 대기 요청 전체 일괄 발급 — 각각 키를 새로 만들어 순서대로 승인
-document.getElementById('licenseBulkBtn')?.addEventListener('click', async ()=>{
-  const targets=_licensePendingCache.slice();
-  if(!targets.length) return;
-  if(!confirm('대기 중인 요청 '+targets.length+'건에 전부 키를 발급할까요?')){ window.focus(); return; } window.focus();
-  const bulkBtn=document.getElementById('licenseBulkBtn');
-  bulkBtn.disabled=true; bulkBtn.textContent='발급 중...';
-  let ok=0, fail=0;
-  for(const t of targets){
-    try{
-      const key=_genLicenseKey();
-      await window.firebaseAPI.approveLicenseRequest(t.id, key, '요청: '+t.name);
-      ok++;
-    }catch(e){ fail++; }
-  }
-  bulkBtn.disabled=false; bulkBtn.textContent='전체 일괄 발급';
-  toast('일괄 발급 완료 — 성공 '+ok+'건'+(fail?(', 실패 '+fail+'건'):''));
-  renderLicenseGenList();
+/* 카테고리 관리 본문은 admin/admin-category.js, 뒤쪽의 라이선스 요청 · 발급 버튼 · 친구코드로 발급은 admin/admin-license.js 로 옮겼다.
+   PART_GROUPS(뒤에서 선언하는 const) · PART_CATS · partCatOverrides(다시 대입되는 let)는 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const ADMIN_CATEGORY_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const adminCategory = (typeof TwAdminCategory === 'undefined') ? ADMIN_CATEGORY_OFF : TwAdminCategory.createAdminCategory({
+  toast: (...a)=>toast(...a),
+  asyncPrompt: (...a)=>asyncPrompt(...a),
+  partGroups: ()=>PART_GROUPS,
+  partCats: ()=>PART_CATS,
+  partCatOverrides: ()=>partCatOverrides,
 });
-document.getElementById('licenseGenBtn').onclick=async ()=>{
-  if(!window.firebaseAPI){ toast('네트워크 연결을 확인해 주세요'); return; }
-  const note=document.getElementById('licenseGenNote').value.trim();
-  const key=_genLicenseKey();
-  const btn=document.getElementById('licenseGenBtn');
-  btn.disabled=true; btn.textContent='발급 중...';
-  try{
-    await window.firebaseAPI.createLicense(key, note);
-    document.getElementById('licenseGenKeyText').textContent=key;
-    document.getElementById('licenseGenResult').style.display='block';
-    renderLicenseGenList();
-  }catch(e){ toast(_saveFailMsg(e, '발급 실패 — 네트워크를 확인해 주세요')); }
-  btn.disabled=false; btn.textContent='새 키 발급';
-};
-document.getElementById('licenseGenCopyBtn').onclick=()=>{
-  const text=document.getElementById('licenseGenKeyText').textContent;
-  try{ navigator.clipboard.writeText(text); toast('복사됐어요'); }
-  catch(e){ toast('복사 실패 — 직접 드래그해서 복사해 주세요'); }
-};
 
-/* ★ 친구코드로 라이선스 발급 — 코드 보유자를 찾아 키를 생성하고, 그 유저의 수령함(보상)으로 발송.
-   유저는 수령함에서 키를 받아 라이선스 등록창에 입력하면 프리미엄이 된다(기존 검증 구조 그대로 사용). */
-(function bindLicenseGrantByCode(){
-  const btn  = document.getElementById('licenseGrantBtn');
-  const codeInp = document.getElementById('licenseGrantCode');
-  const msgEl = document.getElementById('licenseGrantMsg');
-  if(!btn || !codeInp) return;
-  const showMsg=(text,isErr)=>{
-    if(!msgEl) return;
-    msgEl.textContent=text;
-    msgEl.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
-    msgEl.style.display = text ? 'block' : 'none';
-  };
-  const submit = async ()=>{
-    if(!window.firebaseAPI || !firebaseAPI.lookupFriendCode || !firebaseAPI.createLicense || !firebaseAPI.sendInboxMessage){
-      showMsg('네트워크 연결이 필요해요', true); return;
-    }
-    let code=(codeInp.value||'').trim().toUpperCase();
-    if(!code){ showMsg('친구코드를 입력해 주세요', true); return; }
-    // 뒷 4자리만 입력해도 되게 접두어 자동 보완 (친구 추가와 동일 규칙)
-    let candidates;
-    if(/^[A-Z0-9]{4}$/.test(code)){ candidates=['MATE-'+code, 'COZY-'+code]; }
-    else if(/^(MATE|COZY)-[A-Z0-9]{4}$/.test(code)){ candidates=[code]; }
-    else { candidates=[code]; }
-    btn.disabled=true; showMsg('확인 중…', false);
-    try{
-      // 코드 → uid 조회 (여러 후보 순차 시도)
-      let uid=null;
-      for(const c of candidates){
-        try{ const u=await firebaseAPI.lookupFriendCode(c); if(u){ uid=u; break; } }catch(_){}
-      }
-      if(!uid){ showMsg('해당 친구코드를 가진 유저를 찾을 수 없어요', true); btn.disabled=false; return; }
-      // 유저 닉네임 조회 — note에 넣어 목록에서 이름으로 검색 가능하게
-      let _userName=null;
-      try{ if(firebaseAPI.getUserNameById) _userName = await firebaseAPI.getUserNameById(uid); }catch(_){}
-      // 키 생성 + 라이선스 등록
-      const key=_genLicenseKey();
-      const note = _userName ? (_userName+' · 친구코드 '+code) : ('친구코드 발급: '+code);
-      await firebaseAPI.createLicense(key, note);
-      // 유저 수령함(보상)으로 키 발송
-      const title='🎫 라이선스가 도착했어요';
-      const body='아래 키를 [라이선스 등록] 창에 입력하면 프리미엄 기능을 쓸 수 있어요.\n\n'+key+'\n\n(설정 → 라이선스 등록)';
-      const r=await firebaseAPI.sendInboxMessage(uid, 'reward', title, body);
-      if(r && r.ok!==false){
-        showMsg('발급 완료 — 해당 유저 수령함(보상)으로 보냈어요', false);
-        codeInp.value='';
-        renderLicenseGenList();
-        toast('📮 라이선스를 '+code+' 유저에게 발급했어요');
-      }else{
-        showMsg('수령함 전송에 실패했어요 (키는 생성됨: '+key+')', true);
-      }
-    }catch(e){
-      showMsg(_saveFailMsg(e, '오류가 났어요 — 인터넷 연결을 확인해 주세요'), true);
-    }
-    btn.disabled=false;
-  };
-  btn.addEventListener('click', submit);
-  codeInp.addEventListener('keydown', e=>{ if(e.key==='Enter') submit(); });
-})();
 
 /* ═══ 📄 [2026-10-02] 엑셀(xlsx·csv)로 라이선스 일괄 발급 — 시안 확정(입구 = 친구코드 발급 아래 · 빈 코드 = 키만 · 전에 발급한 코드 = 건너뜀) ═══ */
 /* ═══ 🔒 시크릿룸 발급(관리자) ═══ */
@@ -27104,7 +26710,7 @@ const adminLicenseBulk = (typeof TwAdminLicenseBulk === 'undefined') ? ADMIN_LIC
   toast: (...a)=>toast(...a),
   genLicenseKey: (...a)=>_genLicenseKey(...a),
   saveFailMsg: (...a)=>_saveFailMsg(...a),
-  renderLicenseGenList: (...a)=>renderLicenseGenList(...a),
+  renderLicenseGenList: (...a)=>adminLicense.renderLicenseGenList(...a),
   downloadBlob: (...a)=>downloadBlob(...a),
   srFmtDate: (...a)=>_srFmtDate(...a),
 });
@@ -30150,7 +29756,7 @@ function subscribeCustomCats(){
     customPartCats = Object.keys(catObj||{}).map(k=>catObj[k]).filter(c=>c && c.cat);
     rebuildPartCats();
     if(typeof renderWardrobe==='function') renderWardrobe();
-    if(typeof renderCategoryManager==='function') renderCategoryManager();
+    if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
   });
 }
 // 기본 카테고리 이름 덮어쓰기 구독 (예: 망토 → 겉옷)
@@ -30160,7 +29766,7 @@ function subscribeCatOverrides(){
     partCatOverrides = obj || {};
     rebuildPartCats();
     if(typeof renderWardrobe==='function') renderWardrobe();
-    if(typeof renderCategoryManager==='function') renderCategoryManager();
+    if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
   });
 }
 if(window.firebaseAPI){ subscribeCustomCats(); subscribeCatOverrides(); }
