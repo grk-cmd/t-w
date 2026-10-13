@@ -141,14 +141,19 @@ console.log('\n── 4. 앱이 거부를 조용히 넘기지 않는가');
 
 console.log('\n── 5. 관리자 모드 진입 — 화면과 실제 권한이 어긋나지 않는가');
 {
-  const src = fs.readFileSync('app.js', 'utf8');
+  /* 관리자 모드 진입은 관리자 코드 admin 폴더 7번에서 admin/admin-mode.js 로 옮겼다 — 그 파일이 있으면 그쪽을 본다.
+     거기서는 isAdmin = true 가 setIsAdmin(true) 다(이 모듈이 isAdmin 을 바꾸는 단 한 곳). */
+  const _readOne = (...ns) => { for (const n of ns) { try { return fs.readFileSync(n, 'utf8'); } catch (_) {} } return ''; };
+  const AM = _readOne('admin-mode.js', 'parts/admin/admin-mode.js', 'app/parts/admin/admin-mode.js');
+  const src = AM || fs.readFileSync('app.js', 'utf8');
   const html = fs.readFileSync('desk-companion-prototype.html', 'utf8');
   const submit = src.slice(src.indexOf('async function _submitAdminPass'), src.indexOf('function exitAdmin'));
-  const trigger = src.slice(src.indexOf('function bindAdminTrigger'), src.indexOf('function setFaceMap'));
+  const trigger = src.slice(src.indexOf('function bindAdminTrigger'), AM ? src.indexOf('return { refreshAdminVisibility }') : src.indexOf('function setFaceMap'));
   const enter = src.slice(src.indexOf('function tryEnterAdmin'), src.indexOf('async function _submitAdminPass'));
 
   chk(/_myAuthUid\(\)/.test(submit), '비밀번호가 맞아도 로그인 여부를 확인한다');
-  chk(submit.indexOf('_myAuthUid()') < submit.indexOf('isAdmin = true'), '  ↳ 확인이 isAdmin 을 켜기 전에 온다');
+  { const _on = submit.search(/setIsAdmin\(true\)|isAdmin = true/);
+    chk(_on > 0 && submit.indexOf('_myAuthUid()') < _on, '  ↳ 확인이 isAdmin 을 켜기 전에 온다'); }
   chk(/구글 로그인이 필요해요/.test(submit), '로그인이 없으면 무엇이 필요한지 알려준다');
   chk(/authCurrentUid/.test(src) && !/getMyUserId\(\)[^\n]*admins/.test(src),
       '권한 판정에 앱 자체 id(getMyUserId)를 쓰지 않는다');
