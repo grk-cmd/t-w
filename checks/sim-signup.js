@@ -1434,7 +1434,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const iOk = sy.indexOf("if(!r || !r.ok){ _focusSyncFailed(reason, r, delta); return; }"), iPush = sy.indexOf('_lbPush(uid, server)');
     chk(iOk > 0 && iPush > iOk && !/_lbPush\([^)]*(_focusTotalSec|mine)/.test(sy), '★ 동기화가 **성공한 뒤** · 로컬값이 아니라 서버 총합(server)을 올린다');
     chk((A.match(/_lbPush\(/g) || []).length === 2, '  올리는 곳은 한 곳(정의 + 동기화 뒤 한 줄)');
-    const rk = takeFn(A, 'function rankOf(') || '', rl = takeFn(A, 'function rankLabel(') || '', rr = takeFn(A, 'function _miRenderRank(') || '', ap = takeFn(A, 'function _miApplyRank(') || '', lp = takeFn(A, 'function _lbPush(') || '';
+    const rk = takeFn(A, 'function rankOf(') || '', rl = takeFn(A, 'function rankLabel(') || '', rr = takeFn(A, 'function _miRenderRank(') || '', ap = takeFn(A, 'function _miApplyRank(') || '', lp = takeFn(A, 'function _lbPush(') || '', lf = takeFn(A, 'async function _lbFetchRank(') || '';
     chk(rk && rl && rr && ap && lp && ![rk, rl, rr, ap, lp].some(f => /myFocusShow|getFocusLevel|focusCycleOf/.test(f)),
       '★ 순위는 누적초 하나 — 표시 레벨·해금 레벨·회차를 안 쓴다');
     /* firebase-init */
@@ -1450,14 +1450,14 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     else {
       const lb = RU.leaderboard || {}, row = lb.$userId || {};
       const own = ((RU.users || {}).$userId || {}).focus || {};
-      chk(lb['.read'] === "query.orderByChild == 'sec' && query.limitToLast <= 100" && lb['.indexOn'] === 'sec', '★ 목록 읽기는 sec 정렬 · 100줄 이하만 · 색인 sec');
+      chk(lb['.read'] === "(query.orderByChild == 'sec' && query.limitToLast <= 100) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)" && lb['.indexOn'] === 'sec', '★ 목록 읽기는 sec 정렬 · 100줄 이하만(서버 봇 apiBots 는 사본용 통째 읽기) · 색인 sec');
       chk(!!row['.write'] && row['.write'] === String(own['.write'] || '').replace(/\$userId/g, '$userId'), '★ 쓰기는 본인만 — users/$userId/focus 와 같은 소유권 식');
       chk(row.$other && row.$other['.validate'] === false && /hasChildren\(\['sec','ts'\]\)/.test(row['.validate'] || ''), '  sec·ts 둘 다 · 다른 키 거부($other)');
       chk(/<= 359640000$/.test((row.sec || {})['.validate'] || '') && /newData\.val\(\) >= 0/.test((row.sec || {})['.validate'] || ''), '  sec 0 ~ 누적 상한');
       chk(/newData\.val\(\) <= now \+ 60000/.test((row.ts || {})['.validate'] || ''), '  ts ≤ now + 60초');
     }
     /* 떼어 와 돌린다 — rankOf · rankLabel · 그리기 */
-    if (rk && rl && rr && ap && lp){
+    if (rk && rl && rr && ap && lp && lf){
       const mkEl = () => { const cl = new Set(); return { style: { display: 'none', marginBottom: '8px' }, textContent: '', classList: { toggle(c, on){ on ? cl.add(c) : cl.delete(c); }, has: c => cl.has(c) } }; };
       const mk = (opts) => {
         const els = {}; ['miRank','miRankV','miHalo','miCrown','miTopBar'].forEach(id => els[id] = mkEl());
@@ -1466,6 +1466,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
           fetchLeaderboardTop(){ env.calls++; return Promise.resolve(typeof env.rows === 'function' ? env.rows() : env.rows); },
           setLeaderboardSec(u, v){ env.sets.push([u, v]); return Promise.resolve({ ok: true, same: false }); },
         };
+        if ('myRank' in opts) fb.fetchMyRank = (u) => { env.rankCalls = (env.rankCalls || 0) + 1; return Promise.resolve(opts.myRank); };
         const f = new Function('document', 'window', 'env', `
           const firebaseAPI = window.firebaseAPI; const Date = { now: () => env.now };
           const _acctDetached = false;
@@ -1474,12 +1475,21 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
           const LB_TOP_N = 100, LB_CACHE_MS = 60*1000;
           ${rk}\n${rl}
           let _lbSent = null, _miRankCache = null, _miRankSeq = 0;
-          ${lp}\n${ap}\n${rr}
+          ${lp}\n${ap}\n${lf}\n${rr}
           return { rankOf, rankLabel, render: _miRenderRank, push: _lbPush, cache: () => _miRankCache };`);
         return Object.assign(f({ getElementById: id => els[id] || null }, { firebaseAPI: fb }, env), { els, env });
       };
       const flush = () => new Promise(r => setImmediate(r));
       const v0 = mk({ rows: [], uid: 'uMe' });
+      {
+        /* 🌐 API 한 줄(fetchMyRank) 먼저 — 받으면 100줄 안 읽음 · undefined(못 받음)면 예전처럼 100줄 → rankOf */
+        const a = mk({ rows: [{ uid: 'uMe', sec: 1, ts: 1 }], uid: 'uMe', myRank: 2 }); a.render(); await flush(); await flush();
+        chk(a.env.rankCalls === 1 && a.env.calls === 0 && a.els.miRankV.textContent === '🥈 2위', '★ 내 순위는 API 한 줄 먼저 — 받으면 100줄 안 읽고 같은 모양(🥈 2위)');
+        const b = mk({ rows: [{ uid: 'uMe', sec: 1, ts: 1 }], uid: 'uMe', myRank: null }); b.render(); await flush(); await flush();
+        chk(b.env.calls === 0 && b.els.miRank.style.display === 'none', '  ↳ API 가 «표 밖»(null)이면 자리 비움 · 100줄 안 읽음');
+        const c = mk({ rows: [{ uid: 'uMe', sec: 1, ts: 1 }], uid: 'uMe', myRank: undefined }); c.render(); await flush(); await flush();
+        chk(c.env.rankCalls === 1 && c.env.calls === 1 && c.els.miRankV.textContent === '🥇 1위', '  ↳ API 를 못 받으면(undefined) 예전처럼 100줄 받아 rankOf');
+      }
       /* rankOf */
       const R100 = Array.from({ length: 100 }, (_, i) => ({ uid: 'u' + i, sec: 100000 - i, ts: 5 }));
       chk(v0.rankOf(R100, 'u0') === 1 && v0.rankOf(R100, 'u56') === 57 && v0.rankOf(R100, 'u99') === 100, '★ 누적초 내림차순 — 1 · 57 · 100위');

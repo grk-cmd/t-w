@@ -48,6 +48,7 @@
   import { createVisitPing } from "./visit-ping.js";
   import { createRoomServerNet } from "./room-server-net.js";
   import { createRoomServerGate } from "./room-server-gate.js";
+  import { createApiPublicReads } from "./api-public-reads.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -694,6 +695,12 @@
           avatar: as.val() || null };
       }catch(e){ console.warn('[플레이리스트] 명함 읽기 실패', e); return null; }
     },
+    /* 🖼 프로필 사진 한 칸 — home 통째 대신(api-public-reads.js 가 API 명함을 먼저 보고, 못 받으면 여기). */
+    async fetchAvatar(uid){
+      try{ return (await get(ref(db, `users/${uid}/home/avatar`))).val() || null; }catch(_){ return null; }
+    },
+    /* 🏆 내 순위 한 줄은 API 에만 있다 — Firebase 길은 undefined(부르는 쪽이 100줄 + rankOf). */
+    async fetchMyRank(){ return undefined; },
     /* 🎲 남의 목록에서 **비지 않은 프리셋 하나를 무작위로** 고른다.
        [왜 여기 한 곳인가] 무작위 파도타기와 친구 지목 파도타기가 같은 규칙을 써야 한다.
          두 곳에서 각각 뽑으면 «친구 것은 늘 1번만 뜬다» 같은 어긋남이 조용히 생긴다.
@@ -4474,5 +4481,7 @@
      ★ 2026-09-23: 쓰는 사람이 없음을 확인하고 **서버 규칙에서도 `mysRooms` 를 내렸다**(개정 63).
         남은 것은 콘솔의 옛 데이터뿐 — 규칙이 내려간 뒤에 지운다(순서가 반대면 지우자마자 다시 생길 수 있다). */
 
+  /* 🌐 공개 읽기(파도타기 · 명함 · 사진 · 랭킹 · 방 개수 표시 · 랜덤 참여 후보)는 API 사본 먼저 → 실패면 위 함수 그대로(api-public-reads.js). */
+  createApiPublicReads({ api: (window.TwApi && window.TwApi.client) || null, readCell: (path) => get(ref(db, path)).then(s => s.val()) }).wrap(window.firebaseAPI);
   try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { if(typeof window.toast === 'function') window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
   window.dispatchEvent(new Event('firebase-ready'));
