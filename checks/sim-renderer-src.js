@@ -25,6 +25,7 @@ const MODULES = [
   { file: 'license-gate.js', mod: 'licenseGateMod', glob: 'TwLicenseGate', sample: 'function _rcStore(' },   // 앱 FSD 31번
   { file: 'account.js', mod: 'accountMod', glob: 'TwAccount', sample: 'function getMyLoginEmail(' },   // 앱 FSD 23번
   { file: 'wardrobe.js', mod: 'wardrobeMod', glob: 'TwWardrobe', sample: 'function ensureWdPreview(' },   // 앱 FSD 29번
+  { file: 'settings-panel.js', mod: 'settingsMod', glob: 'TwSettingsPanel', sample: 'function loadAdBannerSlides(' },   // 앱 FSD 27번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
