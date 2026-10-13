@@ -52,7 +52,9 @@ const fire = (ev) => { let stopped = false, prevented = false;
 
 say('── 3. 쓰는 곳');
 {
-  const code = strip(APP) + '\n' + strip(ANIMAL);
+  /* Ctrl+E(관리자 끄기)는 관리자 코드 admin 폴더 7번에서 admin/admin-mode.js 로 옮겼다 — 그 파일도 같이 본다(없으면 빈 글) */
+  const AMODE = ['admin-mode.js', 'parts/admin/admin-mode.js', 'app/parts/admin/admin-mode.js'].map(read).find(Boolean) || '';
+  const code = strip(APP) + '\n' + strip(ANIMAL) + '\n' + strip(AMODE);
   chk(!/\b(e|ev)\.key\s*[!=]==?\s*'[a-zA-Z]'/.test(code), '글자 단축키를 e.key 로 직접 비교하는 곳이 없다');
   chk(/const letter = \(e\.ctrlKey \|\| e\.metaKey \|\| e\.altKey\) \? '' : hotkeyLetter\(e\);/.test(code)
       && /case 't':\s*gachaMod\.toggleGachaInv\(\);/.test(code), 'T(파츠 보관함)는 hotkeyLetter 로 · 수정키가 없을 때만 (🎰 보관함은 gacha.js — app.js 는 gachaMod.toggleGachaInv)');

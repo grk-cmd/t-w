@@ -19509,135 +19509,18 @@ const REMOTE_FLAGS_WAIT_MS = 3000;
   if(window.firebaseAPI) run();
   else window.addEventListener('firebase-ready', run, { once:true });
 })();
-async function _sha256Hex(s){
-  /* ★ 실패하면 null — 계정 이전 쪽 같은 이름 함수(뒤에 있어 이기고 있던 판)와 동작을 맞췄다(개정 16 에서 그쪽을 걷음). */
-  try{
-    const buf = new TextEncoder().encode(s);
-    const hash = await crypto.subtle.digest('SHA-256', buf);
-    return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');
-  }catch(e){ return null; }
-}
-function tryEnterAdmin(){
-  const overlay=document.getElementById('adminPassOverlay');
-  const input=document.getElementById('adminPassInput');
-  const err=document.getElementById('adminPassErr');
-  if(!overlay) return;
-  err.style.display='none'; input.value='';
-  /* 🔑 지금 어느 계정으로 로그인돼 있는지 먼저 보여준다.
-     [왜 여기에] 서버 규칙이 보는 것은 이 uid 하나다. 관리자를 한 명 더 등록할 때도 이 값을
-       콘솔의 admins 노드에 넣으면 되므로, 확인하려고 개발자도구를 열 일이 없어진다. */
-  const line = document.getElementById('adminAuthLine');
-  if(line){
-    const uid = _myAuthUid();
-    if(uid){
-      let mail = '';
-      try{ mail = (firebaseAPI.authCurrentEmail && firebaseAPI.authCurrentEmail()) || ''; }catch(_){}
-      line.textContent = '로그인됨' + (mail ? ' · ' + mail : '') + '\nuid ' + uid;
-      line.style.whiteSpace = 'pre-line';
-      line.style.color = 'var(--ink-soft)';
-    } else {
-      line.textContent = '⚠ 로그인 안 됨 — 프로그램 설정 › 내 계정에서 구글 로그인이 필요해요';
-      line.style.whiteSpace = '';
-      line.style.color = 'var(--win-error)';
-    }
-  }
-  overlay.classList.add('on'); overlay.style.display='flex';
-  setTimeout(()=>input.focus(), 50);
-}
-/* 🔑 이 기기의 Firebase 로그인 uid — 관리자 권한의 **진짜 근거**다.
-   ⚠️ getMyUserId() 와 헷갈리지 말 것. 그쪽은 localStorage 에 저장되는 앱 자체 id 라 누구나
-     자기 값을 바꿔 넣을 수 있고, 방 멤버 노드에 실려 남들에게도 보인다. 권한에 쓸 수 없다. */
-function _myAuthUid(){
-  try{ return (window.firebaseAPI && firebaseAPI.authCurrentUid) ? firebaseAPI.authCurrentUid() : null; }
-  catch(_){ return null; }
-}
-async function _submitAdminPass(){
-  const input=document.getElementById('adminPassInput');
-  const err=document.getElementById('adminPassErr');
-  const overlay=document.getElementById('adminPassOverlay');
-  const pass=input.value;
-  if(!pass) return;
-  try{
-    const h = await _sha256Hex(pass);
-    if(h === ADMIN_PASS_HASH){
-      /* 🔐 비밀번호가 맞아도 **구글 로그인이 없으면 켜지 않는다.**
-         [왜] 실제 권한은 서버 규칙(admins/$uid)이 auth.uid 로 판정한다. 로그인이 없으면 저장이
-           전부 거부되는데, 관리자 모드만 켜지면 화면에는 버튼이 다 보인다 — 파츠를 등록하고
-           "됐겠지" 하고 창을 닫는 사고가 여기서 난다. 화면과 실제 권한을 어긋나지 않게 맞춘다.
-         ⚠️ 이건 **편의를 위한 확인이지 보안이 아니다.** 이 검사는 우회할 수 있고, 막는 것은
-           어디까지나 규칙이다. 여기를 강화한다고 서버 쪽을 느슨하게 하지 말 것. */
-      if(!_myAuthUid()){
-        err.innerHTML = '구글 로그인이 필요해요<br>프로그램 설정 › 내 계정에서 로그인해 주세요';
-        err.style.display='block';
-        return;
-      }
-      isAdmin = true;
-      document.body.classList.add('admin');
-      if(window.companion && companion.setAdminMode) companion.setAdminMode(true);
-      toast('관리자 모드 ON — Ctrl+E로 종료');
-      refreshAdminVisibility();
-      overlay.classList.remove('on'); overlay.style.display='none';
-      /* 🎰 이관 과도기 — 카탈로그 첫 스냅샷이 이미 지나간 뒤에 관리자가 됐을 수 있다.
-         옛 경로 표식(_legacyGacha)이 로컬 목록에 남아 있으면 여기서도 한 번 옮긴다. */
-      if(!window.__gachaMigrated && window.firebaseAPI && window.firebaseAPI.migrateGachaCatalog
-         && savedParts.some(p=>p && p._legacyGacha)){
-        window.__gachaMigrated = true;
-        window.firebaseAPI.migrateGachaCatalog()
-          .then(r=>{ if(r && r.moved && r.moved.length) toast('🎰 가챠 파츠 '+r.moved.length+'개를 새 카탈로그 경로로 옮겼어요 (구버전 노출 차단)'); })
-          .catch(()=>{ window.__gachaMigrated = false; });
-      }
-    } else {
-      err.textContent='비밀번호가 틀려요'; err.style.display='block';
-    }
-  }catch(_){ err.textContent='비밀번호 확인 중 오류'; err.style.display='block'; }
-}
-function exitAdmin(){
-  isAdmin = false;
-  document.body.classList.remove('admin');
-  if(window.companion && companion.setAdminMode) companion.setAdminMode(false);
-  toast('관리자 모드 OFF');
-  refreshAdminVisibility();
-}
-// 관리자 모드 표시는 배지(클릭 버튼) 대신 Ctrl+E 단축키로 종료 — run 모드 클릭통과와 충돌하지 않게.
-document.addEventListener('keydown', e=>{
-  if(isAdmin && e.ctrlKey && hotkeyLetter(e)==='e'){ e.preventDefault(); exitAdmin(); }
+/* 🔐 관리자 모드(비밀번호 창 · 켜기 · Ctrl+E 끄기 · 관리자 버튼 보이기 · Ctrl·⌘+클릭 진입)는 admin/admin-mode.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
+   isAdmin 을 바꾸는 곳은 그 모듈 하나다(setIsAdmin). savedParts 는 뒤에서 선언되는 let 이라 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const ADMIN_MODE_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const adminMode = (typeof TwAdminMode === 'undefined') ? ADMIN_MODE_OFF : TwAdminMode.createAdminMode({
+  toast: (...a)=>toast(...a),
+  refreshInviteBtn: (...a)=>refreshInviteBtn(...a),
+  adminPassHash: ADMIN_PASS_HASH,
+  isAdmin: ()=>isAdmin,
+  setIsAdmin: (v)=>{ isAdmin = v; },
+  savedParts: ()=>savedParts,
 });
-/* 관리자 전용 UI 표시 토글 — DOM에 .admin-only 클래스가 있으면 isAdmin일 때만 보임 */
-function refreshAdminVisibility(){
-  /* 표시 여부의 기본값은 CSS(body:not(.admin) .admin-only)가 잡는다 — JS가 죽어도 안 드러나게.
-     여기서는 관리자 모드가 켜지고 꺼질 때 인라인 값을 맞춰줄 뿐이다.
-     ⚠️ isAdmin일 때 '' 로 지우는 게 맞다. 'block' 같은 값을 박으면 버튼(inline-block)·구분점(inline)이
-       전부 줄바꿈되어 런처 하단이 세로로 길어진다. */
-  document.querySelectorAll('.admin-only').forEach(el=>{
-    el.style.display = isAdmin ? '' : 'none';
-  });
-  // 꾸미기 패널이 열려 있으면 등록/삭제 버튼 표시가 바뀌므로 다시 렌더
-  if(typeof window.refreshWardrobe==='function') window.refreshWardrobe();
-  // 🎟️ 관리자는 초대장 무제한 — 버튼 표시도 그에 맞게 갱신
-  if(typeof refreshInviteBtn==='function') refreshInviteBtn();
-}
-/* 진입 트리거: Ctrl + ("후원" 또는 "캐릭터 생성" 또는 🎨 꾸미기 또는 광고배너) **한 번** 클릭
-   [왜 5연타를 걷었나] 연타는 "비밀번호 창이 뜨는 것 자체"를 숨기려는 장치였다. 그런데 이제
-     실제 권한은 서버 규칙(admins/$uid)이 쥐고 있어서, 창이 떠도 로그인 없이는 아무것도 못 한다.
-     숨길 이유가 사라진 자리에 남은 건 관리자 본인의 불편(연타가 안 먹혀 몇 번씩 다시 시도)뿐이라
-     Ctrl+클릭 한 번으로 줄인다.
-   ★ Ctrl 을 누른 클릭은 기본 동작(생성창·꾸미기 열기)을 반드시 막는다 — 안 막으면 비밀번호 창
-     뒤로 그 창들이 같이 열린다.
-   ★ 캐릭터 생성 버튼이 비활성화(슬롯 꽉 참)되면 클릭 이벤트 자체가 안 나가므로, 항상 클릭
-     가능한 후원 버튼·광고배너도 함께 받는다. */
-(function bindAdminTrigger(){
-  // Windows 에서 metaKey 는 Win 키다. Win 키와 같이 누른 클릭으로 열리지 않게 Meta 는 Mac 에서만 받는다.
-  const isMac = /Mac/i.test(navigator.platform || '');
-  document.addEventListener('click', e=>{
-    if(isAdmin) return;
-    if(!(e.ctrlKey || (isMac && e.metaKey))) return;
-    const target = e.target.closest && (e.target.closest('#lcDonateBtn') || e.target.closest('#lcCreate') || e.target.closest('#myWardrobeBtn') || e.target.closest('#lcAdBanner'));
-    if(!target) return;
-    e.preventDefault();
-    e.stopPropagation();
-    tryEnterAdmin();
-  }, true);   // capture 단계에서 가로채기 — 일반 클릭 핸들러보다 먼저
-})();
 /* ═══ 💡 얼굴 텍스처 갈아끼우기 · 생성기 조명 ═══ */
 /* face material의 map을 갈아끼울 때 emissiveMap도 같이 동기화. 안 그러면 졸기 등 map 교체 시 이전 텍스처가 emissive로 남아 합성됨(blink 흐릿함 원인) */
 /* 🐾 동물 귀는 몸과 다른 재질이라 이 한 줄로는 안 바뀐다 — 몸 재질에 달아 둔 등록표
@@ -25982,12 +25865,7 @@ document.getElementById('licenseReqApplyBtn').onclick=async ()=>{
   else window.addEventListener('firebase-ready', ()=>watchMyLicenseRequest(reqId), {once:true});
 })();
 
-/* --- 관리자 비밀번호 모달 바인딩 --- */
-document.getElementById('adminPassOk').onclick=_submitAdminPass;
-document.getElementById('adminPassCancel').onclick=()=>{
-  const o=document.getElementById('adminPassOverlay'); o.classList.remove('on'); o.style.display='none';
-};
-document.getElementById('adminPassInput').addEventListener('keydown', e=>{ if(e.key==='Enter') _submitAdminPass(); });
+/* --- 관리자 비밀번호 창 버튼 연결은 admin/admin-mode.js 로 옮겼다(관리자 모드 진입과 한 묶음) --- */
 
 /* ═══ 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) ═══ */
 /* 관리자 몫(라이선스 키 발급 · 목록 · 요청, 📣 확성기 공지 · 📰 업데이트 공지 편집)은 admin/admin-license.js · admin/admin-notice.js 로 옮겼다.
@@ -32963,7 +32841,7 @@ layoutSeats=function(){ _layoutSeats();
 
 /* ============================================================ INIT */
 renderSeatTabs(); setManual(null); applyAppMode(); applyDesktopRunClass();
-refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
+if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
 { const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
 loadBaseGLB().then(ok=>{ if(!ok) console.warn('기본 GLB 로드 실패 — 스탠드인 사용');
   return Promise.all([loadSkins(), loadSlots()]); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());

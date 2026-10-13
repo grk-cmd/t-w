@@ -347,6 +347,9 @@ PRELOAD.push('admin-part-register.js');
 PRELOAD.push('admin-users.js', 'admin-launcher.js');
 /* admin/admin-asset.js — 🛠️ 📦 책상·아이템 코드 · 🎁 커미션 캐릭터 · 🔐 암호화 GLB 불러오기(관리자 코드 admin 폴더 6번). 같은 까닭 — 만들 때 버튼 연결과 createAdminAsset. */
 PRELOAD.push('admin-asset.js');
+/* admin/admin-mode.js — 🛠️ 🔐 관리자 모드 진입(관리자 코드 admin 폴더 7번). 같은 까닭 — 만들 때 하는 일(비밀번호 창 연결 · Ctrl+E · Ctrl·⌘+클릭 가로채기)과
+   app.js 가 원래 자리에서 부르는 createAdminMode · 부팅 때 adminMode.refreshAdminVisibility 를 같이 굴린다. */
+PRELOAD.push('admin-mode.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

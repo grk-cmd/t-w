@@ -1030,7 +1030,10 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const leftA = gone.filter(id => A.includes("getElementById('" + id + "')") || A.includes("$('" + id + "')"));
     chk(!leftH.length && !leftA.length, '★ 걷은 것(설정 › 계정 탭 · 로그인 전 얼굴 · 되찾기 · 이전/연동/해제)이 없다' + (leftH.concat(leftA).length ? ' — ' + leftH.concat(leftA).join(' ') : ''));
     chk(!/initAccountTransfer|firebaseAPI\.setTransferHash|firebaseAPI\.verifyTransfer|firebaseAPI\.authRebindUserCode|recCandidates/.test(Ac), '  이전 · 연동 · 되찾기 호출이 없다');
-    chk(count(A, /async function _sha256Hex\(/g) === 1 && /async function _sha256Hex\(s\)\{[\s\S]{0,600}catch\(e\)\{ return null; \}/.test(A), '  _sha256Hex 는 한 벌 · 실패하면 null');
+    /* _sha256Hex 는 관리자 모드와 함께 admin/admin-mode.js 로 옮겼다(관리자 코드 admin 폴더 7번) — app.js + 그 파일에서 한 벌 */
+    const _AM = ['admin-mode.js', 'parts/admin/admin-mode.js', 'app/parts/admin/admin-mode.js'].map(f => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return ''; } }).find(Boolean) || '';
+    const _AH = A + '\n' + _AM;
+    chk(count(_AH, /async function _sha256Hex\(/g) === 1 && /async function _sha256Hex\(s\)\{[\s\S]{0,600}catch\(e\)\{ return null; \}/.test(_AH), '  _sha256Hex 는 한 벌 · 실패하면 null');
     const tabs = takeFn(A, 'function setProgSettingsTab(') || '';
     chk(!!tabs && !/account/.test(tabs.replace(/\/\/.*$/mg, '')) && !/설정 → 계정|설정 › 계정/.test(Ac), '  설정 탭에 계정 없음 · 없어진 [설정 › 계정]을 가리키는 안내 없음');
     const gateUI = A.slice(A.indexOf('(function initAccountLoginUI('), A.indexOf('function _acctRelaunchAfterDetach('));
