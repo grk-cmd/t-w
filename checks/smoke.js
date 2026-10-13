@@ -398,6 +398,8 @@ PRELOAD.push('char-code.js');
 PRELOAD.push('dice-games.js');
 /* program-settings.js — 🏷️ 닉네임 저장 · ⚙️ 프로그램 설정 창(앱 FSD 40번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createProgramSettings 를 같이 굴린다. */
 PRELOAD.push('program-settings.js');
+/* chat-prefs.js — 💬 채팅 투명도 · 알림음 · 기록 삭제(앱 FSD 41번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatPrefs 를 같이 굴린다. */
+PRELOAD.push('chat-prefs.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
