@@ -362,12 +362,13 @@ _callers = {}
 #   lookupFriendCode · listLicenses · getUserNameById · issueSecretRoom · expireSecretRoom · getSecretRoomPub · getMySecretRoom ·
 #   setMySecretRoom · getUserLastSeen · getUserFriendCode 를 부른다. admin-console.js 는 cleanupCatalogBase64 · analyzeCatalog ·
 #   cleanupGhostRooms · reclaimInvitesSince · publishPart · publishDesk · publishItem 을 부른다. admin-license.js · admin-notice.js ·
-#   admin-category.js(관리자 3번)는 라이선스 발급 · 요청 · 공지 · 카테고리 쓰기를 부른다.
+#   admin-category.js(관리자 3번)는 라이선스 발급 · 요청 · 공지 · 카테고리 쓰기를 부른다. admin-part-register.js(4번)는 publishPart ·
+#   publishDesk · publishItem 등 카탈로그 쓰기를 부른다.
 def _open_part(name):
     for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):
         if os.path.exists(_p): return open(_p, encoding='utf-8')
     return open(name, encoding='utf-8')
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js'):
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js'):
     try: _cs = _strip_js_comments(_open_part(_cf).read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):
@@ -854,7 +855,8 @@ except Exception: pass
 try: _files19.append(('admin-license-bulk.js', _open_part('admin-license-bulk.js').read().split('\n')))
 except Exception: pass
 # admin-license.js · admin-category.js — 키 목록(메모) · 대기 요청(요청한 사람 이름) · 카테고리 칩 마크업을 app.js 에서 옮겼다(관리자 3번).
-for _f19a in ('admin-license.js', 'admin-category.js'):
+# admin-part-register.js — 등록 창 카테고리 · 미리보기 마크업(관리자 4번).
+for _f19a in ('admin-license.js', 'admin-category.js', 'admin-part-register.js'):
   try: _files19.append((_f19a, _open_part(_f19a).read().split('\n')))
   except Exception: pass
 for _f19, _lines19 in _files19:
