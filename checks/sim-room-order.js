@@ -9,8 +9,9 @@
    ・3절: app.js startRoom — pub.owner 가 내가 버린 uid 면 재발급 안내 토스트. 방장으로 쳐 주지는 않는다.
    [실행] app.js · firebase-init.js · admin-license-bulk.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). 판정 줄은 맨 끝. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const FB  = fs.readFileSync('firebase-init.js', 'utf8');
 /* 시크릿룸 발급은 관리자 코드 admin 폴더로 옮겼다 — 저장소 루트에서 돌 때도 찾게 자리를 몇 곳 본다 */
 const ADMIN_LB_FILE = ['admin-license-bulk.js', 'parts/admin/admin-license-bulk.js', 'app/parts/admin/admin-license-bulk.js'].find(c => fs.existsSync(c));

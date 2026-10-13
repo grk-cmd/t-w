@@ -7,6 +7,7 @@
  * 3. 들어오는 길 — 남은 _meta 가 있는 빈 방도 새로 연다(선점 · 시크릿룸 · 되살리기 · 방 서버) · 새 탭은 빈 기록
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -14,7 +15,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
-const FI = need('firebase-init.js'), APP = need('app.js');
+const FI = need('firebase-init.js'), APP = _joinRenderer(need('app.js'));
 const FX = need('functions/index.js');
 need('functions/room-stats.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
