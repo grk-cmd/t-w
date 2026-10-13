@@ -17,6 +17,8 @@ const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ['admin-part-register.js', 'parts/admin/admin-part-register.js', 'app/parts/admin/admin-part-register.js'].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — admin-part-register.js'); process.exit(2); }
+/* 🎨 꾸미기 창은 wardrobe.js 로 옮겼다(앱 FSD 29번) — 꾸미기의 «＋ 파츠 등록» 부르는 곳은 그 파일에 있다(adminPartReg 를 읽는 함수로 받아 adminPartReg().이름) */
+const WARD = ['wardrobe.js', 'parts/wardrobe.js', 'app/parts/wardrobe.js'].map(read).find(Boolean) || '';
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const noStr = (s) => s.replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`/g, '""');
 
@@ -46,7 +48,7 @@ function build(src, st){
   return { out, calls, els, st };
 }
 
-async function judgeAll(src, app, html){
+async function judgeAll(src, app, html, ward = WARD){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
   /* 1. 만들 때 */
@@ -90,14 +92,20 @@ async function judgeAll(src, app, html){
   t(/const ADMIN_PART_REG_OFF = \{\};/.test(app), '모듈이 없으면 빈 껍데기');
   const mk = (app.match(/const adminPartReg = \(typeof TwAdminPartRegister === 'undefined'\) \? ADMIN_PART_REG_OFF : TwAdminPartRegister\.createAdminPartRegister\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
-  t(deps.length === 41 && FNS.every(n => deps.includes(n + ': (...a)=>' + n + '(...a),')) && VALUES.every(n => deps.includes(n + ': ()=>' + n + ','))
+  /* 오른쪽은 그 이름이 다른 모듈로 옮겨 가면 «mod.이름» 으로 바뀐다 — 키와 넘기는 방식만 본다 */
+  const reEsc = (x) => x.replace(/[$]/g, '\\$');
+  t(deps.length === 41 && FNS.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\.\\.\\.a\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '\\(\\.\\.\\.a\\),$').test(d)))
+    && VALUES.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '(?:\\(\\))?,$').test(d)))
     && deps.includes('seats,') && deps.includes('setSavedParts: (v)=>{ savedParts = v; },'),
     'deps 41 — 함수 26 화살표 · 좌석 1 · 값 13 읽는 함수 · 쓰는 함수 1 (' + deps.length + ')');
   const h81 = app.indexOf('/* ═══ 🗂️ 카탈로그 파츠 페이로드 · 파츠 삭제(관리자) ═══ */'), h82 = app.indexOf('/* ═══ 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) ═══ */');
   t(h81 > 0 && h82 > h81 && app.indexOf('const adminPartReg =') > h82, '만드는 줄은 원래 자리(두 구역 머리 아래)');
-  const callers = (A.match(/adminPartReg\.(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length;
-  const oldCalls = (A.match(/(^|[^.\w$])(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length;
-  t(callers === 13 && oldCalls === 0, '부르는 곳 13 — 모두 adminPartReg.이름 (꾸미기 · 책상 · 아이템 · 썸네일 굽기 · 🎰 gacha deps 셋)');
+  const W = strip(ward);
+  const callers = (A.match(/adminPartReg\.(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length
+    + (W.match(/adminPartReg\(\)\.(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length;
+  const oldCalls = (A.match(/(^|[^.\w$])(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length
+    + (W.match(/(^|[^.\w$])(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length;
+  t(callers === 13 && oldCalls === 0, '부르는 곳 13 — 모두 adminPartReg.이름 (꾸미기 — wardrobe.js · 책상 · 아이템 · 썸네일 굽기 · 🎰 gacha deps 셋)');
   t(/openPartRegister: \(\.\.\.a\)=>adminPartReg\.openPartRegister\(\.\.\.a\),/.test(app) && /syncPartRegGachaLock: \(\.\.\.a\)=>adminPartReg\.syncPartRegGachaLock\(\.\.\.a\),/.test(app)
     && /deletePart: \(\.\.\.a\)=>adminPartReg\.deletePart\(\.\.\.a\),/.test(app), '🎰 gacha.js 에는 예전처럼 deps 로 — adminPartReg 을 거친다');
   t(/window\.TwAdminPartRegister = api;/.test(src) && /module\.exports = api;/.test(src), '전역 이름 TwAdminPartRegister(Tw 접두사)');
@@ -118,17 +126,18 @@ async function judgeAll(src, app, html){
     ['캐시를 안 비움', { mod: s => s.replace('  partSceneCache().delete(id);\n  // 모든 좌석에서', '  // 모든 좌석에서') }],
     ['카탈로그에서 안 내림', { mod: s => s.replace('window.firebaseAPI.unpublishPart(id).catch(()=>{});', '') }],
     ['책상 등록 버튼 안 걺', { mod: s => s.replace("document.getElementById('deskRegBtn').onclick=", "document.getElementById('deskRegBtnX').onclick=") }],
-    ['옛 이름으로 부름', { app: s => s.replace('adminPartReg.openPartRegister(info.cat)', 'openPartRegister(info.cat)') }],
+    ['옛 이름으로 부름', { app: s => s.replace("adminPartReg.openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)", "openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)") }],
+    ['꾸미기에서 옛 이름으로 부름', { ward: s => s.replace('adminPartReg().openPartRegister(info.cat)', 'openPartRegister(info.cat)') }],
     ['gacha deps 가 옛 이름', { app: s => s.replace('  deletePart: (...a)=>adminPartReg.deletePart(...a),', '  deletePart: (...a)=>deletePart(...a),') }],
     ['html 줄 빠짐', { html: s => s.replace('<script src="parts/admin/admin-part-register.js"></script>', '') }],
     ['app.js 에 본문이 남음', { app: s => s + '\nfunction deletePart(id){}' }],
     /* 같은 deps 줄이 다른 모듈(파츠 그림 part-paint.js)을 만드는 줄에도 있다 — 파츠 등록 창을 만드는 줄 안의 것을 지운다 */
-    ['deps 하나 빠짐', { app: s => s.replace(/(const adminPartReg = [^\n]*\n(?:  [^\n]*\n)*?)  wdPreviewBase: \(\)=>wdPreviewBase,\n/, '$1') }],
+    ['deps 하나 빠짐', { app: s => s.replace(/(const adminPartReg = [^\n]*\n(?:  [^\n]*\n)*?)  wdPreviewBase: \(\)=>[^\n]*\n/, '$1') }],
   ];
   for(const [name, f] of breaks){
-    const s2 = f.mod ? f.mod(MOD) : MOD, a2 = f.app ? f.app(SRC) : SRC, h2 = f.html ? f.html(HTML) : HTML;
-    const changed = s2 !== MOD || a2 !== SRC || h2 !== HTML;
-    let rows2; try{ rows2 = await judgeAll(s2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
+    const s2 = f.mod ? f.mod(MOD) : MOD, a2 = f.app ? f.app(SRC) : SRC, h2 = f.html ? f.html(HTML) : HTML, w2 = f.ward ? f.ward(WARD) : WARD;
+    const changed = s2 !== MOD || a2 !== SRC || h2 !== HTML || w2 !== WARD;
+    let rows2; try{ rows2 = await judgeAll(s2, a2, h2, w2); }catch(_){ rows2 = [[false, '던짐']]; }
     chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
   }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
