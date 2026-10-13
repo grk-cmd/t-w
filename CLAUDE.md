@@ -59,6 +59,7 @@
 | `app/parts/desktop-run.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 32번) — 🖥️ 데스크탑 실행 화면 덩이(`if(desktopMode){…}` — 업데이트 배너 · 활성 앱 · 전역 입력 · 클릭 통과 `UI_HIT_SEL` · 하트비트). classic script(`window.TwDesktopRun`), app.js 가 원래 자리에서 `createDesktopRun(deps)` 하면 한 번 돈다 — 밖에서 부르는 이름 없음. 창 크기 `applyDesktopRunClass` 는 app.js |
 | `app/parts/room-entry.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 33번) — 🛰 방 서버 provider(관리자 스위치) · 🔢 방 개수 · 방 만들기 · 랜덤 참여 · 갈아타기 · 🚪 방 입장 · 나가기 · 승계 · 해산 · 코드 입력칸. classic script(`window.TwRoomEntry`), 부르는 곳은 `roomEntryMod.이름`(`startRoom` · `doLeaveRoom` 등). 내 이름 도우미(`getDisplayName` 등)는 app.js |
 | `app/parts/overhead.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 34번) — 💬 머리 위 말풍선 · 회사원 모드 라벨 · 🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너. classic script(`window.TwOverhead`), 부르는 곳은 `overheadMod.이름`(이름표 · 칩 방향 깃발은 `overheadMod.nameplateEnabled()` 처럼 읽는 함수) |
+| `app/parts/room-sync.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 35번) — 📦 방으로 보내는 def(직렬화 · 얼굴 URL · 델타 전송 · Firebase provider) · 🛰 poke 신선도 · 🚪 자리비움 자동 퇴장 · 🛰 서버 모듈 감시견. classic script(`window.TwRoomSync`), 부르는 곳은 `roomSyncMod.이름` |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
