@@ -11,12 +11,13 @@
  * 6. 연결 — firebase-init 이 원격 설정(remote-config.js)을 넘긴다 · Firebase config 는 안 읽는다 · app.js 가 문지기 한 곳(resolveRoomServer)으로 고른다
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('room-server-gate.js'), FI = read('firebase-init.js'), APP = read('app.js'), RULES = read('firebase-database-rules.json');
+const SRC = read('room-server-gate.js'), FI = read('firebase-init.js'), APP = _joinRenderer(read('app.js')), RULES = read('firebase-database-rules.json');
 for(const [n, v] of [['room-server-gate.js', SRC], ['firebase-init.js', FI], ['app.js', APP], ['firebase-database-rules.json', RULES]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }

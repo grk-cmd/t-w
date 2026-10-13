@@ -5,6 +5,7 @@
    ・1절: 판정 · 창 — 가짜 DOM 위에서 실제로 돌린다(묻기 · 같은 방 · 코드 없음 · 취소 · 놀러 가기 · 그 사이 나감 · 나가고 이동)
    ・2절: 배선 — 코드는 _friendRoomTag 로만 · 누르기는 줄 선택과 따로 · 초대 창과 같은 틀 · html 순서 */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -12,7 +13,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 /* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
-const MOD = read('friend-visit.js'), APP0 = read('app.js'), MI = read('myhome-inbox.js'), HTML = read('desk-companion-prototype.html');
+const MOD = read('friend-visit.js'), APP0 = _joinRenderer(read('app.js')), MI = read('myhome-inbox.js'), HTML = read('desk-companion-prototype.html');
 if (!MOD || !APP0 || !MI || !HTML) { say('  ? 원본 못 찾음 — friend-visit.js · app.js · myhome-inbox.js · desk-companion-prototype.html'); process.exit(2); }
 const APP = APP0 + '\n' + MI;
 

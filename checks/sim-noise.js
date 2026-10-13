@@ -9,12 +9,13 @@
    ・5절: 소리 자료 · 재생 상수 — 셋 다 WebM · 루프 앞뒤 0.15초 · 페이드 0.1/0.5 · 책장 «가끔 한 번».
    [실행] app.js · desk-companion-prototype.html · noise.js · noise-sounds.js 가 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('app.js'), HTML = read('desk-companion-prototype.html'), NZ = read('noise.js'), SND = read('noise-sounds.js');
+const SRC = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html'), NZ = read('noise.js'), SND = read('noise-sounds.js');
 if(!SRC || !HTML || !NZ || !SND){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html · noise.js · noise-sounds.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(SRC), NZC = strip(NZ);

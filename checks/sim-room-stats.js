@@ -3,6 +3,7 @@
  * 1. functions/room-stats.js  2. room-index.js  3. room-stats.js  4. firebase-init.js 연결 · 규칙
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -202,7 +203,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(/async getRoomCounts\(opts\)\{\s*if\(opts && opts\.quick\)\{\s*const qc = await _roomStats\.counts\(\);/.test(CODE), 'getRoomCounts 는 quick 일 때만 roomStats 를 본다');
     chk((CODE.match(/_roomStats\./g) || []).length === 2, 'roomStats 를 쓰는 자리는 quick 카운트 · 구독 둘뿐');
     chk(/createRoomStats\(\{ db, ref, get, onValue, now: \(\) => _svNow\(\) \}\)/.test(CODE) && /watchRoomCounts\(cb\)\{ return _roomStats\.watch\(cb\); \}/.test(CODE), 'firebaseAPI.watchRoomCounts 로 구독을 연다 · 신선도는 서버 기준 시각(_svNow)');
-    const APP = strip(need('app.js'));
+    const APP = strip(_joinRenderer(need('app.js')));
     const sw = APP.match(/function startRoomCountWatch\(\)\{[\s\S]*?\n\}/);
     chk(!!sw && /_roomCountUnsub = firebaseAPI\.watchRoomCounts\(_paintRoomCounts\)/.test(sw[0]), '방 창을 열면 구독한다 (startRoomCountWatch)');
     chk(!!sw && /clearInterval\(_roomCountTimer\);[\s\S]{0,80}_roomCountUnsub\(\)/.test(sw[0]), '  ↳ 방 창이 닫히면 구독을 끊는다');
