@@ -35,7 +35,7 @@ const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 const src = fs.readFileSync('app.js', 'utf8');
 
 say('\n【1】 게이트가 꺼져 있을 때');
-const offBlock = /if\(!INVITE_GATE_ENABLED\)\{[\s\S]{0,1400}?\n  \}/.exec(src);
+const offBlock = /if\(!inviteGateOn\(\)\)\{[\s\S]{0,1400}?\n  \}/.exec(src);
 chk(!!offBlock, '게이트 꺼짐 분기를 찾았다');
 chk(!!offBlock && /_markInvitePassed\(\)/.test(offBlock[0]),
     '**통과 도장을 찍는다** — 이게 없으면 나중에 켤 때 그 시절 유저가 전원 갇힌다');

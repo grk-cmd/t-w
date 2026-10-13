@@ -387,6 +387,11 @@
     companion: window.companion || null,
     ui: createAppVersionGateDom(document),
   }).start().then(r => { if(r.blocked) console.warn('[앱 최소 버전] 막음 —', r.my, '<', r.min); });
+  /* ⚙️ 원격 설정(remote-config.js · html 이 app.js 앞에 싣는 classic script) — 칸 넷을 따로 구독한다(config 통째 읽기 아님).
+     거부 · 끊김이면 그 칸은 기본값 그대로(onValue 의 취소 콜백). */
+  if(window.TwRemoteConfig && window.TwRemoteConfig.store){
+    window.TwRemoteConfig.store.watch((path, onVal, onErr) => onValue(ref(db, path), s => onVal(s.val()), onErr));
+  }
   /* IP 기준 일일 방문자(visit-ping.js) — 로그인과 상관없이 켤 때 한 번. 함수 SDK 는 위 FUNCTIONS_SDK_URL 주석대로 부를 때 들여온다.
      ⚠️ CSP connect-src 에 운영 함수 호스트만 있어 dev(together-working-dev)에서는 막힌다 — 지표만 빠지고 앱은 그대로다. */
   createVisitPing({
@@ -2389,7 +2394,7 @@
              그게 이 '각자 알아서 나간다' 방식의 전제다.
              _meta.host 폴백은 규칙이 바뀌었을 때의 안전망일 뿐 1순위로 쓰면 안 된다 — _meta 리스너는
              멤버 스냅샷보다 늦게 올 수 있고, 그 찰나에 나가는 사람이 0명이거나 2명이 된다. */
-        const _cap = (typeof window.MAX_PEOPLE === 'number' && window.MAX_PEOPLE > 0) ? window.MAX_PEOPLE : 10;   // 폴백도 app.js MAX_PEOPLE 과 같은 값
+        const _cap = (window.TwRemoteConfig && window.TwRemoteConfig.store) ? window.TwRemoteConfig.store.maxPeople() : 10;   // 원격 설정 config/roomMaxPeople — app.js maxPeople() 와 같은 값
         const _srOwner = (String(room||'').indexOf('SCRT-') === 0)
           ? (window._srOwnerUid || (_capturedMeta && _capturedMeta.host) || null) : null;
         const _aliveIds = Object.keys(friends);
