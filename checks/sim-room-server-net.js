@@ -774,7 +774,7 @@ async function joined(o = {}){
     chk(!/Presence\.stop\(\);\s*\/\/ 서버에는 없던 방/.test(so) && !/\bprobe\b/.test(so), '  ↳ 들어갔다 나오는 탐색(probe)은 없앴다');
     chk(/const _srv = await _serverRandomRooms\(12\);/.test(AC) && /_serverRandomRooms\(12\)\)\.filter\(c => c !== cur\)/.test(AC), '랜덤 입장 · 갈아타기 — 서버 방 먼저');
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => m[1]);
-    chk(csp.length === 2 && csp.every((c) => /connect-src [^;]*wss:\/\/rooms\.togetherworking\.duckdns\.org wss:\/\/rooms-dev\.togetherworking\.duckdns\.org ws:\/\/127\.0\.0\.1:8787 ws:\/\/localhost:8787;/.test(c)), 'CSP 두 줄 connect-src 에 운영 · dev 방 서버 + 로컬 8787');
+    chk(csp.length === 2 && csp.every((c) => /connect-src [^;]*wss:\/\/\*\.togetherworking\.duckdns\.org https:\/\/\*\.togetherworking\.duckdns\.org ws:\/\/127\.0\.0\.1:8787 ws:\/\/localhost:8787;/.test(c)), 'CSP 두 줄 connect-src 에 방 서버 묶음(wss · https://*.togetherworking.duckdns.org) + 로컬 8787');
     chk(csp.every((c) => !/ws:\/\/(127\.0\.0\.1|localhost):\*/.test(c)), '  ↳ 로컬은 포트 하나만(모든 포트 * 아님)');
   }
 

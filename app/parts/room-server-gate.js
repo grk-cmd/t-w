@@ -7,7 +7,8 @@
  *   on      : true 일 때만 아래가 동작한다. 아니면 전원 Firebase(비상 정지 스위치).
  *             켜져 있으면 허용 목록에 없는 사람도 «서버에 있는 방» 코드로 들어갈 때 늘 그 서버로 따라간다 —
  *             안 따라가면 Firebase 의 «같은 코드 다른 방» 에 들어가 서로 못 본다. (예전 follow 칸은 더 읽지 않는다.)
- *   servers : { <서버 이름>: 'wss://…' } — 주소가 KNOWN_SERVER_URLS(= CSP connect-src) 에 없으면 무시.
+ *   servers : { <서버 이름>: 'wss://…' } — 주소가 방 서버 묶음(wss/https://<이름>.togetherworking.duckdns.org = CSP connect-src)이 아니면 무시.
+ *             새 서버는 이 접미사 아래 이름만 더하면 앱 릴리스 없이 붙는다. 다른 도메인 · 포트 · 경로는 막는다.
  *   allow   : { <사용자 코드>: <서버 이름> } — 이 사람이 방을 «만들면» 그 서버에 연다.
  *   default · defaultPercent : 허용 목록에 없는 사람도 이 비율(0~100 정수)만큼 default 서버에 방을 연다.
  *             누가 들어가는지는 사용자 코드의 해시(userBucket 0~99)로 정해서, 비율이 같으면 늘 같은 사람이 같은 쪽이고
@@ -21,11 +22,15 @@
  */
 export const ROOM_SERVER_CFG = 'config/roomServer';
 export const ROOM_DIR_ROOT = 'roomDir';
-// 운영 · dev 방 서버 — desk-companion-prototype.html CSP connect-src 와 같은 주소여야 한다.
+// 운영 · dev 기본 방 서버(dev 개발용 켜기의 기본 주소). 붙어도 되는 주소는 아래 ROOM_SERVER_URL_RE — CSP connect-src 의
+// wss://*.togetherworking.duckdns.org · https://*.togetherworking.duckdns.org 와 같은 범위여야 한다.
 export const ROOM_SERVER_URLS = {
   prod: 'wss://rooms.togetherworking.duckdns.org',
   dev: 'wss://rooms-dev.togetherworking.duckdns.org',
 };
+// 방 서버 묶음 — 이 접미사의 이름 한 칸(wss · https만 · 포트 · 경로 없음). 접미사 앞을 꼭 «.» 로 끊어 evil-togetherworking… 같은 이름을 막는다.
+export const ROOM_SERVER_HOST_SUFFIX = '.togetherworking.duckdns.org';
+export const ROOM_SERVER_URL_RE = /^(?:wss|https):\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.togetherworking\.duckdns\.org$/;
 // 로컬 시험용 — dev 환경(--tw-firebase=dev)에서만 받는다. 운영 앱은 CSP 에 있어도 여기로 붙지 않는다.
 export const LOCAL_SERVER_URLS = ['ws://127.0.0.1:8787', 'ws://localhost:8787'];
 export const SERVER_NAME_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
@@ -53,12 +58,16 @@ export function defaultPercentOf(v){
 /* 비율 안인가 — 칸이 percent 보다 작으면. 0 이면 아무도, 100 이면 모두. */
 export const inDefaultPercent = (uid, percent) => !!uid && userBucket(uid) < defaultPercentOf(percent);
 
-/* 이 환경의 앱이 붙어도 되는 주소인가 — 운영 앱은 운영 주소만, dev 앱은 dev 주소 + 로컬. */
+/* 이 환경의 앱이 붙어도 되는 주소인가 — 방 서버 묶음(ROOM_SERVER_URL_RE)만. 단 운영 앱은 dev 서버로, dev 앱은 운영 서버로 안 간다
+   (환경이 섞이면 서로 다른 Firebase 토큰으로 붙어 거절만 된다). dev 앱은 로컬도. */
+const hostOf = (u) => String(u).replace(/^[a-z]+:\/\//, '');
+const OTHER_ENV_HOST = { prod: hostOf(ROOM_SERVER_URLS.dev), dev: hostOf(ROOM_SERVER_URLS.prod) };
 export function serverUrlOk(url, env){
   const u = trimUrl(url);
   if(!u) return false;
-  if(env === 'dev') return u === ROOM_SERVER_URLS.dev || LOCAL_SERVER_URLS.indexOf(u) >= 0;
-  return u === ROOM_SERVER_URLS.prod;
+  const e = env === 'dev' ? 'dev' : 'prod';
+  if(ROOM_SERVER_URL_RE.test(u)) return hostOf(u) !== OTHER_ENV_HOST[e];
+  return e === 'dev' && LOCAL_SERVER_URLS.indexOf(u) >= 0;
 }
 
 /* dev 환경의 개발용 켜기 — { url } 또는 null. 운영 앱에서는 늘 null. */
