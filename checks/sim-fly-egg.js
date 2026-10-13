@@ -4,6 +4,7 @@
    `/80/80/80` 이어쓰기 · `/80` 세 번 따로 보내기 둘 다 인정. 춤추기 버튼은 세지 않는다.
    실행: node sim-fly-egg.js  (app.js · smoke.js 와 같은 폴더에서) */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -38,7 +39,7 @@ const probe = `
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,5).join('\n')); process.exit(1); }
 console.log = say;
 

@@ -11,6 +11,7 @@
           부르는 곳은 purikuraUi.이름 · 빈 껍데기 · deps 모양 · html 순서 · 전역 이름
    [실행] purikura-ui.js · purikura-net.js · app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0;
@@ -20,7 +21,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['purikura-ui.js', 'purikura-net.js', 'app.js', 'desk-companion-prototype.html', 'chat-window.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['purikura-ui.js'], NET = SRC['purikura-net.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['purikura-ui.js'], NET = SRC['purikura-net.js'];
 const CW = SRC['chat-window.js'];   // 💬 대화창 배선(📷 버튼)은 chat-window.js 로 옮겼다(앱 FSD 14번)
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 8) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };

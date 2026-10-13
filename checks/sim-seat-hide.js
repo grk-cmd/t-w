@@ -7,8 +7,9 @@
    ・4절: 적용 — 프레임 루프가 rig.visible · 말풍선 · 책상 이모지를 매 프레임 판정. 판정 함수를 떼어 와 돌림.
    [실행] app.js 가 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);

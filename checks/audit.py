@@ -365,12 +365,12 @@ _callers = {}
 #   admin-category.js(관리자 3번)는 라이선스 발급 · 요청 · 공지 · 카테고리 쓰기를 부른다. admin-part-register.js(4번)는 publishPart ·
 #   publishDesk · publishItem 등 카탈로그 쓰기를 부른다. admin-users.js · admin-launcher.js(5번)는 통계 · 초대권 지급 · 방 종료 ·
 #   유령 방 · 게임 설정 · 광고 배너 게시를 부른다. report.js · admin-report.js(앱 FSD 11번)는 reportUser · listReports ·
-#   getUserBrief · setAwayImg · deleteStorageUrl · clearReports 를 부른다. my-info.js(앱 FSD 17번 — 🪪 [내 정보] · 🏆 랭킹 · 계정 탭 로그인) · chars.js(18번 — 🧬 캐릭터 보관함) · slot-sync.js(19번 — ☁️ 슬롯 기기 간 동기화) · away-pic.js · myhome-ui.js(22번)도 본다.
+#   getUserBrief · setAwayImg · deleteStorageUrl · clearReports 를 부른다. my-info.js(앱 FSD 17번 — 🪪 [내 정보] · 🏆 랭킹 · 계정 탭 로그인) · chars.js(18번 — 🧬 캐릭터 보관함) · slot-sync.js(19번 — ☁️ 슬롯 기기 간 동기화) · away-pic.js · myhome-ui.js(22번) · tricks.js(25번 — 💃 깜짝쇼 · 🪄 때리기)도 본다.
 def _open_part(name):
     for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):
         if os.path.exists(_p): return open(_p, encoding='utf-8')
     return open(name, encoding='utf-8')
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js'):
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js', 'tricks.js'):
     try: _cs = _strip_js_comments(_open_part(_cf).read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):
@@ -842,6 +842,7 @@ def _safe19(e):
     if re.fullmatch(r'[\d.]+', e): return True
     if re.fullmatch(r'\(?\s*[^\'"?]*\?\s*([\'"])[^\'"]*\1\s*:\s*([\'"])[^\'"]*\2\s*\)?', e): return True  # 글자리터럴 삼항
     if re.fullmatch(r'[A-Z][A-Z0-9_]{2,}', e): return True                                      # 대문자 상수
+    if re.fullmatch(r'[a-z]\w*Mod\.[A-Z][A-Z0-9_]{2,}', e): return True                        # 모듈로 옮긴 대문자 상수(앱 FSD — xxxMod.상수)
     if re.fullmatch(r'(i|j|k|n|idx|no|ii)', e): return True                                     # 반복 첨자
     return False
 _hit19 = []
