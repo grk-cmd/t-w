@@ -59,8 +59,10 @@ function judgeAll(mod, app, html){
   t(!left.length, 'app.js 에 옮긴 꼭대기 선언이 안 남았다' + (left.length ? ' — ' + left.slice(0, 5).join(' · ') : ''));
   t(app.includes("const MY_INFO_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기") && app.includes("const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo.createMyInfo({"), '모듈이 없으면 빈 껍데기 · 만드는 줄');
   const mk = (app.match(new RegExp('const myInfoMod = \\(typeof TwMyInfo === \'undefined\'\\) \\? MY_INFO_MOD_OFF : TwMyInfo\\.createMyInfo\\(\\{\\n([\\s\\S]*?)\\n\\}\\);')) || [])[1] || '';
-  const got = mk.split('\n');
-  t(got.length === GLUE.length && GLUE.every((l, i) => got[i] === l), 'deps ' + GLUE.length + '줄 그대로(함수 ' + FN_DEPS.length + ' · 값 ' + VAL_DEPS.length + ' · 읽는 함수 ' + GET_DEPS.length + ' · 쓰는 함수 ' + SET_DEPS.length + ')');
+  /* 키 이름과 넘기는 방식만 본다 — 오른쪽(다른 모듈로 옮긴 이름이면 «mod.이름»)은 옮길 때마다 바뀔 수 있다 */
+  const kindOf = (l) => { const m = /^  ([\w$]+): (\(\.\.\.a\)=>|\(\)=>|\(v\)=>)?/.exec(l); return m ? m[1] + '|' + (m[2] === '(...a)=>' ? 'fn' : m[2] === '()=>' ? 'get' : m[2] === '(v)=>' ? 'set' : 'val') : '?' + l; };
+  const want = GLUE.map(kindOf), got = mk.split('\n').map(kindOf);
+  t(got.length === want.length && want.every((k, i) => got[i] === k), 'deps ' + GLUE.length + '개 — 키 · 넘기는 방식 그대로(함수 ' + FN_DEPS.length + ' · 값 ' + VAL_DEPS.length + ' · 읽는 함수 ' + GET_DEPS.length + ' · 쓰는 함수 ' + SET_DEPS.length + ')');
   const bare = EXPORTS.filter(n => new RegExp('(^|[^.\\w$])' + n.replace(/\$/g, '\\$') + '\\b(?!\\s*:[^:])').test(A.replace(/const myInfoMod = [\s\S]*?\n\}\);/, '')));
   t(!bare.length, '부르는 곳은 myInfoMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
   const iM = html.indexOf('<script src="parts/my-info.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
