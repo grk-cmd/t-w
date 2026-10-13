@@ -24,9 +24,10 @@
    ⚠ 이 검사는 암복호 자체는 보지 않는다(스텁). 형식 갈래와 슬롯 배정만 본다.
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;

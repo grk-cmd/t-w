@@ -10,8 +10,9 @@
    ・4절: 생성기에서 고르지 못한다.
    [실행] app.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 
 let pass = 0, fail = 0, huhs = 0;
 const say = (s) => console.log(s);

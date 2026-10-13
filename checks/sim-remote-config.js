@@ -8,6 +8,7 @@
    6. html — 스크립트 순서 · 기본 표시 300 · 최대 N명 자리 · CSP(API · 방 서버 와일드카드)
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 
@@ -17,7 +18,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const DIRS = ['.', 'parts', 'app', path.join('app', 'parts'), '..', path.join('..', 'app'), path.join('..', 'app', 'parts')];
 const read = (f) => { for(const d of DIRS){ try{ return fs.readFileSync(path.join(d, f), 'utf8'); }catch(_){} } return null; };
 const where = (f) => { for(const d of DIRS){ const p = path.join(d, f); if(fs.existsSync(p)) return p; } return null; };
-const RC = read('remote-config.js'), APP = read('app.js'), FI = read('firebase-init.js'),
+const RC = read('remote-config.js'), APP = _joinRenderer(read('app.js')), FI = read('firebase-init.js'),
   HTML = read('desk-companion-prototype.html'), RULES_TXT = read('firebase-database-rules.json');
 for(const [n, v] of [['remote-config.js', RC], ['app.js', APP], ['firebase-init.js', FI], ['desk-companion-prototype.html', HTML], ['firebase-database-rules.json', RULES_TXT]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
