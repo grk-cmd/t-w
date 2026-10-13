@@ -12,12 +12,13 @@
      §2 HTML — 스크립트 순서 · 선택 허용 범위 · 칩/메뉴/토스트가 #chatWindow 안
      §3 app.js — 보류 분기가 innerHTML 앞 · 원문 번호(data-i) · Ctrl/Cmd 둘 다 · 우클릭 메뉴 · 선택 풀리면 그림 */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const say = console.log;
 let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const CC = read('chat-copy.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const CC = read('chat-copy.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
 if (!CC || !APP || !HTML) { say('  ? 원본 못 찾음 — chat-copy.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 
 /* ── §1 ── */

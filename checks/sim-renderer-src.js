@@ -21,6 +21,7 @@ const MODULES = [
   { file: 'ride-bench.js', mod: 'rideBenchMod', glob: 'TwRideBench', sample: 'function _checkCircusBalance(' },   // 앱 FSD 30번
   { file: 'part-paint.js', mod: 'partPaintMod', glob: 'TwPartPaint', sample: 'function _wdPicSection(' },   // 앱 FSD 21번
   { file: 'focus-level.js', mod: 'focusLevelMod', glob: 'TwFocusLevel', sample: 'function _pushLevelIfChanged(' },   // 앱 FSD 26번
+  { file: 'chat-ui.js', mod: 'chatUiMod', glob: 'TwChatUi', sample: 'function _chatFlySendGate(' },   // 앱 FSD 24번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

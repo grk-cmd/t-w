@@ -11,12 +11,13 @@
      §3 화면 — ③ [+] 표시가 canAdd(방장 · 상한) ⑤ 탭 줄에 가로 스크롤 없음 · 줄임표 · #chatWindow 안 확인창
      §4 규칙 · 정리 — ④ tabs 개수 상한 · _chatTab 검증이 chatLog 와 같은 식 · presence tab/chatTab · 빈 방 정리 */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const say = console.log;
 let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const CT = read('chat-tabs.js'), APP = read('app.js'), FB = read('firebase-init.js'), HTML = read('desk-companion-prototype.html'), RULES = read('firebase-database-rules.json');
+const CT = read('chat-tabs.js'), APP = _joinRenderer(read('app.js')), FB = read('firebase-init.js'), HTML = read('desk-companion-prototype.html'), RULES = read('firebase-database-rules.json');
 if (!CT || !APP || !FB || !HTML || !RULES) { say('  ? 원본 못 찾음 — chat-tabs.js · app.js · firebase-init.js · HTML · 규칙'); process.exit(2); }
 
 say('§1 chat-tabs.js (실행)');

@@ -17,12 +17,13 @@
  * 10. firebase-init.js · app.js · HTML 연결
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('room-server-net.js'), FI = read('firebase-init.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const SRC = read('room-server-net.js'), FI = read('firebase-init.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
 for(const [n, v] of [['room-server-net.js', SRC], ['firebase-init.js', FI], ['app.js', APP], ['desk-companion-prototype.html', HTML]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }

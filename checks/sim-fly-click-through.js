@@ -14,12 +14,13 @@
      §3 잡기(pointerdown)는 여전히 seat.fly 면 돌아간다 — 판정에서 빼도 받을 클릭이 없다
      §4 이빨 — 옛 판정 줄(_skipHiddenDesk(_ix0))을 넣으면 §2 가 빨강 */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const say = console.log;
 let fail = 0, pass = 0;
 const chk = (ok, msg) => { ok ? pass++ : fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const HTML = read('desk-companion-prototype.html'), APP = read('app.js');
+const HTML = read('desk-companion-prototype.html'), APP = _joinRenderer(read('app.js'));
 if (!HTML || !APP) { say('  ? 원본 못 찾음 — desk-companion-prototype.html · app.js'); process.exit(2); }
 
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');

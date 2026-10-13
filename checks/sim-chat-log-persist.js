@@ -17,8 +17,9 @@
 
    ⚠ 소스 대조만 한다(런타임 RTDB 는 안 본다). 눈으로 볼 것은 핸드오프의 확인표에 있다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 /* 🔒 CSP(3절) — 예전엔 firebase 초기화가 HTML 안의 인라인 모듈이었다. `script-src` 에서
    'unsafe-inline' 을 버리려고 `parts/firebase-init.js` 로 뺐다. 이 검사는 chatLog 보존 상수를
    **HTML 안에서** 찾으므로, 파일이 있으면 이어 붙여 외부화 전과 같은 시야를 만든다.
