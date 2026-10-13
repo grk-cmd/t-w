@@ -317,7 +317,7 @@ function _attachHumanEars(root, def){
     humanEar.attachFromDef(root, def, { material:_humanEarMat,
       onAttach:(w)=>{
         _humanEarPic(w, def);
-        try{ wdEar.onEarAttached(root); }catch(_){}
+        try{ premiumMod.wdEar.onEarAttached(root); }catch(_){}
         /* 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 '머리 꼭대기' 는 귀 없던 값이다 */
         try{ const _s = seats.find(x=>x.modelRoot === root); if(_s){ _syncHumanEarRig(_s); rideBenchMod._remeasureRideHeadTop(_s); } }catch(_){}
       } });
@@ -1387,8 +1387,8 @@ let decoPartsVisible = true;
 try{ decoPartsVisible = (localStorage.getItem('tw.decoParts') !== '0'); }catch(_){}   // 기본 켜기
 function _decoWrapperShow(cat){
   if(decoPartsVisible) return true;
-  const info = (typeof PART_CATS !== 'undefined' && PART_CATS) ? PART_CATS.find(c => c.cat === cat) : null;
-  return (typeof isDeskPartCat === 'function') ? isDeskPartCat(info) : (!!info && info.bone === 'desk');   // 책상 위는 항상 보인다
+  const info = (typeof premiumMod.PART_CATS !== 'undefined' && premiumMod.PART_CATS()) ? premiumMod.PART_CATS().find(c => c.cat === cat) : null;
+  return (typeof premiumMod.isDeskPartCat === 'function') ? premiumMod.isDeskPartCat(info) : (!!info && info.bone === 'desk');   // 책상 위는 항상 보인다
 }
 function applyDecoPartsVisibility(seat){
   if(!seat || !seat.group) return;
@@ -1945,8 +1945,8 @@ let _flyActive = 0;
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const ROOM_SYNC_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const roomSyncMod = (typeof TwRoomSync === 'undefined') ? ROOM_SYNC_MOD_OFF : TwRoomSync.createRoomSync({
-  DESK_LICENSE_HOLD: ()=>DESK_LICENSE_HOLD,
-  ITEM_LICENSE_HOLD: ()=>ITEM_LICENSE_HOLD,
+  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
+  ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
   Presence: ()=>Presence,
   _chatIsHost: (...a)=>_chatIsHost(...a),
   _chatIsSecretRoom: (...a)=>_chatIsSecretRoom(...a),
@@ -2283,7 +2283,7 @@ const rideBenchMod = (typeof TwRideBench === 'undefined') ? RIDE_BENCH_MOD_OFF :
   matWood: matWood,
   matWoodD: matWoodD,
   measureHeadBoxNoParts: (...a)=>measureHeadBoxNoParts(...a),
-  savedParts: ()=>savedParts,
+  savedParts: ()=>premiumMod.savedParts(),
   seatScale: (...a)=>seatScale(...a),
   seatState: (...a)=>seatState(...a),
   seats: seats,
@@ -4299,11 +4299,11 @@ const wardrobeMod = (typeof TwWardrobe === 'undefined') ? WARDROBE_MOD_OFF : TwW
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   CHAR_Z: CHAR_Z,
   LIGHT_PRESET: ()=>LIGHT_PRESET,
-  PART_CATS: ()=>PART_CATS,
+  PART_CATS: ()=>premiumMod.PART_CATS(),
   PART_DEFAULT_OFFSET: ()=>PART_DEFAULT_OFFSET,
-  PART_GROUPS: ()=>PART_GROUPS,
+  PART_GROUPS: ()=>premiumMod.PART_GROUPS,
   Presence: ()=>Presence,
-  WD_DESK_TAB: ()=>WD_DESK_TAB,
+  WD_DESK_TAB: ()=>premiumMod.WD_DESK_TAB,
   _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
   _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
   _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
@@ -4315,9 +4315,9 @@ const wardrobeMod = (typeof TwWardrobe === 'undefined') ? WARDROBE_MOD_OFF : TwW
   _mkFrontFill: (...a)=>_mkFrontFill(...a),
   _rgbHexToHsv: (...a)=>_rgbHexToHsv(...a),
   _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),
-  _wdLicenseDesks: (...a)=>_wdLicenseDesks(...a),
-  addEntryToCat: (...a)=>addEntryToCat(...a),
-  addPartEntryInstance: (...a)=>addPartEntryInstance(...a),
+  _wdLicenseDesks: (...a)=>premiumMod._wdLicenseDesks(...a),
+  addEntryToCat: (...a)=>premiumMod.addEntryToCat(...a),
+  addPartEntryInstance: (...a)=>premiumMod.addPartEntryInstance(...a),
   adminPartReg: ()=>adminPartReg,
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
   applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),
@@ -4328,45 +4328,45 @@ const wardrobeMod = (typeof TwWardrobe === 'undefined') ? WARDROBE_MOD_OFF : TwW
   charFootFix: (...a)=>charFootFix(...a),
   clampCharY: (...a)=>clampCharY(...a),
   defToBase: (...a)=>defToBase(...a),
-  defaultPartXf: (...a)=>defaultPartXf(...a),
-  entriesForCat: (...a)=>entriesForCat(...a),
+  defaultPartXf: (...a)=>premiumMod.defaultPartXf(...a),
+  entriesForCat: (...a)=>premiumMod.entriesForCat(...a),
   equipPartOnSeat: (...a)=>equipPartOnSeat(...a),
   escHtml: (...a)=>escHtml(...a),
-  findEntryById: (...a)=>findEntryById(...a),
+  findEntryById: (...a)=>premiumMod.findEntryById(...a),
   findMySeat: (...a)=>findMySeat(...a),
-  firstEntryForCat: (...a)=>firstEntryForCat(...a),
+  firstEntryForCat: (...a)=>premiumMod.firstEntryForCat(...a),
   fitModel: (...a)=>fitModel(...a),
   floorClampWrapper: (...a)=>floorClampWrapper(...a),
   gachaMod: ()=>gachaMod,
   getCommissionScene: (...a)=>getCommissionScene(...a),
-  groupOfCat: (...a)=>groupOfCat(...a),
+  groupOfCat: (...a)=>premiumMod.groupOfCat(...a),
   isAdmin: ()=>isAdmin,
-  isDeskPartCat: (...a)=>isDeskPartCat(...a),
+  isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),
   isHueTintMesh: (...a)=>isHueTintMesh(...a),
   measureCharBox: (...a)=>measureCharBox(...a),
   openAssetImport: (...a)=>openAssetImport(...a),
-  partCatInfo: (...a)=>partCatInfo(...a),
-  partEntryId: (...a)=>partEntryId(...a),
-  partEntryInstanceCount: (...a)=>partEntryInstanceCount(...a),
-  partEntryInstances: (...a)=>partEntryInstances(...a),
-  partEntryXf: (...a)=>partEntryXf(...a),
+  partCatInfo: (...a)=>premiumMod.partCatInfo(...a),
+  partEntryId: (...a)=>premiumMod.partEntryId(...a),
+  partEntryInstanceCount: (...a)=>premiumMod.partEntryInstanceCount(...a),
+  partEntryInstances: (...a)=>premiumMod.partEntryInstances(...a),
+  partEntryXf: (...a)=>premiumMod.partEntryXf(...a),
   partPaintMod: ()=>partPaintMod,
-  partsInCat: (...a)=>partsInCat(...a),
-  partsInCatFor: (...a)=>partsInCatFor(...a),
-  partsInGroup: (...a)=>partsInGroup(...a),
+  partsInCat: (...a)=>premiumMod.partsInCat(...a),
+  partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),
+  partsInGroup: (...a)=>premiumMod.partsInGroup(...a),
   pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),
-  removeEntryFromCat: (...a)=>removeEntryFromCat(...a),
-  removePartEntryInstance: (...a)=>removePartEntryInstance(...a),
-  renderWdDeskSection: (...a)=>renderWdDeskSection(...a),
-  reorderSavedPart: (...a)=>reorderSavedPart(...a),
+  removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
+  removePartEntryInstance: (...a)=>premiumMod.removePartEntryInstance(...a),
+  renderWdDeskSection: (...a)=>premiumMod.renderWdDeskSection(...a),
+  reorderSavedPart: (...a)=>premiumMod.reorderSavedPart(...a),
   saveSlots: (...a)=>saveSlots(...a),
-  savedParts: ()=>savedParts,
+  savedParts: ()=>premiumMod.savedParts(),
   seats: seats,
-  setPartEntryInstanceXf: (...a)=>setPartEntryInstanceXf(...a),
+  setPartEntryInstanceXf: (...a)=>premiumMod.setPartEntryInstanceXf(...a),
   slots: ()=>slots,
   toast: (...a)=>toast(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
-  wdEar: ()=>wdEar,
+  wdEar: ()=>premiumMod.wdEar,
 });
 function buildFreeColorPicker(...a){ return wardrobeMod.buildFreeColorPicker(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 /* ═══ 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(commitWdDraft) · 색 영역 ═══ */
@@ -4401,25 +4401,25 @@ const partPaintMod = (typeof TwPartPaint === 'undefined') ? PART_PAINT_MOD_OFF :
   _roomFaceCacheSave: (...a)=>roomSyncMod._roomFaceCacheSave(...a),
   activeWdAdj: ()=>wardrobeMod.activeWdAdj(),
   buildFreeColorPicker: (...a)=>wardrobeMod.buildFreeColorPicker(...a),
-  catEquippedIds: (...a)=>catEquippedIds(...a),
+  catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
   currentWdTab: ()=>wardrobeMod.currentWdTab(),
-  findEntryById: (...a)=>findEntryById(...a),
+  findEntryById: (...a)=>premiumMod.findEntryById(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   humanEar: humanEar,
   mirrorUVOn: (...a)=>mirrorUVOn(...a),
   newCanvas: (...a)=>newCanvas(...a),
-  partEntryId: (...a)=>partEntryId(...a),
-  partEntryInstances: (...a)=>partEntryInstances(...a),
-  partEntryXf: (...a)=>partEntryXf(...a),
+  partEntryId: (...a)=>premiumMod.partEntryId(...a),
+  partEntryInstances: (...a)=>premiumMod.partEntryInstances(...a),
+  partEntryXf: (...a)=>premiumMod.partEntryXf(...a),
   refreshWdPreviewColorSection: (...a)=>wardrobeMod.refreshWdPreviewColorSection(...a),
-  savedParts: ()=>savedParts,
+  savedParts: ()=>premiumMod.savedParts(),
   sizeWdPreview: (...a)=>wardrobeMod.sizeWdPreview(...a),
   strokeSeg: (...a)=>strokeSeg(...a),
   toast: (...a)=>toast(...a),
   updateWdCam: (...a)=>wardrobeMod.updateWdCam(...a),
   updateWdGizmoForActivePanel: (...a)=>wardrobeMod.updateWdGizmoForActivePanel(...a),
   wdCam: ()=>wardrobeMod.wdCam(),
-  wdEar: ()=>wdEar,
+  wdEar: ()=>premiumMod.wdEar,
   wdGizmo: ()=>wardrobeMod.wdGizmo(),
   wdPreviewBase: ()=>wardrobeMod.wdPreviewBase(),
 });
@@ -6517,140 +6517,43 @@ function _hsvToHex(h, sv, v){
    ⚠️ 꾸미기창의 draft(wdDraftDef)는 equippedParts·partXfMemory 만 커밋한다(_commitWdDraftNow).
      책상 필드는 커밋 대상이 아니므로 charDef 에 **바로 쓴다** — 생성기의 autoSaveDeskItemsNow 와
      같은 태도다. 다만 미리보기는 draft 를 보므로 draft 에도 같이 적어 준다. */
-const WD_DESK_TAB = '__desk_model__';
-/* 🐾 «귀» 도 가상 탭이다 — 위와 같은 이유로 PART_CATS 에 안 넣는다(wd-ear.js 머리말). */
-/* 모듈이 없으면 탭이 안 보이는 빈 껍데기 — 호출하는 곳마다 null 을 묻지 않게 */
-const WD_EAR_OFF = { TAB:'__ear__', available:()=>false, isActive:()=>false, render(){}, syncGizmo(){}, hideRow:()=>false,
-  onGizmoChange(){}, scaleStep:()=>false, pickAt:()=>false, onEarAttached(){}, copyIntoDraft(){}, commit:()=>false,
-  picTarget:()=>null, setPic(){} };
-const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.createWdEar({
-  humanEar, HumanEar, doc:document,
-  getTab:()=>wardrobeMod.currentWdTab(),
-  getDraft:()=>wardrobeMod.ensureWdDraft(),
-  getPreviewRoot:()=>(wardrobeMod.wdPreviewBase() && wardrobeMod.wdPreviewBase().root) || null,
-  getGizmo:()=>{ wardrobeMod.ensureWdGizmo(); return wardrobeMod.wdGizmo(); },
-  setGizmoMode:()=>wardrobeMod.setWdGizmoMode(wardrobeMod.wdGizmoMode()),
-  earTypes:()=>window.ANIMAL_EAR_TYPES || [],
-  material:_humanEarMat,
-  decorate:(w)=>_humanEarPic(w, wardrobeMod.ensureWdDraft()),
-  isDrawing:()=>partPaintMod._wdPic.on,
-  onSynced:()=>{ try{ partPaintMod.refreshWdPicUI(); }catch(_){} },
-  toast:(m)=>{ if(typeof toast==='function') toast(m); },
-  rerender:()=>wardrobeMod.renderWardrobe(),
+/* 본문은 premium-assets.js 로 옮겼다(앱 FSD 37번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const PREMIUM_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const premiumMod = (typeof TwPremiumAssets === 'undefined') ? PREMIUM_MOD_OFF : TwPremiumAssets.createPremiumAssets({
+  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  DESK_SCALE_DEFAULT: ()=>DESK_SCALE_DEFAULT,
+  DESK_SCALE_MAX: ()=>DESK_SCALE_MAX,
+  DESK_SCALE_MIN: ()=>DESK_SCALE_MIN,
+  Presence: ()=>Presence,
+  _humanEarMat: (...a)=>_humanEarMat(...a),
+  _humanEarPic: (...a)=>_humanEarPic(...a),
+  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),
+  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
+  applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),
+  cBase: ()=>cBase,
+  clampDeskScale: (...a)=>clampDeskScale(...a),
+  deskItemDef: (...a)=>deskItemDef(...a),
+  deskPartAnchorOf: (...a)=>deskPartAnchorOf(...a),
+  equipDeskItem: (...a)=>equipDeskItem(...a),
+  findMySeat: (...a)=>findMySeat(...a),
+  gachaMod: ()=>gachaMod,
+  humanEar: humanEar,
+  isAdmin: ()=>isAdmin,
+  isPremium: ()=>isPremium,
+  openAssetImport: (...a)=>openAssetImport(...a),
+  partPaintMod: partPaintMod,
+  resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),
+  saveSlots: (...a)=>saveSlots(...a),
+  savedDesks: ()=>savedDesks,
+  savedItems: ()=>savedItems,
+  seats: seats,
+  setDeskScale: (...a)=>setDeskScale(...a),
+  slots: ()=>slots,
+  swThumb: (...a)=>swThumb(...a),
+  toast: (...a)=>toast(...a),
+  wardrobeMod: wardrobeMod,
 });
-function _wdLicenseDesks(){
-  let list = null; try{ list = savedDesks; }catch(_){ return []; }
-  if(!list || !list.length) return [];
-  return list.filter(d => d && d.licenseOnly && d.id !== DEFAULT_DESK_OVERRIDE_ID);
-}
-/* 책상 값을 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 카드와 슬라이더가 같이 쓴다. */
-function _wdApplyDeskChange(mutate){
-  const seat = (typeof findMySeat==='function') ? findMySeat() : null;
-  if(!seat || !seat.charDef) return null;
-  const def = seat.charDef;
-  mutate(def);
-  try{
-    if(def.deskCatalogId) applyDeskCatalogRefToSeat(seat, def);
-    else applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor});
-  }catch(_){}
-  try{ if(seat.desk){ setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT, def.deskLenX||1); if(def.deskColor) applyDeskColorToCustom(seat.desk, def.deskColor); } }catch(_){}
-  // 미리보기는 draft 를 본다 — 같은 값을 적어 주지 않으면 창 안에서만 옛 책상이 남는다
-  try{ if(wardrobeMod.wdDraftDef() && wardrobeMod.wdDraftDef()._srcDef === def){ wardrobeMod.wdDraftDef().deskCatalogId=def.deskCatalogId; wardrobeMod.wdDraftDef().deskScale=def.deskScale; wardrobeMod.wdDraftDef().deskLenX=def.deskLenX; wardrobeMod.wdDraftDef().deskColor=def.deskColor; wardrobeMod.wdDraftDef()[DESK_LICENSE_HOLD]=def[DESK_LICENSE_HOLD]; } }catch(_){}
-  try{ if(typeof saveSlots==='function') saveSlots(); }catch(_){}
-  try{ if(seat.isMe && typeof Presence!=='undefined' && Presence.active()) Presence.updateDef(def); }catch(_){}
-  try{ if(typeof wardrobeMod.refreshWdPreviewChar==='function') wardrobeMod.refreshWdPreviewChar(); }catch(_){}
-  return def;
-}
-function renderWdDeskSection(wrap){
-  const seat = (typeof findMySeat==='function') ? findMySeat() : null;
-  const def  = seat && seat.charDef;
-  if(!def){
-    wrap.innerHTML='<div class="wd-empty"><span class="ic">🪑</span>캐릭터를 먼저 실행해 주세요.</div>';
-    return;
-  }
-  const list = _wdLicenseDesks();
-  const sec=document.createElement('div'); sec.className='wd-cat';
-  const head=document.createElement('div'); head.className='wd-cat-head';
-  head.innerHTML='<h3>🪑 라이선스 전용 책상</h3>';
-  const actions=document.createElement('div'); actions.className='wd-cat-head-actions';
-  const addCode=document.createElement('button'); addCode.className='wd-add-code'; addCode.textContent='+ 코드로 추가';
-  addCode.title='코드+비밀번호로 받은 책상을 이 기기에만 추가해요';
-  addCode.onclick=()=>{ if(typeof openAssetImport==='function') openAssetImport('desk'); };
-  actions.appendChild(addCode); head.appendChild(actions); sec.appendChild(head);
-
-  const grid=document.createElement('div'); grid.className='wd-grid';
-  /* «쓰지 않음» — 전용 책상을 벗고 기본으로 돌아가는 길. 이 칸이 없으면 한 번 고른 사람이 갇힌다. */
-  const none=swThumb('기본 책상', !def.deskCatalogId, '↺');
-  none.classList.add('none-card');
-  none.onclick=()=>{ _wdApplyDeskChange(d=>{ d.deskCatalogId=null; d.deskGlb=null; }); wardrobeMod.renderWardrobe(); };
-  grid.appendChild(none);
-  list.forEach(rec=>{
-    const on=(def.deskCatalogId===rec.id);
-    const card=swThumb(rec.name||'책상', on, rec.icon||'🪑');
-    if(typeof applyDeskDotThumb==='function') applyDeskDotThumb(rec, card);
-    card.onclick=async()=>{
-      if(def.deskCatalogId===rec.id) return;
-      if(!rec.glb && rec.glbUrl && typeof resolveCatalogGlb==='function'){
-        try{ await resolveCatalogGlb(rec); }catch(_){}
-      }
-      if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
-      _wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; });
-      wardrobeMod.renderWardrobe();
-    };
-    grid.appendChild(card);
-  });
-  sec.appendChild(grid);
-  if(!list.length){
-    const empty=document.createElement('div'); empty.className='wd-empty';
-    empty.innerHTML='<span class="ic">🪑</span>아직 등록된 전용 책상이 없어요.';
-    sec.appendChild(empty);
-  }
-
-  /* 기본·무료 책상이 어디 있는지 한 줄로 알려 준다 — 옮긴 뒤 «무료 책상이 사라졌다» 가 되지 않도록. */
-  const hint=document.createElement('p');
-  hint.style.cssText='margin:10px 0 0;padding:7px 9px;font-size:10.5px;line-height:1.7;color:var(--ink-soft);background:var(--win-face-2);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);';
-  hint.innerHTML='기본 책상과 무료 책상은 <b>캐릭터 만들기 › 5단계 책상</b>에서 고를 수 있어요.';
-  sec.appendChild(hint);
-
-  /* 조절 — 색·크기·길이. 위치(기즈모)는 5단계에 남긴다: 앞뒤·높이·좌우가 서로 물려 있어서
-     기즈모가 필요하고, 그것은 생성기 미리보기 카메라와 한 벌이다. */
-  const adjHead=document.createElement('div'); adjHead.className='wd-divider';
-  adjHead.innerHTML='<span>책상 조절</span><span class="wd-divider-line"></span>';
-  sec.appendChild(adjHead);
-  const box=document.createElement('div');
-  box.style.cssText='display:flex;flex-direction:column;gap:7px;padding:8px;background:var(--win-face-2);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);';
-
-  const rowColor=document.createElement('div'); rowColor.style.cssText='display:flex;align-items:center;gap:8px;';
-  const labColor=document.createElement('label'); labColor.htmlFor='wdDeskColor'; labColor.textContent='책상 색';
-  labColor.style.cssText='font-size:11px;width:56px;flex-shrink:0;';
-  const inColor=document.createElement('input'); inColor.type='color'; inColor.id='wdDeskColor';
-  inColor.value=def.deskColor||'#c9a36a';
-  inColor.style.cssText='width:46px;height:22px;padding:0;cursor:pointer;';
-  inColor.oninput=()=>{ _wdApplyDeskChange(d=>{ d.deskColor=inColor.value; }); };
-  rowColor.appendChild(labColor); rowColor.appendChild(inColor); box.appendChild(rowColor);
-
-  const mkRange=(id,label,min,max,step,val,apply)=>{
-    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px;';
-    const lab=document.createElement('label'); lab.htmlFor=id; lab.textContent=label;
-    lab.style.cssText='font-size:11px;width:56px;flex-shrink:0;';
-    const inp=document.createElement('input'); inp.type='range'; inp.id=id;
-    inp.min=min; inp.max=max; inp.step=step; inp.value=val;
-    inp.style.cssText='flex:1;min-width:0;';
-    inp.oninput=()=>apply(parseFloat(inp.value));
-    row.appendChild(lab); row.appendChild(inp); box.appendChild(row);
-  };
-  mkRange('wdDeskScale','책상 크기',DESK_SCALE_MIN,DESK_SCALE_MAX,0.01, def.deskScale||DESK_SCALE_DEFAULT,
-    v=>{ _wdApplyDeskChange(d=>{ d.deskScale=clampDeskScale(v); }); });
-  mkRange('wdDeskLenX','책상 길이',0.5,2,0.05, def.deskLenX||1,
-    v=>{ _wdApplyDeskChange(d=>{ d.deskLenX=v; }); });
-
-  const posHint=document.createElement('p');
-  posHint.style.cssText='margin:0;font-size:10px;line-height:1.6;color:var(--ink-soft);';
-  posHint.textContent='책상 위치는 캐릭터 만들기 5단계의 기즈모에서 맞춰요.';
-  box.appendChild(posHint);
-  sec.appendChild(box);
-  wrap.appendChild(sec);
-}
 /* ═══ 🎨 꾸미기 창 그리기(renderWardrobe) · 파츠 착용(toggleEquip) ═══ */
 /* (앱 FSD 29번) 이 자리의 본문도 wardrobe.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
@@ -6663,45 +6566,45 @@ const ADMIN_PART_REG_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴
 const adminPartReg = (typeof TwAdminPartRegister === 'undefined') ? ADMIN_PART_REG_OFF : TwAdminPartRegister.createAdminPartRegister({
   _b64: (...a)=>_b64(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
-  catEquippedIds: (...a)=>catEquippedIds(...a),
+  catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
   equipPartOnSeat: (...a)=>equipPartOnSeat(...a),
-  findEntryById: (...a)=>findEntryById(...a),
+  findEntryById: (...a)=>premiumMod.findEntryById(...a),
   fitModel: (...a)=>fitModel(...a),
   generatePartThumbnail: (...a)=>generatePartThumbnail(...a),
   getPartScene: (...a)=>getPartScene(...a),
-  getRecHides: (...a)=>getRecHides(...a),
+  getRecHides: (...a)=>premiumMod.getRecHides(...a),
   parseGlbBytes: (...a)=>parseGlbBytes(...a),
-  partCatInfo: (...a)=>partCatInfo(...a),
-  partCatLimit: (...a)=>partCatLimit(...a),
-  partEntryXf: (...a)=>partEntryXf(...a),
-  partsInCat: (...a)=>partsInCat(...a),
-  partsInCatFor: (...a)=>partsInCatFor(...a),
-  persistSavedParts: (...a)=>persistSavedParts(...a),
-  removeEntryFromCat: (...a)=>removeEntryFromCat(...a),
+  partCatInfo: (...a)=>premiumMod.partCatInfo(...a),
+  partCatLimit: (...a)=>premiumMod.partCatLimit(...a),
+  partEntryXf: (...a)=>premiumMod.partEntryXf(...a),
+  partsInCat: (...a)=>premiumMod.partsInCat(...a),
+  partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),
+  persistSavedParts: (...a)=>premiumMod.persistSavedParts(...a),
+  removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
   renderCrItems: (...a)=>renderCrItems(...a),
   renderWardrobe: (...a)=>wardrobeMod.renderWardrobe(...a),
   resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),
   saveSlots: (...a)=>saveSlots(...a),
   syncWdGizmoToXf: (...a)=>wardrobeMod.syncWdGizmoToXf(...a),
-  toHidesForSave: (...a)=>toHidesForSave(...a),
+  toHidesForSave: (...a)=>premiumMod.toHidesForSave(...a),
   toast: (...a)=>toast(...a),
   unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
   seats,
   MAX_CUSTOM_ASSETS: ()=>MAX_CUSTOM_ASSETS,
   MAX_CUSTOM_ITEMS: ()=>MAX_CUSTOM_ITEMS,
-  MAX_GACHA_PARTS_PER_CAT: ()=>MAX_GACHA_PARTS_PER_CAT,
+  MAX_GACHA_PARTS_PER_CAT: ()=>premiumMod.MAX_GACHA_PARTS_PER_CAT,
   MAX_GLB_BYTES: ()=>MAX_GLB_BYTES,
-  MAX_PARTS_PER_CAT: ()=>MAX_PARTS_PER_CAT,
-  PART_CATS: ()=>PART_CATS,
+  MAX_PARTS_PER_CAT: ()=>premiumMod.MAX_PARTS_PER_CAT,
+  PART_CATS: ()=>premiumMod.PART_CATS(),
   gachaMod: ()=>gachaMod,
   partSceneCache: ()=>partSceneCache,
   savedDesks: ()=>savedDesks,
   savedItems: ()=>savedItems,
-  savedParts: ()=>savedParts,
+  savedParts: ()=>premiumMod.savedParts(),
   wdGizmo: ()=>wardrobeMod.wdGizmo(),
   wdPreviewBase: ()=>wardrobeMod.wdPreviewBase(),
-  setSavedParts: (v)=>{ savedParts = v; },
+  setSavedParts: (v)=>{ premiumMod.setSavedParts(v); },
 });
 
 /* ═══ 🫧 상태 이모지 그림 · UI 아이콘 · 책상 위 이모지 ═══ */
@@ -7390,7 +7293,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
      PART_CATS = BUILTIN + customPartCats(Firebase 구독)라, 커스텀 카테고리는 구독이 아직
      안 왔거나 실패하면 여기서 걸린다. 아래 '부착할 자리 없음' 경고와 같은 급의 사건이므로
      같이 남긴다(세션당 카테고리별 1회 — 매 프레임 도배되지 않게). */
-  const info = partCatInfo(cat);
+  const info = premiumMod.partCatInfo(cat);
   if(!info){
     _equipWarnOnce('cat:'+cat, '[파츠] 카테고리 정보를 못 찾아 장착을 건너뜁니다: '+cat
       + ' — PART_CATS 에 없습니다(커스텀 카테고리 구독 미도착/실패일 수 있음). 파츠 id: '+(rec&&rec.id));
@@ -7401,18 +7304,18 @@ async function equipPartOnSeat(seat, cat, rec, opts){
   //   예) 겉옷(hides:[]) 착용 → 아무것도 안 겹치므로 상의 유지.
   //   ★ getRecHides로 sentinel/Firebase 객체 정규화 (null 반환 시엔 옛 파츠 → 관례 fallback)
   if(rec && info.group==='cloth'){
-    const explicit = getRecHides(rec);
+    const explicit = premiumMod.getRecHides(rec);
     const newHides = (explicit !== null) ? explicit
       : (cat==='onepiece' ? ['top','bottom','onepiece']
         : cat==='cape' ? []
         : [cat]);   // 하위호환
     ['top','bottom','onepiece','cape'].forEach(other=>{
       if(other===cat) return;
-      const entry = firstEntryForCat(seat.charDef, other);
+      const entry = premiumMod.firstEntryForCat(seat.charDef, other);
       if(!entry) return;
-      const otherId = partEntryId(entry);
-      const otherRec = savedParts.find(p=>p.id===otherId);
-      const otherExplicit = getRecHides(otherRec);
+      const otherId = premiumMod.partEntryId(entry);
+      const otherRec = premiumMod.savedParts().find(p=>p.id===otherId);
+      const otherExplicit = premiumMod.getRecHides(otherRec);
       const otherHides = (otherExplicit !== null) ? otherExplicit
         : (other==='onepiece' ? ['top','bottom','onepiece']
           : other==='cape' ? []
@@ -7441,9 +7344,9 @@ async function equipPartOnSeat(seat, cat, rec, opts){
     }
   }
   if(!rec){ applyClothVisibility(seat); return; }   // rec 없으면 해제만 + 기본 메시 가시성 갱신
-  const bone = partAttachTarget(seat, info);
+  const bone = premiumMod.partAttachTarget(seat, info);
   if(!bone){ console.warn('부착할 자리 없음:', info.bone,
-    isDeskPartCat(info) ? '(책상 카테고리인데 이 좌석에 deskAnchor 가 없음)' : ''); return; }
+    premiumMod.isDeskPartCat(info) ? '(책상 카테고리인데 이 좌석에 deskAnchor 가 없음)' : ''); return; }
   // ★ 이중 장착 레이스 가드 — 캐릭터 로드 시 applyEquippedPartsToSeat가 두 경로(초기 로드 + 카탈로그
   //   구독 재시도)에서 거의 동시에 호출될 수 있음. GLB 파싱이 비동기라 늦게 끝난 쪽이 equippedPartObjs를
   //   덮어쓰고 먼저 끝난 쪽 wrapper는 씬에 유령으로 남는 문제(같은 파츠 두 개 + 해제해도 하나 남음).
@@ -7571,7 +7474,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
     /* 🪑 책상 파츠는 리깅 판정을 아예 안 탄다. 리깅으로 잡히면 캐릭터 스켈레톤에 리바인드되어
        charRoot 에 붙는데, 그러면 '캐릭터를 안 따라온다'는 이 카테고리의 존재 이유가 사라진다.
        (등록창의 🧷 단독 부착을 강제로 켠 것과 같은 상태다) */
-    const _deskPart = isDeskPartCat(info);
+    const _deskPart = premiumMod.isDeskPartCat(info);
     const isRigged = !_deskPart && !rec.standalone && skinnedMeshes.length>0 && skinnedMeshes.some(sm=>{
       if(!sm.skeleton) return false;
       const total = sm.skeleton.bones.length;
@@ -7673,7 +7576,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
          평평한 앵커 위에 놓는 것이라 상쇄할 것이 없다. 판정을 시도하지 말고 통째로 건너뛴다.
        ⚠️ 이 수정 전에 책상 파츠 위치를 기즈모로 맞춰뒀다면, 그 xf.pos 는 엉뚱한 보정을 되밀던
          값이라 한 번 다시 잡아줘야 한다(_isLegacyAuthorCompensation 은 본 파츠 기준이라 여기선 안 돈다). */
-    wrapper.userData.authorOff = (isRigged || isDeskPartCat(info)) ? null
+    wrapper.userData.authorOff = (isRigged || premiumMod.isDeskPartCat(info)) ? null
       : _computePartAuthorOffset(bb, center, bone, modelRoot, cat, charBones);
     // 🐾 동물 머리 파츠 세로 보정 — 사람 리그 기준으로 앉은 파츠를 이 캐릭터의 머리 꼭대기에 맞춘다.
     wrapper.userData.animalHeadDy = _computeAnimalHeadDy(seat, info, cat, bone, modelRoot, isRigged, wrapper.userData.authorOff);
@@ -7802,8 +7705,8 @@ async function equipPartOnSeat(seat, cat, rec, opts){
       //   유저가 맞춰둔 위치가 리셋됐음(등록 직후 "잠시 뒤" 원위치 증상의 원인).
       //   non-stackable이 applyPartXf로 charDef entry를 읽는 것과 동일하게, entry.xf를 진실의 원천으로 사용.
       let xf = (opts && opts.stackableXf) || null;
-      if(!xf){ try{ const e = findEntryById(seat.charDef, cat, rec.id); if(e) xf = partEntryXf(e); }catch(_){} }
-      _applyXfToWrapper(wrapper, xf || defaultPartXf(), cat);
+      if(!xf){ try{ const e = premiumMod.findEntryById(seat.charDef, cat, rec.id); if(e) xf = premiumMod.partEntryXf(e); }catch(_){} }
+      _applyXfToWrapper(wrapper, xf || premiumMod.defaultPartXf(), cat);
     } else {
       seat.equippedPartObjs[cat] = wrapper;
       applyPartXf(seat, cat);   // 카테고리 기본 오프셋 + 캐릭터별 xf 적용 (리깅 파츠는 내부에서 건너뜀)
@@ -7816,15 +7719,15 @@ async function equipPartOnSeat(seat, cat, rec, opts){
       //   아예 생성되지 않았다(= 개수를 늘려도 기즈모가 붙을 대상이 없음).
       // ★ 반드시 '이 파츠'의 entry여야 한다. 못 찾으면 다른 파츠의 인스턴스 수를 따라가 복제본이 생기므로
       //   폴백(firstEntryForCat)을 쓰지 않고 추가 생성을 포기한다.
-      const entry = findEntryById(def, cat, rec.id);
-      const insArr = partEntryInstances(entry);   // 정규화 포함, [xf0, xf1, ...]
+      const entry = premiumMod.findEntryById(def, cat, rec.id);
+      const insArr = premiumMod.partEntryInstances(entry);   // 정규화 포함, [xf0, xf1, ...]
       const extraCount = Math.max(0, insArr.length - 1);
       // 🔍 진단 — "파츠 하나 꼈는데 여러 개로 보인다"의 원인을 바로 알 수 있게.
       //   entryId가 rec.id와 다르면 엉뚱한 파츠의 인스턴스 수를 따라간 것이고,
       //   같은데 extraCount>0이면 그 파츠에 다중 파츠 인스턴스가 실제로 저장돼 있는 것.
       if(extraCount > 0){
-        console.log('[다중 파츠] '+cat+' — rec.id='+rec.id+' / entryId='+partEntryId(entry)
-          + ' / 추가 '+extraCount+'개 생성'+(partEntryId(entry)!==rec.id ? '  ⚠️ id 불일치!' : ''));
+        console.log('[다중 파츠] '+cat+' — rec.id='+rec.id+' / entryId='+premiumMod.partEntryId(entry)
+          + ' / 추가 '+extraCount+'개 생성'+(premiumMod.partEntryId(entry)!==rec.id ? '  ⚠️ id 불일치!' : ''));
       }
       if(extraCount > 0){
         wrapper.userData.multiExtras = [];   // 추가 wrapper들만 여기에 (main은 seat.equippedPartObjs[cat])
@@ -7910,12 +7813,12 @@ function applyClothVisibility(seat){
                    glasses:false, hat:false, mask:false, wing:false, handL:false, handR:false };
   // eq에 있는 모든 카테고리의 모든 파츠(stackable 배열 포함) 순회
   for(const cat in eq){
-    const entries = entriesForCat(seat.charDef, cat);
+    const entries = premiumMod.entriesForCat(seat.charDef, cat);
     entries.forEach(entry=>{
-      const id = partEntryId(entry);
-      const rec = savedParts.find(p=>p.id===id);
+      const id = premiumMod.partEntryId(entry);
+      const rec = premiumMod.savedParts().find(p=>p.id===id);
       if(!rec) return;
-      const explicitHides = getRecHides(rec);   // null = 옛 파츠, [] 이상 = 관리자 명시
+      const explicitHides = premiumMod.getRecHides(rec);   // null = 옛 파츠, [] 이상 = 관리자 명시
       let hides;
       if(explicitHides !== null){
         hides = explicitHides;   // 관리자가 명시 → 그대로 (빈 배열이면 아무것도 안 숨김)
@@ -8357,7 +8260,7 @@ function _isLegacyAuthorCompensation(pos, ao){
 //   기존 applyPartXf(카테고리 단위)와 stackable 파츠 개별 wrapper 양쪽에서 재사용.
 function _applyXfToWrapper(wrp, xf, cat){
   if(!wrp || !wrp.userData || !wrp.userData.baseCenter) return;
-  if(!xf) xf = defaultPartXf();
+  if(!xf) xf = premiumMod.defaultPartXf();
   // 🐾 동물 머리 보정 — 부착 시 계산해 둔 세로 보정량(_computeAnimalHeadDy). 동물이 아니면 0이라 무영향.
   //    리깅/비리깅 둘 다 같은 값을 쓴다 — 두 리그가 같은 단위(x·z 동일)라서 보정량도 그대로 통한다.
   const _ahdy = (+wrp.userData.animalHeadDy || 0);
@@ -8439,20 +8342,20 @@ function applyPartXf(seat, cat){
   // wrapper 하나 + 그 다중 파츠 extras에 entry의 인스턴스 xf를 순서대로 적용
   const applyEntryTo = (wrp, entry)=>{
     if(!wrp || !wrp.userData || !wrp.userData.baseCenter) return;
-    const instances = partEntryInstances(entry);
+    const instances = premiumMod.partEntryInstances(entry);
     _applyXfToWrapper(wrp, instances[0], cat);
     const extras = wrp.userData.multiExtras || [];
-    extras.forEach((ex, i)=> _applyXfToWrapper(ex, instances[i+1] || defaultPartXf(), cat));
+    extras.forEach((ex, i)=> _applyXfToWrapper(ex, instances[i+1] || premiumMod.defaultPartXf(), cat));
   };
   const mainWrp = seat.equippedPartObjs && seat.equippedPartObjs[cat];
   if(mainWrp && mainWrp.userData && mainWrp.userData.baseCenter){
-    const mainEntry = findEntryById(def, cat, mainWrp.userData.partId) || firstEntryForCat(def, cat);
+    const mainEntry = premiumMod.findEntryById(def, cat, mainWrp.userData.partId) || premiumMod.firstEntryForCat(def, cat);
     if(mainEntry) applyEntryTo(mainWrp, mainEntry);
   }
   // 🔗 stackable 파츠 — id별 entry를 찾아 각각 적용(다중 파츠 extras 포함)
   if(seat.stackedPartObjs && seat.stackedPartObjs[cat]){
-    entriesForCat(def, cat).forEach(entry=>{
-      const wrp = seat.stackedPartObjs[cat][partEntryId(entry)];
+    premiumMod.entriesForCat(def, cat).forEach(entry=>{
+      const wrp = seat.stackedPartObjs[cat][premiumMod.partEntryId(entry)];
       if(wrp) applyEntryTo(wrp, entry);
     });
   }
@@ -8467,8 +8370,8 @@ function applyPartXf(seat, cat){
        기즈모 드래그(syncWdGizmoToXf)도 같은 함수를 쓴다 — 두 곳이 갈라지면 보이는 자리와
        저장되는 값이 어긋난다. */
   try{
-    const _info = (typeof partCatInfo === 'function') ? partCatInfo(cat) : null;
-    if(_info && typeof isDeskPartCat === 'function' && isDeskPartCat(_info)){
+    const _info = (typeof premiumMod.partCatInfo === 'function') ? premiumMod.partCatInfo(cat) : null;
+    if(_info && typeof premiumMod.isDeskPartCat === 'function' && premiumMod.isDeskPartCat(_info)){
       const _lift = w=>{ if(w) floorClampWrapper(w, cat); };
       const _main = seat.equippedPartObjs && seat.equippedPartObjs[cat];
       if(_main){ _lift(_main); (_main.userData.multiExtras || []).forEach(_lift); }
@@ -8619,13 +8522,13 @@ function pruneSeatPartsAgainstDef(seat, def){
   // 1) 일반 파츠: def의 그 카테고리에 "일반(non-stackable) entry"가 하나도 없으면 wrapper 해제
   if(seat.equippedPartObjs){
     Object.keys(seat.equippedPartObjs).forEach(cat=>{
-      const hasNormal = entriesForCat(def, cat).some(e=>{
-        const id = partEntryId(e);
+      const hasNormal = premiumMod.entriesForCat(def, cat).some(e=>{
+        const id = premiumMod.partEntryId(e);
         // ★ 버그 수정(착용 파츠 증발): 카탈로그 동기화로 savedParts가 막 교체된 직후나 스키마 차이로
         //   rec 조회가 실패할 수 있는데, 예전엔 그걸 "일반 파츠 없음"으로 취급해 wrapper를 지웠다 —
         //   착용 중이던 모자 등이 사라지던 경로. def에 entry가 "있는" 파츠는 정보를 못 찾았다고
         //   지우면 안 됨(prune의 목적은 def에서 "빠진" 파츠 제거) — 조회 실패 시 보수적으로 유지.
-        const rec = savedParts.find(p=>p.id===id && p.cat===cat) || savedParts.find(p=>p.id===id);
+        const rec = premiumMod.savedParts().find(p=>p.id===id && p.cat===cat) || premiumMod.savedParts().find(p=>p.id===id);
         if(!rec) return true;   // 조회 실패 = 장착 유지
         return !rec.stackable;
       });
@@ -8637,7 +8540,7 @@ function pruneSeatPartsAgainstDef(seat, def){
   // 2) stackable 파츠: def entry 목록에 없는 id는 개별 해제
   if(seat.stackedPartObjs){
     Object.keys(seat.stackedPartObjs).forEach(cat=>{
-      const liveIds = entriesForCat(def, cat).map(partEntryId);
+      const liveIds = premiumMod.entriesForCat(def, cat).map(premiumMod.partEntryId);
       Object.keys(seat.stackedPartObjs[cat]).forEach(id=>{
         if(!liveIds.includes(id)) unequipStackablePart(seat, cat, id);
       });
@@ -8670,11 +8573,11 @@ async function applyEquippedPartsToSeat(seat, def){
   if(!seat) return;
   if(def && def.equippedParts) for(const cat in def.equippedParts){
     // 🔗 stackable 지원: entriesForCat로 배열/단일 모두 순회
-    const entries = entriesForCat(def, cat);
+    const entries = premiumMod.entriesForCat(def, cat);
     for(const entry of entries){
-      const id = partEntryId(entry);
-      const rec = savedParts.find(p=>p.id===id && p.cat===cat);
-      if(rec) await equipPartOnSeat(seat, cat, rec, { stackableXf: rec.stackable ? partEntryXf(entry) : null });
+      const id = premiumMod.partEntryId(entry);
+      const rec = premiumMod.savedParts().find(p=>p.id===id && p.cat===cat);
+      if(rec) await equipPartOnSeat(seat, cat, rec, { stackableXf: rec.stackable ? premiumMod.partEntryXf(entry) : null });
       /* ⚠️ 조회 실패 = 조용한 누락. def 에는 있는데 화면에는 안 붙고, 흔적도 안 남는다.
          ★ 여기 조회는 **(id, cat) 둘 다 일치**를 요구하는데, pruneSeatPartsAgainstDef 의 같은
            조회는 `|| savedParts.find(p=>p.id===id)` 로 id 만으로도 한 번 더 찾는다(그쪽 주석 참고).
@@ -8685,7 +8588,7 @@ async function applyEquippedPartsToSeat(seat, def){
            넣지 않는다. 아래 경고가 한 번이라도 뜨면 그때 넣는다 — 그 판단 근거가 이 줄이다. */
       else _equipWarnOnce('rec:'+cat+':'+id,
         '[파츠] 파츠 정보를 못 찾아 장착을 건너뜁니다 — cat=' + cat + ' id=' + id
-        + ' / id 만으로 찾으면: ' + (savedParts.find(p=>p.id===id) ? ('있음(cat=' + savedParts.find(p=>p.id===id).cat + ')') : '없음'));
+        + ' / id 만으로 찾으면: ' + (premiumMod.savedParts().find(p=>p.id===id) ? ('있음(cat=' + premiumMod.savedParts().find(p=>p.id===id).cat + ')') : '없음'));
     }
   }
   applyClothVisibility(seat);   // 모두 반영 후 가시성 최종 갱신
@@ -8972,7 +8875,7 @@ function applyDeskPreset(p){
      crDone 이 그것을 def.deskCatalogId 로 굳힌다(생성기 진입 26733 이 애써 떨어뜨린 것이 되살아난다).
      라이선스가 없으면 아래 else 로 떨어져 기본 책상으로 열린다 — 프리셋 자체는 그대로 남는다. */
   const _presetDeskLocked = !isPremium && !isAdmin
-    && typeof _licenseLockedDeskId === 'function' && _licenseLockedDeskId(p.deskCatalogId);
+    && typeof premiumMod._licenseLockedDeskId === 'function' && premiumMod._licenseLockedDeskId(p.deskCatalogId);
   if(p.deskCatalogId && p.deskGlb && !_presetDeskLocked){
     parseGlbBytes(b64ToBuf(p.deskGlb)).then(sc=>{
       cDeskTemplate=sc; cDeskGlbB64=p.deskGlb; activeCustomDeskId=p.deskCatalogId;
@@ -10156,7 +10059,7 @@ function renderCrItems(){
      남아 있으므로 띄우지 않는다. 전용 책상이 하나도 등록돼 있지 않으면 띄울 이유가 없다. */
   const _licHint = document.getElementById('crDeskLicenseHint');
   if(_licHint){
-    const _hasLic = (typeof _wdLicenseDesks==='function') ? _wdLicenseDesks().length : 0;
+    const _hasLic = (typeof premiumMod._wdLicenseDesks==='function') ? premiumMod._wdLicenseDesks().length : 0;
     _licHint.style.display = (_hasLic && !isAdmin) ? 'flex' : 'none';
   }
 
@@ -10680,7 +10583,7 @@ const assetImpOverlay=document.getElementById('assetImpOverlay');
 let _assetImpKind='item';   // 코드로 추가하기 창을 어느 버튼(책상/아이템/파츠)으로 열었는지 기억 — 코드 자체의 종류가 아니라 이 값을 기준으로 등록함
 let _assetImpCat=null;      // kind==='part'일 때, 어느 카테고리(모자/탈/안경 등)에 등록할지
 function openAssetImport(kind, cat){ _assetImpKind=kind; _assetImpCat=cat||null;
-  const label = kind==='desk'?'책상' : kind==='part'?((partCatInfo(cat)&&partCatInfo(cat).label)||'파츠') : '아이템';
+  const label = kind==='desk'?'책상' : kind==='part'?((premiumMod.partCatInfo(cat)&&premiumMod.partCatInfo(cat).label)||'파츠') : '아이템';
   document.getElementById('assetImpTitle').textContent=label+' 코드로 추가하기';
   document.getElementById('assetImpCode').value=''; document.getElementById('assetImpPass').value=''; assetImpOverlay.classList.add('on'); }
 document.getElementById('assetImpCancel').onclick=()=>assetImpOverlay.classList.remove('on');
@@ -10694,8 +10597,8 @@ document.getElementById('assetImpGo').onclick=async()=>{
     // 한도 검사: 같은 종류의 저장 배열 길이 확인
     // ★ 파츠는 꾸미기 통만 센다 — 코드로 받는 커미션 파츠는 언제나 비(非)가챠라, 관리자가 등록해둔
     //   가챠 파츠 때문에 유저의 코드 추가가 막히면 안 된다(등록 쪽과 같은 이유).
-    const arr = (kind==='desk') ? savedDesks : (kind==='part') ? partsInCatFor(_assetImpCat, false) : savedItems;
-    const _maxAssets = (kind==='desk') ? MAX_CUSTOM_ASSETS : (kind==='part') ? MAX_PARTS_PER_CAT : MAX_CUSTOM_ITEMS;
+    const arr = (kind==='desk') ? savedDesks : (kind==='part') ? premiumMod.partsInCatFor(_assetImpCat, false) : savedItems;
+    const _maxAssets = (kind==='desk') ? MAX_CUSTOM_ASSETS : (kind==='part') ? premiumMod.MAX_PARTS_PER_CAT : MAX_CUSTOM_ITEMS;
     if(arr.length>=_maxAssets){ toast('최대 '+_maxAssets+'개까지 추가할 수 있어요. 카드의 X로 지운 뒤 다시 시도해 주세요'); return; }
     const glbB64=_b64(u.glbBuf);
     /* 📦 넣자마자 이 캐릭터에 실리는 것(책상 · 아이템)은 파일 하나로 남은 용량을 넘으면 받지 않는다.
@@ -10722,8 +10625,8 @@ document.getElementById('assetImpGo').onclick=async()=>{
       renderCrItems();
     } else if(kind==='part'){
       // ★ 관리자 등록(admin)과 달리 카탈로그(Firebase)에는 절대 안 올림 — 이 기기(로컬)에만 저장됨.
-      rec.cat = _assetImpCat; rec.order = partsInCat(_assetImpCat).length;
-      savedParts.push(rec); persistSavedParts();
+      rec.cat = _assetImpCat; rec.order = premiumMod.partsInCat(_assetImpCat).length;
+      premiumMod.savedParts().push(rec); premiumMod.persistSavedParts();
       partSceneCache.delete(id);   // 혹시 모를 캐시 충돌 방지
       toast('파츠를 추가했어요(이 기기에만 저장됨)');
       wardrobeMod.renderWardrobe();
@@ -10927,12 +10830,12 @@ const licenseGateMod = (typeof TwLicenseGate === 'undefined') ? LICENSE_GATE_MOD
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
   myInfoMod: ()=>myInfoMod,
-  pruneUnownedLicenseAssets: (...a)=>pruneUnownedLicenseAssets(...a),
+  pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
   refreshLicenseUI: (...a)=>refreshLicenseUI(...a),
   renderCrItems: (...a)=>renderCrItems(...a),
-  restoreLicenseHeldAssets: (...a)=>restoreLicenseHeldAssets(...a),
+  restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),
   seats: seats,
   setUserStatus: (...a)=>setUserStatus(...a),
   toast: (...a)=>toast(...a),
@@ -10973,115 +10876,7 @@ const adminUsers = (typeof TwAdminUsers === 'undefined') ? ADMIN_USERS_OFF : TwA
      아니라는 결정(2026-09-18). 콘솔에는 남겨서 다음 제보 때 읽을 수 있게 한다.
    ★ 이 둘은 **한 쌍**이다. 접기만 두고 되돌리기를 빠뜨리면 라이선스를 등록해도 책상이 안 돌아온다
      — sim-license-leak.js 가 그 짝을 본다. */
-const DESK_LICENSE_HOLD = 'deskLicenseHold';
-const ITEM_LICENSE_HOLD = 'deskItemsLicenseHold';
-/* 카탈로그 조회 — savedDesks·savedItems 는 이 줄보다 아래에서 let 으로 선언된다(TDZ).
-   부팅 중 initLicense 가 _setPremium 을 부르는 순간에는 아직 그 줄에 닿지 않았을 수 있으므로
-   typeof 가 아니라 try 로 감싼다(TDZ 의 let 에 typeof 를 쓰면 그대로 ReferenceError 다). */
-function _licenseLockedDeskId(id){
-  if(!id) return false;
-  let list = null; try{ list = savedDesks; }catch(_){ return false; }
-  if(!list || !list.length) return false;
-  const rec = list.find(d => d.id === id);
-  return !!(rec && rec.licenseOnly);
-}
-function _licenseLockedItemId(id){
-  if(!id) return false;
-  let list = null; try{ list = savedItems; }catch(_){ return false; }
-  if(!list || !list.length) return false;
-  const rec = list.find(s => s.id === id);
-  return !!(rec && rec.licenseOnly);
-}
-function pruneUnownedLicenseAssets(){
-  /* ★ 전제 검사는 **호출부가 아니라 여기** 있어야 한다 — pruneUnownedGachaParts 와 같은 이유다.
-     호출 지점이 여럿이고(라이선스 변경 · 카탈로그 도착 · 코드 불러오기 · 슬롯 복원 · 프리셋),
-     그때마다 같은 조건을 복사하면 언젠가 하나를 빠뜨린다. */
-  if(typeof isPremium !== 'undefined' && isPremium) return 0;
-  if(typeof isAdmin !== 'undefined' && isAdmin) return 0;
-  let _desks = null; try{ _desks = savedDesks; }catch(_){ return 0; }
-  let _items = null; try{ _items = savedItems; }catch(_){ return 0; }
-  if(!(_desks && _desks.length) && !(_items && _items.length)) return 0;   // 카탈로그 미도착 = 판정 불가
-  /* def 에서만 옮긴다. 화면 정리는 좌석을 아는 아래 순회가 반환값을 받아서 한다. */
-  const _holdDef = def => {
-    const hit = { desk:false, items:[] };
-    if(!def) return hit;
-    if(def.deskCatalogId && _licenseLockedDeskId(def.deskCatalogId)){
-      def[DESK_LICENSE_HOLD] = def.deskCatalogId;
-      def.deskCatalogId = null;
-      hit.desk = true;
-    }
-    if(def.deskItems){
-      Object.keys(def.deskItems).forEach(id => {
-        if(!_licenseLockedItemId(id)) return;
-        if(!def[ITEM_LICENSE_HOLD]) def[ITEM_LICENSE_HOLD] = {};
-        def[ITEM_LICENSE_HOLD][id] = def.deskItems[id];
-        delete def.deskItems[id];
-        hit.items.push(id);
-      });
-      // 전부 빠졌으면 null — collectDeskItems 가 「아무것도 없음」을 null 로 적는 것과 같은 모양
-      if(!Object.keys(def.deskItems).length) def.deskItems = null;
-    }
-    return hit;
-  };
-  let n = 0;
-  /* 1) 내 좌석 — def 를 접고 그 자리에서 화면도 기본으로 되돌린다.
-        ⚠️ 남의 좌석(remote)은 건드리지 않는다. 되돌리면 「보유자 친구의 책상이 내 화면에서만
-           기본으로 보인다」는 옛 제보가 되살아난다. */
-  try{
-    seats.forEach(s => {
-      if(!s || s.remote || !s.charDef) return;
-      const hit = _holdDef(s.charDef);
-      if(!hit.desk && !hit.items.length) return;
-      n += (hit.desk ? 1 : 0) + hit.items.length;
-      if(hit.desk && typeof applyDeskCatalogRefToSeat === 'function'){
-        applyDeskCatalogRefToSeat(s, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:s.charDef.deskScale, deskLenX:s.charDef.deskLenX, deskColor:s.charDef.deskColor});
-      }
-      hit.items.forEach(id => {
-        const d = (typeof deskItemDef === 'function') ? deskItemDef(id) : null;
-        if(d && typeof equipDeskItem === 'function') equipDeskItem(s, d, false);
-      });
-    });
-  }catch(e){ console.warn('[라이선스] 좌석 정리 실패', e); }
-  /* 2) 저장 슬롯 — 지금 앉아 있지 않은 캐릭터는 위 순회가 못 본다.
-        앉아 있는 캐릭터는 seat.charDef === slots[i] 로 같은 객체지만 _holdDef 는 멱등이라 안전하다. */
-  try{ slots.forEach(d => { const h = _holdDef(d); n += (h.desk?1:0) + h.items.length; }); }
-  catch(e){ console.warn('[라이선스] 슬롯 정리 실패', e); }
-  // 3) 생성기가 열려 있으면 그 초안도 — 안 그러면 완료를 누를 때 crDone 이 되살린다
-  try{ if(typeof cBase !== 'undefined' && cBase && cBase.charDef){ const h = _holdDef(cBase.charDef); n += (h.desk?1:0) + h.items.length; } }catch(_){}
-  if(!n) return 0;
-  try{ if(typeof saveSlots === 'function') saveSlots(); }catch(_){}
-  // 방에 있으면 즉시 다시 내보낸다 — 이 한 줄이 친구 화면에서 사라지게 하는 자리다
-  try{
-    const me = (typeof findMySeat === 'function') ? findMySeat() : null;
-    if(me && typeof Presence !== 'undefined' && Presence.active()) Presence.updateDef(me.charDef);
-  }catch(_){}
-  console.warn('[라이선스] 전용 자산 ' + n + '개를 접어 뒀습니다 — 라이선스를 등록하면 그대로 돌아옵니다');
-  return n;
-}
-/* 접어 뒀던 것을 되돌린다 — 라이선스가 켜지는 모든 통로가 _setPremium 하나를 지나므로 여기 한 곳이면 된다. */
-function restoreLicenseHeldAssets(){
-  const _ok = (typeof isPremium !== 'undefined' && isPremium) || (typeof isAdmin !== 'undefined' && isAdmin);
-  if(!_ok) return 0;
-  const _restoreDef = def => {
-    let k = 0;
-    if(!def) return 0;
-    if(def[DESK_LICENSE_HOLD]){ def.deskCatalogId = def[DESK_LICENSE_HOLD]; delete def[DESK_LICENSE_HOLD]; k++; }
-    if(def[ITEM_LICENSE_HOLD]){
-      if(!def.deskItems) def.deskItems = {};
-      Object.keys(def[ITEM_LICENSE_HOLD]).forEach(id => { def.deskItems[id] = def[ITEM_LICENSE_HOLD][id]; k++; });
-      delete def[ITEM_LICENSE_HOLD];
-    }
-    return k;
-  };
-  let n = 0;
-  try{ seats.forEach(s => { if(s && !s.remote && s.charDef) n += _restoreDef(s.charDef); }); }catch(_){}
-  try{ slots.forEach(d => { n += _restoreDef(d); }); }catch(_){}
-  try{ if(typeof cBase !== 'undefined' && cBase && cBase.charDef) n += _restoreDef(cBase.charDef); }catch(_){}
-  if(!n) return 0;
-  try{ if(typeof saveSlots === 'function') saveSlots(); }catch(_){}
-  console.warn('[라이선스] 접어 뒀던 전용 자산 ' + n + '개를 되돌렸습니다');
-  return n;
-}
+/* (앱 FSD 37번) 이 자리의 본문도 premium-assets.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
 // 앱 시작 시: 로컬에 저장된 키가 있으면 일단 프리미엄으로 간주(오프라인에서도 꾸미기 사용 가능하게),
 // 동시에 백그라운드로 재검증해서 (관리자가 비활성화한 경우 등) 무효화됐으면 조용히 잠금.
@@ -11123,7 +10918,7 @@ const adminMode = (typeof TwAdminMode === 'undefined') ? ADMIN_MODE_OFF : TwAdmi
   adminPassHash: ADMIN_PASS_HASH,
   isAdmin: ()=>isAdmin,
   setIsAdmin: (v)=>{ isAdmin = v; },
-  savedParts: ()=>savedParts,
+  savedParts: ()=>premiumMod.savedParts(),
 });
 /* ═══ 💡 얼굴 텍스처 갈아끼우기 · 생성기 조명 ═══ */
 /* face material의 map을 갈아끼울 때 emissiveMap도 같이 동기화. 안 그러면 졸기 등 map 교체 시 이전 텍스처가 emissive로 남아 합성됨(blink 흐릿함 원인) */
@@ -14071,9 +13866,9 @@ const ADMIN_CATEGORY_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴
 const adminCategory = (typeof TwAdminCategory === 'undefined') ? ADMIN_CATEGORY_OFF : TwAdminCategory.createAdminCategory({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPrompt(...a),
-  partGroups: ()=>PART_GROUPS,
-  partCats: ()=>PART_CATS,
-  partCatOverrides: ()=>partCatOverrides,
+  partGroups: ()=>premiumMod.PART_GROUPS,
+  partCats: ()=>premiumMod.PART_CATS(),
+  partCatOverrides: ()=>premiumMod.partCatOverrides(),
 });
 
 
@@ -14269,7 +14064,7 @@ async function loadSlots(){let raw;try{raw=localStorage.getItem(LS_KEY);}catch(e
   /* 🪑 [제보 2] 저장값에 남아 있던 전용 책상·아이템을 여기서 접는다. 복원(32179)은 예전부터
      deskCatalogId 를 조건 없이 그대로 싣는다 — 라이선스 검사가 없던 세 입구 중 하나다.
      ★ 부팅 순서상 카탈로그가 아직 안 왔으면 물러나고, 그때는 도착 콜백이 다시 부른다. */
-  try{ if(typeof pruneUnownedLicenseAssets === 'function') pruneUnownedLicenseAssets(); }
+  try{ if(typeof premiumMod.pruneUnownedLicenseAssets === 'function') premiumMod.pruneUnownedLicenseAssets(); }
   catch(e){ console.warn('[라이선스] 슬롯 복원 후 정리 실패', e); }
 }
 
@@ -14795,349 +14590,7 @@ if(typeof loadSavedItemsIntoSession==='function') loadSavedItemsIntoSession();
    모든 캐릭터 공통으로 등록(관리자), 착용은 캐릭터별(def.equippedParts).
    이번 단계: 단순 부착 파츠(모자/안경/날개/왼손/오른손). 옷·헤어는 다음 단계.
 */
-const SAVED_PARTS_KEY='tw.savedParts';
-/* 카테고리당 꾸미기 파츠 상한 — 진열은 3열 그리드지만 #wardrobeContent가 overflow:auto라
-   칸이 넘치면 스크롤된다. 즉 이 숫자는 레이아웃 제약이 아니라 순수한 정책값이라 자유롭게 올린다.
-   ⚠️ 다만 "+ 코드로 추가"(커미션 파츠)는 GLB를 **localStorage에 base64로 통째로** 넣는다(파츠당 최대 1.3MB).
-     관리자 등록분은 Storage에 올라가고 로컬엔 URL만 남아 무해하지만, 코드로 받은 파츠를 이 상한까지
-     꽉 채우면 localStorage(약 10MB)가 먼저 터진다 — persistSavedParts의 '저장 공간이 부족해요'가 그 신호다. */
-const MAX_PARTS_PER_CAT=30;
-/* 🎰 가챠 파츠는 꾸미기 창의 진열 칸을 안 쓴다(보관함 스크롤 목록에만 뜬다) — 그래서 상한이 따로다.
-   시즌이 4개라 시즌당 10개꼴. ⚠️ 뽑기 풀이 커지면 특정 파츠가 나올 확률이 그만큼 낮아진다 —
-   숫자를 올릴 때는 GACHA_DUPES_FOR_COLOR(색상 해금까지 4개)를 모으는 체감 시간을 같이 볼 것. */
-const MAX_GACHA_PARTS_PER_CAT=40;
-/* 카테고리 정의: 부착 본 + 라벨 + 폴백 아이콘 */
-// ★ Phase 2: 상위 그룹(group) — 4가지 대분류로 서브 카테고리를 묶어서 꾸미기 창을 정리.
-//   group: 'head' (모자·탈·안경) / 'cloth' (상의·하의·한벌옷·망토) / 'deco' (날개) / 'hand' (왼손·오른손)
-const PART_GROUPS = [
-  { group:'head',  label:'머리', icon:'👤' },
-  { group:'cloth', label:'옷',   icon:'👕' },
-  { group:'deco',  label:'장식', icon:'🪽' },
-  { group:'hand',  label:'손',   icon:'✋' },
-  /* 🪑 책상 위 — 캐릭터가 아니라 **책상**에 붙는 파츠. 다른 그룹과 결정적으로 다른 점은
-     부착 대상이 본이 아니라 seat.deskAnchor 라는 것 하나뿐이고, 나머지(등록·가챠·색상·
-     애니메이션·상세조정 기즈모)는 전부 기존 파츠 배관을 그대로 탄다. */
-  { group:'desk',  label:'책상', icon:'🪑' },
-];
-// PART_CATS는 Phase 3에서 BUILTIN_PART_CATS + customPartCats(Firebase)의 병합 결과로 만들어짐 → 아래 참조.
-// ★ Phase 3: 관리자가 커스텀 서브카테고리를 추가할 수 있게 하려고 기본 목록을 별도로 두고,
-//   런타임에 customPartCats(Firebase에서 동기화)와 병합해서 최종 PART_CATS를 만듦.
-//   기본은 built-in 표시(builtin:true) — UI에서 삭제 불가로 처리.
-const BUILTIN_PART_CATS = [
-  {cat:'hat',     label:'모자',   bone:'head',  icon:'🎩', group:'head',  builtin:true},
-  {cat:'mask',    label:'탈',     bone:'head',  icon:'🎭', group:'head',  builtin:true},
-  {cat:'glasses', label:'안경',   bone:'head',  icon:'👓', group:'head',  builtin:true},
-  {cat:'top',     label:'상의',   bone:'spine', icon:'👕', cloth:'top',       group:'cloth', builtin:true},
-  {cat:'bottom',  label:'하의',   bone:'spine', icon:'👖', cloth:'bottom',    group:'cloth', builtin:true},
-  {cat:'onepiece',label:'한벌옷', bone:'spine', icon:'👗', cloth:'onepiece',  group:'cloth', builtin:true},
-  {cat:'cape',    label:'망토',   bone:'spine', icon:'🧣',                    group:'cloth', builtin:true},
-  {cat:'wing',    label:'날개',   bone:'spine', icon:'🪽',                    group:'deco',  builtin:true},
-  {cat:'handL',   label:'왼손',   bone:'handL', icon:'🤚',                    group:'hand',  builtin:true},
-  {cat:'handR',   label:'오른손', bone:'handR', icon:'✋',                    group:'hand',  builtin:true},
-  /* 🪑 책상 위 아이템 — bone:'desk' 가 표식이다(진짜 본 이름이 아니라 예약어).
-     partAttachTarget() 이 이 값을 보고 seat.bones 대신 seat.deskAnchor 를 돌려준다.
-     [왜 필요했나] "책상처럼 고정돼서 캐릭터를 드래그해도 안 따라오는" 물건 요청인데,
-       파츠는 예외 없이 seat.bones[…] 에 붙어서 캐릭터를 따라간다. 좌석 구조상 desk 와 rig 는
-       group 아래 형제라, 붙는 자리만 deskAnchor 로 바꾸면 그것만으로 캐릭터와 독립이 된다. */
-  {cat:'deskitem', label:'책상 위', bone:'desk', icon:'🪑',                  group:'desk',  builtin:true},
-];
-// 그룹별 부착 본 매핑 — 커스텀 카테고리 추가 시 group만 선택해도 bone이 자동 결정됨
-const GROUP_TO_BONE = { head:'head', cloth:'spine', deco:'spine', hand:'head', desk:'desk' };   // hand의 경우 UI에서 handL/handR 중 선택
-// 커스텀 카테고리 (Firebase catalog/customCats에서 subscribe 후 여기 채워짐)
-let customPartCats = [];   // [{cat, label, icon, group, bone}]
-// 기본(내장) 카테고리 이름/아이콘 덮어쓰기 — catalog/catOverrides에서 구독. { cat: {label, icon} }
-//   예: 관리자가 '망토'를 '겉옷'으로 바꾸면 모든 사용자에게 그 이름으로 보임. cat 식별자와 동작은 그대로.
-let partCatOverrides = {};
-// 실제 사용될 통합 목록 — BUILTIN + custom 병합.
-let PART_CATS = BUILTIN_PART_CATS.slice();
-function rebuildPartCats(){
-  const _ov = c=>{
-    const o = partCatOverrides && partCatOverrides[c.cat];
-    if(!o) return c;
-    return Object.assign({}, c, {
-      label: (o.label!=null && String(o.label).trim()) ? String(o.label) : c.label,
-      icon:  (o.icon!=null  && String(o.icon).trim())  ? String(o.icon)  : c.icon,
-      renamed: true,
-    });
-  };
-  PART_CATS = BUILTIN_PART_CATS.map(_ov).concat(customPartCats.map(c=>({
-    cat: c.cat, label: c.label, icon: c.icon || '🏷️',
-    bone: c.bone || GROUP_TO_BONE[c.group] || 'head',
-    group: c.group || 'head',
-    custom: true,
-  })));
-}
-function partCatInfo(cat){ return PART_CATS.find(c=>c.cat===cat)||null; }
-/* 🪑 이 카테고리가 '책상 위'인가 — bone:'desk' 는 본 이름이 아니라 예약어다.
-   ⚠️ 캐릭터에 'desk' 라는 본이 생기면 그 본과 여기가 충돌한다. 그럴 일은 없다고 보지만,
-      혹시 GLB 에 그런 이름이 들어오면 이 예약어부터 바꿀 것. */
-function isDeskPartCat(info){ return !!(info && info.bone === 'desk'); }
-/* 파츠 wrapper 를 붙일 자리. 책상 카테고리만 본이 아니라 deskAnchor 로 간다.
-   ★ 좌석·생성기 미리보기·꾸미기 미리보기가 전부 deskAnchor 를 갖고 있어야 한다 —
-     하나라도 빠지면 그 화면에서만 '부착 본 없음' 으로 조용히 사라진다. */
-function partAttachTarget(seat, info){
-  if(!seat || !info) return null;
-  /* 📌 deskAnchor 자체가 아니라 그 안의 핀에 붙는다 — 핀은 책상 위치 오프셋만 상쇄한다
-     (deskPartAnchorOf 주석). 배율·X 스트레치 상쇄는 앵커에서 그대로 물려받으므로
-     파츠의 크기와 월드 배율은 예전과 같다. */
-  if(isDeskPartCat(info)) return deskPartAnchorOf(seat) || seat.deskAnchor || null;
-  return (seat.bones && seat.bones[info.bone]) || null;
-}
-function partsInGroup(group){ return PART_CATS.filter(c=>c.group===group && !c.animalOnly); }   // 🐾 동물 전용 제외
-// 활성 서브카테고리에서 활성 그룹 찾기 (URL 라우팅 없이 상태 유지용)
-function groupOfCat(cat){ const info=partCatInfo(cat); return info && info.group; }
-/* 파츠 엔트리 — 구버전(문자열 id) ↔ 신버전({id, xf}) 호환 헬퍼 */
-function defaultPartXf(){ return {scale:1, pos:[0,0,0], rot:[0,0,0], color:{}}; }
-function partEntryId(e){ return (e && typeof e==='object') ? e.id : e; }
-// ★ 버그 수정: 예전엔 e.xf가 없으면 매번 새 defaultPartXf 객체를 반환했는데, 그 임시 객체에 색상을
-//   저장해도 entry엔 안 붙어서 저장 후 로드 시 색상이 사라졌음. e.xf가 없으면 새로 만들어 e에 붙이는
-//   lazy init 방식으로 변경 — 반환된 xf에 값을 넣으면 그대로 entry에 저장됨.
-/* ★ 버그 수정(모자 크기 버튼 무반응 + 꾸미기창 재진입 시 크기 리셋):
-   equippedParts[cat]은 "entry 하나"일 수도, "entry 여러 개를 담은 컨테이너"(🔗 stackable 배열,
-   또는 Firebase가 배열을 저장하며 만든 {0:..,1:..} 숫자키 맵)일 수도 있다.
-   호출부가 실수로 컨테이너를 넘겼을 때 아래 lazy init이 컨테이너에 유령 .xf를 만들어 붙였고,
-   그 결과 (1) 크기 조절이 아무 파츠에도 반영되지 않고 (2) 숫자키 맵의 경우 entriesForCat의
-   "키가 전부 숫자인가" 판정이 깨져 파츠 목록 자체가 무효화 → 다음 진입 때 크기가 초기화됐다.
-   컨테이너면 절대 오염시키지 않고 임시 기본값만 돌려준다. */
-function isPartEntryContainer(e){
-  if(Array.isArray(e)) return true;
-  if(!e || typeof e!=='object' || e.id) return false;
-  const ks = Object.keys(e).filter(k => k!=='xf' && k!=='instances');
-  return ks.length>0 && ks.every(k => /^\d+$/.test(k));
-}
-function partEntryXf(e){
-  if(!e || typeof e!=='object') return defaultPartXf();
-  if(isPartEntryContainer(e)) return defaultPartXf();   // ★ 컨테이너엔 xf를 붙이지 않는다
-  if(!e.xf) e.xf = defaultPartXf();
-  return e.xf;
-}
-// ★ 런처9: 다중 파츠 인스턴스 지원.
-//   entry.instances = [xf1, xf2, ...] (추가 인스턴스만; 인덱스 0은 entry.xf가 담당).
-//   partEntryInstances(entry) → [xf0, xf1, ...] 전체 목록 반환 (인덱스 0 포함).
-//   ★ 인스턴스 배열의 빈 요소도 lazy init — 위와 같은 이유(임시 객체 저장 방지).
-// ★ 버그 수정(다중 파츠가 적용 안 되던 문제):
-//   entry.instances는 배열인데, Firebase Realtime DB를 왕복하면 {0:xf, 1:xf} 숫자키 객체로 돌아온다.
-//   아래 헬퍼들이 전부 Array.isArray로만 판정해서, 그 순간 인스턴스 개수가 0으로 보이고
-//   extra wrapper가 아예 생성되지 않았다(= 개수를 늘려도 기즈모가 붙을 대상이 없음).
-//   읽기 전에 한 번 정규화해서 진짜 배열로 되돌린다(in-place라 이후 저장에도 배열로 유지됨).
-function normalizePartEntryInstances(e){
-  if(!e || typeof e!=='object' || Array.isArray(e)) return null;
-  const ins = e.instances;
-  if(!ins) return null;
-  if(Array.isArray(ins)) return ins;
-  if(typeof ins === 'object'){
-    const keys = Object.keys(ins).filter(k => /^\d+$/.test(k));
-    if(keys.length){
-      e.instances = keys.sort((a,b)=>+a-+b).map(k => ins[k]).filter(Boolean);
-      return e.instances;
-    }
-  }
-  delete e.instances;   // 알 수 없는 형태는 버림(하위호환)
-  return null;
-}
-function partEntryInstances(e){
-  const xf0 = partEntryXf(e);
-  if(!e || typeof e!=='object') return [xf0];
-  const ins = normalizePartEntryInstances(e);
-  if(!ins) return [xf0];
-  return [xf0, ...ins.map((x, i)=>{
-    if(!x){ e.instances[i] = defaultPartXf(); return e.instances[i]; }
-    return x;
-  })];
-}
-function partEntryInstanceCount(e){
-  const ins = normalizePartEntryInstances(e);
-  return ins ? (1 + ins.length) : 1;
-}
-
-// ────────────────────────────────────────────────────────────────────
-// 🔗 stackable: 같은 카테고리에 여러 파츠 공존 (rec.stackable=true인 파츠는 다른 파츠와 함께 착용 가능)
-//   스키마: def.equippedParts[cat]가 객체 하나(기존) OR 배열(신규 다중)로 둘 다 허용.
-//   접근 지점을 이 헬퍼로 감싸서 호출자는 항상 배열로 다룰 수 있음. 하위 호환 안전.
-// ────────────────────────────────────────────────────────────────────
-function entriesForCat(def, cat){
-  if(!def || !def.equippedParts) return [];
-  const e = def.equippedParts[cat];
-  if(!e) return [];
-  if(Array.isArray(e)) return e;
-  // 🔗 Firebase Realtime DB는 sparse 배열이나 배열 저장 시 종종 {0:..., 1:...} 객체로 저장.
-  //   숫자 키가 있고 id 필드가 없으면 배열이었던 것으로 간주해 복원.
-  // ★ 예전엔 every(숫자)를 요구해서, 어딘가 실수로 붙은 xf 키 하나 때문에 판정이 깨지면
-  //   파츠 목록 전체가 무효(entry 하나로 오인)가 됐다 — 이미 오염된 저장본도 살아나도록
-  //   "숫자 키가 하나라도 있으면" 복원하고 나머지 키는 무시한다(자가 치유).
-  if(typeof e === 'object' && !e.id){
-    const numKeys = Object.keys(e).filter(k => /^\d+$/.test(k));
-    if(numKeys.length){
-      return numKeys.sort((a,b)=>+a-+b).map(k => e[k]).filter(v => v && v.id);
-    }
-  }
-  return [e];
-}
-// 특정 카테고리 첫 번째 entry (기존 단일 파츠 로직 대체용)
-function firstEntryForCat(def, cat){ return entriesForCat(def, cat)[0] || null; }
-// id로 entry 찾기
-function findEntryById(def, cat, id){ return entriesForCat(def, cat).find(e => partEntryId(e) === id) || null; }
-// 카테고리에 착용 중인 id 목록
-function catEquippedIds(def, cat){ return entriesForCat(def, cat).map(e => partEntryId(e)).filter(Boolean); }
-
-// ────────────────────────────────────────────────────────────────────
-// hides 정규화 — Firebase Realtime DB가 빈 배열을 자동 삭제하고, 배열을 종종 {0:x, 1:y} 객체로 저장하는
-//   특성 때문에 rec.hides의 원본 형태가 어긋날 수 있음. 이걸 견고하게 처리하는 헬퍼.
-//   - 관리자가 명시적으로 빈 hides로 등록한 파츠 vs 옛날 hides 필드가 없던 파츠를 구분해야 함.
-//   - 저장 시 빈 배열은 ['__none__'] sentinel로 대체 → Firebase에서도 유지됨.
-//   - 로드 시 이 헬퍼가 정규화된 배열을 반환하거나, null(옛 파츠)을 반환.
-const HIDES_NONE_SENTINEL = '__none__';
-function toHidesForSave(hides){
-  return (Array.isArray(hides) && hides.length) ? hides : [HIDES_NONE_SENTINEL];
-}
-function getRecHides(rec){
-  if(!rec) return null;
-  let raw = rec.hides;
-  // Firebase에서 배열이 {0:x, 1:y}로 저장된 경우 배열로 복원
-  if(raw && typeof raw === 'object' && !Array.isArray(raw)){
-    const keys = Object.keys(raw);
-    if(keys.length && keys.every(k => /^\d+$/.test(k))){
-      raw = keys.sort((a,b)=>+a-+b).map(k => raw[k]);
-    }
-  }
-  if(!Array.isArray(raw)) return null;   // 옛 파츠 (hides 필드 자체 없음 → 하위호환 fallback으로 감)
-  if(raw.length === 1 && raw[0] === HIDES_NONE_SENTINEL) return [];   // 명시적 "아무것도 안 숨김"
-  // 혹시 섞여 있을 경우 sentinel 필터
-  return raw.filter(h => h !== HIDES_NONE_SENTINEL);
-}
-// entry 추가 (stackable) — 이미 있으면 무시(중복 방지)
-/* 🧩 {0:..,1:..} 숫자키 맵(Firebase 가 배열을 저장하며 만든 모양)을 진짜 배열로 펴 둔다.
-   [왜] 아래 둘은 «배열 아니면 entry 하나» 로만 갈랐다. 숫자키 맵이 오면 add 는 그 맵을 entry 하나로 여겨
-     [맵, 새 entry] 로 싸 버리고(맵 안의 모자·리본이 id 없는 덩어리가 되어 안 보인다), remove 는 맵의 .id 가
-     없어 **아무것도 안 뺀다.** entriesForCat 은 이미 이 모양을 읽을 줄 안다 — 쓰는 쪽도 같은 눈으로 본다. */
-function _flattenCatContainer(def, cat){
-  const cur = def && def.equippedParts && def.equippedParts[cat];
-  if(cur && !Array.isArray(cur) && isPartEntryContainer(cur)){
-    const arr = entriesForCat(def, cat).slice();
-    if(arr.length === 0) delete def.equippedParts[cat];
-    else def.equippedParts[cat] = (arr.length === 1) ? arr[0] : arr;
-  }
-}
-function addEntryToCat(def, cat, entry){
-  def.equippedParts = def.equippedParts || {};
-  _flattenCatContainer(def, cat);
-  const cur = def.equippedParts[cat];
-  const newId = partEntryId(entry);
-  if(!cur){ def.equippedParts[cat] = entry; return; }
-  if(Array.isArray(cur)){
-    if(!cur.find(e => partEntryId(e) === newId)) cur.push(entry);
-    return;
-  }
-  // 기존 단일 → 배열로 승격
-  if(partEntryId(cur) !== newId) def.equippedParts[cat] = [cur, entry];
-}
-// entry 제거 by id
-function removeEntryFromCat(def, cat, id){
-  if(!def || !def.equippedParts) return;
-  _flattenCatContainer(def, cat);
-  const cur = def.equippedParts[cat];
-  if(!cur) return;
-  if(Array.isArray(cur)){
-    const idx = cur.findIndex(e => partEntryId(e) === id);
-    if(idx >= 0) cur.splice(idx, 1);
-    if(cur.length === 0) delete def.equippedParts[cat];
-    else if(cur.length === 1) def.equippedParts[cat] = cur[0];   // 하나만 남으면 단일로 축소
-    return;
-  }
-  if(partEntryId(cur) === id) delete def.equippedParts[cat];
-}
-// 인덱스 idx의 xf를 새 값으로 치환 (idx 0 = entry.xf, idx>=1 = entry.instances[idx-1])
-function setPartEntryInstanceXf(e, idx, xf){
-  if(!e || typeof e!=='object' || isPartEntryContainer(e)) return;
-  if(idx===0){ e.xf = xf; return; }
-  normalizePartEntryInstances(e);
-  e.instances = Array.isArray(e.instances) ? e.instances : [];
-  while(e.instances.length < idx) e.instances.push(defaultPartXf());
-  e.instances[idx-1] = xf;
-}
-function addPartEntryInstance(e){
-  if(!e || typeof e!=='object' || isPartEntryContainer(e)) return;
-  normalizePartEntryInstances(e);
-  e.instances = Array.isArray(e.instances) ? e.instances : [];
-  e.instances.push(defaultPartXf());
-}
-function removePartEntryInstance(e, idx){
-  if(!e || typeof e!=='object' || isPartEntryContainer(e)) return;
-  const ins = normalizePartEntryInstances(e);
-  if(idx===0){
-    // 첫 인스턴스는 지울 수 없음 — 대신 두 번째 인스턴스를 첫 자리로 승격
-    if(ins && ins.length){ e.xf = ins.shift(); }
-    return;
-  }
-  if(ins && idx-1 < ins.length){ ins.splice(idx-1, 1); }
-}
-let savedParts=[];   // [{id, cat, name, icon, glb(base64)}]
-function loadSavedParts(){
-  try{ savedParts=JSON.parse(localStorage.getItem(SAVED_PARTS_KEY)||'[]'); }catch(_){ savedParts=[]; }
-  if(Array.isArray(savedParts)) savedParts.forEach(_normPartRec); else savedParts=[];
-}
-/* 🎰 가챠 파츠는 **항상** 겹쳐 입는다(stackable) — 들어오는 입구 두 곳(로컬 캐시 · 카탈로그)에서 못박는다.
-   [제보 2026-09-23] "보관함 모자를 끼웠다 뺐더니 원래 쓰던 기본 모자까지 같이 빠졌다."
-   [원인] 등록(신규·수정)은 가챠면 stackable 을 강제한다(파츠 등록 핸들러 주석). 그런데 **그 규칙이 생기기
-     전에 올라간 가챠 파츠**는 카탈로그에 stackable:false 로 남아 있고, 여기까지 그대로 들어왔다.
-     그러면 toggleEquip 이 그 파츠를 «일반 파츠»로 보고 **같은 칸의 기존 일반 모자를 def 에서 빼고 갈아 끼운다.**
-     가챠 모자가 기본 모자를 덮고 있어서 끼울 때는 티가 안 나고, 뺄 때 둘 다 없어진 것으로 보인다.
-   ★ 읽는 자리(rec.stackable 을 보는 곳이 열 군데가 넘는다)를 고치지 않고 들어오는 입구에서 값을 맞춘다 —
-     등록이 이미 지키는 약속과 같은 값이므로 새 규칙이 아니다. 부팅 때 좌석을 세우기 **전에** 돈다(loadSavedParts).
-   ⚠️ 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다(buildPartPublishData). */
-function _normPartRec(p){ if(p && p.gacha && !p.stackable) p.stackable = true; return p; }
-function persistSavedParts(){
-  // ★ Storage 이관 후속: base64 glb는 로컬 저장 대상에서 제외 — 용량 폭탄(1MB×N개면 localStorage 5MB 한도 초과) 방지.
-  //   glbUrl만 저장하고 실제 GLB는 필요 시점(파츠 렌더/편집)에 Storage에서 fetch. 로컬-전용(fromCatalog=false)은
-  //   Storage에 없으므로 base64 그대로 저장(사용자가 직접 추가한 파츠).
-  const stripped = savedParts.map(p=>{
-    if(p.fromCatalog && p.glbUrl){ const clone={...p}; delete clone.glb; return clone; }
-    return p;
-  });
-  try{ localStorage.setItem(SAVED_PARTS_KEY,JSON.stringify(stripped)); }catch(_){ toast('저장 공간이 부족해요'); }
-}
-function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }
-/* 🎰 카테고리 상한은 "꾸미기 창에 진열되는 파츠"의 상한이다.
-   [증상] 가챠 파츠를 등록하려는데 "이 카테고리는 최대 12개까지예요"로 막힌다(제보).
-   [원인] 상한을 partsInCat(=그 카테고리 전부)으로 셌다. 그런데 가챠 파츠는 renderWardrobe에서
-          통째로 걸러져(!isGachaPart) 꾸미기 창에 아예 안 나오고, 파츠 보관함의 **스크롤 목록**에만
-          뜬다 — 진열 칸을 하나도 안 쓰는데 칸 수에는 같이 세어졌다. 그래서 모자처럼 꾸미기 파츠가
-          이미 찬 카테고리에서는 가챠 파츠를 한 개도 등록할 수 없었고, 반대로 가챠를 몇 개 등록해두면
-          그만큼 꾸미기 칸이 줄었다.
-   [대응] 두 통을 따로 센다. 세는 기준은 "지금 등록하려는 것이 가챠인가"이므로, 상한 검사보다
-          🎰 체크박스를 먼저 읽어야 한다(등록 핸들러 참고).
-   ⚠️ order(진열 순서)는 일부러 카테고리 전체 기준 그대로 둔다 — 두 목록 다 order 오름차순으로만
-     정렬하므로 값이 계속 커지기만 하면 새 파츠는 자기 통의 맨 끝에 선다. 통마다 따로 매기면
-     기존 파츠들과 번호가 겹쳐 순서가 흔들린다. */
-function partsInCatFor(cat, gacha){ return partsInCat(cat).filter(p=>!!gachaMod.isGachaPart(p) === !!gacha); }
-function partCatLimit(gacha){ return gacha ? MAX_GACHA_PARTS_PER_CAT : MAX_PARTS_PER_CAT; }
-/* 관리자 — 같은 카테고리 안에서 드래그로 파츠 진열 순서 변경 (로컬 화면 전용) */
-function reorderSavedPart(draggedId, targetId, cat){
-  const catItems = savedParts.filter(p=>p.cat===cat);
-  const others = savedParts.filter(p=>p.cat!==cat);
-  const draggedIdx = catItems.findIndex(p=>p.id===draggedId);
-  const targetIdx = catItems.findIndex(p=>p.id===targetId);
-  if(draggedIdx<0 || targetIdx<0) return;
-  const [item] = catItems.splice(draggedIdx,1);
-  catItems.splice(targetIdx,0,item);
-  savedParts = [...others, ...catItems];
-  // 새 순서를 각 항목의 order 필드로 기록(로컬)
-  catItems.forEach((p,i)=>{ p.order=i; });
-  persistSavedParts();
-  wardrobeMod.renderWardrobe();
-  // ★ 카탈로그(Firebase)에 등록된 적 있는 파츠만 순서를 같이 올림 — 순수 로컬 전용 파츠는 카탈로그에
-  //   없는 경로라 순서만 써버리면 cat/name/glb 없는 빈 항목이 생겨서 검증에 걸림(의도적으로 제외).
-  //   GLB는 다시 안 올리고 order 숫자만 가볍게 업데이트되므로 데이터 사용량 걱정 없음.
-  if(window.firebaseAPI && window.firebaseAPI.updatePartsOrder){
-    /* 🎰 가챠 파츠는 catalog/gachaParts 에 살므로 순서도 그 경로로 — 한 맵에 섞으면
-       catalog/parts/{가챠id}/order 가 .validate 에 걸려 update 전체가 거부된다. */
-    const orderMap={}, gachaOrderMap={};
-    catItems.forEach((p,i)=>{ if(p.fromCatalog){ (gachaMod.isGachaPart(p)?gachaOrderMap:orderMap)[p.id]=i; } });
-    if(Object.keys(orderMap).length || Object.keys(gachaOrderMap).length){
-      window.firebaseAPI.updatePartsOrder(orderMap, gachaOrderMap).catch(()=>{ toast('⚠ 순서가 온라인에는 반영 안 됐어요(인터넷 연결 확인) — 이 화면에서만 바뀐 상태예요'); });
-    }
-  }
-}
+/* (앱 FSD 37번) 이 자리의 본문도 premium-assets.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🧊 파츠 GLB 파싱 캐시 · 썸네일 ═══ */
 /* 파츠 GLB 파싱 캐시: id → THREE.Object3D(원본 씬) */
 // ★ 반투명 파츠가 데스크탑 배경 영향받는 문제 해결용 헬퍼.
@@ -15269,7 +14722,7 @@ async function generatePartThumbnail(rec){
 //     force 로 다시 구워야 반영된다. 안 그러면 "코드를 고쳤는데 화면이 그대로"가 된다.
 window.generateAllPartThumbnails = async function(force){
   if(!isAdmin){ console.warn('관리자만 실행 가능'); return; }
-  const targets = savedParts.filter(p=>p.fromCatalog && (force || (!p.thumbnail && !p.thumbUrl)));
+  const targets = premiumMod.savedParts().filter(p=>p.fromCatalog && (force || (!p.thumbnail && !p.thumbUrl)));
   console.log('썸네일 ' + (force ? '재생성(force)' : '생성') + ' 대상:', targets.length, '개');
   let ok=0, fail=0;
   for(const rec of targets){
@@ -15295,13 +14748,13 @@ window.generateAllPartThumbnails = async function(force){
       } else { fail++; }
     }catch(e){ fail++; console.warn('실패:', rec.name, e); }
   }
-  persistSavedParts();
+  premiumMod.persistSavedParts();
   if(typeof wardrobeMod.renderWardrobe==='function') wardrobeMod.renderWardrobe();
   gachaMod.renderGachaInv();   // 🎰 보관함이 열려 있으면 카드도 같이 갱신
   console.log('완료: 성공', ok, '/ 실패', fail);
   toast('썸네일 생성 완료: '+ok+'개');
 };
-loadSavedParts();
+premiumMod.loadSavedParts();
 
 /* ═══ 💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결 ═══ */
 /* ── 파츠 카탈로그 실시간 동기화 ──────────────────────────────────────────
@@ -15415,7 +14868,7 @@ async function resolveCatalogGlbAll(catalogObj){
    카탈로그 목록 셋은 다시 대입되는 let 이라 읽는 함수로 넘긴다. */
 const ADMIN_CONSOLE_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const adminConsole = (typeof TwAdminConsole === 'undefined') ? ADMIN_CONSOLE_OFF : TwAdminConsole.createAdminConsole({
-  savedParts: ()=>savedParts,
+  savedParts: ()=>premiumMod.savedParts(),
   savedDesks: ()=>savedDesks,
   savedItems: ()=>savedItems,
 });
@@ -15454,7 +14907,7 @@ async function mergeCatalogIntoSavedItems(catalogObj){
   }
   if(typeof renderCrItems==='function' && creatorOpen) renderCrItems();
   /* 🪑 [제보 2] 책상 카탈로그와 같은 이유 — licenseOnly 아이템 판정은 이 레코드가 와야 선다. */
-  try{ if(typeof pruneUnownedLicenseAssets === 'function') pruneUnownedLicenseAssets(); }
+  try{ if(typeof premiumMod.pruneUnownedLicenseAssets === 'function') premiumMod.pruneUnownedLicenseAssets(); }
   catch(e){ console.warn('[라이선스] 아이템 카탈로그 도착 후 정리 실패', e); }
 }
 function subscribeCatalogItems(){
@@ -15488,7 +14941,7 @@ function mergeCatalogIntoSavedDesks(catalogObj){
   /* 🪑 [제보 2] 카탈로그가 도착한 지금이 «이 id 가 전용인가» 를 알 수 있는 **첫 순간**이다.
      licenseOnly 는 이 레코드에만 있어서, 부팅 때 캐릭터가 먼저 닿으면 그 전까지는 판정이 안 된다.
      ★ 라이선스가 있거나 카탈로그가 비었으면 pruneUnownedLicenseAssets 가 스스로 물러난다. */
-  try{ if(typeof pruneUnownedLicenseAssets === 'function') pruneUnownedLicenseAssets(); }
+  try{ if(typeof premiumMod.pruneUnownedLicenseAssets === 'function') premiumMod.pruneUnownedLicenseAssets(); }
   catch(e){ console.warn('[라이선스] 책상 카탈로그 도착 후 정리 실패', e); }
   // ★ 생성기 안에서 지금 보고 있는 미리보기(cDesk)도 갱신 — 관리자가 생성기를 연 채로 등록/수정하면
   //   그 자리에서 바로 반영돼야 함(안 그러면 renderCrItems로 카드 목록만 갱신되고, 실제 3D 미리보기는 예전 모습 그대로 남음).
@@ -15546,7 +14999,7 @@ async function applyDeskCatalogRefToSeat(seat, def){
   }catch(e){}
 }
 function mergeCatalogIntoSavedParts(catalogObj){
-  const catalogList = Object.keys(catalogObj||{}).map(id=>_normPartRec({ id, ...catalogObj[id], fromCatalog:true }));   // 🎰 가챠 = stackable(_normPartRec 주석)
+  const catalogList = Object.keys(catalogObj||{}).map(id=>premiumMod._normPartRec({ id, ...catalogObj[id], fromCatalog:true }));   // 🎰 가챠 = stackable(_normPartRec 주석)
   // ★ order 필드 기준 오름차순 정렬 — 관리자가 화면에서 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
   //   order가 없는(예전에 등록돼서 순서 개념이 생기기 전인) 항목은 뒤로 밀리게 처리.
   catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
@@ -15554,14 +15007,14 @@ function mergeCatalogIntoSavedParts(catalogObj){
   // ★ "카탈로그에서 한 번이라도 온 적 있는데(fromCatalog) 지금은 목록에 없는 것"은 관리자가 삭제한 것 —
   //   이건 로컬에도 남겨두면 안 됨(예전 버그: 전부 "로컬 전용"으로 취급해서 영원히 안 지워졌음).
   //   진짜 로컬 전용(사용자가 직접 올린 것, 카탈로그에 온 적 없음)만 남김.
-  const removedIds = savedParts.filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
-  const localOnly = savedParts.filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
+  const removedIds = premiumMod.savedParts().filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
+  const localOnly = premiumMod.savedParts().filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
   if(removedIds.length){
     // 삭제된 파츠를 지금 착용 중인 좌석이 있으면 해제
-    seats.forEach(s=>{ if(s.charDef&&s.charDef.equippedParts){ for(const c in s.charDef.equippedParts){ if(removedIds.includes(partEntryId(s.charDef.equippedParts[c]))){ delete s.charDef.equippedParts[c]; unequipPartFromSeat(s,c); } } } applyClothVisibility(s); });
+    seats.forEach(s=>{ if(s.charDef&&s.charDef.equippedParts){ for(const c in s.charDef.equippedParts){ if(removedIds.includes(premiumMod.partEntryId(s.charDef.equippedParts[c]))){ delete s.charDef.equippedParts[c]; unequipPartFromSeat(s,c); } } } applyClothVisibility(s); });
   }
-  savedParts = [...catalogList, ...localOnly];
-  persistSavedParts();   // 오프라인에서도 마지막으로 받은 카탈로그를 쓸 수 있게 캐시
+  premiumMod.setSavedParts([...catalogList, ...localOnly]);
+  premiumMod.persistSavedParts();   // 오프라인에서도 마지막으로 받은 카탈로그를 쓸 수 있게 캐시
   // ★ Storage 이관 후속: 시작 시 파츠 rec.glb가 없어 부착 실패했던 좌석에 다시 시도.
   //   ★ 버그 수정(파츠 위치 초기화 + stackable 미부착):
   //   (1) 예전엔 equippedPartObjs[cat]만 보고 스킵했는데, stackable 파츠는 stackedPartObjs에 살아서
@@ -15573,15 +15026,15 @@ function mergeCatalogIntoSavedParts(catalogObj){
     s.equippedPartObjs = s.equippedPartObjs || {};
     const _pending = [];   // 🦶 이번에 새로 붙은 파츠들 — 다 붙은 뒤 바닥을 다시 맞춘다
     for(const cat in s.charDef.equippedParts){
-      entriesForCat(s.charDef, cat).forEach(entry=>{
-        const id = partEntryId(entry);
-        const rec = savedParts.find(p=>p.id===id && p.cat===cat);
+      premiumMod.entriesForCat(s.charDef, cat).forEach(entry=>{
+        const id = premiumMod.partEntryId(entry);
+        const rec = premiumMod.savedParts().find(p=>p.id===id && p.cat===cat);
         if(!rec) return;
         const attached = rec.stackable
           ? !!(s.stackedPartObjs && s.stackedPartObjs[cat] && s.stackedPartObjs[cat][id])
           : !!s.equippedPartObjs[cat];
         if(attached) return;
-        _pending.push(equipPartOnSeat(s, cat, rec, { stackableXf: rec.stackable ? partEntryXf(entry) : null }));
+        _pending.push(equipPartOnSeat(s, cat, rec, { stackableXf: rec.stackable ? premiumMod.partEntryXf(entry) : null }));
       });
     }
     applyClothVisibility(s);
@@ -15665,8 +15118,8 @@ else window.addEventListener('firebase-ready', subscribeCatalogParts, { once:tru
 function subscribeCustomCats(){
   if(!window.firebaseAPI || !window.firebaseAPI.subscribeCustomCats) return;
   window.firebaseAPI.subscribeCustomCats(catObj=>{
-    customPartCats = Object.keys(catObj||{}).map(k=>catObj[k]).filter(c=>c && c.cat);
-    rebuildPartCats();
+    premiumMod.setCustomPartCats(Object.keys(catObj||{}).map(k=>catObj[k]).filter(c=>c && c.cat));
+    premiumMod.rebuildPartCats();
     if(typeof wardrobeMod.renderWardrobe==='function') wardrobeMod.renderWardrobe();
     if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
   });
@@ -15675,8 +15128,8 @@ function subscribeCustomCats(){
 function subscribeCatOverrides(){
   if(!window.firebaseAPI || !window.firebaseAPI.subscribeCatOverrides) return;
   window.firebaseAPI.subscribeCatOverrides(obj=>{
-    partCatOverrides = obj || {};
-    rebuildPartCats();
+    premiumMod.setPartCatOverrides(obj || {});
+    premiumMod.rebuildPartCats();
     if(typeof wardrobeMod.renderWardrobe==='function') wardrobeMod.renderWardrobe();
     if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
   });
@@ -16175,9 +15628,9 @@ async function importCloneCode(v, p, forceSlot){
   if(!isPremium && !isAdmin && def.equippedParts && Object.keys(def.equippedParts).length){
     let _dropped = false;
     for(const _cat in def.equippedParts){
-      const _all  = entriesForCat(def, _cat);
+      const _all  = premiumMod.entriesForCat(def, _cat);
       const _keep = _all.filter(e=>{
-        const _r = savedParts.find(p=>p.id===partEntryId(e));
+        const _r = premiumMod.savedParts().find(p=>p.id===premiumMod.partEntryId(e));
         return !_r || gachaMod.isGachaPart(_r);          // 가챠 · 조회 실패 → 유지
       });
       if(_keep.length !== _all.length) _dropped = true;
@@ -16200,7 +15653,7 @@ async function importCloneCode(v, p, forceSlot){
      라이선스 검사가 없어서 deskCatalogId·deskItems 가 그대로 들어온다 — 친구에게 코드를 받은
      미보유자가 전용 책상을 «착용한 것으로 전파되던» 가장 유력한 경로였다.
      ★ saveSlots 앞이라 접힌 상태가 그대로 저장된다. 라이선스를 나중에 등록하면 되돌아온다. */
-  try{ if(typeof pruneUnownedLicenseAssets === 'function') pruneUnownedLicenseAssets(); }
+  try{ if(typeof premiumMod.pruneUnownedLicenseAssets === 'function') premiumMod.pruneUnownedLicenseAssets(); }
   catch(e){ console.warn('[라이선스] 코드 불러오기 후 정리 실패', e); }
   saveSlots();saveCurSlot();renderLauncher();toast('불러왔어요');
   return true;
@@ -17339,8 +16792,8 @@ const gachaMod = (typeof TwGacha === 'undefined') ? GACHA_OFF : TwGacha.createGa
   warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
-  catEquippedIds: (...a)=>catEquippedIds(...a),
-  removeEntryFromCat: (...a)=>removeEntryFromCat(...a),
+  catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
+  removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
   unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
@@ -17363,8 +16816,8 @@ const gachaMod = (typeof TwGacha === 'undefined') ? GACHA_OFF : TwGacha.createGa
   refreshWdPreviewChar: (...a)=>wardrobeMod.refreshWdPreviewChar(...a),
   detachWdGizmo: (...a)=>wardrobeMod.detachWdGizmo(...a),
   isAdmin: ()=>isAdmin,
-  savedParts: ()=>savedParts,
-  partCats: ()=>PART_CATS,
+  savedParts: ()=>premiumMod.savedParts(),
+  partCats: ()=>premiumMod.PART_CATS(),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
   activeWdAdj: ()=>wardrobeMod.activeWdAdj(),
   setActiveWdAdj: (v)=>{ wardrobeMod.setActiveWdAdj(v); },

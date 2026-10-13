@@ -8,12 +8,13 @@
    ・5절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · admin-part-register.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
+const SRC = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ['admin-part-register.js', 'parts/admin/admin-part-register.js', 'app/parts/admin/admin-part-register.js'].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — admin-part-register.js'); process.exit(2); }
@@ -100,7 +101,8 @@ async function judgeAll(src, app, html, ward = WARD){
     'deps 41 — 함수 26 화살표 · 좌석 1 · 값 13 읽는 함수 · 쓰는 함수 1 (' + deps.length + ')');
   const h81 = app.indexOf('/* ═══ 🗂️ 카탈로그 파츠 페이로드 · 파츠 삭제(관리자) ═══ */'), h82 = app.indexOf('/* ═══ 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) ═══ */');
   t(h81 > 0 && h82 > h81 && app.indexOf('const adminPartReg =') > h82, '만드는 줄은 원래 자리(두 구역 머리 아래)');
-  const W = strip(ward);
+  /* app.js 를 공용 도우미로 되살려 읽으면 꾸미기 본문이 이미 app.js 글 안에 있다 — 그때는 wardrobe.js 를 따로 세지 않는다(두 번 세기 방지) */
+  const W = /function renderWardrobe\(/.test(A) ? '' : strip(ward);
   const callers = (A.match(/adminPartReg\.(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length
     + (W.match(/adminPartReg\(\)\.(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length;
   const oldCalls = (A.match(/(^|[^.\w$])(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length
@@ -127,7 +129,8 @@ async function judgeAll(src, app, html, ward = WARD){
     ['카탈로그에서 안 내림', { mod: s => s.replace('window.firebaseAPI.unpublishPart(id).catch(()=>{});', '') }],
     ['책상 등록 버튼 안 걺', { mod: s => s.replace("document.getElementById('deskRegBtn').onclick=", "document.getElementById('deskRegBtnX').onclick=") }],
     ['옛 이름으로 부름', { app: s => s.replace("adminPartReg.openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)", "openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)") }],
-    ['꾸미기에서 옛 이름으로 부름', { ward: s => s.replace('adminPartReg().openPartRegister(info.cat)', 'openPartRegister(info.cat)') }],
+    /* 꾸미기 본문은 되살린 app.js 글 안에 있다(공용 도우미) — 거기서 옛 이름으로 바꿔 본다 */
+    ['꾸미기에서 옛 이름으로 부름', { app: s => s.replace('adminPartReg.openPartRegister(info.cat)', 'openPartRegister(info.cat)') }],
     ['gacha deps 가 옛 이름', { app: s => s.replace('  deletePart: (...a)=>adminPartReg.deletePart(...a),', '  deletePart: (...a)=>deletePart(...a),') }],
     ['html 줄 빠짐', { html: s => s.replace('<script src="parts/admin/admin-part-register.js"></script>', '') }],
     ['app.js 에 본문이 남음', { app: s => s + '\nfunction deletePart(id){}' }],

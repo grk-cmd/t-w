@@ -7,12 +7,13 @@
    ・5절: 일부러 깨 보기 — 모듈 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · admin-console.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
+const SRC = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ['admin-console.js', 'parts/admin/admin-console.js', 'app/parts/admin/admin-console.js'].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — admin-console.js'); process.exit(2); }
