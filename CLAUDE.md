@@ -61,6 +61,7 @@
 | `app/parts/overhead.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 34번) — 💬 머리 위 말풍선 · 회사원 모드 라벨 · 🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너. classic script(`window.TwOverhead`), 부르는 곳은 `overheadMod.이름`(이름표 · 칩 방향 깃발은 `overheadMod.nameplateEnabled()` 처럼 읽는 함수) |
 | `app/parts/room-sync.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 35번) — 📦 방으로 보내는 def(직렬화 · 얼굴 URL · 델타 전송 · Firebase provider) · 🛰 poke 신선도 · 🚪 자리비움 자동 퇴장 · 🛰 서버 모듈 감시견. classic script(`window.TwRoomSync`), 부르는 곳은 `roomSyncMod.이름` |
 | `app/parts/status-chip.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 36번) — 📍 상태칩 자리 · 칩 클릭 · Tab 접기 · 📐 상태칩 팝업 · 입력창 자리 계산 · 🫧 상태 이모지 그림 · UI 아이콘 · 책상 위 이모지. classic script(`window.TwStatusChip`), 부르는 곳은 `statusChipMod.이름` |
+| `app/parts/premium-assets.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 37번) — 🎀 캐릭터 꾸미기 파츠(프리미엄 — 카테고리 목록 `PART_CATS` · `PART_GROUPS` · 상한) · 🪑 라이선스 전용 책상(꾸미기 «책상» 탭) · 라이선스 없는 기기의 전용 자산 접기. classic script(`window.TwPremiumAssets`), 부르는 곳은 `premiumMod.이름`(`PART_CATS` 는 `premiumMod.PART_CATS()`) |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |

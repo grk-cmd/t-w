@@ -390,6 +390,8 @@ PRELOAD.push('overhead.js');
 PRELOAD.push('room-sync.js');
 /* status-chip.js — 📍 상태칩 자리 · 팝업 · 상태 이모지(앱 FSD 36번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createStatusChip 를 같이 굴린다. */
 PRELOAD.push('status-chip.js');
+/* premium-assets.js — 🎀 프리미엄 파츠 · 라이선스 책상(앱 FSD 37번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPremiumAssets 를 같이 굴린다. */
+PRELOAD.push('premium-assets.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
