@@ -8,11 +8,12 @@
    ・4절: HTML — 목록 id 가 CHAT_SFX_LIST 와 같다 · 서브메뉴가 #chatWindow 안 · :hover 로 열림 · fly 이름 안 씀.
    [실행] app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서(chat-notify-*.mp3 는 있으면 본다). */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 /* 💬 대화창 배선(🔔 알림음 메뉴 연결 · 저장값 반영)은 parts/chat-window.js 로 옮겼다(앱 FSD 14번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 let CW = null; try{ CW = fs.readFileSync('chat-window.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — chat-window.js'); process.exit(2); }
-const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + CW;
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + CW;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 
 let pass = 0, fail = 0;
