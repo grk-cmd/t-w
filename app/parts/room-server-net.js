@@ -4,7 +4,7 @@
  * peek · rid 는 v1 안에서 선택으로 더해진 것이다. 그 전 서버에서는 peek 이 null 로 끝나고, rid 없는 답은 보낸 순서로 짝짓는다.
  * 채팅 탭(멤버 칸 tab · chat 의 tab · meta 의 tabs)도 v1 안에서 더해졌다 — 그 전 서버는 tab 이 실린 메시지를 거절하므로 서버를 먼저 배포한다.
  *
- * 켤지 · 어느 서버로 갈지는 room-server-gate.js(관리자 스위치 config/roomServer · 방 주소록 roomDir)가 정하고,
+ * 켤지 · 어느 서버로 갈지는 room-server-gate.js(관리자 스위치 = 원격 설정 roomServer · 방 주소록 roomDir)가 정하고,
  * firebase-init.js 가 그 결과 주소를 url() 로 넘긴다. url() 이 null 이면 서버 쪽은 아예 쓰지 않는다.
  * 주소가 바뀌면(다른 서버의 방) 방 밖에 있을 때 옛 연결을 닫고 새로 붙는다. 못 붙은 주소는 1분 동안 다시 시도하지 않는다.
  *

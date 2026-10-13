@@ -18930,7 +18930,7 @@ let isAdmin = false;
      · 기존 유저(users/{uid}가 이미 있음) → 무조건 통과 + 초대권 5장 부여(최초 1회, grandfather)
      · 초대 코드로 들어온 신규 유저 → 초대권 0장 → 확산이 1세대에서 멈춤
      · 관리자 → 무제한 발급 + 유저에게 초대권 추가 지급 가능
-   ⚠️ 스위치는 원격 설정 config/flags/inviteGate(remote-config.js · 없으면 true). false면 게이트가 아예 안 뜬다.
+   ⚠️ 스위치는 원격 설정 flags.inviteGate(remote-config.js · API · 없으면 true). false면 게이트가 아예 안 뜬다.
       부팅 때 한 번 정한다 — initInviteGate 가 첫 답을 잠깐 기다린 뒤 checkInviteGate 를 부른다(못 읽으면 true).
 ──────────────────────────────────────────────────────────────────── */
 /* 원격 설정 한 벌(remote-config.js 가 app.js 앞에 싣는다). 없으면(검사 · 옛 html) null — 부르는 쪽이 기본값으로. */
@@ -19074,7 +19074,7 @@ async function _signupDoGoogle(){
    ★ 오프라인이면(userAuth 를 못 읽으면) 이번 부팅엔 안 띄운다 — 다음 온라인 부팅에 다시(§3).
    ★ 그 uid 가 **다른 계정에 묶여 있으면** I 가 아니다 — 가입하면 결속에서 거절된다. 그 판(다른 PC 에서 구글로 묶고 여기선 로그인 안 함)은
      «이 PC 는 로그인이 필요해요» 쪽 일이라 여기서 다루지 않는다. */
-/* 스위치는 원격 설정 config/flags/existingSignup(없으면 true) — 초대 게이트와 같이 부팅 때 첫 답을 기다려 한 번 정한다. */
+/* 스위치는 원격 설정 flags.existingSignup(API · 없으면 true) — 초대 게이트와 같이 부팅 때 첫 답을 기다려 한 번 정한다. */
 function existingSignupOn(){ const s = _rcStore(); return s ? s.existingSignup() : true; }
 /* 이 uid 의 아이디가 될 친구 코드 — 이 기기 코드가 내 것이면 그것, 아니면 계정 거울(users/{uid}/friendCode)이 내 것이면 그것.
    돌려주는 것: { code, mine:true } · { code:후보, mine:false }(내 코드가 없다 — [가입하기] 때 선점) · undefined(못 읽음 · 이번엔 쉰다). */
@@ -22089,11 +22089,11 @@ document.getElementById('toLauncher').onclick=backToLauncher;
       정원을 넘겨 들어올 수 있다. 화면은 넘쳐도 깨지지 않고 좌석만 늘어난다.
    ⚠️ [8 → 10] **옛 판(8)과 섞이면** — 옛 판은 친구를 7명까지만 그리고(9·10번째가 안 보임), 8명 이상인 방에는
       못 들어오며, 늦게 들어온 옛 판은 8번째 자리부터 스스로 나간다. 새 판끼리는 10명이 정상이다.
-      ⇒ 배포 뒤 관리자가 config/minRoomVer 를 새 판 번호로 올리면 옛 판은 방 입장 자체가 막혀 섞이지 않는다.
+      ⇒ 배포 뒤 관리자가 방 입장 최소 버전(minVersion.room)을 새 판 번호로 올리면 옛 판은 방 입장 자체가 막혀 섞이지 않는다.
    💰 이 숫자는 곧 비용이다 — 한 멤버가 1바이트를 쓰면 방의 나머지 인원수만큼 내려간다
       (_diffRoomPayload 주석의 실측 ×4.0). 6→8은 꽉 찬 방 기준 다운로드가 약 1.4배다.
       8→10 은 꽉 찬 방 기준 약 1.6배다(인원×(인원−1): 56 → 90). */
-/* ★ 정원은 원격 설정 config/roomMaxPeople(remote-config.js · 2~50 · 없으면 10) — 바뀌면 다음 판정부터 바로 따른다.
+/* ★ 정원은 원격 설정 roomMaxPeople(remote-config.js · API · 2~50 · 없으면 10) — 바뀌면 다음 판정부터 바로 따른다.
    firebase-init.js(joinRoom 리스너)의 정원 초과 자기 퇴장도 같은 store 를 읽는다 — 숫자를 두 곳에 적지 않는다. */
 function maxPeople(){ const s = _rcStore(); return s ? s.maxPeople() : 10; }
 /* ═══ 🚪 자리비움 자동 퇴장 [건의 2026-09-12] ═════════════════════════════════
@@ -22997,7 +22997,7 @@ function makeFirebaseProvider(){
 
 /* ═══ 🛰 방 서버 provider (관리자 스위치 · 기본 꺼짐) ═══════════════════════════════
    방 통신을 Firebase 대신 웹소켓 방 서버로. 실제 구현은 parts/room-server-net.js 이고 여기는 화면 쪽 연결만 한다.
-   누가 · 어느 서버로 가는지는 parts/room-server-gate.js(config/roomServer · roomDir). 꺼져 있으면(기본) 전원 Firebase.
+   누가 · 어느 서버로 가는지는 parts/room-server-gate.js(원격 설정 roomServer · roomDir). 꺼져 있으면(기본) 전원 Firebase.
    ★ 서버 방에서는 정원 · 같은 계정 중복 · 호스트 승계 · 해산 · 120초 생존 판정을 서버가 한다.
      그래서 firebase-init joinRoom 의 그 판정들(자기 퇴장 · _maybeSucceedHost · 💓 roomAlive 하트비트)은 이 길에서 아예 돌지 않는다.
    ★ 채팅 기록(chatLog) · 스티커사진(_photo) · 친구 목록의 접속 정보는 1단계에서는 Firebase 그대로다. */
@@ -23592,7 +23592,7 @@ function _verLt(a,b){
   for(let i=0;i<3;i++){ if((pa[i]||0)<(pb[i]||0)) return true; if((pa[i]||0)>(pb[i]||0)) return false; }
   return false;
 }
-// 방(워킹룸·투게더룸) 입장 허용 여부. 내 앱버전 < config/minRoomVer 이면 막고 안내(자세한 링크는 공지).
+// 방(워킹룸·투게더룸) 입장 허용 여부. 내 앱버전 < 원격 설정 minVersion.room 이면 막고 안내(자세한 링크는 공지).
 //   ※ 이 체크 코드가 든 버전부터만 효과 — 컷오버 시 minRoomVer를 올려 발동시킴.
 //   ※ 웹/개발 환경(companion 미주입)이나 조회 실패 시엔 막지 않고 통과(오탐 방지).
 async function _ensureRoomVersionOk(){
@@ -25745,7 +25745,7 @@ async function _restoreOwnedDataAfterTransfer(){
 
 /* ═══ 🔢 방 개수 · 방 만들기 · 랜덤 참여 · 갈아타기 ═══ */
 /* --- 방 개수 표시(n/상한) + 정원 초과 시 생성 차단 --- */
-/* ★ 채널별 방 개수 상한 — 원격 설정 config/roomLimits(remote-config.js · 채널마다 1~10000 · 없으면 300).
+/* ★ 채널별 방 개수 상한 — 원격 설정 roomLimits(remote-config.js · API · 채널마다 1~10000 · 없으면 300).
    Firebase 방 + 방 서버 방을 합친 «전체» 상한이다(방 서버가 roomIndex 장부에 올리면 합계 · 개정 170).
    ⚠️ 이 상한은 **클라이언트에서만** 검사한다 — firebase-database-rules.json의 rooms/$room 은
       "!newData.exists()"(빈 자리에만 생성)만 보고 개수를 세지 않는다. 서버가 셀 수 없는 구조라서다
