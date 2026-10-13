@@ -19,3 +19,13 @@
 .count {
   margin-right: 10px;
 }
+
+.total {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 12px;
+}
+
+.over {
+  color: var(--danger);
+}

@@ -11,6 +11,8 @@ export interface RoomStats {
   workingroom?: number;
   togetherroom?: number;
   at?: number;
+  /** 방 서버에 열린 방(시크릿 제외) — roomStats 함수가 매분 방 서버 /health 로 적는다. 옛 함수면 없다. */
+  server?: { workingroom?: number; togetherroom?: number };
 }
 
 export const SECRET_ROOM_PREFIX = 'SCRT-';
