@@ -48,6 +48,7 @@
 | `app/parts/slot-sync.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 19번) — ☁️ 슬롯(캐릭터) 기기 간 동기화 · 연동 UI(런처 띠 · 계정 탭 기기 연동 구획). classic script(`window.TwSlotSync`), 부르는 곳은 `slotSyncMod.이름`(상태 let 은 `slotSyncMod.이름()` · 비우기는 `slotSyncMod.set이름(…)`). 슬롯 저장 · 복원(`saveSlots` · `loadSlots`)은 app.js |
 | `app/parts/away-pic.js` · `app/parts/myhome-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 22번) — 🫧 자리비움 그림(`window.TwAwayPic` · `awayPicMod.이름`) · 🏠 마이홈 창 버튼 연결 bindMyHomeUI(`window.TwMyHomeUi` · `myHomeUiMod.renderMhProfileRail`) |
 | `app/parts/tricks.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 25번) — 💃 깜짝쇼(날아가기 · 어지러움) · 🪄 때리기(말풍선 · 재생 · 방 전파 · 조준 모드). classic script(`window.TwTricks`), 부르는 곳은 `tricksMod.이름`. 효과음 공장은 app.js |
+| `app/parts/ride-bench.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 30번) — 🗼 올라타기(탑 · 서커스 흔들림) · 🪑 멀티좌석 책상(2·3인승 벤치 — 끌어서 슬롯에 앉히기). classic script(`window.TwRideBench`), 부르는 곳은 `rideBenchMod.이름` |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
