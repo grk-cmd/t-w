@@ -240,7 +240,7 @@
     $('bbWTitle').focus();
     showQuota();
   }
-  /* 오늘 남은 제보 수 — 상한(config/bugDailyMax · 게시판 열 때 읽음) − 오늘 쓴 수. 다 썼으면 등록 단추를 끈다. 관리자는 제한 없음. */
+  /* 오늘 남은 제보 수 — 상한(원격 설정 bugDailyMax · 게시판 열 때 받음) − 오늘 쓴 수. 다 썼으면 등록 단추를 끈다. 관리자는 제한 없음. */
   async function showQuota(){
     const btn = $('bbWSubmit');
     btn.disabled = false; btn.textContent = '등록';

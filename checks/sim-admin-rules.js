@@ -113,7 +113,8 @@ console.log('\n── 3. 새는 곳이 없는가');
   chk(isAdmin(r('licenses')) && isBot(r('licenses')) && !w('licenses'),
       '라이선스 전체 읽기는 관리자 또는 봇 — 봇에게 쓰기 길 없음');
   // 웹 관리자 사용자 목록을 API 로 — 봇이 accountSnap · friendCodes 를 통째로 읽는다. 관리자 조건과 || 로 이어야 관리자 읽기가 안 막히고, 봇 조건은 목록 읽기 한 곳뿐.
-  for (const [p, label] of [['accountSnap', '계정 요약(accountSnap)'], ['friendCodes', '친구코드 명단(friendCodes)']]) {
+  // 운영 설정(config) · 관리자 작업 기록(adminLog) 도 같은 모양 — API 가 읽기 사본을 만든다(쓰기 원본은 그대로 Firebase · 관리자).
+  for (const [p, label] of [['accountSnap', '계정 요약(accountSnap)'], ['friendCodes', '친구코드 명단(friendCodes)'], ['config', '운영 설정(config)'], ['adminLog', '관리자 작업 기록(adminLog)']]) {
     const rd = String(r(p));
     chk(isAdmin(rd) && isBot(rd) && /\|\|/.test(rd) && !w(p) && !/apiBots/.test(JSON.stringify(at(p)).replace(rd, '')),
         `${label} 전체 읽기는 관리자 또는 봇 — 봇은 아래 칸 읽기 · 쓰기 없음`);

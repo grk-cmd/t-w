@@ -284,7 +284,7 @@ contextBridge.exposeInMainWorld('companion', {
   },
 
   // ---- 버전 게이트 ----
-  // 현재 앱 버전 조회(예: "0.6.1"): Promise<string|null>. 방 입장 시 config/minRoomVer와 비교.
+  // 현재 앱 버전 조회(예: "0.6.1"): Promise<string|null>. 방 입장 시 원격 설정 minVersion.room 과 비교.
   getAppVersion() {
     return ipcRenderer.invoke('companion:getAppVersion');
   },

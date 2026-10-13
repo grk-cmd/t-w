@@ -180,7 +180,7 @@
   let _myMemberData = null;    // 내 멤버 전체 페이로드 — 재접속 시 노드를 통째로 재등록할 때 사용
   let _connWatchRef = null, _connWatchCb = null;   // .info/connected 감시 (재접속 감지)
   /* 💓 새 하트비트(room-alive.js) — 켜지면 도장을 멤버 노드가 아니라 아무도 구독하지 않는 roomAlive 에 찍는다.
-     켤지는 입장 때 config/minRoomVer 로 정한다(옛 앱이 방에 없을 때만). _lastHbExp 는 exp 를 바뀔 때만 보내려고. */
+     켤지는 입장 때 원격 설정 minVersion.room(remote-config.js)으로 정한다(옛 앱이 방에 없을 때만). _lastHbExp 는 exp 를 바뀔 때만 보내려고. */
   let _aliveV2 = false, _myAliveRef = null, _lastHbExp;
   // ⏱ 서버 시간 오프셋 — stale 판정을 로컬 시계로 하면 PC 시계가 몇 분만 틀어져도
   //   상대의 멀쩡한 하트비트를 "오래됨"으로 오판해 숨김(A↔B 비대칭의 원인 후보). 서버 오프셋으로 보정.
@@ -379,19 +379,28 @@
       update(_myPresenceRef, { ver }).catch(()=>{});
     },
   });
-  /* 앱 최소 버전(app-version-gate.js) — 켤 때 config/minAppVer 하나만 읽어, 이 앱이 낮으면 «업데이트해 주세요» 로 막는다.
-     DB 가 생기자마자 — 다른 읽기 · 게이트보다 먼저. 읽지 못하면(오프라인 · 시간 초과) 막지 않는다. */
+  /* ⚙️ 원격 설정(remote-config.js · html 이 app.js 앞에 싣는 classic script) — 쓰기 원본은 Firebase config/*, 읽기는 API 사본(GET /v1/config) 먼저.
+     켤 때 한 번 + 5분마다 · 창이 다시 보일 때. API 를 못 받으면 Firebase config 칸 → 이 PC 저장값 → 기본값. */
+  const _lsOrNull = () => { try{ return window.localStorage; }catch(_){ return null; } };
+  const _rc = (window.TwRemoteConfig && window.TwRemoteConfig.store) || null;
+  const MIN_APP_VER_WAIT_MS = 7000;   // 첫 답을 이만큼만 기다린다(API 3초 + Firebase 3초 + 여유 · 게이트 8초보다 짧게) — 넘으면 막지 않는다
+  if(_rc){
+    _rc.start({
+      baseUrl: window.TwRemoteConfig.apiBaseFor(FIREBASE_ENV, _lsOrNull()),
+      fetch: (typeof fetch === 'function') ? fetch.bind(window) : null,
+      storage: _lsOrNull(),
+      fallbackRead: (path) => get(ref(db, path)).then(s => s.val()),   // API 를 못 받았을 때만(remote-config.js FALLBACK_PATHS · 한 칸씩)
+      win: window,
+    });
+  }
+  /* 앱 최소 버전(app-version-gate.js) — 원격 설정의 첫 답(minVersion.app)을 기다려, 이 앱이 낮으면 «업데이트해 주세요» 로 막는다.
+     최소 버전은 이번 실행에 받은 값(API · Firebase)만 본다 — 저장값은 안 쓰고, 못 받으면(오프라인 · 시간 초과) 막지 않는다. */
   createAppVersionGate({
-    readMin: () => get(ref(db, 'config/minAppVer')).then(s => s.val()),   // 경로는 app-version-gate.js MIN_APP_VER_PATH 와 같다
+    readMin: () => _rc ? _rc.ready(null, MIN_APP_VER_WAIT_MS).then(() => _rc.minAppVer()) : null,
     getVersion: () => _appVer.ready,
     companion: window.companion || null,
     ui: createAppVersionGateDom(document),
   }).start().then(r => { if(r.blocked) console.warn('[앱 최소 버전] 막음 —', r.my, '<', r.min); });
-  /* ⚙️ 원격 설정(remote-config.js · html 이 app.js 앞에 싣는 classic script) — 칸 넷을 따로 구독한다(config 통째 읽기 아님).
-     거부 · 끊김이면 그 칸은 기본값 그대로(onValue 의 취소 콜백). */
-  if(window.TwRemoteConfig && window.TwRemoteConfig.store){
-    window.TwRemoteConfig.store.watch((path, onVal, onErr) => onValue(ref(db, path), s => onVal(s.val()), onErr));
-  }
   /* IP 기준 일일 방문자(visit-ping.js) — 로그인과 상관없이 켤 때 한 번. 함수 SDK 는 위 FUNCTIONS_SDK_URL 주석대로 부를 때 들여온다.
      ⚠️ CSP connect-src 에 운영 함수 호스트만 있어 dev(together-working-dev)에서는 막힌다 — 지표만 빠지고 앱은 그대로다. */
   createVisitPing({
@@ -401,12 +410,14 @@
     },
     getVersion: () => _appVer.ready,
   }).start();
-  /* 🛰 방 서버(웹소켓) — 관리자 스위치(config/roomServer)가 켜고, 어느 서버로 갈지는 문지기(room-server-gate.js)가 정한다.
-     여기서는 칸 하나 읽기 · 토큰 · 버전 · userId 만 잇는다. _rsUrl = 문지기가 마지막으로 고른 주소(null 이면 서버 안 씀). */
-  const _lsOrNull = () => { try{ return window.localStorage; }catch(_){ return null; } };
+  /* 🛰 방 서버(웹소켓) — 관리자 스위치(원격 설정 roomServer)가 켜고, 어느 서버로 갈지는 문지기(room-server-gate.js)가 정한다.
+     여기서는 설정 · 서버 주소 · 내 서버(API · 못 받으면 Firebase) · roomDir 칸 읽기 · 토큰 · 버전 · userId 만 잇는다. _rsUrl = 문지기가 마지막으로 고른 주소(null 이면 서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
   let _rsUrl = null;
   const _roomServerGate = createRoomServerGate({
+    getConfig: async () => { if(!_rc) return null; await _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }); return _rc.roomServer(); },
+    serverAddr: (name) => _rc ? _rc.serverAddr(name) : null,
+    myServer: (uid) => _rc ? _rc.myServer(uid) : null,
     read: (path) => get(ref(db, path)).then(s => s.val()),
     getUserId: () => (typeof window.getMyUserId === 'function') ? window.getMyUserId() : null,
     env: FIREBASE_ENV,
@@ -580,11 +591,12 @@
         }catch(_){ fin(false); }
       });
     },
-    // 🚪 버전 게이트 — 방 입장 최소 허용 버전(예: "0.6.2"). 관리자가 config/minRoomVer만 바꾸면
-    //   앱·규칙 재배포 없이 즉시 게이트가 올라감. 값 없으면 null(=제한 없음).
+    // 🚪 버전 게이트 — 방 입장 최소 허용 버전(예: "0.6.2"). 원격 설정 minVersion.room — 관리자가 바꾸면
+    //   앱 재배포 없이 올라감(입장 때 STALE_MS 넘었으면 한 번 더 묻는다). 값 없음 · 못 받음이면 null(=제한 없음).
     async getMinRoomVer(){
-      try{ const snap = await get(ref(db, 'config/minRoomVer')); const v = snap.val(); return (v==null) ? null : String(v); }
-      catch(_){ return null; }
+      if(!_rc) return null;
+      try{ await _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }); }catch(_){}
+      return _rc.minRoomVer();
     },
     // ===== 마이홈 친구 시스템 =====
     // 친추코드 → userId 조회. 없으면 null.
@@ -2212,8 +2224,8 @@
       _myAliveRef = ref(db, `roomAlive/${room}/${memberId}`);
       /* 💓 새 하트비트를 켤지 — 방에 옛 앱이 없을 때(minRoomVer ≥ ROOM_ALIVE_MIN_VER)만. 첫 하트비트(30초) 전에 대개 정해진다.
          켜지면 멤버 노드에 hb:2 를 한 번 싣는다 — 남들은 이 표시를 보고 내 생존을 lastSeen 대신 «노드가 있음» 으로 본다. */
-      get(ref(db, 'config/minRoomVer')).then(v => {
-        if(_roomCode !== room || _memberId !== memberId || !aliveV2On(v.val())) return;
+      Promise.resolve(_rc ? _rc.minRoomVer() : null).then(v => {
+        if(_roomCode !== room || _memberId !== memberId || !aliveV2On(v)) return;
         _aliveV2 = true;
         if(_myMemberData) _myMemberData.hb = ROOM_ALIVE_HB;
         update(_myMemberRef, { hb: ROOM_ALIVE_HB }).catch(()=>{});
@@ -2394,7 +2406,7 @@
              그게 이 '각자 알아서 나간다' 방식의 전제다.
              _meta.host 폴백은 규칙이 바뀌었을 때의 안전망일 뿐 1순위로 쓰면 안 된다 — _meta 리스너는
              멤버 스냅샷보다 늦게 올 수 있고, 그 찰나에 나가는 사람이 0명이거나 2명이 된다. */
-        const _cap = (window.TwRemoteConfig && window.TwRemoteConfig.store) ? window.TwRemoteConfig.store.maxPeople() : 10;   // 원격 설정 config/roomMaxPeople — app.js maxPeople() 와 같은 값
+        const _cap = (window.TwRemoteConfig && window.TwRemoteConfig.store) ? window.TwRemoteConfig.store.maxPeople() : 10;   // 원격 설정 roomMaxPeople — app.js maxPeople() 와 같은 값
         const _srOwner = (String(room||'').indexOf('SCRT-') === 0)
           ? (window._srOwnerUid || (_capturedMeta && _capturedMeta.host) || null) : null;
         const _aliveIds = Object.keys(friends);
@@ -3196,6 +3208,7 @@
     /* 🐞 버그제보 게시판 — 경로 · 쿼리 · 묶음 쓰기는 bug-board.js 에 있다. 여기는 연결만. */
     bugBoard: createBugBoard({ db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo, runTransaction, push,
                                serverTs: () => serverTimestamp(),
+                               getDailyMax: () => _rc ? _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }).then(() => _rc.bugDailyMax()) : null,
                                authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),
     /* 💬 대화 기록(서버 3일 · 이 PC 저장 · 커서 이어 받기) — 규칙은 chat-history.js. 여기는 연결만. */
     chatHistory: createChatHistory({

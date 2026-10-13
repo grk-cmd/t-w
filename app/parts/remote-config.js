@@ -1,37 +1,63 @@
-/* remote-config.js — ⚙️ 원격 설정: 관리자가 웹 관리자 ⚙️ 설정에서 바꾸는 작은 칸들 (검사 sim-remote-config.js)
-   [왜] 채널당 방 개수 상한이 앱 코드에 박혀 있어 운영 사고 때 바로 바꿀 수 없었다. 앱 릴리스 없이 바꿀 값을 DB 로 옮긴다.
-   ・config/roomLimits = { workingroom, togetherroom } (1~10000) — 채널별 «전체» 방 상한(Firebase 방 + 방 서버 방). 없으면 300.
-   ・config/roomMaxPeople (2~50) — 방 정원(시크릿룸 손님은 정원 − 1). 없으면 10.
-   ・config/flags/inviteGate · config/flags/existingSignup (불리언) — 초대 코드 게이트 · 기존 사용자 가입 강제. 없으면 true.
-   ・규칙: 누구나 읽기 · 관리자만 쓰기 · 범위 · 타입 · 모르는 칸 거절(firebase-database-rules.json config/*).
-   [읽는 법] 칸마다 따로 구독한다(config 를 통째로 읽지 않는다 — 몇 바이트짜리 칸 넷). 바뀌면 바로 반영.
-     못 읽으면(오프라인 · 규칙 배포 전 거부) 기본값 그대로 — 기본값은 이 칸이 생기기 전 동작과 같다(방 상한만 300).
-     범위 밖 · 타입이 다른 값은 무시하고 기본값.
-   classic script — app.js 보다 먼저 싣고(window.TwRemoteConfig), firebase-init.js(module)가 store.watch 로 DB 를 잇는다. */
+/* remote-config.js — ⚙️ 원격 설정: 관리자가 웹 관리자 ⚙️ 설정에서 바꾸는 운영 값 (검사 sim-remote-config.js)
+   [왜] 운영 값(방 상한 · 정원 · 가입 스위치 · 방 서버 · 최소 버전 · 제보 상한)을 앱 릴리스 없이 바꾸려고.
+     쓰기 원본은 Firebase config/*(웹 관리자가 씀)이고, 우리 API(t-w-server · PostgreSQL)는 그 읽기 전용 사본이다.
+     Firebase 요금은 내려받은 바이트라 평소에는 사본(API)에서 읽는다.
+   [읽는 차례] API GET /v1/config(로그인 없이 · 몇백 바이트 · data = { version, syncedAt, config }) → 못 받으면(사본 미준비 503 CONFIG_NOT_READY 포함)
+     Firebase config/* 칸을 직접(FALLBACK_PATHS · 칸마다 get)
+     → 그것도 못 읽으면 이 PC 저장값(CACHE_KEY · 마지막으로 받은 값) → 그것도 없으면 DEFAULTS. API 를 받으면 Firebase 는 읽지 않는다.
+     켤 때 한 번 + REFRESH_MS 마다 · 창이 다시 보일 때(STALE_MS 넘었으면). 방 입장 · 방 서버 고르기 전에는 STALE_MS 넘었을 때만(refresh({ maxAgeMs })).
+     ★ 최소 버전(minVersion)은 저장값을 쓰지 않는다 — 이번 실행에 API · Firebase 에서 받은 값으로만 막는다(둘 다 못 받으면 막지 않는다).
+     범위 밖 · 타입이 다른 값은 그 칸만 기본값.
+   [허용 목록 · 서버 주소] 허용 목록은 응답에 없다 — 한 사람씩 GET /v1/config/room-server/allow/{내 코드}(공개 · { userCode, server })
+     → 못 받으면 Firebase config/roomServer/allow/{내 코드}.
+     서버 주소는 API 를 받았으면 응답의 servers 에서, Firebase 로 읽은 판이면 config/roomServer/servers/{이름} 한 칸씩(serverAddr).
+   classic script — app.js 보다 먼저 싣고(window.TwRemoteConfig), firebase-init.js(module)가 store.start 로 API · Firebase 읽기를 잇는다. */
 (function(){
 'use strict';
 
-const PATHS = Object.freeze({
-  roomLimits: 'config/roomLimits',
-  roomMaxPeople: 'config/roomMaxPeople',
-  inviteGate: 'config/flags/inviteGate',
-  existingSignup: 'config/flags/existingSignup',
-});
+const API_BASE_PROD = 'https://api.togetherworking.duckdns.org';
+// dev 앱만 — 시험용 API 주소(tw.apiBaseUrl). CSP connect-src https://*.togetherworking.duckdns.org 안이어야 한다.
+const API_BASE_DEV_KEY = 'tw.apiBaseUrl';
+const API_BASE_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.togetherworking\.duckdns\.org$/;
+const CONFIG_PATH = '/v1/config', ALLOW_PATH = '/v1/config/room-server/allow/';
+const CACHE_KEY = 'tw.remoteConfig';
+const REFRESH_MS = 5 * 60 * 1000;
+const STALE_MS = 60 * 1000;
+// API · Firebase 각각 이만큼만 기다린다 — 둘 다 멈춰도 6초 안에 끝나 앱 최소 버전 대기(firebase-init MIN_APP_VER_WAIT_MS)보다 짧다
+const FETCH_TIMEOUT_MS = 3000;
+
 const CHANNELS = ['workingroom', 'togetherroom'];
 const ROOM_LIMIT_MIN = 1, ROOM_LIMIT_MAX = 10000;
 const MAX_PEOPLE_MIN = 2, MAX_PEOPLE_MAX = 50;
+const BUG_DAILY_MIN = 1, BUG_DAILY_MAX = 100;
+const VER_MAX = 20;                                     // 버전 문자열 길이 상한(app-version-gate.js MIN_APP_VER_MAX 와 같다)
+const SERVER_NAME_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;     // room-server-gate.js SERVER_NAME_RE 와 같다
+/* API 를 못 받았을 때 읽는 Firebase 칸 — 칸마다 따로(config 통째 · roomServer 통째 읽기는 규칙상 관리자만).
+   허용 목록 · 서버 주소는 쓸 때 한 칸씩(allow/{내 코드} · servers/{이름}). */
+const FALLBACK_PATHS = Object.freeze({
+  roomLimits: 'config/roomLimits', roomMaxPeople: 'config/roomMaxPeople',
+  inviteGate: 'config/flags/inviteGate', existingSignup: 'config/flags/existingSignup', bugDailyMax: 'config/bugDailyMax',
+  minAppVer: 'config/minAppVer', minRoomVer: 'config/minRoomVer',
+  rsOn: 'config/roomServer/on', rsDefault: 'config/roomServer/default', rsPercent: 'config/roomServer/defaultPercent',
+});
+const FB_ALLOW = 'config/roomServer/allow/', FB_SERVERS = 'config/roomServer/servers/';
+const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'roomServer', 'minVersion', 'bugDailyMax'];
 const DEFAULTS = Object.freeze({
   roomLimits: Object.freeze({ workingroom: 300, togetherroom: 300 }),
   roomMaxPeople: 10,
   inviteGate: true,
   existingSignup: true,
+  roomServer: Object.freeze({ on: false, default: null, defaultPercent: 0, servers: Object.freeze({}) }),
+  minVersion: Object.freeze({ app: null, room: null }),
+  bugDailyMax: 5,
 });
 
 const isInt = (v) => typeof v === 'number' && isFinite(v) && v % 1 === 0;
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 function cleanRoomLimits(raw){
   const out = {};
   for(const ch of CHANNELS){
-    const v = (raw && typeof raw === 'object') ? raw[ch] : undefined;
+    const v = isObj(raw) ? raw[ch] : undefined;
     out[ch] = (isInt(v) && v >= ROOM_LIMIT_MIN && v <= ROOM_LIMIT_MAX) ? v : DEFAULTS.roomLimits[ch];
   }
   return out;
@@ -40,73 +66,249 @@ function cleanMaxPeople(raw){
   return (isInt(raw) && raw >= MAX_PEOPLE_MIN && raw <= MAX_PEOPLE_MAX) ? raw : DEFAULTS.roomMaxPeople;
 }
 function cleanFlag(raw, def){ return (typeof raw === 'boolean') ? raw : def; }
+function cleanBugDailyMax(raw){
+  return (isInt(raw) && raw >= BUG_DAILY_MIN && raw <= BUG_DAILY_MAX) ? raw : DEFAULTS.bugDailyMax;
+}
+const cleanVer = (v) => (typeof v === 'string' && v.trim() && v.length <= VER_MAX) ? v.trim() : null;
+function cleanMinVersion(raw){
+  return isObj(raw) ? { app: cleanVer(raw.app), room: cleanVer(raw.room) } : { app: null, room: null };
+}
+/* 방 서버 스위치 — 주소 자체가 붙어도 되는지는 room-server-gate.js serverUrlOk 가 한 번 더 거른다. */
+function cleanRoomServer(raw){
+  const r = isObj(raw) ? raw : {};
+  const servers = {};
+  if(isObj(r.servers)){
+    for(const k of Object.keys(r.servers)){
+      if(SERVER_NAME_RE.test(k) && typeof r.servers[k] === 'string') servers[k] = r.servers[k];
+    }
+  }
+  const pct = r.defaultPercent;
+  return {
+    on: r.on === true,
+    default: (typeof r.default === 'string' && SERVER_NAME_RE.test(r.default)) ? r.default : null,
+    defaultPercent: (isInt(pct) && pct >= 0 && pct <= 100) ? pct : 0,
+    servers,
+  };
+}
 function clean(key, raw){
   if(key === 'roomLimits') return cleanRoomLimits(raw);
   if(key === 'roomMaxPeople') return cleanMaxPeople(raw);
+  if(key === 'roomServer') return cleanRoomServer(raw);
+  if(key === 'minVersion') return cleanMinVersion(raw);
+  if(key === 'bugDailyMax') return cleanBugDailyMax(raw);
   return cleanFlag(raw, DEFAULTS[key]);
 }
-const same = (a, b) => (a && typeof a === 'object') ? CHANNELS.every(ch => a[ch] === b[ch]) : a === b;
+/* GET /v1/config 의 data → 칸별 원값. flags 는 두 칸으로 편다. */
+function fieldsOf(data){
+  const d = isObj(data) ? data : {};
+  const f = isObj(d.flags) ? d.flags : {};
+  return { roomLimits: d.roomLimits, roomMaxPeople: d.roomMaxPeople, inviteGate: f.inviteGate, existingSignup: f.existingSignup,
+    roomServer: d.roomServer, minVersion: d.minVersion, bugDailyMax: d.bugDailyMax };
+}
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+/* 이 환경의 API 주소 — 운영 앱은 늘 운영 API. dev 앱은 tw.apiBaseUrl 이 있을 때만(없으면 null = API 없이 저장값 · 기본값). */
+function apiBaseFor(env, storage){
+  if(env !== 'dev') return API_BASE_PROD;
+  try{
+    const v = String((storage && storage.getItem(API_BASE_DEV_KEY)) || '').trim().replace(/\/+$/, '');
+    return (API_BASE_RE.test(v) && v !== API_BASE_PROD) ? v : null;
+  }catch(_){ return null; }
+}
+
+/* ApiResponse 봉투 { success, data, code?, message? } → data. 봉투가 아니거나 실패면 throw. */
+async function getJson(fetchFn, url, headers, timeoutMs){
+  const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+  let timer = null;
+  const timeout = new Promise((_, rej) => { timer = setTimeout(() => { try{ ctl && ctl.abort(); }catch(_){} rej(new Error('timeout')); }, timeoutMs); });
+  try{
+    const res = await Promise.race([fetchFn(url, { headers: headers || {}, signal: ctl ? ctl.signal : undefined, credentials: 'omit' }), timeout]);
+    if(!res || !res.ok) throw new Error('http ' + (res && res.status));
+    const body = await Promise.race([res.json(), timeout]);
+    if(!isObj(body) || body.success !== true) throw new Error('envelope');
+    return body.data;
+  }finally{ clearTimeout(timer); }
+}
+
 
 function createRemoteConfig(){
-  let cur = { roomLimits: cleanRoomLimits(null), roomMaxPeople: DEFAULTS.roomMaxPeople,
-    inviteGate: DEFAULTS.inviteGate, existingSignup: DEFAULTS.existingSignup };
-  const answered = {};          // 칸마다 첫 답(값이든 실패든)을 받았는가 — ready() 가 본다
+  let cur = {};
+  for(const k of KEYS) cur[k] = clean(k, undefined);
+  let answered = false;         // 첫 답(값이든 실패든)을 받았는가 — ready() 가 본다
+  let src = 'default';          // 지금 값의 출처 — 'api' | 'firebase' | 'cache' | 'default'
+  let opts = null;              // start 가 받은 것 { baseUrl, fetch, storage, fallbackRead, now }
+  let lastTry = 0, inflight = null, timer = null;
+  const meCache = {};           // uid → { name, until }
+  const addrCache = {};         // Firebase 판의 서버 이름 → { url, until }
   const listeners = [], waiters = [];
-  const keys = Object.keys(PATHS);
+  const now = () => (opts && opts.now) ? opts.now() : Date.now();
+  const warn = (...a) => { try{ console.warn('[원격 설정]', ...a); }catch(_){} };
+
   const settle = () => {
-    for(let i = waiters.length - 1; i >= 0; i--){
-      const w = waiters[i];
-      if(w.keys.every(k => answered[k])){ waiters.splice(i, 1); clearTimeout(w.timer); w.resolve(cur); }
-    }
+    for(const w of waiters.splice(0)){ clearTimeout(w.timer); w.resolve(cur); }
   };
   function set(key, raw){
-    if(!(key in PATHS)) return false;
-    answered[key] = true;
+    if(KEYS.indexOf(key) < 0) return false;
     const v = clean(key, raw);
     const changed = !same(cur[key], v);
     if(changed){
       cur = Object.assign({}, cur, { [key]: v });
       for(const fn of listeners.slice()){ try{ fn(cur, key); }catch(e){ console.warn('[원격 설정] 반영 실패', key, e); } }
     }
-    settle();
     return changed;
   }
-  /* 못 읽음(거부 · 끊김) — 값은 그대로 두고 «답은 받았다» 만 적는다(기다리는 쪽이 시간 초과까지 서지 않게). */
-  function fail(key){ if(key in PATHS){ answered[key] = true; settle(); } }
-  /* subscribe(path, onValue(raw), onError(err)) → 끊는 함수. firebase-init.js 가 onValue(ref(db, path)) 로 넘긴다. */
-  function watch(subscribe){
-    const offs = keys.map(k => {
-      try{ return subscribe(PATHS[k], (raw) => set(k, raw), () => fail(k)); }
-      catch(_){ fail(k); return null; }
-    });
-    return () => offs.forEach(off => { try{ if(typeof off === 'function') off(); }catch(_){} });
+  /* 응답 한 벌(API data 모양)을 칸마다 반영. fromCache 면 최소 버전은 건너뛴다(지난 값으로 막지 않게). */
+  function apply(data, fromCache){
+    const f = fieldsOf(data);
+    for(const k of KEYS){ if(fromCache && k === 'minVersion') continue; set(k, f[k]); }
   }
+  function answer(){ answered = true; settle(); }
+
+  function loadCache(){
+    try{
+      const s = opts && opts.storage; if(!s) return false;
+      const c = JSON.parse(s.getItem(CACHE_KEY) || 'null');
+      if(!isObj(c) || !isObj(c.data)) return false;
+      apply(c.data, true);
+      src = 'cache';
+      return true;
+    }catch(_){ return false; }
+  }
+  function saveCache(data){
+    try{ if(opts && opts.storage) opts.storage.setItem(CACHE_KEY, JSON.stringify({ at: now(), from: src, data })); }catch(_){}
+  }
+  /* Firebase 한 칸 — 시간 상한 · 실패는 undefined(«못 읽음»), 칸이 없으면 null. */
+  function fbOne(path){
+    const rd = opts && opts.fallbackRead;
+    if(typeof rd !== 'function') return Promise.resolve(undefined);
+    let t = null;
+    return Promise.race([
+      Promise.resolve().then(() => rd(path)).then((v) => (v === undefined ? null : v)),
+      new Promise((res) => { t = setTimeout(() => res(undefined), FETCH_TIMEOUT_MS); }),
+    ]).catch(() => undefined).then((v) => { clearTimeout(t); return v; });
+  }
+  /* API 를 못 받았을 때 — Firebase config 칸을 직접. 한 칸이라도 읽혔으면 반영하고 true. */
+  async function readFirebase(){
+    const P = FALLBACK_PATHS, names = Object.keys(P);
+    const vals = await Promise.all(names.map((k) => fbOne(P[k])));
+    const v = {}; names.forEach((k, i) => { v[k] = vals[i]; });
+    if(names.every((k) => v[k] === undefined)) return false;
+    const data = { roomLimits: v.roomLimits, roomMaxPeople: v.roomMaxPeople, bugDailyMax: v.bugDailyMax,
+      flags: { inviteGate: v.inviteGate, existingSignup: v.existingSignup },
+      minVersion: { app: v.minAppVer, room: v.minRoomVer },
+      roomServer: { on: v.rsOn, default: v.rsDefault, defaultPercent: v.rsPercent, servers: {} } };
+    src = 'firebase';
+    apply(data, false); saveCache(data);
+    return true;
+  }
+
+  /* 다시 읽기. maxAgeMs 를 주면 마지막 시도가 그보다 최근이면 묻지 않는다(성공이든 실패든 — 멈췄을 때 입장마다 기다리지 않게). */
+  function refresh(o){
+    const maxAge = (o && o.maxAgeMs) || 0;
+    if(!opts){ answer(); return Promise.resolve(cur); }
+    if(inflight) return inflight;
+    if(maxAge && lastTry && now() - lastTry < maxAge) return Promise.resolve(cur);
+    lastTry = now();
+    const viaApi = opts.baseUrl
+      ? getJson(opts.fetch, opts.baseUrl + CONFIG_PATH, null, FETCH_TIMEOUT_MS).then((data) => {
+          const cfg = isObj(data) ? data.config : null;
+          if(!isObj(cfg)) throw new Error('config 없음');
+          src = 'api';
+          apply(cfg, false); saveCache(cfg);
+        })
+      : Promise.reject(new Error('API 주소 없음'));
+    inflight = viaApi
+      .catch((e) => {
+        if(opts.baseUrl) warn('API 를 못 읽음 — Firebase config 로', (e && e.message) || e);
+        return readFirebase().then((ok) => { if(!ok) warn('Firebase config 도 못 읽음 — ' + (src === 'cache' ? '저장값' : src === 'default' ? '기본값' : '지난 값') + ' 그대로'); });
+      })
+      .catch(() => {})
+      .then(() => { inflight = null; answer(); return cur; });
+    return inflight;
+  }
+
+  /* deps: { baseUrl, fetch, storage, fallbackRead(path), now, win } — firebase-init.js 가 부른다. 두 번 부르면 두 번째는 다시 읽기만. */
+  function start(deps){
+    if(opts) return refresh({ maxAgeMs: STALE_MS });
+    opts = Object.assign({}, deps || {});
+    if(typeof opts.fetch !== 'function') opts.baseUrl = null;
+    loadCache();
+    const p = refresh();
+    timer = setInterval(() => { refresh(); }, REFRESH_MS);
+    const w = opts.win;
+    const again = () => { refresh({ maxAgeMs: STALE_MS }); };
+    try{
+      if(w && w.document) w.document.addEventListener('visibilitychange', () => { if(w.document.visibilityState === 'visible') again(); });
+      if(w && w.addEventListener) w.addEventListener('focus', again);
+    }catch(_){}
+    return p;
+  }
+  function stop(){ if(timer){ clearInterval(timer); timer = null; } }
+
+  /* 내 «허용 목록 서버 이름» — GET /v1/config/room-server/allow/{내 코드}(공개) → 못 받으면 Firebase allow/{내 코드} 한 칸. 둘 다 없으면 null. */
+  async function myServer(uid){
+    if(!uid || !opts) return null;
+    const c = meCache[uid];
+    if(c && c.until > now()) return c.name;
+    let name, got = false;
+    if(opts.baseUrl){
+      try{
+        const d = await getJson(opts.fetch, opts.baseUrl + ALLOW_PATH + encodeURIComponent(uid), null, FETCH_TIMEOUT_MS);
+        name = isObj(d) ? d.server : null; got = true;
+      }catch(_){ got = false; }
+    }
+    if(!got){ const v = await fbOne(FB_ALLOW + uid); name = (v === undefined) ? null : v; }
+    name = (typeof name === 'string' && SERVER_NAME_RE.test(name)) ? name : null;
+    meCache[uid] = { name, until: now() + STALE_MS };
+    return name;
+  }
+  /* 서버 이름 → 주소(거르기 전 원값). API 를 받은 판이면 응답의 servers, Firebase · 저장값 판이면 Firebase servers/{이름} 한 칸(5분 기억). */
+  async function serverAddr(name){
+    if(typeof name !== 'string' || !SERVER_NAME_RE.test(name)) return null;
+    const own = cur.roomServer.servers[name];
+    if(src === 'api') return (typeof own === 'string') ? own : null;
+    const c = addrCache[name];
+    if(c && c.until > now()) return c.url;
+    const v = await fbOne(FB_SERVERS + name);
+    const url = (typeof v === 'string') ? v : (v === undefined && typeof own === 'string') ? own : null;
+    if(v !== undefined) addrCache[name] = { url, until: now() + REFRESH_MS };
+    return url;
+  }
+
   function onChange(fn){
     listeners.push(fn);
     return () => { const i = listeners.indexOf(fn); if(i >= 0) listeners.splice(i, 1); };
   }
-  /* 부팅 때 한 번 결정하는 흐름(초대 게이트 · 가입 강제)이 첫 답을 기다린다. 시간이 넘으면 지금 값(기본값)으로. */
+  /* 부팅 때 한 번 결정하는 흐름(초대 게이트 · 가입 강제 · 앱 최소 버전)이 첫 답을 기다린다. 시간이 넘으면 지금 값(저장값 · 기본값)으로.
+     want(칸 이름)는 예전 모양 그대로 받는다 — 칸이 한 번에 같이 오므로 첫 답 하나만 본다. */
   function ready(want, ms){
-    const ks = (want && want.length) ? want : keys;
-    if(ks.every(k => answered[k])) return Promise.resolve(cur);
+    if(answered) return Promise.resolve(cur);
     return new Promise(resolve => {
-      const w = { keys: ks, resolve, timer: null };
+      const w = { resolve, timer: null };
       w.timer = setTimeout(() => { const i = waiters.indexOf(w); if(i >= 0) waiters.splice(i, 1); resolve(cur); }, ms || 0);
       waiters.push(w);
     });
   }
   return {
     get: () => cur,
-    set, fail, watch, onChange, ready,
+    set, apply, start, stop, refresh, myServer, serverAddr, onChange, ready,
+    answered: () => answered,
+    source: () => src,
     roomLimitOf: (ch) => cur.roomLimits[ch] || cur.roomLimits.workingroom,
     maxPeople: () => cur.roomMaxPeople,
     inviteGate: () => cur.inviteGate,
     existingSignup: () => cur.existingSignup,
+    roomServer: () => cur.roomServer,
+    minAppVer: () => cur.minVersion.app,
+    minRoomVer: () => cur.minVersion.room,
+    bugDailyMax: () => cur.bugDailyMax,
   };
 }
 
-const api = { PATHS, CHANNELS, DEFAULTS, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX,
-  cleanRoomLimits, cleanMaxPeople, cleanFlag, createRemoteConfig, store: createRemoteConfig() };
+const api = { FALLBACK_PATHS, FB_ALLOW, FB_SERVERS, API_BASE_PROD, API_BASE_DEV_KEY, API_BASE_RE, CONFIG_PATH, ALLOW_PATH, CACHE_KEY, REFRESH_MS, STALE_MS, FETCH_TIMEOUT_MS,
+  KEYS, CHANNELS, DEFAULTS, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
+  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanMinVersion, cleanRoomServer, fieldsOf, apiBaseFor,
+  createRemoteConfig, store: createRemoteConfig() };
 if(typeof window !== 'undefined') window.TwRemoteConfig = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

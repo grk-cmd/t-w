@@ -1,26 +1,25 @@
 /*
  * 방 서버 문지기 — 이 방을 방 서버로 열지 · 들어갈지, 어느 서버로 갈지를 정한다.
- * 실제 웹소켓은 room-server-net.js, 화면 쪽은 app.js _startRoomOnServer. Firebase 를 직접 부르지 않는다
- * (firebase-init.js 가 read(path) 를 넘긴다).
+ * 실제 웹소켓은 room-server-net.js, 화면 쪽은 app.js _startRoomOnServer. Firebase · API 를 직접 부르지 않는다
+ * (firebase-init.js 가 getConfig · serverAddr · myServer · read(path) 를 넘긴다 — 원격 설정 remote-config.js 가 API 먼저 · 못 받으면 Firebase).
  *
- * 관리자 스위치 — RTDB config/roomServer (웹 관리자 ⚙️ 설정 «방 서버(시험)»):
+ * 관리자 스위치 — 원격 설정 roomServer(쓰기 원본 Firebase config/roomServer · 읽기는 API 사본 GET /v1/config 먼저 · 웹 관리자 ⚙️ 설정 «방 서버(시험)»):
  *   on      : true 일 때만 아래가 동작한다. 아니면 전원 Firebase(비상 정지 스위치).
  *             켜져 있으면 허용 목록에 없는 사람도 «서버에 있는 방» 코드로 들어갈 때 늘 그 서버로 따라간다 —
- *             안 따라가면 Firebase 의 «같은 코드 다른 방» 에 들어가 서로 못 본다. (예전 follow 칸은 더 읽지 않는다.)
+ *             안 따라가면 Firebase 의 «같은 코드 다른 방» 에 들어가 서로 못 본다.
  *   servers : { <서버 이름>: 'wss://…' } — 주소가 방 서버 묶음(wss/https://<이름>.togetherworking.duckdns.org = CSP connect-src)이 아니면 무시.
  *             새 서버는 이 접미사 아래 이름만 더하면 앱 릴리스 없이 붙는다. 다른 도메인 · 포트 · 경로는 막는다.
- *   allow   : { <사용자 코드>: <서버 이름> } — 이 사람이 방을 «만들면» 그 서버에 연다.
+ *   허용 목록 : 설정 응답에 없다 — 한 사람씩 GET /v1/config/room-server/allow/{내 코드}(못 받으면 Firebase allow/{내 코드} 한 칸)로 «내 서버 이름» 을 받는다(myServer).
+ *             이 사람이 방을 «만들면» 그 서버에 연다.
  *   default · defaultPercent : 허용 목록에 없는 사람도 이 비율(0~100 정수)만큼 default 서버에 방을 연다.
  *             누가 들어가는지는 사용자 코드의 해시(userBucket 0~99)로 정해서, 비율이 같으면 늘 같은 사람이 같은 쪽이고
  *             비율을 올리면 사람이 더해지기만 한다. 앱 릴리스 없이 관리자가 10 → 50 → 100 으로 넓힌다.
  *             허용 목록에 있는 사람은 늘 그쪽이 먼저. 비율 안의 사람은 허용된 사람과 똑같이 다룬다(«내 서버» · peek).
- * 방 주소록 — roomDir/{방 코드} = { srv: <서버 이름>, ts }. 방 서버가 방을 열 때 쓰고 닫을 때 지운다(앱은 읽기만).
+ * 방 주소록 — roomDir/{방 코드} = { srv: <서버 이름>, ts }(Firebase). 방 서버가 방을 열 때 쓰고 닫을 때 지운다(앱은 읽기만).
  *
- * 읽는 양: 입장 한 번에 on(+ allow/{내 코드} · roomDir/{방 코드} · default · defaultPercent) 칸 몇 개 + servers/{이름} 한 칸.
- *   목록(allow · servers · roomDir)을 통째로 읽지 않는다 — 규칙도 칸 단위로만 열려 있다.
+ * 읽는 양: 설정은 원격 설정 한 벌(STALE_MS 넘었을 때만 다시 묻는다) + 켜져 있을 때 내 서버(60초 기억) · 서버 주소(serverAddr) + roomDir/{방 코드} 한 칸.
  * 읽기가 실패하면 «없음» 으로 보고 Firebase 로 간다(입장을 막지 않는다).
  */
-export const ROOM_SERVER_CFG = 'config/roomServer';
 export const ROOM_DIR_ROOT = 'roomDir';
 // 운영 · dev 기본 방 서버(dev 개발용 켜기의 기본 주소). 붙어도 되는 주소는 아래 ROOM_SERVER_URL_RE — CSP connect-src 의
 // wss://*.togetherworking.duckdns.org · https://*.togetherworking.duckdns.org 와 같은 범위여야 한다.
@@ -37,7 +36,6 @@ export const SERVER_NAME_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
 // 개발용 켜기(dev 환경에서만) — 관리자 스위치 없이 이 PC 만 «허용» 으로 · 주소는 tw.roomServerUrl.
 export const ROOM_SERVER_FLAG_KEY = 'tw.roomServer';
 export const ROOM_SERVER_URL_KEY = 'tw.roomServerUrl';
-const SERVERS_CACHE_MS = 5 * 60 * 1000;
 
 const trimUrl = (u) => String(u || '').trim().replace(/\/+$/, '');
 
@@ -83,25 +81,24 @@ export function devOverride(env, storage){
 
 export const roomDirPath = (code) => ROOM_DIR_ROOT + '/' + code;
 
-/* deps: read(path) → Promise<값 | null>, getUserId() → 문자열 | null, env 'prod' | 'dev', storage, now() */
+/* deps: getConfig() → Promise<roomServer 설정 { on, default, defaultPercent }>, serverAddr(name) → Promise<주소 원값 | null>,
+         myServer(uid) → Promise<서버 이름 | null>,
+         read(path) → Promise<값 | null>(roomDir 만), getUserId() → 문자열 | null, env 'prod' | 'dev', storage */
 export function createRoomServerGate(deps){
-  const now = deps.now || (() => Date.now());
   const env = deps.env === 'dev' ? 'dev' : 'prod';
-  const serverCache = {};   // 이름 → { url | null, until }
   let mine = null;          // 마지막으로 확인한 «내가 만들 때 쓸 서버» { name, url } | null — 방 개수 · 랜덤에 쓴다
 
   const read = async (path) => { try{ const v = await deps.read(path); return v === undefined ? null : v; }catch(_){ return null; } };
   const myId = () => { try{ return deps.getUserId() || null; }catch(_){ return null; } };
+  const config = async () => { try{ const c = await deps.getConfig(); return (c && typeof c === 'object') ? c : null; }catch(_){ return null; } };
+  const myServer = async (uid) => { try{ const v = await deps.myServer(uid); return typeof v === 'string' ? v : null; }catch(_){ return null; } };
 
   /* 서버 이름 → 주소. 표에 없거나 낯선 주소면 null. */
   async function serverUrl(name){
     if(typeof name !== 'string' || !SERVER_NAME_RE.test(name)) return null;
-    const c = serverCache[name];
-    if(c && c.until > now()) return c.url;
-    const v = await read(ROOM_SERVER_CFG + '/servers/' + name);
-    const url = (typeof v === 'string' && serverUrlOk(v, env)) ? trimUrl(v) : null;
-    serverCache[name] = { url, until: now() + SERVERS_CACHE_MS };
-    return url;
+    let v = null;
+    try{ v = await deps.serverAddr(name); }catch(_){ v = null; }
+    return (typeof v === 'string' && serverUrlOk(v, env)) ? trimUrl(v) : null;
   }
 
   /* 이 방을 어디로 — { via:'server', url, server, from } | { via:'firebase', why }
@@ -112,19 +109,17 @@ export function createRoomServerGate(deps){
     const dev = devOverride(env, deps.storage);
     if(dev){ mine = { name: 'dev', url: dev.url, from: 'dev' }; return { via: 'server', url: dev.url, server: 'dev', from: 'dev' }; }
     const uid = myId();
-    const on = await read(ROOM_SERVER_CFG + '/on');
-    if(on !== true){ mine = null; return { via: 'firebase', why: 'off' }; }
-    // 비율 두 칸은 허용 목록과 같이 읽는다(입장이 한 번 더 기다리지 않게 · 둘 다 작은 칸)
-    const [allowName, dir, defName, defPct] = await Promise.all([
-      uid ? read(ROOM_SERVER_CFG + '/allow/' + uid) : Promise.resolve(null),
+    const cfg = await config();
+    if(!cfg || cfg.on !== true){ mine = null; return { via: 'firebase', why: 'off' }; }
+    const [allowName, dir] = await Promise.all([
+      uid ? myServer(uid) : Promise.resolve(null),
       (creating || !code) ? Promise.resolve(null) : read(roomDirPath(code)),
-      uid ? read(ROOM_SERVER_CFG + '/default') : Promise.resolve(null),
-      uid ? read(ROOM_SERVER_CFG + '/defaultPercent') : Promise.resolve(null),
     ]);
-    const myUrl = (typeof allowName === 'string') ? await serverUrl(allowName) : null;
+    const myUrl = allowName ? await serverUrl(allowName) : null;
     mine = myUrl ? { name: allowName, url: myUrl, from: 'allow' } : null;
     // 허용 목록에서 서버를 못 얻었으면 기본 서버 · 비율 — 표에 없는 이름 · 낯선 주소면 Firebase
-    if(!mine && typeof defName === 'string' && inDefaultPercent(uid, defPct)){
+    const defName = cfg.default;
+    if(!mine && uid && typeof defName === 'string' && inDefaultPercent(uid, cfg.defaultPercent)){
       const du = await serverUrl(defName);
       if(du) mine = { name: defName, url: du, from: 'default' };
     }
@@ -139,7 +134,7 @@ export function createRoomServerGate(deps){
     return { via: 'firebase', why: creating ? 'notAllowed' : 'noDir' };
   }
 
-  /* 방 개수 · 랜덤 입장 전에 «내 서버» 만 다시 확인(on · allow/{내 코드} · default · defaultPercent). 방 코드가 없어 주소록은 안 본다. */
+  /* 방 개수 · 랜덤 입장 전에 «내 서버» 만 다시 확인(설정 · 허용 목록 한 칸). 방 코드가 없어 주소록은 안 본다. */
   async function refreshMine(){
     await resolveRoomServer(null, { creating: true });
     return mine;
