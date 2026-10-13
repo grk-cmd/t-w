@@ -2,6 +2,7 @@
    smoke.js 의 스텁을 빌려 app.js 를 실제로 평가한 뒤, 평준화 배율이 캐릭터·책상에
    같은 값으로 걸리는지와 동물 40% 가 살아남는지를 본다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
 smokeSrc = smokeSrc.slice(0, smokeSrc.indexOf('/* ── 실행'))
@@ -15,7 +16,7 @@ const probe = `
   A: ANIMAL_RUN_SCALE,
 };`;
 const say = console.log; console.log = () => {}; console.warn = () => {};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 console.log = say;
 

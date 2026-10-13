@@ -14,6 +14,8 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
+/* 🎟️ 초대 창(bindInviteUI)은 초대장 구역과 함께 license-gate.js 로 옮겼다(앱 FSD 31번) — 사용자 쪽에 남았는지는 그 파일에서 본다 */
+const LGATE = [ 'license-gate.js', 'parts/license-gate.js', 'app/parts/license-gate.js' ].map(read).find(Boolean) || '';
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const part = (n) => [n, 'parts/admin/' + n, 'app/parts/admin/' + n].map(read).find(Boolean);
 const M = { users: part('admin-users.js'), launcher: part('admin-launcher.js') };
@@ -104,17 +106,19 @@ async function judgeAll(m, app, html){
   /* 3. app.js 연결 */
   const A = strip(app);
   t(!/bindTotalStats|getAdminStats\(|inviteGrantAll|closeAllRooms\(|cleanGhostRooms\(|publishGameConfig\(|publishAdBanner\(|'lcAdBannerEdit'/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
-  t(/function _applyGameCfg\(cfg\)/.test(A) && /subscribeAdBanner\(/.test(A) && /function refreshAdBanner\(\)/.test(A) && /\(function bindInviteUI\(\)\{/.test(A),
-    '사용자 쪽(게임 설정 구독 · 배너 그리기 · 서버 배너 구독 · 초대 창)은 app.js 에 남았다');
+  t(/function _applyGameCfg\(cfg\)/.test(A) && /subscribeAdBanner\(/.test(A) && /function refreshAdBanner\(\)/.test(A) && (/\(function bindInviteUI\(\)\{/.test(A) || /\(function bindInviteUI\(\)\{/.test(LGATE)),
+    '사용자 쪽(게임 설정 구독 · 배너 그리기 · 서버 배너 구독 · 초대 창 — 초대 창은 license-gate.js)은 관리자 모듈 밖에 남았다');
   t(/const ADMIN_USERS_OFF = \{\};/.test(app) && /const ADMIN_LAUNCHER_OFF = \{\};/.test(app), '모듈이 없으면 빈 껍데기 둘');
   const block = (name) => ((app.match(new RegExp('const ' + name + ' = \\(typeof \\w+ === \'undefined\'\\) \\? \\w+ : \\w+\\.create\\w+\\(\\{\\n([\\s\\S]*?)\\n\\s*\\}\\);')) || [])[1] || '')
     .split('\n').map(l => l.trim()).filter(Boolean);
   const du = block('adminUsers'), dl = block('adminLauncher');
-  t(du.join('|') === 'toast: (...a)=>toast(...a),|inviteGrantMax: INVITE_GRANT_MAX,', 'deps — 통계 · 초대권: toast · INVITE_GRANT_MAX');
+  t(/^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),\|inviteGrantMax: (?:licenseGateMod\.)?INVITE_GRANT_MAX,$/.test(du.join('|')), 'deps — 통계 · 초대권: toast · INVITE_GRANT_MAX(초대장 모듈이 내놓는 상수)');
   t(dl.length === 6 && dl.includes('isAdmin: ()=>isAdmin,') && dl.includes('gameCfg: ()=>_gameCfg,') && dl.includes('adBannerKey: AD_BANNER_KEY,'),
     'deps — 런처 도구 여섯 · isAdmin · _gameCfg 는 읽는 함수(다시 대입되는 let)');
-  const iInv = app.indexOf('(function bindInviteUI(){'), iUsers = app.indexOf('const adminUsers ='), iInvEnd = app.indexOf('\n})();', iInv);
-  t(iInv > 0 && iUsers > iInv && iUsers < iInvEnd, '통계 · 초대권 만드는 줄은 초대 창 안 원래 자리');
+  /* 만드는 줄은 초대장 모듈(license-gate.js) 만드는 줄 바로 뒤 — 사이에 주석 · 빈 껍데기 줄 말고는 없다(부팅 때 초대 창 묶기 직후 한 번 만드는 차례 그대로) */
+  const iLG = app.indexOf('const licenseGateMod = '), iLGEnd = iLG >= 0 ? app.indexOf('\n});', iLG) + 4 : -1, iUsers = app.indexOf('const adminUsers =');
+  const gap = iLGEnd > 3 && iUsers > iLGEnd ? app.slice(iLGEnd, iUsers).replace(/\/\*[\s\S]*?\*\//g, '').replace(/const ADMIN_USERS_OFF = \{\};.*\n/, '').trim() : '?';
+  t(iLG > 0 && gap === '', '통계 · 초대권 만드는 줄은 초대장 모듈 만드는 줄 바로 뒤');
   const iApply = app.indexOf('function _applyGameCfg(cfg)'), iL = app.indexOf('const adminLauncher ='), iSub = app.indexOf('subscribeAdBanner(');
   t(iApply > 0 && iL > iApply && iL < iSub, '런처 도구 만드는 줄은 게임 설정 구독과 서버 배너 구독 사이(원래 자리)');
   const iA = html.indexOf('<script src="parts/app.js"></script>');

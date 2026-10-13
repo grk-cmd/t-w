@@ -6,6 +6,7 @@
    · 마우스 이동은 «손댐» 이 아니다(_updateIgnore 🚫 주석 — 상한이 오르내리면 영상이 깜빡인다).
    실행: node sim-unfocused-fps.js  (app.js · frame-budget.js · smoke.js 와 같은 폴더에서) */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -41,7 +42,7 @@ const probe = `
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
 let SRC_FB = null, SRC_APP = null;
-try { SRC_FB = fs.readFileSync('frame-budget.js', 'utf8'); SRC_APP = fs.readFileSync('app.js', 'utf8'); }
+try { SRC_FB = fs.readFileSync('frame-budget.js', 'utf8'); SRC_APP = _joinRenderer(fs.readFileSync('app.js', 'utf8')); }
 catch (e) { console.log = say; say('? 원본 못 찾음 — frame-budget.js · app.js'); process.exit(2); }
 try {
   vm.runInThisContext(SRC_FB, { filename: 'frame-budget.js' });   // html 처럼 app.js 보다 먼저
