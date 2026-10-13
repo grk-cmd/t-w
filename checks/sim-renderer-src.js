@@ -34,6 +34,7 @@ const MODULES = [
   { file: 'premium-assets.js', mod: 'premiumMod', glob: 'TwPremiumAssets', sample: 'function _wdLicenseDesks(' },   // 앱 FSD 37번
   { file: 'char-code.js', mod: 'charCodeMod', glob: 'TwCharCode', sample: 'function downloadBlob(' },   // 앱 FSD 38번
   { file: 'dice-games.js', mod: 'diceMod', glob: 'TwDiceGames', sample: 'function _diceSvg(' },   // 앱 FSD 39번
+  { file: 'program-settings.js', mod: 'progSettingsMod', glob: 'TwProgramSettings', sample: 'function commitUserName(' },   // 앱 FSD 40번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
