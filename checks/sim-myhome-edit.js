@@ -14,6 +14,7 @@
    ・9절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양 · window 고리 이름 · 빈 껍데기 · html 순서 · 전역 이름
    [실행] myhome-edit.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0, done = false;
@@ -23,7 +24,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['myhome-edit.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['myhome-edit.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['myhome-edit.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
 /* DOM 칸 — classList · style · 이벤트 · 자식 · 지우기는 진짜. querySelector 는 선택자마다 칸 하나(그 칸 안의 버튼 · 입력칸) */

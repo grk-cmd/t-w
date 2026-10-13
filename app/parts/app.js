@@ -4237,7 +4237,7 @@ const focusLog = (typeof TwFocusLog === 'undefined') ? FOCUS_LOG_OFF : TwFocusLo
     // 프리미엄 게이트 — 라이선스 등록되어 있거나 관리자면 통과
     if(!isPremium && !isAdmin){
       toast('🔒 꾸미기는 라이선스 등록 후 이용할 수 있어요');
-      if(typeof openProgramSettings==='function') openProgramSettings('license');
+      if(typeof progSettingsMod.openProgramSettings==='function') progSettingsMod.openProgramSettings('license');
       return;
     }
     wardrobeMod.renderWardrobe();
@@ -5781,7 +5781,7 @@ const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwM
   mhApplyVisitUI: (...a)=>_mhApplyVisitUI(...a),
   ytVideoId: (...a)=>plMod.ytVideoId(...a),
   applyThemeToChildDoc: (...a)=>applyThemeToChildDoc(...a),
-  commitUserName: (...a)=>commitUserName(...a),
+  commitUserName: (...a)=>progSettingsMod.commitUserName(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getUserName: (...a)=>getUserName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -5794,7 +5794,7 @@ const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwM
   setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },
   isPremium: ()=>isPremium,
   isAdmin: ()=>isAdmin,
-  userNameMax: ()=>USER_NAME_MAX,
+  userNameMax: ()=>progSettingsMod.USER_NAME_MAX,
   myHomeSticker,
   stickerMax: STICKER_MAX,
   stickerImgMaxW: STICKER_IMG_MAX_W,
@@ -13012,269 +13012,37 @@ function getDisplayName(){ const n=getUserName(); return (n==='나' || !n.trim()
      그대로 입력칸이 된다(_mhBeginNameEdit). 뜨는 것이 없으니 층 싸움도 없다.
    ⚠️ 저장이 건드리는 곳이 다섯이다 — 로컬 저장 · 서버 프로필 · 방의 이름표 · 마이홈 표시 ·
      알림. 편집 진입로가 늘어나도 저장은 **반드시 이 함수 하나만** 부를 것. */
-const USER_NAME_MAX = 12;   // ⚠️ 옛 모달은 이 값을 HTML 의 maxlength 로 들고 있었다. 이제 여기가 유일한 자리다.
-function commitUserName(raw){
-  const v = String(raw==null?'':raw).trim().slice(0, USER_NAME_MAX);
-  // 운영진처럼 보이는 이름(name-guard.js)은 저장하지 않는다 — 규칙도 프로필에서 막는다(관리자 · 이미 그 이름인 사람은 예외).
-  if(typeof isStaffName === 'function' && isStaffName(v) && v !== getUserName().trim() && !(typeof isAdmin !== 'undefined' && isAdmin)){
-    toast('운영진과 헷갈리는 이름은 쓸 수 없어요');
-    return;
-  }
-  setUserName(v || '나');
-  toast('이름이 저장됐어요');
-  // ★ 마이홈 친구 목록에도 새 이름이 보이도록 프로필도 같이 갱신(마이홈 초기화 전이면 조용히 무시됨)
-  if(window.firebaseAPI && firebaseAPI.setMyProfile){ try{ firebaseAPI.setMyProfile(getMyUserId(), getDisplayName(), focusLevelMod.getFocusLevel(), focusLevelMod.myStarProfileOut()); }catch(e){} }
-  // 🏷️ 방에 들어가 있으면 친구 화면의 내 이름표도 즉시 갱신 — 예전엔 방을 다시 들어가야 바뀌었다.
-  try{ if(typeof Presence!=='undefined' && Presence.active() && Presence.setName) Presence.setName(getDisplayName()); }catch(_){}
-  const nameEl=document.getElementById('mhMyName'); if(nameEl) nameEl.textContent=getDisplayName();   // 마이홈 페이지가 열려있으면 표시도 즉시 갱신
-}
-window.commitUserName = commitUserName;
-
-/* --- 프로그램 설정(⚙️) — 라이선스 등록 UI가 이 모달의 "라이선스" 탭 안으로 들어옴, + "모니터" 탭 추가 ---
-   모니터 선택은 run 모드의 focusSettingsPanel(renderMonitors)과 동일한 방식: companion.getDisplays()로
-   목록을 받아 버튼으로 그리고, 클릭 시 companion.moveToDisplay(id)로 즉시 반영. */
-async function renderProgMonitors(){
-  const labelEl=document.getElementById('progMonitorLabel');
-  const monEl=document.getElementById('progMonitors');
-  const singleMsg=document.getElementById('progMonitorSingleMsg');
-  if(!monEl || !labelEl) return;
-  if(!window.companion || !companion.getDisplays){ labelEl.style.display='none'; monEl.style.display='none'; if(singleMsg) singleMsg.style.display='block'; return; }
-  let displays=[];
-  try{ displays = await companion.getDisplays(); }catch(e){}
-  if(!displays || displays.length<2){
-    // 모니터가 1개면 선택할 필요가 없으니 숨김 (focusSettingsPanel과 동일한 규칙)
-    labelEl.style.display='none'; monEl.style.display='none'; if(singleMsg) singleMsg.style.display='block';
-    return;
-  }
-  if(singleMsg) singleMsg.style.display='none';
-  labelEl.style.display='block'; monEl.style.display='flex';
-  monEl.innerHTML='';
-  displays.forEach(d=>{
-    const btn=document.createElement('button');
-    btn.type='button';
-    btn.className='fs-mon-btn'+(d.isCurrent?' current':'');
-    btn.textContent=d.label; if(d.name) btn.title=d.name;   // OS 가 주는 모니터 이름(제보 #10)
-    btn.onclick=async ()=>{
-      if(window.companion && companion.moveToDisplay){
-        const res=await companion.moveToDisplay(d.id);
-        if(res && res.ok){ toast(d.label+'로 이동'); renderProgMonitors(); if(typeof refreshCharScaleForCurrentDisplay==='function') refreshCharScaleForCurrentDisplay(); }
-        else{ toast('이동 실패'); }
-      }
-    };
-    monEl.appendChild(btn);
-  });
-}
-/* 탭 전환 — run 모드 설정 패널(bindFsTabs)과 동일한 방식. 3탭(라이선스/모니터/시스템)
-   ★ [회원가입 설계 개정 16] '계정' 탭은 걷었다 — 계정 기능의 자리는 [내 정보 › 계정](C4) 하나다(openMyInfo).
-     프로그램 정보(버전)는 유저 정보가 아니므로 시스템에 그대로 있다. */
-function setProgSettingsTab(tab){   // tab: 'license' | 'display' | 'system'
-  const tabs = [
-    { key:'license', btn:'progTabBtnLicense', page:'progTabLicense' },
-    { key:'display', btn:'progTabBtnDisplay', page:'progTabDisplay' },
-    { key:'system',  btn:'progTabBtnSystem',  page:'progTabSystem'  },
-  ];
-  tabs.forEach(t=>{
-    const b=document.getElementById(t.btn), p=document.getElementById(t.page);
-    if(b) b.classList.toggle('on', t.key===tab);
-    if(p) p.style.display = (t.key===tab) ? 'block' : 'none';
-  });
-}
-if(document.getElementById('progTabBtnLicense')) document.getElementById('progTabBtnLicense').onclick=()=>setProgSettingsTab('license');
-if(document.getElementById('progTabBtnDisplay')) document.getElementById('progTabBtnDisplay').onclick=()=>{ setProgSettingsTab('display'); renderProgMonitors(); refreshThemeUI(); };
-// 🎨 테마·색상 칩 바인딩은 여기서 하면 안 된다 — bindThemeUI()가 THEME_COLORS(const, 파일 아래쪽)를 읽어서
-//    TDZ 에러로 app.js 전체 실행이 여기서 멈춘다. 선언 바로 뒤(applyTheme 옆)에서 부른다.
-if(document.getElementById('progTabBtnSystem'))  document.getElementById('progTabBtnSystem').onclick =()=>{ setProgSettingsTab('system'); refreshAutoLaunchUI(); refreshFigureModeUI(); refreshOfficeModeUI(); refreshLabVideoUI(); refreshAppVersionUI(); };
-
-/* --- 자동 시작(로그인 시 실행) 토글 --- */
-async function refreshAutoLaunchUI(){
-  const btn=document.getElementById('progAutoLaunchToggle'); if(!btn) return;
-  let enabled=false;
-  try{ if(window.companion && companion.getAutoLaunch) enabled = !!(await companion.getAutoLaunch()); }catch(e){}
-  btn.textContent = enabled ? '켜짐' : '꺼짐';
-  btn.classList.toggle('on', enabled);
-}
-if(document.getElementById('progAutoLaunchToggle')){
-  document.getElementById('progAutoLaunchToggle').onclick = async ()=>{
-    if(!window.companion || !companion.setAutoLaunch){ toast('이 환경에서는 자동 실행을 설정할 수 없어요'); return; }
-    const btn=document.getElementById('progAutoLaunchToggle');
-    const wantOn = !btn.classList.contains('on');
-    try{
-      const actual = !!(await companion.setAutoLaunch(wantOn));
-      btn.textContent = actual ? '켜짐' : '꺼짐';
-      btn.classList.toggle('on', actual);
-      toast(actual ? '자동 실행이 켜졌어요' : '자동 실행이 꺼졌어요');
-    }catch(e){ toast('설정에 실패했어요'); }
-  };
-}
-
-/* ❌ [폐기 2026-08-26] '다른 프로그램 방해 안 함'(창 활성화 차단) 토글은 걷어냈다.
-   WS_EX_NOACTIVATE 창에서는 한/영 전환이 **원리적으로** 불가능하다(IME 는 포그라운드 창의
-   입력 컨텍스트에 묶인다). 단축키도 같이 죽었다. 켜 둔 사용자가 "한글이 안 쳐진다"로 제보한
-   그 토글이라, 남겨 두는 것 자체가 위험해서 통로째 지웠다.
-   ⚠️ 다시 만들지 말 것 — main.js 폐기 주석과 handoff-focus-steal-5.md §7 을 먼저 읽을 것.
-   ⚠️ 아래 '진단 기록 폴더 열기'는 이 실험과 무관한 별개 기능이라 그대로 둔다. */
-if(document.getElementById('progOpenDiagBtn')){
-  document.getElementById('progOpenDiagBtn').onclick = async ()=>{
-    if(!(window.companion && companion.openDiagFolder)){ toast('이 버전에서는 쓸 수 없어요'); return; }
-    try{
-      const r = await companion.openDiagFolder();
-      if(!r || !r.ok) toast('아직 진단 기록이 없어요');
-    }catch(e){ toast('폴더를 열지 못했어요'); }
-  };
-}
-
-/* --- 피규어 모드 토글 --- */
-function refreshFigureModeUI(){
-  const btn=document.getElementById('progFigureModeToggle'); if(!btn) return;
-  btn.textContent = figureMode ? '켜짐' : '꺼짐';
-  btn.classList.toggle('on', figureMode);
-}
-if(document.getElementById('progFigureModeToggle')){
-  document.getElementById('progFigureModeToggle').onclick = ()=>{
-    figureMode = !figureMode;
-    _lsSet(FIGURE_MODE_KEY, figureMode?'1':'0');   // ★ 실패하면 여기서 알려준다(조용한 실패 금지)
-    if(figureMode) focusGateSleep = false;   // 즉시 반영 — 다음 폴링까지 안 기다리게
-    refreshFigureModeUI();
-    toast(figureMode ? '피규어 모드가 켜졌어요' : '피규어 모드가 꺼졌어요');
-  };
-}
-
-/* --- 회사원 모드 토글 --- */
-function refreshOfficeModeUI(){
-  const btn=document.getElementById('progOfficeModeToggle'); if(!btn) return;
-  btn.textContent = officeMode ? '켜짐' : '꺼짐';
-  btn.classList.toggle('on', officeMode);
-}
-if(document.getElementById('progOfficeModeToggle')){
-  document.getElementById('progOfficeModeToggle').onclick = ()=>{
-    officeMode = !officeMode;
-    try{ _focusShowPush(true); }catch(_){}   // 📊 회사원 모드면 오늘 기록 전시를 즉시 거둔다(켜면 다시 보냄)
-    let _offNote = '';   // 뒤에 한 줄로 합쳐 알린다 — toast 는 마지막 것만 남는다(덮어쓴다)
-    /* 🏢 모드를 켜는 순간 떠 있던 조준을 정리한다 — 안 그러면 십자/🪄 커서가 남고,
-       클릭해도 아무 일이 없어 "커서가 고장났다"로 보인다. */
-    if(officeMode){
-      try{ if(typeof tricksMod.setFlyAiming === 'function') tricksMod.setFlyAiming(false, true); }catch(_){}
-      try{ if(typeof tricksMod.setBonkAiming === 'function') tricksMod.setBonkAiming(false, true); }catch(_){}
-      /* 🌊 날리기 — 흐르던 글자는 즉시 걷고 체크도 푼다(doLeaveRoom 과 같은 정리). 줄은 _chatFlyRefreshUI 가 숨긴다. */
-      try{ const _fl=document.getElementById('flyLayer'); if(_fl) _fl.innerHTML=''; }catch(_){}
-      chatUiMod.setChatFlyOn(false);
-      /* 📷 떠 있던 스티커사진 창도 접는다 — 못 열게만 막으면 «켜기 전에 열어 둔 창»이 그대로
-         남아서 모드의 목적(지금 당장 화면을 조용하게)이 통째로 무너진다.
-         ★ force 로 닫는다. 꾸미기 중이었다면 저장 안 한 것이 날아가지만, 이 모드를 누른 사람은
-           «지금 당장 감춰야 한다»를 고른 것이다 — 되묻는 쪽이 오히려 어긋난다. 대신 알린다.
-         ⚠️ **촬영 중에는 안 닫는다.** 방장이 빠지면 남은 사람들의 카운트다운이 영영 안 끝나
-           그쪽이 창을 닫지도 못하는 상태로 굳는다(closePurikura 의 촬영 중 잠금과 같은 이유).
-           최대 4컷 × 약 11초라 곧 끝난다. 그동안은 안내만 한다. */
-      try{
-        if(purikuraUi.isOpen()){
-          if(purikuraUi.phase() === 'shooting') _offNote = ' — 촬영이 끝나면 📷 창을 닫아 주세요';
-          else if(purikuraUi.close(true)) _offNote = ' — 📷 창을 닫았어요';
-        }
-      }catch(_){}
-    }
-    _lsSet(OFFICE_MODE_KEY, officeMode?'1':'0');   // ★ 실패하면 여기서 알려준다(조용한 실패 금지)
-    refreshOfficeModeUI();
-    refreshOfficeChipUI();   // ■ 버튼 툴팁 갱신 + 모드를 끄면 숨김 해제
-    try{ if(typeof chatUiMod._chatFlyRefreshUI === 'function') chatUiMod._chatFlyRefreshUI(); }catch(_){}   // 🌊 날리기 줄 숨김/복귀
-    try{ if(typeof _applyChatSfxUI === 'function') _applyChatSfxUI(); }catch(_){}       // 🔔 알림음 «꺼짐» 표시/복귀
-    toast((officeMode ? '회사원 모드가 켜졌어요' : '회사원 모드가 꺼졌어요') + _offNote);
-  };
-}
-
-/* --- 🎬 영상 겹침 실험 토글 ---------------------------------------------
-   화면공유 영상이 검어지거나 깜빡이는 증상 대응. 오버레이 창에 반투명(알파 252)을 걸어
-   크로미움의 '가리는 창' 판정에서 빠지게 한다 — 자세한 근거는 main.js 의
-   OVERLAY_LAYERED_ALPHA 주석과 handoff-overlay-video-blackout-5.md §1-2.
-
-   ⚠️ 다른 토글들과 달리 **localStorage 를 안 쓴다.** 값의 원본은 main 의 설정 파일이다
-     (창 스타일이라 renderer 가 들고 있어 봐야 쓸 데가 없고, 두 곳에 두면 어긋난다).
-   ⚠️ 통로가 없는 구버전에서는 **칸 자체를 숨긴다.** 눌러도 아무 일이 없는 토글을 보여주면
-     "고장났다"는 제보가 온다.
-   ⚠️ **성공하면 이 블록도 같이 지운다** — HTML 주석 참조. */
-/* 🧹 옛 빌드 설정을 기본값으로 되돌렸으면 한 번 알린다(main.js SETTINGS_VER 주석). 부팅 화면이 자리 잡은 뒤에. */
-setTimeout(()=>{
-  try{
-    if(!(window.companion && companion.takeSettingsNotice)) return;   // 구버전 preload
-    companion.takeSettingsNotice().then(r=>{
-      if(r && r.reset) toast('업데이트하면서 화면 설정(모니터 · 화면 크기 · 영상 겹침 실험)을 기본값으로 되돌렸어요', null, 9000);
-    }).catch(()=>{});
-  }catch(_){}
-}, 2500);
-/* 켜 두었는데 실제로는 막혔으면(GPU 합성 꺼짐) 「켜짐」 이라고 말하지 않는다 — 제보 #4.
-   ★ .on 은 «값» 기준 그대로 둔다 — 누르면 꺼짐으로 가야 한다. 글자만 사실대로. */
-function _labVideoShow(btn, r){
-  const on = !!(r && r.on);
-  const blocked = on && /^blocked/.test(String((r && r.state) || ''));
-  btn.textContent = blocked ? '적용 안 됨' : (on ? '켜짐' : '꺼짐');
-  btn.title = blocked ? '켜 두었지만 이 PC 에서는 적용되지 않았어요. 눌러 끈 뒤 다시 눌러 켜 보세요.' : '';
-  btn.classList.toggle('on', on);
-  return { on, blocked };
-}
-/* «적용 안 됨» 안내 — main.js 의 부팅 안내 창(_showLabBlockedGuide)과 같은 순서로 말한다. */
-const LAB_VIDEO_BLOCKED_GUIDE = '⚠️ 토글은 켜져 있지만 이 PC 에서 실제로는 적용되지 못했어요.\n'
-  + '① 버튼을 눌러 끈 뒤, 한 번 더 눌러 다시 켜 주세요.\n'
-  + '② 그래도 «적용 안 됨» 이면 마이홈 › 버그제보 탭에 알려 주세요. 아래 «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.';
-function _labVideoWarn(blocked){
-  const w = document.getElementById('progLabVideoWarn'); if(!w) return;
-  w.textContent = blocked ? LAB_VIDEO_BLOCKED_GUIDE : '';
-  w.style.display = blocked ? '' : 'none';
-}
-function refreshLabVideoUI(){
-  const row = document.getElementById('progLabVideoRow');
-  const hint= document.getElementById('progLabVideoHint');
-  const btn = document.getElementById('progLabVideoToggle');
-  if(!row || !btn) return;
-  if(!(window.companion && companion.getLabVideo)){   // 구버전 — 숨긴 채로 둔다
-    row.style.display = 'none';
-    if(hint) hint.style.display = 'none';
-    return;
-  }
-  row.style.display = '';
-  if(hint) hint.style.display = '';
-  companion.getLabVideo().then(r=>{ _labVideoWarn(_labVideoShow(btn, r).blocked); }).catch(()=>{ /* 조회 실패 — 마지막 표시를 그대로 둔다(값을 멋대로 꺼짐으로 보이면 안 된다) */ });
-}
-if(document.getElementById('progLabVideoToggle')){
-  document.getElementById('progLabVideoToggle').onclick = async ()=>{
-    if(!(window.companion && companion.setLabVideo)){ toast('이 버전에서는 쓸 수 없어요'); return; }
-    const btn = document.getElementById('progLabVideoToggle');
-    const wantOn = !btn.classList.contains('on');
-    try{
-      const r = await companion.setLabVideo(wantOn);
-      const v = _labVideoShow(btn, r);
-      _labVideoWarn(v.blocked);
-      // 켰다 끈 창은 앱을 다시 켤 때까지 불투명 레이어드로 남아 처음(미적용)보다 영상을 더 가린다 — overlay-win.js 끄기 갈래
-      toast(v.blocked ? '켜 두었지만 이 PC 에서는 적용되지 않았어요 — 아래 안내를 봐 주세요' : (v.on ? '영상 겹침 실험이 켜졌어요' : '영상 겹침 실험이 꺼졌어요 — 앱을 다시 켜면 완전히 꺼져요'), null, v.on ? 0 : 5000);
-    }catch(e){ toast('설정에 실패했어요'); }
-  };
-}
-
-/* ℹ️ 프로그램 버전 표시 — 시스템 탭 맨 아래.
-   companion.getAppVersion()은 main의 app.getVersion() = package.json의 version이라
-   빌드된 exe와 항상 일치한다(하드코딩하면 릴리스 때마다 어긋난다).
-   브라우저 미리보기처럼 companion이 없는 환경에선 조용히 '-'로 둔다. */
-function refreshAppVersionUI(){
-  const el=document.getElementById('progVersionText'); if(!el) return;
-  if(!(window.companion && companion.getAppVersion)){ el.textContent='-'; return; }
-  companion.getAppVersion()
-    .then(v=>{ el.textContent = v ? ('v'+v) : '-'; })
-    .catch(()=>{ el.textContent='-'; });
-}
-
-/* 프로그램 설정 모달 열기/닫기 — 꾸미기 프리미엄 게이트(라이선스 탭으로 직행)에서도 재사용 */
-function openProgramSettings(tab){
-  const o=document.getElementById('programSettingsOverlay'); if(!o) return;
-  o.classList.add('on'); o.style.display='flex';
-  setProgSettingsTab(tab||'license');
-  refreshLicenseUI();
-  if((tab||'license')==='display') { renderProgMonitors(); refreshThemeUI(); }
-  if((tab||'license')==='system')  { refreshAutoLaunchUI(); refreshFigureModeUI(); refreshOfficeModeUI(); refreshLabVideoUI(); refreshAppVersionUI(); }   // 🎬 시스템 탭으로 바로 열려도 실제 적용 상태(적용 안 됨)를 보인다
-}
-function closeProgramSettings(){
-  const o=document.getElementById('programSettingsOverlay'); if(!o) return;
-  o.classList.remove('on'); o.style.display='none';
-}
-document.getElementById('lcProgSettingsBtn').onclick=()=>openProgramSettings('license');
-document.getElementById('progSettingsCloseBtn').onclick=()=>closeProgramSettings();
+/* 본문은 program-settings.js 로 옮겼다(앱 FSD 40번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const PROG_SETTINGS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const progSettingsMod = (typeof TwProgramSettings === 'undefined') ? PROG_SETTINGS_MOD_OFF : TwProgramSettings.createProgramSettings({
+  FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,
+  OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,
+  Presence: Presence,
+  _applyChatSfxUI: (...a)=>_applyChatSfxUI(...a),
+  _focusShowPush: (...a)=>_focusShowPush(...a),
+  _lsSet: (...a)=>_lsSet(...a),
+  chatUiMod: chatUiMod,
+  figureMode: ()=>figureMode,
+  focusGateSleep: ()=>focusGateSleep,
+  focusLevelMod: ()=>focusLevelMod,
+  getDisplayName: (...a)=>getDisplayName(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  getUserName: (...a)=>getUserName(...a),
+  isAdmin: ()=>isAdmin,
+  officeMode: ()=>officeMode,
+  purikuraUi: purikuraUi,
+  refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
+  refreshLicenseUI: (...a)=>refreshLicenseUI(...a),
+  refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),
+  refreshThemeUI: (...a)=>refreshThemeUI(...a),
+  setUserName: (...a)=>setUserName(...a),
+  toast: (...a)=>toast(...a),
+  tricksMod: tricksMod,
+  setFigureMode: (v)=>{ figureMode = v; },
+  setFocusGateSleep: (v)=>{ focusGateSleep = v; },
+  setOfficeMode: (v)=>{ officeMode = v; },
+});
 
 /* ═══════════════════ 🔑 구글 로그인 (계정) ═══════════════════
    [무엇을 만든 것인가] "다른 컴퓨터에서 구글로 로그인하면 내 계정 그대로" 한 줄.
@@ -13396,7 +13164,7 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   MY_USER_ID_KEY: MY_USER_ID_KEY,
   STAR_PALETTE: ()=>focusLevelMod.STAR_PALETTE,
-  USER_NAME_MAX: USER_NAME_MAX,
+  USER_NAME_MAX: progSettingsMod.USER_NAME_MAX,
   _acctDetached: ()=>accountMod._acctDetached(),
   _charsActive: (...a)=>charsMod._charsActive(...a),
   _charsBoxGet: (...a)=>charsMod._charsBoxGet(...a),
@@ -13420,7 +13188,7 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
   _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
   _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
   closeGearMenu: (...a)=>closeGearMenu(...a),
-  commitUserName: (...a)=>commitUserName(...a),
+  commitUserName: (...a)=>progSettingsMod.commitUserName(...a),
   curSlot: ()=>curSlot,
   focusCycleOf: (...a)=>focusLevelMod.focusCycleOf(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
@@ -13615,7 +13383,7 @@ document.getElementById('licenseSubmitBtn').onclick=async ()=>{
   if(r.ok){
     toast('🎉 라이선스가 등록됐어요! 꾸미기를 이용할 수 있어요');
     refreshLicenseUI();
-    setTimeout(()=>{ closeProgramSettings(); }, 900);
+    setTimeout(()=>{ progSettingsMod.closeProgramSettings(); }, 900);
   } else {
     err.textContent = r.reason || '등록에 실패했어요'; err.style.display='block';
   }
@@ -13722,7 +13490,7 @@ document.getElementById('licenseReqApplyBtn').onclick=async ()=>{
     toast('🎉 라이선스가 등록됐어요! 꾸미기를 이용할 수 있어요');
     try{ localStorage.removeItem(LICENSE_REQ_ID_KEY); }catch(e){}
     refreshLicenseUI();
-    setTimeout(()=>{ closeProgramSettings(); }, 900);
+    setTimeout(()=>{ progSettingsMod.closeProgramSettings(); }, 900);
   } else { toast('적용 실패: '+(r.reason||'')); }
 };
 // 앱을 껐다 켜도 예전에 보낸 요청이 있으면 이어서 지켜봄(관리자가 그 사이 승인했을 수도 있으니)

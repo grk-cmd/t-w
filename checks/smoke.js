@@ -396,6 +396,8 @@ PRELOAD.push('premium-assets.js');
 PRELOAD.push('char-code.js');
 /* dice-games.js — 🎲 주사위 · 하루 횟수(앱 FSD 39번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDiceGames 를 같이 굴린다. */
 PRELOAD.push('dice-games.js');
+/* program-settings.js — 🏷️ 닉네임 저장 · ⚙️ 프로그램 설정 창(앱 FSD 40번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createProgramSettings 를 같이 굴린다. */
+PRELOAD.push('program-settings.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

@@ -16,6 +16,7 @@
 
    ⚠️ 실제로 예쁜지는 여기서 못 본다 — 그건 눈으로 볼 것. 여기서 지키는 것은 규약뿐이다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const P = require('./purikura-net.js');
 /* 📷 촬영 창 · 무대 · 꾸미기 화면은 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
@@ -26,7 +27,7 @@ let PU = null; try{ PU = fs.readFileSync('purikura-ui.js', 'utf8'); }catch(_){ c
 let ME = null; try{ ME = fs.readFileSync('myhome-edit.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
 /* 💬 대화창 배선(📷 버튼)은 parts/chat-window.js 로 옮겼다(앱 FSD 14번) — 같은 방식으로 이어 붙인다. */
 let CW = null; try{ CW = fs.readFileSync('chat-window.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — chat-window.js'); process.exit(2); }
-const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + PU + '\n' + ME + '\n' + CW;
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + PU + '\n' + ME + '\n' + CW;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;
