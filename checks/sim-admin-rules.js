@@ -112,6 +112,12 @@ console.log('\n── 3. 새는 곳이 없는가');
       '봇 명단(apiBots)은 앱에서 읽지도 쓰지도 못한다 (콘솔에서만)');
   chk(isAdmin(r('licenses')) && isBot(r('licenses')) && !w('licenses'),
       '라이선스 전체 읽기는 관리자 또는 봇 — 봇에게 쓰기 길 없음');
+  // 웹 관리자 사용자 목록을 API 로 — 봇이 accountSnap · friendCodes 를 통째로 읽는다. 관리자 조건과 || 로 이어야 관리자 읽기가 안 막히고, 봇 조건은 목록 읽기 한 곳뿐.
+  for (const [p, label] of [['accountSnap', '계정 요약(accountSnap)'], ['friendCodes', '친구코드 명단(friendCodes)']]) {
+    const rd = String(r(p));
+    chk(isAdmin(rd) && isBot(rd) && /\|\|/.test(rd) && !w(p) && !/apiBots/.test(JSON.stringify(at(p)).replace(rd, '')),
+        `${label} 전체 읽기는 관리자 또는 봇 — 봇은 아래 칸 읽기 · 쓰기 없음`);
+  }
   chk(!!at('admins/$uid') && at('admins/$uid')['.write'] === false, '관리자 명단은 앱에서 쓸 수 없다 (콘솔에서만)');
   chk(r('srKey') === false && w('srKey') === false, '시크릿룸 발급 키는 그대로 잠겨 있다');
   chk(/srKey\/v/.test(String(w('secretRooms/$code'))), '시크릿룸 발급은 기존 키 방식 그대로다');

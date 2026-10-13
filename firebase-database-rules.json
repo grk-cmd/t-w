@@ -292,7 +292,7 @@
       }
     },
     "accountSnap": {
-      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".read": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       "$userId": {
         ".read": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid",
         ".write": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid",
@@ -328,7 +328,7 @@
       }
     },
     "friendCodes": {
-      ".read": "root.child('admins').child(auth.uid).val() === true",
+      ".read": "root.child('admins').child(auth.uid).val() === true || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       "$code": {
         ".read": true,
         ".write": true,
