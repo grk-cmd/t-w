@@ -12,6 +12,11 @@ export interface RoomServerConfig {
   default: string | null;
   /** 기본 서버로 보낼 비율 0~100(정수). 칸이 없거나 틀리면 0(아무도 안 감 — 앱도 같게 본다). */
   defaultPercent: number;
+  /**
+   * 방 서버가 자기 방을 roomIndex 장부에 올릴지. 켜면 전체 상한(config/roomLimits)을 Firebase 방 + 방 서버 방 합계로 본다.
+   * 끄면 Firebase 방만 전체 상한과 견주고 방 서버 방은 서버 한 대 상한(limits)으로 따로. 칸이 없거나 bool 이 아니면 false.
+   */
+  registerIndex: boolean;
 }
 
 export const CHANNELS = ['workingroom', 'togetherroom'] as const;
@@ -63,6 +68,7 @@ export function parseRoomServerConfig(raw: unknown): RoomServerConfig {
     limits: parseLimits(o.limits),
     default: typeof o.default === 'string' && SERVER_NAME_RE.test(o.default) ? o.default : null,
     defaultPercent: isDefaultPercent(o.defaultPercent) ? o.defaultPercent : 0,
+    registerIndex: o.registerIndex === true,
   };
 }
 

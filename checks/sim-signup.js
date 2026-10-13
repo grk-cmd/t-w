@@ -525,7 +525,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
   chk(/rgba\(0,0,0,\.45\)/.test(IM), '배경 반투명(뒤의 앱은 그대로)');
   chk(/#deviceSessionOverlay, #existingSignupOverlay,/.test(APP), '★ 클릭 통과 목록(UI_HIT_SEL)에 등록 — 없으면 투명 창에서 클릭이 빠진다');
   chk(/checkInviteGate\(\)\s*\.then\(\(\)=>\{ refreshInviteBtn\(\); return _existingSignupCheck\(\); \}\)/.test(APP), '초대 게이트를 지난 뒤 한 번 판정한다');
-  chk(/const EXISTING_SIGNUP_ENABLED = true;/.test(APP), '스위치 켜짐');
+  chk(/function existingSignupOn\(\)\{ const s = _rcStore\(\); return s \? s\.existingSignup\(\) : true; \}/.test(APP), '스위치 — 원격 설정 config/flags/existingSignup(없으면 켜짐)');
   const needI = ['function getMyUserId(', 'function genFriendCodeCandidate(', 'function _signupPendingSave(', 'async function _signupClaimCode(',
     'async function _existingSignupCode(', 'async function _existingSignupNeed(', 'async function _existingSignupDoPassword('];
   const missI = needI.filter(h => !takeFn(APP, h));
@@ -553,7 +553,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       Object.defineProperty(globalThis, 'firebaseAPI', { get: () => w.firebaseAPI, configurable: true });
       const src4 = [
         "const MY_USER_ID_KEY = 'tw.myUserId'; const MY_FRIEND_CODE_KEY = 'tw.myFriendCode'; const LOGIN_EMAIL_KEY = 'tw.loginEmail'; const LOGIN_UID_KEY = 'tw.loginUid'; const SIGNUP_PENDING_KEY = 'tw.signupPending';",
-        "const EXISTING_SIGNUP_ENABLED = " + (o.off ? 'false' : 'true') + ";",
+        "function existingSignupOn(){ return " + (o.off ? 'false' : 'true') + "; }",
         "function _loginLocalSnapshot(){ return { v:1 }; }",
         ...needI.map(h => takeFn(APP, h)),
         'return { need:_existingSignupNeed, go:_existingSignupDoPassword };',

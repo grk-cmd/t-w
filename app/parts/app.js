@@ -18930,10 +18930,12 @@ let isAdmin = false;
      · 기존 유저(users/{uid}가 이미 있음) → 무조건 통과 + 초대권 5장 부여(최초 1회, grandfather)
      · 초대 코드로 들어온 신규 유저 → 초대권 0장 → 확산이 1세대에서 멈춤
      · 관리자 → 무제한 발급 + 유저에게 초대권 추가 지급 가능
-   ⚠️ INVITE_GATE_ENABLED가 false면 게이트가 아예 안 뜸(지금은 개발/테스트 중).
-      충분히 검증한 뒤 배포 직전에 true로 바꾸면 신규 유저부터 코드가 필요해짐.
+   ⚠️ 스위치는 원격 설정 config/flags/inviteGate(remote-config.js · 없으면 true). false면 게이트가 아예 안 뜬다.
+      부팅 때 한 번 정한다 — initInviteGate 가 첫 답을 잠깐 기다린 뒤 checkInviteGate 를 부른다(못 읽으면 true).
 ──────────────────────────────────────────────────────────────────── */
-const INVITE_GATE_ENABLED = true;           // ← 테스트 중. 문제 생기면 false로 되돌리면 됨
+/* 원격 설정 한 벌(remote-config.js 가 app.js 앞에 싣는다). 없으면(검사 · 옛 html) null — 부르는 쪽이 기본값으로. */
+function _rcStore(){ return (typeof window !== 'undefined' && window.TwRemoteConfig && window.TwRemoteConfig.store) || null; }
+function inviteGateOn(){ const s = _rcStore(); return s ? s.inviteGate() : true; }
 const INVITE_PASS_KEY = 'tw.invitePassed';  // 한 번 통과하면 로컬에 기록 → 다음 실행부터 바로 통과
 /* 🎟️ [회원가입 설계 §3 · 개정 8] 초대 코드를 소진한 **기기 토큰** — uid 대신 invites/{code}.usedBy 에 들어간다.
    값 {code, token}. uid 가 정해지면 finishInviteSignup 이 usedBy 를 uid 로 바꾸고 이 키를 지운다.
@@ -19072,7 +19074,8 @@ async function _signupDoGoogle(){
    ★ 오프라인이면(userAuth 를 못 읽으면) 이번 부팅엔 안 띄운다 — 다음 온라인 부팅에 다시(§3).
    ★ 그 uid 가 **다른 계정에 묶여 있으면** I 가 아니다 — 가입하면 결속에서 거절된다. 그 판(다른 PC 에서 구글로 묶고 여기선 로그인 안 함)은
      «이 PC 는 로그인이 필요해요» 쪽 일이라 여기서 다루지 않는다. */
-const EXISTING_SIGNUP_ENABLED = true;
+/* 스위치는 원격 설정 config/flags/existingSignup(없으면 true) — 초대 게이트와 같이 부팅 때 첫 답을 기다려 한 번 정한다. */
+function existingSignupOn(){ const s = _rcStore(); return s ? s.existingSignup() : true; }
 /* 이 uid 의 아이디가 될 친구 코드 — 이 기기 코드가 내 것이면 그것, 아니면 계정 거울(users/{uid}/friendCode)이 내 것이면 그것.
    돌려주는 것: { code, mine:true } · { code:후보, mine:false }(내 코드가 없다 — [가입하기] 때 선점) · undefined(못 읽음 · 이번엔 쉰다). */
 async function _existingSignupCode(uid){
@@ -19095,7 +19098,7 @@ async function _existingSignupCode(uid){
 }
 /* 띄울지 판정 — { uid, code, mine } 이면 띄운다 · null 이면 안 띄운다. */
 async function _existingSignupNeed(){
-  if(!EXISTING_SIGNUP_ENABLED) return null;
+  if(!existingSignupOn()) return null;
   const uid = getMyUserId();
   if(!uid) return null;
   if(!(window.firebaseAPI && firebaseAPI.authOwnerOf && firebaseAPI.lookupFriendCode)) return null;
@@ -19302,7 +19305,7 @@ function _showNeedLogin(st){
 
 /* 앱 시작 시 접근 권한 확인. 통과하면 resolve, 아니면 게이트를 띄우고 코드 입력을 기다림. */
 async function checkInviteGate(){
-  if(!INVITE_GATE_ENABLED){
+  if(!inviteGateOn()){
     /* 🩹 게이트가 꺼져 있어도 **통과 도장은 찍는다.**
        [경위] 예전에는 그냥 return true 였다. 그래서 게이트가 꺼져 있던 기간의 유저는 전원
          INVITE_PASS_KEY 가 비어 있었고, 나중에 게이트를 켠 순간 **그 사람들이 한꺼번에**
@@ -20061,9 +20064,13 @@ function restoreLicenseHeldAssets(){
 })();
 
 // 🎟️ 앱 시작 시 초대장 게이트 — firebaseAPI가 준비된 뒤에 확인.
-//   INVITE_GATE_ENABLED가 false면 checkInviteGate가 즉시 통과시키므로 아무 일도 안 일어남.
+//   원격 설정 inviteGate 가 false면 checkInviteGate가 즉시 통과시키므로 아무 일도 안 일어남.
+//   ★ 두 스위치의 첫 답을 최대 3초 기다린다 — 못 받으면 기본값(true · 예전 동작). 다음에 바뀐 값은 다음 부팅부터.
+const REMOTE_FLAGS_WAIT_MS = 3000;
 (function initInviteGate(){
-  const run = ()=>{
+  const run = async ()=>{
+    const _s = _rcStore();
+    if(_s){ try{ await _s.ready(['inviteGate','existingSignup'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
     checkInviteGate()
       .then(()=>{ refreshInviteBtn(); return _existingSignupCheck(); })   // 🪪 I — 초대 게이트를 지난 뒤 한 번(설계 §3)
       .then(shownI => (shownI ? true : _needLoginCheck()))                 // 🔐 K — I 가 아니면(이미 묶인 uid) 로그인이 맞는지(§9-11)
@@ -22086,10 +22093,9 @@ document.getElementById('toLauncher').onclick=backToLauncher;
    💰 이 숫자는 곧 비용이다 — 한 멤버가 1바이트를 쓰면 방의 나머지 인원수만큼 내려간다
       (_diffRoomPayload 주석의 실측 ×4.0). 6→8은 꽉 찬 방 기준 다운로드가 약 1.4배다.
       8→10 은 꽉 찬 방 기준 약 1.6배다(인원×(인원−1): 56 → 90). */
-const MAX_PEOPLE=10;   // 나 + 친구 최대 9
-/* ★ HTML(joinRoom 리스너)의 정원 초과 자기 퇴장 판정이 같은 값을 봐야 한다 — app.js 는 클래식
-   스크립트라 여기 const 가 module 쪽에서 안 보인다. 숫자를 저쪽에 또 적으면 반드시 갈라진다. */
-window.MAX_PEOPLE = MAX_PEOPLE;
+/* ★ 정원은 원격 설정 config/roomMaxPeople(remote-config.js · 2~50 · 없으면 10) — 바뀌면 다음 판정부터 바로 따른다.
+   firebase-init.js(joinRoom 리스너)의 정원 초과 자기 퇴장도 같은 store 를 읽는다 — 숫자를 두 곳에 적지 않는다. */
+function maxPeople(){ const s = _rcStore(); return s ? s.maxPeople() : 10; }
 /* ═══ 🚪 자리비움 자동 퇴장 [건의 2026-09-12] ═════════════════════════════════
    [건의] "투게더룸·워킹룸에 6시간 넘게 자리비움이면 자동으로 방에서 퇴장되는 기능이 없을까요?"
 
@@ -23048,14 +23054,12 @@ async function _roomServerFallback(code){
   else toast('방 서버와 연결이 끊겨 방에서 나왔어요 — 다시 들어가 주세요');
 }
 /* 입장 실패 코드 → 지금 쓰는 안내 문구. null 이면 «Firebase 로 돌아간다»(서버에 못 붙음 · 인증 · 버전 · 시간 초과 등). */
-function _roomServerJoinMessage(code, isSecret){
-  if(code === 'full') return isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(MAX_PEOPLE-1)+'명)')
-                                      : ('이 방은 이미 가득 찼어요(최대 '+MAX_PEOPLE+'명)');
+function _roomServerJoinMessage(code, isSecret, openCh){
+  if(code === 'full') return isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(maxPeople()-1)+'명)')
+                                      : ('이 방은 이미 가득 찼어요(최대 '+maxPeople()+'명)');
   if(code === 'channelFull'){
-    const ch = (window._pendingRoomChannel === 'togetherroom') ? 'togetherroom' : 'workingroom';
-    const limit = (typeof roomLimitOf === 'function') ? roomLimitOf(ch) : MAX_ROOMS;
-    const name = (typeof CHANNEL_NAMES !== 'undefined' && CHANNEL_NAMES[ch]) || '방';
-    return `${name}이 지금 꽉 찼어요(${limit}/${limit}) — 잠시 후 다시 시도해 주세요`;
+    const ch = openCh || ((window._pendingRoomChannel === 'togetherroom') ? 'togetherroom' : 'workingroom');
+    return _channelFullMsg(ch);
   }
   if(code === 'secretClosed') return '이 시크릿룸은 이용 기간이 끝났어요';
   if(code === 'forbidden') return '투게더룸은 라이선스가 있어야 열 수 있어요';
@@ -23076,11 +23080,14 @@ function _roomServerJoinMessage(code, isSecret){
      · 주소록에 칸이 없으면 따라가는 사람은 peek 없이 Firebase — 서버가 재시작해도 칸을 지우지 않으므로(2분 30초 되살릴 후보) 빈틈은
        «쓰기 실패» 뿐이고, 그것 때문에 모든 입장이 서버에 붙어 보는 값은 크다. 허용된 사람만 자기 서버에 peek 한다. */
 const ROOM_SERVER_FOLLOW_WAIT_MS = 3000;   // 따라가기는 서버가 죽어 있어도 입장이 오래 멈추지 않게 짧게
+/* 빈 방을 열 때 채널을 정하는 자격 — 보유자(라이선스 · 관리자)면 투게더룸. Firebase 갈래 · 서버 갈래가 같은 것을 쓴다. */
+function _myRoomLicensed(){ return !!((typeof isPremium!=='undefined' && isPremium) || (typeof isAdmin!=='undefined' && isAdmin)); }
 async function _startRoomOnServer(code, ctx){
   if(window._roomServerSkipOnce && window._roomServerSkipOnce === code) return 'firebase';   // 서버가 안 돌아와 Firebase 로 옮기는 중
   const net = _roomServerNet();
   if(!(net && firebaseAPI.resolveRoomServer)) return 'firebase';
   const creating = !!window._pendingRoomChannel && !ctx.isSecret;
+  let openCh = null;   // 서버가 빈 방을 열 때 그 채널(상한 검사 · channelFull 문구)
   let rs = null;
   try{ rs = await firebaseAPI.resolveRoomServer(code, { creating }); }catch(_){ rs = null; }
   if(!(rs && rs.via === 'server')) return 'firebase';
@@ -23097,6 +23104,19 @@ async function _startRoomOnServer(code, ctx){
         if(fb === null && firebaseAPI.checkRoomCapacity) fb = await firebaseAPI.checkRoomCapacity(code);
       }catch(_){ fb = null; }
       if(typeof fb === 'number' && fb > 0) return 'firebase';
+      /* 서버에도 Firebase 에도 사람이 없다 = 서버가 새 방을 연다 → [방 만들기] 와 같은 상한(개수는 roomIndex — doCreateRoomInChannel 과 같다).
+         되살리기(주소록에 있는 방 · from 'dir')는 여기 오지 않는다 — 이미 있던 방이라 세지 않는다. 시크릿룸은 정원 밖. */
+      if(!ctx.isSecret){
+        openCh = _myRoomLicensed() ? 'togetherroom' : 'workingroom';
+        let n = null;
+        try{ if(firebaseAPI.getRoomCount) n = await firebaseAPI.getRoomCount(openCh); }catch(_){ n = null; }
+        if(n != null && n >= roomLimitOf(openCh)){
+          toast(_channelFullMsg(openCh));
+          window._pendingRoomChannel = null;
+          window._pendingRoomOpen = false;
+          return 'stop';
+        }
+      }
     }
   }
   const create = creating ? { channel: window._pendingRoomChannel,
@@ -23104,7 +23124,7 @@ async function _startRoomOnServer(code, ctx){
   _clearHiddenSeats();
   const r = await Presence.start(code, ctx.myDef, getDisplayName(), presenceChanged, { provider: makeServerProvider(net, create) });
   if(!(r && r.ok)){
-    const msg = _roomServerJoinMessage(r && r.code, ctx.isSecret);
+    const msg = _roomServerJoinMessage(r && r.code, ctx.isSecret, openCh);
     if(!msg){ console.warn('[방 서버] 입장 실패 — Firebase 방식으로 들어갑니다 (' + (r && r.code) + ')'); return 'firebase'; }
     toast(msg);
     window._pendingRoomChannel = null;
@@ -23316,7 +23336,7 @@ function _applyRemoteRides(){
 }
 function syncFriendSeats(friends){
   friends=friends||{};
-  const ids=Object.keys(friends).slice(0, MAX_PEOPLE-1);   // 친구는 최대 9(나 제외)
+  const ids=Object.keys(friends).slice(0, maxPeople()-1);   // 친구는 최대 9(나 제외)
   const have={}; seats.filter(s=>s.remote).forEach(s=>{ have[s.friendId]=s; });
   Object.keys(have).forEach(id=>{ if(!friends[id]){ const s=have[id]; scene.remove(s.group); removeSeatLabels(s); const ix=seats.indexOf(s); if(ix>=0)seats.splice(ix,1); } });
   ids.forEach(id=>{ let s=have[id];
@@ -23620,7 +23640,7 @@ async function startRoom(code){
     }
     _secretOwner = _pub.owner;
   }
-  /* 🔒 시크릿룸 자리 배분 — 방장 1(예약석) + 자유 MAX_PEOPLE-1.
+  /* 🔒 시크릿룸 자리 배분 — 방장 1(예약석) + 자유 maxPeople()-1.
      [경위] 예약석 규칙은 설명만 있고 코드에 없었다. 방장도 남과 똑같이 아래 검사를 맞아서,
             친구들이 먼저 자리를 채우면 후원자가 자기 방에 못 들어갔다.
      · 방장(secretRooms/{code}/pub.owner)은 정원 검사를 아예 건너뛴다.
@@ -23639,7 +23659,7 @@ async function startRoom(code){
     const _via = await _startRoomOnServer(code, { isSecret:_isSecret, secretOwner:_secretOwner, myDef });
     if(_via !== 'firebase') return;
   }
-  // ★ 예전엔 정원 체크가 전혀 없어서 화면에 표시되는 한도(MAX_PEOPLE)보다 많은 인원이 그냥 입장은 되고,
+  // ★ 예전엔 정원 체크가 전혀 없어서 화면에 표시되는 한도(maxPeople())보다 많은 인원이 그냥 입장은 되고,
   //   그 중 화면에 안 보이는 사람이 생기는 문제가 있었음 — 입장 시도 시점에 미리 인원수를 확인해서 막음.
   let _roomCount = null;   // 나를 제외한 현재 방 인원 (빈 방 승격 판정에 재사용)
   if(window.firebaseAPI && window.firebaseAPI.checkRoomCapacity){
@@ -23650,17 +23670,17 @@ async function startRoom(code){
         if(_sr){ _roomCount = _sr.count; _ownerIn = !!_sr.ownerIn; }
       }
       if(_roomCount === null) _roomCount = await window.firebaseAPI.checkRoomCapacity(code);
-      // ★ count는 "나를 제외한 현재 인원"이므로, 내가 들어가서 총 인원이 MAX_PEOPLE을 넘을 때만 막아야 함.
-      //   MAX_PEOPLE-1로 비교하고 있어서 마지막 한 자리(예: 이미 4명 있을 때 5번째)가 못 들어가던 버그였음.
+      // ★ count는 "나를 제외한 현재 인원"이므로, 내가 들어가서 총 인원이 maxPeople()을 넘을 때만 막아야 함.
+      //   maxPeople()-1로 비교하고 있어서 마지막 한 자리(예: 이미 4명 있을 때 5번째)가 못 들어가던 버그였음.
       // ★ 방장은 예약석이 있으므로 여기를 통과한다 — 값만 채우고 지나간다.
       if(!_iAmSrOwner){
         //   _ownerIn 을 못 구했으면(구버전 API 등) false 로 남아 예약석 한 자리를 늘 비워두는 쪽으로 기운다.
         //   손님 하나가 덜 들어가는 것이, 방장이 못 들어가는 것보다 낫다.
-        const _cap  = _isSecret ? (MAX_PEOPLE - 1) : MAX_PEOPLE;
+        const _cap  = _isSecret ? (maxPeople() - 1) : maxPeople();
         const _here = _isSecret ? (_roomCount - (_ownerIn ? 1 : 0)) : _roomCount;
         if(_here >= _cap){
-          toast(_isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(MAX_PEOPLE-1)+'명)')
-                          : ('이 방은 이미 가득 찼어요(최대 '+MAX_PEOPLE+'명)'));
+          toast(_isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(maxPeople()-1)+'명)')
+                          : ('이 방은 이미 가득 찼어요(최대 '+maxPeople()+'명)'));
           return;
         }
       }
@@ -23707,7 +23727,7 @@ async function startRoom(code){
             하트비트)는 안 넘겨서, 같은 코드로 예전에 열었던 랜덤 방의 open:true 를 물려받지 않는다. */
       await firebaseAPI.setRoomChannel(code, _channel, getMyUserId(), (_channel === 'workingroom') && !!window._pendingRoomOpen);
     } else if(!_channel && window.firebaseAPI && firebaseAPI.getRoomChannel){
-      const _iAmLicensed = (typeof isPremium!=='undefined' && isPremium) || (typeof isAdmin!=='undefined' && isAdmin);
+      const _iAmLicensed = _myRoomLicensed();
       /* 🚪 빈 방(=살아있는 멤버가 0명인 코드)에 들어가는 것은 사실상 '새로 여는 것'이다.
          그래서 채널·방장·개수 상한을 전부 '만들기'와 같은 규칙으로 정한다.
 
@@ -23730,12 +23750,11 @@ async function startRoom(code){
          · 상한 문구·비교식은 doCreateRoomInChannel 과 같은 것을 쓴다(고칠 때 함께 고칠 것). */
       if(_roomCount === 0){
         const _openCh = _iAmLicensed ? 'togetherroom' : 'workingroom';
-        const _openLimit = (typeof roomLimitOf==='function') ? roomLimitOf(_openCh) : MAX_ROOMS;
-        const _openName = (typeof CHANNEL_NAMES!=='undefined' && CHANNEL_NAMES[_openCh]) || '방';
+        const _openLimit = roomLimitOf(_openCh);
         let _openCount = null;
         try{ if(firebaseAPI.getRoomCount){ _openCount = await firebaseAPI.getRoomCount(_openCh); } }catch(_){}
         if(_openCount != null && _openCount >= _openLimit){
-          toast(`${_openName}이 지금 꽉 찼어요(${_openLimit}/${_openLimit}) — 잠시 후 다시 시도해 주세요`);
+          toast(_channelFullMsg(_openCh));
           window._pendingRoomChannel = null;
           window._pendingRoomOpen = false;   // 🎲 만들기 취소 — 토글 값이 다음 입장에 따라붙지 않게
           return;
@@ -23803,12 +23822,12 @@ async function startRoom(code){
         if(_sr2){ _recount = _sr2.count; _ownerIn2 = !!_sr2.ownerIn; }
       }
       if(_recount === null) _recount = await window.firebaseAPI.checkRoomCapacity(code);
-      const _cap2  = _isSecret ? (MAX_PEOPLE - 1) : MAX_PEOPLE;
+      const _cap2  = _isSecret ? (maxPeople() - 1) : maxPeople();
       const _here2 = (typeof _recount === 'number')
         ? (_isSecret ? (_recount - (_ownerIn2 ? 1 : 0)) : _recount) : null;
       if(typeof _here2 === 'number' && _here2 >= _cap2){
-        toast(_isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(MAX_PEOPLE-1)+'명)')
-                        : ('이 방은 이미 가득 찼어요(최대 '+MAX_PEOPLE+'명)'));
+        toast(_isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(maxPeople()-1)+'명)')
+                        : ('이 방은 이미 가득 찼어요(최대 '+maxPeople()+'명)'));
         window._pendingRoomChannel = null;
         window._pendingRoomOpen = false;
         return;
@@ -25726,16 +25745,38 @@ async function _restoreOwnedDataAfterTransfer(){
 
 /* ═══ 🔢 방 개수 · 방 만들기 · 랜덤 참여 · 갈아타기 ═══ */
 /* --- 방 개수 표시(n/상한) + 정원 초과 시 생성 차단 --- */
-/* ★ 채널별 방 개수 상한. 워킹룸(무료) 250 / 투게더룸(프리미엄) 250 — [2026-09-17] 60/70 에서 올림.
+/* ★ 채널별 방 개수 상한 — 원격 설정 config/roomLimits(remote-config.js · 채널마다 1~10000 · 없으면 300).
+   Firebase 방 + 방 서버 방을 합친 «전체» 상한이다(방 서버가 roomIndex 장부에 올리면 합계 · 개정 170).
    ⚠️ 이 상한은 **클라이언트에서만** 검사한다 — firebase-database-rules.json의 rooms/$room 은
       "!newData.exists()"(빈 자리에만 생성)만 보고 개수를 세지 않는다. 서버가 셀 수 없는 구조라서다
       (규칙에서 형제 노드 개수를 세려면 rooms 전체를 읽어야 하는데, 그게 바로 예전에 비용 폭탄을
       냈던 접근이다). 그래서 상한을 늘릴 때 규칙 파일은 손댈 게 없다.
-   ※ 화면 표시 기본값도 같이 맞출 것 — desk-companion-prototype.html 의 #chCountWorking/#chCountTogether. */
-const ROOM_LIMITS = { workingroom: 250, togetherroom: 250 };
+   ※ html 기본 표시(#chCountWorking/#chCountTogether «— / 300»)는 기본값과 같게 — 설정을 받으면 _paintRoomLimits 가 고친다. */
 const CHANNEL_NAMES = { workingroom: '워킹룸', togetherroom: '투게더룸' };
-function roomLimitOf(channel){ return ROOM_LIMITS[channel] || ROOM_LIMITS.workingroom; }
-const MAX_ROOMS = ROOM_LIMITS.togetherroom;   // 하위호환(참여 전체 카운트 등에서 참조) — 가장 큰 값
+function roomLimitOf(channel){ const s = _rcStore(); return s ? s.roomLimitOf(channel) : 300; }
+/* 꽉 찼을 때 문구 — 방 만들기 · 빈 방 열기(Firebase · 방 서버) · 방 서버 channelFull 이 같은 것을 쓴다. */
+function _channelFullMsg(channel){
+  const limit = roomLimitOf(channel), name = CHANNEL_NAMES[channel] || '방';
+  return `${name}이 지금 꽉 찼어요(${limit}/${limit}) — 잠시 후 다시 시도해 주세요`;
+}
+/* 설정이 바뀌면 화면 숫자만 고친다(읽기 없음) — «n / 상한» 의 상한 · «최대 N명». */
+function _paintRoomLimits(){
+  [['chCountWorking','workingroom'],['chCountTogether','togetherroom']].forEach(([id, ch])=>{
+    const el = document.getElementById(id); if(!el) return;
+    el.textContent = String(el.textContent || '').replace(/\/\s*\d*\s*$/, '/ ' + roomLimitOf(ch));
+  });
+}
+function _paintMaxPeople(){
+  const n = String(maxPeople());
+  document.querySelectorAll('[data-tw-max-people]').forEach(el=>{ el.textContent = n; });
+  const meta = document.getElementById('chMetaTogether');
+  if(meta && !meta.querySelector('[data-tw-max-people]')) meta.textContent = String(meta.textContent || '').replace(/최대 \d+명/, '최대 ' + n + '명');
+}
+(function _watchRemoteRoomConfig(){
+  const s = _rcStore(); if(!s) return;
+  s.onChange((c, key)=>{ if(key === 'roomLimits') _paintRoomLimits(); else if(key === 'roomMaxPeople') _paintMaxPeople(); });
+  _paintRoomLimits(); _paintMaxPeople();
+})();
 let _liveRoomCount = null;   // 실시간 구독으로 계속 갱신되는 현재 방 개수(모르면 null)
 function _updateRoomCountUI(){
   // ⏸️ 요청: [방 만들기 / 참여하기] 아래 "현재 n개 방이 열려 있어요" 문구 숨김.
@@ -25769,8 +25810,8 @@ let _roomCountUnsub = null;
 function _paintRoomCounts(c){
   if(!c) return;
   c = _addServerRoomCounts(c);   // 🛰 서버 방 몫(켜져 있을 때 · 마지막으로 받은 값)
-  const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${ROOM_LIMITS.workingroom}`;
-  const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${ROOM_LIMITS.togetherroom}`;
+  const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${roomLimitOf('workingroom')}`;
+  const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${roomLimitOf('togetherroom')}`;
   if(c.total!=null){ _liveRoomCount = c.total; _updateRoomCountUI(); }
 }
 function startRoomCountWatch(){
@@ -25798,13 +25839,12 @@ function startRoomCountWatch(){
 /* ★ 채널 개편: 실제 방 생성 — 채널을 받아 그 채널의 상한을 확인하고 만든다. */
 async function doCreateRoomInChannel(channel){
   channel = channel || 'workingroom';
-  const limit = (typeof roomLimitOf==='function') ? roomLimitOf(channel) : MAX_ROOMS;
-  const chName = (typeof CHANNEL_NAMES!=='undefined' && CHANNEL_NAMES[channel]) || '방';
+  const limit = roomLimitOf(channel);
   // 해당 채널의 현재 방 개수만 확인(참여는 방 개수가 안 늘어나므로 만들 때만 검사)
   let count = null;
   try{ if(window.firebaseAPI && window.firebaseAPI.getRoomCount){ count = await window.firebaseAPI.getRoomCount(channel); } }catch(e){}
   if(count!=null && count>=limit){
-    toast(`${chName}이 지금 꽉 찼어요(${limit}/${limit}) — 잠시 후 다시 시도해 주세요`);
+    toast(_channelFullMsg(channel));
     return;
   }
   window._pendingRoomChannel = channel;   // startRoom이 이 값으로 _meta.channel을 기록
@@ -25839,7 +25879,7 @@ async function doJoinRandomRoom(){
     try{ if(firebaseAPI.checkRoomCapacity) cnt = await firebaseAPI.checkRoomCapacity(code); }catch(_){}
     if(typeof cnt !== 'number') continue;   // 확인 실패 — 다음 후보로
     if(cnt === 0) continue;                 // 유령 방(인덱스만 남음)
-    if(cnt >= MAX_PEOPLE) continue;         // 그새 꽉 찼다
+    if(cnt >= maxPeople()) continue;         // 그새 꽉 찼다
     startRoom(code);
     return;
   }
@@ -25887,7 +25927,7 @@ async function doHopRandomRoom(){
       try{ if(firebaseAPI.checkRoomCapacity) cnt = await firebaseAPI.checkRoomCapacity(code); }catch(_){}
       if(typeof cnt !== 'number') continue;
       if(cnt === 0) continue;
-      if(cnt >= MAX_PEOPLE) continue;
+      if(cnt >= maxPeople()) continue;
       target = code; break;
     }
     if(!target){ toast('지금은 옮겨갈 다른 방이 없어요 — 조금 뒤에 다시 눌러보세요 🎲'); return; }
@@ -25928,11 +25968,11 @@ async function _refreshChannelPickUI(){
         emo.appendChild(wrap);
       }
       if(sub){ sub.textContent='대화하며 · 함께'; sub.style.color=''; }
-      if(meta) meta.textContent='라이선스 · 최대 '+MAX_PEOPLE+'명';
+      if(meta) meta.textContent='라이선스 · 최대 '+maxPeople()+'명';
     }else{
       if(emo) emo.textContent='🚫';
       if(sub){ sub.textContent='라이선스가 필요해요'; sub.style.color='#a00'; }
-      if(meta) meta.textContent='라이선스 · 최대 '+MAX_PEOPLE+'명';
+      if(meta) meta.textContent='라이선스 · 최대 '+maxPeople()+'명';
     }
   }
   // 채널별 카운트(가벼운 조회, 실패해도 무시)
@@ -25943,13 +25983,13 @@ async function _refreshChannelPickUI(){
       //    이제 roomIndex 1회 조회(수 KB 미만)로 전체+채널별 카운트를 한 번에 얻는다.
       // 표시용이라 서버가 세어 둔 값(quick)이면 충분하다.
       const c = await _withServerRoomCounts(await firebaseAPI.getRoomCounts({ quick: true }));
-      const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${ROOM_LIMITS.workingroom}`;
-      const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${ROOM_LIMITS.togetherroom}`;
+      const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${roomLimitOf('workingroom')}`;
+      const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${roomLimitOf('togetherroom')}`;
       if(c.total!=null){ _liveRoomCount = c.total; _updateRoomCountUI(); }   // 전체 문구도 같은 조회로 함께 갱신
     } else if(window.firebaseAPI && firebaseAPI.getRoomCount){
       const [w,t] = await Promise.all([firebaseAPI.getRoomCount('workingroom'), firebaseAPI.getRoomCount('togetherroom')]);
-      const wl=document.getElementById('chCountWorking'); if(wl && w!=null) wl.textContent = `${w} / ${ROOM_LIMITS.workingroom}`;
-      const tl=document.getElementById('chCountTogether'); if(tl && t!=null) tl.textContent = `${t} / ${ROOM_LIMITS.togetherroom}`;
+      const wl=document.getElementById('chCountWorking'); if(wl && w!=null) wl.textContent = `${w} / ${roomLimitOf('workingroom')}`;
+      const tl=document.getElementById('chCountTogether'); if(tl && t!=null) tl.textContent = `${t} / ${roomLimitOf('togetherroom')}`;
     }
   }catch(_){}
 }
@@ -26078,7 +26118,7 @@ window._onRoomOverCapacity = function(cap){
   if(window._roomOverCapLeaving) return;
   window._roomOverCapLeaving = true;
   try{
-    toast('같은 순간에 다른 분이 먼저 들어와 자리가 찼어요(최대 '+(cap||MAX_PEOPLE)+'명)');
+    toast('같은 순간에 다른 분이 먼저 들어와 자리가 찼어요(최대 '+(cap||maxPeople())+'명)');
     if(typeof doLeaveRoom==='function'){
       Promise.resolve(doLeaveRoom()).catch(()=>{}).then(()=>{ window._roomOverCapLeaving = false; });
     }else{

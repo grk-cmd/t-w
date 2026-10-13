@@ -44,7 +44,14 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
   say('── 1. 주소 거르기 · 개발용 켜기');
   {
     chk(M.ROOM_SERVER_URLS.prod === PROD && M.ROOM_SERVER_URLS.dev === DEV, '운영 · dev 방 서버 주소');
-    chk(M.serverUrlOk(PROD, 'prod') && !M.serverUrlOk(DEV, 'prod') && M.serverUrlOk(DEV + '/', 'dev'), '운영 앱은 운영 주소만 · dev 앱은 dev 주소(끝 / 무시)');
+    chk(M.serverUrlOk(PROD, 'prod') && !M.serverUrlOk(DEV, 'prod') && M.serverUrlOk(DEV + '/', 'dev') && !M.serverUrlOk(PROD, 'dev'), '운영 앱은 dev 서버로 · dev 앱은 운영 서버로 안 간다(끝 / 무시)');
+    const SFX = '.togetherworking.duckdns.org';
+    chk(M.serverUrlOk('wss://rooms-2' + SFX, 'prod') && M.serverUrlOk('https://realtime-9' + SFX, 'prod') && M.serverUrlOk('wss://rooms-2' + SFX, 'dev'),
+      '  ↳ 방 서버 묶음(wss · https://<이름>' + SFX + ')은 새 이름도 붙는다 — 관리자가 servers 에 이름만 더한다');
+    chk(['ws://rooms-2' + SFX, 'http://rooms-2' + SFX, 'wss://evil-togetherworking.duckdns.org', 'wss://a.b' + SFX, 'wss://x' + SFX + ':8443',
+      'wss://x' + SFX + '.evil.com', 'wss://x' + SFX + '/p', 'wss://-x' + SFX, 'wss://' + SFX.slice(1), 'wss://x.duckdns.org'].every((u) => !M.serverUrlOk(u, 'prod') && !M.serverUrlOk(u, 'dev')),
+      '  ↳ 다른 도메인 · 접미사 흉내 · 하위 두 칸 · 포트 · 경로 · ws/http 는 막는다');
+    chk(M.ROOM_SERVER_HOST_SUFFIX === SFX && String(M.ROOM_SERVER_URL_RE) === String(/^(?:wss|https):\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.togetherworking\.duckdns\.org$/), '  ↳ 접미사 · 정규식 그대로');
     chk(!M.serverUrlOk('ws://127.0.0.1:8787', 'prod') && M.serverUrlOk('ws://127.0.0.1:8787', 'dev') && !M.serverUrlOk('ws://127.0.0.1:9999', 'dev'), '로컬(8787)은 dev 앱만');
     chk(!M.serverUrlOk('wss://evil.example', 'prod') && !M.serverUrlOk('', 'prod') && !M.serverUrlOk(null, 'dev'), '낯선 주소 · 빈 값은 안 된다');
     const on = ls({ 'tw.roomServer': '1', 'tw.roomServerUrl': 'ws://127.0.0.1:8787' });
@@ -209,6 +216,8 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     const rs = cfg.roomServer || {};
     chk(isAdmin(rs['.write']) && /auth != null/.test(rs['.write']), 'config/roomServer 쓰기는 관리자만');
     chk(rs.on && rs.on['.read'] === true && /isBoolean/.test(rs.on['.validate']) && rs.follow && rs.follow['.read'] === true && /isBoolean/.test(rs.follow['.validate']), '  ↳ on · follow — 누구나 읽기 · 참/거짓');
+    chk(rs.registerIndex && rs.registerIndex['.read'] === true && rs.registerIndex['.validate'] === 'newData.isBoolean()' && !('.write' in rs.registerIndex),
+      '  ↳ registerIndex(방 서버가 roomIndex 장부에 올릴지 · 없으면 false) — 누구나 읽기 · 참/거짓 · 쓰기는 roomServer 의 관리자만');
     chk(!rs['.read'] && !(rs.allow || {})['.read'] && !(rs.servers || {})['.read'], '  ↳ roomServer · allow · servers 목록 읽기는 열지 않는다');
     const al = (rs.allow || {}).$userId || {}, sv = (rs.servers || {}).$name || {};
     chk(al['.read'] === true && /\$userId\.matches/.test(al['.validate']) && /newData\.isString\(\)/.test(al['.validate']) && al['.validate'].includes('[a-z0-9][a-z0-9-]{0,31}'),

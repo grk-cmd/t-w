@@ -39,3 +39,29 @@ export {
   type RoomStats,
   type RoomStatsSummary,
 } from './model/room';
+export {
+  getRoomLimits,
+  getRoomMaxPeople,
+  roomLimitChanges,
+  saveRoomLimits,
+  saveRoomMaxPeople,
+  useRefreshRoomConfig,
+  useRoomLimits,
+  useRoomMaxPeople,
+} from './api/roomConfig';
+export {
+  isRoomMaxPeople,
+  isRoomTotalLimit,
+  parseIntInput,
+  parseRoomLimits,
+  ROOM_LIMIT_CHANNELS,
+  ROOM_LIMITS_PATH,
+  ROOM_MAX_PEOPLE_DEFAULT,
+  ROOM_MAX_PEOPLE_MAX,
+  ROOM_MAX_PEOPLE_MIN,
+  ROOM_MAX_PEOPLE_PATH,
+  ROOM_TOTAL_LIMIT_MAX,
+  ROOM_TOTAL_LIMIT_MIN,
+  roomMaxPeopleOf,
+  totalLimitOf,
+} from './model/roomConfig';
