@@ -13,6 +13,7 @@
    ・7절: 🐞 버그 제보 탭 — app.js 에 없고 bug-board-ui.js 끝(IIFE 밖 · 전역 그대로) · 링크 구독 · 관리자만 편집 · 링크 모양 · 공지는 그대로 실어 보냄
    [실행] friend-manage.js · bug-board-ui.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0, done = false;
@@ -22,7 +23,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], BUG = SRC['bug-board-ui.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], BUG = SRC['bug-board-ui.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 12) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
 

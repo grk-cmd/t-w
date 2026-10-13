@@ -20,8 +20,9 @@
 
    ⚠ 실제 화면은 여기서 못 본다. 콘솔의 `[마이홈 열기] … 실패` / `[말랑이] 폴더 …` 줄이 눈으로 볼 단서다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const ML  = fs.readFileSync('mallang.js', 'utf8');
 const say = console.log;
 let fail = 0;

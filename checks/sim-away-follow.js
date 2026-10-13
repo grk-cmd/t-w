@@ -10,8 +10,9 @@
    ・3절: _awayImgFrame 동작 — 작은 THREE 흉내로 «group 이 돈 좌석» · «상자 가운데가 옆으로 끌린 좌석» · «모자 쓴 아래 캐릭터» 를 재 본다.
    [실행] app.js 가 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);

@@ -15,6 +15,8 @@ const MODULES = [
   { file: 'my-info.js', mod: 'myInfoMod', glob: 'TwMyInfo', sample: 'function openMyInfo(' },   // 앱 FSD 17번
   { file: 'chars.js', mod: 'charsMod', glob: 'TwChars', sample: 'function _charsSync(' },       // 앱 FSD 18번
   { file: 'slot-sync.js', mod: 'slotSyncMod', glob: 'TwSlotSync', sample: 'function _slotsSeenSet(' },   // 앱 FSD 19번
+  { file: 'away-pic.js', mod: 'awayPicMod', glob: 'TwAwayPic', sample: 'function _awaySzOk(' },   // 앱 FSD 22번
+  { file: 'myhome-ui.js', mod: 'myHomeUiMod', glob: 'TwMyHomeUi', sample: 'function renderMhProfileRail(' },   // 앱 FSD 22번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

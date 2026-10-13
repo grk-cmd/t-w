@@ -5,6 +5,7 @@
    원인 가설: poke 는 사람마다 한 칸뿐이고 값이 지워지지 않는다 → 낡은 스냅샷에 그 fly 가
      그대로 들어 있고, 방 스냅샷을 푸는 콜백이 async 라 늦게 끝난 낡은 것이 새 것을 덮어썼다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -29,7 +30,7 @@ const probe = `
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,5).join('\n')); process.exit(1); }
 console.log = say;
 
