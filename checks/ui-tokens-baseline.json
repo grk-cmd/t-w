@@ -18,7 +18,7 @@
     "desk-companion-prototype.html": 145,
     "animal.js": 6,
     "app-version-gate.js": 4,
-    "app.js": 26,
+    "app.js": 20,
     "guestbook.js": 27,
     "mallang.js": 20,
     "myhome-desktop.js": 134,
@@ -28,6 +28,7 @@
     "purikura-ui.js": 2,
     "room-invite-ui.js": 1,
     "scheduler.js": 1,
+    "wardrobe.js": 6,
     "admin/admin-category.js": 9,
     "admin/admin-license-bulk.js": 6,
     "admin/admin-report.js": 1

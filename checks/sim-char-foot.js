@@ -25,8 +25,9 @@
    ⚠ 실제 화면 좌표(0.0202)는 여기서 재지 못한다 — 그건 눈으로 볼 것. 여기서 지키는 것은
      "넷이 같은 값을 쓴다"는 규약뿐이다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const say = console.log;
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };

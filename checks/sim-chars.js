@@ -77,7 +77,7 @@ say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/chars.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
-  ['deps 하나 빠짐', null, a => { const i = a.indexOf("const charsMod = (typeof TwChars === 'undefined') ? CHARS_MOD_OFF : TwChars.createChars({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace('\n' + GLUE[GLUE.length - 1], '') + a.slice(j); }, null],
+  ['deps 하나 빠짐', null, a => { const i = a.indexOf("const charsMod = (typeof TwChars === 'undefined') ? CHARS_MOD_OFF : TwChars.createChars({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }, null],
   ['전역 이름 안 걺', m => m.replace('window.TwChars = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* app.js 에 남은 부르는 자리 하나를 옛 이름으로 되돌린다 — 첫 이름을 부르던 곳이 다른 모듈로 옮겨 갔을 수 있어 남은 이름 중에서 고른다 */
