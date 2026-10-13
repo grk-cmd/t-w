@@ -392,6 +392,8 @@ PRELOAD.push('room-sync.js');
 PRELOAD.push('status-chip.js');
 /* premium-assets.js — 🎀 프리미엄 파츠 · 라이선스 책상(앱 FSD 37번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPremiumAssets 를 같이 굴린다. */
 PRELOAD.push('premium-assets.js');
+/* char-code.js — 📦 캐릭터 복제 코드(앱 FSD 38번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCharCode 를 같이 굴린다. */
+PRELOAD.push('char-code.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
