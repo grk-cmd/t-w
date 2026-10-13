@@ -374,6 +374,8 @@ PRELOAD.push('focus-level.js');
 PRELOAD.push('chat-ui.js');
 /* license-gate.js — 🎟️ 초대장 · 라이선스(앱 FSD 31번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseGate 를 같이 굴린다. */
 PRELOAD.push('license-gate.js');
+/* account.js — 🔑 계정(앱 FSD 23번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAccount 를 같이 굴린다. */
+PRELOAD.push('account.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
