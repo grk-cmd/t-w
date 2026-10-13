@@ -119,6 +119,12 @@ console.log('\n── 3. 새는 곳이 없는가');
     chk(isAdmin(rd) && isBot(rd) && /\|\|/.test(rd) && !w(p) && !/apiBots/.test(JSON.stringify(at(p)).replace(rd, '')),
         `${label} 전체 읽기는 관리자 또는 봇 — 봇은 아래 칸 읽기 · 쓰기 없음`);
   }
+  // 공개 읽기 사본(파도타기 색인 · 랭킹) — 사람은 예전 쿼리 조건 그대로, 봇만 통째로 읽는다. 쓰기 · 아래 칸은 그대로.
+  const BOT = "(auth != null && root.child('apiBots').child(auth.uid).val() === true)";
+  chk(r('playlistIndex') === 'query.limitToLast <= 60 || ' + BOT && !/apiBots/.test(JSON.stringify(at('playlistIndex')).replace(String(r('playlistIndex')), '')),
+      '파도타기 색인(playlistIndex) 읽기 — 최근 60줄 쿼리 또는 봇 · 봇은 다른 칸 없음');
+  chk(r('leaderboard') === "(query.orderByChild == 'sec' && query.limitToLast <= 100) || " + BOT && !/apiBots/.test(JSON.stringify(at('leaderboard')).replace(String(r('leaderboard')), '')),
+      '랭킹(leaderboard) 읽기 — sec 정렬 100줄 쿼리 또는 봇 · 봇은 다른 칸 없음');
   chk(!!at('admins/$uid') && at('admins/$uid')['.write'] === false, '관리자 명단은 앱에서 쓸 수 없다 (콘솔에서만)');
   chk(r('srKey') === false && w('srKey') === false, '시크릿룸 발급 키는 그대로 잠겨 있다');
   chk(/srKey\/v/.test(String(w('secretRooms/$code'))), '시크릿룸 발급은 기존 키 방식 그대로다');
