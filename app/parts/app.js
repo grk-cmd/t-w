@@ -8586,131 +8586,21 @@ function refreshFsAdBanner(){
 })();
 
 /* ═══ 🕒 포커스 기록 팝업 ═══ */
-/* 포커스 기록 팝업 — [기록 열기] 클릭 시 오늘 누적 포커스 시간(hh:mm:ss)을 보여주고, 타이틀바 드래그로 위치 이동 가능 */
-(function bindFocusLog(){
-  const overlay=document.getElementById('focusLogOverlay');
-  const win=document.getElementById('focusLogWin');
-  const title=document.getElementById('focusLogTitle');
-  const timeEl=document.getElementById('focusLogTime');
-  const captionEl=document.getElementById('focusLogCaption');
-  const openBtn=document.getElementById('fsFocusLogBtn');
-  const closeBtn=document.getElementById('focusLogClose');
-  const toggleBtn=document.getElementById('focusLogOk');
-  if(!overlay||!win) return;
-
-  /* ── 미니미(최소화) 상태 ────────────────────────────────────────
-     _ = 118px 한 줄짜리 미니미, □ = 원래 크기. 상태는 재시작해도 유지된다.
-     전환할 때 창의 '좌상단 좌표'를 고정해서 오른쪽·아래로만 줄었다 늘어난다 —
-     화면 밖으로 밀려나면 clampWin()이 다시 끌어들인다. */
-  const MINI_KEY='tw.focusLogMini';
-  const titleTxtEl=document.getElementById('focusLogTitleTxt');
-  const minBtn=document.getElementById('focusLogMin');
-  const maxBtn=document.getElementById('focusLogMax');
-  const cap2El=document.getElementById('focusLogCaption2');
-  const bodyEl=document.getElementById('focusLogBody');
-  let miniOn=false;
-  try{ miniOn = localStorage.getItem(MINI_KEY)==='1'; }catch(_){}
-  function clampWin(){
-    // transform 기반 중앙정렬 상태(아직 한 번도 안 옮김)면 건드리지 않는다 — 중앙정렬이 풀려버림.
-    if(win.style.transform==='none' && win.style.left){
-      win.style.left=Math.max(0,Math.min(innerWidth -win.offsetWidth,  parseFloat(win.style.left)||0))+'px';
-      win.style.top =Math.max(0,Math.min(innerHeight-win.offsetHeight, parseFloat(win.style.top )||0))+'px';
-    }
-  }
-  /* 👑 달성표 서랍이 펼쳐지면 창이 세로로 길어져 화면 밖으로 삐져나갈 수 있다.
-     서랍 쪽에서 여닫을 때마다 이걸 불러 다시 끌어들인다. */
-  try{ window._focusLogClamp = clampWin; }catch(_){}
-  function setMini(on, {persist=true}={}){
-    miniOn=!!on;
-    if(persist){ try{ localStorage.setItem(MINI_KEY, miniOn?'1':'0'); }catch(_){} }
-    // 이미 열려있을 때만 좌상단 고정 — 닫혀있으면 getBoundingClientRect가 0이라 좌표가 망가진다.
-    if(overlay.classList.contains('on')){
-      const r=win.getBoundingClientRect();
-      win.style.transform='none'; win.style.left=r.left+'px'; win.style.top=r.top+'px';
-    }
-    win.classList.toggle('mini', miniOn);
-    if(titleTxtEl) titleTxtEl.textContent = miniOn ? '기록' : '포커스 기록';
-    refreshTime();
-    clampWin();
-  }
-
-  /* 'session' = 현재 기록(앱을 켠 시점부터, 재시작하면 0부터)
-     'total'   = 누적 기록 + 오늘 기록(0시~자정 기준, 앱을 껐다 켜도 이어짐)을 두 줄로 함께 표시.
-     ★ '오늘 기록'은 저장되는 _focusTodaySec라 재시작해도 이어지고, '현재 기록'은 메모리 전용이라
-       앱을 켤 때마다 0부터 시작한다 — 둘의 성격이 달라 누적 탭에 함께 두는 편이 읽기 쉽다. */
-  const row2El=document.getElementById('focusLogRow2');
-  const time2El=document.getElementById('focusLogTime2');
-  let logMode='session';
-  function refreshTime(){
-    const showTotal = (logMode==='total');
-    // 미니미는 폭이 126px뿐이라 라벨을 두 글자로 줄인다("누적 기록"→"누적").
-    const mini = win.classList.contains('mini');
-    win.classList.toggle('total', showTotal);
-    if(showTotal){
-      captionEl.textContent = mini?'누적':'누적 기록'; timeEl.textContent=formatHMS(_focusTotalSec);
-      if(cap2El) cap2El.textContent = mini?'오늘':'오늘 기록';
-      if(time2El) time2El.textContent=formatHMS(_rolloverFocusToday());
-      toggleBtn.textContent='현재기록';
-    }else{
-      captionEl.textContent = mini?'현재':'현재 기록'; timeEl.textContent=formatHMS(_focusSessionSec);
-      toggleBtn.textContent='누적기록';
-    }
-    // 둘째 줄(오늘 기록)은 누적 탭에서만 노출
-    if(row2El) row2El.style.display = showTotal ? 'flex' : 'none';
-  }
-  function openLog(){
-    logMode='session';   // 열 때마다 "현재 기록"부터 보여줌
-    // 지난번에 미니미로 두고 껐으면 그대로 미니미로 연다(persist=false: 이미 저장된 값이라 다시 안 씀)
-    setMini(miniOn, {persist:false});
-    overlay.classList.add('on');
-    if(typeof bringWinToFront==='function') bringWinToFront('focusLogOverlay');   // 🪟 열 때는 맨 앞으로(대화창·설정창과 같은 규약)
-    clampWin();          // 미니미↔일반 폭 차이로 저장된 좌표가 화면 밖이면 끌어들임
-    const panel=document.getElementById('focusSettingsPanel'); if(panel) panel.classList.remove('on');
-  }
-  function closeLog(){ overlay.classList.remove('on'); }
-  /* ⎋ ESC 스택 — 이 창도 여태 ESC 로 닫히지 않았다.
-     📌 참고로 openLog 는 **설정창을 닫는다**(위 한 줄). 그래서 [기록 열기]로 연 직후에는 둘이
-       함께 열려 있지 않고, ⚙️ 를 다시 눌러야 둘 다 열린 상태가 된다 — 그때 ESC 두 번이면
-       기록(나중에 연 것)부터 닫힌다. */
-  escRegisterWindow({
-    key:'focusLog', el:overlay,
-    isOpen:()=>overlay.classList.contains('on'),
-    close:closeLog,
-  });
-  if(openBtn) openBtn.onclick=openLog;
-  if(closeBtn) closeBtn.onclick=closeLog;
-  /* _ ↔ □ — **같은 자리를 번갈아 쓰는 버튼 하나**다(요청). 평소엔 _ 만 보이고, 최소화한 뒤에는
-     그 자리에 □ 가 나타난다. 보이기/숨기기는 CSS 가 `.mini` 하나로 정하므로 여기서는 손대지 않는다
-     — 두 곳에서 정하면 한쪽만 고쳐져서 둘 다 보이거나 둘 다 사라지는 상태가 생긴다. */
-  if(minBtn) minBtn.onclick=e=>{ e.stopPropagation(); setMini(true); };
-  if(maxBtn) maxBtn.onclick=e=>{ e.stopPropagation(); setMini(false); };
-  if(toggleBtn) toggleBtn.onclick=()=>{ logMode = (logMode==='session') ? 'total' : 'session'; refreshTime(); };
-  // 미니미엔 「누적기록」 버튼이 안 들어가므로 본문 클릭으로 대신 토글한다.
-  if(bodyEl) bodyEl.addEventListener('click', ()=>{
-    if(!win.classList.contains('mini')) return;
-    logMode = (logMode==='session') ? 'total' : 'session'; refreshTime(); clampWin();
-  });
-
-  // 열려있는 동안 매초 실시간 갱신 (지금 보고 있는 모드 기준으로)
-  setInterval(()=>{ if(overlay.classList.contains('on')) refreshTime(); }, 1000);
-
-  // 타이틀바 드래그로 창 위치 이동 (첫 드래그 시 transform 기반 중앙정렬 → left/top 절대좌표로 전환)
-  let dragging=false, startX=0, startY=0, baseX=0, baseY=0;
-  title.addEventListener('mousedown', e=>{
-    // _ □ ✕ 위에서 누른 건 드래그가 아니다 — 안 막으면 버튼 클릭만으로도 창이 중앙정렬에서 풀린다.
-    if(e.target.closest && e.target.closest('.flt-x')) return;
-    dragging=true; startX=e.clientX; startY=e.clientY;
-    const r=win.getBoundingClientRect(); baseX=r.left; baseY=r.top;
-    win.style.transform='none'; win.style.left=baseX+'px'; win.style.top=baseY+'px';
-    e.preventDefault();
-  });
-  window.addEventListener('mousemove', e=>{
-    if(!dragging) return;
-    win.style.left=Math.max(0,Math.min(innerWidth-win.offsetWidth, baseX+e.clientX-startX))+'px';
-    win.style.top =Math.max(0,Math.min(innerHeight-win.offsetHeight, baseY+e.clientY-startY))+'px';
-  });
-  window.addEventListener('mouseup', ()=>{ dragging=false; });
-})();
+/* 🕒 포커스 기록 팝업(현재 / 누적 · 오늘 기록 · 미니미 · 타이틀바 끌기 · ⎋ 닫기)은 parts/focus-log.js 로 옮겼다(앱 FSD 13번 · docs/APP_FSD_MAP.md).
+   ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(버튼 · ESC 등록 · window._focusLogClamp · 매초 갱신 · 타이틀바 끌기)이
+     예전과 같은 때 돈다. 밖에서 부르는 이름은 없다.
+   함수 deps 는 화살표로 감싼다(부를 때 찾게). _focusTotalSec · _focusSessionSec 는 다시 대입되고 이 줄보다 한참 뒤(포커스 시간 누적 구역)에
+   선언되는 let 이라 읽는 함수로 넘긴다(값으로 넘기면 TDZ).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const FOCUS_LOG_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
+const focusLog = (typeof TwFocusLog === 'undefined') ? FOCUS_LOG_OFF : TwFocusLog.createFocusLog({
+  formatHMS: (...a)=>formatHMS(...a),
+  rolloverFocusToday: (...a)=>_rolloverFocusToday(...a),
+  bringWinToFront: (...a)=>bringWinToFront(...a),
+  escRegisterWindow: (...a)=>escRegisterWindow(...a),
+  focusTotalSec: ()=>_focusTotalSec,
+  focusSessionSec: ()=>_focusSessionSec,
+});
 /* ═══ ✥ 프로그램 이동 모드 ═══ */
 /* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
    카메라 각도는 고정한 채 평행이동만 하므로 앵글이 안 흔들리고, 상태칩도 camera 기준 재계산이라 정확히 따라옴.
