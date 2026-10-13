@@ -362,6 +362,8 @@ PRELOAD.push('slot-sync.js');
 PRELOAD.push('away-pic.js');
 /* myhome-ui.js — 🏠 마이홈 창 버튼 연결(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeUi 를 같이 굴린다. */
 PRELOAD.push('myhome-ui.js');
+/* tricks.js — 💃 깜짝쇼 · 🪄 때리기(앱 FSD 25번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createTricks 를 같이 굴린다. */
+PRELOAD.push('tricks.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

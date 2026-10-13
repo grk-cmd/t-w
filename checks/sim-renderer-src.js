@@ -17,6 +17,7 @@ const MODULES = [
   { file: 'slot-sync.js', mod: 'slotSyncMod', glob: 'TwSlotSync', sample: 'function _slotsSeenSet(' },   // 앱 FSD 19번
   { file: 'away-pic.js', mod: 'awayPicMod', glob: 'TwAwayPic', sample: 'function _awaySzOk(' },   // 앱 FSD 22번
   { file: 'myhome-ui.js', mod: 'myHomeUiMod', glob: 'TwMyHomeUi', sample: 'function renderMhProfileRail(' },   // 앱 FSD 22번
+  { file: 'tricks.js', mod: 'tricksMod', glob: 'TwTricks', sample: 'function _eggCountCmd(' },   // 앱 FSD 25번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
@@ -43,11 +44,16 @@ function joinRenderer(app){
     body = body.replace(/^const [\w$]+ = deps\.[\w$]+;.*\n/gm, '').replace(/^const [\w$]+ = deps\.[\w$]+, [\w$]+ = deps\.[\w$]+;.*\n/gm, '');
     if(getters.length) body = body.replace(new RegExp('\\b(' + getters.map(esc).join('|') + ')\\(\\)', 'g'), '$1');
     for(const [set, name] of setters) body = body.replace(new RegExp('\\b' + esc(set) + '\\(([^()]*)\\)', 'g'), name + ' = $1');
-    parts.push([i, body]);
+    parts.push([m, i, j, body]);
   }
-  /* 옛 app.js 의 차례대로 잇는다(만드는 줄 자리 = 옛 본문 자리) — 앞 모듈의 꼭대기 선언을 뒤 모듈이 읽을 수 있다 */
-  parts.sort((a, b) => a[0] - b[0]);
-  let all = app + (parts.length ? '\n' + parts.map(x => x[1]).join('\n') : '');
+  /* 만드는 줄(«const mod = (typeof Tw… ({ … });») 자리에 본문을 그대로 끼운다 — 옛 본문 자리 그대로라 부팅 때 바로 읽는 줄도
+     옛 차례대로 선언을 본다(뒤에서부터 끼워 앞 자리가 안 흔들리게). 만드는 줄을 못 찾으면 맨 끝에 잇는다. */
+  let all = app, tail = [];
+  for(const [m, i, j, body] of parts.slice().sort((a, b) => b[1] - a[1])){
+    if(i >= 0 && j > i) all = all.slice(0, i) + body + all.slice(j + 4);   // '\n});' 까지
+    else tail.push(body);
+  }
+  if(tail.length) all += '\n' + tail.join('\n');
   for(const [mod, n] of retGet) all = all.replace(new RegExp('\\b' + esc(mod) + '\\.' + esc(n) + '\\(\\)', 'g'), n);
   for(const [mod, set, name] of retSet) all = all.replace(new RegExp('\\b' + esc(mod) + '\\.' + esc(set) + '\\(([^()]*)\\)', 'g'), name + ' = $1');
   for(const m of MODULES) all = all.replace(new RegExp('\\b' + esc(m.mod) + '\\.', 'g'), '');

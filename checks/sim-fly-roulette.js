@@ -9,8 +9,9 @@
           못 나는 때(회사원 · 쉬는 중 · canFly)는 주사위만 · 기록 문장은 날든 안 날든 원래 🎲 문장 그대로(«날아갔어요» 꼬리 없음 · 2026-09-23 요청).
    [실행] app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 
 let pass = 0, fail = 0;

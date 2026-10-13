@@ -5,13 +5,14 @@
    ・3절: 쓰는 곳 — 글자 단축키가 e.key 로 직접 비교하지 않는다 · key-input.js 가 app.js 보다 먼저 로드
    [실행] key-input.js · app.js · animal.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const KI = read('key-input.js'), APP = read('app.js'), ANIMAL = read('animal.js'), HTML = read('desk-companion-prototype.html');
+const KI = read('key-input.js'), APP = _joinRenderer(read('app.js')), ANIMAL = read('animal.js'), HTML = read('desk-companion-prototype.html');
 if(!KI || !APP || !ANIMAL || !HTML){ say('  ? 원본 못 찾음 — key-input.js · app.js · animal.js · desk-companion-prototype.html'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
