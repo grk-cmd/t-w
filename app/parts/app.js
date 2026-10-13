@@ -4690,146 +4690,35 @@ function escHtml(s){
 }
 
 /* ═══ 💬 채팅창 투명도 · 글자 크기 ═══ */
-/* 💬 채팅창 투명도 (기기별 로컬 저장) — 글자 크기·창 위치와 같은 성격이라 서버에 안 올린다.
-   ★ 대상은 요소 전체의 opacity 다. 배경만 흐리게 하는 방법(--win-face 를 rgba 로 합성)도 있었지만,
-     "입력창 글자까지 같이 흐려지는 쪽"으로 정했다. 그래서 여기서는 style.opacity 하나만 쓴다 —
-     테마 토큰을 건드리지 않으므로 audit 검사 13(하드코딩 색)과도 무관하다.
-   ★ 😊 이모티콘 창도 같이 흐려진다. 채팅창 옆에 붙어 뜨는 한 몸이라, 한쪽만 불투명하면
-     반투명이 아니라 고장으로 읽힌다.
-   ⚠️ 하한은 0 이 아니라 10 이다. 0 이면 창이 통째로 사라져 슬라이더 자체를 못 찾고,
-     값이 로컬에 남아 있어서 다시 열어도 여전히 안 보인다 — 되살릴 방법이 없어진다.
-     10 은 형체와 슬라이더 위치가 겨우 보이는 선이다. 더 낮추려면 '창을 다시 진하게 하는 길'을
-     먼저 만들고 낮출 것. */
-const CHAT_OPACITY_KEY = 'tw.chatOpacity';
-const CHAT_OPACITY_DEFAULT = 100, CHAT_OPACITY_MIN = 10, CHAT_OPACITY_MAX = 100;
-function _clampChatOpacity(v){
-  v = Math.round(Number(v));
-  if(!isFinite(v)) return CHAT_OPACITY_DEFAULT;
-  return Math.max(CHAT_OPACITY_MIN, Math.min(CHAT_OPACITY_MAX, v));
-}
-function _loadChatOpacity(){
-  let v = null;
-  try{ v = parseInt(localStorage.getItem(CHAT_OPACITY_KEY), 10); }catch(_){}
-  return (v == null || isNaN(v)) ? CHAT_OPACITY_DEFAULT : _clampChatOpacity(v);
-}
-function _applyChatOpacity(){
-  const pct = _loadChatOpacity();
-  ['chatWindow', 'chatEmojiWin'].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) el.style.opacity = (pct >= 100) ? '' : String(pct / 100);
-  });
-  const sl = document.getElementById('chatOpacity');
-  if(sl){
-    if(String(sl.value) !== String(pct)) sl.value = String(pct);
-    sl.title = '투명도 ' + pct + '%';
-  }
-  return pct;
-}
-function _setChatOpacity(v){
-  const pct = _clampChatOpacity(v);
-  try{ localStorage.setItem(CHAT_OPACITY_KEY, String(pct)); }catch(_){}
-  _applyChatOpacity();
-}
-
-/* 💬 채팅창 글자 크기 (기기별 로컬 저장) — 창 위치·크기와 같은 성격이라 서버에 올리지 않는다.
-   #chatWindow 의 --chat-font 하나만 바꾸면 .chat-messages 와 그 하위(em)가 함께 커진다. */
-const CHAT_FONT_KEY = 'tw.chatFontSize';
-const CHAT_FONT_DEFAULT = 12;                  // .chat-messages 의 원래 값 — 바꾸면 기존 유저 화면이 바뀐다
-const CHAT_FONT_ALLOWED = [11, 12, 14, 16];    // 드롭다운 data-fs 와 같은 목록이어야 한다
-function _loadChatFontSize(){
-  let v = null;
-  try{ v = parseInt(localStorage.getItem(CHAT_FONT_KEY), 10); }catch(_){}
-  return CHAT_FONT_ALLOWED.includes(v) ? v : CHAT_FONT_DEFAULT;
-}
-function _applyChatFontSize(){
-  const px = _loadChatFontSize();
-  const win = document.getElementById('chatWindow');
-  if(win) win.style.setProperty('--chat-font', px + 'px');
-  // 현재 선택에 ✓ (폭 고정된 .chk 자리에만 넣어 글자가 밀리지 않게)
-  document.querySelectorAll('.chat-fs-item').forEach(it=>{
-    const c = it.querySelector('.chk');
-    if(c) c.textContent = (parseInt(it.dataset.fs, 10) === px) ? '✓' : '';
-  });
-  return px;
-}
-function _setChatFontSize(px){
-  if(!CHAT_FONT_ALLOWED.includes(px)) return;
-  try{ localStorage.setItem(CHAT_FONT_KEY, String(px)); }catch(_){}
-  _applyChatFontSize();
-  // 글자가 커지면 스크롤 위치가 어긋나므로 맨 아래로 — 방금 읽던 자리가 화면 밖으로 나가는 게 더 어색하다
-  const box = document.getElementById('chatMessages');
-  if(box) box.scrollTop = box.scrollHeight;
-}
+/* 본문은 chat-prefs.js 로 옮겼다(앱 FSD 41번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const CHAT_PREFS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const chatPrefsMod = (typeof TwChatPrefs === 'undefined') ? CHAT_PREFS_MOD_OFF : TwChatPrefs.createChatPrefs({
+  CHAT_SFX_DEFAULT_ID: CHAT_SFX_DEFAULT_ID,
+  CHAT_SFX_DEFAULT_ON: CHAT_SFX_DEFAULT_ON,
+  CHAT_SFX_GAP_MS: CHAT_SFX_GAP_MS,
+  CHAT_SFX_ID_KEY: CHAT_SFX_ID_KEY,
+  CHAT_SFX_LIST: CHAT_SFX_LIST,
+  CHAT_SFX_ON_KEY: CHAT_SFX_ON_KEY,
+  Presence: ()=>Presence,
+  _chatEsc: (...a)=>_chatEsc(...a),
+  _chatIsHost: (...a)=>_chatIsHost(...a),
+  _chatIsSecretRoom: (...a)=>_chatIsSecretRoom(...a),
+  _chatLogCache: ()=>_chatLogCache,
+  _chatOffOn: (...a)=>_chatOffOn(...a),
+  _chatOffRefreshUI: (...a)=>_chatOffRefreshUI(...a),
+  _chatRoomCode: (...a)=>_chatRoomCode(...a),
+  _chatSfxPools: _chatSfxPools,
+  chatUiMod: ()=>chatUiMod,
+  getDisplayName: (...a)=>getDisplayName(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  officeMode: ()=>officeMode,
+  seats: seats,
+  toast: (...a)=>toast(...a),
+});
 
 /* ═══ 🔔 채팅 알림음 — 상태 · 저장 · 메뉴 ═══ */
-/* 🔔 채팅 알림음 — 상태·저장·메뉴 표시. 소리 풀과 상수는 효과음 공장 옆(CHAT_SFX_LIST)에 있다. */
-function _chatSfxOn(){
-  let v = null;
-  try{ v = localStorage.getItem(CHAT_SFX_ON_KEY); }catch(_){}
-  return v == null ? CHAT_SFX_DEFAULT_ON : v === '1';
-}
-function _chatSfxId(){
-  let v = null;
-  try{ v = parseInt(localStorage.getItem(CHAT_SFX_ID_KEY), 10); }catch(_){}
-  return CHAT_SFX_LIST.some(x => x.id === v) ? v : CHAT_SFX_DEFAULT_ID;
-}
-/* 🏢 회사원 모드면 알림음은 **꺼진 것으로 보인다.** 저장값(tw.chatSfx)은 건드리지 않는다 —
-   모드를 끄면 사용자가 골라 둔 상태 그대로 돌아온다. 소리 자체는 풀(_mkSndPool.play)이 이미 막는다.
-   ⚠ officeMode 는 파일 뒤쪽의 let 이라 초기화 전에 부르면 typeof 도 던진다 — try 로 감싼다. */
-function _chatSfxOfficeLock(){
-  try{ return !!officeMode; }catch(_){ return false; }
-}
-function _setChatSfxOn(on){
-  try{ localStorage.setItem(CHAT_SFX_ON_KEY, on ? '1' : '0'); }catch(_){}
-  _applyChatSfxUI();
-}
-function _setChatSfxId(id){
-  if(!CHAT_SFX_LIST.some(x => x.id === id)) return;
-  try{ localStorage.setItem(CHAT_SFX_ID_KEY, String(id)); }catch(_){}
-  _applyChatSfxUI();
-}
-/* 메뉴 표시 — 켜짐이면 ✓ 와 소리 목록(● 고른 것), 꺼짐이면 목록을 통째로 숨긴다(시안 B). */
-function _applyChatSfxUI(){
-  const lock = _chatSfxOfficeLock();
-  const on = _chatSfxOn() && !lock, cur = _chatSfxId();
-  const tg = document.getElementById('chatSfxToggle');
-  const c = tg && tg.querySelector('.chk'); if(c) c.textContent = on ? '✓' : '';
-  if(tg){
-    tg.classList.toggle('locked', lock);
-    tg.title = lock ? '회사원 모드에서는 알림음이 꺼져 있어요' : '';
-    const nt = tg.querySelector('.chat-sfx-note'); if(nt) nt.textContent = lock ? '회사원 모드' : '';
-  }
-  const list = document.getElementById('chatSfxList');
-  if(list) list.style.display = on ? '' : 'none';
-  document.querySelectorAll('.chat-sfx-item').forEach(it=>{
-    const k = it.querySelector('.chk');
-    if(k) k.textContent = (parseInt(it.dataset.sfx, 10) === cur) ? '●' : '○';
-  });
-}
-function _chatSfxPreview(id){
-  const P = _chatSfxPools[id];
-  if(P) P.play();
-}
-/* 대화창이 **열려 있는가** — 열려 있으면 알림음을 내지 않는다(2026-09-17 결정 변경).
-   ★ 처음엔 «입력칸에 포커스가 있을 때만» 조용했는데, 창을 띄워 두고 다른 일을 하는 동안에도
-     새 줄은 이미 화면에 보이므로 소리까지 날 이유가 없다고 정리했다. 소리는 창을 닫아 뒀을 때만 난다.
-   ⚠ 최소화(#chatWindow.min)도 «열려 있음» 이다 — 입력줄이 떠 있고, 거기서 치는 중일 수 있다.
-   ⚠ 판정은 #chatOverlay 의 display 하나다. openChatWindow 가 'block', 닫기가 'none' 으로 둔다. */
-function _chatWinOpen(){
-  try{
-    const ov = document.getElementById('chatOverlay');
-    return !!(ov && ov.style.display && ov.style.display !== 'none');
-  }catch(_){ return false; }
-}
-let _chatSfxLast = 0;
-function _chatNotifyIncoming(){
-  if(!_chatSfxOn() || _chatSfxOfficeLock()) return;
-  if(_chatWinOpen()) return;
-  const now = Date.now();
-  if(now - _chatSfxLast < CHAT_SFX_GAP_MS) return;
-  _chatSfxLast = now;
-  _chatSfxPreview(_chatSfxId());   // 회사원 모드 게이트는 풀(_mkSndPool.play) 안에 있다
-}
+/* (앱 FSD 41번) 이 자리의 본문도 chat-prefs.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🛡️ 리치 텍스트 sanitize · 저장 · 글자 수 ═══ */
 // ★ 마이홈 4: 리치 텍스트 sanitize / load / count 헬퍼
@@ -5850,7 +5739,7 @@ const CHAT_UI_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴
 const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi.createChatUi({
   CHAT_WIN_POS_KEY: ()=>CHAT_WIN_POS_KEY,
   Presence: ()=>Presence,
-  _chatDelClose: (...a)=>_chatDelClose(...a),
+  _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
   _chatEsc: (...a)=>_chatEsc(...a),
   _chatIsHost: (...a)=>_chatIsHost(...a),
   _chatLinkify: (...a)=>_chatLinkify(...a),
@@ -5864,7 +5753,7 @@ const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi
   _myHomeData: ()=>_myHomeData,
   _officeDemojiHtml: (...a)=>overheadMod._officeDemojiHtml(...a),
   _parseDanceCmdChain: (...a)=>_parseDanceCmdChain(...a),
-  _refreshChatMembers: (...a)=>_refreshChatMembers(...a),
+  _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
   _seatLabelName: (...a)=>overheadMod._seatLabelName(...a),
   asyncPrompt: (...a)=>asyncPrompt(...a),
   bringWinToFront: (...a)=>bringWinToFront(...a),
@@ -5953,7 +5842,7 @@ function _chatOffRefreshUI(){
      ⚠️ 호출 자리를 따로 두지 않는 이유: 이 함수는 창을 열 때(openChatWindow)와 방 메타가 바뀔 때
        (_onRoomMeta) 양쪽에서 이미 불린다. 별도 함수를 만들어 두 자리에 각각 걸면, 다음에 호출
        지점이 하나 더 생겼을 때 한쪽만 빠져서 "방장인데 버튼이 안 보인다"가 난다. */
-  try{ _chatDelRefreshUI(); }catch(_){}
+  try{ chatPrefsMod._chatDelRefreshUI(); }catch(_){}
   // 🌊 날리기 줄도 같은 재료(채널·레벨)로 정해진다 — 호출 자리를 따로 두지 않는 이유는 위와 같다.
   try{ chatUiMod._chatFlyRefreshUI(); }catch(_){}
 }
@@ -5969,116 +5858,7 @@ function _chatOffRefreshUI(){
    ★ 표시 조건은 '방장 + 채팅창이 열리는 방'이다. 시크릿룸은 항상 투게더룸으로 열리고
      (_enterRoom 의 _isSecret 분기), 채팅창 자체가 채널2에서만 열리므로 `_activeChannel===2`
      한 줄이 곧 "시크릿룸 + 투게더룸"이다. 조건을 늘리지 말 것 — 늘리면 서로 어긋난다. */
-function _chatDelRefreshUI(){
-  const el = document.getElementById('chatDelLog');
-  if(!el) return;
-  const can = (window._activeChannel === 2) && _chatIsHost();
-  el.classList.toggle('on', can);
-  if(!can) _chatDelClose();     // 방장에서 내려온 순간 열려 있던 확인창도 같이 닫는다
-}
-function _chatDelClose(){
-  const ov = document.getElementById('chatDelOv');
-  if(ov) ov.classList.remove('on');
-}
-function _chatDelOpen(){
-  if(!( (window._activeChannel === 2) && _chatIsHost() )){ toast('방장만 지울 수 있어요'); return; }
-  const ov = document.getElementById('chatDelOv'); if(!ov) return;
-  /* 몇 줄이 지워지는지 보여준다 — 화면에 보이는 줄(_chatVisibleRows)이 아니라 **서버에 있는 줄**이다.
-     내가 [지우기]로 접어 둔 것도, 입장 전 대화도 같이 사라지므로 그쪽이 정직한 숫자다. */
-  const n = (_chatLogCache || []).length;
-  const what = document.getElementById('chatDelWhat');
-  if(what) what.textContent = '#' + chatUiMod._chatTabName(chatUiMod._chatMyTabId()) + ' 채널의';
-  const cnt = document.getElementById('chatDelCount');
-  if(cnt) cnt.textContent = n ? ('지울 대화 ' + n + '줄') : '지울 대화가 없어요';
-  const ok = document.getElementById('chatDelOk');
-  if(ok){ ok.disabled = !n; ok.textContent = '삭제'; }
-  ov.classList.add('on');
-}
-async function _chatDelRun(){
-  const room = _chatRoomCode();
-  if(!room){ _chatDelClose(); return; }
-  if(!(window.firebaseAPI && firebaseAPI.clearChatLog)){
-    _chatDelClose(); toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return;
-  }
-  const ok = document.getElementById('chatDelOk');
-  /* 서버 왕복을 기다리는 동안 버튼을 잠근다 — 두 번 눌러도 두 번 지울 뿐이라 해는 없지만,
-     아무 반응이 없으면 사람이 계속 누르고 그게 '눌러도 안 된다'는 인상이 된다.
-     ⚠️ 낙관적 반영은 하지 않는다([채팅 켜짐]과 다른 점). 지우기는 되돌릴 수 없어서,
-       실패했는데 화면만 빈 상태가 제일 위험하다 — 서버가 지웠다고 답한 뒤에 비운다. */
-  if(ok){ ok.disabled = true; ok.textContent = '지우는 중…'; }
-  const _ch = firebaseAPI.chatHistory;   // 💬 지우기 표시 줄까지 남겨 각자 PC 저장도 비운다(chat-history.js clear)
-  const r = await (_ch ? _ch.clear(room, chatUiMod._chatMyTabId()) : firebaseAPI.clearChatLog(room, chatUiMod._chatMyTabId()));   // 지금 보는 탭만
-  if(!(r && r.ok)){
-    if(ok){ ok.disabled = false; ok.textContent = '삭제'; }
-    toast('지우지 못했어요 — 네트워크나 권한을 확인해 주세요');
-    return;
-  }
-  _chatDelClose();
-  /* 화면은 subscribeChatLog 가 빈 목록을 물고 오면서 저절로 빈다. 다만 그게 오기 전까지
-     방금 지운 대화가 남아 있으면 "안 지워졌나?" 로 읽히므로, 내 화면만 먼저 비워 둔다. */
-  try{ chatUiMod._renderChatLog([]); }catch(_){}
-  toast('🗑 대화 기록을 지웠어요');
-}
-/* 🎛️ 방 메타가 바뀔 때마다 firebase-init 의 _meta 리스너가 부른다.
-   방장 승계·채널 변경도 같은 값으로 오므로 멤버줄(👑)도 여기서 같이 갱신한다. */
-window._onRoomMeta = function(meta){
-  /* 채널도 표지를 따라간다 — 예전에는 입장할 때 한 번만 정해서, 도중에 표지가 바뀌거나 되살아나면 같은 방 안에서
-     누구는 채팅 · 누구는 이모티콘으로 갈렸다. 표지가 잠깐 비는 순간(null · channel 없음)은 그대로 둔다. */
-  if(meta && (meta.channel === 'togetherroom' || meta.channel === 'workingroom')) window._activeChannel = (meta.channel === 'togetherroom') ? 2 : 1;
-  try{ chatUiMod._chatTabsOnMeta(); }catch(_){}
-  try{ _chatOffRefreshUI(); }catch(_){}
-  try{ if(typeof _refreshChatMembers==='function') _refreshChatMembers(); }catch(_){}
-  try{ if(typeof chatUiMod._renderChatLog==='function') chatUiMod._renderChatLog(_chatLogCache); }catch(_){}   // 안내줄 갱신
-};
-async function _chatOffToggleClick(){
-  if(!_chatIsSecretRoom()) return;
-  if(!_chatIsHost()){ toast('방장만 켜고 끌 수 있어요'); return; }
-  const room = _chatRoomCode(); if(!room) return;
-  const _sp = (Presence.serverProvider && Presence.serverProvider()) || null;   // 🛰 서버 방이면 meta 를 서버로
-  if(!_sp && !(window.firebaseAPI && firebaseAPI.setRoomChatOff)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
-  const next = !_chatOffOn();
-  /* 서버 왕복을 기다리지 않고 먼저 반영한다 — 아무 반응이 없으면 두 번 누르고, 그러면 원위치가 된다.
-     실패하면 되돌리고 이유를 말한다. */
-  const prev = window._roomMetaCache;
-  try{ window._roomMetaCache = Object.assign({}, prev || {}, { chatOff: next }); }catch(_){}
-  _chatOffRefreshUI();
-  const r = _sp ? await _sp.setMeta({ chatOff: next }) : await firebaseAPI.setRoomChatOff(room, next);
-  if(!(r && r.ok)){
-    try{ window._roomMetaCache = prev; }catch(_){}
-    _chatOffRefreshUI();
-    toast('바꾸지 못했어요 — 네트워크를 확인해 주세요');
-    return;
-  }
-  toast(next ? '🔇 방 전체 채팅을 껐어요' : '💬 채팅을 다시 켰어요');
-}
-// 멤버 목록 + 방장(👑, 볼드) 표시
-function _refreshChatMembers(){
-  const label=document.getElementById('chatMemberLabel');
-  const listEl=document.getElementById('chatMemberList');
-  if(!label || !listEl) return;
-  // 현재 방 좌석에서 사람 이름을 모음 — 나 + 친구들
-  const names=[];   // {name, isHost}
-  let hostUserId=null;
-  try{ if(window._roomMetaCache) hostUserId=window._roomMetaCache.host; }catch(_){}
-  try{
-    for(const st of seats){
-      if(!st || (!st.isMe && !st.friendName && !st.remote)) continue;
-      // 💬 「이 채널」 — 내 탭에 있는 사람만(구버전 · 탭 칸이 없는 사람은 #일반)
-      if(!st.isMe && chatUiMod._chatTabResolve(st.chatTabId || 'general') !== chatUiMod._chatMyTabId()) continue;
-      if(st.isMe){
-        names.push({ name:getDisplayName(), isHost:(hostUserId && getMyUserId()===hostUserId) });
-      }else if(st.friendName){
-        names.push({ name:st.friendName, isHost:(hostUserId && st.friendUserId===hostUserId) });
-      }
-    }
-  }catch(_){}
-  // 방장을 맨 앞으로
-  names.sort((a,b)=> (b.isHost?1:0)-(a.isHost?1:0));
-  label.textContent = `이 채널(${names.length})`;
-  listEl.innerHTML = names.map(m =>
-    m.isHost ? `<span class="host">👑 ${_chatEsc(m.name)}</span>` : _chatEsc(m.name)
-  ).join(', ') || '—';
-}
+/* (앱 FSD 41번) 이 자리의 본문도 chat-prefs.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 💬 채팅 탭(채널) — 투게더룸 · 시크릿룸 대화창 ═══
    규칙(이름 · 상한 · 인원 · 경로)은 chat-tabs.js. 여기는 화면 · 구독 · 전환.
    ★ 내가 있는 탭 = 마지막으로 누른 탭. 창을 닫거나 접어도 유지, 그 탭이 지워지면 #일반.
@@ -6263,18 +6043,18 @@ const chatWindowMod = (typeof TwChatWindow === 'undefined') ? CHAT_WINDOW_OFF : 
   chatClearNow: (...a)=>chatUiMod._chatClearNow(...a),
   chatClearUndo: (...a)=>chatUiMod._chatClearUndo(...a),
   // 투명도 · 글자 크기
-  clampChatOpacity: (...a)=>_clampChatOpacity(...a),
-  setChatOpacity: (...a)=>_setChatOpacity(...a),
-  applyChatOpacity: (...a)=>_applyChatOpacity(...a),
-  setChatFontSize: (...a)=>_setChatFontSize(...a),
-  applyChatFontSize: (...a)=>_applyChatFontSize(...a),
+  clampChatOpacity: (...a)=>chatPrefsMod._clampChatOpacity(...a),
+  setChatOpacity: (...a)=>chatPrefsMod._setChatOpacity(...a),
+  applyChatOpacity: (...a)=>chatPrefsMod._applyChatOpacity(...a),
+  setChatFontSize: (...a)=>chatPrefsMod._setChatFontSize(...a),
+  applyChatFontSize: (...a)=>chatPrefsMod._applyChatFontSize(...a),
   // 알림음
-  chatSfxOn: (...a)=>_chatSfxOn(...a),
-  setChatSfxOn: (...a)=>_setChatSfxOn(...a),
-  setChatSfxId: (...a)=>_setChatSfxId(...a),
-  chatSfxPreview: (...a)=>_chatSfxPreview(...a),
-  applyChatSfxUI: (...a)=>_applyChatSfxUI(...a),
-  chatSfxOfficeLock: (...a)=>_chatSfxOfficeLock(...a),
+  chatSfxOn: (...a)=>chatPrefsMod._chatSfxOn(...a),
+  setChatSfxOn: (...a)=>chatPrefsMod._setChatSfxOn(...a),
+  setChatSfxId: (...a)=>chatPrefsMod._setChatSfxId(...a),
+  chatSfxPreview: (...a)=>chatPrefsMod._chatSfxPreview(...a),
+  applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),
+  chatSfxOfficeLock: (...a)=>chatPrefsMod._chatSfxOfficeLock(...a),
   // 날리기 — 체크 · 크기 · 색(세션 변수는 쓰는 함수로)
   setChatFlyOn: (v)=>{ chatUiMod.setChatFlyOn(v); },
   setChatFlySize: (v)=>{ chatUiMod.setChatFlySize(v); },
@@ -6285,10 +6065,10 @@ const chatWindowMod = (typeof TwChatWindow === 'undefined') ? CHAT_WINDOW_OFF : 
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
   isAdmin: ()=>isAdmin,
   // 🔇 채팅 잠금 · 🗑 기록 삭제
-  chatOffToggleClick: (...a)=>_chatOffToggleClick(...a),
-  chatDelOpen: (...a)=>_chatDelOpen(...a),
-  chatDelClose: (...a)=>_chatDelClose(...a),
-  chatDelRun: (...a)=>_chatDelRun(...a),
+  chatOffToggleClick: (...a)=>chatPrefsMod._chatOffToggleClick(...a),
+  chatDelOpen: (...a)=>chatPrefsMod._chatDelOpen(...a),
+  chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
+  chatDelRun: (...a)=>chatPrefsMod._chatDelRun(...a),
   // 😊 이모티콘
   toggleEmojiPanel: (...a)=>chatUiMod._toggleEmojiPanel(...a),
   emojiCache: ()=>chatUiMod._emojiCache(),
@@ -12949,11 +12729,11 @@ const roomEntryMod = (typeof TwRoomEntry === 'undefined') ? ROOM_ENTRY_MOD_OFF :
   EXP_CELLS: ()=>EXP_CELLS,
   FLOATER_BURST: FLOATER_BURST,
   Presence: Presence,
-  _chatNotifyIncoming: (...a)=>_chatNotifyIncoming(...a),
+  _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),
   _clearHiddenSeats: (...a)=>_clearHiddenSeats(...a),
   _onDeviceSessionLost: (...a)=>_onDeviceSessionLost(...a),
   _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),
-  _refreshChatMembers: (...a)=>_refreshChatMembers(...a),
+  _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
   applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),
   awayPicMod: ()=>awayPicMod,
@@ -13019,7 +12799,7 @@ const progSettingsMod = (typeof TwProgramSettings === 'undefined') ? PROG_SETTIN
   FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,
   OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,
   Presence: Presence,
-  _applyChatSfxUI: (...a)=>_applyChatSfxUI(...a),
+  _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),
   _focusShowPush: (...a)=>_focusShowPush(...a),
   _lsSet: (...a)=>_lsSet(...a),
   chatUiMod: chatUiMod,
