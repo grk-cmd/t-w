@@ -5860,7 +5860,7 @@ const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi
   _chatOffRefreshUI: (...a)=>_chatOffRefreshUI(...a),
   _chatRoomCode: (...a)=>_chatRoomCode(...a),
   _danceCmdCooldownAt: ()=>_danceCmdCooldownAt,
-  _diceSvg: (...a)=>_diceSvg(...a),
+  _diceSvg: (...a)=>diceMod._diceSvg(...a),
   _myHomeData: ()=>_myHomeData,
   _officeDemojiHtml: (...a)=>overheadMod._officeDemojiHtml(...a),
   _parseDanceCmdChain: (...a)=>_parseDanceCmdChain(...a),
@@ -6098,30 +6098,23 @@ function _refreshChatMembers(){
 /* (앱 FSD 24번) 이 자리의 본문도 chat-ui.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══════════════ 🎲 주사위 ═══════════════ */
-// 점 배치 — 각 눈금(1~6)의 점 좌표(3x3 격자, 0~2). 표준 주사위 배열.
-const _DICE_PIPS = {
-  1: [[1,1]],
-  2: [[0,0],[2,2]],
-  3: [[0,0],[1,1],[2,2]],
-  4: [[0,0],[2,0],[0,2],[2,2]],
-  5: [[0,0],[2,0],[1,1],[0,2],[2,2]],
-  6: [[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]]
-};
-// SVG 점주사위 생성. n=1이면 점이 빨강, 그 외 검정.
-function _diceSvg(n, px){
-  px = px || 30;
-  const pips = _DICE_PIPS[n] || _DICE_PIPS[1];
-  const pad = px*0.26, gap=(px - pad*2)/2, r=px*0.11;   // pad를 키워 점이 사각 틀 안쪽으로 — 테두리 여백 확보
-  const color = (n===1) ? '#d22' : '#222';
-  let dots='';
-  for(const [cx,cy] of pips){
-    const x = pad + cx*gap, y = pad + cy*gap;
-    dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${color}"/>`;
-  }
-  return `<svg class="cm-dice" width="${px}" height="${px}" viewBox="0 0 ${px} ${px}" xmlns="http://www.w3.org/2000/svg">`
-       + `<rect x="1" y="1" width="${px-2}" height="${px-2}" rx="${px*0.15}" fill="#fff" stroke="#888" stroke-width="1.5"/>`
-       + dots + `</svg>`;
-}
+/* 본문은 dice-games.js 로 옮겼다(앱 FSD 39번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const DICE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const diceMod = (typeof TwDiceGames === 'undefined') ? DICE_MOD_OFF : TwDiceGames.createDiceGames({
+  Presence: ()=>Presence,
+  ROULETTE_FLY_DELAY_MS: ()=>ROULETTE_FLY_DELAY_MS,
+  canFly: (...a)=>canFly(...a),
+  chatUiMod: chatUiMod,
+  findMySeat: (...a)=>findMySeat(...a),
+  flySeed: (...a)=>flySeed(...a),
+  getDisplayName: (...a)=>getDisplayName(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  officeMode: ()=>officeMode,
+  showChatBubble: (...a)=>showChatBubble(...a),
+  toast: (...a)=>toast(...a),
+  tricksMod: tricksMod,
+});
 /* 📷 스티커사진 계층(parts/purikura-net.js)으로 가는 유일한 입구.
    ★ 왜 한 곳으로 모으나 — 이 계층은 THREE 도 DOM 도 안 보는 «요금을 정하는 층»이라
      app.js 여기저기서 직접 makeSession 을 부르기 시작하면 세션이 여러 개가 되고,
@@ -6195,72 +6188,7 @@ const purikuraUi = (typeof TwPurikuraUi === 'undefined') ? PURIKURA_UI_OFF : TwP
    ⚠️ 이 기기 localStorage 에만 센다 — 기기마다 따로이고, 콘솔로 지우면 풀린다(난수 자체가 클라이언트라
      🎲 와 같은 수준 — ROULETTE 주석의 ⚠️ 그대로). 서버로 막아야 하면 규칙·서버 기록이 따로 필요하다.
    ⚠️ 저장이 안 되는 환경이면 **막지 않는다**(못 세는 것을 «다 썼다» 로 읽으면 놀이가 영영 잠긴다). */
-const DAILY_PLAY_MAX = 6;
-function _dailyPlayDay(){ const d = new Date(); return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate(); }
-/* kind: 'roulette' | 'dice'. 쓸 수 있으면 한 번 깎고 { ok:true, left } · 다 썼으면 { ok:false, left:0 }. */
-function _dailyPlayTake(kind){
-  const key = 'tw.dailyPlay.' + kind, day = _dailyPlayDay();
-  let rec = null;
-  try{ rec = JSON.parse(localStorage.getItem(key) || 'null'); }catch(_){ rec = null; }
-  const used = (rec && rec.d === day && rec.n > 0) ? (rec.n | 0) : 0;
-  if(used >= DAILY_PLAY_MAX) return { ok:false, left:0 };
-  try{ localStorage.setItem(key, JSON.stringify({ d:day, n:used + 1 })); }catch(_){}
-  return { ok:true, left:DAILY_PLAY_MAX - used - 1 };
-}
-
-// 주사위 굴리기 — 메시지 전송(대화창) + 말풍선
-/* 🔫 [2026-09-23] 투게더룸 🎲 도 러시안룰렛이다 — 하나라도 1이면 **굴린 사람이** 날아간다(요청).
-   ★ 날리기는 룰렛과 같은 한 곳(_selfFlyAfterDice → pokeSelf)으로 간다.
-   ★ 🎲 는 룰렛 버튼과 달리 **굴리기 자체는 막지 않는다**(원래 놀이 도구다). 날 수 없을 때
-     (회사원 모드 · 쉬는 시간 · canFly 불가)는 주사위만 나오고 조용히 안 날아간다.
-   ★ 대화 기록 문장은 **원래 🎲 문장 그대로**다 — «1이 나와 날아갔어요» 꼬리는 붙이지 않는다(2026-09-23 요청). */
-function _rollDice(){
-  if(window._activeChannel !== 2) return;
-  /* 🎟️ 하루 6번(_dailyPlayTake 주석). typeof 로 거는 것은 검사 무대(sim-fly-roulette)가 이 함수만 오려 돌리기 때문이다. */
-  if(typeof _dailyPlayTake === 'function'){
-    const q = _dailyPlayTake('dice');
-    if(!q.ok){ if(typeof toast==='function') toast('🎲 주사위는 하루 ' + DAILY_PLAY_MAX + '번까지예요 — 내일 다시 굴릴 수 있어요'); return; }
-    if(q.left === 0 && typeof toast==='function') toast('🎲 오늘 마지막 주사위였어요');
-  }
-  const n1 = 1 + Math.floor(Math.random()*6);
-  const n2 = 1 + Math.floor(Math.random()*6);
-  const name = getDisplayName();
-  const dice2 = `[dice:${n1}][dice:${n2}]`;   // 주사위 2개 나란히
-  const mySeat = findMySeat();
-  const willFly = (n1 === 1 || n2 === 1) && _selfFlyReady(mySeat);
-  // 기록/전송 텍스트에 주사위 마커 삽입 — 렌더 시 SVG로 변환
-  const logText = `${name}님이 주사위 ${dice2} 가 나왔습니다.`;
-  // 1) 말풍선 — 주사위 2개만(마커). setSeatHeadBubble이 주사위 마커만으로 된 텍스트를 SVG로 렌더.
-  if(mySeat) showChatBubble(mySeat, dice2);
-  // 💬 🎲 은 대화창 도구라 지금 보는 탭으로 간다(말풍선 · 기록 둘 다). 날아가는 것(willFly)은 방 전체 그대로.
-  const _tab = (typeof chatUiMod._chatMyTabId === 'function') ? chatUiMod._chatMyTabId() : 'general';
-  if(typeof Presence!=='undefined' && Presence.active() && Presence.sendChat) Presence.sendChat(dice2, false, '', '', _tab);
-  // 2) 대화 기록 — 전체 문장
-  const room=(typeof Presence!=='undefined' && Presence.roomCode)?Presence.roomCode():null;
-  if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
-    firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name, text:logText }, _tab);
-  }
-  if(willFly) _selfFlyAfterDice();
-}
-
-/* 🔫 주사위로 나를 날릴 수 있는가 — 회사원 모드 · 쉬는 시간 · canFly. 토스트 없이 참/거짓만(🎲 용).
-   룰렛 버튼은 같은 판정을 **토스트와 함께** 먼저 한다(_rollRoulette). */
-function _selfFlyReady(seat){
-  if(typeof officeMode !== 'undefined' && officeMode) return false;
-  if(!seat) return false;
-  if(tricksMod._myFlyCoolUntil() && Date.now() < tricksMod._myFlyCoolUntil()) return false;
-  return canFly(seat, true).ok;   // 🗼 탑 안이어도 된다(날리기 직전에 뺀다 — canFly 주석)
-}
-/* 🔫 주사위 말풍선을 먼저 보여 주고 나를 날린다 — 룰렛 · 🎲 공용 한 곳.
-   방이면 pokeSelf(방송이 돌아와 applyRemoteFly 로 재생) · 혼자면 applyRemoteFly 직접. */
-function _selfFlyAfterDice(){
-  const inRoom = (typeof Presence!=='undefined' && Presence.active());
-  const seed = flySeed();
-  setTimeout(()=>{
-    if(inRoom && Presence.active() && Presence.pokeSelf){ Presence.pokeSelf('fly:' + seed); return; }
-    const me = findMySeat(); if(me) tricksMod.applyRemoteFly(me, String(seed));   // 혼자 — 방송이 없다
-  }, ROULETTE_FLY_DELAY_MS);
-}
+/* (앱 FSD 39번) 이 자리의 본문도 dice-games.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🔫 러시안룰렛 ═══════════════════════════════════════════════════
    [2026-09-23 · handoff-2026-09-21-features §1] 상태칩 ▼ 메뉴 💃 춤추기 아래 버튼.
@@ -6296,9 +6224,9 @@ function _rollRoulette(){
   const c = canFly(mySeat, true);   // 🗼 탑 안이어도 굴린다 — 1 이면 탑에서 튕겨 나간다(A안)
   if(!c.ok){ if(typeof toast==='function') toast(c.why); return; }
   /* 🎟️ 하루 6번 — 위 게이트를 다 지난 뒤에만 센다(막힌 누름은 안 깎는다 · _dailyPlayTake 주석). */
-  if(typeof _dailyPlayTake === 'function'){
-    const q = _dailyPlayTake('roulette');
-    if(!q.ok){ if(typeof toast==='function') toast('🔫 룰렛은 하루 ' + DAILY_PLAY_MAX + '번까지예요 — 내일 다시 돌릴 수 있어요'); return; }
+  if(typeof diceMod._dailyPlayTake === 'function'){
+    const q = diceMod._dailyPlayTake('roulette');
+    if(!q.ok){ if(typeof toast==='function') toast('🔫 룰렛은 하루 ' + diceMod.DAILY_PLAY_MAX + '번까지예요 — 내일 다시 돌릴 수 있어요'); return; }
     if(q.left === 0 && typeof toast==='function') toast('🔫 오늘 마지막 룰렛이었어요');
   }
   _rouletteAt = now;
@@ -6314,7 +6242,7 @@ function _rollRoulette(){
     tricksMod._flyChatLog(name + '님이 룰렛을 돌려 ' + dice2 + ' 가 나왔습니다.');   // 결과 꼬리 없음(🎲 와 같은 문장 모양 · 2026-09-23 요청)
   }
   if(!hit) return;
-  _selfFlyAfterDice();
+  diceMod._selfFlyAfterDice();
 }
 
 /* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */
@@ -6369,7 +6297,7 @@ const chatWindowMod = (typeof TwChatWindow === 'undefined') ? CHAT_WINDOW_OFF : 
   onEmojiFilePicked: (...a)=>chatUiMod._onEmojiFilePicked(...a),
   deleteEmoji: (...a)=>chatUiMod._deleteEmoji(...a),
   // 🎲 주사위
-  rollDice: (...a)=>_rollDice(...a),
+  rollDice: (...a)=>diceMod._rollDice(...a),
   // 💣 플라잉체어 조준
   FLY_MIN_LEVEL: FLY_MIN_LEVEL,
   seats: seats,
@@ -6617,7 +6545,7 @@ const OVERHEAD_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴�
 const overheadMod = (typeof TwOverhead === 'undefined') ? OVERHEAD_MOD_OFF : TwOverhead.createOverhead({
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   _chatEsc: (...a)=>_chatEsc(...a),
-  _diceSvg: (...a)=>_diceSvg(...a),
+  _diceSvg: (...a)=>diceMod._diceSvg(...a),
   _seatCtxMenu: (...a)=>_seatCtxMenu(...a),
   _starPaint: (...a)=>_starPaint(...a),
   _wpTmp3: statusChipMod._wpTmp3,
