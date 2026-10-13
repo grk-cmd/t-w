@@ -225,10 +225,10 @@ await sec('── 5. app.js 배선', () => {
   chk(off && used.every(n => new RegExp('\\b' + n + '\\b').test(off)), '빈 껍데기 PURIKURA_UI_OFF 가 부르는 이름을 다 갖는다 (' + used.join(' · ') + ')');
   const call = (APP.match(/TwPurikuraUi\.createPurikuraUi\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 31 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ _\w+ = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),
+  chk(deps.length === 31 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ (_\w+|plMod\.st\.\w+) = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),
     'deps 31개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만 (' + deps.length + ')');
-  chk(/plPlaying: \(\)=>_plPlaying,/.test(call) && /setPlPlaying: v=>\{ _plPlaying = v; \},/.test(call) && /officeMode: \(\)=>officeMode,/.test(call),
-    '다시 대입되는 let(officeMode · _plPlaying)은 읽는 함수로 · 쓰기는 setPlPlaying');
+  chk(/plPlaying: \(\)=>plMod\.st\.playing,/.test(call) && /setPlPlaying: v=>\{ plMod\.st\.playing = v; \},/.test(call) && /officeMode: \(\)=>officeMode,/.test(call),
+    '다시 대입되는 let(officeMode · _plPlaying — playlist.js 상태 묶음 plMod.st.playing)은 읽는 함수로 · 쓰기는 setPlPlaying');
   chk(['presence: ()=>Presence', 'spineAxis: ()=>SPINE_AXIS', 'headAxis: ()=>HEAD_AXIS', 'handRest: ()=>HAND_REST', 'shakeArmDroop: ()=>SHAKE_ARM_DROOP'].every(s => call.indexOf(s) >= 0)
     && ['const Presence', 'const SPINE_AXIS', 'const HAND_REST', 'const SHAKE_ARM_DROOP'].every(s => APP.indexOf(s) > iMk),
     '이 줄보다 뒤에 선언되는 const(Presence · 리그 상수 넷)는 읽는 함수로 — 만들 때 읽으면 TDZ');
