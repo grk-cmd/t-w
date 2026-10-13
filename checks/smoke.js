@@ -400,6 +400,8 @@ PRELOAD.push('dice-games.js');
 PRELOAD.push('program-settings.js');
 /* chat-prefs.js — 💬 채팅 투명도 · 알림음 · 기록 삭제(앱 FSD 41번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatPrefs 를 같이 굴린다. */
 PRELOAD.push('chat-prefs.js');
+/* rich-text.js — 🛡️ 리치 텍스트 sanitize(앱 FSD 42번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRichText 를 같이 굴린다. */
+PRELOAD.push('rich-text.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
