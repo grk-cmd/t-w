@@ -11235,6 +11235,13 @@ function _mhFriendSearchToggle(on){
   _friendFilter = '';
   renderMyHomeFriendList();
 }
+/* 🏠 친구 방에 놀러 가기 — 방 코드 누르기 · 묻는 창 · 이동은 friend-visit.js. 여기는 연결만. */
+const friendVisit = window.TwFriendVisit ? TwFriendVisit.createFriendVisit({ document, escHtml, toast,
+  getFriend: fid => _myHomeFriends[fid], roomTagOf: _friendRoomTag,
+  myRoom: () => (typeof Presence !== 'undefined' && Presence.roomCode) ? Presence.roomCode() : null,
+  inRoom: () => typeof Presence !== 'undefined' && Presence.active(),
+  leaveRoom: () => doLeaveRoom({ wipeChat: true }), startRoom: c => startRoom(c),
+  channelName: c => { const ch = Object.keys(ROOM_PREFIX).find(k => String(c).indexOf(ROOM_PREFIX[k]) === 0); return ch ? CHANNEL_NAMES[ch] : ''; } }) : null;
 
 function renderMyHomeFriendList(){
   // 👑 테마 재적용 — 이 함수가 목록 DOM을 새로 만들기 때문에, 렌더가 끝난 직후 친구 이름 글씨색 등을 다시 칠함
@@ -11304,7 +11311,7 @@ function renderMyHomeFriendList(){
       const roomTag = _friendRoomTag(f);
       const inRoom  = _friendInRoom(f);   // 🏠 — 시크릿룸이어도 붙는다(코드만 안 붙는다)
       const pill = fid===_mhSelectedFriend
-        ? `<span class="mh-fpill">${f.online ? ('온라인'+(roomTag?' · <span class="mh-fpill-code">'+escHtml(roomTag)+'</span>':'')) : '오프라인'}</span>` : '';
+        ? `<span class="mh-fpill">${f.online ? ('온라인'+(roomTag?' · <span class="mh-fpill-code'+(friendVisit?' go" title="클릭하면 놀러 가요':'')+'">'+escHtml(roomTag)+'</span>':'')) : '오프라인'}</span>` : '';
       /* 🛡️ 아바타 칸은 **속성에 보간을 쓰지 않는다.** `title` 은 남이 정한 닉네임이고
            `src` 는 남의 `users/$fid/home/avatar`(20만 자까지 허용되는 문자열)다. 둘 다
            예전엔 `title="…${…}…"` · `src="${…}"` 로 문자열에 박혀 있었는데, 그때 쓰던 헬퍼
@@ -11338,6 +11345,8 @@ function renderMyHomeFriendList(){
           if(typeof openFriendHomeView==='function') openFriendHomeView(fid);
         });
       }
+      const visitEl = row.querySelector('.mh-fpill-code.go');   // 🏠 방 코드 누르기 → 놀러 가기 창
+      if(visitEl) visitEl.addEventListener('click', e=>{ e.stopPropagation(); friendVisit.ask(fid); });
       row.querySelector('.mh-fremove').onclick=async (e)=>{
         e.stopPropagation();
         if(!confirm('이 친구를 목록에서 삭제할까요?')){ window.focus(); return; } window.focus();
