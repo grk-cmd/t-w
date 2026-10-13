@@ -9,6 +9,7 @@
    ・7절: package.json build.files 에 main 이 부르는 루트 모듈이 다 있다(빠지면 설치본이 안 켜진다)
    [실행] hover-poke.js · main.js · app.js · package.json 이 있는 폴더에서(러너가 평평하게 펼친다). */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -21,7 +22,7 @@ for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 
 const mod = { exports: {} };
 new Function('module', 'exports', 'require', SRC['hover-poke.js'])(mod, mod.exports, require);
 const H = mod.exports;
-const MAIN = SRC['main.js'], APP = SRC['app.js'];
+const MAIN = SRC['main.js'], APP = _joinRenderer(SRC['app.js']);
 const fnBody = (name) => (MAIN.match(new RegExp('function ' + name + '\\([^)]*\\)\\{[\\s\\S]*?\\n\\}')) || [''])[0];
 
 say('── 1. shouldPoll — 돌아야 할 때만 돈다');
