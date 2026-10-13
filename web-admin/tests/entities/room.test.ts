@@ -12,8 +12,10 @@ import {
   probeRoom,
   probeRooms,
   ROOM_LIVE_MS,
+  ROOM_TOTAL_LIMITS,
   roomRows,
   roomStatsSummary,
+  serverOf,
 } from '@/entities/room';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
 
@@ -66,6 +68,7 @@ describe('서버 집계 요약', () => {
       togetherroom: 1,
       at: NOW - 60_000,
       fresh: true,
+      server: null,
     });
     expect(roomStatsSummary({ workingroom: 2, togetherroom: 1, at: NOW - 180_000 }, NOW)?.fresh).toBe(false);
   });
@@ -192,5 +195,51 @@ describe('rooms 키만 보고 — 고아 · 시크릿룸 · 인원', () => {
     const probe = await probeRoom(db, 'WORK-C', true);
     expect(probe).toEqual({ members: 1, lastSeen: NOW - 20_000 });
     expect(ghostCodes({}, NOW, { codes: ['WORK-C'], probes: { 'WORK-C': probe } })).toEqual([]);
+  });
+});
+
+describe('방 서버 줄 — roomIndex 에 srv 가 있는 줄', () => {
+  const index = {
+    'WORK-SRV1': { lastSeen: NOW - 5_000, channel: 'workingroom' as const, srv: 'realtime-1' },
+    'PLAY-SRV2': { lastSeen: NOW - 200_000, channel: 'togetherroom' as const, srv: 'realtime-1' },
+    'WORK-FB01': { lastSeen: NOW - 200_000 },
+  };
+
+  it('전체 상한은 채널마다 250 (앱 ROOM_LIMITS 와 같다)', () => {
+    expect(ROOM_TOTAL_LIMITS).toEqual({ workingroom: 250, togetherroom: 250 });
+    expect(serverOf(index['WORK-SRV1'])).toBe('realtime-1');
+    expect(serverOf({ srv: '' })).toBeNull();
+    expect(serverOf(index['WORK-FB01'])).toBeNull();
+  });
+
+  it('Firebase 에 멤버가 없어도 유령이 아니다 — 신호가 끊겨도 정리 대상에서 뺀다(함수가 줄을 걷는다)', () => {
+    expect(ghostCodes(index, NOW, { codes: [], probes: {} })).toEqual(['WORK-FB01']);
+  });
+
+  it('목록 줄 — kind server · 방 서버 이름 · 인원은 모름(null)', () => {
+    const rows = roomRows(index, NOW, { codes: [], probes: { 'WORK-SRV1': { members: 0, lastSeen: null } } });
+    expect(rows.find((r) => r.code === 'WORK-SRV1')).toMatchObject({
+      kind: 'server',
+      server: 'realtime-1',
+      alive: true,
+      members: null,
+    });
+    expect(rows.find((r) => r.code === 'WORK-FB01')).toMatchObject({ kind: 'indexed', server: null });
+  });
+
+  it('전체 종료 대상에서 뺀다 — Firebase 에서 지워도 방 서버 방은 닫히지 않는다', () => {
+    expect(allRoomCodes(index, [])).toEqual(['WORK-FB01']);
+    // 같은 코드가 rooms 에도 있으면(옛 Firebase 방 찌꺼기) 그 rooms 는 대상
+    expect(allRoomCodes(index, ['WORK-SRV1'])).toEqual(['WORK-FB01', 'WORK-SRV1']);
+  });
+
+  it('서버 집계 — 방 서버 몫(server)이 있으면 함께, 없으면 null', () => {
+    expect(
+      roomStatsSummary(
+        { workingroom: 5, togetherroom: 3, at: NOW, server: { workingroom: 2, togetherroom: 1 } },
+        NOW,
+      )?.server,
+    ).toEqual({ workingroom: 2, togetherroom: 1 });
+    expect(roomStatsSummary({ workingroom: 5, togetherroom: 3, at: NOW }, NOW)?.server).toBeNull();
   });
 });

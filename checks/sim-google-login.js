@@ -465,7 +465,7 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
         const AS = (R.accountSnap && R.accountSnap.$userId) || {};
         const OWN_ONLY = "auth != null && root.child('userAuth/'+$userId).val() === auth.uid";
         // 안에 라이선스 키 원문이 있다 — 목록은 관리자만(웹 관리자 사용자 목록). 관리자는 licenses 목록도 이미 읽으므로 새로 드러나는 것은 없다.
-        // 개정 170: 관리자 서버 봇(apiBots)도 모음 읽기만 — 사람 계정은 여전히 관리자만.
+        // 개정 172: 관리자 서버 봇(apiBots)도 모음 읽기만 — 사람 계정은 여전히 관리자만.
         const AS_READ = "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)";
         chk(R.accountSnap && R.accountSnap['.read'] === AS_READ && R.accountSnap['.write'] === undefined,
             'accountSnap 모음은 관리자(와 관리자 서버 봇)만 읽고, 모음째 쓰기는 없다');

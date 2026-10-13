@@ -2616,6 +2616,7 @@
         for(const code in idx){
           if(code.indexOf('SCRT-') === 0) continue;                  // 🔒 시크릿룸은 정원에 안 잡힘
           const e = idx[code] || {};
+          if(e.srv) out.inclServer = true;   // 🛰 방 서버 줄(functions/room-stats.js 🛰)이 있으면 합계에 서버 방이 들어 있다 — app.js 가 서버 몫을 또 더하지 않게
           if(!e.lastSeen || (now - e.lastSeen) >= STALE) continue;   // 죽은/고아 인덱스는 무시
           liveIndexed.add(code);
           const ch = (e.channel === 'togetherroom') ? 'togetherroom' : 'workingroom';
@@ -3437,6 +3438,7 @@
           const idx = isnap.val() || {};
           const dels = [];
           for(const code in idx){
+            if(idx[code] && idx[code].srv) continue;   // 🛰 방 서버 방 줄 — Firebase rooms 에 없어도 정상(서버가 30초마다 갱신 · 끝나면 서버가 지운다)
             if(!(code in all) || ghosts.indexOf(code) !== -1) dels.push(remove(ref(db, `roomIndex/${code}`)).catch(()=>{}));
           }
           await Promise.all(dels);

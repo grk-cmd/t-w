@@ -23,6 +23,15 @@ describe('유령 방 청소', () => {
     ]);
   });
 
+  it('방 서버 줄은 넘겨받아도 지우지 않는다 — 방은 방 서버에 있다', async () => {
+    const { db, writes } = fakeDb({
+      roomIndex: { 'WORK-SRV1': { lastSeen: NOW - 100_000, channel: 'workingroom', srv: 'realtime-1' } },
+    });
+    const r = await cleanGhostRooms(db, ['WORK-SRV1'], clock);
+    expect(r).toEqual({ removed: [], revived: [] });
+    expect(withoutAudits(writes)).toEqual([]);
+  });
+
   it('서버 시각 차를 더해 판정한다 — PC 시계가 앞서도 살아 있는 방을 지우지 않는다', async () => {
     const { db, writes } = fakeDb({ roomIndex: { 'WORK-LIVE': { lastSeen: NOW - 10_000 } } });
     db.serverTimeOffset = async () => -120_000; // 이 PC 시계가 2분 빠르다

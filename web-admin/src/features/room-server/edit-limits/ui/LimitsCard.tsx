@@ -1,5 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import {
+  formatAgo,
+  ROOM_TOTAL_LIMITS,
+  roomStatsSummary,
+  useRoomStats,
+  useSnapshotNow,
+} from '@/entities/room';
+import {
   CHANNEL_LABEL,
   CHANNELS,
   effectiveLimit,
@@ -55,6 +62,54 @@ function ServerCount({ name, url }: { name: string; url: string }) {
   );
 }
 
+/**
+ * 전체 방 개수 — roomStats(함수가 roomIndex 를 센 값). 방 서버도 자기 방을 roomIndex 에 올리므로 합계가 곧
+ * 앱 · 방 서버가 채널 상한(250)과 비교하는 값이다. server 몫은 함수가 srv 줄을 따로 센 것(배포 전이면 없음).
+ */
+function TotalCount() {
+  const stats = useRoomStats();
+  const now = useSnapshotNow(stats.dataUpdatedAt);
+  const s = now !== null ? roomStatsSummary(stats.data ?? null, now) : null;
+  return (
+    <div className="row">
+      <b>전체</b>
+      {stats.isPending ? (
+        <span className="soft grow">…</span>
+      ) : !s ? (
+        <span className="soft grow">집계 없음</span>
+      ) : (
+        <span className="grow">
+          {CHANNELS.map((ch) => {
+            const total = s[ch];
+            const lim = ROOM_TOTAL_LIMITS[ch];
+            const srv = s.server?.[ch];
+            return (
+              <span key={ch} className={styles.count}>
+                {CHANNEL_LABEL[ch]}{' '}
+                {srv !== undefined && (
+                  <small className="soft">
+                    Firebase {total - srv} + 방 서버 {srv} ={' '}
+                  </small>
+                )}
+                <b className={total >= lim ? 'warn' : undefined}>{total}</b>
+                <small className="soft">/{lim}</small>
+              </span>
+            );
+          })}
+          {!s.server && <small className="soft">방 서버 몫 따로 모름(함수 배포 전) · </small>}
+          <small className={s.fresh ? 'soft' : 'warn'}>
+            {s.at !== null && now !== null ? `${formatAgo(now - s.at)} 집계` : '집계 시각 없음'}
+            {!s.fresh && ' · 갱신 멈춤'}
+          </small>
+        </span>
+      )}
+      <button type="button" className="btn" disabled={stats.isFetching} onClick={() => void stats.refetch()}>
+        다시
+      </button>
+    </div>
+  );
+}
+
 // 채널별 방 개수 상한 — config/roomServer/limits. 방 서버가 1분마다 읽어 새 방부터 적용(열린 방은 그대로).
 export function LimitsCard() {
   const env = useEnv();
@@ -86,7 +141,9 @@ export function LimitsCard() {
     <section className="card">
       <h2>방 개수 상한</h2>
       <p className="soft">
-        서버 한 대 · 채널마다 열 수 있는 방 수(시크릿룸 제외). 낮춰도 열린 방은 그대로 — 새 방만 막음.
+        서버 한 대 보호용 — 전체 상한은 Firebase 합계 {ROOM_TOTAL_LIMITS.workingroom}(Firebase 방 + 방 서버 방
+        · 아래 «전체»). 여기 값은 방 서버 한 대 · 채널마다 열 수 있는 방 수(시크릿룸 제외). 낮춰도 열린 방은
+        그대로 — 새 방만 막음.
       </p>
       {error ? (
         <p className="msg err">{errorMessage(error, '불러오기 실패')}</p>
@@ -111,13 +168,12 @@ export function LimitsCard() {
               저장
             </button>
           </form>
-          {servers.length > 0 && (
-            <div className="list">
-              {servers.map(([n, u]) => (
-                <ServerCount key={n} name={n} url={u} />
-              ))}
-            </div>
-          )}
+          <div className="list">
+            <TotalCount />
+            {servers.map(([n, u]) => (
+              <ServerCount key={n} name={n} url={u} />
+            ))}
+          </div>
         </>
       )}
       {message && <p className={message.error ? 'msg err' : 'msg'}>{message.text}</p>}
