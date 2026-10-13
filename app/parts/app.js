@@ -14649,7 +14649,7 @@ function _seatCtxMenu(ev, seat){
     mk('때리기 (' + left + '/' + BONK_DAILY_MAX + ')', ()=>bonkSeat(seat), left <= 0, BONK_CURSOR_IMG);
   }
   /* 🚩 신고하기 — 남의 좌석 · 모든 채널. 사유는 창에서 고른다(_openReportDialog). */
-  if(seat.remote){ sep(); mk('🚩 신고하기…', ()=>_openReportDialog(seat)); }
+  if(seat.remote){ sep(); mk('🚩 신고하기…', ()=>reportMod.openDialog(seat)); }
   document.body.appendChild(backdrop);
   document.body.appendChild(menu);
   /* 뒷판을 누르면 닫는다. 우클릭도 마찬가지 — 메뉴가 떠 있는데 다른 곳을 우클릭했을 때
@@ -30863,188 +30863,34 @@ function _awayBootSync(tries){
    ★ 신고자에 대해 남기는 것은 **닉네임 + 친구 코드 뒷자리 4자리 + 사유**뿐(요청).
    ★ 신고하면 내 화면에서 그 사람을 숨긴다(_reportHiddenUids · 계정 기준 · 모든 방).
    ★ 관리자 목록(_openReportAdmin)에는 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람만 뜬다. */
-var REPORT_ADMIN_MIN = 3;
-var REPORT_KINDS = [
-  { k:'char', label:'캐릭터 신고', sub:'모습 · 꾸미기', short:'캐릭터' },
-  { k:'away', label:'자리비움 그림 신고', sub:'', short:'자리비움 그림' },
-  { k:'nick', label:'닉네임 신고', sub:'', short:'닉네임' },
-  { k:'etc',  label:'기타', sub:'', short:'기타' },
-];
-var _reportOv = null, _reportEsc = null;
-function _myCode4(){
-  try{ return String(localStorage.getItem(MY_FRIEND_CODE_KEY) || '').slice(-4); }catch(_){ return ''; }
-}
-function _reportClose(){
-  if(_reportEsc){ document.removeEventListener('keydown', _reportEsc, true); _reportEsc = null; }
-  if(_reportOv){ try{ _reportOv.remove(); }catch(_){} _reportOv = null; }
-}
-function _reportBox(title, width){
-  const ov = document.createElement('div');
-  ov.className = 'app-popup-ov';   // ⚠️ 마우스 통과 화이트리스트(UI_HIT_SEL) — 빼지 말 것
-  ov.style.cssText = 'position:fixed;inset:0;z-index:9700;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;';
-  const box = document.createElement('div');
-  box.style.cssText = 'width:' + width + 'px;max-width:92vw;max-height:86vh;display:flex;flex-direction:column;background:var(--win-face);border:2px solid;'
-    + 'border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);'
-    + 'box-shadow:4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);color:var(--ink);';
-  const tb = document.createElement('div');
-  tb.style.cssText = 'background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;flex:none;';
-  tb.textContent = title;
-  const body = document.createElement('div');
-  body.style.cssText = 'padding:12px 14px 14px;font-size:11px;overflow-y:auto;';
-  box.appendChild(tb); box.appendChild(body); ov.appendChild(box);
-  return { ov, box, body };
-}
-function _openReportDialog(seat){
-  const target = seat && seat.friendUserId;
-  if(!target){ if(typeof toast === 'function') toast('이 분의 정보가 아직 없어요 (버전 업데이트가 필요할 수 있어요)'); return; }
-  const me = (typeof getMyUserId === 'function') ? getMyUserId() : null;
-  if(!me || me === target) return;
-  _reportClose();
-  const name = (typeof _seatLabelName === 'function' ? _seatLabelName(seat) : '') || seat.friendName || '이 분';
-  const { ov, body } = _reportBox('🚩 신고하기', 300);
-  const q = document.createElement('div'); q.style.cssText = 'margin-bottom:8px;';
-  const nb = document.createElement('b'); nb.textContent = name; q.appendChild(nb); q.appendChild(document.createTextNode(' 님을 신고할까요?'));
-  body.appendChild(q);
-  const fs = document.createElement('fieldset'); fs.style.cssText = 'margin:0;padding:6px 10px 8px;border:2px groove var(--win-hi);';
-  const lg = document.createElement('legend'); lg.textContent = '사유'; lg.style.cssText = 'font-size:10.5px;padding:0 3px;'; fs.appendChild(lg);
-  const hasAway = _awayUrlOk(seat.remoteAwayImg);
-  let picked = null;
-  const etc = document.createElement('input');
-  etc.type = 'text'; etc.maxLength = 40; etc.placeholder = '직접 적기 · 40자'; etc.autocomplete = 'off';
-  etc.setAttribute('aria-label', '기타 사유');
-  etc.style.cssText = 'display:none;margin:3px 0 0 18px;width:calc(100% - 18px);box-sizing:border-box;font-family:inherit;font-size:11px;padding:2px 5px;background:#fff;'
-    + 'border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);';
-  const go = document.createElement('button'); go.className = 'lc-btn'; go.type = 'button'; go.textContent = '신고';
-  go.style.cssText = 'width:auto;margin:0;padding:4px 16px;font-size:11px;'; go.disabled = true;
-  REPORT_KINDS.forEach(kd=>{
-    const lb = document.createElement('label');
-    const off = (kd.k === 'away' && !hasAway);
-    lb.style.cssText = 'display:flex;align-items:center;gap:6px;padding:3px 0;cursor:' + (off ? 'default' : 'pointer') + ';color:' + (off ? 'var(--win-lo)' : 'var(--ink)') + ';';
-    const r = document.createElement('input'); r.type = 'radio'; r.name = 'twReportKind'; r.value = kd.k; r.disabled = off;
-    r.addEventListener('change', ()=>{ picked = kd.k; etc.style.display = (kd.k === 'etc') ? '' : 'none'; go.disabled = false; if(kd.k === 'etc') etc.focus(); });
-    lb.appendChild(r); lb.appendChild(document.createTextNode(kd.label));
-    const subText = off ? '— 등록한 그림 없음' : (kd.sub ? '— ' + kd.sub : '');
-    if(subText){ const sp = document.createElement('span'); sp.style.cssText = 'color:var(--win-lo);font-size:10px;'; sp.textContent = subText; lb.appendChild(sp); }
-    fs.appendChild(lb);
-    if(kd.k === 'etc') fs.appendChild(etc);
-  });
-  body.appendChild(fs);
-  const note = document.createElement('div'); note.style.cssText = 'font-size:10px;color:var(--ink-soft);line-height:1.55;margin-top:8px;';
-  note.textContent = '신고하면 내 화면에서 이 분이 숨겨져요. 서로 다른 ' + REPORT_ADMIN_MIN + '명이 신고하면 관리자가 확인해요.';
-  body.appendChild(note);
-  const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:6px;justify-content:flex-end;margin-top:10px;';
-  const no = document.createElement('button'); no.className = 'lc-btn'; no.type = 'button'; no.textContent = '취소';
-  no.style.cssText = 'width:auto;margin:0;padding:4px 16px;font-size:11px;';
-  row.appendChild(go); row.appendChild(no); body.appendChild(row);
-  no.onclick = _reportClose;
-  ov.addEventListener('mousedown', e=>{ if(e.target === ov) _reportClose(); });
-  go.onclick = async ()=>{
-    if(!picked) return;
-    const txt = (picked === 'etc') ? etc.value.trim().slice(0, 40) : '';
-    if(picked === 'etc' && !txt){ if(typeof toast === 'function') toast('사유를 적어 주세요'); etc.focus(); return; }
-    const api = window.firebaseAPI;
-    if(!api || !api.reportUser){ if(typeof toast === 'function') toast('아직 준비 중이에요'); return; }
-    go.disabled = true;
-    const res = await api.reportUser(target, me, { kind:picked, note:txt, nick:(typeof getDisplayName === 'function' ? getDisplayName() : ''), code4:_myCode4() });
-    if(res && res.ok){
-      _reportHiddenUids.add(target); _reportHiddenSave();
-      _reportClose();
-      if(typeof toast === 'function') toast('신고했어요 · 내 화면에서 이 분을 숨겼어요');
-    }else{
-      go.disabled = false;
-      if(typeof toast === 'function') toast(res && res.reason === 'auth' ? '로그인한 뒤에 신고할 수 있어요' : '신고하지 못했어요 — 잠시 뒤 다시 해 주세요');
-    }
-  };
-  _reportEsc = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _reportClose(); } };
-  document.addEventListener('keydown', _reportEsc, true);
-  document.body.appendChild(ov);
-  _reportOv = ov;
-}
-/* 관리자 — 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람 목록. 순수 함수로 떼어 둔다(검사). */
-function _reportAdminRows(all){
-  const out = [];
-  for(const t of Object.keys(all || {})){
-    const recs = Object.values(all[t] || {}).filter(r=>r && typeof r === 'object' && typeof r.kind === 'string');
-    if(recs.length >= REPORT_ADMIN_MIN) out.push({ target:t, recs: recs.sort((a,b)=>(b.ts||0)-(a.ts||0)) });
-  }
-  return out.sort((a,b)=>b.recs.length - a.recs.length);
-}
-function _reportReasonText(r){
-  const kd = REPORT_KINDS.find(x=>x.k === r.kind);
-  const base = kd ? kd.short : '기타';
-  return (r.kind === 'etc' && r.note) ? base + ' · ' + r.note : base;
-}
-async function _openReportAdmin(){
-  if(typeof isAdmin === 'undefined' || !isAdmin) return;
-  const api = window.firebaseAPI;
-  if(!api || !api.listReports){ if(typeof toast === 'function') toast('아직 준비 중이에요'); return; }
-  _reportClose();
-  const { ov, body } = _reportBox('🚩 신고 목록', 460);
-  body.textContent = '불러오는 중…';
-  ov.addEventListener('mousedown', e=>{ if(e.target === ov) _reportClose(); });
-  _reportEsc = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _reportClose(); } };
-  document.addEventListener('keydown', _reportEsc, true);
-  document.body.appendChild(ov); _reportOv = ov;
-  const res = await api.listReports();
-  if(_reportOv !== ov) return;
-  if(!res || !res.ok){ body.textContent = '목록을 읽지 못했어요(관리자 로그인 확인).'; return; }
-  const rows = _reportAdminRows(res.reports);
-  body.textContent = '';
-  const head = document.createElement('div'); head.style.cssText = 'font-size:10.5px;color:var(--ink-soft);margin-bottom:6px;';
-  head.textContent = '서로 다른 ' + REPORT_ADMIN_MIN + '명 이상이 신고한 사람만 보여요 · ' + rows.length + '명';
-  body.appendChild(head);
-  if(!rows.length) return;
-  const list = document.createElement('div');
-  list.style.cssText = 'border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);background:#fff;';
-  body.appendChild(list);
-  const briefs = await Promise.all(rows.map(r=>api.getUserBrief ? api.getUserBrief(r.target).catch(()=>({})) : Promise.resolve({})));
-  if(_reportOv !== ov) return;
-  rows.forEach((r, i)=>{
-    const b = briefs[i] || {};
-    const it = document.createElement('div'); it.style.cssText = 'display:flex;gap:8px;align-items:flex-start;padding:6px;border-bottom:1px solid #d4d0c8;';
-    const th = document.createElement('div');
-    th.style.cssText = 'width:48px;height:48px;flex:none;box-sizing:border-box;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);'
-      + 'background:#fff repeating-conic-gradient(#e6e6e6 0% 25%, #fff 0% 50%) 0 0/8px 8px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink-soft);';
-    if(_awayUrlOk(b.awayImg)){ const im = document.createElement('img'); im.src = b.awayImg; im.alt = ''; im.style.cssText = 'max-width:100%;max-height:100%;'; th.appendChild(im); }
-    else th.textContent = '그림 없음';
-    const mid = document.createElement('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;';
-    const nm = document.createElement('div');
-    const nb = document.createElement('b'); nb.textContent = b.name || '(이름 없음)'; nm.appendChild(nb);
-    const cd = document.createElement('span'); cd.style.cssText = 'font-family:"Courier New",monospace;font-size:10.5px;margin-left:5px;'; cd.textContent = b.friendCode || r.target;
-    nm.appendChild(cd); mid.appendChild(nm);
-    const cnt = document.createElement('span'); cnt.style.cssText = 'color:#B22222;font-weight:bold;font-size:10.5px;'; cnt.textContent = '🚩 ' + r.recs.length + '명';
-    mid.appendChild(cnt);
-    r.recs.forEach(rc=>{
-      const ln = document.createElement('div'); ln.style.cssText = 'font-size:10.5px;word-break:break-all;';
-      ln.textContent = '· ' + (rc.nick || '(이름 없음)') + ' #' + (rc.code4 || '----') + ' — ' + _reportReasonText(rc);
-      mid.appendChild(ln);
-    });
-    const act = document.createElement('div'); act.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:none;';
-    const mkb = (t, red)=>{ const x = document.createElement('button'); x.className = 'lc-btn'; x.type = 'button'; x.textContent = t;
-      x.style.cssText = 'width:auto;margin:0;padding:2px 7px;font-size:10.5px;' + (red ? 'color:#B22222;' : ''); act.appendChild(x); return x; };
-    if(_awayUrlOk(b.awayImg)){
-      const down = mkb('그림 내리기', true);
-      down.onclick = async ()=>{
-        down.disabled = true;
-        const ok = await api.setAwayImg(r.target, null);
-        if(ok && ok.ok){ try{ await api.deleteStorageUrl(b.awayImg); }catch(_){} th.textContent = '그림 없음'; down.remove(); if(typeof toast === 'function') toast('자리비움 그림을 내렸어요'); }
-        else { down.disabled = false; if(typeof toast === 'function') toast('내리지 못했어요'); }
-      };
-    }
-    const fine = mkb('문제없음', false);
-    fine.onclick = async ()=>{
-      fine.disabled = true;
-      const ok = await api.clearReports(r.target);
-      if(ok && ok.ok){ it.remove(); if(typeof toast === 'function') toast('신고를 비웠어요'); }
-      else { fine.disabled = false; if(typeof toast === 'function') toast('비우지 못했어요'); }
-    };
-    it.appendChild(th); it.appendChild(mid); it.appendChild(act); list.appendChild(it);
-  });
-}
-(function bindReportAdmin(){
-  const b = document.getElementById('lcReportList');
-  if(b) b.addEventListener('click', e=>{ e.stopPropagation(); _openReportAdmin(); });
-})();
+/* 본문은 둘로 나눠 옮겼다 — 신고 창 · 공용 도우미는 report.js(앱 FSD 11번), 관리자 신고 목록은 admin/admin-report.js.
+   팝업 칸(한 번에 하나만 열리는 자리)은 report.js 가 가지고, 관리자 목록은 읽는 · 쓰는 함수로만 만진다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const REPORT_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const reportMod = (typeof TwReport === 'undefined') ? REPORT_OFF : TwReport.createReport({
+  toast: (...a)=>toast(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  seatLabelName: (...a)=>_seatLabelName(...a),
+  awayUrlOk: (...a)=>_awayUrlOk(...a),
+  getDisplayName: (...a)=>getDisplayName(...a),
+  reportHiddenSave: (...a)=>_reportHiddenSave(...a),
+  reportHiddenUids: _reportHiddenUids,
+  myFriendCodeKey: MY_FRIEND_CODE_KEY,
+});
+const ADMIN_REPORT_OFF = {};
+const adminReport = (typeof TwAdminReport === 'undefined' || reportMod === REPORT_OFF) ? ADMIN_REPORT_OFF : TwAdminReport.createAdminReport({
+  toast: (...a)=>toast(...a),
+  awayUrlOk: (...a)=>_awayUrlOk(...a),
+  isAdmin: ()=>isAdmin,
+  reportClose: (...a)=>reportMod.close(...a),
+  reportBox: (...a)=>reportMod.box(...a),
+  kinds: reportMod.KINDS,
+  adminMin: reportMod.ADMIN_MIN,
+  reportOv: (...a)=>reportMod.ov(...a),
+  setReportOv: (...a)=>reportMod.setOv(...a),
+  reportEsc: (...a)=>reportMod.esc(...a),
+  setReportEsc: (...a)=>reportMod.setEsc(...a),
+});
 
 /* ═══ ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 ═══ */
 /* 레벨이 바뀐 순간에만 프로필을 갱신한다(친구 목록 레벨 배지용).
