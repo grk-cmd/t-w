@@ -8,8 +8,9 @@
    ・3절: HTML — #deviceSessionOverlay 두 버튼 · 클릭 통과 화이트리스트(UI_HIT_SEL)에 등록.
    [실행] app.js · firebase-init.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const FB   = fs.readFileSync('firebase-init.js', 'utf8');
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 

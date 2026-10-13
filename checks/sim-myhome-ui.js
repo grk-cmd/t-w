@@ -80,7 +80,8 @@ const breaks = [
   ['deps 하나 빠짐', null, a => { const i = a.indexOf("const myHomeUiMod = (typeof TwMyHomeUi === 'undefined') ? MY_HOME_UI_MOD_OFF : TwMyHomeUi.createMyHomeUi({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace('\n' + GLUE[GLUE.length - 1], '') + a.slice(j); }, null],
   ['전역 이름 안 걺', m => m.replace('window.TwMyHomeUi = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
-  ['부르는 곳이 옛 이름', null, a => a.replace('myHomeUiMod.' + EXPORTS[0], EXPORTS[0]), null],
+  /* app.js 에 남은 부르는 자리 하나를 옛 이름으로 되돌린다 — 첫 이름을 부르던 곳이 다른 모듈로 옮겨 갔을 수 있어 남은 이름 중에서 고른다 */
+  ['부르는 곳이 옛 이름', null, a => { const n = EXPORTS.find(x => a.includes('myHomeUiMod.' + x)); return n ? a.replace('myHomeUiMod.' + n, n) : a; }, null],
   ['만들 때 던짐', m => m.replace('function createMyHomeUi(deps){', 'function createMyHomeUi(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
