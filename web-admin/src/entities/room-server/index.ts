@@ -6,6 +6,7 @@ export {
   saveServer,
   setAllow,
   setDefaultRouting,
+  setRegisterIndex,
   setRoomLimits,
   setRoomServerSwitch,
   useRefreshRoomServer,

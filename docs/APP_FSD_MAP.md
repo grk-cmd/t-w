@@ -12,8 +12,9 @@
 7-2번(🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 → `app/parts/myhome-edit.js`)을 옮겼다.
 그 뒤 **구역 머리만 새로 단 PR**(코드 무변경 · 주석 76줄)로 섞여 있던 큰 구역 16개를 기능 경계에서 나눴다 — 구역 97 → **173개**.
 그다음 10번(🙋 투게더룸 친구 초대 → `app/parts/room-invite-ui.js`) · 13번(🕒 포커스 기록 팝업 → `app/parts/focus-log.js`) ·
-14번(💬 대화창 배선 → `app/parts/chat-window.js`)을 옮겼다(머리는 그대로 두고 연결만 남김 — 구역 수 · 번호 그대로).
-아래 줄 · 구역 번호 · 씀 · 쓰임은 14번 뒤 값이다(`node scripts/app-sections.js` 로 다시 뽑음). 번호가 크게 바뀌어서
+14번(💬 대화창 배선 → `app/parts/chat-window.js`) · 15번(📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록 → `app/parts/myhome-inbox.js`) ·
+16번(🎵 상태칩 플레이리스트 → `app/parts/playlist.js`)을 옮겼다(머리는 그대로 두고 연결만 남김 — 구역 수 · 번호 그대로).
+아래 줄 · 구역 번호 · 씀 · 쓰임은 16번 뒤 값이다(`node scripts/app-sections.js` 로 다시 뽑음). 번호가 크게 바뀌어서
 순서표 1 ~ 8 · 7-2 줄에 적힌 «#N» 은 **머리를 달기 전(97개) 번호**다 — 아래 «옛 번호 → 새 번호» 로 찾는다.
 목적 · 층 · 비고는 손으로 적은 것이라 그대로 두고, 나뉜 구역 · 새 구역만 새로 적었다(관련 모듈은 스크립트 값 그대로).
 
@@ -21,23 +22,23 @@
 
 | | 값 |
 |---|---|
-| `app/parts/app.js` | **37,245줄** · 구역 머리 **173개** (상한 37,445줄 — `checks/app-size-baseline.json`) · 처음 46,147줄 · 116개 |
+| `app/parts/app.js` | **34,967줄** · 구역 머리 **173개** (상한 35,167줄 — `checks/app-size-baseline.json`) · 처음 46,147줄 · 116개 |
 | `app/parts/firebase-init.js` | **4,459줄** · 구역 머리 31개 (상한 4,544줄) |
 | 1,000줄 넘는 구역 | 1개 (#89 꾸미기 파츠 부착 — 한 기능) · 머리를 달기 전 10개 |
-| 머리와 내용이 어긋난 «섞인» 구역 | 4개 · 1,705줄 (전체의 4.5%) — #36 · #51 · #126 은 몇십 줄이 끼어 있는 정도, #170 은 `if(desktopMode){…}` 한 덩이라 머리로 못 나눔 · 머리를 달기 전 16개 · 18,204줄(48%) |
-| 다른 구역이 거의 안 쓰는 구역(쓰임 ≤ 3) | 53개 — 옮기기 쉬운 쪽 |
+| 머리와 내용이 어긋난 «섞인» 구역 | 3개 · 1,518줄 (전체의 4.3%) — #36 · #126 은 몇십 줄이 끼어 있는 정도, #170 은 `if(desktopMode){…}` 한 덩이라 머리로 못 나눔 · 머리를 달기 전 16개 · 18,204줄(48%) |
+| 다른 구역이 거의 안 쓰는 구역(쓰임 ≤ 3) | 56개 — 옮기기 쉬운 쪽 |
 
 층별 크기 (구역 머리 기준 — 섞인 구역은 머리 쪽 층으로 셌다):
 
 | 층 | 줄 | 비율 | 구역 |
 |---|---:|---:|---:|
-| features | 14,190 | 38.1% | 61 |
-| entities | 9,959 | 26.7% | 40 |
-| widgets | 7,100 | 19.1% | 30 |
-| pages | 2,540 | 6.8% | 13 |
-| app | 2,500 | 6.7% | 15 |
-| shared | 947 | 2.5% | 12 |
-| (머리만) | 10 | — | 2 |
+| features | 13,697 | 39.2% | 60 |
+| entities | 9,489 | 27.2% | 39 |
+| widgets | 5,718 | 16.4% | 25 |
+| app | 2,576 | 7.4% | 17 |
+| pages | 2,540 | 7.3% | 13 |
+| shared | 926 | 2.6% | 12 |
+| (머리만) | 22 | — | 7 |
 
 shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 없이 다른 구역 안에 묻혀 있어서였다. 이제 제 머리가 있다:
 효과음 공장(#13) · 창 겹침(#24) · `escHtml`(#48) · HTML sanitize(#51) · `asyncPrompt`(#58) · 토스트(#154).
@@ -116,8 +117,8 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
 | 12 | 🧹 관리자 콘솔 도구 (F12) | #149 | 146 | `admin-console.js` (features) | 밖에서 쓰는 이름 **0** — 전부 `window.X = async function` 콘솔 함수 7개(`analyzeCatalog` · `cleanupGhostRooms` · `reclaimInvitesSince` · `migrateCatalog*` …)라 이름이 그대로 / 받는 이름 2개 — `savedParts`(#146) · `savedDesks`(#145) — 둘 다 다시 대입되는 let 이라 읽는 함수 + `firebaseAPI` · `toast` | 낮음 | 읽는 검사 없음 — `smoke` 만(새 검사 `sim-admin-console` 로 window 이름 일곱 개 확인) |
 | 13 ✅ | 🕒 포커스 기록 팝업 | #37 | 125 | `focus-log.js` (widgets) | **옮김** — 머리 아래 본문 125줄(설명 한 줄 · 즉시 실행 함수 `bindFocusLog` — 미니미 `_ □` · 현재 / 누적 · 오늘 기록 · 매초 갱신 · ESC · 타이틀바 끌기)을 글자 그대로(들여쓰기도). 바뀐 줄 2 — `_focusTotalSec` · `_focusSessionSec`(#157 · 다시 대입되고 만드는 줄보다 한참 뒤에 선언되는 let)를 읽는 함수로(`_focusTotalSec()` · `_focusSessionSec()`). 밖에서 쓰는 이름 **0**(반환값은 빈 객체) — 👑 달성표 · 🍅 뽀모 서랍이 부르는 `window._focusLogClamp` 는 예전처럼 만들 때 건다 / 받는 이름(deps) 6개 — 함수 4개(`formatHMS`(#166) · `_rolloverFocusToday`(#157) · `bringWinToFront` · `escRegisterWindow`(#24))는 화살표, let 둘은 읽는 함수. 지도에 적었던 `_focusTodaySec` 는 받지 않는다 — 본문은 주석에서만 말하고 값은 `_rolloverFocusToday()` 로 읽는다. 연결은 원래 자리(광고 배너 설정 묶음 뒤 · 머리는 그대로) — 만들 때 버튼 · ESC 등록 · 매초 갱신 · 끌기가 예전과 같은 때 걸린다 | 낮음 | `sim-focus-log`(신설) · `smoke`(먼저 평가) — `sim-win-front` · `sim-pomodoro` · `sim-pomodoro-module` · `sim-focus-show` · `sim-weekly-challenge` 는 그대로 초록 |
 | 14 ✅ | 💬 대화창 배선 | #74 | 334 | `chat-window.js` (widgets) | **옮김** — 머리 아래 본문 334줄(설명 한 줄 · 즉시 실행 함수 `_wireChatWindow` — 닫기 · ▁ 최소화 · 타이틀바 끌기 · 8방향 크기 · 파일 · 설정(글자 크기 · 🔔 알림음 · ▶) · 🧹 지우기 메뉴 · 🌫️ 투명도 · ESC · 입력 Enter · 링크 · 🌊 날리기 · 🔇 잠금 · 🗑 기록 삭제 · 😊 이모티콘 · 🎲 · 💣 · 📷)을 글자 그대로(들여쓰기도). 바뀐 줄 8 — 읽는 함수 `officeMode()`(두 줄 · #156 · 만드는 줄보다 뒤에 선언) · `isAdmin()`(#99 · 뒤에 선언) · `_flyAiming()`(#11) · `_emojiCache()`(#70), 쓰는 함수 `_setChatFlyOn(x)` · `_setChatFlySize(x)` · `_setChatFlyColor(x)`(#63 세션 변수). 밖에서 쓰는 이름 **0**(반환값은 빈 객체) / 받는 이름(deps) **49개** — 대화창 코어 9(#65 #68 #69 · `toast`) · 기록 3(#65 #69) · 투명도 · 글자 5(#49) · 알림음 6(#50) · 날리기 8(#63 · `getFocusLevel` #161 · `isAdmin`) · 잠금 · 삭제 4(#67) · 이모티콘 6(#70) · 주사위 1(#72) · 💣 5(#11 · `FLY_MIN_LEVEL` #8 · `seats` #6 · `officeMode`) · 📷 2(#71). 함수 37 은 화살표, 상수 셋 · `seats` · `purikuraUi` 는 값. 채팅 구역을 먼저 옮기지 않고 deps 로 받았다. 연결은 원래 자리(🔫 러시안룰렛 뒤 · 머리는 그대로) — 만들 때 버튼 · 메뉴 · 끌기 · 저장값 반영 · 복사 · 탭 묶기가 예전과 같은 순서 · 같은 때 | 중간 | `sim-chat-window`(신설) · `smoke`(먼저 평가) · 옮긴 글을 읽던 `sim-chip-chat-ui` · `sim-chat-sfx` · `sim-mac-0923` · `sim-purikura-deco` · `sim-purikura-ui` 는 chat-window.js 도 읽게(판정 무변경) |
-| 15 | 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록 | #47 #52 #53 | 546 | `myhome-inbox.js` (widgets) | 밖에서 쓰는 이름 약 20개 — #44 친구 탭(`_inboxUnreadCount` · `renderGiftBox` · `_giftStat` …) · #46 마이홈 열기(수령함 구독이 `_myInbox` · `_myInboxReady` · `_inboxBroadcast` 에 **쓴다** → 쓰는 함수) · #54 버튼 연결(`renderInbox` · `_inboxFilter` · `_friendFilter` …) · #118 로그아웃(`INBOX_BC_READ_KEY` — 지움 목록이라 app.js 에 둔다) · #130 공지(`_linkifyText` · `_bindExtLinks`) · #161 춤 해금 안내 / 받는 이름 약 18개(`escHtml` · sanitize 셋(#51) · 레벨 배지(#30 #31) · `openFriendHomeView`(#55) · `mhScheduler`(#44) …). sanitize 사이에 낀 친구 방 표시 둘(#51)도 같이 가져온다 | 중간 | `sim-gift-star` · `sim-friend-manage` · `sim-friend-manage-module` · `sim-myhome-steps` · `sim-broadcast-cache` · `sim-dance-unlock-mail` · `sim-account-switch` · `audit.py`(검사 8 시야 · `_linkifyText`) · `smoke` |
-| 16 | 🎵 플레이리스트 (데이터 · 화면 · 고르기 · 재생 감시견) | #27 #28 #31 #32 #33 | 1,839 | `playlist.js` (entities 데이터 + widgets 화면 + features 재생 — 한 파일) | 밖에서 쓰는 이름 약 29개 — **#121 계정 스냅샷 복원 · #118 로그아웃이 저장 상태(`_plSets` · `_plCur` · `_plBio` · `_plHomePublic` · `_plPrivate` · `_plPubSig` …) 열다섯 개를 직접 읽고 쓴다** → 상태 묶음 getter · setter 로 바꿔야 한다. 그 밖에 #25 · #36 · #156(BGM 창 자리 `_plApplyPos` · `_plSyncBgmBounds`) · #71(📷 `_plPlaying`) · #52 #119 #120(레벨 배지 `_plFillLv`) · #61 / 받는 이름 약 25개(마이홈 데이터 #55 · 레벨 · 별 #30 #161 · 창 겹침 #24 · 칩 팝업 #23 #25 · `asyncPrompt` #58 …) | 높음 | `sim-pl-loop` · `sim-pl-next` · `sim-pl-watchdog` · `sim-pl-grab-pick` · `sim-account-switch` · `sim-noise` · `sim-focus-cap` · `sim-signup`(`_plFillLv`) · `sim-purikura-ui` · `sim-purikura-deco`(`_plPlaying`) · `smoke` |
+| 15 ✅ | 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록 | #47 #51 #52 #53 | 560 | `myhome-inbox.js` (widgets) | **옮김** — #47 의 함수(공용 공지 읽음 · 합치기 · 안 읽은 수 · 우편함 탭 배지)와 필터 상태 둘 · #51 sanitize 사이에 끼어 있던 친구 방 표시 둘(`_friendRoomTag` · `_friendInRoom`) · #52 친구 목록 · Ctrl+F 검색 · #53 수령함 · 선물함 그리기 — 560줄을 글자 그대로(들여쓰기도). 바뀐 줄 14 — 읽는 함수 `_myInbox()` · `_inboxBroadcast()`(수령함 · 공지 구독이 다시 대입) · `_myHomeFriends()`(친구 구독) · `isAdmin()`(#99 · 만드는 줄보다 뒤에 선언). 지도에 적었던 «수령함 구독이 `_myInbox` · `_myInboxReady` · `_inboxBroadcast` 에 쓴다 → 쓰는 함수» 대신 그 셋을 app.js(#47 머리 아래)에 남기고 읽는 함수로 넘겼다 — 쓰는 곳(#46 구독 · #161 춤 해금 안내)이 모두 app.js 라 `_myHomeFriends` 와 같은 방식이 바뀌는 줄이 적다. `INBOX_BC_READ_KEY` 도 #118 로그아웃 지움 목록이 같이 써서 app.js 에(값으로). 모듈 상태는 `_mhSelectedFriend` · `_friendFilter` · `_inboxFilter` · `_inboxOpenId` 넷 — #54 가 쓰던 셋은 `setInboxFilter` · `setInboxOpenId` · `setFriendFilter`. 내놓는 이름 **17개**(`renderMyHomeFriendList` · `friendSearchToggle` · `setFriendFilter` · `friendRoomTag` · `friendInRoom` · `renderInbox` · `setInboxFilter` · `setInboxOpenId` · `inboxTagLabel` · `inboxTimeStr` · `inboxUnreadCount` · `inboxBcMarkAllRead` · `refreshFriendTabBadge` · `linkifyText` · `bindExtLinks` · `renderGiftBox` · `giftStat`) + 검사용 `inboxMerged` · `inboxUnreadReward` · `mhHl` · `mhAsk` · `state`, 부르는 곳은 #44(스케줄러 · 친구 관리 deps) · #46(구독) · #54(버튼 연결 · 마이홈 열고 닫기) · #130(업데이트 공지 팝업) · #172(방 초대 deps) · 🏠 놀러 가기 연결 — 전부 만드는 줄보다 늦게 돌아 `inboxMod.이름`(예전 typeof 가드는 `typeof inboxMod.이름` 으로) / 받는 이름(deps) **18개** — 함수 10은 화살표, let 넷은 읽는 함수, `INBOX_BC_READ_KEY` · `FRIEND_MAX` · `mhScheduler` · `friendVisit` 은 앞에 선언된 const 라 값. 연결은 #52 머리 아래(원래 자리) — 🏠 친구 방 놀러 가기 연결(`friendVisit` · 예전 그대로 그 자리)은 남기고 방 코드만 `inboxMod.friendRoomTag` 로, 그 바로 뒤에서 만든다. #52 · #53 머리는 구역 번호가 밀리지 않게 남겼다(#53 은 안내 한 줄) | 중간 | `sim-myhome-inbox`(신설) · `smoke`(먼저 평가) · `audit.py`(검사 8 · 검사 19 ④ 시야) · 옮긴 글을 읽던 `sim-gift-star` · `sim-bug-board` · `sim-fix-1008b` · `sim-friend-visit` · `sim-broadcast-cache` · `sim-mh-sanitize` · `sim-friend-manage` 는 myhome-inbox.js 도 읽게 · `sim-room-invite-ui` 는 deps 줄 모양만(판정 무변경) — `sim-friend-manage-module` · `sim-myhome-steps` · `sim-dance-unlock-mail` · `sim-account-switch` 는 그대로 초록 |
+| 16 ✅ | 🎵 플레이리스트 (데이터 · 화면 · 고르기 · 재생 감시견) | #27 #28 #31 #32 #33 | 1,839 | `playlist.js` (entities 데이터 + widgets 화면 + features 재생 — 한 파일) | **옮김** — 다섯 구역 1,839줄(사이의 #29 👤 머리 · #30 🏅 레벨 티어는 남김 — 레벨 배지는 친구 목록 · 좌석도 씀)을 글자 그대로(들여쓰기 · 구역 머리 주석까지). 바뀐 줄 3 — 읽는 함수 `_myHomeLoaded()` · `_myHomeData()`(#55 · 만드는 줄보다 뒤에 선언) · `_myHomeFriends()`(#46 친구 구독). 지도에 적었던 «상태 묶음 getter · setter» 대로 **상태는 모듈에 두고**(모듈 안에서 수백 번 읽고 써서 app.js 에 남기면 바뀌는 줄이 훨씬 많다) 밖에서 쓰던 열세 칸(`sets` · `cur` · `nowSet` · `sel` · `now` · `view` · `nowView` · `bio` · `homePublic` · `private` · `pubSig` · `playing` · `lastBoundsKey`)을 상태 묶음 `plMod.st`(getter · setter)로 — #121 계정 이어받기 복원은 `const pl = plMod.st` 한 줄을 더하고 `_plX = …` → `pl.x = …` 로 줄 모양 그대로, #118 로그아웃 지우기 한 줄 · #71 📷 재생 재우기(`plMod.st.playing`) · #36 화면 배율(`plMod.st.lastBoundsKey`). 내놓는 이름 **15개**(`st` · `PL_MAX` · `PL_BIO_MAX` · `PL_TITLE_MAX` · `render` · `save` · `publish` · `normalizeSets` · `setIdx` · `blankSets` · `pubSigOf` · `mine` · `fillLv` · `ytVideoId` · `syncBgmBounds`) + 검사용(`load` · `state` · `playFrom` · `next` · `watchTick` …), 부르는 곳은 #36(설정 › 화면 배율) · #61(🏠 마이홈 BGM deps `ytVideoId`) · #71(📷 deps) · #118(로그아웃) · #120(👤 내 정보 배지 `fillLv`) · #121(계정 이어받기) — 전부 만드는 줄보다 늦게 돌아 `plMod.이름`. #25 상태칩 팝업 자리(`_repositionOpenChipPopups` — 만드는 줄보다 **위**에 선언) · noise.js 가 typeof 를 걸고 부르는 `_plHasSavedPos` · `_plApplyPos` · `_plSyncBgmBounds` 는 모듈이 **window 고리**로도 건다(부르는 줄 무변경) / 받는 이름(deps) **20개** — 함수 17은 화살표, let 셋은 읽는 함수. 연결은 #27 머리 아래(원래 자리) — 만들 때 예전 `bindMyPlaylist` 가 하던 일(저장값 읽기 · 버튼 · ESC · 끌기 · 미니미 · 300ms 폴링 · BGM 신호 구독 · 음량 한 번 · 🪟 창 위치 초기화 등록)이 돈다. 예전엔 #33 끝에서 돌았지만 그 사이(#29 · #30)는 선언뿐이라 다른 일과의 순서는 같다. #28 · #31 · #32 · #33 머리는 구역 번호가 밀리지 않게 한 줄 머리로 남겼다(아래는 안내) | 높음 | `sim-playlist`(신설) · `smoke`(먼저 평가) · `audit.py`(검사 8 · 검사 19 ④ 시야) · 옮긴 글을 읽던 `sim-pl-loop` · `sim-pl-next` · `sim-pl-watchdog` · `sim-win-layers` · `sim-focus-cap` 은 playlist.js 도 읽게 · `sim-pl-grab-pick` 은 playlist.js 를 먼저 평가하고 plMod 로 · `sim-account-switch` 는 스텁을 plMod 통로로 · `sim-signup` · `sim-purikura-ui` · `sim-myhome-edit` 는 부르는 줄 모양만(판정 무변경) — `sim-noise` · `sim-purikura-deco` 는 그대로 초록 |
 
 1 ~ 8 을 다 하면 약 9,400줄(app.js 의 20%)이 빠진다. 1번으로 46,147 → 44,966줄(1,181줄 — 옮긴 1,204줄 − 연결 23줄),
 2번으로 44,966 → 43,799줄(1,167줄 — 옮긴 1,188줄 − 연결 21줄),
@@ -132,7 +133,10 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
 그 뒤 다른 PR 들로 37,698 → 37,876줄,
 10번으로 37,876 → 37,627줄(249줄 — 옮긴 268줄 − 연결 19줄),
 13번으로 37,627 → 37,517줄(110줄 — 옮긴 125줄 − 연결 15줄),
-14번으로 37,517 → 37,245줄(272줄 — 옮긴 334줄 − 연결 62줄).
+14번으로 37,517 → 37,245줄(272줄 — 옮긴 334줄 − 연결 62줄),
+15번으로 37,245 → 36,718줄(527줄 — 옮긴 560줄 − 연결 33줄),
+16번으로 36,718 → 34,927줄(1,791줄 — 옮긴 1,839줄 − 연결 · 머리 · 안내 48줄),
+그 뒤 #157(⚙️ 원격 설정)로 34,927 → 34,967줄.
 9 ~ 15 는 쓰임이 적은 구역(머리를 새로 달아 드러난 것 위주)이라 모두 해서 약 2,300줄, 16(플레이리스트)까지 하면 약 4,100줄이 더 빠진다.
 
 **0단계(선택 · 위와 따로 해도 된다)** — shared 도구(효과음 공장 #13 · 창 겹침 #24 · `escHtml` #48 · HTML sanitize #51 · `asyncPrompt` #58 · 토스트 #154)를
@@ -143,22 +147,22 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 옛 #42 → 6개 · 옛 #12 → 4개 · 옛 #72 → 4개 · 옛 #94 → 4개 · 옛 #19 → 3개 · 옛 #63 → 3개 · 옛 #89 → 3개 · 옛 #14 · #24 → 2개씩.
 
 **남은 것** — 머리로 못 나눈 곳과 여러 구역에 흩어진 기능(억지로 묶지 않았다 — 옮길 때 같이 본다).
-- 섞임(작게): #36 설정 패널 머리 밑 이동 모드 상태 let 셋(#38 · #39 가 씀) · #51 sanitize 사이 친구 방 표시 둘(#52 몫) · #126 광고 배너 표시와 편집 사이 ⚙️ 게임 설정.
+- 섞임(작게): #36 설정 패널 머리 밑 이동 모드 상태 let 셋(#38 · #39 가 씀) · #126 광고 배너 표시와 편집 사이 ⚙️ 게임 설정.
 - 섞임(큼): #170 데스크탑 실행 화면 — `if(desktopMode){ … }` 한 덩이(약 740줄)라 맨 앞 칸 머리로는 못 나눈다. 옮길 때 블록 안(업데이트 배너 · 전역 입력 · 클릭 통과 · 하트비트)을 나눈다.
-- 흩어진 기능: 🪄 때리기 #12 · #14(사이에 효과음 공장 #13) · 🎵 플레이리스트 #27 · #28 · #31 · #32 · #33 · 🔑 라이선스 등록 #124 · #127(사이에 런처 타이틀바 · 광고 배너) ·
-  🔄 카탈로그 동기화 설명 주석(#148 머리 밑)과 함수(#150) · 마이홈 수령함 상태 #47 와 그리기 #53(사이에 채팅 설정 · sanitize · 친구 목록).
+- 흩어진 기능: 🪄 때리기 #12 · #14(사이에 효과음 공장 #13) · 🔑 라이선스 등록 #124 · #127(사이에 런처 타이틀바 · 광고 배너) ·
+  🔄 카탈로그 동기화 설명 주석(#148 머리 밑)과 함수(#150).
 - 1,000줄 넘는 #89(꾸미기 파츠 부착 · 1,378줄)는 한 기능이라 그대로 뒀다.
 
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |
 |---|---|---:|---|---|---|---|---|---|
-| 1 | 1–267 | 267 | three.js 캔버스 · 렌더러 · 씬 · 카메라 · 조명 · WebGL 복구 연결 | app | gl-recover.js | 10 (#98 #11 #6) | 102 (#106 #18 #155) | 전역 `renderer` `scene` `camera` 와 조명 `key` `fill` 을 거의 모든 구역이 쓴다 |
+| 1 | 1–267 | 267 | three.js 캔버스 · 렌더러 · 씬 · 카메라 · 조명 · WebGL 복구 연결 | app | gl-recover.js | 10 (#98 #11 #6) | 98 (#106 #18 #155) | 전역 `renderer` `scene` `camera` 와 조명 `key` `fill` 을 거의 모든 구역이 쓴다 |
 | 2 | 268–271 | 4 | GLTF 로더 하나 | app |  | 0 | 3 (#4 #21 #144) |  |
 | 3 | 272–328 | 57 | 사람 귀 부착 — human-ear.js 연결 | entities | animal.js ears-glb.js human-ear.js | 8 (#1 #6 #15) | 6 (#79 #109 #15) |  |
 | 4 | 329–414 | 86 | 내장 기본 캐릭터 GLB 파싱 · 리깅 | entities | base-glb.js | 6 (#1 #2 #89) | 16 (#105 #90 #109) |  |
 | 5 | 415–894 | 480 | 책상 · 소품 3D 빌더 · 기본 책상 덮어쓰기 | entities | desk-item-origin.js | 15 (#151 #1 #6) | 19 (#89 #105 #90) |  |
-| 6 | 895–1358 | 464 | 좌석 배열 `seats` · 간격 · 위치/크기 저장 · 이동 한계 | entities | animal.js | 10 (#1 #5 #22) | 80 (#18 #36 #101) | 핵심 상태 — 79개 구역이 쓴다 |
+| 6 | 895–1358 | 464 | 좌석 배열 `seats` · 간격 · 위치/크기 저장 · 이동 한계 | entities | animal.js | 10 (#1 #5 #22) | 78 (#18 #36 #101) | 핵심 상태 — 79개 구역이 쓴다 |
 | 7 | 1359–1768 | 410 | 좌석 크기 평준화 배율(k) | entities | animal.js seat-pin.js | 19 (#15 #6 #155) | 21 (#15 #16 #155) |  |
 | 8 | 1769–1827 | 59 | 🪑 플라잉체어 | features |  | 2 (#18 #84) | 6 (#11 #10 #72) |  |
 | 9 | 1828–1931 | 104 | 워킹룸 캐릭터 숨기기 | features | frame-budget.js | 8 (#87 #6 #10) | 9 (#87 #11 #155) |  |
@@ -174,155 +178,155 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 | 19 | 4204–4269 | 66 | PS1 색 양자화 · 디더링 셰이더 | shared |  | 1 (#1) | 1 (#18) |  |
 | 20 | 4270–4755 | 486 | 캐릭터 머리 · 몸 크기 재기 | entities | animal.js | 14 (#4 #89 #1) | 19 (#89 #105 #15) |  |
 | 21 | 4756–4876 | 121 | 모델 불러오기 · 애니메이션 클립 고르기(`setupSeatModel`) | entities | animal.js | 8 (#4 #20 #1) | 5 (#22 #42 #89) |  |
-| 22 | 4877–4919 | 43 | 좌석 탭 · 상태 라벨 DOM 고리 | widgets |  | 8 (#1 #6 #21) | 20 (#110 #155 #6) |  |
+| 22 | 4877–4919 | 43 | 좌석 탭 · 상태 라벨 DOM 고리 | widgets |  | 8 (#1 #6 #21) | 19 (#110 #155 #6) |  |
 | 23 | 4920–5074 | 155 | 상태칩 — 활동 상태 · 커스텀 상태 · 칩 팝업 하나만 열기 | widgets |  | 7 (#101 #22 #25) | 21 (#35 #113 #87) |  |
 | 24 | 5075–5223 | 149 | 창 겹침 — 누른 창 맨 앞(`bringWinToFront`) · ESC 스택(`escRegisterWindow`) | shared | folder-free.js | 2 (#1 #23) | 8 (#33 #36 #37) | 0단계 shared 감 |
-| 25 | 5224–5469 | 246 | 상태칩 팝업 · 입력창 자리 계산 · 캐릭터 실측 | widgets |  | 9 (#35 #1 #6) | 7 (#35 #84 #23) |  |
+| 25 | 5224–5469 | 246 | 상태칩 팝업 · 입력창 자리 계산 · 캐릭터 실측 | widgets | playlist.js | 8 (#35 #6 #1) | 6 (#35 #84 #23) |  |
 | 26 | 5470–5522 | 53 | 기본 이모티콘 말풍선(워킹룸) | features |  | 6 (#70 #23 #25) | 0 |  |
-| 27 | 5523–5545 | 23 | 상태칩 플레이리스트 | widgets |  | 1 (#1) | 4 (#28 #31 #32) |  |
-| 28 | 5546–5985 | 440 | 플레이리스트 프리셋 데이터 | entities | gacha.js scheduler.js | 8 (#1 #33 #6) | 10 (#31 #33 #121) |  |
-| 29 | 5986–5992 | 7 | (머리만 · 7줄) | — |  | 0 | 0 |  |
-| 30 | 5993–6038 | 46 | 레벨 티어 경계값 · 배지 클래스 | entities |  | 2 (#161 #157) | 5 (#165 #31 #52) |  |
-| 31 | 6039–6648 | 610 | 🎵 플레이리스트 화면 — 명함 · 목록 · 흐르는 제목 · 미니미 · 파도타기 | widgets |  | 12 (#28 #32 #161) | 8 (#33 #32 #28) | 🎵 플레이리스트는 #27 · #28 · #31 · #32 · #33 다섯 구역에 흩어져 있다(위 순서표 16번) |
-| 32 | 6649–6892 | 244 | 플레이리스트 프리셋 고르기 | widgets |  | 5 (#28 #31 #1) | 2 (#31 #33) |  |
-| 33 | 6893–7414 | 522 | 🐕 BGM 재생 감시견 · 재생 제어(곡 열기 · 다음 곡 · 셔플 · 음량) · 내 플레이리스트 버튼 연결 | features |  | 8 (#28 #31 #32) | 3 (#28 #31 #32) |  |
-| 34 | 7415–7476 | 62 | 렌더러 생존 신호 · 내 캐릭터 화면 좌표(`_charBoundsLatest`) | app |  | 1 (#35) | 2 (#35 #170) |  |
-| 35 | 7477–8000 | 524 | 상태칩 자리(매 프레임) · 칩 클릭 · Tab 접기 | widgets |  | 19 (#23 #25 #16) | 9 (#25 #84 #34) |  |
-| 36 | 8001–8587 | 587 | ⚙ 설정 패널 — 포커싱 어플 · 화면 표시 · 캐릭터 크기 · 탭 · 광고 배너 | widgets | gacha.js scheduler.js seat-pin.js | 18 (#6 #7 #84) | 6 (#38 #35 #126) | 섞임(작게): 이동 모드 상태(`moveMode` 등 let 셋)가 머리 바로 밑에 있다 — #38 이동 모드 · #39 함수키가 쓴다 |
-| 37 | 8588–8603 | 16 | 🕒 포커스 기록 팝업 — 모듈 연결(`TwFocusLog.createFocusLog`) | app | focus-log.js scheduler.js | 4 (#157 #24 #44) | 0 | 13번으로 본문 125줄은 `focus-log.js` 로 — 머리 · 연결 16줄만 남음. 🍅 뽀모 서랍(pomodoro.js)이 그 창 안에 있다 — DOM 만 같이 쓴다 |
-| 38 | 8604–8645 | 42 | ✥ 프로그램 이동 모드 | features |  | 6 (#6 #36 #1) | 0 |  |
-| 39 | 8646–8751 | 106 | ⌨️ 함수키 단축키(F1 ~ F4) | features | gacha.js key-input.js | 10 (#65 #1 #16) | 0 |  |
-| 40 | 8752–8816 | 65 | 🎨 꾸미기 사이드 패널 열고 닫기 | widgets |  | 10 (#41 #42 #1) | 0 |  |
-| 41 | 8817–9179 | 363 | 👀 꾸미기 미리보기 — 렌더러 · 기즈모 · 창 자리 · 카메라 | widgets | gamepad-activity.js | 12 (#146 #1 #43) | 13 (#42 #162 #43) |  |
-| 42 | 9180–9645 | 466 | 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(`commitWdDraft`) · 색 영역 | features | animal.js gacha.js | 24 (#41 #146 #1) | 17 (#75 #79 #162) |  |
-| 43 | 9646–10449 | 804 | 🖍️ 파츠에 직접 그리기 | features | animal.js key-input.js paint-tools.js purikura-ui.js uv-fill.js | 17 (#146 #41 #77) | 19 (#42 #91 #92) |  |
-| 44 | 10450–10537 | 88 | 🏠 마이홈 친구 탭 상수 · 상태 | pages | bug-board-ui.js friend-manage.js scheduler.js | 13 (#53 #55 #47) | 16 (#46 #61 #54) | 끝에 📅 스케줄러 · 🔔 일정 알림 연결(`MhScheduler.createScheduler` — scheduler.js · 원래 자리) · 👥 친구 관리 연결(`TwFriendManage.createFriendManage` — friend-manage.js · 옛 #29 자리). 🐞 버그 제보 탭(오픈카톡 기본 링크)은 bug-board-ui.js 끝으로 |
-| 45 | 10538–10568 | 31 | 🖥️ 한 계정 한 기기 — 밀려난 기기 처리 | features |  | 4 (#6 #115 #118) | 2 (#46 #115) |  |
-| 46 | 10569–10681 | 113 | 🏠 마이홈 열기(`initMyHome`) · 소유자 쓰기 거부 안내 | pages | bug-board-ui.js friend-manage.js guestbook.js scheduler.js | 10 (#44 #161 #6) | 1 (#35) |  |
-| 47 | 10682–10731 | 50 | 📩 수령함 상태 · 안 읽은 수 · 친구 탭 배지 | entities |  | 1 (#161) | 7 (#53 #54 #46) |  |
-| 48 | 10732–10749 | 18 | 공용 HTML 이스케이프 `escHtml` | shared |  | 2 (#53 #64) | 13 (#44 #51 #52) | 0단계 shared 감 |
-| 49 | 10750–10821 | 72 | 💬 채팅창 투명도 · 글자 크기(기기별 로컬) | widgets |  | 0 | 1 (#74) |  |
-| 50 | 10822–10891 | 70 | 🔔 채팅 알림음 — 상태 · 저장 · 메뉴 | features |  | 3 (#13 #65 #156) | 3 (#74 #115 #116) |  |
-| 51 | 10892–11078 | 187 | 리치 텍스트 sanitize · 저장 · 글자 수 | shared |  | 3 (#48 #55 #89) | 4 (#52 #57 #61) | 0단계 shared 감. 섞임(작게): 친구 방 표시(`_friendRoomTag` · `_friendInRoom`)가 sanitize 사이(`_mhStripHtml` 앞)에 끼어 있다 — 옮길 때 #52 로 |
-| 52 | 11079–11267 | 189 | 👥 마이홈 친구 목록 · Ctrl+F 검색 | widgets | friend-visit.js mallang.js myhome-edit.js | 14 (#51 #30 #44) | 2 (#54 #46) |  |
-| 53 | 11268–11583 | 316 | 📩 수령함 · 💝 선물함 그리기 | widgets | bug-board-ui.js friend-manage.js mallang.js scheduler.js seat-pin.js | 7 (#47 #1 #6) | 6 (#44 #54 #46) |  |
-| 54 | 11584–12010 | 427 | 🏠 마이홈 창 버튼 연결(`bindMyHomeUI`) | pages | friend-manage.js guestbook.js mallang.js myhome-edit.js scheduler.js seat-pin.js | 16 (#44 #47 #55) | 2 (#53 #57) |  |
-| 55 | 12011–12207 | 197 | 🏠 마이홈 데이터 불러오기 · 방문 | pages | guestbook.js mallang.js myhome-desktop.js myhome-edit.js scheduler.js | 4 (#44 #57 #170) | 15 (#57 #61 #54) |  |
-| 56 | 12208–12288 | 81 | 🔬 마이홈 클릭 진단(`__mhClickDiag`) | pages |  | 2 (#55 #170) | 0 |  |
-| 57 | 12289–12340 | 52 | 🏠 마이홈 페이지 불러오기 · 그리기(`renderMyHomePage`) | pages | myhome-edit.js | 6 (#55 #51 #6) | 4 (#54 #55 #61) | 끝에 `_mhStickerDragDist`(스티커 드래그 거리 let) 한 줄 |
-| 58 | 12341–12389 | 49 | ✏️ 인앱 프롬프트(`asyncPrompt`) | shared |  | 1 (#1) | 6 (#31 #59 #61) |  |
-| 59 | 12390–12665 | 276 | 🎨 마이홈 스티커 배치 · 그리기(`renderMyHomeStickers`) | widgets | myhome-edit.js myhome-sticker.js scheduler.js | 7 (#55 #44 #1) | 4 (#61 #54 #57) | 끝에 🎨 스티커 관리 창 연결(`TwMyHomeSticker.createMyHomeSticker` — myhome-sticker.js · 원래 자리) |
-| 60 | 12666–12695 | 30 | 🔗 마이홈 본문 링크 — 기본 브라우저로 | features |  | 0 | 0 |  |
-| 61 | 12696–12765 | 70 | 🏠 마이홈 페이지 편집 묶음 · 📖 방명록 모듈 연결 | pages | guestbook.js myhome-edit.js scheduler.js | 16 (#44 #55 #59) | 0 | `TwMyHomeEdit.createMyHomeEdit`(myhome-edit.js) · `TwGuestbook.createGuestbook`(guestbook.js) — 둘 다 원래 자리 |
-| 62 | 12766–12773 | 8 | 💬 머리 위 채팅 말풍선(`showChatBubble`) | widgets |  | 0 | 9 (#14 #26 #35) | 9개 구역이 쓴다 |
-| 63 | 12774–12984 | 211 | 🌊 채팅 날리기 | features |  | 13 (#1 #85 #11) | 8 (#74 #69 #123) |  |
-| 64 | 12985–13005 | 21 | 💬 대화창 코어 | widgets |  | 1 (#48) | 10 (#65 #68 #69) |  |
-| 65 | 13006–13317 | 312 | 🔖 읽음 구분선 | features |  | 11 (#68 #64 #67) | 11 (#68 #74 #35) |  |
-| 66 | 13318–13357 | 40 | 🔇 시크릿룸 채팅 잠금 | features |  | 6 (#68 #6 #63) | 6 (#67 #68 #112) |  |
-| 67 | 13358–13479 | 122 | 🗑 대화 기록 삭제(방장) | features |  | 8 (#66 #68 #65) | 7 (#74 #65 #115) |  |
-| 68 | 13480–13794 | 315 | 💬 채팅 탭 | features | chat-tabs.js | 9 (#65 #69 #66) | 8 (#67 #65 #66) | chat-tabs.js 와 짝 |
-| 69 | 13795–14089 | 295 | 📋 대화 드래그 · 복사 | features | chat-copy.js | 14 (#63 #16 #70) | 3 (#68 #74 #65) | chat-copy.js 와 짝 |
-| 70 | 14090–14267 | 178 | 😊 커스텀 이모티콘 | features |  | 4 (#1 #6 #58) | 5 (#74 #69 #26) |  |
-| 71 | 14268–14359 | 92 | 🎲 주사위 | features | animal.js purikura-net.js purikura-ui.js scheduler.js | 15 (#1 #155 #16) | 5 (#74 #14 #69) | 📷 세션 입구 `_purikura()` 와 끝에 📷 스티커사진 창 연결(`TwPurikuraUi.createPurikuraUi` — purikura-ui.js · 원래 자리) |
-| 72 | 14360–14432 | 73 | 🎟️ 룰렛 · 주사위 하루 횟수 | features |  | 13 (#1 #11 #73) | 3 (#73 #35 #74) |  |
-| 73 | 14433–14487 | 55 | 🔫 러시안룰렛 | features |  | 10 (#11 #72 #1) | 2 (#72 #35) |  |
-| 74 | 14488–14551 | 64 | 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 크기 · 메뉴 · 버튼 | app | chat-window.js | 17 (#65 #50 #63) | 0 | 14번으로 옮김 — 남은 것은 연결(`TwChatWindow.createChatWindow` · deps 49)뿐. 본문(즉시 실행 함수 `_wireChatWindow`)은 chat-window.js |
-| 75 | 14552–14898 | 347 | 🎛️ 꾸미기 상세조정 패널 · 색 고르기 | widgets |  | 8 (#146 #42 #41) | 8 (#41 #80 #162) |  |
-| 76 | 14899–15008 | 110 | 🎨 텍스처 파츠 색조 셰이더 | shared | purikura-ui.js | 0 | 3 (#78 #89 #71) |  |
-| 77 | 15009–15199 | 191 | 🖍️ 파츠 그림칸(`_pic`) · UV 구제 · 그림 올리기 | features | gacha.js | 7 (#114 #90 #43) | 4 (#89 #43 #3) |  |
-| 78 | 15200–15409 | 210 | 🎨 꾸미기 색 줄(`buildColorRows`) · 탭 상태 | widgets |  | 5 (#76 #1 #75) | 4 (#42 #80 #43) |  |
-| 79 | 15410–15561 | 152 | 꾸미기 창 «책상» 탭 · 🐾 귀 탭 연결(wd-ear.js) | widgets | animal.js ears-glb.js human-ear.js wd-ear.js | 19 (#42 #90 #3) | 7 (#80 #93 #3) |  |
-| 80 | 15562–15882 | 321 | 꾸미기 창 그리기(`renderWardrobe`) · 파츠 착용(`toggleEquip`) | widgets | gacha.js | 16 (#146 #89 #79) | 15 (#146 #40 #41) |  |
-| 81 | 15883–15958 | 76 | 🗂️ 카탈로그 파츠 페이로드 · 파츠 삭제(관리자) | entities |  | 7 (#146 #89 #6) | 5 (#80 #82 #146) |  |
-| 82 | 15959–16320 | 362 | 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) | features | gacha.js | 17 (#146 #147 #41) | 3 (#162 #80 #93) |  |
-| 83 | 16321–16435 | 115 | 🫧 상태 이모지 그림 · UI 아이콘 · 책상 위 이모지 | widgets |  | 4 (#1 #14 #23) | 5 (#123 #14 #23) | UI 아이콘(`uiIconEl` · `_applyUiIcons`)은 shared 감 |
-| 84 | 16436–16698 | 263 | 🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너 | widgets | animal.js | 15 (#1 #6 #25) | 8 (#85 #165 #35) |  |
-| 85 | 16699–17041 | 343 | 💬 머리 위 말풍선 · 회사원 모드 라벨 | widgets |  | 10 (#84 #14 #70) | 13 (#63 #84 #11) |  |
-| 86 | 17042–17149 | 108 | 캐릭터 투명도 · 활동 판정(`seatState`) · 쓰다듬기 | entities | seat-pin.js | 5 (#156 #22 #23) | 19 (#170 #168 #22) | `seatState` · `activity` — 19개 구역이 쓴다 |
-| 87 | 17150–17582 | 433 | 캐릭터 끌기 · 흔들기 · 쓰다듬기 | features | seat-pin.js | 28 (#9 #14 #6) | 14 (#9 #11 #14) |  |
-| 88 | 17583–17625 | 43 | 머리 위 이모지 반응(floaters) | widgets | animal.js | 5 (#1 #6 #18) | 8 (#87 #155 #7) |  |
-| 89 | 17626–19003 | 1378 | 파츠 부착 — 본 · 오프셋 보정 · 유령 정리 | entities | animal.js | 21 (#146 #5 #20) | 23 (#80 #105 #41) |  |
-| 90 | 19004–19427 | 424 | 생성기 · 런처 공통 상태(`charDef` · `slots` · `curSlot`) | pages | animal-edit-route.js animal.js myhome-desktop.js skin-data.js | 22 (#4 #5 #105) | 54 (#105 #92 #141) | 핵심 상태 — 54개 구역이 쓴다 |
-| 91 | 19428–19557 | 130 | 생성기 x축 대칭 | features |  | 6 (#90 #43 #1) | 3 (#92 #43 #105) |  |
-| 92 | 19558–20291 | 734 | 생성기 이미지 도장 | features | animal.js key-input.js paint-tools.js skin-data.js uv-fill.js | 10 (#90 #105 #91) | 7 (#105 #43 #90) |  |
-| 93 | 20292–20644 | 353 | 생성기 5단계 책상 세팅 | features |  | 20 (#151 #5 #145) | 10 (#79 #5 #80) |  |
-| 94 | 20645–20874 | 230 | 생성기 아이템 3D 기즈모 | features | gamepad-activity.js | 13 (#5 #152 #20) | 4 (#95 #105 #5) |  |
-| 95 | 20875–20944 | 70 | 생성기 6단계 좌석 세팅 | features |  | 7 (#90 #94 #1) | 3 (#94 #90 #105) |  |
-| 96 | 20945–20978 | 34 | 책상 · 아이템 코드 만들기(판매자) | features |  | 1 (#144) | 4 (#39 #40 #125) |  |
-| 97 | 20979–21030 | 52 | 커미션 캐릭터 코드 만들기(관리자) | features |  | 2 (#145 #142) | 4 (#39 #40 #125) |  |
-| 98 | 21031–21234 | 204 | 책상 · 아이템 코드 가져오기 | features | def-size.js | 12 (#146 #1 #151) | 19 (#1 #104 #147) |  |
-| 99 | 21235–21244 | 10 | 관리자 · 초대 게이트 상태(`isAdmin`) | entities |  | 0 | 26 (#103 #5 #16) | 26개 구역이 쓴다 |
-| 100 | 21245–21247 | 3 | (머리만 · 3줄) | — |  | 1 (#1) | 0 |  |
-| 101 | 21248–22233 | 986 | 🎟️ 초대장 · 가입 흐름 · 프리미엄 상태 | features | gamepad-activity.js | 16 (#6 #117 #23) | 27 (#103 #117 #118) |  |
-| 102 | 22234–22367 | 134 | 라이선스 없는 기기 자산 접기 · 되돌리기 | entities | gacha.js | 14 (#5 #101 #90) | 7 (#114 #79 #101) |  |
-| 103 | 22368–22523 | 156 | 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 · 관리자 uid | features | key-input.js | 5 (#101 #99 #1) | 3 (#121 #129 #171) |  |
-| 104 | 22524–22596 | 73 | 💡 얼굴 텍스처 갈아끼우기(`setFaceMap`) · 생성기 조명 | entities | animal.js creator-flat-view.js | 2 (#98 #1) | 10 (#105 #90 #92) |  |
-| 105 | 22597–23269 | 673 | 🧍 생성기 미리보기 — 렌더러 · 카메라 · 열기 · 닫기 · 완료 | pages | animal-edit-route.js animal.js def-size.js myhome-desktop.js | 36 (#90 #4 #5) | 19 (#92 #90 #109) |  |
-| 106 | 23270–23480 | 211 | 🖼️ 런처 미리보기 · 슬롯 섬네일 | pages | myhome-desktop.js | 19 (#1 #90 #151) | 13 (#171 #109 #110) |  |
-| 107 | 23481–23592 | 112 | 🎛️ 런처 컨트롤 — 슬롯 넘기기 · 톱니 메뉴 · 삭제 · 보관함 이동 | pages | myhome-desktop.js | 7 (#140 #90 #110) | 4 (#106 #119 #140) |  |
-| 108 | 23593–23648 | 56 | 🐾 종족 선택창 | features |  | 6 (#1 #4 #90) | 2 (#107 #109) |  |
-| 109 | 23649–24060 | 412 | 커미션 캐릭터 코드 입력 | features | animal.js def-size.js myhome-desktop.js | 27 (#90 #1 #4) | 17 (#15 #89 #1) |  |
-| 110 | 24061–24395 | 335 | 설정 › 캐릭터 탭(교체 · 자리 추가) | widgets | gacha.js guestbook.js myhome-desktop.js myhome-edit.js weekly-challenge.js | 22 (#22 #90 #1) | 16 (#107 #36 #35) |  |
-| 111 | 24396–24412 | 17 | 방 인원 상한 | entities |  | 3 (#114 #115 #113) | 3 (#115 #122 #123) |  |
-| 112 | 24413–24530 | 118 | 🚪 자리비움 자동 퇴장 | features | weekly-challenge.js | 5 (#66 #1 #23) | 1 (#113) |  |
-| 113 | 24531–24935 | 405 | 방 접속 상태(`Presence`) | entities | animal.js noise.js | 24 (#115 #112 #159) | 40 (#7 #9 #11) | 핵심 상태 — 39개 구역이 쓴다 |
-| 114 | 24936–25311 | 376 | 📦 방으로 보내는 def — 직렬화 · 얼굴 URL · 델타 전송 · Firebase provider | entities | animal.js gamepad-activity.js | 14 (#90 #102 #145) | 13 (#136 #77 #113) |  |
-| 115 | 25312–26175 | 864 | 🛰 방 연결(Firebase · 방 서버) · 표시 이름 | entities | animal.js chat-tabs.js myhome-desktop.js purikura-ui.js room-server-net.js | 43 (#122 #17 #90) | 39 (#113 #122 #123) |  |
-| 116 | 26176–26449 | 274 | 🏷️ 닉네임 저장 | features | myhome-edit.js name-guard.js purikura-ui.js | 19 (#156 #115 #1) | 7 (#61 #120 #40) |  |
-| 117 | 26450–26751 | 302 | 🔑 구글 로그인 | features |  | 14 (#140 #6 #101) | 6 (#101 #118 #120) |  |
-| 118 | 26752–27147 | 396 | 🧹 신원을 놓을 때 지우기(로그아웃) | features | gacha.js weekly-challenge.js | 26 (#136 #28 #137) | 13 (#120 #101 #117) |  |
-| 119 | 27148–27206 | 59 | 🪪 [내 정보] 화면 전환 | pages |  | 8 (#120 #140 #118) | 5 (#120 #125 #109) |  |
-| 120 | 27207–27864 | 658 | 🏆 [내 정보] 랭킹 · 보관함 · 휴지통 탭 | widgets | myhome-desktop.js | 21 (#140 #161 #119) | 6 (#119 #101 #106) |  |
-| 121 | 27865–28044 | 180 | 📥 계정 스냅샷 복원 · 연동 뒤 플레이리스트 · 가챠 되맞추기 | features | gacha.js | 14 (#28 #6 #101) | 8 (#117 #118 #6) |  |
-| 122 | 28045–28221 | 177 | 🔢 방 개수 · 방 만들기 · 랜덤 참여 · 갈아타기 | features |  | 4 (#115 #123 #111) | 4 (#123 #115 #36) |  |
-| 123 | 28222–28559 | 338 | 🚪 방 입장 · 나가기 · 방장 승계 · 해산 · 코드 입력칸 | features |  | 13 (#122 #115 #63) | 8 (#115 #122 #9) |  |
-| 124 | 28560–28596 | 37 | 🔑 라이선스 등록 UI | widgets |  | 2 (#129 #101) | 4 (#101 #116 #127) | 키 등록 · 해제 버튼은 #127 에 떨어져 있다 |
-| 125 | 28597–28629 | 33 | 🪟 런처 타이틀바 · 팝업 흐림 | pages | folder-free.js | 6 (#119 #87 #96) | 0 |  |
-| 126 | 28630–28776 | 147 | 📢 런처 광고 배너 · ⚙️ 게임 설정 | widgets | animal.js | 3 (#36 #58 #99) | 1 (#36) | 섞임(작게): ⚙️ 게임 설정(`_gameCfg`)이 광고 배너 표시와 편집 사이에 끼어 있다 |
-| 127 | 28777–28799 | 23 | 🔑 라이선스 키 등록 · 해제 버튼 | features |  | 4 (#101 #1 #116) | 0 | #124 와 한 몸 |
-| 128 | 28800–28838 | 39 | 🪟 팝업 바깥 클릭으로 닫기 | app |  | 0 | 0 |  |
-| 129 | 28839–28914 | 76 | 📨 라이선스 요청 · 관리자 비밀번호 모달 | features |  | 7 (#1 #101 #103) | 2 (#124 #118) |  |
-| 130 | 28915–29083 | 169 | 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) | features |  | 2 (#53 #131) | 2 (#131 #132) |  |
-| 131 | 29084–29373 | 290 | 관리자 파츠 카테고리 관리 | features |  | 8 (#146 #130 #1) | 2 (#130 #150) |  |
-| 132 | 29374–29811 | 438 | 📄 엑셀로 라이선스 일괄 발급(관리자) | features |  | 6 (#1 #48 #101) | 0 |  |
-| 133 | 29812–30054 | 243 | 🔒 시크릿룸 발급(관리자) | features |  | 5 (#115 #1 #99) | 0 |  |
-| 134 | 30055–30079 | 25 | 👥 책상에서 친구 추가 | features |  | 7 (#90 #1 #22) | 1 (#110) |  |
-| 135 | 30080–30234 | 155 | 💾 슬롯 저장 · 복원(`saveSlots` · `loadSlots`) | entities |  | 9 (#90 #136 #140) | 24 (#140 #136 #90) | 핵심 — 24개 구역이 쓴다 |
-| 136 | 30235–30665 | 431 | ☁️ 슬롯 기기 간 동기화 | entities |  | 14 (#114 #137 #90) | 9 (#137 #140 #118) |  |
-| 137 | 30666–30935 | 270 | ☁️ 연동 UI(띠 · 대화상자) | widgets |  | 7 (#136 #6 #90) | 6 (#136 #118 #106) |  |
-| 138 | 30936–30990 | 55 | 🧬 캐릭터 병합(순수 함수) | entities |  | 1 (#136) | 4 (#140 #117 #120) |  |
-| 139 | 30991–31166 | 176 | 🧬 slots → chars 이관(순수 함수) | entities |  | 10 (#136 #90 #114) | 1 (#140) |  |
-| 140 | 31167–31859 | 693 | 🧬 이관 조율 · 서버 쓰기 | entities | gamepad-activity.js | 13 (#136 #135 #139) | 16 (#120 #117 #107) |  |
-| 141 | 31860–31997 | 138 | 🛡️ 얼굴 자동 복구 | entities | animal.js | 8 (#90 #135 #4) | 1 (#171) |  |
-| 142 | 31998–32069 | 72 | AES-256-GCM 암호화 | shared |  | 5 (#1 #90 #135) | 8 (#144 #145 #153) |  |
-| 143 | 32070–32082 | 13 | GLB 파일 암호화(.dcc) | shared |  | 2 (#1 #142) | 2 (#153 #21) |  |
-| 144 | 32083–32107 | 25 | 책상 · 아이템 GLB 코드(DCK1) | entities |  | 3 (#142 #1 #2) | 12 (#98 #96 #105) |  |
-| 145 | 32108–32218 | 111 | 커미션 캐릭터 zip 코드 | entities |  | 3 (#142 #1 #151) | 22 (#93 #98 #97) |  |
-| 146 | 32219–32565 | 347 | 꾸미기 파츠 카테고리 · 파츠 엔트리 · `savedParts` | entities | gacha.js | 4 (#80 #81 #152) | 23 (#80 #82 #89) | 핵심 — 23개 구역이 쓴다 |
-| 147 | 32566–32730 | 165 | 🧊 파츠 GLB 파싱 캐시 · 썸네일 | entities | gacha.js | 10 (#1 #98 #146) | 6 (#82 #89 #81) |  |
-| 148 | 32731–32837 | 107 | 💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결 | entities |  | 1 (#146) | 7 (#79 #82 #90) | 카탈로그 실시간 동기화 설명 주석이 이 머리 바로 밑에 있고 함수는 #150 에 있다 |
-| 149 | 32838–32983 | 146 | 🧹 관리자 콘솔 도구 — 카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 | features | gamepad-activity.js | 2 (#145 #146) | 0 | F12 콘솔용 `window.X` 함수뿐 — 다른 구역이 안 부른다 |
-| 150 | 32984–33246 | 263 | 🔄 카탈로그 실시간 동기화 — 아이템 · 책상 · 파츠 · 카테고리 | entities | gacha.js | 26 (#146 #151 #15) | 9 (#5 #79 #89) |  |
-| 151 | 33247–33451 | 205 | 🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기 | entities | animal.js | 14 (#5 #98 #152) | 18 (#105 #150 #90) |  |
-| 152 | 33452–33662 | 211 | 📌 책상 위 파츠 앵커 · 책상 위치 · 배율 | entities | seat-slot.js | 8 (#6 #1 #7) | 16 (#94 #42 #7) |  |
-| 153 | 33663–33835 | 173 | 📦 복제 코드 불러오기 · 내보내기 · 풀 GLB | features | animal.js gacha.js myhome-desktop.js | 22 (#90 #146 #6) | 8 (#90 #93 #98) |  |
-| 154 | 33836–33859 | 24 | 🍞 토스트(`toast`) · 저장 실패 문구 | shared |  | 0 | 5 (#54 #129 #131) | 0단계 shared 감. `toast` 는 `let toastT` 와 한 줄이라 근사치가 못 센다 — 실제로는 거의 모든 구역이 부른다 |
-| 155 | 33860–34519 | 660 | 애니메이션 상태 · 프레임 루프(`frame`) | app | animal.js frame-budget.js seat-pin.js | 34 (#16 #7 #1) | 33 (#71 #170 #105) |  |
-| 156 | 34520–34640 | 121 | 데스크탑(Electron) 모드 · 피규어 모드 | app |  | 5 (#1 #23 #28) | 23 (#116 #86 #155) |  |
-| 157 | 34641–34718 | 78 | 포커스 시간 누적 · 레벨 | entities |  | 2 (#161 #1) | 12 (#161 #37 #118) |  |
-| 158 | 34719–34797 | 79 | 📊 오늘 기록 전시 | features | pomodoro.js | 5 (#23 #156 #1) | 4 (#113 #169 #23) |  |
-| 159 | 34798–35118 | 321 | 🫧 자리비움 그림 | features |  | 11 (#1 #6 #15) | 6 (#113 #155 #115) |  |
-| 160 | 35119–35308 | 190 | 🚩 신고하기 | features |  | 7 (#6 #9 #1) | 1 (#87) |  |
-| 161 | 35309–35552 | 244 | ⭐ 포커스 레벨(`getFocusLevel` · `addFocusSeconds`) · 해금 안내 · 회차 별 색 | entities | gacha.js gamepad-activity.js | 11 (#157 #16 #47) | 22 (#120 #46 #31) | 22개 구역이 쓴다 |
-| 162 | 35553–35649 | 97 | 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 | app | gacha.js scheduler.js | 20 (#41 #146 #42) | 14 (#118 #39 #41) | `TwGacha.createGacha`(gacha.js · 저장 키 세 줄과 함께 · 원래 자리) · `_warnServerWriteDenied`(가챠 · 캐릭터 슬롯이 부른다) |
-| 163 | 35650–35703 | 54 | 🎨 디자인 테마 | shared |  | 1 (#164) | 3 (#164 #116 #61) |  |
-| 164 | 35704–35785 | 82 | 🎨 자식 창 테마 입히기 | shared |  | 1 (#163) | 3 (#116 #163 #61) |  |
-| 165 | 35786–35902 | 117 | ⭐ 경험치 바 | widgets |  | 6 (#84 #30 #1) | 7 (#120 #115 #155) |  |
-| 166 | 35903–36066 | 164 | 🕒 포커스 누적 기기 간 공유 | entities |  | 10 (#157 #161 #42) | 6 (#118 #121 #37) |  |
-| 167 | 36067–36249 | 183 | 📱 태블릿 · 폰 포커싱 연결 · 설정 칸 · QR 창 | features |  | 6 (#1 #6 #43) | 6 (#113 #155 #46) |  |
-| 168 | 36250–36279 | 30 | 🖥️ 활성 앱 판정(`_applyActiveAppState`) | entities |  | 6 (#86 #156 #1) | 2 (#167 #170) |  |
-| 169 | 36280–36317 | 38 | 👑 달성표 · 🍅 뽀모도로 모듈 연결 | app | gacha.js pomodoro.js scheduler.js weekly-challenge.js | 11 (#157 #158 #6) | 5 (#118 #13 #110) | `TwWeeklyChallenge.createWeeklyChallenge` · `TwPomodoro.createPomodoro` — 둘 다 원래 자리 |
-| 170 | 36318–37101 | 784 | 🖥️ 데스크탑 실행 화면 — 창 크기 · 업데이트 배너 · 전역 입력 · 클릭 통과 · 하트비트 | app | frame-budget.js gamepad-activity.js | 17 (#1 #86 #155) | 10 (#54 #55 #110) | 섞임: `if(desktopMode){ … }` 한 덩이(약 740줄)라 맨 앞 칸 머리로는 더 못 나눈다 — 옮길 때 블록 안을 나눈다 |
-| 171 | 37102–37116 | 15 | INIT — `resize` · 첫 배치 | app |  | 12 (#106 #22 #141) | 5 (#25 #41 #54) |  |
-| 172 | 37117–37137 | 21 | 🙋 투게더룸 친구 초대 — 모듈 연결(`TwRoomInviteUi.createRoomInviteUi`) | app | room-invite-ui.js scheduler.js | 8 (#44 #115 #6) | 0 | 10번으로 본문 268줄은 `room-invite-ui.js` 로 — 머리 · 연결 21줄만 남음 |
-| 173 | 37138–37246 | 109 | 🛰 서버 모듈 감시견 | app |  | 0 | 0 |  |
+| 27 | 5523–5559 | 37 | 🎵 상태칩 플레이리스트 — 모듈 연결(`TwPlaylist.createPlaylist`) | app | playlist.js scheduler.js | 10 (#161 #55 #30) | 10 (#28 #31 #32) | 16번으로 옮김 — 남은 것은 연결(빈 껍데기 `PLAYLIST_OFF` · deps 20)뿐. 프리셋 · 화면 · 고르기 · 파도타기 · 재생 감시견 · 재생 제어 · 버튼 연결 본문은 playlist.js |
+| 28 | 5560–5561 | 2 | (머리만 · 2줄) — 🎵 프리셋 세 벌 | — |  | 1 (#27) | 0 | 16번으로 본문은 playlist.js — 구역 번호가 밀리지 않게 머리와 안내 한 줄만 남김 |
+| 29 | 5562–5568 | 7 | (머리만 · 7줄) | — |  | 0 | 0 |  |
+| 30 | 5569–5614 | 46 | 레벨 티어 경계값 · 배지 클래스 | entities |  | 2 (#161 #157) | 5 (#165 #31 #52) |  |
+| 31 | 5615–5616 | 2 | (머리만 · 2줄) — 🎵 플레이리스트 화면 | — |  | 1 (#27) | 0 | 16번으로 본문은 playlist.js — 구역 번호가 밀리지 않게 머리와 안내 한 줄만 남김 |
+| 32 | 5617–5618 | 2 | (머리만 · 2줄) — 🎵 프리셋 고르기 | — |  | 1 (#27) | 0 | 16번으로 본문은 playlist.js — 구역 번호가 밀리지 않게 머리와 안내 한 줄만 남김 |
+| 33 | 5619–5622 | 4 | (머리만 · 4줄) — 🐕 재생 감시견 | — |  | 1 (#27) | 0 | 16번으로 본문은 playlist.js — 구역 번호가 밀리지 않게 머리와 안내 두 줄만 남김 |
+| 34 | 5623–5684 | 62 | 렌더러 생존 신호 · 내 캐릭터 화면 좌표(`_charBoundsLatest`) | app |  | 1 (#35) | 2 (#35 #170) |  |
+| 35 | 5685–6208 | 524 | 상태칩 자리(매 프레임) · 칩 클릭 · Tab 접기 | widgets |  | 19 (#23 #25 #16) | 9 (#25 #84 #34) |  |
+| 36 | 6209–6795 | 587 | ⚙ 설정 패널 — 포커싱 어플 · 화면 표시 · 캐릭터 크기 · 탭 · 광고 배너 | widgets | gacha.js playlist.js scheduler.js seat-pin.js | 18 (#6 #7 #84) | 6 (#38 #35 #126) | 섞임(작게): 이동 모드 상태(`moveMode` 등 let 셋)가 머리 바로 밑에 있다 — #38 이동 모드 · #39 함수키가 쓴다 |
+| 37 | 6796–6811 | 16 | 🕒 포커스 기록 팝업 — 모듈 연결(`TwFocusLog.createFocusLog`) | app | focus-log.js scheduler.js | 4 (#157 #24 #44) | 0 | 13번으로 본문 125줄은 `focus-log.js` 로 — 머리 · 연결 16줄만 남음. 🍅 뽀모 서랍(pomodoro.js)이 그 창 안에 있다 — DOM 만 같이 쓴다 |
+| 38 | 6812–6853 | 42 | ✥ 프로그램 이동 모드 | features |  | 6 (#6 #36 #1) | 0 |  |
+| 39 | 6854–6959 | 106 | ⌨️ 함수키 단축키(F1 ~ F4) | features | gacha.js key-input.js | 10 (#65 #1 #16) | 0 |  |
+| 40 | 6960–7024 | 65 | 🎨 꾸미기 사이드 패널 열고 닫기 | widgets |  | 10 (#41 #42 #1) | 0 |  |
+| 41 | 7025–7387 | 363 | 👀 꾸미기 미리보기 — 렌더러 · 기즈모 · 창 자리 · 카메라 | widgets | gamepad-activity.js | 12 (#146 #1 #43) | 13 (#42 #162 #43) |  |
+| 42 | 7388–7853 | 466 | 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(`commitWdDraft`) · 색 영역 | features | animal.js gacha.js | 24 (#41 #146 #1) | 17 (#75 #79 #162) |  |
+| 43 | 7854–8657 | 804 | 🖍️ 파츠에 직접 그리기 | features | animal.js key-input.js paint-tools.js purikura-ui.js uv-fill.js | 17 (#146 #41 #77) | 19 (#42 #91 #92) |  |
+| 44 | 8658–8745 | 88 | 🏠 마이홈 친구 탭 상수 · 상태 | pages | bug-board-ui.js friend-manage.js myhome-inbox.js scheduler.js | 12 (#55 #118 #79) | 15 (#46 #61 #54) | 끝에 📅 스케줄러 · 🔔 일정 알림 연결(`MhScheduler.createScheduler` — scheduler.js · 원래 자리) · 👥 친구 관리 연결(`TwFriendManage.createFriendManage` — friend-manage.js · 옛 #29 자리). 🐞 버그 제보 탭(오픈카톡 기본 링크)은 bug-board-ui.js 끝으로 |
+| 45 | 8746–8776 | 31 | 🖥️ 한 계정 한 기기 — 밀려난 기기 처리 | features |  | 4 (#6 #115 #118) | 2 (#46 #115) |  |
+| 46 | 8777–8889 | 113 | 🏠 마이홈 열기(`initMyHome`) · 소유자 쓰기 거부 안내 | pages | bug-board-ui.js friend-manage.js guestbook.js myhome-inbox.js scheduler.js | 9 (#44 #161 #6) | 1 (#35) |  |
+| 47 | 8890–8896 | 7 | 📩 수령함 상태 · 안 읽은 수 · 친구 탭 배지 | entities |  | 1 (#161) | 4 (#52 #46 #161) | 15번으로 함수는 myhome-inbox.js 로 — 남은 것은 구독이 다시 대입하는 `_myInbox` · `_myInboxReady` · `_inboxBroadcast` 와 로그아웃이 같이 쓰는 `INBOX_BC_READ_KEY` |
+| 48 | 8897–8914 | 18 | 공용 HTML 이스케이프 `escHtml` | shared | myhome-inbox.js | 1 (#64) | 12 (#44 #51 #52) | 0단계 shared 감 |
+| 49 | 8915–8986 | 72 | 💬 채팅창 투명도 · 글자 크기(기기별 로컬) | widgets |  | 0 | 1 (#74) |  |
+| 50 | 8987–9056 | 70 | 🔔 채팅 알림음 — 상태 · 저장 · 메뉴 | features |  | 3 (#13 #65 #156) | 3 (#74 #115 #116) |  |
+| 51 | 9057–9222 | 166 | 리치 텍스트 sanitize · 저장 · 글자 수 | shared |  | 3 (#48 #55 #89) | 3 (#57 #61 #52) | 0단계 shared 감. 사이에 끼어 있던 친구 방 표시 둘(`_friendRoomTag` · `_friendInRoom`)은 15번으로 myhome-inbox.js 로 |
+| 52 | 9223–9261 | 39 | 👥 마이홈 친구 목록 · Ctrl+F 검색 | app | friend-visit.js myhome-inbox.js scheduler.js | 14 (#47 #44 #115) | 6 (#44 #46 #53) | 15번으로 옮김 — 남은 것은 연결(🏠 놀러 가기 `TwFriendVisit.createFriendVisit` · `TwMyHomeInbox.createMyHomeInbox` · deps 18)뿐. 친구 목록 · 수령함 · 선물함 본문은 myhome-inbox.js |
+| 53 | 9262–9263 | 2 | (머리만 · 2줄) — 📩 수령함 · 💝 선물함 그리기 | — |  | 1 (#52) | 0 | 15번으로 본문은 myhome-inbox.js — 구역 번호가 밀리지 않게 머리와 안내 한 줄만 남김 |
+| 54 | 9264–9690 | 427 | 🏠 마이홈 창 버튼 연결(`bindMyHomeUI`) | pages | friend-manage.js guestbook.js mallang.js myhome-edit.js myhome-inbox.js scheduler.js seat-pin.js | 14 (#44 #55 #59) | 2 (#53 #57) |  |
+| 55 | 9691–9887 | 197 | 🏠 마이홈 데이터 불러오기 · 방문 | pages | guestbook.js mallang.js myhome-desktop.js myhome-edit.js scheduler.js | 4 (#44 #57 #170) | 13 (#57 #61 #54) |  |
+| 56 | 9888–9968 | 81 | 🔬 마이홈 클릭 진단(`__mhClickDiag`) | pages |  | 2 (#55 #170) | 0 |  |
+| 57 | 9969–10020 | 52 | 🏠 마이홈 페이지 불러오기 · 그리기(`renderMyHomePage`) | pages | myhome-edit.js | 6 (#55 #51 #6) | 4 (#54 #55 #61) | 끝에 `_mhStickerDragDist`(스티커 드래그 거리 let) 한 줄 |
+| 58 | 10021–10069 | 49 | ✏️ 인앱 프롬프트(`asyncPrompt`) | shared |  | 1 (#1) | 6 (#31 #59 #61) |  |
+| 59 | 10070–10345 | 276 | 🎨 마이홈 스티커 배치 · 그리기(`renderMyHomeStickers`) | widgets | myhome-edit.js myhome-sticker.js scheduler.js | 7 (#55 #44 #1) | 4 (#61 #54 #57) | 끝에 🎨 스티커 관리 창 연결(`TwMyHomeSticker.createMyHomeSticker` — myhome-sticker.js · 원래 자리) |
+| 60 | 10346–10375 | 30 | 🔗 마이홈 본문 링크 — 기본 브라우저로 | features |  | 0 | 0 |  |
+| 61 | 10376–10445 | 70 | 🏠 마이홈 페이지 편집 묶음 · 📖 방명록 모듈 연결 | pages | guestbook.js myhome-edit.js scheduler.js | 16 (#44 #55 #59) | 0 | `TwMyHomeEdit.createMyHomeEdit`(myhome-edit.js) · `TwGuestbook.createGuestbook`(guestbook.js) — 둘 다 원래 자리 |
+| 62 | 10446–10453 | 8 | 💬 머리 위 채팅 말풍선(`showChatBubble`) | widgets |  | 0 | 9 (#14 #26 #35) | 9개 구역이 쓴다 |
+| 63 | 10454–10664 | 211 | 🌊 채팅 날리기 | features |  | 13 (#1 #85 #11) | 8 (#74 #69 #123) |  |
+| 64 | 10665–10685 | 21 | 💬 대화창 코어 | widgets |  | 1 (#48) | 10 (#65 #68 #69) |  |
+| 65 | 10686–10997 | 312 | 🔖 읽음 구분선 | features |  | 11 (#68 #64 #67) | 11 (#68 #74 #35) |  |
+| 66 | 10998–11037 | 40 | 🔇 시크릿룸 채팅 잠금 | features |  | 6 (#68 #6 #63) | 6 (#67 #68 #112) |  |
+| 67 | 11038–11159 | 122 | 🗑 대화 기록 삭제(방장) | features |  | 8 (#66 #68 #65) | 7 (#74 #65 #115) |  |
+| 68 | 11160–11474 | 315 | 💬 채팅 탭 | features | chat-tabs.js | 9 (#65 #69 #66) | 8 (#67 #65 #66) | chat-tabs.js 와 짝 |
+| 69 | 11475–11769 | 295 | 📋 대화 드래그 · 복사 | features | chat-copy.js | 14 (#63 #16 #70) | 3 (#68 #74 #65) | chat-copy.js 와 짝 |
+| 70 | 11770–11947 | 178 | 😊 커스텀 이모티콘 | features |  | 4 (#1 #6 #58) | 5 (#74 #69 #26) |  |
+| 71 | 11948–12039 | 92 | 🎲 주사위 | features | animal.js purikura-net.js purikura-ui.js scheduler.js | 14 (#1 #155 #16) | 5 (#74 #14 #69) | 📷 세션 입구 `_purikura()` 와 끝에 📷 스티커사진 창 연결(`TwPurikuraUi.createPurikuraUi` — purikura-ui.js · 원래 자리) |
+| 72 | 12040–12112 | 73 | 🎟️ 룰렛 · 주사위 하루 횟수 | features |  | 13 (#1 #11 #73) | 3 (#73 #35 #74) |  |
+| 73 | 12113–12167 | 55 | 🔫 러시안룰렛 | features |  | 10 (#11 #72 #1) | 2 (#72 #35) |  |
+| 74 | 12168–12231 | 64 | 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 크기 · 메뉴 · 버튼 | app | chat-window.js | 17 (#65 #50 #63) | 0 | 14번으로 옮김 — 남은 것은 연결(`TwChatWindow.createChatWindow` · deps 49)뿐. 본문(즉시 실행 함수 `_wireChatWindow`)은 chat-window.js |
+| 75 | 12232–12578 | 347 | 🎛️ 꾸미기 상세조정 패널 · 색 고르기 | widgets |  | 8 (#146 #42 #41) | 8 (#41 #80 #162) |  |
+| 76 | 12579–12688 | 110 | 🎨 텍스처 파츠 색조 셰이더 | shared | purikura-ui.js | 0 | 3 (#78 #89 #71) |  |
+| 77 | 12689–12879 | 191 | 🖍️ 파츠 그림칸(`_pic`) · UV 구제 · 그림 올리기 | features | gacha.js | 7 (#114 #90 #43) | 4 (#89 #43 #3) |  |
+| 78 | 12880–13089 | 210 | 🎨 꾸미기 색 줄(`buildColorRows`) · 탭 상태 | widgets |  | 5 (#76 #1 #75) | 4 (#42 #80 #43) |  |
+| 79 | 13090–13241 | 152 | 꾸미기 창 «책상» 탭 · 🐾 귀 탭 연결(wd-ear.js) | widgets | animal.js ears-glb.js human-ear.js wd-ear.js | 19 (#42 #90 #3) | 7 (#80 #93 #3) |  |
+| 80 | 13242–13562 | 321 | 꾸미기 창 그리기(`renderWardrobe`) · 파츠 착용(`toggleEquip`) | widgets | gacha.js | 16 (#146 #89 #79) | 15 (#146 #40 #41) |  |
+| 81 | 13563–13638 | 76 | 🗂️ 카탈로그 파츠 페이로드 · 파츠 삭제(관리자) | entities |  | 7 (#146 #89 #6) | 5 (#80 #82 #146) |  |
+| 82 | 13639–14000 | 362 | 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) | features | gacha.js | 17 (#146 #147 #41) | 3 (#162 #80 #93) |  |
+| 83 | 14001–14115 | 115 | 🫧 상태 이모지 그림 · UI 아이콘 · 책상 위 이모지 | widgets |  | 4 (#1 #14 #23) | 5 (#123 #14 #23) | UI 아이콘(`uiIconEl` · `_applyUiIcons`)은 shared 감 |
+| 84 | 14116–14378 | 263 | 🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너 | widgets | animal.js | 15 (#1 #6 #25) | 8 (#85 #165 #35) |  |
+| 85 | 14379–14721 | 343 | 💬 머리 위 말풍선 · 회사원 모드 라벨 | widgets |  | 10 (#84 #14 #70) | 13 (#63 #84 #11) |  |
+| 86 | 14722–14829 | 108 | 캐릭터 투명도 · 활동 판정(`seatState`) · 쓰다듬기 | entities | seat-pin.js | 5 (#156 #22 #23) | 19 (#170 #168 #22) | `seatState` · `activity` — 19개 구역이 쓴다 |
+| 87 | 14830–15262 | 433 | 캐릭터 끌기 · 흔들기 · 쓰다듬기 | features | seat-pin.js | 28 (#9 #14 #6) | 14 (#9 #11 #14) |  |
+| 88 | 15263–15305 | 43 | 머리 위 이모지 반응(floaters) | widgets | animal.js | 5 (#1 #6 #18) | 8 (#87 #155 #7) |  |
+| 89 | 15306–16683 | 1378 | 파츠 부착 — 본 · 오프셋 보정 · 유령 정리 | entities | animal.js | 21 (#146 #5 #20) | 23 (#80 #105 #41) |  |
+| 90 | 16684–17107 | 424 | 생성기 · 런처 공통 상태(`charDef` · `slots` · `curSlot`) | pages | animal-edit-route.js animal.js myhome-desktop.js skin-data.js | 22 (#4 #5 #105) | 54 (#105 #92 #141) | 핵심 상태 — 54개 구역이 쓴다 |
+| 91 | 17108–17237 | 130 | 생성기 x축 대칭 | features |  | 6 (#90 #43 #1) | 3 (#92 #43 #105) |  |
+| 92 | 17238–17971 | 734 | 생성기 이미지 도장 | features | animal.js key-input.js paint-tools.js skin-data.js uv-fill.js | 10 (#90 #105 #91) | 7 (#105 #43 #90) |  |
+| 93 | 17972–18324 | 353 | 생성기 5단계 책상 세팅 | features |  | 20 (#151 #5 #145) | 10 (#79 #5 #80) |  |
+| 94 | 18325–18554 | 230 | 생성기 아이템 3D 기즈모 | features | gamepad-activity.js | 13 (#5 #152 #20) | 4 (#95 #105 #5) |  |
+| 95 | 18555–18624 | 70 | 생성기 6단계 좌석 세팅 | features |  | 7 (#90 #94 #1) | 3 (#94 #90 #105) |  |
+| 96 | 18625–18658 | 34 | 책상 · 아이템 코드 만들기(판매자) | features |  | 1 (#144) | 4 (#39 #40 #125) |  |
+| 97 | 18659–18710 | 52 | 커미션 캐릭터 코드 만들기(관리자) | features |  | 2 (#145 #142) | 4 (#39 #40 #125) |  |
+| 98 | 18711–18914 | 204 | 책상 · 아이템 코드 가져오기 | features | def-size.js | 12 (#146 #1 #151) | 19 (#1 #104 #147) |  |
+| 99 | 18915–18924 | 10 | 관리자 · 초대 게이트 상태(`isAdmin`) | entities |  | 0 | 26 (#103 #5 #16) | 26개 구역이 쓴다 |
+| 100 | 18925–18927 | 3 | (머리만 · 3줄) | — |  | 1 (#1) | 0 |  |
+| 101 | 18928–19916 | 989 | 🎟️ 초대장 · 가입 흐름 · 프리미엄 상태 | features | gamepad-activity.js remote-config.js | 16 (#6 #117 #23) | 29 (#103 #117 #118) |  |
+| 102 | 19917–20050 | 134 | 라이선스 없는 기기 자산 접기 · 되돌리기 | entities | gacha.js | 14 (#5 #101 #90) | 7 (#114 #79 #101) |  |
+| 103 | 20051–20210 | 160 | 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 · 관리자 uid | features | key-input.js | 5 (#101 #99 #1) | 3 (#121 #129 #171) |  |
+| 104 | 20211–20283 | 73 | 💡 얼굴 텍스처 갈아끼우기(`setFaceMap`) · 생성기 조명 | entities | animal.js creator-flat-view.js | 2 (#98 #1) | 10 (#105 #90 #92) |  |
+| 105 | 20284–20956 | 673 | 🧍 생성기 미리보기 — 렌더러 · 카메라 · 열기 · 닫기 · 완료 | pages | animal-edit-route.js animal.js def-size.js myhome-desktop.js | 36 (#90 #4 #5) | 19 (#92 #90 #109) |  |
+| 106 | 20957–21167 | 211 | 🖼️ 런처 미리보기 · 슬롯 섬네일 | pages | myhome-desktop.js | 19 (#1 #90 #151) | 13 (#171 #109 #110) |  |
+| 107 | 21168–21279 | 112 | 🎛️ 런처 컨트롤 — 슬롯 넘기기 · 톱니 메뉴 · 삭제 · 보관함 이동 | pages | myhome-desktop.js | 7 (#140 #90 #110) | 4 (#106 #119 #140) |  |
+| 108 | 21280–21335 | 56 | 🐾 종족 선택창 | features |  | 6 (#1 #4 #90) | 2 (#107 #109) |  |
+| 109 | 21336–21747 | 412 | 커미션 캐릭터 코드 입력 | features | animal.js def-size.js myhome-desktop.js | 27 (#90 #1 #4) | 17 (#15 #89 #1) |  |
+| 110 | 21748–22082 | 335 | 설정 › 캐릭터 탭(교체 · 자리 추가) | widgets | gacha.js guestbook.js myhome-desktop.js myhome-edit.js weekly-challenge.js | 22 (#22 #90 #1) | 16 (#107 #36 #35) |  |
+| 111 | 22083–22098 | 16 | 방 인원 상한 | entities |  | 4 (#115 #114 #113) | 3 (#115 #122 #123) |  |
+| 112 | 22099–22216 | 118 | 🚪 자리비움 자동 퇴장 | features | weekly-challenge.js | 5 (#66 #1 #23) | 1 (#113) |  |
+| 113 | 22217–22621 | 405 | 방 접속 상태(`Presence`) | entities | animal.js noise.js | 24 (#115 #112 #159) | 40 (#7 #9 #11) | 핵심 상태 — 39개 구역이 쓴다 |
+| 114 | 22622–22997 | 376 | 📦 방으로 보내는 def — 직렬화 · 얼굴 URL · 델타 전송 · Firebase provider | entities | animal.js gamepad-activity.js | 14 (#90 #102 #145) | 13 (#136 #77 #113) |  |
+| 115 | 22998–23875 | 878 | 🛰 방 연결(Firebase · 방 서버) · 표시 이름 | entities | animal.js chat-tabs.js myhome-desktop.js purikura-ui.js room-server-net.js | 43 (#122 #17 #90) | 38 (#113 #122 #123) |  |
+| 116 | 23876–24149 | 274 | 🏷️ 닉네임 저장 | features | myhome-edit.js name-guard.js purikura-ui.js | 19 (#156 #115 #1) | 7 (#61 #120 #40) |  |
+| 117 | 24150–24451 | 302 | 🔑 구글 로그인 | features |  | 14 (#140 #6 #101) | 6 (#101 #118 #120) |  |
+| 118 | 24452–24847 | 396 | 🧹 신원을 놓을 때 지우기(로그아웃) | features | gacha.js weekly-challenge.js | 26 (#136 #28 #137) | 13 (#120 #101 #117) |  |
+| 119 | 24848–24906 | 59 | 🪪 [내 정보] 화면 전환 | pages | playlist.js | 7 (#120 #140 #118) | 5 (#120 #125 #109) |  |
+| 120 | 24907–25564 | 658 | 🏆 [내 정보] 랭킹 · 보관함 · 휴지통 탭 | widgets | myhome-desktop.js | 21 (#140 #161 #119) | 6 (#119 #101 #106) |  |
+| 121 | 25565–25745 | 181 | 📥 계정 스냅샷 복원 · 연동 뒤 플레이리스트 · 가챠 되맞추기 | features | gacha.js playlist.js | 12 (#6 #101 #157) | 8 (#117 #118 #6) |  |
+| 122 | 25746–25943 | 198 | 🔢 방 개수 · 방 만들기 · 랜덤 참여 · 갈아타기 | features |  | 6 (#115 #123 #101) | 4 (#123 #115 #36) |  |
+| 123 | 25944–26281 | 338 | 🚪 방 입장 · 나가기 · 방장 승계 · 해산 · 코드 입력칸 | features |  | 13 (#122 #115 #63) | 8 (#115 #122 #9) |  |
+| 124 | 26282–26318 | 37 | 🔑 라이선스 등록 UI | widgets |  | 2 (#129 #101) | 4 (#101 #116 #127) | 키 등록 · 해제 버튼은 #127 에 떨어져 있다 |
+| 125 | 26319–26351 | 33 | 🪟 런처 타이틀바 · 팝업 흐림 | pages | folder-free.js | 6 (#119 #87 #96) | 0 |  |
+| 126 | 26352–26498 | 147 | 📢 런처 광고 배너 · ⚙️ 게임 설정 | widgets | animal.js | 3 (#36 #58 #99) | 1 (#36) | 섞임(작게): ⚙️ 게임 설정(`_gameCfg`)이 광고 배너 표시와 편집 사이에 끼어 있다 |
+| 127 | 26499–26521 | 23 | 🔑 라이선스 키 등록 · 해제 버튼 | features |  | 4 (#101 #1 #116) | 0 | #124 와 한 몸 |
+| 128 | 26522–26560 | 39 | 🪟 팝업 바깥 클릭으로 닫기 | app |  | 0 | 0 |  |
+| 129 | 26561–26636 | 76 | 📨 라이선스 요청 · 관리자 비밀번호 모달 | features |  | 7 (#1 #101 #103) | 2 (#124 #118) |  |
+| 130 | 26637–26805 | 169 | 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) | features |  | 2 (#53 #131) | 2 (#131 #132) |  |
+| 131 | 26806–27095 | 290 | 관리자 파츠 카테고리 관리 | features |  | 8 (#146 #130 #1) | 2 (#130 #150) |  |
+| 132 | 27096–27533 | 438 | 📄 엑셀로 라이선스 일괄 발급(관리자) | features |  | 6 (#1 #48 #101) | 0 |  |
+| 133 | 27534–27776 | 243 | 🔒 시크릿룸 발급(관리자) | features |  | 5 (#115 #1 #99) | 0 |  |
+| 134 | 27777–27801 | 25 | 👥 책상에서 친구 추가 | features |  | 7 (#90 #1 #22) | 1 (#110) |  |
+| 135 | 27802–27956 | 155 | 💾 슬롯 저장 · 복원(`saveSlots` · `loadSlots`) | entities |  | 9 (#90 #136 #140) | 24 (#140 #136 #90) | 핵심 — 24개 구역이 쓴다 |
+| 136 | 27957–28387 | 431 | ☁️ 슬롯 기기 간 동기화 | entities |  | 14 (#114 #137 #90) | 9 (#137 #140 #118) |  |
+| 137 | 28388–28657 | 270 | ☁️ 연동 UI(띠 · 대화상자) | widgets |  | 7 (#136 #6 #90) | 6 (#136 #118 #106) |  |
+| 138 | 28658–28712 | 55 | 🧬 캐릭터 병합(순수 함수) | entities |  | 1 (#136) | 4 (#140 #117 #120) |  |
+| 139 | 28713–28888 | 176 | 🧬 slots → chars 이관(순수 함수) | entities |  | 10 (#136 #90 #114) | 1 (#140) |  |
+| 140 | 28889–29581 | 693 | 🧬 이관 조율 · 서버 쓰기 | entities | gamepad-activity.js | 13 (#136 #135 #139) | 16 (#120 #117 #107) |  |
+| 141 | 29582–29719 | 138 | 🛡️ 얼굴 자동 복구 | entities | animal.js | 8 (#90 #135 #4) | 1 (#171) |  |
+| 142 | 29720–29791 | 72 | AES-256-GCM 암호화 | shared |  | 5 (#1 #90 #135) | 8 (#144 #145 #153) |  |
+| 143 | 29792–29804 | 13 | GLB 파일 암호화(.dcc) | shared |  | 2 (#1 #142) | 2 (#153 #21) |  |
+| 144 | 29805–29829 | 25 | 책상 · 아이템 GLB 코드(DCK1) | entities |  | 3 (#142 #1 #2) | 12 (#98 #96 #105) |  |
+| 145 | 29830–29940 | 111 | 커미션 캐릭터 zip 코드 | entities |  | 3 (#142 #1 #151) | 22 (#93 #98 #97) |  |
+| 146 | 29941–30287 | 347 | 꾸미기 파츠 카테고리 · 파츠 엔트리 · `savedParts` | entities | gacha.js | 4 (#80 #81 #152) | 23 (#80 #82 #89) | 핵심 — 23개 구역이 쓴다 |
+| 147 | 30288–30452 | 165 | 🧊 파츠 GLB 파싱 캐시 · 썸네일 | entities | gacha.js | 10 (#1 #98 #146) | 6 (#82 #89 #81) |  |
+| 148 | 30453–30559 | 107 | 💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결 | entities |  | 1 (#146) | 7 (#79 #82 #90) | 카탈로그 실시간 동기화 설명 주석이 이 머리 바로 밑에 있고 함수는 #150 에 있다 |
+| 149 | 30560–30705 | 146 | 🧹 관리자 콘솔 도구 — 카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 | features | gamepad-activity.js | 2 (#145 #146) | 0 | F12 콘솔용 `window.X` 함수뿐 — 다른 구역이 안 부른다 |
+| 150 | 30706–30968 | 263 | 🔄 카탈로그 실시간 동기화 — 아이템 · 책상 · 파츠 · 카테고리 | entities | gacha.js | 26 (#146 #151 #15) | 9 (#5 #79 #89) |  |
+| 151 | 30969–31173 | 205 | 🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기 | entities | animal.js | 14 (#5 #98 #152) | 18 (#105 #150 #90) |  |
+| 152 | 31174–31384 | 211 | 📌 책상 위 파츠 앵커 · 책상 위치 · 배율 | entities | seat-slot.js | 8 (#6 #1 #7) | 16 (#94 #42 #7) |  |
+| 153 | 31385–31557 | 173 | 📦 복제 코드 불러오기 · 내보내기 · 풀 GLB | features | animal.js gacha.js myhome-desktop.js | 22 (#90 #146 #6) | 8 (#90 #93 #98) |  |
+| 154 | 31558–31581 | 24 | 🍞 토스트(`toast`) · 저장 실패 문구 | shared |  | 0 | 5 (#54 #129 #131) | 0단계 shared 감. `toast` 는 `let toastT` 와 한 줄이라 근사치가 못 센다 — 실제로는 거의 모든 구역이 부른다 |
+| 155 | 31582–32241 | 660 | 애니메이션 상태 · 프레임 루프(`frame`) | app | animal.js frame-budget.js seat-pin.js | 34 (#16 #7 #1) | 33 (#71 #170 #105) |  |
+| 156 | 32242–32362 | 121 | 데스크탑(Electron) 모드 · 피규어 모드 | app | playlist.js | 4 (#146 #1 #116) | 23 (#116 #86 #155) |  |
+| 157 | 32363–32440 | 78 | 포커스 시간 누적 · 레벨 | entities |  | 2 (#161 #1) | 12 (#161 #37 #118) |  |
+| 158 | 32441–32519 | 79 | 📊 오늘 기록 전시 | features | pomodoro.js | 5 (#23 #156 #1) | 4 (#113 #169 #23) |  |
+| 159 | 32520–32840 | 321 | 🫧 자리비움 그림 | features |  | 11 (#1 #6 #15) | 6 (#113 #155 #115) |  |
+| 160 | 32841–33030 | 190 | 🚩 신고하기 | features |  | 7 (#6 #9 #1) | 1 (#87) |  |
+| 161 | 33031–33274 | 244 | ⭐ 포커스 레벨(`getFocusLevel` · `addFocusSeconds`) · 해금 안내 · 회차 별 색 | entities | gacha.js gamepad-activity.js | 11 (#157 #16 #47) | 22 (#120 #46 #31) | 22개 구역이 쓴다 |
+| 162 | 33275–33371 | 97 | 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 | app | gacha.js scheduler.js | 20 (#41 #146 #42) | 14 (#118 #39 #41) | `TwGacha.createGacha`(gacha.js · 저장 키 세 줄과 함께 · 원래 자리) · `_warnServerWriteDenied`(가챠 · 캐릭터 슬롯이 부른다) |
+| 163 | 33372–33425 | 54 | 🎨 디자인 테마 | shared |  | 1 (#164) | 3 (#164 #116 #61) |  |
+| 164 | 33426–33507 | 82 | 🎨 자식 창 테마 입히기 | shared |  | 1 (#163) | 3 (#116 #163 #61) |  |
+| 165 | 33508–33624 | 117 | ⭐ 경험치 바 | widgets |  | 6 (#84 #30 #1) | 7 (#120 #115 #155) |  |
+| 166 | 33625–33788 | 164 | 🕒 포커스 누적 기기 간 공유 | entities |  | 10 (#157 #161 #42) | 6 (#118 #121 #37) |  |
+| 167 | 33789–33971 | 183 | 📱 태블릿 · 폰 포커싱 연결 · 설정 칸 · QR 창 | features |  | 6 (#1 #6 #43) | 6 (#113 #155 #46) |  |
+| 168 | 33972–34001 | 30 | 🖥️ 활성 앱 판정(`_applyActiveAppState`) | entities |  | 6 (#86 #156 #1) | 2 (#167 #170) |  |
+| 169 | 34002–34039 | 38 | 👑 달성표 · 🍅 뽀모도로 모듈 연결 | app | gacha.js pomodoro.js scheduler.js weekly-challenge.js | 11 (#157 #158 #6) | 5 (#118 #13 #110) | `TwWeeklyChallenge.createWeeklyChallenge` · `TwPomodoro.createPomodoro` — 둘 다 원래 자리 |
+| 170 | 34040–34823 | 784 | 🖥️ 데스크탑 실행 화면 — 창 크기 · 업데이트 배너 · 전역 입력 · 클릭 통과 · 하트비트 | app | frame-budget.js gamepad-activity.js | 17 (#1 #86 #155) | 10 (#54 #55 #110) | 섞임: `if(desktopMode){ … }` 한 덩이(약 740줄)라 맨 앞 칸 머리로는 더 못 나눈다 — 옮길 때 블록 안을 나눈다 |
+| 171 | 34824–34838 | 15 | INIT — `resize` · 첫 배치 | app |  | 12 (#106 #22 #141) | 5 (#25 #41 #54) |  |
+| 172 | 34839–34859 | 21 | 🙋 투게더룸 친구 초대 — 모듈 연결(`TwRoomInviteUi.createRoomInviteUi`) | app | room-invite-ui.js scheduler.js | 8 (#44 #115 #6) | 0 | 10번으로 본문 268줄은 `room-invite-ui.js` 로 — 머리 · 연결 21줄만 남음 |
+| 173 | 34860–34968 | 109 | 🛰 서버 모듈 감시견 | app |  | 0 | 0 |  |

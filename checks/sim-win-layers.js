@@ -23,7 +23,11 @@
    ⚠ 실제 화면의 겹침은 여기서 못 본다 — 그건 눈으로 볼 것. 여기서 지키는 것은 규약뿐이다. */
 'use strict';
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+/* 🎵 플레이리스트는 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const PL_FILE = ['playlist.js', 'parts/playlist.js', 'app/parts/playlist.js'].find(c => fs.existsSync(c));
+if (!PL_FILE) { console.log('  ? 원본 못 찾음 — playlist.js'); process.exit(2); }
+const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + fs.readFileSync(PL_FILE, 'utf8');
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;

@@ -37,6 +37,19 @@ export function setRoomServerSwitch(db: Db, value: boolean): Promise<void> {
   );
 }
 
+/** registerIndex — 방 서버가 자기 방을 roomIndex 장부에 올릴지. 방 서버가 1분마다 읽는다. */
+export function setRegisterIndex(db: Db, value: boolean): Promise<void> {
+  return db.commit(
+    withAudit(
+      db,
+      { [`${ROOM_SERVER_PATH}/registerIndex`]: value },
+      'roomServer.registerIndex',
+      'registerIndex',
+      onOff(value),
+    ),
+  );
+}
+
 /**
  * 채널별 방 개수 상한 — 방 서버가 1분마다 읽어 새 방부터 적용한다(열린 방은 그대로).
  * 바뀐 채널만 쓴다. 기록에는 «워킹룸 250 → 400» 처럼(전에 칸이 없었으면 기본값으로 보여 준다).

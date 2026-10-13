@@ -355,7 +355,9 @@ _callers = {}
 # gacha.js — 🎰 파츠 가챠 코어 · 보관함(앱 FSD 8번). loadGachaOwned · saveGachaOwned 를 부른다.
 # myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오(앱 FSD 7-2). saveMyHome · uploadUserImage 를 부른다.
 # room-invite-ui.js — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기(앱 FSD 10번). sendRoomInvite · subscribeRoomInvites · clearRoomInvite 를 부른다.
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js'):
+# myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). removeFriend · getMallangGifts · setMallangGiftStarred · deleteInboxBroadcast · deleteInboxMessage · setInboxBroadcastPinned · markInboxRead 를 부른다.
+# playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). publishMyPlaylist · removeMyPlaylist · fetchPlaylistCard · fetchRandomPlaylist · fetchPlaylistOf 를 부른다.
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js'):
     try: _cs = _strip_js_comments(open(_cf, encoding='utf-8').read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):
@@ -830,7 +832,16 @@ def _safe19(e):
     if re.fullmatch(r'(i|j|k|n|idx|no|ii)', e): return True                                     # 반복 첨자
     return False
 _hit19 = []
-for _n19b, _l19 in enumerate(app_lines, 1):
+# myhome-inbox.js — 친구 목록 · 수령함 · 선물함 마크업(친구가 정한 이름 · 선물 글 · 공지 링크)을 app.js 에서 옮겼다(앱 FSD 15번).
+#   빼면 그 innerHTML 들이 이 검사의 시야에서 사라진다. 없으면(검사가 app.js 만 볼 때) 건너뛴다.
+_files19 = [('app.js', app_lines)]
+try: _files19.append(('myhome-inbox.js', open('myhome-inbox.js', encoding='utf-8').read().split('\n')))
+except Exception: pass
+# playlist.js — 🎵 플레이리스트 창(곡 행 · 담기 메뉴 · 반복 아이콘)을 app.js 에서 옮겼다(앱 FSD 16번). 곡 제목이 남의 입력이라 시야에 둔다.
+try: _files19.append(('playlist.js', open('playlist.js', encoding='utf-8').read().split('\n')))
+except Exception: pass
+for _f19, _lines19 in _files19:
+  for _n19b, _l19 in enumerate(_lines19, 1):
     if '<' not in _l19: continue
     for _m in _SINK19.finditer(_l19):
         for _im in _INT19.finditer(_m.group(3)):
@@ -838,7 +849,7 @@ for _n19b, _l19 in enumerate(app_lines, 1):
             if not _e19 or _safe19(_e19): continue
             _key19 = _m.group(1).lower() + '|' + _e19
             if _key19 in _OK19: continue
-            _hit19.append('app.js:%d — %s' % (_n19b, _key19))
+            _hit19.append('%s:%d — %s' % (_f19, _n19b, _key19))
 if _hit19:
     for _h19 in _hit19:
         _p19.append('검사19: 속성값에 안 씻은 보간 — ' + _h19)

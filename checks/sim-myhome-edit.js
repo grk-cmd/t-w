@@ -511,7 +511,7 @@ await sec('── 9. app.js 배선', () => {
   chk(iSt > 0 && iLinks > iSt && iMk > iLinks && iGb > iMk, '원래 자리 — 🎨 스티커 관리 창 연결 · 🔗 마이홈 본문 링크 뒤 · 📖 방명록 연결 앞');
   const call = (APP.match(/TwMyHomeEdit\.createMyHomeEdit\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$]+\(\.\.\.a\),$/.test(l));
+  const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l));   // [\w$.] — ytVideoId 는 playlist.js 의 plMod.ytVideoId(앱 FSD 16번)
   const getters = ['myHomeData: ()=>_myHomeData,', 'mhViewingUserId: ()=>_mhViewingUserId,', 'myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeUid: ()=>_myHomeUid,',
     'mhStickerDragDist: ()=>_mhStickerDragDist,', 'isPremium: ()=>isPremium,', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,', 'getRenderMyHomeStickers: ()=>renderMyHomeStickers,'];
   const setters = ['setMyHomeLoaded: (v)=>{ _myHomeLoaded = v; },', 'setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },', 'setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },'];

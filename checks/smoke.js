@@ -325,6 +325,11 @@ PRELOAD.push('room-invite-ui.js');
 PRELOAD.push('focus-log.js');
 /* chat-window.js — 💬 대화창 배선(앱 FSD 14번). 같은 까닭 — 만들 때 하는 일(버튼 · 메뉴 · 끌기 · 크기 손잡이 · ESC · 입력 · 이모티콘 그리드 연결 · 저장값 반영 · 복사 · 탭 묶기)을 같이 굴린다. */
 PRELOAD.push('chat-window.js');
+/* myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). 같은 까닭 — 만들 때 하는 일(상태 초기값)과 app.js 가 원래 자리에서 부르는 createMyHomeInbox 를 같이 굴린다. */
+PRELOAD.push('myhome-inbox.js');
+/* playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 같은 까닭 — 만들 때 하는 일(🪟 창 위치 초기화 등록 · 저장값 읽기 · 버튼 · ESC · 끌기 연결 · 미니미 ·
+   300ms 폴링 · BGM 신호 구독 · 음량 한 번 · window 고리)과 app.js 가 원래 자리에서 부르는 createPlaylist 를 같이 굴린다. */
+PRELOAD.push('playlist.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

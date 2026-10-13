@@ -20,9 +20,12 @@ let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 
-const APP = read('app.js'), ML = read('mallang.js'), FB = read('firebase-init.js');
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const APP0 = read('app.js'), MI = read('myhome-inbox.js'), ML = read('mallang.js'), FB = read('firebase-init.js');
 const RULES = read('firebase-database-rules.json');
-if (!APP || !ML || !FB || !RULES) { say('  ? 원본 못 찾음 — app.js · mallang.js · firebase-init.js · firebase-database-rules.json'); process.exit(2); }
+if (!APP0 || !MI || !ML || !FB || !RULES) { say('  ? 원본 못 찾음 — app.js · myhome-inbox.js · mallang.js · firebase-init.js · firebase-database-rules.json'); process.exit(2); }
+const APP = APP0 + '\n' + MI;
 
 /* ── §1 ── mallang.js 에서 상수·함수만 떼어 돌린다 (IIFE 전체는 DOM 이 필요하다) */
 say('§1 순서 · 자동 정리');

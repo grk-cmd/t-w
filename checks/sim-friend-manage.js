@@ -32,8 +32,11 @@ const fs = require('fs'), vm = require('vm');
 /* 👥 친구 관리 · 요청 팝업은 parts/friend-manage.js 로 옮겼다(앱 FSD 5번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 못 찾은 문자열로 빨개지지 않게. */
 let FMSRC = null; try{ FMSRC = fs.readFileSync('friend-manage.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — friend-manage.js'); process.exit(2); }
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+let MISRC = null; try{ MISRC = fs.readFileSync('myhome-inbox.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-inbox.js'); process.exit(2); }
 const APPSRC = fs.readFileSync('app.js', 'utf8');
-const SRC  = APPSRC + '\n' + FMSRC;
+const SRC  = APPSRC + '\n' + FMSRC + '\n' + MISRC;
 /* 🔒 CSP(3절) — 예전엔 firebase 초기화·API 전체가 HTML 안의 인라인 모듈이었다. `script-src` 에서
    'unsafe-inline' 을 버리려고 `parts/firebase-init.js` 로 뺐다. 이 검사는 친구 요청 함수들을
    **HTML 안에서** 찾으므로, 파일이 있으면 이어 붙여 외부화 전과 같은 시야를 만든다.

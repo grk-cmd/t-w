@@ -15,7 +15,17 @@
    [실행] app.js · firebase-init.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+/* 🎵 플레이리스트는 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   app.js(로그아웃 · 계정 이어받기)는 그 상태를 plMod.st(상태 묶음)로 읽고 쓴다 — 아래 스텁도 같은 모양(PL_ST)으로 흉내 낸다.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const PL_FILE = ['playlist.js', 'parts/playlist.js', 'app/parts/playlist.js'].find(c => fs.existsSync(c));
+if (!PL_FILE) { console.log('  ? 원본 못 찾음 — playlist.js'); process.exit(2); }
+const SRC = fs.readFileSync('app.js', 'utf8') + '\n' + fs.readFileSync(PL_FILE, 'utf8');
+/* 상태 묶음 흉내 — 이름 쌍 [st 칸, 스텁의 let] 을 getter · setter 로 */
+const PL_ST = pairs => '{ ' + pairs.map(([k, v]) => 'get ' + k + '(){ return ' + v + '; }, set ' + k + '(x){ ' + v + ' = x; }').join(', ') + ' }';
+const PL_ST_ALL = PL_ST([['sets','_plSets'],['cur','_plCur'],['bio','_plBio'],['homePublic','_plHomePublic'],['private','_plPrivate'],['pubSig','_plPubSig'],
+  ['sel','_plSel'],['now','_plNow'],['nowSet','_plNowSet'],['view','_plView'],['nowView','_plNowView']]);
+const PL_ST_MEM = PL_ST([['sets','_plSets'],['cur','_plCur'],['bio','_plBio'],['homePublic','_plHomePublic'],['private','_plPrivate'],['pubSig','_plPubSig']]);
 const FI  = fs.readFileSync('firebase-init.js', 'utf8');
 
 let pass = 0, fail = 0, huhs = 0;
@@ -134,7 +144,8 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       "let chalRec = { ts: 1, days: [1] }, _chalDirty = true; const _chalBlank=()=>({ ts:0 });",
       "let _slotsTs = 7, extraSeatSlots = [1,2];",
       "let _plSets = [{name:'a',items:[{id:'x'}]}], _plCur = 1, _plBio = 'hi', _plHomePublic = true, _plPrivate = true, _plPubSig = 'sig';",
-      "const _plBlankSets=()=>[{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}];",
+      /* 🎵 플레이리스트는 playlist.js 모듈(앱 FSD 16번) — app.js 는 plMod.st(상태 묶음) · plMod.blankSets 로 쓴다. 메모리 칸은 위 let 이 대신한다 */
+      "const plMod={ blankSets:()=>[{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}], st:" + PL_ST_MEM + " };",
     ].join('\n');
     const body = [tmo, fList, fPref, fFlush, fPre, fWipe, fDet].join('\n');
     const f = new Function('env', 'localStorage', 'window', decl + '\n' + body +
@@ -202,7 +213,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       "let gachaOwned={}; let _gachaTs=0; let _gachaBonus=0; let _focusTotalSec=env.total, _focusTodaySec=0;\n" +
       "const _hasFocusSyncedMark=()=>env.hasMark; const _getFocusSyncedMark=()=>env.mark;\n" +
       "let chalRec={ts:0}, _chalDirty=false; const _chalBlank=()=>({ts:0}); let _slotsTs=0, extraSeatSlots=[];\n" +
-      "let _plSets=[], _plCur=0, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null; const _plBlankSets=()=>[];\n" +
+      "let _plSets=[], _plCur=0, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null; const plMod={ blankSets:()=>[], st:" + PL_ST_MEM + " };\n" +
       [tmo, fList, fPref, fFlush, fPre, fWipe, fDet].join('\n') + "\nreturn _detachAccountLocal;");
     const lsOf = env => ({ getItem:k=>env.ls.has(k)?env.ls.get(k):null, setItem:(k,v)=>env.ls.set(k,String(v)), removeItem:k=>env.ls.delete(k), key:i=>Array.from(env.ls.keys())[i]||null, get length(){ return env.ls.size; } });
     let env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), total: 7200, mark: 3600, hasMark: true };
@@ -309,7 +320,7 @@ function part4(){
   chk(fSets && /users\/\$\{uid\}\/playlist`/.test(fSets) && !/_plPickSet/.test(fSets), '  노드를 그대로 읽고 _plPickSet(무작위 한 벌)을 거치지 않는다');
   const fRestore = grabFn(SRC, '_restoreOwnedDataAfterTransfer', 'async function ') || '';
   chk(/fetchMyPlaylistSets/.test(fRestore), '★ _restoreOwnedDataAfterTransfer 가 fetchMyPlaylistSets 를 쓴다');
-  chk(/_plNormalizeSets\(r\.sets\)/.test(fRestore), '  받은 세 벌이 부팅 로드와 같은 관문(_plNormalizeSets)을 지난다');
+  chk(/plMod\.normalizeSets\(r\.sets\)/.test(fRestore), '  받은 세 벌이 부팅 로드와 같은 관문(_plNormalizeSets — playlist.js 의 plMod.normalizeSets)을 지난다');
   chk(/fetchPlaylistOf/.test(fRestore), '  구버전 API(fetchMyPlaylistSets 없음)에서는 옛 길로 물러난다');
   if(!fSets) return;
   /* firebase-init 쪽 실행 — get/ref 스텁 */
@@ -330,6 +341,9 @@ function part4(){
         "const PL_SETS=3, PL_MAX=20, PL_TITLE_MAX=16, PL_BIO_MAX=140; const console={warn(){}};\n" +
         "let _plSets=[{name:'옛',items:[{id:'z',url:'u',title:''}]},{name:'',items:[]},{name:'',items:[]}], _plCur=2, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null, _plSel=0, _plNow=0, _plNowSet=0, _plView=null, _plNowView=null;\n" +
         "const _plMine=()=>_plSets[_plCur].items; const _plSave=()=>{ env.saved++; }; const _plPublish=()=>{ env.published++; }; const _plRender=()=>{};\n" +
+        /* app.js 는 plMod 로 부른다(앱 FSD 16번) — 함수는 아래에서 떼어 온 진짜 관문 · 지문, 상태는 위 let */
+        "const plMod={ PL_MAX, PL_TITLE_MAX, PL_BIO_MAX, normalizeSets:(...a)=>_plNormalizeSets(...a), setIdx:(...a)=>_plSetIdx(...a), pubSigOf:(...a)=>_plPubSigOf(...a),\n" +
+        "  mine:()=>_plMine(), save:()=>_plSave(), publish:()=>_plPublish(), render:()=>_plRender(), st:" + PL_ST_ALL + " };\n" +
         "const getMyUserId=()=>'uB'; const gachaMod={ syncGachaToServer:async()=>{ env.gachaPull++; }, isInvOpen:()=>false, renderGachaInv(){} }; const syncSlotsToServer=async()=>{ env.slotsPull++; };\n" +
         [fNorm, fBlank, fIdx, fSig, fRestore].join('\n') +
         "\nreturn async()=>{ await _restoreOwnedDataAfterTransfer(); return { sets:_plSets, cur:_plCur, bio:_plBio, pub:_plHomePublic, sig:_plPubSig }; };");

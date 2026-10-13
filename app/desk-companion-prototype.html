@@ -62,15 +62,16 @@
      리전·프로젝트는 parts/firebase-config.js(databaseURL 의 asia-southeast1 · projectId together-working)와 같다.
      와일드카드(*.cloudfunctions.net)로 넓히지 않았다 — 남의 함수로 나가는 길을 열 이유가 없다.
      ⚠️ 함수 리전을 바꾸면 이 두 줄과 firebase-init.js FUNCTIONS_REGION 을 같이 바꾼다. -->
-<!-- 🛰 connect-src 의 방 서버 — wss://rooms…(운영) · wss://rooms-dev…(dev) · ws://127.0.0.1:8787 · localhost:8787(로컬 시험).
-       앱이 실제로 붙는 주소는 parts/room-server-gate.js 가 한 번 더 거른다(운영 앱은 운영 주소만 · 로컬은 dev 앱만).
+<!-- 🛰 connect-src 의 방 서버 — wss://*.togetherworking.duckdns.org · https://*.togetherworking.duckdns.org(방 서버 묶음 · 이 접미사만) · ws://127.0.0.1:8787 · localhost:8787(로컬 시험).
+       와일드카드는 관리자가 config/roomServer/servers 에 서버 이름만 더해 늘릴 수 있게다. 다른 도메인은 여전히 막는다.
+       앱이 실제로 붙는 주소는 parts/room-server-gate.js 가 한 번 더 거른다(같은 접미사의 wss/https 만 · 로컬은 dev 앱만).
        로컬은 포트 하나(8787)만 연다 — 모든 포트(*)를 열면 내 PC 의 다른 웹소켓(브라우저 디버그 포트 등)에도 닿을 수 있다.
        ⚠️ 서버 주소를 바꾸면 두 줄 모두와 room-server-gate.js ROOM_SERVER_URLS 를 같이 바꾼다. -->
 <!-- ▼▼ 1단계 (지금 활성) — script-src 에 'unsafe-inline' 있음 ▼▼ -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://rooms.togetherworking.duckdns.org wss://rooms-dev.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://*.togetherworking.duckdns.org https://*.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 
 <!-- ▼▼ 2단계 — 위 줄을 주석 처리하고 이 줄의 주석을 벗기면 'unsafe-inline' 만 빠진다 ▼▼
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://rooms.togetherworking.duckdns.org wss://rooms-dev.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://*.togetherworking.duckdns.org https://*.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Desk Companion — 멀티 좌석 프로토타입</title>
@@ -5130,7 +5131,7 @@
   </div>
   <div class="fs-tabpage" id="fsTabMulti" style="display:none;">
     <div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;line-height:1.5;">
-      같은 방 코드로 연결하면, 서로의 이미지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 10명)
+      같은 방 코드로 연결하면, 서로의 이미지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 <span data-tw-max-people>10</span>명)
     </div>
     <div id="fsInviteIdle">
       <button class="lc-btn" id="fsInviteCreate" style="margin-bottom:4px;">방 만들기 (코드 생성)</button>
@@ -6130,7 +6131,7 @@
      세 문: 초대 코드 [입장하기] · «이미 계정이 있어요» [구글로 로그인] · 친구 코드 + 비밀번호 [친구 코드로 로그인].
      ★ 세 버튼 같은 크기(전부 lc-btn · ghost 아님). 계정이 있으면 **초대 코드 없이** 들어온다.
      ★ 옛 «유저 코드(u…) + 이전 비밀번호 = 계정 이전» 줄은 걷었다 — 친구 코드 로그인이 그 자리다(설계 §9 결정 9).
-     INVITE_GATE_ENABLED가 false면 아예 뜨지 않음. 불투명 배경으로 뒤를 완전히 가림. -->
+     원격 설정 config/flags/inviteGate 가 false면 아예 뜨지 않음. 불투명 배경으로 뒤를 완전히 가림. -->
 <div id="inviteGateOverlay" style="position:fixed;inset:0;z-index:95;display:none;align-items:center;justify-content:center;
   background:#3a6ea5;">
   <div id="inviteGateCard" style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -7780,7 +7781,7 @@
 <div id="inviteOverlay">
   <div id="inviteModal">
     <h2>방 만들기 / 참여하기</h2>
-    <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 10명)</p>
+    <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 <span data-tw-max-people>10</span>명)</p>
     <div id="inviteIdle">
       <!-- 채널 카드가 바로 보임 (raceOverlay 카드 스타일 재사용) -->
       <div id="inviteChannelPick">
@@ -7790,8 +7791,8 @@
             <div class="ch-emoji">💼</div>
             <div class="ch-sub">채팅 없이 · 집중</div>
             <div class="ch-name">워킹룸</div>
-            <div class="ch-meta">무료 · 최대 10명</div>
-            <div class="ch-count" id="chCountWorking">— / 250</div>
+            <div class="ch-meta">무료 · 최대 <span data-tw-max-people>10</span>명</div>
+            <div class="ch-count" id="chCountWorking">— / 300</div>
             <!-- 🎲 랜덤 참여 허용 — 워킹룸 카드에만 둔다. 투게더룸 카드에는 아예 그리지 않는다:
                  라이선스 방에 모르는 사람이 들어오면 안 되고, findRandomRooms 의 채널 필터와 함께 두 겹이 된다.
                  ⚠️ 카드 자체가 '누르면 방 만들기'라, 이 줄의 클릭은 app.js에서 stopPropagation 한다. -->
@@ -7804,8 +7805,8 @@
             <div class="ch-emoji" id="chEmojiTogether"><span class="ui-ic" data-ic="chat" data-px="40">💬</span></div>
             <div class="ch-sub" id="chSubTogether">대화하며 · 함께</div>
             <div class="ch-name">투게더룸</div>
-            <div class="ch-meta" id="chMetaTogether">라이선스 · 최대 10명</div>
-            <div class="ch-count" id="chCountTogether">— / 250</div>
+            <div class="ch-meta" id="chMetaTogether">라이선스 · 최대 <span data-tw-max-people>10</span>명</div>
+            <div class="ch-count" id="chCountTogether">— / 300</div>
           </div>
         </div>
         <!-- 💝 후원 링크 — 프리미엄(투게더룸) 카드 바로 아래. 라이선스가 필요하다는 걸 방금 본 자리라
@@ -8015,6 +8016,7 @@
 <script src="parts/friend-visit.js"></script>   <!-- 🏠 친구 방에 놀러 가기(window.TwFriendVisit) — app.js 보다 먼저 -->
 <script src="parts/gamepad-activity.js"></script>   <!-- 🎮 게임패드 버튼 · 스틱도 활동으로(window.TwGamepadActivity) — app.js 보다 먼저 -->
 <script src="parts/animal-edit-route.js"></script>   <!-- 🐾 동물 편집 길잡이(모양 → 책상 → 좌석) — app.js 보다 먼저 -->
+<script src="parts/remote-config.js"></script>   <!-- ⚙️ 원격 설정(방 상한 · 정원 · 가입 스위치 — window.TwRemoteConfig) — app.js · firebase-init.js 보다 먼저 -->
 <script src="parts/scheduler.js"></script>   <!-- 📅 스케줄러 · 🔔 일정 알림 — app.js 보다 먼저(app.js 가 원래 자리에서 MhScheduler.createScheduler 로 만든다) -->
 <script src="parts/weekly-challenge.js"></script>   <!-- 👑 달성표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWeeklyChallenge.createWeeklyChallenge 로 만든다) -->
 <script src="parts/purikura-ui.js"></script>   <!-- 📷 스티커사진 창(화면 쪽) — purikura-net.js 뒤 · app.js 보다 먼저(app.js 가 원래 자리에서 TwPurikuraUi.createPurikuraUi 로 만든다) -->
@@ -8027,6 +8029,8 @@
 <script src="parts/room-invite-ui.js"></script>   <!-- 🙋 투게더룸 친구 초대(친구 고르기 창 · 초대 보내기) · 🚪 방 초대 받기 팝업 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomInviteUi.createRoomInviteUi 로 만든다) -->
 <script src="parts/focus-log.js"></script>   <!-- 🕒 포커스 기록 팝업(현재 / 누적 · 오늘 기록 · 미니미 · 끌기) — app.js 보다 먼저(app.js 가 원래 자리에서 TwFocusLog.createFocusLog 로 만든다) -->
 <script src="parts/chat-window.js"></script>   <!-- 💬 대화창 배선(닫기 · 최소화 · 끌기 · 크기 · 메뉴 · 버튼 · 입력 · 이모티콘) — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatWindow.createChatWindow 로 만든다) -->
+<script src="parts/myhome-inbox.js"></script>   <!-- 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(Ctrl+F 검색) — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeInbox.createMyHomeInbox 로 만든다) -->
+<script src="parts/playlist.js"></script>   <!-- 🎵 상태칩 플레이리스트(프리셋 · 화면 · 고르기 · 파도타기 · 재생 감시견 · 재생 제어) — app.js 보다 먼저(app.js 가 원래 자리에서 TwPlaylist.createPlaylist 로 만든다) -->
 <script src="parts/app.js"></script>
 <script src="parts/folder-free.js"></script>   <!-- 📂 마이홈 바탕화면 «폴더 자유배치» — myhome-desktop.js 보다 먼저 -->
 <script src="parts/myhome-desktop.js"></script>
