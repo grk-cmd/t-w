@@ -24,7 +24,10 @@
      (`<img/src=x`, 주석 안 태그 등)는 여기서 못 본다 — 그건 DOMParser 를 믿는 부분이다. */
 'use strict';
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+let MI = null; try{ MI = fs.readFileSync('myhome-inbox.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-inbox.js'); process.exit(2); }
+const SRC = fs.readFileSync('app.js', 'utf8') + '\n' + MI;
 const say = console.log;
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };

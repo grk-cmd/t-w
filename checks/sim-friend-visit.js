@@ -10,8 +10,11 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('friend-visit.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
-if (!MOD || !APP || !HTML) { say('  ? 원본 못 찾음 — friend-visit.js · app.js · desk-companion-prototype.html'); process.exit(2); }
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const MOD = read('friend-visit.js'), APP0 = read('app.js'), MI = read('myhome-inbox.js'), HTML = read('desk-companion-prototype.html');
+if (!MOD || !APP0 || !MI || !HTML) { say('  ? 원본 못 찾음 — friend-visit.js · app.js · myhome-inbox.js · desk-companion-prototype.html'); process.exit(2); }
+const APP = APP0 + '\n' + MI;
 
 say('── 1. 판정 · 창 (실행)');
 const win = {};
@@ -83,7 +86,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   chk(env.body.children.length === n1 && env.started.length === 0, '시크릿룸 코드는 묻지도 가지도 않는다');
 
   say('── 2. 배선');
-  chk(/roomTagOf: _friendRoomTag/.test(APP), '★ 코드는 _friendRoomTag 로만 얻는다(시크릿룸 판정을 복사하지 않음)');
+  chk(/roomTagOf: \(\.\.\.a\)=>inboxMod\.friendRoomTag\(\.\.\.a\)/.test(APP0) && /friendRoomTag: _friendRoomTag,/.test(MI), '★ 코드는 _friendRoomTag 로만 얻는다(시크릿룸 판정을 복사하지 않음 — myhome-inbox.js 의 그 함수를 inboxMod 로)');
   chk(/leaveRoom: \(\) => doLeaveRoom\(\{ wipeChat: true \}\), startRoom: c => startRoom\(c\)/.test(APP), '나가기 · 들어가기는 기존 문(doLeaveRoom · startRoom)');
   chk(/mh-fpill-code'\+\(friendVisit\?' go" title="클릭하면 놀러 가요':''\)/.test(APP), '코드 칸에 go 표시 · «클릭하면 놀러 가요» — 모듈이 없으면 예전 그대로');
   chk(/visitEl\.addEventListener\('click', e=>\{ e\.stopPropagation\(\); friendVisit\.ask\(fid\); \}\)/.test(APP), '★ 코드 누르기는 줄 선택(click)과 따로 — stopPropagation');
