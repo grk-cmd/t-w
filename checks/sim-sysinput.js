@@ -378,7 +378,8 @@ say('\n── 7. 자동 등록은 셸 창(작업표시줄 · 바탕화면)을 �
     '  앞창을 적는 세 자리(폴링 · 클릭 직후 · 등록 재시도)가 모두 한 함수를 지난다');
   chk(/return \{ ok:true, app: focusApps\[idx\], skipped \};/.test(mainCode) && /lastRegistrableWindow !== lastForeignWindow && lastForeignWindow\) \? lastForeignWindow\.name : null/.test(mainCode),
     '★ 셸 창을 건너뛰었으면 그 이름을 돌려준다(skipped) — 파일 탐색기 · UWP 앱을 등록하려던 사람이 알 수 있게');
-  const appSrc = ['app.js', 'parts/app.js', 'app/parts/app.js'].filter(f => fs.existsSync(f)).map(f => fs.readFileSync(f, 'utf8'))[0];
+  /* 앱 FSD 로 옮긴 모듈(⚙ 설정 패널 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다 — 공용 sim-renderer-src.js */
+  const appSrc = require('./sim-renderer-src.js').joinRenderer(['app.js', 'parts/app.js', 'app/parts/app.js'].filter(f => fs.existsSync(f)).map(f => fs.readFileSync(f, 'utf8'))[0]);
   if (!appSrc) huh('app.js 를 못 찾음 — 등록 토스트를 못 봄');
   else chk(/else if\(res\.skipped\) toast\(/.test(appSrc), '★ 렌더러가 «무엇 대신 무엇을 등록했는지» 토스트로 알린다 — 조용히 다른 앱이 등록되지 않게');
 }

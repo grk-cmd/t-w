@@ -378,6 +378,8 @@ PRELOAD.push('license-gate.js');
 PRELOAD.push('account.js');
 /* wardrobe.js — 🎨 꾸미기 창(앱 FSD 29번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createWardrobe 를 같이 굴린다. */
 PRELOAD.push('wardrobe.js');
+/* settings-panel.js — ⚙ 설정 패널(앱 FSD 27번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSettingsPanel 를 같이 굴린다. */
+PRELOAD.push('settings-panel.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

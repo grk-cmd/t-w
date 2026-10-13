@@ -6,8 +6,9 @@
    ・3절: 토글 배선(전 좌석 재적용 · 서버 쓰기 없음) · refreshToggleBtns · HTML 행 위치(평준화 바로 아래).
    [실행] app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 
 let pass = 0, fail = 0;

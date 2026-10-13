@@ -217,8 +217,12 @@ sec('── 6. app.js 배선', () => {
   chk(/window\.TwFocusLog = api/.test(MOD) && (code.match(/TwFocusLog\.createFocusLog\(/g) || []).length === 1, '모듈은 window.TwFocusLog · 만드는 곳은 한 곳');
   const iHead = APP.indexOf('/* ═══ 🕒 포커스 기록 팝업 ═══ */'), iMk = APP.indexOf('TwFocusLog.createFocusLog('), iNext = APP.indexOf('/* ═══ ✥ 프로그램 이동 모드 ═══ */');
   const iPrev = APP.lastIndexOf('})();', iHead);
-  chk(iHead > 0 && iMk > iHead && iNext > iMk && /^\s*\n\s*$/.test(APP.slice(iPrev + 5, iHead)) && /refreshFsAdBanner/.test(APP.slice(iPrev - 600, iPrev)),
-    '원래 자리 — 광고 배너 설정 묶음 뒤 · 구역 머리 아래 · ✥ 프로그램 이동 모드 앞');
+  /* 광고 배너 설정 묶음은 settings-panel.js 로 옮겼다(앱 FSD 27번) — 그 뒤엔 app.js 에서 설정 패널 모듈 만드는 줄이 바로 앞이다 */
+  const RAW = SRC['app.js'], rHead = RAW.indexOf('/* ═══ 🕒 포커스 기록 팝업 ═══ */'), rPrev = RAW.lastIndexOf('\n});', rHead);
+  const afterSettings = rHead > 0 && rPrev > 0 && /^\s*$/.test(RAW.slice(rPrev + 4, rHead)) && /TwSettingsPanel\.createSettingsPanel\(/.test(RAW.slice(RAW.lastIndexOf('\nconst ', rPrev), rPrev));
+  const afterBanner = /^\s*\n\s*$/.test(APP.slice(iPrev + 5, iHead)) && /refreshFsAdBanner/.test(APP.slice(iPrev - 600, iPrev));
+  chk(iHead > 0 && iMk > iHead && iNext > iMk && (afterBanner || afterSettings),
+    '원래 자리 — 광고 배너 설정 묶음(지금은 설정 패널 모듈 만드는 줄) 뒤 · 구역 머리 아래 · ✥ 프로그램 이동 모드 앞');
   const call = (APP.match(/TwFocusLog\.createFocusLog\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   const want = [

@@ -22,8 +22,9 @@
    ⚠ 진짜 브라우저 레이아웃은 아니다. box-sizing:border-box 전역 규칙과 flex gap 만 가정한
      산수다 — 그래서 §1 에서 그 전제부터 확인한다. 전제가 깨지면 눈으로도 볼 것. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;

@@ -9,10 +9,11 @@
    ・4절: preload · HTML · app.js 배선 — 채널 두 개 · «창 위치 초기화» 아래 행 · fs-toggle-btn 3개 + 배율 숫자 · 구버전이면 행 숨김.
    [실행] main.js · preload.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const MAIN = fs.readFileSync('main.js', 'utf8');
 const PRE  = fs.readFileSync('preload.js', 'utf8');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 
 let pass = 0, fail = 0, huhs = 0;
