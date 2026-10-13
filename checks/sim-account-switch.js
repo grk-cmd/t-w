@@ -20,7 +20,8 @@ const fs = require('fs');
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 const PL_FILE = ['playlist.js', 'parts/playlist.js', 'app/parts/playlist.js'].find(c => fs.existsSync(c));
 if (!PL_FILE) { console.log('  ? 원본 못 찾음 — playlist.js'); process.exit(2); }
-const SRC = fs.readFileSync('app.js', 'utf8') + '\n' + fs.readFileSync(PL_FILE, 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + fs.readFileSync(PL_FILE, 'utf8');
 /* 상태 묶음 흉내 — 이름 쌍 [st 칸, 스텁의 let] 을 getter · setter 로 */
 const PL_ST = pairs => '{ ' + pairs.map(([k, v]) => 'get ' + k + '(){ return ' + v + '; }, set ' + k + '(x){ ' + v + ' = x; }').join(', ') + ' }';
 const PL_ST_ALL = PL_ST([['sets','_plSets'],['cur','_plCur'],['bio','_plBio'],['homePublic','_plHomePublic'],['private','_plPrivate'],['pubSig','_plPubSig'],
