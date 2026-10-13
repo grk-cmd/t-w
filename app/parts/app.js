@@ -26144,8 +26144,9 @@ function syncFriendSeats(friends){
       }
       else if((window._activeChannel === 2 || _demojiOnly) && typeof showChatBubble==='function'){ showChatBubble(s, chat.text); _chatShown = true; }
       /* 🔔 알림음 — 상대 채팅이 **화면에 뜬 경우에만** 울린다. 워킹룸에서 걸러진 글자처럼 안 뜬 것은 조용하다.
+         ★ 워킹룸(채널1)은 이모티콘 말풍선이 떠도 조용하다 — 일에 집중하는 방이라 소리로 끊지 않는다.
          ⚠ 여기가 유일한 자리다. chatLog 구독(대화창)에도 걸면 한 줄에 두 번 울린다. */
-      if(_chatShown && typeof _chatNotifyIncoming === 'function') _chatNotifyIncoming();
+      if(_chatShown && window._activeChannel === 2 && typeof _chatNotifyIncoming === 'function') _chatNotifyIncoming();
     }
     /* 💬 채팅 탭 말풍선 — **내 탭과 같을 때만** 띄운다(sim-chat-tabs ②). 투게더룸 · 시크릿룸에서만.
        ⚠️ 날리기 · 말풍선 · 알림음 분기는 위 `chat` 과 같은 규칙이다 — 한쪽만 고치지 말 것. */

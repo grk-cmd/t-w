@@ -4,7 +4,7 @@
      대화창이 열려 있으면(최소화 포함) 울리지 않는다. 회사원 모드면 소리 없음(보는 사람 기준).
    ・1절: 상태·저장·게이트를 가짜 DOM 위에서 **실제로 돌린다** — 기본값 · 꺼짐 · 창 열림 · 간격 · 고른 소리.
    ・2절: 소리 풀 — _mkSndPool 로 만들고, prime 등록보다 먼저 만든다(once:true) · 회사원 모드 게이트는 풀 안.
-   ・3절: 울리는 자리 — 상대 채팅이 화면에 뜬 분기 한 곳뿐(내 메시지 · chatLog 구독에는 없음).
+   ・3절: 울리는 자리 — 상대 채팅이 화면에 뜬 분기 한 곳뿐(내 메시지 · chatLog 구독에는 없음) · 워킹룸은 조용.
    ・4절: HTML — 목록 id 가 CHAT_SFX_LIST 와 같다 · 서브메뉴가 #chatWindow 안 · :hover 로 열림 · fly 이름 안 씀.
    [실행] app.js · desk-companion-prototype.html 이 있는 폴더에서(chat-notify-*.mp3 는 있으면 본다). */
 'use strict';
@@ -107,8 +107,10 @@ say('── 3. 울리는 자리');
   const tabRecv = (SRC.match(/const ctab = friends\[id\]\.chatTab;[\s\S]*?\n    \}/) || [''])[0];
   chk(/if\(_shown && typeof _chatNotifyIncoming === 'function'\) _chatNotifyIncoming\(\);/.test(tabRecv), '  두 번째 자리는 chatTab 수신 분기 — 화면에 뜬 경우에만');
   const recv = (SRC.match(/const chat=friends\[id\]\.chat;[\s\S]*?\n    \}/) || [''])[0];
-  chk(/_chatShown = true;[\s\S]*_chatShown = true;[\s\S]*if\(_chatShown && typeof _chatNotifyIncoming === 'function'\) _chatNotifyIncoming\(\);/.test(recv),
+  chk(/_chatShown = true;[\s\S]*_chatShown = true;[\s\S]*if\(_chatShown && window\._activeChannel === 2 && typeof _chatNotifyIncoming === 'function'\) _chatNotifyIncoming\(\);/.test(recv),
       '★ 상대 채팅 수신 분기에서, 날리기·말풍선이 **실제로 뜬 경우에만** 부른다');
+  /* 워킹룸(채널1)에서 이모티콘 말풍선이 떠도 조용하게 — 투게더룸(채널2)에서만 울린다. */
+  chk(/if\(_chatShown && window\._activeChannel === 2 &&/.test(recv), '★ 워킹룸(채널1)은 이모티콘 말풍선이 떠도 안 울린다 — 투게더룸에서만');
   const sub = SRC.indexOf('firebaseAPI.subscribeChatLog(room');
   chk(sub > 0 && !/_chatNotifyIncoming/.test(SRC.slice(sub, sub + 300)), '  chatLog 구독에는 걸지 않았다 (한 줄에 두 번 울림 방지)');
   const send = grabFn('sendMyChat');
