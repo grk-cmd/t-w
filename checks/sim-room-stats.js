@@ -183,6 +183,31 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(!!rr && rr['.read'] === true && !('.write' in rr) && Object.keys(rr).length === 1, '규칙: roomStats 는 읽기만 — 쓰기는 서버(Admin SDK)만');
   }
 
+  say('── 5. 합계 상한(Firebase + 방 서버) — 방 서버 상한을 «합계 − Firebase» 로 · roomStats/server');
+  {
+    const f = require(path.resolve('functions/room-stats.js'));
+    chk(f.TOTAL_ROOM_LIMIT && f.TOTAL_ROOM_LIMIT.workingroom === 250 && f.TOTAL_ROOM_LIMIT.togetherroom === 250, '합계 상한 250 · 250(앱 ROOM_LIMITS 와 같음)');
+    const a = f.serverLimitsFrom({ workingroom: 136, togetherroom: 232 });
+    chk(a.workingroom === 114 && a.togetherroom === 18, '방 서버 상한 = 250 − Firebase 방(136 → 114 · 232 → 18)');
+    const b = f.serverLimitsFrom({ workingroom: 300, togetherroom: 250 });
+    chk(b.workingroom === 1 && b.togetherroom === 1, '이미 넘었으면 1(규칙 하한) — 방 서버 새 방은 막힘');
+    // 가짜 DB 로 syncServerLimits · serverRoomCounts
+    const store = { 'config/roomServer/on': true, 'config/roomServer/limits': { workingroom: 250, togetherroom: 250 },
+                    'config/roomServer/servers': { 'realtime-1': 'wss://rooms.example' } };
+    const db = { ref: (p) => ({ get: async () => ({ val: () => (p in store ? store[p] : null) }), set: async (v) => { store[p] = v; } }) };
+    const set = await f.syncServerLimits(db, { workingroom: 136, togetherroom: 232 });
+    chk(!!set && store['config/roomServer/limits'].togetherroom === 18, 'syncServerLimits 가 config/roomServer/limits 를 고친다');
+    chk((await f.syncServerLimits(db, { workingroom: 136, togetherroom: 232 })) === null, '같으면 다시 쓰지 않는다');
+    store['config/roomServer/on'] = false;
+    chk((await f.syncServerLimits(db, { workingroom: 0, togetherroom: 0 })) === null && store['config/roomServer/limits'].togetherroom === 18, '방 서버 꺼짐이면 건드리지 않는다');
+    const fakeFetch = async (u) => ({ ok: u === 'https://rooms.example/health', json: async () => ({ workingroom: 60, togetherroom: 96 }) });
+    const srv = await f.serverRoomCounts(db, fakeFetch);
+    chk(!!srv && srv.workingroom === 60 && srv.togetherroom === 96, 'serverRoomCounts — wss 주소를 https /health 로 읽어 채널별 합');
+    chk((await f.serverRoomCounts(db, async () => ({ ok: false }))) === null, '못 읽으면 null(roomStats.server 를 안 씀)');
+    const gs = CODE.match(/async getServerRoomCount\([^)]*\)\{[\s\S]*?\n    \},/);
+    chk(!!gs && /roomStats\/server\//.test(gs[0]) && /return 0/.test(gs[0]), '앱 getServerRoomCount 는 roomStats/server/{채널} 한 칸 · 못 읽으면 0');
+  }
+
   say(`\n${pass} · ${fail}`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { say('  ✗ 검사가 던졌다: ' + (e && e.stack || e)); process.exit(1); });

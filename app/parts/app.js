@@ -26325,6 +26325,7 @@ async function startRoom(code){
         const _openName = (typeof CHANNEL_NAMES!=='undefined' && CHANNEL_NAMES[_openCh]) || '방';
         let _openCount = null;
         try{ if(firebaseAPI.getRoomCount){ _openCount = await firebaseAPI.getRoomCount(_openCh); } }catch(_){}
+        if(_openCount != null){ try{ if(firebaseAPI.getServerRoomCount) _openCount += await firebaseAPI.getServerRoomCount(_openCh); }catch(_){} }   // 🛰 합계 상한(위 doCreateRoomInChannel 과 같다)
         if(_openCount != null && _openCount >= _openLimit){
           toast(`${_openName}이 지금 꽉 찼어요(${_openLimit}/${_openLimit}) — 잠시 후 다시 시도해 주세요`);
           window._pendingRoomChannel = null;
@@ -28393,6 +28394,8 @@ async function doCreateRoomInChannel(channel){
   // 해당 채널의 현재 방 개수만 확인(참여는 방 개수가 안 늘어나므로 만들 때만 검사)
   let count = null;
   try{ if(window.firebaseAPI && window.firebaseAPI.getRoomCount){ count = await window.firebaseAPI.getRoomCount(channel); } }catch(e){}
+  // 🛰 상한은 Firebase 방 + 방 서버 방 합계로 — 방 서버 방을 빼고 세면 채널마다 250 을 넘겨 열렸다
+  if(count!=null){ try{ if(window.firebaseAPI.getServerRoomCount) count += await window.firebaseAPI.getServerRoomCount(channel); }catch(_){} }
   if(count!=null && count>=limit){
     toast(`${chName}이 지금 꽉 찼어요(${limit}/${limit}) — 잠시 후 다시 시도해 주세요`);
     return;

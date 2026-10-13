@@ -2672,6 +2672,15 @@
       if(!channel) return c.total;
       return (channel === 'togetherroom') ? c.togetherroom : c.workingroom;
     },
+    /* 🛰 방 서버에 열린 방 수(채널별) — roomStats 함수가 매분 방 서버 /health 를 읽어 roomStats/server 에 적는다.
+       상한은 «Firebase 방 + 방 서버 방» 합계로 본다(방 서버에 안 붙는 사람도 알 수 있게). 못 읽으면 0(예전처럼 Firebase 만). */
+    async getServerRoomCount(channel){
+      try{
+        const ch = (channel === 'togetherroom') ? 'togetherroom' : 'workingroom';
+        const v = (await get(ref(db, 'roomStats/server/' + ch))).val();
+        return (typeof v === 'number' && v >= 0) ? v : 0;
+      }catch(_){ return 0; }
+    },
     // ★ 채널 개편: 방 생성 시 _meta.channel 기록 / 참여 시 방의 채널 조회.
     //   별도 roomsMeta 노드 대신 기존 _meta를 재사용 — 유령방 정리 로직이 이미 _meta를 함께 지운다.
     /* 🎲 open — '랜덤 참여 허용' 여부. findRandomRooms 가 roomIndex 에서 이 값만 보고 후보를 고른다.

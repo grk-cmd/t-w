@@ -34,6 +34,45 @@
 'use strict';
 // app/parts/room-channel.js 와 같은 값
 const CHANNEL = Object.freeze({ WORKING: 'workingroom', TOGETHER: 'togetherroom' });
+/* 채널당 방 개수 상한 — Firebase 방 + 방 서버 방을 **합쳐서** 이 수. 앱 app.js ROOM_LIMITS 와 같은 값.
+   앱(옛 버전 포함)은 Firebase 방만 세어 막으므로, 방 서버 쪽 상한(config/roomServer/limits)을 매분 «합계 상한 − Firebase 방» 으로 맞춰
+   방 서버가 합계를 넘겨 열지 못하게 한다. 규칙상 상한은 1 이상이라 0 대신 1(이미 넘었으면 방 서버 새 방은 늘 막힌다). */
+const TOTAL_ROOM_LIMIT = Object.freeze({ workingroom: 250, togetherroom: 250 });
+function serverLimitsFrom(stats){
+  const out = {};
+  for (const ch of [CHANNEL.WORKING, CHANNEL.TOGETHER]){
+    const used = Number(stats && stats[ch]) || 0;
+    out[ch] = Math.max(1, TOTAL_ROOM_LIMIT[ch] - used);
+  }
+  return out;
+}
+/* 방 서버들의 지금 방 수(공개 /health) — config/roomServer/servers 의 wss 주소를 https 로. 못 읽은 서버는 건너뛴다. */
+async function serverRoomCounts(db, fetchImpl){
+  const f = fetchImpl || globalThis.fetch;
+  const servers = (await db.ref('config/roomServer/servers').get()).val() || {};
+  const out = { workingroom: 0, togetherroom: 0 };
+  let any = false;
+  for (const url of Object.values(servers)){
+    if (typeof url !== 'string' || !/^wss:\/\//.test(url)) continue;
+    try{
+      const res = await f(url.replace(/^wss:/, 'https:').replace(/\/+$/, '') + '/health', { signal: AbortSignal.timeout(5000) });
+      if (!res.ok) continue;
+      const h = await res.json();
+      out.workingroom += Number(h.workingroom) || 0;
+      out.togetherroom += Number(h.togetherroom) || 0;
+      any = true;
+    }catch(_){}
+  }
+  return any ? out : null;
+}
+async function syncServerLimits(db, stats){
+  if ((await db.ref('config/roomServer/on').get()).val() !== true) return null;
+  const want = serverLimitsFrom(stats);
+  const cur = (await db.ref('config/roomServer/limits').get()).val() || {};
+  if (cur.workingroom === want.workingroom && cur.togetherroom === want.togetherroom) return null;
+  await db.ref('config/roomServer/limits').set(want);
+  return want;
+}
 const SECRET_ROOM_PREFIX = 'SCRT-';
 const ROOM_LIVE_MS = 90 * 1000;              // 앱 getRoomCounts 의 STALE 과 같게
 const ROOM_INDEX_DROP_MS = 10 * 60 * 1000;   // 하트비트가 30초라 살아 있는 방은 이만큼 조용하지 않다
@@ -252,6 +291,11 @@ async function runRoomStats(db, now, opts){
   const light = !!(opts && opts.drop === false);
   const repaired = light ? 0 : await repairChannels(db, idx, roomStatsFrom(idx, now).repair);
   const { stats, drop: dropAll, empty } = roomStatsFrom(idx, now);
+  // 🛰 방 서버 방 수도 같이 적는다(주기 실행만) — 앱이 «Firebase + 방 서버» 합계로 상한을 본다.
+  if (!light){
+    try{ if ((await db.ref('config/roomServer/on').get()).val() === true){ const srv = await serverRoomCounts(db); if (srv) stats.server = srv; } }
+    catch(e){ console.warn('[roomStats] 방 서버 방 수 못 읽음', e && e.message); }
+  }
   // 여러 실행이 겹치면 먼저 읽은 쪽이 늦게 써서 새 값을 덮을 수 있다. 더 늦게 읽은 값이 있으면 쓰지 않는다.
   await db.ref('roomStats').transaction(cur => ((cur && Number(cur.at) > stats.at) ? undefined : stats), undefined, false);
   // 💓 유령 멤버를 먼저 걷고(빈 방 판정이 유령 hb:2 노드에 걸리지 않게) 같은 roomAlive 트리로 빈 방을 본다 — 트리는 한 번만 읽는다.
@@ -283,6 +327,11 @@ async function runRoomStats(db, now, opts){
       if (r.committed) dropped++; else kept++;
     }catch(e){ failed++; }
   }
+  // 🛰 방 서버 상한 = 합계 상한 − Firebase 방(주기 실행만). 실패해도 위 집계는 끝났다 — 다음 주기에 다시.
+  if (!light){
+    try{ const set = await syncServerLimits(db, stats); if (set) console.log('[roomStats] 방 서버 상한', JSON.stringify(set)); }
+    catch(e){ console.warn('[roomStats] 방 서버 상한 못 맞춤', e && e.message); }
+  }
   // 지난날 지표 요약(daily-summary.js) — 방 집계와 무관하다. 실패해도 위 일은 이미 끝났고 다음 주기에 다시 해 본다.
   if (!light){
     try{
@@ -297,6 +346,6 @@ async function runRoomStats(db, now, opts){
   return sum;
 }
 
-module.exports = { roomStatsFrom, runRoomStats, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, isEmptyMark, quietSince,
+module.exports = { roomStatsFrom, runRoomStats, serverRoomCounts, serverLimitsFrom, syncServerLimits, TOTAL_ROOM_LIMIT, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, isEmptyMark, quietSince,
   ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_DROP_MAX, ROOM_REPAIR_MAX, ROOM_ALIVE_STALE_MS, ROOM_ALIVE_HB,
   EMPTY_GRACE_MS, MEMBER_GONE_MS, EMPTY_SWEEP_MAX };

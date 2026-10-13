@@ -764,6 +764,9 @@ async function joined(o = {}){
       && !/firebaseAPI\.(addChatTab|renameChatTab|deleteChatTab)\(/.test(AC.replace(ctAdd, '')) && !/_chatTabsOnServer/.test(AC), '  ↳ 탭 줄 · 메뉴는 이 셋만 부른다 · 서버 방이라고 [+] 를 숨기지 않는다');
     chk(/meta\.tabs = tabs;/.test(rm.slice(0, rm.indexOf('meta.ts = meta.openTs'))) && /t\.name\.length <= 10 && typeof t\.ts === 'number'/.test(rm), '  ↳ Firebase 로 되살릴 때 채팅 탭 정의도 옮긴다(규칙 모양만)');
     chk(/await _withServerRoomCounts\(await firebaseAPI\.getRoomCounts\(\{ quick: true \}\)\)/.test(AC) && /c = _addServerRoomCounts\(c\);/.test(AC), '방 개수 — 서버 몫을 더한다(켜져 있을 때만)');
+    chk(/if\(count!=null\)\{ try\{ if\(window\.firebaseAPI\.getServerRoomCount\) count \+= await window\.firebaseAPI\.getServerRoomCount\(channel\)/.test(AC)
+        && /_openCount \+= await firebaseAPI\.getServerRoomCount\(_openCh\)/.test(AC),
+        '방 만들기 · 빈 방 열기 상한은 Firebase 방 + 방 서버 방 합계(getServerRoomCount) — 빼면 채널마다 250 을 넘겨 열린다');
     const so = AC.slice(AC.indexOf('async function _startRoomOnServer('), AC.indexOf('/* 방 개수 — 서버 방 몫을 더한다'));
     chk(/rs = await firebaseAPI\.resolveRoomServer\(code, \{ creating \}\);/.test(so) && /if\(!\(rs && rs\.via === 'server'\)\) return 'firebase';/.test(so), '서버로 갈지는 firebaseAPI.resolveRoomServer 한 곳 — 아니면 Firebase');
     chk(/const following = rs\.from === 'dir';/.test(so) && /net\.ensureReady\(following \? ROOM_SERVER_FOLLOW_WAIT_MS : undefined\)/.test(so) && /const ROOM_SERVER_FOLLOW_WAIT_MS = 3000;/.test(AC), '  ↳ 주소록 따라가기는 연결을 3초만 기다린다');
