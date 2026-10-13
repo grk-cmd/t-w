@@ -29,6 +29,7 @@ const MODULES = [
   { file: 'desktop-run.js', mod: 'desktopRunMod', glob: 'TwDesktopRun', sample: 'function showUpdateReadyBanner(' },   // 앱 FSD 32번
   { file: 'room-entry.js', mod: 'roomEntryMod', glob: 'TwRoomEntry', sample: 'function _roomServerNet(' },   // 앱 FSD 33번
   { file: 'overhead.js', mod: 'overheadMod', glob: 'TwOverhead', sample: 'function applyChipOrientation(' },   // 앱 FSD 34번
+  { file: 'room-sync.js', mod: 'roomSyncMod', glob: 'TwRoomSync', sample: 'function _srvNow(' },   // 앱 FSD 35번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
