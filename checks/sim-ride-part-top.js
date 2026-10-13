@@ -2,7 +2,8 @@
    app.js 에서 _measureRideablePartTop 원문과 RIDE_PART_CENTER_MARGIN 상수를 뽑아 스텁 위에서 돌린다.
    사용: node sim-ride-part-top.js [app.js 경로] */
 const fs = require('fs');
-const src = fs.readFileSync(process.argv[2] || __dirname + '/app.js', 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈(🗼 올라타기 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const src = _joinRenderer(fs.readFileSync(process.argv[2] || __dirname + '/app.js', 'utf8'));
 
 function pick(a, b){
   const i = src.indexOf(a); if(i < 0) throw new Error('추출 실패 — ' + a);
