@@ -28,6 +28,7 @@ const MODULES = [
   { file: 'settings-panel.js', mod: 'settingsMod', glob: 'TwSettingsPanel', sample: 'function loadAdBannerSlides(' },   // 앱 FSD 27번
   { file: 'desktop-run.js', mod: 'desktopRunMod', glob: 'TwDesktopRun', sample: 'function showUpdateReadyBanner(' },   // 앱 FSD 32번
   { file: 'room-entry.js', mod: 'roomEntryMod', glob: 'TwRoomEntry', sample: 'function _roomServerNet(' },   // 앱 FSD 33번
+  { file: 'overhead.js', mod: 'overheadMod', glob: 'TwOverhead', sample: 'function applyChipOrientation(' },   // 앱 FSD 34번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
@@ -49,6 +50,11 @@ function joinRenderer(app){
   if(typeof app !== 'string') return app;
   /* 옛 전역 이름 잇기 줄(«// 옛 전역 이름» 표지)은 먼저 지운다 — «mod.» 를 떼면 자기 자신을 부르는 함수가 된다(자리 계산 전에) */
   app = app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n');
+  /* 다른 모듈 만드는 줄의 쓰는 함수가 옮긴 모듈의 쓰는 함수를 거치면(«setX: (v)=>{ mod.setX(v); },») 옛 모양 «x = v» 로 먼저 돌린다 —
+     그래야 아래 ②에서 그 모듈 본문의 setX(…) 도 «x = …» 로 되살아난다 */
+  const allSet = {};
+  for(const m of MODULES){ const t = readPart(m.file); if(!t) continue; for(const x of t.matchAll(/^  ([\w$]+): \(v\)=>\{ ([\w$]+) = v; \},/gm)) allSet[m.mod + '.' + x[1]] = x[2]; }
+  app = app.replace(/\(v\)=>\{ ([\w$]+\.[\w$]+)\(v\); \}/g, (all, key) => allSet[key] ? '(v)=>{ ' + allSet[key] + ' = v; }' : all);
   /* ① 모듈 글을 되살린다(deps 줄 빼기 · 읽는 함수 · 쓰는 함수) ② 그다음 app.js 와 모듈 글 모두에서 «mod.» 를 뗀다 —
      옮긴 모듈끼리 부르는 자리(예: 슬롯 동기화 → charsMod._chars…)도 옮기기 전 글로 돌아간다 */
   const parts = [];
