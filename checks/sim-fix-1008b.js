@@ -21,7 +21,7 @@ const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); i
   for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
 
 say('── 1. 친구창 방 코드');
-chk(/<span class="mh-fpill-code">'\+escHtml\(roomTag\)\+'<\/span>/.test(A), '방 코드를 mh-fpill-code 로 감싼다 · escHtml 은 그대로');
+chk(/<span class="mh-fpill-code'\+\(friendVisit\?' go" title="클릭하면 놀러 가요':''\)\+'">'\+escHtml\(roomTag\)\+'<\/span>/.test(A), '방 코드를 mh-fpill-code 로 감싼다 · escHtml 은 그대로 (🏠 놀러 가기 go 표시는 sim-friend-visit)');
 const css = (HTML.match(/\.mh-fpill-code\{[^}]*\}/) || [''])[0];
 chk(/font-family:var\(--win-font-num\)/.test(css), '코드는 숫자·코드용 고정폭 글꼴(--win-font-num — Consolas 계열)');
 chk(/font-size:(1[0-9])px/.test(css), '9px 보다 크게(' + ((css.match(/font-size:(\d+)px/) || [])[1] || '?') + 'px)');
