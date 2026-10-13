@@ -394,6 +394,8 @@ PRELOAD.push('status-chip.js');
 PRELOAD.push('premium-assets.js');
 /* char-code.js — 📦 캐릭터 복제 코드(앱 FSD 38번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCharCode 를 같이 굴린다. */
 PRELOAD.push('char-code.js');
+/* dice-games.js — 🎲 주사위 · 하루 횟수(앱 FSD 39번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDiceGames 를 같이 굴린다. */
+PRELOAD.push('dice-games.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
