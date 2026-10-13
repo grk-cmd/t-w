@@ -376,7 +376,7 @@ def _open_part(name):
     for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):
         if os.path.exists(_p): return open(_p, encoding='utf-8')
     return open(name, encoding='utf-8')
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js', 'tricks.js', 'ride-bench.js', 'part-paint.js', 'focus-level.js', 'chat-ui.js', 'license-gate.js', 'account.js', 'wardrobe.js', 'settings-panel.js', 'desktop-run.js', 'room-entry.js', 'overhead.js', 'room-sync.js', 'status-chip.js', 'premium-assets.js', 'char-code.js', 'dice-games.js', 'program-settings.js', 'chat-prefs.js'):
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js', 'tricks.js', 'ride-bench.js', 'part-paint.js', 'focus-level.js', 'chat-ui.js', 'license-gate.js', 'account.js', 'wardrobe.js', 'settings-panel.js', 'desktop-run.js', 'room-entry.js', 'overhead.js', 'room-sync.js', 'status-chip.js', 'premium-assets.js', 'char-code.js', 'dice-games.js', 'program-settings.js', 'chat-prefs.js', 'rich-text.js'):
     try: _cs = _strip_js_comments(_open_part(_cf).read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):
@@ -815,6 +815,12 @@ else:
 
 # ③ _mhLoadRT 가 읽는 쪽 sanitize 를 거치는가 (저장형 XSS 회귀 — 자세한 것은 sim-mh-sanitize.js)
 _m19b = re.search(r'function\s+_mhLoadRT\s*\([^)]*\)\s*\{(.*?)\n\}', app, re.S)
+if not _m19b:
+    # 🛡️ 리치 텍스트 구역은 rich-text.js 로 옮겼다(앱 FSD 42번) — 정의는 거기서 찾는다
+    for _rp in ('rich-text.js', os.path.join(os.path.dirname(APP), 'rich-text.js'), os.path.join('app', 'parts', 'rich-text.js')):
+        if os.path.exists(_rp):
+            _m19b = re.search(r'function\s+_mhLoadRT\s*\([^)]*\)\s*\{(.*?)\n\}', open(_rp, encoding='utf-8').read(), re.S)
+            break
 if not _m19b or '_mhSanitizeHtml' not in _m19b.group(1):
     _p19.append('_mhLoadRT 가 _mhSanitizeHtml 을 안 거칩니다 — 남의 bio·게시글이 씻기지 않고 그려집니다')
 else:
