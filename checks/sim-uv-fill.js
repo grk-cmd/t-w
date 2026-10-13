@@ -8,6 +8,7 @@
      대칭 2145 · 2155 → 지우개 채우기 0).
    [실행] uv-fill.js · ears-glb.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -69,7 +70,7 @@ const c3 = fakeCtx();
 chk(U.fillMesh(c3, { attributes:{} }, 512, {}) === 0 && c3.log.length === 0, 'UV 가 없으면 아무것도 안 한다');
 
 say('── 3. app.js 배선');
-const APP = SRC['app.js'];
+const APP = _joinRenderer(SRC['app.js']);
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const A = strip(APP);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;

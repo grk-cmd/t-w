@@ -26,9 +26,10 @@
      여기서 알 수 없다 — 새 필드를 넣을 때 firebase-database-rules.json 도 같이 볼 것.
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
-const APP_SRC = fs.readFileSync('app.js', 'utf8');
+const APP_SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 /* 파츠 등록 창 · 배포 필드 목록(PART_PUBLISH_FIELDS · buildPartPublishData)은 관리자 코드 admin 폴더 4번에서 admin/admin-part-register.js 로
    옮겼다. §1 은 두 글을 이어 읽고, §2 는 그 모듈을 먼저 평가한 뒤 app.js 가 만든 adminPartReg 로 들여다본다. */
 const PREG = ['admin-part-register.js', 'parts/admin/admin-part-register.js', 'app/parts/admin/admin-part-register.js']
