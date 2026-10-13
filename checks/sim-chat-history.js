@@ -3,9 +3,9 @@
    ★ 왜 이 검사가 있는가 — 기록을 «지우는» 길이 여럿이라(방장 지우기 · 채널 삭제 · 직접 나감 · 서버 3일) 하나만 어긋나도
      «재부팅하면 대화가 사라졌다» 또는 «지운 대화가 다시 보인다» 가 된다. 지우면 안 되는 길(서버 3일 · 튕김)과 지워야 하는 길을 가짜 저장소로 굴린다.
    ・1절: 순수 함수 — 순서(ts 먼저) · 합치기(나중 것이 이김) · 지우기 표시 · 커서 · 채널 · 저장하는 방
-   ・2절: 기록 열기 — 첫 받기 전엔 안 그림(입장 컷) · 저장 → 다시 열면 저장분 먼저 + 그 뒤만 · 지우기 표시 · 투게더룸은 저장 안 함 · 채널 정리 · 방 지우기
+   ・2절: 기록 열기 — 첫 받기 전엔 안 그림(입장 컷) · 저장 → 다시 열면 저장분 먼저 + 그 뒤만 · 지우기 표시 · 투게더룸은 저장 안 함 · 채널 정리 · 방 지우기 · 채널마다 최근 300줄
    ・3절: 연결 · 배선 — firebase-init(ts 커서 · 지운 줄은 안 넘김) · app.js(직접 나갈 때만 지움) · 규칙 ts 색인 · 설정 버튼
-   ・4절: 서버 함수 — 3일 값이 앱과 같다 · 표시 줄은 남긴다 · 매일 예약 · 처리방침 문구 */
+   ・4절: 서버 함수 — 3일 · 300줄 값이 앱과 같다 · 표시 줄은 남긴다 · 300줄 넘는 옛 줄 지우기(같은 ts 경계) · 매일 예약 · 처리방침 문구 */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -22,7 +22,7 @@ if (!MOD || !FI || !APP || !HTML || !RULES_SRC || !FX || !PRIV || !EXP_PATH) {
   process.exit(2);
 }
 const M = new Function(MOD.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { CHAT_SERVER_KEEP_MS, CHAT_CURSOR_MARGIN_MS, CHAT_FIRST_LIMIT, CHAT_VIEW_MAX, CLEAR_SYS, CLEAR_MARK, chatOrder, mergeMsgs, applyClear, sinceOf, keepsLocal, tabsToDrop, createChatHistory };')();
+  '\nreturn { CHAT_SERVER_KEEP_MS, CHAT_CURSOR_MARGIN_MS, CHAT_FIRST_LIMIT, CHAT_KEEP_MAX, CLEAR_SYS, CLEAR_MARK, chatOrder, mergeMsgs, applyClear, capList, sinceOf, keepsLocal, tabsToDrop, createChatHistory };')();
 
 say('§1 순수 함수');
 const m = (id, ts, o) => Object.assign({ id, ts, name: 'a', text: id }, o || {});
@@ -126,16 +126,26 @@ async function run(){
   chk(await H.count() === 1, '저장된 줄 수(설정 › 지우기 첫 누름)');
   await H.wipeAll();
   chk(await H.count() === 0, '전부 지우기(설정 · 계정 놓기)');
-  // 화면 상한
+  // 채널마다 최근 CHAT_KEEP_MAX 줄 — 화면 · 이 PC 저장 둘 다
   let last = null;
   chan = 'workingroom';
   H.open('WORK-BIG1', 'general', l => { last = l; });
   await tick();
   const sb = subs[subs.length - 1];
-  for (let i = 0; i < M.CHAT_VIEW_MAX + 5; i++) sb.onMsg(m('m' + String(i).padStart(5, '0'), 1000 + i));
+  for (let i = 0; i < M.CHAT_KEEP_MAX + 5; i++) sb.onMsg(m('m' + String(i).padStart(5, '0'), 1000 + i));
   sb.onReady();
   await tick(); await tick();
-  chk(last && last.length === M.CHAT_VIEW_MAX && store.msgs.size === M.CHAT_VIEW_MAX + 5, '화면엔 최근 ' + M.CHAT_VIEW_MAX + '줄만 넘기고 저장은 전부');
+  chk(M.CHAT_KEEP_MAX === 300 && last && last.length === M.CHAT_KEEP_MAX && last[0].id === 'm00005' && store.msgs.size === M.CHAT_KEEP_MAX,
+    '★ 채널마다 최근 ' + M.CHAT_KEEP_MAX + '줄 — 화면도 이 PC 저장도, 넘으면 옛 줄부터 지운다');
+  // 예전 앱이 상한 없이 쌓아 둔 저장 — 열면 최근 줄만 남기고 저장에서도 지운다
+  store.msgs.clear();
+  await store.put('WORK-OLD1', 'general', Array.from({ length: M.CHAT_KEEP_MAX + 20 }, (_, i) => m('o' + String(i).padStart(5, '0'), 2000 + i)));
+  let last2 = null;
+  H.open('WORK-OLD1', 'general', l => { last2 = l; });
+  await tick(); await tick();
+  chk(last2 && last2.length === M.CHAT_KEEP_MAX && last2[0].id === 'o00020' && store.msgs.size === M.CHAT_KEEP_MAX, '★ 예전에 상한 없이 쌓인 저장도 열 때 최근 ' + M.CHAT_KEEP_MAX + '줄로 줄인다');
+  const cl = M.capList([m('a', 1), m('b', 2)]);
+  chk(cl.list.length === 2 && cl.dropped.length === 0, '  상한 안이면 그대로');
 }
 
 run().then(() => {
@@ -166,18 +176,37 @@ run().then(() => {
   say('§4 서버 함수 · 처리방침');
   const X = require(path.resolve(EXP_PATH));
   chk(X.CHAT_SERVER_KEEP_MS === M.CHAT_SERVER_KEEP_MS && M.CHAT_SERVER_KEEP_MS === 3 * 24 * 3600 * 1000 && X.CLEAR_SYS === M.CLEAR_SYS, '서버 보관 3일 · 표시 값이 앱과 같다');
+  chk(X.CHAT_KEEP_MAX === M.CHAT_KEEP_MAX, '★ 서버 줄 수 상한이 앱과 같다 (' + X.CHAT_KEEP_MAX + ')');
   const updates = [];
-  const fakeDb = { ref: (p) => ({
-    orderByChild: () => ({ endAt: (cut) => ({ get: async () => ({ forEach: (fn) => [{ key: 'o1', v: { ts: 1 } }, { key: 'c', v: { ts: 2, sys: 'clr' } }].filter(x => x.v.ts <= cut).forEach(x => fn({ key: x.key, val: () => x.v })) }) }) }),
-    update: async (u) => { updates.push({ p, u }); } }) };
-  return X.expireLog(fakeDb, 'rooms/R/chatLog', 10).then(n => {
+  /* 가짜 기록 — ts 순 정렬 · endAt · limitToLast 만 */
+  const mkDb = (rowsOf) => ({ ref: (p) => {
+    const rows = () => rowsOf(p).slice().sort((a, b) => (a.v.ts ?? -1) - (b.v.ts ?? -1));
+    const snap = (arr) => ({ forEach: (fn) => arr.forEach(x => fn({ key: x.key, val: () => x.v })) });
+    return {
+      orderByChild: () => ({ endAt: (cut) => ({ get: async () => snap(rows().filter(x => (x.v.ts ?? -1) <= cut)) }),
+                             limitToLast: (k) => ({ get: async () => snap(rows().slice(-k)) }) }),
+      update: async (u) => { updates.push({ p, u }); } };
+  } });
+  const fakeDb = mkDb(() => [{ key: 'o1', v: { ts: 1 } }, { key: 'c', v: { ts: 2, sys: 'clr' } }]);
+  return X.expireLog(fakeDb, 'rooms/R/chatLog', 10).then(async n => {
     chk(n === 1 && updates.length === 1 && 'o1' in updates[0].u && !('c' in updates[0].u), '★ 3일 지난 줄은 지우고 방장 지우기 표시 줄은 남긴다');
+    // 300줄 상한 — 표시 줄 하나 + 305줄. 경계 줄(k0004 · 지움)과 남길 첫 줄(k0005)이 같은 ts
+    const big = [{ key: 'c', v: { ts: 0, sys: 'clr' } }].concat(Array.from({ length: 305 }, (_, i) => ({ key: 'k' + String(i).padStart(4, '0'), v: { ts: 100 + (i === 4 ? 5 : i) } })));
+    updates.length = 0;
+    const t = await X.trimLog(mkDb(() => big), 'rooms/R/chatLog');
+    const del = updates.length ? Object.keys(updates[0].u) : [];
+    chk(t === 5 && del.length === 5 && !del.includes('c') && del.every(k => k < 'k0005'),
+      '★ 기록마다 최근 ' + X.CHAT_KEEP_MAX + '줄을 넘는 옛 줄을 지운다 — 표시 줄은 남기고, 같은 ts 경계에서 남길 줄은 안 지운다');
+    updates.length = 0;
+    const t2 = await X.trimLog(mkDb(() => big.slice(0, 300)), 'rooms/R/chatLog');
+    chk(t2 === 0 && updates.length === 0, '  ' + X.CHAT_KEEP_MAX + '줄 이하면 아무것도 안 지운다');
+    updates.length = 0;
     return X.runChatExpire(fakeDb, 10 + X.CHAT_SERVER_KEEP_MS, async (p) => (p === 'rooms' ? { R: true } : p === 'rooms/R' ? { chatLog: true, _chatTab: true } : { s1: true }));
   }).then(sum => {
     chk(sum.rooms === 1 && sum.logs === 2 && sum.failed === 0, '방마다 #일반 · 채널 기록을 본다(shallow 로 키만)');
     chk(/exports\.chatExpire = onSchedule\(\{ schedule: 'every day 04:30'/.test(FX) && /require\('\.\/chat-expire'\)\.runChatExpire/.test(FX), '매일 04:30 예약 함수(functions/index.js)');
     chk(/3일/.test(PRIV) && /이 PC|이용자 PC/.test(PRIV) && /대화 기록/.test(PRIV), '처리방침 — 서버 3일 · PC 저장 · 지우는 법');
-    say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass + ' — 대화는 서버 3일 · 이 PC 에 남고, 지울 때만 지운다'));
+    say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass + ' — 대화는 서버 3일 · 이 PC 에 채널마다 최근 300줄 남고, 지울 때만 지운다'));
     process.exit(fail ? 1 : 0);
   });
 }).catch(e => { say('  ✗ 검사가 던졌다: ' + (e && e.stack || e)); process.exit(1); });
