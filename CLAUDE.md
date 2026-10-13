@@ -45,6 +45,7 @@
 | `app/parts/report.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 11번) — 🚩 신고하기(좌석 · 책상 · 이름표 우클릭 → 사유 → 신고 · 내 화면에서 숨김) · 신고 창 공용 도우미(창 틀 · 닫기 · 신고 종류 · 팝업 칸). classic script(`window.TwReport`), app.js 가 원래 자리에서 `createReport(deps)` · 부르는 곳은 `reportMod.openDialog`. 관리자 신고 목록은 `admin/admin-report.js` |
 | `app/parts/my-info.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 17번) — 🪪 [내 정보] 화면(머리 · 레벨 별 색 · 보관함 · 휴지통 · 이름 바꾸기 · 계정 탭 로그인 연결) · 🏆 전체 랭킹. classic script(`window.TwMyInfo`), app.js 가 원래 자리에서 `createMyInfo(deps)` · 부르는 곳은 `myInfoMod.이름`(`openMyInfo` · `closeMyInfo` 등) |
 | `app/parts/chars.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 18번) — 🧬 캐릭터 보관함(계정 단위 캐릭터 — 병합 · slots → chars 이관 · 서버 쓰기 · 미리보기 · 휴지통). classic script(`window.TwChars`), 부르는 곳은 `charsMod.이름` |
+| `app/parts/slot-sync.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 19번) — ☁️ 슬롯(캐릭터) 기기 간 동기화 · 연동 UI(런처 띠 · 계정 탭 기기 연동 구획). classic script(`window.TwSlotSync`), 부르는 곳은 `slotSyncMod.이름`(상태 let 은 `slotSyncMod.이름()` · 비우기는 `slotSyncMod.set이름(…)`). 슬롯 저장 · 복원(`saveSlots` · `loadSlots`)은 app.js |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
