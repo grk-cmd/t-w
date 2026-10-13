@@ -330,8 +330,11 @@ PRELOAD.push('myhome-inbox.js');
 /* playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 같은 까닭 — 만들 때 하는 일(🪟 창 위치 초기화 등록 · 저장값 읽기 · 버튼 · ESC · 끌기 연결 · 미니미 ·
    300ms 폴링 · BGM 신호 구독 · 음량 한 번 · window 고리)과 app.js 가 원래 자리에서 부르는 createPlaylist 를 같이 굴린다. */
 PRELOAD.push('playlist.js');
+/* admin/admin-license-bulk.js — 🛠️ 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급(관리자 코드 admin 폴더 1번). 같은 까닭 — 만들 때 하는 일
+   (버튼 연결 · window._lxHideWin)과 app.js 가 원래 자리에서 부르는 createAdminLicenseBulk 를 같이 굴린다. 관리자 모듈은 parts/admin/ 에 있다. */
+PRELOAD.push('admin-license-bulk.js');
 for (const f of PRELOAD) {
-  const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
+  const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
   try { vm.runInThisContext(fs.readFileSync(p, 'utf8'), { filename: p }); }
   catch (e) { failed = failed || { where: f, err: e }; }

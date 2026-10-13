@@ -4,14 +4,18 @@
           «memberId 오름차순 = 입장순» 으로 늦게 온 사람을 가르는데, 각자 PC 시계(Date.now)로 만들면 시계가 앞선
           사람이 방이 찰 때마다 «늦게 온 사람» 으로 계산돼 쫓겨난다(제보 2). 정렬 로직·id 형식은 안 바뀐다.
           _svNow 를 흉내내 «시계가 5분 앞선 먼저 온 사람» 이 보정 뒤에는 앞자리에 서는지 실제로 돌려 본다.
-   ・2절: app.js 관리자 시크릿룸 발급 — friendCodes 로 푼 uid 의 거울(users/{uid}/friendCode)이 입력 코드와
+   ・2절: 관리자 시크릿룸 발급(admin/admin-license-bulk.js — app.js 에서 옮김) — friendCodes 로 푼 uid 의 거울(users/{uid}/friendCode)이 입력 코드와
           다르면 7일 게이트와 같은 «한 번 더 누르기» 경고(제보 4). uid 직접 입력은 게이트 없음(예전 그대로).
    ・3절: app.js startRoom — pub.owner 가 내가 버린 uid 면 재발급 안내 토스트. 방장으로 쳐 주지는 않는다.
-   [실행] app.js · firebase-init.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
+   [실행] app.js · firebase-init.js · admin-license-bulk.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). 판정 줄은 맨 끝. */
 'use strict';
 const fs = require('fs');
 const SRC = fs.readFileSync('app.js', 'utf8');
 const FB  = fs.readFileSync('firebase-init.js', 'utf8');
+/* 시크릿룸 발급은 관리자 코드 admin 폴더로 옮겼다 — 저장소 루트에서 돌 때도 찾게 자리를 몇 곳 본다 */
+const ADMIN_LB_FILE = ['admin-license-bulk.js', 'parts/admin/admin-license-bulk.js', 'app/parts/admin/admin-license-bulk.js'].find(c => fs.existsSync(c));
+if(!ADMIN_LB_FILE){ console.log('  ? 원본 못 찾음 — admin-license-bulk.js'); process.exit(2); }
+const ADMIN_LB = fs.readFileSync(ADMIN_LB_FILE, 'utf8');
 
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -43,10 +47,10 @@ say('── 1. firebase-init.js joinRoom — memberId 는 서버 시계 보정�
 }
 
 /* ── 2. 관리자 발급 거울 대조 ── */
-say('── 2. app.js 시크릿룸 발급 — 거울(users/{uid}/friendCode) 불일치 경고');
+say('── 2. 시크릿룸 발급(admin-license-bulk.js) — 거울(users/{uid}/friendCode) 불일치 경고');
 {
-  const i = SRC.indexOf('if(!isUid && firebaseAPI.getUserLastSeen){');
-  const gate = SRC.slice(i, i + 3000);
+  const i = ADMIN_LB.indexOf('if(!isUid && firebaseAPI.getUserLastSeen){');
+  const gate = ADMIN_LB.slice(i, i + 3000);
   chk(i >= 0, '7일 게이트를 찾았다');
   chk(/mirror = await firebaseAPI\.getUserFriendCode\(uid\)/.test(gate), '★ 거울을 읽는다');
   chk(/const mirrorOff = \(mirror !== undefined\) && \(String\(mirror \|\| ''\)\.toUpperCase\(\) !== code\);/.test(gate), '  조회 실패(undefined)는 경고 안 함 · 없음(null)·다름은 경고');

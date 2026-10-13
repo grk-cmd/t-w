@@ -357,8 +357,16 @@ _callers = {}
 # room-invite-ui.js — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기(앱 FSD 10번). sendRoomInvite · subscribeRoomInvites · clearRoomInvite 를 부른다.
 # myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). removeFriend · getMallangGifts · setMallangGiftStarred · deleteInboxBroadcast · deleteInboxMessage · setInboxBroadcastPinned · markInboxRead 를 부른다.
 # playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). publishMyPlaylist · removeMyPlaylist · fetchPlaylistCard · fetchRandomPlaylist · fetchPlaylistOf 를 부른다.
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js'):
-    try: _cs = _strip_js_comments(open(_cf, encoding='utf-8').read())
+# admin/*.js — 🛠️ 관리자 코드는 parts/admin/ 에 모은다(관리자 코드 admin 폴더). 러너 스테이징은 한 층만 펼쳐서 이 폴더가
+#   parts/admin/ 로 남는다 — 이름만으로 못 열면 그 자리도 본다(_open_part). admin-license-bulk.js 는 createLicense · sendInboxMessage ·
+#   lookupFriendCode · listLicenses · getUserNameById · issueSecretRoom · expireSecretRoom · getSecretRoomPub · getMySecretRoom ·
+#   setMySecretRoom · getUserLastSeen · getUserFriendCode 를 부른다.
+def _open_part(name):
+    for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):
+        if os.path.exists(_p): return open(_p, encoding='utf-8')
+    return open(name, encoding='utf-8')
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js'):
+    try: _cs = _strip_js_comments(_open_part(_cf).read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):
         _callers.setdefault(_mm, []).append(_cf)
@@ -839,6 +847,9 @@ try: _files19.append(('myhome-inbox.js', open('myhome-inbox.js', encoding='utf-8
 except Exception: pass
 # playlist.js — 🎵 플레이리스트 창(곡 행 · 담기 메뉴 · 반복 아이콘)을 app.js 에서 옮겼다(앱 FSD 16번). 곡 제목이 남의 입력이라 시야에 둔다.
 try: _files19.append(('playlist.js', open('playlist.js', encoding='utf-8').read().split('\n')))
+except Exception: pass
+# admin-license-bulk.js — 📄 엑셀 일괄 발급 미리보기 표(받는 사람 닉네임 · 파일에 적힌 메모)를 app.js 에서 옮겼다(관리자 코드 admin 폴더).
+try: _files19.append(('admin-license-bulk.js', _open_part('admin-license-bulk.js').read().split('\n')))
 except Exception: pass
 for _f19, _lines19 in _files19:
   for _n19b, _l19 in enumerate(_lines19, 1):
