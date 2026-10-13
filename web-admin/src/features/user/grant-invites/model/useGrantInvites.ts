@@ -1,12 +1,14 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { useForgetUserInvites, useSetInvitesLeftCache } from '@/entities/invite';
+import { listFriendCodes } from '@/entities/user';
 import { useDb } from '@/shared/api';
 import {
   createInviteCodes,
   grantInvites,
   grantInvitesAll,
   revokeInvitesAll,
+  uniqueUserIds,
   type GrantScope,
 } from './grantInvites';
 
@@ -79,4 +81,21 @@ export function useCreateInviteCodes() {
     mutation.reset();
   };
   return { ...mutation, codes, reset };
+}
+
+/**
+ * 전체 지급 · 회수 대상(사용자코드) — 단추를 눌렀을 때만 friendCodes 를 받는다(화면을 열기만 해서 통째로 받지 않게).
+ * 이미 받아 둔 캐시가 있으면(예전 방식으로 사용자 목록을 읽었을 때) 그대로 쓴다.
+ */
+export function useLoadAllUserIds(): () => Promise<string[]> {
+  const db = useDb();
+  const client = useQueryClient();
+  return async () =>
+    uniqueUserIds(
+      await client.fetchQuery({
+        queryKey: ['friendCodes'],
+        queryFn: () => listFriendCodes(db),
+        staleTime: Infinity,
+      }),
+    );
 }
