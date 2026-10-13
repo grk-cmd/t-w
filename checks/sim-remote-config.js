@@ -44,6 +44,8 @@ const RCM = require(path.resolve(where('remote-config.js')));
   const ENV = { version: 7, syncedAt: '2026-10-14T00:00:00Z', config: DATA };   // GET /v1/config 의 data
   const okRes = (data, status) => ({ ok: (status || 200) < 300, status: status || 200, json: async () => ({ success: true, data }) });
   const mkFetch = (fn) => { const calls = []; const f = async (url, init) => { calls.push({ url, init }); return fn(url, init, calls.length); }; f.calls = calls; return f; };
+  const API = require(path.resolve(where('api-client.js')));
+  const mkApi = (f) => API.createApiClient({ baseUrl: 'https://api.togetherworking.duckdns.org', fetch: f, backoffMs: 0 });
   const quiet = async (fn) => { const w = console.warn; console.warn = () => {}; try{ return await fn(); }finally{ console.warn = w; } };
 
   say('── 1. remote-config.js — 기본값 · 범위 · 타입');
@@ -104,14 +106,9 @@ const RCM = require(path.resolve(where('remote-config.js')));
   say('── 2. 읽는 차례 — API → Firebase → 저장값 → 기본값 · 다시 읽기 · 허용 목록 · 배선');
   {
     const BASE = 'https://api.togetherworking.duckdns.org';
-    chk(RCM.API_BASE_PROD === BASE && RCM.CONFIG_PATH === '/v1/config' && RCM.ALLOW_PATH === '/v1/config/room-server/allow/' && /^tw\./.test(RCM.CACHE_KEY) && /^tw\./.test(RCM.API_BASE_DEV_KEY),
-      '주소 — 운영 API · /v1/config · /v1/config/room-server/allow/ · 저장 키는 tw. 접두사');
-    chk(RCM.apiBaseFor('prod', memStore({ 'tw.apiBaseUrl': 'https://evil.example' })) === BASE, '운영 앱은 늘 운영 API(시험 주소 무시)');
-    chk(RCM.apiBaseFor('dev', memStore()) === null && RCM.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-dev.togetherworking.duckdns.org/' })) === 'https://api-dev.togetherworking.duckdns.org',
-      '  ↳ dev 앱은 tw.apiBaseUrl 이 있을 때만(없으면 API 없음 — 운영 API 를 보지 않는다)');
-    chk(['https://evil.example', 'http://api-dev.togetherworking.duckdns.org', 'https://a.togetherworking.duckdns.org.evil.com', BASE].every((u) => RCM.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': u })) === null),
-      '  ↳ dev 시험 주소도 CSP 묶음(https://<이름>.togetherworking.duckdns.org)만 · 운영 API 는 안 됨');
-    chk(RCM.REFRESH_MS === 5 * 60 * 1000 && RCM.STALE_MS === 60 * 1000 && RCM.FETCH_TIMEOUT_MS <= 3000, '다시 읽기 5분 · 입장 때 1분 넘었으면 · API · Firebase 각각 3초 이하');
+    chk(RCM.CONFIG_PATH === '/v1/config' && RCM.ALLOW_PATH === '/v1/config/room-server/allow/' && /^tw\./.test(RCM.CACHE_KEY),
+      '경로 — /v1/config · /v1/config/room-server/allow/ · 저장 키는 tw. 접두사(주소 · 시간 제한 · 쉬기는 api-client.js — sim-api-client.js)');
+    chk(RCM.REFRESH_MS === 5 * 60 * 1000 && RCM.STALE_MS === 60 * 1000 && RCM.FETCH_TIMEOUT_MS <= 3000 && API.TIMEOUT_MS <= 3000, '다시 읽기 5분 · 입장 때 1분 넘었으면 · API · Firebase 각각 3초 이하');
 
     // ① 정상 — API 만
     const FBV = { 'config/roomLimits': { workingroom: 250, togetherroom: 260 }, 'config/roomMaxPeople': 8, 'config/flags/inviteGate': false, 'config/bugDailyMax': 3,
@@ -121,7 +118,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     let st = memStore(), fb = [];
     let f = mkFetch(() => okRes(ENV));
     let s = RCM.createRemoteConfig();
-    await s.start({ baseUrl: BASE, fetch: f, storage: st, fallbackRead: fbRead(fb, FBV) });
+    await s.start({ api: mkApi(f), storage: st, fallbackRead: fbRead(fb, FBV) });
     s.stop();
     chk(f.calls.length === 1 && f.calls[0].url === BASE + '/v1/config' && !f.calls[0].init.headers.Authorization && f.calls[0].init.credentials === 'omit', '★ 켤 때 GET /v1/config 한 번 — 로그인 없이(토큰 · 쿠키 없음)');
     chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.minAppVer() === '0.11.4' && s.bugDailyMax() === 9 && s.answered() && s.source() === 'api', '  ↳ 받은 값 반영 · 첫 답 표시 · 출처 api');
@@ -135,7 +132,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const down = mkFetch(() => { throw new TypeError('Failed to fetch'); });
     st = memStore();
     s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ baseUrl: BASE, fetch: down, storage: st, fallbackRead: fbRead(fb, FBV) }));
+    await quiet(() => s.start({ api: mkApi(down), storage: st, fallbackRead: fbRead(fb, FBV) }));
     s.stop();
     chk(s.roomLimitOf('togetherroom') === 260 && s.maxPeople() === 8 && s.inviteGate() === false && s.existingSignup() === true && s.bugDailyMax() === 3 && s.roomServer().on === true && s.roomServer().default === 'rooms' && s.source() === 'firebase',
       '★ API 실패 → Firebase config 칸을 직접 읽어 쓴다(#157 방식)');
@@ -149,21 +146,21 @@ const RCM = require(path.resolve(where('remote-config.js')));
 
     // ③ API · Firebase 둘 다 실패 → 저장값 → 기본값
     s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ baseUrl: BASE, fetch: down, storage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: DATA }) }), fallbackRead: async () => { throw new Error('offline'); } }));
+    await quiet(() => s.start({ api: mkApi(down), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: DATA }) }), fallbackRead: async () => { throw new Error('offline'); } }));
     s.stop();
     chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.roomServer().on === true && s.bugDailyMax() === 9 && s.answered() && s.source() === 'cache',
       '★ API · Firebase 둘 다 실패 → 저장값(방 상한 · 정원 · 스위치 · 방 서버 · 제보 상한)');
     chk(s.minAppVer() === null && s.minRoomVer() === null, '★ 최소 버전은 저장값을 쓰지 않는다(못 받으면 막지 않는다)');
     s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ baseUrl: BASE, fetch: down, storage: memStore(), fallbackRead: async () => { throw new Error('offline'); } }));
+    await quiet(() => s.start({ api: mkApi(down), storage: memStore(), fallbackRead: async () => { throw new Error('offline'); } }));
     s.stop();
     chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && s.existingSignup() === true && s.roomServer().on === false && s.bugDailyMax() === 5 && s.answered() && s.source() === 'default',
       '★ 처음 실행 · 둘 다 실패 → 기본값(300 · 10 · true · true · 방 서버 꺼짐 · 5)');
     const nCalls = down.calls.length; fb = [];
     s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ baseUrl: null, fetch: down, storage: memStore(), fallbackRead: fbRead(fb, FBV) }));
+    await quiet(() => s.start({ api: null, storage: memStore(), fallbackRead: fbRead(fb, FBV) }));
     s.stop();
-    chk(down.calls.length === nCalls && s.maxPeople() === 8 && fb.length > 0, '  ↳ API 주소가 없으면(dev 기본) 묻지 않고 Firebase 부터');
+    chk(down.calls.length === nCalls && s.maxPeople() === 8 && fb.length > 0, '  ↳ API 통로가 없으면 묻지 않고 Firebase 부터');
     // ④ 봉투 · 시간 초과
     const bads = [
       async () => ({ ok: true, status: 200, json: async () => ({ success: false, code: 'X' }) }),
@@ -176,7 +173,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     let allOk = true;
     for(const fn of bads){
       const s2 = RCM.createRemoteConfig();
-      await quiet(() => s2.start({ baseUrl: BASE, fetch: mkFetch(fn), storage: memStore() }));
+      await quiet(() => s2.start({ api: mkApi(mkFetch(fn)), storage: memStore() }));
       s2.stop();
       if(s2.maxPeople() !== 10 || !s2.answered()) allOk = false;
     }
@@ -184,19 +181,19 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const hang = RCM.createRemoteConfig();
     const t0 = Date.now();
     const w0 = console.warn; console.warn = () => {};
-    hang.start({ baseUrl: BASE, fetch: () => new Promise(() => {}), storage: memStore() });
+    hang.start({ api: mkApi(() => new Promise(() => {})), storage: memStore() });
     const v = await hang.ready(null, 300);
     hang.stop();
     chk(Date.now() - t0 < 1000 && v.roomMaxPeople === 10 && !hang.answered(), '★ API 가 멈춰도(답 없음) 부팅 대기는 ready 시간 상한까지만(초대 게이트 3초) — 기본값으로 간다');
-    await new Promise((res) => setTimeout(res, RCM.FETCH_TIMEOUT_MS + 100));
+    await new Promise((res) => setTimeout(res, API.TIMEOUT_MS + 200));
     console.warn = w0;
-    chk(hang.answered(), '  ↳ 멈춘 요청도 FETCH_TIMEOUT_MS 뒤 끊고 «못 받음» 으로 끝낸다');
+    chk(hang.answered(), '  ↳ 멈춘 요청도 API 시간 제한(api-client TIMEOUT_MS) 뒤 끊고 «못 받음» 으로 끝낸다');
 
     // ⑤ 다시 읽기 · 입장 때 STALE_MS
     let t = 1000, n = 0;
     f = mkFetch(() => { n++; return okRes({ version: n, config: Object.assign({}, DATA, { roomMaxPeople: 10 + n }) }); });
     s = RCM.createRemoteConfig();
-    await s.start({ baseUrl: BASE, fetch: f, storage: memStore(), now: () => t });
+    await s.start({ api: mkApi(f), storage: memStore(), now: () => t });
     s.stop();
     await s.refresh({ maxAgeMs: RCM.STALE_MS });
     chk(f.calls.length === 1, '입장 때 refresh({ maxAgeMs }) — 1분 안이면 다시 묻지 않는다');
@@ -205,7 +202,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(f.calls.length === 2 && s.maxPeople() === 12, '  ↳ 1분이 지났으면 한 번 더 묻고 바뀐 값을 쓴다');
     const ff = mkFetch(() => { throw new Error('down'); });
     const s3 = RCM.createRemoteConfig();
-    await quiet(() => s3.start({ baseUrl: BASE, fetch: ff, storage: memStore(), now: () => t }));
+    await quiet(() => s3.start({ api: mkApi(ff), storage: memStore(), now: () => t }));
     s3.stop();
     await quiet(() => s3.refresh({ maxAgeMs: RCM.STALE_MS }));
     chk(ff.calls.length === 1, '  ↳ API 가 멈췄을 때도 1분 안에는 다시 기다리지 않는다(입장마다 시간 초과를 겪지 않게)');
@@ -215,7 +212,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     f = mkFetch((url) => okRes(isAllow(url) ? { userCode: 'u1', server: 'rooms' } : ENV));
     fb = [];
     s = RCM.createRemoteConfig();
-    await s.start({ baseUrl: BASE, fetch: f, storage: memStore(), now: () => t, fallbackRead: fbRead(fb, FBV) });
+    await s.start({ api: mkApi(f), storage: memStore(), now: () => t, fallbackRead: fbRead(fb, FBV) });
     s.stop();
     const name = await s.myServer('u1');
     const meCall = f.calls.find((c) => c.url === BASE + '/v1/config/room-server/allow/u1');
@@ -227,24 +224,24 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(f.calls.some((c) => c.url === BASE + '/v1/config/room-server/allow/u%2F..%2Fx'), '  ↳ 코드는 주소에 넣기 전에 인코딩(경로를 못 바꾼다)');
     fb = [];
     const s5 = RCM.createRemoteConfig();
-    await s5.start({ baseUrl: BASE, fetch: mkFetch((url) => (isAllow(url) ? { ok: false, status: 503, json: async () => ({ success: false, code: 'CONFIG_NOT_READY' }) } : okRes(ENV))), storage: memStore(), fallbackRead: fbRead(fb, FBV) });
+    await s5.start({ api: mkApi(mkFetch((url) => (isAllow(url) ? { ok: false, status: 503, json: async () => ({ success: false, code: 'CONFIG_NOT_READY' }) } : okRes(ENV)))), storage: memStore(), fallbackRead: fbRead(fb, FBV) });
     s5.stop();
     chk((await s5.myServer('u1')) === 'rooms' && fb.join() === 'config/roomServer/allow/u1', '★ 허용 목록 API 를 못 받으면(503) Firebase allow/{내 코드} 한 칸');
     const s4 = RCM.createRemoteConfig();
-    await s4.start({ baseUrl: BASE, fetch: mkFetch((url) => okRes(isAllow(url) ? { userCode: 'u1', server: 'BAD NAME' } : ENV)), storage: memStore() });
+    await s4.start({ api: mkApi(mkFetch((url) => okRes(isAllow(url) ? { userCode: 'u1', server: 'BAD NAME' } : ENV))), storage: memStore() });
     s4.stop();
     const s7 = RCM.createRemoteConfig();
-    await s7.start({ baseUrl: BASE, fetch: mkFetch((url) => okRes(isAllow(url) ? { userCode: 'u1', server: null } : ENV)), storage: memStore(), fallbackRead: fbRead(fb, FBV) });
+    await s7.start({ api: mkApi(mkFetch((url) => okRes(isAllow(url) ? { userCode: 'u1', server: null } : ENV))), storage: memStore(), fallbackRead: fbRead(fb, FBV) });
     s7.stop();
     const s6 = RCM.createRemoteConfig();
-    await quiet(() => s6.start({ baseUrl: BASE, fetch: mkFetch(() => { throw new Error('down'); }), storage: memStore(), fallbackRead: async () => { throw new Error('denied'); } }));
+    await quiet(() => s6.start({ api: mkApi(mkFetch(() => { throw new Error('down'); })), storage: memStore(), fallbackRead: async () => { throw new Error('denied'); } }));
     s6.stop();
     chk((await s4.myServer('u1')) === null && (await s7.myServer('u1')) === null && (await s6.myServer('u1')) === null, '  ↳ 이름 형식이 틀림 · server null(허용 아님 — Firebase 안 봄) · 둘 다 못 받음 → null');
 
     // ⑦ firebase-init 배선
     const fi = strip(FI);
-    chk(/_rc\.start\(\{\s*baseUrl: window\.TwRemoteConfig\.apiBaseFor\(FIREBASE_ENV, _lsOrNull\(\)\),\s*fetch: \(typeof fetch === 'function'\) \? fetch\.bind\(window\) : null,/.test(fi),
-      'firebase-init.js 가 store.start 로 API 를 잇는다(환경별 주소 · fetch)');
+    chk(/_rc\.start\(\{\s*api: \(window\.TwApi && window\.TwApi\.client\) \|\| null,/.test(fi),
+      'firebase-init.js 가 store.start 로 앱 공통 API 통로(TwApi.client)를 잇는다');
     chk(/fallbackRead: \(path\) => get\(ref\(db, path\)\)\.then\(s => s\.val\(\)\),/.test(fi), '  ↳ 비상 길 읽기(칸 하나 get)');
     chk(!/store\.watch/.test(fi) && !/'config\//.test(fi) && !/ref\(db, 'config'\)/.test(fi), '  ↳ Firebase config 구독 · 박힌 경로 없음(옛 store.watch 지움)');
     chk(/readMin: \(\) => _rc \? _rc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\) => _rc\.minAppVer\(\)\) : null,/.test(fi) && fi.indexOf('_rc.start(') < fi.indexOf('createAppVersionGate({'),
@@ -396,14 +393,15 @@ const RCM = require(path.resolve(where('remote-config.js')));
   say('── 6. html — 순서 · 기본 표시 · CSP');
   {
     const iRc = HTML.indexOf('<script src="parts/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
-    chk(iRc > 0 && iApp > iRc, 'remote-config.js 를 app.js 앞에 싣는다(firebase-init.js 는 module 이라 그 뒤에 돈다)');
+    const iApi = HTML.indexOf('<script src="parts/api-client.js"></script>');
+    chk(iRc > 0 && iApp > iRc && iApi > 0 && iApi < iRc, 'api-client.js → remote-config.js → app.js 차례로 싣는다(firebase-init.js 는 module 이라 그 뒤에 돈다)');
     chk(/id="chCountWorking">— \/ 300</.test(HTML) && /id="chCountTogether">— \/ 300</.test(HTML) && !/— \/ 250/.test(HTML), '방 개수 기본 표시 «— / 300»(기본 상한과 같다)');
     chk((HTML.match(/<span data-tw-max-people>10<\/span>/g) || []).length === 4 && !/최대 10명/.test(HTML), '«최대 10명» 네 곳이 설정을 따라가는 자리');
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => m[1]);
     const conn = csp.map((c) => (/connect-src ([^;]+);/.exec(c) || [])[1] || '');
     chk(csp.length === 2 && conn.every((c) => /(^| )wss:\/\/\*\.togetherworking\.duckdns\.org( |$)/.test(c) && /(^| )https:\/\/\*\.togetherworking\.duckdns\.org( |$)/.test(c)),
       'CSP 두 줄 — wss · https://*.togetherworking.duckdns.org');
-    chk(/^https:\/\/[a-z0-9-]+\.togetherworking\.duckdns\.org$/.test(RCM.API_BASE_PROD), '  ↳ API 주소(' + RCM.API_BASE_PROD + ')도 같은 https 와일드카드 안(CSP 를 따로 열지 않음)');
+    chk(/^https:\/\/[a-z0-9-]+\.togetherworking\.duckdns\.org$/.test(require(path.resolve(where('api-client.js'))).API_BASE_PROD), '  ↳ API 주소(api-client.js API_BASE_PROD)도 같은 https 와일드카드 안(CSP 를 따로 열지 않음)');
     chk(conn.every((c) => !/rooms(-dev)?\.togetherworking/.test(c) && !/\bws:\/\/\*|wss:\/\/\*\.duckdns|\*\.duckdns\.org|https?:\/\/\*( |$)/.test(c)), '  ↳ 다른 도메인은 그대로 막는다(duckdns 전체 · ws 와일드카드 없음)');
   }
   finish();

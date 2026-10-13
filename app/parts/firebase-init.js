@@ -386,8 +386,7 @@
   const MIN_APP_VER_WAIT_MS = 7000;   // 첫 답을 이만큼만 기다린다(API 3초 + Firebase 3초 + 여유 · 게이트 8초보다 짧게) — 넘으면 막지 않는다
   if(_rc){
     _rc.start({
-      baseUrl: window.TwRemoteConfig.apiBaseFor(FIREBASE_ENV, _lsOrNull()),
-      fetch: (typeof fetch === 'function') ? fetch.bind(window) : null,
+      api: (window.TwApi && window.TwApi.client) || null,   // 앱 공통 API 통로(api-client.js) — 운영/dev 주소는 거기서
       storage: _lsOrNull(),
       fallbackRead: (path) => get(ref(db, path)).then(s => s.val()),   // API 를 못 받았을 때만(remote-config.js FALLBACK_PATHS · 한 칸씩)
       win: window,

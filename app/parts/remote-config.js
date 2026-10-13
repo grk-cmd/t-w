@@ -11,19 +11,16 @@
    [허용 목록 · 서버 주소] 허용 목록은 응답에 없다 — 한 사람씩 GET /v1/config/room-server/allow/{내 코드}(공개 · { userCode, server })
      → 못 받으면 Firebase config/roomServer/allow/{내 코드}.
      서버 주소는 API 를 받았으면 응답의 servers 에서, Firebase 로 읽은 판이면 config/roomServer/servers/{이름} 한 칸씩(serverAddr).
-   classic script — app.js 보다 먼저 싣고(window.TwRemoteConfig), firebase-init.js(module)가 store.start 로 API · Firebase 읽기를 잇는다. */
+   API 는 앱 공통 통로(api-client.js · window.TwApi.client — 시간 제한 · 봉투 · 실패 한 모양 · 죽었을 때 쉬기)로 부른다.
+   classic script — api-client.js 다음 · app.js 보다 먼저 싣고(window.TwRemoteConfig), firebase-init.js(module)가 store.start 로 API · Firebase 읽기를 잇는다. */
 (function(){
 'use strict';
 
-const API_BASE_PROD = 'https://api.togetherworking.duckdns.org';
-// dev 앱만 — 시험용 API 주소(tw.apiBaseUrl). CSP connect-src https://*.togetherworking.duckdns.org 안이어야 한다.
-const API_BASE_DEV_KEY = 'tw.apiBaseUrl';
-const API_BASE_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.togetherworking\.duckdns\.org$/;
 const CONFIG_PATH = '/v1/config', ALLOW_PATH = '/v1/config/room-server/allow/';
 const CACHE_KEY = 'tw.remoteConfig';
 const REFRESH_MS = 5 * 60 * 1000;
 const STALE_MS = 60 * 1000;
-// API · Firebase 각각 이만큼만 기다린다 — 둘 다 멈춰도 6초 안에 끝나 앱 최소 버전 대기(firebase-init MIN_APP_VER_WAIT_MS)보다 짧다
+// Firebase 한 칸을 이만큼만 기다린다(API 는 api-client.js TIMEOUT_MS 2.5초) — 둘 다 멈춰도 6초 안에 끝나 앱 최소 버전 대기(firebase-init MIN_APP_VER_WAIT_MS)보다 짧다
 const FETCH_TIMEOUT_MS = 3000;
 
 const CHANNELS = ['workingroom', 'togetherroom'];
@@ -107,36 +104,12 @@ function fieldsOf(data){
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-/* 이 환경의 API 주소 — 운영 앱은 늘 운영 API. dev 앱은 tw.apiBaseUrl 이 있을 때만(없으면 null = API 없이 저장값 · 기본값). */
-function apiBaseFor(env, storage){
-  if(env !== 'dev') return API_BASE_PROD;
-  try{
-    const v = String((storage && storage.getItem(API_BASE_DEV_KEY)) || '').trim().replace(/\/+$/, '');
-    return (API_BASE_RE.test(v) && v !== API_BASE_PROD) ? v : null;
-  }catch(_){ return null; }
-}
-
-/* ApiResponse 봉투 { success, data, code?, message? } → data. 봉투가 아니거나 실패면 throw. */
-async function getJson(fetchFn, url, headers, timeoutMs){
-  const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
-  let timer = null;
-  const timeout = new Promise((_, rej) => { timer = setTimeout(() => { try{ ctl && ctl.abort(); }catch(_){} rej(new Error('timeout')); }, timeoutMs); });
-  try{
-    const res = await Promise.race([fetchFn(url, { headers: headers || {}, signal: ctl ? ctl.signal : undefined, credentials: 'omit' }), timeout]);
-    if(!res || !res.ok) throw new Error('http ' + (res && res.status));
-    const body = await Promise.race([res.json(), timeout]);
-    if(!isObj(body) || body.success !== true) throw new Error('envelope');
-    return body.data;
-  }finally{ clearTimeout(timer); }
-}
-
-
 function createRemoteConfig(){
   let cur = {};
   for(const k of KEYS) cur[k] = clean(k, undefined);
   let answered = false;         // 첫 답(값이든 실패든)을 받았는가 — ready() 가 본다
   let src = 'default';          // 지금 값의 출처 — 'api' | 'firebase' | 'cache' | 'default'
-  let opts = null;              // start 가 받은 것 { baseUrl, fetch, storage, fallbackRead, now }
+  let opts = null;              // start 가 받은 것 { api, storage, fallbackRead, now, win }
   let lastTry = 0, inflight = null, timer = null;
   const meCache = {};           // uid → { name, until }
   const addrCache = {};         // Firebase 판의 서버 이름 → { url, until }
@@ -209,8 +182,8 @@ function createRemoteConfig(){
     if(inflight) return inflight;
     if(maxAge && lastTry && now() - lastTry < maxAge) return Promise.resolve(cur);
     lastTry = now();
-    const viaApi = opts.baseUrl
-      ? getJson(opts.fetch, opts.baseUrl + CONFIG_PATH, null, FETCH_TIMEOUT_MS).then((data) => {
+    const viaApi = opts.api
+      ? opts.api.get(CONFIG_PATH).then((data) => {
           const cfg = isObj(data) ? data.config : null;
           if(!isObj(cfg)) throw new Error('config 없음');
           src = 'api';
@@ -219,7 +192,7 @@ function createRemoteConfig(){
       : Promise.reject(new Error('API 주소 없음'));
     inflight = viaApi
       .catch((e) => {
-        if(opts.baseUrl) warn('API 를 못 읽음 — Firebase config 로', (e && e.message) || e);
+        if(opts.api) warn('API 를 못 읽음 — Firebase config 로', (e && (e.code || e.message)) || e);
         return readFirebase().then((ok) => { if(!ok) warn('Firebase config 도 못 읽음 — ' + (src === 'cache' ? '저장값' : src === 'default' ? '기본값' : '지난 값') + ' 그대로'); });
       })
       .catch(() => {})
@@ -227,11 +200,11 @@ function createRemoteConfig(){
     return inflight;
   }
 
-  /* deps: { baseUrl, fetch, storage, fallbackRead(path), now, win } — firebase-init.js 가 부른다. 두 번 부르면 두 번째는 다시 읽기만. */
+  /* deps: { api(TwApi.client — get(path)), storage, fallbackRead(path), now, win } — firebase-init.js 가 부른다. 두 번 부르면 두 번째는 다시 읽기만. */
   function start(deps){
     if(opts) return refresh({ maxAgeMs: STALE_MS });
     opts = Object.assign({}, deps || {});
-    if(typeof opts.fetch !== 'function') opts.baseUrl = null;
+    if(!opts.api || typeof opts.api.get !== 'function') opts.api = null;
     loadCache();
     const p = refresh();
     timer = setInterval(() => { refresh(); }, REFRESH_MS);
@@ -251,9 +224,9 @@ function createRemoteConfig(){
     const c = meCache[uid];
     if(c && c.until > now()) return c.name;
     let name, got = false;
-    if(opts.baseUrl){
+    if(opts.api){
       try{
-        const d = await getJson(opts.fetch, opts.baseUrl + ALLOW_PATH + encodeURIComponent(uid), null, FETCH_TIMEOUT_MS);
+        const d = await opts.api.get(ALLOW_PATH + encodeURIComponent(uid));
         name = isObj(d) ? d.server : null; got = true;
       }catch(_){ got = false; }
     }
@@ -305,9 +278,9 @@ function createRemoteConfig(){
   };
 }
 
-const api = { FALLBACK_PATHS, FB_ALLOW, FB_SERVERS, API_BASE_PROD, API_BASE_DEV_KEY, API_BASE_RE, CONFIG_PATH, ALLOW_PATH, CACHE_KEY, REFRESH_MS, STALE_MS, FETCH_TIMEOUT_MS,
+const api = { FALLBACK_PATHS, FB_ALLOW, FB_SERVERS, CONFIG_PATH, ALLOW_PATH, CACHE_KEY, REFRESH_MS, STALE_MS, FETCH_TIMEOUT_MS,
   KEYS, CHANNELS, DEFAULTS, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
-  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanMinVersion, cleanRoomServer, fieldsOf, apiBaseFor,
+  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanMinVersion, cleanRoomServer, fieldsOf,
   createRemoteConfig, store: createRemoteConfig() };
 if(typeof window !== 'undefined') window.TwRemoteConfig = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
