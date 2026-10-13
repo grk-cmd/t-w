@@ -116,6 +116,12 @@ section('검사 2 · 화이트리스트에 빠진 창 (클릭 뚫림)')
 """
 _wl_m = re.search(r"const\s+UI_HIT_SEL\s*=\s*'([^']+)'", app_code)
 if not _wl_m:
+    # 🖥️ 데스크탑 실행 화면 덩이(클릭 통과 · UI_HIT_SEL 정의)는 desktop-run.js 로 옮겼다(앱 FSD 32번) — 정의는 거기서 찾는다
+    for _dp in ('desktop-run.js', os.path.join(os.path.dirname(APP), 'desktop-run.js'), os.path.join('app', 'parts', 'desktop-run.js')):
+        if os.path.exists(_dp):
+            _wl_m = re.search(r"const\s+UI_HIT_SEL\s*=\s*'([^']+)'", _strip_js_comments(open(_dp, encoding='utf-8').read()))
+            break
+if not _wl_m:
     problems.append('검사2: UI_HIT_SEL 정의를 찾지 못함 — 개명·이동됐다면 이 검사도 같이 고칠 것')
     print('  ⚠️ UI_HIT_SEL 정의 자체를 못 찾음 (위 주석의 「닮은 목록 다섯」으로 옮기지 말 것)')
 else:
@@ -365,12 +371,12 @@ _callers = {}
 #   admin-category.js(관리자 3번)는 라이선스 발급 · 요청 · 공지 · 카테고리 쓰기를 부른다. admin-part-register.js(4번)는 publishPart ·
 #   publishDesk · publishItem 등 카탈로그 쓰기를 부른다. admin-users.js · admin-launcher.js(5번)는 통계 · 초대권 지급 · 방 종료 ·
 #   유령 방 · 게임 설정 · 광고 배너 게시를 부른다. report.js · admin-report.js(앱 FSD 11번)는 reportUser · listReports ·
-#   getUserBrief · setAwayImg · deleteStorageUrl · clearReports 를 부른다. my-info.js(앱 FSD 17번 — 🪪 [내 정보] · 🏆 랭킹 · 계정 탭 로그인) · chars.js(18번 — 🧬 캐릭터 보관함) · slot-sync.js(19번 — ☁️ 슬롯 기기 간 동기화) · away-pic.js · myhome-ui.js(22번) · tricks.js(25번 — 💃 깜짝쇼 · 🪄 때리기) · ride-bench.js(30번 — 🗼 올라타기 · 🪑 멀티좌석) · part-paint.js(21번 — 🖍️ 파츠에 직접 그리기) · focus-level.js(26번 — ⭐ 포커스 레벨 · 공유 · 태블릿) · chat-ui.js(24번 — 💬 채팅 날리기 · 탭 · 복사 · 이모티콘) · license-gate.js(31번 — 🎟️ 초대장 · 라이선스) · account.js(23번 — 🔑 계정) · wardrobe.js(29번 — 🎨 꾸미기 창) · settings-panel.js(27번 — ⚙ 설정 패널)도 본다.
+#   getUserBrief · setAwayImg · deleteStorageUrl · clearReports 를 부른다. my-info.js(앱 FSD 17번 — 🪪 [내 정보] · 🏆 랭킹 · 계정 탭 로그인) · chars.js(18번 — 🧬 캐릭터 보관함) · slot-sync.js(19번 — ☁️ 슬롯 기기 간 동기화) · away-pic.js · myhome-ui.js(22번) · tricks.js(25번 — 💃 깜짝쇼 · 🪄 때리기) · ride-bench.js(30번 — 🗼 올라타기 · 🪑 멀티좌석) · part-paint.js(21번 — 🖍️ 파츠에 직접 그리기) · focus-level.js(26번 — ⭐ 포커스 레벨 · 공유 · 태블릿) · chat-ui.js(24번 — 💬 채팅 날리기 · 탭 · 복사 · 이모티콘) · license-gate.js(31번 — 🎟️ 초대장 · 라이선스) · account.js(23번 — 🔑 계정) · wardrobe.js(29번 — 🎨 꾸미기 창) · settings-panel.js(27번 — ⚙ 설정 패널) · desktop-run.js(32번 — 🖥️ 데스크탑 실행 화면)도 본다.
 def _open_part(name):
     for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):
         if os.path.exists(_p): return open(_p, encoding='utf-8')
     return open(name, encoding='utf-8')
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js', 'tricks.js', 'ride-bench.js', 'part-paint.js', 'focus-level.js', 'chat-ui.js', 'license-gate.js', 'account.js', 'wardrobe.js', 'settings-panel.js'):
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js', 'tricks.js', 'ride-bench.js', 'part-paint.js', 'focus-level.js', 'chat-ui.js', 'license-gate.js', 'account.js', 'wardrobe.js', 'settings-panel.js', 'desktop-run.js'):
     try: _cs = _strip_js_comments(_open_part(_cf).read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):

@@ -28,6 +28,7 @@
  *   실행: node sim-ghost-cache-sync.js     (main.js · app.js 와 같은 폴더에서)
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 
@@ -52,7 +53,7 @@ function strip(src){
 }
 
 const mainSrc = read('main.js');
-const appSrc  = read('app.js');
+const appSrc  = _joinRenderer(read('app.js'));
 if (!mainSrc || !appSrc){
   say('✗ main.js / app.js 를 같은 폴더에서 못 찾음');
   process.exit(2);

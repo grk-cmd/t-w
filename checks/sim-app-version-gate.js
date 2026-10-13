@@ -16,7 +16,8 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = (...names) => { for(const n of names){ const s = read(n); if(s != null) return s; } say('  ? 원본 못 찾음 — ' + names[0]); process.exit(2); };
 const GATE = need('app-version-gate.js', 'parts/app-version-gate.js', 'app/parts/app-version-gate.js');
 const FI = need('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js');
-const APP = need('app.js', 'parts/app.js', 'app/parts/app.js');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈(🖥️ 데스크탑 실행 화면 — UI_HIT_SEL 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const APP = _joinRenderer(need('app.js', 'parts/app.js', 'app/parts/app.js'));
 const MAIN = need('main.js');
 const PRE = need('preload.js');
 const PKG = JSON.parse(need('package.json'));

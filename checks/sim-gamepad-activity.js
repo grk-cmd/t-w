@@ -5,12 +5,13 @@
    ・1절: 판정 — 처음 본 패드는 기준만 · 버튼 · 트리거 · 스틱 · 떨림 무시 · 뺐다 꽂기 · getGamepads 가 던져도 안 죽음
    ・2절: app.js 배선 — 펜 활동과 같은 처리(anyInput · 포커싱 앱일 때만 activity) · 모듈 없으면 건너뜀 · html 순서 */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const MOD = read('gamepad-activity.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const MOD = read('gamepad-activity.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
 if (!MOD || !APP || !HTML) { say('  ? 원본 못 찾음 — gamepad-activity.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 
 say('── 1. 판정');
