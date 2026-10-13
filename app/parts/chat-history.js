@@ -4,12 +4,13 @@
  *
  * [왜] 예전엔 대화창을 열 때마다 마지막 100줄을 onValue 로 통째 구독했다. 서버 기록에는 보관 기간이 없어 계속 쌓였고,
  *   그 100줄 밖의 대화는 볼 길이 없었다. 지금은 카카오톡처럼
- *   ・서버  — 3일만 둔다(functions/chat-expire.js 가 매일 지운다 · CHAT_SERVER_KEEP_MS)
- *   ・이 PC — 워킹룸 · 시크릿룸 대화를 IndexedDB 에 개수 제한 없이 쌓는다. 공용 투게더룸은 저장하지 않는다(요청 — 공용 방은 기록을 남기지 않음)
+ *   ・서버  — 3일만 둔다(functions/chat-expire.js 가 매일 지운다 · CHAT_SERVER_KEEP_MS). 채널마다 최근 CHAT_KEEP_MAX 줄을 넘는 것도 그때 지운다
+ *   ・이 PC — 워킹룸 · 시크릿룸 대화를 IndexedDB 에 채널마다 최근 CHAT_KEEP_MAX 줄까지 쌓는다(넘으면 옛 줄부터 지움).
+ *     공용 투게더룸은 저장하지 않는다(요청 — 공용 방은 기록을 남기지 않음)
  *   ・이어 받기 — 저장된 마지막 ts(서버 시각) 이후만 받는다. 순서 · 커서는 push key 가 아니라 ts 다
  *     (key 는 보낸 사람 시계로 만들어져 어긋난다 — firebase-init.js _chatOrder 주석). 그래서 규칙에 ts 색인이 있다.
  * [받은 것은 지우지 않는다] 서버에서 3일이 지나 지워져도(child_removed) 이미 받은 줄은 화면 · 저장에 그대로 둔다.
- *   화면 · 저장에서 지우는 것은 넷뿐: ① 방장 [지우기] 표시 줄(CLEAR_SYS) ② 채널 삭제 · 같은 자리에 새 채널(syncTabs)
+ *   화면 · 저장에서 지우는 것은 CHAT_KEEP_MAX 를 넘은 옛 줄과 넷뿐: ① 방장 [지우기] 표시 줄(CLEAR_SYS) ② 채널 삭제 · 같은 자리에 새 채널(syncTabs)
  *   ③ 내가 직접 방을 나감(wipeRoom — 연결 끊김 · 정원 초과 같은 «튕김» 은 아니다) ④ 설정 › 저장된 대화 지우기 · 계정 놓기(wipeAll)
  * [방장 지우기 표시] 서버 노드를 지우면 커서 구독으로는 «지워졌다» 를 알 수 없고, 꺼져 있던 사람은 아예 못 본다.
  *   그래서 지운 뒤 표시 줄 하나(sys: 'clr')를 남긴다 — 이 줄보다 앞은 모두 버린다. 서버 3일 정리는 이 줄을 남긴다.
@@ -20,7 +21,7 @@
 export const CHAT_SERVER_KEEP_MS = 3 * 24 * 3600 * 1000;   // 서버 보관 — functions/chat-expire.js 와 같은 값(검사가 대조)
 export const CHAT_CURSOR_MARGIN_MS = 60 * 1000;            // 커서를 이만큼 앞에서 다시 받는다(같은 ts · 늦게 확정된 줄) — id 로 겹침을 거른다
 export const CHAT_FIRST_LIMIT = 100;                        // 저장된 것이 없을 때 처음 받는 줄 수 — 예전 본문 구독과 같다
-export const CHAT_VIEW_MAX = 1000;                          // 화면에 넘기는 최근 줄 수 — 저장은 전부, 그리기만 끊는다
+export const CHAT_KEEP_MAX = 300;                           // 채널마다 남기는 최근 줄 수 — 서버(functions/chat-expire.js) · 이 PC · 화면이 같은 값(검사가 대조)
 export const CLEAR_SYS = 'clr';
 export const CLEAR_MARK = { name: '알림', text: '🗑 방장이 대화 기록을 지웠어요', sys: CLEAR_SYS };
 const SECRET_ROOM_PREFIX = 'SCRT-';                         // 시크릿룸도 채널은 togetherroom 이다 — 코드로 가른다
@@ -48,6 +49,18 @@ export function applyClear(list){
   (list || []).forEach((x, i) => { if(x && x.sys === CLEAR_SYS) at = i; });
   if(at <= 0) return { list: list || [], dropped: [] };
   return { list: list.slice(at), dropped: list.slice(0, at).map(x => x.id) };
+}
+/* 최근 CHAT_KEEP_MAX 줄만 남긴다(chatOrder 로 정렬된 목록). dropped = 버린 옛 줄 id */
+export function capList(list){
+  const l = list || [];
+  if(l.length <= CHAT_KEEP_MAX) return { list: l, dropped: [] };
+  const cut = l.length - CHAT_KEEP_MAX;
+  return { list: l.slice(cut), dropped: l.slice(0, cut).map(x => x.id) };
+}
+/* 지우기 표시 → 개수 상한 순서로 정리한다 */
+function tidy(list){
+  const a = applyClear(list), b = capList(a.list);
+  return { list: b.list, dropped: a.dropped.concat(b.dropped) };
 }
 /* 이어 받을 자리 — 확정된 ts 의 최댓값에서 여유만큼 앞. 저장된 것이 없으면 null(= 처음 받기) */
 export function sinceOf(list){
@@ -135,12 +148,12 @@ export function createChatHistory(deps){
   function open(room, tab, onList){
     let list = [], closed = false, ready = false, unsub = null, pend = [], timer = null;
     const persist = keep(room);
-    const emit = () => { if(!closed) onList(list.length > CHAT_VIEW_MAX ? list.slice(-CHAT_VIEW_MAX) : list); };
+    const emit = () => { if(!closed) onList(list); };
     function flush(){
       timer = null;
       if(closed || !pend.length){ if(ready) emit(); return; }
       const add = pend; pend = [];
-      const r = applyClear(mergeMsgs(list, add));
+      const r = tidy(mergeMsgs(list, add));
       list = r.list;
       if(persist){
         const kept = add.filter(m => r.dropped.indexOf(m.id) < 0);
@@ -152,7 +165,7 @@ export function createChatHistory(deps){
     const queue = () => { if(!timer) timer = later(flush, FLUSH_MS); };
     (async () => {
       if(persist){
-        const r = applyClear((await store.load(room, tab)).sort(chatOrder));
+        const r = tidy((await store.load(room, tab)).sort(chatOrder));
         list = r.list;
         if(r.dropped.length) store.del(room, tab, r.dropped);
         if(list.length && !closed){ ready = true; emit(); }
