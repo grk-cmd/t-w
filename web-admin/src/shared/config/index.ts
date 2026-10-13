@@ -1,0 +1,1 @@
+export { REMOTE_CONFIG_EDIT_LOCKED, REMOTE_CONFIG_LOCK_NOTE } from './remoteConfig';
