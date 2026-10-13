@@ -66,10 +66,15 @@ function ServerCount({ name, url }: { name: string; url: string }) {
  * 전체 방 개수 — roomStats(함수가 roomIndex 를 센 값). 방 서버도 자기 방을 roomIndex 에 올리므로 합계가 곧
  * 앱 · 방 서버가 채널 상한(250)과 비교하는 값이다. server 몫은 함수가 srv 줄을 따로 센 것(배포 전이면 없음).
  */
-function TotalCount() {
+function TotalCount({ healthUrl }: { healthUrl: string | null }) {
   const stats = useRoomStats();
   const now = useSnapshotNow(stats.dataUpdatedAt);
   const s = now !== null ? roomStatsSummary(stats.data ?? null, now) : null;
+  // 방 서버가 장부(roomIndex)에 자기 방을 안 올리는 판(v0.1.2)이면 장부의 방 서버 몫은 0 이다 —
+  // 그때는 방 서버 /health 의 실제 방 수를 더해 «Firebase(장부) + 방 서버(실제)» 로 보인다.
+  const h = useServerHealth(healthUrl ?? '');
+  const ledgerSrv = (ch: (typeof CHANNELS)[number]) => s?.server?.[ch] ?? 0;
+  const ledgerHasServer = !!s?.server && CHANNELS.some((ch) => ledgerSrv(ch) > 0);
   return (
     <div className="row">
       <b>전체</b>
@@ -80,15 +85,18 @@ function TotalCount() {
       ) : (
         <span className="grow">
           {CHANNELS.map((ch) => {
-            const total = s[ch];
             const lim = ROOM_TOTAL_LIMITS[ch];
-            const srv = s.server?.[ch];
+            const live = !ledgerHasServer && healthUrl && h.data ? h.data[ch] : undefined;
+            const srv = live ?? s.server?.[ch];
+            const fb = s[ch] - ledgerSrv(ch);
+            const total = fb + (srv ?? 0);
             return (
               <span key={ch} className={styles.count}>
                 {CHANNEL_LABEL[ch]}{' '}
                 {srv !== undefined && (
                   <small className="soft">
-                    Firebase {total - srv} + 방 서버 {srv} ={' '}
+                    Firebase {fb} + 방 서버 {srv}
+                    {live !== undefined ? '(실제)' : ''} ={' '}
                   </small>
                 )}
                 <b className={total >= lim ? 'warn' : undefined}>{total}</b>
@@ -169,7 +177,7 @@ export function LimitsCard() {
             </button>
           </form>
           <div className="list">
-            <TotalCount />
+            <TotalCount healthUrl={servers[0]?.[1] ?? null} />
             {servers.map(([n, u]) => (
               <ServerCount key={n} name={n} url={u} />
             ))}
