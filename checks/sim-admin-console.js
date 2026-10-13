@@ -127,7 +127,8 @@ function judgeWire(src, app, html){
     ['이미 옮긴 것도 다시 올림', s => s.replace('if(rec.glbUrl && !rec.glb){ results.skipped++; continue; }', ''), null, null],
     ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/admin/admin-console.js"></script>', '')],
     ['app.js 에 본문이 남음', null, a => a + '\nwindow.analyzeCatalog = async function(){};', null],
-    ['deps 하나 빠짐', null, a => a.replace('  savedItems: ()=>savedItems,\n', ''), null],
+    /* 같은 줄이 다른 모듈(파츠 등록 창) deps 에도 있다 — 콘솔 도구를 만드는 줄 안의 것을 지운다 */
+    ['deps 하나 빠짐', null, a => a.replace(/(const adminConsole = [^\n]*\n(?:  [^\n]*\n)*?)  savedItems: \(\)=>savedItems,\n/, '$1'), null],
   ];
   for(const [name, fm, fa, fh] of breaks){
     const s = fm ? fm(MOD) : MOD, a = fa ? fa(SRC) : SRC, h = fh ? fh(HTML) : HTML;

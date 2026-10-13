@@ -28,7 +28,13 @@
 'use strict';
 const fs = require('fs'), vm = require('vm');
 
-const SRC = fs.readFileSync('app.js', 'utf8');
+const APP_SRC = fs.readFileSync('app.js', 'utf8');
+/* 파츠 등록 창 · 배포 필드 목록(PART_PUBLISH_FIELDS · buildPartPublishData)은 관리자 코드 admin 폴더 4번에서 admin/admin-part-register.js 로
+   옮겼다. §1 은 두 글을 이어 읽고, §2 는 그 모듈을 먼저 평가한 뒤 app.js 가 만든 adminPartReg 로 들여다본다. */
+const PREG = ['admin-part-register.js', 'parts/admin/admin-part-register.js', 'app/parts/admin/admin-part-register.js']
+  .map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);
+if (!PREG) { console.log('  ? 원본 못 찾음 — admin-part-register.js'); process.exit(2); }
+const SRC = APP_SRC + '\n' + PREG;
 const say = console.log;
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
@@ -125,12 +131,12 @@ globalThis.Image = class {
 globalThis.HTMLImageElement = globalThis.Image;
 
 const probe = `
-;globalThis.__P = { buildPartPublishData, PART_PUBLISH_FIELDS,
+;globalThis.__P = { buildPartPublishData: adminPartReg.buildPartPublishData, PART_PUBLISH_FIELDS: adminPartReg.PART_PUBLISH_FIELDS,
                     mergeCatalogIntoSavedParts, getSavedParts: () => savedParts };`;
 
 const _log = console.log, _warn = console.warn;
 console.log = () => {}; console.warn = () => {};
-try { vm.runInThisContext(SRC + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(PREG, { filename: 'admin-part-register.js' }); vm.runInThisContext(APP_SRC + probe, { filename: 'app.js' }); }
 catch (e) { console.log = _log; say('  ✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 console.log = _log; console.warn = _warn;
 
