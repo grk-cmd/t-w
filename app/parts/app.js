@@ -10973,7 +10973,7 @@ async function _refreshChatProfile(){
   // ★ 마이홈(F4)을 한 번도 안 열었으면 _myHomeData가 아직 비어 있음 — 프로필 사진만 직접 가져온다.
   if(!av && window.firebaseAPI && firebaseAPI.getMyHome){
     try{
-      const data = await firebaseAPI.getMyHome(getMyUserId()) || {};
+      const data = (firebaseAPI.fetchAvatar ? { avatar: await firebaseAPI.fetchAvatar(getMyUserId()) } : await firebaseAPI.getMyHome(getMyUserId())) || {};   // 사진 한 칸만(home 통째 아님)
       if(data.avatar){
         av = data.avatar;
         if(typeof _myHomeData!=='undefined' && _myHomeData) _myHomeData.avatar = data.avatar;   // 캐시
@@ -24565,6 +24565,12 @@ function _miApplyRank(rank){
   if(crown) crown.style.display = (L && L.crown) ? '' : 'none';
   const bar = $e('miTopBar'); if(bar) bar.style.marginBottom = (L && L.crown) ? '22px' : '8px';   // 후광이 사진 위로 삐져나오는 만큼 — 1위일 때만
 }
+/* 🌐 내 순위 — API 한 줄(fetchMyRank) 먼저, 못 받으면(undefined) 예전처럼 100줄 받아 rankOf. 실패 = undefined. */
+async function _lbFetchRank(uid){
+  if(firebaseAPI.fetchMyRank){ const r = await firebaseAPI.fetchMyRank(uid); if(r !== undefined) return r; }
+  const rows = await firebaseAPI.fetchLeaderboardTop();
+  return Array.isArray(rows) ? rankOf(rows, uid) : undefined;
+}
 function _miRenderRank(){
   let uid = null; try{ uid = (typeof _acctDetached !== 'undefined' && _acctDetached) ? null : getMyUserId(); }catch(_){}
   const c = _miRankCache;
@@ -24573,12 +24579,11 @@ function _miRenderRank(){
   if(!uid || !(window.firebaseAPI && firebaseAPI.fetchLeaderboardTop)) return;
   if(same && Date.now() - c.at < LB_CACHE_MS) return;
   const seq = ++_miRankSeq;
-  let p; try{ p = firebaseAPI.fetchLeaderboardTop(); }catch(_){ p = null; }
+  let p; try{ p = _lbFetchRank(uid); }catch(_){ p = null; }
   if(!(p && p.then)) return;
-  p.then(rows => {
+  p.then(rank => {
     if(seq !== _miRankSeq) return;
-    if(!Array.isArray(rows)){ _miRankCache = null; if(_miIsOpen()) _miApplyRank(null); return; }   // 실패 — 조용히 비움
-    const rank = rankOf(rows, uid);
+    if(rank === undefined){ _miRankCache = null; if(_miIsOpen()) _miApplyRank(null); return; }   // 실패 — 조용히 비움
     _miRankCache = { uid, at: Date.now(), rank };
     if(_miIsOpen()) _miApplyRank(rank);
   }).catch(() => { if(seq === _miRankSeq && _miIsOpen()) _miApplyRank(null); });
@@ -24650,7 +24655,7 @@ async function _miRenderAvatar(){
   let av = (typeof _myHomeData !== 'undefined' && _myHomeData && _myHomeData.avatar) ? _myHomeData.avatar : null;
   if(!av && window.firebaseAPI && firebaseAPI.getMyHome){
     try{
-      const data = await firebaseAPI.getMyHome(getMyUserId()) || {};
+      const data = (firebaseAPI.fetchAvatar ? { avatar: await firebaseAPI.fetchAvatar(getMyUserId()) } : await firebaseAPI.getMyHome(getMyUserId())) || {};   // 사진 한 칸만(home 통째 아님)
       if(data.avatar){ av = data.avatar; if(typeof _myHomeData !== 'undefined' && _myHomeData) _myHomeData.avatar = data.avatar; }
     }catch(_){}
   }

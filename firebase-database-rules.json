@@ -671,7 +671,7 @@
       }
     },
     "playlistIndex": {
-      ".read": "query.limitToLast <= 60",
+      ".read": "query.limitToLast <= 60 || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       ".indexOn": "ts",
       "$uid": {
         ".write": true,
@@ -706,7 +706,7 @@
       }
     },
     "leaderboard": {
-      ".read": "query.orderByChild == 'sec' && query.limitToLast <= 100",
+      ".read": "(query.orderByChild == 'sec' && query.limitToLast <= 100) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       ".indexOn": "sec",
       "$userId": {
         ".read": true,
