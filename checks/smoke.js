@@ -336,6 +336,9 @@ PRELOAD.push('admin-license-bulk.js');
 /* admin/admin-console.js — 🛠️ 🧹 F12 콘솔 도구 일곱(관리자 코드 admin 폴더 2번). 같은 까닭 — 만들 때 하는 일(window 에 콘솔 함수 걸기)과
    app.js 가 원래 자리에서 부르는 createAdminConsole 을 같이 굴린다. */
 PRELOAD.push('admin-console.js');
+/* admin/admin-license.js · admin-notice.js · admin-category.js — 🛠️ 라이선스 발급 · 공지 · 카테고리 관리(관리자 코드 admin 폴더 3번).
+   같은 까닭 — 만들 때 하는 일(버튼 연결)과 app.js 가 원래 자리에서 부르는 create 셋을 같이 굴린다. */
+PRELOAD.push('admin-license.js', 'admin-notice.js', 'admin-category.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
