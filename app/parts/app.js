@@ -25449,11 +25449,12 @@ async function _startRoomOnServer(code, ctx){
   if(typeof applyExtraSeatForMode==='function') applyExtraSeatForMode();
   return 'done';
 }
-/* 방 개수 — 서버 방 몫을 더한다(켜져 있을 때만). 서버 답은 20초 기억한다(방 창이 30초마다 다시 묻는다). */
+/* 방 개수 — 서버 방 몫을 더한다(켜져 있을 때만). 서버 답은 20초 기억한다(방 창이 30초마다 다시 묻는다).
+   inclServer — 방 서버가 자기 방을 roomIndex 에 올려 Firebase 합계에 이미 들어 있으면 더하지 않는다(두 번 세기). */
 let _srvRoomStats = null, _srvRoomStatsAt = 0;
 function _addServerRoomCounts(c){
   const s = _srvRoomStats;
-  if(!c || !s || !_roomServerOn()) return c;
+  if(!c || c.inclServer || !s || !_roomServerOn()) return c;
   const add = (a, b)=> (a == null) ? a : a + (b | 0);
   return Object.assign({}, c, { total: add(c.total, s.total), workingroom: add(c.workingroom, s.workingroom), togetherroom: add(c.togetherroom, s.togetherroom) });
 }
