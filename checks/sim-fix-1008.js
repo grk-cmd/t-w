@@ -7,7 +7,8 @@ const say = console.log;
 let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const APP = read('app.js');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const APP = _joinRenderer(read('app.js'));
 if (!APP) { say('  ? 원본 못 찾음 — app.js'); process.exit(2); }
 const HTML_SRC = (() => { for (const c of ['desk-companion-prototype.html', 'app/desk-companion-prototype.html']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return ''; })();
 

@@ -39,14 +39,8 @@
 'use strict';
 const fs = require('fs'), vm = require('vm');
 
-/* 🪪 [내 정보] 화면은 앱 FSD 17번에서 my-info.js 로 옮겼다 — 판정은 예전 글 모양으로 본다:
-   app.js 에서 부르는 자리의 «myInfoMod.» 를 떼고(옮기기 전과 같은 글) 그 뒤에 my-info.js 를 잇는다. 없으면(옮기기 전 판) app.js 그대로. */
-const _MI_SRC = (['my-info.js', 'parts/my-info.js', 'app/parts/my-info.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '')
-  /* 모듈 안에서 읽는 함수 · 쓰는 함수로 바꾼 자리를 옮기기 전 글로 되돌린다(판정은 예전 글 그대로 본다) */
-  .replace(/\b(CHARS_BOX_MAX|EXP_CELLS|EXP_SEC_PER_CELL|EXP_SEC_PER_LEVEL|FOCUS_CYCLE_SEC|FOCUS_LEVEL_CAP_HOURS|STAR_PALETTE|_acctDetached|_focusTotalSec|_myHomeData|curSlot)\(\)/g, '$1')
-  .replace(/\bsetCurSlot\(([^()]*)\)/g, 'curSlot = $1')
-  .replace(/^const [\w$]+ = deps\.[\w$]+;.*\n/gm, '');   // deps 받는 줄은 옮기기 전에 없던 줄
-const SRC  = fs.readFileSync('app.js', 'utf8').replace(/myInfoMod\./g, '') + (_MI_SRC ? '\n' + _MI_SRC : '');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const pick = (...c) => { for (const p of c) if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8'); return null; };
 const FB   = pick('firebase-init.js', 'parts/firebase-init.js');
