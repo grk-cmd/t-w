@@ -12,6 +12,7 @@
    3. 줄 — launchApp 이 Presence.myDef 를 보고 updateDef 를 부른다 · 옛 줄(안 보냄)이면 빨강
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -32,7 +33,7 @@ globalThis.Image = class {
 };
 globalThis.HTMLImageElement = globalThis.Image;
 
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const probe = `
 ;globalThis.__P = { Presence, slots, launchApp, setCurSlot: n => { curSlot = n; } };`;
 

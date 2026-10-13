@@ -7,6 +7,7 @@
    ・5절: app.js 배선 — 정의는 모듈에만 · createScheduler 는 원래 자리 · 부르는 곳은 mhScheduler.이름 · BELL_SEEN_KEY 는 app.js · html 순서 · 내장 전역 이름과 안 겹침
    [실행] scheduler.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -15,7 +16,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['scheduler.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['scheduler.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['scheduler.js'];
 /* 절마다 따로 — 옛 코드(모듈 없음)에 대면 멈추지 않고 그 절을 빨강 하나로 센다 */
 const sec = (title, fn) => { say(title); try{ fn(); }catch(e){ chk(false, '이 절을 못 돌았다 — ' + (e && e.message)); } };
 

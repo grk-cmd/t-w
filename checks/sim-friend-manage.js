@@ -27,6 +27,7 @@
      (firebase-database-rules.json 을 받으면 그쪽도 같이 볼 것).
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 /* 👥 친구 관리 · 요청 팝업은 parts/friend-manage.js 로 옮겼다(앱 FSD 5번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
@@ -35,7 +36,7 @@ let FMSRC = null; try{ FMSRC = fs.readFileSync('friend-manage.js', 'utf8'); }cat
 /* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 let MISRC = null; try{ MISRC = fs.readFileSync('myhome-inbox.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-inbox.js'); process.exit(2); }
-const APPSRC = fs.readFileSync('app.js', 'utf8');
+const APPSRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const SRC  = APPSRC + '\n' + FMSRC + '\n' + MISRC;
 /* 🔒 CSP(3절) — 예전엔 firebase 초기화·API 전체가 HTML 안의 인라인 모듈이었다. `script-src` 에서
    'unsafe-inline' 을 버리려고 `parts/firebase-init.js` 로 뺐다. 이 검사는 친구 요청 함수들을

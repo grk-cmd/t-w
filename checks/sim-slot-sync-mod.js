@@ -25,10 +25,11 @@ const EXPORTS = ["SLOTS_LASTSYNC_KEY","SLOTS_LOSS_KEY","SLOTS_PUSHFAIL_KEY","SLO
 const MOVED = ["SLOTS_TS_KEY","SLOT_GLB_CACHE_KEY","SLOTS_SYNC_INTERVAL_MS","SLOTS_PUSH_DEBOUNCE_MS","SLOT_JSON_MAX","SLOTS_TS_SKEW_TOL_MS","SLOTS_BAK_KEY","SLOTS_BAK_META_KEY","SLOTS_SEEN_KEY","_slotsTs","_slotsSeen","_slotsConflict","_slotsConflictHandler","_slotsSeenSet","_slotsSyncing","_slotsSyncPending","_slotsPushTimer","_slotsNow","_slotsHasLocal","_slotsFilledCount","_slotsBakMeta","_slotsBackupSave","slotsBackupInfo","restoreSlotsBackup","_slotsTouch","_slotsSchedulePush","_slotGlbCacheLoad","_slotGlbCacheSave","_storageGlbUrlOne","_fetchB64","_fetchImgDataUrl","SLOT_IMG_FIELDS","_slotToServerObj","_slotFromServerObj","_slotsAdoptFromServer","_slotsPushToServer","_slotsConflictNote","slotsConflictInfo","resolveSlotsConflict","SLOTS_LOSS_KEY","SLOTS_LASTSYNC_KEY","SLOTS_PUSHFAIL_KEY","_slotsJsonGet","_slotsJsonSet","_slotsNoteSync","_slotsNotePushFail","_slotsDismissLoss","_slotsFmtWhen","_slotsRefreshUI","_SLOTS_BTN_OPEN","_slotsBtn","_slotsRestoreFromUI","restoreSlotsPrevRemote","_slotsRenderBand","_slotsRenderAcctSync","_slotsShowConflictDlg","_slotsForcedMode","syncSlotsToServer"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  LS_KEY: LS_KEY,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _quickHash: (...a)=>_quickHash(...a),","  _roomFaceCacheLoad: (...a)=>_roomFaceCacheLoad(...a),","  _roomFaceCacheSave: (...a)=>_roomFaceCacheSave(...a),","  _srvNow: (...a)=>_srvNow(...a),","  _storageFaceUrlOne: (...a)=>_storageFaceUrlOne(...a),","  _warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),","  charsMod: ()=>charsMod,","  creatorOpen: ()=>creatorOpen,","  getMyUserId: (...a)=>getMyUserId(...a),","  loadSlots: (...a)=>loadSlots(...a),","  renderCharSlots: (...a)=>renderCharSlots(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  slotToObj: (...a)=>slotToObj(...a),","  slots: slots,","  toast: (...a)=>toast(...a),"];
 
-/* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다 */
+/* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
+   then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
 function anything(){
   const f = function(){ return P; };
-  const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
+  const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
 function build(src){

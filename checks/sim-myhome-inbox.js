@@ -14,6 +14,7 @@
    ・8절: 일부러 깨 보기 — 모듈 · app.js 글을 조금씩 망가뜨려 2~7절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] myhome-inbox.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
@@ -412,7 +413,7 @@ async function runAll(MI, APP, HTML){
 }
 
 (async () => {
-  const MI = SRC['myhome-inbox.js'], APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'];
+  const MI = SRC['myhome-inbox.js'], APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'];
   say('── 1. 만들 때');
   {
     const win = {};

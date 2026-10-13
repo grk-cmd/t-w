@@ -358,6 +358,10 @@ PRELOAD.push('my-info.js');
 PRELOAD.push('chars.js');
 /* slot-sync.js — ☁️ 슬롯 기기 간 동기화 · 연동 UI(앱 FSD 19번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSlotSync 를 같이 굴린다. */
 PRELOAD.push('slot-sync.js');
+/* away-pic.js — 🫧 자리비움 그림(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAwayPic 를 같이 굴린다. */
+PRELOAD.push('away-pic.js');
+/* myhome-ui.js — 🏠 마이홈 창 버튼 연결(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeUi 를 같이 굴린다. */
+PRELOAD.push('myhome-ui.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
