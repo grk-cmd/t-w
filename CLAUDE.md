@@ -54,6 +54,7 @@
 | `app/parts/chat-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 24번) — 💬 채팅 🌊 날리기(흐르는 자막) · 🔖 여기까지 읽음 구분선 · 💬 채팅 탭(채널) · 📋 드래그 복사 · 😊 커스텀 이모티콘. classic script(`window.TwChatUi`), 부르는 곳은 `chatUiMod.이름`. 대화창 배선은 `chat-window.js`, 보내기 · 받기 · 기록 그리기는 app.js |
 | `app/parts/license-gate.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 31번) — 🎟️ 초대장(앱 접근 제한): 초대 게이트 · 기존 가입 확인 · 라이선스 키(확인 · 활성화 · 해제) · 초대 창. classic script(`window.TwLicenseGate`), 부르는 곳은 `licenseGateMod.이름`. `isPremium` 은 app.js 에 두고(여러 모듈이 읽음) 바꾸는 곳은 `_setPremium` 하나 |
 | `app/parts/account.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 23번) — 🔑 계정: 구글 · 친구코드 로그인 · 로그아웃 · 신원을 놓을 때 이 기기에서 지우는 것(한 벌) · 계정 이전 흔적. classic script(`window.TwAccount`), 부르는 곳은 `accountMod.이름` |
+| `app/parts/wardrobe.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 29번) — 🎨 꾸미기 창: 👀 미리보기(렌더러 · 기즈모 · 창 자리 · 카메라) · 📝 초안(commitWdDraft) · 🎛️ 상세조정 패널 · 색 줄 · 창 그리기(renderWardrobe) · 파츠 착용(toggleEquip). classic script(`window.TwWardrobe`), 부르는 곳은 `wardrobeMod.이름`(장면 · 카메라 · 초안 같은 let 은 `wardrobeMod.wdCam()` 처럼 읽는 함수) |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
