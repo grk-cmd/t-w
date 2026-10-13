@@ -5,15 +5,18 @@
    ・4절: 🍎 단축키 — mac 은 ⌘1~⌘5 도 F1~F5 로 · 표시도 ⌘ 로
    ・5절: 🐢 성능 — mac 실행 화면 픽셀 비율 상한 · 설정(런처) 화면에서 숨은 3D 를 안 그린다
    ・6절: 🖌️ 펜 앱 — mac 은 표시 이름으로 판정(main.js _isPenApp)
-   [실행] app.js · main.js 가 있는 폴더에서. */
+   [실행] app.js · chat-window.js · main.js 가 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('app.js'), MAIN = read('main.js');
-if(!SRC || !MAIN){ say('  ? 원본 못 찾음 — app.js · main.js'); process.exit(2); }
+/* 💬 대화창 배선(#chatInput Enter)은 parts/chat-window.js 로 옮겼다(앱 FSD 14번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const APP = read('app.js'), CW = read('chat-window.js'), MAIN = read('main.js');
+if(!APP || !MAIN || !CW){ say('  ? 원본 못 찾음 — app.js · main.js · chat-window.js'); process.exit(2); }
+const SRC = APP + '\n' + CW;
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(SRC), MC = strip(MAIN);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;

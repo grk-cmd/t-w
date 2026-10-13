@@ -323,6 +323,8 @@ PRELOAD.push('myhome-edit.js');
 PRELOAD.push('room-invite-ui.js');
 /* focus-log.js — 🕒 포커스 기록 팝업(앱 FSD 13번). 같은 까닭 — 만들 때 하는 일(버튼 · ESC 등록 · window._focusLogClamp · 매초 갱신 · 타이틀바 끌기 연결)을 같이 굴린다. */
 PRELOAD.push('focus-log.js');
+/* chat-window.js — 💬 대화창 배선(앱 FSD 14번). 같은 까닭 — 만들 때 하는 일(버튼 · 메뉴 · 끌기 · 크기 손잡이 · ESC · 입력 · 이모티콘 그리드 연결 · 저장값 반영 · 복사 · 탭 묶기)을 같이 굴린다. */
+PRELOAD.push('chat-window.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
