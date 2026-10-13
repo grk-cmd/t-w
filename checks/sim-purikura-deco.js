@@ -1,5 +1,5 @@
 /* sim-purikura-deco.js — 🎨 꾸미기 창 검사
-   실행:  node sim-purikura-deco.js   (app.js · purikura-ui.js · desk-companion-prototype.html 과 같은 폴더에서)
+   실행:  node sim-purikura-deco.js   (app.js · purikura-ui.js · chat-window.js · desk-companion-prototype.html 과 같은 폴더에서)
 
    ★ 왜 이 검사가 있는가
      이 화면의 사고는 **저장하고 나서야 보인다.** 화면(360px)에서는 선이 멀쩡한데
@@ -24,7 +24,9 @@ let PU = null; try{ PU = fs.readFileSync('purikura-ui.js', 'utf8'); }catch(_){ c
 /* 🏠 마이홈 BGM 창구(_mhBgmPlaying · _mhBgmSetPlaying)는 parts/myhome-edit.js 가 건다(앱 FSD 7-2) — 같은 방식으로 이어 붙인다.
    ⚠️ 빼면 «창구는 표시만 바꾼다»(없어야 할 글을 찾는 검사)가 아무것도 안 보고 초록이 된다. */
 let ME = null; try{ ME = fs.readFileSync('myhome-edit.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
-const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + PU + '\n' + ME;
+/* 💬 대화창 배선(📷 버튼)은 parts/chat-window.js 로 옮겼다(앱 FSD 14번) — 같은 방식으로 이어 붙인다. */
+let CW = null; try{ CW = fs.readFileSync('chat-window.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — chat-window.js'); process.exit(2); }
+const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + PU + '\n' + ME + '\n' + CW;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;
@@ -319,7 +321,8 @@ say('· §5 회사원 모드 — 못 열고, 열려 있던 것도 접히는가')
   /* 🏢 게이트가 한 겹이면 반드시 샌다. 버튼은 «누른 사람에게 알리는» 자리이고,
      openPurikura 는 «어떤 경로로 들어와도 걸리는» 자리다. 둘은 역할이 다르다. */
   const btn = /const cam=document\.getElementById\('chatPhotoBtn'\);[\s\S]*?\n  \};/.exec(SRC);
-  chk(!!btn && /if\(officeMode\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}/.test(btn[0]),
+  /* officeMode() — chat-window.js 는 app.js 의 let 을 읽는 함수로 받는다(앱 FSD 14번) */
+  chk(!!btn && /if\(officeMode\(\)\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}/.test(btn[0]),
       '★ 📷 버튼이 회사원 모드에서 안내하고 멈춘다 (💣 와 같은 문구·같은 방식)');
   chk(!!btn && btn[0].indexOf('officeMode') < btn[0].indexOf('_purikura()'),
       '★ 게이트가 세션을 만들기 **전**이다 (뒤면 자리를 잡아 놓고 막는 꼴이 된다)');
