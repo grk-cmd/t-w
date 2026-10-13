@@ -27,8 +27,9 @@
       그쪽은 부르는 쪽, 이쪽은 불린 함수 안을 본다.
    [실행] app.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 let HTML = ''; try{ HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8'); }catch(_){}
 
 let pass = 0, fail = 0;

@@ -368,6 +368,8 @@ PRELOAD.push('tricks.js');
 PRELOAD.push('ride-bench.js');
 /* part-paint.js — 🖍️ 파츠에 직접 그리기 · 그림칸(앱 FSD 21번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPartPaint 를 같이 굴린다. */
 PRELOAD.push('part-paint.js');
+/* focus-level.js — ⭐ 포커스 레벨 · 공유 · 태블릿(앱 FSD 26번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFocusLevel 를 같이 굴린다. */
+PRELOAD.push('focus-level.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

@@ -20,9 +20,23 @@ const MODULES = [
   { file: 'tricks.js', mod: 'tricksMod', glob: 'TwTricks', sample: 'function _eggCountCmd(' },   // 앱 FSD 25번
   { file: 'ride-bench.js', mod: 'rideBenchMod', glob: 'TwRideBench', sample: 'function _checkCircusBalance(' },   // 앱 FSD 30번
   { file: 'part-paint.js', mod: 'partPaintMod', glob: 'TwPartPaint', sample: 'function _wdPicSection(' },   // 앱 FSD 21번
+  { file: 'focus-level.js', mod: 'focusLevelMod', glob: 'TwFocusLevel', sample: 'function _pushLevelIfChanged(' },   // 앱 FSD 26번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
+/* «이름(…)» 부름을 괄호 짝을 맞춰 찾아 «바꿀(인자글)» 로 — 인자에 괄호가 있어도(setX(Math.min(a, b))) 된다 */
+function replaceCalls(text, name, make){
+  const re = new RegExp('\\b' + name.replace(/[.$]/g, '\\$&') + '\\(', 'g');
+  let out = '', last = 0, m;
+  while((m = re.exec(text))){
+    let d = 1, k = m.index + m[0].length;
+    for(; k < text.length && d; k++){ const c = text[k]; if(c === '(') d++; else if(c === ')') d--; }
+    if(d) break;
+    out += text.slice(last, m.index) + make(text.slice(m.index + m[0].length, k - 1));
+    last = k; re.lastIndex = k;
+  }
+  return out + text.slice(last);
+}
 
 function joinRenderer(app){
   if(typeof app !== 'string') return app;
@@ -47,7 +61,7 @@ function joinRenderer(app){
     let body = (h && r > h.index) ? txt.slice(h.index + h[0].length, r) : txt;
     body = body.replace(/^const [\w$]+ = deps\.[\w$]+;.*\n/gm, '').replace(/^const [\w$]+ = deps\.[\w$]+, [\w$]+ = deps\.[\w$]+;.*\n/gm, '');
     if(getters.length) body = body.replace(new RegExp('\\b(' + getters.map(esc).join('|') + ')\\(\\)', 'g'), '$1');
-    for(const [set, name] of setters) body = body.replace(new RegExp('\\b' + esc(set) + '\\(([^()]*)\\)', 'g'), name + ' = $1');
+    for(const [set, name] of setters) body = replaceCalls(body, set, (arg) => name + ' = ' + arg);
     parts.push([m, i, j, body]);
   }
   /* 만드는 줄(«const mod = (typeof Tw… ({ … });») 자리에 본문을 그대로 끼운다 — 옛 본문 자리 그대로라 부팅 때 바로 읽는 줄도
@@ -59,7 +73,7 @@ function joinRenderer(app){
   }
   if(tail.length) all += '\n' + tail.join('\n');
   for(const [mod, n] of retGet) all = all.replace(new RegExp('\\b' + esc(mod) + '\\.' + esc(n) + '\\(\\)', 'g'), n);
-  for(const [mod, set, name] of retSet) all = all.replace(new RegExp('\\b' + esc(mod) + '\\.' + esc(set) + '\\(([^()]*)\\)', 'g'), name + ' = $1');
+  for(const [mod, set, name] of retSet) all = replaceCalls(all, mod + '.' + set, (arg) => name + ' = ' + arg);
   for(const m of MODULES) all = all.replace(new RegExp('\\b' + esc(m.mod) + '\\.', 'g'), '');
   return all;
 }
