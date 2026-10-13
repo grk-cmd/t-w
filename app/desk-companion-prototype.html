@@ -3361,6 +3361,10 @@
   /* 방 코드는 글자 하나하나를 읽어 따라 치는 값이다 — 9px 이름표 글꼴에선 C·O · S·8 이 같아 보였다(제보 CMSW → OM8W).
      숫자·코드용 고정폭(--win-font-num)으로 조금 크게. */
   .mh-fpill-code{font-family:var(--win-font-num);font-size:10px;font-weight:bold;letter-spacing:.5px;}
+  /* 🏠 누르면 놀러 가기 창(friend-visit.js) — 눌리는 칸이라는 표시로 뒤에 › 를 붙이고, 올리면 진하게 */
+  .mh-fpill-code.go{cursor:pointer;border-radius:6px;padding:0 3px;margin:0 -3px;}
+  .mh-fpill-code.go::after{content:' \203A';}
+  .mh-fpill-code.go:hover{background:#2a4fa8;color:#fff;}
   .mh-fremove{position:absolute;top:2px;right:3px;font-size:9px;color:#c0392b;cursor:pointer;display:none;line-height:1;}
   .mh-frow:hover .mh-fremove{display:block;}
   .mh-fempty{text-align:center;color:#999;font-size:10.5px;padding:24px 8px;line-height:1.7;}
@@ -8008,6 +8012,7 @@
 <script src="parts/def-size.js"></script>   <!-- 📦 캐릭터 디자인(def) 용량 상한 500KB · 부분별 크기 안내 — app.js 보다 먼저 -->
 <script src="parts/frame-budget.js"></script>   <!-- 🔋 실행 화면 프레임 상한(60 · 손 안 대면 30 · 다른 창 20) · 해상도 배율 — app.js 보다 먼저 -->
 <script src="parts/seat-pin.js"></script>   <!-- 🪑 방에서 내 자리 «맨 오른쪽 고정»(window.TwSeatPin) — app.js 보다 먼저 -->
+<script src="parts/friend-visit.js"></script>   <!-- 🏠 친구 방에 놀러 가기(window.TwFriendVisit) — app.js 보다 먼저 -->
 <script src="parts/gamepad-activity.js"></script>   <!-- 🎮 게임패드 버튼 · 스틱도 활동으로(window.TwGamepadActivity) — app.js 보다 먼저 -->
 <script src="parts/animal-edit-route.js"></script>   <!-- 🐾 동물 편집 길잡이(모양 → 책상 → 좌석) — app.js 보다 먼저 -->
 <script src="parts/scheduler.js"></script>   <!-- 📅 스케줄러 · 🔔 일정 알림 — app.js 보다 먼저(app.js 가 원래 자리에서 MhScheduler.createScheduler 로 만든다) -->
