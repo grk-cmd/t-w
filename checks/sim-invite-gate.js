@@ -15,6 +15,14 @@
    【4】 게이트를 밖에서 닫는 문(_inviteGatePass)이 열려 있다
 */
 'use strict';
+/* 🪪 [내 정보] 화면은 앱 FSD 17번에서 my-info.js 로 옮겼다 — 예전 글 모양으로 본다: app.js 의 «myInfoMod.» 를 떼고,
+   읽는 함수 · 쓰는 함수로 바꾼 자리를 되돌린 my-info.js 를 뒤에 잇는다(없으면 app.js 그대로). */
+const _MI_JOIN = (app) => { if(!app) return app;
+  const mi = (['my-info.js', 'parts/my-info.js', 'app/parts/my-info.js'].map(f => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '')
+    .replace(/\b(CHARS_BOX_MAX|EXP_CELLS|EXP_SEC_PER_CELL|EXP_SEC_PER_LEVEL|FOCUS_CYCLE_SEC|FOCUS_LEVEL_CAP_HOURS|STAR_PALETTE|_acctDetached|_focusTotalSec|_myHomeData|curSlot)\(\)/g, '$1')
+    .replace(/\bsetCurSlot\(([^()]*)\)/g, 'curSlot = $1')
+    .replace(/^const [\w$]+ = deps\.[\w$]+;.*\n/gm, '');   // deps 받는 줄은 옮기기 전에 없던 줄
+  return app.replace(/myInfoMod\./g, '') + (mi ? '\n' + mi : ''); };
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -32,7 +40,7 @@ const say = console.log;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 
 /* ── 소스에서 직접 보는 것 — 실행으로는 재기 어려운 부팅 분기 ── */
-const src = fs.readFileSync('app.js', 'utf8');
+const src = _MI_JOIN(fs.readFileSync('app.js', 'utf8'));
 
 say('\n【1】 게이트가 꺼져 있을 때');
 const offBlock = /if\(!inviteGateOn\(\)\)\{[\s\S]{0,1400}?\n  \}/.exec(src);

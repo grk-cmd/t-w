@@ -365,12 +365,12 @@ _callers = {}
 #   admin-category.js(관리자 3번)는 라이선스 발급 · 요청 · 공지 · 카테고리 쓰기를 부른다. admin-part-register.js(4번)는 publishPart ·
 #   publishDesk · publishItem 등 카탈로그 쓰기를 부른다. admin-users.js · admin-launcher.js(5번)는 통계 · 초대권 지급 · 방 종료 ·
 #   유령 방 · 게임 설정 · 광고 배너 게시를 부른다. report.js · admin-report.js(앱 FSD 11번)는 reportUser · listReports ·
-#   getUserBrief · setAwayImg · deleteStorageUrl · clearReports 를 부른다.
+#   getUserBrief · setAwayImg · deleteStorageUrl · clearReports 를 부른다. my-info.js(앱 FSD 17번 — 🪪 [내 정보] · 🏆 랭킹 · 계정 탭 로그인)도 본다.
 def _open_part(name):
     for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):
         if os.path.exists(_p): return open(_p, encoding='utf-8')
     return open(name, encoding='utf-8')
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js'):
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js'):
     try: _cs = _strip_js_comments(_open_part(_cf).read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):
@@ -859,7 +859,8 @@ except Exception: pass
 # admin-license.js · admin-category.js — 키 목록(메모) · 대기 요청(요청한 사람 이름) · 카테고리 칩 마크업을 app.js 에서 옮겼다(관리자 3번).
 # admin-part-register.js — 등록 창 카테고리 · 미리보기 마크업(관리자 4번).
 # admin-users.js — 📊 통계 창 마크업(숫자)(관리자 5번).
-for _f19a in ('admin-license.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js'):
+# my-info.js — [내 정보] 머리 · 보관함 · 휴지통 줄(남의 것 아님 · 내 캐릭터 이름 · 섬네일)(앱 FSD 17번).
+for _f19a in ('admin-license.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'my-info.js'):
   try: _files19.append((_f19a, _open_part(_f19a).read().split('\n')))
   except Exception: pass
 for _f19, _lines19 in _files19:

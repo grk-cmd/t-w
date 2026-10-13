@@ -6,12 +6,20 @@
    ・5절: 🫨 말랑이 제자리 떨림 — 짧은 간격으로 세 번째 돌아서려 하면 쉰다
    [실행] app.js · purikura-ui.js · desk-companion-prototype.html · mallang.js · animal.js 가 있는 폴더에서. */
 'use strict';
+/* 🪪 [내 정보] 화면은 앱 FSD 17번에서 my-info.js 로 옮겼다 — 예전 글 모양으로 본다: app.js 의 «myInfoMod.» 를 떼고,
+   읽는 함수 · 쓰는 함수로 바꾼 자리를 되돌린 my-info.js 를 뒤에 잇는다(없으면 app.js 그대로). */
+const _MI_JOIN = (app) => { if(!app) return app;
+  const mi = (['my-info.js', 'parts/my-info.js', 'app/parts/my-info.js'].map(f => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '')
+    .replace(/\b(CHARS_BOX_MAX|EXP_CELLS|EXP_SEC_PER_CELL|EXP_SEC_PER_LEVEL|FOCUS_CYCLE_SEC|FOCUS_LEVEL_CAP_HOURS|STAR_PALETTE|_acctDetached|_focusTotalSec|_myHomeData|curSlot)\(\)/g, '$1')
+    .replace(/\bsetCurSlot\(([^()]*)\)/g, 'curSlot = $1')
+    .replace(/^const [\w$]+ = deps\.[\w$]+;.*\n/gm, '');   // deps 받는 줄은 옮기기 전에 없던 줄
+  return app.replace(/myInfoMod\./g, '') + (mi ? '\n' + mi : ''); };
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('app.js'), ML = read('mallang.js'), AN = read('animal.js');
+const SRC = _MI_JOIN(read('app.js')), ML = read('mallang.js'), AN = read('animal.js');
 if(!SRC || !ML){ say('  ? 원본 못 찾음 — app.js · mallang.js'); process.exit(2); }
 /* 📷 스티커사진 무대(_pkCloneChar)는 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 4절은 그 파일을 본다 */
 const PU = read('purikura-ui.js');

@@ -16,6 +16,14 @@
    종료 코드: 0=통과 · 1=실패 · 2=원본 없음
 */
 'use strict';
+/* 🪪 [내 정보] 화면은 앱 FSD 17번에서 my-info.js 로 옮겼다 — 예전 글 모양으로 본다: app.js 의 «myInfoMod.» 를 떼고,
+   읽는 함수 · 쓰는 함수로 바꾼 자리를 되돌린 my-info.js 를 뒤에 잇는다(없으면 app.js 그대로). */
+const _MI_JOIN = (app) => { if(!app) return app;
+  const mi = (['my-info.js', 'parts/my-info.js', 'app/parts/my-info.js'].map(f => { try{ return require('fs').readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '')
+    .replace(/\b(CHARS_BOX_MAX|EXP_CELLS|EXP_SEC_PER_CELL|EXP_SEC_PER_LEVEL|FOCUS_CYCLE_SEC|FOCUS_LEVEL_CAP_HOURS|STAR_PALETTE|_acctDetached|_focusTotalSec|_myHomeData|curSlot)\(\)/g, '$1')
+    .replace(/\bsetCurSlot\(([^()]*)\)/g, 'curSlot = $1')
+    .replace(/^const [\w$]+ = deps\.[\w$]+;.*\n/gm, '');   // deps 받는 줄은 옮기기 전에 없던 줄
+  return app.replace(/myInfoMod\./g, '') + (mi ? '\n' + mi : ''); };
 const fs = require('fs');
 const path = require('path');
 
@@ -25,7 +33,7 @@ function load(name){
   }
   return null;
 }
-const APP0 = load('app.js');
+const APP0 = _MI_JOIN(load('app.js'));
 if (!APP0){ console.log('? app.js 를 못 찾음 — app.js 가 있는 폴더에서 실행할 것'); process.exit(2); }
 /* 🎵 레벨 배지(_plFillLv)는 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */

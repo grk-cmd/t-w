@@ -1,0 +1,89 @@
+/* ═══ 🪪 sim-my-info.js — 🪪 [내 정보] 화면 모듈 구조 (2026-10-14 신설 · 앱 FSD 17번) ═══════════════
+   app.js 의 «🪪 [내 정보] — 런처 화면 전환» · «🏆 [내 정보] 전체 랭킹» 두 구역 본문(702줄) 을 parts/my-info.js 로 옮겼다(글자 그대로 · 바뀐 줄 15 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(sim-signup.js · sim-google-login.js).
+   여기서는 모듈 모양 · app.js 연결을 본다.
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_acctRelaunchAfterDetach · _lbPush · _miIsOpen · _miSlotThumb · closeMyInfo · openMyInfo)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 53줄 그대로 · 부르는 곳은 myInfoMod.이름 · html(app.js 앞)
+   ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   [실행] app.js · desk-companion-prototype.html · my-info.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
+'use strict';
+const fs = require('fs');
+let pass = 0, fail = 0;
+const say = (s) => console.log(s);
+const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
+const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
+const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
+if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
+const MOD = ["my-info.js","parts/my-info.js","app/parts/my-info.js"].map(read).find(Boolean);
+if(!MOD){ say('  ? 원본 못 찾음 — my-info.js'); process.exit(2); }
+const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
+
+const FN_DEPS = ["_charsActive","_charsBoxGet","_charsBoxOnlyCount","_charsBoxToDesk","_charsBoxTrash","_charsBoxTrashMany","_charsCachedUid","_charsDeleteWords","_charsDeskGet","_charsIsTomb","_charsMoveMsg","_charsRestore","_charsSync","_charsTrashView","_licenseSnapForPush","_loginDoGoogle","_loginDoLogout","_pushLevelIfChanged","_slotsNow","closeGearMenu","commitUserName","focusCycleOf","getDisplayName","getFocusLevel","getMyLoginEmail","getMyUserId","getStarColor","getUserName","lvStarStr","myFocusShow","openCodeModal","refreshAccountTab","renderLauncher","saveCurSlot","setStarColor","toast"];
+const VAL_DEPS = ["MY_FRIEND_CODE_KEY","MY_USER_ID_KEY","USER_NAME_MAX","plMod","slots"];
+const GET_DEPS = ["CHARS_BOX_MAX","EXP_CELLS","EXP_SEC_PER_CELL","EXP_SEC_PER_LEVEL","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","STAR_PALETTE","_acctDetached","_focusTotalSec","_myHomeData","curSlot"];
+const SET_DEPS = ["curSlot"];
+const EXPORTS = ["_acctRelaunchAfterDetach","_lbPush","_miIsOpen","_miSlotThumb","closeMyInfo","openMyInfo"];
+const MOVED = ["MI_IMG_OK","_miTab","_miBusy","_miBoxAsk","_miTrashRows","_miTrashErr","_miTrashFullShown","_miPick","_miBulkAsk","openMyInfo","closeMyInfo","_miIsOpen","_miSetTab","LB_TOP_N","LB_CACHE_MS","rankOf","rankLabel","_lbSent","_miRankCache","_miRankSeq","_lbPush","_miApplyRank","_lbFetchRank","_miRenderRank","_miRenderHead","_miStarOpen","_miStarToggle","_miRenderStar","_miRenderAvatar","_miNameEditStart","_miNameEditEnd","_miNameSave","_miCopyCode","_miSlotThumb","_miBoxItems","_miRenderBox","_miTrashIcon","_miRenderBoxFull","_miBoxBulkStart","_miBoxTrashBulk","_miBoxTrash","_miTrashOn","_miTrashLoad","_miRenderTrashTab","_miRenderTrash","_miTrashRestore","_miBoxUp","_miCodeLoad","_acctRelaunchAfterDetach"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
+const GLUE = ["  CHARS_BOX_MAX: ()=>CHARS_BOX_MAX,","  EXP_CELLS: ()=>EXP_CELLS,","  EXP_SEC_PER_CELL: ()=>EXP_SEC_PER_CELL,","  EXP_SEC_PER_LEVEL: ()=>EXP_SEC_PER_LEVEL,","  FOCUS_CYCLE_SEC: ()=>FOCUS_CYCLE_SEC,","  FOCUS_LEVEL_CAP_HOURS: ()=>FOCUS_LEVEL_CAP_HOURS,","  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  MY_USER_ID_KEY: MY_USER_ID_KEY,","  STAR_PALETTE: ()=>STAR_PALETTE,","  USER_NAME_MAX: USER_NAME_MAX,","  _acctDetached: ()=>_acctDetached,","  _charsActive: (...a)=>_charsActive(...a),","  _charsBoxGet: (...a)=>_charsBoxGet(...a),","  _charsBoxOnlyCount: (...a)=>_charsBoxOnlyCount(...a),","  _charsBoxToDesk: (...a)=>_charsBoxToDesk(...a),","  _charsBoxTrash: (...a)=>_charsBoxTrash(...a),","  _charsBoxTrashMany: (...a)=>_charsBoxTrashMany(...a),","  _charsCachedUid: (...a)=>_charsCachedUid(...a),","  _charsDeleteWords: (...a)=>_charsDeleteWords(...a),","  _charsDeskGet: (...a)=>_charsDeskGet(...a),","  _charsIsTomb: (...a)=>_charsIsTomb(...a),","  _charsMoveMsg: (...a)=>_charsMoveMsg(...a),","  _charsRestore: (...a)=>_charsRestore(...a),","  _charsSync: (...a)=>_charsSync(...a),","  _charsTrashView: (...a)=>_charsTrashView(...a),","  _focusTotalSec: ()=>_focusTotalSec,","  _licenseSnapForPush: (...a)=>_licenseSnapForPush(...a),","  _loginDoGoogle: (...a)=>_loginDoGoogle(...a),","  _loginDoLogout: (...a)=>_loginDoLogout(...a),","  _myHomeData: ()=>_myHomeData,","  _pushLevelIfChanged: (...a)=>_pushLevelIfChanged(...a),","  _slotsNow: (...a)=>_slotsNow(...a),","  closeGearMenu: (...a)=>closeGearMenu(...a),","  commitUserName: (...a)=>commitUserName(...a),","  curSlot: ()=>curSlot,","  focusCycleOf: (...a)=>focusCycleOf(...a),","  getDisplayName: (...a)=>getDisplayName(...a),","  getFocusLevel: (...a)=>getFocusLevel(...a),","  getMyLoginEmail: (...a)=>getMyLoginEmail(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  getStarColor: (...a)=>getStarColor(...a),","  getUserName: (...a)=>getUserName(...a),","  lvStarStr: (...a)=>lvStarStr(...a),","  myFocusShow: (...a)=>myFocusShow(...a),","  openCodeModal: (...a)=>openCodeModal(...a),","  plMod: plMod,","  refreshAccountTab: (...a)=>refreshAccountTab(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  setStarColor: (...a)=>setStarColor(...a),","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
+
+/* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다 */
+function anything(){
+  const f = function(){ return P; };
+  const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
+  return P;
+}
+function build(src){
+  const any = anything();
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const store = {};
+  const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'module',
+    src + '\nreturn window.TwMyInfo;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, undefined);
+  return api.createMyInfo(deps);
+}
+
+function judgeAll(mod, app, html){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  let out = null, err = null;
+  try{ out = build(mod); }catch(e){ err = e; }
+  t(!err && out && typeof out === 'object', '만들 때 던지지 않는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
+  t(out && EXPORTS.every(n => n in out) && Object.keys(out).length === EXPORTS.length, '내놓는 이름 ' + EXPORTS.length + '개' + (EXPORTS.length ? ' — ' + EXPORTS.join(' · ') : ''));
+  t(/window\.TwMyInfo = api;/.test(mod) && /module\.exports = api;/.test(mod), '전역 이름 TwMyInfo(Tw 접두사)');
+  const A = strip(app);
+  const left = MOVED.filter(n => new RegExp('^(?:async\\s+)?(?:function\\s+' + n.replace(/\$/g, '\\$') + '\\b|(?:const|let|var)\\s+' + n.replace(/\$/g, '\\$') + '\\b)', 'm').test(A));
+  t(!left.length, 'app.js 에 옮긴 꼭대기 선언이 안 남았다' + (left.length ? ' — ' + left.slice(0, 5).join(' · ') : ''));
+  t(app.includes("const MY_INFO_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기") && app.includes("const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo.createMyInfo({"), '모듈이 없으면 빈 껍데기 · 만드는 줄');
+  const mk = (app.match(new RegExp('const myInfoMod = \\(typeof TwMyInfo === \'undefined\'\\) \\? MY_INFO_MOD_OFF : TwMyInfo\\.createMyInfo\\(\\{\\n([\\s\\S]*?)\\n\\}\\);')) || [])[1] || '';
+  const got = mk.split('\n');
+  t(got.length === GLUE.length && GLUE.every((l, i) => got[i] === l), 'deps ' + GLUE.length + '줄 그대로(함수 ' + FN_DEPS.length + ' · 값 ' + VAL_DEPS.length + ' · 읽는 함수 ' + GET_DEPS.length + ' · 쓰는 함수 ' + SET_DEPS.length + ')');
+  const bare = EXPORTS.filter(n => new RegExp('(^|[^.\\w$])' + n.replace(/\$/g, '\\$') + '\\b').test(A.replace(/const myInfoMod = [\s\S]*?\n\}\);/, '')));
+  t(!bare.length, '부르는 곳은 myInfoMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
+  const iM = html.indexOf('<script src="parts/my-info.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
+  t(iM > 0 && iA > iM, 'html — parts/my-info.js 를 app.js 보다 먼저 싣는다');
+  return r;
+}
+
+const rows = judgeAll(MOD, SRC, HTML);
+rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+const breaks = [
+  ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/my-info.js"></script>', '')],
+  ['deps 하나 빠짐', null, a => a.replace(GLUE[GLUE.length - 1] + '\n', ''), null],
+  ['전역 이름 안 걺', m => m.replace('window.TwMyInfo = api;', ''), null, null],
+  ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
+  ['부르는 곳이 옛 이름', null, a => a.replace('myInfoMod.' + EXPORTS[0], EXPORTS[0]), null],
+  ['만들 때 던짐', m => m.replace('function createMyInfo(deps){', 'function createMyInfo(deps){ throw new Error("깨 봄");'), null, null],
+];
+for(const [name, fm, fa, fh] of breaks){
+  const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
+  const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
+  let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
+  chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+}
+say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+process.exit(fail ? 1 : 0);
