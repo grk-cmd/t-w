@@ -10,12 +10,13 @@
      크로미움에서 실제 앱 페이지로 확인했다.
    [실행] app.js · animal.js 가 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const A = read('animal.js'), APP = read('app.js');
+const A = read('animal.js'), APP = _joinRenderer(read('app.js'));
 if(!A || !APP){ say('  ? 원본 못 찾음 — ' + (!A ? 'animal.js ' : '') + (!APP ? 'app.js' : '')); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;

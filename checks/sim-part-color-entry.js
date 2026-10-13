@@ -19,6 +19,7 @@
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — smoke.js 와 같은 폴더에 있어야 한다.
    ⚠ 렌더링·머티리얼은 확인하지 않는다. 이 검증기가 보는 것은 "짝이 맞는가" 하나다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -41,7 +42,7 @@ const probe = `
 
 const say = console.log; console.log = () => {}; console.warn = () => {};
 if (!fs.existsSync('gacha.js')) { say('  ? 원본 못 찾음 — gacha.js'); process.exit(2); }
-try { vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 console.log = say;
 

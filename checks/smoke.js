@@ -366,6 +366,8 @@ PRELOAD.push('myhome-ui.js');
 PRELOAD.push('tricks.js');
 /* ride-bench.js — 🗼 올라타기 · 🪑 멀티좌석 책상(앱 FSD 30번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRideBench 를 같이 굴린다. */
 PRELOAD.push('ride-bench.js');
+/* part-paint.js — 🖍️ 파츠에 직접 그리기 · 그림칸(앱 FSD 21번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPartPaint 를 같이 굴린다. */
+PRELOAD.push('part-paint.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

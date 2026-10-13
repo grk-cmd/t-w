@@ -15,6 +15,7 @@
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — smoke.js 와 같은 폴더에 있어야 한다.
    ⚠ getPartScene 은 지연 조절용 스텁이다. 실제 GLB 파싱·렌더링은 여기서 확인하지 않는다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 /* smoke.js 에서 "실행" 구간 앞까지(스텁 정의)만 잘라 평가 */
@@ -43,7 +44,7 @@ const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
 try {
   if (!fs.existsSync('gacha.js')) { console.log = say; say('  ? 원본 못 찾음 — gacha.js'); process.exit(2); }
   vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' });
-  vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' });
+  vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' });
 } catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,4).join('\n')); process.exit(1); }
 console.log = say;
 

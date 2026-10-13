@@ -122,7 +122,8 @@ async function judgeAll(src, app, html){
     ['gacha deps 가 옛 이름', { app: s => s.replace('  deletePart: (...a)=>adminPartReg.deletePart(...a),', '  deletePart: (...a)=>deletePart(...a),') }],
     ['html 줄 빠짐', { html: s => s.replace('<script src="parts/admin/admin-part-register.js"></script>', '') }],
     ['app.js 에 본문이 남음', { app: s => s + '\nfunction deletePart(id){}' }],
-    ['deps 하나 빠짐', { app: s => s.replace('  wdPreviewBase: ()=>wdPreviewBase,\n', '') }],
+    /* 같은 deps 줄이 다른 모듈(파츠 그림 part-paint.js)을 만드는 줄에도 있다 — 파츠 등록 창을 만드는 줄 안의 것을 지운다 */
+    ['deps 하나 빠짐', { app: s => s.replace(/(const adminPartReg = [^\n]*\n(?:  [^\n]*\n)*?)  wdPreviewBase: \(\)=>wdPreviewBase,\n/, '$1') }],
   ];
   for(const [name, f] of breaks){
     const s2 = f.mod ? f.mod(MOD) : MOD, a2 = f.app ? f.app(SRC) : SRC, h2 = f.html ? f.html(HTML) : HTML;

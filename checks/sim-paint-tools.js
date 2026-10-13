@@ -10,6 +10,7 @@
    [실행] uv-fill.js · paint-tools.js · key-input.js · animal-glb.js · base-glb.js · app.js · animal.js ·
           desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -19,6 +20,7 @@ const read = (f) => { for(const p of [f, 'parts/' + f, 'app/parts/' + f, 'app/' 
 const need = ['uv-fill.js', 'paint-tools.js', 'key-input.js', 'animal-glb.js', 'base-glb.js', 'app.js', 'animal.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
+SRC['app.js'] = _joinRenderer(SRC['app.js']);   // 앱 FSD 로 옮긴 모듈(🖍️ 파츠 그림 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const win = { addEventListener(){} };
 ['uv-fill.js', 'paint-tools.js', 'animal-glb.js', 'base-glb.js'].forEach(f => new Function('window', 'module', SRC[f])(win, undefined));
 const hotkeyLetter = new Function('window', SRC['key-input.js'] + '\nreturn hotkeyLetter;')(win);
