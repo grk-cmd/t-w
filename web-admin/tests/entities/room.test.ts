@@ -205,8 +205,8 @@ describe('방 서버 줄 — roomIndex 에 srv 가 있는 줄', () => {
     'WORK-FB01': { lastSeen: NOW - 200_000 },
   };
 
-  it('전체 상한은 채널마다 250 (앱 ROOM_LIMITS 와 같다)', () => {
-    expect(ROOM_TOTAL_LIMITS).toEqual({ workingroom: 250, togetherroom: 250 });
+  it('전체 상한 기본값은 채널마다 300 (config/roomLimits 가 없을 때)', () => {
+    expect(ROOM_TOTAL_LIMITS).toEqual({ workingroom: 300, togetherroom: 300 });
     expect(serverOf(index['WORK-SRV1'])).toBe('realtime-1');
     expect(serverOf({ srv: '' })).toBeNull();
     expect(serverOf(index['WORK-FB01'])).toBeNull();
