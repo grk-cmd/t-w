@@ -6,14 +6,15 @@
    ・2절: 3분 대기 → 거절과 같은 길(done(false)) · done 은 한 번만 · 남은 시간 표시 · 깜빡임은 done 에서 끈다
    ・3절: 오래된 초대(10분 — 보낸 쪽 시계 오차 여유)는 띄우지 않고 지운다
    ⚠️ 실제 동작(밖 클릭 통과 · 만료 · 수락)은 2026-10-02 헤드리스 크로미움에서 함수 원문으로 확인했다.
-   [실행] app.js 가 있는 폴더에서. */
+   ・방 초대 받기(showRoomInvitePopup · _bindRoomInviteReceiver · 두 상수)는 parts/room-invite-ui.js 로 옮겼다(앱 FSD 10번) — 그 파일을 읽는다. 판정은 그대로.
+   [실행] room-invite-ui.js 가 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
-let SRC = null; try{ SRC = fs.readFileSync('app.js', 'utf8'); }catch(_){}
-if(!SRC){ say('  ? 원본 못 찾음 — app.js'); process.exit(2); }
+let SRC = null; try{ SRC = fs.readFileSync('room-invite-ui.js', 'utf8'); }catch(_){}
+if(!SRC){ say('  ? 원본 못 찾음 — room-invite-ui.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const grab = (name) => { const i = SRC.indexOf('function ' + name + '('); if(i < 0) return ''; let k = SRC.indexOf('{', i), d = 0;
   for(; k < SRC.length; k++){ if(SRC[k] === '{') d++; else if(SRC[k] === '}' && --d === 0) return SRC.slice(i, k + 1); } return ''; };
