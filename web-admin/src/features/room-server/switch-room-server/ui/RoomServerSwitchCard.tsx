@@ -1,3 +1,4 @@
+import { REMOTE_CONFIG_EDIT_LOCKED, REMOTE_CONFIG_LOCK_NOTE } from '@/shared/config';
 import { useState } from 'react';
 import { useRoomServerConfig } from '@/entities/room-server';
 import { useEnv, withProdMark } from '@/shared/api';
@@ -74,11 +75,12 @@ export function RoomServerSwitchCard() {
               <input
                 type="checkbox"
                 checked={cfg?.registerIndex ?? false}
-                disabled={busy}
+                disabled={busy || REMOTE_CONFIG_EDIT_LOCKED}
                 onChange={(e) => toggleIndex(e.target.checked)}
               />
               {INDEX_LABEL}
             </label>
+            {REMOTE_CONFIG_EDIT_LOCKED && <small className="soft">{REMOTE_CONFIG_LOCK_NOTE}</small>}
             <small className="soft">
               켜면 방 서버가 자기 방을 roomIndex 장부에 올려 전체 방 상한(⚙️ 설정)을 Firebase + 방 서버 합계로
               셈.

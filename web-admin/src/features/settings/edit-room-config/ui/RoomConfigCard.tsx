@@ -1,3 +1,4 @@
+import { REMOTE_CONFIG_EDIT_LOCKED, REMOTE_CONFIG_LOCK_NOTE } from '@/shared/config';
 import { useState, type FormEvent } from 'react';
 import {
   CHANNEL_LABEL,
@@ -67,14 +68,18 @@ function RoomLimitsForm() {
               inputMode="numeric"
               maxLength={5}
               aria-label={`${CHANNEL_LABEL[ch]} 전체 방 상한`}
-              disabled={isPending}
+              disabled={isPending || REMOTE_CONFIG_EDIT_LOCKED}
               value={isPending ? '' : inputs[ch]}
               onChange={(e) => setDraft({ ...inputs, [ch]: e.target.value })}
             />
             {!isPending && saved?.[ch] == null && <small className="soft">기본값</small>}
           </label>
         ))}
-        <button type="submit" className="btn primary" disabled={isPending || save.isPending || !draft}>
+        <button
+          type="submit"
+          className="btn primary"
+          disabled={isPending || save.isPending || !draft || REMOTE_CONFIG_EDIT_LOCKED}
+        >
           {save.isPending ? '저장 중…' : '저장'}
         </button>
         <small className={`soft ${styles.hint}`}>
@@ -127,7 +132,7 @@ function RoomMaxPeopleForm() {
             type="text"
             inputMode="numeric"
             maxLength={2}
-            disabled={isPending}
+            disabled={isPending || REMOTE_CONFIG_EDIT_LOCKED}
             value={isPending ? '' : value}
             onChange={(e) => setDraft(e.target.value)}
           />
@@ -136,7 +141,7 @@ function RoomMaxPeopleForm() {
         <button
           type="submit"
           className="btn primary"
-          disabled={isPending || save.isPending || draft === null}
+          disabled={isPending || save.isPending || draft === null || REMOTE_CONFIG_EDIT_LOCKED}
         >
           {save.isPending ? '저장 중…' : '저장'}
         </button>
@@ -154,6 +159,7 @@ export function RoomConfigCard() {
   return (
     <section className="card">
       <h2>방 상한 · 정원</h2>
+      {REMOTE_CONFIG_EDIT_LOCKED && <p className="soft">{REMOTE_CONFIG_LOCK_NOTE}</p>}
       <RoomLimitsForm />
       <RoomMaxPeopleForm />
     </section>

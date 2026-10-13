@@ -1,3 +1,4 @@
+import { REMOTE_CONFIG_EDIT_LOCKED, REMOTE_CONFIG_LOCK_NOTE } from '@/shared/config';
 import { useState } from 'react';
 import {
   flagConfirmText,
@@ -38,6 +39,7 @@ export function SignupFlagsCard() {
   return (
     <section className="card">
       <h2>가입 스위치</h2>
+      {REMOTE_CONFIG_EDIT_LOCKED && <p className="soft">{REMOTE_CONFIG_LOCK_NOTE}</p>}
       {error ? (
         <p className="msg err">{errorMessage(error, '불러오기 실패')}</p>
       ) : (
@@ -49,7 +51,7 @@ export function SignupFlagsCard() {
                 <input
                   type="checkbox"
                   checked={flags?.[flag] ?? true}
-                  disabled={isPending || save.isPending}
+                  disabled={isPending || save.isPending || REMOTE_CONFIG_EDIT_LOCKED}
                   onChange={(e) => toggle(flag, e.target.checked)}
                 />
                 {m.label}
