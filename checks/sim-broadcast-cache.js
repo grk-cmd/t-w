@@ -20,10 +20,13 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const FI = read('firebase-init.js'), CC = read('catalog-cache.js'), BC = read('broadcast-cache.js'),
-      RJ = read('firebase-database-rules.json'), APP = read('app.js');
-for(const [n, v] of [['firebase-init.js', FI], ['catalog-cache.js', CC], ['broadcast-cache.js', BC], ['firebase-database-rules.json', RJ], ['app.js', APP]]){
+      RJ = read('firebase-database-rules.json'), APP0 = read('app.js'), MI = read('myhome-inbox.js');
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+for(const [n, v] of [['firebase-init.js', FI], ['catalog-cache.js', CC], ['broadcast-cache.js', BC], ['firebase-database-rules.json', RJ], ['app.js', APP0], ['myhome-inbox.js', MI]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
+const APP = APP0 + '\n' + MI;
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(FI);
 const body = (name) => {
