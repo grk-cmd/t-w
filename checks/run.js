@@ -135,11 +135,38 @@ function mirror(from, into, staged){
   }
 }
 
+/* ── app/ 하위 폴더의 .js 도 평면에 ──────────────────────────────────────────
+   [왜] 렌더러 모듈이 app/parts/(앱 FSD) · app/parts/admin/(관리자 코드)로 늘면서, 검사가 원본을 하나씩 «없다» 고
+     댈 때마다 아래 «깊은 곳 끌어올리기» 가 한 바퀴씩 더 돌았다 — 2026-10-14 에 5바퀴 상한에 닿았다(상한에 닿으면
+     원본이 있는데 «원본 없음» 으로 빠질 수 있다). 처음부터 평면에도 두면 바퀴가 필요 없다.
+   ★ app/ 바로 밑(한 층)은 mirror 가 이미 폴더째 펼친다 — 여기서는 그 아래 폴더 안의 .js 만 이름으로 올린다. vendor/ 는 뺀다(외부 라이브러리).
+   ★ 이름이 이미 있으면(루트가 이긴다 · 먼저 본 것) 덮지 않고 알린다 — 폴더가 달라도 파일 이름은 겹치면 안 된다(CLAUDE.md). */
+function flattenApp(dir, staged){
+  const APP = path.join(ROOT, 'app');
+  if (!fs.existsSync(APP)) return;
+  const walk = (d, depth) => {
+    if (depth > 4) return;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })){
+      if (SKIP.has(e.name) || e.name === 'vendor') continue;   // 외부 라이브러리(three · jszip …)는 우리 원본이 아니다 — audit 이 훑으면 남의 글로 빨개진다
+      const p = path.join(d, e.name);
+      if (e.isDirectory()) walk(p, depth + 1);
+      else if (depth >= 1 && e.name.endsWith('.js')){
+        if (staged.has(e.name)){ flatDup.push(path.relative(ROOT, p)); continue; }
+        fs.cpSync(p, path.join(dir, e.name));
+        staged.add(e.name);
+      }
+    }
+  };
+  walk(APP, 0);
+}
+const flatDup = [];
+
 function stage(){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-checks-'));
   const staged = new Set();
   mirror(ROOT, dir, staged);
   mirror(path.join(ROOT, 'app'), dir, staged);
+  flattenApp(dir, staged);
   // functions/ 는 node_modules 때문에 SKIP 이라, 맨 위 .js 만 스테이징의 functions/ 로 따로 복사한다.
   const FN = path.join(ROOT, 'functions');
   if (fs.existsSync(FN)){
@@ -404,6 +431,7 @@ let dir;
 try { dir = stage(); }
 catch (err){ say('  ✗ 스테이징 실패 — ' + (err && err.message)); process.exit(2); }
 say(`  · ${dir}`);
+if (flatDup.length) say(`  ? app/ 하위 폴더에 평면 이름이 겹치는 파일 — 먼저 본 것을 썼다: ${flatDup.join(' · ')}`);
 const { still: absent, notes } = hoist(dir);
 for (const n of notes) say(n);
 if (absent.length){
