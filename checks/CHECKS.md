@@ -1,7 +1,17 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 174 (관리자 서버 봇 `apiBots` 이 accountSnap · friendCodes 도 읽기만 · `sim-admin-rules.js`)
-대상: `sim-*.js` 166개 + `smoke.js` + `audit.py` = **168개** (개정 174 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 175 (🌐 앱 공통 API 통로 `api-client.js` · ⚙️ 원격 설정 읽기 — API 사본 먼저 · 못 받으면 Firebase · 저장값 · 기본값 · 봇 읽기 config · adminLog · 방 서버 시간값 규칙)
+대상: `sim-*.js` 167개 + `smoke.js` + `audit.py` = **169개** (개정 175 기준 — 폴더를 센 값)
+
+**개정 175 에서 한 것 (2026-10-14 · ⚙️ 원격 설정을 API 읽기 사본에서 먼저 — 앱 + 규칙)**
+- 번호: 173 은 #158(앱 FSD 16번), 174 는 #150(apiBots 사용자 목록)이 썼다 — 이 PR 은 175.
+- 까닭: Firebase 요금은 내려받은 바이트다. 쓰기 원본은 그대로 Firebase `config/*`(웹 관리자 · 바뀐 것 없음), 읽기는 t-w-server 의 읽기 전용 사본 API(`GET /v1/config` · 공개 · data = `{ version, syncedAt, config }`)를 먼저 본다(짝 PR mihioon/t-w-server#40).
+- 앱: `app/parts/api-client.js` 신설(classic · `window.TwApi`) — 앱 공통 API 통로. 주소(운영 앱 = `https://api.togetherworking.duckdns.org` · dev 앱 = `https://api-dev.togetherworking.duckdns.org` · dev 만 `tw.apiBaseUrl`) · 시간 제한 2.5초 · 봉투 풀기 · 실패 한 모양(`ApiError` kind unavailable · notReady(`*_NOT_READY`) · auth · request · `shouldFallback`) · 짧은 메모리 캐시(`cacheMs`) · 같은 요청 하나로 · 닿지 못하면 30초 쉬기(BACKOFF). html 에서 remote-config.js 앞. 첫 사용자가 원격 설정.
+- 앱: `remote-config.js` — 읽는 차례 API → 못 받으면(사본 미준비 `503 CONFIG_NOT_READY` 포함) Firebase `config/*` 칸(칸마다 get · `FALLBACK_PATHS` 10칸) → 이 PC 저장값(`tw.remoteConfig`) → 기본값(#157 그대로 300 · 10 · true · true). 켤 때 · 5분마다 · 창이 다시 보일 때 · 방 입장 · 방 서버 고르기 · 제보 쓰기 전(1분 넘었을 때만). API 2.5초(api-client) · Firebase 칸 3초 상한. 최소 버전은 저장값을 쓰지 않는다(이번 실행에 받은 값만 · 못 받으면 막지 않음). 허용 목록은 `GET /v1/config/room-server/allow/{내 코드}`(공개 · `{ userCode, server }`) → 못 받으면 Firebase `allow/{내 코드}` 한 칸, 서버 주소는 API 판이면 응답의 servers · 아니면 Firebase `servers/{이름}` 한 칸(5분 기억). API 주소 · 시간 제한 · 쉬기는 api-client.js 가 맡는다. 옛 Firebase 구독(`store.watch`)은 지웠다.
+- 연결: `firebase-init.js` 가 `store.start`(`TwApi.client` · 저장소 · Firebase 한 칸 읽기)로 잇고, 앱 최소 버전(`readMin` = 첫 답의 minVersion.app · 7초) · 방 입장 최소 버전(`getMinRoomVer`) · 💓 새 하트비트 · 방 서버 문지기(`getConfig` · `serverAddr` · `myServer` · roomDir 읽기만) · 제보 하루 상한(`bugBoard` 의 `getDailyMax`)이 같은 store 를 본다. `MIN_APP_VER_PATH` · `BUG_DAILY_MAX_PATH` · `ROOM_SERVER_CFG` 는 지웠다.
+- 규칙: ⓐ `config/.read` · `adminLog/.read` 에 `apiBots` 봇 조건(관리자 `||` 봇 · 읽기만 · 쓰기 그대로) — API 가 운영 설정 · 작업 기록 읽기 사본을 만든다. ⓑ `config/roomServer/timing`(방 서버 연결 시간값 — graceMs 0~600000 · pingIntervalMs 1000~120000 · restoreWindowMs 0~1800000 · refreshMs 5000~600000 정수 · 서버 범위와 같음 · 누구나 읽기 · 쓰기는 roomServer 관리자 · 모르는 칸 거절).
+- 검사: `sim-api-client.js` 신설 **34·0** — 주소(운영 · dev · 시험 주소 · 환경) · 성공(봉투 · 토큰 · 쿠키 없음) · 실패 한 모양(네트워크 · 5xx · 404 · 봉투 아님 · NOT_READY · 401/403 · 4xx · 시간 초과 · abort) · 쉬기(BACKOFF · 지나면 다시 · notReady · 권한 오류는 안 쉼) · 캐시 · 같은 요청 하나 · 모듈(window.TwApi · 앱 한 벌 주소 · html 차례 · CSP). `sim-remote-config.js` §1 · §2 를 새로 — 기본값 · 범위 · 읽는 차례 넷 · API 성공이면 Firebase 0칸 · 칸 단위 읽기 · 최소 버전 저장값 안 씀 · 실패 봉투 · 503 CONFIG_NOT_READY · 멈춤 · 1분 기억 · 허용 목록 API → Firebase allow · 서버 주소 · firebase-init 배선 — **103·0**. `sim-room-server-gate.js` 는 가짜 설정 · serverAddr · myServer 로 돌리고 읽는 곳 절 · config 읽기(관리자 · 봇) · 규칙 timing — **93·0**. `sim-admin-rules.js` 봇 줄에 config · adminLog 둘. `sim-app-version-gate.js` · `sim-bug-board.js` · `sim-room-alive.js` 는 연결 모양만.
+- 헤드리스(Chrome · 가짜 API https · 바깥 네트워크 막음): API 정상 · API 와 Firebase 실패(저장값) · 처음 실행에 둘 다 실패(기본값) · 처음 실행에 API 실패(Firebase) · API 멈춤(저장값) 다섯 판 모두 부팅 · 방 개수 표시 · 방 만들기(상한 아래 startRoom · 상한이면 «꽉 찼어요(N/N)») 정상.
 
 **개정 174 에서 한 것 (2026-10-13 · 웹 관리자 사용자 목록을 관리자 API 로 — 봇 읽기 경로 둘 더함)**
 - 번호: 172 는 먼저 머지된 #157(원격 설정), 173 은 #158(앱 FSD 16번)이 쓴다 — 이 PR 은 174.
@@ -296,14 +306,12 @@
 - 종류 칸 `type`(feat · bug)은 규칙 쪽을 다른 PR 이 넣는다 — 여기선 스크립트가 쓰고 배지(🆕 · 🐞)로 보여 주기만.
 - 검사: `sim-todo-cli.js` 신설 **68·0**(start 값 · done 값 · checkValue 가 규칙과 같은 거절 · 규칙 파일 상수 대조 · find · list · brief · 인자 · gcloud 없음/DB 못 닿음에 brief 가 조용히 0).
 
-
 **개정 125 에서 한 것 (2026-10-10 · 제보 «플레이룸에서 몇 명만 채팅 대신 이모티콘 버튼 · 다시 들어와도 그대로» · `room-channel.js` · `firebase-init.js` · `app.js`)**
 - 번호: main 이 개정 124(#94 캐릭터 디자인 용량 상한)까지라 125.
 - 원인: 표지를 잃은 방을 되살리는 `recoverRoomChannel` 이 들어오는 사람 라이선스로 채널을 정했다 — 무료 사용자가 먼저 들어오면 PLAY- 방이 워킹룸으로 굳는다(운영 `PLAY-FVNJ`). Firebase 방은 `_activeChannel` 을 입장 때 한 번만 정해 같은 방 안에서 채팅 · 이모티콘이 갈렸다.
 - 고침: `recoverChannelFor` — `PLAY-`·`SCRT-` → 투게더룸, `WORK-` → 워킹룸, 옛 `COZY-` 만 라이선스로. 투게더룸을 되살릴 때 방장 칸은 보유자만 채운다(무료 사용자를 방장으로 세우면 그 사람이 나갈 때 해산된다). `_onRoomMeta` 가 `_meta.channel` 을 따라 `_activeChannel` 을 바꾼다(null · channel 없음은 그대로).
 - 그대로: `_maybeSucceedHost`(승계 · 해산)는 main 과 한 글자도 같다 — 방장이 나갔는데 보유자가 없으면 해산, 방장 칸이 빈 방은 승계 · 해산 대상이 아니다. 처음 판에 있던 «빈 방장 칸은 보유자가 없어도 해산하지 않음» 변경은 사용자 결정으로 뺐다.
 - 검사: `sim-room-channel.js` 2절 뒷부분 · 5~7절(6절은 승계 · 해산이 예전 그대로인지 — 빈 방장 칸이면 손대지 않음 · 방장이 나갔고 보유자 없으면 해산 · 있으면 이어받음).
-
 
 
 
@@ -329,7 +337,6 @@
 
 
 
-
 **개정 123 에서 한 것 (2026-10-10 · 웹 관리자 📋 할 일 «릴리스 버전» 칸 · 규칙 한 칸 · `sim-admin-rules.js` 7절)**
 - 번호: main 이 개정 122(#91 방에서 캐릭터 고치기)까지라 123.
 - 규칙 `adminTodos/$id/release`: 선택 칸. 글자 · 20자까지 · `^[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$`(0.11.3 · 0.12.0-beta.1). 칸이 없던 옛 할 일은 그대로 «버전 없음». 나머지(rev + 1 · 관리자만 · 모르는 칸 거절)는 개정 118 그대로.
@@ -345,15 +352,12 @@
 
 
 
-
-
 **개정 120 에서 한 것 (2026-10-10 · 제보(v0.11.2 · Windows) «[마이홈] 수정 — 제목 바꿨는데 다시 마이홈 수정 눌러보면 1 2 3 으로만 뜹니다» · `app.js`)**
 - 번호: main 이 개정 119(#89 빈 방 표지 서버 청소)까지라 120.
 - 원인: 👑 디자인 스튜디오 프리셋 칸 이름(`themePresets[i].name`)과 고른 칸(`themePresetCur`)은 저장(`saveMyHome` = `users/{uid}/home` 통째 set)에는 실려 갔지만, `loadMyHomePage` 가 `_myHomeData` 를 칸 이름을 하나하나 적어 새로 만들면서 그 둘을 빠뜨렸다. 마이홈 창을 열 때마다 불러오기가 돌아 프리셋이 비고 → 칸 이름이 자리 번호(1 2 3)로 → 다음 자동 저장이 서버의 프리셋(이름 · 담아 둔 색)까지 지웠다. 프리셋이 처음 들어온 판(v0.10.0)부터 있던 문제 — v0.10.2 → v0.11.2 사이 회귀가 아니다.
 - 고침: 서버 홈 → `_myHomeData` 옮기기를 `_mhHomeFromServer(data)` 한 곳으로 모으고 프리셋 두 칸을 넣었다. 내 홈(`loadMyHomePage`) · 친구 홈(`openFriendHomeView`) 둘 다 이 함수를 탄다. 규칙 · 저장 경로 무변경(규칙 `.validate` 는 bio · post · postTitle · avatar 만 본다).
 - ⚠️ 이미 지워진 프리셋은 돌아오지 않는다 — 고친 판에서 다시 저장하면 그때부터 남는다.
 - 검사: `sim-myhome-load.js` 신설 **31·0**(불러오기 두 곳이 같은 함수 · app.js 에서 `_myHomeData.X =` 로 쓰는 칸 전부가 불러오기 결과에 · 저장 → 불러오기 왕복(RTDB 의 빈 자리 배열 → 객체) · 두 번째 저장에도 남음 · 디자인 스튜디오 칸 이름 함수를 떼어 와 돌림(봄 · 2 · 겨울) · 빈 홈 기본값 · undefined 없음 / 옛 판이면 빨강 8). 고치기 전(origin/main) app.js 에 대면 ✗4(§1).
-
 
 
 
@@ -364,7 +368,6 @@
 - 고침(서버 · 1분 주기 `roomStats`): `sweepEmptyRooms` — 비었음 표시가 2분 넘게 그대로인 줄만(이미 읽는 roomIndex) → roomAlive 도장(이미 읽는 트리 · 유령 청소와 한 번) · 멤버 키(REST shallow) · 멤버마다 hb · lastSeen(옛 방식 10분)으로 다시 보고 → `_meta` 트랜잭션(ts · openTs · restoredTs 가 2분 안이면 그만) → `_chatTab` · 줄. chatLog 는 그대로. 표시 없이 조용해진 방(절전 · 강제 종료)은 안 건드린다. 줄 생성 트리거는 비었음 표시 줄에 다시 세지 않는다.
 - 고침(들어오는 길): `claimEmptyRoom` 이 방금(20초) 열린 게 아니면 `_meta` 를 통째로 새로 쓴다 — 남은 표지의 탭 · open · chatOff · restoredTs 를 안 물려받는다. `addChatTab` 은 새 자리의 기록을 비우고 연다.
 - 검사: `sim-room-meta-cleanup.js` 신설(앱 퇴장 떼어 와 돌림 · 가짜 DB 경쟁 흉내 · 선점 트랜잭션 돌림). 고치기 전(main) 원본에 대면 빨강. `sim-chat-log-persist.js` §2 · `sim-chat-tabs.js` 빈 방 정리 한 줄 · `sim-room-alive.js` 호출 줄 · `sim-room-stats.js` 트리거 정규식 폭.
-
 
 
 
@@ -392,7 +395,6 @@
 - 확인: 헤드리스 크롬(포트 9473 · 9474)에서 실제 앱 페이지 · companion 흉내 — 좌석 하나 · 커서를 몸 위에 두고 mousemove: 안 날 때 클릭받기(`char:other#0`) → 날아가는 몸 위: main(origin/main) 클릭받기 · 이 판 **통과** → 착지 뒤 다시 클릭받기. 흐르는 글자 위는 두 판 모두 통과(`elementFromPoint` = 캔버스). 페이지 오류 0.
 
 
-
 **개정 115 에서 한 것 (2026-10-10 · 개정 105 «원색 보기» 를 동물 생성기에도 · `animal.js` · html CSS)**
 - 번호: main 이 개정 114(#81 좌석 줄 되돌림)까지라 115.
 - 동물 생성기 미리보기 오른쪽 아래 💡 · 위에 «원색 보기 — 칠한 색 그대로» · L 키(hotkeyLetter · 글 입력 중 무시). 3 표정 · 4 감은눈 탭에서만 보이고 벗어나면 꺼짐 · 열 때 · 닫을 때 꺼짐. `createCreatorFlatView` 를 한 번 더 만들어 쓴다(새 로직 없음).
@@ -409,7 +411,6 @@
 - 검사: `sim-hover-poke.js` 신설 **59·0**(shouldPoll 표 · 들어올 때 한 번 · 150ms 간격 · 펜 앱 재질문 본문을 떼어 실행 · 보호 장치 글자 대조 · build.files).
 - 실기기(Windows · 디스코드 앞): 커서를 캐릭터 위에 세워 둔 채 다른 앱에 키를 치면 ⓖ 가 통과로 회수하는데, 감시를 새로 켠 첫 틱이 세워 둔 커서를 «들어옴» 으로 보고 0.13초 만에 클릭받기로 되돌렸다(키 5번에 5번). → 첫 틱은 기준만 잡고, 감시 중에 밖 → 안 · 안에서 움직임일 때만 묻는다. 세워 둔 커서는 유령 감시(포기 한도)가 맡는다. 고치기 전 hover-poke.js 에 대면 ✗2.
 - 실측(마우스 신호를 끊고 커서를 캐릭터 위로 한 번에): main 평균 1.33초 · 최대 1.54초 → 이 판 평균 0.10초 · 최대 0.14초(8회).
-
 
 **개정 111 에서 한 것 (2026-10-10 · 방 서버를 앱 릴리스 없이 넓히기 · `room-server-gate.js` · 규칙 `config/roomServer/default` · `defaultPercent` · 웹 관리자 🛰 «기본 서버 · 비율»)**
 - 문지기: `on` 이고 허용 목록에서 서버를 못 얻은 사람은 `default`(서버 이름) · `defaultPercent`(정수 0~100)를 본다. 사용자 코드의 FNV-1a 해시 % 100(`userBucket`)이 비율보다 작으면 그 서버가 «내 서버»(from `default`) — 허용된 사람과 같은 길(만들기 · 주소록에 없는 코드는 peek · 방 개수 · 랜덤). 같은 비율이면 늘 같은 사람 · 올리면 더해지기만. 표에 없는 이름 · 낯선 주소 · 틀린 비율 → Firebase. 주소록 따라가기 · `on:false` 비상 정지는 그대로.
@@ -454,7 +455,6 @@
 - 검사: `sim-paint-tools.js` 신설 **68·0**(손으로 만든 섬 · 실제 동물 몸/얼굴 · 사람 얼굴 GLB · 도구 상태 · 되돌리기 순서 · 가짜 DOM · 배선) · `sim-uv-fill.js` 3절 꾸미기 배선 다섯 줄 고침 **26·0**.
 - 확인: 헤드리스 크롬에서 실제 앱 페이지 — 사람 2단계 페인트통: 얼굴 앞 조각만 17024px(u 5~149 · v 123~263) · 되돌리기 한 칸 → 0 · E/B 키(한글 ㄷ) · 붓 획 그대로. 동물 3단계: G(한글 ㅎ) → 얼굴 조각만 23514px · 되돌리기 0 · 몸 조각만 10366px(u 427~508) · «얼굴만» 잠금이면 몸 안 칠함 · Shift+G 전체 · E · C · 페이지 오류 0.
 
-
 **개정 107 에서 한 것 (2026-10-09 · 제보 «방 인원이 많으면 오른쪽 사람들 · 내 캐릭터까지 화면 밖 · 끌어도 되돌아온다» · 실기기 확인 뒤 결정 변경 여러 번 · `seat-layout.js` 신설 · `app.js` · html)**
 - 원인: 방에서는 줄 **가운데**를 화면 0.84(오른쪽)에 두고 나를 줄 오른쪽 끝에 세웠다 — 줄이 화면 폭의 32% 를 넘으면 오른쪽 절반과 나까지 화면 밖. 프로그램 이동 범위의 실측 함수(_myPanHalfFrac)는 클릭 통과 구역의 지역 변수(_cvEl)를 봐서 늘 null 이라 «줄 가운데» 만 화면 안에 묶었다.
 - 방(실행 화면 · 다른 사람 있음)의 줄은 띠(맨 오른쪽 좌석 ~ 화면 왼쪽 끝) 안에 선다. 띠 밖은 그리지 않는다(렌더러 가위 · 이름표 숨김 · 클릭 판정 · 잡기 제외).
@@ -467,7 +467,6 @@
 - 검사: `sim-seat-layout.js` 신설 **89·0**(자동 맞춤 모형 한 줄 1 · 4 · 10 · 20 · 40명 × 세 화면 · 최소 px · 배율 1 상한 · 떨림 막기 · 없앤 것(층 · 손잡이 · ◀ ▶ · 사이즈 맞추기) · 자리 바꾸기 · 발밑 수평 · 탑 높이 · 배선).
 - 확인(자동 맞춤 · 한 줄): 헤드리스 크로미움 실제 앱 페이지 — 휠 없이 다 들어가는 최대 인원(자리표시 캐릭터): 1366×768 15명 · 1800×1069 20명 · 3840×2160 43명. 최소일 때 가장 작은 캐릭터 57px · 2명이면 배율 1(내 크기 그대로) · 페이지 오류 0.
 - 확인(자리 바꾸기 · 탑 · 발밑): 헤드리스 — 책상 · 이름표 끌기로 순서 바꾸기 · 책상 없는 사람 이름표로 옮기기 · 그 자리에 놓기 · «맨 오른쪽 고정» 내 자리 그대로 · 발밑 기울기 21px → 3px.
-
 
 **개정 106 에서 한 것 (2026-10-09 · 제보 «스티커사진 버튼을 눌러도 반응이 없다» · `purikura-net.js` · `app.js`)**
 - 원인: 개정 102(어안)가 자리(slots/$i)에 `fx` 를 함께 쓴다. 서버 규칙은 아직 옛 판이라(`deploy-dev.yml` 은 GCP 변수가 비어 늘 건너뜀 · 운영은 태그 때) `$other` 에 걸려 자리 쓰기가 통째로 거부되고, `pk.open` 이 던진 것을 아무도 받지 않아 토스트도 없이 멈췄다.
@@ -487,14 +486,12 @@
 - 고침: 생성기(cBase) 아이템마다(pivot 인스턴스) 처음 자리 x · y · z · rot 를 적는다 — 장착 직후(`equipDeskItem`) · 저장값 복원 직후(`applyDeskItemsTo`, 장착 뒤라 덮어씀). 초기화는 그 값으로(크기는 그대로) · 알림 «처음 자리로 되돌렸어요». 생성기를 닫거나(`closeCreator`) 아이템을 다시 깔 때(`clearCreatorItems`) 지운다. 적힌 게 없으면 예전처럼 0. 크기 초기화(#crItemRemove)는 그대로.
 - 검사: `sim-desk-item-origin.js` 신설 **27·0**(pickXf · 아이템마다 · 덮어쓰기 · 크기 그대로 · 없으면 0 · 편집 한 바퀴 · app.js 배선 · html 순서). 고치기 전 app.js · html 에 대면 ✗9.
 
-
 **개정 103 에서 한 것 (2026-10-09 · 사용자 결정 «동물 편집이 거꾸로다» · `animal-edit-route.js` 신설 · `app.js` · `animal.js` · html)**
 - 번호: main 이 개정 102(#70 스티커사진 어안)까지라 103(PR #63 · 처음엔 99).
 - 예전: 동물 캐릭터를 [캐릭터 수정] · 좌석 [캐릭터 편집] 하면 사람 생성기가 열리고 1~4단계가 막혀 «동물의 얼굴·표정은 동물 생성기에서 편집해요…» 토스트와 함께 책상(5)으로 튀었다. [이전] 을 눌러야 동물 생성기가 나왔다. 동물 생성기 위 «책상 세팅» · «좌석 세팅» 은 흐리게 막혀 있었다.
 - 이제: 동물 생성기(얼굴 탭)부터 열린다 → 마지막 탭 [다음 → 책상·좌석] 이 저장하고 `fromAnimal` 을 달아 책상(5) → 좌석(6) → [완료]. 동물 생성기 위 «책상 세팅» 은 [다음 → 책상·좌석] 과 같고, «좌석 세팅» 은 같은 저장 뒤 6단계로(`fromAnimal` + `startStep:6`). 책상에서 [이전] · 위 «캐릭터 세팅» 은 동물 생성기(감은눈 탭)로. 같은 슬롯 · 좌석(creatorMode)에 저장. 옛 동물 토스트는 걷음.
 - 그대로: 사람 · 커미션(«커미션 캐릭터는 수정할 수 없어요.» · 책상부터) · 종족 선택에서 새 동물(저장할 빈 칸이 없으면 위 두 탭도 흐리게 · 이유를 툴팁에) · 해금 판정 · 런처 복귀 체인. 모듈이 없으면(app.js 만 평가하는 검사) 예전처럼 책상부터.
 - 검사: `sim-animal-edit-route.js` 신설 **53·0**(판정 표 · gotoStep 머리를 실제로 돌림 · 위 탭 판정 · 배선). 고치기 전 app.js · animal.js 에 대면 ✗.
-
 
 **개정 102 에서 한 것 (2026-10-08 · 필터 시안 8 확정 · `purikura-net.js` · `app.js` · html · 규칙)**
 - 필터 줄 일곱 칸: 없음 · 뽀샤시 · PS1 · **어안** · 흑백 · 새벽 · 빈티지(로비 · 촬영 중 같은 줄). 어안 = 꽉 찬 볼록렌즈(원형 · 검은 테두리 없음) · 렌즈 세기 `FISH_S` 0.72(가운데 약 3.6배) 고정 · 가장자리 살짝 어둡게. 비율로만 계산해서 k 가 없다 — 무대 · 사진이 같은 모양.
@@ -511,7 +508,6 @@
 - 손 회색은 바꾸지 않았다 — 테마 범위 규칙 안에 있는 것이 0곳이라 «모든 테마에서 같은 값» 인 토큰이 없다. 기준선으로 늘어나는 것만 막는다.
 - 검사: `sim-ui-tokens.js` 신설 **8·0** — 토큰 블록 · 쓰는 `--tw-*` 가 정의된 이름 · 글꼴 토큰의 한글 · 파일별 직접 적은 글꼴(62) · 손 회색(451)이 `ui-tokens-baseline.json` 이하. 줄였으면 `node checks/sim-ui-tokens.js --write-baseline`. `sim-font-hangul.js` 는 `var(--tw-font-…)` 를 html 정의로 펼친 뒤 1 · 2절을 본다(따옴표 ' · " 둘 다).
 - 화면 확인: 정적 html 을 Electron 오프스크린으로 그려 7가지(클래식 c1 · c2 · c4 · 버블 c1 · c3 · c4 · c5) × 8상태 PNG 56장 픽셀 차이 0 · 요소 2419개의 계산 스타일 차이 0.
-
 
 **개정 100 에서 한 것 (2026-10-09 · 디자인 시스템을 앱 저장소로 · `docs/design-system/` · `scripts/build-design-site.js` 신설 · `hosting/design/`)**
 - 원본은 `docs/design-system/project/`(토큰 · 원칙 · 부품 지침 · 미리보기). `npm run design:build` 가 정적 페이지 `hosting/design/`(index.html · tokens.css · bundle.css)을 만들고, 그 결과를 커밋해 둔다(Hosting 배포 대상).
@@ -574,7 +570,6 @@
 - 검사: `sim-uv-fill.js` 신설 **26·0**(실제 귀 GLB 다섯 종 삼각형 · 가짜 2D 문맥 · app.js 배선). 개정 90 app.js 에 대면 ✗10.
 - 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 고양이 양쪽 · ✎ · G → 왼 귀 클릭 2145 / 오른 0 → 되돌리기 0 / 0 → 대칭 켜고 오른 귀 2145 / 2155 → 지우개 채우기 왼 0 · 페이지 오류 0.
 - 하지 않은 것: (나) 누른 조각(UV 섬)만 · 동물 생성기 G 바꾸기 — 사용자 결정으로 미룸.
-
 
 **개정 90 에서 한 것 (2026-10-08 · 앱 최소 버전 · `app-version-gate.js` 신설 · `firebase-init.js` · `app.js` 한 줄 · `main.js` · `preload.js` · 규칙 `config/minAppVer`)**
 - `config/minRoomVer` 는 방 입장만 막는다. 규칙 잠금처럼 방 밖 기능까지 옛 앱에서 깨지는 변경 전에 옛 앱을 업데이트로 보낼 장치. 켤 때 `config/minAppVer` 하나만 `get` 한 번(구독 아님).
@@ -1409,13 +1404,13 @@
 | **audit.py** | 873 | **7f0331be9656** ← **개정 173 검사 8 시야에 playlist.js(🎵 플레이리스트 — app.js 에서 옮김) · 검사 19 ④ 속성값 보간 시야에도 playlist.js** · **개정 171 검사 8 시야에 myhome-inbox.js(📩 수령함 · 💝 선물함 · 👥 친구 목록 — app.js 에서 옮김) · 검사 19 ④ 속성값 보간 시야에도 myhome-inbox.js** · **개정 167 검사 8 시야에 room-invite-ui.js(🙋 투게더룸 친구 초대 — app.js 에서 옮김)** · **개정 156 검사 9 friendCodes 통째 get 기준선 1 → 2(invite-revoke.js 전체 회수)** · **개정 140 검사 8 시야에 myhome-edit.js(🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 — app.js 에서 옮김)** · **개정 139 검사 8 시야에 gacha.js(🎰 파츠 가챠 — app.js 에서 옮김)** · **개정 136 검사 8 시야에 friend-manage.js(👥 친구 관리) · bug-board-ui.js(🐞 버그 제보 탭 — app.js 에서 옮김)** · **개정 135 검사 8 시야에 guestbook.js(📖 방명록 — app.js 에서 옮김)** · **개정 134 검사 8 시야에 purikura-ui.js(📷 스티커사진 창 — app.js 에서 옮김)** · **개정 133 검사 8 시야에 weekly-challenge.js(👑 달성표 — app.js 에서 옮김)** · **개정 131 검사 8 시야에 scheduler.js(📅 스케줄러 · 🔔 일정 알림 — app.js 에서 옮김)** · 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) · **개정 60 검사 9 기준선 reports 1** · **개정 71 검사 17 (e) 회차** · **2026-10-03 검사 9 기준선 roomStats 1** · **2026-10-03 검사 10 ES 모듈 문법 · firebase-init import 모듈도 시야에** · **2026-10-06 검사 9 기준선 roomAlive(전체 1 · 방 단위 2)** |
 | **smoke.js** | 375 | **43e2dc7884c2** ← **개정 173 playlist.js 도 먼저 평가(PRELOAD.push)** · **개정 171 myhome-inbox.js 도 먼저 평가(PRELOAD.push)** · **개정 169 chat-window.js 도 먼저 평가(PRELOAD.push)** · **개정 168 focus-log.js 도 먼저 평가(PRELOAD.push)** · **개정 167 room-invite-ui.js 도 먼저 평가(PRELOAD.push)** · **개정 140 myhome-edit.js 도 먼저 평가(PRELOAD.push)** · **개정 139 gacha.js 도 먼저 평가(PRELOAD.push)** · **개정 138 myhome-sticker.js 도 먼저 평가(PRELOAD.push)** · **개정 137 pomodoro.js 도 먼저 평가(PRELOAD.push)** · **개정 136 friend-manage.js 도 먼저 평가(PRELOAD.push)** · **개정 135 guestbook.js 도 먼저 평가(PRELOAD.push)** · **개정 134 purikura-ui.js 도 먼저 평가(PRELOAD.push)** · **개정 133 weekly-challenge.js 도 먼저 평가(PRELOAD.push)** · **개정 131 scheduler.js 도 먼저 평가(PRELOAD.push — 목록 줄은 sim-wd-ear 가 글자 그대로 봐서 그대로 둠)(app.js 가 원래 자리에서 createScheduler)** · **개정 85 html 이 앞에 싣는 귀 모듈 둘을 먼저 평가** · 2026-09-14 판정 줄 (§10) |
 | **sim-account-switch.js** | 399 | **e36fbba8ceb6** ← **개정 173 렌더러 쪽 한 벌 = app.js + playlist.js · 로그아웃 · 계정 이어받기 스텁을 plMod.st(상태 묶음) · plMod.blankSets · plMod.normalizeSets … 통로로(판정 무변경)** · **개정 139 가챠 flush · 검문 · 메모리 지우기 · 연동 pull 스텁을 gachaMod 통로로(gacha.js)** · **개정 133 달성표 flush · 메모리 지우기 스텁을 weeklyChal 통로로(weekly-challenge.js)** · 2026-09-16 신규 · 제보 4 계정 전환 소지품 정리 (§18) · 2026-09-20 ⑧ 로그아웃 출구 + 스텁 고침 (개정 28) · **2026-09-22 연동 해제 걷음 · 2절 상수 표에 슬롯 기록 키 넷(가려져 있던 2절 되살림) (개정 45)** · **개정 56 버린 uid 목록 걷음** |
-| **sim-admin-rules.js** | 352 | **dbf08b4c2a70** ← **개정 174 1절 봇(apiBots)이 accountSnap · friendCodes 목록도 읽기만 — 관리자 조건과 || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
+| **sim-admin-rules.js** | 353 | **271155c32933** ← **개정 175 봇 읽기에 config · adminLog(관리자 또는 봇 · 아래 칸 · 쓰기 없음)** · **개정 174 1절 봇(apiBots)이 accountSnap · friendCodes 목록도 읽기만 — 관리자 조건과 || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | sim-char-foot.js | 141 | 9f0e32d97ac7 |
 | sim-char-identity.js | 187 | bdad4f71d987 |
 | sim-char-z.js | 224 | 24de011f5c83 |
 | **sim-cfg-fit.js** | 144 | **7d2963e0741d** ← 2026-09-16 (제보 1·2 런처 크기) · 개정 10 등재 |
 | **sim-chat-fly.js** | 359 | **cc5e29b8050c** ← **개정 161 doLeaveRoom(opt) 인자 허용(정규식만)** · ← **2026-10-08 sendChat 서명에 tab(채팅 탭) 허용** · 2026-09-17 고침(350→359줄) · 회사원 모드 게이트 판정 4개 추가. 2026-09-16 신규 · 같은 날 5차 개정(띠·크기·체크줄·크기 3단·속도 px/s) (§15) |
-| **sim-bug-board.js** | 379 | **e5f4470ebebd** ← **개정 171 «우편함에서 누르면 그 글을 연다» 를 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **개정 159 내 글도 화면에서 한 쪽(BUG_PAGE)씩 · 쪽 단추 안 숨김** · ← **개정 158 상태 버튼 셋 · «그대로» 없음 · 기본 해결 안 됨** · ← **개정 157 §6 글쓴이 답글(rep 규칙 · addReply 실행 · 화면)** · ← **개정 146 규칙은 아직 이름 «익명» 을 요구하지 않음(옛 앱 비공개 제보 거부 막기)** · ← **개정 145 한 쪽 8개(BUG_PAGE · §4 7 · 7 · 8 · 8 · 8 · 7 여섯 쪽 · 딱 8개면 빈 2쪽) · 내 글은 따로 20개(BUG_MINE_MAX) · 비공개 글 목록 줄에 제목(규칙 title 공개 · 비공개 모두) · 이름은 «익명»(listEntry · 규칙 글쓴이 새 비공개 글 name === '익명' · 화면 whoName)** · ← **개정 132 §4 쪽 넘김(가짜 RTDB 글 45개 + 공지 2개 · 빠짐 · 겹침 없음 · 한 번에 20개까지) · §5 마이홈 창이 안 늘어난다(버그제보 페이지 440px 고정 · #bbRows 안 스크롤)** · **개정 95 새 글 ts · openTs === now(서버 시각) · 하루 상한 config/bugDailyMax(누구나 읽기 · 관리자 쓰기 · 1~100 정수 · 없으면 5) · 🛡 byAdmin 관리자만 · 제보 이름은 안 막음 · createPost 실행(serverTimestamp · 작성 수는 예전대로 앱이 +1 · 상한 설정값 · 관리자 byAdmin · 상한 없음) · UI 🛡 · 상한 읽기** · **2026-10-08 신규 · 🐞 버그제보 게시판 — 규칙(비공개 글 · 비공개 답변 읽기 = 본인/관리자 · 답변 쓰기 관리자만 · 목록 limitToLast ≤ 20 쿼리만 · 내 글은 내 uid 만 · 우편함 tag bug · 목록 title 은 공개 글만 · kakao open.kakao.com · 👍 +1 짝) · bug-board.js 실행(비공개 목록 줄에 제목 없음 · 입력 확인 · 분류 = 규칙 · 배지 수) · 연결(firebase-init · 우편함 열기 · 답변 알림 · 스크립트 순서 · 비공개 행 못 누름)** |
+| **sim-bug-board.js** | 381 | **4d5c0d913f21** ← **개정 175 하루 상한은 deps.getDailyMax(원격 설정) · 못 받으면 5** · **개정 171 «우편함에서 누르면 그 글을 연다» 를 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **개정 159 내 글도 화면에서 한 쪽(BUG_PAGE)씩 · 쪽 단추 안 숨김** · ← **개정 158 상태 버튼 셋 · «그대로» 없음 · 기본 해결 안 됨** · ← **개정 157 §6 글쓴이 답글(rep 규칙 · addReply 실행 · 화면)** · ← **개정 146 규칙은 아직 이름 «익명» 을 요구하지 않음(옛 앱 비공개 제보 거부 막기)** · ← **개정 145 한 쪽 8개(BUG_PAGE · §4 7 · 7 · 8 · 8 · 8 · 7 여섯 쪽 · 딱 8개면 빈 2쪽) · 내 글은 따로 20개(BUG_MINE_MAX) · 비공개 글 목록 줄에 제목(규칙 title 공개 · 비공개 모두) · 이름은 «익명»(listEntry · 규칙 글쓴이 새 비공개 글 name === '익명' · 화면 whoName)** · ← **개정 132 §4 쪽 넘김(가짜 RTDB 글 45개 + 공지 2개 · 빠짐 · 겹침 없음 · 한 번에 20개까지) · §5 마이홈 창이 안 늘어난다(버그제보 페이지 440px 고정 · #bbRows 안 스크롤)** · **개정 95 새 글 ts · openTs === now(서버 시각) · 하루 상한 config/bugDailyMax(누구나 읽기 · 관리자 쓰기 · 1~100 정수 · 없으면 5) · 🛡 byAdmin 관리자만 · 제보 이름은 안 막음 · createPost 실행(serverTimestamp · 작성 수는 예전대로 앱이 +1 · 상한 설정값 · 관리자 byAdmin · 상한 없음) · UI 🛡 · 상한 읽기** · **2026-10-08 신규 · 🐞 버그제보 게시판 — 규칙(비공개 글 · 비공개 답변 읽기 = 본인/관리자 · 답변 쓰기 관리자만 · 목록 limitToLast ≤ 20 쿼리만 · 내 글은 내 uid 만 · 우편함 tag bug · 목록 title 은 공개 글만 · kakao open.kakao.com · 👍 +1 짝) · bug-board.js 실행(비공개 목록 줄에 제목 없음 · 입력 확인 · 분류 = 규칙 · 배지 수) · 연결(firebase-init · 우편함 열기 · 답변 알림 · 스크립트 순서 · 비공개 행 못 누름)** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** ← **2026-10-09 신규(개정 95) · 🐞 버그 제보 고정 번호 B-MMDD-n — functions/bug-no.js 실행(서울 날짜 · ts 이상하면 지금 · 카운터 +1 트랜잭션 · 이미 no 있으면 그만 · 지워진 글엔 안 붙임 · 지워도 번호 안 돌아옴 · 번호만 — 세기 · 지우기 없음 · 백필 계획 날짜별 ts 순 · 카운터 다음부터) · 백필 도구 미리 보기 기본 · index.js onValueCreated(/bugBoard/list/{id} · 다시 시도 안 함) · 규칙(no 모양 · 글쓴이 no 못 넣음 · seq 규칙 없음) · 앱 상세 번호는 관리자만** |
 | **sim-chat-history.js** | 212 | **daa2921532a5** ← **개정 166 채널마다 최근 300줄(CHAT_KEEP_MAX) — 화면 · 이 PC 저장 · 예전 저장 줄이기 · 서버 trimLog(표시 줄 남김 · 같은 ts 경계) · 앱 · 서버 같은 값** · **개정 161 신규 · 💬 대화 기록 — 순수 함수 · 가짜 저장소로 열기 · 지우기 표시 · 투게더룸 저장 안 함 · 채널 정리 · 나가기 조건 · 규칙 ts 색인 · 서버 3일 함수 · 처리방침** |
 | **sim-gamepad-activity.js** | 60 | **7adec09f2462** ← **개정 151 신규 · 🎮 게임패드 활동 — gamepad-activity.js 실행(처음 본 패드 기준만 · 떨림 무시 · 스틱 · 버튼 · 트리거 · 뺐다 꽂기 · 빈 자리 · 던짐 · 타이머 하나) · app.js 배선(펜과 같은 처리) · html 순서 · OS 유휴 보정 꺼짐** |
@@ -1446,7 +1441,7 @@
 | **sim-license-xlsx.js** | 82 | **eb779c819cb0** ← **개정 76 신설 · 📄 관리자 라이선스 엑셀(xlsx·csv) 일괄 발급** · **개정 82 1절 좁은 창이면 일괄 창만** |
 | **sim-room-meta-cleanup.js** | 249 | **c57ff0999109** ← **개정 154 시크릿룸은 줄만 걷고 탭 · 탭 대화 · #일반 대화 유지(secretKept)** · ← **개정 153 투게더룸은 chatLog 까지 · 워킹 · 시크릿은 남김 · _meta 없으면 roomIndex 채널** · ← **개정 119 신규 · 🧹 빈 방 표지(_meta · _chatTab) 청소를 앱 퇴장에서 서버 함수로 — ① 퇴장은 _meta/openTs 걷기 · roomIndex 비었음 표시만(떼어 와 돌림) ② functions/room-stats.js 비었음 2분 뒤 · 멤버 재확인(roomAlive · shallow · hb · lastSeen 10분) · _meta 트랜잭션(재확인 뒤 선점 흉내) · 실패면 안 지움 · 표시 없는 조용한 방은 안 건드림 · 트리거 ③ 남은 _meta 빈 방 선점은 새로 · 시크릿룸 · 되살리기 · 방 서버 · 새 탭 빈 기록** |
 | **sim-room-stats.js** | 224 | **66524117e889** ← **개정 170 🛰 방 서버 줄(srv) — 세고 · 청소 안 함 · 낡으면 줄만 · inclServer 배선** · **개정 119 줄 생성 트리거 정규식 폭(비었음 표시 건너뛰기 한 줄)** · **2026-10-03 신규 · 📊 방 개수 서버 요약 — functions/room-stats.js 집계 · room-index.js channel·open 다시 싣기 · room-stats.js 신선도 · firebase-init 연결 · 규칙 읽기 전용 (모듈을 그대로 불러 가짜 DB)** |
-| **sim-room-alive.js** | 125 | **965f9cbf6709** ← **개정 119 유령 청소 호출 줄 — roomAlive 트리를 빈 방 청소와 같이 한 번 읽음** · **2026-10-06 신규 · 💓 새 하트비트 — room-alive.js 판정(hb:2 · 버전 문턱 · 중복 세션 · roomIndex 한 명 · 입장 검사) · functions/room-stats.js 유령 청소(가짜 DB · 다시 찍으면 그만둠) · firebase-init 연결 · 규칙 roomAlive** |
+| **sim-room-alive.js** | 125 | **370464c07d38** ← **개정 175 하트비트 켜기는 원격 설정 minRoomVer** · **개정 119 유령 청소 호출 줄 — roomAlive 트리를 빈 방 청소와 같이 한 번 읽음** · **2026-10-06 신규 · 💓 새 하트비트 — room-alive.js 판정(hb:2 · 버전 문턱 · 중복 세션 · roomIndex 한 명 · 입장 검사) · functions/room-stats.js 유령 청소(가짜 DB · 다시 찍으면 그만둠) · firebase-init 연결 · 규칙 roomAlive** |
 | **sim-daily-active.js** | 88 | **f312ac82a73b** ← **개정 99 metrics 쓰기 규칙 없음 — improvements 만 빼고** · **2026-10-07 신규 · 📈 일일 접속 집계(DAU · 방문 수) — functions/daily-active.js 서울 날짜 경계 · 쓰기 묶음(고유 사용자 + 방문 수 증가) · 지우기 무시 · 틀린 코드 거절(가짜 DB) · index.js onValueWritten 연결 · 규칙 metrics 관리자만 읽기 · 앱은 안 씀** |
 | **sim-visit-ping.js** | 163 | **a1391124f386** ← **개정 99 metrics 쓰기 규칙 없음 — improvements 만 빼고** · **2026-10-07 신규 · 🌐 IP 기준 일일 방문자 — functions/visit-ping.js 접속 IP 고르기(x-forwarded-for 맨 앞 · ::ffff: 벗김) · HMAC 해시(날마다 · 비밀마다 다름 · 16자) · 쓰기 묶음(ip 해시 + pings 증가 · IP 원문 없음) · 비밀 없으면 안 씀(가짜 DB) · index.js onCall(비밀 · 인증 안 봄 · 늘 ok) · 앱 visit-ping.js(한 번 · 8초 뒤 · 실패 삼킴 · 다시 시도 없음) · firebase-init 연결 · CSP 함수 호스트** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** ← **개정 99 6절 scripts/backfill-usage.js(빠진 날짜만 · 표본 없는 날 0 안 씀 · 미리 보기 기본 · --project 필수) · 규칙은 improvements 만 빼고** · **2026-10-07 신규 · 💰 사용량(비용) 기록 — functions/usage-snapshot.js 구간(어제 · 오늘 · 그제 자정부터 · 정시) · 하루 합계(합 · 최대 · 마지막 값 · 서울 날짜 경계 · 표본 없음 null) · 쓰기 묶음(무리별 at · 앱 버킷만 · 못 받은 무리는 안 씀 · null 칸 빼기) · 처리기(가짜 Monitoring · 다음 페이지 · 지표 하나 실패) · index.js onSchedule(매시간 · 인스턴스 1 · 재시도 없음) · 규칙 metrics 관리자만 읽기** |
@@ -1455,10 +1450,10 @@
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** ← **개정 99 metrics 쓰기 규칙 없음 — improvements 만 빼고** · **2026-10-08 백필이 REST 로 읽는 것에 맞춤(users/${id}/slots.json)** · **2026-10-07 신규 · 🧮 카탈로그 항목별 장착 사용자 수 — functions/part-equip.js def → id(파츠 셋 모양 · 책상 · 기본 책상 · 아이템 · 커스텀 제외) · 슬롯 여러 칸 1명 · 깨진 JSON 건너뜀 · 차이만 ±1 · 지우기 전부 -1(가짜 DB) · 백필 합계 · scripts/backfill-part-equip.js 미리 보기 기본 · index.js onValueWritten(/users/{userId}/slots · 다시 시도 안 함) · 규칙 metrics 관리자만 · 앱은 안 씀** |
 | **sim-room-server-net.js** | 787 | **8426ddd352bc** ← **개정 172 CSP connect-src 방 서버 와일드카드** · **개정 119 7-1절 이어 붙으면 전체 상태(def 포함) 한 번 다시 · welcome 뒤 그 사이 바뀐 칸 · 끊긴 동안의 말 · 찌르기 들고 있다가(5개 · 15초 · 나가면 버림)** · **2026-10-08 💬 채팅 탭(서버 방) — 멤버 칸 tab · chatTab ↔ chat{tab} · 받은 말풍선을 chat / chatTab 자리로 · 방장 setMeta({tabs}) · app.js 탭 만들기 · 이름 바꾸기 · 지우기는 서버 방이면 방 서버 meta · Firebase 되살리기에 tabs** · **2026-10-08 0.10.3 방 서버 연결 · 주소는 문지기(room-server-gate.js)가 고름(url()) · 방 밖이면 새 주소로 다시 붙기 · 방 안이면 그 방 서버 그대로 · 못 붙은 주소만 1분 쉼 · 30초 넘게 안 돌아오면 unreachable → 같은 코드로 Firebase 되살리기(restoreRoomMeta · 코드 옮기기 없음 · 60초 승계 유예) · 주소록 따라가기는 peek 없이 join · CSP 운영 · dev 주소 + 로컬 8787 만** · **2026-10-06 신규 · 🛰 방 서버(웹소켓) provider — room-server-net.js 를 가짜 웹소켓 · 가짜 시계로 그대로 돌림 · hello/join/welcome · patch/def/chat 나누기(patch 는 평평하게) · state 1초 묶기 · exp 는 바뀔 때만 · 찌르기 all · resume 재연결 · resumeFailed 전체 입장 · auth/version/시간 초과 → Firebase 로 · 토큰 갱신 · stats/random/peek 답을 rid 로 짝짓기 · peek 으로 서버/Firebase 고르기 · firebase-init · app.js · CSP 연결 (기본 꺼짐)** |
 | **sim-room-parity.js** | 111 | **a0081f2b2888** ← **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
-| **sim-room-server-gate.js** | 260 | **bf347464bf71** ← **개정 172 주소 거르기 — 방 서버 묶음 wss · https://*.togetherworking.duckdns.org(새 이름 · 접미사 흉내 · 포트 · 경로 막음 · 운영↔dev 안 섞음) · 규칙 roomServer/registerIndex** · **개정 111 · 기본 서버 · 비율(default · defaultPercent · 사용자 코드 해시 칸 · 허용 목록이 먼저 · 들어가기 그대로) · 규칙 두 칸 · 개정 96 · 규칙 limits(누구나 읽기 · 정수 1~100000) · 개정 95 · 따라가기는 on 이면 늘(follow 칸 안 읽음) · 2026-10-08 신규 · 🛰 방 서버 문지기 — room-server-gate.js 를 가짜 DB 읽기로 그대로 돌림 · 주소 거르기(운영 앱은 운영 주소만 · 로컬은 dev 앱만) · 개발용 켜기 dev 만 · 만들기 = on + allow/{내 코드}(서버 이름) · 들어가기 = 주소록(roomDir) · 꺼짐 · 읽는 칸(칸 단위 · 목록 통째 없음 · 서버 표 5분 기억) · 규칙(config 칸 단위 공개 · 관리자 쓰기 · roomDir 앱 쓰기 막힘 · srv 색인 · minRoomVer 그대로) · firebase-init · app.js 한 곳(resolveRoomServer) · roomAlive 는 Firebase joinRoom 에만** |
+| **sim-room-server-gate.js** | 275 | **d09289f3ea15** ← **개정 175 가짜 설정(getConfig) · serverAddr · myServer 로 · 읽는 곳(roomDir 한 칸 · Firebase config 경로 없음) · config 읽기 관리자 · 봇 · 규칙 roomServer/timing** · **개정 172 주소 거르기 — 방 서버 묶음 wss · https://*.togetherworking.duckdns.org(새 이름 · 접미사 흉내 · 포트 · 경로 막음 · 운영↔dev 안 섞음) · 규칙 roomServer/registerIndex** · **개정 111 · 기본 서버 · 비율(default · defaultPercent · 사용자 코드 해시 칸 · 허용 목록이 먼저 · 들어가기 그대로) · 규칙 두 칸 · 개정 96 · 규칙 limits(누구나 읽기 · 정수 1~100000) · 개정 95 · 따라가기는 on 이면 늘(follow 칸 안 읽음) · 2026-10-08 신규 · 🛰 방 서버 문지기 — room-server-gate.js 를 가짜 DB 읽기로 그대로 돌림 · 주소 거르기(운영 앱은 운영 주소만 · 로컬은 dev 앱만) · 개발용 켜기 dev 만 · 만들기 = on + allow/{내 코드}(서버 이름) · 들어가기 = 주소록(roomDir) · 꺼짐 · 읽는 칸(칸 단위 · 목록 통째 없음 · 서버 표 5분 기억) · 규칙(config 칸 단위 공개 · 관리자 쓰기 · roomDir 앱 쓰기 막힘 · srv 색인 · minRoomVer 그대로) · firebase-init · app.js 한 곳(resolveRoomServer) · roomAlive 는 Firebase joinRoom 에만** |
 | **sim-room-live-def.js** | 149 | **e766331ea6df** ← **2026-10-10 신규(개정 119) · 🎨 방에서 런처로 캐릭터를 고치고 돌아오면 방에도 — launchApp 이 Presence.myDef 와 견주어 updateDef(캐릭터 교체와 같은 길) · 그냥 왕복은 안 보냄 · 방 밖 안 보냄 · Firebase · 서버 provider 둘 다 · 옛 줄이면 빨강** |
 | **sim-app-version.js** | 152 | **11f90aed8615** ← **2026-10-06 신규 · 🏷️ 앱 버전(ver)을 presence · 라이선스 요청 · accountSnap 에 — app-version.js 를 그대로 돌림 · presence 를 통째로 쓰는 자리 전부 ver · 늦게 오면 update · 규칙 셋(없어도 통과 · 문자열 20자) · 규칙 배포 전이면 accountSnap 은 ver 빼고 다시** |
-| **sim-app-version-gate.js** | 175 | **4c32b7dd2506** ← **개정 87 신설 · 🚪 앱 최소 버전(config/minAppVer) — 숫자 비교 · 낮으면 막음 · 실패 · 오프라인 · 값 없음은 안 막음 · 단추(재시작 설치 · 맥 릴리스 · 받는 중 · 다시 시도) · 닫기 없는 화면 · 클릭 통과 목록 · firebase-init 연결 · 규칙** |
+| **sim-app-version-gate.js** | 175 | **f5f347e97dcb** ← **개정 175 연결 — 원격 설정의 첫 답(minVersion.app · 대기 < 8초) · Firebase config/minAppVer 직접 읽기 없음** · **개정 87 신설 · 🚪 앱 최소 버전(config/minAppVer) — 숫자 비교 · 낮으면 막음 · 실패 · 오프라인 · 값 없음은 안 막음 · 단추(재시작 설치 · 맥 릴리스 · 받는 중 · 다시 시도) · 닫기 없는 화면 · 클릭 통과 목록 · firebase-init 연결 · 규칙** |
 | **sim-invite-account.js** | 79 | **9974af64f5c8** ← **2026-10-03 신규 · 초대 계정 읽기 — 판정 = 예전 판정 · invite 먼저 · 폴백 · 런처 동작 그대로** |
 | **sim-invite-revoke.js** | 97 | **cd6581f5a9d0** ← **2026-10-12 신규 · 관리자 초대권 전체 회수 — 1장 이상만 0 · 빚은 그대로 · 트랜잭션 · 우클릭 두 번 게이트** |
 | **sim-room-invite-wait.js** | 44 | **1c60b66bbae0** ← **개정 167 room-invite-ui.js 를 읽게(🙋 방 초대 받기가 모듈로 · 판정 무변경)** · **개정 78 신설 · ⏳ 방 초대 팝업이 화면을 막지 않음 · 3분 뒤 자동 거절** |
@@ -1555,7 +1550,8 @@
 | **sim-room-invite-ui.js** | 325 | **d0be5eef0701** ← **개정 171 deps friendInRoom 은 inboxMod.friendInRoom(myhome-inbox.js)** · **개정 167 신설 · 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기 모듈(room-invite-ui.js) — 만들 때 · 고르기 창 · 보내기 · 끌기 · 받기(10분 · 3분 · 수락 이동) · app.js 배선** |
 | **sim-focus-log.js** | 283 | **34d8cf0f6260** ← **개정 168 신설 · 🕒 포커스 기록 팝업 모듈(focus-log.js) — 만들 때 · 열기 · 닫기 · 누적 / 오늘 · 매초 갱신 · 미니미 · 가두기 · 끌기 · app.js 배선 · 일부러 깨 보기 17가지** |
 | **sim-chat-window.js** | 558 | **f070017e12e5** ← **개정 169 신설 · 💬 대화창 배선 모듈(chat-window.js) — 만들 때 · 닫기 · 최소화 · ESC · Enter · 링크 · 끌기 · 크기 · 메뉴 · 알림음 · 투명도 · 날리기 · 잠금 · 기록 삭제 · 이모티콘 · 주사위 · 💣 · 📷 · app.js 배선 · 일부러 깨 보기 29가지** |
-| **sim-remote-config.js** | 275 | **c342ddab4f88** ← **개정 172 신설 · ⚙️ 원격 설정(remote-config.js) — 기본값 · 범위 · 타입 · 알림 · ready · 칸 넷 구독 · 규칙 식 실행(roomLimits · roomMaxPeople · flags · bugPostCount 100) · app.js 배선 · 화면 숫자 · 방 서버 길 빈 방 상한(되살리기 · 시크릿룸 · 만들기 · 있는 방 제외) · html · CSP** |
+| **sim-api-client.js** | 160 | **bb47a0d2b164** ← **개정 175 신설 · 🌐 앱 공통 API 통로(api-client.js) — 주소(운영 · dev · tw.apiBaseUrl) · 봉투 · 실패 한 모양(unavailable · notReady · auth · request) · 시간 제한 · 쉬기(BACKOFF) · 캐시 · 같은 요청 하나 · window.TwApi · html 차례 · CSP** |
+| **sim-remote-config.js** | 413 | **63850676f95e** ← **개정 175 §1 · §2 새로 — 읽는 차례 API → Firebase config 칸 → 저장값 → 기본값 · API 성공이면 Firebase 안 읽음 · 최소 버전 저장값 안 씀 · 503 CONFIG_NOT_READY · 멈춤 · 1분 기억 · 허용 목록 API → Firebase allow · 서버 주소 · firebase-init 배선** · **개정 172 신설 · ⚙️ 원격 설정(remote-config.js) — 기본값 · 범위 · 타입 · 알림 · ready · 칸 넷 구독 · 규칙 식 실행(roomLimits · roomMaxPeople · flags · bugPostCount 100) · app.js 배선 · 화면 숫자 · 방 서버 길 빈 방 상한(되살리기 · 시크릿룸 · 만들기 · 있는 방 제외) · html · CSP** |
 | **sim-myhome-inbox.js** | 474 | **ed8b76f92dc9** ← **개정 171 신설 · 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록 모듈(myhome-inbox.js) — 만들 때 · 수령함 셈 · 배지 · 그리기(필터 · 📌 · 읽음 · 🐞 · × · 고정) · 링크 · 키 복사 · 선물함(⭐ · 상한 · 확인창) · 친구 목록(정렬 · 검색 · 시크릿룸 · 🏠 · 삭제) · app.js 배선 · 일부러 깨 보기 28가지** |
 | **sim-playlist.js** | 534 | **550b34169ff0** ← **개정 173 신설 · 🎵 상태칩 플레이리스트 모듈(playlist.js) — 만들 때(ESC 등록 · BGM 신호 셋 · 300ms 폴링 · 음량 한 번 · window 고리 셋 · 창 위치 초기화) · 프리셋 저장값(관문 · 옛 목록 이관 · 반복 옛 키 · 공개 «1» 만 · 프리셋 0 거울) · 목록(＋ 제목 자동 · 직접 · 중복 · 상한 · Delete · 프리셋 고르기 · 이름) · 재생(▶ · ▐▐ · ■ · ⏭ · ended · err · loop · 반복 · 셔플 · 프리셋 갈아타기 · 창 소유권) · 파도타기 · 담기 · 서버 사본(3초 · 지문 · 빈 목록 지움 · 🔒) · 감시견 · 상태 묶음 st · app.js 배선(deps 20 · 원래 자리 · 남긴 머리 · 빈 껍데기 · 부르는 곳 · html 순서 · Tw 접두사) · 일부러 깨 보기 30가지** |
 | **sim-ui-tokens.js** | 123 | **b32f986c7b14** ← **개정 101 신설 · 🧩 --tw-* 토큰 다리 · 직접 적은 글꼴 · 손 회색이 기준선(ui-tokens-baseline.json)보다 늘지 않는다** |
@@ -2094,7 +2090,6 @@ MODULE_NOT_FOUND · "못 찾음" 으로 끝난 검사는 **`원본 없음` 으�
 </details>
 
 
-
 ## 6. 실기기에서 드러난 것 — 러너 고침
 
 ### ① `.gitattributes` ★ 안 넣으면 정본 대조가 통째로 무너진다
@@ -2320,7 +2315,6 @@ const end = (vse && vse.fail > 0) ? vse : (vso || vse);
 - **`app/` 을 커밋하면** 원본없음 43개가 살아난다. 그때 나오는 숫자가 진짜 기준선이고,
   ⑥ 은 그 뒤다.
 
-
 ---
 
 ## 12. `sim-seat-opacity` — 기록물에서 검사로 (2026-09-14)
@@ -2383,7 +2377,6 @@ check('시나리오가 아직 옛 코드를 가려낸다 (대조군 실패 N건)
 판정 줄도 §10 형식으로 맞췄다: 설명은 `구조 N건 · 지금 코드 N건 · 대조군 N건`, 마지막 줄은
 `전부 통과 ✅` 또는 `✗ 실패 N건`.
 
-
 ---
 
 ## 10-C. `smoke.js` 판정 줄 — 19개를 흔들지 않고 고쳤다 (2026-09-14)
@@ -2420,7 +2413,6 @@ vm.runInThisContext(smokeSrc, { filename: 'smoke-stubs.js' });
 `sim-friend-manage` · `sim-google-login` · `sim-win-front` 넷은 `desk-companion-prototype.html` ·
 `main.js` · `preload.js` 가 없어 못 돌았다. 넷도 같은 표식에서 자르고 그 앞이 바이트 동일하니
 구조상 안전하지만, **실기기 한 바퀴로 확인할 것.**
-
 
 ---
 
@@ -2508,7 +2500,6 @@ for (const e of fs.readdirSync(CHECKS, { withFileTypes: true })){
   판을 가릴 때는 `certutil -hashfile <파일> SHA256` 으로 §3 해시를 댈 것.
 - 전후 대조를 할 때 **스테이징 폴더 이름(`tw-checks-XXXX`)이 매번 랜덤**이라 `.err` 가 무더기로
   가짜로 걸린다. 경로를 지우고 댈 것(§10-C).
-
 
 ---
 

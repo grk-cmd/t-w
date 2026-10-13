@@ -8,7 +8,7 @@
  *   방 사람들은 노드가 지워지는 메시지 한 번만 받는다.
  *
  * [옛 앱과 섞일 때] 옛 앱은 멤버 노드 lastSeen 이 2분 넘게 안 바뀌면 그 사람을 숨긴다. 그래서 새 방식(hb:2)은
- *   «방 입장 최소 버전(config/minRoomVer)» 이 ROOM_ALIVE_MIN_VER 이상일 때만 켠다 — 그때는 방에 옛 앱이 없다.
+ *   «방 입장 최소 버전(원격 설정 minVersion.room)» 이 ROOM_ALIVE_MIN_VER 이상일 때만 켠다 — 그때는 방에 옛 앱이 없다.
  *   그 전에는 예전처럼 멤버 노드에 lastSeen 을 쓴다. 판정은 멤버마다 따로 한다(hb:2 면 노드가 있으면 산 것).
  *
  * Firebase 를 직접 import 하지 않는다 — 순수 함수만(검사 sim-room-alive.js).

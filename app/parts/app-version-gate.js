@@ -1,9 +1,9 @@
 /*
- * 앱 최소 버전 — 이 앱 버전이 config/minAppVer 보다 낮으면 «업데이트해 주세요» 화면으로 앱 전체를 막는다.
+ * 앱 최소 버전 — 이 앱 버전이 원격 설정 minVersion.app(API GET /v1/config) 보다 낮으면 «업데이트해 주세요» 화면으로 앱 전체를 막는다.
  *
- * [왜] config/minRoomVer 는 방 입장만 막는다. 규칙을 잠그거나 데이터 모양을 바꾸면 방 밖 기능(마이홈 · 꾸미기 · 일정)도
+ * [왜] minVersion.room 은 방 입장만 막는다. 규칙을 잠그거나 데이터 모양을 바꾸면 방 밖 기능(마이홈 · 꾸미기 · 일정)도
  *   옛 앱에서 조용히 깨지므로, 그 전에 옛 앱을 업데이트로 보낼 장치가 따로 필요하다.
- * [언제 막나] 켤 때 한 번 config/minAppVer 하나만 읽는다(문자열 몇 바이트). 읽지 못하면(오프라인 · 거부 · 시간 초과)
+ * [언제 막나] 켤 때 원격 설정의 첫 답(remote-config.js)을 본다. 받지 못하면(오프라인 · API 멈춤 · 시간 초과)
  *   막지 않는다 — 잘못 막는 쪽이 못 막는 쪽보다 크다. 버전을 모르는 환경(웹 · 검사)도 막지 않는다.
  * [업데이트] 이미 있는 자동 업데이트 흐름(main.js electron-updater · 맥은 릴리스 안내)을 그대로 쓴다.
  *   윈도우는 켜고 3초 뒤 저절로 받기 시작하므로 받기가 끝나면 «지금 재시작해서 업데이트» 가 된다.
@@ -11,14 +11,13 @@
  * ⚠️ 이 코드가 든 판(0.10.3~)부터만 효과가 있다. 그보다 옛 앱은 이 값을 읽지 않는다.
  *
  * Firebase 를 직접 import 하지 않는다 — deps 로 받는다(검사 sim-app-version-gate.js).
- *   readMin()      config/minAppVer 값(또는 그 Promise)
+ *   readMin()      최소 버전 문자열(또는 그 Promise) · 없으면 null
  *   getVersion()   이 앱 버전(또는 그 Promise) · 모르면 null
  *   companion      preload 의 window.companion(onUpdateStatus · installUpdate · checkUpdate · openBrowser) · 없으면 null
  *   ui             { show(view), update(view) } — createAppVersionGateDom(document) 가 만든다
  *   timeoutMs      읽기 대기 상한(기본 MIN_APP_VER_TIMEOUT_MS)
  */
-export const MIN_APP_VER_PATH = 'config/minAppVer';
-export const MIN_APP_VER_MAX = 20;                 // 규칙 config/minAppVer 의 길이 상한과 같다
+export const MIN_APP_VER_MAX = 20;                 // remote-config.js VER_MAX 와 같다
 export const MIN_APP_VER_TIMEOUT_MS = 8000;
 // 저장소 이름이 바뀌면 package.json build.publish 와 같이 바꾼다
 export const RELEASES_URL = 'https://github.com/grk-cmd/t-w/releases/latest';

@@ -91,7 +91,7 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 
 say('§2 bug-board.js (실행)');
 const M = new Function(BB.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { BUG_STATUS, BUG_AUTHOR_STATUS, isOpenStatus, hasAuthorReply, BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, BUG_DAILY_MAX_PATH, createBugBoard };')();
+  '\nreturn { BUG_STATUS, BUG_AUTHOR_STATUS, isOpenStatus, hasAuthorReply, BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, createBugBoard };')();
 const who = { name: '에이', code: 'CA', authUid: 'uA' };
 const prv = M.listEntry({ vis: 'prv', cat: 'bug', title: '비밀 제목', body: 'b' }, who, 1000);
 chk(prv.title === '비밀 제목' && prv.name === M.BUG_ANON && M.BUG_ANON === '익명' && !JSON.stringify(prv).includes('에이'), '⑤ 비공개 글의 목록 줄 — 제목은 보이고 이름은 «익명»(실명 없음)');
@@ -139,14 +139,15 @@ chk(/const whoName = \(it\) =>/.test(UI) && /it\.byAdmin === true \|\| it\.notic
 chk(/api\(\)\.loadDailyMax\(\)/.test(UI) && /api\(\)\.dailyMax\(\)/.test(UI), '게시판을 열 때 상한을 한 번 읽고 «오늘 n건 남음» 에 쓴다');
 chk(M.unseenCount([{ id: 'a', lastReplyTs: 5 }, { id: 'b', lastReplyTs: 5 }, { id: 'c' }], { a: 9 }) === 1, '배지 = lastReplyTs > bugSeen[id] 개수');
 chk(M.dailyMaxOf(7) === 7 && M.dailyMaxOf(null) === 5 && M.dailyMaxOf('7') === 5 && M.dailyMaxOf(0) === 5 && M.dailyMaxOf(101) === 5 && M.dailyMaxOf(2.5) === 5
-  && M.BUG_DAILY_MAX_PATH === 'config/bugDailyMax', '하루 상한 = config/bugDailyMax (없거나 이상하면 5)');
+  && !/config\/bugDailyMax/.test(BB.replace(/\/\*[\s\S]*?\*\//g, '')), '하루 상한 = 원격 설정 bugDailyMax(deps.getDailyMax · 없거나 이상하면 5) — Firebase config 를 읽지 않는다');
 {
   // createPost 를 가짜 deps 로 — 서버 시각 · 작성 수는 예전대로(앱이 읽고 +1) · 상한은 설정값 · 관리자 글 byAdmin
-  const run = async (count, who, max) => {
+  const run = async (count, who, max, getMaxThrows) => {
     const writes = [], tx = [];
     const SV = { '.sv': 'timestamp' };
     const bb = M.createBugBoard({ db: {}, ref: (_, p) => p || '',
-      get: async (p) => ({ val: () => (/bugPostCount/.test(p) ? count : p === 'config/bugDailyMax' ? max : null) }),
+      get: async (p) => ({ val: () => (/bugPostCount/.test(p) ? count : null) }),
+      getDailyMax: async () => { if(getMaxThrows) throw new Error('net'); return max; },
       update: async (_, w) => { writes.push(w); }, push: () => ({ key: 'k1' }), runTransaction: async (p, fn) => { tx.push([p, fn(count)]); },
       query: () => null, orderByChild: () => null, limitToLast: () => null, endBefore: () => null, equalTo: () => null,
       authUid: () => 'uA', now: () => 1000, serverTs: () => SV });
@@ -163,6 +164,7 @@ chk(M.dailyMaxOf(7) === 7 && M.dailyMaxOf(null) === 5 && M.dailyMaxOf('7') === 5
   pending.push(run(5, { name: '에이', code: 'CA' }, 7).then(({ r, loaded }) => chk(r.ok && loaded === 7, '상한을 7 로 올리면 6번째 글도 된다')));
   pending.push(run(7, { name: '에이', code: 'CA' }, 7).then(({ r, writes }) => chk(!r.ok && /하루 7건/.test(r.reason) && !writes.length, '  ↳ 7건이면 막고 이유에 상한을 적는다')));
   pending.push(run(5, { name: '에이', code: 'CA' }).then(({ r, writes }) => chk(!r.ok && /하루 5건/.test(r.reason) && !writes.length, '설정값이 없으면 5건에서 막는다')));
+  pending.push(run(5, { name: '에이', code: 'CA' }, 7, true).then(({ r, loaded }) => chk(!r.ok && loaded === 5, '  ↳ 설정을 못 받으면(오류) 5')));
   pending.push(run(9, { name: '운영자', code: 'CA', isAdmin: true }).then(({ r, writes, tx }) => {
     chk(r.ok && writes[0]['bugBoard/list/k1'].byAdmin === true && tx.length === 0, '관리자는 상한 없음 · 글에 byAdmin(🛡) · 작성 수 안 셈');
   }));

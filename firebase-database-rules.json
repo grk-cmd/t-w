@@ -738,7 +738,7 @@
       }
     },
     "config": {
-      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".read": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       "minRoomVer": {
         ".read": true,
         ".write": "root.child('admins').child(auth.uid).val() === true",
@@ -819,6 +819,14 @@
           ".read": true,
           "workingroom": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1 && newData.val() <= 100000" },
           "togetherroom": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1 && newData.val() <= 100000" },
+          "$other": { ".validate": false }
+        },
+        "timing": {
+          ".read": true,
+          "graceMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 600000" },
+          "pingIntervalMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1000 && newData.val() <= 120000" },
+          "restoreWindowMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 1800000" },
+          "refreshMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 5000 && newData.val() <= 600000" },
           "$other": { ".validate": false }
         },
         "$other": { ".validate": false }
@@ -1215,7 +1223,7 @@
       ".write": false
     },
     "adminLog": {
-      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      ".read": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       ".indexOn": ["at"],
       "$logId": {
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true && (!data.exists() ? newData.exists() : (!newData.exists() && data.child('at').isNumber() && data.child('at').val() < now - 7776000000))",
