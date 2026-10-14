@@ -3336,10 +3336,10 @@ const plMod = (typeof TwPlaylist === 'undefined') ? PLAYLIST_OFF : TwPlaylist.cr
   lvStarStr: (...a)=>focusLevelMod.lvStarStr(...a),
   starPaint: (...a)=>_starPaint(...a),
   // 🏠 마이홈
-  myHomeLoaded: ()=>_myHomeLoaded,
-  myHomeData: ()=>_myHomeData,
+  myHomeLoaded: ()=>mhVisitMod._myHomeLoaded(),
+  myHomeData: ()=>mhVisitMod._myHomeData(),
   myHomeFriends: ()=>_myHomeFriends,
-  openFriendHomeView: (...a)=>openFriendHomeView(...a),
+  openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   // 🪟 상태칩 팝업 · 창 겹침 · ESC
   closeChipPopups: (...a)=>_closeChipPopups(...a),
   repositionOpenChipPopups: (...a)=>statusChipMod._repositionOpenChipPopups(...a),
@@ -3862,7 +3862,7 @@ const SCHEDULER_OFF = { renderSchedCalendar(){}, renderDdays(){}, subscribeMonth
 const mhScheduler = (typeof MhScheduler === 'undefined') ? SCHEDULER_OFF : MhScheduler.createScheduler({
   getMyUserId: ()=>getMyUserId(),
   getDisplayName: ()=>getDisplayName(),
-  viewingUserId: ()=>_mhViewingUserId,
+  viewingUserId: ()=>mhVisitMod._mhViewingUserId(),
   myHomeFriends: ()=>_myHomeFriends,
   toast: (...a)=>toast(...a),
   uiIconEl: (...a)=>statusChipMod.uiIconEl(...a),
@@ -4153,7 +4153,7 @@ const inboxMod = (typeof TwMyHomeInbox === 'undefined') ? INBOX_OFF : TwMyHomeIn
   lvStarBadgeClass: (...a)=>lvStarBadgeClass(...a),
   lvStarStr: (...a)=>focusLevelMod.lvStarStr(...a),
   lvBadgeClass: (...a)=>lvBadgeClass(...a),
-  openFriendHomeView: (...a)=>openFriendHomeView(...a),
+  openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
 });
 /* ═══ 📩 수령함 · 💝 선물함 그리기 ═══ */
@@ -4165,14 +4165,14 @@ const MY_HOME_UI_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴
 const myHomeUiMod = (typeof TwMyHomeUi === 'undefined') ? MY_HOME_UI_MOD_OFF : TwMyHomeUi.createMyHomeUi({
   FRIEND_MAX: FRIEND_MAX,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
-  _mhApplyVisitUI: (...a)=>_mhApplyVisitUI(...a),
-  _mhCloseStickerAnim: (...a)=>_mhCloseStickerAnim(...a),
-  _mhViewingUserId: ()=>_mhViewingUserId,
+  _mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),
+  _mhCloseStickerAnim: (...a)=>mhStLayoutMod._mhCloseStickerAnim(...a),
+  _mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
   _myFriendRequests: ()=>_myFriendRequests,
   _myHomeFriends: ()=>_myHomeFriends,
   _saveFailMsg: (...a)=>_saveFailMsg(...a),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
-  closeFriendHomeView: (...a)=>closeFriendHomeView(...a),
+  closeFriendHomeView: (...a)=>mhVisitMod.closeFriendHomeView(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   friendManage: friendManage,
   getDisplayName: (...a)=>getDisplayName(...a),
@@ -4190,201 +4190,22 @@ const myHomeUiMod = (typeof TwMyHomeUi === 'undefined') ? MY_HOME_UI_MOD_OFF : T
 });
 
 /* ============================================================ 🏠 마이홈 (2단계: 프로필/게시글/스티커) */
-let _myHomeData = { avatar:null, bio:'', postTitle:'', post:'', stickers:{}, bgm:null, bg:null, theme:null };
-/* 서버에서 받은 users/{uid}/home 을 _myHomeData 모양으로 옮긴다 — 내 홈 · 친구 홈 둘 다 여기를 탄다.
-   ⚠️ 저장(saveMyHome)은 _myHomeData 를 홈 노드에 **통째로 set** 한다. 여기서 빠진 칸은 화면에서만
-     안 보이는 게 아니라 다음 저장 때 서버에서도 지워진다. _myHomeData 에 새 칸을 만들면 여기에도 넣을 것.
-     (👑 디자인 프리셋 themePresets · themePresetCur 가 빠져 있어서, 이름을 바꿔도 다시 열면 1 2 3 으로
-     돌아가고 담아 둔 색까지 사라졌다 — sim-myhome-load.js) */
-function _mhHomeFromServer(data){
-  data = data || {};
-  return { avatar:data.avatar||null, bio:data.bio||'', postTitle:data.postTitle||'', post:data.post||'',
-    theme:data.theme||null,
-    stickers:data.stickers||{}, bgm:data.bgm||null, bg:data.bg||null,
-    themePresets:data.themePresets||null,
-    themePresetCur:(data.themePresetCur!=null ? data.themePresetCur : null) };
-}
-let _myHomeLoaded = false;
-/* 🪪 [2026-10-08 제보 #2] 마이홈을 **어느 계정 코드로** 불러왔는가. 저장 때 지금 코드와 다르면 거부한다.
-   [가설] 계정 탭에서 다른 계정으로 갈아탄 뒤 재시작 전에 자동 저장(창 닫기 · 탭 전환)이 돌면, 먼저 불러온
-     **옛 계정의 마이홈(빈 데이터일 수 있다)** 이 새 계정 users/{코드}/home 에 통째로 덮어써졌다.
-     _myHomeLoaded 하나로는 «불러왔다» 만 알고 «누구 것을» 은 몰랐다. */
-let _myHomeUid = null;
-
-// ★ 마이홈2-B: 친구 마이홈 관람 모드 — null이면 내 마이홈, 아니면 그 유저의 홈을 읽기전용으로 표시.
-//   내 홈 데이터는 백업해뒀다가 관람 종료 시 복원(불필요한 firebase 재로드 방지).
-let _mhViewingUserId = null;
-/* 🏷️ 관람 중인 마이홈 주인의 이름 — 친구 목록에 없는 사람을 위한 자리.
-   [경위] 타이틀·프로필 닉네임·방명록 제목 세 곳이 각자 _myHomeFriends[uid] 를 뒤졌다.
-     친구 목록을 통한 방문(친구 아바타 클릭·좌석 우클릭)에서는 맞지만, 🎵 파도타기는
-     '친구가 아니어도 들어갈 수 있는' 경로라(요청 사양) 조회가 늘 비어서 폴백 '친구' 가
-     그대로 화면에 떴다 — "닉네임이 친구로 나온다"는 제보가 이것이다. */
-let _mhViewingName = null;
-/* 세 곳이 반드시 같은 값을 보게 하는 단일 창구. 우선순위:
-     ① 친구 목록(실시간 구독이라 가장 최신) → ② 진입할 때 받은 이름 힌트 → ③ 서버 조회 결과
-   폴백 '친구' 는 셋 다 실패했을 때만 남는다. */
-function _mhViewingDisplayName(){
-  if(!_mhViewingUserId) return '';
-  const f = _myHomeFriends[_mhViewingUserId];
-  if(f && f.name) return f.name;
-  if(_mhViewingName) return _mhViewingName;
-  return '친구';
-}
-let _mhMyDataBackup = null;
-async function openFriendHomeView(friendId, nameHint){
-  if(!friendId || friendId===getMyUserId()) return;
-  if(!(window.firebaseAPI && firebaseAPI.getMyHome)){ toast('네트워크 연결을 확인해주세요'); return; }
-  _mhViewingName = (typeof nameHint==='string' && nameHint.trim()) ? nameHint.trim() : null;
-  try{
-    const data = await firebaseAPI.getMyHome(friendId);
-    // 관람 중에 또 다른 친구 마이홈으로 넘어가는 경우, 원래 내 데이터 백업(_mhMyDataBackup)은 그대로 유지 —
-    //   덮어쓰면 나중에 돌아갔을 때 "친구1 데이터가 내 마이홈으로 복원"되는 버그가 생김.
-    // ★ 추가 수정: 이번 세션에서 내 마이홈을 서버에서 로드한 적이 없으면(방에서 곧장 우클릭 방문 등)
-    //   _myHomeData가 "빈 초기값"이라 이걸 백업하면 복귀 때 마이홈이 초기화된 것처럼 보였다.
-    //   미로드 상태면 백업하지 않고(null), 복귀 시 closeFriendHomeView가 서버에서 로드하게 한다.
-    if(!_mhViewingUserId){ _mhMyDataBackup = _myHomeLoaded ? _myHomeData : null; }
-    window._mhPreviewMode = false;   // 👁 미리보기 중이었으면 해제 (실제 방문으로 전환)
-    _mhViewingUserId = friendId;
-    // ★ theme 포함 — 관람 모드에서도 친구의 👑 프리미엄 디자인이 그대로 보이게 (loadMyHomePage와 동일한 누락 버그 수정)
-    _myHomeData = _mhHomeFromServer(data);
-    // 마이홈 창을 안 열려있으면 열기 + 마이홈 탭으로 전환 (loadMyHomePage 트리거 없이 수동 전환)
-    const overlay=document.getElementById('myHomeOverlay');
-    if(overlay && !overlay.classList.contains('on')){ overlay.classList.add('on'); myHomeOpen = true; }
-    /* 🪟 **창 크기 전환을 여기서도 부른다.** open() 에만 있고 이 경로에 없던 것이 제보의 원인이었다.
-       [증상] 런처(380px 창)에서 친구 마이홈으로 곧장 들어가면 #myHomeWin(760px)이 창 밖으로
-         삐져나간다. 왼쪽 열(프로필·닉네임 「수정」·＋스티커)은 **음수 좌표**로 밀려 화면 밖에 있고,
-         오른쪽 끝(방명록·마이홈 수정·✕)도 창 너비를 넘는다. 보이는 부분만 눌리니
-         "버튼이 안 눌린다"로 제보된다 — 실제로는 그 자리에 아무것도 없는 것이다.
-         (__mhClickDiag() 가 `좌표:'-163,320'` · `가린것:null` 로 이걸 잡았다.)
-       ★ 「내 마이홈으로」 복귀 경로도 이 상태를 물려받는다 — 그래서 관람 중이 아닌데도 같은 증상이
-         남는다. 여기서 한 번 맞춰 두면 그 뒤로는 계속 맞다.
-       ⚠️ 오버레이가 **이미 열려 있어도** 부른다. 이 버그로 잘못된 크기인 채 열려 있을 수 있어서,
-         if 안에 두면 그 상태를 못 고친다. 같은 값이면 main 쪽에서 어차피 같은 setBounds 다. */
-    if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();
-    overlay.querySelectorAll('.mh-tab').forEach(t=>t.classList.toggle('on', t.dataset.tab==='home'));
-    overlay.querySelectorAll('.mh-page').forEach(p=>p.classList.toggle('on', p.id==='mhPageHome'));
-    _mhApplyVisitUI();
-    renderMyHomePage();
-    /* 🏷️ 이름을 아직 모르면(친구도 아니고 힌트도 없음) 프로필에서 한 번 읽어 온다.
-       · getUserNameById 는 users/{uid}/profile 을 읽는데 그 경로의 .read 는 원래 열려 있어서
-         규칙 파일은 손댈 게 없다. 이름 한 줄이라 비용도 무시할 수준.
-       · 여기 있으니 파도타기뿐 아니라 앞으로 생길 다른 진입 경로도 자동으로 덮인다.
-       ⚠️ 조회가 끝나기 전에 다른 홈으로 넘어갔거나 관람을 닫았으면 결과를 버린다 —
-          안 그러면 방금 나온 사람의 이름이 다음 화면에 뒤늦게 찍힌다. */
-    if(!_mhViewingName && !(_myHomeFriends[friendId] && _myHomeFriends[friendId].name) && firebaseAPI.getUserNameById){
-      Promise.resolve(firebaseAPI.getUserNameById(friendId)).then(n=>{
-        if(_mhViewingUserId !== friendId || !n) return;
-        _mhViewingName = String(n);
-        _mhApplyVisitUI(); renderMyHomePage();
-      }).catch(()=>{});
-    }
-    if(typeof window._mhReSubscribeGuestbook==='function') window._mhReSubscribeGuestbook();
-    if(typeof window._mhGbRefreshBadge==='function') window._mhGbRefreshBadge();   // 관람 모드 → 자기 방명록 뱃지 숨김
-    // 👀 스케줄러도 친구 것으로 — 달력(공개 일정만) + D-day(공개만) 구독 전환
-    if(_schedDdaysVisitUnsub){ try{ _schedDdaysVisitUnsub(); }catch(_){} _schedDdaysVisitUnsub=null; }
-    mhScheduler.setDdaysVisit({});
-    if(firebaseAPI.subscribeDdays){
-      _schedDdaysVisitUnsub = firebaseAPI.subscribeDdays(friendId, dd=>{
-        const f = {}; for(const k in (dd||{})){ if(dd[k] && dd[k].public) f[k] = dd[k]; }
-        mhScheduler.setDdaysVisit(f); mhScheduler.renderDdays();
-      });
-    }
-    mhScheduler.subscribeMonth();
-    mhScheduler.renderDdays();
-  }catch(e){ console.warn('친구 마이홈 로드 실패', e); toast('불러오지 못했어요'); }
-}
-function closeFriendHomeView(){
-  if(!_mhViewingUserId) return;
-  _mhViewingUserId = null;
-  _mhViewingName = null;   // 🏷️ 다음 관람에 이전 사람 이름이 남지 않게
-  if(_mhMyDataBackup) _myHomeData = _mhMyDataBackup;
-  _mhMyDataBackup = null;
-  // ★ 버그 수정("내 마이홈으로" 복귀 시 초기화된 것처럼 보임): 방에서 곧장 친구 홈으로 들어온 세션은
-  //   내 마이홈이 서버에서 로드된 적이 없어 복귀 화면이 빈 초기값으로 그려졌다. 실제 데이터는 안전함 —
-  //   저장 가드(_myHomeLoaded 전제)가 미로드 세션의 덮어쓰기를 원래부터 막고 있었고, 표시만 문제였다.
-  //   미로드 상태면 지금 서버에서 로드(loadMyHomePage가 끝에서 스스로 렌더함).
-  if(!_myHomeLoaded && typeof loadMyHomePage==='function'){
-    Promise.resolve(loadMyHomePage()).catch(()=>{});
-  }
-  _mhApplyVisitUI();
-  renderMyHomePage();
-  if(typeof window._mhReSubscribeGuestbook==='function') window._mhReSubscribeGuestbook();
-  if(typeof window._mhGbRefreshBadge==='function') window._mhGbRefreshBadge();   // 자기 홈 복귀 → 뱃지 다시 계산
-  // 👀 스케줄러 원복 — 내 달력·내 D-day로
-  if(_schedDdaysVisitUnsub){ try{ _schedDdaysVisitUnsub(); }catch(_){} _schedDdaysVisitUnsub=null; }
-  mhScheduler.setDdaysVisit(null);
-  mhScheduler.subscribeMonth();
-  mhScheduler.renderDdays();
-}
-// 관람 모드 UI 갱신 — 타이틀 라벨/배지/버튼 + 편집 UI 잠금
-function _mhApplyVisitUI(){
-  // 실제 방문(다른 사람 홈) 또는 방문자 시점 미리보기(내 홈) — 둘 다 편집 UI를 잠근다.
-  const realVisit = !!_mhViewingUserId;
-  const visiting = realVisit || !!window._mhPreviewMode;
-  /* 🛟 두 훅은 **서로 다른 파일**에 있다(myhome-desktop.js · mallang.js).
-     맨몸으로 나란히 두면 앞줄이 던질 때 뒷줄이 아예 안 돈다 — 그러면 바탕화면 쪽 사고가
-     "말랑이 폴더가 사라졌다"로 나타난다(open() 의 그 주석과 같은 병). 각자 감싼다. */
-  // 🖥️ 마이홈 바탕화면 관람모드 연동 (myhome-desktop.js)
-  try{ if(window._advApplyVisitUI) window._advApplyVisitUI(visiting, realVisit ? _mhViewingUserId : getMyUserId()); }
-  catch(e){ console.error('[바탕화면] 관람모드 적용 실패', e); }
-  // 🧸 말랑이: 실제 방문이면 그 집 주인 이미지로, 미리보기·내 집이면 내 것으로
-  try{
-    if(window._mallangApplyVisit){
-      Promise.resolve(window._mallangApplyVisit(visiting, realVisit ? _mhViewingUserId : getMyUserId()))
-        .catch(e=>console.error('[말랑이] 관람모드 적용 실패', e));
-    }
-  }catch(e){ console.error('[말랑이] 관람모드 적용 실패', e); }
-  const badge=document.getElementById('mhVisitBadge'); if(badge) badge.style.display = realVisit?'inline':'none';
-  const back=document.getElementById('mhBackHomeBtn');  if(back) back.style.display = realVisit?'inline':'none';
-  const edit=document.getElementById('mhEditHomeBtn'); if(edit) edit.style.display = visiting?'none':'inline';
-  const label=document.getElementById('mhTitleLabel');
-  if(label){
-    if(realVisit){
-      label.textContent = '🏠 ' + _mhViewingDisplayName() + '의 마이홈';
-    } else if(window._mhPreviewMode){ label.textContent = '👁 방문자 시점 미리보기'; }
-    else label.textContent = '🏠 마이홈';
-  }
-  // 미리보기 종료 버튼 표시
-  const prevExit=document.getElementById('mhPreviewExitBtn');
-  if(prevExit) prevExit.style.display = window._mhPreviewMode ? 'inline' : 'none';
-  const prevBtn=document.getElementById('mhPreviewBtn');
-  if(prevBtn) prevBtn.style.display = (realVisit || window._mhPreviewMode) ? 'none' : 'inline';
-  // 관람 모드에선 마이홈 본문의 편집 UI들을 잠금 — contenteditable, 스티커 추가, BGM 등록 등.
-  document.querySelectorAll('#myHomeWin [contenteditable]').forEach(el=>{ el.setAttribute('contenteditable', visiting?'false':'true'); el.style.opacity = visiting?'0.85':''; });
-  const stickerAdd=document.getElementById('mhStickerAddBtn'); if(stickerAdd) stickerAdd.style.display = visiting?'none':'';
-  // 👀 스케줄러 입력 UI — 관람 중 숨김 (일정 입력창/추가/공개 체크/친구 태그)
-  ['mhSchedInput','mhSchedAddBtn','mhSchedTagBtn','mhSchedTagInfo'].forEach(sid=>{
-    const el=document.getElementById(sid); if(el) el.style.display = visiting?'none':'';
-  });
-  const pubChkEl=document.getElementById('mhSchedPublic');   // label로 감싸져 있어 label째 숨김
-  if(pubChkEl && pubChkEl.closest('label')) pubChkEl.closest('label').style.display = visiting?'none':'';
-  const bgmSet=document.getElementById('mhBgmSet'); if(bgmSet) bgmSet.style.display = visiting?'none':'';
-  // 스티커 삭제 버튼도 숨김
-  document.querySelectorAll('.mh-sticker-del').forEach(el=>{ el.style.display = visiting?'none':''; });
-  // 아바타 변경 버튼(있으면) 잠금
-  const avatarBtn=document.getElementById('mhAvatarChangeBtn'); if(avatarBtn) avatarBtn.style.display = visiting?'none':'';
-  /* 🏷️ 닉네임 「수정」 링크 — 편집 중이면 관람이 아니어도 계속 숨긴다(입력칸이 그 자리를 쓰고 있다).
-     관람으로 넘어갔다면 열려 있던 입력칸을 **취소로** 접는다.
-     ⚠️ 값을 비우고 blur 하면 안 된다 — blur 는 저장 경로라 그 순간 이름이 '나' 로 덮인다.
-        반드시 _mhCancelNameEdit(취소 깃발을 세우고 접는 길)을 쓸 것. */
-  if(visiting && typeof window._mhCancelNameEdit==='function') window._mhCancelNameEdit();
-  const nameEditLink=document.getElementById('mhNameEditLink');
-  if(nameEditLink) nameEditLink.style.display = (visiting || document.getElementById('mhMyNameInput')) ? 'none' : '';
-  // 관람 중엔 리치텍스트 툴바(B/I/폰트/색/IMG/URL 등) 자체를 숨김 — 어차피 편집 불가.
-  document.querySelectorAll('.mh-rt-toolbar').forEach(t=>{ t.style.display = visiting?'none':''; });
-  // 프로필 사진 클릭으로 파일 다이얼로그가 뜨는 것도 관람 중엔 막음
-  const avatarBig=document.getElementById('mhAvatarBig'); if(avatarBig) avatarBig.style.pointerEvents = visiting?'none':'';
-  // 게시글 제목 편집 툴팁도 관람 중엔 감춤 — 실제 편집도 _mhBeginPostTitleEdit 에서 가드됨
-  const postTitle=document.getElementById('mhPostTitle');
-  if(postTitle){
-    postTitle.title = visiting ? '' : '더블클릭해서 제목 수정';
-    postTitle.style.cursor = visiting ? 'default' : '';
-  }
-  // ✏️ 제목 수정 버튼 — 관람·미리보기 중엔 숨김(다른 편집 UI 와 같은 기준)
-  const postTitleEdit=document.getElementById('mhPostTitleEditBtn');
-  if(postTitleEdit) postTitleEdit.style.display = visiting ? 'none' : '';
-}
-window.openFriendHomeView = openFriendHomeView;
+/* 본문은 myhome-visit.js 로 옮겼다(앱 FSD 44번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const MH_VISIT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const mhVisitMod = (typeof TwMyHomeVisit === 'undefined') ? MH_VISIT_MOD_OFF : TwMyHomeVisit.createMyHomeVisit({
+  _myHomeFriends: ()=>_myHomeFriends,
+  _schedDdaysVisitUnsub: ()=>_schedDdaysVisitUnsub,
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  loadMyHomePage: (...a)=>loadMyHomePage(...a),
+  mhScheduler: mhScheduler,
+  myHomeOpen: ()=>myHomeOpen,
+  renderMyHomePage: (...a)=>renderMyHomePage(...a),
+  toast: (...a)=>toast(...a),
+  setSchedDdaysVisitUnsub: (v)=>{ _schedDdaysVisitUnsub = v; },
+  setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+});
 
 /* ═══ 🔬 __mhClickDiag() — "보이는데 안 눌린다"를 한 줄로 가르는 진단 ═══════════
    [왜 필요한가] 마이홈에서 "버튼이 안 눌린다"는 제보가 두 건 왔는데(방명록 등록 · 닉네임 수정),
@@ -4399,91 +4220,30 @@ window.openFriendHomeView = openFriendHomeView;
      · 전부 정상             → DOM 은 결백하다. 그때는 클릭 통과(_pointHitsInteractive) 쪽을 본다
    ⚠️ 실행 화면은 창이 투명해 콘솔을 열기 어렵다. 런처/생성기에서 마이홈을 열고 보는 것이 쉽다.
    ⚠️ 이건 **진단이지 방어가 아니다.** 원인을 잡고 나면 지워도 되는 블록이다. */
-window.__mhClickDiag = function(){
-  /* 🪟 **여기가 이번 사안의 핵심 값이다.** 버튼 좌표가 음수로 나오면 "무엇이 덮었나"가 아니라
-     "창이 화면보다 크거나 엉뚱한 자리에 있나"를 봐야 한다. #myHomeWin 은 폭이 760px 로 고정이라
-     뷰포트가 그보다 좁으면 왼쪽 열이 그대로 화면 밖으로 밀린다.
-     · 화면      : 지금 렌더러 뷰포트(=OS 창 안쪽). 런처 380 · 마이홈 800 · 생성기 740 이 정상값이다.
-     · 창확대    : Ctrl+휠/Ctrl+＋ 로 확대해 두면 뷰포트가 그만큼 좁아진다(380 → 1.28배면 297).
-                   화면 폭이 어느 정상값도 아니면 여기를 먼저 의심할 것.
-     · 마이홈창  : 실제 사각형과 **인라인 위치**. 드래그로 옮긴 자리가 남아 있으면 여기 값이 찍힌다.
-                   open() 은 열 때마다 이걸 비우지만 openFriendHomeView 는 안 비운다.
-     · 런처열림  : 창 크기 모드를 정하는 값(applyDesktopRunClass). false 인데 화면이 좁으면 모순이다. */
-  const win = document.getElementById('myHomeWin');
-  const wr = win ? win.getBoundingClientRect() : null;
-  const 창정보 = {
-    진단버전: 2,   // ★ 이 값이 1이면 옛 app.js 로 잰 것이다 — 결과를 믿지 말 것
-    화면: innerWidth + '×' + innerHeight,
-    창확대: (typeof devicePixelRatio === 'number' ? devicePixelRatio : '?'),
-    런처열림: !!(document.getElementById('launcher') || {}).classList
-              && document.getElementById('launcher').classList.contains('on'),
-    마이홈창: wr ? (Math.round(wr.left) + ',' + Math.round(wr.top) + ' / ' +
-                    Math.round(wr.width) + '×' + Math.round(wr.height)) : null,
-    인라인위치: win ? ((win.style.left || '(없음)') + ' / ' + (win.style.top || '(없음)') +
-                       ' / transform:' + (win.style.transform || '(없음)')) : null,
-  };
-  const TARGETS = [
-    ['mhNameEditLink',    '닉네임 수정'],
-    ['mhGuestbookBtn',    '방명록 남기기'],
-    ['mhAvatarBig',       '프로필 사진'],
-    ['mhStickerAddBtn',   '+ 스티커'],
-    ['mhPostTitleEditBtn','게시글 제목 수정'],
-    ['mhEditHomeBtn',     '마이홈 수정'],
-    ['myHomeClose',       '창 닫기 ✕'],
-  ];
-  /* 요소를 사람이 알아볼 이름으로 — id 가 없으면 클래스로. 범인이 익명 div 여도 최소한
-     어느 뭉치인지는 읽힌다. */
-  const name = el => {
-    if(!el) return null;
-    if(el === document.body) return 'body';
-    const id = el.id ? '#' + el.id : '';
-    const cl = el.className && typeof el.className === 'string'
-      ? '.' + el.className.trim().split(/\s+/).join('.') : '';
-    return (id + cl) || (el.tagName || '?').toLowerCase();
-  };
-  const out = {
-    창: 창정보,
-    마이홈열림: !!(document.getElementById('myHomeOverlay') || {}).classList
-                 && document.getElementById('myHomeOverlay').classList.contains('on'),
-    관람중: (typeof _mhViewingUserId !== 'undefined' && _mhViewingUserId) || null,
-    미리보기: !!window._mhPreviewMode,
-    항목: {},
-  };
-  TARGETS.forEach(([id, label])=>{
-    const el = document.getElementById(id);
-    if(!el){ out.항목[label] = { 있음:false }; return; }
-    const r = el.getBoundingClientRect();
-    const 보임 = r.width > 0 && r.height > 0;
-    const row = { 있음:true, 보임, 좌표: 보임 ? (Math.round(r.left)+','+Math.round(r.top)) : null };
-    if(보임){
-      const top = document.elementFromPoint(r.left + r.width/2, r.top + r.height/2);
-      /* 자기 자신이거나 자기 자손이면 정상이다 — 글자 노드를 감싼 span 이 잡히는 일이 흔하다. */
-      const ok = !!(top && (top === el || el.contains(top)));
-      row.가려짐 = !ok;
-      if(!ok) row.가린것 = name(top);
-    }
-    out.항목[label] = row;
-  });
-  return out;
-};
+/* 본문은 myhome-diag.js 로 옮겼다(앱 FSD 44번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const MH_DIAG_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const mhDiagMod = (typeof TwMyHomeDiag === 'undefined') ? MH_DIAG_MOD_OFF : TwMyHomeDiag.createMyHomeDiag({
+  _mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
+});
 
 /* ═══ 🏠 마이홈 페이지 불러오기 · 그리기 ═══ */
 async function loadMyHomePage(){
   // ★ 마이홈2-B: 관람 중이면 절대 내 데이터로 덮어쓰지 않음 (친구 홈 데이터가 순간적으로 사라지는 버그 방지)
-  if(_mhViewingUserId) return;
+  if(mhVisitMod._mhViewingUserId()) return;
   if(!window.firebaseAPI || !firebaseAPI.getMyHome){ try{ renderMyHomePage(); }catch(_){}; return; }
   try{
     const _loadUid = getMyUserId();
     const data = await firebaseAPI.getMyHome(_loadUid) || {};
-    if(_mhViewingUserId) return;   // ★ 로드가 진행되는 사이 친구 홈 관람으로 전환됐으면 덮어쓰지 않음(비동기 경쟁 방지)
+    if(mhVisitMod._mhViewingUserId()) return;   // ★ 로드가 진행되는 사이 친구 홈 관람으로 전환됐으면 덮어쓰지 않음(비동기 경쟁 방지)
     if(getMyUserId() !== _loadUid) return;   // 🪪 불러오는 사이 계정이 바뀌었다 — 옛 계정 데이터를 붙들지 않는다
-    _myHomeData = _mhHomeFromServer(data);
-    _myHomeLoaded = true;
-    _myHomeUid = _loadUid;
+    mhVisitMod.setMyHomeData(mhVisitMod._mhHomeFromServer(data));
+    mhVisitMod.setMyHomeLoaded(true);
+    mhVisitMod.setMyHomeUid(_loadUid);
   }catch(e){
     console.warn('마이홈 페이지 로드 실패 — 기본값으로 렌더', e);
     // ★ 로드가 실패해도 마이홈이 통째로 빈 화면이 되지 않게 안전한 기본값으로라도 렌더
-    if(!_myHomeData) _myHomeData = { avatar:null, bio:'', postTitle:'', post:'', theme:null, stickers:{}, bgm:null, bg:null };
+    if(!mhVisitMod._myHomeData()) mhVisitMod.setMyHomeData({ avatar:null, bio:'', postTitle:'', post:'', theme:null, stickers:{}, bgm:null, bg:null });
   }
   try{ renderMyHomePage(); }catch(e){ console.warn('마이홈 렌더 실패', e); }
 }
@@ -4491,23 +4251,23 @@ function renderMyHomePage(){
   // 마이홈2-B: 관람 중이면 친구 이름을 표시 (getDisplayName은 항상 내 이름을 반환)
   const nameEl=document.getElementById('mhMyName');
   if(nameEl){
-    if(_mhViewingUserId) nameEl.textContent = _mhViewingDisplayName();
+    if(mhVisitMod._mhViewingUserId()) nameEl.textContent = mhVisitMod._mhViewingDisplayName();
     else nameEl.textContent = getDisplayName();
   }
   // 리치 텍스트 필드 로드 — 옛 저장(순수 텍스트)이면 HTML 이스케이프 후 개행만 <br>로 변환해서 호환
   try{
-    const _bioLoad = _myHomeData.bio||'';
-    const _postLoad = _myHomeData.post||'';
+    const _bioLoad = mhVisitMod._myHomeData().bio||'';
+    const _postLoad = mhVisitMod._myHomeData().post||'';
     const bioBox=document.getElementById('mhBioBox');
     if(bioBox) bioBox.innerHTML = richTextMod._mhLoadRT(_bioLoad);
     const postBox=document.getElementById('mhPostBox');
     if(postBox) postBox.innerHTML = richTextMod._mhLoadRT(_postLoad);
   }catch(e){ console.warn('[마이홈] bio/post 렌더 실패', e); }
-  const titleEl=document.getElementById('mhPostTitle'); if(titleEl) titleEl.textContent = _myHomeData.postTitle || '게시글 제목';   // 비어있으면 안내 문구를 그대로 표시
+  const titleEl=document.getElementById('mhPostTitle'); if(titleEl) titleEl.textContent = mhVisitMod._myHomeData().postTitle || '게시글 제목';   // 비어있으면 안내 문구를 그대로 표시
   // 툴바의 글자수 카운트 초기화
   if(typeof richTextMod._mhUpdateRTCount==='function'){ richTextMod._mhUpdateRTCount('mhBioBox'); richTextMod._mhUpdateRTCount('mhPostBox'); }
   const img=document.getElementById('mhAvatarImg'), ph=document.getElementById('mhAvatarPlaceholder');
-  if(_myHomeData.avatar){ if(img){img.src=_myHomeData.avatar; img.style.display='block';} if(ph) ph.style.display='none'; }
+  if(mhVisitMod._myHomeData().avatar){ if(img){img.src=mhVisitMod._myHomeData().avatar; img.style.display='block';} if(ph) ph.style.display='none'; }
   else { if(img) img.style.display='none'; if(ph) ph.style.display='flex'; }
   // ★ 각 렌더 단계를 개별 격리 — 한 유저의 손상된 데이터(예: 깨진 스티커/테마 값)로 한 곳이
   //   throw해도 마이홈 전체가 "빈 화면"이 되지 않게. 죽은 단계는 콘솔에 남겨 원인 추적.
@@ -4569,151 +4329,15 @@ function asyncPrompt({title, message, defaultValue, placeholder, maxLength}={}){
 }
 window.asyncPrompt = asyncPrompt;
 /* ═══ 🎨 마이홈 스티커 배치 · 그리기(renderMyHomeStickers) · 관리 창 연결 ═══ */
-/* 🎨 스티커 — 마이홈 "창 전체"에 자유 배치.
-   · 좌표는 마이홈 창(#myHomeWin) 좌상단 기준 px. 탭을 바꿔도 같은 자리에 있음.
-   · 친구 탭에서는 숨김(목록이 빽빽해서 가리면 곤란) + 친구 홈 관람 중엔 그 사람 스티커만 보임.
-   · 평소: 클릭 = 링크 열기. 우클릭 = 편집모드(드래그 이동 / 코너 핸들 크기 / × 삭제).
-   · 편집은 본인만. 관람 중에는 우클릭해도 편집모드로 안 들어감. */
-const STICKER_MAX = 5;
-const STICKER_IMG_MAX_W = 400;    // 업로드 시 가로 최대 400px로 축소(비율 유지)
-const STICKER_ROT_SNAP = 3;       // 회전 스냅 각도(도) — 3도 단위로 딱딱 붙음
-
-/* 스티커의 transform 문자열 — 크기(scale)와 회전(rotate)을 함께 적용.
-   ★ transform-origin이 top left라 scale은 좌상단 기준으로 커지고(위치 안정),
-     회전은 그 상태에서 스티커 자기 중심을 기준으로 돌아야 자연스러움.
-     그래서 rotate 앞뒤로 중심 이동(translate)을 감싸는 대신,
-     scale → rotate 순서로 쓰고 rotate에만 별도 origin이 필요 없도록
-     scale 이후의 좌표계에서 중앙으로 옮겼다가 되돌리는 방식을 씀. */
-/* ✨ 스티커 움직임 고르기 창 — 고르는 즉시 화면에 반영되고 저장된다.
-   저장되는 값은 이름 문자열 두 개(anim/animSpd)뿐이라 용량·통신 부담이 없다. */
-let _mhAnimSid = null;
-function _mhOpenStickerAnim(sid){
-  _mhAnimSid = sid;
-  const ov=document.getElementById('mhStickerAnimOverlay'); if(!ov) return;
-  ov.style.display='flex';
-  _mhSyncStickerAnimUI();
-}
-function _mhCloseStickerAnim(){
-  _mhAnimSid = null;
-  const ov=document.getElementById('mhStickerAnimOverlay'); if(ov) ov.style.display='none';
-}
-function _mhSyncStickerAnimUI(){
-  const d=_mhStickersData(); const s=(_mhAnimSid && d) ? d[_mhAnimSid] : null; if(!s) return;
-  document.querySelectorAll('#stAnimGrid button').forEach(b=>{
-    b.classList.toggle('on', (b.dataset.a||'') === (s.anim||''));
-  });
-  document.querySelectorAll('#stAnimSpd button').forEach(b=>{
-    b.classList.toggle('on', (b.dataset.s||'') === (s.animSpd||''));
-  });
-}
-function _mhApplyStickerAnim(key, val){
-  if(!_mhAnimSid || !_myHomeData || !_myHomeData.stickers) return;
-  const s=_myHomeData.stickers[_mhAnimSid]; if(!s) return;
-  if(val) s[key]=val; else delete s[key];
-  renderMyHomeStickers(); commitMyHomePage(true);
-  _mhSyncStickerAnimUI();
-}
-try{
-  document.addEventListener('click', e=>{
-    const g = e.target.closest && e.target.closest('#stAnimGrid button');
-    if(g){ _mhApplyStickerAnim('anim', g.dataset.a||''); return; }
-    const p = e.target.closest && e.target.closest('#stAnimSpd button');
-    if(p){ _mhApplyStickerAnim('animSpd', p.dataset.s||''); return; }
-    if(e.target.id === 'stAnimClose') _mhCloseStickerAnim();
-  });
-}catch(_){}
-function _mhStickerTransform(s){
-  const size = (typeof s.size==='number' && s.size>0) ? s.size : 1;
-  const rot  = (typeof s.rot==='number') ? s.rot : 0;
-  const parts = [];
-  if(size !== 1) parts.push('scale('+size+')');
-  if(rot !== 0){
-    // scale된 좌표계 안에서 중심으로 이동 → 회전 → 복귀
-    parts.push('translate(50%, 50%)', 'rotate('+rot+'deg)', 'translate(-50%, -50%)');
-  }
-  return parts.join(' ');
-}
-const STICKER_BASE = 40;          // .mh-sticker 기본 한 변(px) — size 배율의 기준
-let _mhStickerEditSid = null;     // 지금 편집모드인 스티커 id (없으면 null)
-
-/* 📐 스티커가 화면에서 차지하는 크기 — 렌더 로직(renderMyHomeStickers)과 같은 계산을 한 곳에 모은다.
-   .mh-sticker는 transform-origin:top left 라서 scale이 커져도 좌상단(x,y)은 그대로다.
-   ⚠️ 렌더 쪽 baseW 계산식을 고치면 여기도 같이 고칠 것 — 어긋나면 "화면 밖 판정"이 조용히 틀어진다. */
-function _mhStickerDispSize(s){
-  let w = STICKER_BASE, h = STICKER_BASE;
-  if(s && s.w && s.h){ w = Math.min(s.w, STICKER_BASE * 2.2); h = Math.round(w * (s.h / s.w)); }
-  const k = (s && typeof s.size==='number' && s.size>0) ? s.size : 1;
-  return { w: Math.max(8, w*k), h: Math.max(8, h*k) };
-}
-function _mhHomeWinSize(){
-  const win = document.getElementById('myHomeWin');
-  return { W: (win && win.clientWidth) || 760, H: (win && win.clientHeight) || 560 };
-}
-/* 📐 화면에 실제로 차지하는 사각형 — (x, y) 에서 얼마나 떨어진 곳(dx, dy)에 얼마만한(w, h) 상자인가.
-   .mh-sticker 의 회전은 크기 맞춘 상자의 **가운데**를 축으로 돈다(_mhStickerTransform) — 돌리면 모서리가
-   원래 상자 밖으로 나오므로 그 바깥 상자까지 본다. 회전이 없으면 dx = dy = 0, 크기는 _mhStickerDispSize 그대로. */
-function _mhStickerBox(s){
-  const d = _mhStickerDispSize(s);
-  const rad = ((s && typeof s.rot === 'number') ? s.rot : 0) * Math.PI / 180;
-  const c = Math.abs(Math.cos(rad)), n = Math.abs(Math.sin(rad));
-  const w = d.w * c + d.h * n, h = d.w * n + d.h * c;
-  return { dx: (d.w - w) / 2, dy: (d.h - h) / 2, w, h };
-}
-/* 스티커를 마이홈 창 안에 붙잡아 둔다.
-   [왜] 예전엔 스티커 폭의 60%까지 창 밖으로 나가는 걸 허용했다. 그런데 마이홈 창은 overflow가 잘려서,
-        일단 밖으로 나가면 화면에 아무것도 안 남는다 — 보이지 않으니 우클릭도 드래그도 못 하고,
-        그 스티커는 되찾을 방법이 없어졌다(제보 증상). 통째로 안에 두는 편이 잃는 게 없다.
-   ★ 회전한 바깥 상자(_mhStickerBox)로 본다. 크기 조절 · 회전은 이 함수를 안 거친다 — 창 밖으로 걸쳐 두는 것은
-     꾸미기라서 막지 않고, 런처에서도 보이게 창을 넓힌다(_mhStickerOverhang).
-   ★ 그래도 이미 밖으로 나간 옛 스티커가 있으므로, 관리 창의 [가운데로]가 구제 수단으로 남는다. */
-function _mhClampStickerPos(s){
-  if(!s) return s;
-  const { W, H } = _mhHomeWinSize();
-  const b = _mhStickerBox(s);
-  s.x = Math.round(Math.max(-b.dx, Math.min(s.x||0, W - b.w - b.dx)));
-  s.y = Math.round(Math.max(-b.dy, Math.min(s.y||0, H - b.h - b.dy)));
-  return s;
-}
-/* 지금 마이홈 창 밖으로 (일부라도) 나가 있는가 — 관리 창의 '화면 밖' 배지 판정 */
-function _mhStickerOutOfView(s){
-  if(!s) return false;
-  const { W, H } = _mhHomeWinSize();
-  const b = _mhStickerBox(s);
-  const x = (s.x||0) + b.dx, y = (s.y||0) + b.dy;
-  return x < -0.5 || y < -0.5 || (x + b.w) > W + 0.5 || (y + b.h) > H + 0.5;
-}
-
-/* 🎨 스티커가 마이홈 창 밖으로 나간 만큼(CSS px) — 런처에서 마이홈 OS 창을 이만큼 양쪽으로 넓힌다(main.js _modeSize).
-   [왜] 실행 화면은 전체화면이라 창 밖 스티커도 보이는데, 런처는 OS 창이 마이홈보다 조금만 커서 잘렸다(제보).
-   마이홈 탭이 아니면 스티커를 안 그리므로 0. 관람 중이면 그 친구 스티커로 잰다(_mhStickersData). */
-function _mhStickerOverhang(){
-  const zone = document.getElementById('mhStickerZone');
-  if(!zone || zone.classList.contains('hidden')) return { x: 0, y: 0 };
-  const { W, H } = _mhHomeWinSize();
-  const data = _mhStickersData();
-  let x = 0, y = 0;
-  Object.keys(data).forEach(sid=>{
-    const s = data[sid]; if(!s) return;
-    const b = _mhStickerBox(s);
-    const l = (s.x||0) + b.dx, t = (s.y||0) + b.dy;
-    x = Math.max(x, -l, l + b.w - W);
-    y = Math.max(y, -t, t + b.h - H);
-  });
-  return { x: Math.max(0, Math.ceil(x)), y: Math.max(0, Math.ceil(y)) };
-}
-/* 크기 · 회전 핸들을 놓았을 때(myhome-sticker.js) · 스티커를 다시 그렸을 때 — 창 밖으로 나간 만큼 다시 넓힌다.
-   ⚠️ 부팅 중엔 applyDesktopRunClass 가 아직 못 쓰는 이름(desktopMode)을 볼 수 있어 try 로 감싼다. 같은 크기면 main 이 건너뛴다. */
-function _mhFitWindowSafe(){ try{ applyDesktopRunClass(); }catch(_){} }
-window._mhFitWindow = _mhFitWindowSafe;
-
-/* 지금 화면에 그릴 스티커 데이터 — 관람 중이면 그 친구 것, 아니면 내 것 */
-function _mhStickersData(){
-  // ★ 관람 중에도 소스는 _myHomeData — openFriendHomeView가 친구의 home을 통째로 여기에 담기 때문.
-  //   (예전엔 _myHomeFriends[uid].home.stickers를 봤는데 그 경로엔 스티커가 없어서 관람 시 스티커가 안 보였음)
-  return _myHomeData.stickers || {};
-}
-function _mhCanEditStickers(){ return !_mhViewingUserId; }
-
+/* 본문은 myhome-sticker-layout.js 로 옮겼다(앱 FSD 44번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const MH_ST_LAYOUT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const mhStLayoutMod = (typeof TwMyHomeStickerLayout === 'undefined') ? MH_ST_LAYOUT_MOD_OFF : TwMyHomeStickerLayout.createMyHomeStickerLayout({
+  _mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
+  _myHomeData: ()=>mhVisitMod._myHomeData(),
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+});
 function renderMyHomeStickers(){
   const zone=document.getElementById('mhStickerZone'); if(!zone) return;
   // 스티커는 '마이홈' 탭에서만 표시 — 친구/스케줄러/버그제보 탭에서는 감춤
@@ -4721,10 +4345,10 @@ function renderMyHomeStickers(){
   const activeTab = document.querySelector('#myHomeTabs .mh-tab.on');
   const onHomeTab = activeTab && activeTab.dataset.tab === 'home';
   zone.classList.toggle('hidden', !onHomeTab);
-  if(!onHomeTab){ _mhFitWindowSafe(); myHomeSticker.editEnd(); return; }
+  if(!onHomeTab){ mhStLayoutMod._mhFitWindowSafe(); myHomeSticker.editEnd(); return; }
 
-  const data = _mhStickersData();
-  const canEdit = _mhCanEditStickers();
+  const data = mhStLayoutMod._mhStickersData();
+  const canEdit = mhStLayoutMod._mhCanEditStickers();
   zone.innerHTML='';
   Object.keys(data).forEach(sid=>{
     const s=data[sid];
@@ -4740,16 +4364,16 @@ function renderMyHomeStickers(){
     el.style.left=(s.x||0)+'px'; el.style.top=(s.y||0)+'px'; el.dataset.sid=sid;
     // 새 스티커는 원본 비율(w/h)을 가짐. 옛 스티커는 w/h가 없으므로 CSS 기본(40×40 정사각) 유지.
     if(s.w && s.h){
-      const baseW = Math.min(s.w, STICKER_BASE * 2.2);   // 화면상 기본 표시 폭(size=1일 때)
+      const baseW = Math.min(s.w, mhStLayoutMod.STICKER_BASE * 2.2);   // 화면상 기본 표시 폭(size=1일 때)
       el.style.width  = baseW + 'px';
       el.style.height = Math.round(baseW * (s.h / s.w)) + 'px';
     }
     const alpha = (typeof s.alpha==='number') ? Math.max(0, Math.min(1, s.alpha)) : 1;
-    const tf = _mhStickerTransform(s);
+    const tf = mhStLayoutMod._mhStickerTransform(s);
     if(tf) el.style.transform = tf;
     if(alpha !== 1) el.style.opacity = String(alpha);
 
-    if(sid === _mhStickerEditSid && canEdit) el.classList.add('editing');
+    if(sid === mhStLayoutMod._mhStickerEditSid() && canEdit) el.classList.add('editing');
 
     if(s.link){
       el.classList.add('linked'); el.title = canEdit ? (s.link + '  (우클릭: 편집)') : s.link;
@@ -4777,7 +4401,7 @@ function renderMyHomeStickers(){
       const del=document.createElement('div'); del.className='mh-sticker-del'; del.textContent='×';
       del.onclick=e=>{
         e.stopPropagation();
-        delete _myHomeData.stickers[sid];
+        delete mhVisitMod._myHomeData().stickers[sid];
         myHomeSticker.editEnd();
         renderMyHomeStickers(); commitMyHomePage(true);
       };
@@ -4786,7 +4410,7 @@ function renderMyHomeStickers(){
       // ✨ 움직임 버튼 — 삭제(×) 옆. 더블클릭은 드래그 처리와 겹쳐 안 잡혀서 버튼 방식으로.
       const anim=document.createElement('div'); anim.className='mh-sticker-anim'; anim.textContent='✨';
       anim.title='움직임 고르기';
-      anim.onclick=e=>{ e.stopPropagation(); _mhOpenStickerAnim(sid); };
+      anim.onclick=e=>{ e.stopPropagation(); mhStLayoutMod._mhOpenStickerAnim(sid); };
       el.appendChild(anim);
 
       // 크기 조절 핸들 (편집모드에서만 보임)
@@ -4810,14 +4434,14 @@ function renderMyHomeStickers(){
     }
     zone.appendChild(el);
   });
-  _mhFitWindowSafe();   // 🎨 런처 마이홈이면 창 밖으로 나간 스티커만큼 창을 넓힌다
+  mhStLayoutMod._mhFitWindowSafe();   // 🎨 런처 마이홈이면 창 밖으로 나간 스티커만큼 창을 넓힌다
 }
 
 /* 🎨 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기는 parts/myhome-sticker.js 로 옮겼다(앱 FSD 7번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게) — renderMyHomeStickers 는 아래 마이홈 페이지 편집 묶음(myhome-edit.js)이 감싸 다시 대입하고,
    commitMyHomePage 는 그 묶음이 window 에 거는 이름이다. _myHomeData · _mhViewingUserId · _mhStickerEditSid 는 다시 대입되는 let 이라
-   읽는 함수로, _mhStickerEditSid · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다(두 let 은 renderMyHomeStickers 가 읽어서 여기 둔다).
+   읽는 함수로, _mhStickerEditSid · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다(둘 다 renderMyHomeStickers 가 읽는다 — _mhStickerEditSid 는 myhome-sticker-layout.js 에, _mhStickerDragDist 는 app.js 에).
    STICKER_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로. 부르는 곳은 myHomeSticker.이름(전부 마이홈을 연 뒤에 돈다).
    🔗 마이홈 본문 링크(bindMyHomeExternalLinks)는 스티커 관리 창이 아니라 여기 남겼다(마이홈 페이지 편집 묶음은 아래에서 myhome-edit.js 로 잇는다).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
@@ -4828,20 +4452,20 @@ const myHomeSticker = (typeof TwMyHomeSticker === 'undefined') ? MYHOME_STICKER_
   asyncPrompt: (...a)=>asyncPrompt(...a),
   commitMyHomePage: (...a)=>commitMyHomePage(...a),
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
-  mhStickerOutOfView: (...a)=>_mhStickerOutOfView(...a),
-  mhClampStickerPos: (...a)=>_mhClampStickerPos(...a),
-  mhStickerDispSize: (...a)=>_mhStickerDispSize(...a),
-  mhHomeWinSize: (...a)=>_mhHomeWinSize(...a),
-  mhStickerTransform: (...a)=>_mhStickerTransform(...a),
-  mhOpenStickerAnim: (...a)=>_mhOpenStickerAnim(...a),
-  myHomeData: ()=>_myHomeData,
-  mhViewingUserId: ()=>_mhViewingUserId,
-  mhStickerEditSid: ()=>_mhStickerEditSid,
-  setMhStickerEditSid: (v)=>{ _mhStickerEditSid = v; },
+  mhStickerOutOfView: (...a)=>mhStLayoutMod._mhStickerOutOfView(...a),
+  mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
+  mhStickerDispSize: (...a)=>mhStLayoutMod._mhStickerDispSize(...a),
+  mhHomeWinSize: (...a)=>mhStLayoutMod._mhHomeWinSize(...a),
+  mhStickerTransform: (...a)=>mhStLayoutMod._mhStickerTransform(...a),
+  mhOpenStickerAnim: (...a)=>mhStLayoutMod._mhOpenStickerAnim(...a),
+  myHomeData: ()=>mhVisitMod._myHomeData(),
+  mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
+  mhStickerEditSid: ()=>mhStLayoutMod._mhStickerEditSid(),
+  setMhStickerEditSid: (v)=>{ mhStLayoutMod.setMhStickerEditSid(v); },
   setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },
-  stickerMax: STICKER_MAX,
-  stickerBase: STICKER_BASE,
-  stickerRotSnap: STICKER_ROT_SNAP,
+  stickerMax: mhStLayoutMod.STICKER_MAX,
+  stickerBase: mhStLayoutMod.STICKER_BASE,
+  stickerRotSnap: mhStLayoutMod.STICKER_ROT_SNAP,
 });
 
 /* ═══ 🔗 마이홈 본문 링크 ═══ */
@@ -4896,28 +4520,28 @@ const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwM
   setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },
   mhSaveRT: (...a)=>richTextMod._mhSaveRT(...a),
   mhUpdateRTCount: (...a)=>richTextMod._mhUpdateRTCount(...a),
-  mhClampStickerPos: (...a)=>_mhClampStickerPos(...a),
-  mhViewingDisplayName: (...a)=>_mhViewingDisplayName(...a),
-  mhApplyVisitUI: (...a)=>_mhApplyVisitUI(...a),
+  mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
+  mhViewingDisplayName: (...a)=>mhVisitMod._mhViewingDisplayName(...a),
+  mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),
   ytVideoId: (...a)=>plMod.ytVideoId(...a),
-  applyThemeToChildDoc: (...a)=>applyThemeToChildDoc(...a),
+  applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   commitUserName: (...a)=>progSettingsMod.commitUserName(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getUserName: (...a)=>getUserName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  myHomeData: ()=>_myHomeData,
-  mhViewingUserId: ()=>_mhViewingUserId,
-  myHomeLoaded: ()=>_myHomeLoaded,
-  setMyHomeLoaded: (v)=>{ _myHomeLoaded = v; },
-  myHomeUid: ()=>_myHomeUid,
+  myHomeData: ()=>mhVisitMod._myHomeData(),
+  mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
+  myHomeLoaded: ()=>mhVisitMod._myHomeLoaded(),
+  setMyHomeLoaded: (v)=>{ mhVisitMod.setMyHomeLoaded(v); },
+  myHomeUid: ()=>mhVisitMod._myHomeUid(),
   mhStickerDragDist: ()=>_mhStickerDragDist,
   setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },
   isPremium: ()=>isPremium,
   isAdmin: ()=>isAdmin,
   userNameMax: ()=>progSettingsMod.USER_NAME_MAX,
   myHomeSticker,
-  stickerMax: STICKER_MAX,
-  stickerImgMaxW: STICKER_IMG_MAX_W,
+  stickerMax: mhStLayoutMod.STICKER_MAX,
+  stickerImgMaxW: mhStLayoutMod.STICKER_IMG_MAX_W,
   dsImgMaxBgW: DS_IMG_MAX_BG_W,
   dsImgMaxBgH: DS_IMG_MAX_BG_H,
   dsImgMaxPanel: DS_IMG_MAX_PANEL,
@@ -4938,9 +4562,9 @@ const guestbook = (typeof TwGuestbook === 'undefined') ? GUESTBOOK_OFF : TwGuest
   getDisplayName: ()=>getDisplayName(),
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
-  applyThemeToChildDoc: (...a)=>applyThemeToChildDoc(...a),
-  mhViewingUserId: ()=>_mhViewingUserId,
-  mhViewingDisplayName: ()=>_mhViewingDisplayName(),
+  applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
+  mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
+  mhViewingDisplayName: ()=>mhVisitMod._mhViewingDisplayName(),
   myHomeFriends: ()=>_myHomeFriends,
 });
 
@@ -4981,7 +4605,7 @@ const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi
   _chatRoomCode: (...a)=>_chatRoomCode(...a),
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _diceSvg: (...a)=>diceMod._diceSvg(...a),
-  _myHomeData: ()=>_myHomeData,
+  _myHomeData: ()=>mhVisitMod._myHomeData(),
   _officeDemojiHtml: (...a)=>overheadMod._officeDemojiHtml(...a),
   _parseDanceCmdChain: (...a)=>iDeskMod._parseDanceCmdChain(...a),
   _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
@@ -5851,7 +5475,7 @@ function _seatCtxMenu(ev, seat){
     // seat.friendId는 방 세션의 memberId(랜덤). 실제 유저 식별은 friendUserId(userId) 필요.
     const uid = seat.friendUserId || null;
     if(uid && _myHomeFriends[uid]){
-      mk('🏠 마이홈 구경', ()=>{ if(typeof openFriendHomeView==='function') openFriendHomeView(uid); });
+      mk('🏠 마이홈 구경', ()=>{ if(typeof mhVisitMod.openFriendHomeView==='function') mhVisitMod.openFriendHomeView(uid); });
     } else if(uid){
       mk('👤 친구 신청', ()=>_friendReqAsk(uid, seat));
     } else {
@@ -12046,7 +11670,7 @@ const progSettingsMod = (typeof TwProgramSettings === 'undefined') ? PROG_SETTIN
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
   refreshLicenseUI: (...a)=>refreshLicenseUI(...a),
   refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),
-  refreshThemeUI: (...a)=>refreshThemeUI(...a),
+  refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),
   setUserName: (...a)=>setUserName(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
@@ -12195,7 +11819,7 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
   _licenseSnapForPush: (...a)=>licenseGateMod._licenseSnapForPush(...a),
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
   _loginDoLogout: (...a)=>accountMod._loginDoLogout(...a),
-  _myHomeData: ()=>_myHomeData,
+  _myHomeData: ()=>mhVisitMod._myHomeData(),
   _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
   _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
   closeGearMenu: (...a)=>closeGearMenu(...a),
@@ -15174,9 +14798,9 @@ function applyTheme(){
     if(t==='bubble') root.setAttribute('data-theme','bubble'); else root.removeAttribute('data-theme');
   }catch(e){ console.warn('[테마] 적용 실패 — 기본 테마로 둡니다', e); }
   // 🎨 [제보 5] 열려 있는 방명록·디자인 창에도 — 닫힌 창은 여기서 떨어져 나간다
-  _themeChildDocs = _themeChildDocs.filter(d=>{
-    try{ if(!d.defaultView || d.defaultView.closed) return false; applyThemeToChildDoc(d); return true; }catch(_){ return false; }
-  });
+  themeUiMod.setThemeChildDocs(themeUiMod._themeChildDocs().filter(d=>{
+    try{ if(!d.defaultView || d.defaultView.closed) return false; themeUiMod.applyThemeToChildDoc(d); return true; }catch(_){ return false; }
+  }));
 }
 /* ═══ 🎨 [2026-09-15 제보 5] 테마 「버블」이 마이홈 방명록엔 안 먹음 ═══════════════════════
    [원인] 방명록·디자인 창은 window.open → main.js setWindowOpenHandler 가 **별도 BrowserWindow** 로 연다.
@@ -15188,77 +14812,23 @@ function applyTheme(){
         getComputedStyle 로 읽어 <style id=twThemeTokens> 로 넣는다. 값을 옮기므로 메인 CSS 와 두 벌이 안 된다.
      ③ applyTheme 가 열린 창에도 다시 건다(_themeChildDocs) — 창을 띄운 채 테마를 바꿔도 즉시 따라간다.
    ⚠️ 토큰 목록에 없는 변수는 자식 창에서 var() 폴백으로 떨어진다. 자식 CSS 에 --win-* 를 새로 쓰면 여기도 추가할 것. */
-const THEME_CHILD_TOKENS = [
-  '--win-face','--win-face-2','--win-hi','--win-lo','--win-lo-2','--win-ink','--win-ink-soft','--win-title-ink',
-  '--win-error','--win-radius','--win-radius-sm','--win-radius-el','--win-font','--win-title-grad',
-  '--win-title-premium','--win-title-premium-ink','--win-btn-grad','--win-face-grad','--win-drop','--win-select',
-  '--acc-d','--acc-m','--acc-l','--acc-tint','--acc-brd','--acc-face','--acc-pop',
-];
-let _themeChildDocs = [];
-function _themeChildCss(){
-  const cs = getComputedStyle(document.documentElement);
-  return 'html{' + THEME_CHILD_TOKENS.map(k=>{ const v = cs.getPropertyValue(k).trim(); return v ? (k + ':' + v + ';') : ''; }).join('') + '}';
-}
-function applyThemeToChildDoc(d){
-  try{
-    if(!d || !d.documentElement) return;
-    const root = document.documentElement, h = d.documentElement;
-    const t = root.getAttribute('data-theme'), a = root.getAttribute('data-accent');
-    if(t) h.setAttribute('data-theme', t); else h.removeAttribute('data-theme');
-    if(a) h.setAttribute('data-accent', a); else h.removeAttribute('data-accent');
-    let st = d.getElementById('twThemeTokens');
-    if(!st){
-      st = d.createElement('style'); st.id = 'twThemeTokens';
-      const head = d.head || d.documentElement;
-      head.insertBefore(st, head.firstChild);   // 창 자신의 <style> 보다 앞 — 토큰이 먼저 있어야 var() 가 산다
-    }
-    st.textContent = _themeChildCss();
-    if(_themeChildDocs.indexOf(d) < 0) _themeChildDocs.push(d);
-  }catch(_){}
-}
-function setTheme(t){
-  try{
-    localStorage.setItem(THEME_KEY, (t==='bubble') ? 'bubble' : 'default');
-    // 테마를 바꾸면 그 테마의 기본색으로 따라간다 — 색표가 테마마다 달라서 칸 번호를 그대로 두면
-    // 엉뚱한 색(기본의 퍼플 → 버블의 그레이)으로 튀어 "왜 회색이 됐지"가 된다.
-    localStorage.setItem(ACCENT_KEY, THEME_DEFAULT_ACCENT[(t==='bubble')?'bubble':'default']);
-  }catch(_){}
-  applyTheme(); refreshThemeUI();
-}
-function setAccent(a){
-  try{ localStorage.setItem(ACCENT_KEY, a); }catch(_){}
-  applyTheme(); refreshThemeUI();
-}
-/* 설정 패널의 테마·색상 칩을 지금 상태에 맞춰 다시 그린다. 패널이 없으면 조용히 넘어간다. */
-function refreshThemeUI(){
-  const t = getTheme(), a = getAccent();
-  const bd = document.getElementById('themeOptDefault'), bb = document.getElementById('themeOptBubble');
-  if(bd) bd.classList.toggle('on', t!=='bubble');
-  if(bb) bb.classList.toggle('on', t==='bubble');
-  const row = document.getElementById('themeColorRow'), names = document.getElementById('themeColorNames');
-  if(!row) return;
-  const set = THEME_COLORS[t];
-  row.innerHTML = '';
-  set.forEach(([id,name,css])=>{
-    const b = document.createElement('button');
-    b.type='button'; b.className='color-chip'+(id===a?' on':'');
-    b.style.background = css; b.title = name;
-    b.onclick = ()=>setAccent(id);
-    row.appendChild(b);
-  });
-  if(names) names.innerHTML = set.map(c=>'<span>'+c[1]+'</span>').join('');
-}
-function bindThemeUI(){
-  const bd = document.getElementById('themeOptDefault'), bb = document.getElementById('themeOptBubble');
-  if(bd) bd.onclick = ()=>setTheme('default');
-  if(bb) bb.onclick = ()=>setTheme('bubble');
-  refreshThemeUI();
-}
+/* 본문은 theme-ui.js 로 옮겼다(앱 FSD 44번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const THEME_UI_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const themeUiMod = (typeof TwThemeUi === 'undefined') ? THEME_UI_MOD_OFF : TwThemeUi.createThemeUi({
+  ACCENT_KEY: ACCENT_KEY,
+  THEME_COLORS: THEME_COLORS,
+  THEME_DEFAULT_ACCENT: THEME_DEFAULT_ACCENT,
+  THEME_KEY: THEME_KEY,
+  applyTheme: (...a)=>applyTheme(...a),
+  getAccent: (...a)=>getAccent(...a),
+  getTheme: (...a)=>getTheme(...a),
+});
 /* ★ 최상위 호출은 반드시 위 const 선언들 '뒤'에 둔다.
    앞에서 부르면 THEME_COLORS가 아직 TDZ라 ReferenceError가 나고, 최상위에서 터지므로
    app.js 전체가 그 줄에서 멈춘다 = 프로그램이 아예 안 켜진다. (실제로 한 번 그렇게 만들었다) */
 applyTheme();      // 파싱 즉시 1회 — 늦게 부르면 기본 테마가 한 프레임 번쩍인다
-bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소가 없으면 조용히 넘어감)
+themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소가 없으면 조용히 넘어감)
 
 /* ═══ ⭐ 경험치 바 ═══════════════════════════════════════════════════════════
    캐릭터 발밑에 1px 외곽선 통짜 게이지로 레벨 진행도를 보여준다. 내 좌석·상대 좌석 공용.
@@ -15507,7 +15077,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
   const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
   // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
-  const extra = (mode === 'myhome') ? _mhStickerOverhang() : null;
+  const extra = (mode === 'myhome') ? mhStLayoutMod._mhStickerOverhang() : null;
   if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);
 }
 /* 본문은 desktop-run.js 로 옮겼다(앱 FSD 32번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.

@@ -46,6 +46,10 @@ const MODULES = [
   { file: 'license-request.js', mod: 'licReqMod', glob: 'TwLicenseRequest', sample: 'function _showLicenseReqState(' },   // 앱 FSD 43번
   { file: 'fn-keys.js', mod: 'fnKeysMod', glob: 'TwFnKeys', sample: '(function bindHotkeys(){' },   // 앱 FSD 43번
   { file: 'hidden-seats.js', mod: 'hiddenSeatsMod', glob: 'TwHiddenSeats', sample: 'function _reportHiddenSave(' },   // 앱 FSD 43번
+  { file: 'theme-ui.js', mod: 'themeUiMod', glob: 'TwThemeUi', sample: 'function _themeChildCss(' },   // 앱 FSD 44번
+  { file: 'myhome-sticker-layout.js', mod: 'mhStLayoutMod', glob: 'TwMyHomeStickerLayout', sample: 'function _mhOpenStickerAnim(' },   // 앱 FSD 44번
+  { file: 'myhome-diag.js', mod: 'mhDiagMod', glob: 'TwMyHomeDiag', sample: 'window.__mhClickDiag = function(){' },   // 앱 FSD 44번
+  { file: 'myhome-visit.js', mod: 'mhVisitMod', glob: 'TwMyHomeVisit', sample: 'function _mhHomeFromServer(' },   // 앱 FSD 44번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
