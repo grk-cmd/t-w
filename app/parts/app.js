@@ -9054,12 +9054,13 @@ const adminUsers = (typeof TwAdminUsers === 'undefined') ? ADMIN_USERS_OFF : TwA
 
 // 🎟️ 앱 시작 시 초대장 게이트 — firebaseAPI가 준비된 뒤에 확인.
 //   원격 설정 inviteGate 가 false면 checkInviteGate가 즉시 통과시키므로 아무 일도 안 일어남.
-//   ★ 두 스위치의 첫 답을 최대 3초 기다린다 — 못 받으면 기본값(true · 예전 동작). 다음에 바뀐 값은 다음 부팅부터.
+//   ★ 이 PC 저장값이 있으면 기다리지 않는다 — 저장값으로 바로 판단하고, 새 값은 뒤에서 받아 다음 부팅부터.
+//     저장값이 없을 때(처음 켠 PC)만 두 스위치의 첫 답을 최대 3초 기다린다 — 못 받으면 기본값(true · 예전 동작).
 const REMOTE_FLAGS_WAIT_MS = 3000;
 (function initInviteGate(){
   const run = async ()=>{
     const _s = licenseGateMod._rcStore();
-    if(_s){ try{ await _s.ready(['inviteGate','existingSignup'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
+    if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate','existingSignup'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
     licenseGateMod.checkInviteGate()
       .then(()=>{ licenseGateMod.refreshInviteBtn(); return licenseGateMod._existingSignupCheck(); })   // 🪪 I — 초대 게이트를 지난 뒤 한 번(설계 §3)
       .then(shownI => (shownI ? true : licenseGateMod._needLoginCheck()))                 // 🔐 K — I 가 아니면(이미 묶인 uid) 로그인이 맞는지(§9-11)

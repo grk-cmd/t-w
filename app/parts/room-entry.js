@@ -78,35 +78,22 @@ function makeServerProvider(net, create){
     onMeta: _onServerRoomMeta,
     onDisband: ()=>{ if(typeof window._onRoomDisbanded === 'function') window._onRoomDisbanded(); },
     onReplaced: ()=>{ try{ _onDeviceSessionLost(); }catch(_){} },
+    /* 방 안에서 끊긴 채 clientGiveUpMs(원격 설정 · 기본 90초) 동안 못 돌아왔다 — Firebase 로 옮기지 않고 방에서 나온다.
+       옮기면 사람마다 옮기는 때가 달라 서버 쪽 · Firebase 쪽으로 방이 갈린다(«서로 안 보여요»). 다시 들어오면 서버가 돌아온 뒤 같은 방으로 붙는다. */
     onLost: (code)=>{
       console.warn('[방 서버] 방을 이어 가지 못했다 —', code);
-      const room = Presence.roomCode();
-      if(code === 'unreachable' && room){ Promise.resolve(_roomServerFallback(room)).catch(()=>{}); return; }
-      toast('방 서버와 연결이 끊겨 방에서 나왔어요 — 다시 들어가 주세요');
+      toast(code === 'unreachable' ? ROOM_SERVER_LOST_MSG : '방 서버와 연결이 끊겨 방에서 나왔어요 — 다시 들어가 주세요');
       Promise.resolve(doLeaveRoom()).catch(()=>{});
     },
+    // 끊긴 지 15초가 넘었다(true) · 다시 붙었다(false) — room-server-net RECONNECT_NOTICE_MS
+    onReconnecting: (on)=>{ toast(on ? '📡 방 서버 연결이 끊겨 다시 연결하는 중이에요…' : '방 서버에 다시 연결됐어요'); },
     onJoined: (room)=>{ try{ firebaseAPI.setPresenceRoom(room); }catch(_){} },
     onLeft: ()=>{ try{ firebaseAPI.setPresenceRoom(null); }catch(_){} },
   }, { create });
 }
-/* 방 서버가 30초 넘게 안 돌아왔다(room-server-net ROOM_LOST_AFTER_MS) — 같은 코드로 Firebase 방에 다시 들어간다.
-   같은 방 사람들도 저마다 같은 때쯤 이 길을 타서 Firebase 쪽에 다시 모인다. 방장 · 채팅 잠금 같은 방 설정은 Firebase 방에서 새로 정해진다.
-   «새 방 열기» 가 아니라 «원래 방 되살리기» 다 — 서버 방의 meta(채널 · 방장 · 랜덤 허용 · 채팅 잠금)를 들고 들어가
-   빈 Firebase 방이면 그대로 `_meta` 로 세운다(firebaseAPI.restoreRoomMeta · 라이선스 · 개수 상한 · 코드 옮기기 없음).
-   먼저 되살린 사람이 있으면 그 값을 따른다. 방장이 아직 안 넘어왔어도 60초는 승계 · 해산을 미룬다(firebase-init).
-   서버 갈래를 다시 타지 않게 이 코드 한 번은 Firebase 로 곧장 보낸다(그 서버 주소는 net 이 1분 동안 다시 붙지 않는다).
-   이 세션은 서버가 돌아와도 Firebase 에 그대로 — 다음 입장부터 다시 고른다. */
-async function _roomServerFallback(code){
-  const meta = window._roomMetaCache ? Object.assign({}, window._roomMetaCache) : null;   // 서버 방의 마지막 meta(_onServerRoomMeta)
-  await doLeaveRoom();
-  window._roomServerSkipOnce = code;
-  window._roomRestore = (meta && meta.channel) ? { code, meta } : null;
-  try{ await startRoom(code); }
-  finally{ window._roomServerSkipOnce = null; window._roomRestore = null; }
-  if(Presence.active()) toast('방 서버 연결이 끊겨 기존 방식으로 다시 연결했어요');
-  else toast('방 서버와 연결이 끊겨 방에서 나왔어요 — 다시 들어가 주세요');
-}
-/* 입장 실패 코드 → 지금 쓰는 안내 문구. null 이면 «Firebase 로 돌아간다»(서버에 못 붙음 · 인증 · 버전 · 시간 초과 등). */
+const ROOM_SERVER_LOST_MSG = '방 서버 연결이 끊겨 방에서 나왔어요 — 잠시 후 다시 들어와 주세요';
+const ROOM_SERVER_BUSY_MSG = '방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';
+/* 입장 실패 코드 → 지금 쓰는 안내 문구. null 이면 «못 붙음»(서버 꺼짐 · 인증 · 버전 · 시간 초과 등) — 새 방이면 Firebase 로 열고, 이미 열린 방이면 막는다. */
 function _roomServerJoinMessage(code, isSecret, openCh){
   if(code === 'full') return isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(maxPeople()-1)+'명)')
                                       : ('이 방은 이미 가득 찼어요(최대 '+maxPeople()+'명)');
@@ -124,19 +111,20 @@ function _roomServerJoinMessage(code, isSecret, openCh){
      · 코드로 들어가기
          주소록(roomDir)에 있는 방(from 'dir') → peek 없이 그 서버에 바로 join.
            서버가 재시작 직후면 그 방은 «되살릴 후보» 라 peek 에 안 나오지만 join 하면 원래 설정으로 되살아난다.
-           join 이 실패(못 붙음 · 거절 · 시간 초과)할 때만 Firebase 로 — 칸이 낡았는지는 join 결과로만 판단한다.
+           못 붙으면(꺼짐 · 시간 초과 joinWaitMs · 기본 10초) Firebase 로 가지 않고 입장을 막는다 — «잠시 후 다시 시도».
+             사람들은 서버 방에 있는데 나만 Firebase 방에 혼자 들어가면 서로 안 보인다. 방 서버를 오래 못 쓰면 관리자가 스위치(on)를 끈다.
            허용 목록에 없는 사람도 방 서버가 켜져 있으면 늘 여기로 온다(따라가기).
          허용된 사람(from 'allow' · 'default' · 'dev')인데 주소록에 없음 → peek: 서버에 있으면 서버로.
            없으면 Firebase 에 살아 있는 사람이 있나 본다 → 있으면 Firebase 로(옛 앱 사람들이 있는 방). 둘 다 없으면 서버가 연다.
        peek 을 못 물었으면(시간 초과 · peek 을 모르는 서버) «서버에 없음» 으로 본다.
-     · 서버에 못 붙으면(꺼짐 · 인증 거절 · 버전 · 시간 초과) Firebase 로. 못 붙은 주소는 1분 동안 다시 기다리지 않는다.
+     · 주소록에 없는 방(새 방 · 허용된 사람의 peek)에서 서버에 못 붙으면(꺼짐 · 인증 거절 · 버전 · 시간 초과) Firebase 로 — 갈릴 사람이 없다.
+       못 붙은 주소는 1분 동안 다시 기다리지 않는다(주소록에 있는 방은 사용자가 다시 시도하면 바로 다시 붙어 본다).
      · 주소록에 칸이 없으면 따라가는 사람은 peek 없이 Firebase — 서버가 재시작해도 칸을 지우지 않으므로(2분 30초 되살릴 후보) 빈틈은
        «쓰기 실패» 뿐이고, 그것 때문에 모든 입장이 서버에 붙어 보는 값은 크다. 허용된 사람만 자기 서버에 peek 한다. */
-const ROOM_SERVER_FOLLOW_WAIT_MS = 3000;   // 따라가기는 서버가 죽어 있어도 입장이 오래 멈추지 않게 짧게
+const ROOM_SERVER_CONNECTING_TOAST_MS = 1000;   // 이만큼 지나도 못 붙었으면 «연결 중» 을 보인다(바로 붙으면 안 띄운다)
 /* 빈 방을 열 때 채널을 정하는 자격 — 보유자(라이선스 · 관리자)면 투게더룸. Firebase 갈래 · 서버 갈래가 같은 것을 쓴다. */
 function _myRoomLicensed(){ return !!((typeof isPremium()!=='undefined' && isPremium()) || (typeof isAdmin()!=='undefined' && isAdmin())); }
 async function _startRoomOnServer(code, ctx){
-  if(window._roomServerSkipOnce && window._roomServerSkipOnce === code) return 'firebase';   // 서버가 안 돌아와 Firebase 로 옮기는 중
   const net = _roomServerNet();
   if(!(net && firebaseAPI.resolveRoomServer)) return 'firebase';
   const creating = !!window._pendingRoomChannel && !ctx.isSecret;
@@ -145,8 +133,25 @@ async function _startRoomOnServer(code, ctx){
   try{ rs = await firebaseAPI.resolveRoomServer(code, { creating }); }catch(_){ rs = null; }
   if(!(rs && rs.via === 'server')) return 'firebase';
   const following = rs.from === 'dir';
-  const rd = await net.ensureReady(following ? ROOM_SERVER_FOLLOW_WAIT_MS : undefined);
-  if(!rd.ok){ console.warn('[방 서버] 연결 안 됨 — Firebase 방식으로 들어갑니다 (' + rd.code + ' · ' + rs.from + ')'); return 'firebase'; }
+  // 이미 열린 방에 못 붙었다 — 막고 안내(만들기 · 시크릿룸 표시는 안 남긴다). Firebase 로 가면 방이 갈린다.
+  const blockFollow = (why)=>{
+    console.warn('[방 서버] 이미 열린 방에 못 붙음 — 입장을 막습니다 (' + why + ')');
+    toast(ROOM_SERVER_BUSY_MSG);
+    window._pendingRoomChannel = null;
+    window._pendingRoomOpen = false;
+    refreshInviteUI();
+    return 'stop';
+  };
+  let rd;
+  if(following){
+    const t = setTimeout(()=>toast('📡 방 서버에 연결하는 중…'), ROOM_SERVER_CONNECTING_TOAST_MS);
+    try{ rd = await net.ensureReady(net.timing().joinWaitMs, { retry: true }); }
+    finally{ clearTimeout(t); }
+    if(!rd.ok) return blockFollow(rd.code);
+  }else{
+    rd = await net.ensureReady();
+    if(!rd.ok){ console.warn('[방 서버] 연결 안 됨 — Firebase 방식으로 들어갑니다 (' + rd.code + ' · ' + rs.from + ')'); return 'firebase'; }
+  }
   if(!creating && !following){
     let pk = null;
     try{ pk = await net.peek(code); }catch(_){ pk = null; }
@@ -178,6 +183,7 @@ async function _startRoomOnServer(code, ctx){
   const r = await Presence.start(code, ctx.myDef, getDisplayName(), presenceChanged, { provider: makeServerProvider(net, create) });
   if(!(r && r.ok)){
     const msg = _roomServerJoinMessage(r && r.code, ctx.isSecret, openCh);
+    if(!msg && following) return blockFollow(r && r.code);
     if(!msg){ console.warn('[방 서버] 입장 실패 — Firebase 방식으로 들어갑니다 (' + (r && r.code) + ')'); return 'firebase'; }
     toast(msg);
     window._pendingRoomChannel = null;
@@ -744,9 +750,7 @@ async function startRoom(code){
        옮긴 코드는 접두어가 이미 내 자격과 맞으므로 다시 옮기지 않는다(재귀는 한 번뿐).
      ⚠️ _roomCount 가 null(확인 실패)이면 옮기지 않는다 — 빈 방 판정과 같은 태도.
      ⚠️ 만들기(_pendingRoomChannel)와 시크릿룸은 여기 오지 않는다. */
-  /* 🛰 원래 방 되살리기(_roomServerFallback) — 이 입장 한 번만. 코드 옮기기 · 빈 방 선점 · 라이선스 · 개수 상한을 건너뛴다. */
-  const _restore = (!_isSecret && window._roomRestore && window._roomRestore.code === code) ? window._roomRestore.meta : null;
-  if(!_restore && !_isSecret && !window._pendingRoomChannel && _roomCount === 0){
+  if(!_isSecret && !window._pendingRoomChannel && _roomCount === 0){
     const _m = ROOM_CODE_RE.exec(code), _want = _myRoomPrefix();
     if(_m && (_m[1] + '-') !== _want){
       const _next = _want + _m[2];
@@ -761,10 +765,6 @@ async function startRoom(code){
       // host는 입장할 때마다 owner로 다시 쓴다(멱등) — 주인이 아닌 친구가 먼저 들어와도 방장은 주인.
       _channel = 'togetherroom';
       if(window.firebaseAPI && firebaseAPI.setRoomChannel) await firebaseAPI.setRoomChannel(code, 'togetherroom', _secretOwner);
-    } else if(_restore && _roomCount === 0 && window.firebaseAPI && firebaseAPI.restoreRoomMeta){
-      const _rr = await firebaseAPI.restoreRoomMeta(code, _restore);
-      _channel = (_rr && _rr.channel) || (_restore.channel === 'togetherroom' ? 'togetherroom' : 'workingroom');
-      if(_rr && _rr.restored) console.log('[방] 방 서버의 방을 Firebase 에 되살렸어요 —', code, _channel);
     } else if(_channel && window.firebaseAPI && firebaseAPI.setRoomChannel){
       /* 만들기: 채널 + 방장(나) 기록. 방을 만든 사람이 최초 방장이다.
          🎲 4번째 인자(open)는 '만들기' 경로에서만 명시적으로 넘긴다 — 다른 경로(시크릿룸·빈 방 승격·

@@ -305,10 +305,10 @@
      누가 계산해도 같은 후보가 나오므로 트랜잭션은 사실상 후보 1명만 실행한다.
      트랜잭션 자체도 '이미 유효한 host가 있으면 포기'라 이중 안전. */
   let _lastSuccessionAt = 0;
-  /* 🛰 되살린 방(restoreRoomMeta)의 방장 유예 — 방장이 Firebase 로 넘어오는 동안 승계 · 해산을 미룬다.
-     서버 쪽 포기 기준이 30초라 방 사람들이 넘어오는 시각은 많아야 수십 초 벌어진다. */
+  /* 🛰 되살린 방(_meta.restoredTs)의 방장 유예 — 방장이 Firebase 로 넘어오는 동안 승계 · 해산을 미룬다.
+     0.11.4 부터 앱은 방 서버 방을 Firebase 에 되살리지 않는다(방이 갈려서 — room-entry.js onLost). 옛 앱(0.11.2 · 0.11.3)은
+     아직 되살리므로 그 방에 같이 있는 동안 이 유예는 남긴다. 옛 앱이 포기하는 기준이 30초라 넘어오는 시각은 많아야 수십 초 벌어진다. */
   const ROOM_RESTORE_GRACE_MS = 60 * 1000;
-  const ROOM_RESTORE_FRESH_MS = 5 * 60 * 1000;   // 이보다 오래된 restoredTs 는 지난 일 — 새로 되살린다
   async function _maybeSucceedHost(room, myMemberId, meta, friends){
     // 🔒 시크릿룸은 방장이 '발급 대상(owner)'으로 고정이다. 승계도, 해산도 하지 않는다 —
     //    후원자가 잠깐 나간 사이에 자기 방이 남의 방이 되거나 방이 터지면 안 되기 때문.
@@ -430,6 +430,7 @@
     getToken: _getIdToken,
     getUserId: () => (typeof window.getMyUserId === 'function') ? window.getMyUserId() : null,
     getVersion: () => _appVer.ready,
+    timing: () => _rc ? _rc.roomServerTiming() : null,   // 입장 대기 · 포기 시간(원격 설정 roomServerTiming)
   });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.
      방 만들기 화면이 30초마다 카운트를 갱신하므로, 같은 방을 매번 다시 찌르지 않게. */
@@ -2889,35 +2890,6 @@
        ★ restoredTs 가 신선한 동안(ROOM_RESTORE_GRACE_MS)은 방장 승계 · 해산을 미룬다(_maybeSucceedHost) —
          방장이 아직 Firebase 로 넘어오는 중일 수 있어서. 그 뒤로는 평소 규칙 그대로.
        반환: { channel, restored } | null(실패) */
-    async restoreRoomMeta(room, m){
-      try{
-        let had = false;
-        const res = await runTransaction(ref(db, `rooms/${room}/_meta`), cur => {
-          if(cur && cur.channel && cur.restoredTs && (_svNow() - cur.restoredTs) < ROOM_RESTORE_FRESH_MS){ had = true; return; }
-          const meta = { channel: (m && m.channel === 'togetherroom') ? 'togetherroom' : 'workingroom' };
-          if(m && typeof m.host === 'string' && m.host) meta.host = m.host;
-          if(m && typeof m.open === 'boolean') meta.open = m.open;
-          if(m && m.chatOff === true) meta.chatOff = true;
-          // 💬 채팅 탭 정의도 옮긴다 — 규칙(_meta/tabs/$tabId)과 같은 모양만(s1 · s2, 이름 1~10자, ts 숫자). 기록은 원래 Firebase 에 있다.
-          const tabs = {};
-          for(const id of ['s1', 's2']){
-            const t = m && m.tabs && m.tabs[id];
-            if(t && typeof t.name === 'string' && t.name.length >= 1 && t.name.length <= 10 && typeof t.ts === 'number' && isFinite(t.ts)) tabs[id] = { name: t.name, ts: t.ts };
-          }
-          if(Object.keys(tabs).length) meta.tabs = tabs;
-          meta.ts = meta.openTs = meta.restoredTs = _svNow();
-          return meta;
-        });
-        const val = res.snapshot ? res.snapshot.val() : null;
-        const channel = (val && val.channel) || null;
-        if(channel){
-          const extra = { channel };
-          if(val && typeof val.open === 'boolean') extra.open = val.open;
-          _touchRoomIndex(room, extra);
-        }
-        return { channel, restored: !had && !!res.committed };
-      }catch(e){ console.warn('[방] 방 되살리기 실패', e); return null; }
-    },
     /* ===== 🔒 시크릿룸 (후원자 전용 고정 투게더룸) =====
        secretRooms/{SCRT-XXXX} = { pub:{owner, name, ts}, k }
 

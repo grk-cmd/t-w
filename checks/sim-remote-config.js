@@ -102,6 +102,14 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const v = await r.ready(['inviteGate', 'existingSignup'], 80);
     chk(Date.now() - t0 >= 70 && v.inviteGate === true, 'ready — 답이 없으면 시간 초과 뒤 지금 값(기본값)으로 간다');
     chk(RCM.store && typeof RCM.store.start === 'function', '앱 한 벌(store)이 있다');
+    // 방 서버 연결 시간 — 앱 쪽 두 칸만(서버 쪽 graceMs 등은 안 받음)
+    const tmc = RCM.createRemoteConfig();
+    chk(JSON.stringify(tmc.roomServerTiming()) === '{"joinWaitMs":10000,"clientGiveUpMs":90000}', '연결 시간 기본 — 입장 대기 10초 · 포기 90초');
+    tmc.apply({ roomServerTiming: { joinWaitMs: 20000, clientGiveUpMs: 1000, graceMs: 45000 } }, false);
+    chk(JSON.stringify(tmc.roomServerTiming()) === '{"joinWaitMs":20000,"clientGiveUpMs":90000}', '  ↳ 범위 밖 칸만 기본값 · 서버 쪽 칸(graceMs)은 받지 않는다');
+    chk(JSON.stringify(RCM.TIMING_RANGES) === '{"joinWaitMs":[3000,60000,10000],"clientGiveUpMs":[15000,600000,90000]}'
+      && RCM.FALLBACK_PATHS.rsJoinWait === 'config/roomServer/timing/joinWaitMs' && RCM.FALLBACK_PATHS.rsGiveUp === 'config/roomServer/timing/clientGiveUpMs',
+      '  ↳ 범위(규칙 · API 와 같음) · Firebase 로 읽을 때는 두 칸만 한 칸씩');
   }
 
   say('── 2. 읽는 차례 — API → Firebase → 저장값 → 기본값 · 다시 읽기 · 허용 목록 · 배선');
@@ -330,7 +338,8 @@ const RCM = require(path.resolve(where('remote-config.js')));
     if(miss.length) return finish();
     const SRC = [
       "const CHANNEL_NAMES = { workingroom: '워킹룸', togetherroom: '투게더룸' };",
-      'const ROOM_SERVER_FOLLOW_WAIT_MS = 3000;',
+      'const ROOM_SERVER_CONNECTING_TOAST_MS = 1000;',
+      "const ROOM_SERVER_BUSY_MSG = '방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';",
       "const ROOM_CODE_RE = /^(COZY|WORK|PLAY)-([A-Z0-9]{4})$/;",
       "function _roomPrefixFor(ch){ return ch === 'togetherroom' ? 'PLAY-' : 'WORK-'; }",
       ...need.map((h) => takeFn(a, h)),
@@ -338,12 +347,13 @@ const RCM = require(path.resolve(where('remote-config.js')));
     ].join('\n');
     function mk(o){
       o = o || {};
-      const log = { toasts: [], counts: [], started: 0, peek: 0 };
+      const log = { toasts: [], counts: [], started: 0, peek: 0, ready: [] };
       const st = RCM.createRemoteConfig();
       if(o.limits) st.set('roomLimits', o.limits);
       const win = { _pendingRoomChannel: o.pending || null, _pendingRoomOpen: false };
       const net = {
-        ensureReady: async () => ({ ok: true }),
+        ensureReady: async (ms, ro) => { log.ready.push([ms || null, !!(ro && ro.retry)]); return o.notReady ? { ok: false, code: 'timeout' } : { ok: true }; },
+        timing: () => ({ joinWaitMs: 10000, clientGiveUpMs: 90000 }),
         peek: async () => { log.peek++; return { exists: !!o.onServer }; },
       };
       const api = {
@@ -389,6 +399,19 @@ const RCM = require(path.resolve(where('remote-config.js')));
     t.win._pendingRoomOpen = true;
     await t.go('WORK-AB12');
     chk(t.win._pendingRoomChannel === null && t.win._pendingRoomOpen === false, '  ↳ 막으면 만들기 표시를 지운다(다음 입장에 따라붙지 않게)');
+    // 이미 열린 방(주소록 roomDir) — 못 붙으면 Firebase 로 가지 않고 막는다
+    const BUSY = '방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';
+    t = mk({ from: 'dir', notReady: true });
+    chk((await t.go('WORK-AB12')) === 'stop' && t.log.started === 0 && t.log.toasts.includes(BUSY) && JSON.stringify(t.log.ready) === '[[10000,true]]',
+      '★ 주소록에 있는 방에 못 붙으면(입장 대기 10초 · 다시 붙어 보기) 막고 «잠시 후 다시 시도» — Firebase 로 안 간다');
+    t = mk({ from: 'dir', joinFail: 'timeout' });
+    chk((await t.go('WORK-AB12')) === 'stop' && t.log.toasts.includes(BUSY), '  ↳ 붙었는데 입장이 시간 초과여도 막는다');
+    t = mk({ from: 'dir', joinFail: 'full' });
+    chk((await t.go('WORK-AB12')) === 'stop' && /가득 찼어요/.test(t.log.toasts[0] || ''), '  ↳ 정원 등 거절은 지금 문구 그대로');
+    t = mk({ notReady: true });
+    chk((await t.go('WORK-AB12')) === 'firebase' && JSON.stringify(t.log.ready) === '[[null,false]]', '  ↳ 주소록에 없는 방(새 방 · peek)은 지금처럼 Firebase 로 — 갈릴 사람이 없다');
+    t = mk({ pending: 'workingroom', notReady: true });
+    chk((await t.go('WORK-AB12')) === 'firebase', '  ↳ [방 만들기] 도 서버에 못 붙으면 Firebase 로 연다');
   }
 
   say('── 6. html — 순서 · 기본 표시 · CSP');
