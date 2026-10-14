@@ -76,6 +76,10 @@
 | `app/parts/license-request.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 📨 라이선스 요청(일반 유저 → 관리자 — 요청 보내기 · 대기 / 승인 상태 · 내 요청 구독). classic script(`window.TwLicenseRequest`), 부르는 곳은 `licReqMod.이름` |
 | `app/parts/fn-keys.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — ⌨️ 함수키 단축키(F1 설정 · F2 꾸미기 · F3 이동 · F4 마이홈 등 · 글자 단축키). classic script(`window.TwFnKeys`) — 밖에서 부르는 이름 없음 |
 | `app/parts/hidden-seats.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 🙈 워킹룸 숨기기(숨긴 좌석 · 신고로 숨긴 사람 · 누르기 판정에서 숨긴 · 나는 캐릭터 건너뛰기). 비행 중 수 `_flyActive` 는 app.js(startFlight 가 올림). classic script(`window.TwHiddenSeats`), 부르는 곳은 `hiddenSeatsMod.이름` |
+| `app/parts/theme-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🎨 테마 — 자식 창(방명록 · 디자인)에 테마 · 토큰 옮기기(`applyThemeToChildDoc`) · 테마 / 색상 고르기 화면. `applyTheme` 와 최상위 호출은 app.js. classic script(`window.TwThemeUi`), 부르는 곳은 `themeUiMod.이름` |
+| `app/parts/myhome-sticker-layout.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🎨 마이홈 스티커 배치 — 크기 · 자리 계산 · 화면 안으로 · 움직임 효과 창. 그리기 `renderMyHomeStickers` 는 app.js(편집 모듈이 감싸 다시 대입). classic script(`window.TwMyHomeStickerLayout`), 부르는 곳은 `mhStLayoutMod.이름` |
+| `app/parts/myhome-diag.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🔍 마이홈 클릭 진단(`window.__mhClickDiag` — 콘솔 도구). classic script(`window.TwMyHomeDiag`) — 밖에서 부르는 이름 없음 |
+| `app/parts/myhome-visit.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🏠 내 마이홈 데이터(`_myHomeData` · 서버 모양 맞추기) · 👀 친구 홈 구경(`openFriendHomeView` · `closeFriendHomeView`). classic script(`window.TwMyHomeVisit`), 부르는 곳은 `mhVisitMod.이름` |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |

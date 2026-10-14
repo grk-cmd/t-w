@@ -213,7 +213,7 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 | 41 ✅ | 🗑 대화 기록 삭제 · 💬 채팅창 투명도 · 🔔 채팅 알림음 | #67 #49 #50 | 250 | **옮김** — `chat-prefs.js` · 바뀐 줄 9 · app.js 16,925 → 16,705줄 |
 | 42 | 작은 공용 — 🛡️ 리치 텍스트 sanitize ✅ · 🪟 창 겹침 ✅ · 🔊 효과음 공장 ✅ | #51 #24 #13 | 430 | sanitize **옮김** — `rich-text.js` · 창 겹침 **옮김** — `win-stack.js`(147줄 · deps 0) · 효과음 **옮김** — `sfx.js`(122줄 · deps 2) · app.js 16,705 → 16,290줄 |
 | 43 | 작은 기능 — 🛡️ 얼굴 자동 복구 ✅ · 💾 슬롯 저장 ✅ · 🪑 상호작용 책상 카탈로그 ✅ · 📢 광고 배너 ✅ · 📨 라이선스 요청 ✅ · ⌨️ 함수키 ✅ · 🙈 워킹룸 숨기기 ✅ | #141 #135 #16 #126 #129 #39 #9 | 830 | **옮김** — `face-heal.js` · `slot-save.js` · `interaction-desk.js` · `ad-banner.js` · `license-request.js` · `fn-keys.js` · `hidden-seats.js` · keep `_flyActive` · 광고 배너는 관리자 런처 연결을 빼고 두 범위 · app.js 16,290 → 15,605줄 |
-| 44 | 🏠 마이홈 묶음(스티커 배치 · 2단계 · 열기 · 1단계 · 테마 · 진단) | #59 #55 #46 #44 #164 #56 | 840 | **손으로** — 본문 밖에서 `renderMyHomeStickers` 에 대입한다 |
+| 44 | 🏠 마이홈 묶음(스티커 배치 ✅ · 2단계 ✅ · 열기 · 1단계 · 테마 ✅ · 진단 ✅) | #59 #55 #46 #44 #164 #56 | 840 | **옮김** — `theme-ui.js` · `myhome-sticker-layout.js` · `myhome-diag.js` · `myhome-visit.js` · keep `renderMyHomeStickers` · **남김** #44(공용 상태 · 모듈 연결) · #46(`initMyHome` — 부팅 중 상태칩이 원래 자리보다 먼저 부름) · app.js 15,605 → 15,175줄 |
 | 45 | 커미션 zip · 🔐 암호화 · ⭐ 경험치 바 · 포커스 누적 · 📊 오늘 기록 전시 | #145 #142 #165 #157 #158 | 460 | keep 필요(`customItems` · `_focusTotalSec` — 다른 모듈이 전역으로 씀) |
 
 **남기는 것**(끝의 정의대로 — 도메인 단계에서 폴더만 정한다): 1 · 2차 때 정한 핵심 10개 + 3D 상호작용(👻 활동 판정 · DRAG / PET #86 #87 — `drag` · `ray` · `seatState` 를
