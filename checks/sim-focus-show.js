@@ -66,7 +66,7 @@ say('── 3. 배관');
 {
   const so = strip(grabFn('_statusOut'));
   chk(/if\(!myUserStatus && myFocusShow\) return \{ userStatus:'custom', customStatus:myFocusShow \}/.test(so), '상태가 없을 때만 custom 칸으로 싣는다(상태 우선)');
-  /* 📱 폰 켜짐 갈래는 sim-mobile-focus 가 본다 — 여기선 꺼짐(앱 코드는 typeof 가드 없이 _mobileOn() 을 바로 부른다 · 개정 237) */
+  /* 📱 폰 켜짐 갈래는 sim-mobile-focus 가 본다 — 여기선 꺼짐(앱 코드는 typeof 가드 없이 _mobileOn() 을 바로 부른다 · 개정 238) */
   const out = new Function('u', 'f', 'c', 'let myUserStatus=u, myFocusShow=f, myCustomStatus=c; const _mobileOn=()=>false;' + grabFn('_statusOut') + ' return _statusOut();');
   const F = { emo: '🕒', text: '오늘 3:20' }, C = { emo: '✨', text: '마감 중' };
   let r = out(null, F, C); chk(r.userStatus === 'custom' && r.customStatus === F, '상태 없음 → 기록');
