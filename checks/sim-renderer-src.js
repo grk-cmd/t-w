@@ -39,6 +39,13 @@ const MODULES = [
   { file: 'rich-text.js', mod: 'richTextMod', glob: 'TwRichText', sample: 'function _mhImgSrcOk(' },   // 앱 FSD 42번
   { file: 'win-stack.js', mod: 'winStackMod', glob: 'TwWinStack', sample: 'function _winZOf(' },   // 앱 FSD 42번
   { file: 'sfx.js', mod: 'sfxMod', glob: 'TwSfx', sample: 'function _mkSndPool(' },   // 앱 FSD 42번
+  { file: 'face-heal.js', mod: 'faceHealMod', glob: 'TwFaceHeal', sample: 'function _repairSkinCanvases(' },   // 앱 FSD 43번
+  { file: 'slot-save.js', mod: 'slotSaveMod', glob: 'TwSlotSave', sample: 'function _slotImgToDataUrl(' },   // 앱 FSD 43번
+  { file: 'interaction-desk.js', mod: 'iDeskMod', glob: 'TwInteractionDesk', sample: 'function _trickTurns(' },   // 앱 FSD 43번
+  { file: 'ad-banner.js', mod: 'adBannerMod', glob: 'TwAdBanner', sample: 'function refreshAdBanner(' },   // 앱 FSD 43번
+  { file: 'license-request.js', mod: 'licReqMod', glob: 'TwLicenseRequest', sample: 'function _showLicenseReqState(' },   // 앱 FSD 43번
+  { file: 'fn-keys.js', mod: 'fnKeysMod', glob: 'TwFnKeys', sample: '(function bindHotkeys(){' },   // 앱 FSD 43번
+  { file: 'hidden-seats.js', mod: 'hiddenSeatsMod', glob: 'TwHiddenSeats', sample: 'function _reportHiddenSave(' },   // 앱 FSD 43번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

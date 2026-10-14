@@ -69,6 +69,13 @@
 | `app/parts/rich-text.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🛡️ 리치 텍스트 sanitize(`_mhSanitizeHtml`) · 저장 · 불러오기(`_mhLoadRT` — 남의 bio · 게시글은 반드시 여기를 거친다) · 글자 수. classic script(`window.TwRichText`), 부르는 곳은 `richTextMod.이름` |
 | `app/parts/win-stack.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🪟 창 겹침: 누른 창 맨 앞(`bringWinToFront`) · ESC 스택(`escRegisterWindow`). classic script(`window.TwWinStack`), 부르는 곳은 `winStackMod.이름` |
 | `app/parts/sfx.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🔊 효과음 공장(`_mkSndPool` — 풀 · preload · 자동재생 잠금 해제 · 회사원 모드 무음) · 때리기 · 클릭음 · 채팅 알림음 · 뽀모도로 알림음 풀. classic script(`window.TwSfx`), 부르는 곳은 `sfxMod.이름` |
+| `app/parts/face-heal.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 🛡️ 얼굴 자동 복구(`repairBlankFaces` — 얼굴 · 피부 캔버스가 비면 저장본으로 같은 캔버스에 다시 그리기 · 감시 주기 `FACE_WATCH_MS`). classic script(`window.TwFaceHeal`), 부르는 곳은 `faceHealMod.이름` |
+| `app/parts/slot-save.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 💾 캐릭터 슬롯 저장 · 복원(localStorage `LS_KEY` — `saveSlots` · `loadSlots` · `slotToObj` · 좌석 다시 잇기). classic script(`window.TwSlotSave`), 부르는 곳은 `slotSaveMod.이름` |
+| `app/parts/interaction-desk.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 🪑 상호작용 책상 카탈로그(`INTERACTION_DESKS`) · 💃 춤 목록(`DANCE_MOVES` · 춤 명령 · 해금) · 🌀 재주 자세 상수 · 🐾 올라탈 대상 찾기 — 한 구역에 섞여 있던 그대로(폴더 나눌 때 가른다). classic script(`window.TwInteractionDesk`), 부르는 곳은 `iDeskMod.이름` |
+| `app/parts/ad-banner.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 📢 런처 광고 배너 그리기 · 서버 배너 구독 · ⚙️ 게임 설정 구독(사용자 쪽 — 관리자 편집은 `admin/admin-launcher.js`, 만드는 줄은 app.js 에서 이 모듈 바로 뒤). classic script(`window.TwAdBanner`), 부르는 곳은 `adBannerMod.이름` |
+| `app/parts/license-request.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 📨 라이선스 요청(일반 유저 → 관리자 — 요청 보내기 · 대기 / 승인 상태 · 내 요청 구독). classic script(`window.TwLicenseRequest`), 부르는 곳은 `licReqMod.이름` |
+| `app/parts/fn-keys.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — ⌨️ 함수키 단축키(F1 설정 · F2 꾸미기 · F3 이동 · F4 마이홈 등 · 글자 단축키). classic script(`window.TwFnKeys`) — 밖에서 부르는 이름 없음 |
+| `app/parts/hidden-seats.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 🙈 워킹룸 숨기기(숨긴 좌석 · 신고로 숨긴 사람 · 누르기 판정에서 숨긴 · 나는 캐릭터 건너뛰기). 비행 중 수 `_flyActive` 는 app.js(startFlight 가 올림). classic script(`window.TwHiddenSeats`), 부르는 곳은 `hiddenSeatsMod.이름` |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
