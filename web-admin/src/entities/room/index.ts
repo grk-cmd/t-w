@@ -65,3 +65,19 @@ export {
   roomMaxPeopleOf,
   totalLimitOf,
 } from './model/roomConfig';
+export { getChatKeep, saveChatKeep, useChatKeep, useRefreshChatKeep } from './api/chatKeep';
+export {
+  CHAT_KEEP_DEFAULT,
+  CHAT_KEEP_KINDS,
+  CHAT_KEEP_MAX,
+  CHAT_KEEP_MIN,
+  CHAT_KEEP_PATH,
+  CHAT_KEEP_PRIVACY_DAYS,
+  chatKeepChanges,
+  chatKeepDetail,
+  effectiveKeep,
+  parseChatKeep,
+  parseKeepInput,
+  type ChatKeep,
+  type ChatKeepKind,
+} from './model/chatKeep';
