@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 221 (🛰 방 서버에 이미 열린 방은 Firebase 로 폴백하지 않고 막기 · 방 안 끊김은 «다시 연결 중» 뒤 포기하면 나가기 · 입장 대기 · 포기 시간 원격 설정 · 켤 때 초대 게이트 대기는 처음 켠 PC 만)
-대상: `sim-*.js` 238개 + `smoke.js` + `audit.py` = **240개** (개정 221 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 222 (구조 정리 3단계 첫 폴더 — 📷 스티커사진 두 파일을 `parts/purikura/` 로 · 실제 폴더 기준 경로 검사 `sim-parts-paths.js` 신설)
+대상: `sim-*.js` 239개 + `smoke.js` + `audit.py` = **241개** (개정 222 기준 — 폴더를 센 값)
+
+**개정 222 에서 한 것 (2026-10-14 · 도메인 폴더 1번 — 동작 변화 없음)**
+- 앱: `purikura-net.js` · `purikura-ui.js` 를 `app/parts/purikura/` 로 옮겼다(내용 무변경). HTML `<script src>` 두 줄만 `parts/purikura/…` 로 · 싣는 순서 그대로.
+- 검사: `sim-parts-paths.js` 신설 **7·0** — 러너는 parts/ 아래 .js 를 평평하게 펴서 돌리므로 실제 앱의 `<script src>` · ES 모듈 상대 import 경로가 틀려도 다른 검사는 초록이다. 이 검사는 스테이징의 parts/ 폴더째 사본(저장소에선 app/)으로 경로를 직접 따라가 본다(HTML 130줄 · 상대 import 20줄 · 깨 보기 셋). `sim-purikura-ui.js` 는 html 순서를 볼 때 `parts/purikura/` 자리도 받는다(판정 무변경).
 
 **개정 221 에서 한 것 (2026-10-14 · 방 서버 연결 — 방이 갈리지 않게)**
 - 앱 `room-entry.js`: 주소록(roomDir)에 있는 방(이미 서버에 열린 방)에 못 붙으면 Firebase 로 가지 않고 막는다 — «방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요». 입장 대기 3초 → 원격 `joinWaitMs`(기본 10초) · 1초 넘으면 «연결 중». 주소록에 없는 방(새 방 · peek)은 지금처럼 Firebase.
@@ -1874,7 +1878,7 @@
 | **sim-app-size.js** | 121 | **e8b7dbbaa468** ← **개정 130 신설 · 📏 app.js · firebase-init.js 줄 상한(기준선 + 여유) · 새 구역 머리 막기 · 톱니(줄면 상한도 내림) · 판정 자체 가짜 글** |
 | **sim-scheduler.js** | 230 | **99cbe2f2d4bd** ← **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 136 «원래 자리» 기준을 옛 🐞 버그 제보 탭 머리 → 그 자리의 👥 친구 관리 연결(TwFriendManage.createFriendManage)로(버그 제보 탭이 bug-board-ui.js 로 옮겨 감)** · **개정 131 신설 · 📅 스케줄러 · 🔔 일정 알림 모듈(scheduler.js) — 셈 · 만들 때 구독 · 타이머 · 뱃지 · 알림 목록 · 관람 모드 · app.js 배선 · html 순서 · 내장 전역 이름과 안 겹침** |
 | **sim-weekly-challenge.js** | 343 | **ca4de5a2389c** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 139 가챠 보너스 읽기는 gachaMod.bonus()(gacha.js)** · **개정 137 «원래 자리» 끝 기준을 옛 🍅 뽀모도로 머리 → 그 자리의 TwPomodoro.createPomodoro 연결로 · 뽀모 서랍이 부르는 weeklyChal.open(false) 는 pomodoro.js 에서(app.js 는 weeklyChal 을 deps 로)** · **개정 133 신설 · 👑 달성표 모듈(weekly-challenge.js) — 셈(ISO 주 · 6시 경계 · 보상 문구) · 만들 때(로컬 읽기 · 타이머 · 게이트) · 📋규칙 체크 · 선지급 · 정산 · 박제 · 🎯집중 · 🔁반복 · 로그아웃 지우기 · 동기화 · app.js 배선 · html 순서** |
-| **sim-purikura-ui.js** | 249 | **e7d4a68f4a2f** ← **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 173 deps plPlaying · setPlPlaying 은 plMod.st.playing(playlist.js 상태 묶음 — 판정 무변경)** · **개정 169 5절 📷 버튼에서 purikuraUi.open() 부르는 곳을 chat-window.js 에서 찾는다** · **개정 134 신설 · 📷 스티커사진 창 모듈(purikura-ui.js) — 만들 때 배선(_pkWire) · 문(회사원 모드 · 세션 · 방 · 정원 · 촬영 중) · 가짜 THREE · DOM 위에서 열고 닫기(구독 · 방장 설정 · 무대 루프 · BGM 재우기/되살리기 · 세는 중 잠금) · 세션 콜백 · app.js 배선 · html 순서** |
+| **sim-purikura-ui.js** | 250 | **c66da9e4ebb9** ← **개정 222 html 순서 — parts/purikura/ 자리도 받음(판정 무변경)** · **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 173 deps plPlaying · setPlPlaying 은 plMod.st.playing(playlist.js 상태 묶음 — 판정 무변경)** · **개정 169 5절 📷 버튼에서 purikuraUi.open() 부르는 곳을 chat-window.js 에서 찾는다** · **개정 134 신설 · 📷 스티커사진 창 모듈(purikura-ui.js) — 만들 때 배선(_pkWire) · 문(회사원 모드 · 세션 · 방 · 정원 · 촬영 중) · 가짜 THREE · DOM 위에서 열고 닫기(구독 · 방장 설정 · 무대 루프 · BGM 재우기/되살리기 · 세는 중 잠금) · 세션 콜백 · app.js 배선 · html 순서** |
 | **sim-guestbook.js** | 277 | **7d017ca33d72** ← **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 135 신설 · 📖 방명록 모듈(guestbook.js) — 만들 때 배선(버튼 · window 고리 일곱) · 새 글 배지(관람 중 숨김 · 다 읽음) · 창(테마 · 목록 · 내 글만 삭제 · 관람 · 외부인 안내 · 친구 목록이 오면 다시 칠함) · 쓰기 · 박수(보내는 중 · 하루 5번 · 되돌림) · 폭죽 한 글자 · app.js 배선 · html 순서** |
 | **sim-friend-manage-module.js** | 301 | **c8102cd99178** ← **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 136 신설 · 👥 친구 관리 모듈(friend-manage.js) — 만들 때(아무것도 안 건드림) · 받은 요청(배지 · 단건 · 상한이면 남김) · 일괄(자리만큼 · 거절 확인) · 보낸 요청(죽은 미러 치움 · 이름 캐시 · 취소) · 팝업 · reqVisible · app.js 배선(deps · 빈 껍데기 · html 순서 · Tw 접두사) · 🐞 버그 제보 탭이 bug-board-ui.js 끝에(링크 · 관리자만 · 공지글 그대로)** |
 | **sim-pomodoro-module.js** | 228 | **c45d359e78b8** ← **개정 214 오늘 기록 전시가 focus-share.js 로 간 것 반영(판정 무변경)** · **개정 211 알림음 풀이 sfx.js 로 간 것 반영(판정 무변경)** · **개정 137 신설 · 🍅 뽀모도로 모듈(pomodoro.js) — 만들 때(설정 · 진행 읽기 · 1초 tick · 버튼 · 고리) · 서랍(👑 달성표와 하나만) · 시작 · 일시정지 · 계속 · 멈춤 · 한 사이클(가짜 시계 · 긴 휴식) · 건너뛰기 · 자동 시작 꺼짐 · 재시작 이어짐 · app.js 배선(_focusShowConf 는 typeof 고리 · deps · 빈 껍데기 · html 순서 · Tw 접두사)** |
@@ -1975,6 +1979,7 @@
 | **sim-license-key.js** | 95 | **9344d629dc2d** ← **개정 217 신설 · 🔑 라이선스 키 등록 · 해제 모듈(license-key.js) 구조** |
 | **sim-asset-code.js** | 96 | **0af47cefdc47** ← **개정 217 신설 · 🔐 에셋 코드 암호화 모듈(asset-code.js) 구조** |
 | **sim-myhome-init.js** | 96 | **339fb6f67341** ← **개정 220 신설 · 🏠 마이홈 시작 모듈(myhome-init.js) 구조** |
+| **sim-parts-paths.js** | 82 | **8816cd237b57** ← **개정 222 신설 · 📂 렌더러 경로가 실제 폴더 기준으로 맞는가(<script src> · 상대 import)** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

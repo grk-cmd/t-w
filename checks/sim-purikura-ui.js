@@ -236,7 +236,8 @@ await sec('── 5. app.js 배선', () => {
   const m = strip(MOD);
   chk(!/[^.\w]officeMode\)/.test(m) && !/!!_plPlaying;/.test(m) && !/_plPlaying = (true|false)/.test(m) && !/Presence\.roomCode/.test(m) && !/SPINE_AXIS\*|HEAD_AXIS\*|: HAND_REST,|SHAKE_ARM_DROOP,/.test(m),
     '모듈 본문은 읽는 함수만 부른다(값으로 쓰면 함수가 늘 참이 된다)');
-  const iU = HTML.indexOf('<script src="parts/purikura-ui.js"></script>'), iN = HTML.indexOf('<script src="parts/purikura-net.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const at = (f) => { const m = HTML.match(new RegExp('<script src="parts/(?:purikura/)?' + f.replace('.', '\\.') + '"></script>')); return m ? m.index : -1; };   // 📂 purikura/ 폴더로 옮겼다(구조 정리 3단계) — 예전 자리도 받는다
+  const iU = at('purikura-ui.js'), iN = at('purikura-net.js'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iN > 0 && iU > iN && iU < iA, 'html — purikura-ui.js 를 purikura-net.js 뒤 · app.js 앞에 싣는다');
   /* #103 교훈 — 크로미움 내장 전역(Scheduler 등)과 겹치면 typeof 가드가 늘 통과한다. 접두사로 피한다(헤드리스 크로미움에서 typeof 확인) */
   chk(/^Tw[A-Z]/.test('TwPurikuraUi') && !/window\.(Purikura|PurikuraUi)\s*=/.test(MOD), '전역 이름은 Tw 접두사 — 내장 전역 · 통신 계층(window.Purikura)과 안 겹침');

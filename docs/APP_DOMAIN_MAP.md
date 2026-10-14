@@ -21,7 +21,7 @@
 | `account/` | 🔑 계정 · 라이선스 — 로그인 · 내 정보 · 초대장 · 라이선스 · 한 기기 | 10 | 2,900 |
 | `launcher/` | 🖥️ 런처 · 앱 껍데기 — 설정 창 · 프로그램 설정 · 데스크탑 실행 · 단축키 · 광고 | 6 | 2,300 |
 | `support/` | 🐞 제보 · 신고 — 버그 게시판 · 신고하기 | 3 | 860 |
-| `purikura/` | 📷 스티커사진 | 2 | 4,000 |
+| `purikura/` ✅ | 📷 스티커사진 | 2 | 4,000 |
 | `admin/` | 🛠️ 관리자(이미 폴더) | 11 | 2,600 |
 | `shared/` | 🧰 공용 도구 · 공용 통로 — 창 겹침 · 프롬프트 · 효과음 · 테마 · API · 원격 설정 | 16 | 1,800 |
 
@@ -145,7 +145,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `report.js` | 신고하기 · 신고 창 도우미(관리자 목록은 `admin/admin-report.js`) | — |
 | `bug-board.js` (ES) | 버그 게시판 데이터 | (firebase-init 이 연결) |
 
-## 12. 📷 `purikura/` — 스티커사진
+## 12. 📷 `purikura/` — 스티커사진 ✅ 옮김(폴더 1번)
 
 | 파일 | 하는 일 | 서버 |
 |---|---|---|
@@ -171,7 +171,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 
 - **HTML `<script src>`**(`app/desk-companion-prototype.html`): 경로만 바꾸고 **싣는 순서는 그대로**(classic script 는 순서가 곧 의존).
 - **ES 모듈 import**: `firebase-init.js` 머리의 `import … from "./room-index.js"` 등 18줄, 그리고 모듈끼리(`broadcast-cache.js → catalog-cache.js` · `room-index.js → room-channel.js`). 폴더가 달라지면 `"./room/room-index.js"` · `"../room/…"` 로.
-- **⚠️ 검사가 못 잡는 자리**: 검사 러너(`checks/run.js`)는 `app/parts/` 아래를 **평평하게 펴서** 돌린다. 그래서 실제 앱에서 `<script src>` · import 경로가 틀려도 검사는 초록이다. → 첫 폴더 PR 에서 «실제 폴더 기준으로 `<script src>` · 상대 import 가 다 있는 파일을 가리키는가» 를 보는 검사를 먼저 넣는다.
+- **⚠️ 검사가 못 잡는 자리**(→ `sim-parts-paths.js` 로 막음 · 폴더 1번): 검사 러너(`checks/run.js`)는 `app/parts/` 아래를 **평평하게 펴서** 돌린다. 그래서 실제 앱에서 `<script src>` · import 경로가 틀려도 검사는 초록이다. → 첫 폴더 PR 에서 «실제 폴더 기준으로 `<script src>` · 상대 import 가 다 있는 파일을 가리키는가» 를 보는 검사를 먼저 넣는다.
 - **파일 이름은 폴더가 달라도 겹치면 안 된다** — 러너가 이름으로 찾는다(겹치면 `flatDup` 로 알린다).
 - **소리 · 그림 파일**(`parts/click.mp3` 등)은 옮기지 않는다 — 코드 안 경로(`'parts/click.mp3'`)가 그대로 맞게.
 - **CLAUDE.md 구조 표**의 경로, `checks/CHECKS.md` 메모의 경로, `audit.py` 검사 8 목록은 이름만 보므로 그대로.
