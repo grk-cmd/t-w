@@ -494,7 +494,7 @@ await sec('── 9. app.js 배선', () => {
   chk(!/[^.\w](_chatFly(On|Size|Color)|officeMode|_flyAiming|isAdmin|_emojiCache)\s*=[^=>]/.test(m.replace(/const (officeMode|_flyAiming|isAdmin|_emojiCache) = deps\.\w+;/g, '')), '  모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로만)');
   const off = (APP.match(/const CHAT_WINDOW_OFF = (\{[^\n]*?\});/) || [])[1];
   chk(off === '{}', '빈 껍데기 CHAT_WINDOW_OFF — 반환값과 같은 빈 객체');
-  const iF = HTML.indexOf('<script src="parts/focus-log.js"></script>'), iC = HTML.indexOf('<script src="parts/chat/chat-window.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iF = HTML.indexOf('<script src="parts/focus/focus-log.js"></script>'), iC = HTML.indexOf('<script src="parts/chat/chat-window.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iF > 0 && iC > iF && iA > iC, 'html — chat-window.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwChatWindow') && !/window\.ChatWindow\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   const wire = (APP.match(/const CHAT_WINDOW_OFF = [\s\S]*?\n\}\);/) || [''])[0];

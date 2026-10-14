@@ -1,5 +1,5 @@
 /* ═══ 🕒 sim-focus-log.js — 포커스 기록 팝업 모듈 (2026-10-13 신설 · 앱 FSD 13번) ═══════════════
-   app.js 의 «🕒 포커스 기록 팝업» 구역을 parts/focus-log.js 로 옮겼다.
+   app.js 의 «🕒 포커스 기록 팝업» 구역을 parts/focus/focus-log.js 로 옮겼다.
    동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwFocusLog 뿐 · 만들면 버튼 다섯 · 본문 누름 · ESC 등록 · window._focusLogClamp · 매초 갱신 · 끌기 연결 ·
            창 DOM 이 없으면 아무것도 안 건다
@@ -240,7 +240,7 @@ sec('── 6. app.js 배선', () => {
   chk(!/[^.\w]_focus(Total|Session|Today)Sec\s*[+-]?=[^=]/.test(m.replace(/const _focus(Total|Session)Sec = deps\.focus(Total|Session)Sec;/g, '')), '  모듈은 포커스 시간에 쓰지 않는다');
   const off = (APP.match(/const FOCUS_LOG_OFF = (\{[^\n]*?\});/) || [])[1];
   chk(off === '{}', '빈 껍데기 FOCUS_LOG_OFF — 반환값과 같은 빈 객체');
-  const iR = HTML.indexOf('<script src="parts/room-invite-ui.js"></script>'), iF = HTML.indexOf('<script src="parts/focus-log.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iR = HTML.indexOf('<script src="parts/room-invite-ui.js"></script>'), iF = HTML.indexOf('<script src="parts/focus/focus-log.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iR > 0 && iF > iR && iA > iF, 'html — focus-log.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwFocusLog') && !/window\.FocusLog\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   const wire = (APP.match(/const FOCUS_LOG_OFF = [\s\S]*?\n\}\);/) || [''])[0];

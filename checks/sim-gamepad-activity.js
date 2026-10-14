@@ -52,7 +52,7 @@ chk(!!blk && /getPads: \(\)=>navigator\.getGamepads\(\)/.test(blk) && /\.start\(
 chk(/onActivity: \(\)=>\{ anyInput\(\); if\(!focusGateSleep\) activity\(\); \}/.test(blk), '★ 처리는 펜 활동과 같다 — 자리비움 판정은 늘 · 기록은 등록한 포커싱 앱일 때만');
 const pen = APP.indexOf('companion.onPenActivity(()=>{'), gp = APP.indexOf('if(window.TwGamepadActivity && navigator.getGamepads){');
 chk(pen > 0 && gp > pen, '  펜 활동 수신 바로 뒤(같은 데스크탑 입력 묶음)');
-const iM = HTML.indexOf('<script src="parts/gamepad-activity.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
+const iM = HTML.indexOf('<script src="parts/focus/gamepad-activity.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
 chk(iM > 0 && iM < iA, 'html — gamepad-activity.js 는 app.js 보다 먼저');
 chk(!/USE_OS_IDLE_FOR_FOCUS = true/.test(APP), '  OS 유휴시간 보정은 여전히 꺼져 있다(되살리지 않는다)');
 
