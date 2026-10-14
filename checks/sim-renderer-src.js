@@ -73,6 +73,7 @@ const MODULES = [
   { file: 'race-picker.js', mod: 'racePickerMod', glob: 'TwRacePicker', sample: 'function initRacePreview(' },   // 앱 FSD 48번
   { file: 'wardrobe-panel.js', mod: 'wdPanelMod', glob: 'TwWardrobePanel', sample: '(function bindWardrobe(){' },   // 앱 FSD 48번
   { file: 'lv-tier.js', mod: 'lvTierMod', glob: 'TwLvTier', sample: 'function lvTierNum(' },   // 앱 FSD 48번
+  { file: 'myhome-init.js', mod: 'mhInitMod', glob: 'TwMyHomeInit', sample: 'function _warnOwnerWriteDenied(' },   // 앱 FSD 44번 남은 몫
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
