@@ -15,7 +15,7 @@
  *
  * Firebase 를 직접 import 하지 않는다 — ref · query · onValue · get 은 firebase-init.js 가 넘긴다(검사 sim-broadcast-cache.js).
  */
-import { createCatalogSync } from '../catalog-cache.js';
+import { createCatalogSync } from '../character/catalog-cache.js';
 
 export const BROADCAST_KIND = 'inboxBroadcast';   // 캐시 키 꼬리(DB 주소|inboxBroadcast) — 카탈로그 종류와 겹치지 않는다
 export const BROADCAST_LATEST = 30;               // 최근 몇 개를 받나 — 웹 관리자 BROADCAST_PAGE 와 같다

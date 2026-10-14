@@ -89,7 +89,7 @@ sec('── 4. html', () => {
   const iM = HTML.indexOf('<script src="parts/creator-flat-view.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
   chk(iM > 0 && iM < iA, 'creator-flat-view.js 를 app.js 앞에 싣는다');
   chk(/#cpFlat\.on,#anpFlat\.on\{/.test(HTML) && /#cpFlatBadge,#anpFlatBadge\{/.test(HTML), '동물 생성기 💡 · 표시도 같은 CSS(테마 색 그대로)');
-  const iN = HTML.indexOf('<script src="parts/animal.js">');
+  const iN = HTML.indexOf('<script src="parts/character/animal.js">');
   chk(iM > 0 && iM < iN, 'creator-flat-view.js 를 animal.js 앞에 싣는다');
 });
 

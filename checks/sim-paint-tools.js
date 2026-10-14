@@ -264,7 +264,7 @@ chk(/aPaintTool\.mount\(overlay\.querySelector\('#anpToolSeg'\)\)/.test(N) && !/
 chk(/Shift\+G<\/b> 전체 채우기/.test(SRC['animal.js']) && /<b>G<\/b> 페인트통/.test(SRC['animal.js']), '동물 — 안내 줄에 G 페인트통 · Shift+G 전체 채우기');
 /* html */
 const sU = HTML.indexOf('<script src="parts/uv-fill.js">'), sP = HTML.indexOf('<script src="parts/paint-tools.js">'),
-      sA = HTML.indexOf('<script src="parts/app.js">'), sN = HTML.indexOf('<script src="parts/animal.js">');
+      sA = HTML.indexOf('<script src="parts/app.js">'), sN = HTML.indexOf('<script src="parts/character/animal.js">');
 chk(sU > 0 && sU < sP && sP < sA && sA < sN, 'html — uv-fill.js → paint-tools.js → app.js → animal.js');
 chk(/<span id="crToolSeg"><\/span>/.test(HTML) && /<b>G<\/b> 페인트통/.test(HTML), 'html — 사람 도구 줄 자리 · 안내 줄');
 chk(/\.pt-seg\{display:inline-flex;/.test(HTML) && /\.cr-tools \.pt-seg button\{/.test(HTML), 'html — 도구 줄 스타일(.cr-tools 버튼 모양 · 눌림 .on 을 그대로)');

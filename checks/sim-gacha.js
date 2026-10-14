@@ -1,5 +1,5 @@
 /* ═══ 🎰 sim-gacha.js — 파츠 가챠 모듈 (2026-10-10 신설 · 앱 FSD 8번) ═══════════════
-   app.js 의 두 구역(«🎰 파츠 가챠 — 코어» · «🎰 파츠 보관함 (T키) · 가챠 뽑기 창»)을 parts/gacha.js 로 옮겼다.
+   app.js 의 두 구역(«🎰 파츠 가챠 — 코어» · «🎰 파츠 보관함 (T키) · 가챠 뽑기 창»)을 parts/character/gacha.js 로 옮겼다.
    동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM · 가짜 서버 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwGacha 뿐 · 만들면 로컬 보유분 · 보너스 읽기 · 시각 부트스트랩 · 부팅 4.2초 · 10분 tick ·
            창 버튼 · ESC · 바깥 클릭 · blur 연결 · window 고리 셋 · 창 위치 초기화 목록 · DOM 없으면 조용히
@@ -384,7 +384,7 @@ await sec('── 7. app.js 배선', () => {
   chk(off && used.every(n => new RegExp('\\b' + n + '\\b').test(off)), '빈 껍데기 GACHA_OFF 가 부르는 이름을 다 갖는다 (' + used.length + '개)');
   const ret = (MOD.match(/\nreturn \{([\s\S]*?)\n\};\n\}/) || [])[1] || '';
   chk(used.every(n => new RegExp('(^|\\n)\\s*' + n + '\\b').test(ret)), '  모듈 반환값도 그 이름을 다 갖는다');
-  const iS = HTML.indexOf('<script src="parts/myhome/myhome-sticker.js"></script>'), iG = HTML.indexOf('<script src="parts/gacha.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iS = HTML.indexOf('<script src="parts/myhome/myhome-sticker.js"></script>'), iG = HTML.indexOf('<script src="parts/character/gacha.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iS > 0 && iG > iS && iA > iG, 'html — gacha.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwGacha') && !/window\.Gacha\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */

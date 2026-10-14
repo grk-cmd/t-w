@@ -1,4 +1,4 @@
-/* sim-catalog-cache.js — 카탈로그 버전 확인(catalogMeta) + 로컬 캐시 (app/parts/catalog-cache.js)
+/* sim-catalog-cache.js — 카탈로그 버전 확인(catalogMeta) + 로컬 캐시 (app/parts/character/catalog-cache.js)
    [무엇을 보는가] 부팅마다 catalog/parts · gachaParts · items · desks 를 통째로 받던 것을
      catalogMeta/{종류} 버전 확인 + 로컬 캐시로 바꿨다. 이 검사는
        · 카탈로그를 쓰는 함수가 하나도 빠짐없이 버전을 같이 올리는가 (빠지면 사용자가 옛 카탈로그를 본다)
@@ -34,7 +34,7 @@ const body = (name) => {
 
 say('── 1. firebase-init.js 연결');
 {
-  chk(/import \{ createCatalogSync \} from "\.\/catalog-cache\.js";/.test(CODE), 'catalog-cache.js 를 import 한다');
+  chk(/import \{ createCatalogSync \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?catalog-cache\.js";/.test(CODE), 'catalog-cache.js 를 import 한다');
   chk(/metaRef:\s*\(kind\) => ref\(db, 'catalogMeta\/' \+ kind\)/.test(CODE) && /catalogRef: \(kind\) => ref\(db, 'catalog\/' \+ kind\)/.test(CODE),
       '경로는 firebase-init.js 가 만든다 (audit 검사 7 이 catalogMeta 를 규칙과 대조한다)');
   chk(/scope: \(firebaseConfig && \(firebaseConfig\.databaseURL/.test(CODE), '캐시 키 앞머리 = DB 주소 (운영/dev 섞임 방지)');

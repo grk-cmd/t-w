@@ -2,7 +2,7 @@
    같은 파츠를 가리키는가 (핸드오프 ② 후보 ⓐ)
 
    실행:  node sim-part-color-entry.js   (app.js · gacha.js · smoke.js 와 같은 폴더에서)
-   ※ 🎰 가챠(보관함 · 보유분)는 parts/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가한다.
+   ※ 🎰 가챠(보관함 · 보유분)는 parts/character/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가한다.
      보관함이 열렸는지는 그 모듈이 #gachaInvOverlay 의 display 로 판정하므로 그 칸을 바꿔 연다 · 닫는다.
 
    ★ 무엇을 보는가
