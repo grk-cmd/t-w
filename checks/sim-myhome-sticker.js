@@ -1,6 +1,6 @@
 /* ═══ 🎨 sim-myhome-sticker.js — 마이홈 스티커 관리 창 모듈 (2026-10-10 신설 · 앱 FSD 7번) ═══════════════
    app.js 의 «🎨 스티커 관리 창» 구역 가운데 스티커 몫 두 덩이(관리 창 · 편집모드 · 드래그 · 회전 · 크기)를
-   parts/myhome-sticker.js 로 옮겼다. 동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
+   parts/myhome/myhome-sticker.js 로 옮겼다. 동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwMyHomeSticker 뿐 · 만들면 창 버튼 둘(✕ · 전부 화면 안으로) 연결 · DOM 없으면 조용히
    ・2절: 관리 창 — 관람 중이면 안 열림(안내) · 열면 목록 · 개수 · [＋ 새 스티커] 상한 · [전부 화면 안으로] 는 밖에 있을 때만 · 닫기
    ・3절: 줄 버튼 — ◎ 데려오기(밖이면 안으로 · 안이면 가운데) · ✎ 편집(밖이면 먼저 데려옴 · 창 닫고 편집모드) · ✨ 움직임 ·
@@ -279,7 +279,7 @@ await sec('── 6. app.js 배선', () => {
   chk(calls.every(c => codeAll.includes(c)) && (codeAll.match(/myHomeSticker\.editEnd\(\)/g) || []).length === 2, '부르는 곳 — 마이홈 닫기 · renderMyHomeStickers · [+ 스티커] · 새 스티커 붙이기');
   const off = (APP.match(/const MYHOME_STICKER_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   chk(['open', 'close', 'render', 'bringIn', 'editStart', 'editEnd', 'bindDrag', 'bindRotate', 'bindResize'].every(n => new RegExp('\\b' + n + '\\(\\)\\{\\}').test(off)), '빈 껍데기 MYHOME_STICKER_OFF — 반환값 이름을 다 갖는다');
-  const iP = HTML.indexOf('<script src="parts/focus/pomodoro.js"></script>'), iS = HTML.indexOf('<script src="parts/myhome-sticker.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iP = HTML.indexOf('<script src="parts/focus/pomodoro.js"></script>'), iS = HTML.indexOf('<script src="parts/myhome/myhome-sticker.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iP > 0 && iS > iP && iA > iS, 'html — myhome-sticker.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwMyHomeSticker') && !/window\.MyHomeSticker\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */

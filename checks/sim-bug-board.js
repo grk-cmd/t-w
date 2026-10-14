@@ -24,7 +24,7 @@ const pending = [];
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const RULES = read('firebase-database-rules.json'), BB = read('bug-board.js'), UI = read('bug-board-ui.js');
-/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 const MI = read('myhome-inbox.js'); if (!MI) { console.log('  ? 원본 못 찾음 — myhome-inbox.js'); process.exit(2); }
 const FB = read('firebase-init.js'), APP = read('app.js') + '\n' + MI, HTML = read('desk-companion-prototype.html');

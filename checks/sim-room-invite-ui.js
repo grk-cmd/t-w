@@ -308,7 +308,7 @@ await sec('── 6. app.js 배선', () => {
   chk(/if\(window\.firebaseAPI\) _bindRoomInviteReceiver\(\);\nelse window\.addEventListener\('firebase-ready', \(\)=>_bindRoomInviteReceiver\(\), \{ once:true \}\);/.test(MOD), '만들 때 수신 구독(또는 firebase-ready) — 예전 부팅 줄 그대로');
   const off = (APP.match(/const ROOM_INVITE_UI_OFF = \{([^\n]*?)\};/) || [])[1] || '';
   chk(/\bshowPopup\(\)\{\}/.test(off) && /\bbusy:\(\)=>false/.test(off), '빈 껍데기 ROOM_INVITE_UI_OFF — 반환값 이름을 다 갖는다');
-  const iE = HTML.indexOf('<script src="parts/myhome-edit.js"></script>'), iS = HTML.indexOf('<script src="parts/room-invite-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iE = HTML.indexOf('<script src="parts/myhome/myhome-edit.js"></script>'), iS = HTML.indexOf('<script src="parts/room-invite-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iE > 0 && iS > iE && iA > iS, 'html — room-invite-ui.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwRoomInviteUi') && !/window\.RoomInviteUi\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   const wire = (APP.match(/const ROOM_INVITE_UI_OFF = [\s\S]*?\n\}\);/) || [''])[0];

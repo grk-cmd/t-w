@@ -44,7 +44,7 @@
   import { createBugBoard } from "./support/bug-board.js";
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
   import { createCatalogSync } from "./catalog-cache.js";
-  import { createBroadcastSync } from "./broadcast-cache.js";
+  import { createBroadcastSync } from "./myhome/broadcast-cache.js";
   import { createVisitPing } from "./visit-ping.js";
   import { createRoomServerNet } from "./room-server-net.js";
   import { createRoomServerGate } from "./room-server-gate.js";

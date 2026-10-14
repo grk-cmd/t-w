@@ -1,6 +1,6 @@
 /* ═══ 📩 sim-myhome-inbox.js — 수령함 · 선물함 · 마이홈 친구 목록 모듈 (2026-10-13 신설 · 앱 FSD 15번) ═══════════════
    app.js 의 «📩 수령함 상태» 함수 · «👥 마이홈 친구 목록 · Ctrl+F 검색» · «📩 수령함 · 💝 선물함 그리기» 와
-   sanitize 구역 사이의 친구 방 표시 둘을 parts/myhome-inbox.js 로 옮겼다. 동작은 그대로여야 한다 — 가짜 DOM 위에서 굴린다.
+   sanitize 구역 사이의 친구 방 표시 둘을 parts/myhome/myhome-inbox.js 로 옮겼다. 동작은 그대로여야 한다 — 가짜 DOM 위에서 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwMyHomeInbox 뿐 · 만들 때 DOM · 서버 · 저장소를 안 건드린다 · 상태 초기값
    ・2절: 수령함 셈 — 개인 + 공용 공지 합치기(읽음은 로컬 집합) · 안 읽은 수 · 보상 수 · 우편함 탭 배지(9+ · 숨김) · 모두 읽음 ·
            app.js 가 다시 대입한 수령함을 부를 때마다 읽는다
@@ -372,7 +372,7 @@ function wiring(MI, APP, HTML){
     iUI = APP.indexOf('/* ═══ 🏠 마이홈 창 버튼 연결(bindMyHomeUI) ═══ */');
   chk(iSched > 0 && iHead > iSched && iKey > iHead && iStrip > iKey && iFHead > iStrip && iVisit > iFHead && iMk > iVisit && iGHead > iMk && iUI > iGHead,
     '원래 자리 — 수령함 let 은 📩 수령함 상태 머리 아래 · 만드는 줄은 👥 친구 목록 머리 아래(🏠 놀러 가기 연결 바로 다음) · 📩 그리기 머리는 남김');
-  chk(/parts\/myhome-inbox\.js 로 옮겼다/.test(APP.slice(iGHead, iUI)) && !/^(?:function|const|let) /m.test(APP.slice(iGHead, iUI)), '  📩 그리기 머리 아래는 옮긴 곳 안내뿐(구역 번호가 밀리지 않게 머리만 남김)');
+  chk(/parts\/(?:myhome\/)?myhome-inbox\.js 로 옮겼다/.test(APP.slice(iGHead, iUI)) && !/^(?:function|const|let) /m.test(APP.slice(iGHead, iUI)), '  📩 그리기 머리 아래는 옮긴 곳 안내뿐(구역 번호가 밀리지 않게 머리만 남김)');
   chk(/^let _myInbox = \{\};/m.test(APP) && /^let _myInboxReady = false;/m.test(APP) && /^let _inboxBroadcast = \{\};/m.test(APP) && /_myInbox = msgs \|\| \{\};/.test(A) && /_inboxBroadcast = bc \|\| \{\};/.test(A),
     '  구독이 다시 대입하는 수령함 let 셋은 app.js 에(그래서 읽는 함수)');
   const call = (APP.match(/TwMyHomeInbox\.createMyHomeInbox\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
@@ -401,7 +401,7 @@ function wiring(MI, APP, HTML){
     'inboxMod.friendSearchToggle(', 'inboxMod.setInboxFilter(', 'inboxMod.setInboxOpenId(null)', 'inboxMod.setFriendFilter('];
   const lost = uses.filter(u => A.indexOf(u) < 0);
   chk(!lost.length, '부르는 곳 — 마이홈 열기 · 버튼 연결 · 공지 팝업 · 스케줄러 · 친구 관리 · 방 초대' + (lost.length ? ' (없음 ' + lost.join(' · ') + ')' : ''));
-  const iC = HTML.indexOf('<script src="parts/chat/chat-window.js"></script>'), iM = HTML.indexOf('<script src="parts/myhome-inbox.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>'),
+  const iC = HTML.indexOf('<script src="parts/chat/chat-window.js"></script>'), iM = HTML.indexOf('<script src="parts/myhome/myhome-inbox.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>'),
     iV = HTML.indexOf('<script src="parts/friend-visit.js"></script>');
   chk(iC > 0 && iV > 0 && iM > iC && iM > iV && iA > iM, 'html — myhome-inbox.js 를 app.js 보다 먼저(chat-window.js 뒤)');
   chk(/TwMyHomeInbox/.test(MI) && !/window\.(MyHomeInbox|Inbox)\s*=/.test(MI), '전역 이름은 Tw 접두사 — 크로미움 내장 전역과 겹치지 않게');
@@ -455,7 +455,7 @@ async function runAll(MI, APP, HTML){
     ['APP', 'inboxMod.setFriendFilter(', '_friendFilter = (', '검색 입력이 옛 이름에 씀'],
     ['APP', 'roomTagOf: (...a)=>inboxMod.friendRoomTag(...a),', 'roomTagOf: f=>f.room,', '놀러 가기가 방 판정을 복사'],
     ['APP', ' bindExtLinks(){},', '', '빈 껍데기에 이름이 빠짐'],
-    ['HTML', '<script src="parts/myhome-inbox.js"></script>', '', 'html 이 모듈을 안 실음'],
+    ['HTML', '<script src="parts/myhome/myhome-inbox.js"></script>', '', 'html 이 모듈을 안 실음'],
   ];
   const caught = [];
   for(const [where, from, to, what] of BREAKS){

@@ -1,5 +1,5 @@
 /* ═══ 📅 sim-scheduler.js — 스케줄러 · 🔔 일정 알림 모듈 (2026-10-10 신설 · 앱 FSD 1번) ═══════════════════
-   app.js 의 두 구역(📅 스케줄러 · 🔔 일정 알림)을 parts/scheduler.js 로 옮겼다. 동작은 그대로여야 한다.
+   app.js 의 두 구역(📅 스케줄러 · 🔔 일정 알림)을 parts/myhome/scheduler.js 로 옮겼다. 동작은 그대로여야 한다.
    ・1절: 셈 — 날짜 차이 · «그날이 1일» · 카드 글자(D-3 · D-day · 100일) · 이정표(당일 · 50 · 100 단위)
    ・2절: 만들 때 — 알림 구독 둘(친구 태그 · 오늘 일정) · firebase 가 늦으면 firebase-ready 뒤 · 1분 타이머 · ESC 창 등록 · window._closeBellWin
    ・3절: 🔔 뱃지 · 알림 목록 — 오늘 일정 · 100일째 기념일 · 친구 태그(토스트) · 창을 열면 읽음 → 뱃지 0 · 닫기
@@ -218,7 +218,7 @@ sec('── 5. app.js 배선 · html', () => {
   chk(/mhScheduler\.setDdays\(dd \|\| \{\}\); mhScheduler\.renderDdays\(\); mhScheduler\.refreshBellBadge\(\);/.test(APP), '  내 D-day 구독 → setDdays · 그리기 · 뱃지');
   chk((APP.match(/mhScheduler\.setDdaysVisit\(/g) || []).length === 3 && (APP.match(/mhScheduler\.subscribeMonth\(\)/g) || []).length === 2, '  관람 시작 · 끝 → setDdaysVisit · subscribeMonth');
   chk(/if\(tab\.dataset\.tab==='scheduler'\)\{\s*mhScheduler\.renderSchedCalendar\(\); mhScheduler\.renderDdays\(\);/.test(APP), '  [스케줄러] 탭 → 달력 · D-day 그리기');
-  const a = HTML.indexOf('<script src="parts/scheduler.js"></script>'), b = HTML.indexOf('<script src="parts/app.js"></script>');
+  const a = HTML.indexOf('<script src="parts/myhome/scheduler.js"></script>'), b = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(a > 0 && b > a, 'html 이 scheduler.js 를 app.js 앞에 싣는다');
   /* 크로미움(Electron)에는 내장 전역 Scheduler · scheduler(작업 예약 API)가 있다 — 같은 이름을 쓰면 typeof 가드가 늘 통과하고
      모듈이 안 실렸을 때 내장 생성자에 createScheduler 를 부르다 app.js 가 선다(헤드리스 크로미움에서 실제로 typeof Scheduler === 'function'). */

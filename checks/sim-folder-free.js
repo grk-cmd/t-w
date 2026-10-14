@@ -180,7 +180,7 @@ sec('── 3. myhome-desktop.js 배선', () => {
 
 sec('── 4. html', () => {
   const H = SRC['desk-companion-prototype.html'];
-  const iF = H.indexOf('<script src="parts/folder-free.js">'), iM = H.indexOf('<script src="parts/myhome-desktop.js">');
+  const iF = H.indexOf('<script src="parts/myhome/folder-free.js">'), iM = H.indexOf('<script src="parts/myhome/myhome-desktop.js">');
   chk(iF > 0 && iF < iM, 'folder-free.js 를 myhome-desktop.js 앞에 싣는다');
   const iO = H.indexOf('id="myHomeOverlay"'), iR = H.indexOf('id="mhRoomPreview"');
   chk(iO > 0 && iO < iR, '#mhRoomPreview 가 #myHomeOverlay 안에 있다(지켜볼 창이 먼저 있다)');

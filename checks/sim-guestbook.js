@@ -1,5 +1,5 @@
 /* ═══ 📖 sim-guestbook.js — 방명록 모듈 (2026-10-10 신설 · 앱 FSD 4번) ═══════════════════════════
-   app.js 의 📖 방명록 세 구역(새 글 뱃지 · 팝업 머리 · 독립 팝업 창)을 parts/guestbook.js 로 옮겼다. 동작은 그대로여야 한다.
+   app.js 의 📖 방명록 세 구역(새 글 뱃지 · 팝업 머리 · 독립 팝업 창)을 parts/myhome/guestbook.js 로 옮겼다. 동작은 그대로여야 한다.
    자식 창 테마 규약(GB_HTML 토큰 · 열 때 applyThemeToChildDoc)은 sim-child-theme 이 이 파일을 읽어 보고, 여기서는 «옮긴 것» 자체를 굴려 본다.
    ・1절: 만들 때 — #mhGuestbookBtn 클릭 연결 · window 고리 일곱 · 반환값이 같은 함수 · DOM 이 없으면 조용히
    ・2절: 새 글 배지 — 내 방명록 구독 · 마지막으로 본 뒤 글 수 · 99+ · 관람 중엔 숨김(_mhViewingUserId 는 읽는 함수) ·
@@ -261,7 +261,7 @@ await sec('── 5. app.js 배선', () => {
   chk(names.length === 7 && names.every(n => new RegExp('\\b' + n + '\\(').test(off)), '빈 껍데기 GUESTBOOK_OFF 가 반환값 이름을 다 갖는다 (' + names.join(' · ') + ')');
   const calls = (code.match(/typeof (window\.)?(_mhGb\w+|_mhReSubscribeGuestbook)\s*===\s*'function'/g) || []).length;
   chk(calls === 8, '부르는 곳(친구 목록 · 마이홈 열기 · 닫기 · 관람 시작 · 끝 · 런처로)은 window 고리를 typeof 로 본다 — 모듈이 없으면 조용히 넘어간다 (' + calls + ')');
-  const iG = HTML.indexOf('<script src="parts/guestbook.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iG = HTML.indexOf('<script src="parts/myhome/guestbook.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iG > 0 && iG < iA, 'html — guestbook.js 를 app.js 앞에 싣는다');
   /* #103 교훈 — 크로미움 내장 전역(Scheduler 등)과 겹치면 typeof 가드가 늘 통과한다. 접두사로 피한다(헤드리스 크로미움에서 typeof 확인) */
   chk(/^Tw[A-Z]/.test('TwGuestbook') && !/window\.Guestbook\s*=/.test(MOD), '전역 이름은 Tw 접두사');

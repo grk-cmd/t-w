@@ -1,5 +1,5 @@
 /* ═══ 👥 sim-friend-manage-module.js — 친구 관리 모듈 · 버그 제보 탭 자리 옮김 (2026-10-10 신설 · 앱 FSD 5번) ═══════════════
-   app.js 의 «🐞 버그 제보 탭» 구역에 섞여 있던 친구 쪽 코드(👋 요청 팝업 · 👥 친구 관리 · 📤 보낸 요청)를 parts/friend-manage.js 로,
+   app.js 의 «🐞 버그 제보 탭» 구역에 섞여 있던 친구 쪽 코드(👋 요청 팝업 · 👥 친구 관리 · 📤 보낸 요청)를 parts/myhome/friend-manage.js 로,
    앞머리의 🐞 버그 제보 탭(오픈카톡 기본 링크)을 parts/support/bug-board-ui.js 끝으로 옮겼다. 동작은 그대로여야 한다.
    일괄 수락의 자리 계산 · 서브탭 클래스 공유 · 보낸 요청 미러는 sim-friend-manage 가, 선물함 표시 비우기는 sim-gift-star 가 본다.
    여기서는 «옮긴 것» 자체를 굴려 본다.
@@ -239,7 +239,7 @@ await sec('── 6. app.js 배선', () => {
   chk(NAMES.every(n => new RegExp('\\b' + n + '\\s*(\\(|:)').test(off)), '빈 껍데기 FRIEND_MANAGE_OFF 가 부르는 이름 열하나를 다 갖는다');
   const used = [...new Set([...code.matchAll(/\bfriendManage\.(\w+)/g)].map(x => x[1]))];
   chk(used.length >= 10 && used.every(n => NAMES.includes(n)), '부르는 곳은 friendManage.이름 — 반환값에 있는 이름만 (' + used.join(' · ') + ')');
-  const iF = HTML.indexOf('<script src="parts/friend-manage.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iF = HTML.indexOf('<script src="parts/myhome/friend-manage.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iF > 0 && iF < iA, 'html — friend-manage.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwFriendManage') && !/window\.FriendManage\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
 });
