@@ -7,7 +7,10 @@
    ・판정: parts/ 아래 모든 .js(+ HTML 안 <script>)를 typescript 파서로 읽어 범위(scope)대로 이름을 따라간다.
      그 자리 · 바깥 함수 어디에도 선언이 없는 이름은 전역이어야 한다 — 전역 = 일반 script 의 맨 위 선언 ·
      `window.이름 =` 대입 · HTML id · 브라우저 내장(typescript lib.dom). 셋 다 아니면 빨강.
-   ・1절: 파일을 다 읽었다 · 2절: 없는 이름 0 (원래부터 없던 것은 KNOWN 에 이유와 함께) · 3절: 일부러 깨 보기 */
+   ・1절: 파일을 다 읽었다 · 2절: 없는 이름 0 (원래부터 없던 것은 KNOWN 에 이유와 함께)
+   ・2-2절: 옮기며 «읽는 함수»(name: ()=>name)로 바뀐 이름을 아직 값처럼 `typeof 이름 === 'number'` 로 보는 곳 0
+     (늘 'function' 이라 늘 거짓 — 10-15: 커미션 코드 [＋] 칸 무시 · 날기 쿨다운이 방에 안 감)
+   ・3절: 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -184,6 +187,36 @@ say('── 2. 부르는 이름이 다 있다 (범위로 풀리지 않으면 전
 chk(R.missing.length === 0, '없는 이름 0' + (R.missing.length ? ' — ' + R.missing.length + '건: ' + R.missing.slice(0, 12).join(' · ') : ''));
 chk(Object.keys(KNOWN).every(k => SOURCES.some(([, t]) => t.includes(k))), 'KNOWN 에 적은 이름이 아직 코드에 있다(없어졌으면 KNOWN 에서 지운다)');
 
+/* 2-2 — 읽는 함수로 바뀐 이름을 값처럼 typeof 로 비교하는 곳 */
+const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1');
+function readerMisuse(srcs) {
+  const readers = {}, bad = [];
+  const appSrc = (srcs.find(([n]) => path.basename(n) === 'app.js') || [, ''])[1];
+  for (const [, t] of srcs) {
+    const m = /window\.((?:Tw|Mh)\w+)\s*=\s*api/.exec(t);
+    if (m) readers[m[1]] = new Set([...t.matchAll(/^\s*([\w$]+):\s*\(\)\s*=>\s*\1\b/gm)].map(x => x[1]));
+  }
+  const mod2tw = {}; for (const m of appSrc.matchAll(/const (\w+) = \(typeof (\w+) === 'undefined'\)/g)) mod2tw[m[1]] = m[2];
+  const VAL = /^(number|string|boolean|object|bigint|symbol)$/;
+  for (const [n, raw] of srcs) {
+    const t = strip(raw);
+    for (const m of t.matchAll(/typeof\s+(\w+)\.([\w$]+)\b(?!\s*\()\s*[!=]==?\s*['"](\w+)['"]/g)) {
+      const tw = mod2tw[m[1]];
+      if (tw && readers[tw] && readers[tw].has(m[2]) && VAL.test(m[3])) bad.push(path.basename(n) + ':' + (t.slice(0, m.index).split('\n').length) + ' typeof ' + m[1] + '.' + m[2] + " === '" + m[3] + "'");
+    }
+    const tw = (/window\.((?:Tw|Mh)\w+)\s*=\s*api/.exec(raw) || [])[1];
+    const glue = tw && new RegExp(tw + '\\.create\\w+\\(\\{\\n([\\s\\S]*?)\\n\\}\\);').exec(appSrc);
+    if (!glue) continue;
+    const getters = new Set([...glue[1].matchAll(/^\s*([\w$]+):\s*\(\)\s*=>/gm)].map(x => x[1]));
+    for (const m of t.matchAll(/typeof\s+([\w$]+)\b(?!\s*\()\s*[!=]==?\s*['"](\w+)['"]/g))
+      if (getters.has(m[1]) && VAL.test(m[2]) && new RegExp('const\\s+' + m[1].replace(/\$/g, '\\$') + '\\s*=\\s*deps\\.').test(t))
+        bad.push(path.basename(n) + ':' + (t.slice(0, m.index).split('\n').length) + ' typeof ' + m[1] + " === '" + m[2] + "' (deps 읽는 함수)");
+  }
+  return bad;
+}
+const RM = readerMisuse(SOURCES);
+chk(RM.length === 0, '읽는 함수로 바뀐 이름을 값처럼 typeof 로 보는 곳 0' + (RM.length ? ' — ' + RM.join(' · ') : ''));
+
 say('── 3. 일부러 깨 보기 — 없는 이름을 넣으면 잡는다');
 {
   const add = (code) => SOURCES.concat([['(깨 봄).js', code]]);
@@ -192,6 +225,9 @@ say('── 3. 일부러 깨 보기 — 없는 이름을 넣으면 잡는다');
   chk(judge(add('function f(a){ const b = 1; let { c } = a; try{}catch(e){ e; } return a + b + c; }')).missing.length === 0, '매개변수 · 지역 · 구조 분해 · catch 는 세지 않는다');
   chk(judge(add('window.새전역Z = 1; function f(){ return typeof 새전역Z; }')).missing.length === 0, 'window 에 거는 이름은 전역으로 친다');
   chk(judge(add('(function(){ const 안쪽W = 1; })(); function g(){ return typeof 안쪽W; }')).missing.length === 1, '다른 함수 안의 이름은 전역이 아니다(모듈 안으로 옮긴 이름)');
+  const ap = SOURCES.findIndex(([n]) => path.basename(n) === 'app.js');
+  const s2 = SOURCES.slice(); if (ap >= 0) s2[ap] = [SOURCES[ap][0], SOURCES[ap][1].replace("typeof tricksMod._myFlyCoolUntil()==='number'", "typeof tricksMod._myFlyCoolUntil==='number'")];
+  chk(ap >= 0 && s2[ap][1] !== SOURCES[ap][1] && readerMisuse(s2).length === 1, '읽는 함수를 값처럼 typeof 로 보면 잡는다(날기 쿨다운 자리를 되돌려 봄)');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 235 (전역 이름 실종 전수조사 — DEMOJI_BY_CMD · myExpCells 다리 · 검사 sim-global-names 신설)
-대상: `sim-*.js` 240개 + `smoke.js` + `audit.py` = **242개** (개정 235 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 236 (읽는 함수로 바뀐 이름을 숫자처럼 typeof 로 보던 2곳 — 커미션 코드 [＋] 칸 · 날기 쿨다운)
+대상: `sim-*.js` 240개 + `smoke.js` + `audit.py` = **242개** (개정 236 기준 — 폴더를 센 값)
+
+**개정 236 에서 한 것 (2026-10-15 · 앱 FSD 회귀 — typeof 가드 조사 중 발견)**
+- 앱: 옮길 때 let 을 «읽는 함수»(name: ()=>name)로 바꾸면서 `typeof 이름==='number'` 는 그대로 둬 늘 거짓이던 2곳 — 커미션 코드 불러오기가 [＋] 로 고른 칸을 무시하고 첫 빈칸에 저장(FSD 31번대 race-picker) · `_myFlyCool` 이 늘 null 이라 날기 쿨다운이 방에 안 감(tricks). `typeof 이름()` 으로.
+- 검사: `sim-global-names.js` 2-2절 — 읽는 함수로 내놓는 이름(모듈 return · deps 연결의 ()=>)을 값 타입으로 typeof 비교하면 빨강 · 깨 보기 하나. 고치기 전 main 에서 이 2곳을 잡는 것을 확인.
 
 **개정 235 에서 한 것 (2026-10-15 · 앱 FSD 회귀 전수조사)**
 - 조사: 옮기기 전(8111b93) · 지금 앱을 실제로 켜서 전역 이름(window + 최상위 let/const) 1,325개 차이를 모든 파일에 대조 · typeof 가드 1,481개 · 잡힌 예외까지 멈춰 본 부팅 경로 · 값 넘김 deps 를 훑었다. 옮기기 때문에 생긴 고장은 셋 — commissionMod 되부름(개정 234) · `DEMOJI_BY_CMD`(FSD 24번 — myhome-desktop.js 의 /명령어 이모티콘 변환이 typeof 가드로 조용히 꺼짐) · `window.myExpCells`(FSD 45번 — firebase-init.js 하트비트에 경험치가 안 실림).
@@ -2033,7 +2037,7 @@
 | **sim-asset-code.js** | 96 | **8d2bfecba173** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 217 신설 · 🔐 에셋 코드 암호화 모듈(asset-code.js) 구조** |
 | **sim-myhome-init.js** | 96 | **c1bebbee70e8** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 220 신설 · 🏠 마이홈 시작 모듈(myhome-init.js) 구조** |
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 222 신설 · 📂 렌더러 경로가 실제 폴더 기준으로 맞는가(<script src> · 상대 import)** |
-| **sim-global-names.js** | 198 | **f4443c45bd65** ← **개정 235 신설 · 부르는 이름이 전역에 다 있는가(전역 이름 실종)** |
+| **sim-global-names.js** | 234 | **06a608d0569d** ← **개정 236 읽는 함수를 값처럼 typeof 비교 판정 추가** · **개정 235 신설 · 부르는 이름이 전역에 다 있는가(전역 이름 실종)** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
