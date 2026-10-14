@@ -91,6 +91,11 @@
 | `app/parts/floaters.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 46번) — 💞 이모지 떠오르기(쓰다듬기 · 반응 이모지 스프라이트 — 움직임은 ANIM 프레임 루프가 `floatersMod.floaters` 를 돈다). classic script(`window.TwFloaters`), 부르는 곳은 `floatersMod.이름` |
 | `app/parts/add-friend.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 46번) — 👥 책상에서 친구 추가(친구 고르기 창 · 얼굴 섬네일 `drawFaceThumb`). classic script(`window.TwAddFriend`), 부르는 곳은 `addFriendMod.이름` |
 | `app/parts/device-lost.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 46번) — 🖥️ 한 계정 한 기기 — 다른 기기에 밀려난 기기 처리(«여기서 계속» · 안내). classic script(`window.TwDeviceLost`), 부르는 곳은 `deviceLostMod.이름` |
+| `app/parts/myhome-page.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🏠 마이홈 페이지 불러오기 · 그리기(`loadMyHomePage` · `renderMyHomePage` — 관람 중이면 내 데이터로 덮지 않음). classic script(`window.TwMyHomePage`), 부르는 곳은 `mhPageMod.이름` |
+| `app/parts/myhome-links.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🔗 마이홈 본문(자기소개 · 게시글) 링크를 시스템 기본 브라우저로 열기. classic script(`window.TwMyHomeLinks`) — 밖에서 부르는 이름 없음 |
+| `app/parts/async-prompt.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — ✏️ 인앱 프롬프트(`asyncPrompt` — 창 안 입력 대화상자 · `window.asyncPrompt`). classic script(`window.TwAsyncPrompt`), 부르는 곳은 `asyncPromptMod.이름` |
+| `app/parts/launcher-chrome.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🪟 런처 타이틀바(끌기 · 버튼) · 팝업이 뜨면 뒤 런처 흐리게. classic script(`window.TwLauncherChrome`) — 밖에서 부르는 이름 없음 |
+| `app/parts/outside-close.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🪟 팝업 바깥 클릭으로 닫기(닫을 오버레이 목록 · 예외 — 엑셀 일괄 창 등). classic script(`window.TwOutsideClose`) — 밖에서 부르는 이름 없음 |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
