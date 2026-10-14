@@ -28,9 +28,9 @@ function load(name){
 }
 const APP0 = _MI_JOIN(load('app.js'));
 if (!APP0){ console.log('? app.js 를 못 찾음 — app.js 가 있는 폴더에서 실행할 것'); process.exit(2); }
-/* 🎵 레벨 배지(_plFillLv)는 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+/* 🎵 레벨 배지(_plFillLv)는 parts/status/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
-const PLJS = load('playlist.js') || load('parts/playlist.js');
+const PLJS = load('playlist.js') || load('parts/status/playlist.js');
 if (!PLJS){ console.log('? playlist.js 를 못 찾음 — app.js 가 있는 폴더에서 실행할 것'); process.exit(2); }
 const APP = APP0 + '\n' + PLJS;
 const FI    = load('firebase-init.js');

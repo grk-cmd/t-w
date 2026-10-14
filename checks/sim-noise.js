@@ -40,9 +40,9 @@ say('── 1. 마크업');
   chk(iPlBtn > 0 && iNzK > iPlBtn, '.plBtn.nzK 규칙이 #myPlaylistBox .plBtn 보다 뒤(여백 우선순위 함정)');
   const iVol = HTML.indexOf('  #myPlaylistBox .plVol{'), iNzV = HTML.indexOf('#myPlNoise .plVol.nzVol{max-width:none;}');
   chk(iVol > 0 && iNzV > iVol, '백색소음 슬라이더는 62px 상한을 푼다(뒤에서)');
-  const sApp = HTMLC.indexOf('<script src="parts/app.js">'), sSnd = HTMLC.indexOf('<script src="parts/noise-sounds.js">'), sNz = HTMLC.indexOf('<script src="parts/noise.js">');
+  const sApp = HTMLC.indexOf('<script src="parts/app.js">'), sSnd = HTMLC.indexOf('<script src="parts/status/noise-sounds.js">'), sNz = HTMLC.indexOf('<script src="parts/status/noise.js">');
   chk(sApp > 0 && sSnd > sApp && sNz > sSnd, '<script> 순서 — app.js → noise-sounds.js → noise.js');
-  chk((HTMLC.match(/parts\/noise\.js/g) || []).length === 1 && (HTMLC.match(/parts\/noise-sounds\.js/g) || []).length === 1, '두 파일 모두 한 번씩만 실린다');
+  chk((HTMLC.match(/parts\/(?:status\/)?noise\.js/g) || []).length === 1 && (HTMLC.match(/parts\/(?:status\/)?noise-sounds\.js/g) || []).length === 1, '두 파일 모두 한 번씩만 실린다');
 }
 
 /* ── 실제 noise.js 를 돌린다(스텁 위) ── */

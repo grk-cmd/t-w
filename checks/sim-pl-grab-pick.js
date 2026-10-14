@@ -17,7 +17,7 @@ globalThis.setTimeout = (fn)=>0;
 globalThis.setInterval = () => 0;
 globalThis.clearInterval = () => {};
 
-/* 🎵 플레이리스트는 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 그 파일을 먼저 평가하고, app.js 가 원래 자리에서 만든 plMod 로 들여다본다.
+/* 🎵 플레이리스트는 parts/status/playlist.js 로 옮겼다(앱 FSD 16번) — 그 파일을 먼저 평가하고, app.js 가 원래 자리에서 만든 plMod 로 들여다본다.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 빈 껍데기(PLAYLIST_OFF)로 돌아 초록인 척하지 않게. */
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const PL_SRC = read('playlist.js');

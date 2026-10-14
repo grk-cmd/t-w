@@ -15,10 +15,10 @@
    [실행] app.js · firebase-init.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
 const fs = require('fs');
-/* 🎵 플레이리스트는 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+/* 🎵 플레이리스트는 parts/status/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    app.js(로그아웃 · 계정 이어받기)는 그 상태를 plMod.st(상태 묶음)로 읽고 쓴다 — 아래 스텁도 같은 모양(PL_ST)으로 흉내 낸다.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
-const PL_FILE = ['playlist.js', 'parts/playlist.js', 'app/parts/playlist.js'].find(c => fs.existsSync(c));
+const PL_FILE = ['playlist.js', 'parts/status/playlist.js', 'app/parts/status/playlist.js'].find(c => fs.existsSync(c));
 if (!PL_FILE) { console.log('  ? 원본 못 찾음 — playlist.js'); process.exit(2); }
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + fs.readFileSync(PL_FILE, 'utf8');
