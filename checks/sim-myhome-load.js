@@ -11,12 +11,13 @@
      §3 저장 → 불러오기 한 바퀴: 프리셋 이름 · 고른 칸이 그대로, 빈 홈은 기본값, 프리셋 표시 이름이 되살아남
      §4 옛 불러오기(프리셋 칸 없음)를 넣으면 §2 · §3 이 빨강이 된다(검사가 실제로 잡는지) */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const say = console.log;
 let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const APP = read('app.js');
+const APP = _joinRenderer(read('app.js'));
 if (!APP) { say('  ? 원본 못 찾음 — app.js'); process.exit(2); }
 /* 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 · 프리셋은 myhome-edit.js 로 옮겼다(앱 FSD 7-2).
    거기서는 _myHomeData 가 app.js 의 let 을 읽는 함수라 _myHomeData().X 로 쓴다. */

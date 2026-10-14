@@ -420,6 +420,14 @@ PRELOAD.push('license-request.js');
 PRELOAD.push('fn-keys.js');
 /* hidden-seats.js — 워킹룸 숨기기(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createHiddenSeats 를 같이 굴린다. */
 PRELOAD.push('hidden-seats.js');
+/* theme-ui.js — 테마(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createThemeUi 를 같이 굴린다. */
+PRELOAD.push('theme-ui.js');
+/* myhome-sticker-layout.js — 마이홈 스티커 배치(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeStickerLayout 를 같이 굴린다. */
+PRELOAD.push('myhome-sticker-layout.js');
+/* myhome-diag.js — 마이홈 클릭 진단(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeDiag 를 같이 굴린다. */
+PRELOAD.push('myhome-diag.js');
+/* myhome-visit.js — 마이홈 데이터 · 친구 홈 구경(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeVisit 를 같이 굴린다. */
+PRELOAD.push('myhome-visit.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

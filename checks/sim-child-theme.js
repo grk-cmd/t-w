@@ -8,13 +8,14 @@
    ・3절: 배선 — 열 때 주입, applyTheme 전파, 토큰이 메인 HTML 에 실제로 정의돼 있다.
    [실행] app.js · guestbook.js · myhome-edit.js · desk-companion-prototype.html 이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 /* 📖 방명록 창(GB_HTML · 여는 곳)은 parts/guestbook.js 로 옮겼다(앱 FSD 4번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 못 찾은 문자열로 빨개지지 않게. */
 let GBF = null; try{ GBF = fs.readFileSync('guestbook.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — guestbook.js'); process.exit(2); }
 /* 👑 디자인 창(DS_HTML · 여는 곳)은 parts/myhome-edit.js 로 옮겼다(앱 FSD 7-2) — 같은 방식으로 이어 붙인다. */
 let MEF = null; try{ MEF = fs.readFileSync('myhome-edit.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
-const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + GBF + '\n' + MEF;
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + GBF + '\n' + MEF;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 
 let pass = 0, fail = 0, huhs = 0;
