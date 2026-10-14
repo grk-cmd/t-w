@@ -66,9 +66,9 @@
 | `app/parts/room/dice-games.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 39번) — 🎲 주사위(굴리기 · 그림 · 나를 날리기) · 🎟️ 하루 횟수 제한(러시안룰렛 · 투게더룸 주사위). classic script(`window.TwDiceGames`), 부르는 곳은 `diceMod.이름` |
 | `app/parts/launcher/program-settings.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 40번) — 🏷️ 닉네임 저장(제자리 편집이 부르는 한 벌 · `commitUserName`) · ⚙️ 프로그램 설정 창(열기 · 닫기 · 회사원 · 피규어 모드). classic script(`window.TwProgramSettings`), 부르는 곳은 `progSettingsMod.이름` |
 | `app/parts/chat/chat-prefs.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 41번) — 🗑 대화 기록 삭제(방장) · 💬 채팅창 투명도 · 글자 크기 · 🔔 채팅 알림음(상태 · 저장 · 메뉴). classic script(`window.TwChatPrefs`), 부르는 곳은 `chatPrefsMod.이름` |
-| `app/parts/rich-text.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🛡️ 리치 텍스트 sanitize(`_mhSanitizeHtml`) · 저장 · 불러오기(`_mhLoadRT` — 남의 bio · 게시글은 반드시 여기를 거친다) · 글자 수. classic script(`window.TwRichText`), 부르는 곳은 `richTextMod.이름` |
-| `app/parts/win-stack.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🪟 창 겹침: 누른 창 맨 앞(`bringWinToFront`) · ESC 스택(`escRegisterWindow`). classic script(`window.TwWinStack`), 부르는 곳은 `winStackMod.이름` |
-| `app/parts/sfx.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🔊 효과음 공장(`_mkSndPool` — 풀 · preload · 자동재생 잠금 해제 · 회사원 모드 무음) · 때리기 · 클릭음 · 채팅 알림음 · 뽀모도로 알림음 풀. classic script(`window.TwSfx`), 부르는 곳은 `sfxMod.이름` |
+| `app/parts/shared/rich-text.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🛡️ 리치 텍스트 sanitize(`_mhSanitizeHtml`) · 저장 · 불러오기(`_mhLoadRT` — 남의 bio · 게시글은 반드시 여기를 거친다) · 글자 수. classic script(`window.TwRichText`), 부르는 곳은 `richTextMod.이름` |
+| `app/parts/shared/win-stack.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🪟 창 겹침: 누른 창 맨 앞(`bringWinToFront`) · ESC 스택(`escRegisterWindow`). classic script(`window.TwWinStack`), 부르는 곳은 `winStackMod.이름` |
+| `app/parts/shared/sfx.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🔊 효과음 공장(`_mkSndPool` — 풀 · preload · 자동재생 잠금 해제 · 회사원 모드 무음) · 때리기 · 클릭음 · 채팅 알림음 · 뽀모도로 알림음 풀. classic script(`window.TwSfx`), 부르는 곳은 `sfxMod.이름` |
 | `app/parts/character/face-heal.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 🛡️ 얼굴 자동 복구(`repairBlankFaces` — 얼굴 · 피부 캔버스가 비면 저장본으로 같은 캔버스에 다시 그리기 · 감시 주기 `FACE_WATCH_MS`). classic script(`window.TwFaceHeal`), 부르는 곳은 `faceHealMod.이름` |
 | `app/parts/character/slot-save.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 💾 캐릭터 슬롯 저장 · 복원(localStorage `LS_KEY` — `saveSlots` · `loadSlots` · `slotToObj` · 좌석 다시 잇기). classic script(`window.TwSlotSave`), 부르는 곳은 `slotSaveMod.이름` |
 | `app/parts/room/interaction-desk.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 🪑 상호작용 책상 카탈로그(`INTERACTION_DESKS`) · 💃 춤 목록(`DANCE_MOVES` · 춤 명령 · 해금) · 🌀 재주 자세 상수 · 🐾 올라탈 대상 찾기 — 한 구역에 섞여 있던 그대로(폴더 나눌 때 가른다). classic script(`window.TwInteractionDesk`), 부르는 곳은 `iDeskMod.이름` |
@@ -76,7 +76,7 @@
 | `app/parts/account/license-request.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 📨 라이선스 요청(일반 유저 → 관리자 — 요청 보내기 · 대기 / 승인 상태 · 내 요청 구독). classic script(`window.TwLicenseRequest`), 부르는 곳은 `licReqMod.이름` |
 | `app/parts/launcher/fn-keys.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — ⌨️ 함수키 단축키(F1 설정 · F2 꾸미기 · F3 이동 · F4 마이홈 등 · 글자 단축키). classic script(`window.TwFnKeys`) — 밖에서 부르는 이름 없음 |
 | `app/parts/room/hidden-seats.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 43번) — 🙈 워킹룸 숨기기(숨긴 좌석 · 신고로 숨긴 사람 · 누르기 판정에서 숨긴 · 나는 캐릭터 건너뛰기). 비행 중 수 `_flyActive` 는 app.js(startFlight 가 올림). classic script(`window.TwHiddenSeats`), 부르는 곳은 `hiddenSeatsMod.이름` |
-| `app/parts/theme-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🎨 테마 — 자식 창(방명록 · 디자인)에 테마 · 토큰 옮기기(`applyThemeToChildDoc`) · 테마 / 색상 고르기 화면. `applyTheme` 와 최상위 호출은 app.js. classic script(`window.TwThemeUi`), 부르는 곳은 `themeUiMod.이름` |
+| `app/parts/shared/theme-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🎨 테마 — 자식 창(방명록 · 디자인)에 테마 · 토큰 옮기기(`applyThemeToChildDoc`) · 테마 / 색상 고르기 화면. `applyTheme` 와 최상위 호출은 app.js. classic script(`window.TwThemeUi`), 부르는 곳은 `themeUiMod.이름` |
 | `app/parts/myhome/myhome-sticker-layout.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🎨 마이홈 스티커 배치 — 크기 · 자리 계산 · 화면 안으로 · 움직임 효과 창. 그리기 `renderMyHomeStickers` 는 app.js(편집 모듈이 감싸 다시 대입). classic script(`window.TwMyHomeStickerLayout`), 부르는 곳은 `mhStLayoutMod.이름` |
 | `app/parts/myhome/myhome-diag.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🔍 마이홈 클릭 진단(`window.__mhClickDiag` — 콘솔 도구). classic script(`window.TwMyHomeDiag`) — 밖에서 부르는 이름 없음 |
 | `app/parts/myhome/myhome-visit.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🏠 내 마이홈 데이터(`_myHomeData` · 서버 모양 맞추기) · 👀 친구 홈 구경(`openFriendHomeView` · `closeFriendHomeView`). classic script(`window.TwMyHomeVisit`), 부르는 곳은 `mhVisitMod.이름` |
@@ -93,13 +93,13 @@
 | `app/parts/account/device-lost.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 46번) — 🖥️ 한 계정 한 기기 — 다른 기기에 밀려난 기기 처리(«여기서 계속» · 안내). classic script(`window.TwDeviceLost`), 부르는 곳은 `deviceLostMod.이름` |
 | `app/parts/myhome/myhome-page.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🏠 마이홈 페이지 불러오기 · 그리기(`loadMyHomePage` · `renderMyHomePage` — 관람 중이면 내 데이터로 덮지 않음). classic script(`window.TwMyHomePage`), 부르는 곳은 `mhPageMod.이름` |
 | `app/parts/myhome/myhome-links.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🔗 마이홈 본문(자기소개 · 게시글) 링크를 시스템 기본 브라우저로 열기. classic script(`window.TwMyHomeLinks`) — 밖에서 부르는 이름 없음 |
-| `app/parts/async-prompt.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — ✏️ 인앱 프롬프트(`asyncPrompt` — 창 안 입력 대화상자 · `window.asyncPrompt`). classic script(`window.TwAsyncPrompt`), 부르는 곳은 `asyncPromptMod.이름` |
+| `app/parts/shared/async-prompt.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — ✏️ 인앱 프롬프트(`asyncPrompt` — 창 안 입력 대화상자 · `window.asyncPrompt`). classic script(`window.TwAsyncPrompt`), 부르는 곳은 `asyncPromptMod.이름` |
 | `app/parts/launcher/launcher-chrome.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🪟 런처 타이틀바(끌기 · 버튼) · 팝업이 뜨면 뒤 런처 흐리게. classic script(`window.TwLauncherChrome`) — 밖에서 부르는 이름 없음 |
-| `app/parts/outside-close.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🪟 팝업 바깥 클릭으로 닫기(닫을 오버레이 목록 · 예외 — 엑셀 일괄 창 등). classic script(`window.TwOutsideClose`) — 밖에서 부르는 이름 없음 |
+| `app/parts/shared/outside-close.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🪟 팝업 바깥 클릭으로 닫기(닫을 오버레이 목록 · 예외 — 엑셀 일괄 창 등). classic script(`window.TwOutsideClose`) — 밖에서 부르는 이름 없음 |
 | `app/parts/character/wardrobe-panel.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🎨 꾸미기 사이드 패널 열고 닫기(`bindWardrobe` — 창 그리기는 wardrobe.js). classic script(`window.TwWardrobePanel`) — 밖에서 부르는 이름 없음 |
 | `app/parts/race-picker.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🐾 종족 선택창(사람 · 동물 고르기 · 미리보기 렌더러 — [＋] 칸 번호가 저장 대상). classic script(`window.TwRacePicker`), 부르는 곳은 `racePickerMod.이름` |
 | `app/parts/focus/lv-tier.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🏅 레벨 티어 — 경계값(`LV_TIERS`)이 사는 유일한 곳 · 배지 · 바 색 클래스. classic script(`window.TwLvTier`), 부르는 곳은 `lvTierMod.이름` |
-| `app/parts/theme.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🎨 디자인 테마 — 저장 키 · 색 표 · 지금 테마 · 걸기(`applyTheme` — 열린 자식 창은 theme-ui.js 가 받는다). 최상위 호출은 app.js. classic script(`window.TwTheme`), 부르는 곳은 `themeMod.이름` |
+| `app/parts/shared/theme.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🎨 디자인 테마 — 저장 키 · 색 표 · 지금 테마 · 걸기(`applyTheme` — 열린 자식 창은 theme-ui.js 가 받는다). 최상위 호출은 app.js. classic script(`window.TwTheme`), 부르는 곳은 `themeMod.이름` |
 | `app/parts/account/license-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔑 라이선스 등록 화면 — 상태 표시(`refreshLicenseUI`). classic script(`window.TwLicenseUi`), 부르는 곳은 `licenseUiMod.이름` |
 | `app/parts/account/license-key.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔑 라이선스 키 등록 · 해제 버튼(입력칸 Enter 포함). classic script(`window.TwLicenseKey`) — 밖에서 부르는 이름 없음 |
 | `app/parts/character/asset-code.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔐 에셋 코드 — 풀 GLB 암호화(.dcc) · 책상 · 아이템 GLB 코드(DCK1) · GLB 바이트 읽기. classic script(`window.TwAssetCode`), 부르는 곳은 `assetCodeMod.이름` |

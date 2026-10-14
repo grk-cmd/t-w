@@ -23,7 +23,7 @@
 | `support/` ✅ | 🐞 제보 · 신고 — 버그 게시판 · 신고하기 | 3 | 860 |
 | `purikura/` ✅ | 📷 스티커사진 | 2 | 4,000 |
 | `admin/` | 🛠️ 관리자(이미 폴더) | 11 | 2,600 |
-| `shared/` | 🧰 공용 도구 · 공용 통로 — 창 겹침 · 프롬프트 · 효과음 · 테마 · API · 원격 설정 | 16 | 1,800 |
+| `shared/` ✅ | 🧰 공용 도구 · 공용 통로 — 창 겹침 · 프롬프트 · 효과음 · 테마 · API · 원격 설정 | 16 | 1,800 |
 
 ## 1. 🚀 입구 · 3D 핵심 — 폴더를 만들지 않고 `app/parts/` 에 둔다
 
@@ -157,7 +157,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 `admin-mode.js`(진입) · `admin-license.js` · `admin-license-bulk.js` · `admin-notice.js` · `admin-category.js` · `admin-part-register.js` · `admin-asset.js` · `admin-users.js` · `admin-launcher.js` · `admin-console.js` · `admin-report.js`.
 웹 관리자와 겹치는 것(라이선스 발급 · 목록 · 통계 등)은 ⑤에서 «웹 관리자 열기» 로 바꾸며 걷는다(`listLicenses` 통째 읽기 포함 — 지금은 그대로 둔다).
 
-## 14. 🧰 `shared/` — 공용 도구 · 공용 통로
+## 14. 🧰 `shared/` — 공용 도구 · 공용 통로 ✅ 옮김(폴더 11번)
 
 | 파일 | 하는 일 |
 |---|---|
