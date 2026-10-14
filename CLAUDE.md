@@ -96,6 +96,13 @@
 | `app/parts/async-prompt.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — ✏️ 인앱 프롬프트(`asyncPrompt` — 창 안 입력 대화상자 · `window.asyncPrompt`). classic script(`window.TwAsyncPrompt`), 부르는 곳은 `asyncPromptMod.이름` |
 | `app/parts/launcher-chrome.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🪟 런처 타이틀바(끌기 · 버튼) · 팝업이 뜨면 뒤 런처 흐리게. classic script(`window.TwLauncherChrome`) — 밖에서 부르는 이름 없음 |
 | `app/parts/outside-close.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🪟 팝업 바깥 클릭으로 닫기(닫을 오버레이 목록 · 예외 — 엑셀 일괄 창 등). classic script(`window.TwOutsideClose`) — 밖에서 부르는 이름 없음 |
+| `app/parts/wardrobe-panel.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🎨 꾸미기 사이드 패널 열고 닫기(`bindWardrobe` — 창 그리기는 wardrobe.js). classic script(`window.TwWardrobePanel`) — 밖에서 부르는 이름 없음 |
+| `app/parts/race-picker.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🐾 종족 선택창(사람 · 동물 고르기 · 미리보기 렌더러 — [＋] 칸 번호가 저장 대상). classic script(`window.TwRacePicker`), 부르는 곳은 `racePickerMod.이름` |
+| `app/parts/lv-tier.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🏅 레벨 티어 — 경계값(`LV_TIERS`)이 사는 유일한 곳 · 배지 · 바 색 클래스. classic script(`window.TwLvTier`), 부르는 곳은 `lvTierMod.이름` |
+| `app/parts/theme.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🎨 디자인 테마 — 저장 키 · 색 표 · 지금 테마 · 걸기(`applyTheme` — 열린 자식 창은 theme-ui.js 가 받는다). 최상위 호출은 app.js. classic script(`window.TwTheme`), 부르는 곳은 `themeMod.이름` |
+| `app/parts/license-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔑 라이선스 등록 화면 — 상태 표시(`refreshLicenseUI`). classic script(`window.TwLicenseUi`), 부르는 곳은 `licenseUiMod.이름` |
+| `app/parts/license-key.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔑 라이선스 키 등록 · 해제 버튼(입력칸 Enter 포함). classic script(`window.TwLicenseKey`) — 밖에서 부르는 이름 없음 |
+| `app/parts/asset-code.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔐 에셋 코드 — 풀 GLB 암호화(.dcc) · 책상 · 아이템 GLB 코드(DCK1) · GLB 바이트 읽기. classic script(`window.TwAssetCode`), 부르는 곳은 `assetCodeMod.이름` |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
