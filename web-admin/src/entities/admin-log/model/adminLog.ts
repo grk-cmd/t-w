@@ -48,6 +48,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'roomServer.default': '방 서버 기본 · 비율',
   'settings.minAppVer': '앱 최소 버전',
   'settings.bugDailyMax': '버그 제보 하루 상한',
+  'settings.chatKeepDays': '대화 보관 일수',
   'settings.roomLimits': '전체 방 상한',
   'settings.roomMaxPeople': '방 정원',
   'settings.inviteGate': '신규 가입 초대 코드',
