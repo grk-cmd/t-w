@@ -103,6 +103,7 @@
 | `app/parts/license-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔑 라이선스 등록 화면 — 상태 표시(`refreshLicenseUI`). classic script(`window.TwLicenseUi`), 부르는 곳은 `licenseUiMod.이름` |
 | `app/parts/license-key.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔑 라이선스 키 등록 · 해제 버튼(입력칸 Enter 포함). classic script(`window.TwLicenseKey`) — 밖에서 부르는 이름 없음 |
 | `app/parts/asset-code.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔐 에셋 코드 — 풀 GLB 암호화(.dcc) · 책상 · 아이템 GLB 코드(DCK1) · GLB 바이트 읽기. classic script(`window.TwAssetCode`), 부르는 곳은 `assetCodeMod.이름` |
+| `app/parts/myhome-init.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번 남은 몫) — 🏠 마이홈 시작(`initMyHome` — 접속 표시 · 프로필 · 친구 · 요청 · 우편 · 공지 구독) · 소유자 쓰기 거부 안내. 부르는 곳은 app.js INIT 한 곳(`mhInitMod.initMyHome()`). classic script(`window.TwMyHomeInit`) |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
