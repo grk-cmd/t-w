@@ -140,6 +140,27 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     chk(r.L.reads.filter(p => p === 'roomAlive').length === 1, '  ↳ roomAlive 트리는 한 번만 읽는다 (유령 청소와 같이 쓴다)');
     chk(!r.L.reads.some(p => /^rooms\/[^/]+$/.test(p) || p === 'rooms'), '  ↳ 방 노드를 통째로 받지 않는다 (shallow · 칸 하나씩)');
 
+    r = await run(room('PS', { 'roomDir/PS': { srv: 'realtime-1', ts: now - 60 * MIN, meta: { channel: 'togetherroom' } } }));
+    chk(!('rooms/PS/_meta' in r.srv) && !('roomIndex/PS' in r.srv), '🛰 같은 코드의 방 서버 방이 살아 있어도 빈 Firebase 방의 _meta · 줄은 걷는다');
+    chk('rooms/PS/chatLog/k1' in r.srv && 'rooms/PS/_chatTab/s1/k1' in r.srv && r.sum.emptied.serverKept === 1 && r.sum.emptied.cleared === 0,
+      '★ 방 서버 방(roomDir)이 살아 있으면 #일반 · 탭 대화를 남긴다 — 그 방이 같이 쓰는 대화다 (serverKept)');
+    r = await run(room('PL'));
+    chk(JSON.stringify(r.sum.emptied.codes) === '["PL"]', '  ↳ 대화까지 지운 방 코드는 요약(로그)에 남는다 (codes)');
+    // 방 서버 방이 닫힘(roomDir 삭제 트리거) — 같은 규칙으로 대화를 걷는다
+    const closed = async (code, srv, prev) => { const m = mkDb(srv); const out = await f.onServerRoomClosed(m.db, code, prev); return { out, srv: m.L.srv }; };
+    const chatOf = (code) => ({ ['rooms/' + code + '/chatLog/k1']: { text: 'hi', ts: 1 }, ['rooms/' + code + '/_chatTab/s1/k1']: { text: 'hi', ts: 1 } });
+    let c = await closed('PX', chatOf('PX'), { srv: 'realtime-1', meta: { channel: 'togetherroom' } });
+    chk(c.out === 'cleared' && !('rooms/PX/chatLog/k1' in c.srv) && !('rooms/PX/_chatTab/s1/k1' in c.srv), '🛰 방 서버 투게더룸이 닫히면 #일반 · 탭 대화를 지운다 (나가면 정리)');
+    c = await closed('PY', chatOf('PY'), { srv: 'realtime-1', meta: { channel: 'workingroom' } });
+    chk('rooms/PY/chatLog/k1' in c.srv && !('rooms/PY/_chatTab/s1/k1' in c.srv), '  ↳ 워킹룸은 #일반을 남기고 탭 대화만 (Firebase 빈 방과 같다)');
+    c = await closed('SCRT-PZ', chatOf('SCRT-PZ'), { srv: 'realtime-1', meta: { channel: 'togetherroom', secret: true } });
+    chk(c.out === 'secret' && 'rooms/SCRT-PZ/chatLog/k1' in c.srv && 'rooms/SCRT-PZ/_chatTab/s1/k1' in c.srv, '  ↳ 시크릿룸은 다 남긴다');
+    c = await closed('PR', Object.assign(chatOf('PR'), { 'roomDir/PR': { srv: 'realtime-2', ts: now, meta: { channel: 'togetherroom' } } }), { srv: 'realtime-1', meta: { channel: 'togetherroom' } });
+    chk(c.out === 'reopened' && 'rooms/PR/chatLog/k1' in c.srv, '  ↳ 그새 방 서버 방이 다시 열렸으면 그만둔다');
+    c = await closed('PF', Object.assign(chatOf('PF'), { 'rooms/PF/_meta': { channel: 'togetherroom', ts: now } }), { srv: 'realtime-1', meta: { channel: 'togetherroom' } });
+    chk(c.out === 'firebase' && 'rooms/PF/chatLog/k1' in c.srv, '  ↳ 같은 코드의 Firebase 방이 열려 있으면 그만둔다 (그 방이 비면 빈 방 정리가 걷는다)');
+    chk(/exports\.roomDirOnClose = onValueDeleted\(\{ ref: '\/roomDir\/\{room\}'/.test(FX) && /onServerRoomClosed\(getDatabase\(\), code, event\.data/.test(FX),
+      '  ↳ functions/index.js — roomDir/{방} 삭제 트리거가 부른다');
     r = await run(room('P2', { 'roomIndex/P2': { lastSeen: 0, emptyAt: now - 1 * MIN } }));
     chk('rooms/P2/_meta' in r.srv && 'roomIndex/P2' in r.srv && !r.L.reads.includes('shallow:rooms/P2'), '2분 안 됐으면 아무것도 안 한다 (읽지도 않는다)');
 
