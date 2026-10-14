@@ -84,7 +84,7 @@ chk(/const seatSlot = \(typeof SeatSlot === 'undefined'\) \? null/.test(A) && /i
 
 say('── 4. html');
 const HTML = SRC['desk-companion-prototype.html'];
-const iS = HTML.indexOf('<script src="parts/seat-slot.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
+const iS = HTML.indexOf('<script src="parts/character/seat-slot.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
 chk(iS > 0 && iS < iA, 'seat-slot.js 를 app.js 앞에 싣는다');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

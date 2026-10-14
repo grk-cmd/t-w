@@ -19,7 +19,7 @@ if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-proto
 const MOD = ['admin-part-register.js', 'parts/admin/admin-part-register.js', 'app/parts/admin/admin-part-register.js'].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — admin-part-register.js'); process.exit(2); }
 /* 🎨 꾸미기 창은 wardrobe.js 로 옮겼다(앱 FSD 29번) — 꾸미기의 «＋ 파츠 등록» 부르는 곳은 그 파일에 있다(adminPartReg 를 읽는 함수로 받아 adminPartReg().이름) */
-const WARD = ['wardrobe.js', 'parts/wardrobe.js', 'app/parts/wardrobe.js'].map(read).find(Boolean) || '';
+const WARD = ['wardrobe.js', 'parts/character/wardrobe.js', 'app/parts/character/wardrobe.js'].map(read).find(Boolean) || '';
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const noStr = (s) => s.replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`/g, '""');
 

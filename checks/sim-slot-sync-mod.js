@@ -1,5 +1,5 @@
 /* ═══ ☁️ sim-slot-sync.js — ☁️ 슬롯(캐릭터) 기기 간 동기화 · 연동 UI(런처 띠 · 계정 탭 기기 연동 구획) 모듈 구조 (2026-10-14 신설 · 앱 FSD 19번) ═══════════════
-   app.js 의 «☁️ 슬롯 기기 간 동기화» · «☁️ 연동 UI» 두 구역 본문 을 parts/slot-sync.js 로 옮겼다(글자 그대로 · 바뀐 줄 3 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(sim-slot-sync.js · sim-slot-conflict.js 등).
+   app.js 의 «☁️ 슬롯 기기 간 동기화» · «☁️ 연동 UI» 두 구역 본문 을 parts/character/slot-sync.js 로 옮겼다(글자 그대로 · 바뀐 줄 3 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(sim-slot-sync.js · sim-slot-conflict.js 등).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(SLOTS_LASTSYNC_KEY · SLOTS_LOSS_KEY · SLOTS_PUSHFAIL_KEY · SLOTS_SEEN_KEY · SLOTS_SYNC_INTERVAL_MS · SLOTS_TS_KEY · SLOTS_TS_SKEW_TOL_MS · SLOT_GLB_CACHE_KEY · SLOT_IMG_FIELDS · SLOT_JSON_MAX · _slotFromServerObj · _slotGlbCacheLoad · _slotGlbCacheSave · _slotToServerObj · _slotsBackupSave · _slotsConflict · setSlotsConflict · _slotsFilledCount · _slotsHasLocal · _slotsNow · _slotsPushTimer · setSlotsPushTimer · _slotsRenderAcctSync · _slotsRenderBand · _slotsSchedulePush · _slotsSeen · setSlotsSeen · _slotsTouch · _slotsTs · setSlotsTs · syncSlotsToServer)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 19줄 그대로 · 부르는 곳은 slotSyncMod.이름 · html(app.js 앞)
@@ -13,7 +13,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
-const MOD = ["slot-sync.js","parts/slot-sync.js","app/parts/slot-sync.js"].map(read).find(Boolean);
+const MOD = ["slot-sync.js","parts/character/slot-sync.js","app/parts/character/slot-sync.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — slot-sync.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
@@ -66,8 +66,8 @@ function judgeAll(mod, app, html){
   t(got.length === want.length && want.every((k, i) => got[i] === k), 'deps ' + GLUE.length + '개 — 키 · 넘기는 방식 그대로(함수 ' + FN_DEPS.length + ' · 값 ' + VAL_DEPS.length + ' · 읽는 함수 ' + GET_DEPS.length + ' · 쓰는 함수 ' + SET_DEPS.length + ')');
   const bare = EXPORTS.filter(n => new RegExp('(^|[^.\\w$])' + n.replace(/\$/g, '\\$') + '\\b(?!\\s*:[^:])').test(A.replace(/const slotSyncMod = [\s\S]*?\n\}\);/, '')));
   t(!bare.length, '부르는 곳은 slotSyncMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
-  const iM = html.indexOf('<script src="parts/slot-sync.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
-  t(iM > 0 && iA > iM, 'html — parts/slot-sync.js 를 app.js 보다 먼저 싣는다');
+  const iM = html.indexOf('<script src="parts/character/slot-sync.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
+  t(iM > 0 && iA > iM, 'html — parts/character/slot-sync.js 를 app.js 보다 먼저 싣는다');
   return r;
 }
 
@@ -75,7 +75,7 @@ const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
-  ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/slot-sync.js"></script>', '')],
+  ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/slot-sync.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
   ['deps 하나 빠짐', null, a => { const i = a.indexOf("const slotSyncMod = (typeof TwSlotSync === 'undefined') ? SLOT_SYNC_MOD_OFF : TwSlotSync.createSlotSync({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }, null],
   ['전역 이름 안 걺', m => m.replace('window.TwSlotSync = api;', ''), null, null],

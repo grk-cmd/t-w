@@ -1,6 +1,6 @@
 /* sim-gacha-prune.js — 🎰 미보유 가챠 파츠 자동 해제(pruneUnownedGachaParts) 검증기
    실행: node sim-gacha-prune.js  (app.js · gacha.js · smoke.js 와 같은 폴더에서)
-   ※ 🎰 가챠 코어는 parts/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가하고, 보유분 · 회수 · 동기화는 gachaMod 로 부른다.
+   ※ 🎰 가챠 코어는 parts/character/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가하고, 보유분 · 회수 · 동기화는 gachaMod 로 부른다.
 
    제보 재현:
      · A기기에서 뽑아 착용 → B기기 연동 → 보관함은 ❔인데 화면엔 그대로 붙어 있다

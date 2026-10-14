@@ -149,7 +149,7 @@ chk(/function serializeDefForNetwork\(def, opts\)\{/.test(A) && /if\(!_quiet\) _
 chk(!/DefSize/.test(grabFn('serializeDefForNetwork') || 'DefSize'), '보내는 순간에는 막지 않는다(serializeDefForNetwork 에 판정 없음)');
 {
   const H = SRC['desk-companion-prototype.html'];
-  const a = H.indexOf('<script src="parts/def-size.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
+  const a = H.indexOf('<script src="parts/character/def-size.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
   chk(a > 0 && b > a, 'html 이 def-size.js 를 app.js 앞에 싣는다');
 }
 
