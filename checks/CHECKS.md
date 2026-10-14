@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 233 (구조 정리 3단계 폴더 12번 — 생성기 도구(그리기 도구 · 메쉬 채우기 · 종족 선택 · 동물 편집 길잡이) 파일 6개를 `parts/creator/` 로)
-대상: `sim-*.js` 239개 + `smoke.js` + `audit.py` = **241개** (개정 233 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 234 (부팅 때 저장 아이템 등록이 commissionMod TDZ 로 던지던 것 — 등록 부름을 만드는 줄 뒤로)
+대상: `sim-*.js` 239개 + `smoke.js` + `audit.py` = **241개** (개정 234 기준 — 폴더를 센 값)
+
+**개정 234 에서 한 것 (2026-10-15 · 앱 FSD 45번 회귀 고침)**
+- 앱: `commission.js` 가 만드는 도중에 `loadSavedItemsIntoSession()` 을 불러, 그 함수가 아직 없는 `commissionMod` 를 읽다 던졌다(부팅 때 저장 아이템 등록이 안 됨 — 카탈로그 동기화가 늦게 메움). 부르는 줄을 app.js 의 만드는 줄 바로 뒤로 옮기고 deps 에서 뺐다(옮기기 전 순서와 같음).
+- 검사: `sim-commission.js` — deps 4개로 · «만들 때 deps 함수를 되부르지 않는다» · «등록 부름은 만드는 줄 바로 뒤» 판정과 깨 보기 둘 추가.
 
 **개정 233 에서 한 것 (2026-10-14 · 도메인 폴더 12번 — 동작 변화 없음)**
 - 앱: `paint-tools.js` · `uv-fill.js` · `race-picker.js` · `animal-edit-route.js` · `creator-flat-view.js` · `desk-item-origin.js` 를 `app/parts/creator/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로.
@@ -2000,7 +2004,7 @@
 | **sim-myhome-diag.js** | 95 | **b249b890eecd** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 신설 · 🔍 마이홈 클릭 진단 모듈(myhome-diag.js) 구조** |
 | **sim-myhome-visit.js** | 96 | **a491b948d89a** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 신설 · 🏠 마이홈 데이터 · 👀 친구 홈 구경 모듈(myhome-visit.js) 구조** |
 | **sim-code-crypto.js** | 96 | **33d318164952** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 214 신설 · 🔐 캐릭터 코드 암호화 모듈(code-crypto.js) 구조** |
-| **sim-commission.js** | 96 | **330442e3dde8** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 214 신설 · 📦 커미션 · 💾 저장 에셋 모듈(commission.js) 구조** |
+| **sim-commission.js** | 103 | **4427746c6b55** ← **개정 234 만들 때 되부름 · 부팅 등록 줄 판정 추가** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 214 신설 · 📦 커미션 · 💾 저장 에셋 모듈(commission.js) 구조** |
 | **sim-exp-bar.js** | 96 | **9e0c7f506f3e** ← **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 214 신설 · ⭐ 경험치 바 모듈(exp-bar.js) 구조** |
 | **sim-focus-total.js** | 96 | **dce9786b19e1** ← **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 214 신설 · ⏱️ 포커스 누적 모듈(focus-total.js) 구조** |
 | **sim-focus-share.js** | 96 | **0beb29d1d008** ← **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 214 신설 · 📊 오늘 기록 전시 모듈(focus-share.js) 구조** |

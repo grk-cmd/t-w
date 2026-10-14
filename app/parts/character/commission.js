@@ -15,7 +15,6 @@ function createCommission(deps){
 const _b64 = deps._b64;
 const _deriveKey = deps._deriveKey;
 const _unb64 = deps._unb64;
-const loadSavedItemsIntoSession = deps.loadSavedItemsIntoSession;
 const toast = deps.toast;
 const MAX_COMMISSION_BYTES = 2 * 1024 * 1024;   // 2MB
 const COMMISSION_TEX_SIZE = 512;
@@ -114,10 +113,6 @@ function persistSavedAssets(){
   try{ localStorage.setItem(SAVED_ITEM_KEY,JSON.stringify(stripItems)); }catch(_){}
 }
 loadSavedAssets();
-// ★ 앱을 켜자마자 최대한 일찍 저장된 아이템들의 GLB 파싱을 시작해둠(비동기) — 이게 늦게 끝나면, 그 사이에
-//   캐릭터가 먼저 실행되면서 아직 customItems에 등록 안 된 아이템은 조용히 빠지는(=책상 위에서 사라지는)
-//   타이밍 경쟁이 있었음("가끔 아이템이 사라지는" 원인). 최대한 앞당겨서 그 경쟁 창을 최소화함.
-if(typeof loadSavedItemsIntoSession==='function') loadSavedItemsIntoSession();
 
 return {
   MAX_COMMISSION_BYTES,
