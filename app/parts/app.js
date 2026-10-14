@@ -4304,6 +4304,7 @@ const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi
   setChatLogUnsub: (v)=>{ _chatLogUnsub = v; },
   setDanceCmdCooldownAt: (v)=>{ iDeskMod.setDanceCmdCooldownAt(v); },
 });
+const DEMOJI_BY_CMD = chatUiMod.DEMOJI_BY_CMD;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
 const DEMOJI_BY_ID = chatUiMod.DEMOJI_BY_ID;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
 const DEMOJI_DIR = chatUiMod.DEMOJI_DIR;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
 
@@ -13970,6 +13971,7 @@ const expBarMod = (typeof TwExpBar === 'undefined') ? EXP_BAR_MOD_OFF : TwExpBar
   lvStarBarClass: (...a)=>lvTierMod.lvStarBarClass(...a),
   overheadMod: overheadMod,
 });
+function myExpCells(...a){ return expBarMod.myExpCells(...a); }   // 옛 전역 이름 — firebase-init.js 하트비트가 window.myExpCells 로 읽는다(도메인 단계에서 걷는다)
 
 /* ═══ 🕒 포커스 누적 기기 간 공유 ═══════════════════════════════════════════
    예전엔 tw.focusTotalSec이 순수 로컬이라, 계정을 연동해도 A컴퓨터의 3시간이 B컴퓨터에
