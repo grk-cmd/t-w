@@ -14,7 +14,7 @@ const need = (...names) => { for(const n of names){ const s = read(n); if(s != n
 const RULES = need('firebase-database-rules.json');
 const FX = need('functions/index.js');
 const VP = need('functions/visit-ping.js');
-const AVP = need('visit-ping.js', 'parts/visit-ping.js', 'app/parts/visit-ping.js');
+const AVP = need('visit-ping.js', 'parts/shared/visit-ping.js', 'app/parts/shared/visit-ping.js');
 const FI = need('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js');
 const HTML = need('desk-companion-prototype.html', 'app/desk-companion-prototype.html');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
@@ -143,7 +143,7 @@ const app = new Function(AVP.replace(/^export (function|const) /mg, '$1 ') + '\n
   say('── 6. firebase-init.js 연결 · CSP');
   {
     const CODE = strip(FI);
-    chk(/import \{ createVisitPing \} from "\.\/visit-ping\.js";/.test(CODE), 'visit-ping.js 를 불러온다');
+    chk(/import \{ createVisitPing \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?visit-ping\.js";/.test(CODE), 'visit-ping.js 를 불러온다');
     const w = CODE.match(/createVisitPing\(\{([\s\S]*?)\n  \}\)\.start\(\);/);
     chk(!!w, '만들자마자 start — 로그인을 기다리지 않는다');
     chk(!!w && /await import\(FUNCTIONS_SDK_URL\)/.test(w[1]) && /httpsCallable\(mod\.getFunctions\(fbApp, FUNCTIONS_REGION\), 'visitPing'\)\(data\)/.test(w[1]),

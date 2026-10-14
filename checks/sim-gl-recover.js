@@ -65,7 +65,7 @@ const env = () => {
 }
 
 say('§2 연결');
-const iG = HTML.indexOf('<script src="parts/gl-recover.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+const iG = HTML.indexOf('<script src="parts/shared/gl-recover.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
 chk(iG > 0 && iA > iG, 'HTML — app.js 보다 먼저 싣는다');
 const iR = APP.indexOf('const renderer=new THREE.WebGLRenderer({canvas,'), iW = APP.indexOf('GlRecover.createGlRecover({');
 chk(iR >= 0 && iW > iR && /\}\)\.attach\(canvas\);/.test(APP.slice(iW, iW + 800)), '★ app.js — 메인 렌더러를 만든 뒤 같은 캔버스에 붙인다');

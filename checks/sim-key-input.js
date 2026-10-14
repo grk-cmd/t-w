@@ -62,7 +62,7 @@ say('── 3. 쓰는 곳');
   chk(/hotkeyLetter\(e\) !== 'b'/.test(code) && /hotkeyLetter\(e\)==='e'/.test(code), 'B(조준) · Ctrl+E(관리자 끄기)도');
   chk(['c', 'x', 'z'].every((k) => new RegExp("hotkeyLetter\\(e\\)==='" + k + "' && isDrawStep\\(\\)").test(code)), '생성기 C · X · Z');
   chk(/const k = hotkeyLetter\(e\);/.test(strip(ANIMAL)) && ['z', 'c', 'x', 'g'].every((k) => new RegExp("k==='" + k + "'").test(strip(ANIMAL))), '동물 생성기 Z · C · X · G');
-  const iKey = HTML.indexOf('src="parts/key-input.js"'), iApp = HTML.indexOf('src="parts/app.js"'), iAnimal = HTML.indexOf('src="parts/character/animal.js"');
+  const iKey = HTML.indexOf('src="parts/shared/key-input.js"'), iApp = HTML.indexOf('src="parts/app.js"'), iAnimal = HTML.indexOf('src="parts/character/animal.js"');
   chk(iKey > 0 && iKey < iApp && iKey < iAnimal, 'key-input.js 가 app.js · animal.js 보다 먼저 로드된다');
   chk(!/function hotkeyLetter|function isImeComposing/.test(APP), '판정 함수는 key-input.js 한 곳에만');
 }

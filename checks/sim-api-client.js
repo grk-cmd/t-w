@@ -148,7 +148,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     const wp = mkWin('prod'), wd = mkWin('dev'), wn = mkWin(null), wo = mkWin('dev', { 'tw.apiBaseUrl': 'https://api-x.togetherworking.duckdns.org' });
     chk(wp.TwApi && wp.TwApi.client && wp.TwApi.client.baseUrl() === PROD, 'window.TwApi · 앱 한 벌(client) — 운영 앱은 운영 API');
     chk(wd.TwApi.client.baseUrl() === DEV && wn.TwApi.client.baseUrl() === PROD && wo.TwApi.client.baseUrl() === 'https://api-x.togetherworking.duckdns.org', '  ↳ dev 앱 dev API · companion 없음(웹 · 검사) 운영 · dev 시험 주소');
-    const iApi = HTML.indexOf('<script src="parts/api-client.js"></script>'), iRc = HTML.indexOf('<script src="parts/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
+    const iApi = HTML.indexOf('<script src="parts/shared/api-client.js"></script>'), iRc = HTML.indexOf('<script src="parts/shared/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
     chk(iApi > 0 && iApi < iRc && iRc < iApp, 'html — api-client.js → remote-config.js → app.js 차례');
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => (/connect-src ([^;]+);/.exec(m[1]) || [])[1] || '');
     const inCsp = (u) => csp.length === 2 && csp.every((c) => /(^| )https:\/\/\*\.togetherworking\.duckdns\.org( |$)/.test(c)) && A.API_BASE_RE.test(u);

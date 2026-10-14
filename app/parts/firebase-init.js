@@ -39,16 +39,16 @@
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room/room-alive.js";
   import { createInviteAccount } from "./account/invite-account.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
-  import { createAppVersion } from "./app-version.js";
-  import { createAppVersionGate, createAppVersionGateDom } from "./app-version-gate.js";
+  import { createAppVersion } from "./shared/app-version.js";
+  import { createAppVersionGate, createAppVersionGateDom } from "./shared/app-version-gate.js";
   import { createBugBoard } from "./support/bug-board.js";
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
   import { createCatalogSync } from "./character/catalog-cache.js";
   import { createBroadcastSync } from "./myhome/broadcast-cache.js";
-  import { createVisitPing } from "./visit-ping.js";
+  import { createVisitPing } from "./shared/visit-ping.js";
   import { createRoomServerNet } from "./room/room-server-net.js";
   import { createRoomServerGate } from "./room/room-server-gate.js";
-  import { createApiPublicReads } from "./api-public-reads.js";
+  import { createApiPublicReads } from "./shared/api-public-reads.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.

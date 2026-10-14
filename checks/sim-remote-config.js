@@ -416,8 +416,8 @@ const RCM = require(path.resolve(where('remote-config.js')));
 
   say('── 6. html — 순서 · 기본 표시 · CSP');
   {
-    const iRc = HTML.indexOf('<script src="parts/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
-    const iApi = HTML.indexOf('<script src="parts/api-client.js"></script>');
+    const iRc = HTML.indexOf('<script src="parts/shared/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
+    const iApi = HTML.indexOf('<script src="parts/shared/api-client.js"></script>');
     chk(iRc > 0 && iApp > iRc && iApi > 0 && iApi < iRc, 'api-client.js → remote-config.js → app.js 차례로 싣는다(firebase-init.js 는 module 이라 그 뒤에 돈다)');
     chk(/id="chCountWorking">— \/ 300</.test(HTML) && /id="chCountTogether">— \/ 300</.test(HTML) && !/— \/ 250/.test(HTML), '방 개수 기본 표시 «— / 300»(기본 상한과 같다)');
     chk((HTML.match(/<span data-tw-max-people>10<\/span>/g) || []).length === 4 && !/최대 10명/.test(HTML), '«최대 10명» 네 곳이 설정을 따라가는 자리');

@@ -85,7 +85,7 @@ say('── 4. 포커스 비율 · 진단 줄');
 say('── 5. 배선');
 {
   const H = SRC['desk-companion-prototype.html'];
-  const a = H.indexOf('<script src="parts/frame-budget.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
+  const a = H.indexOf('<script src="parts/shared/frame-budget.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
   chk(a > 0 && b > a, 'html 이 frame-budget.js 를 app.js 앞에 싣는다');
   const code = SRC['app.js'].replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
   chk(/FrameBudget\.runPixelRatio\(devicePixelRatio, dotRenderEnabled\)/.test(code), '실행 화면 배율을 runPixelRatio 로(한 곳)');
