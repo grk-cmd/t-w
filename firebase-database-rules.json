@@ -834,6 +834,8 @@
           "pingIntervalMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1000 && newData.val() <= 120000" },
           "restoreWindowMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 1800000" },
           "refreshMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 5000 && newData.val() <= 600000" },
+          "joinWaitMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 3000 && newData.val() <= 60000" },
+          "clientGiveUpMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 15000 && newData.val() <= 600000" },
           "$other": { ".validate": false }
         },
         "$other": { ".validate": false }

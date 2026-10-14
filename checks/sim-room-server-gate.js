@@ -242,10 +242,10 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
       '  ↳ defaultPercent — 누구나 한 칸 읽기 · 정수 0~100');
     const tm = rs.timing || {};
     const runV = (expr, val) => Function('newData', 'return (' + expr + ');')({ isNumber: () => typeof val === 'number', val: () => val });
-    const TR = { graceMs: [0, 600000], pingIntervalMs: [1000, 120000], restoreWindowMs: [0, 1800000], refreshMs: [5000, 600000] };   // t-w-server api roomServerTiming 범위와 같다
+    const TR = { graceMs: [0, 600000], pingIntervalMs: [1000, 120000], restoreWindowMs: [0, 1800000], refreshMs: [5000, 600000], joinWaitMs: [3000, 60000], clientGiveUpMs: [15000, 600000] };   // t-w-server api roomServerTiming 범위와 같다(뒤 두 칸은 앱이 읽는다 — remote-config.js TIMING_RANGES)
     chk(tm['.read'] === true && !tm['.write'] && Object.keys(TR).every((k) => { const v = (tm[k] || {})['.validate'] || ''; const [lo, hi] = TR[k];
       return runV(v, lo) && runV(v, hi) && !runV(v, lo - 1) && !runV(v, hi + 1) && !runV(v, lo + 0.5) && !runV(v, String(lo)); }) && tm.$other && tm.$other['.validate'] === false,
-      '  ↳ timing(방 서버 연결 시간값) — 누구나 읽기 · 쓰기는 roomServer 관리자 · graceMs 0~600000 · pingIntervalMs 1000~120000 · restoreWindowMs 0~1800000 · refreshMs 5000~600000 정수(서버와 같음) · 모르는 칸 거절');
+      '  ↳ timing(방 서버 연결 시간값) — 누구나 읽기 · 쓰기는 roomServer 관리자 · graceMs 0~600000 · pingIntervalMs 1000~120000 · restoreWindowMs 0~1800000 · refreshMs 5000~600000 · 앱 joinWaitMs 3000~60000 · clientGiveUpMs 15000~600000 정수(서버와 같음) · 모르는 칸 거절');
     chk(rs.$other && rs.$other['.validate'] === false, '  ↳ 모르는 칸은 거절');
     const rd = R.roomDir || {};
     chk(!rd['.read'] && rd.$code && rd.$code['.read'] === true && rd.$code['.write'] === false, 'roomDir — 방 코드 한 칸만 누구나 읽기 · 앱은 못 씀(방 서버가 관리자 키로)');
