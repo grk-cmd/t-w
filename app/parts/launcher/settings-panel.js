@@ -272,7 +272,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
       btn.onclick=async ()=>{
         if(window.companion && companion.moveToDisplay){
           const res=await companion.moveToDisplay(d.id);
-          if(res && res.ok){ toast(d.label+'로 이동'); renderMonitors(); if(typeof refreshCharScaleForCurrentDisplay==='function') refreshCharScaleForCurrentDisplay(); }
+          if(res && res.ok){ toast(d.label+'로 이동'); renderMonitors(); refreshCharScaleForCurrentDisplay(); }
           else{ toast('이동 실패'); }
         }
       };
@@ -293,20 +293,20 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     const willOpen = !panel.classList.contains('on');
     panel.classList.toggle('on', willOpen);
     if(willOpen){
-      if(typeof bringWinToFront==='function') bringWinToFront('focusSettingsPanel');   // 🪟 열 때는 맨 앞으로
+      bringWinToFront('focusSettingsPanel');   // 🪟 열 때는 맨 앞으로
       // ✥ 드래그로 옮긴 위치 기억 — 닫았다 열어도 그 자리. 단 화면 밖(해상도 변경 등)이면 머리 위 기본 위치로 복귀.
       if(window._fsPanelDragged){
         const px=parseFloat(panel.style.left)||0, py=parseFloat(panel.style.top)||0;
         if(px<0 || py<0 || px>innerWidth || py>innerHeight) window._fsPanelDragged=false;
       }
-      renderSlots(); sizeSlider.value = String(focusCharScale()); renderSizeBar(); renderGapBar(); refreshToggleBtns(); renderMonitors(); renderCharSlots(); if(typeof refreshFsAdBanner==='function') refreshFsAdBanner();
+      renderSlots(); sizeSlider.value = String(focusCharScale()); renderSizeBar(); renderGapBar(); refreshToggleBtns(); renderMonitors(); renderCharSlots(); refreshFsAdBanner();
       // ★ 탭은 마지막 선택 상태가 유지된다 — 투게더룸 탭인 채로 패널을 다시 열면 탭 클릭이
       //   일어나지 않아 위 핸들러를 안 탄다. 그 경우에도 조회가 시작되게 여기서 한 번 더 확인.
       try{
         const _mt=document.getElementById('fsTabMulti');
         if(_mt && _mt.style.display!=='none'){
-          if(typeof _updateRoomCountUI==='function') _updateRoomCountUI();
-          if(typeof startRoomCountWatch==='function') startRoomCountWatch();
+          _updateRoomCountUI();
+          startRoomCountWatch();
         }
       }catch(_){}
     }
@@ -386,7 +386,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
         el.style.width=''; el.style.height='';
       });
     if(typeof wardrobeMod().clampWdPreviewIntoView==='function') wardrobeMod().clampWdPreviewIntoView();
-    if(typeof toast==='function') toast('\ud83e\ude9f 창 위치를 처음 상태로 되돌렸어요');
+    toast('\ud83e\ude9f 창 위치를 처음 상태로 되돌렸어요');
   }
   const rwBtn=document.getElementById('fsResetWinPos');
   if(rwBtn) rwBtn.onclick=()=>{ resetAllWinPositions(); };
@@ -542,7 +542,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     i=Math.max(0,Math.min(GAP_STEPS-1,i));
     setCurrentGap(gapStepToValue(i));
     saveGap();
-    if(typeof layoutSeats==='function') layoutSeats();   // 여백이 바뀌면 좌석 배치를 다시 계산해야 함(가벼운 카메라만 갱신하는 걸로는 부족)
+    layoutSeats();   // 여백이 바뀌면 좌석 배치를 다시 계산해야 함(가벼운 카메라만 갱신하는 걸로는 부족)
     renderGapBar();
   }
   const gapBarLeft=document.getElementById('fsGapBarLeft'), gapBarRight=document.getElementById('fsGapBarRight');
@@ -574,19 +574,19 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
         document.getElementById(o.btn).classList.toggle('on', o.btn===t.btn);
         document.getElementById(o.page).style.display = (o.btn===t.btn) ? 'block' : 'none';
       });
-      if(t.btn==='fsTabBtnSize' && typeof renderCharSlots==='function') renderCharSlots();
+      if(t.btn==='fsTabBtnSize') renderCharSlots();
       if(t.btn==='fsTabBtnMulti'){
-        if(typeof refreshInviteUI==='function') refreshInviteUI();
-        if(typeof _updateRoomCountUI==='function') _updateRoomCountUI();   // 캐시값이 있으면 즉시 표시
+        refreshInviteUI();
+        _updateRoomCountUI();   // 캐시값이 있으면 즉시 표시
         // ★ _updateRoomCountUI는 '다시 그리기'만 한다 — 조회는 startRoomCountWatch가 한다.
         //   이 호출이 빠져 있어서 런처의 [방 만들기/참여하기]를 한 번도 안 열었으면
         //   _liveRoomCount가 null인 채로 남아 '방 개수 확인 중...'만 계속 떠 있었다.
         //   (watch의 자동 정지 조건은 이미 #fsInviteRoomCount 가시성을 보고 있어 이 탭을 지원한다)
-        if(typeof startRoomCountWatch==='function') startRoomCountWatch();
+        startRoomCountWatch();
         // 🪑 방에 연결된 상태로 이 탭에 들어오면 자리추가(내 슬롯) 좌석을 정리한다.
         //   방 만들기/참여 경로에서는 이미 호출되지만 F1 탭을 여는 것만으로는 정리가 안 돼,
         //   방 안인데도 내 슬롯 캐릭터들이 화면에 남아 보이던 문제가 있었음.
-        if(typeof applyExtraSeatForMode==='function') applyExtraSeatForMode();
+        applyExtraSeatForMode();
       }
     };
   });

@@ -83,7 +83,7 @@ async function renderProgMonitors(){
     btn.onclick=async ()=>{
       if(window.companion && companion.moveToDisplay){
         const res=await companion.moveToDisplay(d.id);
-        if(res && res.ok){ toast(d.label+'로 이동'); renderProgMonitors(); if(typeof refreshCharScaleForCurrentDisplay==='function') refreshCharScaleForCurrentDisplay(); }
+        if(res && res.ok){ toast(d.label+'로 이동'); renderProgMonitors(); refreshCharScaleForCurrentDisplay(); }
         else{ toast('이동 실패'); }
       }
     };
@@ -202,7 +202,7 @@ if(document.getElementById('progOfficeModeToggle')){
     refreshOfficeModeUI();
     refreshOfficeChipUI();   // ■ 버튼 툴팁 갱신 + 모드를 끄면 숨김 해제
     try{ if(typeof chatUiMod._chatFlyRefreshUI === 'function') chatUiMod._chatFlyRefreshUI(); }catch(_){}   // 🌊 날리기 줄 숨김/복귀
-    try{ if(typeof _applyChatSfxUI === 'function') _applyChatSfxUI(); }catch(_){}       // 🔔 알림음 «꺼짐» 표시/복귀
+    try{ _applyChatSfxUI(); }catch(_){}       // 🔔 알림음 «꺼짐» 표시/복귀
     toast((officeMode() ? '회사원 모드가 켜졌어요' : '회사원 모드가 꺼졌어요') + _offNote);
   };
 }

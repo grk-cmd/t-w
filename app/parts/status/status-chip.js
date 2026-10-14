@@ -594,7 +594,7 @@ function updateMyStatusChipPosition(){
     });
   }
   loadCustomStatusFromStorage(); loadUserStatusFromStorage(); refreshMyStatusUI();
-  if(typeof refreshCharScaleForCurrentDisplay==='function') refreshCharScaleForCurrentDisplay();   // 이 모니터에 저장해둔 캐릭터 크기 복원
+  refreshCharScaleForCurrentDisplay();   // 이 모니터에 저장해둔 캐릭터 크기 복원
 
   // 상태칩의 이동 버튼(✥) — 기존 설정 패널의 "프로그램 이동" 버튼과 동일한 기능.
   // 클릭하면 moveMode를 켜고, 화면 클릭으로 위치를 확정. 확정 로직은 window pointerdown 리스너가 처리.
@@ -608,10 +608,10 @@ function updateMyStatusChipPosition(){
     myDanceBtn.addEventListener('click', e=>{
       e.stopPropagation();
       const def = _pickUnlockedDance();
-      if(!def){ if(typeof toast==='function') toast('🔒 Lv.'+_lowestDanceReq()+' 달성 시 사용할 수 있어요'); return; }
+      if(!def){ toast('🔒 Lv.'+_lowestDanceReq()+' 달성 시 사용할 수 있어요'); return; }
       // 개인 쿨다운 5초 (채팅 명령과 공유)
       const nowMs = Date.now();
-      if(nowMs - _danceCmdCooldownAt() < 5000){ if(typeof toast==='function') toast('⏳ 춤은 5초에 한 번!'); return; }
+      if(nowMs - _danceCmdCooldownAt() < 5000){ toast('⏳ 춤은 5초에 한 번!'); return; }
       setDanceCmdCooldownAt(nowMs);
       startMyDance(def);
       // 더보기 메뉴 닫기
@@ -646,7 +646,7 @@ function updateMyStatusChipPosition(){
       // ★ 이동 모드를 켜는 순간 클릭 통과(click-through)를 즉시 강제 해제 — 마우스를 옮기지 않고
       //   바로 확정 클릭해도 그 클릭이 뒤 창(작업표시줄 등)으로 새지 않게 함.
       if(moveMode() && window.companion && companion.setIgnoreMouse) companion.setIgnoreMouse(false);
-      if(typeof updateMyStatusChipPosition==='function') updateMyStatusChipPosition();   // 상태칩 즉시 숨김
+      updateMyStatusChipPosition();   // 상태칩 즉시 숨김
     });
   }
 
@@ -655,7 +655,7 @@ function updateMyStatusChipPosition(){
   if(myBackBtn){
     myBackBtn.addEventListener('click', e=>{
       e.stopPropagation();
-      if(typeof backToLauncher==='function') backToLauncher();
+      backToLauncher();
     });
   }
 

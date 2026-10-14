@@ -311,9 +311,9 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
   if(fsw) fsw.addEventListener('click', e=>{
     e.stopPropagation();
     const b=e.target.closest('.fsw'); if(!b) return;
-    const lv=(typeof getFocusLevel==='function')?getFocusLevel():1;
-    if(lv < FLY_COLOR_LEVEL && !(typeof isAdmin!=='undefined' && isAdmin())){
-      if(typeof toast==='function') toast('🔒 Lv.'+FLY_COLOR_LEVEL+' 달성 시 색을 고를 수 있어요');
+    const lv=getFocusLevel();
+    if(lv < FLY_COLOR_LEVEL && !isAdmin()){
+      toast('🔒 Lv.'+FLY_COLOR_LEVEL+' 달성 시 색을 고를 수 있어요');
       return;
     }
     _setChatFlyColor(b.getAttribute('data-flycolor') || '');
@@ -343,7 +343,7 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
   if(ewc) ewc.onclick=()=>{ const w=document.getElementById('chatEmojiWin'); if(w) w.classList.remove('on'); };
   // 🎲 주사위 버튼 → 굴리기
   const dice=document.getElementById('chatDiceBtn');
-  if(dice) dice.onclick=(e)=>{ e.stopPropagation(); if(typeof _rollDice==='function') _rollDice(); };
+  if(dice) dice.onclick=(e)=>{ e.stopPropagation(); _rollDice(); };
   /* 💣 플라잉체어 — 조준 모드를 켜고 상대를 클릭해 날린다.
      ★ 채널 게이트를 여기서 한 번 더 본다 — 채팅창 자체가 투게더룸(채널2)에서만 열리지만,
        버튼이 HTML 에 상시 존재하므로 창이 다른 경로로 떠도 새지 않게.
@@ -358,7 +358,7 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
          내 화면이 반응하면 안 되는 것이고, 이건 내가 방금 누른 버튼이라 아무 응답이 없으면
          고장으로 읽힌다. 바로 위 채널·레벨 게이트가 이미 같은 방식으로 안내한다. */
     if(officeMode()){ toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }
-    const lv = (typeof getFocusLevel === 'function') ? getFocusLevel() : 1;
+    const lv = getFocusLevel();
     if(lv < FLY_MIN_LEVEL){ toast('💣 는 레벨 ' + FLY_MIN_LEVEL + '부터 쓸 수 있어요 (지금 레벨 ' + lv + ')'); return; }
     if(!seats.some(s=>s.remote)){ toast('방에 다른 분이 있어야 해요'); return; }
     setFlyAiming(!_flyAiming());

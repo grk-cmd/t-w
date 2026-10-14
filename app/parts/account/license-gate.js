@@ -269,7 +269,7 @@ function _showExistingSignup(st){
     setTimeout(()=>{ if(pw1) pw1.focus(); }, 50);
     const close = ()=>{
       ov.style.display = 'none';
-      try{ if(typeof refreshAccountTab === 'function') refreshAccountTab(); }catch(_){}
+      try{ refreshAccountTab(); }catch(_){}
       resolve(true);
     };
     const goPw = async ()=>{
@@ -387,7 +387,7 @@ function _showNeedLogin(st){
     if(codeEl) codeEl.textContent = st.code || '—';
     ov.style.display = 'flex';
     setTimeout(()=>{ if(pw) pw.focus(); }, 50);
-    const close = ()=>{ ov.style.display = 'none'; try{ if(typeof refreshAccountTab === 'function') refreshAccountTab(); }catch(_){} resolve(true); };
+    const close = ()=>{ ov.style.display = 'none'; try{ refreshAccountTab(); }catch(_){} resolve(true); };
     const after = r => {
       if(!r.switched){ say('✅ 로그인됐어요.', false); setTimeout(close, 900); return; }
       /* 로그인한 계정의 uid 가 이 PC 와 달랐다 — 그 계정으로 갈아탔으니 다시 띄운다(구글 갈아타기와 같은 결론). */
@@ -811,7 +811,7 @@ function loadLicenseFromStorage(){
 const LICENSE_OPTOUT_KEY = 'tw.licenseOptOut';
 function _licenseSnapPushNow(){
   try{
-    if(typeof getMyLoginEmail !== 'function' || !getMyLoginEmail()) return;   // 로그인 안 한 기기 — 계정이 없다
+    if(!getMyLoginEmail()) return;   // 로그인 안 한 기기 — 계정이 없다
     if(!(window.firebaseAPI && firebaseAPI.setAccountSnapshot)) return;
     firebaseAPI.setAccountSnapshot(getMyUserId(), _loginLocalSnapshot());
   }catch(_){}
@@ -830,8 +830,8 @@ async function _licenseSnapForPush(){
   if(v.ok && opt !== k){
     try{ localStorage.setItem(LICENSE_KEY_STORAGE, k); }catch(_){}
     _setPremium(true);
-    try{ if(typeof refreshLicenseUI === 'function') refreshLicenseUI(); }catch(_){}
-    try{ if(typeof toast === 'function') toast('🎫 계정에 등록된 라이선스를 이 PC에서도 켰어요'); }catch(_){}
+    try{ refreshLicenseUI(); }catch(_){}
+    try{ toast('🎫 계정에 등록된 라이선스를 이 PC에서도 켰어요'); }catch(_){}
   }
   return snap;
 }
@@ -848,12 +848,12 @@ function deactivateLicense(){
   let _k = null; try{ _k = localStorage.getItem(LICENSE_KEY_STORAGE); }catch(_){}
   try{ localStorage.removeItem(LICENSE_KEY_STORAGE); if(_k) localStorage.setItem(LICENSE_OPTOUT_KEY, _k); }catch(e){}   // 🎫 이 기기만 해제 — 부팅 때 다시 켜지 않는다
   // 프리미엄이 풀렸는데 커스텀 상태를 쓰고 있었으면 기본 상태로 되돌림
-  if(typeof userStatus()!=='undefined' && userStatus()==='custom' && typeof setUserStatus==='function') setUserStatus(null);
+  if(typeof userStatus()!=='undefined' && userStatus()==='custom') setUserStatus(null);
   _setPremium(false);
 }
 /* 프리미엄 여부가 바뀔 때 그에 따라 잠금/해제되는 UI를 다시 그림 (라이선스 검증이 비동기라 나중에 확정됨) */
 function _refreshPremiumGatedUI(){
-  if(typeof refreshCustomStatusMenuItem==='function') refreshCustomStatusMenuItem();   // ✨ 커스텀 상태 메뉴 항목
+  refreshCustomStatusMenuItem();   // ✨ 커스텀 상태 메뉴 항목
   try{ if(typeof awayPicMod()._awayRenderUI === 'function') awayPicMod()._awayRenderUI(null); }catch(_){}        // 👑 자리비움 그림 등록 칸(프리미엄 전용)
   /* 🪑 [2026-09-18 제보 2] 라이선스가 바뀌었으니 **저장값부터** 맞춘다 — 다시 그리는 것은 그 다음이다.
      ★ 예전에는 여기 「charDef 는 손대지 않는다」고 적혀 있었다. 근거는 «나중에 라이선스가 오면 같은
@@ -864,9 +864,9 @@ function _refreshPremiumGatedUI(){
        옛 주석이 지키려던 것(라이선스가 돌아오면 책상도 돌아온다)은 그대로 지키면서 전파만 끊는다.
        근거와 경계는 pruneUnownedLicenseAssets 위 주석에 적었다.
      ⚠️ 남의 좌석은 안 건드린다 — 남의 것은 애초에 게이트를 안 탄다(seat.remote). */
-  try{ if(typeof restoreLicenseHeldAssets === 'function') restoreLicenseHeldAssets(); }
+  try{ restoreLicenseHeldAssets(); }
   catch(e){ console.warn('[라이선스] 접어 둔 자산 복원 실패', e); }
-  try{ if(typeof pruneUnownedLicenseAssets === 'function') pruneUnownedLicenseAssets(); }
+  try{ pruneUnownedLicenseAssets(); }
   catch(e){ console.warn('[라이선스] 전용 자산 정리 실패', e); }
   try{
     if(typeof seats!=='undefined' && Array.isArray(seats)){
@@ -874,12 +874,12 @@ function _refreshPremiumGatedUI(){
         if(!s || !s.isMe || s.remote || !s.charDef) return;
         if(s.charDef.deskCatalogId){ applyDeskCatalogRefToSeat(s, s.charDef); }
         else if(!s.charDef.deskGlb){ applyDeskCatalogRefToSeat(s, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:s.charDef.deskScale, deskLenX:s.charDef.deskLenX, deskColor:s.charDef.deskColor}); }
-        if(s.charDef.deskItems && typeof applyDeskItemsTo==='function') applyDeskItemsTo(s, s.charDef.deskItems);
+        if(s.charDef.deskItems) applyDeskItemsTo(s, s.charDef.deskItems);
       });
     }
   }catch(_){}
   // 생성기가 열려 있으면 책상 카드의 🔒 도 지금 값으로 다시 그린다
-  try{ if(typeof creatorOpen()!=='undefined' && creatorOpen() && typeof renderCrItems==='function') renderCrItems(); }catch(_){}
+  try{ if(typeof creatorOpen()!=='undefined' && creatorOpen()) renderCrItems(); }catch(_){}
 }
 
 return {

@@ -118,7 +118,7 @@ function canTargetFly(seat){
        "던졌는데 아무 일도 안 일어난다"가 된다. */
   if(typeof officeMode() !== 'undefined' && officeMode()) return {ok:false, quiet:true};
   if(!seat || !seat.remote || !seat.friendId) return {ok:false, why:'방에 있는 다른 분만 날릴 수 있어요'};
-  const nm = (typeof _seatLabelName === 'function') ? (_seatLabelName(seat) || '이 분') : '이 분';
+  const nm = (_seatLabelName(seat) || '이 분');
   const cool = seat.remoteFlyCool || 0;
   if(cool && Date.now() < cool){
     return {ok:false, why:nm + '님은 쉬는 중이에요 (' + Math.ceil((cool - Date.now())/1000) + '초)'};
@@ -134,7 +134,7 @@ function setFlyAiming(on, quiet){
   _flyAiming = !!on;
   try{ canvas.style.cursor = _flyAiming ? 'crosshair' : ''; }catch(_){}
   try{ const b = document.getElementById('chatBombBtn'); if(b) b.classList.toggle('on', _flyAiming); }catch(_){}
-  if(typeof toast === 'function' && !quiet){
+  if(!quiet){
     toast(_flyAiming ? '💣 날려버릴 분을 클릭하세요 — ESC · 우클릭 · 빈 곳 클릭으로 취소'
                      : '취소했어요');
   }
@@ -157,7 +157,7 @@ function _flyAimClick(e){
   const seat = hit.length ? seatFromObject(hit[0].object) : null;
   if(!seat){ setFlyAiming(false); return; }            // 빈 곳 클릭 = 취소
   const t = canTargetFly(seat);
-  if(!t.ok){ if(!t.quiet && t.why && typeof toast === 'function') toast(t.why); return; }   // 조준은 유지 — 다른 분을 고르면 된다
+  if(!t.ok){ if(!t.quiet && t.why) toast(t.why); return; }   // 조준은 유지 — 다른 분을 고르면 된다
   setFlyAiming(false, true);
   throwFlyAt(seat);
 }
@@ -166,10 +166,10 @@ function _flyAimClick(e){
 function throwFlyAt(seat, quiet){
   const seed = flySeed();
   try{ if(typeof Presence()!=='undefined' && Presence().active()) Presence().poke(seat.friendId, 'fly:' + seed); }
-  catch(_){ if(typeof toast === 'function') toast('전송에 실패했어요'); return; }
+  catch(_){ toast('전송에 실패했어요'); return; }
   if(quiet) return;                            // 깜짝쇼로 던진 것 — 기록을 남기면 예고가 된다
-  const target = (typeof _seatLabelName === 'function') ? (_seatLabelName(seat) || '누군가') : '누군가';
-  _flyChatLog((typeof getDisplayName === 'function' ? getDisplayName() : '나') + '님이 ' + target + '님을 날려버렸어요.💥💥');
+  const target = (_seatLabelName(seat) || '누군가');
+  _flyChatLog(getDisplayName() + '님이 ' + target + '님을 날려버렸어요.💥💥');
 }
 
 /* 대화 기록 한 줄 — 🎲 주사위와 같은 경로(sendChatLog).
@@ -224,7 +224,7 @@ function registerFlyHit(){
        ⚠️ 대화 기록(_flyChatLog)은 남긴다. 그건 방의 기록이라 남들이 읽는 것이고,
          빼면 남들 화면에서 "왜 갑자기 쉬는 중인지" 알 수 없게 된다. */
     if(!(typeof officeMode() !== 'undefined' && officeMode())){
-      if(typeof toast === 'function') toast('어지러워요 — ' + (FLY_COOL_MS/1000) + '초 동안 쉬어가요 💫');
+      toast('어지러워요 — ' + (FLY_COOL_MS/1000) + '초 동안 쉬어가요 💫');
     }
     _flyChatLog(getDisplayName() + '님은 잠시 쉬어갑니다.');
   }, FLY_MS + FLY_RETURN_MS);
@@ -250,7 +250,7 @@ function _flyProbeY(seat){
     if(isFinite(mid) && mid > 0.02 && mid < 5) return mid;
   }catch(_){}
   return FLY_PROBE_FALLBACK
-       * ((typeof seatScale === 'function') ? seatScale(seat) : 1)
+       * seatScale(seat)
        * ((seat && seat.charDef && seat.charDef.animal) ? ANIMAL_RUN_SCALE : 1);
 }
 /* 캐릭터의 화면 좌표(NDC). project() 는 인자를 덮어쓰므로 매번 새로 담는다. */
@@ -289,7 +289,7 @@ function _updateFlyingSeats(now, dt){
   for(let i = 0; i < seats.length; i++){
     const seat = seats[i], f = seat.fly;
     if(!f) continue;
-    const cz = (typeof seatCharZ === 'function') ? seatCharZ(seat) : CHAR_Z;
+    const cz = seatCharZ(seat);
     /* 비행 좌표 → 좌석 로컬 좌표. group 은 이동만 하고 회전·배율이 없으므로 월드 오프셋이
        그대로 로컬 오프셋이 된다(회전하는 group 이 생기면 여기부터 손봐야 한다). */
     const place = (ax, ay) => seat.rig.position.set(
@@ -331,12 +331,10 @@ function _updateFlyingSeats(now, dt){
 
 function endFlight(seat, now){
   seat.fly = null;   // 카운터(_flyActive)는 _updateFlyingSeats 가 매 프레임 다시 센다
-  seat.rig.position.set(0, 0, (typeof seatCharZ === 'function') ? seatCharZ(seat) : CHAR_Z);
+  seat.rig.position.set(0, 0, seatCharZ(seat));
   seat.rig.rotation.z = 0;
   seat.dizzyUntil = now + FLY_DIZZY_MS;          // seatState 가 'dizzy' 를 돌려준다
-  if(typeof spawnFloater === 'function'){
-    for(let i = 0; i < FLOATER_BURST(); i++) setTimeout(()=>spawnFloater('💫','#f5a94f', seat), i * 300);
-  }
+  for(let i = 0; i < FLOATER_BURST(); i++) setTimeout(()=>spawnFloater('💫','#f5a94f', seat), i * 300);
 }
 
 const BONK_FLAT_MS   = 1200;    // 납작해져 있는 시간
@@ -402,9 +400,7 @@ function _bonkFrame(seat, now){
     if(!seat._bonkDizzyDone){
       seat._bonkDizzyDone = true;
       seat.dizzyUntil = now + BONK_DIZZY_MS;   // seatState 가 'dizzy' 를 돌려준다
-      if(typeof spawnFloater === 'function'){
-        for(let i = 0; i < FLOATER_BURST(); i++) setTimeout(()=>spawnFloater('💫','#f5a94f', seat), i * 300);
-      }
+      for(let i = 0; i < FLOATER_BURST(); i++) setTimeout(()=>spawnFloater('💫','#f5a94f', seat), i * 300);
     }
     seat.bonkStart = 0;
     return;
@@ -465,7 +461,7 @@ function _bonkPlay(targetSeat, hitterUid){
   });
   _bonkPlaySound();
   const hs = _bonkHitterSeat(hitterUid);
-  if(hs && typeof showChatBubble === 'function') showChatBubble(hs, BONK_BUBBLE_MARK);
+  if(hs) showChatBubble(hs, BONK_BUBBLE_MARK);
 }
 
 /* 지금 이 좌석을 때릴 수 있는가 — **여기서 걸러지는 것이 곧 규칙이다.**
@@ -489,7 +485,7 @@ function canBonk(seat){
 /* 때린다 — 카운터·로컬 재생·전파. 두 진입 경로의 **공통 출구**다. */
 function bonkSeat(seat){
   const c = canBonk(seat);
-  if(!c.ok){ if(!c.quiet && c.why && typeof toast === 'function') toast(c.why); return false; }
+  if(!c.ok){ if(!c.quiet && c.why) toast(c.why); return false; }
   _bonkUse();
   const myUid = getMyUserId();
   _bonkPlay(seat, myUid);                     // ★ 즉시 로컬 재생 — 왕복을 기다리지 않는다
@@ -538,7 +534,7 @@ function setBonkAiming(on, quiet){
   // 조준이 둘 겹치면 캐릭터를 클릭했을 때 날아갈지 맞을지가 순서로 갈린다 — 한쪽을 켜면 다른 쪽을 끈다
   try{ if(_bonkAiming && typeof _flyAiming !== 'undefined' && _flyAiming) setFlyAiming(false, true); }catch(_){}
   try{ canvas.style.cursor = _bonkAiming ? BONK_CURSOR : ''; }catch(_){}
-  if(!quiet && typeof toast === 'function'){
+  if(!quiet){
     toast(_bonkAiming
       ? '때릴 분을 클릭하세요 (' + _bonkLeft() + '/' + BONK_DAILY_MAX + ') — ESC · 우클릭 · 빈 곳 클릭으로 취소'
       : '취소했어요', _bonkAiming ? BONK_CURSOR_IMG : null);
@@ -554,7 +550,7 @@ function _bonkAimClick(e){
   const seat = hit.length ? seatFromObject(hit[0].object) : null;
   if(!seat){ setBonkAiming(false); return; }          // 빈 곳 클릭 = 취소
   const c = canBonk(seat);
-  if(!c.ok){ if(!c.quiet && c.why && typeof toast === 'function') toast(c.why); return; }  // 조준 유지 — 다른 분을 고르면 된다
+  if(!c.ok){ if(!c.quiet && c.why) toast(c.why); return; }  // 조준 유지 — 다른 분을 고르면 된다
   setBonkAiming(false, true);                          // 한 번 때리면 해제
   bonkSeat(seat);
 }
@@ -575,7 +571,7 @@ window.addEventListener('keydown', e=>{
   try{ if(purikuraUi().isOpen()) return; }catch(_){}
   if(!_premiumOn()) return;
   if(_bonkAiming){ setBonkAiming(false); return; }
-  if(_bonkLeft() <= 0){ if(typeof toast === 'function') toast('오늘은 다 썼어요'); return; }
+  if(_bonkLeft() <= 0){ toast('오늘은 다 썼어요'); return; }
   setBonkAiming(true);
 });
 /* ESC 취소 — 캡처 단계에서 소비했을 때만 전파를 끊는다(ESC 핸들러가 16곳에 흩어져 있어,

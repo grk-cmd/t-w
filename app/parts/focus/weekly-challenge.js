@@ -290,7 +290,7 @@ async function _chalPayTickets(n, tag){
   const add = Math.max(0, n | 0);
   if(add <= 0) return 0;
   if(!_premiumOn()) return 0;          // ⚠️ 게이트 ③ — 단, 이미 준 것은 회수하지 않는다
-  const done = (v) => { _setGachaBonusLocal(v); try{ if(typeof renderGachaInv === 'function') renderGachaInv(); }catch(_){} };
+  const done = (v) => { _setGachaBonusLocal(v); try{ renderGachaInv(); }catch(_){} };
   /* 로그인이 없으면 서버가 아예 없다 = 기기가 하나뿐이다. 예전처럼 로컬에만 얹고 끝낸다. */
   if(!(window.firebaseAPI && firebaseAPI.addChalBonus)){
     done(gachaBonus() + add); _chalDropDue(tag || ''); return add;
@@ -520,7 +520,7 @@ function _chalRepeatTick(){
   const t = chalRec.today, c = chalRec.cfg || {};
   if(!t || t.fail) return;
   if((t.done | 0) >= (c.times | 0)) return;
-  const runNow = (typeof appMode !== 'undefined' && appMode() === 'run');
+  const runNow = (appMode() === 'run');
   /* 실행 화면에 **들어간 시점**부터 간격을 다시 잰다 — 부팅 시점이 아니다.
      꺼져 있는 동안 지나간 알림은 버린다(밀린 알림이 한꺼번에 쏟아지지 않게). */
   /* ⚠️ `모드가 run 으로 바뀌는 순간`만 보면 안 된다 — 이미 실행 화면인 채로 달성표를 열어
@@ -604,7 +604,7 @@ function _chalShowSettlePopup(s, total, early, phKey, days){
 async function syncChalToServer(reason, mode){
   if(_chalSyncing) return;
   if(!(window.firebaseAPI && firebaseAPI.loadChal && firebaseAPI.saveChal)) return;
-  const uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  const uid = getMyUserId();
   if(!uid) return;
   _chalSyncing = true;
   try{

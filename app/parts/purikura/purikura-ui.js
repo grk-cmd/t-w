@@ -156,7 +156,7 @@ function _pkBgmEl(){
   return _pkBgmAudio;
 }
 function _pkBgmStart(){
-  if(typeof officeMode !== 'undefined' && officeMode()) return;
+  if(officeMode()) return;
   const a = _pkBgmEl(); if(!a) return;
   try{ a.currentTime = 0; }catch(_){}
   a.volume = PK_BGM_VOL;
@@ -172,12 +172,12 @@ function _pkBgmStop(){
 function _pkHushOthers(){
   PK.hushed = null;
   if(!(window.companion && companion.pauseBgm)) return;
-  const pl   = (typeof _plPlaying !== 'undefined') && !!_plPlaying();
+  const pl   = !!_plPlaying();
   const home = !!(typeof window._mhBgmPlaying === 'function' && window._mhBgmPlaying());
   if(!pl && !home) return;
   try{ companion.pauseBgm(); }catch(_){}
   /* 각자의 «지금 나는 중» 표시도 내려 준다 — 안 내리면 ▶ 버튼이 재생 중인 척한다. */
-  if(pl){ _setPlPlaying(false); if(typeof _plRender === 'function') _plRender(); }
+  if(pl){ _setPlPlaying(false); _plRender(); }
   if(home && typeof window._mhBgmSetPlaying === 'function') window._mhBgmSetPlaying(false);
   PK.hushed = { pl:pl, home:home };
 }
@@ -185,11 +185,11 @@ function _pkUnhushOthers(){
   const h = PK.hushed; PK.hushed = null;
   if(!h || !(window.companion && companion.resumeBgm)) return;
   /* 그 사이에 사용자가 직접 다시 틀었으면 건드리지 않는다 — 또 resume 하면 겹친다. */
-  const plNow   = (typeof _plPlaying !== 'undefined') && !!_plPlaying();
+  const plNow   = !!_plPlaying();
   const homeNow = !!(typeof window._mhBgmPlaying === 'function' && window._mhBgmPlaying());
   if(plNow || homeNow) return;
   try{ companion.resumeBgm(); }catch(_){}
-  if(h.pl){ _setPlPlaying(true); if(typeof _plRender === 'function') _plRender(); }
+  if(h.pl){ _setPlPlaying(true); _plRender(); }
   if(h.home && typeof window._mhBgmSetPlaying === 'function') window._mhBgmSetPlaying(true);
 }
 const PK_GRAVITY  = 39.2;     // 중력(월드단위/초²) — 9.8 의 4배. ⚠️ PK_JUMP_V0 와 한 세트다
@@ -225,7 +225,7 @@ async function openPurikura(){
   if(PK.open) return;
   /* 🏢 회사원 모드 — 마지막 그물이다. 버튼 쪽에서 이미 막지만 문은 여기 하나뿐이라,
      다른 경로(단축키·복구·앞으로 생길 입구)로 들어와도 여기서 걸린다. */
-  if(typeof officeMode !== 'undefined' && officeMode()){ toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }
+  if(officeMode()){ toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }
   const pk = _purikura(); if(!pk) { toast('📷 스티커사진은 아직 준비 중이에요'); return; }
   const room = (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null;
   if(!room){ toast('방에 들어간 뒤에 쓸 수 있어요'); return; }
@@ -261,7 +261,7 @@ async function openPurikura(){
   ov.classList.remove('deco');
   _pkApplyWinPos();                      // 지난번에 끌어다 둔 자리로 (없으면 가운데)
   _pkHushOthers(); _pkBgmStart();        // 듣던 것을 재우고 이 창의 BGM 을 건다
-  if(typeof bringWinToFront === 'function') bringWinToFront('pkOverlay');
+  bringWinToFront('pkOverlay');
   _pkSetQuota(q);
 
   /* 창이 열려 있는 동안만 남은 횟수를 지켜본다(창을 연 사람만 = 월 9원). */
@@ -1124,7 +1124,7 @@ function _pkSyncFrame(){
      그래서 「양쪽 다 정상인데 무대만 비었다」 모양이 되어 통신 문제로 오해하게 된다.
    ⚠️ 옛 좌석(userId 가 없는 구버전 상대)을 위해 friendId 갈래를 뒤에 남겨 둔다. */
 function _pkSeatOf(uid){
-  if(uid === getMyUserId()) return (typeof findMySeat==='function') ? findMySeat() : null;
+  if(uid === getMyUserId()) return findMySeat();
   return seats.find(s=>s.remote && s.friendUserId && s.friendUserId === uid)
       || seats.find(s=>s.remote && s.friendId === uid)
       || null;
@@ -1141,7 +1141,7 @@ function _pkNeutralPose(seat){
   try{
     if(seat.faceMat && seat.faceMapOrig && seat.blink && seat.blink.closed){
       seat.blink.closed = false;
-      if(typeof setFaceMap === 'function') setFaceMap(seat.faceMat, seat.faceMapOrig);
+      setFaceMap(seat.faceMat, seat.faceMapOrig);
     }
     if(seat.mixer){
       /* 클립이 있는 캐릭터 — idle 클립으로 갈아탄 «결과»가 필요하다. fadeIn 은 시간이 걸리므로
@@ -1154,7 +1154,7 @@ function _pkNeutralPose(seat){
         seat.mixer.update(0.001);
         seat.current = null;
       }
-    }else if(seat.hasRig && typeof animateRig === 'function' && typeof targetFor === 'function'){
+    }else if(seat.hasRig){
       const keep = seat.pose;
       seat.pose = Object.assign({}, targetFor('idle'));
       /* 자세값은 idle 인데 **상태만 'shaking'** 을 넘긴다. 그 둘의 유일한 차이가 팔을 아래로
@@ -1359,10 +1359,8 @@ function _pkCloneChar(seat, out){
      그대로 딸려오면 무대에서 누운 채로·비스듬히 선 채로 굳는다. 방향은 아래 연출 겹이 정한다. */
   /* 🩹 [2026-10-02] 원본과 짝을 지어 둔다 — 몸 상자를 실행 화면 규칙으로 재는 데 쓴다(_pkBodyBox 주석:
      리깅 옷·자리비움 때 키가 랜덤이던 원인). 회전을 지우기 전에 달아도 무관하다(구조만 본다). */
-  if(typeof _pkPairMap === 'function'){
-    g.__pkSrcOf = _pkPairMap(src, g);
-    g.__pkPh = (seat && seat.placeholder && seat.placeholder.root) || null;
-  }
+  g.__pkSrcOf = _pkPairMap(src, g);
+  g.__pkPh = (seat && seat.placeholder && seat.placeholder.root) || null;
   g.rotation.set(0,0,0);
   g.updateWorldMatrix(true,true);
   /* ★ [2026-09-16 제보 5] 키는 **몸만** 잰다(noParts) — 파츠까지 재면 파츠가 클수록 캐릭터가 작아진다.
@@ -1465,7 +1463,7 @@ function _pkAimGaze(c){
 function _pkApplyGaze(c){
   if(!c.head) return;   // ★ 포즈(_pkApplyPose)보다 **뒤에** 불린다 — 머리는 시선이 마지막에 정한다.
   const g = c.gz || 0, p = c.gp || 0;
-  if(typeof setBone === 'function') setBone(c.head.bone, c.head.rest, HEAD_AXIS()*p, g, 0);
+  setBone(c.head.bone, c.head.rest, HEAD_AXIS()*p, g, 0);
 }
 /* 마우스는 **창 전체**에서 읽는다.
    [처음엔 무대 안에서만 읽었다] 무대를 벗어나면 정면으로 돌렸는데, 그러면 화면 가장자리를
@@ -1602,7 +1600,7 @@ function _pkSetBlink(c, on){
   const tex = on ? c.blinkTex : c.faceMapOrig;
   if(!tex) return 'no-tex';
   c.blinkOn = !!on;
-  if(typeof setFaceMap === 'function') setFaceMap(c.faceMat, tex);
+  setFaceMap(c.faceMat, tex);
   (c.ears || []).forEach(e=>{
     const t = on ? e.bT : e.fT;
     if(e.mat && t && e.mat.map !== t){ e.mat.map = t; e.mat.emissiveMap = t; e.mat.needsUpdate = true; }
@@ -1858,7 +1856,6 @@ function _pkPoseChar(c){
      책상에 손을 올린 각이라, 서 있는 무대에서는 팔이 앞으로 들린 것처럼 보인다. */
 function _pkApplyPose(c){
   const B = c.bones; if(!B || !B.handL || !B.handR) return;
-  if(typeof setBone !== 'function') return;
   const base = c.armBase, P = c.pose|0;
   const put = (k, x, y, z)=>{ if(B[k]) setBone(B[k].bone, B[k].rest, x, y, z); };
 
@@ -2668,7 +2665,7 @@ function _pkBindWinDrag(){
   const sv = _pkEl('pkSaveBtn'); if(sv) sv.onclick = e=>{ e.stopPropagation(); _pkdSave(); };
   /* ⎋ ESC 사다리에 태운다 — 마지막에 연 창부터 닫히는 그 순서에 합류한다.
      ⚠️ isOpen 은 **DOM 을 읽어** 판정할 것(플래그를 따로 들면 어긋난다). */
-  if(typeof escRegisterWindow === 'function') escRegisterWindow({
+  escRegisterWindow({
     key:'purikura', el:ov,
     isOpen:()=>ov.classList.contains('on'),
     close:()=>closePurikura(false)

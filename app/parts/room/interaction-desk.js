@@ -172,7 +172,7 @@ function startMyDance(def, opts){
     me.danceUntil = performance.now() + dur;
     me.danceStyle = style;   // 💃 스타일 저장 — animateRig가 분기, 페이로드로 친구에게도 전달
     const _inRoom = (typeof Presence()!=='undefined' && Presence().active());
-    if(typeof toast==='function') toast('💃 '+(_inRoom ? '다 같이 ' : '')+(def.name||'춤')+' !');
+    toast('💃 '+(_inRoom ? '다 같이 ' : '')+(def.name||'춤')+' !');
     // 상태 전파 즉시 — 다음 프레임 루프가 setState('dance')로 밀어주지만, 반응성을 위해 한 번 당겨줌.
     //   댄스배틀(춤 교체) 때는 state가 이미 'dance'라 setState가 no-op → broadcastRide로 스타일 변경을 반드시 밀어줌.
     if(typeof Presence()!=='undefined' && Presence().active()){

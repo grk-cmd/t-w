@@ -130,7 +130,7 @@ function ensureWdGizmo(){
   wdGizmo.setSize(3.2);   // 런처1-1: 기즈모 두 배(1.6 → 3.2)
   wdGizmo.addEventListener('objectChange', ()=>{ if(wdEar().isActive()) wdEar().onGizmoChange(); else syncWdGizmoToXf(); });
   // 드래그가 끝나는 순간에만(매 프레임이 아니라) 상세조정 패널의 숫자 표시를 다시 그림 — 무거운 재렌더를 드래그 중엔 피함
-  wdGizmo.addEventListener('dragging-changed', e=>{ if(!e.value && typeof renderWardrobe==='function') renderWardrobe(); });
+  wdGizmo.addEventListener('dragging-changed', e=>{ if(!e.value) renderWardrobe(); });
   wdScene.add(wdGizmo);
 }
 let wdGizmoInstanceIdx = 0;   // 런처9: 다중 파츠일 때 지금 조정 중인 인스턴스 (0 = main / 1+ = extra)
@@ -176,8 +176,8 @@ function syncWdGizmoToXf(){
      ★ 캐릭터에 붙는 파츠(머리·옷·장식)는 대상이 아니다. 바닥을 뚫어도 되는 것들이고,
        무엇보다 캐릭터를 움직이면 같이 따라다녀서 '바닥' 이 기준이 될 수 없다. */
   try{
-    const _gi = (typeof partCatInfo === 'function') ? partCatInfo(wdGizmoCat) : null;
-    if(_gi && typeof isDeskPartCat === 'function' && isDeskPartCat(_gi)) floorClampWrapper(wrapper, wdGizmoCat, true);
+    const _gi = partCatInfo(wdGizmoCat);
+    if(_gi && isDeskPartCat(_gi)) floorClampWrapper(wrapper, wdGizmoCat, true);
   }catch(_){}
   const c = wrapper.userData.baseCenter;
   const dOff = PART_DEFAULT_OFFSET()[wdGizmoCat] || {x:0,y:0,z:0};
@@ -296,12 +296,12 @@ function updateWdGizmoForActivePanel(){
   }
   function _wdApplyActive(){ if(wdGizmoCat && wdPreviewBase) applyPartXf(wdPreviewBase, wdGizmoCat); }
   const minus=document.getElementById('wdScaleMinus'), plus=document.getElementById('wdScalePlus');
-  if(minus && typeof _holdRepeat==='function') _holdRepeat(minus, (isBig)=>{
+  if(minus) _holdRepeat(minus, (isBig)=>{
     if(wdEar().isActive()){ wdEar().scaleStep(-1, isBig); return; }
     const xf=_wdActiveXf(); if(!xf){ toast('먼저 파츠 카드를 우클릭해서 조정할 파츠를 선택해 주세요'); return; }
     xf.scale = Math.max(0.3, +(xf.scale - (isBig?0.06:0.02)).toFixed(2)); _wdApplyActive();
   });
-  if(plus && typeof _holdRepeat==='function') _holdRepeat(plus, (isBig)=>{
+  if(plus) _holdRepeat(plus, (isBig)=>{
     if(wdEar().isActive()){ wdEar().scaleStep(1, isBig); return; }
     const xf=_wdActiveXf(); if(!xf){ toast('먼저 파츠 카드를 우클릭해서 조정할 파츠를 선택해 주세요'); return; }
     xf.scale = Math.min(2.5, +(xf.scale + (isBig?0.06:0.02)).toFixed(2)); _wdApplyActive();
@@ -592,7 +592,7 @@ async function refreshWdPreviewChar(){
   applyClothVisibility(wdPreviewBase);   // ★ 파츠 목록이 비어있어도(전부 해제) 기본 메쉬가 다시 보이도록 항상 한 번 더 반영
   // 런처1-2: 꾸미기창 재진입 시 파츠가 비동기로 나중에 붙는 동안 유저가 상세조정을 열면 기즈모가 null에 붙어서
   //   드래그해도 미리보기에 안 반영되던 문제 — 파츠 부착이 끝난 뒤 기즈모를 다시 붙임.
-  if(typeof updateWdGizmoForActivePanel==='function') updateWdGizmoForActivePanel();
+  updateWdGizmoForActivePanel();
   // ★ 예전엔 여기서 emissive를 일부러 줄여서 입체감을 살리려 했는데, 최종 색이 (지정한 색 × 조명) + emissive
   //   공식으로 합쳐지다 보니 emissive를 줄인 만큼 조명이 더해지는 비중이 커져서 지정한 헥스값과 실제
   //   화면 색이 달라 보이는 부작용이 있었음 — 색상 선택 화면에서는 "입체감"보다 "지정한 색 그대로 보이는 것"이
@@ -605,7 +605,7 @@ async function refreshWdPreviewChar(){
   wdCamBaseDist = Math.max(size.y,0.5)*1.5;
   sizeWdPreview();
   updateWdCam();
-  if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+  refreshWdPreviewColorSection();
 }
 function wdPreviewLoop(){
   const p=document.getElementById('wdPreviewPanel');
@@ -731,15 +731,15 @@ async function _commitWdDraftNow(silent){
   /* 🐾 귀는 파츠 배관 밖이라 따로 옮기고, 바뀌었으면 좌석 귀를 다시 붙인다 */
   try{ if(wdEar().commit(def, draft)) _attachHumanEars(mySeat.modelRoot, def); }catch(e){ console.warn('[사람 귀] 저장', e); }
   /* 💾 저장이 먼저다 — 아래 파츠 GLB 받기는 몇 초 걸려서, 그 사이 앱이 꺼지면 꾸민 것이 통째로 사라졌다 */
-  if(typeof saveSlots==='function') saveSlots();
+  saveSlots();
   // 실제 캐릭터에서 "뺀 파츠"를 먼저 걷어냄 — 🔗 stackable은 id 단위까지 대조 (안 하면 예전 파츠가 유령으로 남음)
   pruneSeatPartsAgainstDef(mySeat, def);
   await applyEquippedPartsToSeat(mySeat, def);   // 남아있는/새로 생긴 파츠는 적용(같은 카테고리 교체도 내부에서 처리됨)
   /* 🦶 파츠가 바뀌면 발밑 깊이도 바뀐다 — 여기서 다시 맞춘다.
      ⚠️ 이 호출이 없으면 욕조를 벗은 뒤에도 캐릭터가 그 깊이만큼 뜬 채로 남아 있다가 다음 실행에서야
        제자리로 돌아온다. 부팅 경로(applyCharToSeat)에는 이미 같은 재계산이 있다. */
-  try{ if(mySeat && mySeat.gltfRoot && typeof fitModel==='function') fitModel(mySeat); }catch(_){}
-  if(typeof saveSlots==='function') saveSlots();   // 적용 중 def 가 정리됐으면(옷 겹침 등) 한 번 더 — 그대로면 아무 일 없다
+  try{ if(mySeat && mySeat.gltfRoot) fitModel(mySeat); }catch(_){}
+  saveSlots();   // 적용 중 def 가 정리됐으면(옷 겹침 등) 한 번 더 — 그대로면 아무 일 없다
   if(mySeat.isMe && typeof Presence()!=='undefined' && Presence().active()){
     Presence().updateDef(def);
     if(!silent) toast('저장했어요 — 같은 방 친구에게 바로 반영돼요');
@@ -767,13 +767,13 @@ async function _commitWdDraftToOwner(draft, silent){
   /* 🐾 귀도 원래 주인에게 — _commitWdDraftNow 와 같은 짝. 빠지면 교체 직전에 고른 귀만 사라진다 */
   let _earChanged = false;
   try{ _earChanged = wdEar().commit(src, draft); }catch(e){ console.warn('[사람 귀] 저장', e); }
-  if(typeof saveSlots==='function') saveSlots();   // 💾 파츠 받기를 기다리기 전에 — _commitWdDraftNow 와 같은 이유
+  saveSlots();   // 💾 파츠 받기를 기다리기 전에 — _commitWdDraftNow 와 같은 이유
   if(seat){
     if(_earChanged) _attachHumanEars(seat.modelRoot, src);
     pruneSeatPartsAgainstDef(seat, src);
     await applyEquippedPartsToSeat(seat, src);
-    try{ if(seat.gltfRoot && typeof fitModel==='function') fitModel(seat); }catch(_){}
-    if(typeof saveSlots==='function') saveSlots();
+    try{ if(seat.gltfRoot) fitModel(seat); }catch(_){}
+    saveSlots();
   }
   if(seat && seat.isMe && typeof Presence()!=='undefined' && Presence().active()) Presence().updateDef(src);
   if(!silent) toast('꾸민 내용은 원래 캐릭터에 저장했어요');
@@ -805,7 +805,7 @@ function refreshWdPreviewColorSection(){
   partPaintMod().setWdActivePartRef(null);   // 🖍️ 아래에서 대상이 정해지면 채운다 — 조기 return 은 "대상 없음"이 맞다
   const _finish = ()=>{
     const _nowShown = container.style.display!=='none';
-    if(_nowShown!==_wasShown){ if(typeof sizeWdPreview==='function') sizeWdPreview(); if(typeof updateWdCam==='function') updateWdCam(); }
+    if(_nowShown!==_wasShown){ sizeWdPreview(); updateWdCam(); }
     // 🖍️ 어느 경로로 끝나든 그림칸 UI 를 같이 맞춘다(연필 버튼·그리기 줄).
     try{ partPaintMod().refreshWdPicUI(); }catch(_){}
   };
@@ -1136,7 +1136,7 @@ function createWardrobeAdjPanel(cat, id) {
       xf = getXf(); if(!xf.color) xf.color = {};
       rerender();
       attachWdGizmo(cat, currentInstanceIdx, id);
-      if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+      refreshWdPreviewColorSection();
     };
     // ▶ 다음 인스턴스
     multiRow.querySelector('.wd-multi-next').onclick = ()=>{
@@ -1145,7 +1145,7 @@ function createWardrobeAdjPanel(cat, id) {
       xf = getXf(); if(!xf.color) xf.color = {};
       rerender();
       attachWdGizmo(cat, currentInstanceIdx, id);
-      if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+      refreshWdPreviewColorSection();
     };
     // ＋ 파츠 추가
     multiRow.querySelector('.wd-multi-add').onclick = async ()=>{
@@ -1155,8 +1155,8 @@ function createWardrobeAdjPanel(cat, id) {
       currentInstanceIdx = total;
       _wdSetSavedInstanceIdx(id, currentInstanceIdx);
       // 미리보기 전체 재빌드 — 부분 재장착 시 일부 미리보기 갱신 실패하던 문제를 확실히 회피
-      if(typeof refreshWdPreviewChar==='function') await refreshWdPreviewChar();
-      if(typeof renderWardrobe==='function') renderWardrobe();
+      await refreshWdPreviewChar();
+      renderWardrobe();
     };
     // － 현재 활성 인스턴스 삭제
     multiRow.querySelector('.wd-multi-remove').onclick = async ()=>{
@@ -1165,8 +1165,8 @@ function createWardrobeAdjPanel(cat, id) {
       removePartEntryInstance(entry, currentInstanceIdx);
       currentInstanceIdx = Math.max(0, currentInstanceIdx-1);
       _wdSetSavedInstanceIdx(id, currentInstanceIdx);
-      if(typeof refreshWdPreviewChar==='function') await refreshWdPreviewChar();
-      if(typeof renderWardrobe==='function') renderWardrobe();
+      await refreshWdPreviewChar();
+      renderWardrobe();
     };
     // 미리보기 클릭으로 활성 인스턴스 전환
     window._wdCurrentMultiPanel = {
@@ -1176,7 +1176,7 @@ function createWardrobeAdjPanel(cat, id) {
         xf = getXf(); if(!xf.color) xf.color = {};
         rerender();
         attachWdGizmo(cat, currentInstanceIdx, id);
-        if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+        refreshWdPreviewColorSection();
       },
       getCurrent: ()=>currentInstanceIdx,
     };
@@ -1546,8 +1546,8 @@ function renderWardrobe(){
   if(currentWdTab === WD_DESK_TAB() || currentWdTab === wdEar().TAB){
     wrap.innerHTML='';
     if(currentWdTab === WD_DESK_TAB()) renderWdDeskSection(wrap); else wdEar().render(wrap);
-    if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
-    if(typeof updateWdGizmoForActivePanel==='function') updateWdGizmoForActivePanel();
+    refreshWdPreviewColorSection();
+    updateWdGizmoForActivePanel();
     return;
   }
   const info = PART_CATS().find(c=>c.cat===currentWdTab);
@@ -1679,8 +1679,8 @@ function renderWardrobe(){
   }
 
   wrap.appendChild(sec);
-  if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
-  if(typeof updateWdGizmoForActivePanel==='function') updateWdGizmoForActivePanel();
+  refreshWdPreviewColorSection();
+  updateWdGizmoForActivePanel();
 }
 
 /* 파츠 착용/해제 — 즉시 def 갱신 + 좌석 반영 + 저장

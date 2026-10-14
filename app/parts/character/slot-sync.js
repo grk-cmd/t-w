@@ -111,7 +111,7 @@ function _slotsBackupSave(prevRaw, nextStr, nextCount){
   catch(e){ console.warn('[슬롯] 백업을 남기지 못했습니다(저장 공간?) — 채택은 그대로 진행합니다', e); return false; }
   try{
     localStorage.setItem(SLOTS_BAK_META_KEY, JSON.stringify({
-      uid: (typeof getMyUserId === 'function' ? (getMyUserId() || '') : ''),
+      uid: ((getMyUserId() || '')),
       at: _slotsNow(), from: prevCount, to: (nextCount || 0),
     }));
   }catch(_){}                                                         // 본체만 있어도 복원은 된다 — 주인 대조만 못 한다
@@ -135,7 +135,7 @@ async function restoreSlotsBackup(force){
   let bak = null; try{ bak = localStorage.getItem(SLOTS_BAK_KEY); }catch(_){}
   if(!bak){ console.warn('[슬롯 백업] 되돌릴 백업이 없습니다.'); return false; }
   const m = _slotsBakMeta();
-  const me = (typeof getMyUserId === 'function' ? (getMyUserId() || '') : '');
+  const me = ((getMyUserId() || ''));
   /* ⚠️ 이 키는 로그아웃 때 안 지워진다(위 상수 주석). 그래서 **다른 계정으로 로그인한 사람이
      남의 캐릭터를 주워 가는 길**을 여기서 막는다 — 지우는 대신 대조하는 쪽을 골랐다. */
   if(m && m.uid && me && m.uid !== me && force !== true){
@@ -155,9 +155,9 @@ async function restoreSlotsBackup(force){
   for(let i = 0; i < CHAR_SLOT_MAX; i++){ slots[i] = null; _faceEverDrawn[i] = false; _blinkEverDrawn[i] = false; }
   await loadSlots();
   try{ if(typeof charsMod()._charsRemapDesk === 'function') charsMod()._charsRemapDesk(); }catch(_){}   // 🧬 되돌린 칸을 열쇠로 보관함과 다시 짝짓는다(켜져 있을 때만)
-  try{ if(typeof renderLauncher === 'function') renderLauncher(); }catch(_){}
-  try{ if(typeof renderCharSlots === 'function') renderCharSlots(); }catch(_){}
-  try{ if(typeof _slotsSchedulePush === 'function') _slotsSchedulePush(); }catch(_){}
+  try{ renderLauncher(); }catch(_){}
+  try{ renderCharSlots(); }catch(_){}
+  try{ _slotsSchedulePush(); }catch(_){}
   _slotsJsonSet(SLOTS_LOSS_KEY, { kind: 'restored', to: _slotsFilledCount(bak), at: _slotsNow() });   // 🛟 띠 ③ · 계정 탭이 읽는다
   _slotsRefreshUI();
   console.log('[슬롯 백업] 되돌렸습니다 — ' + _slotsFilledCount(bak) + '칸. 잠시 뒤 서버에도 올라갑니다. 다시 부르면 도로 맞바뀝니다.');
@@ -379,8 +379,8 @@ async function _slotsAdoptFromServer(srv){
   if(same) return false;                      // 내용은 같고 시각만 뒤처져 있었다 — 화면은 손댈 게 없다
   for(let i = 0; i < CHAR_SLOT_MAX; i++){ slots[i] = null; _faceEverDrawn[i] = false; _blinkEverDrawn[i] = false; }
   await loadSlots();
-  try{ if(typeof renderLauncher === 'function') renderLauncher(); }catch(_){}
-  try{ if(typeof renderCharSlots === 'function') renderCharSlots(); }catch(_){}
+  try{ renderLauncher(); }catch(_){}
+  try{ renderCharSlots(); }catch(_){}
   let running = false;
   try{ const l = document.getElementById('launcher'); running = !(l && l.classList.contains('on')); }catch(_){}
   try{
@@ -490,7 +490,7 @@ async function restoreSlotsPrevRemote(){
   if(!prev || !Object.keys(prev.s || {}).length){ console.warn('[슬롯] 서버 이전 한 벌이 없습니다'); return false; }
   await _slotsAdoptFromServer({ s: prev.s, ts: _slotsNow() });   // 이제 이것이 최신 — 다음 판에 올라간다
   _slotsJsonSet(SLOTS_LOSS_KEY, { kind: 'restored', to: Object.keys(prev.s).length, at: _slotsNow() });
-  try{ if(typeof _slotsSchedulePush === 'function') _slotsSchedulePush(); }catch(_){}
+  try{ _slotsSchedulePush(); }catch(_){}
   return true;
 }
 try{ window.restoreSlotsPrevRemote = restoreSlotsPrevRemote; }catch(_){}

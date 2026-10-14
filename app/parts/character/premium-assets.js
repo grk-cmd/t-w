@@ -62,7 +62,7 @@ const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.c
   decorate:(w)=>_humanEarPic(w, wardrobeMod.ensureWdDraft()),
   isDrawing:()=>partPaintMod._wdPic.on,
   onSynced:()=>{ try{ partPaintMod.refreshWdPicUI(); }catch(_){} },
-  toast:(m)=>{ if(typeof toast==='function') toast(m); },
+  toast:(m)=>{ toast(m); },
   rerender:()=>wardrobeMod.renderWardrobe(),
 });
 function _wdLicenseDesks(){
@@ -72,7 +72,7 @@ function _wdLicenseDesks(){
 }
 /* 책상 값을 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 카드와 슬라이더가 같이 쓴다. */
 function _wdApplyDeskChange(mutate){
-  const seat = (typeof findMySeat==='function') ? findMySeat() : null;
+  const seat = findMySeat();
   if(!seat || !seat.charDef) return null;
   const def = seat.charDef;
   mutate(def);
@@ -83,13 +83,13 @@ function _wdApplyDeskChange(mutate){
   try{ if(seat.desk){ setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1); if(def.deskColor) applyDeskColorToCustom(seat.desk, def.deskColor); } }catch(_){}
   // 미리보기는 draft 를 본다 — 같은 값을 적어 주지 않으면 창 안에서만 옛 책상이 남는다
   try{ if(wardrobeMod.wdDraftDef() && wardrobeMod.wdDraftDef()._srcDef === def){ wardrobeMod.wdDraftDef().deskCatalogId=def.deskCatalogId; wardrobeMod.wdDraftDef().deskScale=def.deskScale; wardrobeMod.wdDraftDef().deskLenX=def.deskLenX; wardrobeMod.wdDraftDef().deskColor=def.deskColor; wardrobeMod.wdDraftDef()[DESK_LICENSE_HOLD]=def[DESK_LICENSE_HOLD]; } }catch(_){}
-  try{ if(typeof saveSlots==='function') saveSlots(); }catch(_){}
+  try{ saveSlots(); }catch(_){}
   try{ if(seat.isMe && typeof Presence()!=='undefined' && Presence().active()) Presence().updateDef(def); }catch(_){}
   try{ if(typeof wardrobeMod.refreshWdPreviewChar==='function') wardrobeMod.refreshWdPreviewChar(); }catch(_){}
   return def;
 }
 function renderWdDeskSection(wrap){
-  const seat = (typeof findMySeat==='function') ? findMySeat() : null;
+  const seat = findMySeat();
   const def  = seat && seat.charDef;
   if(!def){
     wrap.innerHTML='<div class="wd-empty"><span class="ic">🪑</span>캐릭터를 먼저 실행해 주세요.</div>';
@@ -102,7 +102,7 @@ function renderWdDeskSection(wrap){
   const actions=document.createElement('div'); actions.className='wd-cat-head-actions';
   const addCode=document.createElement('button'); addCode.className='wd-add-code'; addCode.textContent='+ 코드로 추가';
   addCode.title='코드+비밀번호로 받은 책상을 이 기기에만 추가해요';
-  addCode.onclick=()=>{ if(typeof openAssetImport==='function') openAssetImport('desk'); };
+  addCode.onclick=()=>{ openAssetImport('desk'); };
   actions.appendChild(addCode); head.appendChild(actions); sec.appendChild(head);
 
   const grid=document.createElement('div'); grid.className='wd-grid';
@@ -114,10 +114,10 @@ function renderWdDeskSection(wrap){
   list.forEach(rec=>{
     const on=(def.deskCatalogId===rec.id);
     const card=swThumb(rec.name||'책상', on, rec.icon||'🪑');
-    if(typeof applyDeskDotThumb==='function') applyDeskDotThumb(rec, card);
+    applyDeskDotThumb(rec, card);
     card.onclick=async()=>{
       if(def.deskCatalogId===rec.id) return;
-      if(!rec.glb && rec.glbUrl && typeof resolveCatalogGlb==='function'){
+      if(!rec.glb && rec.glbUrl){
         try{ await resolveCatalogGlb(rec); }catch(_){}
       }
       if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
@@ -239,12 +239,12 @@ function pruneUnownedLicenseAssets(){
       const hit = _holdDef(s.charDef);
       if(!hit.desk && !hit.items.length) return;
       n += (hit.desk ? 1 : 0) + hit.items.length;
-      if(hit.desk && typeof applyDeskCatalogRefToSeat === 'function'){
+      if(hit.desk){
         applyDeskCatalogRefToSeat(s, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:s.charDef.deskScale, deskLenX:s.charDef.deskLenX, deskColor:s.charDef.deskColor});
       }
       hit.items.forEach(id => {
-        const d = (typeof deskItemDef === 'function') ? deskItemDef(id) : null;
-        if(d && typeof equipDeskItem === 'function') equipDeskItem(s, d, false);
+        const d = deskItemDef(id);
+        if(d) equipDeskItem(s, d, false);
       });
     });
   }catch(e){ console.warn('[라이선스] 좌석 정리 실패', e); }
@@ -255,10 +255,10 @@ function pruneUnownedLicenseAssets(){
   // 3) 생성기가 열려 있으면 그 초안도 — 안 그러면 완료를 누를 때 crDone 이 되살린다
   try{ if(typeof cBase() !== 'undefined' && cBase() && cBase().charDef){ const h = _holdDef(cBase().charDef); n += (h.desk?1:0) + h.items.length; } }catch(_){}
   if(!n) return 0;
-  try{ if(typeof saveSlots === 'function') saveSlots(); }catch(_){}
+  try{ saveSlots(); }catch(_){}
   // 방에 있으면 즉시 다시 내보낸다 — 이 한 줄이 친구 화면에서 사라지게 하는 자리다
   try{
-    const me = (typeof findMySeat === 'function') ? findMySeat() : null;
+    const me = findMySeat();
     if(me && typeof Presence() !== 'undefined' && Presence().active()) Presence().updateDef(me.charDef);
   }catch(_){}
   console.warn('[라이선스] 전용 자산 ' + n + '개를 접어 뒀습니다 — 라이선스를 등록하면 그대로 돌아옵니다');
@@ -284,7 +284,7 @@ function restoreLicenseHeldAssets(){
   try{ slots().forEach(d => { n += _restoreDef(d); }); }catch(_){}
   try{ if(typeof cBase() !== 'undefined' && cBase() && cBase().charDef) n += _restoreDef(cBase().charDef); }catch(_){}
   if(!n) return 0;
-  try{ if(typeof saveSlots === 'function') saveSlots(); }catch(_){}
+  try{ saveSlots(); }catch(_){}
   console.warn('[라이선스] 접어 뒀던 전용 자산 ' + n + '개를 되돌렸습니다');
   return n;
 }

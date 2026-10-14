@@ -230,7 +230,7 @@ function _plViewTitle(v){
 function _plNowTitle(){
   if(_plNowView) return _plMini ? _plNowView.name : _plViewTitle(_plNowView);
   const nm = _plSetName(_plNowSet);
-  if(_plMini) return nm || (typeof getDisplayName === 'function' ? getDisplayName() : '내 플레이리스트');
+  if(_plMini) return nm || getDisplayName();
   if(nm) return '🎵 ' + nm;
   return _plNowSet === 0 ? '🎵 플레이리스트' : ('🎵 ' + _plSetLabel(_plNowSet));
 }
@@ -266,7 +266,7 @@ function _plSetLabel(i){ return _plSetName(i) || ('프리셋 ' + (i + 1)); }
 function _plWindowTitle(){
   /* 미니미는 폭 236px 에 제목·버튼 세 개가 같이 들어가므로 "[아무개]의 플레이리스트"가 통째로 잘린다.
      접혔을 때는 이름만 남긴다 — 사진은 제목 앞(.plHeadAva)에 따로 붙는다. */
-  if(_plMini) return _plView ? _plView.name : (_plSetName(_plCur) || (typeof getDisplayName === 'function' ? getDisplayName() : '내 플레이리스트'));
+  if(_plMini) return _plView ? _plView.name : (_plSetName(_plCur) || getDisplayName());
   if(_plView) return _plViewTitle(_plView);
   /* ⚠️ 첫 프리셋만은 이름이 없을 때 옛 문구를 지킨다 — 이관된 사람의 창 제목이 업데이트 한 번에
      바뀌지 않게. 둘째·셋째는 새로 생긴 자리라 번호로 부르는 것이 오히려 필요하다. */
@@ -547,7 +547,7 @@ function _plFillAva(el, url){
 /* 내 명함(이름·레벨·사진) — 마이홈이 이미 로드됐으면 그 값이 최신이라 그쪽을 쓰고,
    아니면 서버에서 한 번만 읽는다. 실패해도 이름·레벨은 로컬에서 나오므로 사진만 비는 정도다. */
 function _plMyAvatar(){
-  if(typeof _myHomeLoaded !== 'undefined' && _myHomeLoaded() && typeof _myHomeData !== 'undefined' && _myHomeData()){
+  if(_myHomeLoaded() && _myHomeData()){
     return _myHomeData().avatar || null;
   }
   return _plMyCard ? _plMyCard.avatar : null;
@@ -569,12 +569,12 @@ function _plRenderHead(){
 
   // 닉네임 — 남의 목록은 색인에 실려 온 이름이 내가 보는 이름과 같으므로 그걸 먼저 쓴다.
   const nick = ro ? (_plView.name || card.name || '(이름 없음)')
-                  : (typeof getDisplayName === 'function' ? getDisplayName() : '나');
+                  : getDisplayName();
   const nickEl = document.getElementById('myPlNick');
   if(nickEl){ nickEl.textContent = nick; nickEl.title = nick; }
 
   const lv = ro ? (card.level != null ? card.level : null)
-                : (typeof getFocusLevel === 'function' ? getFocusLevel() : null);
+                : getFocusLevel();
   const st = ro ? starFromRemote(card) : myFocusShow();   // 🌟 회차면 별 배지(개정 70)
   _plFillLv(document.getElementById('myPlLv'), lv, st);
 
@@ -1005,13 +1005,13 @@ async function _plAdd(){
   if(_plReadOnly()) return;
   /* ⚠️ 상한은 **프리셋당** 20곡이다 — 셋을 합쳐 60. 넣는 곳은 지금 보고 있는 프리셋이다. */
   const mine = _plMine();
-  if(mine.length >= PL_MAX){ if(typeof toast === 'function') toast(_plSetLabel(_plCur) + ' 은 ' + PL_MAX + '곡까지예요'); return; }
+  if(mine.length >= PL_MAX){ toast(_plSetLabel(_plCur) + ' 은 ' + PL_MAX + '곡까지예요'); return; }
   // window.prompt 는 Electron에서 no-op — 마이홈 BGM 등록과 같은 asyncPrompt 를 쓴다.
   const url = await asyncPrompt({ title:'🎵 링크 추가', message:'유튜브 링크를 붙여넣으세요', placeholder:'https://youtu.be/…' });
   if(url === null) return;
   const vid = _ytVideoId(url);
-  if(!vid){ if(typeof toast === 'function') toast('유튜브 링크를 인식하지 못했어요'); return; }
-  if(mine.some(x => x.id === vid)){ if(typeof toast === 'function') toast('이미 이 프리셋에 있어요'); return; }
+  if(!vid){ toast('유튜브 링크를 인식하지 못했어요'); return; }
+  if(mine.some(x => x.id === vid)){ toast('이미 이 프리셋에 있어요'); return; }
   let title = await _ytFetchTitle(vid);
   if(!title){
     // 자동 조회가 안 될 때만 직접 묻는다. 여기서 취소해도 추가는 진행 — 제목 없이 링크가 보인다.
@@ -1039,13 +1039,13 @@ function _plDel(){
 /* 🌊 파도타기 — 최근 갱신 60명 중 나를 뺀 무작위 1명. 연달아 누르면 방금 본 사람은 제외한다. */
 async function _plPeek(){
   if(typeof firebaseAPI === 'undefined' || !firebaseAPI.fetchRandomPlaylist){
-    if(typeof toast === 'function') toast('파도타기는 인터넷 연결이 필요해요'); return;
+    toast('파도타기는 인터넷 연결이 필요해요'); return;
   }
   const btn = document.getElementById('myPlPeek');
   if(btn) btn.disabled = true;
   try{
     const r = await firebaseAPI.fetchRandomPlaylist(getMyUserId(), _plView ? _plView.uid : null);
-    if(!r){ if(typeof toast === 'function') toast('아직 파도탈 목록이 없어요'); return; }
+    if(!r){ toast('아직 파도탈 목록이 없어요'); return; }
     /* 🎵 재생 위치(_plNow)는 **건드리지 않는다** — 듣던 곡은 계속 난다.
        고르기(_plSel)만 초기화한다. 새 목록의 몇 번째를 고르고 있었는지는 뜻이 없다. */
     _plView = r; _plSel = -1;
@@ -1086,7 +1086,7 @@ function _plRenderFriendPick(){
   el.innerHTML='';
   /* 친구 목록은 마이홈이 부팅 때 구독해둔 캐시(_myHomeFriends)를 그대로 쓴다 —
      여기서 따로 읽으면 같은 데이터를 두 번 나르게 된다. */
-  const src = (typeof _myHomeFriends !== 'undefined' && _myHomeFriends()) || {};
+  const src = _myHomeFriends() || {};
   const ids = Object.keys(src);
   if(!ids.length){
     const d=document.createElement('div'); d.className='pfEmpty';
@@ -1111,12 +1111,12 @@ function _plRenderFriendPick(){
 }
 async function _plPeekFriend(fid, name){
   if(typeof firebaseAPI === 'undefined' || !firebaseAPI.fetchPlaylistOf){
-    if(typeof toast === 'function') toast('파도타기는 인터넷 연결이 필요해요'); return;
+    toast('파도타기는 인터넷 연결이 필요해요'); return;
   }
   const r = await firebaseAPI.fetchPlaylistOf(fid);
   /* ★ "친구지만 목록이 비었다"를 그대로 말해준다 — 무작위 파도타기의 '아직 파도탈 목록이 없어요'와
      뭉뚱그리면 내 친구가 목록을 안 만든 건지 앱이 고장난 건지 구분이 안 된다. */
-  if(!r){ if(typeof toast === 'function') toast(name + ' 님은 아직 공개한 목록이 없어요'); return; }
+  if(!r){ toast(name + ' 님은 아직 공개한 목록이 없어요'); return; }
   _plView = { uid:r.uid, name:name || '(이름 없음)', items:r.items,
     bio:r.bio || '', homePublic:!!r.homePublic };
   _plSel = -1;   // 🎵 재생 위치는 그대로 — 무작위 파도타기와 같은 규칙이다(듣던 곡이 안 끊긴다)
@@ -1254,7 +1254,6 @@ function _plSwitchSet(i){
   if(!ro) _plSel = -1;
   _plSave();       // 고른 프리셋도 저장한다(tw.playlistCur) — 창을 닫았다 열어도 그 자리다
   _plRender();
-  if(typeof toast !== 'function') return;
   if(ro){ toast('📥 담을 곳: ' + _plSetLabel(n) + ' (' + _plMine().length + '/' + PL_MAX + ')'); return; }
   const playing = _plNow >= 0 && _plNowSet !== n;
   toast('🎵 ' + _plSetLabel(n) + ' (' + _plMine().length + '곡)'
@@ -1291,10 +1290,10 @@ function _plGrabSong(){
 function _plGrabTo(k){
   if(!_plReadOnly()) return;                       // 내 목록에서는 의미가 없다(버튼도 숨겨져 있다)
   const it = _plGrabSong();
-  if(!it){ if(typeof toast === 'function') toast('담을 곡을 먼저 선택해 주세요'); return; }
+  if(!it){ toast('담을 곡을 먼저 선택해 주세요'); return; }
   k = _plSetIdx(k);
   const why = _plGrabBlock(k, it);
-  if(why){ if(typeof toast === 'function') toast(_plSetLabel(k) + ' — ' + why); return; }
+  if(why){ toast(_plSetLabel(k) + ' — ' + why); return; }
   const dst = _plSetItems(k);
   dst.push({ id: it.id,
              url: 'https://www.youtube.com/watch?v=' + it.id,
@@ -1302,10 +1301,8 @@ function _plGrabTo(k){
   _plSave();
   /* 화면은 남의 목록을 그대로 보여준다(듣던 흐름을 끊지 않는다) — 그래서 결과는 토스트로 알린다. */
   _plRender();
-  if(typeof toast === 'function'){
-    toast('📥 ' + _plSetLabel(k) + ' 에 담았어요 — ' + dst.length + '/' + PL_MAX
-          + (dst.length >= PL_MAX ? ' (꽉 찼어요)' : ''));
-  }
+  toast('📥 ' + _plSetLabel(k) + ' 에 담았어요 — ' + dst.length + '/' + PL_MAX
+        + (dst.length >= PL_MAX ? ' (꽉 찼어요)' : ''));
 }
 /* 📥 담을 프리셋 고르기 — 버튼 아래에 붙는 작은 드롭메뉴.
    ★ 클래스는 `cr-preset-ctx` 를 그대로 쓴다(좌석 우클릭 메뉴와 같은 판단). 그 이름이
@@ -1321,7 +1318,7 @@ function _plCloseGrabPick(){
 function _plOpenGrabPick(btn){
   _plCloseGrabPick();
   const it = _plGrabSong();
-  if(!it){ if(typeof toast === 'function') toast('담을 곡을 먼저 선택해 주세요'); return; }
+  if(!it){ toast('담을 곡을 먼저 선택해 주세요'); return; }
   const backdrop = document.createElement('div');
   backdrop.className = 'seat-ctx-backdrop pl-grab-backdrop';
   backdrop.style.cssText = 'position:fixed;inset:0;z-index:9998;background:transparent;';
@@ -1477,7 +1474,7 @@ function _plWatchTick(){
   _plErrStreak += 1;
   if(_plErrStreak >= Math.max(1, _plNowItems().length)){
     _plStop(); _plWatchStop();
-    if(typeof toast === 'function') toast('🎵 재생할 수 있는 곡이 없어요');
+    toast('🎵 재생할 수 있는 곡이 없어요');
     return;
   }
   _plNext();
@@ -1506,7 +1503,7 @@ function _plSyncLoop(){
 function _plOpenTrack(items, i){
   if(!items || i < 0 || i >= items.length) return false;
   if(!(window.companion && companion.openPlaylistTrack)){
-    if(typeof toast === 'function') toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요');
+    toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요');
     return false;
   }
   _plSyncLoop();   // 🔁 반드시 열기 **전에** — main 이 새 페이지에 주입할 때 이 값을 심는다
@@ -1595,7 +1592,7 @@ function _plSkipNext(){
   if(_plOn && _plKind === PL_KIND_SHUF){ _plPlayNow(_plShufPick(items.length)); return; }
   let n = _plNow + 1;
   if(n >= items.length){
-    if(!_plOn){ _plStop(); if(typeof toast === 'function') toast('🎵 목록이 끝났어요'); return; }
+    if(!_plOn){ _plStop(); toast('🎵 목록이 끝났어요'); return; }
     n = 0;   // 목록 반복
   }
   _plPlayNow(n);
@@ -1613,7 +1610,7 @@ function _plAdoptCurSet(){
   const items = _plNowItems();
   if(!items.length){
     _plStop();
-    if(typeof toast === 'function') toast('🎵 ' + _plSetLabel(_plCur) + ' 이 비어 있어요 — 재생을 멈췄어요');
+    toast('🎵 ' + _plSetLabel(_plCur) + ' 이 비어 있어요 — 재생을 멈췄어요');
     return true;
   }
   _plPlayNow((_plOn && _plKind === PL_KIND_SHUF) ? Math.floor(Math.random() * items.length) : 0);
@@ -1705,7 +1702,7 @@ function _plApplyVolSoon(){
     ava.addEventListener('click', e=>{
       e.stopPropagation();
       if(!_plView || !_plView.homePublic) return;
-      if(typeof openFriendHomeView === 'function') openFriendHomeView(_plView.uid, _plView.name);
+      openFriendHomeView(_plView.uid, _plView.name);
     });
   })();
 
@@ -1719,9 +1716,7 @@ function _plApplyVolSoon(){
       _plHomePublic = !!pub.checked;
       _plSave();
       _plRenderHead();
-      if(typeof toast === 'function'){
-        toast(_plHomePublic ? '내 목록을 본 사람이 마이홈에 들어올 수 있어요' : '마이홈을 다시 비공개로 바꿨어요');
-      }
+      toast(_plHomePublic ? '내 목록을 본 사람이 마이홈에 들어올 수 있어요' : '마이홈을 다시 비공개로 바꿨어요');
     });
   })();
 
@@ -1823,10 +1818,10 @@ function _plApplyVolSoon(){
       _plErrStreak += 1;
       if(_plErrStreak >= Math.max(1, _plNowItems().length)){
         _plStop();
-        if(typeof toast === 'function') toast('🎵 재생할 수 있는 곡이 없어요');
+        toast('🎵 재생할 수 있는 곡이 없어요');
         return;
       }
-      if(typeof toast === 'function') toast('⏭ 재생할 수 없는 영상이라 넘겼어요');
+      toast('⏭ 재생할 수 없는 영상이라 넘겼어요');
     }else{
       _plErrStreak = 0;
     }
@@ -1845,7 +1840,7 @@ function _plApplyVolSoon(){
     _plShufBag = [];
     _plSyncLoop();   // 🔁 재생 중이면 지금 곡부터 따른다
     _plSave(); _plRender();
-    if(typeof toast === 'function') toast(_plOn ? ('🎵 ' + PL_KIND_LABEL[_plKind]) : '🎵 반복 끔');
+    toast(_plOn ? ('🎵 ' + PL_KIND_LABEL[_plKind]) : '🎵 반복 끔');
   });
   /* 우클릭 — 종류만 바꾼다. 켬/끔은 건드리지 않는다.
      ⚠️ preventDefault 를 빼면 Electron 기본 컨텍스트 메뉴가 뜬다.
@@ -1858,7 +1853,7 @@ function _plApplyVolSoon(){
     _plShufBag = [];
     _plSyncLoop();   // 🔁 재생 중이면 지금 곡부터 따른다
     _plSave(); _plRender();
-    if(typeof toast === 'function') toast('🎵 ' + PL_KIND_LABEL[_plKind] + (_plOn ? '' : ' (반복 꺼짐 — 좌클릭으로 켜기)'));
+    toast('🎵 ' + PL_KIND_LABEL[_plKind] + (_plOn ? '' : ' (반복 꺼짐 — 좌클릭으로 켜기)'));
   });
   /* 🔊 음량 — 값이 바뀔 때마다 자식창에 보낸다(가볍다). 저장만 묶어서 늦춘다.
      ⚠️ companion.setBgmVolume 은 preload.js 에 노출돼 있어야 한다. 없으면 슬라이더는 움직이지만
@@ -1871,7 +1866,7 @@ function _plApplyVolSoon(){
       _volIn.title = '음량 ' + _plVol + '%';
       if(window.companion && companion.setBgmVolume) _plApplyVol();
       else if(!_volWarned){ _volWarned = true;
-        if(typeof toast === 'function') toast('음량 조절은 앱을 재시작한 후에 적용돼요'); }
+        toast('음량 조절은 앱을 재시작한 후에 적용돼요'); }
       if(_volT) clearTimeout(_volT);
       _volT = setTimeout(()=>{ _volT = null; _plSave(); }, 400);
     });

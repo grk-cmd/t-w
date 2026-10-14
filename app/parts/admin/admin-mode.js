@@ -124,7 +124,7 @@ function refreshAdminVisibility(){
   // 꾸미기 패널이 열려 있으면 등록/삭제 버튼 표시가 바뀌므로 다시 렌더
   if(typeof window.refreshWardrobe==='function') window.refreshWardrobe();
   // 🎟️ 관리자는 초대장 무제한 — 버튼 표시도 그에 맞게 갱신
-  if(typeof refreshInviteBtn==='function') refreshInviteBtn();
+  refreshInviteBtn();
 }
 /* 진입 트리거: Ctrl + ("후원" 또는 "캐릭터 생성" 또는 🎨 꾸미기 또는 광고배너) **한 번** 클릭
    [왜 5연타를 걷었나] 연타는 "비밀번호 창이 뜨는 것 자체"를 숨기려는 장치였다. 그런데 이제

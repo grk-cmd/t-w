@@ -124,7 +124,7 @@ function deletePart(id){
     }
     applyClothVisibility(s);
   });
-  if(typeof saveSlots==='function') saveSlots();
+  saveSlots();
   // 카탈로그(Firebase)에도 있던 파츠면 거기서도 제거 — 안 그러면 다른 사용자들한텐 계속 남아있음
   if(window.firebaseAPI && window.firebaseAPI.unpublishPart){
     window.firebaseAPI.unpublishPart(id).catch(()=>{});
@@ -240,7 +240,7 @@ function openPartRegister(cat, editRec){
       else {
         const rec=savedParts().find(p=>p.id===_partRegEditId);
         // Storage 이관 후속: 로컬 rec에 glb가 없으면(로컬 캐시엔 glbUrl만 저장돼 있는 상태) Storage에서 받아옴
-        if(rec && !rec.glb && rec.glbUrl && typeof resolveCatalogGlb==='function'){
+        if(rec && !rec.glb && rec.glbUrl){
           try{ await resolveCatalogGlb(rec); }catch(_){}
         }
         glbB64 = rec && rec.glb;
@@ -295,12 +295,12 @@ function openPartRegister(cat, editRec){
         //   기즈모 objectChange 콜백은 렌더 프레임과 어긋나 마지막 몇 픽셀의 이동이
         //   entry.xf에 반영 안 된 채로 저장 버튼이 눌리는 경우가 있음.
         //   저장 직전에 syncWdGizmoToXf를 강제 호출해서 wrapper.position 최신 값을 xf에 반영.
-        try{ if(wdGizmo() && wdGizmo().object && typeof syncWdGizmoToXf==='function') syncWdGizmoToXf(); }catch(e){}
+        try{ if(wdGizmo() && wdGizmo().object) syncWdGizmoToXf(); }catch(e){}
         // ★ 수정 모드에선 "지금 수정 중인 파츠(id)"의 entry만 읽음 — 예전엔 카테고리의 현재 장착 entry를
         //   그대로 읽어서, 미리보기에 다른 파츠(B)가 장착된 채 A를 저장하면 B의 위치/크기/회전이
         //   A의 기본값으로 저장되는 문제가 있었음(파츠별 설정이 서로 섞이던 원인).
         let entry = null;
-        if(editing && typeof findEntryById==='function'){
+        if(editing){
           entry = findEntryById(wdPreviewBase().charDef, _partRegCat, id);
           if(!entry) console.log('[파츠 등록] 수정 중인 파츠가 미리보기에 장착돼 있지 않아 defaultXf는 저장 안 함:', id);
         } else {
@@ -330,7 +330,7 @@ function openPartRegister(cat, editRec){
               /* 🦶 파츠 GLB 를 고쳐 저장하면 발밑 깊이도 달라진다 — 다시 붙인 뒤 바닥을 맞춘다.
                  (욕조를 조금 더 깊게 그려 저장했는데 화면은 예전 높이 그대로였던 경로) */
               Promise.resolve(equipPartOnSeat(s, c, rec, { stackableXf })).then(()=>{
-                try{ if(s && s.gltfRoot && typeof fitModel==='function') fitModel(s); }catch(_){}
+                try{ if(s && s.gltfRoot) fitModel(s); }catch(_){}
               }).catch(()=>{});
             }
           }
@@ -462,7 +462,7 @@ function openDeskRegister(kind, editId){
       if(f){ const buf=await f.arrayBuffer(); await parseGlbBytes(buf.slice(0)); glbB64=_b64(buf); }
       else {
         const rec=arr.find(d=>d.id===_deskRegEditId);
-        if(rec && !rec.glb && rec.glbUrl && typeof resolveCatalogGlb==='function'){
+        if(rec && !rec.glb && rec.glbUrl){
           try{ await resolveCatalogGlb(rec); }catch(_){}
         }
         glbB64 = rec && rec.glb;

@@ -79,7 +79,7 @@ function _inboxUnreadReward(){
 function _refreshFriendTabBadge(){
   const tab = document.querySelector('.mh-tab[data-tab="mail"]');
   if(!tab) return;
-  const n = (typeof _inboxUnreadReward==='function') ? _inboxUnreadReward() : 0;
+  const n = _inboxUnreadReward();
   let badge = tab.querySelector('.mh-tab-badge');
   if(n > 0){
     if(!badge){ badge=document.createElement('span'); badge.className='mh-tab-badge'; tab.appendChild(badge); }
@@ -260,7 +260,7 @@ function renderMyHomeFriendList(){
         }
         avatarEl.addEventListener('click', e=>{
           e.stopPropagation();
-          if(typeof openFriendHomeView==='function') openFriendHomeView(fid);
+          openFriendHomeView(fid);
         });
       }
       const visitEl = row.querySelector('.mh-fpill-code.go');   // 🏠 방 코드 누르기 → 놀러 가기 창
@@ -350,8 +350,8 @@ function _bindExtLinks(root){
       try{
         if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(key); }
         else { const ta=document.createElement('textarea'); ta.value=key; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); }
-        if(typeof toast==='function') toast('라이선스 키를 복사했어요');
-      }catch(_){ if(typeof toast==='function') toast('복사 실패 — 직접 선택해 복사해 주세요'); }
+        toast('라이선스 키를 복사했어요');
+      }catch(_){ toast('복사 실패 — 직접 선택해 복사해 주세요'); }
       return;
     }
     const a = e.target && e.target.closest ? e.target.closest('.ext-link') : null;
@@ -401,7 +401,7 @@ function _giftBoxPaint(listEl, gifts){
   const full = keys.length >= lim.max;
   const cells = keys.map((k, i)=>{
     const g = gifts[k];
-    const when = (typeof _inboxTimeStr==='function') ? _inboxTimeStr(g.ts) : '';
+    const when = _inboxTimeStr(g.ts);
     const isHidden = (typeof window._mallangIsGiftHidden==='function') ? window._mallangIsGiftHidden(k) : false;
     const star = g.starred === true;
     const next = full && !star && i === keys.length - 1;

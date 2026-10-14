@@ -231,7 +231,7 @@ window._onRoomMeta = function(meta){
   if(meta && (meta.channel === 'togetherroom' || meta.channel === 'workingroom')) window._activeChannel = (meta.channel === 'togetherroom') ? 2 : 1;
   try{ chatUiMod()._chatTabsOnMeta(); }catch(_){}
   try{ _chatOffRefreshUI(); }catch(_){}
-  try{ if(typeof _refreshChatMembers==='function') _refreshChatMembers(); }catch(_){}
+  try{ _refreshChatMembers(); }catch(_){}
   try{ if(typeof chatUiMod()._renderChatLog==='function') chatUiMod()._renderChatLog(_chatLogCache()); }catch(_){}   // 안내줄 갱신
 };
 async function _chatOffToggleClick(){

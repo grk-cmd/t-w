@@ -100,7 +100,7 @@ const _focusSessionSec = deps.focusSessionSec;         // 읽는 함수 — app.
     // 지난번에 미니미로 두고 껐으면 그대로 미니미로 연다(persist=false: 이미 저장된 값이라 다시 안 씀)
     setMini(miniOn, {persist:false});
     overlay.classList.add('on');
-    if(typeof bringWinToFront==='function') bringWinToFront('focusLogOverlay');   // 🪟 열 때는 맨 앞으로(대화창·설정창과 같은 규약)
+    bringWinToFront('focusLogOverlay');   // 🪟 열 때는 맨 앞으로(대화창·설정창과 같은 규약)
     clampWin();          // 미니미↔일반 폭 차이로 저장된 좌표가 화면 밖이면 끌어들임
     const panel=document.getElementById('focusSettingsPanel'); if(panel) panel.classList.remove('on');
   }

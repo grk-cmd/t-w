@@ -374,7 +374,7 @@ function _officeDemojiHtml(html){
 function _seatLabelName(seat){
   if(!seat) return '';
   if(seat.remote) return seat.friendName || '';
-  if(seat.isMe) return (typeof getDisplayName === 'function') ? getDisplayName() : '';
+  if(seat.isMe) return getDisplayName();
   return '';
 }
 /* @param think 💭 true 면 '생각 말풍선'(꼬리 대신 동그라미 둘) 모양으로 그린다.
@@ -579,7 +579,7 @@ function setSeatHeadBubble(seat, text, think){
        하게 두어야 한다. 비교 키까지 그림 HTML 로 바꾸면 같은 이모티콘을 다시 보낼 때
        문자열이 매번 같아도 이미지 태그 안의 크기 계산이 끼어들어 판정이 흔들린다. */
   if(office){ _tx.innerHTML = _officeDemojiHtml(text); }
-  else if(_hasMarker && typeof _diceSvg==='function'){
+  else if(_hasMarker){
     let bh=_chatEsc(text);
     bh=bh.replace(/\[dice:([1-6])\]/g, (m,n)=> _diceSvg(parseInt(n,10), 30));
     /* 🪄 때리기 — demoji 표(30px 상한)를 타지 않는 전용 마커다. 근거는 BONK_BUBBLE_IMG 주석 참고.

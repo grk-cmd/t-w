@@ -53,11 +53,11 @@ function _reportBox(title, width){
 }
 function _openReportDialog(seat){
   const target = seat && seat.friendUserId;
-  if(!target){ if(typeof toast === 'function') toast('이 분의 정보가 아직 없어요 (버전 업데이트가 필요할 수 있어요)'); return; }
-  const me = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  if(!target){ toast('이 분의 정보가 아직 없어요 (버전 업데이트가 필요할 수 있어요)'); return; }
+  const me = getMyUserId();
   if(!me || me === target) return;
   _reportClose();
-  const name = (typeof _seatLabelName === 'function' ? _seatLabelName(seat) : '') || seat.friendName || '이 분';
+  const name = _seatLabelName(seat) || seat.friendName || '이 분';
   const { ov, body } = _reportBox('🚩 신고하기', 300);
   const q = document.createElement('div'); q.style.cssText = 'margin-bottom:8px;';
   const nb = document.createElement('b'); nb.textContent = name; q.appendChild(nb); q.appendChild(document.createTextNode(' 님을 신고할까요?'));
@@ -98,18 +98,18 @@ function _openReportDialog(seat){
   go.onclick = async ()=>{
     if(!picked) return;
     const txt = (picked === 'etc') ? etc.value.trim().slice(0, 40) : '';
-    if(picked === 'etc' && !txt){ if(typeof toast === 'function') toast('사유를 적어 주세요'); etc.focus(); return; }
+    if(picked === 'etc' && !txt){ toast('사유를 적어 주세요'); etc.focus(); return; }
     const api = window.firebaseAPI;
-    if(!api || !api.reportUser){ if(typeof toast === 'function') toast('아직 준비 중이에요'); return; }
+    if(!api || !api.reportUser){ toast('아직 준비 중이에요'); return; }
     go.disabled = true;
-    const res = await api.reportUser(target, me, { kind:picked, note:txt, nick:(typeof getDisplayName === 'function' ? getDisplayName() : ''), code4:_myCode4() });
+    const res = await api.reportUser(target, me, { kind:picked, note:txt, nick:getDisplayName(), code4:_myCode4() });
     if(res && res.ok){
       _reportHiddenUids.add(target); _reportHiddenSave();
       _reportClose();
-      if(typeof toast === 'function') toast('신고했어요 · 내 화면에서 이 분을 숨겼어요');
+      toast('신고했어요 · 내 화면에서 이 분을 숨겼어요');
     }else{
       go.disabled = false;
-      if(typeof toast === 'function') toast(res && res.reason === 'auth' ? '로그인한 뒤에 신고할 수 있어요' : '신고하지 못했어요 — 잠시 뒤 다시 해 주세요');
+      toast(res && res.reason === 'auth' ? '로그인한 뒤에 신고할 수 있어요' : '신고하지 못했어요 — 잠시 뒤 다시 해 주세요');
     }
   };
   _reportEsc = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _reportClose(); } };

@@ -205,8 +205,8 @@ function isGachaOwnedPart(partId){ return gachaCount(partId) > 0; }
    ⚠️ isAdmin 은 이 함수보다 뒤에서 선언되므로(let, 14644행) typeof 로 감싼다 —
       로딩 순서가 바뀌어 이 함수가 먼저 불려도 ReferenceError 로 죽지 않게. */
 function isGachaColorUnlocked(partId){
-  if(typeof isAdmin !== 'undefined' && isAdmin()) return true;
-  const rec = (typeof savedParts!=='undefined' && savedParts()) ? savedParts().find(p=>p.id===partId) : null;
+  if(isAdmin()) return true;
+  const rec = savedParts() ? savedParts().find(p=>p.id===partId) : null;
   return gachaCount(partId) >= gachaDupesFor(rec);
 }
 
@@ -296,8 +296,8 @@ function pruneUnownedGachaParts(){
      카탈로그 도착, 꾸미기 커밋, 삼켜진 요청 재시도), 그때마다 같은 조건을 복사하면 언젠가 하나를
      빠뜨린다. 그 하나가 곧 "보유분을 모르는 채 벗김" 사고다. */
   if(!_gachaSrvSeen) return 0;
-  if(typeof savedParts === 'undefined' || !savedParts() || !savedParts().length) return 0;
-  if(typeof isAdmin !== 'undefined' && isAdmin()) return 0;
+  if(!savedParts() || !savedParts().length) return 0;
+  if(isAdmin()) return 0;
   const _unowned = id => {
     const rec = savedParts().find(p => p.id === id);
     return !!(rec && isGachaPart(rec) && gachaCount(id) <= 0);
@@ -332,16 +332,16 @@ function pruneUnownedGachaParts(){
   // 2) 저장 슬롯 — 지금 앉아 있지 않은 캐릭터는 위 순회가 못 본다
   try{ slots.forEach(d => { n += _pruneDef(d).length; }); }catch(e){ console.warn('[가챠] 슬롯 정리 실패', e); }
   // 3) 꾸미기 초안 — 열어둔 채로 정리되면 창을 닫을 때(commitWdDraft) 되살아난다
-  try{ if(typeof wdDraftDef !== 'undefined' && wdDraftDef()) n += _pruneDef(wdDraftDef()).length; }catch(_){}
+  try{ if(wdDraftDef()) n += _pruneDef(wdDraftDef()).length; }catch(_){}
   if(!n) return 0;
-  try{ if(typeof saveSlots === 'function') saveSlots(); }catch(_){}
+  try{ saveSlots(); }catch(_){}
   try{
-    const me = (typeof findMySeat === 'function') ? findMySeat() : null;
+    const me = findMySeat();
     if(me && typeof Presence !== 'undefined' && Presence.active()) Presence.updateDef(me.charDef);
   }catch(_){}
   /* ★ 조용히 벗기지 않는다 — 아무 말 없이 파츠가 사라지면 그것대로 "파츠가 증발했다" 제보가 된다.
      지금 벌어진 일은 '보유분과 화면을 맞춘 것'이므로 그렇게 적는다. */
-  try{ if(typeof toast === 'function') toast('🎰 지금 보유하지 않은 가챠 파츠 ' + n + '개를 벗었어요'); }catch(_){}
+  try{ toast('🎰 지금 보유하지 않은 가챠 파츠 ' + n + '개를 벗었어요'); }catch(_){}
   console.warn('[가챠] 미보유 착용 파츠 ' + n + '개 해제');
   return n;
 }
@@ -378,7 +378,7 @@ async function syncGachaToServer(reason, mode){
       gachaOwned = {};
       for(const k in sOwned){ const n = sOwned[k] | 0; if(n > 0) gachaOwned[k] = n; }
       _saveGachaLocal(sTs || _gachaNow());
-      if(typeof _gachaInvOpen === 'function' && _gachaInvOpen() && typeof renderGachaInv === 'function') renderGachaInv();
+      if(_gachaInvOpen()) renderGachaInv();
     };
     const _push = async ()=>{                             // 내 것으로 서버 교체
       if(!_gachaTs) _saveGachaLocal(true);                // 시각이 없으면 지금 찍고 올린다
@@ -409,7 +409,7 @@ async function syncGachaToServer(reason, mode){
       _saveGachaLocal(true);                              // 서버 시계 기준 '지금'으로 다시 찍는다
       await _push();
       console.warn('[가챠] 서버 ts 가 미래(' + new Date(sTs).toISOString() + ')라 정정했습니다 — 보유분은 양쪽을 합쳤습니다');
-      if(typeof _gachaInvOpen === 'function' && _gachaInvOpen() && typeof renderGachaInv === 'function') renderGachaInv();
+      if(_gachaInvOpen()) renderGachaInv();
       return;
     }
     if(mode === 'pull'){
@@ -500,16 +500,15 @@ let _gachaSelId = null;  // 지금 보고 있는 파츠 — 미리보기 아래 
 /* 관리자 등록 — 꾸미기의 [+ 등록]과 같은 흐름(#partRegOverlay)을 그대로 쓴다.
    신규일 때만 🎰 를 미리 켜준다(수정은 그 파츠의 저장값을 그대로 보여야 한다). */
 function openGachaPartRegister(cat, rec){
-  if(typeof openPartRegister!=='function') return;
   openPartRegister(cat, rec);
   if(!rec){
     const g=document.getElementById('partRegGacha'); if(g) g.checked = true;
-    if(typeof syncPartRegGachaLock==='function') syncPartRegGachaLock();
+    syncPartRegGachaLock();
   }
 }
 
 function _gachaWornIds(){
-  const def = (typeof wdDraftDef!=='undefined' && wdDraftDef()) || (findMySeat() && findMySeat().charDef);
+  const def = wdDraftDef() || (findMySeat() && findMySeat().charDef);
   const out = [];
   if(def && def.equippedParts){
     for(const c in def.equippedParts){ (catEquippedIds(def, c)||[]).forEach(i=>out.push(i)); }
@@ -579,12 +578,12 @@ function _appendGachaSeasonSel(row, seasonCnt){
     _gachaPage = 0;   // 시즌이 바뀌면 목록 자체가 다른 것이다 — 3페이지에서 시작하면 안 된다
     /* 상세조정 패널은 접는다 — 열려 있던 파츠가 다른 시즌이라 목록에서 사라지면 패널만 남아
        어느 파츠 것인지 알 수 없는 상태가 된다(카테고리 라디오와 같은 처리). */
-    if(typeof activeWdAdj!=='undefined' && activeWdAdj()){
+    if(activeWdAdj()){
       _setActiveWdAdj(null);
-      if(typeof _clearMultiPanelRef==='function') _clearMultiPanelRef();
+      _clearMultiPanelRef();
     }
     renderGachaInv();
-    if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+    refreshWdPreviewColorSection();
   };
   row.appendChild(sel);
 }
@@ -594,7 +593,7 @@ function _renderGachaCatRow(listBeforeCat, seasonCnt){
   if(!row) return;
   const cnt = Object.create(null);
   (listBeforeCat||[]).forEach(p=>{ cnt[p.cat] = (cnt[p.cat]|0) + 1; });
-  const cats = (typeof PART_CATS!=='undefined' ? PART_CATS() : []).filter(c => cnt[c.cat]);
+  const cats = PART_CATS().filter(c => cnt[c.cat]);
 
   /* 고른 카테고리가 이 탭에 없으면 조용히 전체로 되돌린다.
      [왜 토스트를 안 띄우나] 탭을 누른 것은 유저이고, 그 결과가 화면에 바로 보인다 —
@@ -615,12 +614,12 @@ function _renderGachaCatRow(listBeforeCat, seasonCnt){
       _gachaPage = 0;   // 카테고리가 바뀌면 목록 자체가 다른 것이다 — 3페이지에서 시작하면 안 된다
       /* 상세조정 패널은 접는다 — 열려 있던 파츠가 다른 카테고리라 목록에서 사라지면
          패널만 남아 어느 파츠 것인지 알 수 없는 상태가 된다(꾸미기창이 탭을 바꿀 때와 같은 처리). */
-      if(typeof activeWdAdj!=='undefined' && activeWdAdj()){
+      if(activeWdAdj()){
         _setActiveWdAdj(null);
-        if(typeof _clearMultiPanelRef==='function') _clearMultiPanelRef();
+        _clearMultiPanelRef();
       }
       renderGachaInv();
-      if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+      refreshWdPreviewColorSection();
     };
     return b;
   };
@@ -766,7 +765,7 @@ function renderGachaInv(){
         _gachaSelId = rec.id;                 // 색상 영역이 이 파츠를 따라간다
         await toggleEquip(rec.cat, rec.id);
         renderGachaInv();
-        if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+        refreshWdPreviewColorSection();
       };
       /* 🖱️ 우클릭 = 상세조정 — 꾸미기 카드와 완전히 같은 관례·같은 패널(createWardrobeAdjPanel).
          [왜] 보관함에서 착용하면 미리보기에는 붙는데 위치·크기·회전을 만질 방법이 없었다.
@@ -779,7 +778,7 @@ function renderGachaInv(){
         if(activeWdAdj() && activeWdAdj().id===rec.id){ _setActiveWdAdj(null); _clearMultiPanelRef(); }
         else { _setActiveWdAdj({cat:rec.cat, id:rec.id}); _gachaSelId=rec.id; }
         renderGachaInv();
-        if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+        refreshWdPreviewColorSection();
       };
       if(isAdmin()){
         // 꾸미기 카드와 같은 관례 — 더블클릭으로 수정, ✕로 삭제
@@ -843,7 +842,7 @@ function renderGachaInv(){
   _renderGachaPager(pages);
   _renderGachaAdminFoot();
   // ★ 기즈모 부착·기즈모 바 표시는 꾸미기와 같은 함수가 담당한다(activeWdAdj를 보고 판단).
-  if(typeof updateWdGizmoForActivePanel==='function') updateWdGizmoForActivePanel();
+  updateWdGizmoForActivePanel();
 }
 
 /* 관리자 등록 줄 — 카테고리를 고르고 [+ 등록]. 꾸미기의 카테고리별 [+ 등록]과 같은 모달로 간다. */
@@ -852,7 +851,7 @@ function _renderGachaAdminFoot(){
   if(!sel || !btn) return;
   if(!isAdmin()){ sel.style.display='none'; btn.style.display='none'; return; }
   sel.style.display=''; btn.style.display='';
-  if(!sel.options.length && typeof PART_CATS!=='undefined'){
+  if(!sel.options.length){
     PART_CATS().forEach(c=>{
       const o=document.createElement('option'); o.value=c.cat; o.textContent=(c.icon||'')+' '+c.label;
       sel.appendChild(o);
@@ -1093,7 +1092,7 @@ function openGachaInv(){
      여기가 '뽑기 직전'을 잡을 수 있는 유일한 관문이다. 낡은 목록으로 뽑으면 그 뽑기가 서버를
      통째로 덮어써서 다른 기기의 파츠를 지운다(syncGachaToServer 의 last-write-wins).
      ★ 기다리지 않는다 — 받아오면 _adopt 안에서 renderGachaInv 를 다시 부른다(그쪽 코드 참고). */
-  if(typeof syncGachaToServer==='function'){ try{ syncGachaToServer('inv-open'); }catch(_){} }
+  try{ syncGachaToServer('inv-open'); }catch(_){}
   /* 📄 열 때는 지금 보고 있는 파츠(_gachaSelId)가 있는 페이지에서 시작한다.
      [왜] 미리보기 아래 색상 영역이 _gachaSelId 를 따라간다. 그 칸이 3페이지에 있는데 1페이지가
        열리면 "색상은 모자 것인데 화면 어디에도 모자가 없다"가 된다. */
@@ -1114,7 +1113,7 @@ function openGachaInv(){
      ⚠️ z-index 는 닫을 때 반드시 되돌린다 — 안 그러면 꾸미기(F2) 창에서도 계속 122 위에 남는다. */
   const wp = document.getElementById('wdPreviewPanel');
   if(wp){
-    if(typeof syncWdPreviewOwner==='function') syncWdPreviewOwner();   // .on + z-index(123) 부여
+    syncWdPreviewOwner();   // .on + z-index(123) 부여
     if(!wdPreviewSavedPos()){
       const gw = document.getElementById('gachaInvWin');
       const gr = gw ? gw.getBoundingClientRect() : null;
@@ -1129,28 +1128,28 @@ function openGachaInv(){
     }
     clampWdPreviewIntoView();
   }
-  if(typeof refreshWdPreviewChar==='function') refreshWdPreviewChar();
+  refreshWdPreviewChar();
   // 색상 영역이 꾸미기 탭이 아니라 보관함 선택을 따라가게 한 번 다시 그린다.
-  if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+  refreshWdPreviewColorSection();
 }
 function closeGachaInv(){
   const ov = document.getElementById('gachaInvOverlay'); if(ov) ov.style.display='none';
   const dv = document.getElementById('gachaDrawOverlay'); if(dv) dv.style.display='none';
   // ⚠️ 무대를 비운다 — 안 비우면 캡슐 떨림 애니메이션이 run 모드 내내 계속 돈다.
-  if(typeof _gachaStopAnim==='function') _gachaStopAnim();
-  if(typeof _gachaSetBusy==='function') _gachaSetBusy(false);
+  _gachaStopAnim();
+  _gachaSetBusy(false);
   // ★ 꾸미기와 같은 관례 — 닫을 때 저장한다. 저장 버튼이 따로 없으므로 여기서 안 하면 착용이 날아간다.
-  if(typeof commitWdDraft==='function') commitWdDraft();
+  commitWdDraft();
   // ★ openGachaInv 에서 올려둔 z-index 를 되돌린다(꾸미기 창의 기본값 54로 복귀).
   //   ⚠️ 꾸미기 창이 아직 열려 있으면 미리보기 자체는 남겨야 한다 — 판정은 syncWdPreviewOwner 한 곳에서만.
-  if(typeof syncWdPreviewOwner==='function') syncWdPreviewOwner();
+  syncWdPreviewOwner();
   /* ★ 상세조정 선택도 같이 푼다. 안 풀면 activeWdAdj 가 가챠 파츠를 가리킨 채 남아, 다음에 꾸미기
      창을 열었을 때 기즈모 바만 떠 있고 정작 그 파츠는 목록에 없는(가챠는 걸러진다) 상태가 된다. */
   _setActiveWdAdj(null);
-  if(typeof _clearMultiPanelRef==='function') _clearMultiPanelRef();
-  if(typeof detachWdGizmo==='function') detachWdGizmo();
+  _clearMultiPanelRef();
+  detachWdGizmo();
   // ★ 색상 영역은 보관함이 열린 동안 가챠 선택을 따라간다 — 닫을 때 꾸미기 기준으로 되돌린다.
-  if(typeof refreshWdPreviewColorSection==='function') refreshWdPreviewColorSection();
+  refreshWdPreviewColorSection();
 }
 function _gachaInvOpen(){ const ov=document.getElementById('gachaInvOverlay'); return !!(ov && ov.style.display!=='none'); }
 function _gachaDrawOpen(){ const ov=document.getElementById('gachaDrawOverlay'); return !!(ov && ov.style.display!=='none'); }

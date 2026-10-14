@@ -1078,7 +1078,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const st = takeFn(A, 'function _miSetTab(') || '';
     chk(/const trashOn = _miTrashOn\(\);/.test(st) && /tab === 'trash' && trashOn/.test(st) && /tt\.style\.display = trashOn \? '' : 'none'/.test(st) && /\['miTabTrash','trash'\]/.test(st) && /_miRenderTrash\(\)/.test(st),
       '★ 휴지통 탭은 보관함이 열린 PC 에서만 보이고 열린다(스위치 · 첫 채택 뒤) — 아니면 보관함으로');
-    chk(/function _miTrashOn\(\)\{ return typeof _charsActive === 'function' && _charsActive\(\); \}/.test(A), '  «열림» 판정은 _charsActive 하나');
+    chk(/function _miTrashOn\(\)\{ return _charsActive\(\); \}/.test(A), '  «열림» 판정은 _charsActive 하나');
     const ld = takeFn(A, 'async function _miTrashLoad(') || '';
     chk(/firebaseAPI\.loadCharsTrashAll\(uid\)/.test(ld) && /_charsTrashView\(t, _charsBoxGet\(\), _slotsNow\(\)\)/.test(ld) && /_miTrashErr = \(t === null\)/.test(ld), '  읽기는 loadCharsTrashAll · 고르기는 _charsTrashView(보관함 사본 기준) · 읽기 실패는 따로 알린다');
     chk(/_miTrashLoad\(\);/.test(takeFn(A, 'function openMyInfo(') || '') && /on\('miTabTrash', \(\) => \{[^\n]*_miSetTab\('trash'\); _miTrashLoad\(\); \}\)/.test(A), '  [내 정보]를 열 때 · 탭을 누를 때 다시 읽는다(«휴지통 N»)');

@@ -382,8 +382,8 @@ async function _charsLocalAdopt(uid){
     for(let i = 0; i < CHAR_SLOT_MAX; i++){ slots[i] = null; _faceEverDrawn[i] = false; _blinkEverDrawn[i] = false; }
     try{ await loadSlots(); }catch(_){}
     _relinkSeatsToSlots(_old, new Set(p.unseat));   // 바꿔 앉힌 칸은 같은 캐릭터(cid)라 잇는다 · 비운 칸만 뺀다
-    try{ if(typeof renderLauncher === 'function') renderLauncher(); }catch(_){}
-    try{ if(typeof renderCharSlots === 'function') renderCharSlots(); }catch(_){}
+    try{ renderLauncher(); }catch(_){}
+    try{ renderCharSlots(); }catch(_){}
   }
   return { ok: true, did: '첫 채택', box: Object.keys(p.box).length, upload: p.upload.length, reseat: p.reseat.length, unseat: p.unseat.length, trash: trash.length };
 }
@@ -573,8 +573,8 @@ async function _charsBoxToDesk(cid){
   for(let k = 0; k < CHAR_SLOT_MAX; k++){ slots[k] = null; _faceEverDrawn[k] = false; _blinkEverDrawn[k] = false; }
   try{ await loadSlots(); }catch(_){}
   try{ saveSlots(); }catch(_){}
-  try{ if(typeof renderLauncher === 'function') renderLauncher(); }catch(_){}
-  try{ if(typeof renderCharSlots === 'function') renderCharSlots(); }catch(_){}
+  try{ renderLauncher(); }catch(_){}
+  try{ renderCharSlots(); }catch(_){}
   return { ok: true, slot: i };
 }
 /* 옮기기 실패 문구 한 벌 — 런처 톱니와 [내 정보]가 같이 쓴다. «마리» 라는 말은 쓰지 않는다. */
@@ -833,8 +833,8 @@ async function _charsSync(reason){
          (보관함과 슬롯 양쪽에 남던 자리). 다음 판이 다시 맞춘다. */
       if(gen !== _charsGen){ _charsSyncAgain = true; return { ok: true, did: '불러오는 중 바뀜 — 다시' }; }
       try{ saveSlots(); }catch(_){}                                  // 받은 칸의 저장 모양을 맞추고 기준(h)을 잡는다 — 받은 것을 고침으로 치지 않는다
-      try{ if(typeof renderLauncher === 'function') renderLauncher(); }catch(_){}
-      try{ if(typeof renderCharSlots === 'function') renderCharSlots(); }catch(_){}
+      try{ renderLauncher(); }catch(_){}
+      try{ renderCharSlots(); }catch(_){}
     }
     return { ok: true, did: reason || '동기화', push: Object.keys(entries).length, reseat: p.reseat.length, unseat: p.unseat.length, trash: trash.length };
   }catch(e){ console.warn('[🧬] 동기화 실패', e); return { ok: false, reason: String(e && e.message || e) }; }
@@ -854,7 +854,7 @@ async function _charsBoot(reason){
   if(!a.ok) return a;
   const b = await _charsLocalAdopt(uid);
   if(!b.ok) return b;
-  if(b.did === '첫 채택'){ try{ if(typeof renderLauncher === 'function') renderLauncher(); }catch(_){} }
+  if(b.did === '첫 채택'){ try{ renderLauncher(); }catch(_){} }
   return _charsSync(reason || 'boot');
 }
 async function charsMigrateDryRun(){

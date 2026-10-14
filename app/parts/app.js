@@ -517,7 +517,7 @@ function _partAnimNotice(rec, msg){
     const key = (rec && rec.id) || '';
     if(_partAnimNoticed.has(key)) return;
     _partAnimNoticed.add(key);
-    if(typeof toast === 'function') toast('[' + ((rec && rec.name) || '파츠') + '] ' + msg);
+    toast('[' + ((rec && rec.name) || '파츠') + '] ' + msg);
   }catch(_){}
 }
 
@@ -590,7 +590,7 @@ function updateActivePartPlayback(){
     if(!a || !m || !holder){ _activePartWraps.delete(wrp); return; }
     // 꾸미기 미리보기 캐릭터는 좌석이 아니라 상태 개념이 없다 — 확인용으로 계속 재생.
     const isPreview = (typeof seats === 'undefined') || !seats.includes(holder);
-    const shouldPlay = isPreview || (typeof seatState==='function' && seatState(holder, now) === 'focus');
+    const shouldPlay = isPreview || (seatState(holder, now) === 'focus');
     if(shouldPlay){
       if(a.paused) a.paused = false;
       if(!a.isRunning()) a.play();
@@ -608,7 +608,7 @@ function updateIdleItemPlayback(){
     const a = pivot.userData && pivot.userData.idleAction;
     const m = pivot.userData && pivot.userData.itemMixer;
     const holder = pivot.userData && pivot.userData.holder;
-    if(!a || !m || !holder || typeof seatState!=='function') return;
+    if(!a || !m || !holder) return;
     const state = seatState(holder, now);
     const shouldPlay = (state === 'focus');
     const isPlaying = a.isRunning();
@@ -675,7 +675,7 @@ function equipDeskItem(holder,def,on){
     if(holder.activeDeskItem===cur){
       holder.activeDeskItem=null;
       // 런처4-2: 활성 아이템이 방금 해제됐으니 기즈모도 즉시 숨김
-      if(holder===cBase && typeof attachItemGizmoToActive==='function') attachItemGizmoToActive();
+      if(holder===cBase) attachItemGizmoToActive();
     }
   }
   // ★ 아이템의 attachTo가 'handL'/'handR'이고 캐릭터 본이 있으면 책상 앵커 대신 손 본에 부착 —
@@ -780,7 +780,7 @@ function equipDeskItem(holder,def,on){
     _rememberCrItemOrigin(holder, pivot);   // 새로 놓인 아이템의 처음 자리(불러온 저장값은 applyDeskItemsTo 가 다시 적는다)
     if(pivot.userData.colors) _applyItemColor(pivot);
     pivot.userData.holder = holder;   // 어플 8: idle 재생 판정에 필요 — 소유 좌석 상태를 알아야 함
-    if(typeof cBase!=='undefined' && holder===cBase && typeof selectDeskItemForAdjust==='function') selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
+    if(typeof cBase!=='undefined' && holder===cBase) selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
   }
 }
 // 아이템 pivot을 클릭했을 때 idle 애니메이션을 한 번 재생 (끝나면 마지막 프레임에서 정지)
@@ -808,7 +808,7 @@ function autoSaveDeskItemsNow(){
       if(c && !(rec&&rec.fromCatalog)) ci[id]={name:c.name,glb:c.glb}; });
     if(Object.keys(ci).length) def.customItems=ci;
   }
-  if(typeof slotSaveMod.saveSlots==='function') slotSaveMod.saveSlots();
+  slotSaveMod.saveSlots();
 }
 function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true); const p=holder.deskItems[id]; if(p&&e.adj){
     const savedAdj=Object.assign({},e.adj);
@@ -1196,7 +1196,7 @@ async function refreshCharScaleForCurrentDisplay(){
        이렇게 해야 다음 부팅에 id가 또 바뀌어도 지문·default 로 이어받는다. */
     if(restored !== focusCharScale){
       focusCharScale = restored;
-      if(typeof layoutSeats==='function') layoutSeats();   // 즉시 화면에 반영
+      layoutSeats();   // 즉시 화면에 반영
       // ⚠️ 예전엔 존재하지 않는 'sizeSlider'를 찾고 있었다(HTML에는 fsSizeSlider뿐) — 조용히 아무 일도 안 했다.
       const _slider=document.getElementById('fsSizeSlider'); if(_slider) _slider.value=String(focusCharScale);
       if(typeof renderSizeBar==='function') renderSizeBar();
@@ -1387,8 +1387,8 @@ let decoPartsVisible = true;
 try{ decoPartsVisible = (localStorage.getItem('tw.decoParts') !== '0'); }catch(_){}   // 기본 켜기
 function _decoWrapperShow(cat){
   if(decoPartsVisible) return true;
-  const info = (typeof premiumMod.PART_CATS !== 'undefined' && premiumMod.PART_CATS()) ? premiumMod.PART_CATS().find(c => c.cat === cat) : null;
-  return (typeof premiumMod.isDeskPartCat === 'function') ? premiumMod.isDeskPartCat(info) : (!!info && info.bone === 'desk');   // 책상 위는 항상 보인다
+  const info = premiumMod.PART_CATS() ? premiumMod.PART_CATS().find(c => c.cat === cat) : null;
+  return premiumMod.isDeskPartCat(info);   // 책상 위는 항상 보인다
 }
 function applyDecoPartsVisibility(seat){
   if(!seat || !seat.group) return;
@@ -1404,7 +1404,7 @@ function seatEqK(seat){
   /* ⚠️ 기준은 **내 주 좌석**이다. 자리추가(isExtra) 좌석도 맞추는 대상에 넣는다 —
      남만 맞추고 내 부캐가 들쑥날쑥하면 화면은 여전히 가지런하지 않다.
      원격만 맞추고 싶으면 위 조건에 `|| seat.isExtra` 를 더하면 된다(여기 한 줄). */
-  const me = (typeof findMySeat === 'function') ? findMySeat() : null;
+  const me = findMySeat();
   if(!me || me === seat) return 1;
   const mine = (isFinite(me.userScale)   && me.userScale   > 0) ? me.userScale   : 1;
   const his  = (isFinite(seat.userScale) && seat.userScale > 0) ? seat.userScale : 1;
@@ -1469,7 +1469,7 @@ function syncSeatEqualize(){
              "책상을 한 번도 안 옮긴 좌석"은 평준화를 켜도 발선이 계속 갈린다. */
         syncSeatDeskZ(seat.desk);
       }
-      if(seat.bodyWrap && typeof fitModel === 'function') fitModel(seat);   // 캐릭터·앵커 높이 재적용
+      if(seat.bodyWrap) fitModel(seat);   // 캐릭터·앵커 높이 재적용
     });
   }catch(_){}
   _eqSyncing = false;
@@ -1749,20 +1749,16 @@ function _collapseRideTower(bottomSeat, now){
            m.group.quaternion.identity(); m.group.rotation.set(0,0,0); }catch(_){}
       m._circusOn = false; m._circusPanicAt = 0; m._rideHeadTop = null;
       m.dizzyUntil = now + CIRCUS_DIZZY_MS;    // 각자 자기 자리로 돌아가며 어지러움
-      if(typeof floatersMod.spawnFloater==='function'){
-        for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f', m), i*300);
-      }
+      for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f', m), i*300);
     });
     // 받치고 있던 맨 아래(인간일 수도 있음)도 어지러움
     bottomSeat.dizzyUntil = now + CIRCUS_DIZZY_MS;
     bottomSeat._circusPanicAt = 0;
-    if(typeof floatersMod.spawnFloater==='function'){
-      for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f', bottomSeat), i*300);
-    }
-    if(members.length && typeof toast==='function') toast('🎪 균형을 잃고 무너졌어요!');
+    for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f', bottomSeat), i*300);
+    if(members.length) toast('🎪 균형을 잃고 무너졌어요!');
     /* 전원이 자기 자리로 돌아간다 — 이 경로는 unmountRide 를 안 타므로(직접 ridingOn 을 끊는다)
        재배치도 여기서 직접 부른다. 안 부르면 무너진 좌석들이 남의 자리에 겹쳐 선다. */
-    if(members.length){ try{ if(typeof layoutSeats==='function') layoutSeats(); }catch(_){} }
+    if(members.length){ try{ layoutSeats(); }catch(_){} }
   }catch(e){ console.warn('[묘기] 와해 처리 실패', e); }
 }
 /* 🎪 탑마다 sleep 인원을 세어 흔들림/와해를 판정한다. */
@@ -1903,7 +1899,7 @@ function canFly(seat, allowTower){
    (던진 사람의 화면에도 같은 방송이 돌아오는데, 거기서 "이미 날아가는 중" 토스트가 뜨면 곤란하다) */
 function startFlight(seat, seed, quiet){
   const c = canFly(seat);
-  if(!c.ok){ if(!quiet && typeof toast === 'function') toast(c.why); return false; }
+  if(!c.ok){ if(!quiet) toast(c.why); return false; }
   seed = (seed == null) ? flySeed() : (seed >>> 0);
   const r = _flyRng(seed);
   /* 방향만 무작위이고 **속력은 항상 spd** 다.
@@ -2134,9 +2130,9 @@ const iDeskMod = (typeof TwInteractionDesk === 'undefined') ? I_DESK_MOD_OFF : T
 function layoutSeats(){
   /* 🪑 좌석 간격·카메라 줌은 바로 아래에서 **책상 폭을 실측**한다. 평준화로 책상이 커지거나
      작아졌다면 그 전에 반영돼 있어야 간격이 한 박자 늦지 않는다. 바뀐 좌석이 없으면 숫자 비교뿐이다. */
-  if(typeof syncSeatEqualize === 'function') syncSeatEqualize();
+  syncSeatEqualize();
   // 🪑 맨 오른쪽 고정이면 방에서 나를 0번(맨 오른쪽)으로 — 다른 사람이 들어온 뒤에도(seat-pin.js)
-  if(window.TwSeatPin && TwSeatPin.pinFirst(seats, roomSeatMode) && typeof renderSeatTabs === 'function') renderSeatTabs();
+  if(window.TwSeatPin && TwSeatPin.pinFirst(seats, roomSeatMode)) renderSeatTabs();
   // ★ 인원 수가 바뀔 때마다(친구 참여/퇴장 등) 지금 팬 위치가 여전히 안전 범위인지 재검증 —
   //   안 그러면 팬을 한쪽 구석에 걸어둔 상태에서 인원이 늘어날 때 화면 밖으로 밀려날 수 있음.
   { const _c = clampDeskPan(deskPanX, deskPanY); deskPanX=_c.x; deskPanY=_c.y; }
@@ -2727,9 +2723,9 @@ function floorSnapReport(){
     return depth;
   };
   let dRun = null, dPrev = null;
-  try{ dRun = push('실행화면', (typeof findMySeat==='function') ? findMySeat() : null); }catch(e){ console.log('[바닥맞춤] 실행화면 조회 실패', e); }
-  try{ dPrev = push('꾸미기/보관함 미리보기', (typeof wardrobeMod.wdPreviewBase!=='undefined') ? wardrobeMod.wdPreviewBase() : null,
-        [(typeof wardrobeMod.wdScene!=='undefined') ? wardrobeMod.wdScene() : null]); }catch(e){ console.log('[바닥맞춤] 미리보기 조회 실패', e); }
+  try{ dRun = push('실행화면', findMySeat()); }catch(e){ console.log('[바닥맞춤] 실행화면 조회 실패', e); }
+  try{ dPrev = push('꾸미기/보관함 미리보기', wardrobeMod.wdPreviewBase(),
+        [wardrobeMod.wdScene()]); }catch(e){ console.log('[바닥맞춤] 미리보기 조회 실패', e); }
   if(dRun != null && dPrev != null && Math.abs(dRun - dPrev) > 1e-4){
     console.warn('[바닥맞춤] ⚠️ 실행 depth=' + f(dRun) + ' 미리보기 depth=' + f(dPrev) + ' — 같은 파츠인데 한쪽만 세고 있습니다');
   }
@@ -2868,7 +2864,7 @@ function fitModel(seat){
   //   다시 계산되면 옛 스케일 기준 위치에 남아 머리 위로 붕 뜬다.
   //   fitModel을 부르는 모든 경로(크기 슬라이더·리빌드·파츠 부착 후 재계산 등)에서 반드시 다시 구워야 함.
   //   ※ 화면마다 갱신 경로가 달라서 "내 화면만 어긋나 보이는" 현상의 원인이기도 함.
-  if(typeof refreshRiggedPartsXf === 'function') refreshRiggedPartsXf(seat);
+  refreshRiggedPartsXf(seat);
 }
 function fitDesk(seat){
   const d=seat.deskGltf; if(!d) return;
@@ -2964,8 +2960,8 @@ function setupSeatModel(seat,m,animations,name){
   layoutSeats();   // 캐릭터 로드 후 실제 크기로 영역 재계산(바닥맞춤)
   // ★ 최초 로드 시점엔 책상 모델의 matrixWorld/Box3 실측이 아직 덜 확정돼 좌석이 딱 붙는 경우가 있음.
   //   다음 두 프레임에 걸쳐 한 번 더 재배치해서, 실측이 안정된 뒤의 정확한 간격으로 자동 보정.
-  requestAnimationFrame(()=>{ if(typeof layoutSeats==='function') layoutSeats();
-    requestAnimationFrame(()=>{ if(typeof layoutSeats==='function') layoutSeats(); }); });
+  requestAnimationFrame(()=>{ layoutSeats();
+    requestAnimationFrame(()=>{ layoutSeats(); }); });
 }
 function loadCharGLB(buf,name,seat){
   loader.parse(buf,'',gltf=>{ seat.faceMat=null; seat.faceMapOrig=null; setupSeatModel(seat,gltf.scene,gltf.animations,name);
@@ -3109,7 +3105,7 @@ function statusConfFor(seat, us){
      상태(커스텀 포함)가 하나라도 있으면 그것이 이긴다 — 남의 화면에서도 같은 순서다(Presence._statusOut). */
   if(!us){
     /* ⚠️ isMe 만 보면 «자리추가»로 주 캐릭터가 바뀐 판에서 내 좌석이 빠진다 — findMySeat 과 같은 기준으로 본다. */
-    const _mine = (typeof findMySeat === 'function') ? findMySeat() : null;
+    const _mine = findMySeat();
     if(seat && !seat.remote && (seat.isMe || seat === _mine)){ const f = focusShareMod._focusShowMine(); if(f) return Object.assign({}, USER_STATUSES.custom, { emo: f.emo, label: f.text }); }
     return null;
   }
@@ -3534,7 +3530,7 @@ const focusLog = (typeof TwFocusLog === 'undefined') ? FOCUS_LOG_OFF : TwFocusLo
     // 이어지지 않게 한 번 억제 — 안 그러면 확정 클릭이 그 자리의 캐릭터를 우클릭한 걸로도 처리돼버림.
     if(e.button===2) _suppressNextContextMenu = true;
     saveCharPos();   // ★ 껐다 켜도 유지되게 위치 확정 시 저장
-    if(typeof statusChipMod.updateMyStatusChipPosition==='function') statusChipMod.updateMyStatusChipPosition();   // 상태칩 즉시 재표시
+    statusChipMod.updateMyStatusChipPosition();   // 상태칩 즉시 재표시
     toast('위치가 확정됐어요');
   }, true);   // capture: 클릭통과 로직보다 먼저 잡아서 이동 확정
   // 이동 시작 트리거는 moveBtn 클릭 시점(bindFocusSettings)에서 moveMode=true로 바뀌자마자 다음 mousemove에서 자동 시작됨
@@ -4931,7 +4927,7 @@ function seatState(seat,now){
   // 포커싱 어플 게이트: 데스크톱 모드에서, 등록된 앱이 없거나 등록된 앱을 안 쓰는 중이면
   // (직접 쓰다듬기·흔들기 등은 위에서 이미 처리됐으므로) 자동 idle/focus 판정은 sleep으로 대체.
   if(desktopMode && focusGateSleep) return 'sleep';
-  if(seat.isMe && typeof focusLevelMod._mobileOn === 'function' && focusLevelMod._mobileOn()) return 'focus';   // 📱 폰에서 그리는 중 — 집중 포즈
+  if(seat.isMe && focusLevelMod._mobileOn()) return 'focus';   // 📱 폰에서 그리는 중 — 집중 포즈
   const idle=now-lastActivity;
   if(idle<focusWindowMs())return 'focus'; if(idle>SLEEP_MS)return 'sleep'; return 'idle'; }
 function triggerPet(seat){ const now=performance.now(); seat.petStart=now; if(seat.blink) seat.blink.pulses.push({start:now,dur:240}); }
@@ -5091,7 +5087,7 @@ function _seatCtxMenu(ev, seat){
       it.onmouseleave = ()=>it.style.background = '';
       it.onclick = ()=>{ close(); fn(); };
     } else {
-      it.onclick = ()=>{ close(); if(typeof toast === 'function') toast('오늘은 다 썼어요'); };
+      it.onclick = ()=>{ close(); toast('오늘은 다 썼어요'); };
     }
     menu.appendChild(it);
   };
@@ -5106,7 +5102,7 @@ function _seatCtxMenu(ev, seat){
     // seat.friendId는 방 세션의 memberId(랜덤). 실제 유저 식별은 friendUserId(userId) 필요.
     const uid = seat.friendUserId || null;
     if(uid && _myHomeFriends[uid]){
-      mk('🏠 마이홈 구경', ()=>{ if(typeof mhVisitMod.openFriendHomeView==='function') mhVisitMod.openFriendHomeView(uid); });
+      mk('🏠 마이홈 구경', ()=>{ mhVisitMod.openFriendHomeView(uid); });
     } else if(uid){
       mk('👤 친구 신청', ()=>_friendReqAsk(uid, seat));
     } else {
@@ -5135,7 +5131,7 @@ function _seatCtxMenu(ev, seat){
        ⚠️ 자동 자리비움(20분 무반응)은 그대로 살아 있다. 여기서 풀어도 계속 안 움직이면 다시 걸린다. */
     let _away = false; try{ _away = (userStatus === 'away'); }catch(_){}
     mk(_away ? '🔵 비움 해제' : '🫧 자리비움', ()=>{
-      if(typeof setUserStatus === 'function') setUserStatus(_away ? null : 'away');
+      setUserStatus(_away ? null : 'away');
     });
     if(_premiumOn()) sep();   // 아래에 때리기 줄이 붙을 때만 — 안 그러면 선이 맨 아래에 남는다
   }
@@ -5329,7 +5325,7 @@ canvas.addEventListener('pointerup',e=>{
       const _now = performance.now();
       if(!iDeskMod._rideDenyToastAt() || _now - iDeskMod._rideDenyToastAt() > 1500){
         iDeskMod.setRideDenyToastAt(_now);
-        if(typeof toast==='function') toast('🐾 남의 캐릭터는 그 사람만 올릴 수 있어요');
+        toast('🐾 남의 캐릭터는 그 사람만 올릴 수 있어요');
       }
     }
     // 정신차리기 도리도리는 멈춘 뒤 300ms부터 시작 — 그 시점 이후에 손을 놓으면
@@ -5954,7 +5950,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
        부착이 끝난 이 지점에서의 1회여야 한다.
      ★ 파츠 종류를 가리지 않고 부른다. 머리 파츠가 아니면 측정값이 그대로일 뿐이고,
        올라탄 좌석이 없으면 _remeasureRideHeadTop 이 즉시 빠져나온다(비용이 없다). */
-  try{ if(typeof rideBenchMod._remeasureRideHeadTop==='function') rideBenchMod._remeasureRideHeadTop(seat); }catch(_){}
+  try{ rideBenchMod._remeasureRideHeadTop(seat); }catch(_){}
 }
 /* 옷 카테고리만 해제 (def는 안 건드림 — 충돌 정리 내부용) */
 function _unequipClothCat(seat, cat){
@@ -6034,7 +6030,7 @@ function applyClothVisibility(seat){
        rideTop 파츠의 꼭대기(_headTopPart)를 제대로 잡으므로 지우면 안 된다. 여기 것은 그보다
        이른 시점이라 파츠 값이 아직 null 일 수 있고, 뒤이어 22243 이 덮는다. 순서가 그렇게 맞다.
      ⚠️ 매 프레임 재는 방식으로 바꾸지 말 것 — 이름표·말풍선이 이 높이를 보고 자리를 잡는다. */
-  try{ if(typeof rideBenchMod._remeasureRideHeadTop==='function') rideBenchMod._remeasureRideHeadTop(seat); }catch(_){}
+  try{ rideBenchMod._remeasureRideHeadTop(seat); }catch(_){}
 }
 /* ★ 파츠 카테고리별 "기본 부착 위치" 미세조정 표 — 여기 숫자만 조절하면 해당 카테고리 파츠가
    장착됐을 때 시작 위치가 전부 한 번에 맞춰짐(사용자가 우클릭해서 개별 조정한 값은 이 위에 별도로
@@ -6349,7 +6345,6 @@ let _BASE_HEAD_TOP = null;
 function _baseHeadTopAboveBone(){
   if(_BASE_HEAD_TOP != null) return _BASE_HEAD_TOP;
   try{
-    if(typeof instantiateBase !== 'function') return 0;
     const inst = instantiateBase();
     if(!inst || !inst.root) return 0;   // BASE_SCENE 아직 없음 — 캐시하지 않고 다음 기회에 다시 잰다
     let hb = null;
@@ -6531,8 +6526,8 @@ function applyPartXf(seat, cat){
        기즈모 드래그(syncWdGizmoToXf)도 같은 함수를 쓴다 — 두 곳이 갈라지면 보이는 자리와
        저장되는 값이 어긋난다. */
   try{
-    const _info = (typeof premiumMod.partCatInfo === 'function') ? premiumMod.partCatInfo(cat) : null;
-    if(_info && typeof premiumMod.isDeskPartCat === 'function' && premiumMod.isDeskPartCat(_info)){
+    const _info = premiumMod.partCatInfo(cat);
+    if(_info && premiumMod.isDeskPartCat(_info)){
       const _lift = w=>{ if(w) floorClampWrapper(w, cat); };
       const _main = seat.equippedPartObjs && seat.equippedPartObjs[cat];
       if(_main){ _lift(_main); (_main.userData.multiExtras || []).forEach(_lift); }
@@ -6573,10 +6568,8 @@ function _disposeWrapperFromSeat(seat, obj){
     obj.userData.multiExtras = [];
   }
   // 반복재생 중이던 믹서 정리 — 다중 파츠 extras의 믹서도 함께(안 그러면 떼어낸 뒤에도 매 프레임 갱신됨)
-  if(typeof _teardownPartIdleAnim==='function'){
-    _teardownPartIdleAnim(obj);
-    if(obj.userData && Array.isArray(obj.userData._multiExtrasWas)) obj.userData._multiExtrasWas.forEach(_teardownPartIdleAnim);
-  }
+  _teardownPartIdleAnim(obj);
+  if(obj.userData && Array.isArray(obj.userData._multiExtrasWas)) obj.userData._multiExtrasWas.forEach(_teardownPartIdleAnim);
   // 리깅 파츠 해제: 캐릭터 본에 입양시켰던 파츠 본들을 다시 떼어냄
   if(obj.userData && obj.userData.adoptedBones && obj.userData.adoptedBones.length){
     obj.userData.adoptedBones.forEach(b=>{ try{ if(b.parent) b.parent.remove(b); }catch(_){} });
@@ -6985,8 +6978,8 @@ function captureDeskPreset(){
 //   프레이밍도 재계산해야 함(fit는 캐릭터 기준, frameDeskCam은 책상까지 포함해 카메라 거리 조정).
 function _refitPreviewAfterPreset(){
   try{
-    if(typeof fitCreator==='function') fitCreator(crStep<=4 ? 'edit' : 'app');
-    if((crStep===5||crStep===6) && typeof frameDeskCam==='function') frameDeskCam(false);
+    fitCreator(crStep<=4 ? 'edit' : 'app');
+    if((crStep===5||crStep===6)) frameDeskCam(false);
   }catch(_){}
 }
 function applyDeskPreset(p){
@@ -7001,7 +6994,7 @@ function applyDeskPreset(p){
        (읽으면 앞뒤로 맞춰둔 옛 숫자가 그대로 '높이' 로 해석돼 캐릭터가 공중에 뜬다). */
     if(typeof p.seat.y==='number')   { cXform.y   = clampCharY(p.seat.y); const el=document.getElementById('crZ'); if(el) el.value=cXform.y; }
     if(typeof p.seat.rot==='number') { cXform.rot = p.seat.rot; const el=document.getElementById('crRot');   if(el) el.value=p.seat.rot; }
-    if(typeof applyCreatorXform==='function') applyCreatorXform();
+    applyCreatorXform();
   }
   // 2) 커스텀 아이템 카탈로그(세션) 병합 — 프리셋이 참조하는 로컬 아이템이 있으면 함께 복원
   if(p.customItems) Object.keys(p.customItems).forEach(id=>{
@@ -7030,13 +7023,12 @@ function applyDeskPreset(p){
     if(cBase){ allDeskItems().forEach(def=>{ if(cBase.deskItems && cBase.deskItems[def.id]) equipDeskItem(cBase,def,false); }); }
     // 프리셋에 아이템 복원
     if(p.deskItems && cBase) applyDeskItemsTo(cBase, p.deskItems);
-    if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
+    autoSaveDeskItemsNow();
   };
   /* 🪑 [제보 2] 프리셋에 남은 라이선스 전용 책상 — 여기서 막지 않으면 activeCustomDeskId 가 서고,
      crDone 이 그것을 def.deskCatalogId 로 굳힌다(생성기 진입 26733 이 애써 떨어뜨린 것이 되살아난다).
      라이선스가 없으면 아래 else 로 떨어져 기본 책상으로 열린다 — 프리셋 자체는 그대로 남는다. */
-  const _presetDeskLocked = !isPremium && !isAdmin
-    && typeof premiumMod._licenseLockedDeskId === 'function' && premiumMod._licenseLockedDeskId(p.deskCatalogId);
+  const _presetDeskLocked = (!isPremium && !isAdmin) && premiumMod._licenseLockedDeskId(p.deskCatalogId);
   if(p.deskCatalogId && p.deskGlb && !_presetDeskLocked){
     assetCodeMod.parseGlbBytes(b64ToBuf(p.deskGlb)).then(sc=>{
       cDeskTemplate=sc; cDeskGlbB64=p.deskGlb; activeCustomDeskId=p.deskCatalogId;
@@ -7054,7 +7046,7 @@ function applyDeskPreset(p){
     const ov = commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
     if(ov){
       (async ()=>{
-        if(!ov.glb && ov.glbUrl && typeof resolveCatalogGlb==='function'){
+        if(!ov.glb && ov.glbUrl){
           try{ await resolveCatalogGlb(ov); }catch(_){}
         }
         try{
@@ -7268,10 +7260,10 @@ function paintAt(hit){ const ctx=actC().getContext('2d');ctx.lineCap='round';ctx
    저장 · 되돌리기 · 감은눈 복사가 붓 획과 똑같이 다룬다. 대칭이면 거울 자리의 조각도 같은 되돌리기 한 칸에. */
 function bucketFromEvent(e, erase){ if(!isDrawStep()||!cBase||!crPaintTool)return false;
   const hit=_paintHitAt(e.clientX, e.clientY);
-  if(!hit){ if(typeof toast==='function') toast('얼굴을 눌러 채워요'); return false; }   // 빈 곳 · 옷에 가려진 곳
+  if(!hit){ toast('얼굴을 눌러 채워요'); return false; }   // 빈 곳 · 옷에 가려진 곳
   const ctx=actC().getContext('2d'), g=hit.object&&hit.object.geometry;
   const n=crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, faceIndex:hit.faceIndex, uv:hit.uv, color:brushColor, erase, pushHistory });
-  if(!n){ if(typeof toast==='function') toast('여기는 채울 자리가 없어요 — 얼굴을 눌러 주세요'); return false; }
+  if(!n){ toast('여기는 채울 자리가 없어요 — 얼굴을 눌러 주세요'); return false; }
   if(symmetry){ const m=mirrorUV(hit); if(m) crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, uv:m, color:brushColor, erase }); }
   if(crStep===3) blinkEdited=true;
   blit();
@@ -8064,7 +8056,7 @@ function applyDeskDotThumb(rec, it){
     if(v==='pending' || v==='fail') return;
     const _t = rec.thumbUrl || rec.thumbnail;
     if(_t){ c[k]=_t; put(_t); return; }
-    if((!rec.glb && !rec.glbUrl) || typeof generatePartThumbnail!=='function'){ c[k]='fail'; return; }
+    if((!rec.glb && !rec.glbUrl)){ c[k]='fail'; return; }
     c[k]='pending';
     generatePartThumbnail(rec).then(url=>{ if(url){ c[k]=url; put(url); } else c[k]='fail'; }).catch(()=>{ c[k]='fail'; });
   }catch(_){}
@@ -8129,7 +8121,7 @@ function renderCrItems(){
     if(cDesk){
       const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거 표시
       if(ov){
-        if(!ov.glb && ov.glbUrl && typeof resolveCatalogGlb==='function'){
+        if(!ov.glb && ov.glbUrl){
           try{ await resolveCatalogGlb(ov); }catch(_){}
         }
         try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); swapDeskVisual(cDesk,sc,true); }catch(e){ swapDeskVisual(cDesk,null); }
@@ -8197,7 +8189,7 @@ function renderCrItems(){
       if(activeCustomDeskId===rec.id) return;   // 이미 활성
       if(deskLocked){ toast('🔒 "'+(rec.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요'); return; }   // 🔒 위 주석
       // Storage 이관 후속: rec.glb가 없고 glbUrl만 있으면 Storage에서 fetch
-      if(!rec.glb && rec.glbUrl && typeof resolveCatalogGlb==='function'){
+      if(!rec.glb && rec.glbUrl){
         try{ await resolveCatalogGlb(rec); }catch(_){}
       }
       if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
@@ -8220,7 +8212,7 @@ function renderCrItems(){
      남아 있으므로 띄우지 않는다. 전용 책상이 하나도 등록돼 있지 않으면 띄울 이유가 없다. */
   const _licHint = document.getElementById('crDeskLicenseHint');
   if(_licHint){
-    const _hasLic = (typeof premiumMod._wdLicenseDesks==='function') ? premiumMod._wdLicenseDesks().length : 0;
+    const _hasLic = premiumMod._wdLicenseDesks().length;
     _licHint.style.display = (_hasLic && !isAdmin) ? 'flex' : 'none';
   }
 
@@ -8248,7 +8240,7 @@ function renderCrItems(){
       const active = !!(cBase && cBase.activeDeskItem && on && cBase.deskItems[def.id]===cBase.activeDeskItem);
       const eff0=deskItemDef(def.id)||def;   // ★ 관리자가 교체해뒀으면 그 이름으로 표시 (예전엔 기본 이름 고정이던 문제)
       const it=swThumb(eff0.name||def.name,on,DESK_ICON[def.id]||'▫',null,active);
-      applyDeskDotThumb((typeof commissionMod.savedItems!=='undefined'&&commissionMod.savedItems().find)?commissionMod.savedItems().find(r=>r.id===def.id):null, it);   // 교체분 GLB 도트 썸네일
+      applyDeskDotThumb(commissionMod.savedItems().find?commissionMod.savedItems().find(r=>r.id===def.id):null, it);   // 교체분 GLB 도트 썸네일
       it.onclick=()=>{ if(!cBase||!cBase.deskAnchor)return; const eff=deskItemDef(def.id)||def; equipDeskItem(cBase,eff,!on); renderCrItems(); autoSaveDeskItemsNow(); };   // eff: 관리자가 교체해뒀으면 그 커스텀 def, 아니면 기본
       if(isAdmin) it.oncontextmenu=e=>{ e.preventDefault(); adminPartReg.openDeskRegister('item', def.id); };   // def.id(plant/cup/books) 그대로 써서 진짜 교체되게
       else it.oncontextmenu=e=>{ e.preventDefault(); if(on && cBase.deskItems[def.id]) selectDeskItemForAdjust(cBase.deskItems[def.id]); };   // 일반모드: 이미 장착돼있으면 우클릭으로 바로 선택
@@ -8337,7 +8329,7 @@ function reorderSavedItem(draggedId, targetId){
   commissionMod.persistSavedAssets();
   renderCrItems();
   // 런처4-2: 활성 아이템이 없으면(사용자가 카드 선택 안 함) 캐릭터 위에 남아있던 기즈모 숨김.
-  if(typeof attachItemGizmoToActive==='function') attachItemGizmoToActive();
+  attachItemGizmoToActive();
   if(window.firebaseAPI && window.firebaseAPI.updateItemsOrder){
     const orderMap={};
     commissionMod.savedItems().forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });
@@ -8378,8 +8370,8 @@ function bindHold(el, fn){
 // 껐다 켜지 않고도 바로 위치조작 버튼으로 조정할 수 있게 함. 선택되면 주황색 테두리로 표시.
 function selectDeskItemForAdjust(pivot){
   cBase.activeDeskItem = pivot;
-  if(typeof renderCrItems==='function' && creatorOpen) renderCrItems();
-  if(typeof attachItemGizmoToActive==='function') attachItemGizmoToActive();
+  if(creatorOpen) renderCrItems();
+  attachItemGizmoToActive();
 }
 document.getElementById('creatorPreview').addEventListener('contextmenu', e=>{
   console.log('[아이템 우클릭 감지] isAdmin:', isAdmin, '| crStep:', crStep, '| cBase 있음:', !!cBase, '| deskItems:', cBase&&cBase.deskItems);
@@ -8471,7 +8463,7 @@ function ensureItemGizmo(){
             ⚠️ 생성기에 animCorr 을 심으면 이 전제가 깨진다 — 그러면 옮긴 값이 0.4 로 나뉜 채
               저장돼서 다음에 열 때 책상이 2.5배 멀리 간다) */
         cDesk.userData.deskPosBase = { x:cDesk.position.x, y:cDesk.position.y, z:cDesk.position.z };
-        if(typeof syncDeskPartAnchor==='function') syncDeskPartAnchor(cDesk);
+        syncDeskPartAnchor(cDesk);
         return;
       }
       const p = cBase && cBase.activeDeskItem;
@@ -8491,7 +8483,7 @@ function ensureItemGizmo(){
       if(deskPosGizOn && cDesk){
         cDeskPos = {x:cDesk.position.x, y:cDesk.position.y, z:cDesk.position.z};
         updateDeskPosNum();
-        if(typeof layoutSeats==='function') layoutSeats();   // 좌우로 밀었으면 좌석 간격을 다시 잡는다
+        layoutSeats();   // 좌우로 밀었으면 좌석 간격을 다시 잡는다
         return;
       }
       const p = cBase && cBase.activeDeskItem;
@@ -8503,7 +8495,7 @@ function ensureItemGizmo(){
         p.userData.adj.z = p.position.z;
         p.userData.adj.rot = _itemYaw(p);   // 🔄 rotation.y 가 아니다 — 위 [2026-09-15 제보 4]
         p.userData.adj.scale = p.scale.x || 1;
-        if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
+        autoSaveDeskItemsNow();
       }
     }
   });
@@ -8554,7 +8546,7 @@ function renderItemColorPanel(){
         p.userData.colors[key] = c;
         sw.style.background = c;
         _applyItemColor(p);
-        if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
+        autoSaveDeskItemsNow();
       });
     });
     row.querySelector('.cr-item-rst').addEventListener('click', ()=>{
@@ -8571,7 +8563,7 @@ function renderItemColorPanel(){
         }
       });
       sw.style.background='#'+orig;
-      if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
+      autoSaveDeskItemsNow();
     });
     box.appendChild(row);
   });
@@ -8598,21 +8590,21 @@ bindHold(document.getElementById('crItemBigger'), ()=>{
   p.userData.adj.scale=Math.min(2.5,(p.userData.adj.scale||1)+0.05);
   applyDeskAdj(p);
   _crClampActiveItemToFloor();
-  if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
+  autoSaveDeskItemsNow();
 });
 bindHold(document.getElementById('crItemSmaller'), ()=>{
   const p=cBase&&cBase.activeDeskItem; if(!p){ toast('먼저 크기를 조정할 아이템을 우클릭해서 선택해 주세요'); return; }
   p.userData.adj.scale=Math.max(0.05,(p.userData.adj.scale||1)-0.05);
   applyDeskAdj(p);
   _crClampActiveItemToFloor();
-  if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
+  autoSaveDeskItemsNow();
 });
 document.getElementById('crItemRemove').onclick=()=>{
   const p=cBase&&cBase.activeDeskItem; if(!p)return;
   // ★ 요청사항: 이 초기화는 크기만 원래대로 되돌림 — 위치/회전(기즈모로 잡아둔 값)은 그대로 유지.
   p.userData.adj.scale = (p.userData.autoScale!=null) ? p.userData.autoScale : 1;
   applyDeskAdj(p);
-  if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
+  autoSaveDeskItemsNow();
   if(itemGizmo) itemGizmo.update?.();
 };
 // ⟲ 이동·회전만 초기화 — 크기는 유지 (크기 초기화 버튼과 짝을 이룸)
@@ -8622,7 +8614,7 @@ document.getElementById('crItemXfReset').onclick=()=>{
   const back = deskItemOrigin ? deskItemOrigin.resetXf(p, p.userData.adj) : false;
   if(!deskItemOrigin){ p.userData.adj.x=0; p.userData.adj.y=0; p.userData.adj.z=0; p.userData.adj.rot=0; }
   applyDeskAdj(p);
-  if(typeof autoSaveDeskItemsNow==='function') autoSaveDeskItemsNow();
+  autoSaveDeskItemsNow();
   if(itemGizmo) itemGizmo.update?.();
   toast(back ? '처음 자리로 되돌렸어요' : '위치·회전을 원래대로 되돌렸어요');
 };
@@ -8691,12 +8683,12 @@ document.getElementById('deskScaleReset').addEventListener('click',()=>{ cDeskSc
 document.getElementById('deskLenX')?.addEventListener('input', e=>{
   cDeskLenX = +e.target.value || 1;
   setCreatorDeskScale(cDeskScale);
-  if(cBase && cBase.charDef){ cBase.charDef.deskLenX = cDeskLenX!==1 ? cDeskLenX : null; if(typeof slotSaveMod.saveSlots==='function') slotSaveMod.saveSlots(); }
+  if(cBase && cBase.charDef){ cBase.charDef.deskLenX = cDeskLenX!==1 ? cDeskLenX : null; slotSaveMod.saveSlots(); }
 });
 document.getElementById('deskLenXReset')?.addEventListener('click', ()=>{
   cDeskLenX=1; const el=document.getElementById('deskLenX'); if(el) el.value=1;
   setCreatorDeskScale(cDeskScale);
-  if(cBase && cBase.charDef){ cBase.charDef.deskLenX = null; if(typeof slotSaveMod.saveSlots==='function') slotSaveMod.saveSlots(); }
+  if(cBase && cBase.charDef){ cBase.charDef.deskLenX = null; slotSaveMod.saveSlots(); }
 });
 /* === 책상·아이템 코드: 생성(판매자) === */
 /* 관리자가 쓰는 코드 굽는 창 셋(📦 책상·아이템 코드 · 🎁 커미션 캐릭터 · 🔐 암호화 GLB 불러오기)은 admin/admin-asset.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
@@ -9343,7 +9335,7 @@ function gotoStep(n){
   crStep=n;
   /* 🎨 안전망 — 색 스와치는 «값을 넣은 쪽»이 맞춰 줘야 하는데, 그걸 잊는 사고가 실제로 났다.
      단계 이동은 색 화면이 보이기 직전에 반드시 지나가는 자리라 여기서 한 번 더 맞춘다(요소 셋, 비용 없음). */
-  if(typeof _syncCrColorSwatches==='function') _syncCrColorSwatches();
+  _syncCrColorSwatches();
   if(n===3 && !blinkEdited){ const bx=blinkC.getContext('2d'); bx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); bx.drawImage(faceC,0,0); histB.length=0; redoB.length=0; }  // 아직 감은눈을 안 고쳤으면 최신 표정을 복사해서 시작
   const draw=isDrawStep(), skin=(n===1), color=(n===4), faceView=(n<=3);
   if(crFlatView) crFlatView.show(draw);   // 그리기 단계에서만 · 벗어나면 원래 조명으로
@@ -9453,7 +9445,7 @@ function openCreator(mode){
            deskCatalogId 가 다시 굳어 실행 화면에서 매번 기본 책상으로 떨어지는 상태가 이어진다. 기본 책상으로 열린다. */
         if(m && m.licenseOnly && !isPremium && !isAdmin){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
         else if(m){
-          if(!m.glb && m.glbUrl && typeof resolveCatalogGlb==='function'){
+          if(!m.glb && m.glbUrl){
             try{ await resolveCatalogGlb(m); }catch(_){}
           }
           try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(m.glb)); cDeskGlbB64=m.glb; cDeskTemplate=sc; activeCustomDeskId=m.id;
@@ -9464,7 +9456,7 @@ function openCreator(mode){
       }catch(e){} } else {
         const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
         if(ov){
-          if(!ov.glb && ov.glbUrl && typeof resolveCatalogGlb==='function'){
+          if(!ov.glb && ov.glbUrl){
             try{ await resolveCatalogGlb(ov); }catch(_){}
           }
           try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor);
@@ -9480,7 +9472,7 @@ function openCreator(mode){
       if(src&&src.deskItems) applyDeskItemsTo(cBase, src.deskItems);
       if(crStep===5) renderCrItems();
       // 런처4-2: 페이지 전환 시 활성 아이템 없으면 기즈모 숨김 (등록/삭제/재렌더 후 잔상 방지)
-      if(crStep===5 && typeof attachItemGizmoToActive==='function') attachItemGizmoToActive();
+      if(crStep===5) attachItemGizmoToActive();
       // ★ 커스텀 책상 GLB가 이 시점에야 로드 완료됨(비동기) — 그 전에 이미 한 번 계산된 카메라 프레이밍은
       //   기본 책상 크기 기준이라, 실제 책상 크기(스케일 값 자체는 정상)와 화면에 보이는 줌이 어긋나 보이던
       //   원인. 로드가 다 끝난 지금 시점에 책상/좌석 화면이면 카메라를 다시 계산해서 맞춤.
@@ -9534,7 +9526,7 @@ function openCreator(mode){
         gotoStep(1);
       }
       requestAnimationFrame(creatorLoop);
-      if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();
+      applyDesktopRunClass();
 }
 
 /* 생성기의 cBase를 커미션 GLB 인스턴스로 교체 */
@@ -9684,11 +9676,11 @@ function clearCreatorParts(){
   if(!cBase) return;
   cBase.equippedPartObjs = {};
   cBase.stackedPartObjs = {};
-  if(typeof _sweepOrphanPartWrappers==='function') _sweepOrphanPartWrappers(cBase);
+  _sweepOrphanPartWrappers(cBase);
 }
 function closeCreator(){creatorOpen=false;document.getElementById('creatorOverlay').classList.remove('on');
   if(deskItemOrigin) deskItemOrigin.clear();   // 🪑 처음 자리는 이번 편집에서만
-  if(typeof detachItemGizmo==='function') detachItemGizmo();
+  detachItemGizmo();
   clearStampState();   // 도장 이미지·모드 모두 초기화 (다음 생성/수정 진입 시 깨끗한 상태로)
   // ★ 꾸미기/미리보기 창이 켜진 채로 런처가 다시 보이면 런처를 가리던 문제 방지(방어적으로 항상 닫음)
   const wp=document.getElementById('wardrobePanel'); if(wp) wp.classList.remove('on');
@@ -9696,7 +9688,7 @@ function closeCreator(){creatorOpen=false;document.getElementById('creatorOverla
   // ★ kind==='slot'만 체크하면 런처에서 우클릭(kind==='seat')으로 들어왔다가 완료 없이 X로 닫을 때 런처가 안 돌아옴.
   //   openCreator가 진입 시 기록해둔 cameFromLauncher로 판단(afterApp 흐름은 기존대로 제외).
   if(creatorMode.cameFromLauncher && !creatorMode.afterApp){document.getElementById('launcher').classList.add('on');renderLauncher();}
-  if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();}
+  applyDesktopRunClass();}
 document.getElementById('creatorClose').addEventListener('click',closeCreator);
 /* 생성기 지금 상태 → def. [완료] 저장과 📦 용량 재기(forSize)가 같은 함수를 탄다 — 따로 두면 재는 것과 저장하는 것이 갈라진다.
    forSize: 그림은 복사하지 않고(재기에선 URL 자리표시로 바뀐다) 섬네일도 안 찍는다(방에 안 나간다). 결과를 저장에 쓰지 말 것. */
@@ -9806,7 +9798,7 @@ document.getElementById('crDone').addEventListener('click',()=>{
       const wp=document.getElementById('wardrobePanel'); if(wp) wp.classList.remove('on');
       const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
     }
-    if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();
+    applyDesktopRunClass();
     toast('수정했어요');return;}
   // ★ [＋]로 진입했으면 그때 확정된 칸을 그대로 쓴다. creatorMode.slot이 없을 때만 예전 폴백(추측)을 탄다.
   let target = creatorMode.edit ? creatorMode.slot
@@ -9820,9 +9812,9 @@ document.getElementById('crDone').addEventListener('click',()=>{
     toast('그 칸에 이미 캐릭터가 있어요 — 런처에서 빈 칸을 골라 다시 시도해 주세요'); return;
   }
   /* 🧬 새 캐릭터면 보관함 문턱을 보고 cid 를 준다(켜져 있을 때만 · 수정은 saveSlots 훅이 잡는다). */
-  if(!creatorMode.edit && typeof charsMod._charsBoxFull==='function' && charsMod._charsBoxFull()) return;
+  if(!creatorMode.edit && charsMod._charsBoxFull()) return;
   slots[target]=def;
-  if(!creatorMode.edit){ try{ if(typeof charsMod._charsOnNew==='function') charsMod._charsOnNew(target); }catch(_){} }
+  if(!creatorMode.edit){ try{ charsMod._charsOnNew(target); }catch(_){} }
   curSlot=target;slotSaveMod.saveSlots();saveCurSlot();
   if(creatorMode.afterApp){const seat=createSeat();applyCharToSeat(seat,def);seat.slot=target;selectSeat(seat);renderSeatTabs();layoutSeats();
     creatorOpen=false;document.getElementById('creatorOverlay').classList.remove('on');clearStampState();toast('책상에 추가했어요');}
@@ -9931,7 +9923,7 @@ function _lcThumbTake(){
     for(let i = 3; i < px.length; i += 16) a += px[i];
     if(a < 255 * 20) return;
     const url = cv.toDataURL('image/png');
-    if(url && url !== job.def.thumb){ job.def.thumb = url; if(typeof slotSaveMod.saveSlots === 'function') slotSaveMod.saveSlots(); }
+    if(url && url !== job.def.thumb){ job.def.thumb = url; slotSaveMod.saveSlots(); }
   }catch(e){ try{ console.warn('[런처] 섬네일 찍기 실패', e); }catch(_){} }
   finally{ try{ lChar.group.position.y = y; }catch(_){} }
 }
@@ -10028,7 +10020,7 @@ function launcherLoop(){
 function renderLauncher(){
   ensureLauncherPreview();
   // 🎟️ 런처를 열 때마다 초대장 버튼 상태 갱신 (invite 노드 삭제/지급 등 외부 변화 반영)
-  if(typeof licenseGateMod.refreshInviteBtn==='function') licenseGateMod.refreshInviteBtn();
+  licenseGateMod.refreshInviteBtn();
   const def=slots[curSlot];
   document.getElementById('lcCount').textContent='('+(curSlot+1)+'/'+CHAR_SLOT_MAX+')';
   document.getElementById('lcEmpty').style.display=def?'none':'flex';
@@ -10071,7 +10063,7 @@ function lcDeleteAskStart(){
     gearMenu.appendChild(ask);
   }
   /* 🧬 문구는 스위치(와 채택)에 묶는다 — 휴지통이 없는 동안 «휴지통» 이라고 적으면 되살릴 수 있다고 믿고 영구 삭제한다(설계 개정 5). */
-  try{ const t=document.getElementById('lcDelAskText'); if(t && typeof charsMod._charsDeleteWords==='function') t.textContent=charsMod._charsDeleteWords().ask; }catch(_){}
+  try{ const t=document.getElementById('lcDelAskText'); if(t) t.textContent=charsMod._charsDeleteWords().ask; }catch(_){}
   ['lcToBox','lcEdit','lcExport','lcGearSep','lcDelete'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display='none'; });
   ask.style.display='flex';
 }
@@ -10082,7 +10074,7 @@ document.getElementById('lcNext').onclick=()=>{curSlot=(curSlot+1)%CHAR_SLOT_MAX
 document.getElementById('lcEmpty').onclick=()=>{
   if(slots[curSlot]) return;                       // 캐릭터가 있는 칸이면 [＋]가 아니므로 무시
   if(slots.every(s=>s)){toast('캐릭터가 모두 찼습니다');return;}
-  if(typeof charsMod._charsBoxFull==='function' && charsMod._charsBoxFull()) return;   // 🧬 보관함 20 문턱(켜져 있을 때만)
+  if(charsMod._charsBoxFull()) return;   // 🧬 보관함 20 문턱(켜져 있을 때만)
   racePickerMod.openRacePicker(curSlot);
 };
 const previewWrap=document.querySelector('.lc-preview-wrap');
@@ -10090,7 +10082,7 @@ previewWrap.addEventListener('mouseenter',()=>{if(slots[curSlot])previewWrap.cla
 previewWrap.addEventListener('mouseleave',()=>previewWrap.classList.remove('show-go'));
 document.getElementById('lcPreview').addEventListener('click',()=>{if(slots[curSlot])launchApp({mode:'run'});});
 document.getElementById('lcGear').onclick=e=>{e.stopPropagation();
-  try{ if(typeof charsMod._charsDeleteWords==='function'){ const w=charsMod._charsDeleteWords(); const d=document.getElementById('lcDelete'); if(d) d.textContent=w.btn; e.currentTarget.title=w.gear; } }catch(_){}
+  try{ const w=charsMod._charsDeleteWords(); const d=document.getElementById('lcDelete'); if(d) d.textContent=w.btn; e.currentTarget.title=w.gear; }catch(_){}
   gearMenu.classList.toggle('on');};
 document.addEventListener('click',()=>closeGearMenu());
 gearMenu.addEventListener('click',e=>e.stopPropagation());
@@ -10102,7 +10094,7 @@ document.getElementById('lcToBox').onclick=()=>{ closeGearMenu(); doMoveCurSlotT
 function doDeleteCurSlot(){
   if(!slots[curSlot]) return;   // 되묻는 사이 비었으면(다른 경로로 삭제 등) 아무 것도 안 한다
   /* 🧬 켜져 있으면(채택 뒤) 휴지통 이동 — 묘비 + 휴지통 줄 + 책상 표를 아래 당기기와 같이 당긴다. 꺼져 있으면 false · 옛 삭제 그대로. */
-  let _toTrash = false; try{ _toTrash = (typeof charsMod._charsTrashMove === 'function') && charsMod._charsTrashMove(curSlot); }catch(_){}
+  let _toTrash = false; try{ _toTrash = charsMod._charsTrashMove(curSlot); }catch(_){}
   // 삭제 후 뒤 슬롯들을 앞으로 당겨옴(선입선출) — 예: 1번 삭제하면 2번→1번, 3번→2번
   for(let i=curSlot;i<slots.length-1;i++){ slots[i]=slots[i+1]; }
   slots[slots.length-1]=null;
@@ -10111,12 +10103,12 @@ function doDeleteCurSlot(){
   //   applyExtraSeatForMode의 filter는 '빈 칸이 된 번호'만 걸러낼 뿐 번호 밀림은 못 잡는다.
   if(Array.isArray(settingsMod.extraSeatSlots())){
     settingsMod.setExtraSeatSlots(settingsMod.extraSeatSlots().filter(n=>n!==curSlot).map(n=>n>curSlot?n-1:n));
-    if(typeof settingsMod._saveExtraSeatSlots==='function') settingsMod._saveExtraSeatSlots();
+    settingsMod._saveExtraSeatSlots();
   }
   // ★ 당겨오기 때문에 curSlot이 '빈 칸'이나 엉뚱한 캐릭터를 가리킬 수 있다.
   //   그 상태가 이어지면 이후 저장이 엉뚱한 자리를 고를 수 있으므로 여기서 정리한다.
   if(!slots[curSlot]){ let last=-1; slots.forEach((x,i)=>{ if(x) last=i; }); curSlot = last>=0 ? last : 0; }
-  slotSaveMod.saveSlots(); if(typeof saveCurSlot==='function') saveCurSlot();
+  slotSaveMod.saveSlots(); saveCurSlot();
   renderLauncher();toast(_toTrash ? '휴지통으로 옮겼어요' : '삭제했어요');
 }
 /* 🧰 [보관함 이동] — 슬롯에서 내려 보관함에 둔다(시안 G · 개정 48). 당기기는 doDeleteCurSlot 과 같은 모양이다
@@ -10145,10 +10137,10 @@ async function doMoveCurSlotToBox(){
   slots[slots.length - 1] = null;
   if(Array.isArray(settingsMod.extraSeatSlots())){
     settingsMod.setExtraSeatSlots(settingsMod.extraSeatSlots().filter(n => n !== at).map(n => n > at ? n - 1 : n));
-    if(typeof settingsMod._saveExtraSeatSlots === 'function') settingsMod._saveExtraSeatSlots();
+    settingsMod._saveExtraSeatSlots();
   }
   if(!slots[curSlot]){ let last = -1; slots.forEach((x, k) => { if(x) last = k; }); curSlot = last >= 0 ? last : 0; }
-  slotSaveMod.saveSlots(); if(typeof saveCurSlot === 'function') saveCurSlot();
+  slotSaveMod.saveSlots(); saveCurSlot();
   renderLauncher(); toast('보관함으로 옮겼어요');
 }
 /* ═══ 🐾 종족 선택창 ═══ */
@@ -10230,9 +10222,9 @@ document.getElementById('commImpGo').onclick=async()=>{
       if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
     }
     // 슬롯에 저장 + 영구 저장
-    if(typeof charsMod._charsBoxFull==='function' && charsMod._charsBoxFull()) return;   // 🧬 보관함 20 문턱
+    if(charsMod._charsBoxFull()) return;   // 🧬 보관함 20 문턱
     slots[idx]=def;
-    try{ if(typeof charsMod._charsOnNew==='function') charsMod._charsOnNew(idx); }catch(_){}
+    try{ charsMod._charsOnNew(idx); }catch(_){}
     slotSaveMod.saveSlots();
     curSlot=idx;
     saveCurSlot();
@@ -10333,8 +10325,7 @@ window.rebuildAnimalSeats=function(){
     //   좌석만 고치면 "껐다 켜면 런처 슬롯이 기본 캐릭터"가 그대로임 — 동물 슬롯이면 여기서 다시 그린다.
     try{
       const _lc=document.getElementById('launcher');
-      if(_lc && _lc.classList.contains('on') && slots[curSlot] && slots[curSlot].animal
-         && typeof renderLauncher==='function') renderLauncher();
+      if(_lc && _lc.classList.contains('on') && slots[curSlot] && slots[curSlot].animal) renderLauncher();
     }catch(_){}
     console.log('[동물] 좌석 재빌드 완료');
   }catch(e){ console.warn('[동물] 좌석 재빌드 실패', e); }
@@ -10601,7 +10592,7 @@ function applyAppMode(){
   const t=document.getElementById('appTitle'), s=document.getElementById('appSub');
   if(appMode==='editseat'){ t.textContent='🪑 좌석 세팅'; s.textContent='크기·높이·앞뒤·회전을 맞추세요 · 자동 저장'; }
   else { t.textContent='🪴 책상 친구들'; s.textContent='짧게 클릭하면 쓰다듬 · 편집은 런처 ⚙'; }
-  if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();
+  applyDesktopRunClass();
 }
 function launchApp(opts){ opts=opts||{};
   const myDef = slots[curSlot] || slots.find(Boolean);
@@ -10638,7 +10629,7 @@ function backToLauncher(){
   if(statusChipMod._tabHintTimer()){ clearTimeout(statusChipMod._tabHintTimer()); statusChipMod.setTabHintTimer(null); }
   // 🪑 방을 나가면 상호작용 책상 복원 플래그 리셋(다음 입장 때 저장값으로 다시 복원) +
   //   내 좌석에 붙은 벤치 시각물 제거(장착 '저장'은 유지 — 재입장 시 복원됨).
-  if(typeof rideBenchMod._resetIdeskRestore==='function') rideBenchMod._resetIdeskRestore();
+  rideBenchMod._resetIdeskRestore();
   try{ const _me = seats.find(s=>s.isMe);
     if(_me && _me.bench){ seats.filter(o=>o.seatedOn===_me).forEach(o=>{ try{ rideBenchMod.unmountBench(o); }catch(_){} });
       _me.group.remove(_me.bench); _me.bench=null; _me.benchSlots=null; _me.benchDeskId=null; _me.benchOccupants={};
@@ -10667,12 +10658,12 @@ function backToLauncher(){
   renderLauncher();
   // 🕒 런처로 돌아오는 시점 = 이번 세션의 포커스 기록을 확정하기 좋은 경계.
   //   여기서만 서버와 맞추므로 쓰기 횟수가 적고(세션당 몇 번), 다른 기기의 기록도 이때 받아온다.
-  if(typeof focusLevelMod.syncFocusTotalToServer==='function') focusLevelMod.syncFocusTotalToServer('launcher');
+  focusLevelMod.syncFocusTotalToServer('launcher');
   // 👑 달성표도 같은 경계에서 맞춘다 — 다른 기기에서 체크한 오늘 항목이 여기서 따라온다.
   weeklyChal.syncChalToServer('launcher');
   // 🎰 가챠도 같은 경계에서. 셋 다 '다른 기기에서 쌓인 것을 받아오는' 같은 성격이라 한자리에 둔다.
   gachaMod.syncGachaToServer('launcher');
-  if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();
+  applyDesktopRunClass();
 }
 document.getElementById('toLauncher').onclick=backToLauncher;
 
@@ -10826,7 +10817,7 @@ const Presence=(()=>{
   async function _autoAwayCheck(){
     /* 📱 폰에서 포커싱 어플을 쓰는 중이면 PC 입력이 없어도 자리에 있는 것이다 — 20분 자동 자리비움 · 6시간 퇴장을 건너뛴다.
        0 으로 두면 이미 자동 자리비움이었던 사람은 아래 «활동 재개» 갈래로 복원된다. */
-    const idle = (typeof focusLevelMod._mobileOn === 'function' && focusLevelMod._mobileOn()) ? 0 : await _idleMs();
+    const idle = focusLevelMod._mobileOn() ? 0 : await _idleMs();
     // 밥먹는중·게임중은 자리를 비운 게 아니라 의도적으로 둔 상태 — 자동 전환하지 않음
     const skipStatus = myUserStatus === 'meal' || myUserStatus === 'gaming';
     // 상태 변경은 전역 setUserStatus로 해야 UI(상태칩)+캐릭터 모션까지 함께 갱신됨.
@@ -10897,7 +10888,7 @@ const Presence=(()=>{
     if(!window.firebaseAPI) await roomEntryMod._waitFirebaseApi(roomEntryMod.NET_READY_WAIT_MS);
     if(!window.firebaseAPI && !roomEntryMod._mockRoomAllowed()){
       room = null; provider = null; friends = {}; if(onChange) onChange({});
-      try{ if(typeof toast==='function') toast('서버 연결이 아직 준비되지 않았어요 — 잠시 뒤 다시 들어가 주세요'); }catch(_){}
+      try{ toast('서버 연결이 아직 준비되지 않았어요 — 잠시 뒤 다시 들어가 주세요'); }catch(_){}
       console.warn('[방] firebaseAPI 가 준비되지 않아 입장을 멈췄다(가짜 방으로 떨어지지 않음)');
       return;
     }
@@ -10996,7 +10987,7 @@ const Presence=(()=>{
   }
   /* ⭐ exp = 레벨 안 진행도(0~12칸). 하트비트에도 실리지만 여기에도 넣어야 입장 직후 첫 30초 동안
      상대 화면에 바가 비어 보이지 않는다. 이 push들은 원래 발생하던 것이라 추가 쓰기는 없다. */
-  function _myExpCells(){ try{ return (typeof expBarMod.myExpCells==='function') ? expBarMod.myExpCells() : null; }catch(_){ return null; } }
+  function _myExpCells(){ try{ return expBarMod.myExpCells(); }catch(_){ return null; } }
   /* 🪑 내가 쉬는 중인 시각(ms) — 지나갔으면 null 로 보내서 필드를 비운다.
      ★ 새 쓰기를 거의 만들지 않는다: 값이 바뀌는 순간(연속 기준 도달)에만 broadcastNow 가 한 번
        나가고, 그 뒤로는 원래 나가던 update 에 필드 하나(숫자)가 얹혀 갈 뿐이다. */
@@ -11010,7 +11001,7 @@ const Presence=(()=>{
      ⚠️ 규칙: customStatus.text ≤ 12 · emo ≤ 4 — «오늘 99:59» 10자 · 🕒 2 로 안에 든다(규칙 변경 없음). */
   function _statusOut(){
     /* 📱 폰 켜짐이면 🕒 오늘 기록보다 «📱 앱» 이 먼저다(사용자가 고른 상태는 그대로 이긴다) — 받는 쪽이 mobile 칸을 띄운다. */
-    if(!myUserStatus && typeof focusLevelMod._mobileOn === 'function' && focusLevelMod._mobileOn()) return { userStatus:myUserStatus, customStatus:myCustomStatus };
+    if(!myUserStatus && focusLevelMod._mobileOn()) return { userStatus:myUserStatus, customStatus:myCustomStatus };
     if(!myUserStatus && myFocusShow) return { userStatus:'custom', customStatus:myFocusShow };
     return { userStatus:myUserStatus, customStatus:myCustomStatus };
   }
@@ -11891,9 +11882,7 @@ async function getPartScene(rec){
   if(partSceneCache.has(rec.id)) return partSceneCache.get(rec.id);
   // 런처9/Storage 이관 후속: rec.glb가 없고 glbUrl만 있으면(로컬 캐시에서 로드된 초기 상태) Storage에서 먼저 받아옴.
   if(!rec.glb && rec.glbUrl){
-    if(typeof resolveCatalogGlb==='function'){
-      try{ await resolveCatalogGlb(rec); }catch(_){}
-    }
+    try{ await resolveCatalogGlb(rec); }catch(_){}
   }
   if(!rec.glb) throw new Error('파츠 GLB를 찾을 수 없어요: '+rec.id);
   const {scene, animations} = await assetCodeMod.parseGlbFull(b64ToBuf(rec.glb));
@@ -12030,7 +12019,7 @@ window.generateAllPartThumbnails = async function(force){
     }catch(e){ fail++; console.warn('실패:', rec.name, e); }
   }
   premiumMod.persistSavedParts();
-  if(typeof wardrobeMod.renderWardrobe==='function') wardrobeMod.renderWardrobe();
+  wardrobeMod.renderWardrobe();
   gachaMod.renderGachaInv();   // 🎰 보관함이 열려 있으면 카드도 같이 갱신
   console.log('완료: 성공', ok, '/ 실패', fail);
   toast('썸네일 생성 완료: '+ok+'개');
@@ -12186,9 +12175,9 @@ async function mergeCatalogIntoSavedItems(catalogObj){
       equipDeskItem(cBase, def, true);
     });
   }
-  if(typeof renderCrItems==='function' && creatorOpen) renderCrItems();
+  if(creatorOpen) renderCrItems();
   /* 🪑 [제보 2] 책상 카탈로그와 같은 이유 — licenseOnly 아이템 판정은 이 레코드가 와야 선다. */
-  try{ if(typeof premiumMod.pruneUnownedLicenseAssets === 'function') premiumMod.pruneUnownedLicenseAssets(); }
+  try{ premiumMod.pruneUnownedLicenseAssets(); }
   catch(e){ console.warn('[라이선스] 아이템 카탈로그 도착 후 정리 실패', e); }
 }
 function subscribeCatalogItems(){
@@ -12222,7 +12211,7 @@ function mergeCatalogIntoSavedDesks(catalogObj){
   /* 🪑 [제보 2] 카탈로그가 도착한 지금이 «이 id 가 전용인가» 를 알 수 있는 **첫 순간**이다.
      licenseOnly 는 이 레코드에만 있어서, 부팅 때 캐릭터가 먼저 닿으면 그 전까지는 판정이 안 된다.
      ★ 라이선스가 있거나 카탈로그가 비었으면 pruneUnownedLicenseAssets 가 스스로 물러난다. */
-  try{ if(typeof premiumMod.pruneUnownedLicenseAssets === 'function') premiumMod.pruneUnownedLicenseAssets(); }
+  try{ premiumMod.pruneUnownedLicenseAssets(); }
   catch(e){ console.warn('[라이선스] 책상 카탈로그 도착 후 정리 실패', e); }
   // ★ 생성기 안에서 지금 보고 있는 미리보기(cDesk)도 갱신 — 관리자가 생성기를 연 채로 등록/수정하면
   //   그 자리에서 바로 반영돼야 함(안 그러면 renderCrItems로 카드 목록만 갱신되고, 실제 3D 미리보기는 예전 모습 그대로 남음).
@@ -12236,7 +12225,7 @@ function mergeCatalogIntoSavedDesks(catalogObj){
       else { swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
     }
   }
-  if(typeof renderCrItems==='function' && creatorOpen) renderCrItems();
+  if(creatorOpen) renderCrItems();
 }
 function subscribeCatalogDesks(){
   if(!window.firebaseAPI || !window.firebaseAPI.subscribeCatalogDesks) return;
@@ -12328,7 +12317,7 @@ function mergeCatalogIntoSavedParts(catalogObj){
          돌기 때문에, 매번 재계산하면 좌석 전부의 크기·센터링이 이유 없이 다시 굴러간다. */
     if(_pending.length){
       Promise.all(_pending.map(p=>Promise.resolve(p).catch(()=>{}))).then(()=>{
-        try{ if(s && s.gltfRoot && typeof fitModel==='function'){ fitModel(s); layoutSeats(); } }catch(_){}
+        try{ if(s && s.gltfRoot){ fitModel(s); layoutSeats(); } }catch(_){}
       });
     }
     /* 🎩 [2026-08-29] **카탈로그가 늦게 와도 '위에 얹을 수 있음'이 반영되게 한다.** — 제보 대응
@@ -12350,20 +12339,20 @@ function mergeCatalogIntoSavedParts(catalogObj){
          빠져나오므로(riders.length 검사) 비용이 없고, 측정에 실패하면 옛 값을 그대로 둔다.
        ⚠️ `_pending` 여부와 무관하게 부른다 — 새로 붙은 파츠 쪽은 equipPartOnSeat 이 이미
          책임지지만, 이 자리가 막으려는 것은 **아무것도 새로 안 붙는 경우**다. */
-    try{ if(typeof rideBenchMod._remeasureRideHeadTop==='function') rideBenchMod._remeasureRideHeadTop(s); }catch(_){}
+    try{ rideBenchMod._remeasureRideHeadTop(s); }catch(_){}
   });
   // ★ 런처 슬롯 미리보기도 다시 렌더 — 초기엔 savedParts에 rec.glb가 없어 파츠가 안 보였을 수 있음.
   //   지금 카탈로그가 도착했으므로 (rec.glbUrl로 Storage에서 받아올 수 있음) 미리보기 재빌드.
   const launcher = document.getElementById('launcher');
-  if(launcher && launcher.classList.contains('on') && typeof renderLauncher==='function'){
+  if(launcher && launcher.classList.contains('on')){
     renderLauncher();
   }
   // 꾸미기창 미리보기도 열려있으면 재빌드
   const wdPanel = document.getElementById('wdPreviewPanel');
-  if(wdPanel && wdPanel.classList.contains('on') && typeof wardrobeMod.refreshWdPreviewChar==='function'){
+  if(wdPanel && wdPanel.classList.contains('on')){
     wardrobeMod.refreshWdPreviewChar();
   }
-  if(typeof wardrobeMod.renderWardrobe==='function') wardrobeMod.renderWardrobe();
+  wardrobeMod.renderWardrobe();
   /* 🎰 카탈로그가 도착한 지금이 미보유 가챠 파츠를 회수할 수 있는 **첫 순간**이다.
      [경위] 회수는 동기화가 끝나는 자리에서만 돌았는데, 그 자리는 부팅 4.2초로 고정이고
        savedParts 는 이 함수(구독 콜백 → resolveCatalogGlbAll 왕복)까지 와야 채워진다.
@@ -12401,7 +12390,7 @@ function subscribeCustomCats(){
   window.firebaseAPI.subscribeCustomCats(catObj=>{
     premiumMod.setCustomPartCats(Object.keys(catObj||{}).map(k=>catObj[k]).filter(c=>c && c.cat));
     premiumMod.rebuildPartCats();
-    if(typeof wardrobeMod.renderWardrobe==='function') wardrobeMod.renderWardrobe();
+    wardrobeMod.renderWardrobe();
     if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
   });
 }
@@ -12411,7 +12400,7 @@ function subscribeCatOverrides(){
   window.firebaseAPI.subscribeCatOverrides(obj=>{
     premiumMod.setPartCatOverrides(obj || {});
     premiumMod.rebuildPartCats();
-    if(typeof wardrobeMod.renderWardrobe==='function') wardrobeMod.renderWardrobe();
+    wardrobeMod.renderWardrobe();
     if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
   });
 }
@@ -12428,7 +12417,7 @@ else window.addEventListener('firebase-ready', ()=>{ subscribeCustomCats(); subs
      ② mergeCatalogIntoSavedItems 가 등록을 **기다린 뒤** 좌석을 다시 적용한다(아래).
    ⚠️ 인자로 온 값이 우선이다 — 기존 호출부(loadSavedItemsIntoSession 등)는 동작이 그대로다. */
 function _savedItemMeta(id){
-  try{ return (typeof commissionMod.savedItems !== 'undefined' && Array.isArray(commissionMod.savedItems())) ? (commissionMod.savedItems().find(r=>r && r.id === id) || null) : null; }
+  try{ return Array.isArray(commissionMod.savedItems()) ? (commissionMod.savedItems().find(r=>r && r.id === id) || null) : null; }
   catch(_){ return null; }   // savedItems 선언(let) 전에 불리는 경우
 }
 function registerCustomItem(id,name,glbB64,template,icon,animations,attachTo,autoPlay,defaultSize,glow,licenseOnly,playMode){
@@ -12614,8 +12603,7 @@ function setDeskScale(deskGroup,scale,lenX){ if(!deskGroup) return;
        syncSeatDeskZ 가 끝에서 syncDeskPartAnchor 를 부르므로 그 줄이 여기에 흡수됐다.
        (예전엔 여기서 syncDeskPartAnchor 를 직접 불렀다. 빠지면 책상 크기 슬라이더를
         만지는 순간 파츠만 어긋난다.) */
-  if(typeof syncSeatDeskZ === 'function') syncSeatDeskZ(deskGroup);
-  else if(typeof syncDeskPartAnchor === 'function') syncDeskPartAnchor(deskGroup);
+  syncSeatDeskZ(deskGroup);
 }
 // ★ 어플 9 (미리보기가 정답 기준으로 확정된 뒤로) 이 시각 보정은 제거됨 — 미리보기와 실행 화면이
 //   동일한 setDeskScale 공식을 쓰게 두는 것이 옳음. 이 상수를 예전엔 1.2로 두어 미리보기 책상을
@@ -13316,8 +13304,8 @@ function frame(now, manual){
     return;
   }
   const dt=Math.min((now-prev)/1000,0.05);prev=now;
-  if(typeof updateIdleItemPlayback==='function') updateIdleItemPlayback();   // 어플 8: 자리비움 감지로 아이템 재생/정지 자동 전환
-  if(typeof updateActivePartPlayback==='function') updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
+  updateIdleItemPlayback();   // 어플 8: 자리비움 감지로 아이템 재생/정지 자동 전환
+  updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
   if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
   _clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
   seats.forEach(seat=>{
@@ -13579,7 +13567,7 @@ function _lsSet(key, val){
     console.warn('[저장] ' + key + ' 저장 실패 — 이 설정은 앱을 껐다 켜면 사라집니다', e);
     if(!_lsWarned){
       _lsWarned = true;
-      try{ if(typeof toast === 'function') toast('⚠ 설정을 저장하지 못했어요 — 저장 공간이 가득 찼을 수 있어요'); }catch(_){}
+      try{ toast('⚠ 설정을 저장하지 못했어요 — 저장 공간이 가득 찼을 수 있어요'); }catch(_){}
     }
     return false;
   }
@@ -13889,7 +13877,7 @@ let _srvDeniedWarned = false;
 async function _warnServerWriteDenied(what){
   if(_srvDeniedWarned) return;
   _srvDeniedWarned = true;                    // 판정하는 동안 또 불려도 두 번 뜨지 않게 먼저 세운다
-  const code = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  const code = getMyUserId();
   let owner;
   try{
     owner = (window.firebaseAPI && firebaseAPI.authOwnerOf) ? await firebaseAPI.authOwnerOf(code) : undefined;
@@ -13899,8 +13887,7 @@ async function _warnServerWriteDenied(what){
   try{ mine = (window.firebaseAPI && firebaseAPI.authCurrentUid) ? firebaseAPI.authCurrentUid() : null; }catch(_){}
   if(mine && mine === owner){ _srvDeniedWarned = false; return; }                  // 주인이 맞다 = 다른 원인
   try{ console.warn('[계정] ' + what + ' 서버 반영 거부 — 이 기기는 코드 ' + code + ' 의 주인이 아니다(주인 uid=' + owner + ')'); }catch(_){}
-  try{ if(typeof toast === 'function')
-    toast('🔑 ' + what + ' 기록이 서버에 저장되지 않았어요 — 이 PC의 로그인이 풀려 있어요. 앱을 다시 시작하면 로그인 화면이 나와요'); }catch(_){}
+  try{ toast('🔑 ' + what + ' 기록이 서버에 저장되지 않았어요 — 이 PC의 로그인이 풀려 있어요. 앱을 다시 시작하면 로그인 화면이 나와요'); }catch(_){}
 }
 
 /* ═══ 🎨 디자인 테마 ═══════════════════════════════════════════════════════

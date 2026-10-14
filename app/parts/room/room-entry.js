@@ -74,7 +74,7 @@ function makeServerProvider(net, create){
   return net.makeProvider({
     serializeDef: serializeDefForNetwork,
     deserializeDef: deserializeDefFromNetwork,
-    getExp: ()=>{ try{ return (typeof myExpCells === 'function') ? myExpCells() : undefined; }catch(_){ return undefined; } },
+    getExp: ()=>{ try{ return myExpCells(); }catch(_){ return undefined; } },
     onMeta: _onServerRoomMeta,
     onDisband: ()=>{ if(typeof window._onRoomDisbanded === 'function') window._onRoomDisbanded(); },
     onReplaced: ()=>{ try{ _onDeviceSessionLost(); }catch(_){} },
@@ -355,7 +355,7 @@ function _deskStateFingerprint(def){
 function _applyRemoteBenchSeats(){
   try{
     const me = seats.find(x=>x.isMe);
-    const myUid = (typeof getMyUserId==='function') ? getMyUserId() : null;
+    const myUid = getMyUserId();
     const byUser = {};
     seats.filter(x=>x.remote && x.friendUserId).forEach(x=>{ byUser[x.friendUserId]=x; });
     seats.filter(x=>x.remote).forEach(seat=>{
@@ -372,7 +372,7 @@ function _applyRemoteBenchSeats(){
 function _applyRemoteRides(){
   try{
     const me = seats.find(x=>x.isMe);
-    const myUid = (typeof getMyUserId==='function') ? getMyUserId() : null;
+    const myUid = getMyUserId();
     const byUser = {}, byFriend = {};
     seats.filter(x=>x.remote).forEach(x=>{ byFriend[x.friendId]=x; if(x.friendUserId) byUser[x.friendUserId]=x; });
     seats.filter(x=>x.remote).forEach(seat=>{
@@ -529,11 +529,11 @@ function syncFriendSeats(friends){
         chatUiMod.showFlyText(s, chat.text, (friends[id].level|0) >= chatUiMod.FLY_COLOR_LEVEL ? chat.flyColor : '', chat.flySize);
         _chatShown = true;
       }
-      else if((window._activeChannel === 2 || _demojiOnly) && typeof showChatBubble==='function'){ showChatBubble(s, chat.text); _chatShown = true; }
+      else if((window._activeChannel === 2 || _demojiOnly)){ showChatBubble(s, chat.text); _chatShown = true; }
       /* 🔔 알림음 — 상대 채팅이 **화면에 뜬 경우에만** 울린다. 워킹룸에서 걸러진 글자처럼 안 뜬 것은 조용하다.
          ★ 워킹룸(채널1)은 이모티콘 말풍선이 떠도 조용하다 — 일에 집중하는 방이라 소리로 끊지 않는다.
          ⚠ 여기가 유일한 자리다. chatLog 구독(대화창)에도 걸면 한 줄에 두 번 울린다. */
-      if(_chatShown && window._activeChannel === 2 && typeof _chatNotifyIncoming === 'function') _chatNotifyIncoming();
+      if(_chatShown && window._activeChannel === 2) _chatNotifyIncoming();
     }
     /* 💬 채팅 탭 말풍선 — **내 탭과 같을 때만** 띄운다(sim-chat-tabs ②). 투게더룸 · 시크릿룸에서만.
        ⚠️ 날리기 · 말풍선 · 알림음 분기는 위 `chat` 과 같은 규칙이다 — 한쪽만 고치지 말 것. */
@@ -544,18 +544,18 @@ function syncFriendSeats(friends){
         let _shown = false;
         if(ctab.fly && !(typeof officeMode() !== 'undefined' && officeMode()) && typeof chatUiMod.showFlyText==='function'){
           chatUiMod.showFlyText(s, ctab.text, (friends[id].level|0) >= chatUiMod.FLY_COLOR_LEVEL ? ctab.flyColor : '', ctab.flySize); _shown = true;
-        }else if(typeof showChatBubble==='function'){ showChatBubble(s, ctab.text); _shown = true; }
-        if(_shown && typeof _chatNotifyIncoming === 'function') _chatNotifyIncoming();
+        }else showChatBubble(s, ctab.text); _shown = true;
+        if(_shown) _chatNotifyIncoming();
       }
     }
   });
   _applyRemoteRides();   // 🐾 친구들의 올라타기·탑쌓기 관계를 좌석에 반영(좌석이 다 만들어진 뒤에)
   _applyRemoteBenchSeats();   // 🪑 친구들의 벤치 앉기 관계 반영
   if(typeof rideBenchMod.restoreInteractionDesk==='function') rideBenchMod.restoreInteractionDesk();   // 🔄 재입장 시 내 상호작용 책상 복원(1회)
-  layoutSeats(); if(typeof renderSeatTabs==='function') renderSeatTabs();
+  layoutSeats(); renderSeatTabs();
   // ★ 멀티모드 진입/친구 입퇴장으로 좌석 배치가 바뀌면 카메라도 같이 바뀌는데, 상태칩이 다음 프레임까지
   //   기다렸다가 갱신되면 그 사이 잠깐 어긋난 위치(화면 밖으로 밀린 것처럼 보임)가 노출될 수 있어서 즉시 갱신.
-  if(typeof updateMyStatusChipPosition==='function') updateMyStatusChipPosition();
+  updateMyStatusChipPosition();
 }
 
 /* 초대 UI 연결 */
@@ -618,7 +618,7 @@ function refreshInviteUI(){ const on=Presence.active();
   _refreshSecretRoomUI();
   document.getElementById('inviteIdle').style.display=on?'none':'';
   // ★ 방 만들기 화면(채널 카드 + 참여 코드)은 상시 표시 — 열릴 때 잠금/카운트만 갱신
-  if(!on && typeof _refreshChannelPickUI==='function') _refreshChannelPickUI();
+  if(!on) _refreshChannelPickUI();
   document.getElementById('inviteActive').style.display=on?'':'none';
   if(on) document.getElementById('inviteRoomLbl').textContent=Presence.roomCode();
   // ★ 설정 패널 "멀티모드" 탭 안에 인라인으로 넣어둔 동일한 UI도 같이 갱신 — 모달(inviteOverlay)이든
@@ -888,7 +888,7 @@ async function startRoom(code){
 document.getElementById('lcInvite').onclick=()=>{ refreshInviteUI(); startRoomCountWatch(); document.getElementById('inviteOverlay').classList.add('on'); };
 document.getElementById('inviteClose').onclick=()=>{
   document.getElementById('inviteOverlay').classList.remove('on');
-  if(typeof refreshInviteUI==='function') refreshInviteUI();   // 다음에 열 때 기본 화면부터
+  refreshInviteUI();   // 다음에 열 때 기본 화면부터
 };
 /* 💝 후원 링크 — 시스템 기본 브라우저로 연다. 모달의 <a>와 런처의 버튼이 같은 처리를 쓴다.
    ★ <a href>를 그대로 두면 Electron이 앱 창 안에서 페이지를 열어버려 캐릭터 오버레이가 통째로
@@ -1000,7 +1000,7 @@ function startRoomCountWatch(){
       // 채널 선택 화면이 떠 있으면 _refreshChannelPickUI가 전체+채널별 카운트를 한 번에 갱신하므로
       // refreshRoomCountOnce를 따로 부르지 않음(💰 같은 인덱스를 두 번 읽지 않게).
       const pick=document.getElementById('inviteChannelPick');
-      if(pick && pick.style.display!=='none' && typeof _refreshChannelPickUI==='function') _refreshChannelPickUI();
+      if(pick && pick.style.display!=='none') _refreshChannelPickUI();
       else refreshRoomCountOnce();
     }
     else {
@@ -1112,7 +1112,7 @@ async function doHopRandomRoom(){
     if(!Presence.active()) toast('방을 옮기지 못했어요 — 참여를 다시 눌러주세요');
   } finally {
     _hoppingRoom = false; _setHopBusy(false);
-    if(typeof refreshInviteUI === 'function') refreshInviteUI();
+    refreshInviteUI();
   }
 }
 
@@ -1260,7 +1260,7 @@ window._onHostSucceeded = function(meta){
   try{
     if(meta) window._roomMetaCache = meta;   // 대화창 방장 표시 갱신
     toast('내가 새 방장이 됐어요 👑');
-    if(typeof _refreshChatMembers==='function') _refreshChatMembers();   // 방장 표시 즉시 갱신
+    _refreshChatMembers();   // 방장 표시 즉시 갱신
   }catch(_){}
 };
 
@@ -1275,11 +1275,7 @@ window._onRoomDisbanded = function(){
   window._roomDisbanding = true;
   try{
     toast('방장이 나가고 이어받을 사람이 없어 방이 해산됐어요');
-    if(typeof doLeaveRoom==='function'){
-      Promise.resolve(doLeaveRoom({ wipeChat: true })).catch(()=>{}).then(()=>{ window._roomDisbanding = false; });
-    }else{
-      window._roomDisbanding = false;
-    }
+    Promise.resolve(doLeaveRoom({ wipeChat: true })).catch(()=>{}).then(()=>{ window._roomDisbanding = false; });
   }catch(_){ window._roomDisbanding = false; }
 };
 
@@ -1293,11 +1289,7 @@ window._onRoomOverCapacity = function(cap){
   window._roomOverCapLeaving = true;
   try{
     toast('같은 순간에 다른 분이 먼저 들어와 자리가 찼어요(최대 '+(cap||maxPeople())+'명)');
-    if(typeof doLeaveRoom==='function'){
-      Promise.resolve(doLeaveRoom()).catch(()=>{}).then(()=>{ window._roomOverCapLeaving = false; });
-    }else{
-      window._roomOverCapLeaving = false;
-    }
+    Promise.resolve(doLeaveRoom()).catch(()=>{}).then(()=>{ window._roomOverCapLeaving = false; });
   }catch(_){ window._roomOverCapLeaving = false; }
 };
 
@@ -1349,7 +1341,7 @@ document.getElementById('inviteRoomCopy').addEventListener('click', e=>{ e.preve
 // ★ F1 탭의 방 만들기 — 채널 선택이 필요하므로 모달을 열어 채널 카드를 보여준다(모달과 로직 일원화).
 const fsInviteCreate=document.getElementById('fsInviteCreate'); if(fsInviteCreate) fsInviteCreate.onclick=()=>{
   const ov=document.getElementById('inviteOverlay'); if(ov){ ov.classList.add('on'); startRoomCountWatch(); }
-  if(typeof refreshInviteUI==='function') refreshInviteUI();   // 카드가 상시 표시 — 잠금/카운트 갱신 포함
+  refreshInviteUI();   // 카드가 상시 표시 — 잠금/카운트 갱신 포함
 };
 const fsInviteJoinBtn=document.getElementById('fsInviteJoin'); if(fsInviteJoinBtn) fsInviteJoinBtn.onclick=()=>doJoinRoom(document.getElementById('fsInviteCode'));
 { const b=document.getElementById('fsInviteSecretJoin'); if(b) b.onclick=()=>doJoinSecretRoom(document.getElementById('fsInviteSecretCode')); }

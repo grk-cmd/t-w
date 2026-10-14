@@ -332,8 +332,10 @@ say('· §5 회사원 모드 — 못 열고, 열려 있던 것도 접히는가')
   /* officeMode() — purikura-ui.js 는 app.js 의 let 을 읽는 함수로 받는다(앱 FSD 3번) */
   chk(!!open && /officeMode\(\)\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}/.test(open[0]),
       '★ openPurikura 안에도 그물이 있다 (문은 여기 하나뿐 — 다른 입구가 생겨도 샌다)');
-  chk(!!open && /typeof officeMode !== 'undefined'/.test(open[0]),
-      "officeMode 가 아직 없을 때도 안 터진다 (부팅 순서에 안 기댄다)");
+  /* (개정 238) typeof 가드를 걷었다 — officeMode 는 deps 의 «읽는 함수»(()=>officeMode)라 늘 함수이고, 가드는 TDZ 를 막지도 못했다.
+     대신 «값을 만들 때 잡아 두지 않고 부를 때마다 읽는다» 를 본다(사용자가 누를 때는 부팅이 끝난 뒤다) */
+  chk(!!open && /officeMode\(\)\)\{/.test(open[0]) && !/typeof officeMode/.test(open[0]),
+      "officeMode 는 부를 때마다 읽는다 — 읽는 함수 officeMode() (가드 없이)");
 
   /* 버튼을 숨기지는 않는다 — 숨기면 이런 기능이 있다는 것 자체를 모르고 지나간다. */
   chk(!/chatPhotoBtn[\s\S]{0,200}style\.display\s*=/.test(SRC),

@@ -594,7 +594,7 @@ async function sec8(){
   chk(dd.indexOf('_charsTrashMove(curSlot)') > 0 && dd.indexOf('_charsTrashMove(curSlot)') < dd.indexOf('slots[i]=slots[i+1]') && /_toTrash \? '휴지통으로 옮겼어요' : '삭제했어요'/.test(dd),
     '  휴지통 이동은 당기기 전에(칸 번호가 바뀌기 전) · 토스트도 스위치를 따른다');
   const cr = SRC.slice(SRC.indexOf("let target = creatorMode.edit ? creatorMode.slot"), SRC.indexOf('/* --- 런처 미리보기 렌더러 --- */'));
-  chk(/if\(!creatorMode\.edit && typeof _charsBoxFull==='function' && _charsBoxFull\(\)\) return;/.test(cr) && /if\(!creatorMode\.edit\)\{ try\{ if\(typeof _charsOnNew==='function'\) _charsOnNew\(target\);/.test(cr) && cr.indexOf('_charsOnNew(target)') < cr.indexOf('saveSlots()'),
+  chk(/if\(!creatorMode\.edit && _charsBoxFull\(\)\) return;/.test(cr) && /if\(!creatorMode\.edit\)\{ try\{ _charsOnNew\(target\);/.test(cr) && cr.indexOf('_charsOnNew(target)') < cr.indexOf('saveSlots()'),
     '  생성기 완료 — 새로 만들 때만 문턱·새 cid(수정은 saveSlots 훅이 잡는다) · saveSlots 앞');
   const cm = SRC.slice(SRC.indexOf('// 슬롯에 저장 + 영구 저장'), SRC.indexOf('// 슬롯에 저장 + 영구 저장') + 400);
   chk(/_charsBoxFull\(\)\) return;/.test(cm) && cm.indexOf('_charsOnNew(idx)') > cm.indexOf('slots[idx]=def') && cm.indexOf('_charsOnNew(idx)') < cm.indexOf('saveSlots()'), '  커미션 등록 — 문턱 · 새 cid');

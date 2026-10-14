@@ -232,7 +232,7 @@ async function _lxWriteXlsx(rows, sheetName){
   const prog = $('licenseXlsxProg'), progText = $('licenseXlsxProgText'), progBar = $('licenseXlsxProgBar');
   const done = $('licenseXlsxDone'), doneSum = $('licenseXlsxDoneSum'), keyOnly = $('licenseXlsxKeyOnly');
   const dupFirst = $('licenseXlsxDupFirst'), reissue = $('licenseXlsxReissue');
-  const esc = (typeof escHtml === 'function') ? escHtml : (s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+  const esc = escHtml;
   /* 상태: rows(판정된 행) · map(파일 열 정보) · fileName · running · finished */
   let S = { rows: [], map: null, fileName: '', running: false, finished: false };
   const CHIP = {
@@ -369,7 +369,7 @@ async function _lxWriteXlsx(rows, sheetName){
       try{
         await firebaseAPI.createLicense(key, note);
         r.key = key;
-      }catch(e){ r.res = 'fail'; r.why = (typeof _saveFailMsg === 'function') ? _saveFailMsg(e, '키 생성 실패') : '키 생성 실패'; continue; }
+      }catch(e){ r.res = 'fail'; r.why = _saveFailMsg(e, '키 생성 실패'); continue; }
       if(r.st !== 'send'){ r.res = 'okkey'; continue; }
       try{
         const title = '🎫 라이선스가 도착했어요';

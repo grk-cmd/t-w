@@ -290,7 +290,7 @@ if(armIsl.length === 2){
 chk(/const LOCK_MSG=\{ ear:'지금은 귀만 칠할 수 있어요/.test(SRC['animal.js']) && /face:'지금은 얼굴만 칠할 수 있어요/.test(SRC['animal.js']) && /body:'지금은 몸만 칠할 수 있어요/.test(SRC['animal.js']), '🔒 잠금 안내 문구 셋(귀만 · 얼굴만 · 몸만)');
 chk(/if\(!_partAllowed\(tgt\)\)\{ _lockToast\(\); return false; \}/.test(pb) && /if\(!_partAllowed\(tgt\)\)\{ pLastX=pLastY=null; _lockToast\(\); return; \}/.test(grab(N, 'pPaintEvent')), '🔒 페인트통 · 붓이 잠금에 막히면 알린다');
 chk(/if\(now-_lockToastAt<1500\) return;/.test(grab(N, '_lockToast')), '🔒 붓은 한 획에 여러 번 막히므로 1.5초에 한 번만');
-chk(/if\(!hit \|\| !hit\.object\)\{ if\(typeof toast==='function'\) toast\('캐릭터를 눌러 채워요'\); return false; \}/.test(pb) && /if\(!hit\)\{ if\(typeof toast==='function'\) toast\('얼굴을 눌러 채워요'\); return false; \}/.test(bf), '빈 곳을 페인트통으로 누르면 알린다(사람 · 동물)');
+chk(/if\(!hit \|\| !hit\.object\)\{ (?:if\(typeof toast==='function'\) )?toast\('캐릭터를 눌러 채워요'\); return false; \}/.test(pb) && /if\(!hit\)\{ (?:if\(typeof toast==='function'\) )?toast\('얼굴을 눌러 채워요'\); return false; \}/.test(bf), '빈 곳을 페인트통으로 누르면 알린다(사람 · 동물)');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

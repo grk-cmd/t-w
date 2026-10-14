@@ -109,10 +109,10 @@ say('── 2. 곁가지');
 {
   const ss = strip(grabFn('seatState') || '');
   const iGate = ss.indexOf('if(desktopMode && focusGateSleep) return \'sleep\';'), iMob = ss.indexOf('_mobileOn()) return \'focus\'');
-  chk(iGate > 0 && iMob > iGate && /seat\.isMe && typeof _mobileOn === 'function'/.test(ss), '집중 포즈 — 내 좌석 · 게이트 뒤 · 입력 판정(idle) 앞');
+  chk(iGate > 0 && iMob > iGate && /seat\.isMe && _mobileOn\(\)\) return 'focus'/.test(ss), '집중 포즈 — 내 좌석 · 게이트 뒤 · 입력 판정(idle) 앞');
   chk(iMob < ss.indexOf('const idle=now-lastActivity'), '  입력 판정보다 앞이라 PC 입력이 없어도 집중 포즈');
   const aw = strip(grabFn('_autoAwayCheck') || '');
-  chk(/const idle = \(typeof _mobileOn === 'function' && _mobileOn\(\)\) \? 0 : await _idleMs\(\);/.test(aw), '자동 자리비움 · 6시간 퇴장 — 폰 켜짐이면 유휴 0 (복원 갈래로 돌아온다)');
+  chk(/const idle = _mobileOn\(\) \? 0 : await _idleMs\(\);/.test(aw), '자동 자리비움 · 6시간 퇴장 — 폰 켜짐이면 유휴 0 (복원 갈래로 돌아온다)');
   const mobFns = ['_mobileOn', '_mobileApplyState', '_mobileStart', '_mobRenderPanel', '_mobMakeKey', '_applyActiveAppState'].map(n => strip(grabFn(n) || '')).join('\n');
   chk(!/lastActivity\s*=/.test(mobFns) && !/activity\(\)/.test(mobFns), 'lastActivity 를 인위로 갱신하지 않는다(펜 앱 판정·입력 진단과 섞이지 않게)');
   const MAIN = read('main.js');
