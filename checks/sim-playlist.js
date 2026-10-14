@@ -1,6 +1,6 @@
 /* ═══ 🎵 sim-playlist.js — 상태칩 플레이리스트 모듈 (2026-10-13 신설 · 앱 FSD 16번) ═══════════════
    app.js 의 다섯 구역(«🎵 상태칩 플레이리스트» · «🎵 프리셋 세 벌» · «🎵 플레이리스트 화면» · «🎵 프리셋 고르기» · «🐕 재생 감시견»)을
-   parts/playlist.js 로 옮겼다. 동작은 그대로여야 한다 — 가짜 DOM · 가짜 시계 위에서 굴린다.
+   parts/status/playlist.js 로 옮겼다. 동작은 그대로여야 한다 — 가짜 DOM · 가짜 시계 위에서 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwPlaylist 뿐 · DOM 이 없으면 버튼 연결 없이 끝남 · DOM 이 있으면 저장값 읽기 · ESC 등록 ·
            BGM 신호 구독 · 300ms 폴링 · 음량 한 번 · 🪟 창 위치 초기화 등록 · window 고리 셋
    ・2절: 프리셋 저장값 — 관문(세 벌 · 16자 · 20곡 · url 복원 · 문자열만 이름) · 옛 목록 이관 · 반복 옛 키 이어받기 · 음량 깎기 ·
@@ -429,7 +429,7 @@ function wiring(PL, APP, HTML){
   chk(i26 > 0 && i27 > i26 && iMk > i27 && i28 > iMk && i29 > i28 && i30 > i29 && iTier > i30 && i31 > iTier && i32 > i31 && i33 > i32 && i34 > i33,
     '원래 자리 — 만드는 줄은 🎵 상태칩 플레이리스트 머리 아래 · 머리 다섯은 남김 · 👤 · 🏅 레벨 티어는 그 사이 그대로');
   const notes = [[i28, i29], [i31, i32], [i32, i33], [i33, i34]].map(([a, b]) => APP.slice(a, b));
-  chk(notes.every(s => /parts\/playlist\.js 로 옮겼다/.test(s) && !/^(?:function|const|let|\(function) /m.test(s)), '  남긴 머리 아래는 옮긴 곳 안내뿐(구역 번호가 밀리지 않게)');
+  chk(notes.every(s => /parts\/(?:status\/)?playlist\.js 로 옮겼다/.test(s) && !/^(?:function|const|let|\(function) /m.test(s)), '  남긴 머리 아래는 옮긴 곳 안내뿐(구역 번호가 밀리지 않게)');
   const call = (APP.match(/TwPlaylist\.createPlaylist\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
   const fnNames = [['toast', 'toast'], ['getMyUserId', 'getMyUserId'], ['getDisplayName', 'getDisplayName'], ['asyncPrompt', 'asyncPrompt'], ['getFocusLevel', 'getFocusLevel'],
@@ -459,8 +459,8 @@ function wiring(PL, APP, HTML){
   chk(!lost.length, '부르는 곳 — 화면 배율 · 마이홈 BGM · 📷 스티커사진 · 로그아웃 · 내 정보 배지 · 계정 이어받기' + (lost.length ? ' (없음 ' + lost.join(' · ') + ')' : ''));
   chk(/if\(typeof _plHasSavedPos === 'function' && _plHasSavedPos\(\)\) _plApplyPos\(\);/.test(A) && /window\._plHasSavedPos = _plHasSavedPos; window\._plApplyPos = _plApplyPos; window\._plSyncBgmBounds = _plSyncBgmBounds;/.test(PL),
     '  상태칩 팝업 자리(만드는 줄보다 위에 선언)는 window 고리 + typeof 로');
-  const iI = HTML.indexOf('<script src="parts/myhome-inbox.js"></script>'), iP = HTML.indexOf('<script src="parts/playlist.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>'),
-    iN = HTML.indexOf('<script src="parts/noise.js"></script>');
+  const iI = HTML.indexOf('<script src="parts/myhome-inbox.js"></script>'), iP = HTML.indexOf('<script src="parts/status/playlist.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>'),
+    iN = HTML.indexOf('<script src="parts/status/noise.js"></script>');
   chk(iI > 0 && iP > iI && iA > iP && iN > iA, 'html — playlist.js 를 app.js 보다 먼저(myhome-inbox.js 뒤) · noise.js 는 app.js 뒤');
   chk(/TwPlaylist/.test(PL) && !/window\.(Playlist|PlayList)\s*=/.test(PL) && !/\bplMod\b/.test(HTML.replace(/<!--[\s\S]*?-->/g, '')), '전역 이름은 Tw 접두사 · 연결 상수(plMod)는 DOM id 와 겹치지 않는다');
 }
@@ -515,7 +515,7 @@ async function runAll(PL, APP, HTML){
     ['APP', "  try{ const pl = plMod.st; pl.sets = plMod.blankSets();", '  try{ const pl = plMod.st; _plSets = plMod.blankSets();', '로그아웃이 옛 이름에 씀'],
     ['APP', 'blankSets:()=>[], pubSigOf', 'pubSigOf', '빈 껍데기에 이름이 빠짐'],
     ['APP', '} else if(plMod.mine().length){', '} else if(_plMine().length){', '계정 이어받기가 옛 이름을 부름'],
-    ['HTML', '<script src="parts/playlist.js"></script>', '', 'html 이 모듈을 안 실음'],
+    ['HTML', '<script src="parts/status/playlist.js"></script>', '', 'html 이 모듈을 안 실음'],
   ];
   const caught = [];
   for(const [where, from, to, what] of BREAKS){

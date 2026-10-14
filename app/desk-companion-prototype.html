@@ -8031,7 +8031,7 @@
 <script src="parts/focus-log.js"></script>   <!-- 🕒 포커스 기록 팝업(현재 / 누적 · 오늘 기록 · 미니미 · 끌기) — app.js 보다 먼저(app.js 가 원래 자리에서 TwFocusLog.createFocusLog 로 만든다) -->
 <script src="parts/chat/chat-window.js"></script>   <!-- 💬 대화창 배선(닫기 · 최소화 · 끌기 · 크기 · 메뉴 · 버튼 · 입력 · 이모티콘) — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatWindow.createChatWindow 로 만든다) -->
 <script src="parts/myhome-inbox.js"></script>   <!-- 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(Ctrl+F 검색) — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeInbox.createMyHomeInbox 로 만든다) -->
-<script src="parts/playlist.js"></script>   <!-- 🎵 상태칩 플레이리스트(프리셋 · 화면 · 고르기 · 파도타기 · 재생 감시견 · 재생 제어) — app.js 보다 먼저(app.js 가 원래 자리에서 TwPlaylist.createPlaylist 로 만든다) -->
+<script src="parts/status/playlist.js"></script>   <!-- 🎵 상태칩 플레이리스트(프리셋 · 화면 · 고르기 · 파도타기 · 재생 감시견 · 재생 제어) — app.js 보다 먼저(app.js 가 원래 자리에서 TwPlaylist.createPlaylist 로 만든다) -->
 <script src="parts/admin/admin-license-bulk.js"></script>   <!-- 🛠️ 관리자: 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급 — 관리자 코드는 parts/admin/ 에 모은다 · app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminLicenseBulk.createAdminLicenseBulk 로 만든다) -->
 <script src="parts/admin/admin-console.js"></script>   <!-- 🛠️ 관리자: 🧹 F12 콘솔 도구 일곱(카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 · 이관) — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminConsole.createAdminConsole 로 만든다) -->
 <script src="parts/admin/admin-license.js"></script>   <!-- 🛠️ 관리자: 🎟️ 라이선스 키 발급 · 목록 · 대기 요청 · 친구코드로 발급 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminLicense.createAdminLicense 로 만든다) -->
@@ -8062,7 +8062,7 @@
 <script src="parts/room-entry.js"></script>   <!-- 🛰 방 서버 · 입장 · 방 개수 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomEntry.createRoomEntry 로 만든다) -->
 <script src="parts/overhead.js"></script>   <!-- 💬 머리 위 말풍선 · 🏷️ 이름표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwOverhead.createOverhead 로 만든다) -->
 <script src="parts/room-sync.js"></script>   <!-- 📦 방 def 전송 · poke · 자동 퇴장 · 감시견 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomSync.createRoomSync 로 만든다) -->
-<script src="parts/status-chip.js"></script>   <!-- 📍 상태칩 자리 · 팝업 · 상태 이모지 — app.js 보다 먼저(app.js 가 원래 자리에서 TwStatusChip.createStatusChip 로 만든다) -->
+<script src="parts/status/status-chip.js"></script>   <!-- 📍 상태칩 자리 · 팝업 · 상태 이모지 — app.js 보다 먼저(app.js 가 원래 자리에서 TwStatusChip.createStatusChip 로 만든다) -->
 <script src="parts/premium-assets.js"></script>   <!-- 🎀 프리미엄 파츠 · 라이선스 책상 — app.js 보다 먼저(app.js 가 원래 자리에서 TwPremiumAssets.createPremiumAssets 로 만든다) -->
 <script src="parts/char-code.js"></script>   <!-- 📦 캐릭터 복제 코드 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCharCode.createCharCode 로 만든다) -->
 <script src="parts/dice-games.js"></script>   <!-- 🎲 주사위 · 하루 횟수 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDiceGames.createDiceGames 로 만든다) -->
@@ -8114,8 +8114,8 @@
 <script src="parts/bookmark.js"></script>
 <script src="parts/support/bug-board-ui.js"></script>   <!-- 🐞 버그제보 게시판 화면 · 버그 제보 탭(오픈카톡 기본 링크) — app.js 뒤(isAdmin · toast · escHtml · _saveFailMsg) · firebase-init.js(module)보다 앞 -->
 <!-- 🌙 백색소음 — 소리 자료(base64 · 약 620KB)를 먼저, 재생기를 뒤에. 둘 다 app.js 뒤여야 한다(seats · seatState · Presence 를 읽는다). -->
-<script src="parts/noise-sounds.js"></script>
-<script src="parts/noise.js"></script>
+<script src="parts/status/noise-sounds.js"></script>
+<script src="parts/status/noise.js"></script>
 <script src="parts/animal-glb.js"></script>
 <script src="parts/ears-glb.js"></script>
 <script src="parts/animal.js"></script>
