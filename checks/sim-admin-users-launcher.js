@@ -17,7 +17,7 @@ const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 /* 🎟️ 초대 창(bindInviteUI)은 초대장 구역과 함께 license-gate.js 로 옮겼다(앱 FSD 31번) — 사용자 쪽에 남았는지는 그 파일에서 본다 */
 const LGATE = [ 'license-gate.js', 'parts/account/license-gate.js', 'app/parts/account/license-gate.js' ].map(read).find(Boolean) || '';
 /* 📢 광고 배너 · ⚙️ 게임 설정의 사용자 쪽(그리기 · 구독)은 ad-banner.js 로 옮겼다(앱 FSD 43번) — 남았는지는 그 파일에서 본다 */
-const ADB = [ 'ad-banner.js', 'parts/ad-banner.js', 'app/parts/ad-banner.js' ].map(read).find(Boolean) || '';
+const ADB = [ 'ad-banner.js', 'parts/launcher/ad-banner.js', 'app/parts/launcher/ad-banner.js' ].map(read).find(Boolean) || '';
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const part = (n) => [n, 'parts/admin/' + n, 'app/parts/admin/' + n].map(read).find(Boolean);
 const M = { users: part('admin-users.js'), launcher: part('admin-launcher.js') };
