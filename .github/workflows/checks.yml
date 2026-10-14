@@ -32,7 +32,13 @@ jobs:
           python-version: '3.12'
 
       # sim-global-names.js 의 파서 — package-lock 과 같은 판 · 네이티브 없음 · 저장 안 함
-      - run: npm install --no-save --ignore-scripts --no-package-lock typescript@5.9.3
+      # 내려받다 네트워크가 한 번 끊겨도(ECONNRESET) 검사 전체가 빨강이 되지 않게 세 번까지 다시 해 본다
+      - run: |
+          for i in 1 2 3; do
+            npm install --no-save --ignore-scripts --no-package-lock --fetch-retries=5 typescript@5.9.3 && exit 0
+            echo "typescript 설치 실패 — ${i}번째, 10초 뒤 다시"; sleep 10
+          done
+          exit 1
 
       - name: 검사 실행
         run: node checks/run.js
