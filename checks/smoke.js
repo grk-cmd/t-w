@@ -438,6 +438,18 @@ PRELOAD.push('focus-total.js');
 PRELOAD.push('commission.js');
 /* code-crypto.js — 캐릭터 코드 암호화(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCodeCrypto 를 같이 굴린다. */
 PRELOAD.push('code-crypto.js');
+/* add-friend.js — 책상에서 친구 추가(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAddFriend 를 같이 굴린다. */
+PRELOAD.push('add-friend.js');
+/* floaters.js — 이모지 떠오르기(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFloaters 를 같이 굴린다. */
+PRELOAD.push('floaters.js');
+/* roulette.js — 러시안룰렛(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoulette 를 같이 굴린다. */
+PRELOAD.push('roulette.js');
+/* chat-lock.js — 시크릿룸 채팅 잠금(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatLock 를 같이 굴린다. */
+PRELOAD.push('chat-lock.js');
+/* device-lost.js — 밀려난 기기 처리(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeviceLost 를 같이 굴린다. */
+PRELOAD.push('device-lost.js');
+/* demoji-palette.js — 기본 이모티콘 팔레트(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDemojiPalette 를 같이 굴린다. */
+PRELOAD.push('demoji-palette.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

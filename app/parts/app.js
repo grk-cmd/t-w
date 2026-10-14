@@ -1749,15 +1749,15 @@ function _collapseRideTower(bottomSeat, now){
            m.group.quaternion.identity(); m.group.rotation.set(0,0,0); }catch(_){}
       m._circusOn = false; m._circusPanicAt = 0; m._rideHeadTop = null;
       m.dizzyUntil = now + CIRCUS_DIZZY_MS;    // 각자 자기 자리로 돌아가며 어지러움
-      if(typeof spawnFloater==='function'){
-        for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('💫','#f5a94f', m), i*300);
+      if(typeof floatersMod.spawnFloater==='function'){
+        for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f', m), i*300);
       }
     });
     // 받치고 있던 맨 아래(인간일 수도 있음)도 어지러움
     bottomSeat.dizzyUntil = now + CIRCUS_DIZZY_MS;
     bottomSeat._circusPanicAt = 0;
-    if(typeof spawnFloater==='function'){
-      for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('💫','#f5a94f', bottomSeat), i*300);
+    if(typeof floatersMod.spawnFloater==='function'){
+      for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f', bottomSeat), i*300);
     }
     if(members.length && typeof toast==='function') toast('🎪 균형을 잃고 무너졌어요!');
     /* 전원이 자기 자리로 돌아간다 — 이 경로는 unmountRide 를 안 타므로(직접 ridingOn 을 끊는다)
@@ -1870,8 +1870,8 @@ const roomSyncMod = (typeof TwRoomSync === 'undefined') ? ROOM_SYNC_MOD_OFF : Tw
   DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
   Presence: ()=>Presence,
-  _chatIsHost: (...a)=>_chatIsHost(...a),
-  _chatIsSecretRoom: (...a)=>_chatIsSecretRoom(...a),
+  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
+  _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   loadImg: (...a)=>loadImg(...a),
   newCanvas: (...a)=>newCanvas(...a),
@@ -1954,7 +1954,7 @@ const TRICKS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 
 const tricksMod = (typeof TwTricks === 'undefined') ? TRICKS_MOD_OFF : TwTricks.createTricks({
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   CHAR_Z: CHAR_Z,
-  FLOATER_BURST: ()=>FLOATER_BURST,
+  FLOATER_BURST: ()=>floatersMod.FLOATER_BURST,
   FLY_COOL_MS: FLY_COOL_MS,
   FLY_DIZZY_MS: FLY_DIZZY_MS,
   FLY_DROP: FLY_DROP,
@@ -1990,7 +1990,7 @@ const tricksMod = (typeof TwTricks === 'undefined') ? TRICKS_MOD_OFF : TwTricks.
   seatScale: (...a)=>seatScale(...a),
   seats: seats,
   showChatBubble: (...a)=>showChatBubble(...a),
-  spawnFloater: (...a)=>spawnFloater(...a),
+  spawnFloater: (...a)=>floatersMod.spawnFloater(...a),
   startFlight: (...a)=>startFlight(...a),
   toast: (...a)=>toast(...a),
   setFlyActive: (v)=>{ _flyActive = v; },
@@ -3229,7 +3229,7 @@ const statusChipMod = (typeof TwStatusChip === 'undefined') ? STATUS_CHIP_MOD_OF
   _officeHidden: ()=>_officeHidden,
   _pickUnlockedDance: (...a)=>iDeskMod._pickUnlockedDance(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
-  _rollRoulette: (...a)=>_rollRoulette(...a),
+  _rollRoulette: (...a)=>rouletteMod._rollRoulette(...a),
   backToLauncher: (...a)=>backToLauncher(...a),
   camera: camera,
   chatUiMod: ()=>chatUiMod,
@@ -3262,54 +3262,17 @@ const statusChipMod = (typeof TwStatusChip === 'undefined') ? STATUS_CHIP_MOD_OF
    · 전송 형식은 프리미엄 채팅과 동일한 [demoji:id] 마커 하나 — 좌석 말풍선 렌더러가 이미 지원하므로
      수신 측은 구버전 클라이언트도 이미지로 정상 표시됨(전송만 신버전 필요).
    · 팔레트는 첫 클릭 때 DEMOJI_LIST로 지연 생성(DEMOJI_LIST는 아래쪽에서 const 선언되므로 로드 시점엔 TDZ). */
-let _demojiPaletteBuilt = false;
-let _lastDemojiSentAt = 0;
-function _buildDemojiPalette(){
-  const box=document.getElementById('myDemojiBox');
-  if(!box || _demojiPaletteBuilt || typeof chatUiMod.DEMOJI_LIST==='undefined') return;
-  _demojiPaletteBuilt = true;
-  chatUiMod.DEMOJI_LIST.forEach(d=>{
-    const b=document.createElement('button');
-    b.type='button'; b.className='dmBtn'; b.title=d.cmd;
-    const img=document.createElement('img');
-    img.src=chatUiMod.DEMOJI_DIR+d.file; img.alt=d.cmd; img.loading='lazy';
-    b.appendChild(img);
-    b.onclick=(e)=>{ e.stopPropagation(); sendMyDemoji(d.id); };
-    box.appendChild(b);
-  });
-}
-function sendMyDemoji(id){
-  if(!(typeof Presence!=='undefined' && Presence.active())) return;      // 방 안에서만
-  if(typeof chatUiMod.DEMOJI_BY_ID==='undefined' || !chatUiMod.DEMOJI_BY_ID[id]) return;     // 번들에 있는 id만
-  const now=Date.now();
-  if(now - _lastDemojiSentAt < 1200) return;                             // 도배 방지(1.2초 쿨다운)
-  _lastDemojiSentAt = now;
-  const marker=`[demoji:${id}]`;
-  const mySeat=(typeof findMySeat==='function') ? findMySeat() : null;
-  if(mySeat && typeof showChatBubble==='function') showChatBubble(mySeat, marker);   // 내 화면엔 즉시 표시
-  if(Presence.sendChat) Presence.sendChat(marker);                       // 상대에겐 chat 필드로 전송(기존 경로 재사용)
-  const box=document.getElementById('myDemojiBox'); const btn=document.getElementById('myDemojiBtn');
-  if(box) box.classList.add('hidden');
-  if(btn) btn.classList.remove('on');
-}
-(function bindMyDemojiBtn(){
-  const btn=document.getElementById('myDemojiBtn'); const box=document.getElementById('myDemojiBox');
-  if(!btn||!box) return;
-  btn.addEventListener('click', e=>{
-    e.stopPropagation();
-    const willOpen = box.classList.contains('hidden');
-    if(willOpen){ _closeChipPopups('myDemojiBox'); _buildDemojiPalette(); box._cascadeFlipped = false; }   // 새로 열 땐 항상 우측부터 판정
-    box.classList.toggle('hidden', !willOpen);
-    btn.classList.toggle('on', willOpen);
-    if(willOpen) statusChipMod._repositionOpenChipPopups();   // 첫 프레임 위치 즉시 계산(깜빡임 방지)
-  });
-  // 바깥 클릭 시 닫힘 — 다른 칩 팝업들과 같은 규칙
-  document.addEventListener('click', e=>{
-    if(!box.classList.contains('hidden') && !box.contains(e.target) && e.target!==btn){
-      box.classList.add('hidden'); btn.classList.remove('on');
-    }
-  });
-})();
+/* 본문은 demoji-palette.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const DEMOJI_PAL_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const demojiPalMod = (typeof TwDemojiPalette === 'undefined') ? DEMOJI_PAL_MOD_OFF : TwDemojiPalette.createDemojiPalette({
+  Presence: ()=>Presence,
+  _closeChipPopups: (...a)=>_closeChipPopups(...a),
+  chatUiMod: ()=>chatUiMod,
+  findMySeat: (...a)=>findMySeat(...a),
+  showChatBubble: (...a)=>showChatBubble(...a),
+  statusChipMod: statusChipMod,
+});
 /* ═══ 🎵 상태칩 플레이리스트 ═══ */
 /* 🎵 플레이리스트(데이터 · 화면 · 프리셋 고르기 · 🐕 재생 감시견 · 재생 제어 · 버튼 연결)는 parts/playlist.js 로 옮겼다(앱 FSD 16번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 만들 때 예전처럼 돈다(🪟 창 위치 초기화 등록 · 저장값 읽기 · 버튼 · ESC · 끌기 연결 · 미니미 · 300ms 폴링 ·
@@ -3504,8 +3467,8 @@ const settingsMod = (typeof TwSettingsPanel === 'undefined') ? SETTINGS_MOD_OFF 
   curSlot: ()=>curSlot,
   decoPartsVisible: ()=>decoPartsVisible,
   dotRenderEnabled: ()=>dotRenderEnabled,
-  drawFaceThumb: (...a)=>drawFaceThumb(...a),
-  emojiReactionsEnabled: ()=>emojiReactionsEnabled,
+  drawFaceThumb: (...a)=>addFriendMod.drawFaceThumb(...a),
+  emojiReactionsEnabled: ()=>floatersMod.emojiReactionsEnabled(),
   equipDeskItem: (...a)=>equipDeskItem(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   findMySeat: (...a)=>findMySeat(...a),
@@ -3538,7 +3501,7 @@ const settingsMod = (typeof TwSettingsPanel === 'undefined') ? SETTINGS_MOD_OFF 
   setCurSlot: (v)=>{ curSlot = v; },
   setDecoPartsVisible: (v)=>{ decoPartsVisible = v; },
   setDotRenderEnabled: (v)=>{ dotRenderEnabled = v; },
-  setEmojiReactionsEnabled: (v)=>{ emojiReactionsEnabled = v; },
+  setEmojiReactionsEnabled: (v)=>{ floatersMod.setEmojiReactionsEnabled(v); },
   setFocusCharScale: (v)=>{ focusCharScale = v; },
   setMoveMode: (v)=>{ moveMode = v; },
   setNameplateEnabled: (v)=>{ overheadMod.setNameplateEnabled(v); },
@@ -3914,31 +3877,13 @@ function _waitForFirebaseAPI(cb, tries){
      방에서 나온다(doLeaveRoom) · 방 입장을 막는다(startRoom 첫 줄) · 차단 화면을 띄운다.
    ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. 로그아웃은 사람이 눌러야 도는 길이다(_loginDoLogout).
    «여기서 계속 쓰기» = 다시 claim → 반대쪽이 이 화면을 본다. «앱 닫기» = quitApp. */
-window._deviceSessionLost = false;
-function _onDeviceSessionLost(){
-  if(window._deviceSessionLost) return;
-  window._deviceSessionLost = true;
-  try{ if(typeof roomEntryMod.doLeaveRoom === 'function') Promise.resolve(roomEntryMod.doLeaveRoom()).catch(()=>{}); }catch(_){}
-  const ov = document.getElementById('deviceSessionOverlay');
-  if(ov) ov.style.display = 'flex';
-}
-function _deviceSessionContinueHere(){
-  const ov = document.getElementById('deviceSessionOverlay');
-  if(ov) ov.style.display = 'none';
-  window._deviceSessionLost = false;
-  const myId = getMyUserId();
-  try{
-    if(window.firebaseAPI && firebaseAPI.claimDeviceSession) firebaseAPI.claimDeviceSession(myId, _onDeviceSessionLost);
-    /* presence 재등록 — 밀릴 때 _myPresenceRef 를 놓았으므로 setMyPresenceOnline 의 «중복 등록 방지» 를 지나 다시 건다. */
-    if(window.firebaseAPI && firebaseAPI.setMyPresenceOnline) firebaseAPI.setMyPresenceOnline(myId);
-  }catch(_){}
-}
-{
-  const b1 = document.getElementById('deviceSessionContinue');
-  const b2 = document.getElementById('deviceSessionQuit');
-  if(b1) b1.onclick = _deviceSessionContinueHere;
-  if(b2) b2.onclick = ()=>{ try{ if(window.companion && companion.quitApp) companion.quitApp(); else window.close(); }catch(_){} };
-}
+/* 본문은 device-lost.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const DEVICE_LOST_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const deviceLostMod = (typeof TwDeviceLost === 'undefined') ? DEVICE_LOST_MOD_OFF : TwDeviceLost.createDeviceLost({
+  getMyUserId: (...a)=>getMyUserId(...a),
+  roomEntryMod: ()=>roomEntryMod,
+});
 
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
 let _ownerWriteWarned = false;
@@ -3960,7 +3905,7 @@ async function initMyHome(){
       try{ focusLevelMod._mobileStart(); }catch(_){}
       /* 🖥️ [2026-09-17 제보 3] 한 계정 한 기기 — 로그인 계정이면 이 기기를 «지금 쓰는 기기» 로 적는다.
          다른 기기가 나중에 적으면 _onDeviceSessionLost 가 불린다. 규칙 미배포·미로그인이면 false 로 조용히 지나간다. */
-      try{ if(firebaseAPI.claimDeviceSession) firebaseAPI.claimDeviceSession(myId, _onDeviceSessionLost); }catch(_){}
+      try{ if(firebaseAPI.claimDeviceSession) firebaseAPI.claimDeviceSession(myId, deviceLostMod._onDeviceSessionLost); }catch(_){}
       /* 🧱 쓰기와 구독 사이에 벽을 세운다 — **이 두 줄이 예전에는 맨몸이었다.**
          [경위] 규칙 게시 직후 제보: "구글 연동한 유저만 친구 목록이 통째로 사라진다."
            데이터는 RTDB 에 멀쩡히 살아 있었고 읽기 규칙도 열려 있었다. 사라진 것은 목록이
@@ -4091,12 +4036,12 @@ const chatPrefsMod = (typeof TwChatPrefs === 'undefined') ? CHAT_PREFS_MOD_OFF :
   CHAT_SFX_ON_KEY: sfxMod.CHAT_SFX_ON_KEY,
   Presence: ()=>Presence,
   _chatEsc: (...a)=>_chatEsc(...a),
-  _chatIsHost: (...a)=>_chatIsHost(...a),
-  _chatIsSecretRoom: (...a)=>_chatIsSecretRoom(...a),
+  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
+  _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),
   _chatLogCache: ()=>_chatLogCache,
-  _chatOffOn: (...a)=>_chatOffOn(...a),
-  _chatOffRefreshUI: (...a)=>_chatOffRefreshUI(...a),
-  _chatRoomCode: (...a)=>_chatRoomCode(...a),
+  _chatOffOn: (...a)=>chatLockMod._chatOffOn(...a),
+  _chatOffRefreshUI: (...a)=>chatLockMod._chatOffRefreshUI(...a),
+  _chatRoomCode: (...a)=>chatLockMod._chatRoomCode(...a),
   _chatSfxPools: sfxMod._chatSfxPools,
   chatUiMod: ()=>chatUiMod,
   getDisplayName: (...a)=>getDisplayName(...a),
@@ -4596,13 +4541,13 @@ const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi
   Presence: ()=>Presence,
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
   _chatEsc: (...a)=>_chatEsc(...a),
-  _chatIsHost: (...a)=>_chatIsHost(...a),
+  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
   _chatLinkify: (...a)=>_chatLinkify(...a),
   _chatLogCache: ()=>_chatLogCache,
   _chatLogUnsub: ()=>_chatLogUnsub,
-  _chatOffOn: (...a)=>_chatOffOn(...a),
-  _chatOffRefreshUI: (...a)=>_chatOffRefreshUI(...a),
-  _chatRoomCode: (...a)=>_chatRoomCode(...a),
+  _chatOffOn: (...a)=>chatLockMod._chatOffOn(...a),
+  _chatOffRefreshUI: (...a)=>chatLockMod._chatOffRefreshUI(...a),
+  _chatRoomCode: (...a)=>chatLockMod._chatRoomCode(...a),
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _diceSvg: (...a)=>diceMod._diceSvg(...a),
   _myHomeData: ()=>mhVisitMod._myHomeData(),
@@ -4670,37 +4615,15 @@ const CHAT_WIN_POS_KEY = 'tw_chat_win_pos';
      그래야 옛 값이 남은 일반 방이 이유 없이 잠기는 일이 없다.
    ⚠️ 입력칸을 잠그지 않는다. 😊 이모티콘이 이 칸에 `/명령어` 를 꽂아 Enter 로 나가는 구조라,
      readonly 로 막으면 허용하기로 한 이모티콘까지 같이 죽는다. 전송하는 자리에서 가른다. */
-function _chatRoomCode(){
-  try{ return (typeof Presence!=='undefined' && Presence.roomCode) ? Presence.roomCode() : null; }catch(_){ return null; }
-}
-function _chatIsSecretRoom(){ const c=_chatRoomCode(); return !!c && String(c).indexOf('SCRT-')===0; }
-function _chatIsHost(){
-  try{ const h = window._roomMetaCache && window._roomMetaCache.host; return !!h && h === getMyUserId(); }catch(_){ return false; }
-}
-function _chatOffOn(){
-  try{ return _chatIsSecretRoom() && !!(window._roomMetaCache && window._roomMetaCache.chatOff); }catch(_){ return false; }
-}
-function _chatOffRefreshUI(){
-  const el = document.getElementById('chatOffToggle');
-  const secret = _chatIsSecretRoom(), off = _chatOffOn(), host = _chatIsHost();
-  if(el){
-    el.classList.toggle('on', secret);            // 시크릿룸이 아니면 아예 안 보인다
-    el.classList.toggle('off', secret && off);
-    el.classList.toggle('readonly', secret && !host);   // 참여자에게는 상태 표시일 뿐
-    el.textContent = off ? '채팅 꺼짐' : '채팅 켜짐';
-    el.title = host ? (off ? '누르면 방 전체 채팅을 다시 켭니다' : '누르면 방 전체 채팅을 잠급니다')
-                    : (off ? '방장이 채팅을 껐어요' : '방장만 켜고 끌 수 있어요');
-  }
-  const inp = document.getElementById('chatInput');
-  if(inp) inp.placeholder = off ? '😊 🎲 💣 · /80 · /150 만 쓸 수 있어요' : ('#' + chatUiMod._chatTabName(chatUiMod._chatMyTabId()) + '에 메시지 입력 후 Enter');
-  /* 🗑 기록 삭제 버튼도 같은 재료(방 종류·방장)로 정해진다 — 여기서 같이 갱신한다.
-     ⚠️ 호출 자리를 따로 두지 않는 이유: 이 함수는 창을 열 때(openChatWindow)와 방 메타가 바뀔 때
-       (_onRoomMeta) 양쪽에서 이미 불린다. 별도 함수를 만들어 두 자리에 각각 걸면, 다음에 호출
-       지점이 하나 더 생겼을 때 한쪽만 빠져서 "방장인데 버튼이 안 보인다"가 난다. */
-  try{ chatPrefsMod._chatDelRefreshUI(); }catch(_){}
-  // 🌊 날리기 줄도 같은 재료(채널·레벨)로 정해진다 — 호출 자리를 따로 두지 않는 이유는 위와 같다.
-  try{ chatUiMod._chatFlyRefreshUI(); }catch(_){}
-}
+/* 본문은 chat-lock.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const CHAT_LOCK_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const chatLockMod = (typeof TwChatLock === 'undefined') ? CHAT_LOCK_MOD_OFF : TwChatLock.createChatLock({
+  Presence: ()=>Presence,
+  chatPrefsMod: chatPrefsMod,
+  chatUiMod: chatUiMod,
+  getMyUserId: (...a)=>getMyUserId(...a),
+});
 /* ═══ 🗑 대화 기록 삭제 (방장) ══════════════════════════════════════════════
    `rooms/{코드}/chatLog` 를 통째로 지운다. 방 전원이 같은 노드를 구독하므로 **모두의 화면이
    같이 빈다** — 따로 알림을 보내지 않는다.
@@ -4738,7 +4661,7 @@ function _chatOffRefreshUI(){
 const DICE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const diceMod = (typeof TwDiceGames === 'undefined') ? DICE_MOD_OFF : TwDiceGames.createDiceGames({
   Presence: ()=>Presence,
-  ROULETTE_FLY_DELAY_MS: ()=>ROULETTE_FLY_DELAY_MS,
+  ROULETTE_FLY_DELAY_MS: ()=>rouletteMod.ROULETTE_FLY_DELAY_MS,
   canFly: (...a)=>canFly(...a),
   chatUiMod: chatUiMod,
   findMySeat: (...a)=>findMySeat(...a),
@@ -4841,44 +4764,20 @@ const purikuraUi = (typeof TwPurikuraUi === 'undefined') ? PURIKURA_UI_OFF : TwP
    🏢 회사원 모드 — 💣·📷 와 같이 **누를 때 토스트**로 막는다(내가 방금 누른 버튼이라 무반응은 고장으로 읽힌다).
      보는 사람 쪽 게이트는 `applyRemoteFly` 가 이미 한다.
    ⚠️ 난수는 클라이언트가 굴린다(🎲 와 같은 수준) — 콘솔로 조작 가능. */
-const ROULETTE_COOL_MS = 3000;          // 연타 방지 — 말풍선·기록 도배만 막는다
-const ROULETTE_FLY_DELAY_MS = 700;      // 주사위 말풍선을 먼저 보여 주고 날린다
-let _rouletteAt = 0;
-function _rollRoulette(){
-  if(typeof officeMode !== 'undefined' && officeMode){ if(typeof toast==='function') toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }
-  const mySeat = findMySeat();
-  if(!mySeat){ if(typeof toast==='function') toast('캐릭터가 없어요'); return; }
-  const now = Date.now();
-  if(now - _rouletteAt < ROULETTE_COOL_MS){ if(typeof toast==='function') toast('⏳ 룰렛은 ' + (ROULETTE_COOL_MS/1000) + '초에 한 번!'); return; }
-  /* 쉬는 시간(remoteFlyCool 의 내 쪽 값)·지금 못 나는 상태면 굴리지도 않는다 —
-     1이 나왔는데 안 날아가면 «고장» 으로 읽힌다. */
-  if(tricksMod._myFlyCoolUntil() && now < tricksMod._myFlyCoolUntil()){
-    if(typeof toast==='function') toast('어지러워서 쉬는 중이에요 (' + Math.ceil((tricksMod._myFlyCoolUntil() - now)/1000) + '초)');
-    return;
-  }
-  const c = canFly(mySeat, true);   // 🗼 탑 안이어도 굴린다 — 1 이면 탑에서 튕겨 나간다(A안)
-  if(!c.ok){ if(typeof toast==='function') toast(c.why); return; }
-  /* 🎟️ 하루 6번 — 위 게이트를 다 지난 뒤에만 센다(막힌 누름은 안 깎는다 · _dailyPlayTake 주석). */
-  if(typeof diceMod._dailyPlayTake === 'function'){
-    const q = diceMod._dailyPlayTake('roulette');
-    if(!q.ok){ if(typeof toast==='function') toast('🔫 룰렛은 하루 ' + diceMod.DAILY_PLAY_MAX + '번까지예요 — 내일 다시 돌릴 수 있어요'); return; }
-    if(q.left === 0 && typeof toast==='function') toast('🔫 오늘 마지막 룰렛이었어요');
-  }
-  _rouletteAt = now;
-  const n1 = 1 + Math.floor(Math.random()*6);
-  const n2 = 1 + Math.floor(Math.random()*6);
-  const hit = (n1 === 1 || n2 === 1);
-  const dice2 = `[dice:${n1}][dice:${n2}]`;
-  const inRoom = (typeof Presence!=='undefined' && Presence.active());
-  showChatBubble(mySeat, dice2);
-  if(inRoom && Presence.sendChat) Presence.sendChat(dice2);
-  const name = getDisplayName();
-  if(window._activeChannel === 2){
-    tricksMod._flyChatLog(name + '님이 룰렛을 돌려 ' + dice2 + ' 가 나왔습니다.');   // 결과 꼬리 없음(🎲 와 같은 문장 모양 · 2026-09-23 요청)
-  }
-  if(!hit) return;
-  diceMod._selfFlyAfterDice();
-}
+/* 본문은 roulette.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const ROULETTE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const rouletteMod = (typeof TwRoulette === 'undefined') ? ROULETTE_MOD_OFF : TwRoulette.createRoulette({
+  Presence: ()=>Presence,
+  canFly: (...a)=>canFly(...a),
+  diceMod: diceMod,
+  findMySeat: (...a)=>findMySeat(...a),
+  getDisplayName: (...a)=>getDisplayName(...a),
+  officeMode: ()=>officeMode,
+  showChatBubble: (...a)=>showChatBubble(...a),
+  toast: (...a)=>toast(...a),
+  tricksMod: tricksMod,
+});
 
 /* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */
 const CHAT_WINDOW_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
@@ -5619,7 +5518,7 @@ canvas.addEventListener('pointermove',e=>{
     if(fast)        drag.lastFastT = performance.now();     // 마지막으로 빠르게 흔든 시각 (blink용)
     // dizzy: 빠른 흔들기일 때만 누적, 그 외(느린 드래그/정지)엔 감소 → 천천히 끌어선 안 쌓임
     drag.dizzy = Math.max(0, Math.min(120, drag.dizzy + (fast ? (speed - SHAKE_FAST_SPEED)*4 : 0) - dt*0.06));
-    if(drag.dizzy > 30 && Math.random() < 0.08) spawnFloater('💫','#f5a94f', drag.seat);
+    if(drag.dizzy > 30 && Math.random() < 0.08) floatersMod.spawnFloater('💫','#f5a94f', drag.seat);
   }
 });
 canvas.addEventListener('pointerup',e=>{
@@ -5651,7 +5550,7 @@ canvas.addEventListener('pointerup',e=>{
          ★ 막지 않는다(쓰로틀 없음) — 연타하면 연타한 만큼 들리는 것이 요청이다. 풀이 5벌이라
            앞 소리를 끊지 않고 겹친다. */
       if(!window.__noClickSnd) sfxMod._clickSnd.play();   // 📏 A/B 확인용 — 콘솔에서 __noClickSnd=true 로 잠시 끈다
-      triggerPet(seat); for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('♥','#f2607d',seat),i*320);
+      triggerPet(seat); for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('♥','#f2607d',seat),i*320);
       overheadMod.dismissSeatHeadBubble(seat);   // 말풍선 떠 있으면 클릭으로 숨김
       if(seat.remote && seat.friendId && Presence.active()) Presence.poke(seat.friendId, 'pet');   // 남의 캐릭터 쓰다듬으면 그 사람에게 알림
       /* 💗 [2026-10-08 제보 #12] **내 캐릭터**를 쓰다듬은 것도 방에 알린다 — 예전엔 남의 캐릭터만 알려서
@@ -5661,8 +5560,8 @@ canvas.addEventListener('pointerup',e=>{
          ★ 내 노드로 돌아오는 에코는 수신부(_myPetLocalAt)에서 건너뛴다 — 안 그러면 내 화면 하트가 두 번이다. */
       else if(seat.isMe && !seat.isExtra && Presence.active() && Presence.pokeSelf){
         const _t = performance.now();
-        _myPetLocalAt = _t;
-        if(_t - _myPetSentAt >= MY_PET_SEND_GAP_MS){ _myPetSentAt = _t; Presence.pokeSelf('pet'); }
+        floatersMod.setMyPetLocalAt(_t);
+        if(_t - floatersMod._myPetSentAt() >= floatersMod.MY_PET_SEND_GAP_MS){ floatersMod.setMyPetSentAt(_t); Presence.pokeSelf('pet'); }
       }
     }
   } else if(drag.mode==='shake'){
@@ -5707,7 +5606,7 @@ canvas.addEventListener('pointerup',e=>{
     const stillMs = drag.lastMoveT ? (performance.now() - drag.lastMoveT) : 0;
     if(drag.dizzy >= SHAKE_DIZZY_TRIGGER && stillMs < 300){
       seat.dizzyUntil = performance.now() + 2500;
-      for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('💫','#f5a94f',seat),i*300);
+      for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f',seat),i*300);
       if(seat.remote && seat.friendId && Presence.active()) Presence.poke(seat.friendId, 'dizzy');   // 남의 캐릭터 흔들어 dizzy 만들면 그 사람에게 알림
     }
   }
@@ -5739,47 +5638,14 @@ window.addEventListener('mousemove', e=>{
 });
 
 /* ============================================================ FLOATERS */
-const floaters=[];
-function spriteChar(ch,color){const c=document.createElement('canvas');c.width=c.height=128;const x=c.getContext('2d');
-  x.font='90px Fredoka, sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillStyle=color;x.fillText(ch,64,70);
-  // Additive 블렌딩 — 투명 창 뒤로 바탕화면이 비치는 구조라, 일반 블렌딩은 페이드될수록 배경과 섞여 탁해 보였음.
-  // 더하기 블렌딩은 배경이 뭐든 항상 밝게/뽀샤시하게 겹쳐져서 탁해지지 않고 파스텔톤으로 보임.
-  return new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));}
-const _floaterWP=new THREE.Vector3();
-let emojiReactionsEnabled = (localStorage.getItem('tw.emojiReactions') !== '0');   // 기본 켜짐
-/* 이모지 반응(zzz·♥·💫) 기본 크기(월드 단위).
-   ★ 캐릭터 크기 슬라이더(focusCharScale)를 키우면 카메라가 그만큼 가까워지므로(applyCameraAndCanvas의
-     dist 계산: / focusCharScale), 월드 크기가 고정이면 화면에서는 이모지도 같이 커진다.
-     화면상 크기를 일정하게 유지하려면 월드 크기를 focusCharScale에 반비례시켜야 한다.
-     떠오르는 속도·좌우 퍼짐도 같은 비율로 맞춰야 애니메이션 모양이 그대로 유지된다. */
-const FLOATER_BASE_SCALE = 0.1;   // ★ 이모지 기본 크기. 커/작아 보이면 이 숫자만 조절.
-const FLOATER_SPREAD_X   = 0.25;  // ★ 생성 시 좌우 산포 폭(월드). 좁히려면 줄임.
-const FLOATER_DRIFT_X    = 0.15;  // ★ 떠오르며 좌우로 흘러가는 속도.
-const FLOATER_RISE       = 0.3;   // ★ 떠오르는 속도(=세로로 퍼지는 범위).
-const FLOATER_HEAD_Y     = 0.65;  // ★ 캐릭터 기준 생성 높이. 낮추면 더 아래에서 생겨남(인간 기준, 동물은 자동 40%).
-const FLOATER_BURST      = 5;     // ★ 쓰다듬기·어지러움 등 한 번에 터지는 개수(기존 3 → 1.5배).
-/* 💗 내 캐릭터 쓰다듬기 방송(제보 #12) — 보내는 간격 · 내 노드로 돌아온 에코를 무시하는 창 */
-const MY_PET_SEND_GAP_MS = 500, MY_PET_ECHO_MS = 1500;
-let _myPetSentAt = -Infinity, _myPetLocalAt = -Infinity;
-function _floaterK(){ return 1 / Math.max(0.1, (typeof focusCharScale==='number' ? focusCharScale : 1)); }
-function spawnFloater(ch,color,seat){
-  if(!emojiReactionsEnabled) return;   // 설정에서 꺼두면 zzz/하트/💫 등 이모지 반응 생성 안 함
-  const sp=spriteChar(ch,color);
-  // 캐릭터가 드래그로 흔들리는 중일 수 있으므로, group이 아니라 rig(실제 흔들리는 부분)의 월드 좌표를 기준으로.
-  let ox=0, oy=1.4, oz=-0.4;
-  if(seat && seat.rig){
-    seat.rig.getWorldPosition(_floaterWP);
-    // 🐾 동물은 인간의 40% 크기라 인간 기준 머리 높이(0.9)를 그대로 쓰면 머리보다 한참 위에서 뜬다.
-    //   이름표(seatLabelHeadY)·상태칩과 같은 방식으로 같은 배율을 곱해 머리 바로 위에 오게 함.
-    const _ac = (seat.charDef && seat.charDef.animal) ? ANIMAL_RUN_SCALE : 1;
-    ox=_floaterWP.x; oy=_floaterWP.y+FLOATER_HEAD_Y*_ac; oz=_floaterWP.z+0.1;   // 머리 위 정도로 오프셋
-  } else if(seat){
-    ox=seat.group.position.x;
-  }
-  const _k=_floaterK(), _base=FLOATER_BASE_SCALE*_k;
-  sp.position.set(ox+(Math.random()-0.5)*FLOATER_SPREAD_X*_k,oy,oz); sp.scale.setScalar(_base);
-  sp.userData={life:0,dur:ch==='Z'?2.2:1.6,vx:(Math.random()-0.5)*FLOATER_DRIFT_X*_k,base:_base,rise:FLOATER_RISE*_k};
-  scene.add(sp);floaters.push(sp);}
+/* 본문은 floaters.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const FLOATERS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const floatersMod = (typeof TwFloaters === 'undefined') ? FLOATERS_MOD_OFF : TwFloaters.createFloaters({
+  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
+  focusCharScale: ()=>focusCharScale,
+  scene: scene,
+});
 
 /* ============================================================ WARDROBE PARTS (꾸미기 파츠 부착)
    캐릭터 본(head/spine/handL/handR)에 GLB 파츠를 부착. 동시 1개/카테고리(양손 각각).
@@ -11365,10 +11231,10 @@ const Presence=(()=>{
         }
         if(p.type==='pet'){
           // 💗 방금 내가 직접 쓰다듬은 것의 에코면 건너뛴다(이미 로컬에서 하트를 띄웠다 — 제보 #12)
-          if(performance.now() - _myPetLocalAt < MY_PET_ECHO_MS) return;
-          triggerPet(me); for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('♥','#f2607d',me),i*320);
+          if(performance.now() - floatersMod._myPetLocalAt() < floatersMod.MY_PET_ECHO_MS) return;
+          triggerPet(me); for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('♥','#f2607d',me),i*320);
         }
-        else if(p.type==='dizzy'){ me.dizzyUntil=performance.now()+2500; for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('💫','#f5a94f',me),i*300); }
+        else if(p.type==='dizzy'){ me.dizzyUntil=performance.now()+2500; for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f',me),i*300); }
         else if(typeof p.type==='string' && p.type.indexOf('fly:')===0){ tricksMod.applyRemoteFly(me, p.type.slice(4)); }   // 🪑 내가 날아간다 — 연속 횟수도 여기서 센다
         /* 🪄 내가 맞았다. 내가 나를 때린 경우도 이 노드로 돌아오는데, 그건 이미 로컬에서
            재생했으므로 applyRemoteBonk 안에서 걸러진다(때린사람 id 가 내 id). */
@@ -11582,11 +11448,11 @@ const Presence=(()=>{
 const ROOM_ENTRY_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const roomEntryMod = (typeof TwRoomEntry === 'undefined') ? ROOM_ENTRY_MOD_OFF : TwRoomEntry.createRoomEntry({
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
-  FLOATER_BURST: FLOATER_BURST,
+  FLOATER_BURST: floatersMod.FLOATER_BURST,
   Presence: Presence,
   _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),
   _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),
-  _onDeviceSessionLost: (...a)=>_onDeviceSessionLost(...a),
+  _onDeviceSessionLost: (...a)=>deviceLostMod._onDeviceSessionLost(...a),
   _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),
   _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
@@ -11617,7 +11483,7 @@ const roomEntryMod = (typeof TwRoomEntry === 'undefined') ? ROOM_ENTRY_MOD_OFF :
   settingsMod: settingsMod,
   showChatBubble: (...a)=>showChatBubble(...a),
   slots: slots,
-  spawnFloater: (...a)=>spawnFloater(...a),
+  spawnFloater: (...a)=>floatersMod.spawnFloater(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   triggerPet: (...a)=>triggerPet(...a),
@@ -12116,29 +11982,21 @@ const adminLicenseBulk = (typeof TwAdminLicenseBulk === 'undefined') ? ADMIN_LIC
 });
 
 /* ═══ 👥 책상에서 친구 추가 ═══ */
-/* --- 책상에서 친구 추가: 저장 캐릭터 선택 or 새로 만들기 --- */
-function drawFaceThumb(cv,def){const x=cv.getContext('2d');
-  x.fillStyle=skinColorFor(def.skin);x.beginPath();x.arc(40,40,33,0,7);x.fill();
-  x.fillStyle=def.bot;x.fillRect(16,70,48,12);x.fillStyle=def.top;x.fillRect(16,64,48,12);
-  try{x.drawImage(def.face,9,9,62,62);}catch(e){}}
-function openAddFriend(){
-  const saved=slots.map((d,i)=>({d,i})).filter(o=>o.d);
-  if(!saved.length){openCreator({kind:'slot',edit:false,afterApp:true});return;}
-  const grid=document.getElementById('fpGrid');grid.innerHTML='';
-  saved.forEach(({d,i})=>{const it=document.createElement('div');it.className='fp-item';
-    const cv=document.createElement('canvas');cv.width=cv.height=80;drawFaceThumb(cv,d);it.appendChild(cv);
-    const sp=document.createElement('span');sp.textContent='슬롯 '+(i+1);it.appendChild(sp);
-    it.onclick=()=>{document.getElementById('friendPicker').classList.remove('on');
-      const seat=createSeat();applyCharToSeat(seat,d);seat.slot=i;selectSeat(seat);renderSeatTabs();layoutSeats();toast('책상에 추가했어요');};
-    grid.appendChild(it);});
-  /* ⚠️ 여기 상한에 3 이 박혀 있었다(5칸 확장 잔재) — 4·5번 칸에서 [＋ 새로 만들기]가 안 떴다.
-     ⚠️ 이 줄에 // 주석을 붙이지 말 것. 한 줄에 여러 문장이 붙어 있어서 뒤의 innerHTML 이
-        통째로 주석에 먹힌다(실제로 한 번 먹혀서 빈 네모만 떴다). 설명은 이렇게 위에 적는다. */
-  if(saved.length<CHAR_SLOT_MAX){const nw=document.createElement('div');nw.className='fp-item new';nw.innerHTML='＋<span>새로 만들기</span>';
-    nw.onclick=()=>{document.getElementById('friendPicker').classList.remove('on');openCreator({kind:'slot',edit:false,afterApp:true});};
-    grid.appendChild(nw);}
-  document.getElementById('friendPicker').classList.add('on');}
-document.getElementById('fpCancel').onclick=()=>document.getElementById('friendPicker').classList.remove('on');
+/* 본문은 add-friend.js 로 옮겼다(앱 FSD 46번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const ADD_FRIEND_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const addFriendMod = (typeof TwAddFriend === 'undefined') ? ADD_FRIEND_MOD_OFF : TwAddFriend.createAddFriend({
+  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
+  applyCharToSeat: (...a)=>applyCharToSeat(...a),
+  createSeat: (...a)=>createSeat(...a),
+  layoutSeats: (...a)=>layoutSeats(...a),
+  openCreator: (...a)=>openCreator(...a),
+  renderSeatTabs: (...a)=>renderSeatTabs(...a),
+  selectSeat: (...a)=>selectSeat(...a),
+  skinColorFor: (...a)=>skinColorFor(...a),
+  slots: slots,
+  toast: (...a)=>toast(...a),
+});
 
 /* ═══ 💾 슬롯 저장 · 복원(saveSlots · loadSlots) ═══ */
 /* 본문은 slot-save.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -14037,8 +13895,8 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
       const wantClosed=(state==='sleep')||(state==='pet')||(state==='dizzy')||shakingHard||isRecovering||(ca>0.5);
       if(wantClosed!==seat.blink.closed){seat.blink.closed=wantClosed;setFaceMap(seat.faceMat, wantClosed?seat.blinkTex:seat.faceMapOrig);}
     }
-    if(state==='sleep' && us!=='away' && us!=='meal' && now-(seat._lastZ||0)>900){seat._lastZ=now;spawnFloater('Z','#7fa8e0',seat);}
-    if(state==='dizzy' && now-(seat._lastDizzy||0)>520){seat._lastDizzy=now;spawnFloater('💫','#f5a94f',seat);}
+    if(state==='sleep' && us!=='away' && us!=='meal' && now-(seat._lastZ||0)>900){seat._lastZ=now;floatersMod.spawnFloater('Z','#7fa8e0',seat);}
+    if(state==='dizzy' && now-(seat._lastDizzy||0)>520){seat._lastDizzy=now;floatersMod.spawnFloater('💫','#f5a94f',seat);}
 
     /* 활동 상태 시각화 — 책상 위 이모지(모두), 머리 위 텍스트 말풍선(모두), 영혼 투명도(자리비움) */
     //   ✨ statusConfFor: 커스텀 상태(프리미엄)는 등록한 이모지/문구로 해석됨 (본인=내 등록값, 친구=전파받은 값).
@@ -14100,12 +13958,12 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   /* state bar shows selected seat */
   if(selected){const st=seatState(selected,now);const sc=STATES[st]||STATES.idle;dot.style.background=sc.color;stateLabel.textContent=sc.label;}
 
-  for(let i=floaters.length-1;i>=0;i--){const f=floaters[i];f.userData.life+=dt;const p=f.userData.life/f.userData.dur;
-    f.position.y+=dt*(f.userData.rise!=null?f.userData.rise:FLOATER_RISE);f.position.x+=f.userData.vx*dt;
+  for(let i=floatersMod.floaters.length-1;i>=0;i--){const f=floatersMod.floaters[i];f.userData.life+=dt;const p=f.userData.life/f.userData.dur;
+    f.position.y+=dt*(f.userData.rise!=null?f.userData.rise:floatersMod.FLOATER_RISE);f.position.x+=f.userData.vx*dt;
     // 생애 60%까진 진하게 유지하다 마지막 40%에서만 빠르게 사라지게 — 오래 반투명 상태로 떠있으면서 탁해 보이는 구간을 최소화
     f.material.opacity=Math.max(0, p<0.6 ? 0.95 : 0.95*(1-(p-0.6)/0.4));
-    f.scale.setScalar((f.userData.base!=null?f.userData.base:FLOATER_BASE_SCALE)*(1+p*0.4));
-    if(p>=1){scene.remove(f);floaters.splice(i,1);}}
+    f.scale.setScalar((f.userData.base!=null?f.userData.base:floatersMod.FLOATER_BASE_SCALE)*(1+p*0.4));
+    if(p>=1){scene.remove(f);floatersMod.floaters.splice(i,1);}}
 
   rideBenchMod._checkCircusBalance(now);   // 🎪 묘기 균형 판정(흔들림 → 와해)
   rideBenchMod._updateRideChains(now);   // 🐾 올라탄(탑쌓기 포함) 좌석 위치를 아래층→위층 순으로 확정
