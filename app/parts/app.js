@@ -3234,7 +3234,6 @@ const statusChipMod = (typeof TwStatusChip === 'undefined') ? STATUS_CHIP_MOD_OF
   camera: camera,
   chatUiMod: ()=>chatUiMod,
   customStatusConf: ()=>customStatusConf,
-  initMyHome: (...a)=>initMyHome(...a),
   loadCustomStatusFromStorage: (...a)=>loadCustomStatusFromStorage(...a),
   loadUserStatusFromStorage: (...a)=>loadUserStatusFromStorage(...a),
   moveMode: ()=>moveMode,
@@ -14223,6 +14222,9 @@ layoutSeats=function(){ _layoutSeats();
 renderSeatTabs(); setManual(null); applyAppMode(); applyDesktopRunClass();
 if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
 { const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
+/* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독) — 모듈을 다 만든 뒤 여기서 한 번.
+   첫 일이 «Firebase 붙을 때까지 기다리기» 라, 부팅 중 어디서 불러도 실제 시작은 firebaseAPI 가 생긴 뒤다. */
+initMyHome();
 loadBaseGLB().then(ok=>{ if(!ok) console.warn('기본 GLB 로드 실패 — 스탠드인 사용');
   return Promise.all([loadSkins(), slotSaveMod.loadSlots()]); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());
 requestAnimationFrame(frame);

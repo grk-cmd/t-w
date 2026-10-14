@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 217 (앱 FSD 48번 — 캐릭터 · 꾸미기 · 라이선스 일곱(🎨 꾸미기 사이드 패널 · 🐾 종족 선택창 · 🏅 레벨 티어 · 🎨 디자인 테마 · 🔑 라이선스 등록 화면 · 키 버튼 · 🔐 에셋 코드)을 모듈로 · `sim-*.js` 일곱 신설 — 4차 순서표 끝)
-대상: `sim-*.js` 237개 + `smoke.js` + `audit.py` = **239개** (개정 217 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 218 (🏠 마이홈 시작(`initMyHome()`)을 상태칩 만들기 안에서 빼서 부팅 순서(INIT)로)
+대상: `sim-*.js` 237개 + `smoke.js` + `audit.py` = **239개** (개정 218 기준 — 폴더를 센 값)
+
+**개정 218 에서 한 것 (2026-10-14 · 마이홈 시작 자리 옮김 — 실제 시작 시점은 그대로)**
+- 앱: 상태칩 모듈(status-chip.js)이 만들어질 때 끝에서 `initMyHome()` 을 부르던 줄을 빼고, app.js INIT(모듈을 다 만든 뒤)에서 한 번 부른다. 상태칩이 마이홈 시작을 맡을 까닭이 없다 — 한 덩어리 app.js 시절 시작 코드가 붙어 있던 흔적. `initMyHome` 의 첫 일이 «Firebase 붙을 때까지 기다리기»(`_waitForFirebaseAPI`)라, app.js 를 읽는 동안에는 0.5초 뒤 다시 보기만 예약한다 — 실제 시작은 예전처럼 firebaseAPI 가 생긴 뒤.
+- 검사: `sim-status-chip.js` 받는 이름 목록에서 `initMyHome` 을 뺐다(deps 39 → 38 · 판정 무변경).
 
 **개정 217 에서 한 것 (2026-10-14 · 앱 FSD 48번 — 동작 변화 없음)**
 - 앱: `wardrobe-panel.js`(63줄 · deps 5 · 바뀐 줄 9) · `race-picker.js`(54줄 · deps 12 · 바뀐 줄 2) · `lv-tier.js`(31줄 · deps 0 · 바뀐 줄 0) · `theme.js`(44줄 · deps 1 · 바뀐 줄 2) · `license-ui.js`(36줄 · deps 2 · 바뀐 줄 9) · `license-key.js`(21줄 · deps 4 · 바뀐 줄 0) · `asset-code.js`(36줄 · deps 2 · 바뀐 줄 0).
@@ -1904,7 +1908,7 @@
 | **sim-room-entry.js** | 95 | **45c7d304d587** ← **개정 200 신설 · 🛰 방 서버 · 입장 · 방 개수 모듈(room-entry.js) 구조** |
 | **sim-overhead.js** | 95 | **9ff30225ba06** ← **개정 201 신설 · 💬 머리 위 말풍선 · 🏷️ 이름표 모듈(overhead.js) 구조** |
 | **sim-room-sync.js** | 95 | **dab40cced30b** ← **개정 202 신설 · 📦 방 def 전송 · poke · 자동 퇴장 · 감시견 모듈(room-sync.js) 구조** |
-| **sim-status-chip.js** | 95 | **ad7580252c80** ← **개정 203 신설 · 📍 상태칩 자리 · 팝업 · 상태 이모지 모듈(status-chip.js) 구조** |
+| **sim-status-chip.js** | 95 | **3ff4314b69b6** ← **개정 218 받는 이름에서 initMyHome 빠짐(판정 무변경)** · **개정 203 신설 · 📍 상태칩 자리 · 팝업 · 상태 이모지 모듈(status-chip.js) 구조** |
 | **sim-premium-assets.js** | 95 | **47d96e667014** ← **개정 204 신설 · 🎀 프리미엄 파츠 · 라이선스 책상 모듈(premium-assets.js) 구조** |
 | **sim-char-code.js** | 95 | **a389cce776e1** ← **개정 205 신설 · 📦 캐릭터 복제 코드 모듈(char-code.js) 구조** |
 | **sim-dice-games.js** | 95 | **2689aac9a114** ← **개정 206 신설 · 🎲 주사위 · 하루 횟수 모듈(dice-games.js) 구조** |
