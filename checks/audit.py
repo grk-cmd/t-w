@@ -376,7 +376,7 @@ def _open_part(name):
     for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):
         if os.path.exists(_p): return open(_p, encoding='utf-8')
     return open(name, encoding='utf-8')
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js', 'tricks.js', 'ride-bench.js', 'part-paint.js', 'focus-level.js', 'chat-ui.js', 'license-gate.js', 'account.js', 'wardrobe.js', 'settings-panel.js', 'desktop-run.js', 'room-entry.js', 'overhead.js', 'room-sync.js', 'status-chip.js', 'premium-assets.js', 'char-code.js', 'dice-games.js', 'program-settings.js', 'chat-prefs.js', 'rich-text.js', 'win-stack.js', 'sfx.js', 'face-heal.js', 'slot-save.js', 'interaction-desk.js', 'ad-banner.js', 'license-request.js', 'fn-keys.js', 'hidden-seats.js', 'theme-ui.js', 'myhome-sticker-layout.js', 'myhome-diag.js', 'myhome-visit.js', 'exp-bar.js', 'focus-share.js', 'focus-total.js', 'commission.js', 'code-crypto.js', 'add-friend.js', 'floaters.js', 'roulette.js', 'chat-lock.js', 'device-lost.js', 'demoji-palette.js', 'outside-close.js', 'launcher-chrome.js', 'myhome-links.js', 'async-prompt.js', 'myhome-page.js'):
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js', 'tricks.js', 'ride-bench.js', 'part-paint.js', 'focus-level.js', 'chat-ui.js', 'license-gate.js', 'account.js', 'wardrobe.js', 'settings-panel.js', 'desktop-run.js', 'room-entry.js', 'overhead.js', 'room-sync.js', 'status-chip.js', 'premium-assets.js', 'char-code.js', 'dice-games.js', 'program-settings.js', 'chat-prefs.js', 'rich-text.js', 'win-stack.js', 'sfx.js', 'face-heal.js', 'slot-save.js', 'interaction-desk.js', 'ad-banner.js', 'license-request.js', 'fn-keys.js', 'hidden-seats.js', 'theme-ui.js', 'myhome-sticker-layout.js', 'myhome-diag.js', 'myhome-visit.js', 'exp-bar.js', 'focus-share.js', 'focus-total.js', 'commission.js', 'code-crypto.js', 'add-friend.js', 'floaters.js', 'roulette.js', 'chat-lock.js', 'device-lost.js', 'demoji-palette.js', 'outside-close.js', 'launcher-chrome.js', 'myhome-links.js', 'async-prompt.js', 'myhome-page.js', 'theme.js', 'asset-code.js', 'license-key.js', 'license-ui.js', 'race-picker.js', 'wardrobe-panel.js', 'lv-tier.js'):
     try: _cs = _strip_js_comments(_open_part(_cf).read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):
@@ -649,7 +649,13 @@ section('검사 17 · JS 가 붙이는 레벨 티어/표식 클래스에 CSS 규
 # ⚠️ 티어 개수를 app.js 의 LV_TIERS 에서 읽는다 — 여기에 12 를 박아두면 티어를 늘릴 때
 #    검사가 조용히 낡는다(이 검사가 막으려는 실패 양상과 똑같아진다).
 _sty17 = re.search(r'<style>(.*?)</style>', html, re.S)
-_tbl17 = re.search(r'LV_TIERS\s*=\s*\[(.*?)\]\s*;', app, re.S)
+# 🏅 레벨 티어 구역은 lv-tier.js 로 옮겼다(앱 FSD 48번) — 표와 클래스 함수는 app.js 뒤에 그 파일 글을 이어 읽는다
+_app17 = app
+for _lp in ('lv-tier.js', os.path.join(os.path.dirname(APP), 'lv-tier.js'), os.path.join('app', 'parts', 'lv-tier.js')):
+    if os.path.exists(_lp):
+        _app17 = app + '\n' + open(_lp, encoding='utf-8').read()
+        break
+_tbl17 = re.search(r'LV_TIERS\s*=\s*\[(.*?)\]\s*;', _app17, re.S)
 if not _sty17 or not _tbl17:
     problems.append('검사17: <style> 또는 app.js 의 LV_TIERS 표를 못 찾음 — 코드 구조 변경?')
     print('  ⚠️ <style> / LV_TIERS 를 못 찾음')
@@ -666,7 +672,7 @@ else:
             if _v not in _m17.group(1):
                 _miss17.append('t%d 블록에 %s 가 없음' % (_t, _v))
     # (b) JS 가 붙이는 표식 클래스(lvBadgeClass·lvBarClass 의 문자열 리터럴)에 규칙이 있는가
-    _js17 = '\n'.join(re.findall(r'function lv(?:BadgeClass|BarClass)\([^)]*\)\{(.*?)\n\}', app, re.S))
+    _js17 = '\n'.join(re.findall(r'function lv(?:BadgeClass|BarClass)\([^)]*\)\{(.*?)\n\}', _app17, re.S))
     _marks17 = sorted(set(re.findall(r"'\s+([a-z-]+)'", _js17)))
     for _mk in _marks17:
         if not re.search(r'\.(?:mh-flv|seat-exp)\.%s\b' % re.escape(_mk), _css17):
@@ -688,7 +694,7 @@ else:
     # (e) 🌟 회차(개정 71) — lv-star 는 LV_TIERS 에 없어서 (a)(b) 가 안 센다. 따로 본다.
     #     JS 가 lvStarBadgeClass/lvStarBarClass 로 붙이는 클래스마다 규칙이 있는가 · 그 블록이 두 토큰을 --pre-c 에서 내려주는가 ·
     #     별 두 자리(.mh-flv .pre · .seat-nameplate .np-star)가 있는가. 함수가 없으면(회차 전 판) 건너뛴다.
-    _star17 = re.findall(r"function lvStar(?:BadgeClass|BarClass)\(\)\{\s*return\s*'([^']*)'", app)
+    _star17 = re.findall(r"function lvStar(?:BadgeClass|BarClass)\(\)\{\s*return\s*'([^']*)'", _app17)
     if _star17:
         _mb17 = re.search(r'\.mh-flv\.lv-star\s*,\s*\.seat-exp\.lv-star\s*\{([^{}]*)\}', _css17)
         if not _mb17:

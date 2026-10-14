@@ -387,7 +387,7 @@ const commSceneCache = new Map();
 async function getCommissionScene(glbB64){
   if(commSceneCache.has(glbB64)) return commSceneCache.get(glbB64);
   const buf = b64ToBuf(glbB64);
-  const scene = await parseGlbBytes(buf);
+  const scene = await assetCodeMod.parseGlbBytes(buf);
   commSceneCache.set(glbB64, scene);
   return scene;
 }
@@ -2999,7 +2999,7 @@ function resetSeat(seat){
 async function handleFiles(files,seat){
   for(const f of files){const nm=f.name.toLowerCase();
     if(nm.endsWith('.dcc')){ const buf=await f.arrayBuffer(); const pass=window.prompt('이 캐릭터의 비밀번호를 입력하세요'); if(!pass)continue;
-      try{ const dec=await decryptBytes(buf,pass); loadCharGLB(dec,f.name.replace(/\.dcc$/i,'')+'.glb',seat); }catch(e){ toast('비밀번호가 틀렸거나 파일이 손상됐어요'); } }
+      try{ const dec=await assetCodeMod.decryptBytes(buf,pass); loadCharGLB(dec,f.name.replace(/\.dcc$/i,'')+'.glb',seat); }catch(e){ toast('비밀번호가 틀렸거나 파일이 손상됐어요'); } }
     else if(nm.endsWith('.glb')){ const buf=await f.arrayBuffer();
       if(nm.includes('desk')||nm.includes('책상')) loadDeskGLB(buf,f.name,seat); else loadCharGLB(buf,f.name,seat); }
     else if(f.type.startsWith('image/')){ const url=await new Promise(r=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.readAsDataURL(f);}); setBlinkTexture(url,f.name,seat); }
@@ -3294,10 +3294,10 @@ const plMod = (typeof TwPlaylist === 'undefined') ? PLAYLIST_OFF : TwPlaylist.cr
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
   myFocusShow: (...a)=>focusLevelMod.myFocusShow(...a),
   starFromRemote: (...a)=>focusLevelMod.starFromRemote(...a),
-  lvBadgeClass: (...a)=>lvBadgeClass(...a),
-  lvStarBadgeClass: (...a)=>lvStarBadgeClass(...a),
+  lvBadgeClass: (...a)=>lvTierMod.lvBadgeClass(...a),
+  lvStarBadgeClass: (...a)=>lvTierMod.lvStarBadgeClass(...a),
   lvStarStr: (...a)=>focusLevelMod.lvStarStr(...a),
-  starPaint: (...a)=>_starPaint(...a),
+  starPaint: (...a)=>lvTierMod._starPaint(...a),
   // 🏠 마이홈
   myHomeLoaded: ()=>mhVisitMod._myHomeLoaded(),
   myHomeData: ()=>mhVisitMod._myHomeData(),
@@ -3334,37 +3334,11 @@ const plMod = (typeof TwPlaylist === 'undefined') ? PLAYLIST_OFF : TwPlaylist.cr
        shine  흰 빛줄기가 훑는다 (Lv.81 이상 — 티어가 아니라 레벨 기준. 예전 그대로)
    ★ 상한(FOCUS_LEVEL_CAP_HOURS=999)을 넘는 값은 없지만, 표 마지막 칸을 Infinity 로 열어 둬서
      그런 값이 들어와도 조용히 t12 로 떨어진다(클래스가 아예 안 붙으면 배경이 사라진다). */
-const LV_TIERS = [[20,1],[40,2],[60,3],[80,4],[100,5],[130,6],
-                  [200,7],[300,8],[400,9],[600,10],[998,11],[Infinity,12]];
-function lvTierNum(lv){
-  const n = Math.max(1, parseInt(lv, 10) || 1);
-  for(let i = 0; i < LV_TIERS.length; i++) if(n <= LV_TIERS[i][0]) return LV_TIERS[i][1];
-  return LV_TIERS[LV_TIERS.length - 1][1];
-}
-/* 배지(.mh-flv)에 붙일 클래스 덩어리 — 'mh-flv' 는 뺀 나머지. */
-function lvBadgeClass(lv){
-  const n = Math.max(1, parseInt(lv, 10) || 1), t = lvTierNum(n);
-  return 't' + t + (n >= 81 ? ' shine' : '') + (t >= 7 ? ' lvx' : '');
-}
-/* 경험치 바(.seat-exp)에 붙일 클래스 덩어리 — 배지와 **같은 표**를 읽으므로 색이 어긋날 수 없다. */
-function lvBarClass(lv){
-  const t = lvTierNum(lv);
-  return 't' + t + (t >= 7 ? ' lvx' : '') + (t >= 8 ? ' lvglow' : '');
-}
-/* 🌟 회차(999시간을 한 바퀴 채운 뒤) — 티어 자리에 lv-star 가 들어간다 (CHECKS 개정 70).
-   ★ 표식은 그대로 둘뿐이다(lvx 흐름 · lvglow 바 발광). 회차 전용 표식을 새로 만들지 않는다.
-   ★ 배지에는 shine 을 안 붙인다 — 번쩍임은 이름표 별에서만(목록에 여러 줄이 서는 자리 · handoff §3 «두 자리가 뒤집힌다»).
-   ★ star = { cyc: 회차, lv: 이번 바퀴 레벨, color: 팔레트 색 } | null. 만드는 곳은 myFocusShow(나) · starFromRemote(남) 둘뿐. */
-function lvStarBadgeClass(){ return 'lv-star lvx'; }
-function lvStarBarClass(){ return 'lv-star lvx lvglow'; }
-/* --pre-c 칠하기 — 회차면 얹고 아니면 걷는다(요소를 재활용하므로 걷는 쪽이 꼭 필요하다).
-   ⚠️ 좌석의 이름표와 바는 #seatLabelsLayer 의 **형제**라 좌석마다 공통 조상 요소가 없다(레이어는 전 좌석 공용).
-     그래서 «색 하나를 두 곳에 칠하지 않는다» 는 원칙을 «값 하나(star.color)를 이 함수 하나로 칠한다» 로 지킨다. */
-function _starPaint(el, star){
-  if(!el) return;
-  if(star && star.color) el.style.setProperty('--pre-c', star.color);
-  else el.style.removeProperty('--pre-c');
-}
+/* 본문은 lv-tier.js 로 옮겼다(앱 FSD 48번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const LV_TIER_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const lvTierMod = (typeof TwLvTier === 'undefined') ? LV_TIER_MOD_OFF : TwLvTier.createLvTier({
+});
 /* ═══ 🎵 플레이리스트 화면 — 명함 · 목록 · 흐르는 제목 · 미니미 · 파도타기 ═══ */
 /* 🎵 플레이리스트 화면은 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 연결은 «🎵 상태칩 플레이리스트» 머리 아래(plMod). 레벨 배지는 plMod.fillLv. */
 /* ═══ 🎵 프리셋 고르기 ═══ */
@@ -3579,69 +3553,16 @@ const fnKeysMod = (typeof TwFnKeys === 'undefined') ? FN_KEYS_MOD_OFF : TwFnKeys
 });
 
 /* ═══ 🎨 꾸미기 사이드 패널 열고 닫기 ═══ */
-/* 🎨 꾸미기 사이드 패널 — 열고 닫기 + 콘텐츠 렌더 */
-(function bindWardrobe(){
-  const btn=document.getElementById('myWardrobeBtn');
-  const panel=document.getElementById('wardrobePanel');
-  const closeBtn=document.getElementById('wardrobeClose');
-  if(!btn||!panel)return;
-  function open(){
-    // 프리미엄 게이트 — 라이선스 등록되어 있거나 관리자면 통과
-    if(!isPremium && !isAdmin){
-      toast('🔒 꾸미기는 라이선스 등록 후 이용할 수 있어요');
-      if(typeof progSettingsMod.openProgramSettings==='function') progSettingsMod.openProgramSettings('license');
-      return;
-    }
-    wardrobeMod.renderWardrobe();
-    panel.classList.add('on');
-    if(typeof wardrobeMod.syncWdPreviewOwner==='function') wardrobeMod.syncWdPreviewOwner();
-    if(typeof wardrobeMod.refreshWdPreviewChar==='function') wardrobeMod.refreshWdPreviewChar();
-  }
-  function close(){
-    if(panel.classList.contains('on') && typeof wardrobeMod.commitWdDraft==='function') wardrobeMod.commitWdDraft();   // ★ 저장 버튼 없이, 닫힐 때 자동 저장
-    panel.classList.remove('on');
-    // ★ 보관함이 아직 열려 있으면 미리보기는 그대로 둔다 — 판정은 syncWdPreviewOwner 한 곳에서만.
-    if(typeof wardrobeMod.syncWdPreviewOwner==='function') wardrobeMod.syncWdPreviewOwner();
-    if(typeof wardrobeMod.detachWdGizmo==='function') wardrobeMod.detachWdGizmo();
-    // ★ 컬러 선택 팝업(body에 fixed로 붙는 팔레트)이 열린 채로 꾸미기창이 닫히면 팔레트만 남던 문제 —
-    //   꾸미기창이 닫힐 땐 떠 있는 팔레트도 전부 같이 제거(요청사항).
-    document.querySelectorAll('.wd-color-palette').forEach(p=>p.remove());
-  }
-  btn.addEventListener('click', e=>{ e.stopPropagation(); if(panel.classList.contains('on'))close(); else open(); });
-  if(closeBtn) closeBtn.addEventListener('click', close);
-  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && panel.classList.contains('on')) close(); });
-  window.openWardrobe = open;
-  window.closeWardrobe = close;
-  window.refreshWardrobe = ()=>{ if(panel.classList.contains('on')) wardrobeMod.renderWardrobe(); };
-  // ★ 저장 버튼 대신 — 꾸미기/미리보기 패널 바깥을 클릭하면 자동으로 저장하고 닫음.
-  document.addEventListener('mousedown', e=>{
-    if(!panel.classList.contains('on')) return;
-    const wp=document.getElementById('wdPreviewPanel');
-    if(panel.contains(e.target)) return;              // 꾸미기 패널 안(색상 팔레트 등 포함) 클릭은 무시
-    if(wp && wp.contains(e.target)) return;            // 미리보기 패널 안 클릭도 무시
-    if(e.target===btn || btn.contains(e.target)) return;   // 토글 버튼 자체는 그 버튼의 자체 클릭 핸들러가 처리
-    if(e.target.closest && e.target.closest('.wd-color-palette')) return;   // body에 fixed로 붙는 색상 팔레트도 무시
-    // ★ 파츠 등록 등 다른 모달 창 위에서 클릭(텍스트 입력 등)해도 "꾸미기창 바깥 클릭"으로 오인해서
-    //   꾸미기창이 같이 닫혀버리던 문제 — 다른 오버레이 위 클릭은 전부 무시하도록 예외 추가.
-    /* ⚠️ #gachaInvOverlay·#gachaDrawOverlay(파츠보관함)가 이 목록에서 빠져 있었다. 보관함 쪽은
-       _GACHA_KEEP 에 #wardrobePanel 을 넣어 두어 반대 방향은 이미 막혀 있었는데 여기만 없었다.
-       그래서 꾸미기를 열어 둔 채 보관함 안을 클릭하면 여기서 close() 가 돌고, 그 close() 가
-       두 창이 함께 쓰는 미리보기 패널의 .on 까지 떼어 갔다(제보: "보관함 미리보기창이 안 보임"). */
-    if(e.target.closest && e.target.closest('#gachaInvOverlay, #gachaDrawOverlay, #partRegOverlay, #deskRegOverlay, #assetImpOverlay, #assetGenOverlay, #glbEncOverlay, #glbLoadOverlay, #exportOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #commGenOverlay, #inviteOverlay, #raceOverlay, #codeOverlay, #creatorOverlay, #programSettingsOverlay, #focusSettingsPanel, #myHomeOverlay, .toast')) return;
-    close();
-  });
-  // ★ 투명 배경(클릭통과 처리되는 영역)을 클릭하면 그 클릭 이벤트 자체가 우리 창에 전달되지 않아서
-  //   (Electron 클릭통과 구조상 당연함) 위 mousedown 리스너로는 못 잡는 경우가 있음 — 이런 "진짜 바깥"
-  //   클릭은 보통 다른 프로그램/바탕화면 포커스로 이어지므로, 창이 포커스를 잃는 시점도 같이 감지해서 처리.
-  window.addEventListener('blur', ()=>{
-    if(!panel.classList.contains('on')) return;
-    // ★ 파츠 등록 등 우리 모달이 열려있는 상태에서 파일 선택 다이얼로그를 띄우면 Electron 창의 포커스가
-    //   잠깐 빠지는데, 그때 여기서 닫아버리면 등록 창까지 같이 사라져 버림 — 모달이 하나라도 열려있으면 blur 무시.
-    const modalOpen = document.querySelector('#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #creatorOverlay.on, #programSettingsOverlay.on, #myHomeOverlay.on, #pkOverlay.on');
-    if(modalOpen) return;
-    close();
-  });
-})();
+/* 본문은 wardrobe-panel.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const WD_PANEL_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const wdPanelMod = (typeof TwWardrobePanel === 'undefined') ? WD_PANEL_MOD_OFF : TwWardrobePanel.createWardrobePanel({
+  isAdmin: ()=>isAdmin,
+  isPremium: ()=>isPremium,
+  progSettingsMod: ()=>progSettingsMod,
+  toast: (...a)=>toast(...a),
+  wardrobeMod: ()=>wardrobeMod,
+});
 
 /* ═══ 👀 꾸미기 미리보기 — 렌더러 · 기즈모 · 창 자리 · 카메라 ═══ */
 /* 본문은 wardrobe.js 로 옮겼다(앱 FSD 29번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -4095,9 +4016,9 @@ const inboxMod = (typeof TwMyHomeInbox === 'undefined') ? INBOX_OFF : TwMyHomeIn
   friendVisit: friendVisit,
   mhStripHtml: (...a)=>richTextMod._mhStripHtml(...a),
   starFromRemote: (...a)=>focusLevelMod.starFromRemote(...a),
-  lvStarBadgeClass: (...a)=>lvStarBadgeClass(...a),
+  lvStarBadgeClass: (...a)=>lvTierMod.lvStarBadgeClass(...a),
   lvStarStr: (...a)=>focusLevelMod.lvStarStr(...a),
-  lvBadgeClass: (...a)=>lvBadgeClass(...a),
+  lvBadgeClass: (...a)=>lvTierMod.lvBadgeClass(...a),
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
 });
@@ -4929,7 +4850,7 @@ const adminPartReg = (typeof TwAdminPartRegister === 'undefined') ? ADMIN_PART_R
   generatePartThumbnail: (...a)=>generatePartThumbnail(...a),
   getPartScene: (...a)=>getPartScene(...a),
   getRecHides: (...a)=>premiumMod.getRecHides(...a),
-  parseGlbBytes: (...a)=>parseGlbBytes(...a),
+  parseGlbBytes: (...a)=>assetCodeMod.parseGlbBytes(...a),
   partCatInfo: (...a)=>premiumMod.partCatInfo(...a),
   partCatLimit: (...a)=>premiumMod.partCatLimit(...a),
   partEntryXf: (...a)=>premiumMod.partEntryXf(...a),
@@ -4975,7 +4896,7 @@ const overheadMod = (typeof TwOverhead === 'undefined') ? OVERHEAD_MOD_OFF : TwO
   _chatEsc: (...a)=>_chatEsc(...a),
   _diceSvg: (...a)=>diceMod._diceSvg(...a),
   _seatCtxMenu: (...a)=>_seatCtxMenu(...a),
-  _starPaint: (...a)=>_starPaint(...a),
+  _starPaint: (...a)=>lvTierMod._starPaint(...a),
   _wpTmp3: statusChipMod._wpTmp3,
   camera: camera,
   chatUiMod: chatUiMod,
@@ -7200,7 +7121,7 @@ function applyDeskPreset(p){
   const _presetDeskLocked = !isPremium && !isAdmin
     && typeof premiumMod._licenseLockedDeskId === 'function' && premiumMod._licenseLockedDeskId(p.deskCatalogId);
   if(p.deskCatalogId && p.deskGlb && !_presetDeskLocked){
-    parseGlbBytes(b64ToBuf(p.deskGlb)).then(sc=>{
+    assetCodeMod.parseGlbBytes(b64ToBuf(p.deskGlb)).then(sc=>{
       cDeskTemplate=sc; cDeskGlbB64=p.deskGlb; activeCustomDeskId=p.deskCatalogId;
       const isDefaultOverride = (p.deskCatalogId === DEFAULT_DESK_OVERRIDE_ID);
       if(cDesk){ swapDeskVisual(cDesk, sc, isDefaultOverride); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
@@ -7220,7 +7141,7 @@ function applyDeskPreset(p){
           try{ await resolveCatalogGlb(ov); }catch(_){}
         }
         try{
-          const sc = await parseGlbBytes(b64ToBuf(ov.glb));
+          const sc = await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb));
           if(cDesk){ swapDeskVisual(cDesk, sc, true); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
         }catch(_){
           if(cDesk){ swapDeskVisual(cDesk, null); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
@@ -8294,7 +8215,7 @@ function renderCrItems(){
         if(!ov.glb && ov.glbUrl && typeof resolveCatalogGlb==='function'){
           try{ await resolveCatalogGlb(ov); }catch(_){}
         }
-        try{ const sc=await parseGlbBytes(b64ToBuf(ov.glb)); swapDeskVisual(cDesk,sc,true); }catch(e){ swapDeskVisual(cDesk,null); }
+        try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); swapDeskVisual(cDesk,sc,true); }catch(e){ swapDeskVisual(cDesk,null); }
       }
       else swapDeskVisual(cDesk,null);
       applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale);
@@ -8324,7 +8245,7 @@ function renderCrItems(){
       if(activeCustomDeskId===rec.id){ cDeskTemplate=null; cDeskGlbB64=null; activeCustomDeskId=null;
         if(cDesk){
           const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거로 복귀(진짜 원본 아님)
-          if(ov){ parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor); }).catch(()=>{ swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); }); }
+          if(ov){ assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor); }).catch(()=>{ swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); }); }
           else { swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); }
         } }
       renderCrItems();
@@ -8368,7 +8289,7 @@ function renderCrItems(){
         const _sz = _creatorSizeGrow(d=>{ d.deskGlb = rec.glb; delete d.deskCatalogId; });
         if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
       }
-      try{ const sc=await parseGlbBytes(b64ToBuf(rec.glb));
+      try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(rec.glb));
         cDeskTemplate=sc; cDeskGlbB64=rec.glb; cDeskScale=clampDeskScale(cDeskScale||DESK_SCALE_DEFAULT); activeCustomDeskId=rec.id;
         if(cDesk){ swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
         renderCrItems();
@@ -8867,13 +8788,13 @@ document.getElementById('deskLenXReset')?.addEventListener('click', ()=>{
 const ADMIN_ASSET_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const adminAsset = (typeof TwAdminAsset === 'undefined') ? ADMIN_ASSET_OFF : TwAdminAsset.createAdminAsset({
   toast: (...a)=>toast(...a),
-  encryptAssetCode: (...a)=>encryptAssetCode(...a),
-  wrapAsset: (...a)=>wrapAsset(...a),
+  encryptAssetCode: (...a)=>assetCodeMod.encryptAssetCode(...a),
+  wrapAsset: (...a)=>assetCodeMod.wrapAsset(...a),
   _b64: (...a)=>codeCryptoMod._b64(...a),
   encryptCommission: (...a)=>commissionMod.encryptCommission(...a),
   unpackCommissionZip: (...a)=>commissionMod.unpackCommissionZip(...a),
-  encryptBytes: (...a)=>encryptBytes(...a),
-  decryptBytes: (...a)=>decryptBytes(...a),
+  encryptBytes: (...a)=>assetCodeMod.encryptBytes(...a),
+  decryptBytes: (...a)=>assetCodeMod.decryptBytes(...a),
   downloadBlob: (...a)=>charCodeMod.downloadBlob(...a),
   loadEncryptedGlbAsSeat: (...a)=>charCodeMod.loadEncryptedGlbAsSeat(...a),
   maxGlbBytes: ()=>commissionMod.MAX_GLB_BYTES,
@@ -8914,7 +8835,7 @@ document.getElementById('assetImpGo').onclick=async()=>{
   if(!(window.crypto&&crypto.subtle)){toast('이 환경에선 복호화를 쓸 수 없어요');return;}
   const code=document.getElementById('assetImpCode').value, pass=document.getElementById('assetImpPass').value;
   if(!code||!pass){toast('코드와 비밀번호를 입력해 주세요');return;}
-  try{ const dec=await decryptAssetCode(code,pass); const u=unwrapAsset(dec.buf);
+  try{ const dec=await assetCodeMod.decryptAssetCode(code,pass); const u=assetCodeMod.unwrapAsset(dec.buf);
     if(u.glbBuf.byteLength>commissionMod.MAX_GLB_BYTES){ toast('GLB가 1MB를 넘어요'); return; }
     const kind = _assetImpKind;   // 코드 자체에 담긴 종류가 아니라, 사용자가 어느 버튼(책상/아이템/파츠)으로 열었는지를 기준으로 등록
     // 한도 검사: 같은 종류의 저장 배열 길이 확인
@@ -8934,7 +8855,7 @@ document.getElementById('assetImpGo').onclick=async()=>{
       const _sz = _defSizeFile(_rest, _add);
       if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
     }
-    const {scene, animations}=await parseGlbFull(u.glbBuf.slice(0));
+    const {scene, animations}=await assetCodeMod.parseGlbFull(u.glbBuf.slice(0));
     const id='c'+Date.now().toString(36);
     const rec={id, name:u.name, icon:u.icon||'', glb:glbB64};
     if(kind==='desk'){
@@ -9156,7 +9077,7 @@ const licenseGateMod = (typeof TwLicenseGate === 'undefined') ? LICENSE_GATE_MOD
   pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
-  refreshLicenseUI: (...a)=>refreshLicenseUI(...a),
+  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   renderCrItems: (...a)=>renderCrItems(...a),
   restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),
   seats: seats,
@@ -9617,10 +9538,10 @@ function openCreator(mode){
           if(!m.glb && m.glbUrl && typeof resolveCatalogGlb==='function'){
             try{ await resolveCatalogGlb(m); }catch(_){}
           }
-          try{ const sc=await parseGlbBytes(b64ToBuf(m.glb)); cDeskGlbB64=m.glb; cDeskTemplate=sc; activeCustomDeskId=m.id;
+          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(m.glb)); cDeskGlbB64=m.glb; cDeskTemplate=sc; activeCustomDeskId=m.id;
             swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); }catch(e){}
         }
-      } else if(src&&src.deskGlb){ cDeskGlbB64=src.deskGlb; try{ const sc=await parseGlbBytes(b64ToBuf(src.deskGlb)); cDeskTemplate=sc; swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor);
+      } else if(src&&src.deskGlb){ cDeskGlbB64=src.deskGlb; try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(src.deskGlb)); cDeskTemplate=sc; swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor);
         const m=commissionMod.savedDesks().find(d=>d.glb===src.deskGlb); if(m) activeCustomDeskId=m.id;
       }catch(e){} } else {
         const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
@@ -9628,7 +9549,7 @@ function openCreator(mode){
           if(!ov.glb && ov.glbUrl && typeof resolveCatalogGlb==='function'){
             try{ await resolveCatalogGlb(ov); }catch(_){}
           }
-          try{ const sc=await parseGlbBytes(b64ToBuf(ov.glb)); swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor);
+          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor);
             // ★ 코드베이스의 다른 swapDeskVisual 호출부(8381·8399·8407·9241·13717·13720·13721)는 전부
             //   직후에 setCreatorDeskScale로 크기를 다시 먹인다. 이 '기본 책상 override' 분기만 빠져 있어서
             //   교체 전 스케일 상태에 의존하고 있었다 — 실행 경로(applyDeskCatalogRefToSeat)와 동일하게 맞춤.
@@ -9636,7 +9557,7 @@ function openCreator(mode){
           }catch(e){ console.warn('[생성기] 기본 책상 GLB 파싱 실패', e); }
         }
       }
-      if(src&&src.customItems){ for(const id in src.customItems){ const c=src.customItems[id]; try{ const {scene:sc,animations}=await parseGlbFull(b64ToBuf(c.glb)); registerCustomItem(id,c.name,c.glb,sc,c.icon||'',animations);}catch(e){} } }
+      if(src&&src.customItems){ for(const id in src.customItems){ const c=src.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); registerCustomItem(id,c.name,c.glb,sc,c.icon||'',animations);}catch(e){} } }
       await loadSavedItemsIntoSession();   // localStorage에 저장된 아이템 모두 customItems에 등록
       if(src&&src.deskItems) applyDeskItemsTo(cBase, src.deskItems);
       if(crStep===5) renderCrItems();
@@ -10157,8 +10078,8 @@ function setLauncherChar(def){_lcThumbJob=null;if(lChar){lScene.remove(lChar.gro
       })();
     }
     (async()=>{
-      if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await parseGlbFull(b64ToBuf(c.glb)); registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
-      if(def.deskGlb&&lHolder){ try{ const sc=await parseGlbBytes(b64ToBuf(def.deskGlb)); lHolder.desk.userData.deskScale=def.deskScale||1; swapDeskVisual(lHolder.desk,sc); setDeskScale(lHolder.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)applyDeskColorToCustom(lHolder.desk,def.deskColor);}catch(e){} }
+      if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
+      if(def.deskGlb&&lHolder){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); lHolder.desk.userData.deskScale=def.deskScale||1; swapDeskVisual(lHolder.desk,sc); setDeskScale(lHolder.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)applyDeskColorToCustom(lHolder.desk,def.deskColor);}catch(e){} }
       if(lHolder) clearHolderDeskItems(lHolder);
       if(def.deskItems&&lHolder) applyDeskItemsTo(lHolder,def.deskItems);
     })();
@@ -10244,7 +10165,7 @@ document.getElementById('lcEmpty').onclick=()=>{
   if(slots[curSlot]) return;                       // 캐릭터가 있는 칸이면 [＋]가 아니므로 무시
   if(slots.every(s=>s)){toast('캐릭터가 모두 찼습니다');return;}
   if(typeof charsMod._charsBoxFull==='function' && charsMod._charsBoxFull()) return;   // 🧬 보관함 20 문턱(켜져 있을 때만)
-  openRacePicker(curSlot);
+  racePickerMod.openRacePicker(curSlot);
 };
 const previewWrap=document.querySelector('.lc-preview-wrap');
 previewWrap.addEventListener('mouseenter',()=>{if(slots[curSlot])previewWrap.classList.add('show-go');});
@@ -10313,60 +10234,23 @@ async function doMoveCurSlotToBox(){
   renderLauncher(); toast('보관함으로 옮겼어요');
 }
 /* ═══ 🐾 종족 선택창 ═══ */
-/* 종족 선택창: 신규 생성 진입 전에 1단계 추가 (수정·친구추가 흐름은 그대로) */
-let rRenderer=null, rScene=null, rCam=null, rChar=null;
-function initRacePreview(){
-  if(rRenderer) return;
-  const cv=document.getElementById('raceHumanCv');
-  rRenderer=new THREE.WebGLRenderer({canvas:cv,antialias:false,alpha:true});   // antialias 끔 — 도트 느낌 선명하게
-  rRenderer.setPixelRatio(1);
-  rRenderer.outputEncoding=THREE.sRGBEncoding;
-  cv.style.imageRendering='pixelated';
-  rScene=new THREE.Scene();
-  rScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
-  const k=new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL); k.position.set(0,4,0); rScene.add(k);
-  rScene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));   // ★ 실행 화면과 같은 정면 필
-  rCam=new THREE.PerspectiveCamera(32,1,0.1,100);
-  rCam.position.set(0,1.0,2.6); rCam.lookAt(0,0.85,0);
-}
-const RACE_PIXEL_SCALE = 0.4;   // 유형선택 팝업 미리보기 도트 배율 — 작을수록 더 거친 도트
-function renderRacePreview(){
-  if(!rRenderer)return;
-  const rw=Math.max(2,Math.round(160*RACE_PIXEL_SCALE));
-  rRenderer.setSize(rw,rw,false);
-  const cv=document.getElementById('raceHumanCv');
-  cv.style.width='160px'; cv.style.height='160px';   // CSS 표시 크기는 그대로, 실제 렌더 버퍼만 작게
-  rCam.aspect=1; rCam.updateProjectionMatrix();
-  if(!rChar && BASE_SCENE){
-    const base=instantiateBase();
-    if(base){
-      applyLightPresetToInstance(base);   // 생성기·메인과 같은 톤
-      rChar=base.root;
-      normalizeModel(rChar, 1.4);
-      rChar.rotation.y=Math.PI;   // 캐릭터 정면이 카메라(+Z) 쪽을 향하도록
-      rScene.add(rChar);
-    }
-  }
-  rRenderer.render(rScene,rCam);
-}
-let _raceTargetSlot=null;   // ★ [＋]가 눌린 칸 번호. 이 값이 곧 저장 대상이 된다(추측 금지)
-function openRacePicker(target){
-  // ⚠️ 여기 상한이 3으로 박혀 있어서, 슬롯을 5칸으로 늘린 뒤 **4·5번 칸의 [＋]가 null 로 떨어졌다.**
-  //   그러면 아래 crDone 이 '예전 폴백(추측)'을 타서 엉뚱한 칸을 고른다. 숫자를 박지 말 것.
-  _raceTargetSlot = (typeof target==='number' && target>=0 && target<CHAR_SLOT_MAX) ? target : null;
-  try{ window.__twRaceTargetSlot = _raceTargetSlot; }catch(_){}   // animal.js는 IIFE라 window로만 읽을 수 있음
-  initRacePreview();
-  document.getElementById('raceOverlay').classList.add('on');
-  if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();   // 창이 런처(작은) 크기인지 강제 재확인
-  // GLB 로드가 아직 끝나지 않은 경우를 대비해 다음 프레임에서 한 번 더 시도
-  requestAnimationFrame(renderRacePreview);
-  if(!BASE_SCENE) setTimeout(renderRacePreview, 200);
-}
-document.getElementById('raceCancel').onclick=()=>document.getElementById('raceOverlay').classList.remove('on');
-document.getElementById('raceHuman').onclick=()=>{
-  document.getElementById('raceOverlay').classList.remove('on');
-  openCreator({kind:'slot',edit:false,slot:_raceTargetSlot});   // ★ [＋]로 확정된 칸을 그대로 넘김
-};
+/* 본문은 race-picker.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const RACE_PICKER_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const racePickerMod = (typeof TwRacePicker === 'undefined') ? RACE_PICKER_MOD_OFF : TwRacePicker.createRacePicker({
+  BASE_SCENE: ()=>BASE_SCENE,
+  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
+  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
+  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
+  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
+  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
+  _mkFrontFill: (...a)=>_mkFrontFill(...a),
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  applyLightPresetToInstance: (...a)=>applyLightPresetToInstance(...a),
+  instantiateBase: (...a)=>instantiateBase(...a),
+  normalizeModel: (...a)=>normalizeModel(...a),
+  openCreator: (...a)=>openCreator(...a),
+});
 
 /* === 커미션 캐릭터 코드 입력 (일반 사용자도 가능) === */
 const commImpOverlay=document.getElementById('commImpOverlay');
@@ -10395,7 +10279,7 @@ document.getElementById('commImpGo').onclick=async()=>{
                          document.getElementById('raceOverlay').classList.remove('on'); };
   // ① 캐릭터 복제 코드 — [＋]로 확정된 칸(_raceTargetSlot)에 그대로 앉힌다
   if(/^DCC1\./.test(code)){
-    if(await charCodeMod.importCloneCode(code, pass, _raceTargetSlot)) _closeRace();
+    if(await charCodeMod.importCloneCode(code, pass, racePickerMod._raceTargetSlot())) _closeRace();
     return;
   }
   // ② 책상·아이템 코드는 생성기 안에서 넣는 것 — 여기서 조용히 실패시키지 말고 어디로 가야 하는지 말한다
@@ -10410,7 +10294,7 @@ document.getElementById('commImpGo').onclick=async()=>{
     // ★ 빈 칸이 없으면 예전엔 idx=0으로 떨어져 1번 캐릭터를 말없이 덮어썼다(동물 저장과 같은 유형의 사고).
     //   덮어쓰지 말고 거부한다 — 인간 저장·복제코드 불러오기와 동일한 방식.
     //   ★ [＋]로 칸이 확정돼 들어왔으면 그 칸이 우선 — importCloneCode 와 같은 규약으로 맞춘다.
-    let idx = (typeof _raceTargetSlot==='number' && !slots[_raceTargetSlot]) ? _raceTargetSlot : slots.findIndex(s=>!s);
+    let idx = (typeof racePickerMod._raceTargetSlot==='number' && !slots[racePickerMod._raceTargetSlot()]) ? racePickerMod._raceTargetSlot() : slots.findIndex(s=>!s);
     if(idx<0){ toast('빈 슬롯이 없어요 — 캐릭터를 하나 정리한 뒤 다시 시도해 주세요'); return; }
     // 텍스처를 캔버스로 변환 (charDef와 호환)
     const faceCv=await dataUrlToCanvas(payload.face, CANVAS_SZ);
@@ -10768,9 +10652,9 @@ function applyCharToSeat(seat,def){
   
   
   (async()=>{  
-    if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await parseGlbFull(b64ToBuf(c.glb)); registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
+    if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
     if(def.deskCatalogId){ applyDeskCatalogRefToSeat(seat, def); }
-    else if(def.deskGlb){ try{ const sc=await parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; swapDeskVisual(seat.desk,sc); setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
+    else if(def.deskGlb){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; swapDeskVisual(seat.desk,sc); setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
     else { applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
     // ★ 새 아이템 목록을 적용하기 전에 기존에 붙어있던 아이템을 먼저 확실히 뗌 — 이 단계가 없어서
     //   실행 중인 캐릭터를 우클릭으로 수정할 때(특히 아이템을 끄거나 다른 걸로 바꿀 때) 예전 아이템이
@@ -11428,7 +11312,7 @@ const progSettingsMod = (typeof TwProgramSettings === 'undefined') ? PROG_SETTIN
   officeMode: ()=>officeMode,
   purikuraUi: purikuraUi,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
-  refreshLicenseUI: (...a)=>refreshLicenseUI(...a),
+  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),
   refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),
   setUserName: (...a)=>setUserName(...a),
@@ -11629,42 +11513,13 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
 /* (앱 FSD 33번) 이 자리의 본문도 room-entry.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🔑 라이선스 등록 UI ═══ */
-/* --- 라이선스 등록 UI --- */
-function refreshLicenseUI(){
-  const box=document.getElementById('licenseActiveBox');
-  const input=document.getElementById('licenseKeyInput');
-  const submitBtn=document.getElementById('licenseSubmitBtn');
-  const err=document.getElementById('licenseErrorMsg');
-  if(err) err.style.display='none';
-  if(box) box.style.display = isPremium ? 'block' : 'none';
-  if(input) input.style.display = isPremium ? 'none' : 'block';
-  if(submitBtn) submitBtn.style.display = isPremium ? 'none' : 'block';
-  const lbl=document.getElementById('lcLicenseLbl');
-  if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록';
-  // ★ 요청 섹션(licenseReqSection)은 기본적으로 접혀 숨겨져 있음(대규모 배포 시 아무나 요청 버튼을 누르는 걸 막기 위한 트릭).
-  //   [확인] 버튼을 Ctrl 누른 채 3번 연속 클릭하면 펼쳐짐(licenseReqUnlocked). 이미 보낸 요청이 있으면(reqId 저장돼 있음)
-  //   트릭을 몰라도 자기 요청 상태(대기중/승인됨)는 볼 수 있게 자동으로 펼쳐줌.
-  const reqSection=document.getElementById('licenseReqSection');
-  if(reqSection){
-    let reqId=null; try{ reqId=localStorage.getItem(licReqMod.LICENSE_REQ_ID_KEY); }catch(e){}
-    const shouldOpen = !isPremium && (!!reqId || licenseReqUnlocked);
-    reqSection.classList.toggle('open', shouldOpen);
-  }
-  if(!isPremium){
-    let reqId=null; try{ reqId=localStorage.getItem(licReqMod.LICENSE_REQ_ID_KEY); }catch(e){}
-    if(!reqId) licReqMod._showLicenseReqState('idle');
-    // reqId가 있으면 watchMyLicenseRequest의 콜백이 pending/approved 표시를 갱신함(resumePendingLicenseRequest에서 이미 구독 중)
-  }
-}
-/* --- 라이선스 요청 섹션 비공개 트릭 — [확인] 버튼을 빠르게 3번 연속 클릭하면 펼쳐짐 ---
-   대규모 배포 시 구매하지 않은 사람들이 무분별하게 요청을 보내는 걸 막기 위한 장치. 문서/안내에 노출하지 않고
-   알음알음 전달하는 용도. 요청사항으로 Ctrl 조합은 제거 — 그냥 3번 연속 클릭만. document 캡처 단계에서
-   감지해서, 트릭 발동 시엔 원래의 "빈 키 검증" 로직으로 넘어가지 않게 막아줌(실수로 에러 문구가 같이 뜨는 것 방지). */
-let licenseReqUnlocked = false;
-/* ★ (제거됨) 연타 3번으로 라이선스 '요청 보내기' 섹션을 여는 기능 — 이제 관리자가 친구코드로 직접
-   발급(수령함 전송)하는 방식으로 대체되어, 유저 요청 경로는 비활성화함. 섹션 HTML은 남아 있어도
-   열리지 않으므로 표시되지 않는다. */
-(function bindLicenseReqSecret(){ /* 비활성화 */ })();
+/* 본문은 license-ui.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const LICENSE_UI_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const licenseUiMod = (typeof TwLicenseUi === 'undefined') ? LICENSE_UI_MOD_OFF : TwLicenseUi.createLicenseUi({
+  isPremium: ()=>isPremium,
+  licReqMod: ()=>licReqMod,
+});
 /* ═══ 🪟 런처 타이틀바 · 팝업 흐림 ═══ */
 /* 본문은 launcher-chrome.js 로 옮겼다(앱 FSD 47번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
@@ -11695,27 +11550,15 @@ const adminLauncher = (typeof TwAdminLauncher === 'undefined') ? ADMIN_LAUNCHER_
 /* (앱 FSD 43번) 이 자리의 본문도 ad-banner.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🔑 라이선스 키 등록 · 해제 버튼 ═══ */
-document.getElementById('licenseSubmitBtn').onclick=async ()=>{
-  const input=document.getElementById('licenseKeyInput');
-  const err=document.getElementById('licenseErrorMsg');
-  const btn=document.getElementById('licenseSubmitBtn');
-  const key=(input.value||'').trim();
-  if(!key){ err.textContent='라이선스 키를 입력해 주세요'; err.style.display='block'; return; }
-  btn.disabled=true; btn.textContent='확인 중...';
-  const r=await licenseGateMod.activateLicense(key);
-  btn.disabled=false; btn.textContent='확인';
-  if(r.ok){
-    toast('🎉 라이선스가 등록됐어요! 꾸미기를 이용할 수 있어요');
-    refreshLicenseUI();
-    setTimeout(()=>{ progSettingsMod.closeProgramSettings(); }, 900);
-  } else {
-    err.textContent = r.reason || '등록에 실패했어요'; err.style.display='block';
-  }
-};
-document.getElementById('licenseDeactivateBtn').onclick=()=>{
-  licenseGateMod.deactivateLicense(); refreshLicenseUI(); toast('이 기기에서 라이선스가 해제됐어요');
-};
-document.getElementById('licenseKeyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('licenseSubmitBtn').click(); });
+/* 본문은 license-key.js 로 옮겼다(앱 FSD 48번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const LICENSE_KEY_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const licenseKeyMod = (typeof TwLicenseKey === 'undefined') ? LICENSE_KEY_MOD_OFF : TwLicenseKey.createLicenseKey({
+  licenseGateMod: licenseGateMod,
+  progSettingsMod: progSettingsMod,
+  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
+  toast: (...a)=>toast(...a),
+});
 
 /* ═══ 🪟 팝업 바깥 클릭으로 닫기 ═══ */
 /* 본문은 outside-close.js 로 옮겼다(앱 FSD 47번). 
@@ -11733,7 +11576,7 @@ const licReqMod = (typeof TwLicenseRequest === 'undefined') ? LIC_REQ_MOD_OFF : 
   getDisplayName: (...a)=>getDisplayName(...a),
   licenseGateMod: licenseGateMod,
   progSettingsMod: progSettingsMod,
-  refreshLicenseUI: (...a)=>refreshLicenseUI(...a),
+  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
 });
 
@@ -12071,42 +11914,15 @@ const codeCryptoMod = (typeof TwCodeCrypto === 'undefined') ? CODE_CRYPTO_MOD_OF
 });
 
 /* ===== 풀 GLB 파일 암호화 (.dcc) ===== */
-async function encryptBytes(buf,pass){
-  const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
-  const key=await codeCryptoMod._deriveKey(pass,salt);
-  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,buf));
-  const out=new Uint8Array(33+ct.length); out.set([0x44,0x43,0x47,0x31,0x00],0); out.set(salt,5); out.set(iv,21); out.set(ct,33);
-  return out.buffer;}
-async function decryptBytes(buf,pass){
-  const b=new Uint8Array(buf);
-  if(!(b[0]===0x44&&b[1]===0x43&&b[2]===0x47&&b[3]===0x31)) throw new Error('format');
-  const salt=b.slice(5,21), iv=b.slice(21,33), ct=b.slice(33);
-  const key=await codeCryptoMod._deriveKey(pass,salt);
-  return crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct);}
+/* 본문은 asset-code.js 로 옮겼다(앱 FSD 48번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const ASSET_CODE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const assetCodeMod = (typeof TwAssetCode === 'undefined') ? ASSET_CODE_MOD_OFF : TwAssetCode.createAssetCode({
+  codeCryptoMod: codeCryptoMod,
+  loader: loader,
+});
 /* ===== 책상·아이템 GLB 코드 (DCK1) — 캐릭터처럼 복제 코드로 판매/추가 ===== */
-async function encryptAssetCode(buf,pass,kind){
-  const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
-  const key=await codeCryptoMod._deriveKey(pass,salt);
-  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,buf));
-  const blob=new Uint8Array(28+ct.length); blob.set(salt,0); blob.set(iv,16); blob.set(ct,28);
-  return 'DCK1.'+kind+'.'+codeCryptoMod._b64(blob.buffer); }
-async function decryptAssetCode(code,pass){
-  const m=/^DCK1\.(desk|item)\.([\s\S]+)$/.exec((code||'').trim()); if(!m)throw new Error('format');
-  const blob=codeCryptoMod._unb64(m[2].replace(/\s+/g,''));
-  const salt=blob.slice(0,16), iv=blob.slice(16,28), ct=blob.slice(28);
-  const key=await codeCryptoMod._deriveKey(pass,salt);
-  const buf=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct);
-  return {kind:m[1], buf}; }
-function wrapAsset(name,icon,glbBuf){ const nb=new TextEncoder().encode(JSON.stringify({name,icon:icon||''}));
-  const out=new Uint8Array(4+nb.length+glbBuf.byteLength); new DataView(out.buffer).setUint32(0,nb.length);
-  out.set(nb,4); out.set(new Uint8Array(glbBuf),4+nb.length); return out.buffer; }
-function unwrapAsset(buf){ const dv=new DataView(buf); const len=dv.getUint32(0);
-  let meta={name:'커스텀',icon:''};
-  try{ meta=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,len))); }catch(_){}
-  const glbBuf=buf.slice(4+len); return {name:meta.name||'커스텀', icon:meta.icon||'', glbBuf}; }
-function parseGlbBytes(buf){ return new Promise((res,rej)=>{ try{ loader.parse(buf,'',g=>res(g.scene), e=>rej(e)); }catch(e){rej(e);} }); }
-// 아이템 전용 — 씬뿐 아니라 애니메이션 클립도 같이 반환 (parseGlbBytes는 기존 호환을 위해 씬만 반환하는 채로 둠)
-function parseGlbFull(buf){ return new Promise((res,rej)=>{ try{ loader.parse(buf,'',g=>res({scene:g.scene, animations:g.animations||[]}), e=>rej(e)); }catch(e){rej(e);} }); }
+/* (앱 FSD 48번) 이 자리의 본문도 asset-code.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ===== 커미션 캐릭터 zip 코드 시스템 =====
    관리자가 zip(character.glb + face.png + blink.png)을 코드로 만들어 고객에게 전달.
@@ -12158,7 +11974,7 @@ async function getPartScene(rec){
     }
   }
   if(!rec.glb) throw new Error('파츠 GLB를 찾을 수 없어요: '+rec.id);
-  const {scene, animations} = await parseGlbFull(b64ToBuf(rec.glb));
+  const {scene, animations} = await assetCodeMod.parseGlbFull(b64ToBuf(rec.glb));
   const result = {scene, animations};
   partSceneCache.set(rec.id, result);
   return result;
@@ -12491,10 +12307,10 @@ function mergeCatalogIntoSavedDesks(catalogObj){
   if(typeof cDesk!=='undefined' && cDesk && creatorOpen){
     if(cDeskGlbB64 && activeCustomDeskId){
       const rec=commissionMod.savedDesks().find(d=>d.id===activeCustomDeskId);
-      if(rec){ parseGlbBytes(b64ToBuf(rec.glb)).then(sc=>{ cDeskTemplate=sc; cDeskGlbB64=rec.glb; swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }).catch(()=>{}); }
+      if(rec){ assetCodeMod.parseGlbBytes(b64ToBuf(rec.glb)).then(sc=>{ cDeskTemplate=sc; cDeskGlbB64=rec.glb; swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }).catch(()=>{}); }
     } else if(!activeCustomDeskId){
       const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
-      if(ov){ parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }).catch(()=>{}); }
+      if(ov){ assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }).catch(()=>{}); }
       else { swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
     }
   }
@@ -12534,7 +12350,7 @@ async function applyDeskCatalogRefToSeat(seat, def){
   }
   try{
     seat.desk.userData.__seat = seat;   // 책상 idle 재생 판정에 좌석 상태 필요
-    const { scene:sc, animations } = await parseGlbFull(b64ToBuf(rec.glb));
+    const { scene:sc, animations } = await assetCodeMod.parseGlbFull(b64ToBuf(rec.glb));
     seat.desk.userData.deskScale=def.deskScale||1;
     swapDeskVisual(seat.desk,sc,def.deskCatalogId===DEFAULT_DESK_OVERRIDE_ID, animations, rec.playMode);
     setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);
@@ -12745,7 +12561,7 @@ async function loadSavedItemsIntoSession(){
   for(const rec of commissionMod.savedItems()){
     // ★ 이미 등록돼 있어도 건너뛰지 않고 항상 다시 불러옴 — 카탈로그에서 GLB가 교체됐을 때
     //   (관리자가 우클릭 수정 등) customItems가 옛날 것으로 캐시된 채 남아있으면 실시간 반영이 안 됨.
-    try{ const buf=b64ToBuf(rec.glb); const {scene,animations}=await parseGlbFull(buf);
+    try{ const buf=b64ToBuf(rec.glb); const {scene,animations}=await assetCodeMod.parseGlbFull(buf);
       registerCustomItem(rec.id, rec.name, rec.glb, scene, rec.icon||'', animations, rec.attachTo, rec.autoPlay, rec.defaultSize, rec.glow, rec.licenseOnly, rec.playMode);
     }catch(_){}
   }
@@ -14175,50 +13991,13 @@ async function _warnServerWriteDenied(what){
      Win98은 채도 높은 색이, 버블은 파스텔이 어울려서 같은 색표를 공유하면 한쪽이 반드시 촌스러워진다.
    ★ 저장은 localStorage 2개(tw.theme / tw.accent). 계정 동기화로 옮기려면 이 두 값만 서버에 얹으면 된다.
    ★ 부팅 시 최대한 이른 시점에 applyTheme()을 부른다 — 늦게 부르면 기본 테마가 한 프레임 번쩍인다. */
-const THEME_KEY = 'tw.theme', ACCENT_KEY = 'tw.accent';
-/* 칸 번호 → [표시 이름, 칩에 보여줄 그라데이션]. CSS의 --acc-* 값과 짝이 맞아야 한다. */
-const THEME_COLORS = {
-  default: [
-    ['c1','퍼플',   'linear-gradient(90deg,#5B0FBF,#B23DFF)'],
-    ['c2','블루',   'linear-gradient(90deg,#000080,#1084D0)'],
-    ['c3','그린',   'linear-gradient(90deg,#0A8F2E,#3FE06B)'],
-    ['c4','노을',   'linear-gradient(90deg,#FF8A3D,#E82E7B)'],
-    ['c5','오로라', 'linear-gradient(90deg,#2FE0C8,#5B3FE0)'],
-  ],
-  bubble: [
-    ['c1','그레이', 'linear-gradient(90deg,#DCE3E9,#AFBAC4)'],
-    ['c2','스카이', 'linear-gradient(90deg,#CFEAF7,#86C9E8)'],
-    ['c3','그린',   'linear-gradient(90deg,#D8EE9E,#9ED44F)'],
-    ['c4','피치',   'linear-gradient(90deg,#FFDCC8,#EFBBD4)'],
-    ['c5','민트',   'linear-gradient(90deg,#CBF1E4,#D2D5F4)'],
-  ],
-};
-const THEME_DEFAULT_ACCENT = { default:'c2', bubble:'c3' };   // 기본=블루(Win98 정통), 버블=그린
-
-function getTheme(){
-  try{ return (localStorage.getItem(THEME_KEY)==='bubble') ? 'bubble' : 'default'; }catch(_){ return 'default'; }
-}
-function getAccent(){
-  const t = getTheme();
-  let a = null; try{ a = localStorage.getItem(ACCENT_KEY); }catch(_){}
-  // 저장값이 없거나 이상하면 그 테마의 기본색으로. (테마별로 색이 다르므로 칸 번호만 검사한다)
-  return THEME_COLORS[t].some(c=>c[0]===a) ? a : THEME_DEFAULT_ACCENT[t];
-}
-function applyTheme(){
-  try{
-    const t = getTheme(), a = getAccent();
-    const root = document.documentElement;
-    // ★ 색을 '먼저' 건다. 버블 테마의 --win-face 등은 --acc-* 를 폴백 없이 참조하므로,
-    //   data-theme 만 걸린 채 data-accent 가 빠지면 그 변수들이 무효값이 되어 창이 통째로 투명해진다.
-    //   순서를 이렇게 두면 중간에 실패해도 '기본 테마 + 색만 바뀜'으로 끝나 화면이 안 깨진다.
-    root.setAttribute('data-accent', a);
-    if(t==='bubble') root.setAttribute('data-theme','bubble'); else root.removeAttribute('data-theme');
-  }catch(e){ console.warn('[테마] 적용 실패 — 기본 테마로 둡니다', e); }
-  // 🎨 [제보 5] 열려 있는 방명록·디자인 창에도 — 닫힌 창은 여기서 떨어져 나간다
-  themeUiMod.setThemeChildDocs(themeUiMod._themeChildDocs().filter(d=>{
-    try{ if(!d.defaultView || d.defaultView.closed) return false; themeUiMod.applyThemeToChildDoc(d); return true; }catch(_){ return false; }
-  }));
-}
+/* 본문은 theme.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const THEME_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const themeMod = (typeof TwTheme === 'undefined') ? THEME_MOD_OFF : TwTheme.createTheme({
+  themeUiMod: ()=>themeUiMod,
+});
+function applyTheme(...a){ return themeMod.applyTheme(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 /* ═══ 🎨 [2026-09-15 제보 5] 테마 「버블」이 마이홈 방명록엔 안 먹음 ═══════════════════════
    [원인] 방명록·디자인 창은 window.open → main.js setWindowOpenHandler 가 **별도 BrowserWindow** 로 연다.
      별도 창 = 별도 document 라 메인 <html> 의 data-theme 이 거기까지 안 간다. 게다가 그 창들의 CSS(GB_HTML·
@@ -14233,18 +14012,18 @@ function applyTheme(){
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const THEME_UI_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const themeUiMod = (typeof TwThemeUi === 'undefined') ? THEME_UI_MOD_OFF : TwThemeUi.createThemeUi({
-  ACCENT_KEY: ACCENT_KEY,
-  THEME_COLORS: THEME_COLORS,
-  THEME_DEFAULT_ACCENT: THEME_DEFAULT_ACCENT,
-  THEME_KEY: THEME_KEY,
-  applyTheme: (...a)=>applyTheme(...a),
-  getAccent: (...a)=>getAccent(...a),
-  getTheme: (...a)=>getTheme(...a),
+  ACCENT_KEY: themeMod.ACCENT_KEY,
+  THEME_COLORS: themeMod.THEME_COLORS,
+  THEME_DEFAULT_ACCENT: themeMod.THEME_DEFAULT_ACCENT,
+  THEME_KEY: themeMod.THEME_KEY,
+  applyTheme: (...a)=>themeMod.applyTheme(...a),
+  getAccent: (...a)=>themeMod.getAccent(...a),
+  getTheme: (...a)=>themeMod.getTheme(...a),
 });
 /* ★ 최상위 호출은 반드시 위 const 선언들 '뒤'에 둔다.
    앞에서 부르면 THEME_COLORS가 아직 TDZ라 ReferenceError가 나고, 최상위에서 터지므로
    app.js 전체가 그 줄에서 멈춘다 = 프로그램이 아예 안 켜진다. (실제로 한 번 그렇게 만들었다) */
-applyTheme();      // 파싱 즉시 1회 — 늦게 부르면 기본 테마가 한 프레임 번쩍인다
+themeMod.applyTheme();      // 파싱 즉시 1회 — 늦게 부르면 기본 테마가 한 프레임 번쩍인다
 themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소가 없으면 조용히 넘어감)
 
 /* ═══ ⭐ 경험치 바 ═══════════════════════════════════════════════════════════
@@ -14265,9 +14044,9 @@ themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소�
 const EXP_BAR_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const expBarMod = (typeof TwExpBar === 'undefined') ? EXP_BAR_MOD_OFF : TwExpBar.createExpBar({
   _focusTotalSec: ()=>_focusTotalSec,
-  _starPaint: (...a)=>_starPaint(...a),
-  lvBarClass: (...a)=>lvBarClass(...a),
-  lvStarBarClass: (...a)=>lvStarBarClass(...a),
+  _starPaint: (...a)=>lvTierMod._starPaint(...a),
+  lvBarClass: (...a)=>lvTierMod.lvBarClass(...a),
+  lvStarBarClass: (...a)=>lvTierMod.lvStarBarClass(...a),
   overheadMod: overheadMod,
 });
 

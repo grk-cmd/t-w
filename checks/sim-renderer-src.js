@@ -66,6 +66,13 @@ const MODULES = [
   { file: 'myhome-links.js', mod: 'mhLinksMod', glob: 'TwMyHomeLinks', sample: '(function bindMyHomeExternalLinks(){' },   // 앱 FSD 47번
   { file: 'async-prompt.js', mod: 'asyncPromptMod', glob: 'TwAsyncPrompt', sample: 'function asyncPrompt(' },   // 앱 FSD 47번
   { file: 'myhome-page.js', mod: 'mhPageMod', glob: 'TwMyHomePage', sample: 'function loadMyHomePage(' },   // 앱 FSD 47번
+  { file: 'theme.js', mod: 'themeMod', glob: 'TwTheme', sample: 'function getTheme(' },   // 앱 FSD 48번
+  { file: 'asset-code.js', mod: 'assetCodeMod', glob: 'TwAssetCode', sample: 'function encryptBytes(' },   // 앱 FSD 48번
+  { file: 'license-key.js', mod: 'licenseKeyMod', glob: 'TwLicenseKey', sample: 'document.getElementById(\'licenseSubmitBt' },   // 앱 FSD 48번
+  { file: 'license-ui.js', mod: 'licenseUiMod', glob: 'TwLicenseUi', sample: 'function refreshLicenseUI(' },   // 앱 FSD 48번
+  { file: 'race-picker.js', mod: 'racePickerMod', glob: 'TwRacePicker', sample: 'function initRacePreview(' },   // 앱 FSD 48번
+  { file: 'wardrobe-panel.js', mod: 'wdPanelMod', glob: 'TwWardrobePanel', sample: '(function bindWardrobe(){' },   // 앱 FSD 48번
+  { file: 'lv-tier.js', mod: 'lvTierMod', glob: 'TwLvTier', sample: 'function lvTierNum(' },   // 앱 FSD 48번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
