@@ -771,7 +771,7 @@ async function joined(o = {}){
   {
     const FC = strip(FI), AC = strip(APP), RC = strip(SRC);
     chk(!/^\s*import\s/m.test(SRC) && !/firebase|gstatic/i.test(RC.replace(/firebase-init|Firebase/g, '')), 'room-server-net.js 는 아무것도 import 하지 않는다(Firebase 직접 호출 없음)');
-    chk(/import \{ createRoomServerNet \} from "\.\/room-server-net\.js";/.test(FC) && /import \{ createRoomServerGate \} from "\.\/room-server-gate\.js";/.test(FC), 'firebase-init.js 가 room-server-net.js · room-server-gate.js 를 import');
+    chk(/import \{ createRoomServerNet \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-server-net\.js";/.test(FC) && /import \{ createRoomServerGate \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-server-gate\.js";/.test(FC), 'firebase-init.js 가 room-server-net.js · room-server-gate.js 를 import');
     chk(/enabled: \(\) => !!_rsUrl,\s*url: \(\) => _rsUrl,/.test(FC), '  ↳ 주소는 문지기가 고른 _rsUrl 하나 — 없으면 서버 안 씀');
     chk(/if\(r\.via === 'server'\) _rsUrl = r\.url;/.test(FC) && /if\(m && !_roomServer\.inRoom\(\)\) _rsUrl = m\.url;/.test(FC), '  ↳ resolveRoomServer 가 서버로 고르면 주소를 건다 · 방 개수 · 랜덤은 방 안이면 안 바꾼다');
     chk(/getToken: _getIdToken/.test(FC) && /auth\.currentUser\.getIdToken\(!!force\)/.test(FC), '  ↳ 토큰은 Firebase Auth getIdToken');

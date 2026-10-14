@@ -17,7 +17,7 @@ const CODE = strip(FI);
 
 say('── 1. firebase-init.js 연결');
 {
-  chk(/import \{ createGhostHeal \} from "\.\/room-ghost-heal\.js";/.test(CODE), 'room-ghost-heal.js 를 import 한다');
+  chk(/import \{ createGhostHeal \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-ghost-heal\.js";/.test(CODE), 'room-ghost-heal.js 를 import 한다');
   chk(/const _healMyMemberNode = createGhostHeal\(\{[\s\S]{0,400}state: \(\) => \(\{ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,\s*friends: _roomLastFriends, meta: _roomMetaVal \}\)/.test(CODE),
       '방 상태를 «부를 때마다» 읽는 함수로 넘긴다 (leaveRoom 이 비우는 값들)');
   chk(/update\(_myMemberRef, _hb\)\.catch\(\(\)=>_healMyMemberNode\('heartbeat'\)\)/.test(CODE), '하트비트 update 거부 → 복구 호출');

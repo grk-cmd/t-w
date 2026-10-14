@@ -72,7 +72,9 @@ say('── 3. 일부러 깨 보기 — 없는 경로를 넣으면 잡는다');
   const h2 = HTML.replace('<script src="parts/app.js"></script>', '<script src="parts/room/app.js"></script>');
   chk(h2 !== HTML && judge(h2, FILES, real).missSrc.length === 1, '<script src> 하나가 없는 폴더를 가리키면 잡는다');
   const fi = Object.keys(FILES).find(f => path.basename(f) === 'firebase-init.js');
-  const f2 = Object.assign({}, FILES, { [fi]: FILES[fi].replace('from "./room-index.js"', 'from "./room/room-index.js"') });
+  /* 첫 상대 import 하나를 없는 폴더로 — 파일이 폴더로 옮겨 가도 깰 글자가 남게 이름을 고정하지 않는다 */
+  const firstImp = fi && (FILES[fi].match(/from "(\.\.?\/[^"]+)"/) || [])[1];
+  const f2 = Object.assign({}, FILES, { [fi]: firstImp ? FILES[fi].replace('from "' + firstImp + '"', 'from "./없는폴더/' + path.basename(firstImp) + '"') : FILES[fi] });
   chk(!!fi && f2[fi] !== FILES[fi] && judge(HTML, f2, real).missImp.length === 1, 'import 하나가 없는 폴더를 가리키면 잡는다');
   const f3 = Object.assign({}, FILES, { [fi]: FILES[fi] + '\n// import { x } from "./없는파일.js"\n' });
   chk(judge(HTML, f3, real).missImp.length === 0, '주석 안의 import 는 세지 않는다');

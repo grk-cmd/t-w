@@ -90,7 +90,7 @@ const A = new Function(unexport(RA) + '\nreturn { ROOM_ALIVE_MIN_VER, ROOM_ALIVE
 
   say('── 3. firebase-init.js 연결');
   {
-    chk(/import \{[^}]*isMemberAlive[^}]*\} from "\.\/room-alive\.js"/.test(FI), 'room-alive.js 를 불러 쓴다');
+    chk(/import \{[^}]*isMemberAlive[^}]*\} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-alive\.js"/.test(FI), 'room-alive.js 를 불러 쓴다');
     chk(/Promise\.resolve\(_rc \? _rc\.minRoomVer\(\) : null\)\.then\(v => \{[\s\S]{0,120}aliveV2On\(v\)/.test(CODE), '입장 때 minRoomVer(원격 설정 minVersion.room)로 새 방식을 켤지 정한다');
     chk(/_aliveV2 = true;[\s\S]{0,200}update\(_myMemberRef, \{ hb: ROOM_ALIVE_HB \}\)/.test(CODE), '  ↳ 켜지면 멤버 노드에 hb:2 를 한 번 싣는다');
     const hbBlock = (CODE.match(/_fbHeartbeat = setInterval\(\(\)=>\{([\s\S]*?)\}, 30000\);/) || [])[1] || '';

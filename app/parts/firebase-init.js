@@ -32,11 +32,11 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig, FIREBASE_ENV } from "./firebase-config.js";
-  import { createGhostHeal } from "./room-ghost-heal.js";
-  import { createRoomIndex } from "./room-index.js";
-  import { recoverChannelFor } from "./room-channel.js";
-  import { createRoomStats } from "./room-stats.js";
-  import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room-alive.js";
+  import { createGhostHeal } from "./room/room-ghost-heal.js";
+  import { createRoomIndex } from "./room/room-index.js";
+  import { recoverChannelFor } from "./room/room-channel.js";
+  import { createRoomStats } from "./room/room-stats.js";
+  import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room/room-alive.js";
   import { createInviteAccount } from "./account/invite-account.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
   import { createAppVersion } from "./app-version.js";
@@ -46,8 +46,8 @@
   import { createCatalogSync } from "./catalog-cache.js";
   import { createBroadcastSync } from "./myhome/broadcast-cache.js";
   import { createVisitPing } from "./visit-ping.js";
-  import { createRoomServerNet } from "./room-server-net.js";
-  import { createRoomServerGate } from "./room-server-gate.js";
+  import { createRoomServerNet } from "./room/room-server-net.js";
+  import { createRoomServerGate } from "./room/room-server-gate.js";
   import { createApiPublicReads } from "./api-public-reads.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면

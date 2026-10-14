@@ -196,7 +196,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
 
   say('── 4. firebase-init.js 연결 · 규칙');
   {
-    chk(/import \{ createRoomIndex \} from "\.\/room-index\.js";/.test(CODE) && /import \{ createRoomStats \} from "\.\/room-stats\.js";/.test(CODE), 'room-index.js · room-stats.js 를 import 한다');
+    chk(/import \{ createRoomIndex \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-index\.js";/.test(CODE) && /import \{ createRoomStats \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-stats\.js";/.test(CODE), 'room-index.js · room-stats.js 를 import 한다');
     chk(/createRoomIndex\(\{[\s\S]{0,200}state: \(\) => \(\{ room: _roomCode, meta: _roomMetaVal \}\)/.test(CODE), 'roomIndex 에 방 상태를 «부를 때마다» 읽는 함수로 넘긴다');
     chk(/function _touchRoomIndex\(room, extra\)\{ _roomIndex\.touch\(room, extra\); \}/.test(CODE), '_touchRoomIndex 는 모듈로 넘기기만 한다 (하트비트 · 재접속 · 유령 복구가 모두 이 길)');
     chk(/if\(open === true \|\| open === false\) meta\.open = open;\s*await update\(ref\(db, `rooms\/\$\{room\}\/_meta`\), meta\);/.test(CODE), 'setRoomChannel 이 open 을 _meta 에도 쓴다 (명시한 boolean 일 때만)');

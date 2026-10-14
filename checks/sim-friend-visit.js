@@ -94,7 +94,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   chk(/\.mh-fpill-code\.go\{cursor:pointer;/.test(HTML) && /\.mh-fpill-code\.go:hover\{/.test(HTML), '눌리는 칸 표시(css)');
   chk(/var\(--win-title-a\)/.test(MOD) && /class="lc-btn ghost" data-a="no"/.test(MOD) && /class="lc-btn" data-a="ok"/.test(MOD) && /var\(--win-face\)/.test(MOD),
     '★ 앱 창과 같은 모양 — 테마 변수(--win-*) · 타이틀바 · lc-btn');
-  const iMod = HTML.indexOf('parts/friend-visit.js'), iApp = HTML.indexOf('parts/app.js"');
+  const iMod = HTML.indexOf('parts/room/friend-visit.js'), iApp = HTML.indexOf('parts/app.js"');
   chk(iMod > 0 && iApp > iMod, 'friend-visit.js 를 app.js 보다 먼저 싣는다');
 
   say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass + ' — 묻고 가고, 같은 방 · 떠난 방은 안 간다'));

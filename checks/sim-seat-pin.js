@@ -44,7 +44,7 @@ chk(/idx = TwSeatPin\.dragIndex\(idx, drag\.seat, seats, roomSeatMode\)/.test(AP
 chk(/let roomSeatMode = window\.TwSeatPin \? TwSeatPin\.loadMode\(localStorage\) : 'row';/.test(APP), '부팅 때 저장값 읽기 · 모듈이 없으면 예전 그대로');
 chk(/rsBtn\.onclick=\(\)=>\{\s*roomSeatMode = TwSeatPin\.next\(roomSeatMode\);\s*TwSeatPin\.saveMode\(localStorage, roomSeatMode\);\s*refreshToggleBtns\(\);\s*layoutSeats\(\);/.test(APP), '버튼 — 바꾸고 · 저장하고 · 글 바꾸고 · 다시 배치');
 chk(/id="fsRoomSeatModeToggle"/.test(HTML) && /방에서 내 자리/.test(HTML), '설정 › 캐릭터 «방에서 내 자리» 버튼');
-const iMod = HTML.indexOf('parts/seat-pin.js'), iApp = HTML.indexOf('parts/app.js"');
+const iMod = HTML.indexOf('parts/room/seat-pin.js'), iApp = HTML.indexOf('parts/app.js"');
 chk(iMod > 0 && iApp > iMod, 'seat-pin.js 를 app.js 보다 먼저 싣는다');
 chk(!/roomSeatMode/.test((APP.match(/function applyCameraAndCanvas\([\s\S]*?\n\}/) || [''])[0]), '카메라 · 크기는 안 건드린다(되돌린 #58 의 자동 맞춤 · 휠 없음)');
 
