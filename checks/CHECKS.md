@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 227 (구조 정리 3단계 폴더 6번 — 계정 · 라이선스(로그인 · 내 정보 · 초대장 · 라이선스 · 한 기기) 파일 10개를 `parts/account/` 로)
-대상: `sim-*.js` 239개 + `smoke.js` + `audit.py` = **241개** (개정 227 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 228 (구조 정리 3단계 폴더 7번 — 런처 · 앱 껍데기(설정 창 · 프로그램 설정 · 데스크탑 실행 · 단축키 · 광고) 파일 6개를 `parts/launcher/` 로)
+대상: `sim-*.js` 239개 + `smoke.js` + `audit.py` = **241개** (개정 228 기준 — 폴더를 센 값)
+
+**개정 228 에서 한 것 (2026-10-14 · 도메인 폴더 7번 — 동작 변화 없음)**
+- 앱: `settings-panel.js` · `program-settings.js` · `desktop-run.js` · `launcher-chrome.js` · `fn-keys.js` · `ad-banner.js` 를 `app/parts/launcher/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로.
+- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 7개(`sim-ad-banner.js`, `sim-admin-users-launcher.js`, `sim-desktop-run.js`, `sim-fn-keys.js`, `sim-launcher-chrome.js`, `sim-program-settings.js`, `sim-settings-panel.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
 
 **개정 227 에서 한 것 (2026-10-14 · 도메인 폴더 6번 — 동작 변화 없음)**
 - 앱: `account.js` · `my-info.js` · `license-gate.js` · `license-ui.js` · `license-key.js` · `license-request.js` · `device-lost.js` · `name-guard.js` · `invite-account.js` · `invite-revoke.js` 를 `app/parts/account/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로 · ES 모듈 import 경로(firebase-init.js 등)도 새 자리로.
@@ -1932,7 +1936,7 @@
 | **sim-admin-console.js** | 142 | **69a45467ccbe** ← **개정 204 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 179 «deps 하나 빠짐» 은 콘솔 도구를 만드는 줄 안에서 지운다(같은 줄이 파츠 등록 deps 에도 생겨서)** · **개정 177 신설 · 🧹 관리자 콘솔 도구 모듈(admin/admin-console.js) — 만들 때 · 미리보기 / 실행 갈래 · 이관(읽는 함수) · app.js 연결 · 일부러 깨 보기 9가지** |
 | **sim-admin-license.js** | 197 | **7648e2b8f3c0** ← **개정 204 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 178 신설 · 🎟️ 관리자 3번 모듈 셋(admin-license · admin-notice · admin-category) — 만들 때 · 라이선스 · 공지 · 카테고리(읽는 함수) · app.js 연결 · 일부러 깨 보기 10가지** |
 | **sim-admin-part-register.js** | 148 | **a1b7d3c9e47f** ← **개정 204 공용 도우미로 읽음 · 되살린 글에 꾸미기 본문이 있으면 wardrobe.js 는 따로 안 셈 · 꾸미기 깨 보기도 그 글에서(29·0)** · **개정 197 꾸미기 부르는 곳은 wardrobe.js 에서 · deps 는 키 · 넘기는 방식만 · 깨 보기 하나 더(29·0)** · **개정 192 «deps 하나 빠짐» 깨 보기를 파츠 등록 창 만드는 줄 안으로 좁힘(같은 줄이 part-paint 만드는 줄에도 생김 · 판정 무변경)** · **개정 179 신설 · 🛠️ 파츠 · 책상 · 아이템 등록 창 모듈(admin-part-register.js) — 만들 때 · 파츠 삭제 · 값은 읽는 함수로만 · app.js 연결 · 일부러 깨 보기 10가지** |
-| **sim-admin-users-launcher.js** | 159 | **549375946c9a** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 212 광고 배너 사용자 쪽이 ad-banner.js 로 간 것 반영(판정 무변경)** · **개정 195 초대 창은 license-gate.js 에서 · 통계 · 초대권 만드는 줄은 초대장 모듈 만드는 줄 바로 뒤(30·0)** · **개정 181 신설 · 🧰 관리자 5번 모듈 둘(admin-users · admin-launcher) — 통계 · 초대권 · 런처 도구(읽는 함수) · app.js 연결 · 일부러 깨 보기 9가지** |
+| **sim-admin-users-launcher.js** | 159 | **8b018db10110** ← **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 212 광고 배너 사용자 쪽이 ad-banner.js 로 간 것 반영(판정 무변경)** · **개정 195 초대 창은 license-gate.js 에서 · 통계 · 초대권 만드는 줄은 초대장 모듈 만드는 줄 바로 뒤(30·0)** · **개정 181 신설 · 🧰 관리자 5번 모듈 둘(admin-users · admin-launcher) — 통계 · 초대권 · 런처 도구(읽는 함수) · app.js 연결 · 일부러 깨 보기 9가지** |
 | **sim-admin-asset.js** | 129 | **17a7277e435d** ← **개정 205 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 182 신설 · 📦 코드 굽는 창 셋 모듈(admin-asset.js) — 만들 때 · 📦 · 🎁 · 🔐 · app.js 연결 · 일부러 깨 보기 8가지** |
 | **sim-admin-mode.js** | 133 | **4f7fdea2ee8f** ← **개정 204 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 183 신설 · 🔐 관리자 모드 진입 모듈(admin-mode.js) — 만들 때 · 켜기(로그인 확인) · 끄기 · Ctrl·⌘ 진입 · app.js 연결 · 일부러 깨 보기 9가지** |
 | **sim-report.js** | 137 | **fe3fe58ed694** ← **개정 223 경로 parts/support/ 반영(판정 무변경)** · **개정 212 숨김 Set 이 hidden-seats.js 로 간 것 반영(판정 무변경)** · **개정 184 신설 · 🚩 신고하기 모듈 둘(report.js · admin-report.js) — 신고 창 · 관리자 목록 · 팝업 칸 나눠 쓰기 · app.js 연결 · 일부러 깨 보기 8가지** |
@@ -1950,8 +1954,8 @@
 | **sim-license-gate.js** | 95 | **d43966d9007d** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 195 신설 · 🎟️ 초대장 · 라이선스 모듈(license-gate.js) 구조** |
 | **sim-account.js** | 95 | **d668f35b3204** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 신설 · 🔑 계정 모듈(account.js) 구조** |
 | **sim-wardrobe.js** | 95 | **679779dbe635** ← **개정 197 신설 · 🎨 꾸미기 창 모듈(wardrobe.js) 구조** |
-| **sim-settings-panel.js** | 95 | **b8ec23693fff** ← **개정 198 신설 · ⚙ 설정 패널 모듈(settings-panel.js) 구조** |
-| **sim-desktop-run.js** | 94 | **48f06c7c7bd2** ← **개정 199 신설 · 🖥️ 데스크탑 실행 화면 모듈(desktop-run.js) 구조** |
+| **sim-settings-panel.js** | 95 | **3e8fac0248af** ← **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 198 신설 · ⚙ 설정 패널 모듈(settings-panel.js) 구조** |
+| **sim-desktop-run.js** | 94 | **fc25ea6dd9c6** ← **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 199 신설 · 🖥️ 데스크탑 실행 화면 모듈(desktop-run.js) 구조** |
 | **sim-room-entry.js** | 95 | **2351dbd0ecc1** ← **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 200 신설 · 🛰 방 서버 · 입장 · 방 개수 모듈(room-entry.js) 구조** |
 | **sim-overhead.js** | 95 | **9ff30225ba06** ← **개정 201 신설 · 💬 머리 위 말풍선 · 🏷️ 이름표 모듈(overhead.js) 구조** |
 | **sim-room-sync.js** | 95 | **dab40cced30b** ← **개정 202 신설 · 📦 방 def 전송 · poke · 자동 퇴장 · 감시견 모듈(room-sync.js) 구조** |
@@ -1959,7 +1963,7 @@
 | **sim-premium-assets.js** | 95 | **47d96e667014** ← **개정 204 신설 · 🎀 프리미엄 파츠 · 라이선스 책상 모듈(premium-assets.js) 구조** |
 | **sim-char-code.js** | 95 | **a389cce776e1** ← **개정 205 신설 · 📦 캐릭터 복제 코드 모듈(char-code.js) 구조** |
 | **sim-dice-games.js** | 95 | **2689aac9a114** ← **개정 206 신설 · 🎲 주사위 · 하루 횟수 모듈(dice-games.js) 구조** |
-| **sim-program-settings.js** | 95 | **50334f38f468** ← **개정 207 신설 · 🏷️ 닉네임 저장 · ⚙️ 프로그램 설정 창 모듈(program-settings.js) 구조** |
+| **sim-program-settings.js** | 95 | **78de5765c73a** ← **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 207 신설 · 🏷️ 닉네임 저장 · ⚙️ 프로그램 설정 창 모듈(program-settings.js) 구조** |
 | **sim-chat-prefs.js** | 95 | **d730ac7e3cdf** ← **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 208 신설 · 🗑 대화 기록 삭제 · 💬 채팅창 투명도 · 🔔 알림음 모듈(chat-prefs.js) 구조** |
 | **sim-rich-text.js** | 95 | **f47ffe90aed1** ← **개정 209 신설 · 🛡️ 리치 텍스트 sanitize 모듈(rich-text.js) 구조** |
 | **sim-win-stack.js** | 96 | **fa7b47c75dd2** ← **개정 210 신설 · 🪟 창 겹침 모듈(win-stack.js) 구조** |
@@ -1967,9 +1971,9 @@
 | **sim-face-heal.js** | 96 | **8ed5ebe9ddf3** ← **개정 212 신설 · 🛡️ 얼굴 자동 복구 모듈(face-heal.js) 구조** |
 | **sim-slot-save.js** | 96 | **7ddf6b15986e** ← **개정 212 신설 · 💾 슬롯 저장 · 복원 모듈(slot-save.js) 구조** |
 | **sim-interaction-desk.js** | 96 | **0a1a3ba59f94** ← **개정 212 신설 · 🪑 상호작용 책상 · 💃 춤 목록 · 재주 상수 모듈(interaction-desk.js) 구조** |
-| **sim-ad-banner.js** | 96 | **f1a5bbbfe295** ← **개정 212 신설 · 📢 광고 배너 · ⚙️ 게임 설정(사용자 쪽) 모듈(ad-banner.js) 구조** |
+| **sim-ad-banner.js** | 96 | **48560f490e51** ← **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 212 신설 · 📢 광고 배너 · ⚙️ 게임 설정(사용자 쪽) 모듈(ad-banner.js) 구조** |
 | **sim-license-request.js** | 96 | **484922aca1ed** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 212 신설 · 📨 라이선스 요청 모듈(license-request.js) 구조** |
-| **sim-fn-keys.js** | 95 | **c4e2cc4552fa** ← **개정 212 신설 · ⌨️ 함수키 모듈(fn-keys.js) 구조** |
+| **sim-fn-keys.js** | 95 | **faba9b8b6088** ← **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 212 신설 · ⌨️ 함수키 모듈(fn-keys.js) 구조** |
 | **sim-hidden-seats.js** | 96 | **62ace3bf3718** ← **개정 212 신설 · 🙈 워킹룸 숨기기 모듈(hidden-seats.js) 구조** |
 | **sim-theme-ui.js** | 96 | **101f172a2ff4** ← **개정 213 신설 · 🎨 테마(자식 창 테마 · 고르기) 모듈(theme-ui.js) 구조** |
 | **sim-myhome-sticker-layout.js** | 96 | **17e8e335b06a** ← **개정 213 신설 · 🎨 마이홈 스티커 배치 모듈(myhome-sticker-layout.js) 구조** |
@@ -1989,7 +1993,7 @@
 | **sim-myhome-page.js** | 96 | **8d44d4be629b** ← **개정 216 신설 · 🏠 마이홈 불러오기 · 그리기 모듈(myhome-page.js) 구조** |
 | **sim-myhome-links.js** | 95 | **89cdfbc01636** ← **개정 216 신설 · 🔗 마이홈 본문 링크 모듈(myhome-links.js) 구조** |
 | **sim-async-prompt.js** | 96 | **55277e44e6e5** ← **개정 216 신설 · ✏️ 인앱 프롬프트 모듈(async-prompt.js) 구조** |
-| **sim-launcher-chrome.js** | 95 | **66db60a8a62d** ← **개정 216 신설 · 🪟 런처 타이틀바 · 팝업 흐림 모듈(launcher-chrome.js) 구조** |
+| **sim-launcher-chrome.js** | 95 | **40069397510f** ← **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 216 신설 · 🪟 런처 타이틀바 · 팝업 흐림 모듈(launcher-chrome.js) 구조** |
 | **sim-outside-close.js** | 95 | **7522041b7a07** ← **개정 216 신설 · 🪟 팝업 바깥 클릭으로 닫기 모듈(outside-close.js) 구조** |
 | **sim-wardrobe-panel.js** | 95 | **cdce9422b83f** ← **개정 217 신설 · 🎨 꾸미기 사이드 패널 모듈(wardrobe-panel.js) 구조** |
 | **sim-race-picker.js** | 96 | **be874bb9cbdf** ← **개정 217 신설 · 🐾 종족 선택창 모듈(race-picker.js) 구조** |
