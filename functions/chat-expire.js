@@ -1,7 +1,11 @@
 /*
- * 💬 서버 대화 3일 보관 — 매일 3일 지난 줄을 지운다(앱 app/parts/chat-history.js 의 CHAT_SERVER_KEEP_MS 와 같은 값 · 검사 sim-chat-history.js).
- * 3일이 안 됐어도 기록마다 최근 CHAT_KEEP_MAX(300) 줄을 넘는 옛 줄을 같이 지운다(앱의 CHAT_KEEP_MAX 와 같은 값).
- *   하루 한 번이라 그 사이엔 300줄을 넘을 수 있다 — 앱이 화면 · PC 저장을 늘 300줄로 자르므로 사용자에겐 300줄까지만 보인다.
+ * 💬 서버 대화 보관 — 매시간 보관 일수가 지난 줄을 지운다. 기본 3일(앱 app/parts/chat-history.js 의 CHAT_SERVER_KEEP_MS 와 같은 값 · 검사 sim-chat-history.js).
+ * 방 종류마다 일수를 다르게 둘 수 있다 — config/chatKeepDays = { default?, togetherroom?, workingroom?, secret?, … }(일 · 1~30).
+ *   종류 이름은 열어 두었다(규칙은 영소문자 키만 본다) — 새 방 종류가 생기면 함수 · 규칙을 안 고치고 설정 한 칸만 더한다.
+ *   칸이 없으면 default, default 도 없으면 3일. 종류를 모르는 방(방 정보가 이미 지워진 빈 방)도 default.
+ * 보관 일수가 안 됐어도 기록마다 최근 CHAT_KEEP_MAX(300) 줄을 넘는 옛 줄을 지운다(앱의 CHAT_KEEP_MAX 와 같은 값).
+ *   이건 하루 한 번(서울 04시 실행)만 — 기록마다 최근 301줄을 받아야 해서 매시간 하면 다운로드가 24배다.
+ *   그 사이엔 300줄을 넘을 수 있다 — 앱이 화면 · PC 저장을 늘 300줄로 자르므로 사용자에겐 300줄까지만 보인다.
  * 그보다 오래된 대화는 각자 PC 저장(워킹룸 · 시크릿룸)에만 남는다. 공용 투게더룸은 PC 에도 안 남기므로 3일 뒤엔 없다.
  *
  * rooms/{방}/chatLog · rooms/{방}/_chatTab/{s1|s2} 를 ts 색인(규칙 .indexOn)으로 «3일 전까지» 만 받아 지운다 — 남길 줄은 받지 않는다.
@@ -11,7 +15,12 @@
  */
 'use strict';
 
-const CHAT_SERVER_KEEP_MS = 3 * 24 * 3600 * 1000;
+const DAY_MS = 24 * 3600 * 1000;
+const CHAT_SERVER_KEEP_MS = 3 * DAY_MS;
+const KEEP_DAYS_PATH = 'config/chatKeepDays';
+const KEEP_DAYS_MIN = 1, KEEP_DAYS_MAX = 30;   // 규칙 config/chatKeepDays 와 같은 범위
+const SECRET_PREFIX = 'SCRT-';
+const TRIM_HOUR_KST = 4;                       // 300줄 정리를 하는 시각(서울) — 예전 매일 04:30 자리
 const CHAT_KEEP_MAX = 300;
 const CLEAR_SYS = 'clr';
 const TAB_IDS = ['s1', 's2'];   // 규칙 _chatTab/$tabId 와 같다
@@ -53,9 +62,40 @@ async function trimLog(db, path){
   return n;
 }
 
-/* shallow(p) → 키만 담긴 객체(없으면 null) — room-stats.js adminShallow */
-async function runChatExpire(db, now, shallow){
-  const cut = now - CHAT_SERVER_KEEP_MS;
+const okDays = (v) => typeof v === 'number' && v % 1 === 0 && v >= KEEP_DAYS_MIN && v <= KEEP_DAYS_MAX;
+
+/* config/chatKeepDays → { defMs, byKind: { 종류: ms } } — 범위 밖 값은 없는 것으로 본다(규칙이 막지만 함수도 믿지 않는다). */
+function keepPolicy(cfg){
+  const byKind = {};
+  let defMs = CHAT_SERVER_KEEP_MS;
+  if (cfg && typeof cfg === 'object'){
+    for (const [k, v] of Object.entries(cfg)){
+      if (!okDays(v)) continue;
+      if (k === 'default') defMs = v * DAY_MS;
+      else byKind[k] = v * DAY_MS;
+    }
+  }
+  return { defMs, byKind };
+}
+
+/* 방 종류 — 시크릿룸은 코드로, 나머지는 방 정보의 channel 로. Firebase 방은 rooms/{방}/_meta, 방 서버 방은 roomDir/{방}/meta.
+   둘 다 없으면 null(빈 방이라 방 정보가 이미 지워졌다 → default). 한 칸씩만 읽는다. */
+async function roomKind(db, code){
+  if (code.startsWith(SECRET_PREFIX)) return 'secret';
+  const fb = (await db.ref('rooms/' + code + '/_meta/channel').get()).val();
+  if (typeof fb === 'string') return fb;
+  const srv = (await db.ref('roomDir/' + code + '/meta/channel').get()).val();
+  return typeof srv === 'string' ? srv : null;
+}
+
+const kstHour = (now) => new Date(now + 9 * 3600 * 1000).getUTCHours();
+
+/* shallow(p) → 키만 담긴 객체(없으면 null) — room-stats.js adminShallow
+   trim: 300줄 정리까지 할지(기본은 서울 04시 실행일 때만). */
+async function runChatExpire(db, now, shallow, { trim = kstHour(now) === TRIM_HOUR_KST } = {}){
+  const policy = keepPolicy((await db.ref(KEEP_DAYS_PATH).get()).val());
+  // 종류별 칸이 없으면 방 종류를 읽지 않는다 — 모든 방이 같은 일수라 읽을 까닭이 없다
+  const needKind = Object.keys(policy.byKind).length > 0;
   const rooms = Object.keys((await shallow('rooms')) || {});
   let logs = 0, removed = 0, trimmed = 0, failed = 0;
   for (const code of rooms){
@@ -67,12 +107,19 @@ async function runChatExpire(db, now, shallow){
         const tabs = (await shallow('rooms/' + code + '/_chatTab')) || {};
         TAB_IDS.forEach(id => { if (tabs[id]) paths.push('rooms/' + code + '/_chatTab/' + id); });
       }
-      for (const p of paths){ removed += await expireLog(db, p, cut); trimmed += await trimLog(db, p); logs++; }
+      if (!paths.length) continue;
+      const kind = needKind ? await roomKind(db, code) : null;
+      const keepMs = (kind && policy.byKind[kind]) || policy.defMs;
+      for (const p of paths){
+        removed += await expireLog(db, p, now - keepMs);
+        if (trim) trimmed += await trimLog(db, p);
+        logs++;
+      }
     }catch(e){ failed++; }
   }
-  const sum = { rooms: rooms.length, logs, removed, trimmed, failed };
+  const sum = { rooms: rooms.length, logs, removed, trimmed, failed, trim };
   console.log('[chatExpire]', JSON.stringify(sum));
   return sum;
 }
 
-module.exports = { runChatExpire, expireLog, trimLog, CHAT_SERVER_KEEP_MS, CHAT_KEEP_MAX, CLEAR_SYS, TAB_IDS };
+module.exports = { runChatExpire, expireLog, trimLog, keepPolicy, roomKind, CHAT_SERVER_KEEP_MS, CHAT_KEEP_MAX, CLEAR_SYS, TAB_IDS, KEEP_DAYS_MIN, KEEP_DAYS_MAX };
