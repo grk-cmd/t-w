@@ -120,7 +120,7 @@ chk(RC.channelFromRoomCode('WORK-AB12') === 'workingroom', 'WORK- → 워킹룸'
 chk(RC.channelFromRoomCode('SCRT-AB12') === 'togetherroom', 'SCRT- → 투게더룸(시크릿룸)');
 chk(RC.channelFromRoomCode('COZY-AB12') === null && RC.channelFromRoomCode('') === null, '옛 COZY- · 빈 값 → 모름(null)');
 chk(RC.recoverChannelFor('COZY-AB12', true) === 'togetherroom' && RC.recoverChannelFor('COZY-AB12', false) === 'workingroom', '  접두어로 모를 때만 라이선스로 정한다(예전 규칙)');
-chk(/import \{ recoverChannelFor \} from "\.\/room-channel\.js";/.test(FI), 'firebase-init 이 room-channel.js 에서 가져다 쓴다');
+chk(/import \{ recoverChannelFor \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-channel\.js";/.test(FI), 'firebase-init 이 room-channel.js 에서 가져다 쓴다');
 
 /* ── 6. 방장 칸이 빈 투게더룸 ── */
 say('── 6. _maybeSucceedHost — 승계 · 해산은 예전 그대로(빈 방장 칸은 대상 아님)');

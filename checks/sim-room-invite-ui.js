@@ -1,5 +1,5 @@
 /* ═══ 🙋 sim-room-invite-ui.js — 투게더룸 친구 초대 · 방 초대 받기 모듈 (2026-10-13 신설 · 앱 FSD 10번) ═══════════════
-   app.js 의 «🙋 투게더룸 친구 초대» 구역(친구 고르기 창 · 초대 보내기 · 방 초대 받기 팝업)을 parts/room-invite-ui.js 로 옮겼다.
+   app.js 의 «🙋 투게더룸 친구 초대» 구역(친구 고르기 창 · 초대 보내기 · 방 초대 받기 팝업)을 parts/room/room-invite-ui.js 로 옮겼다.
    동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwRoomInviteUi 뿐 · 만들면 버튼 둘 · ✕ · 바깥 누름 · 끌기 · resize 연결 · 초대 수신 구독 ·
            firebaseAPI 가 없으면 firebase-ready 를 한 번 기다림 · 창 DOM 이 없어도 수신은 건다
@@ -308,7 +308,7 @@ await sec('── 6. app.js 배선', () => {
   chk(/if\(window\.firebaseAPI\) _bindRoomInviteReceiver\(\);\nelse window\.addEventListener\('firebase-ready', \(\)=>_bindRoomInviteReceiver\(\), \{ once:true \}\);/.test(MOD), '만들 때 수신 구독(또는 firebase-ready) — 예전 부팅 줄 그대로');
   const off = (APP.match(/const ROOM_INVITE_UI_OFF = \{([^\n]*?)\};/) || [])[1] || '';
   chk(/\bshowPopup\(\)\{\}/.test(off) && /\bbusy:\(\)=>false/.test(off), '빈 껍데기 ROOM_INVITE_UI_OFF — 반환값 이름을 다 갖는다');
-  const iE = HTML.indexOf('<script src="parts/myhome/myhome-edit.js"></script>'), iS = HTML.indexOf('<script src="parts/room-invite-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iE = HTML.indexOf('<script src="parts/myhome/myhome-edit.js"></script>'), iS = HTML.indexOf('<script src="parts/room/room-invite-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iE > 0 && iS > iE && iA > iS, 'html — room-invite-ui.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwRoomInviteUi') && !/window\.RoomInviteUi\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   const wire = (APP.match(/const ROOM_INVITE_UI_OFF = [\s\S]*?\n\}\);/) || [''])[0];

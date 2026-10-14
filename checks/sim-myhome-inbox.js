@@ -402,7 +402,7 @@ function wiring(MI, APP, HTML){
   const lost = uses.filter(u => A.indexOf(u) < 0);
   chk(!lost.length, '부르는 곳 — 마이홈 열기 · 버튼 연결 · 공지 팝업 · 스케줄러 · 친구 관리 · 방 초대' + (lost.length ? ' (없음 ' + lost.join(' · ') + ')' : ''));
   const iC = HTML.indexOf('<script src="parts/chat/chat-window.js"></script>'), iM = HTML.indexOf('<script src="parts/myhome/myhome-inbox.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>'),
-    iV = HTML.indexOf('<script src="parts/friend-visit.js"></script>');
+    iV = HTML.indexOf('<script src="parts/room/friend-visit.js"></script>');
   chk(iC > 0 && iV > 0 && iM > iC && iM > iV && iA > iM, 'html — myhome-inbox.js 를 app.js 보다 먼저(chat-window.js 뒤)');
   chk(/TwMyHomeInbox/.test(MI) && !/window\.(MyHomeInbox|Inbox)\s*=/.test(MI), '전역 이름은 Tw 접두사 — 크로미움 내장 전역과 겹치지 않게');
 }
