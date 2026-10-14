@@ -11,7 +11,7 @@ const fs = require('fs');
 /* 🚩 신고하기는 앱 FSD 11번에서 report.js(신고 창) · admin/admin-report.js(관리자 목록)로 옮겼다 — 세 글을 이어 읽는다(없으면 빈 글). */
 const _readOne = (...ns) => { for(const n of ns){ try{ return fs.readFileSync(n, 'utf8'); }catch(_){} } return ''; };
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈(🫧 자리비움 그림 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
-const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + _readOne('report.js', 'parts/report.js', 'app/parts/report.js')
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + _readOne('report.js', 'parts/support/report.js', 'app/parts/support/report.js')
   + '\n' + _readOne('admin-report.js', 'parts/admin/admin-report.js', 'app/parts/admin/admin-report.js');
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const FI   = fs.existsSync('firebase-init.js') ? fs.readFileSync('firebase-init.js', 'utf8') : null;

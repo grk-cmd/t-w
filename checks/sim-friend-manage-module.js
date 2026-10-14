@@ -1,6 +1,6 @@
 /* ═══ 👥 sim-friend-manage-module.js — 친구 관리 모듈 · 버그 제보 탭 자리 옮김 (2026-10-10 신설 · 앱 FSD 5번) ═══════════════
    app.js 의 «🐞 버그 제보 탭» 구역에 섞여 있던 친구 쪽 코드(👋 요청 팝업 · 👥 친구 관리 · 📤 보낸 요청)를 parts/friend-manage.js 로,
-   앞머리의 🐞 버그 제보 탭(오픈카톡 기본 링크)을 parts/bug-board-ui.js 끝으로 옮겼다. 동작은 그대로여야 한다.
+   앞머리의 🐞 버그 제보 탭(오픈카톡 기본 링크)을 parts/support/bug-board-ui.js 끝으로 옮겼다. 동작은 그대로여야 한다.
    일괄 수락의 자리 계산 · 서브탭 클래스 공유 · 보낸 요청 미러는 sim-friend-manage 가, 선물함 표시 비우기는 sim-gift-star 가 본다.
    여기서는 «옮긴 것» 자체를 굴려 본다.
    ・1절: 만들 때 — 아무것도 안 건드린다 · 반환값 이름 · 빈 껍데기
@@ -250,7 +250,7 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
   const iI = BUG.indexOf('})();\n\n/* ↓ app.js 에서 옮긴'), iB = BUG.indexOf('(function bindBugReport(){');
   chk(iB > 0 && /^let _bugReportConf = null;/m.test(BUG) && /^window\._bugReportLink = /m.test(BUG), 'bug-board-ui.js 맨 앞 칸 — 전역 이름 그대로(_bugReportConf · window._bugReportLink)');
   chk(iI > 0 && iB > iI, '  게시판 IIFE 뒤(밖)에 있다');
-  const iBU = HTML.indexOf('<script src="parts/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iBU = HTML.indexOf('<script src="parts/support/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   const iFB = HTML.indexOf('<script type="module" src="parts/firebase-init.js"></script>');
   chk(iBU > iA && iFB > 0, 'html — bug-board-ui.js 는 app.js 뒤 · firebase-init.js 는 module(classic 스크립트가 다 돈 뒤에 돈다 → firebase-ready 를 놓치지 않는다)');
   /* 굴려 보기 — 게시판 IIFE 는 DOMContentLoaded 를 기다리게 두고(loading), 끝의 버그 제보 탭만 돈다 */
