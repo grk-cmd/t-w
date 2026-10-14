@@ -70,12 +70,10 @@ function _dailyPlayTake(kind){
    ★ 대화 기록 문장은 **원래 🎲 문장 그대로**다 — «1이 나와 날아갔어요» 꼬리는 붙이지 않는다(2026-09-23 요청). */
 function _rollDice(){
   if(window._activeChannel !== 2) return;
-  /* 🎟️ 하루 6번(_dailyPlayTake 주석). typeof 로 거는 것은 검사 무대(sim-fly-roulette)가 이 함수만 오려 돌리기 때문이다. */
-  if(typeof _dailyPlayTake === 'function'){
-    const q = _dailyPlayTake('dice');
-    if(!q.ok){ if(typeof toast==='function') toast('🎲 주사위는 하루 ' + DAILY_PLAY_MAX + '번까지예요 — 내일 다시 굴릴 수 있어요'); return; }
-    if(q.left === 0 && typeof toast==='function') toast('🎲 오늘 마지막 주사위였어요');
-  }
+  /* 🎟️ 하루 6번(_dailyPlayTake 주석). */
+  const q = _dailyPlayTake('dice');
+  if(!q.ok){ toast('🎲 주사위는 하루 ' + DAILY_PLAY_MAX + '번까지예요 — 내일 다시 굴릴 수 있어요'); return; }
+  if(q.left === 0) toast('🎲 오늘 마지막 주사위였어요');
   const n1 = 1 + Math.floor(Math.random()*6);
   const n2 = 1 + Math.floor(Math.random()*6);
   const name = getDisplayName();

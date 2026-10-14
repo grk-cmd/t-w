@@ -53,7 +53,7 @@ say('── 2. 🖼️ 슬롯 섬네일 = 런처');
   chk(/lChar\.charDef !== job\.def/.test(tk) && /slots\.indexOf\(job\.def\) < 0/.test(tk), '다른 캐릭터·지워진 슬롯이면 안 찍는다');
   chk(/lChar\.group\.position\.y = lCharBaseY;/.test(tk) && /finally\{ try\{ lChar\.group\.position\.y = y;/.test(tk), '둥둥을 멈춘 자리에서 찍고 되돌린다');
   chk(/if\(a < 255 \* 20\) return;/.test(tk), '빈 그림이면 덮지 않는다');
-  chk(/if\(url && url !== job\.def\.thumb\)\{ job\.def\.thumb = url; if\(typeof saveSlots === 'function'\) saveSlots\(\); \}/.test(tk), '바뀌었을 때만 저장');
+  chk(/if\(url && url !== job\.def\.thumb\)\{ job\.def\.thumb = url; saveSlots\(\); \}/.test(tk), '바뀌었을 때만 저장');
   chk(/const LC_THUMB_SETTLE_MS = 900, LC_THUMB_MAX = 160;/.test(CODE), '크기 상한 160px(칸은 52px)');
   chk(/out\.thumb = null;/.test(CODE), '섬네일은 서버로 안 간다(로컬 전용 — 쓰기가 안 는다)');
 }
@@ -190,7 +190,7 @@ say('── 7. 🗼 탑에서 룰렛 — 나만 빠지고 탑은 한 칸 내려�
   const af = strip(grab(SRC, 'applyRemoteFly'));
   chk(/_rideLeaveTower\(seat\);\s*const ok = startFlight\(/.test(af), '받는 화면마다 «먼저 탑에서 빼고 → 날린다»');
   chk(/if\(seat\.fly\) return;\s*const want = seat\._remoteRidingOn;/.test(CODE), '날아가는 중인 좌석에는 늦게 온 «타고 있음» 을 다시 붙이지 않는다');
-  chk(/if\(!_rideQuietToast && typeof toast==='function'\) toast\('🐾 머리 위에 올라탔어요!/.test(CODE), '탑이 내려앉으며 다시 태울 땐 토스트 없음');
+  chk(/if\(!_rideQuietToast\) toast\('🐾 머리 위에 올라탔어요!/.test(CODE), '탑이 내려앉으며 다시 태울 땐 토스트 없음');
 }
 
 say('── 8. 🖼️ 자리비움 그림 = 화면 px 고정 (개정 76 · 150 → 기본 80 · 주인이 60·80·100)');

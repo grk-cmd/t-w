@@ -37,7 +37,7 @@ function _reportReasonText(r){
 async function _openReportAdmin(){
   if(typeof isAdmin() === 'undefined' || !isAdmin()) return;
   const api = window.firebaseAPI;
-  if(!api || !api.listReports){ if(typeof toast === 'function') toast('아직 준비 중이에요'); return; }
+  if(!api || !api.listReports){ toast('아직 준비 중이에요'); return; }
   _reportClose();
   const { ov, body } = _reportBox('🚩 신고 목록', 460);
   body.textContent = '불러오는 중…';
@@ -87,16 +87,16 @@ async function _openReportAdmin(){
       down.onclick = async ()=>{
         down.disabled = true;
         const ok = await api.setAwayImg(r.target, null);
-        if(ok && ok.ok){ try{ await api.deleteStorageUrl(b.awayImg); }catch(_){} th.textContent = '그림 없음'; down.remove(); if(typeof toast === 'function') toast('자리비움 그림을 내렸어요'); }
-        else { down.disabled = false; if(typeof toast === 'function') toast('내리지 못했어요'); }
+        if(ok && ok.ok){ try{ await api.deleteStorageUrl(b.awayImg); }catch(_){} th.textContent = '그림 없음'; down.remove(); toast('자리비움 그림을 내렸어요'); }
+        else { down.disabled = false; toast('내리지 못했어요'); }
       };
     }
     const fine = mkb('문제없음', false);
     fine.onclick = async ()=>{
       fine.disabled = true;
       const ok = await api.clearReports(r.target);
-      if(ok && ok.ok){ it.remove(); if(typeof toast === 'function') toast('신고를 비웠어요'); }
-      else { fine.disabled = false; if(typeof toast === 'function') toast('비우지 못했어요'); }
+      if(ok && ok.ok){ it.remove(); toast('신고를 비웠어요'); }
+      else { fine.disabled = false; toast('비우지 못했어요'); }
     };
     it.appendChild(th); it.appendChild(mid); it.appendChild(act); list.appendChild(it);
   });

@@ -134,7 +134,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
         let out = hasAlpha ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.82);
         if(out.length > AVATAR_MAX_CHARS){
           out = c.toDataURL('image/jpeg', 0.82);
-          if(hasAlpha && typeof toast==='function') toast('사진이 너무 커서 투명 배경은 유지하지 못했어요');
+          if(hasAlpha) toast('사진이 너무 커서 투명 배경은 유지하지 못했어요');
         }
         _myHomeData().avatar = out;
         renderMyHomePage();
@@ -456,8 +456,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
       inp.remove();
       /* 링크를 '' 로 되돌리지 않고 판정을 쥔 곳에 다시 묻는다 — 편집하는 사이에 관람 모드로
          넘어갔을 수 있고, 그러면 숨겨야 할 링크가 되살아난다. */
-      if(typeof _mhApplyVisitUI==='function') _mhApplyVisitUI();
-      else if(editLink) editLink.style.display='';
+      _mhApplyVisitUI();
     };
     inp.addEventListener('keydown', e=>{
       if(e.key==='Enter') inp.blur();

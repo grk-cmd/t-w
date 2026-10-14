@@ -123,7 +123,7 @@ function _awayImgFrame(seat, url, now){
            이미 쓰는 «맨 머리 꼭대기» 측정(measureHeadBoxNoParts)으로 갈아 끼운다.
            ⚠️ 비어 있으면(아래 캐릭터도 자리비움이라 몸이 숨은 경우) 위 상자를 그대로 쓴다. */
         try{
-          const _hb = (typeof measureHeadBoxNoParts === 'function' && _host.gltfRoot) ? measureHeadBoxNoParts(_host.gltfRoot, null, _host) : null;
+          const _hb = _host.gltfRoot ? measureHeadBoxNoParts(_host.gltfRoot, null, _host) : null;
           if(_hb && !_hb.isEmpty()) _awayHostBox.copy(_hb);
         }catch(_){}
         if(!_awayHostBox.isEmpty()){
@@ -204,7 +204,7 @@ function _awayPrepare(file){
    ★ 등록만 잠근다 — 남이 등록한 그림은 프리미엄이 아니어도 그대로 보인다(보는 쪽은 라이선스와 무관).
    ★ 이미 올려 둔 그림은 라이선스가 끝나도 지우지 않는다. [기본으로]는 언제나 쓸 수 있다(내 것을 되돌리는 길은 막지 않는다).
    ⚠️ 서버는 이걸 못 본다 — Storage · RTDB 규칙에 라이선스 판정이 없다. 여기 게이트는 화면 쪽 약속이다. */
-function _awayPremium(){ try{ return (typeof _premiumOn === 'function') ? _premiumOn() : false; }catch(_){ return false; } }
+function _awayPremium(){ try{ return _premiumOn(); }catch(_){ return false; } }
 function _awayRenderUI(msg, isErr){
   const im = document.getElementById('miAwayImg'), ph = document.getElementById('miAwayPh');
   const rs = document.getElementById('miAwayReset'), m = document.getElementById('miAwayMsg');
@@ -246,7 +246,7 @@ function _awaySetLocal(url){
 async function _awayPick(file){
   if(_awayBusy || !file) return;
   if(!_awayPremium()){ _awayRenderUI('👑 프리미엄 라이선스가 있어야 등록할 수 있어요.', true); return; }
-  const api = window.firebaseAPI, uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  const api = window.firebaseAPI, uid = getMyUserId();
   if(!api || !api.uploadAwayImg || !uid){ _awayRenderUI('아직 준비 중이에요 — 잠시 뒤 다시 해 주세요.', true); return; }
   let msg = null, err = false;
   _awayBusy = true; _awayRenderUI('올리는 중…');
@@ -261,13 +261,13 @@ async function _awayPick(file){
     const old = awayImgUrl;
     _awaySetLocal(up.url);
     if(old && old !== up.url){ try{ await api.deleteStorageUrl(old); }catch(_){} }
-    if(typeof toast === 'function') toast('🫧 자리비움 그림을 바꿨어요');
+    toast('🫧 자리비움 그림을 바꿨어요');
   }catch(e){ msg = '못 올렸어요 — 잠시 뒤 다시 해 주세요.'; err = true; }
   finally{ _awayBusy = false; _awayRenderUI(msg, err); }
 }
 async function _awayReset(){
   if(_awayBusy || !awayImgUrl) return;
-  const api = window.firebaseAPI, uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  const api = window.firebaseAPI, uid = getMyUserId();
   if(!api || !api.setAwayImg || !uid){ _awayRenderUI('아직 준비 중이에요 — 잠시 뒤 다시 해 주세요.', true); return; }
   _awayBusy = true; _awayRenderUI('되돌리는 중…');
   try{
@@ -277,7 +277,7 @@ async function _awayReset(){
     _awaySetLocal('');
     try{ await api.deleteStorageUrl(old); }catch(_){}
     _awayBusy = false; _awayRenderUI(null);
-    if(typeof toast === 'function') toast('🫧 기본 자리비움으로 돌아왔어요');
+    toast('🫧 기본 자리비움으로 돌아왔어요');
   }finally{ _awayBusy = false; }
 }
 /* 📏 크기 — 이 기기·방에는 바로, 서버에는 뒤에서. 서버 저장이 실패해도 이 기기·방은 바뀐 채로 둔다(다음 부팅 때 서버 값이 이기므로
@@ -287,13 +287,13 @@ function _awaySzSetLocal(px){
   awayImgSz = px;
   try{ localStorage.setItem(AWAY_SZ_KEY, String(px)); }catch(_){}
   try{ if(typeof Presence !== 'undefined' && Presence.setAwaySz) Presence.setAwaySz(px); }catch(_){}
-  try{ const me = (typeof findMySeat === 'function') ? findMySeat() : null; if(me) me._awayFitAt = 0; }catch(_){}   // 내 화면 즉시 다시 맞춤
+  try{ const me = findMySeat(); if(me) me._awayFitAt = 0; }catch(_){}   // 내 화면 즉시 다시 맞춤
 }
 async function _awaySetSz(px){
   if(!_awaySzOk(px) || px === awayImgSz) return;
   _awaySzSetLocal(px);
   _awayRenderUI(null);
-  const api = window.firebaseAPI, uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  const api = window.firebaseAPI, uid = getMyUserId();
   if(!api || !api.setAwaySz || !uid) return;
   try{
     const r = await api.setAwaySz(uid, px);
@@ -302,7 +302,7 @@ async function _awaySetSz(px){
 }
 /* 부팅 — 서버 값이 기준이다(다른 기기에서 바꿈 · 관리자가 내림). 못 읽으면 로컬 그대로. */
 function _awayBootSync(tries){
-  const api = window.firebaseAPI, uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+  const api = window.firebaseAPI, uid = getMyUserId();
   if(!api || !api.getAwayImg || !uid){ if((tries||0) < 30) setTimeout(()=>_awayBootSync((tries||0)+1), 2000); return; }
   api.getAwayImg(uid).then(r=>{
     if(!r || !r.ok) return;
@@ -319,7 +319,7 @@ function _awayBootSync(tries){
   if(pick && file){
     pick.addEventListener('click', e=>{
       e.stopPropagation();
-      if(!_awayPremium()){ if(typeof toast === 'function') toast('👑 자리비움 그림은 프리미엄 라이선스가 있어야 등록할 수 있어요'); return; }
+      if(!_awayPremium()){ toast('👑 자리비움 그림은 프리미엄 라이선스가 있어야 등록할 수 있어요'); return; }
       if(!_awayBusy){ file.value = ''; file.click(); }
     });
     file.addEventListener('change', ()=>{ const f = file.files && file.files[0]; if(f) _awayPick(f); });

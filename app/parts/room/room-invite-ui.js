@@ -82,7 +82,7 @@ const _myHomeFriends = deps.myHomeFriends;     // 읽는 함수 — app.js 가 �
 
         /* 🏠 는 `_friendInRoom` 이 판정한다 — 시크릿룸에 있는 친구에게도 붙는다(코드만 안 보인다).
            f.room 으로 판정하면 시크릿룸 친구만 🏠 가 빠져서 반대 방향 단서가 된다. */
-        const inRoom = (typeof _friendInRoom === 'function') && _friendInRoom(f);
+        const inRoom = _friendInRoom(f);
         const nm = document.createElement('span');
         nm.style.cssText = 'color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
         nm.textContent = f.name || '(이름 없음)';
@@ -235,9 +235,7 @@ function _bindRoomInviteReceiver(){
       if(accepted && inv.roomCode){
         // 이미 다른 방이면 나간 뒤 이동
         try{ if(typeof Presence!=='undefined' && Presence.active()) await doLeaveRoom({ wipeChat: true }); }catch(_){}
-        if(typeof startRoom==='function'){
-          startRoom(inv.roomCode);
-        }
+        startRoom(inv.roomCode);
       }
       _roomInviteBusy = false;
     });
@@ -285,7 +283,7 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   };
   const paint = ()=>{
     const ms = due - Date.now();
-    if(ms <= 0){ done(false); if(typeof toast === 'function') toast('⏳ 초대에 3분 동안 응답이 없어 거절했어요'); return; }
+    if(ms <= 0){ done(false); toast('⏳ 초대에 3분 동안 응답이 없어 거절했어요'); return; }
     const s = Math.ceil(ms / 1000);
     if(leftEl) leftEl.textContent = '⏳ ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' 안에 응답이 없으면 자동으로 거절돼요';
   };

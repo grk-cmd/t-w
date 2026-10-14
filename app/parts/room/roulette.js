@@ -25,24 +25,24 @@ const ROULETTE_COOL_MS = 3000;          // 연타 방지 — 말풍선·기록 �
 const ROULETTE_FLY_DELAY_MS = 700;      // 주사위 말풍선을 먼저 보여 주고 날린다
 let _rouletteAt = 0;
 function _rollRoulette(){
-  if(typeof officeMode() !== 'undefined' && officeMode()){ if(typeof toast==='function') toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }
+  if(typeof officeMode() !== 'undefined' && officeMode()){ toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }
   const mySeat = findMySeat();
-  if(!mySeat){ if(typeof toast==='function') toast('캐릭터가 없어요'); return; }
+  if(!mySeat){ toast('캐릭터가 없어요'); return; }
   const now = Date.now();
-  if(now - _rouletteAt < ROULETTE_COOL_MS){ if(typeof toast==='function') toast('⏳ 룰렛은 ' + (ROULETTE_COOL_MS/1000) + '초에 한 번!'); return; }
+  if(now - _rouletteAt < ROULETTE_COOL_MS){ toast('⏳ 룰렛은 ' + (ROULETTE_COOL_MS/1000) + '초에 한 번!'); return; }
   /* 쉬는 시간(remoteFlyCool 의 내 쪽 값)·지금 못 나는 상태면 굴리지도 않는다 —
      1이 나왔는데 안 날아가면 «고장» 으로 읽힌다. */
   if(tricksMod._myFlyCoolUntil() && now < tricksMod._myFlyCoolUntil()){
-    if(typeof toast==='function') toast('어지러워서 쉬는 중이에요 (' + Math.ceil((tricksMod._myFlyCoolUntil() - now)/1000) + '초)');
+    toast('어지러워서 쉬는 중이에요 (' + Math.ceil((tricksMod._myFlyCoolUntil() - now)/1000) + '초)');
     return;
   }
   const c = canFly(mySeat, true);   // 🗼 탑 안이어도 굴린다 — 1 이면 탑에서 튕겨 나간다(A안)
-  if(!c.ok){ if(typeof toast==='function') toast(c.why); return; }
+  if(!c.ok){ toast(c.why); return; }
   /* 🎟️ 하루 6번 — 위 게이트를 다 지난 뒤에만 센다(막힌 누름은 안 깎는다 · _dailyPlayTake 주석). */
   if(typeof diceMod._dailyPlayTake === 'function'){
     const q = diceMod._dailyPlayTake('roulette');
-    if(!q.ok){ if(typeof toast==='function') toast('🔫 룰렛은 하루 ' + diceMod.DAILY_PLAY_MAX + '번까지예요 — 내일 다시 돌릴 수 있어요'); return; }
-    if(q.left === 0 && typeof toast==='function') toast('🔫 오늘 마지막 룰렛이었어요');
+    if(!q.ok){ toast('🔫 룰렛은 하루 ' + diceMod.DAILY_PLAY_MAX + '번까지예요 — 내일 다시 돌릴 수 있어요'); return; }
+    if(q.left === 0) toast('🔫 오늘 마지막 룰렛이었어요');
   }
   _rouletteAt = now;
   const n1 = 1 + Math.floor(Math.random()*6);

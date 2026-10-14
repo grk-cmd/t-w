@@ -335,7 +335,7 @@ function _positionRideSeat(seat, now){
           const _hp = new THREE.Vector3(); src.getWorldPosition(_hp);
           /* ★ host 를 같이 넘겨 **실제 경로와 같은 규칙**으로 잰다(기본 장식 메쉬 제외).
              안 넘기면 이 진단만 다른 값을 찍어서, 로그를 믿고 엉뚱한 데를 파게 된다. */
-          const _hb2 = (typeof measureHeadBoxNoParts==='function') ? measureHeadBoxNoParts(host.gltfRoot, null, host) : null;
+          const _hb2 = measureHeadBoxNoParts(host.gltfRoot, null, host);
           const _f2 = v => (v==null?'null':(+v).toFixed(4));
           // 숨은 메쉬·기본 장식까지 전부 포함했을 때의 꼭대기 — 위 값과의 차이가 이번 규칙이 깎아낸 양이다.
           let _hbAll = null;
@@ -547,9 +547,7 @@ function _measureHostHeadTop(hostSeat, headNode){
     /* 🎩 hostSeat 를 같이 넘긴다 = 기본 장식 메쉬(모자·탈·안경·날개)를 가시성과 무관하게 제외.
        안 넘기면 모자 파츠를 낄 때마다 기본 모자가 숨어 꼭대기가 그만큼 낮아진다
        (HEAD_DECOR_MESH_KEYS 주석의 그 증상). */
-    const _hb = (typeof measureHeadBoxNoParts==='function')
-      ? measureHeadBoxNoParts(hostSeat.gltfRoot, _mBoxes, hostSeat)
-      : new THREE.Box3().setFromObject(hostSeat.gltfRoot);
+    const _hb = measureHeadBoxNoParts(hostSeat.gltfRoot, _mBoxes, hostSeat);
     /* 🐰 동물 대상이면 '귀 위'에 얹는다(요청 사양) — 단 **1층에 얹힐 때만**.
        동물 귀는 별도 GLB를 머리 본에 붙인 부착물이고, wrap에 userData.rigged 표식이 있어
        measureHeadBoxNoParts가 통째로 걸러낸다(정규화 흔들림을 막으려고 일부러 붙여둔 표식이다).
@@ -758,11 +756,11 @@ function mountRide(animalSeat, hostSeat){
      ⚠️ _animalBuilt 가 undefined 인 좌석(모델이 아직 없는 미리보기 등)은 막지 않는다 —
        모르는 것을 거절하면 멀쩡한 올라타기가 조용히 실패한다. false 일 때만 거절한다. */
   if(!(animalSeat.charDef && animalSeat.charDef.animal)){
-    if(!animalSeat.remote && typeof toast==='function') toast('🐾 머리 위에는 동물만 올릴 수 있어요');
+    if(!animalSeat.remote) toast('🐾 머리 위에는 동물만 올릴 수 있어요');
     return false;
   }
   if(animalSeat._animalBuilt === false){
-    if(!animalSeat.remote && typeof toast==='function') toast('🐾 동물 모습을 준비하는 중이에요 — 잠시 뒤 다시 올려주세요');
+    if(!animalSeat.remote) toast('🐾 동물 모습을 준비하는 중이에요 — 잠시 뒤 다시 올려주세요');
     return false;
   }
   /* ★ 대상에게 이미 누가 올라타 있으면 '그 위'로 올린다.
@@ -780,11 +778,11 @@ function mountRide(animalSeat, hostSeat){
   //   ・ 순환: 내 위에 타고 있는 상대의 머리에 내가 다시 올라가면 무한 루프가 된다.
   //   ・ 층수: RIDE_MAX_STACK을 넘으면 화면 밖으로 나가고 계산도 무거워진다.
   if(_rideIsAbove(hostSeat, animalSeat)){
-    if(!animalSeat.remote && typeof toast==='function') toast('🐾 서로 위에 올라탈 수는 없어요');   // 안내는 내 조작일 때만(원격 데이터로 반복되면 sync마다 토스트가 뜸)
+    if(!animalSeat.remote) toast('🐾 서로 위에 올라탈 수는 없어요');   // 안내는 내 조작일 때만(원격 데이터로 반복되면 sync마다 토스트가 뜸)
     return false;
   }
   if(_rideDepth(hostSeat) + 1 > RIDE_MAX_STACK){
-    if(!animalSeat.remote && typeof toast==='function') toast('🐾 '+RIDE_MAX_STACK+'층까지만 쌓을 수 있어요');
+    if(!animalSeat.remote) toast('🐾 '+RIDE_MAX_STACK+'층까지만 쌓을 수 있어요');
     return false;
   }
   animalSeat.ridingOn = hostSeat;
@@ -848,12 +846,12 @@ function mountRide(animalSeat, hostSeat){
   //   그때도 토스트가 뜨면 남의 행동을 내가 한 것처럼 알리고, broadcastRide까지 불려
   //   친구의 상태 변화마다 내 presence 쓰기가 한 번씩 더 나간다(불필요한 서버 비용·왕복).
   if(!animalSeat.remote){
-    if(!_rideQuietToast && typeof toast==='function') toast('🐾 머리 위에 올라탔어요! (다시 드래그하면 내려와요)');   // 🗼 탑이 내려앉으며 다시 태울 땐 조용히
-    try{ if(typeof broadcastRide==='function') broadcastRide(); }catch(_){}
+    if(!_rideQuietToast) toast('🐾 머리 위에 올라탔어요! (다시 드래그하면 내려와요)');   // 🗼 탑이 내려앉으며 다시 태울 땐 조용히
+    try{ broadcastRide(); }catch(_){}
   }
   /* 🐾 이 좌석은 이제 자리 계산에서 빠진다(layoutSeats 의 placed 주석) — 남은 좌석이 그 자리를
      메우도록 즉시 다시 깐다. 안 부르면 올라간 뒤에도 빈자리가 그대로 남는다. */
-  try{ if(typeof layoutSeats==='function') layoutSeats(); }catch(_){}
+  try{ layoutSeats(); }catch(_){}
   return true;
 }
 /* 🗼 탑에서 이 좌석만 뺀다 — [2026-09-23 요청 · A안 «나만 빠지고 탑은 한 칸 내려앉음»]
@@ -911,10 +909,10 @@ function unmountRide(animalSeat){
   //   되돌린다(y·z는 아무도 복원하지 않음). 그래서 내려놓으면 공중에 뜬 채로 남아 있었음 — 여기서 직접 복원.
   try{ if(animalSeat.group){ animalSeat.group.position.y = 0; animalSeat.group.position.z = 0;
        animalSeat.group.quaternion.identity(); animalSeat.group.rotation.set(0,0,0); } }catch(_){}   // 머리 회전을 따라가며 바뀐 자세도 원복
-  if(!animalSeat.remote){ try{ if(typeof broadcastRide==='function') broadcastRide(); }catch(_){} }   // 내 조작일 때만 전송(위 mountRide 주석 참고)
+  if(!animalSeat.remote){ try{ broadcastRide(); }catch(_){} }   // 내 조작일 때만 전송(위 mountRide 주석 참고)
   /* ⚠️ 내려오면 자리가 **즉시** 돌아와야 한다 — ridingOn 만 끊고 재배치를 안 하면
      내려온 캐릭터가 남의 자리에 겹쳐 선다(자리 계산에서 빠져 있던 좌석이니 다시 끼워 넣어야 한다). */
-  try{ if(typeof layoutSeats==='function') layoutSeats(); }catch(_){}
+  try{ layoutSeats(); }catch(_){}
 }
 /* 놓은 지점에서 가장 가까운 "머리"를 찾음 — 자기 자신·이미 탄 좌석 제외 */
 
@@ -980,11 +978,11 @@ function equipInteractionDesk(deskId){
   const def = _deskDefById(deskId);
   const me = seats.find(s=>s.isMe);
   if(!def || !me) return false;
-  if(!isDeskUnlocked(def)){ if(typeof toast==='function') toast('🔒 Lv.'+def.reqLevel+' 달성 시 해금돼요'); return false; }
+  if(!isDeskUnlocked(def)){ toast('🔒 Lv.'+def.reqLevel+' 달성 시 해금돼요'); return false; }
   attachBenchToSeat(me, def.seats, def.id);
   setActiveInteractionDeskId(def.id);
-  if(typeof broadcastRide==='function') try{ broadcastRide(); }catch(_){}
-  if(typeof toast==='function') toast('🪑 '+def.name+'(으)로 바꿨어요');
+  try{ broadcastRide(); }catch(_){}
+  toast('🪑 '+def.name+'(으)로 바꿨어요');
   return true;
 }
 function unequipInteractionDesk(){
@@ -994,7 +992,7 @@ function unequipInteractionDesk(){
   me._benchOwnerSit = false; me._benchSit = false;   // 앉기 해제
   if(me.desk) me.desk.visible = true;   // 개인 책상 복귀
   setActiveInteractionDeskId(null);
-  if(typeof broadcastRide==='function') try{ broadcastRide(); }catch(_){}
+  try{ broadcastRide(); }catch(_){}
 }
 // 드래그로 놓은 rider가 앉을 가장 가까운 빈 슬롯을 찾는다.
 function findBenchSlot(riderSeat){
@@ -1029,8 +1027,8 @@ function mountBench(riderSeat, hostSeat, slotIndex){
   hostSeat.benchOccupants[slotIndex] = riderSeat;
   if(riderSeat.desk) riderSeat.desk.visible = false;   // 개인 책상 숨김(동물 올라타기와 동일 스펙)
   if(!riderSeat.remote){
-    if(typeof toast==='function') toast('🪑 벤치에 앉았어요! (다시 드래그하면 일어나요)');
-    try{ if(typeof broadcastRide==='function') broadcastRide(); }catch(_){}
+    toast('🪑 벤치에 앉았어요! (다시 드래그하면 일어나요)');
+    try{ broadcastRide(); }catch(_){}
   }
   return true;
 }
@@ -1040,7 +1038,7 @@ function unmountBench(riderSeat){
   if(host.benchOccupants && host.benchOccupants[slot]===riderSeat) delete host.benchOccupants[slot];
   riderSeat.seatedOn = null; riderSeat.seatSlot = null; riderSeat._benchSit = false;
   if(riderSeat.desk) riderSeat.desk.visible = true;    // 개인 책상 복구
-  if(!riderSeat.remote){ try{ if(typeof broadcastRide==='function') broadcastRide(); }catch(_){} }
+  if(!riderSeat.remote){ try{ broadcastRide(); }catch(_){} }
 }
 // 내 벤치 제거 — 앉아있던 사람들 자동 하차 + 개인 책상 복귀.
 function removeMyBench(){ unequipInteractionDesk(); }
@@ -1058,7 +1056,7 @@ function restoreInteractionDesk(){
     const def = _deskDefById(id);
     if(def && isDeskUnlocked(def)){
       attachBenchToSeat(me, def.seats, def.id);
-      if(typeof broadcastRide==='function') try{ broadcastRide(); }catch(_){}
+      try{ broadcastRide(); }catch(_){}
     } else {
       setActiveInteractionDeskId(null);   // 해금 아니면 저장값 정리
     }
@@ -1093,7 +1091,7 @@ function renderIdeskInventory(){
       const req=document.createElement('div'); req.className='idesk-req'; req.textContent='Lv.'+def.reqLevel; cell.appendChild(req);
     }
     cell.onclick = ()=>{
-      if(!unlocked){ if(typeof toast==='function') toast('🔒 Lv.'+def.reqLevel+' 달성 시 해금돼요'); return; }
+      if(!unlocked){ toast('🔒 Lv.'+def.reqLevel+' 달성 시 해금돼요'); return; }
       if(activeId===def.id){ unequipInteractionDesk(); }   // 이미 쓰는 걸 다시 누르면 기본으로
       else equipInteractionDesk(def.id);
       renderIdeskInventory();
@@ -1102,7 +1100,7 @@ function renderIdeskInventory(){
   });
 }
 function openIdeskInventory(){
-  if(!_ideskInRoom()){ if(typeof toast==='function') toast('방에 있을 때 사용할 수 있어요'); return; }
+  if(!_ideskInRoom()){ toast('방에 있을 때 사용할 수 있어요'); return; }
   const ov=document.getElementById('ideskInvOverlay'); if(!ov) return;
   renderIdeskInventory();
   ov.style.display='block';

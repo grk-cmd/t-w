@@ -75,12 +75,10 @@ function _focusShowRefreshUI(){
       _lsSet(FOCUS_SHOW_KEY, focusShowOn ? '1' : '0');
       _focusShowRefreshUI();
       _focusShowPush(true);
-      if(typeof toast === 'function'){
-        /* 켰는데 안 보이는 두 경우를 그 자리에서 말해 준다 — 아무 설명이 없으면 고장으로 읽힌다. */
-        if(focusShowOn && typeof officeMode() !== 'undefined' && officeMode()) toast('🏢 회사원 모드에서는 보내지 않아요 — 모드를 끄면 보여요');
-        else if(focusShowOn && typeof userStatus() !== 'undefined' && userStatus()) toast('🕒 켰어요 — 지금은 상태 메시지가 먼저 보여요(상태를 끄면 기록이 보여요)');
-        else toast(focusShowOn ? '🕒 오늘 기록을 보여줘요 — 내 머리 위와 방 사람들 화면에 (1분마다)' : '🕒 오늘 기록 보여주기를 껐어요');
-      }
+      /* 켰는데 안 보이는 두 경우를 그 자리에서 말해 준다 — 아무 설명이 없으면 고장으로 읽힌다. */
+      if(focusShowOn && typeof officeMode() !== 'undefined' && officeMode()) toast('🏢 회사원 모드에서는 보내지 않아요 — 모드를 끄면 보여요');
+      else if(focusShowOn && typeof userStatus() !== 'undefined' && userStatus()) toast('🕒 켰어요 — 지금은 상태 메시지가 먼저 보여요(상태를 끄면 기록이 보여요)');
+      else toast(focusShowOn ? '🕒 오늘 기록을 보여줘요 — 내 머리 위와 방 사람들 화면에 (1분마다)' : '🕒 오늘 기록 보여주기를 껐어요');
     });
   }
   _focusShowRefreshUI();

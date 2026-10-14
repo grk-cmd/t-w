@@ -145,7 +145,7 @@ function _notifyDanceUnlocks(lv){
       ).then(r=>{
         if(r && r.ok === false) return;             // 서버가 거부 — 기록하지 않는다(다음에 다시 시도)
         _markDanceNotified(def.cmd);
-        if(typeof toast==='function') toast('💃 새 춤 해금! 채팅에 /'+def.cmd);
+        toast('💃 새 춤 해금! 채팅에 /'+def.cmd);
       }).catch(()=>{})
         .then(()=>{ _dancePending.delete(def.cmd); });
     });
@@ -169,7 +169,7 @@ function _notifyDeskUnlocks(lv){
             `Lv.${def.reqLevel} 달성으로 '${def.name}'이(가) 열렸어요. I키를 눌러 확인해보세요!`
           ).catch(()=>{});
         }
-        if(typeof toast==='function') toast('🔓 새 책상 해금! I키로 확인하세요');
+        toast('🔓 새 책상 해금! I키로 확인하세요');
       }
     });
     if(changed){ try{ localStorage.setItem(IDESK_NOTIFIED_KEY, JSON.stringify([...done])); }catch(_){} }
@@ -268,7 +268,7 @@ function myStarProfileOut(){
 async function _adoptStarColorFromProfile(){
   try{
     if(_starPicked()) return false;
-    const uid = (typeof getMyUserId === 'function') ? getMyUserId() : null;
+    const uid = getMyUserId();
     if(!uid || !window.firebaseAPI || !firebaseAPI.fetchProfileStarC) return false;
     const c = await firebaseAPI.fetchProfileStarC(uid);
     if(!c || _starPicked() || !_starColorOk(c)) return false;   // 기다리는 사이 이 기기에서 골랐으면 그쪽이 이긴다
@@ -301,7 +301,7 @@ function _focusSyncFailed(reason, r, delta){
   _focusSyncFailStreak++;
   const why = (r && r.reason) || '응답 없음';
   try{ console.warn('[포커스동기화] 실패 (' + reason + ') — ' + why + ' | 못 올린 증분=' + delta + 's | 연속 ' + _focusSyncFailStreak + '회'); }catch(_){}
-  const linked = !!(typeof getMyLoginEmail === 'function' && getMyLoginEmail());
+  const linked = !!getMyLoginEmail();
   /* ⚠️ 세션이 있는데 거부되는 경우(authed)는 안내하지 않는다 — 재로그인으로 못 고치는 종류(규칙 문제)라서다(sim-focus-auth ②).
      [2026-10-02 #4a] 그 대신 아래에서 서버 값을 받아와 레벨이 기기마다 갈라져 보이지 않게 한다. */
   if(r && r.denied && linked && !r.authed && !_focusSyncNoticed){
@@ -322,7 +322,7 @@ function _focusSyncFailed(reason, r, delta){
       try{ localStorage.setItem(FOCUS_TOTAL_KEY, String(_focusTotalSec())); }catch(_){}
       _setFocusSyncedMark(S);
       _pushLevelIfChanged();
-      try{ if(typeof appMode()!=='undefined' && appMode()!=='run' && typeof renderLauncher==='function') renderLauncher(); }catch(_){}
+      try{ if(typeof appMode()!=='undefined' && appMode()!=='run') renderLauncher(); }catch(_){}
       try{ console.warn('[포커스동기화] 쓰기는 거부됐지만 서버 값을 받아왔어요 — ' + mine + 's → ' + _focusTotalSec() + 's'); }catch(_){}
     }
   }catch(_){}
@@ -349,7 +349,7 @@ async function syncFocusTotalToServer(reason){
      신원을 지운 뒤 beforeunload 의 'quit' 호출이 여기로 오면 임시 uid 를 발급해 그 앞으로 옛 누적을
      올렸다(2026-09-16 제보 4 를 손보다 발견). 플래그는 _wipeAccountLocal 이 세운다. */
   if(typeof _acctDetached() !== 'undefined' && _acctDetached()) return;
-  const uid = (typeof getMyUserId==='function') ? getMyUserId() : null;
+  const uid = getMyUserId();
   if(!uid) return;
   _focusSyncing = true;
   try{
@@ -373,7 +373,7 @@ async function syncFocusTotalToServer(reason){
       try{ localStorage.setItem(FOCUS_TOTAL_KEY, String(_focusTotalSec())); }catch(_){}
       _pushLevelIfChanged();   // 레벨이 올라갔으면 프로필 배지·해금 알림까지 반영
       // 런처 화면이면 다시 그려서 레벨 표시를 갱신(좌석 이름표는 상태 갱신 때 자동 반영됨)
-      try{ if(typeof appMode()!=='undefined' && appMode()!=='run' && typeof renderLauncher==='function') renderLauncher(); }catch(_){}
+      try{ if(typeof appMode()!=='undefined' && appMode()!=='run') renderLauncher(); }catch(_){}
     }
     const newMark = Math.max(0, Math.floor(_focusTotalSec()) - grew);   // grew 는 다음 차례의 증분으로 남는다
     _setFocusSyncedMark(newMark);
@@ -439,7 +439,7 @@ function _mobileOn(){
 function _seatMobileApp(seat){
   if(!seat) return '';
   if(seat.remote) return seat.remoteMobile || '';
-  const mine = (typeof findMySeat === 'function') ? findMySeat() : null;
+  const mine = findMySeat();
   return (seat.isMe || seat === mine) ? _mobileRoomLabel() : '';
 }
 /* 방에 싣는 값 · 머리 위 말풍선 글자 — 꺼져 있으면 빈 문자열. */

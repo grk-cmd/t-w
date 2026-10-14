@@ -42,8 +42,7 @@ function _warnOwnerWriteDenied(what, err){
   console.warn('[마이홈] ' + what + ' 저장 실패' + (denied ? ' (권한 거부)' : ''), err);
   if(!denied || _ownerWriteWarned) return;
   _ownerWriteWarned = true;
-  if(typeof toast === 'function')
-    toast('🔑 이 PC의 로그인이 풀려 있어 변경 내용이 저장되지 않아요 — 앱을 다시 시작하면 로그인 화면이 나와요');
+  toast('🔑 이 PC의 로그인이 풀려 있어 변경 내용이 저장되지 않아요 — 앱을 다시 시작하면 로그인 화면이 나와요');
 }
 
 async function initMyHome(){

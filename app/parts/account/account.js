@@ -201,7 +201,7 @@ function _charsLinkedMaybeShow(){
     close();
     const lc = document.getElementById('launcher');
     if(lc && lc.classList.contains('on')) myInfoMod().openMyInfo('box');
-    else if(typeof toast === 'function') toast('런처의 [내 정보] › 보관함에서 볼 수 있어요');
+    else toast('런처의 [내 정보] › 보관함에서 볼 수 있어요');
   };
   drop();
   ov.style.display = 'flex';

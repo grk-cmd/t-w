@@ -576,7 +576,7 @@ function _applyAnnivHeight(px){
   area.style.height = h + 'px';
   area.style.flex = '0 0 auto';
   // 높이가 바뀌면 열 수부터 다시 계산(카드가 실제로 작아지도록) — 렌더가 tiny 판정까지 해줌
-  if(typeof renderAnnivCards === 'function') renderAnnivCards();
+  renderAnnivCards();
   return h;
 }
 (function bindSchedSplit(){
@@ -969,11 +969,11 @@ function refreshBellBadge(){
        「그날이 1일」을 켠 기념일은 카드가 100일을 띄운 다음 날에야 알림이 왔다. */
     return _ddayMilestoneDays(_daysBetween(dd.date, todayYMD), _ddayShownDays(dd, todayYMD));
   }).length;
-  const inboxNew = (typeof _inboxUnreadCount==='function') ? _inboxUnreadCount() : 0;   // 📩 수령함 안 읽은 공지/업데이트
+  const inboxNew = _inboxUnreadCount();   // 📩 수령함 안 읽은 공지/업데이트
   const n = newNotices + newToday + ddayHits + inboxNew;
   badge.textContent = n > 9 ? '9+' : String(n);
   badge.classList.toggle('on', n > 0);
-  if(typeof _refreshFriendTabBadge==='function') _refreshFriendTabBadge();   // 🎁 친구 탭 보상 배지도 함께 갱신
+  _refreshFriendTabBadge();   // 🎁 친구 탭 보상 배지도 함께 갱신
 }
 
 /* 지난 기념일 이정표 알림 — 당일, 50일, 그리고 100일 단위(100/200/300…)에만 뜸.
@@ -1061,7 +1061,7 @@ function renderBellList(){
   }
 
   // 📩 수령함 확인 버튼 — 일정 아래 구분선 + [수령함 확인] (안 읽은 게 있으면 NEW 뱃지)
-  const inboxNew = (typeof _inboxUnreadCount==='function') ? _inboxUnreadCount() : 0;
+  const inboxNew = _inboxUnreadCount();
   const hr = document.createElement('div'); hr.className = 'bell-inbox-sep'; list.appendChild(hr);
   const btn = document.createElement('div'); btn.className = 'bell-inbox-btn';
   btn.innerHTML = '📪 수령함 확인' + (inboxNew > 0 ? ' <span class="bell-inbox-new">NEW '+inboxNew+'</span>' : '');
@@ -1130,7 +1130,7 @@ function renderBellList(){
     btn.classList.add('on');
     // 옮겨둔 자리가 있으면 그 자리, 없으면 캐릭터 발 밑에 배치 (채팅/커스텀 상태 입력창과 같은 방식)
     if(!_bellApplyPos()){
-      if(typeof _positionInputBelowChar==='function') _positionInputBelowChar(win);
+      _positionInputBelowChar(win);
     }
     _bellMarkSeen();   // 열었으니 읽음 처리 → 뱃지 사라짐
   };
@@ -1182,7 +1182,7 @@ function renderBellList(){
     head.addEventListener('dblclick', e=>{
       if(e.target && e.target.closest && e.target.closest('.mh-x')) return;
       _bellPos = null; _bellSavePos();
-      if(typeof _positionInputBelowChar==='function') _positionInputBelowChar(win);
+      _positionInputBelowChar(win);
     });
   }
 

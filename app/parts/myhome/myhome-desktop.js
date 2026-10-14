@@ -388,7 +388,7 @@ function advD20(){ return 1+Math.floor(Math.random()*20); }
 function advPDef(){ const s=activeSlot(); return statEff(s,'str')*1.0+statEff(s,'agi')*0.5; }
 /* 🛡 방어력 = HP 위의 실드(장착 방어구). 피격 시 방어력부터 소모, 0이면 방어구 파괴 */
 function advArmorValue(base){
-  const s=activeSlot(); const mul=(typeof ageTier==='function'?ageTier(s).mul:1);   // 나이 계수 반영
+  const s=activeSlot(); const mul=ageTier(s).mul;   // 나이 계수 반영
   return Math.max(1, Math.round((base + statEff(s,'str')*0.5 + statEff(s,'agi')*0.5 + statEff(s,'luk')*0.3) * mul));
 }
 function advEquipArmor(id){
@@ -398,7 +398,7 @@ function advEquipArmor(id){
 function advApplyDamage(dmg){   // 방어력 우선 차감 → 넘치면 HP
   let toHp=dmg, absorbed=0;
   if((ADV.armor||0)>0){ absorbed=Math.min(ADV.armor, dmg); ADV.armor-=absorbed; toHp-=absorbed;
-    if(ADV.armor<=0){ ADV.armor=0; if(ADV.armorItem){ ADV.armorItem=null; if(typeof advToast==='function') advToast('🛡 방어구가 부서졌다'); } } }
+    if(ADV.armor<=0){ ADV.armor=0; if(ADV.armorItem){ ADV.armorItem=null; advToast('🛡 방어구가 부서졌다'); } } }
   if(toHp>0) ADV.hp=Math.max(0, ADV.hp-toHp);
   return {absorbed, toHp};
 }
@@ -572,7 +572,7 @@ function advRecalcInitiative(cellKey, joinerUid){
 function advOfferCombatJoin(cn, cellKey){   // 도착 감지 → 3선택지
   const e=(cn&&ADV_ENEMIES[cn.ekey])||{}; const who=advFieldName(cn&&cn.initiator);
   advPrompt('<p><span class="loc">[ 교전 중 ]</span></p>'
-    +'<p><span class="good">'+esc(who)+'</span>'+(typeof advJosa==='function'?advJosa(who,'이','가'):'이(가)')+' '+(e.icon||'')+' '+esc(e.name||'적')+'와(과) 싸우고 있다.</p>'
+    +'<p><span class="good">'+esc(who)+'</span>'+advJosa(who,'이','가')+' '+(e.icon||'')+' '+esc(e.name||'적')+'와(과) 싸우고 있다.</p>'
     +'<p class="sys">적 HP '+Math.max(0,cn?cn.ehp:0)+'/'+((cn&&cn.ehpMax)||'?')+'</p>',
     [ {label:'⚔ 끼어든다', cls:'adv-reveal', on:()=>advJoinCombat(PARTY.combatNode||cn, cellKey)},
       {label:'👁 관전', on:()=>advSpectateCombat(PARTY.combatNode||cn, cellKey)},
@@ -1039,7 +1039,7 @@ function advBumpAlign(stat, n){   // 선행/악행 카운터 +n, 임계(50/100) 
   const s=activeSlot(); if(!s||!n) return;
   const before=s[stat]||0; s[stat]=before+n;
   ADV_TITLES.filter(t=>t.stat===stat && before<t.need && s[stat]>=t.need).forEach(t=>{
-    if(!s.title) s.title=t.id; if(typeof advToast==='function') advToast('🏅 새 칭호: 「'+t.name+'」'); });
+    if(!s.title) s.title=t.id; advToast('🏅 새 칭호: 「'+t.name+'」'); });
 }
 const ADV_DEED_ALIGN = {   // 선행/악행 분류 (미분류=중립)
   helped_wounded:'good', treated_infected:'good', shared_supply:'good', fed_child:'good', saved_child:'good',
@@ -1518,7 +1518,7 @@ function advStoryEffects(e){
   if(e.evil) advBumpAlign('evil', e.evil);
   if(typeof e.give==='function') e.give();   // 조건부 보상(파티/솔로 분기 등)
   if(e.camp && ADV.map){ const m=advEnsureMap(); const c=(m.camps||[]).find(cc=>cc.name===e.camp);
-    if(c){ ADV.map.pos={x:c.x,y:c.y}; if(typeof advMarkSeen==='function') advMarkSeen(m,c.x,c.y); } }   // 캠프로 이동
+    if(c){ ADV.map.pos={x:c.x,y:c.y}; advMarkSeen(m,c.x,c.y); } }   // 캠프로 이동
   if(e.items||typeof e.hp==='number'||e.give) advRenderSim();
 }
 function advStartStoryScene(band, bldg){
@@ -1983,7 +1983,7 @@ function advBuildReport(kind){
   const s=activeSlot()||{};
   const items=Object.keys(ADV.inv||{}).filter(id=>ADV.inv[id]>0 && ADV_WORLD.items[id])
     .map(id=>ADV_WORLD.items[id].name+'×'+ADV.inv[id]);
-  return { kind:kind, name:(s.name || (typeof defaultName==='function'?defaultName():'생존자')), age:s.age||'',
+  return { kind:kind, name:(s.name || defaultName()), age:s.age||'',
     title: slotTitleName(s) || (kind==='normal'?'생존자':'실종자'),
     kills:ADV.runKills||0, outlaws:ADV.runOutlaws||0,
     items: items.length?items.join(', '):'없음',
@@ -3137,7 +3137,7 @@ function advFbVisibleList(){   // 밟은 칸(stepped) + 지금 서 있는 칸 + 
     .sort((a,b)=>(a.ts||0)-(b.ts||0));
 }
 function advFbProfile(uid){   // 프로필 사진 + 캐릭터명 + 나이 (자신=슬롯, 동료=파티 데이터)
-  if(uid===myUid()){ const s=activeSlot(); const url=(typeof slotFaceUrl==='function')?slotFaceUrl(s, faceStateKey()):null;
+  if(uid===myUid()){ const s=activeSlot(); const url=slotFaceUrl(s, faceStateKey());
     return {name:(s&&s.name)||advMyCharName(), age:(s&&s.age)||'', img:url||'', emoji:(s&&s.face)||'🧑‍🚒'}; }
   const m=partyMembers()[uid]||{};
   return {name:m.charName||m.nick||'?', age:(m.charInfo&&m.charInfo.age)||'', img:m.faceImg||'', emoji:m.face||'🧑‍🚒'};
@@ -4586,7 +4586,7 @@ function advRenderItems(){
     box.addEventListener('dblclick',ev=>{
       const el=itemAt(ev); if(!el) return;
       const cid=el.getAttribute('data-item'), wid=el.getAttribute('data-w'), isEq=el.getAttribute('data-eq');
-      if(cid){ if(typeof advUseItem==='function') advUseItem(cid); }
+      if(cid){ advUseItem(cid); }
       else if(wid){ if(isEq) advUnequipSlot(ADV.active); else advEquipWeaponById(wid); }
     });
     box.addEventListener('mouseover',ev=>{   // ★ 툴팁 — 위임이라 재렌더에도 살아있다
@@ -5428,7 +5428,7 @@ function advRenderInv(){
     const row=h('<div class="adv-inv-item"><span class="ic">'+it.icon+'</span>'+
       '<span class="nm">'+it.name+'<small>'+it.desc+'</small></span>'+
       '<span class="ct">×'+ADV.inv[id]+'</span></div>');
-    row.addEventListener('dblclick', ()=>{ if(typeof advUseItem==='function') advUseItem(id); advRenderInv(); });
+    row.addEventListener('dblclick', ()=>{ advUseItem(id); advRenderInv(); });
     if(it.use){
       const b=h('<button type="button">사용</button>');
       b.addEventListener('click', ()=>{

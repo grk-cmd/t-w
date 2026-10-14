@@ -288,7 +288,7 @@ function _miSlotThumb(def){
 }
 /* 보관함에 든 항목 — 슬롯 표 밖의 산 항목만, 최근 고친 것부터. */
 function _miBoxItems(){
-  if(typeof _charsActive !== 'function' || !_charsActive()) return null;
+  if(!_charsActive()) return null;
   const box = _charsBoxGet(), on = new Set(_charsDeskGet().filter(Boolean)), out = [];
   for(const cid in box){
     const e = box[cid];
@@ -430,7 +430,7 @@ async function _miBoxTrash(cid){
   _miTrashLoad();
 }
 /* 🗑️ 휴지통 탭 (시안 E · 개정 49) — 줄 고르기는 _charsTrashView(순수), 여기는 읽고 그리기만. */
-function _miTrashOn(){ return typeof _charsActive === 'function' && _charsActive(); }
+function _miTrashOn(){ return _charsActive(); }
 async function _miTrashLoad(){
   if(!_miTrashOn()){ _miTrashRows = null; _miTrashErr = false; _miRenderTrashTab(); return; }
   const uid = _charsCachedUid();
@@ -737,8 +737,7 @@ function _miCodeLoad(){
       let owner;
       try{ owner = await firebaseAPI.authOwnerOf(code); }catch(_){ return; }
       if(owner === undefined || owner === null) return;   // 조회 실패거나 주인 없음 — 둘 다 조용히
-      if(typeof toast === 'function')
-        toast('🔑 이 PC의 로그인이 풀려 있어 변경 내용이 저장되지 않아요 — 앱을 다시 시작하면 로그인 화면이 나와요');
+      toast('🔑 이 PC의 로그인이 풀려 있어 변경 내용이 저장되지 않아요 — 앱을 다시 시작하면 로그인 화면이 나와요');
     }, 9000);   // 부팅 직후 토스트가 겹치지 않게 스냅샷(6초)보다 뒤에 둔다
   };
 

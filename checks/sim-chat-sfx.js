@@ -109,12 +109,12 @@ say('── 3. 울리는 자리');
      두 번 울리지 않는다. 대화창 기록 구독(chatLog · _chatTab)에는 여전히 없어야 한다. */
   chk(calls === 3, '★ 호출은 정의 1 + 부르는 자리 2 (chat · chatTab) 뿐 [' + calls + ']');
   const tabRecv = (SRC.match(/const ctab = friends\[id\]\.chatTab;[\s\S]*?\n    \}/) || [''])[0];
-  chk(/if\(_shown && typeof _chatNotifyIncoming === 'function'\) _chatNotifyIncoming\(\);/.test(tabRecv), '  두 번째 자리는 chatTab 수신 분기 — 화면에 뜬 경우에만');
+  chk(/if\(_shown\) _chatNotifyIncoming\(\);/.test(tabRecv), '  두 번째 자리는 chatTab 수신 분기 — 화면에 뜬 경우에만');
   const recv = (SRC.match(/const chat=friends\[id\]\.chat;[\s\S]*?\n    \}/) || [''])[0];
-  chk(/_chatShown = true;[\s\S]*_chatShown = true;[\s\S]*if\(_chatShown && window\._activeChannel === 2 && typeof _chatNotifyIncoming === 'function'\) _chatNotifyIncoming\(\);/.test(recv),
+  chk(/_chatShown = true;[\s\S]*_chatShown = true;[\s\S]*if\(_chatShown && window\._activeChannel === 2\) _chatNotifyIncoming\(\);/.test(recv),
       '★ 상대 채팅 수신 분기에서, 날리기·말풍선이 **실제로 뜬 경우에만** 부른다');
   /* 워킹룸(채널1)에서 이모티콘 말풍선이 떠도 조용하게 — 투게더룸(채널2)에서만 울린다. */
-  chk(/if\(_chatShown && window\._activeChannel === 2 &&/.test(recv), '★ 워킹룸(채널1)은 이모티콘 말풍선이 떠도 안 울린다 — 투게더룸에서만');
+  chk(/if\(_chatShown && window\._activeChannel === 2\)/.test(recv), '★ 워킹룸(채널1)은 이모티콘 말풍선이 떠도 안 울린다 — 투게더룸에서만');
   const sub = SRC.indexOf('firebaseAPI.subscribeChatLog(room');
   chk(sub > 0 && !/_chatNotifyIncoming/.test(SRC.slice(sub, sub + 300)), '  chatLog 구독에는 걸지 않았다 (한 줄에 두 번 울림 방지)');
   const send = grabFn('sendMyChat');

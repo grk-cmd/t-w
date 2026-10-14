@@ -41,8 +41,8 @@ function sendMyDemoji(id){
   if(now - _lastDemojiSentAt < 1200) return;                             // 도배 방지(1.2초 쿨다운)
   _lastDemojiSentAt = now;
   const marker=`[demoji:${id}]`;
-  const mySeat=(typeof findMySeat==='function') ? findMySeat() : null;
-  if(mySeat && typeof showChatBubble==='function') showChatBubble(mySeat, marker);   // 내 화면엔 즉시 표시
+  const mySeat=findMySeat();
+  if(mySeat) showChatBubble(mySeat, marker);   // 내 화면엔 즉시 표시
   if(Presence().sendChat) Presence().sendChat(marker);                       // 상대에겐 chat 필드로 전송(기존 경로 재사용)
   const box=document.getElementById('myDemojiBox'); const btn=document.getElementById('myDemojiBtn');
   if(box) box.classList.add('hidden');

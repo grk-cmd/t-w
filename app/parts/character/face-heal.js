@@ -42,7 +42,7 @@ function _repairSkinCanvases(){
     try{ const x=skinCanvases[k].getContext('2d'); x.fillStyle=SKIN_COLORS[k]||SKIN_COLORS[0]; x.fillRect(0,0,CANVAS_SZ,CANVAS_SZ); }catch(_){}
   }
   if(bad){ console.warn('[얼굴복구] 피부 캔버스 '+bad+'장도 비어 있었습니다 — 단색으로 메우고 텍스처를 다시 불러옵니다');
-    try{ if(typeof loadSkins==='function') loadSkins(); }catch(_){} }
+    try{ loadSkins(); }catch(_){} }
   return bad;
 }
 

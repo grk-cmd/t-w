@@ -246,7 +246,7 @@ async function renderSentRequests(listEl){
         }).catch(()=>{});
       }
       const sub = document.createElement('div'); sub.className = 'mh-req-sub';
-      sub.textContent = (m.ts && typeof _inboxTimeStr === 'function') ? (_inboxTimeStr(m.ts) + '에 보냄') : '';
+      sub.textContent = m.ts ? (_inboxTimeStr(m.ts) + '에 보냄') : '';
       main.appendChild(nm); main.appendChild(sub);
 
       const pend = document.createElement('span');
@@ -364,7 +364,7 @@ function renderFriendRequests(){
     const nm = document.createElement('div'); nm.className = 'mh-req-nm';
     nm.textContent = req.name || '(이름 없음)'; nm.title = req.name || '';
     const sub = document.createElement('div'); sub.className = 'mh-req-sub';
-    sub.textContent = (req.ts && typeof _inboxTimeStr === 'function') ? _inboxTimeStr(req.ts) : '';
+    sub.textContent = req.ts ? _inboxTimeStr(req.ts) : '';
     main.appendChild(nm); main.appendChild(sub);
 
     const okBtn = document.createElement('button');

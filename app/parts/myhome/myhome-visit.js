@@ -93,7 +93,7 @@ async function openFriendHomeView(friendId, nameHint){
          남는다. 여기서 한 번 맞춰 두면 그 뒤로는 계속 맞다.
        ⚠️ 오버레이가 **이미 열려 있어도** 부른다. 이 버그로 잘못된 크기인 채 열려 있을 수 있어서,
          if 안에 두면 그 상태를 못 고친다. 같은 값이면 main 쪽에서 어차피 같은 setBounds 다. */
-    if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();
+    applyDesktopRunClass();
     overlay.querySelectorAll('.mh-tab').forEach(t=>t.classList.toggle('on', t.dataset.tab==='home'));
     overlay.querySelectorAll('.mh-page').forEach(p=>p.classList.toggle('on', p.id==='mhPageHome'));
     _mhApplyVisitUI();
@@ -136,7 +136,7 @@ function closeFriendHomeView(){
   //   내 마이홈이 서버에서 로드된 적이 없어 복귀 화면이 빈 초기값으로 그려졌다. 실제 데이터는 안전함 —
   //   저장 가드(_myHomeLoaded 전제)가 미로드 세션의 덮어쓰기를 원래부터 막고 있었고, 표시만 문제였다.
   //   미로드 상태면 지금 서버에서 로드(loadMyHomePage가 끝에서 스스로 렌더함).
-  if(!_myHomeLoaded && typeof loadMyHomePage==='function'){
+  if(!_myHomeLoaded){
     Promise.resolve(loadMyHomePage()).catch(()=>{});
   }
   _mhApplyVisitUI();

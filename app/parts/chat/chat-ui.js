@@ -148,13 +148,13 @@ function showFlyText(seat, text, color, size){
   /* 이름: 내용 — 형식은 하나로 통일한다. 좌석 색은 쓰지 않는다(이름으로 구분한다).
      이름은 이름표(setSeatNamePlate)와 같은 출처를 쓴다 — 여기서 다른 이름을 고르면
      발밑 이름표와 흐르는 글자가 서로 다른 사람처럼 보인다. */
-  const name = (typeof _seatLabelName === 'function') ? _seatLabelName(seat) : '';
+  const name = _seatLabelName(seat);
   const body = String(text).slice(0, 140);
   /* ⚠️ 순서가 중요하다: **이스케이프 먼저, 마커 변환 나중.** 뒤집으면 이스케이프가
      <img> 를 글자로 만들어 버린다(_officeDemojiHtml 주석과 같은 함정). */
-  let html = (typeof _chatEsc === 'function') ? _chatEsc(body) : String(body);
-  if(typeof _officeDemojiHtml === 'function') html = _officeDemojiHtml(html);
-  const nameHtml = name ? ((typeof _chatEsc==='function' ? _chatEsc(name) : name) + ': ') : '';
+  let html = _chatEsc(body);
+  html = _officeDemojiHtml(html);
+  const nameHtml = name ? (_chatEsc(name) + ': ') : '';
   const inner = nameHtml + html;
 
   const el = document.createElement('div');
@@ -238,7 +238,7 @@ function sendMyChat(text, fly, flyColor, flySize, tab){
     const lv = (typeof focusLevelMod().getFocusLevel === 'function') ? focusLevelMod().getFocusLevel() : 1;
     const col = _flyColorOk(flyColor, lv);
     const sz  = _flySizeOk(flySize);
-    if(mySeat && typeof showFlyText === 'function') showFlyText(mySeat, text, col, sz);
+    if(mySeat) showFlyText(mySeat, text, col, sz);
     if(typeof Presence()!=='undefined' && Presence().active() && Presence().sendChat) Presence().sendChat(text, true, col, sz, tab);
     return;
   }
@@ -324,15 +324,15 @@ function _chatClearNow(){
   const list = _chatLogCache() || [];
   const last = list[list.length-1];
   const k = last ? _chatMsgKey(last) : '';
-  if(!k){ if(typeof toast==='function') toast('지울 대화가 없어요'); return; }
+  if(!k){ toast('지울 대화가 없어요'); return; }
   _chatClearedTo[_chatClearRoom() || '_'] = k;
   _renderChatLog(_chatLogCache());
-  if(typeof toast==='function') toast('🧹 내 화면에서만 지웠어요');
+  toast('🧹 내 화면에서만 지웠어요');
 }
 function _chatClearUndo(){
   delete _chatClearedTo[_chatClearRoom() || '_'];
   _renderChatLog(_chatLogCache());
-  if(typeof toast==='function') toast('지운 대화를 다시 불러왔어요');
+  toast('지운 대화를 다시 불러왔어요');
 }
 function _chatReadKeyOf(room){ return CHAT_READ_KEY_PREFIX + (room || '_'); }
 function _loadChatReadMarker(room){
@@ -455,7 +455,7 @@ function openChatWindow(){
   if(window._activeChannel !== 2){ return; }
   ov.style.display='block';
   // 🪟 열 때는 맨 앞으로 — 설정창·플레이리스트가 이미 앞에 올라와 있을 수 있다.
-  if(typeof bringWinToFront==='function') bringWinToFront('chatOverlay');
+  bringWinToFront('chatOverlay');
   _restoreChatWinPos();
   _refreshChatProfile();
   _refreshChatMembers();
@@ -468,8 +468,8 @@ function openChatWindow(){
   const _ep=document.getElementById('chatEmojiWin'); if(_ep) _ep.classList.remove('on');
   // 대화 기록 구독 시작
   const room = (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null;
-  if(typeof _stopChatBadgeSub==='function') _stopChatBadgeSub();   // 본문 구독과 중복되지 않게 뱃지 구독 해제
-  if(typeof _setChatBadge==='function') _setChatBadge(0);
+  _stopChatBadgeSub();   // 본문 구독과 중복되지 않게 뱃지 구독 해제
+  _setChatBadge(0);
   /* 💬 탭 — 방이 바뀌었으면 그 방에서 마지막에 보던 탭(이 PC 에 기억 · 없으면 #일반). 같은 방이면 그대로. */
   _chatTabSyncRoom(room);
   _chatSubscribeTab(room);
@@ -544,7 +544,7 @@ async function _refreshChatProfile(){
     prof.style.cursor='pointer';
     prof.title='내 마이홈 열기';
     prof.addEventListener('click', ()=>{
-      if(typeof closeChatWindow==='function') closeChatWindow();   // 채팅창 닫고 마이홈으로
+      closeChatWindow();   // 채팅창 닫고 마이홈으로
       if(typeof openMyHome==='function') openMyHome();
       else if(typeof window.openMyHome==='function') window.openMyHome();
     });
@@ -1077,18 +1077,18 @@ function _sendChatWindowMsg(){
         //   이어쓰기는 전송 한 번이라 쿨다운도 한 번만 먹는다.
         const nowMs = Date.now();
         if(nowMs - _danceCmdCooldownAt() < 5000){
-          if(typeof toast==='function') toast('⏳ 춤 명령은 5초에 한 번!');
+          toast('⏳ 춤 명령은 5초에 한 번!');
           return;
         }
         setDanceCmdCooldownAt(nowMs);
         startMyDance(def, { cmd: hit.cmd, repeat: hit.repeat });
       }
-      else if(typeof toast==='function') toast('🔒 Lv.'+def.reqLevel+' 달성 시 사용할 수 있어요');
+      else toast('🔒 Lv.'+def.reqLevel+' 달성 시 사용할 수 있어요');
       return;   // 명령은 대화 기록/전송에 싣지 않음
     }
   }
   // 슬래시 명령(/ㅋㅋ)을 이모티콘 마커([emoji:URL])로 치환 — 실제 전송/기록에 실리는 텍스트
-  const outText = (typeof _applyEmojiCommands==='function') ? _applyEmojiCommands(text) : text;
+  const outText = _applyEmojiCommands(text);
   /* 🔇 채팅 잠금 — 이 자리가 마지막 문이다.
      ★ 위 춤 명령(/80·/150)은 이미 return 으로 빠져나갔으므로 여기 안 온다.
      ★ **이모티콘만으로 된 줄은 통과**시킨다 — 마커를 걷어내고 남는 글자가 없으면 이모티콘뿐이다.
@@ -1107,16 +1107,16 @@ function _sendChatWindowMsg(){
   /* 🚫 제한에 걸리면 보내지 않고 친 글을 입력창에 돌려준다 — 지워버리면 길게 쓴 줄이 통째로 날아간다. */
   {
     const why = _chatBlockReason(text, outText);
-    if(why){ if(typeof toast==='function') toast(why); inp.value = text; return; }
+    if(why){ toast(why); inp.value = text; return; }
     _chatNoteSent(text);
   }
   // 1) 말풍선 + 실시간 전파(기존 경로 재사용). 기본 이모티콘만 마커로(말풍선이 이미지로 렌더), 커스텀은 원문 유지.
-  const bubbleText = (typeof _applyDefaultEmojiOnly==='function') ? _applyDefaultEmojiOnly(text) : text;
+  const bubbleText = _applyDefaultEmojiOnly(text);
   /* 🌊 날리기 — 체크돼 있어도 0.5 초 안에 두 번째면 **그 줄만 말풍선으로** 나간다.
      한 노드가 마지막 하나만 들고 있어서, 연타하면 앞 줄이 상대 화면에 뜨기도 전에 덮인다.
      보내기를 막지는 않는다 — 친 글을 잃지 않는 것이 이 창의 관례다(잠금·도배 제한 참고). */
   const _fly = !(typeof officeMode() !== 'undefined' && officeMode()) && _chatFlyOn && _chatFlySendGate();   // 🏢 회사원 모드면 안 날린다
-  if(typeof sendMyChat==='function') sendMyChat(bubbleText, _fly, _fly ? _chatFlyColor : '', _chatFlySize, _chatMyTabId());
+  sendMyChat(bubbleText, _fly, _fly ? _chatFlyColor : '', _chatFlySize, _chatMyTabId());
   // 2) 대화 기록 저장 — 마커가 든 outText 저장(다른 사람도 이모티콘을 URL로 렌더)
   const room=(typeof Presence()!=='undefined' && Presence().roomCode)?Presence().roomCode():null;
   if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
@@ -1127,7 +1127,7 @@ function _sendChatWindowMsg(){
     Promise.resolve(firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text:outText }, _chatMyTabId()))
       .then(r=>{
         if(r && r.ok === false){
-          if(typeof toast==='function') toast('전송에 실패했어요 — 잠시 뒤 다시 보내주세요');
+          toast('전송에 실패했어요 — 잠시 뒤 다시 보내주세요');
           const el=document.getElementById('chatInput');
           if(el && !el.value) el.value = text;   // 그 사이에 새로 친 글이 있으면 덮지 않는다
         }

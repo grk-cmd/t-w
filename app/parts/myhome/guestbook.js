@@ -40,7 +40,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
   let _unsub = null;
   let _lastEntries = {};
   function _lsKey(){
-    const uid = (typeof getMyUserId==='function' ? getMyUserId() : '') || '_anon';
+    const uid = getMyUserId() || '_anon';
     return 'tw.mhGbLastRead:' + uid;
   }
   function _getLastRead(){
@@ -53,7 +53,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
     _lastEntries = entries || {};
     const badge = document.getElementById('mhGuestbookBadge'); if(!badge) return;
     // 관람 중이면 뱃지 숨김 (친구 홈에는 자기 방명록 새 글 뱃지가 뜨면 안 됨)
-    if(typeof _mhViewingUserId!=='undefined' && _mhViewingUserId()){ badge.classList.add('hidden'); return; }
+    if(_mhViewingUserId()){ badge.classList.add('hidden'); return; }
     const lastRead = _getLastRead();
     const arr = Object.values(_lastEntries||{});
     const newCount = arr.filter(e => (e && (e.ts||0) > lastRead)).length;
@@ -67,7 +67,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
   function start(){
     if(_unsub) return;
     if(!(window.firebaseAPI && firebaseAPI.subscribeGuestbook)) return;
-    const myId = typeof getMyUserId==='function' ? getMyUserId() : null;
+    const myId = getMyUserId();
     if(!myId) return;
     _unsub = firebaseAPI.subscribeGuestbook(myId, entries => _updateBadge(entries));
   }
@@ -81,7 +81,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
   function refresh(){ _updateBadge(_lastEntries); }
   // 방명록 창을 열면 새 글을 모두 읽은 걸로 간주 — lastRead=지금 시각, 뱃지 즉시 해제. 관람 중엔 스킵.
   function markAllRead(){
-    if(typeof _mhViewingUserId!=='undefined' && _mhViewingUserId()) return;
+    if(_mhViewingUserId()) return;
     _setLastRead(Date.now());
     const badge = document.getElementById('mhGuestbookBadge');
     if(badge) badge.classList.add('hidden');
@@ -102,7 +102,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
 (function bindGuestbook(){
   let _gbWin=null, _sub=false, _entries={}, _clap={count:0,img:null};
   // 마이홈2-B: 관람 모드면 방명록/박수도 그 친구 것을 보여줌 — helper 함수들을 IIFE 상단에 두어 submit(내부)에서도 참조 가능하게.
-  function _gbTargetId(){ return (typeof _mhViewingUserId!=='undefined' && _mhViewingUserId()) ? _mhViewingUserId() : getMyUserId(); }
+  function _gbTargetId(){ return _mhViewingUserId() ? _mhViewingUserId() : getMyUserId(); }
   /* 🚪 외부인 판정 — "남의 홈을 보고 있는데 그 사람이 내 친구가 아니다".
      🎵 플레이리스트의 [마이홈 공개]가 생기면서 친구가 아닌 사람도 남의 홈에 들어올 수 있게 됐다.
      구경은 열어두되 방명록 **작성**은 친구만 한다 — 모르는 사람이 글을 남길 수 있으면 공개를
@@ -113,8 +113,8 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
        있다. 그 경우 입력칸이 잠깐 잠기는 정도이고, 목록이 도착하면 창을 다시 열 때 풀린다 —
        반대로 기본을 '통과'로 두면 목록이 늦는 동안 외부인이 글을 남길 수 있다. 막는 쪽으로 둔다. */
   function _gbIsOutsider(){
-    if(typeof _mhViewingUserId === 'undefined' || !_mhViewingUserId()) return false;   // 내 홈
-    const fr = (typeof _myHomeFriends !== 'undefined' && _myHomeFriends()) || {};
+    if(!_mhViewingUserId()) return false;   // 내 홈
+    const fr = _myHomeFriends() || {};
     return !fr[_mhViewingUserId()];
   }
   /* 입력칸 ↔ 안내줄 갈아끼우기. 창을 새로 열 때마다 부른다(홈 주인이 바뀌면 창이 닫히므로 그걸로 충분). */
@@ -275,7 +275,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
      ⚠️ 성공은 여기 띄우지 않는다. 글이 목록에 뜨는 것 자체가 성공 신호다. */
   let _gbMsgTimer = null;
   function gbSay(msg){
-    if(typeof toast==='function') toast(msg);
+    toast(msg);
     const d=gbDoc(); if(!d) return;
     const el=d.getElementById('gbMsg'); if(!el) return;
     el.textContent=msg; el.style.display='block';

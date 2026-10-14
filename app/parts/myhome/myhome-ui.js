@@ -121,9 +121,9 @@ function renderMhProfileRail(){ /* 제거됨 */ }
          그 줄 하나가 다시 마이홈 열기 전체를 인질로 잡는다. */
     const _step = (name, fn)=>{ try{ fn(); }catch(e){ console.error('[마이홈 열기] '+name+' 실패 — 나머지는 계속 진행합니다', e); } };
     _step('친구 목록', ()=>inboxMod.renderMyHomeFriendList());
-    _step('마이홈 페이지', ()=>{ if(typeof loadMyHomePage==='function') loadMyHomePage(); });   // ★ 마이홈 탭이 기본으로 열리므로 프로필 데이터도 같이 로드
+    _step('마이홈 페이지', ()=>{ loadMyHomePage(); });   // ★ 마이홈 탭이 기본으로 열리므로 프로필 데이터도 같이 로드
     setMyHomeOpen(true);
-    _step('창 크기', ()=>{ if(typeof applyDesktopRunClass==='function') applyDesktopRunClass(); });   // 런처에서 열렸으면 창을 생성기처럼 넓게
+    _step('창 크기', ()=>{ applyDesktopRunClass(); });   // 런처에서 열렸으면 창을 생성기처럼 넓게
     _step('방명록 뱃지', ()=>{ if(typeof _mhGbStartWatch==='function') _mhGbStartWatch(); });   // 방명록 새 글 뱃지 감시 시작
     // ★ 마이홈4 후속: 창이 화면에 렌더된 뒤 한 프레임 기다렸다가 BGM 창에 좌표 전달(마이홈이 열리자마자
     //   음악이 재생 중이면 BGM 창이 마이홈 뒤로 정확히 숨도록).
@@ -171,9 +171,9 @@ function renderMhProfileRail(){ /* 제거됨 */ }
     //   안 닫으면 마이홈이 사라진 화면 한가운데에 창만 덩그러니 남는다(움직임 창에서 실제로 겪은 종류).
     _step('스티커 창', ()=>{
       myHomeSticker().close();
-      if(typeof _mhCloseStickerAnim==='function') _mhCloseStickerAnim();
+      _mhCloseStickerAnim();
     });
-    _step('창 크기 복귀', ()=>{ if(typeof applyDesktopRunClass==='function') applyDesktopRunClass(); });   // 창 크기 원래대로 복귀
+    _step('창 크기 복귀', ()=>{ applyDesktopRunClass(); });   // 창 크기 원래대로 복귀
   };
   window.openMyHome = open;   // ★ 런처의 "🏠 마이홈" 버튼 등 다른 곳에서도 재사용
   // 원래 open을 감싸서 — 마이홈이 열릴 때 대기 중인 친구 요청이 있으면 팝업으로 자동 표시
@@ -200,7 +200,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
     if(_mhViewingUserId()) return;   // 남의 집 관람 중엔 미리보기 없음
     window._mhPreviewMode = true;
     _mhApplyVisitUI();
-    if(typeof toast==='function') toast('👁 방문자 시점으로 보고 있어요');
+    toast('👁 방문자 시점으로 보고 있어요');
   });
   const previewExitBtn=document.getElementById('mhPreviewExitBtn');
   if(previewExitBtn) previewExitBtn.addEventListener('click', ()=>{
@@ -234,7 +234,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
         mhScheduler.renderSchedCalendar(); mhScheduler.renderDdays();
       }
       // 🎨 스티커 — 마이홈 탭에서만 보이고 나머지(친구/스케줄러/우편함/버그제보)에서는 숨김
-      if(typeof renderMyHomeStickers==='function') renderMyHomeStickers();
+      renderMyHomeStickers();
       // 📩 우편함 탭에 들어올 때 수령함을 그림 — 예전엔 친구 탭 옆에 늘 떠 있어서
       //   renderMhChat 이 대신 그려주고 있었다. 이제 자기 탭이 생겼으니 여기서 그린다.
       if(tab.dataset.tab==='mail' && typeof inboxMod.renderInbox==='function') inboxMod.renderInbox();
@@ -245,7 +245,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
       // ★ 예전엔 탭 전환 시 loadMyHomePage()를 다시 호출했는데, 프리미엄 스튜디오 등에서 방금 커밋한
       //   (아직 firebase에 반영 안 된) 로컬 편집분이 옛 데이터로 덮어써지는 문제가 있었음.
       //   _myHomeData는 이미 최신 로컬 상태를 갖고 있으므로 홈 탭으로 돌아올 땐 재렌더만 하면 됨.
-      if(tab.dataset.tab==='home' && typeof renderMyHomePage==='function') renderMyHomePage();
+      if(tab.dataset.tab==='home') renderMyHomePage();
       /* 🎁 선물 뱃지 확인 처리는 여기 없다 — 친구 관리의 **💝 선물함 서브탭을 누를 때**로 옮겼다
          (아래 #mhFmTabs 바인딩). 마이홈 탭을 스치기만 해도 선물을 본 것으로 처리되면 안 된다. */
     });

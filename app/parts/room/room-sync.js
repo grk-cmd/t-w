@@ -224,7 +224,7 @@ async function _storageFaceUrlOne(uid, st, key, cv){
 }
 async function ensureRoomFaceUrls(def){
   try{
-    if(!def || !window.firebaseAPI || !firebaseAPI.uploadRoomFace || typeof getMyUserId!=='function') return def;
+    if(!def || !window.firebaseAPI || !firebaseAPI.uploadRoomFace) return def;
     const uid = getMyUserId(); if(!uid) return def;
     const st = _roomFaceCacheLoad();
     const one = (key, cv)=> _storageFaceUrlOne(uid, st, key, cv);
@@ -559,7 +559,7 @@ function makeFirebaseProvider(){
 
   window.addEventListener('firebase-ready', ()=>{
     done = true; clearTimeout(timer); hideNotice();
-    if(tries > 0 && typeof toast === 'function') toast('🛰 서버에 다시 연결됐어요');
+    if(tries > 0) toast('🛰 서버에 다시 연결됐어요');
   });
 
   /* 원본 <script type="module"> 의 error 는 **확정 신호**다(시간 초과와 달리 기다릴 이유가 없다).

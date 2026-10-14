@@ -61,7 +61,7 @@ const wdPaintTool = (typeof PaintTools==='undefined') ? null : PaintTools.create
   hotkeyLetter:(typeof hotkeyLetter==='function'?hotkeyLetter:null),
   tips:{ bucket:'페인트통 (G) — 누른 모델의 칠할 자리 전체를 지금 색으로 · Shift+클릭은 그 자리 지우기' },
   onChange:(t)=>{ _wdPic.eraser=(t==='eraser'); _wdPic.fill=(t==='bucket');
-    if(t==='bucket' && _wdPic.on && typeof toast==='function') toast('🪣 페인트통 — 칠할 모델을 눌러요 (Shift+클릭 = 지우기)'); } });
+    if(t==='bucket' && _wdPic.on) toast('🪣 페인트통 — 칠할 모델을 눌러요 (Shift+클릭 = 지우기)'); } });
 
 const WD_PIC_HIST_MAX = 30;
 
@@ -152,8 +152,8 @@ function refreshWdPicUI(){
     const want = _wdPic.on ? 'flex' : 'none';
     if(sec.style.display !== want){
       sec.style.display = want;
-      if(typeof sizeWdPreview==='function') sizeWdPreview();
-      if(typeof updateWdCam==='function') updateWdCam();
+      sizeWdPreview();
+      updateWdCam();
     }
   }
   // 그리는 동안에는 색상 줄을 내린다 — 320px 창에 둘을 같이 펴면 세로가 터진다.
@@ -171,7 +171,7 @@ function enterWdPicMode(){
     ? ref.targets.map(t=>({ wrp:t.wrapper, put:v=>wdEar().setPic(t.side, v) }))
     : [{ wrp:ref.wrapper, put:v=>{ if(v) ref.xf.pic = v; else delete ref.xf.pic; } }];
   const tgts = list.filter(t=>wrapperHasPic(t.wrp) && (t.user = _picSetup(t.wrp)));
-  if(!tgts.length){ if(typeof toast==='function') toast(ref && ref.ear ? '귀에 그릴 자리가 없어요' : '이 파츠에는 그릴 자리가 없어요'); return; }
+  if(!tgts.length){ toast(ref && ref.ear ? '귀에 그릴 자리가 없어요' : '이 파츠에는 그릴 자리가 없어요'); return; }
   _wdPicTarget = ref;
   _wdPic.on = true;
   _wdPic.tgts = tgts; _wdPic.ear = !!ref.ear; _wdPic.symOk = ref.ear ? !!ref.symOk : true;
@@ -209,7 +209,7 @@ async function exitWdPicMode(save){
       t.put(v);
       if(t.wrp) t.wrp.userData._picSrc = v;
     }
-    if(notUp && typeof toast==='function') toast('그림은 저장했지만 아직 못 올렸어요 — 다음에 다시 올릴게요');
+    if(notUp) toast('그림은 저장했지만 아직 못 올렸어요 — 다음에 다시 올릴게요');
   } else {
     tgts.forEach((t, i)=>{
       if(!t.user) return;
@@ -301,7 +301,7 @@ function _wdPicFillHit(hit, erase){
   }
 }
 function _wdPicSetSym(v){
-  if(v && !_wdPic.symOk){ if(typeof toast==='function') toast('좌우 귀가 같은 종류일 때만 대칭으로 그릴 수 있어요'); return; }
+  if(v && !_wdPic.symOk){ toast('좌우 귀가 같은 종류일 때만 대칭으로 그릴 수 있어요'); return; }
   _wdPic.sym = !!v;
   const b=document.getElementById('wdPicSym'); if(b) b.classList.toggle('on', _wdPic.sym);
 }
@@ -997,7 +997,7 @@ function applyPartPic(wrp, src){
 async function uploadPartPic(dataUrl){
   try{
     if(!dataUrl || !/^data:/.test(dataUrl)) return null;
-    if(!window.firebaseAPI || !firebaseAPI.uploadRoomFace || typeof getMyUserId !== 'function') return null;
+    if(!window.firebaseAPI || !firebaseAPI.uploadRoomFace) return null;
     const uid = getMyUserId(); if(!uid) return null;
     /* ⚠️ [2026-09-18] 예전엔 여기서 `tw.roomFaceUrls` 를 **직접** 읽고, 넘치면
        `st = { [ck]: r.url }` 로 **방금 것 하나만 남기고 전부 버렸다.** 같은 저장 키를 얼굴이

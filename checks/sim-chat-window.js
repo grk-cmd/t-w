@@ -490,7 +490,7 @@ await sec('── 9. app.js 배선', () => {
     '  _flyAiming · _emojiCache · isAdmin 은 다시 대입되는 let — 그래서 읽는 함수');
   const m = strip(MOD);
   chk(/if\(officeMode\(\)\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}/.test(m) && !/if\(officeMode\)/.test(m) && /setFlyAiming\(!_flyAiming\(\)\)/.test(m)
-    && /isAdmin\(\)\)\)\{/.test(m) && /_emojiCache\(\)\[i\]&&_emojiCache\(\)\[i\]\.url/.test(m), '모듈은 officeMode · _flyAiming · isAdmin · _emojiCache 를 부를 때마다 읽는다');
+    && /!isAdmin\(\)\)\{/.test(m) && /_emojiCache\(\)\[i\]&&_emojiCache\(\)\[i\]\.url/.test(m), '모듈은 officeMode · _flyAiming · isAdmin · _emojiCache 를 부를 때마다 읽는다');
   chk(!/[^.\w](_chatFly(On|Size|Color)|officeMode|_flyAiming|isAdmin|_emojiCache)\s*=[^=>]/.test(m.replace(/const (officeMode|_flyAiming|isAdmin|_emojiCache) = deps\.\w+;/g, '')), '  모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로만)');
   const off = (APP.match(/const CHAT_WINDOW_OFF = (\{[^\n]*?\});/) || [])[1];
   chk(off === '{}', '빈 껍데기 CHAT_WINDOW_OFF — 반환값과 같은 빈 객체');
@@ -521,8 +521,8 @@ await sec('── 10. 일부러 깨 보기 — 이 검사가 헛돌지 않는가
     ['조합 중 Enter 도 보냄', s => s.replace('if(e.isComposing || e.keyCode === 229) return;', '')],
     ['날리기 체크를 반대로', s => s.replace('_setChatFlyOn(!!fchk.checked);', '_setChatFlyOn(!fchk.checked);')],
     ['크기 flySizeOk 안 거침', s => s.replace("_setChatFlySize(_flySizeOk(b.getAttribute('data-flysize')));", "_setChatFlySize(b.getAttribute('data-flysize'));")],
-    ['색 레벨 문턱 빠짐', s => s.replace('if(lv < FLY_COLOR_LEVEL && !(', 'if(false && !(')],
-    ['관리자를 값으로', s => s.replace("isAdmin())){", 'isAdmin)){')],
+    ['색 레벨 문턱 빠짐', s => s.replace('if(lv < FLY_COLOR_LEVEL && !isAdmin()', 'if(false && !isAdmin()')],
+    ['관리자를 값으로', s => s.replace("!isAdmin()){", '!isAdmin){')],
     ['삭제 창 안쪽 전파 안 끊음', s => s.replace('if(cdWin) cdWin.onclick=(e)=>{ e.stopPropagation(); };', '')],
     ['꺼진 확인 단추로도 지움', s => s.replace('if(!cdOk.disabled) _chatDelRun();', '_chatDelRun();')],
     ['💣 회사원 모드 값으로', s => s.replace(/if\(officeMode\(\)\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}\n    const lv/, "if(officeMode){ toast('🏢 회사원 모드에서는 쓸 수 없어요'); return; }\n    const lv")],

@@ -68,7 +68,7 @@ function openRacePicker(target){
   try{ window.__twRaceTargetSlot = _raceTargetSlot; }catch(_){}   // animal.js는 IIFE라 window로만 읽을 수 있음
   initRacePreview();
   document.getElementById('raceOverlay').classList.add('on');
-  if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();   // 창이 런처(작은) 크기인지 강제 재확인
+  applyDesktopRunClass();   // 창이 런처(작은) 크기인지 강제 재확인
   // GLB 로드가 아직 끝나지 않은 경우를 대비해 다음 프레임에서 한 번 더 시도
   requestAnimationFrame(renderRacePreview);
   if(!BASE_SCENE()) setTimeout(renderRacePreview, 200);

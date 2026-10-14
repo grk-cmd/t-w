@@ -682,7 +682,7 @@ function _attachEar(side){
     // ★ 귀 페인트 다시 물리기 — 위에서 o.material.clone()으로 '새 재질'을 만들기 때문에 텍스처(map) 연결이
     //   끊긴다. 그린 내용(pEar[side].face·blink)은 그대로 살아있는데 화면만 흰색이 되는 것.
     //   귀 종류를 A→B→A로 바꾸거나 재부착될 때마다 재현되던 문제라 부착 직후 여기서 다시 연결한다.
-    if(typeof _ensureEarTex==='function') _ensureEarTex(side);
+    _ensureEarTex(side);
     // ★ 기즈모 재부착 — 귀 클릭 시점엔 파싱이 안 끝나 붙일 대상이 없어서(attach 실패)
     //   기즈모가 안 보이던 버그. 파싱 완료 후 지금 조정 중인 쪽이면 여기서 부착.
     if(earAdjSide===side) attachEarGizmo();
@@ -1829,7 +1829,7 @@ function _resetAnimalState(){
     _clearPaintHistory();   // ⚠️ length=0 만으로는 캔버스 백킹스토어가 GC 때까지 남는다
     // 모델이 이미 로드돼 있으면 초기화한 값으로 즉시 다시 그림
     if(model){ try{ applyFace(); applyScale(); applyEars(); ensurePaintTex(); }catch(_){} }
-    if(typeof markFaceBtns==='function') markFaceBtns();
+    markFaceBtns();
     // ★ 새로 만드는 것이므로 '빈 슬롯에 저장' 흐름이 되도록 편집 표식을 지운다.
     if(typeof creatorMode!=='undefined' && creatorMode){ creatorMode.edit=false; creatorMode.slot=null; }
   }catch(e){ console.warn('[동물] 신규 상태 초기화 실패', e); }
@@ -1905,7 +1905,7 @@ window.reopenAnimalCreator=function(def, opts){
       }, ms));
       // 슬라이더 UI 반영
       ['anpSx','anpSy','anpSa'].forEach(id=>{ const k=id==='anpSx'?'x':id==='anpSy'?'y':'all'; const el=overlay.querySelector('#'+id); if(el) el.value=scl[k]; const v=overlay.querySelector('#'+id+'V'); if(v) v.textContent=(scl[k]).toFixed(2); });
-      if(typeof renderEarLists==='function') renderEarLists();
+      renderEarLists();
       // 처음 들어올 땐 얼굴(opts.tab), 책상에서 [이전] 으로 돌아오면 마지막 편집 지점(감은눈)으로
       const _tab = (opts && ['face','ear','paint','blink'].indexOf(opts.tab)>=0) ? opts.tab : 'blink';
       if(typeof window.__anpGoTab==='function') window.__anpGoTab(_tab);
