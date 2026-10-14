@@ -384,7 +384,7 @@ await sec('── 7. app.js 배선', () => {
   chk(off && used.every(n => new RegExp('\\b' + n + '\\b').test(off)), '빈 껍데기 GACHA_OFF 가 부르는 이름을 다 갖는다 (' + used.length + '개)');
   const ret = (MOD.match(/\nreturn \{([\s\S]*?)\n\};\n\}/) || [])[1] || '';
   chk(used.every(n => new RegExp('(^|\\n)\\s*' + n + '\\b').test(ret)), '  모듈 반환값도 그 이름을 다 갖는다');
-  const iS = HTML.indexOf('<script src="parts/myhome-sticker.js"></script>'), iG = HTML.indexOf('<script src="parts/gacha.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iS = HTML.indexOf('<script src="parts/myhome/myhome-sticker.js"></script>'), iG = HTML.indexOf('<script src="parts/gacha.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iS > 0 && iG > iS && iA > iG, 'html — gacha.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwGacha') && !/window\.Gacha\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */

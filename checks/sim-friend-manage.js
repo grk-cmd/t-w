@@ -30,10 +30,10 @@
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
-/* 👥 친구 관리 · 요청 팝업은 parts/friend-manage.js 로 옮겼다(앱 FSD 5번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+/* 👥 친구 관리 · 요청 팝업은 parts/myhome/friend-manage.js 로 옮겼다(앱 FSD 5번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 못 찾은 문자열로 빨개지지 않게. */
 let FMSRC = null; try{ FMSRC = fs.readFileSync('friend-manage.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — friend-manage.js'); process.exit(2); }
-/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 let MISRC = null; try{ MISRC = fs.readFileSync('myhome-inbox.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-inbox.js'); process.exit(2); }
 const APPSRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));

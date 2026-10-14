@@ -20,7 +20,7 @@ let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 
-/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 const APP0 = read('app.js'), MI = read('myhome-inbox.js'), ML = read('mallang.js'), FB = read('firebase-init.js');
 const RULES = read('firebase-database-rules.json');
@@ -97,7 +97,7 @@ chk(/_giftStat\('⭐ '\+starN\+'\/'\+lim\.starMax\+' · 보관 '\+keys\.length\+
 const HTML = read('desk-companion-prototype.html') || '';
 const fmTabs = (HTML.match(/<div id="mhFmTabs">[\s\S]*?<\/div>/) || [''])[0];
 chk(/id="mhGiftStat"/.test(fmTabs), '그 표시는 서브탭 줄(#mhFmTabs) 안에 있다 — 격자 위에 줄을 더하면 스크롤이 생긴다');
-/* renderFriendManage 는 parts/friend-manage.js 로 옮겼다(앱 FSD 5번). */
+/* renderFriendManage 는 parts/myhome/friend-manage.js 로 옮겼다(앱 FSD 5번). */
 chk(/function renderFriendManage\(\)\{\s*if\(_fmTab !== 'gift'\) _giftStat\(''\)/.test(read('friend-manage.js') || ''),'다른 서브탭으로 가면 표시를 비운다');
 chk(/getElementById\('myHomeWin'\)/.test(ask) && /win\.appendChild\(ov\)/.test(ask) && !/document\.body\.appendChild/.test(ask),
   '확인창은 #myHomeWin 의 자식 (body 로 빼면 run 모드에서 클릭이 뚫린다)');

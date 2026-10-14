@@ -1,6 +1,6 @@
 /* ═══ 🏠 sim-myhome-edit.js — 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 모듈 (2026-10-10 신설 · 앱 FSD 7-2) ═══════════
    app.js 의 마이홈 페이지 편집 묶음(옛 bindMyHomePage — 자동저장 · 프로필 사진 · 글 서식 · 새 스티커 붙이기 · 스티커 끌기 ·
-   닉네임 · 게시글 제목 · 🎵 BGM · 바깥 배경 · 테마 · 👑 디자인 스튜디오 · 프리셋)을 parts/myhome-edit.js 로 옮겼다.
+   닉네임 · 게시글 제목 · 🎵 BGM · 바깥 배경 · 테마 · 👑 디자인 스튜디오 · 프리셋)을 parts/myhome/myhome-edit.js 로 옮겼다.
    동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwMyHomeEdit 뿐 · 만들면 window 고리 · BGM 창 구독 · renderMyHomeStickers 감싸기 ·
           app.js 뒤쪽 const(USER_NAME_MAX)는 만들 때 읽지 않는다 · DOM 이 없어도 서지 않는다
@@ -532,7 +532,7 @@ await sec('── 9. app.js 배선', () => {
   const used = HOOKS.filter(n => new RegExp('\\b' + n + '\\b').test(code));
   const wantUsed = ['commitMyHomePage', '_mhBgmRefresh', '_bgmDestroy', '_mhApplyBg', '_mhApplyTheme', '_mhDsClose'];
   chk(wantUsed.every(n => used.includes(n)), '  app.js 는 그 이름으로 부른다(' + used.join(' · ') + ' — _mhBgmPlaying · _mhBgmSetPlaying 은 purikura-ui.js)');
-  const iS = HTML.indexOf('<script src="parts/myhome-sticker.js"></script>'), iE = HTML.indexOf('<script src="parts/myhome-edit.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iS = HTML.indexOf('<script src="parts/myhome/myhome-sticker.js"></script>'), iE = HTML.indexOf('<script src="parts/myhome/myhome-edit.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iS > 0 && iE > iS && iA > iE, 'html — myhome-edit.js 를 myhome-sticker.js 뒤 · app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwMyHomeEdit') && !/window\.MyHomeEdit\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */

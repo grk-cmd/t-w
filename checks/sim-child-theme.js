@@ -10,10 +10,10 @@
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-/* 📖 방명록 창(GB_HTML · 여는 곳)은 parts/guestbook.js 로 옮겼다(앱 FSD 4번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+/* 📖 방명록 창(GB_HTML · 여는 곳)은 parts/myhome/guestbook.js 로 옮겼다(앱 FSD 4번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 못 찾은 문자열로 빨개지지 않게. */
 let GBF = null; try{ GBF = fs.readFileSync('guestbook.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — guestbook.js'); process.exit(2); }
-/* 👑 디자인 창(DS_HTML · 여는 곳)은 parts/myhome-edit.js 로 옮겼다(앱 FSD 7-2) — 같은 방식으로 이어 붙인다. */
+/* 👑 디자인 창(DS_HTML · 여는 곳)은 parts/myhome/myhome-edit.js 로 옮겼다(앱 FSD 7-2) — 같은 방식으로 이어 붙인다. */
 let MEF = null; try{ MEF = fs.readFileSync('myhome-edit.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
 const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + GBF + '\n' + MEF;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
