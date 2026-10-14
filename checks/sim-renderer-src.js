@@ -55,6 +55,12 @@ const MODULES = [
   { file: 'focus-total.js', mod: 'focusTotalMod', glob: 'TwFocusTotal', sample: 'function _todayStr(' },   // 앱 FSD 45번
   { file: 'commission.js', mod: 'commissionMod', glob: 'TwCommission', sample: 'function resizeImgBlobTo(' },   // 앱 FSD 45번
   { file: 'code-crypto.js', mod: 'codeCryptoMod', glob: 'TwCodeCrypto', sample: 'function _b64(' },   // 앱 FSD 45번
+  { file: 'add-friend.js', mod: 'addFriendMod', glob: 'TwAddFriend', sample: 'function drawFaceThumb(' },   // 앱 FSD 46번
+  { file: 'floaters.js', mod: 'floatersMod', glob: 'TwFloaters', sample: 'function spriteChar(' },   // 앱 FSD 46번
+  { file: 'roulette.js', mod: 'rouletteMod', glob: 'TwRoulette', sample: 'function _rollRoulette(' },   // 앱 FSD 46번
+  { file: 'chat-lock.js', mod: 'chatLockMod', glob: 'TwChatLock', sample: 'function _chatRoomCode(' },   // 앱 FSD 46번
+  { file: 'device-lost.js', mod: 'deviceLostMod', glob: 'TwDeviceLost', sample: 'function _onDeviceSessionLost(' },   // 앱 FSD 46번
+  { file: 'demoji-palette.js', mod: 'demojiPalMod', glob: 'TwDemojiPalette', sample: 'function _buildDemojiPalette(' },   // 앱 FSD 46번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
