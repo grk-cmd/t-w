@@ -50,6 +50,11 @@ const MODULES = [
   { file: 'myhome-sticker-layout.js', mod: 'mhStLayoutMod', glob: 'TwMyHomeStickerLayout', sample: 'function _mhOpenStickerAnim(' },   // 앱 FSD 44번
   { file: 'myhome-diag.js', mod: 'mhDiagMod', glob: 'TwMyHomeDiag', sample: 'window.__mhClickDiag = function(){' },   // 앱 FSD 44번
   { file: 'myhome-visit.js', mod: 'mhVisitMod', glob: 'TwMyHomeVisit', sample: 'function _mhHomeFromServer(' },   // 앱 FSD 44번
+  { file: 'exp-bar.js', mod: 'expBarMod', glob: 'TwExpBar', sample: 'function expTierClass(' },   // 앱 FSD 45번
+  { file: 'focus-share.js', mod: 'focusShareMod', glob: 'TwFocusShare', sample: 'function _focusShowText(' },   // 앱 FSD 45번
+  { file: 'focus-total.js', mod: 'focusTotalMod', glob: 'TwFocusTotal', sample: 'function _todayStr(' },   // 앱 FSD 45번
+  { file: 'commission.js', mod: 'commissionMod', glob: 'TwCommission', sample: 'function resizeImgBlobTo(' },   // 앱 FSD 45번
+  { file: 'code-crypto.js', mod: 'codeCryptoMod', glob: 'TwCodeCrypto', sample: 'function _b64(' },   // 앱 FSD 45번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

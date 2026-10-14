@@ -80,6 +80,11 @@
 | `app/parts/myhome-sticker-layout.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🎨 마이홈 스티커 배치 — 크기 · 자리 계산 · 화면 안으로 · 움직임 효과 창. 그리기 `renderMyHomeStickers` 는 app.js(편집 모듈이 감싸 다시 대입). classic script(`window.TwMyHomeStickerLayout`), 부르는 곳은 `mhStLayoutMod.이름` |
 | `app/parts/myhome-diag.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🔍 마이홈 클릭 진단(`window.__mhClickDiag` — 콘솔 도구). classic script(`window.TwMyHomeDiag`) — 밖에서 부르는 이름 없음 |
 | `app/parts/myhome-visit.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 🏠 내 마이홈 데이터(`_myHomeData` · 서버 모양 맞추기) · 👀 친구 홈 구경(`openFriendHomeView` · `closeFriendHomeView`). classic script(`window.TwMyHomeVisit`), 부르는 곳은 `mhVisitMod.이름` |
+| `app/parts/code-crypto.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 45번) — 🔐 캐릭터 코드 암호화(`encryptCode` · `decryptCode` — base64 · 비밀번호로 키 만들기 · 이미지 줄이기). classic script(`window.TwCodeCrypto`), 부르는 곳은 `codeCryptoMod.이름` |
+| `app/parts/commission.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 45번) — 📦 커미션 zip 풀기 · 커미션 암호화 · 💾 저장한 책상 · 아이템(`savedDesks` · `savedItems` — localStorage). `customItems` 는 app.js. classic script(`window.TwCommission`), 부르는 곳은 `commissionMod.이름` |
+| `app/parts/exp-bar.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 45번) — ⭐ 경험치 바 — 캐릭터 발밑 레벨 진행도 게이지(내 좌석 · 상대 좌석 공용). classic script(`window.TwExpBar`), 부르는 곳은 `expBarMod.이름` |
+| `app/parts/focus-total.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 45번) — ⏱️ 포커스 누적 — 전체 · 오늘 · 이번 실행 시간 저장 키 · 6시 날짜 경계 · 회차 상한. 전체 누적 `_focusTotalSec` 는 app.js. classic script(`window.TwFocusTotal`), 부르는 곳은 `focusTotalMod.이름` |
+| `app/parts/focus-share.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 45번) — 📊 오늘 기록 전시 — 머리 위 «오늘 n시간» 을 방에 보내기 · 설정 켜기(`_focusShowConf` · `_focusShowPush`). classic script(`window.TwFocusShare`), 부르는 곳은 `focusShareMod.이름` |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
