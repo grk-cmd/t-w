@@ -1,5 +1,5 @@
 /* ═══ 💬 sim-chat-ui.js — 💬 채팅 모듈 구조 (2026-10-14 신설 · 앱 FSD 24번) ═══════════════
-   app.js 의 💬 채팅 다섯 구역 본문 을 parts/chat-ui.js 로 옮겼다(글자 그대로 · 바뀐 줄 37 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(채팅 검사들).
+   app.js 의 💬 채팅 다섯 구역 본문 을 parts/chat/chat-ui.js 로 옮겼다(글자 그대로 · 바뀐 줄 37 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(채팅 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DEMOJI_BY_ID · DEMOJI_DIR · DEMOJI_LIST · EMOJI_SLOTS · FLY_COLOR_LEVEL · _bindChatCopy · _bindChatTabs · _chatClearNow · _chatClearUndo · _chatFlyColor · setChatFlyColor · _chatFlyOn · setChatFlyOn · _chatFlyRefreshUI · _chatFlySize · setChatFlySize · _chatIsMinimized · _chatMyTabId · _chatTabName · _chatTabOut · _chatTabResolve · _chatTabsOnMeta · _chatTabsRender · _chatWindowIsOpen · _deleteEmoji · _emojiCache · _flyLaneFreeAt · setFlyLaneFreeAt · _flySizeOk · _onEmojiFilePicked · _onEmojiSlotClick · _renderChatLog · _saveChatLog · _saveChatWinPos · _sendChatWindowMsg · _setChatMinimized · _syncChatBadgeSub · _toggleEmojiPanel · closeChatWindow · openChatWindow · sendMyChat · showFlyText)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 35줄 그대로 · 부르는 곳은 chatUiMod.이름 · html(app.js 앞)
@@ -13,7 +13,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
-const MOD = ["chat-ui.js","parts/chat-ui.js","app/parts/chat-ui.js"].map(read).find(Boolean);
+const MOD = ["chat-ui.js","parts/chat/chat-ui.js","app/parts/chat/chat-ui.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — chat-ui.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
@@ -67,8 +67,8 @@ function judgeAll(mod, app, html){
   /* 같은 이름의 딴 지역 변수가 app.js 에 따로 있는 이름(예: 함수 안 let)은 이 판정에서 뺀다 — 설정 localSame */
   const bare = EXPORTS.filter(n => ![].includes(n)).filter(n => new RegExp('(^|[^.\\w$])' + n.replace(/\$/g, '\\$') + '\\b(?!\\s*:[^:])').test(A.replace(/const chatUiMod = [\s\S]*?\n\}\);/, '')));
   t(!bare.length, '부르는 곳은 chatUiMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
-  const iM = html.indexOf('<script src="parts/chat-ui.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
-  t(iM > 0 && iA > iM, 'html — parts/chat-ui.js 를 app.js 보다 먼저 싣는다');
+  const iM = html.indexOf('<script src="parts/chat/chat-ui.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
+  t(iM > 0 && iA > iM, 'html — parts/chat/chat-ui.js 를 app.js 보다 먼저 싣는다');
   return r;
 }
 
@@ -76,7 +76,7 @@ const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
-  ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/chat-ui.js"></script>', '')],
+  ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/chat/chat-ui.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
   ['deps 하나 빠짐', null, a => { const i = a.indexOf("const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi.createChatUi({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }, null],
   ['전역 이름 안 걺', m => m.replace('window.TwChatUi = api;', ''), null, null],

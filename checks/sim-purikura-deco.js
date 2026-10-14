@@ -25,7 +25,7 @@ let PU = null; try{ PU = fs.readFileSync('purikura-ui.js', 'utf8'); }catch(_){ c
 /* 🏠 마이홈 BGM 창구(_mhBgmPlaying · _mhBgmSetPlaying)는 parts/myhome-edit.js 가 건다(앱 FSD 7-2) — 같은 방식으로 이어 붙인다.
    ⚠️ 빼면 «창구는 표시만 바꾼다»(없어야 할 글을 찾는 검사)가 아무것도 안 보고 초록이 된다. */
 let ME = null; try{ ME = fs.readFileSync('myhome-edit.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
-/* 💬 대화창 배선(📷 버튼)은 parts/chat-window.js 로 옮겼다(앱 FSD 14번) — 같은 방식으로 이어 붙인다. */
+/* 💬 대화창 배선(📷 버튼)은 parts/chat/chat-window.js 로 옮겼다(앱 FSD 14번) — 같은 방식으로 이어 붙인다. */
 let CW = null; try{ CW = fs.readFileSync('chat-window.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — chat-window.js'); process.exit(2); }
 const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + PU + '\n' + ME + '\n' + CW;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');

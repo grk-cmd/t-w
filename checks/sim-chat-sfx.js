@@ -10,7 +10,7 @@
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-/* 💬 대화창 배선(🔔 알림음 메뉴 연결 · 저장값 반영)은 parts/chat-window.js 로 옮겼다(앱 FSD 14번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+/* 💬 대화창 배선(🔔 알림음 메뉴 연결 · 저장값 반영)은 parts/chat/chat-window.js 로 옮겼다(앱 FSD 14번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 let CW = null; try{ CW = fs.readFileSync('chat-window.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — chat-window.js'); process.exit(2); }
 const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + CW;

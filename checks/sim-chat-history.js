@@ -152,7 +152,7 @@ async function run(){
 
 run().then(() => {
   say('§3 연결 · 배선');
-  chk(/import \{ createChatHistory, createIdbChatStore, chatOrder \} from "\.\/chat-history\.js"/.test(FI) && /const _chatOrder = chatOrder;/.test(FI),
+  chk(/import \{ createChatHistory, createIdbChatStore, chatOrder \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?chat-history\.js"/.test(FI) && /const _chatOrder = chatOrder;/.test(FI),
     'firebase-init 은 chat-history.js 를 연결만 · 순서 함수는 한 벌');
   const sub = (FI.match(/subscribeChatSince\(room, tabId, since, onMsg, onReady, limit\)\{[\s\S]*?\n    \},/) || [''])[0];
   chk(/orderByChild\('ts'\), startAt\(since\)/.test(sub) && /onChildAdded\(q, one\)/.test(sub) && /onChildChanged\(q, one\)/.test(sub) && !/onChildRemoved/.test(sub),
