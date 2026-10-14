@@ -284,7 +284,7 @@ g.open = () => null; g.close = () => {}; g.focus = () => {}; g.blur = () => {};
 g.scrollTo = () => {}; g.getSelection = () => ({ toString: () => '', removeAllRanges() {} });
 
 /* ── 다른 script 가 거는 이름 ────────────────────────────────────────
-   app.js 는 HTML 이 먼저 싣는 파일들이 거는 이름(window.X = … · 맨 위 function)을 typeof 가드 없이 바로 부른다(개정 238).
+   app.js 는 HTML 이 먼저 싣는 파일들이 거는 이름(window.X = … · 맨 위 function)을 typeof 가드 없이 바로 부른다(개정 239).
    여기서는 app.js 만 돌리므로, HTML 의 <script src="parts/…"> 목록에서 app.js 앞 파일을 **진짜로 실어** 둔다(못 실으면 그대로 실패).
    ⚠️ 목록을 손으로 적지 않는다 — 파일이 늘면 조용히 낡는다. */
 (function loadSiblingScripts(){

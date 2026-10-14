@@ -56,7 +56,7 @@ const K = {};
 ['MY_USER_ID_KEY','INVITE_PASS_KEY','MY_FRIEND_CODE_KEY','LOGIN_EMAIL_KEY','LOGIN_UID_KEY',   // (개정 56) MY_PREV_USER_IDS_KEY 걷음
  'MY_FRIEND_CODE_PREV_KEY','LICENSE_KEY_STORAGE','LICENSE_REQ_ID_KEY','FOCUS_TOTAL_KEY','FOCUS_TODAY_SEC_KEY',
  'FOCUS_TODAY_DATE_KEY','FOCUS_SYNCED_KEY','DANCE_NOTIFIED_KEY','DANCE_REPAIR_KEY','GACHA_OWNED_KEY','GACHA_TS_KEY',
- 'GACHA_BONUS_KEY','CHAL_KEY','LS_KEY','SLOTS_TS_KEY','LICENSE_OPTOUT_KEY',   // (개정 237) 목록에 들어온 뒤 여기 없어 2절이 «?» 로 통째 안 돌았다
+ 'GACHA_BONUS_KEY','CHAL_KEY','LS_KEY','SLOTS_TS_KEY','LICENSE_OPTOUT_KEY',   // (개정 238) 목록에 들어온 뒤 여기 없어 2절이 «?» 로 통째 안 돌았다
  'SLOTS_SEEN_KEY','SLOTS_LOSS_KEY','SLOTS_LASTSYNC_KEY','SLOTS_PUSHFAIL_KEY',   // ★ 2026-09-22 개정 45 — 목록에 들어온 뒤(개정 30~31) 여기 없어 2절이 «?» 로 통째 안 돌았다
  'CUR_SLOT_KEY','SLOT_GLB_CACHE_KEY','EXTRA_SEAT_KEY',
  'USER_NAME_KEY','CUSTOM_STATUS_KEY','MY_AD_BANNER_KEY','BELL_SEEN_KEY','INBOX_BC_READ_KEY','BONK_DAY_KEY',
@@ -231,7 +231,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     say('· ⑤ uid 없는 기기(이미 놓았거나 새 기기)');
     e = mkEnv({ slotsTs: 0 }); e.LS.setItem(K.LICENSE_KEY_STORAGE, 'LIC-?');
     r = await e.m.detach();
-    /* (개정 237) chal:reset 은 메모리 비우기 — 서버 호출이 아니다 */
+    /* (개정 238) chal:reset 은 메모리 비우기 — 서버 호출이 아니다 */
     chk(r && r.ok === true && e.calls.filter(c => c !== 'release' && !/:reset$/.test(c)).length === 0 && e.LS.getItem(K.LICENSE_KEY_STORAGE) === null, '  올릴 곳이 없으니 서버를 안 부르고 지운다(기기 세션 놓기만 — 내 것일 때만 지우는 호출이라 무해)');
 
     /* ⑥ 오프라인 — firebaseAPI 없음 */
@@ -290,7 +290,7 @@ function part3(){
   say('── 3. syncFocusTotalToServer — 신원을 놓은 뒤에는 돌지 않는다');
   const f = grabFn(SRC, 'syncFocusTotalToServer', 'async function ');
   if(!f){ huh('syncFocusTotalToServer 를 못 찾음'); return; }
-  const a = f.indexOf('if(typeof _acctDetached'), b = f.indexOf('const uid = getMyUserId();');   // (개정 237) typeof 가드를 걷어 getMyUserId() 를 바로 부른다
+  const a = f.indexOf('if(typeof _acctDetached'), b = f.indexOf('const uid = getMyUserId();');   // (개정 238) typeof 가드를 걷어 getMyUserId() 를 바로 부른다
   chk(a > 0 && b > a, '★ _acctDetached 검사가 getMyUserId() **앞**에 있다 (뒤면 이미 임시 uid 가 발급된 뒤다)');
   chk(/window\.addEventListener\('beforeunload', \(\)=>\{ try\{ syncFocusTotalToServer\('quit'\)/.test(SRC), '  beforeunload 가 여전히 quit 동기화를 부른다 (이 경로가 있어서 3절이 필요하다)');
   /* 실제로 돌려본다 */
