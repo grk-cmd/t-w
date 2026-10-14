@@ -406,6 +406,20 @@ PRELOAD.push('rich-text.js');
 PRELOAD.push('win-stack.js');
 /* sfx.js — 🔊 효과음 공장(앱 FSD 42번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSfx 를 같이 굴린다. */
 PRELOAD.push('sfx.js');
+/* face-heal.js — 얼굴 자동 복구(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFaceHeal 를 같이 굴린다. */
+PRELOAD.push('face-heal.js');
+/* slot-save.js — 슬롯 저장(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSlotSave 를 같이 굴린다. */
+PRELOAD.push('slot-save.js');
+/* interaction-desk.js — 상호작용 책상 카탈로그(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createInteractionDesk 를 같이 굴린다. */
+PRELOAD.push('interaction-desk.js');
+/* ad-banner.js — 광고 배너 · 게임 설정(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAdBanner 를 같이 굴린다. */
+PRELOAD.push('ad-banner.js');
+/* license-request.js — 라이선스 요청(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseRequest 를 같이 굴린다. */
+PRELOAD.push('license-request.js');
+/* fn-keys.js — 함수키 단축키(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFnKeys 를 같이 굴린다. */
+PRELOAD.push('fn-keys.js');
+/* hidden-seats.js — 워킹룸 숨기기(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createHiddenSeats 를 같이 굴린다. */
+PRELOAD.push('hidden-seats.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

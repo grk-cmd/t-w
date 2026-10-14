@@ -100,7 +100,7 @@ async function judgeAll(rep, adm, app, html){
     '빈 껍데기 둘 — 관리자 목록은 report.js 가 없으면 안 만든다');
   const block = (name) => ((app.match(new RegExp('const ' + name + ' = \\(typeof [^\\n]*\\{\\n([\\s\\S]*?)\\n\\}\\);')) || [])[1] || '').split('\n').map(l => l.trim()).filter(Boolean);
   const dr = block('reportMod'), da = block('adminReport');
-  t(dr.length === 8 && dr.includes('reportHiddenUids: _reportHiddenUids,') && dr.includes('myFriendCodeKey: MY_FRIEND_CODE_KEY,'), 'deps — 신고 창 여덟(숨김 Set · 친구 코드 키는 값)');
+  t(dr.length === 8 && (dr.includes('reportHiddenUids: _reportHiddenUids,') || dr.includes('reportHiddenUids: hiddenSeatsMod._reportHiddenUids,'))   /* 숨김 Set 은 hidden-seats.js 로 옮겼다(앱 FSD 43번) — 모듈이 내놓은 같은 Set */ && dr.includes('myFriendCodeKey: MY_FRIEND_CODE_KEY,'), 'deps — 신고 창 여덟(숨김 Set · 친구 코드 키는 값)');
   t(da.length === 11 && da.includes('isAdmin: ()=>isAdmin,') && da.includes('setReportOv: (...a)=>reportMod.setOv(...a),') && da.includes('kinds: reportMod.KINDS,'),
     'deps — 관리자 목록 열하나(isAdmin 은 읽는 함수 · 팝업 칸 · 창 틀은 reportMod 를 거침)');
   const iH = app.indexOf('/* ═══ 🚩 신고하기'), iR = app.indexOf('const reportMod ='), iA2 = app.indexOf('const adminReport =');
