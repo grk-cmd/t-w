@@ -2203,7 +2203,7 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
        가장 큰 상시 비용이다([Mac 제보 2026-09-23 «굉장히 버벅인다»] · [Windows 제보 «켜 두면 크롬이 버벅인다»]).
        mac · Windows 모두 FrameBudget.RUN_MAX_PR(1.5 = 픽셀 56%)로 누른다. 도트 렌더면 1.
        ⚠️ 캐릭터가 조금 덜 선명해질 수 있다 — 실기기에서 보고 조정. */
-    const wantPR = (typeof FrameBudget !== 'undefined') ? FrameBudget.runPixelRatio(devicePixelRatio, dotRenderEnabled) : (dotRenderEnabled ? 1 : Math.min(devicePixelRatio, 1.5));
+    const wantPR = FrameBudget.runPixelRatio(devicePixelRatio, dotRenderEnabled);
     if(renderer.getPixelRatio() !== wantPR) renderer.setPixelRatio(wantPR);
     canvas.style.imageRendering = dotRenderEnabled ? 'pixelated' : 'auto';
   } else {
@@ -7871,8 +7871,8 @@ document.getElementById('brushSize').addEventListener('input',e=>brushSize=+e.ta
 /* 🖌 도구 줄 — 붓 · 페인트통 · 지우개. eraser 변수(paintAt 이 본다)는 여기서만 맞춘다.
    붓이 아닌 도구를 고르면 도장 모드를 닫는다(예전 «지우개와 도장은 동시 사용 X» 와 같은 이유 — 도장 중엔 캔버스 클릭이 안 칠한다). */
 if(typeof PaintTools!=='undefined'){
-  crPaintTool=PaintTools.createPaintTools({ doc:document, uvFill:(typeof UvFill!=='undefined'?UvFill:null),
-    hotkeyLetter:(typeof hotkeyLetter==='function'?hotkeyLetter:null),
+  crPaintTool=PaintTools.createPaintTools({ doc:document, uvFill:UvFill,
+    hotkeyLetter:hotkeyLetter,
     onChange:(t)=>{ eraser=(t==='eraser'); if(t!=='brush' && stampMode) setStampMode(false);
       const cv=document.getElementById('creatorPreview'); if(cv && isDrawStep() && !stampMode) cv.style.cursor=crPaintTool.cursor(); } });
   crPaintTool.mount(document.getElementById('crToolSeg'));
@@ -8759,8 +8759,7 @@ document.getElementById('assetImpGo').onclick=async()=>{
     if(creatorOpen && cBase && (kind==='desk' || kind==='item')){
       const _rest = _creatorBuildDef(true);
       if(kind==='desk'){ delete _rest.deskGlb; delete _rest.deskCatalogId; }
-      const _add = (typeof DefSize==='undefined') ? 0
-        : (kind==='desk' ? DefSize.jsonBytes(glbB64) + 12 : DefSize.jsonBytes({ name: u.name, glb: glbB64 }) + 20);
+      const _add = (kind==='desk' ? DefSize.jsonBytes(glbB64) + 12 : DefSize.jsonBytes({ name: u.name, glb: glbB64 }) + 20);
       const _sz = _defSizeFile(_rest, _add);
       if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
     }
@@ -9750,7 +9749,6 @@ function _creatorBuildDef(forSize){
    실제로 바꾸지 않고 재기만 하므로, 막혀도 되돌릴 것이 없다. 모듈이 없으면 늘 통과(옛 동작). */
 const DEF_SIZE_TOAST_MS = 4000;
 function _creatorSizeGrow(patch){
-  if(typeof DefSize==='undefined') return { ok: true };
   const base = _creatorBuildDef(true);
   const next = Object.assign({}, base);
   if(base.customItems) next.customItems = Object.assign({}, base.customItems);
@@ -9759,7 +9757,6 @@ function _creatorSizeGrow(patch){
 }
 /* 파일 하나(base64)를 넣기 전 — clear(def) 로 그 파일이 들어갈 자리를 비운 나머지와 견준다. */
 function _defSizeFile(restDef, addBytes){
-  if(typeof DefSize==='undefined') return { ok: true };
   return DefSize.checkFile(roomSyncMod.defWireForSize(restDef), addBytes);
 }
 document.getElementById('crDone').addEventListener('click',()=>{
@@ -9777,10 +9774,8 @@ document.getElementById('crDone').addEventListener('click',()=>{
   const def=_creatorBuildDef(false);
   /* 📦 마지막 안전망 — 용량을 넘긴 채로 키웠으면 저장하지 않는다(생성기는 열린 채 그대로라 고친 것은 남는다).
      원래 캐릭터보다 커지지 않았으면 통과 — 이미 넘은 옛 캐릭터도 계속 고칠 수 있게. */
-  if(typeof DefSize!=='undefined'){
-    const _sz = DefSize.checkGrowth(currentCreatorDef ? roomSyncMod.defWireForSize(currentCreatorDef) : null, roomSyncMod.defWireForSize(def), roomSyncMod._defSizeNames(def));
-    if(!_sz.ok){ _blankFaceConfirmed = false; toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
-  }
+  const _sz = DefSize.checkGrowth(currentCreatorDef ? roomSyncMod.defWireForSize(currentCreatorDef) : null, roomSyncMod.defWireForSize(def), roomSyncMod._defSizeNames(def));
+  if(!_sz.ok){ _blankFaceConfirmed = false; toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
   if(creatorMode.kind==='seat'){
     applyCharToSeat(creatorMode.seat,def);
     // ★ 실행(run) 좌석은 slot 속성이 없어서 슬롯 저장이 스킵되던 버그 —
@@ -10216,11 +10211,9 @@ document.getElementById('commImpGo').onclick=async()=>{
     def.commGlb = payload.glb;           // base64 GLB (베이스 모델)
     def.xf = {s:0.7,y:0,z:0,rot:0,x:0};
     /* 📦 커미션 3D 파일 하나로 디자인 용량을 넘으면 등록하지 않는다(def-size.js). */
-    if(typeof DefSize!=='undefined'){
-      const _rest = Object.assign({}, def); delete _rest.commGlb;
-      const _sz = _defSizeFile(_rest, DefSize.jsonBytes(payload.glb) + 12);
-      if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
-    }
+    const _rest = Object.assign({}, def); delete _rest.commGlb;
+    const _sz = _defSizeFile(_rest, DefSize.jsonBytes(payload.glb) + 12);
+    if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
     // 슬롯에 저장 + 영구 저장
     if(charsMod._charsBoxFull()) return;   // 🧬 보관함 20 문턱
     slots[idx]=def;
@@ -10826,7 +10819,6 @@ const Presence=(()=>{
     //   ★ 전역 setUserStatus → Presence.setUserStatus → _clearAutoAwayMarks()로 흔적이 지워지므로,
     //     자동 전환/복원 표시는 반드시 호출 "이후"에 세팅해야 함.
     const setStatus = (v)=>{
-      if(typeof window.setUserStatus !== 'function') return false;
       try{ window.setUserStatus(v); return true; }
       catch(err){ console.warn('[autoAway] 상태 전환 실패', err); return false; }
     };
@@ -13201,8 +13193,8 @@ let prev=performance.now();
    캐릭터는 계속 움직여야 하므로 멈추지는 않고 상한만 둔다(dt는 그만큼 커져 속도는 그대로 유지).
    ※ 브라우저 스크롤 '멈춤'(GPU 합성 표면 점유)은 프레임 수와 무관함이 실험으로 확인됨(2026-07-25) —
      그건 오버레이가 표면을 잡는다는 사실 자체가 원인이다. 상한은 '버벅임'(GPU 부하) 쪽을 줄인다.
-   ★ frame-budget.js 가 안 실렸으면(검사 등) 상한 없이 돈다. */
-const _FB = (typeof FrameBudget !== 'undefined') ? FrameBudget : null;
+   ★ frame-budget.js 는 HTML 이 app.js 보다 먼저 싣는다 — 가드 없이 바로 쓴다. */
+const _FB = FrameBudget;
 const _frameBudget = _FB ? _FB.createFrameBudget({ now: ()=>performance.now() }) : null;
 let _appFocused = true;
 /* 🔥 상한 임시 해제 — **만지는 동안에는 비포커스여도 60fps(FrameBudget.FPS_ACTIVE)로 돌린다.**

@@ -42,9 +42,9 @@
 
   function homeWin(){ return document.getElementById('myHomeWin'); }
   function roomBox(){ return document.getElementById('mhRoomPreview'); }   // 청록 바탕화면 박스
-  function myId(){ try{ return (typeof getMyUserId==='function') ? getMyUserId() : null; }catch(_){ return null; } }
+  function myId(){ try{ return getMyUserId(); }catch(_){ return null; } }
   function fbReady(){ return !!(window.firebaseAPI && firebaseAPI.getMallangImgs); }
-  function hasLicense(){ try{ return (typeof window._premiumOn==='function') ? !!window._premiumOn() : false; }catch(_){ return false; } }
+  function hasLicense(){ try{ return !!window._premiumOn(); }catch(_){ return false; } }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
   function lsKey(){ return 'tw.mallang.' + (myId()||'anon'); }
   function saveLocal(){ try{ localStorage.setItem(lsKey(), JSON.stringify(imgs)); }catch(_){} }
@@ -83,7 +83,7 @@
     const now = Date.now();
     if(now - _persistWarnAt < 5000) return;
     _persistWarnAt = now;
-    if(typeof toast==='function') toast('말랑이 변경을 이 기기에만 저장했어요 — 연결을 확인해 주세요');
+    toast('말랑이 변경을 이 기기에만 저장했어요 — 연결을 확인해 주세요');
   }
 
   /* ── 폴더 + 레이어 DOM 주입 ── */
@@ -195,7 +195,7 @@
     folder.addEventListener('click', ()=>{ summonRandom(); });
     folder.addEventListener('contextmenu', (e)=>{
       e.preventDefault();
-      if(visiting){ if(typeof toast==='function') toast('관람 중에는 이미지를 등록할 수 없어요'); return; }
+      if(visiting){ toast('관람 중에는 이미지를 등록할 수 없어요'); return; }
       openManage(inp);
     });
   }
@@ -247,10 +247,10 @@
 
   // 이미지 처리 공통부 — 소스(File 또는 dataURL)를 리사이즈해 업로드하고 슬롯 갱신
   async function _registerImage(slotIdx, src, inp){
-    if(typeof toast==='function') toast('말랑이 이미지 처리 중…');
+    toast('말랑이 이미지 처리 중…');
     const dataUrl = await resizeToWidth(src, SAVE_W).catch(()=>null);
-    if(!dataUrl){ if(typeof toast==='function') toast('이미지를 불러오지 못했어요'); return; }
-    if(!fbReady() || !firebaseAPI.uploadMallangImage){ if(typeof toast==='function') toast('네트워크 연결이 필요해요'); return; }
+    if(!dataUrl){ toast('이미지를 불러오지 못했어요'); return; }
+    if(!fbReady() || !firebaseAPI.uploadMallangImage){ toast('네트워크 연결이 필요해요'); return; }
     const r = await firebaseAPI.uploadMallangImage(myId(), slotIdx, dataUrl);
     if(r && r.ok){
       imgs.push({ url:r.url, on:true });
@@ -258,9 +258,9 @@
       renderSlots(inp);
       /* 사진 자체는 Storage 에 올라갔지만 목록이 서버에 안 실렸을 수 있다 — 그때 "등록됐어요"는
          거짓말이 된다(다른 기기에서는 안 보인다). 성공했을 때만 성공이라고 말한다. */
-      if(pr && pr.ok){ if(typeof toast==='function') toast('말랑이가 등록됐어요!'); }
+      if(pr && pr.ok){ toast('말랑이가 등록됐어요!'); }
       else warnIfUnsaved(pr);
-    } else if(typeof toast==='function') toast((r&&r.reason)||'등록에 실패했어요');
+    } else toast((r&&r.reason)||'등록에 실패했어요');
   }
   function pickImage(slotIdx, inp){
     // ★ Electron에선 <input type=file>.click()이 사용자 제스처 판정 때문에 무시되는 경우가 있음
@@ -271,10 +271,10 @@
       companion.pickImage().then(dataUrl=>{
         if(!dataUrl) return;   // 취소
         _registerImage(slotIdx, dataUrl, inp);
-      }).catch(()=>{ if(typeof toast==='function') toast('이미지를 불러오지 못했어요'); });
+      }).catch(()=>{ toast('이미지를 불러오지 못했어요'); });
       return;
     }
-    if(!inp){ if(typeof toast==='function') toast('이미지를 불러올 수 없어요 — 앱을 재시작해 주세요'); return; }
+    if(!inp){ toast('이미지를 불러올 수 없어요 — 앱을 재시작해 주세요'); return; }
     inp.onchange = async ()=>{
       const file = inp.files && inp.files[0]; inp.value=''; if(!file) return;
       _registerImage(slotIdx, file, inp);
@@ -336,11 +336,11 @@
   function summonRandom(){
     const active = imgs.filter(x=>x && x.on);
     if(!active.length){
-      if(typeof toast==='function') toast(visiting ? '이 친구는 아직 말랑이를 등록하지 않았어요' : '먼저 우클릭으로 말랑이 이미지를 등록하세요');
+      toast(visiting ? '이 친구는 아직 말랑이를 등록하지 않았어요' : '먼저 우클릭으로 말랑이 이미지를 등록하세요');
       return;
     }
     if(liveFull()){
-      if(typeof toast==='function') toast('말랑이가 너무 많아요! (최대 '+MAX_LIVE+')');
+      toast('말랑이가 너무 많아요! (최대 '+MAX_LIVE+')');
       return;
     }
     const pick = active[Math.floor(Math.random()*active.length)];
@@ -659,7 +659,7 @@
       if(fbReady() && firebaseAPI.setMallangGiftHidden){
         firebaseAPI.setMallangGiftHidden(inst.gift.ownerId||myId(), inst.gift.giftId, true);
       }
-      if(typeof toast==='function') toast('🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)');
+      toast('🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)');
     }
     try{ inst.el.remove(); }catch(_){}
     live = live.filter(x=>x!==inst);
@@ -973,15 +973,15 @@
   }
 
   window._mallangOpenGift = async function(friendId, friendName){
-    if(!hasLicense()){ if(typeof toast==='function') toast('👑 말랑이 선물은 라이선스 보유자 전용이에요'); return; }
-    if(!fbReady()){ if(typeof toast==='function') toast('네트워크 연결이 필요해요'); return; }
+    if(!hasLicense()){ toast('👑 말랑이 선물은 라이선스 보유자 전용이에요'); return; }
+    if(!fbReady()){ toast('네트워크 연결이 필요해요'); return; }
     // 내 말랑이 이미지 로드 (활성/비활성 무관하게 등록된 것 전부 선물 가능)
     let mine = [];
     const raw = await firebaseAPI.getMallangImgs(myId()).catch(()=>[]) || [];
     if(!raw.length){ try{ const ls=JSON.parse(localStorage.getItem(lsKey())||'null'); if(Array.isArray(ls)) mine=ls; }catch(_){} }
     else mine = raw;
     mine = mine.map(x=> (typeof x==='string')?{url:x}:{url:x.url}).filter(x=>x&&x.url);
-    if(!mine.length){ if(typeof toast==='function') toast('먼저 내 말랑이를 등록하세요'); return; }
+    if(!mine.length){ toast('먼저 내 말랑이를 등록하세요'); return; }
     /* 하루 발송 횟수 + 상대 마이홈이 꽉 찼는지 — **둘을 나란히 부른다.**
        순서대로 기다리면 창이 뜨는 데 왕복이 두 번 걸린다. 서로 무관한 조회다. */
     const [cnt, theirs] = await Promise.all([
@@ -1026,14 +1026,14 @@
       cell.addEventListener('click', async ()=>{
         /* ⚠️ 흐리게 만든 것만으로는 부족하다 — 창을 열어둔 채 시간이 지나면 값이 낡는다.
            보내기 직전에 한 번 더 본다(로컬 판정이라 왕복은 없다). */
-        if(full){ if(typeof toast==='function') toast('🎁 상대 마이홈이 가득 찼어요 ('+GIFT_SEND_CAP+'마리)'); return; }
-        if(remain<=0){ if(typeof toast==='function') toast('오늘은 더 보낼 수 없어요 (하루 '+DAILY_LIMIT+'번)'); return; }
+        if(full){ toast('🎁 상대 마이홈이 가득 찼어요 ('+GIFT_SEND_CAP+'마리)'); return; }
+        if(remain<=0){ toast('오늘은 더 보낼 수 없어요 (하루 '+DAILY_LIMIT+'번)'); return; }
         cell.style.pointerEvents='none'; cell.style.opacity='.5';
-        const myName = (typeof getDisplayName==='function') ? getDisplayName() : '친구';
+        const myName = getDisplayName();
         const msg = msgInp ? msgInp.value.trim().slice(0, MSG_MAX) : '';
         const r = await firebaseAPI.sendMallangGift(myId(), myName, friendId, item.url, todayStr(), msg);
-        if(r&&r.ok){ if(typeof toast==='function') toast('🎁 '+esc(friendName||'친구')+'에게 말랑이를 보냈어요!'); pop.remove(); }
-        else { cell.style.pointerEvents=''; cell.style.opacity=''; if(typeof toast==='function') toast((r&&r.reason)||'전송 실패'); }
+        if(r&&r.ok){ toast('🎁 '+esc(friendName||'친구')+'에게 말랑이를 보냈어요!'); pop.remove(); }
+        else { cell.style.pointerEvents=''; cell.style.opacity=''; toast((r&&r.reason)||'전송 실패'); }
       });
       grid.appendChild(cell);
     });

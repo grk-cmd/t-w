@@ -45,9 +45,9 @@
   let bmOpen = false, bmLoaded = false;
 
   /* ── 저장소 ───────────────────────────────────────────────────────────── */
-  function uid(){ try{ return (typeof getMyUserId === 'function') ? getMyUserId() : null; }catch(_){ return null; } }
+  function uid(){ try{ return getMyUserId(); }catch(_){ return null; } }
   function api(){ return window.firebaseAPI || null; }
-  function toastOf(t){ try{ if(typeof toast === 'function') toast(t); }catch(_){} }
+  function toastOf(t){ try{ toast(t); }catch(_){} }
   function bmNewId(){ return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function bmUrlOk(u){ return typeof u === 'string' && u.length <= BM_URL_MAX && /^https?:\/\//i.test(u); }
   /* 주소는 **선택**이다(요청). 주소 없는 책은 그냥 장식 — 눌러도 아무 일이 없다. */
@@ -461,7 +461,6 @@
         const mine = (palHost === row);
         palClose();
         if(mine) return;
-        if(typeof buildFreeColorPicker !== 'function'){ toastOf('색 팔레트를 불러오지 못했어요'); return; }
         const pop = buildFreeColorPicker(draft[key], c=>{ draft[key] = c; hex.value = c; sw.style.background = c; paint(); });
         pop.style.top = '26px'; pop.style.left = '0';
         row.appendChild(pop); palHost = row;

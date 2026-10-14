@@ -82,7 +82,10 @@ chk(/return UvFill\.fillMeshOwned\(ctx, CANVAS_SZ, mesh\.geometry, peers, opt\);
   '여백 몫까지 채움(fillMeshOwned · 테두리 실선 막기) — 이 파츠의 다른 메쉬 안쪽 · 그 몫은 안 덮는다');
 chk(/const opt=\{ color:_wdPic\.color, erase:!!erase \};/.test(fh) && /function _wdPicFillHit\(hit, erase\)/.test(fh), '지금 색 · 지우기는 Shift+클릭이 넘긴 값(지우개 도구와 동시에 켜질 수 없다)');
 chk(/if\(_wdPic\.ear && _wdPic\.sym\)\{/.test(fh) && /_wdPicFillMesh\(mt\.user\.getContext\('2d'\), mt\.wrp, om, opt\)/.test(fh), '귀 대칭이면 반대쪽 귀의 같은 메쉬도');
-chk(/if\(typeof UvFill === 'undefined'/.test(fh), 'uv-fill.js 가 없으면 아무것도 안 한다(앱은 켜진다)');
+/* (개정 239) 가드를 걷었다 — 대신 «HTML 이 uv-fill.js 를 app.js 보다 먼저 싣는다» 로 의존을 보장한다 */
+{ const H = fs.readFileSync(['desk-companion-prototype.html', 'app/desk-companion-prototype.html'].find(p => fs.existsSync(p)), 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  const iU = H.search(/<script src="parts\/(?:[\w-]+\/)?uv-fill\.js"><\/script>/), iA = H.indexOf('<script src="parts/app.js"></script>');
+  chk(iU > 0 && iA > iU && !/typeof UvFill/.test(fh), 'uv-fill.js 를 app.js 보다 먼저 싣는다 — 그래서 가드 없이 바로 쓴다'); }
 chk(/if\(_wdPic\.fill\)\{ _wdPicPush\(\); _wdPicFillHit\(hit, e\.shiftKey\); return; \}/.test(A), '좌클릭 — 채우기면 되돌리기 한 칸 남기고 한 번에 끝(끌기 획 아님) · Shift 면 지우기');
 chk(/if\(wdPaintTool\) wdPaintTool\.mount\(toolSeg\);/.test(A) && /\[toolSeg,symB,swat\]/.test(A), '그리기 줄에 도구 줄(붓 · 🪣 페인트통 · 지우개 — 하나만)');
 chk(/else if\(wdPaintTool && wdPaintTool\.handleKey\(e\)\)\{ stop\(\); \}/.test(grab(A, '_wdPicKey')), 'G 키 = 페인트통(B 붓 · E 지우개 — 생성기와 같은 글자)');
