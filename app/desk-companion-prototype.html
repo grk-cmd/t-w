@@ -7998,10 +7998,10 @@
        그래서 app.js 는 firebaseAPI.pkGet 이 아직 없을 수 있다고 보고 쓴다(_purikura() 참고). -->
 <script src="parts/purikura/purikura-net.js"></script>
 <script src="vendor/qrcode.js"></script>   <!-- 📱 태블릿·폰 연결 QR (MIT · 로컬 파일 — CSP) -->
-<script src="parts/key-input.js"></script>   <!-- ⌨️ 글자 단축키 · 한글 조합 Enter — app.js 보다 먼저 -->
+<script src="parts/shared/key-input.js"></script>   <!-- ⌨️ 글자 단축키 · 한글 조합 Enter — app.js 보다 먼저 -->
 <script src="parts/chat/chat-copy.js"></script>
 <script src="parts/chat/chat-tabs.js"></script>   <!-- 💬 채팅 탭 규칙(window.ChatTabs) — app.js 보다 먼저 -->   <!-- 📋 대화 복사 형식(window.ChatCopy) — app.js 보다 먼저 -->
-<script src="parts/gl-recover.js"></script>   <!-- 🧯 WebGL 연결 끊김 감시(window.GlRecover) — app.js 보다 먼저 -->
+<script src="parts/shared/gl-recover.js"></script>   <!-- 🧯 WebGL 연결 끊김 감시(window.GlRecover) — app.js 보다 먼저 -->
 <script src="parts/character/human-ear.js"></script>   <!-- 🐾 사람 귀(꾸미기 › 머리 › 귀) — app.js 보다 먼저. 귀 GLB 는 ears-glb.js 가 나중에 채운다 -->
 <script src="parts/character/wd-ear.js"></script>   <!-- 🐾 꾸미기 › 머리 › 귀 탭 — app.js 보다 먼저(app.js 가 createWdEar 로 만든다) -->
 <script src="parts/uv-fill.js"></script>   <!-- 🪣 꾸미기 그리기 «채우기» — 누른 메쉬의 UV 자리만 칠한다 -->
@@ -8011,13 +8011,13 @@
 <script src="parts/creator-flat-view.js"></script>   <!-- 💡 표정 그리기 «원색 보기» -->
 <script src="parts/desk-item-origin.js"></script>   <!-- 🪑 생성기 책상 아이템의 «처음 자리»(⟲ 이동·회전 초기화) — app.js 보다 먼저 -->
 <script src="parts/character/def-size.js"></script>   <!-- 📦 캐릭터 디자인(def) 용량 상한 500KB · 부분별 크기 안내 — app.js 보다 먼저 -->
-<script src="parts/frame-budget.js"></script>   <!-- 🔋 실행 화면 프레임 상한(60 · 손 안 대면 30 · 다른 창 20) · 해상도 배율 — app.js 보다 먼저 -->
+<script src="parts/shared/frame-budget.js"></script>   <!-- 🔋 실행 화면 프레임 상한(60 · 손 안 대면 30 · 다른 창 20) · 해상도 배율 — app.js 보다 먼저 -->
 <script src="parts/room/seat-pin.js"></script>   <!-- 🪑 방에서 내 자리 «맨 오른쪽 고정»(window.TwSeatPin) — app.js 보다 먼저 -->
 <script src="parts/room/friend-visit.js"></script>   <!-- 🏠 친구 방에 놀러 가기(window.TwFriendVisit) — app.js 보다 먼저 -->
 <script src="parts/focus/gamepad-activity.js"></script>   <!-- 🎮 게임패드 버튼 · 스틱도 활동으로(window.TwGamepadActivity) — app.js 보다 먼저 -->
 <script src="parts/animal-edit-route.js"></script>   <!-- 🐾 동물 편집 길잡이(모양 → 책상 → 좌석) — app.js 보다 먼저 -->
-<script src="parts/api-client.js"></script>   <!-- 🌐 앱 공통 API 통로(window.TwApi · t-w-server 읽기 사본) — remote-config.js 보다 먼저 -->
-<script src="parts/remote-config.js"></script>   <!-- ⚙️ 원격 설정(방 상한 · 정원 · 가입 스위치 — window.TwRemoteConfig) — app.js · firebase-init.js 보다 먼저 -->
+<script src="parts/shared/api-client.js"></script>   <!-- 🌐 앱 공통 API 통로(window.TwApi · t-w-server 읽기 사본) — remote-config.js 보다 먼저 -->
+<script src="parts/shared/remote-config.js"></script>   <!-- ⚙️ 원격 설정(방 상한 · 정원 · 가입 스위치 — window.TwRemoteConfig) — app.js · firebase-init.js 보다 먼저 -->
 <script src="parts/myhome/scheduler.js"></script>   <!-- 📅 스케줄러 · 🔔 일정 알림 — app.js 보다 먼저(app.js 가 원래 자리에서 MhScheduler.createScheduler 로 만든다) -->
 <script src="parts/focus/weekly-challenge.js"></script>   <!-- 👑 달성표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWeeklyChallenge.createWeeklyChallenge 로 만든다) -->
 <script src="parts/purikura/purikura-ui.js"></script>   <!-- 📷 스티커사진 창(화면 쪽) — purikura-net.js 뒤 · app.js 보다 먼저(app.js 가 원래 자리에서 TwPurikuraUi.createPurikuraUi 로 만든다) -->
@@ -8068,9 +8068,9 @@
 <script src="parts/room/dice-games.js"></script>   <!-- 🎲 주사위 · 하루 횟수 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDiceGames.createDiceGames 로 만든다) -->
 <script src="parts/launcher/program-settings.js"></script>   <!-- 🏷️ 닉네임 저장 · ⚙️ 프로그램 설정 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwProgramSettings.createProgramSettings 로 만든다) -->
 <script src="parts/chat/chat-prefs.js"></script>   <!-- 💬 채팅 투명도 · 알림음 · 기록 삭제 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatPrefs.createChatPrefs 로 만든다) -->
-<script src="parts/rich-text.js"></script>   <!-- 🛡️ 리치 텍스트 sanitize — app.js 보다 먼저(app.js 가 원래 자리에서 TwRichText.createRichText 로 만든다) -->
-<script src="parts/win-stack.js"></script>   <!-- 🪟 창 겹침 · ESC 스택 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWinStack.createWinStack 로 만든다) -->
-<script src="parts/sfx.js"></script>   <!-- 🔊 효과음 공장 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSfx.createSfx 로 만든다) -->
+<script src="parts/shared/rich-text.js"></script>   <!-- 🛡️ 리치 텍스트 sanitize — app.js 보다 먼저(app.js 가 원래 자리에서 TwRichText.createRichText 로 만든다) -->
+<script src="parts/shared/win-stack.js"></script>   <!-- 🪟 창 겹침 · ESC 스택 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWinStack.createWinStack 로 만든다) -->
+<script src="parts/shared/sfx.js"></script>   <!-- 🔊 효과음 공장 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSfx.createSfx 로 만든다) -->
 <script src="parts/character/face-heal.js"></script>   <!-- 얼굴 자동 복구 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFaceHeal.createFaceHeal 로 만든다) -->
 <script src="parts/character/slot-save.js"></script>   <!-- 슬롯 저장 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSlotSave.createSlotSave 로 만든다) -->
 <script src="parts/room/interaction-desk.js"></script>   <!-- 상호작용 책상 카탈로그 — app.js 보다 먼저(app.js 가 원래 자리에서 TwInteractionDesk.createInteractionDesk 로 만든다) -->
@@ -8078,7 +8078,7 @@
 <script src="parts/account/license-request.js"></script>   <!-- 라이선스 요청 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseRequest.createLicenseRequest 로 만든다) -->
 <script src="parts/launcher/fn-keys.js"></script>   <!-- 함수키 단축키 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFnKeys.createFnKeys 로 만든다) -->
 <script src="parts/room/hidden-seats.js"></script>   <!-- 워킹룸 숨기기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwHiddenSeats.createHiddenSeats 로 만든다) -->
-<script src="parts/theme-ui.js"></script>   <!-- 테마 — app.js 보다 먼저(app.js 가 원래 자리에서 TwThemeUi.createThemeUi 로 만든다) -->
+<script src="parts/shared/theme-ui.js"></script>   <!-- 테마 — app.js 보다 먼저(app.js 가 원래 자리에서 TwThemeUi.createThemeUi 로 만든다) -->
 <script src="parts/myhome/myhome-sticker-layout.js"></script>   <!-- 마이홈 스티커 배치 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeStickerLayout.createMyHomeStickerLayout 로 만든다) -->
 <script src="parts/myhome/myhome-diag.js"></script>   <!-- 마이홈 클릭 진단 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeDiag.createMyHomeDiag 로 만든다) -->
 <script src="parts/myhome/myhome-visit.js"></script>   <!-- 마이홈 데이터 · 친구 홈 구경 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeVisit.createMyHomeVisit 로 만든다) -->
@@ -8093,12 +8093,12 @@
 <script src="parts/chat/chat-lock.js"></script>   <!-- 시크릿룸 채팅 잠금 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatLock.createChatLock 로 만든다) -->
 <script src="parts/account/device-lost.js"></script>   <!-- 밀려난 기기 처리 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDeviceLost.createDeviceLost 로 만든다) -->
 <script src="parts/chat/demoji-palette.js"></script>   <!-- 기본 이모티콘 팔레트 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDemojiPalette.createDemojiPalette 로 만든다) -->
-<script src="parts/outside-close.js"></script>   <!-- 팝업 바깥 클릭으로 닫기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwOutsideClose.createOutsideClose 로 만든다) -->
+<script src="parts/shared/outside-close.js"></script>   <!-- 팝업 바깥 클릭으로 닫기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwOutsideClose.createOutsideClose 로 만든다) -->
 <script src="parts/launcher/launcher-chrome.js"></script>   <!-- 런처 타이틀바 · 팝업 흐림 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLauncherChrome.createLauncherChrome 로 만든다) -->
 <script src="parts/myhome/myhome-links.js"></script>   <!-- 마이홈 본문 링크 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeLinks.createMyHomeLinks 로 만든다) -->
-<script src="parts/async-prompt.js"></script>   <!-- 인앱 프롬프트 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAsyncPrompt.createAsyncPrompt 로 만든다) -->
+<script src="parts/shared/async-prompt.js"></script>   <!-- 인앱 프롬프트 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAsyncPrompt.createAsyncPrompt 로 만든다) -->
 <script src="parts/myhome/myhome-page.js"></script>   <!-- 마이홈 불러오기 · 그리기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomePage.createMyHomePage 로 만든다) -->
-<script src="parts/theme.js"></script>   <!-- 디자인 테마 — app.js 보다 먼저(app.js 가 원래 자리에서 TwTheme.createTheme 로 만든다) -->
+<script src="parts/shared/theme.js"></script>   <!-- 디자인 테마 — app.js 보다 먼저(app.js 가 원래 자리에서 TwTheme.createTheme 로 만든다) -->
 <script src="parts/character/asset-code.js"></script>   <!-- 에셋 코드 암호화 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAssetCode.createAssetCode 로 만든다) -->
 <script src="parts/account/license-key.js"></script>   <!-- 라이선스 키 등록 · 해제 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseKey.createLicenseKey 로 만든다) -->
 <script src="parts/account/license-ui.js"></script>   <!-- 라이선스 등록 화면 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseUi.createLicenseUi 로 만든다) -->

@@ -98,7 +98,7 @@ async function judgeAll(src, app, html, platform){
   t(/if\(typeof adminMode\.refreshAdminVisibility==='function'\) adminMode\.refreshAdminVisibility\(\);/.test(A) && !/^refreshAdminVisibility\(\);/m.test(A),
     '부팅 때 adminMode.refreshAdminVisibility 로 관리자 전용 UI 를 숨긴다');
   t(/window\.TwAdminMode = api;/.test(src), '전역 이름 TwAdminMode(Tw 접두사)');
-  const iK = html.indexOf('<script src="parts/key-input.js"></script>'), iM = html.indexOf('<script src="parts/admin/admin-mode.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
+  const iK = html.indexOf('<script src="parts/shared/key-input.js"></script>'), iM = html.indexOf('<script src="parts/admin/admin-mode.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iK > 0 && iM > iK && iA > iM, 'html — key-input.js(hotkeyLetter) 뒤 · app.js 앞');
   return r;
 }
@@ -118,7 +118,7 @@ async function judgeAll(src, app, html, platform){
     ['Win 키로도 열림', { mod: s => s.replace('if(!(e.ctrlKey || (isMac && e.metaKey))) return;', 'if(!(e.ctrlKey || e.metaKey)) return;') }],
     ['진입 클릭의 원래 동작을 안 막음', { mod: s => s.replace("    e.preventDefault();\n    e.stopPropagation();\n    tryEnterAdmin();", "    tryEnterAdmin();") }],
     ['부팅 숨기기 빠짐', { app: s => s.replace("if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();", '') }],
-    ['html 순서 틀림', { html: s => s.replace('<script src="parts/admin/admin-mode.js"></script>', '').replace('<script src="parts/key-input.js"></script>', '<script src="parts/admin/admin-mode.js"></script>\n<script src="parts/key-input.js"></script>') }],
+    ['html 순서 틀림', { html: s => s.replace('<script src="parts/admin/admin-mode.js"></script>', '').replace('<script src="parts/shared/key-input.js"></script>', '<script src="parts/admin/admin-mode.js"></script>\n<script src="parts/shared/key-input.js"></script>') }],
     ['app.js 에 본문이 남음', { app: s => s + '\nfunction exitAdmin(){}' }],
     ['deps 하나 빠짐', { app: s => s.replace('  setIsAdmin: (v)=>{ isAdmin = v; },\n', '') }],
   ];

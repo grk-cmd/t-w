@@ -174,7 +174,7 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
   say('── 6. 배선');
   {
     const fi = strip(FI);
-    chk(/import \{ createApiPublicReads \} from "\.\/api-public-reads\.js";/.test(FI), 'firebase-init.js 가 모듈을 들여온다');
+    chk(/import \{ createApiPublicReads \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?api-public-reads\.js";/.test(FI), 'firebase-init.js 가 모듈을 들여온다');
     const iw = fi.indexOf('createApiPublicReads({ api: (window.TwApi && window.TwApi.client) || null, readCell: (path) => get(ref(db, path)).then(s => s.val()) }).wrap(window.firebaseAPI);');
     chk(iw > 0 && iw < fi.indexOf("window.dispatchEvent(new Event('firebase-ready'))") && iw > fi.indexOf('window.firebaseAPI = {'), '  ↳ firebaseAPI 를 다 만든 뒤 · firebase-ready 전에 wrap(공통 API 통로 · Firebase 한 칸 읽기)');
     const a = strip(APP);

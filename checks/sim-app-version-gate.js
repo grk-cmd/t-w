@@ -14,7 +14,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (...names) => { for(const n of names){ const s = read(n); if(s != null) return s; } say('  ? 원본 못 찾음 — ' + names[0]); process.exit(2); };
-const GATE = need('app-version-gate.js', 'parts/app-version-gate.js', 'app/parts/app-version-gate.js');
+const GATE = need('app-version-gate.js', 'parts/shared/app-version-gate.js', 'app/parts/shared/app-version-gate.js');
 const FI = need('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js');
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈(🖥️ 데스크탑 실행 화면 — UI_HIT_SEL 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const APP = _joinRenderer(need('app.js', 'parts/app.js', 'app/parts/app.js'));
@@ -146,7 +146,7 @@ function fakeUi(){ const shown = []; return { shown, show: (v) => shown.push(v),
   say('── 5. 연결');
   {
     const code = strip(FI);
-    chk(/import \{ createAppVersionGate, createAppVersionGateDom \} from "\.\/app-version-gate\.js";/.test(code), 'firebase-init 가 모듈을 들여온다');
+    chk(/import \{ createAppVersionGate, createAppVersionGateDom \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?app-version-gate\.js";/.test(code), 'firebase-init 가 모듈을 들여온다');
     const i = code.indexOf('createAppVersionGate({');
     const block = i >= 0 ? code.slice(i, code.indexOf('.start()', i) + 8) : '';
     chk(/readMin: \(\) => _rc \? _rc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\) => _rc\.minAppVer\(\)\) : null/.test(block) && /const MIN_APP_VER_WAIT_MS = (\d+);/.test(code) && +code.match(/const MIN_APP_VER_WAIT_MS = (\d+);/)[1] < 8000,
