@@ -2043,7 +2043,7 @@ const tricksMod = (typeof TwTricks === 'undefined') ? TRICKS_MOD_OFF : TwTricks.
   FLY_STREAK: FLY_STREAK,
   FLY_STREAK_MS: FLY_STREAK_MS,
   Presence: ()=>Presence,
-  _bonkSnd: ()=>_bonkSnd,
+  _bonkSnd: ()=>sfxMod._bonkSnd,
   _flyActive: ()=>_flyActive,
   _hitsSkipHidden: (...a)=>_hitsSkipHidden(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
@@ -2094,128 +2094,13 @@ const tricksMod = (typeof TwTricks === 'undefined') ? TRICKS_MOD_OFF : TwTricks.
 /* (앱 FSD 25번) 이 자리의 본문도 tricks.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🔊 효과음 공장(_mkSndPool) — 때리기 · 클릭음 · 채팅 · 뽀모도로 알림음 풀 ═══ */
-/* 🔊 효과음 — 회사원 모드면 소리를 내지 않는다.
-   ★ 게이트는 **보는 사람 기준**이다(사양 9번). 내가 회사원 모드면 남이 남을 때리는 것도 조용해야
-     하므로, 때리는 쪽이 아니라 재생하는 쪽에서 본다.
-   ★ 인스턴스를 **미리 여러 개 만들어 두고 돌려 쓴다.** 이유가 둘이다:
-     ① 하나만 재사용하면 연타의 두 번째 소리가 안 난다(아직 재생 중인 것을 다시 play 해도 무시된다)
-     ② 때릴 때마다 cloneNode 로 새로 만들면 그 인스턴스는 **버퍼가 비어 있어** 첫 소리가 늦거나
-        아예 안 난다 — 제보의 "잘 안 들린다"에 이것도 섞여 있었다.
-   ⚠️ 그래서 `preload='auto'` 로 미리 받아 두고, 재생은 `currentTime=0` 되감기로 한다. */
-const BONK_SND_POOL = 3;        // 연타 겹침 수. 스쿼시가 1.7초인데 소리는 0.6초라 3개면 넉넉하다
-/* 🔊 효과음 한 벌 만들기 — 위 주석의 교훈(풀·preload·자동재생 잠금)을 **한 곳에** 담는다.
-   ★ 소리를 새로 넣을 때마다 같은 함정을 다시 밟지 않으려고 공장으로 뺐다. 실제로 이 파일에는
-     같은 실수를 두 번 할 자리가 이미 둘이다(때리기 · 캐릭터 클릭).
-   ★ 게이트는 **보는 사람 기준**이다 — 회사원 모드면 어떤 소리도 내지 않는다(사양 9번).
-   ⚠️ prime 은 앱 수명에 한 번이다. 만들어진 모든 벌이 같이 풀려야 하므로 등록도 여기서 한다. */
-const _sndPools = [];
-function _mkSndPool(tag, srcs, vol, size){
-  const P = { tag, srcs, vol, size, list:null, turn:0, idx:0, primed:false };
-  P.init = function(){
-    if(P.list) return P.list;
-    try{
-      if(typeof Audio === 'undefined') return null;
-      P.list = [];
-      for(let i = 0; i < P.size; i++){
-        const a = new Audio(P.srcs[P.idx]);
-        a.preload = 'auto';
-        a.volume = P.vol;
-        a.addEventListener('error', ()=>{
-          // 경로 폴백 — 다음 후보로 갈아탄다(검사 폴더처럼 parts/ 가 없는 배치)
-          if(P.idx + 1 < P.srcs.length){ P.idx++; P.list = null; }
-        });
-        try{ a.load(); }catch(_){}
-        P.list.push(a);
-      }
-    }catch(_){ P.list = null; }
-    return P.list;
-  };
-  /* 🔓 첫 사용자 제스처에서 음량 0 으로 한 번 재생해 **자동재생 잠금을 풀어 둔다.**
-     ★ 이게 없으면 "내가 때리면 소리가 나는데 **남이 나를 때리면 조용한**" 증상이 남는다.
-       내가 때릴 때는 클릭 안에서 play() 가 불려 통과하지만, 남이 때린 걸 받는 시점에는 내 쪽에
-       제스처가 없어서 브라우저가 거부한다(NotAllowedError). 증상이 전파 버그처럼 보여서
-       poke 쪽을 한참 뒤지게 된다 — 소리 문제인 줄 모른다.
-     ⚠️ 거부되면 콘솔에 이유를 남긴다. 조용히 삼키면 다음에 또 원인을 못 찾는다. */
-  P.prime = function(){
-    if(P.primed) return;
-    const pool = P.init();
-    if(!pool || !pool.length) return;
-    P.primed = true;
-    pool.forEach(a=>{
-      try{
-        a.volume = 0;
-        const back = ()=>{ try{ a.pause(); a.currentTime = 0; }catch(_){} a.volume = P.vol; };
-        const pr = a.play();
-        if(pr && pr.then) pr.then(back).catch(e=>{ back(); try{ console.warn('[' + P.tag + '-snd] 잠금 해제 거부 — ' + ((e && e.name) || e)); }catch(_){} });
-        else back();
-      }catch(e){ a.volume = P.vol; }
-    });
-  };
-  /* 재생 — 풀에서 다음 인스턴스를 꺼내 되감아 튼다. 연타해도 앞 소리를 끊지 않는다. */
-  P.play = function(){
-    try{
-      if(typeof officeMode !== 'undefined' && officeMode) return;
-      const pool = P.init();
-      if(!pool || !pool.length) return;
-      const a = pool[P.turn % pool.length];
-      P.turn++;
-      a.volume = P.vol;
-      try{ a.currentTime = 0; }catch(_){}
-      const pr = a.play();
-      if(pr && pr.catch) pr.catch(()=>{});
-    }catch(_){}
-  };
-  _sndPools.push(P);
-  return P;
-}
-const _bonkSnd  = _mkSndPool('bonk',  tricksMod.BONK_SND_SRC,  tricksMod.BONK_SND_VOL,  BONK_SND_POOL);
-/* 🖱 캐릭터 클릭음 — 쓰다듬(triggerPet)과 같은 자리에서 난다.
-   ★ 풀이 때리기보다 크다(5). 클릭은 훨씬 빨리 연타되고, 하나짜리를 돌려 쓰면 두 번째 소리가
-     아예 안 난다("연속으로 누르면 연속으로 들리게" 가 이 숫자에 걸려 있다).
-   ★ 음량은 **여기 한 숫자**로 조절한다. 0 ~ 1 이고 1 이 이 파일이 낼 수 있는 최대다 —
-     Audio.volume 은 1 을 넘길 수 없어서, 1 에서도 작으면 상수가 아니라 mp3 자체를 키워야 한다
-     (그때는 파일을 노멀라이즈하거나 WebAudio GainNode 로 증폭하는 수밖에 없다).
-   ★ 눈금 — 0.35 는 배경음처럼 깔리는 정도, 0.6(지금)은 또렷하게 들리는 정도, 0.85 이상은
-     연타할 때 귀에 찬다. 0.05 단위로는 차이를 못 느낀다.
-   ⚠️ 파일은 `parts/click.mp3` 에 둔다(없으면 같은 폴더의 click.mp3 로 떨어진다 — 때리기와 같은 관례). */
-const CLICK_SND_VOL  = 0.6;
-const CLICK_SND_SRC  = ['parts/click.mp3', 'click.mp3'];
-const CLICK_SND_POOL = 5;
-const _clickSnd = _mkSndPool('click', CLICK_SND_SRC, CLICK_SND_VOL, CLICK_SND_POOL);
-/* 🔔 채팅 알림음 (2026-09-17 · 시안 확정) — 대화창 [설정] › 알림음.
-   ★ 소리는 셋 중 하나를 고른다. 풀은 **소리마다 하나씩, 여기서 미리** 만든다 — 바로 아래
-     prime 등록이 once:true 라, 나중에 만든 풀은 자동재생 잠금 해제를 못 받아
-     «남의 메시지가 와도 조용하다» 가 된다(때리기에서 이미 겪은 그 증상).
-   ★ 게이트 셋: ① 꺼짐 ② 대화창이 열려 있음(보고 있는 중) ③ 회사원 모드(_mkSndPool.play 안 — 보는 사람 기준).
-   ★ 울리는 자리는 **한 곳**, 상대 채팅이 화면에 뜨는 순간이다(syncFriendSeats 의 말풍선·날리기 분기).
-     friends 에는 내 좌석이 없으므로 내 메시지에는 울리지 않는다.
-   ⚠ 저장은 로컬(tw.chatSfx · tw.chatSfxId) — 글자 크기와 같은 성격이라 서버에 안 올린다.
-   ⚠ 목록의 id 는 HTML #chatSfxList 의 data-sfx 와 같아야 한다. 파일은 app/parts/ 에 둔다. */
-const CHAT_SFX_LIST = [
-  { id:1, label:'알림음 1', srcs:['parts/chat-notify-1.mp3', 'chat-notify-1.mp3'] },
-  { id:2, label:'알림음 2', srcs:['parts/chat-notify-2.mp3', 'chat-notify-2.mp3'] },
-  { id:3, label:'알림음 3', srcs:['parts/chat-notify-3.mp3', 'chat-notify-3.mp3'] },
-];
-const CHAT_SFX_ON_KEY      = 'tw.chatSfx';     // '1' 켜짐 · '0' 꺼짐 · 없음 = 기본값
-const CHAT_SFX_ID_KEY      = 'tw.chatSfxId';
-const CHAT_SFX_DEFAULT_ON  = true;             // 처음 쓰는 사람은 켜진 채로 시작한다
-const CHAT_SFX_DEFAULT_ID  = 1;
-const CHAT_SFX_VOL         = 0.6;              // 클릭음과 같은 눈금(«또렷하게 들리는 정도»)
-const CHAT_SFX_POOL        = 2;                // 두 사람이 거의 동시에 말해도 둘 다 들리게
-const CHAT_SFX_GAP_MS      = 250;              // 이보다 촘촘하면 한 번만 — 여럿이 몰아 치면 귀가 따갑다
-const _chatSfxPools = {};
-CHAT_SFX_LIST.forEach(x=>{ _chatSfxPools[x.id] = _mkSndPool('chat' + x.id, x.srcs, CHAT_SFX_VOL, CHAT_SFX_POOL); });
-/* 🍅 뽀모도로 알림음 (2026-10-02 · 지정 파일 beep-alarm) — 집중 끝 · 휴식 끝 둘 다 이 소리. 3.5초짜리라 풀은 하나면 된다.
-   ★ 여기(prime 등록 **위**)에서 만든다 — 아래 once:true 등록보다 늦게 만든 풀은 자동재생 잠금 해제를 못 받아
-     창을 안 보고 있을 때 울려야 할 알람이 조용해진다(채팅 알림음 주석과 같은 이유).
-   ⚠️ 파일은 app/parts/pomodoro-alarm.mp3. 회사원 모드면 울리지 않는다(_mkSndPool.play 의 공통 게이트). */
-const POMO_SND_SRC = ['parts/pomodoro-alarm.mp3', 'pomodoro-alarm.mp3'];
-const _pomoSnd = _mkSndPool('pomo', POMO_SND_SRC, 0.6, 1);
-try{
-  ['pointerdown','keydown'].forEach(ev=>window.addEventListener(ev, ()=>{
-    _sndPools.forEach(P=>{ try{ P.prime(); }catch(_){} });
-  }, { once:true, capture:true }));
-}catch(_){}
+/* 본문은 sfx.js 로 옮겼다(앱 FSD 42번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const SFX_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const sfxMod = (typeof TwSfx === 'undefined') ? SFX_MOD_OFF : TwSfx.createSfx({
+  officeMode: ()=>officeMode,
+  tricksMod: tricksMod,
+});
 /* ═══ 🪄 때리기 — 말풍선 · 재생 · 전파 · 조준 모드 ═══ */
 /* (앱 FSD 25번) 이 자리의 본문도 tricks.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
@@ -4552,12 +4437,12 @@ function escHtml(s){
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const CHAT_PREFS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const chatPrefsMod = (typeof TwChatPrefs === 'undefined') ? CHAT_PREFS_MOD_OFF : TwChatPrefs.createChatPrefs({
-  CHAT_SFX_DEFAULT_ID: CHAT_SFX_DEFAULT_ID,
-  CHAT_SFX_DEFAULT_ON: CHAT_SFX_DEFAULT_ON,
-  CHAT_SFX_GAP_MS: CHAT_SFX_GAP_MS,
-  CHAT_SFX_ID_KEY: CHAT_SFX_ID_KEY,
-  CHAT_SFX_LIST: CHAT_SFX_LIST,
-  CHAT_SFX_ON_KEY: CHAT_SFX_ON_KEY,
+  CHAT_SFX_DEFAULT_ID: sfxMod.CHAT_SFX_DEFAULT_ID,
+  CHAT_SFX_DEFAULT_ON: sfxMod.CHAT_SFX_DEFAULT_ON,
+  CHAT_SFX_GAP_MS: sfxMod.CHAT_SFX_GAP_MS,
+  CHAT_SFX_ID_KEY: sfxMod.CHAT_SFX_ID_KEY,
+  CHAT_SFX_LIST: sfxMod.CHAT_SFX_LIST,
+  CHAT_SFX_ON_KEY: sfxMod.CHAT_SFX_ON_KEY,
   Presence: ()=>Presence,
   _chatEsc: (...a)=>_chatEsc(...a),
   _chatIsHost: (...a)=>_chatIsHost(...a),
@@ -4566,7 +4451,7 @@ const chatPrefsMod = (typeof TwChatPrefs === 'undefined') ? CHAT_PREFS_MOD_OFF :
   _chatOffOn: (...a)=>_chatOffOn(...a),
   _chatOffRefreshUI: (...a)=>_chatOffRefreshUI(...a),
   _chatRoomCode: (...a)=>_chatRoomCode(...a),
-  _chatSfxPools: _chatSfxPools,
+  _chatSfxPools: sfxMod._chatSfxPools,
   chatUiMod: ()=>chatUiMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -6495,7 +6380,7 @@ canvas.addEventListener('pointerup',e=>{
            안 울린다 — 드래그마다 소리가 나면 시끄럽다.
          ★ 막지 않는다(쓰로틀 없음) — 연타하면 연타한 만큼 들리는 것이 요청이다. 풀이 5벌이라
            앞 소리를 끊지 않고 겹친다. */
-      if(!window.__noClickSnd) _clickSnd.play();   // 📏 A/B 확인용 — 콘솔에서 __noClickSnd=true 로 잠시 끈다
+      if(!window.__noClickSnd) sfxMod._clickSnd.play();   // 📏 A/B 확인용 — 콘솔에서 __noClickSnd=true 로 잠시 끈다
       triggerPet(seat); for(let i=0;i<FLOATER_BURST;i++) setTimeout(()=>spawnFloater('♥','#f2607d',seat),i*320);
       overheadMod.dismissSeatHeadBubble(seat);   // 말풍선 떠 있으면 클릭으로 숨김
       if(seat.remote && seat.friendId && Presence.active()) Presence.poke(seat.friendId, 'pet');   // 남의 캐릭터 쓰다듬으면 그 사람에게 알림
@@ -16282,7 +16167,7 @@ const pomodoro = (typeof TwPomodoro === 'undefined') ? POMODORO_OFF : TwPomodoro
   toast: (...a)=>toast(...a),
   focusShowPush: (...a)=>_focusShowPush(...a),
   weeklyChal: weeklyChal,
-  pomoSnd: _pomoSnd,
+  pomoSnd: sfxMod._pomoSnd,
 });
 
 /* ═══ 🖥️ 데스크탑 실행 화면 — 창 크기 · 업데이트 배너 · 전역 입력 · 클릭 통과 · 하트비트 ═══ */

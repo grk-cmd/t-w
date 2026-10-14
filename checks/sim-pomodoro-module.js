@@ -195,8 +195,9 @@ await sec('── 7. app.js 배선', () => {
   const call = (APP.match(/TwPomodoro\.createPomodoro\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   chk(deps.length === 4 && /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/.test(deps[0]) && /^focusShowPush: \(\.\.\.a\)=>_focusShowPush\(\.\.\.a\),$/.test(deps[1])
-    && /^weeklyChal: weeklyChal,$/.test(deps[2]) && /^pomoSnd: _pomoSnd,$/.test(deps[3]), 'deps 4개 — 함수는 화살표 · weeklyChal · _pomoSnd 는 앞에 선언된 const 값 (' + deps.length + ')');
-  const iWc = APP.indexOf('const weeklyChal = '), iSnd = APP.indexOf("const _pomoSnd = _mkSndPool('pomo'");
+    && /^weeklyChal: weeklyChal,$/.test(deps[2]) && /^pomoSnd: (?:sfxMod\.)?_pomoSnd,$/.test(deps[3]), 'deps 4개 — 함수는 화살표 · weeklyChal · _pomoSnd 는 앞에 선언된 const 값 (' + deps.length + ')');
+  const iWc = APP.indexOf('const weeklyChal = '), iSnd = (APP.indexOf("const _pomoSnd = _mkSndPool('pomo'") > 0) ? APP.indexOf("const _pomoSnd = _mkSndPool('pomo'")
+    : ((read('sfx.js') || '').includes("const _pomoSnd = _mkSndPool('pomo'") ? APP.indexOf('TwSfx.createSfx(') : -1);   // 효과음 공장은 sfx.js 로 옮겼다(앱 FSD 42번) — 만드는 줄 자리로 본다
   chk(iWc > 0 && iWc < iMk && iSnd > 0 && iSnd < iMk && !/\b(weeklyChal|_pomoSnd)\s*=[^=]/.test(code.replace(/const (weeklyChal|_pomoSnd) = /g, '')), '  둘 다 만드는 줄보다 앞 · 다시 대입되지 않는다');
   const m = strip(MOD);
   chk(/const toast = deps\.toast;/.test(m) && /const _focusShowPush = deps\.focusShowPush;/.test(m) && /const weeklyChal = deps\.weeklyChal;/.test(m) && /const _pomoSnd = deps\.pomoSnd;/.test(m), '모듈은 받은 넷을 같은 이름으로(본문 글자 그대로)');
