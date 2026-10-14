@@ -279,7 +279,7 @@ await sec('── 6. app.js 배선', () => {
   chk(calls.every(c => codeAll.includes(c)) && (codeAll.match(/myHomeSticker\.editEnd\(\)/g) || []).length === 2, '부르는 곳 — 마이홈 닫기 · renderMyHomeStickers · [+ 스티커] · 새 스티커 붙이기');
   const off = (APP.match(/const MYHOME_STICKER_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   chk(['open', 'close', 'render', 'bringIn', 'editStart', 'editEnd', 'bindDrag', 'bindRotate', 'bindResize'].every(n => new RegExp('\\b' + n + '\\(\\)\\{\\}').test(off)), '빈 껍데기 MYHOME_STICKER_OFF — 반환값 이름을 다 갖는다');
-  const iP = HTML.indexOf('<script src="parts/pomodoro.js"></script>'), iS = HTML.indexOf('<script src="parts/myhome-sticker.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iP = HTML.indexOf('<script src="parts/focus/pomodoro.js"></script>'), iS = HTML.indexOf('<script src="parts/myhome-sticker.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iP > 0 && iS > iP && iA > iS, 'html — myhome-sticker.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwMyHomeSticker') && !/window\.MyHomeSticker\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */

@@ -1,5 +1,5 @@
 /* ═══ 🍅 sim-pomodoro-module.js — 뽀모도로 모듈 (2026-10-10 신설 · 앱 FSD 6번) ═══════════════
-   app.js 의 «🍅 뽀모도로» 구역 앞머리(상태 · 구간 넘기기 · 서랍 그리기 · 버튼 연결)를 parts/pomodoro.js 로 옮겼다.
+   app.js 의 «🍅 뽀모도로» 구역 앞머리(상태 · 구간 넘기기 · 서랍 그리기 · 버튼 연결)를 parts/focus/pomodoro.js 로 옮겼다.
    동작은 그대로여야 한다. 마크업 · 구간 셈(함수를 떼어 시계를 돌림)은 sim-pomodoro 가 본다 — 여기서는 «옮긴 것» 을 통째로 굴린다.
    ・1절: 만들 때 — 저장된 설정 · 진행 읽기 · 1초 tick 하나 · 🍅 버튼 연결 · 첫 그리기 · window._pomoShowText 고리 · DOM 없으면 조용히
    ・2절: 서랍 — 🍅 를 누르면 열리고 👑 달성표 서랍은 닫는다(weeklyChal.open(false)) · 다시 누르면 닫힌다 · 창 자리 맞춤
@@ -208,7 +208,7 @@ await sec('── 7. app.js 배선', () => {
   chk(/const toast = deps\.toast;/.test(m) && /const _focusShowPush = deps\.focusShowPush;/.test(m) && /const weeklyChal = deps\.weeklyChal;/.test(m) && /const _pomoSnd = deps\.pomoSnd;/.test(m), '모듈은 받은 넷을 같은 이름으로(본문 글자 그대로)');
   const off = (APP.match(/const POMODORO_OFF = \{([^\n]*)\};/) || [])[1] || '';
   chk(['showText', 'open', 'render', 'tick', 'cfg', 'run'].every(n => new RegExp('\\b' + n + '\\s*(\\(|:)').test(off)) && /showText:\(\)=>''/.test(off), '빈 껍데기 POMODORO_OFF — 반환값 이름을 다 갖는다 · 문구는 빈 값');
-  const iW = HTML.indexOf('<script src="parts/weekly-challenge.js"></script>'), iP = HTML.indexOf('<script src="parts/pomodoro.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iW = HTML.indexOf('<script src="parts/focus/weekly-challenge.js"></script>'), iP = HTML.indexOf('<script src="parts/focus/pomodoro.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iW > 0 && iP > iW && iA > iP, 'html — pomodoro.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwPomodoro') && !/window\.Pomodoro\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */
