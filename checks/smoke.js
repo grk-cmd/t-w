@@ -450,6 +450,16 @@ PRELOAD.push('chat-lock.js');
 PRELOAD.push('device-lost.js');
 /* demoji-palette.js — 기본 이모티콘 팔레트(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDemojiPalette 를 같이 굴린다. */
 PRELOAD.push('demoji-palette.js');
+/* outside-close.js — 팝업 바깥 클릭으로 닫기(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createOutsideClose 를 같이 굴린다. */
+PRELOAD.push('outside-close.js');
+/* launcher-chrome.js — 런처 타이틀바 · 팝업 흐림(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLauncherChrome 를 같이 굴린다. */
+PRELOAD.push('launcher-chrome.js');
+/* myhome-links.js — 마이홈 본문 링크(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeLinks 를 같이 굴린다. */
+PRELOAD.push('myhome-links.js');
+/* async-prompt.js — 인앱 프롬프트(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAsyncPrompt 를 같이 굴린다. */
+PRELOAD.push('async-prompt.js');
+/* myhome-page.js — 마이홈 불러오기 · 그리기(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomePage 를 같이 굴린다. */
+PRELOAD.push('myhome-page.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
