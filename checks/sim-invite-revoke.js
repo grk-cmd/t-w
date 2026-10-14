@@ -82,7 +82,7 @@ const mk = (data, o = {}) => {
 
   say('── 3. 연결 · 우클릭 게이트');
   const fi = strip(FI), app = strip(APP);
-  chk(/import\s*\{\s*createInviteRevokeAll\s*\}\s*from\s*["']\.\/invite-revoke\.js["']/.test(fi), 'firebase-init 이 모듈을 불러온다');
+  chk(/import\s*\{\s*createInviteRevokeAll\s*\}\s*from\s*["']\.\/(?:(?:\.\.\/)?[\w-]+\/)?invite-revoke\.js["']/.test(fi), 'firebase-init 이 모듈을 불러온다');
   chk(/revokeInvitesAll:\s*createInviteRevokeAll\(\{\s*db,\s*ref,\s*get,\s*runTransaction\s*\}\)/.test(fi), 'firebaseAPI.revokeInvitesAll 로 연결');
   const i0 = app.indexOf("getElementById('inviteGrantAll')"), blk = i0 >= 0 ? app.slice(i0, i0 + 4000) : '';
   chk(!!blk, '전체 지급 버튼 묶음을 찾음');

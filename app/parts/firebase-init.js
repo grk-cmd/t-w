@@ -37,8 +37,8 @@
   import { recoverChannelFor } from "./room-channel.js";
   import { createRoomStats } from "./room-stats.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room-alive.js";
-  import { createInviteAccount } from "./invite-account.js";
-  import { createInviteRevokeAll } from "./invite-revoke.js";
+  import { createInviteAccount } from "./account/invite-account.js";
+  import { createInviteRevokeAll } from "./account/invite-revoke.js";
   import { createAppVersion } from "./app-version.js";
   import { createAppVersionGate, createAppVersionGateDom } from "./app-version-gate.js";
   import { createBugBoard } from "./support/bug-board.js";
