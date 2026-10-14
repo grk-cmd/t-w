@@ -3289,7 +3289,7 @@ const plMod = (typeof TwPlaylist === 'undefined') ? PLAYLIST_OFF : TwPlaylist.cr
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
-  asyncPrompt: (...a)=>asyncPrompt(...a),
+  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   // 👤 명함 — 레벨 · 🌟 회차 배지
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
   myFocusShow: (...a)=>focusLevelMod.myFocusShow(...a),
@@ -4124,11 +4124,11 @@ const myHomeUiMod = (typeof TwMyHomeUi === 'undefined') ? MY_HOME_UI_MOD_OFF : T
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: inboxMod,
   isAdmin: ()=>isAdmin,
-  loadMyHomePage: (...a)=>loadMyHomePage(...a),
+  loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
   myHomeSticker: ()=>myHomeSticker,
-  renderMyHomePage: (...a)=>renderMyHomePage(...a),
+  renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
   toast: (...a)=>toast(...a),
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
@@ -4143,10 +4143,10 @@ const mhVisitMod = (typeof TwMyHomeVisit === 'undefined') ? MH_VISIT_MOD_OFF : T
   _schedDdaysVisitUnsub: ()=>_schedDdaysVisitUnsub,
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  loadMyHomePage: (...a)=>loadMyHomePage(...a),
+  loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
-  renderMyHomePage: (...a)=>renderMyHomePage(...a),
+  renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   toast: (...a)=>toast(...a),
   setSchedDdaysVisitUnsub: (v)=>{ _schedDdaysVisitUnsub = v; },
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
@@ -4173,106 +4173,23 @@ const mhDiagMod = (typeof TwMyHomeDiag === 'undefined') ? MH_DIAG_MOD_OFF : TwMy
 });
 
 /* ═══ 🏠 마이홈 페이지 불러오기 · 그리기 ═══ */
-async function loadMyHomePage(){
-  // ★ 마이홈2-B: 관람 중이면 절대 내 데이터로 덮어쓰지 않음 (친구 홈 데이터가 순간적으로 사라지는 버그 방지)
-  if(mhVisitMod._mhViewingUserId()) return;
-  if(!window.firebaseAPI || !firebaseAPI.getMyHome){ try{ renderMyHomePage(); }catch(_){}; return; }
-  try{
-    const _loadUid = getMyUserId();
-    const data = await firebaseAPI.getMyHome(_loadUid) || {};
-    if(mhVisitMod._mhViewingUserId()) return;   // ★ 로드가 진행되는 사이 친구 홈 관람으로 전환됐으면 덮어쓰지 않음(비동기 경쟁 방지)
-    if(getMyUserId() !== _loadUid) return;   // 🪪 불러오는 사이 계정이 바뀌었다 — 옛 계정 데이터를 붙들지 않는다
-    mhVisitMod.setMyHomeData(mhVisitMod._mhHomeFromServer(data));
-    mhVisitMod.setMyHomeLoaded(true);
-    mhVisitMod.setMyHomeUid(_loadUid);
-  }catch(e){
-    console.warn('마이홈 페이지 로드 실패 — 기본값으로 렌더', e);
-    // ★ 로드가 실패해도 마이홈이 통째로 빈 화면이 되지 않게 안전한 기본값으로라도 렌더
-    if(!mhVisitMod._myHomeData()) mhVisitMod.setMyHomeData({ avatar:null, bio:'', postTitle:'', post:'', theme:null, stickers:{}, bgm:null, bg:null });
-  }
-  try{ renderMyHomePage(); }catch(e){ console.warn('마이홈 렌더 실패', e); }
-}
-function renderMyHomePage(){
-  // 마이홈2-B: 관람 중이면 친구 이름을 표시 (getDisplayName은 항상 내 이름을 반환)
-  const nameEl=document.getElementById('mhMyName');
-  if(nameEl){
-    if(mhVisitMod._mhViewingUserId()) nameEl.textContent = mhVisitMod._mhViewingDisplayName();
-    else nameEl.textContent = getDisplayName();
-  }
-  // 리치 텍스트 필드 로드 — 옛 저장(순수 텍스트)이면 HTML 이스케이프 후 개행만 <br>로 변환해서 호환
-  try{
-    const _bioLoad = mhVisitMod._myHomeData().bio||'';
-    const _postLoad = mhVisitMod._myHomeData().post||'';
-    const bioBox=document.getElementById('mhBioBox');
-    if(bioBox) bioBox.innerHTML = richTextMod._mhLoadRT(_bioLoad);
-    const postBox=document.getElementById('mhPostBox');
-    if(postBox) postBox.innerHTML = richTextMod._mhLoadRT(_postLoad);
-  }catch(e){ console.warn('[마이홈] bio/post 렌더 실패', e); }
-  const titleEl=document.getElementById('mhPostTitle'); if(titleEl) titleEl.textContent = mhVisitMod._myHomeData().postTitle || '게시글 제목';   // 비어있으면 안내 문구를 그대로 표시
-  // 툴바의 글자수 카운트 초기화
-  if(typeof richTextMod._mhUpdateRTCount==='function'){ richTextMod._mhUpdateRTCount('mhBioBox'); richTextMod._mhUpdateRTCount('mhPostBox'); }
-  const img=document.getElementById('mhAvatarImg'), ph=document.getElementById('mhAvatarPlaceholder');
-  if(mhVisitMod._myHomeData().avatar){ if(img){img.src=mhVisitMod._myHomeData().avatar; img.style.display='block';} if(ph) ph.style.display='none'; }
-  else { if(img) img.style.display='none'; if(ph) ph.style.display='flex'; }
-  // ★ 각 렌더 단계를 개별 격리 — 한 유저의 손상된 데이터(예: 깨진 스티커/테마 값)로 한 곳이
-  //   throw해도 마이홈 전체가 "빈 화면"이 되지 않게. 죽은 단계는 콘솔에 남겨 원인 추적.
-  const _safe=(label,fn)=>{ try{ fn(); }catch(e){ console.warn('[마이홈] 렌더 실패:'+label, e); } };
-  _safe('stickers', ()=>renderMyHomeStickers());
-  _safe('profileRail', ()=>{ if(typeof myHomeUiMod.renderMhProfileRail==='function') myHomeUiMod.renderMhProfileRail(); });
-  _safe('bgm', ()=>{ if(typeof window._mhBgmRefresh==='function') window._mhBgmRefresh(); });
-  _safe('bg', ()=>{ if(typeof window._mhApplyBg==='function') window._mhApplyBg(); });
-  _safe('theme', ()=>{ if(typeof window._mhApplyTheme==='function') window._mhApplyTheme(); });
-}
-let _mhStickerDragDist = 0;   // 마지막 드래그 이동거리 — 드래그 직후 링크가 열리는 오작동 방지용
+/* 본문은 myhome-page.js 로 옮겼다(앱 FSD 47번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const MH_PAGE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const mhPageMod = (typeof TwMyHomePage === 'undefined') ? MH_PAGE_MOD_OFF : TwMyHomePage.createMyHomePage({
+  getDisplayName: (...a)=>getDisplayName(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  mhVisitMod: mhVisitMod,
+  myHomeUiMod: myHomeUiMod,
+  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  richTextMod: richTextMod,
+});
 /* ═══ ✏️ 인앱 프롬프트(asyncPrompt) ═══ */
-// ✏️ 인앱 프롬프트 — Electron은 window.prompt()가 비활성화(no-op)라서 native prompt를 못 씀.
-//   이 함수를 native prompt 대용으로 사용. 취소/× 는 null 반환(prompt와 동일 계약).
-function asyncPrompt({title, message, defaultValue, placeholder, maxLength}={}){
-  return new Promise(resolve=>{
-    const ov=document.getElementById('mhPromptOverlay'); if(!ov){ resolve(null); return; }
-    // ★ 방어: 이전 호출의 finish가 안 끝난 상태에서 다시 열리면 listener가 겹쳐 클릭이 씹힘.
-    //   이전 호출에서 남겨둔 listener를 오버레이 element에 저장해서 여기서 미리 제거.
-    if(ov._cleanup) try{ ov._cleanup(); }catch(_){}
-    const inp=document.getElementById('mhPromptInput');
-    const msg=document.getElementById('mhPromptMsg');
-    const titleEl=document.getElementById('mhPromptTitleText');
-    const ok=document.getElementById('mhPromptOk'), cancel=document.getElementById('mhPromptCancel'), x=document.getElementById('mhPromptClose');
-    titleEl.textContent = title || '입력';
-    msg.textContent = message || '';
-    inp.value = defaultValue==null ? '' : String(defaultValue);
-    inp.placeholder = placeholder || '';
-    inp.maxLength = maxLength || 500;
-    ov.classList.add('on');
-    // ★ 프롬프트가 열려있는 동안엔 overlay 자체도 pointer 이벤트를 받아 다른 outside-click 핸들러가 뒤에 가려진
-    //   요소로 클릭을 흘려보내지 않게(스티커/컬러 팝업의 outside closer가 프롬프트를 통과시켜 뒤 요소를 클릭하고 그 부작용으로 프롬프트 상태가 꼬이던 경우 방지).
-    ov.style.pointerEvents = 'auto';
-    setTimeout(()=>{ inp.focus(); inp.select(); }, 0);
-    let done=false;
-    const finish=(val)=>{
-      if(done) return; done=true;
-      ov.classList.remove('on');
-      ov.style.pointerEvents = '';
-      ok.removeEventListener('click', onOk);
-      cancel.removeEventListener('click', onCancel);
-      x.removeEventListener('click', onCancel);
-      inp.removeEventListener('keydown', onKey);
-      ov._cleanup = null;
-      resolve(val);
-    };
-    ov._cleanup = ()=>finish(null);
-    const onOk=()=>finish(inp.value);
-    const onCancel=()=>finish(null);
-    const onKey=(e)=>{
-      if(e.key==='Enter'){ e.stopPropagation(); onOk(); }
-      else if(e.key==='Escape'){ e.stopPropagation(); onCancel(); }
-    };
-    ok.addEventListener('click', onOk);
-    cancel.addEventListener('click', onCancel);
-    x.addEventListener('click', onCancel);
-    inp.addEventListener('keydown', onKey);
-  });
-}
-window.asyncPrompt = asyncPrompt;
+/* 본문은 async-prompt.js 로 옮겼다(앱 FSD 47번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const ASYNC_PROMPT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const asyncPromptMod = (typeof TwAsyncPrompt === 'undefined') ? ASYNC_PROMPT_MOD_OFF : TwAsyncPrompt.createAsyncPrompt({
+});
 /* ═══ 🎨 마이홈 스티커 배치 · 그리기(renderMyHomeStickers) · 관리 창 연결 ═══ */
 /* 본문은 myhome-sticker-layout.js 로 옮겼다(앱 FSD 44번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
@@ -4326,7 +4243,7 @@ function renderMyHomeStickers(){
         if(e.target.classList.contains('mh-sticker-del')) return;
         if(e.target.classList.contains('mh-sticker-anim')) return;
         if(el.classList.contains('editing')) return;      // 편집 중엔 링크 안 엶
-        if(_mhStickerDragDist>5) return;                  // 방금 드래그했으면 링크 안 엶
+        if(mhPageMod._mhStickerDragDist()>5) return;                  // 방금 드래그했으면 링크 안 엶
         if(window.companion && companion.openBrowser) companion.openBrowser(s.link);
         else window.open(s.link, '_blank');
       });
@@ -4394,7 +4311,7 @@ const MYHOME_STICKER_OFF = { open(){}, close(){}, render(){}, bringIn(){}, editS
   bindDrag(){}, bindRotate(){}, bindResize(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
 const myHomeSticker = (typeof TwMyHomeSticker === 'undefined') ? MYHOME_STICKER_OFF : TwMyHomeSticker.createMyHomeSticker({
   toast: (...a)=>toast(...a),
-  asyncPrompt: (...a)=>asyncPrompt(...a),
+  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   commitMyHomePage: (...a)=>commitMyHomePage(...a),
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
   mhStickerOutOfView: (...a)=>mhStLayoutMod._mhStickerOutOfView(...a),
@@ -4407,41 +4324,18 @@ const myHomeSticker = (typeof TwMyHomeSticker === 'undefined') ? MYHOME_STICKER_
   mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
   mhStickerEditSid: ()=>mhStLayoutMod._mhStickerEditSid(),
   setMhStickerEditSid: (v)=>{ mhStLayoutMod.setMhStickerEditSid(v); },
-  setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },
+  setMhStickerDragDist: (v)=>{ mhPageMod.setMhStickerDragDist(v); },
   stickerMax: mhStLayoutMod.STICKER_MAX,
   stickerBase: mhStLayoutMod.STICKER_BASE,
   stickerRotSnap: mhStLayoutMod.STICKER_ROT_SNAP,
 });
 
 /* ═══ 🔗 마이홈 본문 링크 ═══ */
-/* 🔗 마이홈 본문(자기소개·게시글) 안의 링크 — 시스템 기본 브라우저로 연다.
-   [증상] 마이홈 글에 링크를 걸고 누르면 그 페이지가 **앱 창 안에서** 열린다.
-   [원인] 마이홈 본문은 contenteditable 리치텍스트라 <a href>가 그대로 들어간다. 내 홈에서 편집 중일
-          때는 캐럿만 놓이지만, 친구 홈을 관람할 때는 contenteditable이 꺼져 있어 진짜 내비게이션이 된다.
-          이 앱은 단일 페이지 오버레이라 그 순간 캐릭터·씬·상태가 통째로 날아가고 되돌릴 방법이 없다
-          (방명록·광고 배너·후원 링크에서 이미 겪은 것과 같은 사고).
-   [대응] 캡처 단계에서 가로채 openBrowser(shell.openExternal)로 넘긴다.
-   ★ 편집 중에는 열지 않는다 — 글을 고치다 링크를 클릭한 것뿐인데 브라우저가 뜨면 방해가 된다.
-     캐럿을 놓는 기본 동작만 남기고, 정말 열고 싶으면 Ctrl(⌘)+클릭.
-   ★ http/https가 아닌 주소(#, file:, javascript: 등)는 어떤 경우에도 열지 않고 기본 동작만 막는다.
-   ⚠️ 여기를 빠져나가는 링크가 있어도 main.js의 will-navigate가 마지막으로 한 번 더 막는다. */
-(function bindMyHomeExternalLinks(){
-  const editableAround = el => {
-    const b = el.closest && el.closest('[contenteditable]');
-    return !!(b && b.getAttribute('contenteditable') !== 'false');
-  };
-  document.addEventListener('click', e=>{
-    if(!e.target || !e.target.closest) return;
-    if(!e.target.closest('#myHomeOverlay')) return;
-    const a = e.target.closest('a[href]'); if(!a) return;
-    const href = a.getAttribute('href') || '';
-    if(!/^https?:\/\//i.test(href)){ e.preventDefault(); return; }
-    if(editableAround(a) && !(e.ctrlKey || e.metaKey)) return;   // 편집 중 — 캐럿만 놓는다
-    e.preventDefault(); e.stopPropagation();
-    if(window.companion && companion.openBrowser) companion.openBrowser(href);
-    else { try{ window.open(href, '_blank', 'noopener'); }catch(_){} }
-  }, true);
-})();
+/* 본문은 myhome-links.js 로 옮겼다(앱 FSD 47번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const MH_LINKS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const mhLinksMod = (typeof TwMyHomeLinks === 'undefined') ? MH_LINKS_MOD_OFF : TwMyHomeLinks.createMyHomeLinks({
+});
 
 /* ═══ 🏠 마이홈 페이지 편집 묶음 · 📖 방명록 모듈 연결 ═══ */
 /* 🏠 마이홈 페이지 편집 묶음(자동저장 · 프로필 사진 · 글 서식 · 새 스티커 붙이기 · 스티커 끌기 · 닉네임 · 게시글 제목 · 🎵 BGM ·
@@ -4458,8 +4352,8 @@ const MYHOME_EDIT_OFF = { commit(){}, openColorPopup(){}, beginNameEdit(){}, beg
   applyBg(){}, applyTheme(){}, openDesignStudio(){}, presets(){ return []; }, presetSave(){}, presetApply(){ return false; }, presetRename(){ return false; } };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
 const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwMyHomeEdit.createMyHomeEdit({
   toast: (...a)=>toast(...a),
-  asyncPrompt: (...a)=>asyncPrompt(...a),
-  renderMyHomePage: (...a)=>renderMyHomePage(...a),
+  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
+  renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
   getRenderMyHomeStickers: ()=>renderMyHomeStickers,
   setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },
@@ -4479,8 +4373,8 @@ const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwM
   myHomeLoaded: ()=>mhVisitMod._myHomeLoaded(),
   setMyHomeLoaded: (v)=>{ mhVisitMod.setMyHomeLoaded(v); },
   myHomeUid: ()=>mhVisitMod._myHomeUid(),
-  mhStickerDragDist: ()=>_mhStickerDragDist,
-  setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },
+  mhStickerDragDist: ()=>mhPageMod._mhStickerDragDist(),
+  setMhStickerDragDist: (v)=>{ mhPageMod.setMhStickerDragDist(v); },
   isPremium: ()=>isPremium,
   isAdmin: ()=>isAdmin,
   userNameMax: ()=>progSettingsMod.USER_NAME_MAX,
@@ -4555,7 +4449,7 @@ const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi
   _parseDanceCmdChain: (...a)=>iDeskMod._parseDanceCmdChain(...a),
   _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
   _seatLabelName: (...a)=>overheadMod._seatLabelName(...a),
-  asyncPrompt: (...a)=>asyncPrompt(...a),
+  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escHtml: (...a)=>escHtml(...a),
   findMySeat: (...a)=>findMySeat(...a),
@@ -11772,37 +11666,12 @@ let licenseReqUnlocked = false;
    열리지 않으므로 표시되지 않는다. */
 (function bindLicenseReqSecret(){ /* 비활성화 */ })();
 /* ═══ 🪟 런처 타이틀바 · 팝업 흐림 ═══ */
-/* 런처 타이틀바 — 드래그로 창 이동(위치 기억은 main.js가 처리) + 최소화/최대화/닫기 */
-/* 런처 타이틀바 드래그 이동은 CSS -webkit-app-region:drag(네이티브)로 처리 — JS 기반보다 안정적.
-   여기서는 X 버튼(앱 종료)만 바인딩. */
-(function bindLauncherTitlebar(){
-  const closeBtn=document.getElementById('lcCloseBtn');
-  if(closeBtn) closeBtn.onclick=e=>{ e.stopPropagation();
-    /* 🪪 [내 정보]가 열려 있으면 X 는 먼저 [내 정보]만 닫고 런처로 돌아간다(◀ 와 같다 · 사용자 요청 · 개정 53).
-       한 번 더 누르면 그때 앱을 끈다. Alt+F4 · 작업 표시줄 닫기는 여기를 거치지 않는다(OS 창 닫기). */
-    if(typeof myInfoMod._miIsOpen === 'function' && myInfoMod._miIsOpen()){ myInfoMod.closeMyInfo(); return; }
-    if(window.companion && companion.quitApp) companion.quitApp();
-  };
-})();
-
-/* 팝업(오버레이)이 뜨면 뒤의 런처 카드를 비활성처럼 톤다운 — MutationObserver로 .on 클래스 변화 감시 */
-(function bindLauncherDim(){
-  const card = document.querySelector('.lc-card');
-  if(!card) return;
-  const overlaySelectors = ['#codeOverlay','#exportOverlay','#glbEncOverlay','#glbLoadOverlay',
-    '#assetGenOverlay','#assetImpOverlay','#inviteOverlay','#commGenOverlay','#commImpOverlay',
-    '#partRegOverlay','#creatorOverlay','#programSettingsOverlay','#adminPassOverlay','#licenseGenOverlay',
-    '#adBannerOverlay','#gameCfgOverlay','#raceOverlay'];
-  function refresh(){
-    const anyOpen = overlaySelectors.some(sel=>{ const el=document.querySelector(sel); return el && el.classList.contains('on'); });
-    card.classList.toggle('dimmed', anyOpen);
-  }
-  overlaySelectors.forEach(sel=>{
-    const el=document.querySelector(sel); if(!el) return;
-    new MutationObserver(refresh).observe(el, { attributes:true, attributeFilter:['class'] });
-  });
-  refresh();
-})();
+/* 본문은 launcher-chrome.js 로 옮겼다(앱 FSD 47번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const LAUNCHER_CHROME_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const launcherChromeMod = (typeof TwLauncherChrome === 'undefined') ? LAUNCHER_CHROME_MOD_OFF : TwLauncherChrome.createLauncherChrome({
+  myInfoMod: myInfoMod,
+});
 
 /* ═══ 📢 런처 광고 배너 · ⚙️ 게임 설정 ═══ */
 /* 본문은 ad-banner.js 로 옮겼다(앱 FSD 43번). 
@@ -11817,7 +11686,7 @@ const adBannerMod = (typeof TwAdBanner === 'undefined') ? AD_BANNER_MOD_OFF : Tw
 const ADMIN_LAUNCHER_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const adminLauncher = (typeof TwAdminLauncher === 'undefined') ? ADMIN_LAUNCHER_OFF : TwAdminLauncher.createAdminLauncher({
   toast: (...a)=>toast(...a),
-  asyncPrompt: (...a)=>asyncPrompt(...a),
+  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   refreshAdBanner: (...a)=>adBannerMod.refreshAdBanner(...a),
   adBannerKey: adBannerMod.AD_BANNER_KEY,
   isAdmin: ()=>isAdmin,
@@ -11849,42 +11718,10 @@ document.getElementById('licenseDeactivateBtn').onclick=()=>{
 document.getElementById('licenseKeyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('licenseSubmitBtn').click(); });
 
 /* ═══ 🪟 팝업 바깥 클릭으로 닫기 ═══ */
-/* 팝업 바깥 클릭 시 자동 닫기 — 생성기(creatorOverlay)·꾸미기(wardrobePanel)는 편집 중 실수로 닫히는 걸 막기 위해 계속 제외
-   런처3: 등록 관련 모든 창(파츠·책상·아이템 등록/코드 추가/GLB 인코드/GLB 로드/자산 생성/커미션 생성/초대장 등)도
-   실수로 닫히면 입력 내용이 다 날아가므로 이 목록에서 제외 — 명시적으로 [닫기] 버튼으로만 닫히게. */
-const OUTSIDE_CLOSE_OVERLAYS=[
-  ['raceOverlay','raceCancel'],
-  ['licenseGenOverlay','licenseGenClose'], ['adminPassOverlay','adminPassCancel'],
-  ['adBannerOverlay','adBannerCloseBtn'], ['exportOverlay','exportCancel'],
-  ['codeOverlay','codeCancel'],
-  ['programSettingsOverlay','progSettingsCloseBtn'],
-];
-let _overlaysOpenBeforeClick=new Set();
-// 캡처 단계: 이 클릭이 처리되기 "전" 상태를 스냅샷 — 버튼 자신의 onclick(열기)이 실행되기 전이라 정확함
-document.addEventListener('click', ()=>{
-  _overlaysOpenBeforeClick = new Set(OUTSIDE_CLOSE_OVERLAYS.map(([id])=>id).filter(id=>{
-    const ov=document.getElementById(id); return ov && ov.classList.contains('on');
-  }));
-}, true);
-// 버블 단계(기본): 스냅샷에 있던(=이 클릭 전부터 열려있던) 팝업만 바깥클릭 판정 — 이 클릭으로 "방금 연" 팝업은 스냅샷에 없으니 건드리지 않음
-document.addEventListener('click', e=>{
-  OUTSIDE_CLOSE_OVERLAYS.forEach(([overlayId,closeBtnId])=>{
-    if(!_overlaysOpenBeforeClick.has(overlayId)) return;
-    const ov=document.getElementById(overlayId); if(!ov || !ov.classList.contains('on')) return;
-    // ★ ov(오버레이 배경) 자체가 아니라 안쪽 모달 박스(첫 자식) 기준으로 판정 — codeOverlay처럼 배경에
-    //   pointer-events:none이 없는 옛날 구조는 배경 클릭 시 e.target이 ov 자신이 되어 ov.contains(e.target)가
-    //   true(=안쪽 클릭으로 오판)가 되던 문제 수정.
-    const box = ov.firstElementChild || ov;
-    if(!box.contains(e.target)){
-      // ★ 파츠 등록창은 등록하려는 파츠를 미리보기에서 실시간으로 조정할 수 있게 열어두는 창이므로,
-      //   미리보기 패널(#wdPreviewPanel — 기즈모 조작 포함) 위의 클릭은 "바깥 클릭"으로 취급하지 않음(요청사항).
-      if(overlayId==='partRegOverlay' && e.target && e.target.closest && e.target.closest('#wdPreviewPanel')) return;
-      /* 📄 [2026-10-02] 라이선스 발급 창 옆의 «엑셀로 일괄 발급» 창(#licenseXlsxWin)은 같은 오버레이의 **두 번째 자식**이라
-         위 box(첫 자식) 기준으로는 바깥으로 읽힌다 — 그 창 안 클릭이 발급 창을 통째로 닫지 않게 뺀다. */
-      if(overlayId==='licenseGenOverlay' && e.target && e.target.closest && e.target.closest('#licenseXlsxWin')) return;
-      const btn=document.getElementById(closeBtnId); if(btn) btn.click();
-    }
-  });
+/* 본문은 outside-close.js 로 옮겼다(앱 FSD 47번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const OUTSIDE_CLOSE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const outsideCloseMod = (typeof TwOutsideClose === 'undefined') ? OUTSIDE_CLOSE_MOD_OFF : TwOutsideClose.createOutsideClose({
 });
 
 /* ═══ 📨 라이선스 요청 · 관리자 비밀번호 모달 ═══ */
@@ -11958,7 +11795,7 @@ else window.addEventListener('firebase-ready', ()=>_checkUpdateNoticeOnStartup()
 const ADMIN_CATEGORY_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const adminCategory = (typeof TwAdminCategory === 'undefined') ? ADMIN_CATEGORY_OFF : TwAdminCategory.createAdminCategory({
   toast: (...a)=>toast(...a),
-  asyncPrompt: (...a)=>asyncPrompt(...a),
+  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   partGroups: ()=>premiumMod.PART_GROUPS,
   partCats: ()=>premiumMod.PART_CATS(),
   partCatOverrides: ()=>premiumMod.partCatOverrides(),

@@ -61,6 +61,11 @@ const MODULES = [
   { file: 'chat-lock.js', mod: 'chatLockMod', glob: 'TwChatLock', sample: 'function _chatRoomCode(' },   // 앱 FSD 46번
   { file: 'device-lost.js', mod: 'deviceLostMod', glob: 'TwDeviceLost', sample: 'function _onDeviceSessionLost(' },   // 앱 FSD 46번
   { file: 'demoji-palette.js', mod: 'demojiPalMod', glob: 'TwDemojiPalette', sample: 'function _buildDemojiPalette(' },   // 앱 FSD 46번
+  { file: 'outside-close.js', mod: 'outsideCloseMod', glob: 'TwOutsideClose', sample: 'const OUTSIDE_CLOSE_OVERLAYS=[' },   // 앱 FSD 47번
+  { file: 'launcher-chrome.js', mod: 'launcherChromeMod', glob: 'TwLauncherChrome', sample: '(function bindLauncherTitlebar(){' },   // 앱 FSD 47번
+  { file: 'myhome-links.js', mod: 'mhLinksMod', glob: 'TwMyHomeLinks', sample: '(function bindMyHomeExternalLinks(){' },   // 앱 FSD 47번
+  { file: 'async-prompt.js', mod: 'asyncPromptMod', glob: 'TwAsyncPrompt', sample: 'function asyncPrompt(' },   // 앱 FSD 47번
+  { file: 'myhome-page.js', mod: 'mhPageMod', glob: 'TwMyHomePage', sample: 'function loadMyHomePage(' },   // 앱 FSD 47번
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
