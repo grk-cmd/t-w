@@ -1,6 +1,7 @@
 # ═══ ✅ checks — push · PR 마다 `npm run check` ═══════════════════════════════
-# 검사는 원본 텍스트를 읽고 Node · Python 으로만 돈다 — node_modules 가 필요 없다.
+# 검사는 원본 텍스트를 읽고 Node · Python 으로만 돈다 — node_modules 가 거의 필요 없다.
 # 그래서 `npm ci`(네이티브 모듈 컴파일)를 건너뛴다. 빠르고, 리눅스에서 네이티브가 안 붙어도 상관없다.
+# 예외: sim-global-names.js 는 코드를 범위대로 읽으려고 typescript 파서를 쓴다 — 그것 하나만 깐다.
 # run.js 종료코드: 빨강 · 시간초과 · 정본(CHECKS.md 해시) 불일치 → 1. «원본없음» 은 실패가 아니다.
 
 name: checks
@@ -29,6 +30,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      # sim-global-names.js 의 파서 — package-lock 과 같은 판 · 네이티브 없음 · 저장 안 함
+      # 내려받다 네트워크가 한 번 끊겨도(ECONNRESET) 검사 전체가 빨강이 되지 않게 세 번까지 다시 해 본다
+      - run: |
+          for i in 1 2 3; do
+            npm install --no-save --ignore-scripts --no-package-lock --fetch-retries=5 typescript@5.9.3 && exit 0
+            echo "typescript 설치 실패 — ${i}번째, 10초 뒤 다시"; sleep 10
+          done
+          exit 1
 
       - name: 검사 실행
         run: node checks/run.js

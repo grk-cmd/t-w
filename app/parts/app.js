@@ -4304,6 +4304,7 @@ const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi
   setChatLogUnsub: (v)=>{ _chatLogUnsub = v; },
   setDanceCmdCooldownAt: (v)=>{ iDeskMod.setDanceCmdCooldownAt(v); },
 });
+const DEMOJI_BY_CMD = chatUiMod.DEMOJI_BY_CMD;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
 const DEMOJI_BY_ID = chatUiMod.DEMOJI_BY_ID;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
 const DEMOJI_DIR = chatUiMod.DEMOJI_DIR;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
 
@@ -10211,7 +10212,7 @@ document.getElementById('commImpGo').onclick=async()=>{
     // ★ 빈 칸이 없으면 예전엔 idx=0으로 떨어져 1번 캐릭터를 말없이 덮어썼다(동물 저장과 같은 유형의 사고).
     //   덮어쓰지 말고 거부한다 — 인간 저장·복제코드 불러오기와 동일한 방식.
     //   ★ [＋]로 칸이 확정돼 들어왔으면 그 칸이 우선 — importCloneCode 와 같은 규약으로 맞춘다.
-    let idx = (typeof racePickerMod._raceTargetSlot==='number' && !slots[racePickerMod._raceTargetSlot()]) ? racePickerMod._raceTargetSlot() : slots.findIndex(s=>!s);
+    let idx = (typeof racePickerMod._raceTargetSlot()==='number' && !slots[racePickerMod._raceTargetSlot()]) ? racePickerMod._raceTargetSlot() : slots.findIndex(s=>!s);
     if(idx<0){ toast('빈 슬롯이 없어요 — 캐릭터를 하나 정리한 뒤 다시 시도해 주세요'); return; }
     // 텍스처를 캔버스로 변환 (charDef와 호환)
     const faceCv=await dataUrlToCanvas(payload.face, CANVAS_SZ);
@@ -11000,7 +11001,7 @@ const Presence=(()=>{
      ★ 새 쓰기를 거의 만들지 않는다: 값이 바뀌는 순간(연속 기준 도달)에만 broadcastNow 가 한 번
        나가고, 그 뒤로는 원래 나가던 update 에 필드 하나(숫자)가 얹혀 갈 뿐이다. */
   function _myFlyCool(){
-    try{ return (typeof tricksMod._myFlyCoolUntil==='number' && tricksMod._myFlyCoolUntil() > Date.now()) ? tricksMod._myFlyCoolUntil() : null; }
+    try{ return (typeof tricksMod._myFlyCoolUntil()==='number' && tricksMod._myFlyCoolUntil() > Date.now()) ? tricksMod._myFlyCoolUntil() : null; }
     catch(_){ return null; }
   }
   /* 📊 오늘 기록 전시 — **새 필드를 만들지 않는다.** 상태가 없을 때(myUserStatus null)만 userStatus 'custom' +
@@ -13970,6 +13971,7 @@ const expBarMod = (typeof TwExpBar === 'undefined') ? EXP_BAR_MOD_OFF : TwExpBar
   lvStarBarClass: (...a)=>lvTierMod.lvStarBarClass(...a),
   overheadMod: overheadMod,
 });
+function myExpCells(...a){ return expBarMod.myExpCells(...a); }   // 옛 전역 이름 — firebase-init.js 하트비트가 window.myExpCells 로 읽는다(도메인 단계에서 걷는다)
 
 /* ═══ 🕒 포커스 누적 기기 간 공유 ═══════════════════════════════════════════
    예전엔 tw.focusTotalSec이 순수 로컬이라, 계정을 연동해도 A컴퓨터의 3시간이 B컴퓨터에
