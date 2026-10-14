@@ -656,7 +656,7 @@ function equipDeskItem(holder,def,on){
      그 세션 내내 전용 아이템이 게이트를 통째로 안 탄다. 원본은 카탈로그 레코드(savedItems)이므로
      그쪽도 함께 본다 — 카탈로그가 늦게 와도 그때부터는 맞는 답이 된다.
      savedItems 는 아래에서 let 으로 선언되므로 typeof 가 아니라 try 로 감싼다(TDZ). */
-  let _siCat = null; try{ _siCat = savedItems; }catch(_){}
+  let _siCat = null; try{ _siCat = commissionMod.savedItems(); }catch(_){}
   const _siRec = (_siCat && _siCat.find && def && def.id) ? _siCat.find(s=>s.id===def.id) : null;
   const _itemLicenseOnly = !!(def && def.licenseOnly) || !!(_siRec && _siRec.licenseOnly);
   if(on && _itemLicenseOnly && !isPremium && !isAdmin && !(holder && holder.remote)){
@@ -804,7 +804,7 @@ function autoSaveDeskItemsNow(){
   const di = collectDeskItems(cBase);
   def.deskItems = di;
   if(di){
-    const ci={}; Object.keys(di).forEach(id=>{ const c=customItems[id]; const rec=savedItems.find(s=>s.id===id);
+    const ci={}; Object.keys(di).forEach(id=>{ const c=customItems[id]; const rec=commissionMod.savedItems().find(s=>s.id===id);
       if(c && !(rec&&rec.fromCatalog)) ci[id]={name:c.name,glb:c.glb}; });
     if(Object.keys(ci).length) def.customItems=ci;
   }
@@ -1876,7 +1876,7 @@ const roomSyncMod = (typeof TwRoomSync === 'undefined') ? ROOM_SYNC_MOD_OFF : Tw
   loadImg: (...a)=>loadImg(...a),
   newCanvas: (...a)=>newCanvas(...a),
   roomEntryMod: ()=>roomEntryMod,
-  savedDesks: ()=>savedDesks,
+  savedDesks: ()=>commissionMod.savedDesks(),
   toast: (...a)=>toast(...a),
 });
 /* 지금 이 좌석을 날릴 수 있는가. 여기서 걸러지는 것이 곧 규칙이다.
@@ -1973,7 +1973,7 @@ const tricksMod = (typeof TwTricks === 'undefined') ? TRICKS_MOD_OFF : TwTricks.
   _rideLeaveTower: (...a)=>rideBenchMod._rideLeaveTower(...a),
   _seatLabelName: (...a)=>overheadMod._seatLabelName(...a),
   _skipHiddenDesk: (...a)=>hiddenSeatsMod._skipHiddenDesk(...a),
-  _todayStr: (...a)=>_todayStr(...a),
+  _todayStr: (...a)=>focusTotalMod._todayStr(...a),
   camera: camera,
   canFly: (...a)=>canFly(...a),
   canvas: canvas,
@@ -3110,7 +3110,7 @@ function statusConfFor(seat, us){
   if(!us){
     /* ⚠️ isMe 만 보면 «자리추가»로 주 캐릭터가 바뀐 판에서 내 좌석이 빠진다 — findMySeat 과 같은 기준으로 본다. */
     const _mine = (typeof findMySeat === 'function') ? findMySeat() : null;
-    if(seat && !seat.remote && (seat.isMe || seat === _mine)){ const f = _focusShowMine(); if(f) return Object.assign({}, USER_STATUSES.custom, { emo: f.emo, label: f.text }); }
+    if(seat && !seat.remote && (seat.isMe || seat === _mine)){ const f = focusShareMod._focusShowMine(); if(f) return Object.assign({}, USER_STATUSES.custom, { emo: f.emo, label: f.text }); }
     return null;
   }
   const base = USER_STATUSES[us];
@@ -3556,11 +3556,11 @@ const settingsMod = (typeof TwSettingsPanel === 'undefined') ? SETTINGS_MOD_OFF 
 const FOCUS_LOG_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
 const focusLog = (typeof TwFocusLog === 'undefined') ? FOCUS_LOG_OFF : TwFocusLog.createFocusLog({
   formatHMS: (...a)=>focusLevelMod.formatHMS(...a),
-  rolloverFocusToday: (...a)=>_rolloverFocusToday(...a),
+  rolloverFocusToday: (...a)=>focusTotalMod._rolloverFocusToday(...a),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   focusTotalSec: ()=>_focusTotalSec,
-  focusSessionSec: ()=>_focusSessionSec,
+  focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
 });
 /* ═══ ✥ 프로그램 이동 모드 ═══ */
 /* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
@@ -5108,8 +5108,8 @@ const premiumMod = (typeof TwPremiumAssets === 'undefined') ? PREMIUM_MOD_OFF : 
   partPaintMod: partPaintMod,
   resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
-  savedDesks: ()=>savedDesks,
-  savedItems: ()=>savedItems,
+  savedDesks: ()=>commissionMod.savedDesks(),
+  savedItems: ()=>commissionMod.savedItems(),
   seats: seats,
   setDeskScale: (...a)=>setDeskScale(...a),
   slots: ()=>slots,
@@ -5127,7 +5127,7 @@ const premiumMod = (typeof TwPremiumAssets === 'undefined') ? PREMIUM_MOD_OFF : 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const ADMIN_PART_REG_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const adminPartReg = (typeof TwAdminPartRegister === 'undefined') ? ADMIN_PART_REG_OFF : TwAdminPartRegister.createAdminPartRegister({
-  _b64: (...a)=>_b64(...a),
+  _b64: (...a)=>codeCryptoMod._b64(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
   catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
   equipPartOnSeat: (...a)=>equipPartOnSeat(...a),
@@ -5154,16 +5154,16 @@ const adminPartReg = (typeof TwAdminPartRegister === 'undefined') ? ADMIN_PART_R
   unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
   seats,
-  MAX_CUSTOM_ASSETS: ()=>MAX_CUSTOM_ASSETS,
-  MAX_CUSTOM_ITEMS: ()=>MAX_CUSTOM_ITEMS,
+  MAX_CUSTOM_ASSETS: ()=>commissionMod.MAX_CUSTOM_ASSETS,
+  MAX_CUSTOM_ITEMS: ()=>commissionMod.MAX_CUSTOM_ITEMS,
   MAX_GACHA_PARTS_PER_CAT: ()=>premiumMod.MAX_GACHA_PARTS_PER_CAT,
-  MAX_GLB_BYTES: ()=>MAX_GLB_BYTES,
+  MAX_GLB_BYTES: ()=>commissionMod.MAX_GLB_BYTES,
   MAX_PARTS_PER_CAT: ()=>premiumMod.MAX_PARTS_PER_CAT,
   PART_CATS: ()=>premiumMod.PART_CATS(),
   gachaMod: ()=>gachaMod,
   partSceneCache: ()=>partSceneCache,
-  savedDesks: ()=>savedDesks,
-  savedItems: ()=>savedItems,
+  savedDesks: ()=>commissionMod.savedDesks(),
+  savedItems: ()=>commissionMod.savedItems(),
   savedParts: ()=>premiumMod.savedParts(),
   wdGizmo: ()=>wardrobeMod.wdGizmo(),
   wdPreviewBase: ()=>wardrobeMod.wdPreviewBase(),
@@ -7411,7 +7411,7 @@ function applyDeskPreset(p){
        {name, glb} 만 담으므로 그 false 가 그대로 남아 equipDeskItem 의 게이트가 통째로 안 걸렸다.
        원본은 카탈로그 레코드(savedItems)다 — 없으면 false 지만, 그때는 아래 정리가 다시 본다. */
     if(!customItems[id]){
-      let _si=null; try{ _si=savedItems; }catch(_){}
+      let _si=null; try{ _si=commissionMod.savedItems(); }catch(_){}
       const _rec = (_si && _si.find) ? _si.find(s=>s.id===id) : null;
       customItems[id] = Object.assign({id, cat:'item', deskItem:true, licenseOnly:!!(_rec && _rec.licenseOnly)}, p.customItems[id]);
     }
@@ -7453,7 +7453,7 @@ function applyDeskPreset(p){
     //   있었는데, 생성기 재진입·실행 화면은 관리자가 등록한 기본 책상 오버라이드(__default_desk__)를 보여줌 —
     //   모델 자체가 달라서(단위 폭 3.0 vs 5.33) 미리보기만 캐릭터/아이템이 커 보이던 원인.
     //   재진입 로직과 동일하게 오버라이드가 있으면 그걸 표시.
-    const ov = savedDesks.find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
+    const ov = commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
     if(ov){
       (async ()=>{
         if(!ov.glb && ov.glbUrl && typeof resolveCatalogGlb==='function'){
@@ -8529,7 +8529,7 @@ function renderCrItems(){
   defThumb.onclick=async()=>{
     cDeskTemplate=null; cDeskGlbB64=null; activeCustomDeskId=null;
     if(cDesk){
-      const ov=savedDesks.find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거 표시
+      const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거 표시
       if(ov){
         if(!ov.glb && ov.glbUrl && typeof resolveCatalogGlb==='function'){
           try{ await resolveCatalogGlb(ov); }catch(_){}
@@ -8551,7 +8551,7 @@ function renderCrItems(){
         이 카드에서만 열린다. 꾸미기창 쪽에는 그 손잡이가 없다.
      ★ 아래 deskLocked 갈래는 **지우지 않는다.** 관리자 화면에 쓰이고, 카탈로그가 늦게 도착해
        licenseOnly 를 아직 모르는 순간의 안전망이기도 하다. 지우면 그 틈으로 다시 골라진다. */
-  savedDesks.filter(rec=>rec.id!==DEFAULT_DESK_OVERRIDE_ID && (isAdmin || !rec.licenseOnly)).forEach(rec=>{
+  commissionMod.savedDesks().filter(rec=>rec.id!==DEFAULT_DESK_OVERRIDE_ID && (isAdmin || !rec.licenseOnly)).forEach(rec=>{
     const on=(activeCustomDeskId===rec.id);
     const deleteHandler = (rec.fromCatalog && !isAdmin) ? null : ()=>{
       // X 삭제: localStorage에서 제거 + 현재 활성 책상이면 기본으로 복귀
@@ -8560,10 +8560,10 @@ function renderCrItems(){
         if(!confirm('"'+(rec.name||'책상')+'"을(를) 모든 사용자에게서 회수할까요?')){ window.focus(); return; } window.focus();
         if(window.firebaseAPI && window.firebaseAPI.unpublishDesk) window.firebaseAPI.unpublishDesk(rec.id).catch(()=>toast('회수 실패(네트워크 확인)'));
       }
-      savedDesks=savedDesks.filter(d=>d.id!==rec.id); persistSavedAssets();
+      commissionMod.setSavedDesks(commissionMod.savedDesks().filter(d=>d.id!==rec.id)); commissionMod.persistSavedAssets();
       if(activeCustomDeskId===rec.id){ cDeskTemplate=null; cDeskGlbB64=null; activeCustomDeskId=null;
         if(cDesk){
-          const ov=savedDesks.find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거로 복귀(진짜 원본 아님)
+          const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거로 복귀(진짜 원본 아님)
           if(ov){ parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor); }).catch(()=>{ swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); }); }
           else { swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); }
         } }
@@ -8635,7 +8635,7 @@ function renderCrItems(){
   const _builtinIds=new Set(DESK_ITEMS.map(d=>d.id));
   const _allEntries = [
     ...DESK_ITEMS.map(def=>({type:'builtin', def})),
-    ...savedItems.filter(rec=>!_builtinIds.has(rec.id)).map(rec=>({type:'custom', rec})),
+    ...commissionMod.savedItems().filter(rec=>!_builtinIds.has(rec.id)).map(rec=>({type:'custom', rec})),
   ];
   const CR_ITEM_PAGE_SIZE = 5;
   const _totalPages = Math.max(1, Math.ceil(_allEntries.length / CR_ITEM_PAGE_SIZE));
@@ -8650,7 +8650,7 @@ function renderCrItems(){
       const active = !!(cBase && cBase.activeDeskItem && on && cBase.deskItems[def.id]===cBase.activeDeskItem);
       const eff0=deskItemDef(def.id)||def;   // ★ 관리자가 교체해뒀으면 그 이름으로 표시 (예전엔 기본 이름 고정이던 문제)
       const it=swThumb(eff0.name||def.name,on,DESK_ICON[def.id]||'▫',null,active);
-      applyDeskDotThumb((typeof savedItems!=='undefined'&&savedItems.find)?savedItems.find(r=>r.id===def.id):null, it);   // 교체분 GLB 도트 썸네일
+      applyDeskDotThumb((typeof commissionMod.savedItems!=='undefined'&&commissionMod.savedItems().find)?commissionMod.savedItems().find(r=>r.id===def.id):null, it);   // 교체분 GLB 도트 썸네일
       it.onclick=()=>{ if(!cBase||!cBase.deskAnchor)return; const eff=deskItemDef(def.id)||def; equipDeskItem(cBase,eff,!on); renderCrItems(); autoSaveDeskItemsNow(); };   // eff: 관리자가 교체해뒀으면 그 커스텀 def, 아니면 기본
       if(isAdmin) it.oncontextmenu=e=>{ e.preventDefault(); adminPartReg.openDeskRegister('item', def.id); };   // def.id(plant/cup/books) 그대로 써서 진짜 교체되게
       else it.oncontextmenu=e=>{ e.preventDefault(); if(on && cBase.deskItems[def.id]) selectDeskItemForAdjust(cBase.deskItems[def.id]); };   // 일반모드: 이미 장착돼있으면 우클릭으로 바로 선택
@@ -8671,7 +8671,7 @@ function renderCrItems(){
       }
       if(cBase&&cBase.deskItems&&cBase.deskItems[def.id]) equipDeskItem(cBase,def,false);
       delete customItems[def.id];
-      savedItems=savedItems.filter(s=>s.id!==def.id); persistSavedAssets();
+      commissionMod.setSavedItems(commissionMod.savedItems().filter(s=>s.id!==def.id)); commissionMod.persistSavedAssets();
       renderCrItems();
     };
     const it=swThumb(def.name, on, def.icon||'📦', deleteHandler, active);
@@ -8725,41 +8725,41 @@ function renderCrItems(){
   }
   // 한도 표시: 6개 다 차면 "+ 코드로 추가하기" 비활성화 느낌
   const dac=document.getElementById('deskAddCode'), iac=document.getElementById('itemAddCode');
-  if(dac){ const full=savedDesks.length>=MAX_CUSTOM_ASSETS; dac.style.opacity=full?'0.4':'1'; dac.title=full?'최대 '+MAX_CUSTOM_ASSETS+'개. 카드 X로 지운 뒤 추가하세요':''; }
-  if(iac){ const full=savedItems.length>=MAX_CUSTOM_ITEMS; iac.style.opacity=full?'0.4':'1'; iac.title=full?'최대 '+MAX_CUSTOM_ITEMS+'개. 카드 X로 지운 뒤 추가하세요':''; }
+  if(dac){ const full=commissionMod.savedDesks().length>=commissionMod.MAX_CUSTOM_ASSETS; dac.style.opacity=full?'0.4':'1'; dac.title=full?'최대 '+commissionMod.MAX_CUSTOM_ASSETS+'개. 카드 X로 지운 뒤 추가하세요':''; }
+  if(iac){ const full=commissionMod.savedItems().length>=commissionMod.MAX_CUSTOM_ITEMS; iac.style.opacity=full?'0.4':'1'; iac.title=full?'최대 '+commissionMod.MAX_CUSTOM_ITEMS+'개. 카드 X로 지운 뒤 추가하세요':''; }
 }
 /* 관리자 — 커스텀 아이템끼리 드래그로 진열 순서 변경, 카탈로그(Firebase)에 order 반영해서 전체 사용자 동기화 */
 function reorderSavedItem(draggedId, targetId){
-  const draggedIdx = savedItems.findIndex(p=>p.id===draggedId);
-  const targetIdx = savedItems.findIndex(p=>p.id===targetId);
+  const draggedIdx = commissionMod.savedItems().findIndex(p=>p.id===draggedId);
+  const targetIdx = commissionMod.savedItems().findIndex(p=>p.id===targetId);
   if(draggedIdx<0 || targetIdx<0) return;
-  const [item] = savedItems.splice(draggedIdx,1);
-  savedItems.splice(targetIdx,0,item);
-  savedItems.forEach((p,i)=>{ p.order=i; });
-  persistSavedAssets();
+  const [item] = commissionMod.savedItems().splice(draggedIdx,1);
+  commissionMod.savedItems().splice(targetIdx,0,item);
+  commissionMod.savedItems().forEach((p,i)=>{ p.order=i; });
+  commissionMod.persistSavedAssets();
   renderCrItems();
   // 런처4-2: 활성 아이템이 없으면(사용자가 카드 선택 안 함) 캐릭터 위에 남아있던 기즈모 숨김.
   if(typeof attachItemGizmoToActive==='function') attachItemGizmoToActive();
   if(window.firebaseAPI && window.firebaseAPI.updateItemsOrder){
     const orderMap={};
-    savedItems.forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });
+    commissionMod.savedItems().forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });
     if(Object.keys(orderMap).length){
       window.firebaseAPI.updateItemsOrder(orderMap).catch(()=>{ toast('⚠ 순서가 온라인에는 반영 안 됐어요(인터넷 연결 확인) — 이 화면에서만 바뀐 상태예요'); });
     }
   }
 }
 function reorderSavedDesk(draggedId, targetId){
-  const draggedIdx = savedDesks.findIndex(p=>p.id===draggedId);
-  const targetIdx = savedDesks.findIndex(p=>p.id===targetId);
+  const draggedIdx = commissionMod.savedDesks().findIndex(p=>p.id===draggedId);
+  const targetIdx = commissionMod.savedDesks().findIndex(p=>p.id===targetId);
   if(draggedIdx<0 || targetIdx<0) return;
-  const [item] = savedDesks.splice(draggedIdx,1);
-  savedDesks.splice(targetIdx,0,item);
-  savedDesks.forEach((p,i)=>{ p.order=i; });
-  persistSavedAssets();
+  const [item] = commissionMod.savedDesks().splice(draggedIdx,1);
+  commissionMod.savedDesks().splice(targetIdx,0,item);
+  commissionMod.savedDesks().forEach((p,i)=>{ p.order=i; });
+  commissionMod.persistSavedAssets();
   renderCrItems();
   if(window.firebaseAPI && window.firebaseAPI.updateDesksOrder){
     const orderMap={};
-    savedDesks.forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });
+    commissionMod.savedDesks().forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });
     if(Object.keys(orderMap).length){
       window.firebaseAPI.updateDesksOrder(orderMap).catch(()=>{ toast('⚠ 순서가 온라인에는 반영 안 됐어요(인터넷 연결 확인) — 이 화면에서만 바뀐 상태예요'); });
     }
@@ -9109,15 +9109,15 @@ const adminAsset = (typeof TwAdminAsset === 'undefined') ? ADMIN_ASSET_OFF : TwA
   toast: (...a)=>toast(...a),
   encryptAssetCode: (...a)=>encryptAssetCode(...a),
   wrapAsset: (...a)=>wrapAsset(...a),
-  _b64: (...a)=>_b64(...a),
-  encryptCommission: (...a)=>encryptCommission(...a),
-  unpackCommissionZip: (...a)=>unpackCommissionZip(...a),
+  _b64: (...a)=>codeCryptoMod._b64(...a),
+  encryptCommission: (...a)=>commissionMod.encryptCommission(...a),
+  unpackCommissionZip: (...a)=>commissionMod.unpackCommissionZip(...a),
   encryptBytes: (...a)=>encryptBytes(...a),
   decryptBytes: (...a)=>decryptBytes(...a),
   downloadBlob: (...a)=>charCodeMod.downloadBlob(...a),
   loadEncryptedGlbAsSeat: (...a)=>charCodeMod.loadEncryptedGlbAsSeat(...a),
-  maxGlbBytes: ()=>MAX_GLB_BYTES,
-  maxCommissionBytes: ()=>MAX_COMMISSION_BYTES,
+  maxGlbBytes: ()=>commissionMod.MAX_GLB_BYTES,
+  maxCommissionBytes: ()=>commissionMod.MAX_COMMISSION_BYTES,
 });
 document.getElementById('assetImpFileBtn').onclick=()=>document.getElementById('assetImpFileInput').click();
 document.getElementById('assetImpFileInput').addEventListener('change', e=>{
@@ -9155,15 +9155,15 @@ document.getElementById('assetImpGo').onclick=async()=>{
   const code=document.getElementById('assetImpCode').value, pass=document.getElementById('assetImpPass').value;
   if(!code||!pass){toast('코드와 비밀번호를 입력해 주세요');return;}
   try{ const dec=await decryptAssetCode(code,pass); const u=unwrapAsset(dec.buf);
-    if(u.glbBuf.byteLength>MAX_GLB_BYTES){ toast('GLB가 1MB를 넘어요'); return; }
+    if(u.glbBuf.byteLength>commissionMod.MAX_GLB_BYTES){ toast('GLB가 1MB를 넘어요'); return; }
     const kind = _assetImpKind;   // 코드 자체에 담긴 종류가 아니라, 사용자가 어느 버튼(책상/아이템/파츠)으로 열었는지를 기준으로 등록
     // 한도 검사: 같은 종류의 저장 배열 길이 확인
     // ★ 파츠는 꾸미기 통만 센다 — 코드로 받는 커미션 파츠는 언제나 비(非)가챠라, 관리자가 등록해둔
     //   가챠 파츠 때문에 유저의 코드 추가가 막히면 안 된다(등록 쪽과 같은 이유).
-    const arr = (kind==='desk') ? savedDesks : (kind==='part') ? premiumMod.partsInCatFor(_assetImpCat, false) : savedItems;
-    const _maxAssets = (kind==='desk') ? MAX_CUSTOM_ASSETS : (kind==='part') ? premiumMod.MAX_PARTS_PER_CAT : MAX_CUSTOM_ITEMS;
+    const arr = (kind==='desk') ? commissionMod.savedDesks() : (kind==='part') ? premiumMod.partsInCatFor(_assetImpCat, false) : commissionMod.savedItems();
+    const _maxAssets = (kind==='desk') ? commissionMod.MAX_CUSTOM_ASSETS : (kind==='part') ? premiumMod.MAX_PARTS_PER_CAT : commissionMod.MAX_CUSTOM_ITEMS;
     if(arr.length>=_maxAssets){ toast('최대 '+_maxAssets+'개까지 추가할 수 있어요. 카드의 X로 지운 뒤 다시 시도해 주세요'); return; }
-    const glbB64=_b64(u.glbBuf);
+    const glbB64=codeCryptoMod._b64(u.glbBuf);
     /* 📦 넣자마자 이 캐릭터에 실리는 것(책상 · 아이템)은 파일 하나로 남은 용량을 넘으면 받지 않는다.
        책상은 지금 책상 자리를 비운 나머지와 견준다(바꿔 끼우는 것이라). 파츠는 def 에 GLB 가 안 실린다. */
     if(creatorOpen && cBase && (kind==='desk' || kind==='item')){
@@ -9178,7 +9178,7 @@ document.getElementById('assetImpGo').onclick=async()=>{
     const id='c'+Date.now().toString(36);
     const rec={id, name:u.name, icon:u.icon||'', glb:glbB64};
     if(kind==='desk'){
-      savedDesks.push(rec); persistSavedAssets();
+      commissionMod.savedDesks().push(rec); commissionMod.persistSavedAssets();
       // 즉시 활성 책상으로 swap (사용자 의도 — 방금 추가한 책상은 바로 보이도록)
       // ★ 크기(cDeskScale)는 건드리지 않음 — 이전에 슬라이더로 맞춰둔 값을 그대로 유지(고정값으로 리셋하면 매번 슬라이더가 튀어 보임)
       cDeskTemplate=scene; cDeskGlbB64=glbB64;
@@ -9194,7 +9194,7 @@ document.getElementById('assetImpGo').onclick=async()=>{
       toast('파츠를 추가했어요(이 기기에만 저장됨)');
       wardrobeMod.renderWardrobe();
     } else {
-      savedItems.push(rec); persistSavedAssets();
+      commissionMod.savedItems().push(rec); commissionMod.persistSavedAssets();
       registerCustomItem(id,u.name,glbB64,scene,u.icon||'',animations);
       if(cBase&&cBase.deskAnchor) equipDeskItem(cBase,customItems[id],true);
       toast('아이템을 추가했어요');
@@ -9849,7 +9849,7 @@ function openCreator(mode){
     if(cDesk)cDesk.userData.deskScale=cDeskScale; swapDeskVisual(cDesk,null);
     (async()=>{
       if(src&&src.deskCatalogId){
-        const m=savedDesks.find(d=>d.id===src.deskCatalogId);
+        const m=commissionMod.savedDesks().find(d=>d.id===src.deskCatalogId);
         /* 🔒 [2026-09-15] 라이선스가 빠진 뒤 남은 전용 책상 참조는 생성기에 싣지 않는다 — 실으면 저장 때
            deskCatalogId 가 다시 굳어 실행 화면에서 매번 기본 책상으로 떨어지는 상태가 이어진다. 기본 책상으로 열린다. */
         if(m && m.licenseOnly && !isPremium && !isAdmin){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
@@ -9861,9 +9861,9 @@ function openCreator(mode){
             swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); }catch(e){}
         }
       } else if(src&&src.deskGlb){ cDeskGlbB64=src.deskGlb; try{ const sc=await parseGlbBytes(b64ToBuf(src.deskGlb)); cDeskTemplate=sc; swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor);
-        const m=savedDesks.find(d=>d.glb===src.deskGlb); if(m) activeCustomDeskId=m.id;
+        const m=commissionMod.savedDesks().find(d=>d.glb===src.deskGlb); if(m) activeCustomDeskId=m.id;
       }catch(e){} } else {
-        const ov=savedDesks.find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
+        const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
         if(ov){
           if(!ov.glb && ov.glbUrl && typeof resolveCatalogGlb==='function'){
             try{ await resolveCatalogGlb(ov); }catch(_){}
@@ -10138,14 +10138,14 @@ function _creatorBuildDef(forSize){
   if(cBase){
     const di=collectDeskItems(cBase); def.deskItems=di;   // ★ di가 null(전부 껐을 때)이어도 반드시 반영 — 안 그러면 껐던 아이템이 예전 저장값 그대로 남아있게 됨
     if(di){
-    const ci={}; Object.keys(di).forEach(id=>{ const c=customItems[id]; const rec=savedItems.find(s=>s.id===id);
+    const ci={}; Object.keys(di).forEach(id=>{ const c=customItems[id]; const rec=commissionMod.savedItems().find(s=>s.id===id);
       // 카탈로그 아이템이면 GLB를 캐릭터에 박아넣지 않음 — 불러올 때 카탈로그 동기화(loadSavedItemsIntoSession)로 자동 채워짐(실시간 교체 반영을 위함)
       if(c && !(rec&&rec.fromCatalog)) ci[id]={name:c.name,glb:c.glb}; });
     if(Object.keys(ci).length) def.customItems=ci; } }
   if(cDeskGlbB64){
     // 카탈로그(관리자 배포) 책상이면 GLB를 통째로 박아넣는 대신 참조 ID만 저장 — 나중에 관리자가 GLB를 교체해도
     // 이 캐릭터를 불러올 때마다 최신 GLB를 다시 찾아오게 됨(applyDeskCatalogRefToSeat). 로컬 전용(코드로 추가) 책상은 예전처럼 그대로 저장.
-    const activeRec = activeCustomDeskId ? savedDesks.find(d=>d.id===activeCustomDeskId) : null;
+    const activeRec = activeCustomDeskId ? commissionMod.savedDesks().find(d=>d.id===activeCustomDeskId) : null;
     if(activeRec && activeRec.fromCatalog){ def.deskCatalogId = activeRec.id; }
     else { def.deskGlb=cDeskGlbB64; }
   }
@@ -10644,7 +10644,7 @@ document.getElementById('commImpGo').onclick=async()=>{
   if(!/^DCM1\./.test(code)){ toast('코드 형식이 아니에요 — 파일이 잘리지 않았는지 확인해 주세요'); return; }
   if(!(window.crypto&&crypto.subtle)){toast('이 환경에선 복호화를 쓸 수 없어요');return;}
   try{
-    const payload=await decryptCommission(code, pass);
+    const payload=await commissionMod.decryptCommission(code, pass);
     if(payload.t!=='comm') throw new Error('형식 오류');
     // 빈 슬롯 찾기
     // ★ 빈 칸이 없으면 예전엔 idx=0으로 떨어져 1번 캐릭터를 말없이 덮어썼다(동물 저장과 같은 유형의 사고).
@@ -11344,7 +11344,7 @@ const Presence=(()=>{
     else provider = window.firebaseAPI ? roomSyncMod.makeFirebaseProvider() : roomEntryMod.makeMockProvider();
     try{ myAwayImg = awayPicMod._awayUrlOk(awayPicMod.awayImgUrl()) ? awayPicMod.awayImgUrl() : ''; }catch(_){ myAwayImg = ''; }   // 🫧 입장 때 한 번
     try{ myAwaySz = awayPicMod._awaySzOk(awayPicMod.awayImgSz()) ? awayPicMod.awayImgSz() : awayPicMod.AWAY_PIC_SCREEN_PX(); }catch(_){ myAwaySz = awayPicMod.AWAY_PIC_SCREEN_PX(); }
-    try{ myFocusShow = _focusShowConf(); _focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
+    try{ myFocusShow = focusShareMod._focusShowConf(); focusShareMod._focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
     try{ myNoise = (window.TW_NOISE && TW_NOISE.kind) ? TW_NOISE.kind() : ''; }catch(_){ myNoise = ''; }   // 🌙 입장 때 한 번
     const _st0 = _statusOut();
     const _joinRes = provider.join(room, {def:myDef,name:myName,awaySz:myAwaySz,state:myState,userStatus:_st0.userStatus,customStatus:_st0.customStatus,level:myLevel, ...focusLevelMod.myStarOut(),mobile:focusLevelMod._mobileRoomLabel(),userId:getMyUserId(), noise:myNoise, lic:_myLicenseFlag(), awayImg:myAwayImg}, fr=>{ friends=fr; if(onChange)onChange(friends); },
@@ -11434,7 +11434,7 @@ const Presence=(()=>{
   }
   /* ⭐ exp = 레벨 안 진행도(0~12칸). 하트비트에도 실리지만 여기에도 넣어야 입장 직후 첫 30초 동안
      상대 화면에 바가 비어 보이지 않는다. 이 push들은 원래 발생하던 것이라 추가 쓰기는 없다. */
-  function _myExpCells(){ try{ return (typeof myExpCells==='function') ? myExpCells() : null; }catch(_){ return null; } }
+  function _myExpCells(){ try{ return (typeof expBarMod.myExpCells==='function') ? expBarMod.myExpCells() : null; }catch(_){ return null; } }
   /* 🪑 내가 쉬는 중인 시각(ms) — 지나갔으면 null 로 보내서 필드를 비운다.
      ★ 새 쓰기를 거의 만들지 않는다: 값이 바뀌는 순간(연속 기준 도달)에만 broadcastNow 가 한 번
        나가고, 그 뒤로는 원래 나가던 update 에 필드 하나(숫자)가 얹혀 갈 뿐이다. */
@@ -11581,7 +11581,7 @@ const Presence=(()=>{
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const ROOM_ENTRY_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const roomEntryMod = (typeof TwRoomEntry === 'undefined') ? ROOM_ENTRY_MOD_OFF : TwRoomEntry.createRoomEntry({
-  EXP_CELLS: ()=>EXP_CELLS,
+  EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   FLOATER_BURST: FLOATER_BURST,
   Presence: Presence,
   _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),
@@ -11605,7 +11605,7 @@ const roomEntryMod = (typeof TwRoomEntry === 'undefined') ? ROOM_ENTRY_MOD_OFF :
   layoutSeats: (...a)=>layoutSeats(...a),
   licenseGateMod: licenseGateMod,
   maxPeople: (...a)=>maxPeople(...a),
-  myExpCells: (...a)=>myExpCells(...a),
+  myExpCells: (...a)=>expBarMod.myExpCells(...a),
   officeMode: ()=>officeMode,
   pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),
   removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),
@@ -11655,7 +11655,7 @@ const progSettingsMod = (typeof TwProgramSettings === 'undefined') ? PROG_SETTIN
   OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,
   Presence: Presence,
   _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),
-  _focusShowPush: (...a)=>_focusShowPush(...a),
+  _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),
   _lsSet: (...a)=>_lsSet(...a),
   chatUiMod: chatUiMod,
   figureMode: ()=>figureMode,
@@ -11717,9 +11717,9 @@ const accountMod = (typeof TwAccount === 'undefined') ? ACCOUNT_MOD_OFF : TwAcco
   CUR_SLOT_KEY: CUR_SLOT_KEY,
   CUSTOM_STATUS_KEY: CUSTOM_STATUS_KEY,
   EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
-  FOCUS_TODAY_DATE_KEY: ()=>FOCUS_TODAY_DATE_KEY,
-  FOCUS_TODAY_SEC_KEY: ()=>FOCUS_TODAY_SEC_KEY,
-  FOCUS_TOTAL_KEY: ()=>FOCUS_TOTAL_KEY,
+  FOCUS_TODAY_DATE_KEY: ()=>focusTotalMod.FOCUS_TODAY_DATE_KEY,
+  FOCUS_TODAY_SEC_KEY: ()=>focusTotalMod.FOCUS_TODAY_SEC_KEY,
+  FOCUS_TOTAL_KEY: ()=>focusTotalMod.FOCUS_TOTAL_KEY,
   GACHA_BONUS_KEY: ()=>GACHA_BONUS_KEY,
   GACHA_OWNED_KEY: ()=>GACHA_OWNED_KEY,
   GACHA_TS_KEY: ()=>GACHA_TS_KEY,
@@ -11732,7 +11732,7 @@ const accountMod = (typeof TwAccount === 'undefined') ? ACCOUNT_MOD_OFF : TwAcco
   MY_FRIEND_CODE_PREV_KEY: MY_FRIEND_CODE_PREV_KEY,
   MY_USER_ID_KEY: MY_USER_ID_KEY,
   USER_NAME_KEY: USER_NAME_KEY,
-  _focusTodaySec: ()=>_focusTodaySec,
+  _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
   _focusTotalSec: ()=>_focusTotalSec,
   _rememberOldFriendCode: (...a)=>_rememberOldFriendCode(...a),
   _setMyUserId: (...a)=>_setMyUserId(...a),
@@ -11748,7 +11748,7 @@ const accountMod = (typeof TwAccount === 'undefined') ? ACCOUNT_MOD_OFF : TwAcco
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   weeklyChal: ()=>weeklyChal,
-  setFocusTodaySec: (v)=>{ _focusTodaySec = v; },
+  setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
   setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
   setExtraSeatSlots: (v)=>{ settingsMod.setExtraSeatSlots(v); },
 });
@@ -11791,11 +11791,11 @@ const accountMod = (typeof TwAccount === 'undefined') ? ACCOUNT_MOD_OFF : TwAcco
 const MY_INFO_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo.createMyInfo({
   CHARS_BOX_MAX: ()=>charsMod.CHARS_BOX_MAX,
-  EXP_CELLS: ()=>EXP_CELLS,
-  EXP_SEC_PER_CELL: ()=>EXP_SEC_PER_CELL,
-  EXP_SEC_PER_LEVEL: ()=>EXP_SEC_PER_LEVEL,
-  FOCUS_CYCLE_SEC: ()=>FOCUS_CYCLE_SEC,
-  FOCUS_LEVEL_CAP_HOURS: ()=>FOCUS_LEVEL_CAP_HOURS,
+  EXP_CELLS: ()=>expBarMod.EXP_CELLS,
+  EXP_SEC_PER_CELL: ()=>expBarMod.EXP_SEC_PER_CELL,
+  EXP_SEC_PER_LEVEL: ()=>expBarMod.EXP_SEC_PER_LEVEL,
+  FOCUS_CYCLE_SEC: ()=>focusTotalMod.FOCUS_CYCLE_SEC,
+  FOCUS_LEVEL_CAP_HOURS: ()=>focusTotalMod.FOCUS_LEVEL_CAP_HOURS,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   MY_USER_ID_KEY: MY_USER_ID_KEY,
   STAR_PALETTE: ()=>focusLevelMod.STAR_PALETTE,
@@ -12366,81 +12366,19 @@ const faceHealMod = (typeof TwFaceHeal === 'undefined') ? FACE_HEAL_MOD_OFF : Tw
 });
 
 /* ===== 진짜 암호화: AES-256-GCM + PBKDF2(150k) ===== */
-function _b64(buf){let s='';const b=new Uint8Array(buf);for(let i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s);}
-function _unb64(str){const s=atob(str);const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b;}
-async function _deriveKey(pass,salt){const enc=new TextEncoder();
-  const km=await crypto.subtle.importKey('raw',enc.encode(pass),'PBKDF2',false,['deriveKey']);
-  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);}
-/* 🐾 복제코드에 담을 동물 텍스처를 줄인다.
-   동물 페인트는 512px PNG 4장이라 코드가 인간보다 훨씬 커진다. 이 4장은 불러올 때
-   drawImage(im,0,0,P_SZ,P_SZ)로 '크기를 지정해' 그리므로, 256으로 담아도 512로 자동 확대되어 정상 동작한다.
-   ★ face/blink는 drawImage(f,0,0)로 크기 없이 그려서 줄이면 좌상단 1/4에만 찍힌다 — 절대 줄이지 말 것. */
-const CODE_TEX_SIZE = 256;
-async function _shrinkDataUrl(url, size){
-  if(!url || typeof url!=='string' || !url.startsWith('data:')) return url || null;
-  try{
-    const im = await loadImg(url);
-    const c = document.createElement('canvas'); c.width=c.height=size;
-    const x = c.getContext('2d');
-    x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
-    x.drawImage(im, 0, 0, size, size);
-    return c.toDataURL('image/png');
-  }catch(_){ return url; }   // 실패하면 원본 그대로(코드 생성 자체는 성공시킴)
-}
-async function encryptCode(def,pass){
-  // 동물 페인트 4장은 CODE_TEX_SIZE로 줄여서 담는다(코드 용량 절감). 동물이 아니면 전부 null.
-  const _aTex = def.animal
-    ? await Promise.all([
-        _shrinkDataUrl(def.animalBody,        CODE_TEX_SIZE),
-        _shrinkDataUrl(def.animalEarPaintL,   CODE_TEX_SIZE),
-        _shrinkDataUrl(def.animalEarPaintR,   CODE_TEX_SIZE),
-        _shrinkDataUrl(def.animalBlink,       CODE_TEX_SIZE),
-        _shrinkDataUrl(def.animalEarBlinkL,   CODE_TEX_SIZE),
-        _shrinkDataUrl(def.animalEarBlinkR,   CODE_TEX_SIZE)])
-    : [null,null,null,null,null,null];
-  // 🐾 동물 필드도 함께 담는다 — 예전엔 인간 필드만 직렬화해서, 동물 캐릭터의 복제코드를
-  //   불러오면 동물 정보가 전부 빠진 채 인간으로 나왔다. 동물 필드는 저장 시점에 이미
-  //   dataURL/JSON 형태라 그대로 담으면 된다(캔버스는 face/blink 두 개뿐).
-  const payload=JSON.stringify({t:'creator',skin:def.skin||0,top:def.top,bot:def.bot,xf:def.xf||null,decor:def.decor||null,deskColor:def.deskColor||null,deskItems:def.deskItems||null,deskGlb:def.deskGlb||null,deskCatalogId:def.deskCatalogId||null,deskScale:def.deskScale||null,deskPos:def.deskPos||null,customItems:def.customItems||null,isCommission:def.isCommission||false,commName:def.commName||null,commGlb:def.commGlb||null,
-    animal:def.animal||false,animalFace:def.animalFace||0,animalScl:def.animalScl||null,animalEarL:def.animalEarL||null,animalEarR:def.animalEarR||null,animalEarAdj:def.animalEarAdj||null,animalBody:_aTex[0],animalEarPaintL:_aTex[1],animalEarPaintR:_aTex[2],animalBlink:_aTex[3],animalEarBlinkL:_aTex[4],animalEarBlinkR:_aTex[5],
-    // 👂 사람 귀 — 종류 · 조정값 · 올린 그림(URL 만 — dataURL 은 코드가 너무 커진다)
-    earL:def.earL||null,earR:def.earR||null,earAdj:def.earAdj||null,
-    earPicL:(typeof def.earPicL==='string'&&!def.earPicL.startsWith('data:'))?def.earPicL:null,earPicR:(typeof def.earPicR==='string'&&!def.earPicR.startsWith('data:'))?def.earPicR:null,
-    face:def.face.toDataURL('image/png'),blink:def.blink.toDataURL('image/png')});
-  const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
-  const key=await _deriveKey(pass,salt);
-  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(payload)));
-  const blob=new Uint8Array(28+ct.length); blob.set(salt,0); blob.set(iv,16); blob.set(ct,28);
-  return 'DCC1.'+_b64(blob.buffer);}
-async function decryptCode(code,pass){
-  if(!/^DCC1\./.test(code)) throw new Error('format');
-  const blob=_unb64(code.slice(5).replace(/\s+/g,''));
-  const salt=blob.slice(0,16), iv=blob.slice(16,28), ct=blob.slice(28);
-  const key=await _deriveKey(pass,salt);
-  const ptBuf=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct);
-  const o=JSON.parse(new TextDecoder().decode(ptBuf)); if(o.t!=='creator')throw new Error('type');
-  const[f,b]=await Promise.all([loadImg(o.face),loadImg(o.blink)]);
-  const fc=newCanvas();fc.getContext('2d').drawImage(f,0,0);const bc=newCanvas();bc.getContext('2d').drawImage(b,0,0);
-  {const _d=charDef(o.skin||0,fc,bc,o.top,o.bot);if(o.xf)_d.xf=o.xf;if(o.decor)_d.decor=o.decor;if(o.deskColor)_d.deskColor=o.deskColor;if(o.deskItems)_d.deskItems=o.deskItems;if(o.deskGlb)_d.deskGlb=o.deskGlb;if(o.deskCatalogId)_d.deskCatalogId=o.deskCatalogId;if(o.deskScale)_d.deskScale=o.deskScale;if(o.deskPos)_d.deskPos=o.deskPos;if(o.customItems)_d.customItems=o.customItems;
-    if(o.isCommission){_d.isCommission=true;_d.commName=o.commName||'커미션';_d.commGlb=o.commGlb||null;}
-    // 👂 사람 귀 복원(옛 코드엔 없다)
-    if(!o.animal){ if(o.earL)_d.earL=o.earL; if(o.earR)_d.earR=o.earR; if(o.earAdj)_d.earAdj=o.earAdj; if(o.earPicL)_d.earPicL=o.earPicL; if(o.earPicR)_d.earPicR=o.earPicR; }
-    // 🐾 동물 필드 복원 — slotToObj/objToSlot이 쓰는 필드명과 1:1 (crDone 승계 목록과 동일 세트)
-    if(o.animal){
-      _d.animal=true; _d.animalFace=o.animalFace||0; _d.animalScl=o.animalScl||null;
-      _d.animalEarL=o.animalEarL||null; _d.animalEarR=o.animalEarR||null; _d.animalEarAdj=o.animalEarAdj||null;
-      _d.animalBody=o.animalBody||null; _d.animalEarPaintL=o.animalEarPaintL||null;
-      _d.animalEarPaintR=o.animalEarPaintR||null; _d.animalBlink=o.animalBlink||null;
-      // 🐾 감은눈 귀 — 옛 코드엔 없다. loadSlots 와 같은 폴백(표정 귀)으로 예전과 같은 모양을 유지한다.
-      _d.animalEarBlinkL=o.animalEarBlinkL||o.animalEarPaintL||null;
-      _d.animalEarBlinkR=o.animalEarBlinkR||o.animalEarPaintR||null;
-    }
-    return _d;}}
+/* 본문은 code-crypto.js 로 옮겼다(앱 FSD 45번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const CODE_CRYPTO_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const codeCryptoMod = (typeof TwCodeCrypto === 'undefined') ? CODE_CRYPTO_MOD_OFF : TwCodeCrypto.createCodeCrypto({
+  charDef: (...a)=>charDef(...a),
+  loadImg: (...a)=>loadImg(...a),
+  newCanvas: (...a)=>newCanvas(...a),
+});
 
 /* ===== 풀 GLB 파일 암호화 (.dcc) ===== */
 async function encryptBytes(buf,pass){
   const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
-  const key=await _deriveKey(pass,salt);
+  const key=await codeCryptoMod._deriveKey(pass,salt);
   const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,buf));
   const out=new Uint8Array(33+ct.length); out.set([0x44,0x43,0x47,0x31,0x00],0); out.set(salt,5); out.set(iv,21); out.set(ct,33);
   return out.buffer;}
@@ -12448,20 +12386,20 @@ async function decryptBytes(buf,pass){
   const b=new Uint8Array(buf);
   if(!(b[0]===0x44&&b[1]===0x43&&b[2]===0x47&&b[3]===0x31)) throw new Error('format');
   const salt=b.slice(5,21), iv=b.slice(21,33), ct=b.slice(33);
-  const key=await _deriveKey(pass,salt);
+  const key=await codeCryptoMod._deriveKey(pass,salt);
   return crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct);}
 /* ===== 책상·아이템 GLB 코드 (DCK1) — 캐릭터처럼 복제 코드로 판매/추가 ===== */
 async function encryptAssetCode(buf,pass,kind){
   const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
-  const key=await _deriveKey(pass,salt);
+  const key=await codeCryptoMod._deriveKey(pass,salt);
   const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,buf));
   const blob=new Uint8Array(28+ct.length); blob.set(salt,0); blob.set(iv,16); blob.set(ct,28);
-  return 'DCK1.'+kind+'.'+_b64(blob.buffer); }
+  return 'DCK1.'+kind+'.'+codeCryptoMod._b64(blob.buffer); }
 async function decryptAssetCode(code,pass){
   const m=/^DCK1\.(desk|item)\.([\s\S]+)$/.exec((code||'').trim()); if(!m)throw new Error('format');
-  const blob=_unb64(m[2].replace(/\s+/g,''));
+  const blob=codeCryptoMod._unb64(m[2].replace(/\s+/g,''));
   const salt=blob.slice(0,16), iv=blob.slice(16,28), ct=blob.slice(28);
-  const key=await _deriveKey(pass,salt);
+  const key=await codeCryptoMod._deriveKey(pass,salt);
   const buf=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct);
   return {kind:m[1], buf}; }
 function wrapAsset(name,icon,glbBuf){ const nb=new TextEncoder().encode(JSON.stringify({name,icon:icon||''}));
@@ -12482,109 +12420,19 @@ function parseGlbFull(buf){ return new Promise((res,rej)=>{ try{ loader.parse(bu
    - 한도 2MB (압축 풀린 zip 내부 합계)
    - 1~4단계 잠금 (피부/표정/감은눈/색상은 완성형이라 수정 불가)
 */
-const MAX_COMMISSION_BYTES = 2 * 1024 * 1024;   // 2MB
-const COMMISSION_TEX_SIZE = 512;
-/* 이미지 Blob → 512×512 캔버스 → PNG 데이터 URL */
-function resizeImgBlobTo(dataUrl, sz){
-  return new Promise((res,rej)=>{
-    const im=new Image();
-    im.onload=()=>{
-      const cv=document.createElement('canvas'); cv.width=sz; cv.height=sz;
-      const ctx=cv.getContext('2d'); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-      ctx.drawImage(im,0,0,sz,sz);
-      res(cv.toDataURL('image/png'));
-    };
-    im.onerror=()=>rej(new Error('image load failed'));
-    im.src=dataUrl;
-  });
-}
-/* zip 파일에서 character.glb / face.png / blink.png 추출. PNG는 512로 리사이즈된 데이터 URL */
-async function unpackCommissionZip(file){
-  if(typeof JSZip==='undefined') throw new Error('JSZip 라이브러리가 로드되지 않았어요');
-  if(file.size > MAX_COMMISSION_BYTES) throw new Error('zip 파일이 2MB를 넘어요');
-  const z = await JSZip.loadAsync(file);
-  // 파일 찾기 (대소문자 무시, 경로 무시)
-  // 1순위: 정확히 일치하는 파일명(character.glb/face.png/blink.png) — 기존 방식 그대로 우선 시도.
-  // 2순위: 정확히 안 맞으면 "키워드 포함 + 확장자 일치"로 완화 매칭 — face2.png, face (1).png, blink_v2.png 등도 인식되게.
-  function find(exactName, keyword, ext){
-    const exact = exactName.toLowerCase();
-    for(const path in z.files){
-      const f=z.files[path]; if(f.dir) continue;
-      if(path.split('/').pop().toLowerCase()===exact) return f;
-    }
-    for(const path in z.files){
-      const f=z.files[path]; if(f.dir) continue;
-      const base=path.split('/').pop().toLowerCase();
-      if(base.includes(keyword) && base.endsWith(ext)) return f;
-    }
-    return null;
-  }
-  const fGlb=find('character.glb','character','.glb'), fFace=find('face.png','face','.png'), fBlink=find('blink.png','blink','.png');
-  if(!fGlb) throw new Error('character.glb 가 zip에 없어요');
-  if(!fFace) throw new Error('face.png 가 zip에 없어요');
-  if(!fBlink) throw new Error('blink.png 가 zip에 없어요');
-  const [glbBuf, faceBlob, blinkBlob] = await Promise.all([
-    fGlb.async('arraybuffer'),
-    fFace.async('blob'),
-    fBlink.async('blob')
-  ]);
-  const [faceUrl, blinkUrl] = await Promise.all([
-    new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(faceBlob);}),
-    new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(blinkBlob);})
-  ]);
-  // 512로 자동 리사이즈
-  const [face512, blink512] = await Promise.all([
-    resizeImgBlobTo(faceUrl, COMMISSION_TEX_SIZE),
-    resizeImgBlobTo(blinkUrl, COMMISSION_TEX_SIZE)
-  ]);
-  return { glbBuf, faceDataUrl: face512, blinkDataUrl: blink512 };
-}
-/* 커미션 페이로드 → 암호화 코드 (DCM1 포맷, 기존 DCC1과 구분) */
-async function encryptCommission(payload, pass){
-  if(!(window.crypto&&crypto.subtle)) throw new Error('crypto unsupported');
-  const salt=crypto.getRandomValues(new Uint8Array(16)), iv=crypto.getRandomValues(new Uint8Array(12));
-  const key=await _deriveKey(pass,salt);
-  const ptBytes = new TextEncoder().encode(JSON.stringify(payload));
-  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},key,ptBytes));
-  const blob=new Uint8Array(28+ct.length); blob.set(salt,0); blob.set(iv,16); blob.set(ct,28);
-  return 'DCM1.'+_b64(blob.buffer);
-}
-async function decryptCommission(code, pass){
-  if(!/^DCM1\./.test(code)) throw new Error('format');
-  const blob=_unb64(code.slice(5).replace(/\s+/g,''));
-  const salt=blob.slice(0,16), iv=blob.slice(16,28), ct=blob.slice(28);
-  const key=await _deriveKey(pass,salt);
-  const ptBuf=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct);
-  return JSON.parse(new TextDecoder().decode(ptBuf));
-}
+/* 본문은 commission.js 로 옮겼다(앱 FSD 45번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const COMMISSION_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const commissionMod = (typeof TwCommission === 'undefined') ? COMMISSION_MOD_OFF : TwCommission.createCommission({
+  _b64: (...a)=>codeCryptoMod._b64(...a),
+  _deriveKey: (...a)=>codeCryptoMod._deriveKey(...a),
+  _unb64: (...a)=>codeCryptoMod._unb64(...a),
+  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
+  toast: (...a)=>toast(...a),
+});
 /* 커스텀 아이템 레지스트리 (생성기 세션) */
 let customItems={};
-/* 코드로 추가한 책상·아이템 영구 저장 (모든 캐릭터 공통, localStorage). 각 최대 6개 */
-const SAVED_DESK_KEY='tw.savedDesks', SAVED_ITEM_KEY='tw.savedItems';
-const MAX_CUSTOM_ASSETS=6, MAX_CUSTOM_ITEMS=50, MAX_GLB_BYTES=1024*1024;   // 1MB — 책상은 6개, 아이템은 요청에 따라 50개까지
-let savedDesks=[], savedItems=[];   // [{id, name, icon, glb(base64)}]
-function loadSavedAssets(){
-  try{ savedDesks=JSON.parse(localStorage.getItem(SAVED_DESK_KEY)||'[]'); }catch(_){ savedDesks=[]; }
-  try{ savedItems=JSON.parse(localStorage.getItem(SAVED_ITEM_KEY)||'[]'); }catch(_){ savedItems=[]; }
-}
-function persistSavedAssets(){
-  // Storage 이관 후속: base64 glb는 로컬 저장에서 제외 (glbUrl만 있는 catalog은 필요 시점 fetch)
-  const stripDesks = savedDesks.map(p=>{
-    if(p.fromCatalog && p.glbUrl){ const clone={...p}; delete clone.glb; return clone; }
-    return p;
-  });
-  const stripItems = savedItems.map(p=>{
-    if(p.fromCatalog && p.glbUrl){ const clone={...p}; delete clone.glb; return clone; }
-    return p;
-  });
-  try{ localStorage.setItem(SAVED_DESK_KEY,JSON.stringify(stripDesks)); }catch(_){ toast('저장 공간이 부족해요'); }
-  try{ localStorage.setItem(SAVED_ITEM_KEY,JSON.stringify(stripItems)); }catch(_){}
-}
-loadSavedAssets();
-// ★ 앱을 켜자마자 최대한 일찍 저장된 아이템들의 GLB 파싱을 시작해둠(비동기) — 이게 늦게 끝나면, 그 사이에
-//   캐릭터가 먼저 실행되면서 아직 customItems에 등록 안 된 아이템은 조용히 빠지는(=책상 위에서 사라지는)
-//   타이밍 경쟁이 있었음("가끔 아이템이 사라지는" 원인). 최대한 앞당겨서 그 경쟁 창을 최소화함.
-if(typeof loadSavedItemsIntoSession==='function') loadSavedItemsIntoSession();
+
 
 /* ===== 캐릭터 꾸미기 파츠 (프리미엄) =====
    모든 캐릭터 공통으로 등록(관리자), 착용은 캐릭터별(def.equippedParts).
@@ -12869,8 +12717,8 @@ async function resolveCatalogGlbAll(catalogObj){
 const ADMIN_CONSOLE_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const adminConsole = (typeof TwAdminConsole === 'undefined') ? ADMIN_CONSOLE_OFF : TwAdminConsole.createAdminConsole({
   savedParts: ()=>premiumMod.savedParts(),
-  savedDesks: ()=>savedDesks,
-  savedItems: ()=>savedItems,
+  savedDesks: ()=>commissionMod.savedDesks(),
+  savedItems: ()=>commissionMod.savedItems(),
 });
 
 /* ═══ 🔄 카탈로그 실시간 동기화 — 아이템 · 책상 · 파츠 · 카테고리 ═══ */
@@ -12879,15 +12727,15 @@ async function mergeCatalogIntoSavedItems(catalogObj){
   // ★ order 필드 기준 오름차순 정렬 — 관리자가 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
   catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
   const catalogIds = new Set(catalogList.map(p=>p.id));
-  const removedIds = savedItems.filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
-  const localOnly = savedItems.filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
+  const removedIds = commissionMod.savedItems().filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
+  const localOnly = commissionMod.savedItems().filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
   if(removedIds.length){
     // 삭제된 아이템을 지금 올려놓은 좌석이 있으면 치움
     seats.forEach(s=>{ removedIds.forEach(id=>{ if(s.deskItems && s.deskItems[id]){ const def=customItems[id]||{id}; equipDeskItem(s,def,false); } }); });
     removedIds.forEach(id=>{ delete customItems[id]; });
   }
-  savedItems = [...catalogList, ...localOnly];
-  persistSavedAssets();
+  commissionMod.setSavedItems([...catalogList, ...localOnly]);
+  commissionMod.persistSavedAssets();
   /* 🩹 #11 — 등록이 끝난 **뒤에** 좌석을 다시 적용한다. 예전엔 await 없이 불러서 바로 아래 재적용이
      옛 정의(크기 0.8)로 아이템을 다시 만들었고, 등록이 끝난 뒤엔 다시 그리는 곳이 없었다. */
   try{ await loadSavedItemsIntoSession(); }catch(_){}   // 세션 customItems에도 최신 상태 반영(새로 추가/수정된 GLB 등록)
@@ -12924,14 +12772,14 @@ function mergeCatalogIntoSavedDesks(catalogObj){
   // ★ order 필드 기준 오름차순 정렬 — 관리자가 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
   catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
   const catalogIds = new Set(catalogList.map(p=>p.id));
-  const removedIds = savedDesks.filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
-  const localOnly = savedDesks.filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
+  const removedIds = commissionMod.savedDesks().filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
+  const localOnly = commissionMod.savedDesks().filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
   if(removedIds.length){
     // 삭제된 책상을 지금 쓰고 있는 좌석이 있으면 기본 책상으로 되돌림
     seats.forEach(s=>{ if(s.charDef && removedIds.includes(s.charDef.deskCatalogId)){ s.charDef.deskCatalogId=null; s.charDef.deskGlb=null; if(s.desk) swapDeskVisual(s.desk,null); } });
   }
-  savedDesks = [...catalogList, ...localOnly];
-  persistSavedAssets();
+  commissionMod.setSavedDesks([...catalogList, ...localOnly]);
+  commissionMod.persistSavedAssets();
   // 지금 이 책상을 쓰고 있는 좌석이 있으면(수정됐을 수 있으니) 즉시 새 GLB로 다시 그림 — "교체하면 실시간 반영" 요구사항
   // 기본 책상(별도 deskCatalogId/deskGlb 없음)을 쓰는 좌석도 __default_desk__ 오버라이드가 있으면/없어졌으면 반영
   seats.forEach(s=>{
@@ -12947,10 +12795,10 @@ function mergeCatalogIntoSavedDesks(catalogObj){
   //   그 자리에서 바로 반영돼야 함(안 그러면 renderCrItems로 카드 목록만 갱신되고, 실제 3D 미리보기는 예전 모습 그대로 남음).
   if(typeof cDesk!=='undefined' && cDesk && creatorOpen){
     if(cDeskGlbB64 && activeCustomDeskId){
-      const rec=savedDesks.find(d=>d.id===activeCustomDeskId);
+      const rec=commissionMod.savedDesks().find(d=>d.id===activeCustomDeskId);
       if(rec){ parseGlbBytes(b64ToBuf(rec.glb)).then(sc=>{ cDeskTemplate=sc; cDeskGlbB64=rec.glb; swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }).catch(()=>{}); }
     } else if(!activeCustomDeskId){
-      const ov=savedDesks.find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
+      const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
       if(ov){ parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }).catch(()=>{}); }
       else { swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
     }
@@ -12969,7 +12817,7 @@ else window.addEventListener('firebase-ready', subscribeCatalogDesks, { once:tru
 // 좌석의 charDef.deskCatalogId를 보고 지금 카탈로그에 있는 최신 GLB로 책상을 그려줌(없으면 기본 책상)
 async function applyDeskCatalogRefToSeat(seat, def){
   if(!seat || !seat.desk) return;
-  const rec = savedDesks.find(d=>d.id===def.deskCatalogId);
+  const rec = commissionMod.savedDesks().find(d=>d.id===def.deskCatalogId);
   if(!rec){
     swapDeskVisual(seat.desk,null);
     setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);
@@ -13147,7 +12995,7 @@ else window.addEventListener('firebase-ready', ()=>{ subscribeCustomCats(); subs
      ② mergeCatalogIntoSavedItems 가 등록을 **기다린 뒤** 좌석을 다시 적용한다(아래).
    ⚠️ 인자로 온 값이 우선이다 — 기존 호출부(loadSavedItemsIntoSession 등)는 동작이 그대로다. */
 function _savedItemMeta(id){
-  try{ return (typeof savedItems !== 'undefined' && Array.isArray(savedItems)) ? (savedItems.find(r=>r && r.id === id) || null) : null; }
+  try{ return (typeof commissionMod.savedItems !== 'undefined' && Array.isArray(commissionMod.savedItems())) ? (commissionMod.savedItems().find(r=>r && r.id === id) || null) : null; }
   catch(_){ return null; }   // savedItems 선언(let) 전에 불리는 경우
 }
 function registerCustomItem(id,name,glbB64,template,icon,animations,attachTo,autoPlay,defaultSize,glow,licenseOnly,playMode){
@@ -13199,7 +13047,7 @@ function registerCustomItem(id,name,glbB64,template,icon,animations,attachTo,aut
 let activeCustomDeskId=null;
 /* 저장된 모든 아이템 코드를 customItems에 등록 (생성기 진입 시 호출) */
 async function loadSavedItemsIntoSession(){
-  for(const rec of savedItems){
+  for(const rec of commissionMod.savedItems()){
     // ★ 이미 등록돼 있어도 건너뛰지 않고 항상 다시 불러옴 — 카탈로그에서 GLB가 교체됐을 때
     //   (관리자가 우클릭 수정 등) customItems가 옛날 것으로 캐시된 채 남아있으면 실시간 반영이 안 됨.
     try{ const buf=b64ToBuf(rec.glb); const {scene,animations}=await parseGlbFull(buf);
@@ -13563,8 +13411,8 @@ const charCodeMod = (typeof TwCharCode === 'undefined') ? CHAR_CODE_MOD_OFF : Tw
   closeGearMenu: (...a)=>closeGearMenu(...a),
   createSeat: (...a)=>createSeat(...a),
   curSlot: ()=>curSlot,
-  decryptCode: (...a)=>decryptCode(...a),
-  encryptCode: (...a)=>encryptCode(...a),
+  decryptCode: (...a)=>codeCryptoMod.decryptCode(...a),
+  encryptCode: (...a)=>codeCryptoMod.encryptCode(...a),
   focusLevelMod: ()=>focusLevelMod,
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
@@ -14218,12 +14066,12 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     /* 🌟 회차면 표시 레벨은 **이번 바퀴** 레벨이고 별이 붙는다. 해금 레벨(getFocusLevel · friendLevel)은 표시에만 안 쓴다 (개정 70). */
     if(seat.remote){
       const st = seat.friendStar || null, lv = st ? st.lv : (seat.friendLevel||1);
-      updateSeatExpBar(seat, lv, (seat.friendExp==null ? null : seat.friendExp), st);
+      expBarMod.updateSeatExpBar(seat, lv, (seat.friendExp==null ? null : seat.friendExp), st);
       overheadMod.setSeatNamePlate(seat, lv, seat.friendName||'(이름 없음)', st);
     }
     else if(seat.isMe){
       const st = focusLevelMod.myFocusShow(), lv = st ? st.lv : focusLevelMod.getFocusLevel();
-      updateSeatExpBar(seat, lv, myExpCells(), st);
+      expBarMod.updateSeatExpBar(seat, lv, expBarMod.myExpCells(), st);
       overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st);
     }
     else if(seat.namePlateEl){ seat.namePlateEl.style.display='none'; if(seat.expBarEl) seat.expBarEl.style.display='none'; }   // 주캐릭터였다가 자리추가로 바뀐 좌석 — 이전 이름표가 남아있지 않게 숨김
@@ -14395,81 +14243,13 @@ window.__officeDiag = function(){
 /* ===== 포커스 시간 누적 + 레벨 시스템 =====
    평생 누적 포커스 시간 1시간당 레벨 1 상승, 최대 999레벨(999시간 달성 시 더 안 늘어남).
    오늘 하루 누적은 [기록 열기] 팝업에 hh:mm:ss로 표시(자정 지나면 0으로 리셋, 레벨엔 영향 없음 — 평생 누적 별도). */
-const FOCUS_TOTAL_KEY='tw.focusTotalSec', FOCUS_TODAY_SEC_KEY='tw.focusTodaySec', FOCUS_TODAY_DATE_KEY='tw.focusTodayDate';
-const FOCUS_LEVEL_CAP_HOURS=999;
-/* 🔁 누적 상한과 레벨 상한을 가른다 (2026-09-18) ────────────────────────────
-   예전엔 `FOCUS_LEVEL_CAP_HOURS` 하나가 **두 몫**을 했다 — 레벨 999 에서 접는 것과,
-   누적 초 자체를 999시간에서 멈추는 것. 그래서 회차(999 를 채우면 ★ 하나 + 레벨 1부터)를
-   붙일 재료가 아예 안 쌓였다.
-   ⇒ 그릇(누적)만 먼저 키운다. **레벨 표시는 지금 그대로 999 에서 접힌다** — 별을 붙이는 단계는
-     다음이다(`handoff-level-tiers.md` §3).
-   ⇒ [개정 70] 별을 붙였다 — 단 **getFocusLevel 은 그대로 999 에서 멈춘다**(해금 기준이라서).
-     표시만 myFocusShow() 가 «이번 바퀴» 레벨 + 별로 바꾼다. 누적이 원천이라 표시를 나중에 붙여도
-     그동안 쌓인 몫이 **소급해서** 회차로 보인다. 먼저 모듈로로 바꾸면 999 를 넘긴 사람이
-     별 없이 Lv.1 로 떨어져 보인다 — 순서가 이쪽인 이유.
-   ★ 회차는 저장하지 않는다. `floor(누적/FOCUS_CYCLE_SEC)` 로 **파생**시킨다 —
-     서버 병합이 단조 증가라 저장하면 두 기기가 어긋날 자리가 생긴다(§3-1-b).
-   ⚠️ 이 상한은 **세 곳에 같이 있다.** 하나만 올리면 조용히 안 맞는다:
-       ① 여기(app.js)  ② `firebase-init.js` `syncFocusTotal` 의 CAP
-       ③ 규칙 파일 `users/$userId/focus` 의 `.validate` — **게시해야 켜진다.**
-     서버 쪽이 더 낮으면 잘리는 게 아니라 **쓰기가 통째로 거부**된다(permission_denied). */
-const FOCUS_CYCLE_SEC     = FOCUS_LEVEL_CAP_HOURS*3600;        // 999시간 = 회차 한 바퀴
-const FOCUS_CYCLE_CAP     = 100;                               // 열어 둔 회차 수
-const FOCUS_TOTAL_CAP_SEC = FOCUS_CYCLE_SEC*FOCUS_CYCLE_CAP;   // 359,640,000초 = 99,900시간
-function _todayStr(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
-/* 🌅 하루의 시작을 **오전 6시**로 본다 ─────────────────────────────────────
-   [왜] 새벽까지 일하는 사람에게 0시 리셋은 한 세션을 두 날로 갈라 놓는다. 02시에 아직 안 잤는데
-     "오늘 기록"이 0이 되고, 달성표의 그 날은 실패로 닫힌다.
-   [무엇이 쓰나] **포커스 오늘 기록과 달성표만** 이 기준을 쓴다. `_todayStr()`(자정 기준)은
-     때리기 하루 10회처럼 성격이 다른 카운터가 그대로 쓴다 — 그쪽까지 옮기면 "하루"가 두 뜻이 된다.
-   [왜 이 방식인가] 시각을 6시간 당겨 보기만 하면 **요일·주 경계가 저절로 따라온다.**
-     달성표는 월요일 06:00 시작 ~ 토요일 06:00 마감이 되고, 금요일 밤 24시~토 06시는 금요일로 센다.
-   ⚠️ 새 날짜 기준을 쓰는 자리를 늘릴 때는 반드시 `_focusDayStr()`·`_dayShifted()` 를 쓸 것.
-     `new Date()` 를 직접 부르면 그 자리만 자정 기준으로 남아 하루가 어긋난다. */
-const DAY_START_HOUR = 6;
-function _dayShifted(when){
-  const d = new Date(when == null ? Date.now() : when);
-  d.setHours(d.getHours() - DAY_START_HOUR);
-  return d;
-}
-function _focusDayStr(when){ const d=_dayShifted(when); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
-/* 🚚 경계를 옮긴 판으로 처음 켤 때 — 0시~6시 사이라면 저장된 날짜가 '오늘(자정 기준)'이다.
-   그 초는 새 기준으로 보면 **어제 것**이므로 키만 갈아 끼워 살린다. 안 하면 날짜가 안 맞아
-   그때까지 쌓은 오늘치가 0으로 지워진다.
-   ⚠️ 조건이 좁다 — 앞으로는 저장 날짜가 늘 새 기준이라 이 분기에 다시 들어오지 않는다. */
-function _focusMigrateDayKey(){
-  try{
-    const saved = localStorage.getItem(FOCUS_TODAY_DATE_KEY);
-    if(!saved || saved === _focusDayStr()) return;
-    if(new Date().getHours() < DAY_START_HOUR && saved === _todayStr()){
-      localStorage.setItem(FOCUS_TODAY_DATE_KEY, _focusDayStr());
-    }
-  }catch(_){}
-}
-function _loadFocusTotalSec(){ try{ return parseFloat(localStorage.getItem(FOCUS_TOTAL_KEY))||0; }catch(e){ return 0; } }
-function _loadFocusTodaySec(){
-  try{
-    if(localStorage.getItem(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) return 0;   // 날짜 바뀌었으면 오늘치만 리셋
-    return parseFloat(localStorage.getItem(FOCUS_TODAY_SEC_KEY))||0;
-  }catch(e){ return 0; }
-}
-let _focusTotalSec=_loadFocusTotalSec();
-_focusMigrateDayKey();   // 🚚 6시 경계로 처음 켠 사람의 오늘치를 살린다 (아래 로드보다 먼저)
-let _focusTodaySec=_loadFocusTodaySec();
-let _focusSessionSec=0;   // "현재 기록" — 이번 앱 실행 동안만 누적. 메모리 전용이라 재시작하면 0부터 시작(의도된 동작).
-/* ★ 하루치 기록의 날짜 경계 확인 — **오전 6시~다음날 05:59:59** 기준(DAY_START_HOUR).
-   예전엔 addFocusSeconds 안에서만 날짜를 봤다. 앱을 켜둔 채 자정을 넘기고 활동이 없으면
-   화면 숫자가 어제 값 그대로 남아 있었다. 표시할 때도 이걸 불러 경계를 확인한다. */
-function _rolloverFocusToday(){
-  try{
-    if(localStorage.getItem(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()){
-      _focusTodaySec=0;
-      localStorage.setItem(FOCUS_TODAY_SEC_KEY,'0');
-      localStorage.setItem(FOCUS_TODAY_DATE_KEY,_focusDayStr());
-    }
-  }catch(e){}
-  return _focusTodaySec;
-}
+/* 본문은 focus-total.js 로 옮겼다(앱 FSD 45번). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const FOCUS_TOTAL_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const focusTotalMod = (typeof TwFocusTotal === 'undefined') ? FOCUS_TOTAL_MOD_OFF : TwFocusTotal.createFocusTotal({
+});
+let _focusTotalSec=focusTotalMod._loadFocusTotalSec();
+
 /* ═══ 📊 오늘 기록 전시 (2026-09-23 · handoff-2026-09-21-features §3 · 사용자 확정: 🕒 를 눌러 켜고 끈다) ═══
    포커스 기록창 첫 줄(현재/누적 기록) 옆 🕒(#focusLogShowClock)를 누르면 켜짐/꺼짐.
    켜지면 방 사람들 화면의 내 머리 위에 «오늘 H:MM». **초는 보내지 않는다.** 1분에 한 번 갱신(2026-09-23 요청).
@@ -14479,75 +14259,17 @@ function _rolloverFocusToday(){
    ★ 회사원 모드에서는 안 보낸다(토글을 켜 둬도 null). 모드를 켜는 순간 거둔다(progOfficeModeToggle).
    ★ 켜짐은 기억한다(tw.focusShow) — 설정 성격의 작은 값이라 _lsSet.
    ⚠️ 값은 보내는 쪽이 정한다(setLevel 과 같은 수준). 랭킹을 붙일 거면 서버 값이 필요하다. */
-const FOCUS_SHOW_KEY = 'tw.focusShow';
-const FOCUS_SHOW_MS  = 60 * 1000;       // 1분에 한 번(2026-09-23 요청 · 처음엔 5분이었다)
-let focusShowOn = false;
-try{ focusShowOn = (localStorage.getItem(FOCUS_SHOW_KEY) === '1'); }catch(_){}
-let _focusShowSentAt = 0, _focusShowSent = null;   // 마지막으로 방에 보낸 값(내 화면 거울도 이것을 쓴다)
-function _focusShowText(sec){
-  const s = Math.max(0, Math.floor(sec || 0));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
-  return '오늘 ' + h + ':' + String(m).padStart(2, '0');   // hh:mm — 초 없음
-}
-function _focusShowConf(){
-  if(!focusShowOn) return null;
-  if(typeof officeMode !== 'undefined' && officeMode) return null;
-  /* 이모지는 **비워 둔다**(2026-09-23 요청) — 커스텀 상태와 같은 배관이라 emo 를 넣으면 책상 위(캐릭터 앞)에도
-     그 이모지가 뜬다. '' 이면 말풍선 문구만 뜬다(statusConfFor 의 커스텀 갈래 주석과 같은 처리). */
-  /* 🍅 뽀모가 돌고 있으면 그 남은 시간을 대신 싣는다(«🍅 집중 18분» · 12자 안 · 분 단위). 배관 · 필드는 그대로. */
-  const _pt = (typeof _pomoShowText === 'function') ? _pomoShowText() : '';
-  if(_pt) return { emo: '', text: _pt };
-  return { emo: '', text: _focusShowText(_rolloverFocusToday()) };
-}
-/* 방에 보낸다. force = 켜고 끈 순간 · 모드 전환 — 5분을 기다리지 않는다.
-   거둘 때(null)는 언제나 바로 보낸다. 값이 있을 때는 5분이 지나야 새 값을 보낸다. */
-function _focusShowPush(force){
-  const conf = _focusShowConf();
-  const now = Date.now();
-  if(conf){
-    if(!force && _focusShowSent && (now - _focusShowSentAt) < FOCUS_SHOW_MS) return;
-    _focusShowSentAt = now;
-  }else if(!_focusShowSent && !force){
-    return;
-  }
-  _focusShowSent = conf;
-  try{ if(typeof Presence !== 'undefined' && Presence.setFocusShow) Presence.setFocusShow(conf); }catch(_){}
-}
-function _focusShowMarkSent(conf){ _focusShowSent = conf || null; if(conf) _focusShowSentAt = Date.now(); }
-/* 내 화면 거울 — 방에 보낸 값(혼자면 «보낼 값») 그대로. 함수 선언이라 TDZ 걱정이 없다.
-   ⚠️ [2026-09-23 고침] 처음에는 «방에 있을 때만» 이었다. 그런데 🕒 를 누르는 자리는 대개 혼자 있는 화면이라,
-     눌러도 아무 일이 없어 **고장으로 읽혔다**(제보). 보내는 것과 보여 주는 것은 다른 판정이다 —
-     보내기는 방이 있어야 하지만(Presence 가 알아서 한다), 내 머리 위 확인은 혼자일 때가 오히려 필요하다. */
-function _focusShowMine(){
-  try{ return _focusShowSent || _focusShowConf(); }catch(_){ return null; }
-}
-function _focusShowRefreshUI(){
-  const el = document.getElementById('focusLogShowClock'); if(!el) return;
-  el.classList.toggle('on', !!focusShowOn);
-  el.setAttribute('aria-pressed', focusShowOn ? 'true' : 'false');
-  el.title = focusShowOn ? '방에 오늘 기록 보이는 중 — 눌러서 끄기' : '눌러서 방에 오늘 기록 보여주기';
-}
-(function bindFocusShow(){
-  const el = document.getElementById('focusLogShowClock');
-  if(el){
-    el.addEventListener('click', e=>{
-      e.stopPropagation();
-      focusShowOn = !focusShowOn;
-      _lsSet(FOCUS_SHOW_KEY, focusShowOn ? '1' : '0');
-      _focusShowRefreshUI();
-      _focusShowPush(true);
-      if(typeof toast === 'function'){
-        /* 켰는데 안 보이는 두 경우를 그 자리에서 말해 준다 — 아무 설명이 없으면 고장으로 읽힌다. */
-        if(focusShowOn && typeof officeMode !== 'undefined' && officeMode) toast('🏢 회사원 모드에서는 보내지 않아요 — 모드를 끄면 보여요');
-        else if(focusShowOn && typeof userStatus !== 'undefined' && userStatus) toast('🕒 켰어요 — 지금은 상태 메시지가 먼저 보여요(상태를 끄면 기록이 보여요)');
-        else toast(focusShowOn ? '🕒 오늘 기록을 보여줘요 — 내 머리 위와 방 사람들 화면에 (1분마다)' : '🕒 오늘 기록 보여주기를 껐어요');
-      }
-    });
-  }
-  _focusShowRefreshUI();
-  _focusShowPush(true);
-  setInterval(()=>_focusShowPush(false), 15000);   // 15초마다 보고, 실제 전송은 1분에 한 번
-})();
+/* 본문은 focus-share.js 로 옮겼다(앱 FSD 45번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const FOCUS_SHARE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const focusShareMod = (typeof TwFocusShare === 'undefined') ? FOCUS_SHARE_MOD_OFF : TwFocusShare.createFocusShare({
+  Presence: Presence,
+  _lsSet: (...a)=>_lsSet(...a),
+  _rolloverFocusToday: (...a)=>focusTotalMod._rolloverFocusToday(...a),
+  officeMode: ()=>officeMode,
+  toast: (...a)=>toast(...a),
+  userStatus: ()=>userStatus,
+});
 
 /* ═══ 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정 · 500×500 · 캐릭터 자리) ═══════════
    [내 정보] 머리 아래 «자리비움 그림» 칸에서 투명 PNG 를 등록하면, 자리비움일 때 **캐릭터 자리에** 그 그림이 선다
@@ -14619,20 +14341,20 @@ const adminReport = (typeof TwAdminReport === 'undefined' || reportMod === REPOR
 const FOCUS_LEVEL_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const focusLevelMod = (typeof TwFocusLevel === 'undefined') ? FOCUS_LEVEL_MOD_OFF : TwFocusLevel.createFocusLevel({
   DANCE_MOVES: iDeskMod.DANCE_MOVES,
-  FOCUS_CYCLE_CAP: FOCUS_CYCLE_CAP,
-  FOCUS_CYCLE_SEC: FOCUS_CYCLE_SEC,
-  FOCUS_LEVEL_CAP_HOURS: FOCUS_LEVEL_CAP_HOURS,
-  FOCUS_TODAY_DATE_KEY: FOCUS_TODAY_DATE_KEY,
-  FOCUS_TODAY_SEC_KEY: FOCUS_TODAY_SEC_KEY,
-  FOCUS_TOTAL_CAP_SEC: FOCUS_TOTAL_CAP_SEC,
-  FOCUS_TOTAL_KEY: FOCUS_TOTAL_KEY,
+  FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,
+  FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,
+  FOCUS_LEVEL_CAP_HOURS: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,
+  FOCUS_TODAY_DATE_KEY: focusTotalMod.FOCUS_TODAY_DATE_KEY,
+  FOCUS_TODAY_SEC_KEY: focusTotalMod.FOCUS_TODAY_SEC_KEY,
+  FOCUS_TOTAL_CAP_SEC: focusTotalMod.FOCUS_TOTAL_CAP_SEC,
+  FOCUS_TOTAL_KEY: focusTotalMod.FOCUS_TOTAL_KEY,
   IDESK_ENABLED: iDeskMod.IDESK_ENABLED,
   INTERACTION_DESKS: iDeskMod.INTERACTION_DESKS,
   Presence: Presence,
   _acctDetached: ()=>accountMod._acctDetached(),
-  _focusDayStr: (...a)=>_focusDayStr(...a),
-  _focusSessionSec: ()=>_focusSessionSec,
-  _focusTodaySec: ()=>_focusTodaySec,
+  _focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),
+  _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
+  _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
   _focusTotalSec: ()=>_focusTotalSec,
   _myInbox: ()=>_myInbox,
   _myInboxReady: ()=>_myInboxReady,
@@ -14645,8 +14367,8 @@ const focusLevelMod = (typeof TwFocusLevel === 'undefined') ? FOCUS_LEVEL_MOD_OF
   renderLauncher: (...a)=>renderLauncher(...a),
   toast: (...a)=>toast(...a),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
-  setFocusSessionSec: (v)=>{ _focusSessionSec = v; },
-  setFocusTodaySec: (v)=>{ _focusTodaySec = v; },
+  setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },
+  setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
   setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
 });
 function getFocusLevel(...a){ return focusLevelMod.getFocusLevel(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
@@ -14843,109 +14565,16 @@ themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소�
    ★ 상대방 좌석도 보인다. 진행도는 프리즌스 하트비트에 exp(0~12) 한 필드로 실려 온다.
      하트비트는 원래 30초마다 lastSeen을 쓰고 있으므로 '추가 쓰기가 0회'다.
      따로 push하면 시간당 12회가 늘지만, 어차피 5분 단위 바라 30초 지연은 티도 안 난다. */
-const EXP_SEC_PER_LEVEL = 3600;                                   // getFocusLevel()의 1레벨과 반드시 같아야 함
-const EXP_SEC_PER_CELL  = 300;                                    // 5분
-const EXP_CELLS         = EXP_SEC_PER_LEVEL / EXP_SEC_PER_CELL;   // 12
-const EXP_BAR_H         = 6;    // 안쪽 채움 높이(px) — CSS의 --exp-bar-h와 같은 값
-const EXP_BAR_CHROME    = 4;    // 테두리1 + 안쪽여백1 × 상하
-/* ★ 바 높이 조절은 이 값 하나. 캐릭터 발밑 기준 아래로 몇 px 띄울지다.
-   줄이면 위로 올라오고, 음수를 주면 발밑선보다 위(발에 겹치게)로 올라간다.
-   가로 배치 상태칩은 바의 '실제 렌더된 위치'를 읽어 그 아래에 붙으므로 여기만 고치면 같이 따라온다. */
-const EXP_BAR_GAP       = 2;    // 캐릭터 발밑 ↔ 바 간격(px)
-/* 바 길이(px) — **모든 캐릭터 공통.** 예전엔 캐릭터 실측 폭을 따라가서(40~220) 덩치 · 동물 · 커미션 · 평준화에
-   따라 누구는 길고 누구는 짧아 보였다(제보). 길이는 레벨 진행도를 읽는 자이므로 같아야 비교가 된다. */
-const EXP_BAR_W         = 72;
-
-/* 레벨 → 색 구간 + 표식 클래스. 배지(.mh-flv)와 **같은 표**를 읽는다(lvBarClass).
-   ⚠️ 여기에 경계값을 다시 적지 말 것 — 어긋나면 같은 레벨인데 배지와 바 색이 달라진다. */
-function expTierClass(lv){ return lvBarClass(lv); }
-/* 누적초 → 채운 칸 수(0~12) — 이번 시간(= 이번 레벨) 안에서 몇 칸인가. */
-function expCellsFromSec(sec){
-  /* 🌟 [개정 70] 999시간에서 «가득 찬 채 멈추던» 분기를 풀었다 — 999시간을 채우면 회차가 되고 바는 이번 바퀴의
-     진행도를 보인다. 한 시간 = 한 레벨이라 바퀴가 바뀌어도 «시간 안의 몇 칸» 계산은 같다. */
-  const total  = Math.max(0, sec||0);
-  return Math.min(EXP_CELLS, Math.floor((total % EXP_SEC_PER_LEVEL) / EXP_SEC_PER_CELL));
-}
-/* 내 현재 칸 수 — 프리즌스로 내보낼 값이자 내 좌석에 그릴 값. */
-function myExpCells(){ return expCellsFromSec(_focusTotalSec); }
-
-function ensureSeatExpBarEl(seat){
-  if(seat.expBarEl) return seat.expBarEl;
-  const layer = overheadMod.ensureSeatLabelsLayer(); if(!layer) return null;
-  const el = document.createElement('div'); el.className = 'seat-exp';
-  const fill = document.createElement('div'); fill.className = 'exp-fill';
-  el.appendChild(fill);
-  layer.appendChild(el);
-  seat.expBarEl = el; seat.expFillEl = fill;
-  return el;
-}
-
-const _expTmpA = new THREE.Vector3();
-/* 좌석의 경험치 바를 발밑에 배치하고 채운다. 바의 '아래쪽' 화면 y를 돌려준다(안 보이면 null).
-   가로 배치 상태칩이 이 값을 받아 바보다 아래에 놓인다. */
-function updateSeatExpBar(seat, level, cells, star){
-  if(!seat || !seat.group) return null;
-  /* 숨기는 조건
-     · 이름표를 끄면 같이 숨긴다 — 하나만 남으면 어중간하다(요청사항).
-     · cells==null — 구버전 상대라 진행도를 모른다. 0%로 그리면 "방금 레벨업"으로 오해된다.
-     · ★ 남의 머리에 올라타 있으면 숨긴다(seat.ridingOn). 동물이 사람 머리에 얹히면 바가
-       상대 얼굴 한복판에 뜬다. 발밑 기준으로 배치하는데 그 '발밑'이 남의 머리 위라서 그렇다.
-       탑쌓기로 여러 층이 돼도 2층부터 전부 해당된다. */
-  if(!overheadMod.nameplateEnabled() || document.body.classList.contains('config') || cells == null || (seat.ridingOn)){
-    if(seat.expBarEl) seat.expBarEl.style.display = 'none';
-    return null;
-  }
-  const el = ensureSeatExpBarEl(seat); if(!el) return null;
-  seat.group.getWorldPosition(_expTmpA);
-  const pFeet = overheadMod.projectWorldToScreenPx(_expTmpA);
-  const w = EXP_BAR_W;   // 모두 같은 길이(EXP_BAR_W 주석)
-  let top = pFeet.y + EXP_BAR_GAP;
-  // 캐릭터가 화면 위쪽에 붙으면 이름표가 발밑으로 반전 배치된다(seat._invertLabels) — 그 아래로 비켜준다.
-  //   ★ 공지 배너도 반전이면 이름표 바로 아래에 온다. 이름표만 피하면 배너와 겹친다.
-  //   ⚠️ 말풍선은 여기서 보지 않는다 — 말풍선 쪽이 바를 피하도록 되어 있어서, 여기서 말풍선까지
-  //     피하면 둘이 서로를 밀어내며 매 프레임 아래로 흘러내린다(setSeatHeadBubble 주석 참고).
-  //   ⚠️ NAMEPLATE_BELOW_EXPBAR 가 켜지면 이 회피를 **꺼야 한다** — 이름표 쪽이 바를 피하므로,
-  //     여기서 또 피하면 둘이 서로를 밀어내며 매 프레임 아래로 흘러내린다.
-  if(seat._invertLabels && !overheadMod.NAMEPLATE_BELOW_EXPBAR){
-    [seat.namePlateEl, seat.announceEl].forEach(e=>{
-      if(!e || e.style.display === 'none') return;
-      const r = e.getBoundingClientRect();
-      if(r.height) top = Math.max(top, r.bottom + 4);
-    });
-  }
-  const barH = EXP_BAR_H + EXP_BAR_CHROME;
-  /* 화면 아래에 두면 바 **밑에 붙는 이름표**까지 화면 안에 들어와야 한다. 예전엔 바만 화면 안으로 눌러서,
-     발밑 높이가 사람마다(키 · 화면 앵글) 조금씩 다른 만큼 어떤 사람은 이름이 잘렸다(제보).
-     이름표 높이는 마지막으로 잰 값을 쓴다(_npH) — 이 프레임엔 이름표가 바 다음에 자리를 잡는다. */
-  let below = 0;
-  if(overheadMod.NAMEPLATE_BELOW_EXPBAR && seat.namePlateEl && seat.namePlateEl.style.display !== 'none'){
-    const h = seat.namePlateEl.offsetHeight || seat._npH || 0;
-    if(h) seat._npH = h;
-    below = h ? h + 4 : 0;   // 4 = setSeatNamePlate 가 바 아래에 두는 간격
-  }
-  top = Math.max(2, Math.min(innerHeight - barH - below - 2, Math.round(top)));
-  el.style.left  = Math.round(pFeet.x) + 'px';
-  el.style.top   = top + 'px';
-  el.style.width = w + 'px';
-  el.style.display = 'block';
-  /* 티어 + 표식 클래스(lvx·lvglow)를 한 문자열로 받아 통째로 갈아끼운다.
-     ⚠️ className 통째 대입이라 여기서 안 만든 클래스는 지워진다. 회차 색 바(.starbar)를
-       붙일 때는 이 문자열에 같이 실을 것 — 밖에서 classList.add 로 얹으면 다음 프레임에 날아간다. */
-  /* 🌟 회차면 티어 자리에 lv-star — 이 한 문자열에 같이 싣는다(통째 대입 · 개정 70). 색이 바뀌어도 다시 칠하게 열쇠에 넣는다. */
-  const tier = star ? lvStarBarClass() : expTierClass(level);
-  const tkey = star ? (tier + '|' + star.color) : tier;
-  if(el._tier !== tkey){
-    el._tier = tkey;
-    el.className = 'seat-exp ' + tier;
-    _starPaint(el, star);
-  }
-  const n = Math.max(0, Math.min(EXP_CELLS, cells|0));
-  if(el._cells !== n){
-    el._cells = n;
-    seat.expFillEl.style.width = (n / EXP_CELLS * 100) + '%';
-  }
-  return top + barH;
-}
+/* 본문은 exp-bar.js 로 옮겼다(앱 FSD 45번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const EXP_BAR_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const expBarMod = (typeof TwExpBar === 'undefined') ? EXP_BAR_MOD_OFF : TwExpBar.createExpBar({
+  _focusTotalSec: ()=>_focusTotalSec,
+  _starPaint: (...a)=>_starPaint(...a),
+  lvBarClass: (...a)=>lvBarClass(...a),
+  lvStarBarClass: (...a)=>lvStarBarClass(...a),
+  overheadMod: overheadMod,
+});
 
 /* ═══ 🕒 포커스 누적 기기 간 공유 ═══════════════════════════════════════════
    예전엔 tw.focusTotalSec이 순수 로컬이라, 계정을 연동해도 A컴퓨터의 3시간이 B컴퓨터에
@@ -15030,9 +14659,9 @@ const weeklyChal = (typeof TwWeeklyChallenge === 'undefined') ? WEEKLY_CHAL_OFF 
   escHtml: (...a)=>escHtml(...a),
   formatHMS: (...a)=>focusLevelMod.formatHMS(...a),
   premiumOn: ()=>_premiumOn(),
-  dayShifted: (...a)=>_dayShifted(...a),
-  focusDayStr: (...a)=>_focusDayStr(...a),
-  dayStartHour: DAY_START_HOUR,
+  dayShifted: (...a)=>focusTotalMod._dayShifted(...a),
+  focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),
+  dayStartHour: focusTotalMod.DAY_START_HOUR,
   setGachaBonusLocal: (...a)=>gachaMod.setBonusLocal(...a),
   renderGachaInv: ()=>gachaMod.renderGachaInv(),
   gachaBonus: ()=>gachaMod.bonus(),
@@ -15050,7 +14679,7 @@ const weeklyChal = (typeof TwWeeklyChallenge === 'undefined') ? WEEKLY_CHAL_OFF 
 const POMODORO_OFF = { showText:()=>'', open(){}, render(){}, tick(){}, cfg:()=>null, run:()=>null };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
 const pomodoro = (typeof TwPomodoro === 'undefined') ? POMODORO_OFF : TwPomodoro.createPomodoro({
   toast: (...a)=>toast(...a),
-  focusShowPush: (...a)=>_focusShowPush(...a),
+  focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),
   weeklyChal: weeklyChal,
   pomoSnd: sfxMod._pomoSnd,
 });

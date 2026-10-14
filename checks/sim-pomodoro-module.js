@@ -188,13 +188,18 @@ await sec('── 7. app.js 배선', () => {
   chk(/window\.TwPomodoro = api/.test(MOD) && (code.match(/TwPomodoro\.createPomodoro\(/g) || []).length === 1, '모듈은 window.TwPomodoro · createPomodoro 는 한 곳');
   const iMk = APP.indexOf('TwPomodoro.createPomodoro('), iPrev = APP.indexOf('TwWeeklyChallenge.createWeeklyChallenge('), iNext = APP.indexOf('let myHomeOpen = false;');
   chk(iPrev > 0 && iMk > iPrev && iNext > iMk, '원래 자리 — 👑 달성표 연결 뒤 · myHomeOpen 앞');
-  const iConf = APP.indexOf('function _focusShowConf('), iBind = APP.indexOf('(function bindFocusShow(){');
-  chk(iConf > 0 && iBind > iConf && iMk > iBind && /const _pt = \(typeof _pomoShowText === 'function'\) \? _pomoShowText\(\) : '';/.test(APP),
+  /* 📊 오늘 기록 전시(_focusShowConf · bindFocusShow)는 focus-share.js 로 옮겼다(앱 FSD 45번) — 모듈 안 차례와, 그 모듈 만드는 줄이 뽀모 만드는 줄보다 앞인지 본다 */
+  const FS = read('focus-share.js') || '';
+  const inApp = APP.includes('function _focusShowConf(');
+  const FSRC = inApp ? APP : FS;
+  const iConf = FSRC.indexOf('function _focusShowConf('), iBind = FSRC.indexOf('(function bindFocusShow(){');
+  const iMkFs = inApp ? iBind : APP.indexOf('TwFocusShare.createFocusShare(');
+  chk(iConf > 0 && iBind > iConf && iMkFs > 0 && iMk > iMkFs && /const _pt = \(typeof _pomoShowText === 'function'\) \? _pomoShowText\(\) : '';/.test(FSRC),
     '★ _focusShowConf 는 만드는 줄보다 먼저 불린다(bindFocusShow) — typeof 가드로 window 고리만 본다(반환값 const 는 TDZ)');
   chk(/^window\._pomoShowText = _pomoShowText;$/m.test(MOD), '  모듈이 window._pomoShowText 고리를 건다');
   const call = (APP.match(/TwPomodoro\.createPomodoro\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 4 && /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/.test(deps[0]) && /^focusShowPush: \(\.\.\.a\)=>_focusShowPush\(\.\.\.a\),$/.test(deps[1])
+  chk(deps.length === 4 && /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/.test(deps[0]) && /^focusShowPush: \(\.\.\.a\)=>(?:focusShareMod\.)?_focusShowPush\(\.\.\.a\),$/.test(deps[1])
     && /^weeklyChal: weeklyChal,$/.test(deps[2]) && /^pomoSnd: (?:sfxMod\.)?_pomoSnd,$/.test(deps[3]), 'deps 4개 — 함수는 화살표 · weeklyChal · _pomoSnd 는 앞에 선언된 const 값 (' + deps.length + ')');
   const iWc = APP.indexOf('const weeklyChal = '), iSnd = (APP.indexOf("const _pomoSnd = _mkSndPool('pomo'") > 0) ? APP.indexOf("const _pomoSnd = _mkSndPool('pomo'")
     : ((read('sfx.js') || '').includes("const _pomoSnd = _mkSndPool('pomo'") ? APP.indexOf('TwSfx.createSfx(') : -1);   // 효과음 공장은 sfx.js 로 옮겼다(앱 FSD 42번) — 만드는 줄 자리로 본다

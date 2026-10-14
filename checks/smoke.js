@@ -428,6 +428,16 @@ PRELOAD.push('myhome-sticker-layout.js');
 PRELOAD.push('myhome-diag.js');
 /* myhome-visit.js — 마이홈 데이터 · 친구 홈 구경(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeVisit 를 같이 굴린다. */
 PRELOAD.push('myhome-visit.js');
+/* exp-bar.js — 경험치 바(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createExpBar 를 같이 굴린다. */
+PRELOAD.push('exp-bar.js');
+/* focus-share.js — 오늘 기록 전시(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFocusShare 를 같이 굴린다. */
+PRELOAD.push('focus-share.js');
+/* focus-total.js — 포커스 누적(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFocusTotal 를 같이 굴린다. */
+PRELOAD.push('focus-total.js');
+/* commission.js — 커미션 · 저장 에셋(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCommission 를 같이 굴린다. */
+PRELOAD.push('commission.js');
+/* code-crypto.js — 캐릭터 코드 암호화(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCodeCrypto 를 같이 굴린다. */
+PRELOAD.push('code-crypto.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
