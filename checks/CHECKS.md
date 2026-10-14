@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 232 (구조 정리 3단계 폴더 11번 — 공용 도구 · 공용 통로(창 겹침 · 프롬프트 · 효과음 · 테마 · API · 원격 설정) 파일 16개를 `parts/shared/` 로)
-대상: `sim-*.js` 239개 + `smoke.js` + `audit.py` = **241개** (개정 232 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 233 (구조 정리 3단계 폴더 12번 — 생성기 도구(그리기 도구 · 메쉬 채우기 · 종족 선택 · 동물 편집 길잡이) 파일 6개를 `parts/creator/` 로)
+대상: `sim-*.js` 239개 + `smoke.js` + `audit.py` = **241개** (개정 233 기준 — 폴더를 센 값)
+
+**개정 233 에서 한 것 (2026-10-14 · 도메인 폴더 12번 — 동작 변화 없음)**
+- 앱: `paint-tools.js` · `uv-fill.js` · `race-picker.js` · `animal-edit-route.js` · `creator-flat-view.js` · `desk-item-origin.js` 를 `app/parts/creator/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로.
+- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 6개(`sim-animal-edit-route.js`, `sim-creator-flat-view.js`, `sim-desk-item-origin.js`, `sim-paint-tools.js`, `sim-race-picker.js`, `sim-uv-fill.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
 
 **개정 232 에서 한 것 (2026-10-14 · 도메인 폴더 11번 — 동작 변화 없음)**
 - 앱: `win-stack.js` · `outside-close.js` · `async-prompt.js` · `key-input.js` · `rich-text.js` · `sfx.js` · `frame-budget.js` · `gl-recover.js` · `theme.js` · `theme-ui.js` · `api-client.js` · `remote-config.js` · `api-public-reads.js` · `app-version.js` · `app-version-gate.js` · `visit-ping.js` 를 `app/parts/shared/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로 · ES 모듈 import 경로(firebase-init.js 등)도 새 자리로.
@@ -1896,16 +1900,16 @@
 | **sim-animal-cast.js** | 64 | **246fd1503b37** ← **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 81 신설 · 🐾 동물 생성기 광선(붓·스포이드·도장·대칭)이 지금 자세의 얼굴을 맞힌다 · 대칭은 같은 부위만** |
 | **sim-human-ear.js** | 239 | **b2f21075bb26** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 87 5절 대칭 그리기(실제 귀 GLB) · 그림칸** · **개정 85 움직이는 중에 달아도 바인드 기준 · readAdj** · **개정 84 신설 · 🐾 사람 귀(꾸미기 › 머리 › 귀) — 자리 상수 · 대칭 복사 · 옮길 양 · 머리 따라 움직임** |
 | **sim-wd-ear.js** | 304 | **b3c29e73a6ed** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 188 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 149 3-e 저장 · 불러오기 — 귀 다섯 칸 왕복(있을 때만) · 서버 dataURL 빼기 · 생성기 승계 · 코드 내보내기** · ← **개정 92 3-d 귀 까닥임** · **개정 89 1절 왼쪽 · 오른쪽 상자** · **개정 88 3-c 탑승 높이** · **개정 87 그리기 대상 · 그림 저장 · 3-b 귀 그리기 배선** · **개정 86 원래 주인에게 저장** · **개정 85 신설 · 🐾 꾸미기 › 머리 › 귀 탭 · 조정할 귀 줄 · 기즈모 · 저장 · app.js 배선** |
-| **sim-uv-fill.js** | 99 | **724fd0972d99** ← **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 108 3절 꾸미기 도구 줄 · G 페인트통 · Shift+클릭 지우기 · 여백 몫(fillMeshOwned)** · **개정 91 신설 · 🪣 꾸미기 그리기 채우기 — 누른 메쉬의 UV 자리만** |
-| **sim-paint-tools.js** | 296 | **01c9c8254ffc** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 108 3-b 여백 몫(가운데 선까지) · 6절 양팔 · 잠금 · 빈 곳 알림(스포이드 절은 main 그대로라 걷음)** · **개정 108 신설 · 🖌 칠하기 도구 줄(붓 · 페인트통 · 지우개 하나만) · 생성기 페인트통은 누른 조각(UV 섬)만 · 꾸미기도 같은 줄** |
-| **sim-animal-edit-route.js** | 111 | **38eb947ba27b** ← **개정 103 신설 · 🐾 동물 편집 순서 모양 → 책상 → 좌석 — 판정 표 · gotoStep 실행 · 배선 · 동물 생성기 위 «책상 세팅» · «좌석 세팅»** |
+| **sim-uv-fill.js** | 99 | **959e1206a99b** ← **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 108 3절 꾸미기 도구 줄 · G 페인트통 · Shift+클릭 지우기 · 여백 몫(fillMeshOwned)** · **개정 91 신설 · 🪣 꾸미기 그리기 채우기 — 누른 메쉬의 UV 자리만** |
+| **sim-paint-tools.js** | 296 | **43ed0cd48bbb** ← **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 108 3-b 여백 몫(가운데 선까지) · 6절 양팔 · 잠금 · 빈 곳 알림(스포이드 절은 main 그대로라 걷음)** · **개정 108 신설 · 🖌 칠하기 도구 줄(붓 · 페인트통 · 지우개 하나만) · 생성기 페인트통은 누른 조각(UV 섬)만 · 꾸미기도 같은 줄** |
+| **sim-animal-edit-route.js** | 111 | **b8a10335de6e** ← **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 103 신설 · 🐾 동물 편집 순서 모양 → 책상 → 좌석 — 판정 표 · gotoStep 실행 · 배선 · 동물 생성기 위 «책상 세팅» · «좌석 세팅»** |
 | **sim-seat-slot.js** | 91 | **7c8d5cbdac62** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 93 신설 · 🪑 평준화 중 «책상 위» 파츠를 자기 좌석 자리 안으로** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 201 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 방 코드 칸을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **개정 165 방 코드 칸에 놀러 가기 go 표시 허용(정규식만)** · **개정 94 신설 · 🩹 친구창 방 코드 글꼴 · 경험치 바 길이 공통 · 화면 아래 이름표** |
 | **sim-frame-budget.js** | 99 | **6b859810694d** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 95 신설 · 🔋 실행 화면 프레임 상한(60 · 30 · 20) · 해상도 배율 1.5 · 1분 진단 줄** |
 | **sim-design-site.js** | 61 | **5c8de512f913** ← **개정 100 신설 · 🎨 디자인 시스템 페이지 hosting/design/ 이 docs/design-system/ 에서 다시 만든 것과 같은지 · 토큰 · CSP · sandbox** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 95 다시 씀 · 🔋 최대 60 · 손 안 대면 30 · 비포커스 20 — app.js 째로 rAF 를 흘려 장 수를 센다** |
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** ← **개정 134 7절은 app.js + purikura-ui.js** · **개정 106 옛 규칙이면 fx 없이 다시 자리 잡기** · **개정 102 신설 · 🐟 스티커사진 필터 «어안» · 업데이트 안 한 참가자 안내 · 규칙 fish · fx** |
-| **sim-creator-flat-view.js** | 126 | **5066bd3e039e** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 115 5절 동물 생성기 배선(버튼 · 3 표정 · 4 감은눈만 · L 키 · 열고 닫을 때 끔 · emissive 0 + 앰비언트 1)** · **개정 105 신설 · 💡 표정 그리기 «원색 보기» — 조명 끄고 칠한 색 그대로** |
+| **sim-creator-flat-view.js** | 126 | **75f058866d8f** ← **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 115 5절 동물 생성기 배선(버튼 · 3 표정 · 4 감은눈만 · L 키 · 열고 닫을 때 끔 · emissive 0 + 앰비언트 1)** · **개정 105 신설 · 💡 표정 그리기 «원색 보기» — 조명 끄고 칠한 색 그대로** |
 | **sim-hover-poke.js** | 193 | **d7318dc4434c** ← **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 110 신설 · 🖱 Windows 일반 앱 호버 감시 — 우리 UI 로 들어오는 순간 재판정(제보 #5)** |
 | sim-village-addr.js | 53 | f72ef601abbb |
 | **sim-wheel-kick.js** | 94 | **4d49a9ecc0d5** ← **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-17 신규 · 제보 3-1 C 휠·사다리 (§21) |
@@ -1934,7 +1938,7 @@
 | **sim-myhome-inbox.js** | 475 | **ab77877fa0f5** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 신설 · 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록 모듈(myhome-inbox.js) — 만들 때 · 수령함 셈 · 배지 · 그리기(필터 · 📌 · 읽음 · 🐞 · × · 고정) · 링크 · 키 복사 · 선물함(⭐ · 상한 · 확인창) · 친구 목록(정렬 · 검색 · 시크릿룸 · 🏠 · 삭제) · app.js 배선 · 일부러 깨 보기 28가지** |
 | **sim-playlist.js** | 535 | **58bfcbf27b73** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 173 신설 · 🎵 상태칩 플레이리스트 모듈(playlist.js) — 만들 때(ESC 등록 · BGM 신호 셋 · 300ms 폴링 · 음량 한 번 · window 고리 셋 · 창 위치 초기화) · 프리셋 저장값(관문 · 옛 목록 이관 · 반복 옛 키 · 공개 «1» 만 · 프리셋 0 거울) · 목록(＋ 제목 자동 · 직접 · 중복 · 상한 · Delete · 프리셋 고르기 · 이름) · 재생(▶ · ▐▐ · ■ · ⏭ · ended · err · loop · 반복 · 셔플 · 프리셋 갈아타기 · 창 소유권) · 파도타기 · 담기 · 서버 사본(3초 · 지문 · 빈 목록 지움 · 🔒) · 감시견 · 상태 묶음 st · app.js 배선(deps 20 · 원래 자리 · 남긴 머리 · 빈 껍데기 · 부르는 곳 · html 순서 · Tw 접두사) · 일부러 깨 보기 30가지** |
 | **sim-ui-tokens.js** | 128 | **c4e31dbe90c9** ← **개정 176 parts/admin/*.js 도 본다(이름 admin/파일)** · **개정 101 신설 · 🧩 --tw-* 토큰 다리 · 직접 적은 글꼴 · 손 회색이 기준선(ui-tokens-baseline.json)보다 늘지 않는다** |
-| **sim-desk-item-origin.js** | 102 | **33ae01568451** ← **개정 104 신설 · 🪑 생성기 책상 아이템 «⟲ 이동·회전 초기화» 가 이번 편집에서 처음 나타난 자리로(크기 그대로)** |
+| **sim-desk-item-origin.js** | 102 | **b720990050a4** ← **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 104 신설 · 🪑 생성기 책상 아이템 «⟲ 이동·회전 초기화» 가 이번 편집에서 처음 나타난 자리로(크기 그대로)** |
 | **sim-def-size.js** | 157 | **68d8b678409d** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 202 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-10 신규(개정 123) · 📦 캐릭터 디자인(def) 용량 상한 500KB — 부분별 크기 큰 것부터 · 이름표 · 짧은 안내 한 줄 · 키우기/저장 판정(옛 캐릭터는 줄거나 같으면 통과) · 파일 하나 판정 · 실제 직렬화로 잼 · 생성기 · 코드로 추가 · 커미션 배선** |
 | **sim-todo-cli.js** | 145 | **cea6fc0dd36b** ← **2026-10-10 신규(개정 128) · 📋 터미널 할 일 도구 scripts/todo.js — start · done 값 · 규칙과 같은 모양 검사(rev + 1 · 만든 사람/시각 고정 · 서버 시각 · 모르는 칸) · 규칙 상수 대조 · find · list · brief · 종류 배지 · 관리자가 아니면 brief 조용히** |
 | **sim-folder-free.js** | 190 | **b48c8b4f9389** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 110 2-b절 배치 중 Esc 는 배치만 끝냄 · 마이홈이 닫히면 배치 모드도 끝** · **개정 109 신설 · 📂 마이홈 바탕화면 «폴더 자유배치» — 북마크 · 말랑이 폴더를 끌어 놓기** |
@@ -2012,7 +2016,7 @@
 | **sim-launcher-chrome.js** | 95 | **40069397510f** ← **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 216 신설 · 🪟 런처 타이틀바 · 팝업 흐림 모듈(launcher-chrome.js) 구조** |
 | **sim-outside-close.js** | 95 | **eb81da612dd5** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 216 신설 · 🪟 팝업 바깥 클릭으로 닫기 모듈(outside-close.js) 구조** |
 | **sim-wardrobe-panel.js** | 95 | **161f8acae803** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 217 신설 · 🎨 꾸미기 사이드 패널 모듈(wardrobe-panel.js) 구조** |
-| **sim-race-picker.js** | 96 | **be874bb9cbdf** ← **개정 217 신설 · 🐾 종족 선택창 모듈(race-picker.js) 구조** |
+| **sim-race-picker.js** | 96 | **504a92674fce** ← **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 217 신설 · 🐾 종족 선택창 모듈(race-picker.js) 구조** |
 | **sim-lv-tier.js** | 96 | **cb87ba3c1b64** ← **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 217 신설 · 🏅 레벨 티어 모듈(lv-tier.js) 구조** |
 | **sim-theme.js** | 96 | **f6d8fe0e331d** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 217 신설 · 🎨 디자인 테마 모듈(theme.js) 구조** |
 | **sim-license-ui.js** | 96 | **ed0badb015d0** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 217 신설 · 🔑 라이선스 등록 화면 모듈(license-ui.js) 구조** |

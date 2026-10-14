@@ -92,7 +92,7 @@ chk(/fill:false/.test(A.slice(A.indexOf('const _wdPic = {'), A.indexOf('const _w
 
 say('── 4. html');
 const HTML = SRC['desk-companion-prototype.html'];
-const iF = HTML.indexOf('<script src="parts/uv-fill.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
+const iF = HTML.indexOf('<script src="parts/creator/uv-fill.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
 chk(iF > 0 && iF < iA, 'uv-fill.js 를 app.js 앞에 싣는다');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

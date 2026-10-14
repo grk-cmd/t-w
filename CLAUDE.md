@@ -97,7 +97,7 @@
 | `app/parts/launcher/launcher-chrome.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🪟 런처 타이틀바(끌기 · 버튼) · 팝업이 뜨면 뒤 런처 흐리게. classic script(`window.TwLauncherChrome`) — 밖에서 부르는 이름 없음 |
 | `app/parts/shared/outside-close.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 47번) — 🪟 팝업 바깥 클릭으로 닫기(닫을 오버레이 목록 · 예외 — 엑셀 일괄 창 등). classic script(`window.TwOutsideClose`) — 밖에서 부르는 이름 없음 |
 | `app/parts/character/wardrobe-panel.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🎨 꾸미기 사이드 패널 열고 닫기(`bindWardrobe` — 창 그리기는 wardrobe.js). classic script(`window.TwWardrobePanel`) — 밖에서 부르는 이름 없음 |
-| `app/parts/race-picker.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🐾 종족 선택창(사람 · 동물 고르기 · 미리보기 렌더러 — [＋] 칸 번호가 저장 대상). classic script(`window.TwRacePicker`), 부르는 곳은 `racePickerMod.이름` |
+| `app/parts/creator/race-picker.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🐾 종족 선택창(사람 · 동물 고르기 · 미리보기 렌더러 — [＋] 칸 번호가 저장 대상). classic script(`window.TwRacePicker`), 부르는 곳은 `racePickerMod.이름` |
 | `app/parts/focus/lv-tier.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🏅 레벨 티어 — 경계값(`LV_TIERS`)이 사는 유일한 곳 · 배지 · 바 색 클래스. classic script(`window.TwLvTier`), 부르는 곳은 `lvTierMod.이름` |
 | `app/parts/shared/theme.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🎨 디자인 테마 — 저장 키 · 색 표 · 지금 테마 · 걸기(`applyTheme` — 열린 자식 창은 theme-ui.js 가 받는다). 최상위 호출은 app.js. classic script(`window.TwTheme`), 부르는 곳은 `themeMod.이름` |
 | `app/parts/account/license-ui.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔑 라이선스 등록 화면 — 상태 표시(`refreshLicenseUI`). classic script(`window.TwLicenseUi`), 부르는 곳은 `licenseUiMod.이름` |

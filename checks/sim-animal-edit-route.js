@@ -79,7 +79,7 @@ chk(!/openCreator\(\{(?![^}]*fromAnimal)[^}]*\}\)/.test(N), 'animal.js 의 openC
 chk(/window\.reopenAnimalCreator=function\(def, opts\)\{/.test(N) && /opts\.tab : 'blink'/.test(N), '재편집 탭 — opts.tab(처음 얼굴) · 없으면 감은눈');
 chk(/_editSeat = \(typeof creatorMode!=='undefined' && creatorMode && creatorMode\.kind==='seat'\) \? creatorMode\.seat : null;/.test(N), '좌석 편집 — creatorMode.seat 을 그대로 이어받는다');
 chk(/else saveAnimalSlot\(\);/.test(N) && /'다음 → 책상·좌석'/.test(N), '동물 생성기 마지막 탭 [다음 → 책상·좌석] = 저장 후 책상');
-const iMod = HTML.indexOf('<script src="parts/animal-edit-route.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
+const iMod = HTML.indexOf('<script src="parts/creator/animal-edit-route.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
 chk(iMod > 0 && iMod < iApp, 'html — animal-edit-route.js 가 app.js 보다 먼저');
 
 say('── 4. 동물 생성기 위 «책상 세팅» · «좌석 세팅»');
