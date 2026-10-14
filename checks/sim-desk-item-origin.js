@@ -94,7 +94,7 @@ chk(/p\.userData\.adj\.scale = \(p\.userData\.autoScale!=null\) \? p\.userData\.
 say('── 5. html');
 {
   const H = SRC['desk-companion-prototype.html'];
-  const a = H.indexOf('<script src="parts/desk-item-origin.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
+  const a = H.indexOf('<script src="parts/creator/desk-item-origin.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
   chk(a > 0 && b > a, 'html 이 desk-item-origin.js 를 app.js 앞에 싣는다');
 }
 

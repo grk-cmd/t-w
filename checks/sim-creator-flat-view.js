@@ -86,7 +86,7 @@ sec('── 4. html', () => {
   const css = (HTML.match(/#cpFlat,#anpFlat\{[^}]*\}/) || [''])[0];
   chk(/right:8px;bottom:8px/.test(css), '오른쪽 아래 — ↺(카메라 초기화)의 반대편');
   chk(/<b>L<\/b> 원색 보기/.test(HTML), '단축키 안내 줄에 L');
-  const iM = HTML.indexOf('<script src="parts/creator-flat-view.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
+  const iM = HTML.indexOf('<script src="parts/creator/creator-flat-view.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
   chk(iM > 0 && iM < iA, 'creator-flat-view.js 를 app.js 앞에 싣는다');
   chk(/#cpFlat\.on,#anpFlat\.on\{/.test(HTML) && /#cpFlatBadge,#anpFlatBadge\{/.test(HTML), '동물 생성기 💡 · 표시도 같은 CSS(테마 색 그대로)');
   const iN = HTML.indexOf('<script src="parts/character/animal.js">');
