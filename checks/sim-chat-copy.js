@@ -47,7 +47,7 @@ chk(String(C.EMOJI_RE) === String(/\[(?:emoji|demoji):[^\]]*\]/g), '마커 정�
 
 /* ── §2 ── */
 say('§2 HTML');
-const iCC = HTML.indexOf('<script src="parts/chat-copy.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
+const iCC = HTML.indexOf('<script src="parts/chat/chat-copy.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
 chk(iCC > 0 && iCC < iApp, 'chat-copy.js 를 app.js 보다 먼저 싣는다');
 chk(/body\{[^}]*user-select:none/.test(HTML.replace(/\s+/g, ' ')) || /user-select:none;-webkit-user-select:none;\}\s*\/\* 더블클릭/.test(HTML), 'body 의 user-select:none 은 그대로다');
 chk(/\.chat-messages, \.chat-messages \*\{user-select:text/.test(HTML), '대화 칸(.chat-messages)과 그 자식만 user-select:text');

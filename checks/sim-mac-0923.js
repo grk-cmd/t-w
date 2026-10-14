@@ -13,7 +13,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-/* 💬 대화창 배선(#chatInput Enter)은 parts/chat-window.js 로 옮겼다(앱 FSD 14번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+/* 💬 대화창 배선(#chatInput Enter)은 parts/chat/chat-window.js 로 옮겼다(앱 FSD 14번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 const APP = _joinRenderer(read('app.js')), CW = read('chat-window.js'), MAIN = read('main.js');
 if(!APP || !MAIN || !CW){ say('  ? 원본 못 찾음 — app.js · main.js · chat-window.js'); process.exit(2); }

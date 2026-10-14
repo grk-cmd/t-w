@@ -1,5 +1,5 @@
 /* ═══ 💬 sim-chat-window.js — 대화창 배선 모듈 (2026-10-13 신설 · 앱 FSD 14번) ═══════════════
-   app.js 의 «💬 대화창 배선» 구역(즉시 실행 함수 _wireChatWindow)을 parts/chat-window.js 로 옮겼다.
+   app.js 의 «💬 대화창 배선» 구역(즉시 실행 함수 _wireChatWindow)을 parts/chat/chat-window.js 로 옮겼다.
    동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwChatWindow 뿐 · 만들면 버튼 · 메뉴 · 끌기 · 크기 손잡이 · 입력 · 이모티콘 연결 ·
            저장값 반영(_applyChat*) · 복사 · 탭 묶기가 예전 순서로 · 창 DOM 이 없어도 안 선다
@@ -494,7 +494,7 @@ await sec('── 9. app.js 배선', () => {
   chk(!/[^.\w](_chatFly(On|Size|Color)|officeMode|_flyAiming|isAdmin|_emojiCache)\s*=[^=>]/.test(m.replace(/const (officeMode|_flyAiming|isAdmin|_emojiCache) = deps\.\w+;/g, '')), '  모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로만)');
   const off = (APP.match(/const CHAT_WINDOW_OFF = (\{[^\n]*?\});/) || [])[1];
   chk(off === '{}', '빈 껍데기 CHAT_WINDOW_OFF — 반환값과 같은 빈 객체');
-  const iF = HTML.indexOf('<script src="parts/focus-log.js"></script>'), iC = HTML.indexOf('<script src="parts/chat-window.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iF = HTML.indexOf('<script src="parts/focus-log.js"></script>'), iC = HTML.indexOf('<script src="parts/chat/chat-window.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iF > 0 && iC > iF && iA > iC, 'html — chat-window.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwChatWindow') && !/window\.ChatWindow\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   const wire = (APP.match(/const CHAT_WINDOW_OFF = [\s\S]*?\n\}\);/) || [''])[0];

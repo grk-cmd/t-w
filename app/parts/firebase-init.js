@@ -42,7 +42,7 @@
   import { createAppVersion } from "./app-version.js";
   import { createAppVersionGate, createAppVersionGateDom } from "./app-version-gate.js";
   import { createBugBoard } from "./support/bug-board.js";
-  import { createChatHistory, createIdbChatStore, chatOrder } from "./chat-history.js";
+  import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
   import { createCatalogSync } from "./catalog-cache.js";
   import { createBroadcastSync } from "./broadcast-cache.js";
   import { createVisitPing } from "./visit-ping.js";
