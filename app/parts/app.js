@@ -11855,9 +11855,13 @@ const commissionMod = (typeof TwCommission === 'undefined') ? COMMISSION_MOD_OFF
   _b64: (...a)=>codeCryptoMod._b64(...a),
   _deriveKey: (...a)=>codeCryptoMod._deriveKey(...a),
   _unb64: (...a)=>codeCryptoMod._unb64(...a),
-  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
   toast: (...a)=>toast(...a),
 });
+/* ★ 앱을 켜자마자 최대한 일찍 저장된 아이템들의 GLB 파싱을 시작해둠(비동기) — 이게 늦게 끝나면, 그 사이에
+     캐릭터가 먼저 실행되면서 아직 customItems에 등록 안 된 아이템은 조용히 빠지는(=책상 위에서 사라지는)
+     타이밍 경쟁이 있었음("가끔 아이템이 사라지는" 원인). 최대한 앞당겨서 그 경쟁 창을 최소화함.
+   ⚠️ commissionMod 를 만든 **뒤**에 부른다 — 모듈 안에서 부르면 commissionMod 가 아직 없어 던진다. */
+loadSavedItemsIntoSession();
 /* 커스텀 아이템 레지스트리 (생성기 세션) */
 let customItems={};
 
