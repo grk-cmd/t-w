@@ -27,7 +27,7 @@ const body = ci >= 0 ? APP.slice(ci, APP.indexOf('\n}\n', ci)) : '';
 const iGuard = body.indexOf('isStaffName(v)'), iSave = body.indexOf('setUserName(');
 chk(iGuard > 0 && iSave > iGuard && /return;/.test(body.slice(iGuard, iSave)), '닉네임 저장(commitUserName)이 저장 전에 막고 돌아간다');
 chk(/v !== getUserName\(\)\.trim\(\)/.test(body) && /isAdmin/.test(body.slice(iGuard, iSave)), '  ↳ 이미 그 이름인 사람 · 관리자는 예외 (규칙과 같다)');
-const iNg = HTML.indexOf('<script src="parts/name-guard.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
+const iNg = HTML.indexOf('<script src="parts/account/name-guard.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
 chk(iNg > 0 && iApp > iNg, 'name-guard.js 는 app.js 보다 먼저 싣는다');
 
 say('§3 규칙');

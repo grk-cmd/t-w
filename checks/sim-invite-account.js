@@ -68,7 +68,7 @@ const mk = (node, o = {}) => {
 
   say('── 3. 연결');
   const CODE = strip(FI), A = strip(APP);
-  chk(/import \{ createInviteAccount \} from "\.\/invite-account\.js";/.test(CODE), 'firebase-init.js 가 invite-account.js 를 import 한다');
+  chk(/import \{ createInviteAccount \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?invite-account\.js";/.test(CODE), 'firebase-init.js 가 invite-account.js 를 import 한다');
   chk(/getInviteAccount: createInviteAccount\(\{ db, ref, get, databaseURL:/.test(CODE), 'firebaseAPI.getInviteAccount 는 모듈로 넘긴다');
   chk(!/get\(ref\(db, `users\/\$\{userId\}`\)\)/.test(CODE), 'firebase-init.js 에 users/{uid} 통째 get 이 남아 있지 않다');
   const rb = A.match(/async function refreshInviteBtn\(\)\{[\s\S]*?\n\}/);
