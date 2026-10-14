@@ -11,8 +11,9 @@
    ※ 🍅 뽀모 본체는 parts/pomodoro.js 로 옮겼다(앱 FSD 6번) — 뽀모 블록 · _pomo* 함수는 그 파일에서 찾는다. 알림음 풀 · _focusShowConf 는 app.js.
      만들 때 배선 · 버튼 흐름은 sim-pomodoro-module 이 본다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 let WC = null; try{ WC = fs.readFileSync('weekly-challenge.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — weekly-challenge.js'); process.exit(2); }
 let PM = null; try{ PM = fs.readFileSync('pomodoro.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — pomodoro.js'); process.exit(2); }

@@ -68,6 +68,7 @@
 | `app/parts/chat-prefs.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 41번) — 🗑 대화 기록 삭제(방장) · 💬 채팅창 투명도 · 글자 크기 · 🔔 채팅 알림음(상태 · 저장 · 메뉴). classic script(`window.TwChatPrefs`), 부르는 곳은 `chatPrefsMod.이름` |
 | `app/parts/rich-text.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🛡️ 리치 텍스트 sanitize(`_mhSanitizeHtml`) · 저장 · 불러오기(`_mhLoadRT` — 남의 bio · 게시글은 반드시 여기를 거친다) · 글자 수. classic script(`window.TwRichText`), 부르는 곳은 `richTextMod.이름` |
 | `app/parts/win-stack.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🪟 창 겹침: 누른 창 맨 앞(`bringWinToFront`) · ESC 스택(`escRegisterWindow`). classic script(`window.TwWinStack`), 부르는 곳은 `winStackMod.이름` |
+| `app/parts/sfx.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🔊 효과음 공장(`_mkSndPool` — 풀 · preload · 자동재생 잠금 해제 · 회사원 모드 무음) · 때리기 · 클릭음 · 채팅 알림음 · 뽀모도로 알림음 풀. classic script(`window.TwSfx`), 부르는 곳은 `sfxMod.이름` |
 | `app/parts/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
 | `app/parts/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
