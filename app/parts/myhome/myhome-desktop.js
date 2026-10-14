@@ -139,7 +139,7 @@ function advSave(){ try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }ca
 //   ★ ts(고른 시각)를 같이 싣는다 — 기기끼리 «누가 더 최근에 골랐나» 를 가르는 유일한 근거다(advPullBg).
 function advSaveBgRemote(){
   try{
-    if(!window.firebaseAPI || !firebaseAPI.saveAdvBg || typeof getMyUserId!=='function') return;
+    if(!window.firebaseAPI || !firebaseAPI.saveAdvBg) return;
     const uid = getMyUserId(); if(!uid) return;
     const ts = ADV.bgTs || Date.now();
     const rec = ADV.bg ? Object.assign({}, ADV.bg, { ts }) : { cleared:true, ts };
@@ -198,7 +198,7 @@ function advSyncBgOnStart(){
   let tries = 0;
   const tick = ()=>{
     tries++;
-    const uid = (typeof getMyUserId==='function') ? getMyUserId() : null;
+    const uid = getMyUserId();
     if(window.firebaseAPI && firebaseAPI.saveAdvBg && uid){
       advPullBg(uid);   // 🩹 #4b·#13 — 덮어쓰기 전에 서버부터 읽는다
       return;
@@ -217,7 +217,7 @@ function curSlot(){ return ADV.slots[editSlot]; }
 function activeSlot(){ return ADV.slots[ADV.active]; }
 
 /* ─────────────────────────── 집중 연동 ─────────────────────────── */
-function advFocusLevel(){ try{ if(typeof getFocusLevel==='function') return getFocusLevel(); }catch(_){} return 1; }
+function advFocusLevel(){ try{ return getFocusLevel(); }catch(_){} return 1; }
 function advFocusSec(){ try{ if(typeof _focusTotalSec==='number') return _focusTotalSec; }catch(_){} return 0; }
 // ★ 나이대별 스탯 포인트 계수 (어린이·노인은 적게). 경계·배율은 여기서 조정.
 const AGE_TIERS = [
@@ -2025,7 +2025,7 @@ function advDownloadChatLog(){
   if(!arr.length && !fb.length){ advToast('저장할 대화가 없어요'); return; }
   const clean=(t)=>String(t||'')
     .replace(/\[imgs:(\S+?)\]/g, '[이미지: $1]')
-    .replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=(typeof DEMOJI_BY_ID!=='undefined')&&DEMOJI_BY_ID[id]; return d?('/'+d.cmd):'[이모티콘]'; });
+    .replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=DEMOJI_BY_ID[id]; return d?('/'+d.cmd):'[이모티콘]'; });
   const pad=n=>String(n).padStart(2,'0');
   const line=m=>{ const dt=new Date(m.ts||Date.now());
     return '['+pad(dt.getHours())+':'+pad(dt.getMinutes())+'] '+advChatName(m.uid, m.name, m.asNick)+': '+clean(m.text); };   // ★ 요청1/2: 닉/캐릭터명
@@ -2969,7 +2969,7 @@ const PARTY = {
   invites: {},       // 내게 온 개인 초대
   unsubParty: null, unsubInv: null,
 };
-function fbReady(){ if(ADV_GAME_OFF) return false; return !!(window.firebaseAPI && firebaseAPI.advCreateParty && typeof getMyUserId==='function' && getMyUserId()); }   // ★ ADV_OFF: 파티·전투·채팅 통신의 단일 관문 — 여기서 막으면 읽기·쓰기·구독이 전부 멈춘다
+function fbReady(){ if(ADV_GAME_OFF) return false; return !!((window.firebaseAPI && firebaseAPI.advCreateParty) && getMyUserId()); }   // ★ ADV_OFF: 파티·전투·채팅 통신의 단일 관문 — 여기서 막으면 읽기·쓰기·구독이 전부 멈춘다
 function advHasLicense(){ try{ return !!((typeof isPremium!=='undefined' && isPremium) || (typeof isAdmin!=='undefined' && isAdmin)); }catch(_){ return false; } }   // app.js와 동일 판정
 function advPartyMax(){ return advHasLicense() ? 5 : 2; }   // 라이선스=5인 / 미보유=2인
 function advPartyLeaderName(){ const d=PARTY.data; if(d&&d.members&&d.leader){ const lm=d.members[d.leader]; if(lm&&lm.charName) return lm.charName; } return '팀장'; }
@@ -2988,8 +2988,8 @@ function advEnterRun(keepMap){   // 실제 게임 진입(솔로/파티 공통) �
   const _fbp=document.getElementById('advFbPop'); if(_fbp){ _fbp.classList.add('hidden'); _fbp._advFbShell=false; _fbp.innerHTML=''; }
   advEnsureMap(); advSyncMyLocation(); advSyncMyCoord(); advSubscribeCoords(); advSubscribeChat(); advSubscribeGauge(); advSubscribeCombat(); advSave(); advRenderSim(); advShowExplorePrompt(true);
 }
-function myNick(){ try{ if(typeof getDisplayName==='function') return getDisplayName(); }catch(_){} return '나'; }
-function defaultName(){ try{ if(typeof getDisplayName==='function'){ const n=getDisplayName(); if(n) return String(n); } }catch(_){} return '생존자'; }   // 이름 없는 슬롯 폴백(크래시 방지)
+function myNick(){ try{ return getDisplayName(); }catch(_){} return '나'; }
+function defaultName(){ try{ const n=getDisplayName(); if(n) return String(n); }catch(_){} return '생존자'; }   // 이름 없는 슬롯 폴백(크래시 방지)
 function myUid(){ try{ return getMyUserId()||null; }catch(_){} return null; }
 // ★ 요청2: 채팅/피드백 표시 이름 = 각자 선택한 캐릭터 이름(닉네임 아님). 내 것도 '나' 대신 캐릭터명.
 function advMyCharName(){ const s=activeSlot(); return (s && s.name) ? String(s.name) : defaultName(); }
@@ -3101,7 +3101,6 @@ function advSubscribeChat(){
 }
 // /명령어 → [demoji:id] 마커 (앱 기본 이모티콘과 동일 규칙 — 기록엔 마커만, 각 클라가 로컬 번들에서 렌더)
 function advDemojify(text){
-  if(typeof DEMOJI_BY_CMD==='undefined') return text;
   // ★ #1 수정: URL을 먼저 토큰으로 보호. 안 그러면 demoji '/명령어' 치환이 URL 경로(예: .../img, .../png)를
   //   [demoji:..]로 바꿔 주소를 훼손 → 채팅에서 이미지가 임베드되지 않음(직접 붙여넣기 전송 경로).
   const urls=[];
@@ -3208,10 +3207,8 @@ function advRenderChatBox(){
   const list=(ADV._chat||[]).slice(-8);
   // [demoji:id] 마커 → 번들 이미지 (esc 이후 치환 — 아는 id만 렌더, 임의 URL 로드 없음)
   const rend=(t)=>{ t=esc(t||''); const tok=[]; const put=h=>{ tok.push(h); return '\u0000'+(tok.length-1)+'\u0000'; };
-    if(typeof DEMOJI_BY_ID!=='undefined' && typeof DEMOJI_DIR!=='undefined'){
-      t=t.replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=DEMOJI_BY_ID[id]; if(!d) return m;
-        return put('<img class="adv-demoji" style="width:'+d.w+'px;height:'+d.h+'px" src="'+DEMOJI_DIR+d.file+'" alt="'+esc(d.cmd)+'">'); });
-    }
+    t=t.replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=DEMOJI_BY_ID[id]; if(!d) return m;
+      return put('<img class="adv-demoji" style="width:'+d.w+'px;height:'+d.h+'px" src="'+DEMOJI_DIR+d.file+'" alt="'+esc(d.cmd)+'">'); });
     // 🖼 스포일러 이미지 마커 [imgs:URL] — 클릭 전엔 칩, 공개했으면 이미지 (토큰으로 보호 → 이중치환 방지)
     t=t.replace(/\[imgs:(https:\/\/[^\s\]<>"']+?\.(?:png|jpe?g|gif|webp)(?:\?[^\s\]<>"']*)?)\]/gi, (m,u)=>{
       if(ADV._imgOpen && ADV._imgOpen.has(u.replace(/&amp;/g,'&')))
@@ -4215,7 +4212,7 @@ function advDoMove(x,y){
   if(!advCanEnter(m,ADV.map.pos.x,ADV.map.pos.y,x,y)) return;
   ADV.map._prev={x:ADV.map.pos.x, y:ADV.map.pos.y};   // ★ #3: 직전 칸 기억(협공 '물러난다'용)
   ADV.map.pos={x,y};
-  if(ADV.map.flag && ADV.map.flag.x===x && ADV.map.flag.y===y){ ADV.map.flag=null; advPublishFlag(); if(typeof toast==='function') toast('🚩 목표 지점 도착!'); }   // ★ #4-B: 깃발 도착 → 해제
+  if(ADV.map.flag && ADV.map.flag.x===x && ADV.map.flag.y===y){ ADV.map.flag=null; advPublishFlag(); toast('🚩 목표 지점 도착!'); }   // ★ #4-B: 깃발 도착 → 해제
   advMarkSeen(m, x, y);   // 이동한 곳 주변 ±4 = 확인됨(지도에 기록)
   const key=x+','+y;
   const wasNew=!(ADV.map.stepped||[]).includes(key);
@@ -4309,8 +4306,8 @@ function advActiveFlag(){   // 화면에 표시할 목표 = 내 깃발 우선, �
 function advSetFlag(x,y){
   if(!ADV.map) return;
   const cur=ADV.map.flag;
-  if(cur && cur.x===x && cur.y===y){ ADV.map.flag=null; if(typeof toast==='function') toast('🚩 목표 깃발 해제'); }
-  else { ADV.map.flag={x:x,y:y}; if(typeof toast==='function') toast('🚩 목표 깃발 → '+x+','+y); }
+  if(cur && cur.x===x && cur.y===y){ ADV.map.flag=null; toast('🚩 목표 깃발 해제'); }
+  else { ADV.map.flag={x:x,y:y}; toast('🚩 목표 깃발 → '+x+','+y); }
   advPublishFlag();   // ★ #1: 파티원에게 공유(안 하면 나만 보임)
   advSave();
   if(document.getElementById('advMapView')) advRenderMap();
@@ -4331,7 +4328,7 @@ function advMapVisibleBldgs(m){
       if(Math.abs(x-p.x)<=ADV_BLDG_SPOT && Math.abs(y-p.y)<=ADV_BLDG_SPOT){
         found.add(bi);
         ADV.map.found=Array.from(found); advSave();
-        if(typeof toast==='function') toast('🔭 저 멀리 '+bd.t+'이(가) 보인다…');
+        toast('🔭 저 멀리 '+bd.t+'이(가) 보인다…');
         return;
       }
     }
@@ -5564,7 +5561,7 @@ function advRenderSlotTabs(){
 function advUploadImage(slotKey, maxW, maxH, quality, onUrl){
   if(advVisiting) return;
   try{ if(window.companion && companion.dsHold) companion.dsHold(); }catch(_){}
-  const hasUploader=!!(window.firebaseAPI && firebaseAPI.uploadUserImage && typeof getMyUserId==='function');
+  const hasUploader=!!(window.firebaseAPI && firebaseAPI.uploadUserImage);
   const fi=document.createElement('input'); fi.type='file'; fi.accept='image/*';
   fi.onchange=()=>{
     const file=fi.files&&fi.files[0]; if(!file) return;
@@ -5592,7 +5589,7 @@ function advUploadImage(slotKey, maxW, maxH, quality, onUrl){
   };
   fi.click();
 }
-function advToast(msg){ try{ if(typeof toast==='function'){ toast(msg); return; } }catch(_){} }
+function advToast(msg){ try{ toast(msg); return; }catch(_){} }
 
 /* ─────────────────────────── 배경 ─────────────────────────── */
 function advApplyBg(){
@@ -5646,7 +5643,7 @@ function mhdFfInit(){
     room:()=>document.getElementById('mhRoomPreview'), items:mhdFfItems, getPos:mhdFfPos, band, bottomInset:MHD_FF_TASKBAR,
     canArrange:()=> advVisiting ? '남의 집에서는 폴더를 옮길 수 없어요'
                   : (ADV.hideFolders ? '폴더 숨기기가 켜져 있어요 — 먼저 꺼 주세요' : ''),
-    toast:(t)=>{ if(typeof toast === 'function') toast(t); },
+    toast:(t)=>{ toast(t); },
     /* 배경과 같은 기록 — 고른 시각(bgTs)을 찍어야 다른 기기와의 맞춤(advPullBg)에서 이긴다(폴더 숨기기와 같다). */
     onSave:(pos)=>{ ADV.folderPos = pos; ADV.bgTs = Date.now(); advSave(); advSaveBgRemote(); },
     onChange:(on)=>{ const b = document.getElementById('advEnvFreeFolders'); if(b) b.textContent = (on ? '✔ ' : '') + '폴더 자유배치'; }
@@ -5666,7 +5663,7 @@ function mhdFfInit(){
 // ★ 좀아칼 단계적 해제 — 준비된 창만 연다. (전부 열려면 셋 다 false)
 //   1단계: 캐릭터세팅만 오픈(char:false). 시뮬/인벤은 배틀로얄 엔진 완성 후 해제.
 const ADV_LOCK = { sim:false, char:false, inv:false };  // TEST본 — 프리뷰 전용, 배포 금지
-function advLockedMsg(){ if(typeof toast==='function') toast('🚧 좀아칼au는 공사중입니다… 곧 만나요!'); }
+function advLockedMsg(){ toast('🚧 좀아칼au는 공사중입니다… 곧 만나요!'); }
 function advOpenSim(){
   if(ADV_GAME_OFF) return;   // ★ 중단 상태 — 게임 창은 열지 않는다(파티 구독도 시작되지 않음)
   if(advVisiting) return;
@@ -5960,7 +5957,7 @@ function advBindEvents(){
     ADV.hideFolders = !ADV.hideFolders;
     ADV.bgTs = Date.now();
     advSave(); advSaveBgRemote(); advApplyFolderHide();
-    if(typeof toast==='function') toast(ADV.hideFolders ? '폴더를 숨겼어요 — 방문자에게도 안 보여요' : '폴더를 다시 보여요');
+    toast(ADV.hideFolders ? '폴더를 숨겼어요 — 방문자에게도 안 보여요' : '폴더를 다시 보여요');
   });
 
   /* 📂 폴더 자유배치 — 켜면 끌어서 옮기기, 다시 누르면(또는 띠의 [완료] · Esc) 저장. */
@@ -6090,7 +6087,7 @@ window._advApplyVisitUI = function(visiting, ownerId){
   } else {
     advVisitBg = null;
     /* 🩹 #4b·#13 — 내 집으로 돌아올 때도 한 번 맞춘다(앱을 켜 둔 채 다른 기기에서 배경을 바꾼 경우). 읽기 1회. */
-    try{ const _u = (typeof getMyUserId==='function') ? getMyUserId() : null; if(_u) advPullBg(_u); }catch(_){}
+    try{ const _u = getMyUserId(); if(_u) advPullBg(_u); }catch(_){}
   }
   const d=document.getElementById('advDesktop');
   if(d) d.classList.toggle('adv-visiting', advVisiting);

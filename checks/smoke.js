@@ -283,6 +283,35 @@ g.alert = () => {}; g.confirm = () => false; g.prompt = () => null;
 g.open = () => null; g.close = () => {}; g.focus = () => {}; g.blur = () => {};
 g.scrollTo = () => {}; g.getSelection = () => ({ toString: () => '', removeAllRanges() {} });
 
+/* ── 다른 script 가 거는 이름 ────────────────────────────────────────
+   app.js 는 HTML 이 먼저 싣는 파일들이 거는 이름(window.X = … · 맨 위 function)을 typeof 가드 없이 바로 부른다(개정 238).
+   여기서는 app.js 만 돌리므로, HTML 의 <script src="parts/…"> 목록에서 app.js 앞 파일을 **진짜로 실어** 둔다(못 실으면 그대로 실패).
+   ⚠️ 목록을 손으로 적지 않는다 — 파일이 늘면 조용히 낡는다. */
+(function loadSiblingScripts(){
+  /* require 줄은 스텁을 빌려 쓰는 검사들이 걸러 내므로 process.getBuiltinModule 로 받는다 */
+  const fs = process.getBuiltinModule('fs'), path = process.getBuiltinModule('path'), vm = process.getBuiltinModule('vm');
+  const htmlPath = ['desk-companion-prototype.html', path.join('app', 'desk-companion-prototype.html')].find(p => fs.existsSync(p));
+  if (!htmlPath) return;
+  const html = fs.readFileSync(htmlPath, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  /* app.js **보다 먼저** 실리는 파일만 — 진짜 앱에서도 app.js 를 싣는 순간 뒤 파일의 이름은 아직 없다 */
+  const all = [...html.matchAll(/<script\b([^>]*)\bsrc="parts\/([^"]+\.js)"/g)].filter(m => !/type="module"/.test(m[1])).map(m => m[2]);
+  const iApp = all.findIndex(s => /(^|\/)app\.js$/.test(s));
+  const srcs = all.slice(0, iApp < 0 ? 0 : iApp);
+  /* app.js 가 아직 «typeof 이름 === 'undefined' 면 빈 껍데기» 로 받는 모듈은 싣지 않는다 — 실으면 검사마다 따로 다루던 그 갈래가 바뀐다 */
+  const appPath = ['app.js', path.join('parts', 'app.js'), path.join('app', 'parts', 'app.js')].find(x => fs.existsSync(x));
+  const appSrc = appPath ? fs.readFileSync(appPath, 'utf8') : '';
+  const shellGuarded = (n) => new RegExp('typeof\\s+' + n.replace(/\$/g, '\\$') + "\\s*===\\s*'undefined'").test(appSrc);
+  for (const s of srcs) {
+    const p = [s, path.basename(s), path.join('parts', s), path.join('app', 'parts', s)].find(x => fs.existsSync(x));
+    if (!p) continue;
+    const t = fs.readFileSync(p, 'utf8');
+    const exp = [...t.matchAll(/(?:window|root)\.([A-Za-z_$][\w$]*)\s*=\s*api\b/g)].map(m => m[1]);
+    if (exp.length && exp.every(shellGuarded)) continue;
+    /* 진짜로 싣는다(진짜 앱과 같은 구현). 못 실으면 대역으로 넘기지 않고 그대로 던진다 — 조용히 넘어가는 자리를 만들지 않는다 */
+    vm.runInThisContext(t, { filename: path.basename(p) });
+  }
+})();
+
 /* firebaseAPI / companion 은 **일부러 안 만든다.**
    app.js 는 둘 다 없을 수 있다고 보고 가드해야 한다(웹 미리보기·초기 로딩 순간이 실제로 그렇다).
    여기서 스텁을 깔아버리면 그 가드가 빠진 곳을 영영 못 잡는다. */

@@ -419,7 +419,7 @@
     serverAddr: (name) => _rc ? _rc.serverAddr(name) : null,
     myServer: (uid) => _rc ? _rc.myServer(uid) : null,
     read: (path) => get(ref(db, path)).then(s => s.val()),
-    getUserId: () => (typeof window.getMyUserId === 'function') ? window.getMyUserId() : null,
+    getUserId: () => window.getMyUserId(),
     env: FIREBASE_ENV,
     storage: _lsOrNull(),
   });
@@ -428,7 +428,7 @@
     enabled: () => !!_rsUrl,
     url: () => _rsUrl,
     getToken: _getIdToken,
-    getUserId: () => (typeof window.getMyUserId === 'function') ? window.getMyUserId() : null,
+    getUserId: () => window.getMyUserId(),
     getVersion: () => _appVer.ready,
     timing: () => _rc ? _rc.roomServerTiming() : null,   // 입장 대기 · 포기 시간(원격 설정 roomServerTiming)
   });
@@ -2459,7 +2459,7 @@
              상대 화면에서 "레벨업 직후"로 오해된다). */
           /* 💰 exp 는 바뀔 때만 싣는다 — 같은 값이면 남들에게는 안 내려가지만 업로드는 매번이었다. */
           let _exp;
-          try{ if(typeof window.myExpCells === 'function') _exp = window.myExpCells(); }catch(_){}
+          try{ _exp = window.myExpCells(); }catch(_){}
           const _expChanged = _exp !== undefined && _exp !== _lastHbExp;
           if(_expChanged) _lastHbExp = _exp;
           if(_aliveV2){
@@ -4455,5 +4455,5 @@
 
   /* 🌐 공개 읽기(파도타기 · 명함 · 사진 · 랭킹 · 방 개수 표시 · 랜덤 참여 후보)는 API 사본 먼저 → 실패면 위 함수 그대로(api-public-reads.js). */
   createApiPublicReads({ api: (window.TwApi && window.TwApi.client) || null, readCell: (path) => get(ref(db, path)).then(s => s.val()) }).wrap(window.firebaseAPI);
-  try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { if(typeof window.toast === 'function') window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
+  try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
   window.dispatchEvent(new Event('firebase-ready'));

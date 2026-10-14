@@ -89,14 +89,14 @@
     const inp = { office:_office(), mine:{ kind:nzKind, focus:false }, others:[], withOthers:nzOthers };
     let list = null;
     try{ list = seats; }catch(_){ return inp; }
-    if(!Array.isArray(list) || typeof seatState !== 'function') return inp;
+    if(!Array.isArray(list)) return inp;
     let mine = null;
-    try{ mine = (typeof findMySeat === 'function') ? findMySeat() : null; }catch(_){}
+    try{ mine = findMySeat(); }catch(_){}
     try{ if(mine && nzKind) inp.mine.focus = (seatState(mine, now) === 'focus'); }catch(_){}
     if(nzOthers){
       list.forEach(s=>{
         if(!s || !s.remote || !s.remoteNoise) return;
-        try{ if(typeof _seatHidden === 'function' && _seatHidden(s)) return; }catch(_){}
+        try{ if(_seatHidden(s)) return; }catch(_){}
         let f = false;
         try{ f = (seatState(s, now) === 'focus'); }catch(_){}
         inp.others.push({ kind:s.remoteNoise, focus:f });
@@ -244,7 +244,7 @@
   function setKind(k){
     nzKind = _kindOk(k);
     _ls.set(NZ_KIND_KEY, nzKind);
-    try{ if(typeof Presence !== 'undefined' && Presence.setNoise) Presence.setNoise(nzKind); }catch(_){}
+    try{ if(Presence.setNoise) Presence.setNoise(nzKind); }catch(_){}
     renderUI();
   }
   function setVol(v){

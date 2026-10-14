@@ -58,7 +58,7 @@ const _wdPic = {
    도구에서만 나온다. 파츠를 통째로 지우는 일(예전 지우개 + 채우기)은 페인트통 Shift+클릭으로 옮겼다. */
 const wdPaintTool = (typeof PaintTools==='undefined') ? null : PaintTools.createPaintTools({
   doc:document, btnClass:'wd-pic-btn',
-  hotkeyLetter:(typeof hotkeyLetter==='function'?hotkeyLetter:null),
+  hotkeyLetter:hotkeyLetter,
   tips:{ bucket:'페인트통 (G) — 누른 모델의 칠할 자리 전체를 지금 색으로 · Shift+클릭은 그 자리 지우기' },
   onChange:(t)=>{ _wdPic.eraser=(t==='eraser'); _wdPic.fill=(t==='bucket');
     if(t==='bucket' && _wdPic.on) toast('🪣 페인트통 — 칠할 모델을 눌러요 (Shift+클릭 = 지우기)'); } });
@@ -288,7 +288,7 @@ function _wdPicFillMesh(ctx, wrp, mesh, opt){
   return UvFill.fillMeshOwned(ctx, CANVAS_SZ(), mesh.geometry, peers, opt);
 }
 function _wdPicFillHit(hit, erase){
-  if(typeof UvFill === 'undefined' || !hit || !hit.object) return;
+  if(!hit || !hit.object) return;
   const tgt=_wdPicTgtOf(hit.object);
   const opt={ color:_wdPic.color, erase:!!erase };
   _wdPicFillMesh(tgt.user.getContext('2d'), tgt.wrp, hit.object, opt);

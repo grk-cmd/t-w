@@ -96,7 +96,7 @@ chk(S({ targetSlot: null, hasEmptySlot: true }, 'desk').enabled, '새 동물 · 
 chk(/<span data-stg="desk">책상 세팅<\/span><span data-stg="seat">좌석 세팅<\/span>/.test(ANI) && !/다음 단계에서 지원/.test(ANI), 'animal.js 머리 — 두 탭이 data-stg · 옛 «다음 단계에서 지원» 흐림 걷음');
 chk(/id="anpStages"/.test(ANI), '…탭 줄 id anpStages(사람 생성기 cr-steps 와 같은 모양)');
 const clickBlk = N.slice(N.indexOf("querySelectorAll('#anpStages span[data-stg]').forEach(sp=>{"), N.indexOf("const nextBtn=overlay.querySelector('#anpNextBtn');"));
-chk(/if\(!st\.enabled\)\{ if\(typeof toast==='function'\) toast\(st\.title\); return; \}/.test(clickBlk), '누를 수 없으면 저장하지 않고 이유만 알린다');
+chk(/if\(!st\.enabled\)\{ toast\(st\.title\); return; \}/.test(clickBlk), '누를 수 없으면 저장하지 않고 이유만 알린다');
 chk(/if\(!_blinkTouched && !\(_editSrcDef && _editSrcDef\.animalBlink\)\) _copyPaintSide\('face','blink'\);/.test(clickBlk), '감은눈을 안 거쳤으면 감은눈 탭처럼 표정을 가져온다(빈 감은눈 저장 방지)');
 chk(/saveAnimalSlot\(\{startStep: st\.step\}\);/.test(clickBlk), '…그 뒤 [다음 → 책상·좌석] 과 같은 saveAnimalSlot');
 chk((N.match(/fromAnimal:true, startStep:_startStep\}\)/g) || []).length === 2, '저장 뒤 openCreator 두 곳(슬롯 · 좌석)이 startStep 을 넘긴다');

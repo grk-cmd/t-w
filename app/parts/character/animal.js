@@ -85,7 +85,7 @@ function _earScale(a){
            z:(a && a.scz != null) ? a.scz : u };
 }
 const earAdj={ L:_earAdjNew(), R:_earAdjNew() };
-const _earLoader = (typeof loader!=='undefined' && loader) ? loader : (typeof THREE!=='undefined' ? new THREE.GLTFLoader() : null);
+const _earLoader = loader ? loader : (typeof THREE!=='undefined' ? new THREE.GLTFLoader() : null);
 const _earCache = {};                    // key(ear_cat_L 등) → 파싱된 scene (복제해서 사용)
 /* ★ rotY 0 = 정면. 예전엔 -0.4(약 -23°)로 비스듬히 시작해서 표정·무늬를 그릴 때 얼굴이
    비뚤어 보였다. 인간 생성기는 camYaw=0(정면)으로 시작하므로 거기에 맞춘다.
@@ -96,7 +96,7 @@ let _zoom=1.0;      // 휠 줌 (0.5~2.6)
 let panX=0, panY=0; // 방향키 카메라 평행이동
 let scl={x:1, y:1, all:1};
 
-function myLevel(){ try{ return (typeof getFocusLevel==='function') ? getFocusLevel() : 1; }catch(_){ return 1; } }
+function myLevel(){ try{ return getFocusLevel(); }catch(_){ return 1; } }
 function admin(){ try{ return (typeof isAdmin!=='undefined') && !!isAdmin; }catch(_){ return false; } }
 
 /* ── 카드 활성화: "공사중" → Lv.100 잠금 카드 ── */
@@ -118,11 +118,11 @@ function renderAnimalCardThumb(){
     try{
       const bin=atob(window.ANIMAL_GLB_B64); const buf=new Uint8Array(bin.length);
       for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
-      const ld=(typeof loader!=='undefined'&&loader)?loader:new THREE.GLTFLoader();
+      const ld=loader?loader:new THREE.GLTFLoader();
       ld.parse(buf.buffer,'',(g)=>{
         _rcChar=g.scene;
         _rcChar.traverse(o=>{ if(o.isMesh&&o.material){ o.material=o.material.clone(); o.material.color.set('#ffffff'); if('roughness'in o.material)o.material.roughness=0.85; if('metalness'in o.material)o.material.metalness=0; } });
-        if(typeof normalizeModel==='function') normalizeModel(_rcChar,1.15);   // 전신이 카드에 들어오도록
+        normalizeModel(_rcChar,1.15);   // 전신이 카드에 들어오도록
         _rcChar.rotation.y=Math.PI;
         _rcS.add(_rcChar);
         _rcR.render(_rcS,_rcC);
@@ -159,7 +159,7 @@ function initCard(){
           _cheatCount=0;
           try{ localStorage.setItem(CHEAT_KEY,'1'); }catch(_){}
           initCard();   // 잠금 안내 문구 갱신
-          if(typeof toast==='function') toast('🔓 동물 캐릭터가 해금됐어요!');
+          toast('🔓 동물 캐릭터가 해금됐어요!');
           // ★ 이 경로도 '신규 생성'이다 — 아래 정상 경로와 동일하게 컨텍스트를 초기화하고
           //   [＋]가 정한 칸을 받아둔다. 안 하면 직전 편집의 타깃이 남아 엉뚱한 칸에 저장될 수 있음.
           _editSrcDef=null; _editSeat=null;
@@ -168,10 +168,10 @@ function initCard(){
           openPreview();
           return;
         }
-        if(typeof toast==='function') toast('🔓 '+_cheatCount+' / '+CHEAT_CLICKS);
+        toast('🔓 '+_cheatCount+' / '+CHEAT_CLICKS);
         return;
       }
-      if(typeof toast==='function') toast('🔒 동물 캐릭터는 Lv.'+UNLOCK_LEVEL+' 달성 보상이에요 (현재 Lv.'+lv+')');
+      toast('🔒 동물 캐릭터는 Lv.'+UNLOCK_LEVEL+' 달성 보상이에요 (현재 Lv.'+lv+')');
       return;
     }
     _editSrcDef=null; _editSeat=null;   // 신규 생성 — 이전 편집 컨텍스트가 남아있으면 엉뚱한 슬롯/좌석에 덮어씀
@@ -397,7 +397,7 @@ function buildOverlay(){
   overlay.querySelectorAll('#anpStages span[data-stg]').forEach(sp=>{
     sp.onclick=()=>{
       const st=_stageState(sp.dataset.stg);
-      if(!st.enabled){ if(typeof toast==='function') toast(st.title); return; }
+      if(!st.enabled){ toast(st.title); return; }
       // 감은눈 탭을 안 거쳤으면 그 탭에 들어갈 때처럼 표정을 감은눈으로 가져온다(빈 감은눈이 저장되지 않게).
       //   재편집 중 저장된 감은눈이 아직 그려지는 중이면 덮지 않는다.
       if(!_blinkTouched && !(_editSrcDef && _editSrcDef.animalBlink)) _copyPaintSide('face','blink');
@@ -434,7 +434,7 @@ function buildOverlay(){
   if(adjReset) adjReset.onclick=()=>{
     earAdj[earAdjSide]=_earAdjNew();
     _applyEarAdj(earAdjSide);
-    if(typeof toast==='function') toast((earAdjSide==='L'?'왼쪽':'오른쪽')+' 귀 조정을 초기화했어요');
+    toast((earAdjSide==='L'?'왼쪽':'오른쪽')+' 귀 조정을 초기화했어요');
   };
   // ⇆ 현재 조정 중인 귀 → 반대쪽에 좌우대칭 복사 (x위치·회전 부호 반전, 나머지 동일)
   const earMirror=overlay.querySelector('#anpEarMirror');
@@ -450,7 +450,7 @@ function buildOverlay(){
                    rot:-_r.z, rx:_r.x, ry:-_r.y,
                    sc:a.sc, scx:_s.x, scy:_s.y, scz:_s.z }; }
     _applyEarAdj(to);
-    if(typeof toast==='function') toast((from==='L'?'왼쪽':'오른쪽')+' 귀 설정을 반대쪽에 대칭 복사했어요');
+    toast((from==='L'?'왼쪽':'오른쪽')+' 귀 설정을 반대쪽에 대칭 복사했어요');
   };
   window.__anpSetEarSide=setEarAdjSide;
   // 페인트 도구
@@ -493,7 +493,7 @@ function buildOverlay(){
         if(el.checked){
           pPartMask = part;
           boxes.forEach((b,i)=>{ if(b && i!==idx) b.checked=false; });
-          if(typeof toast==='function') toast(msg);
+          toast(msg);
         } else if(pPartMask === part){
           pPartMask = null;
         }
@@ -505,7 +505,7 @@ function buildOverlay(){
     pPushHist();
     _copyPaintSide('face','blink');
     _blinkTouched=true; pBlit(); ['L','R'].forEach(sd=>_blitEar(sd));
-    if(typeof toast==='function') toast('표정 그림을 가져왔어요 — 눈만 감은 모양으로 고쳐주세요');
+    toast('표정 그림을 가져왔어요 — 눈만 감은 모양으로 고쳐주세요');
   };
   /* 🙂 감은눈 → 표정. 바로 위 ⟳ 표정 복사의 **반대 방향**이다.
      ⚠️ 두 버튼은 대칭이 아니다.
@@ -519,11 +519,11 @@ function buildOverlay(){
      ★ 확인을 묻지 않는다 — pPushHist 를 먼저 하므로 [↶ 되돌리기]로 돌아온다(이 창의 관례). */
   const bCb=overlay.querySelector('#anpCopyBlink'); if(bCb) bCb.onclick=()=>{
     if(paintTab!=='face') return;
-    if(!_blinkTouched){ if(typeof toast==='function') toast('아직 감은눈을 그린 적이 없어요 — 4 감은눈 탭에서 먼저 그려주세요'); return; }
+    if(!_blinkTouched){ toast('아직 감은눈을 그린 적이 없어요 — 4 감은눈 탭에서 먼저 그려주세요'); return; }
     pPushHist();   // 표정은 원본이라 덮어쓰기 전에 반드시 되돌릴 자리를 남긴다
     _copyPaintSide('blink','face');
     pBlit(); ['L','R'].forEach(sd=>_blitEar(sd));
-    if(typeof toast==='function') toast('감은눈 그림을 가져왔어요');
+    toast('감은눈 그림을 가져왔어요');
   };
   // 슬라이더 초기화(↺) — data-rst 버튼
   overlay.querySelectorAll('.cr-mini[data-rst]').forEach(b=>{
@@ -579,7 +579,7 @@ function buildOverlay(){
   // ▲▼◀▶ — 좌우는 15° 앵글 회전, 상하는 카메라 이동(팬). 인간 생성기(cpLeft 등)와 같은 문법.
   const ROT15=Math.PI/12, PANSTEP=0.14;
   const camBtn=(id,fn)=>{ const b=overlay.querySelector('#'+id); if(!b) return;
-    if(typeof bindHold==='function') bindHold(b, fn); else b.onclick=fn; };
+    bindHold(b, fn); };
   camBtn('anpCamL', ()=>{ rotY -= ROT15; });
   camBtn('anpCamR', ()=>{ rotY += ROT15; });
   camBtn('anpCamU', ()=>{ panY += PANSTEP; });
@@ -732,7 +732,7 @@ function renderPresetSlots(){
     b.title = has ? '클릭=불러오기 · 우클릭=삭제' : '우클릭=현재 설정 저장';
     b.style.cssText='width:32px;height:32px;font-size:12px;cursor:pointer;background:'+(has?'#dce9f5':'var(--win-face-2)')+';border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);color:var(--ink);font-weight:'+(has?'bold':'normal')+';';
     b.onclick=()=>{
-      const p=_loadPresets()['p'+i]; if(!p){ if(typeof toast==='function') toast('빈 슬롯이에요 (우클릭으로 저장)'); return; }
+      const p=_loadPresets()['p'+i]; if(!p){ toast('빈 슬롯이에요 (우클릭으로 저장)'); return; }
       curFace=p.face||0; curEarL=p.earL||null; curEarR=p.earR||null;
       scl.x=p.sx||1; scl.y=p.sy||1; scl.all=p.sa||1;
       overlay.querySelector('#anpSx').value=scl.x; overlay.querySelector('#anpSxV').textContent=scl.x.toFixed(2);
@@ -740,13 +740,13 @@ function renderPresetSlots(){
       overlay.querySelector('#anpSa').value=scl.all; overlay.querySelector('#anpSaV').textContent=scl.all.toFixed(2);
       applyFace(); applyScale(); markFaceBtns(); renderEarLists(); onEarChange();
       overlay.querySelector('#anpPresetPopup').style.display='none';
-      if(typeof toast==='function') toast('프리셋 '+i+' 불러왔어요');
+      toast('프리셋 '+i+' 불러왔어요');
     };
     b.oncontextmenu=(e)=>{
       e.preventDefault();
       const all=_loadPresets();
-      if(all['p'+i]){ delete all['p'+i]; _savePresets(all); renderPresetSlots(); if(typeof toast==='function') toast('프리셋 '+i+' 삭제'); }
-      else { all['p'+i]={face:curFace,earL:curEarL,earR:curEarR,sx:scl.x,sy:scl.y,sa:scl.all}; _savePresets(all); renderPresetSlots(); if(typeof toast==='function') toast('프리셋 '+i+'에 저장했어요'); }
+      if(all['p'+i]){ delete all['p'+i]; _savePresets(all); renderPresetSlots(); toast('프리셋 '+i+' 삭제'); }
+      else { all['p'+i]={face:curFace,earL:curEarL,earR:curEarR,sx:scl.x,sy:scl.y,sa:scl.all}; _savePresets(all); renderPresetSlots(); toast('프리셋 '+i+'에 저장했어요'); }
     };
     box.appendChild(b);
   }
@@ -775,8 +775,7 @@ function applyScale(){
    생성기 미리보기엔 그 로직이 없어서 바인드 포즈 그대로였다(실행화면과 팔 위치가 달라 보이던 원인).
    같은 값(ANIMAL_HAND_REST)을 한 번만 적용해 정지 자세를 일치시킨다. 상수는 app.js가 단일 관리. */
 function applyArmRest(){
-  const a = (typeof ANIMAL_HAND_REST!=='undefined') ? ANIMAL_HAND_REST
-          : ((typeof window!=='undefined' && window.ANIMAL_HAND_REST!=null) ? window.ANIMAL_HAND_REST : -0.4);
+  const a = ANIMAL_HAND_REST;
   const put=(bone,restRef)=>{
     if(!bone) return null;
     const rest = restRef || bone.quaternion.clone();
@@ -796,7 +795,7 @@ function loadModel(){
     const bin=atob(window.ANIMAL_GLB_B64);
     const buf=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
-    const ld=(typeof loader!=='undefined' && loader) ? loader : new THREE.GLTFLoader();
+    const ld=loader ? loader : new THREE.GLTFLoader();
     ld.parse(buf.buffer,'',(g)=>{
       _loading=false;
       if(model && model.parent) model.parent.remove(model);   // 이중 방어 — 어떤 경로로든 남아있으면 제거
@@ -832,7 +831,7 @@ function loadModel(){
       applyArmRest();     // 🐾 실행화면(animateRig)과 같은 팔 각도로 맞춤 — 미리보기는 바인드 포즈라 그냥 두면 팔이 다름
       ensurePaintTex();   // 얼굴 단계부터 페인트 텍스처(회색 바탕) 적용 — 표정 단계와 밝기 동일
       applyEars();   // 저장돼 있던 귀 선택을 부착
-    },(e)=>{ _loading=false; console.warn('[동물] GLB 파싱 실패',e); if(typeof toast==='function') toast('동물 모델을 불러오지 못했어요'); });
+    },(e)=>{ _loading=false; console.warn('[동물] GLB 파싱 실패',e); toast('동물 모델을 불러오지 못했어요'); });
   }catch(e){ console.warn('[동물] 로드 오류',e); }
 }
 
@@ -845,7 +844,7 @@ function openPreview(){
     _prevLauncherOn = document.getElementById('launcher').classList.contains('on');
     if(_prevLauncherOn) document.getElementById('launcher').classList.remove('on');
     creatorOpen = true;
-    if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();
+    applyDesktopRunClass();
   }catch(e){ console.warn('[동물] 창 모드 전환 중 오류:', e); }
   // ★ 이중 안전 — 위 경유(applyDesktopRunClass)가 환경에 따라 안 먹는 경우가 보고돼,
   //   생성기 크기(740×620) 전환을 여기서 직접 한 번 더 요청. 마지막 요청이 이겨서 확실함.
@@ -962,9 +961,8 @@ function closePreview(){
   cancelAnimationFrame(raf); raf=0;
   try{
     creatorOpen = false;
-    if(_prevLauncherOn){ document.getElementById('launcher').classList.add('on'); if(typeof renderLauncher==='function') renderLauncher(); }
-    if(typeof applyDesktopRunClass==='function') applyDesktopRunClass();
-    else if(window.companion && companion.setConfigMode) companion.setConfigMode(true, 'launcher');   // 폴백 — 런처 크기 복귀
+    if(_prevLauncherOn){ document.getElementById('launcher').classList.add('on'); renderLauncher(); }
+    applyDesktopRunClass();   // 폴백 — 런처 크기 복귀
   }catch(e){ console.warn('[동물] 창 모드 복귀 중 오류:', e); }
 }
 
@@ -1004,8 +1002,8 @@ function _copyPaintSide(from, to){
 let pColor='#333333', pSize=11, pEraser=false, pSym=false;
 /* 🖌 칠하기 도구(paint-tools.js). pEraser(pStroke 가 본다)는 onChange 에서만 맞춘다. 모듈이 없으면 붓만. */
 const aPaintTool=(typeof PaintTools==='undefined') ? null : PaintTools.createPaintTools({
-  doc:document, uvFill:(typeof UvFill!=='undefined'?UvFill:null),
-  hotkeyLetter:(typeof hotkeyLetter==='function'?hotkeyLetter:null),
+  doc:document, uvFill:UvFill,
+  hotkeyLetter:hotkeyLetter,
   onChange:(t)=>{ pEraser=(t==='eraser'); if(t!=='brush' && aStampMode) aSetStampMode(false); syncPaintUI(); } });
 function _aDropEraser(){ if(aPaintTool) aPaintTool.dropEraser(); else pEraser=false; }
 let pPainting=false, pLastX=null, pLastY=null, pLastSX=null, pLastSY=null;
@@ -1141,11 +1139,9 @@ function aCommitStamp(){
       if(!hit) wrapRays[uvs.length-1]={o:_pRay.ray.origin.clone(), d:_pRay.ray.direction.clone()};
     }
     /* 🩹 #3 감아 칠하기 — 사람 도장과 같은 함수(app.js _stampWrapFill). 중심은 보이는 얼굴 메시 기준. */
-    if(typeof _stampWrapFill==='function'){
-      // 얼굴 메시에만 감는다 — 몸에 맞은 점이 섞이면 지금 칠하는 캔버스(pActC)와 다른 메시의 UV 가 된다
-      const faceMesh=targets.find(o=>_isFaceMesh(o));
-      if(faceMesh) _stampWrapFill(uvs, N, wrapRays, [faceMesh], _stampWrapCenter(faceMesh));
-    }
+    // 얼굴 메시에만 감는다 — 몸에 맞은 점이 섞이면 지금 칠하는 캔버스(pActC)와 다른 메시의 UV 가 된다
+    const faceMesh=targets.find(o=>_isFaceMesh(o));
+    if(faceMesh) _stampWrapFill(uvs, N, wrapRays, [faceMesh], _stampWrapCenter(faceMesh));
     /* 가장자리 외삽.
        ★ 예전엔 (-0.05~1.05) 안이기만 하면 무제한으로 채우고 0~1로 잘랐다. 잘린 값들이
          '텍스처 가장자리의 같은 좌표'로 뭉쳐서, 여러 칸이 이미지를 같은 자리에 겹쳐 그리며
@@ -1265,7 +1261,7 @@ function aCommitStamp(){
     dstCtx.restore();
   }
   pBlit();
-  if(typeof toast==='function') toast('도장을 찍었어요 (Ctrl+Z=되돌리기)');
+  toast('도장을 찍었어요 (Ctrl+Z=되돌리기)');
 }
 function aBindStampOverlay(){
   const ov=aStampOv(); if(!ov||ov._bound) return; ov._bound=true;
@@ -1451,7 +1447,7 @@ function pFillAll(){
        ⚠️ 잠금의 약속을 한 번 깨는 동작이므로 안내는 반드시 띄운다. 위 pPushHist 덕분에
          Ctrl+Z 한 번으로 되돌아간다 — 안내에 그 사실을 같이 적는다. */
     fill(pActC()); pBlit();
-    if(typeof toast==='function') toast('얼굴·몸은 텍스처 한 장을 공유해요 — 둘 다 채웠어요 (되돌리기 Ctrl+Z)');
+    toast('얼굴·몸은 텍스처 한 장을 공유해요 — 둘 다 채웠어요 (되돌리기 Ctrl+Z)');
     return;
   }
   if(pPartMask==='ear'){   // 귀만 모드: 귀 캔버스만 채움
@@ -1462,13 +1458,13 @@ function pFillAll(){
     fill(pActC()); pBlit();
     fillEars();
   }
-  if(typeof toast==='function') toast('전체를 채웠어요');
+  toast('전체를 채웠어요');
 }
 function pClearAll(){
   pPushHist();
   const clr=(c)=>c.getContext('2d').clearRect(0,0,P_SZ,P_SZ);
   if(pPartMask==='face'||pPartMask==='body'){
-    if(typeof toast==='function') toast('얼굴·몸은 텍스처 한 장을 공유해요 — 전체 지우기는 잠금을 풀고 써주세요');
+    toast('얼굴·몸은 텍스처 한 장을 공유해요 — 전체 지우기는 잠금을 풀고 써주세요');
     return;
   }
   /* 🐾 지우는 것은 **지금 탭의** 귀 캔버스뿐이다. 예전엔 귀가 한 장이라 감은눈 탭에서 전체 지우기를
@@ -1496,9 +1492,7 @@ const _pRay=new THREE.Raycaster(), _pN=new THREE.Vector2();
    키우면 바깥쪽 볼·눈꼬리에 광선이 아예 안 맞아 붓·도장이 거기서 빠졌다.
    그래서 사람 생성기와 같은 _picIntersect(app.js — 지금 자세의 정점으로 교차 · 앞면만)를 쓴다. */
 function _aCast(ray, meshes){
-  if(typeof _picIntersect==='function') return _picIntersect(ray, meshes);
-  const h=new THREE.Raycaster(ray.origin, ray.direction).intersectObjects(meshes,false);
-  return (h.length&&h[0].uv) ? h[0] : null;
+  return _picIntersect(ray, meshes);
 }
 function pHit(e){
   const cv=overlay.querySelector('#anpCv'); if(!cv||!cam) return null;
@@ -1539,7 +1533,7 @@ const LOCK_MSG={ ear:'지금은 귀만 칠할 수 있어요 — «귀만» 을 �
 let _lockToastAt=0;
 function _lockToast(){
   const now=Date.now(); if(now-_lockToastAt<1500) return; _lockToastAt=now;
-  if(typeof toast==='function') toast(LOCK_MSG[pPartMask]||'잠금 때문에 여기는 칠할 수 없어요');
+  toast(LOCK_MSG[pPartMask]||'잠금 때문에 여기는 칠할 수 없어요');
 }
 /* 지금 잠금 설정에서 이 부위를 칠해도 되는가 */
 function _partAllowed(tgt){ return !pPartMask || (tgt && tgt.part===pPartMask); }
@@ -1613,12 +1607,12 @@ function _canvasPeers(mesh){
 function pBucketEvent(e, erase){
   if(!aPaintTool) return false;
   const hit=pHit(e);
-  if(!hit || !hit.object){ if(typeof toast==='function') toast('캐릭터를 눌러 채워요'); return false; }
+  if(!hit || !hit.object){ toast('캐릭터를 눌러 채워요'); return false; }
   const tgt=_canvasForMesh(hit.object);
   if(!_partAllowed(tgt)){ _lockToast(); return false; }
   const opt={ color:pColor, erase:!!erase, size:P_SZ };
   const n=aPaintTool.bucket(Object.assign({ ctx:tgt.draw.getContext('2d'), geometry:hit.object.geometry, faceIndex:hit.faceIndex, uv:hit.uv, peers:_canvasPeers(hit.object), pushHistory:pPushHist }, opt));
-  if(!n){ if(typeof toast==='function') toast('여기는 채울 그림 자리가 없어요'); return false; }
+  if(!n){ toast('여기는 채울 그림 자리가 없어요'); return false; }
   tgt.blit();
   if(pSym){
     const mh=_pMirrorHit(hit);
@@ -1741,20 +1735,18 @@ function saveAnimalSlot(opts){
   if(_editSeat){
     const seatRef=_editSeat;
     try{
-      if(typeof applyCharToSeat==='function') applyCharToSeat(seatRef, def);
+      applyCharToSeat(seatRef, def);
       // 슬롯 저장은 crDone의 seat 분기와 같은 규칙 — 좌석에 slot이 없으면 내 좌석일 때만 curSlot으로 폴백
       const idx = (seatRef.slot!=null) ? seatRef.slot : (seatRef.isMe ? curSlot : null);
       if(idx!=null){ slots[idx]=def; if(seatRef.slot==null) seatRef.slot=idx; }
-      if(typeof saveSlots==='function') saveSlots();
-      if(seatRef.isMe && typeof Presence!=='undefined' && Presence.active && Presence.active() && Presence.updateDef) Presence.updateDef(def);
-      if(typeof layoutSeats==='function') layoutSeats();
-    }catch(e){ console.warn('[동물] 좌석 반영 실패',e); if(typeof toast==='function') toast('반영에 실패했어요 (콘솔 확인)'); return; }
+      saveSlots();
+      if(seatRef.isMe && Presence.active && Presence.active() && Presence.updateDef) Presence.updateDef(def);
+      layoutSeats();
+    }catch(e){ console.warn('[동물] 좌석 반영 실패',e); toast('반영에 실패했어요 (콘솔 확인)'); return; }
     closePreview();
     try{
-      if(typeof openCreator==='function'){
-        openCreator({kind:'seat', seat:seatRef, fromAnimal:true, startStep:_startStep});   // fromAnimal — 동물 생성기로 되돌아가지 않고 책상부터
-        if(typeof toast==='function') toast('🐾 수정했어요 — 책상·좌석을 확인하고 저장하세요');
-      }
+      openCreator({kind:'seat', seat:seatRef, fromAnimal:true, startStep:_startStep});   // fromAnimal — 동물 생성기로 되돌아가지 않고 책상부터
+      toast('🐾 수정했어요 — 책상·좌석을 확인하고 저장하세요');
     }catch(e){ console.warn('[동물] 책상·좌석 진입 실패',e); }
     return;
   }
@@ -1778,7 +1770,7 @@ function saveAnimalSlot(opts){
       else{
         // 덮어쓸 뻔한 상황 — 저장하지 않고 알린다.
         console.warn('[동물] 저장 위치를 정할 수 없어 중단했습니다 (빈 슬롯 없음, 원본 위치 불명)');
-        if(typeof toast==='function') toast('저장할 빈 자리가 없어요 — 슬롯을 하나 비우고 다시 시도해 주세요');
+        toast('저장할 빈 자리가 없어요 — 슬롯을 하나 비우고 다시 시도해 주세요');
         return;
       }
     }
@@ -1792,20 +1784,18 @@ function saveAnimalSlot(opts){
       try{ if(typeof window!=='undefined' && window.focus) window.focus(); }catch(_){}
     }
     slots[target]=def; curSlot=target;
-    if(typeof saveSlots==='function') saveSlots();
-    if(typeof saveCurSlot==='function') saveCurSlot();
-    if(typeof renderLauncher==='function') renderLauncher();
-  }catch(e){ console.warn('[동물] 슬롯 저장 실패',e); if(typeof toast==='function') toast('저장에 실패했어요 (콘솔 확인)'); return; }
+    saveSlots();
+    saveCurSlot();
+    renderLauncher();
+  }catch(e){ console.warn('[동물] 슬롯 저장 실패',e); toast('저장에 실패했어요 (콘솔 확인)'); return; }
   // 동물 창을 닫고 → 인간 생성기 창의 책상·좌석 세팅 단계로 이어감(같은 슬롯을 편집 모드로 연다).
   //   책상/좌석은 캐릭터 종류와 무관한 환경 세팅이라 기존 시스템을 그대로 연계 재사용.
   const savedIdx=target;
   closePreview();
   try{
-    if(typeof openCreator==='function'){
-      openCreator({kind:'slot', edit:true, slot:savedIdx, fromAnimal:true, startStep:_startStep});   // fromAnimal — 동물 생성기로 되돌아가지 않고 책상부터
-      if(typeof toast==='function') toast('🐾 이제 책상과 좌석을 설정하고 저장하면 완성돼요');
-    }
-  }catch(e){ console.warn('[동물] 책상·좌석 진입 실패',e); if(typeof toast==='function') toast('동물 캐릭터를 저장했어요'); }
+    openCreator({kind:'slot', edit:true, slot:savedIdx, fromAnimal:true, startStep:_startStep});   // fromAnimal — 동물 생성기로 되돌아가지 않고 책상부터
+    toast('🐾 이제 책상과 좌석을 설정하고 저장하면 완성돼요');
+  }catch(e){ console.warn('[동물] 책상·좌석 진입 실패',e); toast('동물 캐릭터를 저장했어요'); }
 }
 /* 책상·좌석에서 [이전] → 동물 창을 저장된 상태로 복원해 다시 편집 */
 /* 🐾 신규 생성용 상태 초기화.
@@ -1921,11 +1911,11 @@ function _ensureAnimalScene(){
   try{
     const bin=atob(window.ANIMAL_GLB_B64); const buf=new Uint8Array(bin.length);
     for(let i=0;i<bin.length;i++) buf[i]=bin.charCodeAt(i);
-    const ld=(typeof loader!=='undefined'&&loader)?loader:new THREE.GLTFLoader();
+    const ld=loader?loader:new THREE.GLTFLoader();
     ld.parse(buf.buffer,'',(g)=>{ _ANIMAL_SCENE=g.scene; _animalSceneLoading=false;
       console.log('[동물] 좌석용 base 파싱 완료 — 동물 좌석 재빌드 시도');
       // 파싱 전에 만들어져 인간으로 폴백된 동물 좌석이 있으면 다시 동물로 세움
-      if(typeof window.rebuildAnimalSeats==='function') window.rebuildAnimalSeats(); },
+      window.rebuildAnimalSeats(); },
       (e)=>{ _animalSceneLoading=false; console.warn('[동물] 좌석용 base 파싱 실패',e); });
   }catch(e){ _animalSceneLoading=false; console.warn('[동물] 좌석용 base 오류',e); }
 }
@@ -1943,7 +1933,7 @@ function _texFromDataURL(url, fallbackFill){
 }
 // 인간 재질과 같은 자체발광 평탄화 — 씬 조명 의존을 줄여 밝기를 인간과 일치시킴
 function _animLit(mat){
-  const flat = 1 - ((typeof LIGHT_PRESET!=='undefined' && LIGHT_PRESET) ? LIGHT_PRESET.e : 0.5);
+  const flat = 1 - (LIGHT_PRESET ? LIGHT_PRESET.e : 0.5);
   if(mat){ mat.emissiveMap=mat.map; if(mat.emissive) mat.emissive.setScalar(flat); mat.needsUpdate=true; }
   return mat;
 }
@@ -1993,11 +1983,9 @@ window.buildAnimalBase=function(def){
   // ★ 정규화 배율을 기록해둔다 — 생성기(fitCreator)가 '측정' 대신 이 확정값으로 크기를 계산하기 위함.
   //   생성기가 매번 measureCharBox로 재면 귀 부착 타이밍에 따라 캐릭터 크기가 흔들리고,
   //   책상은 고정이라 "생성기와 실행의 책상 비율이 다르다"로 나타난다(실행은 이미 확정값으로 막아둠).
-  if(typeof normalizeModel==='function'){
-    const _ns = normalizeModel(root, 1.4*ANIMAL_RUN_SCALE);
-    root.userData.animNormScale = _ns;                    // 원본 대비 배율(raw → 1.4×RUN_SCALE)
-    root.userData.animNormH     = 1.4*ANIMAL_RUN_SCALE;   // 정규화 목표 높이
-  }
+  const _ns = normalizeModel(root, 1.4*ANIMAL_RUN_SCALE);
+  root.userData.animNormScale = _ns;                    // 원본 대비 배율(raw → 1.4×RUN_SCALE)
+  root.userData.animNormH     = 1.4*ANIMAL_RUN_SCALE;   // 정규화 목표 높이
   // 귀 부착 — 생성기와 같은 방식(피봇 보정 + 저장된 조정값 + 귀 전용 페인트)
   /* 🐾 귀 페인트는 표정용·감은눈용 두 장이다. 감은눈 쪽이 없으면(옛 저장본) 표정 쪽으로 폴백한다 —
      옛 def 는 귀가 한 장뿐이었고 그 그림이 두 상태 모두에 쓰였으므로 예전과 같은 결과가 된다. */
@@ -2042,7 +2030,7 @@ window.buildAnimalBase=function(def){
       wrap.userData.rigged = true;
       // 귀 까닥임 등록 — ear 본은 웨이트가 0이라 부착물 자체를 seat.bones.ear에 넣어야 움직인다.
       //   좌석이 아직 연결되기 전(동기 캐시 히트)이면 app.js 쪽 스윕이 대신 잡아준다.
-      if(typeof window.registerAnimalEar==='function') window.registerAnimalEar(root, wrap);
+      window.registerAnimalEar(root, wrap);
     });
   });
   const wrap=new THREE.Group(); wrap.add(root);
