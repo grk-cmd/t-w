@@ -152,6 +152,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
   - 실패와 «없음» 을 구분해 그린다(빈 목록 ≠ 못 불러옴).
   - 동작이 바뀌는 수정은 사용자 확인 뒤에, 동작 무변경 정리 커밋과 섞지 않는다(`docs/GIT_CONVENTION.md` 1.4).
 - localStorage 키는 `tw.` 접두사.
+- 사용자에게 보이는 **실패**(저장 · 불러오기 · 요청 실패)는 토스트 대신 `TwErrorCodes.notify('E-영역-번호', err)` — 번호는 `app/parts/shared/error-codes.js` 표에 먼저 넣고, 한 번 쓴 번호는 다시 쓰지 않는다(규칙 · 목록 `docs/ERROR_CODES.md` · 검사 `sim-error-codes`).
 - 서버 데이터는 **Firebase Realtime Database**(JSON 트리). 요금은 **내려받은 바이트**로 나온다 —
   노드를 통째로 `get`/`onValue` 하지 말고 필요한 하위 경로만 읽는다. 반복 폴링·부팅마다 전체 받기를 새로 만들지 않는다.
 - 권한 검사는 서버에 없고 규칙 파일뿐이다. 남의 데이터에 쓰는 기능을 만들면 규칙도 같이 본다.
