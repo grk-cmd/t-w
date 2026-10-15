@@ -1,7 +1,12 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 239 (typeof 존재 가드 걷기 2 — 먼저 실리는 파일이 거는 전역 · window 이름 122곳 · smoke 가 app.js 앞 파일을 진짜로 싣는다)
-대상: `sim-*.js` 240개 + `smoke.js` + `audit.py` = **242개** (개정 239 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 240 (상태를 저장해 둔 사람은 부팅 때 상태칩 모듈이 아직 없는 statusChipMod 를 읽어 app.js 가 멈추던 것 — 부팅 줄을 만드는 줄 뒤로)
+대상: `sim-*.js` 240개 + `smoke.js` + `audit.py` = **242개** (개정 240 기준 — 폴더를 센 값)
+
+**개정 240 에서 한 것 (2026-10-15 · 앱 FSD 36번 회귀 고침)**
+- 앱: `status-chip.js` 가 만드는 도중에 저장된 상태 불러오기 · `refreshMyStatusUI()` · 캐릭터 크기 복원 · `refreshCustomStatusMenuItem()` 을 불렀다. 상태(🍚 밥 먹는 중 등)를 저장해 둔 사람은 `refreshMyStatusUI` 가 점 그림자 색을 `statusChipMod.hexToRgba` 로 구하다 아직 없는 `statusChipMod` 를 읽어 던졌고, 그 뒤 app.js 가 통째로 멈췄다(focusShareMod · wardrobeMod 등이 안 만들어짐 · 동물 좌석 되만들기도 안 됨). 저장된 상태가 없으면 그 줄을 안 타서 빈 프로필 시험에는 안 보였다. 다섯 부름을 app.js 의 만드는 줄 바로 뒤로 옮기고(칩 버튼 · 메뉴가 있을 때만 — 옮기기 전과 같은 조건) deps 에서 뺐다. v0.11.3 이후(FSD 36번 · #190) 들어온 것이라 배포본에는 없다.
+- 확인: dev · 빈 프로필로 저장된 상태 없음 · meal · away · custom 네 가지를 넣고 켰다 — 고친 빌드는 예외 0 · 칩 점 색 · 제목 · 상태 값이 옮기기 전(8111b93)과 같음. 잡힌 오류까지 목록이 main 과 같다(원래 있던 isPremium TDZ 의 부른 자리 이름만 바뀜).
+- 검사: `sim-status-chip.js` — deps 38 → 33 · «만들 때 deps 함수를 되부르지 않는다» · «부팅 줄은 만드는 줄 바로 뒤» 판정과 깨 보기 둘 추가.
 
 **개정 239 에서 한 것 (2026-10-15 · typeof 가드 걷기 2 — 동작 변화 없음)**
 - 앱: 다른 파일이 거는 전역 · `window.` 이름의 존재 가드 122곳을 걷었다. 조건은 **싣는 순서로 보장되는 것만** — 그 이름을 거는 파일이 HTML 에서 쓰는 파일보다 먼저 실리고, 실을 때 바로 건다(맨 위 선언 · 맨 위(또는 바로 부르는 IIFE 안)의 window.X =). 같은 파일이면 맨 위 함수 선언(호이스팅)만. 'function' 비교는 함수 선언이거나 실제 앱에서 함수로 잰 것만. 모듈을 만드는 도중에 거는 고리(_pomoShowText 등)처럼 순서 보장이 없는 88곳은 두었다(4단계 «시작은 INIT» 때). 걷은 뒤 return 아래 남은 옛 대체 줄 1곳(_aCast)을 지움 · frame-budget 주석을 사실대로.
@@ -2007,7 +2012,7 @@
 | **sim-room-entry.js** | 95 | **cfdf46928d02** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 200 신설 · 🛰 방 서버 · 입장 · 방 개수 모듈(room-entry.js) 구조** |
 | **sim-overhead.js** | 95 | **c6af773d75bb** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 201 신설 · 💬 머리 위 말풍선 · 🏷️ 이름표 모듈(overhead.js) 구조** |
 | **sim-room-sync.js** | 95 | **c16d950bebda** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 202 신설 · 📦 방 def 전송 · poke · 자동 퇴장 · 감시견 모듈(room-sync.js) 구조** |
-| **sim-status-chip.js** | 95 | **29d003de2618** ← **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 219 받는 이름에서 initMyHome 빠짐(판정 무변경)** · **개정 203 신설 · 📍 상태칩 자리 · 팝업 · 상태 이모지 모듈(status-chip.js) 구조** |
+| **sim-status-chip.js** | 102 | **db6be6da226d** ← **개정 240 만들 때 deps 되부름 0 · 부팅 줄은 만드는 줄 바로 뒤(deps 38 → 33)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 219 받는 이름에서 initMyHome 빠짐(판정 무변경)** · **개정 203 신설 · 📍 상태칩 자리 · 팝업 · 상태 이모지 모듈(status-chip.js) 구조** |
 | **sim-premium-assets.js** | 95 | **4f5febdbfe78** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 204 신설 · 🎀 프리미엄 파츠 · 라이선스 책상 모듈(premium-assets.js) 구조** |
 | **sim-char-code.js** | 95 | **e8354246647a** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 205 신설 · 📦 캐릭터 복제 코드 모듈(char-code.js) 구조** |
 | **sim-dice-games.js** | 95 | **0e8fcdfc7c6d** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 206 신설 · 🎲 주사위 · 하루 횟수 모듈(dice-games.js) 구조** |
