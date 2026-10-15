@@ -13,7 +13,7 @@
 
 function createLicenseKey(deps){
 const licenseGateMod = deps.licenseGateMod;
-const progSettingsMod = deps.progSettingsMod;
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 설정 창 닫기
 const refreshLicenseUI = deps.refreshLicenseUI;
 const toast = deps.toast;
 document.getElementById('licenseSubmitBtn').onclick=async ()=>{
@@ -28,7 +28,7 @@ document.getElementById('licenseSubmitBtn').onclick=async ()=>{
   if(r.ok){
     toast('🎉 라이선스가 등록됐어요! 꾸미기를 이용할 수 있어요');
     refreshLicenseUI();
-    setTimeout(()=>{ progSettingsMod.closeProgramSettings(); }, 900);
+    setTimeout(()=>{ twNav.go(twNav.NAV.PROGRAM_SETTINGS_CLOSE); }, 900);
   } else {
     err.textContent = r.reason || '등록에 실패했어요'; err.style.display='block';
   }

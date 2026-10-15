@@ -1,11 +1,12 @@
-/* program-settings.js — 🏷️ 닉네임 저장(제자리 편집이 부르는 한 벌) · ⚙️ 프로그램 설정 창(열기 · 닫기 · 회사원 · 피규어 모드)
+/* program-settings.js — ⚙️ 프로그램 설정 창(열기 · 닫기 · 회사원 · 피규어 모드)
    app.js «🏷️ 닉네임 저장 — 모달이 아니라 제자리 편집이 부르는 한 벌» 구역 본문(⚙️ 프로그램 설정 창 열기 · 닫기 · 회사원 · 피규어 모드 포함)을 그대로 옮긴 모듈이다(앱 FSD 40번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다. 내 이름 도우미(getDisplayName · getUserName · setUserName)는 여러 모듈이 써서 app.js 에 있다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 14줄 —
-     FIGURE_MODE_KEY · OFFICE_MODE_KEY · figureMode · focusGateSleep · focusLevelMod · isAdmin · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFigureMode · setFocusGateSleep · setOfficeMode(…).
+     FIGURE_MODE_KEY · OFFICE_MODE_KEY · figureMode · focusGateSleep · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFigureMode · setFocusGateSleep · setOfficeMode(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 12개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: USER_NAME_MAX · closeProgramSettings · commitUserName · openProgramSettings — app.js 는 progSettingsMod.이름 으로 부른다.
+   ★ 🏷️ 닉네임 저장(USER_NAME_MAX · commitUserName)은 account/user-name.js 로 옮겼다(모듈 순환 끊기 7) — 마이홈 편집 · 내 정보가 설정 창을 바라보지 않게.
+   ★ 밖에서 부르는 이름: closeProgramSettings · openProgramSettings — app.js 는 progSettingsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwProgramSettings — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-program-settings.js */
@@ -15,47 +16,23 @@ function createProgramSettings(deps){
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
 const FIGURE_MODE_KEY = deps.FIGURE_MODE_KEY;   // 읽는 함수
 const OFFICE_MODE_KEY = deps.OFFICE_MODE_KEY;   // 읽는 함수
-const Presence = deps.Presence;
 const _applyChatSfxUI = deps._applyChatSfxUI;
 const _focusShowPush = deps._focusShowPush;
 const _lsSet = deps._lsSet;
 const chatUiMod = deps.chatUiMod;
 const figureMode = deps.figureMode;   // 읽는 함수
 const focusGateSleep = deps.focusGateSleep;   // 읽는 함수
-const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
-const getDisplayName = deps.getDisplayName;
-const getMyUserId = deps.getMyUserId;
-const getUserName = deps.getUserName;
-const isAdmin = deps.isAdmin;   // 읽는 함수
 const officeMode = deps.officeMode;   // 읽는 함수
 const purikuraUi = deps.purikuraUi;
 const refreshCharScaleForCurrentDisplay = deps.refreshCharScaleForCurrentDisplay;
 const refreshLicenseUI = deps.refreshLicenseUI;
 const refreshOfficeChipUI = deps.refreshOfficeChipUI;
 const refreshThemeUI = deps.refreshThemeUI;
-const setUserName = deps.setUserName;
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const setFigureMode = deps.setFigureMode;   // 쓰는 함수
 const setFocusGateSleep = deps.setFocusGateSleep;   // 쓰는 함수
 const setOfficeMode = deps.setOfficeMode;   // 쓰는 함수
-const USER_NAME_MAX = 12;   // ⚠️ 옛 모달은 이 값을 HTML 의 maxlength 로 들고 있었다. 이제 여기가 유일한 자리다.
-function commitUserName(raw){
-  const v = String(raw==null?'':raw).trim().slice(0, USER_NAME_MAX);
-  // 운영진처럼 보이는 이름(name-guard.js)은 저장하지 않는다 — 규칙도 프로필에서 막는다(관리자 · 이미 그 이름인 사람은 예외).
-  if(isStaffName(v) && v !== getUserName().trim() && !(typeof isAdmin() !== 'undefined' && isAdmin())){
-    toast('운영진과 헷갈리는 이름은 쓸 수 없어요');
-    return;
-  }
-  setUserName(v || '나');
-  toast('이름이 저장됐어요');
-  // ★ 마이홈 친구 목록에도 새 이름이 보이도록 프로필도 같이 갱신(마이홈 초기화 전이면 조용히 무시됨)
-  if(window.firebaseAPI && firebaseAPI.setMyProfile){ try{ firebaseAPI.setMyProfile(getMyUserId(), getDisplayName(), focusLevelMod().getFocusLevel(), focusLevelMod().myStarProfileOut()); }catch(e){} }
-  // 🏷️ 방에 들어가 있으면 친구 화면의 내 이름표도 즉시 갱신 — 예전엔 방을 다시 들어가야 바뀌었다.
-  try{ if(typeof Presence!=='undefined' && Presence.active() && Presence.setName) Presence.setName(getDisplayName()); }catch(_){}
-  const nameEl=document.getElementById('mhMyName'); if(nameEl) nameEl.textContent=getDisplayName();   // 마이홈 페이지가 열려있으면 표시도 즉시 갱신
-}
-window.commitUserName = commitUserName;
 
 /* --- 프로그램 설정(⚙️) — 라이선스 등록 UI가 이 모달의 "라이선스" 탭 안으로 들어옴, + "모니터" 탭 추가 ---
    모니터 선택은 run 모드의 focusSettingsPanel(renderMonitors)과 동일한 방식: companion.getDisplays()로
@@ -306,9 +283,7 @@ document.getElementById('progSettingsCloseBtn').onclick=()=>closeProgramSettings
 twNav.on(twNav.NAV.PROGRAM_SETTINGS, openProgramSettings);   // 🧭 꾸미기 · 라이선스 요청이 이 통로로 연다 · 닫는다
 twNav.on(twNav.NAV.PROGRAM_SETTINGS_CLOSE, closeProgramSettings);
 return {
-  USER_NAME_MAX,
   closeProgramSettings,
-  commitUserName,
   openProgramSettings,
 };
 }

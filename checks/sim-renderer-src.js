@@ -34,7 +34,8 @@ const MODULES = [
   { file: 'premium-assets.js', mod: 'premiumMod', glob: 'TwPremiumAssets', sample: 'function _wdLicenseDesks(' },   // 앱 FSD 37번
   { file: 'char-code.js', mod: 'charCodeMod', glob: 'TwCharCode', sample: 'function downloadBlob(' },   // 앱 FSD 38번
   { file: 'dice-games.js', mod: 'diceMod', glob: 'TwDiceGames', sample: 'function _diceSvg(' },   // 앱 FSD 39번
-  { file: 'program-settings.js', mod: 'progSettingsMod', glob: 'TwProgramSettings', sample: 'function commitUserName(' },   // 앱 FSD 40번
+  { file: 'user-name.js', mod: 'userNameMod', glob: 'TwUserName', sample: 'function commitUserName(' },   // 모듈 순환 끊기 7 — 설정 창에서 닉네임 저장을
+  { file: 'program-settings.js', mod: 'progSettingsMod', glob: 'TwProgramSettings', sample: 'function openProgramSettings(' },   // 앱 FSD 40번
   { file: 'chat-prefs.js', mod: 'chatPrefsMod', glob: 'TwChatPrefs', sample: 'function _clampChatOpacity(' },   // 앱 FSD 41번
   { file: 'rich-text.js', mod: 'richTextMod', glob: 'TwRichText', sample: 'function _mhImgSrcOk(' },   // 앱 FSD 42번
   { file: 'win-stack.js', mod: 'winStackMod', glob: 'TwWinStack', sample: 'function _winZOf(' },   // 앱 FSD 42번

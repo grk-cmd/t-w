@@ -4231,7 +4231,7 @@ const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwM
   mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),
   ytVideoId: (...a)=>plMod.ytVideoId(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
-  commitUserName: (...a)=>progSettingsMod.commitUserName(...a),
+  commitUserName: (...a)=>userNameMod.commitUserName(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getUserName: (...a)=>getUserName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -4244,7 +4244,7 @@ const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwM
   setMhStickerDragDist: (v)=>{ mhPageMod.setMhStickerDragDist(v); },
   isPremium: ()=>isPremium,
   isAdmin: ()=>isAdmin,
-  userNameMax: ()=>progSettingsMod.USER_NAME_MAX,
+  userNameMax: ()=>userNameMod.USER_NAME_MAX,
   myHomeSticker,
   stickerMax: mhStLayoutMod.STICKER_MAX,
   stickerImgMaxW: mhStLayoutMod.STICKER_IMG_MAX_W,
@@ -11228,29 +11228,34 @@ function getDisplayName(){ const n=getUserName(); return (n==='나' || !n.trim()
      알림. 편집 진입로가 늘어나도 저장은 **반드시 이 함수 하나만** 부를 것. */
 /* 본문은 program-settings.js 로 옮겼다(앱 FSD 40번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+/* 🏷️ 닉네임 저장 — 본문은 account/user-name.js(모듈 순환 끊기 7 — 설정 창과 떼어 마이홈 편집 · 내 정보가 설정 창을 바라보지 않게). 원래 자리라 여기서 만든다 */
+const USER_NAME_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const userNameMod = (typeof TwUserName === 'undefined') ? USER_NAME_MOD_OFF : TwUserName.createUserName({
+  Presence: Presence,
+  focusLevelMod: ()=>focusLevelMod,
+  getDisplayName: (...a)=>getDisplayName(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  getUserName: (...a)=>getUserName(...a),
+  isAdmin: ()=>isAdmin,
+  setUserName: (...a)=>setUserName(...a),
+  toast: (...a)=>toast(...a),
+});
 const PROG_SETTINGS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const progSettingsMod = (typeof TwProgramSettings === 'undefined') ? PROG_SETTINGS_MOD_OFF : TwProgramSettings.createProgramSettings({
   FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,
   OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,
-  Presence: Presence,
   _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),
   _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),
   _lsSet: (...a)=>_lsSet(...a),
   chatUiMod: chatUiMod,
   figureMode: ()=>figureMode,
   focusGateSleep: ()=>focusGateSleep,
-  focusLevelMod: ()=>focusLevelMod,
-  getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
-  getUserName: (...a)=>getUserName(...a),
-  isAdmin: ()=>isAdmin,
   officeMode: ()=>officeMode,
   purikuraUi: purikuraUi,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),
   refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),
-  setUserName: (...a)=>setUserName(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   setFigureMode: (v)=>{ figureMode = v; },
@@ -11383,7 +11388,7 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   MY_USER_ID_KEY: MY_USER_ID_KEY,
   STAR_PALETTE: ()=>focusLevelMod.STAR_PALETTE,
-  USER_NAME_MAX: progSettingsMod.USER_NAME_MAX,
+  USER_NAME_MAX: userNameMod.USER_NAME_MAX,
   _acctDetached: ()=>acctStateMod._acctDetached(),
   _charsActive: (...a)=>charsMod._charsActive(...a),
   _charsBoxGet: (...a)=>charsMod._charsBoxGet(...a),
@@ -11407,7 +11412,7 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
   _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
   _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
   closeGearMenu: (...a)=>closeGearMenu(...a),
-  commitUserName: (...a)=>progSettingsMod.commitUserName(...a),
+  commitUserName: (...a)=>userNameMod.commitUserName(...a),
   curSlot: ()=>curSlot,
   focusCycleOf: (...a)=>focusLevelMod.focusCycleOf(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
@@ -11498,7 +11503,7 @@ const adminLauncher = (typeof TwAdminLauncher === 'undefined') ? ADMIN_LAUNCHER_
 const LICENSE_KEY_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const licenseKeyMod = (typeof TwLicenseKey === 'undefined') ? LICENSE_KEY_MOD_OFF : TwLicenseKey.createLicenseKey({
   licenseGateMod: licenseGateMod,
-  progSettingsMod: progSettingsMod,
+  twNav: twNav,
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
 });
