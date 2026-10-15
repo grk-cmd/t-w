@@ -11,6 +11,7 @@
 (function(){
 
 function createMyHomeUi(deps){
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
 const FRIEND_MAX = deps.FRIEND_MAX;
 const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
 const _mhApplyVisitUI = deps._mhApplyVisitUI;
@@ -187,6 +188,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
     friendManage.refreshFriendReqBadge();
     friendManage.renderFriendManage();
   };
+  twNav.on(twNav.NAV.MY_HOME, (...a)=>window.openMyHome(...a));   // 🧭 일정 알림 · 채팅 · 방 입장이 «마이홈 열어 줘» 를 이 통로로(감싼 함수를 부를 때 찾는다)
   if(btn) btn.addEventListener('click', e=>{ e.stopPropagation(); open(); });
   if(closeBtn) closeBtn.addEventListener('click', ()=>{
     if(_mhViewingUserId()) closeFriendHomeView();   // 관람 중이었으면 우선 관람 종료 처리(내 데이터 복원)

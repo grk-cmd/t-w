@@ -2,7 +2,7 @@
    app.js «🖥️ 한 계정 한 기기 — 밀려난 기기 처리(여기서 계속 · 안내)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 46번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 1줄 —
-     roomEntryMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+     방 나가기는 창 열기 통로(nav.js)로 부탁한다(모듈 순환 끊기 6 — 예전엔 roomEntryMod 를 이름() 으로 읽었다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 1개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: _onDeviceSessionLost — app.js 는 deviceLostMod.이름 으로 부른다.
@@ -13,12 +13,12 @@
 
 function createDeviceLost(deps){
 const getMyUserId = deps.getMyUserId;
-const roomEntryMod = deps.roomEntryMod;   // 읽는 함수
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 방 나가기
 window._deviceSessionLost = false;
 function _onDeviceSessionLost(){
   if(window._deviceSessionLost) return;
   window._deviceSessionLost = true;
-  try{ if(typeof roomEntryMod().doLeaveRoom === 'function') Promise.resolve(roomEntryMod().doLeaveRoom()).catch(()=>{}); }catch(_){}
+  try{ Promise.resolve(twNav.go(twNav.NAV.LEAVE_ROOM)).catch(()=>{}); }catch(_){}
   const ov = document.getElementById('deviceSessionOverlay');
   if(ov) ov.style.display = 'flex';
 }

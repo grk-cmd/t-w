@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — device-lost.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["getMyUserId"];
-const VAL_DEPS = [];
-const GET_DEPS = ["roomEntryMod"];
+const VAL_DEPS = ["twNav"];
+const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["_onDeviceSessionLost"];
 const MOVED = ["_onDeviceSessionLost","_deviceSessionContinueHere"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  getMyUserId: (...a)=>getMyUserId(...a),","  roomEntryMod: ()=>roomEntryMod,"];
+const GLUE = ["  getMyUserId: (...a)=>getMyUserId(...a),","  twNav: twNav,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

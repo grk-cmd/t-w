@@ -2,7 +2,7 @@
    app.js «🎨 꾸미기 사이드 패널 열고 닫기(bindWardrobe)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 48번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 9줄 —
-     isAdmin · isPremium · progSettingsMod · wardrobeMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+     isAdmin · isPremium · wardrobeMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 1개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: 없음 — 만들 때 건다.
@@ -14,7 +14,7 @@
 function createWardrobePanel(deps){
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
-const progSettingsMod = deps.progSettingsMod;   // 읽는 함수
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
 const toast = deps.toast;
 const wardrobeMod = deps.wardrobeMod;   // 읽는 함수
 /* 🎨 꾸미기 사이드 패널 — 열고 닫기 + 콘텐츠 렌더 */
@@ -27,7 +27,7 @@ const wardrobeMod = deps.wardrobeMod;   // 읽는 함수
     // 프리미엄 게이트 — 라이선스 등록되어 있거나 관리자면 통과
     if(!isPremium() && !isAdmin()){
       toast('🔒 꾸미기는 라이선스 등록 후 이용할 수 있어요');
-      if(typeof progSettingsMod().openProgramSettings==='function') progSettingsMod().openProgramSettings('license');
+      twNav.go(twNav.NAV.PROGRAM_SETTINGS, 'license');
       return;
     }
     wardrobeMod().renderWardrobe();

@@ -14,6 +14,7 @@
 (function(){
 
 function createScheduler(deps){
+const twNav = deps.twNav;                       // 🧭 창 열기 통로(nav.js) — 🏠 마이홈 열기
 const getMyUserId = deps.getMyUserId;
 const getDisplayName = deps.getDisplayName;
 const viewingUserId = deps.viewingUserId;      // 👀 지금 관람 중인 친구 uid(없으면 null) — app.js 의 _mhViewingUserId
@@ -1068,7 +1069,7 @@ function renderBellList(){
   btn.onclick = ()=>{
     if(typeof closeBell==='function') closeBell();
     // 마이홈 열고 → 우편함 탭(수령함)으로 이동
-    if(typeof window.openMyHome==='function') window.openMyHome();
+    twNav.go(twNav.NAV.MY_HOME);
     /* ⚠️ 예전엔 친구 탭을 눌렀다 — 수령함이 그 탭 오른쪽 칸에 얹혀 있었기 때문이다.
        수령함이 독립 탭으로 나갔으므로 여기도 같이 옮긴다. 안 옮기면 알림을 눌러도
        친구 목록만 뜨고 정작 읽으려던 공지가 안 보인다. */
