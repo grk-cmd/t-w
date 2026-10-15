@@ -3296,8 +3296,8 @@ const plMod = (typeof TwPlaylist === 'undefined') ? PLAYLIST_OFF : TwPlaylist.cr
   lvStarStr: (...a)=>focusLevelMod.lvStarStr(...a),
   starPaint: (...a)=>lvTierMod._starPaint(...a),
   // 🏠 마이홈
-  myHomeLoaded: ()=>mhVisitMod._myHomeLoaded(),
-  myHomeData: ()=>mhVisitMod._myHomeData(),
+  myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
+  myHomeData: ()=>mhStateMod._myHomeData(),
   myHomeFriends: ()=>_myHomeFriends,
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   // 🪟 상태칩 팝업 · 창 겹침 · ESC
@@ -3755,7 +3755,7 @@ const SCHEDULER_OFF = { renderSchedCalendar(){}, renderDdays(){}, subscribeMonth
 const mhScheduler = (typeof MhScheduler === 'undefined') ? SCHEDULER_OFF : MhScheduler.createScheduler({
   getMyUserId: ()=>getMyUserId(),
   getDisplayName: ()=>getDisplayName(),
-  viewingUserId: ()=>mhVisitMod._mhViewingUserId(),
+  viewingUserId: ()=>mhStateMod._mhViewingUserId(),
   myHomeFriends: ()=>_myHomeFriends,
   toast: (...a)=>toast(...a),
   uiIconEl: (...a)=>statusChipMod.uiIconEl(...a),
@@ -3959,7 +3959,7 @@ const myHomeUiMod = (typeof TwMyHomeUi === 'undefined') ? MY_HOME_UI_MOD_OFF : T
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   _mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),
   _mhCloseStickerAnim: (...a)=>mhStLayoutMod._mhCloseStickerAnim(...a),
-  _mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
+  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _myFriendRequests: ()=>_myFriendRequests,
   _myHomeFriends: ()=>_myHomeFriends,
   _saveFailMsg: (...a)=>_saveFailMsg(...a),
@@ -3984,6 +3984,11 @@ const myHomeUiMod = (typeof TwMyHomeUi === 'undefined') ? MY_HOME_UI_MOD_OFF : T
 /* ============================================================ 🏠 마이홈 (2단계: 프로필/게시글/스티커) */
 /* 본문은 myhome-visit.js 로 옮겼다(앱 FSD 44번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+/* 🏠 마이홈 공용 상태(데이터 · 불러옴 · 계정 · 관람 중 uid · 이름)는 myhome-state.js 에 — 읽는 모듈이 친구 홈 구경을 바라보지 않게(모듈 순환 끊기 4) */
+const MH_STATE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const mhStateMod = (typeof TwMyHomeState === 'undefined') ? MH_STATE_MOD_OFF : TwMyHomeState.createMyHomeState({
+  _myHomeFriends: ()=>_myHomeFriends,
+});
 const MH_VISIT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const mhVisitMod = (typeof TwMyHomeVisit === 'undefined') ? MH_VISIT_MOD_OFF : TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,
@@ -3997,6 +4002,15 @@ const mhVisitMod = (typeof TwMyHomeVisit === 'undefined') ? MH_VISIT_MOD_OFF : T
   toast: (...a)=>toast(...a),
   setSchedDdaysVisitUnsub: (v)=>{ _schedDdaysVisitUnsub = v; },
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+  _myHomeData: ()=>mhStateMod._myHomeData(),
+  _myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
+  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
+  _mhViewingName: ()=>mhStateMod._mhViewingName(),
+  _mhHomeFromServer: (...a)=>mhStateMod._mhHomeFromServer(...a),
+  _mhViewingDisplayName: (...a)=>mhStateMod._mhViewingDisplayName(...a),
+  setMyHomeData: (v)=>{ mhStateMod.setMyHomeData(v); },
+  setMhViewingUserId: (v)=>{ mhStateMod.setMhViewingUserId(v); },
+  setMhViewingName: (v)=>{ mhStateMod.setMhViewingName(v); },
 });
 
 /* ═══ 🔬 __mhClickDiag() — "보이는데 안 눌린다"를 한 줄로 가르는 진단 ═══════════
@@ -4016,7 +4030,7 @@ const mhVisitMod = (typeof TwMyHomeVisit === 'undefined') ? MH_VISIT_MOD_OFF : T
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const MH_DIAG_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const mhDiagMod = (typeof TwMyHomeDiag === 'undefined') ? MH_DIAG_MOD_OFF : TwMyHomeDiag.createMyHomeDiag({
-  _mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
+  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
 });
 
 /* ═══ 🏠 마이홈 페이지 불러오기 · 그리기 ═══ */
@@ -4026,7 +4040,7 @@ const MH_PAGE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴
 const mhPageMod = (typeof TwMyHomePage === 'undefined') ? MH_PAGE_MOD_OFF : TwMyHomePage.createMyHomePage({
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  mhVisitMod: mhVisitMod,
+  mhStateMod: mhStateMod,
   myHomeUiMod: myHomeUiMod,
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
   richTextMod: richTextMod,
@@ -4042,8 +4056,8 @@ const asyncPromptMod = (typeof TwAsyncPrompt === 'undefined') ? ASYNC_PROMPT_MOD
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const MH_ST_LAYOUT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const mhStLayoutMod = (typeof TwMyHomeStickerLayout === 'undefined') ? MH_ST_LAYOUT_MOD_OFF : TwMyHomeStickerLayout.createMyHomeStickerLayout({
-  _mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
-  _myHomeData: ()=>mhVisitMod._myHomeData(),
+  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
+  _myHomeData: ()=>mhStateMod._myHomeData(),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
 });
@@ -4110,7 +4124,7 @@ function renderMyHomeStickers(){
       const del=document.createElement('div'); del.className='mh-sticker-del'; del.textContent='×';
       del.onclick=e=>{
         e.stopPropagation();
-        delete mhVisitMod._myHomeData().stickers[sid];
+        delete mhStateMod._myHomeData().stickers[sid];
         myHomeSticker.editEnd();
         renderMyHomeStickers(); commitMyHomePage(true);
       };
@@ -4167,8 +4181,8 @@ const myHomeSticker = (typeof TwMyHomeSticker === 'undefined') ? MYHOME_STICKER_
   mhHomeWinSize: (...a)=>mhStLayoutMod._mhHomeWinSize(...a),
   mhStickerTransform: (...a)=>mhStLayoutMod._mhStickerTransform(...a),
   mhOpenStickerAnim: (...a)=>mhStLayoutMod._mhOpenStickerAnim(...a),
-  myHomeData: ()=>mhVisitMod._myHomeData(),
-  mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
+  myHomeData: ()=>mhStateMod._myHomeData(),
+  mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   mhStickerEditSid: ()=>mhStLayoutMod._mhStickerEditSid(),
   setMhStickerEditSid: (v)=>{ mhStLayoutMod.setMhStickerEditSid(v); },
   setMhStickerDragDist: (v)=>{ mhPageMod.setMhStickerDragDist(v); },
@@ -4207,7 +4221,7 @@ const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwM
   mhSaveRT: (...a)=>richTextMod._mhSaveRT(...a),
   mhUpdateRTCount: (...a)=>richTextMod._mhUpdateRTCount(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
-  mhViewingDisplayName: (...a)=>mhVisitMod._mhViewingDisplayName(...a),
+  mhViewingDisplayName: (...a)=>mhStateMod._mhViewingDisplayName(...a),
   mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),
   ytVideoId: (...a)=>plMod.ytVideoId(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
@@ -4215,11 +4229,11 @@ const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwM
   getDisplayName: (...a)=>getDisplayName(...a),
   getUserName: (...a)=>getUserName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  myHomeData: ()=>mhVisitMod._myHomeData(),
-  mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
-  myHomeLoaded: ()=>mhVisitMod._myHomeLoaded(),
-  setMyHomeLoaded: (v)=>{ mhVisitMod.setMyHomeLoaded(v); },
-  myHomeUid: ()=>mhVisitMod._myHomeUid(),
+  myHomeData: ()=>mhStateMod._myHomeData(),
+  mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
+  myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
+  setMyHomeLoaded: (v)=>{ mhStateMod.setMyHomeLoaded(v); },
+  myHomeUid: ()=>mhStateMod._myHomeUid(),
   mhStickerDragDist: ()=>mhPageMod._mhStickerDragDist(),
   setMhStickerDragDist: (v)=>{ mhPageMod.setMhStickerDragDist(v); },
   isPremium: ()=>isPremium,
@@ -4249,8 +4263,8 @@ const guestbook = (typeof TwGuestbook === 'undefined') ? GUESTBOOK_OFF : TwGuest
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
-  mhViewingUserId: ()=>mhVisitMod._mhViewingUserId(),
-  mhViewingDisplayName: ()=>mhVisitMod._mhViewingDisplayName(),
+  mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
+  mhViewingDisplayName: ()=>mhStateMod._mhViewingDisplayName(),
   myHomeFriends: ()=>_myHomeFriends,
 });
 
@@ -4291,7 +4305,7 @@ const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi
   _chatRoomCode: (...a)=>chatLockMod._chatRoomCode(...a),
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _diceSvg: (...a)=>diceMod._diceSvg(...a),
-  _myHomeData: ()=>mhVisitMod._myHomeData(),
+  _myHomeData: ()=>mhStateMod._myHomeData(),
   _officeDemojiHtml: (...a)=>overheadMod._officeDemojiHtml(...a),
   _parseDanceCmdChain: (...a)=>iDeskMod._parseDanceCmdChain(...a),
   _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
@@ -11364,7 +11378,7 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
   _licenseSnapForPush: (...a)=>licenseGateMod._licenseSnapForPush(...a),
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
   _loginDoLogout: (...a)=>accountMod._loginDoLogout(...a),
-  _myHomeData: ()=>mhVisitMod._myHomeData(),
+  _myHomeData: ()=>mhStateMod._myHomeData(),
   _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
   _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
   closeGearMenu: (...a)=>closeGearMenu(...a),

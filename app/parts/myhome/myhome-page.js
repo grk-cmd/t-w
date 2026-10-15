@@ -14,26 +14,26 @@
 function createMyHomePage(deps){
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
-const mhVisitMod = deps.mhVisitMod;
+const mhStateMod = deps.mhStateMod;
 const myHomeUiMod = deps.myHomeUiMod;
 const renderMyHomeStickers = deps.renderMyHomeStickers;
 const richTextMod = deps.richTextMod;
 async function loadMyHomePage(){
   // ★ 마이홈2-B: 관람 중이면 절대 내 데이터로 덮어쓰지 않음 (친구 홈 데이터가 순간적으로 사라지는 버그 방지)
-  if(mhVisitMod._mhViewingUserId()) return;
+  if(mhStateMod._mhViewingUserId()) return;
   if(!window.firebaseAPI || !firebaseAPI.getMyHome){ try{ renderMyHomePage(); }catch(_){}; return; }
   try{
     const _loadUid = getMyUserId();
     const data = await firebaseAPI.getMyHome(_loadUid) || {};
-    if(mhVisitMod._mhViewingUserId()) return;   // ★ 로드가 진행되는 사이 친구 홈 관람으로 전환됐으면 덮어쓰지 않음(비동기 경쟁 방지)
+    if(mhStateMod._mhViewingUserId()) return;   // ★ 로드가 진행되는 사이 친구 홈 관람으로 전환됐으면 덮어쓰지 않음(비동기 경쟁 방지)
     if(getMyUserId() !== _loadUid) return;   // 🪪 불러오는 사이 계정이 바뀌었다 — 옛 계정 데이터를 붙들지 않는다
-    mhVisitMod.setMyHomeData(mhVisitMod._mhHomeFromServer(data));
-    mhVisitMod.setMyHomeLoaded(true);
-    mhVisitMod.setMyHomeUid(_loadUid);
+    mhStateMod.setMyHomeData(mhStateMod._mhHomeFromServer(data));
+    mhStateMod.setMyHomeLoaded(true);
+    mhStateMod.setMyHomeUid(_loadUid);
   }catch(e){
     console.warn('마이홈 페이지 로드 실패 — 기본값으로 렌더', e);
     // ★ 로드가 실패해도 마이홈이 통째로 빈 화면이 되지 않게 안전한 기본값으로라도 렌더
-    if(!mhVisitMod._myHomeData()) mhVisitMod.setMyHomeData({ avatar:null, bio:'', postTitle:'', post:'', theme:null, stickers:{}, bgm:null, bg:null });
+    if(!mhStateMod._myHomeData()) mhStateMod.setMyHomeData({ avatar:null, bio:'', postTitle:'', post:'', theme:null, stickers:{}, bgm:null, bg:null });
   }
   try{ renderMyHomePage(); }catch(e){ console.warn('마이홈 렌더 실패', e); }
 }
@@ -41,23 +41,23 @@ function renderMyHomePage(){
   // 마이홈2-B: 관람 중이면 친구 이름을 표시 (getDisplayName은 항상 내 이름을 반환)
   const nameEl=document.getElementById('mhMyName');
   if(nameEl){
-    if(mhVisitMod._mhViewingUserId()) nameEl.textContent = mhVisitMod._mhViewingDisplayName();
+    if(mhStateMod._mhViewingUserId()) nameEl.textContent = mhStateMod._mhViewingDisplayName();
     else nameEl.textContent = getDisplayName();
   }
   // 리치 텍스트 필드 로드 — 옛 저장(순수 텍스트)이면 HTML 이스케이프 후 개행만 <br>로 변환해서 호환
   try{
-    const _bioLoad = mhVisitMod._myHomeData().bio||'';
-    const _postLoad = mhVisitMod._myHomeData().post||'';
+    const _bioLoad = mhStateMod._myHomeData().bio||'';
+    const _postLoad = mhStateMod._myHomeData().post||'';
     const bioBox=document.getElementById('mhBioBox');
     if(bioBox) bioBox.innerHTML = richTextMod._mhLoadRT(_bioLoad);
     const postBox=document.getElementById('mhPostBox');
     if(postBox) postBox.innerHTML = richTextMod._mhLoadRT(_postLoad);
   }catch(e){ console.warn('[마이홈] bio/post 렌더 실패', e); }
-  const titleEl=document.getElementById('mhPostTitle'); if(titleEl) titleEl.textContent = mhVisitMod._myHomeData().postTitle || '게시글 제목';   // 비어있으면 안내 문구를 그대로 표시
+  const titleEl=document.getElementById('mhPostTitle'); if(titleEl) titleEl.textContent = mhStateMod._myHomeData().postTitle || '게시글 제목';   // 비어있으면 안내 문구를 그대로 표시
   // 툴바의 글자수 카운트 초기화
   if(typeof richTextMod._mhUpdateRTCount==='function'){ richTextMod._mhUpdateRTCount('mhBioBox'); richTextMod._mhUpdateRTCount('mhPostBox'); }
   const img=document.getElementById('mhAvatarImg'), ph=document.getElementById('mhAvatarPlaceholder');
-  if(mhVisitMod._myHomeData().avatar){ if(img){img.src=mhVisitMod._myHomeData().avatar; img.style.display='block';} if(ph) ph.style.display='none'; }
+  if(mhStateMod._myHomeData().avatar){ if(img){img.src=mhStateMod._myHomeData().avatar; img.style.display='block';} if(ph) ph.style.display='none'; }
   else { if(img) img.style.display='none'; if(ph) ph.style.display='flex'; }
   // ★ 각 렌더 단계를 개별 격리 — 한 유저의 손상된 데이터(예: 깨진 스티커/테마 값)로 한 곳이
   //   throw해도 마이홈 전체가 "빈 화면"이 되지 않게. 죽은 단계는 콘솔에 남겨 원인 추적.

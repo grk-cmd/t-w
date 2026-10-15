@@ -6,10 +6,15 @@
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 0개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: _escEditable · bringWinToFront · escRegisterWindow — app.js 는 winStackMod.이름 으로 부른다.
+   ★ 실을 때 window.__winPosResetters(창 자리 되돌리기 목록)의 처음 값을 건다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwWinStack — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-win-stack.js */
 (function(){
+
+/* 🪟 창 자리 되돌리기 목록 — 창마다(스케줄러 알림 · 플레이리스트 · 가챠 · 설정) 자기 자리 지우기를 올리고, 설정의 «창 위치 초기화» 가 다 부른다.
+   처음 값은 창 관리 이 파일 한 곳(올리는 모듈보다 먼저 싣는다 — 모듈 순환 끊기 4) */
+window.__winPosResetters = window.__winPosResetters || [];
 
 function createWinStack(deps){
 
