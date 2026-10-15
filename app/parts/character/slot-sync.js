@@ -2,10 +2,12 @@
    app.js «☁️ 슬롯(캐릭터) 기기 간 동기화» · «☁️ 연동 UI — 띠(런처) · 기기 연동 구획(계정 탭)» 두 구역의 본문을 그대로 옮긴 모듈이다
    (앱 FSD 19번 — docs/APP_FSD_MAP.md). 동작은 옮기기 전과 같다. 슬롯 저장 · 복원(saveSlots · loadSlots)은 app.js 에 남는다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 3줄 —
-     charsMod · creatorOpen 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+     creatorOpen 를 이름() 으로 읽는다(app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+   ★ 위층 보관함(chars.js)은 부르지 않는다(모듈 순환 끊기 3) — 보관함이 setCharsActiveCheck(fn) · onBackupRestored(fn) 로 건다.
+     저장 뒤 시각 · 올리기 예약은 slot-save.js 의 onSaved 에 건다 · 칸을 갈아 끼운 뒤 캐릭터 탭은 slotsReplaced() 로 알린다.
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 12개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: SLOTS_LASTSYNC_KEY · SLOTS_LOSS_KEY · SLOTS_PUSHFAIL_KEY · SLOTS_SEEN_KEY · SLOTS_SYNC_INTERVAL_MS · SLOTS_TS_KEY · SLOTS_TS_SKEW_TOL_MS · SLOT_GLB_CACHE_KEY · SLOT_IMG_FIELDS · SLOT_JSON_MAX · _slotFromServerObj · _slotGlbCacheLoad · _slotGlbCacheSave · _slotToServerObj · _slotsBackupSave · _slotsConflict · _slotsFilledCount · _slotsHasLocal · _slotsNow · _slotsPushTimer · _slotsRenderAcctSync · _slotsRenderBand · _slotsSchedulePush · _slotsSeen · _slotsTouch · _slotsTs · syncSlotsToServer — app.js 는 slotSyncMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: SLOTS_LASTSYNC_KEY · SLOTS_LOSS_KEY · SLOTS_PUSHFAIL_KEY · SLOTS_SEEN_KEY · SLOTS_SYNC_INTERVAL_MS · SLOTS_TS_KEY · SLOTS_TS_SKEW_TOL_MS · SLOT_GLB_CACHE_KEY · SLOT_IMG_FIELDS · SLOT_JSON_MAX · _slotFromServerObj · _slotGlbCacheLoad · _slotGlbCacheSave · _slotToServerObj · _slotsBackupSave · _slotsConflict · _slotsFilledCount · _slotsHasLocal · _slotsNow · _slotsPushTimer · _slotsRenderAcctSync · _slotsRenderBand · _slotsSchedulePush · _slotsSeen · _slotsTouch · _slotsTs · syncSlotsToServer · onBackupRestored · setCharsActiveCheck — app.js 는 slotSyncMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwSlotSync — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-slot-sync-mod.js */
@@ -22,16 +24,26 @@ const _roomFaceCacheSave = deps._roomFaceCacheSave;
 const _srvNow = deps._srvNow;
 const _storageFaceUrlOne = deps._storageFaceUrlOne;
 const _warnServerWriteDenied = deps._warnServerWriteDenied;
-const charsMod = deps.charsMod;   // 읽는 함수
 const creatorOpen = deps.creatorOpen;   // 읽는 함수
 const getMyUserId = deps.getMyUserId;
 const loadSlots = deps.loadSlots;
-const renderCharSlots = deps.renderCharSlots;
 const renderLauncher = deps.renderLauncher;
 const slotToObj = deps.slotToObj;
 const slots = deps.slots;
 const toast = deps.toast;
+const onSaved = deps.onSaved;
+const slotsReplaced = deps.slotsReplaced;
 const SLOTS_TS_KEY = 'deskFriends.slots.ts';
+let _charsActiveFn = ()=>false;   // 보관함이 켜졌나 — chars.js 가 건다
+function setCharsActiveCheck(fn){ _charsActiveFn = fn; }
+const _restoredFns = [];
+function onBackupRestored(fn){ _restoredFns.push(fn); }
+/* 저장본이 달라졌을 때만 시각을 찍고 올리기를 예약한다(slot-save.js 의 «저장 뒤» 알림) */
+onSaved((out, changed)=>{
+  if(!changed) return;
+  try{ _slotsTouch(); }catch(_){}
+  try{ _slotsSchedulePush(); }catch(_){}
+});
 const SLOT_GLB_CACHE_KEY = 'tw.slotGlbUrls';
 const SLOTS_SYNC_INTERVAL_MS = 30*60*1000;   // 30분 — ts 한 값 읽기라 가챠(10분)보다 드물어도 된다
 const SLOTS_PUSH_DEBOUNCE_MS = 3000;
@@ -154,9 +166,9 @@ async function restoreSlotsBackup(force){
   _slotsTouch();
   for(let i = 0; i < CHAR_SLOT_MAX; i++){ slots[i] = null; _faceEverDrawn[i] = false; _blinkEverDrawn[i] = false; }
   await loadSlots();
-  try{ if(typeof charsMod()._charsRemapDesk === 'function') charsMod()._charsRemapDesk(); }catch(_){}   // 🧬 되돌린 칸을 열쇠로 보관함과 다시 짝짓는다(켜져 있을 때만)
+  _restoredFns.forEach(fn=>{ try{ fn(); }catch(_){} });   // 🧬 되돌린 칸을 열쇠로 보관함과 다시 짝짓는다(켜져 있을 때만)
   try{ renderLauncher(); }catch(_){}
-  try{ renderCharSlots(); }catch(_){}
+  try{ slotsReplaced(); }catch(_){}
   try{ _slotsSchedulePush(); }catch(_){}
   _slotsJsonSet(SLOTS_LOSS_KEY, { kind: 'restored', to: _slotsFilledCount(bak), at: _slotsNow() });   // 🛟 띠 ③ · 계정 탭이 읽는다
   _slotsRefreshUI();
@@ -380,7 +392,7 @@ async function _slotsAdoptFromServer(srv){
   for(let i = 0; i < CHAR_SLOT_MAX; i++){ slots[i] = null; _faceEverDrawn[i] = false; _blinkEverDrawn[i] = false; }
   await loadSlots();
   try{ renderLauncher(); }catch(_){}
-  try{ renderCharSlots(); }catch(_){}
+  try{ slotsReplaced(); }catch(_){}
   let running = false;
   try{ const l = document.getElementById('launcher'); running = !(l && l.classList.contains('on')); }catch(_){}
   try{
@@ -606,7 +618,7 @@ async function syncSlotsToServer(reason, mode){
     const hasLocal = _slotsHasLocal();
     /* 🧬 캐릭터 단위가 켜진 기기(채택 뒤)는 slots 를 **올리기만** 한다(설계 §5-N-3 · 개정 36) — 옛 클라이언트가 남은 기기를 위해서.
        받기(통째 교체)와 ④ 대화상자는 chars 와 서로의 책상을 덮으므로 막는다. 모드(pull·keep-*)도 같다. */
-    if(typeof charsMod()._charsActive === 'function' && charsMod()._charsActive()){
+    if(_charsActiveFn()){
       const sTs0 = await firebaseAPI.loadSlotsTs(uid);
       if(sTs0 === null){ _slotsNoteSync(false, { why: '서버를 읽지 못했어요' }); return; }
       if(hasLocal && _slotsTs > sTs0) await _slotsPushToServer(uid);
@@ -726,6 +738,8 @@ return {
   _slotsTs: ()=>_slotsTs,   // 읽는 함수
   setSlotsTs: (v)=>{ _slotsTs = v; },   // 쓰는 함수 — app.js 가 비운다
   syncSlotsToServer,
+  onBackupRestored,
+  setCharsActiveCheck,
 };
 }
 

@@ -106,7 +106,7 @@ function mkEnv(opt){
   vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'gacha.js' });
   env.ctx = ctx; env.els = els; env.tabs = tabs;
-  env.mk = () => ctx.TwGacha.createGacha({
+  env.mk = () => { const m = ctx.TwGacha.createGacha({
     toast: (m) => env.toasts.push(m),
     srvNow: () => { if(env.srvThrows) throw new Error('시계 깨짐'); return env.srvNow || env.now; },
     warnServerWriteDenied: (w) => env.denied.push(w),
@@ -120,11 +120,8 @@ function mkEnv(opt){
     saveSlots: () => { env.saves++; },
     findMySeat: () => env.seats[0] || null,
     escHtml: (s) => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';'),
-    openPartRegister: (cat, rec) => env.regs.push({ cat, rec }),
-    syncPartRegGachaLock: () => {},
     toggleEquip: async (cat, id) => { env.equips.push(cat + ':' + id); },
     createWardrobeAdjPanel: (cat, id) => { const p = mkEl('div'); p.className = 'adj'; p.dataset.id = id; return p; },
-    deletePart: (id) => { env.deleted.push(id); env.saved = env.saved.filter(p => p.id !== id); },
     clearMultiPanelRef: () => {},
     refreshWdPreviewColorSection: () => { env.colorRefresh++; },
     updateWdGizmoForActivePanel: () => {},
@@ -145,7 +142,15 @@ function mkEnv(opt){
     slots: env.slots,
     presence: { active: () => false, updateDef(){} },
     ownedKey: 'tw.gachaOwned', tsKey: 'tw.gachaOwnedTs', bonusKey: 'tw.gachaBonus',
+    isGachaPart: (rec) => !!(rec && rec.gacha),   // 정의는 카탈로그(premium-assets.js) — 같은 한 줄
   });
+  /* 🛠 관리자 등록 · 삭제 — app.js 가 만든 뒤 setPartEditor 로 건다 */
+  m.setPartEditor({
+    openPartRegister: (cat, rec) => env.regs.push({ cat, rec }),
+    syncPartRegGachaLock: () => {},
+    deletePart: (id) => { env.deleted.push(id); env.saved = env.saved.filter(p => p.id !== id); },
+  });
+  return m; };
   env.runTimers = (max) => { let n = 0; while(env.timers.length && n++ < (max || 50)){ env.timers.sort((a, b) => a.ms - b.ms); const t = env.timers.shift(); t.fn(); } };
   return env;
 }
@@ -352,10 +357,12 @@ await sec('── 6. 뽑기 창', async () => {
 
 await sec('── 7. app.js 배선', () => {
   const code = strip(APP);
-  const defs = /function (gachaDraw|gachaPool|syncGachaToServer|pruneUnownedGachaParts|renderGachaInv|openGachaInv|closeGachaInv|toggleGachaInv|_gachaRunDraw|isGachaPart|sceneHasColorGroup|_gachaInvOpen)\(|\blet (gachaOwned|_gachaTs|_gachaBonus|_gachaTab|_gachaSelId)\b/;
+  const defs = /function (gachaDraw|gachaPool|syncGachaToServer|pruneUnownedGachaParts|renderGachaInv|openGachaInv|closeGachaInv|toggleGachaInv|_gachaRunDraw|sceneHasColorGroup|_gachaInvOpen)\(|\blet (gachaOwned|_gachaTs|_gachaBonus|_gachaTab|_gachaSelId)\b/;
   chk(!defs.test(code) && defs.test(MOD), '가챠 정의는 모듈에만');
+  chk(/^const isGachaPart = deps\.isGachaPart;/m.test(MOD) && !/function isGachaPart\(/.test(MOD) && /isGachaPart: \(\.\.\.a\)=>(premiumMod\.)?isGachaPart\(\.\.\.a\),/.test(APP), '  isGachaPart 는 카탈로그(premium-assets.js)가 정의하고 가챠는 deps 로 받는다(모듈 순환 끊기 3)');
+  chk(/gachaMod\.setPartEditor\(\{/.test(APP) && !/\b(openPartRegister|syncPartRegGachaLock|deletePart): \(\.\.\.a\)=>adminPartReg\./.test((APP.match(/TwGacha\.createGacha\(\{([\s\S]*?)\n\}\);/) || [])[1] || ''), '  관리자 등록 · 삭제는 만든 뒤 setPartEditor 로 건다 — 가챠는 관리자 모듈을 부르지 않는다');
   const code2 = code.replace(/const GACHA_OFF = \{[\s\S]*?\};/, '').replace(/\brenderGachaInv: \(\)=>/, '');   // 빈 껍데기 · 👑 달성표 deps 의 이름 칸은 뺀다
-  chk(!/(?<![\w$.])(isGachaPart|isGachaColorUnlocked|gachaCount|sceneHasColorGroup|syncGachaToServer|pruneUnownedGachaParts|renderGachaInv|toggleGachaInv|_gachaInvOpen|_gachaDrawOpen|_gachaSelId|gachaOwned|_gachaTs|_gachaBonus|_setGachaBonusLocal|GACHA_DUPES_FOR_COLOR)\b/.test(code2), '  app.js 는 옛 이름을 부르지 않는다(gachaMod.이름)');
+  chk(!/(?<![\w$.])(isGachaColorUnlocked|gachaCount|sceneHasColorGroup|syncGachaToServer|pruneUnownedGachaParts|renderGachaInv|toggleGachaInv|_gachaInvOpen|_gachaDrawOpen|_gachaSelId|gachaOwned|_gachaTs|_gachaBonus|_setGachaBonusLocal|GACHA_DUPES_FOR_COLOR)\b/.test(code2), '  app.js 는 옛 이름을 부르지 않는다(gachaMod.이름)');
   chk(/window\.TwGacha = api/.test(MOD) && (code.match(/TwGacha\.createGacha\(/g) || []).length === 1, '모듈은 window.TwGacha · 만드는 곳은 한 곳');
   const iMk = APP.indexOf('TwGacha.createGacha('), iPrev = APP.indexOf('function _starColorOk('), iWarn = APP.indexOf('async function _warnServerWriteDenied('), iTheme = APP.indexOf('/* ═══ 🎨 디자인 테마');
   chk(iPrev > 0 && iMk > iPrev && iWarn > iMk && iTheme > iWarn, '원래 자리 — 🚩 신고 · 별 색 뒤 · 🔑 쓰기 거부 안내 · 🎨 디자인 테마 앞');
@@ -366,8 +373,8 @@ await sec('── 7. app.js 배선', () => {
   const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l));   // 파츠 등록 창 셋은 adminPartReg.이름
   const getters = ['isAdmin: ()=>isAdmin,', 'savedParts: ()=>savedParts,', 'partCats: ()=>PART_CATS,', 'wdDraftDef: ()=>wdDraftDef,', 'activeWdAdj: ()=>activeWdAdj,', 'setActiveWdAdj: (v)=>{ activeWdAdj = v; },'];
   const vals = ['seats: seats,', 'slots: slots,', 'presence: Presence,', 'ownedKey: GACHA_OWNED_KEY,', 'tsKey: GACHA_TS_KEY,', 'bonusKey: GACHA_BONUS_KEY,'];
-  chk(deps.length === 40 && fnDeps.length === 28 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)),
-      'deps 40개 — 함수 28은 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋과 저장 키 셋은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  chk(deps.length === 38 && fnDeps.length === 26 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)),
+      'deps 38개 — 함수 26은 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋과 저장 키 셋은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   chk(['seats', 'slots', 'Presence'].every(n => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; }), '  seats · slots · Presence 는 만드는 줄보다 앞에 선언된 const');
   const m = strip(MOD);
   chk(!/[^.\w$](activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef)\s*=[^=]/.test(m.replace(/const (activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');
@@ -377,7 +384,7 @@ await sec('── 7. app.js 배선', () => {
     "await gachaMod.syncGachaToServer('transfer', 'pull');", 'setGachaBonusLocal: (...a)=>gachaMod.setBonusLocal(...a),', 'renderGachaInv: ()=>gachaMod.renderGachaInv(),', 'gachaBonus: ()=>gachaMod.bonus(),'];
   const callCode = code + '\n' + strip(PREG).replace(/gachaMod\(\)/g, 'gachaMod');   // 파츠 등록 창(admin-part-register.js)이 부르는 곳까지
   const miss = calls.filter(c => !callCode.includes(c));
-  chk(!miss.length && (callCode.match(/gachaMod\.isGachaPart\(/g) || []).length === 7 && (callCode.match(/gachaMod\.pruneUnownedGachaParts\(\)/g) || []).length === 3,
+  chk(!miss.length && (callCode.match(/gachaMod\.isGachaPart\(/g) || []).length === 5 && (callCode.match(/gachaMod\.pruneUnownedGachaParts\(\)/g) || []).length === 3,
       '부르는 곳 — T 키 · 꾸미기 색상 영역 · 파츠 등록 · 카탈로그 · 런처 · 로그아웃 · 연동 · 👑 달성표 (' + (miss[0] || '다 있음') + ')');
   const off = (APP.match(/const GACHA_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/gachaMod\.(\w+)/g) || []).map(s => s.split('.')[1]))];

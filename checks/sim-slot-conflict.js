@@ -116,7 +116,9 @@ function mkEnv(){
     "const clearTimeout=()=>{}; const setInterval=()=>0;",
     "const getMyUserId=()=>env.uid; const _srvNow=()=>env.now;",
     "let creatorOpen=false;",
-    "const renderLauncher=()=>{}; const renderCharSlots=()=>{};",
+    "const renderLauncher=()=>{}; const slotsReplaced=()=>{};",
+      /* «저장 뒤» 알림 자리 — slot-save.js 와 같은 모양(동기화는 이 자리에 시각 · 올리기 예약을 건다 · 모듈 순환 끊기 3) */
+      "const _savedFns=[]; function onSaved(fn){ _savedFns.push(fn); }",
     "const _warnServerWriteDenied=()=>{ env.denied++; };",
     "const _roomFaceUrlToCanvas=async(url)=>{ const d=env.urlToData.get(url); if(!d) throw new Error('없는 URL '+url); return { toDataURL:()=>d }; };",
     "const fetch=async(url)=>{ const b=env.urlToData.get(url); if(!b) return { ok:false, status:404 };" +

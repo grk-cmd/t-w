@@ -2,10 +2,10 @@
    app.js «캐릭터 꾸미기 파츠 (프리미엄)» · «라이선스 전용 책상을 꾸미기창 «책상» 탭으로» · «라이선스 없는 기기에 남은 전용 자산을 접어 둔다» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 37번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 18줄 —
-     DESK_SCALE_DEFAULT · DESK_SCALE_MAX · DESK_SCALE_MIN · Presence · cBase · gachaMod · isAdmin · isPremium · savedDesks · savedItems · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+     DESK_SCALE_DEFAULT · DESK_SCALE_MAX · DESK_SCALE_MIN · Presence · cBase · isAdmin · isPremium · savedDesks · savedItems · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 16개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · MAX_GACHA_PARTS_PER_CAT · MAX_PARTS_PER_CAT · PART_CATS · PART_GROUPS · WD_DESK_TAB · _licenseLockedDeskId · _normPartRec · _wdLicenseDesks · addEntryToCat · addPartEntryInstance · catEquippedIds · customPartCats · defaultPartXf · entriesForCat · findEntryById · firstEntryForCat · getRecHides · groupOfCat · isDeskPartCat · loadSavedParts · partAttachTarget · partCatInfo · partCatLimit · partCatOverrides · partEntryId · partEntryInstanceCount · partEntryInstances · partEntryXf · partsInCat · partsInCatFor · partsInGroup · persistSavedParts · pruneUnownedLicenseAssets · rebuildPartCats · removeEntryFromCat · removePartEntryInstance · renderWdDeskSection · reorderSavedPart · restoreLicenseHeldAssets · savedParts · setPartEntryInstanceXf · toHidesForSave · wdEar — app.js 는 premiumMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · MAX_GACHA_PARTS_PER_CAT · MAX_PARTS_PER_CAT · PART_CATS · PART_GROUPS · WD_DESK_TAB · _licenseLockedDeskId · _normPartRec · _wdLicenseDesks · addEntryToCat · addPartEntryInstance · catEquippedIds · customPartCats · defaultPartXf · entriesForCat · findEntryById · firstEntryForCat · getRecHides · groupOfCat · isDeskPartCat · isGachaPart · loadSavedParts · partAttachTarget · partCatInfo · partCatLimit · partCatOverrides · partEntryId · partEntryInstanceCount · partEntryInstances · partEntryXf · partsInCat · partsInCatFor · partsInGroup · persistSavedParts · pruneUnownedLicenseAssets · rebuildPartCats · removeEntryFromCat · removePartEntryInstance · reorderSavedPart · restoreLicenseHeldAssets · savedParts · setPartEntryInstanceXf · toHidesForSave — app.js 는 premiumMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwPremiumAssets — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-premium-assets.js */
@@ -13,172 +13,27 @@
 
 function createPremiumAssets(deps){
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
-const DESK_SCALE_DEFAULT = deps.DESK_SCALE_DEFAULT;   // 읽는 함수
-const DESK_SCALE_MAX = deps.DESK_SCALE_MAX;   // 읽는 함수
-const DESK_SCALE_MIN = deps.DESK_SCALE_MIN;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
-const _humanEarMat = deps._humanEarMat;
-const _humanEarPic = deps._humanEarPic;
 const applyDeskCatalogRefToSeat = deps.applyDeskCatalogRefToSeat;
-const applyDeskColorToCustom = deps.applyDeskColorToCustom;
-const applyDeskDotThumb = deps.applyDeskDotThumb;
 const cBase = deps.cBase;   // 읽는 함수
-const clampDeskScale = deps.clampDeskScale;
 const deskItemDef = deps.deskItemDef;
 const deskPartAnchorOf = deps.deskPartAnchorOf;
 const equipDeskItem = deps.equipDeskItem;
 const findMySeat = deps.findMySeat;
-const gachaMod = deps.gachaMod;   // 읽는 함수
-const humanEar = deps.humanEar;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
-const openAssetImport = deps.openAssetImport;
-const partPaintMod = deps.partPaintMod;
-const resolveCatalogGlb = deps.resolveCatalogGlb;
 const saveSlots = deps.saveSlots;
 const savedDesks = deps.savedDesks;   // 읽는 함수
 const savedItems = deps.savedItems;   // 읽는 함수
 const seats = deps.seats;
-const setDeskScale = deps.setDeskScale;
 const slots = deps.slots;   // 읽는 함수
-const swThumb = deps.swThumb;
 const toast = deps.toast;
-const wardrobeMod = deps.wardrobeMod;
 const WD_DESK_TAB = '__desk_model__';
-/* 🐾 «귀» 도 가상 탭이다 — 위와 같은 이유로 PART_CATS 에 안 넣는다(wd-ear.js 머리말). */
-/* 모듈이 없으면 탭이 안 보이는 빈 껍데기 — 호출하는 곳마다 null 을 묻지 않게 */
-const WD_EAR_OFF = { TAB:'__ear__', available:()=>false, isActive:()=>false, render(){}, syncGizmo(){}, hideRow:()=>false,
-  onGizmoChange(){}, scaleStep:()=>false, pickAt:()=>false, onEarAttached(){}, copyIntoDraft(){}, commit:()=>false,
-  picTarget:()=>null, setPic(){} };
-const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.createWdEar({
-  humanEar, HumanEar, doc:document,
-  getTab:()=>wardrobeMod.currentWdTab(),
-  getDraft:()=>wardrobeMod.ensureWdDraft(),
-  getPreviewRoot:()=>(wardrobeMod.wdPreviewBase() && wardrobeMod.wdPreviewBase().root) || null,
-  getGizmo:()=>{ wardrobeMod.ensureWdGizmo(); return wardrobeMod.wdGizmo(); },
-  setGizmoMode:()=>wardrobeMod.setWdGizmoMode(wardrobeMod.wdGizmoMode()),
-  earTypes:()=>window.ANIMAL_EAR_TYPES || [],
-  material:_humanEarMat,
-  decorate:(w)=>_humanEarPic(w, wardrobeMod.ensureWdDraft()),
-  isDrawing:()=>partPaintMod._wdPic.on,
-  onSynced:()=>{ try{ partPaintMod.refreshWdPicUI(); }catch(_){} },
-  toast:(m)=>{ toast(m); },
-  rerender:()=>wardrobeMod.renderWardrobe(),
-});
 function _wdLicenseDesks(){
   let list = null; try{ list = savedDesks(); }catch(_){ return []; }
   if(!list || !list.length) return [];
   return list.filter(d => d && d.licenseOnly && d.id !== DEFAULT_DESK_OVERRIDE_ID);
 }
-/* 책상 값을 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 카드와 슬라이더가 같이 쓴다. */
-function _wdApplyDeskChange(mutate){
-  const seat = findMySeat();
-  if(!seat || !seat.charDef) return null;
-  const def = seat.charDef;
-  mutate(def);
-  try{
-    if(def.deskCatalogId) applyDeskCatalogRefToSeat(seat, def);
-    else applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor});
-  }catch(_){}
-  try{ if(seat.desk){ setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1); if(def.deskColor) applyDeskColorToCustom(seat.desk, def.deskColor); } }catch(_){}
-  // 미리보기는 draft 를 본다 — 같은 값을 적어 주지 않으면 창 안에서만 옛 책상이 남는다
-  try{ if(wardrobeMod.wdDraftDef() && wardrobeMod.wdDraftDef()._srcDef === def){ wardrobeMod.wdDraftDef().deskCatalogId=def.deskCatalogId; wardrobeMod.wdDraftDef().deskScale=def.deskScale; wardrobeMod.wdDraftDef().deskLenX=def.deskLenX; wardrobeMod.wdDraftDef().deskColor=def.deskColor; wardrobeMod.wdDraftDef()[DESK_LICENSE_HOLD]=def[DESK_LICENSE_HOLD]; } }catch(_){}
-  try{ saveSlots(); }catch(_){}
-  try{ if(seat.isMe && typeof Presence()!=='undefined' && Presence().active()) Presence().updateDef(def); }catch(_){}
-  try{ if(typeof wardrobeMod.refreshWdPreviewChar==='function') wardrobeMod.refreshWdPreviewChar(); }catch(_){}
-  return def;
-}
-function renderWdDeskSection(wrap){
-  const seat = findMySeat();
-  const def  = seat && seat.charDef;
-  if(!def){
-    wrap.innerHTML='<div class="wd-empty"><span class="ic">🪑</span>캐릭터를 먼저 실행해 주세요.</div>';
-    return;
-  }
-  const list = _wdLicenseDesks();
-  const sec=document.createElement('div'); sec.className='wd-cat';
-  const head=document.createElement('div'); head.className='wd-cat-head';
-  head.innerHTML='<h3>🪑 라이선스 전용 책상</h3>';
-  const actions=document.createElement('div'); actions.className='wd-cat-head-actions';
-  const addCode=document.createElement('button'); addCode.className='wd-add-code'; addCode.textContent='+ 코드로 추가';
-  addCode.title='코드+비밀번호로 받은 책상을 이 기기에만 추가해요';
-  addCode.onclick=()=>{ openAssetImport('desk'); };
-  actions.appendChild(addCode); head.appendChild(actions); sec.appendChild(head);
-
-  const grid=document.createElement('div'); grid.className='wd-grid';
-  /* «쓰지 않음» — 전용 책상을 벗고 기본으로 돌아가는 길. 이 칸이 없으면 한 번 고른 사람이 갇힌다. */
-  const none=swThumb('기본 책상', !def.deskCatalogId, '↺');
-  none.classList.add('none-card');
-  none.onclick=()=>{ _wdApplyDeskChange(d=>{ d.deskCatalogId=null; d.deskGlb=null; }); wardrobeMod.renderWardrobe(); };
-  grid.appendChild(none);
-  list.forEach(rec=>{
-    const on=(def.deskCatalogId===rec.id);
-    const card=swThumb(rec.name||'책상', on, rec.icon||'🪑');
-    applyDeskDotThumb(rec, card);
-    card.onclick=async()=>{
-      if(def.deskCatalogId===rec.id) return;
-      if(!rec.glb && rec.glbUrl){
-        try{ await resolveCatalogGlb(rec); }catch(_){}
-      }
-      if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
-      _wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; });
-      wardrobeMod.renderWardrobe();
-    };
-    grid.appendChild(card);
-  });
-  sec.appendChild(grid);
-  if(!list.length){
-    const empty=document.createElement('div'); empty.className='wd-empty';
-    empty.innerHTML='<span class="ic">🪑</span>아직 등록된 전용 책상이 없어요.';
-    sec.appendChild(empty);
-  }
-
-  /* 기본·무료 책상이 어디 있는지 한 줄로 알려 준다 — 옮긴 뒤 «무료 책상이 사라졌다» 가 되지 않도록. */
-  const hint=document.createElement('p');
-  hint.style.cssText='margin:10px 0 0;padding:7px 9px;font-size:10.5px;line-height:1.7;color:var(--ink-soft);background:var(--win-face-2);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);';
-  hint.innerHTML='기본 책상과 무료 책상은 <b>캐릭터 만들기 › 5단계 책상</b>에서 고를 수 있어요.';
-  sec.appendChild(hint);
-
-  /* 조절 — 색·크기·길이. 위치(기즈모)는 5단계에 남긴다: 앞뒤·높이·좌우가 서로 물려 있어서
-     기즈모가 필요하고, 그것은 생성기 미리보기 카메라와 한 벌이다. */
-  const adjHead=document.createElement('div'); adjHead.className='wd-divider';
-  adjHead.innerHTML='<span>책상 조절</span><span class="wd-divider-line"></span>';
-  sec.appendChild(adjHead);
-  const box=document.createElement('div');
-  box.style.cssText='display:flex;flex-direction:column;gap:7px;padding:8px;background:var(--win-face-2);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);';
-
-  const rowColor=document.createElement('div'); rowColor.style.cssText='display:flex;align-items:center;gap:8px;';
-  const labColor=document.createElement('label'); labColor.htmlFor='wdDeskColor'; labColor.textContent='책상 색';
-  labColor.style.cssText='font-size:11px;width:56px;flex-shrink:0;';
-  const inColor=document.createElement('input'); inColor.type='color'; inColor.id='wdDeskColor';
-  inColor.value=def.deskColor||'#c9a36a';
-  inColor.style.cssText='width:46px;height:22px;padding:0;cursor:pointer;';
-  inColor.oninput=()=>{ _wdApplyDeskChange(d=>{ d.deskColor=inColor.value; }); };
-  rowColor.appendChild(labColor); rowColor.appendChild(inColor); box.appendChild(rowColor);
-
-  const mkRange=(id,label,min,max,step,val,apply)=>{
-    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px;';
-    const lab=document.createElement('label'); lab.htmlFor=id; lab.textContent=label;
-    lab.style.cssText='font-size:11px;width:56px;flex-shrink:0;';
-    const inp=document.createElement('input'); inp.type='range'; inp.id=id;
-    inp.min=min; inp.max=max; inp.step=step; inp.value=val;
-    inp.style.cssText='flex:1;min-width:0;';
-    inp.oninput=()=>apply(parseFloat(inp.value));
-    row.appendChild(lab); row.appendChild(inp); box.appendChild(row);
-  };
-  mkRange('wdDeskScale','책상 크기',DESK_SCALE_MIN(),DESK_SCALE_MAX(),0.01, def.deskScale||DESK_SCALE_DEFAULT(),
-    v=>{ _wdApplyDeskChange(d=>{ d.deskScale=clampDeskScale(v); }); });
-  mkRange('wdDeskLenX','책상 길이',0.5,2,0.05, def.deskLenX||1,
-    v=>{ _wdApplyDeskChange(d=>{ d.deskLenX=v; }); });
-
-  const posHint=document.createElement('p');
-  posHint.style.cssText='margin:0;font-size:10px;line-height:1.6;color:var(--ink-soft);';
-  posHint.textContent='책상 위치는 캐릭터 만들기 5단계의 기즈모에서 맞춰요.';
-  box.appendChild(posHint);
-  sec.appendChild(box);
-  wrap.appendChild(sec);
-}
-
 const DESK_LICENSE_HOLD = 'deskLicenseHold';
 const ITEM_LICENSE_HOLD = 'deskItemsLicenseHold';
 /* 카탈로그 조회 — savedDesks·savedItems 는 이 줄보다 아래에서 let 으로 선언된다(TDZ).
@@ -603,7 +458,8 @@ function partsInCat(cat){ return savedParts.filter(p=>p.cat===cat); }
    ⚠️ order(진열 순서)는 일부러 카테고리 전체 기준 그대로 둔다 — 두 목록 다 order 오름차순으로만
      정렬하므로 값이 계속 커지기만 하면 새 파츠는 자기 통의 맨 끝에 선다. 통마다 따로 매기면
      기존 파츠들과 번호가 겹쳐 순서가 흔들린다. */
-function partsInCatFor(cat, gacha){ return partsInCat(cat).filter(p=>!!gachaMod().isGachaPart(p) === !!gacha); }
+function isGachaPart(rec){ return !!(rec && rec.gacha); }   // 가챠 파츠인가 — 카탈로그 항목의 깃발(가챠 · 꾸미기가 같이 읽는다)
+function partsInCatFor(cat, gacha){ return partsInCat(cat).filter(p=>!!isGachaPart(p) === !!gacha); }
 function partCatLimit(gacha){ return gacha ? MAX_GACHA_PARTS_PER_CAT : MAX_PARTS_PER_CAT; }
 /* 관리자 — 같은 카테고리 안에서 드래그로 파츠 진열 순서 변경 (로컬 화면 전용) */
 function reorderSavedPart(draggedId, targetId, cat){
@@ -618,7 +474,6 @@ function reorderSavedPart(draggedId, targetId, cat){
   // 새 순서를 각 항목의 order 필드로 기록(로컬)
   catItems.forEach((p,i)=>{ p.order=i; });
   persistSavedParts();
-  wardrobeMod.renderWardrobe();
   // ★ 카탈로그(Firebase)에 등록된 적 있는 파츠만 순서를 같이 올림 — 순수 로컬 전용 파츠는 카탈로그에
   //   없는 경로라 순서만 써버리면 cat/name/glb 없는 빈 항목이 생겨서 검증에 걸림(의도적으로 제외).
   //   GLB는 다시 안 올리고 order 숫자만 가볍게 업데이트되므로 데이터 사용량 걱정 없음.
@@ -626,11 +481,12 @@ function reorderSavedPart(draggedId, targetId, cat){
     /* 🎰 가챠 파츠는 catalog/gachaParts 에 살므로 순서도 그 경로로 — 한 맵에 섞으면
        catalog/parts/{가챠id}/order 가 .validate 에 걸려 update 전체가 거부된다. */
     const orderMap={}, gachaOrderMap={};
-    catItems.forEach((p,i)=>{ if(p.fromCatalog){ (gachaMod().isGachaPart(p)?gachaOrderMap:orderMap)[p.id]=i; } });
+    catItems.forEach((p,i)=>{ if(p.fromCatalog){ (isGachaPart(p)?gachaOrderMap:orderMap)[p.id]=i; } });
     if(Object.keys(orderMap).length || Object.keys(gachaOrderMap).length){
       window.firebaseAPI.updatePartsOrder(orderMap, gachaOrderMap).catch(()=>{ toast('⚠ 순서가 온라인에는 반영 안 됐어요(인터넷 연결 확인) — 이 화면에서만 바뀐 상태예요'); });
     }
   }
+  return true;   // 바꿨다 — 꾸미기 창은 부르는 쪽(wardrobe.js)이 다시 그린다
 }
 
 return {
@@ -656,6 +512,7 @@ return {
   getRecHides,
   groupOfCat,
   isDeskPartCat,
+  isGachaPart,
   loadSavedParts,
   partAttachTarget,
   partCatInfo,
@@ -674,14 +531,12 @@ return {
   rebuildPartCats,
   removeEntryFromCat,
   removePartEntryInstance,
-  renderWdDeskSection,
   reorderSavedPart,
   restoreLicenseHeldAssets,
   savedParts: ()=>savedParts,   // 읽는 함수
   setSavedParts: (v)=>{ savedParts = v; },   // 쓰는 함수 — app.js 가 비운다
   setPartEntryInstanceXf,
   toHidesForSave,
-  wdEar,
 };
 }
 

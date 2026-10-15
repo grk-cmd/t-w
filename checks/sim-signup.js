@@ -1175,7 +1175,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     chk(G.indexOf('_switchPrepare(before, r.userCode)') > 0 && G.indexOf('_switchPrepare(before, r.userCode)') < G.indexOf('if(!_setMyUserId(r.userCode))'), '★ 구글 로그인: 정리 → uid 기록 순서');
     chk(FC.indexOf('_switchPrepare(before, r.userCode)') > 0 && FC.indexOf('_switchPrepare(before, r.userCode)') < FC.indexOf('_setMyUserId(r.userCode)'), '★ 친구 코드 로그인: 정리 → uid 기록 순서');
     chk(/'tw\.charsLinked'/.test((A.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || ''), '  F 표시는 로그아웃 목록에 (다음 사람에게 띄우지 않는다)');
-    chk(/_charsBoot\('boot'\)\.then\(r => \{ if\(r && r\.ok\) _charsLinkedMaybeShow\(\); \}/.test(A), '  F 는 부팅 _charsBoot 가 성공한 뒤에만');
+    chk(/_charsBoot\('boot'\)\.then\(r => \{ if\(r && r\.ok\) _bootLinkedFns\.forEach\(fn=>fn\(\)\); \}/.test(A) && /onBootLinked\(\(\)=>(accountMod\.)?_charsLinkedMaybeShow\(\)\)/.test(A), '  F 는 부팅 _charsBoot 가 성공한 뒤에만(보관함 onBootLinked 에 계정이 건다)');
     chk(/#needLoginOverlay, #charsLinkedOverlay/.test(A), '  F 창이 클릭 통과 목록(UI_HIT_SEL)에');
     /* 마크업 */
     const ids = ['charsLinkedOverlay','clCount','clCodeWrap','clCode','clThumbs','clCnt','clBox','clSplit','clFull','clNote','clOpen','clOk'];

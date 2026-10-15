@@ -2,10 +2,13 @@
    app.js «💾 슬롯 저장 · 복원(localStorage)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 43번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 4줄 —
-     _blankFaceConfirmed · charsMod · slotSyncMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setBlankFaceConfirmed(…).
+     _blankFaceConfirmed 를 이름() 으로 읽는다(app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setBlankFaceConfirmed(…).
+   ★ 저장 · 복원 뒤 할 일은 위층(동기화 · 보관함 · 꾸미기 · 프리미엄 · 설정 화면)을 직접 부르지 않고 알림으로 내보낸다(모듈 순환 끊기 3) —
+     onSaved(fn(out, changed)) · onLoaded(fn) · onSeatRelinked(fn(old, cur)) · onSlotsReplaced(fn) 에 위층이 건다. 거는 차례대로 부른다.
+     slotsReplaced() 는 동기화 · 보관함이 서버 것으로 칸을 갈아 끼운 뒤 부른다(캐릭터 탭 다시 그리기).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 5개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: LS_KEY · _relinkSeatsToSlots · loadSlots · saveSlots · slotToObj — app.js 는 slotSaveMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: LS_KEY · _relinkSeatsToSlots · loadSlots · onLoaded · onSaved · onSeatRelinked · onSlotsReplaced · saveSlots · slotToObj · slotsReplaced — app.js 는 slotSaveMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwSlotSave — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-slot-save.js */
@@ -18,16 +21,18 @@ const _blinkEverDrawn = deps._blinkEverDrawn;
 const _faceEverDrawn = deps._faceEverDrawn;
 const _isBlankDraw = deps._isBlankDraw;
 const charDef = deps.charDef;
-const charsMod = deps.charsMod;   // 읽는 함수
 const loadImg = deps.loadImg;
 const newCanvas = deps.newCanvas;
-const premiumMod = deps.premiumMod;
 const seats = deps.seats;
-const slotSyncMod = deps.slotSyncMod;   // 읽는 함수
 const slots = deps.slots;
 const toast = deps.toast;
-const wardrobeMod = deps.wardrobeMod;
 const setBlankFaceConfirmed = deps.setBlankFaceConfirmed;   // 쓰는 함수
+const _savedFns = [], _loadedFns = [], _relinkFns = [], _replacedFns = [];
+function onSaved(fn){ _savedFns.push(fn); }
+function onLoaded(fn){ _loadedFns.push(fn); }
+function onSeatRelinked(fn){ _relinkFns.push(fn); }
+function onSlotsReplaced(fn){ _replacedFns.push(fn); }
+function slotsReplaced(){ _replacedFns.forEach(fn=>{ try{ fn(); }catch(_){} }); }
 /* --- 저장/복원 (localStorage). 로컬 실행·Electron에선 동작, 챗 미리보기 샌드박스에선 무시됨 --- */
 const LS_KEY='deskFriends.slots.v1';
 /* 캔버스 → dataURL. 이미 dataURL 문자열이면 그대로 통과시킨다(네트워크에서 온 def 등).
@@ -55,7 +60,7 @@ function _relinkSeatsToSlots(oldSlots, skip){
       const old = oldSlots[s.slot], cur = slots[s.slot];
       if(!cur || s.charDef !== old || old === cur) return;
       s.charDef = cur;
-      if(wardrobeMod.wdDraftDef() && wardrobeMod.wdDraftDef()._srcDef === old) wardrobeMod.wdDraftDef()._srcDef = cur;   // 열린 꾸미기 초안도 새 객체로 저장되게
+      _relinkFns.forEach(fn=>fn(old, cur));   // 열린 꾸미기 초안도 새 객체로 저장되게
     });
   }catch(e){ console.warn('[슬롯] 좌석 다시 잇기 실패', e); }
 }
@@ -115,14 +120,10 @@ function saveSlots(){
   try{ _str = JSON.stringify(out); }catch(_){ _str = null; }
   try{ if(_str !== null) localStorage.setItem(LS_KEY, _str); }
   catch(e){ console.warn('[슬롯] 저장 실패', e); }
-  if(_str !== null && _str !== prevRaw){
-    try{ if(typeof slotSyncMod()._slotsTouch === 'function') slotSyncMod()._slotsTouch(); }catch(_){}
-    try{ if(typeof slotSyncMod()._slotsSchedulePush === 'function') slotSyncMod()._slotsSchedulePush(); }catch(_){}
-    /* 🧬 캐릭터 단위 — 켜져 있고 채택을 마친 기기면 cid 로 맞대어 고친 마리만 dirty(개정 36 · 꺼져 있으면 즉시 돌아온다). */
-  }
-  /* 🧬 캐릭터 단위 — 켜져 있고 채택을 마친 기기면 cid 로 맞대어 고친 마리만 dirty(개정 36 · 꺼져 있으면 즉시 돌아온다).
-     안 달라진 저장에서도 부른다 — 기준(h)이 빈 항목을 잡는 데만 쓴다(_charsAfterSave 주석). */
-  try{ if(typeof charsMod()._charsAfterSave === 'function') charsMod()._charsAfterSave(out, _str !== null && _str !== prevRaw); }catch(_){}
+  /* 달라졌을 때만 동기화가 시각을 찍고 올리기를 예약한다(slot-sync.js). 보관함(chars.js)은 안 달라진 저장에서도 받는다 —
+     기준(h)이 빈 항목을 잡는 데만 쓴다(_charsAfterSave 주석). */
+  const _changed = _str !== null && _str !== prevRaw;
+  _savedFns.forEach(fn=>{ try{ fn(out, _changed); }catch(_){} });
   if(_rescued.length){
     console.warn('[슬롯] 🛡️ 빈 그림이 저장되려 해서 막았습니다 — '+_rescued.join(' · ')
       +' / 저장된 원본은 그대로입니다. 화면이 비어 보이면 앱을 다시 켜면 원본이 돌아옵니다.');
@@ -177,17 +178,21 @@ async function loadSlots(){let raw;try{raw=localStorage.getItem(LS_KEY);}catch(e
   if(_brokenSlots){ try{ toast('얼굴 이미지를 못 불러온 캐릭터가 있어요 — 저장된 원본은 그대로 지켜뒀어요'); }catch(_){} }
   /* 🪑 [제보 2] 저장값에 남아 있던 전용 책상·아이템을 여기서 접는다. 복원(32179)은 예전부터
      deskCatalogId 를 조건 없이 그대로 싣는다 — 라이선스 검사가 없던 세 입구 중 하나다.
-     ★ 부팅 순서상 카탈로그가 아직 안 왔으면 물러나고, 그때는 도착 콜백이 다시 부른다. */
-  try{ if(typeof premiumMod.pruneUnownedLicenseAssets === 'function') premiumMod.pruneUnownedLicenseAssets(); }
-  catch(e){ console.warn('[라이선스] 슬롯 복원 후 정리 실패', e); }
+     ★ 부팅 순서상 카탈로그가 아직 안 왔으면 물러나고, 그때는 도착 콜백이 다시 부른다. 접는 일은 premium-assets.js 가 onLoaded 로 받는다. */
+  _loadedFns.forEach(fn=>{ try{ fn(); }catch(e){ console.warn('[라이선스] 슬롯 복원 후 정리 실패', e); } });
 }
 
 return {
   LS_KEY,
   _relinkSeatsToSlots,
   loadSlots,
+  onLoaded,
+  onSaved,
+  onSeatRelinked,
+  onSlotsReplaced,
   saveSlots,
   slotToObj,
+  slotsReplaced,
 };
 }
 

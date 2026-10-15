@@ -57,6 +57,7 @@ const savedParts = deps.savedParts;   // 읽는 함수
 const wdGizmo = deps.wdGizmo;   // 읽는 함수
 const wdPreviewBase = deps.wdPreviewBase;   // 읽는 함수
 const setSavedParts = deps.setSavedParts;   // 파츠 삭제가 목록을 바꿔 끼운다
+const setAdminPartActions = deps.setAdminPartActions;
 /* 🗂️ 카탈로그 파츠 노드가 담는 필드의 **단일 목록**과 그 페이로드를 만드는 유일한 함수.
    [왜 있는가] `publishPart` 는 set() = **노드 전체 교체**다. 페이로드에 안 실은 필드는
      서버에서 **그냥 사라진다.** 그런데 로컬 rec 는 안 사라지므로 **관리자 화면만 멀쩡하고
@@ -494,6 +495,7 @@ function openDeskRegister(kind, editId){
 document.getElementById('deskRegBtn').onclick=()=>openDeskRegister('desk',null);
 document.getElementById('itemRegBtn').onclick=()=>openDeskRegister('item',null);
 
+setAdminPartActions({ openPartRegister, deletePart });   // 꾸미기 창의 [+ 등록] · × · 더블클릭
 return { openPartRegister, openDeskRegister, deletePart, buildPartPublishData, syncPartRegGachaLock,
          PART_PUBLISH_FIELDS };   // 검사용 — sim-publish-fields 가 배포 목록과 rec 필드를 대조한다
 }

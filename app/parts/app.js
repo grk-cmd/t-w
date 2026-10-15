@@ -317,7 +317,7 @@ function _attachHumanEars(root, def){
     humanEar.attachFromDef(root, def, { material:_humanEarMat,
       onAttach:(w)=>{
         _humanEarPic(w, def);
-        try{ premiumMod.wdEar.onEarAttached(root); }catch(_){}
+        try{ wardrobeMod.wdEar.onEarAttached(root); }catch(_){}
         /* 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 '머리 꼭대기' 는 귀 없던 값이다 */
         try{ const _s = seats.find(x=>x.modelRoot === root); if(_s){ _syncHumanEarRig(_s); rideBenchMod._remeasureRideHeadTop(_s); } }catch(_){}
       } });
@@ -3588,7 +3588,6 @@ const wardrobeMod = (typeof TwWardrobe === 'undefined') ? WARDROBE_MOD_OFF : TwW
   _wdLicenseDesks: (...a)=>premiumMod._wdLicenseDesks(...a),
   addEntryToCat: (...a)=>premiumMod.addEntryToCat(...a),
   addPartEntryInstance: (...a)=>premiumMod.addPartEntryInstance(...a),
-  adminPartReg: ()=>adminPartReg,
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
   applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),
   applyHueTint: (...a)=>applyHueTint(...a),
@@ -3627,7 +3626,6 @@ const wardrobeMod = (typeof TwWardrobe === 'undefined') ? WARDROBE_MOD_OFF : TwW
   pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),
   removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
   removePartEntryInstance: (...a)=>premiumMod.removePartEntryInstance(...a),
-  renderWdDeskSection: (...a)=>premiumMod.renderWdDeskSection(...a),
   reorderSavedPart: (...a)=>premiumMod.reorderSavedPart(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   savedParts: ()=>premiumMod.savedParts(),
@@ -3636,7 +3634,21 @@ const wardrobeMod = (typeof TwWardrobe === 'undefined') ? WARDROBE_MOD_OFF : TwW
   slots: ()=>slots,
   toast: (...a)=>toast(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
-  wdEar: ()=>premiumMod.wdEar,
+  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
+  DESK_SCALE_DEFAULT: ()=>DESK_SCALE_DEFAULT,
+  DESK_SCALE_MAX: ()=>DESK_SCALE_MAX,
+  DESK_SCALE_MIN: ()=>DESK_SCALE_MIN,
+  _humanEarMat: (...a)=>_humanEarMat(...a),
+  _humanEarPic: (...a)=>_humanEarPic(...a),
+  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),
+  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
+  applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),
+  clampDeskScale: (...a)=>clampDeskScale(...a),
+  humanEar: humanEar,
+  resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),
+  setDeskScale: (...a)=>setDeskScale(...a),
+  swThumb: (...a)=>swThumb(...a),
 });
 function buildFreeColorPicker(...a){ return wardrobeMod.buildFreeColorPicker(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 /* ═══ 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(commitWdDraft) · 색 영역 ═══ */
@@ -3689,7 +3701,7 @@ const partPaintMod = (typeof TwPartPaint === 'undefined') ? PART_PAINT_MOD_OFF :
   updateWdCam: (...a)=>wardrobeMod.updateWdCam(...a),
   updateWdGizmoForActivePanel: (...a)=>wardrobeMod.updateWdGizmoForActivePanel(...a),
   wdCam: ()=>wardrobeMod.wdCam(),
-  wdEar: ()=>premiumMod.wdEar,
+  wdEar: ()=>wardrobeMod.wdEar,
   wdGizmo: ()=>wardrobeMod.wdGizmo(),
   wdPreviewBase: ()=>wardrobeMod.wdPreviewBase(),
 });
@@ -4714,37 +4726,21 @@ function _hsvToHex(h, sv, v){
 const PREMIUM_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const premiumMod = (typeof TwPremiumAssets === 'undefined') ? PREMIUM_MOD_OFF : TwPremiumAssets.createPremiumAssets({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
-  DESK_SCALE_DEFAULT: ()=>DESK_SCALE_DEFAULT,
-  DESK_SCALE_MAX: ()=>DESK_SCALE_MAX,
-  DESK_SCALE_MIN: ()=>DESK_SCALE_MIN,
   Presence: ()=>Presence,
-  _humanEarMat: (...a)=>_humanEarMat(...a),
-  _humanEarPic: (...a)=>_humanEarPic(...a),
   applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),
-  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
-  applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),
   cBase: ()=>cBase,
-  clampDeskScale: (...a)=>clampDeskScale(...a),
   deskItemDef: (...a)=>deskItemDef(...a),
   deskPartAnchorOf: (...a)=>deskPartAnchorOf(...a),
   equipDeskItem: (...a)=>equipDeskItem(...a),
   findMySeat: (...a)=>findMySeat(...a),
-  gachaMod: ()=>gachaMod,
-  humanEar: humanEar,
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
-  openAssetImport: (...a)=>openAssetImport(...a),
-  partPaintMod: partPaintMod,
-  resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   savedDesks: ()=>commissionMod.savedDesks(),
   savedItems: ()=>commissionMod.savedItems(),
   seats: seats,
-  setDeskScale: (...a)=>setDeskScale(...a),
   slots: ()=>slots,
-  swThumb: (...a)=>swThumb(...a),
   toast: (...a)=>toast(...a),
-  wardrobeMod: wardrobeMod,
 });
 /* ═══ 🎨 꾸미기 창 그리기(renderWardrobe) · 파츠 착용(toggleEquip) ═══ */
 /* (앱 FSD 29번) 이 자리의 본문도 wardrobe.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -4797,6 +4793,7 @@ const adminPartReg = (typeof TwAdminPartRegister === 'undefined') ? ADMIN_PART_R
   wdGizmo: ()=>wardrobeMod.wdGizmo(),
   wdPreviewBase: ()=>wardrobeMod.wdPreviewBase(),
   setSavedParts: (v)=>{ premiumMod.setSavedParts(v); },
+  setAdminPartActions: wardrobeMod.setAdminPartActions,
 });
 
 /* ═══ 🫧 상태 이모지 그림 · UI 아이콘 · 책상 위 이모지 ═══ */
@@ -11593,17 +11590,18 @@ const slotSaveMod = (typeof TwSlotSave === 'undefined') ? SLOT_SAVE_MOD_OFF : Tw
   _faceEverDrawn: _faceEverDrawn,
   _isBlankDraw: (...a)=>_isBlankDraw(...a),
   charDef: (...a)=>charDef(...a),
-  charsMod: ()=>charsMod,
   loadImg: (...a)=>loadImg(...a),
   newCanvas: (...a)=>newCanvas(...a),
-  premiumMod: premiumMod,
   seats: seats,
-  slotSyncMod: ()=>slotSyncMod,
   slots: slots,
   toast: (...a)=>toast(...a),
-  wardrobeMod: wardrobeMod,
   setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },
 });
+/* 슬롯 저장 · 복원 뒤 할 일 — 이 모듈보다 먼저 만들어지는 위층(프리미엄 · 꾸미기 · 설정 화면)은 여기서 건다.
+   동기화 · 보관함은 자기를 만들 때 스스로 건다(slot-sync.js · chars.js). */
+slotSaveMod.onLoaded(()=>premiumMod.pruneUnownedLicenseAssets());
+slotSaveMod.onSeatRelinked((old, cur)=>wardrobeMod.relinkDraftSrc(old, cur));
+slotSaveMod.onSlotsReplaced(()=>settingsMod.renderCharSlots());
 function saveSlots(...a){ return slotSaveMod.saveSlots(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 
 /* ═══ ☁️ 슬롯(캐릭터) 기기 간 동기화 — 2026-09-16 제보 6-b «캐릭터가 집 PC 에 없음» ═══════════
@@ -11649,15 +11647,15 @@ const slotSyncMod = (typeof TwSlotSync === 'undefined') ? SLOT_SYNC_MOD_OFF : Tw
   _srvNow: (...a)=>roomSyncMod._srvNow(...a),
   _storageFaceUrlOne: (...a)=>roomSyncMod._storageFaceUrlOne(...a),
   _warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),
-  charsMod: ()=>charsMod,
   creatorOpen: ()=>creatorOpen,
   getMyUserId: (...a)=>getMyUserId(...a),
   loadSlots: (...a)=>slotSaveMod.loadSlots(...a),
-  renderCharSlots: (...a)=>settingsMod.renderCharSlots(...a),
   renderLauncher: (...a)=>renderLauncher(...a),
   slotToObj: (...a)=>slotSaveMod.slotToObj(...a),
   slots: slots,
   toast: (...a)=>toast(...a),
+  onSaved: slotSaveMod.onSaved,
+  slotsReplaced: slotSaveMod.slotsReplaced,
 });
 
 /* ═══ ☁️ [2026-09-20 · 3-7-2 시안 확정] 연동 UI — 띠(런처) · 기기 연동 구획(계정 탭) · ④ 충돌 대화상자 ═══
@@ -11696,7 +11694,6 @@ const charsMod = (typeof TwChars === 'undefined') ? CHARS_MOD_OFF : TwChars.crea
   SLOT_IMG_FIELDS: slotSyncMod.SLOT_IMG_FIELDS,
   SLOT_JSON_MAX: slotSyncMod.SLOT_JSON_MAX,
   _blinkEverDrawn: _blinkEverDrawn,
-  _charsLinkedMaybeShow: (...a)=>accountMod._charsLinkedMaybeShow(...a),
   _faceEverDrawn: _faceEverDrawn,
   _quickHash: (...a)=>roomSyncMod._quickHash(...a),
   _relinkSeatsToSlots: (...a)=>slotSaveMod._relinkSeatsToSlots(...a),
@@ -11712,12 +11709,16 @@ const charsMod = (typeof TwChars === 'undefined') ? CHARS_MOD_OFF : TwChars.crea
   _slotsTs: ()=>slotSyncMod._slotsTs(),
   creatorOpen: ()=>creatorOpen,
   loadSlots: (...a)=>slotSaveMod.loadSlots(...a),
-  renderCharSlots: (...a)=>settingsMod.renderCharSlots(...a),
   renderLauncher: (...a)=>renderLauncher(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   slots: slots,
   toast: (...a)=>toast(...a),
+  onSaved: slotSaveMod.onSaved,
+  onBackupRestored: slotSyncMod.onBackupRestored,
+  setCharsActiveCheck: slotSyncMod.setCharsActiveCheck,
+  slotsReplaced: slotSaveMod.slotsReplaced,
 });
+charsMod.onBootLinked(()=>accountMod._charsLinkedMaybeShow());   // 부팅 채택 뒤 «연동됨» 안내 — 계정이 보관함보다 먼저 만들어져 여기서 건다
 
 /* ═══════════ 🧬 이관 — slots → chars (회원가입 설계 §5-N-2 · 2026-09-21 · 개정 33 · 아직 아무도 안 부른다) ═══════════
    [무엇인가] 5칸 저장본(서버 slots · slotsPrev · 이 기기 LS_KEY)에 있는 마리들에게 cid 를 붙여 chars 모양으로 옮긴다.
@@ -13805,7 +13806,7 @@ const GACHA_TS_KEY    = 'tw.gachaOwnedTs';   // 이 기기가 마지막으로 ga
 const GACHA_BONUS_KEY = 'tw.gachaBonus';     // 👑달성표 주간 보상으로 얹힌 추가 뽑기 횟수
 const GACHA_OFF = { isGachaPart:()=>false, isGachaColorUnlocked:()=>false, gachaCount:()=>0, sceneHasColorGroup:()=>true, DUPES_FOR_COLOR:4,
   syncGachaToServer(){}, pruneUnownedGachaParts(){}, renderGachaInv(){}, toggleGachaInv(){}, isInvOpen:()=>false, isDrawOpen:()=>false,
-  selId:()=>null, owned:()=>({}), bonus:()=>0, setBonusLocal(){}, resetMemory(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
+  selId:()=>null, owned:()=>({}), bonus:()=>0, setBonusLocal(){}, resetMemory(){}, setPartEditor(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
 const gachaMod = (typeof TwGacha === 'undefined') ? GACHA_OFF : TwGacha.createGacha({
   toast: (...a)=>toast(...a),
   srvNow: (...a)=>roomSyncMod._srvNow(...a),
@@ -13820,11 +13821,8 @@ const gachaMod = (typeof TwGacha === 'undefined') ? GACHA_OFF : TwGacha.createGa
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   findMySeat: (...a)=>findMySeat(...a),
   escHtml: (...a)=>escHtml(...a),
-  openPartRegister: (...a)=>adminPartReg.openPartRegister(...a),
-  syncPartRegGachaLock: (...a)=>adminPartReg.syncPartRegGachaLock(...a),
   toggleEquip: (...a)=>wardrobeMod.toggleEquip(...a),
   createWardrobeAdjPanel: (...a)=>wardrobeMod.createWardrobeAdjPanel(...a),
-  deletePart: (...a)=>adminPartReg.deletePart(...a),
   clearMultiPanelRef: (...a)=>wardrobeMod._clearMultiPanelRef(...a),
   refreshWdPreviewColorSection: (...a)=>wardrobeMod.refreshWdPreviewColorSection(...a),
   updateWdGizmoForActivePanel: (...a)=>wardrobeMod.updateWdGizmoForActivePanel(...a),
@@ -13847,6 +13845,13 @@ const gachaMod = (typeof TwGacha === 'undefined') ? GACHA_OFF : TwGacha.createGa
   ownedKey: GACHA_OWNED_KEY,
   tsKey: GACHA_TS_KEY,
   bonusKey: GACHA_BONUS_KEY,
+  isGachaPart: (...a)=>premiumMod.isGachaPart(...a),
+});
+/* 🛠 가챠 보관함의 관리자 등록 · 삭제 — 관리자 모듈이 가챠보다 먼저 만들어져 여기서 건다(가챠는 관리자 모듈을 부르지 않는다) */
+gachaMod.setPartEditor({
+  openPartRegister: (...a)=>adminPartReg.openPartRegister(...a),
+  syncPartRegGachaLock: (...a)=>adminPartReg.syncPartRegGachaLock(...a),
+  deletePart: (...a)=>adminPartReg.deletePart(...a),
 });
 
 /* 🔑 [2026-09-12 제보] «서버가 조용히 거부하는 기기» ══════════════════════════════
