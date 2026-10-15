@@ -1,11 +1,12 @@
-/* myhome-visit.js — 🏠 마이홈 2단계 — 내 마이홈 데이터(_myHomeData) · 👀 친구 홈 구경(openFriendHomeView · closeFriendHomeView)
+/* myhome-visit.js — 🏠 마이홈 2단계 — 👀 친구 홈 구경(openFriendHomeView · closeFriendHomeView)
    app.js «🏠 마이홈 2단계 — 내 마이홈 데이터(_myHomeData) · 👀 친구 홈 구경(openFriendHomeView · closeFriendHomeView)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 44번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 7줄 —
      _myHomeFriends · _schedDdaysVisitUnsub · myHomeOpen 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setSchedDdaysVisitUnsub · setMyHomeOpen(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 5개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: _mhApplyVisitUI · _mhHomeFromServer · _mhViewingDisplayName · _mhViewingUserId · _myHomeData · _myHomeLoaded · _myHomeUid · closeFriendHomeView · openFriendHomeView — app.js 는 mhVisitMod.이름 으로 부른다.
+   ★ 마이홈 공용 상태(데이터 · 불러옴 · 계정 · 관람 중 uid · 이름)는 myhome-state.js 로 옮겼다(모듈 순환 끊기 4) — 읽는 함수 · 쓰는 함수로 받는다.
+   ★ 밖에서 부르는 이름: _mhApplyVisitUI · closeFriendHomeView · openFriendHomeView — app.js 는 mhVisitMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwMyHomeVisit — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-myhome-visit.js */
@@ -23,51 +24,20 @@ const renderMyHomePage = deps.renderMyHomePage;
 const toast = deps.toast;
 const setSchedDdaysVisitUnsub = deps.setSchedDdaysVisitUnsub;   // 쓰는 함수
 const setMyHomeOpen = deps.setMyHomeOpen;   // 쓰는 함수
-let _myHomeData = { avatar:null, bio:'', postTitle:'', post:'', stickers:{}, bgm:null, bg:null, theme:null };
-/* 서버에서 받은 users/{uid}/home 을 _myHomeData 모양으로 옮긴다 — 내 홈 · 친구 홈 둘 다 여기를 탄다.
-   ⚠️ 저장(saveMyHome)은 _myHomeData 를 홈 노드에 **통째로 set** 한다. 여기서 빠진 칸은 화면에서만
-     안 보이는 게 아니라 다음 저장 때 서버에서도 지워진다. _myHomeData 에 새 칸을 만들면 여기에도 넣을 것.
-     (👑 디자인 프리셋 themePresets · themePresetCur 가 빠져 있어서, 이름을 바꿔도 다시 열면 1 2 3 으로
-     돌아가고 담아 둔 색까지 사라졌다 — sim-myhome-load.js) */
-function _mhHomeFromServer(data){
-  data = data || {};
-  return { avatar:data.avatar||null, bio:data.bio||'', postTitle:data.postTitle||'', post:data.post||'',
-    theme:data.theme||null,
-    stickers:data.stickers||{}, bgm:data.bgm||null, bg:data.bg||null,
-    themePresets:data.themePresets||null,
-    themePresetCur:(data.themePresetCur!=null ? data.themePresetCur : null) };
-}
-let _myHomeLoaded = false;
-/* 🪪 [2026-10-08 제보 #2] 마이홈을 **어느 계정 코드로** 불러왔는가. 저장 때 지금 코드와 다르면 거부한다.
-   [가설] 계정 탭에서 다른 계정으로 갈아탄 뒤 재시작 전에 자동 저장(창 닫기 · 탭 전환)이 돌면, 먼저 불러온
-     **옛 계정의 마이홈(빈 데이터일 수 있다)** 이 새 계정 users/{코드}/home 에 통째로 덮어써졌다.
-     _myHomeLoaded 하나로는 «불러왔다» 만 알고 «누구 것을» 은 몰랐다. */
-let _myHomeUid = null;
-
-// ★ 마이홈2-B: 친구 마이홈 관람 모드 — null이면 내 마이홈, 아니면 그 유저의 홈을 읽기전용으로 표시.
-//   내 홈 데이터는 백업해뒀다가 관람 종료 시 복원(불필요한 firebase 재로드 방지).
-let _mhViewingUserId = null;
-/* 🏷️ 관람 중인 마이홈 주인의 이름 — 친구 목록에 없는 사람을 위한 자리.
-   [경위] 타이틀·프로필 닉네임·방명록 제목 세 곳이 각자 _myHomeFriends[uid] 를 뒤졌다.
-     친구 목록을 통한 방문(친구 아바타 클릭·좌석 우클릭)에서는 맞지만, 🎵 파도타기는
-     '친구가 아니어도 들어갈 수 있는' 경로라(요청 사양) 조회가 늘 비어서 폴백 '친구' 가
-     그대로 화면에 떴다 — "닉네임이 친구로 나온다"는 제보가 이것이다. */
-let _mhViewingName = null;
-/* 세 곳이 반드시 같은 값을 보게 하는 단일 창구. 우선순위:
-     ① 친구 목록(실시간 구독이라 가장 최신) → ② 진입할 때 받은 이름 힌트 → ③ 서버 조회 결과
-   폴백 '친구' 는 셋 다 실패했을 때만 남는다. */
-function _mhViewingDisplayName(){
-  if(!_mhViewingUserId) return '';
-  const f = _myHomeFriends()[_mhViewingUserId];
-  if(f && f.name) return f.name;
-  if(_mhViewingName) return _mhViewingName;
-  return '친구';
-}
+const _myHomeData = deps._myHomeData;   // 읽는 함수 — 마이홈 공용 상태(myhome-state.js)
+const _myHomeLoaded = deps._myHomeLoaded;   // 읽는 함수
+const _mhViewingUserId = deps._mhViewingUserId;   // 읽는 함수
+const _mhViewingName = deps._mhViewingName;   // 읽는 함수
+const _mhHomeFromServer = deps._mhHomeFromServer;
+const _mhViewingDisplayName = deps._mhViewingDisplayName;
+const setMyHomeData = deps.setMyHomeData;   // 쓰는 함수
+const setMhViewingUserId = deps.setMhViewingUserId;   // 쓰는 함수
+const setMhViewingName = deps.setMhViewingName;   // 쓰는 함수
 let _mhMyDataBackup = null;
 async function openFriendHomeView(friendId, nameHint){
   if(!friendId || friendId===getMyUserId()) return;
   if(!(window.firebaseAPI && firebaseAPI.getMyHome)){ toast('네트워크 연결을 확인해주세요'); return; }
-  _mhViewingName = (typeof nameHint==='string' && nameHint.trim()) ? nameHint.trim() : null;
+  setMhViewingName((typeof nameHint==='string' && nameHint.trim()) ? nameHint.trim() : null);
   try{
     const data = await firebaseAPI.getMyHome(friendId);
     // 관람 중에 또 다른 친구 마이홈으로 넘어가는 경우, 원래 내 데이터 백업(_mhMyDataBackup)은 그대로 유지 —
@@ -75,11 +45,11 @@ async function openFriendHomeView(friendId, nameHint){
     // ★ 추가 수정: 이번 세션에서 내 마이홈을 서버에서 로드한 적이 없으면(방에서 곧장 우클릭 방문 등)
     //   _myHomeData가 "빈 초기값"이라 이걸 백업하면 복귀 때 마이홈이 초기화된 것처럼 보였다.
     //   미로드 상태면 백업하지 않고(null), 복귀 시 closeFriendHomeView가 서버에서 로드하게 한다.
-    if(!_mhViewingUserId){ _mhMyDataBackup = _myHomeLoaded ? _myHomeData : null; }
+    if(!_mhViewingUserId()){ _mhMyDataBackup = _myHomeLoaded() ? _myHomeData() : null; }
     window._mhPreviewMode = false;   // 👁 미리보기 중이었으면 해제 (실제 방문으로 전환)
-    _mhViewingUserId = friendId;
+    setMhViewingUserId(friendId);
     // ★ theme 포함 — 관람 모드에서도 친구의 👑 프리미엄 디자인이 그대로 보이게 (loadMyHomePage와 동일한 누락 버그 수정)
-    _myHomeData = _mhHomeFromServer(data);
+    setMyHomeData(_mhHomeFromServer(data));
     // 마이홈 창을 안 열려있으면 열기 + 마이홈 탭으로 전환 (loadMyHomePage 트리거 없이 수동 전환)
     const overlay=document.getElementById('myHomeOverlay');
     if(overlay && !overlay.classList.contains('on')){ overlay.classList.add('on'); setMyHomeOpen(true); }
@@ -104,10 +74,10 @@ async function openFriendHomeView(friendId, nameHint){
        · 여기 있으니 파도타기뿐 아니라 앞으로 생길 다른 진입 경로도 자동으로 덮인다.
        ⚠️ 조회가 끝나기 전에 다른 홈으로 넘어갔거나 관람을 닫았으면 결과를 버린다 —
           안 그러면 방금 나온 사람의 이름이 다음 화면에 뒤늦게 찍힌다. */
-    if(!_mhViewingName && !(_myHomeFriends()[friendId] && _myHomeFriends()[friendId].name) && firebaseAPI.getUserNameById){
+    if(!_mhViewingName() && !(_myHomeFriends()[friendId] && _myHomeFriends()[friendId].name) && firebaseAPI.getUserNameById){
       Promise.resolve(firebaseAPI.getUserNameById(friendId)).then(n=>{
-        if(_mhViewingUserId !== friendId || !n) return;
-        _mhViewingName = String(n);
+        if(_mhViewingUserId() !== friendId || !n) return;
+        setMhViewingName(String(n));
         _mhApplyVisitUI(); renderMyHomePage();
       }).catch(()=>{});
     }
@@ -127,16 +97,16 @@ async function openFriendHomeView(friendId, nameHint){
   }catch(e){ console.warn('친구 마이홈 로드 실패', e); toast('불러오지 못했어요'); }
 }
 function closeFriendHomeView(){
-  if(!_mhViewingUserId) return;
-  _mhViewingUserId = null;
-  _mhViewingName = null;   // 🏷️ 다음 관람에 이전 사람 이름이 남지 않게
-  if(_mhMyDataBackup) _myHomeData = _mhMyDataBackup;
+  if(!_mhViewingUserId()) return;
+  setMhViewingUserId(null);
+  setMhViewingName(null);   // 🏷️ 다음 관람에 이전 사람 이름이 남지 않게
+  if(_mhMyDataBackup) setMyHomeData(_mhMyDataBackup);
   _mhMyDataBackup = null;
   // ★ 버그 수정("내 마이홈으로" 복귀 시 초기화된 것처럼 보임): 방에서 곧장 친구 홈으로 들어온 세션은
   //   내 마이홈이 서버에서 로드된 적이 없어 복귀 화면이 빈 초기값으로 그려졌다. 실제 데이터는 안전함 —
   //   저장 가드(_myHomeLoaded 전제)가 미로드 세션의 덮어쓰기를 원래부터 막고 있었고, 표시만 문제였다.
   //   미로드 상태면 지금 서버에서 로드(loadMyHomePage가 끝에서 스스로 렌더함).
-  if(!_myHomeLoaded){
+  if(!_myHomeLoaded()){
     Promise.resolve(loadMyHomePage()).catch(()=>{});
   }
   _mhApplyVisitUI();
@@ -152,18 +122,18 @@ function closeFriendHomeView(){
 // 관람 모드 UI 갱신 — 타이틀 라벨/배지/버튼 + 편집 UI 잠금
 function _mhApplyVisitUI(){
   // 실제 방문(다른 사람 홈) 또는 방문자 시점 미리보기(내 홈) — 둘 다 편집 UI를 잠근다.
-  const realVisit = !!_mhViewingUserId;
+  const realVisit = !!_mhViewingUserId();
   const visiting = realVisit || !!window._mhPreviewMode;
   /* 🛟 두 훅은 **서로 다른 파일**에 있다(myhome-desktop.js · mallang.js).
      맨몸으로 나란히 두면 앞줄이 던질 때 뒷줄이 아예 안 돈다 — 그러면 바탕화면 쪽 사고가
      "말랑이 폴더가 사라졌다"로 나타난다(open() 의 그 주석과 같은 병). 각자 감싼다. */
   // 🖥️ 마이홈 바탕화면 관람모드 연동 (myhome-desktop.js)
-  try{ if(window._advApplyVisitUI) window._advApplyVisitUI(visiting, realVisit ? _mhViewingUserId : getMyUserId()); }
+  try{ if(window._advApplyVisitUI) window._advApplyVisitUI(visiting, realVisit ? _mhViewingUserId() : getMyUserId()); }
   catch(e){ console.error('[바탕화면] 관람모드 적용 실패', e); }
   // 🧸 말랑이: 실제 방문이면 그 집 주인 이미지로, 미리보기·내 집이면 내 것으로
   try{
     if(window._mallangApplyVisit){
-      Promise.resolve(window._mallangApplyVisit(visiting, realVisit ? _mhViewingUserId : getMyUserId()))
+      Promise.resolve(window._mallangApplyVisit(visiting, realVisit ? _mhViewingUserId() : getMyUserId()))
         .catch(e=>console.error('[말랑이] 관람모드 적용 실패', e));
     }
   }catch(e){ console.error('[말랑이] 관람모드 적용 실패', e); }
@@ -221,15 +191,6 @@ window.openFriendHomeView = openFriendHomeView;
 
 return {
   _mhApplyVisitUI,
-  _mhHomeFromServer,
-  _mhViewingDisplayName,
-  _mhViewingUserId: ()=>_mhViewingUserId,   // 읽는 함수
-  _myHomeData: ()=>_myHomeData,   // 읽는 함수
-  setMyHomeData: (v)=>{ _myHomeData = v; },   // 쓰는 함수 — app.js 가 비운다
-  _myHomeLoaded: ()=>_myHomeLoaded,   // 읽는 함수
-  setMyHomeLoaded: (v)=>{ _myHomeLoaded = v; },   // 쓰는 함수 — app.js 가 비운다
-  _myHomeUid: ()=>_myHomeUid,   // 읽는 함수
-  setMyHomeUid: (v)=>{ _myHomeUid = v; },   // 쓰는 함수 — app.js 가 비운다
   closeFriendHomeView,
   openFriendHomeView,
 };

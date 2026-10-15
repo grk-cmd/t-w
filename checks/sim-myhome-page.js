@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — myhome-page.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["getDisplayName","getMyUserId","renderMyHomeStickers"];
-const VAL_DEPS = ["mhVisitMod","myHomeUiMod","richTextMod"];
+const VAL_DEPS = ["mhStateMod","myHomeUiMod","richTextMod"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["_mhStickerDragDist","setMhStickerDragDist","loadMyHomePage","renderMyHomePage"];
 const MOVED = ["loadMyHomePage","renderMyHomePage","_mhStickerDragDist"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  mhVisitMod: mhVisitMod,","  myHomeUiMod: myHomeUiMod,","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  richTextMod: richTextMod,"];
+const GLUE = ["  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  mhStateMod: mhStateMod,","  myHomeUiMod: myHomeUiMod,","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  richTextMod: richTextMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
