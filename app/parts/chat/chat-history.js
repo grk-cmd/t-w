@@ -136,11 +136,14 @@ export function createIdbChatStore(idb, scope){
      숫자면 ts ≥ since 전부. 새 줄 · 고친 줄(ts 확정)마다 onMsg(한 줄), 처음 받기가 끝나면 onReady() 한 번
    clearLog(room, tab) → Promise<{ok}> · sendLog(room, msg, tab) → Promise
    store(createIdbChatStore 모양 · 없으면 저장 없이) · channel() → 지금 방 채널('workingroom' | 'togetherroom')
+     — firebase-init 은 채널을 모르므로 room-entry 가 bindChannel 로 firebase-ready 때 건다(걸기 전에는 이 PC 에 저장 쪽)
    setTimeout(검사용 · 없으면 전역) */
 export function createChatHistory(deps){
   const store = deps.store || null;
   const later = deps.setTimeout || ((f, ms) => setTimeout(f, ms));
-  const keep = (room) => !!store && keepsLocal(room, deps.channel ? deps.channel() : null);
+  let channelOf = deps.channel || null;
+  const keep = (room) => !!store && keepsLocal(room, channelOf ? channelOf() : null);
+  function bindChannel(fn){ channelOf = fn; }
 
   /* 한 탭의 기록을 연다 — 저장된 것을 먼저 그리고, 그 뒤만 서버에서 이어 받는다. 반환: 닫기 함수
      ⚠️ 저장된 것이 없으면 서버의 첫 받기가 끝날 때까지 그리지 않는다 — 빈 목록을 먼저 그리면 app.js 의 입장 컷이
@@ -214,5 +217,5 @@ export function createChatHistory(deps){
       if(toast) toast('🗑 이 PC 에 저장된 대화를 지웠어요 — 서버에 남은 최근 3일은 다시 받아요');
     });
   }
-  return { open, clear, syncTabs, wipeRoom, wipeAll, count, bindSettings };
+  return { open, clear, syncTabs, wipeRoom, wipeAll, count, bindSettings, bindChannel };
 }

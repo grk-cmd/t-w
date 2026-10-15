@@ -455,7 +455,7 @@ function _diffRoomPayload(payload){
   }
   return changed ? out : null;               // null = 보낼 게 없음
 }
-function makeFirebaseProvider(){
+function makeFirebaseProvider(hooks){
   return {
     join(room, me, changeCb, onPoked){
       const payload=Object.assign({}, me, { def: serializeDefForNetwork(me.def) });
@@ -479,7 +479,7 @@ function makeFirebaseProvider(){
         const restored={};
         ids.forEach((id,i)=>{ restored[id]=Object.assign({}, friends[id], { def: defs[i] }); });
         changeCb(restored);
-      }, onPoked);
+      }, onPoked, hooks);
     },
     update(payload){
       // def가 같이 왔으면(크기·파츠 변경 등) 직렬화해서 보냄 — join과 마찬가지로 Canvas는 그대로 못 보냄

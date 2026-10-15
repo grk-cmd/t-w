@@ -27,7 +27,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
 say('── 1. firebase-init.js joinRoom — memberId 는 서버 시계 보정본으로');
 {
   const code = strip(FB);
-  const i = code.indexOf('joinRoom(room, me, onChange, onPoked)');
+  const i = code.indexOf('joinRoom(room, me, onChange, onPoked, hooks)');
   const body = code.slice(i, i + 600);
   chk(i >= 0, 'joinRoom 을 찾았다');
   chk(/const memberId = 'm' \+ _svNow\(\)\.toString\(36\) \+ Math\.random\(\)\.toString\(36\)\.slice\(2, 8\);/.test(body), '★ memberId = \'m\' + _svNow().toString(36) + … (Date.now 가 아니다)');

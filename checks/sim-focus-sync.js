@@ -30,6 +30,7 @@ const CAP = 999 * 3600;
 const SERVER = { totalSec: 0 };
 let calls = 0, writes = 0, failNext = false;
 globalThis.window.firebaseAPI = {
+  chatHistory: { bindChannel(){} },   // room-entry 가 만들 때 채널을 건다(_bindChatHistoryChannel)
   async syncFocusTotal(uid, addSec, baselineSec){
     calls++;
     if (failNext) return { ok: false, reason: 'permission_denied' };

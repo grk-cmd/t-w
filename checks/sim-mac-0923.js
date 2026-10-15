@@ -43,7 +43,7 @@ say('── 2. 🖊️ 묶인 점');
 }
 say('── 3. 🧪 가짜 방');
 {
-  const i = CODE.indexOf('provider = window.firebaseAPI ? makeFirebaseProvider() : makeMockProvider();'), seg = CODE.slice(i - 700, i);
+  const i = CODE.indexOf('provider = window.firebaseAPI ? makeFirebaseProvider(opts && opts.hooks) : makeMockProvider();'), seg = CODE.slice(i - 700, i);
   chk(i > 0 && /if\(!window\.firebaseAPI\) await _waitFirebaseApi\(NET_READY_WAIT_MS\);/.test(seg) && /if\(!window\.firebaseAPI && !_mockRoomAllowed\(\)\)\{[\s\S]*return;\s*\}/.test(seg), '기다리고 · 없으면 입장하지 않는다');
   const W = { firebaseAPI:null, _l:{}, addEventListener(n, f){ this._l[n] = f; } };
   const mk = new Function('window', 'setTimeout', grab(SRC, '_waitFirebaseApi') + ' return _waitFirebaseApi;');

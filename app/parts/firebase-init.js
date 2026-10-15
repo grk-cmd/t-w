@@ -305,6 +305,9 @@
      누가 계산해도 같은 후보가 나오므로 트랜잭션은 사실상 후보 1명만 실행한다.
      트랜잭션 자체도 '이미 유효한 host가 있으면 포기'라 이중 안전. */
   let _lastSuccessionAt = 0;
+  /* 방에서 생긴 일(해산 · 승계 · 정원 초과 · 방 정보)을 알릴 곳 — joinRoom 이 room-entry 에서 받는다.
+     이 파일은 아래층이라 위층 이름(window._onXxx)을 직접 부르지 않는다(sim-dep-cycles). */
+  let _roomHooks = null;
   /* 🛰 되살린 방(_meta.restoredTs)의 방장 유예 — 방장이 Firebase 로 넘어오는 동안 승계 · 해산을 미룬다.
      0.11.4 부터 앱은 방 서버 방을 Firebase 에 되살리지 않는다(방이 갈려서 — room-entry.js onLost). 옛 앱(0.11.2 · 0.11.3)은
      아직 되살리므로 그 방에 같이 있는 동안 이 유예는 남긴다. 옛 앱이 포기하는 기준이 30초라 넘어오는 시각은 많아야 수십 초 벌어진다. */
@@ -336,7 +339,7 @@
          구현: 서버에 해산 표시를 쓰지 않는다. 이 판정은 모든 클라이언트가 같은 입력
          (_meta + 살아있는 멤버 목록)으로 같은 결론을 내리므로, 각자 알아서 나가면 끝이다.
          → 쓰기도, 트랜잭션도, 경쟁도 없다. 마지막 사람이 나가면 방은 자연히 비어 사라진다. */
-      if(typeof window._onRoomDisbanded === 'function') window._onRoomDisbanded();
+      _roomHooks.onDisband();
       return;
     }
     if(candidate !== myMemberId) return;                // 내가 후보가 아니면 아무것도 안 함(경쟁 원천 차단)
@@ -350,7 +353,7 @@
       if(window.firebaseAPI && window.firebaseAPI.claimHostIfVacant){
         const r = await window.firebaseAPI.claimHostIfVacant(room, myUserId, aliveUserIds, null);
         if(r && r.ok && r.meta){
-          if(typeof window._onHostSucceeded === 'function') window._onHostSucceeded(r.meta);
+          _roomHooks.onHostSucceeded(r.meta);
         }
       }
     }catch(_){}
@@ -2214,7 +2217,8 @@
     },
     // 방 접속 — 내 정보를 rooms/{room}/{memberId}에 쓰고, 같은 방 전체를 실시간 구독.
     // onPoked(선택) — 다른 사람이 "내 캐릭터"를 쓰다듬거나 흔들었을 때(poke) 알림받는 콜백.
-    joinRoom(room, me, onChange, onPoked) {
+    /* hooks — { onDisband, onHostSucceeded(meta), onOverCapacity(cap), onMeta(meta), getExp(), secretOwner() } (room-entry _firebaseRoomHooks) */
+    joinRoom(room, me, onChange, onPoked, hooks) {
       /* 🕒 [2026-09-17 제보] memberId 앞부분은 **서버 시계 보정본**(_svNow)으로 만든다.
            [무엇이 났나] «방에 가만히 있었는데 누가 들어오면 '같은 순간에…자리가 찼어요' 하고 쫓겨난다».
              정원 초과 자기 퇴장(아래 방 리스너)은 «memberId 오름차순 = 입장순» 으로 늦게 온 사람을 가르는데,
@@ -2223,7 +2227,7 @@
            [대응] 이미 있는 .info/serverTimeOffset 보정(_svNow)을 쓴다. id 형식·정렬 로직·구버전과의 정렬 호환은
              그대로다(같은 base36 밀리초). 오프셋이 아직 안 왔으면 0 이라 예전과 같다. */
       const memberId = 'm' + _svNow().toString(36) + Math.random().toString(36).slice(2, 8);
-      _memberId = memberId; _roomCode = room;
+      _memberId = memberId; _roomCode = room; _roomHooks = hooks;
       _myMemberRef = ref(db, `rooms/${room}/${memberId}`);
       _myMemberData = { name: me.name, def: me.def, state: me.state, userStatus: me.userStatus||null, level: me.level||1, userId: me.userId||null, lic: !!me.lic };
       set(_myMemberRef, { ..._myMemberData, lastSeen: serverTimestamp() });
@@ -2282,8 +2286,7 @@
            예전에는 입장할 때 getRoomMeta 로 한 번 읽은 사본(window._roomMetaCache)만 있어서,
            방장이 도중에 무언가를 바꿔도 다른 사람 화면은 그대로였다. 구독은 이미 여기 있었으니
            값을 넘겨주기만 하면 된다(수십 바이트라 비용도 그대로다). */
-        try{ window._roomMetaCache = _roomMetaVal; }catch(_){}
-        try{ if(typeof window._onRoomMeta === 'function') window._onRoomMeta(_roomMetaVal); }catch(_){}
+        try{ _roomHooks.onMeta(_roomMetaVal); }catch(_){}
         if(_roomLastFriends){ try{ _maybeSucceedHost(room, memberId, _roomMetaVal, _roomLastFriends); }catch(_){} }
       });
       /* 💰 멤버만 구독 — chatLog가 방 리스너를 타고 내려오던 경로를 없앤다.
@@ -2407,7 +2410,7 @@
            · 손님끼리만 MAX_PEOPLE-1 자리를 다툰다. 총원 MAX_PEOPLE 로 세면 방장이 없는 동안
              손님 MAX_PEOPLE 명이 눌러앉아 예약석을 먹고, 방장이 들어올 때마다 손님 하나가
              튕겨나간다 — 예약석은 비어 있어도 남이 못 앉아야 예약석이다.
-           · 방장 uid 는 window._srOwnerUid(startRoom 이 secretRooms/{code}/pub.owner 로 채움).
+           · 방장 uid 는 _roomHooks.secretOwner()(startRoom 이 secretRooms/{code}/pub.owner 로 채움).
              pub 은 .read:true 라 손님도 읽고, 못 읽으면 startRoom 이 입장 자체를 막는다 —
              그래서 방 안에 있는 사람은 전원 같은 값을 갖는다 = 모두 같은 순서를 계산한다.
              그게 이 '각자 알아서 나간다' 방식의 전제다.
@@ -2415,7 +2418,7 @@
              멤버 스냅샷보다 늦게 올 수 있고, 그 찰나에 나가는 사람이 0명이거나 2명이 된다. */
         const _cap = (window.TwRemoteConfig && window.TwRemoteConfig.store) ? window.TwRemoteConfig.store.maxPeople() : 10;   // 원격 설정 roomMaxPeople — app.js maxPeople() 와 같은 값
         const _srOwner = (String(room||'').indexOf('SCRT-') === 0)
-          ? (window._srOwnerUid || (_capturedMeta && _capturedMeta.host) || null) : null;
+          ? (_roomHooks.secretOwner() || (_capturedMeta && _capturedMeta.host) || null) : null;
         const _aliveIds = Object.keys(friends);
         const _uidOf = id => (id === memberId ? (me && me.userId) : (friends[id] && friends[id].userId)) || null;
         if(_srOwner){
@@ -2423,14 +2426,14 @@
             const _guestCap = _cap - 1;                      // 예약석 한 자리를 뺀 손님 정원
             const _guests = _aliveIds.concat([memberId]).filter(id => _uidOf(id) !== _srOwner).sort();
             if(_guests.indexOf(memberId) >= _guestCap){
-              if(typeof window._onRoomOverCapacity === 'function') window._onRoomOverCapacity(_guestCap);
+              _roomHooks.onOverCapacity(_guestCap);
               return;
             }
           }
         } else if(_aliveIds.length + 1 > _cap){
           const _myRank = _aliveIds.concat([memberId]).sort().indexOf(memberId);
           if(_myRank >= _cap){
-            if(typeof window._onRoomOverCapacity === 'function') window._onRoomOverCapacity(_cap);
+            _roomHooks.onOverCapacity(_cap);
             return;
           }
         }
@@ -2459,7 +2462,7 @@
              상대 화면에서 "레벨업 직후"로 오해된다). */
           /* 💰 exp 는 바뀔 때만 싣는다 — 같은 값이면 남들에게는 안 내려가지만 업로드는 매번이었다. */
           let _exp;
-          try{ _exp = window.myExpCells(); }catch(_){}
+          try{ _exp = _roomHooks.getExp(); }catch(_){}
           const _expChanged = _exp !== undefined && _exp !== _lastHbExp;
           if(_expChanged) _lastHbExp = _exp;
           if(_aliveV2){
@@ -3191,7 +3194,6 @@
     /* 💬 대화 기록(서버 3일 · 이 PC 저장 · 커서 이어 받기) — 규칙은 chat-history.js. 여기는 연결만. */
     chatHistory: createChatHistory({
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
-      channel: () => (window._activeChannel === 2 ? 'togetherroom' : 'workingroom'),
       subscribeSince: (room, tab, since, onMsg, onReady) => window.firebaseAPI.subscribeChatSince(room, tab, since, onMsg, onReady),
       clearLog: (room, tab) => window.firebaseAPI.clearChatLog(room, tab),
       sendLog: (room, msg, tab) => window.firebaseAPI.sendChatLog(room, msg, tab) }),
