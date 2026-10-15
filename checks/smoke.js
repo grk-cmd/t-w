@@ -429,7 +429,9 @@ PRELOAD.push('premium-assets.js');
 PRELOAD.push('char-code.js');
 /* dice-games.js — 🎲 주사위 · 하루 횟수(앱 FSD 39번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDiceGames 를 같이 굴린다. */
 PRELOAD.push('dice-games.js');
-/* program-settings.js — 🏷️ 닉네임 저장 · ⚙️ 프로그램 설정 창(앱 FSD 40번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createProgramSettings 를 같이 굴린다. */
+/* user-name.js — 🏷️ 닉네임 저장(모듈 순환 끊기 7 — 설정 창에서 떼어 냄). 같은 까닭 — app.js 가 원래 자리에서 부르는 createUserName 을 같이 굴린다. */
+PRELOAD.push('user-name.js');
+/* program-settings.js — ⚙️ 프로그램 설정 창(앱 FSD 40번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createProgramSettings 를 같이 굴린다. */
 PRELOAD.push('program-settings.js');
 /* chat-prefs.js — 💬 채팅 투명도 · 알림음 · 기록 삭제(앱 FSD 41번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatPrefs 를 같이 굴린다. */
 PRELOAD.push('chat-prefs.js');

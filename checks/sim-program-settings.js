@@ -17,13 +17,13 @@ const MOD = ["program-settings.js","parts/launcher/program-settings.js","app/par
 if(!MOD){ say('  ? 원본 못 찾음 — program-settings.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_applyChatSfxUI","_focusShowPush","_lsSet","getDisplayName","getMyUserId","getUserName","refreshCharScaleForCurrentDisplay","refreshLicenseUI","refreshOfficeChipUI","refreshThemeUI","setUserName","toast"];
-const VAL_DEPS = ["Presence","chatUiMod","purikuraUi","tricksMod","twNav"];
-const GET_DEPS = ["FIGURE_MODE_KEY","OFFICE_MODE_KEY","figureMode","focusGateSleep","focusLevelMod","isAdmin","officeMode"];
+const FN_DEPS = ["_applyChatSfxUI","_focusShowPush","_lsSet","refreshCharScaleForCurrentDisplay","refreshLicenseUI","refreshOfficeChipUI","refreshThemeUI","toast"];
+const VAL_DEPS = ["chatUiMod","purikuraUi","tricksMod","twNav"];
+const GET_DEPS = ["FIGURE_MODE_KEY","OFFICE_MODE_KEY","figureMode","focusGateSleep","officeMode"];
 const SET_DEPS = ["figureMode","focusGateSleep","officeMode"];
-const EXPORTS = ["USER_NAME_MAX","closeProgramSettings","commitUserName","openProgramSettings"];
+const EXPORTS = ["closeProgramSettings","openProgramSettings"];
 const MOVED = ["USER_NAME_MAX","commitUserName","renderProgMonitors","setProgSettingsTab","refreshAutoLaunchUI","refreshFigureModeUI","refreshOfficeModeUI","_labVideoShow","LAB_VIDEO_BLOCKED_GUIDE","_labVideoWarn","refreshLabVideoUI","refreshAppVersionUI","openProgramSettings","closeProgramSettings"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,","  OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,","  Presence: Presence,","  _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),","  _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),","  _lsSet: (...a)=>_lsSet(...a),","  chatUiMod: chatUiMod,","  figureMode: ()=>figureMode,","  focusGateSleep: ()=>focusGateSleep,","  focusLevelMod: ()=>focusLevelMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  getUserName: (...a)=>getUserName(...a),","  isAdmin: ()=>isAdmin,","  officeMode: ()=>officeMode,","  purikuraUi: purikuraUi,","  refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),","  refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),","  setUserName: (...a)=>setUserName(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  setFigureMode: (v)=>{ figureMode = v; },","  setFocusGateSleep: (v)=>{ focusGateSleep = v; },","  setOfficeMode: (v)=>{ officeMode = v; },","  twNav: twNav,"];
+const GLUE = ["  FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,","  OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,","  _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),","  _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),","  _lsSet: (...a)=>_lsSet(...a),","  chatUiMod: chatUiMod,","  figureMode: ()=>figureMode,","  focusGateSleep: ()=>focusGateSleep,","  officeMode: ()=>officeMode,","  purikuraUi: purikuraUi,","  refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),","  refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  setFigureMode: (v)=>{ figureMode = v; },","  setFocusGateSleep: (v)=>{ focusGateSleep = v; },","  setOfficeMode: (v)=>{ officeMode = v; },","  twNav: twNav,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -82,7 +82,7 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwProgramSettings = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
-  ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const progSettingsMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('progSettingsMod.' + x)); if(n){ ls[i] = ls[i].replace('progSettingsMod.' + n, n); return ls.join('\n'); } } return a; }, null],
+  ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const progSettingsMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('progSettingsMod.' + x)); if(n){ ls[i] = ls[i].replace('progSettingsMod.' + n, n); return ls.join('\n'); } } return a + "\nopenProgramSettings('license');\n"; }, null],   /* app.js 에 부르는 곳이 없으면(창 열기는 통로 nav.js — 모듈 순환 끊기 6 · 7) 옛 이름 부름 한 줄을 넣어 본다 */
   ['만들 때 던짐', m => m.replace('function createProgramSettings(deps){', 'function createProgramSettings(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
