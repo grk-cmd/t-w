@@ -5,7 +5,9 @@
      _slotsTs · creatorOpen 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 17개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: CHARS_BOX_MAX · CHARS_SYNC_ENABLED · _charsActive · _charsAfterSave · _charsBoot · _charsBoxFull · _charsBoxGet · _charsBoxOnlyCount · _charsBoxToDesk · _charsBoxTrash · _charsBoxTrashMany · _charsCachedUid · _charsDeleteWords · _charsDeskGet · _charsDeskToBox · _charsEntryTime · _charsIsTomb · _charsMoveFailLog · _charsMoveMsg · _charsOnNew · _charsRemapDesk · _charsRestore · _charsSync · _charsTrashMove · _charsTrashView — app.js 는 charsMod.이름 으로 부른다.
+   ★ 아래층(slot-save · slot-sync)에 알림을 건다(모듈 순환 끊기 3) — 저장 뒤 _charsAfterSave · 백업 되돌린 뒤 _charsRemapDesk · 켜졌나 _charsActive.
+     칸을 갈아 끼운 뒤 캐릭터 탭은 slotsReplaced() 로 알리고, 부팅 채택 뒤 «연동됨» 안내는 onBootLinked(fn) 에 위층(계정)이 건다.
+   ★ 밖에서 부르는 이름: CHARS_BOX_MAX · CHARS_SYNC_ENABLED · _charsActive · _charsAfterSave · _charsBoot · _charsBoxFull · _charsBoxGet · _charsBoxOnlyCount · _charsBoxToDesk · _charsBoxTrash · _charsBoxTrashMany · _charsCachedUid · _charsDeleteWords · _charsDeskGet · _charsDeskToBox · _charsEntryTime · _charsIsTomb · _charsMoveFailLog · _charsMoveMsg · _charsOnNew · _charsRemapDesk · _charsRestore · _charsSync · _charsTrashMove · _charsTrashView · onBootLinked — app.js 는 charsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwChars — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-chars.js */
@@ -20,7 +22,6 @@ const SLOTS_TS_SKEW_TOL_MS = deps.SLOTS_TS_SKEW_TOL_MS;
 const SLOT_IMG_FIELDS = deps.SLOT_IMG_FIELDS;
 const SLOT_JSON_MAX = deps.SLOT_JSON_MAX;
 const _blinkEverDrawn = deps._blinkEverDrawn;
-const _charsLinkedMaybeShow = deps._charsLinkedMaybeShow;
 const _faceEverDrawn = deps._faceEverDrawn;
 const _quickHash = deps._quickHash;
 const _relinkSeatsToSlots = deps._relinkSeatsToSlots;
@@ -36,11 +37,16 @@ const _slotsNow = deps._slotsNow;
 const _slotsTs = deps._slotsTs;   // 읽는 함수
 const creatorOpen = deps.creatorOpen;   // 읽는 함수
 const loadSlots = deps.loadSlots;
-const renderCharSlots = deps.renderCharSlots;
 const renderLauncher = deps.renderLauncher;
 const saveSlots = deps.saveSlots;
 const slots = deps.slots;
 const toast = deps.toast;
+const onSaved = deps.onSaved;
+const onBackupRestored = deps.onBackupRestored;
+const setCharsActiveCheck = deps.setCharsActiveCheck;
+const slotsReplaced = deps.slotsReplaced;
+const _bootLinkedFns = [];
+function onBootLinked(fn){ _bootLinkedFns.push(fn); }
 const CHARS_SKEW_TOL_MS = SLOTS_TS_SKEW_TOL_MS;
 function _charsNewId(){ return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function _charsEntryTime(e){
@@ -383,7 +389,7 @@ async function _charsLocalAdopt(uid){
     try{ await loadSlots(); }catch(_){}
     _relinkSeatsToSlots(_old, new Set(p.unseat));   // 바꿔 앉힌 칸은 같은 캐릭터(cid)라 잇는다 · 비운 칸만 뺀다
     try{ renderLauncher(); }catch(_){}
-    try{ renderCharSlots(); }catch(_){}
+    try{ slotsReplaced(); }catch(_){}
   }
   return { ok: true, did: '첫 채택', box: Object.keys(p.box).length, upload: p.upload.length, reseat: p.reseat.length, unseat: p.unseat.length, trash: trash.length };
 }
@@ -574,7 +580,7 @@ async function _charsBoxToDesk(cid){
   try{ await loadSlots(); }catch(_){}
   try{ saveSlots(); }catch(_){}
   try{ renderLauncher(); }catch(_){}
-  try{ renderCharSlots(); }catch(_){}
+  try{ slotsReplaced(); }catch(_){}
   return { ok: true, slot: i };
 }
 /* 옮기기 실패 문구 한 벌 — 런처 톱니와 [내 정보]가 같이 쓴다. «마리» 라는 말은 쓰지 않는다. */
@@ -834,7 +840,7 @@ async function _charsSync(reason){
       if(gen !== _charsGen){ _charsSyncAgain = true; return { ok: true, did: '불러오는 중 바뀜 — 다시' }; }
       try{ saveSlots(); }catch(_){}                                  // 받은 칸의 저장 모양을 맞추고 기준(h)을 잡는다 — 받은 것을 고침으로 치지 않는다
       try{ renderLauncher(); }catch(_){}
-      try{ renderCharSlots(); }catch(_){}
+      try{ slotsReplaced(); }catch(_){}
     }
     return { ok: true, did: reason || '동기화', push: Object.keys(entries).length, reseat: p.reseat.length, unseat: p.unseat.length, trash: trash.length };
   }catch(e){ console.warn('[🧬] 동기화 실패', e); return { ok: false, reason: String(e && e.message || e) }; }
@@ -904,9 +910,12 @@ async function charsMigrateDryRun(){
   return rep;
 }
 try{ window.charsMigrateDryRun = charsMigrateDryRun; }catch(_){}
+onSaved(_charsAfterSave);
+onBackupRestored(_charsRemapDesk);
+setCharsActiveCheck(_charsActive);
 /* 🧬 평상시 동기화 배선 — 스위치가 꺼져 있으면 아무것도 걸지 않는다(개정 36). 옛 slots 동기화(4.6초 · 30분) 다음 박자. */
 if(CHARS_SYNC_ENABLED){
-  setTimeout(()=>{ try{ _charsBoot('boot').then(r => { if(r && r.ok) _charsLinkedMaybeShow(); }, ()=>{}); }catch(_){} }, 5200);   // F — 첫 채택이 끝난 뒤(개정 57)
+  setTimeout(()=>{ try{ _charsBoot('boot').then(r => { if(r && r.ok) _bootLinkedFns.forEach(fn=>fn()); }, ()=>{}); }catch(_){} }, 5200);   // F — 첫 채택이 끝난 뒤(개정 57)
   setInterval(()=>{ try{ _charsBoot('tick'); }catch(_){} }, SLOTS_SYNC_INTERVAL_MS);
 }
 
@@ -936,6 +945,7 @@ return {
   _charsSync,
   _charsTrashMove,
   _charsTrashView,
+  onBootLinked,
 };
 }
 

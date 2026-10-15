@@ -24,8 +24,11 @@ const noCmt = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '
 say('── 1. 좌석 다시 잇기 (_relinkSeatsToSlots)');
 const relSrc = grab('_relinkSeatsToSlots');
 chk(!!relSrc, '_relinkSeatsToSlots 를 꺼냈다');
+/* 열린 초안 주인 바꾸기는 꾸미기(wardrobe.js relinkDraftSrc)가 슬롯 저장의 onSeatRelinked 알림으로 받는다(모듈 순환 끊기 3) — 그 둘을 같이 돌린다 */
+const drSrc = grab('relinkDraftSrc');
+chk(!!drSrc && /slotSaveMod\.onSeatRelinked\(\(old, cur\)=>wardrobeMod\.relinkDraftSrc\(old, cur\)\);|onSeatRelinked\(\(old, cur\)=>relinkDraftSrc\(old, cur\)\);/.test(APP), '  꾸미기가 «좌석 다시 이음» 알림에 걸려 있다(onSeatRelinked → relinkDraftSrc)');
 const run = (env) => new Function('env', 'const {seats, slots} = env; let wdDraftDef = env.draft; const console = { warn(){} };\n'
-  + relSrc + '\n_relinkSeatsToSlots(env.old, env.skip); return wdDraftDef;')(env);
+  + drSrc + '\nconst _relinkFns = [relinkDraftSrc];\n' + relSrc + '\n_relinkSeatsToSlots(env.old, env.skip); return wdDraftDef;')(env);
 if (relSrc) {
   const oA = { n: 'A' }, oB = { n: 'B' }, oC = { n: 'C' }, nA = { n: 'A2' }, nB = { n: 'B2' }, nC = { n: 'C2' };
   const me = { isMe: true, slot: 0, charDef: oA }, ex = { slot: 1, charDef: oB }, gone = { slot: 2, charDef: oC };

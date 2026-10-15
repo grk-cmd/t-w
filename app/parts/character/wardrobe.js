@@ -2,10 +2,10 @@
    app.js 꾸미기 다섯 구역(👀 미리보기 · 📝 초안 · 🎛️ 상세조정 · 🎨 색 줄 · 🎨 창 그리기 · 파츠 착용) 본문을 그대로 옮긴 모듈이다(앱 FSD 29번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다. 다른 모듈이 아직 전역으로 부르는 이름은 app.js 에 «옛 전역 이름» 한 줄씩 남겼다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 5개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 70줄 —
-     LIGHT_PRESET · PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · adminPartReg · gachaMod · isAdmin · partPaintMod · savedParts · slots · wdEar 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+     LIGHT_PRESET · PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 51개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · clampWdPreviewIntoView · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdPreview · refreshWdPreviewChar · refreshWdPreviewColorSection · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdPreviewSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · clampWdPreviewIntoView · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdPreview · refreshWdPreviewChar · refreshWdPreviewColorSection · relinkDraftSrc · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdPreviewSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwWardrobe — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-wardrobe.js */
@@ -34,7 +34,6 @@ const _sweepOrphanPartWrappers = deps._sweepOrphanPartWrappers;
 const _wdLicenseDesks = deps._wdLicenseDesks;
 const addEntryToCat = deps.addEntryToCat;
 const addPartEntryInstance = deps.addPartEntryInstance;
-const adminPartReg = deps.adminPartReg;   // 읽는 함수
 const applyClothVisibility = deps.applyClothVisibility;
 const applyEquippedPartsToSeat = deps.applyEquippedPartsToSeat;
 const applyHueTint = deps.applyHueTint;
@@ -73,7 +72,6 @@ const partsInGroup = deps.partsInGroup;
 const pruneSeatPartsAgainstDef = deps.pruneSeatPartsAgainstDef;
 const removeEntryFromCat = deps.removeEntryFromCat;
 const removePartEntryInstance = deps.removePartEntryInstance;
-const renderWdDeskSection = deps.renderWdDeskSection;
 const reorderSavedPart = deps.reorderSavedPart;
 const saveSlots = deps.saveSlots;
 const savedParts = deps.savedParts;   // 읽는 함수
@@ -82,11 +80,157 @@ const setPartEntryInstanceXf = deps.setPartEntryInstanceXf;
 const slots = deps.slots;   // 읽는 함수
 const toast = deps.toast;
 const unequipStackablePart = deps.unequipStackablePart;
-const wdEar = deps.wdEar;   // 읽는 함수
+const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
+const DESK_LICENSE_HOLD = deps.DESK_LICENSE_HOLD;   // 읽는 함수
+const DESK_SCALE_DEFAULT = deps.DESK_SCALE_DEFAULT;   // 읽는 함수
+const DESK_SCALE_MAX = deps.DESK_SCALE_MAX;   // 읽는 함수
+const DESK_SCALE_MIN = deps.DESK_SCALE_MIN;   // 읽는 함수
+const _humanEarMat = deps._humanEarMat;
+const _humanEarPic = deps._humanEarPic;
+const applyDeskCatalogRefToSeat = deps.applyDeskCatalogRefToSeat;
+const applyDeskColorToCustom = deps.applyDeskColorToCustom;
+const applyDeskDotThumb = deps.applyDeskDotThumb;
+const clampDeskScale = deps.clampDeskScale;
+const humanEar = deps.humanEar;
+const resolveCatalogGlb = deps.resolveCatalogGlb;
+const setDeskScale = deps.setDeskScale;
+const swThumb = deps.swThumb;
 /* 🎨 꾸미기 미리보기 — 꾸미기 패널 옆에 뜨는 정적 3D 미리보기.
    ★ 실제 실행 화면처럼 타이핑/졸음 등 절차적 애니메이션까지는 재현하지 않고(모델이 그대로 서 있는 정적
    미리보기), 몸통+꾸미기 파츠가 어떻게 보이는지만 확인하는 용도 — defToBase/applyEquippedPartsToSeat
    같은 기존 함수를 그대로 재사용해서 새로 만드는 코드를 최소화함. */
+/* 🐾 꾸미기 › 머리 › 귀 탭 · 🪑 책상 탭 — 꾸미기 창 화면이라 여기 둔다(모듈 순환 끊기 3 — 예전엔 premium-assets.js 가 만들어 꾸미기를 거꾸로 불렀다). */
+/* 🐾 «귀» 도 가상 탭이다 — 위와 같은 이유로 PART_CATS 에 안 넣는다(wd-ear.js 머리말). */
+/* 모듈이 없으면 탭이 안 보이는 빈 껍데기 — 호출하는 곳마다 null 을 묻지 않게 */
+const WD_EAR_OFF = { TAB:'__ear__', available:()=>false, isActive:()=>false, render(){}, syncGizmo(){}, hideRow:()=>false,
+  onGizmoChange(){}, scaleStep:()=>false, pickAt:()=>false, onEarAttached(){}, copyIntoDraft(){}, commit:()=>false,
+  picTarget:()=>null, setPic(){} };
+const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.createWdEar({
+  humanEar, HumanEar, doc:document,
+  getTab:()=>currentWdTab,
+  getDraft:()=>ensureWdDraft(),
+  getPreviewRoot:()=>(wdPreviewBase && wdPreviewBase.root) || null,
+  getGizmo:()=>{ ensureWdGizmo(); return wdGizmo; },
+  setGizmoMode:()=>setWdGizmoMode(wdGizmoMode),
+  earTypes:()=>window.ANIMAL_EAR_TYPES || [],
+  material:_humanEarMat,
+  decorate:(w)=>_humanEarPic(w, ensureWdDraft()),
+  isDrawing:()=>partPaintMod()._wdPic.on,
+  onSynced:()=>{ try{ partPaintMod().refreshWdPicUI(); }catch(_){} },
+  toast:(m)=>{ toast(m); },
+  rerender:()=>renderWardrobe(),
+});
+/* 🛠 관리자 파츠 등록 · 삭제 — 관리자 모듈(admin-part-register.js)이 자기를 만들 때 건다. 꾸미기는 관리자 모듈을 부르지 않는다 */
+let _adminPartActions = null;
+function setAdminPartActions(a){ _adminPartActions = a; }
+/* 책상 값을 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 카드와 슬라이더가 같이 쓴다. */
+function _wdApplyDeskChange(mutate){
+  const seat = findMySeat();
+  if(!seat || !seat.charDef) return null;
+  const def = seat.charDef;
+  mutate(def);
+  try{
+    if(def.deskCatalogId) applyDeskCatalogRefToSeat(seat, def);
+    else applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor});
+  }catch(_){}
+  try{ if(seat.desk){ setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1); if(def.deskColor) applyDeskColorToCustom(seat.desk, def.deskColor); } }catch(_){}
+  // 미리보기는 draft 를 본다 — 같은 값을 적어 주지 않으면 창 안에서만 옛 책상이 남는다
+  try{ if(wdDraftDef && wdDraftDef._srcDef === def){ wdDraftDef.deskCatalogId=def.deskCatalogId; wdDraftDef.deskScale=def.deskScale; wdDraftDef.deskLenX=def.deskLenX; wdDraftDef.deskColor=def.deskColor; wdDraftDef[DESK_LICENSE_HOLD()]=def[DESK_LICENSE_HOLD()]; } }catch(_){}
+  try{ saveSlots(); }catch(_){}
+  try{ if(seat.isMe && typeof Presence()!=='undefined' && Presence().active()) Presence().updateDef(def); }catch(_){}
+  try{ if(typeof refreshWdPreviewChar==='function') refreshWdPreviewChar(); }catch(_){}
+  return def;
+}
+function renderWdDeskSection(wrap){
+  const seat = findMySeat();
+  const def  = seat && seat.charDef;
+  if(!def){
+    wrap.innerHTML='<div class="wd-empty"><span class="ic">🪑</span>캐릭터를 먼저 실행해 주세요.</div>';
+    return;
+  }
+  const list = _wdLicenseDesks();
+  const sec=document.createElement('div'); sec.className='wd-cat';
+  const head=document.createElement('div'); head.className='wd-cat-head';
+  head.innerHTML='<h3>🪑 라이선스 전용 책상</h3>';
+  const actions=document.createElement('div'); actions.className='wd-cat-head-actions';
+  const addCode=document.createElement('button'); addCode.className='wd-add-code'; addCode.textContent='+ 코드로 추가';
+  addCode.title='코드+비밀번호로 받은 책상을 이 기기에만 추가해요';
+  addCode.onclick=()=>{ openAssetImport('desk'); };
+  actions.appendChild(addCode); head.appendChild(actions); sec.appendChild(head);
+
+  const grid=document.createElement('div'); grid.className='wd-grid';
+  /* «쓰지 않음» — 전용 책상을 벗고 기본으로 돌아가는 길. 이 칸이 없으면 한 번 고른 사람이 갇힌다. */
+  const none=swThumb('기본 책상', !def.deskCatalogId, '↺');
+  none.classList.add('none-card');
+  none.onclick=()=>{ _wdApplyDeskChange(d=>{ d.deskCatalogId=null; d.deskGlb=null; }); renderWardrobe(); };
+  grid.appendChild(none);
+  list.forEach(rec=>{
+    const on=(def.deskCatalogId===rec.id);
+    const card=swThumb(rec.name||'책상', on, rec.icon||'🪑');
+    applyDeskDotThumb(rec, card);
+    card.onclick=async()=>{
+      if(def.deskCatalogId===rec.id) return;
+      if(!rec.glb && rec.glbUrl){
+        try{ await resolveCatalogGlb(rec); }catch(_){}
+      }
+      if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
+      _wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; });
+      renderWardrobe();
+    };
+    grid.appendChild(card);
+  });
+  sec.appendChild(grid);
+  if(!list.length){
+    const empty=document.createElement('div'); empty.className='wd-empty';
+    empty.innerHTML='<span class="ic">🪑</span>아직 등록된 전용 책상이 없어요.';
+    sec.appendChild(empty);
+  }
+
+  /* 기본·무료 책상이 어디 있는지 한 줄로 알려 준다 — 옮긴 뒤 «무료 책상이 사라졌다» 가 되지 않도록. */
+  const hint=document.createElement('p');
+  hint.style.cssText='margin:10px 0 0;padding:7px 9px;font-size:10.5px;line-height:1.7;color:var(--ink-soft);background:var(--win-face-2);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);';
+  hint.innerHTML='기본 책상과 무료 책상은 <b>캐릭터 만들기 › 5단계 책상</b>에서 고를 수 있어요.';
+  sec.appendChild(hint);
+
+  /* 조절 — 색·크기·길이. 위치(기즈모)는 5단계에 남긴다: 앞뒤·높이·좌우가 서로 물려 있어서
+     기즈모가 필요하고, 그것은 생성기 미리보기 카메라와 한 벌이다. */
+  const adjHead=document.createElement('div'); adjHead.className='wd-divider';
+  adjHead.innerHTML='<span>책상 조절</span><span class="wd-divider-line"></span>';
+  sec.appendChild(adjHead);
+  const box=document.createElement('div');
+  box.style.cssText='display:flex;flex-direction:column;gap:7px;padding:8px;background:var(--win-face-2);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);';
+
+  const rowColor=document.createElement('div'); rowColor.style.cssText='display:flex;align-items:center;gap:8px;';
+  const labColor=document.createElement('label'); labColor.htmlFor='wdDeskColor'; labColor.textContent='책상 색';
+  labColor.style.cssText='font-size:11px;width:56px;flex-shrink:0;';
+  const inColor=document.createElement('input'); inColor.type='color'; inColor.id='wdDeskColor';
+  inColor.value=def.deskColor||'#c9a36a';
+  inColor.style.cssText='width:46px;height:22px;padding:0;cursor:pointer;';
+  inColor.oninput=()=>{ _wdApplyDeskChange(d=>{ d.deskColor=inColor.value; }); };
+  rowColor.appendChild(labColor); rowColor.appendChild(inColor); box.appendChild(rowColor);
+
+  const mkRange=(id,label,min,max,step,val,apply)=>{
+    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:8px;';
+    const lab=document.createElement('label'); lab.htmlFor=id; lab.textContent=label;
+    lab.style.cssText='font-size:11px;width:56px;flex-shrink:0;';
+    const inp=document.createElement('input'); inp.type='range'; inp.id=id;
+    inp.min=min; inp.max=max; inp.step=step; inp.value=val;
+    inp.style.cssText='flex:1;min-width:0;';
+    inp.oninput=()=>apply(parseFloat(inp.value));
+    row.appendChild(lab); row.appendChild(inp); box.appendChild(row);
+  };
+  mkRange('wdDeskScale','책상 크기',DESK_SCALE_MIN(),DESK_SCALE_MAX(),0.01, def.deskScale||DESK_SCALE_DEFAULT(),
+    v=>{ _wdApplyDeskChange(d=>{ d.deskScale=clampDeskScale(v); }); });
+  mkRange('wdDeskLenX','책상 길이',0.5,2,0.05, def.deskLenX||1,
+    v=>{ _wdApplyDeskChange(d=>{ d.deskLenX=v; }); });
+
+  const posHint=document.createElement('p');
+  posHint.style.cssText='margin:0;font-size:10px;line-height:1.6;color:var(--ink-soft);';
+  posHint.textContent='책상 위치는 캐릭터 만들기 5단계의 기즈모에서 맞춰요.';
+  box.appendChild(posHint);
+  sec.appendChild(box);
+  wrap.appendChild(sec);
+}
 let wdRenderer=null, wdScene=null, wdCam=null, wdPreviewBase=null;
 /* 🪑 꾸미기 미리보기에서 '책상 위' 파츠가 설 자리를 만들기 위한 값들(아래 _wdDesk 참고).
    ★ buildDesk 가 책상 그룹 안에 deskAnchor 를 놓는 좌표와 **같은 숫자**여야 한다.
@@ -128,7 +272,7 @@ function ensureWdGizmo(){
   }
   wdGizmo = new THREE.TransformControls(wdCam, wdRenderer.domElement);
   wdGizmo.setSize(3.2);   // 런처1-1: 기즈모 두 배(1.6 → 3.2)
-  wdGizmo.addEventListener('objectChange', ()=>{ if(wdEar().isActive()) wdEar().onGizmoChange(); else syncWdGizmoToXf(); });
+  wdGizmo.addEventListener('objectChange', ()=>{ if(wdEar.isActive()) wdEar.onGizmoChange(); else syncWdGizmoToXf(); });
   // 드래그가 끝나는 순간에만(매 프레임이 아니라) 상세조정 패널의 숫자 표시를 다시 그림 — 무거운 재렌더를 드래그 중엔 피함
   wdGizmo.addEventListener('dragging-changed', e=>{ if(!e.value) renderWardrobe(); });
   wdScene.add(wdGizmo);
@@ -241,8 +385,8 @@ function setWdGizmoMode(mode){
 function updateWdGizmoForActivePanel(){
   const bar=document.getElementById('wdGizmoBar');
   /* 🐾 귀 탭은 파츠가 아니라 귀에 핸들을 붙인다(wd-ear.js) — 조정할 귀 줄도 거기서 그린다 */
-  if(wdEar().isActive()){ wdGizmoCat=null; wdGizmoPartId=null; wdEar().syncGizmo(); try{ partPaintMod().refreshWdPicUI(); }catch(_){} updateWdCam(); sizeWdPreview(); return; }
-  if(wdEar().hideRow()){ updateWdCam(); sizeWdPreview(); }   // 귀 탭에서 막 나왔다 — 구도·캔버스 크기 되돌림
+  if(wdEar.isActive()){ wdGizmoCat=null; wdGizmoPartId=null; wdEar.syncGizmo(); try{ partPaintMod().refreshWdPicUI(); }catch(_){} updateWdCam(); sizeWdPreview(); return; }
+  if(wdEar.hideRow()){ updateWdCam(); sizeWdPreview(); }   // 귀 탭에서 막 나왔다 — 구도·캔버스 크기 되돌림
   if(activeWdAdj && activeWdAdj.cat){
     if(bar) bar.style.display='flex';
     // 런처9: 다중 파츠의 활성 인스턴스도 복원 (renderWardrobe로 패널 재생성돼도 유지)
@@ -297,12 +441,12 @@ function updateWdGizmoForActivePanel(){
   function _wdApplyActive(){ if(wdGizmoCat && wdPreviewBase) applyPartXf(wdPreviewBase, wdGizmoCat); }
   const minus=document.getElementById('wdScaleMinus'), plus=document.getElementById('wdScalePlus');
   if(minus) _holdRepeat(minus, (isBig)=>{
-    if(wdEar().isActive()){ wdEar().scaleStep(-1, isBig); return; }
+    if(wdEar.isActive()){ wdEar.scaleStep(-1, isBig); return; }
     const xf=_wdActiveXf(); if(!xf){ toast('먼저 파츠 카드를 우클릭해서 조정할 파츠를 선택해 주세요'); return; }
     xf.scale = Math.max(0.3, +(xf.scale - (isBig?0.06:0.02)).toFixed(2)); _wdApplyActive();
   });
   if(plus) _holdRepeat(plus, (isBig)=>{
-    if(wdEar().isActive()){ wdEar().scaleStep(1, isBig); return; }
+    if(wdEar.isActive()){ wdEar.scaleStep(1, isBig); return; }
     const xf=_wdActiveXf(); if(!xf){ toast('먼저 파츠 카드를 우클릭해서 조정할 파츠를 선택해 주세요'); return; }
     xf.scale = Math.min(2.5, +(xf.scale + (isBig?0.06:0.02)).toFixed(2)); _wdApplyActive();
   });
@@ -428,7 +572,7 @@ let wdCamCenter=new THREE.Vector3(), wdCamLookY=0, wdCamBaseDist=1;
 /* 🐾 귀 탭 — 기본 구도는 머리 꼭대기에서 잘려 귀가 화면 밖이다. 그 탭에서만 조금 올리고 물러선다.
    (사용자가 휠·방향키로 맞춘 값은 그대로 두고 그 위에 얹는다) */
 const WD_EAR_CAM_LIFT = 0.12, WD_EAR_CAM_ZOOM = 1.18;
-function _wdEarCamOn(){ try{ return wdEar().isActive(); }catch(_){ return false; } }
+function _wdEarCamOn(){ try{ return wdEar.isActive(); }catch(_){ return false; } }
 function updateWdCam(){
   if(!wdCam) return;
   const _ear = _wdEarCamOn();
@@ -461,10 +605,12 @@ function ensureWdDraft(){
       partXfMemory: JSON.parse(JSON.stringify(def.partXfMemory||{})),
     });
     wdDraftDef._srcDef = def;   // 원본 참조 — 캐릭터가 바뀌면(다른 슬롯 등) draft를 새로 만들기 위한 식별용
-    wdEar().copyIntoDraft(wdDraftDef, def);   // 🐾 귀 조정값도 편집 대상이라 깊은 복사
+    wdEar.copyIntoDraft(wdDraftDef, def);   // 🐾 귀 조정값도 편집 대상이라 깊은 복사
   }
   return wdDraftDef;
 }
+/* 슬롯 저장 모듈이 좌석을 새 칸 객체로 다시 이을 때 — 열린 초안도 새 객체로 저장되게(slot-save.js onSeatRelinked) */
+function relinkDraftSrc(old, cur){ if(wdDraftDef && wdDraftDef._srcDef === old) wdDraftDef._srcDef = cur; }
 async function refreshWdPreviewChar(){
   ensureWdPreview(); if(!wdRenderer) return;
   const mySeat=findMySeat(); if(!mySeat||!mySeat.charDef) return;
@@ -655,13 +801,13 @@ requestAnimationFrame(wdPreviewLoop);
     // 기즈모 조작 중이면 무시 (dragging 상태)
     if(wdGizmo && wdGizmo.dragging) return;
     /* 🐾 귀 탭 — 누른 귀를 조정 대상으로(시안: 미리보기에서 귀를 직접 눌러도 그쪽으로 바뀐다) */
-    if(wdEar().isActive()){
+    if(wdEar.isActive()){
       if(partPaintMod()._wdPic.on || !wdPreviewBase) return;
       const r = canvas.getBoundingClientRect();
       _wdPt.x = ((e.clientX-r.left)/r.width)*2 - 1;
       _wdPt.y = -((e.clientY-r.top)/r.height)*2 + 1;
       _wdRay.setFromCamera(_wdPt, wdCam);
-      wdEar().pickAt(_wdRay);
+      wdEar.pickAt(_wdRay);
       return;
     }
     const multi = window._wdCurrentMultiPanel;
@@ -729,7 +875,7 @@ async function _commitWdDraftNow(silent){
   def.equippedParts = JSON.parse(JSON.stringify(draft.equippedParts||{}));
   def.partXfMemory = JSON.parse(JSON.stringify(draft.partXfMemory||{}));
   /* 🐾 귀는 파츠 배관 밖이라 따로 옮기고, 바뀌었으면 좌석 귀를 다시 붙인다 */
-  try{ if(wdEar().commit(def, draft)) _attachHumanEars(mySeat.modelRoot, def); }catch(e){ console.warn('[사람 귀] 저장', e); }
+  try{ if(wdEar.commit(def, draft)) _attachHumanEars(mySeat.modelRoot, def); }catch(e){ console.warn('[사람 귀] 저장', e); }
   /* 💾 저장이 먼저다 — 아래 파츠 GLB 받기는 몇 초 걸려서, 그 사이 앱이 꺼지면 꾸민 것이 통째로 사라졌다 */
   saveSlots();
   // 실제 캐릭터에서 "뺀 파츠"를 먼저 걷어냄 — 🔗 stackable은 id 단위까지 대조 (안 하면 예전 파츠가 유령으로 남음)
@@ -766,7 +912,7 @@ async function _commitWdDraftToOwner(draft, silent){
   src.partXfMemory = JSON.parse(JSON.stringify(draft.partXfMemory||{}));
   /* 🐾 귀도 원래 주인에게 — _commitWdDraftNow 와 같은 짝. 빠지면 교체 직전에 고른 귀만 사라진다 */
   let _earChanged = false;
-  try{ _earChanged = wdEar().commit(src, draft); }catch(e){ console.warn('[사람 귀] 저장', e); }
+  try{ _earChanged = wdEar.commit(src, draft); }catch(e){ console.warn('[사람 귀] 저장', e); }
   saveSlots();   // 💾 파츠 받기를 기다리기 전에 — _commitWdDraftNow 와 같은 이유
   if(seat){
     if(_earChanged) _attachHumanEars(seat.modelRoot, src);
@@ -791,7 +937,7 @@ function _wdAfterMainSwap(){
     const wp = document.getElementById('wdPreviewPanel');
     if(wp && wp.classList.contains('on')){
       try{ refreshWdPreviewChar(); }catch(_){}
-      try{ if(typeof window.refreshWardrobe==='function') window.refreshWardrobe(); }catch(_){}
+      try{ if(wd && wd.classList.contains('on')) renderWardrobe(); }catch(_){}   // 꾸미기 창이 열려 있으면 다시 그린다
     }
   }).catch(e=>console.warn('[꾸미기] 교체 뒤 저장 실패', e));
 }
@@ -1488,9 +1634,9 @@ function renderWardrobe(){
   /* 🪑 «책상» 은 PART_CATS 에 없는 **가상 탭**이다(WD_DESK_TAB 주석) — 유효성 검사에서 빼 준다.
      안 빼면 그 탭을 고르는 순간 첫 카테고리(모자)로 튕긴다. */
   /* 🐾 동물로 바뀌었는데 귀 탭이면 머리 첫 칸(모자)으로 돌린다 — 동물은 생성기에서 귀를 정한다 */
-  if(currentWdTab === wdEar().TAB && !wdEar().available(def)) currentWdTab = (partsInGroup('head')[0] || PART_CATS()[0]).cat;
-  if(currentWdTab !== wdEar().TAB && currentWdTab !== WD_DESK_TAB() && (!currentWdTab || !PART_CATS().find(c=>c.cat===currentWdTab))) currentWdTab = PART_CATS()[0].cat;
-  currentWdGroup = (currentWdTab === WD_DESK_TAB()) ? 'desk' : (currentWdTab === wdEar().TAB) ? 'head' : (groupOfCat(currentWdTab) || PART_GROUPS()[0].group);
+  if(currentWdTab === wdEar.TAB && !wdEar.available(def)) currentWdTab = (partsInGroup('head')[0] || PART_CATS()[0]).cat;
+  if(currentWdTab !== wdEar.TAB && currentWdTab !== WD_DESK_TAB() && (!currentWdTab || !PART_CATS().find(c=>c.cat===currentWdTab))) currentWdTab = PART_CATS()[0].cat;
+  currentWdGroup = (currentWdTab === WD_DESK_TAB()) ? 'desk' : (currentWdTab === wdEar.TAB) ? 'head' : (groupOfCat(currentWdTab) || PART_GROUPS()[0].group);
 
   if(tabsWrap){
     tabsWrap.innerHTML='';
@@ -1530,11 +1676,11 @@ function renderWardrobe(){
       subRow.appendChild(btn);
     });
     /* 🐾 머리 › 귀 — 모자·탈·안경 옆. 동물 캐릭터에는 없다 */
-    if(currentWdGroup === 'head' && wdEar().available(def)){
+    if(currentWdGroup === 'head' && wdEar.available(def)){
       const ebtn=document.createElement('button');
-      ebtn.className='wd-tab-btn wd-sub-btn'+(currentWdTab===wdEar().TAB?' on':'');
+      ebtn.className='wd-tab-btn wd-sub-btn'+(currentWdTab===wdEar.TAB?' on':'');
       ebtn.textContent='🐾 귀';
-      ebtn.onclick=()=>{ currentWdTab=wdEar().TAB; activeWdAdj=null; _clearMultiPanelRef(); renderWardrobe(); };
+      ebtn.onclick=()=>{ currentWdTab=wdEar.TAB; activeWdAdj=null; _clearMultiPanelRef(); renderWardrobe(); };
       subRow.appendChild(ebtn);
     }
     tabsWrap.appendChild(subRow);
@@ -1543,9 +1689,9 @@ function renderWardrobe(){
   /* 🪑 «책상» 가상 탭 — 파츠 그리드 배관을 타지 않고 여기서 갈라진다(WD_DESK_TAB 주석). */
   /* 🐾 «귀» 가상 탭 — 기즈모·조정할 귀 줄은 updateWdGizmoForActivePanel 이 wd-ear.js 로 넘긴다.
      책상 탭도 같이 맞춘다 — 안 부르면 귀 탭에서 넘어올 때 귀 핸들·줄이 남는다. */
-  if(currentWdTab === WD_DESK_TAB() || currentWdTab === wdEar().TAB){
+  if(currentWdTab === WD_DESK_TAB() || currentWdTab === wdEar.TAB){
     wrap.innerHTML='';
-    if(currentWdTab === WD_DESK_TAB()) renderWdDeskSection(wrap); else wdEar().render(wrap);
+    if(currentWdTab === WD_DESK_TAB()) renderWdDeskSection(wrap); else wdEar.render(wrap);
     refreshWdPreviewColorSection();
     updateWdGizmoForActivePanel();
     return;
@@ -1567,7 +1713,7 @@ function renderWardrobe(){
   actions.appendChild(addCode);
   if(isAdmin()){
     const add=document.createElement('button'); add.className='wd-add'; add.textContent='+ 등록';
-    add.onclick=()=>adminPartReg().openPartRegister(info.cat);
+    add.onclick=()=>_adminPartActions.openPartRegister(info.cat);
     actions.appendChild(add);
   }
   head.appendChild(actions);
@@ -1631,14 +1777,14 @@ function renderWardrobe(){
     };
     if(isAdmin()){
       const x=document.createElement('div'); x.className='wd-card-x'; x.textContent='×';
-      x.onclick=ev=>{ ev.stopPropagation(); activeWdAdj=null; adminPartReg().deletePart(rec.id); };
+      x.onclick=ev=>{ ev.stopPropagation(); activeWdAdj=null; _adminPartActions.deletePart(rec.id); };
       card.appendChild(x);
-      card.ondblclick=ev=>{ ev.stopPropagation(); adminPartReg().openPartRegister(info.cat, rec); };
+      card.ondblclick=ev=>{ ev.stopPropagation(); _adminPartActions.openPartRegister(info.cat, rec); };
       const handle=document.createElement('div'); handle.className='wd-card-drag'; handle.textContent='☰';
       handle.title='드래그해서 순서 바꾸기';
       card.appendChild(handle);
       card.dataset.reorderId = rec.id;
-      bindReorderHandle(handle, card, rec.id, (draggedId, targetId)=>reorderSavedPart(draggedId, targetId, info.cat));
+      bindReorderHandle(handle, card, rec.id, (draggedId, targetId)=>{ if(reorderSavedPart(draggedId, targetId, info.cat)) renderWardrobe(); });
     }
     grid.appendChild(card);
     if(activeWdAdj && activeWdAdj.id === rec.id) {
@@ -1814,6 +1960,9 @@ return {
   updateWdGizmoForActivePanel,
   wdCam: ()=>wdCam,   // 읽는 함수
   wdDraftDef: ()=>wdDraftDef,   // 읽는 함수
+  wdEar,
+  setAdminPartActions,
+  relinkDraftSrc,
   wdGizmo: ()=>wdGizmo,   // 읽는 함수
   wdGizmoMode: ()=>wdGizmoMode,   // 읽는 함수
   wdPreviewBase: ()=>wdPreviewBase,   // 읽는 함수

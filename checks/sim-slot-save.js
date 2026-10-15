@@ -1,8 +1,8 @@
 /* ═══ 💾 sim-slot-save.js — 💾 슬롯 저장 · 복원(localStorage) 모듈 구조 (2026-10-14 신설 · 앱 FSD 43번) ═══════════════
    app.js 의 슬롯 저장 구역 본문 을 parts/character/slot-save.js 로 옮겼다(글자 그대로 · 바뀐 줄 4 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(슬롯 저장 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(LS_KEY · _relinkSeatsToSlots · loadSlots · saveSlots · slotToObj)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 16줄 그대로 · 부르는 곳은 slotSaveMod.이름 · html(app.js 앞)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(LS_KEY · _relinkSeatsToSlots · loadSlots · saveSlots · slotToObj · 알림 on* · slotsReplaced)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 12줄 그대로 · 부르는 곳은 slotSaveMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · slot-save.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — slot-save.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_isBlankDraw","charDef","loadImg","newCanvas","toast"];
-const VAL_DEPS = ["CHAR_SLOT_MAX","_blinkEverDrawn","_faceEverDrawn","premiumMod","seats","slots","wardrobeMod"];
-const GET_DEPS = ["_blankFaceConfirmed","charsMod","slotSyncMod"];
+const VAL_DEPS = ["CHAR_SLOT_MAX","_blinkEverDrawn","_faceEverDrawn","seats","slots"];
+const GET_DEPS = ["_blankFaceConfirmed"];
 const SET_DEPS = ["_blankFaceConfirmed"];
-const EXPORTS = ["LS_KEY","_relinkSeatsToSlots","loadSlots","saveSlots","slotToObj"];
+const EXPORTS = ["LS_KEY","_relinkSeatsToSlots","loadSlots","onLoaded","onSaved","onSeatRelinked","onSlotsReplaced","saveSlots","slotToObj","slotsReplaced"];
 const MOVED = ["LS_KEY","_slotImgToDataUrl","slotToObj","_relinkSeatsToSlots","saveSlots","loadSlots"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  _blankFaceConfirmed: ()=>_blankFaceConfirmed,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  charDef: (...a)=>charDef(...a),","  charsMod: ()=>charsMod,","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  premiumMod: premiumMod,","  seats: seats,","  slotSyncMod: ()=>slotSyncMod,","  slots: slots,","  toast: (...a)=>toast(...a),","  wardrobeMod: wardrobeMod,","  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },"];
+const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  _blankFaceConfirmed: ()=>_blankFaceConfirmed,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  charDef: (...a)=>charDef(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  seats: seats,","  slots: slots,","  toast: (...a)=>toast(...a),","  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

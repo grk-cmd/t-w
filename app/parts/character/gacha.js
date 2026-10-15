@@ -42,11 +42,12 @@ const applyClothVisibility = deps.applyClothVisibility;
 const saveSlots = deps.saveSlots;
 const findMySeat = deps.findMySeat;
 const escHtml = deps.escHtml;
-const openPartRegister = deps.openPartRegister;                // 🛠 관리자 파츠 등록 창 — app.js
-const syncPartRegGachaLock = deps.syncPartRegGachaLock;
+const isGachaPart = deps.isGachaPart;                          // 가챠 파츠인가(rec.gacha) — 카탈로그(premium-assets.js)가 정의한다
+/* 🛠 관리자 파츠 등록 · 삭제 — app.js 가 setPartEditor 로 건다(가챠는 관리자 모듈을 부르지 않는다) */
+let openPartRegister = null, syncPartRegGachaLock = null, deletePart = null;
+function setPartEditor(a){ openPartRegister = a.openPartRegister; syncPartRegGachaLock = a.syncPartRegGachaLock; deletePart = a.deletePart; }
 const toggleEquip = deps.toggleEquip;                          // 👕 착용 배관 — 꾸미기(F2)와 같은 것
 const createWardrobeAdjPanel = deps.createWardrobeAdjPanel;
-const deletePart = deps.deletePart;
 const _clearMultiPanelRef = deps.clearMultiPanelRef;
 const refreshWdPreviewColorSection = deps.refreshWdPreviewColorSection;
 const updateWdGizmoForActivePanel = deps.updateWdGizmoForActivePanel;
@@ -192,7 +193,6 @@ function gachaSeasonNow(){
 }
 const GACHA_SEASON_LABEL = { '':'상시', spring:'🌸 봄', summer:'🌊 여름', autumn:'🍂 가을', winter:'❄ 겨울' };
 
-function isGachaPart(rec){ return !!(rec && rec.gacha); }
 function gachaCount(partId){ return gachaOwned[partId] | 0; }
 function isGachaOwnedPart(partId){ return gachaCount(partId) > 0; }
 // 색상 변경 해금 — 🔴 이 게이트는 가챠 파츠에만 건다. 기존 꾸미기 파츠의 색상은 조건 없이 열려 있고,
@@ -1287,6 +1287,7 @@ function toggleGachaInv(){
 return {
   /* 밖에서 부르는 이름 — app.js 는 gachaMod.이름 */
   isGachaPart,                          // 꾸미기 창 · 카탈로그 · 라이선스 접기가 가챠 파츠를 거른다
+  setPartEditor,                        // 🛠 관리자 등록 창을 건다(app.js)
   isGachaColorUnlocked,                 // 꾸미기 미리보기 색상 영역 — 🔒 게이트
   gachaCount,
   sceneHasColorGroup,                   // 관리자 파츠 등록 — 색 없는 파츠(rec.noColor) 판정
