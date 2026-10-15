@@ -49,6 +49,7 @@ const MODULES = [
   { file: 'theme-ui.js', mod: 'themeUiMod', glob: 'TwThemeUi', sample: 'function _themeChildCss(' },   // 앱 FSD 44번
   { file: 'myhome-sticker-layout.js', mod: 'mhStLayoutMod', glob: 'TwMyHomeStickerLayout', sample: 'function _mhOpenStickerAnim(' },   // 앱 FSD 44번
   { file: 'myhome-diag.js', mod: 'mhDiagMod', glob: 'TwMyHomeDiag', sample: 'window.__mhClickDiag = function(){' },   // 앱 FSD 44번
+  { file: 'account-state.js', mod: 'acctStateMod', glob: 'TwAccountState', sample: 'function _setPremium(' },   // 모듈 순환 끊기 5 — 게이트 · 계정 · 내 정보에서 핵심 상태를
   { file: 'myhome-state.js', mod: 'mhStateMod', glob: 'TwMyHomeState', sample: 'function _mhHomeFromServer(' },   // 모듈 순환 끊기 4 — visit 에서 공용 상태를
   { file: 'myhome-visit.js', mod: 'mhVisitMod', glob: 'TwMyHomeVisit', sample: 'async function openFriendHomeView(' },   // 앱 FSD 44번
   { file: 'exp-bar.js', mod: 'expBarMod', glob: 'TwExpBar', sample: 'function expTierClass(' },   // 앱 FSD 45번

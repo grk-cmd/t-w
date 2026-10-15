@@ -2,10 +2,12 @@
    app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 23번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 49줄 —
-     CHAL_KEY · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · myInfoMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
+     CHAL_KEY · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: FRIEND_CODE_LOGIN_RE · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · _acctDetached · _applyTransferSnapshot · _charsLinkedMaybeShow · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginLocalSnapshot · getMyLoginEmail · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
+   ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
+   ★ «연동됨» 안내 창(_charsLinkedMaybeShow)은 보관함 화면이 있는 my-info.js 로 옮겼다 — 표시 키 CHARS_LINKED_KEY 는 쓰는 쪽(여기)에 두고 내놓는다.
+   ★ 밖에서 부르는 이름: CHARS_LINKED_KEY · _applyTransferSnapshot · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginLocalSnapshot · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAccount — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-account.js */
@@ -41,8 +43,12 @@ const extraSeatSlots = deps.extraSeatSlots;   // 읽는 함수
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const getMyUserId = deps.getMyUserId;
-const licenseGateMod = deps.licenseGateMod;
-const myInfoMod = deps.myInfoMod;   // 읽는 함수
+const acctStateMod = deps.acctStateMod;   // 🪪 계정 핵심 상태(account-state.js) — 라이선스 저장 키 · 초대 통과 · 프리미엄 · 신원 놓음
+const setAcctDetached = deps.setAcctDetached;   // 쓰는 함수 — 신원을 놓을 때
+const LOGIN_EMAIL_KEY = deps.LOGIN_EMAIL_KEY;   // 🪪 신원 핵심(account-state.js) — 로그인 이메일 · Auth uid 저장 키 · 친구코드 모양
+const LOGIN_UID_KEY = deps.LOGIN_UID_KEY;
+const getMyLoginEmail = deps.getMyLoginEmail;
+const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;
 const plMod = deps.plMod;
 const slotSyncMod = deps.slotSyncMod;   // 읽는 함수
 const toast = deps.toast;
@@ -51,17 +57,13 @@ const weeklyChal = deps.weeklyChal;   // 읽는 함수
 const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수
 const setFocusTotalSec = deps.setFocusTotalSec;   // 쓰는 함수
 const setExtraSeatSlots = deps.setExtraSeatSlots;   // 쓰는 함수
-const LOGIN_EMAIL_KEY = 'tw.loginEmail';    // 이 기기에 로그인된 구글 계정 (표시·판정용)
-const LOGIN_UID_KEY   = 'tw.loginAuthUid';  // Firebase Auth uid (디버그·대조용)
-
-function getMyLoginEmail(){ try{ return localStorage.getItem(LOGIN_EMAIL_KEY) || null; }catch(_){ return null; } }
 
 /* 이 기기의 현재 값들 — 로그인/부팅 때 서버 스냅샷에 실어 보내는 한 벌.
    ★ 여기 없는 것(플레이리스트·가챠·마이홈)은 각자 실시간 사본이 따로 있어서 안 담는다. */
 function _loginLocalSnapshot(){
   const g = k => { try{ return localStorage.getItem(k) || null; }catch(_){ return null; } };
   return {
-    license: g(licenseGateMod.LICENSE_KEY_STORAGE),
+    license: g(acctStateMod.LICENSE_KEY_STORAGE),
     focusTotalSec: Number.isFinite(Number(_focusTotalSec())) ? Number(_focusTotalSec()) : null,
     name: g(USER_NAME_KEY),
     friendCode: g(MY_FRIEND_CODE_KEY)
@@ -83,7 +85,7 @@ function _loginLocalSnapshot(){
      구글 버튼)은 그대로 열려 있어야 한다. 그 판정은 서버가 authUsers 를 보고 한다. */
 function _loginMayBind(){
   let passed = false;
-  try{ passed = !!localStorage.getItem(licenseGateMod.INVITE_PASS_KEY); }catch(_){}
+  try{ passed = !!localStorage.getItem(acctStateMod.INVITE_PASS_KEY); }catch(_){}
   if(!HAD_USER_ID_AT_BOOT && !passed) return false;
   try{ return !!localStorage.getItem(MY_USER_ID_KEY); }catch(_){ return false; }
 }
@@ -149,65 +151,6 @@ async function _switchPrepare(before, to){
   return { ok:true, mode:'import', n: plan.cids.length };
 }
 
-/* 🧬 F · 캐릭터를 계정에 연동했어요 (설계 §7-F · 시안 F-1 · F-2 확정 · CHECKS 개정 57) — 묻지 않는 안내 창. 한 번만.
-   [언제] 재시작 뒤 부팅 _charsBoot 가 성공한 다음(첫 채택까지 끝나 보관함이 열린 뒤). 표시가 다른 uid 것이면 버린다.
-   [무엇] 옮긴 것 중 **지금도 살아 있는** 것만 센다 · 섬네일만(이름 없음 — 보관함과 같은 결정) · «마리» 없이 «개» ·
-     보관함 N/20 과 (그 전 + 옮긴 것) · 20 이상이면 D2 와 같은 문구로 경고하고 [보관함 열기]를 기본 버튼으로.
-   ★ 창을 띄우면 표시를 지운다(두 번 안 뜬다). 보관함이 아직 안 열렸으면(채택 전) 표시를 두고 다음 부팅에. */
-function _charsLinkedMaybeShow(){
-  let m = null; try{ m = JSON.parse(localStorage.getItem(CHARS_LINKED_KEY) || 'null'); }catch(_){ m = null; }
-  if(!m) return false;
-  const drop = () => { try{ localStorage.removeItem(CHARS_LINKED_KEY); }catch(_){} };
-  if(typeof m !== 'object' || m.to !== getMyUserId() || !Array.isArray(m.cids)){ drop(); return false; }
-  if(!(typeof charsMod()._charsActive === 'function' && charsMod()._charsActive())) return false;
-  const ov = document.getElementById('charsLinkedOverlay');
-  if(!ov) return false;
-  const box = charsMod()._charsBoxGet(), desk = charsMod()._charsDeskGet(), on = new Set(desk.filter(Boolean));
-  const live = m.cids.filter(c => box[c] && !charsMod()._charsIsTomb(box[c]) && typeof box[c].def === 'string');
-  if(!live.length){ drop(); return false; }
-  const total = charsMod()._charsBoxOnlyCount(box, desk), moved = live.filter(c => !on.has(c)).length;
-  const full = total >= charsMod().CHARS_BOX_MAX, need = total - charsMod().CHARS_BOX_MAX + 1;
-  const $e = id => document.getElementById(id);
-  const set = (id, t) => { const el = $e(id); if(el) el.textContent = t; };
-  set('clCount', live.length + '개');
-  let code = null; try{ code = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){}
-  const chip = $e('clCode'), chipWrap = $e('clCodeWrap');
-  if(chip) chip.textContent = code || '';
-  if(chipWrap) chipWrap.style.display = code ? 'inline' : 'none';
-  const th = $e('clThumbs');
-  if(th){
-    th.textContent = '';
-    for(const c of live){
-      let def = null; try{ def = JSON.parse(box[c].def); }catch(_){}
-      const cell = document.createElement('div'); cell.className = 'cl-th';
-      const src = myInfoMod()._miSlotThumb(def);
-      if(src){ const im = document.createElement('img'); im.src = src; im.alt = ''; im.loading = 'lazy'; cell.appendChild(im); }
-      th.appendChild(cell);
-    }
-  }
-  set('clBox', total + ' / ' + charsMod().CHARS_BOX_MAX);
-  set('clSplit', (total - moved) + ' + ' + moved);
-  const cnt = $e('clCnt'); if(cnt) cnt.classList.toggle('full', full);
-  const warn = $e('clFull');
-  if(warn){ warn.style.display = full ? 'block' : 'none';
-    warn.textContent = '보관함이 가득 찼어요. ' + need + '개 이상 휴지통으로 옮겨야 새 캐릭터 만들기 · 보관함 이동 · 복원을 할 수 있어요. 지금 있는 캐릭터는 그대로 써도 돼요.'; }
-  const note = $e('clNote'); if(note) note.style.display = full ? 'none' : 'block';
-  const openB = $e('clOpen'), okB = $e('clOk');
-  if(openB) openB.classList.toggle('ghost', !full);
-  if(okB) okB.classList.toggle('ghost', full);
-  const close = () => { ov.style.display = 'none'; };
-  if(okB) okB.onclick = close;
-  if(openB) openB.onclick = () => {
-    close();
-    const lc = document.getElementById('launcher');
-    if(lc && lc.classList.contains('on')) myInfoMod().openMyInfo('box');
-    else toast('런처의 [내 정보] › 보관함에서 볼 수 있어요');
-  };
-  drop();
-  ov.style.display = 'flex';
-  return true;
-}
-
 /* 구글 로그인 — 창 열기(main) → 토큰 검증·결속(firebase) → 필요하면 갈아타기(여기).
    @return { ok, switched, email, reason }
            switched=true → 유저 코드가 바뀌었다 = **재시작이 필요하다** */
@@ -250,7 +193,7 @@ async function _loginDoGoogle(){
        ⚠️ bound=true(이 계정의 첫 결속)는 자격의 근거가 못 된다 — 방금 깐 사람도 로그인만 하면
          묶이기 때문이다. 그쪽은 여전히 초대 코드가 필요하다. 그래서 둘을 갈라 돌려준다. */
     const alreadyOwner = !r.bound;
-    if(alreadyOwner){ try{ licenseGateMod._markInvitePassed(); }catch(_){} }
+    if(alreadyOwner){ try{ acctStateMod._markInvitePassed(); }catch(_){} }
     return { ok:true, switched:false, alreadyOwner, email:r.email };
   }
 
@@ -275,7 +218,7 @@ async function _loginDoGoogle(){
     const snap = await firebaseAPI.fetchAccountSnapshot(r.userCode);
     await _applyTransferSnapshot(snap);   // 계정 연동과 **같은 함수** — 복원 규칙은 한 벌뿐이다
   }catch(e){ console.warn('[로그인] 복원 중 오류 — uid 교체는 이미 끝났다', e); }
-  try{ licenseGateMod._markInvitePassed(); }catch(_){}   // 계정이 있는 사람 = 이미 정식 유저
+  try{ acctStateMod._markInvitePassed(); }catch(_){}   // 계정이 있는 사람 = 이미 정식 유저
   return { ok:true, switched:true, email:r.email };
 }
 
@@ -284,7 +227,6 @@ async function _loginDoGoogle(){
    돌려주는 것: { ok, switched } — switched 면 부르는 쪽이 재시작한다.
    ★ uid 기록은 `_setMyUserId` 하나로(설계 §6-⑦). 못 쓰면 Auth 세션도 놓는다 — «로그인은 됐는데 이 기기는 딴 사람» 을 남기지 않는다.
    ⚠️ LOGIN_EMAIL_KEY 에는 `{코드}@tw.local` 이 들어간다 — 계정 탭(C) 표시는 화면 단계에서 친구 코드로 바꾼다. */
-const FRIEND_CODE_LOGIN_RE = /^[A-Z]{4}-[A-Z0-9]{4}$/;
 async function _loginDoFriendCode(code, password){
   if(!(window.firebaseAPI && firebaseAPI.authSignInWithFriendCode))
     return { ok:false, reason:'네트워크 연결이 필요해요' };
@@ -307,14 +249,14 @@ async function _loginDoFriendCode(code, password){
     localStorage.setItem(LOGIN_EMAIL_KEY, r.email || '');
     localStorage.setItem(LOGIN_UID_KEY, r.uid || '');
   }catch(_){}
-  if(r.userCode === before){ try{ licenseGateMod._markInvitePassed(); }catch(_){} return { ok:true, switched:false }; }
+  if(r.userCode === before){ try{ acctStateMod._markInvitePassed(); }catch(_){} return { ok:true, switched:false }; }
   try{
     const snap = await firebaseAPI.fetchAccountSnapshot(r.userCode);
     /* 구글 로그인·가입과 **같은 함수** — 복원 규칙은 한 벌뿐이다. 입력한 코드는 비밀번호로 확인된 이 계정의 아이디라,
        계정에 코드 기록이 없을 때 그것을 쓴다(개정 56). */
     await _applyTransferSnapshot(snap, { typedCode: code });
   }catch(e){ console.warn('[로그인] 복원 중 오류 — uid 교체는 이미 끝났다', e); }
-  try{ licenseGateMod._markInvitePassed(); }catch(_){}
+  try{ acctStateMod._markInvitePassed(); }catch(_){}
   return { ok:true, switched:true };
 }
 
@@ -327,10 +269,10 @@ async function _loginDoFriendCode(code, password){
 
 const ACCOUNT_LOCAL_KEYS = ()=>[
   /* 신원 */
-  MY_USER_ID_KEY, licenseGateMod.INVITE_PASS_KEY, MY_FRIEND_CODE_KEY, LOGIN_EMAIL_KEY, LOGIN_UID_KEY,
+  MY_USER_ID_KEY, acctStateMod.INVITE_PASS_KEY, MY_FRIEND_CODE_KEY, LOGIN_EMAIL_KEY, LOGIN_UID_KEY,
   MY_FRIEND_CODE_PREV_KEY,     // 이 기기가 버린 코드 기록(진단용) — 다음 사람에게는 남의 코드다
   /* 라이선스 — 다시 로그인하면 계정 스냅샷(_applyTransferSnapshot r.license)으로 돌아온다. 없으면 키 재입력. */
-  licenseGateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY(), licenseGateMod.LICENSE_OPTOUT_KEY,   // 🎫 «이 기기만 해제» 표시도 계정 것이다
+  acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY(), acctStateMod.LICENSE_OPTOUT_KEY,   // 🎫 «이 기기만 해제» 표시도 계정 것이다
   /* 누적 시간(레벨 원본) — 스냅샷 focusTotalSec + syncFocusTotalToServer 의 «서버가 크면 받아온다» 가지.
      ⚠️ FOCUS_SYNCED_KEY 는 **removeItem** 이다. 값을 두면 «마크» 가 되고, 없으면 «한 번도 안 맞춰봄 = 증분 0 · max 바닥만».
         빈 기기에 마크가 남아 있으면 다음 계정의 첫 동기화가 (0 − 옛마크) 로 꼬인다. */
@@ -456,9 +398,8 @@ async function _acctPreflight(uid, opt){
      (syncFocusTotalToServer('quit') · _chalSave). 메모리에 옛 값이 있으면 그 한 번이 지운 키를 도로 쓴다.
    ⚠️ getMyUserId() 를 부르는 코드가 이 뒤에 돌면 임시 uid 가 하나 생긴다. 그건 이미 설계된 상태다
      (게이트 주석 «로그아웃 직후 만들어진 임시 유저 코드»). 여기서 막지 않는다. */
-let _acctDetached = false;   // 신원을 놓았다 — 이 뒤로 서버에 올리는 길(syncFocusTotalToServer 등)은 돌지 않는다
 function _wipeAccountLocal(){
-  _acctDetached = true;
+  setAcctDetached(true);
   for(const k of ACCOUNT_LOCAL_KEYS()){ try{ localStorage.removeItem(k); }catch(_){} }
   try{
     const drop = [];
@@ -733,7 +674,7 @@ async function _applyTransferSnapshot(r, opts){
   if(r){
   /* 🔑 [2026-09-15 제보 3] 키만 저장하고 isPremium 을 안 올리던 자리 — 재시작 전까지 내 전용 책상이 기본으로 보였다.
      loadLicenseFromStorage 와 같은 태도(로컬 키 = 일단 프리미엄, 재검증은 다음 부팅의 initLicense). */
-  try{ if(r.license){ localStorage.setItem(licenseGateMod.LICENSE_KEY_STORAGE, r.license); licenseGateMod._setPremium(true); } }catch(_){}
+  try{ if(r.license){ localStorage.setItem(acctStateMod.LICENSE_KEY_STORAGE, r.license); acctStateMod._setPremium(true); } }catch(_){}
   try{
     if(Number.isFinite(r.focusTotalSec) && r.focusTotalSec >= 0){
       /* 🕒 ★ 포커스 누적만은 **덮어쓰지 않는다 — max 다.**
@@ -876,17 +817,12 @@ async function _restoreOwnedDataAfterTransfer(){
    걷었다(설계 §6 «남는 것» · 소유권 쪽). 대신 _adoptAccountFriendCode 가 **로컬 표시만** 계정 것으로 맞춘다. */
 
 return {
-  FRIEND_CODE_LOGIN_RE,
-  LOGIN_EMAIL_KEY,
-  LOGIN_UID_KEY,
-  _acctDetached: ()=>_acctDetached,   // 읽는 함수
+  CHARS_LINKED_KEY,
   _applyTransferSnapshot,
-  _charsLinkedMaybeShow,
   _loginDoFriendCode,
   _loginDoGoogle,
   _loginDoLogout,
   _loginLocalSnapshot,
-  getMyLoginEmail,
   refreshAccountTab,
 };
 }

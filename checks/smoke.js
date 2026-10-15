@@ -401,6 +401,8 @@ PRELOAD.push('part-paint.js');
 PRELOAD.push('focus-level.js');
 /* chat-ui.js — 💬 채팅 — 날리기 · 읽음 · 탭 · 복사 · 이모티콘(앱 FSD 24번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatUi 를 같이 굴린다. */
 PRELOAD.push('chat-ui.js');
+/* account-state.js — 🪪 계정 핵심 상태(모듈 순환 끊기 5). 같은 까닭 — 초대 게이트 · 계정 · 내 정보 · 포커스 레벨이 만들 때 이 모듈의 알림 자리(onPremiumChanged)를 받는다. */
+PRELOAD.push('account-state.js');
 /* license-gate.js — 🎟️ 초대장 · 라이선스(앱 FSD 31번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseGate 를 같이 굴린다. */
 PRELOAD.push('license-gate.js');
 /* account.js — 🔑 계정(앱 FSD 23번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAccount 를 같이 굴린다. */
@@ -455,6 +457,8 @@ PRELOAD.push('theme-ui.js');
 PRELOAD.push('myhome-sticker-layout.js');
 /* myhome-diag.js — 마이홈 클릭 진단(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeDiag 를 같이 굴린다. */
 PRELOAD.push('myhome-diag.js');
+/* myhome-state.js — 🏠 마이홈 공용 상태(모듈 순환 끊기 4). 같은 까닭 — 친구 홈 구경 · 페이지가 읽고 쓰는 값이 빈 껍데기가 아닌 진짜에 있게. */
+PRELOAD.push('myhome-state.js');
 /* myhome-visit.js — 마이홈 데이터 · 친구 홈 구경(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeVisit 를 같이 굴린다. */
 PRELOAD.push('myhome-visit.js');
 /* exp-bar.js — 경험치 바(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createExpBar 를 같이 굴린다. */

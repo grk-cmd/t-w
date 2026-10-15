@@ -1037,7 +1037,8 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     chk(count(_AH, /async function _sha256Hex\(/g) === 1 && /async function _sha256Hex\(s\)\{[\s\S]{0,600}catch\(e\)\{ return null; \}/.test(_AH), '  _sha256Hex 는 한 벌 · 실패하면 null');
     const tabs = takeFn(A, 'function setProgSettingsTab(') || '';
     chk(!!tabs && !/account/.test(tabs.replace(/\/\/.*$/mg, '')) && !/설정 → 계정|설정 › 계정/.test(Ac), '  설정 탭에 계정 없음 · 없어진 [설정 › 계정]을 가리키는 안내 없음');
-    const gateUI = A.slice(A.indexOf('(function initAccountLoginUI('), A.indexOf('function _acctRelaunchAfterDetach('));
+    const _iLU = A.indexOf('(function initAccountLoginUI(');   // 덩이 끝은 그 즉시 실행 함수의 닫는 줄(«다시 켜기» 도우미는 계정 핵심 상태로 옮겼다 — 모듈 순환 끊기 5)
+    const gateUI = _iLU < 0 ? '' : A.slice(_iLU, A.indexOf('\n})();', _iLU));
     chk(/const gate = \$\('inviteGateGoogleBtn'\)/.test(gateUI) && /const runLogin =/.test(gateUI), '  게이트 H 의 구글 버튼 처리는 남았다');
     /* 계정 C4 순서 */
     const iPA = MI.indexOf('id="miPageAcct"'), iAM = MI.indexOf('<div id="acctMethods"'), iSB = MI.indexOf('id="acctSyncBox"'), iLO = MI.indexOf('<button id="acctLogoutBtn"'), iLD = MI.indexOf('id="acctLogoutDone"');
@@ -1435,8 +1436,9 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const hd = takeFn(A, 'function _miRenderHead(') || '';
     chk(/_miRenderRank\(\);/.test(hd), '★ 머리를 그릴 때 순위도(비동기)');
     const sy = takeFn(A, 'async function syncFocusTotalToServer(') || '';
-    const iOk = sy.indexOf("if(!r || !r.ok){ _focusSyncFailed(reason, r, delta); return; }"), iPush = sy.indexOf('_lbPush(uid, server)');
-    chk(iOk > 0 && iPush > iOk && !/_lbPush\([^)]*(_focusTotalSec|mine)/.test(sy), '★ 동기화가 **성공한 뒤** · 로컬값이 아니라 서버 총합(server)을 올린다');
+    /* 올리는 일은 «서버와 맞췄다» 알림(onTotalSynced)에 내 정보 _lbPush 가 걸려서 한다(모듈 순환 끊기 5) — 알림을 부르는 자리 · 넘기는 값 · 건 줄을 본다 */
+    const iOk = sy.indexOf("if(!r || !r.ok){ _focusSyncFailed(reason, r, delta); return; }"), iPush = sy.indexOf('fn(uid, server)');
+    chk(iOk > 0 && iPush > iOk && !/fn\([^)]*(_focusTotalSec|mine)/.test(sy) && /onTotalSynced\(\(uid, sec\)=>(myInfoMod\.)?_lbPush\(uid, sec\)\);/.test(A), '★ 동기화가 **성공한 뒤** · 로컬값이 아니라 서버 총합(server)을 올린다(«맞췄다» 알림에 _lbPush 가 걸려 있다)');
     chk((A.match(/_lbPush\(/g) || []).length === 2, '  올리는 곳은 한 곳(정의 + 동기화 뒤 한 줄)');
     const rk = takeFn(A, 'function rankOf(') || '', rl = takeFn(A, 'function rankLabel(') || '', rr = takeFn(A, 'function _miRenderRank(') || '', ap = takeFn(A, 'function _miApplyRank(') || '', lp = takeFn(A, 'function _lbPush(') || '', lf = takeFn(A, 'async function _lbFetchRank(') || '';
     chk(rk && rl && rr && ap && lp && ![rk, rl, rr, ap, lp].some(f => /myFocusShow|getFocusLevel|focusCycleOf/.test(f)),
