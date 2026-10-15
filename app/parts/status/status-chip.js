@@ -4,7 +4,8 @@
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 33줄 —
      Presence · _charBadWhy · _charBoundsLatest · _danceCmdCooldownAt · _moveModeJustToggled · _officeHidden · chatUiMod · customStatusConf · moveMode · overheadMod · userStatus 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCharBadWhy · setCharBoundsLatest · setDanceCmdCooldownAt · setMoveModeJustToggled · setMoveMode(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
-   ★ app.js 함수 16개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). 마이홈 시작(initMyHome)은 여기서 안 부른다 — app.js INIT 에서 한 번.
+   ★ app.js 함수 11개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). 마이홈 시작(initMyHome)은 여기서 안 부른다 — app.js INIT 에서 한 번.
+     저장된 상태 불러오기 · 칩 첫 그리기 · 캐릭터 크기 복원도 여기서 안 부른다 — app.js 의 만드는 줄 바로 뒤에서(만드는 도중엔 statusChipMod 가 아직 없어 refreshMyStatusUI 가 던진다).
    ★ 밖에서 부르는 이름: _positionInputBelowChar · _repositionOpenChipPopups · _tabHintTimer · _wpTmp3 · hexToRgba · setSeatDeskEmoji · uiIconEl · updateMyStatusChipPosition — app.js 는 statusChipMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwStatusChip — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
@@ -30,13 +31,8 @@ const backToLauncher = deps.backToLauncher;
 const camera = deps.camera;
 const chatUiMod = deps.chatUiMod;   // 읽는 함수
 const customStatusConf = deps.customStatusConf;   // 읽는 함수
-const loadCustomStatusFromStorage = deps.loadCustomStatusFromStorage;
-const loadUserStatusFromStorage = deps.loadUserStatusFromStorage;
 const moveMode = deps.moveMode;   // 읽는 함수
 const overheadMod = deps.overheadMod;   // 읽는 함수
-const refreshCharScaleForCurrentDisplay = deps.refreshCharScaleForCurrentDisplay;
-const refreshCustomStatusMenuItem = deps.refreshCustomStatusMenuItem;
-const refreshMyStatusUI = deps.refreshMyStatusUI;
 const renderer = deps.renderer;
 const rideBenchMod = deps.rideBenchMod;
 const saveCustomStatusConf = deps.saveCustomStatusConf;
@@ -593,8 +589,6 @@ function updateMyStatusChipPosition(){
       more.classList.add('hidden'); moreBtn.classList.remove('on');
     });
   }
-  loadCustomStatusFromStorage(); loadUserStatusFromStorage(); refreshMyStatusUI();
-  refreshCharScaleForCurrentDisplay();   // 이 모니터에 저장해둔 캐릭터 크기 복원
 
   // 상태칩의 이동 버튼(✥) — 기존 설정 패널의 "프로그램 이동" 버튼과 동일한 기능.
   // 클릭하면 moveMode를 켜고, 화면 클릭으로 위치를 확정. 확정 로직은 window pointerdown 리스너가 처리.
@@ -774,7 +768,6 @@ function updateMyStatusChipPosition(){
     customStatusTextIn.addEventListener('keydown', onKey);
     if(customStatusEmoIn) customStatusEmoIn.addEventListener('keydown', onKey);
   }
-  refreshCustomStatusMenuItem();
 
   // 접기/펼치기 — 버튼 대신 Tab 키로 토글 (세션 유지는 그대로 localStorage)
   // ★ 요청사항 변경: 기본값(한 번도 안 건드렸을 때)은 "펼침" — 명시적으로 접어둔 적('1')이 저장돼 있을 때만 접힌 채로 시작.

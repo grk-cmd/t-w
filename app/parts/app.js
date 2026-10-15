@@ -3230,13 +3230,8 @@ const statusChipMod = (typeof TwStatusChip === 'undefined') ? STATUS_CHIP_MOD_OF
   camera: camera,
   chatUiMod: ()=>chatUiMod,
   customStatusConf: ()=>customStatusConf,
-  loadCustomStatusFromStorage: (...a)=>loadCustomStatusFromStorage(...a),
-  loadUserStatusFromStorage: (...a)=>loadUserStatusFromStorage(...a),
   moveMode: ()=>moveMode,
   overheadMod: ()=>overheadMod,
-  refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
-  refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
-  refreshMyStatusUI: (...a)=>refreshMyStatusUI(...a),
   renderer: renderer,
   rideBenchMod: rideBenchMod,
   saveCustomStatusConf: (...a)=>saveCustomStatusConf(...a),
@@ -3251,6 +3246,14 @@ const statusChipMod = (typeof TwStatusChip === 'undefined') ? STATUS_CHIP_MOD_OF
   setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
   setMoveMode: (v)=>{ moveMode = v; },
 });
+/* 저장된 상태 · 커스텀 상태 불러오기 → 칩 첫 그리기 → 이 모니터 캐릭터 크기 복원.
+   ⚠️ statusChipMod 를 만든 **뒤**에 부른다 — 모듈 안에서 부르면 refreshMyStatusUI 가 아직 없는 statusChipMod 를 읽어
+   던지고(상태를 저장해 둔 사람만), 그 뒤 app.js 가 통째로 멈춘다. 칩 버튼 · 메뉴가 없는 화면은 예전처럼 건너뛴다. */
+if(document.getElementById('myStatusChipBtn') && document.getElementById('myStatusMenu')){
+  loadCustomStatusFromStorage(); loadUserStatusFromStorage(); refreshMyStatusUI();
+  refreshCharScaleForCurrentDisplay();
+  refreshCustomStatusMenuItem();
+}
 
 /* ═══ 😊 기본 이모티콘 (demoji) 말풍선 — 채팅이 없는 워킹룸용 ═══
    · 라이선스 여부와 무관하게 방에 있는 모두가 사용 가능(텍스트 채팅은 여전히 투게더룸 전용).
