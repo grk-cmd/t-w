@@ -5,7 +5,7 @@
      CHARS_BOX_MAX · EXP_CELLS · EXP_SEC_PER_CELL · EXP_SEC_PER_LEVEL · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · STAR_PALETTE · _acctDetached · _focusTotalSec · _myHomeData · curSlot 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCurSlot(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 36개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: _acctRelaunchAfterDetach · _lbPush · _miIsOpen · _miSlotThumb · closeMyInfo · openMyInfo — app.js 는 myInfoMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _charsLinkedMaybeShow · _lbPush · _miIsOpen · _miSlotThumb · closeMyInfo · openMyInfo — app.js 는 myInfoMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwMyInfo — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-my-info.js */
@@ -19,6 +19,9 @@ const EXP_SEC_PER_LEVEL = deps.EXP_SEC_PER_LEVEL;   // 읽는 함수
 const FOCUS_CYCLE_SEC = deps.FOCUS_CYCLE_SEC;   // 읽는 함수
 const FOCUS_LEVEL_CAP_HOURS = deps.FOCUS_LEVEL_CAP_HOURS;   // 읽는 함수
 const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
+const _acctRelaunchAfterDetach = deps._acctRelaunchAfterDetach;   // 🪪 신원을 놓은 뒤 앱 다시 켜기(account-state.js)
+const CHARS_LINKED_KEY = deps.CHARS_LINKED_KEY;   // «연동됨» 안내 표시 — 계정(account.js)이 옮길 때 적는다
+const charsMod = deps.charsMod;   // 읽는 함수
 const MY_USER_ID_KEY = deps.MY_USER_ID_KEY;
 const STAR_PALETTE = deps.STAR_PALETTE;   // 읽는 함수
 const USER_NAME_MAX = deps.USER_NAME_MAX;
@@ -756,19 +759,67 @@ function _miCodeLoad(){
    ⚠️ 구버전 앱에는 relaunchApp 채널이 없다. 그때는 기존처럼 '지금 종료' 안내로 물러난다 —
      여기서 그냥 실패하면 유저는 버튼을 눌렀는데 아무 일도 안 일어나는 화면을 본다.
    @param onFallback 재시작을 못 할 때 부를 것(수동 종료 안내를 띄우는 쪽) */
-function _acctRelaunchAfterDetach(onFallback){
-  if(window.companion && companion.relaunchApp){
-    /* 살짝 늦춘다 — 안내 문구가 한 번은 그려지게. 갑자기 꺼지면 고장으로 읽힌다.
-       (localStorage 쓰기는 동기라 이 지연과 무관하게 이미 끝나 있다) */
-    setTimeout(()=>{ try{ companion.relaunchApp(); }catch(_){ if(onFallback) onFallback(); } }, 700);
-    return true;
+/* 🧬 F · 캐릭터를 계정에 연동했어요 (설계 §7-F · 시안 F-1 · F-2 확정 · CHECKS 개정 57) — 묻지 않는 안내 창. 한 번만.
+   [언제] 재시작 뒤 부팅 _charsBoot 가 성공한 다음(첫 채택까지 끝나 보관함이 열린 뒤). 표시가 다른 uid 것이면 버린다.
+   [무엇] 옮긴 것 중 **지금도 살아 있는** 것만 센다 · 섬네일만(이름 없음 — 보관함과 같은 결정) · «마리» 없이 «개» ·
+     보관함 N/20 과 (그 전 + 옮긴 것) · 20 이상이면 D2 와 같은 문구로 경고하고 [보관함 열기]를 기본 버튼으로.
+   ★ 창을 띄우면 표시를 지운다(두 번 안 뜬다). 보관함이 아직 안 열렸으면(채택 전) 표시를 두고 다음 부팅에. */
+function _charsLinkedMaybeShow(){
+  let m = null; try{ m = JSON.parse(localStorage.getItem(CHARS_LINKED_KEY) || 'null'); }catch(_){ m = null; }
+  if(!m) return false;
+  const drop = () => { try{ localStorage.removeItem(CHARS_LINKED_KEY); }catch(_){} };
+  if(typeof m !== 'object' || m.to !== getMyUserId() || !Array.isArray(m.cids)){ drop(); return false; }
+  if(!(typeof charsMod()._charsActive === 'function' && charsMod()._charsActive())) return false;
+  const ov = document.getElementById('charsLinkedOverlay');
+  if(!ov) return false;
+  const box = charsMod()._charsBoxGet(), desk = charsMod()._charsDeskGet(), on = new Set(desk.filter(Boolean));
+  const live = m.cids.filter(c => box[c] && !charsMod()._charsIsTomb(box[c]) && typeof box[c].def === 'string');
+  if(!live.length){ drop(); return false; }
+  const total = charsMod()._charsBoxOnlyCount(box, desk), moved = live.filter(c => !on.has(c)).length;
+  const full = total >= charsMod().CHARS_BOX_MAX, need = total - charsMod().CHARS_BOX_MAX + 1;
+  const $e = id => document.getElementById(id);
+  const set = (id, t) => { const el = $e(id); if(el) el.textContent = t; };
+  set('clCount', live.length + '개');
+  let code = null; try{ code = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){}
+  const chip = $e('clCode'), chipWrap = $e('clCodeWrap');
+  if(chip) chip.textContent = code || '';
+  if(chipWrap) chipWrap.style.display = code ? 'inline' : 'none';
+  const th = $e('clThumbs');
+  if(th){
+    th.textContent = '';
+    for(const c of live){
+      let def = null; try{ def = JSON.parse(box[c].def); }catch(_){}
+      const cell = document.createElement('div'); cell.className = 'cl-th';
+      const src = _miSlotThumb(def);
+      if(src){ const im = document.createElement('img'); im.src = src; im.alt = ''; im.loading = 'lazy'; cell.appendChild(im); }
+      th.appendChild(cell);
+    }
   }
-  if(onFallback) onFallback();
-  return false;
+  set('clBox', total + ' / ' + charsMod().CHARS_BOX_MAX);
+  set('clSplit', (total - moved) + ' + ' + moved);
+  const cnt = $e('clCnt'); if(cnt) cnt.classList.toggle('full', full);
+  const warn = $e('clFull');
+  if(warn){ warn.style.display = full ? 'block' : 'none';
+    warn.textContent = '보관함이 가득 찼어요. ' + need + '개 이상 휴지통으로 옮겨야 새 캐릭터 만들기 · 보관함 이동 · 복원을 할 수 있어요. 지금 있는 캐릭터는 그대로 써도 돼요.'; }
+  const note = $e('clNote'); if(note) note.style.display = full ? 'none' : 'block';
+  const openB = $e('clOpen'), okB = $e('clOk');
+  if(openB) openB.classList.toggle('ghost', !full);
+  if(okB) okB.classList.toggle('ghost', full);
+  const close = () => { ov.style.display = 'none'; };
+  if(okB) okB.onclick = close;
+  if(openB) openB.onclick = () => {
+    close();
+    const lc = document.getElementById('launcher');
+    if(lc && lc.classList.contains('on')) openMyInfo('box');
+    else toast('런처의 [내 정보] › 보관함에서 볼 수 있어요');
+  };
+  drop();
+  ov.style.display = 'flex';
+  return true;
 }
 
 return {
-  _acctRelaunchAfterDetach,
+  _charsLinkedMaybeShow,
   _lbPush,
   _miIsOpen,
   _miSlotThumb,

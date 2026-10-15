@@ -2,10 +2,11 @@
    app.js «🎟️ 초대장 (앱 접근 제한)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 31번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다. 같은 구역 초대 창 묶기 안에 있던 관리자 📊 통계 · 🎟️ 초대권 지급 모듈 만드는 줄은 app.js(이 모듈 만드는 줄 바로 뒤)로 뺐다. 여러 모듈이 읽는 isPremium(프리미엄 여부)은 app.js 에 남겼다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 20줄 —
-     FRIEND_CODE_LOGIN_RE · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · awayPicMod · creatorOpen · isAdmin · isPremium · myInfoMod · userStatus 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setIsPremium(…).
+     FRIEND_CODE_LOGIN_RE · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · awayPicMod · creatorOpen · isAdmin · userStatus 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 19개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: INVITE_GRANT_MAX · INVITE_PASS_KEY · LICENSE_KEY_STORAGE · LICENSE_OPTOUT_KEY · _existingSignupCheck · _genLicenseKey · _licenseSnapForPush · _markInvitePassed · _needLoginCheck · _rcStore · _setPremium · activateLicense · checkInviteGate · deactivateLicense · loadLicenseFromStorage · refreshInviteBtn · verifyLicense — app.js 는 licenseGateMod.이름 으로 부른다.
+   ★ 저장 키 셋 · 초대 통과 표시 · 프리미엄 깃발 바꾸기(_setPremium)는 계정 핵심 상태(account-state.js)로 옮겼다(모듈 순환 끊기 5) — 이 모듈은 deps 로 받고, 프리미엄이 바뀌면 다시 그리기를 onPremiumChanged 로 건다.
+   ★ 밖에서 부르는 이름: INVITE_GRANT_MAX · INVITE_PASS_KEY · LICENSE_KEY_STORAGE · LICENSE_OPTOUT_KEY · _existingSignupCheck · _genLicenseKey · _licenseSnapForPush · _markInvitePassed · _needLoginCheck · _setPremium · activateLicense · checkInviteGate · deactivateLicense · loadLicenseFromStorage · refreshInviteBtn · verifyLicense — app.js 는 licenseGateMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwLicenseGate — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-license-gate.js */
@@ -32,8 +33,6 @@ const genFriendCodeCandidate = deps.genFriendCodeCandidate;
 const getMyLoginEmail = deps.getMyLoginEmail;
 const getMyUserId = deps.getMyUserId;
 const isAdmin = deps.isAdmin;   // 읽는 함수
-const isPremium = deps.isPremium;   // 읽는 함수
-const myInfoMod = deps.myInfoMod;   // 읽는 함수
 const pruneUnownedLicenseAssets = deps.pruneUnownedLicenseAssets;
 const refreshAccountTab = deps.refreshAccountTab;
 const refreshCustomStatusMenuItem = deps.refreshCustomStatusMenuItem;
@@ -44,11 +43,15 @@ const seats = deps.seats;
 const setUserStatus = deps.setUserStatus;
 const toast = deps.toast;
 const userStatus = deps.userStatus;   // 읽는 함수
-const setIsPremium = deps.setIsPremium;   // 쓰는 함수
-/* 원격 설정 한 벌(remote-config.js 가 app.js 앞에 싣는다). 없으면(검사 · 옛 html) null — 부르는 쪽이 기본값으로. */
-function _rcStore(){ return (typeof window !== 'undefined' && window.TwRemoteConfig && window.TwRemoteConfig.store) || null; }
+const INVITE_PASS_KEY = deps.INVITE_PASS_KEY;   // 🪪 계정 핵심 상태(account-state.js) — 저장 키 · 초대 통과 · 프리미엄
+const LICENSE_KEY_STORAGE = deps.LICENSE_KEY_STORAGE;
+const LICENSE_OPTOUT_KEY = deps.LICENSE_OPTOUT_KEY;
+const _markInvitePassed = deps._markInvitePassed;
+const _setPremium = deps._setPremium;
+const onPremiumChanged = deps.onPremiumChanged;
+const _acctRelaunchAfterDetach = deps._acctRelaunchAfterDetach;
+const _rcStore = deps._rcStore;   // 원격 설정 한 벌(account-state.js)
 function inviteGateOn(){ const s = _rcStore(); return s ? s.inviteGate() : true; }
-const INVITE_PASS_KEY = 'tw.invitePassed';  // 한 번 통과하면 로컬에 기록 → 다음 실행부터 바로 통과
 /* 🎟️ [회원가입 설계 §3 · 개정 8] 초대 코드를 소진한 **기기 토큰** — uid 대신 invites/{code}.usedBy 에 들어간다.
    값 {code, token}. uid 가 정해지면 finishInviteSignup 이 usedBy 를 uid 로 바꾸고 이 키를 지운다.
    ★ 못 바꿨으면 남겨 둔다 — 다음 부팅의 checkInviteGate 가 다시 부른다(_inviteFinishPending). */
@@ -297,7 +300,7 @@ function _showExistingSignup(st){
       if(!r.switched){ say('✅ 구글 계정에 연결됐어요.', false); setTimeout(close, 1200); return; }
       /* 그 구글이 이미 다른 uid 의 계정이었다 — _loginDoGoogle 이 그쪽으로 갈아탔다(옛 결론 그대로 · «다름» 조각에서 다시 본다). */
       say('✅ 이미 가입된 구글 계정이에요 — 그 계정으로 다시 시작하는 중이에요…', false);
-      myInfoMod()._acctRelaunchAfterDetach(()=> say('✅ 이미 가입된 구글 계정이에요. 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
+      _acctRelaunchAfterDetach(()=> say('✅ 이미 가입된 구글 계정이에요. 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
     };
     if(okB) okB.onclick = goPw;
     if(gB) gB.onclick = goG;
@@ -392,7 +395,7 @@ function _showNeedLogin(st){
       if(!r.switched){ say('✅ 로그인됐어요.', false); setTimeout(close, 900); return; }
       /* 로그인한 계정의 uid 가 이 PC 와 달랐다 — 그 계정으로 갈아탔으니 다시 띄운다(구글 갈아타기와 같은 결론). */
       say('✅ 로그인됐어요. 앱을 다시 시작하는 중이에요…', false);
-      myInfoMod()._acctRelaunchAfterDetach(()=> say('✅ 로그인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
+      _acctRelaunchAfterDetach(()=> say('✅ 로그인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
     };
     if(gB) gB.onclick = async ()=>{
       busy(true); say('구글 창을 여는 중…', false);
@@ -475,7 +478,6 @@ async function checkInviteGate(){
   // ── 신규 유저: 초대 코드 입력 대기 ──
   return await _showInviteGate();
 }
-function _markInvitePassed(){ try{ localStorage.setItem(INVITE_PASS_KEY, '1'); }catch(e){} }
 
 /* 초대 코드 입력 화면 — 유효한 코드를 넣을 때까지 앱을 막음. Promise<boolean> */
 function _showInviteGate(){
@@ -510,14 +512,14 @@ function _showInviteGate(){
         if(r.existing){
           /* 이미 가입된 구글이었다 — 새로 만든 게 없으니 완료 화면 없이 그 계정으로 다시 시작. */
           say('✅ 이미 가입된 구글 계정이에요 — 그 계정으로 들어갈게요. 앱을 다시 시작하는 중이에요…', false);
-          myInfoMod()._acctRelaunchAfterDetach(()=> say('✅ 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
+          _acctRelaunchAfterDetach(()=> say('✅ 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
           return;
         }
         say('', false);
         /* 🎉 J · J2 — [시작하기] 에서 재시작한다(uid 가 이 세션에서 처음 정해져 부팅부터 다시 돌아야 한다). */
         const d = await _showSignupDone({ code:r.code, google: how === 'google', changed:!!r.changed, dim:false });
         d.say('앱을 다시 시작하는 중이에요…', false);
-        myInfoMod()._acctRelaunchAfterDetach(()=> d.say('앱을 완전히 종료했다가 다시 실행해 주세요.', false));
+        _acctRelaunchAfterDetach(()=> d.say('앱을 완전히 종료했다가 다시 실행해 주세요.', false));
       };
       const goPw = async ()=>{
         const a = String((pw1 && pw1.value) || ''), b = String((pw2 && pw2.value) || '');
@@ -617,7 +619,7 @@ function _showInviteGate(){
       if(fcInp) fcInp.disabled = true;
       if(pwInp) pwInp.disabled = true;
       showLogin('✅ 로그인됐어요. 앱을 다시 시작하는 중이에요…', false);
-      myInfoMod()._acctRelaunchAfterDetach(()=> showLogin('✅ 로그인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
+      _acctRelaunchAfterDetach(()=> showLogin('✅ 로그인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
       // fcBtn.disabled 유지 — 재시작 전 상태 고정
     };
     if(fcBtn) fcBtn.onclick = loginFc;
@@ -757,23 +759,6 @@ async function _inviteConfirmIssue(){
 
 })();
 
-const LICENSE_KEY_STORAGE = 'tw.licenseKey';
-/* 🔑 [2026-09-15 제보 3] isPremium 은 **이 함수로만** 바꾼다.
-   [증상] 프리미엄 전용 책상이 남에겐 보이고 본인 화면에서만 기본 책상으로 떨어졌다.
-   [원인] 라이선스는 localStorage 에 있고 서버는 계정에 안 묶는다. 그래서 isPremium 이 뒤늦게 바뀌는
-     통로가 셋 있는데(계정 이전 복원 _applyTransferSnapshot 은 키만 저장하고 isPremium 을 안 올렸다 ·
-     온라인 재검증 실패 · 설정에서 활성화/해제), 어느 쪽도 **이미 그려진 내 좌석을 다시 그리지 않았다.**
-     applyDeskCatalogRefToSeat 의 게이트는 그리는 순간의 isPremium 을 보므로, 그 뒤에 true 가 돼도
-     내 책상은 기본 책상인 채 남는다. 남의 화면은 seat.remote 라 게이트를 안 타서 보인다.
-   [대응] 값이 바뀌면 _refreshPremiumGatedUI 가 내 좌석의 책상·아이템을 다시 적용한다. 대입을 흩어 두면
-     그 한 자리만 다시 그리기를 빠뜨린다 — sim-premium-desk.js 가 직접 대입이 0곳인지 센다. */
-function _setPremium(v){
-  v = !!v;
-  if(isPremium() === v) return;
-  setIsPremium(v);
-  _refreshPremiumGatedUI();
-}
-
 function _genLicenseKey(){
   // XXXX-XXXX-XXXX-XXXX 형식, 헷갈리기 쉬운 0/O, 1/I 제외
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -808,7 +793,6 @@ function loadLicenseFromStorage(){
              계정에서 라이선스가 빠지는 것은 키가 회수됐을 때(검증 실패 · 오프라인 아님)뿐이다.
    ★ «이 기기에서 해제» 는 이 기기만의 일이다 — LICENSE_OPTOUT_KEY 에 그 키를 적어 두고, 그 키는 다시 켜지 않는다.
      다른 키(새로 산 것)는 켠다. 로그아웃하면 이 표시도 지운다(ACCOUNT_LOCAL_KEYS). */
-const LICENSE_OPTOUT_KEY = 'tw.licenseOptOut';
 function _licenseSnapPushNow(){
   try{
     if(!getMyLoginEmail()) return;   // 로그인 안 한 기기 — 계정이 없다
@@ -852,6 +836,7 @@ function deactivateLicense(){
   _setPremium(false);
 }
 /* 프리미엄 여부가 바뀔 때 그에 따라 잠금/해제되는 UI를 다시 그림 (라이선스 검증이 비동기라 나중에 확정됨) */
+onPremiumChanged(_refreshPremiumGatedUI);   // 프리미엄이 바뀌면(account-state.js _setPremium) 내 좌석 책상 · 아이템 · 전용 칸을 다시 그린다
 function _refreshPremiumGatedUI(){
   refreshCustomStatusMenuItem();   // ✨ 커스텀 상태 메뉴 항목
   try{ if(typeof awayPicMod()._awayRenderUI === 'function') awayPicMod()._awayRenderUI(null); }catch(_){}        // 👑 자리비움 그림 등록 칸(프리미엄 전용)
@@ -884,16 +869,10 @@ function _refreshPremiumGatedUI(){
 
 return {
   INVITE_GRANT_MAX,
-  INVITE_PASS_KEY,
-  LICENSE_KEY_STORAGE,
-  LICENSE_OPTOUT_KEY,
   _existingSignupCheck,
   _genLicenseKey,
   _licenseSnapForPush,
-  _markInvitePassed,
   _needLoginCheck,
-  _rcStore,
-  _setPremium,
   activateLicense,
   checkInviteGate,
   deactivateLicense,

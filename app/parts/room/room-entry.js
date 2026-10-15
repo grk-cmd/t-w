@@ -34,7 +34,7 @@ const getMyUserId = deps.getMyUserId;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
 const layoutSeats = deps.layoutSeats;
-const licenseGateMod = deps.licenseGateMod;
+const _rcStore = deps._rcStore;   // 원격 설정 한 벌(account-state.js)
 const maxPeople = deps.maxPeople;
 const myExpCells = deps.myExpCells;
 const officeMode = deps.officeMode;   // 읽는 함수
@@ -946,7 +946,7 @@ document.getElementById('lcNameBtn').onclick=()=>{
       냈던 접근이다). 그래서 상한을 늘릴 때 규칙 파일은 손댈 게 없다.
    ※ html 기본 표시(#chCountWorking/#chCountTogether «— / 300»)는 기본값과 같게 — 설정을 받으면 _paintRoomLimits 가 고친다. */
 const CHANNEL_NAMES = { workingroom: '워킹룸', togetherroom: '투게더룸' };
-function roomLimitOf(channel){ const s = licenseGateMod._rcStore(); return s ? s.roomLimitOf(channel) : 300; }
+function roomLimitOf(channel){ const s = _rcStore(); return s ? s.roomLimitOf(channel) : 300; }
 /* 꽉 찼을 때 문구 — 방 만들기 · 빈 방 열기(Firebase · 방 서버) · 방 서버 channelFull 이 같은 것을 쓴다. */
 function _channelFullMsg(channel){
   const limit = roomLimitOf(channel), name = CHANNEL_NAMES[channel] || '방';
@@ -966,7 +966,7 @@ function _paintMaxPeople(){
   if(meta && !meta.querySelector('[data-tw-max-people]')) meta.textContent = String(meta.textContent || '').replace(/최대 \d+명/, '최대 ' + n + '명');
 }
 (function _watchRemoteRoomConfig(){
-  const s = licenseGateMod._rcStore(); if(!s) return;
+  const s = _rcStore(); if(!s) return;
   s.onChange((c, key)=>{ if(key === 'roomLimits') _paintRoomLimits(); else if(key === 'roomMaxPeople') _paintMaxPeople(); });
   _paintRoomLimits(); _paintMaxPeople();
 })();

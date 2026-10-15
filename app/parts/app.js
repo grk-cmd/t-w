@@ -8969,15 +8969,22 @@ let isAdmin = false;
       부팅 때 한 번 정한다 — initInviteGate 가 첫 답을 잠깐 기다린 뒤 checkInviteGate 를 부른다(못 읽으면 true).
 ──────────────────────────────────────────────────────────────────── */
 let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.js 에 둔다. 바꾸는 곳은 license-gate.js 의 _setPremium 하나
+/* 🪪 계정 핵심 상태(라이선스 저장 키 · 초대 통과 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기)는 account-state.js 에 —
+   계정 · 초대 게이트 · 내 정보 · 포커스 레벨이 서로를 바라보지 않게(모듈 순환 끊기 5). isPremium 은 여기(app.js) 그대로, 바꾸는 곳은 _setPremium 하나 */
+const ACCT_STATE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
+const acctStateMod = (typeof TwAccountState === 'undefined') ? ACCT_STATE_MOD_OFF : TwAccountState.createAccountState({
+  isPremium: ()=>isPremium,
+  setIsPremium: (v)=>{ isPremium = v; },
+});
 /* 본문은 license-gate.js 로 옮겼다(앱 FSD 31번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const LICENSE_GATE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const licenseGateMod = (typeof TwLicenseGate === 'undefined') ? LICENSE_GATE_MOD_OFF : TwLicenseGate.createLicenseGate({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
-  FRIEND_CODE_LOGIN_RE: ()=>accountMod.FRIEND_CODE_LOGIN_RE,
+  FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,
   HAD_USER_ID_AT_BOOT: HAD_USER_ID_AT_BOOT,
-  LOGIN_EMAIL_KEY: ()=>accountMod.LOGIN_EMAIL_KEY,
-  LOGIN_UID_KEY: ()=>accountMod.LOGIN_UID_KEY,
+  LOGIN_EMAIL_KEY: ()=>acctStateMod.LOGIN_EMAIL_KEY,
+  LOGIN_UID_KEY: ()=>acctStateMod.LOGIN_UID_KEY,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   _applyTransferSnapshot: (...a)=>accountMod._applyTransferSnapshot(...a),
   _inventMyUserId: (...a)=>_inventMyUserId(...a),
@@ -8990,11 +8997,9 @@ const licenseGateMod = (typeof TwLicenseGate === 'undefined') ? LICENSE_GATE_MOD
   awayPicMod: ()=>awayPicMod,
   creatorOpen: ()=>creatorOpen,
   genFriendCodeCandidate: (...a)=>genFriendCodeCandidate(...a),
-  getMyLoginEmail: (...a)=>accountMod.getMyLoginEmail(...a),
+  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
-  myInfoMod: ()=>myInfoMod,
   pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
@@ -9005,7 +9010,14 @@ const licenseGateMod = (typeof TwLicenseGate === 'undefined') ? LICENSE_GATE_MOD
   setUserStatus: (...a)=>setUserStatus(...a),
   toast: (...a)=>toast(...a),
   userStatus: ()=>userStatus,
-  setIsPremium: (v)=>{ isPremium = v; },
+  INVITE_PASS_KEY: acctStateMod.INVITE_PASS_KEY,
+  LICENSE_KEY_STORAGE: acctStateMod.LICENSE_KEY_STORAGE,
+  LICENSE_OPTOUT_KEY: acctStateMod.LICENSE_OPTOUT_KEY,
+  _markInvitePassed: (...a)=>acctStateMod._markInvitePassed(...a),
+  _setPremium: (...a)=>acctStateMod._setPremium(...a),
+  onPremiumChanged: acctStateMod.onPremiumChanged,
+  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
+  _rcStore: (...a)=>acctStateMod._rcStore(...a),
 });
 
 
@@ -9050,7 +9062,7 @@ const adminUsers = (typeof TwAdminUsers === 'undefined') ? ADMIN_USERS_OFF : TwA
   if(key){
     // firebaseAPI가 module script 로드 지연으로 아직 없을 수 있으니 준비될 때까지 기다렸다 재검증
     const doVerify = () => licenseGateMod.verifyLicense(key).then(r=>{
-      if(!r.ok && !r.offline){ try{localStorage.removeItem(licenseGateMod.LICENSE_KEY_STORAGE);}catch(e){} licenseGateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
+      if(!r.ok && !r.offline){ try{localStorage.removeItem(acctStateMod.LICENSE_KEY_STORAGE);}catch(e){} acctStateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
     });
     if(window.firebaseAPI) doVerify();
     else window.addEventListener('firebase-ready', doVerify, { once:true });
@@ -9064,7 +9076,7 @@ const adminUsers = (typeof TwAdminUsers === 'undefined') ? ADMIN_USERS_OFF : TwA
 const REMOTE_FLAGS_WAIT_MS = 3000;
 (function initInviteGate(){
   const run = async ()=>{
-    const _s = licenseGateMod._rcStore();
+    const _s = acctStateMod._rcStore();
     if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate','existingSignup'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
     licenseGateMod.checkInviteGate()
       .then(()=>{ licenseGateMod.refreshInviteBtn(); return licenseGateMod._existingSignupCheck(); })   // 🪪 I — 초대 게이트를 지난 뒤 한 번(설계 §3)
@@ -10688,7 +10700,7 @@ document.getElementById('toLauncher').onclick=backToLauncher;
       8→10 은 꽉 찬 방 기준 약 1.6배다(인원×(인원−1): 56 → 90). */
 /* ★ 정원은 원격 설정 roomMaxPeople(remote-config.js · API · 2~50 · 없으면 10) — 바뀌면 다음 판정부터 바로 따른다.
    firebase-init.js(joinRoom 리스너)의 정원 초과 자기 퇴장도 같은 store 를 읽는다 — 숫자를 두 곳에 적지 않는다. */
-function maxPeople(){ const s = licenseGateMod._rcStore(); return s ? s.maxPeople() : 10; }
+function maxPeople(){ const s = acctStateMod._rcStore(); return s ? s.maxPeople() : 10; }
 /* ═══ 🚪 자리비움 자동 퇴장 [건의 2026-09-12] ═════════════════════════════════
    [건의] "투게더룸·워킹룸에 6시간 넘게 자리비움이면 자동으로 방에서 퇴장되는 기능이 없을까요?"
 
@@ -11162,7 +11174,6 @@ const roomEntryMod = (typeof TwRoomEntry === 'undefined') ? ROOM_ENTRY_MOD_OFF :
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
   layoutSeats: (...a)=>layoutSeats(...a),
-  licenseGateMod: licenseGateMod,
   maxPeople: (...a)=>maxPeople(...a),
   myExpCells: (...a)=>expBarMod.myExpCells(...a),
   officeMode: ()=>officeMode,
@@ -11182,6 +11193,7 @@ const roomEntryMod = (typeof TwRoomEntry === 'undefined') ? ROOM_ENTRY_MOD_OFF :
   triggerPet: (...a)=>triggerPet(...a),
   uiIconEl: (...a)=>statusChipMod.uiIconEl(...a),
   updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),
+  _rcStore: (...a)=>acctStateMod._rcStore(...a),
 });
 const USER_NAME_KEY = 'tw.userName';
 
@@ -11300,8 +11312,7 @@ const accountMod = (typeof TwAccount === 'undefined') ? ACCOUNT_MOD_OFF : TwAcco
   focusLevelMod: ()=>focusLevelMod,
   gachaMod: ()=>gachaMod,
   getMyUserId: (...a)=>getMyUserId(...a),
-  licenseGateMod: licenseGateMod,
-  myInfoMod: ()=>myInfoMod,
+  acctStateMod: acctStateMod,
   plMod: plMod,
   slotSyncMod: ()=>slotSyncMod,
   toast: (...a)=>toast(...a),
@@ -11310,6 +11321,11 @@ const accountMod = (typeof TwAccount === 'undefined') ? ACCOUNT_MOD_OFF : TwAcco
   setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
   setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
   setExtraSeatSlots: (v)=>{ settingsMod.setExtraSeatSlots(v); },
+  setAcctDetached: (v)=>{ acctStateMod.setAcctDetached(v); },
+  LOGIN_EMAIL_KEY: acctStateMod.LOGIN_EMAIL_KEY,
+  LOGIN_UID_KEY: acctStateMod.LOGIN_UID_KEY,
+  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
+  FRIEND_CODE_LOGIN_RE: acctStateMod.FRIEND_CODE_LOGIN_RE,
 });
 /* ═══ 🧹 [2026-09-16 제보 4] 신원을 놓을 때 이 기기에서 지우는 것 — **한 벌뿐이다** ═══════
    [경위] 로그아웃이 지우던 것은 신원 6개뿐이었다(유저 코드·도장·친추코드·이메일·uid + 마크 정렬).
@@ -11359,7 +11375,7 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
   MY_USER_ID_KEY: MY_USER_ID_KEY,
   STAR_PALETTE: ()=>focusLevelMod.STAR_PALETTE,
   USER_NAME_MAX: progSettingsMod.USER_NAME_MAX,
-  _acctDetached: ()=>accountMod._acctDetached(),
+  _acctDetached: ()=>acctStateMod._acctDetached(),
   _charsActive: (...a)=>charsMod._charsActive(...a),
   _charsBoxGet: (...a)=>charsMod._charsBoxGet(...a),
   _charsBoxOnlyCount: (...a)=>charsMod._charsBoxOnlyCount(...a),
@@ -11387,7 +11403,7 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
   focusCycleOf: (...a)=>focusLevelMod.focusCycleOf(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
-  getMyLoginEmail: (...a)=>accountMod.getMyLoginEmail(...a),
+  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getStarColor: (...a)=>focusLevelMod.getStarColor(...a),
   getUserName: (...a)=>getUserName(...a),
@@ -11402,6 +11418,9 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
   slots: slots,
   toast: (...a)=>toast(...a),
   setCurSlot: (v)=>{ curSlot = v; },
+  CHARS_LINKED_KEY: accountMod.CHARS_LINKED_KEY,
+  charsMod: ()=>charsMod,
+  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
 });
 /* ═══ 🏆 [내 정보] 전체 랭킹 1~100위 (시안 v2 B안 + 후광 ② 확정 · 2026-09-23 · CHECKS 개정 73 · handoff-ranking.md) ═══
    ★ 기준은 누적 집중 시간 하나(회차 포함). 표시 레벨(myFocusShow)·해금 레벨(getFocusLevel)로 매기지 않는다 —
@@ -11732,7 +11751,7 @@ const charsMod = (typeof TwChars === 'undefined') ? CHARS_MOD_OFF : TwChars.crea
   setCharsActiveCheck: slotSyncMod.setCharsActiveCheck,
   slotsReplaced: slotSaveMod.slotsReplaced,
 });
-charsMod.onBootLinked(()=>accountMod._charsLinkedMaybeShow());   // 부팅 채택 뒤 «연동됨» 안내 — 계정이 보관함보다 먼저 만들어져 여기서 건다
+charsMod.onBootLinked(()=>myInfoMod._charsLinkedMaybeShow());   // 부팅 채택 뒤 «연동됨» 안내 — 내 정보가 보관함보다 먼저 만들어져 여기서 건다
 
 /* ═══════════ 🧬 이관 — slots → chars (회원가입 설계 §5-N-2 · 2026-09-21 · 개정 33 · 아직 아무도 안 부른다) ═══════════
    [무엇인가] 5칸 저장본(서버 slots · slotsPrev · 이 기기 LS_KEY)에 있는 마리들에게 cid 를 붙여 chars 모양으로 옮긴다.
@@ -13782,7 +13801,7 @@ const focusLevelMod = (typeof TwFocusLevel === 'undefined') ? FOCUS_LEVEL_MOD_OF
   IDESK_ENABLED: iDeskMod.IDESK_ENABLED,
   INTERACTION_DESKS: iDeskMod.INTERACTION_DESKS,
   Presence: Presence,
-  _acctDetached: ()=>accountMod._acctDetached(),
+  _acctDetached: ()=>acctStateMod._acctDetached(),
   _focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),
   _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
   _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
@@ -13792,9 +13811,8 @@ const focusLevelMod = (typeof TwFocusLevel === 'undefined') ? FOCUS_LEVEL_MOD_OF
   appMode: ()=>appMode,
   findMySeat: (...a)=>findMySeat(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
-  getMyLoginEmail: (...a)=>accountMod.getMyLoginEmail(...a),
+  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  myInfoMod: myInfoMod,
   renderLauncher: (...a)=>renderLauncher(...a),
   toast: (...a)=>toast(...a),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
@@ -13802,6 +13820,7 @@ const focusLevelMod = (typeof TwFocusLevel === 'undefined') ? FOCUS_LEVEL_MOD_OF
   setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
   setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
 });
+focusLevelMod.onTotalSynced((uid, sec)=>myInfoMod._lbPush(uid, sec));   // 🏆 서버 총합을 맞추면 전체 랭킹에 올린다 — 내 정보가 포커스 레벨보다 먼저 만들어져 여기서 건다
 function getFocusLevel(...a){ return focusLevelMod.getFocusLevel(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 
 /* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
