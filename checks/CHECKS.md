@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 240 (상태를 저장해 둔 사람은 부팅 때 상태칩 모듈이 아직 없는 statusChipMod 를 읽어 app.js 가 멈추던 것 — 부팅 줄을 만드는 줄 뒤로)
-대상: `sim-*.js` 240개 + `smoke.js` + `audit.py` = **242개** (개정 240 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 241 (렌더러 모듈 순환 · 만드는 순서 검사 sim-dep-cycles 신설 — 지금 순환은 기준선, 새 순환만 막는다)
+대상: `sim-*.js` 241개 + `smoke.js` + `audit.py` = **243개** (개정 241 기준 — 폴더를 센 값)
+
+**개정 241 에서 한 것 (2026-10-15 · 모듈 순환 검사 — 앱 동작 변화 없음)**
+- 조사: HTML 이 싣는 parts/ 파일 123개 · app.js 가 만드는 모듈 93개를 파서로 읽어 «누가 누구를 부르나» 그래프를 그렸다. app.js 를 빼고 봐도 모듈 58개가 한 순환 덩어리(+ theme ↔ theme-ui · admin-license ↔ admin-license-bulk) · 서로 부르는 쌍 60 · 순환 없는 모듈 37. 덩어리 중심은 firebase-init(window 고리로 위층을 부름) · room-entry · focus-level · myhome-ui.
+- 검사: `sim-dep-cycles.js` 신설 — 간선은 «다른 파일이 거는 전역 · window 이름을 부름» 과 «만드는 줄이 넘기는 deps 가 다른 모듈(xMod · 옛 전역 이름 다리)을 가리킴». 순환 간선(같은 SCC 안) 282개를 `dep-cycles-baseline.json` 기준선으로 두고 **새로 생기면 빨강 · 줄었으면 기준선을 내리라고 빨강**(`node checks/sim-dep-cycles.js --write-baseline`). 2-2절은 모듈을 만드는 도중 부르는 deps 가 아직 선언 전인 app.js let/const 를 읽는지(deps 가 부르는 app.js 함수 안 4단계까지) — 고치기 전 코드에서 commissionMod(개정 235) · statusChipMod(개정 240) 를 잡는 것을 확인. 깨 보기 셋(새 순환 · 한 방향은 순환 아님 · 만드는 도중 자기 모듈 읽기).
 
 **개정 240 에서 한 것 (2026-10-15 · 앱 FSD 36번 회귀 고침)**
 - 앱: `status-chip.js` 가 만드는 도중에 저장된 상태 불러오기 · `refreshMyStatusUI()` · 캐릭터 크기 복원 · `refreshCustomStatusMenuItem()` 을 불렀다. 상태(🍚 밥 먹는 중 등)를 저장해 둔 사람은 `refreshMyStatusUI` 가 점 그림자 색을 `statusChipMod.hexToRgba` 로 구하다 아직 없는 `statusChipMod` 를 읽어 던졌고, 그 뒤 app.js 가 통째로 멈췄다(focusShareMod · wardrobeMod 등이 안 만들어짐 · 동물 좌석 되만들기도 안 됨). 저장된 상태가 없으면 그 줄을 안 타서 빈 프로필 시험에는 안 보였다. 다섯 부름을 app.js 의 만드는 줄 바로 뒤로 옮기고(칩 버튼 · 메뉴가 있을 때만 — 옮기기 전과 같은 조건) deps 에서 뺐다. v0.11.3 이후(FSD 36번 · #190) 들어온 것이라 배포본에는 없다.
@@ -2058,6 +2062,7 @@
 | **sim-myhome-init.js** | 96 | **c1bebbee70e8** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 220 신설 · 🏠 마이홈 시작 모듈(myhome-init.js) 구조** |
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 222 신설 · 📂 렌더러 경로가 실제 폴더 기준으로 맞는가(<script src> · 상대 import)** |
 | **sim-global-names.js** | 234 | **06a608d0569d** ← **개정 237 읽는 함수를 값처럼 typeof 비교 판정 추가** · **개정 236 신설 · 부르는 이름이 전역에 다 있는가(전역 이름 실종)** |
+| **sim-dep-cycles.js** | 237 | **6aa063b0b8b1** ← **개정 241 신설 · 렌더러 모듈 순환이 늘지 않는가(기준선 dep-cycles-baseline.json) · 만드는 도중 아직 없는 이름 읽기** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
