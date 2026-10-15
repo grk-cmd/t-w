@@ -15,7 +15,7 @@ function createLicenseRequest(deps){
 const _saveFailMsg = deps._saveFailMsg;
 const getDisplayName = deps.getDisplayName;
 const licenseGateMod = deps.licenseGateMod;
-const progSettingsMod = deps.progSettingsMod;
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
 const refreshLicenseUI = deps.refreshLicenseUI;
 const toast = deps.toast;
 /* --- 라이선스 요청(일반 유저 → 관리자) --- */
@@ -75,7 +75,7 @@ document.getElementById('licenseReqApplyBtn').onclick=async ()=>{
     toast('🎉 라이선스가 등록됐어요! 꾸미기를 이용할 수 있어요');
     try{ localStorage.removeItem(LICENSE_REQ_ID_KEY); }catch(e){}
     refreshLicenseUI();
-    setTimeout(()=>{ progSettingsMod.closeProgramSettings(); }, 900);
+    setTimeout(()=>{ twNav.go(twNav.NAV.PROGRAM_SETTINGS_CLOSE); }, 900);
   } else { toast('적용 실패: '+(r.reason||'')); }
 };
 // 앱을 껐다 켜도 예전에 보낸 요청이 있으면 이어서 지켜봄(관리자가 그 사이 승인했을 수도 있으니)

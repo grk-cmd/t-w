@@ -12,6 +12,7 @@
 (function(){
 
 function createProgramSettings(deps){
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
 const FIGURE_MODE_KEY = deps.FIGURE_MODE_KEY;   // 읽는 함수
 const OFFICE_MODE_KEY = deps.OFFICE_MODE_KEY;   // 읽는 함수
 const Presence = deps.Presence;
@@ -302,6 +303,8 @@ function closeProgramSettings(){
 document.getElementById('lcProgSettingsBtn').onclick=()=>openProgramSettings('license');
 document.getElementById('progSettingsCloseBtn').onclick=()=>closeProgramSettings();
 
+twNav.on(twNav.NAV.PROGRAM_SETTINGS, openProgramSettings);   // 🧭 꾸미기 · 라이선스 요청이 이 통로로 연다 · 닫는다
+twNav.on(twNav.NAV.PROGRAM_SETTINGS_CLOSE, closeProgramSettings);
 return {
   USER_NAME_MAX,
   closeProgramSettings,

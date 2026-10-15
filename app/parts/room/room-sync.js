@@ -2,7 +2,7 @@
    app.js 네 구역(«📦 방으로 보내는 def» · «🛰 poke 신선도» · «🚪 자리비움 자동 퇴장» · «🛰 서버 모듈 감시견») 본문을 그대로 옮긴 모듈이다(앱 FSD 35번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다. poke 구역에 섞여 있던 날리기(canFly · startFlight)는 도메인이 달라 app.js 에 남겼다. 방 통신 두 통로 정리(-net 전략)는 컨벤션 단계에서 한다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 4개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 5줄 —
-     DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · Presence · roomEntryMod · savedDesks 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+     DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · Presence · savedDesks 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 6개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · makeFirebaseProvider · serializeDefForNetwork — app.js 는 roomSyncMod.이름 으로 부른다.
@@ -20,7 +20,7 @@ const _chatIsSecretRoom = deps._chatIsSecretRoom;
 const getMyUserId = deps.getMyUserId;
 const loadImg = deps.loadImg;
 const newCanvas = deps.newCanvas;
-const roomEntryMod = deps.roomEntryMod;   // 읽는 함수
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 방 나가기
 const savedDesks = deps.savedDesks;   // 읽는 함수
 const toast = deps.toast;
 const POKE_FRESH_MS = 30000;   // 이보다 오래된 알림은 재생하지 않는다
@@ -67,7 +67,7 @@ function _autoExitDo(){
   const btn  = document.getElementById('autoExitBtn');
   if(body) body.textContent = '자리비움이 길어 방에서 나왔어요.';
   if(btn)  btn.textContent  = '확인';
-  try{ Promise.resolve(roomEntryMod().doLeaveRoom()).catch(err => console.warn('[자동퇴장] 방 나가기 실패', err)); }
+  try{ Promise.resolve(twNav.go(twNav.NAV.LEAVE_ROOM)).catch(err => console.warn('[자동퇴장] 방 나가기 실패', err)); }
   catch(err){ console.warn('[자동퇴장] 방 나가기 실패', err); }
   /* 🕒 시계를 다시 감는다. 안 감으면 이 상태(여전히 자리비움) 그대로 다른 방에 들어가는 순간
      «이미 6시간 지났다»로 읽혀서 들어가자마자 또 팝업이 뜬다. */

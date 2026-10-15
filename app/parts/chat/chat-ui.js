@@ -12,6 +12,7 @@
 (function(){
 
 function createChatUi(deps){
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
 const CHAT_WIN_POS_KEY = deps.CHAT_WIN_POS_KEY;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
 const _chatDelClose = deps._chatDelClose;
@@ -545,8 +546,7 @@ async function _refreshChatProfile(){
     prof.title='내 마이홈 열기';
     prof.addEventListener('click', ()=>{
       closeChatWindow();   // 채팅창 닫고 마이홈으로
-      if(typeof openMyHome==='function') openMyHome();
-      else if(typeof window.openMyHome==='function') window.openMyHome();
+      twNav.go(twNav.NAV.MY_HOME);
     });
   }
 }

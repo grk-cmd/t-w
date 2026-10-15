@@ -1861,6 +1861,10 @@ let _flyActive = 0;
      진짜 알림이 버려진다. */
 /* 본문은 room-sync.js 로 옮겼다(앱 FSD 35번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+/* 🧭 창 열기 통로(nav.js) — 아래 기능이 «설정 창 · 마이홈 열어 줘 · 방에서 나가 줘» 를 부탁하는 한 곳(모듈 순환 끊기 6).
+   창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다. 모듈이 없으면(검사가 app.js 만 굴릴 때) 아무 일도 안 하는 껍데기 */
+const NAV_OFF = { NAV:{}, on(){}, go(){} };
+const twNav = (typeof TwNav === 'undefined') ? NAV_OFF : TwNav;
 const ROOM_SYNC_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const roomSyncMod = (typeof TwRoomSync === 'undefined') ? ROOM_SYNC_MOD_OFF : TwRoomSync.createRoomSync({
   DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
@@ -1871,7 +1875,7 @@ const roomSyncMod = (typeof TwRoomSync === 'undefined') ? ROOM_SYNC_MOD_OFF : Tw
   getMyUserId: (...a)=>getMyUserId(...a),
   loadImg: (...a)=>loadImg(...a),
   newCanvas: (...a)=>newCanvas(...a),
-  roomEntryMod: ()=>roomEntryMod,
+  twNav: twNav,
   savedDesks: ()=>commissionMod.savedDesks(),
   toast: (...a)=>toast(...a),
 });
@@ -3556,7 +3560,7 @@ const WD_PANEL_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴�
 const wdPanelMod = (typeof TwWardrobePanel === 'undefined') ? WD_PANEL_MOD_OFF : TwWardrobePanel.createWardrobePanel({
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
-  progSettingsMod: ()=>progSettingsMod,
+  twNav: twNav,
   toast: (...a)=>toast(...a),
   wardrobeMod: ()=>wardrobeMod,
 });
@@ -3765,6 +3769,7 @@ const mhScheduler = (typeof MhScheduler === 'undefined') ? SCHEDULER_OFF : MhSch
   inboxUnreadCount: ()=>inboxMod.inboxUnreadCount(),
   refreshFriendTabBadge: ()=>inboxMod.refreshFriendTabBadge(),
   bellSeenKey: BELL_SEEN_KEY,
+  twNav: twNav,
 });
 
 /* 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · window._bugReportLink)은 parts/bug-board-ui.js 끝으로 옮겼다(앱 FSD 5번).
@@ -3812,7 +3817,7 @@ function _waitForFirebaseAPI(cb, tries){
 const DEVICE_LOST_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const deviceLostMod = (typeof TwDeviceLost === 'undefined') ? DEVICE_LOST_MOD_OFF : TwDeviceLost.createDeviceLost({
   getMyUserId: (...a)=>getMyUserId(...a),
-  roomEntryMod: ()=>roomEntryMod,
+  twNav: twNav,
 });
 
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
@@ -3979,6 +3984,7 @@ const myHomeUiMod = (typeof TwMyHomeUi === 'undefined') ? MY_HOME_UI_MOD_OFF : T
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
   toast: (...a)=>toast(...a),
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
+  twNav: twNav,
 });
 
 /* ============================================================ 🏠 마이홈 (2단계: 프로필/게시글/스티커) */
@@ -4327,6 +4333,7 @@ const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi
   setChatLogCache: (v)=>{ _chatLogCache = v; },
   setChatLogUnsub: (v)=>{ _chatLogUnsub = v; },
   setDanceCmdCooldownAt: (v)=>{ iDeskMod.setDanceCmdCooldownAt(v); },
+  twNav: twNav,
 });
 const DEMOJI_BY_CMD = chatUiMod.DEMOJI_BY_CMD;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
 const DEMOJI_BY_ID = chatUiMod.DEMOJI_BY_ID;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
@@ -11194,6 +11201,7 @@ const roomEntryMod = (typeof TwRoomEntry === 'undefined') ? ROOM_ENTRY_MOD_OFF :
   uiIconEl: (...a)=>statusChipMod.uiIconEl(...a),
   updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
+  twNav: twNav,
 });
 const USER_NAME_KEY = 'tw.userName';
 
@@ -11248,6 +11256,7 @@ const progSettingsMod = (typeof TwProgramSettings === 'undefined') ? PROG_SETTIN
   setFigureMode: (v)=>{ figureMode = v; },
   setFocusGateSleep: (v)=>{ focusGateSleep = v; },
   setOfficeMode: (v)=>{ officeMode = v; },
+  twNav: twNav,
 });
 
 /* ═══════════════════ 🔑 구글 로그인 (계정) ═══════════════════
@@ -11509,7 +11518,7 @@ const licReqMod = (typeof TwLicenseRequest === 'undefined') ? LIC_REQ_MOD_OFF : 
   _saveFailMsg: (...a)=>_saveFailMsg(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   licenseGateMod: licenseGateMod,
-  progSettingsMod: progSettingsMod,
+  twNav: twNav,
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
 });

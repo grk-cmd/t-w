@@ -12,6 +12,7 @@
 (function(){
 
 function createRoomEntry(deps){
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
 const EXP_CELLS = deps.EXP_CELLS;   // 읽는 함수
 const FLOATER_BURST = deps.FLOATER_BURST;
 const Presence = deps.Presence;
@@ -934,7 +935,7 @@ _bindDonate(document.getElementById('progPrivacyLink')); // 설정 → 시스템
 
 /* --- 런처의 "🏠 마이홈" 버튼 (예전엔 이름 설정 버튼이었음) --- */
 document.getElementById('lcNameBtn').onclick=()=>{
-  if(typeof openMyHome==='function') openMyHome();
+  twNav.go(twNav.NAV.MY_HOME);
 };
 
 /* --- 방 개수 표시(n/상한) + 정원 초과 시 생성 차단 --- */
@@ -1464,6 +1465,7 @@ function _setupSecretCodeInput(inputEl){
 _setupSecretCodeInput(document.getElementById('inviteSecretCode'));
 _setupSecretCodeInput(document.getElementById('fsInviteSecretCode'));
 
+twNav.on(twNav.NAV.LEAVE_ROOM, doLeaveRoom);   // 🧭 다른 기기에 밀려남 · 자리비움 자동 퇴장이 이 통로로 나간다
 return {
   CHANNEL_NAMES,
   NET_READY_WAIT_MS,
