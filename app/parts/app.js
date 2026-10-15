@@ -10863,6 +10863,7 @@ const Presence=(()=>{
     catch(_){ return false; }
   }
   /* opts.provider — 방 서버 provider(makeServerProvider). 주면 입장 결과를 기다려 { ok, code, others, meta } 를 돌려준다.
+     opts.hooks — Firebase 방이 알릴 곳(room-entry _firebaseRoomHooks) — makeFirebaseProvider 로 넘긴다.
      안 주면 예전 그대로(Firebase · 가짜 방) — 돌려주는 값도 예전처럼 방 코드다. */
   async function start(roomCode, def, name, changeCb, opts){
     if(provider) await stop();   // 이미 연결돼있는데 다시 시작하면(연결끊기 없이 재접속 등) 이전 접속 삭제가 끝난 뒤에 새로 join — 안 그러면 옛 항목이 아직 안 지워진 채로 남아 자기 자신이 중복으로 보일 수 있음
@@ -10889,7 +10890,7 @@ const Presence=(()=>{
     }
     const _srv = (opts && opts.provider) || null;   // 🛰 방 서버 provider(_startRoomOnServer) — 없으면 아래 줄 그대로
     if(_srv) provider = _srv;
-    else provider = window.firebaseAPI ? roomSyncMod.makeFirebaseProvider() : roomEntryMod.makeMockProvider();
+    else provider = window.firebaseAPI ? roomSyncMod.makeFirebaseProvider(opts && opts.hooks) : roomEntryMod.makeMockProvider();
     try{ myAwayImg = awayPicMod._awayUrlOk(awayPicMod.awayImgUrl()) ? awayPicMod.awayImgUrl() : ''; }catch(_){ myAwayImg = ''; }   // 🫧 입장 때 한 번
     try{ myAwaySz = awayPicMod._awaySzOk(awayPicMod.awayImgSz()) ? awayPicMod.awayImgSz() : awayPicMod.AWAY_PIC_SCREEN_PX(); }catch(_){ myAwaySz = awayPicMod.AWAY_PIC_SCREEN_PX(); }
     try{ myFocusShow = focusShareMod._focusShowConf(); focusShareMod._focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
@@ -13953,7 +13954,6 @@ const expBarMod = (typeof TwExpBar === 'undefined') ? EXP_BAR_MOD_OFF : TwExpBar
   lvStarBarClass: (...a)=>lvTierMod.lvStarBarClass(...a),
   overheadMod: overheadMod,
 });
-function myExpCells(...a){ return expBarMod.myExpCells(...a); }   // 옛 전역 이름 — firebase-init.js 하트비트가 window.myExpCells 로 읽는다(도메인 단계에서 걷는다)
 
 /* ═══ 🕒 포커스 누적 기기 간 공유 ═══════════════════════════════════════════
    예전엔 tw.focusTotalSec이 순수 로컬이라, 계정을 연동해도 A컴퓨터의 3시간이 B컴퓨터에

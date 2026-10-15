@@ -267,7 +267,7 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     chk(!/tw\.roomServer/.test(AC) && !/tw\.roomServer/.test(FC), '개발용 localStorage 키는 문지기만 본다');
     chk(/const following = rs\.from === 'dir';/.test(AC) && !/from === 'allow'/.test(AC), 'app.js 는 «따라가기(dir)» 만 따로 본다 — 기본 서버(default)는 허용된 사람과 같은 길(peek · Firebase 사람 확인)');
     chk(!/defaultPercent|config\/roomServer/.test(AC) && !/defaultPercent/.test(FC), '기본 서버 · 비율은 문지기만 읽는다(app.js · firebase-init 은 모름)');
-    const ri = FC.indexOf('joinRoom(room, me, onChange, onPoked) {');
+    const ri = FC.indexOf('joinRoom(room, me, onChange, onPoked, hooks) {');
     chk(ri > 0 && FC.indexOf('roomAlive/${room}/${memberId}', ri) > ri, '💓 roomAlive 하트비트는 Firebase joinRoom 안에만 — 서버 방(provider.join)에서는 돌지 않는다');
   }
 

@@ -130,10 +130,10 @@ else{
   const mk = () => {
     const log = { disband: 0, claim: [] };
     const win = {
-      _onRoomDisbanded: () => { log.disband++; },
       firebaseAPI: { claimHostIfVacant: async (room, uid, alive) => { log.claim.push({ uid, alive }); return { ok: false }; } },
     };
-    const f = new Function('window', '_svNow', 'ROOM_RESTORE_GRACE_MS', 'let _lastSuccessionAt = 0;\n' + msh + '\nreturn _maybeSucceedHost;')(win, () => 0, 60000);
+    const hooks = { onDisband: () => { log.disband++; }, onHostSucceeded: () => {} };   // joinRoom 이 room-entry 에서 받는 묶음(_roomHooks)
+    const f = new Function('window', '_svNow', 'ROOM_RESTORE_GRACE_MS', '_roomHooks', 'let _lastSuccessionAt = 0;\n' + msh + '\nreturn _maybeSucceedHost;')(win, () => 0, 60000, hooks);
     return { f, log };
   };
   const friendsFree = { m1: { userId: 'a', lic: false }, m2: { userId: 'b', lic: false } };

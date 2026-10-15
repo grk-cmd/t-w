@@ -70,6 +70,25 @@ function _onServerRoomMeta(meta, prev){
   if(prev && meta && prev.host !== me && meta.host === me && typeof window._onHostSucceeded === 'function') window._onHostSucceeded(meta);
   try{ if(typeof window._onRoomMeta === 'function') window._onRoomMeta(meta); }catch(_){}
 }
+/* Firebase 방(firebase-init joinRoom)이 알릴 곳 — 방 서버 provider(makeServerProvider)가 받는 것과 같은 몫.
+   firebase-init 은 아래층이라 여기 이름을 직접 부르지 않고 이 묶음을 넘겨받는다. */
+function _firebaseRoomHooks(){
+  return {
+    onDisband: ()=>window._onRoomDisbanded(),
+    onHostSucceeded: (meta)=>window._onHostSucceeded(meta),
+    onOverCapacity: (cap)=>window._onRoomOverCapacity(cap),
+    onMeta: (meta)=>{
+      window._roomMetaCache = meta;
+      if(typeof window._onRoomMeta === 'function') window._onRoomMeta(meta);
+    },
+    getExp: ()=>myExpCells(),
+    secretOwner: ()=>window._srOwnerUid,
+  };
+}
+/* 💬 대화 기록(firebase-init chatHistory)이 «이 PC 에 저장할지» 를 가르는 채널 — 채널(window._activeChannel)을 바꾸는 곳이 이 파일이라 여기서 건다 */
+function _bindChatHistoryChannel(){ firebaseAPI.chatHistory.bindChannel(()=>(window._activeChannel === 2 ? 'togetherroom' : 'workingroom')); }
+if(window.firebaseAPI) _bindChatHistoryChannel();
+else window.addEventListener('firebase-ready', _bindChatHistoryChannel, { once:true });
 function makeServerProvider(net, create){
   return net.makeProvider({
     serializeDef: serializeDefForNetwork,
@@ -879,7 +898,7 @@ async function startRoom(code){
     }catch(_){}
   }
   _clearHiddenSeats();   // 🙈 숨김은 그 방에 있는 동안만
-  await Presence.start(code, myDef, getDisplayName(), presenceChanged);
+  await Presence.start(code, myDef, getDisplayName(), presenceChanged, { hooks: _firebaseRoomHooks() });
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
   window._pendingRoomChannel = null;
   window._pendingRoomOpen = false;   // 🎲 소비 완료 — 다음 '참여'가 이 값을 물려받지 않게
