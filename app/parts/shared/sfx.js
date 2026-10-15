@@ -1,6 +1,7 @@
 /* sfx.js — 🔊 효과음 공장(_mkSndPool) — 때리기 · 클릭음 · 채팅 · 뽀모도로 알림음 풀
    app.js «🔊 효과음 공장» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 42번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
+   ★ 때리기 소리 상수(BONK_SND_VOL · BONK_SND_SRC)는 tricks.js 에서 이리로 옮겼다 — 소리 공장(아래층)이 위층 tricks 를 부르던 순환 끊기(checks/sim-dep-cycles.js).
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 1줄 —
      officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
@@ -13,7 +14,6 @@
 
 function createSfx(deps){
 const officeMode = deps.officeMode;   // 읽는 함수
-const tricksMod = deps.tricksMod;
 /* 🔊 효과음 — 회사원 모드면 소리를 내지 않는다.
    ★ 게이트는 **보는 사람 기준**이다(사양 9번). 내가 회사원 모드면 남이 남을 때리는 것도 조용해야
      하므로, 때리는 쪽이 아니라 재생하는 쪽에서 본다.
@@ -22,6 +22,16 @@ const tricksMod = deps.tricksMod;
      ② 때릴 때마다 cloneNode 로 새로 만들면 그 인스턴스는 **버퍼가 비어 있어** 첫 소리가 늦거나
         아예 안 난다 — 제보의 "잘 안 들린다"에 이것도 섞여 있었다.
    ⚠️ 그래서 `preload='auto'` 로 미리 받아 두고, 재생은 `currentTime=0` 되감기로 한다. */
+/* 🔊 음량 — **1.0 이다.** BGM(_advBgm 등)의 0.5 를 베끼면 안 된다.
+   ⚠️ 처음에 0.5 로 뒀다가 "소리가 잘 안 들린다" 제보를 받았다. 재 보니 이유가 둘이었다:
+     ① 파일 자체의 최대 진폭이 -4.8 dBFS 였다(잘라 만든 파일이라 여유가 남아 있었다)
+     ② 거기에 0.5(=-6 dB)를 더 곱해 실효 -10.8 dBFS 가 됐다
+   파일은 -1.4 dBFS 로 노멀라이즈했고(같은 길이·같은 128kbps·페이드 유지), 여기는 1.0 으로 둔다.
+   ★ BGM 은 **밑에 깔리는** 소리이고 타격음은 **뚫고 나와야 하는** 소리다 — 같은 값을 쓸 이유가 없다.
+   ⚠️ 전역 효과음 음량 설정이 아직 없다. 생기면 이 상수 자리를 그 값으로 갈아끼울 것(8절 ③). */
+const BONK_SND_VOL   = 0.5;
+/* 🔊 파일 경로 폴백 — mystery-au.js 선례(['parts/x.mp3','x.mp3']). 검사 폴더에서도 돌게. */
+const BONK_SND_SRC   = ['parts/bonk.mp3', 'bonk.mp3'];
 const BONK_SND_POOL = 3;        // 연타 겹침 수. 스쿼시가 1.7초인데 소리는 0.6초라 3개면 넉넉하다
 /* 🔊 효과음 한 벌 만들기 — 위 주석의 교훈(풀·preload·자동재생 잠금)을 **한 곳에** 담는다.
    ★ 소리를 새로 넣을 때마다 같은 함정을 다시 밟지 않으려고 공장으로 뺐다. 실제로 이 파일에는
@@ -88,7 +98,7 @@ function _mkSndPool(tag, srcs, vol, size){
   _sndPools.push(P);
   return P;
 }
-const _bonkSnd  = _mkSndPool('bonk',  tricksMod.BONK_SND_SRC,  tricksMod.BONK_SND_VOL,  BONK_SND_POOL);
+const _bonkSnd  = _mkSndPool('bonk',  BONK_SND_SRC,  BONK_SND_VOL,  BONK_SND_POOL);
 /* 🖱 캐릭터 클릭음 — 쓰다듬(triggerPet)과 같은 자리에서 난다.
    ★ 풀이 때리기보다 크다(5). 클릭은 훨씬 빨리 연타되고, 하나짜리를 돌려 쓰면 두 번째 소리가
      아예 안 난다("연속으로 누르면 연속으로 들리게" 가 이 숫자에 걸려 있다).

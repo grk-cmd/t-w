@@ -105,6 +105,7 @@
 | `app/parts/character/asset-code.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 48번) — 🔐 에셋 코드 — 풀 GLB 암호화(.dcc) · 책상 · 아이템 GLB 코드(DCK1) · GLB 바이트 읽기. classic script(`window.TwAssetCode`), 부르는 곳은 `assetCodeMod.이름` |
 | `app/parts/myhome/myhome-init.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번 남은 몫) — 🏠 마이홈 시작(`initMyHome` — 접속 표시 · 프로필 · 친구 · 요청 · 우편 · 공지 구독) · 소유자 쓰기 거부 안내. 부르는 곳은 app.js INIT 한 곳(`mhInitMod.initMyHome()`). classic script(`window.TwMyHomeInit`) |
 | `app/parts/room/seat-pin.js` | 🪑 방에서 내 자리 «맨 오른쪽 고정»(설정 › 캐릭터) — 저장 · 고정 조건 · 나를 0번으로 · 책상 끌기 자리. classic script(`window.TwSeatPin`)를 app.js 앞에 싣고 app.js 는 layoutSeats · 책상 끌기 · 버튼에서 부르기만 |
+| `app/parts/room/room-state.js` | 🧭 방 공용 상태 — `window._activeChannel`(1 워킹룸 · 2 투게더룸) · `window._roomMetaCache`(방 meta 사본)의 처음 값. 여러 모듈이 읽는 값이라 맨 아래 한 곳에 두고 읽는 모듈 · app.js 보다 먼저 싣는다. 바꾸는 곳은 room-entry · chat-prefs · chat-ui 뿐(`sim-room-state.js`) |
 | `app/parts/room/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
 | `app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
 | `app/parts/chat/chat-history.js` | 💬 대화 기록(entities) — 서버 3일 · 워킹룸/시크릿룸은 이 PC(IndexedDB)에 저장 · 저장분 뒤만 ts 커서로 이어 받기 · 방장 지우기 표시 줄. `firebase-init.js` 가 `firebaseAPI.chatHistory` 로 연결, app.js 는 부르기만. 서버 정리는 `functions/chat-expire.js` |

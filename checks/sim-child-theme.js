@@ -89,9 +89,11 @@ chk(/setAttribute\('data-theme', t\)/.test(atc) && /setAttribute\('data-accent',
 chk(/removeAttribute\('data-theme'\)/.test(atc), '기본 테마면 data-theme 을 뗀다 (메인과 같은 규칙 — 남겨 두면 버블이 안 풀린다)');
 chk(/head\.insertBefore\(st, head\.firstChild\)/.test(atc), '토큰 <style> 은 창 자신의 <style> 보다 앞');
 chk(/_themeChildDocs\.push\(d\)/.test(atc), '연 창을 _themeChildDocs 에 기억한다');
+/* 열린 창에 다시 거는 함수는 theme-ui 가 onApplied 로 건다(theme.js 가 위층 theme-ui 를 부르던 순환 끊기 — 모듈 순환 끊기 2) */
 const at = grabFn('applyTheme') || '';
-chk(/_themeChildDocs = _themeChildDocs\.filter/.test(at) && /applyThemeToChildDoc\(d\)/.test(at), '★ applyTheme 가 열린 창에도 다시 건다');
-chk(/d\.defaultView\.closed\) return false/.test(at), '닫힌 창은 목록에서 떨어진다');
+const atHook = (SRC.match(/\nonApplied\(\(\)=>\{[\s\S]*?\n\}\);/) || [''])[0];
+chk(/for\(const fn of _onAppliedFns\)/.test(at) && /_themeChildDocs = _themeChildDocs\.filter/.test(atHook) && /applyThemeToChildDoc\(d\)/.test(atHook), '★ applyTheme 가 열린 창에도 다시 건다(theme-ui 가 onApplied 로 건 함수)');
+chk(/d\.defaultView\.closed\) return false/.test(atHook), '닫힌 창은 목록에서 떨어진다');
 const tcc = grabFn('_themeChildCss') || '';
 chk(/getComputedStyle\(document\.documentElement\)/.test(tcc) && /getPropertyValue\(k\)/.test(tcc), '토큰 값은 메인 문서 computed style 에서 읽는다 (CSS 두 벌 아님)');
 const undefinedInMain = TOKENS.filter(t => !new RegExp(t.replace(/-/g, '\\-') + '\\s*:').test(HTML));

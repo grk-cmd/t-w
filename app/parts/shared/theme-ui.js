@@ -19,6 +19,7 @@ const THEME_KEY = deps.THEME_KEY;
 const applyTheme = deps.applyTheme;
 const getAccent = deps.getAccent;
 const getTheme = deps.getTheme;
+const onApplied = deps.onApplied;   // theme.js — 테마를 건 뒤 부를 함수 걸기
 const THEME_CHILD_TOKENS = [
   '--win-face','--win-face-2','--win-hi','--win-lo','--win-lo-2','--win-ink','--win-ink-soft','--win-title-ink',
   '--win-error','--win-radius','--win-radius-sm','--win-radius-el','--win-font','--win-title-grad',
@@ -47,6 +48,12 @@ function applyThemeToChildDoc(d){
     if(_themeChildDocs.indexOf(d) < 0) _themeChildDocs.push(d);
   }catch(_){}
 }
+// 🎨 [제보 5] 테마를 바꾸면 열려 있는 방명록·디자인 창에도 — 닫힌 창은 여기서 떨어져 나간다
+onApplied(()=>{
+  _themeChildDocs = _themeChildDocs.filter(d=>{
+    try{ if(!d.defaultView || d.defaultView.closed) return false; applyThemeToChildDoc(d); return true; }catch(_){ return false; }
+  });
+});
 function setTheme(t){
   try{
     localStorage.setItem(THEME_KEY, (t==='bubble') ? 'bubble' : 'default');
@@ -88,7 +95,6 @@ function bindThemeUI(){
 
 return {
   _themeChildDocs: ()=>_themeChildDocs,   // 읽는 함수
-  setThemeChildDocs: (v)=>{ _themeChildDocs = v; },   // 쓰는 함수 — app.js 가 비운다
   applyThemeToChildDoc,
   bindThemeUI,
   refreshThemeUI,

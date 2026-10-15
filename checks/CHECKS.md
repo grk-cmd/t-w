@@ -1,7 +1,12 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 242 (모듈 순환 끊기 1 — firebase-init 이 위층 이름을 직접 부르지 않고 joinRoom 이 받은 묶음으로 알린다)
-대상: `sim-*.js` 241개 + `smoke.js` + `audit.py` = **243개** (개정 242 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 243 (모듈 순환 끊기 2 — 방 공용 상태는 room-state.js 에서 시작 · 효과음 · 테마가 위층을 부르지 않는다)
+대상: `sim-*.js` 242개 + `smoke.js` + `audit.py` = **244개** (개정 243 기준 — 폴더를 센 값)
+
+**개정 243 에서 한 것 (2026-10-15 · 모듈 순환 끊기 2 — 앱 동작 변화 없음)**
+- 앱: `app/parts/room/room-state.js` 신설 — `window._activeChannel`(1 워킹룸 · 2 투게더룸) · `window._roomMetaCache`(방 meta 사본)의 처음 값(1 · null)을 맨 아래 한 곳에서 건다. 채팅 · 깜짝쇼 · 주사위 · 룰렛 · 상태칩 · 숨기기 · 단축키가 읽는 값인데 처음 값이 바꾸는 쪽(room-entry)에만 있어 읽는 모듈이 모두 room-entry 를 바라봤다. 방 밖의 값 1 은 나가기(doLeaveRoom)가 되돌리는 값과 같다(`=== 1` 을 보는 숨기기는 방 안 좌석에만 걸림).
+- 앱: 때리기 소리 상수(`BONK_SND_VOL` · `BONK_SND_SRC`)를 tricks.js → sfx.js 로 — 효과음 공장(아래층)이 위층 tricks 를 부르지 않는다(sfx deps 에서 tricksMod 뺌 · tricks 내놓는 이름 −2). 테마는 `theme.js` 가 `onApplied(fn)` 을 내놓고 theme-ui.js 가 만들 때 «열린 방명록 · 디자인 창에 다시 걸기» 를 건다 — theme 이 theme-ui 를 부르지 않는다(theme deps 0 · theme-ui deps +1 · 쓰는 곳 없던 `setThemeChildDocs` 걷음).
+- 검사: `sim-room-state.js` 신설 — 처음 값 · 읽고 바꾸는 파일 12개보다 먼저 싣는다 · 바꾸는 파일은 room-entry · chat-prefs · chat-ui 뿐 · 깨 보기 셋. `dep-cycles-baseline.json` 순환 간선 238 → 223 · 묶음 55 / 2 / 2 → 53 / 2(theme ↔ theme-ui 순환 없어짐). 모듈 모양 검사 넷(sim-sfx · sim-tricks · sim-theme · sim-theme-ui)은 deps · 내놓는 이름을 새 모양에 · `sim-child-theme.js` 는 «열린 창에 다시 건다» 를 theme-ui 가 onApplied 로 건 함수에서 본다(판정 무변경).
 
 **개정 242 에서 한 것 (2026-10-15 · 모듈 순환 끊기 1 — 앱 동작 변화 없음)**
 - 앱: firebase-init.js(아래층)가 방 리스너 · 하트비트에서 위층 이름(`window._onRoomDisbanded` · `_onHostSucceeded` · `_onRoomOverCapacity` · `_onRoomMeta` · `myExpCells` · `_srOwnerUid`)을 직접 불렀다. 이제 `joinRoom(room, me, onChange, onPoked, hooks)` 가 room-entry 의 `_firebaseRoomHooks()` 묶음을 받아 그것만 부른다(방 서버 provider 가 makeServerProvider 로 받는 것과 같은 모양) — Presence.start `opts.hooks` → `makeFirebaseProvider(hooks)` → joinRoom. 대화 기록 채널(`window._activeChannel`)은 `chatHistory.bindChannel` 로 room-entry 가 firebase-ready 때 건다. 옛 전역 다리 `function myExpCells` 는 쓰는 곳이 없어져 걷었다.
@@ -1847,7 +1852,7 @@
 | **sim-gl-recover.js** | 80 | **8c117fa521be** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **2026-10-08 신규 · 🧯 메인 캔버스 WebGL 연결 끊김(제보 #11 OBS) — gl-recover.js 실행(6초 기다림 · 안 돌아오면 다시 불러오기 1번 · 그 안에 복구면 안 함 · 두 번째부터 기록만 · 저장소 실패) · HTML 순서 · app.js 메인 캔버스에 붙임 · preload/main diagNote · main 3D 막힘 해제(ready 전)** |
 | **sim-chat-copy.js** | 86 | **0e24f604f42f** ← **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-08 신규 · 📋 대화창 드래그 · 복사 — chat-copy.js 실행(「이름: 내용」 · 시각 없음 · 이모티콘 마커 생략 · 이모티콘만 있는 줄 빼기 · 링크 원문) · 스크립트 순서 · .chat-messages 만 user-select:text · 칩/메뉴/토스트 #chatWindow 안 · 고르는 중 innerHTML 전 보류 · 원문 번호(data-i) · Ctrl/Cmd+C 직접 · 우클릭 메뉴 · 선택 풀리면/칩 누르면 그리고 맨 아래로** |
 | **sim-chat-log-persist.js** | 158 | **2504f89acf10** ← **개정 234 chatLog 지우는 곳 둘(빈 Firebase 방 · 닫힌 방 서버 방) — 둘 다 투게더룸만** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 154 시크릿룸은 _meta · _chatTab 지우기보다 먼저 빠진다** · ← **개정 153 서버 함수는 공용 투게더룸일 때 한 곳에서만 chatLog 를 지운다** · ← **개정 119 §2 _meta 는 서버 함수가 걷는다 · 퇴장은 roomIndex 줄에 비었음 표시 · 서버도 chatLog 는 안 지움** · 2026-09-13 고친 판 (§8) |
-| **sim-child-theme.js** | 102 | **f839ea558cb9** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 140 렌더러 쪽 한 벌 = app.js + guestbook.js + myhome-edit.js(👑 디자인 창 DS_HTML 이 모듈로 · 없으면 «못 찾음»)** · **개정 135 렌더러 쪽 한 벌 = app.js + guestbook.js(📖 방명록 창이 모듈로 · 없으면 «못 찾음»)** · 2026-09-16 (제보 5 자식 창 테마) · 개정 10 등재 |
+| **sim-child-theme.js** | 104 | **365ddf210e7d** ← **개정 243 열린 창 다시 걸기는 theme-ui 가 onApplied 로 건 함수에서 봄(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 140 렌더러 쪽 한 벌 = app.js + guestbook.js + myhome-edit.js(👑 디자인 창 DS_HTML 이 모듈로 · 없으면 «못 찾음»)** · **개정 135 렌더러 쪽 한 벌 = app.js + guestbook.js(📖 방명록 창이 모듈로 · 없으면 «못 찾음»)** · 2026-09-16 (제보 5 자식 창 테마) · 개정 10 등재 |
 | **sim-chip-chat-ui.js** | 115 | **e60ef5c45121** ← **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 렌더러 쪽 한 벌 = app.js + chat-window.js(💬 대화창 배선 — 타이틀바 끌기 예외 · 판정 무변경)** |
 | **sim-clone-code-entry.js** | 216 | **0ebba5a3d126** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-dance-unlock-mail.js** | 201 | **0df73db8be6e** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
@@ -2007,7 +2012,7 @@
 | **sim-slot-sync-mod.js** | 94 | **fed3199c7743** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 189 틀 고침(가짜가 then 도 받음)** · **개정 188 신설 · ☁️ 슬롯 기기 간 동기화 모듈(slot-sync.js) 구조 — 만들 때 · 내놓는 이름(쓰는 함수 포함) · 옮긴 선언 · deps 키 · 부르는 곳 · html · 일부러 깨 보기** |
 | **sim-away-pic.js** | 94 | **23adf59905fd** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 189 신설 · 🫧 자리비움 그림 모듈(away-pic.js) 구조** |
 | **sim-myhome-ui.js** | 94 | **13bd81368db7** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 189 신설 · 🏠 마이홈 창 버튼 연결 모듈(myhome-ui.js) 구조** |
-| **sim-tricks.js** | 94 | **53b2219378b4** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 190 신설 · 💃 깜짝쇼 · 🪄 때리기 모듈(tricks.js) 구조** |
+| **sim-tricks.js** | 94 | **bc80e1483510** ← **개정 243 내놓는 이름 −2(때리기 소리 상수는 sfx.js 로 · 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 190 신설 · 💃 깜짝쇼 · 🪄 때리기 모듈(tricks.js) 구조** |
 | **sim-ride-bench.js** | 94 | **95187a19be4a** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 191 신설 · 🗼 올라타기 · 🪑 멀티좌석 책상 모듈(ride-bench.js) 구조** |
 | **sim-part-paint.js** | 94 | **571319883528** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 192 신설 · 🖍️ 파츠에 직접 그리기 · 그림칸 모듈(part-paint.js) 구조** |
 | **sim-focus-level.js** | 95 | **119acf631d24** ← **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 193 신설 · ⭐ 포커스 레벨 · 공유 · 태블릿 모듈(focus-level.js) 구조** |
@@ -2028,7 +2033,7 @@
 | **sim-chat-prefs.js** | 95 | **d730ac7e3cdf** ← **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 208 신설 · 🗑 대화 기록 삭제 · 💬 채팅창 투명도 · 🔔 알림음 모듈(chat-prefs.js) 구조** |
 | **sim-rich-text.js** | 95 | **359b3c455b18** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 209 신설 · 🛡️ 리치 텍스트 sanitize 모듈(rich-text.js) 구조** |
 | **sim-win-stack.js** | 96 | **acb394368b03** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 210 신설 · 🪟 창 겹침 모듈(win-stack.js) 구조** |
-| **sim-sfx.js** | 96 | **f1a14e673818** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 211 신설 · 🔊 효과음 공장 모듈(sfx.js) 구조** |
+| **sim-sfx.js** | 96 | **5d781672c62c** ← **개정 243 때리기 소리 상수를 tricks.js 에서 받아 deps 1(판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 211 신설 · 🔊 효과음 공장 모듈(sfx.js) 구조** |
 | **sim-face-heal.js** | 96 | **c9e9c0421262** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 212 신설 · 🛡️ 얼굴 자동 복구 모듈(face-heal.js) 구조** |
 | **sim-slot-save.js** | 96 | **43ae421c2cb8** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 212 신설 · 💾 슬롯 저장 · 복원 모듈(slot-save.js) 구조** |
 | **sim-interaction-desk.js** | 96 | **86254eca1f4d** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 212 신설 · 🪑 상호작용 책상 · 💃 춤 목록 · 재주 상수 모듈(interaction-desk.js) 구조** |
@@ -2036,7 +2041,7 @@
 | **sim-license-request.js** | 96 | **484922aca1ed** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 212 신설 · 📨 라이선스 요청 모듈(license-request.js) 구조** |
 | **sim-fn-keys.js** | 95 | **faba9b8b6088** ← **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 212 신설 · ⌨️ 함수키 모듈(fn-keys.js) 구조** |
 | **sim-hidden-seats.js** | 96 | **513f6dd33678** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 212 신설 · 🙈 워킹룸 숨기기 모듈(hidden-seats.js) 구조** |
-| **sim-theme-ui.js** | 96 | **93bcd1a87c55** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 213 신설 · 🎨 테마(자식 창 테마 · 고르기) 모듈(theme-ui.js) 구조** |
+| **sim-theme-ui.js** | 96 | **1ac6f87f3c39** ← **개정 243 deps onApplied · setThemeChildDocs 걷음(판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 213 신설 · 🎨 테마(자식 창 테마 · 고르기) 모듈(theme-ui.js) 구조** |
 | **sim-myhome-sticker-layout.js** | 96 | **1adaf4734ac3** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 신설 · 🎨 마이홈 스티커 배치 모듈(myhome-sticker-layout.js) 구조** |
 | **sim-myhome-diag.js** | 95 | **b249b890eecd** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 신설 · 🔍 마이홈 클릭 진단 모듈(myhome-diag.js) 구조** |
 | **sim-myhome-visit.js** | 96 | **a491b948d89a** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 신설 · 🏠 마이홈 데이터 · 👀 친구 홈 구경 모듈(myhome-visit.js) 구조** |
@@ -2059,7 +2064,7 @@
 | **sim-wardrobe-panel.js** | 95 | **161f8acae803** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 217 신설 · 🎨 꾸미기 사이드 패널 모듈(wardrobe-panel.js) 구조** |
 | **sim-race-picker.js** | 96 | **504a92674fce** ← **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 217 신설 · 🐾 종족 선택창 모듈(race-picker.js) 구조** |
 | **sim-lv-tier.js** | 96 | **cb87ba3c1b64** ← **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 217 신설 · 🏅 레벨 티어 모듈(lv-tier.js) 구조** |
-| **sim-theme.js** | 96 | **f6d8fe0e331d** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 217 신설 · 🎨 디자인 테마 모듈(theme.js) 구조** |
+| **sim-theme.js** | 96 | **1511c4a090dd** ← **개정 243 deps 0 · 내놓는 이름 onApplied(판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 217 신설 · 🎨 디자인 테마 모듈(theme.js) 구조** |
 | **sim-license-ui.js** | 96 | **ed0badb015d0** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 217 신설 · 🔑 라이선스 등록 화면 모듈(license-ui.js) 구조** |
 | **sim-license-key.js** | 95 | **8cc8a6f4f558** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 217 신설 · 🔑 라이선스 키 등록 · 해제 모듈(license-key.js) 구조** |
 | **sim-asset-code.js** | 96 | **8d2bfecba173** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 217 신설 · 🔐 에셋 코드 암호화 모듈(asset-code.js) 구조** |
@@ -2067,6 +2072,7 @@
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 222 신설 · 📂 렌더러 경로가 실제 폴더 기준으로 맞는가(<script src> · 상대 import)** |
 | **sim-global-names.js** | 234 | **06a608d0569d** ← **개정 237 읽는 함수를 값처럼 typeof 비교 판정 추가** · **개정 236 신설 · 부르는 이름이 전역에 다 있는가(전역 이름 실종)** |
 | **sim-dep-cycles.js** | 237 | **6aa063b0b8b1** ← **개정 241 신설 · 렌더러 모듈 순환이 늘지 않는가(기준선 dep-cycles-baseline.json) · 만드는 도중 아직 없는 이름 읽기** |
+| **sim-room-state.js** | 58 | **ddcd7ec6a8ac** ← **개정 243 신설 · 🧭 방 공용 상태(room-state.js) — 처음 값 · 싣는 순서 · 바꾸는 파일** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
