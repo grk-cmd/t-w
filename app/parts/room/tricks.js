@@ -5,7 +5,7 @@
      FLOATER_BURST · Presence · _bonkSnd · _flyActive · creatorOpen · ndc · officeMode · purikuraUi · ray 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFlyActive(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 18개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: BONK_BUBBLE_IMG · BONK_BUBBLE_MARK · BONK_BUBBLE_PX · BONK_CURSOR_IMG · BONK_DAILY_MAX · BONK_DAY_KEY · BONK_SND_SRC · BONK_SND_VOL · _bonkAimClick · _bonkAiming · _bonkFrame · _bonkLeft · _eggCountCmd · _eggFire · _eggReadyFor · _flyAimClick · _flyAiming · _flyChatLog · _myFlyCoolUntil · _updateFlyingSeats · applyRemoteBonk · applyRemoteFly · bonkSeat · setBonkAiming · setFlyAiming — app.js 는 tricksMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: BONK_BUBBLE_IMG · BONK_BUBBLE_MARK · BONK_BUBBLE_PX · BONK_CURSOR_IMG · BONK_DAILY_MAX · BONK_DAY_KEY · _bonkAimClick · _bonkAiming · _bonkFrame · _bonkLeft · _eggCountCmd · _eggFire · _eggReadyFor · _flyAimClick · _flyAiming · _flyChatLog · _myFlyCoolUntil · _updateFlyingSeats · applyRemoteBonk · applyRemoteFly · bonkSeat · setBonkAiming · setFlyAiming — app.js 는 tricksMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwTricks — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-tricks.js */
@@ -343,16 +343,6 @@ const BONK_FLAT_Q    = 0.55;    // 납작할 때의 세로 배율
 const BONK_DIZZY_MS  = 2500;    // 맞은 뒤 어지러움 — 흔들기·플라잉체어와 같은 값
 const BONK_DAILY_MAX = 30;      // 하루 한도 — ★ 대상별이 아니라 **전체** 30회다
                                 //   ⚠️ 숫자를 다른 곳에 적지 말 것. 우클릭 메뉴·조준 안내가 이 상수를 읽는다.
-/* 🔊 음량 — **1.0 이다.** BGM(_advBgm 등)의 0.5 를 베끼면 안 된다.
-   ⚠️ 처음에 0.5 로 뒀다가 "소리가 잘 안 들린다" 제보를 받았다. 재 보니 이유가 둘이었다:
-     ① 파일 자체의 최대 진폭이 -4.8 dBFS 였다(잘라 만든 파일이라 여유가 남아 있었다)
-     ② 거기에 0.5(=-6 dB)를 더 곱해 실효 -10.8 dBFS 가 됐다
-   파일은 -1.4 dBFS 로 노멀라이즈했고(같은 길이·같은 128kbps·페이드 유지), 여기는 1.0 으로 둔다.
-   ★ BGM 은 **밑에 깔리는** 소리이고 타격음은 **뚫고 나와야 하는** 소리다 — 같은 값을 쓸 이유가 없다.
-   ⚠️ 전역 효과음 음량 설정이 아직 없다. 생기면 이 상수 자리를 그 값으로 갈아끼울 것(8절 ③). */
-const BONK_SND_VOL   = 0.5;
-/* 🔊 파일 경로 폴백 — mystery-au.js 선례(['parts/x.mp3','x.mp3']). 검사 폴더에서도 돌게. */
-const BONK_SND_SRC   = ['parts/bonk.mp3', 'bonk.mp3'];
 
 /* 📅 하루 카운터 — 웹박수 선례(localStorage + 날짜)를 따르지만 **키에 대상을 넣지 않는다.**
    ⚠️ 웹박수는 `gbClap:대상:날짜` 로 대상별이다. 그걸 그대로 베끼면 사람마다 따로 한도가
@@ -587,8 +577,6 @@ return {
   BONK_CURSOR_IMG,
   BONK_DAILY_MAX,
   BONK_DAY_KEY,
-  BONK_SND_SRC,
-  BONK_SND_VOL,
   _bonkAimClick,
   _bonkAiming: ()=>_bonkAiming,   // 읽는 함수
   _bonkFrame,

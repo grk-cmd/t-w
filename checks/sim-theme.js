@@ -1,8 +1,8 @@
 /* ═══ 🎨 sim-theme.js — 🎨 디자인 테마 모듈 구조 (2026-10-14 신설 · 앱 FSD 48번) ═══════════════
    app.js 의 디자인 테마 구역 본문 을 parts/shared/theme.js 로 옮겼다(글자 그대로 · 바뀐 줄 2 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(디자인 테마 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(ACCENT_KEY · THEME_COLORS · THEME_DEFAULT_ACCENT · THEME_KEY · applyTheme · getAccent · getTheme)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 1줄 그대로 · 부르는 곳은 themeMod.이름 · html(app.js 앞)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(ACCENT_KEY · THEME_COLORS · THEME_DEFAULT_ACCENT · THEME_KEY · applyTheme · getAccent · getTheme · onApplied)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 0줄(열린 자식 창은 theme-ui.js 가 onApplied 로 건다 — 모듈 순환 끊기 2) · 부르는 곳은 themeMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · theme.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -19,11 +19,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = [];
 const VAL_DEPS = [];
-const GET_DEPS = ["themeUiMod"];
+const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["ACCENT_KEY","THEME_COLORS","THEME_DEFAULT_ACCENT","THEME_KEY","applyTheme","getAccent","getTheme"];
+const EXPORTS = ["ACCENT_KEY","THEME_COLORS","THEME_DEFAULT_ACCENT","THEME_KEY","applyTheme","getAccent","getTheme","onApplied"];
 const MOVED = ["THEME_KEY","ACCENT_KEY","THEME_COLORS","THEME_DEFAULT_ACCENT","getTheme","getAccent","applyTheme"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  themeUiMod: ()=>themeUiMod,"];
+const GLUE = [];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

@@ -1,18 +1,19 @@
 /* theme.js — 🎨 디자인 테마 — 저장 키 · 색 표 · 지금 테마 · 걸기(applyTheme)
    app.js «🎨 디자인 테마 — 저장 키 · 색 표 · 지금 테마 · 걸기(applyTheme)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 48번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 2줄 —
-     themeUiMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
-     받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
+   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 곳 하나 — 열린 자식 창에 다시 거는 줄은 theme-ui.js 가
+     onApplied 로 건다(아래층이 위층 theme-ui 를 부르던 순환 끊기 — checks/sim-dep-cycles.js).
    ★ app.js 함수 0개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: ACCENT_KEY · THEME_COLORS · THEME_DEFAULT_ACCENT · THEME_KEY · applyTheme · getAccent · getTheme — app.js 는 themeMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: ACCENT_KEY · THEME_COLORS · THEME_DEFAULT_ACCENT · THEME_KEY · applyTheme · getAccent · getTheme · onApplied — app.js 는 themeMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwTheme — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-theme.js */
 (function(){
 
 function createTheme(deps){
-const themeUiMod = deps.themeUiMod;   // 읽는 함수
+/* 테마를 건 뒤 부를 함수 — 열린 방명록 · 디자인 창(theme-ui.js)이 만들 때 건다. 이 파일은 아래층이라 theme-ui 를 직접 부르지 않는다 */
+const _onAppliedFns = [];
+function onApplied(fn){ _onAppliedFns.push(fn); }
 const THEME_KEY = 'tw.theme', ACCENT_KEY = 'tw.accent';
 /* 칸 번호 → [표시 이름, 칩에 보여줄 그라데이션]. CSS의 --acc-* 값과 짝이 맞아야 한다. */
 const THEME_COLORS = {
@@ -52,10 +53,7 @@ function applyTheme(){
     root.setAttribute('data-accent', a);
     if(t==='bubble') root.setAttribute('data-theme','bubble'); else root.removeAttribute('data-theme');
   }catch(e){ console.warn('[테마] 적용 실패 — 기본 테마로 둡니다', e); }
-  // 🎨 [제보 5] 열려 있는 방명록·디자인 창에도 — 닫힌 창은 여기서 떨어져 나간다
-  themeUiMod().setThemeChildDocs(themeUiMod()._themeChildDocs().filter(d=>{
-    try{ if(!d.defaultView || d.defaultView.closed) return false; themeUiMod().applyThemeToChildDoc(d); return true; }catch(_){ return false; }
-  }));
+  for(const fn of _onAppliedFns){ try{ fn(); }catch(_){} }
 }
 
 return {
@@ -66,6 +64,7 @@ return {
   applyTheme,
   getAccent,
   getTheme,
+  onApplied,
 };
 }
 

@@ -2017,7 +2017,6 @@ const tricksMod = (typeof TwTricks === 'undefined') ? TRICKS_MOD_OFF : TwTricks.
 const SFX_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const sfxMod = (typeof TwSfx === 'undefined') ? SFX_MOD_OFF : TwSfx.createSfx({
   officeMode: ()=>officeMode,
-  tricksMod: tricksMod,
 });
 /* ═══ 🪄 때리기 — 말풍선 · 재생 · 전파 · 조준 모드 ═══ */
 /* (앱 FSD 25번) 이 자리의 본문도 tricks.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -13900,7 +13899,6 @@ async function _warnServerWriteDenied(what){
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const THEME_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
 const themeMod = (typeof TwTheme === 'undefined') ? THEME_MOD_OFF : TwTheme.createTheme({
-  themeUiMod: ()=>themeUiMod,
 });
 function applyTheme(...a){ return themeMod.applyTheme(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 /* ═══ 🎨 [2026-09-15 제보 5] 테마 「버블」이 마이홈 방명록엔 안 먹음 ═══════════════════════
@@ -13924,6 +13922,7 @@ const themeUiMod = (typeof TwThemeUi === 'undefined') ? THEME_UI_MOD_OFF : TwThe
   applyTheme: (...a)=>themeMod.applyTheme(...a),
   getAccent: (...a)=>themeMod.getAccent(...a),
   getTheme: (...a)=>themeMod.getTheme(...a),
+  onApplied: (...a)=>themeMod.onApplied(...a),
 });
 /* ★ 최상위 호출은 반드시 위 const 선언들 '뒤'에 둔다.
    앞에서 부르면 THEME_COLORS가 아직 TDZ라 ReferenceError가 나고, 최상위에서 터지므로
