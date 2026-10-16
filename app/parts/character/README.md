@@ -78,3 +78,21 @@
   - 파츠는 이미 붙은 것을 다시 붙이지 않는다 — 겹쳐 다는 파츠는 `stackedPartObjs` 로 판정. 새로 붙은 게 있을 때만 `fitModel` · `layoutSeats`.
   - 가챠 카탈로그 옮기기(`migrateGachaCatalog`)는 관리자 세션에서 한 번만(`window.__gachaMigrated`) · 실패하면 다음 콜백에서 다시.
   - 검사: `checks/sim-catalog-sync.js`(4절 — 구독 · firebase-ready · 세 합치기 · 좌석 · 생성기 다시 반영 · 가챠 옮기기 · 카테고리).
+
+## desk-items.js — 🧸 책상 위 아이템 등록부
+
+- **책임**: 카탈로그 · 코드로 받은 아이템 GLB 를 세션 등록부 `customItems` 에 올리고, 기본 내장 아이템(`DESK_ITEMS`)과 합친 목록을 준다.
+- **만드는 법**: app.js «🪑 책상 · 아이템 등록» 자리에서 `const deskItemsMod = TwDeskItems.createDeskItems({ DESK_ITEMS, _applyItemMatTone, commissionMod, customItems: ()=>customItems });`
+  - `customItems` 는 읽는 함수 — 생성기를 새로 열 때 app.js 가 `customItems={}` 로 다시 대입한다.
+- **내보내는 것**
+  - `registerCustomItem(id, name, glbB64, template, icon, animations, attachTo, autoPlay, defaultSize, glow, licenseOnly, playMode)` — `customItems[id]` 에 `{ …메타, build() }`. 인자로 안 온(null) 메타는 같은 id 의 저장 레코드에서 채우고, 그래도 없으면 기본값(`attachTo 'desk'` · `playMode 'click'`(autoPlay 면 `'auto'`) · `defaultSize 0.8`).
+  - `allDeskItems()` — 커스텀이 앞 · 같은 id 의 기본 아이템은 빠진다(관리자가 기본 아이템을 같은 id 로 바꿔 낄 수 있다). `deskItemDef(id)` — 없으면 `null`.
+  ```js
+  deskItemsMod.registerCustomItem(rec.id, rec.name, rec.glb, scene, rec.icon||'', animations);   // 메타는 저장 레코드에서
+  const def = deskItemsMod.deskItemDef('cup');
+  ```
+- **확장할 때 고칠 자리**: 새 메타 칸은 `registerCustomItem` 의 메타 채우기 블록과 `customItems[id]={…}` 두 곳. 기본 크기 0.8 도 여기.
+- **함정**
+  - `build()` 는 메쉬마다 머티리얼을 복제한다 — 빼면 친구 좌석 아이템과 색을 같이 쓴다. 본 있는 모델은 `SkeletonUtils.clone`.
+  - 저장 목록 등록(`loadSavedItemsIntoSession`)은 app.js 에 있다 — 부팅 초반, 이 모듈을 만드는 줄보다 앞에서 부르기 때문.
+  - 검사: `checks/sim-desk-items.js`(4절 — 기본값 · 인자 우선 · 저장 레코드로 메타 채우기 · 저장 목록 못 읽음 · build 복제 · 합친 목록).
