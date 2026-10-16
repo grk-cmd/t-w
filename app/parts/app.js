@@ -1357,24 +1357,19 @@ const ANIMAL_RUN_SCALE = 0.4;      // 🐾 동물 실행화면 크기 = 인간�
 //   갈라져 있었음. 여기서 window로 노출해 "한 곳에서만 관리"되게 한다. (app.js가 animal.js보다 먼저 로드됨)
 try{ window.ANIMAL_RUN_SCALE = ANIMAL_RUN_SCALE; }catch(_){}
 /* ═══ 🪑 좌석 크기 평준화 — 배율(k)을 정하는 곳은 여기 하나다 ═══════════════════
-   내 화면에서만 남의 좌석을 내 캐릭터 크기에 맞춘다. 서버에는 아무것도 안 쓴다 —
-   `seat.userScale`(저장값)은 절대 건드리지 않고, 읽는 쪽이 seatScale() 을 지나게 한다.
-   ⚠️ userScale 자체를 덮어쓰지 말 것. 생성기 UI·saveSeatXf 가 같은 필드를 보고 있어서
-     내 화면의 표시 배율이 상대의 저장값으로 흘러 들어가고, applyCharToSeat 가 def 를 다시
-     얹는 순간 평준화가 조용히 풀린다.
-
-   ★ 방식은 'C' — **좌석 전체에 배율 하나**를 곱한다(캐릭터 · 책상 · 라벨 높이가 전부 이 k 를 지난다).
-     k = 내 캐릭터 크기 ÷ 그 좌석의 캐릭터 크기.
-     그래서 캐릭터 크기는 전부 내 크기로 통일되고, 각자가 맞춰둔 **캐릭터↔책상 비율은 그대로** 남는다.
-     맞바꾼 것: 캐릭터를 크게·책상을 작게 맞춰둔 사람은 책상이 내 것보다 작아진다.
-       "책상 줄까지 맞추기"(B안)로 바꾸고 싶으면 이 함수 하나만 고치면 된다 —
-       캐릭터엔 내 userScale, 책상엔 내 deskScale 을 각각 밀어 넣는 형태가 된다.
-
-   ★ 🐾 동물 40%(ANIMAL_RUN_SCALE)는 **여기에 안 들어간다.** 40% 는 fitModel 의 baseScale 과
-     setDeskScale 의 animCorr 에 있는 별개의 곱셈이고, 평준화가 갈아끼우는 것은 사람이 정한
-     크기(userScale)뿐이다. 그래서 평준화를 켜도 동물은 여전히 사람의 40% 로 남는다. */
-let seatEqualizeOn = false;
-try{ seatEqualizeOn = (localStorage.getItem('tw.seatEq') === '1'); }catch(_){}   // 기본 끄기(들쑥날쑥한 것도 재미)
+   내 화면에서만 남의 좌석을 내 캐릭터 크기에 맞춘다(서버에 안 쓴다). 방식 · 함정은 character/seat-equalize.js 머리에. */
+/* 본문은 character/seat-equalize.js 로 옮겼다(구역 떼기 C · w1).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const seatEqMod = TwSeatEqualize.createSeatEqualize({
+  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
+  clampCharY: (...a)=>clampCharY(...a),
+  findMySeat: (...a)=>findMySeat(...a),
+  fitModel: (...a)=>fitModel(...a),
+  seats: seats,
+  setDeskPos: (...a)=>setDeskPos(...a),
+  setDeskScale: (...a)=>setDeskScale(...a),
+  syncSeatDeskZ: (...a)=>syncSeatDeskZ(...a),
+});
 let roomSeatMode = window.TwSeatPin ? TwSeatPin.loadMode(localStorage) : 'row';   // 🪑 방에서 내 자리 — 줄 안에 함께 · 맨 오른쪽 고정(seat-pin.js)
 /* 🎁 꾸미기 파츠 표시 — [2026-09-17 요청] 끄면 **내 화면에서만**, 나 포함 모든 좌석의 꾸미기 파츠(파츠 보관함의 가챠 파츠)가
    안 보인다. 서버에는 아무것도 안 쓴다(좌석 크기 평준화와 같은 «내 화면 전용» 설정).
@@ -1399,81 +1394,7 @@ function applyDecoPartsVisibility(seat){
     });
   }catch(_){}
 }
-function seatEqK(seat){
-  if(!seatEqualizeOn || !seat || seat.isMe) return 1;
-  /* ⚠️ 기준은 **내 주 좌석**이다. 자리추가(isExtra) 좌석도 맞추는 대상에 넣는다 —
-     남만 맞추고 내 부캐가 들쑥날쑥하면 화면은 여전히 가지런하지 않다.
-     원격만 맞추고 싶으면 위 조건에 `|| seat.isExtra` 를 더하면 된다(여기 한 줄). */
-  const me = findMySeat();
-  if(!me || me === seat) return 1;
-  const mine = (isFinite(me.userScale)   && me.userScale   > 0) ? me.userScale   : 1;
-  const his  = (isFinite(seat.userScale) && seat.userScale > 0) ? seat.userScale : 1;
-  const k = mine / his;
-  return (isFinite(k) && k > 0) ? k : 1;
-}
-/* 좌석의 **실효 크기** — 3D·라벨 쪽에서 "좌석 크기"가 필요하면 예외 없이 이걸 부른다.
-   ⚠️ 저장·생성기 UI(sScale 입력, saveSeatXf, def 로드)는 반대로 **raw seat.userScale** 을 써야 한다.
-     그쪽까지 실효값으로 바꾸면 내 화면의 표시 배율이 저장값이 된다. */
-function seatScale(seat){
-  const s = (seat && isFinite(seat.userScale) && seat.userScale > 0) ? seat.userScale : 1;
-  return s * seatEqK(seat);
-}
-/* 🧍 캐릭터 높이가 **월드에서 실제로 들어 올리는 양**.
-   fitModel 이 m.position.y 에 userY × _animPos ÷ raw userScale 을 넣고, 그 위에 bodyWrap.scale(=seatScale)이
-   곱해진다 → 월드 값 = userY × _animPos × (seatScale ÷ raw userScale) = userY × _animPos × 평준화 k.
-   ★ 필요한 곳은 '월드 y 를 직접 계산해서 좌석을 놓는' 자리다 — 지금은 올라타기(_positionRideSeat) 뿐이다.
-     그 함수는 대상 머리 위 좌표를 seat.group.position 에 직접 쓰는데, 모델은 그 group 안에서 이 양만큼
-     더 들려 있다. 빼주지 않으면 높이를 올려둔 캐릭터가 그만큼 머리 위에서 떠 보인다.
-   🐾 **_animPos 는 fitModel 과 반드시 같아야 한다.** 한쪽만 바꾸면 동물 머리 위에 올라탄 캐릭터가
-     그 차이(2.5배)만큼 뜨거나 파고든다. 두 줄은 항상 함께 고칠 것.
-   ⚠️ bodyWrap.scale 은 매 프레임 호흡(breathe)으로 흔들리므로 그 값을 읽지 말고 seatScale 을 쓴다. */
-function charLiftWorld(seat){
-  if(!seat) return 0;
-  const raw = (seat.userScale && isFinite(seat.userScale) && seat.userScale > 0) ? seat.userScale : 1;
-  const animPos = (seat.charDef && seat.charDef.animal) ? ANIMAL_RUN_SCALE : 1;
-  return clampCharY(seat.userY) * animPos * ((seatScale(seat) || 1) / raw);
-}
-/* 배율이 바뀐 좌석만 다시 적용한다. layoutSeats 앞에서 부르므로 자주 불리지만,
-   k 가 그대로면 숫자 비교 몇 번으로 끝난다(fitModel 은 바뀐 좌석에만 돈다). */
-let _eqSyncing = false;
-function syncSeatEqualize(){
-  if(_eqSyncing) return;
-  _eqSyncing = true;
-  try{
-    seats.forEach(seat=>{
-      const k = seatEqK(seat);
-      if(seat._eqK === k) return;
-      seat._eqK = k;
-      /* 책상은 setDeskScale 이 userData 의 곱셈들(animCorr · eqK)을 모아서 건다 —
-         호출부가 다섯 곳이라 거기에 직접 곱하면 반드시 한 곳이 빠진다(animCorr 이 그래서 여기 있다). */
-      if(seat.desk){
-        seat.desk.userData.eqK = k;
-        /* ⚠️ deskScaleBase 가 없으면 그건 **아직 모르는 값**이지 1 이 아니다.
-             createSeat 은 책상을 만들기만 하고 setDeskScale 을 부르지 않으므로, def 가 아직 안
-             얹힌 좌석에는 이 값이 없다. 그 상태로 넘기면 setDeskScale 이 1 로 읽어
-             deskScale 0.3 인 사람의 책상이 3배가 되고, 바로 아래 layoutSeats 가 그 폭을 실측해
-             좌석 간격을 벌린다. 그 뒤 applyCharToSeat 이 def.deskScale 로 다시 걸면 폭이 돌아온다 —
-             "켜면 간격이 넓어지고 프로그램을 이동하면 원래대로 복귀"의 정체가 이것이다.
-           ★ 없을 때는 **책상을 건드리지 않고 eqK 만 심어둔다.** 다음번 정상 호출이
-             그때 아는 값으로 이 배율까지 같이 건다(setDeskScale 이 userData.eqK 를 읽으므로). */
-        const _base = seat.desk.userData.deskScaleBase;
-        if(_base != null) setDeskScale(seat.desk, _base, seat.desk.userData.deskLenX);
-        /* 옮겨둔 책상은 위치 오프셋도 같은 k 를 지난다(setDeskPos 주석 참고).
-           안 옮긴 책상은 base 가 0,0,0 이라 곱해도 0 — 기존 사용자에겐 아무 변화가 없다. */
-        const _pb = seat.desk.userData.deskPosBase;
-        if(_pb) setDeskPos(seat.desk, _pb);
-        /* 🐾 앞뒤 보정은 **조건 없이** 다시 건다.
-           ⚠️ 바로 위 줄은 deskPosBase 가 있는 좌석에서만 돈다 — 그건 **책상을 옮겨본 적 있는
-             사람**뿐이고, 대부분의 유저는 거기 해당하지 않는다. 그런데 보정항 CHAR_Z·(1−a·k) 는
-             책상을 옮겼는지와 무관하게 k 가 바뀌면 반드시 달라진다. 위 줄만 믿으면
-             "책상을 한 번도 안 옮긴 좌석"은 평준화를 켜도 발선이 계속 갈린다. */
-        syncSeatDeskZ(seat.desk);
-      }
-      if(seat.bodyWrap) fitModel(seat);   // 캐릭터·앵커 높이 재적용
-    });
-  }catch(_){}
-  _eqSyncing = false;
-}
+/* (구역 떼기 C · w1) 이 자리의 본문도 character/seat-equalize.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 // 🐾 동물 전용 팔 기본각 — 동물 GLB의 hand 본 rest 자세가 인간과 달라 인간의 HAND_REST를 그대로 쓰면 팔이 뜬다.
 //   ★ 팔 높이 조정은 이 숫자 하나만 바꾸면 됨: 양수 쪽(예 -0.2)으로 갈수록 내려가고, 음수 쪽(예 -0.8)일수록 올라간다.
 //   ★ 실행화면(animateRig) · 런처 미리보기(applyStaticHandRest) · 동물 생성기(animal.js applyArmRest)가
@@ -1707,13 +1628,13 @@ function _measureAnimalArmH(animalSeat){
     b.getWorldPosition(_hp); ref.getWorldPosition(_gp);
     /* 🪑 실측한 팔 높이는 월드값이라 평준화 배율까지 이미 들어가 있다. raw userScale 로 나누면
        그 k 가 armH 안에 남아, 평준화된 좌석 위에 올라탄 동물이 뜨거나 파묻힌다. */
-    const s = seatScale(animalSeat) || 1;
+    const s = seatEqMod.seatScale(animalSeat) || 1;
     /* 🧍 캐릭터 높이(userY)로 들어 올린 양은 뺀다 — 그건 팔 높이가 아니다.
        [왜] 손 본은 m 안에 있고 m 은 높이만큼 들려 있어서, 안 빼면 armH 에 높이가 섞여 들어간다.
          그러면 (a) 값의 의미가 '팔 높이' 가 아니게 되고 (b) 이 측정은 올라탈 때 1회뿐이라
          올라탄 뒤 높이 슬라이더를 만지면 그만큼 어긋난 채로 굳는다.
        ★ 높이 상쇄는 _positionRideSeat 가 charLiftWorld 로 한 번에 처리한다 — 두 곳에서 빼면 두 배가 된다. */
-    const h = ((_hp.y - _gp.y) - charLiftWorld(animalSeat)) / (s || 1);   // 크기 1 기준으로 정규화
+    const h = ((_hp.y - _gp.y) - seatEqMod.charLiftWorld(animalSeat)) / (s || 1);   // 크기 1 기준으로 정규화
     return (isFinite(h) && h > 0) ? h : null;
   }catch(_){ return null; }
 }
@@ -1984,7 +1905,7 @@ const tricksMod = TwTricks.createTricks({
   ray: ()=>ray,
   seatCharZ: (...a)=>seatCharZ(...a),
   seatFromObject: (...a)=>seatFromObject(...a),
-  seatScale: (...a)=>seatScale(...a),
+  seatScale: (...a)=>seatEqMod.seatScale(...a),
   seats: seats,
   showChatBubble: (...a)=>showChatBubble(...a),
   spawnFloater: (...a)=>floatersMod.spawnFloater(...a),
@@ -2081,7 +2002,7 @@ const rideBenchMod = TwRideBench.createRideBench({
   _rideTmp: _rideTmp,
   _rideWP: _rideWP,
   broadcastRide: (...a)=>broadcastRide(...a),
-  charLiftWorld: (...a)=>charLiftWorld(...a),
+  charLiftWorld: (...a)=>seatEqMod.charLiftWorld(...a),
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
   isDeskUnlocked: (...a)=>iDeskMod.isDeskUnlocked(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
@@ -2089,7 +2010,7 @@ const rideBenchMod = TwRideBench.createRideBench({
   matWoodD: matWoodD,
   measureHeadBoxNoParts: (...a)=>measureHeadBoxNoParts(...a),
   savedParts: ()=>premiumMod.savedParts(),
-  seatScale: (...a)=>seatScale(...a),
+  seatScale: (...a)=>seatEqMod.seatScale(...a),
   seatState: (...a)=>seatState(...a),
   seats: seats,
   setActiveInteractionDeskId: (...a)=>iDeskMod.setActiveInteractionDeskId(...a),
@@ -2142,7 +2063,7 @@ const seatLayoutMod = TwSeatLayout.createSeatLayout({
   seatCameraMod: ()=>seatCameraMod,
   seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
   seats: seats,
-  syncSeatEqualize: (...a)=>syncSeatEqualize(...a),
+  syncSeatEqualize: (...a)=>seatEqMod.syncSeatEqualize(...a),
   setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },
   setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },
   setDeskPanX: (v)=>{ deskPanX = v; },
@@ -2632,7 +2553,7 @@ function fitModel(seat){
   seat.rig.position.copy(sR);seat.rig.rotation.copy(sRr);
   /* 🪑 평준화 배율은 여기(몸 스케일) 하나로 들어간다 — headAnchor·bodyAnchor 는 bodyWrap 의
      자식이라 저절로 같이 커진다. ⚠️ 위 _uz 는 raw userScale 그대로여야 한다(그 주석 참고). */
-  seat.bodyWrap.scale.setScalar(seatScale(seat));
+  seat.bodyWrap.scale.setScalar(seatEqMod.seatScale(seat));
   seat.bodyWrap.position.copy(sWp);seat.group.position.copy(sG);
   /* ⚠️ 값만 되돌리면 matrixWorld 는 위에서 0 으로 옮겨 잰 그대로 남는다 — 다음 렌더 프레임이
      오기 전까지 이 좌석의 월드 행렬은 **거짓말**이고, 그 사이에 월드 좌표를 재는 코드
@@ -3231,7 +3152,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   saveGap: (...a)=>saveGap(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   scene: scene,
-  seatEqualizeOn: ()=>seatEqualizeOn,
+  seatEqualizeOn: ()=>seatEqMod.seatEqualizeOn(),
   seats: seats,
   slots: ()=>slots,
   startRoomCountWatch: (...a)=>roomEntryMod.startRoomCountWatch(...a),
@@ -3250,7 +3171,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   setMoveMode: (v)=>{ moveMode = v; },
   setNameplateEnabled: (v)=>{ overheadMod.setNameplateEnabled(v); },
   setRoomSeatMode: (v)=>{ roomSeatMode = v; },
-  setSeatEqualizeOn: (v)=>{ seatEqualizeOn = v; },
+  setSeatEqualizeOn: (v)=>{ seatEqMod.setSeatEqualizeOn(v); },
 });
 
 /* ═══ 🕒 포커스 기록 팝업 ═══ */
@@ -4559,7 +4480,7 @@ const overheadMod = TwOverhead.createOverhead({
   getDisplayName: (...a)=>getDisplayName(...a),
   officeMode: ()=>officeMode,
   renderer: renderer,
-  seatScale: (...a)=>seatScale(...a),
+  seatScale: (...a)=>seatEqMod.seatScale(...a),
   seats: seats,
   tricksMod: tricksMod,
 });
@@ -9326,7 +9247,7 @@ function applyCharToSeat(seat,def){
   /* 🪑 평준화 배율도 같은 자리에서 갱신한다 — def 가 바뀌면 그 좌석의 캐릭터 크기(xf.s)가 바뀌고,
      내 좌석이 바뀐 경우엔 **다른 모든 좌석의** k 까지 달라진다. seat._eqK 를 지워 다음
      syncSeatEqualize(layoutSeats 도입부)가 전 좌석을 다시 계산하게 둔다. */
-  if(seat.desk) seat.desk.userData.eqK = seatEqK(seat);
+  if(seat.desk) seat.desk.userData.eqK = seatEqMod.seatEqK(seat);
   try{ seats.forEach(s2=>{ s2._eqK = undefined; }); }catch(_){}
   // 🐾 책상과의 기본 거리도 같은 비율로 — 프레임 루프가 lerp로 수렴시키지만, 교체 직후 한 프레임
   //   튀어 보이지 않게 여기서 바로 맞춰둔다(fitModel이 rig.position을 저장·복원하므로 값은 유지됨).
@@ -10633,7 +10554,7 @@ function _clampSeatDeskParts(now){
       const parts = pin.children.filter(o=>o.userData && o.userData.__twPartWrap);
       if(!parts.length) return;
       // 올라탄 좌석은 책상이 숨고 자리도 안 차지한다(layoutSeats) — 가두지 않는다
-      const on = !!(seatEqualizeOn && !s.ridingOn && s.desk && s.desk.visible !== false);
+      const on = !!(seatEqMod.seatEqualizeOn() && !s.ridingOn && s.desk && s.desk.visible !== false);
       const half = on ? seatDeskHalfWidth(s) + gap / 2 : 0;
       seatSlot.clampParts(parts, s.group ? s.group.position.x : 0, half, on);
     }catch(e){ console.warn('[좌석 자리] 파츠 가두기 실패', e); }
@@ -11373,12 +11294,12 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     const rigged=!seat.isPlaceholder&&!seat.mixer&&seat.hasRig;
     if(clipped){
       seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
-      { const _bs=seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
+      { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
       seat.bodyWrap.position.y=0;
       setClip(seat,state); seat.mixer.update(dt);
     } else if(rigged){
       seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
-      { const _bs=seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
+      { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
       seat.bodyWrap.position.y=0;
       animateRig(seat,now,state);
     } else {
@@ -11387,7 +11308,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
       // [수정] 기본 숨쉬기 애니메이션에 userScale을 곱해서 크기 유지
       /* ⚠️ 여기는 **매 프레임** bodyWrap.scale 을 다시 쓴다. raw userScale 로 두면 fitModel 이 얹은
          평준화 배율이 다음 프레임에 곧바로 지워진다 — 좌석 크기를 읽는 자리는 예외 없이 seatScale(). */
-      const _bs = seatScale(seat);
+      const _bs = seatEqMod.seatScale(seat);
       seat.bodyWrap.scale.set(
         (1/Math.sqrt(breathe)) * _bs, 
         breathe * _bs, 
