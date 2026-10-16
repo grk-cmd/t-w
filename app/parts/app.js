@@ -284,7 +284,7 @@ const humanEar = (typeof HumanEar === 'undefined') ? null : HumanEar.createHuman
 /* 귀는 흰색으로 시작한다(색은 그리기로만) — 다른 몸 재질과 같은 플랫 조명(applyLightPresetToInstance). */
 function _humanEarMat(){
   const m = new THREE.MeshStandardMaterial({ color:'#ffffff', metalness:0, roughness:0.9, side:THREE.DoubleSide });
-  m.emissive.setScalar(FLAT_EMISSIVE);
+  m.emissive.setScalar(lightToneMod.FLAT_EMISSIVE);
   return m;
 }
 /* ⚠️ 바인드 자세일 때(조립 직후 · 애니메이션 전) 불러야 한다 — holder 와 옮길 양을 이때 잰다.
@@ -3337,7 +3337,7 @@ const wdPanelMod = TwWardrobePanel.createWardrobePanel({
 const wardrobeMod = TwWardrobe.createWardrobe({
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   CHAR_Z: CHAR_Z,
-  LIGHT_PRESET: ()=>LIGHT_PRESET,
+  LIGHT_PRESET: ()=>lightToneMod.LIGHT_PRESET,
   PART_CATS: ()=>premiumMod.PART_CATS(),
   PART_DEFAULT_OFFSET: ()=>PART_DEFAULT_OFFSET,
   PART_GROUPS: ()=>premiumMod.PART_GROUPS,
@@ -3443,7 +3443,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const partPaintMod = TwPartPaint.createPartPaint({
   CANVAS_SZ: ()=>CANVAS_SZ,
-  _applyPartMatTone: (...a)=>_applyPartMatTone(...a),
+  _applyPartMatTone: (...a)=>lightToneMod._applyPartMatTone(...a),
   _loadImgCors: (...a)=>roomSyncMod._loadImgCors(...a),
   _quickHash: (...a)=>roomSyncMod._quickHash(...a),
   _roomFaceCacheLoad: (...a)=>roomSyncMod._roomFaceCacheLoad(...a),
@@ -5227,7 +5227,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
     const picMeshes = [];     // 🖍️ "_pic" 메쉬 — 유저가 직접 그리는 면(그림칸은 파츠당 하나, 층은 _picSetup 이 만든다)
     obj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false;
       const m = o.material&&o.material.clone? o.material.clone() : o.material; o.material=m;
-      if(m){ _applyPartMatTone(m);   // 💡 톤은 한 함수에서만 정한다(썸네일도 같은 함수를 쓴다)
+      if(m){ lightToneMod._applyPartMatTone(m);   // 💡 톤은 한 함수에서만 정한다(썸네일도 같은 함수를 쓴다)
         // ★ 투명 재질(블렌더에서 alpha 낮춰서 내보낸 파츠)은 씬에 추가되는 "순서"에 따라 그려지는 순서가
         //   달라질 수 있는데, 캐릭터 자동 복원(앱 재시작 등) 시에는 다른 요소들보다 먼저/늦게 추가되면서
         //   순서가 꼬여 투명도가 제대로 안 보이는 경우가 있었음(꺼짐→켬으로 다시 추가하면 정상화되던 원인).
@@ -5600,7 +5600,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
           const extraColorGroups = {};   // 런처9: 각 인스턴스의 _col 그룹은 독립 — 별도 mesh 참조
           extraObj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false;
             const m = o.material&&o.material.clone? o.material.clone() : o.material; o.material=m;
-            if(m){ _applyPartMatTone(m);   // 본체 인스턴스와 같은 함수
+            if(m){ lightToneMod._applyPartMatTone(m);   // 본체 인스턴스와 같은 함수
               if(m.transparent){ o.renderOrder = 10; partSceneMod._forceOpaqueAlphaOutput(m); }
             }
             // 런처9: 원본과 동일한 _col 네이밍 규칙으로 이 인스턴스만의 컬러 그룹 수집
@@ -6182,7 +6182,7 @@ function _applyXfToWrapper(wrp, xf, cat){
         if(isHueTintMesh(m)){ applyHueTint(m, c, xf.colorHSV && xf.colorHSV[key]); m.material.needsUpdate=true; return; }
         if(m.material.color) m.material.color.set(c);
         if(m.material.emissive){
-          const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null) ? m.material.userData.baseFlat : FLAT_EMISSIVE;
+          const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null) ? m.material.userData.baseFlat : lightToneMod.FLAT_EMISSIVE;
           m.material.emissive.set(c).multiplyScalar(baseFlat);
         }
         m.material.needsUpdate=true;
@@ -8062,7 +8062,7 @@ function reorderSavedDesk(draggedId, targetId){
     }
   }
 }
-document.getElementById('deskColor').addEventListener('input',e=>{ cDeskColor=e.target.value; _setDeskMatColor(cDeskMat, cDeskColor); applyDeskColorToCustom(cDesk,cDeskColor); });
+document.getElementById('deskColor').addEventListener('input',e=>{ cDeskColor=e.target.value; lightToneMod._setDeskMatColor(cDeskMat, cDeskColor); applyDeskColorToCustom(cDesk,cDeskColor); });
 document.getElementById('deskScale').addEventListener('input',e=>{ cDeskScale=+e.target.value; setCreatorDeskScale(cDeskScale); });   // 카메라 고정 — 책상 크기 가늠 쉽게
 // 버튼을 꾹 누르고 있으면 뗄 때까지 계속 반복 실행 (첫 클릭은 즉시, 0.35초 뒤부터 빠르게 반복)
 function bindHold(el, fn){
@@ -8497,148 +8497,14 @@ document.getElementById('assetImpGo').onclick=async()=>{
     }
     assetImpOverlay.classList.remove('on');
   }catch(e){ toast('추가 실패: 코드나 비밀번호를 확인해 주세요'); } };
-/* 전역 조명 프리셋 (생성기·메인·기타 미리보기 통일). 더 이상 UI 슬라이더 없음 — 코드 한 곳에서 관리
-   ⚠️ e 를 바꾸면 파일 위쪽 _MAIN_LIGHT_INT(=b×e) 도 같이 바꿀 것. 저기는 이 상수보다 먼저 필요해서
-      숫자를 직접 적어 두었다 — 한쪽만 고치면 생성기와 실행 화면의 밝기가 갈라진다. */
-const LIGHT_PRESET = {b:1.2, h:0.09, e:0.46};
-/* 💡 '플랫 조명' emissive 배율 — 캐릭터·책상·파츠가 전부 이 값을 쓴다.
-   ★★ 이 값은 **직접 정하지 않는다.** 조명 예산에서 계산한다 — 아래 TONE_FRONT_TOTAL 참고.
-     [왜] 이 값과 조명 상수는 한 예산을 나눠 쓴다. 그런데 둘이 파일의 다른 곳에 손으로 적혀
-       있어서, 한쪽만 고칠 때마다 화면이 어긋났다. 실제로 이 문제로 네 판을 돌았다:
-         · 앰비언트를 올렸는데 여기를 안 내려서 흰 면이 전부 255 로 잘렸다(음영 소실)
-         · 여기를 내렸는데 조명을 안 올려서 캐릭터가 통째로 어두워졌다
-       그래서 사람이 정하는 것은 "한 면이 받는 총합"(TONE_FRONT_TOTAL) 하나로 두고,
-       이 값은 거기서 남는 몫으로 받는다. 이제 조명을 만져도 톤 총합은 저절로 유지된다.
-   ★ 밝게/어둡게 하려면 **TONE_FRONT_TOTAL 하나만** 만지면 된다. 여기를 만질 일은 없다.
-   ⚠️ 텍스처가 없는 메쉬도 같은 값을 쓴다(PART_TEX_FLAT 이 이 값을 따라간다).
-   ⚠️ baseFlat 이 없을 때만 쓰는 폴백 몇 곳은 아직 (1-LIGHT_PRESET.e) 로 남아 있다.
-      빌드 시점에 baseFlat 을 항상 심어 두므로 실제로는 안 탄다. */
-/* 🎚️ 화면 톤의 **단 하나의 손잡이**. 카메라를 보는 흰 면(알베도 1.0)이 받는 빛의 총합이다.
-   1.0 = 텍스처 값이 화면에 그대로 나온다(제작 툴에서 본 색과 같다).
-   [값] 정면·윗면 / 측면 / 잘리기 시작하는 알베도:
-        1.22  255 / 255 / 0.82   ← 흰 텍스처가 실루엣만 남기 시작한다
-        1.16  255 / 255 / 0.86   ← 지금. 측면이 정확히 1.0 = 측면 음영이 사라진 완전 평면
-        1.10  255 / 248 / 0.91   ← "지금도 나쁘지 않은데 한 톤만 더" 제보를 받은 값(측면 0.94)
-        1.03  255 / 240 / 0.97   ← "미묘하게 어둡다" 제보를 받은 값
-        0.96  250 / 232 / 잘림 없음
-        0.85  237 / 218 / 잘림 없음  ← "어두침침하다" 제보를 받은 계열
-   [값 이력] … → 1.03 → 1.10 → **1.16**(한 톤 더 밝게 요청).
-     ⚠️ 1.16 에서 측면 몫(앰비언트+FLAT)이 정확히 1.0 이 된다 — 여기서 더 올리면 측면도 잘리기
-       시작하고, 그때부터는 올려도 '밝아지는' 대신 계조만 사라진다. 위쪽 한 칸(1.22)은 사실상 끝이다.
-     ⚠️ 흰 면(거품·흰 옷·머리띠)은 알베도 0.86 부터 잘린다. "거품 계조가 뭉개진다"가 오면
-       1.13 으로 반 칸 내릴 것(측면 0.97 · 잘림 0.88) — 조명 상수는 건드리지 말 것.
-   ★ 이 표가 이 문제의 결론이다. 밝기 제보가 또 오면 이 숫자 하나만 옮기고 표에 한 줄 남길 것 —
-     조명 상수나 emissive 를 따로 만지면 다시 예산이 갈라진다(그 사고로 다섯 판을 돌았다).
-   ★ 더 밝게 하고 싶으면 이 숫자만 올린다. 1.2 를 넘기면 흰 파츠가 실루엣만 남기 시작한다.
-   ⚠️ 측면(정면도 윗면도 아닌 면)은 방향광을 못 받으므로 이 총합보다 늘 어둡다 —
-      그 차이가 곧 입체감이다. 차이를 줄이려면 _KEY_LIGHT_MUL·_FILL_LIGHT_MUL 을 내린다. */
-const TONE_FRONT_TOTAL = 1.05;
-const FLAT_EMISSIVE = Math.max(0,
-  TONE_FRONT_TOTAL - (0.95 * _MAIN_LIGHT_INT) - (_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));
-/* 💡 텍스처(map)가 **있는** 파츠 메쉬의 emissive 배율.
-   [경위] 파츠는 map 이 있으면 emissiveMap 을 같이 걸고 emissive = color × (1-e) 를 얹는다.
-     그 결과가 '텍스처 값 그대로'라 씬 조명을 거의 안 받는 플랫 톤이 되는데, 그 비중(0.5)이
-     너무 커서 파츠 텍스처가 전체적으로 밝게 떠 보였다.
-   [값 이력] 0.5(원래) → 0.2(너무 회색) → 0.45 → **FLAT_EMISSIVE 를 따라감**.
-     0.45 는 '원래 0.5 에서 조금만' 이라는 뜻이었는데, 이제 전역 기준선이 0.38 로 내려갔다.
-     여기만 0.45 로 두면 **파츠가 화면에서 제일 하얀 물건이 된다** — 고치려던 것과 정반대다.
-     ★ 파츠만 따로 톤을 달리해야 할 일이 생기면 이 줄에 숫자를 직접 넣으면 된다.
-   ⚠️ 텍스처가 **없는** 메쉬는 이 값과 무관하다 — 그쪽은 예전 그대로 (1-e) 를 얹는다.
-     씬 조명 위에 색의 절반이 더해지는 그 동작이 의도된 것이라고 확인받았다. 통일하지 말 것.
-   ⚠️ 예전 톤으로 되돌리려면 FLAT_EMISSIVE 와 이 값을 (1 - LIGHT_PRESET.e) 로 바꾸면 된다.
-   ★ 캐릭터·책상 경로는 안 건드렸다. 파츠만 밝다는 제보였고, 셋을 같이 만지면 무엇이 바뀌어
-     좋아졌는지 다음에 알 수 없게 된다. */
-const PART_TEX_FLAT = FLAT_EMISSIVE;
-/* 💡 텍스처가 **없는**(solid) 아이템·책상 메쉬가 받는 flat 몫.
-   [경위] 오래 0 이었다 — "solid 에 emissive 를 얹으면 과도하게 밝다"는 확인을 책상 쪽에서 받았기
-     때문이다. 그 확인은 예산이 고정되기 전(앰비언트 0.57 + flat 0.54 + 키 1.0 → 윗면 1.57)의 얘기였고,
-     TONE_FRONT_TOTAL 로 총합을 1.10 에 묶은 뒤로는 뜻이 달라졌다: 0 이면 solid 아이템만 정면 0.684 ·
-     측면 0.524 로 서서, 같은 GLB·같은 색인데 **파츠(1.10)보다 38% 어둡게** 나온다.
-   [제보] 같은 슬라임을 파츠로 올린 화면과 아이템으로 올린 화면을 나란히 놓은 스크린샷.
-     고른 색 #FB5894 기준 파츠 쪽 (246,169,205) · 아이템 쪽 (191,131,156) — 예산표 그대로다
-     (1.10 → (255,164,208), 0.684 → (213,132,168)). "색상 스와치는 예쁜 핑크인데 칙칙하게 나온다"가 이것.
-   [값 이력] 0 → **FLAT_EMISSIVE**(파츠와 같은 규칙 · 고른 색이 화면에 그대로 나오는 값).
-   ⚠️ 이 값을 0 으로 되돌리면 아이템만 다시 어두워진다. 아이템만 톤을 달리해야 할 일이 생기면
-      여기에 숫자를 직접 넣을 것 — _applyItemMatTone 본문에 흩뿌리지 말 것. */
-const ITEM_SOLID_FLAT = FLAT_EMISSIVE;
-/* 💡 파츠 머티리얼에 '플랫 조명'을 얹는 단 하나의 자리.
-   [경위] 같은 식이 장착 경로·다중 파츠 경로·등록 썸네일 세 곳에 흩어져 있었는데, 썸네일만
-     이 처리가 통째로 빠져 있었다. 파츠 밝기의 상당 부분이 emissive 에서 나오므로 그게 빠지면
-     썸네일만 어둡게 나온다(제보: "카드 슬롯 스냅샷이 너무 어둡다 · 조명이 없는 듯").
-   ⚠️ 앞으로 파츠 톤을 바꿀 일이 있으면 여기만 고칠 것. 세 곳에 흩어 두면 또 갈라진다. */
-function _applyPartMatTone(m){
-  if(!m) return;
-  _fixGlbMatLighting(m);   // ★ 조명을 못 받는 재질(metalness=1)이면 emissive 를 아무리 맞춰도 톤이 안 맞는다
-  if(m.map) m.emissiveMap = m.map;
-  const flat = m.map ? PART_TEX_FLAT : FLAT_EMISSIVE;
-  if(m.emissive) m.emissive.copy(m.color || new THREE.Color(0xffffff)).multiplyScalar(flat);
-  m.userData = m.userData || {};
-  m.userData.baseFlat = flat;   // ★ 나중에 _col 색상 바꿀 때 같은 배율로 다시 계산하기 위해 기억
-  m.needsUpdate = true;
-}
-/* 💡 아이템·책상(가구류) 머티리얼 톤 — 텍스처 있는 메쉬만 flat, solid 메쉬는 emissive 0.
-   [경위] 커스텀 아이템(registerCustomItem)만 이 처리가 통째로 없었다. GLB 가 emissive 를
-     어떻게 담아 왔든 그대로 화면에 나가서:
-     (a) 제작 툴에서 emissive 를 얹어 내보낸 아이템 → 씬 조명 위에 그 emissive 가 통째로
-         더해져 1.0 을 넘겨 클램프 — 흰 텍스처가 디테일 없는 순백 실루엣이 된다
-         (제보: "욕조 거품이 너무 쨍해서 원래 텍스처 느낌이 없다").
-     (b) emissive 없이 내보낸 아이템 → 캐릭터·파츠·책상만 받는 플랫 조명(FLAT_EMISSIVE)을
-         못 받아 옆면 기준 0.57 대 0.97 — 같은 흰색인데 아이템만(또는 캐릭터만) 어둡다
-         (제보: "캐릭터 옷 화이트와 아이템 화이트가 다르다").
-     어느 쪽이든 여기서 emissive 를 **덮어써서** 캐릭터·파츠·책상과 같은 기준으로 맞춘다.
-   ★ solid(map 없는) 메쉬도 파츠와 **같은 규칙**으로 flat 을 받는다(ITEM_SOLID_FLAT · 위 상수 참고).
-     예전에는 여기만 emissive 0 이었다 — 그래서 같은 GLB·같은 색을 파츠로 올리면 밝고 아이템으로
-     올리면 칙칙했다(제보 스크린샷 두 장으로 확정). 두 경로가 같은 예산을 쓰는 것이 맞다.
-     ⚠️ 되돌리려면 ITEM_SOLID_FLAT 을 0 으로 — 이 함수 본문을 고치지 말 것.
-   ⚠️ 가구류(책상 swapDeskVisual · 아이템 registerCustomItem)의 톤은 앞으로 여기만 고칠 것. */
-function _applyItemMatTone(m){
-  if(!m) return;
-  _fixGlbMatLighting(m);   // ★ 여기가 캐릭터와 갈라져 있던 자리 — 예전엔 텍스처 없는 재질만 눕혔다
-  if(m.map){
-    if(!m.emissiveMap) m.emissiveMap = m.map;
-    if(m.emissive){
-      if(m.color) m.emissive.copy(m.color).multiplyScalar(FLAT_EMISSIVE);
-      else m.emissive.setScalar(FLAT_EMISSIVE);
-    }
-    m.userData = m.userData || {}; m.userData.baseFlat = FLAT_EMISSIVE;
-  } else {
-    /* ★ solid(map 없는) 메쉬 — 파츠와 같은 규칙으로 flat 을 얹는다(ITEM_SOLID_FLAT).
-       ⚠️ 여기에 숫자를 적지 말 것. 예전에 0 이 박혀 있어서 아이템만 어두웠다. */
-    if(m.emissive){
-      if(m.color) m.emissive.copy(m.color).multiplyScalar(ITEM_SOLID_FLAT);
-      else m.emissive.setScalar(ITEM_SOLID_FLAT);
-    }
-    m.userData = m.userData || {}; m.userData.baseFlat = ITEM_SOLID_FLAT;   // _col 색을 바꿀 때 같은 배율로 재계산
-  }
-  // KHR_materials_emissive_strength 로 1 을 넘겨 들어온 배율도 여기서 눕힌다 —
-  // 위에서 emissive 색을 덮어써도 이 배율이 살아 있으면 클램프가 그대로 남는다.
-  if('emissiveIntensity' in m) m.emissiveIntensity = 1;
-  m.needsUpdate = true;
-}
-
-/* 🎨 책상 색을 바꾸는 **단 하나의 자리**.
-   [경위] 예전엔 곳곳에서 `deskMat.color.set(색)` 만 했다. 이 코드베이스는 플랫 조명을
-     emissive 로 얹는 구조라(_applyPartMatTone·_applyItemMatTone → userData.baseFlat),
-     색만 갈면 **예전 색의 발광이 새 색 위에 그대로 더해진다** — 화면이 팔레트보다 밝고
-     채도가 씻겨 보인다(제보: "기본·커스텀 책상만 색이 안 맞는다. 책상 위 아이템은 멀쩡").
-     아이템이 멀쩡했던 이유는 그쪽 _col 경로가 색을 바꿀 때마다 baseFlat 으로 emissive 를
-     다시 계산하고 있어서다. 책상만 그 계산이 빠져 있었다.
-   ★ 기본 책상(하드코딩 matWood)은 애초에 emissive 가 0 이라 조명 예산 밖이었다 —
-     정면 기준 FLAT_EMISSIVE(≈0.37) 만큼 통째로 어두웠다. 여기를 지나면 파츠·아이템·캐릭터와
-     같은 총합(TONE_FRONT_TOTAL)을 받아서 고른 색이 화면에 그대로 나온다.
-   ⚠️ 앞으로 책상 색을 바꾸는 코드는 예외 없이 이 함수를 부를 것. 한 곳이라도 color.set 을
-     직접 쓰면 그 경로만 다시 어긋난다(그게 이 버그의 정체였다). */
-function _setDeskMatColor(m, color){
-  if(!m || !m.color) return;
-  if(color != null) m.color.set(color);
-  m.userData = m.userData || {};
-  /* baseFlat 은 GLB 책상이면 _applyItemMatTone 이 이미 심어뒀다. 하드코딩 기본 책상에는
-     없으므로 여기서 solid 규칙(ITEM_SOLID_FLAT)으로 처음 심는다 — 숫자를 직접 쓰지 말 것. */
-  if(m.userData.baseFlat == null) m.userData.baseFlat = m.map ? FLAT_EMISSIVE : ITEM_SOLID_FLAT;
-  if(m.emissive) m.emissive.copy(m.color).multiplyScalar(m.userData.baseFlat);
-  if('emissiveIntensity' in m) m.emissiveIntensity = 1;   // GLB 가 1 을 넘겨 왔으면 여기서 눕힌다
-  m.needsUpdate = true;
-}
+/* 본문은 shared/light-tone.js 로 옮겼다(C 구역 떼기 w4). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const lightToneMod = TwLightTone.createLightTone({
+  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
+  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
+  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),
+});
+const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
 
 /* ===== 관리자 모드 =====
    진입: Ctrl(Mac 은 ⌘) 누른 채로 후원 · 캐릭터 생성 · 꾸미기 · 광고배너 중 하나를 한 번 클릭 → 비밀번호 창(bindAdminTrigger)
@@ -8791,7 +8657,7 @@ const adminMode = TwAdminMode.createAdminMode({
 /* 본문(setFaceMap · applyLightPresetToInstance)은 character/mat-tone.js 로 옮겼다(C 구역 떼기 · w3).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const matToneMod = TwMatTone.createMatTone({
-  FLAT_EMISSIVE: FLAT_EMISSIVE,
+  FLAT_EMISSIVE: lightToneMod.FLAT_EMISSIVE,
 });
 /* 💡 표정 그리기 «원색 보기» 버튼(미리보기 오른쪽 아래). 모듈이 없어도 생성기는 그대로 돈다. */
 const crFlatView = (typeof CreatorFlatView === 'undefined') ? null : CreatorFlatView.createCreatorFlatView({
@@ -8800,17 +8666,17 @@ const crFlatView = (typeof CreatorFlatView === 'undefined') ? null : CreatorFlat
 });
 if(crFlatView) document.getElementById('cpFlat').addEventListener('click', ()=>crFlatView.toggle());
 function updateCreatorLights(){ if(!cAmb||!cKey)return;
-  const b=LIGHT_PRESET.b, h=LIGHT_PRESET.h, e=LIGHT_PRESET.e;
+  const b=lightToneMod.LIGHT_PRESET.b, h=lightToneMod.LIGHT_PRESET.h, e=lightToneMod.LIGHT_PRESET.e;
   cAmb.intensity=0.95*b*e; cKey.intensity=1.0*b*e*_KEY_LIGHT_MUL;   // 밝기(strength) × 노출(조명 페이드) · 키는 정수리 배율까지
   if(cFill) cFill.intensity=1.0*b*e*_FILL_LIGHT_MUL;                // 정면 필 — 실행 화면과 같은 몫
   const col=new THREE.Color().setHSL(h,0.45,0.85);           // 색상(color)
   cKey.color.copy(col); cAmb.color.copy(col); if(cFill) cFill.color.copy(col);
   /* 💡 원색 보기 — 방향광을 끄고 흰빛 앰비언트 + emissive 합을 1 로. 칠한 색이 그대로 보인다(creator-flat-view.js). */
   if(crFlatView && crFlatView.isOn()){
-    cAmb.intensity=CreatorFlatView.flatAmbient(FLAT_EMISSIVE); cAmb.color.setRGB(1,1,1);
+    cAmb.intensity=CreatorFlatView.flatAmbient(lightToneMod.FLAT_EMISSIVE); cAmb.color.setRGB(1,1,1);
     cKey.intensity=0; if(cFill) cFill.intensity=0;
   }
-  const flat=FLAT_EMISSIVE;                                  // 플랫 조명 배율(전역 손잡이)
+  const flat=lightToneMod.FLAT_EMISSIVE;                                  // 플랫 조명 배율(전역 손잡이)
   if(cBase){
     if(cBase.faceMat){ if(cBase.faceMat.emissiveMap!==cBase.faceMat.map){cBase.faceMat.emissiveMap=cBase.faceMat.map;cBase.faceMat.needsUpdate=true;} cBase.faceMat.emissive.setScalar(flat); }
     if(cBase.upMat){ if(cBase.upMat.map&&cBase.upMat.emissiveMap!==cBase.upMat.map){cBase.upMat.emissiveMap=cBase.upMat.map;cBase.upMat.needsUpdate=true;} cBase.upMat.emissive.copy(cBase.upMat.color).multiplyScalar(flat); }
@@ -8897,7 +8763,7 @@ const cFloorGeo = new THREE.BoxGeometry(1, 1, 1);
     cFloorGeo.translate(0, -0.5, 0); // 윗면 중앙 피벗
     cFloor=new THREE.Mesh(cFloorGeo, M(0xcdb88f,0.95));   // 앱과 동일한 받침대
     cFloor.scale.set(2.4,0.125,2.2); cFloor.position.set(0,0,0.0); cFloor.visible=false; cScene.add(cFloor);
-    const dt=cDesk.getObjectByName('deskTop'); if(dt){ dt.material=dt.material.clone(); cDeskMat=dt.material; _setDeskMatColor(cDeskMat, cDeskColor); }
+    const dt=cDesk.getObjectByName('deskTop'); if(dt){ dt.material=dt.material.clone(); cDeskMat=dt.material; lightToneMod._setDeskMatColor(cDeskMat, cDeskColor); }
     cBase.deskAnchor=cDesk.userData.deskAnchor; cBase.deskItems={}; cBase.activeDeskItem=null;
     fitCreator('edit');   // 편집 포즈 기준으로 카메라 중심 계산
     const fb=new THREE.Box3().setFromObject(inst.faceMesh), fs=fb.getSize(new THREE.Vector3());
@@ -9499,7 +9365,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
   _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
   _mkFrontFill: (...a)=>_mkFrontFill(...a),
-  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),
+  _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
@@ -9964,7 +9830,7 @@ function applyCharToSeat(seat,def){
 
   // [수정] 공통 꾸미기 및 책상 크기/색상 적용 파트
   /* 색을 안 고른 옛 저장도 이 함수를 지나야 한다 — 색은 그대로 두고 조명 예산만 맞춘다. */
-  if(seat.deskMat) _setDeskMatColor(seat.deskMat, def.deskColor || null);   
+  if(seat.deskMat) lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   
   
   // [수정] 생성기에서 조절한 책상 크기(def.deskScale)를 메인 화면의 책상(seat.desk)에 강제로 반영합니다!
   setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);
@@ -10892,12 +10758,12 @@ let customItems={};
 /* 본문은 character/part-scene.js 로 옮겼다(구역 떼기 C · w2).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const partSceneMod = TwPartScene.createPartScene({
-  FLAT_EMISSIVE: FLAT_EMISSIVE,
-  TONE_FRONT_TOTAL: TONE_FRONT_TOTAL,
+  FLAT_EMISSIVE: lightToneMod.FLAT_EMISSIVE,
+  TONE_FRONT_TOTAL: lightToneMod.TONE_FRONT_TOTAL,
   _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
   _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
   _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
-  _applyPartMatTone: (...a)=>_applyPartMatTone(...a),
+  _applyPartMatTone: (...a)=>lightToneMod._applyPartMatTone(...a),
   assetCodeMod: assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
@@ -11019,7 +10885,7 @@ async function applyDeskCatalogRefToSeat(seat, def){
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskItemsMod = TwDeskItems.createDeskItems({
   DESK_ITEMS: DESK_ITEMS,
-  _applyItemMatTone: (...a)=>_applyItemMatTone(...a),
+  _applyItemMatTone: (...a)=>lightToneMod._applyItemMatTone(...a),
   commissionMod: commissionMod,
   customItems: ()=>customItems,
 });
@@ -11079,7 +10945,7 @@ function swapDeskVisual(deskGroup,template,isDefaultOverride,animations,playMode
       // 톤 규칙은 _applyItemMatTone 한 곳에서만 정한다(아이템과 공용) —
       //   텍스처 있는 mesh: emissiveMap + emissive 로 flat 조명(캐릭터와 톤 통일)
       //   solid mesh (_col 포함): emissive 0 — 씬 조명이 자연스럽게 shading함
-      mList.forEach(m=>_applyItemMatTone(m));
+      mList.forEach(m=>lightToneMod._applyItemMatTone(m));
       if(/_col$/i.test(n.name)){ mList.forEach(m=>mats.push(m)); }
     } } });
     deskGroup.userData.customMats=mats;
@@ -11116,7 +10982,7 @@ function swapDeskVisual(deskGroup,template,isDefaultOverride,animations,playMode
   } else { deskGroup.userData.customMats=null; defaults.forEach(m=>m.visible=true); } }
 function applyDeskColorToCustom(deskGroup,color){ const mats=deskGroup&&deskGroup.userData&&deskGroup.userData.customMats;
   // ⚠️ color.set 만 하면 emissive 가 옛 색으로 남아 밝고 뿌옇게 나온다 — _setDeskMatColor 주석 참고.
-  if(mats)mats.forEach(m=>_setDeskMatColor(m, color)); }
+  if(mats)mats.forEach(m=>lightToneMod._setDeskMatColor(m, color)); }
 // ★ 어플 3-1: 책상 길이(X축) 슬라이더 지원 — deskGroup.scale에서 X만 lenX배로 더 늘리거나 줄임.
 //   기존 uniform scale은 그대로 유지되므로 기존 저장 데이터/코드 호환.
 //   ★ 책상 위 아이템(deskAnchor 자식)은 같이 늘어나면 안 되므로 deskAnchor에 역스케일(1/lenX)을 걸어서

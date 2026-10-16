@@ -91,6 +91,7 @@ const MODULES = [
   { file: 'catalog-sync.js', mod: 'catalogSyncMod', glob: 'TwCatalogSync', sample: 'function mergeCatalogIntoSavedItems(' },   // 구역 떼기 C · w2
   { file: 'seat-layout.js', mod: 'seatLayoutMod', glob: 'TwSeatLayout', sample: 'function layoutSeatRow(' },   // 구역 떼기 C · w1
   { file: 'desk-items.js', mod: 'deskItemsMod', glob: 'TwDeskItems', sample: 'function _savedItemMeta(' },   // 구역 떼기 C · w2
+  { file: 'light-tone.js', mod: 'lightToneMod', glob: 'TwLightTone', sample: 'function _applyPartMatTone(' },   // C 구역 떼기 w4
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
