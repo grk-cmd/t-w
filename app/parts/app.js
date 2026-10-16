@@ -4888,7 +4888,12 @@ function _seatCtxMenu(ev, seat){
     if(b.bottom > innerHeight - 4) menu.style.top = Math.max(4, innerHeight - b.height - 4) + 'px';
   }catch(_){}
   closer = e=>{ if(!menu.contains(e.target)) close(); };
-  onEsc = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); close(); } };
+  /* 단축키(T 가챠 · F2 꾸미기 …)로 창이 열리면 뒷판(9998) 밑에 깔려, 다음 클릭을 뒷판이 받는다 — 그 창은 «바깥 클릭» 으로 저장 · 닫힌다.
+     그래서 조합 키가 아닌 키는 메뉴부터 닫고 그대로 흘려보낸다(Esc 만 삼킨다). */
+  onEsc = e=>{
+    if(e.key === 'Escape'){ e.stopPropagation(); close(); return; }
+    if(!/^(Shift|Control|Alt|Meta|CapsLock|Process|Unidentified)$/.test(e.key)) close();
+  };
   // setTimeout(…,0) — 지금 이 이벤트에 바로 닫히지 않게(프리셋 메뉴와 같은 이유)
   setTimeout(()=>document.addEventListener('mousedown', closer, true), 0);
   document.addEventListener('keydown', onEsc, true);
