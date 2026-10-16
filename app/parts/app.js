@@ -940,8 +940,8 @@ function createSeat(){
 function removeSeat(seat){
   const i=seats.indexOf(seat); if(i<0||seats.length<=1) return;
   scene.remove(seat.group); seats.splice(i,1);
-  if(selected===seat) selectSeat(seats[Math.max(0,i-1)]);
-  layoutSeats(); renderSeatTabs();
+  if(selected===seat) seatPanelMod.selectSeat(seats[Math.max(0,i-1)]);
+  layoutSeats(); seatPanelMod.renderSeatTabs();
 }
 let sizeFactor=1;
 const BASE_PXW=190;          // 월드 1단위당 픽셀(캐릭터 크기 기준)
@@ -1811,7 +1811,7 @@ const seatLayoutMod = TwSeatLayout.createSeatLayout({
   clampDeskPan: (...a)=>clampDeskPan(...a),
   deskPanX: ()=>deskPanX,
   deskPanY: ()=>deskPanY,
-  renderSeatTabs: (...a)=>renderSeatTabs(...a),
+  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),
   roomSeatMode: ()=>roomSeatMode,
   seatCameraMod: ()=>seatCameraMod,
   seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
@@ -2021,32 +2021,20 @@ const seatModelLoadMod = TwSeatModelLoad.createSeatModelLoad({
   layoutSeats: (...a)=>layoutSeats(...a),
   loader: loader,
   selected: ()=>selected,
-  setInfo: (...a)=>setInfo(...a),
-  sliders: ()=>sliders,
+  setInfo: (...a)=>seatPanelMod.setInfo(...a),
+  sliders: ()=>seatPanelMod.sliders,
   toast: (...a)=>toast(...a),
 });
 /* ============================================================ UI */
-const dot=document.getElementById('dot'),stateLabel=document.getElementById('stateLabel'),autoTag=document.getElementById('autoTag'),
-      btnWrap=document.getElementById('btns'),modelInfo=document.getElementById('modelInfo'),sliders=document.getElementById('sliders'),seatsEl=document.getElementById('seats');
-function setInfo(seat,html){ if(selected===seat) modelInfo.innerHTML=html; }
-function renderSeatTabs(){
-  seatsEl.innerHTML='';
-  const emo={focus:'⌨️',idle:'🙂',sleep:'💤',pet:'😊'};
-  seats.forEach((s,i)=>{const b=document.createElement('button');b.className='seat'+(s===selected?' sel':'')+(s.remote?' friend':'');
-    const nm=s.isMe?'나':(s.friendName||('친구'+i)); const st=s.remote?(' '+(emo[s.remoteState]||'')):'';
-    b.textContent=nm+st; b.onclick=()=>selectSeat(s); seatsEl.appendChild(b);});
-}
-function selectSeat(s){ selected=s; renderSeatTabs();
-  modelInfo.innerHTML = s.isPlaceholder?'기본 도형 캐릭터. <b>.glb 드롭</b>으로 교체.':'모델 로드됨';
-  sliders.classList.toggle('on', !s.isPlaceholder);
-  document.getElementById('sScale').value=s.userScale; document.getElementById('sY').value=s.userY;
-  document.getElementById('sZ').value=s.userZ; document.getElementById('sRot').value=s.userRot;
-}
-let manual=null;
-function setManual(s){manual=s;[...btnWrap.children].forEach(b=>b.classList.toggle('active',(s===null&&b.dataset.s==='auto')||b.dataset.s===s));
-  autoTag.textContent=s===null?'자동':'수동';autoTag.classList.toggle('manual',s!==null);}
-btnWrap.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const s=b.dataset.s;
-  if(s==='auto'){setManual(null);activity();}else{setManual(s);if(s==='pet')seats.forEach(triggerPet);}});
+/* 본문은 character/seat-panel.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const seatPanelMod = TwSeatPanel.createSeatPanel({
+  activity: (...a)=>activity(...a),
+  seats: seats,
+  selected: ()=>selected,
+  triggerPet: (...a)=>triggerPet(...a),
+  setSelected: (v)=>{ selected = v; },
+});
 
 document.getElementById('glbInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,selected));
 document.getElementById('deskInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,selected));
@@ -3907,7 +3895,7 @@ function seatState(seat,now){
   const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatus : null);
   if(us==='away') return 'sleep';
   if(seat.remote) return seat.remoteState||'idle';   // 친구 좌석: 공유받은 상태 사용
-  if(manual)return manual;
+  if(seatPanelMod.manual())return seatPanelMod.manual();
   if(!desktopMode && !windowFocused)return 'sleep';   // 데스크톱 모드에선 다른 프로그램 쓰는 게 정상이라 이 체크 제외(포커싱 게이트가 대신함)
   // 포커싱 어플 게이트: 데스크톱 모드에서, 등록된 앱이 없거나 등록된 앱을 안 쓰는 중이면
   // (직접 쓰다듬기·흔들기 등은 위에서 이미 처리됐으므로) 자동 idle/focus 판정은 sleep으로 대체.
@@ -4155,7 +4143,7 @@ canvas.addEventListener('pointerdown',e=>{
     lastX:e.clientX, lastY:e.clientY, lastT:performance.now(),
     velX:0, velY:0, dizzy:0
   };
-  selectSeat(seat); canvas.setPointerCapture(e.pointerId);
+  seatPanelMod.selectSeat(seat); canvas.setPointerCapture(e.pointerId);
 });
 canvas.addEventListener('pointermove',e=>{
   if(!drag)return;
@@ -4180,7 +4168,7 @@ canvas.addEventListener('pointermove',e=>{
     const n=seats.length; const _spacing = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING; let idx=Math.round(-wx/_spacing); idx=Math.max(0,Math.min(n-1,idx));
     if(window.TwSeatPin) idx = TwSeatPin.dragIndex(idx, drag.seat, seats, roomSeatMode);   // 🪑 맨 오른쪽 고정이면 내 자리는 그대로
     const cur=seats.indexOf(drag.seat);
-    if(idx!==cur){seats.splice(cur,1);seats.splice(idx,0,drag.seat);layoutSeats();renderSeatTabs();}
+    if(idx!==cur){seats.splice(cur,1);seats.splice(idx,0,drag.seat);layoutSeats();seatPanelMod.renderSeatTabs();}
   } else if(drag.mode==='shake'){
     const r2=canvas.getBoundingClientRect();ndc.x=((e.clientX-r2.left)/r2.width)*2-1;ndc.y=-((e.clientY-r2.top)/r2.height)*2+1;
     ray.setFromCamera(ndc,camera);
@@ -7965,10 +7953,10 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
   faceC: faceC,
   layoutSeats: (...a)=>layoutSeats(...a),
   renderLauncher: (...a)=>renderLauncher(...a),
-  renderSeatTabs: (...a)=>renderSeatTabs(...a),
+  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),
   roomSyncMod: roomSyncMod,
   saveCurSlot: (...a)=>saveCurSlot(...a),
-  selectSeat: (...a)=>selectSeat(...a),
+  selectSeat: (...a)=>seatPanelMod.selectSeat(...a),
   skinIndex: ()=>skinIndex,
   slotSaveMod: ()=>slotSaveMod,
   slots: slots,
@@ -8430,7 +8418,7 @@ function launchApp(opts){ opts=opts||{};
   if(!myDef){toast('먼저 캐릭터를 만들어 주세요');return;}
   [...seats].forEach(s=>{scene.remove(s.group);overheadMod.removeSeatLabels(s);});seats.length=0;
   const me=createSeat(); applyCharToSeat(me,myDef); me.slot=curSlot; me.isMe=true;
-  selectSeat(me);renderSeatTabs();setManual(null);
+  seatPanelMod.selectSeat(me);seatPanelMod.renderSeatTabs();seatPanelMod.setManual(null);
   appMode = (opts.mode==='edit') ? 'editseat' : 'run';
   applyAppMode();
   document.getElementById('launcher').classList.remove('on');
@@ -8611,7 +8599,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   officeMode: ()=>officeMode,
   pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),
   removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),
-  renderSeatTabs: (...a)=>renderSeatTabs(...a),
+  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),
   rideBenchMod: rideBenchMod,
   scene: scene,
   seats: seats,
@@ -9028,8 +9016,8 @@ const addFriendMod = TwAddFriend.createAddFriend({
   createSeat: (...a)=>createSeat(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   openCreator: (...a)=>openCreator(...a),
-  renderSeatTabs: (...a)=>renderSeatTabs(...a),
-  selectSeat: (...a)=>selectSeat(...a),
+  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),
+  selectSeat: (...a)=>seatPanelMod.selectSeat(...a),
   skinColorFor: (...a)=>skinColorFor(...a),
   slots: slots,
   toast: (...a)=>toast(...a),
@@ -9718,12 +9706,12 @@ const charCodeMod = TwCharCode.createCharCode({
   overheadMod: overheadMod,
   premiumMod: premiumMod,
   renderLauncher: (...a)=>renderLauncher(...a),
-  renderSeatTabs: (...a)=>renderSeatTabs(...a),
+  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),
   saveCurSlot: (...a)=>saveCurSlot(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   scene: scene,
   seats: seats,
-  selectSeat: (...a)=>selectSeat(...a),
+  selectSeat: (...a)=>seatPanelMod.selectSeat(...a),
   slots: slots,
   toast: (...a)=>toast(...a),
   setCurSlot: (v)=>{ curSlot = v; },
@@ -10170,7 +10158,7 @@ function frame(now, manual){
   seats.forEach(seat=>{
     const state=seatState(seat,now);
     if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); Presence.setLevel(focusLevelMod.getFocusLevel()); }   // 액자 고정은 상대에겐 평상시로
-    if(seat.remote && seat._lastTab!==seat.remoteState){ seat._lastTab=seat.remoteState; renderSeatTabs(); }  // 탭 상태 이모지 갱신
+    if(seat.remote && seat._lastTab!==seat.remoteState){ seat._lastTab=seat.remoteState; seatPanelMod.renderSeatTabs(); }  // 탭 상태 이모지 갱신
     const tg=targetFor(state),k=1-Math.pow(seat.smooth,dt);
     /* 활동 상태(userStatus): 본인=userStatus, 친구=remoteUserStatus */
     const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatus : null);
@@ -10378,7 +10366,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   /* selected ring follows selected seat */
 // if(selected){selRing.position.x=lerp(selRing.position.x,selected.group.position.x,1-Math.pow(0.001,dt));selRing.visible=true;}
   /* state bar shows selected seat */
-  if(selected){const st=seatState(selected,now);const sc=STATES[st]||STATES.idle;dot.style.background=sc.color;stateLabel.textContent=sc.label;}
+  if(selected){const st=seatState(selected,now);const sc=STATES[st]||STATES.idle;seatPanelMod.dot.style.background=sc.color;seatPanelMod.stateLabel.textContent=sc.label;}
 
   for(let i=floatersMod.floaters.length-1;i>=0;i--){const f=floatersMod.floaters[i];f.userData.life+=dt;const p=f.userData.life/f.userData.dur;
     f.position.y+=dt*(f.userData.rise!=null?f.userData.rise:floatersMod.FLOATER_RISE);f.position.x+=f.userData.vx*dt;
@@ -10975,7 +10963,7 @@ layoutSeats=function(){ _layoutSeats();
   applyDesktopRunClass(); };
 
 /* ============================================================ INIT */
-renderSeatTabs(); setManual(null); applyAppMode(); applyDesktopRunClass();
+seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); applyAppMode(); applyDesktopRunClass();
 if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
 { const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
 /* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독) — 모듈을 다 만든 뒤 여기서 한 번.

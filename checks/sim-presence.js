@@ -225,7 +225,8 @@ function wire(app, html) {
     ['manual 기록 무시', (m) => m.replace("if(rec && rec.k === 'manual') return;", ''), null, null],
     ['만들 때 던짐', (m) => m.replace('function createPresence(deps){', 'function createPresence(deps){ throw new Error("깨 봄");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nconst Presence=(()=>{ return {}; })();', null],
-    ['deps 하나 빠짐', null, (a) => a.replace('  triggerPet: (...a)=>triggerPet(...a),\n', ''), null],
+    /* presence 를 만드는 줄 안의 것을 지운다 — 같은 deps 줄이 다른 모듈(seat-panel 등)을 만드는 줄에도 있다 */
+    ['deps 하나 빠짐', null, (a) => { const i = a.indexOf('const presenceMod = TwPresence.createPresence({'); const j = a.indexOf('\n});', i) + 1; return a.slice(0, i) + a.slice(i, j).replace('  triggerPet: (...a)=>triggerPet(...a),\n', '') + a.slice(j); }, null],
     ['옛 전역 이름 줄 빠짐', null, (a) => a.replace(/^const Presence = presenceMod\.Presence;.*\n/m, ''), null],
     ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/room/presence.js"></script>', '')],
   ];
