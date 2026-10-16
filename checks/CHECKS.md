@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 301 (재질 밝기 대체값(baseFlat 없을 때)을 baseFlatOf 안의 공용 기준 FLAT_EMISSIVE 하나로 — 사용자 승인 · 동작이 아주 조금 바뀐다)
-대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 301 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 302 (w4 모듈의 firebaseAPI 직접 참조를 데이터 provider deps 로 — 동작 무변경 · 서버 이관 준비)
+대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 302 기준 — 폴더를 센 값)
+
+**개정 302 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호, 머지 때 다시 매김)**
+- 앱: room/presence.js 의 입장 준비 확인 · Firebase 방 provider 고르기(`window.firebaseAPI` 세 곳)와 myhome/seat-friend-req.js 의 `firebaseAPI.sendFriendRequest` 를 deps 읽는 함수(`roomNet` · `friendNet`)로 — app.js 가 `()=>window.firebaseAPI` 한 줄로 넘긴다(같은 객체를 같은 때에 읽는다). 서버(API)로 옮길 때 그 한 줄만 바꾼다.
+- 검사: sim-presence — deps 20 · 전역 firebaseAPI 는 비우고 roomNet 으로만 입장 · 깨 보기 «전역 firebaseAPI 를 봄». sim-seat-friend-req — deps 6 · 전역 firebaseAPI 는 부르면 들키는 덫 · 깨 보기 «전역 firebaseAPI 를 부름».
 
 **개정 301 에서 한 것 (2026-10-17 · 사용자 승인 · baseFlat 이 없는 재질만 밝기가 아주 조금 바뀐다 · 임시 번호)**
 - 앱: 개정 273 에서 한 함수로 묶은 `baseFlatOf` 의 대체값을 곳마다 넘기던 것(아이템 색 · 생성기 색 되돌리기 0.4, 꾸미기 색 1 − LIGHT_PRESET.e ≈ 0.54)을 없애고 함수 안의 공용 기준 `FLAT_EMISSIVE`(≈0.366) 하나로. 정상 경로의 재질은 baseFlat 이 있어 화면은 그대로다. wardrobe 는 쓰지 않게 된 deps LIGHT_PRESET 을 걷었다(typeof 가드 4개도 같이 사라져 기준선을 내림).
@@ -2222,9 +2226,9 @@
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** ← **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 173 렌더러 쪽 한 벌 = app.js + playlist.js(판정 무변경)** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** ← **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 173 렌더러 쪽 한 벌 = app.js + playlist.js(판정 무변경)** · 2026-09-20 ⏸ 세워 둔 동안은 안 넘긴다 (개정 29) |
 | **sim-premium-desk.js** | 96 | **5ff1bd41d2a9** ← **개정 246 «바뀌면 다시 그린다» 는 _setPremium 의 알림 · 게이트가 건 _refreshPremiumGatedUI 에서 봄(판정 무변경)** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-16 (제보 3 프리미엄 책상) · 개정 10 등재 |
-| **sim-presence.js** | 241 | **d866dd60c4f7** ← **개정 299 깨 보기를 상수 줄로(판정 무변경)** · **개정 259 신설 · 🛰 방 접속 상태(room/presence.js) — 부팅 상태 · payload · 채팅 · poke · 자동 자리비움 · 연결** |
+| **sim-presence.js** | 243 | **3f5b1eb57bdc** ← **개정 302 deps 20 · roomNet 으로만 입장 · 깨 보기 하나** · **개정 299 깨 보기를 상수 줄로(판정 무변경)** · **개정 259 신설 · 🛰 방 접속 상태(room/presence.js) — 부팅 상태 · payload · 채팅 · poke · 자동 자리비움 · 연결** |
 | **sim-light-tone.js** | 123 | **f4919d41228f** ← **개정 301 baseFlatOf 대체값은 FLAT_EMISSIVE · 깨 보기 하나** · **개정 300 baseFlatOf 판정 · 판단 다시 쓰지 않기 · 깨 보기 둘** · **개정 271 신설 · 💡 재질 톤(shared/light-tone.js) — FLAT_EMISSIVE 식 · 재질 함수 셋 · 연결** |
-| **sim-seat-friend-req.js** | 115 | **e6e259b1893c** ← **개정 264 신설 · 🙋 좌석 우클릭 친구 신청(myhome/seat-friend-req.js) — 두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결** |
+| **sim-seat-friend-req.js** | 117 | **f29161450105** ← **개정 302 deps 6 · friendNet 으로만 보냄 · 깨 보기 하나** · **개정 264 신설 · 🙋 좌석 우클릭 친구 신청(myhome/seat-friend-req.js) — 두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결** |
 | **sim-publish-fields.js** | 208 | **f461e7690a5b** ← **개정 293 provider 를 부르는 자리를 배포 자리로** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 179 §1 app.js + admin-part-register.js · §2 모듈 먼저 평가 · adminPartReg 로 들여다봄(판정 무변경)** |
 | **sim-purikura-deco.js** | 962 | **339bee3e48a1** ← **개정 272 마이홈 BGM 창구는 고리판 BGM_PLAYING · BGM_SET_PLAYING 으로 찾는다(판정 무변경)** · **개정 238 officeMode 판정을 «부를 때마다 읽는다» 로** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 207 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 렌더러 쪽 한 벌에 chat-window.js(💬 대화창 배선 — 📷 버튼) · 회사원 모드 줄은 officeMode() 모양으로** · **개정 140 렌더러 쪽 한 벌에 myhome-edit.js(🏠 마이홈 BGM 창구 — 없어야 할 글을 찾는 검사가 헛돌지 않게 · 판정 무변경)** · **개정 134 렌더러 쪽 한 벌 = app.js + purikura-ui.js · 회사원 모드 · BGM 줄은 purikuraUi 통로 · officeMode() · _setPlPlaying 모양으로** · 2026-09-13 고친 판 (§4-③) |
 | sim-purikura-net.js | 361 | a4029a7ef053 |

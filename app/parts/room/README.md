@@ -36,10 +36,11 @@
 const presenceMod = TwPresence.createPresence({
   USER_STATUSES: USER_STATUSES,          // 값 — 상태 목록(부팅 때 저장값 검사)
   roomSyncMod: roomSyncMod,              // 값 — Firebase provider · poke 신선도 · 자동 퇴장 안내
+  roomNet: ()=>window.firebaseAPI,       // 읽는 함수 — 데이터 provider 고르기 한 줄(준비 확인 · Firebase 방 고르기)
   focusLevelMod: ()=>focusLevelMod,      // 읽는 함수 — 만드는 줄보다 뒤에 선언되는 모듈
   lastAnyInput: ()=>lastAnyInput,        // 읽는 함수 — app.js 가 다시 대입하는 let
   toast: (...a)=>toast(...a),            // 함수
-  // … 19개(함수 3 · 값 7 · 읽는 함수 9)
+  // … 20개(함수 3 · 값 7 · 읽는 함수 10)
 });
 const Presence = presenceMod.Presence;   // 옛 전역 이름 — 나머지 코드는 예전처럼 Presence.이름
 ```
@@ -48,7 +49,7 @@ const Presence = presenceMod.Presence;   // 옛 전역 이름 — 나머지 코�
 
 | 함수 | 하는 일 |
 |---|---|
-| `start(room, def, name, onChange, opts)` | 방에 들어간다. Firebase 방이면 방 코드, `opts.provider`(방 서버)면 `{ ok, code, others, meta }` 를 돌려준다. firebaseAPI 가 끝내 없으면 들어가지 않고 알린다 |
+| `start(room, def, name, onChange, opts)` | 방에 들어간다. Firebase 방이면 방 코드, `opts.provider`(방 서버)면 `{ ok, code, others, meta }` 를 돌려준다. 데이터 provider(`roomNet()`)가 끝내 없으면 들어가지 않고 알린다 |
 | `stop()` | 나간다(서버 삭제를 기다리려면 `await`) |
 | `setState` · `setUserStatus` · `setCustomStatus` · `setFocusShow` · `setAwayImg` · `setAwaySz` · `setNoise` · `setLevel` · `setName` | 내 값 하나를 바꾸고 **바뀌었을 때만** 방에 보낸다 |
 | `sendChat(text, fly, flyColor, flySize, tab)` | 채팅 한 줄(140자). #일반이 아니면 `chatTab` 칸으로 |
@@ -69,6 +70,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - 채팅 · 탭 · 날리기 칸 길이 · 자리비움 그림 처음 크기 → 파일 위 상수 `CHAT_TEXT_MAX` · `CHAT_TAB_MAX` · `FLY_COLOR_MAX` · `FLY_SIZE_MAX` · `AWAY_SZ_DEFAULT`(채팅 길이는 서버 규칙과 짝).
 
 **함정**
+- 모듈 안에서 `firebaseAPI` 를 직접 보지 않는다 — `roomNet()` 으로만. 서버(API)로 옮길 때 app.js 의 `roomNet:` 한 줄만 갈아 끼운다(방 서버 입장은 이미 `opts.provider`).
 - 전역 `setUserStatus`(칩 · 캐릭터 모션까지 바꾸는 쪽)는 꼭 `window.setUserStatus` 로 부른다 — 안쪽에 같은 이름 `setUserStatus` 가 있어 가린다.
 - `myAwaySz` 처음 값은 숫자(80)로 둔다 — undefined 가 든 payload 는 Firebase 가 통째로 거절한다.
 - 자동 퇴장 뒤 시계 되감기는 `window._autoAwayResetClock` — room-sync.js 는 이것을 app.js 가 넘기는 deps 로 부른다(모듈끼리 window 로 서로 부르면 순환 — `sim-dep-cycles`).

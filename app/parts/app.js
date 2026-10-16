@@ -3882,6 +3882,7 @@ function classifyHit(seat, obj){
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,
   _myHomeFriends: ()=>_myHomeFriends,
+  friendNet: ()=>window.firebaseAPI,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
@@ -8500,6 +8501,7 @@ const presenceMod = TwPresence.createPresence({
   isPremium: ()=>isPremium,
   lastAnyInput: ()=>lastAnyInput,
   roomEntryMod: ()=>roomEntryMod,
+  roomNet: ()=>window.firebaseAPI,
   roomSyncMod: roomSyncMod,
   seats: seats,
   toast: (...a)=>toast(...a),
