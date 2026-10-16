@@ -4229,7 +4229,7 @@ const purikuraUi = TwPurikuraUi.createPurikuraUi({
   presence: ()=>Presence,
   mkFrontFill: (...a)=>_mkFrontFill(...a),
   findMySeat: (...a)=>findMySeat(...a),
-  setFaceMap: (...a)=>setFaceMap(...a),
+  setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
   animateRig: (...a)=>animateRig(...a),
   targetFor: (...a)=>targetFor(...a),
   setBone: (...a)=>setBone(...a),
@@ -6648,12 +6648,12 @@ function defToBase(def, customScene){
   const fT=mkFaceTex(compositeFace(def.skin,def.face)), bT=mkFaceTex(compositeFace(def.skin,def.blink));
   const inst=instantiateBase(customScene);
   if(inst){
-    setFaceMap(inst.faceMat, fT);
+    matToneMod.setFaceMap(inst.faceMat, fT);
     if(!def.isCommission){
       if(inst.upMat)inst.upMat.color.set(def.top); if(inst.loMat)inst.loMat.color.set(def.bot);
       if(inst.hatMat&&inst.hatMat.color)inst.hatMat.color.set(def.top);   // 🎩 기본 모자는 상의색을 따라감
     }
-    applyLightPresetToInstance(inst);   // 생성기·메인과 같은 톤(emissive)
+    matToneMod.applyLightPresetToInstance(inst);   // 생성기·메인과 같은 톤(emissive)
     normalizeModel(inst.root, 1.4, def.isCommission);
     _attachHumanEars(inst.root, def);
     const wrap=new THREE.Group(); wrap.add(inst.root);
@@ -8841,23 +8841,11 @@ const adminMode = TwAdminMode.createAdminMode({
   savedParts: ()=>premiumMod.savedParts(),
 });
 /* ═══ 💡 얼굴 텍스처 갈아끼우기 · 생성기 조명 ═══ */
-/* face material의 map을 갈아끼울 때 emissiveMap도 같이 동기화. 안 그러면 졸기 등 map 교체 시 이전 텍스처가 emissive로 남아 합성됨(blink 흐릿함 원인) */
-/* 🐾 동물 귀는 몸과 다른 재질이라 이 한 줄로는 안 바뀐다 — 몸 재질에 달아 둔 등록표
-   (animal.js buildAnimalBase 의 mat.userData.animalEars)를 보고 함께 갈아끼운다.
-   ★ 여기서 처리하는 이유: 깜빡임 스왑 호출부가 sleep/pet/dizzy·흔들기(31416) · 런처(24909·24910) ·
-     복제 무대 복구(16135) 로 흩어져 있다. 호출부마다 귀 코드를 넣으면 언젠가 한 곳이 빠져
-     "몸은 눈 감았는데 귀만 뜬" 상태가 된다. 전부 이 함수를 지나가므로 여기 한 곳이면 충분하다.
-   ⚠️ 인간 캐릭터도 이 함수를 쓴다 — userData 표식이 없으면 예전과 똑같이 동작한다. */
-function setFaceMap(mat, tex){ if(!mat||!tex)return; mat.map=tex; mat.emissiveMap=tex; mat.needsUpdate=true;
-  const ud=mat.userData;
-  if(ud && ud.animalEars && ud.animalEars.length){
-    const closed = (tex === ud.animalBlinkTex);
-    for(const e of ud.animalEars){
-      const t = closed ? e.bT : e.fT;
-      if(e.mat && t && e.mat.map!==t){ e.mat.map=t; e.mat.emissiveMap=t; e.mat.needsUpdate=true; }
-    }
-  }
-}
+/* 본문(setFaceMap · applyLightPresetToInstance)은 character/mat-tone.js 로 옮겼다(C 구역 떼기 · w3).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const matToneMod = TwMatTone.createMatTone({
+  FLAT_EMISSIVE: FLAT_EMISSIVE,
+});
 /* 💡 표정 그리기 «원색 보기» 버튼(미리보기 오른쪽 아래). 모듈이 없어도 생성기는 그대로 돈다. */
 const crFlatView = (typeof CreatorFlatView === 'undefined') ? null : CreatorFlatView.createCreatorFlatView({
   btn: document.getElementById('cpFlat'), badge: document.getElementById('cpFlatBadge'),
@@ -8883,36 +8871,7 @@ function updateCreatorLights(){ if(!cAmb||!cKey)return;
     if(cBase.hatMat){ if(cBase.hatMat.map&&cBase.hatMat.emissiveMap!==cBase.hatMat.map){cBase.hatMat.emissiveMap=cBase.hatMat.map;cBase.hatMat.needsUpdate=true;} cBase.hatMat.emissive.copy(cBase.hatMat.color).multiplyScalar(flat); }
   }
 }
-/* 메인 좌석에 들어오는 캐릭터 머티리얼에도 같은 emissive 보정 적용 — 생성기와 톤 일치 */
-function applyLightPresetToInstance(inst){ if(!inst)return;
-  const flat=FLAT_EMISSIVE;
-  if(inst.faceMat){ inst.faceMat.emissiveMap=inst.faceMat.map; inst.faceMat.emissive.setScalar(flat); inst.faceMat.needsUpdate=true; }
-  if(inst.upMat){ if(inst.upMat.map&&inst.upMat.emissiveMap!==inst.upMat.map){inst.upMat.emissiveMap=inst.upMat.map;inst.upMat.needsUpdate=true;} inst.upMat.emissive.copy(inst.upMat.color).multiplyScalar(flat); }
-  if(inst.loMat){ if(inst.loMat.map&&inst.loMat.emissiveMap!==inst.loMat.map){inst.loMat.emissiveMap=inst.loMat.map;inst.loMat.needsUpdate=true;} inst.loMat.emissive.copy(inst.loMat.color).multiplyScalar(flat); }
-  if(inst.hatMat){ if(inst.hatMat.map&&inst.hatMat.emissiveMap!==inst.hatMat.map){inst.hatMat.emissiveMap=inst.hatMat.map;inst.hatMat.needsUpdate=true;} inst.hatMat.emissive.copy(inst.hatMat.color).multiplyScalar(flat); }
-  /* ★ 이름으로 분류 안 되는 나머지 메쉬(커미션 캐릭터의 몸통/신발/머리카락/액세서리 등)도 같은 방식으로 평탄화.
-     안 그러면 그 부분만 씬 조명을 그대로 받아서 나머지(위 3개)와 톤이 달라 보인다.
-
-     ★★ 예전에는 여기서 `if(!m.map) return;` 으로 **텍스처 없는 메쉬를 통째로 건너뛰었다.**
-        그 메쉬들은 emissive 를 0 으로 둔 채 앰비언트(0.57)만 받는데, emissive 를 받는 메쉬는
-        0.57+0.35=0.92 다 — 화면상 199/255 대 246/255 로 **47단계 차이**다. 같은 흰색을 지정해도
-        한쪽은 흰색, 한쪽은 회색으로 보인다(제보: "둘 다 같은 하얀색인데 옷 파츠만 회색에 가깝다").
-     ★ 파츠 경로(_applyPartMatTone)는 원래부터 텍스처 유무와 무관하게 전부 얹고 있었다.
-       그래서 파츠는 쨍하고 캐릭터 쪽만 어두웠던 것 — 두 경로를 같은 규칙으로 맞춘다.
-     ⚠️ 텍스처가 없으면 emissiveMap 도 없다. 그건 정상이다 — emissive 색 자체가 곧 평탄한 값이 된다. */
-  if(inst.litMats){
-    inst.litMats.forEach(m=>{
-      if(m===inst.faceMat||m===inst.upMat||m===inst.loMat) return;   // 위에서 이미 처리함(중복 방지)
-      if(!m || !m.emissive) return;
-      if(m.map && m.emissiveMap!==m.map){ m.emissiveMap=m.map; m.needsUpdate=true; }
-      if(m.color) m.emissive.copy(m.color).multiplyScalar(flat);
-      else m.emissive.setScalar(flat);
-      m.needsUpdate = true;
-    });
-  }
-}
-/* 조명 슬라이더 UI 제거됨 — LIGHT_PRESET 상수로 한 번 적용 */
-
+/* (C 구역 떼기 · w3) 이 자리의 본문도 character/mat-tone.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🧍 생성기 미리보기 — 렌더러 · 카메라 · 열기 · 닫기 · 완료 ═══ */
 /* --- 생성기 미리보기 렌더러 --- */
 let cRenderer=null,cScene=null,cCam=null,cBase=null,creatorOpen=false,cAmb=null,cKey=null,cFill=null,cDesk=null,cDeskMat=null,cFloor=null;
@@ -8969,7 +8928,7 @@ function ensureCreatorPreview(){
   cFill=new THREE.DirectionalLight(0xfdfaf5,1.0);cFill.position.set(0.5,1.0,3);cScene.add(cFill);
   cCam=new THREE.PerspectiveCamera(34,222/300,0.1,100);
   const inst=instantiateBase();
-  if(inst){ setFaceMap(inst.faceMat, dispTex);
+  if(inst){ matToneMod.setFaceMap(inst.faceMat, dispTex);
     if(inst.upMat)inst.upMat.color.set(cTopColor); if(inst.loMat)inst.loMat.color.set(cBotColor);
     if(inst.hatMat)inst.hatMat.color.set(cTopColor);   // 🎩 기본 모자도 상의색
     applyStaticHandRest(inst.root); // 생성창 기본 프리뷰에 팔 높이 반영
@@ -9304,8 +9263,8 @@ async function swapCreatorBaseToCommission(def){
     if(!newInst) return;
     if(cBase && cBase.group && cBase.group.parent){ cBase.group.parent.add(newInst.root); cBase.group.parent.remove(cBase.group); }
     const fT=mkFaceTex(compositeFace(def.skin,def.face)), bT=mkFaceTex(compositeFace(def.skin,def.blink));
-    setFaceMap(newInst.faceMat, fT);
-    applyLightPresetToInstance(newInst);
+    matToneMod.setFaceMap(newInst.faceMat, fT);
+    matToneMod.applyLightPresetToInstance(newInst);
     applyStaticHandRest(newInst.root); // 커미션 모델 불러올 때 팔 높이 반영
     cBase.group = newInst.root; cBase.faceMat = newInst.faceMat; cBase.upMat = newInst.upMat; cBase.loMat = newInst.loMat; cBase.hatMat = newInst.hatMat; cBase.face = newInst.faceMesh; cBase.blinkTex = bT;
     cBase.upMesh=newInst.upMesh||null; cBase.loMesh=newInst.loMesh||null; cBase.glassesMesh=newInst.glassesMesh||null;
@@ -9363,11 +9322,11 @@ function swapCreatorBaseToDefault() {
     cBase.group.parent.remove(cBase.group); 
   }
   
-  setFaceMap(newInst.faceMat, dispTex);
+  matToneMod.setFaceMap(newInst.faceMat, dispTex);
   if(newInst.upMat) newInst.upMat.color.set(cTopColor); 
   if(newInst.loMat) newInst.loMat.color.set(cBotColor);
   if(newInst.hatMat) newInst.hatMat.color.set(cTopColor);   // 🎩 기본 모자도 상의색
-  applyLightPresetToInstance(newInst);
+  matToneMod.applyLightPresetToInstance(newInst);
   
   cBase.group = newInst.root;
   cBase.faceMat = newInst.faceMat;
@@ -9614,7 +9573,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   scene: scene,
   setDeskPos: (...a)=>setDeskPos(...a),
   setDeskScale: (...a)=>setDeskScale(...a),
-  setFaceMap: (...a)=>setFaceMap(...a),
+  setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
   slotSaveMod: ()=>slotSaveMod,
   slots: slots,
   swapDeskVisual: (...a)=>swapDeskVisual(...a),
@@ -9663,7 +9622,7 @@ const racePickerMod = TwRacePicker.createRacePicker({
   _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
   _mkFrontFill: (...a)=>_mkFrontFill(...a),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
-  applyLightPresetToInstance: (...a)=>applyLightPresetToInstance(...a),
+  applyLightPresetToInstance: (...a)=>matToneMod.applyLightPresetToInstance(...a),
   instantiateBase: (...a)=>instantiateBase(...a),
   normalizeModel: (...a)=>normalizeModel(...a),
   openCreator: (...a)=>openCreator(...a),
@@ -9946,13 +9905,13 @@ function applyCharToSeat(seat,def){
     // 동물은 animal.js가 만든 텍스처(몸 무늬+표정 / 감은눈)를 그대로 사용 — 인간용 얼굴 합성 경로를 타지 않음
     const fT=inst._animal ? animBase.fT : mkFaceTex(compositeFace(def.skin,def.face));
     const bT=inst._animal ? animBase.bT : mkFaceTex(compositeFace(def.skin,def.blink));
-    setFaceMap(inst.faceMat, fT);
+    matToneMod.setFaceMap(inst.faceMat, fT);
     // 커미션이 아닐 때만 옷색 적용 (커미션은 텍스처 기반이라 머티리얼 색=흰색 유지)
     if(!def.isCommission){
       if(inst.upMat)inst.upMat.color.set(def.top); if(inst.loMat)inst.loMat.color.set(def.bot);
       if(inst.hatMat&&inst.hatMat.color)inst.hatMat.color.set(def.top);   // 🎩 기본 모자는 상의색을 따라감
     }
-    applyLightPresetToInstance(inst);   // 생성기와 같은 톤(텍스처 색을 emissive로 평탄화)
+    matToneMod.applyLightPresetToInstance(inst);   // 생성기와 같은 톤(텍스처 색을 emissive로 평탄화)
     seat.faceMat=inst.faceMat; seat.faceMapOrig=fT; seat.blinkTex=bT;
     /* 👁 새 모델은 뜬 눈 텍스처로 시작한다 — 감김 표시도 같이 «뜸» 으로 되돌려 둔다.
        프레임 루프는 표시가 **바뀔 때만** 텍스처를 바꾸므로, 졸던 중(closed=true)에 모델이 바뀌면
@@ -12436,7 +12395,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
         && drag.dizzy > 30 && _moveAgo > 300 && _moveAgo < 1300;
       const shakingHard = (state==='shaking') && recentlyFast && drag && drag.seat===seat;
       const wantClosed=(state==='sleep')||(state==='pet')||(state==='dizzy')||shakingHard||isRecovering||(ca>0.5);
-      if(wantClosed!==seat.blink.closed){seat.blink.closed=wantClosed;setFaceMap(seat.faceMat, wantClosed?seat.blinkTex:seat.faceMapOrig);}
+      if(wantClosed!==seat.blink.closed){seat.blink.closed=wantClosed;matToneMod.setFaceMap(seat.faceMat, wantClosed?seat.blinkTex:seat.faceMapOrig);}
     }
     if(state==='sleep' && us!=='away' && us!=='meal' && now-(seat._lastZ||0)>900){seat._lastZ=now;floatersMod.spawnFloater('Z','#7fa8e0',seat);}
     if(state==='dizzy' && now-(seat._lastDizzy||0)>520){seat._lastDizzy=now;floatersMod.spawnFloater('💫','#f5a94f',seat);}
