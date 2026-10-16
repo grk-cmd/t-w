@@ -3434,7 +3434,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),
   clampDeskScale: (...a)=>clampDeskScale(...a),
   humanEar: humanEar,
-  resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),
+  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   setDeskScale: (...a)=>setDeskScale(...a),
   swThumb: (...a)=>swThumb(...a),
 });
@@ -4534,7 +4534,7 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
   renderCrItems: (...a)=>renderCrItems(...a),
   renderWardrobe: (...a)=>wardrobeMod.renderWardrobe(...a),
-  resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),
+  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   syncWdGizmoToXf: (...a)=>wardrobeMod.syncWdGizmoToXf(...a),
   toHidesForSave: (...a)=>premiumMod.toHidesForSave(...a),
@@ -6773,7 +6773,7 @@ function applyDeskPreset(p){
     if(ov){
       (async ()=>{
         if(!ov.glb && ov.glbUrl){
-          try{ await resolveCatalogGlb(ov); }catch(_){}
+          try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
         }
         try{
           const sc = await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb));
@@ -7848,7 +7848,7 @@ function renderCrItems(){
       const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거 표시
       if(ov){
         if(!ov.glb && ov.glbUrl){
-          try{ await resolveCatalogGlb(ov); }catch(_){}
+          try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
         }
         try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); swapDeskVisual(cDesk,sc,true); }catch(e){ swapDeskVisual(cDesk,null); }
       }
@@ -7916,7 +7916,7 @@ function renderCrItems(){
       if(deskLocked){ toast('🔒 "'+(rec.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요'); return; }   // 🔒 위 주석
       // Storage 이관 후속: rec.glb가 없고 glbUrl만 있으면 Storage에서 fetch
       if(!rec.glb && rec.glbUrl){
-        try{ await resolveCatalogGlb(rec); }catch(_){}
+        try{ await catalogGlbMod.resolveCatalogGlb(rec); }catch(_){}
       }
       if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
       /* 📦 코드로 넣은 책상만 GLB 가 def 에 실린다(카탈로그 책상은 id 만) — crDone 과 같은 갈래. */
@@ -9137,7 +9137,7 @@ function openCreator(mode){
         if(m && m.licenseOnly && !isPremium && !isAdmin){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
         else if(m){
           if(!m.glb && m.glbUrl){
-            try{ await resolveCatalogGlb(m); }catch(_){}
+            try{ await catalogGlbMod.resolveCatalogGlb(m); }catch(_){}
           }
           try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(m.glb)); cDeskGlbB64=m.glb; cDeskTemplate=sc; activeCustomDeskId=m.id;
             swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); }catch(e){}
@@ -9148,7 +9148,7 @@ function openCreator(mode){
         const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
         if(ov){
           if(!ov.glb && ov.glbUrl){
-            try{ await resolveCatalogGlb(ov); }catch(_){}
+            try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
           }
           try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor);
             // ★ 코드베이스의 다른 swapDeskVisual 호출부(8381·8399·8407·9241·13717·13720·13721)는 전부
@@ -10918,7 +10918,7 @@ const partSceneMod = TwPartScene.createPartScene({
   _applyPartMatTone: (...a)=>_applyPartMatTone(...a),
   assetCodeMod: assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
-  resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),
+  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
 });
 /* 본문은 admin/admin-thumbs.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -10940,105 +10940,16 @@ premiumMod.loadSavedParts();
    - 카탈로그에 있는 id는 항상 Firebase 최신본으로 덮어씀(관리자가 나중에 이름/아이콘 등을 고쳐도 반영되게)
    - 카탈로그에 없는 로컬 항목(오프라인 캐시, 혹은 예전 방식으로 로컬에만 등록됐던 파츠)은 그대로 유지
    - 구독은 실시간(onValue)이라 앱을 껐다 켤 필요 없이, 켜져 있는 동안에도 자동으로 새 파츠가 뜸 */
-// ★ Firebase 사용량 절감: 카탈로그 GLB가 이제 Storage에 저장되고 인덱스엔 glbUrl만 있음.
-//   앱은 지금 rec.glb(base64)에 의존해 여러 곳에서 쓰고 있어서, 사용 시점에 glbUrl→glb로 해결해서
-//   기존 코드 흐름을 그대로 유지. 같은 URL은 세션 메모리 캐시로 두 번 안 받음.
-/* 💾 카탈로그 GLB 영구 캐시 (IndexedDB) ────────────────────────────────────
-   [무엇을 푸는가] 아래 _glbUrlCache 는 **세션 메모리**라 앱을 껐다 켜면 사라진다. 그래서 실행할
-     때마다 카탈로그 GLB 전량을 Storage 에서 다시 받았다(Cloud Storage Class B + APAC 다운로드).
-     firebaseAPI.fetchCatalogGlb 주석은 "앱이 로컬에서 캐싱을 담당한다"고 적혀 있었지만
-     실제로 그 캐싱을 하는 곳이 없었다 — 이 저장소가 그 자리다.
-   ★ 키는 glbUrl 그대로다. Storage 에 새로 올리면 다운로드 URL 의 토큰이 바뀌므로,
-     관리자가 파츠를 갱신하면 키가 달라져 자동으로 새로 받는다(수동 무효화가 필요 없다).
-   ★ localStorage 가 아니라 IndexedDB 인 이유: base64 GLB 는 개당 수백 KB~1.4MB 라
-     localStorage 의 5MB 한도를 몇 개만에 넘긴다.
-   ⚠️ 실패는 전부 조용히 넘긴다 — 캐시는 있으면 좋은 것이지 없으면 안 되는 것이 아니다
-     (사파리 프라이빗 모드 등에서 IDB 가 막혀도 앱은 그냥 매번 받아 쓰면 된다). */
-const _GLB_IDB_NAME = 'tw-glb-cache', _GLB_IDB_STORE = 'glb', _GLB_IDB_TTL = 45 * 86400000;   // 45일
-let _glbIdbPromise = null;
-function _glbIdb(){
-  if(_glbIdbPromise) return _glbIdbPromise;
-  _glbIdbPromise = new Promise(res=>{
-    try{
-      if(!window.indexedDB) return res(null);
-      const rq = indexedDB.open(_GLB_IDB_NAME, 1);
-      rq.onupgradeneeded = ()=>{ try{ rq.result.createObjectStore(_GLB_IDB_STORE, {keyPath:'url'}); }catch(_){} };
-      rq.onsuccess = ()=>res(rq.result);
-      rq.onerror = ()=>res(null);
-    }catch(_){ res(null); }
-  });
-  return _glbIdbPromise;
-}
-function _glbIdbGet(url){
-  return _glbIdb().then(db=>new Promise(res=>{
-    if(!db) return res(null);
-    try{
-      const rq = db.transaction(_GLB_IDB_STORE, 'readonly').objectStore(_GLB_IDB_STORE).get(url);
-      rq.onsuccess = ()=>res(rq.result ? rq.result.b64 : null);
-      rq.onerror = ()=>res(null);
-    }catch(_){ res(null); }
-  })).catch(()=>null);
-}
-function _glbIdbPut(url, b64){
-  return _glbIdb().then(db=>{
-    if(!db) return;
-    try{ db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE).put({ url, b64, ts: Date.now() }); }catch(_){}
-  }).catch(()=>{});
-}
-/* 오래 안 쓴 항목 정리 — 세션당 1회. 관리자가 파츠를 갱신하면 옛 URL 은 영영 안 쓰이는데
-   그대로 두면 디스크만 먹는다. 지워도 필요해지면 다시 받으면 그만이라 안전하다. */
-let _glbIdbPruned = false;
-function _glbIdbPrune(){
-  if(_glbIdbPruned) return; _glbIdbPruned = true;
-  _glbIdb().then(db=>{
-    if(!db) return;
-    try{
-      const cutoff = Date.now() - _GLB_IDB_TTL;
-      const st = db.transaction(_GLB_IDB_STORE, 'readwrite').objectStore(_GLB_IDB_STORE);
-      const rq = st.openCursor();
-      rq.onsuccess = ()=>{
-        const c = rq.result; if(!c) return;
-        if(!c.value || !(c.value.ts > cutoff)){ try{ c.delete(); }catch(_){} }
-        c.continue();
-      };
-    }catch(_){}
-  }).catch(()=>{});
-}
+/* 본문은 shared/glb-idb-cache.js 로 옮겼다(구역 떼기 C · w2).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({
+});
 
-const _glbUrlCache = new Map();   // url → base64 (세션 메모리 1차 캐시)
-async function resolveCatalogGlb(rec){
-  if(!rec) return null;
-  if(rec.glb) return rec.glb;                          // 구버전(base64 그대로) 호환
-  if(!rec.glbUrl) return null;
-  if(_glbUrlCache.has(rec.glbUrl)){
-    // ★ 캐시에서 가져올 때도 rec.glb를 반드시 채워둠 — 이걸 빠뜨리면 다른 곳에서 rec.glb를 체크하는 코드가 여전히 undefined를 봄
-    //   (책상 삭제 후 다른 책상 클릭 시 "GLB를 불러올 수 없어요" 오탐의 원인).
-    rec.glb = _glbUrlCache.get(rec.glbUrl);
-    return rec.glb;
-  }
-  // 2차 캐시(IndexedDB) — 앱을 껐다 켜도 남는다. 여기서 맞으면 네트워크로 안 나간다.
-  const hit = await _glbIdbGet(rec.glbUrl);
-  if(hit){
-    _glbUrlCache.set(rec.glbUrl, hit);
-    rec.glb = hit;
-    return hit;
-  }
-  if(!(window.firebaseAPI && firebaseAPI.fetchCatalogGlb)) return null;
-  try{
-    const b64 = await firebaseAPI.fetchCatalogGlb(rec.glbUrl);
-    _glbUrlCache.set(rec.glbUrl, b64);
-    _glbIdbPut(rec.glbUrl, b64);   // 기다리지 않는다 — 저장 실패해도 이번 실행에는 지장이 없다
-    rec.glb = b64;    // 이후 rec.glb 참조 시 재fetch 없음
-    return b64;
-  }catch(e){ console.warn('카탈로그 GLB 로드 실패', rec.id, e); return null; }
-}
-// 카탈로그 스냅샷 전체를 병렬로 해결 — 각 rec에 .glb 채워서 반환.
-async function resolveCatalogGlbAll(catalogObj){
-  _glbIdbPrune();
-  const ids = Object.keys(catalogObj||{});
-  await Promise.all(ids.map(id=>resolveCatalogGlb(catalogObj[id])));
-  return catalogObj;
-}
+/* 본문은 character/catalog-glb.js 로 옮겼다(구역 떼기 C · w2).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const catalogGlbMod = TwCatalogGlb.createCatalogGlb({
+  glbIdbMod: glbIdbMod,
+});
 
 /* ═══ 🧹 관리자 콘솔 도구 — 카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 ═══ */
 /* 본문(F12 콘솔 함수 일곱)은 admin/admin-console.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에 모은다. 이름은 예전처럼 window 에 걸린다.
@@ -11089,7 +11000,7 @@ async function mergeCatalogIntoSavedItems(catalogObj){
 function subscribeCatalogItems(){
   if(!window.firebaseAPI || !window.firebaseAPI.subscribeCatalogItems) return;
   window.firebaseAPI.subscribeCatalogItems(async catalogObj=>{
-    await resolveCatalogGlbAll(catalogObj);
+    await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
     await mergeCatalogIntoSavedItems(catalogObj);
   });
 }
@@ -11136,7 +11047,7 @@ function mergeCatalogIntoSavedDesks(catalogObj){
 function subscribeCatalogDesks(){
   if(!window.firebaseAPI || !window.firebaseAPI.subscribeCatalogDesks) return;
   window.firebaseAPI.subscribeCatalogDesks(async catalogObj=>{
-    await resolveCatalogGlbAll(catalogObj);
+    await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
     mergeCatalogIntoSavedDesks(catalogObj);
   });
 }
@@ -11272,7 +11183,7 @@ function mergeCatalogIntoSavedParts(catalogObj){
 function subscribeCatalogParts(){
   if(!window.firebaseAPI || !window.firebaseAPI.subscribeCatalogParts) return;
   window.firebaseAPI.subscribeCatalogParts(async catalogObj=>{
-    await resolveCatalogGlbAll(catalogObj);
+    await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
     mergeCatalogIntoSavedParts(catalogObj);
     /* 🎰 이관 과도기 — catalog/parts 에 gacha:true 로 남은 옛 항목(_legacyGacha 표식)이 보이면
        관리자 세션이 gachaParts 로 옮긴다. 옮기기 전까지는 구버전 클라이언트가 그 파츠를 계속
