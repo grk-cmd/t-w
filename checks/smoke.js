@@ -525,6 +525,10 @@ PRELOAD.push('seat-camera.js');
 PRELOAD.push('presence.js');
 /* launcher-preview.js — 🖼️ 런처 미리보기(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLauncherPreview 를 같이 굴린다. */
 PRELOAD.push('launcher-preview.js');
+/* part-scene.js — 🧊 파츠 GLB 파싱 캐시 · 썸네일(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPartScene 를 같이 굴린다. */
+PRELOAD.push('part-scene.js');
+/* admin-thumbs.js — 🖼️ 관리자 콘솔 — 파츠 썸네일 다시 굽기(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAdminThumbs 를 같이 굴린다. */
+PRELOAD.push('admin-thumbs.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
