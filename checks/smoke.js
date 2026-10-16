@@ -519,6 +519,8 @@ PRELOAD.push('myhome-init.js');
 PRELOAD.push('dot-render.js');
 /* launcher-controls.js — 🎛️ 런처 컨트롤(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLauncherControls 를 같이 굴린다. */
 PRELOAD.push('launcher-controls.js');
+/* seat-camera.js — 🎥 좌석 줄 카메라 · 캔버스 맞춤(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatCamera 를 같이 굴린다. */
+PRELOAD.push('seat-camera.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

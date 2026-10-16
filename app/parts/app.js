@@ -2167,136 +2167,27 @@ function layoutSeats(){
   const halfWidthsForZoom = placed.map(s=>seatDeskHalfWidth(s, true));   // 카메라 줌은 상한선 적용된 값 사용(유난히 큰 책상 하나가 전체를 과하게 줌아웃시키지 않게)
   const rowSpan = Math.max(1.2, (maxX-minX) + halfWidthsForZoom[leftIdx] + halfWidthsForZoom[rightIdx]);   // 카메라 줌 계산용 전체 폭(책상 폭까지 포함)
   _cachedRowCenter = rowCenter; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
-  applyCameraAndCanvas(rowCenter, rowSpan);
+  seatCameraMod.applyCameraAndCanvas(rowCenter, rowSpan);
 }
-// ★ 캐릭터 크기 슬라이더처럼 "좌석 배치는 그대로고 카메라 거리/줌만 다시 계산하면 되는" 경우 전용 —
-//   위 layoutSeats()의 무거운 책상 실측(Box3, updateMatrixWorld)을 건너뛰고, 마지막으로 계산해둔
-//   좌석 배치 결과(_cachedRowCenter/_cachedRowSpan)만 재사용해서 카메라만 훨씬 가볍게 갱신함.
-//   (슬라이더를 빠르게 움직이면 무거운 계산이 밀려서 버벅이던/깜빡이던 문제 해결)
-function updateCameraOnly(){
-  applyCameraAndCanvas(_cachedRowCenter, _cachedRowSpan);
-}
-function applyCameraAndCanvas(rowCenter, rowSpan){
-  // 카메라가 바라보는 중심(c.y)을 살짝 낮춰서 바닥이 화면 중앙에 오도록 유도
-  const c = new THREE.Vector3(rowCenter, 0.5, 0); 
-  const sz = new THREE.Vector3(rowSpan, 1.4, 0.8);
-  
-// sizeFloorTo(floor, rowCenter, c.z, sz.x * 0.7, sz.z);     // 0.7은 원래 크기의 70%로 줄인다는 뜻입니다.
-  
-  // 화면 상하좌우 여백(Padding)을 대폭 늘려서 카메라가 뒤로 물러나게 줌아웃
-  const _deskRun = document.body.classList.contains('desktop') && document.body.classList.contains('runmode');
-  const contentW = sz.x + 0.6;
-  const contentH = Math.max(sz.y, 1.3) + 0.5;
-
-  const PXW=BASE_PXW*sizeFactor;
-  let canvasH, canvasW;
-  if(_deskRun){
-    // 데스크톱 실행: 캔버스를 화면 전체로 → 캐릭터를 흔들거나 화면 어디로 드래그해도 안 잘림 (시메지처럼).
-    canvasW = innerWidth;
-    canvasH = innerHeight;
-    // 설정에서 "저해상도(도트) 렌더"를 켰으면 pixelRatio를 낮춰 도트 느낌 (성능도 가벼워짐)
-    /* 🍎🪟 실행 화면은 **화면 전체 크기**의 투명 캔버스다. DPR 2 면 픽셀이 4배 — 안티앨리어싱 · 로그 깊이 버퍼까지 얹혀
-       가장 큰 상시 비용이다([Mac 제보 2026-09-23 «굉장히 버벅인다»] · [Windows 제보 «켜 두면 크롬이 버벅인다»]).
-       mac · Windows 모두 FrameBudget.RUN_MAX_PR(1.5 = 픽셀 56%)로 누른다. 도트 렌더면 1.
-       ⚠️ 캐릭터가 조금 덜 선명해질 수 있다 — 실기기에서 보고 조정. */
-    const wantPR = FrameBudget.runPixelRatio(devicePixelRatio, dotRenderEnabled);
-    if(renderer.getPixelRatio() !== wantPR) renderer.setPixelRatio(wantPR);
-    canvas.style.imageRendering = dotRenderEnabled ? 'pixelated' : 'auto';
-  } else {
-    canvasH=Math.min(Math.round(contentH*PXW), innerHeight-40);
-    canvasW=Math.min(Math.round(contentW*PXW), innerWidth-36);
-  }
-  const aspect=canvasW/canvasH;
-
-  // 🔭 실행 화면 화각(FOV, 도 단위) — "퍼스(원근감)" 조절 손잡이. ★실행 화면에서만 적용★
-  //   숫자를 키우면 광각(원근 강함·깊이감↑), 줄이면 망원(납작). 취향껏 40~70 사이에서 조절.
-  //   dist 계산이 이 값을 기준으로 카메라 거리를 자동 보정하므로 캐릭터 화면 크기는 거의 그대로.
-  //   런처 슬롯 미리보기는 기존 34도 유지 — 거긴 바꿀 필요가 없어서 실행 화면과 분리함.
-  const RUN_FOV_DEG = 50;
-  const fovDeg = _deskRun ? RUN_FOV_DEG : 34;
-  const fov=fovDeg*Math.PI/180;
-  camera.fov = fovDeg;   // 투영 행렬에도 반영 (이름표/클릭 판정이 같은 행렬을 씀)
-  // ★ 카메라 줌 배율 — 숫자를 키우면 캐릭터가 화면에 더 크게(카메라가 더 가깝게), 줄이면 더 작게(멀게) 보임.
-  //   "지금보다 두 배 크게" 요청으로 2로 설정 — dist(카메라 거리)를 이 값으로 나눠서 가깝게 당겨옴.
-  const CAMERA_ZOOM = 2;
-  let dist;
-  if(_deskRun){
-    // 전체화면 캔버스에서도 캐릭터 크기를 이전(작은 캔버스)과 비슷하게 유지: 캔버스가 커진 배율만큼 카메라를 뒤로.
-    const prevCanvasH = Math.min(Math.round(contentH*PXW), innerHeight-40);
-    const zoomOut = canvasH / Math.max(1, prevCanvasH);
-    const distV=(contentH/2)/Math.tan(fov/2);
-    const distH=(contentW/2)/Math.tan(Math.atan(Math.tan(fov/2)*aspect));
-    dist=(Math.max(distV,distH)+sz.z*0.45) * zoomOut / Math.max(0.1,focusCharScale) / CAMERA_ZOOM;
-  } else {
-    const distV=(contentH/2)/Math.tan(fov/2);
-    const distH=(contentW/2)/Math.tan(Math.atan(Math.tan(fov/2)*aspect));
-    dist=(Math.max(distV,distH)+sz.z*0.45) / CAMERA_ZOOM;
-  }
-  
-  // [수정] 카메라 각도 설정
-  // 상하 각도 — 실행 화면은 사용자가 조정한 로우앵글(-0.2), 런처 슬롯 미리보기는 기존 각도 유지.
-  const pitch = _deskRun ? 0.09 : 0.09;   // 실행 화면: 사용자 확정값
-  const yaw = 5 * Math.PI / 180; // 좌우 각도 (우측으로 15도)
-  
-  camera.aspect=aspect;
-  camera.position.set(
-    c.x + Math.sin(yaw) * Math.cos(pitch) * dist,
-    c.y + Math.sin(pitch) * dist,
-    c.z + Math.cos(yaw) * Math.cos(pitch) * dist
-  );
-  let tx=c.x, ty=c.y, tz=c.z;
-  if(_deskRun){
-    const viewH = 2 * dist * Math.tan(fov/2);
-    const viewW = viewH * aspect;
-    // deskPanX/Y는 "뷰 비율"(unitless fraction) — 캐릭터 크기(focusCharScale)가 바뀌어도 항상 같은 화면 비율 위치 유지.
-    const panX = viewW * (-0.34 + deskPanX);   // 기본: 좌측 + 사용자 오프셋(비율)
-    const panY = viewH * (0.28 + deskPanY);    // 기본: 하단 + 사용자 오프셋(비율)
-    // 🔭 축 분리 배치 — 좌우와 상하를 다른 방식으로 처리.
-    //   · 좌우(X): 카메라 이동과 뷰 오프셋을 "섞어서" 원근 강도를 조절.
-    //     SIDE_PERSP = 좌우 원근 강도 손잡이 (0.0=어느 위치든 각도 완전 고정, 1.0=위치 따라 최대로 변함).
-    //     1.0이 너무 과하다는 피드백 → 0.4로. 취향껏 0.2~0.6 사이에서 조절.
-    //   · 상하(Y): 뷰 오프셋(오프센터 투영) — 캐릭터가 화면 위/아래 어디에 있든
-    //     상하 앵글(pitch)은 설정한 값 그대로 고정(내려다보이는 왜곡 없음).
-    const SIDE_PERSP = 0.4;
-    /* 🧱 [제보] 캐릭터를 화면 왼쪽 벽에 바싹 붙이면 각도가 너무 심해져서 책상이 캐릭터를 가린다.
-       [원인] panXCam(카메라가 실제로 옮겨가는 양)이 panX에 **비례**해서 끝없이 커졌다.
-         멀리 밀수록 옆에서 보게 되고, 옆에서 볼수록 앞의 책상이 몸을 덮는다. 화면 끝일수록
-         가장 심해지는데, 하필 거기가 사람들이 캐릭터를 치워두는 자리다.
-       [대응] 카메라가 옮겨가는 양에 상한을 둔다. 상한을 넘는 몫은 전부 화면 밀기(오프센터 투영)로
-         보낸다 — 그쪽은 각도를 전혀 안 건드리므로 캐릭터는 계속 그 자리로 가되 각도만 안 심해진다.
-       ★ 상한값은 '기본 위치(-0.34)에서의 각도'로 잡았다. 즉 **아무리 밀어도 기본 배치보다
-         더 비스듬해지지 않는다.** 기본 위치에서의 모습은 예전과 완전히 동일하다 = 회귀 없음.
-       ⚠️ SIDE_PERSP 를 만지면 이 상한도 같이 봐야 한다. 둘은 같은 기본 위치(0.34)를 기준으로 짝지어져 있다. */
-    const SIDE_PERSP_CAP = viewW * 0.34 * SIDE_PERSP;
-    const panXCam = Math.max(-SIDE_PERSP_CAP, Math.min(SIDE_PERSP_CAP, panX * SIDE_PERSP));
-    const camPanX = panXCam * Math.cos(yaw);
-    tx += camPanX; camera.position.x += camPanX;
-    tz -= panXCam * Math.sin(yaw); camera.position.z -= panXCam * Math.sin(yaw);
-    // 카메라가 못 간 몫은 전부 화면 밀기로 — (panX - panXCam) 이라 상한에 걸려도 목표 위치는 정확히 맞는다
-    const offX =  ((panX - panXCam) / viewW) * canvasW;   // 나머지는 화면만 밀기(각도 불변)
-    const offY = -(panY / viewH) * canvasH;
-    camera.setViewOffset(canvasW, canvasH, offX, offY, canvasW, canvasH);
-    // 이동 모드에서 픽셀↔월드 정확한 변환을 위해 매 프레임 계산값을 전역에 노출
-    _deskViewH = viewH; _deskCanvasH = canvasH;
-  } else if(camera.view){
-    camera.clearViewOffset();   // 실행 화면이 아니면 오프셋 잔존 방지 (미리보기 등)
-  }
-  camera.lookAt(tx, ty, tz);
-  camera.updateProjectionMatrix();
-  
-  canvas.style.width=canvasW+'px'; canvas.style.height=canvasH+'px';
-  if(_deskRun && dotRenderEnabled){
-    // 실제 렌더 버퍼 해상도를 낮춰서 확실한 도트감(CSS 표시 크기는 그대로 유지, image-rendering:pixelated로 확대)
-    const rw=Math.max(2,Math.round(canvasW*DOT_RENDER_SCALE)), rh=Math.max(2,Math.round(canvasH*DOT_RENDER_SCALE));
-    renderer.setSize(rw, rh, false);
-    canvas.style.width=canvasW+'px'; canvas.style.height=canvasH+'px';   // setSize(false)가 style도 rw/rh로 바꿔버리니 다시 덮어씀
-    dotRenderMod.applyDotTextureFilter(true);    // 텍스처 보간을 꺼서 확실히 각진 도트로 (뿌옇게 안 보이게)
-    dotRenderMod.applyPS1Shader(true);           // 🕹️ PS1 감성 — 색 양자화 + Bayer 디더링 주입
-  } else {
-    renderer.setSize(canvasW, canvasH, false);
-    if(_deskRun){ dotRenderMod.applyDotTextureFilter(false); dotRenderMod.applyPS1Shader(false); }
-  }
-}
+/* 본문은 room/seat-camera.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const seatCameraMod = TwSeatCamera.createSeatCamera({
+  BASE_PXW: BASE_PXW,
+  DOT_RENDER_SCALE: DOT_RENDER_SCALE,
+  _cachedRowCenter: ()=>_cachedRowCenter,
+  _cachedRowSpan: ()=>_cachedRowSpan,
+  camera: camera,
+  canvas: canvas,
+  deskPanX: ()=>deskPanX,
+  deskPanY: ()=>deskPanY,
+  dotRenderEnabled: ()=>dotRenderEnabled,
+  dotRenderMod: ()=>dotRenderMod,
+  focusCharScale: ()=>focusCharScale,
+  renderer: renderer,
+  sizeFactor: ()=>sizeFactor,
+  setDeskCanvasH: (v)=>{ _deskCanvasH = v; },
+  setDeskViewH: (v)=>{ _deskViewH = v; },
+});
 /* 본문은 shared/dot-render.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const dotRenderMod = TwDotRender.createDotRender({
@@ -3363,7 +3254,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   slots: ()=>slots,
   startRoomCountWatch: (...a)=>roomEntryMod.startRoomCountWatch(...a),
   toast: (...a)=>toast(...a),
-  updateCameraOnly: (...a)=>updateCameraOnly(...a),
+  updateCameraOnly: (...a)=>seatCameraMod.updateCameraOnly(...a),
   wardrobeMod: ()=>wardrobeMod,
   setMULTIPLAYER_SPACING: (v)=>{ MULTIPLAYER_SPACING = v; },
   setSPACING: (v)=>{ SPACING = v; },

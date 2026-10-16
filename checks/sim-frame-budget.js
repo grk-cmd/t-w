@@ -15,6 +15,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['frame-budget.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
+SRC['app.js'] = require('./sim-renderer-src.js').joinRenderer(SRC['app.js']);   // 옮긴 모듈(seat-camera.js 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다(판정 무변경)
 const win = {};
 new Function('window', 'module', SRC['frame-budget.js'])(win, undefined);
 const F = win.FrameBudget;

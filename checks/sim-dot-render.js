@@ -84,7 +84,7 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwDotRender = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
-  ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const dotRenderMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('dotRenderMod.' + x)); if(n){ ls[i] = ls[i].replace('dotRenderMod.' + n, n); return ls.join('\n'); } } return a; }, null],
+  ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const dotRenderMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('dotRenderMod.' + x)); if(n){ ls[i] = ls[i].replace('dotRenderMod.' + n, n); return ls.join('\n'); } } return a + '\n' + EXPORTS[0] + '(true);'; }, null],   // app.js 에 부르는 자리가 없으면(다른 모듈만 부른다) 옛 이름 부름을 끼워 본다
   ['만들 때 던짐', m => m.replace('function createDotRender(deps){', 'function createDotRender(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
