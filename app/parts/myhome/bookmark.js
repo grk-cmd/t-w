@@ -12,7 +12,7 @@
      · 같은 계정을 두 기기에서 고치면 **마지막에 저장한 쪽이 이긴다.** 책장은 슬롯처럼 충돌 판정을 둘 값이 아니다.
    ★ 책등 그림 — Storage `bookmarks/{uid}/{bid}_{시각}.webp`(세로 400px 로 줄여 WebP · 200KB 이하).
      로컬 IndexedDB 안을 버린 이유는 연동으로 정해졌기 때문이다(집 PC 에 꽂은 책이 회사 PC 에도 있어야 한다).
-   ⚠️ 색 팔레트는 꾸미기 창 것을 **그대로 재사용**한다(app.js `buildFreeColorPicker` · `.wd-color-palette`).
+   ⚠️ 색 팔레트는 꾸미기 창 것을 **그대로 재사용**한다(wardrobe.js `wardrobeMod.buildFreeColorPicker` · `.wd-color-palette`).
      새로 그리지 말 것 — 그 클래스가 실행 화면 클릭 통과 화이트리스트(UI_HIT_SEL)에 이미 들어 있다.
    ⚠️ 링크는 http/https 만 연다. 여는 길은 `companion.openBrowser`(main.js · shell.openExternal) 한 곳이다 —
      window.open 으로 열면 실행 화면(투명 오버레이) 안에 브라우저 창이 생겨 캐릭터를 덮는다. */
@@ -461,7 +461,7 @@
         const mine = (palHost === row);
         palClose();
         if(mine) return;
-        const pop = buildFreeColorPicker(draft[key], c=>{ draft[key] = c; hex.value = c; sw.style.background = c; paint(); });
+        const pop = wardrobeMod.buildFreeColorPicker(draft[key], c=>{ draft[key] = c; hex.value = c; sw.style.background = c; paint(); });
         pop.style.top = '26px'; pop.style.left = '0';
         row.appendChild(pop); palHost = row;
         palOff = ev=>{ if(!pop.contains(ev.target) && ev.target !== sw) palClose(); };

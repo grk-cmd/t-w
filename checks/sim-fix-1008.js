@@ -271,7 +271,7 @@ say('§3 표정 도장 — 턱 아래로 감아 칠하기 (공 모양 머리 흉
     chk(out.top.filled === 0, '  머리 위로 나간 도장은 감지 않는다 (아래쪽만)');
   }
   chk(/const _wrapN=_stampWrapFill\(uvs, N, _wrapRays, \[cBase\.face\], _wrapCtr\);/.test(APP) && /_stampWrapFill\(uvs2, N, _wrapRays2, \[cBase\.face\], _wrapCtr\);/.test(APP), '사람 도장 · 거울 도장 둘 다 감는다');
-  chk(!!AN && /if\(faceMesh\) _stampWrapFill\(uvs, N, wrapRays, \[faceMesh\], _stampWrapCenter\(faceMesh\)\);/.test(AN), '동물 도장도 감는다 (얼굴 메시만)');
+  chk(!!AN && /if\(faceMesh\) partPaintMod\._stampWrapFill\(uvs, N, wrapRays, \[faceMesh\], partPaintMod\._stampWrapCenter\(faceMesh\)\);/.test(AN), '동물 도장도 감는다 (얼굴 메시만)');
   chk(/const EXTRA_MAX = 2;/.test(APP), 'EXTRA_MAX 는 그대로 2 — 예전 번짐 띠 보호 유지');
 }
 

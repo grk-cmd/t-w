@@ -1838,7 +1838,6 @@ const hiddenSeatsMod = TwHiddenSeats.createHiddenSeats({
   seatFromObject: (...a)=>seatFromObject(...a),
   seats: seats,
 });
-function _seatHidden(...a){ return hiddenSeatsMod._seatHidden(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 /* 지금 날고 있는 좌석 수. frame() 의 비포커스 프레임 상한(FrameBudget.FPS_UNFOCUSED)을 비행 동안만
    비켜 가는 데 쓴다 — 20fps 로는 빠르게 튕기는 움직임이 뚝뚝 끊겨 보인다.
    ★ seats 를 매 프레임 훑지 않고 세어 두는 이유: 이 값은 상한 검사보다 **먼저** 읽히고,
@@ -1863,6 +1862,7 @@ let _flyActive = 0;
 /* 🧭 창 열기 통로(nav.js) — 아래 기능이 «설정 창 · 마이홈 열어 줘 · 방에서 나가 줘» 를 부탁하는 한 곳(모듈 순환 끊기 6).
    창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다 */
 const twNav = TwNav;
+const demojiCatalog = TwDemojiCatalog;   // 😊 기본 이모티콘 목록(demoji-catalog.js — 채팅 · 마이홈 바탕화면이 같이 읽는 맨 아래 표)
 const roomSyncMod = TwRoomSync.createRoomSync({
   DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
@@ -3635,7 +3635,6 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   setDeskScale: (...a)=>setDeskScale(...a),
   swThumb: (...a)=>swThumb(...a),
 });
-function buildFreeColorPicker(...a){ return wardrobeMod.buildFreeColorPicker(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 /* ═══ 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(commitWdDraft) · 색 영역 ═══ */
 /* (앱 FSD 29번) 이 자리의 본문도 wardrobe.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
@@ -3689,9 +3688,6 @@ const partPaintMod = TwPartPaint.createPartPaint({
   wdGizmo: ()=>wardrobeMod.wdGizmo(),
   wdPreviewBase: ()=>wardrobeMod.wdPreviewBase(),
 });
-function _picIntersect(...a){ return partPaintMod._picIntersect(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
-function _stampWrapCenter(...a){ return partPaintMod._stampWrapCenter(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
-function _stampWrapFill(...a){ return partPaintMod._stampWrapFill(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 // ★ 이제 toggleEquip/상세조정 모두 mySeat이 아니라 draft+미리보기 좌석을 "직접" 건드리는 구조로
 //   바뀌어서(요청사항: 저장 버튼 눌러야 실제 캐릭터에 반영), 예전처럼 "실제 캐릭터에 적용 후 미리보기로
 //   따로 미러링"하는 절차 자체가 필요 없어짐.
@@ -4251,6 +4247,7 @@ function showChatBubble(seat, text){
 /* 본문은 chat-ui.js 로 옮겼다(앱 FSD 24번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const chatUiMod = TwChatUi.createChatUi({
+  demojiCatalog: demojiCatalog,
   CHAT_WIN_POS_KEY: ()=>CHAT_WIN_POS_KEY,
   Presence: ()=>Presence,
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
@@ -4288,9 +4285,6 @@ const chatUiMod = TwChatUi.createChatUi({
   setDanceCmdCooldownAt: (v)=>{ iDeskMod.setDanceCmdCooldownAt(v); },
   twNav: twNav,
 });
-const DEMOJI_BY_CMD = chatUiMod.DEMOJI_BY_CMD;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
-const DEMOJI_BY_ID = chatUiMod.DEMOJI_BY_ID;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
-const DEMOJI_DIR = chatUiMod.DEMOJI_DIR;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
 
 /* ═══════════════ 💬 프리미엄 대화창 (1차: 코어) ═══════════════ */
 let _chatLogUnsub = null;      // subscribeChatLog 해제 함수
@@ -11568,7 +11562,6 @@ const slotSaveMod = TwSlotSave.createSlotSave({
 slotSaveMod.onLoaded(()=>premiumMod.pruneUnownedLicenseAssets());
 slotSaveMod.onSeatRelinked((old, cur)=>wardrobeMod.relinkDraftSrc(old, cur));
 slotSaveMod.onSlotsReplaced(()=>settingsMod.renderCharSlots());
-function saveSlots(...a){ return slotSaveMod.saveSlots(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 
 /* ═══ ☁️ 슬롯(캐릭터) 기기 간 동기화 — 2026-09-16 제보 6-b «캐릭터가 집 PC 에 없음» ═══════════
    [무엇이 없었나] 서버 users/{uid} 에는 gacha(보유 파츠)·playlist·profile·home… 만 있고 **슬롯
@@ -13740,7 +13733,6 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
 });
 focusLevelMod.onTotalSynced((uid, sec)=>myInfoMod._lbPush(uid, sec));   // 🏆 서버 총합을 맞추면 전체 랭킹에 올린다 — 내 정보가 포커스 레벨보다 먼저 만들어져 여기서 건다
-function getFocusLevel(...a){ return focusLevelMod.getFocusLevel(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 
 /* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
 /* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 parts/gacha.js 로 옮겼다
@@ -13853,7 +13845,6 @@ async function _warnServerWriteDenied(what){
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const themeMod = TwTheme.createTheme({
 });
-function applyTheme(...a){ return themeMod.applyTheme(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 /* ═══ 🎨 [2026-09-15 제보 5] 테마 「버블」이 마이홈 방명록엔 안 먹음 ═══════════════════════
    [원인] 방명록·디자인 창은 window.open → main.js setWindowOpenHandler 가 **별도 BrowserWindow** 로 연다.
      별도 창 = 별도 document 라 메인 <html> 의 data-theme 이 거기까지 안 간다. 게다가 그 창들의 CSS(GB_HTML·

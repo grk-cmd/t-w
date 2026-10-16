@@ -21,7 +21,7 @@
    [전파] 방 payload 에 문자열 한 칸(noise) — Presence.setNoise. 상태는 이미 흐른다. 규칙 변경 없음.
 
    [기댄 것 — 전부 app.js 의 전역(클래식 스크립트 최상위 let/const/function)]
-     seats · seatState · findMySeat · _seatHidden · officeMode · Presence · _plSyncBgmBounds · _plApplyPos
+     seats · seatState · findMySeat · hiddenSeatsMod._seatHidden · officeMode · Presence · _plSyncBgmBounds · _plApplyPos
      ⚠️ 이 파일은 app.js **뒤에** 실려야 한다(html 의 <script> 순서). 없으면 조용히 아무것도 안 한다.
 
    [소리 자료] parts/noise-sounds.js(window.TW_NOISE_SOUNDS · base64 WebM/Opus). 왜 base64 인지는 그 파일 머리 주석.
@@ -96,7 +96,7 @@
     if(nzOthers){
       list.forEach(s=>{
         if(!s || !s.remote || !s.remoteNoise) return;
-        try{ if(_seatHidden(s)) return; }catch(_){}
+        try{ if(hiddenSeatsMod._seatHidden(s)) return; }catch(_){}
         let f = false;
         try{ f = (seatState(s, now) === 'focus'); }catch(_){}
         inp.others.push({ kind:s.remoteNoise, focus:f });

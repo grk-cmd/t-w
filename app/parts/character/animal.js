@@ -96,7 +96,7 @@ let _zoom=1.0;      // 휠 줌 (0.5~2.6)
 let panX=0, panY=0; // 방향키 카메라 평행이동
 let scl={x:1, y:1, all:1};
 
-function myLevel(){ try{ return getFocusLevel(); }catch(_){ return 1; } }
+function myLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){ return 1; } }
 function admin(){ try{ return (typeof isAdmin!=='undefined') && !!isAdmin; }catch(_){ return false; } }
 
 /* ── 카드 활성화: "공사중" → Lv.100 잠금 카드 ── */
@@ -1138,10 +1138,10 @@ function aCommitStamp(){
       uvs.push(hit?{x:hit.uv.x,y:hit.uv.y,p:hit.point.clone()}:null);
       if(!hit) wrapRays[uvs.length-1]={o:_pRay.ray.origin.clone(), d:_pRay.ray.direction.clone()};
     }
-    /* 🩹 #3 감아 칠하기 — 사람 도장과 같은 함수(app.js _stampWrapFill). 중심은 보이는 얼굴 메시 기준. */
+    /* 🩹 #3 감아 칠하기 — 사람 도장과 같은 함수(part-paint.js _stampWrapFill). 중심은 보이는 얼굴 메시 기준. */
     // 얼굴 메시에만 감는다 — 몸에 맞은 점이 섞이면 지금 칠하는 캔버스(pActC)와 다른 메시의 UV 가 된다
     const faceMesh=targets.find(o=>_isFaceMesh(o));
-    if(faceMesh) _stampWrapFill(uvs, N, wrapRays, [faceMesh], _stampWrapCenter(faceMesh));
+    if(faceMesh) partPaintMod._stampWrapFill(uvs, N, wrapRays, [faceMesh], partPaintMod._stampWrapCenter(faceMesh));
     /* 가장자리 외삽.
        ★ 예전엔 (-0.05~1.05) 안이기만 하면 무제한으로 채우고 0~1로 잘랐다. 잘린 값들이
          '텍스처 가장자리의 같은 좌표'로 뭉쳐서, 여러 칸이 이미지를 같은 자리에 겹쳐 그리며
@@ -1490,9 +1490,9 @@ const _pRay=new THREE.Raycaster(), _pN=new THREE.Vector2();
 /* 그리기·도장·스포이드·대칭이 모두 이 함수로 표면을 맞힌다.
    몸·얼굴은 리깅인데 three r128 기본 레이캐스트는 **바인드 포즈의 경계 상자**로 먼저 거른다. 얼굴 크기를
    키우면 바깥쪽 볼·눈꼬리에 광선이 아예 안 맞아 붓·도장이 거기서 빠졌다.
-   그래서 사람 생성기와 같은 _picIntersect(app.js — 지금 자세의 정점으로 교차 · 앞면만)를 쓴다. */
+   그래서 사람 생성기와 같은 _picIntersect(part-paint.js — 지금 자세의 정점으로 교차 · 앞면만)를 쓴다. */
 function _aCast(ray, meshes){
-  return _picIntersect(ray, meshes);
+  return partPaintMod._picIntersect(ray, meshes);
 }
 function pHit(e){
   const cv=overlay.querySelector('#anpCv'); if(!cv||!cam) return null;
@@ -1728,7 +1728,7 @@ function saveAnimalSlot(opts){
   });
   // 썸네일 — 현재 미리보기 렌더를 캡처 (인간 def.thumb과 같은 역할)
   try{ if(renderer && renderer.domElement){ renderer.render(scene,cam); def.thumb=renderer.domElement.toDataURL('image/png'); } }catch(_){}
-  // 슬롯에 저장 — 인간과 동일 경로(slots/curSlot/saveSlots)
+  // 슬롯에 저장 — 인간과 동일 경로(slots/curSlot/slotSaveMod.saveSlots)
   // ── 실행화면 우클릭으로 들어온 좌석 편집: 그 좌석에 직접 반영하고 좌석 모드로 되돌아간다.
   //   이 분기가 없어서 좌석 편집이 (아래 else 경로를 타고) 엉뚱한 빈 슬롯에 저장되고,
   //   openCreator를 slot 모드로 갈아타 버려서 실행 중인 캐릭터엔 영원히 반영되지 않았음.
@@ -1739,7 +1739,7 @@ function saveAnimalSlot(opts){
       // 슬롯 저장은 crDone의 seat 분기와 같은 규칙 — 좌석에 slot이 없으면 내 좌석일 때만 curSlot으로 폴백
       const idx = (seatRef.slot!=null) ? seatRef.slot : (seatRef.isMe ? curSlot : null);
       if(idx!=null){ slots[idx]=def; if(seatRef.slot==null) seatRef.slot=idx; }
-      saveSlots();
+      slotSaveMod.saveSlots();
       if(seatRef.isMe && Presence.active && Presence.active() && Presence.updateDef) Presence.updateDef(def);
       layoutSeats();
     }catch(e){ console.warn('[동물] 좌석 반영 실패',e); toast('반영에 실패했어요 (콘솔 확인)'); return; }
@@ -1784,7 +1784,7 @@ function saveAnimalSlot(opts){
       try{ if(typeof window!=='undefined' && window.focus) window.focus(); }catch(_){}
     }
     slots[target]=def; curSlot=target;
-    saveSlots();
+    slotSaveMod.saveSlots();
     saveCurSlot();
     renderLauncher();
   }catch(e){ console.warn('[동물] 슬롯 저장 실패',e); toast('저장에 실패했어요 (콘솔 확인)'); return; }

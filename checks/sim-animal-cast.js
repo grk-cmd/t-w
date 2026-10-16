@@ -26,7 +26,7 @@ const AC = strip(A);
 say('── 1. 동물 광선은 전부 _aCast 를 지난다');
 const cast = strip(grab(A, '_aCast'));
 chk(!!cast, '_aCast 를 찾았다');
-chk(/return _picIntersect\(ray, meshes\);/.test(cast), '_aCast → _picIntersect(지금 자세 · 앞면만)');
+chk(/return partPaintMod\._picIntersect\(ray, meshes\);/.test(cast), '_aCast → partPaintMod._picIntersect(지금 자세 · 앞면만)');
 const n = (AC.match(/\.intersectObjects\(/g) || []).length;
 /* (개정 239) _picIntersect 는 app.js 가 먼저 실리므로 늘 있다 — 옛 폴백 레이캐스트를 걷어 동물 쪽 직접 레이캐스트는 0 */
 chk(n === 0, '동물 쪽에 직접 레이캐스트(intersectObjects)가 없다 — 광선은 전부 _aCast → _picIntersect (지금 ' + n + '곳)');
