@@ -2514,7 +2514,7 @@ function floorSnapReport(){
 try{ window.floorSnapReport = floorSnapReport; }catch(_){}
 function fitModel(seat){
   const m=seat.gltfRoot; if(!m) return;
-  m.scale.set(1,1,1); m.position.set(0,0,0); m.rotation.set(0,seat.userRot+RIG_TURN,0);
+  m.scale.set(1,1,1); m.position.set(0,0,0); m.rotation.set(0,seat.userRot+creatorPrevMod.RIG_TURN,0);
   const sR=seat.rig.position.clone(),sRr=seat.rig.rotation.clone(),sWp=seat.bodyWrap.position.clone(),sG=seat.group.position.clone();
   seat.rig.position.set(0,0,0);seat.rig.rotation.set(0,0,0);seat.bodyWrap.scale.set(1,1,1);seat.bodyWrap.position.set(0,0,0);seat.group.position.set(0,0,0);
   seat.group.updateWorldMatrix(true,true);
@@ -6685,8 +6685,8 @@ function captureDeskPreset(){
 //   프레이밍도 재계산해야 함(fit는 캐릭터 기준, frameDeskCam은 책상까지 포함해 카메라 거리 조정).
 function _refitPreviewAfterPreset(){
   try{
-    fitCreator(crStep<=4 ? 'edit' : 'app');
-    if((crStep===5||crStep===6)) frameDeskCam(false);
+    creatorPrevMod.fitCreator(crStep<=4 ? 'edit' : 'app');
+    if((crStep===5||crStep===6)) creatorPrevMod.frameDeskCam(false);
   }catch(_){}
 }
 function applyDeskPreset(p){
@@ -6701,7 +6701,7 @@ function applyDeskPreset(p){
        (읽으면 앞뒤로 맞춰둔 옛 숫자가 그대로 '높이' 로 해석돼 캐릭터가 공중에 뜬다). */
     if(typeof p.seat.y==='number')   { cXform.y   = clampCharY(p.seat.y); const el=document.getElementById('crZ'); if(el) el.value=cXform.y; }
     if(typeof p.seat.rot==='number') { cXform.rot = p.seat.rot; const el=document.getElementById('crRot');   if(el) el.value=p.seat.rot; }
-    applyCreatorXform();
+    creatorPrevMod.applyCreatorXform();
   }
   // 2) 커스텀 아이템 카탈로그(세션) 병합 — 프리셋이 참조하는 로컬 아이템이 있으면 함께 복원
   if(p.customItems) Object.keys(p.customItems).forEach(id=>{
@@ -7464,7 +7464,7 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
         _rcOrbit.moved=true;
         camYaw += wardrobeMod.ORBIT_DRAG_DIR * dx*0.012;   // 오른쪽 드래그 = 앵글도 오른쪽으로 (부호는 ORBIT_DRAG_DIR 한 곳에서 관리 — 꾸미기 미리보기와 동일)
         camPitch = Math.max(-0.6, Math.min(1.0, camPitch + dy*0.008));
-        updateCreatorCam();
+        creatorPrevMod.updateCreatorCam();
         _rcOrbit.x=e.clientX; _rcOrbit.y=e.clientY;
       }
       return;
@@ -7491,7 +7491,7 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
     }
     painting=false;lastPX=lastPY=null;lastSX=lastSY=null;
   });
-  cv.addEventListener('wheel',e=>{e.preventDefault();camDist=Math.max(0.4,Math.min(7,camDist*(e.deltaY>0?1.12:0.89)));updateCreatorCam();},{passive:false});
+  cv.addEventListener('wheel',e=>{e.preventDefault();camDist=Math.max(0.4,Math.min(7,camDist*(e.deltaY>0?1.12:0.89)));creatorPrevMod.updateCreatorCam();},{passive:false});
   // 드래그앤드롭: 이미지 파일을 캔버스에 떨어뜨리면 도장으로 불러옴
   cv.addEventListener('dragover',e=>{e.preventDefault();});
   cv.addEventListener('drop',e=>{e.preventDefault(); if(!isDrawStep())return;
@@ -7534,11 +7534,11 @@ addEventListener('keydown',e=>{
     if(sb) sb.click();
   }
   // L: 원색 보기(조명 끄고 칠한 색 그대로) 켬/끔
-  if(hotkeyLetter(e)==='l' && isDrawStep() && crFlatView && !e.ctrlKey && !e.metaKey && !e.altKey){
+  if(hotkeyLetter(e)==='l' && isDrawStep() && creatorPrevMod.crFlatView && !e.ctrlKey && !e.metaKey && !e.altKey){
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea')return;
     e.preventDefault();
-    crFlatView.toggle();
+    creatorPrevMod.crFlatView.toggle();
   }
   // Z: 도장 모드 ON/OFF 토글 (찍기는 Enter 또는 ✓ 버튼)
   if(hotkeyLetter(e)==='z' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
@@ -7620,10 +7620,10 @@ document.getElementById('undoBtn').addEventListener('click',undo);
 const ROT_STEP=Math.PI/12;   // 15°
 // ★ 버튼을 꾹 누르면 연속으로 이동하도록(bindHold, 기존 아이템 위치조작 버튼과 동일한 방식) 변경.
 // ◀▶ 버튼·←→ 키도 우클릭 드래그와 같은 부호를 써야 한다 — 안 그러면 같은 창에서 조작끼리 반대로 돈다.
-bindHold(document.getElementById('cpLeft'), ()=>{camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;updateCreatorCam();});
-bindHold(document.getElementById('cpRight'), ()=>{camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;updateCreatorCam();});
-bindHold(document.getElementById('cpUp'), ()=>{camTarget.y+=0.12;updateCreatorCam();});
-bindHold(document.getElementById('cpDown'), ()=>{camTarget.y-=0.12;updateCreatorCam();});
+bindHold(document.getElementById('cpLeft'), ()=>{camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
+bindHold(document.getElementById('cpRight'), ()=>{camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
+bindHold(document.getElementById('cpUp'), ()=>{camTarget.y+=0.12;creatorPrevMod.updateCreatorCam();});
+bindHold(document.getElementById('cpDown'), ()=>{camTarget.y-=0.12;creatorPrevMod.updateCreatorCam();});
 // ★ 키보드 방향키로도 동일하게 조작 — 생성기가 열려있을 때만 동작, 꾹 누르면 버튼처럼 연속 이동.
 //   입력창(텍스트 필드 등)에 포커스 중이면 방향키 원래 용도(커서 이동)를 방해하지 않도록 건너뜀.
 function bindCamKey(key, fn){
@@ -7640,10 +7640,10 @@ function bindCamKey(key, fn){
   });
   document.addEventListener('keyup', e=>{ if(e.key===key) stop(); });
 }
-bindCamKey('ArrowLeft',  ()=>{camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;updateCreatorCam();});
-bindCamKey('ArrowRight', ()=>{camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;updateCreatorCam();});
-bindCamKey('ArrowUp',    ()=>{camTarget.y+=0.12;updateCreatorCam();});
-bindCamKey('ArrowDown',  ()=>{camTarget.y-=0.12;updateCreatorCam();});
+bindCamKey('ArrowLeft',  ()=>{camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
+bindCamKey('ArrowRight', ()=>{camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
+bindCamKey('ArrowUp',    ()=>{camTarget.y+=0.12;creatorPrevMod.updateCreatorCam();});
+bindCamKey('ArrowDown',  ()=>{camTarget.y-=0.12;creatorPrevMod.updateCreatorCam();});
 document.getElementById('cpReset').addEventListener('click',()=>{
   // 현재 단계 그룹의 저장된 카메라를 비우고 그 그룹의 기본 카메라로 되돌림
   if(crStep<=3){          // 표정·감은눈 그룹
@@ -7651,14 +7651,14 @@ document.getElementById('cpReset').addEventListener('click',()=>{
     if(cFaceCenter){ camTarget.copy(cFaceCenter); camDist=cFaceDist; camYaw=0; camPitch=0.0; }
   } else if(crStep>=5){   // 책상·좌석 그룹
     deskCamSaved=null;
-    frameDeskCam(false);
+    creatorPrevMod.frameDeskCam(false);
   } else {                // 4단계(전신 색상) — 단독
     camTarget.copy(cBodyCenter); camDist=cBodyDist; camYaw=0; camPitch=0.04;
   }
-  updateCreatorCam();
+  creatorPrevMod.updateCreatorCam();
 });
-document.getElementById('topColor').addEventListener('input',e=>{cTopColor=e.target.value;if(cBase&&cBase.upMat)cBase.upMat.color.set(cTopColor);if(cBase&&cBase.hatMat)cBase.hatMat.color.set(cTopColor);updateCreatorLights();});
-document.getElementById('botColor').addEventListener('input',e=>{cBotColor=e.target.value;if(cBase&&cBase.loMat)cBase.loMat.color.set(cBotColor);updateCreatorLights();});
+document.getElementById('topColor').addEventListener('input',e=>{cTopColor=e.target.value;if(cBase&&cBase.upMat)cBase.upMat.color.set(cTopColor);if(cBase&&cBase.hatMat)cBase.hatMat.color.set(cTopColor);creatorPrevMod.updateCreatorLights();});
+document.getElementById('botColor').addEventListener('input',e=>{cBotColor=e.target.value;if(cBase&&cBase.loMat)cBase.loMat.color.set(cBotColor);creatorPrevMod.updateCreatorLights();});
 // ★ 런처8: 생성기의 세 컬러픽커에 꾸미기와 동일한 커스텀 팝업을 얹음 — 최근 5색 공유(localStorage 'tw.charColorHistory').
 //   네이티브 <input type="color">는 상태 저장 그릇으로만 남기고 클릭 시 우리 팝업을 대신 띄움.
 const _crColorSw = [];   // 색 입력칸 ↔ 보이는 스와치 짝 (아래 _syncCrColorSwatches 가 쓴다)
@@ -7736,14 +7736,14 @@ function loadSkins(){const pngs=window.SKIN_PNGS||{};
       if(failed) console.warn('[피부] '+failed+'/'+total+'개 실패 — 해당 피부는 단색으로 표시됩니다.');
       if(failed >= total){ try{ toast('피부 텍스처를 불러오지 못했어요 — 프로그램을 다시 설치해 주세요'); }catch(_){} }
     });}
-document.getElementById('crNext').addEventListener('click',()=>gotoStep(Math.min(6,crStep+1)));
+document.getElementById('crNext').addEventListener('click',()=>creatorFlowMod.gotoStep(Math.min(6,crStep+1)));
 // 🐾 동물이 책상(5)에서 [이전] 을 누르면 gotoStep 이 동물 생성기로 돌려보낸다(1~4는 사람용 단계).
-document.getElementById('crPrev').addEventListener('click',()=>gotoStep(Math.max(1,crStep-1)));
+document.getElementById('crPrev').addEventListener('click',()=>creatorFlowMod.gotoStep(Math.max(1,crStep-1)));
 // 상단 3단계 스텝퍼 클릭으로 이동 (캐릭터=1, 책상=5, 좌석=6)
 /* 1 피부 · 2 표정 · 3 감은눈 · 4 색상 — 눌러서 그 단계로(위 큰 탭과 같은 길). 동물 · 커미션은 gotoStep 이 알아서 돌려보낸다. */
-[...document.getElementById('crSteps').children].forEach((el,i)=>{ el.style.cursor='pointer'; el.addEventListener('click',()=>gotoStep(i+1)); });
+[...document.getElementById('crSteps').children].forEach((el,i)=>{ el.style.cursor='pointer'; el.addEventListener('click',()=>creatorFlowMod.gotoStep(i+1)); });
 [...document.getElementById('crStages').children].forEach(el=>{ el.addEventListener('click',()=>{
-  const stg=+el.dataset.stg; gotoStep(stg===0?Math.min(crStep,4):(stg===1?5:6)); }); });
+  const stg=+el.dataset.stg; creatorFlowMod.gotoStep(stg===0?Math.min(crStep,4):(stg===1?5:6)); }); });
 /* === 책상 세팅(5단계): 책상 색 + 책상 위 아이템(소품) + 위치조작 === */
 /* 🎨 책상 아이템 카드 도트 썸네일 — 꾸미기 파츠와 동일한 렌더러(generatePartThumbnail)를 재사용.
    rec.thumbnail(배포에 포함된 것) 우선, 없으면 GLB에서 지연 생성해 메모리 캐시. 실패 시 이모지 유지. */
@@ -7902,8 +7902,8 @@ function renderCrItems(){
       if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
       /* 📦 코드로 넣은 책상만 GLB 가 def 에 실린다(카탈로그 책상은 id 만) — crDone 과 같은 갈래. */
       if(!rec.fromCatalog){
-        const _sz = _creatorSizeGrow(d=>{ d.deskGlb = rec.glb; delete d.deskCatalogId; });
-        if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
+        const _sz = creatorSaveMod._creatorSizeGrow(d=>{ d.deskGlb = rec.glb; delete d.deskCatalogId; });
+        if(!_sz.ok){ toast(_sz.message, null, creatorSaveMod.DEF_SIZE_TOAST_MS); return; }
       }
       try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(rec.glb));
         cDeskTemplate=sc; cDeskGlbB64=rec.glb; cDeskScale=clampDeskScale(cDeskScale||DESK_SCALE_DEFAULT); activeCustomDeskId=rec.id;
@@ -7998,8 +7998,8 @@ function renderCrItems(){
     it.onclick=()=>{ if(!cBase||!cBase.deskAnchor)return;
       /* 📦 켜는 것만 잰다 — 카탈로그 아이템은 GLB 를 def 에 안 싣는다(crDone 과 같은 갈래). */
       if(!on && !(rec && rec.fromCatalog)){
-        const _sz = _creatorSizeGrow(d=>{ d.customItems = d.customItems || {}; d.customItems[def.id] = { name: def.name, glb: def.glb }; });
-        if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
+        const _sz = creatorSaveMod._creatorSizeGrow(d=>{ d.customItems = d.customItems || {}; d.customItems[def.id] = { name: def.name, glb: def.glb }; });
+        if(!_sz.ok){ toast(_sz.message, null, creatorSaveMod.DEF_SIZE_TOAST_MS); return; }
       }
       equipDeskItem(cBase,def,!on); renderCrItems(); autoSaveDeskItemsNow(); };
     row.appendChild(it);
@@ -8333,7 +8333,7 @@ document.getElementById('itemAddCode').onclick=()=>openAssetImport('item');
 function bindCrXform(id,key){ document.getElementById(id).addEventListener('input',e=>{
   const v=+e.target.value;
   cXform[key] = (key==='y') ? clampCharY(v) : v;   // 🧍 높이는 0 하한·CHAR_Y_MAX 상한
-  applyCreatorXform(); }); }   // 카메라는 고정 — 크기 가늠 쉽게
+  creatorPrevMod.applyCreatorXform(); }); }   // 카메라는 고정 — 크기 가늠 쉽게
 /* 🧍 '앞뒤' 슬라이더(#crZ)를 '높이' 슬라이더로 전용한다 — 범위를 여기서 심어서 HTML 을 안 고쳐도
    곧바로 올바르게 동작하게 한다(HTML 의 min 이 음수로 남아 있으면 왼쪽 절반이 죽은 구간이 된다).
    ⚠️ 라벨 문구는 여기서 못 바꾼다 — HTML 쪽도 '캐릭터 높이' 로 고칠 것. */
@@ -8347,7 +8347,7 @@ document.querySelectorAll('#seatStage .mini-reset[data-rs]').forEach(btn=>{ btn.
   /* 🧍 data-rs="z" 는 HTML 그대로 두고 여기서 높이(y)로 읽는다 — 그 슬라이더가 이제 높이다. */
   const raw=btn.dataset.rs, k=(raw==='z'||raw==='y')?'y':raw, dv=(k==='s')?0.7:0; cXform[k]=dv;
   const id=(k==='s')?'crScale':(k==='y'?'crZ':'crRot'); document.getElementById(id).value=dv;
-  applyCreatorXform(); }); });
+  creatorPrevMod.applyCreatorXform(); }); });
 /* 🪑 책상 위치 기즈모 ─────────────────────────────────────────────────
    아이템 기즈모(itemGizmo)를 그대로 빌려 쓴다 — 생성기 씬에 TransformControls 를 둘 만들면
    둘이 동시에 뜨고 드래그가 서로를 가로챈다. 대신 '지금 무엇에 붙어 있는가'를 여기서 관리한다.
@@ -8463,11 +8463,11 @@ document.getElementById('assetImpGo').onclick=async()=>{
     /* 📦 넣자마자 이 캐릭터에 실리는 것(책상 · 아이템)은 파일 하나로 남은 용량을 넘으면 받지 않는다.
        책상은 지금 책상 자리를 비운 나머지와 견준다(바꿔 끼우는 것이라). 파츠는 def 에 GLB 가 안 실린다. */
     if(creatorOpen && cBase && (kind==='desk' || kind==='item')){
-      const _rest = _creatorBuildDef(true);
+      const _rest = creatorSaveMod._creatorBuildDef(true);
       if(kind==='desk'){ delete _rest.deskGlb; delete _rest.deskCatalogId; }
       const _add = (kind==='desk' ? DefSize.jsonBytes(glbB64) + 12 : DefSize.jsonBytes({ name: u.name, glb: glbB64 }) + 20);
-      const _sz = _defSizeFile(_rest, _add);
-      if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
+      const _sz = creatorSaveMod._defSizeFile(_rest, _add);
+      if(!_sz.ok){ toast(_sz.message, null, creatorSaveMod.DEF_SIZE_TOAST_MS); return; }
     }
     const {scene, animations}=await assetCodeMod.parseGlbFull(u.glbBuf.slice(0));
     const id='c'+Date.now().toString(36);
@@ -8659,276 +8659,156 @@ const adminMode = TwAdminMode.createAdminMode({
 const matToneMod = TwMatTone.createMatTone({
   FLAT_EMISSIVE: lightToneMod.FLAT_EMISSIVE,
 });
-/* 💡 표정 그리기 «원색 보기» 버튼(미리보기 오른쪽 아래). 모듈이 없어도 생성기는 그대로 돈다. */
-const crFlatView = (typeof CreatorFlatView === 'undefined') ? null : CreatorFlatView.createCreatorFlatView({
-  btn: document.getElementById('cpFlat'), badge: document.getElementById('cpFlatBadge'),
-  onChange: ()=>updateCreatorLights()
-});
-if(crFlatView) document.getElementById('cpFlat').addEventListener('click', ()=>crFlatView.toggle());
-function updateCreatorLights(){ if(!cAmb||!cKey)return;
-  const b=lightToneMod.LIGHT_PRESET.b, h=lightToneMod.LIGHT_PRESET.h, e=lightToneMod.LIGHT_PRESET.e;
-  cAmb.intensity=0.95*b*e; cKey.intensity=1.0*b*e*_KEY_LIGHT_MUL;   // 밝기(strength) × 노출(조명 페이드) · 키는 정수리 배율까지
-  if(cFill) cFill.intensity=1.0*b*e*_FILL_LIGHT_MUL;                // 정면 필 — 실행 화면과 같은 몫
-  const col=new THREE.Color().setHSL(h,0.45,0.85);           // 색상(color)
-  cKey.color.copy(col); cAmb.color.copy(col); if(cFill) cFill.color.copy(col);
-  /* 💡 원색 보기 — 방향광을 끄고 흰빛 앰비언트 + emissive 합을 1 로. 칠한 색이 그대로 보인다(creator-flat-view.js). */
-  if(crFlatView && crFlatView.isOn()){
-    cAmb.intensity=CreatorFlatView.flatAmbient(lightToneMod.FLAT_EMISSIVE); cAmb.color.setRGB(1,1,1);
-    cKey.intensity=0; if(cFill) cFill.intensity=0;
-  }
-  const flat=lightToneMod.FLAT_EMISSIVE;                                  // 플랫 조명 배율(전역 손잡이)
-  if(cBase){
-    if(cBase.faceMat){ if(cBase.faceMat.emissiveMap!==cBase.faceMat.map){cBase.faceMat.emissiveMap=cBase.faceMat.map;cBase.faceMat.needsUpdate=true;} cBase.faceMat.emissive.setScalar(flat); }
-    if(cBase.upMat){ if(cBase.upMat.map&&cBase.upMat.emissiveMap!==cBase.upMat.map){cBase.upMat.emissiveMap=cBase.upMat.map;cBase.upMat.needsUpdate=true;} cBase.upMat.emissive.copy(cBase.upMat.color).multiplyScalar(flat); }
-    if(cBase.loMat){ if(cBase.loMat.map&&cBase.loMat.emissiveMap!==cBase.loMat.map){cBase.loMat.emissiveMap=cBase.loMat.map;cBase.loMat.needsUpdate=true;} cBase.loMat.emissive.copy(cBase.loMat.color).multiplyScalar(flat); }
-    if(cBase.hatMat){ if(cBase.hatMat.map&&cBase.hatMat.emissiveMap!==cBase.hatMat.map){cBase.hatMat.emissiveMap=cBase.hatMat.map;cBase.hatMat.needsUpdate=true;} cBase.hatMat.emissive.copy(cBase.hatMat.color).multiplyScalar(flat); }
-  }
-}
-/* (C 구역 떼기 · w3) 이 자리의 본문도 character/mat-tone.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-/* ═══ 🧍 생성기 미리보기 — 렌더러 · 카메라 · 열기 · 닫기 · 완료 ═══ */
-/* --- 생성기 미리보기 렌더러 --- */
+/* 🧍 생성기 상태 — 생성기 묶음 전체(그리기 · 책상 · 기즈모 · animal.js)가 같이 읽고 쓴다. 모듈(creator-preview · creator-flow · creator-save)은 읽는 · 쓰는 함수로 받는다. */
 let cRenderer=null,cScene=null,cCam=null,cBase=null,creatorOpen=false,cAmb=null,cKey=null,cFill=null,cDesk=null,cDeskMat=null,cFloor=null;
 let camDist=1.5,camYaw=0,camPitch=0.05,orbiting=false,lastMX=0,lastMY=0;
 let _rcOrbit=null;   // 우클릭 드래그 회전 상태 — {x,y,moved}. 클릭만이면 스포이드로 폴백
 const camTarget=new THREE.Vector3(0,1.2,0);
 const cFaceCenter=new THREE.Vector3(0,1.2,0), cBodyCenter=new THREE.Vector3(0,0.85,0);
 let cFaceDist=1.15, cBodyDist=3.9;
-function updateCreatorCam(){if(!cCam)return;
-  cCam.position.set(camTarget.x+camDist*Math.sin(camYaw)*Math.cos(camPitch),
-                    camTarget.y+camDist*Math.sin(camPitch),
-                    camTarget.z+camDist*Math.cos(camYaw)*Math.cos(camPitch));
-  cCam.lookAt(camTarget);
-  if(crStep<=3){ faceCamSaved={target:camTarget.clone(),dist:camDist,yaw:camYaw,pitch:camPitch}; }   // 1~3단계 각도 기억
-  else if(crStep>=5){ deskCamSaved={target:camTarget.clone(),dist:camDist,yaw:camYaw,pitch:camPitch}; }  // 5~6단계 각도 기억
-}
-// 미리보기용 static 모델에 HAND_REST 각도를 즉시 적용해주는 헬퍼 함수입니다.
-function applyStaticHandRest(root, isAnimal, typing) {
-  if(!root) return;
-  let handL = null, handR = null;
-  
-  // 메인 화면과 정확히 똑같은 뼈(왼팔, 오른팔) 딱 2개만 찾아냅니다.
-  root.traverse(o => {
-    if (o.isBone) {
-      const n = o.name.toLowerCase();
-      if (n.includes('hand') || n.includes('arm')) {
-        const s = boneSide(n);
-        if (s === 'l' && !handL) handL = o;
-        if (s === 'r' && !handR) handR = o;
-      }
-    }
-  });
-
-  // HAND_REST 값만큼 팔을 들어올립니다.
-  // 🐾 동물은 hand 본 rest 자세가 달라 인간 값(-1.0)을 주면 만세 자세가 됨 — 전용 값을 쓴다.
-  //   (인자를 안 넘기는 기존 호출부 3곳은 예전과 동일하게 인간 값 · 리프트 없음 — 동작 변화 없음)
-  // 🐾 typing=true면 실행 화면의 타이핑 자세(baseArmRot + FOCUS_ARM_LIFT)와 같은 각도로 맞춘다.
-  //   책상·좌석 세팅 화면은 '책상 앞에 앉은 모습'을 보는 곳이라 정지 자세보다 작업 자세가 맞다는 판단.
-  const _restRot = isAnimal ? ANIMAL_HAND_REST : HAND_REST;
-  const _liftRot = typing ? FOCUS_ARM_LIFT : 0;
-  const _be = new THREE.Euler(_restRot + _liftRot, 0, 0, 'XYZ');
-  const _bq = new THREE.Quaternion().setFromEuler(_be);
-  if (handL) handL.quaternion.multiply(_bq);
-  if (handR) handR.quaternion.multiply(_bq);
-}
-function ensureCreatorPreview(){
-  if(cRenderer)return;
-  cRenderer=new THREE.WebGLRenderer({canvas:document.getElementById('creatorPreview'),antialias:true,alpha:true,preserveDrawingBuffer:true});
-  cRenderer.setPixelRatio(Math.min(devicePixelRatio,2));cRenderer.outputEncoding=THREE.sRGBEncoding;cRenderer.toneMapping=THREE.NoToneMapping;cRenderer.setSize(222,300,false);
-  cScene=new THREE.Scene();cAmb=new THREE.AmbientLight(0xfdfbf7,0.95);cScene.add(cAmb);   // 색 왜곡 방지 위해 거의 백색광
-  cKey=new THREE.DirectionalLight(0xfdfaf5,1.0);cKey.position.set(0,4,0);cScene.add(cKey);
-  /* ★ 정면 필 — 실행 화면과 같은 배치. 없으면 생성기에서는 옷 앞면이 앰비언트만 받아
-     실행 화면보다 어둡게 보인다(두 화면의 톤이 갈라지는 자리다). 세기는 updateCreatorLights 가 정한다. */
-  cFill=new THREE.DirectionalLight(0xfdfaf5,1.0);cFill.position.set(0.5,1.0,3);cScene.add(cFill);
-  cCam=new THREE.PerspectiveCamera(34,222/300,0.1,100);
-  const inst=instantiateBase();
-  if(inst){ matToneMod.setFaceMap(inst.faceMat, dispTex);
-    if(inst.upMat)inst.upMat.color.set(cTopColor); if(inst.loMat)inst.loMat.color.set(cBotColor);
-    if(inst.hatMat)inst.hatMat.color.set(cTopColor);   // 🎩 기본 모자도 상의색
-    applyStaticHandRest(inst.root); // 생성창 기본 프리뷰에 팔 높이 반영
-    normalizeModel(inst.root,1.45); cScene.add(inst.root);
-    cBase={group:inst.root,faceMat:inst.faceMat,upMat:inst.upMat,loMat:inst.loMat,hatMat:inst.hatMat,face:inst.faceMesh,
-      // ★ applyClothVisibility가 파츠 장착 시 기본 메쉬(모자 등)를 숨길 수 있게 좌석과 동일한 참조 세트 유지
-      upMesh:inst.upMesh||null,loMesh:inst.loMesh||null,glassesMesh:inst.glassesMesh||null,hatMesh:inst.hatMesh||null,
-      maskMesh:inst.maskMesh||null,onepieceMesh:inst.onepieceMesh||null,wingMesh:inst.wingMesh||null,
-      handLMesh:inst.handLMesh||null,handRMesh:inst.handRMesh||null,capeMesh:inst.capeMesh||null};
-    extractBonesInto(cBase, inst.root);   // 꾸미기 파츠를 붙일 본(부착점) 정보 채워넣기 — 캐릭터 세팅 미리보기에도 파츠가 보이게
-    const fg=inst.faceMesh.geometry;
-    cBase.facePos=fg.attributes.position.array; cBase.faceUv=fg.attributes.uv?fg.attributes.uv.array:null;
-    cBase.faceIdx=fg.index?fg.index.array:null;
-    fg.computeBoundingBox(); cBase.faceCx=(fg.boundingBox.min.x+fg.boundingBox.max.x)/2;
-    cBase.equipped={hair:null,accessory:null,clothes:null}; cBase.equippedId={hair:null,accessory:null,clothes:null};
-    // 미리보기 책상 (앱과 동일 위치 — 소품을 올려놓는 곳)
-    cDesk=buildDesk(true); cScene.add(cDesk); cDesk.visible=false;
-const cFloorGeo = new THREE.BoxGeometry(1, 1, 1);
-    cFloorGeo.translate(0, -0.5, 0); // 윗면 중앙 피벗
-    cFloor=new THREE.Mesh(cFloorGeo, M(0xcdb88f,0.95));   // 앱과 동일한 받침대
-    cFloor.scale.set(2.4,0.125,2.2); cFloor.position.set(0,0,0.0); cFloor.visible=false; cScene.add(cFloor);
-    const dt=cDesk.getObjectByName('deskTop'); if(dt){ dt.material=dt.material.clone(); cDeskMat=dt.material; lightToneMod._setDeskMatColor(cDeskMat, cDeskColor); }
-    cBase.deskAnchor=cDesk.userData.deskAnchor; cBase.deskItems={}; cBase.activeDeskItem=null;
-    fitCreator('edit');   // 편집 포즈 기준으로 카메라 중심 계산
-    const fb=new THREE.Box3().setFromObject(inst.faceMesh), fs=fb.getSize(new THREE.Vector3());
-    fb.getCenter(cFaceCenter);
-    cFaceCenter.y += 0.12;   // ▲ 한 칸만큼 시선 높임 (얼굴이 화면에 자연스럽게 자리)
-    { const fovV=cCam.fov*Math.PI/180, aspect=222/300;
-      const dV=(fs.y/2)/Math.tan(fovV/2), dH=(fs.x/2)/Math.tan(Math.atan(Math.tan(fovV/2)*aspect));
-      cFaceDist=Math.max(dV,dH)*0.63 + fs.z*0.5 + 0.10; }   // 얼굴만 확대 (피부/표정/감은눈 단계, 측정 기반)
-    const bb=new THREE.Box3().setFromObject(inst.root), bs=bb.getSize(new THREE.Vector3());
-    bb.getCenter(cBodyCenter); cBodyDist=Math.max(bs.x,bs.y)*1.7+0.3;
-  } else {
-    cBase=buildCreatorBase(dispTex,dispTex,skinColorFor(skinIndex),cTopColor,cBotColor);cScene.add(cBase.group);
-    cFaceCenter.set(0,1.32,0);cFaceDist=1.15;cBodyCenter.set(0,0.85,0);cBodyDist=3.9;
-  }
-  updateCreatorCam();
-  updateCreatorLights();   // 미리보기가 열리는 순간 emissive 톤 즉시 반영(1~3단계에서도 적용)
-  bindPaint();
-}
-function creatorLoop(){if(!creatorOpen)return;cRenderer.render(cScene,cCam);requestAnimationFrame(creatorLoop);}
-const RIG_TURN=-0.28;   // 앱 좌석이 매 프레임 적용하는 기본 바라보는 각도 (미리보기도 동일하게)
-function fitCreator(mode){ if(!cBase||!cBase.group)return; const g=cBase.group;
-  // 표준 리그 통합: 커미션 분기 제거 — base와 동일하게 g 자기 박스 기준
-  // ★ 커미션 캐릭터는 COMMISSION_SCALE_CORRECTION만큼 추가 보정(15% 키움 등) — 아래 두 분기 모두 적용.
-  const commCorr = isCommissionEditing() ? COMMISSION_SCALE_CORRECTION : 1;
-  if(mode==='edit'){
-    g.scale.set(1,1,1); g.position.set(0,0,0); g.rotation.set(0,0,0); g.updateWorldMatrix(true,true);
-    let refBox=measureCharBox(g); if(refBox.isEmpty())return;
-    let refSize=refBox.getSize(new THREE.Vector3());
-    const s=(refSize.y>1e-4?1.5/refSize.y:1)*commCorr; g.scale.setScalar(s); g.updateWorldMatrix(true,true);
-    let b2=measureCharBox(g); const c=b2.getCenter(new THREE.Vector3());
-    // 모델 원점(Y=0)을 살립니다.
-    /* 🪑 앞뒤(z)는 fitModel 과 **같은 규약**이어야 한다 — 그쪽에서 재센터링(-c.z)을 뺐으므로
-       여기서도 뺀다. 한쪽만 두면 생성기에서 맞춘 앞뒤가 실행 화면과 c.z 만큼 어긋난다
-       (그 항이 파츠에 따라 변하는 값이라 어긋나는 양도 파츠마다 달라진다).
-       ⚠️ 되돌릴 때는 fitModel 의 같은 줄과 **함께** 되돌릴 것. */
-    g.position.x+=(0-c.x); g.position.y = charFootFix(b2);   // 🦶 피봇 보정 — fitModel 과 짝(charFootFix 주석)
-    // 🦶 바닥 맞춤 — 실행 화면(fitModel)과 **같은 보정**이어야 한다. 한쪽만 넣으면
-    //   생성기에서 맞춘 높이와 실행 화면이 발밑 파츠 깊이만큼 어긋난다.
-    g.position.y += measureUnderfootDepth(g);
-  } else {
-    g.scale.set(1,1,1); g.position.set(0,0,0); g.rotation.set(0,RIG_TURN+cXform.rot,0); g.updateWorldMatrix(true,true);
-    let refBox=measureCharBox(g); if(refBox.isEmpty())return;
-    let refSize=refBox.getSize(new THREE.Vector3());
-    // 🐾 동물은 '측정' 대신 확정 공식으로 — 실행 화면(fitModel)과 같은 원리.
-    //   buildAnimalBase가 기록해둔 정규화 배율(animNormScale: raw → animNormH)에
-    //   목표 높이 비율(1.45 / animNormH)을 곱하면 측정 없이 정확히 1.45×cXform.s 높이가 된다.
-    //   측정 경로는 귀 부착 타이밍에 따라 값이 흔들려서 생성기 캐릭터 크기가 들쭉날쭉했고,
-    //   책상은 고정이라 "생성기와 실행의 책상 비율이 다르다"로 드러났다.
-    //   ★ 기록이 없으면(구버전 경로 등) 기존 측정 방식으로 폴백. 인간·커미션은 그대로 측정 경로.
-    const _anS = (isAnimalEditing() && g.userData && g.userData.animNormScale && g.userData.animNormH)
-      ? g.userData.animNormScale * (1.45 / g.userData.animNormH) * cXform.s
-      : null;
-    const s = (_anS != null) ? _anS : (refSize.y>1e-4?1.45/refSize.y:1)*cXform.s*commCorr;
-    g.scale.setScalar(s); g.updateWorldMatrix(true,true);
-    let b2=measureCharBox(g); const c=b2.getCenter(new THREE.Vector3());
-    // 모델 원점(Y=0)을 살립니다.
-    /* 🪑 앞뒤(z)는 fitModel 과 **같은 규약**이어야 한다 — 그쪽에서 재센터링(-c.z)을 뺐으므로
-       여기서도 뺀다. 한쪽만 두면 생성기에서 맞춘 앞뒤가 실행 화면과 c.z 만큼 어긋난다
-       (그 항이 파츠에 따라 변하는 값이라 어긋나는 양도 파츠마다 달라진다).
-       ⚠️ 되돌릴 때는 fitModel 의 같은 줄과 **함께** 되돌릴 것. */
-    g.position.x+=(0-c.x);
-    /* 🧍 높이(y) — 앞뒤 슬라이더를 대체한 값. 여기가 세 화면(생성기·꾸미기 미리보기·실행)의 기준이다.
-       ⚠️ g.scale 에 안 물린 절대값이다 — fitModel 이 _uz 로 나누는 이유가 이것이다.
-       🚫 앞뒤(cXform.z)는 폐기 — CHAR_Z(책상과의 기본 간격)만 남는다. 옛 저장값은 로드 때 0 으로 죽는다. */
-    g.position.y = clampCharY(cXform.y) + charFootFix(b2); g.position.z+=CHAR_Z;   // 🦶 피봇 보정 — fitModel 과 짝
-    g.position.y += measureUnderfootDepth(g);   // 🦶 바닥 맞춤 — 위 'edit' 분기와 같은 이유
-  }
-}
-function applyCreatorXform(){ fitCreator('app'); }   // 캐릭터만 변형 — 카메라는 그대로 두어 책상 크기 고정·회전/시점 유지
-function frameDeskCam(keepView){   // 캐릭터+책상 전체가 다 보이도록 거리 자동 조절 (메인 화면과 동일한 스케일 적용)
-  if(!cCam) return;
-  const box=new THREE.Box3();
-  if(cBase&&cBase.group) box.expandByObject(cBase.group);
-  if(cDesk&&cDesk.visible) box.expandByObject(cDesk);
-  if(!keepView){ camYaw=0; camPitch=0.13; }
-  if(box.isEmpty()){ camTarget.set(0,0.6,-0.1); camDist=4.4; updateCreatorCam(); return; }
-  
-  const c=box.getCenter(new THREE.Vector3()), sz=box.getSize(new THREE.Vector3());
-  camTarget.copy(c);
-  sizeFloorTo(cFloor, c.x, c.z, sz.x, sz.z);   // 받침대를 캐릭터+책상 크기에 맞춤
-  
-  const fovV=cCam.fov*Math.PI/180, aspect=222/300;
-  
-  // 메인 앱의 layoutSeats()와 완전히 동일한 여백(Padding) 계산 적용
-  const contentW = sz.x + 0.25;
-  const contentH = Math.max(sz.y, 1.3) + 0.18;
-  
-  const distV=(contentH/2)/Math.tan(fovV/2);
-  const distH=(contentW/2)/Math.tan(Math.atan(Math.tan(fovV/2)*aspect));
-  
-  // 메인 앱과 동일한 거리 계산 공식 적용 (*1.3 가중치 제거)
-  camDist=Math.max(distV,distH) + sz.z*0.45;
-  
-  updateCreatorCam();
-}
-function gotoStep(n){
-  // 1~4단계(피부/표정/감은눈/색상)는 사람용 — 동물은 동물 생성기로, 커미션은 막고 책상(5)에 머문다
-  if(_editRoute){
-    const r=_editRoute.stepRoute(currentCreatorDef, n);
-    if(r.animal && reopenAnimalFromCreator('blink')) return;
-    if(r.toast) toast(r.toast);
-    n = r.animal ? 5 : r.step;
-  } else if(isDeskSeatOnly() && n<5){
-    if(isCommissionEditing()) toast('커미션 캐릭터는 수정할 수 없어요.');
-    n = 5;
-  }
-  crStep=n;
-  /* 🎨 안전망 — 색 스와치는 «값을 넣은 쪽»이 맞춰 줘야 하는데, 그걸 잊는 사고가 실제로 났다.
-     단계 이동은 색 화면이 보이기 직전에 반드시 지나가는 자리라 여기서 한 번 더 맞춘다(요소 셋, 비용 없음). */
-  _syncCrColorSwatches();
-  if(n===3 && !blinkEdited){ const bx=blinkC.getContext('2d'); bx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); bx.drawImage(faceC,0,0); histB.length=0; redoB.length=0; }  // 아직 감은눈을 안 고쳤으면 최신 표정을 복사해서 시작
-  const draw=isDrawStep(), skin=(n===1), color=(n===4), faceView=(n<=3);
-  if(crFlatView) crFlatView.show(draw);   // 그리기 단계에서만 · 벗어나면 원래 조명으로
-  const stage = n<=4?0 : (n===5?1:2);
-  showEl('charStage', n<=4); showEl('deskStage', n===5); showEl('seatStage', n===6);
-  document.getElementById('skinRow').style.display=skin?'flex':'none';
-  document.getElementById('crTools').style.display=draw?'flex':'none';
-  document.getElementById('penHint').style.display=draw?'block':'none';
-  if(!draw && stampMode) setStampMode(false);   // 표정 단계 벗어나면 도장 모드 해제
-  document.getElementById('blinkResetBtn').style.display=(n===3)?'inline-block':'none';
-  /* 🙂 [⟳ 감은눈 복사]는 2단계에서만. 감은눈을 한 번도 안 고쳤으면 그 캔버스는 비어 있어
-     복사할 것이 없다 — 눌리면 표정이 지워지므로 잠그고, **왜 잠겼는지 툴팁에 적는다**
-     (그냥 흐려만 두면 "버튼이 고장났다"가 된다). */
-  const _fcb=document.getElementById('faceCopyBlinkBtn');
-  if(_fcb){
-    _fcb.style.display=(n===2)?'inline-block':'none';
-    _fcb.disabled = !blinkEdited;
-    _fcb.title = blinkEdited ? '감은눈 그림을 표정으로 가져와요 (되돌리기 가능)'
-                             : '아직 감은눈을 그린 적이 없어요 — 3단계에서 먼저 그려주세요';
-  }
-  document.getElementById('crColors').style.display=color?'flex':'none';
-  document.getElementById('crHint').textContent =
-    n===1?'피부색을 골라주세요':
-    n===2?'얼굴을 클릭·드래그해 표정을 그려요 · 휠=확대 · ◀▶=회전':
-    n===3?'2단계 표정이 복사됐어요 — 눈을 감은 모양으로 고쳐요':
-          '상의·하의 색을 골라주세요 (전체 모습)';
-  const sp=document.getElementById('crSteps').children;
-  [...sp].forEach((el,i)=>{el.classList.toggle('on',i===n-1);el.classList.toggle('done',i<n-1);
-    // 커미션이면 1~4단계 탭을 시각적으로 잠금 (회색·비활성)
-    if(isDeskSeatOnly() && i<4){ el.style.opacity='0.35'; el.style.textDecoration='line-through'; el.title=isAnimalEditing()?'동물 얼굴은 동물 생성기에서 편집':'커미션 캐릭터는 수정할 수 없어요'; }
-    else { el.style.opacity=''; el.style.textDecoration=''; el.title=''; }
-  });
-  const stg=document.getElementById('crStages').children;
-  [...stg].forEach((el,i)=>{el.classList.toggle('on',i===stage);el.classList.toggle('done',i<stage);});
-  document.getElementById('crPrev').style.display=n>1?'block':'none';
-  document.getElementById('crNext').style.display=n<6?'block':'none';
-  document.getElementById('crDone').style.display=n===6?'block':'none';
-  if(n===5){ renderCrItems(); }
-  if(n===6){ document.getElementById('crScale').value=cXform.s;
-    document.getElementById('crZ').value=clampCharY(cXform.y); document.getElementById('crRot').value=cXform.rot; }   // 🧍 crZ = 높이 슬라이더
-  const deskView=(n>=5);
-  if(cDesk) cDesk.visible=deskView;
- // if(cFloor) cFloor.visible=deskView;
-  if(deskView){ fitCreator('app'); }
-  else { fitCreator('edit'); }
-  if(faceView){ if(faceCamSaved){ camTarget.copy(faceCamSaved.target); camDist=faceCamSaved.dist; camYaw=faceCamSaved.yaw; camPitch=faceCamSaved.pitch; }
-                else { camTarget.copy(cFaceCenter); camDist=cFaceDist; camYaw=0; camPitch=0.0; } }   // 1~3단계 사이 각도 유지
-  else if(deskView){ if(deskCamSaved){ camTarget.copy(deskCamSaved.target); camDist=deskCamSaved.dist; camYaw=deskCamSaved.yaw; camPitch=deskCamSaved.pitch; }
-                     else { frameDeskCam(false); } }                                  // 책상·좌석(5·6) 사이 각도 유지
-  else{camTarget.copy(cBodyCenter);camDist=cBodyDist;camYaw=0;camPitch=0.04;}            // 전체 모습(정면)
-  updateCreatorCam();
-  document.getElementById('creatorPreview').style.cursor=draw?'crosshair':'default';
-  blit();}
+/* 본문은 creator/creator-preview.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
+  ANIMAL_HAND_REST: ANIMAL_HAND_REST,
+  BASE_SCENE: ()=>BASE_SCENE,
+  CHAR_Z: CHAR_Z,
+  COMMISSION_SCALE_CORRECTION: COMMISSION_SCALE_CORRECTION,
+  FLAT_EMISSIVE: lightToneMod.FLAT_EMISSIVE,
+  FOCUS_ARM_LIFT: ()=>FOCUS_ARM_LIFT,
+  HAND_REST: ()=>HAND_REST,
+  LIGHT_PRESET: LIGHT_PRESET,
+  M: M,
+  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
+  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
+  _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
+  _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),
+  allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
+  bindPaint: (...a)=>bindPaint(...a),
+  boneSide: (...a)=>boneSide(...a),
+  buildCreatorBase: (...a)=>buildCreatorBase(...a),
+  buildDesk: (...a)=>buildDesk(...a),
+  cAmb: ()=>cAmb,
+  cBase: ()=>cBase,
+  cBodyCenter: cBodyCenter,
+  cBodyDist: ()=>cBodyDist,
+  cBotColor: ()=>cBotColor,
+  cCam: ()=>cCam,
+  cDesk: ()=>cDesk,
+  cDeskColor: ()=>cDeskColor,
+  cDeskMat: ()=>cDeskMat,
+  cFaceCenter: cFaceCenter,
+  cFaceDist: ()=>cFaceDist,
+  cFill: ()=>cFill,
+  cFloor: ()=>cFloor,
+  cKey: ()=>cKey,
+  cRenderer: ()=>cRenderer,
+  cScene: ()=>cScene,
+  cTopColor: ()=>cTopColor,
+  cXform: ()=>cXform,
+  camDist: ()=>camDist,
+  camPitch: ()=>camPitch,
+  camTarget: camTarget,
+  camYaw: ()=>camYaw,
+  charFootFix: (...a)=>charFootFix(...a),
+  clampCharY: (...a)=>clampCharY(...a),
+  compositeFace: (...a)=>compositeFace(...a),
+  crStep: ()=>crStep,
+  creatorOpen: ()=>creatorOpen,
+  deskCamSaved: ()=>deskCamSaved,
+  deskItemOrigin: deskItemOrigin,
+  dispTex: dispTex,
+  equipDeskItem: (...a)=>equipDeskItem(...a),
+  extractBonesInto: (...a)=>extractBonesInto(...a),
+  faceCamSaved: ()=>faceCamSaved,
+  getCommissionScene: (...a)=>getCommissionScene(...a),
+  instantiateBase: (...a)=>instantiateBase(...a),
+  isAnimalEditing: (...a)=>isAnimalEditing(...a),
+  isCommissionEditing: (...a)=>isCommissionEditing(...a),
+  matToneMod: matToneMod,
+  measureCharBox: (...a)=>measureCharBox(...a),
+  measureUnderfootDepth: (...a)=>measureUnderfootDepth(...a),
+  mkFaceTex: (...a)=>mkFaceTex(...a),
+  normalizeModel: (...a)=>normalizeModel(...a),
+  sizeFloorTo: (...a)=>sizeFloorTo(...a),
+  skinColorFor: (...a)=>skinColorFor(...a),
+  skinIndex: ()=>skinIndex,
+  toast: (...a)=>toast(...a),
+  setCAmb: (v)=>{ cAmb = v; },
+  setCBase: (v)=>{ cBase = v; },
+  setCBodyDist: (v)=>{ cBodyDist = v; },
+  setCCam: (v)=>{ cCam = v; },
+  setCDesk: (v)=>{ cDesk = v; },
+  setCDeskMat: (v)=>{ cDeskMat = v; },
+  setCFaceDist: (v)=>{ cFaceDist = v; },
+  setCFill: (v)=>{ cFill = v; },
+  setCFloor: (v)=>{ cFloor = v; },
+  setCKey: (v)=>{ cKey = v; },
+  setCRenderer: (v)=>{ cRenderer = v; },
+  setCScene: (v)=>{ cScene = v; },
+  setCamDist: (v)=>{ camDist = v; },
+  setCamPitch: (v)=>{ camPitch = v; },
+  setCamYaw: (v)=>{ camYaw = v; },
+  setDeskCamSaved: (v)=>{ deskCamSaved = v; },
+  setFaceCamSaved: (v)=>{ faceCamSaved = v; },
+});
+/* (C 구역 떼기 · w3) 이 자리의 본문도 character/mat-tone.js 로 옮겼다 — 만드는 줄은 첫 자리. */
+/* ═══ 🧍 생성기 미리보기 — 렌더러 · 카메라 · 열기 · 닫기 · 완료 ═══ */
+/* (C 구역 떼기 · w3) 이 자리의 본문도 creator/creator-preview.js 로 옮겼다 — 만드는 줄은 첫 자리. */
+/* 본문은 creator/creator-flow.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const creatorFlowMod = TwCreatorFlow.createCreatorFlow({
+  CANVAS_SZ: CANVAS_SZ,
+  _editRoute: _editRoute,
+  _syncCrColorSwatches: (...a)=>_syncCrColorSwatches(...a),
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  blinkC: blinkC,
+  blinkEdited: ()=>blinkEdited,
+  blit: (...a)=>blit(...a),
+  cBodyCenter: cBodyCenter,
+  cBodyDist: ()=>cBodyDist,
+  cDesk: ()=>cDesk,
+  cFaceCenter: cFaceCenter,
+  cFaceDist: ()=>cFaceDist,
+  cXform: ()=>cXform,
+  camDist: ()=>camDist,
+  camPitch: ()=>camPitch,
+  camTarget: camTarget,
+  camYaw: ()=>camYaw,
+  clampCharY: (...a)=>clampCharY(...a),
+  clearStampState: (...a)=>clearStampState(...a),
+  crStep: ()=>crStep,
+  creatorMode: ()=>creatorMode,
+  creatorOpen: ()=>creatorOpen,
+  creatorPrevMod: creatorPrevMod,
+  currentCreatorDef: ()=>currentCreatorDef,
+  deskCamSaved: ()=>deskCamSaved,
+  deskItemOrigin: deskItemOrigin,
+  detachItemGizmo: (...a)=>detachItemGizmo(...a),
+  faceC: faceC,
+  faceCamSaved: ()=>faceCamSaved,
+  histB: histB,
+  isAnimalEditing: (...a)=>isAnimalEditing(...a),
+  isCommissionEditing: (...a)=>isCommissionEditing(...a),
+  isDeskSeatOnly: (...a)=>isDeskSeatOnly(...a),
+  isDrawStep: (...a)=>isDrawStep(...a),
+  redoB: redoB,
+  renderCrItems: (...a)=>renderCrItems(...a),
+  renderLauncher: (...a)=>renderLauncher(...a),
+  reopenAnimalFromCreator: (...a)=>reopenAnimalFromCreator(...a),
+  setStampMode: (...a)=>setStampMode(...a),
+  showEl: (...a)=>showEl(...a),
+  stampMode: ()=>stampMode,
+  toast: (...a)=>toast(...a),
+  setCamDist: (v)=>{ camDist = v; },
+  setCamPitch: (v)=>{ camPitch = v; },
+  setCamYaw: (v)=>{ camYaw = v; },
+  setCrStep: (v)=>{ crStep = v; },
+  setCreatorOpen: (v)=>{ creatorOpen = v; },
+});
+/* 생성기 여는 입구 — 동물 생성기 · 종족 선택창 · 친구 추가 · 런처가 부르고, 동물이면 동물 생성기로 되돌리는 연결 자리라 app.js 에 둔다
+   (creator-flow.js 로 옮기면 animal.js ↔ 생성기 모듈 순환이 생긴다). 3D 는 creatorPrevMod · 단계는 creatorFlowMod. */
 function openCreator(mode){
-  ensureCreatorPreview();
+  creatorPrevMod.ensureCreatorPreview();
   // ★ 꾸미기 창이 켜진 채로 생성기를 열면 같은 종류의 "떠 있는 채 안 닫힘" 문제가 생길 수 있어 미리 닫음(저장하며 — backToLauncher 와 같다).
   const wp=document.getElementById('wardrobePanel');
   if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
@@ -8954,7 +8834,7 @@ function openCreator(mode){
   _syncCrColorSwatches();   // ★ value 대입은 input 이벤트를 안 낸다 — 스와치는 여기서 직접 맞춘다
   [...document.getElementById('skinRow').children].forEach((x,j)=>x.classList.toggle('on',j===skinIndex));
   if(cBase){ if(cBase.upMat)cBase.upMat.color.set(cTopColor); if(cBase.loMat)cBase.loMat.color.set(cBotColor); if(cBase.hatMat)cBase.hatMat.color.set(cTopColor); }
-  updateCreatorLights();   // 수정 진입 시에도 emissive 톤 갱신
+  creatorPrevMod.updateCreatorLights();   // 수정 진입 시에도 emissive 톤 갱신
   /* 🧍 높이는 살리고 앞뒤는 죽인다 — z 는 폐기된 값이라 옛 저장본이 무엇을 갖고 있든 0 으로 읽는다.
      ★ 이 함수 말고도 읽는 자리가 넷 더 있다(applyCharToSeat · 런처 미리보기 · 꾸미기 미리보기 ·
        프리셋 로드). 전부 0 으로 죽여야 "어느 화면에서만 옛 앞뒤가 살아 있는" 상태가 안 생긴다. */
@@ -8974,7 +8854,7 @@ function openCreator(mode){
   const lenEl=document.getElementById('deskLenX'); if(lenEl) lenEl.value=cDeskLenX;
   activeCustomDeskId=null;
   if(cDesk){ setCreatorDeskScale(cDeskScale); setDeskPos(cDesk, cDeskPos); updateDeskPosNum(); }
-  if(cBase){ applyCreatorXform(); clearCreatorItems(); clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
+  if(cBase){ creatorPrevMod.applyCreatorXform(); creatorPrevMod.clearCreatorItems(); creatorPrevMod.clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
     if(cDesk)cDesk.userData.deskScale=cDeskScale; swapDeskVisual(cDesk,null);
     (async()=>{
       if(src&&src.deskCatalogId){
@@ -9014,17 +8894,17 @@ function openCreator(mode){
       // ★ 커스텀 책상 GLB가 이 시점에야 로드 완료됨(비동기) — 그 전에 이미 한 번 계산된 카메라 프레이밍은
       //   기본 책상 크기 기준이라, 실제 책상 크기(스케일 값 자체는 정상)와 화면에 보이는 줌이 어긋나 보이던
       //   원인. 로드가 다 끝난 지금 시점에 책상/좌석 화면이면 카메라를 다시 계산해서 맞춤.
-      if(crStep===5||crStep===6){ fitCreator('app'); frameDeskCam(false); }   // 아이템도 비동기로 늦게 붙을 수 있어 크기·카메라 둘 다 다시 계산
+      if(crStep===5||crStep===6){ creatorPrevMod.fitCreator('app'); creatorPrevMod.frameDeskCam(false); }   // 아이템도 비동기로 늦게 붙을 수 있어 크기·카메라 둘 다 다시 계산
     })();
   }
   document.getElementById('creatorOverlay').classList.add('on');document.getElementById('launcher').classList.remove('on');
   creatorOpen=true;
-  if(crFlatView) crFlatView.set(false);   // 지난번에 켜 둔 원색 보기를 다음 열기로 끌고 오지 않는다
+  if(creatorPrevMod.crFlatView) creatorPrevMod.crFlatView.set(false);   // 지난번에 켜 둔 원색 보기를 다음 열기로 끌고 오지 않는다
   // 커미션 캐릭터면 책상 세팅(5단계)부터 진입 + cBase의 베이스 GLB를 커미션 GLB로 교체
       if(src && src.animal){
-        gotoStep(_editRoute ? _editRoute.deskStep(creatorMode) : 5);   // 🐾 동물 생성기 «좌석 세팅» 으로 왔으면 6
-        swapCreatorBaseToAnimal(src).then(()=>{
-          if(cBase) fitCreator('app');
+        creatorFlowMod.gotoStep(_editRoute ? _editRoute.deskStep(creatorMode) : 5);   // 🐾 동물 생성기 «좌석 세팅» 으로 왔으면 6
+        creatorPrevMod.swapCreatorBaseToAnimal(src).then(()=>{
+          if(cBase) creatorPrevMod.fitCreator('app');
           // 진단(임시) — 실행 쪽과 같은 조건(책상 GLB 비동기 로드 완료 후)에서 재야 비교가 성립한다.
           /* 🐾 착용 파츠 부착 — 이 한 줄이 **이 가지에만 빠져 있었다.**
              커미션(아래)·기본(그 아래) 두 가지는 베이스 교체 직후 applyEquippedPartsToSeat 을 부르는데
@@ -9036,330 +8916,98 @@ function openCreator(mode){
              ★ 부착이 끝난 뒤 fitCreator 를 한 번 더 — 파츠가 바운딩박스를 늘리므로(커미션 가지와 같은 이유). */
           if(cBase && src.equippedParts){
             applyEquippedPartsToSeat(cBase, src).then(()=>{
-              if(cBase) fitCreator(crStep<=4 ? 'edit' : 'app');
+              if(cBase) creatorPrevMod.fitCreator(crStep<=4 ? 'edit' : 'app');
             });
           }
         });
       } else if(src && src.isCommission){
-        gotoStep(5);
-        swapCreatorBaseToCommission(src).then(()=>{
+        creatorFlowMod.gotoStep(5);
+        creatorPrevMod.swapCreatorBaseToCommission(src).then(()=>{
           if(cBase && src.equippedParts){
             applyEquippedPartsToSeat(cBase, src).then(()=>{
               // ★ 파츠가 비동기로 늦게 붙는데, 그 전에 이미 계산돼서 굳어버린 크기(fitCreator)가 그대로
               //   남아있던 문제 — 부착이 끝난 시점에 지금 스텝에 맞는 모드로 다시 계산해서 맞춤.
-              if(cBase) fitCreator(crStep<=4 ? 'edit' : 'app');
+              if(cBase) creatorPrevMod.fitCreator(crStep<=4 ? 'edit' : 'app');
             });
           }
         });
       } else {
         // 💡 기다릴 필요 없이 즉시 뼈대 복구 후 1단계로 진입합니다.
-        swapCreatorBaseToDefault(); 
+        creatorPrevMod.swapCreatorBaseToDefault(); 
         if(cBase && src && src.equippedParts){
           applyEquippedPartsToSeat(cBase, src).then(()=>{
             // ★ 파츠가 붙은 뒤 다시 계산 — 파츠(망토·귀 등)가 캐릭터 바운딩박스를 늘려서 refSize.y가
             //   달라짐. 첫 진입 때 파츠가 아직 안 붙은 상태로 계산된 크기가 작게 나오던 원인.
-            if(cBase) fitCreator(crStep<=4 ? 'edit' : 'app');
+            if(cBase) creatorPrevMod.fitCreator(crStep<=4 ? 'edit' : 'app');
           });
         }
-        gotoStep(1);
+        creatorFlowMod.gotoStep(1);
       }
-      requestAnimationFrame(creatorLoop);
+      requestAnimationFrame(creatorPrevMod.creatorLoop);
       applyDesktopRunClass();
 }
 
-/* 생성기의 cBase를 커미션 GLB 인스턴스로 교체 */
-async function swapCreatorBaseToCommission(def){
-  if(!def || !def.commGlb) return;
-  try{
-    const scene = await getCommissionScene(def.commGlb);
-    const newInst = instantiateBase(scene);
-    if(!newInst) return;
-    if(cBase && cBase.group && cBase.group.parent){ cBase.group.parent.add(newInst.root); cBase.group.parent.remove(cBase.group); }
-    const fT=mkFaceTex(compositeFace(def.skin,def.face)), bT=mkFaceTex(compositeFace(def.skin,def.blink));
-    matToneMod.setFaceMap(newInst.faceMat, fT);
-    matToneMod.applyLightPresetToInstance(newInst);
-    applyStaticHandRest(newInst.root); // 커미션 모델 불러올 때 팔 높이 반영
-    cBase.group = newInst.root; cBase.faceMat = newInst.faceMat; cBase.upMat = newInst.upMat; cBase.loMat = newInst.loMat; cBase.hatMat = newInst.hatMat; cBase.face = newInst.faceMesh; cBase.blinkTex = bT;
-    cBase.upMesh=newInst.upMesh||null; cBase.loMesh=newInst.loMesh||null; cBase.glassesMesh=newInst.glassesMesh||null;
-    cBase.hatMesh=newInst.hatMesh||null; cBase.maskMesh=newInst.maskMesh||null; cBase.onepieceMesh=newInst.onepieceMesh||null;
-    cBase.wingMesh=newInst.wingMesh||null; cBase.handLMesh=newInst.handLMesh||null; cBase.handRMesh=newInst.handRMesh||null; cBase.capeMesh=newInst.capeMesh||null;
-    extractBonesInto(cBase, newInst.root);   // 베이스를 통째로 새로 만들었으니 본(부착점) 정보도 다시 추출
-    normalizeModel(cBase.group, 1.45, true);
-    applyCreatorXform();
-  }catch(e){ console.warn('커미션 GLB 적용 실패', e); toast('커미션 캐릭터 모델 로드 실패'); }
-}
-
-/* 🐾 동물 캐릭터를 생성기 창(cBase)에 탑재 — 책상·좌석 세팅용. buildAnimalBase(animal.js) 재사용. */
-async function swapCreatorBaseToAnimal(def){
-  if(typeof window.buildAnimalBase!=='function'){ toast('동물 모듈을 불러오지 못했어요'); return; }
-  try{
-    const ab=window.buildAnimalBase(def);   // {group, root, faceMat, fT, bT, faceMesh...}
-    if(!ab) return;
-    if(cBase && cBase.group && cBase.group.parent){ cBase.group.parent.add(ab.root); cBase.group.parent.remove(cBase.group); }
-    cBase.group=ab.root; cBase.faceMat=ab.faceMat; cBase.upMat=null; cBase.loMat=null; cBase.hatMat=null;
-    cBase.face=ab.faceMesh; cBase.blinkTex=ab.bT;
-    cBase.upMesh=null; cBase.loMesh=null; cBase.glassesMesh=null; cBase.hatMesh=null; cBase.maskMesh=null;
-    cBase.onepieceMesh=null; cBase.wingMesh=null; cBase.handLMesh=null; cBase.handRMesh=null; cBase.capeMesh=null;
-    extractBonesInto(cBase, ab.root);   // 파츠 부착점 본 재추출 (책상 소품엔 불필요하지만 일관성)
-    // 🐾 팔 각도 — 이 호출이 빠져 있어서 동물만 바인드 포즈(팔이 완전히 내려간 상태)로 보였다.
-    //   책상 앞에 앉은 모습이므로 실행 화면의 타이핑 자세와 같은 각도로 맞춘다(세 번째 인자 true).
-    applyStaticHandRest(ab.root, true, true);
-    /* ★ 페인팅·대칭 데이터 복구 — swapCreatorBaseToDefault에는 있는데 여기만 빠져 있었다.
-       특히 faceCx(얼굴 좌우 중심 x)는 mirrorUV()가 붓 대칭을 반사할 때 쓰는 축이다.
-       갱신하지 않으면 동물을 올린 뒤에도 '인간 얼굴의 중심'을 축으로 반사해서
-       대칭 붓질이 엉뚱한 위치에 찍힌다. facePos/faceUv/faceIdx도 인간 것을 계속 가리킨다. */
-    try{
-      const afg = ab.faceMesh && ab.faceMesh.geometry;
-      if(afg){
-        cBase.facePos = afg.attributes.position ? afg.attributes.position.array : null;
-        cBase.faceUv  = afg.attributes.uv ? afg.attributes.uv.array : null;
-        cBase.faceIdx = afg.index ? afg.index.array : null;
-        afg.computeBoundingBox();
-        cBase.faceCx = (afg.boundingBox.min.x + afg.boundingBox.max.x) / 2;
-      }
-    }catch(e){ console.warn('[동물] 얼굴 기하 캐시 갱신 실패 — 대칭 붓질이 어긋날 수 있음', e); }
-    // buildAnimalBase가 이미 60% 정규화 → 생성기에선 원래 크기로 보이도록 되돌림(책상 비율 맞추기 위해 인간과 같은 1.45)
-    normalizeModel(cBase.group, 1.45, true);
-    applyCreatorXform();
-  }catch(e){ console.warn('[동물] 생성기 탑재 실패', e); toast('동물 모델 로드 실패 (콘솔 확인)'); }
-}
-
-/* 💡 기본 모델 복구 함수 (비동기 꼬임 방지 + 카메라 타겟 재계산 완벽 복구) */
-function swapCreatorBaseToDefault() {
-  if(typeof BASE_SCENE === 'undefined' || !BASE_SCENE) return;
-  const newInst = instantiateBase(BASE_SCENE);
-  if(!newInst) return;
-  
-  if(cBase && cBase.group && cBase.group.parent){ 
-    cBase.group.parent.add(newInst.root); 
-    cBase.group.parent.remove(cBase.group); 
-  }
-  
-  matToneMod.setFaceMap(newInst.faceMat, dispTex);
-  if(newInst.upMat) newInst.upMat.color.set(cTopColor); 
-  if(newInst.loMat) newInst.loMat.color.set(cBotColor);
-  if(newInst.hatMat) newInst.hatMat.color.set(cTopColor);   // 🎩 기본 모자도 상의색
-  matToneMod.applyLightPresetToInstance(newInst);
-  
-  cBase.group = newInst.root;
-  cBase.faceMat = newInst.faceMat;
-  cBase.upMat = newInst.upMat;
-  cBase.loMat = newInst.loMat;
-  cBase.hatMat = newInst.hatMat;
-  cBase.face = newInst.faceMesh;
-  // ★ 기본 메쉬 참조도 갱신 — 안 하면 죽은(제거된) 이전 메쉬를 가리켜 모자 숨김 등이 안 먹음
-  cBase.upMesh=newInst.upMesh||null; cBase.loMesh=newInst.loMesh||null; cBase.glassesMesh=newInst.glassesMesh||null;
-  cBase.hatMesh=newInst.hatMesh||null; cBase.maskMesh=newInst.maskMesh||null; cBase.onepieceMesh=newInst.onepieceMesh||null;
-  cBase.wingMesh=newInst.wingMesh||null; cBase.handLMesh=newInst.handLMesh||null; cBase.handRMesh=newInst.handRMesh||null; cBase.capeMesh=newInst.capeMesh||null;
-  extractBonesInto(cBase, newInst.root);   // 베이스를 통째로 새로 만들었으니 본(부착점) 정보도 다시 추출 — 안 그러면 예전 파츠가 죽은 본을 가리키게 됨
-
-  // 페인팅 및 대칭 데이터 복구
-  const fg = newInst.faceMesh.geometry;
-  cBase.facePos = fg.attributes.position.array; 
-  cBase.faceUv = fg.attributes.uv ? fg.attributes.uv.array : null;
-  cBase.faceIdx = fg.index ? fg.index.array : null;
-  fg.computeBoundingBox(); 
-  cBase.faceCx = (fg.boundingBox.min.x + fg.boundingBox.max.x) / 2;
-  
-  applyStaticHandRest(cBase.group); // 기본 모델로 복구할 때 팔 높이 반영
-  normalizeModel(cBase.group, 1.45, false);
-  
-  // 💡 캐릭터를 '편집(Edit)' 정자세로 둔 뒤 카메라 타겟을 다시 정확히 측정합니다!
-
-  // (불필요한 applyCreatorXform 호출은 삭제하여 시점이 틀어지는 현상 방지)
-  fitCreator('edit'); 
-  const fb=new THREE.Box3().setFromObject(newInst.faceMesh);
-  const fs=fb.getSize(new THREE.Vector3());
-  fb.getCenter(cFaceCenter);
-  cFaceCenter.y += 0.12;   // ▲ 한 칸만큼 시선 높임 (기본과 동일)
-  
-  const fovV=cCam.fov*Math.PI/180, aspect=222/300;
-  const dV=(fs.y/2)/Math.tan(fovV/2), dH=(fs.x/2)/Math.tan(Math.atan(Math.tan(fovV/2)*aspect));
-  cFaceDist=Math.max(dV,dH)*0.63 + fs.z*0.5 + 0.10;   // 얼굴 확대 (기본과 동일 계수)
-  
-  const bb=new THREE.Box3().setFromObject(newInst.root);
-  const bs=bb.getSize(new THREE.Vector3());
-  bb.getCenter(cBodyCenter); cBodyDist=Math.max(bs.x,bs.y)*1.7+0.3;
-}
-
-// ★ 이 좌석(생성기 미리보기 cBase든, 실제 실행 중인 seat든 둘 다)에 붙어있는 책상 아이템을 전부 뗌 —
-//   새 아이템 목록을 적용하기 전에 반드시 먼저 호출해야 예전 아이템이 안 남음. 예전엔 DESK_ITEMS(기본
-//   내장 3개)만 지웠는데, 커스텀 아이템은 안 지워지는 구멍이 있어서 allDeskItems()로 전체를 다루게 함.
-function clearHolderDeskItems(holder){
-  if(!holder || !holder.deskItems) return;
-  deskItemsMod.allDeskItems().forEach(def=>{ if(holder.deskItems[def.id]) equipDeskItem(holder,def,false); });
-  // ★ 슬롯 전환(A 캐릭터 → B 캐릭터 편집) 시 세션 아이템 목록(customItems)이 먼저 초기화되면
-  //   A의 커스텀 아이템이 위 목록 순회에서 빠져 3D 오브젝트가 책상에 그대로 남던 버그 —
-  //   목록에 없어도 holder에 남은 아이템은 전부 강제로 떼어낸다.
-  for(const id in holder.deskItems){
-    const p=holder.deskItems[id];
-    if(p){ try{ if(p.parent) p.parent.remove(p); }catch(_){} holder.deskItems[id]=null; }
-  }
-  holder.activeDeskItem=null;
-}
-function clearCreatorItems(){ clearHolderDeskItems(cBase); if(deskItemOrigin) deskItemOrigin.clear(); }
-/* 🪑 생성기 미리보기에 남아 있는 파츠 wrapper 를 전부 걷어낸다 — 창을 열 때마다 한 번.
-   [경위] 본에 붙는 파츠는 베이스를 새로 만들 때(swapCreatorBaseTo*) 옛 root 와 함께 사라진다.
-     그런데 '책상 위'(bone:'desk') 파츠는 cDesk 의 deskAnchor 에 붙고, 그 책상은
-     ensureCreatorPreview 에서 딱 한 번 만들어져 창을 닫아도 살아 있다. cBase 도 속성만 갈아끼우는
-     같은 객체여서 등록부(equippedPartObjs·stackedPartObjs)까지 그대로 남는다.
-     → 꾸미기에서 뺀 파츠나 직전에 편집한 다른 캐릭터의 파츠가 **미리보기에만** 계속 서 있었다
-       (제보: "보관함에서 비활성인데 캐릭터 수정하면 미리보기에 보인다 · 실행 화면은 정상").
-     실행 화면은 좌석마다 책상을 새로 만들기 때문에 이 증상이 없다.
-   ★ 순서가 중요하다 — 등록부를 **먼저** 비우고 청소를 돌린다. 등록부에 남아 있으면
-     _sweepOrphanPartWrappers 가 '살아 있는 파츠'로 보고 그냥 지나친다.
-   ⚠️ _equipSeq 는 일부러 안 지운다. 0 으로 되돌리면 아직 파싱 중인 옛 장착이 새 번호와 같아져
-     가드를 통과하고, 지운 파츠가 뒤늦게 다시 붙는다. */
-function clearCreatorParts(){
-  if(!cBase) return;
-  cBase.equippedPartObjs = {};
-  cBase.stackedPartObjs = {};
-  _sweepOrphanPartWrappers(cBase);
-}
-function closeCreator(){creatorOpen=false;document.getElementById('creatorOverlay').classList.remove('on');
-  if(deskItemOrigin) deskItemOrigin.clear();   // 🪑 처음 자리는 이번 편집에서만
-  detachItemGizmo();
-  clearStampState();   // 도장 이미지·모드 모두 초기화 (다음 생성/수정 진입 시 깨끗한 상태로)
-  // ★ 꾸미기/미리보기 창이 켜진 채로 런처가 다시 보이면 런처를 가리던 문제 방지(방어적으로 항상 닫음)
-  const wp=document.getElementById('wardrobePanel'); if(wp) wp.classList.remove('on');
-  const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
-  // ★ kind==='slot'만 체크하면 런처에서 우클릭(kind==='seat')으로 들어왔다가 완료 없이 X로 닫을 때 런처가 안 돌아옴.
-  //   openCreator가 진입 시 기록해둔 cameFromLauncher로 판단(afterApp 흐름은 기존대로 제외).
-  if(creatorMode.cameFromLauncher && !creatorMode.afterApp){document.getElementById('launcher').classList.add('on');renderLauncher();}
-  applyDesktopRunClass();}
-document.getElementById('creatorClose').addEventListener('click',closeCreator);
-/* 생성기 지금 상태 → def. [완료] 저장과 📦 용량 재기(forSize)가 같은 함수를 탄다 — 따로 두면 재는 것과 저장하는 것이 갈라진다.
-   forSize: 그림은 복사하지 않고(재기에선 URL 자리표시로 바뀐다) 섬네일도 안 찍는다(방에 안 나간다). 결과를 저장에 쓰지 말 것. */
-function _creatorBuildDef(forSize){
-  const def=charDef(skinIndex, forSize ? faceC : snapCanvas(faceC), forSize ? blinkC : snapCanvas(blinkC), cTopColor, cBotColor);
-  // ★ 슬롯 미리보기(캐릭터 교체/자리 추가)용 스냅샷 — 지금 생성기 3D 미리보기 화면을 그대로 캡처.
-  //   런처 미리보기와 똑같은 실제 렌더 결과라 커미션 캐릭터도 진짜 모습 그대로 나옴(2D 합성 아이콘 아님).
-  if(!forSize) try{ if(cRenderer && cScene && cCam){ cRenderer.render(cScene, cCam); def.thumb = cRenderer.domElement.toDataURL('image/png'); } }catch(e){}
-  // 커미션 캐릭터로 진입했다면 GLB·이름·플래그를 새 def에 복사 (안 그러면 기본 GLB로 돌아감)
-  if(currentCreatorDef && currentCreatorDef.isCommission){
-    def.isCommission = true;
-    def.commName = currentCreatorDef.commName || '커미션';
-    def.commGlb = currentCreatorDef.commGlb || null;
-  }
-  // ★ 꾸미기 파츠(모자/안경/옷 등)는 생성기가 아니라 실행 화면의 꾸미기 버튼에서 별도로 설정/저장되는데,
-  //   여기서 완전히 새 def를 만들면서 이 정보를 옮겨 담는 게 빠져있었음 — 그래서 생성기에서 캐릭터를 수정하고
-  //   저장할 때마다 꾸미기 파츠가 전부 꺼진 것처럼(초기화) 보이던 버그의 원인. 원래 캐릭터(currentCreatorDef)에
-  //   있던 값을 그대로 이어받음.
-  if(currentCreatorDef && currentCreatorDef.equippedParts) def.equippedParts = currentCreatorDef.equippedParts;
-  if(currentCreatorDef && currentCreatorDef.partXfMemory) def.partXfMemory = currentCreatorDef.partXfMemory;
-  // 👂 사람 귀도 꾸미기에서 정한다 — 같은 이유로 그대로 이어받는다(필드는 slotToObj/loadSlots 와 1:1)
-  if(currentCreatorDef && !currentCreatorDef.animal){
-    ['earL','earR','earAdj','earPicL','earPicR'].forEach(k=>{ if(currentCreatorDef[k]!=null) def[k]=currentCreatorDef[k]; });
-  }
-  // 🐾 동물 캐릭터로 진입했다면 동물 확장 필드를 새 def에 그대로 승계 — 이게 빠져 있어서 책상·좌석 세팅 후
-  //   [완료]를 누르는 순간 슬롯이 순수 인간 def로 덮어써지고(animal 표식까지 소실), 런처 카드·실행화면 모두
-  //   기본 캐릭터로 나오던 버그의 근본 원인. 필드 목록은 slotToObj/loadSlots와 1:1로 맞출 것.
-  if(currentCreatorDef && currentCreatorDef.animal){
-    def.animal = true;
-    ['animalFace','animalScl','animalEarL','animalEarR','animalEarAdj',
-     'animalBody','animalEarPaintL','animalEarPaintR','animalEarBlinkL','animalEarBlinkR','animalBlink'].forEach(k=>{
-      if(currentCreatorDef[k]!=null) def[k]=currentCreatorDef[k];
-    });
-    if(!def.thumb && currentCreatorDef.thumb) def.thumb=currentCreatorDef.thumb;   // 캡처 실패 시 동물 창에서 만든 썸네일 유지
-  }
-  def.xf={s:cXform.s,y:clampCharY(cXform.y),z:0,rot:cXform.rot,x:0};   // 🧍 y=캐릭터 높이 · 🚫 z(앞뒤)는 폐기 — 저장할 때 0 으로 굳는다
-  def.deskColor=cDeskColor;
-  if(cBase){
-    const di=collectDeskItems(cBase); def.deskItems=di;   // ★ di가 null(전부 껐을 때)이어도 반드시 반영 — 안 그러면 껐던 아이템이 예전 저장값 그대로 남아있게 됨
-    if(di){
-    const ci={}; Object.keys(di).forEach(id=>{ const c=customItems[id]; const rec=commissionMod.savedItems().find(s=>s.id===id);
-      // 카탈로그 아이템이면 GLB를 캐릭터에 박아넣지 않음 — 불러올 때 카탈로그 동기화(loadSavedItemsIntoSession)로 자동 채워짐(실시간 교체 반영을 위함)
-      if(c && !(rec&&rec.fromCatalog)) ci[id]={name:c.name,glb:c.glb}; });
-    if(Object.keys(ci).length) def.customItems=ci; } }
-  if(cDeskGlbB64){
-    // 카탈로그(관리자 배포) 책상이면 GLB를 통째로 박아넣는 대신 참조 ID만 저장 — 나중에 관리자가 GLB를 교체해도
-    // 이 캐릭터를 불러올 때마다 최신 GLB를 다시 찾아오게 됨(applyDeskCatalogRefToSeat). 로컬 전용(코드로 추가) 책상은 예전처럼 그대로 저장.
-    const activeRec = activeCustomDeskId ? commissionMod.savedDesks().find(d=>d.id===activeCustomDeskId) : null;
-    if(activeRec && activeRec.fromCatalog){ def.deskCatalogId = activeRec.id; }
-    else { def.deskGlb=cDeskGlbB64; }
-  }
-  if(cDeskScale!==1) def.deskScale=cDeskScale;
-  // 🪑 전부 0(기본 위치)이면 저장하지 않는다 — 옛 저장분과 모양을 갈라놓지 않기 위해서다.
-  if(cDeskPos && (cDeskPos.x || cDeskPos.y || cDeskPos.z)) def.deskPos={x:cDeskPos.x, y:cDeskPos.y, z:cDeskPos.z};
-  if(cDeskLenX!==1) def.deskLenX=cDeskLenX; else if(def.deskLenX!=null) delete def.deskLenX;
-  return def;
-}
-/* 📦 생성기에서 디자인을 키우기 전에 — patch(def) 로 바꾼 모습을 지금 모습과 견준다(def-size.js).
-   실제로 바꾸지 않고 재기만 하므로, 막혀도 되돌릴 것이 없다. 모듈이 없으면 늘 통과(옛 동작). */
-const DEF_SIZE_TOAST_MS = 4000;
-function _creatorSizeGrow(patch){
-  const base = _creatorBuildDef(true);
-  const next = Object.assign({}, base);
-  if(base.customItems) next.customItems = Object.assign({}, base.customItems);
-  patch(next);
-  return DefSize.checkGrowth(roomSyncMod.defWireForSize(base), roomSyncMod.defWireForSize(next), roomSyncMod._defSizeNames(next));
-}
-/* 파일 하나(base64)를 넣기 전 — clear(def) 로 그 파일이 들어갈 자리를 비운 나머지와 견준다. */
-function _defSizeFile(restDef, addBytes){
-  return DefSize.checkFile(roomSyncMod.defWireForSize(restDef), addBytes);
-}
-document.getElementById('crDone').addEventListener('click',()=>{
-  /* 🛡️ [얼굴 영구 소실 방어 · 확인] 그림이 있던 캐릭터를 «빈 얼굴»로 저장하려 하면 한 번 묻는다.
-     [왜 여기가 필요한가] 아래 saveSlots 의 공백 방어는 «사고»를 막는 장치라, 그것만 두면
-       «정말로 다 지우고 새로 시작하려는» 사용자까지 막아 버린다. 뜻이 있는 저장은 여기서 통과시킨다.
-     [왜 여기서만 묻는가] 생성기 [완료] 는 사용자가 그림 상태를 눈으로 보고 누르는 유일한 자리다.
-       파츠·슬라이더·가챠 정리 등에서 도는 자동 저장에는 물을 사람이 없다 — 거긴 무조건 막는 게 맞다.
-     ⚠️ confirm() 뒤 window.focus() 는 Electron 포커스 함정 보정이다(audit 검사 4). 빼지 말 것. */
-  if(currentCreatorDef && _isBlankDraw(faceC) && !_isBlankDraw(currentCreatorDef.face)){
-    if(!confirm('얼굴 그림이 비어 있어요.\n이대로 저장하면 원래 그림은 되돌릴 수 없어요.\n\n정말 저장할까요?')){ window.focus(); return; }
-    window.focus();
-    _blankFaceConfirmed = true;   // 바로 아래 saveSlots 1회만 소비한다
-  }
-  const def=_creatorBuildDef(false);
-  /* 📦 마지막 안전망 — 용량을 넘긴 채로 키웠으면 저장하지 않는다(생성기는 열린 채 그대로라 고친 것은 남는다).
-     원래 캐릭터보다 커지지 않았으면 통과 — 이미 넘은 옛 캐릭터도 계속 고칠 수 있게. */
-  const _sz = DefSize.checkGrowth(currentCreatorDef ? roomSyncMod.defWireForSize(currentCreatorDef) : null, roomSyncMod.defWireForSize(def), roomSyncMod._defSizeNames(def));
-  if(!_sz.ok){ _blankFaceConfirmed = false; toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
-  if(creatorMode.kind==='seat'){
-    applyCharToSeat(creatorMode.seat,def);
-    // ★ 실행(run) 좌석은 slot 속성이 없어서 슬롯 저장이 스킵되던 버그 —
-    //   화면엔 반영되지만 재시작하면 원복(책상 길이 등). 내 좌석이면 curSlot로 폴백해 반드시 저장.
-    const _slotIdx = (creatorMode.seat.slot!=null) ? creatorMode.seat.slot
-                   : (creatorMode.seat.isMe ? curSlot : null);
-    if(_slotIdx!=null){ slots[_slotIdx]=def; if(creatorMode.seat.slot==null) creatorMode.seat.slot=_slotIdx; }
-    slotSaveMod.saveSlots();creatorOpen=false;document.getElementById('creatorOverlay').classList.remove('on');clearStampState();
-    if(creatorMode.seat.isMe && Presence.active()) Presence.updateDef(def);   // 방에 있으면 바뀐 모습을 상대에게도 전송
-    // ★ 런처에서 우클릭 → 수정 → 완료로 들어온 경우 런처 화면을 다시 보여줘야 함(openCreator가 진입 시 꺼놨었음).
-    //   런처 화면이 아니라 실행(run) 중 우클릭 수정이었다면 이 블록은 건너뛰고, 아래 applyDesktopRunClass()가
-    //   runmode/config 바디 클래스를 다시 정확히 계산해서 원래 화면(런처든 실행 화면이든)이 정상적으로 복귀함.
-    if(creatorMode.cameFromLauncher){
-      document.getElementById('launcher').classList.add('on'); renderLauncher();
-      const wp=document.getElementById('wardrobePanel'); if(wp) wp.classList.remove('on');
-      const wdp=document.getElementById('wdPreviewPanel'); if(wdp) wdp.classList.remove('on');
-    }
-    applyDesktopRunClass();
-    toast('수정했어요');return;}
-  // ★ [＋]로 진입했으면 그때 확정된 칸을 그대로 쓴다. creatorMode.slot이 없을 때만 예전 폴백(추측)을 탄다.
-  let target = creatorMode.edit ? creatorMode.slot
-             : (creatorMode.slot!=null ? creatorMode.slot
-             : (slots[curSlot]?slots.findIndex(s=>!s):curSlot));
-  // ⚠️ 상한이 2로 박혀 있어서 5칸 확장 뒤 **4·5번 칸에 만든 캐릭터가 저장되지 않고 사라졌다.**
-  if(target<0||target>=CHAR_SLOT_MAX){toast('빈 슬롯이 없어요');return;}
-  // ★ 최종 방어 — 신규 생성인데 그 칸에 이미 다른 캐릭터가 있으면 덮어쓰지 않고 중단한다(확인 창 아님).
-  if(!creatorMode.edit && slots[target]){
-    console.warn('[슬롯] 신규 생성 저장 중단 — 대상 칸에 이미 캐릭터가 있음', {target:target, creatorMode:creatorMode});
-    toast('그 칸에 이미 캐릭터가 있어요 — 런처에서 빈 칸을 골라 다시 시도해 주세요'); return;
-  }
-  /* 🧬 새 캐릭터면 보관함 문턱을 보고 cid 를 준다(켜져 있을 때만 · 수정은 saveSlots 훅이 잡는다). */
-  if(!creatorMode.edit && charsMod._charsBoxFull()) return;
-  slots[target]=def;
-  if(!creatorMode.edit){ try{ charsMod._charsOnNew(target); }catch(_){} }
-  curSlot=target;slotSaveMod.saveSlots();saveCurSlot();
-  if(creatorMode.afterApp){const seat=createSeat();applyCharToSeat(seat,def);seat.slot=target;selectSeat(seat);renderSeatTabs();layoutSeats();
-    creatorOpen=false;document.getElementById('creatorOverlay').classList.remove('on');clearStampState();toast('책상에 추가했어요');}
-  else{closeCreator();toast('슬롯에 저장했어요');}});
+/* (C 구역 떼기 · w3) 이 자리의 본문도 creator/creator-preview.js 로 옮겼다 — 만드는 줄은 첫 자리. */
+/* (C 구역 떼기 · w3) 이 자리의 본문도 creator/creator-flow.js 로 옮겼다 — 만드는 줄은 첫 자리. */
+/* 본문은 creator/creator-save.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const creatorSaveMod = TwCreatorSave.createCreatorSave({
+  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
+  Presence: ()=>Presence,
+  _blankFaceConfirmed: ()=>_blankFaceConfirmed,
+  _isBlankDraw: (...a)=>_isBlankDraw(...a),
+  activeCustomDeskId: ()=>activeCustomDeskId,
+  applyCharToSeat: (...a)=>applyCharToSeat(...a),
+  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
+  blinkC: blinkC,
+  cBase: ()=>cBase,
+  cBotColor: ()=>cBotColor,
+  cCam: ()=>cCam,
+  cDeskColor: ()=>cDeskColor,
+  cDeskGlbB64: ()=>cDeskGlbB64,
+  cDeskLenX: ()=>cDeskLenX,
+  cDeskPos: ()=>cDeskPos,
+  cDeskScale: ()=>cDeskScale,
+  cRenderer: ()=>cRenderer,
+  cScene: ()=>cScene,
+  cTopColor: ()=>cTopColor,
+  cXform: ()=>cXform,
+  charDef: (...a)=>charDef(...a),
+  charsMod: ()=>charsMod,
+  clampCharY: (...a)=>clampCharY(...a),
+  clearStampState: (...a)=>clearStampState(...a),
+  collectDeskItems: (...a)=>collectDeskItems(...a),
+  commissionMod: ()=>commissionMod,
+  createSeat: (...a)=>createSeat(...a),
+  creatorFlowMod: creatorFlowMod,
+  creatorMode: ()=>creatorMode,
+  creatorOpen: ()=>creatorOpen,
+  curSlot: ()=>curSlot,
+  currentCreatorDef: ()=>currentCreatorDef,
+  customItems: ()=>customItems,
+  faceC: faceC,
+  layoutSeats: (...a)=>layoutSeats(...a),
+  renderLauncher: (...a)=>renderLauncher(...a),
+  renderSeatTabs: (...a)=>renderSeatTabs(...a),
+  roomSyncMod: roomSyncMod,
+  saveCurSlot: (...a)=>saveCurSlot(...a),
+  selectSeat: (...a)=>selectSeat(...a),
+  skinIndex: ()=>skinIndex,
+  slotSaveMod: ()=>slotSaveMod,
+  slots: slots,
+  snapCanvas: (...a)=>snapCanvas(...a),
+  toast: (...a)=>toast(...a),
+  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },
+  setCreatorOpen: (v)=>{ creatorOpen = v; },
+  setCurSlot: (v)=>{ curSlot = v; },
+});
 
 /* ═══ 🖼️ 런처 미리보기 · 슬롯 섬네일 ═══ */
 /* 본문은 launcher/launcher-preview.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   CHAR_Z: CHAR_Z,
-  RIG_TURN: RIG_TURN,
+  RIG_TURN: creatorPrevMod.RIG_TURN,
   _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
   _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
   _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
@@ -9370,12 +9018,12 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
   applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),
-  applyStaticHandRest: (...a)=>applyStaticHandRest(...a),
+  applyStaticHandRest: (...a)=>creatorPrevMod.applyStaticHandRest(...a),
   assetCodeMod: ()=>assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
   buildDesk: (...a)=>buildDesk(...a),
   clampCharY: (...a)=>clampCharY(...a),
-  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),
+  clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),
   commSceneCache: commSceneCache,
   customItems: ()=>customItems,
   defToBase: (...a)=>defToBase(...a),
@@ -9496,8 +9144,8 @@ document.getElementById('commImpGo').onclick=async()=>{
     def.xf = {s:0.7,y:0,z:0,rot:0,x:0};
     /* 📦 커미션 3D 파일 하나로 디자인 용량을 넘으면 등록하지 않는다(def-size.js). */
     const _rest = Object.assign({}, def); delete _rest.commGlb;
-    const _sz = _defSizeFile(_rest, DefSize.jsonBytes(payload.glb) + 12);
-    if(!_sz.ok){ toast(_sz.message, null, DEF_SIZE_TOAST_MS); return; }
+    const _sz = creatorSaveMod._defSizeFile(_rest, DefSize.jsonBytes(payload.glb) + 12);
+    if(!_sz.ok){ toast(_sz.message, null, creatorSaveMod.DEF_SIZE_TOAST_MS); return; }
     // 슬롯에 저장 + 영구 저장
     if(charsMod._charsBoxFull()) return;   // 🧬 보관함 20 문턱
     slots[idx]=def;
@@ -9845,7 +9493,7 @@ function applyCharToSeat(seat,def){
     // ★ 새 아이템 목록을 적용하기 전에 기존에 붙어있던 아이템을 먼저 확실히 뗌 — 이 단계가 없어서
     //   실행 중인 캐릭터를 우클릭으로 수정할 때(특히 아이템을 끄거나 다른 걸로 바꿀 때) 예전 아이템이
     //   계속 남아있던 버그의 원인이었음(생성기 미리보기는 clearCreatorItems가 매번 먼저 비워서 문제 없었음).
-    clearHolderDeskItems(seat);
+    creatorPrevMod.clearHolderDeskItems(seat);
     if(def.deskItems) applyDeskItemsTo(seat, def.deskItems);
   })();
 }
@@ -10822,7 +10470,7 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   cDeskTemplate: ()=>cDeskTemplate,
   catalogGlbMod: catalogGlbMod,
   catalogNet: ()=>window.firebaseAPI,
-  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),
+  clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),
   commissionMod: commissionMod,
   creatorOpen: ()=>creatorOpen,
   customItems: ()=>customItems,
