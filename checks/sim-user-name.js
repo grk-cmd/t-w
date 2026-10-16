@@ -17,7 +17,7 @@ if (!MOD || !GUARD || !HTML || !APP) { say('  ? 원본 못 찾음 — user-name.
 
 function build(mod, o) {
   const env = { name: o.name || '', toasts: [], profiles: [], plates: [], admin: !!o.admin, active: o.active !== false };
-  const win = { firebaseAPI: { setMyProfile: (...a) => env.profiles.push(a) } };
+  const win = { firebaseAPI: { setMyProfile: (...a) => { env.profiles.push(a); return o.reject ? Promise.reject(Object.assign(new Error('PERMISSION_DENIED'), { code: 'PERMISSION_DENIED' })) : Promise.resolve(); } } };
   const nameEl = { textContent: '' };
   const document = { getElementById: (id) => id === 'mhMyName' ? nameEl : null };
   const isStaffName = new Function(GUARD + '\nreturn isStaffName;')();   // name-guard.js 는 맨 위 함수 선언(app.js 앞 classic script)
@@ -63,6 +63,14 @@ chk(R.empty, '비우면 «나»');
 chk(R.staff && R.admin && R.same, '운영진처럼 보이는 이름은 막는다 — 관리자 · 이미 그 이름인 사람은 예외(name-guard.js)');
 chk(R.noRoom, '방에 없으면 이름표는 안 건드린다');
 chk(R.win, 'window.commitUserName 도 예전처럼 건다');
+const REJ = (async () => {
+  /* 로그인 전 기기는 규칙이 프로필 쓰기를 거부한다 — 그 거부가 «잡히지 않은 오류» 로 남지 않아야 한다(async 라 try 로는 못 받는다) */
+  const caught = []; const onU = (e) => caught.push(e);
+  process.on('unhandledRejection', onU);
+  const warn = console.warn; const warns = []; console.warn = (...a) => warns.push(a.join(' '));
+  try { const b = build(MOD, { reject: true }); b.m.commitUserName('아무개'); await new Promise(r => setTimeout(r, 20)); } finally { console.warn = warn; process.off('unhandledRejection', onU); }
+  chk(!caught.length && warns.some(w => /프로필 서버 반영 실패/.test(w)), '서버가 프로필 쓰기를 거부해도 잡히지 않은 오류가 없다 — 경고 한 줄(이름은 이 기기에 저장)');
+})();
 
 say('── 2. 연결');
 chk(R.order, 'html — name-guard.js 뒤 · app.js 앞에 싣는다');
@@ -75,5 +83,7 @@ chk(!judge(MOD.replace("  if(isStaffName(v) && v !== getUserName().trim() && !(t
 chk(!judge(MOD, HTML.replace('<script src="parts/account/user-name.js"></script>', ''), APP).order, 'html 줄이 빠지면 빨강');
 chk(judge(MOD, HTML, APP + '\nprogSettingsMod.commitUserName("x");\n').old > 0, '설정 창 이름으로 부르면 빨강');
 
-say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass + ' — 닉네임 저장은 user-name.js 한 벌'));
-process.exit(fail ? 1 : 0);
+REJ.then(() => {
+  say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass + ' — 닉네임 저장은 user-name.js 한 벌'));
+  process.exit(fail ? 1 : 0);
+});
