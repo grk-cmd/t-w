@@ -1,7 +1,13 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 276 (끝내는 길(훅 · 타이머 → 창 destroy → exit(0))을 main.js _exitNow() 하나로 — session-end 가 부른다)
-대상: `sim-*.js` 272개 + `smoke.js` + `audit.py` = **274개** (개정 276 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 277 (두 번째 실행 때 옛 창을 쓸 수 없으면 정리하고 새로 띄운다)
+대상: `sim-*.js` 273개 + `smoke.js` + `audit.py` = **275개** (개정 277 기준 — 폴더를 센 값)
+
+**개정 277 에서 한 것 (2026-10-16 · 사용자 결정 «정리하고 새로 띄움» — 동작이 바뀐다)**
+- 앱(main.js): `second-instance` — 옛 인스턴스의 메인 창이 없거나 · 파괴됐거나 · 렌더러가 죽었거나(`webContents.isCrashed`) · 응답 없음(`'unresponsive'` 뒤 `'responsive'` 가 아직 안 옴)이면 앞으로 올리지 않고 `app.relaunch()` → 전역 훅 · 타이머 정리 → 창 destroy → `app.exit(0)`(session-end 정리와 같은 순서). 멀쩡하면 예전처럼 앞으로 올리기만(방 튕김 방지). 부팅 중(준비 전 · 창을 만들기 전)이면 예전처럼 아무것도 안 한다.
+- 앱(main.js): 판정은 순수 함수 `_secondInstanceAction` · 신호 모으기는 `_mainWindowHealth` · 정리는 `_relaunchFresh`. 무응답 기록은 `_watchRendererHealth` 의 unresponsive / responsive 처리기가 WeakSet 에 넣고 뺀다(진단 로그 줄은 그대로).
+- 검사: sim-second-instance 신설(판정 표 · 가짜 창에서 신호 읽기 · 처리기 focus / relaunch 순서 · exit(0) · 부팅 중 무시 · 배선 · 일부러 깨 보기 8).
+- 검증 중 고침(공통 기능 먼저 묶기): 정리 다섯 줄을 session-end 에서 베끼지 않고 개정 276 의 `_exitNow()` 를 부른다. `sim-second-instance.js` 는 `_exitNow` 도 함께 꺼내 돌리고, 깨 보기 «exit(0) 대신 quit» 은 `_exitNow` 에 · «새로 띄우기 뒤 끝내기를 안 부름» 하나 더(같은 호출 순서 판정).
 
 **개정 276 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 변화 없음)**
 - 앱: main.js 의 session-end 처리 다섯 줄(전역 훅 내리기 · 커서 감시 · 폴링 타이머 지우기 · 창 destroy · app.exit(0))을 꼭대기 함수 `_exitNow()` 하나로 옮기고 session-end 는 그것을 부른다. 곧 들어올 «두 번째 실행 때 옛 창을 쓸 수 없으면 새로 띄우기»(wD 9b40ea6)가 같은 순서를 베끼지 않고 이 함수를 부르게 하려는 것.
@@ -2019,6 +2025,7 @@
 | **sim-gamepad-activity.js** | 61 | **70b398ccdd05** ← **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 151 신규 · 🎮 게임패드 활동 — gamepad-activity.js 실행(처음 본 패드 기준만 · 떨림 무시 · 스틱 · 버튼 · 트리거 · 뺐다 꽂기 · 빈 자리 · 던짐 · 타이머 하나) · app.js 배선(펜과 같은 처리) · html 순서 · OS 유휴 보정 꺼짐** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** ← **개정 269 layoutSeats 배선은 seat-layout.js 의 layoutSeatRow 본문을 먼저 찾는다(판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 198 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 162 신규 · 🪑 방에서 내 자리 맨 오른쪽 고정 — 저장 · 고정 조건 · 0번으로 · 끌기 자리 · 배선 · 카메라 안 건드림** |
 | **sim-friend-visit.js** | 102 | **44040dc5ada5** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 렌더러 쪽 한 벌 = app.js + myhome-inbox.js · 방 코드는 inboxMod.friendRoomTag(= myhome-inbox.js 의 _friendRoomTag)로** · **개정 165 신규 · 🏠 친구 방에 놀러 가기 — 판정 · 창(클릭 통과 · 문구 · 이스케이프 · 기본 포커스 취소 · 취소 · Esc · 놀러 가기 · 나가고 이동 · 같은 방 · 그 사이 나감 · 시크릿룸) · 배선(_friendRoomTag · 기존 문 · 줄 선택과 따로 · 앱 창 모양 · html 순서)** |
+| **sim-second-instance.js** | 171 | **56b3dec01c3f** ← **개정 277 신설 · 🔁 두 번째 실행 — 옛 창이 멀쩡하면 앞으로 · 없음 · 파괴 · 렌더러 죽음 · 응답 없음이면 relaunch + 정리 + exit(0) · 부팅 중 무시** |
 | **sim-wd-parts-persist.js** | 95 | **a908c61b5a6d** ← **개정 244 열린 초안 주인은 꾸미기 relinkDraftSrc 를 onSeatRelinked 로 같이 돌림 · 걸려 있는지 판정 1 추가** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 155 신규 · 💾 꾸미기 · 가챠 파츠 재부팅 초기화 — _relinkSeatsToSlots 실행(같은 칸 · 비운 칸 · 남의 좌석 · 열린 초안) · 받는 두 곳 배선 · 저장이 파츠 받기보다 먼저 · 숨기기 전 closeWardrobe · 종료 때 저장**
 | **sim-name-guard.js** | 42 | **9c89831d5c23** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 207 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-09 신규(개정 95) · 🏷️ 운영진처럼 보이는 이름 — name-guard.js 실행(여섯 이름 정확히 · 앞뒤 공백 · 대소문자 무시 · 포함은 통과) · commitUserName 이 저장 전에 막음(이미 그 이름 · 관리자 예외) · html 순서 · 규칙 users/$userId/profile name(같은 목록 · 그대로면 · 관리자면 통과)** |
 | **sim-chat-tabs.js** | 136 | **4d9e391570b2** ← **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 150 방마다 마지막 탭 기억(tw.chatTab.<방> · 재부팅 · 메타 전엔 안 지움 · 구독 옮김)** · ← **개정 119 빈 방 정리 — 탭 기록은 서버 함수가 걷는다(앱 퇴장은 안 지움)** · **2026-10-08 신규 · 💬 채팅 탭(채널) — chat-tabs.js 실행(목록 · [+] 방장 · 3개 · 이름 · 지워진 탭 → #일반 · 탭별 인원 · 경로 · `_chatTab` 밑줄 · 빈 자리 s1/s2) · ① 일반 외 탭 송신은 chatTab 칸(실행) ② 수신부가 내 탭과 비교 ③ [+] canAdd ④ 규칙(numChildren 없음 · s1/s2 자리 · _chatTab = chatLog 검증 · presence tab/chatTab) ⑤ 탭 줄 가로 스크롤 없음 · 줄임표 · 빈 방 정리 · 삭제 한 묶음 · 추가 트랜잭션** |
