@@ -239,13 +239,13 @@ sec('── 6. app.js 배선', () => {
   chk(/formatHMS\(_focusTotalSec\(\)\)/.test(m) && /formatHMS\(_focusSessionSec\(\)\)/.test(m) && !/formatHMS\(_focus(Total|Session)Sec\)/.test(m), '모듈은 누적 · 현재 기록을 그릴 때마다 읽는다');
   chk(!/[^.\w]_focus(Total|Session|Today)Sec\s*[+-]?=[^=]/.test(m.replace(/const _focus(Total|Session)Sec = deps\.focus(Total|Session)Sec;/g, '')), '  모듈은 포커스 시간에 쓰지 않는다');
   const off = (APP.match(/const FOCUS_LOG_OFF = (\{[^\n]*?\});/) || [])[1];
-  chk(off === '{}', '빈 껍데기 FOCUS_LOG_OFF — 반환값과 같은 빈 객체');
+  chk(!/\bFOCUS_LOG_OFF\b/.test(APP), '빈 껍데기 FOCUS_LOG_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const iR = HTML.indexOf('<script src="parts/room/room-invite-ui.js"></script>'), iF = HTML.indexOf('<script src="parts/focus/focus-log.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iR > 0 && iF > iR && iA > iF, 'html — focus-log.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwFocusLog') && !/window\.FocusLog\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   const wire = (APP.match(/const FOCUS_LOG_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   let got = null; try{ got = vm.runInNewContext(wire + '\nfocusLog;', {}); }catch(_){}
-  chk(!!got && !Object.keys(got).length, '모듈이 안 실려도 그 자리는 서지 않는다(빈 껍데기)');
+  chk(/^const focusLog = TwFocusLog\.createFocusLog\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
 sec('── 7. 일부러 깨 보기 — 이 검사가 헛돌지 않는가', () => {

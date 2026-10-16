@@ -324,7 +324,7 @@ await sec('── 7. app.js 배선', () => {
     '부르는 곳 — 런처 동기화 · 로그아웃 flush · 메모리 지우기 · 🎯 초 · 플랫폼 · 뽀모 서랍(pomodoro.js — weeklyChal 을 deps 로)');
   const off = (APP.match(/const WEEKLY_CHAL_OFF = \{([^\n]*)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/weeklyChal\.(\w+)/g) || []).map(s => s.split('.')[1]))];
-  chk(off && used.every(n => new RegExp('\\b' + n + '\\b').test(off)), '빈 껍데기 WEEKLY_CHAL_OFF 가 부르는 이름을 다 갖는다 (' + used.join(' · ') + ')');
+  chk(!/\bWEEKLY_CHAL_OFF\b/.test(APP), '빈 껍데기 WEEKLY_CHAL_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const call = (APP.match(/TwWeeklyChallenge\.createWeeklyChallenge\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   chk(deps.length === 13 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|[A-Z_]+,$)/.test(l)), 'deps 13개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만');

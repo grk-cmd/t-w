@@ -493,13 +493,13 @@ await sec('── 9. app.js 배선', () => {
     && /!isAdmin\(\)\)\{/.test(m) && /_emojiCache\(\)\[i\]&&_emojiCache\(\)\[i\]\.url/.test(m), '모듈은 officeMode · _flyAiming · isAdmin · _emojiCache 를 부를 때마다 읽는다');
   chk(!/[^.\w](_chatFly(On|Size|Color)|officeMode|_flyAiming|isAdmin|_emojiCache)\s*=[^=>]/.test(m.replace(/const (officeMode|_flyAiming|isAdmin|_emojiCache) = deps\.\w+;/g, '')), '  모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로만)');
   const off = (APP.match(/const CHAT_WINDOW_OFF = (\{[^\n]*?\});/) || [])[1];
-  chk(off === '{}', '빈 껍데기 CHAT_WINDOW_OFF — 반환값과 같은 빈 객체');
+  chk(!/\bCHAT_WINDOW_OFF\b/.test(APP), '빈 껍데기 CHAT_WINDOW_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const iF = HTML.indexOf('<script src="parts/focus/focus-log.js"></script>'), iC = HTML.indexOf('<script src="parts/chat/chat-window.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iF > 0 && iC > iF && iA > iC, 'html — chat-window.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwChatWindow') && !/window\.ChatWindow\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   const wire = (APP.match(/const CHAT_WINDOW_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   let r = null; try{ r = vm.runInNewContext(wire + '\nchatWindowMod;', {}); }catch(_){}
-  chk(!!r && !Object.keys(r).length, '모듈이 안 실려도 그 자리는 서지 않는다(빈 껍데기)');
+  chk(/^const chatWindowMod = TwChatWindow\.createChatWindow\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
 await sec('── 10. 일부러 깨 보기 — 이 검사가 헛돌지 않는가', async () => {

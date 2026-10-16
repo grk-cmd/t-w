@@ -200,7 +200,7 @@ globalThis.HTMLImageElement = globalThis.Image;
 const probe = `
 ;globalThis.__F = {
   FRIEND_MAX,
-  real:       friendManage !== FRIEND_MANAGE_OFF,
+  real:       !!friendManage && typeof friendManage.renderFriendManage === 'function',   /* 빈 껍데기는 걷었다(가드 걷기 3차) — 진짜 모듈의 함수가 있는지 */
   acceptOne:  friendManage.acceptOne,
   bulkAccept: friendManage.bulkAccept,
   seatsLeft:  friendManage.seatsLeft,

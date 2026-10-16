@@ -223,7 +223,7 @@ await sec('── 5. app.js 배선', () => {
     '부르는 곳 — 때리기 조준 키 · 📷 버튼(chat-window.js) · 회사원 모드 켜기');
   const off = (APP.match(/const PURIKURA_UI_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/purikuraUi\.(\w+)/g) || []).map(s => s.split('.')[1]))];
-  chk(off && used.every(n => new RegExp('\\b' + n + '\\b').test(off)), '빈 껍데기 PURIKURA_UI_OFF 가 부르는 이름을 다 갖는다 (' + used.join(' · ') + ')');
+  chk(!/\bPURIKURA_UI_OFF\b/.test(APP), '빈 껍데기 PURIKURA_UI_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const call = (APP.match(/TwPurikuraUi\.createPurikuraUi\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   chk(deps.length === 31 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ (_\w+|plMod\.st\.\w+) = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),

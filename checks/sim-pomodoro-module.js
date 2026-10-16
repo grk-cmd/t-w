@@ -207,7 +207,7 @@ await sec('── 7. app.js 배선', () => {
   const m = strip(MOD);
   chk(/const toast = deps\.toast;/.test(m) && /const _focusShowPush = deps\.focusShowPush;/.test(m) && /const weeklyChal = deps\.weeklyChal;/.test(m) && /const _pomoSnd = deps\.pomoSnd;/.test(m), '모듈은 받은 넷을 같은 이름으로(본문 글자 그대로)');
   const off = (APP.match(/const POMODORO_OFF = \{([^\n]*)\};/) || [])[1] || '';
-  chk(['showText', 'open', 'render', 'tick', 'cfg', 'run'].every(n => new RegExp('\\b' + n + '\\s*(\\(|:)').test(off)) && /showText:\(\)=>''/.test(off), '빈 껍데기 POMODORO_OFF — 반환값 이름을 다 갖는다 · 문구는 빈 값');
+  chk(!/\bPOMODORO_OFF\b/.test(APP), '빈 껍데기 POMODORO_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const iW = HTML.indexOf('<script src="parts/focus/weekly-challenge.js"></script>'), iP = HTML.indexOf('<script src="parts/focus/pomodoro.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iW > 0 && iP > iW && iA > iP, 'html — pomodoro.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwPomodoro') && !/window\.Pomodoro\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
@@ -215,7 +215,7 @@ await sec('── 7. app.js 배선', () => {
   const wire = (APP.match(/const POMODORO_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   const box = { toast(){}, _focusShowPush(){}, weeklyChal: {}, _pomoSnd: {} };
   let got = null; try{ got = vm.runInNewContext(wire + '\npomodoro;', box); }catch(_){}
-  chk(!!got && got.showText() === '' && typeof got.open === 'function', '모듈이 안 실려도 그 자리는 서지 않는다(빈 껍데기)');
+  chk(/^const pomodoro = TwPomodoro\.createPomodoro\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
 say('');

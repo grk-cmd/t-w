@@ -65,7 +65,7 @@ for (const n of Object.keys(R.table)) say('     ' + n + ' — 거는 곳 ' + R.t
 
 say('── 3. 싣는 순서 · app.js');
 chk(R.users >= 8 && !R.late.length, '쓰는 파일 ' + R.users + '개(app.js 포함)보다 nav.js 를 먼저 싣는다' + (R.late.length ? ' — 먼저 실리는 것: ' + R.late.join(' · ') : ''));
-chk(/const NAV_OFF = \{ NAV:\{\}, on\(\)\{\}, go\(\)\{\} \};\nconst twNav = \(typeof TwNav === 'undefined'\) \? NAV_OFF : TwNav;/.test(APP), 'app.js — 모듈이 없으면 아무 일도 안 하는 껍데기 · 있으면 window.TwNav 그대로');
+chk(/^const twNav = TwNav;$/m.test(APP) && !/\bNAV_OFF\b/.test(APP), 'app.js — window.TwNav 를 그대로 받는다(빈 껍데기 없음 — 가드 걷기 3차)');
 const glueN = (APP.match(/^  twNav: twNav,$/gm) || []).length;
 chk(glueN === FILES.filter(([f, t]) => f !== 'app.js' && f !== 'shared/nav.js' && /^const twNav = deps\.twNav;/m.test(t)).length && glueN >= 8, '모듈은 deps 로 받는다 — 받는 모듈 수 = 만드는 줄의 twNav 줄 수(' + glueN + ')');
 

@@ -89,10 +89,10 @@ say('── 3. 발급 순서');
 say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
 {
   chk(!/function _lx|LX_MAX_ROWS|bindLicenseXlsxBulk|bindSecretRoomGrant/.test(strip(SRC)), 'app.js 에 옮긴 본문이 남지 않았다(두 벌이면 버튼이 두 번 걸린다)');
-  const mk = (SRC.match(/const adminLicenseBulk = \(typeof TwAdminLicenseBulk === 'undefined'\) \? ADMIN_LICENSE_BULK_OFF : TwAdminLicenseBulk\.createAdminLicenseBulk\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
+  const mk = (SRC.match(/const adminLicenseBulk = TwAdminLicenseBulk\.createAdminLicenseBulk\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
   chk(deps.length === 7 && deps.every(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l)), 'app.js 가 원래 자리에서 만든다 — deps 7개 · 모두 화살표(나중에 선언된 함수도 부를 때 찾는다 · 목록 다시 그리기는 adminLicense.이름)');
-  chk(/const ADMIN_LICENSE_BULK_OFF = \{\};/.test(SRC), '모듈이 없으면 빈 껍데기 — app.js 만 굴리는 검사가 서지 않는다');
+  chk(!/\bADMIN_LICENSE_BULK_OFF\b/.test(SRC), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
   const hA = SRC.indexOf('/* ═══ 📄 [2026-10-02]'), hS = SRC.indexOf('/* ═══ 🔒 시크릿룸 발급(관리자) ═══ */'), hM = SRC.indexOf('const adminLicenseBulk =');
   chk(hA > 0 && hS > hA && hM > hS, '만드는 줄은 원래 자리(두 구역 머리 아래) — 버튼을 거는 때가 예전과 같다');
   const used = ['escHtml', 'toast', '_genLicenseKey', '_saveFailMsg', 'renderLicenseGenList', 'downloadBlob', '_srFmtDate'];

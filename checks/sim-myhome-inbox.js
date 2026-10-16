@@ -394,8 +394,7 @@ function wiring(MI, APP, HTML){
   const rets = ((MI.match(/\nreturn \{([\s\S]*?)\n\};/) || [])[1] || '').split('// 검사용')[0].split('\n').map(s => (s.trim().match(/^(\w+)/) || [])[1]).filter(Boolean);
   const off = (APP.match(/const INBOX_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const miss = rets.filter(n => !new RegExp('\\b' + n + '(\\(\\)\\{\\}|:)').test(off));
-  chk(rets.length === 17 && !miss.length, '빈 껍데기 INBOX_OFF — 밖에서 쓰는 이름 17개를 다 갖는다' + (miss.length ? ' (없음 ' + miss.join() + ')' : ''));
-  chk(/linkifyText:\(t\)=>escHtml\(t\)/.test(off), '  껍데기의 linkifyText 도 이스케이프한다(공지 팝업 innerHTML)');
+  chk(!/\bINBOX_OFF\b/.test(APP), '빈 껍데기 INBOX_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const uses = ['inboxMod.renderMyHomeFriendList()', 'inboxMod.renderInbox()', 'inboxMod.renderGiftBox(', 'inboxMod.giftStat(', 'inboxMod.inboxTimeStr(', 'inboxMod.inboxTagLabel(',
     'inboxMod.inboxUnreadCount()', 'inboxMod.refreshFriendTabBadge()', 'inboxMod.inboxBcMarkAllRead()', 'inboxMod.linkifyText(', 'inboxMod.bindExtLinks(', 'inboxMod.friendInRoom(',
     'inboxMod.friendSearchToggle(', 'inboxMod.setInboxFilter(', 'inboxMod.setInboxOpenId(null)', 'inboxMod.setFriendFilter('];
@@ -454,7 +453,6 @@ async function runAll(MI, APP, HTML){
     ['APP', '  myInbox: ()=>_myInbox,', '  myInbox: _myInbox,', '수령함을 값으로(구독이 다시 대입하면 옛 것)'],
     ['APP', 'inboxMod.setFriendFilter(', '_friendFilter = (', '검색 입력이 옛 이름에 씀'],
     ['APP', 'roomTagOf: (...a)=>inboxMod.friendRoomTag(...a),', 'roomTagOf: f=>f.room,', '놀러 가기가 방 판정을 복사'],
-    ['APP', ' bindExtLinks(){},', '', '빈 껍데기에 이름이 빠짐'],
     ['HTML', '<script src="parts/myhome/myhome-inbox.js"></script>', '', 'html 이 모듈을 안 실음'],
   ];
   const caught = [];

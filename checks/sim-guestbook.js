@@ -258,7 +258,7 @@ await sec('── 5. app.js 배선', () => {
   const off = (APP.match(/const GUESTBOOK_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const ret = (MOD.match(/return \{\n  open: window\.openMyGuestbook,([\s\S]*?)\n\};/) || [])[0] || '';
   const names = [...ret.matchAll(/^\s+(\w+): window\./gm)].map(x => x[1]);
-  chk(names.length === 7 && names.every(n => new RegExp('\\b' + n + '\\(').test(off)), '빈 껍데기 GUESTBOOK_OFF 가 반환값 이름을 다 갖는다 (' + names.join(' · ') + ')');
+  chk(!/\bGUESTBOOK_OFF\b/.test(APP), '빈 껍데기 GUESTBOOK_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const calls = (code.match(/typeof (window\.)?(_mhGb\w+|_mhReSubscribeGuestbook)\s*===\s*'function'/g) || []).length;
   chk(calls === 8, '부르는 곳(친구 목록 · 마이홈 열기 · 닫기 · 관람 시작 · 끝 · 런처로)은 window 고리를 typeof 로 본다 — 모듈이 없으면 조용히 넘어간다 (' + calls + ')');
   const iG = HTML.indexOf('<script src="parts/myhome/guestbook.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
