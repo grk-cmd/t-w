@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 324 (임시 — 내 코드가 없는 기기에서 일정 · 방명록 요청을 보내지 않는다)
-대상: `sim-*.js` 298개 + `smoke.js` + `audit.py` = **300개** (개정 324 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 325 (임시 — 내 코드가 없는 기기에서 방 만들기 창 시크릿룸 요청을 보내지 않는다)
+대상: `sim-*.js` 298개 + `smoke.js` + `audit.py` = **300개** (개정 325 기준 — 폴더를 센 값)
+
+**개정 325 에서 한 것 (2026-10-17 · 임시 번호 · 감사 결과 — 이미 거부되던 요청이 안 나갈 뿐 · 화면 그대로)**
+- 앱(room-entry.js `_refreshSecretRoomUI`): 내 코드가 없으면 getMySecretRoom 을 안 읽는다(읽어도 거부 → 시크릿룸 칸은 안 보임 — 같은 화면).
+- 검사: sim-room-entry(2-2절) — 내 코드 없음 → 그 요청 0 · 코드 있으면 읽는다 · 가드를 지우면 빨강.
 
 **개정 324 에서 한 것 (2026-10-17 · 임시 번호 · 감사 결과 — 이미 거부되던 요청이 안 나갈 뿐 · 화면 그대로)**
 - 앱(scheduler.js): 내 코드가 없으면 태그 알림(schedNotices) · 오늘 일정 · 달력(subscribeScheduleMonth — 관람 중 친구 달력은 그대로) 구독을 안 건다. 이전 구독 끊기는 예전 자리 그대로.
@@ -2458,7 +2462,7 @@
 | **sim-wardrobe.js** | 95 | **fa7f523c17ed** ← **개정 301 deps LIGHT_PRESET 빠짐** · **개정 300 deps baseFlatOf 한 줄** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 244 귀 탭 · 책상 탭을 premium-assets.js 에서 받음 — deps +15 · adminPartReg · renderWdDeskSection · wdEar 빠짐 · 내놓는 이름 +3(relinkDraftSrc · setAdminPartActions · wdEar — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 197 신설 · 🎨 꾸미기 창 모듈(wardrobe.js) 구조** |
 | **sim-settings-panel.js** | 95 | **5753dcf76a9a** ← **개정 272 만들 때 가짜 고리판을 준다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 198 신설 · ⚙ 설정 패널 모듈(settings-panel.js) 구조** |
 | **sim-desktop-run.js** | 94 | **6c1cd7859fa7** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 199 신설 · 🖥️ 데스크탑 실행 화면 모듈(desktop-run.js) 구조** |
-| **sim-room-entry.js** | 95 | **db73f391c2c7** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps 에 twNav(창 열기 통로) — 방 나가기를 통로에 걸고 마이홈 열기는 통로로(판정 무변경)** · **개정 246 deps licenseGateMod → _rcStore(원격 설정 한 벌 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 200 신설 · 🛰 방 서버 · 입장 · 방 개수 모듈(room-entry.js) 구조** |
+| **sim-room-entry.js** | 120 | **2606857253d1** ← **개정 325 내 코드 없음 요청 0** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps 에 twNav(창 열기 통로) — 방 나가기를 통로에 걸고 마이홈 열기는 통로로(판정 무변경)** · **개정 246 deps licenseGateMod → _rcStore(원격 설정 한 벌 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 200 신설 · 🛰 방 서버 · 입장 · 방 개수 모듈(room-entry.js) 구조** |
 | **sim-overhead.js** | 95 | **e50c6835f900** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 201 신설 · 💬 머리 위 말풍선 · 🏷️ 이름표 모듈(overhead.js) 구조** |
 | **sim-room-sync.js** | 95 | **f94b58e57214** ← **개정 259 deps _autoAwayResetClock 하나 늘어 12(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps roomEntryMod → twNav(자리비움 자동 퇴장은 통로로 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 202 신설 · 📦 방 def 전송 · poke · 자동 퇴장 · 감시견 모듈(room-sync.js) 구조** |
 | **sim-status-chip.js** | 102 | **ef0d03070255** ← **개정 290 첫 그리기 줄의 userStatusTableMod.loadCustomStatusFromStorage 도 받는다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 240 만들 때 deps 되부름 0 · 부팅 줄은 만드는 줄 바로 뒤(deps 38 → 33)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 219 받는 이름에서 initMyHome 빠짐(판정 무변경)** · **개정 203 신설 · 📍 상태칩 자리 · 팝업 · 상태 이모지 모듈(status-chip.js) 구조** |
