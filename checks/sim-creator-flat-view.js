@@ -21,7 +21,8 @@ for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 
 const win = {};
 new Function('window', 'module', SRC['creator-flat-view.js'])(win, undefined);
 const M = win.CreatorFlatView;
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], ANI = SRC['animal.js'];
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 조명 예산 상수는 shared/light-tone.js 로 옮겼다(C 구역 떼기 w4) — «옮기기 전 app.js 글» 로 되살려 읽는다
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], ANI = SRC['animal.js'];
 /* 절마다 따로 — 옛 코드(모듈 없음)에 대면 멈추지 않고 그 절을 빨강 하나로 센다 */
 const sec = (title, fn) => { say(title); try{ fn(); }catch(e){ chk(false, '이 절을 못 돌았다 — ' + e.message); } };
 
