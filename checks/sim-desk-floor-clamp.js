@@ -29,7 +29,8 @@
    ⚠ 기즈모 자체(TransformControls)는 보지 않는다. 클램프 산수만 본다. */
 'use strict';
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 아이템 기즈모 · 좌석 세팅은 creator/creator-xform.js 로 옮겼다(C 구역 떼기 w4) — «옮기기 전 app.js 글» 로 되살려 읽는다
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const say = console.log;
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
