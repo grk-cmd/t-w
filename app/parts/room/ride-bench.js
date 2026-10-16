@@ -68,9 +68,11 @@ const broadcastRide = deps.broadcastRide;
 const charLiftWorld = deps.charLiftWorld;
 const getActiveInteractionDeskId = deps.getActiveInteractionDeskId;
 const isDeskUnlocked = deps.isDeskUnlocked;
+const isPartByRigOrName = deps.isPartByRigOrName;
 const layoutSeats = deps.layoutSeats;
 const matWood = deps.matWood;
 const matWoodD = deps.matWoodD;
+const measureBodyBox = deps.measureBodyBox;
 const measureHeadBoxNoParts = deps.measureHeadBoxNoParts;
 const savedParts = deps.savedParts;   // 읽는 함수
 const seatScale = deps.seatScale;
@@ -341,19 +343,7 @@ function _positionRideSeat(seat, now){
           // 숨은 메쉬·기본 장식까지 전부 포함했을 때의 꼭대기 — 위 값과의 차이가 이번 규칙이 깎아낸 양이다.
           let _hbAll = null;
           try{
-            const _b = new THREE.Box3(), _t = new THREE.Box3();
-            host.gltfRoot.traverse(o=>{
-              if(!o.isMesh) return;
-              if(o.userData && o.userData._origBind) return;
-              let q=o, sk=false;
-              while(q && q!==host.gltfRoot){
-                if(q.userData && q.userData.rigged){ sk=true; break; }
-                if(typeof q.name==='string' && q.name.indexOf('__partWrap_')===0){ sk=true; break; }
-                q=q.parent;
-              }
-              if(sk) return;
-              try{ _t.setFromObject(o); if(!_t.isEmpty()) _b.union(_t); }catch(_){}
-            });
+            const _b = measureBodyBox(host.gltfRoot, RIDE_DIAG_ALL_OPTS);
             if(!_b.isEmpty()) _hbAll = _b.max.y;
           }catch(_){}
           console.log('[올라타기·검증] 적용된 offY=' + _f2(_offY) + ' circus=' + _circus
@@ -489,6 +479,11 @@ function _partAllowsRideTop(partId){
     return !!(rec && rec.rideTop);
   }catch(_){ return false; }
 }
+/* 📏 재기는 measureBodyBox(character/body-measure.js) 옵션 둘.
+   RIDE_WRAP_OPTS — 파츠 · 귀 wrapper 하나 안: 숨은 메쉬 · 리깅 파츠 스킨드메시만 뺀다(wrapper 자신의 숨김은 부르는 쪽이 본다 · 행렬은 안 세운다)
+   RIDE_DIAG_ALL_OPTS — 진단 «숨은 메쉬 · 기본 장식까지 넣은 꼭대기»: 파츠(리깅 · 이름)와 리깅 스킨드메시만 뺀다 */
+const RIDE_WRAP_OPTS = { excludeParts: 'skinned', visibleOnly: true, updateWorld: false };
+const RIDE_DIAG_ALL_OPTS = { excludeParts: true, partTest: p => isPartByRigOrName(p), updateWorld: false };
 function _measureRideablePartTop(hostSeat, slabBox){
   if(!hostSeat || !hostSeat.gltfRoot || !slabBox || slabBox.isEmpty()) return null;
   const headW = slabBox.max.x - slabBox.min.x;
@@ -503,15 +498,7 @@ function _measureRideablePartTop(hostSeat, slabBox){
     if(!(o.userData && o.userData.__twPartWrap)) return;
     if(o.visible === false) return;
     if(!_partAllowsRideTop(o.userData.partId)) return;
-    const b = new THREE.Box3(), t = new THREE.Box3();
-    o.traverse(m=>{
-      if(!m.isMesh) return;
-      if(m.userData && m.userData._origBind) return;      // 리깅 파츠의 스킨드메시(본체 규칙과 동일)
-      let p = m, hidden = false;
-      while(p){ if(p.visible === false){ hidden = true; break; } if(p === o) break; p = p.parent; }
-      if(hidden) return;
-      try{ t.setFromObject(m); if(!t.isEmpty()) b.union(t); }catch(_){}
-    });
+    const b = measureBodyBox(o, RIDE_WRAP_OPTS);
     if(b.isEmpty()) return;
     if(Math.min(cx - b.min.x, b.max.x - cx) < needX) return;   // 좌우로 중심을 덮는가
     if(Math.min(cz - b.min.z, b.max.z - cz) < needZ) return;   // 앞뒤로 중심을 덮는가
@@ -580,20 +567,13 @@ function _measureHostHeadTop(hostSeat, headNode){
          머리 꼭대기가 부풀려지고 위 캐릭터가 그만큼 떴다(본체는 이미 숨은 메쉬를 제외하는데 귀만 안 했다).
          ⚠️ 귀 안에 숨은 메쉬가 없으면 값이 그대로다 = 이 수정만으로는 아무 변화가 없다.
             그 경우 헤드톱 부풀림의 범인은 귀가 아니므로, 아래 진단값(귀union)으로 확정할 것. */
-      const _eb = new THREE.Box3(), _et = new THREE.Box3();
+      const _eb = new THREE.Box3();
       const _ebRaw = new THREE.Box3(), _etRaw = new THREE.Box3();   // 진단용 — 옛 규칙(숨은 메쉬 포함)
       hostSeat.gltfRoot.traverse(o=>{
         if(!(o.userData && (o.userData.animalEar || o.userData.humanEar))) return;
         if(o.visible === false) return;
         try{ _etRaw.setFromObject(o); if(!_etRaw.isEmpty()) _ebRaw.union(_etRaw); }catch(_){}
-        o.traverse(m=>{
-          if(!m.isMesh) return;
-          if(m.userData && m.userData._origBind) return;      // 리깅 파츠의 스킨드메시(본체 규칙과 동일)
-          let p = m, hidden = false;
-          while(p){ if(p.visible === false){ hidden = true; break; } if(p === o) break; p = p.parent; }
-          if(hidden) return;
-          try{ _et.setFromObject(m); if(!_et.isEmpty()) _eb.union(_et); }catch(_){}
-        });
+        _eb.union(measureBodyBox(o, RIDE_WRAP_OPTS));
       });
       if(!_eb.isEmpty()) _hb.union(_eb);
       // 진단 표식 — '귀가 진짜로 그 높이인가' vs '숨은 메쉬가 부풀린 것인가'를 로그 한 줄로 가른다.

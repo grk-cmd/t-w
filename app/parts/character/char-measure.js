@@ -3,7 +3,7 @@
    받는 deps: measureBodyBox(character/body-measure.js — 몸 박스 재기 한 규칙). 내보내는 것: measureCharBox · measureHeadBoxNoParts · headDecorMeshSet · measureUnderfootDepth · charFootFix · floorClampWrapper.
    app.js «FIT» 구역의 측정 몫을 그대로 옮겼다(구역 떼기 C · w1). 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄임).
-     맨 몸 · 맨 머리 · 발밑 깊이 셋은 measureBodyBox 에 옵션만 고른다(옛 글과 같은 박스 — checks/sim-body-measure.js).
+     맨 몸 · 맨 머리 · 발밑 깊이 · 가지 빼고 재기(_boxExcluding)는 measureBodyBox 에 옵션만 고른다(옛 글과 같은 박스 — checks/sim-body-measure.js).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ 밖에서 부르는 이름: charFootFix · floorClampWrapper · headDecorMeshSet · measureCharBox · measureHeadBoxNoParts · measureUnderfootDepth — app.js 는 charMeasureMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
@@ -74,21 +74,12 @@ function charFootFix(box){
   }
   return d;
 }
-/* 📐 root 의 월드 박스를 재되, skipSub 가 true 인 가지는 통째로 뺀다.
-   바닥 클램프는 «잰 것» 과 «움직이는 것» 이 같아야 한다 — 다르면 매 프레임 다시 올리는 되먹임으로 하늘로 솟는다. */
+/* 📐 root 의 월드 박스를 재되, skipSub 가 true 인 가지(와 숨은 가지)는 통째로 뺀다 — root 자신은 안 본다.
+   바닥 클램프는 «잰 것» 과 «움직이는 것» 이 같아야 한다 — 다르면 매 프레임 다시 올리는 되먹임으로 하늘로 솟는다.
+   재기는 measureBodyBox 의 skipBranch(파츠 · 리깅 규칙 없음 — 책상 · 아이템을 잰다). */
 function _boxExcluding(root, skipSub){
-  const box = new THREE.Box3(), tmp = new THREE.Box3();
-  try{
-    root.updateWorldMatrix(true, true);
-    const walk = o=>{
-      if(o !== root && (o.visible === false || skipSub(o))) return;   // 이 가지는 통째로 건너뛴다
-      if(o.isMesh){ try{ tmp.setFromObject(o); if(!tmp.isEmpty()) box.union(tmp); }catch(_){} }
-      const ch = o.children || [];
-      for(let i=0;i<ch.length;i++) walk(ch[i]);
-    };
-    walk(root);
-  }catch(_){}
-  return box;
+  try{ return measureBodyBox(root, { skipBranch: o => o.visible === false || skipSub(o) }); }
+  catch(_){ return new THREE.Box3(); }
 }
 /* 🪑🦶 wrapper 하나를 **월드 바닥(y=0)** 위로 끌어올린다 — 아래로 내려간 만큼만 움직인다.
    [어디서 쓰는가] 두 곳이며, 반드시 같은 식이어야 한다.

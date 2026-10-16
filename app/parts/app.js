@@ -1752,9 +1752,11 @@ const rideBenchMod = TwRideBench.createRideBench({
   charLiftWorld: (...a)=>seatEqMod.charLiftWorld(...a),
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
   isDeskUnlocked: (...a)=>iDeskMod.isDeskUnlocked(...a),
+  isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   matWood: matWood,
   matWoodD: matWoodD,
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   measureHeadBoxNoParts: (...a)=>charMeasureMod.measureHeadBoxNoParts(...a),
   savedParts: ()=>premiumMod.savedParts(),
   seatScale: (...a)=>seatEqMod.seatScale(...a),
@@ -5080,28 +5082,8 @@ function _computePartAuthorOffset(bb, center, bone, modelRoot, cat, charBones){
    인간·동물 각각 한 번씩 로그를 받아 두 박스의 비율로 보정을 유도하는 것이 다음 단계다. */
 function _measureBodyBoxInLocal(modelRoot, refNode){
   // refNode 로컬 좌표계에서 캐릭터 '본체' 박스 — 꾸미기 파츠·리깅 파츠(동물 귀 포함)·숨은 메쉬 제외.
-  // measureHeadBoxNoParts와 같은 제외 규칙이지만, 월드가 아니라 지정한 노드 기준으로 잰다.
-  const box = new THREE.Box3(), tmp = new THREE.Box3(), M = new THREE.Matrix4();
-  modelRoot.updateWorldMatrix(true, true); refNode.updateWorldMatrix(true, true);
-  const inv = new THREE.Matrix4().copy(refNode.matrixWorld).invert();
-  modelRoot.traverse(o=>{
-    if(!o.isMesh || !o.geometry) return;
-    if(o.userData && o.userData._origBind) return;              // 리깅 파츠의 스킨드메시
-    let p = o, skip = false;
-    while(p && p !== modelRoot){
-      if(p.visible === false){ skip = true; break; }
-      if(p.userData && p.userData.rigged){ skip = true; break; }
-      if(typeof p.name === 'string' && p.name.indexOf('__partWrap_') === 0){ skip = true; break; }
-      p = p.parent;
-    }
-    if(skip || o.visible === false) return;
-    try{
-      if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-      tmp.copy(o.geometry.boundingBox).applyMatrix4(M.copy(inv).multiply(o.matrixWorld));
-      if(!tmp.isEmpty()) box.union(tmp);
-    }catch(_){}
-  });
-  return box;
+  // 파츠 판정은 옛 규칙(리깅 · 이름 — isPartByRigOrName). 월드가 아니라 지정한 노드 기준으로 잰다(frame).
+  return bodyMeasureMod.measureBodyBox(modelRoot, { excludeParts: true, partTest: bodyMeasureMod.isPartByRigOrName, visibleOnly: true, frame: refNode });
 }
 function _diagPartHeadSpace(cat, modelRoot, bone, bb, center, seat, isRigged){
   try{
@@ -5142,25 +5124,11 @@ function _headTopAboveBone(modelRoot, bone, meshHost){
   modelRoot.updateWorldMatrix(true, true);
   const inv = new THREE.Matrix4().copy(modelRoot.matrixWorld).invert();
   const bp = bone.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
-  const tmp = new THREE.Box3(), M = new THREE.Matrix4();
+  // 숨은 메쉬(얼굴 변형 미선택 등) · 리깅 부착물(동물 귀 등) · 이름 파츠 · 장식 메쉬 제외 — 모델 좌표계(frame)로 메쉬마다 잰다
+  const boxes = [];
+  bodyMeasureMod.measureBodyBox(modelRoot, { excludeParts: true, partTest: bodyMeasureMod.isPartByRigOrName, visibleOnly: true, skipMeshes: skip, frame: modelRoot, updateWorld: false, outBoxes: boxes });
   let top = -Infinity;
-  modelRoot.traverse(o=>{
-    if(!o.isMesh || !o.geometry || skip.has(o)) return;
-    if(o.userData && o.userData._origBind) return;                 // 리깅 파츠의 스킨드메시
-    let p = o, drop = false;
-    while(p && p !== modelRoot){
-      if(p.visible === false){ drop = true; break; }               // 숨은 메쉬(얼굴 변형 미선택 등)
-      if(p.userData && p.userData.rigged){ drop = true; break; }    // 동물 귀 등 부착물
-      if(typeof p.name === 'string' && p.name.indexOf('__partWrap_') === 0){ drop = true; break; }
-      p = p.parent;
-    }
-    if(drop || o.visible === false) return;
-    try{
-      if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-      tmp.copy(o.geometry.boundingBox).applyMatrix4(M.copy(inv).multiply(o.matrixWorld));
-      if(!tmp.isEmpty() && tmp.max.y > top) top = tmp.max.y;
-    }catch(_){}
-  });
+  boxes.forEach(b=>{ if(b.max.y > top) top = b.max.y; });
   return (top > -Infinity) ? (top - bp.y) : 0;
 }
 /* 사람(기본 GLB) 기준 머리 여유 — 파츠가 저작된 리그의 값. 1회 측정 후 캐시.
@@ -6862,6 +6830,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   extractBonesInto: (...a)=>extractBonesInto(...a),
   getCommissionScene: (...a)=>getCommissionScene(...a),
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   registerCustomItem: (...a)=>deskItemsMod.registerCustomItem(...a),
   scene: scene,
   setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
