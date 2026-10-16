@@ -5,6 +5,7 @@
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 1줄 그대로 · 부르는 곳은 dotRenderMod.이름 · html(app.js 앞)
    ・4절: 동작 — 순수 판정 · 가짜 객체로 입력 → 출력 · 경계값(옮기기 전 app.js 글로도 같은 판정이 돈다)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・5절: 켠 뒤 들어온 것 — 새 메쉬 · 가짜 표식(clone) · 덮어쓴 색조 셰이더 · 셰이더 캐시 키 · 프레임 루프 훑기(fix · CONFIRM w1 1번)
    [실행] app.js · desk-companion-prototype.html · dot-render.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -22,7 +23,7 @@ const FN_DEPS = [];
 const VAL_DEPS = ["scene"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["applyDotTextureFilter","applyPS1Shader"];
+const EXPORTS = ["applyDotTextureFilter","applyPS1Shader","sweepIfOn"];
 const MOVED = ["_dotFilterState","applyDotTextureFilter","_PS1_LEVELS","_PS1_FRAG_INJECT","_ps1State","applyPS1Shader"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  scene: scene,"];
 
@@ -126,7 +127,7 @@ say('── 4. 동작 — 텍스처 필터 · PS1 셰이더 켜고 끄기');
   chk(S.t3.minFilter === 1003 && S.t3.userData && S.t3.userData._origMinFilter === 1006, '  userData 없는 텍스처도 원래 값을 적어 두고 바꾼다');
   chk(S.m3.map.minFilter === 1006, '  메쉬가 아닌 것 · 빈 머티리얼은 그대로');
   S.t1.needsUpdate = false; D.applyDotTextureFilter(true);
-  chk(S.t1.needsUpdate === false, '  같은 상태로 다시 부르면 아무것도 안 한다(모드 바뀔 때 한 번)');
+  chk(S.t1.needsUpdate === false, '  다시 불러도 이미 Nearest 인 텍스처는 다시 올리지 않는다(needsUpdate 안 함)');
   D.applyDotTextureFilter(false);
   chk(S.t1.minFilter === 1008 && S.t1.magFilter === 1008 && S.t2.minFilter === 1006 && S.t3.minFilter === 1006, '도트 필터 끔 — 원래 필터로 되돌린다');
 
@@ -141,7 +142,7 @@ say('── 4. 동작 — 텍스처 필터 · PS1 셰이더 켜고 끄기');
   S.m1.onBeforeCompile(sh, null);
   chk(/_snapped[\s\S]*\n\}$/.test(sh.fragmentShader) && !sh.fragmentShader.includes('#include'), '  훅이 없는 셰이더면 마지막 } 앞에 넣는다');
   const obc1 = S.m1.onBeforeCompile; S.m1.needsUpdate = false; D.applyPS1Shader(true);
-  chk(S.m1.onBeforeCompile === obc1 && S.m1.needsUpdate === false, '  같은 상태로 다시 부르면 아무것도 안 한다');
+  chk(S.m1.onBeforeCompile === obc1 && S.m1.needsUpdate === false, '  다시 불러도 이미 건 머티리얼은 그대로(다시 컴파일 안 함)');
   D.applyPS1Shader(false);
   chk(S.m2.onBeforeCompile === S.prevObc && S.m2.userData._ps1Hooked === false && typeof S.m1.onBeforeCompile === 'function' && S.m1.userData._ps1Hooked === false, 'PS1 끔 — 원래 onBeforeCompile(없으면 빈 함수)으로 되돌린다');
   sh = { fragmentShader: 'x' }; S.m1.onBeforeCompile(sh); chk(sh.fragmentShader === 'x', '  끈 뒤 빈 함수는 셰이더를 안 건드린다');
@@ -149,6 +150,70 @@ say('── 4. 동작 — 텍스처 필터 · PS1 셰이더 켜고 끄기');
   chk(S.m1.userData._ps1Hooked === true, '  다시 켜면 또 건다');
   let threw = null; try{ const E = loadDot({ traverse: () => {} }); E.applyDotTextureFilter(true); E.applyPS1Shader(true); E.applyPS1Shader(false); }catch(e){ threw = e; }
   chk(!threw, '빈 씬이면 아무 일 없이 지나간다');
+}
+/* ── 5. 켠 뒤 들어온 것 — 예전엔 «마지막 상태와 같으면 돌아감» 이라 켠 뒤 더해진 메쉬는 껐다 켤 때까지 매끈했다 */
+say('── 5. 켠 뒤 들어온 메쉬 · 텍스처 · 셰이더');
+{
+  const THREE_ = { NearestFilter: 1003, LinearFilter: 1006, LinearMipmapLinearFilter: 1008 };
+  const objs = [];
+  const scene = { traverse: (cb) => { scene.n++; objs.forEach(cb); }, n: 0 };
+  const win = {}; new Function('window', 'module', 'THREE', MOD)(win, undefined, THREE_);
+  const D = win.TwDotRender.createDotRender({ scene });
+  const tex = () => ({ minFilter: 1008, magFilter: 1006, needsUpdate: false, userData: {} });
+  const mesh = (m) => { const o = { isMesh: true, material: m }; objs.push(o); return o; };
+  const DEFAULT_OBC = function(){};   // three 기본 onBeforeCompile 자리
+  const mat = (extra) => Object.assign({ map: tex(), userData: {}, onBeforeCompile: DEFAULT_OBC }, extra || {});
+
+  D.applyDotTextureFilter(false); D.applyPS1Shader(false);
+  chk(scene.n === 0, '켠 적 없이 끄면 씬을 훑지 않는다');
+  D.sweepIfOn(1e6);
+  chk(scene.n === 0, '  꺼져 있으면 sweepIfOn 도 아무것도 안 한다');
+
+  const a = mat(); mesh(a);
+  D.applyDotTextureFilter(true); D.applyPS1Shader(true);
+  const b = mat(); mesh(b);   // 켠 뒤 친구 입장
+  D.applyDotTextureFilter(true); D.applyPS1Shader(true);
+  chk(b.map.minFilter === 1003 && b.map.magFilter === 1003 && b.userData._ps1Hooked === true && b.onBeforeCompile !== DEFAULT_OBC, '켠 뒤 들어온 메쉬도 다시 부르면 도트 필터 · PS1 이 걸린다');
+
+  /* m.clone() 사본 — userData 표식은 JSON 으로 따라오고 onBeforeCompile 은 안 따라온다 */
+  const c = mat({ userData: JSON.parse(JSON.stringify(a.userData)) }); mesh(c);
+  chk(c.userData._ps1Hooked === true, '  (준비) 사본에 가짜 표식이 따라왔다');
+  D.applyPS1Shader(true);
+  let sh = { fragmentShader: 'void main(){\n#include <dithering_fragment>\n}' }; c.onBeforeCompile(sh);
+  chk(c.onBeforeCompile !== DEFAULT_OBC && sh.fragmentShader.includes('_snapped'), '가짜 표식만 있는 사본에도 실제로 셰이더를 건다');
+
+  /* 색조 셰이더가 나중에 덮어씀(_ensureHueUniforms) */
+  const hue = (shader) => { shader.fragmentShader = 'HUE;' + shader.fragmentShader; };
+  a.onBeforeCompile = hue; a.needsUpdate = false;
+  D.applyPS1Shader(true);
+  sh = { fragmentShader: 'void main(){\n#include <dithering_fragment>\n}' }; a.onBeforeCompile(sh);
+  chk(a.needsUpdate === true && sh.fragmentShader.startsWith('HUE;') && sh.fragmentShader.includes('_snapped'), '덮어쓴 색조 셰이더 위에 다시 건다(색조 먼저 · PS1 뒤)');
+  chk(typeof a.customProgramCacheKey === 'function' && typeof b.customProgramCacheKey === 'function' && a.customProgramCacheKey() !== b.customProgramCacheKey(), '셰이더 캐시 키가 색조 재질과 보통 재질에서 다르다(한 셰이더를 나눠 쓰다 염색이 빠지지 않게)');
+  chk(b.customProgramCacheKey() === c.customProgramCacheKey(), '  같은 원래 훅이면 키도 같다(셰이더를 쓸데없이 늘리지 않음)');
+
+  /* 끌 때 — 그새 색조 셰이더가 덮어쓴 재질은 그 셰이더를 지우지 않는다 */
+  const d = mat(); mesh(d); D.applyPS1Shader(true);
+  const hue2 = function(sh){ sh.h2 = 1; }; d.onBeforeCompile = hue2;
+  D.applyPS1Shader(false);
+  chk(d.onBeforeCompile === hue2 && d.userData._ps1Hooked === false && !('customProgramCacheKey' in d && Object.prototype.hasOwnProperty.call(d, 'customProgramCacheKey')), '끌 때 남이 덮어쓴 onBeforeCompile 은 그대로 두고 표식 · 캐시 키만 걷는다');
+  chk(b.onBeforeCompile === DEFAULT_OBC && !Object.prototype.hasOwnProperty.call(b, 'customProgramCacheKey'), '  우리 훅이면 원래 것으로 되돌리고 캐시 키도 걷는다');
+  D.applyDotTextureFilter(false);
+  chk(b.map.minFilter === 1008 && b.map.magFilter === 1006, '  나중에 들어온 메쉬의 텍스처도 원래 필터로 되돌린다');
+
+  /* 프레임 루프 훑기 — 켜져 있을 때만 · SWEEP_MS 마다 한 번 */
+  D.applyDotTextureFilter(true); D.applyPS1Shader(true);
+  const e = mat(); mesh(e);
+  const n0 = scene.n; D.sweepIfOn(5000); const n1 = scene.n; D.sweepIfOn(5100); const n2 = scene.n; D.sweepIfOn(5500);
+  chk(n1 - n0 === 2 && n2 === n1 && scene.n - n2 === 2, 'sweepIfOn — 0.5초에 한 번만 훑는다(두 함수 한 번씩)');
+  chk(e.map.minFilter === 1003 && e.userData._ps1Hooked === true, '  훑으면 그새 들어온 메쉬에 걸린다');
+  e.map = tex(); D.sweepIfOn(6100);
+  chk(e.map.minFilter === 1003, '  바꿔 낀 텍스처(표정 · 깜빡임)도 다음 훑기에 Nearest');
+  D.applyDotTextureFilter(false); D.applyPS1Shader(false);
+  const n3 = scene.n; D.sweepIfOn(9000);
+  chk(scene.n === n3, '  끈 뒤에는 훑지 않는다');
+
+  const frameSrc = (SRC.match(/\nfunction frame\(now, manual\)\{[\s\S]*?\n\}\n/) || [''])[0];
+  chk(/\n  dotRenderMod\.sweepIfOn\(now\);/.test(frameSrc), 'app.js 프레임 루프가 dotRenderMod.sweepIfOn(now) 를 부른다');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
