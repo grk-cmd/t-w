@@ -109,7 +109,9 @@ function joinRenderer(app){
   const retGet = [], retSet = [];
   for(const m of MODULES){
     const txt = readPart(m.file); if(!txt) continue;
-    const i = app.indexOf('const ' + m.mod + ' = (typeof ' + m.glob);
+    /* 만드는 줄 — 「const mod = TwX.createX({」(가드 걷기 3차 뒤) · 옛 모양 「const mod = (typeof TwX … ) ? OFF : TwX.createX({」 둘 다 */
+    const i0 = app.indexOf('const ' + m.mod + ' = ' + m.glob + '.');
+    const i = i0 >= 0 ? i0 : app.indexOf('const ' + m.mod + ' = (typeof ' + m.glob);
     const j = i >= 0 ? app.indexOf('\n});', i) : -1;
     const glue = i >= 0 ? app.slice(i, j) : '';
     const getters = [...glue.matchAll(/^  ([\w$]+): \(\)=>(?:[\w$]+\.)?([\w$]+)(?:\(\))?,$/gm)].map(x => x[1]);   // 키 = 모듈 안 이름(오른쪽이 다른 모듈의 읽는 함수여도)

@@ -1832,9 +1832,8 @@ function flySeed(){ return (Math.random() * 0xFFFFFFFF) >>> 0; }
      _hitsSkipHidden 으로 거른다. **우클릭 메뉴는 거르지 않는다**(책상을 눌러 «다시 보이기» 가 떠야 한다).
    ⚠️ 숨긴 캐릭터 위에 올라탄 남의 캐릭터는 그대로 둔다(허공에 떠 보일 수 있음 — 범위 밖). */
 /* 본문은 hidden-seats.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const HIDDEN_SEATS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const hiddenSeatsMod = (typeof TwHiddenSeats === 'undefined') ? HIDDEN_SEATS_MOD_OFF : TwHiddenSeats.createHiddenSeats({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const hiddenSeatsMod = TwHiddenSeats.createHiddenSeats({
   _flyActive: ()=>_flyActive,
   seatFromObject: (...a)=>seatFromObject(...a),
   seats: seats,
@@ -1865,8 +1864,7 @@ let _flyActive = 0;
    창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다. 모듈이 없으면(검사가 app.js 만 굴릴 때) 아무 일도 안 하는 껍데기 */
 const NAV_OFF = { NAV:{}, on(){}, go(){} };
 const twNav = (typeof TwNav === 'undefined') ? NAV_OFF : TwNav;
-const ROOM_SYNC_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const roomSyncMod = (typeof TwRoomSync === 'undefined') ? ROOM_SYNC_MOD_OFF : TwRoomSync.createRoomSync({
+const roomSyncMod = TwRoomSync.createRoomSync({
   DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
   Presence: ()=>Presence,
@@ -1949,9 +1947,8 @@ function startFlight(seat, seed, quiet){
      쿨다운을 늘리려면 이 창(EGG_WINDOW_MS)도 같이 볼 것.
      이어쓰기(`/80/80/80`)는 한 번의 전송이라 쿨다운을 한 번만 먹는다 — 그래서 창과 무관하다. */
 /* 본문은 tricks.js 로 옮겼다(앱 FSD 25번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const TRICKS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const tricksMod = (typeof TwTricks === 'undefined') ? TRICKS_MOD_OFF : TwTricks.createTricks({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const tricksMod = TwTricks.createTricks({
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   CHAR_Z: CHAR_Z,
   FLOATER_BURST: ()=>floatersMod.FLOATER_BURST,
@@ -2017,9 +2014,8 @@ const tricksMod = (typeof TwTricks === 'undefined') ? TRICKS_MOD_OFF : TwTricks.
 
 /* ═══ 🔊 효과음 공장(_mkSndPool) — 때리기 · 클릭음 · 채팅 · 뽀모도로 알림음 풀 ═══ */
 /* 본문은 sfx.js 로 옮겼다(앱 FSD 42번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const SFX_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const sfxMod = (typeof TwSfx === 'undefined') ? SFX_MOD_OFF : TwSfx.createSfx({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const sfxMod = TwSfx.createSfx({
   officeMode: ()=>officeMode,
 });
 /* ═══ 🪄 때리기 — 말풍선 · 재생 · 전파 · 조준 모드 ═══ */
@@ -2027,9 +2023,8 @@ const sfxMod = (typeof TwSfx === 'undefined') ? SFX_MOD_OFF : TwSfx.createSfx({
 
 /* ═══ 🗼 올라타기(탑) · 벤치 좌석 자리 잡기 ═══ */
 /* 본문은 ride-bench.js 로 옮겼다(앱 FSD 30번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const RIDE_BENCH_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const rideBenchMod = (typeof TwRideBench === 'undefined') ? RIDE_BENCH_MOD_OFF : TwRideBench.createRideBench({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const rideBenchMod = TwRideBench.createRideBench({
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   CIRCUS_FOOT_CENTER: CIRCUS_FOOT_CENTER,
   CIRCUS_FOOT_SINK: CIRCUS_FOOT_SINK,
@@ -2103,9 +2098,8 @@ const rideBenchMod = (typeof TwRideBench === 'undefined') ? RIDE_BENCH_MOD_OFF :
    · GLB는 아직 준비 전이므로 glb=null이면 임시 프리미티브 벤치로 대체(검증용).
    ═══════════════════════════════════════════════════════════════════ */
 /* 본문은 interaction-desk.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const I_DESK_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const iDeskMod = (typeof TwInteractionDesk === 'undefined') ? I_DESK_MOD_OFF : TwInteractionDesk.createInteractionDesk({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const iDeskMod = TwInteractionDesk.createInteractionDesk({
   CIRCUS_ARM_DROP: CIRCUS_ARM_DROP,
   CIRCUS_LEG_LIFT: CIRCUS_LEG_LIFT,
   CIRCUS_LEG_STAND: CIRCUS_LEG_STAND,
@@ -3205,16 +3199,14 @@ function _closeChipPopups(exceptId, force){
 
 /* ═══ 🪟 창 겹침 — 누른 창 맨 앞(bringWinToFront) · ESC 스택(escRegisterWindow) ═══ */
 /* 본문은 win-stack.js 로 옮겼다(앱 FSD 42번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const WIN_STACK_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const winStackMod = (typeof TwWinStack === 'undefined') ? WIN_STACK_MOD_OFF : TwWinStack.createWinStack({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const winStackMod = TwWinStack.createWinStack({
 });
 
 /* ═══ 📐 상태칩 팝업 · 입력창 자리 계산 · 캐릭터 실측 ═══ */
 /* 본문은 status-chip.js 로 옮겼다(앱 FSD 36번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const STATUS_CHIP_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const statusChipMod = (typeof TwStatusChip === 'undefined') ? STATUS_CHIP_MOD_OFF : TwStatusChip.createStatusChip({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const statusChipMod = TwStatusChip.createStatusChip({
   CUSTOM_STATUS_MAXLEN: CUSTOM_STATUS_MAXLEN,
   Presence: ()=>Presence,
   _CHIP_POPUPS: _CHIP_POPUPS,
@@ -3264,9 +3256,8 @@ if(document.getElementById('myStatusChipBtn') && document.getElementById('myStat
      수신 측은 구버전 클라이언트도 이미지로 정상 표시됨(전송만 신버전 필요).
    · 팔레트는 첫 클릭 때 DEMOJI_LIST로 지연 생성(DEMOJI_LIST는 아래쪽에서 const 선언되므로 로드 시점엔 TDZ). */
 /* 본문은 demoji-palette.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const DEMOJI_PAL_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const demojiPalMod = (typeof TwDemojiPalette === 'undefined') ? DEMOJI_PAL_MOD_OFF : TwDemojiPalette.createDemojiPalette({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const demojiPalMod = TwDemojiPalette.createDemojiPalette({
   Presence: ()=>Presence,
   _closeChipPopups: (...a)=>_closeChipPopups(...a),
   chatUiMod: ()=>chatUiMod,
@@ -3336,9 +3327,8 @@ const plMod = (typeof TwPlaylist === 'undefined') ? PLAYLIST_OFF : TwPlaylist.cr
    ★ 상한(FOCUS_LEVEL_CAP_HOURS=999)을 넘는 값은 없지만, 표 마지막 칸을 Infinity 로 열어 둬서
      그런 값이 들어와도 조용히 t12 로 떨어진다(클래스가 아예 안 붙으면 배경이 사라진다). */
 /* 본문은 lv-tier.js 로 옮겼다(앱 FSD 48번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const LV_TIER_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const lvTierMod = (typeof TwLvTier === 'undefined') ? LV_TIER_MOD_OFF : TwLvTier.createLvTier({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const lvTierMod = TwLvTier.createLvTier({
 });
 /* ═══ 🎵 플레이리스트 화면 — 명함 · 목록 · 흐르는 제목 · 미니미 · 파도타기 ═══ */
 /* 🎵 플레이리스트 화면은 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 연결은 «🎵 상태칩 플레이리스트» 머리 아래(plMod). 레벨 배지는 plMod.fillLv. */
@@ -3419,9 +3409,8 @@ let moveMode=false;   // "프로그램 이동" 진행 중 여부 (true면 캐릭
 let _suppressNextContextMenu=false;   // 이동 모드를 우클릭으로 확정한 직후, 뒤이어 뜨는 contextmenu 1회를 무시하기 위한 플래그
 let _moveModeJustToggled=false;   // 버튼 클릭 직후 신호 — bindMoveMode가 시작점을 새로 잡게 함
 /* 본문은 settings-panel.js 로 옮겼다(앱 FSD 27번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const SETTINGS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const settingsMod = (typeof TwSettingsPanel === 'undefined') ? SETTINGS_MOD_OFF : TwSettingsPanel.createSettingsPanel({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const settingsMod = TwSettingsPanel.createSettingsPanel({
   GAP_MAX: GAP_MAX,
   GAP_MIN: GAP_MIN,
   GAP_STEPS: GAP_STEPS,
@@ -3544,9 +3533,8 @@ const focusLog = (typeof TwFocusLog === 'undefined') ? FOCUS_LOG_OFF : TwFocusLo
 
 /* ═══ ⌨️ 함수키 단축키(F1 ~ F4) ═══ */
 /* 본문은 fn-keys.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const FN_KEYS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const fnKeysMod = (typeof TwFnKeys === 'undefined') ? FN_KEYS_MOD_OFF : TwFnKeys.createFnKeys({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const fnKeysMod = TwFnKeys.createFnKeys({
   chatUiMod: ()=>chatUiMod,
   gachaMod: ()=>gachaMod,
   iDeskMod: iDeskMod,
@@ -3555,9 +3543,8 @@ const fnKeysMod = (typeof TwFnKeys === 'undefined') ? FN_KEYS_MOD_OFF : TwFnKeys
 
 /* ═══ 🎨 꾸미기 사이드 패널 열고 닫기 ═══ */
 /* 본문은 wardrobe-panel.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const WD_PANEL_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const wdPanelMod = (typeof TwWardrobePanel === 'undefined') ? WD_PANEL_MOD_OFF : TwWardrobePanel.createWardrobePanel({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const wdPanelMod = TwWardrobePanel.createWardrobePanel({
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
   twNav: twNav,
@@ -3567,9 +3554,8 @@ const wdPanelMod = (typeof TwWardrobePanel === 'undefined') ? WD_PANEL_MOD_OFF :
 
 /* ═══ 👀 꾸미기 미리보기 — 렌더러 · 기즈모 · 창 자리 · 카메라 ═══ */
 /* 본문은 wardrobe.js 로 옮겼다(앱 FSD 29번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const WARDROBE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const wardrobeMod = (typeof TwWardrobe === 'undefined') ? WARDROBE_MOD_OFF : TwWardrobe.createWardrobe({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const wardrobeMod = TwWardrobe.createWardrobe({
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   CHAR_Z: CHAR_Z,
   LIGHT_PRESET: ()=>LIGHT_PRESET,
@@ -3676,9 +3662,8 @@ function buildFreeColorPicker(...a){ return wardrobeMod.buildFreeColorPicker(...
    ⚠️ 저장(업로드)은 '완료' 한 번뿐이다. 획마다 저장하면 equippedParts JSON 이 매번 달라져서
      상대 화면이 파츠를 통째로 재장착한다 — 남의 화면에서 내 파츠가 계속 깜빡인다. */
 /* 본문은 part-paint.js 로 옮겼다(앱 FSD 21번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const PART_PAINT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const partPaintMod = (typeof TwPartPaint === 'undefined') ? PART_PAINT_MOD_OFF : TwPartPaint.createPartPaint({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const partPaintMod = TwPartPaint.createPartPaint({
   CANVAS_SZ: ()=>CANVAS_SZ,
   _applyPartMatTone: (...a)=>_applyPartMatTone(...a),
   _loadImgCors: (...a)=>roomSyncMod._loadImgCors(...a),
@@ -3813,18 +3798,16 @@ function _waitForFirebaseAPI(cb, tries){
    ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. 로그아웃은 사람이 눌러야 도는 길이다(_loginDoLogout).
    «여기서 계속 쓰기» = 다시 claim → 반대쪽이 이 화면을 본다. «앱 닫기» = quitApp. */
 /* 본문은 device-lost.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const DEVICE_LOST_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const deviceLostMod = (typeof TwDeviceLost === 'undefined') ? DEVICE_LOST_MOD_OFF : TwDeviceLost.createDeviceLost({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const deviceLostMod = TwDeviceLost.createDeviceLost({
   getMyUserId: (...a)=>getMyUserId(...a),
   twNav: twNav,
 });
 
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
 /* 본문은 myhome-init.js 로 옮겼다(앱 FSD 44번 남은 몫). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const MH_INIT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const mhInitMod = (typeof TwMyHomeInit === 'undefined') ? MH_INIT_MOD_OFF : TwMyHomeInit.createMyHomeInit({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const mhInitMod = TwMyHomeInit.createMyHomeInit({
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   _inboxBroadcast: ()=>_inboxBroadcast,
   _myFriendRequests: ()=>_myFriendRequests,
@@ -3877,9 +3860,8 @@ function escHtml(s){
 
 /* ═══ 💬 채팅창 투명도 · 글자 크기 ═══ */
 /* 본문은 chat-prefs.js 로 옮겼다(앱 FSD 41번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const CHAT_PREFS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const chatPrefsMod = (typeof TwChatPrefs === 'undefined') ? CHAT_PREFS_MOD_OFF : TwChatPrefs.createChatPrefs({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const chatPrefsMod = TwChatPrefs.createChatPrefs({
   CHAT_SFX_DEFAULT_ID: sfxMod.CHAT_SFX_DEFAULT_ID,
   CHAT_SFX_DEFAULT_ON: sfxMod.CHAT_SFX_DEFAULT_ON,
   CHAT_SFX_GAP_MS: sfxMod.CHAT_SFX_GAP_MS,
@@ -3908,9 +3890,8 @@ const chatPrefsMod = (typeof TwChatPrefs === 'undefined') ? CHAT_PREFS_MOD_OFF :
 
 /* ═══ 🛡️ 리치 텍스트 sanitize · 저장 · 글자 수 ═══ */
 /* 본문은 rich-text.js 로 옮겼다(앱 FSD 42번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const RICH_TEXT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const richTextMod = (typeof TwRichText === 'undefined') ? RICH_TEXT_MOD_OFF : TwRichText.createRichText({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const richTextMod = TwRichText.createRichText({
   escHtml: (...a)=>escHtml(...a),
 });
 
@@ -3957,9 +3938,8 @@ const inboxMod = (typeof TwMyHomeInbox === 'undefined') ? INBOX_OFF : TwMyHomeIn
 /* 📩 수령함 · 💝 선물함 그리기는 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 연결은 바로 위 «👥 마이홈 친구 목록» 머리 아래(inboxMod). */
 /* ═══ 🏠 마이홈 창 버튼 연결(bindMyHomeUI) ═══ */
 /* 본문은 myhome-ui.js 로 옮겼다(앱 FSD 22번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const MY_HOME_UI_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const myHomeUiMod = (typeof TwMyHomeUi === 'undefined') ? MY_HOME_UI_MOD_OFF : TwMyHomeUi.createMyHomeUi({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   FRIEND_MAX: FRIEND_MAX,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   _mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),
@@ -3989,14 +3969,12 @@ const myHomeUiMod = (typeof TwMyHomeUi === 'undefined') ? MY_HOME_UI_MOD_OFF : T
 
 /* ============================================================ 🏠 마이홈 (2단계: 프로필/게시글/스티커) */
 /* 본문은 myhome-visit.js 로 옮겼다(앱 FSD 44번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 /* 🏠 마이홈 공용 상태(데이터 · 불러옴 · 계정 · 관람 중 uid · 이름)는 myhome-state.js 에 — 읽는 모듈이 친구 홈 구경을 바라보지 않게(모듈 순환 끊기 4) */
-const MH_STATE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const mhStateMod = (typeof TwMyHomeState === 'undefined') ? MH_STATE_MOD_OFF : TwMyHomeState.createMyHomeState({
+const mhStateMod = TwMyHomeState.createMyHomeState({
   _myHomeFriends: ()=>_myHomeFriends,
 });
-const MH_VISIT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const mhVisitMod = (typeof TwMyHomeVisit === 'undefined') ? MH_VISIT_MOD_OFF : TwMyHomeVisit.createMyHomeVisit({
+const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,
   _schedDdaysVisitUnsub: ()=>_schedDdaysVisitUnsub,
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
@@ -4033,17 +4011,15 @@ const mhVisitMod = (typeof TwMyHomeVisit === 'undefined') ? MH_VISIT_MOD_OFF : T
    ⚠️ 실행 화면은 창이 투명해 콘솔을 열기 어렵다. 런처/생성기에서 마이홈을 열고 보는 것이 쉽다.
    ⚠️ 이건 **진단이지 방어가 아니다.** 원인을 잡고 나면 지워도 되는 블록이다. */
 /* 본문은 myhome-diag.js 로 옮겼다(앱 FSD 44번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const MH_DIAG_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const mhDiagMod = (typeof TwMyHomeDiag === 'undefined') ? MH_DIAG_MOD_OFF : TwMyHomeDiag.createMyHomeDiag({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const mhDiagMod = TwMyHomeDiag.createMyHomeDiag({
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
 });
 
 /* ═══ 🏠 마이홈 페이지 불러오기 · 그리기 ═══ */
 /* 본문은 myhome-page.js 로 옮겼다(앱 FSD 47번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const MH_PAGE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const mhPageMod = (typeof TwMyHomePage === 'undefined') ? MH_PAGE_MOD_OFF : TwMyHomePage.createMyHomePage({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const mhPageMod = TwMyHomePage.createMyHomePage({
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   mhStateMod: mhStateMod,
@@ -4053,15 +4029,13 @@ const mhPageMod = (typeof TwMyHomePage === 'undefined') ? MH_PAGE_MOD_OFF : TwMy
 });
 /* ═══ ✏️ 인앱 프롬프트(asyncPrompt) ═══ */
 /* 본문은 async-prompt.js 로 옮겼다(앱 FSD 47번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ASYNC_PROMPT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const asyncPromptMod = (typeof TwAsyncPrompt === 'undefined') ? ASYNC_PROMPT_MOD_OFF : TwAsyncPrompt.createAsyncPrompt({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const asyncPromptMod = TwAsyncPrompt.createAsyncPrompt({
 });
 /* ═══ 🎨 마이홈 스티커 배치 · 그리기(renderMyHomeStickers) · 관리 창 연결 ═══ */
 /* 본문은 myhome-sticker-layout.js 로 옮겼다(앱 FSD 44번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const MH_ST_LAYOUT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const mhStLayoutMod = (typeof TwMyHomeStickerLayout === 'undefined') ? MH_ST_LAYOUT_MOD_OFF : TwMyHomeStickerLayout.createMyHomeStickerLayout({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const mhStLayoutMod = TwMyHomeStickerLayout.createMyHomeStickerLayout({
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _myHomeData: ()=>mhStateMod._myHomeData(),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
@@ -4199,9 +4173,8 @@ const myHomeSticker = (typeof TwMyHomeSticker === 'undefined') ? MYHOME_STICKER_
 
 /* ═══ 🔗 마이홈 본문 링크 ═══ */
 /* 본문은 myhome-links.js 로 옮겼다(앱 FSD 47번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const MH_LINKS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const mhLinksMod = (typeof TwMyHomeLinks === 'undefined') ? MH_LINKS_MOD_OFF : TwMyHomeLinks.createMyHomeLinks({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const mhLinksMod = TwMyHomeLinks.createMyHomeLinks({
 });
 
 /* ═══ 🏠 마이홈 페이지 편집 묶음 · 📖 방명록 모듈 연결 ═══ */
@@ -4295,9 +4268,8 @@ function showChatBubble(seat, text){
      chatLog 를 타면 해결되지만 그건 비용 때문에 안 가기로 한 길이라, 보내는 쪽에서
      연타를 억제하는 것으로 갈음한다(_chatFlySendGate).                                */
 /* 본문은 chat-ui.js 로 옮겼다(앱 FSD 24번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const CHAT_UI_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const chatUiMod = (typeof TwChatUi === 'undefined') ? CHAT_UI_MOD_OFF : TwChatUi.createChatUi({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const chatUiMod = TwChatUi.createChatUi({
   CHAT_WIN_POS_KEY: ()=>CHAT_WIN_POS_KEY,
   Presence: ()=>Presence,
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
@@ -4379,9 +4351,8 @@ const CHAT_WIN_POS_KEY = 'tw_chat_win_pos';
    ⚠️ 입력칸을 잠그지 않는다. 😊 이모티콘이 이 칸에 `/명령어` 를 꽂아 Enter 로 나가는 구조라,
      readonly 로 막으면 허용하기로 한 이모티콘까지 같이 죽는다. 전송하는 자리에서 가른다. */
 /* 본문은 chat-lock.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const CHAT_LOCK_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const chatLockMod = (typeof TwChatLock === 'undefined') ? CHAT_LOCK_MOD_OFF : TwChatLock.createChatLock({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const chatLockMod = TwChatLock.createChatLock({
   Presence: ()=>Presence,
   chatPrefsMod: chatPrefsMod,
   chatUiMod: chatUiMod,
@@ -4420,9 +4391,8 @@ const chatLockMod = (typeof TwChatLock === 'undefined') ? CHAT_LOCK_MOD_OFF : Tw
 
 /* ═══════════════ 🎲 주사위 ═══════════════ */
 /* 본문은 dice-games.js 로 옮겼다(앱 FSD 39번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const DICE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const diceMod = (typeof TwDiceGames === 'undefined') ? DICE_MOD_OFF : TwDiceGames.createDiceGames({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const diceMod = TwDiceGames.createDiceGames({
   Presence: ()=>Presence,
   ROULETTE_FLY_DELAY_MS: ()=>rouletteMod.ROULETTE_FLY_DELAY_MS,
   canFly: (...a)=>canFly(...a),
@@ -4528,9 +4498,8 @@ const purikuraUi = (typeof TwPurikuraUi === 'undefined') ? PURIKURA_UI_OFF : TwP
      보는 사람 쪽 게이트는 `applyRemoteFly` 가 이미 한다.
    ⚠️ 난수는 클라이언트가 굴린다(🎲 와 같은 수준) — 콘솔로 조작 가능. */
 /* 본문은 roulette.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ROULETTE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const rouletteMod = (typeof TwRoulette === 'undefined') ? ROULETTE_MOD_OFF : TwRoulette.createRoulette({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const rouletteMod = TwRoulette.createRoulette({
   Presence: ()=>Presence,
   canFly: (...a)=>canFly(...a),
   diceMod: diceMod,
@@ -4743,9 +4712,8 @@ function _hsvToHex(h, sv, v){
      책상 필드는 커밋 대상이 아니므로 charDef 에 **바로 쓴다** — 생성기의 autoSaveDeskItemsNow 와
      같은 태도다. 다만 미리보기는 draft 를 보므로 draft 에도 같이 적어 준다. */
 /* 본문은 premium-assets.js 로 옮겼다(앱 FSD 37번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const PREMIUM_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const premiumMod = (typeof TwPremiumAssets === 'undefined') ? PREMIUM_MOD_OFF : TwPremiumAssets.createPremiumAssets({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const premiumMod = TwPremiumAssets.createPremiumAssets({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   Presence: ()=>Presence,
   applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),
@@ -4822,9 +4790,8 @@ const adminPartReg = (typeof TwAdminPartRegister === 'undefined') ? ADMIN_PART_R
 
 /* ═══ 🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너 ═══ */
 /* 본문은 overhead.js 로 옮겼다(앱 FSD 34번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const OVERHEAD_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const overheadMod = (typeof TwOverhead === 'undefined') ? OVERHEAD_MOD_OFF : TwOverhead.createOverhead({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const overheadMod = TwOverhead.createOverhead({
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   _chatEsc: (...a)=>_chatEsc(...a),
   _diceSvg: (...a)=>diceMod._diceSvg(...a),
@@ -5387,9 +5354,8 @@ window.addEventListener('mousemove', e=>{
 
 /* ============================================================ FLOATERS */
 /* 본문은 floaters.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const FLOATERS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const floatersMod = (typeof TwFloaters === 'undefined') ? FLOATERS_MOD_OFF : TwFloaters.createFloaters({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const floatersMod = TwFloaters.createFloaters({
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   focusCharScale: ()=>focusCharScale,
   scene: scene,
@@ -8978,15 +8944,13 @@ let isAdmin = false;
 let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.js 에 둔다. 바꾸는 곳은 license-gate.js 의 _setPremium 하나
 /* 🪪 계정 핵심 상태(라이선스 저장 키 · 초대 통과 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기)는 account-state.js 에 —
    계정 · 초대 게이트 · 내 정보 · 포커스 레벨이 서로를 바라보지 않게(모듈 순환 끊기 5). isPremium 은 여기(app.js) 그대로, 바꾸는 곳은 _setPremium 하나 */
-const ACCT_STATE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const acctStateMod = (typeof TwAccountState === 'undefined') ? ACCT_STATE_MOD_OFF : TwAccountState.createAccountState({
+const acctStateMod = TwAccountState.createAccountState({
   isPremium: ()=>isPremium,
   setIsPremium: (v)=>{ isPremium = v; },
 });
 /* 본문은 license-gate.js 로 옮겼다(앱 FSD 31번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const LICENSE_GATE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const licenseGateMod = (typeof TwLicenseGate === 'undefined') ? LICENSE_GATE_MOD_OFF : TwLicenseGate.createLicenseGate({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const licenseGateMod = TwLicenseGate.createLicenseGate({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,
   HAD_USER_ID_AT_BOOT: HAD_USER_ID_AT_BOOT,
@@ -10172,9 +10136,8 @@ async function doMoveCurSlotToBox(){
 }
 /* ═══ 🐾 종족 선택창 ═══ */
 /* 본문은 race-picker.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const RACE_PICKER_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const racePickerMod = (typeof TwRacePicker === 'undefined') ? RACE_PICKER_MOD_OFF : TwRacePicker.createRacePicker({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const racePickerMod = TwRacePicker.createRacePicker({
   BASE_SCENE: ()=>BASE_SCENE,
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
@@ -11156,9 +11119,8 @@ const Presence=(()=>{
      그래서 firebase-init joinRoom 의 그 판정들(자기 퇴장 · _maybeSucceedHost · 💓 roomAlive 하트비트)은 이 길에서 아예 돌지 않는다.
    ★ 채팅 기록(chatLog) · 스티커사진(_photo) · 친구 목록의 접속 정보는 1단계에서는 Firebase 그대로다. */
 /* 본문은 room-entry.js 로 옮겼다(앱 FSD 33번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ROOM_ENTRY_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const roomEntryMod = (typeof TwRoomEntry === 'undefined') ? ROOM_ENTRY_MOD_OFF : TwRoomEntry.createRoomEntry({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const roomEntryMod = TwRoomEntry.createRoomEntry({
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   FLOATER_BURST: floatersMod.FLOATER_BURST,
   Presence: Presence,
@@ -11227,10 +11189,9 @@ function getDisplayName(){ const n=getUserName(); return (n==='나' || !n.trim()
    ⚠️ 저장이 건드리는 곳이 다섯이다 — 로컬 저장 · 서버 프로필 · 방의 이름표 · 마이홈 표시 ·
      알림. 편집 진입로가 늘어나도 저장은 **반드시 이 함수 하나만** 부를 것. */
 /* 본문은 program-settings.js 로 옮겼다(앱 FSD 40번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 /* 🏷️ 닉네임 저장 — 본문은 account/user-name.js(모듈 순환 끊기 7 — 설정 창과 떼어 마이홈 편집 · 내 정보가 설정 창을 바라보지 않게). 원래 자리라 여기서 만든다 */
-const USER_NAME_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const userNameMod = (typeof TwUserName === 'undefined') ? USER_NAME_MOD_OFF : TwUserName.createUserName({
+const userNameMod = TwUserName.createUserName({
   Presence: Presence,
   focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
@@ -11240,8 +11201,7 @@ const userNameMod = (typeof TwUserName === 'undefined') ? USER_NAME_MOD_OFF : Tw
   setUserName: (...a)=>setUserName(...a),
   toast: (...a)=>toast(...a),
 });
-const PROG_SETTINGS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const progSettingsMod = (typeof TwProgramSettings === 'undefined') ? PROG_SETTINGS_MOD_OFF : TwProgramSettings.createProgramSettings({
+const progSettingsMod = TwProgramSettings.createProgramSettings({
   FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,
   OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,
   _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),
@@ -11294,9 +11254,8 @@ const progSettingsMod = (typeof TwProgramSettings === 'undefined') ? PROG_SETTIN
      자물쇠가 된다. 그 전까지 "로그인했으니 안전하다"고 말하면 안 된다.
 ──────────────────────────────────────────────────────────────────── */
 /* 본문은 account.js 로 옮겼다(앱 FSD 23번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ACCOUNT_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const accountMod = (typeof TwAccount === 'undefined') ? ACCOUNT_MOD_OFF : TwAccount.createAccount({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const accountMod = TwAccount.createAccount({
   BELL_SEEN_KEY: BELL_SEEN_KEY,
   CHAL_KEY: ()=>CHAL_KEY,
   CUR_SLOT_KEY: CUR_SLOT_KEY,
@@ -11376,9 +11335,8 @@ const accountMod = (typeof TwAccount === 'undefined') ? ACCOUNT_MOD_OFF : TwAcco
    ⚠️ 섬네일·사진 src 는 data:image/ · http(s) 만 받는다 — 속성 보간 없이 DOM 으로만 넣는다(audit 검사 19).
    ⚠️ 이 페이지는 런처의 일부다 — 팝업 목록(OPEN_MODAL_SEL · 바깥 클릭 닫기 등)에 넣지 않는다. */
 /* 본문은 my-info.js 로 옮겼다(앱 FSD 17번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const MY_INFO_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo.createMyInfo({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const myInfoMod = TwMyInfo.createMyInfo({
   CHARS_BOX_MAX: ()=>charsMod.CHARS_BOX_MAX,
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   EXP_SEC_PER_CELL: ()=>expBarMod.EXP_SEC_PER_CELL,
@@ -11462,25 +11420,22 @@ const myInfoMod = (typeof TwMyInfo === 'undefined') ? MY_INFO_MOD_OFF : TwMyInfo
 
 /* ═══ 🔑 라이선스 등록 UI ═══ */
 /* 본문은 license-ui.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const LICENSE_UI_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const licenseUiMod = (typeof TwLicenseUi === 'undefined') ? LICENSE_UI_MOD_OFF : TwLicenseUi.createLicenseUi({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const licenseUiMod = TwLicenseUi.createLicenseUi({
   isPremium: ()=>isPremium,
   licReqMod: ()=>licReqMod,
 });
 /* ═══ 🪟 런처 타이틀바 · 팝업 흐림 ═══ */
 /* 본문은 launcher-chrome.js 로 옮겼다(앱 FSD 47번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const LAUNCHER_CHROME_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const launcherChromeMod = (typeof TwLauncherChrome === 'undefined') ? LAUNCHER_CHROME_MOD_OFF : TwLauncherChrome.createLauncherChrome({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const launcherChromeMod = TwLauncherChrome.createLauncherChrome({
   myInfoMod: myInfoMod,
 });
 
 /* ═══ 📢 런처 광고 배너 · ⚙️ 게임 설정 ═══ */
 /* 본문은 ad-banner.js 로 옮겼다(앱 FSD 43번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const AD_BANNER_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const adBannerMod = (typeof TwAdBanner === 'undefined') ? AD_BANNER_MOD_OFF : TwAdBanner.createAdBanner({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const adBannerMod = TwAdBanner.createAdBanner({
   settingsMod: settingsMod,
 });
 /* 관리자 쪽(🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 편집 · 📢 광고 배너 편집)은 admin/admin-launcher.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
@@ -11499,9 +11454,8 @@ const adminLauncher = (typeof TwAdminLauncher === 'undefined') ? ADMIN_LAUNCHER_
 
 /* ═══ 🔑 라이선스 키 등록 · 해제 버튼 ═══ */
 /* 본문은 license-key.js 로 옮겼다(앱 FSD 48번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const LICENSE_KEY_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const licenseKeyMod = (typeof TwLicenseKey === 'undefined') ? LICENSE_KEY_MOD_OFF : TwLicenseKey.createLicenseKey({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const licenseKeyMod = TwLicenseKey.createLicenseKey({
   licenseGateMod: licenseGateMod,
   twNav: twNav,
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
@@ -11510,16 +11464,14 @@ const licenseKeyMod = (typeof TwLicenseKey === 'undefined') ? LICENSE_KEY_MOD_OF
 
 /* ═══ 🪟 팝업 바깥 클릭으로 닫기 ═══ */
 /* 본문은 outside-close.js 로 옮겼다(앱 FSD 47번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const OUTSIDE_CLOSE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const outsideCloseMod = (typeof TwOutsideClose === 'undefined') ? OUTSIDE_CLOSE_MOD_OFF : TwOutsideClose.createOutsideClose({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const outsideCloseMod = TwOutsideClose.createOutsideClose({
 });
 
 /* ═══ 📨 라이선스 요청 · 관리자 비밀번호 모달 ═══ */
 /* 본문은 license-request.js 로 옮겼다(앱 FSD 43번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const LIC_REQ_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const licReqMod = (typeof TwLicenseRequest === 'undefined') ? LIC_REQ_MOD_OFF : TwLicenseRequest.createLicenseRequest({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const licReqMod = TwLicenseRequest.createLicenseRequest({
   _saveFailMsg: (...a)=>_saveFailMsg(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   licenseGateMod: licenseGateMod,
@@ -11611,9 +11563,8 @@ const adminLicenseBulk = (typeof TwAdminLicenseBulk === 'undefined') ? ADMIN_LIC
 
 /* ═══ 👥 책상에서 친구 추가 ═══ */
 /* 본문은 add-friend.js 로 옮겼다(앱 FSD 46번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ADD_FRIEND_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const addFriendMod = (typeof TwAddFriend === 'undefined') ? ADD_FRIEND_MOD_OFF : TwAddFriend.createAddFriend({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const addFriendMod = TwAddFriend.createAddFriend({
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
   createSeat: (...a)=>createSeat(...a),
@@ -11628,9 +11579,8 @@ const addFriendMod = (typeof TwAddFriend === 'undefined') ? ADD_FRIEND_MOD_OFF :
 
 /* ═══ 💾 슬롯 저장 · 복원(saveSlots · loadSlots) ═══ */
 /* 본문은 slot-save.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const SLOT_SAVE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const slotSaveMod = (typeof TwSlotSave === 'undefined') ? SLOT_SAVE_MOD_OFF : TwSlotSave.createSlotSave({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const slotSaveMod = TwSlotSave.createSlotSave({
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   _blankFaceConfirmed: ()=>_blankFaceConfirmed,
   _blinkEverDrawn: _blinkEverDrawn,
@@ -11681,9 +11631,8 @@ function saveSlots(...a){ return slotSaveMod.saveSlots(...a); }   // 옛 전역 
      ts 로 올려 **다른 기기 편집을 지운다.** 책상 위 좌석은 옛 def 객체를 그대로 붙들고 있으므로
      재실행하면 바뀐다고 안내한다. 생성기가 열려 있으면 이번 판은 건너뛴다(편집 중인 칸을 뺏지 않는다). */
 /* 본문은 slot-sync.js 로 옮겼다(앱 FSD 19번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const SLOT_SYNC_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const slotSyncMod = (typeof TwSlotSync === 'undefined') ? SLOT_SYNC_MOD_OFF : TwSlotSync.createSlotSync({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const slotSyncMod = TwSlotSync.createSlotSync({
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   LS_KEY: slotSaveMod.LS_KEY,
   _blinkEverDrawn: _blinkEverDrawn,
@@ -11730,9 +11679,8 @@ const slotSyncMod = (typeof TwSlotSync === 'undefined') ? SLOT_SYNC_MOD_OFF : Tw
      trash: [{ cid, def, mtime, why }] — 진 쪽 산 마리 · fixed: 미래 mtime 을 정정한 cid 목록
    ⚠️ cid 는 불변이고 내용 해시가 아니다(설계 §1-3). 같은 마리인가는 cid 로만 가른다. */
 /* 본문은 chars.js 로 옮겼다(앱 FSD 18번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const CHARS_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const charsMod = (typeof TwChars === 'undefined') ? CHARS_MOD_OFF : TwChars.createChars({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const charsMod = TwChars.createChars({
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   LS_KEY: slotSaveMod.LS_KEY,
   MY_USER_ID_KEY: MY_USER_ID_KEY,
@@ -11834,9 +11782,8 @@ function loadImg(src){return new Promise((res,rej)=>{
    ★ «원래부터 빈 얼굴»은 _faceEverDrawn 이 false 라 후보에 들지 않는다. 이미 손상된 저장본도
      마찬가지다(부팅에 빈 그림을 읽었으니 false) — 복구가 무한히 헛도는 일이 없다. */
 /* 본문은 face-heal.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const FACE_HEAL_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const faceHealMod = (typeof TwFaceHeal === 'undefined') ? FACE_HEAL_MOD_OFF : TwFaceHeal.createFaceHeal({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const faceHealMod = TwFaceHeal.createFaceHeal({
   CANVAS_SZ: CANVAS_SZ,
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   LS_KEY: slotSaveMod.LS_KEY,
@@ -11857,9 +11804,8 @@ const faceHealMod = (typeof TwFaceHeal === 'undefined') ? FACE_HEAL_MOD_OFF : Tw
 
 /* ===== 진짜 암호화: AES-256-GCM + PBKDF2(150k) ===== */
 /* 본문은 code-crypto.js 로 옮겼다(앱 FSD 45번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const CODE_CRYPTO_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const codeCryptoMod = (typeof TwCodeCrypto === 'undefined') ? CODE_CRYPTO_MOD_OFF : TwCodeCrypto.createCodeCrypto({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const codeCryptoMod = TwCodeCrypto.createCodeCrypto({
   charDef: (...a)=>charDef(...a),
   loadImg: (...a)=>loadImg(...a),
   newCanvas: (...a)=>newCanvas(...a),
@@ -11867,9 +11813,8 @@ const codeCryptoMod = (typeof TwCodeCrypto === 'undefined') ? CODE_CRYPTO_MOD_OF
 
 /* ===== 풀 GLB 파일 암호화 (.dcc) ===== */
 /* 본문은 asset-code.js 로 옮겼다(앱 FSD 48번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ASSET_CODE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const assetCodeMod = (typeof TwAssetCode === 'undefined') ? ASSET_CODE_MOD_OFF : TwAssetCode.createAssetCode({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const assetCodeMod = TwAssetCode.createAssetCode({
   codeCryptoMod: codeCryptoMod,
   loader: loader,
 });
@@ -11884,9 +11829,8 @@ const assetCodeMod = (typeof TwAssetCode === 'undefined') ? ASSET_CODE_MOD_OFF :
    - 1~4단계 잠금 (피부/표정/감은눈/색상은 완성형이라 수정 불가)
 */
 /* 본문은 commission.js 로 옮겼다(앱 FSD 45번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const COMMISSION_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const commissionMod = (typeof TwCommission === 'undefined') ? COMMISSION_MOD_OFF : TwCommission.createCommission({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const commissionMod = TwCommission.createCommission({
   _b64: (...a)=>codeCryptoMod._b64(...a),
   _deriveKey: (...a)=>codeCryptoMod._deriveKey(...a),
   _unb64: (...a)=>codeCryptoMod._unb64(...a),
@@ -12866,9 +12810,8 @@ function syncSeatDeskZ(deskGroup){
 }
 /* ═══ 📦 복제 코드 불러오기 · 내보내기 · 풀 GLB ═══ */
 /* 본문은 char-code.js 로 옮겼다(앱 FSD 38번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const CHAR_CODE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const charCodeMod = (typeof TwCharCode === 'undefined') ? CHAR_CODE_MOD_OFF : TwCharCode.createCharCode({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const charCodeMod = TwCharCode.createCharCode({
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
   charsMod: charsMod,
@@ -13708,9 +13651,8 @@ window.__officeDiag = function(){
    평생 누적 포커스 시간 1시간당 레벨 1 상승, 최대 999레벨(999시간 달성 시 더 안 늘어남).
    오늘 하루 누적은 [기록 열기] 팝업에 hh:mm:ss로 표시(자정 지나면 0으로 리셋, 레벨엔 영향 없음 — 평생 누적 별도). */
 /* 본문은 focus-total.js 로 옮겼다(앱 FSD 45번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const FOCUS_TOTAL_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const focusTotalMod = (typeof TwFocusTotal === 'undefined') ? FOCUS_TOTAL_MOD_OFF : TwFocusTotal.createFocusTotal({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const focusTotalMod = TwFocusTotal.createFocusTotal({
 });
 let _focusTotalSec=focusTotalMod._loadFocusTotalSec();
 
@@ -13724,9 +13666,8 @@ let _focusTotalSec=focusTotalMod._loadFocusTotalSec();
    ★ 켜짐은 기억한다(tw.focusShow) — 설정 성격의 작은 값이라 _lsSet.
    ⚠️ 값은 보내는 쪽이 정한다(setLevel 과 같은 수준). 랭킹을 붙일 거면 서버 값이 필요하다. */
 /* 본문은 focus-share.js 로 옮겼다(앱 FSD 45번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const FOCUS_SHARE_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const focusShareMod = (typeof TwFocusShare === 'undefined') ? FOCUS_SHARE_MOD_OFF : TwFocusShare.createFocusShare({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const focusShareMod = TwFocusShare.createFocusShare({
   Presence: Presence,
   _lsSet: (...a)=>_lsSet(...a),
   _rolloverFocusToday: (...a)=>focusTotalMod._rolloverFocusToday(...a),
@@ -13747,9 +13688,8 @@ const focusShareMod = (typeof TwFocusShare === 'undefined') ? FOCUS_SHARE_MOD_OF
    ⚠️ 관리자가 [그림 내리기] 하면 users/{uid}/awayImg 와 파일이 지워진다 — 파일이 없으니 남들 화면은 곧바로 🫧,
      본인 기기는 다음 부팅의 _awayBootSync 가 로컬 값을 비운다. */
 /* 본문은 away-pic.js 로 옮겼다(앱 FSD 22번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const AWAY_PIC_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const awayPicMod = (typeof TwAwayPic === 'undefined') ? AWAY_PIC_MOD_OFF : TwAwayPic.createAwayPic({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const awayPicMod = TwAwayPic.createAwayPic({
   Presence: Presence,
   _loadImgCors: (...a)=>roomSyncMod._loadImgCors(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
@@ -13801,9 +13741,8 @@ const adminReport = (typeof TwAdminReport === 'undefined' || reportMod === REPOR
 
 /* ═══ ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 ═══ */
 /* 본문은 focus-level.js 로 옮겼다(앱 FSD 26번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const FOCUS_LEVEL_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const focusLevelMod = (typeof TwFocusLevel === 'undefined') ? FOCUS_LEVEL_MOD_OFF : TwFocusLevel.createFocusLevel({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const focusLevelMod = TwFocusLevel.createFocusLevel({
   DANCE_MOVES: iDeskMod.DANCE_MOVES,
   FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,
@@ -13948,9 +13887,8 @@ async function _warnServerWriteDenied(what){
    ★ 저장은 localStorage 2개(tw.theme / tw.accent). 계정 동기화로 옮기려면 이 두 값만 서버에 얹으면 된다.
    ★ 부팅 시 최대한 이른 시점에 applyTheme()을 부른다 — 늦게 부르면 기본 테마가 한 프레임 번쩍인다. */
 /* 본문은 theme.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const THEME_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const themeMod = (typeof TwTheme === 'undefined') ? THEME_MOD_OFF : TwTheme.createTheme({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const themeMod = TwTheme.createTheme({
 });
 function applyTheme(...a){ return themeMod.applyTheme(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 /* ═══ 🎨 [2026-09-15 제보 5] 테마 「버블」이 마이홈 방명록엔 안 먹음 ═══════════════════════
@@ -13964,9 +13902,8 @@ function applyTheme(...a){ return themeMod.applyTheme(...a); }   // 옛 전역 �
      ③ applyTheme 가 열린 창에도 다시 건다(_themeChildDocs) — 창을 띄운 채 테마를 바꿔도 즉시 따라간다.
    ⚠️ 토큰 목록에 없는 변수는 자식 창에서 var() 폴백으로 떨어진다. 자식 CSS 에 --win-* 를 새로 쓰면 여기도 추가할 것. */
 /* 본문은 theme-ui.js 로 옮겼다(앱 FSD 44번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const THEME_UI_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const themeUiMod = (typeof TwThemeUi === 'undefined') ? THEME_UI_MOD_OFF : TwThemeUi.createThemeUi({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const themeUiMod = TwThemeUi.createThemeUi({
   ACCENT_KEY: themeMod.ACCENT_KEY,
   THEME_COLORS: themeMod.THEME_COLORS,
   THEME_DEFAULT_ACCENT: themeMod.THEME_DEFAULT_ACCENT,
@@ -13996,9 +13933,8 @@ themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소�
      하트비트는 원래 30초마다 lastSeen을 쓰고 있으므로 '추가 쓰기가 0회'다.
      따로 push하면 시간당 12회가 늘지만, 어차피 5분 단위 바라 30초 지연은 티도 안 난다. */
 /* 본문은 exp-bar.js 로 옮겼다(앱 FSD 45번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const EXP_BAR_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const expBarMod = (typeof TwExpBar === 'undefined') ? EXP_BAR_MOD_OFF : TwExpBar.createExpBar({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const expBarMod = TwExpBar.createExpBar({
   _focusTotalSec: ()=>_focusTotalSec,
   _starPaint: (...a)=>lvTierMod._starPaint(...a),
   lvBarClass: (...a)=>lvTierMod.lvBarClass(...a),
@@ -14140,9 +14076,8 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);
 }
 /* 본문은 desktop-run.js 로 옮겼다(앱 FSD 32번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const DESKTOP_RUN_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const desktopRunMod = (typeof TwDesktopRun === 'undefined') ? DESKTOP_RUN_MOD_OFF : TwDesktopRun.createDesktopRun({
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const desktopRunMod = TwDesktopRun.createDesktopRun({
   _applyActiveAppState: (...a)=>_applyActiveAppState(...a),
   _charBoundsLatest: ()=>_charBoundsLatest,
   _penAppFocused: ()=>_penAppFocused,

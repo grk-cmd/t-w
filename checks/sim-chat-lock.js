@@ -58,8 +58,8 @@ function judgeAll(mod, app, html){
   const A = strip(app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n'));   // 옛 전역 이름 잇기 줄은 «남은 선언 · 옛 이름 부름» 이 아니다
   const left = MOVED.filter(n => new RegExp('^(?:async\\s+)?(?:function\\s+' + n.replace(/\$/g, '\\$') + '\\b|(?:const|let|var)\\s+' + n.replace(/\$/g, '\\$') + '\\b)', 'm').test(A));
   t(!left.length, 'app.js 에 옮긴 꼭대기 선언이 안 남았다' + (left.length ? ' — ' + left.slice(0, 5).join(' · ') : ''));
-  t(app.includes("const CHAT_LOCK_MOD_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기") && app.includes("const chatLockMod = (typeof TwChatLock === 'undefined') ? CHAT_LOCK_MOD_OFF : TwChatLock.createChatLock({"), '모듈이 없으면 빈 껍데기 · 만드는 줄');
-  const mk = (app.match(new RegExp('const chatLockMod = \\(typeof TwChatLock === \'undefined\'\\) \\? CHAT_LOCK_MOD_OFF : TwChatLock\\.createChatLock\\(\\{\\n([\\s\\S]*?)\\n?\\}\\);')) || [])[1] || '';
+  t(!app.includes("CHAT_LOCK_MOD_OFF") && app.includes("const chatLockMod = TwChatLock.createChatLock({"), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차) · 만드는 줄');
+  const mk = (app.match(new RegExp('const chatLockMod = TwChatLock\\.createChatLock\\(\\{\\n([\\s\\S]*?)\\n?\\}\\);')) || [])[1] || '';
   /* 키 이름과 넘기는 방식만 본다 — 오른쪽(다른 모듈로 옮긴 이름이면 «mod.이름»)은 옮길 때마다 바뀔 수 있다 */
   const kindOf = (l) => { const m = /^  ([\w$]+): (\(\.\.\.a\)=>|\(\)=>|\(v\)=>)?/.exec(l); return m ? m[1] + '|' + (m[2] === '(...a)=>' ? 'fn' : m[2] === '()=>' ? 'get' : m[2] === '(v)=>' ? 'set' : 'val') : '?' + l; };
   const want = GLUE.map(kindOf), got = (mk ? mk.split('\n') : []).map(kindOf);   // deps 가 하나도 없으면 «({\n});»
@@ -79,7 +79,7 @@ const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/chat/chat-lock.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
   /* deps 가 없는 모듈이면 거꾸로 한 줄을 끼워 넣어 본다(키 수가 어긋나야 잡힌다) */
-  ['deps 하나 빠짐', null, GLUE.length ? (a => { const i = a.indexOf("const chatLockMod = (typeof TwChatLock === 'undefined') ? CHAT_LOCK_MOD_OFF : TwChatLock.createChatLock({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }) : (a => a.replace("const chatLockMod = (typeof TwChatLock === 'undefined') ? CHAT_LOCK_MOD_OFF : TwChatLock.createChatLock({", "const chatLockMod = (typeof TwChatLock === 'undefined') ? CHAT_LOCK_MOD_OFF : TwChatLock.createChatLock({" + '\n  _extra: 1,')), null],
+  ['deps 하나 빠짐', null, GLUE.length ? (a => { const i = a.indexOf("const chatLockMod = TwChatLock.createChatLock({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }) : (a => a.replace("const chatLockMod = TwChatLock.createChatLock({", "const chatLockMod = TwChatLock.createChatLock({" + '\n  _extra: 1,')), null],
   ['전역 이름 안 걺', m => m.replace('window.TwChatLock = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */

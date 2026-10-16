@@ -57,7 +57,7 @@ function judge(mod, html, files, app) {
   const glue = (name) => { const i = app.indexOf('.' + name + '({'); return i < 0 ? '' : app.slice(i, app.indexOf('\n});', i)); };
   r.detachWriters = [...app.matchAll(/acctStateMod\.setAcctDetached\(/g)].length === 1 && /setAcctDetached: \(v\)=>\{ acctStateMod\.setAcctDetached\(v\); \}/.test(glue('createAccount'))
     && /^\s*setAcctDetached\(true\);/m.test(t('account/account.js'));
-  r.made = /const acctStateMod = \(typeof TwAccountState === 'undefined'\) \? ACCT_STATE_MOD_OFF : TwAccountState\.createAccountState\(\{\n  isPremium: \(\)=>isPremium,\n  setIsPremium: \(v\)=>\{ isPremium = v; \},\n\}\);/.test(app)
+  r.made = /const acctStateMod = TwAccountState\.createAccountState\(\{\n  isPremium: \(\)=>isPremium,\n  setIsPremium: \(v\)=>\{ isPremium = v; \},\n\}\);/.test(app)
     && app.indexOf('const acctStateMod =') > app.search(/^let isPremium = false;/m) && app.indexOf('const acctStateMod =') < app.indexOf('const licenseGateMod =');
   return r;
 }
