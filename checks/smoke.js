@@ -539,6 +539,10 @@ PRELOAD.push('seat-friend-req.js');
 PRELOAD.push('glb-idb-cache.js');
 /* catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCatalogGlb 를 같이 굴린다. */
 PRELOAD.push('catalog-glb.js');
+/* catalog-sync.js — 🔄 카탈로그 실시간 동기화(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCatalogSync 를 같이 굴린다. */
+PRELOAD.push('catalog-sync.js');
+/* seat-layout.js — 🪑 좌석 줄 배치(layoutSeats 본문)(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatLayout 를 같이 굴린다. */
+PRELOAD.push('seat-layout.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

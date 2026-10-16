@@ -2128,52 +2128,29 @@ const iDeskMod = TwInteractionDesk.createInteractionDesk({
    ═══════════════════════════════════════════════════════════════════ */
 /* (앱 FSD 30번) 이 자리의 본문도 ride-bench.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🪑 좌석 배치(layoutSeats) · 카메라 · 도트 텍스처 필터 ═══ */
-function layoutSeats(){
-  /* 🪑 좌석 간격·카메라 줌은 바로 아래에서 **책상 폭을 실측**한다. 평준화로 책상이 커지거나
-     작아졌다면 그 전에 반영돼 있어야 간격이 한 박자 늦지 않는다. 바뀐 좌석이 없으면 숫자 비교뿐이다. */
-  syncSeatEqualize();
-  // 🪑 맨 오른쪽 고정이면 방에서 나를 0번(맨 오른쪽)으로 — 다른 사람이 들어온 뒤에도(seat-pin.js)
-  if(window.TwSeatPin && TwSeatPin.pinFirst(seats, roomSeatMode)) renderSeatTabs();
-  // ★ 인원 수가 바뀔 때마다(친구 참여/퇴장 등) 지금 팬 위치가 여전히 안전 범위인지 재검증 —
-  //   안 그러면 팬을 한쪽 구석에 걸어둔 상태에서 인원이 늘어날 때 화면 밖으로 밀려날 수 있음.
-  { const _c = clampDeskPan(deskPanX, deskPanY); deskPanX=_c.x; deskPanY=_c.y; }
-  const hasRemote = seats.some(s=>s.remote);   // 실제 친구가 있으면(멀티모드) 더 좁은 간격 사용
-  const spacing = hasRemote ? MULTIPLAYER_SPACING : SPACING;
-  // ★ SPACING/MULTIPLAYER_SPACING의 의미가 "좌석 중심 간 거리"에서 "책상과 책상 사이 여백"으로 바뀜.
-  //   각 좌석 책상의 실제 폭(halfWidth)을 실측해서, 상대방 캐릭터/책상 크기가 어떻든 그 사이 여백은
-  //   항상 이 값만큼 일정하게 유지됨(전엔 고정 거리라 책상이 크면 옆과 겹치고 작으면 휑하게 떨어졌음).
-  /* 🐾 남의 머리에 올라타 있는 좌석은 **자리 계산에서 뺀다.**
-     [경위] a·b·c·d 에서 c 가 b 머리 위로 올라가면 `a, c+b, (빈자리), d` 가 되어 c+b 와 d 사이가
-       크게 벌어졌다. 게다가 mountRide 가 올라탄 좌석의 책상을 숨기는데(desk.visible=false)
-       seatDeskHalfWidth 는 잴 게 하나도 없으면 기본값 0.85 를 돌려주므로, 그 빈자리는 그냥
-       비는 게 아니라 **책상 한 개 폭만큼** 확보됐다.
-     ★ 올라탄 좌석의 실제 위치는 _positionRideSeat 이 매 프레임 대상 머리 위로 덮어쓰므로
-       targetX 를 쓰지 않는다. 탑쌓기 사슬 전체가 대상이고(2층·3층도 ridingOn 이 있다),
-       자리를 차지하는 것은 맨 아래 좌석뿐이다.
-     ⚠️ seats 배열의 **순서·내용은 건드리지 않는다** — 좌석 탭(renderSeatTabs)과 슬롯 드래그가
-       같은 배열의 인덱스를 쓴다. 빼는 것은 자리 계산에서지 배열에서가 아니다.
-     ⚠️ 카메라 줌(rowSpan·leftIdx/rightIdx)도 같은 목록을 봐야 한다. 여기만 빼고 저기에 남기면
-       화면 폭 계산에 유령 자리가 남아 줌만 이상해진다. */
-  const halfWidths = seats.map(seatDeskHalfWidth);
-  const _hwOf = new Map(seats.map((s,i)=>[s, halfWidths[i]]));
-  const placed = seats.filter(s=>!s.ridingOn);
-  placed.forEach((s,i)=>{
-    if(i===0){ s.targetX = 0; return; }   // 맨 오른쪽 고정
-    const prev = placed[i-1];
-    s.targetX = prev.targetX - (_hwOf.get(prev) + spacing + _hwOf.get(s));
-  });
-  /* 올라탄 좌석에는 자기 탑 바닥의 자리를 그대로 물려준다 — 옛 값이 남으면
-     _positionRideSeat 의 UI 앵커(host.targetX 를 읽는다)가 엉뚱한 자리를 가리킨다. */
-  seats.forEach(s=>{ if(s.ridingOn){ const b=rideBenchMod._rideBottom(s); s.targetX = (b && b.targetX) || 0; } });
-  const xs = placed.map(s=>s.targetX);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const rowCenter = (minX+maxX)/2;
-  const leftIdx = xs.indexOf(minX), rightIdx = xs.indexOf(maxX);
-  const halfWidthsForZoom = placed.map(s=>seatDeskHalfWidth(s, true));   // 카메라 줌은 상한선 적용된 값 사용(유난히 큰 책상 하나가 전체를 과하게 줌아웃시키지 않게)
-  const rowSpan = Math.max(1.2, (maxX-minX) + halfWidthsForZoom[leftIdx] + halfWidthsForZoom[rightIdx]);   // 카메라 줌 계산용 전체 폭(책상 폭까지 포함)
-  _cachedRowCenter = rowCenter; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
-  seatCameraMod.applyCameraAndCanvas(rowCenter, rowSpan);
-}
+/* 본문은 room/seat-layout.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const seatLayoutMod = TwSeatLayout.createSeatLayout({
+  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
+  SPACING: ()=>SPACING,
+  _rideBottom: (...a)=>rideChainMod._rideBottom(...a),
+  clampDeskPan: (...a)=>clampDeskPan(...a),
+  deskPanX: ()=>deskPanX,
+  deskPanY: ()=>deskPanY,
+  renderSeatTabs: (...a)=>renderSeatTabs(...a),
+  roomSeatMode: ()=>roomSeatMode,
+  seatCameraMod: ()=>seatCameraMod,
+  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
+  seats: seats,
+  syncSeatEqualize: (...a)=>syncSeatEqualize(...a),
+  setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },
+  setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },
+  setDeskPanX: (v)=>{ deskPanX = v; },
+  setDeskPanY: (v)=>{ deskPanY = v; },
+});
+/* layoutSeats 는 이 이름 그대로 app.js 에 둔다 — 맨 아래 «데스크탑 창 크기» 가 감싸 다시 대입하고(앱 FSD 32번),
+   부르는 곳 · 다른 모듈 deps 는 이 이름을 본다(감싼 판이 불린다). */
+function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }
 /* 본문은 room/seat-camera.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatCameraMod = TwSeatCamera.createSeatCamera({
@@ -10939,12 +10916,6 @@ const adminThumbs = TwAdminThumbs.createAdminThumbs({
 premiumMod.loadSavedParts();
 
 /* ═══ 💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결 ═══ */
-/* ── 파츠 카탈로그 실시간 동기화 ──────────────────────────────────────────
-   로컬(localStorage)에 저장된 savedParts와 별개로, Firebase catalog/parts를 구독해서
-   "관리자가 이 앱을 배포한 뒤에도 새 파츠를 등록하면 이미 설치한 모든 사용자에게 자동으로 반영"되게 함.
-   - 카탈로그에 있는 id는 항상 Firebase 최신본으로 덮어씀(관리자가 나중에 이름/아이콘 등을 고쳐도 반영되게)
-   - 카탈로그에 없는 로컬 항목(오프라인 캐시, 혹은 예전 방식으로 로컬에만 등록됐던 파츠)은 그대로 유지
-   - 구독은 실시간(onValue)이라 앱을 껐다 켤 필요 없이, 켜져 있는 동안에도 자동으로 새 파츠가 뜸 */
 /* 본문은 shared/glb-idb-cache.js 로 옮겼다(구역 떼기 C · w2).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({
@@ -10966,98 +10937,50 @@ const adminConsole = TwAdminConsole.createAdminConsole({
 });
 
 /* ═══ 🔄 카탈로그 실시간 동기화 — 아이템 · 책상 · 파츠 · 카테고리 ═══ */
-async function mergeCatalogIntoSavedItems(catalogObj){
-  const catalogList = Object.keys(catalogObj||{}).map(id=>({ id, ...catalogObj[id], fromCatalog:true }));
-  // ★ order 필드 기준 오름차순 정렬 — 관리자가 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
-  catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
-  const catalogIds = new Set(catalogList.map(p=>p.id));
-  const removedIds = commissionMod.savedItems().filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
-  const localOnly = commissionMod.savedItems().filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
-  if(removedIds.length){
-    // 삭제된 아이템을 지금 올려놓은 좌석이 있으면 치움
-    seats.forEach(s=>{ removedIds.forEach(id=>{ if(s.deskItems && s.deskItems[id]){ const def=customItems[id]||{id}; equipDeskItem(s,def,false); } }); });
-    removedIds.forEach(id=>{ delete customItems[id]; });
-  }
-  commissionMod.setSavedItems([...catalogList, ...localOnly]);
-  commissionMod.persistSavedAssets();
-  /* 🩹 #11 — 등록이 끝난 **뒤에** 좌석을 다시 적용한다. 예전엔 await 없이 불러서 바로 아래 재적용이
-     옛 정의(크기 0.8)로 아이템을 다시 만들었고, 등록이 끝난 뒤엔 다시 그리는 곳이 없었다. */
-  try{ await loadSavedItemsIntoSession(); }catch(_){}   // 세션 customItems에도 최신 상태 반영(새로 추가/수정된 GLB 등록)
-  // 캐릭터 로드가 카탈로그 동기화보다 먼저 끝났을 수 있어서(비동기 타이밍), 이미 떠 있는 좌석들의 아이템도 다시 적용
-  seats.forEach(s=>{ clearHolderDeskItems(s); if(s.charDef && s.charDef.deskItems) applyDeskItemsTo(s, s.charDef.deskItems); });
-  // ★ 생성기 안에서 지금 장착 중인 아이템도 갱신 — 관리자가 생성기를 연 채로 아이템을 수정하면
-  //   그 자리에서 바로 반영돼야 함(안 그러면 카드 목록만 갱신되고 실제로 올려둔 아이템은 예전 GLB 그대로 남음).
-  //   ★ 위치/크기 조정값은 일부러 보존하지 않음 — 예전엔 보존했더니, 관리자가 자동 크기 계산 로직(ITEM_TARGET_SIZE
-  //   등)을 바꿔도 "저장된 옛날 크기값"이 계속 덮어써서 변경사항이 화면에 반영되는 게 안 보이는 버그가 있었음.
-  //   동기화 시점엔 항상 방금 계산된 새 값을 그대로 보여줌.
-  if(typeof cBase!=='undefined' && cBase && creatorOpen && cBase.deskItems){
-    Object.keys(cBase.deskItems).forEach(id=>{
-      const p=cBase.deskItems[id]; if(!p) return;
-      const def=customItems[id]; if(!def) return;   // 카탈로그(커스텀) 아이템만 대상 — 기본 내장 모양은 고정이라 재적용 불필요
-      equipDeskItem(cBase, def, true);
-    });
-  }
-  if(creatorOpen) renderCrItems();
-  /* 🪑 [제보 2] 책상 카탈로그와 같은 이유 — licenseOnly 아이템 판정은 이 레코드가 와야 선다. */
-  try{ premiumMod.pruneUnownedLicenseAssets(); }
-  catch(e){ console.warn('[라이선스] 아이템 카탈로그 도착 후 정리 실패', e); }
-}
-function subscribeCatalogItems(){
-  if(!window.firebaseAPI || !window.firebaseAPI.subscribeCatalogItems) return;
-  window.firebaseAPI.subscribeCatalogItems(async catalogObj=>{
-    await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
-    await mergeCatalogIntoSavedItems(catalogObj);
-  });
-}
-if(window.firebaseAPI) subscribeCatalogItems();
-else window.addEventListener('firebase-ready', subscribeCatalogItems, { once:true });
-function mergeCatalogIntoSavedDesks(catalogObj){
-  const catalogList = Object.keys(catalogObj||{}).map(id=>({ id, ...catalogObj[id], fromCatalog:true }));
-  // ★ order 필드 기준 오름차순 정렬 — 관리자가 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
-  catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
-  const catalogIds = new Set(catalogList.map(p=>p.id));
-  const removedIds = commissionMod.savedDesks().filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
-  const localOnly = commissionMod.savedDesks().filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
-  if(removedIds.length){
-    // 삭제된 책상을 지금 쓰고 있는 좌석이 있으면 기본 책상으로 되돌림
-    seats.forEach(s=>{ if(s.charDef && removedIds.includes(s.charDef.deskCatalogId)){ s.charDef.deskCatalogId=null; s.charDef.deskGlb=null; if(s.desk) swapDeskVisual(s.desk,null); } });
-  }
-  commissionMod.setSavedDesks([...catalogList, ...localOnly]);
-  commissionMod.persistSavedAssets();
-  // 지금 이 책상을 쓰고 있는 좌석이 있으면(수정됐을 수 있으니) 즉시 새 GLB로 다시 그림 — "교체하면 실시간 반영" 요구사항
-  // 기본 책상(별도 deskCatalogId/deskGlb 없음)을 쓰는 좌석도 __default_desk__ 오버라이드가 있으면/없어졌으면 반영
-  seats.forEach(s=>{
-    if(s.charDef && s.charDef.deskCatalogId){ applyDeskCatalogRefToSeat(s, s.charDef); }
-    else if(s.charDef && !s.charDef.deskGlb){ applyDeskCatalogRefToSeat(s, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:s.charDef.deskScale, deskColor:s.charDef.deskColor}); }
-  });
-  /* 🪑 [제보 2] 카탈로그가 도착한 지금이 «이 id 가 전용인가» 를 알 수 있는 **첫 순간**이다.
-     licenseOnly 는 이 레코드에만 있어서, 부팅 때 캐릭터가 먼저 닿으면 그 전까지는 판정이 안 된다.
-     ★ 라이선스가 있거나 카탈로그가 비었으면 pruneUnownedLicenseAssets 가 스스로 물러난다. */
-  try{ premiumMod.pruneUnownedLicenseAssets(); }
-  catch(e){ console.warn('[라이선스] 책상 카탈로그 도착 후 정리 실패', e); }
-  // ★ 생성기 안에서 지금 보고 있는 미리보기(cDesk)도 갱신 — 관리자가 생성기를 연 채로 등록/수정하면
-  //   그 자리에서 바로 반영돼야 함(안 그러면 renderCrItems로 카드 목록만 갱신되고, 실제 3D 미리보기는 예전 모습 그대로 남음).
-  if(typeof cDesk!=='undefined' && cDesk && creatorOpen){
-    if(cDeskGlbB64 && activeCustomDeskId){
-      const rec=commissionMod.savedDesks().find(d=>d.id===activeCustomDeskId);
-      if(rec){ assetCodeMod.parseGlbBytes(b64ToBuf(rec.glb)).then(sc=>{ cDeskTemplate=sc; cDeskGlbB64=rec.glb; swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }).catch(()=>{}); }
-    } else if(!activeCustomDeskId){
-      const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
-      if(ov){ assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }).catch(()=>{}); }
-      else { swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
-    }
-  }
-  if(creatorOpen) renderCrItems();
-}
-function subscribeCatalogDesks(){
-  if(!window.firebaseAPI || !window.firebaseAPI.subscribeCatalogDesks) return;
-  window.firebaseAPI.subscribeCatalogDesks(async catalogObj=>{
-    await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
-    mergeCatalogIntoSavedDesks(catalogObj);
-  });
-}
-if(window.firebaseAPI) subscribeCatalogDesks();
-else window.addEventListener('firebase-ready', subscribeCatalogDesks, { once:true });
+/* 본문은 character/catalog-sync.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const catalogSyncMod = TwCatalogSync.createCatalogSync({
+  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  activeCustomDeskId: ()=>activeCustomDeskId,
+  adminCategory: adminCategory,
+  applyClothVisibility: (...a)=>applyClothVisibility(...a),
+  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),
+  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
+  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
+  assetCodeMod: assetCodeMod,
+  b64ToBuf: (...a)=>b64ToBuf(...a),
+  cBase: ()=>cBase,
+  cDesk: ()=>cDesk,
+  cDeskColor: ()=>cDeskColor,
+  cDeskGlbB64: ()=>cDeskGlbB64,
+  cDeskScale: ()=>cDeskScale,
+  cDeskTemplate: ()=>cDeskTemplate,
+  catalogGlbMod: catalogGlbMod,
+  catalogNet: ()=>window.firebaseAPI,
+  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),
+  commissionMod: commissionMod,
+  creatorOpen: ()=>creatorOpen,
+  customItems: ()=>customItems,
+  equipDeskItem: (...a)=>equipDeskItem(...a),
+  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),
+  fitModel: (...a)=>fitModel(...a),
+  gachaMod: ()=>gachaMod,
+  isAdmin: ()=>isAdmin,
+  layoutSeats: (...a)=>layoutSeats(...a),
+  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
+  premiumMod: premiumMod,
+  renderCrItems: (...a)=>renderCrItems(...a),
+  renderLauncher: (...a)=>renderLauncher(...a),
+  rideBenchMod: rideBenchMod,
+  seats: seats,
+  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
+  swapDeskVisual: (...a)=>swapDeskVisual(...a),
+  toast: (...a)=>toast(...a),
+  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
+  wardrobeMod: wardrobeMod,
+  setCDeskGlbB64: (v)=>{ cDeskGlbB64 = v; },
+  setCDeskTemplate: (v)=>{ cDeskTemplate = v; },
+});
 // 좌석의 charDef.deskCatalogId를 보고 지금 카탈로그에 있는 최신 GLB로 책상을 그려줌(없으면 기본 책상)
 async function applyDeskCatalogRefToSeat(seat, def){
   if(!seat || !seat.desk) return;
@@ -11090,144 +11013,7 @@ async function applyDeskCatalogRefToSeat(seat, def){
     if(def.deskColor) applyDeskColorToCustom(seat.desk,def.deskColor);
   }catch(e){}
 }
-function mergeCatalogIntoSavedParts(catalogObj){
-  const catalogList = Object.keys(catalogObj||{}).map(id=>premiumMod._normPartRec({ id, ...catalogObj[id], fromCatalog:true }));   // 🎰 가챠 = stackable(_normPartRec 주석)
-  // ★ order 필드 기준 오름차순 정렬 — 관리자가 화면에서 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
-  //   order가 없는(예전에 등록돼서 순서 개념이 생기기 전인) 항목은 뒤로 밀리게 처리.
-  catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
-  const catalogIds = new Set(catalogList.map(p=>p.id));
-  // ★ "카탈로그에서 한 번이라도 온 적 있는데(fromCatalog) 지금은 목록에 없는 것"은 관리자가 삭제한 것 —
-  //   이건 로컬에도 남겨두면 안 됨(예전 버그: 전부 "로컬 전용"으로 취급해서 영원히 안 지워졌음).
-  //   진짜 로컬 전용(사용자가 직접 올린 것, 카탈로그에 온 적 없음)만 남김.
-  const removedIds = premiumMod.savedParts().filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
-  const localOnly = premiumMod.savedParts().filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
-  if(removedIds.length){
-    // 삭제된 파츠를 지금 착용 중인 좌석이 있으면 해제
-    seats.forEach(s=>{ if(s.charDef&&s.charDef.equippedParts){ for(const c in s.charDef.equippedParts){ if(removedIds.includes(premiumMod.partEntryId(s.charDef.equippedParts[c]))){ delete s.charDef.equippedParts[c]; unequipPartFromSeat(s,c); } } } applyClothVisibility(s); });
-  }
-  premiumMod.setSavedParts([...catalogList, ...localOnly]);
-  premiumMod.persistSavedParts();   // 오프라인에서도 마지막으로 받은 카탈로그를 쓸 수 있게 캐시
-  // ★ Storage 이관 후속: 시작 시 파츠 rec.glb가 없어 부착 실패했던 좌석에 다시 시도.
-  //   ★ 버그 수정(파츠 위치 초기화 + stackable 미부착):
-  //   (1) 예전엔 equippedPartObjs[cat]만 보고 스킵했는데, stackable 파츠는 stackedPartObjs에 살아서
-  //       가드를 통과 → 동기화 올 때마다 xf 없이 재장착돼 위치가 원점으로 리셋됐음.
-  //   (2) 배열(cat에 stackable 여러 개) entry는 partEntryId(배열)=undefined라 rec를 못 찾아
-  //       시작 시 재부착이 아예 안 되던 잠복 버그도 함께 수정 — entry 단위로 순회.
-  seats.forEach(s=>{
-    if(!s.charDef || !s.charDef.equippedParts) return;
-    s.equippedPartObjs = s.equippedPartObjs || {};
-    const _pending = [];   // 🦶 이번에 새로 붙은 파츠들 — 다 붙은 뒤 바닥을 다시 맞춘다
-    for(const cat in s.charDef.equippedParts){
-      premiumMod.entriesForCat(s.charDef, cat).forEach(entry=>{
-        const id = premiumMod.partEntryId(entry);
-        const rec = premiumMod.savedParts().find(p=>p.id===id && p.cat===cat);
-        if(!rec) return;
-        const attached = rec.stackable
-          ? !!(s.stackedPartObjs && s.stackedPartObjs[cat] && s.stackedPartObjs[cat][id])
-          : !!s.equippedPartObjs[cat];
-        if(attached) return;
-        _pending.push(equipPartOnSeat(s, cat, rec, { stackableXf: rec.stackable ? premiumMod.partEntryXf(entry) : null }));
-      });
-    }
-    applyClothVisibility(s);
-    /* 🦶 여기서 붙는 파츠도 바닥 맞춤을 받아야 한다.
-       [경위] 이 경로는 **카탈로그(파츠 GLB)가 서버에서 늦게 도착했을 때** 뒤늦게 붙이는 자리다.
-         부팅 때 fitModel 은 이미 지나갔고 그때는 욕조가 아직 없었으므로 발밑 깊이가 0 으로 측정됐다.
-         그래서 보관함에 있던 발밑 파츠는 붙기는 붙는데 바닥에 파묻힌 채로 남았다
-         (다른 이유로 fitModel 이 한 번 더 돌기 전까지 — 크기 슬라이더를 건드리면 그제야 맞았다).
-       ★ 아무것도 새로 안 붙었으면 fitModel 을 부르지 않는다 — 이 함수는 카탈로그가 올 때마다
-         돌기 때문에, 매번 재계산하면 좌석 전부의 크기·센터링이 이유 없이 다시 굴러간다. */
-    if(_pending.length){
-      Promise.all(_pending.map(p=>Promise.resolve(p).catch(()=>{}))).then(()=>{
-        try{ if(s && s.gltfRoot){ fitModel(s); layoutSeats(); } }catch(_){}
-      });
-    }
-    /* 🎩 [2026-08-29] **카탈로그가 늦게 와도 '위에 얹을 수 있음'이 반영되게 한다.** — 제보 대응
-
-       [무엇이 났나] 파츠 위에 얹는 판정(_partAllowsRideTop)은 `savedParts` 의 `rec.rideTop` 을
-         읽는데, 부팅 직후 savedParts 는 localStorage 캐시뿐이고 최신 플래그는 이 함수가
-         카탈로그를 받아 통째로 갈아끼울 때 들어온다. 그런데 머리 꼭대기 실측은 mountRide 때
-         **1회**뿐이라(_measureHostHeadTop), "좌석 조립 → 파츠 부착 → 동물 마운트"가 카탈로그
-         도착보다 먼저 끝나면 `_headTopPart = null` 이 캐시로 굳는다.
-         그 뒤 _applyRemoteRides 는 `seat.ridingOn === target` 이면 재실측을 건너뛰므로
-         **그 세션 내내 파츠를 무시한 채 얹힌다.** 런처를 갔다 오면 좌석이 재조립되면서
-         그때는 카탈로그가 이미 있으니 정상으로 보인다 — 제보 문구 그대로다.
-
-       [왜 위쪽 재부착 루프로는 안 잡히나] 그 루프는 `if(attached) return;` 이라 **이미 붙어 있는
-         파츠는 건너뛴다.** 즉 늦게 온 것이 GLB 가 아니라 **메타데이터(rideTop)뿐**인 이 경우에는
-         equipPartOnSeat 이 한 번도 안 불리고, 그 안에 있는 재실측 훅도 같이 건너뛰어진다.
-
-       ⇒ 좌석마다 한 번씩 직접 부른다. 아무도 안 타고 있으면 _remeasureRideHeadTop 이 즉시
-         빠져나오므로(riders.length 검사) 비용이 없고, 측정에 실패하면 옛 값을 그대로 둔다.
-       ⚠️ `_pending` 여부와 무관하게 부른다 — 새로 붙은 파츠 쪽은 equipPartOnSeat 이 이미
-         책임지지만, 이 자리가 막으려는 것은 **아무것도 새로 안 붙는 경우**다. */
-    try{ rideBenchMod._remeasureRideHeadTop(s); }catch(_){}
-  });
-  // ★ 런처 슬롯 미리보기도 다시 렌더 — 초기엔 savedParts에 rec.glb가 없어 파츠가 안 보였을 수 있음.
-  //   지금 카탈로그가 도착했으므로 (rec.glbUrl로 Storage에서 받아올 수 있음) 미리보기 재빌드.
-  const launcher = document.getElementById('launcher');
-  if(launcher && launcher.classList.contains('on')){
-    renderLauncher();
-  }
-  // 꾸미기창 미리보기도 열려있으면 재빌드
-  const wdPanel = document.getElementById('wdPreviewPanel');
-  if(wdPanel && wdPanel.classList.contains('on')){
-    wardrobeMod.refreshWdPreviewChar();
-  }
-  wardrobeMod.renderWardrobe();
-  /* 🎰 카탈로그가 도착한 지금이 미보유 가챠 파츠를 회수할 수 있는 **첫 순간**이다.
-     [경위] 회수는 동기화가 끝나는 자리에서만 돌았는데, 그 자리는 부팅 4.2초로 고정이고
-       savedParts 는 이 함수(구독 콜백 → resolveCatalogGlbAll 왕복)까지 와야 채워진다.
-       즉 부팅 회수는 거의 항상 "카탈로그가 없어 물러남"으로 끝났고, 다음 기회는 10분 뒤
-       tick 이었다. 그 사이 유저는 보관함에 없는 파츠를 화면에 달고 있게 된다 —
-       잠긴 칸에는 onclick 이 없어 손으로 벗을 수도 없다(제보).
-     ★ 서버를 아직 못 읽었으면 pruneUnownedGachaParts 가 스스로 물러난다(_gachaSrvSeen). */
-  try{ gachaMod.pruneUnownedGachaParts(); }
-  catch(e){ console.warn('[가챠] 카탈로그 도착 후 정리 실패', e); }
-}
-function subscribeCatalogParts(){
-  if(!window.firebaseAPI || !window.firebaseAPI.subscribeCatalogParts) return;
-  window.firebaseAPI.subscribeCatalogParts(async catalogObj=>{
-    await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
-    mergeCatalogIntoSavedParts(catalogObj);
-    /* 🎰 이관 과도기 — catalog/parts 에 gacha:true 로 남은 옛 항목(_legacyGacha 표식)이 보이면
-       관리자 세션이 gachaParts 로 옮긴다. 옮기기 전까지는 구버전 클라이언트가 그 파츠를 계속
-       받아서 뽑지 않고 낀다(제보의 그 증상) — 관리자가 새 판본으로 한 번 접속하면 끝난다.
-       ⚠️ isAdmin 게이트: 규칙상 누구나 쓸 수는 있지만, 일반 유저 기기가 조용히 카탈로그를
-         옮기게 두지 않는다. 멱등이라 관리자 기기가 여럿이어도 안전하다. */
-    if(isAdmin && !window.__gachaMigrated && window.firebaseAPI.migrateGachaCatalog
-       && Object.keys(catalogObj||{}).some(id=>catalogObj[id] && catalogObj[id]._legacyGacha)){
-      window.__gachaMigrated = true;   // 콜백이 연달아 와도 한 번만
-      window.firebaseAPI.migrateGachaCatalog()
-        .then(r=>{ if(r && r.moved && r.moved.length) toast('🎰 가챠 파츠 '+r.moved.length+'개를 새 카탈로그 경로로 옮겼어요 (구버전 노출 차단)'); })
-        .catch(()=>{ window.__gachaMigrated = false; });   // 실패하면 다음 콜백에서 재시도
-    }
-  });
-}
-if(window.firebaseAPI) subscribeCatalogParts();
-else window.addEventListener('firebase-ready', subscribeCatalogParts, { once:true });
-// ★ Phase 3: 커스텀 서브카테고리 구독 — Firebase에서 실시간으로 받아 PART_CATS에 병합.
-function subscribeCustomCats(){
-  if(!window.firebaseAPI || !window.firebaseAPI.subscribeCustomCats) return;
-  window.firebaseAPI.subscribeCustomCats(catObj=>{
-    premiumMod.setCustomPartCats(Object.keys(catObj||{}).map(k=>catObj[k]).filter(c=>c && c.cat));
-    premiumMod.rebuildPartCats();
-    wardrobeMod.renderWardrobe();
-    if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
-  });
-}
-// 기본 카테고리 이름 덮어쓰기 구독 (예: 망토 → 겉옷)
-function subscribeCatOverrides(){
-  if(!window.firebaseAPI || !window.firebaseAPI.subscribeCatOverrides) return;
-  window.firebaseAPI.subscribeCatOverrides(obj=>{
-    premiumMod.setPartCatOverrides(obj || {});
-    premiumMod.rebuildPartCats();
-    wardrobeMod.renderWardrobe();
-    if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
-  });
-}
-if(window.firebaseAPI){ subscribeCustomCats(); subscribeCatOverrides(); }
-else window.addEventListener('firebase-ready', ()=>{ subscribeCustomCats(); subscribeCatOverrides(); }, { once:true });
+/* (구역 떼기 C · w2) 이 자리의 본문도 character/catalog-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기 ═══ */
 /* 🩹 [2026-10-02 제보 #11] «부팅 직후 첫 실행에서 가끔 책상 위 오브젝트가 죄그매진다 — 런처 갔다 오면 회복»
    [원인] 캐릭터를 좌석·런처·생성기에 올리는 세 경로가 def.customItems 의 아이템을
