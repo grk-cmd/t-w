@@ -1864,6 +1864,11 @@
         [`users/${friendId}/friends/${myId}`]: null,
       });
     },
+    // 내 친구 목록 한 번 읽기 — users/{나}/friends 만({친구id: {addedAt}}). 판정용 · 부르는 곳은 friends-sub.js 한 곳(중복 조회 방지).
+    async getMyFriendList(myId){
+      const snap = await get(ref(db, `users/${myId}/friends`));
+      return snap.val() || {};
+    },
     // 내 친구 목록 실시간 구독 — friends 목록이 바뀔 때마다 각 친구의 프로필/온라인상태도 같이 구독해서
     // onChange(friendsObj)로 전달. friendsObj = { [friendId]: {name, online, lastSeen, addedAt} }
     // onError(err) — 목록 구독이 거부 · 끊기면 한 번. 그때는 친구별 구독까지 다 풀어 둔다(다시 걸기는 부르는 쪽 · friends-sub.js).
