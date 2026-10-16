@@ -53,7 +53,7 @@ function mkEnv(opt){
   const env = {
     toasts: [], sent: [], cleared: [], left: [], started: [], flashes: [], subs: [], now: 1e12, timers: [], docL: {}, winL: {},
     friends: opt.friends === undefined ? {} : opt.friends, notice: opt.notice === undefined ? null : opt.notice, room: opt.room === undefined ? 'ROOM1' : opt.room, active: opt.active !== false,
-    sendFail: false, winW: 320, winH: 200, winX: 100, winY: 100,
+    sendFail: false, sendHold: false, release: null, opens: [], closes: [], onUpdate: null, winW: 320, winH: 200, winX: 100, winY: 100,
   };
   const els = {};
   const ids = ['roomInvitePickOverlay', 'roomInvitePickList', 'roomInvitePickClose', 'roomInvitePickHead', 'roomInvitePickWin', 'inviteFriendBtn', 'fsInviteFriendBtn'];
@@ -61,7 +61,7 @@ function mkEnv(opt){
   if(els.roomInvitePickClose) els.roomInvitePickClose.className = 'mh-x';
   const body = mkEl('body', 'body', env);
   const fb = {
-    sendRoomInvite: async (...a) => { if(env.sendFail) throw new Error('x'); env.sent.push(a); },
+    sendRoomInvite: async (...a) => { if(env.sendFail) throw new Error('x'); if(env.sendHold) await new Promise(r => { env.release = r; }); env.sent.push(a); },
     subscribeRoomInvites: (id, cb) => { env.subs.push({ id, cb }); },
     clearRoomInvite: async (me, from) => { env.cleared.push([me, from]); },
   };
@@ -98,6 +98,8 @@ function mkEnv(opt){
     myHomeFriends: () => env.friends,
     friendsNotice: () => env.notice,
     friendsRetry: () => { env.retries = (env.retries || 0) + 1; },
+    friendsOpen: (key, fn) => { env.opens.push(key); env.onUpdate = fn; },
+    friendsClose: (key) => { env.closes.push(key); env.onUpdate = null; },
     presence: { active: () => env.active, roomCode: () => env.room },
   }));
   env.fireWin = (t) => { (env.winL[t] || []).slice().forEach(h => { if(h.once) env.winL[t] = env.winL[t].filter(x => x !== h); h.fn({}); }); };
@@ -207,6 +209,32 @@ await sec('── 3. 초대 보내기', async () => {
   chk(e.toasts.pop() === '친구 님에게 초대를 보냈어요', '  이름 없는 친구는 «친구»');
 });
 
+await sec('── 3-2. 열려 있는 동안 목록이 바뀌면 다시 그린다(이름 · 사진 도착) · 닫으면 그만', async () => {
+  const e = mkEnv({ friends: { a: { name: '...', online: false }, b: { name: '나비', online: true, room: 'R2' }, c: { name: '다람', online: true } } }); e.mk(); e.open();
+  chk(e.opens.join() === 'invite' && typeof e.onUpdate === 'function', '열 때 friends-sub 에 «초대 목록 열림» (key invite · 다시 그리기 함수)');
+  e.btnBy('다람').onclick(); await flush();
+  e.btnBy('나비').onclick();
+  e.friends = { a: { name: '가나', online: true }, b: e.friends.b, c: e.friends.c };
+  e.els.roomInvitePickList.scrollTop = 40;
+  e.onUpdate();
+  chk(e.rows().length === 3 && e.nameOf(0) === '가나', '  바뀌면 다시 그린다 — 새 이름 · 온라인 순서');
+  chk(e.btnBy('다람').textContent === '완료' && e.btnBy('다람').disabled === true, '  보낸 친구는 다시 그려도 «완료»');
+  chk(e.btnBy('나비').textContent === '그래도', '  한 번 알린 친구는 다시 그려도 «그래도»(한 번 더 누르면 보냄)');
+  chk(e.els.roomInvitePickList.scrollTop === 40, '  보던 자리(스크롤) 그대로');
+  e.sendHold = true;
+  e.btnBy('가나').onclick();
+  e.onUpdate();
+  chk(e.btnBy('가나').textContent === '...' && e.btnBy('가나').disabled === true, '  보내는 중에 다시 그려도 «...»(두 번 보내지 않게)');
+  e.sendHold = false; if(e.release) e.release(); await flush();
+  chk(e.btnBy('가나').textContent === '완료', '  보내기가 끝나면 다시 그린 줄도 «완료»');
+  e.els.roomInvitePickClose.fire('click');
+  chk(e.closes.join() === 'invite' && e.onUpdate === null, '닫으면 friends-sub 에 «초대 목록 닫힘»');
+  e.open(); e.els.roomInvitePickOverlay.fire('mousedown', { target: e.els.roomInvitePickOverlay });
+  chk(e.closes.length === 2, '  바깥을 눌러 닫아도 같다');
+  e.open();
+  chk(e.btnBy('다람').textContent === '초대', '다시 열면 처음부터(보낸 표시는 그 한 번 연 동안만 — 예전과 같다)');
+});
+
 await sec('── 4. 창 끌기', () => {
   const e = mkEnv({ friends: { a: { name: '가나' } } }); e.mk(); e.open();
   const head = e.els.roomInvitePickHead, win = e.els.roomInvitePickWin;
@@ -306,10 +334,11 @@ await sec('── 6. app.js 배선', () => {
   const want = [
     /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/, /^escHtml: \(\.\.\.a\)=>escHtml\(\.\.\.a\),$/, /^getMyUserId: \(\.\.\.a\)=>getMyUserId\(\.\.\.a\),$/,
     /^getDisplayName: \(\.\.\.a\)=>getDisplayName\(\.\.\.a\),$/, /^startRoom: \(\.\.\.a\)=>startRoom\(\.\.\.a\),$/, /^doLeaveRoom: \(\.\.\.a\)=>doLeaveRoom\(\.\.\.a\),$/,
-    /^friendInRoom: \(\.\.\.a\)=>inboxMod\.friendInRoom\(\.\.\.a\),$/, /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^friendsRetry: \(\.\.\.a\)=>friendsSubMod\.retryIfFailed\(\.\.\.a\),$/, /^presence: Presence,$/,
+    /^friendInRoom: \(\.\.\.a\)=>inboxMod\.friendInRoom\(\.\.\.a\),$/, /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^friendsRetry: \(\.\.\.a\)=>friendsSubMod\.retryIfFailed\(\.\.\.a\),$/,
+    /^friendsOpen: \(\.\.\.a\)=>friendsSubMod\.open\(\.\.\.a\),$/, /^friendsClose: \(\.\.\.a\)=>friendsSubMod\.close\(\.\.\.a\),$/, /^presence: Presence,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 11개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 13개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   chk(/^let _myHomeFriends = \{\};/m.test(APP) && /[^.\w]_myHomeFriends = [^=]/.test(code.replace(/let _myHomeFriends = \{\};/, '')), '  _myHomeFriends 는 다시 대입되는 let — 그래서 읽는 함수');
   const iP = APP.indexOf('const Presence=(()=>{');
   chk(iP > 0 && iP < iMk && !/[^.\w]Presence\s*=[^=>]/.test(code.replace('const Presence=(', '')), '  Presence 는 만드는 줄보다 앞의 const · 다시 대입 안 됨 — 그래서 값');

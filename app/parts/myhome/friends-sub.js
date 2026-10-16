@@ -1,11 +1,14 @@
-/* friends-sub.js — 👥 내 친구 목록 구독 한 벌 — 상태(불러오는 중 · 못 불러옴 · 받음) · 다시 걸기 · 판정용 한 번 읽기
-   책임: 친구 목록 구독(포트 friends/friends-port.js 의 watchList)을 «동시에 하나만» 건다. 실패하면 목록을 열 때(친구 탭 · 워킹룸 초대 목록)만 다시 건다 — 타이머 재시도는 없다.
+/* friends-sub.js — 👥 내 친구 목록 한 벌 — 상태(불러오는 중 · 못 불러옴 · 받음) · 다시 걸기 · 판정용 한 번 읽기 · 목록 열기/닫기
+   책임: 친구 목록 구독(포트 friends/friends-port.js 의 watchList — 추가 · 삭제)을 «동시에 하나만» 건다. 실패하면 목록을 열 때(친구 탭 · 워킹룸 초대 목록)만 다시 건다 — 타이머 재시도는 없다.
+     이름 · 레벨 · 소개 · 사진은 실시간이 아니다 — 켤 때 한 번 + 목록을 열 때 포트의 listFriends(서버 먼저)로 받아 목록에 얹는다.
      친구 추가 · 수락 판정은 friendsForCheck() 로 — 받았으면 지금 목록, 아니면 이 모듈 한 곳에서만 한 번 읽는다(진행 중이면 모두가 같은 Promise).
      화면은 notice() 하나로 같은 문구 · 같은 상태를 읽는다.
-   deps: subscribe(myId, onChange, onError) → 해제 함수 · fetchOnce(myId) → Promise<{친구id:{addedAt}}> · current() → 지금 목록 ·
+   deps: subscribe(myId, onChange, onError) → 해제 함수 · fetchOnce(myId) → Promise<{친구id:{addedAt}}>(판정용) ·
+         listFriends(myId) → Promise<{친구id: 친구}>(이름 · 레벨 · 소개 · 사진) · current() → 지금 목록 ·
          setFriends(v) · getMyUserId() · toast(msg) · setTimer(fn, ms) → id · clearTimer(id) · onUnload(fn)(앱 종료 · 로그아웃 뒤 재시작 때 정리)
-   내보냄: start(myId, onFriends, onStatus) · stop() · status() · notice() · retryIfFailed() · friendsForCheck()
-     순수: noticeFor(status) · NOTICE · STATUS · SUB_WAIT_MS (TwFriendsSub 위)
+   내보냄: start(myId, onFriends, onStatus) · stop() · status() · notice() · retryIfFailed() · friendsForCheck() ·
+         open(key, onUpdate)(목록을 열 때 — 다시 걸기 · 이름 받기 · 열려 있는 동안 바뀌면 onUpdate) · close(key)
+     순수: noticeFor(status) · friendOf(entry, card, pres) · mergeFriends(ids, details, presence) · NOTICE · STATUS · SUB_WAIT_MS (TwFriendsSub 위)
    ⚠️ 구독이 연결 시도 중이면 따로 읽지 않고 그 결과를 SUB_WAIT_MS 까지 기다린다 — 같은 경로를 두 번 읽지 않게.
    ⚠️ 한 번 읽은 값은 그 판정에만 쓴다(받음으로 치지 않는다 · 따로 캐시 안 함). 그 사이 구독 값이 왔으면 구독 값이 이긴다.
    ⚠️ 받은 목록이 비어 있으면 READY 다(«친구 없음»). 아직 못 받았거나 못 받은 것과 섞지 않는다.
@@ -20,6 +23,24 @@ const NOTICE = {
   checkFail: '친구 목록을 불러오지 못했어요. 잠시 후 다시 눌러 주세요',
 };
 
+/* 친구 한 명 = 목록 칸(entry — addedAt) 위에 이름 · 사진(card) · 접속 상태(pres)를 얹는다. 값이 undefined 인 칸은 덮지 않는다
+   (null 은 덮는다 — level null = 배지 숨김). 아직 아무것도 없으면 예전 자리표시와 같다(이름 '...' · 오프라인). */
+const FRIEND_BLANK = Object.freeze({ name: '...', online: false, lastSeen: 0 });
+function friendOf(entry, card, pres){
+  const out = Object.assign({}, FRIEND_BLANK, entry || {});
+  for(const src of [card, pres]){
+    if(!src) continue;
+    for(const k of Object.keys(src)) if(src[k] !== undefined) out[k] = src[k];
+  }
+  return out;
+}
+/* 목록(ids — 구독이 준 { 친구id: 칸 })에 있는 친구만. 받은 이름 목록에만 있는 id(서버 사본이 늦음)는 버린다. */
+function mergeFriends(ids, details, presence){
+  const out = {};
+  for(const fid of Object.keys(ids || {})) out[fid] = friendOf(ids[fid], details && details[fid], presence && presence[fid]);
+  return out;
+}
+
 /* 받기 전(IDLE · LOADING)은 «불러오는 중», 못 받았으면 «못 불러옴», 받았으면 null(목록을 그린다). */
 function noticeFor(status){
   if(status === STATUS.READY) return null;
@@ -29,6 +50,7 @@ function noticeFor(status){
 function createFriendsSub(deps){
 const subscribe = deps.subscribe;
 const fetchOnce = deps.fetchOnce;
+const listFriends = deps.listFriends;
 const current = deps.current;
 const setFriends = deps.setFriends;
 const getMyUserId = deps.getMyUserId;
@@ -44,6 +66,12 @@ let _okSeq = 0;        // 구독 값이 올 때마다 올린다 — 늦게 끝�
 let _waiters = [];     // 연결 시도 중인 구독의 결과를 기다리는 판정들
 let _check = null;     // 진행 중인 판정(하나뿐 — 부르는 곳 모두가 같이 기다린다)
 let _fetching = false, _retryAfterFetch = false;
+let _ids = {};         // 구독이 준 목록 { 친구id: 칸 } — 누가 친구인지는 이것만 본다
+let _details = {};     // listFriends 로 받은 이름 · 레벨 · 소개 · 사진 { 친구id: 칸 }
+let _detailsP = null;  // 진행 중인 이름 받기(하나뿐)
+let _detailsTried = false;   // 이름 받기를 한 번이라도 끝냈나(성공이든 실패든) — 첫 받기 동안만 «불러오는 중»
+let _run = 0;          // start · stop 마다 올린다 — 지난 실행의 늦은 이름 받기는 버린다
+let _open = {};        // 열려 있는 목록 { key: onUpdate | null }
 
 function _setStatus(s){
   if(_status === s) return;
@@ -55,12 +83,38 @@ function _detach(){
   const u = _unsub; _unsub = null;
   if(u){ try{ u(); }catch(_){} }
 }
+/* 지금 목록을 그리는 쪽에 넘긴다 — 받은 뒤에만(받기 전에 넘기면 판정용으로 한 번 읽은 목록을 빈 값으로 덮는다). */
+function _emit(){
+  if(_status !== STATUS.READY) return;
+  if(_onFriends) _onFriends(mergeFriends(_ids, _details));
+  for(const k of Object.keys(_open)){
+    const fn = _open[k];
+    if(fn){ try{ fn(); }catch(e){ console.warn('[친구 목록] 열린 목록 다시 그리기 실패', k, e); } }
+  }
+}
 function _ok(gen, friends){
   if(gen !== _gen) return;
   _okSeq++;
+  _ids = friends || {};
   _status = STATUS.READY;   // 그리기 전에 바꾼다 — onFriends 가 그리는 화면이 notice() 를 읽는다
-  if(_onFriends) _onFriends(friends || {});
+  _emit();
   _wake();
+}
+/* 이름 · 레벨 · 소개 · 사진 받기 — 포트가 서버 먼저 · 못 받으면 옛 길. 진행 중이면 그것을 같이 기다린다. 실패해도 목록은 그대로 그린다. */
+function _loadDetails(){
+  if(_detailsP) return _detailsP;
+  if(!_myId) return Promise.resolve();
+  const run = _run, myId = _myId;
+  _detailsP = Promise.resolve()
+    .then(()=>listFriends(myId))
+    .then(v=>{ if(run === _run) _details = v || {}; },
+          e=>{ if(run === _run) console.warn('[친구 목록] 이름 · 사진을 못 받음 — 받은 목록 그대로', e); })
+    .then(()=>{
+      if(run !== _run) return;
+      _detailsP = null; _detailsTried = true;
+      _emit();
+    });
+  return _detailsP;
 }
 function _fail(gen, err){
   if(gen !== _gen) return;
@@ -88,11 +142,13 @@ function start(myId, onFriends, onStatus){
   if(!myId){ _myId = null; _setStatus(STATUS.READY); return; }
   _setStatus(STATUS.LOADING);
   _attach();
+  _loadDetails();   // 켤 때 한 번 — 다른 곳(파도타기 · 마이홈 구경 · 스케줄러)도 이름을 쓴다
 }
 function stop(){
-  _gen++;
+  _gen++; _run++;
   _detach();
   _status = STATUS.IDLE;
+  _ids = {}; _details = {}; _detailsP = null; _detailsTried = false;
   _wake();
 }
 /* 목록을 열 때 부른다. 못 불러온 상태일 때만 다시 건다 — 받았거나 · 거는 중이면 아무것도 안 한다.
@@ -120,7 +176,7 @@ async function _fetch(){
     if(_okSeq !== seq || _status === STATUS.READY) return current() || {};   // 그 사이 구독 값이 왔다 — 구독 값이 이긴다
     const cur = current() || {}, out = {};
     Object.keys(ids || {}).forEach(fid=>{
-      out[fid] = cur[fid] || { name: '...', online: false, lastSeen: 0, addedAt: (ids[fid] || {}).addedAt };
+      out[fid] = cur[fid] || friendOf(ids[fid], _details[fid]);
     });
     setFriends(out);
     return out;
@@ -149,8 +205,22 @@ function friendsForCheck(){
   mine.then(()=>{ if(_check === mine) _check = null; });
   return mine;
 }
+/* 목록을 열 때(친구 탭 · 워킹룸 초대 목록) — 못 불러왔으면 다시 걸고, 이름 · 사진을 다시 받는다(서버부터).
+   onUpdate 는 열려 있는 동안 목록이 바뀌면 부른다(다시 그리기). 같은 key 로 또 열면 onUpdate 만 바꾼다(다시 받지 않음). */
+function open(key, onUpdate){
+  const first = !(key in _open);
+  _open[key] = onUpdate || null;
+  if(!_myId) return;
+  retryIfFailed();
+  if(first) _loadDetails();
+}
+function close(key){ delete _open[key]; }
 function status(){ return _status; }
-function notice(){ return noticeFor(_status); }
+/* 받은 뒤라도 첫 이름 받기가 끝나기 전에는 «불러오는 중» — 이름 없는 목록('...')을 잠깐 보여 주지 않게. */
+function notice(){
+  if(_status === STATUS.READY && _detailsP && !_detailsTried) return NOTICE.loading;
+  return noticeFor(_status);
+}
 
 onUnload(stop);
 
@@ -161,10 +231,12 @@ return {
   notice,
   retryIfFailed,
   friendsForCheck,
+  open,
+  close,
 };
 }
 
-const api = { createFriendsSub, noticeFor, NOTICE, STATUS, SUB_WAIT_MS };
+const api = { createFriendsSub, noticeFor, friendOf, mergeFriends, NOTICE, STATUS, SUB_WAIT_MS };
 if(typeof window !== 'undefined') window.TwFriendsSub = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
