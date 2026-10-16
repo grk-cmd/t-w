@@ -33,7 +33,7 @@
    · 실시간 연동(Firebase parties)은 다음 단계 — advPartyAdd에서 안내만.
 
    ★ app.js 전역 의존 (전부 typeof 가드)
-   · getFocusLevel(), _focusTotalSec, getDisplayName()
+   · focusLevelMod.getFocusLevel(), _focusTotalSec, getDisplayName()
    · firebaseAPI.uploadUserImage(), getMyUserId(), toast(), companion.dsHold()
 */
 (function(){
@@ -217,7 +217,7 @@ function curSlot(){ return ADV.slots[editSlot]; }
 function activeSlot(){ return ADV.slots[ADV.active]; }
 
 /* ─────────────────────────── 집중 연동 ─────────────────────────── */
-function advFocusLevel(){ try{ return getFocusLevel(); }catch(_){} return 1; }
+function advFocusLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){} return 1; }
 function advFocusSec(){ try{ if(typeof _focusTotalSec==='number') return _focusTotalSec; }catch(_){} return 0; }
 // ★ 나이대별 스탯 포인트 계수 (어린이·노인은 적게). 경계·배율은 여기서 조정.
 const AGE_TIERS = [
@@ -2025,7 +2025,7 @@ function advDownloadChatLog(){
   if(!arr.length && !fb.length){ advToast('저장할 대화가 없어요'); return; }
   const clean=(t)=>String(t||'')
     .replace(/\[imgs:(\S+?)\]/g, '[이미지: $1]')
-    .replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=DEMOJI_BY_ID[id]; return d?('/'+d.cmd):'[이모티콘]'; });
+    .replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=TwDemojiCatalog.BY_ID[id]; return d?('/'+d.cmd):'[이모티콘]'; });
   const pad=n=>String(n).padStart(2,'0');
   const line=m=>{ const dt=new Date(m.ts||Date.now());
     return '['+pad(dt.getHours())+':'+pad(dt.getMinutes())+'] '+advChatName(m.uid, m.name, m.asNick)+': '+clean(m.text); };   // ★ 요청1/2: 닉/캐릭터명
@@ -3105,7 +3105,7 @@ function advDemojify(text){
   //   [demoji:..]로 바꿔 주소를 훼손 → 채팅에서 이미지가 임베드되지 않음(직접 붙여넣기 전송 경로).
   const urls=[];
   let s=String(text).replace(/https?:\/\/[^\s<>]+/gi, u=>{ urls.push(u); return '\u0001'+(urls.length-1)+'\u0001'; });
-  s=s.replace(/\/([^\s\/]{1,10})/g, (m, cmd)=>{ const d=DEMOJI_BY_CMD[cmd]; return d ? '[demoji:'+d.id+']' : m; });
+  s=s.replace(/\/([^\s\/]{1,10})/g, (m, cmd)=>{ const d=TwDemojiCatalog.BY_CMD[cmd]; return d ? '[demoji:'+d.id+']' : m; });
   return s.replace(/\u0001(\d+)\u0001/g, (m,i)=>urls[+i]);
 }
 function advSendChat(text, opts){
@@ -3207,8 +3207,8 @@ function advRenderChatBox(){
   const list=(ADV._chat||[]).slice(-8);
   // [demoji:id] 마커 → 번들 이미지 (esc 이후 치환 — 아는 id만 렌더, 임의 URL 로드 없음)
   const rend=(t)=>{ t=esc(t||''); const tok=[]; const put=h=>{ tok.push(h); return '\u0000'+(tok.length-1)+'\u0000'; };
-    t=t.replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=DEMOJI_BY_ID[id]; if(!d) return m;
-      return put('<img class="adv-demoji" style="width:'+d.w+'px;height:'+d.h+'px" src="'+DEMOJI_DIR+d.file+'" alt="'+esc(d.cmd)+'">'); });
+    t=t.replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=TwDemojiCatalog.BY_ID[id]; if(!d) return m;
+      return put('<img class="adv-demoji" style="width:'+d.w+'px;height:'+d.h+'px" src="'+TwDemojiCatalog.DIR+d.file+'" alt="'+esc(d.cmd)+'">'); });
     // 🖼 스포일러 이미지 마커 [imgs:URL] — 클릭 전엔 칩, 공개했으면 이미지 (토큰으로 보호 → 이중치환 방지)
     t=t.replace(/\[imgs:(https:\/\/[^\s\]<>"']+?\.(?:png|jpe?g|gif|webp)(?:\?[^\s\]<>"']*)?)\]/gi, (m,u)=>{
       if(ADV._imgOpen && ADV._imgOpen.has(u.replace(/&amp;/g,'&')))

@@ -56,7 +56,7 @@ const ctx = {
   document:{ readyState:'complete', getElementById:()=>null, addEventListener(){}, activeElement:null },
   seats:[], findMySeat:()=> ctx.seats.find(s=>s.isMe) || null,
   seatState:(s)=> env.states.get(s) || 'idle',
-  _seatHidden:(s)=> env.hidden.has(s),
+  hiddenSeatsMod:{ _seatHidden:(s)=> env.hidden.has(s) },   // 🙈 hidden-seats.js 가 내놓는 이름(app.js 의 hiddenSeatsMod)
   Presence:{ setNoise:(k)=>env.sent.push(k) },
 };
 Object.defineProperty(ctx, 'officeMode', { get:()=>env.office, enumerable:true });

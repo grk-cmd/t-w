@@ -1,6 +1,6 @@
 /* focus-level.js — ⭐ 포커스 레벨 · 공유 · 태블릿
    app.js 의 포커스 레벨 · 공유 · 태블릿 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 26번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다. 다른 모듈이 아직 전역으로 부르는 이름은 app.js 에 «옛 전역 이름» 한 줄씩 남겼다.
+   동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 26줄 —
      _acctDetached · _focusSessionSec · _focusTodaySec · _focusTotalSec · _myInbox · _myInboxReady · appMode · wdDraftDef 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusSessionSec · setFocusTodaySec · setFocusTotalSec(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.

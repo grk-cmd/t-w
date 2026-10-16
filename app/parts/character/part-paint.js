@@ -1,6 +1,6 @@
 /* part-paint.js — 🖍️ 파츠에 직접 그리기 · 파츠 그림칸(_pic) · UV 구제 · 그림 올리기
    app.js «🖍️ 파츠에 직접 그리기» · «🖍️ 파츠 그림칸(_pic) · UV 구제 · 그림 올리기» 두 구역의 본문을 그대로 옮긴 모듈이다(앱 FSD 21번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다. 섞여 있던 공용 도우미 findMySeat(내 좌석 찾기 — 백색소음 등도 씀)는 app.js 에 남겼다. animal.js · noise.js 가 아직 전역으로 부르는 이름은 app.js 에 «옛 전역 이름» 한 줄씩 남겼다.
+   동작은 옮기기 전과 같다. 섞여 있던 공용 도우미 findMySeat(내 좌석 찾기 — 백색소음 등도 씀)는 app.js 에 남겼다. animal.js 는 partPaintMod.이름 으로 부른다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 24줄 —
      CANVAS_SZ · activeWdAdj · currentWdTab · savedParts · wdCam · wdEar · wdGizmo · wdPreviewBase 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
