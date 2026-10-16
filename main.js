@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, screen, ipcMain, shell, powerMonitor, dialog } = require('electron');
+const { app, BrowserWindow, BrowserView, Menu, screen, ipcMain, shell, powerMonitor, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 // ── 전역 입력 훅·활성 창 감지는 sysinput-win.js 로 옮겼다 ──
@@ -522,6 +522,27 @@ function _zoomKeyOp(input){
   if(k === '-' || k === '_' || input.code === 'NumpadSubtract') return 'out';
   if(k === '0' || input.code === 'Numpad0') return 'reset';
   return null;
+}
+/* ═══ 일렉트론 기본 메뉴 걷어내기 ═══════════════════════════════════════════════════════
+   [왜] 앱 메뉴를 안 정하면 일렉트론이 기본 메뉴를 깔고, 그 가속기(Ctrl+R 새로고침 · Ctrl+Shift+I 개발자 도구 ·
+     Ctrl+-/+/0 줌 · F11 · Ctrl+W)가 **모든 창**에서 산다. 메인 창은 줌 키를 가로채지만 방명록 같은 자식 창은 못 막아
+     Ctrl+- 가 기본 Zoom Out 으로 들어가 방명록만 작아졌다.
+   ⚠️ mac 은 메뉴를 통째로 없애면 입력칸의 Cmd+C/V/X/A/Z 가 죽는다(가속기가 메뉴 역할에 붙어 있다) →
+     편집 역할만 남긴 최소 메뉴 + 앱 메뉴(종료). 갈래 모양은 overlay-mac/win · sysinput-mac/win 과 같게. */
+const APP_MENU_TEMPLATE = process.platform === 'darwin'
+  ? [{ label: app.name, submenu: [{ role: 'quit' }] }, { role: 'editMenu' }]
+  : null;
+function _applyAppMenu(){
+  Menu.setApplicationMenu(APP_MENU_TEMPLATE ? Menu.buildFromTemplate(APP_MENU_TEMPLATE) : null);
+}
+/* 자식 창(방명록 · 디자인 스튜디오 — window.open)은 100% 로 묶는다. Ctrl+휠 줌은 메뉴와 무관한 Chromium 동작이라
+   메뉴를 걷어도 남는다 → 휠(zoom-changed)과 줌 키(_zoomKeyOp)를 막고 되돌린다. 메인 줌과 묶는 건 따로 정할 일. */
+function _lockChildZoom(win){
+  const wc = win && win.webContents;
+  if(!wc) return;
+  try{ wc.setZoomFactor(1); }catch(_){}
+  wc.on('zoom-changed', (event) => { event.preventDefault(); try{ wc.setZoomFactor(1); }catch(_){} });
+  wc.on('before-input-event', (event, input) => { if(_zoomKeyOp(input)) event.preventDefault(); });
 }
 let _saveFailLogged = false;
 function saveSettings(){
@@ -2394,6 +2415,7 @@ function createWindow() {
   });
 
   mainWindow.webContents.on('did-create-window', (win, details)=>{
+    _lockChildZoom(win);   // 자식 창은 100% 고정(_lockChildZoom 주석)
     if(details && details.frameName && details.frameName.startsWith('mhGuestbook')){
       gbWin = win;
       /* ★ 창 레벨을 메인과 같은 단계까지 올린다 — 이게 "방명록이 마이홈 뒤로 숨는다"의 원인이었다.
@@ -3848,6 +3870,7 @@ if (!gotLock) {
     _ensureSettingsFile();
     FOCUS_APPS_FILE = path.join(app.getPath('userData'), 'focus-apps.json');
     focusApps = loadFocusApps();   // ★ 이전에 등록해둔 포커싱 어플 복원
+    _applyAppMenu();   // 기본 메뉴 걷기 — 창보다 먼저(APP_MENU_TEMPLATE 주석)
     createWindow();
     /* 🖥️ 화면 구성을 한 줄 남긴다 — createWindow 뒤에 부른다(그래야 오버레이가 어디에 뜨는지 함께 나온다).
        제보자마다 배율·화면 수를 물어보지 않아도 되게 하는 것이 목적이다. */
