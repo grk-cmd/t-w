@@ -258,7 +258,7 @@ const CHAL_DUE_MAX = 4;              // 한 주에 나갈 수 있는 지급이 �
 function _chalDueList(){ return Array.isArray(chalRec.due) ? chalRec.due.filter(d => d && d.tag) : []; }
 function _chalPushDue(tag, n){
   const list = _chalDueList().filter(d => d.tag !== tag);
-  list.push({ tag:String(tag), n:n | 0, ts:0 });
+  list.push({ tag:String(tag), n:n | 0, ts:Date.now() });   // 적는 쪽이 바로 한 번 보낸다 — 0 이면 그 응답을 기다리는 사이 tick 이 같은 tag 로 또 보내 토스트가 «밀렸던 뽑기» 로 뜬다
   chalRec.due = list.slice(-CHAL_DUE_MAX);
   _chalSave(true);
 }
