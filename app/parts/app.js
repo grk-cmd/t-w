@@ -1985,6 +1985,7 @@ const tricksMod = TwTricks.createTricks({
   seatCharZ: (...a)=>seatCharZ(...a),
   seatFromObject: (...a)=>seatFromObject(...a),
   seatScale: (...a)=>seatScale(...a),
+  measureCharBox: (...a)=>measureCharBox(...a),
   seats: seats,
   showChatBubble: (...a)=>showChatBubble(...a),
   spawnFloater: (...a)=>floatersMod.spawnFloater(...a),
