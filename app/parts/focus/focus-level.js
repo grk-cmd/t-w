@@ -418,7 +418,7 @@ window.addEventListener('beforeunload', ()=>{ try{ syncFocusTotalToServer('quit'
 window.addEventListener('beforeunload', ()=>{
   if(_acctDetached() || !wdDraftDef()) return;
   const wp = document.getElementById('wardrobePanel');
-  if(wp && wp.classList.contains('on') && typeof window.closeWardrobe==='function'){ try{ window.closeWardrobe(); }catch(_){} }
+  if(wp && wp.classList.contains('on')){ try{ window.closeWardrobe(); }catch(_){} }
 });
 
 function formatHMS(sec){ sec=Math.max(0,Math.floor(sec));

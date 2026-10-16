@@ -238,8 +238,8 @@
   }
   /* 창 높이가 바뀌었다 — 뒤에 숨은 유튜브 재생 창 사각형과 화면 안 clamp 를 다시 맞춘다(_plSyncBgmBounds 주석). */
   function _plResized(){
-    try{ if(typeof _plApplyPos === 'function') _plApplyPos(); }catch(_){}
-    try{ if(typeof _plSyncBgmBounds === 'function') _plSyncBgmBounds(); }catch(_){}
+    try{ _plApplyPos(); }catch(_){}
+    try{ _plSyncBgmBounds(); }catch(_){}
   }
   function setKind(k){
     nzKind = _kindOk(k);

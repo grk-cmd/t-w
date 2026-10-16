@@ -71,7 +71,7 @@ function _autoExitDo(){
   catch(err){ console.warn('[자동퇴장] 방 나가기 실패', err); }
   /* 🕒 시계를 다시 감는다. 안 감으면 이 상태(여전히 자리비움) 그대로 다른 방에 들어가는 순간
      «이미 6시간 지났다»로 읽혀서 들어가자마자 또 팝업이 뜬다. */
-  try{ if(typeof window._autoAwayResetClock === 'function') window._autoAwayResetClock(); }catch(_){}
+  try{ window._autoAwayResetClock(); }catch(_){}
   console.log('[자동퇴장] 자리비움 ' + (AUTO_EXIT_AFTER_AWAY_MS / 3600000) + '시간 — 방에서 나왔습니다');
 }
 /* 🔔 퇴장 1분 전 안내. 이미 떠 있거나, 방 밖이거나, 시크릿룸 방장이면 아무 일도 안 한다. */

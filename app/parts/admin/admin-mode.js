@@ -122,7 +122,7 @@ function refreshAdminVisibility(){
     el.style.display = isAdmin() ? '' : 'none';
   });
   // 꾸미기 패널이 열려 있으면 등록/삭제 버튼 표시가 바뀌므로 다시 렌더
-  if(typeof window.refreshWardrobe==='function') window.refreshWardrobe();
+  window.refreshWardrobe();
   // 🎟️ 관리자는 초대장 무제한 — 버튼 표시도 그에 맞게 갱신
   refreshInviteBtn();
 }

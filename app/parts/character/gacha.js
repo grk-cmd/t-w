@@ -1099,9 +1099,7 @@ function openGachaInv(){
   _gachaJumpId = _gachaSelId;
   renderGachaInv();
   ov.style.display = 'block';
-  if(typeof window._gachaRestorePos === 'function'){
-    window._gachaRestorePos('inv', document.getElementById('gachaInvWin'));
-  }
+  window._gachaRestorePos('inv', document.getElementById('gachaInvWin'));
   /* 좌측 미리보기는 꾸미기 것을 그대로 재사용한다 — 착용 결과를 캐릭터로 바로 본다.
      ★ z-index 를 .gacha-ov(122) 위로 올린다. 다만 z-index 는 '누가 위냐'만 정할 뿐이라,
        겹치는 한 어느 쪽이 위로 와도 다른 한쪽은 가려진다. 그래서 **자리를 아예 안 겹치게 잡는다.**

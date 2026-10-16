@@ -786,7 +786,7 @@ async function joined(o = {}){
     const fp = AC.slice(AC.indexOf('function makeFirebaseProvider(hooks){'), AC.indexOf('function _roomServerNet(){'));
     chk(/window\.firebaseAPI\.joinRoom\(room, payload,/.test(fp) && /\}, onPoked, hooks\);/.test(fp) && /const delta = _diffRoomPayload\(payload\);/.test(fp), 'makeFirebaseProvider 는 그대로');
     chk(/function _roomServerOn\(\)\{\s*try\{ return !!\(_roomServerNet\(\) && firebaseAPI\.roomServerMineNow && firebaseAPI\.roomServerMineNow\(\)\); \}/.test(AC), '_roomServerOn(방 개수) — «내 서버»(허용 목록) 가 있을 때만 · 읽기 없음');
-    chk(/onDisband: \(\)=>\{ if\(typeof window\._onRoomDisbanded === 'function'\) window\._onRoomDisbanded\(\); \}/.test(AC), 'disband → _onRoomDisbanded(지금 해산 흐름)');
+    chk(/onDisband: \(\)=>\{ window\._onRoomDisbanded\(\); \}/.test(AC), 'disband → _onRoomDisbanded(지금 해산 흐름)');
     chk(/onReplaced: \(\)=>\{ try\{ _onDeviceSessionLost\(\); \}catch\(_\)\{\} \}/.test(AC), 'replaced → _onDeviceSessionLost(한 계정 한 기기)');
     const ol = AC.slice(AC.indexOf('onLost: (code)=>{'), AC.indexOf('onJoined: (room)=>'));
     chk(/toast\(code === 'unreachable' \? ROOM_SERVER_LOST_MSG : '방 서버와 연결이 끊겨 방에서 나왔어요 — 다시 들어가 주세요'\);\s*Promise\.resolve\(doLeaveRoom\(\)\)/.test(ol)
