@@ -589,7 +589,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
       const url='https://www.youtube.com/watch?v='+vid;
       companion.openBgm(url, (b.title||'YouTube BGM'));
       _bgmWinOpen=true; _bgmLoadedVid=vid;
-      setTimeout(()=>{ if(typeof window._mhSyncBgmBounds==='function') window._mhSyncBgmBounds(); }, 60);
+      setTimeout(()=>{ window._mhSyncBgmBounds(); }, 60);
     }
     _bgmPlaying=true; _bgmLabelRefresh();
   }
@@ -602,7 +602,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     companion.openBgm(url, (b.title||'YouTube BGM'));   // 이미 창이 있으면 main.js가 URL만 교체함
     _bgmWinOpen=true; _bgmPlaying=true; _bgmLoadedVid=vid; _bgmLabelRefresh();
     // 창이 새로 만들어지는 경우를 대비해 위치를 확실히 마이홈 뒤로
-    setTimeout(()=>{ if(typeof window._mhSyncBgmBounds==='function') window._mhSyncBgmBounds(); }, 60);
+    setTimeout(()=>{ window._mhSyncBgmBounds(); }, 60);
   }
   // 자식창이 유저에 의해(× 눌러) 닫히면 renderer 상태도 동기화
   if(window.companion && companion.onBgmClosed) companion.onBgmClosed(()=>{
@@ -981,7 +981,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
       _myHomeData().bg = (p.bg && p.bg.color) ? { color: p.bg.color } : null;
     }
     _myHomeData().themePresetCur = i;
-    if(typeof window._mhApplyBg === 'function') window._mhApplyBg();
+    window._mhApplyBg();
     window._mhApplyTheme();
     commitMyHomePage(true);
     toast('👑 ' + _mhPresetLabel(i) + ' 로 바꿨어요');
@@ -1121,11 +1121,11 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
       sw.addEventListener('click', ()=>{
         if(window.companion && companion.dsHold) companion.dsHold();   // 팝업 열리는 동안 blur-닫힘 유예
         window._mhOpenColorPopup(sw, 'theme', (c)=>{
-          if(isBg){ _myHomeData().bg = { color: c }; if(typeof window._mhApplyBg==='function') window._mhApplyBg(); }
+          if(isBg){ _myHomeData().bg = { color: c }; window._mhApplyBg(); }
           else { _myHomeData().theme=_myHomeData().theme||{}; _myHomeData().theme[row.key]=c; window._mhApplyTheme(); }
           commitMyHomePage(true); _mhDsRender();
         }, ()=>{
-          if(isBg){ _myHomeData().bg=null; if(typeof window._mhApplyBg==='function') window._mhApplyBg(); }
+          if(isBg){ _myHomeData().bg=null; window._mhApplyBg(); }
           else if(_myHomeData().theme){ delete _myHomeData().theme[row.key]; window._mhApplyTheme(); }
           commitMyHomePage(true); _mhDsRender();
         }, d);   // ★ 팝업을 child 문서 안에 렌더
@@ -1136,7 +1136,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
         const applyUrl = (url)=>{
           if(isBg){
             if(!url){ _myHomeData().bg=null; } else { _myHomeData().bg={img:url}; }
-            if(typeof window._mhApplyBg==='function') window._mhApplyBg();
+            window._mhApplyBg();
           } else {
             _myHomeData().theme=_myHomeData().theme||{};
             if(!url){ delete _myHomeData().theme[imgKey]; } else { _myHomeData().theme[imgKey]=url; }
@@ -1172,7 +1172,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
         img.src=srcDataUrl;
       });
       r.querySelector('[data-act="reset"]').addEventListener('click', ()=>{
-        if(isBg){ _myHomeData().bg=null; if(typeof window._mhApplyBg==='function') window._mhApplyBg(); }
+        if(isBg){ _myHomeData().bg=null; window._mhApplyBg(); }
         else if(_myHomeData().theme){ delete _myHomeData().theme[row.key]; delete _myHomeData().theme[imgKey]; window._mhApplyTheme(); }
         commitMyHomePage(true); _mhDsRender();
       });
@@ -1207,7 +1207,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
            디자인' 하나다 — 초기화했다고 모아둔 한 벌까지 날아가면 되돌릴 길이 없다.
            프리셋을 지우는 길은 그 칸에 다시 [저장]하는 것이다. */
         _myHomeData().theme=null; _myHomeData().bg=null;
-        if(typeof window._mhApplyBg==='function') window._mhApplyBg();
+        window._mhApplyBg();
         window._mhApplyTheme(); commitMyHomePage(true); _mhDsRender();
         toast('디자인을 전부 초기화했어요');
       };

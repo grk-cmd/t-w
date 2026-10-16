@@ -64,9 +64,9 @@ function renderMyHomePage(){
   const _safe=(label,fn)=>{ try{ fn(); }catch(e){ console.warn('[마이홈] 렌더 실패:'+label, e); } };
   _safe('stickers', ()=>renderMyHomeStickers());
   _safe('profileRail', ()=>{ if(typeof myHomeUiMod.renderMhProfileRail==='function') myHomeUiMod.renderMhProfileRail(); });
-  _safe('bgm', ()=>{ if(typeof window._mhBgmRefresh==='function') window._mhBgmRefresh(); });
-  _safe('bg', ()=>{ if(typeof window._mhApplyBg==='function') window._mhApplyBg(); });
-  _safe('theme', ()=>{ if(typeof window._mhApplyTheme==='function') window._mhApplyTheme(); });
+  _safe('bgm', ()=>{ window._mhBgmRefresh(); });
+  _safe('bg', ()=>{ window._mhApplyBg(); });
+  _safe('theme', ()=>{ window._mhApplyTheme(); });
 }
 let _mhStickerDragDist = 0;   // 마지막 드래그 이동거리 — 드래그 직후 링크가 열리는 오작동 방지용
 

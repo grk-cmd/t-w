@@ -163,7 +163,7 @@ function _mhFriendSearchToggle(on){
 
 function renderMyHomeFriendList(){
   // 👑 테마 재적용 — 이 함수가 목록 DOM을 새로 만들기 때문에, 렌더가 끝난 직후 친구 이름 글씨색 등을 다시 칠함
-  queueMicrotask(()=>{ if(typeof window._mhApplyTheme==='function') window._mhApplyTheme(); });
+  queueMicrotask(()=>{ window._mhApplyTheme(); });
   const list=document.getElementById('mhFriendList');
   if(!list) return;
   const ids=Object.keys(_myHomeFriends());
@@ -283,7 +283,7 @@ function renderMyHomeFriendList(){
       // 🎁 우클릭 → 말랑이 선물 보내기 창
       row.addEventListener('contextmenu', e=>{
         e.preventDefault(); e.stopPropagation();
-        if(typeof window._mallangOpenGift==='function') window._mallangOpenGift(fid, f.name||'친구');
+        window._mallangOpenGift(fid, f.name||'친구');
       });
       row.title = (row.title ? row.title + ' · ' : '') + '우클릭: 말랑이 선물';
       list.appendChild(row);
@@ -380,9 +380,7 @@ function renderGiftBox(listEl){
    renderGiftBox 에서 떼어 냈다. */
 function _giftBoxPaint(listEl, gifts){
   const lim = window._mallangGiftLimits || { max:30, starMax:20 };
-  const keys = (typeof window._mallangGiftOrder === 'function')
-    ? window._mallangGiftOrder(gifts)
-    : Object.keys(gifts).sort((a,b)=>(gifts[b].ts||0)-(gifts[a].ts||0));
+  const keys = window._mallangGiftOrder(gifts);
   if(!keys.length){
     listEl.innerHTML = '<div class="mh-ibx-empty">💝 아직 받은 선물이 없어요<br><small>친구가 보낸 말랑이가 여기에 표시돼요</small></div>';
     listEl.onclick = null; listEl.oncontextmenu = null;
@@ -402,7 +400,7 @@ function _giftBoxPaint(listEl, gifts){
   const cells = keys.map((k, i)=>{
     const g = gifts[k];
     const when = _inboxTimeStr(g.ts);
-    const isHidden = (typeof window._mallangIsGiftHidden==='function') ? window._mallangIsGiftHidden(k) : false;
+    const isHidden = window._mallangIsGiftHidden(k);
     const star = g.starred === true;
     const next = full && !star && i === keys.length - 1;
     const who = (g.fromName||'친구') + ' 님이 선물했어요';
@@ -449,7 +447,7 @@ function _giftBoxPaint(listEl, gifts){
     _mhAsk('선물 삭제',
       (g.fromName||'친구')+' 님의 선물을 삭제할까요?\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
       [{ label:'삭제', danger:true, run: async ()=>{
-          const r = (typeof window._mallangDeleteGift === 'function') ? await window._mallangDeleteGift(k, g) : 'error';
+          const r = await window._mallangDeleteGift(k, g);
           if(r === 'ok'){ delete gifts[k]; repaint(); toast('🗑 선물을 삭제했어요'); }
           else toast('삭제하지 못했어요 — 네트워크를 확인해 주세요');
         } },
@@ -600,7 +598,7 @@ function renderInbox(){
         mhScheduler.refreshBellBadge();
       }
       // 🐞 답변 알림 — 펼치는 대신 버그제보 탭의 그 글로 간다(bug-board-ui.js)
-      if(m.tag === 'bug' && m.bugId && typeof window._bugBoardOpen === 'function'){
+      if(m.tag === 'bug' && m.bugId){
         _inboxOpenId = null; window._bugBoardOpen(m.bugId); return;
       }
       renderInbox();

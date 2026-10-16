@@ -10604,12 +10604,11 @@ function backToLauncher(){
   //   commitMyHomePage(true)로 저장까지 처리한 뒤 닫기.
   const mhOv=document.getElementById('myHomeOverlay');
   if(mhOv && mhOv.classList.contains('on')){
-    try{ if(typeof window.commitMyHomePage==='function') window.commitMyHomePage(true); }catch(_){}
+    try{ window.commitMyHomePage(true); }catch(_){}
     mhOv.classList.remove('on'); myHomeOpen = false;
-    if(typeof _mhGbStopWatch==='function') _mhGbStopWatch();
-    if(typeof window._bgmDestroy==='function') window._bgmDestroy();
-    else if(window.companion && companion.closeBgm) companion.closeBgm();
-    if(typeof window._mhDsClose==='function') window._mhDsClose();
+    _mhGbStopWatch();
+    window._bgmDestroy();
+    window._mhDsClose();
   }
   renderLauncher();
   // 🕒 런처로 돌아오는 시점 = 이번 세션의 포커스 기록을 확정하기 좋은 경계.

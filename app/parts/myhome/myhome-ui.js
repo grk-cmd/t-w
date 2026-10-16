@@ -125,17 +125,15 @@ function renderMhProfileRail(){ /* 제거됨 */ }
     _step('마이홈 페이지', ()=>{ loadMyHomePage(); });   // ★ 마이홈 탭이 기본으로 열리므로 프로필 데이터도 같이 로드
     setMyHomeOpen(true);
     _step('창 크기', ()=>{ applyDesktopRunClass(); });   // 런처에서 열렸으면 창을 생성기처럼 넓게
-    _step('방명록 뱃지', ()=>{ if(typeof _mhGbStartWatch==='function') _mhGbStartWatch(); });   // 방명록 새 글 뱃지 감시 시작
+    _step('방명록 뱃지', ()=>{ _mhGbStartWatch(); });   // 방명록 새 글 뱃지 감시 시작
     // ★ 마이홈4 후속: 창이 화면에 렌더된 뒤 한 프레임 기다렸다가 BGM 창에 좌표 전달(마이홈이 열리자마자
     //   음악이 재생 중이면 BGM 창이 마이홈 뒤로 정확히 숨도록).
-    requestAnimationFrame(()=>{ if(typeof window._mhSyncBgmBounds==='function') window._mhSyncBgmBounds(); });
+    requestAnimationFrame(()=>{ window._mhSyncBgmBounds(); });
     // 🧸 말랑이: 내 마이홈 기준으로 이미지 로드 (방문 여부는 _mhApplyVisitUI가 다시 갱신)
     //   ⚠️ async 함수다 — 안에서 실패하면 이 try/catch 가 아니라 반환된 Promise 가 거부된다. .catch 로 받는다.
     try{
-      if(typeof window._mallangOnOpen==='function'){
-        Promise.resolve(window._mallangOnOpen((typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId()) ? _mhViewingUserId() : getMyUserId(), !!(typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId())))
-          .catch(e=>console.error('[말랑이] 열기 실패', e));
-      } else console.warn('[말랑이] _mallangOnOpen 이 없습니다 — parts/mallang.js 가 로드됐는지 확인하세요');
+      Promise.resolve(window._mallangOnOpen((typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId()) ? _mhViewingUserId() : getMyUserId(), !!(typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId())))
+        .catch(e=>console.error('[말랑이] 열기 실패', e));
     }catch(e){ console.warn('[말랑이] 열기 실패', e); }
   };
   const close=()=>{
@@ -148,21 +146,20 @@ function renderMhProfileRail(){ /* 제거됨 */ }
        ⚠️ 새 정리를 추가할 때도 자기 칸으로 감쌀 것. */
     const _step = (name, fn)=>{ try{ fn(); }catch(e){ console.error('[마이홈 닫기] '+name+' 실패 — 나머지는 계속 진행합니다', e); } };
     window._mhPreviewMode = false;   // 👁 미리보기 상태 해제
-    _step('마지막 저장', ()=>{ if(typeof window.commitMyHomePage==='function') window.commitMyHomePage(true); });
+    _step('마지막 저장', ()=>{ window.commitMyHomePage(true); });
     overlay.classList.remove('on');
     setMyHomeOpen(false);
-    _step('말랑이 정리', ()=>{ if(typeof window._mallangOnClose==='function') window._mallangOnClose(); });   // 🧸 말랑이 전부 제거
+    _step('말랑이 정리', ()=>{ window._mallangOnClose(); });   // 🧸 말랑이 전부 제거
     _step('확인창 닫기', ()=>{ const a=document.getElementById('mhAskOv'); if(a) a.remove(); });   // 다시 열 때 남아 있지 않게
     // 🔍 검색줄도 접는다 — 다음에 열었을 때 필터만 남아 친구가 사라져 보이지 않게
     _step('검색줄', ()=>{ if(typeof inboxMod.friendSearchToggle==='function') inboxMod.friendSearchToggle(false); });
-    _step('방명록 뱃지', ()=>{ if(typeof _mhGbStopWatch==='function') _mhGbStopWatch(); });   // 방명록 뱃지 감시 종료
+    _step('방명록 뱃지', ()=>{ _mhGbStopWatch(); });   // 방명록 뱃지 감시 종료
     // ★ BGM 자식창은 마이홈에 종속된 창이므로 마이홈 닫힐 때 같이 파괴 (창 상태도 초기화)
     _step('BGM 창', ()=>{
-      if(typeof window._bgmDestroy==='function') window._bgmDestroy();
-      else if(window.companion && companion.closeBgm) companion.closeBgm();
+      window._bgmDestroy();
     });
     // 👑 디자인 스튜디오 창도 마이홈 편집용이므로 같이 닫음 (위치는 main.js가 기억)
-    _step('디자인 스튜디오', ()=>{ if(typeof window._mhDsClose==='function') window._mhDsClose(); });
+    _step('디자인 스튜디오', ()=>{ window._mhDsClose(); });
     // 스티커 링크 입력 등 프롬프트가 열려있으면 같이 닫기 (마이홈에 종속된 UI)
     const promptOv=document.getElementById('mhPromptOverlay');
     if(promptOv && promptOv._cleanup) try{ promptOv._cleanup(); }catch(_){}
@@ -227,7 +224,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
   overlay.querySelectorAll('.mh-tab').forEach(tab=>{
     tab.addEventListener('click', ()=>{
       const wasHomeTab = overlay.querySelector('.mh-tab.on')?.dataset.tab==='home';
-      if(wasHomeTab && tab.dataset.tab!=='home' && typeof window.commitMyHomePage==='function') window.commitMyHomePage(true);
+      if(wasHomeTab && tab.dataset.tab!=='home') window.commitMyHomePage(true);
       overlay.querySelectorAll('.mh-tab').forEach(t=>t.classList.toggle('on', t===tab));
       const target='mhPage'+tab.dataset.tab.charAt(0).toUpperCase()+tab.dataset.tab.slice(1);
       overlay.querySelectorAll('.mh-page').forEach(p=>p.classList.toggle('on', p.id===target));
@@ -376,7 +373,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
       friendManage.renderFriendManage();
       /* 🎁 선물 배지 확인 처리는 **바로 이 자리**다. 렌더 안이 아니라 클릭에 건다 —
          친구 탭에 들어오기만 해도(직전에 보던 서브탭이 선물함이라) 본 것으로 처리되면 안 된다. */
-      if(friendManage.tab() === 'gift' && typeof window._mallangSeenGifts==='function') window._mallangSeenGifts();
+      if(friendManage.tab() === 'gift') window._mallangSeenGifts();
     });
   });
   // 일괄 처리 바

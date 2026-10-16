@@ -73,6 +73,7 @@ function mkEnv(opt){
   };
   ctx.window = ctx;
   ctx.focus = () => { env.focus++; };
+  ctx._mhFitWindow = () => { env.fit = (env.fit || 0) + 1; };   // 런처 창 넓히기 고리(myhome-sticker-layout.js 가 부팅 때 건다)
   vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'myhome-sticker.js' });
   env.ctx = ctx; env.els = els;

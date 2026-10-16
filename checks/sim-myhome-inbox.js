@@ -87,10 +87,12 @@ function mkEnv(o){
     firebaseAPI: api, companion, focus(){ env.focused++; },
     _mallangGiftLimits: { max: 30, starMax: 20 },
     _mallangIsGiftHidden: (k) => k === 'g-out',
+    _mallangGiftOrder: (g) => Object.keys(g).sort((a, b) => (g[b].ts || 0) - (g[a].ts || 0)),   // 🧸 mallang.js 가 부팅 때 건다 — 여기선 ⭐ 없이 최신순만
     _mallangRespawnGift: (k, img, msg) => { env.respawn.push(k + '|' + img + '|' + msg); return env.respawnAns || 'ok'; },
     _mallangDeleteGift: async (k) => { env.calls.push('deleteGift ' + k); return 'ok'; },
     _mallangOpenGift: (fid, nm) => env.calls.push('openGift ' + fid + ' ' + nm),
     _bugBoardOpen: (id) => env.bugOpen.push(id),
+    _mhApplyTheme(){},   // 🎨 마이홈 테마 다시 걸기 고리(myhome-edit.js 가 부팅 때 건다)
   };
   const ls = { getItem: (k) => env.store.has(k) ? env.store.get(k) : null, setItem: (k, v) => env.store.set(k, String(v)) };
   const nav = { clipboard: { writeText: (t) => env.copied.push(t) } };

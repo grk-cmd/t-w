@@ -173,12 +173,12 @@ function _pkHushOthers(){
   PK.hushed = null;
   if(!(window.companion && companion.pauseBgm)) return;
   const pl   = !!_plPlaying();
-  const home = !!(typeof window._mhBgmPlaying === 'function' && window._mhBgmPlaying());
+  const home = !!window._mhBgmPlaying();
   if(!pl && !home) return;
   try{ companion.pauseBgm(); }catch(_){}
   /* 각자의 «지금 나는 중» 표시도 내려 준다 — 안 내리면 ▶ 버튼이 재생 중인 척한다. */
   if(pl){ _setPlPlaying(false); _plRender(); }
-  if(home && typeof window._mhBgmSetPlaying === 'function') window._mhBgmSetPlaying(false);
+  if(home) window._mhBgmSetPlaying(false);
   PK.hushed = { pl:pl, home:home };
 }
 function _pkUnhushOthers(){
@@ -186,11 +186,11 @@ function _pkUnhushOthers(){
   if(!h || !(window.companion && companion.resumeBgm)) return;
   /* 그 사이에 사용자가 직접 다시 틀었으면 건드리지 않는다 — 또 resume 하면 겹친다. */
   const plNow   = !!_plPlaying();
-  const homeNow = !!(typeof window._mhBgmPlaying === 'function' && window._mhBgmPlaying());
+  const homeNow = !!window._mhBgmPlaying();
   if(plNow || homeNow) return;
   try{ companion.resumeBgm(); }catch(_){}
   if(h.pl){ _setPlPlaying(true); _plRender(); }
-  if(h.home && typeof window._mhBgmSetPlaying === 'function') window._mhBgmSetPlaying(true);
+  if(h.home) window._mhBgmSetPlaying(true);
 }
 const PK_GRAVITY  = 39.2;     // 중력(월드단위/초²) — 9.8 의 4배. ⚠️ PK_JUMP_V0 와 한 세트다
 /* 컷 수의 상한. Purikura.cutsFor 가 주는 값이 세로 [1,4] · 가로 [1,2,4] 라 4 가 끝이다.
