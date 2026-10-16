@@ -565,6 +565,8 @@ PRELOAD.push('commission-import.js');
 PRELOAD.push('deco-parts-visibility.js');
 /* creator-xform.js — 🧭 생성기 변형 — 아이템 3D 기즈모 · 좌석 세팅(6단계)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCreatorXform 를 같이 굴린다. */
 PRELOAD.push('creator-xform.js');
+/* ride-measure.js — 📏 올라타기 실측(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRideMeasure 를 같이 굴린다. */
+PRELOAD.push('ride-measure.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

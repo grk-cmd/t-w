@@ -100,6 +100,7 @@ const MODULES = [
   { file: 'commission-import.js', mod: 'commImpMod', glob: 'TwCommissionImport', sample: 'function dataUrlToCanvas(' },   // C 구역 떼기 · w3
   { file: 'deco-parts-visibility.js', mod: 'decoPartsMod', glob: 'TwDecoPartsVisibility', sample: 'function _decoWrapperShow(' },   // 구역 떼기 C · w1
   { file: 'creator-xform.js', mod: 'crXformMod', glob: 'TwCreatorXform', sample: 'function _itemYaw(' },   // C 구역 떼기 w4
+  { file: 'ride-measure.js', mod: 'rideMeasureMod', glob: 'TwRideMeasure', sample: 'function _measureCircusFootOff(' },   // 구역 떼기 C · w1
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

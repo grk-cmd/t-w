@@ -1503,40 +1503,11 @@ const CIRCUS_FOOT_Z_FROM_TOP = true;
      보정이 과하거나 모자라면 이 값을 0~1 사이로 조절할 것 — 0 이면 예전 동작 그대로다. */
 const CIRCUS_FOOT_CENTER = 1;
 const _rideFootOff = new THREE.Vector3();
-const _rideFootTmpV = new THREE.Vector3(), _rideFootGrp = new THREE.Vector3(), _rideFootTmpQ = new THREE.Quaternion();
-/* 🦶 딛는 다리가 좌석 원점에서 얼마나 떨어져 있는지 — 좌석 로컬 방향으로 1회 실측.
-   매 프레임 재면 안 된다: 든 발 까딱임(CIRCUS_LEG_WAG)과 흔들림 때문에 값이 떨리고,
-   그러면 몸이 그 떨림을 상쇄하려고 반대로 떨린다.
-
-   ⚠️ **mountRide 안에서 재면 안 된다.** mountRide 는 '드래그를 놓는 순간' 불리는데 그때
-      seat.rig 는 아직 손에 들려 공중에 떠 있다(_measureAnimalArmH 주석의 그 함정과 같은 것).
-      다리 본은 rig 안에 있어 들린 위치가 그대로 섞여 들어오고, 그러면 오프셋이 '반걸음'이 아니라
-      '드래그한 거리'가 되어 위 캐릭터가 탑 밖으로 날아간다 — 실제로 그렇게 날아갔다.
-      그래서 rig 가 좌석 원점에 다시 놓인 뒤(_positionRideSeat 의 `seat.rig.position.set(0,0,0)`)
-      첫 묘기 프레임에서 잰다.
-   ⚠️ 잰 직후에도 반드시 크기 가드를 통과시킬 것. 어떤 이유로든 값이 튀면 보정이 그대로
-      순간이동이 된다 — 못 믿을 값이면 보정을 아예 포기하는 편이 안전하다(예전 동작으로 되돌아갈 뿐). */
-const CIRCUS_FOOT_OFF_MAX = 0.3;   // 이보다 크면 측정 실패로 간주하고 보정하지 않는다(월드 단위)
-function _measureCircusFootOff(seat, standLeft){
-  try{
-    const b = seat && seat.bones; if(!b || !seat.group) return null;
-    const leg = standLeft ? b.legL : b.legR;
-    if(!leg) return null;
-    seat.group.updateMatrixWorld(true);   // 이번 프레임에 방금 바꾼 위치·회전을 반영시킨 뒤 읽는다
-    leg.getWorldPosition(_rideFootTmpV);
-    _rideFootGrp.setFromMatrixPosition(seat.group.matrixWorld);
-    _rideFootTmpV.sub(_rideFootGrp);                                        // 월드 오프셋
-    seat.group.getWorldQuaternion(_rideFootTmpQ);
-    _rideFootTmpV.applyQuaternion(_rideFootTmpQ.invert());                  // → 좌석 로컬 방향
-    _rideFootTmpV.y = 0;                                                    // 높이는 sink 담당
-    const _d = Math.hypot(_rideFootTmpV.x, _rideFootTmpV.z);
-    if(!isFinite(_d) || _d > CIRCUS_FOOT_OFF_MAX){
-      console.warn('[묘기] 접지점 오프셋이 비정상(' + _d.toFixed(4) + ') — 보정을 건너뜁니다');
-      return null;
-    }
-    return _rideFootTmpV.clone();
-  }catch(_){ return null; }
-}
+/* 본문은 room/ride-measure.js 로 옮겼다(구역 떼기 C · w1).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const rideMeasureMod = TwRideMeasure.createRideMeasure({
+  seatEqMod: seatEqMod,
+});
 const CIRCUS_LEG_STAND   = 0.05;   // ★ 딛는 다리 각도(거의 곧게)
 const CIRCUS_LEG_LIFT    = 0.75;   // ★ 드는 다리 각도(뒤로 들어올림)
 const CIRCUS_LEG_WAG     = 0.18;   // ★ 든 발 까딱임 폭
@@ -1576,50 +1547,7 @@ const _rideQD = new THREE.Quaternion(), _rideQP = new THREE.Quaternion(), _rideQ
 const _rideQC = new THREE.Quaternion(), _rideQY = new THREE.Quaternion();
 const _rideAxisY = new THREE.Vector3(0,1,0);
 const _rideQSpin = new THREE.Quaternion();   // 🌀 대상의 '제자리 회전 춤'을 위층에 전달할 때 쓰는 임시값
-/* 🌀 대상이 제자리 회전 춤(/150 묘기 회전 · 오르골)을 추는 동안 **몸통이 돌아간 각**(rad).
-   [왜 따로 꺼내야 하나] 그 춤들은 회전을 `seat.rig.rotation.y` 에 준다. 그런데
-     ① rig 회전축은 몸 중심이라 머리 본의 '월드 위치'는 거의 안 움직이고,
-     ② 위층 좌석이 쓰는 _rideQD 는 `현재 × rest⁻¹` 를 부모 월드회전으로 감싸 만드는 값이라
-        rig 회전이 좌우에서 상쇄돼 **깨끗이 지워진다**.
-   그래서 아래 사람이 다섯 바퀴를 도는 동안 머리 위 동물만 제자리에 멈춰 있었다(제보).
-   [기준선] rig.rotation.y 는 평소 `pose.turnY` 로만 세팅된다(대부분 0, sleep 만 0.04).
-     그 기준선을 빼야 '춤이 돌린 양'만 남는다.
-   ★ 춤이 아닐 때(`_danceSpin` 이 꺼짐)는 0 을 돌려주므로 기존 동작과 완전히 같다 — 회귀 없음.
-   ★ 위층이 또 위층을 업고 있어도 이중 계산되지 않는다. 위층 자신은 _danceSpin 이 꺼져 있고,
-     이미 회전이 반영된 자기 group.rotation.y 를 그 위층이 읽어 가므로 자연히 층을 타고 올라간다. */
-function _rideHostSpinY(host){
-  if(!host || !host.rig || !host._danceSpin) return 0;
-  return host.rig.rotation.y - ((host.pose && host.pose.turnY) || 0);
-}
-/* 🐾 동물의 '발바닥→팔' 높이를 실측해서 크기 1 기준으로 정규화해 돌려준다.
-   올라탈 때 1회만 재고 좌석에 캐싱한다 — 매 프레임 재면 팔 애니메이션 때문에 높이가 떨린다.
-   이 값이 있으면 동물 크기가 바뀌어도 '팔이 머리 위에 걸쳐지는' 높이가 자동으로 유지된다.
-   ★ 기준점은 반드시 bodyWrap(= rig의 자식)이어야 한다. mountRide는 '드래그를 놓는 순간' 호출되는데,
-     그때 캐릭터는 아직 seat.rig가 공중에 들려 있다. 손 본은 rig 안에 있어 그 들린 높이가 포함되는 반면
-     seat.group은 rig를 포함하지 않아서, group을 기준으로 재면 '드래그로 올린 높이'가 팔 높이에 섞여
-     들어간다(놓는 높이에 따라 값이 매번 달라져 보정이 안 되는 것처럼 보였던 실제 원인 — 진단 로그에서
-     같은 모델인데 armH가 0.554 vs 0.803으로 갈린 것이 이것). bodyWrap을 쓰면 rig 오프셋이 양쪽에서
-     상쇄되고 원점이 발바닥이라 순수 팔 높이만 남는다. */
-function _measureAnimalArmH(animalSeat){
-  try{
-    const b = animalSeat && animalSeat.bones && (animalSeat.bones.handL || animalSeat.bones.handR);
-    const ref = animalSeat && animalSeat.bodyWrap;
-    if(!b || !ref) return null;
-    animalSeat.group.updateMatrixWorld(true);
-    const _hp = new THREE.Vector3(), _gp = new THREE.Vector3();
-    b.getWorldPosition(_hp); ref.getWorldPosition(_gp);
-    /* 🪑 실측한 팔 높이는 월드값이라 평준화 배율까지 이미 들어가 있다. raw userScale 로 나누면
-       그 k 가 armH 안에 남아, 평준화된 좌석 위에 올라탄 동물이 뜨거나 파묻힌다. */
-    const s = seatEqMod.seatScale(animalSeat) || 1;
-    /* 🧍 캐릭터 높이(userY)로 들어 올린 양은 뺀다 — 그건 팔 높이가 아니다.
-       [왜] 손 본은 m 안에 있고 m 은 높이만큼 들려 있어서, 안 빼면 armH 에 높이가 섞여 들어간다.
-         그러면 (a) 값의 의미가 '팔 높이' 가 아니게 되고 (b) 이 측정은 올라탈 때 1회뿐이라
-         올라탄 뒤 높이 슬라이더를 만지면 그만큼 어긋난 채로 굳는다.
-       ★ 높이 상쇄는 _positionRideSeat 가 charLiftWorld 로 한 번에 처리한다 — 두 곳에서 빼면 두 배가 된다. */
-    const h = ((_hp.y - _gp.y) - seatEqMod.charLiftWorld(animalSeat)) / (s || 1);   // 크기 1 기준으로 정규화
-    return (isFinite(h) && h > 0) ? h : null;
-  }catch(_){ return null; }
-}
+/* (구역 떼기 C · w1) 이 자리의 본문도 room/ride-measure.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 const RIDE_MAX_STACK = 4;   /* ★ 탑쌓기 최대 층수(맨 아래 대상 제외, 올라탄 동물 기준).
                                방 정원이 5→6명이 됐지만 이 값은 그대로 둔다 — 층수는 인원이 아니라
                                '화면 위로 나가지 않는 높이'가 기준이고, 4층이면 이미 캐릭터 키의
@@ -1966,14 +1894,14 @@ const rideBenchMod = TwRideBench.createRideBench({
   RIDE_Z_DEPTH_K_ON_ANIMAL: RIDE_Z_DEPTH_K_ON_ANIMAL,
   _collapseRideTower: (...a)=>_collapseRideTower(...a),
   _deskDefById: (...a)=>iDeskMod._deskDefById(...a),
-  _measureAnimalArmH: (...a)=>_measureAnimalArmH(...a),
-  _measureCircusFootOff: (...a)=>_measureCircusFootOff(...a),
+  _measureAnimalArmH: (...a)=>rideMeasureMod._measureAnimalArmH(...a),
+  _measureCircusFootOff: (...a)=>rideMeasureMod._measureCircusFootOff(...a),
   _rideAwayP: _rideAwayP,
   _rideAwayS: _rideAwayS,
   _rideAxisY: _rideAxisY,
   _rideBottom: (...a)=>rideChainMod._rideBottom(...a),
   _rideFootOff: _rideFootOff,
-  _rideHostSpinY: (...a)=>_rideHostSpinY(...a),
+  _rideHostSpinY: (...a)=>rideMeasureMod._rideHostSpinY(...a),
   _rideOff: _rideOff,
   _rideQC: _rideQC,
   _rideQD: _rideQD,
