@@ -110,3 +110,22 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - `seats` 배열의 순서 · 내용은 안 바꾼다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 올라탄 좌석은 계산에서만 뺀다.
   - 1번 자리부터 책상 반폭에 줌 상한(1.1)이 걸리는 지금 동작은 `CONFIRM.md` 에 적어 둠(`seats.map(seatDeskHalfWidth)` 가 인덱스를 forZoom 으로 넘김).
   - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 빈 목록).
+
+## ride-measure.js — 📏 올라타기 실측
+
+- **책임**: 올라타기에 쓰는 «한 번 재서 캐싱하는» 3D 실측 셋. 값만 돌려주고 좌석에 쓰지 않는다(캐싱 · 적용은 `ride-bench.js`).
+- **만드는 법**: `const rideMeasureMod = TwRideMeasure.createRideMeasure({ seatEqMod: seatEqMod });`(seatEqMod 를 만든 뒤).
+- **내보내는 것**
+  - `_measureCircusFootOff(seat, standLeft)` — 묘기(2층+)에서 딛는 다리의 좌석 로컬 오프셋(y=0 · `THREE.Vector3` 새 벡터). 0.3 넘게 떨어지면 측정 실패로 `null` + 경고.
+  - `_rideHostSpinY(host)` — 대상이 회전 춤 중이면 몸통이 돌아간 각, 아니면 0.
+  - `_measureAnimalArmH(animalSeat)` — 동물 발바닥→팔 높이를 크기 1 기준으로(실효 크기로 나누고 캐릭터 들림은 뺀다). 못 재면 `null`.
+  ```js
+  // ride-bench 를 만들 때
+  _measureAnimalArmH: (...a)=>rideMeasureMod._measureAnimalArmH(...a),
+  ```
+- **확장할 때 고칠 자리**: 실패 판정 `CIRCUS_FOOT_OFF_MAX`(0.3) · 새 실측은 여기에 더하고 캐싱은 ride-bench 쪽에.
+- **함정**
+  - 드래그 중(rig 가 들린 채)에 재면 값이 틀린다 — 접지점은 rig 가 원점에 놓인 첫 묘기 프레임, 팔 높이는 bodyWrap 기준.
+  - 캐릭터 높이 상쇄는 `_positionRideSeat` 가 `charLiftWorld` 로 한 번 — 여기서도 빼므로 armH 에는 높이가 안 섞인다(두 번 빼지 말 것).
+  - 임시 벡터(`_rideFootTmpV` 등)를 돌려주지 않고 `clone()` 한다 — 호출부가 값을 들고 있어도 안전.
+  - 검사: `checks/sim-ride-measure.js`(4절 — 실제 three 로 회전 · 위치를 뺀 오프셋 · 경계 0.3 · 들린 rig 상쇄 · 크기 0).
