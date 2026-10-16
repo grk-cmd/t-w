@@ -89,6 +89,7 @@ const MODULES = [
   { file: 'glb-idb-cache.js', mod: 'glbIdbMod', glob: 'TwGlbIdbCache', sample: 'function _glbIdb(' },   // 구역 떼기 C · w2
   { file: 'catalog-glb.js', mod: 'catalogGlbMod', glob: 'TwCatalogGlb', sample: 'function resolveCatalogGlb(' },   // 구역 떼기 C · w2
   { file: 'catalog-sync.js', mod: 'catalogSyncMod', glob: 'TwCatalogSync', sample: 'function mergeCatalogIntoSavedItems(' },   // 구역 떼기 C · w2
+  { file: 'seat-layout.js', mod: 'seatLayoutMod', glob: 'TwSeatLayout', sample: 'function layoutSeatRow(' },   // 구역 떼기 C · w1
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
