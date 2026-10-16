@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 314 (친구 목록 안내문 두 문장 사이 줄바꿈)
-대상: `sim-*.js` 294개 + `smoke.js` + `audit.py` = **296개** (개정 314 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 315 (펜 앱 앞에서 끌기 보호 — 동작이 바뀐다)
+대상: `sim-*.js` 294개 + `smoke.js` + `audit.py` = **296개** (개정 315 기준 — 폴더를 센 값)
+
+**개정 315 에서 한 것 (2026-10-17 · 원래 있던 문제 — 동작이 바뀐다)**
+- 앱: 펜 앱이 앞에 있을 때 캐릭터를 끌면 main 의 `_checkCursorNearChar` 가 캐릭터 원 밖에서 `penHitTest{left}` 를 보내고, `desktop-run.js` onPenHitTest 가 드래그를 안 보고 150ms 뒤 클릭 통과로 바꿔 끌기가 화면 중간에서 끊겼다. mousemove 와 같은 조건(`drag() && _ignoreSent === false`)을 `_holdForDrag()` 하나로 묶어 두 곳이 같이 쓴다 — 끄는 중이고 클릭받는 중이면 재판정을 건너뛴다. main 이 이미 통과라고 알려 오면(ig) 캐시를 버리고 따라가는 처리는 그대로.
+- 검사: `sim-ghost-cache-sync.js` 9절 신설 — desktop-run.js 원문을 가짜 입력으로 돌린다(끄는 중 + 클릭받는 중 → left 와도 통과 안 바뀜 · 원 안 좌표가 비껴도 그대로 · 놓은 뒤 pointerup 재판정 → 150ms 뒤 통과 · 끌기 아님 → 지금처럼 150ms 뒤 통과 · 끄는 중이지만 main 이 이미 통과 → 따라감 · 깨 보기: 보호 줄을 빼면 옛 동작). **44·0**.
 
 **개정 314 에서 한 것 (2026-10-17 · 사용자 요청 — 보이는 글만 바뀐다)**
 - 앱(friends-sub.js NOTICE.error): «친구 목록을 불러오지 못했어요.⏎잠시 후 다시 시도할게요» — 두 문장 사이 줄바꿈. 그리는 두 곳(myhome-inbox.js 친구 탭 · room-invite-ui.js 초대 목록)이 같은 상수를 `white-space:pre-line` 으로 그린다.
@@ -2265,7 +2269,7 @@
 | **sim-gift-star.js** | 112 | **df384028fe98** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 171 선물함 그리기 · 확인창(_giftBoxPaint · _mhAsk)을 myhome-inbox.js 에서 본다(app.js + 그 파일 · 판정 무변경)** · **개정 136 «다른 서브탭이면 표시를 비운다» 를 friend-manage.js 에서 본다(renderFriendManage 가 모듈로)** · **2026-10-08 숫자 표시를 서브탭 줄(#mhGiftStat)로 · 「다음 삭제」 띠 걷음** · **2026-10-08 신규 · 🎁 선물함 ⭐ 즐겨찾기 · 직접 삭제 — mallang.js giftOrder(⭐ 최신순 → 나머지 최신순) · giftOverflow(⭐ 아닌 것 중 오래된 것부터 · 옛 방식이면 ⭐ 가 지워지는 것을 가름) · 정렬 마지막 칸 = 실제 삭제 칸 · starred 서버 저장(로컬 없음) · 규칙 starred 불리언 · ⭐ 클릭 전파 끊음 · 상한 20 · ⭐ 우클릭 막음 · 확인창 #myHomeWin 자식 · confirm() 없음** |
 | **sim-gacha-prune.js** | 166 | **d7bae5f811b6** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 139 gacha.js 를 app.js 앞에 먼저 평가 · 보유분 · 회수 · 동기화는 gachaMod 로(판정 무변경)** · 개정 38 준비 한 줄(uid 심기 · 판정 무변경) |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 139 gacha.js 를 app.js 앞에 먼저 평가(가챠 파츠 판정 · 회수가 진짜로 돈다 · 판정 무변경)** |
-| **sim-ghost-cache-sync.js** | 274 | **091c22ab53ec** ← **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
+| **sim-ghost-cache-sync.js** | 357 | **125bc11f2912** ← **개정 315 9절 끄는 동안 penHitTest 원문 실행** · **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **2026-10-03 신규 · 방 «유령» 복구 — room-ghost-heal.js(복구 판단 · 가짜 DB) + firebase-init.js 연결** |
 | **sim-catalog-cache.js** | 373 | **bb7a43923f7e** ← **개정 297 API 사본 먼저 받기 판정 · 연결** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **2026-10-06 신규 · 카탈로그 버전 확인(catalogMeta) + 로컬 캐시 — 쓰기 전부 버전 올림 · 규칙 · 캐시 판정 · 오프라인 캐시 먼저 · 깨진 캐시 · 켜져 있는 동안 바뀜 모아 받기** |
 | **sim-broadcast-cache.js** | 281 | **f87582c015b9** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 220 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 171 5절 읽음 판정(_inboxMerged)을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **2026-10-06 신규 · 공용 공지 버전 확인(inboxBroadcastMeta) + 로컬 캐시 — 쓰기 셋 전부 버전 올림 · 규칙 · 최근 30개 + 고정 합치기 · 지운 공지 사라짐 · 버전 없음/거부/받기 실패면 통째 구독 · 오프라인 캐시 먼저 · 읽음은 기기에** |
