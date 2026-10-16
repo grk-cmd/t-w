@@ -1,15 +1,19 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 277 (런처 화면 부하 줄이기 — 미리보기 프레임 상한 30 · 깜빡임은 좌석과 같은 시간표 · 후원 반짝임 steps)
-대상: `sim-*.js` 273개 + `smoke.js` + `audit.py` = **275개** (개정 277 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 278 (런처 화면 부하 줄이기 — 미리보기 프레임 상한 30 · 깜빡임은 좌석과 같은 시간표 · 후원 반짝임 steps)
+대상: `sim-*.js` 273개 + `smoke.js` + `audit.py` = **275개** (개정 278 기준 — 폴더를 센 값)
 
-**개정 277 에서 한 것 (2026-10-17 · 런처 화면 부하 — 동작 변경 · 사용자 승인)**
-- 앱: 런처 미리보기(`launcherLoop`)를 `FrameBudget.FPS_LAUNCHER`(30)까지만 그린다 — 예전엔 모니터 주사율(120 · 144Hz)만큼. 깜빡임은 프레임마다 16ms 로 세던 런처 전용 셈(`lBlinkT`)을 걷고 좌석과 같은 시간표(`blink-timing.js` · 개정 276)를 부른다 — 주사율과 무관 · 런처를 숨기면 시간표를 비웠다가 다시 열 때 새로 시작. 후원 문구 무지개 흐름(`.donate-shine`)은 `steps(90)`(초당 20번 칠하기). 맥 120Hz 측정: 런처 화면 GPU 프로세스 CPU 18~20% → 5~6%(실행 화면 4~5% 와 비슷) · 끊긴 프레임 0 · 슬롯 섬네일 그대로.
+**개정 278 에서 한 것 (2026-10-17 · 런처 화면 부하 — 동작 변경 · 사용자 승인)**
+- 앱: 런처 미리보기(`launcherLoop`)를 `FrameBudget.FPS_LAUNCHER`(30)까지만 그린다 — 예전엔 모니터 주사율(120 · 144Hz)만큼. 깜빡임은 프레임마다 16ms 로 세던 런처 전용 셈(`lBlinkT`)을 걷고 좌석과 같은 시간표(`blink-timing.js` · 개정 277)를 부른다 — 주사율과 무관 · 런처를 숨기면 시간표를 비웠다가 다시 열 때 새로 시작. 후원 문구 무지개 흐름(`.donate-shine`)은 `steps(90)`(초당 20번 칠하기). 맥 120Hz 측정: 런처 화면 GPU 프로세스 CPU 18~20% → 5~6%(실행 화면 4~5% 와 비슷) · 끊긴 프레임 0 · 슬롯 섬네일 그대로.
 - 검사: `sim-launcher-preview.js` 4절 신설 **25·0** — 가짜 미리보기로 120Hz 1초에 30번 그림 · 깜빡임은 blink-timing 을 부름 · 감은/뜬 그림 번갈아 · 1분에 눈 감는 횟수가 60/120/144Hz · 실제 시각 기준과 같음 · 숨겼다 열면 새로 시작 · 런처 전용 셈 없음 · 반짝임 steps · 깨 보기 4. deps 에 `FrameBudget` · `blinkTiming`. `sim-frame-budget.js` 에 `FPS_LAUNCHER === 30` 한 줄.
 
-**개정 276 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 무변경)**
+**개정 277 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 무변경)**
 - 앱: app.js 의 깜빡임 시간표(`scheduleBlinks` · `eyeClose` · 좌석 `blink` 초기값 · 감은 눈 문턱 0.5)를 `app/parts/shared/blink-timing.js`(`window.TwBlinkTiming` · 순수 계산)로 묶었다. 숫자는 이름 붙은 상수로. 좌석은 `TwBlinkTiming.이름` 으로 부른다. 다음 개정에서 런처 미리보기가 같은 시간표를 쓴다(따로 세던 `lBlinkT+=16` 대신).
 - 검사: `sim-blink-timing.js` 신설 **21·0** — 옮기기 전 글(그대로 실어 둠)과 같은 씨앗으로 2분 돌려 한 칸도 안 다름 · 처음 값 · 한 번씩 2~3번 뒤 세 번 연달아 · 감은 정도 곡선 · 주사율 30~144Hz 에서 깜빡임 간격이 두 장 안 · 연결(app.js 옛 선언 없음 · html 순서) · 깨 보기 6.
+
+**개정 276 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 변화 없음)**
+- 앱: main.js 의 session-end 처리 다섯 줄(전역 훅 내리기 · 커서 감시 · 폴링 타이머 지우기 · 창 destroy · app.exit(0))을 꼭대기 함수 `_exitNow()` 하나로 옮기고 session-end 는 그것을 부른다. 곧 들어올 «두 번째 실행 때 옛 창을 쓸 수 없으면 새로 띄우기»(wD 9b40ea6)가 같은 순서를 베끼지 않고 이 함수를 부르게 하려는 것.
+- 검사: `sim-sysinput.js` 의 «session-end 에서도 훅을 내린다» 판정이 이벤트가 `_exitNow()` 를 부르면 그 함수 몸통에서 `stopGlobalHooks` 를 찾는다(판정 무변경 · 함수 안에서 지우면 빨강을 손으로 확인).
 
 **개정 275 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 좌석 크기 평준화를 모듈로 · 동작 변화 없음)**
 - 앱: app.js «🪑 좌석 크기 평준화» 구역의 평준화 몫(깃발 `seatEqualizeOn` · `seatEqK` · `seatScale` · `charLiftWorld` · `syncSeatEqualize`) 78줄을 `app/parts/character/seat-equalize.js`(`window.TwSeatEqualize`)로 옮겼다. 바뀐 코드 줄 0 · 옛 이야기형 주석은 «왜 · 함정» 으로 줄임(주석을 뺀 코드 토큰은 같다) · deps 8. 부르는 곳은 `seatEqMod.이름`, 설정 창의 깃발 읽기 · 쓰기는 `seatEqMod.seatEqualizeOn()` · `setSeatEqualizeOn(v)`. 같은 구역의 꾸미기 파츠 표시 · 올라타기 튜닝은 그대로(다음 커밋).
@@ -2121,7 +2125,7 @@
 | **sim-chars-merge.js** | 134 | **49a07f83a39b** ← **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-20 신규 · 🧬 캐릭터 단위 병합 (§34) · **2026-09-21 «조율 블록 밖» 판정 (개정 34)** |
 | **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** ← **개정 244 saveSlots · 백업 되돌리기 · 옛 slots 동기화 배선을 «저장 뒤» · «되돌린 뒤» 알림과 보관함이 건 함수에서 봄(판정 무변경)** · **개정 238 가드 걷은 글 모양** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 개정 155 꺼낸 본문에 _relinkSeatsToSlots 빈 함수 · 2026-09-21 신규 · 🧬 이관 slots → chars (§35) · 5·6절 조율 (개정 34) · 7절 첫 채택 (개정 35) · 8절 평상시 동기화 (개정 36) · **9절 섬네일 (개정 37)** · **개정 48 스위치 켬 · 20 = 슬롯 밖** · **10절 휴지통 (개정 49 · 51 한꺼번에)** |
 | **sim-signup.js** | 1558 | **5514aafca237** ← **개정 246 게이트 H 덩이 끝은 로그인 화면 즉시 실행 함수의 닫는 줄 · 랭킹 올리기는 «맞췄다» 알림에 건 _lbPush 에서 봄(판정 무변경)** · **개정 244 F 안내는 보관함 onBootLinked 에 계정이 건 함수에서 봄(판정 무변경)** · **개정 238 가드 걷은 글 모양** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 183 _sha256Hex 는 한 벌 — app.js + admin-mode.js 에서 센다(판정 무변경)** · **개정 180 랭킹 절 — _lbFetchRank 떼어 오기 · API 한 줄(받으면 100줄 안 읽음 · null 자리 비움 · undefined 면 100줄)** · **개정 173 [내 정보] 레벨 배지 줄은 plMod.fillLv(판정 무변경)** · **개정 172 스위치는 `existingSignupOn()`(원격 설정 config/flags/existingSignup) — 실행 줄도 함수로** · 2026-09-21 신규 · 🪪 회원가입 게이트 (§36) · 1~4절 첫 조각 (개정 38) · 5절 H (개정 39) · 6절 A (개정 40) · 7절 I (개정 41) · 8절 ⑥ (개정 42) · 9절 J·J2·K (개정 43) · **10절 C3·C2 (개정 44)** · **11절 [내 정보] (개정 45)** · **개정 46 배지·틀·책상 표제** · **개정 47 별개 창** · **개정 48 11절 새로** · **12절 휴지통 (개정 49)** · **13절 D2 (개정 51)** · **개정 55 11절 transferData 지우기만** · **개정 56 친구 코드 로그인 입력 코드** · **14절 «다름» · F (개정 57)** · **15절 별 색 · 12절 탭 순서 보관함 · 휴지통 · 계정 (개정 69)** · **15절 판정 둘 · 11절 배지 호출 (개정 70)** · **개정 71 15절 로그아웃 목록** · **16절 🏆 전체 랭킹 (개정 73)** |
-| **sim-sysinput.js** | 393 | **ab2dafce225b** ← **개정 198 등록 토스트는 공용 도우미로 되살린 글에서(판정 무변경)** · **개정 160 7절 셸 창을 건너뛰면 skipped 반환 · 렌더러 토스트** · ← **개정 152 7절 자동 등록은 셸 창을 건너뜀(_noteForeignWindow · lastRegistrableWindow)** · ← 이번에 고친 판 |
+| **sim-sysinput.js** | 397 | **bdf06e31afdb** ← **개정 276 끝내는 길을 _exitNow() 로 모은 뒤에도 session-end 훅 내리기를 함수 몸통에서 찾는다** · **개정 198 등록 토스트는 공용 도우미로 되살린 글에서(판정 무변경)** · **개정 160 7절 셸 창을 건너뛰면 skipped 반환 · 렌더러 토스트** · ← **개정 152 7절 자동 등록은 셸 창을 건너뜀(_noteForeignWindow · lastRegistrableWindow)** · ← 이번에 고친 판 |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** ← **개정 268 setZoomFactor 한 곳 판정을 메인 창 기준으로(자식 창 _lockChildZoom 의 setZoomFactor(1) 제외)** · **개정 198 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 80 하한 50 → 20%** · 2026-09-17 고침(122→125줄) · 행 이름 «프로그램 크기»·부연 문구 제거·−/+ 한 글자 버튼(시안 확정) — 옛 판정은 거짓 빨강. 2026-09-16 신규 · 제보 3-2 F-1 렌더러 줌 (§20) |
 | **sim-zoom-window.js** | 68 | **77ab3834d455** ← **개정 148 함수 상자에 _mhPad(마이홈 스티커 여백 — _modeSize 가 읽는다)** · ← **개정 80 신설 · 📐 프로그램 크기(줌)를 바꾸면 런처·생성기·마이홈 창도 같이 커진다 · 하한 20%** |
@@ -2134,7 +2138,7 @@
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** ← **개정 273 옮긴 모듈까지 되살려 읽기 · gotoStep 머리 자르기 두 모양(판정 무변경)** · **개정 239 가드 걷은 글 모양** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 103 신설 · 🐾 동물 편집 순서 모양 → 책상 → 좌석 — 판정 표 · gotoStep 실행 · 배선 · 동물 생성기 위 «책상 세팅» · «좌석 세팅»** |
 | **sim-seat-slot.js** | 91 | **eb0061fabb58** ← **개정 275 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(평준화 깃발이 seat-equalize.js 로 · 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 93 신설 · 🪑 평준화 중 «책상 위» 파츠를 자기 좌석 자리 안으로** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 201 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 방 코드 칸을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **개정 165 방 코드 칸에 놀러 가기 go 표시 허용(정규식만)** · **개정 94 신설 · 🩹 친구창 방 코드 글꼴 · 경험치 바 길이 공통 · 화면 아래 이름표** |
-| **sim-frame-budget.js** | 101 | **567aede74208** ← **개정 277 FPS_LAUNCHER === 30** · **개정 258 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(카메라가 seat-camera.js 로 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 95 신설 · 🔋 실행 화면 프레임 상한(60 · 30 · 20) · 해상도 배율 1.5 · 1분 진단 줄** |
+| **sim-frame-budget.js** | 101 | **567aede74208** ← **개정 278 FPS_LAUNCHER === 30** · **개정 258 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(카메라가 seat-camera.js 로 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 95 신설 · 🔋 실행 화면 프레임 상한(60 · 30 · 20) · 해상도 배율 1.5 · 1분 진단 줄** |
 | **sim-design-site.js** | 61 | **5c8de512f913** ← **개정 100 신설 · 🎨 디자인 시스템 페이지 hosting/design/ 이 docs/design-system/ 에서 다시 만든 것과 같은지 · 토큰 · CSP · sandbox** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 95 다시 씀 · 🔋 최대 60 · 손 안 대면 30 · 비포커스 20 — app.js 째로 rAF 를 흘려 장 수를 센다** |
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** ← **개정 134 7절은 app.js + purikura-ui.js** · **개정 106 옛 규칙이면 fx 없이 다시 자리 잡기** · **개정 102 신설 · 🐟 스티커사진 필터 «어안» · 업데이트 안 한 참가자 안내 · 규칙 fish · fx** |
@@ -2247,7 +2251,7 @@
 | **sim-async-prompt.js** | 96 | **d23e798ab585** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 216 신설 · ✏️ 인앱 프롬프트 모듈(async-prompt.js) 구조** |
 | **sim-launcher-chrome.js** | 95 | **ed62fec910ad** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 216 신설 · 🪟 런처 타이틀바 · 팝업 흐림 모듈(launcher-chrome.js) 구조** |
 | **sim-launcher-controls.js** | 204 | **78202998b89b** ← **개정 257 신설 · 🎛️ 런처 컨트롤 모듈(launcher-controls.js) 구조 · 버튼 동작** |
-| **sim-launcher-preview.js** | 159 | **b5c8d04accdf** ← **개정 277 4절 신설 · 런처 부하(프레임 상한 30 · 깜빡임은 blink-timing · 후원 반짝임 steps) · deps FrameBudget · blinkTiming** · **개정 260 신설 · 🖼️ 런처 미리보기 모듈(launcher-preview.js) 구조 · 크기 맞춤** |
+| **sim-launcher-preview.js** | 159 | **b5c8d04accdf** ← **개정 278 4절 신설 · 런처 부하(프레임 상한 30 · 깜빡임은 blink-timing · 후원 반짝임 steps) · deps FrameBudget · blinkTiming** · **개정 260 신설 · 🖼️ 런처 미리보기 모듈(launcher-preview.js) 구조 · 크기 맞춤** |
 | **sim-mat-tone.js** | 174 | **8055614c531b** ← **개정 263 신설 · 💡 재질 톤 모듈(mat-tone.js) 구조 · 재질 손질 입력 → 결과** |
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 216 신설 · 🪟 팝업 바깥 클릭으로 닫기 모듈(outside-close.js) 구조** |
 | **sim-wardrobe-panel.js** | 95 | **1070574caf86** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps progSettingsMod → twNav(라이선스 탭 열기는 통로로 — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 217 신설 · 🎨 꾸미기 사이드 패널 모듈(wardrobe-panel.js) 구조** |
@@ -2277,7 +2281,7 @@
 | **sim-catalog-sync.js** | 256 | **e21c006733a5** ← **개정 267 신설 · 🔄 카탈로그 실시간 동기화 모듈 구조 + 동작** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** ← **개정 270 신설 · 🧸 책상 위 아이템 등록부 모듈 구조 + 동작** |
 | **sim-desk-visual.js** | 214 | **84f3f27791fd** ← **개정 274 신설 · 🪑 책상 모양 모듈 구조 + 동작** |
-| **sim-blink-timing.js** | 112 | **624e0321ea28** ← **개정 276 신설 · 👁 깜빡임 시간표(blink-timing.js) — 옛 글과 같은 결과 · 동작 · 주사율 무관 · 연결** |
+| **sim-blink-timing.js** | 112 | **624e0321ea28** ← **개정 277 신설 · 👁 깜빡임 시간표(blink-timing.js) — 옛 글과 같은 결과 · 동작 · 주사율 무관 · 연결** |
 | **sim-dot-render.js** | 155 | **484c46e1b9d0** ← **개정 258 깨 보기 «부르는 곳이 옛 이름» — app.js 에 부르는 자리가 없으면 옛 이름 부름을 끼워 본다(부르는 곳이 seat-camera.js 로)** · **개정 256 신설 · 🕹️ 도트 모드 머티리얼 모듈 구조 + 동작(가짜 씬)** |
 | **sim-seat-camera.js** | 149 | **735cee87ff37** ← **개정 258 신설 · 🎥 좌석 줄 카메라 모듈 구조 + 동작(옮기기 전 값)** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** ← **개정 266 신설 · 🗼 탑 바닥 찾기 동작 · 연결** |
