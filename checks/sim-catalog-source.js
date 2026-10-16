@@ -4,6 +4,7 @@
    ・1절: 모양 — 만들 때 던지지 않음 · 내놓는 이름 · 전역 이름
    ・2절: 연결 — app.js 가 세 모듈보다 먼저 한 줄로 고르고 deps 로 넘긴다 · 세 모듈에 firebaseAPI 직접 호출 0 · html(app.js 앞)
    ・3절: 동작 — 가짜 window 위에서 연결 기다리기 · 할 수 있는지 · 넘기기(인자 · 돌려받는 값) · firebaseAPI 를 부를 때마다 읽기
+   ・4절: 입구 가드 — 부르는 쪽이 catalogSrcCan 을 빠뜨려도 연결 · 함수 없음 · 모르는 종류 · 빈 인자면 요청 0 · null · 던지지 않음
    [실행] app.js · desk-companion-prototype.html · catalog-source.js · 세 모듈이 있는 폴더에서(러너 스테이징). */
 'use strict';
 const fs = require('fs');
@@ -74,6 +75,24 @@ say('── 3. 동작 — 가짜 window 위의 Firebase 판');
   w = mkWin(undefined); S = make(w);
   w.firebaseAPI = { fetchCatalogGlb: (u) => 'late:' + u };
   chk(S.catalogSrcCan('fetchGlb') && S.catalogSrcFetchGlb('x') === 'late:x', '  firebaseAPI 는 부를 때마다 읽는다 — 만든 뒤에 생겨도 쓴다');
+}
+
+say('── 4. 입구 가드 — catalogSrcCan 을 안 물어도 요청 0');
+{
+  const mkWin = (fb) => ({ firebaseAPI: fb, addEventListener(){} });
+  const tryCall = (fn) => { try{ return { v: fn() }; }catch(e){ return { err: e }; } };
+  const all = (S) => [() => S.catalogSrcSubscribe('items', () => {}), () => S.catalogSrcMigrateGacha(), () => S.catalogSrcFetchGlb('u'), () => S.catalogSrcPublishPart('id', { a: 1 })];
+  let S = make(mkWin(undefined));
+  chk(all(S).map(tryCall).every(r => !r.err && r.v === null), '연결이 없으면 네 가지 모두 던지지 않고 null');
+  S = make(mkWin({}));
+  chk(all(S).map(tryCall).every(r => !r.err && r.v === null), '  연결은 있는데 그 함수가 없어도 던지지 않고 null');
+  const log = [];
+  const fb = {}; ['subscribeCatalogItems', 'subscribeCatalogDesks', 'migrateGachaCatalog', 'fetchCatalogGlb', 'publishPart'].forEach(n => { fb[n] = (...a) => { log.push(n); return 'ok'; }; });
+  S = make(mkWin(fb));
+  const bad = [() => S.catalogSrcSubscribe('nope', () => {}), () => S.catalogSrcSubscribe('migrateGacha', () => {}), () => S.catalogSrcSubscribe('fetchGlb', () => {}), () => S.catalogSrcSubscribe('items'), () => S.catalogSrcSubscribe('desks', 'x'),
+    () => S.catalogSrcFetchGlb(''), () => S.catalogSrcFetchGlb(undefined), () => S.catalogSrcPublishPart('', { a: 1 }), () => S.catalogSrcPublishPart(null, { a: 1 }), () => S.catalogSrcPublishPart('id')].map(tryCall);
+  chk(bad.every(r => !r.err && r.v === null) && log.length === 0, '  모르는 종류(구독 아닌 일 포함) · 콜백 없음 · 빈 url · 빈 id · 빈 data 는 요청 0 · null');
+  chk(S.catalogSrcSubscribe('items', () => {}) === 'ok' && S.catalogSrcFetchGlb('u') === 'ok' && S.catalogSrcPublishPart('id', {}) === 'ok' && log.join() === 'subscribeCatalogItems,fetchCatalogGlb,publishPart', '  전제가 다 있으면 그대로 넘긴다(가드가 정상 호출을 막지 않음)');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

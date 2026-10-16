@@ -1,7 +1,12 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 305 (🧍 생성기 상태(세션 값 58개)를 creator/creator-state.js 로 — C 구역 떼기 w4)
-대상: `sim-*.js` 289개 + `smoke.js` + `audit.py` = **291개** (개정 305 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 306 (카탈로그 provider 입구 가드(부르는 쪽 전제를 provider 로))
+대상: `sim-*.js` 289개 + `smoke.js` + `audit.py` = **291개** (개정 306 기준 — 폴더를 센 값)
+
+**개정 306 에서 한 것 (2026-10-17 · 구역 떼기 C · w2 · 모듈 입구에 숨은 전제 옮기기 — 동작 변화 없음)**
+- 앱: `character/catalog-source.js` 의 넘기는 함수 넷(`catalogSrcSubscribe` · `catalogSrcMigrateGacha` · `catalogSrcFetchGlb` · `catalogSrcPublishPart`)이 스스로 `catalogSrcCan` 을 본다. 부르는 쪽(catalog-sync · catalog-glb · admin-thumbs)이 먼저 묻던 전제를 입구로 옮긴 것 — 연결 · 함수가 없거나 모르는 구독 종류 · 빈 인자(콜백 · url · id · data)면 서버 요청 없이 `null`(던지지 않음). 지금 부르는 자리는 모두 먼저 묻고 바른 인자를 넘겨서 동작은 같다.
+- 검사: `sim-catalog-source.js` **19·0**(+4) — 4절 입구 가드: 연결 없음 · 함수 없음 · 모르는 종류 · 빈 인자 → 요청 0 · null · 안 던짐, 전제가 다 있으면 그대로 넘김. 변이: 공용 가드 · 구독 종류 · 콜백 · url · id·data 검사를 하나씩 빼기 → 모두 빨강.
+- 검증 중: `sim-typeof-guards.js` 예외 표에 `cb`(character/catalog-source.js 만) — provider 입구 가드의 `typeof cb !== 'function'` 은 넘겨받은 콜백 값 모양 확인이지 «있으면 부르기» 가 아니다(판정 무변경 · 합계 늘지 않음).
 
 **개정 305 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호)**
 - 앱: app.js 곳곳의 생성기 세션 꼭대기 let 58개(미리보기 3D · 카메라 · 단계 · 붓 · 도장 · 책상 세팅 · 코드 가져오기)를 `creator/creator-state.js`(`TwCreatorState` · deps 1 · 이름마다 get/set)로 처음 값 그대로 모았다. app.js 의 참조 933곳은 `crState.이름`(파서로 골라 바꿈 · 가린 지역 이름 없음). 만드는 줄은 «CREATOR + LAUNCHER» 머리 — DESK_SCALE_DEFAULT 선언 덩이를 그 앞으로 올렸다. animal.js 가 전역으로 읽는 creatorOpen · creatorMode · curSlot 은 app.js 에 남김.
@@ -2413,14 +2418,14 @@
 | **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** ← **개정 272 신설 · 🪝 마이홈 고리판 — 동작 · 이름마다 거는 곳 한 파일 · 부르는 곳 · 글자 이름 없음 · 싣는 순서 · 깨 보기 여섯** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** ← **개정 251 신설 · 😊 기본 이모티콘 목록(demoji-catalog.js) — 33개 · 안 겹침 · 찾기 표 · 얼림 · 그림 파일 · 한 곳 · 받는 방식 · 싣는 순서** |
 | **sim-hook-guards.js** | 77 | **0e8ccbe59d09** ← **개정 272 표에서 고리판으로 옮긴 셋(_mhBgmPlaying · _mhBgmSetPlaying · _mhBgmRefresh)을 뺌** · **개정 253 표에 포커스 · 꾸미기 · 방 · 가챠 · 플레이리스트 · 관리자 고리 10개(36개)** · **개정 252 신설 · 🪝 부팅 때 늘 걸리는 window 고리 — 거는 곳 한 파일 · 부르는 곳 · 가드 없음(마이홈 26개)** |
-| **sim-typeof-guards.js** | 133 | **61392c7c0dea** ← **개정 272 예외 표에서 _mhCancelNameEdit 뺌(가드가 고리판 has 로)** · **개정 262 신설 · 🪝 «있으면 부르기» typeof 가드가 파일별 기준선(typeof-guards-baseline.json)보다 늘지 않는다 · 예외 표** |
+| **sim-typeof-guards.js** | 134 | **ca523048c634** ← **개정 306 예외 표에 cb(catalog-source.js — 입구 콜백 값 확인)** · **개정 272 예외 표에서 _mhCancelNameEdit 뺌(가드가 고리판 has 로)** · **개정 262 신설 · 🪝 «있으면 부르기» typeof 가드가 파일별 기준선(typeof-guards-baseline.json)보다 늘지 않는다 · 예외 표** |
 | **sim-user-name.js** | 89 | **5cf62ffbe179** ← **개정 255 프로필 쓰기가 거부돼도 잡히지 않은 오류가 없다(.catch)** · **개정 249 만드는 줄을 가드 걷은 모양으로 찾는다(판정 무변경)** · **개정 248 신설 · 🏷️ 닉네임 저장(user-name.js) — 자르기 · 운영진 이름 · 갱신 · 연결**  |
 | **sim-part-scene.js** | 209 | **4d4fc633d0be** ← **개정 261 신설 · 🧊 파츠 GLB 파싱 캐시 · 썸네일 모듈 구조 + 동작** |
 | **sim-admin-thumbs.js** | 152 | **a364b1c70728** ← **개정 293 deps catalogSourceMod · 4절 진짜 provider** · **개정 261 신설 · 🖼️ 관리자 썸네일 다시 굽기 모듈 구조 + 동작** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** ← **개정 265 신설 · 💾 GLB 영구 캐시(IndexedDB) 모듈 구조 + 동작** |
 | **sim-catalog-glb.js** | 165 | **17abfb9c9515** ← **개정 293 deps catalogSourceMod · 4절 진짜 provider** · **개정 265 신설 · 🔗 카탈로그 GLB 해결 모듈 구조 + 동작** |
 | **sim-catalog-sync.js** | 277 | **aa362d893f59** ← **개정 293 deps catalogSourceMod · 4절 진짜 provider** · **개정 289 mergeCatalogList 를 상수 줄과 같이 뽑음** · **개정 287 mergeCatalogList 순수 함수 판정 6줄** · **개정 267 신설 · 🔄 카탈로그 실시간 동기화 모듈 구조 + 동작** |
-| **sim-catalog-source.js** | 80 | **11617c68895c** ← **개정 293 신설 · 🔌 카탈로그 데이터 provider 모양 · 연결 · 동작** |
+| **sim-catalog-source.js** | 99 | **578fb4579a9a** ← **개정 306 4절 입구 가드** · **개정 293 신설 · 🔌 카탈로그 데이터 provider 모양 · 연결 · 동작** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** ← **개정 270 신설 · 🧸 책상 위 아이템 등록부 모듈 구조 + 동작** |
 | **sim-desk-visual.js** | 214 | **2428c62e17b8** ← **개정 286 옮긴 이름 목록에서 지운 셋을 뺌** · **개정 274 신설 · 🪑 책상 모양 모듈 구조 + 동작** |
 | **sim-toast.js** | 142 | **099b0d5e048c** ← **개정 282 신설 · 🍞 토스트 · 저장 실패 문구 모듈 구조 + 동작** |
