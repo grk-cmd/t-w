@@ -215,3 +215,17 @@
   - 붙인 직후 책상 실측이 덜 확정돼 다음 두 프레임에 layoutSeats 를 다시 부른다.
   - .dcc 비밀번호를 `window.prompt` 로 묻는다 — Electron 에선 안 뜬다(`CONFIRM.md`).
   - 검사: `checks/sim-seat-model-load.js`(4절 — 실제 three 로 붙이기 · 클립 · 본 · 깜빡임 · 비우기 · 파일 고르기 · 실패 문구).
+
+## seat-panel.js — 🎚️ 좌석 탭 · 상태 버튼
+
+- **책임**: 실행 화면 좌석 패널의 그리기 — 좌석 탭(나 · 친구 이름 + 상태 이모지) · 좌석 고르기(안내 글 · 슬라이더 값 채움) · 상태 자동/수동 버튼(만들 때 버튼 줄에 클릭을 건다). 슬라이더 · 모델 파일 입력의 이벤트 연결은 app.js 에 둔다(모델 싣기 · layoutSeats 를 불러 모듈끼리 순환이 생기므로).
+- **만드는 법**: `TwSeatPanel.createSeatPanel({ seats, activity, triggerPet, selected: ()=>selected, setSelected: (v)=>{ selected = v; } })`.
+- **내보내는 것**
+  - `renderSeatTabs()` · `selectSeat(seat)` · `setInfo(seat, html)`(고른 좌석일 때만 안내 글) · `setManual(state | null)`.
+  - `manual()` — 수동으로 고른 상태(없으면 null). 프레임 루프가 본다.
+  - DOM: `dot` · `stateLabel` · `sliders`.
+  ```js
+  seatPanelMod.selectSeat(seat); seatPanelMod.renderSeatTabs();
+  ```
+- **확장할 때 고칠 자리**: 탭 상태 이모지 표(`emo`) · 탭 이름 규칙(나 / friendName / 친구i).
+- **함정**: `selected` 는 app.js 가 든 값 — 이 모듈은 읽는 · 쓰는 함수로만 만진다. 검사: `checks/sim-seat-panel.js`(4절 — 가짜 DOM 으로 탭 · 고르기 · 안내 · 수동/자동 · 쓰다듬기 버튼).
