@@ -96,3 +96,51 @@
   - `build()` 는 메쉬마다 머티리얼을 복제한다 — 빼면 친구 좌석 아이템과 색을 같이 쓴다. 본 있는 모델은 `SkeletonUtils.clone`.
   - 저장 목록 등록(`loadSavedItemsIntoSession`)은 app.js 에 있다 — 부팅 초반, 이 모듈을 만드는 줄보다 앞에서 부르기 때문.
   - 검사: `checks/sim-desk-items.js`(4절 — 기본값 · 인자 우선 · 저장 레코드로 메타 채우기 · 저장 목록 못 읽음 · build 복제 · 합친 목록).
+
+## desk-visual.js — 🪑 책상 모양(바꿔 끼기 · 색 · 좌석 책상)
+
+- **책임**: 책상 그룹(`deskGroup`)의 모양만 — 기본 책상 메쉬를 숨기고 커스텀 GLB 로 바꿔 끼기(톤 · `_col` 색 메쉬 모으기 · 애니메이션 재생 모드), `_col` 색, 좌석 def 의 카탈로그 책상을 찾아 그리기. 크기 · 자리는 `setDeskScale`(deps)이 맡는다.
+- **만드는 법**: `const deskVisualMod = TwDeskVisual.createDeskVisual({ … });` — deps 12: `commissionMod` · `assetCodeMod` · `b64ToBuf` · `_applyItemMatTone` · `_setDeskMatColor` · `activeItemMixers` · `_idleItemPivots` · `setDeskScale` · `toast` · `DEFAULT_DESK_OVERRIDE_ID` (값 · 함수) · `isPremium` · `isAdmin` (읽는 함수)
+- **내보내는 것**
+  - `swapDeskVisual(deskGroup, template, isDefaultOverride, animations, playMode)` — `template` 이 `null` 이면 기본 책상으로 되돌린다. `playMode`: `'auto'`(바로 반복) · `'idle'`(`_idleItemPivots` 에 넣어 프레임 루프가 정함 — 부르기 전에 `deskGroup.userData.__seat` 를 심는다) · 그 밖(`'click'` — 한 번 · 끝에서 멈춤).
+  - `applyDeskColorToCustom(deskGroup, color)` — 모아 둔 `_col` 머티리얼만.
+  - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상.
+  ```js
+  deskVisualMod.swapDeskVisual(cDesk, sc); deskVisualMod.applyDeskColorToCustom(cDesk, cDeskColor);
+  await deskVisualMod.applyDeskCatalogRefToSeat(seat, seat.charDef);
+  ```
+- **확장할 때 고칠 자리**: 새 재생 모드는 `swapDeskVisual` 의 `playMode` 분기 · 자리 맞춤(바닥 + 0.15 · 앞뒤 0.6)은 `normalizeDeskObj`.
+- **함정**
+  - 라이선스 전용 책상은 **내 좌석에서만** 막는다(`!seat.remote`) — 친구 좌석에서 막으면 남이 쓴 책상이 기본 책상으로 보인다.
+  - 크기를 GLB 에 굽지 않는다(원본 그대로 · 슬라이더만) — `autoScaleDeskToTarget` · `DESK_SIZE_OFFSET` 은 지금 안 쓰는 옛 몫(CONFIRM.md).
+  - 검사: `checks/sim-desk-visual.js`(4절 — 바꿔 끼기 · 되돌리기 · `_col` · 자리 맞춤 · 재생 세 모드 · 색 · 카탈로그 책상 · 라이선스 · 친구 좌석 · 풀기 실패).
+
+꾸미기 창 · 파츠 · 동물 · 슬롯 · 코드 · 가챠 · 좌석 크기. app.js 가 deps 로 이어 주고, 이 폴더 모듈끼리는 서로의 속을 직접 부르지 않는다.
+절은 모듈마다 하나 — 다른 사람이 만든 절은 건드리지 않고 자기 절만 더한다.
+
+## seat-equalize.js — 🪑 좌석 크기 평준화
+
+- **책임**: 좌석 하나의 «실효 크기» 를 정하는 유일한 곳. 내 화면에서만 남의 좌석(자리추가 부캐 포함)을 내 캐릭터 크기에 맞춘다 — 배율 `k = 내 userScale ÷ 그 좌석 userScale`, 좌석 전체(캐릭터 · 책상 · 라벨 높이)에 같은 k. 켜고 끄는 깃발(`tw.seatEq`)도 이 모듈이 든다.
+- **만드는 법**(app.js «🪑 좌석 크기 평준화» 자리):
+  ```js
+  const seatEqMod = TwSeatEqualize.createSeatEqualize({
+    ANIMAL_RUN_SCALE, seats,                                              // 값
+    clampCharY, findMySeat, fitModel, setDeskPos, setDeskScale, syncSeatDeskZ,   // 함수(화살표로)
+  });
+  ```
+- **내보내는 것**
+  - `seatScale(seat)` — 3D · 라벨 쪽에서 좌석 크기가 필요하면 **예외 없이** 이걸. 저장 · 생성기 UI(sScale · saveSeatXf · def 로드)는 반대로 raw `seat.userScale`.
+  - `seatEqK(seat)` — 배율만(꺼짐 · 내 좌석 · 내 좌석 없음 · 이상한 값이면 1).
+  - `charLiftWorld(seat)` — 캐릭터 높이(userY)가 월드에서 실제로 들어 올리는 양(× 동물 40% × k). 좌석을 월드 좌표로 직접 놓는 곳(올라타기)이 뺀다.
+  - `syncSeatEqualize()` — k 가 바뀐 좌석에만 책상 배율 · 위치 · 앞뒤 보정 · fitModel 을 다시 건다. `layoutSeats` 첫머리가 부른다(직접 부르지 말고 layoutSeats 를).
+  - `seatEqualizeOn()` · `setSeatEqualizeOn(v)` — 설정 창이 읽고 바꾼다(저장은 설정 창이 `tw.seatEq` 에).
+  ```js
+  seat.bodyWrap.scale.setScalar(seatEqMod.seatScale(seat));
+  ```
+- **확장할 때 고칠 자리**: «책상 줄까지 맞추기»(B안) · «원격만 맞추기» 는 `seatEqK` 한 곳(조건에 `|| seat.isExtra`).
+- **함정**
+  - `seat.userScale` 을 덮어쓰지 말 것 — 내 화면 배율이 상대 저장값으로 흘러가고 `applyCharToSeat` 때 평준화가 조용히 풀린다.
+  - 동물 40%(`ANIMAL_RUN_SCALE`)는 여기 안 들어간다 — fitModel · setDeskScale 의 별개 곱셈.
+  - `deskScaleBase` 가 없는 좌석(def 가 아직 안 얹힘)은 책상을 건드리지 않고 `eqK` 만 심는다.
+  - 한 좌석에서 던지면 나머지 좌석을 그 바퀴에 건너뛴다 — `CONFIRM.md` 에 적어 둠.
+  - 검사: `checks/sim-seat-equalize.js`(4절 — 깃발 · k · 이상한 값 · 부캐 · 들림 · 다시 걸기 · 재진입 · 던짐) · `sim-seat-eq` · `sim-char-z`(app.js 전체로).

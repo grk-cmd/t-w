@@ -68,7 +68,7 @@ const lone = new THREE.Group();
 chk(SL.clampParts([lone, null], 5, 1, true) === 0, '부모 없는 파츠 · 빈 칸은 건너뛴다');
 
 say('── 3. app.js 배선');
-const APP = SRC['app.js'];
+const APP = require('./sim-renderer-src.js').joinRenderer(SRC['app.js']);   // 옮긴 모듈(seat-equalize.js 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다(판정 무변경)
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const A = strip(APP);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;
