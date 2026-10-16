@@ -1,0 +1,65 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: 10px;
+}
+
+.sub {
+  margin: 16px 0 0;
+  font-size: 1em;
+}
+
+.label {
+  min-width: 13em;
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: bold;
+}
+
+.count input {
+  width: 7em;
+  padding: 6px 8px;
+  font: inherit;
+  text-align: right;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.count select {
+  padding: 6px 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.note {
+  color: var(--danger);
+}
+
+.list {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 40em;
+  min-height: 8em;
+  padding: 6px 8px;
+  font: inherit;
+  font-family: ui-monospace, monospace;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+.hint {
+  flex-basis: 100%;
+}
