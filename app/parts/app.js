@@ -675,7 +675,7 @@ function equipDeskItem(holder,def,on){
     if(holder.activeDeskItem===cur){
       holder.activeDeskItem=null;
       // 런처4-2: 활성 아이템이 방금 해제됐으니 기즈모도 즉시 숨김
-      if(holder===cBase) attachItemGizmoToActive();
+      if(holder===cBase) crXformMod.attachItemGizmoToActive();
     }
   }
   // ★ 아이템의 attachTo가 'handL'/'handR'이고 캐릭터 본이 있으면 책상 앵커 대신 손 본에 부착 —
@@ -6626,7 +6626,7 @@ function applyDeskPreset(p){
   }
   if(typeof p.deskScale==='number'){ cDeskScale=clampDeskScale(p.deskScale); const el=document.getElementById('deskScale'); if(el) el.value=cDeskScale; setCreatorDeskScale(cDeskScale); }
   if(typeof p.deskLenX==='number'){  cDeskLenX=p.deskLenX;  const el=document.getElementById('deskLenX');  if(el) el.value=cDeskLenX;  setCreatorDeskScale(cDeskScale); }
-  if(p.deskPos && typeof p.deskPos==='object'){ cDeskPos={x:+p.deskPos.x||0, y:+p.deskPos.y||0, z:+p.deskPos.z||0}; setDeskPos(cDesk, cDeskPos); updateDeskPosNum(); }
+  if(p.deskPos && typeof p.deskPos==='object'){ cDeskPos={x:+p.deskPos.x||0, y:+p.deskPos.y||0, z:+p.deskPos.z||0}; setDeskPos(cDesk, cDeskPos); crXformMod.updateDeskPosNum(); }
   // 4) 책상 모델(카탈로그 id or GLB)
   const applyDeskModel = ()=>{
     // 현재 아이템 전부 제거 (프리셋의 아이템으로 교체)
@@ -7939,7 +7939,7 @@ function reorderSavedItem(draggedId, targetId){
   commissionMod.persistSavedAssets();
   renderCrItems();
   // 런처4-2: 활성 아이템이 없으면(사용자가 카드 선택 안 함) 캐릭터 위에 남아있던 기즈모 숨김.
-  attachItemGizmoToActive();
+  crXformMod.attachItemGizmoToActive();
   if(window.firebaseAPI && window.firebaseAPI.updateItemsOrder){
     const orderMap={};
     commissionMod.savedItems().forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });
@@ -7981,7 +7981,7 @@ function bindHold(el, fn){
 function selectDeskItemForAdjust(pivot){
   cBase.activeDeskItem = pivot;
   if(creatorOpen) renderCrItems();
-  attachItemGizmoToActive();
+  crXformMod.attachItemGizmoToActive();
 }
 document.getElementById('creatorPreview').addEventListener('contextmenu', e=>{
   console.log('[아이템 우클릭 감지] isAdmin:', isAdmin, '| crStep:', crStep, '| cBase 있음:', !!cBase, '| deskItems:', cBase&&cBase.deskItems);
@@ -8000,305 +8000,39 @@ document.getElementById('creatorPreview').addEventListener('contextmenu', e=>{
   let p=hit[0].object; while(p && !p.userData.isDeskItemPivot) p=p.parent;
   if(p) selectDeskItemForAdjust(p);
 });
-/* ==== 아이템 3D 기즈모 (어플 3) ====
-   TransformControls를 생성기 미리보기 씬에 하나만 만들어놓고, 선택된 아이템 pivot에 attach.
-   드래그 종료 시 pivot의 실제 position/rotation/scale을 userData.adj에 다시 기록해서
-   기존 저장 파이프라인(applyDeskAdj / persistDeskItems)을 그대로 재사용. */
-let itemGizmo=null;
-let itemGizmoMode='translate';
-/* 🔄 [2026-09-15 제보 4] 회전 기즈모 — 미리보기는 되는데 실행 화면에 적용 안 됨.
-   [원인] 저장은 `adj.rot` 하나(Y 축)인데 기즈모는 세 고리(X·Y·Z)를 다 보여 줬고, 저장은 `p.rotation.y` 를
-     그대로 읽었다. 그래서 두 갈래로 새 나갔다:
-       ① X·Z 고리로 돌린 회전 — 미리보기엔 남고 저장엔 자리가 없다(applyDeskAdj 가 (0,rot,0) 으로 복원).
-       ② Y 고리로 90° 를 넘게 돌린 회전 — 오일러(XYZ)는 R_y(120°) 를 (180°, 60°, 180°) 로 분해한다.
-          `rotation.y` 는 60° 를 돌려주고, 복원은 (0, 60°, 0) 이라 **거울상**으로 돌아온다.
-     두 경우 모두 생성기 미리보기(p.rotation 은 그대로)는 맞고, 저장을 거쳐 다시 그리는 실행 화면만 틀린다 —
-     제보 그대로다. 분류 문서의 ① 이 맞았다(축이 다른 데 실린다).
-   [대응] 데이터 모델(`rot` 하나)에 기즈모를 맞춘다:
-     ・회전 모드에서는 Y 고리만 보인다(_applyItemGizmoMode). X·Z 로는 돌릴 수 없으니 ① 이 사라진다.
-     ・저장은 `rotation.y` 가 아니라 쿼터니언을 **YXZ 순서**로 다시 풀어 y 를 읽는다(_itemYaw). 순수 Y 회전이면
-       각도가 그대로(−180°~180°) 나온다 — ② 가 사라진다. 복원(applyDeskAdj)은 그대로 둔다. */
-function _itemYaw(p){
-  try{ return new THREE.Euler().setFromQuaternion(p.quaternion, 'YXZ').y; }catch(_){ return p.rotation.y; }
-}
-function _applyItemGizmoMode(g, mode){
-  g.setMode(mode);
-  const rot = (mode === 'rotate');
-  g.showX = !rot; g.showZ = !rot; g.showY = true;
-}
-function ensureItemGizmo(){
-  if(itemGizmo) return itemGizmo;
-  if(!cScene || !cCam || !cRenderer) return null;
-  if(typeof THREE.TransformControls !== 'function'){
-    console.warn('TransformControls가 로드되지 않았어요 — vendor/three/TransformControls.js 파일이 필요합니다.');
-    return null;
-  }
-  itemGizmo = new THREE.TransformControls(cCam, cRenderer.domElement);
-  itemGizmo.setSize(2.1);   // 3배(기본 0.7 → 2.1) — 요청사항: 기즈모가 잘 안 보여서 키움
-  itemGizmo.setSpace('local');   // 회전 시 아이템 자신의 축(=책상 좌표계)을 따르게
-  /* 🦶 생성기에서도 바닥(월드 y=0) 아래로는 못 내려간다 — 책상과 책상 위 아이템 둘 다.
-     [왜 objectChange 인가] dragging-changed(드래그 종료)에서만 걸면, 끄는 동안에는 물체가 바닥을
-       뚫고 내려간 채로 보이다가 손을 뗄 때 툭 올라온다. 매 이동마다 걸어야 '바닥에서 걸리는' 느낌이 난다.
-     ★ 저장 경로가 이 뒤에 있다(아래 dragging-changed 가 p.position → adj, cDesk.position → cDeskPos).
-       여기서 먼저 끌어올려 두면 저장되는 값이 자동으로 클램프된 값이 된다 — 보이는 자리와 저장값이
-       갈라지지 않는다(꾸미기 미리보기의 syncWdGizmoToXf 와 같은 이유·같은 순서).
-     ★ 이동만이 아니라 회전·크기에도 걸린다 — 돌리거나 키워서 바닥을 뚫는 경우가 있다.
-     ⚠️ hard=true — 사람이 끌고 있는 중이므로 상한(FLOOR_SNAP_MAX)을 두면 안 된다(그 주석 참고).
-     ⚠️ 캐릭터는 대상이 아니다. 생성기의 캐릭터 높이는 fitCreator 가 피봇(발바닥)으로 고정하고,
-       높이 슬라이더도 '바닥 파묻힘 방지' 때문에 이미 없앤 상태다. */
-  const _crFloorClamp = ()=>{
-    try{
-      if(deskPosGizOn && cDesk){
-        /* 🔴 [제보 2-1] 측정에서 **파츠 핀을 뺀다.**
-           책상 위 파츠는 deskAnchor 밑의 __deskPartAnchor 핀에 붙는데, 그 핀은
-           syncDeskPartAnchor 가 책상 오프셋을 **상쇄**하므로 책상을 옮겨도 따라오지 않는다.
-           그런데 예전엔 Box3(cDesk) 가 그 핀까지 함께 재고 있었다 →
-             ① 파츠가 y<0 에 있으면 깊이 d 가 잡힌다
-             ② 클램프가 **책상 전체**를 d 만큼 올린다
-             ③ 곧바로 syncDeskPartAnchor 가 상쇄를 갱신해 파츠는 제자리로 되돌아간다
-             ④ 다음 objectChange 에서 같은 d 가 또 잡힌다 → **매 프레임 올라간다**
-           이것이 "기즈모를 움직이면 책상이 가챠 파츠 위로 솟는다" 의 정체다.
-           (실측: deskPos.y 가 0.1399 까지 올라갔는데 Box3(cDesk).min.y 는 계속 0 — 그 0 은
-            책상 다리가 아니라 제자리에 남은 파츠의 바닥이었다.)
-           ⚠️ 책상 위 **아이템**(화분 등)은 빼지 않는다 — 그건 책상을 따라 움직이므로 함께 재는 게 맞다.
-             빼는 기준은 '책상 위에 있는가' 가 아니라 **'책상과 함께 움직이는가'** 다.
-           ⚠️ 파츠 자신의 바닥 맞춤은 별개 경로(applyPartXf · syncWdGizmoToXf)가 이미 한다. */
-        floorClampWrapper(cDesk, '책상', true, o => o.name === DESK_PART_ANCHOR_NAME);
-        /* 📌 드래그 중에는 setDeskPos 를 안 타고 기즈모가 cDesk.position 을 직접 움직인다.
-           그래서 '상쇄해야 할 몫'을 여기서 직접 갱신해 준다 — 안 하면 끄는 동안에만 파츠가
-           책상을 따라 움직이다가 손을 뗄 때 제자리로 툭 돌아온다.
-           (생성기 책상은 animCorr·eqK 가 **둘 다 없어** 배율이 1 이므로 position 이 곧 deskPos 다 —
-            dragging-changed 의 cDeskPos = cDesk.position 과 같은 전제다. 즉 여기 저장되는 값은
-            항상 '100% 단위 원본'이고, 실행 화면이 그것을 seatDeskPosMul 로 줄여서 쓴다.
-            ⚠️ 생성기에 animCorr 을 심으면 이 전제가 깨진다 — 그러면 옮긴 값이 0.4 로 나뉜 채
-              저장돼서 다음에 열 때 책상이 2.5배 멀리 간다) */
-        cDesk.userData.deskPosBase = { x:cDesk.position.x, y:cDesk.position.y, z:cDesk.position.z };
-        syncDeskPartAnchor(cDesk);
-        return;
-      }
-      const p = cBase && cBase.activeDeskItem;
-      if(p) floorClampWrapper(p, '책상 위 아이템', true);
-    }catch(_){}
-  };
-  itemGizmo.addEventListener('objectChange', _crFloorClamp);
-  // 드래그 중에는 다른 씬 상호작용(우클릭 히트 등)을 잠시 막고, 드래그 끝나면 저장까지 반영.
-  itemGizmo.addEventListener('dragging-changed', e=>{
-    if(!e.value){   // 드래그 종료
-      /* ⚠️ 저장 직전에 한 번 더 — objectChange 는 렌더 프레임과 어긋나서 마지막 몇 픽셀의 이동이
-         클램프를 안 거친 채로 남을 수 있다. 이미 맞은 상태면 무동작(멱등)이라 부담이 없다. */
-      _crFloorClamp();
-      /* 🪑 책상을 잡고 있었으면 아이템이 아니라 cDeskPos 로 되짚는다.
-         ⚠️ 아래 아이템 경로보다 **먼저** 보고 빠져나가야 한다 — 안 그러면 activeDeskItem 이
-            남아 있던 경우에 책상을 옮긴 값이 엉뚱한 아이템의 adj 로 들어간다. */
-      if(deskPosGizOn && cDesk){
-        cDeskPos = {x:cDesk.position.x, y:cDesk.position.y, z:cDesk.position.z};
-        updateDeskPosNum();
-        layoutSeats();   // 좌우로 밀었으면 좌석 간격을 다시 잡는다
-        return;
-      }
-      const p = cBase && cBase.activeDeskItem;
-      if(p){
-        // pivot의 실제 transform → adj로 되짚기 (기존 코드가 참조하는 유일한 상태)
-        p.userData.adj = p.userData.adj || {};
-        p.userData.adj.x = p.position.x;
-        p.userData.adj.y = p.position.y;   // ★ y도 저장 — 책상 위 잠금 없이 자유롭게 위/아래 이동 가능(요청사항)
-        p.userData.adj.z = p.position.z;
-        p.userData.adj.rot = _itemYaw(p);   // 🔄 rotation.y 가 아니다 — 위 [2026-09-15 제보 4]
-        p.userData.adj.scale = p.scale.x || 1;
-        autoSaveDeskItemsNow();
-      }
-    }
-  });
-  cScene.add(itemGizmo);
-  return itemGizmo;
-}
-function detachItemGizmo(){
-  if(itemGizmo){ try{ itemGizmo.detach(); }catch(_){} }
-}
-function attachItemGizmoToActive(){
-  const p = cBase && cBase.activeDeskItem;
-  const g = ensureItemGizmo();
-  if(!g) return;
-  // 🪑 아이템을 고르면 책상 위치 모드는 자동으로 꺼진다 — 기즈모가 하나뿐이라 둘 다 켜질 수 없다.
-  if(p && deskPosGizOn){ deskPosGizOn = false;
-    const b=document.getElementById('deskPosGz'); if(b) b.classList.remove('on'); }
-  if(p){ g.attach(p); _applyItemGizmoMode(g, itemGizmoMode); g.visible=true; }
-  else { g.detach(); g.visible=false; }
-  renderItemColorPanel();   // 런처3-1: 활성 아이템 바뀌면 색상 UI도 갱신
-}
-// ★ 런처3-1: 활성 아이템의 _col 그룹을 상세조정 패널에 색상 스와치로 표시.
-//   커스텀 컬러 팝업(openCharColorPicker) 재사용 — 최근 5색도 생성기/꾸미기와 공유.
-function renderItemColorPanel(){
-  const box=document.getElementById('crItemColors'); if(!box) return;
-  const p = cBase && cBase.activeDeskItem;
-  const groups = p && p.userData && p.userData.colorGroups;
-  if(!p || !groups || !Object.keys(groups).length){ box.style.display='none'; box.innerHTML=''; return; }
-  box.style.display='block';
-  box.innerHTML = '<div style="margin-bottom:4px;font-weight:bold;color:#555;">아이템 색상</div>';
-  p.userData.colors = p.userData.colors || {};
-  const keys = Object.keys(groups).sort((a,b)=> (parseInt(a.replace('col',''))||1) - (parseInt(b.replace('col',''))||1));
-  keys.forEach((key,idx)=>{
-    const meshes = groups[key];
-    const orig = (meshes[0].userData && meshes[0].userData.origColor) || 'ffffff';
-    const cur = p.userData.colors[key] || ('#'+orig);
-    const row=document.createElement('div');
-    row.style.cssText='display:flex;align-items:center;gap:6px;margin:3px 0;';
-    row.innerHTML =
-      '<span style="min-width:44px;color:#666;">색상'+(keys.length>1?(idx+1):'')+'</span>'
-      +'<button type="button" class="cr-item-sw" style="width:34px;height:22px;padding:0;cursor:pointer;'
-      +' border:1px solid rgba(0,0,0,.15);background:'+cur+';border-radius:4px;"></button>'
-      +'<button type="button" class="cr-item-rst ghost" title="원본 색으로">↺</button>';
-    const sw=row.querySelector('.cr-item-sw');
-    sw.addEventListener('click', ev=>{
-      ev.stopPropagation();
-      if(typeof window.openCharColorPicker!=='function') return;
-      window.openCharColorPicker(sw, cur, (c)=>{
-        p.userData.colors[key] = c;
-        sw.style.background = c;
-        _applyItemColor(p);
-        autoSaveDeskItemsNow();
-      });
-    });
-    row.querySelector('.cr-item-rst').addEventListener('click', ()=>{
-      delete p.userData.colors[key];
-      // 원본으로 복원 (material.color/emissive)
-      meshes.forEach(m=>{
-        if(!m.material || !m.userData.origColor) return;
-        const hex='#'+m.userData.origColor;
-        if(m.material.color) m.material.color.set(hex);
-        if(m.material.emissive){
-          const flat = (m.material.userData && m.material.userData.baseFlat!=null) ? m.material.userData.baseFlat : 0.4;
-          m.material.emissive.copy(m.material.color).multiplyScalar(flat);
-          m.material.needsUpdate=true;
-        }
-      });
-      sw.style.background='#'+orig;
-      autoSaveDeskItemsNow();
-    });
-    box.appendChild(row);
-  });
-}
-// 모드 버튼 바인딩
-document.querySelectorAll('#crItemPos .cr-gz-mode').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('#crItemPos .cr-gz-mode').forEach(b=>b.classList.toggle('on', b===btn));
-    itemGizmoMode = btn.dataset.mode;
-    if(itemGizmo && cBase && cBase.activeDeskItem) _applyItemGizmoMode(itemGizmo, itemGizmoMode);
-  });
-});
-/* 🦶 크기 ＋/－ 로 키워서 바닥을 뚫는 경우도 막는다 — 기즈모 드래그와 같은 함수를 쓴다.
-   ★ 올린 만큼을 adj.y 에 되짚어야 한다. 안 하면 화면만 올라가고 저장값은 옛 y 그대로라,
-     다시 열 때 그 값이 되살아나 아이템이 바닥으로 가라앉는다(꾸미기 쪽과 같은 함정). */
-function _crClampActiveItemToFloor(){
-  const p = cBase && cBase.activeDeskItem; if(!p) return;
-  const dy = floorClampWrapper(p, '책상 위 아이템', true);
-  if(dy){ p.userData.adj = p.userData.adj || {}; p.userData.adj.y = p.position.y; }
-}
-// 크기는 기즈모 대신 ＋/－ 버튼(꾹 누르면 연속 조정)
-bindHold(document.getElementById('crItemBigger'), ()=>{
-  const p=cBase&&cBase.activeDeskItem; if(!p){ toast('먼저 크기를 조정할 아이템을 우클릭해서 선택해 주세요'); return; }
-  p.userData.adj.scale=Math.min(2.5,(p.userData.adj.scale||1)+0.05);
-  applyDeskAdj(p);
-  _crClampActiveItemToFloor();
-  autoSaveDeskItemsNow();
-});
-bindHold(document.getElementById('crItemSmaller'), ()=>{
-  const p=cBase&&cBase.activeDeskItem; if(!p){ toast('먼저 크기를 조정할 아이템을 우클릭해서 선택해 주세요'); return; }
-  p.userData.adj.scale=Math.max(0.05,(p.userData.adj.scale||1)-0.05);
-  applyDeskAdj(p);
-  _crClampActiveItemToFloor();
-  autoSaveDeskItemsNow();
-});
-document.getElementById('crItemRemove').onclick=()=>{
-  const p=cBase&&cBase.activeDeskItem; if(!p)return;
-  // ★ 요청사항: 이 초기화는 크기만 원래대로 되돌림 — 위치/회전(기즈모로 잡아둔 값)은 그대로 유지.
-  p.userData.adj.scale = (p.userData.autoScale!=null) ? p.userData.autoScale : 1;
-  applyDeskAdj(p);
-  autoSaveDeskItemsNow();
-  if(itemGizmo) itemGizmo.update?.();
-};
-// ⟲ 이동·회전만 초기화 — 크기는 유지 (크기 초기화 버튼과 짝을 이룸)
-//   0 이 아니라 이번 편집에서 처음 나타난 자리로 — 0 은 커스텀 아이템을 책상 속에 묻는다(desk-item-origin.js)
-document.getElementById('crItemXfReset').onclick=()=>{
-  const p=cBase&&cBase.activeDeskItem; if(!p){ toast('먼저 초기화할 아이템을 우클릭해서 선택해 주세요'); return; }
-  const back = deskItemOrigin ? deskItemOrigin.resetXf(p, p.userData.adj) : false;
-  if(!deskItemOrigin){ p.userData.adj.x=0; p.userData.adj.y=0; p.userData.adj.z=0; p.userData.adj.rot=0; }
-  applyDeskAdj(p);
-  autoSaveDeskItemsNow();
-  if(itemGizmo) itemGizmo.update?.();
-  toast(back ? '처음 자리로 되돌렸어요' : '위치·회전을 원래대로 되돌렸어요');
-};
-document.getElementById('deskAddCode').onclick=()=>openAssetImport('desk');
-document.getElementById('itemAddCode').onclick=()=>openAssetImport('item');
-/* === 좌석 세팅(6단계): 변형 슬라이더 ===
-   ⚠️ 이름은 '좌석 세팅' 이지만 여기서 조절하는 것은 **캐릭터 크기 · 캐릭터 높이 · 방향**이다.
-      HTML 의 라벨(예전: 좌석 크기 / 좌석 앞뒤)도 캐릭터 크기 / 캐릭터 높이로 고쳐야 한다. */
-function bindCrXform(id,key){ document.getElementById(id).addEventListener('input',e=>{
-  const v=+e.target.value;
-  cXform[key] = (key==='y') ? clampCharY(v) : v;   // 🧍 높이는 0 하한·CHAR_Y_MAX 상한
-  creatorPrevMod.applyCreatorXform(); }); }   // 카메라는 고정 — 크기 가늠 쉽게
-/* 🧍 '앞뒤' 슬라이더(#crZ)를 '높이' 슬라이더로 전용한다 — 범위를 여기서 심어서 HTML 을 안 고쳐도
-   곧바로 올바르게 동작하게 한다(HTML 의 min 이 음수로 남아 있으면 왼쪽 절반이 죽은 구간이 된다).
-   ⚠️ 라벨 문구는 여기서 못 바꾼다 — HTML 쪽도 '캐릭터 높이' 로 고칠 것. */
-(function _crZSliderBecomesHeight(){
-  const el = document.getElementById('crZ'); if(!el) return;
-  el.min = 0; el.max = CHAR_Y_MAX; el.step = 0.01; el.value = 0;
-  el.title = '캐릭터 높이';
-})();
-bindCrXform('crScale','s'); bindCrXform('crZ','y'); bindCrXform('crRot','rot');
-document.querySelectorAll('#seatStage .mini-reset[data-rs]').forEach(btn=>{ btn.addEventListener('click',()=>{
-  /* 🧍 data-rs="z" 는 HTML 그대로 두고 여기서 높이(y)로 읽는다 — 그 슬라이더가 이제 높이다. */
-  const raw=btn.dataset.rs, k=(raw==='z'||raw==='y')?'y':raw, dv=(k==='s')?0.7:0; cXform[k]=dv;
-  const id=(k==='s')?'crScale':(k==='y'?'crZ':'crRot'); document.getElementById(id).value=dv;
-  creatorPrevMod.applyCreatorXform(); }); });
-/* 🪑 책상 위치 기즈모 ─────────────────────────────────────────────────
-   아이템 기즈모(itemGizmo)를 그대로 빌려 쓴다 — 생성기 씬에 TransformControls 를 둘 만들면
-   둘이 동시에 뜨고 드래그가 서로를 가로챈다. 대신 '지금 무엇에 붙어 있는가'를 여기서 관리한다.
-   ⚠️ 아이템을 선택하면 그쪽이 기즈모를 가져간다(attachItemGizmoToActive). 그때 이 모드는 꺼진다. */
-let deskPosGizOn = false;
-function updateDeskPosNum(){
-  const el = document.getElementById('deskPosNum'); if(!el) return;
-  const z = !cDeskPos.x && !cDeskPos.y && !cDeskPos.z;
-  el.textContent = z ? '기본 위치' : ('x ' + cDeskPos.x.toFixed(2) + ' · y ' + cDeskPos.y.toFixed(2) + ' · z ' + cDeskPos.z.toFixed(2));
-}
-function setDeskPosGizmo(on){
-  const btn = document.getElementById('deskPosGz');
-  const g = ensureItemGizmo();
-  if(on && (!g || !cDesk)){ toast('책상을 아직 불러오는 중이에요'); return; }
-  deskPosGizOn = !!on;
-  if(btn) btn.classList.toggle('on', deskPosGizOn);
-  if(!g) return;
-  if(deskPosGizOn){
-    // 책상을 잡는 동안에는 아이템 선택을 풀어 둔다 — 안 그러면 어느 쪽이 잡힌 건지 화면으로 알 수 없다.
-    if(cBase) cBase.activeDeskItem = null;
-    g.attach(cDesk); _applyItemGizmoMode(g, 'translate'); g.visible = true;   // 책상은 이동만 — 세 축 다 보인다
-  } else {
-    try{ g.detach(); }catch(_){}
-    g.visible = false;
-  }
-}
-(function bindDeskPos(){
-  const gz = document.getElementById('deskPosGz');
-  if(gz) gz.addEventListener('click', ()=>setDeskPosGizmo(!deskPosGizOn));
-  const rs = document.getElementById('deskPosReset');
-  if(rs) rs.addEventListener('click', ()=>{
-    cDeskPos = {x:0, y:0, z:0};
-    setDeskPos(cDesk, cDeskPos);
-    updateDeskPosNum();
-    if(deskPosGizOn && itemGizmo) itemGizmo.attach(cDesk);   // 기즈모 위치도 따라오게
-  });
-})();
-document.getElementById('deskScaleReset').addEventListener('click',()=>{ cDeskScale=DESK_SCALE_DEFAULT; document.getElementById('deskScale').value=DESK_SCALE_DEFAULT; setCreatorDeskScale(DESK_SCALE_DEFAULT); });
-// 어플 3-1: 책상 길이 슬라이더
-document.getElementById('deskLenX')?.addEventListener('input', e=>{
-  cDeskLenX = +e.target.value || 1;
-  setCreatorDeskScale(cDeskScale);
-  if(cBase && cBase.charDef){ cBase.charDef.deskLenX = cDeskLenX!==1 ? cDeskLenX : null; slotSaveMod.saveSlots(); }
-});
-document.getElementById('deskLenXReset')?.addEventListener('click', ()=>{
-  cDeskLenX=1; const el=document.getElementById('deskLenX'); if(el) el.value=1;
-  setCreatorDeskScale(cDeskScale);
-  if(cBase && cBase.charDef){ cBase.charDef.deskLenX = null; slotSaveMod.saveSlots(); }
+/* 본문은 creator/creator-xform.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const crXformMod = TwCreatorXform.createCreatorXform({
+  CHAR_Y_MAX: CHAR_Y_MAX,
+  DESK_PART_ANCHOR_NAME: ()=>DESK_PART_ANCHOR_NAME,
+  DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
+  _applyItemColor: (...a)=>_applyItemColor(...a),
+  applyCreatorXform: (...a)=>creatorPrevMod.applyCreatorXform(...a),
+  applyDeskAdj: (...a)=>applyDeskAdj(...a),
+  autoSaveDeskItemsNow: (...a)=>autoSaveDeskItemsNow(...a),
+  bindHold: (...a)=>bindHold(...a),
+  cBase: ()=>cBase,
+  cCam: ()=>cCam,
+  cDesk: ()=>cDesk,
+  cDeskLenX: ()=>cDeskLenX,
+  cDeskPos: ()=>cDeskPos,
+  cDeskScale: ()=>cDeskScale,
+  cRenderer: ()=>cRenderer,
+  cScene: ()=>cScene,
+  cXform: ()=>cXform,
+  clampCharY: (...a)=>clampCharY(...a),
+  deskItemOrigin: deskItemOrigin,
+  floorClampWrapper: (...a)=>floorClampWrapper(...a),
+  layoutSeats: (...a)=>layoutSeats(...a),
+  openAssetImport: (...a)=>openAssetImport(...a),
+  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
+  setDeskPos: (...a)=>setDeskPos(...a),
+  slotSaveMod: ()=>slotSaveMod,
+  syncDeskPartAnchor: (...a)=>syncDeskPartAnchor(...a),
+  toast: (...a)=>toast(...a),
+  setCDeskLenX: (v)=>{ cDeskLenX = v; },
+  setCDeskPos: (v)=>{ cDeskPos = v; },
+  setCDeskScale: (v)=>{ cDeskScale = v; },
 });
 /* === 책상·아이템 코드: 생성(판매자) === */
 /* 관리자가 쓰는 코드 굽는 창 셋(📦 책상·아이템 코드 · 🎁 커미션 캐릭터 · 🔐 암호화 GLB 불러오기)은 admin/admin-asset.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
@@ -8686,7 +8420,7 @@ const creatorFlowMod = TwCreatorFlow.createCreatorFlow({
   currentCreatorDef: ()=>currentCreatorDef,
   deskCamSaved: ()=>deskCamSaved,
   deskItemOrigin: deskItemOrigin,
-  detachItemGizmo: (...a)=>detachItemGizmo(...a),
+  detachItemGizmo: (...a)=>crXformMod.detachItemGizmo(...a),
   faceC: faceC,
   faceCamSaved: ()=>faceCamSaved,
   histB: histB,
@@ -8756,7 +8490,7 @@ function openCreator(mode){
   cDeskLenX = (src&&src.deskLenX) || 1;
   const lenEl=document.getElementById('deskLenX'); if(lenEl) lenEl.value=cDeskLenX;
   activeCustomDeskId=null;
-  if(cDesk){ setCreatorDeskScale(cDeskScale); setDeskPos(cDesk, cDeskPos); updateDeskPosNum(); }
+  if(cDesk){ setCreatorDeskScale(cDeskScale); setDeskPos(cDesk, cDeskPos); crXformMod.updateDeskPosNum(); }
   if(cBase){ creatorPrevMod.applyCreatorXform(); creatorPrevMod.clearCreatorItems(); creatorPrevMod.clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
     if(cDesk)cDesk.userData.deskScale=cDeskScale; deskVisualMod.swapDeskVisual(cDesk,null);
     (async()=>{
@@ -8793,7 +8527,7 @@ function openCreator(mode){
       if(src&&src.deskItems) applyDeskItemsTo(cBase, src.deskItems);
       if(crStep===5) renderCrItems();
       // 런처4-2: 페이지 전환 시 활성 아이템 없으면 기즈모 숨김 (등록/삭제/재렌더 후 잔상 방지)
-      if(crStep===5) attachItemGizmoToActive();
+      if(crStep===5) crXformMod.attachItemGizmoToActive();
       // ★ 커스텀 책상 GLB가 이 시점에야 로드 완료됨(비동기) — 그 전에 이미 한 번 계산된 카메라 프레이밍은
       //   기본 책상 크기 기준이라, 실제 책상 크기(스케일 값 자체는 정상)와 화면에 보이는 줌이 어긋나 보이던
       //   원인. 로드가 다 끝난 지금 시점에 책상/좌석 화면이면 카메라를 다시 계산해서 맞춤.

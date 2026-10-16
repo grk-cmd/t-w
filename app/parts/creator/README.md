@@ -57,3 +57,40 @@
 - **확장할 때**: 코드 종류가 늘면 머리글자 갈래(①②③)에 한 줄씩 — 등록 로직은 그 코드를 맡은 모듈의 함수를 부른다(여기서 새로 구현하지 않는다).
 - **함정**: 칸은 [＋]로 정한 칸이 비어 있을 때만 그 칸, 아니면 첫 빈 칸 · 빈 칸이 없으면 거부(덮어쓰지 않는다). 형식은 미리 걸렀으니 catch 의 실패는 «비밀번호» 로 안내한다.
 - **검사**: `checks/sim-commission-import.js` — 모양 · 연결 · 깨 보기 + 패널 열고 닫기 · 갈래 셋 · 복호화 못 쓰는 환경 · 칸 고르기 · 등록 칸 값 · 용량 · 보관함 문턱 · 암호 틀림 · 그림 못 읽음.
+
+## `creator-xform.js` — 🧭 생성기 변형(아이템 3D 기즈모 · 좌석 세팅 6단계)
+
+**책임** — 생성기 미리보기에서 책상 위 아이템 · 책상 · 캐릭터를 옮기고 돌리고 키운다. TransformControls 하나(`itemGizmo`)를 아이템 또는 책상에 붙이고,
+드래그가 끝나면 아이템은 `userData.adj`(x · y · z · rot · scale)로, 책상은 `cDeskPos` 로 되짚어 저장한다. 끄는 동안 바닥(y=0) 아래로는 못 간다.
+
+**만드는 법** — app.js «👻 …» 덩어리의 «아이템 3D 기즈모» 자리(책상 세팅 뒤 · 코드 만들기 앞):
+
+```js
+const crXformMod = TwCreatorXform.createCreatorXform({
+  cBase: ()=>cBase, cDesk: ()=>cDesk, cDeskPos: ()=>cDeskPos, cXform: ()=>cXform, …   // 읽는 함수 11
+  setCDeskPos: (v)=>{ cDeskPos = v; }, setCDeskLenX: …, setCDeskScale: …,           // 쓰는 함수 3
+  applyDeskAdj, autoSaveDeskItemsNow, floorClampWrapper, layoutSeats, …              // 함수 13(화살표)
+  CHAR_Y_MAX, DESK_SCALE_DEFAULT, deskItemOrigin,                                    // 값 3
+});
+```
+
+만들 때 버튼 · 슬라이더를 건다: `#crItemPos .cr-gz-mode`(이동 · 회전) · `crItemBigger/Smaller`(꾹 누르면 연속 · 0.05 칸 · 0.05 ~ 2.5) · `crItemRemove`(크기만 초기화) ·
+`crItemXfReset`(이동 · 회전만 — 처음 자리로) · `deskAddCode/itemAddCode` · `crScale/crZ(높이)/crRot` · `#seatStage .mini-reset` · `deskPosGz/deskPosReset` · `deskScaleReset` · `deskLenX/deskLenXReset`.
+
+**내놓는 것**
+
+| 함수 | 쓰는 곳 |
+|---|---|
+| `attachItemGizmoToActive()` | 아이템을 고르거나 풀 때(`cBase.activeDeskItem` 기준) — 아이템을 고르면 책상 위치 모드는 꺼진다 |
+| `detachItemGizmo()` | 생성기를 닫을 때 |
+| `updateDeskPosNum()` | 책상 위치 숫자 글(`기본 위치` 또는 `x 1.00 · y … · z …`)을 다시 쓸 때(프리셋 · 열기) |
+
+**확장할 때 고칠 자리** — 새 저장 칸은 `dragging-changed` 의 아이템 갈래(adj 에 한 줄) · 크기 범위는 `crItemBigger/Smaller` 의 `Math.min(2.5,…)` · `Math.max(0.05,…)`.
+
+**함정**
+- 회전은 Y 축 하나(`adj.rot`)만 저장한다 — 회전 모드에서 X · Z 고리를 다시 보이게 하지 말 것. 저장은 `_itemYaw`(YXZ 로 푼 y) — `rotation.y` 는 90° 를 넘으면 거울상 각도다.
+- 책상 바닥 클램프는 파츠 핀(`DESK_PART_ANCHOR_NAME`)을 빼고 잰다 — 같이 재면 끌 때마다 책상이 솟는다.
+- 책상 드래그 끝 갈래는 아이템 갈래보다 **먼저** 보고 빠져나간다 — 남아 있던 activeDeskItem 에 책상 값이 들어가지 않게.
+- 생성기 책상은 배율 1 이라 position 이 곧 deskPos 다(생성기에 animCorr 을 심으면 깨진다).
+
+검사: `checks/sim-creator-xform.js` (슬라이더 · 아이템 버튼 · 기즈모 붙이기 · 드래그 끝 저장 · 책상 위치 · 길이 · 배율 · 연결 · 깨 보기).
