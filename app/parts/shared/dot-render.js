@@ -1,6 +1,6 @@
 /* dot-render.js — 🕹️ 도트 모드 머티리얼 — 텍스처 Nearest 필터 · PS1 색 양자화 + Bayer 디더 셰이더 켜고 끄기
    책임: 도트 렌더 모드일 때 씬의 머티리얼만 바꾼다(텍스처 필터 · 프래그먼트 셰이더 주입) — 언제 켤지는 부르는 쪽(카메라 · 캔버스 맞춤)이 정한다.
-   받는 deps: scene(THREE.Scene). 내보내는 것: applyDotTextureFilter(on) · applyPS1Shader(on) · sweepIfOn(now).
+   받는 deps: scene(THREE.Scene) · ps1Dither(shared/ps1-dither.js — 색 단계 · Bayer 표). 내보내는 것: applyDotTextureFilter(on) · applyPS1Shader(on) · sweepIfOn(now).
    ★ 켬은 부를 때마다 씬을 훑고, 이미 걸린 텍스처 · 머티리얼만 건너뛴다 — 켠 뒤 들어온 캐릭터 · 파츠 · 바꿔 낀 텍스처도 받게.
      sweepIfOn 은 프레임 루프가 부른다(켜져 있을 때만 SWEEP_MS 마다 한 번 훑음).
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
@@ -10,6 +10,7 @@
 
 function createDotRender(deps){
 const scene = deps.scene;
+const ps1Dither = deps.ps1Dither;   // 스티커사진 PS1 필터와 같은 값을 읽는다
 const DOT_TEX_KEYS = ['map','emissiveMap','normalMap','roughnessMap','metalnessMap'];   // 필터를 바꿀 텍스처 칸
 const SWEEP_MS = 500;   // 켜져 있을 때 새 메쉬 · 바꿔 낀 텍스처를 찾으러 씬을 훑는 간격
 /* 도트 렌더 모드일 때 씬의 모든 텍스처를 Nearest 필터로 전환(선명한 도트), 끄면 원래(Linear+mipmap)로 복구.
@@ -44,20 +45,17 @@ function applyDotTextureFilter(on){
 /* ═══════════════ 🕹️ PS1 감성 — 색 양자화 + Bayer 디더링 (도트 모드 전용) ═══════════════
    후처리(EffectComposer)를 쓰지 않고 각 머티리얼 프래그먼트 셰이더 끝에 색 처리 코드를 주입한다.
    → 투명 배경(알파)을 건드리지 않아 이 앱의 오버레이 구조와 충돌하지 않고, GPU에서 처리돼 가볍다.
-   · 양자화: 채널당 5bit(32단계, RGB555) — 실제 PS1 컬러 뎁스.
-   · 디더링: 4×4 Bayer 순서형 패턴 — PS1 특유의 격자 디더. gl_FragCoord(화면 픽셀)로 인덱싱.
+   · 양자화 단계 · 4×4 Bayer 표는 shared/ps1-dither.js 에서 읽는다(스티커사진 PS1 필터와 한 값).
+   · 디더링: gl_FragCoord(화면 픽셀)로 인덱싱. 식은 ps1-dither.js ditherQuantize 를 GLSL 로 옮긴 것 — 바꾸면 둘 다.
    도트 모드를 켤 때만 적용하고, 끄면 원본 셰이더로 복구(needsUpdate로 재컴파일). */
-const _PS1_LEVELS = 16.0;   // 채널당 색 단계. 16=PS1 디더가 눈에 보이는 균형점. 32=미세(RGB555), 8=강한 포스터화.
+const _PS1_LEVELS = ps1Dither.PS1_LEVELS;
 // gl_FragColor를 양자화 직전에 Bayer 디더로 흩뿌린 뒤 단계로 스냅.
 const _PS1_FRAG_INJECT = [
   '#include <dithering_fragment>',
   '{',
   '  // 4x4 Bayer 임계값 행렬(0~15 정규화). 화면 픽셀 좌표로 인덱싱해 격자 디더.',
   '  float _bayer[16];',
-  '  _bayer[0]=0.0;  _bayer[1]=8.0;  _bayer[2]=2.0;  _bayer[3]=10.0;',
-  '  _bayer[4]=12.0; _bayer[5]=4.0;  _bayer[6]=14.0; _bayer[7]=6.0;',
-  '  _bayer[8]=3.0;  _bayer[9]=11.0; _bayer[10]=1.0; _bayer[11]=9.0;',
-  '  _bayer[12]=15.0;_bayer[13]=7.0; _bayer[14]=13.0;_bayer[15]=5.0;',
+  ...[0, 4, 8, 12].map(r=>'  ' + ps1Dither.BAYER4.slice(r, r + 4).map((v, i)=>'_bayer[' + (r + i) + ']=' + v.toFixed(1) + ';').join(' ')),
   '  int _bx = int(mod(gl_FragCoord.x, 4.0));',
   '  int _by = int(mod(gl_FragCoord.y, 4.0));',
   '  int _bi = _by*4 + _bx;',
