@@ -18,13 +18,13 @@ const MOD = ["seat-model-load.js","parts/character/seat-model-load.js","app/part
 if(!MOD){ say('  ? 원본 못 찾음 — seat-model-load.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["boneSide","fitDesk","fitModel","layoutSeats","setInfo","toast"];
+const FN_DEPS = ["asyncPrompt","boneSide","fitDesk","fitModel","layoutSeats","setInfo","toast"];
 const VAL_DEPS = ["loader"];
 const GET_DEPS = ["assetCodeMod","selected","sliders"];
 const SET_DEPS = [];
 const EXPORTS = ["handleFiles","loadCharGLB","pickClip","prepBlink","resetSeat","setupSeatModel"];
 const MOVED = ["STATE_KW","pickClip","setupSeatModel","loadCharGLB","loadDeskGLB","setBlinkTexture","prepBlink","resetSeat","handleFiles"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  assetCodeMod: ()=>assetCodeMod,","  boneSide: (...a)=>boneSide(...a),","  fitDesk: (...a)=>fitDesk(...a),","  fitModel: (...a)=>fitModel(...a),","  layoutSeats: (...a)=>layoutSeats(...a),","  loader: loader,","  selected: ()=>selected,","  setInfo: (...a)=>setInfo(...a),","  sliders: ()=>sliders,","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  assetCodeMod: ()=>assetCodeMod,","  asyncPrompt: (...a)=>asyncPrompt(...a),","  boneSide: (...a)=>boneSide(...a),","  fitDesk: (...a)=>fitDesk(...a),","  fitModel: (...a)=>fitModel(...a),","  layoutSeats: (...a)=>layoutSeats(...a),","  loader: loader,","  selected: ()=>selected,","  setInfo: (...a)=>setInfo(...a),","  sliders: ()=>sliders,","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -109,6 +109,7 @@ say('── 4. 동작 — 좌석 모델 싣기');
       selected: null, sliders: sl, assetCodeMod: { decryptBytes: async (buf, pass) => { log.push('dec:' + pass); if(pass === 'bad') throw new Error('x'); return 'DEC'; } },
       loader: { parse: (buf, p, ok, bad) => { log.push('parse:' + buf); if(buf === 'BAD') bad(new Error('Failed to fetch')); else ok({ scene: new THREE.Group(), animations: [] }); } },
       fitModel: (s) => log.push('fit'), fitDesk: (s) => log.push('fitDesk'), setInfo: (s, h) => log.push('info:' + h.replace(/<[^>]+>/g, '')),
+      asyncPrompt: async (o) => G.__pass,   // 앱 입력 창(.dcc 비밀번호) — 가짜는 정해 둔 비밀번호를 돌려준다
       layoutSeats: () => log.push('layout'), toast: (m) => log.push('toast:' + m), boneSide: (n) => /left|_l\b|\.l\b/.test(n) ? 'l' : /right|_r\b|\.r\b/.test(n) ? 'r' : null,
     };
     const G = { THREE, document: doc, requestAnimationFrame: (f) => { log.push('raf'); }, console: { error(){}, log(){}, warn(){} },

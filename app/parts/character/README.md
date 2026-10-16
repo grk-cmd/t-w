@@ -218,6 +218,7 @@
     loader,                                                              // GLTFLoader
     boneSide, fitDesk, fitModel, layoutSeats, setInfo, toast,            // 함수(화살표로)
     assetCodeMod: ()=>assetCodeMod, selected: ()=>selected, sliders: ()=>sliders,   // 읽는 함수
+    asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),   // .dcc 비밀번호 — window.prompt 는 Electron 에서 안 뜬다
   });
   ```
 - **내보내는 것**

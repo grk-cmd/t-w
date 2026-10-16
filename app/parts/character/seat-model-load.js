@@ -1,7 +1,7 @@
 /* seat-model-load.js — 📦 좌석 모델 싣기 — GLB 파싱 결과를 좌석에 붙이기 · 애니 클립 고르기 · 깜빡임 텍스처 · 좌석 비우기 · 파일 드롭
    책임: 파싱된 GLB 를 좌석 하나에 붙이고(보호 wrap · 기본 xf · 앵커 · 애니 클립 · 얼굴 머티리얼 · 본 찾기) 비우는 일 — 개발용 파일 드롭(.glb · .dcc · 이미지)도 여기서 고른다.
      크기 · 바닥 맞춤은 fitModel · fitDesk(app.js), 좌석 줄 다시 잡기는 layoutSeats 에 맡긴다.
-   받는 deps: loader(GLTFLoader) · fitModel · fitDesk · setInfo · boneSide · layoutSeats · toast(함수) · selected · sliders · assetCodeMod(읽는 함수).
+   받는 deps: loader(GLTFLoader) · fitModel · fitDesk · setInfo · boneSide · layoutSeats · toast · asyncPrompt(함수 — .dcc 비밀번호를 묻는 앱 입력 창) · selected · sliders · assetCodeMod(읽는 함수).
    내보내는 것: setupSeatModel · loadCharGLB · resetSeat · handleFiles · pickClip(상태별 클립 고르기 — 순수) · prepBlink.
    app.js «FILE LOADING» 구역을 그대로 옮겼다(구역 떼기 C · w1). 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 4줄 —
@@ -16,6 +16,7 @@
 
 function createSeatModelLoad(deps){
 const assetCodeMod = deps.assetCodeMod;   // 읽는 함수
+const asyncPrompt = deps.asyncPrompt;   // 앱 입력 창(.dcc 비밀번호)
 const boneSide = deps.boneSide;
 const fitDesk = deps.fitDesk;
 const fitModel = deps.fitModel;
@@ -143,7 +144,7 @@ function resetSeat(seat){
 }
 async function handleFiles(files,seat){
   for(const f of files){const nm=f.name.toLowerCase();
-    if(nm.endsWith('.dcc')){ const buf=await f.arrayBuffer(); const pass=window.prompt('이 캐릭터의 비밀번호를 입력하세요'); if(!pass)continue;
+    if(nm.endsWith('.dcc')){ const buf=await f.arrayBuffer(); const pass=await asyncPrompt({ title: '캐릭터 비밀번호', message: '이 캐릭터의 비밀번호를 입력하세요' }); if(!pass)continue;   // window.prompt 는 Electron 에서 안 뜬다
       try{ const dec=await assetCodeMod().decryptBytes(buf,pass); loadCharGLB(dec,f.name.replace(/\.dcc$/i,'')+'.glb',seat); }catch(e){ toast('비밀번호가 틀렸거나 파일이 손상됐어요'); } }
     else if(nm.endsWith('.glb')){ const buf=await f.arrayBuffer();
       if(nm.includes('desk')||nm.includes('책상')) loadDeskGLB(buf,f.name,seat); else loadCharGLB(buf,f.name,seat); }
