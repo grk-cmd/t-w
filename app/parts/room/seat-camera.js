@@ -1,10 +1,10 @@
 /* seat-camera.js — 🎥 좌석 줄 카메라 · 캔버스 맞춤 — 좌석 줄 폭에 맞춰 카메라 거리 · 각도 · 화면 밀기 · 캔버스 크기
    책임: 좌석 줄(가운데 · 폭)을 받아 메인 카메라와 캔버스 크기를 맞춘다 — 실행 화면(전체 화면 · 이동 오프셋 · 도트 렌더)과 런처 미리보기 두 갈래.
-   받는 deps: camera · renderer · canvas · BASE_PXW · DOT_RENDER_SCALE(값) · sizeFactor · focusCharScale · deskPanX/Y · dotRenderEnabled · dotRenderMod · _cachedRowCenter/Span(읽는 함수) · setDeskViewH · setDeskCanvasH(쓰는 함수).
+   받는 deps: camera · renderer · canvas · BASE_PXW · DOT_RENDER_SCALE(값) · sizeFactor · focusCharScale · deskPanX/Y · dotRenderEnabled · dotRenderMod · _cachedRowCenter/Span(읽는 함수).
    내보내는 것: applyCameraAndCanvas(rowCenter, rowSpan) · updateCameraOnly().
    app.js «🪑 좌석 배치(layoutSeats) · 카메라 · 도트 텍스처 필터» 구역의 카메라 몫을 그대로 옮겼다(구역 떼기 C · w1). 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄임). 바뀐 코드 줄은 12줄 —
-     _cachedRowCenter · _cachedRowSpan · deskPanX · deskPanY · dotRenderEnabled · dotRenderMod · focusCharScale · sizeFactor 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setDeskCanvasH · setDeskViewH(…).
+     _cachedRowCenter · _cachedRowSpan · deskPanX · deskPanY · dotRenderEnabled · dotRenderMod · focusCharScale · sizeFactor 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ 밖에서 부르는 이름: applyCameraAndCanvas · updateCameraOnly — app.js 는 seatCameraMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
@@ -26,8 +26,6 @@ const dotRenderMod = deps.dotRenderMod;   // 읽는 함수
 const focusCharScale = deps.focusCharScale;   // 읽는 함수
 const renderer = deps.renderer;
 const sizeFactor = deps.sizeFactor;   // 읽는 함수
-const setDeskCanvasH = deps.setDeskCanvasH;   // 쓰는 함수
-const setDeskViewH = deps.setDeskViewH;   // 쓰는 함수
 /* 📐 카메라 · 캔버스 박힌 값 — 바꾸면 실행 화면 · 런처 미리보기의 캐릭터 크기 · 자리가 함께 움직인다 */
 const LOOK_Y = 0.5;                 // 카메라가 바라보는 높이(바닥이 화면 가운데쯤 오게 살짝 낮춤)
 const ROW_BOX_H = 1.4, ROW_BOX_D = 0.8;   // 좌석 줄 내용 상자 높이 · 깊이(폭은 줄 폭)
@@ -119,8 +117,6 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
     const offX =  ((panX - panXCam) / viewW) * canvasW;   // 나머지는 화면만 밀기(각도 불변)
     const offY = -(panY / viewH) * canvasH;
     camera.setViewOffset(canvasW, canvasH, offX, offY, canvasW, canvasH);
-    // 이동 모드에서 픽셀↔월드 정확한 변환을 위해 매 프레임 계산값을 전역에 노출
-    setDeskViewH(viewH); setDeskCanvasH(canvasH);
   } else if(camera.view){
     camera.clearViewOffset();   // 실행 화면이 아니면 오프셋 잔존 방지 (미리보기 등)
   }

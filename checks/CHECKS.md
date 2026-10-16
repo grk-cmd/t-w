@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 294 (운영 원격 설정 규칙 — API CORS · 공개 캐시 · 로그 수준 · 방 서버 프레임 상한 · 타이밍 두 칸)
-대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 294 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 295 (안 쓰는 _deskViewH · _deskCanvasH 지움 — 이동 모드는 화면 비율 방식이라 읽는 곳이 없었다 · sim-seat-camera 정답값에서 두 값 뺌)
+대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 295 기준 — 폴더를 센 값)
+
+**개정 295 에서 한 것 (2026-10-17 · 정리 — 동작 변화 없음)**
+- 앱: app.js `_deskViewH` · `_deskCanvasH` 와 카메라 모듈의 쓰는 함수 deps 2개 · 적는 줄을 지웠다(첫 커밋부터 읽는 곳 없음 — 이동 모드가 화면 비율 방식). 이동 모드 머리 주석을 «화면 비율 — 픽셀 ÷ 창 크기» 로 바로잡음.
+- 검사: `sim-seat-camera.js` — 쓰는 함수 deps 0 · 4절 정답값에서 vh · ch 를 뺌(나머지 카메라 · 캔버스 값은 그대로).
 
 **개정 294 에서 한 것 (2026-10-17 · 새 규칙 칸 — 서버 t-w-server feat/ops-hot-config 가 읽는다 · 앱 동작 변화 없음 · 임시 번호)**
 - 규칙: `config/apiCors`(0..19 키 · `^https://[a-z0-9.-]+$` · 200자 · 관리자 쓰기 · 읽기는 config 의 관리자 · 봇) · `config/apiCache/{config,count,card,leaderboard}`(정수 0~600 · 모르는 칸 거절) · `config/logLevel/{api,realtime}`(error|warn|info|debug · realtime 만 공개 읽기) · `config/roomServer/frame`(maxBytes 65536~1048576 · maxSmallBytes 1024~65536 · 공개 읽기 · 모르는 칸 거절) · `config/roomServer/timing` 에 roomStatsRefreshMs 5000~600000 · statsLogMs 5000~3600000.
@@ -2378,7 +2382,7 @@
 | **sim-desk-visual.js** | 214 | **2428c62e17b8** ← **개정 286 옮긴 이름 목록에서 지운 셋을 뺌** · **개정 274 신설 · 🪑 책상 모양 모듈 구조 + 동작** |
 | **sim-toast.js** | 142 | **099b0d5e048c** ← **개정 282 신설 · 🍞 토스트 · 저장 실패 문구 모듈 구조 + 동작** |
 | **sim-dot-render.js** | 220 | **cf1a3fae6944** ← **개정 292 켠 뒤 들어온 메쉬 · 가짜 표식 · 색조 덮어쓰기 · 캐시 키 · sweepIfOn(5절) — 도트 버그 수정** · **개정 258 깨 보기 «부르는 곳이 옛 이름» — app.js 에 부르는 자리가 없으면 옛 이름 부름을 끼워 본다(부르는 곳이 seat-camera.js 로)** · **개정 256 신설 · 🕹️ 도트 모드 머티리얼 모듈 구조 + 동작(가짜 씬)** |
-| **sim-seat-camera.js** | 149 | **735cee87ff37** ← **개정 258 신설 · 🎥 좌석 줄 카메라 모듈 구조 + 동작(옮기기 전 값)** |
+| **sim-seat-camera.js** | 146 | **a6c064a98ed9** ← **개정 295 안 쓰는 _deskViewH · _deskCanvasH 지움 — deps · 정답값에서 뺌** · **개정 258 신설 · 🎥 좌석 줄 카메라 모듈 구조 + 동작(옮기기 전 값)** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** ← **개정 266 신설 · 🗼 탑 바닥 찾기 동작 · 연결** |
 | **sim-seat-layout.js** | 172 | **6f339dcee0bc** ← **개정 269 신설 · 🪑 좌석 줄 배치 모듈 구조 + 동작(가짜 좌석 · 책상 폭)** |
 | **sim-seat-equalize.js** | 169 | **adf87881fdd8** ← **개정 275 신설 · 🪑 좌석 크기 평준화 모듈 구조 + 동작** |

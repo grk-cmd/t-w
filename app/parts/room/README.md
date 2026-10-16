@@ -13,7 +13,6 @@
     _cachedRowCenter: ()=>_cachedRowCenter, _cachedRowSpan: ()=>_cachedRowSpan,   // 읽는 함수(layoutSeats 가 다시 대입)
     deskPanX: ()=>deskPanX, deskPanY: ()=>deskPanY, dotRenderEnabled: ()=>dotRenderEnabled,
     dotRenderMod: ()=>dotRenderMod, focusCharScale: ()=>focusCharScale, sizeFactor: ()=>sizeFactor,
-    setDeskCanvasH: (v)=>{ _deskCanvasH = v; }, setDeskViewH: (v)=>{ _deskViewH = v; },
   });
   ```
 - **내보내는 것**
