@@ -25,13 +25,14 @@ const SRC0 = {
   RC: pick(at('remote-config.js', 'shared')),
   RULES: pick(['firebase-database-rules.json']),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
+  FS: pick(at('friends-sub.js', 'myhome')),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 /* 화면 · 도메인 파일(스테이징 평면의 .js) — firebase-init.js · app.js(연결) 밖에서는 친구 데이터 firebaseAPI 함수를 안 부른다 */
-const FRIEND_FB_FNS = ['subscribeMyFriends', 'getMyFriendList'];
+const FRIEND_FB_FNS = ['subscribeMyFriends', 'getMyFriendList', 'watchMyFriendList', 'getFriendCard', 'watchFriendPresence', 'getFriendPresence', 'apiGetAuthed'];
 const ALL_JS = fs.readdirSync('.').filter(f => f.endsWith('.js') && !/^sim-|^smoke\.js$|^run\.js$/.test(f)).map(f => [f, read(f) || '']);
 
 const load = (src, name) => { const win = {}; new Function('window', 'module', 'console', src)(win, undefined, { warn(){}, log(){} }); return win[name]; };
@@ -94,24 +95,99 @@ async function judge(S){
     chk(P.LIVE_SOURCE === 'firebase', '듣기(목록 · 접속 상태)는 아직 옛 길 — ws 자리(LIVE_SOURCE)');
   }
 
-  say('── 2. firebase provider(옛 길)');
+  say('── 2. firebase provider(옛 길) — 목록 구독 하나 · 카드는 열 때 한 번 · 접속 상태는 열려 있는 동안만');
   {
-    const reads = [], subs = [];
+    chk(F.PRESENCE_BATCH_MS === 50 && F.CARD_KEEP_MS === 10 * 60 * 1000, '상수(모듈 위) — 접속 상태 묶기 50ms · 카드 다시 안 읽는 시간 10분');
+    const c = F.cardOf({ profile: { name: 'A', level: 3, cyc: 1, clv: 2, starC: 'x' }, bio: 'hi', avatar: 'https://a' });
+    chk(c.name === 'A' && c.level === 3 && c.cyc === 1 && c.clv === 2 && c.starC === 'x' && c.bio === 'hi' && c.avatar === 'https://a', 'cardOf(순수) — 이름 · 레벨 · 회차(날것) · 소개 · 사진');
+    const c0 = F.cardOf({ profile: null, bio: null, avatar: null }), c1 = F.cardOf({ profile: { level: 0 } }), c2 = F.cardOf(null);
+    chk(c0.name === '(이름 없음)' && c0.level === null && c0.bio === '' && c0.avatar === null && c1.level === null && c2.name === '(이름 없음)', '  ↳ 빈 값 — «(이름 없음)» · 레벨 null(1 미만 · 없음) · 소개 \'\' · 사진 null');
+    const p1 = F.presenceOf({ online: true, lastSeen: 9, room: 'SCRT-1', inRoom: true }), p2 = F.presenceOf({ online: true, room: 'PLAY-1' }), p3 = F.presenceOf(null), p4 = F.presenceOf({ online: true, room: 'SCRT-1', inRoom: false });
+    chk(p1.online && p1.lastSeen === 9 && p1.room === 'SCRT-1' && p1.inRoom === true && p2.inRoom === true && p3.online === false && p3.lastSeen === 0 && p3.room === null && p3.inRoom === false && p4.room === 'SCRT-1' && p4.inRoom === false,
+      'presenceOf(순수) — 온라인 · 마지막 · 방 코드 · 방에 있음(옛 판은 코드 유무로 · 새 판은 inRoom 이 정한다 — 시크릿룸은 코드가 있어도 false) · 없으면 오프라인');
+    const T = { q: [], set: (fn, ms) => { T.q.push({ fn, ms }); return T.q.length; }, clear: (id) => { if(T.q[id - 1]) T.q[id - 1].fn = null; }, run: () => { const q = T.q.splice(0); q.forEach(t => t.fn && t.fn()); } };
+    let t = 0;
+    const L = { lists: [], cards: [], subs: [], live: 0, gets: [] };
     const fb = F.createFriendsFirebase({
-      getList: async (id) => { reads.push(id); return id === 'EMPTY' ? null : { f1: { addedAt: 5 } }; },
-      watchAll: (id, ok, err) => { const s = { id, ok, err, on: true }; subs.push(s); return () => { s.on = false; }; },
+      getList: async (id) => { L.lists.push(id); return id === 'EMPTY' ? null : { f1: { addedAt: 5 }, f2: { addedAt: 6 } }; },
+      watchList: (id, ok, err) => { const w = { id, ok, err, on: true }; L.subs.push(w); L.live++; return () => { if(w.on){ w.on = false; L.live--; } }; },
+      getCard: async (fid) => { L.cards.push(fid); if(fid === 'f2' && L.failF2) throw new Error('x'); return { profile: { name: 'N-' + fid }, bio: '', avatar: null }; },
+      watchPresence: (fid, cb) => { const w = { fid, cb, on: true }; L.subs.push(w); L.live++; return () => { if(w.on){ w.on = false; L.live--; } }; },
+      getPresence: async (fid) => { L.gets.push(fid); return { online: true, room: 'R' }; },
+      setTimer: T.set, clearTimer: T.clear, now: () => t,
     });
-    const v = await fb.listFriends('ME', { idsOnly: true });
-    chk(reads.join() === 'ME' && v.f1 && v.f1.addedAt === 5, 'listFriends — users/{나}/friends 한 번 읽기(getList) 그대로');
-    chk(JSON.stringify(await fb.listFriends('EMPTY')) === '{}', '  ↳ 없으면 빈 목록({})');
+    const ids = await fb.listFriends('ME', { idsOnly: true });
+    chk(L.lists.join() === 'ME' && ids.f1.addedAt === 5 && !L.cards.length, 'listFriends(idsOnly) — 목록 한 번 읽기만(카드 0)');
+    chk(JSON.stringify(await fb.listFriends('EMPTY', { idsOnly: true })) === '{}', '  ↳ 없으면 빈 목록({})');
+    const full = await fb.listFriends('ME');
+    chk(full.f1.name === 'N-f1' && full.f1.addedAt === 5 && full.f2.name === 'N-f2' && L.cards.join() === 'f1,f2', 'listFriends — 친구마다 카드 한 번 읽기(이름 · 사진)');
+    t += F.CARD_KEEP_MS - 1;
+    await fb.listFriends('ME');
+    chk(L.cards.length === 2, '  ↳ 10분 안에 다시 열면 카드는 다시 안 읽는다(목록만)');
+    t += 2; L.failF2 = true;
+    const again = await fb.listFriends('ME');
+    chk(L.cards.length === 4 && again.f2.name === 'N-f2', '  ↳ 10분이 지나면 다시 읽는다 · 실패한 친구는 지난 카드 그대로');
+    const fresh = F.createFriendsFirebase({ getList: async () => ({ z: { addedAt: 1 } }), getCard: async () => { throw new Error('x'); }, now: () => 0 });
+    const fz = await fresh.listFriends('ME');
+    chk(fz.z.addedAt === 1 && !('name' in fz.z), '  ↳ 처음부터 실패하면 이름 칸 없이(목록이 자리표시 \'...\' 로 그린다)');
     const got = [], errs = [];
     const off = fb.watchList('ME', (f) => got.push(f), (e) => errs.push(e));
-    subs[0].ok({ f1: { name: 'A' } }); subs[0].err(new Error('x'));
-    chk(subs.length === 1 && got.length === 1 && got[0].f1.name === 'A' && errs.length === 1, 'watchList — 옛 구독(watchAll)에 onChange · onError 그대로');
+    L.subs[0].ok(null); L.subs[0].err(new Error('x'));
+    chk(L.subs.length === 1 && got.length === 1 && JSON.stringify(got[0]) === '{}' && errs.length === 1, 'watchList — 목록 구독 하나에 onChange · onError (null 은 {})');
     off();
-    chk(!subs[0].on, '  ↳ 해제 함수 그대로');
-    const p = fb.watchPresence('ME', ['f1'], () => { throw new Error('부르면 안 됨'); });
-    chk(typeof p === 'function' && subs.length === 1, 'watchPresence — 옛 길은 목록 구독이 접속 상태를 실어 와서 따로 걸지 않는다(빈 해제 함수)');
+    chk(L.live === 0, '  ↳ 해제 함수 그대로');
+    const pres = [];
+    const offP = fb.watchPresence('ME', ['f1', 'f2', 'f3'], (p) => pres.push(p));
+    chk(L.live === 3 && L.subs.slice(1).map(w => w.fid).join() === 'f1,f2,f3', 'watchPresence — 친구마다 presence 구독(n개)');
+    L.subs[1].cb({ online: true }); L.subs[2].cb({ online: false, lastSeen: 3 }); L.subs[1].cb({ online: true, room: 'PLAY-9' });
+    chk(pres.length === 0 && T.q.length === 1 && T.q[0].ms === 50, '  ↳ 한꺼번에 온 콜백은 50ms 에 한 번(타이머 하나)');
+    T.run();
+    chk(pres.length === 1 && pres[0].f1.room === 'PLAY-9' && pres[0].f1.inRoom === true && pres[0].f2.lastSeen === 3 && !('f3' in pres[0]), '  ↳ 묶어서 한 번 — 받은 친구만 · 마지막 값');
+    L.subs[3].cb({ online: true });
+    offP();
+    T.run();
+    chk(L.live === 0 && pres.length === 1, '  ↳ 풀면 n개 다 풀고 · 기다리던 넘기기도 안 한다');
+    L.subs[1].cb({ online: false }); T.run();
+    chk(pres.length === 1, '  ↳ 풀린 뒤 늦은 콜백은 버린다');
+    const rp = await fb.readPresence('f7');
+    chk(L.gets.join() === 'f7' && rp.online === true && rp.room === 'R' && rp.inRoom === true && L.live === 0, 'readPresence — 그 친구 한 번 읽기(구독 안 남김)');
+  }
+
+  say('── 2-1. 상시 구독 수 — firebase-init(가짜 onValue) → provider → 포트 → friends-sub 를 이어서');
+  {
+    const FS = load(S.FS, 'TwFriendsSub');
+    const i0 = S.FI.indexOf('    watchMyFriendList(myId, onChange, onError){'), i1 = S.FI.indexOf('    async getFriendPresence(fid){', i0), i2 = i1 < 0 ? -1 : S.FI.indexOf('\n    },\n', i1);
+    const g0 = S.FI.indexOf('    async getMyFriendList(myId){'), g1 = g0 < 0 ? -1 : S.FI.indexOf('\n    },\n', g0);
+    chk(i0 > 0 && i2 > i1 && g1 > g0, 'firebase-init 친구 함수를 떼어 온다');
+    if(i0 > 0 && i2 > i1 && g1 > g0){
+      const live = [];
+      const ref = (db, p) => ({ p });
+      const onValue = (r, cb) => { const l = { p: r.p, cb, on: true }; live.push(l); return () => { l.on = false; }; };
+      const N = 30, list = {}; for(let k = 0; k < N; k++) list['f' + k] = { addedAt: k };
+      const get = async (r) => ({ val: () => r.p === 'users/ME/friends' ? list : /\/profile$/.test(r.p) ? { name: r.p } : null });
+      const api = new Function('ref', 'onValue', 'get', 'db', 'console', 'let _myFriendsOff = null;\nconst api = {\n' + S.FI.slice(g0, g1 + 7) + '\n' + S.FI.slice(i0, i2 + 6) + '\n};\nreturn api;')(ref, onValue, get, {}, { warn(){}, log(){} });
+      const timers = [];
+      const fbp = F.createFriendsFirebase({ getList: (...a) => api.getMyFriendList(...a), watchList: (...a) => api.watchMyFriendList(...a), getCard: (...a) => api.getFriendCard(...a),
+        watchPresence: (...a) => api.watchFriendPresence(...a), getPresence: (...a) => api.getFriendPresence(...a), setTimer: (fn) => { timers.push(fn); return timers.length; }, clearTimer: () => {}, now: () => 0 });
+      const port = P.createFriendsPort({ firebase: fbp, api: null, apiOn: () => true, warn(){} });
+      let cur = {};
+      const sub = FS.createFriendsSub({ subscribe: (...a) => port.watchList(...a), fetchOnce: (id) => port.listFriends(id, { idsOnly: true }), listFriends: (...a) => port.listFriends(...a),
+        watchPresence: (...a) => port.watchPresence(...a), readPresence: (...a) => port.readPresence(...a), current: () => cur, setFriends: (v) => { cur = v; }, getMyUserId: () => 'ME',
+        toast(){}, setTimer: (fn) => 0, clearTimer(){}, onUnload(){} });
+      const on = () => live.filter(l => l.on).length;
+      sub.start('ME', (f) => { cur = f; }, () => {});
+      live.filter(l => l.on && l.p === 'users/ME/friends').forEach(l => l.cb({ val: () => list }));
+      await flush(); await flush();
+      chk(on() === 1 && Object.keys(cur).length === N && cur.f3.name === 'users/f3/profile', '★ 친구 ' + N + '명 — 평소 상시 구독 1개(전에는 1 + 4 × ' + N + ' = ' + (1 + 4 * N) + '개) · 이름은 한 번 읽어 얹음 (지금 ' + on() + ')');
+      sub.open('myhome', () => {});
+      chk(on() === 1 + N, '★ 친구 탭을 열면 1 + ' + N + '개 (지금 ' + on() + ')');
+      sub.open('invite', () => {});
+      chk(on() === 1 + N, '  초대 목록까지 열어도 1 + ' + N + '개(겹쳐 걸지 않음)');
+      sub.close('myhome'); sub.close('invite');
+      chk(on() === 1, '★ 닫으면 다시 1개 (지금 ' + on() + ')');
+      sub.stop();
+      chk(on() === 0, '  멈추면 0개');
+    }
   }
 
   say('── 2-2. api provider — 응답 모양 · 요청 규칙');
@@ -229,8 +305,9 @@ async function judge(S){
   say('── 3. 배선');
   {
     const a = strip(S.APP);
-    chk(/const friendsFirebaseMod = TwFriendsFirebase\.createFriendsFirebase\(\{\n  getList: \(\.\.\.a\)=>firebaseAPI\.getMyFriendList\(\.\.\.a\),\n  watchAll: \(\.\.\.a\)=>firebaseAPI\.subscribeMyFriends\(\.\.\.a\),\n\}\);/.test(a),
-      'app.js — firebase provider 가 firebaseAPI 를 deps 로 받는다(목록 한 번 · 옛 구독)');
+    chk(/const friendsFirebaseMod = TwFriendsFirebase\.createFriendsFirebase\(\{\n  getList: \(\.\.\.a\)=>firebaseAPI\.getMyFriendList\(\.\.\.a\),\n  watchList: \(\.\.\.a\)=>firebaseAPI\.watchMyFriendList\(\.\.\.a\),\n  getCard: \(\.\.\.a\)=>firebaseAPI\.getFriendCard\(\.\.\.a\),\n  watchPresence: \(\.\.\.a\)=>firebaseAPI\.watchFriendPresence\(\.\.\.a\),\n  getPresence: \(\.\.\.a\)=>firebaseAPI\.getFriendPresence\(\.\.\.a\),\n/.test(a),
+      'app.js — firebase provider 가 firebaseAPI 친구 함수 다섯을 deps 로 받는다(목록 한 번 · 목록 구독 · 카드 · 접속 상태 구독 · 한 번)');
+    chk(/  watchPresence: \(\.\.\.a\)=>friendsPortMod\.watchPresence\(\.\.\.a\),\n  readPresence: \(\.\.\.a\)=>friendsPortMod\.readPresence\(\.\.\.a\),/.test(a), '  ↳ friends-sub 의 접속 상태 듣기 · 한 번 읽기도 포트로');
     chk(/const friendsPortMod = TwFriendsPort\.createFriendsPort\(\{\n  firebase: friendsFirebaseMod,\n  api: friendsApiMod,\n  apiOn: \(\)=>\{ const s = acctStateMod\._rcStore\(\); return s \? s\.friendsApi\(\) : true; \},/.test(a), '  ↳ 포트가 provider 둘 · 스위치(원격 설정 friendsApi — 설정이 없으면 켜짐)를 받는다');
     chk(/const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  get: \(\.\.\.a\)=>firebaseAPI\.apiGetAuthed\(\.\.\.a\),[^\n]*\n  wait: \(ms\)=>new Promise\(r=>setTimeout\(r, ms\)\),/.test(a), '  ↳ api provider 가 로그인 API 통로(firebase-init apiGetAuthed) · 쉬기를 받는다');
     const fi = strip(S.FI);
@@ -247,12 +324,13 @@ async function judge(S){
     chk(hF > 0 && hP > 0 && hI > 0 && hF < hA && hP < hA && hI < hA && hC > 0 && hC < hA, 'html — friends-firebase.js · friends-api.js · friends-port.js(· api-client.js)를 app.js 보다 먼저 싣는다');
     chk(!/firebaseAPI|firebase-init|\bref\(db|onValue\(/.test(strip(S.PORT)) && !/firebaseAPI|\bref\(db|onValue\(/.test(strip(S.FBP)) && !/firebaseAPI|\bref\(db|onValue\(|\bfetch\(/.test(strip(S.FAPI)),
       'friends/ 파일은 firebaseAPI · SDK 를 직접 안 부른다(deps 로만)');
-    chk(!/firebaseAPI|firebase/i.test(strip(S.AC).replace(/Firebase 길|Firebase 를 모른다|Firebase 요금|firebaseEnv/g, '')), 'shared/api-client.js 는 Firebase 를 모른다(토큰은 getToken deps 로만)');
+    chk(!/firebaseAPI|firebase-init|getIdToken|currentUser/.test(strip(S.AC)), 'shared/api-client.js 는 Firebase 를 모른다(토큰은 getToken deps 로만)');
     const bad = ALL_JS.filter(([f, src]) => f !== 'firebase-init.js' && f !== 'app.js'
       && FRIEND_FB_FNS.some(n => new RegExp('firebaseAPI\\s*\\.\\s*' + n + '\\b').test(strip(src))));
     chk(!bad.length, '화면 · 도메인 파일이 친구 데이터 firebaseAPI 함수(' + FRIEND_FB_FNS.join(' · ') + ')를 직접 안 부른다' + (bad.length ? ' — ' + bad.map(b => b[0]).join(' · ') : ''));
-    const appCalls = (a.match(/firebaseAPI\.(subscribeMyFriends|getMyFriendList)\(/g) || []).length;
-    chk(appCalls === 2, '  ↳ app.js 도 provider deps 두 줄에서만 (' + appCalls + ')');
+    const appCalls = (a.match(/firebaseAPI\.(subscribeMyFriends|getMyFriendList|watchMyFriendList|getFriendCard|watchFriendPresence|getFriendPresence|apiGetAuthed)\(/g) || []).length;
+    chk(appCalls === 6, '  ↳ app.js 도 provider deps 여섯 줄에서만 (' + appCalls + ')');
+    chk(!/subscribeMyFriends/.test(strip(S.FI)) && !/subscribeMyFriends/.test(a), '  ↳ 친구별 4개 구독(subscribeMyFriends)은 어디에도 없다');
   }
 }
 
@@ -264,8 +342,14 @@ const BREAKS = [
   ['PORT', 'await firebase.listFriends(myId, opts || {});', 'await firebase.listFriends(myId, {});', 'opts 를 버림'],
   ['PORT', 'return firebase.watchList(myId, onChange, onError);', 'return firebase.watchList(myId, onChange);', '에러 콜백을 안 넘김'],
   ['PORT', 'return firebase.watchPresence(myId, ids, onChange);', 'firebase.watchPresence(myId, ids, onChange);', '해제 함수를 안 돌려줌'],
-  ['FBP', 'return (await getList(myId)) || {};', 'return await getList(myId);', '없을 때 null'],
-  ['FBP', 'function watchPresence(){ return NOOP; }', 'function watchPresence(){ return null; }', '접속 상태 해제 함수 없음'],
+  ['FS', "  const want = (Object.keys(_open).length && _status", "  const want = (_status", '목록이 닫혀 있어도 접속 상태를 들음'],
+  ['FBP', 'const ids = (await getList(myId)) || {};', 'const ids = await getList(myId);', '없을 때 null'],
+  ['FBP', '    if(opts && opts.idsOnly) return ids;\n', '', '판정용인데 카드까지 읽음'],
+  ['FBP', '    if(c && t - c.at < CARD_KEEP_MS) return c.card;\n', '', '열 때마다 카드를 다시 읽음'],
+  ['FBP', 'const notify = ()=>{ if(timer == null) timer = setTimer(flush, PRESENCE_BATCH_MS); };', 'const notify = ()=>{ onChange(Object.assign({}, combined)); };', '접속 상태를 콜백마다 넘김(그리기 폭주)'],
+  ['FBP', '      for(const off of offs){ try{ off(); }catch(_){} }', '', '풀어도 친구별 구독이 남음'],
+  ['FBP', "  return { online: !!p.online, lastSeen: p.lastSeen || 0, room: p.room || null, inRoom: (p.inRoom !== undefined) ? !!p.inRoom : !!p.room };", "  return { online: !!p.online, lastSeen: p.lastSeen || 0, room: p.room || null, inRoom: !!p.room };", '시크릿룸 «방에 있음» 을 코드로 판정'],
+  ['FI', "      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{\n        if(_dead) return;\n        onChange(snap.val() || {});", "      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{\n        if(_dead) return;\n        Object.keys(snap.val() || {}).forEach(fid=>onValue(ref(db, `users/${fid}/profile`), ()=>{}));\n        onChange(snap.val() || {});", '친구별 구독을 되살림'],
   ['APP', '  subscribe: (...a)=>friendsPortMod.watchList(...a),', '  subscribe: (...a)=>firebaseAPI.subscribeMyFriends(...a),', 'friends-sub 가 포트를 건너뜀'],
   ['PORT', "  return (apiOn !== false && hasApi) ? SOURCE.API : SOURCE.FIREBASE;", "  return hasApi ? SOURCE.API : SOURCE.FIREBASE;", '스위치를 안 봄'],
   ['PORT', "  return (apiOn !== false && hasApi) ? SOURCE.API : SOURCE.FIREBASE;", "  return (apiOn === true && hasApi) ? SOURCE.API : SOURCE.FIREBASE;", '값이 없으면 꺼짐으로'],

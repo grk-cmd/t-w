@@ -45,6 +45,7 @@ const _starPaint = deps.starPaint;
 const _myHomeLoaded = deps.myHomeLoaded;             // 읽는 함수 — 마이홈을 한 번이라도 읽었나(이 줄보다 뒤에 선언)
 const _myHomeData = deps.myHomeData;                 // 읽는 함수 — 마이홈 데이터(열 때마다 다시 대입 · 이 줄보다 뒤에 선언)
 const _myHomeFriends = deps.myHomeFriends;           // 읽는 함수 — 친구 목록 캐시(구독마다 다시 대입 · 이 줄보다 뒤에 선언)
+const friendsRefreshPresence = deps.friendsRefreshPresence;   // (ids) → Promise — 친구 목록이 닫혀 있으면 접속 상태를 한 번 읽는다(friends-sub.js)
 const openFriendHomeView = deps.openFriendHomeView;  // 🏠 공개해 둔 남의 목록 → 그 사람 마이홈 구경
 // 🪟 상태칩 팝업 · 창 겹침 · ESC
 const _closeChipPopups = deps.closeChipPopups;
@@ -1080,6 +1081,9 @@ function _plToggleFriendPick(){
   if(el.classList.contains('on')){ el.classList.remove('on'); return; }
   _plRenderFriendPick();
   el.classList.add('on');
+  /* 온라인 점 · 순서 — 친구 목록이 닫혀 있으면 접속 상태를 안 듣고 있다. 열 때 한 번 읽고, 그때도 열려 있으면 다시 그린다. */
+  Promise.resolve(friendsRefreshPresence(Object.keys(_myHomeFriends() || {})))
+    .then(()=>{ if(el.classList.contains('on')) _plRenderFriendPick(); }, ()=>{});
 }
 function _plRenderFriendPick(){
   const el=_plFriendPickEl(); if(!el) return;

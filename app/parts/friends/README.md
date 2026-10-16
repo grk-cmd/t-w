@@ -20,7 +20,8 @@
 - 내보내는 것:
   - `listFriends(myId, opts)` → Promise<{ 친구id: 친구 }> — `opts.idsOnly` 면 id · addedAt 만 있으면 된다(판정용).
   - `watchList(myId, onChange, onError)` → 해제 함수 — onChange({ 친구id: { addedAt, … } }).
-  - `watchPresence(myId, ids, onChange)` → 해제 함수 — onChange({ 친구id: { online, lastSeen, room, inRoom } }).
+  - `watchPresence(myId, ids, onChange)` → 해제 함수 — onChange({ 친구id: { online, lastSeen, room, inRoom } }). 목록이 열려 있는 동안만 건다(friends-sub.js).
+  - `readPresence(fid)` → Promise<접속 상태> — 목록이 닫혀 있을 때 그 친구만 한 번(놀러 가기 · 파도타기 친구 고르기).
   - `lastSource()` → `'api'` · `'firebase'` · null — 마지막 목록 받기가 어디서 왔나(진단).
   - 친구 하나의 모양: `{ addedAt, name, level, cyc, clv, starC, bio, avatar, online, lastSeen, room, inRoom }` — 없는 칸은 그 provider 가 모르는 값.
 - 쓰는 예: friends-sub.js deps — `subscribe: (...a)=>friendsPortMod.watchList(...a)` · `fetchOnce: (id)=>friendsPortMod.listFriends(id, { idsOnly:true })`.
@@ -29,14 +30,24 @@
 
 ## friends-firebase.js — 옛 길 provider(Firebase · 나중에 걷음)
 - 책임: firebase-init.js 의 친구 함수를 포트 모양으로 바꾼다. firebaseAPI 를 직접 부르지 않고 app.js 가 deps 로 잇는다.
+  **상시 구독은 목록(users/{나}/friends) 하나뿐** — 이름 · 사진은 목록을 열 때 한 번(`getFriendCard` · 10분 안이면 다시 안 읽음),
+  접속 상태는 목록이 열려 있는 동안만 친구별로(`watchFriendPresence`). 예전 친구별 4개 상시 구독(subscribeMyFriends)은 없앴다.
 - 만드는 법(app.js):
   ```js
   const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
-    getList: (...a)=>firebaseAPI.getMyFriendList(...a),     // users/{나}/friends 한 번
-    watchAll: (...a)=>firebaseAPI.subscribeMyFriends(...a), // 목록 + 친구별 프로필 · 접속 · 소개 · 사진
+    getList: (...a)=>firebaseAPI.getMyFriendList(...a),          // users/{나}/friends 한 번
+    watchList: (...a)=>firebaseAPI.watchMyFriendList(...a),      // 목록 구독 하나(추가 · 삭제)
+    getCard: (...a)=>firebaseAPI.getFriendCard(...a),            // 프로필 · 소개 · 사진 세 칸 한 번
+    watchPresence: (...a)=>firebaseAPI.watchFriendPresence(...a),// 친구 한 명 presence 구독
+    getPresence: (...a)=>firebaseAPI.getFriendPresence(...a),    // 친구 한 명 presence 한 번
+    setTimer: (fn, ms)=>setTimeout(fn, ms), clearTimer: (id)=>clearTimeout(id), now: ()=>Date.now(),
   });
   ```
-- 함정: 옛 구독(watchAll)이 접속 상태까지 실어 오므로 `watchPresence` 는 빈 해제 함수다. 검사: `checks/sim-friends-port.js`.
+- 순수: `cardOf(raw)`(이름 · 레벨 · 회차 · 소개 · 사진) · `presenceOf(raw)`(온라인 · 마지막 · 방 코드 · 방에 있음) · 상수 `PRESENCE_BATCH_MS`(50) · `CARD_KEEP_MS`(10분).
+- 함정:
+  - 접속 상태 콜백은 친구 수만큼 한꺼번에 온다 — 50ms 창에 한 번만 넘긴다(스로틀 · 뒷날). 디바운스로 바꾸면 계속 오는 동안 영영 안 그린다.
+  - «방에 있음»(inRoom)은 코드(room)와 다른 칸이다 — 시크릿룸은 코드를 안 올린다. room 으로 판정하지 말 것.
+  - 검사: `checks/sim-friends-port.js`(2-1절이 친구 n명 → 평소 1개 · 목록 열면 1 + n 을 센다).
 
 ## friends-api.js — api provider(GET /v1/me/friends · t-w-server)
 - 책임: 내 친구 목록(이름 · 레벨 · 소개 · 사진 · 서로 친구)을 서버에서 한 번 받는다. 실패하면 던진다 — 포트가 옛 길로 넘긴다.

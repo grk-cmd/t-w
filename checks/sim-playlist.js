@@ -76,7 +76,7 @@ const IDS = ['myPlBtn', 'myPlaylistBox', 'myPlHead', 'myPlTitle', 'myPlClose', '
   'myPlNick', 'myPlLv', 'myPlAva', 'myPlHeadAva', 'myPlPubWrap', 'myPlPub', 'myPlHint', 'myPlBioView', 'myPlBioEdit', 'myPlNow'];
 function mkEnv(o){
   o = o || {};
-  const env = { t: 1000000, timers: [], tid: 0, calls: [], toasts: [], store: new Map(Object.entries(o.store || {})), esc: [], prompts: (o.prompts || []).slice(),
+  const env = { refreshed: [], onRefresh: null, t: 1000000, timers: [], tid: 0, calls: [], toasts: [], store: new Map(Object.entries(o.store || {})), esc: [], prompts: (o.prompts || []).slice(),
     titles: o.titles || {}, cards: {}, rand: 0.5, front: [], chipClosed: [], reposition: 0, home: [], friends: o.friends || {}, cb: {}, warns: [] };
   const byId = {};
   const doc = {
@@ -149,6 +149,7 @@ function mkEnv(o){
       getFocusLevel: () => 42, myFocusShow: () => null, starFromRemote: (c) => (c && c.star) ? { cyc: 2, lv: 7, color: c.star } : null,
       lvBadgeClass: (n) => 'lv' + n, lvStarBadgeClass: () => 'lv-star lvx', lvStarStr: (n) => '★' + n, starPaint: () => {},
       myHomeLoaded: () => !!env.homeLoaded, myHomeData: () => env.homeData || null, myHomeFriends: () => env.friends,
+      friendsRefreshPresence: (ids) => { env.refreshed.push(ids.slice().sort().join()); return Promise.resolve().then(() => { if(env.onRefresh) env.onRefresh(); }); },
       openFriendHomeView: (uid, nm) => env.home.push(uid + ' ' + nm),
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
@@ -334,11 +335,17 @@ async function behave(src){
     chk(m.state().view === null && m.state().nowView.uid === 'U9' && m.state().now === 0, '← 내 목록 — 보기만 되돌린다(남의 곡은 계속)');
     m.st.sel = 0; m.grabTo(1);
     chk(m.state().sets[1].items.length === 0, '  내 목록에서는 담기가 아무것도 안 한다(읽기 전용일 때만)');
+    e.onRefresh = () => { e.friends.F2.online = true; e.friends.F1.online = false; };
     e.byId.myPlPeek.fire('contextmenu');
-    const fr = e.byId.myPlFriendPick.children;
+    let fr = e.byId.myPlFriendPick.children;
     chk(fr.length === 2 && fr[0].textContent.indexOf('민서') >= 0, '🌊 우클릭 — 친구 목록(온라인 먼저)');
+    chk(e.refreshed.join('|') === 'F1,F2', '  열 때 친구들의 접속 상태를 한 번 읽어 달라고 한다(친구 목록이 닫혀 있으면 안 듣고 있다)');
+    await flush();
+    fr = e.byId.myPlFriendPick.children;
+    chk(fr.length === 2 && fr[0].textContent.indexOf('가람') >= 0, '  읽고 나면 다시 그린다(새 온라인 순서)');
+    e.onRefresh = null;
     e.plOf = {};
-    fr[1].fire('click'); await flush();
+    fr.find(r => r.textContent.indexOf('가람') >= 0).fire('click'); await flush();
     chk(e.toasts.slice(-1)[0] === '가람 님은 아직 공개한 목록이 없어요', '  목록이 없는 친구는 그렇다고 말한다');
   }
   {
@@ -435,10 +442,10 @@ function wiring(PL, APP, HTML){
   const fnNames = [['toast', 'toast'], ['getMyUserId', 'getMyUserId'], ['getDisplayName', 'getDisplayName'], ['asyncPrompt', 'asyncPrompt'], ['getFocusLevel', 'getFocusLevel'],
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
-    ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable']];
+    ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
   const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 20 && !miss.length, 'deps 20개 — 함수 17은 화살표 · 다시 대입되는 let 셋은 읽는 함수 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 21 && !miss.length, 'deps 21개 — 함수 18은 화살표 · 다시 대입되는 let 셋은 읽는 함수 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
   chk(['_myHomeLoaded', '_myHomeData', '_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeLoaded · _myHomeData · _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];

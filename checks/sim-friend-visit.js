@@ -34,12 +34,12 @@ function mkEl(){
   el.querySelector = (q) => { const k = (q.match(/data-a="(\w+)"/) || [])[1]; if(!k) return null; el._btn = el._btn || {}; return el._btn[k] = el._btn[k] || Object.assign(mkEl(), { k }); };
   return el;
 }
-const env = { toasts:[], started:[], left:0, focused:null, body:mkEl(), friend:null, my:null, inRoom:false };
+const env = { toasts:[], started:[], left:0, focused:null, body:mkEl(), friend:null, my:null, inRoom:false, refreshed:[], onRefresh:null };
 const document = { createElement: () => mkEl(), body: env.body };
 const esc = (s) => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
 const tag = (f) => (f && f.room && String(f.room).indexOf('SCRT-') !== 0) ? String(f.room) : '';
 const FV = V.createFriendVisit({ document, escHtml: esc, toast: (m) => env.toasts.push(m),
-  getFriend: () => env.friend, roomTagOf: tag, myRoom: () => env.my, inRoom: () => env.inRoom,
+  getFriend: () => env.friend, refreshFriend: async (fid) => { env.refreshed.push(fid); if(env.onRefresh) env.onRefresh(); }, roomTagOf: tag, myRoom: () => env.my, inRoom: () => env.inRoom,
   leaveRoom: async () => { env.left++; env.inRoom = false; env.my = null; }, startRoom: (c) => env.started.push(c),
   channelName: (c) => /^PLAY-/.test(c) ? '투게더룸' : /^WORK-/.test(c) ? '워킹룸' : '' });
 const lastBox = () => { const ov = env.body.children[env.body.children.length - 1]; return ov && ov.children[0]; };
@@ -82,12 +82,25 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   box._btn.ok.onclick(); await tick();
   chk(env.started.length === 0 && /방을 나갔어요/.test(env.toasts[0] || ''), '★ 창을 띄운 사이 친구가 옮기거나 나갔으면 — 옛 코드로 안 가고 알림만');
 
+  env.started = []; env.toasts = []; env.refreshed = [];
+  env.friend = { name:'도굴꾼', room:'PLAY-MFEG' };
+  FV.ask('f1'); box = lastBox();
+  env.onRefresh = () => { env.friend = { name:'도굴꾼', room:null }; };   // 목록이 닫혀 있어 몰랐는데 — 누를 때 읽어 보니 나갔다
+  box._btn.ok.onclick(); await tick();
+  chk(env.refreshed.join() === 'f1' && env.started.length === 0 && /방을 나갔어요/.test(env.toasts[0] || ''), '★ [놀러 가기] 를 누를 때 그 친구의 접속 상태만 한 번 읽고 판정한다(목록이 닫혀 있으면 안 듣고 있다)');
+  env.onRefresh = () => { throw new Error('offline'); }; env.toasts = [];
+  env.friend = { name:'도굴꾼', room:'PLAY-MFEG' };
+  FV.ask('f1'); box = lastBox(); box._btn.ok.onclick(); await tick();
+  chk(env.started.join() === 'PLAY-MFEG', '  읽기가 실패하면 지난 값으로 간다');
+  env.onRefresh = null; env.started = [];
+
   env.friend = { name:'비밀', room:'SCRT-ABCD' }; env.toasts = [];
   const n1 = env.body.children.length; FV.ask('f1');
   chk(env.body.children.length === n1 && env.started.length === 0, '시크릿룸 코드는 묻지도 가지도 않는다');
 
   say('── 2. 배선');
   chk(/roomTagOf: \(\.\.\.a\)=>inboxMod\.friendRoomTag\(\.\.\.a\)/.test(APP0) && /friendRoomTag: _friendRoomTag,/.test(MI), '★ 코드는 _friendRoomTag 로만 얻는다(시크릿룸 판정을 복사하지 않음 — myhome-inbox.js 의 그 함수를 inboxMod 로)');
+  chk(/refreshFriend: fid => friendsSubMod\.refreshPresence\(\[fid\]\)/.test(APP0), '★ 그 친구만 한 번 읽기는 friends-sub refreshPresence([그 친구])');
   chk(/leaveRoom: \(\) => doLeaveRoom\(\{ wipeChat: true \}\), startRoom: c => startRoom\(c\)/.test(APP), '나가기 · 들어가기는 기존 문(doLeaveRoom · startRoom)');
   chk(/mh-fpill-code'\+\(friendVisit\?' go" title="클릭하면 놀러 가요':''\)/.test(APP), '코드 칸에 go 표시 · «클릭하면 놀러 가요» — 모듈이 없으면 예전 그대로');
   chk(/visitEl\.addEventListener\('click', e=>\{ e\.stopPropagation\(\); friendVisit\.ask\(fid\); \}\)/.test(APP), '★ 코드 누르기는 줄 선택(click)과 따로 — stopPropagation');
