@@ -2022,6 +2022,9 @@ const sfxMod = TwSfx.createSfx({
 /* (앱 FSD 25번) 이 자리의 본문도 tricks.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🗼 올라타기(탑) · 벤치 좌석 자리 잡기 ═══ */
+/* 탑 바닥 찾기는 room/ride-chain.js(순수) — 올라타기 · 좌석 줄 배치가 서로를 부르지 않고 같이 쓴다. */
+const rideChainMod = TwRideChain.createRideChain({
+});
 /* 본문은 ride-bench.js 로 옮겼다(앱 FSD 30번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const rideBenchMod = TwRideBench.createRideBench({
@@ -2065,6 +2068,7 @@ const rideBenchMod = TwRideBench.createRideBench({
   _rideAwayP: _rideAwayP,
   _rideAwayS: _rideAwayS,
   _rideAxisY: _rideAxisY,
+  _rideBottom: (...a)=>rideChainMod._rideBottom(...a),
   _rideFootOff: _rideFootOff,
   _rideHostSpinY: (...a)=>_rideHostSpinY(...a),
   _rideOff: _rideOff,
