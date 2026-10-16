@@ -567,6 +567,8 @@ PRELOAD.push('deco-parts-visibility.js');
 PRELOAD.push('creator-xform.js');
 /* ride-measure.js — 📏 올라타기 실측(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRideMeasure 를 같이 굴린다. */
 PRELOAD.push('ride-measure.js');
+/* toast.js — 🍞 토스트 · 저장 실패 문구(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createToast 를 같이 굴린다. */
+PRELOAD.push('toast.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

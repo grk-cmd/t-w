@@ -10320,28 +10320,12 @@ let cDeskTemplate=null, cDeskGlbB64=null;   // 생성기 세션의 커스텀 책
 
 
 /* ═══ 🍞 토스트(toast) · 저장 실패 문구 ═══ */
-/* --- toast --- */
-/* 🔐 서버가 거부한 건가, 인터넷이 끊긴 건가 — 관리자 저장 실패 문구를 가른다.
-   [왜 필요한가] 관리자 경로(라이선스 발급·파츠 등록·공지)는 이제 규칙에서 `admins/$uid` 를 본다.
-     권한이 없으면 Firebase 가 PERMISSION_DENIED 로 거부하는데, 지금 코드는 그것도 전부
-     "인터넷 연결을 확인해 주세요"로 안내한다. 그러면 관리자가 연결을 아무리 확인해도 원인을
-     못 찾는다 — **로그인이 안 됐거나 명단에 없다**는 것이 진짜 이유다.
-   ⚠️ 거부를 조용히 넘기지 말 것. 파츠를 등록하고 "됐겠지" 하고 창을 닫으면 그 손해는 나중에 온다. */
-function _saveFailMsg(e, fallback){
-  const s = String((e && (e.code || e.message)) || '');
-  if(/permission[_-]?denied/i.test(s)){
-    return '권한이 없어요 — 관리자 계정으로 로그인했는지 확인해 주세요';
-  }
-  return fallback || '저장에 실패했어요 — 인터넷 연결을 확인해 주세요';
-}
-/* 🍞 두 번째 인자(iconSrc)는 **글자 앞에 붙일 작은 그림**이다 — 뿅망치처럼 이모지가 없는 것 때문에 생겼다.
-   ⚠️ 본문은 계속 textContent 로 넣는다. 여기엔 남이 친 글(닉네임 등)이 섞여 들어오므로
-     innerHTML 로 바꾸면 안 된다. 그림은 별도 <img> 노드로 앞에 끼운다. */
-let toastT=null;function toast(msg, iconSrc, ms){const t=document.getElementById('toast');t.textContent=msg;
-  if(iconSrc){ const im=document.createElement('img'); im.src=iconSrc;
-    im.style.cssText='width:16px;height:16px;vertical-align:-3px;margin-right:5px;'; t.prepend(im); }
-  t.classList.add('on');
-  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),(typeof ms==='number'&&ms>0)?ms:1900);}
+/* 본문은 shared/toast.js 로 옮겼다(구역 떼기 C · w2). toast · _saveFailMsg 는 app.js 곳곳 · 다른 파일(전역 · window.toast)이 그대로 부르므로 같은 이름의 이음 함수를 둔다 — 부르는 줄은 안 바꿨다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const toastMod = TwToast.createToast({
+});
+function _saveFailMsg(...a){ return toastMod._saveFailMsg(...a); }   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
+function toast(...a){ return toastMod.toast(...a); }   // 옛 전역 이름 — 다른 모듈 · window.toast 가 아직 전역으로 부른다(도메인 단계에서 deps 로 바꾸고 걷는다)
 
 /* ============================================================ ANIM */
 const STATES={idle:{label:'평소',color:'#9dba8a'},focus:{label:'활동중',color:'#e0a050'},pet:{label:'쓰다듬',color:'#e89b9b'},sleep:{label:'잠듦',color:'#7fa0c4'},shaking:{label:'흔들림',color:'#d98e73'},dizzy:{label:'어지러움',color:'#c9a560'}};
