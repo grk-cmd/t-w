@@ -21,7 +21,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['myhome-edit.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['myhome-edit.js', 'app.js', 'desk-companion-prototype.html', 'myhome-hooks.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['myhome-edit.js'];
@@ -145,8 +145,10 @@ function mkEnv(opt){
   ctx.document.defaultView = { innerWidth: 1600, innerHeight: 900 };
   ctx.innerWidth = 1600; ctx.innerHeight = 900;
   vm.createContext(ctx);
+  vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });   // 🪝 마이홈 고리판 — 편집 묶음이 만들 때 건다(순환 끊기 8)
   vm.runInContext(MOD, ctx, { filename: 'myhome-edit.js' });
   env.ctx = ctx;
+  env.H = ctx.TwMyHomeHooks; env.K = ctx.TwMyHomeHooks.HOOK;
   env.origRender = () => { env.origRenders++; };
   env.curRender = env.origRender;
   env.mk = () => ctx.TwMyHomeEdit.createMyHomeEdit({
@@ -190,17 +192,21 @@ const flush = () => new Promise(r => setImmediate(r));
 (async () => {
 const sec = async (t, fn) => { say(t); try{ await fn(); }catch(e){ chk(false, '예외 — ' + (e && e.stack || e).toString().split('\n').slice(0, 2).join(' / ')); } };
 
-const HOOKS = ['commitMyHomePage', '_mhOpenColorPopup', '_mhBeginNameEdit', '_mhBgmRefresh', '_mhBgmPlaying', '_mhBgmSetPlaying', '_bgmDestroy', '_mhApplyBg', '_mhApplyTheme', '_mhDsClose'];
+const HOOKS = ['commitMyHomePage', '_mhOpenColorPopup', '_mhBeginNameEdit', '_bgmDestroy', '_mhApplyBg', '_mhApplyTheme', '_mhDsClose'];
+/* 🪝 고리판(myhome-hooks.js)에 거는 이름 — 다른 마이홈 파일 · 설정 패널 · 스티커사진이 부른다. CANCEL_NAME_EDIT 는 입력칸이 열릴 때만 */
+const BOARD = ['COMMIT', 'APPLY_BG', 'APPLY_THEME', 'BGM_REFRESH', 'BGM_PLAYING', 'BGM_SET_PLAYING', 'BGM_DESTROY', 'DS_CLOSE'];
 const RET = ['commit', 'openColorPopup', 'beginNameEdit', 'beginPostTitleEdit', 'bgmRefresh', 'bgmDestroy', 'applyBg', 'applyTheme', 'openDesignStudio', 'presets', 'presetSave', 'presetApply', 'presetRename'];
 
 await sec('── 1. 만들 때', () => {
   const e = mkEnv({ lateConst: true });
   chk(typeof e.ctx.TwMyHomeEdit.createMyHomeEdit === 'function' && Object.keys(e.ctx.TwMyHomeEdit).join() === 'createMyHomeEdit', '싣기만 하면 window.TwMyHomeEdit(createMyHomeEdit) 하나뿐');
-  chk(HOOKS.every(n => e.ctx[n] === undefined) && !Object.keys(e.els).length, '  싣기만 해서는 window 고리도 DOM 도 건드리지 않는다');
+  chk(HOOKS.every(n => e.ctx[n] === undefined) && BOARD.every(k => !e.H.has(e.K[k])) && !Object.keys(e.els).length, '  싣기만 해서는 window 고리 · 고리판도 DOM 도 건드리지 않는다');
   let M = null, err = null; try{ M = e.mk(); }catch(x){ err = x; }
   chk(!!M && !err, '★ 만들 때 USER_NAME_MAX(app.js 에서 한참 뒤 const)를 읽지 않는다 — 값으로 받으면 TDZ 로 앱이 선다' + (err ? ' — ' + err.message : ''));
   chk(RET.every(n => typeof M[n] === 'function') && Object.keys(M).length === RET.length, '반환값 ' + RET.length + '개 — ' + RET.join(' · '));
   chk(HOOKS.every(n => typeof e.ctx[n] === 'function'), 'window 고리 ' + HOOKS.length + '개를 예전 이름 그대로 건다');
+  chk(BOARD.every(k => e.H.has(e.K[k])) && !e.H.has(e.K.CANCEL_NAME_EDIT), '고리판에 ' + BOARD.length + '개를 건다(닉네임 취소는 입력칸이 열릴 때만)');
+  chk(e.H.call(e.K.BGM_PLAYING) === false, '  고리판으로 물으면 같은 묶음이 답한다(처음엔 BGM 이 안 나는 중)');
   chk(e.ctx.commitMyHomePage === M.commit && e.ctx._mhApplyTheme === M.applyTheme && e.ctx._bgmDestroy === M.bgmDestroy && e.ctx._mhOpenColorPopup === M.openColorPopup, '  고리와 반환값은 같은 함수');
   chk(typeof e.compCb.onBgmClosed === 'function' && typeof e.compCb.onBgmMode === 'function', 'BGM 창 닫힘 · 주인 바뀜을 구독한다');
   chk(e.wrapped === 1 && e.curRender !== e.origRender, 'renderMyHomeStickers 를 감싸 다시 대입한다(한 번)');
@@ -323,18 +329,18 @@ await sec('── 5. 닉네임 · 게시글 제목', async () => {
   let inp = e.els.mhMyNameInput;
   chk(!!inp && inp.value === '' && inp.maxLength === 20 && inp.placeholder === '닉네임' && nameEl.style.display === 'none' && e.focused === inp, '★ 편집 — 기본값 «나» 는 빈칸 · 길이 상한은 열 때 읽는다(USER_NAME_MAX) · 이름표 숨김');
   chk(/font-size:15px;font-weight:700;/.test(inp.style.cssText), '  글씨 크기 · 굵기는 이름표를 실측해 따른다');
-  chk(typeof e.ctx._mhCancelNameEdit === 'function', '  밖에서 접는 길(_mhCancelNameEdit)을 건다');
+  chk(e.H.has(e.K.CANCEL_NAME_EDIT), '  밖에서 접는 길(고리판 CANCEL_NAME_EDIT)을 건다');
   M.beginNameEdit();
   chk(row.children.filter(c => c.id === 'mhMyNameInput').length === 1, '  이미 편집 중이면 또 안 연다');
   inp.value = '새이름'; inp.fire('keydown', { key: 'Enter' });
-  chk(e.commitsName.join() === '새이름' && !e.els.mhMyNameInput && nameEl.style.display === '' && e.ctx._mhCancelNameEdit === null && e.visitUI === 1, 'Enter — 저장 · 입력칸 걷고 · 관람 화면 판정에 다시 묻는다');
+  chk(e.commitsName.join() === '새이름' && !e.els.mhMyNameInput && nameEl.style.display === '' && !e.H.has(e.K.CANCEL_NAME_EDIT) && e.visitUI === 1, 'Enter — 저장 · 입력칸 걷고 · 관람 화면 판정에 다시 묻는다');
   e.userName = '민지'; e.els.mhNameEditLink.fire('click', {});
   inp = e.els.mhMyNameInput;
   chk(inp && inp.value === '민지', '「수정」 링크도 같은 편집(정한 이름은 그대로 채움)');
   inp.fire('keydown', { key: 'Escape' });
   chk(e.commitsName.length === 1 && nameEl.textContent === '민지', '  Esc — 저장 안 함');
-  M.beginNameEdit(); e.ctx._mhCancelNameEdit();
-  chk(e.commitsName.length === 1 && !e.els.mhMyNameInput, '  _mhCancelNameEdit — 저장 없이 접힌다');
+  M.beginNameEdit(); e.H.call(e.K.CANCEL_NAME_EDIT);
+  chk(e.commitsName.length === 1 && !e.els.mhMyNameInput, '  CANCEL_NAME_EDIT — 저장 없이 접힌다');
   e.viewing = 'f1'; M.beginNameEdit();
   chk(!e.els.mhMyNameInput, '관람 중이면 안 열린다');
   e.viewing = null; e.ctx._mhPreviewMode = true; M.beginNameEdit(); e.ctx._mhPreviewMode = false;
@@ -363,7 +369,7 @@ await sec('── 6. 🎵 BGM', async () => {
   e.promptAns = ['https://youtu.be/abc ', '  봄노래 ']; e.els.mhBgmSet.fire('click'); await flush(); await flush(); await flush();
   chk(JSON.stringify(e.data.bgm) === '{"url":"https://youtu.be/abc","title":"봄노래"}' && e.saveCount() === 1, '등록 — 주소 · 제목 저장');
   chk(JSON.stringify(e.comp.filter(c => c[0] === 'openBgm')) === '[["openBgm","https://www.youtube.com/watch?v=abc","봄노래"]]', '  새 곡은 바로 연다(watch 주소)');
-  chk(lab.textContent === '봄노래' && play.textContent === '▐▐' && e.ctx._mhBgmPlaying() === true, '  위젯 — 제목 · ▐▐');
+  chk(lab.textContent === '봄노래' && play.textContent === '▐▐' && e.H.call(e.K.BGM_PLAYING) === true, '  위젯 — 제목 · ▐▐');
   play.fire('click');
   chk(e.comp.slice(-1)[0][0] === 'pauseBgm' && play.textContent === '▶', '▐▐ — 창은 두고 일시정지');
   play.fire('click');
@@ -373,11 +379,11 @@ await sec('── 6. 🎵 BGM', async () => {
   play.fire('click');
   chk(e.comp.slice(-1)[0][0] === 'openBgm', '  닫힌 뒤 ▶ — 새로 연다');
   e.compCb.onBgmMode('playlist');
-  chk(e.ctx._mhBgmPlaying() === false, '🎵 플레이리스트가 창을 가져가면 재생 표시를 내린다');
+  chk(e.H.call(e.K.BGM_PLAYING) === false, '🎵 플레이리스트가 창을 가져가면 재생 표시를 내린다');
   M.bgmDestroy();
   chk(e.comp.filter(c => c[0] === 'closeBgm').length === 1, '  그 뒤 마이홈을 닫아도 플레이리스트 창은 안 닫는다');
-  e.ctx._mhBgmSetPlaying(true);
-  chk(play.textContent === '▐▐', '📷 스티커사진이 표시만 맞춘다(_mhBgmSetPlaying)');
+  e.H.call(e.K.BGM_SET_PLAYING, true);
+  chk(play.textContent === '▐▐', '📷 스티커사진이 표시만 맞춘다(BGM_SET_PLAYING)');
   e.compCb.onBgmClosed();
   chk(play.textContent === '▶', '× 로 창이 닫히면 표시도');
   e.promptAns = ['   ']; e.els.mhBgmSet.fire('click'); await flush(); await flush();
@@ -530,8 +536,9 @@ await sec('── 9. app.js 배선', () => {
   chk(!/\bMYHOME_EDIT_OFF\b/.test(APP), '빈 껍데기 MYHOME_EDIT_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   chk(HOOKS.every(n => new RegExp('window\\.' + n + '\\s*=').test(m)), 'window 고리는 모듈이 예전 이름으로 건다(' + HOOKS.length + '개)');
   const used = HOOKS.filter(n => new RegExp('\\b' + n + '\\b').test(code));
-  const wantUsed = ['commitMyHomePage', '_mhBgmRefresh', '_bgmDestroy', '_mhApplyBg', '_mhApplyTheme', '_mhDsClose'];
-  chk(wantUsed.every(n => used.includes(n)), '  app.js 는 그 이름으로 부른다(' + used.join(' · ') + ' — _mhBgmPlaying · _mhBgmSetPlaying 은 purikura-ui.js)');
+  const wantUsed = ['commitMyHomePage', '_bgmDestroy', '_mhDsClose'];
+  chk(wantUsed.every(n => used.includes(n)), '  app.js 는 그 이름으로 부른다(' + used.join(' · ') + ' — 다른 마이홈 파일 · 스티커사진은 고리판으로)');
+  chk(BOARD.concat('CANCEL_NAME_EDIT').every(k => new RegExp('mhHooks\\.on\\(mhHooks\\.HOOK\\.' + k + '\\b').test(m)) && /^const mhHooks = TwMyHomeHooks;/m.test(MOD), '  고리판에는 mhHooks.on(mhHooks.HOOK.이름, …) 으로 건다');
   const iS = HTML.indexOf('<script src="parts/myhome/myhome-sticker.js"></script>'), iE = HTML.indexOf('<script src="parts/myhome/myhome-edit.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iS > 0 && iE > iS && iA > iE, 'html — myhome-edit.js 를 myhome-sticker.js 뒤 · app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwMyHomeEdit') && !/window\.MyHomeEdit\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');

@@ -22,8 +22,8 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 const HOOKS = {
   /* 🏠 마이홈 */
   _mhApplyBg: 'myhome/myhome-edit.js', _mhApplyTheme: 'myhome/myhome-edit.js', commitMyHomePage: 'myhome/myhome-edit.js',
-  _bgmDestroy: 'myhome/myhome-edit.js', _mhDsClose: 'myhome/myhome-edit.js', _mhBgmPlaying: 'myhome/myhome-edit.js',
-  _mhBgmSetPlaying: 'myhome/myhome-edit.js', _mhBgmRefresh: 'myhome/myhome-edit.js',
+  _bgmDestroy: 'myhome/myhome-edit.js', _mhDsClose: 'myhome/myhome-edit.js',
+  /* _mhBgmPlaying · _mhBgmSetPlaying · _mhBgmRefresh 는 window 고리가 아니라 마이홈 고리판(myhome-hooks.js — sim-myhome-hooks.js)에 건다(순환 끊기 8) */
   _mhSyncBgmBounds: 'myhome/myhome-ui.js', openMyHome: 'myhome/myhome-ui.js',
   _mhFitWindow: 'myhome/myhome-sticker-layout.js',
   _mhGbStartWatch: 'myhome/guestbook.js', _mhGbStopWatch: 'myhome/guestbook.js', _mhGbRefreshBadge: 'myhome/guestbook.js',

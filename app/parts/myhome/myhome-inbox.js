@@ -37,6 +37,7 @@ const _inboxBroadcast = deps.inboxBroadcast;         // 읽는 함수 — 공용
 const INBOX_BC_READ_KEY = deps.INBOX_BC_READ_KEY;    // 공용 공지 읽음 id 집합(로컬) — 로그아웃 지움 목록이 같이 쓴다
 const isAdmin = deps.isAdmin;                        // 읽는 함수 — app.js 의 let(로그인할 때 다시 대입 · 이 줄보다 뒤에 선언)
 const mhScheduler = deps.mhScheduler;                // 🔔 벨 뱃지 — 만드는 줄보다 앞에서 만들어지는 const
+const mhHooks = TwMyHomeHooks;                       // 🪝 마이홈 고리판(myhome-hooks.js) — 테마 다시 칠하기는 편집 묶음이 건다
 // 👥 친구 목록
 const _myHomeFriends = deps.myHomeFriends;           // 읽는 함수 — 친구 목록 캐시(구독마다 다시 대입)
 const FRIEND_MAX = deps.FRIEND_MAX;                  // 👥 친구 상한(상수)
@@ -163,7 +164,7 @@ function _mhFriendSearchToggle(on){
 
 function renderMyHomeFriendList(){
   // 👑 테마 재적용 — 이 함수가 목록 DOM을 새로 만들기 때문에, 렌더가 끝난 직후 친구 이름 글씨색 등을 다시 칠함
-  queueMicrotask(()=>{ window._mhApplyTheme(); });
+  queueMicrotask(()=>{ mhHooks.call(mhHooks.HOOK.APPLY_THEME); });
   const list=document.getElementById('mhFriendList');
   if(!list) return;
   const ids=Object.keys(_myHomeFriends());

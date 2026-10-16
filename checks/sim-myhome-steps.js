@@ -75,14 +75,14 @@ say('· §2 닫기 — 저장이 정리에 인질로 잡히지 않는가');
    경위 설명으로 언급하고 있어서, 안 지우면 그 주석을 '호출 자리'로 착각해 순서가 뒤집혀 보인다
    (이 검사를 처음 돌렸을 때 실제로 그렇게 잡혔다). */
 const CLOSE_CODE = CLOSE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-const iSave  = CLOSE_CODE.indexOf('commitMyHomePage');
+const iSave  = CLOSE_CODE.indexOf('HOOK.COMMIT');   // 💾 자동 저장 — 마이홈 고리판으로 부른다(순환 끊기 8)
 const iMl    = CLOSE_CODE.indexOf('_mallangOnClose');
 const iOff   = CLOSE_CODE.indexOf("overlay.classList.remove('on')");
 chk(iSave > -1 && iMl > -1 && iSave < iMl,
     '★ 마지막 저장이 말랑이 정리보다 **먼저**다 — 정리가 던져도 편집분이 남는다');
 chk(iOff > -1 && iOff < iMl,
     '★ 창 닫기도 정리보다 먼저다 — 정리가 던져도 창이 남지 않는다');
-chk(/_step\([\s\S]{0,40}commitMyHomePage/.test(CLOSE), '저장도 감싸져 있다 — 저장 실패가 창을 못 닫게 하지 않는다');
+chk(/_step\([\s\S]{0,60}HOOK\.COMMIT\b/.test(CLOSE), '저장도 감싸져 있다 — 저장 실패가 창을 못 닫게 하지 않는다');
 chk(/_step\([\s\S]{0,40}_mallangOnClose/.test(CLOSE), '말랑이 정리가 감싸져 있다');
 chk(/console\.error\([^)]*마이홈 닫기/.test(CLOSE), '죽은 칸을 콘솔에 남긴다');
 
