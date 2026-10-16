@@ -544,6 +544,15 @@ function _lockChildZoom(win){
   wc.on('zoom-changed', (event) => { event.preventDefault(); try{ wc.setZoomFactor(1); }catch(_){} });
   wc.on('before-input-event', (event, input) => { if(_zoomKeyOp(input)) event.preventDefault(); });
 }
+/* 바로 끝내기 — 네이티브 훅 · 타이머를 먼저 내리고 → 창 destroy → app.exit(0). 끝내는 길은 이 함수 하나로 모은다(순서를 한 곳에서).
+   ⚠️ 저장하지 않는다(설정은 바뀔 때마다 이미 쓴다 · 쓰기를 넣으면 느려져 종료를 막는다). quit() 이 아니라 exit(0) — 창을 하나씩 닫는 시간이 곧 «종료를 막는 앱»이다. */
+function _exitNow(){
+  try{ sysinput.stopGlobalHooks(); }catch(_){}
+  try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
+  try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
+  try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
+  try{ app.exit(0); }catch(_){}
+}
 let _saveFailLogged = false;
 function saveSettings(){
   if(!SETTINGS_PATH) return false;
@@ -3839,13 +3848,7 @@ function createWindow() {
          (app.quit()은 창을 하나씩 닫으며 이벤트를 도는데, 그 시간이 곧 '종료를 막는 앱'이 된다)
      ⚠️ 이 경로에서는 저장을 하지 않는다. 설정은 바뀔 때마다 이미 파일에 쓰고 있으므로
        여기서 추가로 쓸 것이 없고, 쓰기를 넣으면 다시 같은 문제(느려서 종료를 막음)가 된다. */
-  app.on('session-end', () => {
-    try{ sysinput.stopGlobalHooks(); }catch(_){}
-    try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
-    try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
-    try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
-    try{ app.exit(0); }catch(_){}
-  });
+  app.on('session-end', () => { _exitNow(); });
 }
 
 // 앱 중복 실행 방지 — 이미 하나 켜져있는데 또 실행하면(바탕화면 아이콘 재클릭 등),
