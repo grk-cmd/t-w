@@ -4,6 +4,8 @@
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 18줄 —
      _charBoundsLatest · _penAppFocused · _twMoveSeenAt · drag · focusGateSleep · lastActivity · lastAnyInput · moveMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setTwMoveSeenAt · setLastActivity · setLastAnyInput(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
+   ★ 클릭 통과로 바꿀지(mousemove · 재판정 · 고착 회복 사다리 · pointerdown)의 판단은 click-through-policy.js(deps.clickPolicy)가 한다 —
+     여기서는 사실을 모아 부르고, 결정대로 IPC · 타이머 · 로그만 한다. 같은 조건을 여기 다시 쓰지 않는다.
    ★ app.js 함수 6개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: 없음 — 만들 때 건다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
@@ -22,6 +24,7 @@ const activity = deps.activity;
 const anyInput = deps.anyInput;
 const backToLauncher = deps.backToLauncher;
 const camera = deps.camera;
+const clickPolicy = deps.clickPolicy;   // 클릭 통과 판단 규칙(click-through-policy.js)
 const desktopMode = deps.desktopMode;
 const drag = deps.drag;   // 읽는 함수
 const focusGateSleep = deps.focusGateSleep;   // 읽는 함수
@@ -146,7 +149,7 @@ if(desktopMode){
            mousemove 가 없는 것이 정상이다 — 그걸 «통로가 죽었다» 로 읽어 1.5초마다 kick3 를 반복한 것이
            «여백에 커서를 두면 뒤의 크롬이 스크롤이 안 된다» 의 정체였다(main.js _onGlobalWheel 주석에 로그 근거).
            구버전 main 은 이 필드를 안 보내므로 undefined = 예전처럼 탄다. */
-      if(window.__mouseKick && !(state && state.wheel === true)) try{ window.__mouseKick(state && state.offOverlay); }catch(_){}
+      if(window.__mouseKick && clickPolicy.clickMayKick(state)) try{ window.__mouseKick(state && state.offOverlay); }catch(_){}
       anyInput();   // 자동 자리비움 판정용 — 어떤 앱을 쓰든 입력이 있었다는 사실만 기록
       if(!focusGateSleep()){
         activity();
@@ -461,36 +464,9 @@ if(desktopMode){
       companion.setIgnoreMouse(v);
     }
 
-    /* 🚑 클릭 고착 자동 회복 — **유령 상태에서 스스로 빠져나온다.**
-
-       [제보] "처음엔 괜찮은데 작업하다 보면 투게더워킹이 전혀 안 눌리고 뒤 창만 눌린다.
-              캐릭터 선택·채팅·상태칩 전부. 재설치·업데이트해도 그대로."
-       [왜 재설치가 안 먹히나] 파일 문제가 아니라 **실행 중에 생기는 상태 고착**이라서다.
-              앱을 껐다 켜는 것 말고는 빠져나올 길이 없었다.
-
-       [무엇이 막혀 있었나] 통과(무시) 상태에서 다시 클릭을 받으려면 `mousemove` 가 와야 하는데,
-              그게 오는 이유는 main 이 forward 를 켜 뒀기 때문이다. 그 forward 가 끊기면
-              **판정 자체가 한 번도 안 돌아가고**, 렌더러는 영원히 통과 상태로 남는다.
-              이 파일 안의 어떤 이벤트로도 복구할 수 없다 — 클릭은 뒤 창으로 새고,
-              mousemove 는 안 오니까. 진단을 콘솔에 노출해도 소용없다(창이 투명해 콘솔도 못 연다).
-
-       [살아남는 통로가 하나 있다] `companion.onGlobalClick` 은 OS 전역 훅이라 **통과 중에도 계속
-              들어온다.** 이걸 "심장이 뛰는지" 확인하는 신호로 쓴다.
-
-       ⚠️ **main.js 를 확인한 뒤 정정.** main 의 `_forwardFor()` 가 "통과 중에는 forward 를 절대
-         끄지 않는다"를 보장하므로, forward 가 끊겨 mousemove 가 안 오는 상황은 **원래 성립하지
-         않는다.** 즉 이 장치는 평소엔 한 번도 발동하지 않는 마지막 그물이다(발동하면 그 자체가
-         main 쪽 이상 신호다). 유령의 실제 원인은 따로 있었다 — `drag` 플래그가 남아 판정이
-         멈추던 것이고, 그건 pointerup 의 try/finally 와 mousemove 의 조건 완화로 닫았다.
-
-       ⚠️ **예전 워치독의 실수를 반복하지 않는다.** 그건 '통과를 임의로 해제'해서
-         "다른 프로그램 쓰는데 투게더워킹이 튀어나온다"는 더 나쁜 제보를 낳았다(아래 [제거됨] 주석).
-         그래서 단계를 나눴다:
-           1·2단계 — **통과를 유지한 채** setIgnoreMouse(true) 를 다시 보내 main 의 forward 만 재무장.
-                      클릭을 가로채지 않으므로 오작동해도 사용자가 잃는 것이 **전혀 없다.**
-           3단계   — 1·2단계로도 안 살아나면 그때만 잠깐(0.8초) 클릭을 받아 본다.
-                      그 사이 mousemove 가 오면 정상 판정이 이어받고, 안 오면 스스로 통과로 되돌린다.
-                      즉 최악의 대가가 "0.8초 동안 클릭 한 번이 앱으로 갈 수 있음"으로 묶인다. */
+    /* 🚑 클릭 고착 자동 회복 — 통과 중 forward mousemove 가 끊기면 판정이 한 번도 안 돌아 영원히 통과로 남는다.
+       전역 클릭 훅(onGlobalClick)은 통과 중에도 오므로 거기서 사다리를 한 칸씩 올린다. 판단 규칙은 click-through-policy.js kickStep.
+       ⚠️ 통과를 임의로 풀지 않는다(예전 워치독 사고) — 1·2단계는 통과를 유지한 채 재무장, 3단계만 잠깐 받아 본다. */
     let _lastMoveSeen = 0;      // mousemove 가 마지막으로 도착한 시각 (= forward 생존 신호)
     let _kickStage    = 0;      // 연속 몇 번째 구조 시도인가 (mousemove 가 오면 0으로 리셋)
     let _lastKickAt   = 0;
@@ -502,29 +478,8 @@ if(desktopMode){
       _kickStage = 0;
     }
 
-    /* 🚑 **재판정 수신은 mousemove 가 아니다.** — 이 구분이 없어서 앱이 통째로 먹통이 됐다.
-
-       [사고] main 의 유령 감시(_guardGhostPassthrough)는 "커서가 캐릭터 위인데 통과 중"을 보면
-         3초마다 penHitTest 로 재판정을 요청한다. 그 수신부가 예전에는 _noteChannelAlive() 를
-         불렀다 — 즉 **구조하러 온 것을 '정상'으로 기록**했다. 그러면 아래 __mouseKick 의 게이트
-         (`mousemove 가 3000ms 이상 없을 것`)가 3초마다 되감기고 _kickStage 도 0 으로 리셋되어,
-         **실제로 클릭받기를 되살리는 3단계에 영영 도달하지 못한다.**
-         제보 로그가 그 모양 그대로였다 — 2002 → 5008 → 8019 → 11039 → 14042ms, 정확히 3초 간격,
-         14초 동안 미복구. 제보 문구는 "프로그램 자체가 먹통이 되어버립니다".
-         두 안전장치가 서로를 무력화하고 있었다.
-
-       [그래도 통째로 뺄 수는 없다] 원래 이 호출이 있던 이유는 **헛구조 방지**다.
-         펜 앱(클립스튜디오·SAI 등)이 활성이면 forward 가 꺼져 있어 mousemove 가 안 오는 것이
-         **정상**이다. 그 상태에서 사다리가 3단계까지 올라가면 그림 그리는 중에 0.8초간 클릭을
-         가로챈다. 제보 로그에 sai 26건·클립스튜디오 3건이 있는, 실제로 일어나는 상황이다.
-
-       [해법] 두 사실을 분리한다.
-         ・_lastMoveSeen — mousemove 전용. "forward 가 살아 있다"
-         ・_lastPokeAt   — 재판정 수신. "main 이 좌표를 보내줬다"
-         사다리는 _lastMoveSeen 만 본다. 재판정은 **펜 앱일 때만** 정상 통로로 인정한다
-         (그 표식은 main 이 페이로드의 pen 필드로 실어 보낸다).
-       ★ _twMoveSeenAt(main 하트비트)은 여기서도 갱신한다 — 그건 "렌더러가 입력을 처리하고 있는가"라서
-         재판정 수신이 실제로 증거가 된다. ⓕ(_guardStaleCapture)의 동작을 바꾸지 않으려는 것이기도 하다. */
+    /* 재판정 수신은 mousemove 가 아니다 — 예전에 _noteChannelAlive() 로 기록해 main 유령 찌르기(3초)가 사다리를 눌러 앉혔다.
+       펜 앱 재판정(pen 표식)만 헛구조 방지용 생존 신호로 친다(kickStep). main 하트비트(_twMoveSeenAt)는 여기서도 갱신한다. */
     let _lastPokeAt = 0, _lastPokePen = false;
     function _notePoke(isPenApp){
       _lastPokeAt  = performance.now();
@@ -532,84 +487,34 @@ if(desktopMode){
       setTwMoveSeenAt(Date.now());        // main 하트비트만 갱신 — _lastMoveSeen·_kickStage 는 건드리지 않는다
     }
 
-    /* ✋ **펜 앱이 앞에 있는 동안에는 이 사다리를 아예 돌리지 않는다.** — 반복 제보 대응(2026-08-26)
-
-       [제보] "클립스튜디오로 그리는데 투게더워킹을 누르지도 않았는데 자꾸 선택된다.
-              선을 긋다 보면 앱이 선택되면서 클튜 인식이 멈추고, 작업표시줄에서 클튜를 다시 눌러야 한다."
-              같은 제보가 **네 번째**다.
-
-       [왜 지금까지 안 잡혔나] 아래 _lastPokePen 게이트가 이걸 막으라고 있는 것인데, **재료가 안 온다.**
-         그 게이트는 "main 이 penHitTest 로 찔러줬는가"를 보는데, main 의 _checkCursorNearChar 는
-         `near !== _penMouseNearChar` — 즉 **캐릭터 반경 안팎을 넘나드는 순간에만** 보낸다.
-         그림을 그리는 동안 커서는 캔버스에 붙어 있어 그 경계를 넘지 않는다 → 재판정이 한 번도 안 온다
-         → _lastPokeAt 이 늙는다 → 게이트가 열린다.
-         (_guardGhostPassthrough 도 '커서가 캐릭터 반경 안'일 때만 찌르므로 역시 안 온다.)
-
-       [그래서 무슨 일이 벌어졌나] 이 사다리는 **전역 클릭 훅**에서 불린다(펜 탭 한 번 = 한 호출).
-         펜 앱이 앞에 있으면 forward mousemove 가 끊기는 상류 버그가 있어서(electron#33281,
-         main.js ⓕ 주석) _lastMoveSeen 도 같이 늙는다. 결국 두 게이트가 모두 열려
-           탭1 → 1단계(재무장) · 탭2 → 2단계(재무장) · **탭3 → 3단계 = _sendIgnore(false)**
-         가 되고, 그 0.8초 동안 **화면 전체를 덮는 투명 창이 클릭을 받는 상태**가 된다.
-         다음 펜 다운이 그 창에 꽂히고 → Windows 는 클릭받은 창을 활성화하므로
-         **클립스튜디오가 비활성화되고 획이 끊긴다.** 제보 문구 그대로다.
-         그 뒤 우리 창이 포커스를 얻으면 (forward 가 아닌) 진짜 mousemove 가 들어와 _kickStage 가
-         0 으로 리셋되므로, 사다리가 처음부터 다시 올라간다 — **그리는 내내 반복된다.**
-
-       [왜 '건너뛰기'가 안전한가] 3단계가 없어도 펜 앱에는 **전용 복구 통로가 이미 있다.**
-         main 의 커서 감시(_checkCursorNearChar)가 펜 앱일 때만 50ms 로 돌면서, 커서가 캐릭터
-         반경에 들어오는 순간 penHitTest 로 정밀 재판정을 시킨다 — mousemove 없이 동작한다.
-         즉 펜 앱에서 진짜 유령이 생겨도 캐릭터 위로 커서를 옮기면 살아난다.
-         반대로 3단계는 **그리는 도중 남의 창 포커스를 뺏는** 유일한 자리다. 비대칭이 크다.
-       ⚠️ 1·2단계(재무장)까지 막는 이유: 통과 중(_ignoreSent===true)에는 main 의 _forwardFor() 가
-         forward:true 를 이미 보장하므로 재무장은 얻는 게 없고, setIgnoreMouseEvents 반복 호출은
-         z-order·합성을 흔들어 영상 깜빡임 쪽 사안을 건드린다(핸드오프4 §4-2).
-       ⚠️ 이 줄을 지우려면 먼저 main 이 **펜 앱 활성 중 주기적으로** penHitTest 를 보내도록
-         고쳐야 한다. 그 전에 지우면 이 제보가 다섯 번째로 돌아온다.
-         (sim-pen-kick-ladder.js 가 이 자리를 지킨다) */
-    /* 📺 **오버레이가 없는 모니터에서는 이 사다리를 돌리지 않는다.** — 제보 로그(2026-08-27)
-       [무엇이 났나] 발동 조건이 "mousemove 가 3000ms 이상 없을 것" 인데, Electron 의 forward 는
-         커서가 창 클라이언트 사각형 안일 때만 mousemove 를 보낸다(MouseHookProc 의 PtInRect).
-         ⇒ 듀얼 모니터에서 다른 화면으로 커서를 옮기면 **가만히 있어도 조건이 항상 참**이 된다.
-       [무슨 일이 벌어졌나] 그 화면에서 다른 앱(카톡)을 클릭할 때마다 사다리가 올라갔고,
-         3단계에서 `_sendIgnore(false)` 가 0.8초간 클릭을 받게 만든다. 그 창은 **다른 모니터에
-         떠 있는 전체화면 투명 오버레이**라, 그 0.8초 안의 클릭이 그쪽으로 새면 쓰던 앱이 죽는다.
-         실측: 08:27:12~56 의 44초에 kick3 10회, 커서 x 는 전부 3421~3642(오버레이는 폭 2560).
-       [왜 건너뛰어도 안전한가] 커서가 오버레이 밖에 있는 동안에는 그 창에 클릭이 들어갈 수
-         없으므로 고착이 성립하지도 않는다. 커서가 돌아오면 forward 가 되살아나 정상 판정이 이어받고,
-         그래도 굳어 있으면 그때 사다리가 정상적으로 돈다.
-       ⚠️ 구버전 main 은 이 필드를 안 보낸다 — undefined 면 예전처럼 동작한다(막지 않는다). */
+    /* ⚠️ 펜 앱 건너뛰기를 지우려면 먼저 main 이 펜 앱 활성 중 주기적으로 penHitTest 를 보내게 고칠 것 — 그리는 중 포커스 뺏김 제보가 돌아온다.
+       구버전 main 은 offOverlay 를 안 보낸다 — undefined 면 예전처럼 돈다. */
     let _penSkipLoggedAt = 0, _offSkipLoggedAt = 0;
     window.__mouseKick = function(offOverlay){
-      // 이미 클릭을 받는 상태면 고착이 아니다 — 아무것도 하지 않는다.
-      if(_ignoreSent !== true) return;
       const now = performance.now();
-      if(offOverlay === true){
+      const k = clickPolicy.kickStep({ ignoreSent: _ignoreSent, offOverlay, penApp: _penAppFocused(), now,
+        lastKickAt: _lastKickAt, lastMoveSeen: _lastMoveSeen, lastPokePen: _lastPokePen, lastPokeAt: _lastPokeAt, stage: _kickStage });
+      if(k.act === 'skip-off'){
         if(now - _offSkipLoggedAt > 10000){
           _offSkipLoggedAt = now;
           console.warn('[클릭통과] 커서가 오버레이 밖(다른 모니터) — 고착 회복 사다리를 건너뛴다');
         }
         return;
       }
-      if(_penAppFocused()){
+      if(k.act === 'skip-pen'){
         if(now - _penSkipLoggedAt > 10000){
           _penSkipLoggedAt = now;
           console.warn('[클릭통과] 펜 앱이 활성 — 고착 회복 사다리를 건너뛴다(그리는 중 포커스 뺏김 방지)');
         }
         return;
       }
-      if(now - _lastKickAt < 1500) return;                 // 연타 방지
-      if(_lastMoveSeen && now - _lastMoveSeen < 3000) return;   // 통로 살아 있음 → 정상
-      /* 펜 앱은 forward 가 꺼져 있어 mousemove 가 안 오는 것이 정상이고, 그때는 main 의 재판정이
-         유일한 정상 통로다 — 그것이 살아 있으면 고착이 아니다(헛구조 방지, _notePoke 주석).
-         ⚠️ 펜 앱이 **아닐 때는** 재판정을 생존 신호로 치지 않는다. 그게 이 사고의 자리였다. */
-      if(_lastPokePen && _lastPokeAt && now - _lastPokeAt < 3000) return;
+      if(k.act === 'none') return;
       _lastKickAt = now;
-      _kickStage++;
+      _kickStage = k.stage;
 
-      if(_kickStage <= 2){
-        /* 1·2단계 — 통과는 그대로 두고 main 에 같은 값을 한 번 더 보낸다.
-           setIgnoreMouse(true) 가 forward 를 다시 켜 주므로 mousemove 가 되살아난다.
-           ★ _sendIgnore 는 같은 값이면 안 보내므로, 보낸 기록을 비워 강제로 재전송한다. */
+      if(k.act === 'rearm'){
+        /* 1·2단계 — 통과는 그대로 두고 같은 값을 한 번 더 보내 forward 를 다시 켠다.
+           ★ _sendIgnore 는 같은 값이면 안 보내므로 보낸 기록을 비워 강제로 재전송한다. */
         _ignoreSent = null; _ignoring = null;
         _sendIgnore(true);
         console.warn('[클릭통과] mousemove 가 ' + Math.round(now - (_lastMoveSeen||0)) +
@@ -617,24 +522,18 @@ if(desktopMode){
         return;
       }
 
-      /* 3단계 — 여기까지 왔으면 재무장으로 안 되는 고착이다. 잠깐 클릭을 받아 본다.
-         받는 동안 mousemove 가 한 번이라도 오면 아래 타이머가 손을 떼고 정상 판정에 넘긴다. */
+      /* 3단계 — 잠깐 클릭을 받아 본다. 그 사이 mousemove 가 오면 정상 판정이 이어받고, 안 오면 통과로 되돌린다.
+         토스트는 띄우지 않는다(사용자가 할 일이 없는 알림) — 흔적은 console.warn 으로. */
       const before = _lastMoveSeen;
       _ignoring = null;
       _sendIgnore(false, 'kick3');   // 🩺 사다리 3단계 — 커서 위치와 무관한 '눈 감고' 전환이다
-      /* 🔇 토스트는 띄우지 않는다.
-         [왜 뺐나] 이건 **사용자가 할 일이 없는 알림**이다. 자동 회복이 이미 끝난 뒤에 뜨고,
-           읽어도 취할 행동이 없으며, 고착이 잦은 환경에서는 같은 문구가 반복해서 뜬다.
-           게다가 3단계는 0.8초 뒤 스스로 되돌릴 수도 있어서, 실제로는 아무것도 안 바뀐 채
-           "되돌렸어요"만 남는 경우가 생긴다 — 그게 오히려 혼란을 준다.
-         ★ 진단 흔적은 아래 console.warn 으로 남는다. 어느 단계에서 듣는지 볼 때는 그쪽을 본다. */
       console.warn('[클릭통과] 재무장 실패 — 0.8초간 클릭 받기로 전환해 확인');
       if(_probeTimer) clearTimeout(_probeTimer);
       _probeTimer = setTimeout(()=>{
         _probeTimer = null;
         if(_lastMoveSeen !== before) return;   // 살아났다 — 정상 판정이 이어받는다
         _sendIgnore(true);                     // 여전히 죽어 있다 — 클릭을 가로채지 않도록 되돌린다
-      }, 800);
+      }, clickPolicy.KICK_PROBE_MS);
     };
 
     /* 🔎 콘솔 진단 — 실행 화면에서는 창이 투명해 열기 어렵지만, 런처/생성기 화면에서는 쓸 수 있다.
@@ -662,76 +561,38 @@ if(desktopMode){
       return '클릭 받기로 되돌렸습니다 — 마우스를 캐릭터 위로 움직여 보세요';
     };
     function _updateIgnore(cx, cy){
-      const shouldIgnore = !_pointHitsInteractive(cx, cy);
-      if(!shouldIgnore){
-        /* 🚫 **여기서 _uiHot() 을 부르지 않는다.** 예전엔 "곧 만질 자리이니 미리 상한을 푼다"고
-             한 줄 있었는데, 그것이 영상 깜빡임 제보의 원인이었다(2026-08).
-           [왜 나빴나] 이 함수는 **다른 프로그램을 쓰는 동안에도 계속 돈다.** forward:true 라
-             통과 중에도 mousemove 가 들어오고, 그때 스로틀은 10ms 라 초당 100번까지 판정한다.
-             그리고 참을 돌려주는 자리가 캐릭터만이 아니다 — #myStatusChip 은 실행 중 늘 떠 있고
-             캐릭터는 #scene{right:0;bottom:0} 로 **우측 하단 고정**이라 작업표시줄·트레이·영상
-             컨트롤과 자리가 겹친다. 즉 만질 의도가 전혀 없는 이동에도 1.5초 창이 열렸다.
-           [무엇이 보였나] 상한이 20fps ↔ 최대 를 1.5초 주기로 오르내리면, 전체화면 투명 오버레이가
-             GPU 합성 표면을 잡는 빈도가 그 주기로 바뀐다. 뒤에서 재생 중인 영상이 그때마다 다시
-             합성돼 **깜빡깜빡**으로 보인다. 계속 60fps 로 도는 것보다 **오르내리는 것이 더 나쁘다.**
-           ★ 원래 고치려던 제보("다른 창 띄워 두고 캐릭터를 누르면 버벅인다")는 그대로 해결돼 있다 —
-             canvas pointerdown 의 _uiHot(3000) 과 드래그 예외(_frameCapped)가 그 몫이다.
-             잃는 것은 "누르기 직전의 hover 가 20fps" 뿐이고, 누르는 순간 3초가 열린다.
-           ⚠️ 반응이 굼떠 보인다고 이 줄을 되살리지 말 것. 그러면 깜빡임이 그대로 돌아온다.
-             먼저 UI_HOT_MS 나 FrameBudget.FPS_UNFOCUSED(frame-budget.js) 를 손보고, 그래도 부족하면 "캐릭터 레이캐스트에
-             맞았을 때만 · 짧은 창으로" 여는 식으로 **좁혀서** 다시 뚫을 것.
-             (sim-unfocused-fps.js 검사 8 이 이 자리를 지킨다) */
-        // ★ "클릭을 받는 상태로 전환"은 지연 없이 즉시 적용.
-        //   예전엔 여기에도 150ms 디바운스가 걸려 있어서, 다른 프로그램(특히 클립스튜디오 같은 펜 앱)에서
-        //   작업하다가 캐릭터로 커서를 옮겨 바로 클릭하면 그 지연 안에 클릭이 뒤 프로그램으로 새버렸음.
-        //   ※ 매번 불려도 _sendIgnore가 같은 값이면 IPC를 안 보낸다. 대신 '통과 예약'은 항상 취소되므로
-        //     캐릭터 위에 커서가 있는 동안 통과로 넘어가는 일이 없다.
+      const h = clickPolicy.hitStep({ hit: _pointHitsInteractive(cx, cy), ignoring: _ignoring });
+      if(h === 'receive'){
+        /* 🚫 여기서 _uiHot() 을 부르지 않는다 — 통과 중에도 초당 100번 돌아 상한이 오르내리면 뒤 영상이 깜빡인다.
+           반응이 굼떠 보이면 UI_HOT_MS · FrameBudget.FPS_UNFOCUSED 부터 손볼 것(sim-unfocused-fps.js 검사 8).
+           ★ 받기로는 지연 없이 즉시 — 늦추면 캐릭터로 옮겨 바로 누른 클릭이 뒤 프로그램으로 샌다. */
         _ignoring = false;
         _sendIgnore(false, _hitWhy || 'hit?');
         return;
       }
-      if(_ignoring !== true){
-        // 통과 상태로 되돌아갈 때만 디바운스 — 경계를 스치듯 지날 때 IPC가 연달아 불리는 것 방지.
+      if(h === 'pass-later'){
+        // 통과로 돌아갈 때만 늦춘다 — 경계를 스치듯 지날 때 IPC 가 연달아 불리지 않게.
         _ignoring = true;
         if(_ignoreDebounce) clearTimeout(_ignoreDebounce);
-        _ignoreDebounce = setTimeout(()=>{ _ignoreDebounce = null; _sendIgnore(true); }, 150);
+        _ignoreDebounce = setTimeout(()=>{ _ignoreDebounce = null; _sendIgnore(true); }, clickPolicy.PASS_DEBOUNCE_MS);
       }
     }
-
-    // 끄는 중이고 main 도 클릭을 받는 중이면 판정을 건너뛴다 — 캐릭터 밖으로 나가도 통과로 바꾸면 끌기가 끊긴다.
-    // ⚠️ main 이 이미 통과(_ignoreSent!==false)면 끌기가 성립할 수 없으니 남은 drag 플래그로 보고 판정한다.
-    function _holdForDrag(){ return !!drag() && _ignoreSent === false; }
 
     // forward:true 덕분에 무시 중에도 mousemove는 계속 들어옴. 매 프레임 raycast는 부담이라 살짝 throttle.
     let _lastCheck = 0;
     window.addEventListener('mousemove', e=>{
-      /* 🚑 진단·회복용 — 스로틀·드래그·moveMode 어떤 분기로 빠지든 **도착 사실 자체**를 먼저 남긴다.
-         이 값이 안 갱신되는 것이 곧 "forward 가 죽었다"는 신호이고, __mouseKick 의 판단 근거다. */
+      /* 🚑 어느 분기로 빠지든 도착 사실을 먼저 남긴다 — 이 값이 안 갱신되는 것이 «forward 가 죽었다» 이고 사다리의 근거다. */
       _noteChannelAlive();
-      // ★ "프로그램 이동" 중엔 클릭(위치 확정)이 절대 씹히면 안 되므로 스로틀·디바운스를 건너뛰고 즉시 무시 해제.
-      //   기존엔 40ms 스로틀 + 150ms 디바운스가 겹쳐 있어서, 화면 가장자리/작업표시줄 근처처럼 원래 "클릭 통과"
-      //   상태였던 지점에서 이동 후 곧바로 좌클릭하면 그 지연 시간 안에 클릭이 뒤 창(작업표시줄 등)으로 새버렸음.
-      if(moveMode()){
-        if(_ignoring!==false){ _ignoring=false; _sendIgnore(false, 'moveMode'); }
-        return;
-      }
       const now = performance.now();
-      // 현재 "통과(무시)" 상태일 때는 캐릭터로 커서가 들어오는 첫 순간을 놓치면 클릭이 뒤 프로그램으로
-      // 새버리므로 스로틀을 최소화(10ms). 이미 클릭을 받는 상태면 기존대로 ~25Hz로 충분.
-      const _minGap = (_ignoring===false) ? 40 : 10;
-      if(now - _lastCheck < _minGap) return;
-      _lastCheck = now;
-      /* 🚑 [고침] 예전엔 `if(drag) return;` 이라 **드래그 플래그가 남아 있으면 판정이 통째로 멈췄다.**
-         드래그 중에 판정을 건너뛰는 것 자체는 맞다(캐릭터 밖으로 벗어나도 계속 잡아야 하니까).
-         하지만 그건 **클릭을 받고 있을 때** 이야기다. main 이 이미 통과(_ignoreSent===true)라면
-         드래그가 성립할 수 없으므로, 그 조합은 '드래그 중'이 아니라 '플래그가 남은 것'이다.
-         → 그때는 건너뛰지 않고 다시 판정한다. drag 가 어떤 이유로 남더라도 유령이 되지 않는다. */
-      if(_holdForDrag()) return;   // 진짜 드래그 중 — 무시 해제 상태 유지
-      _updateIgnore(e.clientX, e.clientY);
+      const m = clickPolicy.moveStep({ moveMode: moveMode(), ignoring: _ignoring, ignoreSent: _ignoreSent,
+        dragging: drag(), sinceCheck: now - _lastCheck });
+      if(m.stamp) _lastCheck = now;
+      if(m.act === 'receive'){ _ignoring=false; _sendIgnore(false, 'moveMode'); return; }
+      if(m.act === 'judge') _updateIgnore(e.clientX, e.clientY);
     });
     // 드래그 중엔 캐릭터 밖으로 벗어나도 계속 잡아야 하므로, 드래그 동안은 무시 해제 유지
     //   ★ _sendIgnore가 대기 중인 '통과' 예약까지 취소한다 — 이게 없어서 펜 탭 뒤 앱이 안 눌렸다(위 주석 참고).
-    window.addEventListener('pointerdown', ()=>{ if(_ignoring){ _ignoring=false; requestAnimationFrame(()=>_sendIgnore(false, 'pointerdown')); } });
+    window.addEventListener('pointerdown', ()=>{ if(clickPolicy.pointerDownStep({ ignoring: _ignoring }) === 'receive'){ _ignoring=false; requestAnimationFrame(()=>_sendIgnore(false, 'pointerdown')); } });
     // 드래그 끝나면 현재 위치 기준으로 다시 판정
     window.addEventListener('pointerup', e=>{ setTimeout(()=>_updateIgnore(e.clientX, e.clientY), 0); });
 
@@ -754,37 +615,19 @@ if(desktopMode){
     if(companion.onPenHitTest){
       companion.onPenHitTest(pt=>{
         try{
-          /* 🚑 재판정 수신 — mousemove 와 **다르게** 기록한다(_notePoke 주석).
-             예전에 여기서 _noteChannelAlive() 를 부른 것이 고착 회복 사다리를 눌러 앉혔다. */
-          _notePoke(pt && pt.pen);
-          /* 🔑 [2026-08-31] **main 이 알려준 실제 상태가 내 캐시를 이긴다.** — 제보 대응
-             "고스트에서 캐릭터 위에 2초 얹으면 풀리던 게 오늘은 안 풀린다, 껐다 켜야만 된다."
-
-             [무슨 일이 벌어졌나] main 의 안전장치(ⓔ·ⓕ·ⓖ)는 렌더러에게 묻지 않고 혼자
-               통과로 되돌린다. 그러면 main=통과인데 내 `_ignoreSent` 는 아직 `false`(클릭받는 중)다.
-               이 어긋남이 남으면 **복구 통로가 전부 막힌다** —
-                 · 재판정을 받아도 `_sendIgnore(false)` 가 「이미 false 를 보냈다」며 침묵(중복 방지)
-                 · 사다리(__mouseKick)도 첫 줄 `_ignoreSent !== true` 에서 그대로 되돌아간다
-                 · 창이 클릭을 못 받으니 focus 이벤트의 캐시 초기화 통로도 안 열린다
-               남는 탈출구가 재시작뿐이다. 제보 문구 그대로다.
-               (예전엔 main 이 penHitTest(null) 로 캐시를 맞췄지만, 그 경로는 아래 150ms 디바운스를
-                타기 때문에 그 사이 mousemove 한 번이면 취소된다 — 그래서 가끔만 살아났다.)
-
-             [고침] main 이 자기 상태(`ig`)를 같이 보낸다. 내 캐시와 다르면 **내 캐시가 틀린 것**이다.
-               버리고 아래에서 처음부터 다시 판정한다. 판단 자체는 여전히 렌더러가 한다 —
-               통과를 임의로 풀어 클릭을 가로채는 예전 워치독의 실수를 반복하지 않는다.
-             ⚠️ `ig` 가 없는 구버전 main 과 붙으면 예전과 똑같이 동작한다(막지 않는다). */
-          if(pt && typeof pt.ig === 'boolean' && _ignoreSent !== null && pt.ig !== _ignoreSent){
+          _notePoke(pt && pt.pen);   // mousemove 와 다르게 기록한다 — 사다리 시계를 되감지 않게(_notePoke 주석)
+          /* 🔑 main 이 알려 준 실제 상태(ig)가 내 캐시를 이긴다 — main ⓔ·ⓕ·ⓖ 가 혼자 통과로 되돌리면 캐시가 어긋나
+             재판정 · 사다리 · focus 통로가 전부 침묵한다(옛 penHitTest(null) 은 150ms 디바운스를 타 가끔만 들었다).
+             판단 규칙은 pokeStep — 끄는 동안은 mousemove 와 같은 끌기 보호(holdForDrag)를 정정 뒤 값으로 본다. */
+          const p = clickPolicy.pokeStep({ pt, ignoreSent: _ignoreSent, dragging: drag() });
+          if(p.resync){
             console.warn('[클릭통과] 캐시 불일치 — main=' + (pt.ig ? '통과' : '클릭받기')
                        + ' / 내가 보낸 값=' + (_ignoreSent ? '통과' : '클릭받기') + ' → 캐시 버리고 재판정');
             if(_ignoreDebounce){ clearTimeout(_ignoreDebounce); _ignoreDebounce = null; }
             _ignoring = null; _ignoreSent = null;
           }
-          // 끄는 동안은 mousemove 와 같은 규칙 — 펜 앱이 앞이면 캐릭터 원 밖에서 left 가 와 끌기가 끊겼다.
-          if(_holdForDrag()) return;
-          // 근처에서 벗어남 → 통과 상태로 복귀 판정. (구버전 main 은 null 을 보낸다 — 둘 다 받는다)
-          if(!pt || pt.left){ _updateIgnore(-9999, -9999); return; }
-          _updateIgnore(pt.x, pt.y);
+          if(p.act === 'keep') return;
+          _updateIgnore(p.x, p.y);   // 근처에서 벗어남(left · 구버전 null)은 화면 밖 좌표로 와서 통과 판정
         }catch(_){}
       });
     }

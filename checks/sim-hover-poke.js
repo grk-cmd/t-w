@@ -173,10 +173,13 @@ say('── 5. main.js 배선 · 보호 장치 그대로');
 say('── 6. app.js 보호 장치 그대로');
 {
   const kick = (APP.match(/window\.__mouseKick = function\(offOverlay\)\{[\s\S]*?\n    \};/) || [''])[0];
-  chk(/if\(_penAppFocused\)\{[\s\S]*?return;\s*\}/.test(kick), '★ 사다리는 펜 앱이면 건너뛴다(그리는 중 포커스 뺏김 방지)');
-  chk(/if\(_lastPokePen && _lastPokeAt && now - _lastPokeAt < 3000\) return;/.test(kick), '  pen=false 재판정은 생존 신호가 아니다 — 호버 찌르기가 사다리 시계를 되감지 않는다');
+  /* 사다리 판단은 click-through-policy.js(kickStep)로 묶였다 — 사실을 넘기는 줄과 정책 결과를 같이 본다(판정은 그대로) */
+  const POL = (() => { const t = read('click-through-policy.js') || read('../app/parts/launcher/click-through-policy.js'); if(!t) return null; const m = { exports: {} }; new Function('module', 'exports', 'window', t)(m, m.exports, undefined); return m.exports; })();
+  const K = (o) => POL ? POL.kickStep(Object.assign({ ignoreSent: true, offOverlay: false, penApp: false, now: 100000, lastKickAt: 0, lastMoveSeen: 0, lastPokePen: false, lastPokeAt: 0, stage: 0 }, o)).act : '?';
+  chk(/penApp: _penAppFocused\b/.test(kick) && /if\(k\.act === 'skip-pen'\)\{[\s\S]*?return;\s*\}/.test(kick) && K({ penApp: true }) === 'skip-pen', '★ 사다리는 펜 앱이면 건너뛴다(그리는 중 포커스 뺏김 방지)');
+  chk(/lastPokePen: _lastPokePen, lastPokeAt: _lastPokeAt/.test(kick) && K({ lastPokePen: false, lastPokeAt: 99000 }) === 'rearm' && K({ lastPokePen: true, lastPokeAt: 99000 }) === 'none', '  pen=false 재판정은 생존 신호가 아니다 — 호버 찌르기가 사다리 시계를 되감지 않는다');
   chk(/_notePoke\(pt && pt\.pen\);/.test(APP), '  재판정 수신은 _notePoke 로만 기록');
-  chk(/_ignoreDebounce = setTimeout\(\(\)=>\{ _ignoreDebounce = null; _sendIgnore\(true\); \}, 150\);/.test(APP), '  통과 복귀 150ms 디바운스 그대로');
+  chk(/_ignoreDebounce = setTimeout\(\(\)=>\{ _ignoreDebounce = null; _sendIgnore\(true\); \}, clickPolicy\.PASS_DEBOUNCE_MS\);/.test(APP) && POL && POL.PASS_DEBOUNCE_MS === 150, '  통과 복귀 150ms 디바운스 그대로');
 }
 
 say('── 7. package.json — main 이 부르는 루트 모듈이 설치본에 들어간다');
