@@ -83,6 +83,12 @@ function applyPS1Shader(on){
         if(m.userData && m.userData._ps1Hooked) return;   // 이미 주입됨
         if(!m.userData) m.userData = {};
         m.userData._ps1PrevOBC = m.onBeforeCompile;       // 기존 onBeforeCompile 보존(있으면 체인)
+        /* 셰이더 캐시 키 — three 기본값은 onBeforeCompile 의 글자라, 아래 감싸개를 씌우면 모든 재질이 같은 키가 되어
+           색조(_hueOBC)가 든 재질과 없는 재질이 셰이더 하나를 나눠 썼다(색을 바꾼 가챠 파츠가 원래 색으로). 감싸기 전 구분을 키에 남긴다. */
+        const ownKey = Object.prototype.hasOwnProperty.call(m, 'customProgramCacheKey') ? m.customProgramCacheKey : null;
+        const prevSrc = String(m.userData._ps1PrevOBC || '');
+        m.userData._ps1PrevKey = ownKey;
+        m.customProgramCacheKey = ()=>'ps1|' + (ownKey ? ownKey.call(m) : prevSrc);
         m.onBeforeCompile = (shader, renderer)=>{
           if(typeof m.userData._ps1PrevOBC === 'function'){ try{ m.userData._ps1PrevOBC(shader, renderer); }catch(_){} }
           // dithering_fragment(three 기본 훅) 자리를 우리 코드로 교체 — 최종 색 확정 직후 지점.
@@ -98,6 +104,9 @@ function applyPS1Shader(on){
       } else {
         if(m.userData && m.userData._ps1Hooked){
           m.onBeforeCompile = (typeof m.userData._ps1PrevOBC === 'function') ? m.userData._ps1PrevOBC : function(){};
+          if(m.userData._ps1PrevKey) m.customProgramCacheKey = m.userData._ps1PrevKey;
+          else delete m.customProgramCacheKey;   // 프로토타입 기본값(onBeforeCompile 글자)으로
+          m.userData._ps1PrevKey = null;
           m.userData._ps1Hooked = false;
           m.needsUpdate = true;
         }
