@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 297 (카탈로그 본문을 API 읽기 사본(GET /v1/catalog/{종류}?v=)에서 먼저 받는다 — 못 받으면 Firebase get)
-대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 297 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 298 (좌석 크기 평준화 — 한 좌석이 실패해도 나머지는 맞추고 실패한 좌석은 다음에 다시 · 경고 한 번 · sim-seat-eq 실패 판정)
+대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 298 기준 — 폴더를 센 값)
+
+**개정 298 에서 한 것 (2026-10-17 · 버그 수정 — 평준화 중 한 좌석 오류가 남은 좌석까지 막던 것)**
+- 앱: app.js `syncSeatEqualize` — 오류 대비(try)를 forEach 전체에서 좌석 하나 단위로. 던진 좌석은 `_eqK` 를 지워 다음 배치 때 다시 걸고, `console.warn` 은 좌석마다 한 번만(`_eqWarned`). 오류가 없으면 하는 일은 같다.
+- 검사: `sim-seat-eq.js` — «중간 좌석이 실패할 때» 4판정 신설(뒤 좌석도 맞춰짐 · 실패 좌석 표시 안 남음 · 경고 한 번 · 풀리면 다시 맞춰짐). 고치기 전 app.js 로는 빨강 3.
 
 **개정 297 에서 한 것 (2026-10-17 · 서버 이관 — 카탈로그 본문 읽기를 API 로 · 동작이 바뀐다: 받는 곳)**
 - 앱: `app/parts/character/catalog-cache.js` 에 `createApiCatalogFetch` — 버전(catalogMeta)이 바뀌어 본문을 받을 때 t-w-server `GET /v1/catalog/{종류}?v=<버전>` 먼저(시간 제한 8초 · v 가 같으면 하루 캐시). 사본의 ver 가 구독한 버전과 다르거나 · 본문이 객체가 아니거나 · 어떤 실패든 지금처럼 Firebase get. 조용히 넘어갈 실패 판정은 `TwApi.shouldFallback` 을 그대로 받는다. 구독기는 `fetch(kind, ver)` 로 버전을 넘긴다. `firebase-init.js` 는 카탈로그 구독기에 이것을 잇는다. 버전 알림 · 캐시 · 안전장치 ①②③ · 쓰기(Firebase 원본)는 그대로.
@@ -2219,7 +2223,7 @@
 | **sim-ride-part-top.js** | 95 | **e04c6992c47b** ← **개정 191 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-room-channel.js** | 172 | **4538f02989a8** ← **개정 242 6절 해산 · 승계 알림을 window 고리 대신 _roomHooks 로 받음(판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **2026-10-10 개정 125 · 표지를 잃은 PLAY- 방을 접두어대로 투게더룸으로 되살림 · 투게더룸 방장은 보유자만 · 승계 · 해산은 그대로 · Firebase 방도 채널이 표지를 따라감 (5~7절)** · 2026-09-16 신규 · 제보 2 방 채널 표지 (§17) |
 | sim-room-clock.js | 135 | 421b90c3df47 |
-| **sim-seat-eq.js** | 80 | **87a4aa54d1b3** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
+| **sim-seat-eq.js** | 101 | **abfda97458b5** ← **개정 298 중간 좌석이 실패할 때 4판정 — 오류 대비 좌석 단위** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-seat-hide.js** | 84 | **4e8d2348e282** ← **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 58 신설 · 🙈 워킹룸 캐릭터 숨기기** · **개정 60 신고 숨김** |
 | **sim-seat-opacity.js** | 247 | **9d9cf1cc71f5** ← 2026-09-14 app.js 본문 직접 사용 (§12) |
 | **sim-slot-fit.js** | 246 | **d28aa326a223** ← **개정 198 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-13 고친 판 (§8) |
