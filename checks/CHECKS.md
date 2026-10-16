@@ -1,7 +1,10 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 264 (🙋 좌석 우클릭 친구 신청을 myhome/seat-friend-req.js 로 — C 구역 떼기 w4)
-대상: `sim-*.js` 258개 + `smoke.js` + `audit.py` = **260개** (개정 264 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 265 (sim-app-size --write-baseline 이 한 파일의 상한 때문에 통째로 거절되지 않는다)
+대상: `sim-*.js` 258개 + `smoke.js` + `audit.py` = **260개** (개정 265 기준 — 폴더를 센 값)
+
+**개정 265 에서 한 것 (2026-10-16 · 검사 도구 — 판정 무변경 · 기준선 쓰기만 바뀐다)**
+- 검사: `sim-app-size.js --write-baseline` — 새로 잰 상한(지금 줄 수 + 여유)이 옛 상한보다 크면 예전엔 **전체 쓰기를 거절**했다. firebase-init.js 가 4444 → 4461줄로 늘어 새 상한 4561 > 옛 상한 4544 가 되면서, app.js 상한을 내리려는 사람까지 막혔다(C 구역 떼기 w3 는 app.js 칸을 손으로 고쳐야 했다). 이제 그 파일은 **옛 상한을 그대로 두고** 나머지는 쓴다(«상한은 내려가기만» 그대로 · 쓴 뒤 «그대로 둔 상한» 을 알려 준다). 지금 줄 수가 옛 상한을 이미 넘었으면 여전히 거절한다(줄이거나 --allow-increase). 검사 판정(1~4절)은 안 바뀐다 · 기준선 파일은 이 개정에서 안 바꿨다.
 
 **개정 264 에서 한 것 (2026-10-16 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호, 머지 때 다시 매김)**
 - 앱: app.js «DRAG / PET» 안의 🙋 좌석 우클릭 친구 신청(두 번 눌러 보내기 · 앞단 검사) 43줄을 `myhome/seat-friend-req.js`(`TwSeatFriendReq` · deps 5)로 글자 그대로. 바뀐 줄은 `_myHomeFriends` 읽는 함수 2줄 · 옛 이야기형 주석 줄이기뿐. 좌석 메뉴는 `seatFriendReqMod._friendReqAsk`.
@@ -2074,7 +2077,7 @@
 | **sim-deco-parts.js** | 67 | **c017ce7764fc** ← **개정 198 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-17 신규 · 꾸미기 파츠 표시 토글 (§25) |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** ← 2026-09-17 신규 · 마이홈 환경설정 서브메뉴 클래스 충돌 (§26) |
 | **sim-font-hangul.js** | 54 | **1e0479f9fce5** ← **개정 101 글꼴 토큰 var(--tw-font-…) 을 펼쳐 본다** · 2026-09-17 신규 · Tahoma 목록의 한글 폰트 (§27) |
-| **sim-app-size.js** | 121 | **e8b7dbbaa468** ← **개정 130 신설 · 📏 app.js · firebase-init.js 줄 상한(기준선 + 여유) · 새 구역 머리 막기 · 톱니(줄면 상한도 내림) · 판정 자체 가짜 글** |
+| **sim-app-size.js** | 127 | **1fcf39621d00** ← **개정 265 기준선 쓰기 — 새 상한이 더 크면 옛 상한 유지(통째 거절 대신) · 넘었으면 거절(판정 무변경)** · **개정 130 신설 · 📏 app.js · firebase-init.js 줄 상한(기준선 + 여유) · 새 구역 머리 막기 · 톱니(줄면 상한도 내림) · 판정 자체 가짜 글** |
 | **sim-scheduler.js** | 233 | **461573b27196** ← **개정 254 [수령함 확인] 누르면 알림창이 닫힌다 · 본 날은 로컬 날짜(_localYMD — UTC 로 자르지 않음)** · **개정 250 빈 껍데기(SCHEDULER_OFF) 없이 만든다 — 안 실리면 그 줄에서 멈춘다(가드 걷기 3차-2)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 136 «원래 자리» 기준을 옛 🐞 버그 제보 탭 머리 → 그 자리의 👥 친구 관리 연결(TwFriendManage.createFriendManage)로(버그 제보 탭이 bug-board-ui.js 로 옮겨 감)** · **개정 131 신설 · 📅 스케줄러 · 🔔 일정 알림 모듈(scheduler.js) — 셈 · 만들 때 구독 · 타이머 · 뱃지 · 알림 목록 · 관람 모드 · app.js 배선 · html 순서 · 내장 전역 이름과 안 겹침** |
 | **sim-weekly-challenge.js** | 344 | **fc812bab92d0** ← **개정 254 선지급은 서버 호출 한 번 · «밀렸던 뽑기» 토스트 없음(대기줄에 시도 시각을 적는다)** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 139 가챠 보너스 읽기는 gachaMod.bonus()(gacha.js)** · **개정 137 «원래 자리» 끝 기준을 옛 🍅 뽀모도로 머리 → 그 자리의 TwPomodoro.createPomodoro 연결로 · 뽀모 서랍이 부르는 weeklyChal.open(false) 는 pomodoro.js 에서(app.js 는 weeklyChal 을 deps 로)** · **개정 133 신설 · 👑 달성표 모듈(weekly-challenge.js) — 셈(ISO 주 · 6시 경계 · 보상 문구) · 만들 때(로컬 읽기 · 타이머 · 게이트) · 📋규칙 체크 · 선지급 · 정산 · 박제 · 🎯집중 · 🔁반복 · 로그아웃 지우기 · 동기화 · app.js 배선 · html 순서** |
 | **sim-purikura-ui.js** | 251 | **7bfff483c129** ← **개정 252 무대에 마이홈 BGM 고리(부팅 때 늘 걸림 — 판정 무변경)** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 222 html 순서 — parts/purikura/ 자리도 받음(판정 무변경)** · **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 173 deps plPlaying · setPlPlaying 은 plMod.st.playing(playlist.js 상태 묶음 — 판정 무변경)** · **개정 169 5절 📷 버튼에서 purikuraUi.open() 부르는 곳을 chat-window.js 에서 찾는다** · **개정 134 신설 · 📷 스티커사진 창 모듈(purikura-ui.js) — 만들 때 배선(_pkWire) · 문(회사원 모드 · 세션 · 방 · 정원 · 촬영 중) · 가짜 THREE · DOM 위에서 열고 닫기(구독 · 방장 설정 · 무대 루프 · BGM 재우기/되살리기 · 세는 중 잠금) · 세션 콜백 · app.js 배선 · html 순서** |
