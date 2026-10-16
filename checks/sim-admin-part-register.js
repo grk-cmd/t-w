@@ -92,8 +92,8 @@ async function judgeAll(src, app, html, ward = WARD){
   /* 4. app.js 연결 */
   const A = strip(app);
   t(!EXPORTS.some(n => new RegExp('function ' + n + '\\(').test(A)) && !/const PART_PUBLISH_FIELDS/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
-  t(/const ADMIN_PART_REG_OFF = \{\};/.test(app), '모듈이 없으면 빈 껍데기');
-  const mk = (app.match(/const adminPartReg = \(typeof TwAdminPartRegister === 'undefined'\) \? ADMIN_PART_REG_OFF : TwAdminPartRegister\.createAdminPartRegister\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
+  t(!/\bADMIN_PART_REG_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
+  const mk = (app.match(/const adminPartReg = TwAdminPartRegister\.createAdminPartRegister\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
   /* 오른쪽은 그 이름이 다른 모듈로 옮겨 가면 «mod.이름» 으로 바뀐다 — 키와 넘기는 방식만 본다 */
   const reEsc = (x) => x.replace(/[$]/g, '\\$');

@@ -96,9 +96,9 @@ async function judgeAll(rep, adm, app, html){
   /* 3. app.js 연결 */
   const AP = strip(app);
   t(!/function _openReportDialog|function _openReportAdmin|function _reportAdminRows|function _reportBox|var REPORT_KINDS|bindReportAdmin/.test(AP), 'app.js 에 옮긴 본문이 남지 않았다');
-  t(/const REPORT_OFF = \{\};/.test(app) && /const ADMIN_REPORT_OFF = \{\};/.test(app) && /\(typeof TwAdminReport === 'undefined' \|\| reportMod === REPORT_OFF\)/.test(app),
-    '빈 껍데기 둘 — 관리자 목록은 report.js 가 없으면 안 만든다');
-  const block = (name) => ((app.match(new RegExp('const ' + name + ' = \\(typeof [^\\n]*\\{\\n([\\s\\S]*?)\\n\\}\\);')) || [])[1] || '').split('\n').map(l => l.trim()).filter(Boolean);
+  t(!/\bREPORT_OFF\b/.test(app) && !/\bADMIN_REPORT_OFF\b/.test(app) && /const adminReport = TwAdminReport\.createAdminReport\(\{/.test(app),
+    '빈 껍데기 없음 — 신고 창 · 관리자 목록 모두 늘 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
+  const block = (name) => ((app.match(new RegExp('const ' + name + ' = [^\\n]*\\{\\n([\\s\\S]*?)\\n\\}\\);')) || [])[1] || '').split('\n').map(l => l.trim()).filter(Boolean);
   const dr = block('reportMod'), da = block('adminReport');
   t(dr.length === 8 && (dr.includes('reportHiddenUids: _reportHiddenUids,') || dr.includes('reportHiddenUids: hiddenSeatsMod._reportHiddenUids,'))   /* 숨김 Set 은 hidden-seats.js 로 옮겼다(앱 FSD 43번) — 모듈이 내놓은 같은 Set */ && dr.includes('myFriendCodeKey: MY_FRIEND_CODE_KEY,'), 'deps — 신고 창 여덟(숨김 Set · 친구 코드 키는 값)');
   t(da.length === 11 && da.includes('isAdmin: ()=>isAdmin,') && da.includes('setReportOv: (...a)=>reportMod.setOv(...a),') && da.includes('kinds: reportMod.KINDS,'),

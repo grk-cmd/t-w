@@ -388,7 +388,7 @@ await sec('── 7. app.js 배선', () => {
       '부르는 곳 — T 키 · 꾸미기 색상 영역 · 파츠 등록 · 카탈로그 · 런처 · 로그아웃 · 연동 · 👑 달성표 (' + (miss[0] || '다 있음') + ')');
   const off = (APP.match(/const GACHA_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/gachaMod\.(\w+)/g) || []).map(s => s.split('.')[1]))];
-  chk(off && used.every(n => new RegExp('\\b' + n + '\\b').test(off)), '빈 껍데기 GACHA_OFF 가 부르는 이름을 다 갖는다 (' + used.length + '개)');
+  chk(!/\bGACHA_OFF\b/.test(APP), '빈 껍데기 GACHA_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const ret = (MOD.match(/\nreturn \{([\s\S]*?)\n\};\n\}/) || [])[1] || '';
   chk(used.every(n => new RegExp('(^|\\n)\\s*' + n + '\\b').test(ret)), '  모듈 반환값도 그 이름을 다 갖는다');
   const iS = HTML.indexOf('<script src="parts/myhome/myhome-sticker.js"></script>'), iG = HTML.indexOf('<script src="parts/character/gacha.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
@@ -397,7 +397,7 @@ await sec('── 7. app.js 배선', () => {
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */
   const wire = (APP.match(/const GACHA_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   let got = null; try{ got = vm.runInNewContext(wire + '\ngachaMod;', { seats: [], slots: [], Presence: {}, GACHA_OWNED_KEY: 'a', GACHA_TS_KEY: 'b', GACHA_BONUS_KEY: 'c' }); }catch(_){}
-  chk(!!got && got.isGachaPart({ gacha: true }) === false && got.renderGachaInv() === undefined && got.isInvOpen() === false && JSON.stringify(got.owned()) === '{}', '모듈이 안 실려도 그 자리는 서지 않는다(빈 껍데기)');
+  chk(/^const gachaMod = TwGacha\.createGacha\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
 say('');

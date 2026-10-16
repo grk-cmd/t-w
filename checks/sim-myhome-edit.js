@@ -507,7 +507,7 @@ await sec('── 9. app.js 배선', () => {
   chk(!defs.test(code) && defs.test(MOD), '편집 묶음 · 디자인 스튜디오 정의는 모듈에만');
   chk(!/bindMyHomePage\s*\(/.test(code) && !/renderMyHomeStickers = function/.test(code), '  app.js 에 옛 묶음(bindMyHomePage)이 없다');
   chk(/window\.TwMyHomeEdit = api/.test(MOD) && (code.match(/TwMyHomeEdit\.createMyHomeEdit\(/g) || []).length === 1, '모듈은 window.TwMyHomeEdit · 만드는 곳은 한 곳');
-  const iMk = APP.indexOf('TwMyHomeEdit.createMyHomeEdit('), iLinks = APP.indexOf('(function bindMyHomeExternalLinks(){'), iGb = APP.indexOf('const GUESTBOOK_OFF = ');
+  const iMk = APP.indexOf('TwMyHomeEdit.createMyHomeEdit('), iLinks = APP.indexOf('(function bindMyHomeExternalLinks(){'), iGb = APP.indexOf('const guestbook = TwGuestbook.');
   const iSt = APP.indexOf('TwMyHomeSticker.createMyHomeSticker(');
   chk(iSt > 0 && iLinks > iSt && iMk > iLinks && iGb > iMk, '원래 자리 — 🎨 스티커 관리 창 연결 · 🔗 마이홈 본문 링크 뒤 · 📖 방명록 연결 앞');
   const call = (APP.match(/TwMyHomeEdit\.createMyHomeEdit\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
@@ -527,7 +527,7 @@ await sec('── 9. app.js 배선', () => {
   chk(!/[^.\w$](_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|isPremium|isAdmin|USER_NAME_MAX)(?!\s*\()(?![\w$])/.test(m.replace(/const (_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|isPremium|isAdmin|USER_NAME_MAX) = deps\.\w+;/g, '')), '  읽을 때는 늘 함수로 부른다(값을 붙들지 않는다)');
   chk(/const origRenderStickers = _getRenderMyHomeStickers\(\);/.test(MOD) && /_setRenderMyHomeStickers\(function\(\)\{ origRenderStickers\(\);/.test(MOD), '★ 감싸기 전 함수는 값으로 받는다 — 화살표로 받으면 감싼 함수가 자기를 부른다');
   const off = (APP.match(/const MYHOME_EDIT_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
-  chk(RET.every(n => new RegExp('\\b' + n + '\\(\\)\\{').test(off)), '빈 껍데기 MYHOME_EDIT_OFF — 반환값 이름을 다 갖는다');
+  chk(!/\bMYHOME_EDIT_OFF\b/.test(APP), '빈 껍데기 MYHOME_EDIT_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   chk(HOOKS.every(n => new RegExp('window\\.' + n + '\\s*=').test(m)), 'window 고리는 모듈이 예전 이름으로 건다(' + HOOKS.length + '개)');
   const used = HOOKS.filter(n => new RegExp('\\b' + n + '\\b').test(code));
   const wantUsed = ['commitMyHomePage', '_mhBgmRefresh', '_bgmDestroy', '_mhApplyBg', '_mhApplyTheme', '_mhDsClose'];
@@ -539,7 +539,7 @@ await sec('── 9. app.js 배선', () => {
   const wire = (APP.match(/const MYHOME_EDIT_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   const box = { myHomeSticker: {}, STICKER_MAX: 1, STICKER_IMG_MAX_W: 1, DS_IMG_MAX_BG_W: 1, DS_IMG_MAX_BG_H: 1, DS_IMG_MAX_PANEL: 1, DS_IMG_QUALITY: 1 };
   let got = null; try{ got = vm.runInNewContext(wire + '\nmyHomeEdit;', box); }catch(_){}
-  chk(!!got && got.commit() === undefined && got.presetApply(0) === false && Array.isArray(got.presets()), '모듈이 안 실려도 그 자리는 서지 않는다(빈 껍데기)');
+  chk(/^const myHomeEdit = TwMyHomeEdit\.createMyHomeEdit\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
 say('');

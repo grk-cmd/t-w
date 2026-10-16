@@ -1861,9 +1861,8 @@ let _flyActive = 0;
 /* 본문은 room-sync.js 로 옮겼다(앱 FSD 35번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 /* 🧭 창 열기 통로(nav.js) — 아래 기능이 «설정 창 · 마이홈 열어 줘 · 방에서 나가 줘» 를 부탁하는 한 곳(모듈 순환 끊기 6).
-   창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다. 모듈이 없으면(검사가 app.js 만 굴릴 때) 아무 일도 안 하는 껍데기 */
-const NAV_OFF = { NAV:{}, on(){}, go(){} };
-const twNav = (typeof TwNav === 'undefined') ? NAV_OFF : TwNav;
+   창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다 */
+const twNav = TwNav;
 const roomSyncMod = TwRoomSync.createRoomSync({
   DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
@@ -3274,10 +3273,7 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
      _plHasSavedPos · _plApplyPos · _plSyncBgmBounds 는 모듈이 window 고리로도 건다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeLoaded · _myHomeData · _myHomeFriends 는 이 줄보다 뒤에 선언되고 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const PLAYLIST_OFF = { st:{ sets:[], cur:0, nowSet:0, sel:-1, now:-1, view:null, nowView:null, bio:'', homePublic:false, private:false, pubSig:null,
-  playing:false, lastBoundsKey:'' }, PL_MAX:20, PL_BIO_MAX:140, PL_TITLE_MAX:16, render(){}, save(){}, publish(){}, normalizeSets:()=>[], setIdx:()=>0,
-  blankSets:()=>[], pubSigOf:()=>'', mine:()=>[], fillLv(){}, ytVideoId:()=>null, syncBgmBounds(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const plMod = (typeof TwPlaylist === 'undefined') ? PLAYLIST_OFF : TwPlaylist.createPlaylist({
+const plMod = TwPlaylist.createPlaylist({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
@@ -3480,8 +3476,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _focusTotalSec · _focusSessionSec 는 다시 대입되고 이 줄보다 한참 뒤(포커스 시간 누적 구역)에
    선언되는 let 이라 읽는 함수로 넘긴다(값으로 넘기면 TDZ).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const FOCUS_LOG_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const focusLog = (typeof TwFocusLog === 'undefined') ? FOCUS_LOG_OFF : TwFocusLog.createFocusLog({
+const focusLog = TwFocusLog.createFocusLog({
   formatHMS: (...a)=>focusLevelMod.formatHMS(...a),
   rolloverFocusToday: (...a)=>focusTotalMod._rolloverFocusToday(...a),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
@@ -3739,9 +3734,7 @@ const DS_IMG_QUALITY   = 0.82;   // JPEG 품질 — 이 정도면 눈에 띄는 
      겹쳐 typeof 가드가 늘 통과하고, 모듈이 안 실렸을 때 내장 생성자에 createScheduler 를 부르다 app.js 가 선다. */
 const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 연 시각 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
 let _schedDdaysVisitUnsub = null;        // 👀 관람 중 친구 D-day 구독 끊기 — openFriendHomeView · closeFriendHomeView
-const SCHEDULER_OFF = { renderSchedCalendar(){}, renderDdays(){}, subscribeMonth(){}, setDdays(){}, setDdaysVisit(){},
-  refreshBellBadge(){}, renderBellList(){}, isBellOpen:()=>false };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — 부르는 곳마다 null 을 묻지 않게(WD_EAR_OFF 와 같은 방식)
-const mhScheduler = (typeof MhScheduler === 'undefined') ? SCHEDULER_OFF : MhScheduler.createScheduler({
+const mhScheduler = MhScheduler.createScheduler({
   getMyUserId: ()=>getMyUserId(),
   getDisplayName: ()=>getDisplayName(),
   viewingUserId: ()=>mhStateMod._mhViewingUserId(),
@@ -3764,10 +3757,7 @@ const mhScheduler = (typeof MhScheduler === 'undefined') ? SCHEDULER_OFF : MhSch
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myFriendRequests · _myHomeFriends · myHomeOpen 은 다시 대입되는 let 이라
      읽는 함수로 넘긴다(myHomeOpen 은 이 줄보다 한참 뒤에 선언된다). 부르는 곳은 friendManage.이름.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const FRIEND_MANAGE_OFF = { showFriendRequestPopup(){}, reqVisible:()=>false, renderFriendManage(){}, renderFriendRequests(){},
-  refreshFriendReqBadge(){}, lookupName:async()=>null, bulkAccept(){}, bulkReject(){}, setTab(){}, tab:()=>'req',
-  picked:new Set() };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const friendManage = (typeof TwFriendManage === 'undefined') ? FRIEND_MANAGE_OFF : TwFriendManage.createFriendManage({
+const friendManage = TwFriendManage.createFriendManage({
   getMyUserId: ()=>getMyUserId(),
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
@@ -3909,10 +3899,7 @@ const friendVisit = window.TwFriendVisit ? TwFriendVisit.createFriendVisit({ doc
   inRoom: () => typeof Presence !== 'undefined' && Presence.active(),
   leaveRoom: () => roomEntryMod.doLeaveRoom({ wipeChat: true }), startRoom: c => roomEntryMod.startRoom(c),
   channelName: c => { const ch = Object.keys(roomEntryMod.ROOM_PREFIX).find(k => String(c).indexOf(roomEntryMod.ROOM_PREFIX[k]) === 0); return ch ? roomEntryMod.CHANNEL_NAMES[ch] : ''; } }) : null;
-const INBOX_OFF = { renderMyHomeFriendList(){}, friendSearchToggle(){}, setFriendFilter(){}, friendRoomTag:()=>'', friendInRoom:()=>false,
-  renderInbox(){}, setInboxFilter(){}, setInboxOpenId(){}, inboxTagLabel:()=>'', inboxTimeStr:()=>'', inboxUnreadCount:()=>0, inboxBcMarkAllRead(){},
-  refreshFriendTabBadge(){}, linkifyText:(t)=>escHtml(t), bindExtLinks(){}, renderGiftBox(){}, giftStat(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const inboxMod = (typeof TwMyHomeInbox === 'undefined') ? INBOX_OFF : TwMyHomeInbox.createMyHomeInbox({
+const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   escHtml: (...a)=>escHtml(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -4148,9 +4135,7 @@ function renderMyHomeStickers(){
    STICKER_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로. 부르는 곳은 myHomeSticker.이름(전부 마이홈을 연 뒤에 돈다).
    🔗 마이홈 본문 링크(bindMyHomeExternalLinks)는 스티커 관리 창이 아니라 여기 남겼다(마이홈 페이지 편집 묶음은 아래에서 myhome-edit.js 로 잇는다).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const MYHOME_STICKER_OFF = { open(){}, close(){}, render(){}, bringIn(){}, editStart(){}, editEnd(){},
-  bindDrag(){}, bindRotate(){}, bindResize(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const myHomeSticker = (typeof TwMyHomeSticker === 'undefined') ? MYHOME_STICKER_OFF : TwMyHomeSticker.createMyHomeSticker({
+const myHomeSticker = TwMyHomeSticker.createMyHomeSticker({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   commitMyHomePage: (...a)=>commitMyHomePage(...a),
@@ -4188,9 +4173,7 @@ const mhLinksMod = TwMyHomeLinks.createMyHomeLinks({
    감싸기 전 함수는 getRenderMyHomeStickers 로 주고, 감싼 함수는 setRenderMyHomeStickers 로 받는다.
    myHomeSticker · STICKER_* · DS_IMG_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const MYHOME_EDIT_OFF = { commit(){}, openColorPopup(){}, beginNameEdit(){}, beginPostTitleEdit(){}, bgmRefresh(){}, bgmDestroy(){},
-  applyBg(){}, applyTheme(){}, openDesignStudio(){}, presets(){ return []; }, presetSave(){}, presetApply(){ return false; }, presetRename(){ return false; } };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwMyHomeEdit.createMyHomeEdit({
+const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
@@ -4234,9 +4217,7 @@ const myHomeEdit = (typeof TwMyHomeEdit === 'undefined') ? MYHOME_EDIT_OFF : TwM
    openMyGuestbook)를 typeof 로 보고 부른다 — 모듈이 없으면 고리가 없어 조용히 넘어간다.
    💬 showChatBubble(머리 위 말풍선)은 방명록이 아니라 바로 아래에 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const GUESTBOOK_OFF = { open(){}, startWatch(){}, stopWatch(){}, refreshBadge(){}, markAllRead(){},
-  reSubscribe(){}, refreshWriteUI(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const guestbook = (typeof TwGuestbook === 'undefined') ? GUESTBOOK_OFF : TwGuestbook.createGuestbook({
+const guestbook = TwGuestbook.createGuestbook({
   getMyUserId: ()=>getMyUserId(),
   getDisplayName: ()=>getDisplayName(),
   toast: (...a)=>toast(...a),
@@ -4437,9 +4418,7 @@ function _purikura(){
    HAND_REST · SHAKE_ARM_DROOP 은 이 줄보다 뒤에 선언되는 const 라(지금 읽으면 TDZ) 읽는 함수로 넘긴다.
    세션 입구 _purikura() 는 위에 그대로 — 콜백은 purikuraUi.onPeers · onMeta · onPeerEvent · onShot 으로 들어간다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const PURIKURA_UI_OFF = { open(){}, close:()=>false, isOpen:()=>false, phase:()=>null,
-  onPeers(){}, onMeta(){}, onPeerEvent(){}, onShot(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const purikuraUi = (typeof TwPurikuraUi === 'undefined') ? PURIKURA_UI_OFF : TwPurikuraUi.createPurikuraUi({
+const purikuraUi = TwPurikuraUi.createPurikuraUi({
   purikura: ()=>_purikura(),
   toast: (...a)=>toast(...a),
   getMyUserId: ()=>getMyUserId(),
@@ -4512,8 +4491,7 @@ const rouletteMod = TwRoulette.createRoulette({
 });
 
 /* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */
-const CHAT_WINDOW_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const chatWindowMod = (typeof TwChatWindow === 'undefined') ? CHAT_WINDOW_OFF : TwChatWindow.createChatWindow({
+const chatWindowMod = TwChatWindow.createChatWindow({
   // 대화창 코어
   closeChatWindow: (...a)=>chatUiMod.closeChatWindow(...a),
   chatWindowIsOpen: (...a)=>chatUiMod._chatWindowIsOpen(...a),
@@ -4739,8 +4717,7 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
 /* 위 두 구역(🗂️ 파츠 페이로드 · 삭제 · 🛠️ 등록 창)의 본문은 admin/admin-part-register.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에 모은다.
    값 열세 개는 이 줄보다 뒤에 선언되거나 다시 대입되므로 읽는 함수로 넘긴다. 밖에서는 adminPartReg.이름 으로 부른다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ADMIN_PART_REG_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const adminPartReg = (typeof TwAdminPartRegister === 'undefined') ? ADMIN_PART_REG_OFF : TwAdminPartRegister.createAdminPartRegister({
+const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   _b64: (...a)=>codeCryptoMod._b64(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
   catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
@@ -8680,8 +8657,7 @@ document.getElementById('deskLenXReset')?.addEventListener('click', ()=>{
 /* 관리자가 쓰는 코드 굽는 창 셋(📦 책상·아이템 코드 · 🎁 커미션 캐릭터 · 🔐 암호화 GLB 불러오기)은 admin/admin-asset.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
    셋이 app.js 여기저기 흩어져 있어 이 자리(첫 덩이)에서 한 번 만든다 — 모두 버튼 연결이라 거는 차례와 상관없다. 아래 코드로 추가하기(파일 열기)는 사용자 쪽이라 그대로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ADMIN_ASSET_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const adminAsset = (typeof TwAdminAsset === 'undefined') ? ADMIN_ASSET_OFF : TwAdminAsset.createAdminAsset({
+const adminAsset = TwAdminAsset.createAdminAsset({
   toast: (...a)=>toast(...a),
   encryptAssetCode: (...a)=>assetCodeMod.encryptAssetCode(...a),
   wrapAsset: (...a)=>assetCodeMod.wrapAsset(...a),
@@ -8993,8 +8969,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
 
 
 /* 📊 전체 통계 · 🎟️ 초대권 지급(관리자) — admin/admin-users.js. 초대장 구역 모듈(license-gate.js) 밖, 여기서 만든다(모듈 연결은 app.js). */
-const ADMIN_USERS_OFF = {};   // 모듈이 없으면 빈 껍데기
-const adminUsers = (typeof TwAdminUsers === 'undefined') ? ADMIN_USERS_OFF : TwAdminUsers.createAdminUsers({
+const adminUsers = TwAdminUsers.createAdminUsers({
   toast: (...a)=>toast(...a),
   inviteGrantMax: licenseGateMod.INVITE_GRANT_MAX,
 });
@@ -9060,8 +9035,7 @@ const REMOTE_FLAGS_WAIT_MS = 3000;
 /* 🔐 관리자 모드(비밀번호 창 · 켜기 · Ctrl+E 끄기 · 관리자 버튼 보이기 · Ctrl·⌘+클릭 진입)는 admin/admin-mode.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
    isAdmin 을 바꾸는 곳은 그 모듈 하나다(setIsAdmin). savedParts 는 뒤에서 선언되는 let 이라 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ADMIN_MODE_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const adminMode = (typeof TwAdminMode === 'undefined') ? ADMIN_MODE_OFF : TwAdminMode.createAdminMode({
+const adminMode = TwAdminMode.createAdminMode({
   toast: (...a)=>toast(...a),
   refreshInviteBtn: (...a)=>licenseGateMod.refreshInviteBtn(...a),
   adminPassHash: ADMIN_PASS_HASH,
@@ -11441,8 +11415,7 @@ const adBannerMod = TwAdBanner.createAdBanner({
 /* 관리자 쪽(🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 편집 · 📢 광고 배너 편집)은 admin/admin-launcher.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
    isAdmin · _gameCfg 는 다시 대입되는 let 이라 읽는 함수로 넘긴다. 사용자 쪽(배너 그리기 · 구독)은 바로 위 ad-banner.js(앱 FSD 43번).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ADMIN_LAUNCHER_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const adminLauncher = (typeof TwAdminLauncher === 'undefined') ? ADMIN_LAUNCHER_OFF : TwAdminLauncher.createAdminLauncher({
+const adminLauncher = TwAdminLauncher.createAdminLauncher({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   refreshAdBanner: (...a)=>adBannerMod.refreshAdBanner(...a),
@@ -11485,15 +11458,13 @@ const licReqMod = TwLicenseRequest.createLicenseRequest({
    사용자 쪽(앱을 켤 때 업데이트 공지 팝업)은 아래에 그대로 둔다. 라이선스 요청 · 발급 버튼(옛 «관리자 카테고리 관리» 뒤쪽)도 같은 모듈이라
    거는 때가 그 구역보다 조금 앞당겨졌다 — 모두 버튼 클릭 handler 라 순서와 상관없다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ADMIN_LICENSE_OFF = {};   // 모듈이 없으면 빈 껍데기
-const adminLicense = (typeof TwAdminLicense === 'undefined') ? ADMIN_LICENSE_OFF : TwAdminLicense.createAdminLicense({
+const adminLicense = TwAdminLicense.createAdminLicense({
   toast: (...a)=>toast(...a),
   chatEsc: (...a)=>_chatEsc(...a),
   genLicenseKey: (...a)=>licenseGateMod._genLicenseKey(...a),
   saveFailMsg: (...a)=>_saveFailMsg(...a),
 });
-const ADMIN_NOTICE_OFF = {};
-const adminNotice = (typeof TwAdminNotice === 'undefined') ? ADMIN_NOTICE_OFF : TwAdminNotice.createAdminNotice({
+const adminNotice = TwAdminNotice.createAdminNotice({
   toast: (...a)=>toast(...a),
 });
 
@@ -11535,8 +11506,7 @@ else window.addEventListener('firebase-ready', ()=>_checkUpdateNoticeOnStartup()
 /* 카테고리 관리 본문은 admin/admin-category.js, 뒤쪽의 라이선스 요청 · 발급 버튼 · 친구코드로 발급은 admin/admin-license.js 로 옮겼다.
    PART_GROUPS(뒤에서 선언하는 const) · PART_CATS · partCatOverrides(다시 대입되는 let)는 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ADMIN_CATEGORY_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const adminCategory = (typeof TwAdminCategory === 'undefined') ? ADMIN_CATEGORY_OFF : TwAdminCategory.createAdminCategory({
+const adminCategory = TwAdminCategory.createAdminCategory({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   partGroups: ()=>premiumMod.PART_GROUPS,
@@ -11550,8 +11520,7 @@ const adminCategory = (typeof TwAdminCategory === 'undefined') ? ADMIN_CATEGORY_
 /* 위 두 구역(📄 엑셀 일괄 발급 · 🔒 시크릿룸 발급)의 본문은 admin/admin-license-bulk.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에 모은다.
    만드는 줄을 여기(원래 자리)에 둬서 버튼을 거는 때가 예전과 같다. 밖에서 부르는 이름은 없다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ADMIN_LICENSE_BULK_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — FOCUS_LOG_OFF 와 같은 방식
-const adminLicenseBulk = (typeof TwAdminLicenseBulk === 'undefined') ? ADMIN_LICENSE_BULK_OFF : TwAdminLicenseBulk.createAdminLicenseBulk({
+const adminLicenseBulk = TwAdminLicenseBulk.createAdminLicenseBulk({
   escHtml: (...a)=>escHtml(...a),
   toast: (...a)=>toast(...a),
   genLicenseKey: (...a)=>licenseGateMod._genLicenseKey(...a),
@@ -12123,8 +12092,7 @@ async function resolveCatalogGlbAll(catalogObj){
 /* ═══ 🧹 관리자 콘솔 도구 — 카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 ═══ */
 /* 본문(F12 콘솔 함수 일곱)은 admin/admin-console.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에 모은다. 이름은 예전처럼 window 에 걸린다.
    카탈로그 목록 셋은 다시 대입되는 let 이라 읽는 함수로 넘긴다. */
-const ADMIN_CONSOLE_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const adminConsole = (typeof TwAdminConsole === 'undefined') ? ADMIN_CONSOLE_OFF : TwAdminConsole.createAdminConsole({
+const adminConsole = TwAdminConsole.createAdminConsole({
   savedParts: ()=>premiumMod.savedParts(),
   savedDesks: ()=>commissionMod.savedDesks(),
   savedItems: ()=>commissionMod.savedItems(),
@@ -13713,8 +13681,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
 /* 본문은 둘로 나눠 옮겼다 — 신고 창 · 공용 도우미는 report.js(앱 FSD 11번), 관리자 신고 목록은 admin/admin-report.js.
    팝업 칸(한 번에 하나만 열리는 자리)은 report.js 가 가지고, 관리자 목록은 읽는 · 쓰는 함수로만 만진다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const REPORT_OFF = {};   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기
-const reportMod = (typeof TwReport === 'undefined') ? REPORT_OFF : TwReport.createReport({
+const reportMod = TwReport.createReport({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   seatLabelName: (...a)=>overheadMod._seatLabelName(...a),
@@ -13724,8 +13691,7 @@ const reportMod = (typeof TwReport === 'undefined') ? REPORT_OFF : TwReport.crea
   reportHiddenUids: hiddenSeatsMod._reportHiddenUids,
   myFriendCodeKey: MY_FRIEND_CODE_KEY,
 });
-const ADMIN_REPORT_OFF = {};
-const adminReport = (typeof TwAdminReport === 'undefined' || reportMod === REPORT_OFF) ? ADMIN_REPORT_OFF : TwAdminReport.createAdminReport({
+const adminReport = TwAdminReport.createAdminReport({
   toast: (...a)=>toast(...a),
   awayUrlOk: (...a)=>awayPicMod._awayUrlOk(...a),
   isAdmin: ()=>isAdmin,
@@ -13790,10 +13756,7 @@ function getFocusLevel(...a){ return focusLevelMod.getFocusLevel(...a); }   // �
 const GACHA_OWNED_KEY = 'tw.gachaOwned';
 const GACHA_TS_KEY    = 'tw.gachaOwnedTs';   // 이 기기가 마지막으로 gachaOwned 를 '바꾼' 시각(ms)
 const GACHA_BONUS_KEY = 'tw.gachaBonus';     // 👑달성표 주간 보상으로 얹힌 추가 뽑기 횟수
-const GACHA_OFF = { isGachaPart:()=>false, isGachaColorUnlocked:()=>false, gachaCount:()=>0, sceneHasColorGroup:()=>true, DUPES_FOR_COLOR:4,
-  syncGachaToServer(){}, pruneUnownedGachaParts(){}, renderGachaInv(){}, toggleGachaInv(){}, isInvOpen:()=>false, isDrawOpen:()=>false,
-  selId:()=>null, owned:()=>({}), bonus:()=>0, setBonusLocal(){}, resetMemory(){}, setPartEditor(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const gachaMod = (typeof TwGacha === 'undefined') ? GACHA_OFF : TwGacha.createGacha({
+const gachaMod = TwGacha.createGacha({
   toast: (...a)=>toast(...a),
   srvNow: (...a)=>roomSyncMod._srvNow(...a),
   warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),
@@ -14018,8 +13981,7 @@ function _applyActiveAppState(state){
      예전과 같은 때 돈다. 함수 deps 는 화살표로 감싼다(부를 때 찾게). appMode · _gachaBonus 는 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const CHAL_KEY = 'tw.chal';   // 👑 달성표 로컬 기록 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
-const WEEKLY_CHAL_OFF = { syncChalToServer(){}, open(){}, isOpen:()=>false, focusTick(){}, setKeyPlatform(){}, resetMemory(){} };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const weeklyChal = (typeof TwWeeklyChallenge === 'undefined') ? WEEKLY_CHAL_OFF : TwWeeklyChallenge.createWeeklyChallenge({
+const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
   getMyUserId: ()=>getMyUserId(),
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
@@ -14042,8 +14004,7 @@ const weeklyChal = (typeof TwWeeklyChallenge === 'undefined') ? WEEKLY_CHAL_OFF 
    ★ 머리 위 문구는 예전처럼 _focusShowConf 가 typeof _pomoShowText 로 본다 — 그 함수는 이 줄보다 먼저(bindFocusShow) 불려서
      반환값을 볼 수 없으므로 모듈이 window._pomoShowText 고리를 건다(만들기 전에는 '' — 예전과 같다).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const POMODORO_OFF = { showText:()=>'', open(){}, render(){}, tick(){}, cfg:()=>null, run:()=>null };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const pomodoro = (typeof TwPomodoro === 'undefined') ? POMODORO_OFF : TwPomodoro.createPomodoro({
+const pomodoro = TwPomodoro.createPomodoro({
   toast: (...a)=>toast(...a),
   focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),
   weeklyChal: weeklyChal,
@@ -14136,8 +14097,7 @@ addEventListener('resize',resize); resize();
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeFriends 는 다시 대입되는 let 이라 읽는 함수로,
    Presence 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const ROOM_INVITE_UI_OFF = { showPopup(){}, busy:()=>false };   // 모듈이 없으면(검사가 app.js 만 굴릴 때) 빈 껍데기 — SCHEDULER_OFF 와 같은 방식
-const roomInviteUi = (typeof TwRoomInviteUi === 'undefined') ? ROOM_INVITE_UI_OFF : TwRoomInviteUi.createRoomInviteUi({
+const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
   getMyUserId: (...a)=>getMyUserId(...a),

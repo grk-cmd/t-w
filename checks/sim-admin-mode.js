@@ -90,8 +90,8 @@ async function judgeAll(src, app, html, platform){
   const A = strip(app);
   t(!/function tryEnterAdmin|function _submitAdminPass|function exitAdmin|function refreshAdminVisibility|bindAdminTrigger|function _sha256Hex|'adminPassOk'/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
   t(/^let isAdmin = false;/m.test(app) && /const ADMIN_PASS_HASH = '/.test(app), 'isAdmin 선언 · 비밀번호 해시는 app.js 에(다른 곳도 읽는다)');
-  t(/const ADMIN_MODE_OFF = \{\};/.test(app), '모듈이 없으면 빈 껍데기');
-  const mk = (app.match(/const adminMode = \(typeof TwAdminMode === 'undefined'\) \? ADMIN_MODE_OFF : TwAdminMode\.createAdminMode\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
+  t(!/\bADMIN_MODE_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
+  const mk = (app.match(/const adminMode = TwAdminMode\.createAdminMode\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
   t(deps.length === 6 && deps.includes('isAdmin: ()=>isAdmin,') && deps.includes('setIsAdmin: (v)=>{ isAdmin = v; },') && deps.includes('savedParts: ()=>savedParts,')
     && deps.includes('adminPassHash: ADMIN_PASS_HASH,'), 'deps 여섯 — isAdmin 은 읽는 함수 + 쓰는 함수 · savedParts 는 읽는 함수');

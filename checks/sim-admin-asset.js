@@ -90,8 +90,8 @@ async function judgeAll(src, app, html){
   t(!/'lcAssetGen'|'assetGenGo'|'lcCommissionGen'|'commGenGo'|'lcGlbLoad'|'glbLoadGo'|'glbEncGo'/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
   t(/'assetImpFileBtn'/.test(A) && /'commImpFileBtn'/.test(A) && /function loadEncryptedGlbAsSeat\(/.test(A) && /function encryptAssetCode\(|async function encryptAssetCode\(/.test(A),
     '사용자 쪽(코드로 추가하기 · 커미션 코드 입력)과 굽는 함수들은 app.js 에 남았다');
-  t(/const ADMIN_ASSET_OFF = \{\};/.test(app), '모듈이 없으면 빈 껍데기');
-  const mk = (app.match(/const adminAsset = \(typeof TwAdminAsset === 'undefined'\) \? ADMIN_ASSET_OFF : TwAdminAsset\.createAdminAsset\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
+  t(!/\bADMIN_ASSET_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
+  const mk = (app.match(/const adminAsset = TwAdminAsset\.createAdminAsset\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
   t(deps.length === 12 && FNS.every(n => deps.includes(n + ': (...a)=>' + n + '(...a),')) && deps.includes('maxGlbBytes: ()=>MAX_GLB_BYTES,')
     && deps.includes('maxCommissionBytes: ()=>MAX_COMMISSION_BYTES,'), 'deps 12 — 함수 열 화살표 · 상한 둘은 읽는 함수(뒤에서 선언하는 const)');

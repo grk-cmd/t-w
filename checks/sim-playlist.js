@@ -447,7 +447,7 @@ function wiring(PL, APP, HTML){
   const offMiss = used.filter(n => !new RegExp('\\b' + n + '(\\(\\)\\{\\}|:)').test(off));
   const stUsed = usedIn(/plMod\.st\.\w+|\bpl\.\w+/g).filter(n => !/^(st|some|map)$/.test(n));
   const stMiss = stUsed.filter(n => !new RegExp('\\b' + n + ':').test(off));
-  chk(off && !offMiss.length && !stMiss.length && /\bst:\{/.test(off), '빈 껍데기 PLAYLIST_OFF — 부르는 이름 · 상태 칸을 다 갖는다 (' + used.join(' · ') + ')' + (offMiss.concat(stMiss).length ? ' 없음 ' + offMiss.concat(stMiss).join() : ''));
+  chk(!/\bPLAYLIST_OFF\b/.test(APP), '빈 껍데기 PLAYLIST_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const rets = ((PL.match(/\nreturn \{([\s\S]*?)\n\};/) || [])[1] || '').split('// 검사용')[0];
   chk(used.every(n => new RegExp('\\b' + n + '\\b').test(rets)), '  모듈이 그 이름을 내놓는다');
   const stKeys = ((PL.match(/\nconst st = \{([\s\S]*?)\n\};/) || [])[1] || '');
@@ -513,7 +513,6 @@ async function runAll(PL, APP, HTML){
     ['PL', "if(typeof window !== 'undefined') window.TwPlaylist = api;", "if(typeof window !== 'undefined') window.Playlist = api;", '전역 이름에 Tw 가 없음'],
     ['APP', '  myHomeFriends: ()=>_myHomeFriends,', '  myHomeFriends: _myHomeFriends,', '친구 목록을 값으로(TDZ · 옛 것)'],
     ['APP', "  try{ const pl = plMod.st; pl.sets = plMod.blankSets();", '  try{ const pl = plMod.st; _plSets = plMod.blankSets();', '로그아웃이 옛 이름에 씀'],
-    ['APP', 'blankSets:()=>[], pubSigOf', 'pubSigOf', '빈 껍데기에 이름이 빠짐'],
     ['APP', '} else if(plMod.mine().length){', '} else if(_plMine().length){', '계정 이어받기가 옛 이름을 부름'],
     ['HTML', '<script src="parts/status/playlist.js"></script>', '', 'html 이 모듈을 안 실음'],
   ];

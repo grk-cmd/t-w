@@ -110,8 +110,8 @@ async function judgeAll(m, app, html){
   t(!/bindTotalStats|getAdminStats\(|inviteGrantAll|closeAllRooms\(|cleanGhostRooms\(|publishGameConfig\(|publishAdBanner\(|'lcAdBannerEdit'/.test(A), 'app.js 에 옮긴 본문이 남지 않았다');
   t(['function _applyGameCfg(cfg)', 'subscribeAdBanner(', 'function refreshAdBanner()'].every(x => A.includes(x) || ADB.includes(x)) && (/\(function bindInviteUI\(\)\{/.test(A) || /\(function bindInviteUI\(\)\{/.test(LGATE)),
     '사용자 쪽(게임 설정 구독 · 배너 그리기 · 서버 배너 구독 · 초대 창 — 초대 창은 license-gate.js)은 관리자 모듈 밖에 남았다');
-  t(/const ADMIN_USERS_OFF = \{\};/.test(app) && /const ADMIN_LAUNCHER_OFF = \{\};/.test(app), '모듈이 없으면 빈 껍데기 둘');
-  const block = (name) => ((app.match(new RegExp('const ' + name + ' = \\(typeof \\w+ === \'undefined\'\\) \\? \\w+ : \\w+\\.create\\w+\\(\\{\\n([\\s\\S]*?)\\n\\s*\\}\\);')) || [])[1] || '')
+  t(!/\bADMIN_USERS_OFF\b/.test(app) && !/\bADMIN_LAUNCHER_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
+  const block = (name) => ((app.match(new RegExp('const ' + name + ' = (?:\\(typeof \\w+ === \'undefined\'\\) \\? \\w+ : )?\\w+\\.create\\w+\\(\\{\\n([\\s\\S]*?)\\n\\s*\\}\\);')) || [])[1] || '')
     .split('\n').map(l => l.trim()).filter(Boolean);
   const du = block('adminUsers'), dl = block('adminLauncher');
   t(/^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),\|inviteGrantMax: (?:licenseGateMod\.)?INVITE_GRANT_MAX,$/.test(du.join('|')), 'deps — 통계 · 초대권: toast · INVITE_GRANT_MAX(초대장 모듈이 내놓는 상수)');

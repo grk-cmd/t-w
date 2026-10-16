@@ -236,7 +236,7 @@ await sec('── 6. app.js 배선', () => {
   const m = strip(MOD).replace(/const (_myFriendRequests|_myHomeFriends|myHomeOpen) = deps\.\w+;/g, '');
   chk(!/\b_myFriendRequests\b(?!\(\))/.test(m) && !/\b_myHomeFriends\b(?!\(\))/.test(m) && !/\bmyHomeOpen\b(?!\(\))/.test(m), '모듈 본문은 읽는 함수만 부른다(값으로 쓰면 늘 참 · 옛 값이 된다)');
   const off = (APP.match(/const FRIEND_MANAGE_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
-  chk(NAMES.every(n => new RegExp('\\b' + n + '\\s*(\\(|:)').test(off)), '빈 껍데기 FRIEND_MANAGE_OFF 가 부르는 이름 열하나를 다 갖는다');
+  chk(!/\bFRIEND_MANAGE_OFF\b/.test(APP), '빈 껍데기 FRIEND_MANAGE_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const used = [...new Set([...code.matchAll(/\bfriendManage\.(\w+)/g)].map(x => x[1]))];
   chk(used.length >= 10 && used.every(n => NAMES.includes(n)), '부르는 곳은 friendManage.이름 — 반환값에 있는 이름만 (' + used.join(' · ') + ')');
   const iF = HTML.indexOf('<script src="parts/myhome/friend-manage.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');

@@ -96,8 +96,8 @@ function judgeWire(src, app, html){
   const t = (ok, msg) => r.push([!!ok, msg]);
   const A = strip(app);
   t(!NAMES.some(n => A.includes('window.' + n + ' =')), 'app.js 에 옮긴 콘솔 함수가 남지 않았다');
-  t(/const ADMIN_CONSOLE_OFF = \{\};/.test(app), '모듈이 없으면 빈 껍데기 — app.js 만 굴리는 검사가 서지 않는다');
-  const mk = (app.match(/const adminConsole = \(typeof TwAdminConsole === 'undefined'\) \? ADMIN_CONSOLE_OFF : TwAdminConsole\.createAdminConsole\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
+  t(!/\bADMIN_CONSOLE_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
+  const mk = (app.match(/const adminConsole = TwAdminConsole\.createAdminConsole\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
   t(deps.length === 3 && ['savedParts', 'savedDesks', 'savedItems'].every(n => deps.includes(n + ': ()=>' + n + ',')), 'deps 셋 — 카탈로그 목록을 읽는 함수로(다시 대입되는 let)');
   const h = app.indexOf('/* ═══ 🧹 관리자 콘솔 도구'), m = app.indexOf('const adminConsole ='), n = app.indexOf('/* ═══ 🔄 카탈로그 실시간 동기화');
