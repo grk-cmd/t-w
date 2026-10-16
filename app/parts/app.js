@@ -2634,7 +2634,7 @@ const partPaintMod = TwPartPaint.createPartPaint({
   findEntryById: (...a)=>premiumMod.findEntryById(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   humanEar: humanEar,
-  mirrorUVOn: (...a)=>mirrorUVOn(...a),
+  mirrorUVOn: (...a)=>paintGeomMod.mirrorUVOn(...a),
   newCanvas: (...a)=>newCanvas(...a),
   partEntryId: (...a)=>premiumMod.partEntryId(...a),
   partEntryInstances: (...a)=>premiumMod.partEntryInstances(...a),
@@ -2642,7 +2642,7 @@ const partPaintMod = TwPartPaint.createPartPaint({
   refreshWdPreviewColorSection: (...a)=>wardrobeMod.refreshWdPreviewColorSection(...a),
   savedParts: ()=>premiumMod.savedParts(),
   sizeWdPreview: (...a)=>wardrobeMod.sizeWdPreview(...a),
-  strokeSeg: (...a)=>strokeSeg(...a),
+  strokeSeg: (...a)=>paintGeomMod.strokeSeg(...a),
   toast: (...a)=>toast(...a),
   updateWdCam: (...a)=>wardrobeMod.updateWdCam(...a),
   updateWdGizmoForActivePanel: (...a)=>wardrobeMod.updateWdGizmoForActivePanel(...a),
@@ -6053,136 +6053,25 @@ function undo(){const h=curHist();if(!h.length)return;
 function redo(){const rs=curRedo();if(!rs.length)return;
   try{const cur=actC().getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ); curHist().push(cur); if(curHist().length>30)curHist().shift();}catch(e){}
   actC().getContext('2d').putImageData(rs.pop(),0,0);blit();}
-function _seg(ctx,x0,y0,x1,y1){ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();}
-/* === 3D 메쉬 중앙 기준 x축 대칭 ===
-   미러 지점을 메쉬 로컬에서 x반전한 뒤, 그 지점에 두 번째 레이캐스트를 쏘아 '실제 표면'의 UV를 얻음.
-   (UV 솔기로 같은 3D점에 UV가 여러 개여도 정확한 표면 UV를 가져옴) */
-const _mp=new THREE.Vector3(), _mn=new THREE.Vector3(), _mo=new THREE.Vector3(), _mray=new THREE.Raycaster(), _mdir=new THREE.Vector3();
-/* ★ 얼굴만이 아니라 **아무 메쉬에나** 쓸 수 있게 인자를 받는다 — 꾸미기창의 파츠 그리기(_pic)가
-   같은 함수를 쓴다. 여기만 따로 두면 한쪽 대칭만 고쳐지는 날이 온다(이 파일이 반복해서 겪은 실수).
-   ⚠️ castFn — 미러 지점을 다시 맞힐 때 쓸 레이캐스트. 리깅 파츠는 기본 레이캐스트가 바인드 포즈를
-     맞히기 때문에(스키닝 미계산) 대칭도 같이 빗나간다. 그리기 쪽이 자기 캐스트를 넘겨 준다. */
-function mirrorUVOn(hit, mesh, cam, cx, castFn, off){ if(!mesh||!hit)return null;
-  _mp.copy(hit.point); mesh.worldToLocal(_mp); _mp.x = 2*(cx||0) - _mp.x; mesh.localToWorld(_mp);  // 미러 표면점(월드)
-  const n=hit.face&&hit.face.normal;
-  if(n){ _mn.set(-n.x,n.y,n.z).transformDirection(mesh.matrixWorld).normalize(); }   // 미러된 바깥 법선
-  else { _mn.copy(cam.position).sub(_mp).normalize(); }
-  /* 표면 바깥 어디에서 되쏠 것인가. 기본 0.6 은 얼굴(캐릭터 크기) 기준으로 정해진 값이다.
-     ⚠️ 옷처럼 몸통·소매가 겹친 파츠에서는 이만큼 물러나면 **반대편 표면 대신 앞쪽 천**에서
-       출발하게 된다. 그래서 부르는 쪽이 파츠 크기에 맞는 값을 넘길 수 있게 열어 뒀다. */
-  _mo.copy(_mp).addScaledVector(_mn, (off>0?off:0.6));
-  _mdir.copy(_mn).negate();                               // 표면 쪽으로
-  _mray.set(_mo,_mdir);
-  if(castFn){ const hh=castFn(_mray.ray, mesh); return (hh&&hh.uv)?{x:hh.uv.x,y:hh.uv.y}:null; }
-  const h=_mray.intersectObject(mesh,false);
-  if(h.length&&h[0].uv) return {x:h[0].uv.x,y:h[0].uv.y};
-  return null; }
-function mirrorUV(hit){ if(!crState.cBase||!crState.cBase.face)return null;
-  /* 🩹 [2026-10-02] 대칭 되쏘기도 지금 자세로 맞힌다 — 얼굴이 리깅이라 기본 캐스트는 바인드 포즈를 맞혔다(_stampFaceHit 주석). */
-  return mirrorUVOn(hit, crState.cBase.face, crState.cCam, crState.cBase.faceCx||0, (ray, mesh)=>partPaintMod._picIntersect(ray,[mesh])); }
-function strokeSeg(ctx,lx,ly,x,y){ if(lx==null)_seg(ctx,x,y,x+0.01,y+0.01); else _seg(ctx,lx,ly,x,y); }
-/* 🩹 [2026-10-02 제보 #12] «캐릭터 생성 때 머리 윗부분은 끝까지 칠해도 되는데, 수염을 그리려고 아래쪽을 칠하면 튀어서 제멋대로 그려진다»
-   [원인] 생성기 칠하기는 얼굴 메쉬 **하나만** 맞히고 직전 점과 이번 점을 텍스처 위에서 직선으로 이었다.
-     ① 가려짐을 안 봤다 — 턱 밑·목 쪽 얼굴 메쉬는 몸통·옷에 가려 안 보이는데도 광선이 그대로 맞혀서, 화면엔 옷 위를
-        칠하는데 안 보이는 목 UV 에 찍혔다.
-     ② 솔기를 안 봤다 — 턱 아래 UV 솔기를 건너면 텍스처를 가로지르는 긴 직선이 그어졌다.
-     머리 위쪽은 실루엣을 넘으면 그냥 빗나가(miss) 획이 끊기므로 멀쩡했다 — 그래서 «아래쪽만» 이다.
-   [대응] 꾸미기 파츠 그리기(_wdPic)가 이미 검증한 세 가지를 그대로 쓴다.
-     · 앞면만: 뒷면(dot ≥ 0)에 맞은 것은 버린다(_picIntersect 와 같은 규칙).
-     · 가려짐: 옷(윗옷·아래옷·한벌옷)이 얼굴보다 앞에서 맞으면 거기서 획을 끊는다.
-     · 솔기: 3D 이동량 대비 UV 가 설명 못 할 만큼 뛰면 잇지 않고 끊는다(_wdPicPaint 의 allow 식 그대로).
-     · 빠른 움직임 쪼개기: 화면 경로를 몇 px 단위로 나눠 각 지점을 따로 맞힌다(_wdPicStrokeTo 와 같은 상수).
-   ⚠️ 가려짐 판정에 모자·안경·탈은 넣지 않는다 — 얼굴 위에 얹는 파츠라 그 아래를 칠하려는 경우가 있다.
-   ⚠️ 스포이드·도장은 손대지 않는다(이번 증상과 무관). */
-function _paintBreak(){ crState.lastPX=crState.lastPY=null; crState.lastSX=crState.lastSY=null; crState._pLastUV=null; crState._pLastPt=null; crState._pLastSUV=null; }
-function _paintHitAt(clientX, clientY){
-  const cv=document.getElementById('creatorPreview'); if(!cv || !crState.cBase || !crState.cBase.face) return null;
-  const r=cv.getBoundingClientRect();
-  _pndc.x=((clientX-r.left)/r.width)*2-1; _pndc.y=-((clientY-r.top)/r.height)*2+1;
-  _pray.setFromCamera(_pndc,crState.cCam);
-  /* 🩹 얼굴·옷 모두 리깅이라 지금 자세로 맞힌다(_picIntersect — 앞면만). 기본 캐스트는 바인드 포즈라 아래쪽이 어긋났다. */
-  const hit=partPaintMod._picIntersect(_pray.ray, [crState.cBase.face]);
-  if(!hit || !hit.uv) return null;
-  hit.distance = _pray.ray.origin.distanceTo(hit.point);
-  const occ=[crState.cBase.upMesh, crState.cBase.loMesh, crState.cBase.onepieceMesh];
-  /* ⚠️ 같은 장면에 붙어 있는 옷만 본다 — 동물 생성기로 바뀌면 cBase.face 만 동물 것으로 바뀌고 옷 참조는 옛 사람
-     인스턴스를 가리킬 수 있다(장면에서 떼어진 메쉬). 그 낡은 위치에 맞으면 엉뚱하게 칠이 막힌다. */
-  let _fr=crState.cBase.face; while(_fr.parent) _fr=_fr.parent;
-  for(let i=0;i<occ.length;i++){
-    const o=occ[i]; if(!o || o === crState.cBase.face) continue;
-    let vis=true, q=o, root=o; for(;q;q=q.parent){ if(q.visible===false){ vis=false; break; } root=q; }
-    if(!vis || root !== _fr) continue;
-    const oh=partPaintMod._picIntersect(_pray.ray, [o]);
-    if(oh && oh.point && _pray.ray.origin.distanceTo(oh.point) < hit.distance - 1e-3) return null;   // 옷이 앞에 있다 — 안 보이는 곳이다
-  }
-  return hit;
-}
-function paintAt(hit){ const ctx=actC().getContext('2d');ctx.lineCap='round';ctx.lineJoin='round';
-  ctx.lineWidth=crState.brushSize;
-  ctx.globalCompositeOperation=crState.eraser?'destination-out':'source-over';ctx.strokeStyle=crState.brushColor;
-  const cx=hit.uv.x*CANVAS_SZ, cy=hit.uv.y*CANVAS_SZ;
-  /* 🧵 솔기 판정(_wdPicPaint 와 같은 식) — 천장 0.25 까지 그대로. */
-  const wD=(crState._pLastPt && hit.point) ? crState._pLastPt.distanceTo(hit.point) : 0;
-  const allow=Math.min(0.25, wD * partPaintMod._wdPicUvScale(hit.object) * 4 + 0.02);
-  if(crState._pLastUV && Math.hypot(hit.uv.x-crState._pLastUV.x, hit.uv.y-crState._pLastUV.y) > allow){ crState.lastPX=crState.lastPY=null; }
-  strokeSeg(ctx,crState.lastPX,crState.lastPY,cx,cy); crState.lastPX=cx; crState.lastPY=cy;
-  crState._pLastUV={x:hit.uv.x, y:hit.uv.y};
-  if(hit.point){ if(!crState._pLastPt) crState._pLastPt=new THREE.Vector3(); crState._pLastPt.copy(hit.point); }
-  if(crState.symmetry){ const m=mirrorUV(hit);
-    if(m){
-      const mj=!!(crState._pLastSUV && Math.hypot(m.x-crState._pLastSUV.x, m.y-crState._pLastSUV.y) > allow);
-      const mx=m.x*CANVAS_SZ, my=m.y*CANVAS_SZ; strokeSeg(ctx,mj?null:crState.lastSX,mj?null:crState.lastSY,mx,my); crState.lastSX=mx; crState.lastSY=my; crState._pLastSUV={x:m.x,y:m.y};
-    }
-    else { crState.lastSX=crState.lastSY=null; crState._pLastSUV=null; } }
-  ctx.globalCompositeOperation='source-over'; blit(); }
-/* 🪣 페인트통 — 누른 얼굴 메쉬의 조각(UV 섬)만 지금 색으로 채운다(erase 면 그 조각만 지운다 → 피부가 보인다).
-   붓과 같은 광선(_paintHitAt — 앞면만 · 옷에 가려지면 안 칠함)을 쓰고, 그림 층(actC)에만 칠하므로
-   저장 · 되돌리기 · 감은눈 복사가 붓 획과 똑같이 다룬다. 대칭이면 거울 자리의 조각도 같은 되돌리기 한 칸에. */
-function bucketFromEvent(e, erase){ if(!isDrawStep()||!crState.cBase||!crState.crPaintTool)return false;
-  const hit=_paintHitAt(e.clientX, e.clientY);
-  if(!hit){ toast('얼굴을 눌러 채워요'); return false; }   // 빈 곳 · 옷에 가려진 곳
-  const ctx=actC().getContext('2d'), g=hit.object&&hit.object.geometry;
-  const n=crState.crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, faceIndex:hit.faceIndex, uv:hit.uv, color:crState.brushColor, erase, pushHistory });
-  if(!n){ toast('여기는 채울 자리가 없어요 — 얼굴을 눌러 주세요'); return false; }
-  if(crState.symmetry){ const m=mirrorUV(hit); if(m) crState.crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, uv:m, color:crState.brushColor, erase }); }
-  if(crState.crStep===3) crState.blinkEdited=true;
-  blit();
-  return true; }
-const _pray=new THREE.Raycaster(), _pndc=new THREE.Vector2();
-const CR_PAINT_STEP_PX = 6, CR_PAINT_MAX_STEPS = 8;   // _wdPicStrokeTo 와 같은 값
-function paintFromEvent(e){ if(!isDrawStep()||!crState.cBase)return;
-  /* 획의 첫 점(pointerdown 이 lastPX 를 비우고 부른다) — 쪼개기 출발점을 새로 잡는다. */
-  if(crState.lastPX==null && crState.lastSX==null && !crState._pLastUV) crState._pLastScr=null;
-  const sx=crState._pLastScr ? crState._pLastScr.x : null, sy=crState._pLastScr ? crState._pLastScr.y : null;
-  if(sx==null){
-    const h=_paintHitAt(e.clientX, e.clientY);
-    if(h) paintAt(h); else _paintBreak();
-  } else {
-    const dx=e.clientX-sx, dy=e.clientY-sy;
-    const n=Math.min(CR_PAINT_MAX_STEPS, Math.max(1, Math.ceil(Math.hypot(dx,dy)/CR_PAINT_STEP_PX)));
-    for(let i=1;i<=n;i++){
-      const h=_paintHitAt(sx+dx*i/n, sy+dy*i/n);
-      if(h) paintAt(h); else _paintBreak();   // 얼굴 밖·가려진 곳 — 거기서 끊는다
-    }
-  }
-  crState._pLastScr={x:e.clientX, y:e.clientY};
-}
-// 우클릭 스포이드: 표정 텍스처 캔버스에서 픽셀 색을 읽어 브러시 색으로 적용
-function eyedropFromEvent(e){ if(!isDrawStep()||!crState.cBase)return false;
-  const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();
-  _pndc.x=((e.clientX-r.left)/r.width)*2-1; _pndc.y=-((e.clientY-r.top)/r.height)*2+1;
-  _pray.setFromCamera(_pndc,crState.cCam);
-  const _eh=partPaintMod._picIntersect(_pray.ray, [crState.cBase.face]);   // 🩹 지금 자세로 맞힌다(리깅 · _stampFaceHit 주석)
-  if(!_eh||!_eh.uv) return false;
-  const cx=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.x*CANVAS_SZ)));
-  const cy=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.y*CANVAS_SZ)));
-  let d; try{ d=actC().getContext('2d').getImageData(cx,cy,1,1).data; }catch(_){ return false; }
-  if(d[3]<8) return false;   // 빈 픽셀은 무시
-  const hex='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
-  crState.brushColor=hex; _crDropEraser();
-  const bc=document.getElementById('brushCustom'); if(bc)bc.value=hex;
-  [...swEl.children].forEach(x=>x.classList.remove('on'));
-  return true; }
+/* 본문은 shared/paint-geom.js 로 옮겼다(C 구역 떼기 w4). 
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const paintGeomMod = TwPaintGeom.createPaintGeom({
+});
+/* 본문은 creator/paint-stroke.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const paintStrokeMod = TwPaintStroke.createPaintStroke({
+  CANVAS_SZ: CANVAS_SZ,
+  _crDropEraser: (...a)=>_crDropEraser(...a),
+  actC: (...a)=>actC(...a),
+  blit: (...a)=>blit(...a),
+  crState: crState,
+  isDrawStep: (...a)=>isDrawStep(...a),
+  paintGeomMod: paintGeomMod,
+  partPaintMod: partPaintMod,
+  pushHistory: (...a)=>pushHistory(...a),
+  swEl: ()=>swEl,
+  toast: (...a)=>toast(...a),
+});
 /* === 이미지 도장 (절충안: 떠 있는 미리보기 → Z 또는 ✓로 확정 박기) =================
    흐름:
    1) 이미지 불러오면 캔버스 위에 떠 있는 오버레이로 표시. 4코너 핸들로 비례 크기, 회전 손잡이로 회전, 본체 드래그로 이동.
@@ -6303,7 +6192,7 @@ function commitStamp(){
      [대응] 꾸미기 그리기가 이 문제로 만든 _picIntersect(리깅이면 지금 자세의 정점으로 직접 교차 · 앞면만)를 쓴다.
        리깅이 아니면 평소 레이캐스트 + 앞면 필터라 예전과 같다. */
   function _stampFaceHit(){
-    const c=partPaintMod._picIntersect(_pray.ray, [crState.cBase.face]);
+    const c=partPaintMod._picIntersect(paintStrokeMod._pray.ray, [crState.cBase.face]);
     if(!c||!c.uv) return null;
     return {x:c.uv.x, y:c.uv.y, p:c.point.clone()};
   }
@@ -6315,11 +6204,11 @@ function commitStamp(){
       const lx=(i/N-0.5)*w, ly=(j/N-0.5)*h;
       const sp=localToScreen(lx,ly);
       // 화면 좌표 → NDC (캔버스 픽셀 크기는 r.width/r.height 사용)
-      _pndc.x=(sp.x/r.width)*2-1; _pndc.y=-(sp.y/r.height)*2+1;
-      _pray.setFromCamera(_pndc,crState.cCam);
+      paintStrokeMod._pndc.x=(sp.x/r.width)*2-1; paintStrokeMod._pndc.y=-(sp.y/r.height)*2+1;
+      paintStrokeMod._pray.setFromCamera(paintStrokeMod._pndc,crState.cCam);
       const _h=_stampFaceHit();
       uvs.push(_h);
-      if(!_h) _wrapRays[uvs.length-1]={o:_pray.ray.origin.clone(), d:_pray.ray.direction.clone()};
+      if(!_h) _wrapRays[uvs.length-1]={o:paintStrokeMod._pray.ray.origin.clone(), d:paintStrokeMod._pray.ray.direction.clone()};
     }
   }
   // 🩹 #3 감아 칠하기 — 턱 밑처럼 정면에서 못 맞힌 칸을 이웃에서부터 이어 채운다(_stampWrapFill 주석)
@@ -6500,11 +6389,11 @@ function commitStamp(){
     for(let j=0;j<=N;j++){ for(let i=0;i<=N;i++){
       const lx=(i/N-0.5)*crState.stampPlace.w, ly=(j/N-0.5)*crState.stampPlace.h;
       const sx=crState.stampPlace.cx+lx*cs2-ly*sn2, sy=crState.stampPlace.cy+lx*sn2+ly*cs2;
-      _pndc.x=(sx/r.width)*2-1; _pndc.y=-(sy/r.height)*2+1;
-      _pray.setFromCamera(_pndc,crState.cCam);
+      paintStrokeMod._pndc.x=(sx/r.width)*2-1; paintStrokeMod._pndc.y=-(sy/r.height)*2+1;
+      paintStrokeMod._pray.setFromCamera(paintStrokeMod._pndc,crState.cCam);
       const _h2=_stampFaceHit();
       uvs2.push(_h2);   // 🩹 원본 도장과 같은 판정(앞면 · 3D 위치 포함)
-      if(!_h2) _wrapRays2[uvs2.length-1]={o:_pray.ray.origin.clone(), d:_pray.ray.direction.clone()};
+      if(!_h2) _wrapRays2[uvs2.length-1]={o:paintStrokeMod._pray.ray.origin.clone(), d:paintStrokeMod._pray.ray.direction.clone()};
     }}
     partPaintMod._stampWrapFill(uvs2, N, _wrapRays2, [crState.cBase.face], _wrapCtr);   // 거울 도장도 같이 감는다
     extrapolateUVs(uvs2, N);
@@ -6623,8 +6512,8 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
     if(crState.stampMode) return;
     if(e.button!==0)return;
     const act=crState.crPaintTool?crState.crPaintTool.pointerAction(e):'stroke';
-    if(act!=='stroke'){ bucketFromEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
-    if(crState.crStep===3)crState.blinkEdited=true;pushHistory();crState.painting=true;_paintBreak();crState._pLastScr=null;paintFromEvent(e);cv.setPointerCapture(e.pointerId);   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
+    if(act!=='stroke'){ paintStrokeMod.bucketFromEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
+    if(crState.crStep===3)crState.blinkEdited=true;pushHistory();crState.painting=true;paintStrokeMod._paintBreak();crState._pLastScr=null;paintStrokeMod.paintFromEvent(e);cv.setPointerCapture(e.pointerId);   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
   });
   cv.addEventListener('pointermove',e=>{
     if(crState._rcOrbit){
@@ -6648,14 +6537,14 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
        ★ 마지막 묶인 점이 이 이벤트와 2px 안일 때만 믿는다. 아니면 이 이벤트 하나만 쓴다(조금 덜 매끄럽지만 튀지 않는다). */
     const _cLast = (evs && evs.length) ? evs[evs.length-1] : null;
     const _cOk = !!(_cLast && Math.abs(_cLast.clientX - e.clientX) <= 2 && Math.abs(_cLast.clientY - e.clientY) <= 2);
-    if(_cOk){ for(const ce of evs) paintFromEvent(ce); }
-    else paintFromEvent(e);
+    if(_cOk){ for(const ce of evs) paintStrokeMod.paintFromEvent(ce); }
+    else paintStrokeMod.paintFromEvent(e);
   });
   cv.addEventListener('pointerup',(e)=>{
     if(crState._rcOrbit){
       const was=crState._rcOrbit; crState._rcOrbit=null;
       // 움직이지 않고 뗀 우클릭 = 기존 스포이드 동작 그대로
-      if(!was.moved && isDrawStep() && !crState.stampMode){ if(crState.crStep===3)crState.blinkEdited=true; eyedropFromEvent(e); }
+      if(!was.moved && isDrawStep() && !crState.stampMode){ if(crState.crStep===3)crState.blinkEdited=true; paintStrokeMod.eyedropFromEvent(e); }
       return;
     }
     crState.painting=false;crState.lastPX=crState.lastPY=null;crState.lastSX=crState.lastSY=null;

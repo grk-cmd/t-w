@@ -127,3 +127,46 @@ crState.camYaw += dx * 0.01;
 - 처음 값의 객체(`cXform` · `cDeskPos` · `stampPlace`)는 만들 때마다 새것이다 — 다른 곳과 같이 쓰는 객체로 바꾸지 말 것.
 
 검사: `checks/sim-creator-state.js` (처음 값 58개 · get/set · 만들 때마다 따로 · 연결 · 맨 이름 참조 없음 · 깨 보기).
+
+## `paint-stroke.js` — 🖌 얼굴에 칠하기(획 · 대칭 · 페인트통 · 스포이드)
+
+**책임** — 생성기 미리보기에서 누른 화면 점을 얼굴 UV 로 맞혀 그림 층(`actC()`)에 획을 잇는다. 맞히기는 앞면만 · 옷이 앞에 있으면 없음, 획은 솔기(3D 이동량에 비해 UV 가 크게 뛰는 곳)에서 끊고, 화면 경로는 6px 단위(최대 8번)로 쪼갠다. 대칭이면 거울 자리에도, 페인트통은 누른 UV 섬만, 스포이드는 그 픽셀 색을 붓 색으로.
+
+**만드는 법** — app.js «되돌리기 · blit» 바로 뒤:
+
+```js
+const paintStrokeMod = TwPaintStroke.createPaintStroke({
+  CANVAS_SZ: CANVAS_SZ,          // 값 — 그림 층 한 변(512)
+  crState: crState,              // 값 — 생성기 상태(cBase · cCam · brushColor · brushSize · eraser · symmetry · 획 기억 lastPX …)
+  paintGeomMod: paintGeomMod,    // 값 — 선 긋기 · 거울 UV(shared/paint-geom.js)
+  partPaintMod: partPaintMod,    // 값 — 리깅 맞히기(_picIntersect) · UV 배율(_wdPicUvScale)
+  swEl: ()=>swEl,                // 읽는 함수 — 색 견본 줄(뒤에서 선언)
+  actC: (...a)=>actC(...a),      // 함수 — 지금 그림 층(표정 / 감은눈)
+  // … _crDropEraser · blit · isDrawStep · pushHistory · toast
+});
+```
+
+**내놓는 것**
+
+| 이름 | 하는 일 |
+|---|---|
+| `paintFromEvent(e)` | 포인터 이벤트 하나 — 직전 화면 점과의 경로를 쪼개 맞히고 잇는다(빗나가면 끊는다) |
+| `bucketFromEvent(e, erase)` | 페인트통 — 누른 UV 섬을 채운다(대칭이면 거울 섬도 같은 되돌리기 한 칸). 못 채우면 안내 토스트 · false |
+| `eyedropFromEvent(e)` | 스포이드 — 거의 투명한(알파 < 8) 픽셀은 무시 |
+| `_paintBreak()` | 획을 끊는다(다음 점은 새 점) |
+| `_pray` · `_pndc` | 도장이 같이 쓰는 광선 |
+
+```js
+cv.addEventListener('pointerdown', e=>{ pushHistory(); crState.lastPX=null; paintStrokeMod.paintFromEvent(e); });
+```
+
+**확장할 때 고칠 자리** — 쪼개기 간격 · 횟수는 `CR_PAINT_STEP_PX` · `CR_PAINT_MAX_STEPS`(꾸미기 `_wdPicStrokeTo` 와 같은 값). 가려짐에 넣을 옷은 `_paintHitAt` 의 `occ` 목록.
+
+**함정**
+- 가려짐 판정에 모자 · 안경 · 탈은 넣지 않는다 — 얼굴 위에 얹는 파츠라 그 아래를 칠하려는 경우가 있다.
+- 입구 전제 — 세 입구 모두 그리기 단계 · 캐릭터(`crState.cBase`) · 얼굴 메쉬 · 미리보기 캔버스(`#creatorPreview`)가 없으면 아무것도 안 한다. 새 입구를 더하면 같은 확인을 맨 앞에.
+- 얼굴 · 옷은 리깅이라 기본 레이캐스트(바인드 포즈)가 아니라 `partPaintMod._picIntersect`(지금 자세)로 맞힌다.
+- 옷은 같은 장면에 붙은 것만 본다 — 동물 생성기로 바뀌면 옷 참조가 장면에서 떼어진 옛 메쉬일 수 있다.
+- 선 긋기(`strokeSeg`) · 거울 UV(`mirrorUVOn`)는 꾸미기 파츠 그리기도 같이 써서 `shared/paint-geom.js` 에 있다 — 여기로 다시 가져오면 part-paint 와 서로를 부른다.
+
+검사: `checks/sim-paint-stroke.js` (획 · 쪼개기 · 끊기 · 지우개 · 가려짐 · 솔기 · 대칭 · 페인트통 · 스포이드 · 입구 전제 · 연결 · 깨 보기 12).
