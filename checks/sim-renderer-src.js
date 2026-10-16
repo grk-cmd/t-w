@@ -85,6 +85,7 @@ const MODULES = [
   { file: 'part-scene.js', mod: 'partSceneMod', glob: 'TwPartScene', sample: 'function _forceOpaqueAlphaOutput(' },   // 구역 떼기 C · w2
   { file: 'admin-thumbs.js', mod: 'adminThumbs', glob: 'TwAdminThumbs', sample: 'window.generateAllPartThumbnails = async' },   // 구역 떼기 C · w2
   { file: 'mat-tone.js', mod: 'matToneMod', glob: 'TwMatTone', sample: 'function setFaceMap(' },   // C 구역 떼기 · w3
+  { file: 'seat-friend-req.js', mod: 'seatFriendReqMod', glob: 'TwSeatFriendReq', sample: 'function _friendReqAsk(' },   // C 구역 떼기 w4
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

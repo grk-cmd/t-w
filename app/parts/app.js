@@ -4718,50 +4718,16 @@ function classifyHit(seat, obj){
   }
   return 'desk';
 }
+/* 본문은 myhome/seat-friend-req.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
+  FRIEND_MAX: FRIEND_MAX,
+  _myHomeFriends: ()=>_myHomeFriends,
+  getDisplayName: (...a)=>getDisplayName(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  toast: (...a)=>toast(...a),
+});
 // 우클릭 → 내 캐릭터 수정(생성기 열기). 친구(remote) 좌석은 남의 캐릭터라 수정 못 하게 막음.
-/* 🙋 친구가 아닌 상대 우클릭 → 친구 신청.
-   [왜 팝업이 아닌가] 확인창을 새로 만들면 `position:fixed` 오버레이가 하나 더 늘고, 그러면
-     audit 검사 2(클릭 통과 화이트리스트)·12(베젤 radius)·13(타이틀바 토큰)·15(버블 목록)에
-     전부 새 항목이 생긴다. 실행 화면은 **투명 전체화면 오버레이**라 native confirm 다이얼로그도 못 쓴다 —
-     (여기서 그 이름을 괄호까지 붙여 적으면 audit 검사 4 가 '포커스 보정 없는 호출'로 잡는다 —
-      주석까지 세는 검사라, 관례대로 괄호를 뺀다.)
-     렌더러를 블로킹한 채 다이얼로그가 안 보여 "앱이 멈춘 것"으로 보인다(디자인 스튜디오 초기화
-     버튼이 2단계 클릭으로 바뀐 것과 같은 이유). 그래서 이 파일이 이미 쓰는 관례인
-     **2단계 확인**을 그대로 따른다: 한 번 더 우클릭하면 보낸다.
-   ⚠️ 🏢 회사원 모드 차단(`if(officeMode && seat.remote) return;`)보다 **뒤**에 있어야 한다.
-     그 모드는 상대 우클릭이 아무 반응도 없어야 하고, 토스트가 뜨면 그 목적이 깨진다.
-   ★ 실수로 보내도 되돌릴 것이 없다(상대가 수락하기 전까지는 요청 한 줄뿐)지만, 우클릭은
-     마이홈 열기와 같은 동작이라 손이 먼저 가기 쉬워서 한 번은 묻는다. */
-let _friendReqArmed = null, _friendReqTimer = null;
-const FRIEND_REQ_ARM_MS = 5000;   // 이 시간 안에 한 번 더 우클릭하면 전송
-function _friendReqAsk(uid, seat){
-  const name = (seat && seat.friendName) || '이 사람';
-  if(_friendReqArmed !== uid){
-    _friendReqArmed = uid;
-    clearTimeout(_friendReqTimer);
-    _friendReqTimer = setTimeout(()=>{ _friendReqArmed = null; }, FRIEND_REQ_ARM_MS);
-    toast(name + '님은 아직 친구가 아니에요 — 한 번 더 우클릭하면 친구 신청을 보내요');
-    return;
-  }
-  clearTimeout(_friendReqTimer); _friendReqArmed = null;
-  _friendReqSend(uid, name);
-}
-async function _friendReqSend(uid, name){
-  /* 앞단 검사는 마이홈의 [친구 추가] 와 **같은 순서·같은 문구**로 맞춘다 — 두 입구가 다른 말을 하면
-     같은 상황에서 다른 안내를 받는다(친구 코드로는 막히는데 우클릭으로는 되는 것처럼 보이는 종류). */
-  if(!window.firebaseAPI || !firebaseAPI.sendFriendRequest){ toast('아직 준비 중이에요'); return; }
-  try{
-    if(uid === getMyUserId()){ toast('내 코드는 추가할 수 없어요'); return; }
-    if(_myHomeFriends && _myHomeFriends[uid]){ toast('이미 친구예요'); return; }
-    if(_myHomeFriends && Object.keys(_myHomeFriends).length >= FRIEND_MAX){ toast('친구는 최대 '+FRIEND_MAX+'명까지만 추가할 수 있어요'); return; }
-    // 📤 여기는 좌석에서 상대 이름을 알고 있으므로 이름을 이름표로 넘긴다
-    const res = await firebaseAPI.sendFriendRequest(getMyUserId(), uid, getDisplayName(), name, null);
-    if(res && res.ok) toast(name + '님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요');
-    else if(res && res.reason === 'already') toast('이미 친구예요');
-    else if(res && res.reason === 'self') toast('내 코드는 추가할 수 없어요');
-    else toast('요청에 실패했어요');
-  }catch(e){ toast('요청 중 오류가 발생했어요'); }
-}
 canvas.addEventListener('contextmenu', e=>{
   e.preventDefault();
   if(_suppressNextContextMenu){ _suppressNextContextMenu=false; return; }   // 이동 모드를 우클릭으로 막 확정한 경우 — 이어서 캐릭터 우클릭 동작으로 안 이어지게
@@ -4865,7 +4831,7 @@ function _seatCtxMenu(ev, seat){
     if(uid && _myHomeFriends[uid]){
       mk('🏠 마이홈 구경', ()=>{ mhVisitMod.openFriendHomeView(uid); });
     } else if(uid){
-      mk('👤 친구 신청', ()=>_friendReqAsk(uid, seat));
+      mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));
     } else {
       mk('👤 친구 신청', ()=>toast('이 유저의 정보가 아직 없어요 (버전 업데이트가 필요할 수 있어요)'));
     }
