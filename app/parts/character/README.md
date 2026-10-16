@@ -160,3 +160,32 @@
   - `wrapper.visible` 만 바꾼다 — 메시 · 투명도(setSeatOpacity)와 섞지 말 것. 파츠가 가리던 기본 메시는 `applyClothVisibility` 가 «파츠 없음» 으로 되돌린다.
   - 카테고리 표(`PART_CATS()`)가 아직 없으면 책상 위 파츠도 숨긴다(지금 동작).
   - 검사: `checks/sim-deco-parts-visibility.js`(4절) · `sim-deco-parts.js`.
+
+## char-measure.js — 📐 캐릭터 실측
+
+- **책임**: 캐릭터 · 파츠 wrapper 의 3D 박스를 재는 도우미 묶음. 값을 재서 돌려주거나(박스 · 깊이 · 보정량) wrapper 하나를 바닥 위로 올린다. 좌석 배율 · 위치를 거는 일은 app.js `fitModel`, 콘솔 진단은 `floor-snap-diag.js`.
+- **만드는 법**: deps 없음(THREE 전역) — `const charMeasureMod = TwCharMeasure.createCharMeasure({` / `});`.
+- **내보내는 것**
+  - `measureCharBox(root)` — 맨 몸 박스(스킨드 · 리깅 · 꾸미기 wrapper 제외). fitModel 의 키 정규화 분모.
+  - `measureHeadBoxNoParts(root, outBoxes?, meshHost?)` — 맨 머리 박스(숨은 메쉬 · 꾸미기 파츠 제외, meshHost 를 주면 기본 장식 메쉬도). 올라타기 · 이름표 · 귀가 쓴다.
+  - `headDecorMeshSet(meshHost)` — 기본 장식 메쉬(hatMesh · maskMesh · glassesMesh · wingMesh) Set.
+  - `measureUnderfootDepth(root)` — 발 아래로 내려간 깊이(오차 0.005 이하면 0 · 상한 1.2).
+  - `charFootFix(box)` — 피봇이 발바닥이 아닌 모델을 되돌릴 양(키의 12% 넘으면 0).
+  - `floorClampWrapper(w, tag, hard?, skipSub?)` — wrapper 를 월드 바닥 위로(부모 배율로 환산) · 올린 로컬 y 를 돌려준다.
+  ```js
+  const box = charMeasureMod.measureCharBox(seat.gltfRoot);
+  const fix = charMeasureMod.charFootFix(box);
+  ```
+- **확장할 때 고칠 자리**: 상한 `FLOOR_SNAP_MAX` · 오차 `FLOOR_SNAP_MIN` · 피봇 보정 상한 `FOOT_FIX_MAX_RATIO` · 장식 메쉬 목록 `HEAD_DECOR_MESH_KEYS`(한 벌만).
+- **함정**
+  - 측정에서 빼는 규칙(리깅 · 꾸미기 wrapper · 숨김)은 함수마다 조금씩 다르다 — 바꾸면 fitModel · fitCreator · 꾸미기 미리보기가 함께 움직인다.
+  - `floorClampWrapper` 는 «잰 것» 과 «움직이는 것» 이 같아야 한다 — 같이 안 올라가는 가지만 skipSub 로 뺀다.
+  - 검사: `checks/sim-char-measure.js`(4절 — 실제 three 로 박스 · 깊이 · 상한 · 보정 · 부모 배율 환산 · hard · skipSub).
+
+## floor-snap-diag.js — 🩺 바닥 맞춤 진단
+
+- **책임**: 진단 전용. 콘솔에서 `floorSnapReport()` 한 줄로 실행 화면 · 꾸미기 미리보기 좌석의 발밑 깊이와 파츠 wrapper 위치(바닥 아래인지 · 모델 안인지)를 나란히 적는다. 아무것도 고치지 않는다.
+- **만드는 법**: `TwFloorSnapDiag.createFloorSnapDiag({ charMeasureMod, findMySeat, wardrobeMod: ()=>wardrobeMod });`(만들 때 `window.floorSnapReport` 를 건다).
+- **내보내는 것**: 없음 — `window.floorSnapReport()` 만(돌려주는 글: «위 로그를 복사해서 보내주세요»).
+- **확장할 때 고칠 자리**: 보는 좌석(실행 화면 · 미리보기) · 한 줄에 적는 값은 `push` 안.
+- **함정**: 실제 좌석은 `gltfRoot`, 미리보기는 `root` 라 모델 노드 이름이 다르다(`modelOf`). 검사: `checks/sim-floor-snap-diag.js`.

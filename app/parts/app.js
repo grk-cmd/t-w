@@ -1761,7 +1761,7 @@ const rideBenchMod = TwRideBench.createRideBench({
   layoutSeats: (...a)=>layoutSeats(...a),
   matWood: matWood,
   matWoodD: matWoodD,
-  measureHeadBoxNoParts: (...a)=>measureHeadBoxNoParts(...a),
+  measureHeadBoxNoParts: (...a)=>charMeasureMod.measureHeadBoxNoParts(...a),
   savedParts: ()=>premiumMod.savedParts(),
   seatScale: (...a)=>seatEqMod.seatScale(...a),
   seatState: (...a)=>seatState(...a),
@@ -1850,342 +1850,17 @@ const dotRenderMod = TwDotRender.createDotRender({
   scene: scene,
 });
 /* ============================================================ FIT */
-
-// ★ 캐릭터 크기 측정 공용 헬퍼 — 리깅(스키닝) 파츠 메쉬 **와 꾸미기 파츠 wrapper 하위**를 제외하고 잼.
-//   즉 이 박스는 '맨 몸' 이다. 파츠를 무엇을 달아도 캐릭터 키는 항상 1.45 로 고정된다.
-//   Box3.setFromObject는 SkinnedMesh의 "스키닝 전 원시 지오메트리" 박스를 재는데, 리깅 파츠는
-//   본이 렌더 시점에 몸 크기로 줄여 입히므로 원시 박스가 실제보다 몇 배씩 클 수 있음(cape 장착 후
-//   refH가 1.5→9.1로 폭증해 캐릭터가 극소화되던 버그의 원인). 리깅 파츠는 어차피 몸에 밀착되므로
-//   크기 계산에서 빼도 안전.
-/* 🎩 '머리가 아니라 머리에 얹힌 것' — 기본 GLB 에 들어 있는 장식 메쉬들.
-   [왜 목록이 하나여야 하나] 이 넷은 **가시성과 무관하게** 머리 꼭대기 측정에서 빠져야 한다.
-     같은 부위의 꾸미기 파츠를 끼면 applyClothVisibility 가 이 메쉬를 숨기는데(_setVis),
-     측정이 '숨은 메쉬 제외' 규칙을 쓰므로 그 순간 머리 꼭대기가 모자 두께만큼 낮아졌다.
-     그러면 **파츠를 쓰고 벗을 때마다 위에 얹힌 캐릭터가 오르내린다** — 이게 제보된 증상이다.
-     (가챠 파츠 자신은 __partWrap_ 이라 애초에 측정에서 빠지므로 그 높이를 대신 채워주지도 않는다.)
-   [왜 '숨은 것만 예외로 포함'이 아니라 '항상 제외'인가]
-     ① 포함하는 방향은 숨은 기본 모자가 씌운 파츠보다 높을 때 **아무것도 없는 허공에 얹히는**
-        옛 사고를 되살린다. 빼는 방향은 실루엣보다 위로 부풀 수가 없어 구조적으로 안전하다.
-     ② '가챠 파츠 위에는 안 얹는다'(measureHeadBoxNoParts 주석)는 규칙이 이미 서 있다.
-        기본 모자만 예외로 세는 지금이 오히려 일관성이 없다.
-     ③ _headTopAboveBone 이 같은 이유로 이미 같은 목록을 쓰고 있었다(실측: 기본 모자를 포함하면
-        인간 base GLB 머리 꼭대기가 3.994 → 4.099 로 부풀었다). 그 목록을 여기로 올려 하나로 합친다.
-   ⚠️ 목록을 두 벌로 만들지 말 것 — 한쪽에만 항목을 더하면 두 측정이 그만큼 어긋난다.
-   ⚠️ 대가: 기본 모자가 있고 파츠는 안 낀 캐릭터는 탑승 위치가 모자 두께만큼(정규화 후 약 0.04)
-      낮아진다. '모자 위'가 아니라 '머리 위'에 앉는다 — 의도한 변경이다.
-   ⚠️ 인간·동물 공통 경로다. 한쪽만 고치면 안 된다.
-   ⚠️ 측정은 올라탈 때 1회 캐싱이다. 확인할 때는 반드시 **내렸다 다시 올려서** 볼 것. */
-const HEAD_DECOR_MESH_KEYS = ['hatMesh','maskMesh','glassesMesh','wingMesh'];
-const _EMPTY_MESH_SET = new Set();
-function headDecorMeshSet(meshHost){
-  if(!meshHost) return _EMPTY_MESH_SET;             // 좌석을 안 준 호출부는 예전 그대로 동작한다
-  const s = new Set();
-  HEAD_DECOR_MESH_KEYS.forEach(k=>{ if(meshHost[k]) s.add(meshHost[k]); });
-  return s.size ? s : _EMPTY_MESH_SET;
-}
-/* 🎪 올라타기 전용 — 꾸미기 파츠까지 빼고 '맨 머리' 꼭대기를 잰다.
-   measureCharBox는 리깅 파츠(귀 등)만 제외해서, 머리 위에 얹는 장식(뿔·모자·안테나 등)을 쓰면
-   그 끝이 박스 꼭대기가 되어 올라탄 동물이 공중에 뜬 것처럼 보였다.
-   파츠는 '__partWrap_' 이름의 wrapper로 감싸 붙으므로 그 하위를 통째로 건너뛴다. */
-/* @param outBoxes 배열을 주면 '통과한 메쉬 하나하나의 박스'를 담아 준다.
-   합친 박스만으로는 알 수 없는 것을 재기 위한 것 — 특히 '꼭대기 근처에 있는 메쉬만'을 골라
-   앞뒤 중심을 다시 잡는 데 쓴다(_measureHostHeadTop 의 _headTopCenterZ). */
-/* @param meshHost 좌석(또는 인스턴스)을 주면 **기본 장식 메쉬**(모자·탈·안경·날개)를
-     가시성과 무관하게 측정에서 뺀다. HEAD_DECOR_MESH_KEYS 주석 참고. */
-function measureHeadBoxNoParts(root, outBoxes, meshHost){
-  const box=new THREE.Box3(); const tmp=new THREE.Box3();
-  const decor = headDecorMeshSet(meshHost);
-  root.updateWorldMatrix(true,true);
-  root.traverse(o=>{
-    if(!o.isMesh) return;
-    if(decor.has(o)) return;                         // 기본 장식 메쉬 — 보이든 숨었든 항상 제외
-    if(o.userData && o.userData._origBind) return;   // 리깅 파츠의 스킨드메시
-    let p=o, skip=false;
-    while(p && p!==root){
-      // ★ 숨겨진 메쉬는 제외 — 이 검사가 없어서 "머리 위에 얹으면 뜨는" 문제가 났다.
-      //   옷을 입으면 applyClothVisibility가 기본 몸 메쉬를 숨기고, 자리비움 페이드도 메쉬를 숨기는데,
-      //   그 숨은 메쉬가 보이는 실루엣보다 위로 뻗어 있으면 머리 꼭대기가 부풀려져 그만큼 위 캐릭터가 떴다.
-      //   (조상이 숨겨져도 자식은 안 보이므로 부모 사슬 전체를 확인한다.)
-      if(p.visible === false){ skip=true; break; }
-      if(p.userData && p.userData.rigged){ skip=true; break; }                       // 리깅 파츠(귀 등)
-      if(typeof p.name==='string' && p.name.indexOf('__partWrap_')===0){ skip=true; break; }   // 꾸미기 파츠
-      p=p.parent;
-    }
-    if(skip || o.visible === false) return;
-    try{ tmp.setFromObject(o); if(!tmp.isEmpty()){ box.union(tmp); if(outBoxes) outBoxes.push(tmp.clone()); } }catch(_){}
-  });
-  return box;
-}
-function measureCharBox(root){
-  const box=new THREE.Box3(); const tmp=new THREE.Box3();
-  root.updateWorldMatrix(true,true);
-  root.traverse(o=>{
-    if(!o.isMesh) return;
-    if(o.userData && o.userData._origBind) return;   // 리깅 파츠의 스킨드메시
-    let p=o, skip=false;
-    while(p && p!==root){
-      if(p.userData && p.userData.rigged){ skip=true; break; }                      // 리깅 wrapper 하위 전부 제외
-      /* 🎩 꾸미기 파츠 wrapper 하위도 제외 — measureHeadBoxNoParts 와 같은 판정.
-         [왜] 이 박스는 캐릭터를 '키 1.45' 로 정규화하는 분모(fitModel 의 baseScale)와
-           앞뒤·좌우 센터링 기준(c.x·c.z)을 동시에 정한다. 파츠를 세면 그 분모가
-           '몸 + 파츠' 가 되어, 착용한 파츠에 따라 캐릭터 자체가 줄었다 늘었다 한다.
-           욕조처럼 발밑으로 내려가는 파츠는 깊이 0.5 만 되어도 1.45/1.95 = 0.74 배로
-           캐릭터가 작아졌다 — 좌석 크기(userScale)를 고정해 둬도 그 위에 곱해지므로
-           "월드 바닥에서 캐릭터 키가 사람마다 제각각" 의 정체가 이것이다.
-         ★ 파츠는 이 root 의 자손이므로 배율·센터링을 그대로 물려받는다. 측정에서만 빠지고
-           화면에서는 몸과 같은 비율로 커지므로, 사용자가 맞춰둔 xf 를 다시 조정할 필요가 없다.
-         ★ 센터링(c.x·c.z)도 같이 파츠와 무관해진다 — 모자/탈을 달고 뺄 때마다 c.z 가 흔들려
-           캐릭터가 앞뒤로 밀리던 문제(fitModel 의 그 ⚠️ 주석)가 함께 사라진다.
-         ⚠️ fitCreator 도 이 함수를 쓴다 — 그래서 생성기 미리보기와 실행 화면이 함께 맞는다.
-           한쪽만 고치면 두 화면이 파츠 크기만큼 어긋난다. */
-      if(typeof p.name==='string' && p.name.indexOf('__partWrap_')===0){ skip=true; break; }
-      if(p.userData && p.userData.__twPartWrap){ skip=true; break; }                 // 이름이 바뀌어도 표식으로 잡는다
-      p=p.parent;
-    }
-    if(skip) return;
-    try{ tmp.setFromObject(o); if(!tmp.isEmpty()) box.union(tmp); }catch(_){}
-  });
-  return box;
-}
-/* 🦶 발밑보다 아래로 내려간 깊이 — 욕조·방석처럼 **발 아래에 두는 파츠** 때문에
-     캐릭터마다 바닥선이 제각각이 되는 것을 막는다. 이 값만큼 모델을 들어 올리면
-     '가장 아래에 있는 것'이 바닥에 닿는다.
-
-   ★ 모델 원점(피봇)이 발바닥이라는 점이 이 보정의 전부다. 발 아래에 아무것도 없으면 이 값은 0이고
-     보정은 통째로 무동작이다 — **기존 캐릭터는 한 픽셀도 안 움직인다.**
-     바닥을 min.y 로 다시 잡는 방식이었다면 메쉬 오차가 있는 모든 캐릭터가 같이 들썩였을 것이다.
-     (fitModel 이 일부러 min.y 를 안 쓰고 피봇을 쓰는 이유가 그것이다 — 그 결정을 뒤집지 않는다.)
-   ★ 파츠 위치를 손으로 맞춰 이미 바닥에 딱 붙여 둔 사람도 깊이가 0이라 그대로다.
-     어긋난 만큼만 움직인다.
-
-   ⚠️ 숨은 메쉬를 세면 안 된다 — 옷을 입으면 기본 몸 메쉬가 숨고 자리비움 페이드도 메쉬를 숨긴다.
-     그게 발 아래로 뻗어 있으면 보이지도 않는 것 때문에 캐릭터가 떠오른다
-     (머리 위 파츠에서 똑같은 사고가 났었다 — measureHeadBoxNoParts 주석 참고).
-   ⚠️ 리깅(스키닝) 파츠는 제외한다. Box3 는 스키닝 **전** 원시 박스를 재기 때문에 발 아래로
-     몇 배씩 뻗은 값이 나온다(measureCharBox 가 같은 이유로 제외한다).
-   ⚠️ 책상 파츠(deskitem)는 seat.deskAnchor 에 붙어 gltfRoot 밖에 있으므로 애초에 안 잡힌다 —
-     책상은 바닥에 맞출 대상이 아니므로 그게 맞다. */
-const FLOOR_SNAP_MAX = 1.2;      // 저작이 어긋난 파츠 하나 때문에 캐릭터가 하늘로 뜨는 것 방지(캐릭터 키가 1.45)
-const FLOOR_SNAP_MIN = 0.005;    // 이보다 얕으면 수치 오차로 보고 안 건드린다
-function measureUnderfootDepth(root){
-  const tmp = new THREE.Box3();
-  let bottom = 0;
-  try{
-    root.updateWorldMatrix(true,true);
-    root.traverse(o=>{
-      if(!o.isMesh || o.visible === false) return;
-      if(o.userData && o.userData._origBind) return;      // 리깅 파츠의 스킨드메시
-      let p=o, skip=false;
-      while(p && p!==root){
-        if(p.visible === false){ skip=true; break; }       // 조상이 숨겨져도 화면엔 안 보인다
-        if(p.userData && p.userData.rigged){ skip=true; break; }
-        p=p.parent;
-      }
-      if(skip) return;
-      try{ tmp.setFromObject(o); if(!tmp.isEmpty() && tmp.min.y < bottom) bottom = tmp.min.y; }catch(_){}
-    });
-  }catch(_){ return 0; }
-  const depth = -bottom;
-  if(!(depth > FLOOR_SNAP_MIN)) return 0;
-  if(depth > FLOOR_SNAP_MAX){
-    console.warn('[바닥맞춤] 발밑 깊이가 비정상적으로 큼 — ' + depth.toFixed(2) + ' → ' + FLOOR_SNAP_MAX + ' 로 제한');
-    return FLOOR_SNAP_MAX;
-  }
-  return depth;
-}
-/* 🦶 피봇 보정 — "피봇이 곧 발바닥"이 아닌 모델을 발바닥 기준으로 되돌린다.
-   [왜] fitModel·fitCreator·꾸미기 미리보기는 모두 **모델 원점(피봇)을 발바닥으로 치고**
-     거기에 높이(xf.y)를 얹는다. 그런데 사람 GLB 는 피봇이 메쉬 바닥보다 0.048(정규화 로컬)
-     아래에 있어서, 그만큼 늘 공중에 떠 있었다.
-     [실측] 실행 사람 발 0.0202(wrap 0.42) · 0.0245(wrap 0.51) → 0.0202/0.42 = 0.0481,
-            0.0245/0.51 = 0.0480 으로 **같다**. 크기와 무관한 모델 로컬 상수 = 피봇 어긋남.
-            동물은 buildAnimalBase 가 절차적으로 만들어 거의 정확히 0 이었다.
-   [무엇을 하나] 몸 박스(measureCharBox — 파츠 제외)의 바닥이 원점에 오도록 되돌릴 양을 준다.
-     그래서 사람은 0.048×wrap 만큼 내려오고, 동물·커미션은 원래 0 에 가까우면 거의 안 움직인다.
-   ⚠️ **네 곳이 짝이다** — fitModel · fitCreator('edit') · fitCreator('app') · refreshWdPreviewChar.
-     한 곳만 넣으면 이번에 맞춘 생성기↔실행 높이가 그 양만큼 다시 갈린다.
-   ⚠️ 박스는 **그 객체가 y=0 에 있을 때** 잰 것이어야 한다(부모는 항등). 위 네 곳이 그 상태다.
-   ⚠️ 발밑 파츠(욕조 등)는 measureUnderfootDepth 가 따로 본다 — 여기서는 몸만 본다.
-   ⚠️ 커미션 GLB 는 안 보이는 여분 메쉬로 박스가 엉뚱하게 커지는 사례가 있다(COMMISSION_SCALE_CORRECTION
-     주석 참고). 그런 모델을 그대로 따라가면 캐릭터가 통째로 솟으므로, 키 대비 일정 비율을
-     넘으면 **보정을 포기하고 예전 동작(0)** 으로 둔다. 조용히 틀리는 것보다 안 고치는 게 낫다. */
-const FOOT_FIX_MAX_RATIO = 0.12;   // 몸 높이의 12% — 사람의 실측값 0.048/1.45 ≒ 3.3% 의 세 배 남짓
-function charFootFix(box){
-  if(!box) return 0;
-  if(typeof box.isEmpty === 'function' && box.isEmpty()) return 0;   // ⚠️ `box.isEmpty ||` 로 쓰면 **항상 0** 이 된다(메서드는 늘 truthy)
-  const h = box.max.y - box.min.y;
-  const d = -box.min.y;
-  if(!isFinite(d) || d === 0) return 0;
-  if(h > 1e-6 && Math.abs(d) > h * FOOT_FIX_MAX_RATIO){
-    console.warn('[발바닥] 피봇과 메쉬 바닥 차이가 너무 큼 — ' + d.toFixed(4)
-      + ' (키 ' + h.toFixed(3) + ') → 보정하지 않습니다');
-    return 0;
-  }
-  return d;
-}
-/* 📐 root 의 월드 박스를 재되, skipSub 가 true 인 가지는 **통째로** 뺀다.
-   [왜 필요한가] 바닥 클램프는 "잰 것"과 "움직이는 것"이 같아야 성립한다. 둘이 다르면
-     올려도 잰 값이 안 따라와서 **매 프레임 다시 올리는 되먹임**이 된다 — 제보 2-1의 "하늘로 솟음". */
-function _boxExcluding(root, skipSub){
-  const box = new THREE.Box3(), tmp = new THREE.Box3();
-  try{
-    root.updateWorldMatrix(true, true);
-    const walk = o=>{
-      if(o !== root && (o.visible === false || skipSub(o))) return;   // 이 가지는 통째로 건너뛴다
-      if(o.isMesh){ try{ tmp.setFromObject(o); if(!tmp.isEmpty()) box.union(tmp); }catch(_){} }
-      const ch = o.children || [];
-      for(let i=0;i<ch.length;i++) walk(ch[i]);
-    };
-    walk(root);
-  }catch(_){}
-  return box;
-}
-/* 🪑🦶 wrapper 하나를 **월드 바닥(y=0)** 위로 끌어올린다 — 아래로 내려간 만큼만 움직인다.
-   [어디서 쓰는가] 두 곳이며, 반드시 같은 식이어야 한다.
-     ① applyPartXf — 부착·xf 적용 직후(미리보기·실행 양쪽이 이 경로를 지난다)
-     ② syncWdGizmoToXf — 미리보기에서 기즈모를 드래그하는 동안. 여기서 걸어야 저장되는 xf 값이
-        화면에 보이는 자리와 같아진다(안 걸면 "아래로 끌어도 안 내려가는데 숫자만 계속 줄어드는"
-        상태가 되고, 다음에 열 때 그 숫자가 그대로 되살아난다).
-   ★ 기준은 월드 y=0 이다. deskAnchor 기준이 아니다 — 책상 밑에 놓는 파츠(쓰레기통 등)는 앵커보다
-     아래에 있는 게 맞고, 바닥보다 아래인 것만 잘못이다.
-   ★ 이미 바닥에 맞춰 둔 파츠는 깊이가 0 이라 그대로다 — 어긋난 만큼만 움직인다.
-   ⚠️ 월드에서 잰 깊이를 부모 배율로 환산해 로컬 y 에 더한다. deskAnchor 는 책상 그룹의 자식이라
-     setDeskScale 배율(보통 0.175)을 물려받는다 — 환산을 빼먹으면 약 5.7배로 들어 올려 날아간다.
-   @param hard 상한(FLOOR_SNAP_MAX)을 무시하고 **끝까지** 끌어올린다.
-     기즈모 드래그처럼 사람이 직접 끌고 있는 경우에 쓴다 — 상한을 두면 1.2 를 넘게 끌어내린 순간
-     클램프가 손을 놓아 바닥을 그대로 뚫고 지나간다(막으려던 바로 그 동작이 된다).
-     상한은 '저작이 어긋난 파츠가 스스로 하늘로 뜨는 것' 을 막기 위한 것이므로 자동 경로에만 필요하다.
-   @param skipSub 측정에서 뺄 가지를 고르는 함수. **w 를 올려도 같이 안 올라가는 것만** 뺀다
-     (_boxExcluding 주석 참고). 안 넘기면 예전처럼 전부 잰다.
-   @return 실제로 올린 로컬 y 양(0 이면 무동작) */
-function floorClampWrapper(w, tag, hard, skipSub){
-  if(!w) return 0;
-  try{
-    w.updateWorldMatrix(true, true);
-    const b = skipSub ? _boxExcluding(w, skipSub) : new THREE.Box3().setFromObject(w);
-    if(b.isEmpty()) return 0;
-    const d = -b.min.y;                            // 바닥 아래로 내려간 깊이
-    if(!(d > FLOOR_SNAP_MIN)) return 0;             // 오차 수준이면 안 건드린다
-    if(!hard && d > FLOOR_SNAP_MAX){
-      console.warn('[바닥맞춤·책상파츠] ' + (tag||'') + ' 깊이가 비정상 — ' + d.toFixed(2)
-        + ' → ' + FLOOR_SNAP_MAX + ' 로 제한');
-    }
-    const _ws = new THREE.Vector3();
-    (w.parent || w).getWorldScale(_ws);
-    const k = (isFinite(_ws.y) && Math.abs(_ws.y) > 1e-6) ? _ws.y : 1;
-    const dy = (hard ? d : Math.min(d, FLOOR_SNAP_MAX)) / k;
-    w.position.y += dy;
-    w.updateWorldMatrix(true, true);
-    return dy;
-  }catch(_){ return 0; }
-}
-/* 🩺 바닥 맞춤 진단 — 콘솔에서 `floorSnapReport()` 한 줄로 미리보기와 실행 화면을 나란히 본다.
-   [왜 필요한가] "파츠가 바닥에 가라앉아 있다"의 원인 후보가 셋이고, 겉보기로는 구분이 안 된다.
-     ① 파츠가 측정에서 **제외**되고 있다(숨은 메쉬·리깅 표식) → depth 가 0 으로 나온다
-     ② 측정은 맞는데 fitModel 이 **안 불렸다**(붙는 시점이 재계산보다 늦다) → 지금 재보면 0 이 아니다
-     ③ 미리보기와 실행이 **다른 값**을 쓴다 → 두 쪽 depth·position 이 다르다
-   이 보고서는 셋을 한 번에 가른다. 발밑으로 내려간 메쉬를 전부 나열하고, 제외된 것은 그 이유까지 적는다.
-   ⚠️ 진단 전용이다 — 아무것도 고치지 않고 화면도 안 건드린다. */
-function _floorSnapProbe(root){
-  const out = { depth:null, meshes:[], counted:0, skipped:0 };
-  if(!root) return out;
-  const tmp = new THREE.Box3();
-  try{ root.updateWorldMatrix(true,true); }catch(_){}
-  try{
-    root.traverse(o=>{
-      if(!o.isMesh) return;
-      let why = null;
-      if(o.visible === false) why = '자기 자신이 숨김';
-      else if(o.userData && o.userData._origBind) why = '리깅 파츠의 스킨드메시';
-      else {
-        let p = o;
-        while(p && p !== root){
-          if(p.visible === false){ why = '조상이 숨김(' + (p.name||'이름없음') + ')'; break; }
-          if(p.userData && p.userData.rigged){ why = '리깅 파츠(' + (p.name||'이름없음') + ')'; break; }
-          p = p.parent;
-        }
-      }
-      let minY = null;
-      try{ tmp.setFromObject(o); if(!tmp.isEmpty()) minY = tmp.min.y; }catch(_){}
-      if(why) out.skipped++; else out.counted++;
-      // 발밑으로 내려간 것만 보고한다 — 위쪽 메쉬까지 찍으면 목록이 길어져 읽을 수가 없다
-      if(minY != null && minY < -0.001){
-        let wrap = null;
-        for(let q = o; q && q !== root; q = q.parent){
-          if(typeof q.name === 'string' && q.name.indexOf('__partWrap_') === 0){ wrap = q.name; break; }
-        }
-        out.meshes.push({ name:o.name || '(이름없음)', minY:+minY.toFixed(4), wrap:wrap || '(캐릭터 본체)', skip:why });
-      }
-    });
-  }catch(_){}
-  try{ out.depth = measureUnderfootDepth(root); }catch(_){}
-  return out;
-}
-function floorSnapReport(){
-  const f = v => (v == null ? 'null' : (+v).toFixed(4));
-  /* 좌석마다 이름이 다르다 — 실제 좌석은 gltfRoot, 꾸미기 미리보기는 root 다(그 객체 리터럴 참고).
-     앞 판(gltfRoot 만 보던 것)은 그래서 둘 다 '모델 없음' 으로 떨어졌다. */
-  const modelOf = s => s ? (s.gltfRoot || s.modelRoot || s.root || null) : null;
-  /* 파츠 wrapper 를 전부 찾아 **월드 최저점**을 적는다. 바닥은 월드 y=0 이므로 음수면 가라앉은 것이다.
-     ★ 핵심은 '어디에 매달렸는가'다 — 모델(gltfRoot) 안이면 바닥 맞춤이 걸리고,
-       책상 앵커(deskAnchor) 밑이면 모델 밖이라 애초에 측정 대상이 아니다. */
-  function wraps(rootNode, model){
-    const out = []; if(!rootNode) return out;
-    const tmp = new THREE.Box3();
-    try{ rootNode.updateWorldMatrix(true,true); }catch(_){}
-    rootNode.traverse(o=>{
-      if(typeof o.name !== 'string' || o.name.indexOf('__partWrap_') !== 0) return;
-      let minY = null;
-      try{ tmp.setFromObject(o); if(!tmp.isEmpty()) minY = tmp.min.y; }catch(_){}
-      let inModel = false, chain = [];
-      for(let q = o.parent; q; q = q.parent){
-        chain.push(q.name || (q.type||'?'));
-        if(model && q === model) inModel = true;
-        if(chain.length >= 6) break;
-      }
-      out.push({ name:o.name, minY, inModel, rigged:!!(o.userData && o.userData.rigged), chain:chain.join(' < ') });
-    });
-    return out;
-  }
-  const rows = [];
-  const push = (label, seat, extraRoots)=>{
-    const model = modelOf(seat);
-    if(!seat){ console.log('[바닥맞춤] ' + label + ' — 좌석 없음'); return; }
-    let depth = null;
-    try{ if(model) depth = measureUnderfootDepth(model); }catch(_){}
-    console.log('[바닥맞춤] ' + label
-      + ' | 모델노드=' + (model ? (model.name || model.type || 'Group') : '없음')
-      + ' | depth=' + f(depth)
-      + (model ? (' | 모델 position y=' + f(model.position.y) + ' z=' + f(model.position.z)
-                  + ' scale=' + f(model.scale.x)) : '')
-      + ' | userZ=' + f(seat.userZ) + ' userScale=' + f(seat.userScale)
-      + ' bodyWrap.scale=' + (seat.bodyWrap ? f(seat.bodyWrap.scale.x) : '없음')
-      + ' rig.z=' + (seat.rig ? f(seat.rig.position.z) : '없음'));
-    const seen = [];
-    [seat.group, model, seat.deskGroup, seat.deskAnchor].concat(extraRoots || []).forEach(r=>{
-      if(!r || seen.indexOf(r) >= 0) return; seen.push(r);
-      wraps(r, model).forEach(w=>{
-        if(rows.indexOf(w.name + label) >= 0) return; rows.push(w.name + label);
-        console.log('    ' + (w.minY != null && w.minY < -0.001 ? '⬇ 바닥아래' : '  바닥위 ')
-          + ' 월드minY=' + f(w.minY)
-          + '  ' + w.name
-          + '  [' + (w.inModel ? '모델 안 → 바닥맞춤 대상' : '모델 밖 → 측정에서 빠짐') + ']'
-          + (w.rigged ? ' (리깅 표식 있음 → 측정 제외)' : '')
-          + '  부모사슬: ' + w.chain);
-      });
-    });
-    return depth;
-  };
-  let dRun = null, dPrev = null;
-  try{ dRun = push('실행화면', findMySeat()); }catch(e){ console.log('[바닥맞춤] 실행화면 조회 실패', e); }
-  try{ dPrev = push('꾸미기/보관함 미리보기', wardrobeMod.wdPreviewBase(),
-        [wardrobeMod.wdScene()]); }catch(e){ console.log('[바닥맞춤] 미리보기 조회 실패', e); }
-  if(dRun != null && dPrev != null && Math.abs(dRun - dPrev) > 1e-4){
-    console.warn('[바닥맞춤] ⚠️ 실행 depth=' + f(dRun) + ' 미리보기 depth=' + f(dPrev) + ' — 같은 파츠인데 한쪽만 세고 있습니다');
-  }
-  return '위 로그를 복사해서 보내주세요';
-}
-try{ window.floorSnapReport = floorSnapReport; }catch(_){}
+/* 본문은 character/char-measure.js 로 옮겼다(구역 떼기 C · w1).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const charMeasureMod = TwCharMeasure.createCharMeasure({
+});
+/* 본문은 character/floor-snap-diag.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const floorSnapDiagMod = TwFloorSnapDiag.createFloorSnapDiag({
+  charMeasureMod: charMeasureMod,
+  findMySeat: (...a)=>findMySeat(...a),
+  wardrobeMod: ()=>wardrobeMod,
+});
 function fitModel(seat){
   const m=seat.gltfRoot; if(!m) return;
   m.scale.set(1,1,1); m.position.set(0,0,0); m.rotation.set(0,seat.userRot+creatorPrevMod.RIG_TURN,0);
@@ -2193,7 +1868,7 @@ function fitModel(seat){
   seat.rig.position.set(0,0,0);seat.rig.rotation.set(0,0,0);seat.bodyWrap.scale.set(1,1,1);seat.bodyWrap.position.set(0,0,0);seat.group.position.set(0,0,0);
   seat.group.updateWorldMatrix(true,true);
   
-  const box=measureCharBox(m);   // 표준 리그 통합: base·커미션 동일 경로 (리깅 파츠 제외 측정)
+  const box=charMeasureMod.measureCharBox(m);   // 표준 리그 통합: base·커미션 동일 경로 (리깅 파츠 제외 측정)
   if(!box.isEmpty()){
     const size=new THREE.Vector3(); box.getSize(size);
     // ★ 커미션 캐릭터 크기 보정 — 블렌더에서 기본 캐릭터와 비슷하게 맞춰 내보내도 실제 화면에선
@@ -2218,7 +1893,7 @@ function fitModel(seat){
     seat.group.updateWorldMatrix(true,true);
     
     // 표준 리그 통합: 모델 자기 박스로 센터링 (BASE_SCENE 보정·진단로그·z-fix 제거)
-    const b2=measureCharBox(m); const c=new THREE.Vector3(); b2.getCenter(c);
+    const b2=charMeasureMod.measureCharBox(m); const c=new THREE.Vector3(); b2.getCenter(c);
     // 🐾 동물은 이 재센터링을 건너뛴다.
     //   buildAnimalBase의 normalizeModel이 귀가 붙기 전에 x/z 중앙정렬을 이미 끝내놓기 때문에
     //   결정적(deterministic)이다. 반면 여기서 쓰는 measureCharBox는 재조립마다 결과가 흔들리는데
@@ -2250,7 +1925,7 @@ function fitModel(seat){
     /* 🦶 피봇 보정 — 예전엔 `m.position.y = 0`(피봇=발바닥 전제)이었다. 사람 GLB 는 그 전제가
        깨져 있어 늘 0.048(로컬)만큼 떠 있었다. charFootFix 의 ⚠️ 넷 중 하나 — 나머지 셋은
        fitCreator('edit') · fitCreator('app') · refreshWdPreviewChar. 함께 고칠 것. */
-    m.position.y = charFootFix(b2);
+    m.position.y = charMeasureMod.charFootFix(b2);
     
     // ★ 이 아래에서 seat.bodyWrap.scale이 userScale로 곱해지는데(코드 더 아래 참고), m은 bodyWrap의
     //   자식이라 m.position도 그때 같이 곱해져 버림 — 그래서 캐릭터 크기(userScale)를 1이 아니게 설정한
@@ -2301,7 +1976,7 @@ function fitModel(seat){
      '가장 아래에 있는 것'이 바닥에 닿게 한다. 발 아래에 아무것도 없으면 0이라 무동작이다.
      ⚠️ 반드시 여기, 크기(scale)와 x/z 가 다 정해진 **뒤**여야 한다. 스케일 전에 재면 깊이가
        정규화 배율만큼 어긋나서 그만큼 바닥을 파고들거나 뜬다. */
-  m.position.y += measureUnderfootDepth(m);
+  m.position.y += charMeasureMod.measureUnderfootDepth(m);
 }
   seat.rig.position.copy(sR);seat.rig.rotation.copy(sRr);
   /* 🪑 평준화 배율은 여기(몸 스케일) 하나로 들어간다 — headAnchor·bodyAnchor 는 bodyWrap 의
@@ -3037,7 +2712,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   applyPartXf: (...a)=>applyPartXf(...a),
   bindReorderHandle: (...a)=>bindReorderHandle(...a),
   boneSide: (...a)=>boneSide(...a),
-  charFootFix: (...a)=>charFootFix(...a),
+  charFootFix: (...a)=>charMeasureMod.charFootFix(...a),
   clampCharY: (...a)=>clampCharY(...a),
   defToBase: (...a)=>defToBase(...a),
   defaultPartXf: (...a)=>premiumMod.defaultPartXf(...a),
@@ -3048,14 +2723,14 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   findMySeat: (...a)=>findMySeat(...a),
   firstEntryForCat: (...a)=>premiumMod.firstEntryForCat(...a),
   fitModel: (...a)=>fitModel(...a),
-  floorClampWrapper: (...a)=>floorClampWrapper(...a),
+  floorClampWrapper: (...a)=>charMeasureMod.floorClampWrapper(...a),
   gachaMod: ()=>gachaMod,
   getCommissionScene: (...a)=>getCommissionScene(...a),
   groupOfCat: (...a)=>premiumMod.groupOfCat(...a),
   isAdmin: ()=>isAdmin,
   isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),
   isHueTintMesh: (...a)=>isHueTintMesh(...a),
-  measureCharBox: (...a)=>measureCharBox(...a),
+  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
   openAssetImport: (...a)=>openAssetImport(...a),
   partCatInfo: (...a)=>premiumMod.partCatInfo(...a),
   partEntryId: (...a)=>premiumMod.partEntryId(...a),
@@ -5694,7 +5369,7 @@ function _diagPartHeadSpace(cat, modelRoot, bone, bb, center, seat, isRigged){
      같은 목록을 쓴다. 여기에 항목을 따로 더하지 말 것. */
 function _headTopAboveBone(modelRoot, bone, meshHost){
   if(!modelRoot || !bone) return 0;
-  const skip = headDecorMeshSet(meshHost);
+  const skip = charMeasureMod.headDecorMeshSet(meshHost);
   modelRoot.updateWorldMatrix(true, true);
   const inv = new THREE.Matrix4().copy(modelRoot.matrixWorld).invert();
   const bp = bone.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
@@ -5909,7 +5584,7 @@ function applyPartXf(seat, cat){
   try{
     const _info = premiumMod.partCatInfo(cat);
     if(_info && premiumMod.isDeskPartCat(_info)){
-      const _lift = w=>{ if(w) floorClampWrapper(w, cat); };
+      const _lift = w=>{ if(w) charMeasureMod.floorClampWrapper(w, cat); };
       const _main = seat.equippedPartObjs && seat.equippedPartObjs[cat];
       if(_main){ _lift(_main); (_main.userData.multiExtras || []).forEach(_lift); }
       if(seat.stackedPartObjs && seat.stackedPartObjs[cat]){
@@ -7793,7 +7468,7 @@ const crXformMod = TwCreatorXform.createCreatorXform({
   cXform: ()=>cXform,
   clampCharY: (...a)=>clampCharY(...a),
   deskItemOrigin: deskItemOrigin,
-  floorClampWrapper: (...a)=>floorClampWrapper(...a),
+  floorClampWrapper: (...a)=>charMeasureMod.floorClampWrapper(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   openAssetImport: (...a)=>openAssetImport(...a),
   setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
@@ -8117,7 +7792,7 @@ const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   camPitch: ()=>camPitch,
   camTarget: camTarget,
   camYaw: ()=>camYaw,
-  charFootFix: (...a)=>charFootFix(...a),
+  charFootFix: (...a)=>charMeasureMod.charFootFix(...a),
   clampCharY: (...a)=>clampCharY(...a),
   compositeFace: (...a)=>compositeFace(...a),
   crStep: ()=>crStep,
@@ -8133,8 +7808,8 @@ const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   isAnimalEditing: (...a)=>isAnimalEditing(...a),
   isCommissionEditing: (...a)=>isCommissionEditing(...a),
   matToneMod: matToneMod,
-  measureCharBox: (...a)=>measureCharBox(...a),
-  measureUnderfootDepth: (...a)=>measureUnderfootDepth(...a),
+  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
+  measureUnderfootDepth: (...a)=>charMeasureMod.measureUnderfootDepth(...a),
   mkFaceTex: (...a)=>mkFaceTex(...a),
   normalizeModel: (...a)=>normalizeModel(...a),
   sizeFloorTo: (...a)=>sizeFloorTo(...a),
@@ -11000,7 +10675,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   camera: camera,
   findMySeat: (...a)=>findMySeat(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  measureHeadBoxNoParts: (...a)=>measureHeadBoxNoParts(...a),
+  measureHeadBoxNoParts: (...a)=>charMeasureMod.measureHeadBoxNoParts(...a),
   officeMode: ()=>officeMode,
   renderer: renderer,
   seats: seats,
