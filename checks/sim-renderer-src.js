@@ -107,6 +107,8 @@ const MODULES = [
   { file: 'floor-snap-diag.js', mod: 'floorSnapDiagMod', glob: 'TwFloorSnapDiag', sample: 'function _floorSnapProbe(' },   // 구역 떼기 C · w1
   { file: 'seat-model-load.js', mod: 'seatModelLoadMod', glob: 'TwSeatModelLoad', sample: 'function pickClip(' },   // 구역 떼기 C · w1
   { file: 'seat-panel.js', mod: 'seatPanelMod', glob: 'TwSeatPanel', sample: 'function setInfo(' },   // 구역 떼기 C · w1
+  { file: 'user-status-table.js', mod: 'userStatusTableMod', glob: 'TwUserStatusTable', sample: 'function loadCustomStatusFromStorage(' },   // 구역 떼기 C · w1
+  { file: 'chip-popups.js', mod: 'chipPopupsMod', glob: 'TwChipPopups', sample: 'function _closeChipPopups(' },   // 구역 떼기 C · w1
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

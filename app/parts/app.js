@@ -2063,15 +2063,10 @@ document.getElementById('sRot').addEventListener('input',e=>{selected.userRot=+e
    · 🔥 grind: idle 상태일 때만 모션 변형(머리 더 숙임/호흡 빠름/미세 흔들)
    본인 변경은 자기 화면 칩으로, 친구에게는 머리 위 이모지로만 보임.
    Phase 7(Firebase) 단계에서 Presence.update에 userStatus 필드를 함께 송수신할 예정. */
-const USER_STATUSES = {
-  meal:   {emo:'🍚',   label:'밥 먹는 중', idleTweak:true, dot:'#e89b7d'},
-  away:   {emo:'🫧',   label:'자리비움',   forceSleep:true, opacity:0.0,  dot:'#9aa0a8'},
-  grind:  {emo:'🔥',   label:'빡일중',     idleTweak:true,                 dot:'#e07a55'},
-  gaming: {emo:'🎮',   label:'게임 중',    dot:'#8a8ec9'},
-  // ✨ 커스텀 상태 (프리미엄) — emo/label은 유저가 등록한 값으로 렌더 시점에 덮어씀(statusConfFor 참고).
-  //   여기 값은 아직 등록 전이거나 친구의 커스텀 문구를 못 받았을 때의 폴백.
-  custom: {emo:'✨',   label:'커스텀 상태', dot:'#c9a36a'},
-};
+/* 본문은 status/user-status-table.js 로 옮겼다(구역 떼기 C · w1).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const userStatusTableMod = TwUserStatusTable.createUserStatusTable({
+});
 
 /* isPremium은 파일 뒷부분에서 let으로 선언됨 — 초기화 시점(이 위치)에서 참조하면 TDZ ReferenceError가 남.
    typeof 가드도 let TDZ에는 통하지 않으므로 try/catch로 안전하게 읽는 접근자를 씀.
@@ -2079,33 +2074,15 @@ const USER_STATUSES = {
 function _premiumOn(){ try{ return !!isPremium; }catch(_){ return false; } }
 try{ window._premiumOn = _premiumOn; }catch(_){}
 
-/* ✨ 커스텀 상태 (프리미엄) — 확성기(📢 말풍선 고정)를 대체.
-   유저가 이모지 1개 + 문구(최대 12자)를 등록해두면 상태 메뉴에서 다른 상태처럼 골라 쓸 수 있음.
-   저장: localStorage 'tw.customStatus' = {emo, text}. 친구에겐 Presence로 전파(remoteCustomStatus). */
-const CUSTOM_STATUS_KEY = 'tw.customStatus';
-const CUSTOM_STATUS_MAXLEN = 12;
-let customStatusConf = { emo:'', text:'' };
-function loadCustomStatusFromStorage(){
-  try{
-    const raw = localStorage.getItem(CUSTOM_STATUS_KEY);
-    if(!raw) return;
-    const v = JSON.parse(raw);
-    if(v && typeof v === 'object'){
-      customStatusConf = {
-        emo:  (typeof v.emo === 'string') ? v.emo.slice(0,2) : '',
-        text: (typeof v.text === 'string') ? v.text.slice(0, CUSTOM_STATUS_MAXLEN) : '',
-      };
-    }
-  }catch(e){}
-}
+/* (구역 떼기 C · w1) 이 자리의 본문도 status/user-status-table.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 function saveCustomStatusConf(emo, text){
-  customStatusConf = {
+  userStatusTableMod.setCustomStatusConf({
     emo: (emo || '').slice(0,2),            // 비워두면 이모지 없이 문구만 표시
-    text: (text || '').slice(0, CUSTOM_STATUS_MAXLEN),
-  };
-  try{ localStorage.setItem(CUSTOM_STATUS_KEY, JSON.stringify(customStatusConf)); }catch(e){}
+    text: (text || '').slice(0, userStatusTableMod.CUSTOM_STATUS_MAXLEN),
+  });
+  try{ localStorage.setItem(userStatusTableMod.CUSTOM_STATUS_KEY, JSON.stringify(userStatusTableMod.customStatusConf())); }catch(e){}
   // 지금 커스텀 상태를 쓰고 있다면 즉시 반영(말풍선/이모지 갱신) + 친구에게도 전파
-  if(typeof Presence!=='undefined' && Presence.setCustomStatus) Presence.setCustomStatus(customStatusConf);
+  if(typeof Presence!=='undefined' && Presence.setCustomStatus) Presence.setCustomStatus(userStatusTableMod.customStatusConf());
   refreshCustomStatusMenuItem();
 }
 /* 좌석 + 상태키 → 실제로 화면에 쓸 상태 설정({emo,label,...}) 해석.
@@ -2117,27 +2094,27 @@ function statusConfFor(seat, us){
   if(!us){
     /* ⚠️ isMe 만 보면 «자리추가»로 주 캐릭터가 바뀐 판에서 내 좌석이 빠진다 — findMySeat 과 같은 기준으로 본다. */
     const _mine = findMySeat();
-    if(seat && !seat.remote && (seat.isMe || seat === _mine)){ const f = focusShareMod._focusShowMine(); if(f) return Object.assign({}, USER_STATUSES.custom, { emo: f.emo, label: f.text }); }
+    if(seat && !seat.remote && (seat.isMe || seat === _mine)){ const f = focusShareMod._focusShowMine(); if(f) return Object.assign({}, userStatusTableMod.USER_STATUSES.custom, { emo: f.emo, label: f.text }); }
     return null;
   }
-  const base = USER_STATUSES[us];
+  const base = userStatusTableMod.USER_STATUSES[us];
   if(!base) return null;
   if(us !== 'custom') return base;
-  const cs = (seat && seat.remote) ? seat.remoteCustomStatus : customStatusConf;
+  const cs = (seat && seat.remote) ? seat.remoteCustomStatus : userStatusTableMod.customStatusConf();
   if(!cs || !cs.text) return null;
   // 이모지를 비워두면 책상 위 이모지는 안 띄우고 문구만 표시 (emo:'' → setSeatDeskEmoji가 빈 값으로 처리)
   return Object.assign({}, base, { emo: cs.emo || '', label: cs.text });
 }
 let userStatus=null;
 function setUserStatus(v){
-  if(!v || !USER_STATUSES[v]) v=null;
+  if(!v || !userStatusTableMod.USER_STATUSES[v]) v=null;
   userStatus=v;
   try{ localStorage.setItem('tw.userStatus', v||''); }catch(e){}
   refreshMyStatusUI();
   if(typeof Presence!=='undefined' && Presence.setUserStatus) Presence.setUserStatus(v);
 }
 function loadUserStatusFromStorage(){
-  try{ const v=localStorage.getItem('tw.userStatus'); if(v && USER_STATUSES[v]) userStatus=v; }catch(e){}
+  try{ const v=localStorage.getItem('tw.userStatus'); if(v && userStatusTableMod.USER_STATUSES[v]) userStatus=v; }catch(e){}
 }
 function refreshMyStatusUI(){
   const btn=document.getElementById('myStatusChipBtn'); if(!btn)return;
@@ -2171,45 +2148,18 @@ function refreshCustomStatusMenuItem(){
   btn.style.display = '';
   const emoEl = btn.querySelector('.csEmo'), lblEl = btn.querySelector('.csLabel');
   // 등록된 이모지가 있으면 그걸 띄워서 "지금 뭘로 등록해뒀는지" 바로 보이게
-  if(emoEl) emoEl.textContent = customStatusConf.emo || '✨';
-  if(lblEl) lblEl.textContent = customStatusConf.text || '커스텀 상태';
-  btn.title = customStatusConf.text
-    ? `커스텀 상태: ${customStatusConf.text} (클릭해서 수정)`
+  if(emoEl) emoEl.textContent = userStatusTableMod.customStatusConf().emo || '✨';
+  if(lblEl) lblEl.textContent = userStatusTableMod.customStatusConf().text || '커스텀 상태';
+  btn.title = userStatusTableMod.customStatusConf().text
+    ? `커스텀 상태: ${userStatusTableMod.customStatusConf().text} (클릭해서 수정)`
     : '커스텀 상태 문구 등록';
   btn.classList.toggle('on', userStatus === 'custom');   // 지금 이 상태를 쓰는 중이면 ● 표식
 }
-/* 상태칩 팝업들은 한 번에 하나만 — 하나를 열 때 나머지는 모두 닫음(겹쳐서 뜨는 문제 방지).
-   exceptId에 지금 열려는 팝업 id를 넘기면 그것만 건드리지 않음.
-   ★ keep:true 인 것은 **'지나가는 메뉴'가 아니라 창**이다 — 다른 팝업을 연다고 닫히지 않는다.
-     정말 전부 닫아야 하는 자리(오피스 모드 숨김)만 force=true 로 부른다. */
-const _CHIP_POPUPS = [
-  { box:'myStatusMenu',      btn:'myStatusChipBtn' },
-  { box:'myChipMore',        btn:'myChipMoreBtn'   },
-  { box:'myChatBox',         btn:'myChatBtn'       },
-  { box:'myCustomStatusBox', btn:'myCustomStatusBtn' },   // ✨ 커스텀 상태 입력창
-  { box:'bellWin',           btn:'myBellBtn'       },     // 🔔 일정 알림 창
-  { box:'myDemojiBox',       btn:'myDemojiBtn'     },     // 😊 기본 이모티콘 팔레트
-  /* 🎵 플레이리스트 — 음악을 틀어두고 계속 켜 두는 창이다. ▼ 더보기·상태 메뉴 같은
-     **드롭메뉴를 열었다고 음악창이 닫히면** 곡을 고를 때마다 다시 열어야 한다(제보). */
-  { box:'myPlaylistBox',     btn:'myPlBtn', keep:true },
-];
-function _closeChipPopups(exceptId, force){
-  _CHIP_POPUPS.forEach(p=>{
-    if(p.box === exceptId) return;
-    if(p.keep && !force) return;         // 창은 다른 팝업을 여는 것만으로는 안 닫는다
-    const box = document.getElementById(p.box);
-    // 대부분은 .hidden 클래스로 여닫지만 🔔 창은 style.display를 씀 — 둘 다 처리
-    if(box){
-      box.classList.add('hidden');
-      if(p.box === 'bellWin') box.style.display = 'none';
-    }
-    if(p.btn){ const b = document.getElementById(p.btn); if(b) b.classList.remove('on'); }
-  });
-  // ✨ 커스텀 상태 버튼의 'on'은 "팝업이 열림"이 아니라 "그 상태를 쓰는 중"을 뜻하므로,
-  //   팝업을 닫아도 지금 custom 상태라면 눌린 표시를 유지해야 함.
-  const csBtn = document.getElementById('myCustomStatusBtn');
-  if(csBtn && typeof userStatus!=='undefined' && userStatus==='custom') csBtn.classList.add('on');
-}
+/* 본문은 status/chip-popups.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const chipPopupsMod = TwChipPopups.createChipPopups({
+  userStatus: ()=>userStatus,
+});
 
 /* ═══ 🪟 창 겹침 — 누른 창 맨 앞(bringWinToFront) · ESC 스택(escRegisterWindow) ═══ */
 /* 본문은 win-stack.js 로 옮겼다(앱 FSD 42번). 
@@ -2221,13 +2171,13 @@ const winStackMod = TwWinStack.createWinStack({
 /* 본문은 status-chip.js 로 옮겼다(앱 FSD 36번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const statusChipMod = TwStatusChip.createStatusChip({
-  CUSTOM_STATUS_MAXLEN: CUSTOM_STATUS_MAXLEN,
+  CUSTOM_STATUS_MAXLEN: userStatusTableMod.CUSTOM_STATUS_MAXLEN,
   Presence: ()=>Presence,
-  _CHIP_POPUPS: _CHIP_POPUPS,
+  _CHIP_POPUPS: chipPopupsMod._CHIP_POPUPS,
   _charBadWhy: ()=>_charBadWhy,
   _charBoundsLatest: ()=>_charBoundsLatest,
   _charProjSane: (...a)=>_charProjSane(...a),
-  _closeChipPopups: (...a)=>_closeChipPopups(...a),
+  _closeChipPopups: (...a)=>chipPopupsMod._closeChipPopups(...a),
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _lowestDanceReq: (...a)=>iDeskMod._lowestDanceReq(...a),
   _moveModeJustToggled: ()=>_moveModeJustToggled,
@@ -2238,7 +2188,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   backToLauncher: (...a)=>backToLauncher(...a),
   camera: camera,
   chatUiMod: ()=>chatUiMod,
-  customStatusConf: ()=>customStatusConf,
+  customStatusConf: ()=>userStatusTableMod.customStatusConf(),
   moveMode: ()=>moveMode,
   overheadMod: ()=>overheadMod,
   renderer: renderer,
@@ -2259,7 +2209,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
    ⚠️ statusChipMod 를 만든 **뒤**에 부른다 — 모듈 안에서 부르면 refreshMyStatusUI 가 아직 없는 statusChipMod 를 읽어
    던지고(상태를 저장해 둔 사람만), 그 뒤 app.js 가 통째로 멈춘다. 칩 버튼 · 메뉴가 없는 화면은 예전처럼 건너뛴다. */
 if(document.getElementById('myStatusChipBtn') && document.getElementById('myStatusMenu')){
-  loadCustomStatusFromStorage(); loadUserStatusFromStorage(); refreshMyStatusUI();
+  userStatusTableMod.loadCustomStatusFromStorage(); loadUserStatusFromStorage(); refreshMyStatusUI();
   refreshCharScaleForCurrentDisplay();
   refreshCustomStatusMenuItem();
 }
@@ -2273,7 +2223,7 @@ if(document.getElementById('myStatusChipBtn') && document.getElementById('myStat
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const demojiPalMod = TwDemojiPalette.createDemojiPalette({
   Presence: ()=>Presence,
-  _closeChipPopups: (...a)=>_closeChipPopups(...a),
+  _closeChipPopups: (...a)=>chipPopupsMod._closeChipPopups(...a),
   chatUiMod: ()=>chatUiMod,
   findMySeat: (...a)=>findMySeat(...a),
   showChatBubble: (...a)=>showChatBubble(...a),
@@ -2307,7 +2257,7 @@ const plMod = TwPlaylist.createPlaylist({
   myHomeFriends: ()=>_myHomeFriends,
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   // 🪟 상태칩 팝업 · 창 겹침 · ESC
-  closeChipPopups: (...a)=>_closeChipPopups(...a),
+  closeChipPopups: (...a)=>chipPopupsMod._closeChipPopups(...a),
   repositionOpenChipPopups: (...a)=>statusChipMod._repositionOpenChipPopups(...a),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
@@ -2753,7 +2703,7 @@ const mhScheduler = MhScheduler.createScheduler({
   toast: (...a)=>toast(...a),
   uiIconEl: (...a)=>statusChipMod.uiIconEl(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
-  closeChipPopups: (...a)=>_closeChipPopups(...a),
+  closeChipPopups: (...a)=>chipPopupsMod._closeChipPopups(...a),
   positionInputBelowChar: (...a)=>statusChipMod._positionInputBelowChar(...a),
   inboxUnreadCount: ()=>inboxMod.inboxUnreadCount(),
   refreshFriendTabBadge: ()=>inboxMod.refreshFriendTabBadge(),
@@ -8538,10 +8488,10 @@ function maxPeople(){ const s = acctStateMod._rcStore(); return s ? s.maxPeople(
 /* 본문은 room/presence.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const presenceMod = TwPresence.createPresence({
-  USER_STATUSES: USER_STATUSES,
+  USER_STATUSES: userStatusTableMod.USER_STATUSES,
   awayPicMod: ()=>awayPicMod,
   chatUiMod: chatUiMod,
-  customStatusConf: ()=>customStatusConf,
+  customStatusConf: ()=>userStatusTableMod.customStatusConf(),
   expBarMod: ()=>expBarMod,
   floatersMod: floatersMod,
   focusLevelMod: ()=>focusLevelMod,
@@ -8710,7 +8660,7 @@ const accountMod = TwAccount.createAccount({
   BELL_SEEN_KEY: BELL_SEEN_KEY,
   CHAL_KEY: ()=>CHAL_KEY,
   CUR_SLOT_KEY: CUR_SLOT_KEY,
-  CUSTOM_STATUS_KEY: CUSTOM_STATUS_KEY,
+  CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
   EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
   FOCUS_TODAY_DATE_KEY: ()=>focusTotalMod.FOCUS_TODAY_DATE_KEY,
   FOCUS_TODAY_SEC_KEY: ()=>focusTotalMod.FOCUS_TODAY_SEC_KEY,
@@ -10460,7 +10410,7 @@ function setOfficeHidden(on){
     /* force=true — 🎵 플레이리스트까지 닫는다. 이 창만은 예외로 남기면 안 된다:
        재생 중이면 _plSyncBgmBounds 가 패널 자리를 main 에 계속 알려서, 화면을 숨겨도
        유튜브 자식창이 그 자리에 그대로 떠 있게 된다(숨김이 안 된 것처럼 보인다). */
-    try{ _closeChipPopups(null, true); }catch(_){}
+    try{ chipPopupsMod._closeChipPopups(null, true); }catch(_){}
     const sm=document.getElementById('myStatusMenu'); if(sm) sm.classList.add('hidden');
   }
 }

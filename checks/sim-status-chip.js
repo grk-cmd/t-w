@@ -57,7 +57,7 @@ function judgeAll(mod, app, html){
   t(!err && out && typeof out === 'object', '만들 때 던지지 않는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   const reentry = build.called.slice();
   t(!err && !reentry.length, '만들 때 deps 함수를 되부르지 않는다(만드는 도중엔 statusChipMod 가 아직 없다)' + (reentry.length ? ' — ' + reentry.join(' · ') : ''));
-  t(/^\}\);\n(?:\/\*[\s\S]*?\*\/\n)?if\(document\.getElementById\('myStatusChipBtn'\) && document\.getElementById\('myStatusMenu'\)\)\{\n  loadCustomStatusFromStorage\(\); loadUserStatusFromStorage\(\); refreshMyStatusUI\(\);\n  refreshCharScaleForCurrentDisplay\(\);\n  refreshCustomStatusMenuItem\(\);\n\}$/m.test(app.slice(app.indexOf('const statusChipMod = '))), 'app.js — 저장된 상태 불러오기 · 칩 첫 그리기는 만드는 줄 바로 뒤에서 부른다');
+  t(/^\}\);\n(?:\/\*[\s\S]*?\*\/\n)?if\(document\.getElementById\('myStatusChipBtn'\) && document\.getElementById\('myStatusMenu'\)\)\{\n  (?:userStatusTableMod\.)?loadCustomStatusFromStorage\(\); loadUserStatusFromStorage\(\); refreshMyStatusUI\(\);\n  refreshCharScaleForCurrentDisplay\(\);\n  refreshCustomStatusMenuItem\(\);\n\}$/m.test(app.slice(app.indexOf('const statusChipMod = '))), 'app.js — 저장된 상태 불러오기 · 칩 첫 그리기는 만드는 줄 바로 뒤에서 부른다');
   t(out && EXPORTS.every(n => n in out) && Object.keys(out).length === EXPORTS.length, '내놓는 이름 ' + EXPORTS.length + '개' + (EXPORTS.length ? ' — ' + EXPORTS.join(' · ') : ''));
   t(/window\.TwStatusChip = api;/.test(mod) && /module\.exports = api;/.test(mod), '전역 이름 TwStatusChip(Tw 접두사)');
   const A = strip(app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n'));   // 옛 전역 이름 잇기 줄은 «남은 선언 · 옛 이름 부름» 이 아니다
