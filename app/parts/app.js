@@ -2128,52 +2128,29 @@ const iDeskMod = TwInteractionDesk.createInteractionDesk({
    ═══════════════════════════════════════════════════════════════════ */
 /* (앱 FSD 30번) 이 자리의 본문도 ride-bench.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🪑 좌석 배치(layoutSeats) · 카메라 · 도트 텍스처 필터 ═══ */
-function layoutSeats(){
-  /* 🪑 좌석 간격·카메라 줌은 바로 아래에서 **책상 폭을 실측**한다. 평준화로 책상이 커지거나
-     작아졌다면 그 전에 반영돼 있어야 간격이 한 박자 늦지 않는다. 바뀐 좌석이 없으면 숫자 비교뿐이다. */
-  syncSeatEqualize();
-  // 🪑 맨 오른쪽 고정이면 방에서 나를 0번(맨 오른쪽)으로 — 다른 사람이 들어온 뒤에도(seat-pin.js)
-  if(window.TwSeatPin && TwSeatPin.pinFirst(seats, roomSeatMode)) renderSeatTabs();
-  // ★ 인원 수가 바뀔 때마다(친구 참여/퇴장 등) 지금 팬 위치가 여전히 안전 범위인지 재검증 —
-  //   안 그러면 팬을 한쪽 구석에 걸어둔 상태에서 인원이 늘어날 때 화면 밖으로 밀려날 수 있음.
-  { const _c = clampDeskPan(deskPanX, deskPanY); deskPanX=_c.x; deskPanY=_c.y; }
-  const hasRemote = seats.some(s=>s.remote);   // 실제 친구가 있으면(멀티모드) 더 좁은 간격 사용
-  const spacing = hasRemote ? MULTIPLAYER_SPACING : SPACING;
-  // ★ SPACING/MULTIPLAYER_SPACING의 의미가 "좌석 중심 간 거리"에서 "책상과 책상 사이 여백"으로 바뀜.
-  //   각 좌석 책상의 실제 폭(halfWidth)을 실측해서, 상대방 캐릭터/책상 크기가 어떻든 그 사이 여백은
-  //   항상 이 값만큼 일정하게 유지됨(전엔 고정 거리라 책상이 크면 옆과 겹치고 작으면 휑하게 떨어졌음).
-  /* 🐾 남의 머리에 올라타 있는 좌석은 **자리 계산에서 뺀다.**
-     [경위] a·b·c·d 에서 c 가 b 머리 위로 올라가면 `a, c+b, (빈자리), d` 가 되어 c+b 와 d 사이가
-       크게 벌어졌다. 게다가 mountRide 가 올라탄 좌석의 책상을 숨기는데(desk.visible=false)
-       seatDeskHalfWidth 는 잴 게 하나도 없으면 기본값 0.85 를 돌려주므로, 그 빈자리는 그냥
-       비는 게 아니라 **책상 한 개 폭만큼** 확보됐다.
-     ★ 올라탄 좌석의 실제 위치는 _positionRideSeat 이 매 프레임 대상 머리 위로 덮어쓰므로
-       targetX 를 쓰지 않는다. 탑쌓기 사슬 전체가 대상이고(2층·3층도 ridingOn 이 있다),
-       자리를 차지하는 것은 맨 아래 좌석뿐이다.
-     ⚠️ seats 배열의 **순서·내용은 건드리지 않는다** — 좌석 탭(renderSeatTabs)과 슬롯 드래그가
-       같은 배열의 인덱스를 쓴다. 빼는 것은 자리 계산에서지 배열에서가 아니다.
-     ⚠️ 카메라 줌(rowSpan·leftIdx/rightIdx)도 같은 목록을 봐야 한다. 여기만 빼고 저기에 남기면
-       화면 폭 계산에 유령 자리가 남아 줌만 이상해진다. */
-  const halfWidths = seats.map(seatDeskHalfWidth);
-  const _hwOf = new Map(seats.map((s,i)=>[s, halfWidths[i]]));
-  const placed = seats.filter(s=>!s.ridingOn);
-  placed.forEach((s,i)=>{
-    if(i===0){ s.targetX = 0; return; }   // 맨 오른쪽 고정
-    const prev = placed[i-1];
-    s.targetX = prev.targetX - (_hwOf.get(prev) + spacing + _hwOf.get(s));
-  });
-  /* 올라탄 좌석에는 자기 탑 바닥의 자리를 그대로 물려준다 — 옛 값이 남으면
-     _positionRideSeat 의 UI 앵커(host.targetX 를 읽는다)가 엉뚱한 자리를 가리킨다. */
-  seats.forEach(s=>{ if(s.ridingOn){ const b=rideBenchMod._rideBottom(s); s.targetX = (b && b.targetX) || 0; } });
-  const xs = placed.map(s=>s.targetX);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const rowCenter = (minX+maxX)/2;
-  const leftIdx = xs.indexOf(minX), rightIdx = xs.indexOf(maxX);
-  const halfWidthsForZoom = placed.map(s=>seatDeskHalfWidth(s, true));   // 카메라 줌은 상한선 적용된 값 사용(유난히 큰 책상 하나가 전체를 과하게 줌아웃시키지 않게)
-  const rowSpan = Math.max(1.2, (maxX-minX) + halfWidthsForZoom[leftIdx] + halfWidthsForZoom[rightIdx]);   // 카메라 줌 계산용 전체 폭(책상 폭까지 포함)
-  _cachedRowCenter = rowCenter; _cachedRowSpan = rowSpan;   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
-  seatCameraMod.applyCameraAndCanvas(rowCenter, rowSpan);
-}
+/* 본문은 room/seat-layout.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const seatLayoutMod = TwSeatLayout.createSeatLayout({
+  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
+  SPACING: ()=>SPACING,
+  _rideBottom: (...a)=>rideChainMod._rideBottom(...a),
+  clampDeskPan: (...a)=>clampDeskPan(...a),
+  deskPanX: ()=>deskPanX,
+  deskPanY: ()=>deskPanY,
+  renderSeatTabs: (...a)=>renderSeatTabs(...a),
+  roomSeatMode: ()=>roomSeatMode,
+  seatCameraMod: ()=>seatCameraMod,
+  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
+  seats: seats,
+  syncSeatEqualize: (...a)=>syncSeatEqualize(...a),
+  setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },
+  setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },
+  setDeskPanX: (v)=>{ deskPanX = v; },
+  setDeskPanY: (v)=>{ deskPanY = v; },
+});
+/* layoutSeats 는 이 이름 그대로 app.js 에 둔다 — 맨 아래 «데스크탑 창 크기» 가 감싸 다시 대입하고(앱 FSD 32번),
+   부르는 곳 · 다른 모듈 deps 는 이 이름을 본다(감싼 판이 불린다). */
+function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }
 /* 본문은 room/seat-camera.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatCameraMod = TwSeatCamera.createSeatCamera({
