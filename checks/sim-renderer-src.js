@@ -80,6 +80,7 @@ const MODULES = [
   { file: 'dot-render.js', mod: 'dotRenderMod', glob: 'TwDotRender', sample: 'function applyDotTextureFilter(' },   // 구역 떼기 C · w1
   { file: 'launcher-controls.js', mod: 'launcherCtlMod', glob: 'TwLauncherControls', sample: 'function closeGearMenu(' },   // C 구역 떼기 · w3
   { file: 'seat-camera.js', mod: 'seatCameraMod', glob: 'TwSeatCamera', sample: 'function updateCameraOnly(' },   // 구역 떼기 C · w1
+  { file: 'presence.js', mod: 'presenceMod', glob: 'TwPresence', sample: 'const Presence=(()=>{' },   // C 구역 떼기 w4
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

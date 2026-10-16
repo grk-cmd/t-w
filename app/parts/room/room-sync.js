@@ -4,7 +4,7 @@
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 4개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 5줄 —
      DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · Presence · savedDesks 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
-   ★ app.js 함수 6개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
+   ★ app.js 함수 7개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). _autoAwayResetClock 은 Presence(room/presence.js)가 window 에 거는 것을 app.js 가 이어 준다(모듈끼리 window 로 부르면 순환 — sim-dep-cycles).
    ★ 밖에서 부르는 이름: AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · makeFirebaseProvider · serializeDefForNetwork — app.js 는 roomSyncMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwRoomSync — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
@@ -15,6 +15,7 @@ function createRoomSync(deps){
 const DESK_LICENSE_HOLD = deps.DESK_LICENSE_HOLD;   // 읽는 함수
 const ITEM_LICENSE_HOLD = deps.ITEM_LICENSE_HOLD;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
+const _autoAwayResetClock = deps._autoAwayResetClock;   // 🕒 자동 자리비움 시계 되감기(Presence 안 — app.js 가 잇는다)
 const _chatIsHost = deps._chatIsHost;
 const _chatIsSecretRoom = deps._chatIsSecretRoom;
 const getMyUserId = deps.getMyUserId;
@@ -71,7 +72,7 @@ function _autoExitDo(){
   catch(err){ console.warn('[자동퇴장] 방 나가기 실패', err); }
   /* 🕒 시계를 다시 감는다. 안 감으면 이 상태(여전히 자리비움) 그대로 다른 방에 들어가는 순간
      «이미 6시간 지났다»로 읽혀서 들어가자마자 또 팝업이 뜬다. */
-  try{ window._autoAwayResetClock(); }catch(_){}
+  try{ _autoAwayResetClock(); }catch(_){}
   console.log('[자동퇴장] 자리비움 ' + (AUTO_EXIT_AFTER_AWAY_MS / 3600000) + '시간 — 방에서 나왔습니다');
 }
 /* 🔔 퇴장 1분 전 안내. 이미 떠 있거나, 방 밖이거나, 시크릿룸 방장이면 아무 일도 안 한다. */

@@ -226,7 +226,8 @@ say('── 3. 일부러 깨 보기 — 없는 이름을 넣으면 잡는다');
   chk(judge(add('function f(a){ const b = 1; let { c } = a; try{}catch(e){ e; } return a + b + c; }')).missing.length === 0, '매개변수 · 지역 · 구조 분해 · catch 는 세지 않는다');
   chk(judge(add('window.새전역Z = 1; function f(){ return typeof 새전역Z; }')).missing.length === 0, 'window 에 거는 이름은 전역으로 친다');
   chk(judge(add('(function(){ const 안쪽W = 1; })(); function g(){ return typeof 안쪽W; }')).missing.length === 1, '다른 함수 안의 이름은 전역이 아니다(모듈 안으로 옮긴 이름)');
-  const ap = SOURCES.findIndex(([n]) => path.basename(n) === 'app.js');
+  /* 날기 쿨다운 자리는 Presence 와 같이 room/presence.js 로 옮겼다(C 구역 떼기 w4) — 그 글이 있는 파일에서 되돌린다 */
+  const ap = SOURCES.findIndex(([, t]) => t.includes("typeof tricksMod._myFlyCoolUntil()==='number'"));
   const s2 = SOURCES.slice(); if (ap >= 0) s2[ap] = [SOURCES[ap][0], SOURCES[ap][1].replace("typeof tricksMod._myFlyCoolUntil()==='number'", "typeof tricksMod._myFlyCoolUntil==='number'")];
   chk(ap >= 0 && s2[ap][1] !== SOURCES[ap][1] && readerMisuse(s2).length === 1, '읽는 함수를 값처럼 typeof 로 보면 잡는다(날기 쿨다운 자리를 되돌려 봄)');
 }
