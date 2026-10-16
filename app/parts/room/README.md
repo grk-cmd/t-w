@@ -129,3 +129,21 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - 캐릭터 높이 상쇄는 `_positionRideSeat` 가 `charLiftWorld` 로 한 번 — 여기서도 빼므로 armH 에는 높이가 안 섞인다(두 번 빼지 말 것).
   - 임시 벡터(`_rideFootTmpV` 등)를 돌려주지 않고 `clone()` 한다 — 호출부가 값을 들고 있어도 안전.
   - 검사: `checks/sim-ride-measure.js`(4절 — 실제 three 로 회전 · 위치를 뺀 오프셋 · 경계 0.3 · 들린 rig 상쇄 · 크기 0).
+
+## ride-tuning.js — 🎛️ 올라타기 · 묘기 튜닝 값
+
+- **책임**: 올라타기(`ride-bench.js`) · 상호작용 책상(`interaction-desk.js`) · 동작(app.js `animateRig`)이 같이 읽는 박힌 값 표 하나 — 계산 없이 값만. 같이 돌려 쓰는 three 임시 벡터 · 쿼터니언(`_rideWP` · `_rideQD` …)도 여기서 만든다(매 프레임 new 안 하려고).
+- **만드는 법**: deps 없음 — `const rideTuneMod = TwRideTuning.createRideTuning({` / `});`(three 를 실은 뒤 · ride-bench 를 만들기 전에).
+- **내보내는 것**: 상수 37개(`RIDE_*` · `CIRCUS_*`) · 임시 객체 13개. 쓰는 모듈에는 app.js 가 deps 로 넘긴다.
+  ```js
+  // ride-bench 를 만들 때
+  RIDE_ARM_SINK: rideTuneMod.RIDE_ARM_SINK,
+  _rideWP: rideTuneMod._rideWP,
+  ```
+- **확장할 때 고칠 자리**: 값만 바꾸면 된다(높이 · 깊이 보정은 «크기 1 기준» 으로). 새 튜닝 값도 여기에 더하고 쓰는 모듈 deps 로.
+- **함정**
+  - sink · 앞뒤 보정은 대상 크기 1 기준이고 쓰는 쪽이 × 대상 userScale 한다 — 작은 크기에서 맞춘 값을 박지 말 것.
+  - 1층(팔 걸치기)과 2층+(발로 딛기)은 앞뒤 보정 부호가 반대라 상수가 따로다(`RIDE_Z_DEPTH_K_ON_ANIMAL` · `CIRCUS_Z_DEPTH_K_ON_ANIMAL`).
+  - 임시 객체는 공유된다 — 값을 들고 있으려면 `clone()`.
+  - 동물 팔 기본각 `ANIMAL_HAND_REST` 는 animal.js 가 전역으로 읽어 app.js 에 남겼다.
+  - 검사: `checks/sim-ride-tuning.js`(4절 — 값 표 50개가 옮기기 전과 같다 · 임시 객체가 따로따로 · 값 범위).

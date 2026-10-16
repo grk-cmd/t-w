@@ -1383,175 +1383,18 @@ const decoPartsMod = TwDecoPartsVisibility.createDecoPartsVisibility({
 //     모두 이 값을 읽는다 — 여기만 고치면 세 곳이 함께 바뀜.
 const ANIMAL_HAND_REST = -0.4;
 try{ window.ANIMAL_HAND_REST = ANIMAL_HAND_REST; }catch(_){}
-/* 🐾 올라타기 오프셋 — 기준점은 대상의 '머리 본'(실측상 머리 꼭대기가 아니라 목 위치, 인간 GLB: spine 기준 y=0.905).
-   ★ 앵커는 동물의 '발'이 아니라 '팔'이다.
-     예전엔 발 위치를 고정했는데, 동물은 얼굴 크기(animalScl)를 키우면 normalizeModel이 전체 높이를 0.56에
-     맞추려고 모델을 통째로 줄여버려서 팔이 같이 내려간다 → 사람 머리에 파묻혔다.
-     그래서 반대로 '팔이 오는 높이'를 고정하고 발 위치를 역산한다:
-         발 = 머리본 + (대상 머리꼭대기 + RIDE_ARM_SINK) − 팔높이(정규화, 좌석크기 무관)
-     팔높이(_rideArmH)는 올라탈 때 1회 실측해 캐싱하므로 얼굴/좌석 크기가 뭐든 팔 높이가 유지된다.
-     이 방식이 크기 보정을 수식에 내장하므로 예전 RIDE_ANIMAL_SIZE_K / RIDE_ANIMAL_REF_SCALE는 불필요해져 제거함. */
-const RIDE_ARM_SIZE_FOLLOW = 1.0;  // ★ 동물 '좌석 크기'를 얹힘 높이에 얼마나 반영할지(0~1).
-                                   //   armH는 '크기 1' 기준으로 정규화된 값이라, 실제 팔의 월드 높이는 armH×좌석크기다.
-                                   //   따라서 발 위치를 역산할 때도 armH×좌석크기를 빼야 팔이 머리 꼭대기에 정확히 온다
-                                   //   → 기하학적으로 1.0이 정답. (0.7일 땐 크기를 줄인 동물이 살짝 가라앉아 보였음 — 실측 확인)
-                                   //   ★ 얼굴 크기(animalScl) 보정은 armH 자체에 이미 들어 있어 이 값과 무관하게 항상 작동한다.
-                                   //   0으로 두면 좌석을 줄일수록 파묻히고, 1보다 크면 뜬다. 미세조정 시 이 값만 만지면 됨.
-/* ★★ 아래 sink 세 상수(RIDE_ARM_SINK · RIDE_ARM_SINK_ON_ANIMAL · CIRCUS_FOOT_SINK)는 전부
-   **대상 크기 1 기준값**이며, 실제 적용 시 `× 대상 userScale` 된다.
-   [경위] 예전엔 절대 상수라 좌석 크기를 줄이면 이 값만 상대적으로 커져 위 캐릭터가 떴다
-     (실측: hostScale 0.42, 머리 높이 0.2682, sink 0.05 → 떠 보이는 양 0.0635의 대부분이 sink였다).
-     _rideHeadTop도 _armW도 월드 실측값이라 크기에 비례하는데 sink만 안 따라간 것이 원인이다.
-   ⚠️ 여기 숫자를 만질 때는 항상 '크기 1에서 보이는 모습'으로 판단할 것. 작은 크기에서 맞춘 값을
-     여기 박으면 크기 1이 반대로 어긋난다. */
-const RIDE_ARM_SINK      = 0.09;   // ★ 팔을 대상 '머리 꼭대기'에 얹는 기준에서의 미세조정(인간 대상, 크기 1 기준).
-/* ↑ [재보정 ①] 0.05 → 0.075. 제보: "인간 머리 위 1층에서 동물이 조금 파고든다".
-     팔높이(_armW)는 동물 자신의 월드 실측이고 머리꼭대기(_headTopForArm)도 실측이라 둘은 정확한데,
-     그 둘을 이어 붙일 때 '팔이 머리 표면에 살짝 눌리는' 양이 부족했다 —
-     머리 꼭대기는 박스 최고점(정수리 한 점)이고 팔이 닿는 자리는 그보다 낮은 곡면이라,
-     정확히 0으로 맞추면 시각적으로는 이미 묻힌 상태가 된다.
-   [재보정 ②] 0.075 → 0.09. 제보: "나쁘진 않은데 아주 조금 더 올라오면 좋겠다".
-     ①의 폭(+0.025)이 실제로 옮긴 양은 로그의 hostScale 0.4 기준 +0.010 이었고 그게 '파고듦→괜찮음'을
-     만들었다. 그래서 그 절반 정도(+0.015 → 실효 +0.006)만 더 올린다. 머리 높이 0.2944 의 약 2% 다.
-   ⚠️ 이 숫자는 **크기 1 기준**이고 적용 시 `× 대상 userScale` 된다. 로그처럼 hostScale=0.4 면
-     체감은 2.5분의 1로 줄어든다 — "왜 0.015나 올렸는데 티가 안 나지"의 답이 여기다.
-     반대로 크기를 안 줄인 사용자에게는 0.015가 그대로 실효값이라, 한 번에 크게 올리면 그쪽이 뜬다.
-   ⚠️ 2층+(묘기)는 CIRCUS_FOOT_SINK 가 따로 담당한다 — 그쪽은 손대지 않았다(제보 대상이 1층이므로). */
-/* ★ 대상이 '동물'일 때 쓰는 별도 보정값.
-   동물은 몸의 대부분이 머리라, 팔 높이가 전체 높이의 38%(실측 armH 0.2235 / 전체 0.58) 지점이다.
-   팔을 대상 머리 꼭대기에 맞추면 나머지 62%가 위로 솟아 떠 보인다.
-   인간 대상은 머리가 크고 넓어 그 솟은 부분이 시각적으로 묻히지만, 동물 대상에선 그대로 드러난다.
-   → 대상 종류에 따라 값을 나눠 각각 맞춘다. 음수일수록 더 깊이 파묻힌다. */
-const RIDE_ARM_SINK_ON_ANIMAL = 0.04;   // (크기 1 기준 — 적용 시 × 대상 userScale)
-/* ↑ ★ 1층에서 '동물 머리 위'에 얹힐 때의 높이 보정(음수=더 파묻힘, 양수=더 뜸).
-   머리 꼭대기 측정이 measureHeadBoxNoParts(꾸미기 파츠 제외)로 바뀌면서 기준 높이가 낮아졌고,
-   예전 값(-0.05)이 그대로면 파묻혀 보인다 — 그만큼 올려서 다시 맞춤. */
-/* 🎪 서커스 묘기 — 2층 이상은 '팔을 걸치는' 대신 '발로 딛고 선다'.
-   팔 기준(armH)은 동물마다 팔 위치가 달라 계속 어긋났는데, 발 기준은 대상 머리 꼭대기만 쓰므로
-   얼굴 크기·좌석 크기·귀 유무와 무관하게 항상 맞는다. 앞뒤(Z)도 대상 머리 박스 중심을 실측해 자동 정렬.
-   ★ 1층(인간 위)은 기존 '팔 걸치기' 그대로 — 이 상수들은 2층 이상에만 적용된다. */
-const CIRCUS_MIN_DEPTH   = 2;      // 이 층수부터 묘기 자세 (1=인간 위 1층도 포함)
-/* ★ 발이 대상 머리에 파묻히는 정도(값 키우면 내려감).
-   [재보정 이력] 0.02 → 0.08로 키웠던 이유가 "2층+ 묘기가 떠 보여서"였는데, 그 '뜸'의 진짜 원인은
-     measureHeadBoxNoParts가 숨겨진 메쉬까지 재서 _rideHeadTop이 실제보다 0.15~0.18 높게 나온 것이었다.
-     측정을 고친 뒤에는 0.08이 그대로 남아 반대로 머리에 파묻힌다 → 원래 값 0.02로 되돌림. */
-const CIRCUS_FOOT_SINK   = 0.02;   // (크기 1 기준 — 적용 시 × 대상 userScale)
-const CIRCUS_ARM_SPREAD  = 1.15;   // ★ 균형 잡는 팔 벌림(라디안). 0이면 평소 자세.
-const CIRCUS_ARM_DROP    = 0.45;   // ★ 벌린 팔을 아래로 내리는 양(라디안). 벌림 폭은 그대로 두고 높이만 조절.
-                                   //   키우면 더 내려가고, 0이면 만세에 가까워진다.
-const CIRCUS_SWAY_CALM   = 0.035;  // ★ 평소 흔들림 세기(라디안) — 은은하게.
-const CIRCUS_SWAY_PANIC  = 0.22;   // ★ 와해 직전 흔들림 세기 — 눈에 띄게.
-const CIRCUS_SWAY_SPEED  = 1.6;    // 흔들림 속도
-const CIRCUS_PANIC_SLEEPERS = 1;   // ★ 이 인원 이상이 sleep이면 흔들리기 시작 → 와해
-const CIRCUS_PANIC_MS    = 40000;  // ★ 흔들리다 무너지기까지 시간(ms). 이 안에 깨어나면 와해되지 않고 유지.
-                                   //   10초는 자리를 잠깐 비운 사람이 손쓸 틈도 없이 무너져서 40초로 늘림.
-/* 🎪 와해 직전 '부들부들' — 마지막 구간에서는 좌우 휘청임을 접고 제자리 잔떨림으로 바꾼다.
-   큰 흔들림이 40초 내내 이어지면 눈이 피로하고, 무너지기 직전이라는 신호도 안 된다(계속 같은 폭이라서).
-   TREMOR_AT은 '경과 비율'이라 PANIC_MS를 바꿔도 비례해서 따라온다 — 40초 × 0.75 = 30초부터. */
-const CIRCUS_TREMOR_AT        = 0.75;   // 이 비율만큼 경과하면 잔떨림 구간 진입
-const CIRCUS_TREMOR_CALMDOWN  = 0.85;   // 그 구간에서 좌우 휘청임을 얼마나 줄일지(1=거의 멈춤)
-const CIRCUS_TREMOR_AMP       = 0.014;  // 잔떨림 폭(라디안) — 작게. 크면 떠는 게 아니라 또 흔들리는 것처럼 보인다
-const CIRCUS_TREMOR_SPD       = 34;     // 잔떨림 속도. 휘청임(1.6)보다 훨씬 빨라야 '떤다'로 읽힌다
-const CIRCUS_DIZZY_MS    = 2500;   // 무너진 뒤 어지러움 지속(기존 dizzy와 동일)
-/* ★ 묘기 자세에서 대상과 정면을 어긋나게 하는 각도. 좌석마다 이 범위 안에서 랜덤으로 한 번 정해 고정하고,
-   방향(+/-)도 따로 랜덤 — 층끼리 서로 다른 각도로 어긋나 보인다. 올라탈 때마다 다시 뽑는다.
-   🚫 [현재 끔] CIRCUS_YAW_RANDOM = false 라 아래 두 값은 쓰이지 않는다 —
-      탑 전체가 대상과 같은 방향(정면)을 본다. 랜덤 회전을 되살리려면 그 값만 true 로. */
-const CIRCUS_YAW_MIN     = Math.PI/12;   // 15도
-const CIRCUS_YAW_MAX     = Math.PI/4;    // 45도
-/* 🎪 묘기 자세의 랜덤 Y축 회전을 쓸지 (요청: 끄고 전부 정면).
-   ⚠️ 끄면 접지점 보정(CIRCUS_FOOT_CENTER)이 하는 일이 줄어들지만 **없어지지는 않는다.**
-      한 다리로 서는 한 딛는 발은 여전히 몸 중심에서 좌우로 반걸음 떨어져 있고, 딛는 발이
-      왼쪽이냐 오른쪽이냐(_circusStandLeft)도 여전히 랜덤이다. 회전이 없으니 그 반걸음이
-      '랜덤한 방향으로 돌지' 않을 뿐, 좌우로 치우치는 것은 그대로다 — 보정은 켜 두는 게 맞다. */
-const CIRCUS_YAW_RANDOM  = false;
-/* ★ 앞뒤 미세조정(2층 이상). 양수=앞으로, 음수=뒤로. 0이면 실측 머리 중심 그대로.
-   [재보정 이력] 예전 값 0.13은 measureHeadBoxNoParts가 '숨겨진 메쉬'까지 재던 시절에 맞춰진 값이다.
-     그때는 박스가 실제보다 크고 중심이 뒤로 치우쳐서 앞으로 당겨줄 필요가 있었다.
-     숨은 메쉬를 제외하도록 고친 뒤 headCenterZ가 실제 머리 중심(≈머리 본)으로 정확해졌고,
-     0.13이 그대로 남으면 과보정이라 앞으로 튀어나온다 → 0으로 되돌리고 필요하면 여기서 다시 조정.
-   ※ 부풀림 양은 좌석 크기에 비례해 달라지므로(월드 공간 측정) 애초에 상수로는 보정할 수 없었다. */
-const CIRCUS_FOOT_Z      = 0;
-/* 🦶 '발판'으로 볼 층의 두께 — 대상 박스 높이에 대한 비율. 이 층에 걸치는 메쉬만 골라
-   앞뒤 중심을 다시 잡는다(_measureHostHeadTop 의 _headTopCenterZ 주석 참고).
-   키우면 몸통까지 섞여 예전(몸 전체 중심)에 가까워지고, 줄이면 정수리 끝만 보다가
-   메쉬 하나도 안 걸려 폴백될 수 있다. 0.2~0.3 사이가 안전하다. */
-const CIRCUS_TOP_SLAB    = 0.25;
-/* 🎩 머리 **중앙**에 있는 파츠 위에 얹기 — '중앙'으로 볼 여유(머리 꼭대기 폭에 대한 비율).
-   [규칙] 파츠 박스가 머리 꼭대기 중심을 덮고, 그 덮는 여유가 좌우·앞뒤 **양쪽 다** 이 비율 이상일 것.
-   [왜 '중심거리'가 아닌가] 중심거리 방식은 파츠가 얼마나 넓은지를 안 본다 — 정수리에 꽂힌 뿔이
-     '중앙'으로 통과해 그 끝에 얹힌다. 덮기 방식은 폭이 좁은 파츠가 자동으로 걸러진다.
-   [왜 비율인가] 절대값으로 잡으면 캐릭터·좌석 크기마다 판정이 달라진다.
-   ★ 이 판정만으로는 부족하다 — 관리자가 파츠에 '얹을 수 있음'(rec.rideTop)을 켠 경우에만 본다.
-     납작한지 뾰족한지를 자동으로 가르는 선은 실제로 잘 안 나온다(넓은 접시와 낮고 좁은 파츠가
-     같은 높이÷넓이 값을 갖는다). 자동 판정은 파츠가 늘 때마다 예외가 생긴다.
-   ⚠️ 0 으로 두면 '중심에 닿기만 하면 통과'가 된다 — 가장자리에 아슬아슬하게 걸친 파츠 위에 선다. */
-const RIDE_PART_CENTER_MARGIN = 0.15;
-/* 🦶 위 실측값을 쓸지. false 로 두면 예전처럼 몸 전체 박스 중심을 쓴다(되돌리기용 스위치). */
-const CIRCUS_FOOT_Z_FROM_TOP = true;
-/* 🦶 딛는 발을 대상 머리 한가운데에 맞춘다(요청 사양).
-   [문제] 묘기 자세는 한 다리로 선다(_circusStandLeft). 그 다리는 좌석 원점에서 좌우로 반걸음
-     떨어져 있는데, 좌석 원점만 머리 중심에 놓고 yaw(CIRCUS_YAW_*)를 랜덤으로 돌리므로
-     **실제 접지점이 머리 중심을 반지름 삼아 랜덤한 방향으로 돈다.** 대상이 작을수록 머리라는
-     발판 자체가 좁아서, 같은 반걸음이 머리 폭의 큰 비율이 되어 발이 가장자리·허공으로 나간다
-     (제보: "좌석 크기가 최소화일수록 2층부터 위치가 애매하다").
-   [해법] 딛는 다리의 좌석-로컬 오프셋을 올라탈 때 1회 재서, 최종 회전(yaw + 흔들림)까지
-     반영해 그만큼 좌석을 역으로 민다. yaw 는 랜덤 그대로 두고 접지점만 고정된다.
-   ⚠️ 반드시 **흔들림(rotateZ)까지 끝난 뒤** 적용해야 한다 — 회전이 더 붙으면 오프셋 방향이 달라진다.
-   ⚠️ Y 는 건드리지 않는다. 높이는 CIRCUS_FOOT_SINK 담당이고, 여기서 같이 만지면 두 보정이 섞인다.
-   ⚠️ 다리 본은 고관절 위치라 발끝과 X 가 정확히 같지는 않다(다리가 거의 수직이라 근사가 통한다).
-     보정이 과하거나 모자라면 이 값을 0~1 사이로 조절할 것 — 0 이면 예전 동작 그대로다. */
-const CIRCUS_FOOT_CENTER = 1;
-const _rideFootOff = new THREE.Vector3();
+/* 본문은 room/ride-tuning.js 로 옮겼다(구역 떼기 C · w1).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const rideTuneMod = TwRideTuning.createRideTuning({
+});
 /* 본문은 room/ride-measure.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const rideMeasureMod = TwRideMeasure.createRideMeasure({
   seatEqMod: seatEqMod,
 });
-const CIRCUS_LEG_STAND   = 0.05;   // ★ 딛는 다리 각도(거의 곧게)
-const CIRCUS_LEG_LIFT    = 0.75;   // ★ 드는 다리 각도(뒤로 들어올림)
-const CIRCUS_LEG_WAG     = 0.18;   // ★ 든 발 까딱임 폭
-const CIRCUS_LEG_WAG_SPD = 3.2;    // ★ 든 발 까딱임 속도
-                                   //   0 = 팔이 머리 꼭대기에 정확히 얹힘 / 음수 = 머리에 더 파묻힘 / 양수 = 더 띄움.
-                                   //   목표 높이를 상수로 두지 않고 대상 머리 꼭대기를 실측하므로,
-                                   //   대상 크기·동물 크기·얼굴 크기가 뭐든 팔 높이가 자동으로 맞는다.
-const RIDE_HEAD_OFFSET_Z = -0.3;   // ★ 1층(인간 머리 위) 앞뒤 보정. 음수=뒤로(머리 안쪽), 양수=앞으로.
-const RIDE_HEAD_OFFSET_Z_ON_ANIMAL = -0.07;  // ★ 1층 중 '동물 머리 위'일 때의 앞뒤 보정.
-/* ★ 동물 대상 앞뒤 보정 — '박스 깊이에 대한 비율'로 뒤로 민다.
-   [경위] _headCenterZ를 그대로 쓰면 안 된다. 그건 머리 중심이 아니라 gltfRoot '몸 전체' 박스의 중심이고,
-     동물은 머리 본이 몸 중심 근처라 값이 -0.02 수준밖에 안 나온다(실측). 인간이 정상 동작할 때의
-     뒤로 미는 양은 -0.138(= RIDE_HEAD_OFFSET_Z -0.3 × hostScale 0.46)이고, 그때 박스 깊이가 0.406이라
-     깊이 대비 0.345다. 동물도 같은 비율을 쓰면 대상 크기·체형과 무관하게 같은 자리에 얹힌다.
-   양수를 키우면 뒤로, 줄이면 앞으로. */
-const RIDE_Z_DEPTH_K_ON_ANIMAL = 0.345;
-/* 🎪 2층 이상(묘기 자세)에서 **동물 대상**의 앞뒤 자리 — 몸 전체 박스 중심에서 **앞으로** 당기는 비율.
-   ★ 1층 상수(바로 위 RIDE_Z_DEPTH_K_ON_ANIMAL)를 재사용하지 않는다. 1층은 '팔을 머리에 걸치는'
-     자세라 몸이 뒤로 물러나야 하고(빼기), 2층은 '머리 위에 발로 딛는' 자세라 머리 쪽으로 나와야
-     한다(더하기) — 부호부터 반대다. 한 상수로 묶으면 한쪽을 맞추는 순간 다른 쪽이 어긋난다.
-   ★ 이 경로는 꼭대기 발판 실측(_headTopCenterZ)이 **아무것도 골라내지 못했을 때**만 쓴다.
-     통메쉬 하나로 된 모델이 그렇다(그 층에도 그 메쉬뿐이라 결과가 몸 전체 중심과 같아진다).
-   ★ 조절점은 이 숫자 하나다 — 뒤에 서면 키우고, 이마·코끝으로 튀어나오면 줄인다.
-   [실측] 통메쉬 동물 제보 기준: 몸중심 = 머리본 −0.019 · 박스 깊이 0.389 · 박스 앞면 = 머리본 +0.176.
-     0.28 이면 머리본 +0.09 쯤 = 머리본에서 앞면까지의 60% 지점. */
-const CIRCUS_Z_DEPTH_K_ON_ANIMAL = 0.28;
-                                   //   동물은 머리가 얇고 좌석 크기(userScale)도 달라서 인간용 값을 그대로 쓰면
-                                   //   뒤로 밀려 보인다 — 대상 종류별로 분리. 더 앞으로 오게 하려면 0에 가깝게.
-                                   //   너무 뒤에 있으면 이 값을 올리고(-0.2, -0.1 …), 이마로 튀어나오면 내린다(-0.35 …).
-                                   //   2층 이상(묘기 자세)은 CIRCUS_FOOT_Z가 따로 담당하므로 서로 영향 없음.
-const RIDE_HEAD_OFFSET_Y = 0.35;   // 폴백 전용 — 손 본을 못 찾아 팔높이 실측이 실패했을 때만 쓰는 예전 방식 값.
-const RIDE_FOLLOW_HEAD_TILT = true;   // true=고개 기울임까지 따라 기울어짐. 어색하면 false(위치만 따라감)
-const RIDE_SNAP_DIST = 1.1;        // 이 거리(월드) 안에서 놓으면 흡착
-const _rideWP = new THREE.Vector3(), _rideTmp = new THREE.Vector3(), _rideOff = new THREE.Vector3();
-const _rideAwayP = new THREE.Vector3(), _rideAwayS = new THREE.Vector3();   // 🫧 대상이 자리비움 그림일 때 그 그림의 월드 위치·크기
-const _rideQD = new THREE.Quaternion(), _rideQP = new THREE.Quaternion(), _rideQR = new THREE.Quaternion();
-const _rideQC = new THREE.Quaternion(), _rideQY = new THREE.Quaternion();
-const _rideAxisY = new THREE.Vector3(0,1,0);
-const _rideQSpin = new THREE.Quaternion();   // 🌀 대상의 '제자리 회전 춤'을 위층에 전달할 때 쓰는 임시값
+/* (구역 떼기 C · w1) 이 자리의 본문도 room/ride-tuning.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* (구역 떼기 C · w1) 이 자리의 본문도 room/ride-measure.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-const RIDE_MAX_STACK = 4;   /* ★ 탑쌓기 최대 층수(맨 아래 대상 제외, 올라탄 동물 기준).
-                               방 정원이 5→6명이 됐지만 이 값은 그대로 둔다 — 층수는 인원이 아니라
-                               '화면 위로 나가지 않는 높이'가 기준이고, 4층이면 이미 캐릭터 키의
-                               5배쯤 된다. 정원에 맞춰 올리고 싶으면 이 값만 5로 바꾸면 된다. */
+/* (구역 떼기 C · w1) 이 자리의 본문도 room/ride-tuning.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* 🐾 mountRide/unmountRide가 호출하는 전역 진입점. 방에 있을 때만 실제 전송한다.
    (예전엔 이 함수가 없어서 typeof 가드에 걸려 조용히 넘어갔고, 그래서 올라타기가 남에게 안 보였다) */
 function broadcastRide(){
@@ -1579,11 +1422,11 @@ function _collapseRideTower(bottomSeat, now){
       try{ m.group.position.y = 0; m.group.position.z = 0;
            m.group.quaternion.identity(); m.group.rotation.set(0,0,0); }catch(_){}
       m._circusOn = false; m._circusPanicAt = 0; m._rideHeadTop = null;
-      m.dizzyUntil = now + CIRCUS_DIZZY_MS;    // 각자 자기 자리로 돌아가며 어지러움
+      m.dizzyUntil = now + rideTuneMod.CIRCUS_DIZZY_MS;    // 각자 자기 자리로 돌아가며 어지러움
       for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f', m), i*300);
     });
     // 받치고 있던 맨 아래(인간일 수도 있음)도 어지러움
-    bottomSeat.dizzyUntil = now + CIRCUS_DIZZY_MS;
+    bottomSeat.dizzyUntil = now + rideTuneMod.CIRCUS_DIZZY_MS;
     bottomSeat._circusPanicAt = 0;
     for(let i=0;i<floatersMod.FLOATER_BURST;i++) setTimeout(()=>floatersMod.spawnFloater('💫','#f5a94f', bottomSeat), i*300);
     if(members.length) toast('🎪 균형을 잃고 무너졌어요!');
@@ -1860,57 +1703,57 @@ const rideChainMod = TwRideChain.createRideChain({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const rideBenchMod = TwRideBench.createRideBench({
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
-  CIRCUS_FOOT_CENTER: CIRCUS_FOOT_CENTER,
-  CIRCUS_FOOT_SINK: CIRCUS_FOOT_SINK,
-  CIRCUS_FOOT_Z: CIRCUS_FOOT_Z,
-  CIRCUS_FOOT_Z_FROM_TOP: CIRCUS_FOOT_Z_FROM_TOP,
-  CIRCUS_MIN_DEPTH: CIRCUS_MIN_DEPTH,
-  CIRCUS_PANIC_MS: CIRCUS_PANIC_MS,
-  CIRCUS_PANIC_SLEEPERS: CIRCUS_PANIC_SLEEPERS,
-  CIRCUS_SWAY_CALM: CIRCUS_SWAY_CALM,
-  CIRCUS_SWAY_PANIC: CIRCUS_SWAY_PANIC,
-  CIRCUS_SWAY_SPEED: CIRCUS_SWAY_SPEED,
-  CIRCUS_TOP_SLAB: CIRCUS_TOP_SLAB,
-  CIRCUS_TREMOR_AMP: CIRCUS_TREMOR_AMP,
-  CIRCUS_TREMOR_AT: CIRCUS_TREMOR_AT,
-  CIRCUS_TREMOR_CALMDOWN: CIRCUS_TREMOR_CALMDOWN,
-  CIRCUS_TREMOR_SPD: CIRCUS_TREMOR_SPD,
-  CIRCUS_YAW_MAX: CIRCUS_YAW_MAX,
-  CIRCUS_YAW_MIN: CIRCUS_YAW_MIN,
-  CIRCUS_YAW_RANDOM: CIRCUS_YAW_RANDOM,
-  CIRCUS_Z_DEPTH_K_ON_ANIMAL: CIRCUS_Z_DEPTH_K_ON_ANIMAL,
+  CIRCUS_FOOT_CENTER: rideTuneMod.CIRCUS_FOOT_CENTER,
+  CIRCUS_FOOT_SINK: rideTuneMod.CIRCUS_FOOT_SINK,
+  CIRCUS_FOOT_Z: rideTuneMod.CIRCUS_FOOT_Z,
+  CIRCUS_FOOT_Z_FROM_TOP: rideTuneMod.CIRCUS_FOOT_Z_FROM_TOP,
+  CIRCUS_MIN_DEPTH: rideTuneMod.CIRCUS_MIN_DEPTH,
+  CIRCUS_PANIC_MS: rideTuneMod.CIRCUS_PANIC_MS,
+  CIRCUS_PANIC_SLEEPERS: rideTuneMod.CIRCUS_PANIC_SLEEPERS,
+  CIRCUS_SWAY_CALM: rideTuneMod.CIRCUS_SWAY_CALM,
+  CIRCUS_SWAY_PANIC: rideTuneMod.CIRCUS_SWAY_PANIC,
+  CIRCUS_SWAY_SPEED: rideTuneMod.CIRCUS_SWAY_SPEED,
+  CIRCUS_TOP_SLAB: rideTuneMod.CIRCUS_TOP_SLAB,
+  CIRCUS_TREMOR_AMP: rideTuneMod.CIRCUS_TREMOR_AMP,
+  CIRCUS_TREMOR_AT: rideTuneMod.CIRCUS_TREMOR_AT,
+  CIRCUS_TREMOR_CALMDOWN: rideTuneMod.CIRCUS_TREMOR_CALMDOWN,
+  CIRCUS_TREMOR_SPD: rideTuneMod.CIRCUS_TREMOR_SPD,
+  CIRCUS_YAW_MAX: rideTuneMod.CIRCUS_YAW_MAX,
+  CIRCUS_YAW_MIN: rideTuneMod.CIRCUS_YAW_MIN,
+  CIRCUS_YAW_RANDOM: rideTuneMod.CIRCUS_YAW_RANDOM,
+  CIRCUS_Z_DEPTH_K_ON_ANIMAL: rideTuneMod.CIRCUS_Z_DEPTH_K_ON_ANIMAL,
   IDESK_ENABLED: ()=>iDeskMod.IDESK_ENABLED,
   INTERACTION_DESKS: ()=>iDeskMod.INTERACTION_DESKS,
   Presence: ()=>Presence,
-  RIDE_ARM_SINK: RIDE_ARM_SINK,
-  RIDE_ARM_SINK_ON_ANIMAL: RIDE_ARM_SINK_ON_ANIMAL,
-  RIDE_ARM_SIZE_FOLLOW: RIDE_ARM_SIZE_FOLLOW,
-  RIDE_FOLLOW_HEAD_TILT: RIDE_FOLLOW_HEAD_TILT,
-  RIDE_HEAD_OFFSET_Y: RIDE_HEAD_OFFSET_Y,
-  RIDE_HEAD_OFFSET_Z: RIDE_HEAD_OFFSET_Z,
-  RIDE_HEAD_OFFSET_Z_ON_ANIMAL: RIDE_HEAD_OFFSET_Z_ON_ANIMAL,
-  RIDE_MAX_STACK: RIDE_MAX_STACK,
-  RIDE_PART_CENTER_MARGIN: RIDE_PART_CENTER_MARGIN,
-  RIDE_Z_DEPTH_K_ON_ANIMAL: RIDE_Z_DEPTH_K_ON_ANIMAL,
+  RIDE_ARM_SINK: rideTuneMod.RIDE_ARM_SINK,
+  RIDE_ARM_SINK_ON_ANIMAL: rideTuneMod.RIDE_ARM_SINK_ON_ANIMAL,
+  RIDE_ARM_SIZE_FOLLOW: rideTuneMod.RIDE_ARM_SIZE_FOLLOW,
+  RIDE_FOLLOW_HEAD_TILT: rideTuneMod.RIDE_FOLLOW_HEAD_TILT,
+  RIDE_HEAD_OFFSET_Y: rideTuneMod.RIDE_HEAD_OFFSET_Y,
+  RIDE_HEAD_OFFSET_Z: rideTuneMod.RIDE_HEAD_OFFSET_Z,
+  RIDE_HEAD_OFFSET_Z_ON_ANIMAL: rideTuneMod.RIDE_HEAD_OFFSET_Z_ON_ANIMAL,
+  RIDE_MAX_STACK: rideTuneMod.RIDE_MAX_STACK,
+  RIDE_PART_CENTER_MARGIN: rideTuneMod.RIDE_PART_CENTER_MARGIN,
+  RIDE_Z_DEPTH_K_ON_ANIMAL: rideTuneMod.RIDE_Z_DEPTH_K_ON_ANIMAL,
   _collapseRideTower: (...a)=>_collapseRideTower(...a),
   _deskDefById: (...a)=>iDeskMod._deskDefById(...a),
   _measureAnimalArmH: (...a)=>rideMeasureMod._measureAnimalArmH(...a),
   _measureCircusFootOff: (...a)=>rideMeasureMod._measureCircusFootOff(...a),
-  _rideAwayP: _rideAwayP,
-  _rideAwayS: _rideAwayS,
-  _rideAxisY: _rideAxisY,
+  _rideAwayP: rideTuneMod._rideAwayP,
+  _rideAwayS: rideTuneMod._rideAwayS,
+  _rideAxisY: rideTuneMod._rideAxisY,
   _rideBottom: (...a)=>rideChainMod._rideBottom(...a),
-  _rideFootOff: _rideFootOff,
+  _rideFootOff: rideTuneMod._rideFootOff,
   _rideHostSpinY: (...a)=>rideMeasureMod._rideHostSpinY(...a),
-  _rideOff: _rideOff,
-  _rideQC: _rideQC,
-  _rideQD: _rideQD,
-  _rideQP: _rideQP,
-  _rideQR: _rideQR,
-  _rideQSpin: _rideQSpin,
-  _rideQY: _rideQY,
-  _rideTmp: _rideTmp,
-  _rideWP: _rideWP,
+  _rideOff: rideTuneMod._rideOff,
+  _rideQC: rideTuneMod._rideQC,
+  _rideQD: rideTuneMod._rideQD,
+  _rideQP: rideTuneMod._rideQP,
+  _rideQR: rideTuneMod._rideQR,
+  _rideQSpin: rideTuneMod._rideQSpin,
+  _rideQY: rideTuneMod._rideQY,
+  _rideTmp: rideTuneMod._rideTmp,
+  _rideWP: rideTuneMod._rideWP,
   broadcastRide: (...a)=>broadcastRide(...a),
   charLiftWorld: (...a)=>seatEqMod.charLiftWorld(...a),
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
@@ -1935,14 +1778,14 @@ const rideBenchMod = TwRideBench.createRideBench({
 /* 본문은 interaction-desk.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const iDeskMod = TwInteractionDesk.createInteractionDesk({
-  CIRCUS_ARM_DROP: CIRCUS_ARM_DROP,
-  CIRCUS_LEG_LIFT: CIRCUS_LEG_LIFT,
-  CIRCUS_LEG_STAND: CIRCUS_LEG_STAND,
+  CIRCUS_ARM_DROP: rideTuneMod.CIRCUS_ARM_DROP,
+  CIRCUS_LEG_LIFT: rideTuneMod.CIRCUS_LEG_LIFT,
+  CIRCUS_LEG_STAND: rideTuneMod.CIRCUS_LEG_STAND,
   Presence: ()=>Presence,
-  RIDE_MAX_STACK: RIDE_MAX_STACK,
-  RIDE_SNAP_DIST: RIDE_SNAP_DIST,
-  _rideTmp: _rideTmp,
-  _rideWP: _rideWP,
+  RIDE_MAX_STACK: rideTuneMod.RIDE_MAX_STACK,
+  RIDE_SNAP_DIST: rideTuneMod.RIDE_SNAP_DIST,
+  _rideTmp: rideTuneMod._rideTmp,
+  _rideWP: rideTuneMod._rideWP,
   focusLevelMod: ()=>focusLevelMod,
   isAdmin: ()=>isAdmin,
   rideBenchMod: rideBenchMod,
@@ -10455,8 +10298,8 @@ function animateRig(seat,now,state){
   const clicking = clickTapVal > 0.001;
   // 🎪 묘기 중이면 균형 잡듯 양팔을 옆으로 쫙 벌린다(_positionRideSeat가 seat._circusOn을 세움).
   if(seat._circusOn){
-    armSpread -= CIRCUS_ARM_SPREAD;      // ★ 부호 — 반대로 꺾이면 +로 바꾸면 됨
-    baseArmRot += CIRCUS_ARM_DROP;       // 벌린 상태에서 높이만 내림(양수 = 내려감)
+    armSpread -= rideTuneMod.CIRCUS_ARM_SPREAD;      // ★ 부호 — 반대로 꺾이면 +로 바꾸면 됨
+    baseArmRot += rideTuneMod.CIRCUS_ARM_DROP;       // 벌린 상태에서 높이만 내림(양수 = 내려감)
   }
   const leftTapAmp = clicking ? 0 : HAND_TAP_AMP*tap;   // 클릭 반응 중엔 왼손 까딱 정지
   if(b.handL) setBone(b.handL, r.handL, baseArmRot + armForward + liftAngle + HAND_AXIS*Math.abs(Math.sin(t*tapSpeed))*leftTapAmp,    0,  armSpread);
@@ -10477,8 +10320,8 @@ function animateRig(seat,now,state){
     if(seat._circusStandLeft === undefined) seat._circusStandLeft = (Math.random() < 0.5);
     const standLeft = seat._circusStandLeft;
     // 🎪 든 발 까딱임 — 정의가 빠져 있어 묘기 자세(3층+)에서 매 프레임 ReferenceError로 렉이 났음. 복원.
-    const wag = Math.sin(t*CIRCUS_LEG_WAG_SPD + (seat.swayPhase||0)) * CIRCUS_LEG_WAG;
-    const stand = CIRCUS_LEG_STAND, lift = CIRCUS_LEG_LIFT + wag;
+    const wag = Math.sin(t*rideTuneMod.CIRCUS_LEG_WAG_SPD + (seat.swayPhase||0)) * rideTuneMod.CIRCUS_LEG_WAG;
+    const stand = rideTuneMod.CIRCUS_LEG_STAND, lift = rideTuneMod.CIRCUS_LEG_LIFT + wag;
     if(b.legL) setBone(b.legL, r.legL, standLeft ? stand : lift, 0, 0);
     if(b.legR) setBone(b.legR, r.legR, standLeft ? lift : stand, 0, 0);
   }else{

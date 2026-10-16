@@ -102,6 +102,7 @@ const MODULES = [
   { file: 'creator-xform.js', mod: 'crXformMod', glob: 'TwCreatorXform', sample: 'function _itemYaw(' },   // C 구역 떼기 w4
   { file: 'ride-measure.js', mod: 'rideMeasureMod', glob: 'TwRideMeasure', sample: 'function _measureCircusFootOff(' },   // 구역 떼기 C · w1
   { file: 'toast.js', mod: 'toastMod', glob: 'TwToast', sample: 'function _saveFailMsg(' },   // 구역 떼기 C · w2
+  { file: 'ride-tuning.js', mod: 'rideTuneMod', glob: 'TwRideTuning', sample: 'const RIDE_ARM_SIZE_FOLLOW = 1.0;  // ★ ' },   // 구역 떼기 C · w1
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
