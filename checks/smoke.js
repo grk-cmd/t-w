@@ -555,6 +555,8 @@ PRELOAD.push('creator-preview.js');
 PRELOAD.push('creator-flow.js');
 /* creator-save.js — 🧍 생성기 완료(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCreatorSave 를 같이 굴린다. */
 PRELOAD.push('creator-save.js');
+/* desk-visual.js — 🪑 책상 모양(바꿔 끼기 · 색 · 좌석 책상)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskVisual 를 같이 굴린다. */
+PRELOAD.push('desk-visual.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
