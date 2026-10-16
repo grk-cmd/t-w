@@ -52,6 +52,7 @@ const _measureCircusFootOff = deps._measureCircusFootOff;
 const _rideAwayP = deps._rideAwayP;
 const _rideAwayS = deps._rideAwayS;
 const _rideAxisY = deps._rideAxisY;
+const _rideBottom = deps._rideBottom;
 const _rideFootOff = deps._rideFootOff;
 const _rideHostSpinY = deps._rideHostSpinY;
 const _rideOff = deps._rideOff;
@@ -470,13 +471,7 @@ function _rideIsAbove(target, seat){ // target이 seat 위에 (직·간접으로
 function _rideRiders(seat){          // 이 좌석 바로 위에 탄 좌석들
   try{ return seats.filter(x=>x.ridingOn===seat); }catch(_){ return []; }
 }
-/* 🐾 이 좌석이 속한 탑의 '바닥' 좌석 — 아무 데도 안 타고 있는 맨 아래.
-   올라타 있지 않으면 자기 자신이다. 순환 방어로 순회 상한(_rideDepth와 같은 16)을 둔다. */
-function _rideBottom(seat){
-  let s = seat, guard = 0;
-  while(s && s.ridingOn && guard++ < 16) s = s.ridingOn;
-  return s || seat;
-}
+/* 🐾 탑 바닥 찾기(_rideBottom)는 ride-chain.js(순수) — 좌석 줄 배치(seat-layout.js)도 같이 쓴다. 이 모듈은 deps 로 받아 예전처럼 내놓는다. */
 /* 🎩 '머리 중앙에 얹을 수 있는 파츠'의 꼭대기(월드 Y). 없으면 null.
    [판정] ① 관리자가 그 파츠에 '얹을 수 있음'을 켰고
           ② 파츠 박스가 머리 꼭대기 층의 중심을 덮으며, 남는 여유가 좌우·앞뒤 둘 다
