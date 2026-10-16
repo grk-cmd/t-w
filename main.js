@@ -3763,10 +3763,17 @@ function createWindow() {
   const _onGlobalMouseDown = (e) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     _guardForeignInput('click');   // ⓖ 굳은 클릭받기 회수 — 캐릭터에서 먼 클릭이면 판정이 틀린 것이다
-    let offOverlay = false;
-    try{ offOverlay = !_ptOnOverlayWindow(screen.getCursorScreenPoint()); }catch(_){}
+    let offOverlay = false, onUI;
+    try{
+      const pt = screen.getCursorScreenPoint();
+      offOverlay = !_ptOnOverlayWindow(pt);
+      /* 🖱️ onUI — 이 클릭이 우리 UI(캐릭터 · 창) 위인가. 렌더러 사다리 3단계(0.8초 클릭받기)는 이게 참일 때만 돈다.
+         다른 앱 위 더블클릭의 두 번째 클릭이 그 0.8초에 투명 오버레이로 새서 투게더워킹이 앞으로 오던 것(10-16 제보 13).
+         UI 자리를 아직 모르면(렌더러가 안 보냄) undefined — 렌더러는 예전처럼 돈다. */
+      if(_mainWinScreenBounds && (_lastCharBounds || _lastRegions.length)) onUI = _ptOnOurUI(pt.x - _mainWinScreenBounds.x, pt.y - _mainWinScreenBounds.y);
+    }catch(_){}
     mainWindow.webContents.send('companion:globalClick',
-      { x: e.x, y: e.y, button: e.button, ...lastActiveState, offOverlay });
+      { x: e.x, y: e.y, button: e.button, ...lastActiveState, offOverlay, onUI });
   };
   /* 휠 스크롤도 '사람이 그 앱을 쓰는 중'이다 — 브라우저·문서에서 읽기만 하는 동안
      클릭도 키도 없어서 통째로 자리비움으로 빠지던 구간을 메운다.
