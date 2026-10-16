@@ -50,6 +50,7 @@ say('§9 보관함 이동 — 슬롯 표를 당긴 번호로 슬롯도 당긴다
     const kick = (D.match(/window\.__mouseKick = function\(offOverlay, onUI\)\{[\s\S]*?\n    \};/) || [''])[0];
     chk(!!kick, '__mouseKick(offOverlay, onUI) 를 찾았다');
     chk(/window\.__mouseKick\(state && state\.offOverlay, state && state\.onUI\)/.test(D), '  ↳ 전역 클릭이 onUI 를 넘긴다');
+    const POLICY = (() => { const t = need('parts/launcher/click-through-policy.js'); const m = { exports: {} }; new Function('module', 'window', t)(m, undefined); return m.exports; })();
     const mk = () => {
       const log = [];
       const env = {
@@ -57,12 +58,13 @@ say('§9 보관함 이동 — 슬롯 표를 당긴 번호로 슬롯도 당긴다
         _penSkipLoggedAt: 0, _offSkipLoggedAt: 0, _offUiSkipLoggedAt: 0,
       };
       let t = 100000;
-      const api = new Function('env', 'log', 'clock',
+      /* 사다리 판단은 click-through-policy.js(kickStep)로 묶였다 — 진짜 정책 모듈을 같이 싣는다(판정 무변경) */
+      const api = new Function('env', 'log', 'clock', 'clickPolicy',
         'let { _ignoreSent, _ignoring, _lastKickAt, _lastMoveSeen, _lastPokePen, _lastPokeAt, _kickStage, _probeTimer, _penSkipLoggedAt, _offSkipLoggedAt, _offUiSkipLoggedAt } = env;\n'
         + 'const performance = { now: () => clock() }; const console = { warn: () => {} }; const window = {};\n'
         + 'const _penAppFocused = () => false; const setTimeout = () => 1; const clearTimeout = () => {};\n'
         + "const _sendIgnore = (v, why) => { log.push((v ? 'ignore' : 'take') + (why ? ':' + why : '')); _ignoreSent = v; };\n"
-        + kick + '\nreturn { kick: window.__mouseKick, stage: () => _kickStage };')(env, log, () => t);
+        + kick + '\nreturn { kick: window.__mouseKick, stage: () => _kickStage };')(env, log, () => t, POLICY);
       return { api, log, tick: (ms) => { t += ms; } };
     };
     const clickN = (onUI, n) => { const k = mk(); for (let i = 0; i < n; i++){ k.api.kick(false, onUI); k.tick(1600); } return k; };

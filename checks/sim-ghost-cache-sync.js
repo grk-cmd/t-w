@@ -60,6 +60,12 @@ if (!mainSrc || !appSrc){
 }
 const mainCode = strip(mainSrc);
 const appCode  = strip(appSrc);
+/* 클릭 통과 판단 규칙은 click-through-policy.js 한 곳에 있다(렌더러 · main 이 같이 쓴다) — 조건 글은 거기서 찾는다(판정은 그대로) */
+const POL_FILES = ['click-through-policy.js', 'parts/launcher/click-through-policy.js', 'app/parts/launcher/click-through-policy.js',
+  '../app/parts/launcher/click-through-policy.js'];
+const polFile = POL_FILES.find(f => read(f));
+const polCode = polFile ? strip(read(polFile)) : '';
+const POL = polFile ? require(path.join(HERE, polFile)) : null;
 
 /* ══ 1. 재판정 통로가 한 군데로 모여 있는가 ══════════════════════════════ */
 say('── 1. 재판정 신호는 한 함수로만 나간다');
@@ -110,7 +116,8 @@ say('\n── 3. 렌더러는 main 이 알려준 상태를 자기 캐시보다 �
   else {
     const body = rx[0];
     chk(/pt\.ig/.test(body), '★ 수신부가 pt.ig 를 본다');
-    chk(/typeof\s+pt\.ig\s*===\s*'boolean'/.test(body),
+    chk(/clickPolicy\.pokeStep\(/.test(body) && /typeof\s+pt\.ig\s*===\s*'boolean'/.test(polCode)
+        && POL && POL.pokeStep({ pt: { left: true }, ignoreSent: false, dragging: null }).resync === false,
       '  구버전 main(ig 없음)에서는 아무것도 안 한다 — undefined 를 불일치로 세면 매번 캐시를 버린다');
     chk(/_ignoreSent\s*=\s*null/.test(body) && /_ignoring\s*=\s*null/.test(body),
       '★ 불일치면 두 캐시를 다 버린다 — _ignoring 만 남기면 miss 쪽 분기가 또 침묵한다');
@@ -134,7 +141,7 @@ say('\n── 4. 원래 있던 방어를 걷어내는 방식으로 고치지 않
   else chk(/_ignoreSent\s*===\s*v\s*\)\s*return/.test(snd[0]),
     '★ 중복 방지가 살아 있다 — 이걸 빼면 통과 중 초당 100회 IPC 가 나가 깜빡임 쪽 사안을 건드린다');
 
-  chk(/_ignoreSent\s*!==\s*true\s*\)\s*return/.test(appCode),
+  chk(/ignoreSent\s*!==\s*true\s*\)\s*return/.test(polCode) && /clickPolicy\.kickStep\(\{\s*ignoreSent:\s*_ignoreSent/.test(appCode),
     '  사다리(__mouseKick)의 첫 게이트도 그대로다 — 이 고침은 게이트를 푸는 게 아니라 캐시를 맞추는 것이다');
   chk(/GHOST_MAX_POKES\s*=\s*3/.test(mainCode),
     '  포기 한도 3회도 그대로다 — 계속 찌르면 렌더러 사다리가 못 돈다(main.js GHOST_MAX_POKES 주석)');
@@ -190,7 +197,8 @@ say('\n── 7. 못 믿을 캐릭터 좌표를 확신으로 바꾸지 않는다
        단정하면 그게 곧 유령을 만드는 자리다(회수 → 렌더러 캐시 어긋남 → 통로 사망). */
     const fgn = mainCode.match(/function\s+_guardForeignInput[\s\S]*?\n\}/);
     if (!fgn) huh('_guardForeignInput 을 못 찾음');
-    else chk(/if\(!_lastCharBounds\s*\|\|\s*!_mainWinScreenBounds\)\s*return/.test(fgn[0]),
+    else chk(/haveBounds\s*=\s*!!\(_lastCharBounds\s*&&\s*_mainWinScreenBounds\)/.test(fgn[0]) && /if\(!f\.haveBounds\)\s*return NO/.test(polCode)
+      && POL && POL.foreignInputStep({ kind: 'click', haveBounds: false, focused: false, boundsAge: 0, cursor: { x: 0, y: 0 }, onOverlay: true, now: 1e9, firedAt: 0 }).act === null,
       '★ ⓖ 의 좌표 분기는 좌표가 없으면 판단을 보류한다');
   }
   chk(/캐릭터거리=보류|좌표보류/.test(mainSrc),
@@ -291,7 +299,7 @@ say('\n── 9. 끄는 동안 penHitTest 가 와도 끌기가 안 끊긴다 (�
     S.flush = () => { const q = S.timers.slice(); q.forEach(t => { const f = t.fn; t.fn = null; if(f) f(); }); };
     const deps = new Proxy({
       desktopMode: true, seats: [], drag: () => S.drag, moveMode: () => false,
-      _charBoundsLatest: () => null, _twMoveSeenAt: () => 0,
+      _charBoundsLatest: () => null, _twMoveSeenAt: () => 0, clickPolicy: POL,
       setTwMoveSeenAt(){}, setLastActivity(){}, setLastAnyInput(){},
       _skipFlyingRigs: (a) => a, _skipHiddenDesk: (a) => a,
     }, { get: (t, k) => k in t ? t[k] : (() => any) });
@@ -338,7 +346,7 @@ say('\n── 9. 끄는 동안 penHitTest 가 와도 끌기가 안 끊긴다 (�
     chk(S3.last() === true, '★ 끄는 중이지만 main 이 이미 통과 → 캐시 버리고 따라간다(통과)');
 
     /* 일부러 깨 보기 — 보호 줄을 빼면 끄는 중 left 가 통과로 바뀌어야 한다 */
-    const broken = MOD.replace(/\n\s*if\(_holdForDrag\(\)\) return;\n(\s*\/\/ 근처에서 벗어남)/, '\n$1');
+    const broken = MOD.replace(/\n\s*if\(p\.act === 'keep'\) return;\n/, '\n');
     if(broken === MOD) huh('깨 보기용 보호 줄을 못 찾음');
     else {
       const B = start(broken);

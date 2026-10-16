@@ -10401,6 +10401,7 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   anyInput: (...a)=>anyInput(...a),
   backToLauncher: (...a)=>backToLauncher(...a),
   camera: camera,
+  clickPolicy: TwClickThroughPolicy,
   desktopMode: desktopMode,
   drag: ()=>drag,
   focusGateSleep: ()=>focusGateSleep,
