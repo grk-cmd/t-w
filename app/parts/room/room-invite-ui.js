@@ -29,6 +29,7 @@ const doLeaveRoom = deps.doLeaveRoom;          // 수락 — 이미 방에 있�
 const _friendInRoom = deps.friendInRoom;       // 🏠 다른 방에 있는 친구 판정 — app.js(마이홈 친구 목록)
 const Presence = deps.presence;
 const _myHomeFriends = deps.myHomeFriends;     // 읽는 함수 — app.js 가 다시 대입하는 let
+const _friendsNotice = deps.friendsNotice;     // 읽는 함수 — 친구 목록을 아직 못 받았으면 안내 문구, 받았으면 null(friends-sub.js · 마이홈 친구 탭과 같은 문구)
 (function bindRoomInvite(){
   const pickOv   = document.getElementById('roomInvitePickOverlay');
   const pickList = document.getElementById('roomInvitePickList');
@@ -42,7 +43,14 @@ const _myHomeFriends = deps.myHomeFriends;     // 읽는 함수 — app.js 가 �
     pickList.innerHTML = '';
     const friends = _myHomeFriends() || {};
     const ids = Object.keys(friends);
-    if(!ids.length){
+    const notice = _friendsNotice();
+    if(notice){
+      const box = document.createElement('div');
+      box.style.cssText = 'padding:16px;text-align:center;color:var(--ink-soft);font-size:11px;';
+      box.textContent = notice;
+      pickList.appendChild(box);
+      pickList.style.maxHeight = '';
+    } else if(!ids.length){
       pickList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--ink-soft);font-size:11px;">아직 친구가 없어요<br>마이홈 > 친구에서 친구를 추가해 보세요</div>';
       pickList.style.maxHeight = '';
     } else {

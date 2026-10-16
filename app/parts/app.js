@@ -2729,11 +2729,10 @@ const friendManage = TwFriendManage.createFriendManage({
   friendMax: FRIEND_MAX,
 });
 let _myHomeReady = false;
-function _waitForFirebaseAPI(cb, tries){
-  tries = tries||0;
+/* 포기하지 않는다 — SDK 를 실행 때 gstatic 에서 받아 느린 망이면 20초를 넘긴다(예전 20초 포기 → 친구 · 우편 구독이 영영 안 걸렸다). */
+function _waitForFirebaseAPI(cb){
   if(window.firebaseAPI && firebaseAPI.subscribeMyFriends){ cb(); return; }
-  if(tries>40) return;   // 최대 20초 정도 재시도 후 포기(오프라인 등)
-  setTimeout(()=>_waitForFirebaseAPI(cb, tries+1), 500);
+  window.addEventListener('firebase-ready', ()=>cb(), { once:true });
 }
 /* 🔇 소유권이 걸린 쓰기가 거부됐을 때 침묵을 깬다.
    [경위] 규칙을 게시한 뒤 users/{코드} 의 자기 소유 가지는 "주인이 없거나 나일 때"만 쓸 수 있다.
@@ -2756,6 +2755,12 @@ const deviceLostMod = TwDeviceLost.createDeviceLost({
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
 /* 본문은 myhome-init.js 로 옮겼다(앱 FSD 44번 남은 몫). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const friendsSubMod = TwFriendsSub.createFriendsSub({
+  subscribe: (...a)=>firebaseAPI.subscribeMyFriends(...a),
+  setTimer: (fn, ms)=>setTimeout(fn, ms),
+  clearTimer: (id)=>clearTimeout(id),
+  onUnload: (fn)=>window.addEventListener('beforeunload', fn),
+});
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   _inboxBroadcast: ()=>_inboxBroadcast,
@@ -2769,6 +2774,7 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),
   focusLevelMod: ()=>focusLevelMod,
   friendManage: friendManage,
+  friendsSub: friendsSubMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: ()=>inboxMod,
@@ -2870,6 +2876,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   mhScheduler: mhScheduler,
   // 👥 친구 목록
   myHomeFriends: ()=>_myHomeFriends,
+  friendsNotice: (...a)=>friendsSubMod.notice(...a),
   FRIEND_MAX: FRIEND_MAX,
   friendVisit: friendVisit,
   mhStripHtml: (...a)=>richTextMod._mhStripHtml(...a),
@@ -10409,6 +10416,7 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   doLeaveRoom: (...a)=>roomEntryMod.doLeaveRoom(...a),
   friendInRoom: (...a)=>inboxMod.friendInRoom(...a),
   myHomeFriends: ()=>_myHomeFriends,
+  friendsNotice: (...a)=>friendsSubMod.notice(...a),
   presence: Presence,
 });
 
