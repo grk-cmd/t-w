@@ -571,6 +571,10 @@ PRELOAD.push('ride-measure.js');
 PRELOAD.push('toast.js');
 /* ride-tuning.js — 🎛️ 올라타기 · 묘기 튜닝 값(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRideTuning 를 같이 굴린다. */
 PRELOAD.push('ride-tuning.js');
+/* char-measure.js — 📐 캐릭터 실측(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCharMeasure 를 같이 굴린다. */
+PRELOAD.push('char-measure.js');
+/* floor-snap-diag.js — 🩺 바닥 맞춤 진단(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFloorSnapDiag 를 같이 굴린다. */
+PRELOAD.push('floor-snap-diag.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
