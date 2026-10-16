@@ -16,6 +16,7 @@ const _mhViewingUserId = deps._mhViewingUserId;   // 읽는 함수
 const _myHomeData = deps._myHomeData;   // 읽는 함수
 const applyDesktopRunClass = deps.applyDesktopRunClass;
 const renderMyHomeStickers = deps.renderMyHomeStickers;
+const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — 자동 저장은 편집 묶음이 건다
 /* 🎨 스티커 — 마이홈 "창 전체"에 자유 배치.
    · 좌표는 마이홈 창(#myHomeWin) 좌상단 기준 px. 탭을 바꿔도 같은 자리에 있음.
    · 친구 탭에서는 숨김(목록이 빽빽해서 가리면 곤란) + 친구 홈 관람 중엔 그 사람 스티커만 보임.
@@ -57,7 +58,7 @@ function _mhApplyStickerAnim(key, val){
   if(!_mhAnimSid || !_myHomeData() || !_myHomeData().stickers) return;
   const s=_myHomeData().stickers[_mhAnimSid]; if(!s) return;
   if(val) s[key]=val; else delete s[key];
-  renderMyHomeStickers(); commitMyHomePage(true);
+  renderMyHomeStickers(); mhHooks.call(mhHooks.HOOK.COMMIT, true);
   _mhSyncStickerAnimUI();
 }
 try{
