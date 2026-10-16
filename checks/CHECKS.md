@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 288 (구역 떼기 C · w1 — 🎚️ 좌석 탭 · 상태 버튼을 `parts/character/seat-panel.js` 로 · `sim-seat-panel.js` 신설)
-대상: `sim-*.js` 283개 + `smoke.js` + `audit.py` = **285개** (개정 288 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 289 (w2 가 옮긴 모듈의 박힌 숫자를 이름 붙은 상수로(값 그대로))
+대상: `sim-*.js` 283개 + `smoke.js` + `audit.py` = **285개** (개정 289 기준 — 폴더를 센 값)
+
+**개정 289 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 — 박힌 값을 상수로 · 동작 변화 없음)**
+- 앱: 값은 그대로 이름만 붙였다 — `part-scene.js` `THUMB_MARGIN` 0.55 · `THUMB_LIGHT_MUL_MAX` 1.5 · `THUMB_KEY_POS` (1, 2.5, 2) / `desk-items.js` `ITEM_DEFAULT_SIZE` 0.8 / `desk-visual.js` `DESK_FRONT_Z` 0.6 · `DESK_LIFT_Y` 0.15 / `catalog-sync.js` `CATALOG_ORDER_LAST` 9999 / `toast.js` `TOAST_DEFAULT_MS` 1900. 상수는 쓰는 함수 바로 위(모듈 만드는 함수 안 — 되살린 글로 도는 옛 검사가 같이 본다).
+- 검사: `sim-catalog-sync.js` 4절이 `mergeCatalogList` 를 뽑을 때 상수 줄도 같이 **45·0**. 나머지 판정 무변경.
 
 **개정 288 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 좌석 탭 · 상태 버튼을 모듈로 · 동작 변화 없음)**
 - 앱: app.js «UI» 구역 앞부분 21줄(패널 DOM · `setInfo` · `renderSeatTabs` · `selectSeat` · `manual`/`setManual` · 상태 버튼 클릭)을 `app/parts/character/seat-panel.js`(`window.TwSeatPanel`)로 옮겼다. 바뀐 코드 줄 3(selected 읽는 · 쓰는 함수) · deps 5. 부르는 곳은 `seatPanelMod.이름` · 수동 상태는 `seatPanelMod.manual()`. 슬라이더 · 모델 파일 입력의 이벤트 연결은 app.js 에 남김 — 모듈로 넣으면 모델 싣기 · layoutSeats 와 새 순환 간선 5개가 생긴다.
@@ -2340,7 +2344,7 @@
 | **sim-admin-thumbs.js** | 150 | **83b899202e8b** ← **개정 261 신설 · 🖼️ 관리자 썸네일 다시 굽기 모듈 구조 + 동작** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** ← **개정 265 신설 · 💾 GLB 영구 캐시(IndexedDB) 모듈 구조 + 동작** |
 | **sim-catalog-glb.js** | 163 | **c11b5229945f** ← **개정 265 신설 · 🔗 카탈로그 GLB 해결 모듈 구조 + 동작** |
-| **sim-catalog-sync.js** | 276 | **a28c7d326074** ← **개정 287 mergeCatalogList 순수 함수 판정 6줄** · **개정 267 신설 · 🔄 카탈로그 실시간 동기화 모듈 구조 + 동작** |
+| **sim-catalog-sync.js** | 277 | **159bb875a94c** ← **개정 289 mergeCatalogList 를 상수 줄과 같이 뽑음** · **개정 287 mergeCatalogList 순수 함수 판정 6줄** · **개정 267 신설 · 🔄 카탈로그 실시간 동기화 모듈 구조 + 동작** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** ← **개정 270 신설 · 🧸 책상 위 아이템 등록부 모듈 구조 + 동작** |
 | **sim-desk-visual.js** | 214 | **2428c62e17b8** ← **개정 286 옮긴 이름 목록에서 지운 셋을 뺌** · **개정 274 신설 · 🪑 책상 모양 모듈 구조 + 동작** |
 | **sim-toast.js** | 142 | **099b0d5e048c** ← **개정 282 신설 · 🍞 토스트 · 저장 실패 문구 모듈 구조 + 동작** |

@@ -55,11 +55,13 @@ async function applyDeskCatalogRefToSeat(seat, def){
 
 /* 커스텀 책상: 기본 책상 메쉬를 숨기고 커스텀 GLB로 교체(앵커는 그대로) */
 // 크기는 GLB 원본 그대로(조절은 «책상 크기» 슬라이더 setDeskScale 만) — 여기선 바닥 가운데로 자리만 맞춘다.
+const DESK_FRONT_Z = 0.6;   // 책상 가운데를 좌석 원점에서 앞으로 둘 거리
+const DESK_LIFT_Y = 0.15;   // 바닥에 피벗을 맞춘 뒤 메쉬를 올리는 높이
 function normalizeDeskObj(obj){ obj.scale.set(1,1,1); obj.position.set(0,0,0); obj.updateMatrixWorld(true);
   let box=new THREE.Box3().setFromObject(obj); const c=box.getCenter(new THREE.Vector3());
-  obj.position.x+=(0-c.x); obj.position.z+=(0.6-c.z); 
+  obj.position.x+=(0-c.x); obj.position.z+=(DESK_FRONT_Z-c.z); 
   // 피벗은 바닥, 메쉬만 0.15만큼 올리기 (수치 조절 가능)
-  obj.position.y+=(0-box.min.y) + 0.15; 
+  obj.position.y+=(0-box.min.y) + DESK_LIFT_Y; 
   return obj; }
 function swapDeskVisual(deskGroup,template,isDefaultOverride,animations,playMode){ if(!deskGroup)return;
   const prev=deskGroup.getObjectByName('customDesk'); if(prev)deskGroup.remove(prev);

@@ -246,7 +246,8 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
       /* 순수 함수라 모듈 글에서 그 함수만 뽑아 돌린다(괄호 짝으로 끝을 찾는다) */
       const i0 = MOD.indexOf('function mergeCatalogList('); let k0 = MOD.indexOf('{', i0), d0 = 0;
       for(; k0 < MOD.length; k0++){ if(MOD[k0] === '{') d0++; else if(MOD[k0] === '}' && --d0 === 0) break; }
-      const MG = i0 < 0 ? null : new Function(MOD.slice(i0, k0 + 1) + '\nreturn mergeCatalogList;')();
+      const c0 = MOD.lastIndexOf('const CATALOG_ORDER_LAST', i0);   // 함수가 읽는 상수 줄도 같이
+      const MG = i0 < 0 ? null : new Function(MOD.slice(c0 >= 0 ? c0 : i0, k0 + 1) + '\nreturn mergeCatalogList;')();
       const e0 = MG(null, []), e1 = MG({}, []);
       chk(typeof MG === 'function' && e0.list.length === 0 && e0.removedIds.length === 0 && e1.list.length === 0, 'mergeCatalogList — 빈 · null 스냅샷 + 빈 목록이면 빈 결과');
       const saved = [{ id: 'gone', fromCatalog: true }, { id: 'mine' }, { id: 'a', fromCatalog: true, name: '옛', order: 9 }, { id: 'b', name: '로컬판' }];
