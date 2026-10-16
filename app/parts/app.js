@@ -763,7 +763,7 @@ function equipDeskItem(holder,def,on){
       const itemScale = isFinite(maxDim) ? ITEM_TARGET_SIZE/maxDim : 1;
       // 🔎 진단 로그(아이템 크기 컨텍스트 차이) — 문제 원인 파악 후 이 두 줄만 지우면 됨.
       const _parentSc = (holder && holder.desk) ? holder.desk.scale.x : (holder && holder.deskAnchor ? holder.deskAnchor.getWorldScale(new THREE.Vector3()).x : '?');
-      console.log('[아이템크기]', def.id, '| holder=', holder===cBase?'생성기':(holder===lHolder?'런처':'실행'), '| desk.scale=', _parentSc, '| maxDim=', maxDim.toFixed(3), '| itemScale=', itemScale.toFixed(3));
+      console.log('[아이템크기]', def.id, '| holder=', holder===cBase?'생성기':(holder===launcherPrevMod.lHolder()?'런처':'실행'), '| desk.scale=', _parentSc, '| maxDim=', maxDim.toFixed(3), '| itemScale=', itemScale.toFixed(3));
       pivot.userData.autoScale = itemScale;   // ★ "지금 이 컨텍스트에서" 계산된 순수 자동 크기값 — 저장/복원 시 사용자 조정 비율을 재적용하기 위해 별도 보관
       pivot.userData.adj={x:0,y:ITEM_Y_START_OFFSET,z:ITEM_Z_START_OFFSET,scale:itemScale,rot:0};
     } else {
@@ -826,7 +826,7 @@ function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Obj
     }
     // 🔎 진단 로그 2 — 최종 복원 단계. e.autoScale(저장된 자동값), e.adj.scale(저장된 최종값),
     //   p.userData.autoScale(지금 막 새로 계산된 값), savedAdj.scale(이번에 실제로 적용될 최종값)을 비교.
-    console.log('[아이템크기-복원]', id, '| holder=', holder===cBase?'생성기':(holder===lHolder?'런처':'실행'),
+    console.log('[아이템크기-복원]', id, '| holder=', holder===cBase?'생성기':(holder===launcherPrevMod.lHolder()?'런처':'실행'),
       '| 저장된 autoScale=', e.autoScale, '| 저장된 adj.scale=', e.adj.scale,
       '| 지금 계산된 autoScale=', p.userData.autoScale, '| 최종 적용 scale=', savedAdj.scale,
       '| rot=', savedAdj.rot);   // 🔄 [제보 4] 회전이 저장까지 왔는지 한눈에
@@ -9583,204 +9583,45 @@ document.getElementById('crDone').addEventListener('click',()=>{
   else{closeCreator();toast('슬롯에 저장했어요');}});
 
 /* ═══ 🖼️ 런처 미리보기 · 슬롯 섬네일 ═══ */
-/* --- 런처 미리보기 렌더러 --- */
-let lRenderer=null,lScene=null,lCam=null,lChar=null,lBlinkT=0,lBlinkOn=false,lHolder=null,lDeskMat=null,lScaleHint=1;
-let lCharBaseY=0;   // 런처 미리보기 캐릭터의 기준 y — 발바닥이 y=0에 오도록 실측 정렬한 값 (둥둥 애니의 중심)
-let lFrameH=1.2, lFrameZ=0;   // 실측 키·z — 카메라가 "프레임에 꽉 차게" 거리를 역산할 때 사용
-const LAUNCHER_CHAR_Y = -0.12;    // 런처 미리보기 전용 캐릭터 Y 오프셋 — 음수로 낮추면 캐릭터가 아래로 내려감(예: -0.15)
-const PS1_PIXEL_SCALE = 0.55;   // 런처 미리보기 도트 느낌 배율 — 작을수록 더 거친 도트(0.2~0.4 권장)
-function ensureLauncherPreview(){
-  if(lRenderer)return;
-  // PS1/도트 느낌: antialias 끄고, 낮은 내부 해상도로 렌더한 뒤 CSS(image-rendering:pixelated)로 확대.
-  lRenderer=new THREE.WebGLRenderer({canvas:document.getElementById('lcPreview'),antialias:false,alpha:true});
-  lRenderer.setPixelRatio(1);lRenderer.outputEncoding=THREE.sRGBEncoding;
-  document.getElementById('lcPreview').style.imageRendering='pixelated';
-  lScene=new THREE.Scene();lScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
-  const k=new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL);k.position.set(0,4,0);lScene.add(k);
-  lScene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));   // ★ 실행 화면과 같은 정면 필
-  lCam=new THREE.PerspectiveCamera(32,1,0.1,100);
-  const desk=buildDesk(true);lScene.add(desk);
-  desk.visible=false;   // 런처 슬롯 미리보기: 책상(+책상 위 아이템) 숨김 — 캐릭터만 둥둥 뜨게. lHolder 로직은 그대로 유지
-  const dt=desk.getObjectByName('deskTop'); if(dt){dt.material=dt.material.clone(); lDeskMat=dt.material;}
-  lHolder={desk:desk, deskAnchor:desk.userData.deskAnchor, deskItems:{}, deskMat:lDeskMat, activeDeskItem:null};}
-/* 🧍 런처 미리보기 프레이밍용 "몸만" 바운딩박스 — 파츠(__part_/__partWrap_ wrapper와 리깅 스킨드메시)를
-   제외하고 캐릭터 몸 메쉬만 union. 파츠 위치가 어긋나도 프레임 크기가 흔들리지 않게 하는 것이 목적. */
-function _lcBodyBox(group){
-  const box=new THREE.Box3(), tmp=new THREE.Box3();
-  group.updateWorldMatrix(true,true);
-  group.traverse(o=>{
-    if(!o.isMesh) return;
-    if(o.userData && o.userData._origBind) return;          // 리깅 파츠 스킨드메시
-    let p=o, skip=false;
-    while(p && p!==group){
-      if((p.userData && p.userData.rigged) || String(p.name||'').startsWith('__part')){ skip=true; break; }
-      p=p.parent;
-    }
-    if(skip) return;
-    try{ tmp.setFromObject(o); if(!tmp.isEmpty()) box.union(tmp); }catch(_){}
-  });
-  // 파츠만 있고 몸을 못 찾은 극단적 경우엔 전체 박스로 폴백(빈 프레임 방지)
-  if(box.isEmpty()){ try{ box.setFromObject(group); }catch(_){} }
-  return box;
-}
-/* 🖼️ [2026-08 수정] 크기의 기준을 **캔버스 자신 → 감싼 .lc-preview-wrap** 으로 바꿨다.
-   [제보] "런처 캐릭터가 잘려 나온다" / "런처로 돌아오면 캐릭터가 한쪽에 쏠린다" — 같은 버그의 앞뒤 두 모습.
-   [원인] 예전엔 c.clientWidth 를 재서 그 값을 c.style.width 에 px 로 박았다. CSS 의 #lcPreview{width:100%}
-     보다 인라인이 이기므로, 한 번 박히는 순간 clientWidth 는 **박아둔 값**을 돌려준다.
-     = 자기가 쓴 값을 자기가 다시 읽는 구조라 캔버스 크기가 그 자리에 굳는다.
-     창 크기 핸들러(resize)가 이 함수를 다시 불러도 같은 값만 재확인할 뿐 영영 안 풀린다.
-     wrap 이 overflow:hidden 이라, 굳은 값이 프레임보다 크면 **잘려 보이고** 작으면 **왼쪽에 쏠려 보인다**.
-   [계기] 모니터마다 배율이 다른 환경(주 175% / 앱 100%)에서 페이지 폭이 380→217 로 잡히며
-     .lc-card 의 max-width:92vw 가 걸려 카드가 좁아졌다 → 그 좁은 폭이 캔버스에 굳었다.
-     배율 쪽은 별개 사안이고, 여기서는 '굳는 성질'만 없앤다 — 창이 좁으면 작게 나올 뿐 잘리진 않는다.
-   ⚠️ 캔버스에 px 를 다시 박지 말 것. 크기는 CSS(width/height:100%)가 정하고 여기서는 읽기만 한다.
-     내부 렌더 해상도만 setSize(...,false) 로 따로 잡는다(도트 느낌 유지). */
-function sizeLauncherPreview(){const c=document.getElementById('lcPreview');
-  const wrap=c.parentElement;   // .lc-preview-wrap — 실제 표시 칸. 테두리를 뺀 안쪽 크기를 쓴다.
-  const w=(wrap&&wrap.clientWidth)||c.clientWidth||260, h=(wrap&&wrap.clientHeight)||c.clientHeight||228;
-  const d=Math.max(1,lScaleHint||1);
-  // 실제 렌더 해상도는 낮게(도트 느낌), CSS 표시 크기는 그대로 유지 → false를 넘겨 canvas.style을 안 건드림.
-  const rw=Math.max(2,Math.round(w*PS1_PIXEL_SCALE)), rh=Math.max(2,Math.round(h*PS1_PIXEL_SCALE));
-  lRenderer.setSize(rw,rh,false);
-  /* ★ 100% 로 되돌려 둔다 — 옛 버전이 박아둔 px 나 다른 경로가 남긴 값이 있어도 여기서 풀린다(자가 복구). */
-  c.style.width='100%'; c.style.height='100%';
-  lCam.aspect=w/h;lCam.updateProjectionMatrix();
-  // ★ 캐릭터 실측 키(lFrameH)가 프레임 세로의 86%를 채우도록 카메라 거리를 역산.
-  //   발바닥은 y=0에 정렬돼 있으므로(setLauncherChar) 프레임 하단에 7% 여백을 두고 딱 서고,
-  //   어떤 크기의 캐릭터든 항상 같은 구도가 됨. d(추정 스케일) 공식은 더 이상 사용하지 않음.
-  const H=Math.max(0.2, lFrameH||1.2);
-  const CY=H*0.5;                              // 박스 세로 중심
-  const FILL=0.86;                             // 프레임에서 캐릭터가 차지하는 비율
-  const dist=(H/FILL)/(2*Math.tan(THREE.MathUtils.degToRad(32/2)));
-  lCam.position.set(0, CY+0.05*H, lFrameZ+dist);   // 완전 정면
-  lCam.lookAt(0.04*H, CY, lFrameZ);}   // 시선을 살짝 오른쪽으로 → 캐릭터가 프레임에서 왼쪽으로 당겨져 보임
-/* 🖼️ 슬롯 섬네일 = 런처 미리보기 그대로 (2026-09-23 · 요청 «캐릭터 교체·자리 추가 섬네일을 런처와 같게»)
-   [전에는] F1 캐릭터 교체·자리 추가 칸의 그림(def.thumb)은 **생성기에서 저장한 순간** 생성기 카메라로 찍은 것이었다.
-     그래서 구도가 런처와 다르고, 그 뒤 꾸미기로 바꾼 파츠·책상은 영영 반영되지 않았다.
-   [지금] 런처가 그 캐릭터를 다 그린 뒤(파츠 장착 완료 + 책상·소품이 붙을 시간 LC_THUMB_SETTLE_MS) 그 화면을
-     한 장 찍어 def.thumb 을 갈아 끼운다. 눈 뜬 순간 · 둥둥 흔들림을 기준 높이에 멈춘 채로 찍는다 —
-     같은 모습이면 같은 그림이 나오게 해서 «바뀐 게 없으면 저장 안 함»이 실제로 걸리게 한다.
-   ★ lRenderer 에는 preserveDrawingBuffer 가 없다 → render 와 **같은 틱에서** 바로 복사한다(launcherLoop).
-   ★ def.thumb 은 로컬 전용이다(서버용 변환에서 빠진다) — 갈아 끼워도 서버 쓰기가 늘지 않는다.
-   ⚠️ 런처에서 한 번도 넘겨 보지 않은 슬롯은 예전 그림이 그대로다(찍을 기회가 없다). */
-const LC_THUMB_SETTLE_MS = 900, LC_THUMB_MAX = 160;
-let _lcThumbJob = null;   // { def, readyAt }
-function _lcThumbArm(def){ _lcThumbJob = { def, readyAt: performance.now() + LC_THUMB_SETTLE_MS }; }
-function _lcThumbTake(){
-  const job = _lcThumbJob; _lcThumbJob = null;
-  if(!job || !lChar || !lRenderer || lChar.charDef !== job.def) return;   // 그 사이 다른 슬롯으로 넘어갔다
-  if(!Array.isArray(slots) || slots.indexOf(job.def) < 0) return;          // 지워졌거나 갈아 끼워진 def
-  const y = lChar.group.position.y;
-  try{
-    lChar.group.position.y = lCharBaseY;                 // 둥둥을 멈춘 자리
-    lRenderer.render(lScene, lCam);
-    const src = lRenderer.domElement;
-    if(!src.width || !src.height) return;
-    const k = Math.min(1, LC_THUMB_MAX / Math.max(src.width, src.height));
-    const cv = document.createElement('canvas');
-    cv.width = Math.max(1, Math.round(src.width * k)); cv.height = Math.max(1, Math.round(src.height * k));
-    const cx = cv.getContext('2d'); cx.drawImage(src, 0, 0, cv.width, cv.height);
-    /* 빈 그림(렌더 전·컨텍스트 유실)으로 멀쩡한 섬네일을 덮지 않는다 */
-    const px = cx.getImageData(0, 0, cv.width, cv.height).data; let a = 0;
-    for(let i = 3; i < px.length; i += 16) a += px[i];
-    if(a < 255 * 20) return;
-    const url = cv.toDataURL('image/png');
-    if(url && url !== job.def.thumb){ job.def.thumb = url; slotSaveMod.saveSlots(); }
-  }catch(e){ try{ console.warn('[런처] 섬네일 찍기 실패', e); }catch(_){} }
-  finally{ try{ lChar.group.position.y = y; }catch(_){} }
-}
-function setLauncherChar(def){_lcThumbJob=null;if(lChar){lScene.remove(lChar.group);lChar=null;}
-  if(lHolder){ allDeskItems().forEach(d=>{ if(lHolder.deskItems[d.id]) equipDeskItem(lHolder,d,false); });
-    swapDeskVisual(lHolder.desk,null); }
-  if(!def)return;
-  if(lDeskMat) _setDeskMatColor(lDeskMat, def.deskColor||'#c9a36a');
-  if(lHolder){ setDeskScale(lHolder.desk, def.deskScale||1, def.deskLenX||1); setDeskPos(lHolder.desk, def.deskPos); }
-
-  const applyBase = (customScene) => {
-    const base=defToBase(def, customScene); const g=base.group; const xf=def.xf;
-    applyStaticHandRest(g, !!(def && def.animal)); // 런처 미리보기 캐릭터에 팔 높이 반영(동물은 전용 값)
-    g.position.set(0, clampCharY(xf&&xf.y), CHAR_Z);   // 🧍 높이 적용 · 🚫 앞뒤(xf.z) 폐기
-    g.scale.setScalar((xf&&xf.s)||1);
-    g.rotation.y=RIG_TURN+((xf&&xf.rot)||0);
-    g.updateWorldMatrix(true,true);
-    // 커미션 모델은 자신의 X값을 무시하고 원본(기본 캐릭터) 기준 중앙 정렬 유지
-    if (!(def && def.isCommission)) {
-      const bb=new THREE.Box3().setFromObject(g), c=bb.getCenter(new THREE.Vector3()); 
-      g.position.x-=c.x; 
-    }
-    lScene.add(g); lChar=base;
-    // ★ 실측 바운딩박스 기반 프레이밍:
-    //   발바닥을 y=0에 정렬하고, 키·z를 저장 → sizeLauncherPreview가 "프레임에 꽉 차는" 카메라를 역산.
-    //   ★ 버그 수정(캐릭터 크기 제각각/사람만 작아짐): 예전엔 파츠까지 포함한 전체 박스로 프레이밍했는데,
-    //   파츠 하나라도 위치가 몸에서 벗어나면(파츠 xf 이슈 등) 박스가 커져 캐릭터가 통째로 축소됐다.
-    //   → 프레임 높이는 "몸(파츠 제외)" 박스로 재서, 파츠 위치와 무관하게 몸이 항상 같은 크기로 보이게 함.
-    {
-      g.updateWorldMatrix(true,true);
-      const bbM=_lcBodyBox(g);
-      lFrameH = Math.max(0.2, bbM.max.y-bbM.min.y);
-      lCharBaseY = g.position.y - bbM.min.y;   // 발바닥 = y 0
-      g.position.y = lCharBaseY;
-      // 좌우도 몸 박스 중심으로 정렬 — 모델마다 x 피봇이 달라서 슬롯 바꾸면 옆으로 밀려 보이는 문제 방지
-      g.position.x -= (bbM.min.x + bbM.max.x) / 2;
-      lFrameZ = g.position.z;
-      lScaleHint = lFrameH/1.2;   // 둥둥 진폭 비례용
-    }
-    sizeLauncherPreview();
-    extractBonesInto(base, base.root);   // 꾸미기 파츠를 붙일 본(부착점) 정보 채워넣기
-    base.charDef = def;   // applyPartXf가 파츠별 위치/크기(xf)를 찾을 때 필요
-    if(!def.equippedParts) _lcThumbArm(def);   // 🖼️ 파츠가 없으면 지금부터 잰다(있으면 장착이 끝난 뒤)
-    if(def.equippedParts){
-      // Storage 이관 후속: getPartScene이 Storage에서 GLB를 fetch하는 데 시간이 걸림 —
-      // await 없이 실행하면 초기 렌더 후에나 파츠가 채워져 사용자가 "이관 후 파츠 안 보임"을 겪음.
-      (async()=>{
-        await applyEquippedPartsToSeat(base, def);
-        // 모자 등 파츠가 붙어도 "몸" 기준 프레임은 그대로 — 파츠 위치와 무관하게 크기 고정.
-        //   (예전엔 파츠 포함 전체 박스로 재프레이밍해서, 파츠가 튀면 캐릭터가 작아졌음)
-        try{
-          base.group.updateWorldMatrix(true,true);
-          const bb2=_lcBodyBox(base.group);
-          lFrameH = Math.max(0.2, bb2.max.y-bb2.min.y);
-          lCharBaseY = base.group.position.y - bb2.min.y;
-          base.group.position.y = lCharBaseY;
-          base.group.position.x -= (bb2.min.x + bb2.max.x) / 2;   // 몸 기준 좌우 재정렬
-          lScaleHint = lFrameH/1.2;
-          sizeLauncherPreview();
-        }catch(e){}
-        if(lChar === base) _lcThumbArm(def);   // 🖼️ 파츠까지 붙은 뒤에 찍는다
-      })();
-    }
-    (async()=>{
-      if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
-      if(def.deskGlb&&lHolder){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); lHolder.desk.userData.deskScale=def.deskScale||1; swapDeskVisual(lHolder.desk,sc); setDeskScale(lHolder.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)applyDeskColorToCustom(lHolder.desk,def.deskColor);}catch(e){} }
-      if(lHolder) clearHolderDeskItems(lHolder);
-      if(def.deskItems&&lHolder) applyDeskItemsTo(lHolder,def.deskItems);
-    })();
-  };
-
-  if(def.commGlb){
-    const cached = commSceneCache.get(def.commGlb);
-    if(cached) applyBase(cached);
-    else getCommissionScene(def.commGlb).then(sc=>applyBase(sc)).catch(e=>applyBase(null));
-  } else {
-    applyBase(null);
-  }
-}
-function launcherLoop(){
-  const vis=document.getElementById('launcher').classList.contains('on');
-  if(vis&&lRenderer){
-    if(lChar){lBlinkT+=16;
-      if(!lBlinkOn&&lBlinkT>2600){lBlinkOn=true;lBlinkT=0;setFaceMap(lChar.faceMat, lChar.bT);}
-      else if(lBlinkOn&&lBlinkT>150){lBlinkOn=false;lBlinkT=0;setFaceMap(lChar.faceMat, lChar.fT);}
-      // ★ 실측 바운딩박스로 정렬한 기준 y(lCharBaseY) + 스케일 비례 둥둥 —
-      //   모든 크기의 캐릭터가 프레임 가운데 같은 자리에 서고, 출렁임도 비례함.
-      const dY=Math.max(0.2, lScaleHint||1);
-      lChar.group.position.y=lCharBaseY+Math.sin(performance.now()*0.0016)*0.015*dY;}
-    lRenderer.render(lScene,lCam);
-    if(_lcThumbJob && lChar && !lBlinkOn && performance.now() >= _lcThumbJob.readyAt) _lcThumbTake();}   // 🖼️ 같은 틱에서
-  requestAnimationFrame(launcherLoop);}
-
+/* 본문은 launcher/launcher-preview.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
+  CHAR_Z: CHAR_Z,
+  RIG_TURN: RIG_TURN,
+  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
+  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
+  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
+  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
+  _mkFrontFill: (...a)=>_mkFrontFill(...a),
+  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),
+  allDeskItems: (...a)=>allDeskItems(...a),
+  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
+  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
+  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),
+  applyStaticHandRest: (...a)=>applyStaticHandRest(...a),
+  assetCodeMod: ()=>assetCodeMod,
+  b64ToBuf: (...a)=>b64ToBuf(...a),
+  buildDesk: (...a)=>buildDesk(...a),
+  clampCharY: (...a)=>clampCharY(...a),
+  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),
+  commSceneCache: commSceneCache,
+  customItems: ()=>customItems,
+  defToBase: (...a)=>defToBase(...a),
+  equipDeskItem: (...a)=>equipDeskItem(...a),
+  extractBonesInto: (...a)=>extractBonesInto(...a),
+  getCommissionScene: (...a)=>getCommissionScene(...a),
+  registerCustomItem: (...a)=>registerCustomItem(...a),
+  scene: scene,
+  setDeskPos: (...a)=>setDeskPos(...a),
+  setDeskScale: (...a)=>setDeskScale(...a),
+  setFaceMap: (...a)=>setFaceMap(...a),
+  slotSaveMod: ()=>slotSaveMod,
+  slots: slots,
+  swapDeskVisual: (...a)=>swapDeskVisual(...a),
+});
+/* 런처 다시 그리기 — 여러 모듈이 부르는 연결 자리라 app.js 에 둔다(launcher-preview.js 로 옮기면 슬롯 · 라이선스 모듈과 순환이 생긴다). */
 function renderLauncher(){
-  ensureLauncherPreview();
+  launcherPrevMod.ensureLauncherPreview();
   // 🎟️ 런처를 열 때마다 초대장 버튼 상태 갱신 (invite 노드 삭제/지급 등 외부 변화 반영)
   licenseGateMod.refreshInviteBtn();
   const def=slots[curSlot];
@@ -9788,9 +9629,8 @@ function renderLauncher(){
   document.getElementById('lcEmpty').style.display=def?'none':'flex';
   document.getElementById('lcGear').style.display=def?'block':'none';
   document.getElementById('lcPreview').style.display=def?'block':'none';
-  /* ★ [개정 16] #lcLoad 는 이제 [내 정보] — 늘 눌려야 한다. «꽉 참» 판정은 보관함의 [코드로 캐릭터 불러오기]로 옮겼다(_miCodeLoad).
-     lcCreate는 [공사중]으로 HTML에서 항상 disabled — 여기서 토글하지 않음 */
-  sizeLauncherPreview();setLauncherChar(def);launcherCtlMod.closeGearMenu();
+  /* #lcLoad([내 정보]) · lcCreate(HTML 에서 늘 disabled)는 여기서 토글하지 않는다. */
+  launcherPrevMod.sizeLauncherPreview();launcherPrevMod.setLauncherChar(def);launcherCtlMod.closeGearMenu();
   try{ slotSyncMod._slotsRenderBand(); }catch(_){}}   // 🛟 연동 띠(3-7-2 A안)
 
 /* ═══ 🎛️ 런처 컨트롤 — 슬롯 넘기기 · 톱니 메뉴 · 삭제 · 보관함 이동 ═══ */
@@ -13401,13 +13241,13 @@ mhInitMod.initMyHome();
 loadBaseGLB().then(ok=>{ if(!ok) console.warn('기본 GLB 로드 실패 — 스탠드인 사용');
   return Promise.all([loadSkins(), slotSaveMod.loadSlots()]); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());
 requestAnimationFrame(frame);
-requestAnimationFrame(launcherLoop);
+requestAnimationFrame(launcherPrevMod.launcherLoop);
 /* 🛡️ 얼굴 자동 복구 주기 점검 — 위 repairBlankFaces 주석 참고.
    ★ 렌더 루프(frame)에 넣지 않는다. 얼굴이 비는 상황은 대개 무거운 프로그램과 같이 돌 때라,
      그때 프레임마다 도는 점검을 얹는 것은 방향이 반대다. 4초 간격이면 사용자가 «사라졌다»고
      느끼기 전에 대개 돌아온다. */
 setInterval(()=>{ try{ faceHealMod.repairBlankFaces(); }catch(_){} }, faceHealMod.FACE_WATCH_MS);
-function resize(){ layoutSeats(); if(lRenderer&&document.getElementById('launcher').classList.contains('on')) sizeLauncherPreview(); }
+function resize(){ layoutSeats(); if(launcherPrevMod.lRenderer()&&document.getElementById('launcher').classList.contains('on')) launcherPrevMod.sizeLauncherPreview(); }
 addEventListener('resize',resize); resize();
 /* ═══════════════ 🙋 투게더룸 친구 초대 ═══════════════ */
 /* 🙋 친구 고르기 창 · 초대 보내기 · 🚪 방 초대 받기(수락 / 거절 팝업 · 3분 자동 거절 · 작업표시줄 깜빡임)는
