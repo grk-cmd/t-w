@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 272 (모듈 순환 끊기 8 — 마이홈 저장 · 배경 · 테마 · BGM 은 고리판 myhome-hooks.js 로 부른다)
-대상: `sim-*.js` 267개 + `smoke.js` + `audit.py` = **269개** (개정 272 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 273 (👁 깜빡임 시간표를 `parts/shared/blink-timing.js` 로 묶기 · `sim-blink-timing.js` 신설)
+대상: `sim-*.js` 268개 + `smoke.js` + `audit.py` = **270개** (개정 273 기준 — 폴더를 센 값)
+
+**개정 273 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 무변경)**
+- 앱: app.js 의 깜빡임 시간표(`scheduleBlinks` · `eyeClose` · 좌석 `blink` 초기값 · 감은 눈 문턱 0.5)를 `app/parts/shared/blink-timing.js`(`window.TwBlinkTiming` · 순수 계산)로 묶었다. 숫자는 이름 붙은 상수로. 좌석은 `TwBlinkTiming.이름` 으로 부른다. 다음 개정에서 런처 미리보기가 같은 시간표를 쓴다(따로 세던 `lBlinkT+=16` 대신).
+- 검사: `sim-blink-timing.js` 신설 **21·0** — 옮기기 전 글(그대로 실어 둠)과 같은 씨앗으로 2분 돌려 한 칸도 안 다름 · 처음 값 · 한 번씩 2~3번 뒤 세 번 연달아 · 감은 정도 곡선 · 주사율 30~144Hz 에서 깜빡임 간격이 두 장 안 · 연결(app.js 옛 선언 없음 · html 순서) · 깨 보기 6.
 
 **개정 272 에서 한 것 (2026-10-16 · 모듈 순환 끊기 8 — 마이홈 고리판 · 앱 동작 변화 없음)**
 - 앱: `app/parts/myhome/myhome-hooks.js` 신설 — 이름 열(`HOOK.COMMIT` · `APPLY_BG` · `APPLY_THEME` · `BGM_REFRESH` · `BGM_PLAYING` · `BGM_SET_PLAYING` · `BGM_DESTROY` · `DS_CLOSE` · `CANCEL_NAME_EDIT` · `SYNC_BGM_BOUNDS`) · `on` · `call`(안 걸렸으면 던진다 — 예전 `window.이름()` 과 같다) · `has`. 편집 묶음(myhome-edit)이 아홉 · 마이홈 창(myhome-ui)이 BGM 창 자리를 만들 때 건다. 페이지 그리기 · 친구 목록 · 스티커 배치 · 친구 홈 구경 · 마이홈 창 · 설정 패널 · 스티커사진 · 바탕화면은 window 고리 대신 고리판으로 부른다(같은 함수 · 같은 때 · 같은 try). app.js 는 건드리지 않았다 — app.js 가 부르는 `commitMyHomePage` · `_bgmDestroy` · `_mhDsClose` 와 편집 묶음 · 마이홈 창 안이 부르는 `_mhApplyBg` · `_mhApplyTheme` · `_mhSyncBgmBounds` 는 window 에도 그대로 건다. 부르는 곳이 없어진 `_mhBgmRefresh` · `_mhBgmPlaying` · `_mhBgmSetPlaying` · `_mhCancelNameEdit` window 고리는 고리판으로만.
@@ -2246,6 +2250,7 @@
 | **sim-catalog-glb.js** | 163 | **c11b5229945f** ← **개정 265 신설 · 🔗 카탈로그 GLB 해결 모듈 구조 + 동작** |
 | **sim-catalog-sync.js** | 256 | **e21c006733a5** ← **개정 267 신설 · 🔄 카탈로그 실시간 동기화 모듈 구조 + 동작** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** ← **개정 270 신설 · 🧸 책상 위 아이템 등록부 모듈 구조 + 동작** |
+| **sim-blink-timing.js** | 112 | **624e0321ea28** ← **개정 273 신설 · 👁 깜빡임 시간표(blink-timing.js) — 옛 글과 같은 결과 · 동작 · 주사율 무관 · 연결** |
 | **sim-dot-render.js** | 155 | **484c46e1b9d0** ← **개정 258 깨 보기 «부르는 곳이 옛 이름» — app.js 에 부르는 자리가 없으면 옛 이름 부름을 끼워 본다(부르는 곳이 seat-camera.js 로)** · **개정 256 신설 · 🕹️ 도트 모드 머티리얼 모듈 구조 + 동작(가짜 씬)** |
 | **sim-seat-camera.js** | 149 | **735cee87ff37** ← **개정 258 신설 · 🎥 좌석 줄 카메라 모듈 구조 + 동작(옮기기 전 값)** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** ← **개정 266 신설 · 🗼 탑 바닥 찾기 동작 · 연결** |
