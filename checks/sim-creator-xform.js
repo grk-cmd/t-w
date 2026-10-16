@@ -170,7 +170,7 @@ function wire(app, html) {
   t(!/function ensureItemGizmo\b|let itemGizmo\b|let deskPosGizOn\b|function bindCrXform\b/.test(A), 'app.js 에 옮긴 선언이 안 남았다');
   const mk = (app.match(/const crXformMod = TwCreatorXform\.createCreatorXform\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const keys = mk.split('\n').map((l) => (/^  ([\w$]+):/.exec(l) || [])[1]);
-  t(keys.length === 31 && /  baseFlatOf: \(\.\.\.a\)=>lightToneMod\.baseFlatOf\(\.\.\.a\),/.test(mk) && ['setCDeskLenX', 'setCDeskPos', 'setCDeskScale'].every((k) => new RegExp('  ' + k + ': \\(v\\)=>\\{ ' + k.slice(3, 4).toLowerCase() + k.slice(4) + ' = v; \\},').test(mk)) && /  cBase: \(\)=>cBase,/.test(mk) && /  deskItemOrigin: deskItemOrigin,/.test(mk),
+  t(keys.length === 31 && /  baseFlatOf: \(\.\.\.a\)=>lightToneMod\.baseFlatOf\(\.\.\.a\),/.test(mk) && ['setCDeskLenX', 'setCDeskPos', 'setCDeskScale'].every((k) => new RegExp('  ' + k + ': \\(v\\)=>\\{ crState\\.' + k.slice(3, 4).toLowerCase() + k.slice(4) + ' = v; \\},').test(mk)) && /  cBase: \(\)=>crState\.cBase,/.test(mk) && /  deskItemOrigin: deskItemOrigin,/.test(mk),
     '만드는 줄(가드 없이) · deps 28(baseFlatOf 포함) + 쓰는 함수 3');
   t(/crXformMod\.attachItemGizmoToActive\(/.test(A) && /crXformMod\.detachItemGizmo\(/.test(A) && /crXformMod\.updateDeskPosNum\(/.test(A) && !/(^|[^.\w$])(attachItemGizmoToActive|detachItemGizmo|updateDeskPosNum)\(/.test(A), '부르는 곳은 crXformMod.이름');   // 닫기의 detachItemGizmo 는 creator-flow.js 로 옮겨 가 app.js 에는 deps 이음(crXformMod.detachItemGizmo(...a))으로 남는다
   const iM = html.indexOf('<script src="parts/creator/creator-xform.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
