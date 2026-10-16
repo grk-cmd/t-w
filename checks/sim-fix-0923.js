@@ -28,7 +28,9 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
   chk(N({ id:'g', gacha:true, stackable:false }).stackable === true, '옛 가챠 파츠(stackable:false) → true');
   chk(N({ id:'n', stackable:false }).stackable === false, '일반 파츠는 그대로');
   chk(/savedParts\.forEach\(_normPartRec\)/.test(strip(grab(SRC, 'loadSavedParts'))), '입구 ① 로컬 캐시(loadSavedParts)');
-  chk(/map\(id=>_normPartRec\(\{ id, \.\.\.catalogObj\[id\], fromCatalog:true \}\)\)/.test(strip(grab(SRC, 'mergeCatalogIntoSavedParts'))), '입구 ② 카탈로그(mergeCatalogIntoSavedParts)');
+  /* 합치기 규칙이 mergeCatalogList 하나로 모인 뒤(개정 264) — 파츠 합치기가 _normPartRec 를 넘기고, 규칙은 카탈로그 항목마다 그것을 부른다 */
+  chk(/mergeCatalogList\(catalogObj, [^,]+, r=>_normPartRec\(r\)\)/.test(strip(grab(SRC, 'mergeCatalogIntoSavedParts')))
+      && /\{ id, \.\.\.catalogObj\[id\], fromCatalog:true \}; return norm \? norm\(rec\) : rec;/.test(strip(grab(SRC, 'mergeCatalogList'))), '입구 ② 카탈로그(mergeCatalogIntoSavedParts → mergeCatalogList 의 norm)');
   const body = ['partEntryId', 'isPartEntryContainer', 'entriesForCat', '_flattenCatContainer', 'addEntryToCat', 'removeEntryFromCat'].map(n => grab(SRC, n)).join('\n');
   const F = new Function(body + ' return { add:addEntryToCat, rm:removeEntryFromCat, list:entriesForCat };')();
   const hat = { id:'hat', xf:{} }, rib = { id:'rib', xf:{} };

@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 286 (책상 모양 모듈의 안 쓰는 자동 크기 코드(`autoScaleDeskToTarget` · `DESK_TARGET_WIDTH` · `DESK_SIZE_OFFSET`)를 지움)
-대상: `sim-*.js` 282개 + `smoke.js` + `audit.py` = **284개** (개정 286 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 287 (카탈로그 합치기 규칙 세 벌을 순수 함수 `mergeCatalogList` 하나로(catalog-sync.js))
+대상: `sim-*.js` 282개 + `smoke.js` + `audit.py` = **284개** (개정 287 기준 — 폴더를 센 값)
+
+**개정 287 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 확인 요청 승인 — 겹친 글 하나로 · 동작 변화 없음)**
+- 앱: `app/parts/character/catalog-sync.js` 의 아이템 · 책상 · 파츠 합치기에 같은 글로 세 번 있던 규칙(fromCatalog 표시 · order 오름차순(없으면 9999) · 지운 것 · 로컬 전용 남기기)을 순수 함수 `mergeCatalogList(catalogObj, saved, norm)` → `{ list, removedIds }` 하나로 모으고 세 곳이 부르게. 파츠는 `_normPartRec` 를 화살표로 넘긴다. 함수는 `createCatalogSync` 안 맨 위(되살린 글로 합치기를 돌리는 옛 검사가 같이 본다).
+- 검사: `sim-catalog-sync.js` **45·0** — 4절에 `mergeCatalogList` 입력 → 출력(빈 · null · order 0 · 9999 · 같은 order 차례 · 서버판 우선 · 저장 목록 안 바꿈 · norm · 카탈로그가 빈 경계) 6줄 더함. 세 합치기의 기존 동작 판정은 그대로 통과. `sim-fix-0923.js` 의 «입구 ② 카탈로그» 는 같은 뜻(파츠 합치기가 `_normPartRec` 를 넘기고 규칙이 항목마다 부른다)을 새 글 모양으로 찾게.
 
 **개정 286 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 확인 요청 승인 — 죽은 코드 지우기 · 동작 변화 없음)**
 - 앱: `app/parts/character/desk-visual.js` 에서 부르는 곳이 없는 `autoScaleDeskToTarget` · `DESK_TARGET_WIDTH` · `DESK_SIZE_OFFSET`(새 책상만 자동 크기를 걸던 옛 몫) 덩이를 지웠다. README 함정 줄도 «다시 넣지 말 것» 으로.
@@ -2137,7 +2141,7 @@
 | **sim-mh-sanitize.js** | 274 | **b840325c6768** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 209 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 178 §4 라이선스 요청 이름 씻기는 admin-license.js 에서 찾는다(판정 무변경)** · **개정 171 친구 목록 아바타 칸을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · 2026-09-14 판정 줄 (§10) |
 | **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** ← **개정 272 닫을 때 저장은 고리판 COMMIT 으로 찾는다(판정 무변경)** · **개정 252 말랑이 열기는 가드 없이 · 없으면 try 가 받는다(가드 걷기 4단계)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-myhome-load.js** | 102 | **4972e7a6d396** ← **개정 213 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 140 프리셋 함수 · 상수는 myhome-edit.js 에서 · 쓰는 칸은 app.js + myhome-edit.js(`_myHomeData().X =` 도) — 판정 무변경** · **2026-10-10 신규(개정 118) · 👑 마이홈 불러오기가 저장한 칸을 빠짐없이 — _mhHomeFromServer 한 곳(내 홈 · 친구 홈) · `_myHomeData.X =` 로 쓰는 칸 전부 · 저장 → 불러오기 왕복 · 프리셋 이름 봄 · 2 · 겨울 · 옛 판(프리셋 칸 없음)이면 빨강** |
-| **sim-fix-0923.js** | 274 | **eac9a5202ca7** ← **개정 238 가드 걷은 글 모양** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 134 4절 `_pkCloneChar` 는 purikura-ui.js 에서** · **2026-10-03 4절 clone·set 사이 색조 셰이더 허용** · **개정 65 신설 · 🩹 제보 다섯(가챠 모자 · 섬네일 · 배경색 · 눈 감기 · 말랑이)** · **개정 66 6절 🎫 라이선스 계정 이동** · **개정 68 7·8절 🗼 탑 룰렛 · 🖼️ 그림 150px** · **개정 72 9절 🗼 탑 위 그림 위치** · **개정 76 8절 그림 150 → 기본 80 · 10절 크기 60·80·100 선택 · 11절 그림 위 올라타기** |
+| **sim-fix-0923.js** | 276 | **d89acf841c7e** ← **개정 287 입구 ② 를 mergeCatalogList 모양으로** · **개정 238 가드 걷은 글 모양** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 134 4절 `_pkCloneChar` 는 purikura-ui.js 에서** · **2026-10-03 4절 clone·set 사이 색조 셰이더 허용** · **개정 65 신설 · 🩹 제보 다섯(가챠 모자 · 섬네일 · 배경색 · 눈 감기 · 말랑이)** · **개정 66 6절 🎫 라이선스 계정 이동** · **개정 68 7·8절 🗼 탑 룰렛 · 🖼️ 그림 150px** · **개정 72 9절 🗼 탑 위 그림 위치** · **개정 76 8절 그림 150 → 기본 80 · 10절 크기 60·80·100 선택 · 11절 그림 위 올라타기** |
 | **sim-noise.js** | 146 | **40568ea4018a** ← **개정 251 무대에 hiddenSeatsMod._seatHidden(옛 전역 이름 다리 걷기 — 판정 무변경)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 64 신설 · 🌙 백색소음** |
 | **sim-mobile-focus.js** | 217 | **ad1eb265355b** ← **개정 238 가드 걷은 글 모양** · **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 74 신설 · 📱 태블릿·폰 포커싱 연결** · **개정 133 달성표 자리는 weeklyChal.focusTick · setKeyPlatform 스텁** |
 | **sim-mac-0923.js** | 83 | **d549cc1a7717** ← **개정 242 가짜 방 줄이 makeFirebaseProvider(opts && opts.hooks)(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 1절 대화창 Enter 는 chat-window.js 에서(app.js + 그 파일 · 판정 무변경)** · **개정 95 5절 배율 상한이 frame-budget.js 로(mac · Windows 1.5)** · **개정 67 신설 · 🍎 Mac 제보 여섯** |
@@ -2329,7 +2333,7 @@
 | **sim-admin-thumbs.js** | 150 | **83b899202e8b** ← **개정 261 신설 · 🖼️ 관리자 썸네일 다시 굽기 모듈 구조 + 동작** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** ← **개정 265 신설 · 💾 GLB 영구 캐시(IndexedDB) 모듈 구조 + 동작** |
 | **sim-catalog-glb.js** | 163 | **c11b5229945f** ← **개정 265 신설 · 🔗 카탈로그 GLB 해결 모듈 구조 + 동작** |
-| **sim-catalog-sync.js** | 256 | **e21c006733a5** ← **개정 267 신설 · 🔄 카탈로그 실시간 동기화 모듈 구조 + 동작** |
+| **sim-catalog-sync.js** | 276 | **a28c7d326074** ← **개정 287 mergeCatalogList 순수 함수 판정 6줄** · **개정 267 신설 · 🔄 카탈로그 실시간 동기화 모듈 구조 + 동작** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** ← **개정 270 신설 · 🧸 책상 위 아이템 등록부 모듈 구조 + 동작** |
 | **sim-desk-visual.js** | 214 | **2428c62e17b8** ← **개정 286 옮긴 이름 목록에서 지운 셋을 뺌** · **개정 274 신설 · 🪑 책상 모양 모듈 구조 + 동작** |
 | **sim-toast.js** | 142 | **099b0d5e048c** ← **개정 282 신설 · 🍞 토스트 · 저장 실패 문구 모듈 구조 + 동작** |
