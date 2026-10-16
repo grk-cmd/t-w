@@ -569,6 +569,8 @@ PRELOAD.push('creator-xform.js');
 PRELOAD.push('ride-measure.js');
 /* toast.js — 🍞 토스트 · 저장 실패 문구(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createToast 를 같이 굴린다. */
 PRELOAD.push('toast.js');
+/* ride-tuning.js — 🎛️ 올라타기 · 묘기 튜닝 값(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRideTuning 를 같이 굴린다. */
+PRELOAD.push('ride-tuning.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
