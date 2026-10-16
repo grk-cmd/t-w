@@ -23,6 +23,7 @@ const myHomeOpen = deps.myHomeOpen;   // 읽는 함수
 const renderMyHomePage = deps.renderMyHomePage;
 const toast = deps.toast;
 const setSchedDdaysVisitUnsub = deps.setSchedDdaysVisitUnsub;   // 쓰는 함수
+const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — 닉네임 입력칸 취소는 편집 묶음이 열 때만 건다
 const setMyHomeOpen = deps.setMyHomeOpen;   // 쓰는 함수
 const _myHomeData = deps._myHomeData;   // 읽는 함수 — 마이홈 공용 상태(myhome-state.js)
 const _myHomeLoaded = deps._myHomeLoaded;   // 읽는 함수
@@ -170,7 +171,7 @@ function _mhApplyVisitUI(){
      관람으로 넘어갔다면 열려 있던 입력칸을 **취소로** 접는다.
      ⚠️ 값을 비우고 blur 하면 안 된다 — blur 는 저장 경로라 그 순간 이름이 '나' 로 덮인다.
         반드시 _mhCancelNameEdit(취소 깃발을 세우고 접는 길)을 쓸 것. */
-  if(visiting && typeof window._mhCancelNameEdit==='function') window._mhCancelNameEdit();
+  if(visiting && mhHooks.has(mhHooks.HOOK.CANCEL_NAME_EDIT)) mhHooks.call(mhHooks.HOOK.CANCEL_NAME_EDIT);
   const nameEditLink=document.getElementById('mhNameEditLink');
   if(nameEditLink) nameEditLink.style.display = (visiting || document.getElementById('mhMyNameInput')) ? 'none' : '';
   // 관람 중엔 리치텍스트 툴바(B/I/폰트/색/IMG/URL 등) 자체를 숨김 — 어차피 편집 불가.

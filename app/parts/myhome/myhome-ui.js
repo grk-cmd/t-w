@@ -36,6 +36,7 @@ const renderMyHomePage = deps.renderMyHomePage;
 const renderMyHomeStickers = deps.renderMyHomeStickers;
 const toast = deps.toast;
 const setMyHomeOpen = deps.setMyHomeOpen;   // 쓰는 함수
+const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — BGM 창 자리를 걸고, 저장 · BGM 창 · 스튜디오 닫기는 편집 묶음 것을 부른다
 // 🖼 우측 프로필 레일 — 위 칸: 선택한 친구의 마이홈 프로필 사진(없으면 [상대 없음] 빈 박스),
 //   아래 칸: 내 마이홈 프로필 사진(마이홈 탭에서 등록한 사진과 자동 연동, 없으면 안내 문구).
 // 프로필 레일은 수령함 확장으로 제거됨 — 기존 호출부가 있어 no-op으로 유지
@@ -59,6 +60,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
     companion.setBgmBounds({x:r.left, y:r.top, w:r.width, h:r.height});
   }
   window._mhSyncBgmBounds = _mhSyncBgmBounds;   // 다른 훅(open/close/resize)에서 재사용
+  mhHooks.on(mhHooks.HOOK.SYNC_BGM_BOUNDS, _mhSyncBgmBounds);   // 편집 묶음 · 바탕화면 · 설정 패널은 고리판으로 부른다
   (function bindMhDrag(){
     const win=document.getElementById('myHomeWin');
     const title=document.getElementById('myHomeTitle');
@@ -146,7 +148,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
        ⚠️ 새 정리를 추가할 때도 자기 칸으로 감쌀 것. */
     const _step = (name, fn)=>{ try{ fn(); }catch(e){ console.error('[마이홈 닫기] '+name+' 실패 — 나머지는 계속 진행합니다', e); } };
     window._mhPreviewMode = false;   // 👁 미리보기 상태 해제
-    _step('마지막 저장', ()=>{ window.commitMyHomePage(true); });
+    _step('마지막 저장', ()=>{ mhHooks.call(mhHooks.HOOK.COMMIT, true); });
     overlay.classList.remove('on');
     setMyHomeOpen(false);
     _step('말랑이 정리', ()=>{ window._mallangOnClose(); });   // 🧸 말랑이 전부 제거
@@ -156,10 +158,10 @@ function renderMhProfileRail(){ /* 제거됨 */ }
     _step('방명록 뱃지', ()=>{ _mhGbStopWatch(); });   // 방명록 뱃지 감시 종료
     // ★ BGM 자식창은 마이홈에 종속된 창이므로 마이홈 닫힐 때 같이 파괴 (창 상태도 초기화)
     _step('BGM 창', ()=>{
-      window._bgmDestroy();
+      mhHooks.call(mhHooks.HOOK.BGM_DESTROY);
     });
     // 👑 디자인 스튜디오 창도 마이홈 편집용이므로 같이 닫음 (위치는 main.js가 기억)
-    _step('디자인 스튜디오', ()=>{ window._mhDsClose(); });
+    _step('디자인 스튜디오', ()=>{ mhHooks.call(mhHooks.HOOK.DS_CLOSE); });
     // 스티커 링크 입력 등 프롬프트가 열려있으면 같이 닫기 (마이홈에 종속된 UI)
     const promptOv=document.getElementById('mhPromptOverlay');
     if(promptOv && promptOv._cleanup) try{ promptOv._cleanup(); }catch(_){}
@@ -224,7 +226,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
   overlay.querySelectorAll('.mh-tab').forEach(tab=>{
     tab.addEventListener('click', ()=>{
       const wasHomeTab = overlay.querySelector('.mh-tab.on')?.dataset.tab==='home';
-      if(wasHomeTab && tab.dataset.tab!=='home') window.commitMyHomePage(true);
+      if(wasHomeTab && tab.dataset.tab!=='home') mhHooks.call(mhHooks.HOOK.COMMIT, true);
       overlay.querySelectorAll('.mh-tab').forEach(t=>t.classList.toggle('on', t===tab));
       const target='mhPage'+tab.dataset.tab.charAt(0).toUpperCase()+tab.dataset.tab.slice(1);
       overlay.querySelectorAll('.mh-page').forEach(p=>p.classList.toggle('on', p.id===target));

@@ -37,7 +37,6 @@ const EXEMPT = {
   _inviteGatePass: { why: '초대 게이트 창을 열 때만 걸린다' },
   __anpSetEarSide: { why: '동물 미리보기 창을 열 때만 걸린다' },
   __anpGoTab: { why: '동물 미리보기 창을 열 때만 걸린다' },
-  _mhCancelNameEdit: { why: '마이홈 이름 고치기 창을 열 때만 걸린다' },
   closeWardrobe: { files: ['app.js'], why: '옷장을 열기 전엔 없다 — app.js 의 생성기 열기 두 곳' },
   CreatorFlatView: { why: '생성기 평면 보기 모듈 — 없으면 null 로 두고 그 기능만 끈다' },
   DeskItemOrigin: { why: '책상 아이템 원점 모듈 — 없으면 null' },

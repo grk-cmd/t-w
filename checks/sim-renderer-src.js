@@ -146,6 +146,12 @@ function joinRenderer(app){
   }
   /* 만드는 줄(«const mod = (typeof Tw… ({ … });») 자리에 본문을 그대로 끼운다 — 옛 본문 자리 그대로라 부팅 때 바로 읽는 줄도
      옛 차례대로 선언을 본다(뒤에서부터 끼워 앞 자리가 안 흔들리게). 만드는 줄을 못 찾으면 맨 끝에 잇는다. */
+  /* 아래층 전역을 짧은 이름으로 받는 줄(«const mhHooks = TwMyHomeHooks;» — 모듈 순환 끊기 8)은 여러 모듈에 같은 글로 있다.
+     한 자리에 펼치면 같은 const 가 두 번이 되므로 app.js 차례로 처음 것만 남긴다(뒤 모듈은 부를 때 그 이름을 본다). */
+  const aliasSeen = new Set();
+  for(const p of parts.slice().sort((a, b) => (a[1] < 0) - (b[1] < 0) || a[1] - b[1])){
+    p[3] = p[3].replace(/^const [\w$]+ = Tw[\w$]+;.*\n/gm, (l) => { const k = l.split(';')[0]; if(aliasSeen.has(k)) return ''; aliasSeen.add(k); return l; });
+  }
   let all = app, tail = [];
   for(const [m, i, j, body] of parts.slice().sort((a, b) => b[1] - a[1])){
     if(i >= 0 && j > i) all = all.slice(0, i) + body + all.slice(j + 4);   // '\n});' 까지
