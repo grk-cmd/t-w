@@ -1,8 +1,6 @@
 /* launcher-preview.js — 🖼️ 런처 미리보기 · 슬롯 섬네일
-   app.js «🖼️ 런처 미리보기 · 슬롯 섬네일» 구역 본문을 그대로 옮긴 모듈이다(C 구역 떼기 · w3).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 3줄 —
-     assetCodeMod · customItems · slotSaveMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+   app.js «🖼️ 런처 미리보기 · 슬롯 섬네일» 구역 본문을 옮긴 모듈이다(C 구역 떼기 · w3).
+   ★ assetCodeMod · customItems · slotSaveMod 는 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 20개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: ensureLauncherPreview · lHolder · lRenderer · launcherLoop · setLauncherChar · sizeLauncherPreview — app.js 는 launcherPrevMod.이름 으로 부른다.
@@ -13,6 +11,8 @@
 
 function createLauncherPreview(deps){
 const CHAR_Z = deps.CHAR_Z;
+const FrameBudget = deps.FrameBudget;
+const blinkTiming = deps.blinkTiming;
 const RIG_TURN = deps.RIG_TURN;
 const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
 const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
@@ -45,7 +45,7 @@ const slotSaveMod = deps.slotSaveMod;   // 읽는 함수
 const slots = deps.slots;
 const swapDeskVisual = deps.swapDeskVisual;
 /* --- 런처 미리보기 렌더러 --- */
-let lRenderer=null,lScene=null,lCam=null,lChar=null,lBlinkT=0,lBlinkOn=false,lHolder=null,lDeskMat=null,lScaleHint=1;
+let lRenderer=null,lScene=null,lCam=null,lChar=null,lBlinkOn=false,lHolder=null,lDeskMat=null,lScaleHint=1;
 let lCharBaseY=0;   // 런처 미리보기 캐릭터의 기준 y — 발바닥이 y=0에 오도록 실측 정렬한 값 (둥둥 애니의 중심)
 let lFrameH=1.2, lFrameZ=0;   // 실측 키·z — 카메라가 "프레임에 꽉 차게" 거리를 역산할 때 사용
 const LAUNCHER_CHAR_Y = -0.12;    // 런처 미리보기 전용 캐릭터 Y 오프셋 — 음수로 낮추면 캐릭터가 아래로 내려감(예: -0.15)
@@ -206,12 +206,20 @@ function setLauncherChar(def){_lcThumbJob=null;if(lChar){lScene.remove(lChar.gro
     applyBase(null);
   }
 }
-function launcherLoop(){
+/* 런처 미리보기도 상한(FPS_LAUNCHER)까지만 그린다 — 상한이 없으면 모니터 주사율(120 · 144Hz)만큼 그려
+   런처 화면 GPU 부하가 실행 화면의 3~4배가 된다. */
+const _lBudget = FrameBudget.createFrameBudget({ now: ()=>performance.now() });
+/* 깜빡임은 실행 화면 좌석과 같은 시간표(blink-timing.js — 실제 시각으로 센다). 런처가 숨어 있는 동안은 비워 두어,
+   다시 열었을 때 밀린 예약이 바로 터지지 않고 처음 깜빡임(0.8~3초)부터 다시 시작한다. */
+let lBlink=null;
+function launcherLoop(now){
   const vis=document.getElementById('launcher').classList.contains('on');
-  if(vis&&lRenderer){
-    if(lChar){lBlinkT+=16;
-      if(!lBlinkOn&&lBlinkT>2600){lBlinkOn=true;lBlinkT=0;setFaceMap(lChar.faceMat, lChar.bT);}
-      else if(lBlinkOn&&lBlinkT>150){lBlinkOn=false;lBlinkT=0;setFaceMap(lChar.faceMat, lChar.fT);}
+  if(!vis) lBlink=null;
+  if(vis&&lRenderer&&_lBudget.admit(now, FrameBudget.FPS_LAUNCHER)){
+    if(lChar){if(!lBlink) lBlink=blinkTiming.createBlink(now);
+      blinkTiming.scheduleBlinks(lBlink, now);
+      const shut=blinkTiming.eyeClose(lBlink, now) > blinkTiming.SHUT_AT;
+      if(shut!==lBlinkOn){lBlinkOn=shut; setFaceMap(lChar.faceMat, shut ? lChar.bT : lChar.fT);}
       // ★ 실측 바운딩박스로 정렬한 기준 y(lCharBaseY) + 스케일 비례 둥둥 —
       //   모든 크기의 캐릭터가 프레임 가운데 같은 자리에 서고, 출렁임도 비례함.
       const dY=Math.max(0.2, lScaleHint||1);

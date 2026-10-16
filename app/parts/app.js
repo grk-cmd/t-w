@@ -9359,6 +9359,8 @@ document.getElementById('crDone').addEventListener('click',()=>{
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   CHAR_Z: CHAR_Z,
+  FrameBudget: FrameBudget,
+  blinkTiming: TwBlinkTiming,
   RIG_TURN: RIG_TURN,
   _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
   _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
