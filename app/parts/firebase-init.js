@@ -9,7 +9,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getDatabase, ref as _dbRef, set, update as _dbUpdate, remove, onValue, off, onDisconnect, serverTimestamp, get, runTransaction,
-    push, query, limitToLast, orderByChild, orderByKey, startAt, endBefore, equalTo, onChildAdded, onChildChanged
+    push, query, limitToLast, orderByChild, orderByKey, startAt, endBefore, equalTo, onChildAdded, onChildChanged, goOffline, goOnline
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
@@ -49,6 +49,7 @@
   import { createRoomServerNet } from "./room/room-server-net.js";
   import { createRoomServerGate } from "./room/room-server-gate.js";
   import { createApiPublicReads } from "./shared/api-public-reads.js";
+  import { createAccountDelete } from "./account/account-delete-net.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -3197,6 +3198,13 @@
       subscribeSince: (room, tab, since, onMsg, onReady) => window.firebaseAPI.subscribeChatSince(room, tab, since, onMsg, onReady),
       clearLog: (room, tab) => window.firebaseAPI.clearChatLog(room, tab),
       sendLog: (room, msg, tab) => window.firebaseAPI.sendChatLog(room, msg, tab) }),
+    /* 🗑️ 회원 탈퇴(함수 deleteMyAccount) — 순서 · 까닭은 account-delete-net.js. 여기는 연결만. */
+    accountDelete: createAccountDelete({
+      callFn: async (name, data) => { const mod = await import(FUNCTIONS_SDK_URL); return mod.httpsCallable(mod.getFunctions(fbApp, FUNCTIONS_REGION), name, { timeout: 300000 })(data); },
+      signedIn: () => { const u = auth && auth.currentUser; return !u ? 'none' : (u.isAnonymous ? 'anonymous' : 'ok'); },
+      cancelPresence: () => (_myPresenceRef ? onDisconnect(_myPresenceRef).cancel() : null),
+      goOffline: () => goOffline(db), goOnline: () => goOnline(db),
+      signOut: () => (auth ? fbSignOut(auth) : null) }),
     getInviteAccount: createInviteAccount({ db, ref, get, databaseURL: db && db.app && db.app.options && db.app.options.databaseURL }),
     // 기존 유저 grandfather 처리 — 초대 정보가 없으면 5장 부여하고 통과
     async grandfatherInvite(userId, grantCount){
