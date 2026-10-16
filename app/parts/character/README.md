@@ -59,3 +59,22 @@
   - 메모리 · 영구 캐시에서 꺼낼 때도 `rec.glb` 를 채워야 한다 — 빠뜨리면 `rec.glb` 를 보는 곳이 «GLB를 불러올 수 없어요» 로 오탐한다.
   - 실패는 기억하지 않는다(다음에 다시 받는다) · 영구 캐시 넣기는 기다리지 않는다.
   - 검사: `checks/sim-catalog-glb.js`(4절 — 차례 · 실패 · 다른 rec 채우기 · 스냅샷 전부).
+
+## catalog-sync.js — 🔄 카탈로그 실시간 동기화
+
+- **책임**: Firebase 카탈로그 구독(아이템 · 책상 · 파츠 · 커스텀 카테고리 · 기본 카테고리 이름 덮어쓰기)을 걸고, 스냅샷이 오면 저장 목록에 합친 뒤 떠 있는 좌석 · 생성기 · 런처 · 꾸미기 미리보기에 다시 반영한다.
+  - 합치는 규칙(셋 다 같다): 카탈로그 항목은 `fromCatalog:true` 로 서버판이 이기고 `order` 오름차순(없으면 9999) · `fromCatalog` 인데 목록에 없으면 관리자가 지운 것 → 좌석에서 내리고 목록에서 뺀다 · 카탈로그에 온 적 없는 로컬 항목은 뒤에 남긴다.
+- **만드는 법**: app.js «🔄 카탈로그 실시간 동기화» 자리에서 `const catalogSyncMod = TwCatalogSync.createCatalogSync({ … });` — deps 40
+  - 데이터 provider: `catalogNet`(읽는 함수 — 지금은 app.js 가 `()=>window.firebaseAPI` 를 넘긴다. 서버로 옮길 때 이 한 줄만 바꾼다 · 모듈은 `firebaseAPI` 를 직접 보지 않는다)
+  - 저장 목록: `commissionMod`(아이템 · 책상) · `premiumMod`(파츠 · 카테고리) · GLB 해결 `catalogGlbMod`
+  - 좌석에 입히기: `seats` · `customItems`(읽는 함수) · `equipDeskItem` · `clearHolderDeskItems` · `applyDeskItemsTo` · `loadSavedItemsIntoSession` · `applyDeskCatalogRefToSeat` · `swapDeskVisual` · `equipPartOnSeat` · `unequipPartFromSeat` · `applyClothVisibility` · `fitModel` · `layoutSeats` · `rideBenchMod`
+  - 생성기 상태(읽는 함수): `creatorOpen` · `cBase` · `cDesk` · `cDeskColor` · `cDeskScale` · `cDeskGlbB64` · `cDeskTemplate` · `activeCustomDeskId` + 쓰는 함수 `setCDeskGlbB64` · `setCDeskTemplate`
+  - 다시 그리기: `wardrobeMod` · `gachaMod` · `adminCategory` · `renderLauncher` · `renderCrItems` · `toast` · `isAdmin`
+- **내보내는 것**: 없음 — 만들 때 구독을 건다(`catalogNet()` 이 아직 없으면 `firebase-ready` 를 한 번 기다린다 — 준비 신호도 나중에 provider 쪽으로).
+- **확장할 때 고칠 자리**: 새 카탈로그 종류는 `mergeCatalogIntoSavedXxx` + `subscribeCatalogXxx` 한 벌 · 구독 걸기는 파일 끝 `if(catalogNet()) … else addEventListener('firebase-ready', …)` 줄. 합치는 규칙이 세 함수에 같은 글로 들어 있다 — 바꿀 땐 셋 다.
+- **함정**
+  - 아이템은 세션 등록(`loadSavedItemsIntoSession`)을 **기다린 뒤** 좌석을 다시 적용한다 — 순서를 바꾸면 옛 크기(0.8)로 다시 만든다.
+  - 생성기에서 보던 책상 · 아이템의 위치 · 크기 조정값은 일부러 안 지킨다(자동 크기 계산을 바꿔도 보이게).
+  - 파츠는 이미 붙은 것을 다시 붙이지 않는다 — 겹쳐 다는 파츠는 `stackedPartObjs` 로 판정. 새로 붙은 게 있을 때만 `fitModel` · `layoutSeats`.
+  - 가챠 카탈로그 옮기기(`migrateGachaCatalog`)는 관리자 세션에서 한 번만(`window.__gachaMigrated`) · 실패하면 다음 콜백에서 다시.
+  - 검사: `checks/sim-catalog-sync.js`(4절 — 구독 · firebase-ready · 세 합치기 · 좌석 · 생성기 다시 반영 · 가챠 옮기기 · 카테고리).

@@ -88,6 +88,7 @@ const MODULES = [
   { file: 'seat-friend-req.js', mod: 'seatFriendReqMod', glob: 'TwSeatFriendReq', sample: 'function _friendReqAsk(' },   // C 구역 떼기 w4
   { file: 'glb-idb-cache.js', mod: 'glbIdbMod', glob: 'TwGlbIdbCache', sample: 'function _glbIdb(' },   // 구역 떼기 C · w2
   { file: 'catalog-glb.js', mod: 'catalogGlbMod', glob: 'TwCatalogGlb', sample: 'function resolveCatalogGlb(' },   // 구역 떼기 C · w2
+  { file: 'catalog-sync.js', mod: 'catalogSyncMod', glob: 'TwCatalogSync', sample: 'function mergeCatalogIntoSavedItems(' },   // 구역 떼기 C · w2
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
@@ -126,6 +127,8 @@ function joinRenderer(app){
     const j = i >= 0 ? app.indexOf('\n});', i) : -1;
     const glue = i >= 0 ? app.slice(i, j) : '';
     const getters = [...glue.matchAll(/^  ([\w$]+): \(\)=>(?:[\w$]+\.)?([\w$]+)(?:\(\))?,$/gm)].map(x => x[1]);   // 키 = 모듈 안 이름(오른쪽이 다른 모듈의 읽는 함수여도)
+    /* 데이터 provider 고르기 한 줄(«roomNet: ()=>window.firebaseAPI,»)은 키가 아니라 오른쪽 글로 되살린다 — 옮기기 전 글은 window.firebaseAPI 를 직접 봤다 */
+    const winGet = {}; for(const x of glue.matchAll(/^  ([\w$]+): \(\)=>(window\.[\w$]+),$/gm)) winGet[x[1]] = x[2];
     const setters = [...glue.matchAll(/^  ([\w$]+): \(v\)=>\{ ([\w$]+) = v; \},$/gm)].map(x => [x[1], x[2]]);
     for(const x of txt.matchAll(/^  ([\w$]+): \(\)=>([\w$]+),/gm)) retGet.push([m.mod, x[1]]);
     for(const x of txt.matchAll(/^  ([\w$]+): \(v\)=>\{ ([\w$]+) = v; \},/gm)) retSet.push([m.mod, x[1], x[2]]);
@@ -134,7 +137,7 @@ function joinRenderer(app){
     const r = txt.lastIndexOf('\nreturn {');
     let body = (h && r > h.index) ? txt.slice(h.index + h[0].length, r) : txt;
     body = body.replace(/^const [\w$]+ = deps\.[\w$]+;.*\n/gm, '').replace(/^const [\w$]+ = deps\.[\w$]+, [\w$]+ = deps\.[\w$]+;.*\n/gm, '');
-    if(getters.length) body = body.replace(new RegExp('\\b(' + getters.map(esc).join('|') + ')\\(\\)', 'g'), '$1');
+    if(getters.length) body = body.replace(new RegExp('\\b(' + getters.map(esc).join('|') + ')\\(\\)', 'g'), (all, k) => winGet[k] || k);
     for(const [set, name] of setters) body = replaceCalls(body, set, (arg) => name + ' = ' + arg);
     parts.push([m, i, j, body]);
   }
