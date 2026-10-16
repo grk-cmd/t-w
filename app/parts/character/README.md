@@ -188,7 +188,7 @@
 - **책임**: 진단 전용. 콘솔에서 `floorSnapReport()` 한 줄로 실행 화면 · 꾸미기 미리보기 좌석의 발밑 깊이와 파츠 wrapper 위치(바닥 아래인지 · 모델 안인지)를 나란히 적는다. 아무것도 고치지 않는다.
 - **만드는 법**: `TwFloorSnapDiag.createFloorSnapDiag({ charMeasureMod, findMySeat, wardrobeMod: ()=>wardrobeMod });`(만들 때 `window.floorSnapReport` 를 건다).
 - **내보내는 것**: 없음 — `window.floorSnapReport()` 만(돌려주는 글: «위 로그를 복사해서 보내주세요»).
-- **확장할 때 고칠 자리**: 보는 좌석(실행 화면 · 미리보기) · 한 줄에 적는 값은 `push` 안.
+- **확장할 때 고칠 자리**: 보는 좌석(실행 화면 · 미리보기) · 한 줄에 적는 값은 `push` 안 · 문턱값 `BELOW_FLOOR_EPS` · `DEPTH_MISMATCH_EPS` · `PARENT_CHAIN_MAX`.
 - **함정**: 실제 좌석은 `gltfRoot`, 미리보기는 `root` 라 모델 노드 이름이 다르다(`modelOf`). 검사: `checks/sim-floor-snap-diag.js`.
 
 ## seat-model-load.js — 📦 좌석 모델 싣기
@@ -209,7 +209,7 @@
   ```js
   seatModelLoadMod.setupSeatModel(seat, gltf.scene, gltf.animations, 'cat.glb');
   ```
-- **확장할 때 고칠 자리**: 상태별 클립 낱말 `STATE_KW` · 본 이름 판정(spine · head · hand/arm · leg/thigh · ear) · 앵커 높이(1.2 × 0.82 / 0.5).
+- **확장할 때 고칠 자리**: 상태별 클립 낱말 `STATE_KW` · 본 이름 판정(spine · head · hand/arm · leg/thigh · ear) · 모듈 위 기본값(`DEFAULT_ROT` · `ANCHOR_TOP_Y` · `HEAD_ANCHOR_K` · `BODY_ANCHOR_K` · `PLACEHOLDER_*` · `FIRST_POSE_DT`).
 - **함정**
   - fitModel 을 두 번 부른다 — 첫 애니 프레임(무릎 굽힘)을 반영한 뒤 바닥을 다시 맞추려고. 하나로 줄이면 파묻힌다.
   - 붙인 직후 책상 실측이 덜 확정돼 다음 두 프레임에 layoutSeats 를 다시 부른다.
