@@ -189,3 +189,28 @@
 - **내보내는 것**: 없음 — `window.floorSnapReport()` 만(돌려주는 글: «위 로그를 복사해서 보내주세요»).
 - **확장할 때 고칠 자리**: 보는 좌석(실행 화면 · 미리보기) · 한 줄에 적는 값은 `push` 안.
 - **함정**: 실제 좌석은 `gltfRoot`, 미리보기는 `root` 라 모델 노드 이름이 다르다(`modelOf`). 검사: `checks/sim-floor-snap-diag.js`.
+
+## seat-model-load.js — 📦 좌석 모델 싣기
+
+- **책임**: 파싱된 GLB 를 좌석 하나에 붙이고(보호 wrap · 기본 xf · 머리/몸 앵커 · 애니 클립 · 얼굴 머티리얼 · 본 찾기) 비우는 일. 개발용 파일 드롭(.glb · .dcc · 이미지)도 여기서 갈라 보낸다. 크기 · 바닥 맞춤은 app.js `fitModel` · `fitDesk`, 줄 다시 잡기는 `layoutSeats`.
+- **만드는 법**(app.js «FILE LOADING» 자리):
+  ```js
+  const seatModelLoadMod = TwSeatModelLoad.createSeatModelLoad({
+    loader,                                                              // GLTFLoader
+    boneSide, fitDesk, fitModel, layoutSeats, setInfo, toast,            // 함수(화살표로)
+    assetCodeMod: ()=>assetCodeMod, selected: ()=>selected, sliders: ()=>sliders,   // 읽는 함수
+  });
+  ```
+- **내보내는 것**
+  - `setupSeatModel(seat, root, animations, name)` — 좌석에 모델 붙이기(기본 xf 크기 1 · 높이 0 · 회전 π). 클립이 있으면 상태 넷(idle · pet · focus · sleep)에 고르고 없으면 절차적 본 애니.
+  - `loadCharGLB(buf, name, seat)` · `handleFiles(files, seat)` · `resetSeat(seat)` · `prepBlink(seat)`.
+  - `pickClip(clips, state)` — 순수: 상태별 낱말(`STATE_KW`)이 이름에 든 첫 클립(대소문자 무시) · 없으면 null.
+  ```js
+  seatModelLoadMod.setupSeatModel(seat, gltf.scene, gltf.animations, 'cat.glb');
+  ```
+- **확장할 때 고칠 자리**: 상태별 클립 낱말 `STATE_KW` · 본 이름 판정(spine · head · hand/arm · leg/thigh · ear) · 앵커 높이(1.2 × 0.82 / 0.5).
+- **함정**
+  - fitModel 을 두 번 부른다 — 첫 애니 프레임(무릎 굽힘)을 반영한 뒤 바닥을 다시 맞추려고. 하나로 줄이면 파묻힌다.
+  - 붙인 직후 책상 실측이 덜 확정돼 다음 두 프레임에 layoutSeats 를 다시 부른다.
+  - .dcc 비밀번호를 `window.prompt` 로 묻는다 — Electron 에선 안 뜬다(`CONFIRM.md`).
+  - 검사: `checks/sim-seat-model-load.js`(4절 — 실제 three 로 붙이기 · 클립 · 본 · 깜빡임 · 비우기 · 파일 고르기 · 실패 문구).
