@@ -32,6 +32,7 @@ const setCachedRowCenter = deps.setCachedRowCenter;   // 쓰는 함수
 const setCachedRowSpan = deps.setCachedRowSpan;   // 쓰는 함수
 const setDeskPanX = deps.setDeskPanX;   // 쓰는 함수
 const setDeskPanY = deps.setDeskPanY;   // 쓰는 함수
+const ROW_SPAN_MIN = 1.2;   // 카메라 줌용 줄 폭 하한 — 혼자일 때도 이만큼은 비춘다
 function layoutSeatRow(){
   /* 🪑 좌석 간격·카메라 줌은 바로 아래에서 **책상 폭을 실측**한다. 평준화로 책상이 커지거나
      작아졌다면 그 전에 반영돼 있어야 간격이 한 박자 늦지 않는다. 바뀐 좌석이 없으면 숫자 비교뿐이다. */
@@ -62,7 +63,7 @@ function layoutSeatRow(){
   const rowCenter = (minX+maxX)/2;
   const leftIdx = xs.indexOf(minX), rightIdx = xs.indexOf(maxX);
   const halfWidthsForZoom = placed.map(s=>seatDeskHalfWidth(s, true));   // 카메라 줌은 상한선 적용된 값 사용(유난히 큰 책상 하나가 전체를 과하게 줌아웃시키지 않게)
-  const rowSpan = Math.max(1.2, (maxX-minX) + halfWidthsForZoom[leftIdx] + halfWidthsForZoom[rightIdx]);   // 카메라 줌 계산용 전체 폭(책상 폭까지 포함)
+  const rowSpan = Math.max(ROW_SPAN_MIN, (maxX-minX) + halfWidthsForZoom[leftIdx] + halfWidthsForZoom[rightIdx]);   // 카메라 줌 계산용 전체 폭(책상 폭까지 포함)
   setCachedRowCenter(rowCenter); setCachedRowSpan(rowSpan);   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
   seatCameraMod().applyCameraAndCanvas(rowCenter, rowSpan);
 }

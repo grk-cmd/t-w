@@ -25,6 +25,12 @@ const selected = deps.selected;   // 읽는 함수
 const setInfo = deps.setInfo;
 const sliders = deps.sliders;   // 읽는 함수
 const toast = deps.toast;
+/* 📐 좌석에 모델을 붙일 때의 기본값 */
+const DEFAULT_ROT = Math.PI;               // 새 모델 기본 회전(정면이 카메라 쪽)
+const ANCHOR_TOP_Y = 1.2;                  // 앵커 높이 기준(× userScale)
+const HEAD_ANCHOR_K = 0.82, BODY_ANCHOR_K = 0.5;   // 머리 · 몸 앵커 = 기준 × 이 비율
+const PLACEHOLDER_HEAD_Y = 1.08, PLACEHOLDER_BODY_Y = 0.46;   // 기본 도형(자리 표시) 앵커 높이
+const FIRST_POSE_DT = 0.1;                 // 첫 애니 프레임을 미리 돌릴 시간(초) — 굽힌 다리 높이를 바닥 맞춤에 반영
 const STATE_KW={idle:['idle','rest','breathe','default'],focus:['focus','type','work','active','study'],
   pet:['pet','happy','pat','love'],sleep:['sleep','sleepy','doze','nap','tired']};
 function pickClip(clips,st){const ks=STATE_KW[st]||[st]; for(const c of clips){const n=c.name.toLowerCase(); if(ks.some(k=>n.includes(k)))return c;} return null;}
@@ -43,11 +49,11 @@ function setupSeatModel(seat,m,animations,name){
      파츠 GLB 좌표는 리그 원본 단위이므로 계산은 항상 이쪽(root) 기준이어야 한다.
      (미리보기 좌석은 seat.root가 같은 역할 — 두 화면이 같은 좌표계를 보게 하는 게 목적) */
   seat.modelRoot=m;
-  seat.userScale=1; seat.userY=0; seat.userZ=0; seat.userRot=Math.PI; seat.userX=0;   // 자동 중앙정렬 + 바닥맞춤 기본값
+  seat.userScale=1; seat.userY=0; seat.userZ=0; seat.userRot=DEFAULT_ROT; seat.userX=0;   // 자동 중앙정렬 + 바닥맞춤 기본값
   if(selected()===seat){ document.getElementById('sScale').value=1; document.getElementById('sY').value=0;
-    document.getElementById('sZ').value=0; document.getElementById('sRot').value=Math.PI; }
+    document.getElementById('sZ').value=0; document.getElementById('sRot').value=DEFAULT_ROT; }
   fitModel(seat);
-  const topY=1.2*seat.userScale; seat.headAnchor.position.set(0,topY*0.82,0); seat.bodyAnchor.position.set(0,topY*0.5,0);
+  const topY=ANCHOR_TOP_Y*seat.userScale; seat.headAnchor.position.set(0,topY*HEAD_ANCHOR_K,0); seat.bodyAnchor.position.set(0,topY*BODY_ANCHOR_K,0);
   seat.actions={}; seat.current=null;
   if(animations&&animations.length){
     seat.mixer=new THREE.AnimationMixer(m);
@@ -58,7 +64,7 @@ function setupSeatModel(seat,m,animations,name){
           // 💡 [파묻힘 방지] 애니메이션 1프레임을 미리 실행하여 굽힌 다리 높이를 계산에 반영합니다.
           if(seat.actions.idle) {
               seat.actions.idle.play();
-              seat.mixer.update(0.1); 
+              seat.mixer.update(FIRST_POSE_DT); 
           }
         } else seat.mixer=null;
         
@@ -132,7 +138,7 @@ function resetSeat(seat){
   if(seat.deskGltf){seat.group.remove(seat.deskGltf);seat.deskGltf=null;seat.desk.visible=true;}
   seat.isPlaceholder=true;seat.mixer=null;seat.actions={};seat.current=null;seat.faceMat=null;seat.blinkTex=null;
   seat.placeholder.root.visible=true; setInfo(seat,'기본 도형 캐릭터. <b>.glb 드롭</b>으로 교체.');
-  seat.headAnchor.position.set(0,1.08,0); seat.bodyAnchor.position.set(0,0.46,0);
+  seat.headAnchor.position.set(0,PLACEHOLDER_HEAD_Y,0); seat.bodyAnchor.position.set(0,PLACEHOLDER_BODY_Y,0);
   if(selected()===seat) sliders().classList.remove('on');
 }
 async function handleFiles(files,seat){

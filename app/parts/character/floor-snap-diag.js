@@ -16,6 +16,9 @@ function createFloorSnapDiag(deps){
 const charMeasureMod = deps.charMeasureMod;
 const findMySeat = deps.findMySeat;
 const wardrobeMod = deps.wardrobeMod;   // 읽는 함수
+const BELOW_FLOOR_EPS = 0.001;      // 월드 바닥(0)보다 이만큼 넘게 아래면 «바닥 아래» 로 적는다
+const DEPTH_MISMATCH_EPS = 1e-4;    // 실행 화면 · 미리보기 깊이 차가 이보다 크면 경고
+const PARENT_CHAIN_MAX = 6;         // 부모 사슬은 이만큼만 적는다
 /* 🩺 바닥 맞춤 진단 — 콘솔에서 `floorSnapReport()` 한 줄로 미리보기와 실행 화면을 나란히 본다.
    [왜 필요한가] "파츠가 바닥에 가라앉아 있다"의 원인 후보가 셋이고, 겉보기로는 구분이 안 된다.
      ① 파츠가 측정에서 **제외**되고 있다(숨은 메쉬·리깅 표식) → depth 가 0 으로 나온다
@@ -46,7 +49,7 @@ function _floorSnapProbe(root){
       try{ tmp.setFromObject(o); if(!tmp.isEmpty()) minY = tmp.min.y; }catch(_){}
       if(why) out.skipped++; else out.counted++;
       // 발밑으로 내려간 것만 보고한다 — 위쪽 메쉬까지 찍으면 목록이 길어져 읽을 수가 없다
-      if(minY != null && minY < -0.001){
+      if(minY != null && minY < -BELOW_FLOOR_EPS){
         let wrap = null;
         for(let q = o; q && q !== root; q = q.parent){
           if(typeof q.name === 'string' && q.name.indexOf('__partWrap_') === 0){ wrap = q.name; break; }
@@ -78,7 +81,7 @@ function floorSnapReport(){
       for(let q = o.parent; q; q = q.parent){
         chain.push(q.name || (q.type||'?'));
         if(model && q === model) inModel = true;
-        if(chain.length >= 6) break;
+        if(chain.length >= PARENT_CHAIN_MAX) break;
       }
       out.push({ name:o.name, minY, inModel, rigged:!!(o.userData && o.userData.rigged), chain:chain.join(' < ') });
     });
@@ -103,7 +106,7 @@ function floorSnapReport(){
       if(!r || seen.indexOf(r) >= 0) return; seen.push(r);
       wraps(r, model).forEach(w=>{
         if(rows.indexOf(w.name + label) >= 0) return; rows.push(w.name + label);
-        console.log('    ' + (w.minY != null && w.minY < -0.001 ? '⬇ 바닥아래' : '  바닥위 ')
+        console.log('    ' + (w.minY != null && w.minY < -BELOW_FLOOR_EPS ? '⬇ 바닥아래' : '  바닥위 ')
           + ' 월드minY=' + f(w.minY)
           + '  ' + w.name
           + '  [' + (w.inModel ? '모델 안 → 바닥맞춤 대상' : '모델 밖 → 측정에서 빠짐') + ']'
@@ -117,7 +120,7 @@ function floorSnapReport(){
   try{ dRun = push('실행화면', findMySeat()); }catch(e){ console.log('[바닥맞춤] 실행화면 조회 실패', e); }
   try{ dPrev = push('꾸미기/보관함 미리보기', wardrobeMod().wdPreviewBase(),
         [wardrobeMod().wdScene()]); }catch(e){ console.log('[바닥맞춤] 미리보기 조회 실패', e); }
-  if(dRun != null && dPrev != null && Math.abs(dRun - dPrev) > 1e-4){
+  if(dRun != null && dPrev != null && Math.abs(dRun - dPrev) > DEPTH_MISMATCH_EPS){
     console.warn('[바닥맞춤] ⚠️ 실행 depth=' + f(dRun) + ' 미리보기 depth=' + f(dPrev) + ' — 같은 파츠인데 한쪽만 세고 있습니다');
   }
   return '위 로그를 복사해서 보내주세요';
