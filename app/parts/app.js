@@ -4521,8 +4521,8 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   equipPartOnSeat: (...a)=>equipPartOnSeat(...a),
   findEntryById: (...a)=>premiumMod.findEntryById(...a),
   fitModel: (...a)=>fitModel(...a),
-  generatePartThumbnail: (...a)=>generatePartThumbnail(...a),
-  getPartScene: (...a)=>getPartScene(...a),
+  generatePartThumbnail: (...a)=>partSceneMod.generatePartThumbnail(...a),
+  getPartScene: (...a)=>partSceneMod.getPartScene(...a),
   getRecHides: (...a)=>premiumMod.getRecHides(...a),
   parseGlbBytes: (...a)=>assetCodeMod.parseGlbBytes(...a),
   partCatInfo: (...a)=>premiumMod.partCatInfo(...a),
@@ -4549,7 +4549,7 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   MAX_PARTS_PER_CAT: ()=>premiumMod.MAX_PARTS_PER_CAT,
   PART_CATS: ()=>premiumMod.PART_CATS(),
   gachaMod: ()=>gachaMod,
-  partSceneCache: ()=>partSceneCache,
+  partSceneCache: ()=>partSceneMod.partSceneCache,
   savedDesks: ()=>commissionMod.savedDesks(),
   savedItems: ()=>commissionMod.savedItems(),
   savedParts: ()=>premiumMod.savedParts(),
@@ -5272,7 +5272,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
   const seqKey = stackable ? (cat + ':' + rec.id) : cat;
   const mySeq = (seat._equipSeq[seqKey] = (seat._equipSeq[seqKey] || 0) + 1);
   try{
-    const {scene, animations} = await getPartScene(rec);
+    const {scene, animations} = await partSceneMod.getPartScene(rec);
     // ★ 파싱 대기 중에 같은 카테고리에 새 장착이 시작됐다면 이건 낡은 호출 — 부착하지 않고 중단.
     if(seat._equipSeq[seqKey] !== mySeq) return;
     const obj = THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(scene) : scene.clone(true);
@@ -5285,7 +5285,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
         //   달라질 수 있는데, 캐릭터 자동 복원(앱 재시작 등) 시에는 다른 요소들보다 먼저/늦게 추가되면서
         //   순서가 꼬여 투명도가 제대로 안 보이는 경우가 있었음(꺼짐→켬으로 다시 추가하면 정상화되던 원인).
         //   투명 메쉬에 renderOrder를 명시적으로 부여해서, 추가되는 시점/순서와 무관하게 항상 일관되게 그려지게 함.
-        if(m.transparent){ o.renderOrder = 10; _forceOpaqueAlphaOutput(m); }
+        if(m.transparent){ o.renderOrder = 10; partSceneMod._forceOpaqueAlphaOutput(m); }
       }
       /* 🖍️ "_pic" 표시 = 유저가 직접 그릴 수 있는 면. 인식 규칙은 _col 과 같다.
          ⚠️ _pic 은 **_col 대상에서 뺀다** — 한 메쉬에 둘을 걸면 색(곱셈)이 그림 위에 겹쳐서
@@ -5654,7 +5654,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
           extraObj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false;
             const m = o.material&&o.material.clone? o.material.clone() : o.material; o.material=m;
             if(m){ _applyPartMatTone(m);   // 본체 인스턴스와 같은 함수
-              if(m.transparent){ o.renderOrder = 10; _forceOpaqueAlphaOutput(m); }
+              if(m.transparent){ o.renderOrder = 10; partSceneMod._forceOpaqueAlphaOutput(m); }
             }
             // 런처9: 원본과 동일한 _col 네이밍 규칙으로 이 인스턴스만의 컬러 그룹 수집
             const colMatch = (o.name && o.name.match(/_col(\d*)/i)) || (m && m.name && m.name.match(/_col(\d*)/i));
@@ -7818,7 +7818,7 @@ function applyDeskDotThumb(rec, it){
     if(_t){ c[k]=_t; put(_t); return; }
     if((!rec.glb && !rec.glbUrl)){ c[k]='fail'; return; }
     c[k]='pending';
-    generatePartThumbnail(rec).then(url=>{ if(url){ c[k]=url; put(url); } else c[k]='fail'; }).catch(()=>{ c[k]='fail'; });
+    partSceneMod.generatePartThumbnail(rec).then(url=>{ if(url){ c[k]=url; put(url); } else c[k]='fail'; }).catch(()=>{ c[k]='fail'; });
   }catch(_){}
 }
 function swThumb(label,on,icon,onDelete,active){ const d=document.createElement('div');
@@ -8538,7 +8538,7 @@ document.getElementById('assetImpGo').onclick=async()=>{
       // ★ 관리자 등록(admin)과 달리 카탈로그(Firebase)에는 절대 안 올림 — 이 기기(로컬)에만 저장됨.
       rec.cat = _assetImpCat; rec.order = premiumMod.partsInCat(_assetImpCat).length;
       premiumMod.savedParts().push(rec); premiumMod.persistSavedParts();
-      partSceneCache.delete(id);   // 혹시 모를 캐시 충돌 방지
+      partSceneMod.partSceneCache.delete(id);   // 혹시 모를 캐시 충돌 방지
       toast('파츠를 추가했어요(이 기기에만 저장됨)');
       wardrobeMod.renderWardrobe();
     } else {
@@ -10982,166 +10982,30 @@ let customItems={};
 */
 /* (앱 FSD 37번) 이 자리의 본문도 premium-assets.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🧊 파츠 GLB 파싱 캐시 · 썸네일 ═══ */
-/* 파츠 GLB 파싱 캐시: id → THREE.Object3D(원본 씬) */
-// ★ 반투명 파츠가 데스크탑 배경 영향받는 문제 해결용 헬퍼.
-//   Electron 투명 창은 프레임버퍼 alpha < 1인 픽셀을 데스크탑 배경과 블렌드하기 때문에,
-//   블렌더에서 alpha 낮게 export한 재질이 데스크탑 색에 따라 다르게 보이는 문제가 있었음.
-//   프래그먼트 셰이더에서 alpha=1을 강제해서 최종 픽셀이 항상 opaque하게 출력되게 함.
-//   내부 색상 블렌딩(캐릭터 몸통 위의 반투명 효과)은 유지됨 — 이건 프레임버퍼 alpha와 별개.
-function _forceOpaqueAlphaOutput(mat){
-  // ⚠️ 이 함수는 이전에 반투명 파츠의 최종 알파를 1.0으로 강제하는 셰이더 훅이었음.
-  //   그 방식은 유저가 만든 반투명 파츠(안경 렌즈, 유령 옷 등)의 투명도가 화면에 전혀 반영되지 않는
-  //   부작용을 만들었기 때문에 제거. 대신 호출부의 renderOrder=10 지정은 그대로 유지되어 파츠 간
-  //   그리기 순서 문제(뒤 요소가 앞 요소에 가려지는 문제)를 대부분 방지함.
-  //   호출부 변경 최소화를 위해 함수 자체는 남기되 no-op으로 둠.
-}
-const partSceneCache = new Map();
-async function getPartScene(rec){
-  if(partSceneCache.has(rec.id)) return partSceneCache.get(rec.id);
-  // 런처9/Storage 이관 후속: rec.glb가 없고 glbUrl만 있으면(로컬 캐시에서 로드된 초기 상태) Storage에서 먼저 받아옴.
-  if(!rec.glb && rec.glbUrl){
-    try{ await resolveCatalogGlb(rec); }catch(_){}
-  }
-  if(!rec.glb) throw new Error('파츠 GLB를 찾을 수 없어요: '+rec.id);
-  const {scene, animations} = await assetCodeMod.parseGlbFull(b64ToBuf(rec.glb));
-  const result = {scene, animations};
-  partSceneCache.set(rec.id, result);
-  return result;
-}
-// ★ Phase 4: 파츠 도트 썸네일 자동 생성.
-//   등록/편집 시점에 이 함수를 호출해 rec.thumbnail(base64 PNG)을 채움. 꾸미기 창 카드에 표시됨.
-//   32×32 정사각형에 정면 각도로 렌더 → CSS로 pixelated 확대 표시.
-const THUMB_SIZE = 32;
-let _thumbRenderer = null, _thumbScene = null, _thumbCam = null;
-function _ensureThumbRig(){
-  if(_thumbRenderer) return;
-  const canvas = document.createElement('canvas');
-  canvas.width = THUMB_SIZE; canvas.height = THUMB_SIZE;
-  _thumbRenderer = new THREE.WebGLRenderer({canvas, antialias:false, alpha:true, preserveDrawingBuffer:true});
-  _thumbRenderer.setPixelRatio(1);
-  _thumbRenderer.setClearColor(0x000000, 0);   // 투명 배경
-  _thumbRenderer.outputEncoding = THREE.sRGBEncoding;
-  _thumbScene = new THREE.Scene();
-  // 조명은 메인 씬과 동일하게 (톤 통일)
-  /* 💡 썸네일 광량 — 씬 조명(_MAIN_LIGHT_INT)에 이 배율을 곱한다.
-     ★★ 이 배율은 **직접 정하지 않는다.** TONE_FRONT_TOTAL 과 똑같은 방식으로, "정면 흰 면이 받는
-        총합"(THUMB_FRONT_TOTAL)에서 emissive(FLAT_EMISSIVE)를 뺀 나머지를 조명이 채우게 계산한다.
-     [경위 — 왜 조용히 어두워졌나] 예전에는 여기에 0.4 라는 손으로 맞춘 숫자가 박혀 있었다.
-       그 0.4 는 _MAIN_LIGHT_INT 가 ≈0.84, FLAT_EMISSIVE 가 0.45 였던 시절에 "흰 파츠가 1.49 로
-       완전히 날아가는" 것을 막기 위해 고른 값이다(제보: "하얀 파츠는 아예 보이지도 않는다").
-       그 뒤 조명 예산이 두 번 바뀌어 _MAIN_LIGHT_INT 가 0.552 로 34% 내려갔는데, 이 0.4 는 예산
-       밖에 있어서 같이 따라오지 않았다 ⇒ 썸네일 정면 총합이 **0.709** 로 주저앉았다.
-       실행 화면은 1.12 이므로 카드 안에서만 63% 밝기로 보인 것이다(제보: "썸네일이 전체적으로 어둡다").
-       ★ 이것이 파일 위쪽 FLAT_EMISSIVE 주석이 경고하는 바로 그 사고다 — "한 예산을 나눠 쓰는 값을
-         다른 곳에 손으로 적어두면 한쪽만 고칠 때마다 화면이 어긋난다." 그래서 계산으로 바꿨다.
-     [값] 배율 1 일 때 정면 총합 = 1.12 (= 실행 화면과 동일). 배율은 아래 식이 정한다.
-        THUMB_FRONT_TOTAL   배율    정면 총합
-          1.12(지금)        1.000   1.12   ← 장착 화면과 같은 톤
-          1.06              0.912   1.06
-          1.02              0.854   1.02
-          0.96              0.766   0.96
-          (0.709 = 예전 상태 · 너무 어둡다)
-     ⚠️ 흰 파츠(알베도 1.0)는 총합 1.0 을 넘으면 잘린다. 실행 화면이 이미 1.12 로 돌고 있어서
-        같은 값을 쓰는 것은 "카드와 장착 화면이 같아진다"는 뜻이다 — 썸네일만 특별히 더 어둡게
-        둘 이유가 없다. 게다가 키 라이트가 비스듬해서(1,2.5,2) 정면 법선이 받는 몫은 cos≈0.6 이라
-        실제 정면은 ≈1.06 에 앉는다(윗면만 1.12 에 근접) — 32px 에서 음영이 남는다.
-     ⚠️ "흰 파츠가 다시 뭉개진다" 제보가 오면 THUMB_FRONT_TOTAL 만 1.02 로 내릴 것.
-        _MAIN_LIGHT_INT·_KEY_LIGHT_MUL·FLAT_EMISSIVE 는 절대 여기서 만지지 말 것(예산이 갈라진다).
-     ⚠️ 썸네일은 **등록 시점에 구워져 캐시**된다 — 이 값을 바꿔도 기존 파츠는 그대로다.
-        콘솔에서 generateAllPartThumbnails(true) 로 다시 구워야 반영된다. */
-  const THUMB_FRONT_TOTAL = TONE_FRONT_TOTAL;   // 장착 화면과 같은 총합
-  const _THUMB_LIGHT_AT_1 = (0.95 * _MAIN_LIGHT_INT) + (_MAIN_LIGHT_INT * _KEY_LIGHT_MUL);
-  const THUMB_LIGHT_MUL = Math.max(0, Math.min(1.5,
-    (THUMB_FRONT_TOTAL - FLAT_EMISSIVE) / (_THUMB_LIGHT_AT_1 || 1)));
-  _thumbScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT * THUMB_LIGHT_MUL));
-  const key = new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL * THUMB_LIGHT_MUL);
-  /* ★ 정수리 바로 위(0,5,0)에서 비추면 카메라를 보는 면에 빛이 거의 안 닿아 정면이 어둡게 나온다.
-     그렇다고 정면으로 세우면(0,0,n) 음영이 통째로 사라져 납작해진다 — 비스듬히 위에서 준다. */
-  key.position.set(1, 2.5, 2); _thumbScene.add(key);
-  _thumbCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
-  _thumbCam.position.set(0, 0, 3);
-  _thumbCam.lookAt(0, 0, 0);
-}
-async function generatePartThumbnail(rec){
-  try{
-    _ensureThumbRig();
-    const {scene:template} = await getPartScene(rec);
-    // 원본을 건드리지 않도록 clone
-    const obj = (THREE.SkeletonUtils && THREE.SkeletonUtils.clone) ? THREE.SkeletonUtils.clone(template) : template.clone(true);
-    /* 💡 장착 화면과 **같은 톤**을 먹인다.
-       [경위] 파츠 밝기의 상당 부분은 emissive(플랫 조명)에서 나오는데 썸네일만 그 처리가
-         빠져 있어서, 같은 파츠인데 카드 안에서만 어둡게 나왔다.
-       ⚠️ 머티리얼을 반드시 복제한 뒤 건드릴 것 — 원본은 getPartScene 이 캐싱해 두고 장착 경로가
-          다시 쓰는 것이라, 여기서 원본을 물들이면 그 뒤 장착분에 두 번 먹는다. */
-    obj.traverse(o=>{
-      if(!o.isMesh) return;
-      o.frustumCulled = false;
-      const m = (o.material && o.material.clone) ? o.material.clone() : o.material;
-      o.material = m;
-      _applyPartMatTone(m);
-    });
-    // 바운딩 박스 재서 프레이밍
-    obj.updateMatrixWorld(true);
-    const bb = new THREE.Box3().setFromObject(obj);
-    const size = bb.getSize(new THREE.Vector3());
-    const center = bb.getCenter(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z, 0.01);
-    // 오브젝트를 원점 중앙에 위치시키기
-    obj.position.sub(center);
-    // 카메라 프레이밍 — 오브젝트가 딱 맞게 들어오도록 스케일 조정
-    const half = maxDim * 0.55;   // 여백 10% 정도
-    _thumbCam.left = -half; _thumbCam.right = half;
-    _thumbCam.top = half; _thumbCam.bottom = -half;
-    _thumbCam.updateProjectionMatrix();
-    _thumbScene.add(obj);
-    _thumbRenderer.render(_thumbScene, _thumbCam);
-    const dataUrl = _thumbRenderer.domElement.toDataURL('image/png');
-    _thumbScene.remove(obj);
-    return dataUrl;
-  }catch(e){
-    console.warn('썸네일 생성 실패', rec && rec.id, e);
-    return null;
-  }
-}
-// ★ 관리자 콘솔용: 기존에 등록된 파츠에 일괄로 썸네일 생성 + Firebase 배포.
-//   F12 콘솔에서 `generateAllPartThumbnails()` — 썸네일이 **없는** 것만 생성.
-//                `generateAllPartThumbnails(true)` — 이미 있는 것도 **다시 굽는다**.
-//   ⚠️ 썸네일은 등록 시점에 구워져 캐시되므로, 톤(THUMB_FRONT_TOTAL)이나 조명 예산을 바꾼 뒤에는
-//     force 로 다시 구워야 반영된다. 안 그러면 "코드를 고쳤는데 화면이 그대로"가 된다.
-window.generateAllPartThumbnails = async function(force){
-  if(!isAdmin){ console.warn('관리자만 실행 가능'); return; }
-  const targets = premiumMod.savedParts().filter(p=>p.fromCatalog && (force || (!p.thumbnail && !p.thumbUrl)));
-  console.log('썸네일 ' + (force ? '재생성(force)' : '생성') + ' 대상:', targets.length, '개');
-  let ok=0, fail=0;
-  for(const rec of targets){
-    try{
-      const thumb = await generatePartThumbnail(rec);
-      if(thumb){
-        rec.thumbnail = thumb;
-        /* ⚠️ 카드가 읽는 순서는 thumbUrl → thumbnail 이다(_gachaThumb · renderWardrobe 둘 다).
-           다시 구웠는데 예전 Storage URL 이 남아 있으면 **낡은 이미지가 계속 이긴다** —
-           "force 로 돌렸는데 하나도 안 바뀐다"가 된다. 로컬 참조를 지워서 새로 구운 base64 가
-           바로 보이게 하고, 서버 쪽 새 URL 은 다음 카탈로그 동기화에서 다시 채워진다. */
-        if(force) delete rec.thumbUrl;
-        if(window.firebaseAPI && window.firebaseAPI.publishPart){
-          /* 🔴 여기도 set() = 노드 전체 교체다 — buildPartPublishData 로만 만든다.
-             ⚠️ 예전엔 필드를 손으로 나열했고 **`gacha` 와 `season` 이 빠져 있었다.**
-                이 함수를 한 번 돌리면 카탈로그의 가챠 파츠가 전부 `gacha` 를 잃는다 →
-                뽑기로만 얻어야 할 파츠가 **꾸미기 창에 그냥 뜬다.** 손으로 나열하는 방식이
-                같은 사고를 계속 만든 자리라, 목록을 한 곳으로 모았다. */
-          await window.firebaseAPI.publishPart(rec.id, adminPartReg.buildPartPublishData(rec, { thumbnail: thumb }));
-        }
-        ok++;
-        console.log('✓', rec.name, '('+(ok+fail)+'/'+targets.length+')');
-      } else { fail++; }
-    }catch(e){ fail++; console.warn('실패:', rec.name, e); }
-  }
-  premiumMod.persistSavedParts();
-  wardrobeMod.renderWardrobe();
-  gachaMod.renderGachaInv();   // 🎰 보관함이 열려 있으면 카드도 같이 갱신
-  console.log('완료: 성공', ok, '/ 실패', fail);
-  toast('썸네일 생성 완료: '+ok+'개');
-};
+/* 본문은 character/part-scene.js 로 옮겼다(구역 떼기 C · w2).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const partSceneMod = TwPartScene.createPartScene({
+  FLAT_EMISSIVE: FLAT_EMISSIVE,
+  TONE_FRONT_TOTAL: TONE_FRONT_TOTAL,
+  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
+  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
+  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
+  _applyPartMatTone: (...a)=>_applyPartMatTone(...a),
+  assetCodeMod: assetCodeMod,
+  b64ToBuf: (...a)=>b64ToBuf(...a),
+  resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),
+});
+/* 본문은 admin/admin-thumbs.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const adminThumbs = TwAdminThumbs.createAdminThumbs({
+  adminPartReg: adminPartReg,
+  gachaMod: ()=>gachaMod,
+  isAdmin: ()=>isAdmin,
+  partSceneMod: partSceneMod,
+  premiumMod: premiumMod,
+  toast: (...a)=>toast(...a),
+  wardrobeMod: wardrobeMod,
+});
 premiumMod.loadSavedParts();
 
 /* ═══ 💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결 ═══ */
