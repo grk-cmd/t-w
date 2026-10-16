@@ -50,7 +50,7 @@ const rideBenchMod = deps.rideBenchMod;
       //   (그러면 관람 모드 종료·commit·BGM 정리·디자인 스튜디오 close까지 원래 로직대로 진행)
       const closeBtn = document.getElementById('myHomeClose');
       if(closeBtn) closeBtn.click();
-    } else if(typeof window.openMyHome === 'function'){
+    } else {
       window.openMyHome();
     }
   }

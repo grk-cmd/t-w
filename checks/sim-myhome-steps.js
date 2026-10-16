@@ -63,8 +63,8 @@ chk(/console\.error\([^)]*마이홈 열기/.test(OPEN),
 chk(/Promise\.resolve\(\s*window\._mallangOnOpen/.test(OPEN),
     '★ _mallangOnOpen 은 async 다 — Promise 를 .catch 로 받는다(try/catch 로는 못 잡는다)');
 chk(/_mallangOnOpen[\s\S]{0,300}\.catch\(/.test(OPEN), '   그 .catch 가 실제로 붙어 있다');
-chk(/mallang\.js/.test(OPEN),
-    '   훅이 아예 없을 때(스크립트 미로드)도 안내한다');
+chk(!/typeof window\._mallangOnOpen/.test(OPEN) && /try\{\s*Promise\.resolve\(window\._mallangOnOpen/.test(OPEN),
+    '   고리는 가드 없이 부른다(mallang.js 는 부팅 때 늘 건다) — 없으면 try 가 받아 «말랑이 열기 실패» 로 콘솔에 남는다');
 
 say('');
 

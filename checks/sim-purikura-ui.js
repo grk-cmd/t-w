@@ -92,6 +92,7 @@ function mkEnv(opt){
     Audio: FakeAudio, Image: class { constructor(){ this.onload = null; } }, URL: { createObjectURL: () => 'blob:x', revokeObjectURL(){} },
     confirm: () => true, THREE: U(),
     companion: { pauseBgm(){ env.pause++; }, resumeBgm(){ env.resume++; } },
+    _mhBgmPlaying: () => false, _mhBgmSetPlaying(){},   // 🎵 마이홈 BGM 고리(myhome-edit.js 가 부팅 때 건다) — 여기선 마이홈 BGM 이 안 도는 판
     firebaseAPI: {
       pkOnValue: (path, cb) => { env.subs.push(path); return () => { env.unsubs++; }; },
       pkUpdate: (path, v) => { env.fbWrites.push(path); return Promise.resolve(); },

@@ -81,8 +81,8 @@ async function openFriendHomeView(friendId, nameHint){
         _mhApplyVisitUI(); renderMyHomePage();
       }).catch(()=>{});
     }
-    if(typeof window._mhReSubscribeGuestbook==='function') window._mhReSubscribeGuestbook();
-    if(typeof window._mhGbRefreshBadge==='function') window._mhGbRefreshBadge();   // 관람 모드 → 자기 방명록 뱃지 숨김
+    window._mhReSubscribeGuestbook();
+    window._mhGbRefreshBadge();   // 관람 모드 → 자기 방명록 뱃지 숨김
     // 👀 스케줄러도 친구 것으로 — 달력(공개 일정만) + D-day(공개만) 구독 전환
     if(_schedDdaysVisitUnsub()){ try{ _schedDdaysVisitUnsub()(); }catch(_){} setSchedDdaysVisitUnsub(null); }
     mhScheduler.setDdaysVisit({});
@@ -111,8 +111,8 @@ function closeFriendHomeView(){
   }
   _mhApplyVisitUI();
   renderMyHomePage();
-  if(typeof window._mhReSubscribeGuestbook==='function') window._mhReSubscribeGuestbook();
-  if(typeof window._mhGbRefreshBadge==='function') window._mhGbRefreshBadge();   // 자기 홈 복귀 → 뱃지 다시 계산
+  window._mhReSubscribeGuestbook();
+  window._mhGbRefreshBadge();   // 자기 홈 복귀 → 뱃지 다시 계산
   // 👀 스케줄러 원복 — 내 달력·내 D-day로
   if(_schedDdaysVisitUnsub()){ try{ _schedDdaysVisitUnsub()(); }catch(_){} setSchedDdaysVisitUnsub(null); }
   mhScheduler.setDdaysVisit(null);

@@ -374,7 +374,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
   function open(){
     // 방명록 창을 여는 순간이 "새 글을 확인하는 순간" — 자기 홈 뱃지의 lastRead를 지금 시각으로 갱신하고 뱃지 즉시 해제.
     //   이미 창이 열려있는 상태에서 재활성화(focus)만 하는 경우에도 동일하게 처리 (재클릭도 확인으로 간주).
-    if(typeof window._mhGbMarkAllRead==='function') window._mhGbMarkAllRead();
+    window._mhGbMarkAllRead();
     // 이미 떠 있으면 앞으로만 가져온다. ⚠️ 이때도 쓰기 UI를 다시 칠한다 —
     //   창을 연 뒤에 친구 목록이 도착한 경우, 여기서 안 칠하면 입력칸이 잠긴 채로 굳는다.
     if(_gbAlive()){ try{ _gbWin.focus(); }catch(_){} _gbApplyWriteUI(gbDoc()); renderClap(); renderList(); return; }

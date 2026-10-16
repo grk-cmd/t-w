@@ -272,7 +272,7 @@ function _mhBindStickerRotate(handle, sid, lblEl){
     if(node) node.classList.remove('rotating');
     try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
     commitMyHomePage(true);
-    if(typeof window._mhFitWindow === 'function') window._mhFitWindow();   // 창 밖으로 나간 만큼 런처 창을 넓힌다(app.js _mhStickerOverhang)
+    window._mhFitWindow();   // 창 밖으로 나간 만큼 런처 창을 넓힌다(app.js _mhStickerOverhang)
   };
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);
@@ -302,7 +302,7 @@ function _mhBindStickerResize(handle, sid){
     dragging=false;
     try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
     commitMyHomePage(true);
-    if(typeof window._mhFitWindow === 'function') window._mhFitWindow();   // 창 밖으로 나간 만큼 런처 창을 넓힌다(app.js _mhStickerOverhang)
+    window._mhFitWindow();   // 창 밖으로 나간 만큼 런처 창을 넓힌다(app.js _mhStickerOverhang)
   };
   handle.addEventListener('pointerup', end);
   handle.addEventListener('pointercancel', end);

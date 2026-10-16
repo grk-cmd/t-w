@@ -412,7 +412,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
       if(typeof z === 'number' && _lastZ !== null && z !== _lastZ){
         requestAnimationFrame(()=>{
           try{ plMod.st.lastBoundsKey = ''; plMod.syncBgmBounds(); }catch(_){}
-          try{ if(typeof window._mhSyncBgmBounds === 'function') window._mhSyncBgmBounds(); }catch(_){}
+          try{ window._mhSyncBgmBounds(); }catch(_){}
         });
       }
       if(typeof z === 'number') _lastZ = z;

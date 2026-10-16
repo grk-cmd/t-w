@@ -73,7 +73,7 @@ async function initMyHome(){
         setMyHomeFriends(friends);
         inboxMod().renderMyHomeFriendList();
         // 📖 방명록 쓰기 게이트는 이 목록으로 판정한다 — 목록이 도착/변경되면 열려 있는 창에 즉시 반영.
-        if(typeof window._mhGbRefreshWriteUI==='function') window._mhGbRefreshWriteUI();
+        window._mhGbRefreshWriteUI();
       });
       // 📌 D-day 구독 (스케줄러 우측 목록)
       if(firebaseAPI.subscribeDdays){
@@ -121,7 +121,7 @@ async function initMyHome(){
             const lbl = inboxMod().inboxTagLabel(m.tag);
             toast(`📩 ${lbl}: ${m.title||''}`);
             // 🐞 답변 알림이 오면 버그제보 탭 배지도 같이(bug-board-ui.js)
-            if(m.tag==='bug' && typeof window._bugBoardRefreshBadge==='function') window._bugBoardRefreshBadge();
+            if(m.tag==='bug') window._bugBoardRefreshBadge();
           });
         });
       }

@@ -259,8 +259,9 @@ await sec('── 5. app.js 배선', () => {
   const ret = (MOD.match(/return \{\n  open: window\.openMyGuestbook,([\s\S]*?)\n\};/) || [])[0] || '';
   const names = [...ret.matchAll(/^\s+(\w+): window\./gm)].map(x => x[1]);
   chk(!/\bGUESTBOOK_OFF\b/.test(APP), '빈 껍데기 GUESTBOOK_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
-  const calls = (code.match(/typeof (window\.)?(_mhGb\w+|_mhReSubscribeGuestbook)\s*===\s*'function'/g) || []).length;
-  chk(calls === 8, '부르는 곳(친구 목록 · 마이홈 열기 · 닫기 · 관람 시작 · 끝 · 런처로)은 window 고리를 typeof 로 본다 — 모듈이 없으면 조용히 넘어간다 (' + calls + ')');
+  const guarded = (code.match(/typeof (window\.)?(_mhGb\w+|_mhReSubscribeGuestbook)\s*===\s*'function'/g) || []).length;
+  const calls = (code.match(/(?<![\w.])(window\.)?(_mhGb(?:StartWatch|StopWatch|RefreshBadge|RefreshWriteUI|MarkAllRead)|_mhReSubscribeGuestbook)\(/g) || []).length;
+  chk(guarded === 0 && calls >= 8, '부르는 곳(친구 목록 · 마이홈 열기 · 닫기 · 관람 시작 · 끝 · 런처로)은 window 고리를 가드 없이 부른다 — 고리는 부팅 때 늘 걸린다(가드 걷기 4단계 · 부르는 곳 ' + calls + ' · 가드 ' + guarded + ')');
   const iG = HTML.indexOf('<script src="parts/myhome/guestbook.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iG > 0 && iG < iA, 'html — guestbook.js 를 app.js 앞에 싣는다');
   /* #103 교훈 — 크로미움 내장 전역(Scheduler 등)과 겹치면 typeof 가드가 늘 통과한다. 접두사로 피한다(헤드리스 크로미움에서 typeof 확인) */
