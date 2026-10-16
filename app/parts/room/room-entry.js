@@ -68,8 +68,8 @@ function _onServerRoomMeta(meta, prev){
   window._roomMetaCache = meta;
   window._activeChannel = (meta && meta.channel === 'togetherroom') ? 2 : 1;
   const me = getMyUserId();
-  if(prev && meta && prev.host !== me && meta.host === me && typeof window._onHostSucceeded === 'function') window._onHostSucceeded(meta);
-  try{ if(typeof window._onRoomMeta === 'function') window._onRoomMeta(meta); }catch(_){}
+  if(prev && meta && prev.host !== me && meta.host === me) window._onHostSucceeded(meta);
+  try{ window._onRoomMeta(meta); }catch(_){}
 }
 /* Firebase 방(firebase-init joinRoom)이 알릴 곳 — 방 서버 provider(makeServerProvider)가 받는 것과 같은 몫.
    firebase-init 은 아래층이라 여기 이름을 직접 부르지 않고 이 묶음을 넘겨받는다. */
@@ -80,7 +80,7 @@ function _firebaseRoomHooks(){
     onOverCapacity: (cap)=>window._onRoomOverCapacity(cap),
     onMeta: (meta)=>{
       window._roomMetaCache = meta;
-      if(typeof window._onRoomMeta === 'function') window._onRoomMeta(meta);
+      window._onRoomMeta(meta);
     },
     getExp: ()=>myExpCells(),
     secretOwner: ()=>window._srOwnerUid,
@@ -96,7 +96,7 @@ function makeServerProvider(net, create){
     deserializeDef: deserializeDefFromNetwork,
     getExp: ()=>{ try{ return myExpCells(); }catch(_){ return undefined; } },
     onMeta: _onServerRoomMeta,
-    onDisband: ()=>{ if(typeof window._onRoomDisbanded === 'function') window._onRoomDisbanded(); },
+    onDisband: ()=>{ window._onRoomDisbanded(); },
     onReplaced: ()=>{ try{ _onDeviceSessionLost(); }catch(_){} },
     /* 방 안에서 끊긴 채 clientGiveUpMs(원격 설정 · 기본 90초) 동안 못 돌아왔다 — Firebase 로 옮기지 않고 방에서 나온다.
        옮기면 사람마다 옮기는 때가 달라 서버 쪽 · Firebase 쪽으로 방이 갈린다(«서로 안 보여요»). 다시 들어오면 서버가 돌아온 뒤 같은 방으로 붙는다. */

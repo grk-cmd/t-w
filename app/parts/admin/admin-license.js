@@ -79,7 +79,7 @@ function _renderLicenseGenListFiltered(){
 }
 document.getElementById('lcLicenseGen').onclick=()=>{
   const o=document.getElementById('licenseGenOverlay'); o.classList.add('on'); o.style.display='flex';
-  if(typeof window._lxHideWin==='function') window._lxHideWin();   // 일괄 창만 보이던 채로 닫혔어도 발급 창부터 연다
+  window._lxHideWin();   // 일괄 창만 보이던 채로 닫혔어도 발급 창부터 연다
   document.getElementById('licenseGenResult').style.display='none';
   document.getElementById('licenseGenNote').value='';
   renderLicenseGenList();

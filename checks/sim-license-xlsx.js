@@ -42,7 +42,7 @@ say('── 1. 배선');
   chk(/const fits = [^;]*ov\.clientWidth >= mainBox\.offsetWidth \+ GAP \+ WIN_W/.test(B) && /setSolo\(!fits\);/.test(B), '옆에 설 자리가 없으면 일괄 창만 보인다');
   chk(/function hideWin\(\)\{ win\.style\.display = 'none'; setSolo\(false\); \}/.test(B) && /gc\.addEventListener\('click', hideWin\)/.test(B)
     && /window\._lxHideWin = hideWin;/.test(B), '닫으면(✕ · 발급 창 닫기) 발급 창이 돌아온다');
-  chk(/o\.style\.display='flex';\s*if\(typeof window\._lxHideWin==='function'\) window\._lxHideWin\(\);/.test(LIC), '발급 창을 다시 열면 발급 창부터');
+  chk(/o\.style\.display='flex';\s*window\._lxHideWin\(\);/.test(LIC), '발급 창을 다시 열면 발급 창부터');
   chk(/JSZip\.loadAsync\(buf\)/.test(grab('_lxReadXlsx')) && /new JSZip\(\)/.test(grab('_lxWriteXlsx')), '읽기·쓰기 모두 JSZip');
 }
 

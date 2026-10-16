@@ -32,6 +32,11 @@ const HOOKS = {
   _mallangOpenGift: 'myhome/mallang.js', _mallangGiftOrder: 'myhome/mallang.js', _mallangIsGiftHidden: 'myhome/mallang.js',
   _mallangDeleteGift: 'myhome/mallang.js',
   _bugBoardOpen: 'support/bug-board-ui.js', _bugBoardRefreshBadge: 'support/bug-board-ui.js',
+  /* 🕒 포커스 · 🎨 꾸미기 · 🚪 방 · 🎵 플레이리스트 · 🛠️ 관리자(4단계 2-2 — app.js 안의 부름은 구역 떼기와 겹치지 않게 그 작업 뒤에) */
+  _focusLogClamp: 'focus/focus-log.js', refreshWardrobe: 'character/wardrobe-panel.js',
+  _onRoomMeta: 'chat/chat-prefs.js', _onHostSucceeded: 'room/room-entry.js', _onRoomDisbanded: 'room/room-entry.js',
+  _gachaRestorePos: 'character/gacha.js', _plApplyPos: 'status/playlist.js', _plSyncBgmBounds: 'status/playlist.js',
+  _lxHideWin: 'admin/admin-license-bulk.js',
 };
 
 function judge(files) {

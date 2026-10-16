@@ -89,7 +89,7 @@ function _pomoOpen(on){
   if(on){ try{ weeklyChal.open(false); }catch(_){} }
   win.classList.toggle('pomo-on', !!on);
   _pomoRender();
-  try{ if(typeof window._focusLogClamp === 'function') window._focusLogClamp(); }catch(_){}
+  try{ window._focusLogClamp(); }catch(_){}
 }
 function _pomoRender(){
   const $ = id => document.getElementById(id);

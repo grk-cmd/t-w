@@ -676,7 +676,7 @@ function _chalOpen(on){
   /* 열 때는 언제나 **지금 트랙**을 보여준다 — 지난번에 기록을 보다 닫았다고 해서
      다음에 열 때까지 박제 화면이 남아 있으면 "오늘 것이 안 뜬다"로 읽힌다. */
   if(on){ _chalView = null; _chalRefreshFocusApps(); _chalTick(); }
-  try{ if(typeof window._focusLogClamp === 'function') window._focusLogClamp(); }catch(_){}
+  try{ window._focusLogClamp(); }catch(_){}
 }
 function _chalIsOpen(){ const w = _chalEl('focusLogWin'); return !!(w && w.classList.contains('chal-on')); }
 
@@ -1058,7 +1058,7 @@ function _chalRenderRuleList(){
   const segGo = (p) => {
     _chalView = (p === _chalLivePhase()) ? null : p;
     _chalRender();
-    try{ if(typeof window._focusLogClamp === 'function') window._focusLogClamp(); }catch(_){}
+    try{ window._focusLogClamp(); }catch(_){}
   };
   on('chalPhWd', ()=> segGo('wd'));
   on('chalPhWe', ()=> segGo('we'));
@@ -1189,7 +1189,7 @@ function _chalRenderRuleList(){
     }
     _chalDraft = null;
     _chalTick();
-    try{ if(typeof window._focusLogClamp === 'function') window._focusLogClamp(); }catch(_){}
+    try{ window._focusLogClamp(); }catch(_){}
   });
 
   on('chalEditBtn', ()=>{ if(_chalActive()) _chalOpenSetup(chalRec.kind, true); });
