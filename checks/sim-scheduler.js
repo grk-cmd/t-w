@@ -151,12 +151,15 @@ sec('── 3. 🔔 뱃지 · 알림 목록', () => {
   chk(!txt.includes('조용'), '  알림을 끈 기념일은 안 뜬다');
   chk(txt.includes('수령함 확인') && txt.includes('NEW 1'), '  아래 [📪 수령함 확인] · 안 읽은 수');
   chk(Number(E.ls.get('tw.bellSeenTs')) >= now, '  열면 읽음 시각을 tw.bellSeenTs 에 적는다');
-  /* ⚠️ 옛 셈 그대로 — 본 날(seenDay)은 UTC 날짜(toISOString), 오늘은 로컬 날짜라 한국 0~9시에는 둘이 달라
-       기념일 이정표가 다시 센다. 옮기기만 한 PR 이라 고치지 않고 그 차이를 그대로 기대한다. */
-  const sameDay = new Date(Number(E.ls.get('tw.bellSeenTs'))).toISOString().slice(0, 10) === TODAY;
-  chk(badge.textContent === (sameDay ? '1' : '2'), '  열고 나면 본 것은 빠지고 수령함 1 만 남는다' + (sameDay ? '' : ' (+ 기념일 1 — UTC 날짜 차이, 옛 셈 그대로)'));
+  /* 본 날(seenDay)도 오늘과 같은 로컬 날짜로 센다 — 예전엔 UTC(toISOString)라 한국 0~9시에 기념일을 다시 셌다 */
+  chk(badge.textContent === '1', '  열고 나면 본 것은 빠지고 수령함 1 만 남는다(기념일은 오늘 본 것으로 — 시간대와 상관없이)');
+  chk(!/toISOString\(\)\.slice\(0,\s*10\)/.test(MOD) && /const seenDay = seen \? _localYMD\(seen\)/.test(MOD), '  본 날은 이 기기 시간대 날짜(_localYMD) — UTC 로 자르지 않는다');
   E.el('bellClose').fire('click');
   chk(E.el('bellWin').style.display === 'none' && !E.S.isBellOpen(), '✕ → 닫힌다');
+  E.el('myBellBtn').fire('click');
+  const inboxBtn = list.children.find(c => c.className === 'bell-inbox-btn');
+  try{ inboxBtn.onclick(); }catch(_){}
+  chk(!!inboxBtn && E.el('bellWin').style.display === 'none' && !E.S.isBellOpen(), '[📪 수령함 확인] → 알림창이 닫힌다(예전엔 typeof closeBell 이 늘 거짓이라 안 닫혔다)');
   const E2 = mkEnv();
   E2.S.renderBellList();
   chk(E2.el('bellList').textContent.includes('오늘 예정된 일정이 없어요'), '아무것도 없으면 «오늘 예정된 일정이 없어요»');

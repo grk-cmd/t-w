@@ -50,6 +50,7 @@ let _schedUnsubMonth = null;
 function _pad2(n){ return String(n).padStart(2,'0'); }
 function _todayParts(){ const d=new Date(); return { y:d.getFullYear(), m:d.getMonth()+1, d:d.getDate() }; }
 function _todayYMD(){ const t=_todayParts(); return `${t.y}-${_pad2(t.m)}-${_pad2(t.d)}`; }
+function _localYMD(ts){ const d=new Date(ts); return `${d.getFullYear()}-${_pad2(d.getMonth()+1)}-${_pad2(d.getDate())}`; }   // 이 기기 시간대의 날짜(_todayYMD 와 같은 셈)
 function _ymOf(y,m){ return `${y}-${_pad2(m)}`; }
 
 /* 날짜 문자열 두 개의 일수 차이 (b - a). 시간대 영향을 없애려고 UTC 기준으로 계산 */
@@ -962,7 +963,7 @@ function refreshBellBadge(){
   // 📌 오늘이 이정표(당일/50일/100일 단위)인 D-day도 카운트.
   //   ts 비교가 아니라 "오늘 해당하는가"로 판정하므로, 창을 열어 읽음 처리하면 그날은 다시 안 셈.
   const todayYMD = _todayYMD();
-  const seenDay = seen ? new Date(seen).toISOString().slice(0,10) : '';
+  const seenDay = seen ? _localYMD(seen) : '';   // ⚠️ toISOString 은 UTC 라 한국 0~9시엔 어제로 읽혀 «오늘 본 기념일» 을 다시 셌다
   const ddayHits = (seenDay === todayYMD) ? 0 : Object.keys(_schedDdays||{}).filter(id=>{
     const dd = _schedDdays[id];
     if(!dd.notify || !dd.date) return false;
@@ -1067,7 +1068,7 @@ function renderBellList(){
   const btn = document.createElement('div'); btn.className = 'bell-inbox-btn';
   btn.innerHTML = '📪 수령함 확인' + (inboxNew > 0 ? ' <span class="bell-inbox-new">NEW '+inboxNew+'</span>' : '');
   btn.onclick = ()=>{
-    if(typeof closeBell==='function') closeBell();
+    window._closeBellWin();   // closeBell 은 창을 만드는 함수 안의 이름이라 여기서는 안 보인다 — 그 함수가 거는 고리로 닫는다
     // 마이홈 열고 → 우편함 탭(수령함)으로 이동
     twNav.go(twNav.NAV.MY_HOME);
     /* ⚠️ 예전엔 친구 탭을 눌렀다 — 수령함이 그 탭 오른쪽 칸에 얹혀 있었기 때문이다.

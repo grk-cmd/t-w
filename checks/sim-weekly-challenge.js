@@ -206,9 +206,10 @@ await sec('── 3. 📋규칙 트랙 — 체크 · 달성 · 3일째 선지급
   e.els.chalToday.fire('click', { target: target('data-i', '1') }); await flush();
   chk(W.state().days[2] === 1 && e.toasts.includes('👑 오늘 달성! 3일째'), '둘 다 체크 → 오늘 ✓ · «오늘 달성! 3일째»');
   const key = wk + '-wd';
-  /* ⚠️ 옛 동작 그대로 — 선지급은 대기줄(due)에 먼저 적고 바로 지급하는데, 같은 tick 의 _chalRetryDue 가 ts:0 인 그 줄을 곧장 한 번 더
-       두드린다. 서버가 같은 tag 를 dup 으로 막아 **한 번만** 나간다(그래서 여기서는 «서버 호출 수» 가 아니라 «나간 횟수» 를 본다). */
-  chk(e.bonusCalls.length >= 1 && e.bonusCalls.every(c => c.n === 1 && c.tag === key) && e.bonus === 1 && W.state().early === key, '3일째 선지급 1회 — 서버 tag ' + key + ' · 한 번만 나감 · early 표식');
+  /* 선지급은 대기줄(due)에 «지금 시도함» 으로 적고 바로 지급한다 — 같은 tick 의 _chalRetryDue 가 1분 안에 같은 tag 를 또 보내지 않는다
+       (예전엔 ts:0 이라 곧장 한 번 더 보내, 그쪽이 먼저 받으면 토스트가 «밀렸던 뽑기» 로 떴다) */
+  chk(e.bonusCalls.length === 1 && e.bonusCalls[0].n === 1 && e.bonusCalls[0].tag === key && e.bonus === 1 && W.state().early === key, '3일째 선지급 1회 — 서버 tag ' + key + ' · 서버 호출 한 번 · early 표식');
+  chk(!e.toasts.some(t => /밀렸던 뽑기/.test(t)), '  «밀렸던 뽑기» 토스트가 섞이지 않는다');
   chk(e.toasts.some(t => /뽑기 1회를 받았어요/.test(t)) && e.bonusLocal[e.bonusLocal.length - 1] === 1 && (W.state().due == null), '받았다 토스트 · 로컬 보너스 = 서버 값 · 대기줄 비움');
   chk(/<i class="chal-pay">1<\/i>/.test(e.els.chalWeek.innerHTML) && /1번만 더.*1회는 이미 받았어요/.test(e.els.chalReward.innerHTML), '선지급 칸 표시 · 보상 문구');
   W.tick(); await flush(); W.tick(); await flush();
