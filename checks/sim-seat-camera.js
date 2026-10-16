@@ -21,10 +21,10 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 const FN_DEPS = [];
 const VAL_DEPS = ["BASE_PXW","DOT_RENDER_SCALE","camera","canvas","renderer"];
 const GET_DEPS = ["_cachedRowCenter","_cachedRowSpan","deskPanX","deskPanY","dotRenderEnabled","dotRenderMod","focusCharScale","sizeFactor"];
-const SET_DEPS = ["_deskCanvasH","_deskViewH"];
+const SET_DEPS = [];
 const EXPORTS = ["applyCameraAndCanvas","updateCameraOnly"];
 const MOVED = ["updateCameraOnly","applyCameraAndCanvas"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  BASE_PXW: BASE_PXW,","  DOT_RENDER_SCALE: DOT_RENDER_SCALE,","  _cachedRowCenter: ()=>_cachedRowCenter,","  _cachedRowSpan: ()=>_cachedRowSpan,","  camera: camera,","  canvas: canvas,","  deskPanX: ()=>deskPanX,","  deskPanY: ()=>deskPanY,","  dotRenderEnabled: ()=>dotRenderEnabled,","  dotRenderMod: ()=>dotRenderMod,","  focusCharScale: ()=>focusCharScale,","  renderer: renderer,","  sizeFactor: ()=>sizeFactor,","  setDeskCanvasH: (v)=>{ _deskCanvasH = v; },","  setDeskViewH: (v)=>{ _deskViewH = v; },"];
+const GLUE = ["  BASE_PXW: BASE_PXW,","  DOT_RENDER_SCALE: DOT_RENDER_SCALE,","  _cachedRowCenter: ()=>_cachedRowCenter,","  _cachedRowSpan: ()=>_cachedRowSpan,","  camera: camera,","  canvas: canvas,","  deskPanX: ()=>deskPanX,","  deskPanY: ()=>deskPanY,","  dotRenderEnabled: ()=>dotRenderEnabled,","  dotRenderMod: ()=>dotRenderMod,","  focusCharScale: ()=>focusCharScale,","  renderer: renderer,","  sizeFactor: ()=>sizeFactor,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -110,31 +110,28 @@ say('── 4. 동작 — 카메라 거리 · 각도 · 화면 밀기 · 캔버�
     const document_ = { body: { classList: { contains: (c) => cls.has(c) } } };
     const FB = { runPixelRatio: (dpr, dot) => dot ? 1 : Math.min(dpr, 1.5) };
     const dotRenderMod = { applyDotTextureFilter: (on) => log.push(['dotTex', on]), applyPS1Shader: (on) => log.push(['ps1', on]) };
-    const st = { vh: 0, ch: 1 };
-    const V = { BASE_PXW: 190, DOT_RENDER_SCALE: 0.45, camera, canvas, renderer, _cachedRowCenter: o.rowCenter, _cachedRowSpan: o.rowSpan, _deskCanvasH: 1, _deskViewH: 0,
+    const V = { BASE_PXW: 190, DOT_RENDER_SCALE: 0.45, camera, canvas, renderer, _cachedRowCenter: o.rowCenter, _cachedRowSpan: o.rowSpan,
       deskPanX: o.panX || 0, deskPanY: o.panY || 0, dotRenderEnabled: !!o.dot, dotRenderMod, focusCharScale: o.focusCharScale || 1, sizeFactor: o.sizeFactor || 1 };
     const G = { THREE: { Vector3: V3 }, document: document_, innerWidth: o.iw, innerHeight: o.ih, devicePixelRatio: o.dpr || 2, FrameBudget: FB };
     let api;
     if(typeof MOD === 'string' && MOD){
       const deps = {};
       for(const k of ['BASE_PXW', 'DOT_RENDER_SCALE', 'camera', 'canvas', 'renderer']) deps[k] = V[k];
-      for(const k of ['_cachedRowCenter', '_cachedRowSpan', '_deskCanvasH', '_deskViewH', 'deskPanX', 'deskPanY', 'dotRenderEnabled', 'dotRenderMod', 'focusCharScale', 'sizeFactor']) deps[k] = () => V[k];
-      deps.setDeskViewH = (v) => { st.vh = v; }; deps.setDeskCanvasH = (v) => { st.ch = v; };
+      for(const k of ['_cachedRowCenter', '_cachedRowSpan', 'deskPanX', 'deskPanY', 'dotRenderEnabled', 'dotRenderMod', 'focusCharScale', 'sizeFactor']) deps[k] = () => V[k];
       const win = {};
       new Function('window', 'module', ...Object.keys(G), MOD)(win, undefined, ...Object.values(G));
       api = win.TwSeatCamera.createSeatCamera(deps);
     } else {
       const a = SRC.indexOf('// ★ 캐릭터 크기 슬라이더처럼'), b = SRC.indexOf('\n}\n', SRC.indexOf('function applyCameraAndCanvas(')) + 3;
       const names = Object.keys(V).concat(Object.keys(G));
-      const f = new Function(...names, '__st', SRC.slice(a, b) + '\nreturn { applyCameraAndCanvas, updateCameraOnly, done(){ __st.vh = _deskViewH; __st.ch = _deskCanvasH; } };');
-      api = f(...names.map(n => n in V ? V[n] : G[n]), st);
+      const f = new Function(...names, SRC.slice(a, b) + '\nreturn { applyCameraAndCanvas, updateCameraOnly };');
+      api = f(...names.map(n => n in V ? V[n] : G[n]));
     }
     if(useCache) api.updateCameraOnly(); else api.applyCameraAndCanvas(o.rowCenter, o.rowSpan);
-    if(api.done) api.done();
-    return { log, fov: camera.fov, aspect: r6(camera.aspect), pos: [r6(camera.position.x), r6(camera.position.y), r6(camera.position.z)], w: canvas.style.width, h: canvas.style.height, ir: canvas.style.imageRendering, vh: r6(st.vh), ch: st.ch };
+    return { log, fov: camera.fov, aspect: r6(camera.aspect), pos: [r6(camera.position.x), r6(camera.position.y), r6(camera.position.z)], w: canvas.style.width, h: canvas.style.height, ir: canvas.style.imageRendering };
   }
   const J = (x) => JSON.stringify(x);
-  const CASES = [["런처 미리보기 — 두 자리 · 기본 배율",{"run":false,"iw":1000,"ih":800,"rowCenter":-1.2,"rowSpan":3.1},{"log":[["look",-1.2,0.5,0],["upm"],["size",703,361,false]],"fov":34,"aspect":1.947368,"pos":[-1.049514,0.655818,1.720068],"w":"703px","h":"361px","vh":0,"ch":1}],["실행 화면 — 도트 끔 · 오프셋 · 캐릭터 크기 1.3",{"run":true,"iw":1920,"ih":1080,"dpr":2,"rowCenter":0,"rowSpan":1.7,"panX":0.1,"panY":-0.05,"focusCharScale":1.3},{"log":[["pr",1.5],["view",1920,1080,-276.48,-248.4,1920,1080],["look",-0.437379,0.5,0.038266],["upm"],["size",1920,1080,false],["dotTex",false],["ps1",false]],"fov":50,"aspect":1.777778,"pos":[-0.197939,0.747924,2.775079],"w":"1920px","h":"1080px","ir":"auto","vh":2.572556,"ch":1080}],["실행 화면 — 도트 켬(버퍼 0.45배 · 텍스처 · PS1 켬)",{"run":true,"dot":true,"iw":1280,"ih":720,"dpr":1,"rowCenter":-2.5,"rowSpan":6.4},{"log":[["pr",1],["view",1280,720,-261.12,-201.6,1280,720],["look",-3.526392,0.5,0.089798],["upm"],["size",576,324,false],["dotTex",true],["ps1",true]],"fov":50,"aspect":1.777778,"pos":[-3.129763,0.910683,4.623293],"w":"1280px","h":"720px","ir":"pixelated","vh":4.261404,"ch":720}],["런처 — 화면이 작으면 캔버스는 화면-여백까지 · 남은 화면 밀기는 지운다",{"run":false,"iw":300,"ih":200,"rowCenter":0,"rowSpan":1.2,"sizeFactor":2,"viewSet":true},{"log":[["clearView"],["look",0,0.5,0],["upm"],["size",264,160,false]],"fov":34,"aspect":1.65,"pos":[0.150486,0.655818,1.720068],"w":"264px","h":"160px","vh":0,"ch":1}],["실행 화면 — 캐릭터 크기 0(하한 0.1 로 나눈다) · 좁은 화면",{"run":true,"iw":2,"ih":2,"dpr":3,"rowCenter":0,"rowSpan":0,"focusCharScale":0},{"log":[["pr",1.5],["view",2,2,-0.408,-0.56,2,2],["look",-0.302904,0.5,0.026501],["upm"],["size",2,2,false],["dotTex",false],["ps1",false]],"fov":50,"aspect":1,"pos":[-0.094813,0.715464,2.404994],"w":"2px","h":"2px","ir":"auto","vh":2.235742,"ch":2}]];
+  const CASES = [["런처 미리보기 — 두 자리 · 기본 배율",{"run":false,"iw":1000,"ih":800,"rowCenter":-1.2,"rowSpan":3.1},{"log":[["look",-1.2,0.5,0],["upm"],["size",703,361,false]],"fov":34,"aspect":1.947368,"pos":[-1.049514,0.655818,1.720068],"w":"703px","h":"361px"}],["실행 화면 — 도트 끔 · 오프셋 · 캐릭터 크기 1.3",{"run":true,"iw":1920,"ih":1080,"dpr":2,"rowCenter":0,"rowSpan":1.7,"panX":0.1,"panY":-0.05,"focusCharScale":1.3},{"log":[["pr",1.5],["view",1920,1080,-276.48,-248.4,1920,1080],["look",-0.437379,0.5,0.038266],["upm"],["size",1920,1080,false],["dotTex",false],["ps1",false]],"fov":50,"aspect":1.777778,"pos":[-0.197939,0.747924,2.775079],"w":"1920px","h":"1080px","ir":"auto"}],["실행 화면 — 도트 켬(버퍼 0.45배 · 텍스처 · PS1 켬)",{"run":true,"dot":true,"iw":1280,"ih":720,"dpr":1,"rowCenter":-2.5,"rowSpan":6.4},{"log":[["pr",1],["view",1280,720,-261.12,-201.6,1280,720],["look",-3.526392,0.5,0.089798],["upm"],["size",576,324,false],["dotTex",true],["ps1",true]],"fov":50,"aspect":1.777778,"pos":[-3.129763,0.910683,4.623293],"w":"1280px","h":"720px","ir":"pixelated"}],["런처 — 화면이 작으면 캔버스는 화면-여백까지 · 남은 화면 밀기는 지운다",{"run":false,"iw":300,"ih":200,"rowCenter":0,"rowSpan":1.2,"sizeFactor":2,"viewSet":true},{"log":[["clearView"],["look",0,0.5,0],["upm"],["size",264,160,false]],"fov":34,"aspect":1.65,"pos":[0.150486,0.655818,1.720068],"w":"264px","h":"160px"}],["실행 화면 — 캐릭터 크기 0(하한 0.1 로 나눈다) · 좁은 화면",{"run":true,"iw":2,"ih":2,"dpr":3,"rowCenter":0,"rowSpan":0,"focusCharScale":0},{"log":[["pr",1.5],["view",2,2,-0.408,-0.56,2,2],["look",-0.302904,0.5,0.026501],["upm"],["size",2,2,false],["dotTex",false],["ps1",false]],"fov":50,"aspect":1,"pos":[-0.094813,0.715464,2.404994],"w":"2px","h":"2px","ir":"auto"}]];
   for(const [name, o, want] of CASES){
     const got = runCam(o, false);
     chk(J(got) === J(want), name + (J(got) === J(want) ? '' : ' — ' + J(got).slice(0, 300)));

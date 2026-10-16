@@ -1308,7 +1308,6 @@ function clampDeskPan(px, py){
   const nyMax =  0.5 - PAN_MARGIN_Y - 0.28 + yExtra + _panEDn - PAN_DOWN_TRIM;    // 아래쪽 한계
   return { x: Math.max(nxMin, Math.min(nxMax, px)), y: Math.max(nyMin, Math.min(nyMax, py)) };
 }
-let _deskViewH=0, _deskCanvasH=1;   // 이동 중 픽셀↔월드 정확한 변환을 위해 layoutSeats가 매 프레임 갱신
 /* 설정 패널의 "캐릭터 크기" 슬라이더 값 — 데스크톱 run 모드 전용 배율 (localStorage에서 복원) */
 let focusCharScale=_loadCharScale();
 let dotRenderEnabled = (localStorage.getItem('tw.dotRender')==='1');   // 기본 꺼짐
@@ -1841,8 +1840,6 @@ const seatCameraMod = TwSeatCamera.createSeatCamera({
   focusCharScale: ()=>focusCharScale,
   renderer: renderer,
   sizeFactor: ()=>sizeFactor,
-  setDeskCanvasH: (v)=>{ _deskCanvasH = v; },
-  setDeskViewH: (v)=>{ _deskViewH = v; },
 });
 /* 본문은 shared/dot-render.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -2452,7 +2449,7 @@ const focusLog = TwFocusLog.createFocusLog({
 /* ═══ ✥ 프로그램 이동 모드 ═══ */
 /* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
    카메라 각도는 고정한 채 평행이동만 하므로 앵글이 안 흔들리고, 상태칩도 camera 기준 재계산이라 정확히 따라옴.
-   deskPanX/Y는 월드 단위 절대 오프셋 — _deskViewH/_deskCanvasH 비율로 픽셀을 정확히 월드로 환산해 1:1 매칭. */
+   deskPanX/Y는 화면 비율(단위 없음) — 마우스 이동 픽셀 ÷ 창 크기. 실행 화면 캔버스 = 창 크기라 월드 환산 없이 1:1 로 따라온다. */
 (function bindMoveMode(){
   let startClientX=0, startClientY=0, startPanX=0, startPanY=0;
   let _moveStarted=false;
