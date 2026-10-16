@@ -347,8 +347,8 @@ async function judge(S){
   chk(/if\(tab\.dataset\.tab==='friend'\) friendsRetry\(\);/.test(ui), '친구 탭을 열 때 friendsRetry(못 불러왔으면 다시 걸기)');
   const kOpen = ri.indexOf('function openPick(){'), kRetry = ri.indexOf('_friendsRetry();', kOpen), kNotice = ri.indexOf('const notice = _friendsNotice();', kOpen);
   chk(kOpen > 0 && kRetry > kOpen && kNotice > kRetry, '워킹룸 초대 목록을 열 때 _friendsRetry → 안내 읽기');
-  const direct = ALL_JS.filter(([f, src]) => f !== 'firebase-init.js' && f !== 'friends-sub.js' && /\/friends`\s*\)|getMyFriendList\(/.test(strip(src).replace("fetchOnce: (...a)=>firebaseAPI.getMyFriendList(...a),", '')));
-  chk(!direct.length, '다른 파일에 친구 경로 직접 읽기 · getMyFriendList 부르기 0곳(friends-sub 의 deps 한 줄만)' + (direct.length ? ' — ' + direct.map(d => d[0]).join(' · ') : ''));
+  const direct = ALL_JS.filter(([f, src]) => f !== 'firebase-init.js' && f !== 'friends-sub.js' && f !== 'friends-firebase.js' && /\/friends`\s*\)|getMyFriendList\(/.test(strip(src).replace("getList: (...a)=>firebaseAPI.getMyFriendList(...a),", '')));
+  chk(!direct.length, '다른 파일에 친구 경로 직접 읽기 · getMyFriendList 부르기 0곳(app.js 의 firebase provider deps 한 줄만)' + (direct.length ? ' — ' + direct.map(d => d[0]).join(' · ') : ''));
   const fbFriendGets = (strip(S.FB).match(/get\(ref\(db, `users\/\$\{\w+\}\/friends`\)\)/g) || []).length;
   chk(fbFriendGets === 1, '  firebase-init.js 의 친구 목록 get 도 한 곳(getMyFriendList) (' + fbFriendGets + ')');
 }

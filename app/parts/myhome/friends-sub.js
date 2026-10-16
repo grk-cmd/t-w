@@ -1,5 +1,5 @@
 /* friends-sub.js — 👥 내 친구 목록 구독 한 벌 — 상태(불러오는 중 · 못 불러옴 · 받음) · 다시 걸기 · 판정용 한 번 읽기
-   책임: subscribeMyFriends 를 «동시에 하나만» 건다. 실패하면 목록을 열 때(친구 탭 · 워킹룸 초대 목록)만 다시 건다 — 타이머 재시도는 없다.
+   책임: 친구 목록 구독(포트 friends/friends-port.js 의 watchList)을 «동시에 하나만» 건다. 실패하면 목록을 열 때(친구 탭 · 워킹룸 초대 목록)만 다시 건다 — 타이머 재시도는 없다.
      친구 추가 · 수락 판정은 friendsForCheck() 로 — 받았으면 지금 목록, 아니면 이 모듈 한 곳에서만 한 번 읽는다(진행 중이면 모두가 같은 Promise).
      화면은 notice() 하나로 같은 문구 · 같은 상태를 읽는다.
    deps: subscribe(myId, onChange, onError) → 해제 함수 · fetchOnce(myId) → Promise<{친구id:{addedAt}}> · current() → 지금 목록 ·

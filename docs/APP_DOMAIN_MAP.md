@@ -14,6 +14,7 @@
 | `room/` ✅ | 🛰 방(워킹룸 · 투게더룸) — 입장 · 동기화 · 방 서버 · 방 안 놀이 | 21 | 7,200 |
 | `chat/` ✅ | 💬 채팅 — 대화창 · 기록 · 설정 · 이모티콘 | 8 | 2,600 |
 | `myhome/` ✅ | 🏠 마이홈 — 페이지 · 편집 · 스티커 · 친구 · 우편 · 방명록 · 바탕화면 앱 | 19 | 13,900 |
+| `friends/` | 👥 친구 데이터 — 포트 · provider(firebase 옛 길 · api · ws 자리). 화면 · 마이홈은 포트만 부른다 | 2 | 60 |
 | `character/` ✅ | 🧍 캐릭터 · 꾸미기 — 꾸미기 창 · 파츠 · 동물 · 슬롯 · 코드 · 가챠 | 19 | 10,500 |
 | `creator/` ✅ | 🎨 생성기 — 그리기 도구 · 단계 길잡이 (+ app.js 에 남은 생성기 묶음을 여기로) | 6 | 650 (+ 약 3,500) |
 | `focus/` ✅ | ⭐ 집중 · 레벨 — 포커스 기록 · 레벨 · 경험치 · 달성표 · 뽀모도로 | 9 | 2,700 |
@@ -77,6 +78,13 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `myhome-desktop.js` · `folder-free.js` · `bookmark.js` · `mallang.js` | 마이홈 바탕화면 · 폴더 자유배치 · 북마크 책장 · 말랑이 | fb 98 · 27 |
 | `myhome-links.js` · `myhome-diag.js` | 본문 링크 · 클릭 진단(콘솔) | — |
 | `broadcast-cache.js` (ES) | 공용 공지(inboxBroadcast) 버전 확인 + 로컬 캐시 | (firebase-init 이 연결) |
+
+### 4-1. 👥 `friends/` — 친구 데이터 포트 · provider (서버 이관 — 사용법은 `app/parts/friends/README.md`)
+
+| 파일 | 하는 일 | 서버 |
+|---|---|---|
+| `friends-port.js` | 포트 — 친구 목록 받기 · 목록 듣기 · 접속 상태 듣기. friends-sub.js(마이홈)가 부른다 | — |
+| `friends-firebase.js` | 옛 길 provider — firebase-init.js 친구 함수를 포트 모양으로(나중에 걷음) | fb 0(deps 로) |
 
 ## 5. 🧍 `character/` — 캐릭터 · 꾸미기 ✅ 옮김(폴더 10번)
 
