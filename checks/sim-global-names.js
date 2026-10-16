@@ -196,7 +196,8 @@ function readerMisuse(srcs) {
     const m = /window\.((?:Tw|Mh)\w+)\s*=\s*api/.exec(t);
     if (m) readers[m[1]] = new Set([...t.matchAll(/^\s*([\w$]+):\s*\(\)\s*=>\s*\1\b/gm)].map(x => x[1]));
   }
-  const mod2tw = {}; for (const m of appSrc.matchAll(/const (\w+) = \(typeof (\w+) === 'undefined'\)/g)) mod2tw[m[1]] = m[2];
+  /* 만드는 줄 — 「const mod = TwX.create…」(가드 걷기 3차 뒤) · 「const mod = (typeof TwX === 'undefined') ? OFF : TwX.create…」 둘 다 */
+  const mod2tw = {}; for (const m of appSrc.matchAll(/const (\w+) = (?:\(typeof \w+ === 'undefined'\) \? \w+ : )?((?:Tw|Mh)\w+)\.create/g)) mod2tw[m[1]] = m[2];
   const VAL = /^(number|string|boolean|object|bigint|symbol)$/;
   for (const [n, raw] of srcs) {
     const t = strip(raw);

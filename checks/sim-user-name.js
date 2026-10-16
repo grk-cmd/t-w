@@ -48,7 +48,7 @@ function judge(mod, html, app) {
   const order = [...html.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map(m => m[1]);
   const at = order.indexOf('account/user-name.js');
   r.order = at > order.indexOf('account/name-guard.js') && order.indexOf('account/name-guard.js') >= 0 && at < order.indexOf('app.js');
-  const iU = app.indexOf('const userNameMod = (typeof TwUserName'), iP = app.indexOf('const progSettingsMod = (typeof TwProgramSettings');
+  const iU = app.indexOf('const userNameMod = TwUserName.'), iP = app.indexOf('const progSettingsMod = TwProgramSettings.');
   r.made = iU > 0 && iP > iU && iP - iU < 1200;
   r.callers = (app.match(/userNameMod\.(commitUserName|USER_NAME_MAX)\b/g) || []).length;
   r.old = (app.match(/progSettingsMod\.(commitUserName|USER_NAME_MAX)\b/g) || []).length;

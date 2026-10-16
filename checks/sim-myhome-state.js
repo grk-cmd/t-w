@@ -53,7 +53,7 @@ function judge(mod, html, files, app) {
   /* app.js 의 mhStateMod.set… 은 visit · edit 만드는 줄 안에서만(쓰는 함수로 넘기기) */
   const blocks = SET_GLUE.map(n => { const i = app.indexOf('.' + n + '({'); return i < 0 ? [0, 0] : [i, app.indexOf('\n});', i)]; });
   r.appWriters = [...app.matchAll(/\bmhStateMod\.set\w+\(/g)].filter(m => !blocks.some(([i, j]) => m.index > i && m.index < j)).length;
-  r.made = /const mhStateMod = \(typeof TwMyHomeState === 'undefined'\) \? MH_STATE_MOD_OFF : TwMyHomeState\.createMyHomeState\(\{\n  _myHomeFriends: \(\)=>_myHomeFriends,\n\}\);/.test(app)
+  r.made = /const mhStateMod = TwMyHomeState\.createMyHomeState\(\{\n  _myHomeFriends: \(\)=>_myHomeFriends,\n\}\);/.test(app)
     && app.indexOf('const mhStateMod =') < app.indexOf('const mhVisitMod =');
   return r;
 }
