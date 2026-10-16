@@ -244,6 +244,7 @@ const ROOM_INVITE_STALE_MS = 10 * 60 * 1000;
 function _bindRoomInviteReceiver(){
   if(!(window.firebaseAPI && firebaseAPI.subscribeRoomInvites)) return;
   const myId = getMyUserId();
+  if(!myId) return;   // 내 코드가 없으면 구독하지 않는다(roomInvites/null)
   firebaseAPI.subscribeRoomInvites(myId, invites=>{
     let ids = Object.keys(invites || {});
     if(!ids.length || _roomInviteBusy) return;
