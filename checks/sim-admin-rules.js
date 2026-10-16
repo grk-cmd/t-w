@@ -132,7 +132,7 @@ console.log('\n── 3. 새는 곳이 없는가');
 
 console.log('\n── 4. 앱이 거부를 조용히 넘기지 않는가');
 {
-  const src = fs.readFileSync('app.js', 'utf8');
+  const src = require('./sim-renderer-src.js').joinRenderer(fs.readFileSync('app.js', 'utf8'));   // 옮긴 모듈(shared/toast.js)을 «옮기기 전 app.js 글» 로 되살려 읽는다
   chk(/function _saveFailMsg/.test(src), '권한 거부와 네트워크 오류를 가르는 헬퍼가 있다');
   chk(/permission\[_-\]\?denied/i.test(src), 'PERMISSION_DENIED 를 알아본다');
   chk((src.match(/_saveFailMsg\(/g) || []).length >= 5,
