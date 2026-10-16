@@ -2012,6 +2012,7 @@ function fitDesk(seat){
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatModelLoadMod = TwSeatModelLoad.createSeatModelLoad({
   assetCodeMod: ()=>assetCodeMod,
+  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   boneSide: (...a)=>boneSide(...a),
   fitDesk: (...a)=>fitDesk(...a),
   fitModel: (...a)=>fitModel(...a),

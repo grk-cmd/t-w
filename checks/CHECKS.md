@@ -1,7 +1,12 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 295 (안 쓰는 _deskViewH · _deskCanvasH 지움 — 이동 모드는 화면 비율 방식이라 읽는 곳이 없었다 · sim-seat-camera 정답값에서 두 값 뺌)
-대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 295 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 296 (.dcc 비밀번호를 앱 입력 창(asyncPrompt)으로 — Electron 은 window.prompt 를 안 띄워 풀리지 않았다 · sim-async-prompt 4절)
+대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 296 기준 — 폴더를 센 값)
+
+**개정 296 에서 한 것 (2026-10-17 · 버그 수정 — 개발용 파일 넣기의 .dcc 비밀번호 창이 안 뜨던 것)**
+- 앱: app.js `handleFiles` 의 `window.prompt` 를 `await asyncPromptMod.asyncPrompt({ title, message })` 로. Electron 은 window.prompt 를 안 띄우고 null 을 줘서 .dcc 가 조용히 건너뛰어졌다. 앱 안의 마지막 window.prompt 였다.
+- 검사: `sim-async-prompt.js` **17·0** — 4절 신설(parts/ 의 .js 전부에 window.prompt 부름 없음 · .dcc 는 asyncPrompt · 찾는 판정 깨 보기). 고치기 전 app.js 로는 빨강 2.
+- 검증 중(옮긴 자리에 맞춤): handleFiles 는 그 사이 `character/seat-model-load.js` 로 옮겨 가(#278) 고침도 거기에 — deps `asyncPrompt` 로 받고 app.js 가 `asyncPromptMod.asyncPrompt` 를 잇는다. `sim-async-prompt.js` 4절 «.dcc 는 asyncPrompt» 는 seat-model-load.js 와 app.js 이음을 본다 · `sim-seat-model-load.js` deps 목록에 asyncPrompt · 4절 가짜 deps 에 asyncPrompt(판정 무변경).
 
 **개정 295 에서 한 것 (2026-10-17 · 정리 — 동작 변화 없음)**
 - 앱: app.js `_deskViewH` · `_deskCanvasH` 와 카메라 모듈의 쓰는 함수 deps 2개 · 적는 줄을 지웠다(첫 커밋부터 읽는 곳 없음 — 이동 모드가 화면 비율 방식). 이동 모드 머리 주석을 «화면 비율 — 픽셀 ÷ 창 크기» 로 바로잡음.
@@ -2346,7 +2351,7 @@
 | **sim-device-lost.js** | 96 | **627678a904e2** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps roomEntryMod → twNav(방 나가기는 통로로 — 판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 215 신설 · 🖥️ 밀려난 기기 처리 모듈(device-lost.js) 구조** |
 | **sim-myhome-page.js** | 96 | **a57c00d0abe7** ← **개정 272 만들 때 가짜 고리판을 준다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 245 deps mhVisitMod → mhStateMod(마이홈 공용 상태 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 216 신설 · 🏠 마이홈 불러오기 · 그리기 모듈(myhome-page.js) 구조** |
 | **sim-myhome-links.js** | 95 | **6d53e7c2d7fd** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 216 신설 · 🔗 마이홈 본문 링크 모듈(myhome-links.js) 구조** |
-| **sim-async-prompt.js** | 96 | **d23e798ab585** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 216 신설 · ✏️ 인앱 프롬프트 모듈(async-prompt.js) 구조** |
+| **sim-async-prompt.js** | 112 | **298066b0cef9** ← **개정 296 4절 — window.prompt 금지 · .dcc 비밀번호는 asyncPrompt** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 216 신설 · ✏️ 인앱 프롬프트 모듈(async-prompt.js) 구조** |
 | **sim-launcher-chrome.js** | 95 | **ed62fec910ad** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 216 신설 · 🪟 런처 타이틀바 · 팝업 흐림 모듈(launcher-chrome.js) 구조** |
 | **sim-launcher-controls.js** | 204 | **78202998b89b** ← **개정 257 신설 · 🎛️ 런처 컨트롤 모듈(launcher-controls.js) 구조 · 버튼 동작** |
 | **sim-launcher-preview.js** | 96 | **df1cb3ff7694** ← **개정 260 신설 · 🖼️ 런처 미리보기 모듈(launcher-preview.js) 구조 · 크기 맞춤** |
@@ -2391,7 +2396,7 @@
 | **sim-ride-tuning.js** | 124 | **6889f9df66be** ← **개정 283 신설 · 🎛️ 올라타기 · 묘기 튜닝 값 모듈 구조 + 값 표** |
 | **sim-char-measure.js** | 164 | **d994117d4ce4** ← **개정 284 신설 · 📐 캐릭터 실측 모듈 구조 + 동작(실제 three)** |
 | **sim-floor-snap-diag.js** | 139 | **e9c99a2c0134** ← **개정 284 신설 · 🩺 바닥 맞춤 진단 모듈 구조 + 보고서** |
-| **sim-seat-model-load.js** | 193 | **ccdad69a394c** ← **개정 285 신설 · 📦 좌석 모델 싣기 모듈 구조 + 동작(실제 three)** |
+| **sim-seat-model-load.js** | 194 | **7ff56380f12a** ← **개정 296 deps 에 asyncPrompt(.dcc 비밀번호)** · **개정 285 신설 · 📦 좌석 모델 싣기 모듈 구조 + 동작(실제 three)** |
 | **sim-seat-panel.js** | 163 | **2f9bad25ac96** ← **개정 288 신설 · 🎚️ 좌석 탭 · 상태 버튼 모듈 구조 + 동작(가짜 DOM)** |
 | **sim-user-status-table.js** | 125 | **8727d9f8adac** ← **개정 290 신설 · 🍚 상태 표 · 커스텀 상태 저장값 모듈 구조 + 동작** |
 | **sim-chip-popups.js** | 128 | **f9e9fcf20acd** ← **개정 290 신설 · 🗂️ 칩 팝업 닫기 모듈 구조 + 동작(가짜 DOM)** |
