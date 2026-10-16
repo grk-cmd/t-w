@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 296 (.dcc 비밀번호를 앱 입력 창(asyncPrompt)으로 — Electron 은 window.prompt 를 안 띄워 풀리지 않았다 · sim-async-prompt 4절)
-대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 296 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 297 (카탈로그 본문을 API 읽기 사본(GET /v1/catalog/{종류}?v=)에서 먼저 받는다 — 못 받으면 Firebase get)
+대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 297 기준 — 폴더를 센 값)
+
+**개정 297 에서 한 것 (2026-10-17 · 서버 이관 — 카탈로그 본문 읽기를 API 로 · 동작이 바뀐다: 받는 곳)**
+- 앱: `app/parts/character/catalog-cache.js` 에 `createApiCatalogFetch` — 버전(catalogMeta)이 바뀌어 본문을 받을 때 t-w-server `GET /v1/catalog/{종류}?v=<버전>` 먼저(시간 제한 8초 · v 가 같으면 하루 캐시). 사본의 ver 가 구독한 버전과 다르거나 · 본문이 객체가 아니거나 · 어떤 실패든 지금처럼 Firebase get. 조용히 넘어갈 실패 판정은 `TwApi.shouldFallback` 을 그대로 받는다. 구독기는 `fetch(kind, ver)` 로 버전을 넘긴다. `firebase-init.js` 는 카탈로그 구독기에 이것을 잇는다. 버전 알림 · 캐시 · 안전장치 ①②③ · 쓰기(Firebase 원본)는 그대로.
+- 검사: `sim-catalog-cache.js` 전부 통과 — 1절 import · 연결(앱 공통 API 통로 · shouldFallback · Firebase get) · 4절 본문 받기 열 줄(같은 버전이면 API 본문 · v 붙이기 · 시간 제한 · val() 새 객체 · 빈 종류 · 버전 다름 · unavailable/notReady 조용히 · 그 밖 실패 경고 · 배열 본문 · API 없음/버전 없음/다른 종류 경계 · 구독기에 끼워 화면 · 캐시). 변이(버전 비교 빼기 · ver 안 넘기기 · 던지기 · val() 같은 객체 · 연결 이름 바꾸기) 모두 빨강.
 
 **개정 296 에서 한 것 (2026-10-17 · 버그 수정 — 개발용 파일 넣기의 .dcc 비밀번호 창이 안 뜨던 것)**
 - 앱: app.js `handleFiles` 의 `window.prompt` 를 `await asyncPromptMod.asyncPrompt({ title, message })` 로. Electron 은 window.prompt 를 안 띄우고 null 을 줘서 .dcc 가 조용히 건너뛰어졌다. 앱 안의 마지막 window.prompt 였다.
@@ -2176,7 +2180,7 @@
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 139 gacha.js 를 app.js 앞에 먼저 평가(가챠 파츠 판정 · 회수가 진짜로 돈다 · 판정 무변경)** |
 | **sim-ghost-cache-sync.js** | 274 | **091c22ab53ec** ← **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **2026-10-03 신규 · 방 «유령» 복구 — room-ghost-heal.js(복구 판단 · 가짜 DB) + firebase-init.js 연결** |
-| **sim-catalog-cache.js** | 329 | **5e093b822618** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **2026-10-06 신규 · 카탈로그 버전 확인(catalogMeta) + 로컬 캐시 — 쓰기 전부 버전 올림 · 규칙 · 캐시 판정 · 오프라인 캐시 먼저 · 깨진 캐시 · 켜져 있는 동안 바뀜 모아 받기** |
+| **sim-catalog-cache.js** | 373 | **bb7a43923f7e** ← **개정 297 API 사본 먼저 받기 판정 · 연결** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **2026-10-06 신규 · 카탈로그 버전 확인(catalogMeta) + 로컬 캐시 — 쓰기 전부 버전 올림 · 규칙 · 캐시 판정 · 오프라인 캐시 먼저 · 깨진 캐시 · 켜져 있는 동안 바뀜 모아 받기** |
 | **sim-broadcast-cache.js** | 281 | **f87582c015b9** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 220 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 171 5절 읽음 판정(_inboxMerged)을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **2026-10-06 신규 · 공용 공지 버전 확인(inboxBroadcastMeta) + 로컬 캐시 — 쓰기 셋 전부 버전 올림 · 규칙 · 최근 30개 + 고정 합치기 · 지운 공지 사라짐 · 버전 없음/거부/받기 실패면 통째 구독 · 오프라인 캐시 먼저 · 읽음은 기기에** |
 | **sim-friend-code-keep.js** | 218 | **1777c059463e** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-20 신규 · 제보 3-2 친추코드 유지 + 제보 3-1 스냅샷 없이도 소지품 복원 (§31 · 개정 27) · **개정 56 되찾기 갈래 걷음 · 계정에 코드 없을 때 (가)** |
 | **sim-google-login.js** | 583 | **39466503b774** ← **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경) · 계정 탭 잘라 보기는 다음 표지까지** · **개정 174 §8 accountSnap 모음 읽기 = 관리자 또는 관리자 서버 봇(apiBots) — 글자 그대로 대조** · **2026-10-06 §9 가짜 문맥에 _appVer 자리(setAccountSnapshot 이 버전을 기다린다 · 판정 무변경)** · **2026-10-04 accountSnap 모음 관리자 읽기(웹 관리자 사용자 목록)** · **2026-10-03 ⑦ closed 콜백 본문 안의 finish 로 판정** · **2026-10-03 users/invite 주인 또는 관리자** · 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) · **2026-09-22 계정 자리 [내 정보] · 이전/연동/해제·되찾기 걷음 · transferHash 지우기만 (개정 45)** · **개정 48 #lcMyInfo** · **개정 52 §7 통로 걷음** · **개정 54 §3 이메일 거울** · **개정 55 §8 transferData 지우기만 · accountSnap 규칙 · §9 스냅샷 자리** · **개정 56 ① 버린 uid 안 적음 · _setMyUserId** · **개정 57 §5 갈아타기 전 정리 순서 · 실패** |

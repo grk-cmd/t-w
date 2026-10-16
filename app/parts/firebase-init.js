@@ -43,7 +43,7 @@
   import { createAppVersionGate, createAppVersionGateDom } from "./shared/app-version-gate.js";
   import { createBugBoard } from "./support/bug-board.js";
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
-  import { createCatalogSync } from "./character/catalog-cache.js";
+  import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
   import { createBroadcastSync } from "./myhome/broadcast-cache.js";
   import { createVisitPing } from "./shared/visit-ping.js";
   import { createRoomServerNet } from "./room/room-server-net.js";
@@ -458,6 +458,12 @@
     catalogRef: (kind) => ref(db, 'catalog/' + kind),
     onValue, get,
     scope: (firebaseConfig && (firebaseConfig.databaseURL || firebaseConfig.projectId)) || '',
+    /* 본문은 API 읽기 사본(GET /v1/catalog/{종류}?v=) 먼저 — 못 받으면 아래 Firebase get. 버전 알림은 위 metaRef 그대로. */
+    fetch: createApiCatalogFetch({
+      api: (window.TwApi && window.TwApi.client) || null,
+      shouldFallback: window.TwApi && window.TwApi.shouldFallback,
+      firebaseGet: (kind) => get(ref(db, 'catalog/' + kind)),
+    }),
   });
   /* 카탈로그 쓰기는 전부 여기를 지난다 — 같은 다중 경로 update 로 catalogMeta/{종류} 버전(서버 시각)도 올린다.
      하나라도 빠지면 그 종류는 버전이 그대로라 사용자가 옛 카탈로그(캐시)를 계속 본다(최대 수명 24시간까지).
