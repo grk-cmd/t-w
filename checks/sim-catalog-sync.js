@@ -241,6 +241,26 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     await W.subs.parts({ g1: { _legacyGacha: true } }); await flush();
     chk(!has(W.log, 'migrate'), '  관리자가 아니면 옮기지 않는다');
 
+    /* 합치기 규칙(순수 함수) — 아이템 · 책상 · 파츠가 같이 쓴다 */
+    if(!PREMOVE){
+      /* 순수 함수라 모듈 글에서 그 함수만 뽑아 돌린다(괄호 짝으로 끝을 찾는다) */
+      const i0 = MOD.indexOf('function mergeCatalogList('); let k0 = MOD.indexOf('{', i0), d0 = 0;
+      for(; k0 < MOD.length; k0++){ if(MOD[k0] === '{') d0++; else if(MOD[k0] === '}' && --d0 === 0) break; }
+      const MG = i0 < 0 ? null : new Function(MOD.slice(i0, k0 + 1) + '\nreturn mergeCatalogList;')();
+      const e0 = MG(null, []), e1 = MG({}, []);
+      chk(typeof MG === 'function' && e0.list.length === 0 && e0.removedIds.length === 0 && e1.list.length === 0, 'mergeCatalogList — 빈 · null 스냅샷 + 빈 목록이면 빈 결과');
+      const saved = [{ id: 'gone', fromCatalog: true }, { id: 'mine' }, { id: 'a', fromCatalog: true, name: '옛', order: 9 }, { id: 'b', name: '로컬판' }];
+      const snap = JSON.stringify(saved);
+      const r = MG({ c: { order: 9999 }, a: { name: '새', order: 2 }, z: {}, b: { order: 0 } }, saved);
+      chk(r.list.map(x => x.id).join() === 'b,a,c,z,mine' && r.removedIds.join() === 'gone', '  order 오름차순(0 이 맨 앞 · 없으면 9999 와 같은 자리 · 같으면 원래 차례) · 지워진 것은 removedIds · 로컬 전용은 뒤');
+      chk(r.list[1].name === '새' && r.list[1].fromCatalog === true && r.list[0].fromCatalog === true && r.list[0].name === undefined && !r.list.some(x => x.name === '로컬판'), '  같은 id 는 서버판이 이긴다(로컬판 b 도 서버 것으로 바뀜 · 로컬 칸은 안 섞임)');
+      chk(JSON.stringify(saved) === snap, '  저장 목록은 바꾸지 않는다(새 배열)');
+      const r2 = MG({ g: { gacha: true } }, [], (x) => Object.assign(x, { stackable: !!x.gacha }));
+      chk(r2.list[0].stackable === true && r2.list[0].id === 'g', '  norm 을 주면 카탈로그 항목마다 먼저 다듬는다(파츠 — _normPartRec)');
+      const r3 = MG({}, [{ id: 'x', fromCatalog: true }, { id: 'y', fromCatalog: true }, { id: 'l' }]);
+      chk(r3.removedIds.join() === 'x,y' && r3.list.map(x => x.id).join() === 'l', '  경계 — 카탈로그가 비면 온 적 있는 것은 전부 지운 것 · 로컬 전용만 남는다');
+    }
+
     /* 카테고리 */
     W = load();
     W.subs.cats({ a: { cat: 'x', name: 'n' }, b: null, c: {} });

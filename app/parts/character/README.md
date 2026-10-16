@@ -63,7 +63,7 @@
 ## catalog-sync.js — 🔄 카탈로그 실시간 동기화
 
 - **책임**: Firebase 카탈로그 구독(아이템 · 책상 · 파츠 · 커스텀 카테고리 · 기본 카테고리 이름 덮어쓰기)을 걸고, 스냅샷이 오면 저장 목록에 합친 뒤 떠 있는 좌석 · 생성기 · 런처 · 꾸미기 미리보기에 다시 반영한다.
-  - 합치는 규칙(셋 다 같다): 카탈로그 항목은 `fromCatalog:true` 로 서버판이 이기고 `order` 오름차순(없으면 9999) · `fromCatalog` 인데 목록에 없으면 관리자가 지운 것 → 좌석에서 내리고 목록에서 뺀다 · 카탈로그에 온 적 없는 로컬 항목은 뒤에 남긴다.
+  - 합치는 규칙(셋이 같이 쓰는 순수 함수 `mergeCatalogList`): 카탈로그 항목은 `fromCatalog:true` 로 서버판이 이기고 `order` 오름차순(없으면 9999) · `fromCatalog` 인데 목록에 없으면 관리자가 지운 것 → 좌석에서 내리고 목록에서 뺀다 · 카탈로그에 온 적 없는 로컬 항목은 뒤에 남긴다.
 - **만드는 법**: app.js «🔄 카탈로그 실시간 동기화» 자리에서 `const catalogSyncMod = TwCatalogSync.createCatalogSync({ … });` — deps 40
   - 데이터 provider: `catalogNet`(읽는 함수 — 지금은 app.js 가 `()=>window.firebaseAPI` 를 넘긴다. 서버로 옮길 때 이 한 줄만 바꾼다 · 모듈은 `firebaseAPI` 를 직접 보지 않는다)
   - 저장 목록: `commissionMod`(아이템 · 책상) · `premiumMod`(파츠 · 카테고리) · GLB 해결 `catalogGlbMod`
@@ -71,7 +71,8 @@
   - 생성기 상태(읽는 함수): `creatorOpen` · `cBase` · `cDesk` · `cDeskColor` · `cDeskScale` · `cDeskGlbB64` · `cDeskTemplate` · `activeCustomDeskId` + 쓰는 함수 `setCDeskGlbB64` · `setCDeskTemplate`
   - 다시 그리기: `wardrobeMod` · `gachaMod` · `adminCategory` · `renderLauncher` · `renderCrItems` · `toast` · `isAdmin`
 - **내보내는 것**: 없음 — 만들 때 구독을 건다(`catalogNet()` 이 아직 없으면 `firebase-ready` 를 한 번 기다린다 — 준비 신호도 나중에 provider 쪽으로).
-- **확장할 때 고칠 자리**: 새 카탈로그 종류는 `mergeCatalogIntoSavedXxx` + `subscribeCatalogXxx` 한 벌 · 구독 걸기는 파일 끝 `if(catalogNet()) … else addEventListener('firebase-ready', …)` 줄. 합치는 규칙이 세 함수에 같은 글로 들어 있다 — 바꿀 땐 셋 다.
+  - 안쪽 순수 함수 `mergeCatalogList(catalogObj, saved, norm?)` → `{ list, removedIds }` — 저장 목록은 안 바꾼다(세 합치기가 부른다 · 검사는 글을 뽑아 직접 돌린다).
+- **확장할 때 고칠 자리**: 새 카탈로그 종류는 `mergeCatalogIntoSavedXxx` + `subscribeCatalogXxx` 한 벌 · 구독 걸기는 파일 끝 `if(catalogNet()) … else addEventListener('firebase-ready', …)` 줄. 합치는 규칙을 바꿀 땐 `mergeCatalogList` 한 곳.
 - **함정**
   - 아이템은 세션 등록(`loadSavedItemsIntoSession`)을 **기다린 뒤** 좌석을 다시 적용한다 — 순서를 바꾸면 옛 크기(0.8)로 다시 만든다.
   - 생성기에서 보던 책상 · 아이템의 위치 · 크기 조정값은 일부러 안 지킨다(자동 크기 계산을 바꿔도 보이게).
