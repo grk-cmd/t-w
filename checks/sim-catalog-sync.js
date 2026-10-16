@@ -2,7 +2,7 @@
    app.js 의 카탈로그 실시간 동기화 본문 을 parts/character/catalog-sync.js 로 옮겼다(글자 그대로 · 바뀐 줄 18 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(4절 — 가짜 firebaseAPI · 좌석으로 구독 · 합치기 · 좌석 다시 반영 · 가챠 옮기기).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(없음)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 39줄 그대로 · 부르는 곳은 catalogSyncMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 40줄 그대로 · 부르는 곳은 catalogSyncMod.이름 · html(app.js 앞)
    ・4절: 동작 — 순수 판정 · 가짜 객체로 입력 → 출력 · 경계값(옮기기 전 app.js 글로도 같은 판정이 돈다)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · catalog-sync.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -18,13 +18,15 @@ const MOD = ["catalog-sync.js","parts/character/catalog-sync.js","app/parts/char
 if(!MOD){ say('  ? 원본 못 찾음 — catalog-sync.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
+const CSRC = ["catalog-source.js","parts/character/catalog-source.js","app/parts/character/catalog-source.js"].map(read).find(Boolean);   // 서버 provider — 4절은 진짜 Firebase 판을 가짜 window 위에 만든다
+const mkSource = (win) => { new Function('window', 'module', CSRC)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
 const FN_DEPS = ["applyClothVisibility","applyDeskCatalogRefToSeat","applyDeskColorToCustom","applyDeskItemsTo","b64ToBuf","clearHolderDeskItems","equipDeskItem","equipPartOnSeat","fitModel","layoutSeats","loadSavedItemsIntoSession","renderCrItems","renderLauncher","setCreatorDeskScale","swapDeskVisual","toast","unequipPartFromSeat"];
-const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","adminCategory","assetCodeMod","catalogGlbMod","commissionMod","premiumMod","rideBenchMod","seats","wardrobeMod"];
-const GET_DEPS = ["activeCustomDeskId","catalogNet","cBase","cDesk","cDeskColor","cDeskGlbB64","cDeskScale","cDeskTemplate","creatorOpen","customItems","gachaMod","isAdmin"];
+const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","adminCategory","assetCodeMod","catalogGlbMod","catalogSourceMod","commissionMod","premiumMod","rideBenchMod","seats","wardrobeMod"];
+const GET_DEPS = ["activeCustomDeskId","cBase","cDesk","cDeskColor","cDeskGlbB64","cDeskScale","cDeskTemplate","creatorOpen","customItems","gachaMod","isAdmin"];
 const SET_DEPS = ["cDeskGlbB64","cDeskTemplate"];
 const EXPORTS = [];
 const MOVED = ["mergeCatalogIntoSavedItems","subscribeCatalogItems","mergeCatalogIntoSavedDesks","subscribeCatalogDesks","mergeCatalogIntoSavedParts","subscribeCatalogParts","subscribeCustomCats","subscribeCatOverrides"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  activeCustomDeskId: ()=>activeCustomDeskId,","  adminCategory: adminCategory,","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),","  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  cBase: ()=>cBase,","  cDesk: ()=>cDesk,","  cDeskColor: ()=>cDeskColor,","  cDeskGlbB64: ()=>cDeskGlbB64,","  cDeskScale: ()=>cDeskScale,","  cDeskTemplate: ()=>cDeskTemplate,","  catalogGlbMod: catalogGlbMod,","  catalogNet: ()=>window.firebaseAPI,","  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),","  commissionMod: commissionMod,","  creatorOpen: ()=>creatorOpen,","  customItems: ()=>customItems,","  equipDeskItem: (...a)=>equipDeskItem(...a),","  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),","  fitModel: (...a)=>fitModel(...a),","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  layoutSeats: (...a)=>layoutSeats(...a),","  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),","  premiumMod: premiumMod,","  renderCrItems: (...a)=>renderCrItems(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  rideBenchMod: rideBenchMod,","  seats: seats,","  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),","  swapDeskVisual: (...a)=>swapDeskVisual(...a),","  toast: (...a)=>toast(...a),","  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),","  wardrobeMod: wardrobeMod,","  setCDeskGlbB64: (v)=>{ cDeskGlbB64 = v; },","  setCDeskTemplate: (v)=>{ cDeskTemplate = v; },"];
+const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  activeCustomDeskId: ()=>activeCustomDeskId,","  adminCategory: adminCategory,","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),","  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  cBase: ()=>cBase,","  cDesk: ()=>cDesk,","  cDeskColor: ()=>cDeskColor,","  cDeskGlbB64: ()=>cDeskGlbB64,","  cDeskScale: ()=>cDeskScale,","  cDeskTemplate: ()=>cDeskTemplate,","  catalogGlbMod: catalogGlbMod,","  catalogSourceMod: catalogSourceMod,","  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),","  commissionMod: commissionMod,","  creatorOpen: ()=>creatorOpen,","  customItems: ()=>customItems,","  equipDeskItem: (...a)=>equipDeskItem(...a),","  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),","  fitModel: (...a)=>fitModel(...a),","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  layoutSeats: (...a)=>layoutSeats(...a),","  loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),","  premiumMod: premiumMod,","  renderCrItems: (...a)=>renderCrItems(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  rideBenchMod: rideBenchMod,","  seats: seats,","  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),","  swapDeskVisual: (...a)=>swapDeskVisual(...a),","  toast: (...a)=>toast(...a),","  unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),","  wardrobeMod: wardrobeMod,","  setCDeskGlbB64: (v)=>{ cDeskGlbB64 = v; },","  setCDeskTemplate: (v)=>{ cDeskTemplate = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -55,7 +57,6 @@ function judgeAll(mod, app, html){
   try{ out = build(mod); }catch(e){ err = e; }
   t(!err && out && typeof out === 'object', '만들 때 던지지 않는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   t(out && EXPORTS.every(n => n in out) && Object.keys(out).length === EXPORTS.length, '내놓는 이름 ' + EXPORTS.length + '개' + (EXPORTS.length ? ' — ' + EXPORTS.join(' · ') : ''));
-  t(!/\bfirebaseAPI\b/.test(strip(mod)), '모듈은 firebaseAPI 를 직접 보지 않는다 — 데이터는 catalogNet() 으로만(서버 이관 provider)');
   t(/window\.TwCatalogSync = api;/.test(mod) && /module\.exports = api;/.test(mod), '전역 이름 TwCatalogSync(Tw 접두사)');
   const A = strip(app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n'));   // 옛 전역 이름 잇기 줄은 «남은 선언 · 옛 이름 부름» 이 아니다
   const left = MOVED.filter(n => new RegExp('^(?:async\\s+)?(?:function\\s+' + n.replace(/\$/g, '\\$') + '\\b|(?:const|let|var)\\s+' + n.replace(/\$/g, '\\$') + '\\b)', 'm').test(A));
@@ -85,7 +86,6 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwCatalogSync = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
 
-  ['모듈이 firebaseAPI 를 직접 봄', m => m.replace('catalogNet().subscribeCatalogItems(', 'window.firebaseAPI.subscribeCatalogItems('), null, null],
   ['만들 때 던짐', m => m.replace('function createCatalogSync(deps){', 'function createCatalogSync(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
@@ -158,8 +158,8 @@ say('── 4. 동작 — 구독 · 합치기 · 좌석 · 생성기 다시 반�
     if(!PREMOVE){
       const deps = Object.assign({}, raw);
       GETS.forEach(n => { deps[n] = () => raw[n]; });
-      deps.catalogNet = () => win.firebaseAPI;   // 데이터 provider — 늦게 생겨도 부를 때 찾는다
       deps.setCDeskGlbB64 = (v) => L('set cDeskGlbB64', v); deps.setCDeskTemplate = (v) => L('set cDeskTemplate', v);
+      deps.catalogSourceMod = mkSource(win);
       new Function('window', 'module', 'document', 'console', MOD)(win, undefined, doc, cons);
       win.TwCatalogSync.createCatalogSync(deps);
     } else {
