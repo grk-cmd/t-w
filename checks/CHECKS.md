@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 285 (구역 떼기 C · w1 — 📦 좌석 모델 싣기(FILE LOADING)를 `parts/character/seat-model-load.js` 로 · `sim-seat-model-load.js` 신설)
-대상: `sim-*.js` 282개 + `smoke.js` + `audit.py` = **284개** (개정 285 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 286 (책상 모양 모듈의 안 쓰는 자동 크기 코드(`autoScaleDeskToTarget` · `DESK_TARGET_WIDTH` · `DESK_SIZE_OFFSET`)를 지움)
+대상: `sim-*.js` 282개 + `smoke.js` + `audit.py` = **284개** (개정 286 기준 — 폴더를 센 값)
+
+**개정 286 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 확인 요청 승인 — 죽은 코드 지우기 · 동작 변화 없음)**
+- 앱: `app/parts/character/desk-visual.js` 에서 부르는 곳이 없는 `autoScaleDeskToTarget` · `DESK_TARGET_WIDTH` · `DESK_SIZE_OFFSET`(새 책상만 자동 크기를 걸던 옛 몫) 덩이를 지웠다. README 함정 줄도 «다시 넣지 말 것» 으로.
+- 검사: `sim-desk-visual.js` 의 옮긴 이름 목록에서 셋을 뺐다 **38·0**(동작 4절 그대로).
 
 **개정 285 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 좌석 모델 싣기를 모듈로 · 동작 변화 없음)**
 - 앱: app.js «FILE LOADING» 구역 120줄(`setupSeatModel` · `loadCharGLB` · `loadDeskGLB` · 깜빡임 · `resetSeat` · `handleFiles` · `pickClip`)을 `app/parts/character/seat-model-load.js`(`window.TwSeatModelLoad`)로 옮겼다. 바뀐 코드 줄 4(읽는 함수 자리) · deps 10. 부르는 곳은 `seatModelLoadMod.이름` · 순수 `pickClip` · `prepBlink` 도 내놓는다(검사용).
@@ -2327,7 +2331,7 @@
 | **sim-catalog-glb.js** | 163 | **c11b5229945f** ← **개정 265 신설 · 🔗 카탈로그 GLB 해결 모듈 구조 + 동작** |
 | **sim-catalog-sync.js** | 256 | **e21c006733a5** ← **개정 267 신설 · 🔄 카탈로그 실시간 동기화 모듈 구조 + 동작** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** ← **개정 270 신설 · 🧸 책상 위 아이템 등록부 모듈 구조 + 동작** |
-| **sim-desk-visual.js** | 214 | **84f3f27791fd** ← **개정 274 신설 · 🪑 책상 모양 모듈 구조 + 동작** |
+| **sim-desk-visual.js** | 214 | **2428c62e17b8** ← **개정 286 옮긴 이름 목록에서 지운 셋을 뺌** · **개정 274 신설 · 🪑 책상 모양 모듈 구조 + 동작** |
 | **sim-toast.js** | 142 | **099b0d5e048c** ← **개정 282 신설 · 🍞 토스트 · 저장 실패 문구 모듈 구조 + 동작** |
 | **sim-dot-render.js** | 155 | **484c46e1b9d0** ← **개정 258 깨 보기 «부르는 곳이 옛 이름» — app.js 에 부르는 자리가 없으면 옛 이름 부름을 끼워 본다(부르는 곳이 seat-camera.js 로)** · **개정 256 신설 · 🕹️ 도트 모드 머티리얼 모듈 구조 + 동작(가짜 씬)** |
 | **sim-seat-camera.js** | 149 | **735cee87ff37** ← **개정 258 신설 · 🎥 좌석 줄 카메라 모듈 구조 + 동작(옮기기 전 값)** |
