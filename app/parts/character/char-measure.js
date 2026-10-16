@@ -1,8 +1,9 @@
 /* char-measure.js — 📐 캐릭터 실측 — 맨 몸 · 맨 머리 박스 · 발밑 깊이 · 피봇 보정 · 바닥 맞춤 · 바닥 진단
    책임: 캐릭터 · 파츠 wrapper 의 3D 박스를 재는 도우미 묶음 — 값을 재서 돌려주거나(박스 · 깊이 · 보정량) wrapper 하나를 바닥 위로 올린다. 좌석 배율 · 위치를 거는 일은 fitModel(app.js), 콘솔 진단은 floor-snap-diag.js.
-   받는 deps: 없음(THREE 전역). 내보내는 것: measureCharBox · measureHeadBoxNoParts · headDecorMeshSet · measureUnderfootDepth · charFootFix · floorClampWrapper.
+   받는 deps: measureBodyBox(character/body-measure.js — 몸 박스 재기 한 규칙). 내보내는 것: measureCharBox · measureHeadBoxNoParts · headDecorMeshSet · measureUnderfootDepth · charFootFix · floorClampWrapper.
    app.js «FIT» 구역의 측정 몫을 그대로 옮겼다(구역 떼기 C · w1). 동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄임). 바뀐 코드 줄은 0줄.
+   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄임).
+     맨 몸 · 맨 머리 · 발밑 깊이 셋은 measureBodyBox 에 옵션만 고른다(옛 글과 같은 박스 — checks/sim-body-measure.js).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ 밖에서 부르는 이름: charFootFix · floorClampWrapper · headDecorMeshSet · measureCharBox · measureHeadBoxNoParts · measureUnderfootDepth — app.js 는 charMeasureMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
@@ -11,10 +12,11 @@
 (function(){
 
 function createCharMeasure(deps){
+const measureBodyBox = deps.measureBodyBox;
 
 
-// ★ 캐릭터 크기 측정 공용 헬퍼 — 리깅(스키닝) 파츠 메쉬와 꾸미기 파츠 wrapper 하위를 빼고 잰다('맨 몸' — 무엇을 달아도 키 1.45).
-//   Box3 는 스킨드메시의 스키닝 전 원시 박스를 재서 리깅 파츠가 몇 배씩 크게 잡힌다(망토를 달면 캐릭터가 극소화되던 원인).
+// ★ 캐릭터 크기 측정 — 규칙은 character/body-measure.js 의 measureBodyBox 한 곳(아래 셋은 옵션만 고른다).
+//   리깅 파츠는 r128 setFromObject 가 스키닝 전 원본 박스를 재 몇 배씩 커지므로 몸을 잴 때는 뺀다.
 /* 🎩 '머리가 아니라 머리에 얹힌 것' — 기본 GLB 의 장식 메쉬들. 가시성과 무관하게 머리 꼭대기 측정에서 늘 뺀다
    (꾸미기 파츠를 끼면 숨겨지는데, 숨은 것만 빼면 파츠를 쓰고 벗을 때마다 위에 얹힌 캐릭터가 오르내린다).
    ⚠️ 목록은 이 한 벌만(_headTopAboveBone 도 이걸 쓴다) · 인간 · 동물 공통 · 측정은 올라탈 때 1회 캐싱이라 확인은 내렸다 다시 올려서. */
@@ -26,68 +28,15 @@ function headDecorMeshSet(meshHost){
   HEAD_DECOR_MESH_KEYS.forEach(k=>{ if(meshHost[k]) s.add(meshHost[k]); });
   return s.size ? s : _EMPTY_MESH_SET;
 }
-/* 🎪 올라타기 전용 — 꾸미기 파츠까지 빼고 '맨 머리' 꼭대기를 잰다.
-   measureCharBox는 리깅 파츠(귀 등)만 제외해서, 머리 위에 얹는 장식(뿔·모자·안테나 등)을 쓰면
-   그 끝이 박스 꼭대기가 되어 올라탄 동물이 공중에 뜬 것처럼 보였다.
-   파츠는 '__partWrap_' 이름의 wrapper로 감싸 붙으므로 그 하위를 통째로 건너뛴다. */
-/* @param outBoxes 배열을 주면 '통과한 메쉬 하나하나의 박스'를 담아 준다.
-   합친 박스만으로는 알 수 없는 것을 재기 위한 것 — 특히 '꼭대기 근처에 있는 메쉬만'을 골라
-   앞뒤 중심을 다시 잡는 데 쓴다(_measureHostHeadTop 의 _headTopCenterZ). */
-/* @param meshHost 좌석(또는 인스턴스)을 주면 기본 장식 메쉬(모자 · 탈 · 안경 · 날개)를 가시성과 무관하게 뺀다. */
+/* 🎪 올라타기 · 상태칩 기준 '맨 머리' 박스 — 파츠 · 숨은 메시 · 기본 머리 장식(meshHost 를 주면)을 뺀다.
+   outBoxes 를 주면 센 메시 하나하나의 박스를 담는다(꼭대기 근처 메시만 골라 앞뒤 중심을 다시 잡는 데 — _headTopCenterZ). */
 function measureHeadBoxNoParts(root, outBoxes, meshHost){
-  const box=new THREE.Box3(); const tmp=new THREE.Box3();
-  const decor = headDecorMeshSet(meshHost);
-  root.updateWorldMatrix(true,true);
-  root.traverse(o=>{
-    if(!o.isMesh) return;
-    if(decor.has(o)) return;                         // 기본 장식 메쉬 — 보이든 숨었든 항상 제외
-    if(o.userData && o.userData._origBind) return;   // 리깅 파츠의 스킨드메시
-    let p=o, skip=false;
-    while(p && p!==root){
-      // ★ 숨겨진 메쉬는 제외 — 이 검사가 없어서 "머리 위에 얹으면 뜨는" 문제가 났다.
-      //   옷을 입으면 applyClothVisibility가 기본 몸 메쉬를 숨기고, 자리비움 페이드도 메쉬를 숨기는데,
-      //   그 숨은 메쉬가 보이는 실루엣보다 위로 뻗어 있으면 머리 꼭대기가 부풀려져 그만큼 위 캐릭터가 떴다.
-      //   (조상이 숨겨져도 자식은 안 보이므로 부모 사슬 전체를 확인한다.)
-      if(p.visible === false){ skip=true; break; }
-      if(p.userData && p.userData.rigged){ skip=true; break; }                       // 리깅 파츠(귀 등)
-      if(typeof p.name==='string' && p.name.indexOf('__partWrap_')===0){ skip=true; break; }   // 꾸미기 파츠
-      p=p.parent;
-    }
-    if(skip || o.visible === false) return;
-    try{ tmp.setFromObject(o); if(!tmp.isEmpty()){ box.union(tmp); if(outBoxes) outBoxes.push(tmp.clone()); } }catch(_){}
-  });
-  return box;
+  return measureBodyBox(root, { excludeParts: true, visibleOnly: true, skipMeshes: headDecorMeshSet(meshHost), outBoxes: outBoxes || null });
 }
+/* 키 정규화(fitModel · fitCreator) 분모와 센터링 기준 — 파츠를 세면 착용한 파츠에 따라 캐릭터가 줄었다 늘었다 한다.
+   숨은 메시는 센다(옛 동작 그대로). ⚠️ fitCreator 도 이 함수를 쓴다 — 생성기 미리보기와 실행 화면이 함께 맞는다. */
 function measureCharBox(root){
-  const box=new THREE.Box3(); const tmp=new THREE.Box3();
-  root.updateWorldMatrix(true,true);
-  root.traverse(o=>{
-    if(!o.isMesh) return;
-    if(o.userData && o.userData._origBind) return;   // 리깅 파츠의 스킨드메시
-    let p=o, skip=false;
-    while(p && p!==root){
-      if(p.userData && p.userData.rigged){ skip=true; break; }                      // 리깅 wrapper 하위 전부 제외
-      /* 🎩 꾸미기 파츠 wrapper 하위도 제외 — measureHeadBoxNoParts 와 같은 판정.
-         [왜] 이 박스는 캐릭터를 '키 1.45' 로 정규화하는 분모(fitModel 의 baseScale)와
-           앞뒤·좌우 센터링 기준(c.x·c.z)을 동시에 정한다. 파츠를 세면 그 분모가
-           '몸 + 파츠' 가 되어, 착용한 파츠에 따라 캐릭터 자체가 줄었다 늘었다 한다.
-           욕조처럼 발밑으로 내려가는 파츠는 깊이 0.5 만 되어도 1.45/1.95 = 0.74 배로
-           캐릭터가 작아졌다 — 좌석 크기(userScale)를 고정해 둬도 그 위에 곱해지므로
-           "월드 바닥에서 캐릭터 키가 사람마다 제각각" 의 정체가 이것이다.
-         ★ 파츠는 이 root 의 자손이므로 배율·센터링을 그대로 물려받는다. 측정에서만 빠지고
-           화면에서는 몸과 같은 비율로 커지므로, 사용자가 맞춰둔 xf 를 다시 조정할 필요가 없다.
-         ★ 센터링(c.x·c.z)도 같이 파츠와 무관해진다 — 모자/탈을 달고 뺄 때마다 c.z 가 흔들려
-           캐릭터가 앞뒤로 밀리던 문제(fitModel 의 그 ⚠️ 주석)가 함께 사라진다.
-         ⚠️ fitCreator 도 이 함수를 쓴다 — 그래서 생성기 미리보기와 실행 화면이 함께 맞는다.
-           한쪽만 고치면 두 화면이 파츠 크기만큼 어긋난다. */
-      if(typeof p.name==='string' && p.name.indexOf('__partWrap_')===0){ skip=true; break; }
-      if(p.userData && p.userData.__twPartWrap){ skip=true; break; }                 // 이름이 바뀌어도 표식으로 잡는다
-      p=p.parent;
-    }
-    if(skip) return;
-    try{ tmp.setFromObject(o); if(!tmp.isEmpty()) box.union(tmp); }catch(_){}
-  });
-  return box;
+  return measureBodyBox(root, { excludeParts: true });
 }
 /* 🦶 발밑보다 아래로 내려간 깊이 — 욕조 · 방석처럼 발 아래 두는 파츠 때문에 바닥선이 제각각이 되는 것을 막는다(이만큼 들어 올린다).
    ★ 피봇이 발바닥이라는 전제 — 발 아래 아무것도 없으면 0 이라 기존 캐릭터는 안 움직인다(min.y 로 다시 잡지 않는다).
@@ -95,22 +44,10 @@ function measureCharBox(root){
 const FLOOR_SNAP_MAX = 1.2;      // 저작이 어긋난 파츠 하나 때문에 캐릭터가 하늘로 뜨는 것 방지(캐릭터 키가 1.45)
 const FLOOR_SNAP_MIN = 0.005;    // 이보다 얕으면 수치 오차로 보고 안 건드린다
 function measureUnderfootDepth(root){
-  const tmp = new THREE.Box3();
   let bottom = 0;
   try{
-    root.updateWorldMatrix(true,true);
-    root.traverse(o=>{
-      if(!o.isMesh || o.visible === false) return;
-      if(o.userData && o.userData._origBind) return;      // 리깅 파츠의 스킨드메시
-      let p=o, skip=false;
-      while(p && p!==root){
-        if(p.visible === false){ skip=true; break; }       // 조상이 숨겨져도 화면엔 안 보인다
-        if(p.userData && p.userData.rigged){ skip=true; break; }
-        p=p.parent;
-      }
-      if(skip) return;
-      try{ tmp.setFromObject(o); if(!tmp.isEmpty() && tmp.min.y < bottom) bottom = tmp.min.y; }catch(_){}
-    });
+    const b = measureBodyBox(root, { excludeParts: 'rigged', visibleOnly: true });   // 발밑 파츠는 센다 — 리깅 파츠만 뺀다
+    if(!b.isEmpty() && b.min.y < bottom) bottom = b.min.y;
   }catch(_){ return 0; }
   const depth = -bottom;
   if(!(depth > FLOOR_SNAP_MIN)) return 0;

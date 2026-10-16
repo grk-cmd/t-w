@@ -17,6 +17,7 @@ const APP = need('parts/app.js');
 const STATUS = need('parts/status/status-chip.js');
 const TRICKS = need('parts/room/tricks.js');
 const MEASURE = need('parts/character/char-measure.js');
+const BODY = need('parts/character/body-measure.js');   // 몸 박스 재기 한 규칙 — measureCharBox 가 deps 로 받는다
 const SEATMENU = need('parts/room/seat-menu.js');   // 좌석 우클릭 메뉴(구역 떼기 w4 로 app.js 에서 옮김 — 판정 무변경)
 const HTML = need('desk-companion-prototype.html');
 const THREE_SRC = read('app/vendor/three/three.min.js', 'vendor/three/three.min.js', 'three.min.js');
@@ -99,14 +100,17 @@ say('§12 날기 — 기준점 높이는 몸만 잰다');
 {
   const T = strip(TRICKS);
   const fn = (T.match(/function _flyProbeY\(seat\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(/measureCharBox\(seat\.gltfRoot\)/.test(fn) && /_flyBox\.setFromObject\(seat\.rig\)/.test(fn), '★ 몸(gltfRoot)을 measureCharBox 로 · 비면 예전처럼 rig 째');
+  chk(/measureCharBox\(seat\.gltfRoot\)/.test(fn) && /measureBodyBox\(seat\.rig, null, _flyBox\)/.test(fn), '★ 몸(gltfRoot)을 measureCharBox 로 · 비면 예전처럼 rig 째(measureBodyBox 옵션 없음 — 몸 재기는 body-measure.js 한 곳)');
   chk(/const measureCharBox = deps\.measureCharBox;/.test(T) && /measureCharBox: \(\.\.\.a\)=>charMeasureMod\.measureCharBox\(\.\.\.a\),/.test((APP.match(/const tricksMod = TwTricks\.createTricks\(\{[\s\S]*?\n\}\);/) || [''])[0]), '  ↳ app.js 가 tricks 에 measureCharBox(char-measure.js)를 넘긴다');
   if (!THREE) { say('  · three.min.js 가 없어 흉내는 건너뜀'); }
   else {
-    const mcb = (MEASURE.match(/function measureCharBox\(root\)\{[\s\S]*?\n\}/) || [''])[0];
-    const measureCharBox = new Function('THREE', mcb + '\nreturn measureCharBox;')(THREE);
+    /* 진짜 body-measure.js · char-measure.js 를 같은 three 위에서 만든다 — measureCharBox 도 measureBodyBox 를 거친다 */
+    const bmWin = {}; new Function('window', 'module', 'THREE', BODY)(bmWin, undefined, THREE);
+    const bm = bmWin.TwBodyMeasure.createBodyMeasure({});
+    const cmWin = {}; new Function('window', 'module', 'THREE', 'console', MEASURE)(cmWin, undefined, THREE, { warn(){}, log(){} });
+    const measureCharBox = cmWin.TwCharMeasure.createCharMeasure({ measureBodyBox: (...a)=>bm.measureBodyBox(...a) }).measureCharBox;
     const _flyBox = new THREE.Box3(), _flyW = new THREE.Vector3();
-    const probe = new Function('THREE', '_flyBox', '_flyW', 'measureCharBox', 'seatScale', 'ANIMAL_RUN_SCALE', 'FLY_PROBE_FALLBACK', fn + '\nreturn _flyProbeY;')(THREE, _flyBox, _flyW, measureCharBox, () => 1, 0.6, 0.35);
+    const probe = new Function('THREE', '_flyBox', '_flyW', 'measureCharBox', 'measureBodyBox', 'seatScale', 'ANIMAL_RUN_SCALE', 'FLY_PROBE_FALLBACK', fn + '\nreturn _flyProbeY;')(THREE, _flyBox, _flyW, measureCharBox, bm.measureBodyBox, () => 1, 0.6, 0.35);
     const mkSeat = (withItem) => {
       const rig = new THREE.Group();
       const body = new THREE.Group(); rig.add(body);

@@ -24,6 +24,9 @@ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(34,1,0.1,100);   // 생성기와 동일한 원근 렌즈 (WYSIWYG)
+/* 캐릭터 몸 박스 재기 — 규칙은 character/body-measure.js 한 곳. 키 정규화 · 올라타기 · 바닥 맞춤 · 날기 벽이 부팅 중에도 부를 수 있어 맨 앞에서 만든다. */
+const bodyMeasureMod = TwBodyMeasure.createBodyMeasure({
+});
 
 // ★ Bloom 후처리(UnrealBloomPass)는 시도해봤지만 이 앱(바탕화면이 비치는 투명 배경 오버레이)과 근본적으로
 //   안 맞아서 제거함 — 화면 전체를 대상으로 하는 후처리라 (1)배경 투명도가 깨져서 까맣게 나오고,
@@ -1253,17 +1256,8 @@ function _myPanHalfFrac(){
     if(!me || !me.group || !_cvEl) return null;
     const cr = _cvEl.getBoundingClientRect();
     if(!cr.width || !cr.height) return null;
-    // ★ Box3.setFromObject는 '숨겨진 메시'도 포함한다(r128). 동물 좌석에는 인간 크기의 숨은
-    //   placeholder가 남아 있어서, 그대로 재면 박스가 실제보다 크고 위아래로 비대칭이 된다
-    //   (동물만 바닥이 더 가라앉던 원인). 보이는 메시만 골라서 잰다.
-    const box = new THREE.Box3(); const _tb = new THREE.Box3();
-    me.group.traverse(o=>{
-      if(!o.isMesh || o.visible === false) return;
-      let p=o, hidden=false;
-      while(p && p!==me.group){ if(p.visible===false){ hidden=true; break; } p=p.parent; }
-      if(hidden) return;
-      try{ _tb.setFromObject(o); if(!_tb.isEmpty()) box.union(_tb); }catch(_){}
-    });
+    // ★ 숨은 메시는 뺀다 — 동물 좌석의 숨은 인간 크기 placeholder 가 박스를 키운다(r128 setFromObject 는 숨은 것도 센다).
+    const box = bodyMeasureMod.measureBodyBox(me.group, { visibleOnly: true, updateWorld: false });
     if(box.isEmpty()) return null;
     let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; const v=new THREE.Vector3();
     for(let i=0;i<8;i++){
@@ -1650,6 +1644,7 @@ const tricksMod = TwTricks.createTricks({
   flySeed: (...a)=>flySeed(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   ndc: ()=>ndc,
   officeMode: ()=>officeMode,
   purikuraUi: ()=>purikuraUi,
@@ -1859,6 +1854,7 @@ const dotRenderMod = TwDotRender.createDotRender({
 /* 본문은 character/char-measure.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const charMeasureMod = TwCharMeasure.createCharMeasure({
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
 });
 /* 본문은 character/floor-snap-diag.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -2196,6 +2192,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   camera: camera,
   chatUiMod: ()=>chatUiMod,
   customStatusConf: ()=>userStatusTableMod.customStatusConf(),
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   moveMode: ()=>moveMode,
   overheadMod: ()=>overheadMod,
   renderer: renderer,
@@ -9187,6 +9184,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   camera: camera,
   findMySeat: (...a)=>findMySeat(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   measureHeadBoxNoParts: (...a)=>charMeasureMod.measureHeadBoxNoParts(...a),
   officeMode: ()=>officeMode,
   renderer: renderer,

@@ -17,13 +17,13 @@ const MOD = ["away-pic.js","parts/room/away-pic.js","app/parts/room/away-pic.js"
 if(!MOD){ say('  ? 원본 못 찾음 — away-pic.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_loadImgCors","_premiumOn","findMySeat","getMyUserId","measureHeadBoxNoParts","toast"];
+const FN_DEPS = ["_loadImgCors","_premiumOn","findMySeat","getMyUserId","measureBodyBox","measureHeadBoxNoParts","toast"];
 const VAL_DEPS = ["Presence","camera","renderer","seats"];
 const GET_DEPS = ["officeMode"];
 const SET_DEPS = [];
 const EXPORTS = ["AWAY_PIC_SCREEN_PX","_awayImgFollow","_awayImgFrame","_awayPicFor","_awayRenderUI","_awaySzOk","_awayUrlOk","awayImgSz","awayImgUrl"];
 const MOVED = ["AWAY_IMG_KEY","AWAY_IMG_PX","AWAY_IMG_MAX_BYTES","awayImgUrl","AWAY_SZ_KEY","AWAY_SZ_OPTIONS","_awaySzOk","awayImgSz","_awayPxFor","_awayTex","_awayBox","_awayGW","_awayHostBox","_awayHostP","_awayHostS","_awayImgFollow","_awayBusy","_awayUrlOk","_awayTexState","_awayPicFor","_awayImgFrame","AWAY_PIC_SCREEN_PX","_awayCamV","_awayWorldForPx","_awayPrepare","_awayPremium","_awayRenderUI","_awaySetLocal","_awayPick","_awayReset","_awaySzSetLocal","_awaySetSz","_awayBootSync"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  Presence: Presence,","  _loadImgCors: (...a)=>_loadImgCors(...a),","  _premiumOn: (...a)=>_premiumOn(...a),","  camera: camera,","  findMySeat: (...a)=>findMySeat(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  measureHeadBoxNoParts: (...a)=>measureHeadBoxNoParts(...a),","  officeMode: ()=>officeMode,","  renderer: renderer,","  seats: seats,","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  Presence: Presence,","  _loadImgCors: (...a)=>_loadImgCors(...a),","  _premiumOn: (...a)=>_premiumOn(...a),","  camera: camera,","  findMySeat: (...a)=>findMySeat(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  measureHeadBoxNoParts: (...a)=>measureHeadBoxNoParts(...a),","  officeMode: ()=>officeMode,","  renderer: renderer,","  seats: seats,","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
