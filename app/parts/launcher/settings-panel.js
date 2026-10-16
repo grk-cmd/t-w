@@ -13,6 +13,7 @@
 
 function createSettingsPanel(deps){
 const GAP_MAX = deps.GAP_MAX;
+const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — 줌이 바뀌면 마이홈 BGM 창 자리도 다시 보낸다
 const GAP_MIN = deps.GAP_MIN;
 const GAP_STEPS = deps.GAP_STEPS;
 const MULTIPLAYER_SPACING = deps.MULTIPLAYER_SPACING;   // 읽는 함수
@@ -412,7 +413,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
       if(typeof z === 'number' && _lastZ !== null && z !== _lastZ){
         requestAnimationFrame(()=>{
           try{ plMod.st.lastBoundsKey = ''; plMod.syncBgmBounds(); }catch(_){}
-          try{ window._mhSyncBgmBounds(); }catch(_){}
+          try{ mhHooks.call(mhHooks.HOOK.SYNC_BGM_BOUNDS); }catch(_){}
         });
       }
       if(typeof z === 'number') _lastZ = z;

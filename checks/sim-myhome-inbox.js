@@ -20,7 +20,7 @@ let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
 const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['myhome-inbox.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['myhome-inbox.js', 'app.js', 'desk-companion-prototype.html', 'myhome-hooks.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ console.log('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
@@ -92,14 +92,16 @@ function mkEnv(o){
     _mallangDeleteGift: async (k) => { env.calls.push('deleteGift ' + k); return 'ok'; },
     _mallangOpenGift: (fid, nm) => env.calls.push('openGift ' + fid + ' ' + nm),
     _bugBoardOpen: (id) => env.bugOpen.push(id),
-    _mhApplyTheme(){},   // 🎨 마이홈 테마 다시 걸기 고리(myhome-edit.js 가 부팅 때 건다)
   };
   const ls = { getItem: (k) => env.store.has(k) ? env.store.get(k) : null, setItem: (k, v) => env.store.set(k, String(v)) };
   const nav = { clipboard: { writeText: (t) => env.copied.push(t) } };
   const confirmFn = () => env.confirmAns;
   const sb = { window: win, module: undefined };
-  new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'companion', 'navigator', 'confirm', 'queueMicrotask', o.src || SRC['myhome-inbox.js'])
-    (sb.window, undefined, doc, ls, api, companion, nav, confirmFn, (fn) => fn());
+  /* 🪝 마이홈 고리판 — 테마 다시 걸기는 myhome-edit.js 가 부팅 때 건다(여기선 아무 일 없음) */
+  const hw = {}; new Function('window', 'module', SRC['myhome-hooks.js'])(hw, undefined);
+  hw.TwMyHomeHooks.on(hw.TwMyHomeHooks.HOOK.APPLY_THEME, () => {});
+  new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'companion', 'navigator', 'confirm', 'queueMicrotask', 'TwMyHomeHooks', o.src || SRC['myhome-inbox.js'])
+    (sb.window, undefined, doc, ls, api, companion, nav, confirmFn, (fn) => fn(), hw.TwMyHomeHooks);
   env.win = win;
   env.myInbox = {}; env.bc = {}; env.friends = {}; env.admin = false;
   env.mk = (extra) => win.TwMyHomeInbox.createMyHomeInbox(Object.assign({

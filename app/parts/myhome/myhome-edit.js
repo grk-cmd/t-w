@@ -16,9 +16,9 @@
        · renderMyHomeStickers 를 감싸 다시 대입하던 두 줄 — 옛 함수는 _getRenderMyHomeStickers() 로 받고, 감싼 함수는
          _setRenderMyHomeStickers(…) 로 app.js 의 이름에 다시 넣는다(삭제 버튼에 자동 저장을 한 번 더 붙이는 것 그대로).
          ⚠️ 옛 함수를 화살표(renderMyHomeStickers)로 잡으면 감싼 함수가 자기를 부르는 무한 재귀가 된다.
-   ★ 이 묶음이 window 에 거는 이름은 예전 그대로 window 에 건다 — commitMyHomePage · _mhOpenColorPopup · _mhBeginNameEdit ·
-     _mhCancelNameEdit · _mhBgmRefresh · _mhBgmPlaying · _mhBgmSetPlaying · _bgmDestroy · _mhApplyBg · _mhApplyTheme · _mhDsClose.
-     app.js(마이홈 열기 · 닫기 · 관람 · 마이홈 바탕화면) · myhome-sticker.js · purikura-ui.js 가 그 이름으로 부른다.
+   ★ 이 묶음이 window 에 거는 이름 — commitMyHomePage · _mhOpenColorPopup · _mhBeginNameEdit · _bgmDestroy · _mhApplyBg · _mhApplyTheme · _mhDsClose.
+     app.js(마이홈 닫기)와 이 파일 안이 그 이름으로 부른다. 다른 마이홈 파일 · 설정 패널 · 스티커사진은 🪝 고리판(myhome-hooks.js)으로
+     부른다 — 저장 · 배경 · 테마 · BGM(새로 고침 · 재생 중 · 표시) · BGM 창 · 스튜디오 닫기 · 닉네임 취소를 만들 때 고리판에도 건다(순환 끊기 8).
    ★ createMyHomeEdit 는 app.js 의 원래 자리(🔗 마이홈 본문 링크 뒤 · 📖 방명록 연결 앞)에서 부른다. 만들 때 바로 도는 것
      (버튼 · 입력칸 연결 · window 고리 · companion.onBgmClosed · onBgmMode 구독)이 예전과 같은 순서 · 같은 때에 돈다.
    ⚠️ document · window · companion · firebaseAPI · localStorage 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
@@ -62,6 +62,7 @@ const DS_IMG_MAX_BG_W = deps.dsImgMaxBgW;                // 👑 디자인 스�
 const DS_IMG_MAX_BG_H = deps.dsImgMaxBgH;
 const DS_IMG_MAX_PANEL = deps.dsImgMaxPanel;
 const DS_IMG_QUALITY = deps.dsImgQuality;
+const mhHooks = TwMyHomeHooks;                           // 🪝 마이홈 고리판(myhome-hooks.js — 먼저 싣는 아래층) — 다른 파일이 부를 함수를 건다
 
   // ★ 저장 버튼 없이 자동저장 — 아래 여러 지점(사진 변경/스티커 추가삭제이동/텍스트칸에서 포커스 벗어남)에서
   //   이 함수를 호출해서 그 즉시 Firebase에 반영함.
@@ -103,6 +104,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     }
   }
   window.commitMyHomePage = commitMyHomePage;   // 탭 전환/창 닫힘 등 다른 곳에서도 재사용
+  mhHooks.on(mhHooks.HOOK.COMMIT, commitMyHomePage);
   // 프로필 사진 — 클릭하면 파일 선택, 선택하면 정사각형으로 크롭+축소해서 용량을 줄인 뒤 base64로 저장
   const avatarBig=document.getElementById('mhAvatarBig');
   const avatarInput=document.getElementById('mhAvatarInput');
@@ -446,7 +448,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     inp.focus(); inp.select();
     let canceled=false;
     const finish=()=>{
-      window._mhCancelNameEdit = null;
+      mhHooks.on(mhHooks.HOOK.CANCEL_NAME_EDIT, null);
       if(!canceled) commitUserName(inp.value);
       nameEl.textContent = _mhViewingUserId() ? _mhViewingDisplayName() : getDisplayName();
       nameEl.style.display='';
@@ -466,7 +468,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     inp.addEventListener('blur', finish);
     /* 밖에서 이 편집을 **저장 없이** 접는 유일한 길. 관람 모드 전환이 이걸 쓴다.
        ⚠️ finish 안에서 반드시 null 로 되돌린다 — 남겨 두면 이미 사라진 입력칸을 가리킨다. */
-    window._mhCancelNameEdit = ()=>{ canceled=true; inp.blur(); };
+    mhHooks.on(mhHooks.HOOK.CANCEL_NAME_EDIT, ()=>{ canceled=true; inp.blur(); });
   }
   window._mhBeginNameEdit = _mhBeginNameEdit;   // 친구 탭 쪽 버튼도 같은 한 벌을 쓴다
   // 「수정」 링크와 닉네임 더블클릭 — 진입로는 둘, 부르는 함수는 하나.
@@ -555,12 +557,12 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
       }catch(_){}
     });
   }
-  window._mhBgmRefresh=_bgmLabelRefresh;
+  mhHooks.on(mhHooks.HOOK.BGM_REFRESH, _bgmLabelRefresh);
   /* 📷 스티커사진이 열릴 때 «지금 마이홈 BGM 이 나는 중인가»를 물어보고, 재웠다 깨울 때
      표시를 같이 맞춘다. 창(companion)은 셋이 공유하므로 pause/resume 은 그쪽이 한 번만 부른다 —
      여기서는 **표시만** 바꾼다. ⚠️ 여기서 companion 을 또 부르면 두 번 재워진다. */
-  window._mhBgmPlaying = function(){ return !!_bgmPlaying; };
-  window._mhBgmSetPlaying = function(on){ _bgmPlaying = !!on; _bgmLabelRefresh(); };
+  mhHooks.on(mhHooks.HOOK.BGM_PLAYING, function(){ return !!_bgmPlaying; });
+  mhHooks.on(mhHooks.HOOK.BGM_SET_PLAYING, function(on){ _bgmPlaying = !!on; _bgmLabelRefresh(); });
   // ▐▐ 클릭 — 창은 유지, 영상만 일시정지. 다음 ▶ 클릭 시 같은 창에서 재개.
   function _bgmPause(){
     if(window.companion && companion.pauseBgm) companion.pauseBgm();
@@ -575,6 +577,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     _bgmPlaying=false; _bgmWinOpen=false; _bgmLoadedVid=null; _bgmLabelRefresh();
   }
   window._bgmDestroy = _bgmDestroy;   // 마이홈 close 훅에서 재사용
+  mhHooks.on(mhHooks.HOOK.BGM_DESTROY, _bgmDestroy);
   function _bgmStart(){
     const b=_myHomeData().bgm; const vid=b&&_ytId(b.url);
     if(!vid){ toast('오른쪽 ((o 를 눌러 유튜브 링크를 먼저 등록해주세요'); return; }
@@ -589,7 +592,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
       const url='https://www.youtube.com/watch?v='+vid;
       companion.openBgm(url, (b.title||'YouTube BGM'));
       _bgmWinOpen=true; _bgmLoadedVid=vid;
-      setTimeout(()=>{ window._mhSyncBgmBounds(); }, 60);
+      setTimeout(()=>{ mhHooks.call(mhHooks.HOOK.SYNC_BGM_BOUNDS); }, 60);
     }
     _bgmPlaying=true; _bgmLabelRefresh();
   }
@@ -602,7 +605,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     companion.openBgm(url, (b.title||'YouTube BGM'));   // 이미 창이 있으면 main.js가 URL만 교체함
     _bgmWinOpen=true; _bgmPlaying=true; _bgmLoadedVid=vid; _bgmLabelRefresh();
     // 창이 새로 만들어지는 경우를 대비해 위치를 확실히 마이홈 뒤로
-    setTimeout(()=>{ window._mhSyncBgmBounds(); }, 60);
+    setTimeout(()=>{ mhHooks.call(mhHooks.HOOK.SYNC_BGM_BOUNDS); }, 60);
   }
   // 자식창이 유저에 의해(× 눌러) 닫히면 renderer 상태도 동기화
   if(window.companion && companion.onBgmClosed) companion.onBgmClosed(()=>{
@@ -635,6 +638,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     else win.style.background='var(--win-face)';
   }
   window._mhApplyBg=applyMyHomeBg;
+  mhHooks.on(mhHooks.HOOK.APPLY_BG, applyMyHomeBg);
   // 🎨 마이홈 5 + 👑 프리미엄 디자인: 영역별 테마 — theme{...} 키를 각 요소 배경(색/이미지)·글씨색에 적용.
   //   이미지 키(...Img)가 있으면 색보다 우선. 라이선스 보유자(isPremium)/관리자 전용 편집(적용·표시는 누구나).
   function _mhBg(el, color, img){
@@ -701,6 +705,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     // (프로필 레일 제거됨 — fCard 테마 값은 이제 사용 안 함, 저장돼 있어도 무해)
   }
   window._mhApplyTheme=applyMyHomeTheme;
+  mhHooks.on(mhHooks.HOOK.APPLY_THEME, applyMyHomeTheme);
   const editBtn=document.getElementById('mhEditHomeBtn');
   const bgMenu=document.getElementById('mhBgMenu');
   if(editBtn && bgMenu){
@@ -806,6 +811,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
   };
   let _mhDsWin=null, _mhDsTab='home';
   window._mhDsClose = ()=>{ try{ if(_mhDsWin && !_mhDsWin.closed) _mhDsWin.close(); }catch(_){} _mhDsWin=null; };
+  mhHooks.on(mhHooks.HOOK.DS_CLOSE, window._mhDsClose);
   const DS_HTML = '<!doctype html><html><head><meta charset="utf-8"><style>'+
     /* 🎨 [2026-09-15 제보 5] 테마 토큰은 applyThemeToChildDoc 가 넣는다(방명록과 같다). 이 창의 타이틀·프리셋 줄은
        **두 테마 모두 금색** — 유료 표시라 액센트를 안 탄다(--win-title-premium 이 테마별 금색을 정한다). */

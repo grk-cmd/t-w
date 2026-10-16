@@ -57,6 +57,7 @@ const ADV_GAME_OFF = true;
    데이터(tw.advZ.v2)는 지우지 않고 그대로 둔다 — mystery-au.js가 1회 읽어 이관하고,
    되돌리고 싶으면 이 값만 false로 바꾸면 예전 캐릭터세팅이 그대로 돌아온다. */
 const ADV_HIDE_CHAR = true;
+const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — 창을 끌 때 마이홈 BGM 창 자리를 다시 보낸다(마이홈 창이 건다)
 'use strict';
 
 /* ─────────────────────────── 저장 ─────────────────────────── */
@@ -5885,7 +5886,7 @@ function advBindWinDrag(bar){
     if(osMove){ try{ companion.moveWindow(e.screenX-sx, e.screenY-sy); }catch(_){} sx=e.screenX; sy=e.screenY; return; }
     const win=document.getElementById('myHomeWin'); if(!win) return;
     win.style.left=(e.clientX-offX)+'px'; win.style.top=(e.clientY-offY)+'px';
-    if(window._mhSyncBgmBounds) try{ window._mhSyncBgmBounds(); }catch(_){}
+    if(mhHooks.has(mhHooks.HOOK.SYNC_BGM_BOUNDS)) try{ mhHooks.call(mhHooks.HOOK.SYNC_BGM_BOUNDS); }catch(_){}
   });
   const end=e=>{ dragging=false; try{ bar.releasePointerCapture(e.pointerId); }catch(_){} };
   bar.addEventListener('pointerup', end);
