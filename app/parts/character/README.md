@@ -96,3 +96,21 @@
   - `build()` 는 메쉬마다 머티리얼을 복제한다 — 빼면 친구 좌석 아이템과 색을 같이 쓴다. 본 있는 모델은 `SkeletonUtils.clone`.
   - 저장 목록 등록(`loadSavedItemsIntoSession`)은 app.js 에 있다 — 부팅 초반, 이 모듈을 만드는 줄보다 앞에서 부르기 때문.
   - 검사: `checks/sim-desk-items.js`(4절 — 기본값 · 인자 우선 · 저장 레코드로 메타 채우기 · 저장 목록 못 읽음 · build 복제 · 합친 목록).
+
+## desk-visual.js — 🪑 책상 모양(바꿔 끼기 · 색 · 좌석 책상)
+
+- **책임**: 책상 그룹(`deskGroup`)의 모양만 — 기본 책상 메쉬를 숨기고 커스텀 GLB 로 바꿔 끼기(톤 · `_col` 색 메쉬 모으기 · 애니메이션 재생 모드), `_col` 색, 좌석 def 의 카탈로그 책상을 찾아 그리기. 크기 · 자리는 `setDeskScale`(deps)이 맡는다.
+- **만드는 법**: `const deskVisualMod = TwDeskVisual.createDeskVisual({ … });` — deps 12: `commissionMod` · `assetCodeMod` · `b64ToBuf` · `_applyItemMatTone` · `_setDeskMatColor` · `activeItemMixers` · `_idleItemPivots` · `setDeskScale` · `toast` · `DEFAULT_DESK_OVERRIDE_ID` (값 · 함수) · `isPremium` · `isAdmin` (읽는 함수)
+- **내보내는 것**
+  - `swapDeskVisual(deskGroup, template, isDefaultOverride, animations, playMode)` — `template` 이 `null` 이면 기본 책상으로 되돌린다. `playMode`: `'auto'`(바로 반복) · `'idle'`(`_idleItemPivots` 에 넣어 프레임 루프가 정함 — 부르기 전에 `deskGroup.userData.__seat` 를 심는다) · 그 밖(`'click'` — 한 번 · 끝에서 멈춤).
+  - `applyDeskColorToCustom(deskGroup, color)` — 모아 둔 `_col` 머티리얼만.
+  - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상.
+  ```js
+  deskVisualMod.swapDeskVisual(cDesk, sc); deskVisualMod.applyDeskColorToCustom(cDesk, cDeskColor);
+  await deskVisualMod.applyDeskCatalogRefToSeat(seat, seat.charDef);
+  ```
+- **확장할 때 고칠 자리**: 새 재생 모드는 `swapDeskVisual` 의 `playMode` 분기 · 자리 맞춤(바닥 + 0.15 · 앞뒤 0.6)은 `normalizeDeskObj`.
+- **함정**
+  - 라이선스 전용 책상은 **내 좌석에서만** 막는다(`!seat.remote`) — 친구 좌석에서 막으면 남이 쓴 책상이 기본 책상으로 보인다.
+  - 크기를 GLB 에 굽지 않는다(원본 그대로 · 슬라이더만) — `autoScaleDeskToTarget` · `DESK_SIZE_OFFSET` 은 지금 안 쓰는 옛 몫(CONFIRM.md).
+  - 검사: `checks/sim-desk-visual.js`(4절 — 바꿔 끼기 · 되돌리기 · `_col` · 자리 맞춤 · 재생 세 모드 · 색 · 카탈로그 책상 · 라이선스 · 친구 좌석 · 풀기 실패).

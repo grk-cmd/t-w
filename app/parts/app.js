@@ -3410,8 +3410,8 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   DESK_SCALE_MIN: ()=>DESK_SCALE_MIN,
   _humanEarMat: (...a)=>_humanEarMat(...a),
   _humanEarPic: (...a)=>_humanEarPic(...a),
-  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),
-  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
+  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
+  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
   applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),
   clampDeskScale: (...a)=>clampDeskScale(...a),
   humanEar: humanEar,
@@ -4472,7 +4472,7 @@ function _hsvToHex(h, sv, v){
 const premiumMod = TwPremiumAssets.createPremiumAssets({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   Presence: ()=>Presence,
-  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),
+  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
   cBase: ()=>cBase,
   deskItemDef: (...a)=>deskItemsMod.deskItemDef(...a),
   deskPartAnchorOf: (...a)=>deskPartAnchorOf(...a),
@@ -6719,7 +6719,7 @@ function applyDeskPreset(p){
     cDeskColor = p.deskColor;
     const el=document.getElementById('deskColor'); if(el){ el.value=cDeskColor; el.dispatchEvent(new Event('input',{bubbles:true})); }
     if(cDeskMat) cDeskMat.color.set(cDeskColor);
-    applyDeskColorToCustom(cDesk, cDeskColor);
+    deskVisualMod.applyDeskColorToCustom(cDesk, cDeskColor);
   }
   if(typeof p.deskScale==='number'){ cDeskScale=clampDeskScale(p.deskScale); const el=document.getElementById('deskScale'); if(el) el.value=cDeskScale; setCreatorDeskScale(cDeskScale); }
   if(typeof p.deskLenX==='number'){  cDeskLenX=p.deskLenX;  const el=document.getElementById('deskLenX');  if(el) el.value=cDeskLenX;  setCreatorDeskScale(cDeskScale); }
@@ -6740,7 +6740,7 @@ function applyDeskPreset(p){
     assetCodeMod.parseGlbBytes(b64ToBuf(p.deskGlb)).then(sc=>{
       cDeskTemplate=sc; cDeskGlbB64=p.deskGlb; activeCustomDeskId=p.deskCatalogId;
       const isDefaultOverride = (p.deskCatalogId === DEFAULT_DESK_OVERRIDE_ID);
-      if(cDesk){ swapDeskVisual(cDesk, sc, isDefaultOverride); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
+      if(cDesk){ deskVisualMod.swapDeskVisual(cDesk, sc, isDefaultOverride); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
       applyDeskModel();
       _refitPreviewAfterPreset();
     }).catch(()=>{ toast('프리셋의 책상 모델을 불러오지 못했어요'); applyDeskModel(); _refitPreviewAfterPreset(); });
@@ -6758,15 +6758,15 @@ function applyDeskPreset(p){
         }
         try{
           const sc = await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb));
-          if(cDesk){ swapDeskVisual(cDesk, sc, true); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
+          if(cDesk){ deskVisualMod.swapDeskVisual(cDesk, sc, true); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
         }catch(_){
-          if(cDesk){ swapDeskVisual(cDesk, null); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
+          if(cDesk){ deskVisualMod.swapDeskVisual(cDesk, null); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
         }
         applyDeskModel();
         _refitPreviewAfterPreset();
       })();
     } else {
-      if(cDesk){ swapDeskVisual(cDesk, null); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
+      if(cDesk){ deskVisualMod.swapDeskVisual(cDesk, null); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
       applyDeskModel();
       _refitPreviewAfterPreset();
     }
@@ -7831,10 +7831,10 @@ function renderCrItems(){
         if(!ov.glb && ov.glbUrl){
           try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
         }
-        try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); swapDeskVisual(cDesk,sc,true); }catch(e){ swapDeskVisual(cDesk,null); }
+        try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); deskVisualMod.swapDeskVisual(cDesk,sc,true); }catch(e){ deskVisualMod.swapDeskVisual(cDesk,null); }
       }
-      else swapDeskVisual(cDesk,null);
-      applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale);
+      else deskVisualMod.swapDeskVisual(cDesk,null);
+      deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale);
     }
     renderCrItems();
   };
@@ -7861,8 +7861,8 @@ function renderCrItems(){
       if(activeCustomDeskId===rec.id){ cDeskTemplate=null; cDeskGlbB64=null; activeCustomDeskId=null;
         if(cDesk){
           const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거로 복귀(진짜 원본 아님)
-          if(ov){ assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor); }).catch(()=>{ swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); }); }
-          else { swapDeskVisual(cDesk,null); applyDeskColorToCustom(cDesk,cDeskColor); }
+          if(ov){ assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ deskVisualMod.swapDeskVisual(cDesk,sc,true); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); }).catch(()=>{ deskVisualMod.swapDeskVisual(cDesk,null); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); }); }
+          else { deskVisualMod.swapDeskVisual(cDesk,null); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); }
         } }
       renderCrItems();
     };
@@ -7907,7 +7907,7 @@ function renderCrItems(){
       }
       try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(rec.glb));
         cDeskTemplate=sc; cDeskGlbB64=rec.glb; cDeskScale=clampDeskScale(cDeskScale||DESK_SCALE_DEFAULT); activeCustomDeskId=rec.id;
-        if(cDesk){ swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
+        if(cDesk){ deskVisualMod.swapDeskVisual(cDesk,sc); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
         renderCrItems();
       }catch(e){ toast('책상 적용 실패'); }
     };
@@ -8062,7 +8062,7 @@ function reorderSavedDesk(draggedId, targetId){
     }
   }
 }
-document.getElementById('deskColor').addEventListener('input',e=>{ cDeskColor=e.target.value; lightToneMod._setDeskMatColor(cDeskMat, cDeskColor); applyDeskColorToCustom(cDesk,cDeskColor); });
+document.getElementById('deskColor').addEventListener('input',e=>{ cDeskColor=e.target.value; lightToneMod._setDeskMatColor(cDeskMat, cDeskColor); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); });
 document.getElementById('deskScale').addEventListener('input',e=>{ cDeskScale=+e.target.value; setCreatorDeskScale(cDeskScale); });   // 카메라 고정 — 책상 크기 가늠 쉽게
 // 버튼을 꾹 누르고 있으면 뗄 때까지 계속 반복 실행 (첫 클릭은 즉시, 0.35초 뒤부터 빠르게 반복)
 function bindHold(el, fn){
@@ -8477,7 +8477,7 @@ document.getElementById('assetImpGo').onclick=async()=>{
       // 즉시 활성 책상으로 swap (사용자 의도 — 방금 추가한 책상은 바로 보이도록)
       // ★ 크기(cDeskScale)는 건드리지 않음 — 이전에 슬라이더로 맞춰둔 값을 그대로 유지(고정값으로 리셋하면 매번 슬라이더가 튀어 보임)
       cDeskTemplate=scene; cDeskGlbB64=glbB64;
-      if(cDesk){ swapDeskVisual(cDesk,scene); setCreatorDeskScale(cDeskScale); applyDeskColorToCustom(cDesk,cDeskColor); }
+      if(cDesk){ deskVisualMod.swapDeskVisual(cDesk,scene); setCreatorDeskScale(cDeskScale); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); }
       activeCustomDeskId=id;
       toast('책상을 추가했어요');
       renderCrItems();
@@ -8549,7 +8549,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
   _loginLocalSnapshot: (...a)=>accountMod._loginLocalSnapshot(...a),
   _setMyUserId: (...a)=>_setMyUserId(...a),
-  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),
+  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
   awayPicMod: ()=>awayPicMod,
   creatorOpen: ()=>creatorOpen,
@@ -8855,7 +8855,7 @@ function openCreator(mode){
   activeCustomDeskId=null;
   if(cDesk){ setCreatorDeskScale(cDeskScale); setDeskPos(cDesk, cDeskPos); updateDeskPosNum(); }
   if(cBase){ creatorPrevMod.applyCreatorXform(); creatorPrevMod.clearCreatorItems(); creatorPrevMod.clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
-    if(cDesk)cDesk.userData.deskScale=cDeskScale; swapDeskVisual(cDesk,null);
+    if(cDesk)cDesk.userData.deskScale=cDeskScale; deskVisualMod.swapDeskVisual(cDesk,null);
     (async()=>{
       if(src&&src.deskCatalogId){
         const m=commissionMod.savedDesks().find(d=>d.id===src.deskCatalogId);
@@ -8867,9 +8867,9 @@ function openCreator(mode){
             try{ await catalogGlbMod.resolveCatalogGlb(m); }catch(_){}
           }
           try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(m.glb)); cDeskGlbB64=m.glb; cDeskTemplate=sc; activeCustomDeskId=m.id;
-            swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor); }catch(e){}
+            deskVisualMod.swapDeskVisual(cDesk,sc); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); }catch(e){}
         }
-      } else if(src&&src.deskGlb){ cDeskGlbB64=src.deskGlb; try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(src.deskGlb)); cDeskTemplate=sc; swapDeskVisual(cDesk,sc); applyDeskColorToCustom(cDesk,cDeskColor);
+      } else if(src&&src.deskGlb){ cDeskGlbB64=src.deskGlb; try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(src.deskGlb)); cDeskTemplate=sc; deskVisualMod.swapDeskVisual(cDesk,sc); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor);
         const m=commissionMod.savedDesks().find(d=>d.glb===src.deskGlb); if(m) activeCustomDeskId=m.id;
       }catch(e){} } else {
         const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
@@ -8877,7 +8877,7 @@ function openCreator(mode){
           if(!ov.glb && ov.glbUrl){
             try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
           }
-          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); swapDeskVisual(cDesk,sc,true); applyDeskColorToCustom(cDesk,cDeskColor);
+          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); deskVisualMod.swapDeskVisual(cDesk,sc,true); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor);
             // ★ 코드베이스의 다른 swapDeskVisual 호출부(8381·8399·8407·9241·13717·13720·13721)는 전부
             //   직후에 setCreatorDeskScale로 크기를 다시 먹인다. 이 '기본 책상 override' 분기만 빠져 있어서
             //   교체 전 스케일 상태에 의존하고 있었다 — 실행 경로(applyDeskCatalogRefToSeat)와 동일하게 맞춤.
@@ -9015,7 +9015,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   _mkFrontFill: (...a)=>_mkFrontFill(...a),
   _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
-  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
+  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
   applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),
   applyStaticHandRest: (...a)=>creatorPrevMod.applyStaticHandRest(...a),
@@ -9037,7 +9037,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
   slotSaveMod: ()=>slotSaveMod,
   slots: slots,
-  swapDeskVisual: (...a)=>swapDeskVisual(...a),
+  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
 });
 /* 런처 다시 그리기 — 여러 모듈이 부르는 연결 자리라 app.js 에 둔다(launcher-preview.js 로 옮기면 슬롯 · 라이선스 모듈과 순환이 생긴다). */
 function renderLauncher(){
@@ -9487,9 +9487,9 @@ function applyCharToSeat(seat,def){
   
   (async()=>{  
     if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
-    if(def.deskCatalogId){ applyDeskCatalogRefToSeat(seat, def); }
-    else if(def.deskGlb){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; swapDeskVisual(seat.desk,sc); setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
-    else { applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
+    if(def.deskCatalogId){ deskVisualMod.applyDeskCatalogRefToSeat(seat, def); }
+    else if(def.deskGlb){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; deskVisualMod.swapDeskVisual(seat.desk,sc); setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)deskVisualMod.applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
+    else { deskVisualMod.applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
     // ★ 새 아이템 목록을 적용하기 전에 기존에 붙어있던 아이템을 먼저 확실히 뗌 — 이 단계가 없어서
     //   실행 중인 캐릭터를 우클릭으로 수정할 때(특히 아이템을 끄거나 다른 걸로 바꿀 때) 예전 아이템이
     //   계속 남아있던 버그의 원인이었음(생성기 미리보기는 clearCreatorItems가 매번 먼저 비워서 문제 없었음).
@@ -10457,8 +10457,8 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   activeCustomDeskId: ()=>activeCustomDeskId,
   adminCategory: adminCategory,
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
-  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),
-  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
+  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
+  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
   assetCodeMod: assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
@@ -10487,45 +10487,29 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   rideBenchMod: rideBenchMod,
   seats: seats,
   setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
-  swapDeskVisual: (...a)=>swapDeskVisual(...a),
+  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
   toast: (...a)=>toast(...a),
   unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
   wardrobeMod: wardrobeMod,
   setCDeskGlbB64: (v)=>{ cDeskGlbB64 = v; },
   setCDeskTemplate: (v)=>{ cDeskTemplate = v; },
 });
-// 좌석의 charDef.deskCatalogId를 보고 지금 카탈로그에 있는 최신 GLB로 책상을 그려줌(없으면 기본 책상)
-async function applyDeskCatalogRefToSeat(seat, def){
-  if(!seat || !seat.desk) return;
-  const rec = commissionMod.savedDesks().find(d=>d.id===def.deskCatalogId);
-  if(!rec){
-    swapDeskVisual(seat.desk,null);
-    setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);
-    return;
-  }
-  /* 라이선스 게이트 — 라이선스 필수 책상인데 없으면 기본 책상 fallback + 안내
-     ★ **내 좌석에만** 건다(!seat.remote). 이 함수는 친구 좌석을 그릴 때도 그대로 도는데,
-       예전엔 여기서 '보는 사람'의 isPremium을 봤다 → 라이선스가 있는 친구가 그 책상을 써도
-       라이선스 없는 내 화면에서는 기본 책상으로 바뀌어 보였다(제보된 증상).
-       게이트의 목적은 '내가 못 쓰게' 하는 것이지 '남이 쓴 걸 못 보게' 하는 게 아니다.
-     ⚠️ 같은 함정이 equipDeskItem(책상 위 아이템)에도 있었다 — 거기도 함께 고쳤다.
-       새 licenseOnly 자산을 추가할 때는 항상 '장착 시점'에만 막을 것. 그리는 시점에 막으면
-       그 순간 화면이 곧 남의 화면이 아니게 된다. */
-  if(rec.licenseOnly && !seat.remote && !isPremium && !isAdmin){
-    swapDeskVisual(seat.desk,null);
-    setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);
-    if(seat.isMe) toast('🔒 "'+(rec.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
-    return;
-  }
-  try{
-    seat.desk.userData.__seat = seat;   // 책상 idle 재생 판정에 좌석 상태 필요
-    const { scene:sc, animations } = await assetCodeMod.parseGlbFull(b64ToBuf(rec.glb));
-    seat.desk.userData.deskScale=def.deskScale||1;
-    swapDeskVisual(seat.desk,sc,def.deskCatalogId===DEFAULT_DESK_OVERRIDE_ID, animations, rec.playMode);
-    setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);
-    if(def.deskColor) applyDeskColorToCustom(seat.desk,def.deskColor);
-  }catch(e){}
-}
+/* 본문은 character/desk-visual.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const deskVisualMod = TwDeskVisual.createDeskVisual({
+  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  _applyItemMatTone: (...a)=>lightToneMod._applyItemMatTone(...a),
+  _idleItemPivots: _idleItemPivots,
+  _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
+  activeItemMixers: activeItemMixers,
+  assetCodeMod: assetCodeMod,
+  b64ToBuf: (...a)=>b64ToBuf(...a),
+  commissionMod: commissionMod,
+  isAdmin: ()=>isAdmin,
+  isPremium: ()=>isPremium,
+  setDeskScale: (...a)=>setDeskScale(...a),
+  toast: (...a)=>toast(...a),
+});
 /* (구역 떼기 C · w2) 이 자리의 본문도 character/catalog-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기 ═══ */
 /* 본문은 character/desk-items.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -10550,86 +10534,7 @@ async function loadSavedItemsIntoSession(){
   }
 }
 
-/* 커스텀 책상: 기본 책상 메쉬를 숨기고 커스텀 GLB로 교체(앵커는 그대로) */
-// ★ 요청에 따라 자동 크기 보정(폭 1.7에 맞춰 리사이징하던 로직)을 완전히 제거함.
-//   블렌더에서 내보낸 크기(가로/세로/높이) 그대로 사용 — 앱이 임의로 다시 스케일링하지 않음.
-//   전체적인 크기 조절은 오직 "책상 크기" 슬라이더(setDeskScale, deskGroup 전체 스케일)로만 함.
-//   여기서는 위치만 보정: 바닥 중앙(X,Z)에 오도록 정렬 + 피벗을 바닥에 맞춤.
-function normalizeDeskObj(obj){ obj.scale.set(1,1,1); obj.position.set(0,0,0); obj.updateMatrixWorld(true);
-  let box=new THREE.Box3().setFromObject(obj); const c=box.getCenter(new THREE.Vector3());
-  obj.position.x+=(0-c.x); obj.position.z+=(0.6-c.z); 
-  // 피벗은 바닥, 메쉬만 0.15만큼 올리기 (수치 조절 가능)
-  obj.position.y+=(0-box.min.y) + 0.15; 
-  return obj; }
-// ★ 새 책상 GLB 자동 크기 정규화 — 유저가 Blender에서 어떤 크기로 export하든 이 폭에 맞춰 스케일 조정.
-//   기본 책상 오버라이드(__default_desk__)와 대략 동일한 폭이 되게 3.0을 목표로 잡음.
-//   유저가 "너무 크다/작다"고 느낄 여지가 있는 값은 관리자가 등록 시 크기 슬라이더로 재조정 가능.
-const DESK_TARGET_WIDTH = 3.0;
-function autoScaleDeskToTarget(obj){
-  const box = new THREE.Box3().setFromObject(obj);
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.z, 0.001);   // 폭(넓이) 기준 — 책상은 x/z 평면
-  if(!isFinite(maxDim) || maxDim <= 0) return 1;
-  return DESK_TARGET_WIDTH / maxDim;
-}
-// ★ 새로 등록하는 책상들에만 적용되는 크기 배율. "기본 책상"으로 등록해둔 오버라이드(__default_desk__)는
-//   이미 지금 크기가 딱 맞다고 확인됐으므로 절대 이 배율의 영향을 받지 않음(swapDeskVisual의 isDefaultOverride 인자로 구분).
-const DESK_SIZE_OFFSET = 1.3;   // 새로 등록하는 책상들의 크기 배율 — 1보다 크면 더 크게. 필요하면 이 숫자만 조절
-function swapDeskVisual(deskGroup,template,isDefaultOverride,animations,playMode){ if(!deskGroup)return;
-  const prev=deskGroup.getObjectByName('customDesk'); if(prev)deskGroup.remove(prev);
-  // 이전 책상에 애니메이션 mixer가 있었으면 해제
-  if(deskGroup.userData.deskMixer){ activeItemMixers.delete(deskGroup.userData.deskMixer); deskGroup.userData.deskMixer=null; }
-  if(deskGroup.userData.deskIdlePivot){ _idleItemPivots.delete(deskGroup.userData.deskIdlePivot); deskGroup.userData.deskIdlePivot=null; }
-  const defaults=deskGroup.children.filter(ch=>ch.name!=='deskAnchor'&&ch.name!=='customDesk');
-  if(template){ const obj=template.clone(true); obj.name='customDesk';
-    const mats=[];
-    // ★ 책상 material도 캐릭터와 동일한 flat 조명 처리 —
-    //   단, 텍스처(map) 있는 mesh에만 emissive 적용. _col처럼 map 없는 solid-color mesh는 emissive 넣으면
-    //   씬 조명 + emissive가 합쳐져서 과도하게 밝아 보임(요청사항: _col은 emissive 빼거나 조정).
-    obj.traverse(n=>{ if(n.isMesh){ n.castShadow=true; if(n.material){
-      n.material=Array.isArray(n.material)?n.material.map(m=>m.clone()):n.material.clone();
-      const mList = Array.isArray(n.material) ? n.material : [n.material];
-      // 톤 규칙은 _applyItemMatTone 한 곳에서만 정한다(아이템과 공용) —
-      //   텍스처 있는 mesh: emissiveMap + emissive 로 flat 조명(캐릭터와 톤 통일)
-      //   solid mesh (_col 포함): emissive 0 — 씬 조명이 자연스럽게 shading함
-      mList.forEach(m=>lightToneMod._applyItemMatTone(m));
-      if(/_col$/i.test(n.name)){ mList.forEach(m=>mats.push(m)); }
-    } } });
-    deskGroup.userData.customMats=mats;
-    normalizeDeskObj(obj);
-    // ★ 옛날엔 새 책상만 autoScaleDeskToTarget + DESK_SIZE_OFFSET(1.3)로 크기를 강제 조정했는데,
-    //   기본 책상은 그 로직을 안 타서 "블렌더에서 같은 크기로 만들었는데 새 책상만 크기 다름" 문제 발생.
-    //   이제 새 책상도 GLB 원본 크기 그대로 사용 — 기본 책상과 동일 취급.
-    //   사용자가 크기 조정 원하면 실행 화면 캐릭터 우클릭 → 책상 크기 슬라이더로 조정 가능.
-    deskGroup.add(obj); defaults.forEach(m=>m.visible=false);
-    // ★ 책상 GLB에 애니메이션이 있고 playMode가 지정돼 있으면 아이템과 동일한 방식으로 mixer 설정
-    if(animations && animations.length && playMode){
-      const mixer = new THREE.AnimationMixer(obj);
-      const idleClip = animations.find(c=>/idle/i.test(c.name)) || animations[0];
-      const action = mixer.clipAction(idleClip);
-      deskGroup.userData.deskMixer = mixer;
-      deskGroup.userData.deskIdleAction = action;
-      deskGroup.userData.deskPlayMode = playMode;
-      if(playMode==='auto'){
-        action.setLoop(THREE.LoopRepeat, Infinity);
-        action.play();
-        activeItemMixers.add(mixer);
-      } else if(playMode==='idle'){
-        action.setLoop(THREE.LoopRepeat, Infinity);
-        // updateIdleItemPlayback가 pivot.userData.holder를 참조 — 현재 좌석(deskGroup.userData.__seat)을 넘겨줌.
-        //   (swapDeskVisual 호출 전에 caller가 __seat을 세팅해야 함)
-        const idlePivot = { userData:{ idleAction: action, itemMixer: mixer, holder: deskGroup.userData.__seat } };
-        deskGroup.userData.deskIdlePivot = idlePivot;
-        _idleItemPivots.add(idlePivot);
-      } else {
-        action.setLoop(THREE.LoopOnce, 1);
-        action.clampWhenFinished = true;
-      }
-    }
-  } else { deskGroup.userData.customMats=null; defaults.forEach(m=>m.visible=true); } }
-function applyDeskColorToCustom(deskGroup,color){ const mats=deskGroup&&deskGroup.userData&&deskGroup.userData.customMats;
-  // ⚠️ color.set 만 하면 emissive 가 옛 색으로 남아 밝고 뿌옇게 나온다 — _setDeskMatColor 주석 참고.
-  if(mats)mats.forEach(m=>lightToneMod._setDeskMatColor(m, color)); }
+/* (구역 떼기 C · w2) 이 자리의 본문도 character/desk-visual.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 // ★ 어플 3-1: 책상 길이(X축) 슬라이더 지원 — deskGroup.scale에서 X만 lenX배로 더 늘리거나 줄임.
 //   기존 uniform scale은 그대로 유지되므로 기존 저장 데이터/코드 호환.
 //   ★ 책상 위 아이템(deskAnchor 자식)은 같이 늘어나면 안 되므로 deskAnchor에 역스케일(1/lenX)을 걸어서
