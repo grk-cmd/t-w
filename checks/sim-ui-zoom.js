@@ -39,7 +39,11 @@ const fStep  = grabFn(MAIN, '_zoomStep') || '';
 const fClamp = grabFn(MAIN, '_clampZoom') || '';
 const fKey   = grabFn(MAIN, '_zoomKeyOp') || '';
 chk(!!fApply && !!fStep && !!fClamp && !!fKey, '★ applyUiZoom · _zoomStep · _clampZoom · _zoomKeyOp 가 있다');
-chk(count(MAIN, /setZoomFactor\(/g) === 1 && /setZoomFactor\(uiZoom\)/.test(fApply), '★ setZoomFactor 호출은 **applyUiZoom 안 한 곳뿐** — 두 곳이 되면 숫자가 거짓말을 한다');
+/* 자식 창(방명록 등)은 _lockChildZoom 이 100% 로만 되돌린다(개정 256) — 그 안의 setZoomFactor(1) 은 빼고 센다. */
+const fChild = grabFn(MAIN, '_lockChildZoom') || '';
+const childZ = (fChild.match(/setZoomFactor\(([^)]*)\)/g) || []);
+chk(count(MAIN, /setZoomFactor\(/g) - childZ.length === 1 && /setZoomFactor\(uiZoom\)/.test(fApply), '★ 메인 창 setZoomFactor 호출은 **applyUiZoom 안 한 곳뿐** — 두 곳이 되면 숫자가 거짓말을 한다');
+chk(childZ.every(c => c === 'setZoomFactor(1)'), '  자식 창(_lockChildZoom)은 100% 로만 되돌린다(지금 ' + childZ.length + '곳)');
 chk(/saveSettings\(\)/.test(fApply) && /send\('companion:uiZoom', uiZoom\)/.test(fApply), '  바뀌면 저장하고 렌더러에 알린다(숫자는 받아서 보여 주기만)');
 const bie = MAIN.slice(MAIN.indexOf("webContents.on('before-input-event'"), MAIN.indexOf("webContents.on('before-input-event'") + 900);
 chk(/_zoomKeyOp\(input\)/.test(bie) && /event\.preventDefault\(\);\s*applyUiZoom\(zop, 'key'\)/.test(bie), '★ before-input-event 가 가속기를 가로채 applyUiZoom 으로 보낸다(기본 줌은 막지 않고 묶는다)');
