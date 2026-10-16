@@ -66,6 +66,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - 새 setter → `setNoise` 모양(값 거르기 → 같으면 return → 바꾸고 `provider.update(_basePayload())`) · 맨 아래 `return { … }` 에 이름 추가.
 - 받은 poke 의 새 종류 → `start()` 안 poke 콜백의 `else if` 줄.
 - 자동 자리비움 시간 · 틱 → 위쪽 상수 `AUTO_AWAY_MS` · `AUTO_AWAY_TICK_IDLE_MS` · `AUTO_AWAY_TICK_BACK_MS`.
+- 채팅 · 탭 · 날리기 칸 길이 · 자리비움 그림 처음 크기 → 파일 위 상수 `CHAT_TEXT_MAX` · `CHAT_TAB_MAX` · `FLY_COLOR_MAX` · `FLY_SIZE_MAX` · `AWAY_SZ_DEFAULT`(채팅 길이는 서버 규칙과 짝).
 
 **함정**
 - 전역 `setUserStatus`(칩 · 캐릭터 모션까지 바꾸는 쪽)는 꼭 `window.setUserStatus` 로 부른다 — 안쪽에 같은 이름 `setUserStatus` 가 있어 가린다.
