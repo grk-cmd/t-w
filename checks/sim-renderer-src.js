@@ -92,6 +92,9 @@ const MODULES = [
   { file: 'seat-layout.js', mod: 'seatLayoutMod', glob: 'TwSeatLayout', sample: 'function layoutSeatRow(' },   // 구역 떼기 C · w1
   { file: 'desk-items.js', mod: 'deskItemsMod', glob: 'TwDeskItems', sample: 'function _savedItemMeta(' },   // 구역 떼기 C · w2
   { file: 'light-tone.js', mod: 'lightToneMod', glob: 'TwLightTone', sample: 'function _applyPartMatTone(' },   // C 구역 떼기 w4
+  { file: 'creator-preview.js', mod: 'creatorPrevMod', glob: 'TwCreatorPreview', sample: 'function updateCreatorLights(' },   // C 구역 떼기 · w3
+  { file: 'creator-flow.js', mod: 'creatorFlowMod', glob: 'TwCreatorFlow', sample: 'function gotoStep(' },   // C 구역 떼기 · w3
+  { file: 'creator-save.js', mod: 'creatorSaveMod', glob: 'TwCreatorSave', sample: 'function _creatorBuildDef(' },   // C 구역 떼기 · w3
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
