@@ -790,7 +790,7 @@ function playItemIdle(pivot){
   activeItemMixers.add(pivot.userData.itemMixer);
   return true;
 }
-function collectDeskItems(holder){ const d={}; let any=false; allDeskItems().forEach(def=>{ const p=holder.deskItems&&holder.deskItems[def.id]; if(p){ d[def.id]={adj:Object.assign({},p.userData.adj)}; if(p.userData.autoScale!=null) d[def.id].autoScale=p.userData.autoScale;
+function collectDeskItems(holder){ const d={}; let any=false; deskItemsMod.allDeskItems().forEach(def=>{ const p=holder.deskItems&&holder.deskItems[def.id]; if(p){ d[def.id]={adj:Object.assign({},p.userData.adj)}; if(p.userData.autoScale!=null) d[def.id].autoScale=p.userData.autoScale;
   // ★ 색상은 비어있어도 항상 저장 — "초기화(원본으로 복원)한 상태"를 명시적으로 기록해서
   //   실행 화면 로드 시 이전에 저장돼 있던 색이 남지 않게 함. 예전엔 빈 객체면 필드가 빠져서 초기화가 안 반영됐음.
   if(p.userData.colorGroups) d[def.id].colors=Object.assign({},p.userData.colors||{});
@@ -810,7 +810,7 @@ function autoSaveDeskItemsNow(){
   }
   slotSaveMod.saveSlots();
 }
-function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true); const p=holder.deskItems[id]; if(p&&e.adj){
+function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod.deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true); const p=holder.deskItems[id]; if(p&&e.adj){
     const savedAdj=Object.assign({},e.adj);
     // ★ 예전엔 y를 자동 계산값(ITEM_Y_START_OFFSET)으로 강제 복원해서 저장값을 무시했음 — 유저가 기즈모로
     //   조절할 수 있는 UI가 없다고 가정한 옛 로직. 지금은 기즈모로 자유롭게 y 조작 가능하므로 저장값 그대로 씀.
@@ -3201,7 +3201,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   _chatEsc: (...a)=>_chatEsc(...a),
   _moveModeJustToggled: ()=>_moveModeJustToggled,
   _updateRoomCountUI: (...a)=>roomEntryMod._updateRoomCountUI(...a),
-  allDeskItems: (...a)=>allDeskItems(...a),
+  allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
   applyChipOrientation: (...a)=>overheadMod.applyChipOrientation(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
@@ -4475,7 +4475,7 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
   Presence: ()=>Presence,
   applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),
   cBase: ()=>cBase,
-  deskItemDef: (...a)=>deskItemDef(...a),
+  deskItemDef: (...a)=>deskItemsMod.deskItemDef(...a),
   deskPartAnchorOf: (...a)=>deskPartAnchorOf(...a),
   equipDeskItem: (...a)=>equipDeskItem(...a),
   findMySeat: (...a)=>findMySeat(...a),
@@ -6733,7 +6733,7 @@ function applyDeskPreset(p){
   // 4) 책상 모델(카탈로그 id or GLB)
   const applyDeskModel = ()=>{
     // 현재 아이템 전부 제거 (프리셋의 아이템으로 교체)
-    if(cBase){ allDeskItems().forEach(def=>{ if(cBase.deskItems && cBase.deskItems[def.id]) equipDeskItem(cBase,def,false); }); }
+    if(cBase){ deskItemsMod.allDeskItems().forEach(def=>{ if(cBase.deskItems && cBase.deskItems[def.id]) equipDeskItem(cBase,def,false); }); }
     // 프리셋에 아이템 복원
     if(p.deskItems && cBase) applyDeskItemsTo(cBase, p.deskItems);
     autoSaveDeskItemsNow();
@@ -7951,10 +7951,10 @@ function renderCrItems(){
       const def=entry.def;
       const on=!!(cBase&&cBase.deskItems&&cBase.deskItems[def.id]);
       const active = !!(cBase && cBase.activeDeskItem && on && cBase.deskItems[def.id]===cBase.activeDeskItem);
-      const eff0=deskItemDef(def.id)||def;   // ★ 관리자가 교체해뒀으면 그 이름으로 표시 (예전엔 기본 이름 고정이던 문제)
+      const eff0=deskItemsMod.deskItemDef(def.id)||def;   // ★ 관리자가 교체해뒀으면 그 이름으로 표시 (예전엔 기본 이름 고정이던 문제)
       const it=swThumb(eff0.name||def.name,on,DESK_ICON[def.id]||'▫',null,active);
       applyDeskDotThumb(commissionMod.savedItems().find?commissionMod.savedItems().find(r=>r.id===def.id):null, it);   // 교체분 GLB 도트 썸네일
-      it.onclick=()=>{ if(!cBase||!cBase.deskAnchor)return; const eff=deskItemDef(def.id)||def; equipDeskItem(cBase,eff,!on); renderCrItems(); autoSaveDeskItemsNow(); };   // eff: 관리자가 교체해뒀으면 그 커스텀 def, 아니면 기본
+      it.onclick=()=>{ if(!cBase||!cBase.deskAnchor)return; const eff=deskItemsMod.deskItemDef(def.id)||def; equipDeskItem(cBase,eff,!on); renderCrItems(); autoSaveDeskItemsNow(); };   // eff: 관리자가 교체해뒀으면 그 커스텀 def, 아니면 기본
       if(isAdmin) it.oncontextmenu=e=>{ e.preventDefault(); adminPartReg.openDeskRegister('item', def.id); };   // def.id(plant/cup/books) 그대로 써서 진짜 교체되게
       else it.oncontextmenu=e=>{ e.preventDefault(); if(on && cBase.deskItems[def.id]) selectDeskItemForAdjust(cBase.deskItems[def.id]); };   // 일반모드: 이미 장착돼있으면 우클릭으로 바로 선택
       row.appendChild(it);
@@ -8496,7 +8496,7 @@ document.getElementById('assetImpGo').onclick=async()=>{
       wardrobeMod.renderWardrobe();
     } else {
       commissionMod.savedItems().push(rec); commissionMod.persistSavedAssets();
-      registerCustomItem(id,u.name,glbB64,scene,u.icon||'',animations);
+      deskItemsMod.registerCustomItem(id,u.name,glbB64,scene,u.icon||'',animations);
       if(cBase&&cBase.deskAnchor) equipDeskItem(cBase,customItems[id],true);
       toast('아이템을 추가했어요');
       renderCrItems();
@@ -9145,7 +9145,7 @@ function openCreator(mode){
           }catch(e){ console.warn('[생성기] 기본 책상 GLB 파싱 실패', e); }
         }
       }
-      if(src&&src.customItems){ for(const id in src.customItems){ const c=src.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); registerCustomItem(id,c.name,c.glb,sc,c.icon||'',animations);}catch(e){} } }
+      if(src&&src.customItems){ for(const id in src.customItems){ const c=src.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,c.icon||'',animations);}catch(e){} } }
       await loadSavedItemsIntoSession();   // localStorage에 저장된 아이템 모두 customItems에 등록
       if(src&&src.deskItems) applyDeskItemsTo(cBase, src.deskItems);
       if(crStep===5) renderCrItems();
@@ -9327,7 +9327,7 @@ function swapCreatorBaseToDefault() {
 //   내장 3개)만 지웠는데, 커스텀 아이템은 안 지워지는 구멍이 있어서 allDeskItems()로 전체를 다루게 함.
 function clearHolderDeskItems(holder){
   if(!holder || !holder.deskItems) return;
-  allDeskItems().forEach(def=>{ if(holder.deskItems[def.id]) equipDeskItem(holder,def,false); });
+  deskItemsMod.allDeskItems().forEach(def=>{ if(holder.deskItems[def.id]) equipDeskItem(holder,def,false); });
   // ★ 슬롯 전환(A 캐릭터 → B 캐릭터 편집) 시 세션 아이템 목록(customItems)이 먼저 초기화되면
   //   A의 커스텀 아이템이 위 목록 순회에서 빠져 3D 오브젝트가 책상에 그대로 남던 버그 —
   //   목록에 없어도 holder에 남은 아이템은 전부 강제로 떼어낸다.
@@ -9506,7 +9506,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
   _mkFrontFill: (...a)=>_mkFrontFill(...a),
   _setDeskMatColor: (...a)=>_setDeskMatColor(...a),
-  allDeskItems: (...a)=>allDeskItems(...a),
+  allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
   applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),
@@ -9522,7 +9522,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   extractBonesInto: (...a)=>extractBonesInto(...a),
   getCommissionScene: (...a)=>getCommissionScene(...a),
-  registerCustomItem: (...a)=>registerCustomItem(...a),
+  registerCustomItem: (...a)=>deskItemsMod.registerCustomItem(...a),
   scene: scene,
   setDeskPos: (...a)=>setDeskPos(...a),
   setDeskScale: (...a)=>setDeskScale(...a),
@@ -9978,7 +9978,7 @@ function applyCharToSeat(seat,def){
   
   
   (async()=>{  
-    if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
+    if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
     if(def.deskCatalogId){ applyDeskCatalogRefToSeat(seat, def); }
     else if(def.deskGlb){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; swapDeskVisual(seat.desk,sc); setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
     else { applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
@@ -11020,84 +11020,28 @@ async function applyDeskCatalogRefToSeat(seat, def){
 }
 /* (구역 떼기 C · w2) 이 자리의 본문도 character/catalog-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기 ═══ */
-/* 🩹 [2026-10-02 제보 #11] «부팅 직후 첫 실행에서 가끔 책상 위 오브젝트가 죄그매진다 — 런처 갔다 오면 회복»
-   [원인] 캐릭터를 좌석·런처·생성기에 올리는 세 경로가 def.customItems 의 아이템을
-     `registerCustomItem(id, name, glb, scene, '', animations)` 로 **크기(defaultSize) 없이** 등록한다 → 0.8 로 고정.
-     카탈로그 동기화가 나중에 올바른 값으로 다시 등록해도, 좌석 재적용이 그 등록보다 먼저 돌면 틀린 크기가 남았다.
-     부팅 직후엔 디스크·네트워크가 느려 이 순서가 뒤집히기 쉽다 — «가끔, 부팅 직후» 의 정체.
-   [대응] ① 인자로 안 온 메타값(크기·부착 위치·재생 모드·빛·라이선스)은 **같은 id 의 카탈로그 레코드(savedItems)**
-     에서 채운다. savedItems 는 GLB 를 뺀 채 localStorage 에 남아 있어 부팅 직후에도 메타는 있다.
-     ② mergeCatalogIntoSavedItems 가 등록을 **기다린 뒤** 좌석을 다시 적용한다(아래).
-   ⚠️ 인자로 온 값이 우선이다 — 기존 호출부(loadSavedItemsIntoSession 등)는 동작이 그대로다. */
-function _savedItemMeta(id){
-  try{ return Array.isArray(commissionMod.savedItems()) ? (commissionMod.savedItems().find(r=>r && r.id === id) || null) : null; }
-  catch(_){ return null; }   // savedItems 선언(let) 전에 불리는 경우
-}
-function registerCustomItem(id,name,glbB64,template,icon,animations,attachTo,autoPlay,defaultSize,glow,licenseOnly,playMode){
-  { const _m = _savedItemMeta(id);
-    if(_m){
-      if(attachTo == null)    attachTo = _m.attachTo;
-      if(autoPlay == null)    autoPlay = _m.autoPlay;
-      if(defaultSize == null) defaultSize = _m.defaultSize;
-      if(glow == null)        glow = _m.glow;
-      if(licenseOnly == null) licenseOnly = _m.licenseOnly;
-      if(playMode == null)    playMode = _m.playMode;
-      if(!icon && _m.icon)    icon = _m.icon;
-    } }
-  customItems[id]={id,name,glb:glbB64,custom:true,icon:icon||'',
-  attachTo: attachTo||'desk',   // 'desk'(기본, 책상 위) | 'handL' | 'handR' — equipDeskItem에서 부착 위치 결정에 사용
-  autoPlay: !!autoPlay,   // true면 클릭 없이 장착되자마자 애니메이션 자동 반복재생 (하위호환용)
-  playMode: playMode || (autoPlay ? 'auto' : 'click'),   // 어플 8: 'click' | 'auto' | 'idle'
-  defaultSize: (defaultSize!=null) ? defaultSize : 0.8,   // 장착됐을 때 기본 크기 — 관리자가 등록 시 설정(기본 0.8)
-  glow: !!glow,   // true면 옆에 은은한 원형 빛 스프라이트 추가
-  licenseOnly: !!licenseOnly,   // true면 라이선스 보유자(isPremium)나 관리자만 장착 가능
-  animations: animations||[],
-  // ★ 본(스켈레톤)이 있는 모델은 일반 clone(true)으로 복제하면 스켈레톤 연결이 깨져서(THREE.js 알려진 문제)
-  //   바운딩박스/애니메이션이 잘못 계산됨 — 캐릭터 로드 때처럼 SkeletonUtils.clone()을 써야 정확함.
-  build:()=>{const c=(THREE.SkeletonUtils&&THREE.SkeletonUtils.clone)?THREE.SkeletonUtils.clone(template):template.clone(true);
-    c.traverse(n=>{ if(n.isMesh){ n.castShadow=true;
-      // ★ 공유 material 문제 해결: THREE.js clone(true)/SkeletonUtils.clone은 mesh는 복제하지만 material은 참조 공유함 →
-      //   같은 template에서 생긴 아이템(내 것, 친구 것)이 material을 공유해 한쪽에서 _col 색상 바꾸면 다른 좌석에도 반영되는 버그.
-      //   각 인스턴스가 자기만의 material을 갖도록 여기서 clone.
-      if(n.material){
-        if(Array.isArray(n.material)){
-          n.material = n.material.map(m => (m && m.clone) ? m.clone() : m);
-        } else if(n.material.clone){
-          n.material = n.material.clone();
-        }
-      }
-      // ★ 텍스처 없는 아이템이 조명/노출/밝기를 안 먹는 것처럼 보이던 문제(요청사항 어플10) —
-      //   glTF 스펙상 metallicFactor 기본값이 1.0이라, 재질 설정 없이 내보낸 GLB는 metalness=1(완전 금속)로
-      //   로드됨. 금속 재질은 확산광을 반사하지 않아 환경맵 없는 씬에서는 어둡고 조명 반응이 없어 보임.
-      //   ★ 이 보정은 이제 _fixGlbMetalness 한 곳에 있고 캐릭터·파츠·책상도 같은 것을 쓴다.
-      //     예전엔 여기서만, 그것도 텍스처 없는 재질에만 걸어서 "아이템 화이트와 캐릭터 화이트가 다르다"가 났다.
-      if(n.material){
-        const mats=Array.isArray(n.material)?n.material:[n.material];
-        //   캐릭터·파츠·책상과 같은 톤 기준으로 정규화 — GLB 가 담아 온 emissive 와 금속도를 덮어쓴다.
-        mats.forEach(m=>_applyItemMatTone(m));
-      }
-    }});
-    return c;}}; }
+/* 본문은 character/desk-items.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const deskItemsMod = TwDeskItems.createDeskItems({
+  DESK_ITEMS: DESK_ITEMS,
+  _applyItemMatTone: (...a)=>_applyItemMatTone(...a),
+  commissionMod: commissionMod,
+  customItems: ()=>customItems,
+});
 /* 현재 활성 책상의 저장 ID (기본 책상이면 null) — 카드 on 표시용 */
 let activeCustomDeskId=null;
+
 /* 저장된 모든 아이템 코드를 customItems에 등록 (생성기 진입 시 호출) */
 async function loadSavedItemsIntoSession(){
   for(const rec of commissionMod.savedItems()){
     // ★ 이미 등록돼 있어도 건너뛰지 않고 항상 다시 불러옴 — 카탈로그에서 GLB가 교체됐을 때
     //   (관리자가 우클릭 수정 등) customItems가 옛날 것으로 캐시된 채 남아있으면 실시간 반영이 안 됨.
     try{ const buf=b64ToBuf(rec.glb); const {scene,animations}=await assetCodeMod.parseGlbFull(buf);
-      registerCustomItem(rec.id, rec.name, rec.glb, scene, rec.icon||'', animations, rec.attachTo, rec.autoPlay, rec.defaultSize, rec.glow, rec.licenseOnly, rec.playMode);
+      deskItemsMod.registerCustomItem(rec.id, rec.name, rec.glb, scene, rec.icon||'', animations, rec.attachTo, rec.autoPlay, rec.defaultSize, rec.glow, rec.licenseOnly, rec.playMode);
     }catch(_){}
   }
 }
-function allDeskItems(){
-  // customItems를 먼저 배치해서 .find(id)가 커스텀을 먼저 찾게 함 — 관리자가 기본 아이템(plant/cup/books)과
-  // 같은 id로 카탈로그에 등록하면(우클릭 수정), 기본 대신 그 커스텀 GLB가 실제로 쓰이게 됨(진짜 "교체").
-  const custom=Object.values(customItems);
-  const overridden=new Set(custom.map(c=>c.id));
-  return custom.concat(DESK_ITEMS.filter(d=>!overridden.has(d.id)));
-}
-function deskItemDef(id){ return allDeskItems().find(d=>d.id===id)||null; }
+
 /* 커스텀 책상: 기본 책상 메쉬를 숨기고 커스텀 GLB로 교체(앵커는 그대로) */
 // ★ 요청에 따라 자동 크기 보정(폭 1.7에 맞춰 리사이징하던 로직)을 완전히 제거함.
 //   블렌더에서 내보낸 크기(가로/세로/높이) 그대로 사용 — 앱이 임의로 다시 스케일링하지 않음.
