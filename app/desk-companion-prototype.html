@@ -1480,6 +1480,9 @@
   #creatorOverlay{position:fixed;inset:0;z-index:55;display:none;align-items:center;justify-content:center;
     background:rgba(0,0,0,.35);}
   #creatorOverlay.on{display:flex;}
+  /* 캐릭터 편집(55)이 켜진 동안 마이홈 · 방명록 창(71~92, win-stack)을 숨긴다 — 편집창 위로 비쳐 보였다.
+     편집창을 맨 위로 올리지 않는 까닭: 편집 중에 여는 코드 창(56) 같은 대화상자가 그 밑에 깔린다. 닫는 곳이 여럿이라 CSS 로 건다. */
+  body:has(#creatorOverlay.on) #myHomeOverlay, body:has(#creatorOverlay.on) #mhGbOverlay{visibility:hidden;}
   #creatorModal{width:680px;max-width:calc(100vw - 40px);max-height:calc(100vh - 56px);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
