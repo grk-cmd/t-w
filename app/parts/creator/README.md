@@ -45,3 +45,15 @@
 - **확장할 때**: def 에 새 칸을 더하면 `_creatorBuildDef` 의 이어받기 목록(사람 귀 · 동물 칸)과 slotToObj/loadSlots 를 1:1 로 맞춘다. 기본값이면 저장하지 않는 규칙도 지킨다.
 - **함정**: 재기용(forSize) 결과를 저장에 쓰지 않는다(그림이 복사되지 않는다). 상한은 `CHAR_SLOT_MAX` — 숫자를 박지 않는다. `confirm()` 뒤 `window.focus()` 를 빼지 않는다(audit 검사 4).
 - **검사**: `checks/sim-creator-save.js` — 모양 · 연결 · 깨 보기 + def 칸 · 기본값 생략 · 카탈로그/로컬 책상 · 커스텀 아이템 · 재기 복사본 · 저장 칸(정한 칸 · 빈 칸 · 꽉 참 · 상한 · 덮어쓰기 막기) · 실행 좌석 · 빈 얼굴 확인.
+
+## commission-import.js — 🎨 커미션 캐릭터 코드 입력
+
+- **책임**: 종족 선택창의 [코드로 등록] 패널 — 코드 머리글자로 가른다: `DCC1.`(캐릭터 복제 코드) → `charCodeMod.importCloneCode` 로 그대로,
+  `DCK1.`(책상 · 아이템) → 생성기 안으로 가라는 안내만, `DCM1.`(커미션) → 풀어서 빈 칸에 커미션 캐릭터로 등록 → 바로 생성기(책상부터). 그 밖은 «코드 형식이 아니에요».
+- **만드는 법**: `TwCommissionImport.createCommissionImport(deps)` — 만들 때 버튼(`raceCommCode` · `commImpCancel` · `commImpGo`)에 건다.
+  값: `slots` · `CANVAS_SZ` · `racePickerMod`(정한 칸) · `creatorSaveMod`(용량 재기) / 읽는 함수: `curSlot` · `charCodeMod` · `charsMod` · `commissionMod` · `slotSaveMod` / 쓰는 함수: `setCurSlot` /
+  함수: `charDef` · `openCreator` · `renderLauncher` · `saveCurSlot` · `toast`.
+- **내놓는 것**: 없음(버튼에만 건다).
+- **확장할 때**: 코드 종류가 늘면 머리글자 갈래(①②③)에 한 줄씩 — 등록 로직은 그 코드를 맡은 모듈의 함수를 부른다(여기서 새로 구현하지 않는다).
+- **함정**: 칸은 [＋]로 정한 칸이 비어 있을 때만 그 칸, 아니면 첫 빈 칸 · 빈 칸이 없으면 거부(덮어쓰지 않는다). 형식은 미리 걸렀으니 catch 의 실패는 «비밀번호» 로 안내한다.
+- **검사**: `checks/sim-commission-import.js` — 모양 · 연결 · 깨 보기 + 패널 열고 닫기 · 갈래 셋 · 복호화 못 쓰는 환경 · 칸 고르기 · 등록 칸 값 · 용량 · 보관함 문턱 · 암호 틀림 · 그림 못 읽음.

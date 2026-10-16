@@ -9011,96 +9011,25 @@ const racePickerMod = TwRacePicker.createRacePicker({
 });
 
 /* === 커미션 캐릭터 코드 입력 (일반 사용자도 가능) === */
-const commImpOverlay=document.getElementById('commImpOverlay');
-document.getElementById('raceCommCode').onclick=()=>{
-  const panel=document.getElementById('raceCommCodePanel');
-  const willOpen = panel.style.display==='none';
-  panel.style.display = willOpen ? 'block' : 'none';
-  if(willOpen){ document.getElementById('commImpCode').value=''; document.getElementById('commImpPass').value=''; }
-};
-document.getElementById('commImpCancel').onclick=()=>{ document.getElementById('raceCommCodePanel').style.display='none'; };
-/* 🔴 [제보 1] 이 패널은 **빈 슬롯에서만 열린다**(빈 칸 [＋] → 종족 선택 창).
-   그런데 예전엔 커미션 코드(DCM1)만 받아서, 여기에 캐릭터 복제 코드(DCC1)를 넣으면
-   decryptCommission 이 첫 줄에서 형식 오류를 던지고 catch 가
-   "등록 실패: 코드나 비밀번호를 확인해 주세요" 를 띄웠다.
-   → 유저 눈에는 "슬롯이 전부 비었을 때만, 같은 파일·같은 암호인데 코드나 암호가 틀렸다고 뜬다"로 보인다.
-     (캐릭터가 하나라도 있으면 이 창을 안 거치고 런처 [캐릭터 불러오기]를 쓰게 되니 정상 동작.
-      "임시 캐릭터를 만들고 등록한 뒤 지운다"는 우회법이 통했던 이유도 이것이다.)
-   이제 코드 머리글자로 갈라서 DCC1 은 복제 코드 등록(importCloneCode)으로 그대로 보낸다.
-   ⚠️ 새로 구현하지 말 것 — 등록 로직이 두 벌이 되면 다시 같은 종류의 사고가 난다. */
-document.getElementById('commImpGo').onclick=async()=>{
-  const code=document.getElementById('commImpCode').value.trim(), pass=document.getElementById('commImpPass').value;
-  if(!code||!pass){toast('코드와 비밀번호를 입력해 주세요');return;}
-  // 슬롯 공간 확인 (lcCreate 패턴과 동일)
-  if(slots.every(s=>s)){toast('캐릭터가 모두 찼습니다');return;}
-  const _closeRace=()=>{ document.getElementById('raceCommCodePanel').style.display='none';
-                         document.getElementById('raceOverlay').classList.remove('on'); };
-  // ① 캐릭터 복제 코드 — [＋]로 확정된 칸(_raceTargetSlot)에 그대로 앉힌다
-  if(/^DCC1\./.test(code)){
-    if(await charCodeMod.importCloneCode(code, pass, racePickerMod._raceTargetSlot())) _closeRace();
-    return;
-  }
-  // ② 책상·아이템 코드는 생성기 안에서 넣는 것 — 여기서 조용히 실패시키지 말고 어디로 가야 하는지 말한다
-  if(/^DCK1\./.test(code)){ toast('책상·아이템 코드예요 — 생성기 안의 [코드로 추가하기]에서 넣어주세요'); return; }
-  // ③ 셋 중 어느 것도 아니면 암호 문제가 아니라 코드(파일) 문제다
-  if(!/^DCM1\./.test(code)){ toast('코드 형식이 아니에요 — 파일이 잘리지 않았는지 확인해 주세요'); return; }
-  if(!(window.crypto&&crypto.subtle)){toast('이 환경에선 복호화를 쓸 수 없어요');return;}
-  try{
-    const payload=await commissionMod.decryptCommission(code, pass);
-    if(payload.t!=='comm') throw new Error('형식 오류');
-    // 빈 슬롯 찾기
-    // ★ 빈 칸이 없으면 예전엔 idx=0으로 떨어져 1번 캐릭터를 말없이 덮어썼다(동물 저장과 같은 유형의 사고).
-    //   덮어쓰지 말고 거부한다 — 인간 저장·복제코드 불러오기와 동일한 방식.
-    //   ★ [＋]로 칸이 확정돼 들어왔으면 그 칸이 우선 — importCloneCode 와 같은 규약으로 맞춘다.
-    let idx = (typeof racePickerMod._raceTargetSlot()==='number' && !slots[racePickerMod._raceTargetSlot()]) ? racePickerMod._raceTargetSlot() : slots.findIndex(s=>!s);
-    if(idx<0){ toast('빈 슬롯이 없어요 — 캐릭터를 하나 정리한 뒤 다시 시도해 주세요'); return; }
-    // 텍스처를 캔버스로 변환 (charDef와 호환)
-    const faceCv=await dataUrlToCanvas(payload.face, CANVAS_SZ);
-    const blinkCv=await dataUrlToCanvas(payload.blink, CANVAS_SZ);
-    // def 만들기: 기존 charDef 시그니처 그대로 + 커미션 필드들
-    const def = charDef(0, faceCv, blinkCv, '#ffffff', '#ffffff');
-    def.isCommission = true;             // 잠금된 캐릭터 표시
-    def.commName = payload.name || '커미션';
-    def.commGlb = payload.glb;           // base64 GLB (베이스 모델)
-    def.xf = {s:0.7,y:0,z:0,rot:0,x:0};
-    /* 📦 커미션 3D 파일 하나로 디자인 용량을 넘으면 등록하지 않는다(def-size.js). */
-    const _rest = Object.assign({}, def); delete _rest.commGlb;
-    const _sz = creatorSaveMod._defSizeFile(_rest, DefSize.jsonBytes(payload.glb) + 12);
-    if(!_sz.ok){ toast(_sz.message, null, creatorSaveMod.DEF_SIZE_TOAST_MS); return; }
-    // 슬롯에 저장 + 영구 저장
-    if(charsMod._charsBoxFull()) return;   // 🧬 보관함 20 문턱
-    slots[idx]=def;
-    try{ charsMod._charsOnNew(idx); }catch(_){}
-    slotSaveMod.saveSlots();
-    curSlot=idx;
-    saveCurSlot();
-    renderLauncher();
-    toast('"'+def.commName+'" 캐릭터를 등록했어요');
-    document.getElementById('raceCommCodePanel').style.display='none';
-    document.getElementById('raceOverlay').classList.remove('on');
-    // 바로 생성기 진입 — openCreator가 isCommission 보고 5단계(책상)부터 시작
-    openCreator({kind:'slot', edit:true, slot:idx});
-  }catch(e){
-    /* 형식(DCM1)은 위에서 이미 걸렀으므로 여기까지 온 실패는 암호·데이터 문제뿐이다.
-       '코드나 비밀번호' 라고 뭉뚱그리면 제보 1과 같은 오진이 또 난다. */
-    console.warn('[커미션코드] 등록 실패 — 길이='+code.length+' 머리='+code.slice(0,12), e);
-    toast('등록 실패: 비밀번호를 확인해 주세요 (코드 형식은 맞아요)');
-  }
-};
-
-/* 데이터 URL → CANVAS_SZ×CANVAS_SZ 캔버스 (face/blink 호환) */
-function dataUrlToCanvas(dataUrl, sz){
-  return new Promise((res,rej)=>{
-    const im=new Image();
-    im.onload=()=>{
-      const cv=document.createElement('canvas'); cv.width=sz; cv.height=sz;
-      cv.getContext('2d').drawImage(im,0,0,sz,sz);
-      res(cv);
-    };
-    im.onerror=()=>rej(new Error('image load'));
-    im.src=dataUrl;
-  });
-}
+/* 본문은 creator/commission-import.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const commImpMod = TwCommissionImport.createCommissionImport({
+  CANVAS_SZ: CANVAS_SZ,
+  charCodeMod: ()=>charCodeMod,
+  charDef: (...a)=>charDef(...a),
+  charsMod: ()=>charsMod,
+  commissionMod: ()=>commissionMod,
+  creatorSaveMod: creatorSaveMod,
+  curSlot: ()=>curSlot,
+  openCreator: (...a)=>openCreator(...a),
+  racePickerMod: racePickerMod,
+  renderLauncher: (...a)=>renderLauncher(...a),
+  saveCurSlot: (...a)=>saveCurSlot(...a),
+  slotSaveMod: ()=>slotSaveMod,
+  slots: slots,
+  toast: (...a)=>toast(...a),
+  setCurSlot: (v)=>{ curSlot = v; },
+});
 
 // 동물 카드는 의도적으로 핸들러 없음(클릭해도 무반응) — 공사중 표시로 충분
 // ★ [캐릭터 생성]은 빈 슬롯의 [＋]로 일원화됨 — 이 버튼은 [🚧 공사중]으로 비워두고

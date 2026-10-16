@@ -97,6 +97,7 @@ const MODULES = [
   { file: 'creator-save.js', mod: 'creatorSaveMod', glob: 'TwCreatorSave', sample: 'function _creatorBuildDef(' },   // C 구역 떼기 · w3
   { file: 'desk-visual.js', mod: 'deskVisualMod', glob: 'TwDeskVisual', sample: 'function applyDeskCatalogRefToSeat(' },   // 구역 떼기 C · w2
   { file: 'seat-equalize.js', mod: 'seatEqMod', glob: 'TwSeatEqualize', sample: 'function seatEqK(' },   // 구역 떼기 C · w1
+  { file: 'commission-import.js', mod: 'commImpMod', glob: 'TwCommissionImport', sample: 'function dataUrlToCanvas(' },   // C 구역 떼기 · w3
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
