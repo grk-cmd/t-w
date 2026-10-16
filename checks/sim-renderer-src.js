@@ -83,6 +83,7 @@ const MODULES = [
   { file: 'presence.js', mod: 'presenceMod', glob: 'TwPresence', sample: 'const Presence=(()=>{' },   // C 구역 떼기 w4
   { file: 'launcher-preview.js', mod: 'launcherPrevMod', glob: 'TwLauncherPreview', sample: 'function ensureLauncherPreview(' },   // C 구역 떼기 · w3
   { file: 'part-scene.js', mod: 'partSceneMod', glob: 'TwPartScene', sample: 'function _forceOpaqueAlphaOutput(' },   // 구역 떼기 C · w2
+  { file: 'catalog-source.js', mod: 'catalogSourceMod', glob: 'TwCatalogSource', sample: 'function catalogSrcCan(' },   // 구역 떼기 C · w2 — 서버 이관 provider
   { file: 'admin-thumbs.js', mod: 'adminThumbs', glob: 'TwAdminThumbs', sample: 'window.generateAllPartThumbnails = async' },   // 구역 떼기 C · w2
   { file: 'mat-tone.js', mod: 'matToneMod', glob: 'TwMatTone', sample: 'function setFaceMap(' },   // C 구역 떼기 · w3
   { file: 'seat-friend-req.js', mod: 'seatFriendReqMod', glob: 'TwSeatFriendReq', sample: 'function _friendReqAsk(' },   // C 구역 떼기 w4

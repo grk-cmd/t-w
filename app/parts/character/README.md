@@ -44,17 +44,36 @@
   텍스처 없는 메쉬도 평탄화해야 한다(건너뛰면 같은 흰색이 회색으로 보인다).
 - **검사**: `checks/sim-mat-tone.js` — 모듈 모양 · 연결 · 깨 보기 + 가짜 재질로 입력 → 결과(맵 · emissiveMap 동기화 · 귀 감김/뜸 · 같은 그림이면 안 감 · 빠진 재질 건너뛰기 · 평탄화 배율 · 텍스처 없는 메쉬 · 색 없는 재질 · FLAT_EMISSIVE 0).
 
+
+## catalog-source.js — 🔌 카탈로그 데이터 provider(서버 이관)
+
+- **책임**: 카탈로그 도메인(`catalog-sync` · `catalog-glb` · `admin/admin-thumbs`)이 서버에 닿는 일을 도메인 이름으로 내놓는다 — 도메인은 `firebaseAPI` 를 직접 부르지 않는다. 지금은 Firebase 판(옛 길) 하나.
+- **만드는 법**: app.js 에서 세 모듈보다 먼저 한 줄 — `const catalogSourceMod = TwCatalogSource.createCatalogSource({});` → 세 모듈에 `catalogSourceMod` 로 넘긴다. deps 0.
+- **내보내는 것**
+  - `catalogSrcReady(fn)` — 연결이 있으면 바로, 없으면 `firebase-ready` 를 한 번만 기다려 부른다.
+  - `catalogSrcCan(op)` → bool — op: `items` · `desks` · `parts` · `customCats` · `catOverrides` · `migrateGacha` · `fetchGlb` · `publishPart`.
+  - `catalogSrcSubscribe(kind, cb)` · `catalogSrcMigrateGacha()` · `catalogSrcFetchGlb(url)` · `catalogSrcPublishPart(id, data)` — 인자 · 돌려받는 값(약속)을 그대로 넘긴다.
+  ```js
+  if(!catalogSourceMod.catalogSrcCan('parts')) return;
+  catalogSourceMod.catalogSrcSubscribe('parts', async obj => { … });
+  ```
+- **확장할 때 고칠 자리**: 서버 API 판은 같은 이름 여섯을 내놓는 provider 를 하나 더 만들고 app.js 의 고르는 줄만 바꾼다(room-server-gate.js 처럼). 새 서버 일은 `CATALOG_SRC_FB_OPS` 에 이름 하나 + 함수 하나.
+- **함정**
+  - `firebaseAPI` 는 부를 때마다 읽는다 — 만들 때 붙잡아 두면 부팅 뒤에 생긴 연결을 못 쓴다.
+  - 할 수 있는지(`catalogSrcCan`)를 먼저 묻는 자리는 옛 «함수가 없으면 조용히 건너뜀» 동작이다 — 빼면 옛 firebase-init 과 섞일 때 던진다.
+  - 검사: `checks/sim-catalog-source.js`(모양 · 연결 · 세 모듈 직접 호출 0 · 기다리기 · 넘기기 · 늦게 생긴 연결).
+
 ## catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)
 
-- **책임**: 카탈로그 인덱스엔 `glbUrl` 만 오는데 앱 곳곳은 `rec.glb`(base64)를 본다 — 쓰는 때에 채운다. 차례: 세션 메모리 → 영구 캐시(`shared/glb-idb-cache.js`) → 서버(`firebaseAPI.fetchCatalogGlb`).
-- **만드는 법**: `const catalogGlbMod = TwCatalogGlb.createCatalogGlb({ glbIdbMod });`
+- **책임**: 카탈로그 인덱스엔 `glbUrl` 만 오는데 앱 곳곳은 `rec.glb`(base64)를 본다 — 쓰는 때에 채운다. 차례: 세션 메모리 → 영구 캐시(`shared/glb-idb-cache.js`) → 서버(`catalogSourceMod.catalogSrcFetchGlb` — provider).
+- **만드는 법**: `const catalogGlbMod = TwCatalogGlb.createCatalogGlb({ catalogSourceMod, glbIdbMod });`
 - **내보내는 것**
   - `resolveCatalogGlb(rec)` → `Promise<b64 | null>` — 성공하면 `rec.glb` 도 채운다. `rec.glb` 가 이미 있으면 그것.
   - `resolveCatalogGlbAll(catalogObj)` → 같은 객체 — 스냅샷 전부를 나란히 채우고 영구 캐시 치우기를 부른다.
   ```js
-  window.firebaseAPI.subscribeCatalogParts(async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj); merge(obj); });
+  catalogSourceMod.catalogSrcSubscribe('parts', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj); merge(obj); });
   ```
-- **확장할 때 고칠 자리**: 받는 길이 늘면(다른 저장소) `resolveCatalogGlb` 의 서버 받기 줄 하나.
+- **확장할 때 고칠 자리**: 받는 길이 바뀌면 provider(`catalog-source.js`) 쪽 — 이 모듈은 그대로.
 - **함정**
   - 메모리 · 영구 캐시에서 꺼낼 때도 `rec.glb` 를 채워야 한다 — 빠뜨리면 `rec.glb` 를 보는 곳이 «GLB를 불러올 수 없어요» 로 오탐한다.
   - 실패는 기억하지 않는다(다음에 다시 받는다) · 영구 캐시 넣기는 기다리지 않는다.
@@ -62,17 +81,16 @@
 
 ## catalog-sync.js — 🔄 카탈로그 실시간 동기화
 
-- **책임**: Firebase 카탈로그 구독(아이템 · 책상 · 파츠 · 커스텀 카테고리 · 기본 카테고리 이름 덮어쓰기)을 걸고, 스냅샷이 오면 저장 목록에 합친 뒤 떠 있는 좌석 · 생성기 · 런처 · 꾸미기 미리보기에 다시 반영한다.
+- **책임**: 카탈로그 구독(provider `catalogSourceMod` 를 거친다 · 아이템 · 책상 · 파츠 · 커스텀 카테고리 · 기본 카테고리 이름 덮어쓰기)을 걸고, 스냅샷이 오면 저장 목록에 합친 뒤 떠 있는 좌석 · 생성기 · 런처 · 꾸미기 미리보기에 다시 반영한다.
   - 합치는 규칙(셋이 같이 쓰는 순수 함수 `mergeCatalogList`): 카탈로그 항목은 `fromCatalog:true` 로 서버판이 이기고 `order` 오름차순(없으면 9999) · `fromCatalog` 인데 목록에 없으면 관리자가 지운 것 → 좌석에서 내리고 목록에서 뺀다 · 카탈로그에 온 적 없는 로컬 항목은 뒤에 남긴다.
 - **만드는 법**: app.js «🔄 카탈로그 실시간 동기화» 자리에서 `const catalogSyncMod = TwCatalogSync.createCatalogSync({ … });` — deps 40
-  - 데이터 provider: `catalogNet`(읽는 함수 — 지금은 app.js 가 `()=>window.firebaseAPI` 를 넘긴다. 서버로 옮길 때 이 한 줄만 바꾼다 · 모듈은 `firebaseAPI` 를 직접 보지 않는다)
-  - 저장 목록: `commissionMod`(아이템 · 책상) · `premiumMod`(파츠 · 카테고리) · GLB 해결 `catalogGlbMod`
+  - 저장 목록: `commissionMod`(아이템 · 책상) · `premiumMod`(파츠 · 카테고리) · GLB 해결 `catalogGlbMod` · 서버 `catalogSourceMod`
   - 좌석에 입히기: `seats` · `customItems`(읽는 함수) · `equipDeskItem` · `clearHolderDeskItems` · `applyDeskItemsTo` · `loadSavedItemsIntoSession` · `applyDeskCatalogRefToSeat` · `swapDeskVisual` · `equipPartOnSeat` · `unequipPartFromSeat` · `applyClothVisibility` · `fitModel` · `layoutSeats` · `rideBenchMod`
   - 생성기 상태(읽는 함수): `creatorOpen` · `cBase` · `cDesk` · `cDeskColor` · `cDeskScale` · `cDeskGlbB64` · `cDeskTemplate` · `activeCustomDeskId` + 쓰는 함수 `setCDeskGlbB64` · `setCDeskTemplate`
   - 다시 그리기: `wardrobeMod` · `gachaMod` · `adminCategory` · `renderLauncher` · `renderCrItems` · `toast` · `isAdmin`
-- **내보내는 것**: 없음 — 만들 때 구독을 건다(`catalogNet()` 이 아직 없으면 `firebase-ready` 를 한 번 기다린다 — 준비 신호도 나중에 provider 쪽으로).
+- **내보내는 것**: 없음 — 만들 때 구독을 건다(`catalogSourceMod.catalogSrcReady` — 연결이 아직 없으면 한 번 기다린다).
   - 안쪽 순수 함수 `mergeCatalogList(catalogObj, saved, norm?)` → `{ list, removedIds }` — 저장 목록은 안 바꾼다(세 합치기가 부른다 · 검사는 글을 뽑아 직접 돌린다).
-- **확장할 때 고칠 자리**: 새 카탈로그 종류는 `mergeCatalogIntoSavedXxx` + `subscribeCatalogXxx` 한 벌 · 구독 걸기는 파일 끝 `if(catalogNet()) … else addEventListener('firebase-ready', …)` 줄. 합치는 규칙을 바꿀 땐 `mergeCatalogList` 한 곳.
+- **확장할 때 고칠 자리**: 새 카탈로그 종류는 `mergeCatalogIntoSavedXxx` + `subscribeCatalogXxx` 한 벌 · 구독 걸기는 파일 끝 `catalogSourceMod.catalogSrcReady(…)` 줄 · 서버 쪽 이름은 provider 에 하나 더. 합치는 규칙을 바꿀 땐 `mergeCatalogList` 한 곳.
 - **함정**
   - 아이템은 세션 등록(`loadSavedItemsIntoSession`)을 **기다린 뒤** 좌석을 다시 적용한다 — 순서를 바꾸면 옛 크기(0.8)로 다시 만든다.
   - 생성기에서 보던 책상 · 아이템의 위치 · 크기 조정값은 일부러 안 지킨다(자동 크기 계산을 바꿔도 보이게).

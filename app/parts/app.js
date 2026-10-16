@@ -9259,10 +9259,15 @@ const partSceneMod = TwPartScene.createPartScene({
   b64ToBuf: (...a)=>b64ToBuf(...a),
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
 });
+/* 카탈로그 서버 호출은 provider 하나로 — 서버 API 판이 생기면 이 줄만 바꾼다(지금은 Firebase 판 = 옛 길). */
+const catalogSourceMod = TwCatalogSource.createCatalogSource({
+});
+
 /* 본문은 admin/admin-thumbs.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const adminThumbs = TwAdminThumbs.createAdminThumbs({
   adminPartReg: adminPartReg,
+  catalogSourceMod: catalogSourceMod,
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
   partSceneMod: partSceneMod,
@@ -9281,6 +9286,7 @@ const glbIdbMod = TwGlbIdbCache.createGlbIdbCache({
 /* 본문은 character/catalog-glb.js 로 옮겼다(구역 떼기 C · w2).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const catalogGlbMod = TwCatalogGlb.createCatalogGlb({
+  catalogSourceMod: catalogSourceMod,
   glbIdbMod: glbIdbMod,
 });
 
@@ -9313,7 +9319,7 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   cDeskScale: ()=>cDeskScale,
   cDeskTemplate: ()=>cDeskTemplate,
   catalogGlbMod: catalogGlbMod,
-  catalogNet: ()=>window.firebaseAPI,
+  catalogSourceMod: catalogSourceMod,
   clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),
   commissionMod: commissionMod,
   creatorOpen: ()=>creatorOpen,
