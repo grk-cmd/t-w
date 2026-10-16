@@ -1,7 +1,10 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 261 (구역 떼기 C · w2 — 🧊 파츠 GLB 파싱 캐시 · 썸네일을 `parts/character/part-scene.js` · 관리자 다시 굽기를 `parts/admin/admin-thumbs.js` 로 · 검사 둘 신설)
-대상: `sim-*.js` 255개 + `smoke.js` + `audit.py` = **257개** (개정 261 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 262 (새 «있으면 부르기» typeof 가드가 기준선보다 늘면 빨강)
+대상: `sim-*.js` 256개 + `smoke.js` + `audit.py` = **258개** (개정 262 기준 — 폴더를 센 값)
+
+**개정 262 에서 한 것 (2026-10-16 · 구조 정리 빚 막기 — 동작 변화 없음)**
+- 검사: `sim-typeof-guards.js` 신설 — app/parts/**/*.js(vendor/ 빼고)의 `typeof 이름 === 'function'` · `typeof 이름 !== 'undefined'` 류 «있으면 부르기» 가드를 파일별 개수 기준선 `typeof-guards-baseline.json`(178개 · 파일 52개)으로 두고 **파일마다 늘면 빨강 · 줄었으면 기준선을 내리라고 빨강**(`node checks/sim-typeof-guards.js --write-baseline` — 합계가 늘었으면 쓰기를 거절). 값 모양 검사('string' · 'number' · 'object' · 'boolean') · 환경 검사(`typeof window` · `module` · `require` 등 ENV 표) · 주석 안은 안 센다. 일부러 남긴 가드 14개 이름은 EXEMPT 표(이유 한 줄씩 — animal.js 고리 넷 · `_pomoShowText` · 창 열 때만 거는 넷 · app.js 안 closeWardrobe 둘 · 생성기 셋 · HumanEar)로 빼고, 없어진 예외는 빨강. 깨 보기 여덟(늘면 · 새 파일 · 줄면 빨강 · 같으면 초록 · 값 모양 · 환경 · 예외 · 파일 정한 예외). sim-hook-guards 는 그대로.
 
 **개정 261 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 — 파츠 GLB 파싱 캐시 · 썸네일을 모듈로 · 동작 변화 없음)**
 - 앱: app.js «🧊 파츠 GLB 파싱 캐시 · 썸네일» 구역을 둘로 — 파싱 캐시 · 썸네일 굽기(`getPartScene` · `generatePartThumbnail` · `partSceneCache`)는 `app/parts/character/part-scene.js`(`window.TwPartScene`, deps 9), F12 콘솔 `generateAllPartThumbnails` 는 `app/parts/admin/admin-thumbs.js`(`window.TwAdminThumbs`, deps 7 — 한 모듈에 두면 관리자 등록 모듈과 서로 부르는 순환이 생긴다). 코드 글자 그대로 · 바뀐 줄은 읽는 함수 자리뿐 · 옛 이야기형 주석만 줄임. 부르는 곳은 `partSceneMod.이름`.
@@ -2177,6 +2180,7 @@
 | **sim-nav.js** | 85 | **b6ad2236aa1b** ← **개정 250 app.js 는 window.TwNav 를 그대로 받는다 · 빈 껍데기 없음(가드 걷기 3차-2)** · **개정 247 신설 · 🧭 창 열기 통로(nav.js) — 걸고 부르기 · 거는 곳 한 곳 · 아는 이름만 · 표 · 싣는 순서** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** ← **개정 251 신설 · 😊 기본 이모티콘 목록(demoji-catalog.js) — 33개 · 안 겹침 · 찾기 표 · 얼림 · 그림 파일 · 한 곳 · 받는 방식 · 싣는 순서** |
 | **sim-hook-guards.js** | 77 | **75ab20ba3fec** ← **개정 253 표에 포커스 · 꾸미기 · 방 · 가챠 · 플레이리스트 · 관리자 고리 10개(36개)** · **개정 252 신설 · 🪝 부팅 때 늘 걸리는 window 고리 — 거는 곳 한 파일 · 부르는 곳 · 가드 없음(마이홈 26개)** |
+| **sim-typeof-guards.js** | 134 | **f82233bb97fc** ← **개정 262 신설 · 🪝 «있으면 부르기» typeof 가드가 파일별 기준선(typeof-guards-baseline.json)보다 늘지 않는다 · 예외 표** |
 | **sim-user-name.js** | 89 | **5cf62ffbe179** ← **개정 255 프로필 쓰기가 거부돼도 잡히지 않은 오류가 없다(.catch)** · **개정 249 만드는 줄을 가드 걷은 모양으로 찾는다(판정 무변경)** · **개정 248 신설 · 🏷️ 닉네임 저장(user-name.js) — 자르기 · 운영진 이름 · 갱신 · 연결**  |
 | **sim-part-scene.js** | 209 | **4d4fc633d0be** ← **개정 261 신설 · 🧊 파츠 GLB 파싱 캐시 · 썸네일 모듈 구조 + 동작** |
 | **sim-admin-thumbs.js** | 150 | **83b899202e8b** ← **개정 261 신설 · 🖼️ 관리자 썸네일 다시 굽기 모듈 구조 + 동작** |
