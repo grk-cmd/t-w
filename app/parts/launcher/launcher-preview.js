@@ -1,8 +1,6 @@
 /* launcher-preview.js — 🖼️ 런처 미리보기 · 슬롯 섬네일
-   app.js «🖼️ 런처 미리보기 · 슬롯 섬네일» 구역 본문을 그대로 옮긴 모듈이다(C 구역 떼기 · w3).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 3줄 —
-     assetCodeMod · customItems · slotSaveMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+   app.js «🖼️ 런처 미리보기 · 슬롯 섬네일» 구역 본문을 옮긴 모듈이다(C 구역 떼기 · w3).
+   ★ assetCodeMod · customItems · slotSaveMod 는 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 20개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: ensureLauncherPreview · lHolder · lRenderer · launcherLoop · setLauncherChar · sizeLauncherPreview — app.js 는 launcherPrevMod.이름 으로 부른다.
@@ -13,6 +11,7 @@
 
 function createLauncherPreview(deps){
 const CHAR_Z = deps.CHAR_Z;
+const FrameBudget = deps.FrameBudget;
 const RIG_TURN = deps.RIG_TURN;
 const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
 const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
@@ -206,12 +205,27 @@ function setLauncherChar(def){_lcThumbJob=null;if(lChar){lScene.remove(lChar.gro
     applyBase(null);
   }
 }
-function launcherLoop(){
+/* 깜빡임 — 실제로 흐른 시간으로 센다. 프레임마다 16ms 로 치면 주사율 · 프레임 상한에 따라 주기가 달라진다
+   (120Hz 면 두 배 빨리 · 30 장이면 두 배 느리게). */
+const LC_BLINK_OPEN_MS = 2600;    // 눈 뜨고 있는 시간
+const LC_BLINK_SHUT_MS = 150;     // 감고 있는 시간
+const LC_BLINK_DT_MAX_MS = 100;   // 한 장 사이에 셀 수 있는 최대 시간 — 런처를 닫았다 다시 열면 밀린 시간을 한꺼번에 세지 않는다
+function _lcBlinkStep(on, t, dt){
+  t += Math.min(Math.max(dt || 0, 0), LC_BLINK_DT_MAX_MS);
+  if(!on && t > LC_BLINK_OPEN_MS) return { on: true, t: 0 };
+  if(on && t > LC_BLINK_SHUT_MS) return { on: false, t: 0 };
+  return { on, t };
+}
+/* 런처 미리보기도 상한(FPS_LAUNCHER)까지만 그린다 — 상한이 없으면 모니터 주사율(120 · 144Hz)만큼 그려
+   런처 화면 GPU 부하가 실행 화면의 3~4배가 된다. */
+const _lBudget = FrameBudget.createFrameBudget({ now: ()=>performance.now() });
+let _lDrawAt = 0;   // 직전에 그린 시각(깜빡임 시간 세기)
+function launcherLoop(now){
   const vis=document.getElementById('launcher').classList.contains('on');
-  if(vis&&lRenderer){
-    if(lChar){lBlinkT+=16;
-      if(!lBlinkOn&&lBlinkT>2600){lBlinkOn=true;lBlinkT=0;setFaceMap(lChar.faceMat, lChar.bT);}
-      else if(lBlinkOn&&lBlinkT>150){lBlinkOn=false;lBlinkT=0;setFaceMap(lChar.faceMat, lChar.fT);}
+  if(vis&&lRenderer&&_lBudget.admit(now, FrameBudget.FPS_LAUNCHER)){
+    const dt=_lDrawAt ? now-_lDrawAt : 0; _lDrawAt=now;
+    if(lChar){const b=_lcBlinkStep(lBlinkOn, lBlinkT, dt); lBlinkT=b.t;
+      if(b.on!==lBlinkOn){lBlinkOn=b.on; setFaceMap(lChar.faceMat, lBlinkOn ? lChar.bT : lChar.fT);}
       // ★ 실측 바운딩박스로 정렬한 기준 y(lCharBaseY) + 스케일 비례 둥둥 —
       //   모든 크기의 캐릭터가 프레임 가운데 같은 자리에 서고, 출렁임도 비례함.
       const dY=Math.max(0.2, lScaleHint||1);
@@ -225,6 +239,7 @@ return {
   lHolder: ()=>lHolder,   // 읽는 함수
   lRenderer: ()=>lRenderer,   // 읽는 함수
   launcherLoop,
+  _lcBlinkStep,   // 검사용
   setLauncherChar,
   sizeLauncherPreview,
 };

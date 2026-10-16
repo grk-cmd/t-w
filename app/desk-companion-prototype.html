@@ -1915,13 +1915,15 @@
      않는다(-webkit-text-fill-color:transparent 가 함께 있어야 크로미움에서 글자가 비친다).
      배경을 220%로 넓혀두고 background-position 만 흘려서 색이 계속 지나가게 한다 — transform 이
      아니라 배경 위치만 움직이므로 레이아웃 재계산이 없다.
+     ★ steps(90) — 4.5초에 90칸(초당 20번)만 바꾼다. linear 면 주사율(120Hz)만큼 글자를 다시 칠해
+       런처 화면 GPU 부하가 세 배가 된다(배경 위치는 합성만으로 못 움직여 칸마다 다시 칠한다).
      ★ 반드시 안쪽 <span>에만 건다. 버튼(.lc-btn)에 직접 걸면 background-image 가 버튼의
        배경(var(--win-face))을 밀어내서 베젤이 사라진다 — 그래서 클래스로 분리해 두 곳이 공유한다. */
   .donate-shine{display:inline-block;letter-spacing:.3px;
     background-image:linear-gradient(90deg,#e05a6d,#e8983d,#c9b53a,#5aa85a,#4a9fd4,#8a7fd4,#e05a6d);
     background-size:220% 100%;
     -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
-    animation:donateShine 4.5s linear infinite;}
+    animation:donateShine 4.5s steps(90) infinite;}
   @keyframes donateShine{from{background-position:0 0;} to{background-position:220% 0;}}
   /* 움직임에 민감한 사용자는 흐르지 않게 — 색은 그대로 남아 링크로 읽힌다 */
   @media (prefers-reduced-motion:reduce){ .donate-shine{animation:none;} }
