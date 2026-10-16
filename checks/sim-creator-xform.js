@@ -168,7 +168,8 @@ say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['yaw 를 rotation.y 로', (m) => m.replace('p.userData.adj.rot = _itemYaw(p);', 'p.userData.adj.rot = p.rotation.y;'), null, null],
   ['회전에서도 X 고리', (m) => m.replace('g.showX = !rot;', 'g.showX = true;'), null, null],
-  ['크기 상한 2.5 → 3', (m) => m.replace('Math.min(2.5,', 'Math.min(3,'), null, null],
+  ['크기 상한 2.5 → 3', (m) => m.replace('const ITEM_SCALE_MAX = 2.5;', 'const ITEM_SCALE_MAX = 3;'), null, null],
+  ['한 칸 0.05 → 0.1', (m) => m.replace('const ITEM_SCALE_STEP = 0.05;', 'const ITEM_SCALE_STEP = 0.1;'), null, null],
   ['파츠 핀을 같이 잰다', (m) => m.replace("floorClampWrapper(cDesk(), '책상', true, o => o.name === DESK_PART_ANCHOR_NAME());", "floorClampWrapper(cDesk(), '책상', true);"), null, null],
   ['책상 드래그도 아이템 저장', (m) => m.replace('        layoutSeats();   // 좌우로 밀었으면 좌석 간격을 다시 잡는다\n        return;', '        layoutSeats();'), null, null],
   ['만들 때 던짐', (m) => m.replace('function createCreatorXform(deps){', 'function createCreatorXform(deps){ throw new Error("깨 봄");'), null, null],

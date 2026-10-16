@@ -40,6 +40,12 @@ const toast = deps.toast;
 const setCDeskLenX = deps.setCDeskLenX;   // 쓰는 함수
 const setCDeskPos = deps.setCDeskPos;   // 쓰는 함수
 const setCDeskScale = deps.setCDeskScale;   // 쓰는 함수
+/* 생성기 변형의 박힌 값 — 여기만 고친다 */
+const ITEM_GIZMO_SIZE = 2.1;      // 기즈모 크기(기본 0.7 의 3배 — 잘 안 보여서 키움)
+const ITEM_SCALE_STEP = 0.05;     // 아이템 크기 ＋/－ 한 칸
+const ITEM_SCALE_MAX = 2.5;       // 아이템 크기 상한
+const ITEM_SCALE_MIN = 0.05;      // 아이템 크기 하한
+const CHAR_SCALE_DEFAULT = 0.7;   // 캐릭터 크기 되돌리기 값
 /* ==== 아이템 3D 기즈모 (어플 3) ====
    TransformControls를 생성기 미리보기 씬에 하나만 만들어놓고, 선택된 아이템 pivot에 attach.
    드래그 종료 시 pivot의 실제 position/rotation/scale을 userData.adj에 다시 기록해서
@@ -64,7 +70,7 @@ function ensureItemGizmo(){
     return null;
   }
   itemGizmo = new THREE.TransformControls(cCam(), cRenderer().domElement);
-  itemGizmo.setSize(2.1);   // 3배(기본 0.7 → 2.1) — 요청사항: 기즈모가 잘 안 보여서 키움
+  itemGizmo.setSize(ITEM_GIZMO_SIZE);
   itemGizmo.setSpace('local');   // 회전 시 아이템 자신의 축(=책상 좌표계)을 따르게
   /* 🦶 생성기에서도 책상 · 책상 위 아이템은 바닥(y=0) 아래로 못 간다 — 매 이동(objectChange)마다 걸어 저장 전에 클램프된 값이 되게.
      ⚠️ hard=true(끌고 있는 중 — 상한 없음). 캐릭터는 대상이 아니다(fitCreator 가 발바닥으로 고정). */
@@ -201,14 +207,14 @@ function _crClampActiveItemToFloor(){
 // 크기는 기즈모 대신 ＋/－ 버튼(꾹 누르면 연속 조정)
 bindHold(document.getElementById('crItemBigger'), ()=>{
   const p=cBase()&&cBase().activeDeskItem; if(!p){ toast('먼저 크기를 조정할 아이템을 우클릭해서 선택해 주세요'); return; }
-  p.userData.adj.scale=Math.min(2.5,(p.userData.adj.scale||1)+0.05);
+  p.userData.adj.scale=Math.min(ITEM_SCALE_MAX,(p.userData.adj.scale||1)+ITEM_SCALE_STEP);
   applyDeskAdj(p);
   _crClampActiveItemToFloor();
   autoSaveDeskItemsNow();
 });
 bindHold(document.getElementById('crItemSmaller'), ()=>{
   const p=cBase()&&cBase().activeDeskItem; if(!p){ toast('먼저 크기를 조정할 아이템을 우클릭해서 선택해 주세요'); return; }
-  p.userData.adj.scale=Math.max(0.05,(p.userData.adj.scale||1)-0.05);
+  p.userData.adj.scale=Math.max(ITEM_SCALE_MIN,(p.userData.adj.scale||1)-ITEM_SCALE_STEP);
   applyDeskAdj(p);
   _crClampActiveItemToFloor();
   autoSaveDeskItemsNow();
@@ -252,7 +258,7 @@ function bindCrXform(id,key){ document.getElementById(id).addEventListener('inpu
 bindCrXform('crScale','s'); bindCrXform('crZ','y'); bindCrXform('crRot','rot');
 document.querySelectorAll('#seatStage .mini-reset[data-rs]').forEach(btn=>{ btn.addEventListener('click',()=>{
   /* 🧍 data-rs="z" 는 HTML 그대로 두고 여기서 높이(y)로 읽는다 — 그 슬라이더가 이제 높이다. */
-  const raw=btn.dataset.rs, k=(raw==='z'||raw==='y')?'y':raw, dv=(k==='s')?0.7:0; cXform()[k]=dv;
+  const raw=btn.dataset.rs, k=(raw==='z'||raw==='y')?'y':raw, dv=(k==='s')?CHAR_SCALE_DEFAULT:0; cXform()[k]=dv;
   const id=(k==='s')?'crScale':(k==='y'?'crZ':'crRot'); document.getElementById(id).value=dv;
   applyCreatorXform(); }); });
 /* 🪑 책상 위치 기즈모 ─────────────────────────────────────────────────

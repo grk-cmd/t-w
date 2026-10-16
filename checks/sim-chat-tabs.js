@@ -46,7 +46,9 @@ const sendChatSrc = (APP.match(/function sendChat\(text, fly, flyColor, flySize,
 chk(!!sendChatSrc, 'Presence.sendChat(…, tab) 을 찾았다');
 {
   const sent = [];
-  const run = new Function('provider', '_basePayload', sendChatSrc + '\nreturn sendChat;')({ update: (p) => sent.push(p) }, () => ({ state: 'idle' }));
+  /* 칸 길이는 presence.js 위 상수(C 구역 떼기 w4 — CHAT_TEXT_MAX 등)로 모았다 — 그 줄들을 같이 넣어 돌린다(판정 무변경) */
+  const lenConsts = (APP.match(/^const (?:CHAT_TEXT_MAX|CHAT_TAB_MAX|FLY_COLOR_MAX|FLY_SIZE_MAX) = \d+;.*$/gm) || []).join('\n');
+  const run = new Function('provider', '_basePayload', lenConsts + '\n' + sendChatSrc + '\nreturn sendChat;')({ update: (p) => sent.push(p) }, () => ({ state: 'idle' }));
   run('안녕', false, '', '', 's2');
   run('같이 봐요', true, '#fff', 'm', 's2');
   run('일반이에요', false, '', '', 'general');

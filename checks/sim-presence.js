@@ -217,7 +217,7 @@ function wire(app, html) {
 
   say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
-    ['140자 자르기를 141로', (m) => m.replace('String(text).slice(0,140)', 'String(text).slice(0,141)'), null, null],
+    ['140자 자르기를 141로', (m) => m.replace('const CHAT_TEXT_MAX = 140;', 'const CHAT_TEXT_MAX = 141;'), null, null],
     ['같은 소음도 다시 보냄', (m) => m.replace('if(v === myNoise) return;', ''), null, null],
     ['poke 중복 거르기 없앰', (m) => m.replace('if(_pts <= _myPokeSeenTs) return;', ''), null, null],
     ['20분을 21분으로', (m) => m.replace('const AUTO_AWAY_MS = 20 * 60 * 1000;', 'const AUTO_AWAY_MS = 21 * 60 * 1000;'), null, null],

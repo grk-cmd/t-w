@@ -85,7 +85,7 @@ const crXformMod = TwCreatorXform.createCreatorXform({
 | `detachItemGizmo()` | 생성기를 닫을 때 |
 | `updateDeskPosNum()` | 책상 위치 숫자 글(`기본 위치` 또는 `x 1.00 · y … · z …`)을 다시 쓸 때(프리셋 · 열기) |
 
-**확장할 때 고칠 자리** — 새 저장 칸은 `dragging-changed` 의 아이템 갈래(adj 에 한 줄) · 크기 범위는 `crItemBigger/Smaller` 의 `Math.min(2.5,…)` · `Math.max(0.05,…)`.
+**확장할 때 고칠 자리** — 새 저장 칸은 `dragging-changed` 의 아이템 갈래(adj 에 한 줄) · 크기 범위 · 한 칸 · 기즈모 크기 · 캐릭터 크기 되돌리기 값은 파일 위 상수(`ITEM_SCALE_MAX` · `ITEM_SCALE_MIN` · `ITEM_SCALE_STEP` · `ITEM_GIZMO_SIZE` · `CHAR_SCALE_DEFAULT`).
 
 **함정**
 - 회전은 Y 축 하나(`adj.rot`)만 저장한다 — 회전 모드에서 X · Z 고리를 다시 보이게 하지 말 것. 저장은 `_itemYaw`(YXZ 로 푼 y) — `rotation.y` 는 90° 를 넘으면 거울상 각도다.

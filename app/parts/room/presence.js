@@ -31,6 +31,12 @@ const seats = deps.seats;
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const triggerPet = deps.triggerPet;
+/* 방으로 보내는 칸의 길이 상한 · 처음 값 — 서버 규칙과 짝(채팅 text ≤ 140). 바꾸면 규칙 · 방 서버도 같이 본다. */
+const CHAT_TEXT_MAX = 140;   // 채팅 한 줄 글자 수
+const CHAT_TAB_MAX = 16;     // 채팅 탭 이름
+const FLY_COLOR_MAX = 16;    // 날리기 색 글
+const FLY_SIZE_MAX = 2;      // 날리기 크기 글('m' · 's')
+const AWAY_SZ_DEFAULT = 80;  // 자리비움 그림 화면 크기 처음 값(awayPicMod 의 기본과 같은 값)
 const Presence=(()=>{
   let provider=null, room=null, friends={}, myDef=null, myName='나', myState='idle', myUserStatus=null, myLevel=1, onChange=null;
   /* 🛰 내 노드 poke 의 중복·유통기한 판정용. friends 쪽 `_lastPokeTs` 와 같은 역할이다.
@@ -40,8 +46,8 @@ const Presence=(()=>{
   let myAwayImg='';        // 🫧 자리비움 그림 URL — 방에 실어 보낸다(없으면 빈 문자열 · 구버전은 무시)
   /* 📏 그 그림의 화면 크기(60·80·100) — 받는 쪽이 이 크기로 그린다(구버전은 무시 → 그쪽 고정값).
      ⚠️ 초기값을 AWAY_PIC_SCREEN_PX 로 쓰지 말 것 — 그 var 는 파일 아래쪽이라 이 IIFE 가 도는 순간엔 undefined 이고,
-       Firebase 는 undefined 가 든 payload 를 통째로 거절한다(방 입장이 깨진다). 숫자로 둔다(기본 80 과 같은 값). */
-  let myAwaySz=80;
+       Firebase 는 undefined 가 든 payload 를 통째로 거절한다(방 입장이 깨진다). 이 파일 위 숫자 상수로 둔다. */
+  let myAwaySz=AWAY_SZ_DEFAULT;
   let myFocusShow=null;   // 📊 오늘 기록 전시 {emo,text} — 상태가 없을 때만 custom 칸으로 실어 보낸다(_statusOut)
   let myCustomStatus=null;   // ✨ 커스텀 상태(프리미엄) {emo,text} — userStatus==='custom'일 때 친구에게 보여줄 문구
 
@@ -388,13 +394,13 @@ const Presence=(()=>{
        `chat` 칸으로 보내면 구버전이 탭을 모른 채 방 전원에게 띄운다(sim-chat-tabs ①). */
   function sendChat(text, fly, flyColor, flySize, tab){
     if(!(provider && provider.update)) return;
-    const chat = { text:String(text).slice(0,140), ts:Date.now() };
-    if(tab && tab !== 'general') chat.tab = String(tab).slice(0,16);
+    const chat = { text:String(text).slice(0,CHAT_TEXT_MAX), ts:Date.now() };
+    if(tab && tab !== 'general') chat.tab = String(tab).slice(0,CHAT_TAB_MAX);
     if(fly){
       chat.fly = true;
-      if(flyColor) chat.flyColor = String(flyColor).slice(0,16);
+      if(flyColor) chat.flyColor = String(flyColor).slice(0,FLY_COLOR_MAX);
       // 대(l)는 기본값이라 안 싣는다 — 받는 쪽이 «없으면 대» 로 읽는다.
-      if(flySize && flySize !== 'l') chat.flySize = String(flySize).slice(0,2);
+      if(flySize && flySize !== 'l') chat.flySize = String(flySize).slice(0,FLY_SIZE_MAX);
     }
     if(chat.tab){ provider.update(Object.assign(_basePayload(), { chatTab: chat })); return; }
     provider.update(Object.assign(_basePayload(), { chat }));
