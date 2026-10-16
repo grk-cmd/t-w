@@ -1371,29 +1371,11 @@ const seatEqMod = TwSeatEqualize.createSeatEqualize({
   syncSeatDeskZ: (...a)=>syncSeatDeskZ(...a),
 });
 let roomSeatMode = window.TwSeatPin ? TwSeatPin.loadMode(localStorage) : 'row';   // 🪑 방에서 내 자리 — 줄 안에 함께 · 맨 오른쪽 고정(seat-pin.js)
-/* 🎁 꾸미기 파츠 표시 — [2026-09-17 요청] 끄면 **내 화면에서만**, 나 포함 모든 좌석의 꾸미기 파츠(파츠 보관함의 가챠 파츠)가
-   안 보인다. 서버에는 아무것도 안 쓴다(좌석 크기 평준화와 같은 «내 화면 전용» 설정).
-   · 대상: 캐릭터에 붙는 파츠 wrapper(`__twPartWrap`) 전부 — 일반·겹치기·다중 인스턴스. **책상 위(bone:'desk') 카테고리는 제외** — 책상 설정의
-     책상 아이템은 그대로 둔다(요청 범위).
-   · 방법: wrapper.visible 만 내린다. 메시는 안 건드리므로 setSeatOpacity(_prevVisible)와 안 섞이고, 파츠 애니·스티커사진
-     키 계산(wrapper 가 남아 있음)도 그대로다. 끄면 파츠가 숨기던 기본 메시(모자→머리카락 등)는 applyClothVisibility 가
-     «파츠 없음» 으로 계산해 되돌린다 — 안 그러면 모자만 사라진 대머리가 된다. */
-let decoPartsVisible = true;
-try{ decoPartsVisible = (localStorage.getItem('tw.decoParts') !== '0'); }catch(_){}   // 기본 켜기
-function _decoWrapperShow(cat){
-  if(decoPartsVisible) return true;
-  const info = premiumMod.PART_CATS() ? premiumMod.PART_CATS().find(c => c.cat === cat) : null;
-  return premiumMod.isDeskPartCat(info);   // 책상 위는 항상 보인다
-}
-function applyDecoPartsVisibility(seat){
-  if(!seat || !seat.group) return;
-  try{
-    seat.group.traverse(o => {
-      if(!(o.userData && o.userData.__twPartWrap)) return;
-      o.visible = _decoWrapperShow(o.userData.cat);
-    });
-  }catch(_){}
-}
+/* 본문은 character/deco-parts-visibility.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const decoPartsMod = TwDecoPartsVisibility.createDecoPartsVisibility({
+  premiumMod: ()=>premiumMod,
+});
 /* (구역 떼기 C · w1) 이 자리의 본문도 character/seat-equalize.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 // 🐾 동물 전용 팔 기본각 — 동물 GLB의 hand 본 rest 자세가 인간과 달라 인간의 HAND_REST를 그대로 쓰면 팔이 뜬다.
 //   ★ 팔 높이 조정은 이 숫자 하나만 바꾸면 됨: 양수 쪽(예 -0.2)으로 갈수록 내려가고, 음수 쪽(예 -0.8)일수록 올라간다.
@@ -3130,7 +3112,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   chipHorizontal: ()=>overheadMod.chipHorizontal(),
   createSeat: (...a)=>createSeat(...a),
   curSlot: ()=>curSlot,
-  decoPartsVisible: ()=>decoPartsVisible,
+  decoPartsVisible: ()=>decoPartsMod.decoPartsVisible(),
   dotRenderEnabled: ()=>dotRenderEnabled,
   drawFaceThumb: (...a)=>addFriendMod.drawFaceThumb(...a),
   emojiReactionsEnabled: ()=>floatersMod.emojiReactionsEnabled(),
@@ -3164,7 +3146,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
   setChipHorizontal: (v)=>{ overheadMod.setChipHorizontal(v); },
   setCurSlot: (v)=>{ curSlot = v; },
-  setDecoPartsVisible: (v)=>{ decoPartsVisible = v; },
+  setDecoPartsVisible: (v)=>{ decoPartsMod.setDecoPartsVisible(v); },
   setDotRenderEnabled: (v)=>{ dotRenderEnabled = v; },
   setEmojiReactionsEnabled: (v)=>{ floatersMod.setEmojiReactionsEnabled(v); },
   setFocusCharScale: (v)=>{ focusCharScale = v; },
@@ -5590,10 +5572,10 @@ function _unequipClothCat(seat, cat){
      hides가 명시적이면(빈 배열 포함) 그대로 사용, 옛 파츠(hides 자체 없음)만 관례 기본값 fallback. */
 function applyClothVisibility(seat){
   if(!seat) return;
-  applyDecoPartsVisibility(seat);   // 🎁 꾸미기 파츠 표시 설정 — 부착·해제·좌석 재조립 뒤 늘 이 함수를 지나므로 여기서 같이 맞춘다
+  decoPartsMod.applyDecoPartsVisibility(seat);   // 🎁 꾸미기 파츠 표시 설정 — 부착·해제·좌석 재조립 뒤 늘 이 함수를 지나므로 여기서 같이 맞춘다
   /* 🎁 꺼짐이면 «파츠 없음» 으로 센다 — 파츠가 숨기던 기본 메시(머리카락·기본 상의)를 되돌리기 위해서다.
      ⚠️ 책상 위 파츠는 hides 를 안 가지므로 여기서 빼도 달라지는 게 없다. */
-  const eq = (decoPartsVisible ? (seat.charDef && seat.charDef.equippedParts) : null) || {};
+  const eq = (decoPartsMod.decoPartsVisible() ? (seat.charDef && seat.charDef.equippedParts) : null) || {};
   const hidden = { top:false, bottom:false, onepiece:false, cape:false,
                    glasses:false, hat:false, mask:false, wing:false, handL:false, handR:false };
   // eq에 있는 모든 카테고리의 모든 파츠(stackable 배열 포함) 순회

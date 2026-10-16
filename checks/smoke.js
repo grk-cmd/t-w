@@ -561,6 +561,8 @@ PRELOAD.push('desk-visual.js');
 PRELOAD.push('seat-equalize.js');
 /* commission-import.js — 🎨 커미션 코드 입력(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCommissionImport 를 같이 굴린다. */
 PRELOAD.push('commission-import.js');
+/* deco-parts-visibility.js — 🎁 꾸미기 파츠 표시(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDecoPartsVisibility 를 같이 굴린다. */
+PRELOAD.push('deco-parts-visibility.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

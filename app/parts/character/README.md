@@ -144,3 +144,19 @@
   - `deskScaleBase` 가 없는 좌석(def 가 아직 안 얹힘)은 책상을 건드리지 않고 `eqK` 만 심는다.
   - 한 좌석에서 던지면 나머지 좌석을 그 바퀴에 건너뛴다 — `CONFIRM.md` 에 적어 둠.
   - 검사: `checks/sim-seat-equalize.js`(4절 — 깃발 · k · 이상한 값 · 부캐 · 들림 · 다시 걸기 · 재진입 · 던짐) · `sim-seat-eq` · `sim-char-z`(app.js 전체로).
+
+## deco-parts-visibility.js — 🎁 꾸미기 파츠 표시
+
+- **책임**: «꾸미기 파츠 보이기» 깃발(`tw.decoParts`, 기본 켜짐) 하나와, 좌석 하나에 그 깃발을 거는 일. 끄면 내 화면에서만 모든 좌석의 꾸미기 파츠 wrapper 를 숨긴다(서버에 안 쓴다). 책상 위 카테고리(`bone:'desk'`)는 늘 보인다.
+- **만드는 법**: `const decoPartsMod = TwDecoPartsVisibility.createDecoPartsVisibility({ premiumMod: ()=>premiumMod });`(premiumMod 는 뒤에서 만들어져 읽는 함수로).
+- **내보내는 것**
+  - `applyDecoPartsVisibility(seat)` — 파츠를 붙이거나 떼거나 좌석을 다시 조립한 뒤 부른다(app.js 의 파츠 붙이기 끝에서 늘 지난다).
+  - `decoPartsVisible()` · `setDecoPartsVisible(v)` — 설정 창이 읽고 바꾼다(저장은 설정 창이 `tw.decoParts` 에). 바꾼 뒤 좌석마다 파츠를 다시 붙여야 보인다.
+  ```js
+  decoPartsMod.applyDecoPartsVisibility(seat);
+  ```
+- **확장할 때 고칠 자리**: 숨기지 않을 카테고리 규칙은 `_decoWrapperShow`(지금은 `premiumMod.isDeskPartCat`).
+- **함정**
+  - `wrapper.visible` 만 바꾼다 — 메시 · 투명도(setSeatOpacity)와 섞지 말 것. 파츠가 가리던 기본 메시는 `applyClothVisibility` 가 «파츠 없음» 으로 되돌린다.
+  - 카테고리 표(`PART_CATS()`)가 아직 없으면 책상 위 파츠도 숨긴다(지금 동작).
+  - 검사: `checks/sim-deco-parts-visibility.js`(4절) · `sim-deco-parts.js`.
