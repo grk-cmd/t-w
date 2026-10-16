@@ -85,10 +85,17 @@ function _setDeskMatColor(m, color){
   m.needsUpdate = true;
 }
 
+/* 재질의 플랫 조명 배율 — 재질 톤이 심어 둔 baseFlat, 없으면 fallback. 색을 다시 칠하는 곳(아이템 · 꾸미기 · 생성기)은 모두 이 함수로 읽는다 —
+   같은 판단을 곳마다 다시 쓰면 대체값이 곳마다 갈라진다. 0 도 심은 값이다(없음이 아님). */
+function baseFlatOf(mat, fallback){
+  return (mat && mat.userData && mat.userData.baseFlat!=null) ? mat.userData.baseFlat : fallback;
+}
+
 return {
   FLAT_EMISSIVE,
   LIGHT_PRESET,
   TONE_FRONT_TOTAL,
+  baseFlatOf,
   _applyItemMatTone,
   _applyPartMatTone,
   _setDeskMatColor,

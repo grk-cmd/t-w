@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 299 (w4 모듈의 박힌 값을 파일 위 상수로 — 동작 무변경)
-대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 299 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 300 (재질 플랫 배율 읽기(baseFlat 없으면 대체값)를 shared/light-tone.js baseFlatOf 하나로 — 동작 무변경)
+대상: `sim-*.js` 287개 + `smoke.js` + `audit.py` = **289개** (개정 300 기준 — 폴더를 센 값)
+
+**개정 300 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호)**
+- 앱: «재질에 baseFlat 이 있으면 그 값, 없으면 대체값» 판단이 app.js 세 곳 · creator-xform.js 한 곳 · wardrobe.js 네 곳에 따로 적혀 있던 것을 `lightToneMod.baseFlatOf(mat, fallback)` 하나로 묶었다. 대체값은 곳마다 원래 값 그대로 넘긴다(0.4 · 1 − LIGHT_PRESET.e · FLAT_EMISSIVE) — 값을 하나로 맞추는 것은 다음 개정에서 따로. creator-xform · wardrobe 는 deps 에 baseFlatOf(함수) 하나씩.
+- 검사: sim-light-tone — baseFlatOf 입력 → 출력(심은 값 · 0 · 칸 없음 · null · userData 없음 · 재질 없음) · app.js · wardrobe · creator-xform 이 판단을 다시 쓰지 않는다 · 깨 보기 둘. sim-creator-xform deps 28 · sim-wardrobe deps 한 줄.
 
 **개정 299 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호, 머지 때 다시 매김)**
 - 앱: room/presence.js 의 채팅 · 탭 · 날리기 칸 길이(140 · 16 · 16 · 2)와 자리비움 그림 처음 크기(80), creator/creator-xform.js 의 기즈모 크기(2.1) · 아이템 크기 한 칸 · 상한 · 하한(0.05 · 2.5 · 0.05) · 캐릭터 크기 되돌리기(0.7)를 파일 위 이름 붙은 상수로 모았다(값 그대로).
@@ -2215,7 +2219,7 @@
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** ← **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 173 렌더러 쪽 한 벌 = app.js + playlist.js(판정 무변경)** · 2026-09-20 ⏸ 세워 둔 동안은 안 넘긴다 (개정 29) |
 | **sim-premium-desk.js** | 96 | **5ff1bd41d2a9** ← **개정 246 «바뀌면 다시 그린다» 는 _setPremium 의 알림 · 게이트가 건 _refreshPremiumGatedUI 에서 봄(판정 무변경)** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-16 (제보 3 프리미엄 책상) · 개정 10 등재 |
 | **sim-presence.js** | 241 | **d866dd60c4f7** ← **개정 299 깨 보기를 상수 줄로(판정 무변경)** · **개정 259 신설 · 🛰 방 접속 상태(room/presence.js) — 부팅 상태 · payload · 채팅 · poke · 자동 자리비움 · 연결** |
-| **sim-light-tone.js** | 112 | **071c026a5851** ← **개정 271 신설 · 💡 재질 톤(shared/light-tone.js) — FLAT_EMISSIVE 식 · 재질 함수 셋 · 연결** |
+| **sim-light-tone.js** | 121 | **87c28a38492f** ← **개정 300 baseFlatOf 판정 · 판단 다시 쓰지 않기 · 깨 보기 둘** · **개정 271 신설 · 💡 재질 톤(shared/light-tone.js) — FLAT_EMISSIVE 식 · 재질 함수 셋 · 연결** |
 | **sim-seat-friend-req.js** | 115 | **e6e259b1893c** ← **개정 264 신설 · 🙋 좌석 우클릭 친구 신청(myhome/seat-friend-req.js) — 두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결** |
 | **sim-publish-fields.js** | 208 | **f461e7690a5b** ← **개정 293 provider 를 부르는 자리를 배포 자리로** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 179 §1 app.js + admin-part-register.js · §2 모듈 먼저 평가 · adminPartReg 로 들여다봄(판정 무변경)** |
 | **sim-purikura-deco.js** | 962 | **339bee3e48a1** ← **개정 272 마이홈 BGM 창구는 고리판 BGM_PLAYING · BGM_SET_PLAYING 으로 찾는다(판정 무변경)** · **개정 238 officeMode 판정을 «부를 때마다 읽는다» 로** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 207 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 렌더러 쪽 한 벌에 chat-window.js(💬 대화창 배선 — 📷 버튼) · 회사원 모드 줄은 officeMode() 모양으로** · **개정 140 렌더러 쪽 한 벌에 myhome-edit.js(🏠 마이홈 BGM 창구 — 없어야 할 글을 찾는 검사가 헛돌지 않게 · 판정 무변경)** · **개정 134 렌더러 쪽 한 벌 = app.js + purikura-ui.js · 회사원 모드 · BGM 줄은 purikuraUi 통로 · officeMode() · _setPlPlaying 모양으로** · 2026-09-13 고친 판 (§4-③) |
@@ -2256,7 +2260,7 @@
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 95 다시 씀 · 🔋 최대 60 · 손 안 대면 30 · 비포커스 20 — app.js 째로 rAF 를 흘려 장 수를 센다** |
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** ← **개정 134 7절은 app.js + purikura-ui.js** · **개정 106 옛 규칙이면 fx 없이 다시 자리 잡기** · **개정 102 신설 · 🐟 스티커사진 필터 «어안» · 업데이트 안 한 참가자 안내 · 규칙 fish · fx** |
 | **sim-creator-flat-view.js** | 129 | **9104a76fb79a** ← **개정 273 옮긴 모듈까지 되살려 읽기(판정 무변경)** · **개정 271 조명 예산 상수는 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 115 5절 동물 생성기 배선(버튼 · 3 표정 · 4 감은눈만 · L 키 · 열고 닫을 때 끔 · emissive 0 + 앰비언트 1)** · **개정 105 신설 · 💡 표정 그리기 «원색 보기» — 조명 끄고 칠한 색 그대로** |
-| **sim-creator-xform.js** | 187 | **ab7e6a7bd114** ← **개정 299 깨 보기를 상수 줄로 · 한 칸 깨 보기 추가(판정 무변경)** · **개정 280 신설 · 🧭 생성기 변형(creator/creator-xform.js) — 슬라이더 · 아이템 버튼 · 기즈모 · 드래그 끝 저장 · 연결** |
+| **sim-creator-xform.js** | 187 | **b6e4bcf2e827** ← **개정 300 deps 28(baseFlatOf)** · **개정 299 깨 보기를 상수 줄로 · 한 칸 깨 보기 추가(판정 무변경)** · **개정 280 신설 · 🧭 생성기 변형(creator/creator-xform.js) — 슬라이더 · 아이템 버튼 · 기즈모 · 드래그 끝 저장 · 연결** |
 | **sim-creator-flow.js** | 194 | **bd76a170d826** ← **개정 273 신설 · 🧍 생성기 단계 · 닫기 모듈(creator-flow.js) 구조 · 단계별 화면** |
 | **sim-creator-save.js** | 226 | **2c8803488689** ← **개정 273 신설 · 🧍 생성기 완료 모듈(creator-save.js) 구조 · def · 저장 칸** |
 | **sim-commission-import.js** | 189 | **8786e0828e84** ← **개정 278 신설 · 🎨 커미션 코드 입력 모듈(commission-import.js) 구조 · 갈래 · 등록** |
@@ -2324,7 +2328,7 @@
 | **sim-chat-ui.js** | 95 | **defcaa744921** ← **개정 251 deps 에 demojiCatalog(기본 이모티콘 목록은 demoji-catalog.js — 판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps 에 twNav(창 열기 통로) — 마이홈 열기는 통로로(판정 무변경)** · **개정 236 내놓는 이름 DEMOJI_BY_CMD 추가** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 194 신설 · 💬 채팅 날리기 · 읽음 · 탭 · 복사 · 이모티콘 모듈(chat-ui.js) 구조** |
 | **sim-license-gate.js** | 95 | **69b875c013df** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 246 저장 키 · 초대 통과 · 프리미엄 · 다시 켜기 · 원격 설정 한 벌은 account-state 에서 받음 — deps · 내놓는 이름을 새 모양에(판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 195 신설 · 🎟️ 초대장 · 라이선스 모듈(license-gate.js) 구조** |
 | **sim-account.js** | 95 | **0d0979185603** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 246 신원 핵심(로그인 키 · getMyLoginEmail · 친구코드 모양 · 신원 놓음)은 account-state 에서 받음 · 연동 안내 창은 my-info 로 — deps · 내놓는 이름을 새 모양에(판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 신설 · 🔑 계정 모듈(account.js) 구조** |
-| **sim-wardrobe.js** | 95 | **fa88e071f8d6** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 244 귀 탭 · 책상 탭을 premium-assets.js 에서 받음 — deps +15 · adminPartReg · renderWdDeskSection · wdEar 빠짐 · 내놓는 이름 +3(relinkDraftSrc · setAdminPartActions · wdEar — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 197 신설 · 🎨 꾸미기 창 모듈(wardrobe.js) 구조** |
+| **sim-wardrobe.js** | 95 | **eec36e0aaa77** ← **개정 300 deps baseFlatOf 한 줄** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 244 귀 탭 · 책상 탭을 premium-assets.js 에서 받음 — deps +15 · adminPartReg · renderWdDeskSection · wdEar 빠짐 · 내놓는 이름 +3(relinkDraftSrc · setAdminPartActions · wdEar — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 197 신설 · 🎨 꾸미기 창 모듈(wardrobe.js) 구조** |
 | **sim-settings-panel.js** | 95 | **5753dcf76a9a** ← **개정 272 만들 때 가짜 고리판을 준다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 198 신설 · ⚙ 설정 패널 모듈(settings-panel.js) 구조** |
 | **sim-desktop-run.js** | 94 | **6c1cd7859fa7** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 199 신설 · 🖥️ 데스크탑 실행 화면 모듈(desktop-run.js) 구조** |
 | **sim-room-entry.js** | 95 | **db73f391c2c7** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps 에 twNav(창 열기 통로) — 방 나가기를 통로에 걸고 마이홈 열기는 통로로(판정 무변경)** · **개정 246 deps licenseGateMod → _rcStore(원격 설정 한 벌 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 200 신설 · 🛰 방 서버 · 입장 · 방 개수 모듈(room-entry.js) 구조** |
