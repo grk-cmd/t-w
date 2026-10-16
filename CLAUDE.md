@@ -147,6 +147,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
   노드를 통째로 `get`/`onValue` 하지 말고 필요한 하위 경로만 읽는다. 반복 폴링·부팅마다 전체 받기를 새로 만들지 않는다.
 - 권한 검사는 서버에 없고 규칙 파일뿐이다. 남의 데이터에 쓰는 기능을 만들면 규칙도 같이 본다.
 - **규칙이 바뀌는 기능 개발 · 수정은 PR 본문에 «서버(AWS) 이관» 안내를 쓴다**(바뀐 경로 · 칸 · 권한 · 앱에서 쓰는 곳, 방에 오가는 칸인지). 자체 서버(`t-w-server`, 비공개 · 방 서버는 모르는 칸을 받지 않음)로 옮기는 중이라 관리자가 이 안내로 서버에 옮긴다. 형식은 `docs/GIT_CONVENTION.md` 4.1 · `.github/pull_request_template.md`.
+- **서버는 이 저장소 주인 PC 에서만 고친다 — 서버에 손댈 수 없으면(이 계정 밖 · 다른 PC) PR 본문 «서버 작업 필요» 칸에 적는다**(`docs/GIT_CONVENTION.md` 4.2). 이 계정 · 이 PC 의 작업은 서버(`t-w-server`)까지 같이 고친다. 앱은 서버가 생길 때까지 옛 길(지금 동작)로 돌고, 갈아 끼울 provider 자리만 둔다 — Firebase 의존을 새로 늘리지 않는다.
 
 ## Firebase 규칙 · 배포
 - `firebase deploy` 는 **모든 사용자에게 즉시 적용**된다. 기본 프로젝트(`.firebaserc`)는 **운영 `together-working`**.
