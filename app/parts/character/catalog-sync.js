@@ -56,12 +56,13 @@ const wardrobeMod = deps.wardrobeMod;
 const setCDeskGlbB64 = deps.setCDeskGlbB64;   // 쓰는 함수
 const setCDeskTemplate = deps.setCDeskTemplate;   // 쓰는 함수
 /* 카탈로그 스냅샷을 저장 목록과 합치는 규칙 — 아이템 · 책상 · 파츠가 같이 쓴다(순수 계산 · DOM · 3D · 서버 없음).
-   ★ 카탈로그 항목은 fromCatalog:true 로 서버판이 이기고, order 오름차순(관리자가 드래그로 정한 순서 · 없으면 9999 로 뒤).
+   ★ 카탈로그 항목은 fromCatalog:true 로 서버판이 이기고, order 오름차순(관리자가 드래그로 정한 순서 · 없으면 CATALOG_ORDER_LAST 로 뒤).
    ★ fromCatalog 인데 지금 목록에 없으면 관리자가 지운 것(removedIds) — 로컬에도 안 남긴다. 남기는 건 카탈로그에 온 적 없는 로컬 전용뿐(뒤에).
    norm 을 주면 카탈로그 항목마다 먼저 다듬는다(파츠 — _normPartRec). saved 는 바꾸지 않는다. */
+const CATALOG_ORDER_LAST = 9999;   // order 가 없는 옛 항목의 자리 — 뒤로
 function mergeCatalogList(catalogObj, saved, norm){
   const catalogList = Object.keys(catalogObj||{}).map(id=>{ const rec = { id, ...catalogObj[id], fromCatalog:true }; return norm ? norm(rec) : rec; });
-  catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
+  catalogList.sort((a,b)=> (a.order!=null?a.order:CATALOG_ORDER_LAST) - (b.order!=null?b.order:CATALOG_ORDER_LAST));
   const catalogIds = new Set(catalogList.map(p=>p.id));
   const removedIds = saved.filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
   const localOnly = saved.filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);

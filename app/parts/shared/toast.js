@@ -24,11 +24,12 @@ function _saveFailMsg(e, fallback){
 }
 /* 🍞 두 번째 인자(iconSrc)는 글자 앞에 붙일 작은 그림(이모지가 없는 것용).
    ⚠️ 본문은 textContent 로 넣는다 — 남이 친 글(닉네임 등)이 섞이므로 innerHTML 로 바꾸면 안 된다. 그림은 따로 img 노드로. */
+const TOAST_DEFAULT_MS = 1900;   // 시간을 안 주면 이만큼 보인다
 let toastT=null;function toast(msg, iconSrc, ms){const t=document.getElementById('toast');t.textContent=msg;
   if(iconSrc){ const im=document.createElement('img'); im.src=iconSrc;
     im.style.cssText='width:16px;height:16px;vertical-align:-3px;margin-right:5px;'; t.prepend(im); }
   t.classList.add('on');
-  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),(typeof ms==='number'&&ms>0)?ms:1900);}
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),(typeof ms==='number'&&ms>0)?ms:TOAST_DEFAULT_MS);}
 
 return {
   _saveFailMsg,

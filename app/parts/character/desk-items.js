@@ -20,7 +20,8 @@ const _applyItemMatTone = deps._applyItemMatTone;
 const commissionMod = deps.commissionMod;
 const customItems = deps.customItems;   // 읽는 함수
 /* 인자로 안 온 메타값(크기 · 부착 위치 · 재생 모드 · 빛 · 라이선스 · 아이콘)은 같은 id 의 저장 레코드(savedItems)에서 채운다.
-   ⚠️ 좌석 · 런처 · 생성기 경로는 크기 없이 등록해서, 부팅 직후 순서가 뒤집히면 0.8 로 굳어 아이템이 작아졌다. 인자로 온 값이 우선이다. */
+   ⚠️ 좌석 · 런처 · 생성기 경로는 크기 없이 등록해서, 부팅 직후 순서가 뒤집히면 기본 크기로 굳어 아이템이 작아졌다. 인자로 온 값이 우선이다. */
+const ITEM_DEFAULT_SIZE = 0.8;   // 메타가 어디에도 없을 때 아이템 기본 크기
 function _savedItemMeta(id){
   try{ return Array.isArray(commissionMod.savedItems()) ? (commissionMod.savedItems().find(r=>r && r.id === id) || null) : null; }
   catch(_){ return null; }   // savedItems 선언(let) 전에 불리는 경우
@@ -40,7 +41,7 @@ function registerCustomItem(id,name,glbB64,template,icon,animations,attachTo,aut
   attachTo: attachTo||'desk',   // 'desk'(기본, 책상 위) | 'handL' | 'handR' — equipDeskItem에서 부착 위치 결정에 사용
   autoPlay: !!autoPlay,   // true면 클릭 없이 장착되자마자 애니메이션 자동 반복재생 (하위호환용)
   playMode: playMode || (autoPlay ? 'auto' : 'click'),   // 어플 8: 'click' | 'auto' | 'idle'
-  defaultSize: (defaultSize!=null) ? defaultSize : 0.8,   // 장착됐을 때 기본 크기 — 관리자가 등록 시 설정(기본 0.8)
+  defaultSize: (defaultSize!=null) ? defaultSize : ITEM_DEFAULT_SIZE,   // 장착됐을 때 기본 크기 — 관리자가 등록 시 설정
   glow: !!glow,   // true면 옆에 은은한 원형 빛 스프라이트 추가
   licenseOnly: !!licenseOnly,   // true면 라이선스 보유자(isPremium)나 관리자만 장착 가능
   animations: animations||[],
