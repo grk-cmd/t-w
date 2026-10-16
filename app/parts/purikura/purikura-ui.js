@@ -28,6 +28,7 @@ const escRegisterWindow = deps.escRegisterWindow;
 const _plRender = deps.plRender;
 const _plPlaying = deps.plPlaying;             // 🎵 플레이리스트 재생 중 — app.js 의 _plPlaying(다시 대입되는 let)
 const _setPlPlaying = deps.setPlPlaying;
+const mhHooks = TwMyHomeHooks;                 // 🪝 마이홈 고리판(myhome-hooks.js) — 마이홈 BGM 재생 중 · 표시는 편집 묶음이 건다
 const officeMode = deps.officeMode;            // 🏢 회사원 모드 — app.js 의 officeMode(다시 대입되는 let)
 const Presence = deps.presence;                // 방 접속 — app.js 에서 이 모듈보다 뒤에 선언되는 const
 const _mkFrontFill = deps.mkFrontFill;
@@ -173,12 +174,12 @@ function _pkHushOthers(){
   PK.hushed = null;
   if(!(window.companion && companion.pauseBgm)) return;
   const pl   = !!_plPlaying();
-  const home = !!window._mhBgmPlaying();
+  const home = !!mhHooks.call(mhHooks.HOOK.BGM_PLAYING);
   if(!pl && !home) return;
   try{ companion.pauseBgm(); }catch(_){}
   /* 각자의 «지금 나는 중» 표시도 내려 준다 — 안 내리면 ▶ 버튼이 재생 중인 척한다. */
   if(pl){ _setPlPlaying(false); _plRender(); }
-  if(home) window._mhBgmSetPlaying(false);
+  if(home) mhHooks.call(mhHooks.HOOK.BGM_SET_PLAYING, false);
   PK.hushed = { pl:pl, home:home };
 }
 function _pkUnhushOthers(){
@@ -186,11 +187,11 @@ function _pkUnhushOthers(){
   if(!h || !(window.companion && companion.resumeBgm)) return;
   /* 그 사이에 사용자가 직접 다시 틀었으면 건드리지 않는다 — 또 resume 하면 겹친다. */
   const plNow   = !!_plPlaying();
-  const homeNow = !!window._mhBgmPlaying();
+  const homeNow = !!mhHooks.call(mhHooks.HOOK.BGM_PLAYING);
   if(plNow || homeNow) return;
   try{ companion.resumeBgm(); }catch(_){}
   if(h.pl){ _setPlPlaying(true); _plRender(); }
-  if(h.home) window._mhBgmSetPlaying(true);
+  if(h.home) mhHooks.call(mhHooks.HOOK.BGM_SET_PLAYING, true);
 }
 const PK_GRAVITY  = 39.2;     // 중력(월드단위/초²) — 9.8 의 4배. ⚠️ PK_JUMP_V0 와 한 세트다
 /* 컷 수의 상한. Purikura.cutsFor 가 주는 값이 세로 [1,4] · 가로 [1,2,4] 라 4 가 끝이다.
