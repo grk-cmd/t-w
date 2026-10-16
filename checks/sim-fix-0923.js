@@ -27,10 +27,29 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
   const N = new Function(grab(SRC, '_normPartRec') + ' return _normPartRec;')();
   chk(N({ id:'g', gacha:true, stackable:false }).stackable === true, '옛 가챠 파츠(stackable:false) → true');
   chk(N({ id:'n', stackable:false }).stackable === false, '일반 파츠는 그대로');
-  chk(/savedParts\.forEach\(_normPartRec\)/.test(strip(grab(SRC, 'loadSavedParts'))), '입구 ① 로컬 캐시(loadSavedParts)');
-  /* 합치기 규칙이 mergeCatalogList 하나로 모인 뒤(개정 264) — 파츠 합치기가 _normPartRec 를 넘기고, 규칙은 카탈로그 항목마다 그것을 부른다 */
-  chk(/mergeCatalogList\(catalogObj, [^,]+, r=>_normPartRec\(r\)\)/.test(strip(grab(SRC, 'mergeCatalogIntoSavedParts')))
-      && /\{ id, \.\.\.catalogObj\[id\], fromCatalog:true \}; return norm \? norm\(rec\) : rec;/.test(strip(grab(SRC, 'mergeCatalogList'))), '입구 ② 카탈로그(mergeCatalogIntoSavedParts → mergeCatalogList 의 norm)');
+  /* 입구 두 곳은 글 모양이 아니라 진짜 함수를 돌려 본다 — 합치기 규칙을 옮겨도 판정이 안 깨지게 */
+  const IN = new Function('localStorage', 'document', [
+    "const SAVED_PARTS_KEY = 'tw.savedParts', CATALOG_ORDER_LAST = 9999; let savedParts = [];",
+    'const log = [], seats = [];',
+    'const persistSavedParts = () => {}, applyClothVisibility = () => {}, unequipPartFromSeat = () => {}, fitModel = () => {}, layoutSeats = () => {};',
+    'const renderLauncher = () => {}, refreshWdPreviewChar = () => {}, renderWardrobe = () => {}, _remeasureRideHeadTop = () => {};',
+    'const gachaMod = { pruneUnownedGachaParts: () => {} }, partEntryXf = (e) => e && e.xf;',
+    "const partEntryId = (e) => typeof e === 'string' ? e : (e && e.id), entriesForCat = (def, c) => [].concat(def.equippedParts[c]);",
+    'const equipPartOnSeat = (s, cat, rec, opt) => { log.push([rec.id, opt.stackableXf]); };',
+    ['_normPartRec', 'loadSavedParts', 'mergeCatalogList', 'mergeCatalogIntoSavedParts'].map(n => grab(SRC, n)).join('\n'),
+    'return { load: loadSavedParts, merge: mergeCatalogIntoSavedParts, parts: () => savedParts, seats, log };',
+  ].join('\n'));
+  const doc = { getElementById: () => null };
+  const old = [{ id:'g1', cat:'hat', gacha:true, stackable:false }, { id:'n1', cat:'hat', stackable:false }];
+  let E = IN({ getItem: () => JSON.stringify(old) }, doc);
+  E.load();
+  chk(E.parts().find(p => p.id === 'g1').stackable === true && E.parts().find(p => p.id === 'n1').stackable === false, '입구 ① 로컬 캐시(loadSavedParts) — 옛 가챠 기록을 읽으면 stackable · 일반 파츠는 그대로');
+  E = IN({ getItem: () => '[]' }, doc);
+  E.seats.push({ charDef:{ equippedParts:{ hat:[{ id:'hat0', xf:{} }, { id:'g2', xf:{ y:1 } }] } } });
+  E.merge({ g2:{ cat:'hat', gacha:true, stackable:false }, n2:{ cat:'hat', stackable:false } });
+  const g2 = E.parts().find(p => p.id === 'g2');
+  chk(g2 && g2.stackable === true && E.parts().find(p => p.id === 'n2').stackable === false, '입구 ② 카탈로그(mergeCatalogIntoSavedParts) — 서버가 stackable:false 로 보낸 가챠 파츠도 stackable');
+  chk(E.log.length === 1 && E.log[0][0] === 'g2' && E.log[0][1] && E.log[0][1].y === 1, '  그래서 착용 중인 가챠 파츠는 겹쳐 달기(자기 xf)로 다시 붙는다');
   const body = ['partEntryId', 'isPartEntryContainer', 'entriesForCat', '_flattenCatContainer', 'addEntryToCat', 'removeEntryFromCat'].map(n => grab(SRC, n)).join('\n');
   const F = new Function(body + ' return { add:addEntryToCat, rm:removeEntryFromCat, list:entriesForCat };')();
   const hat = { id:'hat', xf:{} }, rib = { id:'rib', xf:{} };

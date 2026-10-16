@@ -1,7 +1,14 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 290 (구역 떼기 C · w1 — 🍚 상태 표 · 커스텀 상태 저장값 · 🗂️ 칩 팝업 닫기를 `parts/status/user-status-table.js` · `chip-popups.js` 로 · 검사 둘 신설)
-대상: `sim-*.js` 285개 + `smoke.js` + `audit.py` = **287개** (개정 290 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 291 (글자로 찾던 동작 판정을 실제로 돌려 보는 판정으로(sim-fix-0923 · sim-seat-slot · sim-desk-floor-clamp))
+대상: `sim-*.js` 285개 + `smoke.js` + `audit.py` = **287개** (개정 291 기준 — 폴더를 센 값)
+
+**개정 291 에서 한 것 (2026-10-17 · 구역 떼기 C · w2 — 검사만 · 앱 무변경)**
+- 왜: 버그 재발을 막는 판정이 소스 글자를 정규식으로 찾고 있어, 동작이 같아도 코드를 옮기면 빨강이 났다(개정 264 의 «입구 ②»). 반대로 글자는 그대로인데 동작이 깨지면 못 잡는다.
+- `sim-fix-0923.js` **89·0** — 1절 «입구 ① 로컬 캐시 · ② 카탈로그» 를 진짜 `loadSavedParts` · `mergeCatalogIntoSavedParts`(+ `mergeCatalogList` · `_normPartRec`)로 돌려 옛 가챠 기록(stackable:false)이 stackable 이 되는지 · 착용 중인 가챠 파츠가 자기 xf 로 다시 붙는지 본다.
+- `sim-seat-slot.js` **22·0** — 3절을 진짜 `_clampSeatDeskParts` 를 가짜 좌석 위에서 돌리는 판정으로(평준화일 때만 · 올라탄 · 책상 숨은 좌석 제외 · 반폭 = 책상 반폭 + 간격/2 · 멀티 간격 · 0.5초 · 저장값 안 건드림 · seat-slot.js 없어도 안 터짐). 프레임 루프 배선 · typeof 줄은 배선 판정이라 글자로 남김.
+- `sim-desk-floor-clamp.js` 전부 통과 — «상쇄가 그대로» 를 진짜 `syncDeskPartAnchor` 로 돌려 책상을 옮겨도 핀이 좌석 원점에 남는지 본다. `_boxExcluding` · `floorClampWrapper` 의 글자 판정 셋은 2절이 원본 함수를 돌려 이미 보므로 걷음.
+- 변이 확인: 원본을 일부러 깨서(가챠 정규화 빼기 두 입구 · ridingOn 제외 빼기 · 간격/2 → 간격 · 0.5초 막기 빼기 · wrapper 거르기 빼기 · 핀 상쇄 0 · 배율 1) 모두 빨강이 됨을 봤다.
 
 **개정 290 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — USER STATUS 구역의 표 · 팝업 닫기를 모듈로 · 동작 변화 없음)**
 - 앱: app.js «USER STATUS» 구역의 상태 표 `USER_STATUSES` · 커스텀 상태 저장값(`CUSTOM_STATUS_KEY` · `CUSTOM_STATUS_MAXLEN` · `customStatusConf` · `loadCustomStatusFromStorage`) 29줄을 `app/parts/status/user-status-table.js`(`window.TwUserStatusTable` · deps 0 · 바뀐 코드 줄 0)로, 칩 팝업 «한 번에 하나» `_CHIP_POPUPS` · `_closeChipPopups` 32줄을 `app/parts/status/chip-popups.js`(`window.TwChipPopups` · deps 1 · 바뀐 코드 줄 1)로 옮겼다. 내 상태 값 · 풀이 · 칩 반영 · 커스텀 저장 · `_premiumOn` 은 app.js 에 남김 — 옮기면 상태칩 · 포커스 공유와 새 순환 간선 10개가 생기고 room-sync.js 가 `window.setUserStatus` 전역을 부른다.
@@ -2110,7 +2117,7 @@
 | **sim-clone-code-entry.js** | 216 | **0ebba5a3d126** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-dance-unlock-mail.js** | 201 | **0df73db8be6e** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-def-send.js** | 211 | **e16ae6963145** ← **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-desk-floor-clamp.js** | 195 | **6a68d70f7079** ← **개정 284 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(측정이 char-measure.js 로 · 판정 무변경)** · **개정 280 기즈모 · 좌석 세팅 글은 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** |
+| **sim-desk-floor-clamp.js** | 201 | **1fbac335eb0e** ← **개정 291 핀 상쇄를 동작 판정으로 · 겹친 글자 판정 셋 걷음** · **개정 284 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(측정이 char-measure.js 로 · 판정 무변경)** · **개정 280 기즈모 · 좌석 세팅 글은 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** |
 | sim-desk-part-scale.js | 82 | 10a689d1eabf |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
@@ -2158,7 +2165,7 @@
 | **sim-mh-sanitize.js** | 274 | **b840325c6768** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 209 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 178 §4 라이선스 요청 이름 씻기는 admin-license.js 에서 찾는다(판정 무변경)** · **개정 171 친구 목록 아바타 칸을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · 2026-09-14 판정 줄 (§10) |
 | **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** ← **개정 272 닫을 때 저장은 고리판 COMMIT 으로 찾는다(판정 무변경)** · **개정 252 말랑이 열기는 가드 없이 · 없으면 try 가 받는다(가드 걷기 4단계)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-myhome-load.js** | 102 | **4972e7a6d396** ← **개정 213 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 140 프리셋 함수 · 상수는 myhome-edit.js 에서 · 쓰는 칸은 app.js + myhome-edit.js(`_myHomeData().X =` 도) — 판정 무변경** · **2026-10-10 신규(개정 118) · 👑 마이홈 불러오기가 저장한 칸을 빠짐없이 — _mhHomeFromServer 한 곳(내 홈 · 친구 홈) · `_myHomeData.X =` 로 쓰는 칸 전부 · 저장 → 불러오기 왕복 · 프리셋 이름 봄 · 2 · 겨울 · 옛 판(프리셋 칸 없음)이면 빨강** |
-| **sim-fix-0923.js** | 276 | **d89acf841c7e** ← **개정 287 입구 ② 를 mergeCatalogList 모양으로** · **개정 238 가드 걷은 글 모양** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 134 4절 `_pkCloneChar` 는 purikura-ui.js 에서** · **2026-10-03 4절 clone·set 사이 색조 셰이더 허용** · **개정 65 신설 · 🩹 제보 다섯(가챠 모자 · 섬네일 · 배경색 · 눈 감기 · 말랑이)** · **개정 66 6절 🎫 라이선스 계정 이동** · **개정 68 7·8절 🗼 탑 룰렛 · 🖼️ 그림 150px** · **개정 72 9절 🗼 탑 위 그림 위치** · **개정 76 8절 그림 150 → 기본 80 · 10절 크기 60·80·100 선택 · 11절 그림 위 올라타기** |
+| **sim-fix-0923.js** | 295 | **1b818c90414e** ← **개정 291 입구 ① · ② 를 동작 판정으로** · **개정 287 입구 ② 를 mergeCatalogList 모양으로** · **개정 238 가드 걷은 글 모양** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 134 4절 `_pkCloneChar` 는 purikura-ui.js 에서** · **2026-10-03 4절 clone·set 사이 색조 셰이더 허용** · **개정 65 신설 · 🩹 제보 다섯(가챠 모자 · 섬네일 · 배경색 · 눈 감기 · 말랑이)** · **개정 66 6절 🎫 라이선스 계정 이동** · **개정 68 7·8절 🗼 탑 룰렛 · 🖼️ 그림 150px** · **개정 72 9절 🗼 탑 위 그림 위치** · **개정 76 8절 그림 150 → 기본 80 · 10절 크기 60·80·100 선택 · 11절 그림 위 올라타기** |
 | **sim-noise.js** | 146 | **40568ea4018a** ← **개정 251 무대에 hiddenSeatsMod._seatHidden(옛 전역 이름 다리 걷기 — 판정 무변경)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 64 신설 · 🌙 백색소음** |
 | **sim-mobile-focus.js** | 217 | **ad1eb265355b** ← **개정 238 가드 걷은 글 모양** · **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 74 신설 · 📱 태블릿·폰 포커싱 연결** · **개정 133 달성표 자리는 weeklyChal.focusTick · setKeyPlatform 스텁** |
 | **sim-mac-0923.js** | 83 | **d549cc1a7717** ← **개정 242 가짜 방 줄이 makeFirebaseProvider(opts && opts.hooks)(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 1절 대화창 Enter 는 chat-window.js 에서(app.js + 그 파일 · 판정 무변경)** · **개정 95 5절 배율 상한이 frame-budget.js 로(mac · Windows 1.5)** · **개정 67 신설 · 🍎 Mac 제보 여섯** |
@@ -2206,7 +2213,7 @@
 | **sim-uv-fill.js** | 102 | **f4cb774248be** ← **개정 239 싣는 순서 판정으로** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 108 3절 꾸미기 도구 줄 · G 페인트통 · Shift+클릭 지우기 · 여백 몫(fillMeshOwned)** · **개정 91 신설 · 🪣 꾸미기 그리기 채우기 — 누른 메쉬의 UV 자리만** |
 | **sim-paint-tools.js** | 296 | **e999a08d5185** ← **개정 238 가드 있어도 · 없어도** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 108 3-b 여백 몫(가운데 선까지) · 6절 양팔 · 잠금 · 빈 곳 알림(스포이드 절은 main 그대로라 걷음)** · **개정 108 신설 · 🖌 칠하기 도구 줄(붓 · 페인트통 · 지우개 하나만) · 생성기 페인트통은 누른 조각(UV 섬)만 · 꾸미기도 같은 줄** |
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** ← **개정 273 옮긴 모듈까지 되살려 읽기 · gotoStep 머리 자르기 두 모양(판정 무변경)** · **개정 239 가드 걷은 글 모양** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 103 신설 · 🐾 동물 편집 순서 모양 → 책상 → 좌석 — 판정 표 · gotoStep 실행 · 배선 · 동물 생성기 위 «책상 세팅» · «좌석 세팅»** |
-| **sim-seat-slot.js** | 91 | **eb0061fabb58** ← **개정 275 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(평준화 깃발이 seat-equalize.js 로 · 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 93 신설 · 🪑 평준화 중 «책상 위» 파츠를 자기 좌석 자리 안으로** |
+| **sim-seat-slot.js** | 114 | **bf05469a5050** ← **개정 291 3절 가두기를 동작 판정으로** · **개정 275 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(평준화 깃발이 seat-equalize.js 로 · 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 93 신설 · 🪑 평준화 중 «책상 위» 파츠를 자기 좌석 자리 안으로** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 201 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 방 코드 칸을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **개정 165 방 코드 칸에 놀러 가기 go 표시 허용(정규식만)** · **개정 94 신설 · 🩹 친구창 방 코드 글꼴 · 경험치 바 길이 공통 · 화면 아래 이름표** |
 | **sim-frame-budget.js** | 100 | **520f0c799e70** ← **개정 258 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(카메라가 seat-camera.js 로 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 95 신설 · 🔋 실행 화면 프레임 상한(60 · 30 · 20) · 해상도 배율 1.5 · 1분 진단 줄** |
 | **sim-design-site.js** | 61 | **5c8de512f913** ← **개정 100 신설 · 🎨 디자인 시스템 페이지 hosting/design/ 이 docs/design-system/ 에서 다시 만든 것과 같은지 · 토큰 · CSP · sandbox** |
