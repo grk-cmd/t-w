@@ -579,6 +579,10 @@ PRELOAD.push('floor-snap-diag.js');
 PRELOAD.push('seat-model-load.js');
 /* seat-panel.js — 🎚️ 좌석 패널(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatPanel 를 같이 굴린다. */
 PRELOAD.push('seat-panel.js');
+/* user-status-table.js — 🍚 상태 표 · 커스텀 상태 저장값(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createUserStatusTable 를 같이 굴린다. */
+PRELOAD.push('user-status-table.js');
+/* chip-popups.js — 🗂️ 상태칩 팝업 «한 번에 하나»(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChipPopups 를 같이 굴린다. */
+PRELOAD.push('chip-popups.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
