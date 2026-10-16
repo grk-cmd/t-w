@@ -23,7 +23,7 @@ const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","_idleItemPivots","activeItemMixers
 const GET_DEPS = ["isAdmin","isPremium"];
 const SET_DEPS = [];
 const EXPORTS = ["applyDeskCatalogRefToSeat","applyDeskColorToCustom","swapDeskVisual"];
-const MOVED = ["applyDeskCatalogRefToSeat","normalizeDeskObj","DESK_TARGET_WIDTH","autoScaleDeskToTarget","DESK_SIZE_OFFSET","swapDeskVisual","applyDeskColorToCustom"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
+const MOVED = ["applyDeskCatalogRefToSeat","normalizeDeskObj","swapDeskVisual","applyDeskColorToCustom"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  _applyItemMatTone: (...a)=>_applyItemMatTone(...a),","  _idleItemPivots: _idleItemPivots,","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  activeItemMixers: activeItemMixers,","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  commissionMod: commissionMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  setDeskScale: (...a)=>setDeskScale(...a),","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
