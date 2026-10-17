@@ -29,7 +29,8 @@
   import {
     getAuth, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword,
     signInAnonymously, linkWithCredential, EmailAuthProvider, reauthenticateWithCredential,
-    signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
+    signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged,
+    getAdditionalUserInfo, deleteUser
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig, FIREBASE_ENV } from "./firebase-config.js";
   import { createGhostHeal } from "./room/room-ghost-heal.js";
@@ -154,6 +155,16 @@
   /* 소유권이 걸린 쓰기(users/{코드}/…)는 전부 이 줄을 먼저 지나야 한다.
      이미 통과했으면 await 비용은 0이다(정착된 뒤엔 마이크로태스크 한 번). */
   const _whenAuthReady = ()=> _authSettled ? Promise.resolve() : _authReadyPromise;
+
+  /* 구글 로그인을 묶지 않고 물릴 때 — 이번 로그인으로 막 생긴 계정이면 지운다.
+     로그아웃만 하면 빈 계정이 그 구글을 붙잡아, 나중에 진짜 계정에 구글을 연결할 때 credential-already-in-use 가 난다.
+     ⚠️ 막 생긴 계정만 — 원래 있던 계정은 어딘가에 묶였을 수 있다. */
+  const _dropGoogleSession = async (cred)=>{
+    let fresh = false;
+    try{ fresh = !!(cred && getAdditionalUserInfo(cred)?.isNewUser); }catch(_){}
+    if(fresh){ try{ await deleteUser(cred.user); return; }catch(_){} }
+    try{ await fbSignOut(auth); }catch(_){}
+  };
 
   let _roomRef = null, _roomListener = null, _myMemberRef = null, _fbHeartbeat = null;
   /* 💰 방 리스너에서 chatLog를 떼어내기 위한 상태.
@@ -3995,9 +4006,10 @@
              방금 태어난 임시 코드를 이 계정에 영구히 묶어놓고, 화면에는 "연결된 기록이 없어요"라며
              입장을 거부당했다. 그다음 원래 컴퓨터에서 로그인하면 서버가 그 빈 코드를 정답으로
              돌려줘서 마이홈·친구가 통째로 사라졌다. 묶기를 거절하는 이 한 줄이 그 경로를 끊는다.
-           ⚠️ 로그아웃까지 해야 한다 — 세션만 남기면 "로그인은 됐는데 계정은 없는" 상태가 된다(규약 ⑤). */
+           ⚠️ 로그아웃까지 해야 한다 — 세션만 남기면 "로그인은 됐는데 계정은 없는" 상태가 된다(규약 ⑤).
+             막 생긴 계정은 로그아웃 대신 지운다(_dropGoogleSession). */
         if(!userCode){
-          try{ await fbSignOut(auth); }catch(_){}
+          await _dropGoogleSession(cred);
           return { ok:false, needCode:true, reason:'이 구글 계정에 연결된 기록이 없어요' };
         }
         /* 선점은 runTransaction 으로. set 으로 덮으면 한 기기에서 두 계정으로 로그인한 사람이
@@ -4007,7 +4019,7 @@
         if(owner !== uid){
           /* 이 기기 코드는 이미 남의 계정 것이다. 로그아웃시켜 되돌린다 —
              로그인 상태로 남겨두면 "로그인은 됐는데 내 데이터가 아닌" 상태가 된다. */
-          try{ await fbSignOut(auth); }catch(_){}
+          await _dropGoogleSession(cred);
           return { ok:false, reason:'이 기기의 계정은 이미 다른 구글 계정에 연결돼 있어요.' };
         }
         await set(ref(db, `authUsers/${uid}`), { userCode:String(userCode), ts: Date.now() });   // 이메일 거울 없음(§9-2)
