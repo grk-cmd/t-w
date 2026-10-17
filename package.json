@@ -25,6 +25,7 @@
   "dependencies": {
     "electron-updater": "^6.1.7",
     "firebase": "^12.15.0",
+    "koffi": "^3.3.3",
     "node-window-manager": "^2.2.4",
     "uiohook-napi": "^1.5.2"
   },
@@ -46,6 +47,8 @@
     "asarUnpack": [
       "node_modules/uiohook-napi/**/*",
       "node_modules/node-window-manager/**/*",
+      "node_modules/koffi/**/*",
+      "node_modules/@koromix/**/*",
       "**/*.node"
     ],
     "directories": {

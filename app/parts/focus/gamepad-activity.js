@@ -6,8 +6,9 @@
      ・버튼: pressed 가 바뀌었거나 value(트리거)가 BTN_EPS 넘게 바뀜
      ・스틱: 축 값이 AXIS_EPS 넘게 바뀜 — 아날로그 스틱의 미세 떨림(±0.05 안팎)을 거른다
      ・처음 보는 패드(연결 · 다시 연결)는 기준만 잡고 신호로 치지 않는다 — 꽂는 순간을 «활동» 으로 세지 않게
-   ⚠️ 창이 뒤에 있을 때(게임이 앞) 값이 들어오는지는 OS · 크로미움 판에 따라 다르다. Windows(XInput)는 대체로 들어오고,
-     mac(GameController)은 뒤에 있는 앱의 입력을 막는 쪽이다. 안 들어오면 신호가 없을 뿐 해가 없다 — 실기기로 확인할 것.
+   ⚠️ 창이 뒤에 있으면(게임이 앞) 크로미움은 패드 값을 주지 않는다 — Xbox 패드로만 게임하면 잠들었다.
+     그래서 Windows 는 main 이 XInput 을 직접 읽어(sysinput-win.js readPads) **이 판정을 그대로 써서** penActivity 로 보낸다.
+     렌더러 쪽(아래)은 창이 앞일 때 · mac 몫으로 남는다. main 에서도 require 하므로 module.exports 를 지우지 말 것.
    ⚠️ 패드를 한 번도 누르지 않았으면 크로미움이 목록에 안 넣는다(스펙 — 지문 방지). 처음 한 번은 «꽂고 누르기» 가 필요하다.
    검사: checks/sim-gamepad-activity.js */
 (function(){

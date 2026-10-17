@@ -44,6 +44,7 @@ const _focusTotalSec = deps._focusTotalSec;   // 읽는 함수
 const _licenseSnapForPush = deps._licenseSnapForPush;
 const _loginDoGoogle = deps._loginDoGoogle;
 const _loginDoLogout = deps._loginDoLogout;
+const _loginDoDeleteAccount = deps._loginDoDeleteAccount;
 const _myHomeData = deps._myHomeData;   // 읽는 함수
 const _pushLevelIfChanged = deps._pushLevelIfChanged;
 const _slotsNow = deps._slotsNow;
@@ -95,6 +96,9 @@ function _miSetTab(tab){
   const $e = id => document.getElementById(id);
   const trashOn = _miTrashOn();
   _miTab = (tab === 'acct' || (tab === 'trash' && trashOn)) ? tab : 'box';
+  /* 탭을 옮기면 열려 있던 탈퇴 안내는 접는다 — 돌아왔을 때 계정 탭이 사라진 채로 남지 않게(지우는 중이면 그대로) */
+  const li = $e('acctLoggedIn'), dc = $e('acctDeleteCancel');
+  if(li && li.classList.contains('acct-deleting') && dc && !dc.disabled && $e('acctDeleteConfirm') && $e('acctDeleteConfirm').style.display !== 'none') dc.click();
   const tt = $e('miTabTrash'); if(tt) tt.style.display = trashOn ? '' : 'none';
   const pg = $e('lcMyInfo'); if(pg) pg.classList.toggle('mi-noscroll', _miTab === 'acct');   // 계정 탭은 스크롤바 숨김(개정 53)   // 휴지통 탭 = 보관함이 열려야(스위치 · 첫 채택 뒤)
   const pb = $e('miPageBox'), pa = $e('miPageAcct'), pt = $e('miPageTrash');
@@ -656,6 +660,71 @@ function _miCodeLoad(){
     const quit = $('acctLogoutQuit');
     if(quit) quit.onclick = ()=>{ if(window.companion && companion.quitApp) companion.quitApp(); };
 
+    /* ── 🗑️ 회원 탈퇴: 버튼 → 고지 · 확인 → 완료(다시 시작). 고지 글은 HTML 에 고정해 두고(서버에 닿지 않아도 읽을 수 있게),
+       열 때 미리 보기로 «지울 곳 몇 곳 · 파일 몇 개» 한 줄만 더한다. [탈퇴하기]는 체크 + «탈퇴» 입력이 다 맞을 때만 켜진다. */
+    const dBtn = $('acctDeleteBtn'), dBox = $('acctDeleteConfirm'), dYes = $('acctDeleteYes');
+    const dAgree = $('acctDeleteAgree'), dWord = $('acctDeleteWord'), dCount = $('acctDeleteCount');
+    const dSay = (text) => { const el = $('acctDeleteMsg'); if(!el) return; el.style.display = text ? 'block' : 'none'; el.textContent = text || ''; };
+    let _delBusy = false, _delSeq = 0;
+    const delReady = () => !!(dAgree && dAgree.checked && dWord && dWord.value.trim() === '탈퇴');
+    const delSync = () => { if(dYes) dYes.disabled = _delBusy || !delReady(); };
+    const delShowCount = (p) => {
+      if(!dCount) return;
+      if(!p || !p.ok){ dCount.style.display = 'none'; return; }
+      const files = (p.storage && p.storage.count) || 0;
+      dCount.textContent = '서버에서 지울 곳 ' + (p.dbCount || 0) + '곳 · 올린 파일 ' + files + '개'
+        + (p.warnings && p.warnings.length ? ' — ' + p.warnings.join(' · ') : '');
+      dCount.style.display = 'block';
+    };
+    /* 탈퇴 안내를 여는 동안 계정 탭(로그인 수단 ~ 로그아웃)을 숨기고 그 자리에 보인다 — CSS #acctLoggedIn.acct-deleting */
+    const delMode = (on) => { const li = $('acctLoggedIn'); if(li) li.classList.toggle('acct-deleting', !!on); };
+    if(dBtn) dBtn.onclick = () => {
+      dBtn.style.display = 'none';
+      delMode(true);
+      if(dAgree) dAgree.checked = false;
+      if(dWord) dWord.value = '';
+      if(dYes) dYes.textContent = '탈퇴하기';
+      dSay(''); delShowCount(null); delSync();
+      if(dBox) dBox.style.display = 'block';
+      const pg = $('lcMyInfo'), zone = $('acctDeleteZone');
+      if(pg && zone) try{ pg.scrollTop = Math.max(0, zone.offsetTop - 8); }catch(_){}   // 안내 머리가 보이게
+      const cancelBtn = $('acctDeleteCancel'); if(cancelBtn) try{ cancelBtn.focus(); }catch(_){}
+      const seq = ++_delSeq;
+      const api = window.firebaseAPI && firebaseAPI.accountDelete;
+      if(api) api.preview().then(p => { if(seq === _delSeq) delShowCount(p); }).catch(()=>{});
+    };
+    if(dAgree) dAgree.onchange = delSync;
+    if(dWord){ dWord.oninput = delSync; dWord.onkeydown = (e) => { if(e.key === 'Enter' && dYes && !dYes.disabled) dYes.click(); }; }
+    const dCancel = $('acctDeleteCancel');
+    if(dCancel) dCancel.onclick = () => {
+      if(_delBusy) return;
+      _delSeq++;
+      if(dBox) dBox.style.display = 'none';
+      dSay('');
+      if(dBtn) dBtn.style.display = 'block';
+      delMode(false);
+    };
+    if(dYes) dYes.onclick = async () => {
+      if(_delBusy || !delReady()) return;
+      _delBusy = true; delSync(); dSay('');
+      if(dCancel) dCancel.disabled = true;
+      dYes.textContent = '지우는 중…';
+      let r; try{ r = await _loginDoDeleteAccount(dWord.value); }catch(_){ r = { ok:false, reason:'탈퇴 중 오류가 났어요 — 다시 눌러 주세요' }; }
+      _delBusy = false;
+      if(dCancel) dCancel.disabled = false;
+      if(!r || !r.ok){
+        dYes.textContent = '다시 시도';
+        delSync();
+        dSay('⚠️ ' + ((r && r.reason) || '탈퇴하지 못했어요') + ' 이 PC의 기록은 그대로예요.');
+        return;
+      }
+      if(dBox) dBox.style.display = 'none';
+      const dn = $('acctDeleteDone'); if(dn) dn.style.display = 'block';
+      _acctRelaunchAfterDetach(null);
+    };
+    const dQuit = $('acctDeleteQuit');
+    if(dQuit) dQuit.onclick = () => { if(window.companion && companion.quitApp) companion.quitApp(); };
+
     /* ── 🔁 [개정 16 · 설계 §6-⑤ 걷음] 계정 되찾기(acctRecover* · recCandidates · recGo) — 없앴다.
        «이 기기가 버린 uid» 로 결속을 되돌리던 출구였다. 계정 = 친구 코드 + 비밀번호/구글(H · K)이 된 뒤로는
        잘못 물릴 길(구글 로그인의 갈아타기)이 게이트로 닫혔다. firebase-init authRebindUserCode 는 §6-⑧ 묶음(CHECKS 개정 52)에서 걷었다. */
@@ -674,7 +743,10 @@ function _miCodeLoad(){
         /* 🚪 이 계정에 묶인 코드가 없다 — 게이트 앞의 임시 코드를 묶어주는 대신 그렇게 말한다.
            예전에는 여기서 그 임시 코드를 **묶어버리고** 나서 거절했다. 유저 눈에는 똑같이
            거절 화면이지만, 그 한 번이 원래 컴퓨터의 계정을 빈 계정으로 갈아치우는 씨앗이었다. */
-        if(r.needCode) gm('이 계정에는 아직 연결된 기록이 없어요. 초대 코드로 먼저 입장해 주세요.', false);
+        if(r.needCode){
+          gm('초대 코드를 넣어 주세요', false);
+          window._inviteGateWantGoogle();   // 게이트 버튼은 _showInviteGate 가 연 뒤에만 보인다 — 그때 이미 걸려 있다
+        }
         return;
       }
       if(r.switched){
@@ -745,8 +817,7 @@ function _miCodeLoad(){
   };
 
   const boot = ()=>{ push(); warnUnbound(); };
-  if(window.firebaseAPI) boot();
-  else window.addEventListener('firebase-ready', boot, { once:true });
+  TwNetReady.whenNetReady(boot);
 })();
 
 /* 🔁 신원을 놓은 뒤 앱을 껐다 켠다 — 연동 해제와 로그아웃이 **함께 쓰는 한 자리.**

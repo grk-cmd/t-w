@@ -5,12 +5,15 @@
    roomStats · roomStatsOnOpen · roomStatsOnClose — 열린 방 개수 요약(1분마다 · 방이 열리고 닫힐 때). 로직은 room-stats.js.
    dailyActive — 일일 접속 집계(DAU · 방문 수). accountSnap 쓰기마다 metrics/daily/{서울 날짜} 에 적는다. 로직은 daily-active.js.
    bugNo — 버그 제보 고정 번호. bugBoard/list/{id} 가 생기면 no = «B-MMDD-n»(서울 날짜 · 그날 순번 · bugBoard/seq 트랜잭션). 로직은 bug-no.js.
+   bugCleanup — 버그 제보 정리(매일 서울 04:40). 해결(수정 완료 · 재현 안 됨)된 뒤 30일 지난 제보를 통째로 지운다(처리방침 5항) · 해결 시각 doneTs 는 처음 본 날 적는다. 로직은 bug-cleanup.js.
    partEquipCount — 카탈로그 항목별 장착 사용자 수. users/{코드}/slots 쓰기마다 장착 집합의 차이만 metrics/parts/equipped 에 더하고 뺀다. 로직은 part-equip.js.
    visitPing — IP 기준 일일 방문자(호출형 · 로그인 없이). 앱이 켜질 때 한 번 부른다. IP 는 해시로만 적는다. 로직은 visit-ping.js.
      비밀 값 METRICS_IP_SALT 가 있어야 배포된다: firebase functions:secrets:set METRICS_IP_SALT (길고 무작위한 값).
    chatExpire — 서버 대화 보관(매시간 30분). 보관 일수(기본 3일 · 방 종류별 config/chatKeepDays)가 지난 chatLog · _chatTab 줄을 지우고, 서울 04시 실행에서만 기록마다 최근 300줄을 넘는 옛 줄도 지운다(방장 지우기 표시 줄은 남김). 로직은 chat-expire.js.
    usageSnapshot — 사용량(비용) 기록(매시간). Cloud Monitoring 하루 합계를 metrics/usage/{서울 날짜} 에. 로직은 usage-snapshot.js.
    adminDeleteAccount — 계정 삭제(호출형 · 관리자만). 웹 관리자 사용자 페이지가 부른다. 로직은 account-delete.js.
+   deleteMyAccount — 회원 탈퇴(호출형 · 로그인한 본인). 앱 [내 정보 › 계정 › 회원 탈퇴]가 부른다. 로직은 account-delete.js.
+   mobileLinkTrim — 폰 연결 주소에 낀 공백 떼기. mobileLink/{코드}/state 쓰기마다 코드에 공백이 있으면 정상 칸으로 옮긴다. 로직은 mobile-link-trim.js.
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -282,12 +285,27 @@ exports.bugNo = onValueCreated({ ref: '/bugBoard/list/{id}', timeoutSeconds: 60,
     await require('./bug-no').runBugNo(getDatabase(), event, Date.parse(event.time) || Date.now());
   });
 
+exports.bugCleanup = onSchedule({ schedule: '40 4 * * *', timeZone: 'Asia/Seoul', timeoutSeconds: 300, retryCount: 0, maxInstances: 1 },
+  async () => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const r = await require('./bug-cleanup').runBugCleanup(getDatabase(), Date.now());
+    console.log('[bugCleanup]', JSON.stringify(r));
+  });
+
 // 슬롯(캐릭터 5칸)이 바뀔 때마다 장착한 카탈로그 id 집합의 차이만 센다(part-equip.js). 처음 숫자는 scripts/backfill-part-equip.js 로 채운다.
 // 다시 시도하지 않는다 — 같은 이벤트를 두 번 더하면 숫자가 어긋난다. 어긋남은 백필을 다시 돌려 맞춘다.
 exports.partEquipCount = onValueWritten({ ref: '/users/{userId}/slots', timeoutSeconds: 60, maxInstances: 5, retry: false },
   async (event) => {
     const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
     await require('./part-equip').runPartEquip(getDatabase(), event);
+  });
+
+// 폰 단축어가 공백 낀 주소로 쓴 «열림 · 닫힘» 을 정상 칸으로 옮긴다(mobile-link-trim.js). 공백 없는 칸은 읽지 않고 끝난다.
+// 다시 시도하지 않는다 — 다음 신호가 또 온다.
+exports.mobileLinkTrim = onValueWritten({ ref: '/mobileLink/{key}/state', timeoutSeconds: 30, maxInstances: 2, retry: false },
+  async (event) => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    await require('./mobile-link-trim').runMobileLinkTrim(getDatabase(), event.params.key, event.data.after.val());
   });
 
 /* IP 기준 일일 방문자 — 앱(visit-ping.js)이 켜질 때 한 번 부른다. 로그인하지 않은 사람도 세야 해서 인증을 보지 않는다.
@@ -318,5 +336,21 @@ exports.adminDeleteAccount = onCall({ timeoutSeconds: 300, maxInstances: 2 },
       if (e && e.httpsCode) throw new HttpsError(e.httpsCode, e.message);
       console.error('[adminDeleteAccount] 실패', e && e.message);
       throw new HttpsError('internal', '삭제 중에 문제가 생겼어요 — 다시 미리 보기로 남은 것을 확인해 주세요');
+    }
+  });
+
+/* 회원 탈퇴 — 앱 [내 정보 › 계정 › 회원 탈퇴]가 부른다. 로그인한 본인 계정만(대상은 로그인이 정한다), 익명 거절.
+   { dryRun, confirm } — dryRun 을 false 로 · confirm 을 «탈퇴» 로 분명히 보낼 때만 지운다. 지우는 범위는 관리자 삭제와 같다. */
+exports.deleteMyAccount = onCall({ timeoutSeconds: 300, maxInstances: 5 },
+  async (request) => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const mod = require('./account-delete');
+    const db = getDatabase();
+    try {
+      return await mod.handleSelfDeleteAccount(db, request, mod.adminDeps(db), Date.now());
+    } catch (e) {
+      if (e && e.httpsCode) throw new HttpsError(e.httpsCode, e.message);
+      console.error('[deleteMyAccount] 실패', e && e.message);
+      throw new HttpsError('internal', '탈퇴 중에 문제가 생겼어요 — 잠시 뒤 다시 눌러 주세요(남은 것부터 이어서 지워요)');
     }
   });

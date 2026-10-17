@@ -20,7 +20,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(버그 제보 탭이 TwNetReady.whenNetReady 를 부른다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], BUG = SRC['bug-board-ui.js'];
@@ -102,6 +102,7 @@ function mkEnv(opt){
     myHomeFriends: () => env.friends,
     myFriendRequests: () => env.reqs,
     friendMax: opt.max || 5,
+    friendsForCheck: () => { env.checks = (env.checks || 0) + 1; return Promise.resolve(env.checkFail ? null : env.friends); },
   });
   return env;
 }
@@ -215,6 +216,12 @@ await sec('── 5. 👋 팝업 · reqVisible', async () => {
   chk(e.accepted.length === 1 && e.toasts.some(t => /최대 2명까지만/.test(t)), '  상한이면 수락 안 하고 남김(_myHomeFriends 는 읽는 함수)');
   const p3 = fm.showFriendRequestPopup(); await flush(); noBtn.onclick(); await p3; await flush();
   chk(e.rejected.join() === 'uA<b', '팝업 [거절]');
+  /* 친구 목록을 못 받았고 판정용 읽기도 실패하면 — 수락을 서버로 안 보내고 요청은 남긴다(토스트는 friends-sub 가) */
+  e.checkFail = true; e.reqs = { c: { name: '수진', ts: 3 } }; e.friends = {};
+  const nAcc = e.accepted.length;
+  const p4 = fm.showFriendRequestPopup(); await flush(); okBtn.onclick(); await p4; await flush();
+  chk(e.accepted.length === nAcc && e.checks > 0, '판정용 목록을 못 읽으면 수락을 안 보낸다(요청은 남김)');
+  e.checkFail = false;
   e.reqs = {}; await fm.showFriendRequestPopup(['zz']);
   chk(e.body.children.length === 0, '물을 요청이 없으면 안 띄운다');
 });
@@ -229,8 +236,8 @@ await sec('── 6. app.js 배선', () => {
   chk(iPrev > 0 && iMk > iPrev && iNext > iMk, '원래 자리 — 📅 스케줄러 연결 뒤 · 마이홈 준비(_myHomeReady) 앞');
   const call = (APP.match(/TwFriendManage\.createFriendManage\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 10 && deps.filter(l => !/^friendMax:/.test(l)).every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>)/.test(l)) && /friendMax: FRIEND_MAX,/.test(call),
-    'deps 10개 — 함수 · 다시 대입되는 let 은 화살표, 상한은 FRIEND_MAX 값 (' + deps.length + ')');
+  chk(deps.length === 11 && /friendsForCheck: \(\.\.\.a\)=>friendsSubMod\.friendsForCheck\(\.\.\.a\),/.test(call) && deps.filter(l => !/^friendMax:/.test(l)).every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>)/.test(l)) && /friendMax: FRIEND_MAX,/.test(call),
+    'deps 11개 — 함수 · 다시 대입되는 let 은 화살표, 상한은 FRIEND_MAX 값 (' + deps.length + ')');
   chk(/myHomeOpen: \(\)=>myHomeOpen,/.test(call) && /myHomeFriends: \(\)=>_myHomeFriends,/.test(call) && /myFriendRequests: \(\)=>_myFriendRequests,/.test(call),
     '다시 대입되는 let(myHomeOpen · _myHomeFriends · _myFriendRequests)은 읽는 함수로');
   const m = strip(MOD).replace(/const (_myFriendRequests|_myHomeFriends|myHomeOpen) = deps\.\w+;/g, '');
@@ -268,6 +275,7 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
   Object.defineProperty(ctx, 'isAdmin', { get: () => env.admin });
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
   vm.runInContext(BUG, ctx, { filename: 'bug-board-ui.js' });
   chk(typeof ctx._bugReportLink === 'function' && ctx._bugReportLink() === '', 'window._bugReportLink — 아직 안 받았으면 빈 문자열');
   chk(typeof env.L['firebase-ready'] === 'function', 'firebaseAPI 가 아직 없으면 firebase-ready 를 기다린다');

@@ -140,6 +140,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
     if(_gbUnsubClap){ try{ _gbUnsubClap(); }catch(_){} _gbUnsubClap=null; }
     _gbCurrentTarget = target;
     _entries = {}; _clap = {count:0,img:null};
+    if(!target) return;   // 내 코드가 없으면(관람에서 돌아옴) 방명록 · 박수를 구독하지 않는다
     if(window.firebaseAPI && firebaseAPI.subscribeGuestbook){
       _gbUnsubEntries = firebaseAPI.subscribeGuestbook(target, v=>{ _entries=v||{}; if(typeof _gbRenderList==='function') _gbRenderList(); });
       _gbUnsubClap    = firebaseAPI.subscribeClap(target, v=>{ _clap=v||{count:0,img:null}; if(typeof _gbRenderClap==='function') _gbRenderClap(); });
@@ -494,7 +495,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
     renderClap(); renderList();
   }
   window.openMyGuestbook=open;   // 다른 곳(친구 홈 방문 등)에서 재사용 가능
-  /* 🚪 친구 목록이 도착하면 쓰기 UI를 다시 칠한다 — subscribeMyFriends 콜백이 부른다.
+  /* 🚪 친구 목록이 도착하면 쓰기 UI를 다시 칠한다 — 친구 목록(friends-sub) 콜백이 부른다.
      [경위] _gbIsOutsider() 는 목록이 비어 있으면 '외부인'으로 본다(막는 쪽이 안전하다는 판단).
        그 판정을 창 만들 때 한 번만 해서, 목록이 늦게 온 세션에서는 친구 홈인데도 입력칸이
        사라진 채로 남았다. 원래 주석은 "창을 다시 열면 풀린다"고 했지만, 창이 떠 있는 동안

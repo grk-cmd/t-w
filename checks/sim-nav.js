@@ -17,7 +17,7 @@ const MOD = read('shared/nav.js'), HTML = read('desk-companion-prototype.html'),
 if (!MOD || !HTML || !APP) { say('  ? 원본 못 찾음 — nav.js · desk-companion-prototype.html · app.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 /* 이름 → 거는 파일(nav.js 주석과 같다) */
-const OWNER = { PROGRAM_SETTINGS: 'launcher/program-settings.js', PROGRAM_SETTINGS_CLOSE: 'launcher/program-settings.js', MY_HOME: 'myhome/myhome-ui.js', LEAVE_ROOM: 'room/room-entry.js' };
+const OWNER = { PROGRAM_SETTINGS: 'launcher/program-settings.js', PROGRAM_SETTINGS_CLOSE: 'launcher/program-settings.js', MY_HOME: 'myhome/myhome-ui.js', LEAVE_ROOM: 'room/room-entry.js', ASSET_IMPORT: 'creator/asset-import.js' };
 
 function load(mod) { const win = {}; new Function('window', 'module', mod)(win, undefined); return win.TwNav; }
 function judge(mod, html, files) {

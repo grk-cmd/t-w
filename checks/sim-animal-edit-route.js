@@ -15,9 +15,10 @@ const path = require('path');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const APP = read('app.js'), ANI = read('animal.js'), MOD = read('animal-edit-route.js'), HTML = read('desk-companion-prototype.html');
-if(!APP || !ANI || !MOD || !HTML){ say('  ? 원본 못 찾음 — ' + [[APP, 'app.js'], [ANI, 'animal.js'], [MOD, 'animal-edit-route.js'], [HTML, 'desk-companion-prototype.html']].filter(x => !x[0]).map(x => x[1]).join(' ')); process.exit(2); }
+const APP = _joinRenderer(read('app.js') || ''), ANI = read('animal.js'), MOD = read('animal-edit-route.js'), HTML = read('desk-companion-prototype.html');
+if(!read('app.js') || !ANI || !MOD || !HTML){ say('  ? 원본 못 찾음 — ' + [[read('app.js'), 'app.js'], [ANI, 'animal.js'], [MOD, 'animal-edit-route.js'], [HTML, 'desk-companion-prototype.html']].filter(x => !x[0]).map(x => x[1]).join(' ')); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const A = strip(APP), N = strip(ANI);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;
@@ -45,7 +46,8 @@ chk(R.prevRoute(HUMAN, 1).step === 1, '사람 1단계 [이전] — 1 아래로 �
 
 say('── 2. gotoStep 머리를 실제로 돌린다');
 const gs = grab(APP, 'gotoStep');
-const head = gs.slice(0, gs.indexOf('crStep=n;'));
+/* 모듈로 옮긴 글을 되살리면 «crStep = n;» 으로 띄어 쓴다 — 두 모양을 다 찾는다 */
+const head = gs.slice(0, gs.search(/crStep ?= ?n;/));
 chk(head.length > 0 && !/동물 생성기에서 편집해요/.test(A), '옛 동물 토스트 «동물 생성기에서 편집해요 …» 가 없다');
 const mk = (route, def) => {
   const log = { toast: [], reopen: [] };

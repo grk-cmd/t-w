@@ -1,0 +1,101 @@
+/* ═══ ⚠️ 에러코드 — 사용자에게 보이는 실패에 붙이는 번호 표 · 알리는 통로 ══════════════
+   [왜] 실패 토스트가 «수락에 실패했어요» 처럼 문구만 있으면, 제보를 받아도 어느 코드 줄에서
+     났는지 알 수 없다. 토스트에 짧은 번호(E-영역-번호)를 붙여 두면 사용자는 그 번호를 불러 주고,
+     우리는 이 표에서 파일 · 함수를 바로 찾는다(목록 · 규칙은 docs/ERROR_CODES.md).
+   ★ 번호 규칙
+     · 모양은 E-영역-두자리. 영역은 앱 폴더와 맞춘다(AREAS).
+     · 한 번 쓴 번호는 **다시 쓰지 않는다.** 걷은 번호는 RETIRED 로 옮긴다 — 옛 앱 사용자는
+       옛 번호를 계속 불러 준다.
+     · 새 번호는 표에 먼저 넣고 부른다. 표에 없는 번호를 부르면 검사(sim-error-codes)가 빨강이다.
+   ★ 부르는 법: TwErrorCodes.notify('E-FR-01', err) — 표의 문구로 토스트를 띄우고 진단 기록에 한 줄.
+     문구에 개수처럼 그때그때 다른 말이 필요하면 셋째 인자로 준다(번호는 그대로 붙는다).
+   ⚠️ 이 파일은 app.js 보다 먼저 실린다. 토스트(app.js 의 toast)는 **부를 때** 찾는다 — 실릴 때는 아직 없다.
+   DOM 을 직접 안 만진다(검사 sim-error-codes.js). */
+(function(){
+'use strict';
+
+const AREAS = {
+  ACC: '계정 · 로그인 · 초대',
+  FR: '친구 · 친구 요청',
+  MH: '마이홈 · 방명록 · 우편',
+  ROOM: '방 입장 · 나가기 · 방 목록',
+  CHAT: '채팅',
+  CHAR: '캐릭터 · 꾸미기 · 가챠',
+  FOCUS: '포커스 · 레벨',
+  SYS: '그 밖',
+};
+const CODE_RE = /^E-([A-Z]+)-(\d{2})$/;
+
+/* 문구는 사용자에게 그대로 보인다 — 무엇이 안 됐는지 + (있으면) 할 일. where 는 우리가 찾을 자리. */
+const CODES = {
+  'E-SYS-01': { msg: '알 수 없는 오류가 났어요', where: '(예비) 어디서 났는지 모를 때' },
+  'E-FR-01': { msg: '친구 요청을 수락하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [수락]' },
+  'E-FR-02': { msg: '친구 요청을 거절하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [거절]' },
+  'E-FR-03': { msg: '보낸 친구 요청을 취소하지 못했어요', where: 'myhome/friend-manage.js — 보낸 요청 [취소]' },
+  'E-FR-04': { msg: '선택한 친구 요청 일부를 처리하지 못했어요', where: 'myhome/friend-manage.js — 받은 요청 일괄 수락 · 거절' },
+  'E-ROOM-01': { msg: '방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요', where: 'room/room-entry.js — 랜덤 참여 · 갈아타기 (findRandomRooms)' },
+  'E-ROOM-02': { msg: '방을 옮기지 못했어요 — 참여를 다시 눌러 주세요', where: 'room/room-entry.js — 갈아타기 뒤 방 밖에 남음' },
+};
+/* 걷은 번호 — { 번호: '언제 · 왜' }. 다시 쓰지 않으려고 남긴다. */
+const RETIRED = {};
+
+const REPEAT_MS = 10000;   // 같은 번호를 이 안에 또 부르면 토스트는 한 번만(연타 · 일괄 처리) — 기록은 남는다
+const TOAST_MS = 4000;     // 번호를 읽고 적을 시간 — 기본 토스트(1.9초)보다 길게
+const KEEP = 20;           // 최근 기록 몇 개를 들고 있을지(나중에 제보에 붙일 몫)
+
+function isCode(code){
+  const m = CODE_RE.exec(String(code || ''));
+  return !!(m && Object.prototype.hasOwnProperty.call(AREAS, m[1]));
+}
+function info(code){ return CODES[code] || null; }
+function toastText(code, text){
+  const c = CODES[code] ? code : 'E-SYS-01';
+  return '⚠️ ' + (text || CODES[c].msg) + ' · 오류 ' + c;
+}
+/* 진단 기록 한 줄 — 원인 글은 짧게(남의 이름 같은 긴 글이 섞이지 않게 code · message 만). */
+function diagText(code, err){
+  let why = '';
+  if(err != null){
+    why = (typeof err === 'object') ? String(err.code || err.message || '') : String(err);
+    why = why.replace(/[\r\n]+/g, ' ').slice(0, 80);
+  }
+  return '[오류] ' + code + (why ? ' ' + why : '');
+}
+
+/* deps: toast(msg, icon, ms) · diag(line) · now() — 모두 부를 때 찾는다. */
+function createErrorNotice(deps){
+  const d = deps || {};
+  const now = d.now || (()=>Date.now());
+  const lastShown = {};
+  const recent = [];
+  function notify(code, err, text){
+    const c = CODES[code] ? code : 'E-SYS-01';
+    const at = now();
+    recent.push({ code: c, at });
+    if(recent.length > KEEP) recent.shift();
+    try{ if(d.diag) d.diag(diagText(c, err)); }catch(_){}
+    try{ console.warn('[오류] ' + c, err == null ? '' : err); }catch(_){}
+    if(lastShown[c] && at - lastShown[c] < REPEAT_MS) return false;
+    lastShown[c] = at;
+    try{ if(d.toast) d.toast(toastText(c, text), null, TOAST_MS); }catch(_){}
+    return true;
+  }
+  return { notify, recent: ()=>recent.slice() };
+}
+
+const api = {
+  AREAS, CODES, RETIRED, CODE_RE, REPEAT_MS, TOAST_MS, KEEP,
+  isCode, info, toastText, diagText, createErrorNotice,
+};
+/* 렌더러에서는 하나를 만들어 바로 쓴다 — 토스트 · 진단은 app.js · preload 가 걸어 둔 것을 부를 때 찾는다. */
+if(typeof window !== 'undefined'){
+  const notice = createErrorNotice({
+    toast: (...a)=>window.toast(...a),   // app.js 의 전역 toast — 실패 알림은 부팅 뒤에만 난다(새 typeof 가드 금지)
+    diag: (line)=>{ if(window.companion && window.companion.diagNote) window.companion.diagNote(line); },
+  });
+  api.notify = notice.notify;
+  api.recent = notice.recent;
+  window.TwErrorCodes = api;
+}
+if(typeof module !== 'undefined' && module.exports) module.exports = api;
+})();

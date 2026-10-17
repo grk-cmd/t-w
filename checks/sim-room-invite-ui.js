@@ -19,7 +19,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['room-invite-ui.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['room-invite-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(모듈이 TwNetReady.whenNetReady 를 부른다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['room-invite-ui.js'];
@@ -48,12 +48,12 @@ function mkEl(tag, id, env){
   return el;
 }
 
-function mkEnv(opt){
+function mkEnv(opt, mod){
   opt = opt || {};
   const env = {
     toasts: [], sent: [], cleared: [], left: [], started: [], flashes: [], subs: [], now: 1e12, timers: [], docL: {}, winL: {},
-    friends: opt.friends === undefined ? {} : opt.friends, room: opt.room === undefined ? 'ROOM1' : opt.room, active: opt.active !== false,
-    sendFail: false, winW: 320, winH: 200, winX: 100, winY: 100,
+    friends: opt.friends === undefined ? {} : opt.friends, notice: opt.notice === undefined ? null : opt.notice, room: opt.room === undefined ? 'ROOM1' : opt.room, active: opt.active !== false,
+    sendFail: false, sendHold: false, release: null, opens: [], closes: [], onUpdate: null, winW: 320, winH: 200, winX: 100, winY: 100,
   };
   const els = {};
   const ids = ['roomInvitePickOverlay', 'roomInvitePickList', 'roomInvitePickClose', 'roomInvitePickHead', 'roomInvitePickWin', 'inviteFriendBtn', 'fsInviteFriendBtn'];
@@ -61,7 +61,7 @@ function mkEnv(opt){
   if(els.roomInvitePickClose) els.roomInvitePickClose.className = 'mh-x';
   const body = mkEl('body', 'body', env);
   const fb = {
-    sendRoomInvite: async (...a) => { if(env.sendFail) throw new Error('x'); env.sent.push(a); },
+    sendRoomInvite: async (...a) => { if(env.sendFail) throw new Error('x'); if(env.sendHold) await new Promise(r => { env.release = r; }); env.sent.push(a); },
     subscribeRoomInvites: (id, cb) => { env.subs.push({ id, cb }); },
     clearRoomInvite: async (me, from) => { env.cleared.push([me, from]); },
   };
@@ -85,17 +85,22 @@ function mkEnv(opt){
   if(!opt.noFb) ctx.firebaseAPI = fb;
   ctx.window = ctx;
   vm.createContext(ctx);
-  vm.runInContext(MOD, ctx, { filename: 'room-invite-ui.js' });
+  vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
+  vm.runInContext(mod || MOD, ctx, { filename: 'room-invite-ui.js' });
   env.ctx = ctx; env.els = els; env.fb = fb;
   env.mk = () => (env.api = ctx.TwRoomInviteUi.createRoomInviteUi({
     toast: (m) => env.toasts.push(m),
     escHtml: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
-    getMyUserId: () => 'ME',
+    getMyUserId: () => ('uid' in opt ? opt.uid : 'ME'),
     getDisplayName: () => '나나',
     startRoom: async (c) => { env.started.push(c); },
     doLeaveRoom: async (o) => { env.left.push(o); env.active = false; },
     friendInRoom: (f) => !!f.room,
     myHomeFriends: () => env.friends,
+    friendsNotice: () => env.notice,
+    friendsRetry: () => { env.retries = (env.retries || 0) + 1; },
+    friendsOpen: (key, fn) => { env.opens.push(key); env.onUpdate = fn; },
+    friendsClose: (key) => { env.closes.push(key); env.onUpdate = null; },
     presence: { active: () => env.active, roomCode: () => env.room },
   }));
   env.fireWin = (t) => { (env.winL[t] || []).slice().forEach(h => { if(h.once) env.winL[t] = env.winL[t].filter(x => x !== h); h.fn({}); }); };
@@ -131,6 +136,10 @@ await sec('── 1. 만들 때', () => {
   const d = mkEnv({ noDom: true });
   let ok = true; try{ d.mk(); }catch(_){ ok = false; }
   chk(ok && d.subs.length === 1 && !(d.winL.resize || []).length, '고르기 창 DOM 이 없으면 창 연결은 건너뛰고 초대 받기는 건다');
+  const noUid = (mod) => { const u = mkEnv({ uid: null }, mod); u.mk(); return u.subs.length === 0 && u.els.inviteFriendBtn._L.click.length === 1; };
+  chk(noUid(), '내 코드 없음 — 초대함 구독 요청 0(roomInvites/null) · 버튼 연결은 그대로');
+  const m2 = MOD.replace(/\n *if\(!myId\) return;[^\n]*\n *firebaseAPI\.subscribeRoomInvites/, '\n  firebaseAPI.subscribeRoomInvites');
+  chk(m2 !== MOD && !noUid(m2), '  깨 보기 — 내 코드 확인을 빼면 빨강');
 });
 
 await sec('── 2. 친구 고르기 창', () => {
@@ -142,6 +151,14 @@ await sec('── 2. 친구 고르기 창', () => {
   chk(z.toasts.pop() === '먼저 방에 연결해 주세요', '  Presence 가 꺼져 있어도 같다');
   const f = mkEnv({ friends: {} }); f.mk(); f.open();
   chk(/아직 친구가 없어요/.test(f.els.roomInvitePickList.innerHTML) && f.els.roomInvitePickList.style.maxHeight === '' && f.els.roomInvitePickOverlay.style.display === 'flex', '친구가 없으면 안내 · 창은 열린다');
+  /* 친구 목록을 아직 못 받았거나 못 받았으면 «친구 없음» 이 아니라 마이홈 친구 탭과 같은 안내(friends-sub.js notice) */
+  const ld = mkEnv({ friends: {}, notice: '친구 목록을 불러오는 중이에요' }); ld.mk(); ld.open();
+  chk(ld.retries === 1, '초대 목록을 열면 friends-sub 에 «못 불러왔으면 다시 걸기» 를 한 번 부탁한다');
+  chk(ld.els.roomInvitePickList.textContent === '친구 목록을 불러오는 중이에요' && !/아직 친구가 없어요/.test(ld.els.roomInvitePickList.innerHTML) && ld.els.roomInvitePickOverlay.style.display === 'flex', '불러오는 중 — 안내만 · «친구 없음» 아님 · 창은 열린다');
+  const er = mkEnv({ friends: { a: { name: '옛친구', online: true } }, notice: '친구 목록을 불러오지 못했어요.\n잠시 후 다시 시도할게요' }); er.mk(); er.open();
+  chk(er.rows().length === 1 && er.els.roomInvitePickList.textContent === '친구 목록을 불러오지 못했어요.\n잠시 후 다시 시도할게요' && /white-space:pre-line/.test(er.rows()[0].style.cssText), '못 불러옴 — 안내 한 칸만(옛 목록으로 초대 줄을 만들지 않는다) · 두 문장 사이 줄바꿈(pre-line)');
+  const xs = mkEnv({ friends: {}, notice: '<b>x</b>' }); xs.mk(); xs.open();
+  chk(!/<b>/.test(xs.els.roomInvitePickList.innerHTML) && xs.els.roomInvitePickList.textContent === '<b>x</b>', '  안내는 글자로(textContent) 넣는다');
   const g = mkEnv({ friends: {
     a: { name: '다람', online: false }, b: { name: '가나', online: true, avatar: 'data:image/png;base64,AA', level: 3 },
     c: { name: '나비', online: true, avatar: 'javascript:alert(1)', room: 'R2' }, d: { name: '가람', online: false, avatar: 'https://x/y.png' },
@@ -195,6 +212,32 @@ await sec('── 3. 초대 보내기', async () => {
   e.ctx.firebaseAPI = e.fb; e.sendFail = false;
   b2.onclick(); await flush();
   chk(e.toasts.pop() === '친구 님에게 초대를 보냈어요', '  이름 없는 친구는 «친구»');
+});
+
+await sec('── 3-2. 열려 있는 동안 목록이 바뀌면 다시 그린다(이름 · 사진 도착) · 닫으면 그만', async () => {
+  const e = mkEnv({ friends: { a: { name: '...', online: false }, b: { name: '나비', online: true, room: 'R2' }, c: { name: '다람', online: true } } }); e.mk(); e.open();
+  chk(e.opens.join() === 'invite' && typeof e.onUpdate === 'function', '열 때 friends-sub 에 «초대 목록 열림» (key invite · 다시 그리기 함수)');
+  e.btnBy('다람').onclick(); await flush();
+  e.btnBy('나비').onclick();
+  e.friends = { a: { name: '가나', online: true }, b: e.friends.b, c: e.friends.c };
+  e.els.roomInvitePickList.scrollTop = 40;
+  e.onUpdate();
+  chk(e.rows().length === 3 && e.nameOf(0) === '가나', '  바뀌면 다시 그린다 — 새 이름 · 온라인 순서');
+  chk(e.btnBy('다람').textContent === '완료' && e.btnBy('다람').disabled === true, '  보낸 친구는 다시 그려도 «완료»');
+  chk(e.btnBy('나비').textContent === '그래도', '  한 번 알린 친구는 다시 그려도 «그래도»(한 번 더 누르면 보냄)');
+  chk(e.els.roomInvitePickList.scrollTop === 40, '  보던 자리(스크롤) 그대로');
+  e.sendHold = true;
+  e.btnBy('가나').onclick();
+  e.onUpdate();
+  chk(e.btnBy('가나').textContent === '...' && e.btnBy('가나').disabled === true, '  보내는 중에 다시 그려도 «...»(두 번 보내지 않게)');
+  e.sendHold = false; if(e.release) e.release(); await flush();
+  chk(e.btnBy('가나').textContent === '완료', '  보내기가 끝나면 다시 그린 줄도 «완료»');
+  e.els.roomInvitePickClose.fire('click');
+  chk(e.closes.join() === 'invite' && e.onUpdate === null, '닫으면 friends-sub 에 «초대 목록 닫힘»');
+  e.open(); e.els.roomInvitePickOverlay.fire('mousedown', { target: e.els.roomInvitePickOverlay });
+  chk(e.closes.length === 2, '  바깥을 눌러 닫아도 같다');
+  e.open();
+  chk(e.btnBy('다람').textContent === '초대', '다시 열면 처음부터(보낸 표시는 그 한 번 연 동안만 — 예전과 같다)');
 });
 
 await sec('── 4. 창 끌기', () => {
@@ -296,16 +339,17 @@ await sec('── 6. app.js 배선', () => {
   const want = [
     /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/, /^escHtml: \(\.\.\.a\)=>escHtml\(\.\.\.a\),$/, /^getMyUserId: \(\.\.\.a\)=>getMyUserId\(\.\.\.a\),$/,
     /^getDisplayName: \(\.\.\.a\)=>getDisplayName\(\.\.\.a\),$/, /^startRoom: \(\.\.\.a\)=>startRoom\(\.\.\.a\),$/, /^doLeaveRoom: \(\.\.\.a\)=>doLeaveRoom\(\.\.\.a\),$/,
-    /^friendInRoom: \(\.\.\.a\)=>inboxMod\.friendInRoom\(\.\.\.a\),$/, /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^presence: Presence,$/,
+    /^friendInRoom: \(\.\.\.a\)=>inboxMod\.friendInRoom\(\.\.\.a\),$/, /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^friendsRetry: \(\.\.\.a\)=>friendsSubMod\.retryIfFailed\(\.\.\.a\),$/,
+    /^friendsOpen: \(\.\.\.a\)=>friendsSubMod\.open\(\.\.\.a\),$/, /^friendsClose: \(\.\.\.a\)=>friendsSubMod\.close\(\.\.\.a\),$/, /^presence: Presence,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 9개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 13개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   chk(/^let _myHomeFriends = \{\};/m.test(APP) && /[^.\w]_myHomeFriends = [^=]/.test(code.replace(/let _myHomeFriends = \{\};/, '')), '  _myHomeFriends 는 다시 대입되는 let — 그래서 읽는 함수');
   const iP = APP.indexOf('const Presence=(()=>{');
   chk(iP > 0 && iP < iMk && !/[^.\w]Presence\s*=[^=>]/.test(code.replace('const Presence=(', '')), '  Presence 는 만드는 줄보다 앞의 const · 다시 대입 안 됨 — 그래서 값');
   const m = strip(MOD);
   chk(/const friends = _myHomeFriends\(\) \|\| \{\};/.test(m) && !/[^.\w]_myHomeFriends\s*=[^=]/.test(m.replace('const _myHomeFriends = deps.myHomeFriends;', '')), '모듈은 친구 목록을 부를 때마다 읽는다 · 직접 쓰지 않는다');
-  chk(/if\(window\.firebaseAPI\) _bindRoomInviteReceiver\(\);\nelse window\.addEventListener\('firebase-ready', \(\)=>_bindRoomInviteReceiver\(\), \{ once:true \}\);/.test(MOD), '만들 때 수신 구독(또는 firebase-ready) — 예전 부팅 줄 그대로');
+  chk(/^TwNetReady\.whenNetReady\(\(\)=>_bindRoomInviteReceiver\(\)\);$/m.test(MOD), '만들 때 수신 구독(또는 firebase-ready) — 네트워크 준비 기다리기 한 곳(net-ready.js)으로');
   const off = (APP.match(/const ROOM_INVITE_UI_OFF = \{([^\n]*?)\};/) || [])[1] || '';
   chk(!/\bROOM_INVITE_UI_OFF\b/.test(APP), '빈 껍데기 ROOM_INVITE_UI_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const iE = HTML.indexOf('<script src="parts/myhome/myhome-edit.js"></script>'), iS = HTML.indexOf('<script src="parts/room/room-invite-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');

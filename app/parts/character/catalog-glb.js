@@ -1,6 +1,6 @@
 /* catalog-glb.js — 🔗 카탈로그 GLB 해결 — glbUrl 만 있는 레코드에 rec.glb 채우기(메모리 → 영구 캐시 → 서버)
    책임: 카탈로그 인덱스에는 glbUrl 만 오고(GLB 본체는 Storage) 앱 곳곳은 rec.glb(base64)를 보므로, 쓰는 때에 glbUrl → rec.glb 로 채운다. 같은 url 은 세션 메모리 · 영구 캐시(IndexedDB)로 두 번 안 받는다.
-   받는 deps: glbIdbMod(영구 캐시 — shared/glb-idb-cache.js 의 _glbIdbGet · _glbIdbPut · _glbIdbPrune). 서버 받기는 firebaseAPI.fetchCatalogGlb(전역).
+   받는 deps: glbIdbMod(영구 캐시 — shared/glb-idb-cache.js 의 _glbIdbGet · _glbIdbPut · _glbIdbPrune). catalogSourceMod(서버 받기 — character/catalog-source.js 의 Firebase 판).
    내보내는 것: resolveCatalogGlb(rec) · resolveCatalogGlbAll(catalogObj).
    app.js «💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결» 구역의 뒤쪽(URL 해결 몫)을 그대로 옮겼다(구역 떼기 C · w2). 동작은 옮기기 전과 같다.
    ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 0줄(영구 캐시를 부르는 세 줄 «glbIdbMod._glbIdb…(» 은 같은 커밋에서 앞 모듈로 옮기며 바뀐 자리).
@@ -12,6 +12,7 @@
 (function(){
 
 function createCatalogGlb(deps){
+const catalogSourceMod = deps.catalogSourceMod;
 const glbIdbMod = deps.glbIdbMod;
 const _glbUrlCache = new Map();   // url → base64 (세션 메모리 1차 캐시)
 async function resolveCatalogGlb(rec){
@@ -30,9 +31,9 @@ async function resolveCatalogGlb(rec){
     rec.glb = hit;
     return hit;
   }
-  if(!(window.firebaseAPI && firebaseAPI.fetchCatalogGlb)) return null;
+  if(!catalogSourceMod.catalogSrcCan('fetchGlb')) return null;
   try{
-    const b64 = await firebaseAPI.fetchCatalogGlb(rec.glbUrl);
+    const b64 = await catalogSourceMod.catalogSrcFetchGlb(rec.glbUrl);
     _glbUrlCache.set(rec.glbUrl, b64);
     glbIdbMod._glbIdbPut(rec.glbUrl, b64);   // 기다리지 않는다 — 저장 실패해도 이번 실행에는 지장이 없다
     rec.glb = b64;    // 이후 rec.glb 참조 시 재fetch 없음

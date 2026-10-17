@@ -2,7 +2,7 @@
    app.js 꾸미기 다섯 구역(👀 미리보기 · 📝 초안 · 🎛️ 상세조정 · 🎨 색 줄 · 🎨 창 그리기 · 파츠 착용) 본문을 그대로 옮긴 모듈이다(앱 FSD 29번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 5개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 70줄 —
-     LIGHT_PRESET · PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+     PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 51개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · clampWdPreviewIntoView · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdPreview · refreshWdPreviewChar · refreshWdPreviewColorSection · relinkDraftSrc · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdPreviewSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
@@ -14,7 +14,7 @@
 function createWardrobe(deps){
 const ANIMAL_RUN_SCALE = deps.ANIMAL_RUN_SCALE;
 const CHAR_Z = deps.CHAR_Z;
-const LIGHT_PRESET = deps.LIGHT_PRESET;   // 읽는 함수
+const baseFlatOf = deps.baseFlatOf;   // 재질 플랫 배율 읽기(shared/light-tone.js)
 const PART_CATS = deps.PART_CATS;   // 읽는 함수
 const PART_DEFAULT_OFFSET = deps.PART_DEFAULT_OFFSET;   // 읽는 함수
 const PART_GROUPS = deps.PART_GROUPS;   // 읽는 함수
@@ -50,7 +50,6 @@ const escHtml = deps.escHtml;
 const findEntryById = deps.findEntryById;
 const findMySeat = deps.findMySeat;
 const firstEntryForCat = deps.firstEntryForCat;
-const fitModel = deps.fitModel;
 const floorClampWrapper = deps.floorClampWrapper;
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const getCommissionScene = deps.getCommissionScene;
@@ -70,6 +69,7 @@ const partsInCat = deps.partsInCat;
 const partsInCatFor = deps.partsInCatFor;
 const partsInGroup = deps.partsInGroup;
 const pruneSeatPartsAgainstDef = deps.pruneSeatPartsAgainstDef;
+const refitSeatAfterParts = deps.refitSeatAfterParts;
 const removeEntryFromCat = deps.removeEntryFromCat;
 const removePartEntryInstance = deps.removePartEntryInstance;
 const reorderSavedPart = deps.reorderSavedPart;
@@ -880,11 +880,9 @@ async function _commitWdDraftNow(silent){
   saveSlots();
   // 실제 캐릭터에서 "뺀 파츠"를 먼저 걷어냄 — 🔗 stackable은 id 단위까지 대조 (안 하면 예전 파츠가 유령으로 남음)
   pruneSeatPartsAgainstDef(mySeat, def);
-  await applyEquippedPartsToSeat(mySeat, def);   // 남아있는/새로 생긴 파츠는 적용(같은 카테고리 교체도 내부에서 처리됨)
-  /* 🦶 파츠가 바뀌면 발밑 깊이도 바뀐다 — 여기서 다시 맞춘다.
-     ⚠️ 이 호출이 없으면 욕조를 벗은 뒤에도 캐릭터가 그 깊이만큼 뜬 채로 남아 있다가 다음 실행에서야
-       제자리로 돌아온다. 부팅 경로(applyCharToSeat)에는 이미 같은 재계산이 있다. */
-  try{ if(mySeat && mySeat.gltfRoot) fitModel(mySeat); }catch(_){}
+  /* 남아있는/새로 생긴 파츠는 적용(같은 카테고리 교체도 내부에서 처리됨) → 🦶 발밑 깊이 · 올라탄 사람 높이를 다시 맞춘다.
+     ⚠️ 빠지면 욕조를 벗은 뒤에도 그 깊이만큼 뜬 채로 남아 있다가 다음 실행에서야 제자리로 돌아온다. */
+  await refitSeatAfterParts(mySeat, { wait: applyEquippedPartsToSeat(mySeat, def) });
   saveSlots();   // 적용 중 def 가 정리됐으면(옷 겹침 등) 한 번 더 — 그대로면 아무 일 없다
   if(mySeat.isMe && typeof Presence()!=='undefined' && Presence().active()){
     Presence().updateDef(def);
@@ -917,8 +915,7 @@ async function _commitWdDraftToOwner(draft, silent){
   if(seat){
     if(_earChanged) _attachHumanEars(seat.modelRoot, src);
     pruneSeatPartsAgainstDef(seat, src);
-    await applyEquippedPartsToSeat(seat, src);
-    try{ if(seat.gltfRoot) fitModel(seat); }catch(_){}
+    await refitSeatAfterParts(seat, { wait: applyEquippedPartsToSeat(seat, src) });
     saveSlots();
   }
   if(seat && seat.isMe && typeof Presence()!=='undefined' && Presence().active()) Presence().updateDef(src);
@@ -1470,9 +1467,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
           if(isHueTintMesh(m)){ applyHueTint(m, hex, xf.colorHSV[key]); m.material.needsUpdate = true; return; }
           if(m.material.color) m.material.color.set(hex);
           if(m.material.emissive){
-            const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null)
-              ? m.material.userData.baseFlat
-              : (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5));
+            const baseFlat = baseFlatOf(m.material);
             m.material.emissive.set(hex).multiplyScalar(baseFlat);
           }
           m.material.needsUpdate = true;
@@ -1502,9 +1497,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
           const hex = '#'+m.userData.origColor;
           if(m.material.color) m.material.color.set(hex);
           if(m.material.emissive){
-            const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null)
-              ? m.material.userData.baseFlat
-              : (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5));
+            const baseFlat = baseFlatOf(m.material);
             m.material.emissive.set(hex).multiplyScalar(baseFlat);
           }
           m.material.needsUpdate = true;
@@ -1539,9 +1532,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
         if(isHueTintMesh(m)){ applyHueTint(m, val); m.material.needsUpdate = true; return; }
         if(m.material.color) m.material.color.set(val);
         if(m.material.emissive){
-          const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null)
-            ? m.material.userData.baseFlat
-            : (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5));
+          const baseFlat = baseFlatOf(m.material);
           m.material.emissive.set(val).multiplyScalar(baseFlat);
         }
         m.material.needsUpdate = true;
@@ -1594,9 +1585,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
         const hex = '#'+m.userData.origColor;
         if(m.material.color) m.material.color.set(hex);
         if(m.material.emissive){
-          const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null)
-            ? m.material.userData.baseFlat
-            : (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5));
+          const baseFlat = baseFlatOf(m.material);
           m.material.emissive.set(hex).multiplyScalar(baseFlat);
         }
         m.material.needsUpdate = true;

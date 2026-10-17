@@ -21,10 +21,11 @@ function world(src, o = {}) {
   const log = { toasts: [], sends: [] };
   const timers = [];
   const api = o.noApi ? undefined : { sendFriendRequest: async (...a) => { log.sends.push(a); if (o.throws) throw new Error('x'); return o.res === undefined ? { ok: true } : o.res; } };
-  const win = { firebaseAPI: api };
+  const trap = { sendFriendRequest: async () => { log.sends.push(['전역 firebaseAPI 를 불렀다']); return { ok: true }; } };   // 모듈은 friendNet 만 써야 한다
+  const win = { firebaseAPI: trap };
   const T = new Function('window', 'firebaseAPI', 'setTimeout', 'clearTimeout', 'module', src + '\nreturn window.TwSeatFriendReq;')(
-    win, api, (fn, ms) => { timers.push({ fn, ms, live: true }); return timers.length; }, (id) => { if (timers[id - 1]) timers[id - 1].live = false; }, undefined);
-  const out = T.createSeatFriendReq({ FRIEND_MAX: MAX, _myHomeFriends: () => o.friends || {}, getDisplayName: () => '나닉', getMyUserId: () => 'me', toast: (m) => log.toasts.push(m) });
+    win, trap, (fn, ms) => { timers.push({ fn, ms, live: true }); return timers.length; }, (id) => { if (timers[id - 1]) timers[id - 1].live = false; }, undefined);
+  const out = T.createSeatFriendReq({ FRIEND_MAX: MAX, _myHomeFriends: () => o.friends || {}, friendNet: () => api, getDisplayName: () => '나닉', getMyUserId: () => 'me', toast: (m) => log.toasts.push(m) });
   return { out, log, timers, fire: () => { const t = timers.filter((x) => x.live).pop(); if (t) { t.live = false; t.fn(); } } };
 }
 const flush = () => new Promise((r) => setImmediate(r));
@@ -54,7 +55,7 @@ async function behave(src) {
 
   const twice = async (o, uid = 'u2') => { const x = world(src, o); x.out._friendReqAsk(uid, seat); x.out._friendReqAsk(uid, seat); await flush(); await flush(); return x; };
   let x = await twice({ noApi: true });
-  t(x.log.sends.length === 0 && lastT(x) === '아직 준비 중이에요', '서버 통로가 없으면 «아직 준비 중이에요»');
+  t(x.log.sends.length === 0 && lastT(x) === '아직 준비 중이에요', '데이터 provider(friendNet)가 없으면 «아직 준비 중이에요»');
   x = await twice({}, 'me');
   t(x.log.sends.length === 0 && lastT(x) === '내 코드는 추가할 수 없어요', '나에게는 안 보낸다');
   x = await twice({ friends: { u2: {} } });
@@ -77,12 +78,12 @@ async function behave(src) {
 function wire(app, html) {
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
-  const A = strip(app);
+  const A = strip(app), M = strip(read('room/seat-menu.js') || '');   // 좌석 메뉴는 room/seat-menu.js(C 구역 떼기 w4)
   t(!/function _friendReqAsk\b|function _friendReqSend\b|let _friendReqArmed\b/.test(A), 'app.js 에 옮긴 선언이 안 남았다');
   const mk = (app.match(/const seatFriendReqMod = TwSeatFriendReq\.createSeatFriendReq\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
-  t(mk.split('\n').map((l) => l.trim()).join('|') === 'FRIEND_MAX: FRIEND_MAX,|_myHomeFriends: ()=>_myHomeFriends,|getDisplayName: (...a)=>getDisplayName(...a),|getMyUserId: (...a)=>getMyUserId(...a),|toast: (...a)=>toast(...a),',
-    '만드는 줄(가드 없이) · deps 5 — 값 FRIEND_MAX · 읽는 함수 _myHomeFriends · 함수 3');
-  t(/seatFriendReqMod\._friendReqAsk\(uid, seat\)/.test(A) && !/[^.\w]_friendReqAsk\(/.test(A), '부르는 곳(좌석 메뉴)은 seatFriendReqMod._friendReqAsk');
+  t(mk.split('\n').map((l) => l.trim()).join('|') === 'FRIEND_MAX: FRIEND_MAX,|_myHomeFriends: ()=>_myHomeFriends,|friendNet: ()=>window.firebaseAPI,|getDisplayName: (...a)=>getDisplayName(...a),|getMyUserId: (...a)=>getMyUserId(...a),|toast: (...a)=>toast(...a),',
+    '만드는 줄(가드 없이) · deps 6 — 값 FRIEND_MAX · 읽는 함수 2(_myHomeFriends · friendNet 데이터 provider 고르기 한 줄) · 함수 3');
+  t(/seatFriendReqMod\._friendReqAsk\(uid, seat\)/.test(M) && !/[^.\w]_friendReqAsk\(/.test(A + M), '부르는 곳(좌석 메뉴)은 seatFriendReqMod._friendReqAsk');
   const iM = html.indexOf('<script src="parts/myhome/seat-friend-req.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — myhome/seat-friend-req.js 를 app.js 보다 먼저 싣는다');
   return r;
@@ -99,6 +100,7 @@ function wire(app, html) {
     ['5초를 50초로', (m) => m.replace('const FRIEND_REQ_ARM_MS = 5000;', 'const FRIEND_REQ_ARM_MS = 50000;'), null, null],
     ['정원 검사 >= 를 > 로', (m) => m.replace('.length >= FRIEND_MAX', '.length > FRIEND_MAX'), null, null],
     ['이미 친구 검사 없앰', (m) => m.replace("if(_myHomeFriends() && _myHomeFriends()[uid]){ toast('이미 친구예요'); return; }", ''), null, null],
+    ['provider 대신 전역 firebaseAPI 를 부름', (m) => m.replace('await net.sendFriendRequest(', 'await firebaseAPI.sendFriendRequest('), null, null],
     ['만들 때 던짐', (m) => m.replace('function createSeatFriendReq(deps){', 'function createSeatFriendReq(deps){ throw new Error("깨 봄");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nfunction _friendReqSend(){}', null],
     ['deps 하나 빠짐', null, (a) => a.replace('createSeatFriendReq({\n  FRIEND_MAX: FRIEND_MAX,\n', 'createSeatFriendReq({\n'), null],

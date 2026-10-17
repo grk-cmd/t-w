@@ -16,9 +16,9 @@
        · renderMyHomeStickers 를 감싸 다시 대입하던 두 줄 — 옛 함수는 _getRenderMyHomeStickers() 로 받고, 감싼 함수는
          _setRenderMyHomeStickers(…) 로 app.js 의 이름에 다시 넣는다(삭제 버튼에 자동 저장을 한 번 더 붙이는 것 그대로).
          ⚠️ 옛 함수를 화살표(renderMyHomeStickers)로 잡으면 감싼 함수가 자기를 부르는 무한 재귀가 된다.
-   ★ 이 묶음이 window 에 거는 이름은 예전 그대로 window 에 건다 — commitMyHomePage · _mhOpenColorPopup · _mhBeginNameEdit ·
-     _mhCancelNameEdit · _mhBgmRefresh · _mhBgmPlaying · _mhBgmSetPlaying · _bgmDestroy · _mhApplyBg · _mhApplyTheme · _mhDsClose.
-     app.js(마이홈 열기 · 닫기 · 관람 · 마이홈 바탕화면) · myhome-sticker.js · purikura-ui.js 가 그 이름으로 부른다.
+   ★ 이 묶음이 window 에 거는 이름 — commitMyHomePage · _mhOpenColorPopup · _mhBeginNameEdit · _bgmDestroy · _mhApplyBg · _mhApplyTheme · _mhDsClose.
+     app.js(마이홈 닫기)와 이 파일 안이 그 이름으로 부른다. 다른 마이홈 파일 · 설정 패널 · 스티커사진은 🪝 고리판(myhome-hooks.js)으로
+     부른다 — 저장 · 배경 · 테마 · BGM(새로 고침 · 재생 중 · 표시) · BGM 창 · 스튜디오 닫기 · 닉네임 취소를 만들 때 고리판에도 건다(순환 끊기 8).
    ★ createMyHomeEdit 는 app.js 의 원래 자리(🔗 마이홈 본문 링크 뒤 · 📖 방명록 연결 앞)에서 부른다. 만들 때 바로 도는 것
      (버튼 · 입력칸 연결 · window 고리 · companion.onBgmClosed · onBgmMode 구독)이 예전과 같은 순서 · 같은 때에 돈다.
    ⚠️ document · window · companion · firebaseAPI · localStorage 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
@@ -62,6 +62,8 @@ const DS_IMG_MAX_BG_W = deps.dsImgMaxBgW;                // 👑 디자인 스�
 const DS_IMG_MAX_BG_H = deps.dsImgMaxBgH;
 const DS_IMG_MAX_PANEL = deps.dsImgMaxPanel;
 const DS_IMG_QUALITY = deps.dsImgQuality;
+const mhHooks = TwMyHomeHooks;                           // 🪝 마이홈 고리판(myhome-hooks.js — 먼저 싣는 아래층) — 다른 파일이 부를 함수를 건다
+const mhPreset = TwMyHomePreset;                         // 👑 디자인 프리셋 규칙(myhome-preset.js — 먼저 싣는 아래층 · 순수 함수)
 
   // ★ 저장 버튼 없이 자동저장 — 아래 여러 지점(사진 변경/스티커 추가삭제이동/텍스트칸에서 포커스 벗어남)에서
   //   이 함수를 호출해서 그 즉시 Firebase에 반영함.
@@ -103,6 +105,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     }
   }
   window.commitMyHomePage = commitMyHomePage;   // 탭 전환/창 닫힘 등 다른 곳에서도 재사용
+  mhHooks.on(mhHooks.HOOK.COMMIT, commitMyHomePage);
   // 프로필 사진 — 클릭하면 파일 선택, 선택하면 정사각형으로 크롭+축소해서 용량을 줄인 뒤 base64로 저장
   const avatarBig=document.getElementById('mhAvatarBig');
   const avatarInput=document.getElementById('mhAvatarInput');
@@ -446,7 +449,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     inp.focus(); inp.select();
     let canceled=false;
     const finish=()=>{
-      window._mhCancelNameEdit = null;
+      mhHooks.on(mhHooks.HOOK.CANCEL_NAME_EDIT, null);
       if(!canceled) commitUserName(inp.value);
       nameEl.textContent = _mhViewingUserId() ? _mhViewingDisplayName() : getDisplayName();
       nameEl.style.display='';
@@ -466,7 +469,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     inp.addEventListener('blur', finish);
     /* 밖에서 이 편집을 **저장 없이** 접는 유일한 길. 관람 모드 전환이 이걸 쓴다.
        ⚠️ finish 안에서 반드시 null 로 되돌린다 — 남겨 두면 이미 사라진 입력칸을 가리킨다. */
-    window._mhCancelNameEdit = ()=>{ canceled=true; inp.blur(); };
+    mhHooks.on(mhHooks.HOOK.CANCEL_NAME_EDIT, ()=>{ canceled=true; inp.blur(); });
   }
   window._mhBeginNameEdit = _mhBeginNameEdit;   // 친구 탭 쪽 버튼도 같은 한 벌을 쓴다
   // 「수정」 링크와 닉네임 더블클릭 — 진입로는 둘, 부르는 함수는 하나.
@@ -555,12 +558,12 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
       }catch(_){}
     });
   }
-  window._mhBgmRefresh=_bgmLabelRefresh;
+  mhHooks.on(mhHooks.HOOK.BGM_REFRESH, _bgmLabelRefresh);
   /* 📷 스티커사진이 열릴 때 «지금 마이홈 BGM 이 나는 중인가»를 물어보고, 재웠다 깨울 때
      표시를 같이 맞춘다. 창(companion)은 셋이 공유하므로 pause/resume 은 그쪽이 한 번만 부른다 —
      여기서는 **표시만** 바꾼다. ⚠️ 여기서 companion 을 또 부르면 두 번 재워진다. */
-  window._mhBgmPlaying = function(){ return !!_bgmPlaying; };
-  window._mhBgmSetPlaying = function(on){ _bgmPlaying = !!on; _bgmLabelRefresh(); };
+  mhHooks.on(mhHooks.HOOK.BGM_PLAYING, function(){ return !!_bgmPlaying; });
+  mhHooks.on(mhHooks.HOOK.BGM_SET_PLAYING, function(on){ _bgmPlaying = !!on; _bgmLabelRefresh(); });
   // ▐▐ 클릭 — 창은 유지, 영상만 일시정지. 다음 ▶ 클릭 시 같은 창에서 재개.
   function _bgmPause(){
     if(window.companion && companion.pauseBgm) companion.pauseBgm();
@@ -575,6 +578,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     _bgmPlaying=false; _bgmWinOpen=false; _bgmLoadedVid=null; _bgmLabelRefresh();
   }
   window._bgmDestroy = _bgmDestroy;   // 마이홈 close 훅에서 재사용
+  mhHooks.on(mhHooks.HOOK.BGM_DESTROY, _bgmDestroy);
   function _bgmStart(){
     const b=_myHomeData().bgm; const vid=b&&_ytId(b.url);
     if(!vid){ toast('오른쪽 ((o 를 눌러 유튜브 링크를 먼저 등록해주세요'); return; }
@@ -589,7 +593,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
       const url='https://www.youtube.com/watch?v='+vid;
       companion.openBgm(url, (b.title||'YouTube BGM'));
       _bgmWinOpen=true; _bgmLoadedVid=vid;
-      setTimeout(()=>{ window._mhSyncBgmBounds(); }, 60);
+      setTimeout(()=>{ mhHooks.call(mhHooks.HOOK.SYNC_BGM_BOUNDS); }, 60);
     }
     _bgmPlaying=true; _bgmLabelRefresh();
   }
@@ -602,7 +606,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     companion.openBgm(url, (b.title||'YouTube BGM'));   // 이미 창이 있으면 main.js가 URL만 교체함
     _bgmWinOpen=true; _bgmPlaying=true; _bgmLoadedVid=vid; _bgmLabelRefresh();
     // 창이 새로 만들어지는 경우를 대비해 위치를 확실히 마이홈 뒤로
-    setTimeout(()=>{ window._mhSyncBgmBounds(); }, 60);
+    setTimeout(()=>{ mhHooks.call(mhHooks.HOOK.SYNC_BGM_BOUNDS); }, 60);
   }
   // 자식창이 유저에 의해(× 눌러) 닫히면 renderer 상태도 동기화
   if(window.companion && companion.onBgmClosed) companion.onBgmClosed(()=>{
@@ -635,6 +639,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     else win.style.background='var(--win-face)';
   }
   window._mhApplyBg=applyMyHomeBg;
+  mhHooks.on(mhHooks.HOOK.APPLY_BG, applyMyHomeBg);
   // 🎨 마이홈 5 + 👑 프리미엄 디자인: 영역별 테마 — theme{...} 키를 각 요소 배경(색/이미지)·글씨색에 적용.
   //   이미지 키(...Img)가 있으면 색보다 우선. 라이선스 보유자(isPremium)/관리자 전용 편집(적용·표시는 누구나).
   function _mhBg(el, color, img){
@@ -701,6 +706,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     // (프로필 레일 제거됨 — fCard 테마 값은 이제 사용 안 함, 저장돼 있어도 무해)
   }
   window._mhApplyTheme=applyMyHomeTheme;
+  mhHooks.on(mhHooks.HOOK.APPLY_THEME, applyMyHomeTheme);
   const editBtn=document.getElementById('mhEditHomeBtn');
   const bgMenu=document.getElementById('mhBgMenu');
   if(editBtn && bgMenu){
@@ -806,6 +812,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
   };
   let _mhDsWin=null, _mhDsTab='home';
   window._mhDsClose = ()=>{ try{ if(_mhDsWin && !_mhDsWin.closed) _mhDsWin.close(); }catch(_){} _mhDsWin=null; };
+  mhHooks.on(mhHooks.HOOK.DS_CLOSE, window._mhDsClose);
   const DS_HTML = '<!doctype html><html><head><meta charset="utf-8"><style>'+
     /* 🎨 [2026-09-15 제보 5] 테마 토큰은 applyThemeToChildDoc 가 넣는다(방명록과 같다). 이 창의 타이틀·프리셋 줄은
        **두 테마 모두 금색** — 유료 표시라 액센트를 안 탄다(--win-title-premium 이 테마별 금색을 정한다). */
@@ -889,51 +896,19 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     '<span style="flex:1;"></span><button id="dsDone" type="button">\uC644\uB8CC</button></div>'+
     '</body></html>';
   /* ══ 👑 디자인 프리셋 (라이선스 전용) ══════════════════════════════════════
-     프리셋 한 칸 = **디자인 한 벌 통째**다. 마이홈·친구·스케줄러 세 탭의 색이 한 덩어리로 들어간다.
-     저장 자리: _myHomeData.themePresets (3칸) · themePresetCur (지금 고른 칸)
-       → users/{uid}/home 아래로 그대로 따라간다. **DB 규칙은 손댈 것이 없다** —
-         그쪽 .validate 는 bio·post·postTitle·avatar 넷에만 걸려 있어 새 자식은 그대로 통과한다.
-
-     ★★ 그림은 담지 않는다 — 용량 때문이 아니라 **덮어쓰기 때문이다.**
-        디자인 스튜디오의 이미지는 이제 base64 가 아니라 Storage URL 인데(uploadUserImage),
-        올리는 자리가 항목당 **고정 슬롯 하나**다(`users/{uid}/bg.jpg`, `users/{uid}/{imgKey}`).
-        즉 프리셋 세 벌이 같은 파일 한 개를 가리키게 되고, 2번 프리셋에서 배경 그림을 바꾸면
-        1번·3번의 그림까지 같이 바뀐다. 프리셋마다 다른 그림을 가지려면 슬롯 이름을 프리셋별로
-        나누고 지우는 시점까지 관리해야 하는데, 그건 이 기능의 몫이 아니다.
-     ⚠️ 그래서 불러오기는 **그림을 건드리지 않는다**. 색만 갈리고 지금 깔린 그림은 그대로 남는다.
-       이 성질을 바꾸려면 위 슬롯 문제부터 풀 것. */
-  const MH_PRESET_MAX = 3;
-  const MH_PRESET_NAME_MAX = 8;   // 세 칸이 340px 안에 나란히 서므로 길면 잘린다
-  /* 그림 키 목록은 **_MH_DS_ROWS 에서 뽑아 쓴다.** 여기에 다시 적으면 항목이 늘 때마다 한쪽만
-     고쳐지고, 빠뜨린 그림 키가 프리셋에 섞여 들어간다(그 순간 위 덮어쓰기 문제가 터진다). */
-  function _mhImgKeySet(){
-    const s = new Set();
-    Object.keys(_MH_DS_ROWS).forEach(tab=>{
-      (_MH_DS_ROWS[tab]||[]).forEach(row=>{ if(row && row.img && !row.group) s.add(_mhDsImgKeyOf(row)); });
-    });
-    return s;
-  }
-  /* 저장본을 항상 3칸 배열로 씻어서 돌려준다.
-     ⚠️ Realtime DB 는 빈 자리가 있는 배열을 {0:…, 2:…} 객체로 되돌려준다 — 배열로 단정하면
-       두 칸만 저장한 사람의 목록이 통째로 사라진다(이 코드베이스의 entriesForCat 과 같은 사정). */
+     프리셋 한 칸 = 디자인 한 벌 통째 — 마이홈 · 친구 · 스케줄러 세 탭의 색과 그림이 한 덩어리로 들어간다.
+     저장 자리: _myHomeData.themePresets (3칸) · themePresetCur (지금 고른 칸) → users/{uid}/home 아래로 그대로 따라간다.
+     «무엇을 담고 · 어떻게 얹는가» 와 그림을 칸마다 다른 파일에 올리는 이름은 myhome-preset.js 한 곳. */
+  const MH_PRESET_MAX = mhPreset.MAX;
+  const MH_PRESET_NAME_MAX = mhPreset.NAME_MAX;
+  /* 그림 키 목록은 _MH_DS_ROWS 에서 뽑는다 — 다시 적으면 항목이 늘 때 한쪽만 고쳐진다 */
+  function _mhImgKeySet(){ return mhPreset.imgKeys(_MH_DS_ROWS); }
+  /* 저장본을 항상 3칸 배열로 씻어서 돌려준다(RTDB 가 빈 자리 배열을 객체로 돌려주는 것까지 — myhome-preset.js normalize) */
   function _mhPresets(){
-    const out = new Array(MH_PRESET_MAX).fill(null);
-    const raw = _myHomeData() && _myHomeData().themePresets;
-    if(!raw || typeof raw !== 'object') return out;
-    for(let i = 0; i < MH_PRESET_MAX; i++){
-      const p = raw[i];
-      if(!p || typeof p !== 'object') continue;
-      out[i] = {
-        name : String(p.name || '').slice(0, MH_PRESET_NAME_MAX),
-        theme: (p.theme && typeof p.theme === 'object') ? p.theme : {},
-        bg   : (p.bg && p.bg.color) ? { color: p.bg.color } : null,
-      };
-    }
-    return out;
+    return mhPreset.normalize(_myHomeData() && _myHomeData().themePresets);
   }
   function _mhPresetCur(){
-    const n = parseInt(_myHomeData() && _myHomeData().themePresetCur, 10);
-    return (n >= 0 && n < MH_PRESET_MAX) ? n : 0;
+    return mhPreset.cur(_myHomeData() && _myHomeData().themePresetCur);
   }
   function _mhPresetLabel(i){
     const p = _mhPresets()[i];
@@ -945,41 +920,22 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     if(!p) return '';
     return (p.bg && p.bg.color) || (p.theme && (p.theme.tab || p.theme.left || p.theme.right)) || '';
   }
-  /* 지금 화면의 디자인을 i 번 칸에 담는다 — **색만.** */
+  /* 지금 화면의 디자인을 i 번 칸에 담는다 */
   function _mhPresetSave(i){
-    const imgKeys = _mhImgKeySet();
-    const t = _myHomeData().theme || {};
-    const theme = {};
-    Object.keys(t).forEach(k=>{ if(!imgKeys.has(k) && t[k]) theme[k] = t[k]; });
     const arr = _mhPresets();
-    arr[i] = {
-      name : (arr[i] && arr[i].name) || '',
-      theme,
-      bg   : (_myHomeData().bg && _myHomeData().bg.color) ? { color: _myHomeData().bg.color } : null,
-    };
+    arr[i] = mhPreset.snapshot(_myHomeData(), _mhImgKeySet(), arr[i] && arr[i].name);
     _myHomeData().themePresets = arr;
     _myHomeData().themePresetCur = i;
     commitMyHomePage(true);
     toast('👑 ' + _mhPresetLabel(i) + ' 에 저장했어요');
   }
-  /* i 번 칸의 디자인을 화면에 얹는다.
-     ★ 색은 **통째로 갈린다** — 프리셋에 없는 색은 지운다. 얹기만 하면 이전 디자인의 색이
-       남아 섞이고, 같은 프리셋을 불러도 어디서 왔는지 모를 색이 하나씩 붙는다.
-     ⚠️ 그림 키(*Img)와 배경 그림은 **손대지 않는다**(위 ★★ 참고). */
+  /* i 번 칸의 디자인을 화면에 얹는다 */
   function _mhPresetApply(i){
     const p = _mhPresets()[i];
     if(!p) return false;
-    const imgKeys = _mhImgKeySet();
-    const cur = _myHomeData().theme || {};
-    const next = {};
-    Object.keys(cur).forEach(k=>{ if(imgKeys.has(k)) next[k] = cur[k]; });   // 그림은 그대로 살린다
-    Object.keys(p.theme || {}).forEach(k=>{ if(!imgKeys.has(k)) next[k] = p.theme[k]; });
-    _myHomeData().theme = next;
-    /* 바깥 배경 — 지금 그림이 깔려 있으면 건드리지 않는다. bg 는 color 와 img 가 배타적이라
-       색을 넣는 순간 그림이 사라지는데, 그건 "그림은 그대로 남는다"는 약속을 깨는 것이다. */
-    if(!(_myHomeData().bg && _myHomeData().bg.img)){
-      _myHomeData().bg = (p.bg && p.bg.color) ? { color: p.bg.color } : null;
-    }
+    const next = mhPreset.apply(_myHomeData(), p, _mhImgKeySet());
+    _myHomeData().theme = next.theme;
+    _myHomeData().bg = next.bg;
     _myHomeData().themePresetCur = i;
     window._mhApplyBg();
     window._mhApplyTheme();
@@ -1058,7 +1014,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     const save = d.createElement('span');
     save.className = 'ps-save' + (_mhDsArmed === 'save' ? ' armed' : '');
     save.textContent = _mhDsArmed === 'save' ? '한 번 더' : '저장';
-    save.title = _mhPresetLabel(cur) + ' 에 지금 디자인 담기 (색만 — 그림은 안 담겨요)';
+    save.title = _mhPresetLabel(cur) + ' 에 지금 디자인 담기 (색 · 그림 모두)';
     save.addEventListener('click', ()=>{
       /* 빈 칸에는 덮어쓸 것이 없으므로 그냥 담는다. 되돌릴 수 없는 것만 두 번 묻는다. */
       if(!arr[cur]){ _mhPresetSave(cur); _mhDsRenderPresets(); return; }
@@ -1095,7 +1051,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
     inp.focus(); inp.select();
   }
 
-  function _mhDsImgKeyOf(row){ return row.imgKey || (row.key+'Img'); }
+  function _mhDsImgKeyOf(row){ return mhPreset.imgKeyOf(row); }
   function _mhDsRender(){
     if(!_mhDsWin || _mhDsWin.closed) return;
     const d=_mhDsWin.document;
@@ -1162,7 +1118,7 @@ const DS_IMG_QUALITY = deps.dsImgQuality;
           const kb = Math.round(dataUrl.length * 0.75 / 1024);
           toast(`이미지를 올리는 중… (${c.width}×${c.height}, 약 ${kb}KB)`);
           try{
-            const slot = isBg ? 'bg' : String(imgKey);
+            const slot = mhPreset.uploadSlot(_mhPresetCur(), isBg ? 'bg' : imgKey);   // 고른 칸마다 다른 파일 — 다른 칸이 담은 그림을 덮지 않게
             const res = await firebaseAPI.uploadUserImage(getMyUserId(), slot, dataUrl);
             if(res && res.ok){ applyUrl(res.url); toast(`이미지를 등록했어요 (${c.width}×${c.height}, 약 ${kb}KB)`); }
             else toast((res && res.reason) || '업로드에 실패했어요');

@@ -22,6 +22,7 @@ const F = win.FrameBudget;
 
 say('── 1. pickFps');
 chk(F.FPS_ACTIVE === 60 && F.FPS_IDLE === 30 && F.FPS_UNFOCUSED === 20, '상한 셋: 60 · 30 · 20');
+chk(F.FPS_LAUNCHER === 30, '런처 미리보기 상한 30(주사율만큼 그리지 않는다)');
 const idle = F.IDLE_AFTER_MS;
 chk(F.pickFps({ focused:true, runMode:true, idleMs:0 }) === 60, '포커스 · 방금 손댐 → 60(상한 없음이 아니다)');
 chk(F.pickFps({ focused:true, runMode:true, idleMs:idle - 1 }) === 60, '문턱 직전 → 60');

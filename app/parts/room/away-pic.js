@@ -17,6 +17,7 @@ const _premiumOn = deps._premiumOn;
 const camera = deps.camera;
 const findMySeat = deps.findMySeat;
 const getMyUserId = deps.getMyUserId;
+const measureBodyBox = deps.measureBodyBox;
 const measureHeadBoxNoParts = deps.measureHeadBoxNoParts;
 const officeMode = deps.officeMode;   // 읽는 함수
 const renderer = deps.renderer;
@@ -97,7 +98,7 @@ function _awayImgFrame(seat, url, now){
     try{
       if(!_awayBox){ _awayBox = new THREE.Box3(); _awayGW = new THREE.Vector3(); }
       seat.rig.updateMatrixWorld(true);
-      _awayBox.setFromObject(seat.bodyWrap || seat.rig);
+      measureBodyBox(seat.bodyWrap || seat.rig, null, _awayBox);
       seat.group.getWorldPosition(_awayGW);
       const bh = _awayBox.max.y - _awayBox.min.y;
       if(!(bh > 0.05 && bh < 10)){ sp.visible = false; return; }
@@ -117,7 +118,7 @@ function _awayImgFrame(seat, url, now){
       if(_host && _host.rig && seats.indexOf(_host) >= 0){
         if(!_awayHostBox) _awayHostBox = new THREE.Box3();
         _host.rig.updateMatrixWorld(true);
-        _awayHostBox.setFromObject(_host.bodyWrap || _host.rig);
+        measureBodyBox(_host.bodyWrap || _host.rig, null, _awayHostBox);
         /* 🩹 [2026-10-02 제보 «머리 위에 올리면 연 날리는 것처럼 엄청 떠 있다»] 위 상자는 모자·뿔 파츠, 숨긴 장식,
            바인드포즈 리깅 파츠, 숨은 placeholder 까지 담아 «꼭대기» 가 머리보다 한참 위였다. 탑쌓기(올라타기 높이)가
            이미 쓰는 «맨 머리 꼭대기» 측정(measureHeadBoxNoParts)으로 갈아 끼운다.

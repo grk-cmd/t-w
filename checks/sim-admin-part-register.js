@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 책상 · 아이템 등록 버튼 둘을 건다 · 내놓는 이름(다섯 + 검사용 PART_PUBLISH_FIELDS) · 서버 안 부름
    ・2절: 파츠 삭제 — 지금 목록(다시 대입된 뒤)을 읽고 setSavedParts 로 바꿔 끼움 · 캐시 비움 · 입은 좌석에서 벗김 · 카탈로그에서 내림 · 꾸미기 다시 그림
    ・3절: 값 열세 개는 읽는 함수로만 — 모듈 안에 이름만 쓴 자리(값으로 붙잡는 자리)가 없다
-   ・4절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 · 원래 자리 · deps 42(함수 26 · 좌석 1 · 읽는 함수 13 · 쓰는 함수 1 · 꾸미기에 거는 함수 1) · 부르는 곳 13 · 🎰 gacha deps 셋 · html
+   ・4절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 · 원래 자리 · deps 42(함수 26 · 좌석 1 · 읽는 함수 13 · 쓰는 함수 1 · 꾸미기에 거는 함수 1) · 부르는 곳 14(갈고리 포함) · 🎰 gacha deps 셋 · html
    ・5절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · admin-part-register.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -25,8 +25,8 @@ const noStr = (s) => s.replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|
 
 const VALUES = ['MAX_CUSTOM_ASSETS', 'MAX_CUSTOM_ITEMS', 'MAX_GACHA_PARTS_PER_CAT', 'MAX_GLB_BYTES', 'MAX_PARTS_PER_CAT',
   'PART_CATS', 'gachaMod', 'partSceneCache', 'savedDesks', 'savedItems', 'savedParts', 'wdGizmo', 'wdPreviewBase'];
-const FNS = ['_b64', 'applyClothVisibility', 'catEquippedIds', 'equipPartOnSeat', 'findEntryById', 'fitModel', 'generatePartThumbnail', 'getPartScene',
-  'getRecHides', 'parseGlbBytes', 'partCatInfo', 'partCatLimit', 'partEntryXf', 'partsInCat', 'partsInCatFor', 'persistSavedParts', 'removeEntryFromCat',
+const FNS = ['_b64', 'applyClothVisibility', 'catEquippedIds', 'equipPartOnSeat', 'findEntryById', 'generatePartThumbnail', 'getPartScene',
+  'getRecHides', 'parseGlbBytes', 'partCatInfo', 'partCatLimit', 'partEntryXf', 'partsInCat', 'partsInCatFor', 'persistSavedParts', 'refitSeatAfterParts', 'removeEntryFromCat',
   'renderCrItems', 'renderWardrobe', 'resolveCatalogGlb', 'saveSlots', 'syncWdGizmoToXf', 'toHidesForSave', 'toast', 'unequipPartFromSeat', 'unequipStackablePart'];
 const EXPORTS = ['openPartRegister', 'openDeskRegister', 'deletePart', 'buildPartPublishData', 'syncPartRegGachaLock'];
 
@@ -105,11 +105,12 @@ async function judgeAll(src, app, html, ward = WARD){
   t(h81 > 0 && h82 > h81 && app.indexOf('const adminPartReg =') > h82, '만드는 줄은 원래 자리(두 구역 머리 아래)');
   /* app.js 를 공용 도우미로 되살려 읽으면 꾸미기 본문이 이미 app.js 글 안에 있다 — 그때는 wardrobe.js 를 따로 세지 않는다(두 번 세기 방지) */
   const W = /function renderWardrobe\(/.test(A) ? '' : strip(ward);
-  const callers = (A.match(/(?:adminPartReg|_adminPartActions)\.(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length
+  /* 책상 세팅(creator/desk-setup.js)은 관리자 등록 창을 갈고리 _hooks.openDeskRegister 로 부른다(deps 로 받으면 순환) — 갈고리도 부르는 곳으로 센다 */
+  const callers = (A.match(/(?:adminPartReg|_adminPartActions|_hooks)\.(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length
     + (W.match(/adminPartReg\(\)\.(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length;
   const oldCalls = (A.match(/(^|[^.\w$])(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length
     + (W.match(/(^|[^.\w$])(openPartRegister|openDeskRegister|deletePart|buildPartPublishData|syncPartRegGachaLock)\(/g) || []).length;
-  t(callers === 13 && oldCalls === 0, '부르는 곳 13 — 모두 adminPartReg.이름 (꾸미기 — wardrobe.js 는 건네받은 _adminPartActions · 책상 · 아이템 · 썸네일 굽기 · 🎰 gacha setPartEditor 셋)');
+  t(callers === 14 && oldCalls === 0 && /openDeskRegister: \(\.\.\.a\)=>adminPartReg\.openDeskRegister\(\.\.\.a\),/.test(app), '부르는 곳 14 — 모두 adminPartReg.이름 (꾸미기 — wardrobe.js 는 건네받은 _adminPartActions · 책상 · 아이템 카드는 갈고리 _hooks.openDeskRegister 6곳 + 잇는 줄 · 썸네일 굽기 · 🎰 gacha setPartEditor 셋)');
   t(/openPartRegister: \(\.\.\.a\)=>adminPartReg\.openPartRegister\(\.\.\.a\),/.test(app) && /syncPartRegGachaLock: \(\.\.\.a\)=>adminPartReg\.syncPartRegGachaLock\(\.\.\.a\),/.test(app)
     && /deletePart: \(\.\.\.a\)=>adminPartReg\.deletePart\(\.\.\.a\),/.test(app), '🎰 gacha.js 에는 setPartEditor 로 — adminPartReg 을 거친다');
   t(/window\.TwAdminPartRegister = api;/.test(src) && /module\.exports = api;/.test(src), '전역 이름 TwAdminPartRegister(Tw 접두사)');
@@ -130,7 +131,7 @@ async function judgeAll(src, app, html, ward = WARD){
     ['캐시를 안 비움', { mod: s => s.replace('  partSceneCache().delete(id);\n  // 모든 좌석에서', '  // 모든 좌석에서') }],
     ['카탈로그에서 안 내림', { mod: s => s.replace('window.firebaseAPI.unpublishPart(id).catch(()=>{});', '') }],
     ['책상 등록 버튼 안 걺', { mod: s => s.replace("document.getElementById('deskRegBtn').onclick=", "document.getElementById('deskRegBtnX').onclick=") }],
-    ['옛 이름으로 부름', { app: s => s.replace("adminPartReg.openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)", "openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)") }],
+    ['옛 이름으로 부름', { app: s => s.replace("_hooks.openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)", "openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID)") }],
     /* 꾸미기 본문은 되살린 app.js 글 안에 있다(공용 도우미) — 거기서 옛 이름으로 바꿔 본다 */
     ['꾸미기에서 옛 이름으로 부름', { app: s => s.replace('_adminPartActions.openPartRegister(info.cat)', 'openPartRegister(info.cat)') }],
     ['gacha deps 가 옛 이름', { app: s => s.replace('  deletePart: (...a)=>adminPartReg.deletePart(...a),', '  deletePart: (...a)=>deletePart(...a),') }],

@@ -2,6 +2,7 @@
  * 계정 삭제(adminDeleteAccount) 검사. functions/account-delete.js 를 그대로 불러 가짜 DB · 가짜 Storage · 가짜 로그인으로 돌린다.
  * 1. 입력 모양  2. 겹치는 경로  3. 미리 보기(지울 것 · 남길 것)  4. 로그인 계정 안전장치  5. 호출 권한  6. 실행 순서 · 작업 기록
  * 7. 다시 실행(이어서 지우기)  8. index.js 연결 · 규칙 · CSP
+ * 9. 본인 탈퇴(deleteMyAccount) 서버  10. 앱 모듈(account-delete-net.js)  11. 앱 연결 · 화면(고지 · 확인)
  */
 'use strict';
 const fs = require('fs');
@@ -15,6 +16,17 @@ const RULES = need('firebase-database-rules.json');
 const FX = need('functions/index.js');
 const FB = need('firebase.json');
 need('functions/account-delete.js');
+// 러너는 app/ 을 한 층 펼쳐 돌린다 — 저장소 자리 · 펼친 자리 둘 다 본다. web-admin/ 은 러너가 빼므로 있을 때만 본다.
+const needAny = (...fs_) => { for (const f of fs_){ const s = read(f); if (s != null) return s; } return need(fs_[fs_.length - 1]); };
+const inApp = (rel) => needAny('app/' + rel, rel);
+const ADN = inApp('parts/account/account-delete-net.js');
+const FI = inApp('parts/firebase-init.js');
+const HTML = inApp('desk-companion-prototype.html');
+const ACC = inApp('parts/account/account.js');
+const MI = inApp('parts/account/my-info.js');
+const APPJS = inApp('parts/app.js');
+const WA_AUDIT = read('web-admin/src/shared/api/audit.ts');
+const WA_LOG = read('web-admin/src/entities/admin-log/model/adminLog.ts');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
@@ -125,6 +137,21 @@ function world(){
       r4: { name: '누군가', status: 'pending' },
     },
     adminLog: { a1: { at: 1, by: ADMIN, action: 'license.issue', target: 'x' } },
+    // 버그 제보 — b1 · b2 는 이 사람(같은 로그인 · 같은 코드), b3 는 남, b4 는 같은 로그인이 다른 코드로 쓴 글(두고 간다)
+    bugBoard: {
+      list: {
+        b1: { authUid: 'authMe', code: ME, vis: 'pub', status: 'fixed', ts: 1, no: 'B-1001-1' },
+        b2: { authUid: 'authMe', code: ME, vis: 'prv', status: 'new', ts: 2, openTs: 2 },
+        b3: { authUid: 'authBob', code: BOB, vis: 'pub', status: 'new', ts: 3, openTs: 3 },
+        b4: { authUid: 'authMe', code: 'uother000009', vis: 'pub', status: 'new', ts: 4, openTs: 4 },
+      },
+      pub: { b1: { title: '공개', body: '내용' }, b3: { title: '남', body: '내용' }, b4: { title: '딴 코드', body: '내용' } },
+      prv: { authMe: { b2: { title: '비공개', body: '내용' } } },
+      ans: { pub: { b1: { r1: { text: '고쳤어요', ts: 5 } } } },
+      rep: { prv: { b2: { x1: { text: '고마워요', ts: 6 } } } },
+      likes: { b1: { authBob: true }, b3: { authMe: true } },
+      seq: { '2026-10-01': 1 },
+    },
     rooms: { R1: { chatLog: { c1: { userId: ME, text: '안녕' } } } },
     stats: { userCount: 3 },
   };
@@ -166,6 +193,8 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
       'friendRequests/' + ME, 'sentFriendRequests/' + ME, 'sentFriendRequests/ucarl0000004/' + ME, 'friendRequests/udan00000005/' + ME,
       'roomInvites/' + ME, 'roomInvites/' + AMY + '/' + ME, 'secretRooms/SCRT-AAAA', 'invites/INVT-AAAA-AAAA',
       'metrics/daily/2026-10-06/u/' + ME, 'licenseRequests/r1', 'licenseRequests/r2',
+      'bugBoard/list/b1', 'bugBoard/pub/b1', 'bugBoard/ans/pub/b1', 'bugBoard/likes/b1',
+      'bugBoard/list/b2', 'bugBoard/prv/(로그인 계정)/b2', 'bugBoard/rep/prv/b2',
     ];
     const missing = expect.filter((p) => !paths.includes(p));
     const extra = paths.filter((p) => !expect.includes(p));
@@ -177,8 +206,12 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(out.friendCode === 'MATE-DEL1' && out.name === '지울이', '확인용 친구 코드 · 이름');
     chk(!JSON.stringify(out).includes('authMe') && paths.includes('authUsers/(로그인 계정)'), '돌려주는 값에 로그인 계정 uid 를 싣지 않는다(경로도 가린다)');
     chk(W.updates.length === 0 && W.order.length === 0, '미리 보기는 아무것도 쓰지 · 지우지 않는다');
-    const keptKeys = ['reports', 'licenses', 'licenseRequests/r3', 'licenseRequests/r4', 'adminLog', 'metrics/summary', 'rooms', 'stats', 'users/' + BOB + '/guestbook', 'invites/INVT-BBBB-BBBB'];
+    const keptKeys = ['bugBoard/list/b3', 'bugBoard/pub/b3', 'bugBoard/likes/b3', 'bugBoard/list/b4', 'bugBoard/pub/b4', 'bugBoard/seq', 'reports', 'licenses', 'licenseRequests/r3', 'licenseRequests/r4', 'adminLog', 'metrics/summary', 'rooms', 'stats', 'users/' + BOB + '/guestbook', 'invites/INVT-BBBB-BBBB'];
     chk(keptKeys.every((k) => !paths.some((p) => p === k || p.startsWith(k + '/') || k.startsWith(p + '/'))), '남기는 것(신고 · 라이선스 키 · 남의 신청 · 작업 기록 · 합계 · 방 채팅 · 남의 방명록 · 쓰인 초대)은 목록에 없다');
+    const br = out.groups.find((g) => g.key === 'bugReport');
+    chk(!!br && br.count === 7 && /버그 제보/.test(br.label), '버그 제보 — 이 사람 글 둘(공개 · 비공개)과 그 답변 · 답글 · 공감을 «버그 제보» 묶음에 · 없는 칸은 세지 않는다');
+    chk(W.reads.includes('bugBoard/list?authUid=authMe') && !W.reads.includes('bugBoard/list'), '  ↳ 제보 목록은 통째로 읽지 않고 로그인 계정 색인 조회만');
+    chk(!br.paths.some((p) => /authMe/.test(p)), '  ↳ 비공개 글 경로의 로그인 uid 는 가린다');
     const lr = out.groups.find((g) => g.key === 'licenseRequest');
     chk(!!lr && lr.count === 2 && /라이선스 신청 기록/.test(lr.label), '라이선스 신청 기록 — 친구 코드로 · 등록한 키(issuedKey)로 찾은 둘을 «라이선스 신청 기록» 묶음에');
     chk(W.reads.includes('licenseRequests?friendCode=MATE-DEL1') && W.reads.includes('licenseRequests?issuedKey=KEEP-AAAA-BBBB-CCCC') && !W.reads.includes('licenseRequests'),
@@ -254,6 +287,9 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(!W.at('users/' + BOB + '/friends/' + ME) && !!W.at('users/' + AMY + '/friends/' + BOB), '친구 목록에서 이 사람만 빠지고 다른 친구 관계는 그대로');
     chk(!!W.at('roomInvites/' + BOB + '/' + AMY) && !W.at('roomInvites/' + AMY + '/' + ME), '남이 보낸 방 초대는 그대로 · 이 사람이 보낸 것만 사라짐');
     chk(!!W.at('reports/' + ME) && !!W.at('reports/' + BOB + '/' + ME) && !!W.at('licenses/KEEP-AAAA-BBBB-CCCC'), '신고 · 라이선스 키는 남는다');
+    chk(!W.at('bugBoard/list/b1') && !W.at('bugBoard/prv/authMe/b2') && !W.at('bugBoard/ans/pub/b1') && !W.at('bugBoard/likes/b1')
+        && !!W.at('bugBoard/list/b3') && !!W.at('bugBoard/likes/b3/authMe') && !!W.at('bugBoard/list/b4') && W.at('bugBoard/seq/2026-10-01') === 1,
+        '버그 제보는 이 사람(같은 코드) 글만 통째로 사라지고 남의 글 · 다른 코드 글 · 번호 카운터는 남는다');
     chk(!W.at('licenseRequests/r1') && !W.at('licenseRequests/r2') && !!W.at('licenseRequests/r3') && !!W.at('licenseRequests/r4'), '이 사람 신청 기록만 사라지고 남의 신청 · 사람을 알 수 없는 신청은 그대로');
     chk(!!W.at('metrics/daily/2026-10-06/u/' + BOB) && W.at('metrics/daily/2026-10-06/visits') === 3 && !!W.at('metrics/summary/2026-10-06'), '접속 명단에서 이 사람만 빠지고 숫자 · 합계는 그대로');
     chk(!!W.at('invites/INVT-BBBB-BBBB') && !W.at('invites/INVT-AAAA-AAAA') && !!W.at('secretRooms/SCRT-BBBB'), '쓰인 초대 · 남의 시크릿룸은 남는다');
@@ -296,9 +332,143 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     try{ csp = (JSON.parse(FB).hosting.headers.find((h) => h.source === '/admin/**').headers.find((h) => h.key === 'Content-Security-Policy') || {}).value || ''; }catch(_){}
     chk(/connect-src[^;]*https:\/\/\*\.cloudfunctions\.net/.test(csp), '웹 관리자 CSP connect-src 에 호출형 함수 주소(*.cloudfunctions.net)');
     /* 관리자 API(읽기 DB) — 웹 관리자가 부르는 주소(shared/api PROD_API_BASE_URL)가 CSP 에 없으면 브라우저가 막아 늘 RTDB 통째 읽기로 폴백한다(2026-10-13 실제로 그랬다). */
-    const apiBase = 'https://api.togetherworking.duckdns.org';   // web-admin/src/shared/api/api.ts PROD_API_BASE_URL 와 같아야 한다
+    const apiBase = 'https://api.together-working.com';   // web-admin/src/shared/api/api.ts PROD_API_BASE_URL 와 같아야 한다
     chk(!!apiBase && new RegExp('connect-src[^;]*' + apiBase.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&') + '(\\s|;|$)').test(csp),
         '웹 관리자 CSP connect-src 에 관리자 API 주소(' + (apiBase || '?') + ') — 없으면 API 대신 늘 폴백');
+  }
+
+  say('── 9. 본인 탈퇴(deleteMyAccount) — 서버');
+  {
+    const selfReq = (uid, data, prov) => ({ auth: { uid, token: { firebase: { sign_in_provider: prov || 'password' } } }, data });
+    let w = world();
+    const tryCall = async (req) => { try{ await m.handleSelfDeleteAccount(w.db, req, w.deps, T0); return null; }catch(e){ return e.httpsCode; } };
+    chk(await tryCall({ data: {} }) === 'unauthenticated', '로그인 안 함 → unauthenticated');
+    chk(await tryCall(selfReq('authMe', { dryRun: false, confirm: '탈퇴' }, 'anonymous')) === 'failed-precondition', '익명(가입 전) → 거절');
+    chk(await tryCall(selfReq('authMe', { dryRun: false })) === 'invalid-argument', '확인 글자 없이 dryRun:false → 거절');
+    chk(await tryCall(selfReq('authMe', { dryRun: false, confirm: '탈 퇴' })) === 'invalid-argument', '  ↳ 글자가 조금이라도 다르면 거절');
+    chk(await tryCall(selfReq('nobody', { dryRun: true })) === 'failed-precondition', '로그인에 묶인 코드가 없으면 거절');
+    w.tree.userAuth[ME] = 'authBob';
+    chk(await tryCall(selfReq('authMe', { dryRun: false, confirm: '탈퇴' })) === 'permission-denied', '★ authUsers 는 내 코드를 가리켜도 userAuth 가 다른 로그인이면 거절(남의 코드)');
+    chk(w.updates.length === 0 && w.order.length === 0, '  ↳ 거절된 호출은 아무것도 지우지 않는다');
+
+    w = world();
+    w.tree.admins.authMe = true;
+    chk(await tryCall(selfReq('authMe', { dryRun: false, confirm: '탈퇴' })) === 'failed-precondition' && w.order.length === 0, '관리자 계정은 스스로 탈퇴할 수 없다(관리자 삭제와 같은 안전장치)');
+
+    w = world();
+    w.tree.users[ME].presence.online = true;
+    const pv = await m.handleSelfDeleteAccount(w.db, selfReq('authMe', { code: BOB }), w.deps, T0);
+    chk(pv.dryRun === true && pv.code === ME && w.updates.length === 0 && w.order.length === 0, 'dryRun 을 빠뜨리면 미리 보기 · 대상은 입력(code)이 아니라 로그인이 정한다');
+    chk(!pv.warnings.some((x) => /접속 중/.test(x)), '«지금 접속 중» 경고는 본인에게 보이지 않는다(앱이 연결을 끊고 부른다)');
+    const adm = await m.handleAdminDeleteAccount(w.db, adminReq({ code: ME, dryRun: true }), w.deps, T0);
+    chk(JSON.stringify(adm.groups) === JSON.stringify(pv.groups) && adm.dbCount === pv.dbCount && adm.storage.count === pv.storage.count, '★ 지우는 범위는 관리자 삭제와 똑같다');
+    chk(adm.warnings.some((x) => /접속 중/.test(x)), '  ↳ 관리자 화면에는 «접속 중» 경고가 그대로');
+
+    const out = await m.handleSelfDeleteAccount(w.db, selfReq('authMe', { dryRun: false, confirm: '탈퇴' }), w.deps, T0);
+    chk(out.done && out.done.auth === true && out.done.files === 5 && out.done.db === out.dbCount, '탈퇴 — DB · 파일 · 로그인 계정을 지운다');
+    chk(!w.at('users/' + ME) && !w.at('userAuth/' + ME) && !w.authUsers.authMe && !w.at('users/' + BOB + '/friends/' + ME), '  ↳ 본인 노드 · 로그인 · 친구들 목록 속 이 사람이 사라졌다');
+    chk(!!w.at('reports/' + ME) && !!w.at('licenses/KEEP-AAAA-BBBB-CCCC') && !!w.at('users/' + BOB + '/guestbook/g9'), '  ↳ 남기는 것(신고 · 라이선스 키 · 남의 방명록)은 그대로');
+    const patch = w.updates[0] || {};
+    const lk = Object.keys(patch).filter((k) => k.startsWith('adminLog/'));
+    const log = patch[lk[0]] || {};
+    let rules = null; try{ rules = JSON.parse(RULES).rules; }catch(_){}
+    const al = rules && rules.adminLog && rules.adminLog.$logId;
+    const actRe = al && new RegExp(al.action['.validate'].match(/matches\(\/(.+?)\/\)/)[1]);
+    chk(lk.length === 1 && log.action === 'account.selfDelete' && !!actRe && actRe.test(log.action), '작업 기록 action «account.selfDelete» — 규칙 모양 · 관리자 삭제와 갈린다');
+    chk(log.by === 'authMe' && log.target === ME && Object.keys(log).sort().join() === 'action,at,by,detail,target', '  ↳ by = 본인 로그인 · target = 코드 · 칸 다섯');
+    chk(await tryCall(selfReq('authMe', { dryRun: false, confirm: '탈퇴' })) === 'failed-precondition' && w.updates.length === 1, '다 지운 뒤 다시 부르면 묶인 코드가 없어 거절 — 더 지우거나 기록하지 않는다');
+  }
+  {
+    const w = world();
+    w.deps.deleteAuthUser = async () => { throw new Error('net'); };
+    let err = null; try{ await m.handleSelfDeleteAccount(w.db, { auth: { uid: 'authMe', token: { firebase: { sign_in_provider: 'google.com' } } }, data: { dryRun: false, confirm: '탈퇴' } }, w.deps, T0); }catch(e){ err = e; }
+    chk(!!err && !!w.at('userAuth/' + ME) && !!w.at('authUsers/authMe'), '로그인 계정 단계에서 멈추면 연결 줄이 남아 — 다시 누르면 본인 확인이 되어 이어서 지운다');
+  }
+
+  say('── 10. 앱 모듈 (account-delete-net.js)');
+  {
+    const mod = new Function(ADN.replace(/^export (function|const) /mg, '$1 ') + '\nreturn { createAccountDelete, DELETE_FN, DELETE_CONFIRM_WORD, deleteErrorReason };')();
+    chk(mod.DELETE_FN === 'deleteMyAccount' && mod.DELETE_CONFIRM_WORD === m.SELF_CONFIRM_WORD, '함수 이름 · 확인 글자가 서버와 같다');
+    const mk = (opt) => {
+      const log = [];
+      const d = {
+        callFn: async (name, data) => { log.push('call:' + name + ':' + JSON.stringify(data)); if (opt && opt.fail) throw Object.assign(new Error('x'), { code: opt.fail, message: '서버 문구' }); return { data: { ok: true, dbCount: 3, done: { db: 3 } } }; },
+        signedIn: () => (opt && opt.signed) || 'ok',
+        cancelPresence: () => { log.push('cancel'); return (opt && opt.hang) ? new Promise(() => {}) : Promise.resolve(); },
+        goOffline: () => log.push('offline'), goOnline: () => log.push('online'),
+        signOut: async () => log.push('signout'),
+      };
+      return { api: mod.createAccountDelete(d), log };
+    };
+    let t = mk();
+    let r = await t.api.preview();
+    chk(r.ok && r.dbCount === 3 && t.log.join('|') === 'call:deleteMyAccount:{"dryRun":true}', '미리 보기 — dryRun:true 로 부르기만 · 연결을 끊지 않는다');
+    t = mk();
+    r = await t.api.run('  탈퇴 ');
+    chk(r.ok && r.done && r.done.db === 3, '탈퇴 — 성공');
+    chk(t.log.join('|') === 'cancel|offline|call:deleteMyAccount:{"dryRun":false,"confirm":"탈퇴"}|signout', '★ 순서: 접속 표시 예약 거두기 → DB 연결 끊기 → 호출 → 로그아웃');
+    t = mk();
+    r = await t.api.run('탈되');
+    chk(!r.ok && t.log.length === 0, '확인 글자가 틀리면 아무것도 안 한다');
+    t = mk({ signed: 'anonymous' });
+    r = await t.api.run('탈퇴');
+    chk(!r.ok && /가입/.test(r.reason) && t.log.length === 0, '익명 세션 — 부르지 않고 안내');
+    t = mk({ signed: 'none' });
+    r = await t.api.preview();
+    chk(!r.ok && /로그인/.test(r.reason) && t.log.length === 0, '세션 없음 — 부르지 않고 안내');
+    t = mk({ fail: 'functions/unavailable' });
+    r = await t.api.run('탈퇴');
+    chk(!r.ok && t.log.join('|').endsWith('|online') && !t.log.includes('signout'), '★ 호출이 실패하면 연결을 다시 잇고 로그아웃하지 않는다');
+    t = mk({ fail: 'functions/failed-precondition' });
+    r = await t.api.run('탈퇴');
+    chk(r.reason === '서버 문구', '서버가 정한 문구(본인 확인 · 관리자 등)는 그대로 보여 준다');
+    chk(/배포 전/.test(mod.deleteErrorReason({ code: 'functions/not-found' })), '함수 배포 전(not-found) 안내');
+    t = mk({ hang: true });
+    const t0 = Date.now();
+    const realST = global.setTimeout;
+    global.setTimeout = (fn, ms) => realST(fn, Math.min(ms, 5));
+    r = await t.api.run('탈퇴');
+    global.setTimeout = realST;
+    chk(r.ok && t.log.includes('offline') && Date.now() - t0 < 2000, '예약 거두기가 서버에 안 닿아도 기다림 한도 뒤 이어 간다');
+    chk(!/from\s+["']https:/.test(strip(ADN)), 'Firebase 를 직접 불러오지 않는다 — deps 로 받는다');
+  }
+
+  say('── 11. 앱 연결 · 화면');
+  {
+    const F = strip(FI);
+    chk(/import \{ createAccountDelete \} from "\.\/account\/account-delete-net\.js";/.test(F), 'firebase-init 이 account-delete-net.js 를 불러온다');
+    const w = F.match(/accountDelete: createAccountDelete\(\{([\s\S]*?)\}\),/);
+    chk(!!w && /await import\(FUNCTIONS_SDK_URL\)/.test(w[1]) && /getFunctions\(fbApp, FUNCTIONS_REGION\)/.test(w[1]), '  ↳ 함수 SDK 는 부를 때 들여온다 · 같은 리전');
+    chk(!!w && /onDisconnect\(_myPresenceRef\)\.cancel\(\)/.test(w[1]) && /goOffline\(db\)/.test(w[1]) && /goOnline\(db\)/.test(w[1]), '  ↳ 접속 표시 예약 거두기 · 연결 끊기 · 다시 잇기를 넘긴다');
+    chk(/goOffline, goOnline\s*\}\s*from "https:\/\/www\.gstatic\.com\/firebasejs\/[\d.]+\/firebase-database\.js"/.test(FI), '  ↳ goOffline · goOnline 은 database SDK 에서');
+    const A = strip(ACC);
+    const fn = A.match(/async function _loginDoDeleteAccount\(word\)\{([\s\S]*?)\n\}/);
+    chk(!!fn && /accountDelete\.run|api\.run\(word\)/.test(fn[1]) && fn[1].indexOf('run(') < fn[1].indexOf('_wipeAccountLocal()'), 'account.js — 서버가 지운 뒤에만 이 PC 기록을 지운다');
+    chk(!!fn && !/_acctFlushToServer|_acctPreflight|releaseDeviceSession/.test(fn[1]), '  ↳ 올리기 · 검문 · 기기 세션 놓기를 하지 않는다(지울 계정에 쓰지 않는다)');
+    chk(/_loginDoDeleteAccount: \(\.\.\.a\)=>accountMod\._loginDoDeleteAccount\(\.\.\.a\)/.test(APPJS) && /const _loginDoDeleteAccount = deps\._loginDoDeleteAccount;/.test(MI), 'app.js 가 my-info.js 로 넘긴다');
+    const box = (HTML.match(/<div id="acctDeleteConfirm"[\s\S]*?<div id="acctDeleteDone"/) || [''])[0];
+    const inLoggedIn = HTML.indexOf('id="acctDeleteBtn"') > HTML.indexOf('id="acctLoggedIn"') && HTML.indexOf('id="acctDeleteBtn"') < HTML.indexOf('id="acctNoLogin"');
+    chk(inLoggedIn, '버튼은 [내 정보 › 계정]의 로그인 얼굴 안');
+    chk(/되돌릴 수 없어요/.test(box) && /지워지는 것/.test(box) && /남는 것/.test(box) && /꼭 알아 두세요/.test(box), '고지 — 되돌릴 수 없음 · 지워지는 것 · 남는 것 · 알아 둘 것');
+    const keptWords = ['신고 기록', '라이선스 키', '방 채팅', '방명록', '작업 기록'];
+    chk(keptWords.every((k) => box.includes(k)) && m.KEPT.length === 7, '  ↳ 남는 것은 서버 KEPT 일곱과 같은 내용(KEPT 를 바꾸면 여기도)');
+    chk(/친구들의 목록에서도/.test(box) && /로그인 계정/.test(box) && /다시 돌려받을 수 없어요/.test(box), '  ↳ 친구 쪽에서도 빠짐 · 로그인 계정 삭제 · 혜택 못 돌려받음');
+    chk(/id="acctDeleteAgree" type="checkbox"/.test(box) && /id="acctDeleteWord"/.test(box) && /id="acctDeleteYes"[^>]*disabled/.test(box), '확인 — 체크 + «탈퇴» 입력 · [탈퇴하기]는 처음에 꺼져 있다');
+    const M = strip(MI);
+    chk(/dAgree\.checked && dWord && dWord\.value\.trim\(\) === '탈퇴'/.test(M), '  ↳ 체크와 글자가 다 맞아야 켜진다');
+    chk(/cancelBtn\.focus\(\)/.test(M), '  ↳ 열면 포커스는 [취소](디자인 시스템 확인창)');
+    // 탈퇴 안내는 계정 탭(로그인 수단 ~ 로그아웃) 자리를 바꿔 보인다 — 아래에 덧붙이면 화면이 너무 길었다
+    chk(/#acctLoggedIn\.acct-deleting > :not\(#acctDeleteZone\)\{display:none !important;\}/.test(HTML) && /<div id="acctDeleteZone"/.test(HTML), '★ 탈퇴 안내를 여는 동안 계정 탭의 다른 칸(로그인 수단 ~ 로그아웃)은 숨는다');
+    chk(/#acctLoggedIn\.acct-deleting \.acct-del-notice\{max-height:none/.test(HTML) && /class="acct-del-notice"/.test(HTML), '  ↳ 그때 고지 상자는 안쪽 스크롤 없이 다 펼친다');
+    chk(/delMode\(true\)/.test(M) && /delMode\(false\)/.test(M) && /classList\.toggle\('acct-deleting'/.test(M), '  ↳ [회원 탈퇴]가 켜고 [취소]가 끈다');
+    chk(/classList\.contains\('acct-deleting'\)[^\n]*dc\.click\(\)/.test(strip(MI)), '  ↳ 탭을 옮기면 열린 안내를 접는다(돌아왔을 때 계정 탭이 사라진 채로 남지 않게)');
+    chk(/_loginDoDeleteAccount\(dWord\.value\)/.test(M) && /_acctRelaunchAfterDetach\(null\)/.test(M.split('_loginDoDeleteAccount(dWord.value)')[1] || ''), '성공하면 완료 안내 → 앱 다시 켜기');
+    if (WA_AUDIT != null && WA_LOG != null) chk(/'account\.selfDelete'/.test(WA_AUDIT) && /'account\.selfDelete': '/.test(WA_LOG), '웹 관리자 작업 기록이 «account.selfDelete» 를 안다');
+    else say('  · 웹 관리자 폴더가 없는 자리(러너) — 작업 기록 이름 검사는 저장소에서 돈다');
+    const CODE = strip(FX);
+    const mm = CODE.match(/exports\.deleteMyAccount = onCall\([\s\S]*?\n  \}\);/);
+    chk(!!mm && /handleSelfDeleteAccount\(db, request, mod\.adminDeps\(db\)/.test(mm[0]) && /new HttpsError\(e\.httpsCode, e\.message\)/.test(mm[0]) && /require\('firebase-admin\/database'\)/.test(mm[0]), 'index.js deleteMyAccount = onCall — 처리는 account-delete.js · 오류 문구 그대로 · 실행 때 database 읽기');
+    chk(/deleteMyAccount — 회원 탈퇴/.test(FX), '  ↳ 머리 주석의 함수 목록에도 적었다');
   }
 
   say(`\n${pass} · ${fail}`);

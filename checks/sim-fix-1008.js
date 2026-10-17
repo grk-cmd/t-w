@@ -349,6 +349,8 @@ say('§13 꾸미기 초안 — 캐릭터를 바꾼 뒤 저장해도 원래 캐�
   let run = null;
   try {
     run = new Function('env', 'let wdDraftDef = env.draft; const {seats, slots, saveSlots, toast, Presence, pruneSeatPartsAgainstDef, applyEquippedPartsToSeat, fitModel} = env; const console = { warn(){} };\n'
+      + 'const refitSeatAfterParts = async (seat, o) => { try{ await o.wait; }catch(_){} };\n'   // 다시 맞추기 한 벌 — 장착을 기다리기만(판정은 sim-seat-refit)
+
       + src + '\nreturn _commitWdDraftToOwner(env.draft, true).then(r => ({ r, left: wdDraftDef }));');
   } catch (e) { say('  ' + e.message); }
   if (!run) chk(false, '_commitWdDraftToOwner 를 꺼냈다');
@@ -387,7 +389,8 @@ say('§9 보관함 이동 — 연타 · 동기화 경쟁');
 {
   const mv = (APP.match(/async function doMoveCurSlotToBox\(\)\{[\s\S]*?\n\}/) || [''])[0];
   chk(/if\(_moveToBoxBusy\)\{ toast\(/.test(mv) && /finally\{ _moveToBoxBusy = false; \}/.test(mv), '★ 진행 중이면 다시 안 들어간다 (연타 방지 · 실패해도 풀린다)');
-  chk(/const at = slots\.indexOf\(slotObj\);/.test(mv) && /for\(let k = at; k < slots\.length - 1; k\+\+\)/.test(mv) && !/for\(let k = i; k < slots\.length - 1/.test(mv), '★ 기다린 뒤에는 번호 대신 그 캐릭터로 칸을 다시 찾아 당긴다');
+  /* 10-16 제보 9 — 객체로만 찾으면 동기화가 슬롯을 새로 깔았을 때 못 찾아 복제가 됐다. 슬롯 표를 당긴 번호(r.slot)가 먼저, 객체 찾기는 옛 판 물러섬. */
+  chk(/const at = \(typeof r\.slot === 'number'[^\n]*\? r\.slot : slots\.indexOf\(slotObj\);/.test(mv) && /for\(let k = at; k < slots\.length - 1; k\+\+\)/.test(mv) && !/for\(let k = i; k < slots\.length - 1/.test(mv), '★ 기다린 뒤에는 처음 번호가 아니라 슬롯 표를 당긴 번호(r.slot)로 · 없으면 그 캐릭터로 칸을 찾아 당긴다');
   chk(/_charsMoveFailLog\(r, i\);/.test(mv) && /localStorage\.setItem\('tw\.charsMoveFails'/.test(APP), '실패 이유를 기록한다 (콘솔 + 최근 10건)');
   const d2b = (APP.match(/async function _charsDeskToBox\(i\)\{[\s\S]*?\n\}/) || [''])[0];
   chk(/await _idle\(\);\s*try\{ await _charsSync\('force'\); \}catch\(_\)\{\}\s*await _idle\(\);/.test(d2b) && /_charsSyncing && t < 200/.test(d2b), '★ 도는 동기화를 기다린 뒤 올리고, 끝날 때까지 다시 기다린다');

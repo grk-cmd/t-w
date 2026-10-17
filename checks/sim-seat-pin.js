@@ -38,7 +38,7 @@ chk(P.dragIndex(2, me, seats, 'right') === 0, '★ 내 책상은 끌어도 제�
 chk(P.dragIndex(0, a, seats, 'row') === 0 && P.dragIndex(2, me, seats, 'row') === 2, '«줄 안에 함께» 면 누구든 어디로든(예전 그대로)');
 
 say('── 2. 배선');
-const layout = (APP.match(/function layoutSeats\(\)\{[\s\S]*?const placed = /) || [''])[0];
+const layout = (APP.match(/function layoutSeatRow\(\)\{[\s\S]*?const placed = /) || APP.match(/function layoutSeats\(\)\{[\s\S]*?const placed = /) || [''])[0];   // 본문은 seat-layout.js 의 layoutSeatRow(app.js 의 layoutSeats 는 부르기만)
 chk(/TwSeatPin\.pinFirst\(seats, roomSeatMode\)/.test(layout) && /renderSeatTabs\(\)/.test(layout), 'layoutSeats 가 자리를 계산하기 전에 고정을 건다 · 옮겼으면 좌석 탭도');
 chk(/idx = TwSeatPin\.dragIndex\(idx, drag\.seat, seats, roomSeatMode\)/.test(APP), '책상 끌기 자리가 고정을 지난다');
 chk(/let roomSeatMode = window\.TwSeatPin \? TwSeatPin\.loadMode\(localStorage\) : 'row';/.test(APP), '부팅 때 저장값 읽기 · 모듈이 없으면 예전 그대로');

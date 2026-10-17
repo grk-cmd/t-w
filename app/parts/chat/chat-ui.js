@@ -344,12 +344,34 @@ function _saveChatReadMarker(room, key){
   if(!room || !key) return;
   try{ localStorage.setItem(_chatReadKeyOf(room), key); }catch(_){}
 }
-/* 지금 화면에 그려진 마지막 메시지까지를 읽음으로 기록 */
+/* 🔖 읽음 표시 — «T<서버 시각>:<id>». 순서를 대화 기록과 같은 기준(ts → id, chat-history.js chatOrder)으로 잰다.
+   예전엔 «마지막 메시지 id» 를 저장하고 «id > 표시» 로 셌다. 목록은 ts 순인데 push id 는 보낸 사람 PC 시계로 만들어져
+   시계가 어긋난 사람의 메시지가 늘 «안 읽음» 으로 남았다(알림콩이 새 글 없이 뜨고 열어도 안 꺼짐).
+   옛 형식(id 만)은 예전 규칙으로 비교하고, 다음 저장 때 새 형식으로 덮는다. */
+const CHAT_MARK_RE = /^T(\d+):(.*)$/;
+function _chatMsgTs(m){ return (m && typeof m.ts === 'number' && m.ts > 0) ? m.ts : null; }
+function _chatMarkOf(m){ const t = _chatMsgTs(m); return t !== null ? ('T' + t + ':' + (m.id || '')) : _chatMsgKey(m); }
+function _chatIsAfter(m, mark){
+  if(!m || !mark) return false;
+  const p = CHAT_MARK_RE.exec(mark);
+  if(!p) return _chatMsgKey(m) > mark;
+  const t = _chatMsgTs(m), mt = Number(p[1]);
+  if(t !== null && t !== mt) return t > mt;
+  return String(m.id || '') > p[2];
+}
+/* 목록에서 가장 나중 메시지(ts → id) */
+function _chatLastOf(list){
+  let best = null;
+  (list || []).forEach(m => { if(m && (!best || _chatIsAfter(m, _chatMarkOf(best)))) best = m; });
+  return best;
+}
+/* 지금 화면에 그려진 메시지까지를 읽음으로 기록 — 새 형식 표시는 뒤로 물리지 않는다(목록 앞이 잘려 와도) */
 function _markChatRead(){
   if(!_chatReadRoom) return;
-  const last = _chatLogCache() && _chatLogCache()[_chatLogCache().length-1];
-  const k = _chatMsgKey(last);
-  if(k) _saveChatReadMarker(_chatReadRoom, k);
+  const last = _chatLastOf(_chatLogCache());
+  if(!last) return;
+  const old = _loadChatReadMarker(_chatReadRoom);
+  if(!old || !CHAT_MARK_RE.test(old) || _chatIsAfter(last, old)) _saveChatReadMarker(_chatReadRoom, _chatMarkOf(last));
 }
 
 /* ── 💬 안 읽은 개수 뱃지 ────────────────────────────────────────────────
@@ -383,8 +405,8 @@ function _setChatMinimized(on){
   if(on){
     if(win.classList.contains('min')) return;
     _chatPreMinH = win.style.height || (win.offsetHeight ? win.offsetHeight+'px' : '');
-    const last = _chatLogCache() && _chatLogCache()[_chatLogCache().length-1];
-    _chatMinSinceKey = _chatMsgKey(last) || null;
+    const last = _chatLastOf(_chatLogCache());
+    _chatMinSinceKey = last ? _chatMarkOf(last) : null;
     win.classList.add('min');
     win.style.height='';                    // CSS 의 height:auto 가 먹도록 인라인 값을 비운다
     if(btn){ btn.textContent='□'; btn.title='펼치기'; }
@@ -405,7 +427,7 @@ function _setChatMinimized(on){
 function _syncChatMinBadge(){
   if(!_chatIsMinimized()) return;
   let n=0;
-  (_chatLogCache()||[]).forEach(m=>{ const k=_chatMsgKey(m); if(k && (!_chatMinSinceKey || k > _chatMinSinceKey)) n++; });
+  (_chatLogCache()||[]).forEach(m=>{ if(_chatMsgKey(m) && (!_chatMinSinceKey || _chatIsAfter(m, _chatMinSinceKey))) n++; });
   _setChatBadge(n);
 }
 function _setChatBadge(n){
@@ -430,12 +452,11 @@ function _startChatBadgeSub(room){
     const marker = _loadChatReadMarker(room);
     if(!marker){
       // 첫 방문 — 지금 시점을 읽음으로 심고 뱃지는 안 띄움
-      const last=(list||[])[ (list||[]).length-1 ];
-      const k=_chatMsgKey(last); if(k) _saveChatReadMarker(room, k);
+      const last=_chatLastOf(list); if(last) _saveChatReadMarker(room, _chatMarkOf(last));
       _setChatBadge(0); return;
     }
     let n=0;
-    (list||[]).forEach(m => { if(_chatMsgKey(m) > marker) n++; });
+    (list||[]).forEach(m => { if(_chatIsAfter(m, marker)) n++; });
     _setChatBadge(n);
   }, CHAT_BADGE_LIMIT);
 }
@@ -643,10 +664,10 @@ function _chatTabUnreadStart(room){
     const key = _chatMarkKey(room, t.id);
     _chatTabUnreadUnsubs.push(firebaseAPI.subscribeChatLog(room, list => {
       let mark = _loadChatReadMarker(key);
-      const last = list[list.length - 1];
+      const last = _chatLastOf(list);
       // 처음 보는 탭이면 '지금까지는 읽은 것' — 뱃지 구독과 같은 규칙
-      if(!mark && last){ _saveChatReadMarker(key, _chatMsgKey(last)); mark = _chatMsgKey(last); }
-      _chatTabUnread[t.id] = mark ? list.filter(m => _chatMsgKey(m) > mark).length : 0;
+      if(!mark && last){ mark = _chatMarkOf(last); _saveChatReadMarker(key, mark); }
+      _chatTabUnread[t.id] = mark ? list.filter(m => _chatIsAfter(m, mark)).length : 0;
       _chatTabsRender();
     }, CHAT_TAB_UNREAD_LIMIT, t.id));
   });
@@ -816,7 +837,7 @@ function _renderChatLog(list){
   //    마커가 없으면(그 방 첫 방문) 구분선 없이 전부 읽은 것으로 취급한다.
   let dividerAt = -1;
   if(_chatReadMarker){
-    dividerAt = rows.findIndex(m => _chatMsgKey(m) > _chatReadMarker);
+    dividerAt = rows.findIndex(m => _chatIsAfter(m, _chatReadMarker));
   }
   const html=[];
   /* 🕘 작성 시각 hh:mm. ts 는 서버 시각(serverTimestamp)이 숫자로 내려온다.

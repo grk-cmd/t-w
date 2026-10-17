@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, screen, ipcMain, shell, powerMonitor, dialog } = require('electron');
+const { app, BrowserWindow, BrowserView, Menu, screen, ipcMain, shell, powerMonitor, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 // ── 전역 입력 훅·활성 창 감지는 sysinput-win.js 로 옮겼다 ──
@@ -80,6 +80,11 @@ sysinput.init({
 });
 /* 🖱 호버 찌르기 판단(제보 #5) — 판단만 떼어 낸 모듈이다. 타이머 · IPC 는 아래 _syncHoverWatcher. */
 const HoverPoke = require('./hover-poke');
+/* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
+   ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
+const ClickPolicy = require('./app/parts/launcher/click-through-policy');
+/* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
+const GamepadActivity = require('./app/parts/focus/gamepad-activity');
 /* 호출부 17곳의 이름·형태를 그대로 두기 위한 이음매 — 본문은 모듈에 있다.
    ⚠️ 화살표 상수가 아니라 **함수 선언**이다. 원래가 그랬고(호이스팅), 여기서 모양을 바꾸면
      정의보다 앞선 자리에서 부르는 코드가 생겼을 때 조용히 TDZ 로 죽는다. */
@@ -523,6 +528,36 @@ function _zoomKeyOp(input){
   if(k === '0' || input.code === 'Numpad0') return 'reset';
   return null;
 }
+/* ═══ 일렉트론 기본 메뉴 걷어내기 ═══════════════════════════════════════════════════════
+   [왜] 앱 메뉴를 안 정하면 일렉트론이 기본 메뉴를 깔고, 그 가속기(Ctrl+R 새로고침 · Ctrl+Shift+I 개발자 도구 ·
+     Ctrl+-/+/0 줌 · F11 · Ctrl+W)가 **모든 창**에서 산다. 메인 창은 줌 키를 가로채지만 방명록 같은 자식 창은 못 막아
+     Ctrl+- 가 기본 Zoom Out 으로 들어가 방명록만 작아졌다.
+   ⚠️ mac 은 메뉴를 통째로 없애면 입력칸의 Cmd+C/V/X/A/Z 가 죽는다(가속기가 메뉴 역할에 붙어 있다) →
+     편집 역할만 남긴 최소 메뉴 + 앱 메뉴(종료). 갈래 모양은 overlay-mac/win · sysinput-mac/win 과 같게. */
+const APP_MENU_TEMPLATE = process.platform === 'darwin'
+  ? [{ label: app.name, submenu: [{ role: 'quit' }] }, { role: 'editMenu' }]
+  : null;
+function _applyAppMenu(){
+  Menu.setApplicationMenu(APP_MENU_TEMPLATE ? Menu.buildFromTemplate(APP_MENU_TEMPLATE) : null);
+}
+/* 자식 창(방명록 · 디자인 스튜디오 — window.open)은 100% 로 묶는다. Ctrl+휠 줌은 메뉴와 무관한 Chromium 동작이라
+   메뉴를 걷어도 남는다 → 휠(zoom-changed)과 줌 키(_zoomKeyOp)를 막고 되돌린다. 메인 줌과 묶는 건 따로 정할 일. */
+function _lockChildZoom(win){
+  const wc = win && win.webContents;
+  if(!wc) return;
+  try{ wc.setZoomFactor(1); }catch(_){}
+  wc.on('zoom-changed', (event) => { event.preventDefault(); try{ wc.setZoomFactor(1); }catch(_){} });
+  wc.on('before-input-event', (event, input) => { if(_zoomKeyOp(input)) event.preventDefault(); });
+}
+/* 바로 끝내기 — 네이티브 훅 · 타이머를 먼저 내리고 → 창 destroy → app.exit(0). 끝내는 길은 이 함수 하나로 모은다(순서를 한 곳에서).
+   ⚠️ 저장하지 않는다(설정은 바뀔 때마다 이미 쓴다 · 쓰기를 넣으면 느려져 종료를 막는다). quit() 이 아니라 exit(0) — 창을 하나씩 닫는 시간이 곧 «종료를 막는 앱»이다. */
+function _exitNow(){
+  try{ sysinput.stopGlobalHooks(); }catch(_){}
+  try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
+  try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
+  try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
+  try{ app.exit(0); }catch(_){}
+}
 let _saveFailLogged = false;
 function saveSettings(){
   if(!SETTINGS_PATH) return false;
@@ -914,21 +949,9 @@ function _inputDiagTick(now){
     + ((c.click + c.wheel + c.key) === 0 ? ' ⚠️훅 미수신' : ''));
 }
 let _forcedPassthrough = false;  // 강제 전환이 걸려 있는 중인지(중복 발동 방지)
-/* ★ 이 시간 이상 생존 신호가 끊기면 '멈췄다'고 본다.
-   [4000 → 12000 으로 올린 근거 — 실제 제보 로그]
-     [05:31:43] 발동 — 렌더러 무응답 **4239ms** … pen=true
-     [05:32:10] 해제 — 렌더러 응답 재개
-   4239ms 는 죽은 게 아니라 **딸꾹질**이다(임계값을 239ms 넘겼을 뿐이고 그 뒤 스스로 돌아왔다).
-   렌더러가 몇 초씩 멈추는 정상 구간이 실제로 있다 — 도트 썸네일 렌더·GLB 파싱 같은 무거운
-   동기 작업이 대표적이다(app.js 에도 "도트렌더 등으로 프레임이 느려져도"라는 주석이 있다).
-   그 딸꾹질마다 통과로 전환되면 그때부터 유령이 되고, 사용자가 커서를 캐릭터에 올려주기
-   전까지 안 돌아온다 — 위 로그의 26초가 그 시간이다.
-   [트레이드오프] 임계값을 올리면 '진짜로 죽은' 경우에 통과 전환이 그만큼 늦어져서, 그 사이
-     화면 전체를 덮는 투명 창이 클릭을 계속 가로챈다. 하지만 진짜 죽음은 영구적이라 몇 초 늦는
-     손해가 작고, 딸꾹질 오판은 매번 유령을 만든다 — 비대칭이 크다.
-   ⚠️ 렌더러 메인 스레드가 진짜로 막히면 app.js 쪽 하트비트 타이머(setInterval)도 같이 멈춘다.
-     같은 단일 스레드라서 그렇다. 그러니 이 임계값은 "타이머로도 못 막는 경우"의 마지막 방어선이다. */
-const RENDERER_STALL_MS = 12000;
+/* ★ 이 시간 이상 생존 신호가 끊기면 '멈췄다'고 본다 — 몇 초짜리 딸꾹질(도트 렌더 · GLB 파싱)마다 통과로 바꾸면 유령이 된다(4000 → 12000).
+   ⚠️ 렌더러 메인 스레드가 막히면 하트비트 타이머도 같이 멈춘다 — 이 값은 «타이머로도 못 막는 경우»의 마지막 방어선이다. */
+const RENDERER_STALL_MS = ClickPolicy.RENDERER_STALL_MS;   // 값(12000)과 근거는 click-through-policy.js
 let _forcedAt = 0;                      // 강제 전환이 걸린 시각 — 유령 지속 시간 기록용
 const HICCUP_LOG_MIN_MS = 2000;         // 이만큼 지연되면 '딸꾹질'로 보고 기록만 한다(전환은 안 함)
 const HICCUP_LOG_GAP_MS = 60000;        // 딸꾹질 기록 최소 간격 — 로그가 발동 기록을 덮지 않게
@@ -1162,6 +1185,21 @@ function _reportCursorActivity(pt, minPx){
   }
 }
 
+/* 🎮 게임패드 — 게임이 앞이면 렌더러의 Gamepad API 는 패드 값을 못 받는다. 그래서 main 이 직접 읽어
+   커서 이동과 같은 통로(penActivity · 전송 간격 공유)로 보낸다 — 받는 쪽 처리가 같다. */
+function _reportPadActivity(){
+  const now = Date.now();
+  if(now - _penActivitySentAt < PEN_ACTIVITY_MIN_MS) return;
+  _penActivitySentAt = now;
+  if(mainWindow && !mainWindow.isDestroyed()){
+    try{ mainWindow.webContents.send('companion:penActivity'); }catch(_){}
+  }
+}
+const _padActivity = GamepadActivity.createGamepadActivity({
+  getPads: () => sysinput.readPads(),
+  onActivity: _reportPadActivity,
+});
+
 // forward 옵션만 재적용 (타이머 sync 없이 — _checkCursorNearChar 내부용, 재귀 방지)
 function _applyForwardOnly(){
   if(!mainWindow || mainWindow.isDestroyed()) return;
@@ -1374,6 +1412,7 @@ function startActiveWinPolling(){
       try{ _reportCursorActivity(screen.getCursorScreenPoint(), CURSOR_MOVE_MIN_PX); }catch(_){}
       try{ _inputDiagTick(Date.now()); }catch(_){}   // 🩺 [입력] 1분에 한 줄 — 선언부 주석 참고
       try{ _kbBlindTick(Date.now()); }catch(_){}     // ⌨️ 키 훅 미수신 진단 — 선언부 주석 참고(활동으로 쓰지 않는다)
+      try{ _padActivity.poll(); }catch(_){}          // 🎮 게임패드 — _reportPadActivity 주석
     }
   }, 500);
 }
@@ -1392,10 +1431,8 @@ function _guardStuckClickCapture(){
   let focused = false;
   try{ focused = mainWindow.isFocused(); }catch(_){ return; }
   const quietFor = _lastCharBoundsAt ? (Date.now() - _lastCharBoundsAt) : 0;
-  const stuck = !_isConfigMode && !_lastIgnoreRequested && !focused
-             && _lastCharBoundsAt > 0 && quietFor > RENDERER_STALL_MS;
-
-  if(stuck && !_forcedPassthrough){
+  if(ClickPolicy.stallStep({ configMode: _isConfigMode, ignoreRequested: _lastIgnoreRequested, focused,
+                              boundsAt: _lastCharBoundsAt, quietFor, forced: _forcedPassthrough }) === 'recall'){
     _forcedPassthrough = true;
     _forcedAt = Date.now();
     _lastIgnoreRequested = true;          // 통과로 전환 (_forwardFor가 forward:true를 유지해줌)
@@ -1553,38 +1590,10 @@ function _diagLog(msg){
 }
 
 /* ═══ ⓕ 대응 — 굳어버린 '클릭 받는 중'을 회수한다 ═════════════════════════
-   [증상] 게임(파판14 창 모드) 도중 캐릭터를 만지지도 않았는데 게임 창이 비활성화된다.
-
-   [메커니즘] 통과/해제 판정은 렌더러의 mousemove 에만 걸려 있다(app.js _updateIgnore).
-     그 mousemove 는 `setIgnoreMouseEvents(true,{forward:true})` 의 forward 로 들어오는데,
-     Windows 에서 이 전달이 끊기는 확인된 상류 버그가 있다 —
-       · electron#30808 mouseleave/:hover 가 forward 아래서 불안정 (메인테이너 재현 확인)
-       · electron#33281 특정 비-Electron 창이 포그라운드면 mousemove 가 아예 안 온다
-     끊긴 순간의 마지막 값이 '클릭 받는 중(ignore=false)'이면, **전체화면 투명 오버레이가
-     계속 클릭을 가로채는 상태로 굳는다.** 그 상태에서 게임 안을 누르면 그 클릭이 우리 창으로
-     들어가고, Windows 는 클릭받은 창을 활성화하므로 게임이 비활성화된다.
-
-   [기존 안전장치로 왜 안 잡히나] _guardStuckClickCapture 는 `_lastCharBoundsAt`(100ms 하트비트)을
-     본다. 그건 "이벤트 루프가 살아 있는가"라서, 렌더러가 멀쩡한 이 사고에서는 계속 갱신된다.
-     그래서 quietFor 가 0 근처에 머물러 발동 조건에 영영 못 닿는다. 이게 구멍이었다.
-
-   [발동 조건 — 다섯 개를 전부 만족할 때만]
-     1) run 모드                     — 런처/마이홈은 창 전체가 UI라 제외
-     2) 지금 클릭을 받는 상태        — 통과 중이면 사고가 성립하지 않는다
-     3) 우리 창에 포커스가 없음      — 즉 사용자는 다른 프로그램(게임)을 쓰는 중
-     4) 렌더러에 mousemove 가 STALE_MS 이상 안 옴 — 판정이 굳었다는 증거
-     5) 그런데 **커서는 실제로 움직이고 있다** — main 이 직접 잰다
-   ★ 5번이 핵심 안전장치다. 커서가 가만히 있을 때는 mousemove 가 안 오는 게 정상이므로,
-     4번만으로 발동시키면 "채팅 버튼 위에 커서를 얹어둔 채 누르려던" 사용자의 클릭을 뒤로
-     흘려보내게 된다. 움직이는데도 안 온다 = forward 가 죽었다, 로 좁힌다.
-
-   [오발동해도 잃는 것이 없다] 우리가 하는 일은 **통과로 되돌리는 것**뿐이다. 이 방향은
-     이 파일이 줄곧 지켜온 원칙이고(위 _guardGhostPassthrough 주석), 다음 mousemove 가
-     한 번만 와도 렌더러가 정상 판정으로 즉시 되돌린다. 반대 방향(임의로 클릭을 받게 하는 것)은
-     예전 워치독이 사고를 낸 자리라 여기서도 절대 하지 않는다. */
-const FWD_STALE_MS    = 1200;   // 이만큼 mousemove 가 없으면 판정이 굳은 것으로 본다
-const FWD_MOVE_MIN_PX = 60;     // 같은 동안 커서가 이만큼은 움직였어야 '움직이는데도 안 온다'가 성립
-const FWD_REFIRE_MS   = 2000;   // 연속 발동 간격 하한
+   forward mousemove 가 끊기는 상류 버그(electron#30808 · #33281)로 마지막 값이 «클릭받기» 면 전체화면 투명 창이
+   클릭을 계속 가로채 게임 같은 앞 앱이 비활성화된다. ⓔ 는 렌더러 하트비트를 봐서 이 사고(렌더러는 멀쩡)를 못 잡는다.
+   발동 조건(run · 클릭받기 · 포커스 없음 · 오버레이 위 · mousemove 없음 · 커서는 실제로 움직임)은 ClickPolicy.staleCaptureStep.
+   ⚠️ 방향은 통과로 되돌리기만 — 반대(임의로 받기)는 예전 워치독이 사고를 낸 자리다. 다음 mousemove 한 번이면 렌더러가 되돌린다. */
 let _rendererMoveAge = -1;      // 렌더러가 하트비트에 실어 보낸 "mousemove 마지막 도착 후 경과 ms"
 let _fwdLastPt = null, _fwdFiredAt = 0;
 function _guardStaleCapture(){
@@ -1593,20 +1602,12 @@ function _guardStaleCapture(){
   const prev = _fwdLastPt;
   _fwdLastPt = { x: pt.x, y: pt.y };   // ★ 어느 분기로 빠지든 표본은 항상 갱신한다
 
-  if(_isConfigMode || _lastIgnoreRequested) return;          // 1) 2)
+  if(!ClickPolicy.mainArmed({ configMode: _isConfigMode, ignoreRequested: _lastIgnoreRequested })) return;
   let focused = true;
   try{ focused = mainWindow.isFocused(); }catch(_){ return; }
-  if(focused) return;                                         // 3)
-  /* 📺 커서가 오버레이 창 밖(=다른 모니터)이면 mousemove 가 안 오는 것이 정상이다 —
-     여기서 moveAge 로 판단하면 전부 헛발동이다(_ptOnOverlayWindow 주석, 제보 로그 5/10건). */
-  if(!_ptOnOverlayWindow(pt)) return;
-  if(_rendererMoveAge < 0 || _rendererMoveAge < FWD_STALE_MS) return;   // 4)
-  if(!prev) return;
-  const dx = pt.x - prev.x, dy = pt.y - prev.y;
-  if((dx*dx + dy*dy) < (FWD_MOVE_MIN_PX*FWD_MOVE_MIN_PX)) return;       // 5)
-
   const now = Date.now();
-  if(now - _fwdFiredAt < FWD_REFIRE_MS) return;
+  if(ClickPolicy.staleCaptureStep({ configMode: _isConfigMode, ignoreRequested: _lastIgnoreRequested, focused,
+       onOverlay: _ptOnOverlayWindow(pt), moveAge: _rendererMoveAge, prev, pt, now, firedAt: _fwdFiredAt }) !== 'recall') return;
   _fwdFiredAt = now;
   _lastIgnoreRequested = true;      // 통과로 회수 (_forwardFor 가 forward:true 를 유지해준다)
   _reapplyIgnoreMouse();
@@ -1618,54 +1619,13 @@ function _guardStaleCapture(){
 }
 
 /* ═══ ⓖ 다른 앱 입력으로 굳은 판정 회수 ═════════════════════════════════
-   [왜 ⓕ 만으로는 부족한가] ⓕ 의 발동 조건 5번은 **커서가 500ms 안에 60px 이상 움직였을 것**이다.
-     그런데 실제 제보 두 건이 정확히 그 조건을 비껴간다.
-
-     · 파이널판타지14 — 키보드 위주 조작이라 **마우스가 가만히 있다.** 판정이 굳어도 회수가 안 돈다.
-     · 클립스튜디오   — 태블릿 펜은 **절대좌표**다. 캔버스와 캐릭터 사이를 순간이동하고,
-                        펜을 들면 커서가 마지막 자리에 **멈춘 채로 남는다.** 그 자리가 캐릭터 위였다면
-                        `ignore=false` 로 굳고, 커서는 안 움직이니 ⓕ 도 안 깨운다.
-
-   [이 장치가 보는 증거] 전역 훅은 이미 다 깔려 있다(uIOhook mousedown/keydown, 아래 앱 준비 구간).
-     우리 창에 포커스가 없는데 그쪽에서 입력이 들어온다 = **사용자는 다른 앱을 실제로 쓰는 중**이다.
-     그런데 우리가 클릭 받을 준비를 하고 있다면 그 판정은 틀렸다.
-
-     · 키 입력  — 다른 앱에 타자를 치고 있다. 커서 이동보다 오히려 강한 증거다(그 앱이 포커스를 쥐고 있다).
-                  단, mousemove 가 정상 도착 중이면 렌더러가 스스로 고칠 수 있으므로 건드리지 않는다.
-     · 클릭     — 좌표가 같이 온다. **캐릭터에서 확실히 먼 곳**을 눌렀다면 그건 우리 창을 노린 클릭이
-                  아니다. 이땐 mousemove 상태를 따질 것도 없이 판정이 틀린 게 확정이다.
-
-   ⚠️ **그 클릭 자체는 못 막는다.** uIOhook 은 감시만 하고 가로채지 않으므로, 이 함수가 도는 시점엔
-     이미 그 한 번은 우리 창에 들어간 뒤다. 이 장치가 없애는 것은 **반복**이다 —
-     지금은 한 번 굳으면 사용자가 커서를 캐릭터에 올려줄 때까지 누를 때마다 계속 튀어나온다.
-
-   [방향] ⓕ 와 똑같이 **통과로 되돌리는 것만** 한다. 반대(임의로 클릭을 받게)는 예전 워치독이
-     사고를 낸 자리라 여기서도 절대 안 한다. 오판해도 다음 mousemove 한 번이면 정상 복구된다. */
-const FGN_CHAR_MARGIN   = 1.5;    // 캐릭터 반경의 이 배율 **밖**이어야 '확실히 먼 곳'으로 친다(경계에서 렌더러와 다투지 않게)
-const FGN_BOUNDS_FRESH_MS = 3000; // 캐릭터 좌표가 이보다 오래됐으면 좌표 판정을 믿지 않는다
-/* 🛡️ [2026-08-27] **렌더러가 방금 DOM 히트로 켰다면, 회수하지 말고 다시 물어본다.**
-
-   [왜 필요한가] 이 함수의 좌표 판정 재료(_lastRegions)는 렌더러가 100ms 하트비트로 보내주는
-     사각형 목록이다. 사각형은 근사치고, 렌더러의 `elementFromPoint` 는 정확하다. 둘이 어긋나면
-     **정확한 쪽이 이겨야 한다.** 제보 로그에서 이게 정확히 뒤집혀 있었다 —
-     ⓖ 회수 32건 중 28건이 `이유=dom:myStatusChip` 직후 중앙값 0.64초에 났다.
-     (근본 원인은 app.js _uiRegions 가 상태칩 안의 position:fixed 팝업을 안 보내던 것이고
-      그쪽은 고쳤다. 여기는 **같은 종류의 어긋남이 또 생겼을 때를 위한 그물**이다.)
-
-   [어떻게] 회수 대신 그 좌표로 penHitTest 를 보내 렌더러에게 정밀 재판정을 시킨다.
-     · 렌더러가 "통과다" 라고 답하면 → setIgnoreMouse(true) 가 와서 상황이 끝난다.
-     · 렌더러가 "우리 UI 다" 라고 판단하면 → 이미 클릭받기 상태라 IPC 를 안 보낸다(무응답).
-     그래서 무응답만으로는 '살아서 맞다고 답함'과 '죽어서 못 답함'이 안 갈린다.
-     ⇒ 유예가 끝나면 **하트비트로** 그걸 가른다. 렌더러가 살아 있으면 그 판단을 믿고 물러나고,
-       신호가 끊겼으면 원래대로 통과로 회수한다.
-   ⚠️ 유예는 상황당 **한 번**이다. 이게 없으면 "매 클릭마다 유예"가 되어 이 장치가 사실상 꺼진다
-     (파판14 건이 그대로 돌아온다 — 핸드오프4 §5). */
-const FGN_TRUST_MS  = 2000;   // 렌더러의 '클릭받기 이유'를 이 시간까지만 최신으로 친다
-const FGN_DEFER_MS  = 600;    // 재판정을 기다리는 시간
+   ⓕ 는 커서가 움직여야 깨는데, 키보드 위주 게임(파판14)과 펜(절대좌표 · 들면 멈춤)은 그걸 비껴간다.
+   우리 창에 포커스가 없는데 다른 앱으로 키 · 우리 UI 밖 클릭이 들어오면 «클릭받기» 판정이 틀린 것이다. 판단은 ClickPolicy.foreignInputStep.
+   ⚠️ 그 클릭 한 번은 못 막는다(uIOhook 은 감시만) — 없애는 것은 반복이다. 렌더러가 방금 dom: 으로 켰으면 회수 대신 재판정을 묻는다(유예는 상황당 한 번). */
 let _fgnDeferAt = 0;          // 마지막으로 유예한 시각 — 연속 유예 방지
 function _fgnRecall(why){
   if(!mainWindow || mainWindow.isDestroyed()) return;
-  if(_isConfigMode || _lastIgnoreRequested) return;
+  if(!ClickPolicy.mainArmed({ configMode: _isConfigMode, ignoreRequested: _lastIgnoreRequested })) return;
   _fwdFiredAt = Date.now();
   _lastIgnoreRequested = true;      // 통과로 회수 (_forwardFor 가 forward:true 를 유지해준다)
   _reapplyIgnoreMouse();
@@ -1676,66 +1636,36 @@ function _fgnRecall(why){
 }
 function _guardForeignInput(kind){
   if(!mainWindow || mainWindow.isDestroyed()) return;
-  if(_isConfigMode || _lastIgnoreRequested) return;   // run 모드 + 지금 클릭을 받는 상태일 때만
+  if(!ClickPolicy.mainArmed({ configMode: _isConfigMode, ignoreRequested: _lastIgnoreRequested })) return;
   let focused = true;
   try{ focused = mainWindow.isFocused(); }catch(_){ return; }
-  if(focused) return;                                 // 우리 창을 보고 있으면 정상이다
+  if(focused) return;                                 // 우리 창을 보고 있으면 정상이다(아래 사실은 읽지도 않는다)
 
-  let why = null, poke = null;
-  if(kind === 'key'){
-    /* 📺 커서가 오버레이 창 밖(=다른 모니터)이면 mousemove 가 안 오는 것이 정상이라
-       moveAge 로 아무것도 판단할 수 없다(_ptOnOverlayWindow 주석). */
-    let kpt; try{ kpt = screen.getCursorScreenPoint(); }catch(_){ kpt = null; }
-    if(kpt && !_ptOnOverlayWindow(kpt)) return;
-    // mousemove 가 살아 있으면 렌더러가 스스로 고친다 — 굳은 경우만 건드린다.
-    if(_rendererMoveAge < 0 || _rendererMoveAge < FWD_STALE_MS) return;
-    why = '다른 앱에 키 입력, mousemove ' + _rendererMoveAge + 'ms 없음';
-  } else {
-    // 클릭 — 좌표로 판단한다. 캐릭터를 노린 클릭이면 우리가 받는 게 맞으므로 건드리지 않는다.
-    if(!_lastCharBounds || !_mainWinScreenBounds) return;
-    if(Date.now() - _lastCharBoundsAt > FGN_BOUNDS_FRESH_MS) return;   // 좌표가 낡았다 — 판단 보류
-    let pt; try{ pt = screen.getCursorScreenPoint(); }catch(_){ return; }
-    /* 📺 오버레이가 아예 없는 모니터의 클릭이다 — 우리 창에 들어갔을 리 없으니 회수할 것도 없다. */
-    if(!_ptOnOverlayWindow(pt)) return;
-    const cx = pt.x - _mainWinScreenBounds.x, cy = pt.y - _mainWinScreenBounds.y;
-    /* 📐 ★ 여기가 이번 제보의 자리다. 예전엔 '캐릭터에서 먼가'만 봤다 — 그래서 사용자가
-       대화창에 손을 대면(캐릭터에서 1800px) 매번 "틀린 판정"으로 몰아 회수했고, 0.38초 뒤
-       렌더러가 되돌리는 핑퐁이 났다(24분에 53회). 이제 우리 창 **전부**를 본다. */
-    if(_ptOnOurUI(cx, cy, FGN_CHAR_MARGIN)) return;    // 우리 UI 위 — 정상 동작이다
-    const dx = cx - _lastCharBounds.x, dy = cy - _lastCharBounds.y;
-    why = '다른 앱에서 우리 UI 밖 클릭(캐릭터와 ' + Math.round(Math.sqrt(dx*dx+dy*dy))
-        + 'px, 창 ' + _lastRegions.length + '개)';
-    poke = { x: cx, y: cy };
-  }
-
+  // 사실만 모은다 — 커서를 못 읽으면 null(키는 그대로 판단 · 클릭은 보류). 좌표 판정 재료가 없으면 계산하지 않는다.
+  let pt = null; try{ pt = screen.getCursorScreenPoint(); }catch(_){ pt = null; }
+  const haveBounds = !!(_lastCharBounds && _mainWinScreenBounds);
+  const cx = (haveBounds && pt) ? pt.x - _mainWinScreenBounds.x : 0, cy = (haveBounds && pt) ? pt.y - _mainWinScreenBounds.y : 0;
+  const boundsAge = Date.now() - _lastCharBoundsAt;
   const now = Date.now();
-  if(now - _fwdFiredAt < FWD_REFIRE_MS) return;
-
-  /* 🛡️ 그물 — 렌더러가 방금 'dom:' 판정으로 켰는데 내 좌표 판정이 '밖'이라면, 어긋난 쪽은
-     **십중팔구 내 사각형**이다. 회수하지 말고 그 자리에서 다시 물어본다(위 주석). */
-  if(poke && _hitWhyAt && (now - _hitWhyAt) < FGN_TRUST_MS
-     && String(_lastHitWhy).indexOf('dom:') === 0){
-    /* ⚠️ **유예 중에는 다음 클릭도 회수하지 않는다.** 재판정 요청만 연타 방지로 묶는다.
-       여기서 '요청을 보낸 그 한 번'만 봐주면, 0.2초 뒤 두 번째 클릭이 그대로 회수를 부른다 —
-       제보 로그의 회수 간격이 0.2~2.0초였으니 그물이 사실상 없는 것과 같아진다.
-       ★ 그래도 무한정 봐주지는 않는다: _hitWhyAt 은 렌더러가 **전환할 때만** 갱신되므로
-         FGN_TRUST_MS 가 지나면 이 분기가 저절로 닫히고 원래대로 회수가 돈다. */
-    if((now - _fgnDeferAt) > FWD_REFIRE_MS){
-      _fgnDeferAt = now;
-      _sendHitTest({ x: poke.x, y: poke.y });
-      _fdLog('[포커스] 🛡️ 회수 유예 — 렌더러가 ' + (now - _hitWhyAt) + 'ms 전에 ' + _lastHitWhy
-        + ' 로 켰다, 재판정 요청 | ' + why);
-      setTimeout(() => {
-        if(_lastIgnoreRequested) return;                                // 렌더러가 스스로 통과로 갔다 — 끝
-        // 무응답이다. 렌더러가 살아 있으면 그 판단(=우리 UI 위)을 믿고 물러난다.
-        if(Date.now() - _lastCharBoundsAt <= FGN_BOUNDS_FRESH_MS) return;
-        _fgnRecall(why + ' [재판정 무응답 + 렌더러 정지]');
-      }, FGN_DEFER_MS);
-    }
+  const d = ClickPolicy.foreignInputStep({ kind, configMode: _isConfigMode, ignoreRequested: _lastIgnoreRequested, focused,
+    cursor: pt, onOverlay: pt ? _ptOnOverlayWindow(pt) : null, moveAge: _rendererMoveAge,
+    haveBounds, boundsAge, onOurUI: (haveBounds && pt) ? _ptOnOurUI(cx, cy, ClickPolicy.FGN_CHAR_MARGIN) : false,
+    cx, cy, charDx: haveBounds ? cx - _lastCharBounds.x : 0, charDy: haveBounds ? cy - _lastCharBounds.y : 0,
+    regionCount: _lastRegions.length, now, firedAt: _fwdFiredAt, hitWhyAt: _hitWhyAt, lastHitWhy: _lastHitWhy, deferAt: _fgnDeferAt });
+  if(!d.act || d.act === 'wait') return;
+  if(d.act === 'defer'){
+    _fgnDeferAt = now;
+    _sendHitTest({ x: d.poke.x, y: d.poke.y });
+    _fdLog('[포커스] 🛡️ 회수 유예 — 렌더러가 ' + (now - _hitWhyAt) + 'ms 전에 ' + _lastHitWhy
+      + ' 로 켰다, 재판정 요청 | ' + d.why);
+    setTimeout(() => {
+      // 렌더러가 스스로 통과로 갔거나 살아 있으면(그 판단 = 우리 UI 위를 믿고) 물러난다
+      if(ClickPolicy.deferExpiredStep({ ignoreRequested: _lastIgnoreRequested, boundsAge: Date.now() - _lastCharBoundsAt }) !== 'recall') return;
+      _fgnRecall(d.why + ' [재판정 무응답 + 렌더러 정지]');
+    }, ClickPolicy.FGN_DEFER_MS);
     return;
   }
-
-  _fgnRecall(why);
+  _fgnRecall(d.why);
 }
 
 /* ═══ [진단] 게임 중 창이 스스로 활성화되는 제보 추적 ═════════════════════
@@ -1878,6 +1808,7 @@ const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
      횟수를 묶는다 — 두 번째부터는 기록만 한다. */
 let _rendererReloads = 0, _childGoneHooked = false;
 const RENDERER_AUTO_RELOAD_MAX = 1;
+const _unresponsiveSince = new WeakMap();   // 창 → 'unresponsive' 가 시작된 시각(ms). 'responsive' 가 오면 지운다 — 두 번째 실행 판정(_secondInstanceAction)이 본다
 function _watchRendererHealth(win){
   if(!win || win.isDestroyed()) return;
   const wc = win.webContents;
@@ -1893,8 +1824,8 @@ function _watchRendererHealth(win){
     if(isMainFrame === false) return;   // 안쪽 iframe(유튜브 등) 실패는 앱 화면과 무관
     _diagLog('[렌더러] 로드 실패 — ' + code + ' ' + desc + ' | ' + String(url || '').slice(-80));
   });
-  win.on('unresponsive', () => _diagLog('[렌더러] 응답 없음(unresponsive)'));
-  win.on('responsive',   () => _diagLog('[렌더러] 응답 재개(responsive)'));
+  win.on('unresponsive', () => { if(!_unresponsiveSince.has(win)) _unresponsiveSince.set(win, Date.now()); _diagLog('[렌더러] 응답 없음(unresponsive)'); });
+  win.on('responsive',   () => { _unresponsiveSince.delete(win); _diagLog('[렌더러] 응답 재개(responsive)'); });
   if(!_childGoneHooked){
     _childGoneHooked = true;
     app.on('child-process-gone', (e, d) => {
@@ -2075,6 +2006,7 @@ function createWindow() {
 
   _fdInstrument(mainWindow);   // 🩺 [진단] 활성화 원인 추적 — 창을 올리는 메서드에 표식만 심는다(동작 불변)
 
+  _mainWindowCreated = true;
   _watchRendererHealth(mainWindow);   // 🩺 렌더러 사망 · 로드 실패 · 무응답 기록(+ 사망 시 1회 재로드) — 제보 #1
   _logGpuOnce(mainWindow);            // 🩺 그래픽카드 · GPU 기능 상태 · 시험 스위치 한 줄 — 제보 #1-B
   mainWindow.loadFile(path.join(__dirname, 'app', 'desk-companion-prototype.html'));
@@ -2394,6 +2326,7 @@ function createWindow() {
   });
 
   mainWindow.webContents.on('did-create-window', (win, details)=>{
+    _lockChildZoom(win);   // 자식 창은 100% 고정(_lockChildZoom 주석)
     if(details && details.frameName && details.frameName.startsWith('mhGuestbook')){
       gbWin = win;
       /* ★ 창 레벨을 메인과 같은 단계까지 올린다 — 이게 "방명록이 마이홈 뒤로 숨는다"의 원인이었다.
@@ -3741,10 +3674,17 @@ function createWindow() {
   const _onGlobalMouseDown = (e) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     _guardForeignInput('click');   // ⓖ 굳은 클릭받기 회수 — 캐릭터에서 먼 클릭이면 판정이 틀린 것이다
-    let offOverlay = false;
-    try{ offOverlay = !_ptOnOverlayWindow(screen.getCursorScreenPoint()); }catch(_){}
+    let offOverlay = false, onUI;
+    try{
+      const pt = screen.getCursorScreenPoint();
+      offOverlay = !_ptOnOverlayWindow(pt);
+      /* 🖱️ onUI — 이 클릭이 우리 UI(캐릭터 · 창) 위인가. 렌더러 사다리 3단계(0.8초 클릭받기)는 이게 참일 때만 돈다.
+         다른 앱 위 더블클릭의 두 번째 클릭이 그 0.8초에 투명 오버레이로 새서 투게더워킹이 앞으로 오던 것(10-16 제보 13).
+         UI 자리를 아직 모르면(렌더러가 안 보냄) undefined — 렌더러는 예전처럼 돈다. */
+      if(_mainWinScreenBounds && (_lastCharBounds || _lastRegions.length)) onUI = _ptOnOurUI(pt.x - _mainWinScreenBounds.x, pt.y - _mainWinScreenBounds.y);
+    }catch(_){}
     mainWindow.webContents.send('companion:globalClick',
-      { x: e.x, y: e.y, button: e.button, ...lastActiveState, offOverlay });
+      { x: e.x, y: e.y, button: e.button, ...lastActiveState, offOverlay, onUI });
   };
   /* 휠 스크롤도 '사람이 그 앱을 쓰는 중'이다 — 브라우저·문서에서 읽기만 하는 동안
      클릭도 키도 없어서 통째로 자리비움으로 빠지던 구간을 메운다.
@@ -3817,23 +3757,51 @@ function createWindow() {
          (app.quit()은 창을 하나씩 닫으며 이벤트를 도는데, 그 시간이 곧 '종료를 막는 앱'이 된다)
      ⚠️ 이 경로에서는 저장을 하지 않는다. 설정은 바뀔 때마다 이미 파일에 쓰고 있으므로
        여기서 추가로 쓸 것이 없고, 쓰기를 넣으면 다시 같은 문제(느려서 종료를 막음)가 된다. */
-  app.on('session-end', () => {
-    try{ sysinput.stopGlobalHooks(); }catch(_){}
-    try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
-    try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
-    try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
-    try{ app.exit(0); }catch(_){}
-  });
+  app.on('session-end', () => { _exitNow(); });
+}
+
+/* 🔁 두 번째 실행 때 옛 인스턴스를 어떻게 할지 — 순수 판정(검사 sim-second-instance).
+   s = { ready, created, hasWindow, destroyed, crashed, hungSince(응답 없음이 시작된 시각 ms · 없으면 null) } · now = 지금 시각 ms
+   · 'wait'     — 아직 부팅 중(준비 전 · 창을 만들기 전). 예전처럼 아무것도 안 한다 — 부팅 중인 앱을 죽이지 않는다.
+   · 'relaunch' — 창이 없거나 · 파괴됐거나 · 렌더러가 죽었으면 바로. 응답 없음은 RELAUNCH_HUNG_MS 이상 이어졌을 때만.
+   · 'focus'    — 멀쩡하거나 잠깐 멈춤(로딩 · GC). 앞으로 올리기만(재시작하면 방에서 튕긴다). */
+const RELAUNCH_HUNG_MS = 10000;   // 응답 없음이 이만큼 이어져야 정리하고 새로 띄운다(10-17 사용자 결정)
+function _secondInstanceAction(s, now){
+  if(!s || !s.ready || !s.created) return 'wait';
+  if(!s.hasWindow || s.destroyed || s.crashed) return 'relaunch';
+  if(s.hungSince == null || !(now - s.hungSince >= RELAUNCH_HUNG_MS)) return 'focus';
+  return 'relaunch';
+}
+let _mainWindowCreated = false;   // createWindow 가 한 번이라도 창을 만들었나 — «부팅 중» 과 «창이 사라짐» 을 가른다
+function _mainWindowHealth(){
+  const w = mainWindow;
+  const s = { ready: app.isReady(), created: _mainWindowCreated, hasWindow: !!w, destroyed: false, crashed: false, hungSince: null };
+  if(!w) return s;
+  try{ s.destroyed = w.isDestroyed(); }catch(_){ s.destroyed = true; }
+  if(s.destroyed) return s;
+  try{ const wc = w.webContents; s.crashed = !wc || wc.isDestroyed() || wc.isCrashed(); }catch(_){ s.crashed = true; }
+  if(_unresponsiveSince.has(w)) s.hungSince = _unresponsiveSince.get(w);
+  return s;
+}
+/* 정리하고 새로 띄운다 — 정리는 session-end 와 같은 _exitNow()(네이티브 훅 · 타이머 먼저 → 창 destroy → app.exit(0)).
+   ⚠️ relaunch() 는 예약일 뿐이라 _exitNow() 를 꼭 이어 부른다. 멈춘 렌더러를 기다리지 않게 quit() 이 아니라 exit(0). */
+function _relaunchFresh(s){
+  _diagLog('[중복 실행] 옛 창을 쓸 수 없어 정리하고 새로 띄움 — ' + JSON.stringify(s));
+  try{ app.relaunch(); }catch(e){ _diagLog('[중복 실행] relaunch 실패 — ' + (e && e.message)); }
+  _exitNow();
 }
 
 // 앱 중복 실행 방지 — 이미 하나 켜져있는데 또 실행하면(바탕화면 아이콘 재클릭 등),
-// 새 인스턴스는 바로 종료하고 기존 창을 활성화/최상위로 끌어올림.
+// 새 인스턴스는 바로 종료하고 기존 창을 활성화/최상위로 끌어올림(옛 창을 쓸 수 없으면 정리하고 새로 띄움).
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    if (mainWindow) {
+    const health = _mainWindowHealth();
+    const act = _secondInstanceAction(health, Date.now());
+    if (act === 'relaunch') { _relaunchFresh(health); return; }
+    if (act === 'focus') {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
       mainWindow.focus();
@@ -3848,6 +3816,7 @@ if (!gotLock) {
     _ensureSettingsFile();
     FOCUS_APPS_FILE = path.join(app.getPath('userData'), 'focus-apps.json');
     focusApps = loadFocusApps();   // ★ 이전에 등록해둔 포커싱 어플 복원
+    _applyAppMenu();   // 기본 메뉴 걷기 — 창보다 먼저(APP_MENU_TEMPLATE 주석)
     createWindow();
     /* 🖥️ 화면 구성을 한 줄 남긴다 — createWindow 뒤에 부른다(그래야 오버레이가 어디에 뜨는지 함께 나온다).
        제보자마다 배율·화면 수를 물어보지 않아도 되게 하는 것이 목적이다. */

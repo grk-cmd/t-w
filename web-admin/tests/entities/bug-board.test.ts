@@ -188,12 +188,20 @@ describe('상태 · 답변 쓰기 — 앱 addAnswer 와 같은 칸', () => {
     expect(statusWrite(it1, 'checking')).toEqual({
       'bugBoard/list/p1/status': 'checking',
       'bugBoard/list/p1/openTs': it1.ts,
+      'bugBoard/list/p1/doneTs': null,
     });
     expect(statusWrite(item(), 'norepro')).toEqual({
       'bugBoard/list/p1/status': 'norepro',
       'bugBoard/list/p1/openTs': null,
     });
     expect(statusWrite(item({ notice: true }), 'new')['bugBoard/list/p1/openTs']).toBeNull();
+  });
+
+  it('해결 시각(doneTs) — 미해결로 되돌리면 지우고, 해결로 바꿀 때는 건드리지 않는다(서버 정리 함수가 처음 본 날 적는다)', () => {
+    for (const st of ['new', 'checking', 'unfixed'] as const)
+      expect(statusWrite(item({ status: 'fixed' }), st)).toHaveProperty('bugBoard/list/p1/doneTs', null);
+    for (const st of ['fixed', 'norepro'] as const)
+      expect(statusWrite(item(), st)).not.toHaveProperty('bugBoard/list/p1/doneTs');
   });
 
   it('답변 — ans · status · lastReplyTs · ansN+1 · openTs 를 한 묶음으로, 비공개 글은 비공개 답변만', () => {
@@ -262,6 +270,7 @@ describe('글쓴이 답글 · 해결 안 됨', () => {
     expect(statusWrite(item({ status: 'fixed', openTs: undefined }), 'unfixed')).toEqual({
       'bugBoard/list/p1/status': 'unfixed',
       'bugBoard/list/p1/openTs': DAY + 1000,
+      'bugBoard/list/p1/doneTs': null,
     });
   });
 

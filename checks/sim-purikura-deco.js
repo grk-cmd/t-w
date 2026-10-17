@@ -22,7 +22,7 @@ const P = require('./purikura-net.js');
 /* 📷 촬영 창 · 무대 · 꾸미기 화면은 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 let PU = null; try{ PU = fs.readFileSync('purikura-ui.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — purikura-ui.js'); process.exit(2); }
-/* 🏠 마이홈 BGM 창구(_mhBgmPlaying · _mhBgmSetPlaying)는 parts/myhome/myhome-edit.js 가 건다(앱 FSD 7-2) — 같은 방식으로 이어 붙인다.
+/* 🏠 마이홈 BGM 창구(고리판 BGM_PLAYING · BGM_SET_PLAYING)는 parts/myhome/myhome-edit.js 가 건다(앱 FSD 7-2 · 순환 끊기 8) — 같은 방식으로 이어 붙인다.
    ⚠️ 빼면 «창구는 표시만 바꾼다»(없어야 할 글을 찾는 검사)가 아무것도 안 보고 초록이 된다. */
 let ME = null; try{ ME = fs.readFileSync('myhome-edit.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
 /* 💬 대화창 배선(📷 버튼)은 parts/chat/chat-window.js 로 옮겼다(앱 FSD 14번) — 같은 방식으로 이어 붙인다. */
@@ -940,7 +940,7 @@ say('· §14 BGM — 창이 열려 있는 동안만, 그리고 소리가 겹치�
   const hush = /function _pkHushOthers\(\)\{[\s\S]*?\n\}/.exec(SRC);
   chk(!!hush && (hush[0].match(/companion\.pauseBgm/g) || []).length === 2,
       '★ 재우는 호출이 한 번뿐이다 (창을 공유하므로 두 번 부를 이유가 없다)');
-  chk(!!hush && /_setPlPlaying\(false\)/.test(hush[0]) && /_mhBgmSetPlaying/.test(hush[0]),   // _plPlaying 은 app.js 의 let — 모듈은 setPlPlaying 으로 쓴다
+  chk(!!hush && /_setPlPlaying\(false\)/.test(hush[0]) && /HOOK\.BGM_SET_PLAYING/.test(hush[0]),   // _plPlaying 은 app.js 의 let — 모듈은 setPlPlaying 으로 쓴다
       '★ 양쪽의 «재생 중» 표시도 내린다 (안 내리면 ▶ 버튼이 재생 중인 척한다)');
   chk(!!hush && /PK\.hushed = \{ pl:pl, home:home \}/.test(hush[0]),
       '★ 누가 나고 있었는지 기억한다 (안 하면 안 듣던 것까지 켜 준다)');
@@ -951,9 +951,9 @@ say('· §14 BGM — 창이 열려 있는 동안만, 그리고 소리가 겹치�
       '★ 열 때 «재우고 켜기», 닫을 때 «끄고 깨우기» 순서다');
   chk(/function closePurikura[\s\S]{0,900}_pkBgmStop\(\)/.test(SRC),
       '★ 창이 닫히는 모든 길에서 소리가 멎는다 (⎋·✕·회사원 모드 전부 closePurikura 를 지난다)');
-  chk(/window\._mhBgmPlaying = function/.test(SRC) && /window\._mhBgmSetPlaying = function/.test(SRC),
+  chk(/mhHooks\.on\(mhHooks\.HOOK\.BGM_PLAYING, function/.test(SRC) && /mhHooks\.on\(mhHooks\.HOOK\.BGM_SET_PLAYING, function/.test(SRC),
       '마이홈이 «지금 나는 중인가»를 알려주는 창구를 열어 뒀다');
-  chk(!/_mhBgmSetPlaying = function[\s\S]{0,140}companion\./.test(SRC),
+  chk(!/HOOK\.BGM_SET_PLAYING, function[\s\S]{0,140}companion\./.test(SRC),
       '★ 그 창구는 표시만 바꾼다 (거기서 companion 을 또 부르면 두 번 재워진다)');
 }
 say('');

@@ -18,10 +18,16 @@ const mhStateMod = deps.mhStateMod;
 const myHomeUiMod = deps.myHomeUiMod;
 const renderMyHomeStickers = deps.renderMyHomeStickers;
 const richTextMod = deps.richTextMod;
+const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — BGM · 배경 · 테마 다시 칠하기는 편집 묶음이 건다
 async function loadMyHomePage(){
   // ★ 마이홈2-B: 관람 중이면 절대 내 데이터로 덮어쓰지 않음 (친구 홈 데이터가 순간적으로 사라지는 버그 방지)
   if(mhStateMod._mhViewingUserId()) return;
   if(!window.firebaseAPI || !firebaseAPI.getMyHome){ try{ renderMyHomePage(); }catch(_){}; return; }
+  if(!getMyUserId()){   // 내 코드가 없으면 읽지 않고(읽어도 거부된다) 읽기 실패 때와 같은 기본값으로 그린다
+    if(!mhStateMod._myHomeData()) mhStateMod.setMyHomeData({ avatar:null, bio:'', postTitle:'', post:'', theme:null, stickers:{}, bgm:null, bg:null });
+    try{ renderMyHomePage(); }catch(e){ console.warn('마이홈 렌더 실패', e); }
+    return;
+  }
   try{
     const _loadUid = getMyUserId();
     const data = await firebaseAPI.getMyHome(_loadUid) || {};
@@ -64,9 +70,9 @@ function renderMyHomePage(){
   const _safe=(label,fn)=>{ try{ fn(); }catch(e){ console.warn('[마이홈] 렌더 실패:'+label, e); } };
   _safe('stickers', ()=>renderMyHomeStickers());
   _safe('profileRail', ()=>{ if(typeof myHomeUiMod.renderMhProfileRail==='function') myHomeUiMod.renderMhProfileRail(); });
-  _safe('bgm', ()=>{ window._mhBgmRefresh(); });
-  _safe('bg', ()=>{ window._mhApplyBg(); });
-  _safe('theme', ()=>{ window._mhApplyTheme(); });
+  _safe('bgm', ()=>{ mhHooks.call(mhHooks.HOOK.BGM_REFRESH); });
+  _safe('bg', ()=>{ mhHooks.call(mhHooks.HOOK.APPLY_BG); });
+  _safe('theme', ()=>{ mhHooks.call(mhHooks.HOOK.APPLY_THEME); });
 }
 let _mhStickerDragDist = 0;   // 마지막 드래그 이동거리 — 드래그 직후 링크가 열리는 오작동 방지용
 

@@ -29,6 +29,7 @@ const myHomeOpen = deps.myHomeOpen;              // 🏠 마이홈이 열려 있
 const _myHomeFriends = deps.myHomeFriends;       // 👥 친구 목록 캐시 — app.js 의 let(구독마다 다시 대입된다)
 const _myFriendRequests = deps.myFriendRequests; // 👋 나에게 온 친구 요청 — app.js 의 let(구독마다 다시 대입된다)
 const FRIEND_MAX = deps.friendMax;               // 👥 친구 상한 — app.js 한 곳(다섯 곳이 이 값 하나를 본다)
+const friendsForCheck = deps.friendsForCheck;   // 👥 판정용 친구 목록(friends-sub.js) — 못 받았으면 한 번 읽고 · 실패면 null(토스트는 거기서)
 
 /* 👋 대기 중 친구 요청 팝업 — 요청이 여러 개면 한 번에 하나씩 순차로.
 
@@ -76,17 +77,20 @@ async function showFriendRequestPopup(onlyIds){
       box.querySelector('[data-a="no"]').onclick = ()=>done('no');
     });
     if(answer === 'ok'){
-      if(Object.keys(_myHomeFriends()).length >= FRIEND_MAX){
+      /* 👥 받은 목록으로 판정한다 — 못 받았으면 friends-sub 가 한 번 읽는다. 못 읽으면 이 요청은 남겨 둔다(아무것도 안 보냄). */
+      const _fr = await friendsForCheck();
+      if(!_fr) continue;
+      if(Object.keys(_fr).length >= FRIEND_MAX){
         toast('친구는 최대 '+FRIEND_MAX+'명까지만 추가할 수 있어요 — 나중에 자리를 만든 뒤 다시 요청받아 주세요');
         continue;   // 이 요청은 남겨둠 — 나중에 처리
       }
       try{
         await firebaseAPI.acceptFriendRequest(getMyUserId(), fromId);
         toast(nm + ' 님과 친구가 됐어요');
-      }catch(e){ toast('수락에 실패했어요'); }
+      }catch(e){ TwErrorCodes.notify('E-FR-01', e); }
     } else if(answer === 'no'){
       try{ await firebaseAPI.rejectFriendRequest(getMyUserId(), fromId); }
-      catch(e){ toast('거절에 실패했어요'); }
+      catch(e){ TwErrorCodes.notify('E-FR-02', e); }
     }
   }
   _friendReqPopupBusy = false;
@@ -265,7 +269,7 @@ async function renderSentRequests(listEl){
           row.remove();
           if(!Object.keys(_fmSent || {}).length) renderSentRequests(listEl);   // 빈 목록 안내로 되돌린다
         } else {
-          toast('취소에 실패했어요');
+          TwErrorCodes.notify('E-FR-03', r && r.reason);
           cancelBtn.disabled = false;
         }
       };
@@ -380,14 +384,14 @@ function renderFriendRequests(){
       if(r === 'ok'){ toast((req.name || '친구') + ' 님과 친구가 됐어요'); _fmPicked.delete(fromId); return; }
       // 자리가 없으면 요청은 **남겨둔다** — 지우면 상대가 다시 보내야 한다
       if(r === 'full') toast('친구는 최대 ' + FRIEND_MAX + '명까지만 추가할 수 있어요');
-      else if(r === 'err') toast('수락에 실패했어요');
+      else if(r === 'err') TwErrorCodes.notify('E-FR-01');
       unlock();
     };
     noBtn.onclick = async ()=>{
       if(!window.firebaseAPI || !firebaseAPI.rejectFriendRequest) return;
       lock();
       try{ await firebaseAPI.rejectFriendRequest(getMyUserId(), fromId); _fmPicked.delete(fromId); }
-      catch(e){ toast('거절에 실패했어요'); unlock(); }
+      catch(e){ TwErrorCodes.notify('E-FR-02', e); unlock(); }
     };
 
     const btns = document.createElement('div'); btns.className = 'mh-req-btns';
@@ -422,7 +426,7 @@ async function _fmBulkAccept(){
   }
   if(ok)   toast(ok + '명과 친구가 됐어요');
   if(full) toast('친구는 최대 ' + FRIEND_MAX + '명까지만 추가할 수 있어요 — ' + full + '건은 자리가 없어 그대로 남겨뒀어요');
-  if(err)  toast(err + '건은 수락에 실패했어요');
+  if(err)  TwErrorCodes.notify('E-FR-04', null, err + '건은 수락하지 못했어요');
   if(!ok && !full && !err) toast('처리할 요청이 없었어요');
   renderFriendRequests();
 }
@@ -441,7 +445,7 @@ async function _fmBulkReject(){
     catch(e){ err++; }
   }
   if(ok)  toast(ok + '건을 거절했어요');
-  if(err) toast(err + '건은 처리에 실패했어요');
+  if(err) TwErrorCodes.notify('E-FR-04', null, err + '건은 거절하지 못했어요');
   renderFriendRequests();
 }
 

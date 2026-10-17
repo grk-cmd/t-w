@@ -29,20 +29,46 @@ const doLeaveRoom = deps.doLeaveRoom;          // 수락 — 이미 방에 있�
 const _friendInRoom = deps.friendInRoom;       // 🏠 다른 방에 있는 친구 판정 — app.js(마이홈 친구 목록)
 const Presence = deps.presence;
 const _myHomeFriends = deps.myHomeFriends;     // 읽는 함수 — app.js 가 다시 대입하는 let
+const _friendsNotice = deps.friendsNotice;     // 읽는 함수 — 친구 목록을 아직 못 받았으면 안내 문구, 받았으면 null(friends-sub.js · 마이홈 친구 탭과 같은 문구)
+const _friendsRetry = deps.friendsRetry;       // 친구 목록을 못 불러왔으면 다시 건다(초대 목록을 열 때)
+const _friendsOpen = deps.friendsOpen;         // (key, onUpdate) — 목록을 열었다(이름 · 사진 다시 받기 · 바뀌면 onUpdate)
+const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
 (function bindRoomInvite(){
   const pickOv   = document.getElementById('roomInvitePickOverlay');
   const pickList = document.getElementById('roomInvitePickList');
   const pickClose= document.getElementById('roomInvitePickClose');
   if(!pickOv) return;
 
+  /* 한 번 연 동안의 상태 — 열려 있는 사이 친구 목록이 바뀌면(이름 · 사진 도착) 다시 그리는데, 보낸 · 보내는 중 · 한 번 알린 버튼은 이어지게.
+     gen = 그린 횟수 — 보내기가 끝났을 때 그 줄이 이미 다시 그려졌으면 한 번 더 그린다(새 버튼이 «...» 에 머물지 않게). */
+  let _pick = null;   // { code, sent, sending, warned, gen } | null(닫힘)
   function openPick(){
     const code = (typeof Presence!=='undefined' && Presence.active()) ? Presence.roomCode() : null;
     if(!code){ toast('먼저 방에 연결해 주세요'); return; }
+    _pick = { code, sent: new Set(), sending: new Set(), warned: new Set(), gen: 0 };
+    _friendsRetry();   // 못 불러왔으면 지금 다시 건다(다시 시도는 목록을 열 때만)
+    _friendsOpen('invite', ()=>{ if(_pick && pickOv.style.display !== 'none') _renderPick(); });
+    _renderPick();
+    pickOv.style.display = 'flex';
+    /* 옮겨 둔 창은 목록 길이가 달라지면 높이도 달라진다 — 열 때마다 화면 안으로 다시 가둔다.
+       (display 를 준 뒤에 재야 offsetHeight 가 실제 높이로 나온다) */
+    if(_pickPos) _pickApplyPos();
+  }
+  function _renderPick(){
+    const st = _pick, code = st.code, gen = ++st.gen;
+    const top = pickList.scrollTop;
     // 초대 가능한 채널인지 — 채널3(플레이룸)은 준비중이므로 초대도 막힘
     pickList.innerHTML = '';
     const friends = _myHomeFriends() || {};
     const ids = Object.keys(friends);
-    if(!ids.length){
+    const notice = _friendsNotice();
+    if(notice){
+      const box = document.createElement('div');
+      box.style.cssText = 'padding:16px;text-align:center;color:var(--ink-soft);font-size:11px;white-space:pre-line;';   // 안내 두 문장 사이 줄바꿈(friends-sub NOTICE)
+      box.textContent = notice;
+      pickList.appendChild(box);
+      pickList.style.maxHeight = '';
+    } else if(!ids.length){
       pickList.innerHTML = '<div style="padding:16px;text-align:center;color:var(--ink-soft);font-size:11px;">아직 친구가 없어요<br>마이홈 > 친구에서 친구를 추가해 보세요</div>';
       pickList.style.maxHeight = '';
     } else {
@@ -93,16 +119,23 @@ const _myHomeFriends = deps.myHomeFriends;     // 읽는 함수 — app.js 가 �
         nm.appendChild(meta);
 
         const btn = document.createElement('button'); btn.className='lc-btn'; btn.textContent='초대'; btn.style.cssText='width:56px;flex:none;font-size:11px;padding:4px 0;margin:0;';
-        let warned = false;
+        let warned = st.warned.has(fid);
+        if(st.sent.has(fid)){ btn.disabled = true; btn.textContent='완료'; }
+        else if(st.sending.has(fid)){ btn.disabled = true; btn.textContent='...'; }
+        else if(warned){ btn.textContent = '그래도'; btn.title = '한 번 더 누르면 초대를 보냅니다'; }
         const send = async ()=>{
           btn.disabled = true; btn.textContent='...';
+          st.sending.add(fid);
           try{
             if(window.firebaseAPI && firebaseAPI.sendRoomInvite){
               await firebaseAPI.sendRoomInvite(fid, getMyUserId(), code, getDisplayName());
               toast((f.name||'친구') + ' 님에게 초대를 보냈어요');
               btn.textContent='완료';
+              st.sent.add(fid);
             } else { toast('네트워크 연결이 필요해요'); btn.disabled=false; btn.textContent='초대'; }
           }catch(e){ toast('초대에 실패했어요'); btn.disabled=false; btn.textContent='초대'; }
+          st.sending.delete(fid);
+          if(_pick === st && st.gen !== gen && pickOv.style.display !== 'none') _renderPick();
         };
         btn.onclick = ()=>{
           /* 🏠 다른 방에 있는 친구 — 첫 클릭은 보내지 않고 알려만 준다.
@@ -110,7 +143,7 @@ const _myHomeFriends = deps.myHomeFriends;     // 읽는 함수 — app.js 가 �
                한 번 세우는 것만으로 사고가 걸러진다. 그렇다고 아예 막으면, 다른 방에 있는 친구를
                우리 방으로 부르는 정상적인 경우까지 못 하게 된다 — 그건 과하다. */
           if(inRoom && !warned){
-            warned = true;
+            warned = true; st.warned.add(fid);
             toast((f.name||'친구') + ' 님은 현재 다른 방에 입장 중입니다');
             btn.textContent = '그래도';
             btn.title = '한 번 더 누르면 초대를 보냅니다';
@@ -128,12 +161,9 @@ const _myHomeFriends = deps.myHomeFriends;     // 읽는 함수 — app.js 가 �
       pickList.style.maxHeight = (sorted.length > INVITE_MAX_ROWS)
         ? (INVITE_ROW_H * INVITE_MAX_ROWS) + 'px' : '';
     }
-    pickOv.style.display = 'flex';
-    /* 옮겨 둔 창은 목록 길이가 달라지면 높이도 달라진다 — 열 때마다 화면 안으로 다시 가둔다.
-       (display 를 준 뒤에 재야 offsetHeight 가 실제 높이로 나온다) */
-    if(_pickPos) _pickApplyPos();
+    pickList.scrollTop = top;   // 다시 그려도 보던 자리 그대로
   }
-  function closePick(){ pickOv.style.display='none'; }
+  function closePick(){ pickOv.style.display='none'; _pick = null; _friendsClose('invite'); }
 
   /* ✥ 타이틀바 드래그로 창 옮기기 — 알림창(#bellWin)과 같은 방식이다.
      [무엇을 바꾸는가] 이 창은 오버레이가 flex 로 가운데 잡아 준다. 드래그를 시작하는 순간
@@ -214,6 +244,7 @@ const ROOM_INVITE_STALE_MS = 10 * 60 * 1000;
 function _bindRoomInviteReceiver(){
   if(!(window.firebaseAPI && firebaseAPI.subscribeRoomInvites)) return;
   const myId = getMyUserId();
+  if(!myId) return;   // 내 코드가 없으면 구독하지 않는다(roomInvites/null)
   firebaseAPI.subscribeRoomInvites(myId, invites=>{
     let ids = Object.keys(invites || {});
     if(!ids.length || _roomInviteBusy) return;
@@ -293,8 +324,7 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   box.querySelector('[data-a="no"]').onclick = ()=>done(false);
 }
 // Firebase 준비되면 수신 구독 시작
-if(window.firebaseAPI) _bindRoomInviteReceiver();
-else window.addEventListener('firebase-ready', ()=>_bindRoomInviteReceiver(), { once:true });
+TwNetReady.whenNetReady(()=>_bindRoomInviteReceiver());
 
 return {
   showPopup: showRoomInvitePopup,     // 받은 초대 팝업(검사용)

@@ -11,6 +11,10 @@
    [직접 실행] 되살리기가 맞는지 스스로 본다(모듈마다 deps 줄 · mod. 이 안 남고, 옛 이름 선언이 다시 보인다). */
 'use strict';
 const fs = require('fs');
+/* 값 · 순수 함수만 내놓는 공용 모듈(«createX(deps)» 없음) — joinRenderer 가 맨 앞에 «var glob = …» 으로 깐다 */
+const VALUE_MODULES = [
+  { file: 'ps1-dither.js', glob: 'TwPs1Dither' },   // 🕹️ PS1 디더 규칙 — dot-render.js 가 만들 때 읽는다
+];
 const MODULES = [
   { file: 'my-info.js', mod: 'myInfoMod', glob: 'TwMyInfo', sample: 'function openMyInfo(' },   // 앱 FSD 17번
   { file: 'chars.js', mod: 'charsMod', glob: 'TwChars', sample: 'function _charsSync(' },       // 앱 FSD 18번
@@ -83,11 +87,46 @@ const MODULES = [
   { file: 'presence.js', mod: 'presenceMod', glob: 'TwPresence', sample: 'const Presence=(()=>{' },   // C 구역 떼기 w4
   { file: 'launcher-preview.js', mod: 'launcherPrevMod', glob: 'TwLauncherPreview', sample: 'function ensureLauncherPreview(' },   // C 구역 떼기 · w3
   { file: 'part-scene.js', mod: 'partSceneMod', glob: 'TwPartScene', sample: 'function _forceOpaqueAlphaOutput(' },   // 구역 떼기 C · w2
+  { file: 'catalog-source.js', mod: 'catalogSourceMod', glob: 'TwCatalogSource', sample: 'function catalogSrcCan(' },   // 구역 떼기 C · w2 — 서버 이관 provider
   { file: 'admin-thumbs.js', mod: 'adminThumbs', glob: 'TwAdminThumbs', sample: 'window.generateAllPartThumbnails = async' },   // 구역 떼기 C · w2
   { file: 'mat-tone.js', mod: 'matToneMod', glob: 'TwMatTone', sample: 'function setFaceMap(' },   // C 구역 떼기 · w3
   { file: 'seat-friend-req.js', mod: 'seatFriendReqMod', glob: 'TwSeatFriendReq', sample: 'function _friendReqAsk(' },   // C 구역 떼기 w4
   { file: 'glb-idb-cache.js', mod: 'glbIdbMod', glob: 'TwGlbIdbCache', sample: 'function _glbIdb(' },   // 구역 떼기 C · w2
   { file: 'catalog-glb.js', mod: 'catalogGlbMod', glob: 'TwCatalogGlb', sample: 'function resolveCatalogGlb(' },   // 구역 떼기 C · w2
+  { file: 'catalog-sync.js', mod: 'catalogSyncMod', glob: 'TwCatalogSync', sample: 'function mergeCatalogIntoSavedItems(' },   // 구역 떼기 C · w2
+  { file: 'seat-layout.js', mod: 'seatLayoutMod', glob: 'TwSeatLayout', sample: 'function layoutSeatRow(' },   // 구역 떼기 C · w1
+  { file: 'seat-refit.js', mod: 'seatRefitMod', glob: 'TwSeatRefit', sample: 'async function refitSeatAfterParts(' },   // 파츠 바뀐 뒤 좌석 다시 맞추기 한 벌
+  { file: 'desk-items.js', mod: 'deskItemsMod', glob: 'TwDeskItems', sample: 'function _savedItemMeta(' },   // 구역 떼기 C · w2
+  { file: 'light-tone.js', mod: 'lightToneMod', glob: 'TwLightTone', sample: 'function _applyPartMatTone(' },   // C 구역 떼기 w4
+  { file: 'creator-preview.js', mod: 'creatorPrevMod', glob: 'TwCreatorPreview', sample: 'function updateCreatorLights(' },   // C 구역 떼기 · w3
+  { file: 'creator-flow.js', mod: 'creatorFlowMod', glob: 'TwCreatorFlow', sample: 'function gotoStep(' },   // C 구역 떼기 · w3
+  { file: 'creator-save.js', mod: 'creatorSaveMod', glob: 'TwCreatorSave', sample: 'function _creatorBuildDef(' },   // C 구역 떼기 · w3
+  { file: 'desk-visual.js', mod: 'deskVisualMod', glob: 'TwDeskVisual', sample: 'function applyDeskCatalogRefToSeat(' },   // 구역 떼기 C · w2
+  { file: 'seat-equalize.js', mod: 'seatEqMod', glob: 'TwSeatEqualize', sample: 'function seatEqK(' },   // 구역 떼기 C · w1
+  { file: 'commission-import.js', mod: 'commImpMod', glob: 'TwCommissionImport', sample: 'function dataUrlToCanvas(' },   // C 구역 떼기 · w3
+  { file: 'deco-parts-visibility.js', mod: 'decoPartsMod', glob: 'TwDecoPartsVisibility', sample: 'function _decoWrapperShow(' },   // 구역 떼기 C · w1
+  { file: 'creator-xform.js', mod: 'crXformMod', glob: 'TwCreatorXform', sample: 'function _itemYaw(' },   // C 구역 떼기 w4
+  { file: 'ride-measure.js', mod: 'rideMeasureMod', glob: 'TwRideMeasure', sample: 'function _measureCircusFootOff(' },   // 구역 떼기 C · w1
+  { file: 'toast.js', mod: 'toastMod', glob: 'TwToast', sample: 'function _saveFailMsg(' },   // 구역 떼기 C · w2
+  { file: 'ride-tuning.js', mod: 'rideTuneMod', glob: 'TwRideTuning', sample: 'const RIDE_ARM_SIZE_FOLLOW = 1.0;  // ★ ' },   // 구역 떼기 C · w1
+  { file: 'char-measure.js', mod: 'charMeasureMod', glob: 'TwCharMeasure', sample: 'function headDecorMeshSet(' },   // 구역 떼기 C · w1
+  { file: 'floor-snap-diag.js', mod: 'floorSnapDiagMod', glob: 'TwFloorSnapDiag', sample: 'function _floorSnapProbe(' },   // 구역 떼기 C · w1
+  { file: 'seat-model-load.js', mod: 'seatModelLoadMod', glob: 'TwSeatModelLoad', sample: 'function pickClip(' },   // 구역 떼기 C · w1
+  { file: 'seat-panel.js', mod: 'seatPanelMod', glob: 'TwSeatPanel', sample: 'function setInfo(' },   // 구역 떼기 C · w1
+  { file: 'user-status-table.js', mod: 'userStatusTableMod', glob: 'TwUserStatusTable', sample: 'function loadCustomStatusFromStorage(' },   // 구역 떼기 C · w1
+  { file: 'chip-popups.js', mod: 'chipPopupsMod', glob: 'TwChipPopups', sample: 'function _closeChipPopups(' },   // 구역 떼기 C · w1
+  { file: 'creator-state.js', mod: 'crState', glob: 'TwCreatorState', sample: 'let cRenderer=null, cScene=null' },   // C 구역 떼기 w4 — 생성기 상태(crState.이름 → 옛 let)
+  { file: 'paint-geom.js', mod: 'paintGeomMod', glob: 'TwPaintGeom', sample: 'function _seg(' },   // C 구역 떼기 w4
+  { file: 'paint-stroke.js', mod: 'paintStrokeMod', glob: 'TwPaintStroke', sample: 'function mirrorUV(' },   // C 구역 떼기 w4
+  { file: 'stamp.js', mod: 'crStampMod', glob: 'TwCrStamp', sample: 'function stampOverlayEl(' },   // C 구역 떼기 w4
+  { file: 'asset-import.js', mod: 'assetImportMod', glob: 'TwAssetImport', sample: 'function openAssetImport(' },   // C 구역 떼기 w4
+  { file: 'desk-preset-store.js', mod: 'deskPresetStoreMod', glob: 'TwDeskPresetStore', sample: 'function loadDeskPresets(' },   // C 구역 떼기 w4
+  { file: 'desk-preset.js', mod: 'deskPresetMod', glob: 'TwDeskPreset', sample: 'function captureDeskPreset(' },   // C 구역 떼기 w4
+  { file: 'asset-cards.js', mod: 'assetCardsMod', glob: 'TwAssetCards', sample: 'function applyDeskDotThumb(' },   // C 구역 떼기 w4
+  { file: 'desk-setup.js', mod: 'deskSetupMod', glob: 'TwDeskSetup', sample: 'function renderCrItems(' },   // C 구역 떼기 w4
+  { file: 'seat-menu.js', mod: 'seatMenuMod', glob: 'TwSeatMenu', sample: 'function _seatCtxMenu(' },   // C 구역 떼기 w4
+  { file: 'seat-eq-clamp.js', mod: 'seatEqClampMod', glob: 'TwSeatEqClamp', sample: 'function _clampSeatDeskParts(' },   // 구역 떼기 C · wAC
+  { file: 'desk-place.js', mod: 'deskPlaceMod', glob: 'TwDeskPlace', sample: 'function setDeskScale(' },   // 구역 떼기 C · w2
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
@@ -126,32 +165,45 @@ function joinRenderer(app){
     const j = i >= 0 ? app.indexOf('\n});', i) : -1;
     const glue = i >= 0 ? app.slice(i, j) : '';
     const getters = [...glue.matchAll(/^  ([\w$]+): \(\)=>(?:[\w$]+\.)?([\w$]+)(?:\(\))?,$/gm)].map(x => x[1]);   // 키 = 모듈 안 이름(오른쪽이 다른 모듈의 읽는 함수여도)
-    const setters = [...glue.matchAll(/^  ([\w$]+): \(v\)=>\{ ([\w$]+) = v; \},$/gm)].map(x => [x[1], x[2]]);
+    /* 데이터 provider 고르기 한 줄(«roomNet: ()=>window.firebaseAPI,»)은 키가 아니라 오른쪽 글로 되살린다 — 옮기기 전 글은 window.firebaseAPI 를 직접 봤다 */
+    const winGet = {}; for(const x of glue.matchAll(/^  ([\w$]+): \(\)=>(window\.[\w$]+),$/gm)) winGet[x[1]] = x[2];
+    const setters = [...glue.matchAll(/^  ([\w$]+): \(v\)=>\{ (?:crState\.)?([\w$]+) = v; \},$/gm)].map(x => [x[1], x[2]]);   // 생성기 상태는 crState.이름 에 대입한다(creator-state.js)
     for(const x of txt.matchAll(/^  ([\w$]+): \(\)=>([\w$]+),/gm)) retGet.push([m.mod, x[1]]);
     for(const x of txt.matchAll(/^  ([\w$]+): \(v\)=>\{ ([\w$]+) = v; \},/gm)) retSet.push([m.mod, x[1], x[2]]);
     /* 껍데기(IIFE · createX(deps){ … return {…} })를 벗기고 본문만 — 옮긴 선언이 옛 자리처럼 꼭대기에 선다(함수를 돌려 보는 검사용) */
     const h = txt.match(/\nfunction create[\w$]*\(deps\)\{\n/);
     const r = txt.lastIndexOf('\nreturn {');
     let body = (h && r > h.index) ? txt.slice(h.index + h[0].length, r) : txt;
+    /* 이름이 다른 값 deps(«key: 딴이름,» — 예 ps1Dither: TwPs1Dither)는 지우지 않고 «const key = 딴이름;» 으로 남긴다 */
+    for(const x of glue.matchAll(/^  ([\w$]+): ([\w$]+),$/gm)) if(x[1] !== x[2]) body = body.replace(new RegExp('^const ' + esc(x[1]) + ' = deps\\.' + esc(x[1]) + ';.*$', 'm'), 'const ' + x[1] + ' = ' + x[2] + ';');
     body = body.replace(/^const [\w$]+ = deps\.[\w$]+;.*\n/gm, '').replace(/^const [\w$]+ = deps\.[\w$]+, [\w$]+ = deps\.[\w$]+;.*\n/gm, '');
-    if(getters.length) body = body.replace(new RegExp('\\b(' + getters.map(esc).join('|') + ')\\(\\)', 'g'), '$1');
+    if(getters.length) body = body.replace(new RegExp('\\b(' + getters.map(esc).join('|') + ')\\(\\)', 'g'), (all, k) => winGet[k] || k);
     for(const [set, name] of setters) body = replaceCalls(body, set, (arg) => name + ' = ' + arg);
     parts.push([m, i, j, body]);
   }
   /* 만드는 줄(«const mod = (typeof Tw… ({ … });») 자리에 본문을 그대로 끼운다 — 옛 본문 자리 그대로라 부팅 때 바로 읽는 줄도
      옛 차례대로 선언을 본다(뒤에서부터 끼워 앞 자리가 안 흔들리게). 만드는 줄을 못 찾으면 맨 끝에 잇는다. */
+  /* 아래층 전역을 짧은 이름으로 받는 줄(«const mhHooks = TwMyHomeHooks;» — 모듈 순환 끊기 8)은 여러 모듈에 같은 글로 있다.
+     한 자리에 펼치면 같은 const 가 두 번이 되므로 app.js 차례로 처음 것만 남긴다(뒤 모듈은 부를 때 그 이름을 본다). */
+  const aliasSeen = new Set();
+  for(const p of parts.slice().sort((a, b) => (a[1] < 0) - (b[1] < 0) || a[1] - b[1])){
+    p[3] = p[3].replace(/^const [\w$]+ = Tw[\w$]+;.*\n/gm, (l) => { const k = l.split(';')[0]; if(aliasSeen.has(k)) return ''; aliasSeen.add(k); return l; });
+  }
   let all = app, tail = [];
   for(const [m, i, j, body] of parts.slice().sort((a, b) => b[1] - a[1])){
     if(i >= 0 && j > i) all = all.slice(0, i) + body + all.slice(j + 4);   // '\n});' 까지
     else tail.push(body);
   }
   if(tail.length) all += '\n' + tail.join('\n');
+  /* 값만 내놓는 공용 모듈(만드는 줄이 없다)은 맨 앞에 전역 이름으로 깐다 — 되살린 본문이 그 이름을 읽는다 */
+  const pre = VALUE_MODULES.map(v => { const t = readPart(v.file); return t ? 'var ' + v.glob + ' = (function(){ var module = { exports: {} }, window; ' + t + '\n; return module.exports; })();\n' : ''; }).join('');
+  all = pre + all;
   for(const [mod, n] of retGet) all = all.replace(new RegExp('\\b' + esc(mod) + '\\.' + esc(n) + '\\(\\)', 'g'), n);
   for(const [mod, set, name] of retSet) all = replaceCalls(all, mod + '.' + set, (arg) => name + ' = ' + arg);
   for(const m of MODULES) all = all.replace(new RegExp('\\b' + esc(m.mod) + '\\.', 'g'), '');
   return all;
 }
-module.exports = { joinRenderer, MODULES };
+module.exports = { joinRenderer, MODULES, VALUE_MODULES };
 
 if(require.main === module){
   let pass = 0, fail = 0;

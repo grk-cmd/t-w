@@ -8,7 +8,8 @@
    [실행] app.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 아이템 기즈모 · 좌석 세팅은 creator/creator-xform.js 로 옮겼다(C 구역 떼기 w4) — «옮기기 전 app.js 글» 로 되살려 읽는다
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 
 let pass = 0, fail = 0, huhs = 0;
 const say = (s) => console.log(s);

@@ -8,11 +8,12 @@
 (function(){
 
 function createRideChain(deps){
+const RIDE_CHAIN_MAX_HOPS = 16;   // 탑 사슬을 따라 올라가는 상한(순환 방어) — ride-bench.js 의 _rideDepth 와 같은 값
 /* 🐾 이 좌석이 속한 탑의 '바닥' 좌석 — 아무 데도 안 타고 있는 맨 아래.
    올라타 있지 않으면 자기 자신이다. 순환 방어로 순회 상한(_rideDepth와 같은 16)을 둔다. */
 function _rideBottom(seat){
   let s = seat, guard = 0;
-  while(s && s.ridingOn && guard++ < 16) s = s.ridingOn;
+  while(s && s.ridingOn && guard++ < RIDE_CHAIN_MAX_HOPS) s = s.ridingOn;
   return s || seat;
 }
 

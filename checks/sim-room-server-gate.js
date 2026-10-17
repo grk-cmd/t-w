@@ -7,7 +7,7 @@
  *      · on:false · 표에 없는 이름 · 낯선 주소 · 틀린 비율 → Firebase · 들어가기(주소록 따라가기)는 그대로
  * 3. 들어가기 — 주소록(roomDir) 따라가기(on 이면 늘 · follow 칸은 안 읽음) · 허용된 사람 · 꺼짐
  * 4. 읽는 곳 — 설정 한 벌 + /v1/config/me + roomDir/{방 코드} 한 칸뿐 · 꺼져 있으면 설정만
- * 5. 규칙 — config 는 칸 단위 공개 · 쓰기 관리자만 · limits 정수 범위 · default 이름 · defaultPercent 정수 0~100 · roomDir 앱 쓰기 막힘 · minRoomVer 그대로 공개
+ * 5. 규칙 — config 는 칸 단위 공개 · 쓰기 관리자만 · limits 정수 범위 · default 이름 · defaultPercent 정수 0~100 · timing · frame 정수 범위 · roomDir 앱 쓰기 막힘 · minRoomVer 그대로 공개
  * 6. 연결 — firebase-init 이 원격 설정(remote-config.js)을 넘긴다 · Firebase config 는 안 읽는다 · app.js 가 문지기 한 곳(resolveRoomServer)으로 고른다
  */
 'use strict';
@@ -25,7 +25,8 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
 const names = [...SRC.matchAll(/^export (?:const|function|async function) (\w+)/gm)].map((m) => m[1]);
 const M = new Function(SRC.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')();
 
-const PROD = 'wss://rooms.togetherworking.duckdns.org', DEV = 'wss://rooms-dev.togetherworking.duckdns.org';
+// PROD = 새 앱이 붙는 운영 주소 · OLD = 운영 설정 servers 에 남겨 둔 옛 주소(옛 앱도 읽는다 — 새 앱은 별칭으로 PROD 에 붙는다)
+const PROD = 'wss://realtime.together-working.com', OLD = 'wss://rooms.togetherworking.duckdns.org', DEV = 'wss://rooms-dev.togetherworking.duckdns.org';
 const C = 'config/roomServer';
 function mkGate(db, o = {}){
   const reads = [], me = [], addr = [];
@@ -46,21 +47,27 @@ function mkGate(db, o = {}){
   });
   return { gate, reads, me, addr, cfgCalls: () => cfgCalls };
 }
-const base = () => ({ [C + '/on']: true, [C + '/servers/rooms-1']: PROD });
+const base = () => ({ [C + '/on']: true, [C + '/servers/rooms-1']: OLD });
 const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
 
 (async () => {
   say('── 1. 주소 거르기 · 개발용 켜기');
   {
     chk(M.ROOM_SERVER_URLS.prod === PROD && M.ROOM_SERVER_URLS.dev === DEV, '운영 · dev 방 서버 주소');
-    chk(M.serverUrlOk(PROD, 'prod') && !M.serverUrlOk(DEV, 'prod') && M.serverUrlOk(DEV + '/', 'dev') && !M.serverUrlOk(PROD, 'dev'), '운영 앱은 dev 서버로 · dev 앱은 운영 서버로 안 간다(끝 / 무시)');
-    const SFX = '.togetherworking.duckdns.org';
-    chk(M.serverUrlOk('wss://rooms-2' + SFX, 'prod') && M.serverUrlOk('https://realtime-9' + SFX, 'prod') && M.serverUrlOk('wss://rooms-2' + SFX, 'dev'),
-      '  ↳ 방 서버 묶음(wss · https://<이름>' + SFX + ')은 새 이름도 붙는다 — 관리자가 servers 에 이름만 더한다');
-    chk(['ws://rooms-2' + SFX, 'http://rooms-2' + SFX, 'wss://evil-togetherworking.duckdns.org', 'wss://a.b' + SFX, 'wss://x' + SFX + ':8443',
-      'wss://x' + SFX + '.evil.com', 'wss://x' + SFX + '/p', 'wss://-x' + SFX, 'wss://' + SFX.slice(1), 'wss://x.duckdns.org'].every((u) => !M.serverUrlOk(u, 'prod') && !M.serverUrlOk(u, 'dev')),
-      '  ↳ 다른 도메인 · 접미사 흉내 · 하위 두 칸 · 포트 · 경로 · ws/http 는 막는다');
-    chk(M.ROOM_SERVER_HOST_SUFFIX === SFX && String(M.ROOM_SERVER_URL_RE) === String(/^(?:wss|https):\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.togetherworking\.duckdns\.org$/), '  ↳ 접미사 · 정규식 그대로');
+    chk(M.serverUrlOk(PROD, 'prod') && M.serverUrlOk(OLD, 'prod') && !M.serverUrlOk(DEV, 'prod') && M.serverUrlOk(DEV + '/', 'dev') && !M.serverUrlOk(PROD, 'dev') && !M.serverUrlOk(OLD, 'dev'),
+      '운영 앱은 dev 서버로 · dev 앱은 운영 서버(새 주소 · 옛 주소 둘 다)로 안 간다(끝 / 무시)');
+    for(const SFX of ['.together-working.com', '.togetherworking.duckdns.org']){
+      chk(M.serverUrlOk('wss://rooms-2' + SFX, 'prod') && M.serverUrlOk('https://realtime-9' + SFX, 'prod') && M.serverUrlOk('wss://rooms-2' + SFX, 'dev'),
+        '  ↳ 방 서버 묶음(wss · https://<이름>' + SFX + ')은 새 이름도 붙는다 — 관리자가 servers 에 이름만 더한다');
+      const evil = SFX === '.together-working.com' ? 'wss://evil-together-working.com' : 'wss://evil-togetherworking.duckdns.org';
+      chk(['ws://rooms-2' + SFX, 'http://rooms-2' + SFX, evil, 'wss://a.b' + SFX, 'wss://x' + SFX + ':8443',
+        'wss://x' + SFX + '.evil.com', 'wss://x' + SFX + '/p', 'wss://-x' + SFX, 'wss://' + SFX.slice(1), 'wss://x.duckdns.org', 'wss://x.together-working.co'].every((u) => !M.serverUrlOk(u, 'prod') && !M.serverUrlOk(u, 'dev')),
+        '  ↳ ' + SFX + ' — 다른 도메인 · 접미사 흉내 · 하위 두 칸 · 포트 · 경로 · ws/http 는 막는다');
+    }
+    chk(M.ROOM_SERVER_HOST_SUFFIXES.join() === '.together-working.com,.togetherworking.duckdns.org' && String(M.ROOM_SERVER_URL_RE) === String(/^(?:wss|https):\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:together-working\.com|togetherworking\.duckdns\.org)$/), '  ↳ 접미사 두 개 · 정규식');
+    chk(M.aliasServerUrl(OLD) === PROD && M.aliasServerUrl(OLD + '/') === PROD && M.aliasServerUrl('https://rooms.togetherworking.duckdns.org') === 'https://realtime.together-working.com'
+      && M.aliasServerUrl(DEV) === DEV && M.aliasServerUrl('wss://rooms-2.togetherworking.duckdns.org') === 'wss://rooms-2.togetherworking.duckdns.org' && M.aliasServerUrl(PROD) === PROD && M.aliasServerUrl('') === '',
+      '별칭 — 운영 설정의 옛 운영 주소만 새 주소로(스킴 그대로) · dev · 다른 이름 · 새 주소 · 빈 값은 그대로');
     chk(!M.serverUrlOk('ws://127.0.0.1:8787', 'prod') && M.serverUrlOk('ws://127.0.0.1:8787', 'dev') && !M.serverUrlOk('ws://127.0.0.1:9999', 'dev'), '로컬(8787)은 dev 앱만');
     chk(!M.serverUrlOk('wss://evil.example', 'prod') && !M.serverUrlOk('', 'prod') && !M.serverUrlOk(null, 'dev'), '낯선 주소 · 빈 값은 안 된다');
     const on = ls({ 'tw.roomServer': '1', 'tw.roomServerUrl': 'ws://127.0.0.1:8787' });
@@ -242,10 +249,15 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
       '  ↳ defaultPercent — 누구나 한 칸 읽기 · 정수 0~100');
     const tm = rs.timing || {};
     const runV = (expr, val) => Function('newData', 'return (' + expr + ');')({ isNumber: () => typeof val === 'number', val: () => val });
-    const TR = { graceMs: [0, 600000], pingIntervalMs: [1000, 120000], restoreWindowMs: [0, 1800000], refreshMs: [5000, 600000], joinWaitMs: [3000, 60000], clientGiveUpMs: [15000, 600000] };   // t-w-server api roomServerTiming 범위와 같다(뒤 두 칸은 앱이 읽는다 — remote-config.js TIMING_RANGES)
+    const TR = { graceMs: [0, 600000], pingIntervalMs: [1000, 120000], restoreWindowMs: [0, 1800000], refreshMs: [5000, 600000], roomStatsRefreshMs: [5000, 600000], statsLogMs: [5000, 3600000], joinWaitMs: [3000, 60000], clientGiveUpMs: [15000, 600000] };   // t-w-server api roomServerTiming 범위와 같다(joinWaitMs · clientGiveUpMs 는 앱이 읽는다 — remote-config.js TIMING_RANGES)
     chk(tm['.read'] === true && !tm['.write'] && Object.keys(TR).every((k) => { const v = (tm[k] || {})['.validate'] || ''; const [lo, hi] = TR[k];
       return runV(v, lo) && runV(v, hi) && !runV(v, lo - 1) && !runV(v, hi + 1) && !runV(v, lo + 0.5) && !runV(v, String(lo)); }) && tm.$other && tm.$other['.validate'] === false,
-      '  ↳ timing(방 서버 연결 시간값) — 누구나 읽기 · 쓰기는 roomServer 관리자 · graceMs 0~600000 · pingIntervalMs 1000~120000 · restoreWindowMs 0~1800000 · refreshMs 5000~600000 · 앱 joinWaitMs 3000~60000 · clientGiveUpMs 15000~600000 정수(서버와 같음) · 모르는 칸 거절');
+      '  ↳ timing(방 서버 연결 시간값) — 누구나 읽기 · 쓰기는 roomServer 관리자 · graceMs 0~600000 · pingIntervalMs 1000~120000 · restoreWindowMs 0~1800000 · refreshMs 5000~600000 · roomStatsRefreshMs 5000~600000 · statsLogMs 5000~3600000 · 앱 joinWaitMs 3000~60000 · clientGiveUpMs 15000~600000 정수(서버와 같음) · 모르는 칸 거절');
+    const fr = rs.frame || {};
+    const FR = { maxBytes: [65536, 1048576], maxSmallBytes: [1024, 65536] };   // t-w-server realtime roomServerFrame 범위와 같다
+    chk(fr['.read'] === true && !fr['.write'] && Object.keys(FR).every((k) => { const v = (fr[k] || {})['.validate'] || ''; const [lo, hi] = FR[k];
+      return runV(v, lo) && runV(v, hi) && !runV(v, lo - 1) && !runV(v, hi + 1) && !runV(v, lo + 0.5) && !runV(v, String(lo)); }) && fr.$other && fr.$other['.validate'] === false,
+      '  ↳ frame(방 서버 프레임 상한) — 누구나 읽기 · 쓰기는 roomServer 관리자 · maxBytes 65536~1048576 · maxSmallBytes 1024~65536 정수 · 모르는 칸 거절');
     chk(rs.$other && rs.$other['.validate'] === false, '  ↳ 모르는 칸은 거절');
     const rd = R.roomDir || {};
     chk(!rd['.read'] && rd.$code && rd.$code['.read'] === true && rd.$code['.write'] === false, 'roomDir — 방 코드 한 칸만 누구나 읽기 · 앱은 못 씀(방 서버가 관리자 키로)');

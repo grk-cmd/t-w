@@ -160,9 +160,13 @@ say('\n── 2. 과거 사고가 남긴 조건이 그대로다');
     /* 분리 전에는 `uIOhook.stop()`, 분리 후에는 `stopGlobalHooks()` 가 그 자리에 온다.
        둘 중 **무엇이든 하나**가 각 생애주기 안에 있으면 배선은 살아 있는 것이다. */
     const DOWN = /(?:uIOhook\s*\.\s*stop|stopGlobalHooks)\s*\(/;
+    /* 끝내는 길은 _exitNow() 하나로 모았다 — 이벤트가 그 함수를 부르면 함수 몸통에서 찾는다 */
+    const bodyOf = (fn) => { const i = mainCode.indexOf('function ' + fn + '('); return i >= 0 ? mainCode.slice(i, mainCode.indexOf('\n}', i)) : ''; };
     const near = (evt) => {
       const i = mainCode.indexOf("'" + evt + "'");
-      return i >= 0 && DOWN.test(mainCode.slice(i, i + 400));
+      if(i < 0) return false;
+      const s = mainCode.slice(i, i + 400);
+      return DOWN.test(s) || (/_exitNow\s*\(/.test(s) && DOWN.test(bodyOf('_exitNow')));
     };
     chk(near('before-quit'), '  before-quit 에서 훅을 내린다');
     chk(near('session-end'), '★ session-end 에서도 훅을 내린다 — 이게 빠지면 종료 시 0x80000003 이 돌아온다');

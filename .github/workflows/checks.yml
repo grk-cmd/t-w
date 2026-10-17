@@ -3,6 +3,9 @@
 # 그래서 `npm ci`(네이티브 모듈 컴파일)를 건너뛴다. 빠르고, 리눅스에서 네이티브가 안 붙어도 상관없다.
 # 예외: sim-global-names.js 는 코드를 범위대로 읽으려고 typescript 파서를 쓴다 — 그것 하나만 깐다.
 # run.js 종료코드: 빨강 · 시간초과 · 정본(CHECKS.md 해시) 불일치 → 1. «원본없음» 은 실패가 아니다.
+# «바뀐 폴더» job 이 먼저 보고, 볼 것이 없는 검사는 건너뛴다(Skipped) — 문서만 바뀐 PR 에 5분짜리 검사를 돌리지 않게.
+#   워크플로째 paths-ignore 로 빼지 않는 까닭: 실행 자체가 안 생기면 필수 검사로 걸었을 때 «대기» 로 영원히 남는다. job 의 if 로 건너뛰면 Skipped(통과로 침).
+#   release-start 는 main 의 이 실행에서 «npm run check» job 이 실제로 success 일 때만 검사를 건너뛴다(Skipped 면 직접 돌림).
 
 name: checks
 
@@ -15,15 +18,64 @@ on:
 permissions:
   contents: read
 
+# 같은 PR 에 push 가 몰리면 앞 실행은 취소한다(main push 는 하나하나 끝까지 — release-start 가 그 결과를 본다)
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  changes:
+    name: 바뀐 폴더
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      app: ${{ steps.f.outputs.app }}
+      admin: ${{ steps.f.outputs.admin }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: f
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          all(){ { echo app=true; echo admin=true; } >> "$GITHUB_OUTPUT"; echo "$1 — 전부 돈다"; exit 0; }
+          # 수동 실행 · 비교 대상 없음(첫 push · 강제 push 로 사라진 커밋)은 전부
+          [ "$EVENT" = workflow_dispatch ] && all '수동 실행'
+          { [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; } && all '비교할 커밋 없음'
+          files=$(git diff --name-only "$BASE" HEAD)
+          printf '%s\n' "$files"
+          # 워크플로 · 저장소 설정이 바뀌면 전부
+          grep -qE '^\.github/' <<< "$files" && all '.github 바뀜'
+          # 웹 관리자 — 자기 폴더 · 규칙 파일(테스트가 읽는다)
+          if grep -qE '^(web-admin/|firebase-database-rules\.json$)' <<< "$files"; then echo admin=true >> "$GITHUB_OUTPUT"; else echo admin=false >> "$GITHUB_OUTPUT"; fi
+          # 앱 검사 — 아래 «건너뛰어도 되는 파일» 만 바뀌었으면 false.
+          #   web-admin/ (run.js 가 스테이징에서 뺀다) · 문서(.md) 중 검사가 읽지 않는 것.
+          #   검사가 읽는 문서: checks/ 안(CHECKS.md 정본) · docs/design-system/ · 검사 코드에 따옴표로 이름이 나오는 것(예: 'docs/ERROR_CODES.md')
+          app=false
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in web-admin/*) continue ;; esac
+            if [[ $f == *.md && $f != checks/* && $f != docs/design-system/* ]]; then
+              b=$(basename "$f")
+              if ! grep -qsF -e "'$f'" -e "\"$f\"" -e "'$b'" -e "\"$b\"" checks/*.js checks/*.py; then continue; fi
+            fi
+            echo "앱 검사가 볼 파일: $f"; app=true; break
+          done <<< "$files"
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+
   check:
     name: npm run check
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -45,15 +97,17 @@ jobs:
 
   web-admin:
     name: 웹 관리자 테스트 · 빌드
+    needs: changes
+    if: needs.changes.outputs.admin == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
       run:
         working-directory: web-admin
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm

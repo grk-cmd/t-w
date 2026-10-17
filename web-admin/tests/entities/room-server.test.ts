@@ -79,6 +79,8 @@ describe('방 서버 설정 바꾸기', () => {
   it('앱 CSP 에 든 주소만 «앱이 씀»', () => {
     expect(isAppServerUrl('wss://rooms.togetherworking.duckdns.org/')).toBe(true);
     expect(isAppServerUrl('wss://rooms-dev.togetherworking.duckdns.org')).toBe(true);
+    expect(isAppServerUrl('wss://realtime.together-working.com')).toBe(true);
+    expect(isAppServerUrl('wss://evil-together-working.com')).toBe(false);
     expect(isAppServerUrl('wss://other.example')).toBe(false);
   });
 
