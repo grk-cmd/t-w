@@ -75,6 +75,17 @@ jobs:
             echo "이 커밋(${SHA::7})의 «npm run check» 통과 기록이 없다(도는 중 · 실패 · 건너뜀 · 조회 실패) — 여기서 검사를 돌린다"
           fi
 
+      # checks.yml 의 «npm run check» job 과 같은 준비 — sim-global-names · sim-dep-cycles 가 typescript 파서를 쓴다.
+      # 문서만 바뀐 커밋이 main 꼭대기면 위에서 건너뛸 기록이 없어 여기서 돌므로 빠지면 빨강이 된다.
+      - name: 검사 준비 (typescript)
+        if: steps.ci.outputs.skip != 'true'
+        run: |
+          for i in 1 2 3; do
+            npm install --no-save --ignore-scripts --no-package-lock --fetch-retries=5 typescript@5.9.3 && exit 0
+            echo "typescript 설치 실패 — ${i}번째, 10초 뒤 다시"; sleep 10
+          done
+          exit 1
+
       - name: 검사 (npm run check)
         if: steps.ci.outputs.skip != 'true'
         run: node checks/run.js
