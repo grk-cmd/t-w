@@ -2,7 +2,7 @@
    app.js «👻 …» 덩어리 안의 «아이템 3D 기즈모(어플 3)» · «좌석 세팅(6단계)» 두 조각을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다.
    ・책임: TransformControls 하나(itemGizmo)를 아이템 또는 책상에 붙이고, 드래그가 끝나면 adj · cDeskPos 로 되짚어 저장한다(바닥 아래로는 못 간다).
      아이템 크기 ＋/－ · 초기화 · 색 패널 · 캐릭터 크기/높이/방향 슬라이더 · 책상 위치/길이/배율 버튼을 만들 때 건다.
-   ・받는 deps 27 — 함수 13 · 값 3(CHAR_Y_MAX · DESK_SCALE_DEFAULT · deskItemOrigin) · 읽는 함수 11(생성기 상태 cBase · cDesk · cDeskPos · cXform … ·
+   ・받는 deps 28 — 함수 14 · 값 3(CHAR_Y_MAX · DESK_SCALE_DEFAULT · deskItemOrigin) · 읽는 함수 11(생성기 상태 cBase · cDesk · cDeskPos · cXform … ·
      DESK_PART_ANCHOR_NAME · slotSaveMod) · 쓰는 함수 3(setCDeskLenX · setCDeskPos · setCDeskScale — 생성기 상태는 app.js 에 있다).
    ・내놓는 것: attachItemGizmoToActive() · detachItemGizmo() · updateDeskPosNum() — app.js 의 아이템 선택 · 생성기 닫기 · 프리셋이 부른다.
    ⚠️ document · THREE(TransformControls) · window.openCharColorPicker 는 전역 이름 그대로. 전역 이름은 TwCreatorXform(Tw 접두사 #103).
@@ -17,6 +17,7 @@ const _applyItemColor = deps._applyItemColor;
 const applyCreatorXform = deps.applyCreatorXform;
 const applyDeskAdj = deps.applyDeskAdj;
 const autoSaveDeskItemsNow = deps.autoSaveDeskItemsNow;
+const baseFlatOf = deps.baseFlatOf;   // 재질 플랫 배율 읽기(shared/light-tone.js — 대체값 판단은 거기 한 곳)
 const bindHold = deps.bindHold;
 const cBase = deps.cBase;   // 읽는 함수
 const cCam = deps.cCam;   // 읽는 함수
@@ -177,7 +178,7 @@ function renderItemColorPanel(){
         const hex='#'+m.userData.origColor;
         if(m.material.color) m.material.color.set(hex);
         if(m.material.emissive){
-          const flat = (m.material.userData && m.material.userData.baseFlat!=null) ? m.material.userData.baseFlat : 0.4;
+          const flat = baseFlatOf(m.material, 0.4);
           m.material.emissive.copy(m.material.color).multiplyScalar(flat);
           m.material.needsUpdate=true;
         }

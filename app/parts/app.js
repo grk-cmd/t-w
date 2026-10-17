@@ -844,7 +844,7 @@ function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Obj
           const hex='#'+m.userData.origColor;
           if(m.material.color) m.material.color.set(hex);
           if(m.material.emissive){
-            const flat=(m.material.userData&&m.material.userData.baseFlat!=null)?m.material.userData.baseFlat:0.4;
+            const flat=lightToneMod.baseFlatOf(m.material, 0.4);
             m.material.emissive.copy(m.material.color).multiplyScalar(flat);
             m.material.needsUpdate=true;
           }
@@ -863,8 +863,7 @@ function _applyItemColor(pivot){
       if(!o.material) return;
       if(o.material.color) o.material.color.set(val);
       if(o.material.emissive){
-        // 파츠와 동일: baseFlat(원본 flat 비율) 없이 단순히 색과 같게 두는 것도 어색하지 않으므로 flat=0.4로 임시
-        const flat = (o.material.userData && o.material.userData.baseFlat!=null) ? o.material.userData.baseFlat : 0.4;
+        const flat = lightToneMod.baseFlatOf(o.material, 0.4);
         o.material.emissive.copy(o.material.color).multiplyScalar(flat);
         o.material.needsUpdate = true;
       }
@@ -2540,6 +2539,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),
   applyHueTint: (...a)=>applyHueTint(...a),
   applyPartXf: (...a)=>applyPartXf(...a),
+  baseFlatOf: (...a)=>lightToneMod.baseFlatOf(...a),
   bindReorderHandle: (...a)=>bindReorderHandle(...a),
   boneSide: (...a)=>boneSide(...a),
   charFootFix: (...a)=>charMeasureMod.charFootFix(...a),
@@ -5361,7 +5361,7 @@ function _applyXfToWrapper(wrp, xf, cat){
         if(isHueTintMesh(m)){ applyHueTint(m, c, xf.colorHSV && xf.colorHSV[key]); m.material.needsUpdate=true; return; }
         if(m.material.color) m.material.color.set(c);
         if(m.material.emissive){
-          const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null) ? m.material.userData.baseFlat : lightToneMod.FLAT_EMISSIVE;
+          const baseFlat = lightToneMod.baseFlatOf(m.material, lightToneMod.FLAT_EMISSIVE);
           m.material.emissive.set(c).multiplyScalar(baseFlat);
         }
         m.material.needsUpdate=true;
@@ -7286,6 +7286,7 @@ const crXformMod = TwCreatorXform.createCreatorXform({
   applyCreatorXform: (...a)=>creatorPrevMod.applyCreatorXform(...a),
   applyDeskAdj: (...a)=>applyDeskAdj(...a),
   autoSaveDeskItemsNow: (...a)=>autoSaveDeskItemsNow(...a),
+  baseFlatOf: (...a)=>lightToneMod.baseFlatOf(...a),
   bindHold: (...a)=>bindHold(...a),
   cBase: ()=>cBase,
   cCam: ()=>cCam,

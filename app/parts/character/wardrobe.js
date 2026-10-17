@@ -15,6 +15,7 @@ function createWardrobe(deps){
 const ANIMAL_RUN_SCALE = deps.ANIMAL_RUN_SCALE;
 const CHAR_Z = deps.CHAR_Z;
 const LIGHT_PRESET = deps.LIGHT_PRESET;   // 읽는 함수
+const baseFlatOf = deps.baseFlatOf;   // 재질 플랫 배율 읽기(shared/light-tone.js)
 const PART_CATS = deps.PART_CATS;   // 읽는 함수
 const PART_DEFAULT_OFFSET = deps.PART_DEFAULT_OFFSET;   // 읽는 함수
 const PART_GROUPS = deps.PART_GROUPS;   // 읽는 함수
@@ -1470,9 +1471,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
           if(isHueTintMesh(m)){ applyHueTint(m, hex, xf.colorHSV[key]); m.material.needsUpdate = true; return; }
           if(m.material.color) m.material.color.set(hex);
           if(m.material.emissive){
-            const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null)
-              ? m.material.userData.baseFlat
-              : (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5));
+            const baseFlat = baseFlatOf(m.material, (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5)));
             m.material.emissive.set(hex).multiplyScalar(baseFlat);
           }
           m.material.needsUpdate = true;
@@ -1502,9 +1501,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
           const hex = '#'+m.userData.origColor;
           if(m.material.color) m.material.color.set(hex);
           if(m.material.emissive){
-            const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null)
-              ? m.material.userData.baseFlat
-              : (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5));
+            const baseFlat = baseFlatOf(m.material, (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5)));
             m.material.emissive.set(hex).multiplyScalar(baseFlat);
           }
           m.material.needsUpdate = true;
@@ -1539,9 +1536,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
         if(isHueTintMesh(m)){ applyHueTint(m, val); m.material.needsUpdate = true; return; }
         if(m.material.color) m.material.color.set(val);
         if(m.material.emissive){
-          const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null)
-            ? m.material.userData.baseFlat
-            : (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5));
+          const baseFlat = baseFlatOf(m.material, (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5)));
           m.material.emissive.set(val).multiplyScalar(baseFlat);
         }
         m.material.needsUpdate = true;
@@ -1594,9 +1589,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
         const hex = '#'+m.userData.origColor;
         if(m.material.color) m.material.color.set(hex);
         if(m.material.emissive){
-          const baseFlat = (m.material.userData && m.material.userData.baseFlat!=null)
-            ? m.material.userData.baseFlat
-            : (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5));
+          const baseFlat = baseFlatOf(m.material, (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5)));
           m.material.emissive.set(hex).multiplyScalar(baseFlat);
         }
         m.material.needsUpdate = true;
