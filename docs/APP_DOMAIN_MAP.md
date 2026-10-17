@@ -68,6 +68,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | 파일 | 하는 일 | 서버 |
 |---|---|---|
 | `myhome-init.js` | 마이홈 시작(INIT 에서 한 번) — 접속 표시 · 프로필 · 친구 · 요청 · 우편 · 공지 구독 | fb 13 |
+| `friends-sub.js` | 내 친구 목록 구독 한 벌 — 상태(불러오는 중 · 못 불러옴 · 받음) · 실패 뒤 자동 다시 걸기(동시 1개) | fb 0(subscribe 를 deps 로) |
 | `myhome-visit.js` · `myhome-page.js` | 내 마이홈 데이터 · 친구 홈 구경 · 페이지 불러오기 · 그리기 | fb 6 · 2 |
 | `myhome-ui.js` · `myhome-edit.js` | 창 버튼 · 탭 · 프로필 레일 · 페이지 편집(자동저장 · BGM · 배경 · 테마 · 디자인 스튜디오) | fb 10 · 4 |
 | `myhome-sticker.js` · `myhome-sticker-layout.js` | 스티커 관리 창 · 배치 계산(그리기 `renderMyHomeStickers` 는 app.js) | — |

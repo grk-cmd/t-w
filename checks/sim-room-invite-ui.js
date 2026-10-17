@@ -52,7 +52,7 @@ function mkEnv(opt){
   opt = opt || {};
   const env = {
     toasts: [], sent: [], cleared: [], left: [], started: [], flashes: [], subs: [], now: 1e12, timers: [], docL: {}, winL: {},
-    friends: opt.friends === undefined ? {} : opt.friends, room: opt.room === undefined ? 'ROOM1' : opt.room, active: opt.active !== false,
+    friends: opt.friends === undefined ? {} : opt.friends, notice: opt.notice === undefined ? null : opt.notice, room: opt.room === undefined ? 'ROOM1' : opt.room, active: opt.active !== false,
     sendFail: false, winW: 320, winH: 200, winX: 100, winY: 100,
   };
   const els = {};
@@ -96,6 +96,7 @@ function mkEnv(opt){
     doLeaveRoom: async (o) => { env.left.push(o); env.active = false; },
     friendInRoom: (f) => !!f.room,
     myHomeFriends: () => env.friends,
+    friendsNotice: () => env.notice,
     presence: { active: () => env.active, roomCode: () => env.room },
   }));
   env.fireWin = (t) => { (env.winL[t] || []).slice().forEach(h => { if(h.once) env.winL[t] = env.winL[t].filter(x => x !== h); h.fn({}); }); };
@@ -142,6 +143,13 @@ await sec('── 2. 친구 고르기 창', () => {
   chk(z.toasts.pop() === '먼저 방에 연결해 주세요', '  Presence 가 꺼져 있어도 같다');
   const f = mkEnv({ friends: {} }); f.mk(); f.open();
   chk(/아직 친구가 없어요/.test(f.els.roomInvitePickList.innerHTML) && f.els.roomInvitePickList.style.maxHeight === '' && f.els.roomInvitePickOverlay.style.display === 'flex', '친구가 없으면 안내 · 창은 열린다');
+  /* 친구 목록을 아직 못 받았거나 못 받았으면 «친구 없음» 이 아니라 마이홈 친구 탭과 같은 안내(friends-sub.js notice) */
+  const ld = mkEnv({ friends: {}, notice: '친구 목록을 불러오는 중이에요' }); ld.mk(); ld.open();
+  chk(ld.els.roomInvitePickList.textContent === '친구 목록을 불러오는 중이에요' && !/아직 친구가 없어요/.test(ld.els.roomInvitePickList.innerHTML) && ld.els.roomInvitePickOverlay.style.display === 'flex', '불러오는 중 — 안내만 · «친구 없음» 아님 · 창은 열린다');
+  const er = mkEnv({ friends: { a: { name: '옛친구', online: true } }, notice: '친구 목록을 불러오지 못했어요. 잠시 후 다시 시도할게요' }); er.mk(); er.open();
+  chk(er.rows().length === 1 && er.els.roomInvitePickList.textContent === '친구 목록을 불러오지 못했어요. 잠시 후 다시 시도할게요', '못 불러옴 — 안내 한 줄만(옛 목록으로 초대 줄을 만들지 않는다)');
+  const xs = mkEnv({ friends: {}, notice: '<b>x</b>' }); xs.mk(); xs.open();
+  chk(!/<b>/.test(xs.els.roomInvitePickList.innerHTML) && xs.els.roomInvitePickList.textContent === '<b>x</b>', '  안내는 글자로(textContent) 넣는다');
   const g = mkEnv({ friends: {
     a: { name: '다람', online: false }, b: { name: '가나', online: true, avatar: 'data:image/png;base64,AA', level: 3 },
     c: { name: '나비', online: true, avatar: 'javascript:alert(1)', room: 'R2' }, d: { name: '가람', online: false, avatar: 'https://x/y.png' },
@@ -296,10 +304,10 @@ await sec('── 6. app.js 배선', () => {
   const want = [
     /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/, /^escHtml: \(\.\.\.a\)=>escHtml\(\.\.\.a\),$/, /^getMyUserId: \(\.\.\.a\)=>getMyUserId\(\.\.\.a\),$/,
     /^getDisplayName: \(\.\.\.a\)=>getDisplayName\(\.\.\.a\),$/, /^startRoom: \(\.\.\.a\)=>startRoom\(\.\.\.a\),$/, /^doLeaveRoom: \(\.\.\.a\)=>doLeaveRoom\(\.\.\.a\),$/,
-    /^friendInRoom: \(\.\.\.a\)=>inboxMod\.friendInRoom\(\.\.\.a\),$/, /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^presence: Presence,$/,
+    /^friendInRoom: \(\.\.\.a\)=>inboxMod\.friendInRoom\(\.\.\.a\),$/, /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^presence: Presence,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 9개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 10개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   chk(/^let _myHomeFriends = \{\};/m.test(APP) && /[^.\w]_myHomeFriends = [^=]/.test(code.replace(/let _myHomeFriends = \{\};/, '')), '  _myHomeFriends 는 다시 대입되는 let — 그래서 읽는 함수');
   const iP = APP.indexOf('const Presence=(()=>{');
   chk(iP > 0 && iP < iMk && !/[^.\w]Presence\s*=[^=>]/.test(code.replace('const Presence=(', '')), '  Presence 는 만드는 줄보다 앞의 const · 다시 대입 안 됨 — 그래서 값');

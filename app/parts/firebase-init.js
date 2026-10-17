@@ -259,6 +259,7 @@
   }
   let _myPokeRef = null, _myPokeListener = null, _memberId = null, _roomCode = null;
   let _friendListListeners = {};   // {friendId: {profileUnsub, presenceUnsub, bioUnsub, avatarUnsub}} — 각 친구별 실시간 구독 정리용
+  let _myFriendsOff = null;   // 지금 걸린 subscribeMyFriends 의 해제 함수 — 동시에 하나만(새로 걸면 앞의 것을 푼다)
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
   let _presenceWritten = false;   // presence 를 한 번이라도 set 했는가 — 버전이 늦게 오면 그때만 메운다
   let _mobLive = null;   // 📱 태블릿·폰 연결 — { uid, stop } (mobileLinkStart)
@@ -1865,9 +1866,22 @@
     },
     // 내 친구 목록 실시간 구독 — friends 목록이 바뀔 때마다 각 친구의 프로필/온라인상태도 같이 구독해서
     // onChange(friendsObj)로 전달. friendsObj = { [friendId]: {name, online, lastSeen, addedAt} }
-    subscribeMyFriends(myId, onChange){
+    // onError(err) — 목록 구독이 거부 · 끊기면 한 번. 그때는 친구별 구독까지 다 풀어 둔다(다시 걸기는 부르는 쪽 · friends-sub.js).
+    // @return 해제 함수. ⚠️ 동시에 하나만 — 새로 걸면 앞의 것을 먼저 푼다(친구 1명당 onValue 4개라 겹치면 비용이 곱이 된다).
+    subscribeMyFriends(myId, onChange, onError){
+      if(_myFriendsOff) _myFriendsOff();
       const friendsRef = ref(db, `users/${myId}/friends`);
       const combined = {};
+      const _offFriend = fid=>{
+        const l=_friendListListeners[fid];
+        if(l.profileUnsub) off(l.profileUnsub.ref, 'value', l.profileUnsub.cb);
+        if(l.presenceUnsub) off(l.presenceUnsub.ref, 'value', l.presenceUnsub.cb);
+        if(l.bioUnsub) off(l.bioUnsub.ref, 'value', l.bioUnsub.cb);
+        if(l.avatarUnsub) off(l.avatarUnsub.ref, 'value', l.avatarUnsub.cb);
+        if(l.homeUnsub) off(l.homeUnsub.ref, 'value', l.homeUnsub.cb);   // 구버전 잔여 구독 호환
+        delete _friendListListeners[fid]; delete combined[fid];
+      };
+      let _dead = false, _listOff = null;
       /* 🚦 갱신 폭주 묶기 — 친구 1명당 onValue 가 4개(profile·presence·bio·avatar)라,
          부팅 때 콜백이 **친구 수 × 4** 번 몰려온다. onChange 는 마이홈 친구 목록을
          innerHTML 로 통째로 다시 그리므로(renderMyHomeFriendList), 100명이면
@@ -1881,22 +1895,25 @@
         if(_nTimer) return;
         _nTimer = setTimeout(()=>{
           _nTimer = null;
+          if(_dead) return;
           if(_nDirty){ _nDirty = false; onChange({...combined}); }
         }, 50);
       };
-      const listRef = onValue(friendsRef, snap=>{
+      const teardown = ()=>{
+        if(_dead) return;
+        _dead = true;
+        if(_nTimer){ clearTimeout(_nTimer); _nTimer = null; }
+        if(_listOff){ try{ _listOff(); }catch(_){} }
+        Object.keys(_friendListListeners).forEach(_offFriend);
+        if(_myFriendsOff === teardown) _myFriendsOff = null;
+      };
+      _myFriendsOff = teardown;
+      _listOff = onValue(friendsRef, snap=>{
+        if(_dead) return;
         const ids = Object.keys(snap.val()||{});
         // 목록에서 빠진 친구는 구독 해제 + combined에서 제거
         Object.keys(_friendListListeners).forEach(fid=>{
-          if(!ids.includes(fid)){
-            const l=_friendListListeners[fid];
-            if(l.profileUnsub) off(l.profileUnsub.ref, 'value', l.profileUnsub.cb);
-            if(l.presenceUnsub) off(l.presenceUnsub.ref, 'value', l.presenceUnsub.cb);
-            if(l.bioUnsub) off(l.bioUnsub.ref, 'value', l.bioUnsub.cb);
-            if(l.avatarUnsub) off(l.avatarUnsub.ref, 'value', l.avatarUnsub.cb);
-            if(l.homeUnsub) off(l.homeUnsub.ref, 'value', l.homeUnsub.cb);   // 구버전 잔여 구독 호환
-            delete _friendListListeners[fid]; delete combined[fid];
-          }
+          if(!ids.includes(fid)) _offFriend(fid);
         });
         // 새로 추가된 친구는 프로필/온라인상태/마이홈(사진·소개글) 구독 시작
         ids.forEach(fid=>{
@@ -1932,7 +1949,13 @@
             bioUnsub:{ref:bioRef,cb:bioCb}, avatarUnsub:{ref:avaRef,cb:avaCb} };
         });
         notify();
+      }, err=>{
+        teardown();
+        console.warn('[친구 목록] 구독이 끊겼어요', err);
+        if(onError) onError(err);
       });
+      if(_dead && _listOff){ try{ _listOff(); }catch(_){} }   // onValue 가 돌아오기 전에 실패가 왔으면 지금 푼다
+      return teardown;
     },
     // ===== 마이홈 페이지(프로필사진/소개글/게시글/스티커) =====
     async getMyHome(userId){
