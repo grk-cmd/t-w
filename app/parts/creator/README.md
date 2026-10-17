@@ -170,3 +170,39 @@ cv.addEventListener('pointerdown', e=>{ pushHistory(); crState.lastPX=null; pain
 - 선 긋기(`strokeSeg`) · 거울 UV(`mirrorUVOn`)는 꾸미기 파츠 그리기도 같이 써서 `shared/paint-geom.js` 에 있다 — 여기로 다시 가져오면 part-paint 와 서로를 부른다.
 
 검사: `checks/sim-paint-stroke.js` (획 · 쪼개기 · 끊기 · 지우개 · 가려짐 · 솔기 · 대칭 · 페인트통 · 스포이드 · 입구 전제 · 연결 · 깨 보기 12).
+
+## `stamp.js` — 🖼 이미지 도장(띄워 놓고 확정 찍기)
+
+**책임** — 불러온 그림을 미리보기 위에 띄워(옮기기 · 모서리로 크기 · 손잡이로 회전) 두었다가, 찍으면 얼굴 그림 층에 곡면을 따라 박는다. 찍기는 화면의 도장 사각형을 28×28 격자로 얼굴에 쏘아 UV 를 얻고, 삼각형마다 픽셀로 직접 래스터해 오프스크린에 다 조립한 뒤 그림 층에 한 번 얹는다. 대칭이면 거울 자리도(도장이 가운데 근처면 생략).
+
+**만드는 법** — app.js 칠하기(paintStrokeMod) 바로 뒤:
+
+```js
+const crStampMod = TwCrStamp.createCrStamp({
+  CANVAS_SZ: CANVAS_SZ,
+  crState: crState,                // 값 — stampMode · stampImg · stampPlace · stampDirty · cBase · cCam · symmetry · crStep
+  paintStrokeMod: paintStrokeMod,  // 값 — 같은 광선(_pray · _pndc)
+  partPaintMod: partPaintMod,      // 값 — 리깅 맞히기 · 감아 칠하기(_stampWrapFill) · UV 배율
+  // … _crDropEraser · actC · blit · isDrawStep · pushHistory · toast
+});
+```
+
+**내놓는 것**
+
+| 이름 | 하는 일 |
+|---|---|
+| `setStampMode(on)` · `cancelStamp()` | 도장 모드 켜기(지우개 끔 · 버튼 · 패널 · 띄운 그림) / 끄기 |
+| `clearStampState()` | 생성기를 닫을 때 — 화면만 닫고 그림 · 배치는 남긴다(다음 캐릭터에서 바로 다시 쓰게) |
+| `loadStampFromFile(file)` | 그림 불러오기 — 처음이면 짧은 변 × 0.4 · 가운데, 크기 · 회전을 만진 뒤(dirty)면 배치 그대로 |
+| `resetStampPlacement(alsoPos)` | 크기 · 회전 처음대로(`true` 면 위치도 가운데로) |
+| `commitStamp()` | 찍기 — 90% 넘게 얼굴 밖이면 안 찍고 알림 · 20% 넘게 밖이면 «n%만 찍힘» |
+| `bindStampOverlay()` | 띄운 그림의 손잡이(이동 · Shift 가운데 맞춤 · 회전 Shift 15° · 모서리 최소 20 · Shift 비율 유지) — 부팅 때 한 번 |
+
+**확장할 때 고칠 자리** — 격자 촘촘함 `N`(28) · 외삽 칸 `EXTRA_MAX` · 이음새 허용 `_uvFar`(UV_EDGE_MAX 0.15 · 천장 0.35) · 안내 비율(0.9 · 0.2).
+
+**함정**
+- 입구 전제 — 미리보기 캔버스(`#creatorPreview`) · 띄운 그림(`#stampOverlay` · `#stampOverlayImg`) · 찍기/취소 버튼이 없으면 아무것도 안 한다.
+- 삼각형을 clip + drawImage 로 그리지 말 것 — 겹친 띠에서 알파가 두 번 쌓이거나(진한 빗금) 이웃 픽셀을 지운다(밝은 빗금).
+- `character/animal.js` 의 `aCommitStamp` 에 찍기 코드가 한 벌 더 있다 — 한쪽을 고치면 다른 쪽도(묶기는 IMPROVEMENT_BACKLOG).
+
+검사: `checks/sim-cr-stamp.js` (모드 · 불러오기 · 초기화 · 찍기 진짜 래스터 · 90% / 20% · 대칭 · 손잡이 · 입구 전제 · 연결 · 깨 보기 14).
