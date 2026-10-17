@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       kind:
-        description: '버전 종류 — patch 0.10.1→0.10.2 · minor 0.10.1→0.11.0 · beta 0.10.2→0.10.3-beta.N(dev 테스트 · 태그만, main 에 안 올림)'
+        description: '버전 종류 — patch 0.10.1→0.10.2 · minor 0.10.1→0.11.0 · beta 0.10.2→0.10.3-beta.N(테스트 · 운영 Firebase · Pre-release 라 일반 사용자 자동 업데이트엔 안 감 · 태그만, main 에 안 올림)'
         type: choice
         options: [patch, minor, beta]
         default: patch

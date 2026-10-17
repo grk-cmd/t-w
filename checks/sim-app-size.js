@@ -9,7 +9,7 @@
      옮겨 낸 만큼 상한도 따라 내려가야 다음 사람이 그 자리를 다시 채우지 않는다.
    ・4절: 판정 함수 자체 — 상한 넘음 · 새 구역 · 톱니가 빨강이 되는지 가짜 글로 돌려 본다.
    [기준선 다시 쓰기] 저장소 루트에서 `node checks/sim-app-size.js --write-baseline`
-     — 상한은 내려가기만 한다(올리려면 --allow-increase) · 새 구역 머리를 넣으려면 --allow-new-section.
+     — 상한은 내려가기만 한다(새로 잰 값이 더 크면 옛 상한을 그대로 둔다 · 올리려면 --allow-increase) · 새 구역 머리를 넣으려면 --allow-new-section.
      둘 다 «정말 이 파일이어야 하는가» 를 PR 본문에 적고 쓴다.
    [실행] 러너 스테이징(평평한 폴더 + parts/) 또는 저장소 루트에서. */
 'use strict';
@@ -64,12 +64,17 @@ for(const name of Object.keys(FILES)){
 if(process.argv.includes('--write-baseline')){
   let old = {};
   try{ old = JSON.parse(fs.readFileSync(BASE_FILE, 'utf8')).files || {}; }catch(_){}
-  const out = {}, bad = [];
+  const out = {}, bad = [], kept = [];
   for(const [name, spec] of Object.entries(FILES)){
     const lines = lineCount(now[name]), secs = sectionsOf(now[name], spec.indent);
     const prev = old[name];
     const cap = lines + spec.headroom;
-    if(prev && cap > prev.cap && !process.argv.includes('--allow-increase')) bad.push(name + ' 상한 ' + prev.cap + ' → ' + cap + ' (올리려면 --allow-increase)');
+    /* 새로 잰 상한이 옛 상한보다 크면 옛 상한을 그대로 둔다(상한은 내려가기만) — 한 파일 때문에 다른 파일의 상한 내리기까지 막히지 않게.
+       지금 줄 수가 옛 상한을 이미 넘었으면 그건 줄일 일이라 거절한다. */
+    if(prev && cap > prev.cap && !process.argv.includes('--allow-increase')){
+      if(lines > prev.cap) bad.push(name + ' 지금 ' + lines + '줄이 상한 ' + prev.cap + ' 을 넘었다 (줄이거나 --allow-increase)');
+      else kept.push(name + ' 상한 ' + prev.cap + ' 그대로(새로 재면 ' + cap + ' — 올리려면 --allow-increase)');
+    }
     const added = prev ? secs.filter(t => !prev.sections.includes(t)) : [];
     if(added.length && !process.argv.includes('--allow-new-section')) bad.push(name + ' 새 구역 ' + added.map(t => '«' + t + '»').join(' · ') + ' (넣으려면 --allow-new-section)');
     out[name] = { cap: prev && cap > prev.cap && !process.argv.includes('--allow-increase') ? prev.cap : cap, lines, sections: secs };
@@ -80,6 +85,7 @@ if(process.argv.includes('--write-baseline')){
     files: out,
   }, null, 2) + '\n');
   say('  ✓ 기준선을 썼다 — ' + BASE_FILE);
+  for(const k of kept) say('    · ' + k);
   for(const [n, v] of Object.entries(out)) say('    ' + n + ' ' + v.lines + '줄 · 상한 ' + v.cap + ' · 구역 ' + v.sections.length + '개');
   process.exit(0);
 }

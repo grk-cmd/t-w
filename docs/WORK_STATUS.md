@@ -28,6 +28,9 @@
 | ~~wY~~ 머지 #328 | 검증-도우미4 | 파츠 바뀐 뒤 좌석 다시 맞추기 한 벌(seat-refit.js) + 399ae08 떠 있던 동물 고침 · 동작 변경 사용자 승인 | `room/seat-refit.js`(새) · `app.js` · `character/wardrobe.js` · `room/room-entry.js` · `character/catalog-sync.js` · `admin/admin-part-register.js` · html | #328 |
 | ~~낱개~~ 머지 #321 · #323 · #325 · #327 | 검증-도우미3 | 문서 규칙(429c52b) · 두 번째 실행 10초(wT) · 토스트 문구(wS) · realtime 공통부(wP-C 6d352f0) · 에러코드(4c55c3c — 충돌 크면 다시 얹기) | `CLAUDE.md` · `main.js`(두 번째 실행) · 토스트 · `room/realtime-link.js`(새) · 에러코드 표 | — |
 | B-1016-4 창 겹침 근본 | 도우미 1 | 창 앞뒤를 :root «창 층 표» 한 곳으로(동작 무변경) → 편집 · 종족도 창 쌓기 · 연 창이 맨 앞 · 대화상자는 창 쌓기 위 · #258 의 «편집 중 마이홈 숨김» 땜질 걷기 | `desk-companion-prototype.html`(z-index 37곳 · 창 층 표) · `shared/win-stack.js` · `sim-z-layers.js`(새) · `sim-win-front` · `sim-win-layers` · `sim-purikura-stage` · `sim-signup` · `sim-fix-1016` | — |
+| 설치본 F12 막기(관리자 모드만 허용) | w2 세션 | 설치본에서 개발자 도구 F12 · 메뉴 단축키를 막고, 관리자 모드에 들어간 창에서만 연다(옛 hotfix/block-devtools 를 main 위로) · 개발 실행(npm start)은 그대로 | `main.js`(before-input-event F12) · `preload.js`(관리자 모드 알림 한 줄) · `admin/admin-mode.js`(들어갈 때 알림) · `sim-devtools`(새) | — |
+| 비밀번호 초기화(관리자) | w2 세션 | 비번을 잊은 사용자(🐞 제보로 연락) — 웹 관리자 사용자 상세에서 임시 비밀번호 발급 · 함수 adminResetPassword(관리자만 · 다른 PC 로그인 끊기 · adminLog) · 사용자는 로그인 뒤 [내 정보 › 계정] 에서 바꿈 | `functions/password-reset.js`(새) · `functions/index.js`(export 한 줄) · `web-admin/src/features/user/reset-password/`(새) · `UserDetail.tsx` 붙이는 한 줄은 #153(검증-도우미13) 머지 뒤 | — |
+| 날기 천장 재발 막기 검사 | w2 세션 | 파츠가 바뀌어도 날기 기준점이 몸 가운데인지 — 리깅(스킨드) 파츠 · 몸을 가리는 원피스(유령옷) · 겹쳐 입기(stack) 흉내 추가(동작 변경 없음 · 검사만) | `checks/sim-fix-1016.js`(§12) | — |
 | 데이터 창구 표(전략 패턴) | w2 세션 | firebaseAPI 함수마다 Firebase 판 · 서버 판을 고르는 표(동작 그대로 · 0.12 관리자 온/오프가 바꿀 자리) — 브랜치 `refactor/data-provider-table` 28d9799 · CHECKS 개정 359(임시) · QUEUE | `firebase-init.js`(묶음 이름 · 맨 아래 내놓기) · `shared/data-provider.js`(새) · `sim-data-provider`(새) · `sim-api-public-reads` · `sim-app-version-gate` · `sim-typeof-guards` | — |
 | ~~CI 건너뛰기~~ 머지 #344 | w2 세션 | 바뀐 폴더를 먼저 보고 앱 검사 · 웹 관리자 검사를 필요할 때만(문서만 바뀐 PR 은 검사 없음) · 같은 PR 의 앞 실행 취소 · release-start 는 «npm run check» job 이 실제로 초록일 때만 건너뜀 | `.github/workflows/checks.yml` · `.github/workflows/release-start.yml` | #344 |
 | ~~도메인 together-working.com~~ 머지 #343 | w2 세션 | 앱 · 웹 관리자 서버 주소를 together-working.com 으로(운영 API · 방 서버 · CSP) · duckdns 는 옛 앱 · dev 용으로 계속 허용 · 운영 설정 servers 는 그대로(새 앱만 별칭으로 새 주소) — 브랜치 `feat/together-working-domain` 84eb017 · CHECKS 개정 322(임시) · QUEUE | `room/room-server-gate.js` · `shared/api-client.js` · `desk-companion-prototype.html`(CSP meta 두 줄 · 맨 위 — 창 층 표와 다른 자리) · `firebase.json` · `web-admin/src/shared/api/api.ts` · `web-admin/src/entities/room-server/model/roomServer.ts` · `sim-room-server-gate` · `sim-api-client` · `sim-remote-config` · `sim-account-delete` | #343 |
@@ -50,6 +53,10 @@
 | ~~편집 중 마이홈 숨기기 되살리기~~ 머지 #346 | 검증-도우미9 | #342 위에 #258 의 숨기기만 다시(창 층 표는 그대로) · B-1016-4 · 사용자 결정 10-17 | `app/desk-companion-prototype.html`(편집 중 숨김 css) · 숨김 검사 | #346 |
 | ~~해결된 버그 제보 한 달 뒤 삭제~~ 머지 #347 | 검증-도우미11 | 해결 시각(doneTs) · 자동 정리 함수 · 탈퇴 때 제보 삭제 · 처리방침(제보 · AWS 서울 · 게임패드 · 시행일) | `functions/`(새 함수 · account-delete.js) · `web-admin/src/entities/bug-board` · `features` · `hosting/privacy.html` · `firebase-database-rules.json` · `checks/` | #347 |
 | 기능별 받는 곳 고르기 통일 | 검증-도우미12 | 친구 · 방 · 카탈로그의 «서버 / 파이어베이스» 고르기를 `shared/source-switch.js` 한 곳 · 스위치 자리 `config/sources/{기능}` 하나로 · 웹 관리자 «🎚️ 기능 스위치» 페이지 | `shared/source-switch.js`(새) · `shared/remote-config.js` · `friends/friends-port.js` · `room/room-server-gate.js` · `character/catalog-source.js` · `app.js`(연결) · html · 규칙 · `web-admin/src`(새 페이지 · 방 서버 스위치) · checks | — |
+| ~~오래된 요청 #255 · #153 합치기~~ 머지 | 검증-도우미13 | #255 앱 크기 기준선 쓰기 · #153 웹 관리자 사용자 목록을 관리자 API 로 | `checks/sim-app-size.js` · `checks/app-size-baseline.json` · `web-admin/src/`(사용자 목록 · 통계) · `checks/CHECKS.md` | #255 · #153 |
+| 같은 그림 반복 업로드 줄이기(#39 새로 쓰기) | 검증-도우미14 | 동시 업로드 합치기 · 썸네일은 외모가 바뀔 때만 · 업로드 캐시 LRU(통째 비우기 없앰) · 마이홈 주소 되쓰기 | `shared/upload-cache.js`(새) · `room/room-sync.js` · `character/slot-sync.js` · `firebase-init.js`(업로드 길) · 마이홈 · 검사 | — |
+| 테스트 빌드도 운영 DB 로 | 검증 세션 | 깃허브에서 만드는 테스트(beta) 빌드도 운영 Firebase 에 붙게 — 개발 서버는 내 PC 의 `npm run start:dev` 에서만 | `.github/workflows/release.yml` · `release-start.yml` · `CLAUDE.md` · `docs/RELEASE.md` | — |
+| 빈 카탈로그 사본 막기 | 검증-도우미15 | 원래 목록이 있던 기기에 서버가 «성공» + 빈 카탈로그(또는 본문 null)를 주면 믿지 않고 Firebase 로 받기(좌석 캐릭터 파츠가 떼어지는 길 막기 · 사용자 결정 10-17) | `app/parts/character/catalog-cache.js` · `catalog-source.js` · checks | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
@@ -92,6 +99,7 @@
 | 리깅 모자 날기 | 모자 쓰고 날면 화면 아래에서 맴돎 | wL2 | 대기 |
 
 ## 머지 완료(10-17 검증 세션)
+- 10-17 밤: #255 앱 크기 기준선 쓰기(개정 360) · #153 웹 관리자 사용자 목록을 관리자 API 로(못 닿으면 옛 RTDB · 웹 관리자 Hosting 배포 필요)
 - 10-17 밤 운영 배포 끝(사용자): 규칙(doneTs) · 함수 bugCleanup · adminDeleteAccount · deleteMyAccount · Hosting(웹 관리자 새 서버 주소 #343 · 처리방침 시행일 2026-10-18)
 - 10-17 밤: #347 해결된 버그 제보 한 달 뒤 자동 삭제 · 탈퇴 때 제보 삭제 · 처리방침 보강 — **배포 필요(규칙 · 함수 3 · Hosting)**
 - 10-17 밤(검증-도우미8): #340 몸 크기 재기 한 곳 · #342 창 겹침(B-1016-4 · grk 탈퇴 안내 css 지킴) · #343 서버 주소 together-working.com(웹 관리자 Hosting 배포 필요) · #344 자동 검사 판정 한 벌(릴리스 버튼 구멍 막음) · #345 토스트 누르면 복사

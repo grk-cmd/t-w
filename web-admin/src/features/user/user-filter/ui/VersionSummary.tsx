@@ -1,20 +1,16 @@
-import { useMemo, useState } from 'react';
-import { ACTIVE_DAYS, OLD_VER_LABEL, versionCounts, type UserRow } from '@/entities/user';
+import { ACTIVE_DAYS, OLD_VER_LABEL, type VerFilter, type VersionCount } from '@/entities/user';
 import styles from './VersionSummary.module.css';
 
-/** undefined = 버전으로 좁히지 않음 · null = 버전 기록 없음. */
-export type VerFilter = string | null | undefined;
+export type { VerFilter } from '@/entities/user';
 
 interface Props {
-  rows: UserRow[];
+  /** 버전별 수 — API 통계 또는 받아 둔 계정 요약으로 센 것(사람마다 presence 를 읽지 않는다). */
+  counts: VersionCount[];
   value: VerFilter;
   onChange: (ver: VerFilter) => void;
 }
 
-// 이미 받은 계정 요약만으로 센다 — 사람마다 presence 를 읽지 않는다.
-export function VersionSummary({ rows, value, onChange }: Props) {
-  const [now] = useState(Date.now);
-  const counts = useMemo(() => versionCounts(rows, now), [rows, now]);
+export function VersionSummary({ counts, value, onChange }: Props) {
   if (!counts.length) return null;
 
   return (
