@@ -103,15 +103,20 @@ say('── 4. 동작 — 토스트 · 저장 실패 문구');
   const load = () => {
     const log = { timers: [], cleared: [] };
     let seq = 0;
-    const el = { textContent: '', cls: new Set(), kids: [], classList: null, prepend(n){ this.kids.unshift(n); } };
-    el.classList = { add: (c) => el.cls.add(c), remove: (c) => el.cls.delete(c) };
-    Object.defineProperty(el, 'textContent', { get(){ return this._t; }, set(v){ this._t = v; this.kids = []; } });
-    const doc = { getElementById: (id) => id === 'toast' ? el : null, createElement: (t) => ({ tag: t, style: {} }) };
+    const el = { textContent: '', cls: new Set(), kids: [], tail: [], on: {}, classList: null, prepend(n){ this.kids.unshift(n); },
+      appendChild(n){ this.tail.push(n); }, addEventListener(k, fn){ (this.on[k] = this.on[k] || []).push(fn); } };
+    el.classList = { add: (c) => el.cls.add(c), remove: (c) => el.cls.delete(c), contains: (c) => el.cls.has(c) };
+    Object.defineProperty(el, 'textContent', { get(){ return this._t; }, set(v){ this._t = v; this.kids = []; this.tail = []; } });
+    const doc = { getElementById: (id) => id === 'toast' ? el : null, createElement: (t) => ({ tag: t, style: {} }), createTextNode: (x) => ({ text: x }) };
+    /* 클립보드 — 부른 글을 적어 두고, 약속(then)은 손으로 풀어 본다(fail 이면 거절) */
+    const clip = { calls: [], fail: false, pend: [] };
+    const nav = { clipboard: { writeText: (x) => { clip.calls.push(x); return { then: (ok, no) => clip.pend.push(clip.fail ? no : ok) }; } } };
+    log.clip = clip;
     const st = (fn, ms) => { const id = ++seq; log.timers.push({ id, fn, ms }); return id; };
     const ct = (id) => log.cleared.push(id);
     let api;
     if(!PREMOVE){
-      const w = {}; new Function('window', 'module', 'document', 'setTimeout', 'clearTimeout', MOD)(w, undefined, doc, st, ct);
+      const w = {}; new Function('window', 'module', 'document', 'setTimeout', 'clearTimeout', 'navigator', MOD)(w, undefined, doc, st, ct, nav);
       api = w.TwToast.createToast({});
     } else {
       const a = SRC.indexOf('/* --- toast --- */'), b = SRC.indexOf('/* ============================================================ ANIM', a);
@@ -140,6 +145,29 @@ say('── 4. 동작 — 토스트 · 저장 실패 문구');
   const preLine = (h) => /\.toast\{[^}]*white-space:pre-line;/.test(h);
   api.toast('첫 줄\n둘째 줄');
   chk(preLine(HTML) && !preLine(HTML.replace(/(\.toast\{[^}]*)white-space:pre-line;/, '$1')) && el.textContent === '첫 줄\n둘째 줄' && !/innerHTML/.test(strip(MOD)), '  toast 는 pre-line — 문구 안 \\n 을 줄바꿈으로(글은 textContent 그대로 · innerHTML 안 씀)');
+  /* 📋 누르면 복사 — 같은 토스트 끝에 «복사했어요» · 남은 시간 + 1.5초 (옮기기 전 app.js 글에는 없는 기능이라 모듈에서만) */
+  if(!PREMOVE){
+    const clip = log.clip, click = () => (el.on.click || []).forEach(f => f());
+    chk((el.on.click || []).length === 1, '  누르기 — 클릭 받기는 한 번만 단다(토스트를 여러 번 띄워도)');
+    api.toast('저장 실패 E-1017-AB', 'icon.png', 4000);
+    const nT = log.timers.length;
+    click();
+    chk(clip.calls.length === 1 && clip.calls[0] === '저장 실패 E-1017-AB' && !el.tail.length, '  누르면 복사 함수가 보이는 글 그대로 불린다(그림 · 표시 빼고) — 복사가 끝나기 전엔 표시 없음');
+    clip.pend.shift()();
+    const tm = log.timers[log.timers.length - 1];
+    chk(el.tail.length === 1 && el.tail[0].text === ' (복사했어요)' && el.kids.length === 1 && el.cls.has('on'), '  복사가 되면 같은 토스트 글 끝에 « (복사했어요)» — 새 토스트로 덮지 않음 · 그림 그대로');
+    chk(log.timers.length === nT + 1 && tm.ms > 4000 && tm.ms <= 5500 && log.cleared.includes(log.timers[nT - 1].id), '  사라지는 타이머 = 남은 시간 + 1.5초(앞 타이머는 지운다)');
+    click(); clip.pend.shift()();
+    chk(clip.calls[1] === '저장 실패 E-1017-AB' && el.tail.length === 1, '  다시 눌러도 원래 글만 복사 · 표시는 한 번만');
+    api.toast('하나'); click(); api.toast('둘'); clip.pend.shift()();
+    chk(clip.calls[2] === '하나' && !el.tail.length && el.textContent === '둘', '  복사 중에 새 토스트가 뜨면 표시를 안 붙인다(새 글을 건드리지 않음)');
+    clip.fail = true; click(); clip.pend.shift()();
+    chk(el.tail.length === 1 && el.tail[0].text === ' (복사하지 못했어요)', '  복사가 거절되면 « (복사하지 못했어요)»');
+    clip.fail = false; el.cls.delete('on'); const n0 = clip.calls.length; click();
+    chk(clip.calls.length === n0, '  꺼진 토스트는 눌러도 복사 안 함');
+    const onRule = (h) => /\.toast\.on\{[^}]*pointer-events:auto;[^}]*cursor:pointer;/.test(h) && /\.toast\{[^}]*pointer-events:none;/.test(h);
+    chk(onRule(HTML) && !onRule(HTML.replace(/(\.toast\.on\{[^}]*)pointer-events:auto;/, '$1')), '  html — 켜진 토스트(.toast.on)만 클릭 받기 · 손 모양(꺼진 토스트는 통과)');
+  }
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
