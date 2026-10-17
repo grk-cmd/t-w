@@ -539,6 +539,14 @@
      dataURL("data:image/...;base64,...")이 들어오면 Storage에 올리고 다운로드 URL을 돌려줌.
      이미 URL(https://...)이면 그대로 통과 — 재저장 시 중복 업로드 방지.
      실패하면 원본 dataURL을 그대로 돌려줌(업로드 실패로 이미지가 통째로 날아가지 않게). */
+  /* 이름이 내용 해시(«종류_h2…»)인 파일은 이미 있으면 그 URL 만 받는다 — 같은 이름 = 같은 그림이라 다시 올릴 까닭이 없다.
+     캐시를 잃은 기기(새 PC · 지운 캐시)가 같은 그림을 전부 다시 올리던 길. 확인(읽기)은 올리기보다 훨씬 싸다.
+     못 찾거나 확인이 거절되면 null — 부르는 쪽이 평소처럼 올린다. */
+  async function _existingUrlIfHashed(path){
+    if(!/_h2[0-9a-z]+\.[a-z]+$/.test(path)) return null;
+    try{ return await getDownloadURL(sref(storage, path)); }catch(_){ return null; }
+  }
+
   async function _uploadDataUrlIfNeeded(path, dataUrl){
     if(!dataUrl || typeof dataUrl !== 'string') return dataUrl;
     if(!dataUrl.startsWith('data:')) return dataUrl;   // 이미 URL이거나 빈 값
@@ -1082,7 +1090,10 @@
       if(!b64 || typeof b64 !== 'string') return { ok:false, reason:'GLB 가 아니에요' };
       const safeKey = String(key||'glb').replace(/[^a-zA-Z0-9_.-]/g, '');
       try{
-        const storageRef = sref(storage, `users/${userId}/slotglb_${safeKey}.glb`);
+        const path = `users/${userId}/slotglb_${safeKey}.glb`;
+        const have = await _existingUrlIfHashed(path);
+        if(have) return { ok:true, url: have };
+        const storageRef = sref(storage, path);
         await uploadString(storageRef, b64, 'base64', { cacheControl: STORAGE_CACHE, contentType: 'model/gltf-binary' });
         const url = await getDownloadURL(storageRef);
         return { ok:true, url };
@@ -1519,7 +1530,10 @@
     async uploadRoomFace(userId, key, dataUrl){
       if(!dataUrl || !dataUrl.startsWith('data:')) return { ok:false };
       const safeKey = String(key||'face').replace(/[^a-zA-Z0-9_-]/g, '');
-      const url = await _uploadDataUrlIfNeeded(`users/${userId}/roomface_${safeKey}.png`, dataUrl);
+      const path = `users/${userId}/roomface_${safeKey}.png`;
+      const have = await _existingUrlIfHashed(path);
+      if(have) return { ok:true, url: have };
+      const url = await _uploadDataUrlIfNeeded(path, dataUrl);
       if(!url || url.startsWith('data:')) return { ok:false };
       return { ok:true, url };
     },
@@ -1943,20 +1957,22 @@
       //   기존에 base64로 저장돼 있던 데이터도 다음 저장 때 자동으로 이관됨.
       const out = JSON.parse(JSON.stringify(homeData || {}));
       const failedUploads = [];
-      const up = async (label, path, val)=>{
+      const swaps = [];   // 올린 자리 → URL — 부르는 쪽이 들고 있는 데이터도 바꿔 다음 저장 때 같은 그림을 다시 올리지 않게
+      const up = async (label, path, val, at)=>{
         const r = await _uploadDataUrlIfNeeded(path, val);
+        if(typeof val === 'string' && val.startsWith('data:') && typeof r === 'string' && !r.startsWith('data:')) swaps.push({ path: at, from: val, url: r });
         /* ⚠️ _uploadDataUrlIfNeeded 는 실패하면 **원본 dataURL 을 그대로 돌려준다.**
            예전에는 그게 조용히 DB 로 흘러들어가, 수백 KB 짜리 문자열이 그대로 쓰기에 실려 갔다.
            그 실패를 여기서 붙잡아 두면 «사진이 안 올라갔다»고 정확히 말할 수 있다. */
         if(typeof r === 'string' && r.startsWith('data:')) failedUploads.push(label);
         return r;
       };
-      if(out.avatar)          out.avatar  = await up('프로필 사진', `users/${userId}/avatar.jpg`, out.avatar);
-      if(out.bg && out.bg.img) out.bg.img = await up('배경 사진',   `users/${userId}/bg.jpg`,     out.bg.img);
+      if(out.avatar)          out.avatar  = await up('프로필 사진', `users/${userId}/avatar.jpg`, out.avatar, ['avatar']);
+      if(out.bg && out.bg.img) out.bg.img = await up('배경 사진',   `users/${userId}/bg.jpg`,     out.bg.img, ['bg', 'img']);
       if(out.stickers){
         for(const sid of Object.keys(out.stickers)){
           const st = out.stickers[sid];
-          if(st && st.img) st.img = await up('스티커', `users/${userId}/sticker_${sid}.png`, st.img);
+          if(st && st.img) st.img = await up('스티커', `users/${userId}/sticker_${sid}.png`, st.img, ['stickers', sid, 'img']);
         }
       }
       /* ⚠️ 업로드가 실패했다고 **저장 전체를 막지 않는다.**
@@ -2026,7 +2042,7 @@
 
       try{
         await set(ref(db, `users/${userId}/home`), out);
-        return uploadWarn ? { ok:true, warn:uploadWarn } : { ok:true };
+        return uploadWarn ? { ok:true, warn:uploadWarn, swaps } : { ok:true, swaps };
       }catch(e){
         const code = String((e && (e.code || e.message)) || '');
         console.warn('[마이홈] 저장 실패', code, e);

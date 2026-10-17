@@ -29,6 +29,7 @@
 
 function createMyHomeEdit(deps){
 const toast = deps.toast;
+const homeUploadCache = deps.homeUploadCache;            // 🗂️ 올린 자리 → URL 바꿔 넣기(shared/upload-cache.js applyUrlSwaps)
 const asyncPrompt = deps.asyncPrompt;                    // ✏️ 인앱 프롬프트(글 서식 링크 · 이미지 · 스티커 링크 · BGM)
 const renderMyHomePage = deps.renderMyHomePage;          // 🏠 마이홈 페이지 다시 그리기(프로필 사진 바꾼 뒤) — app.js
 const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js(아래에서 감싸 다시 대입한다 — 부를 때 찾는다)
@@ -96,6 +97,8 @@ const mhPreset = TwMyHomePreset;                         // 👑 디자인 프�
     try{
       const r = await firebaseAPI.saveMyHome(getMyUserId(), _myHomeData());
       if(r && r.ok === false){ toast(r.reason || '저장에 실패했어요'); return; }
+      /* 올린 그림은 들고 있는 데이터에서도 URL 로 — 안 바꾸면 스티커를 누르거나 끌 때마다 같은 그림을 또 올린다. */
+      if(r && r.swaps) homeUploadCache.applyUrlSwaps(_myHomeData(), r.swaps);
       if(r && r.warn){ toast(r.warn); return; }   // 저장은 됐다 — 조용히 넘기면 원인이 계속 숨는다
       if(!silent) toast('마이홈을 저장했어요');
     }

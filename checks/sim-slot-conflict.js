@@ -103,8 +103,11 @@ function mkEnv(){
     uploadRoomFace: async (uid, key, dataUrl) => { env.uploads.push(key); const url = 'https://st/roomface_' + key + '.png'; env.urlToData.set(url, dataUrl); return { ok: true, url }; },
     uploadSlotGlb: async (uid, key, b64) => { env.glbUploads.push(key); const url = 'https://st/slotglb_' + key + '.glb'; env.urlToData.set(url, b64); return { ok: true, url }; },
   };
-  const window = { firebaseAPI };
+  /* 업로드 캐시 상한 규칙(shared/upload-cache.js)은 진짜 모듈을 싣는다 — 두 캐시가 deps 로 받는 그것 */
+  const __uc = (() => { const fs = require('fs'); const t = ['upload-cache.js', 'parts/shared/upload-cache.js', 'app/parts/shared/upload-cache.js', '../app/parts/shared/upload-cache.js'].map((f) => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return null; } }).find(Boolean); const m = { exports: {} }; new Function('module', 'window', t)(m, undefined); return m.exports.createUploadCache(); })();
+  const window = { firebaseAPI, __uc };
   const decl = [
+    "const faceUploadCache = window.__uc, glbUploadCache = window.__uc;",
     "const LS_KEY='deskFriends.slots.v1'; const CHAR_SLOT_MAX=5;",
     "const slots=new Array(CHAR_SLOT_MAX).fill(null);",
     "const _faceEverDrawn=new Array(CHAR_SLOT_MAX).fill(false), _blinkEverDrawn=new Array(CHAR_SLOT_MAX).fill(false);",

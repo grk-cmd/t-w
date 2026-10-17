@@ -15,6 +15,7 @@ function createRoomSync(deps){
 const DESK_LICENSE_HOLD = deps.DESK_LICENSE_HOLD;   // 읽는 함수
 const ITEM_LICENSE_HOLD = deps.ITEM_LICENSE_HOLD;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
+const faceUploadCache = deps.faceUploadCache;   // 업로드 캐시 상한 규칙(shared/upload-cache.js)
 const _autoAwayResetClock = deps._autoAwayResetClock;   // 🕒 자동 자리비움 시계 되감기(Presence 안 — app.js 가 잇는다)
 const _chatIsHost = deps._chatIsHost;
 const _chatIsSecretRoom = deps._chatIsSecretRoom;
@@ -190,24 +191,18 @@ function _roomFaceCacheLoad(){
     if(st[k+'Hash'] && st[k+'Url']){ st[k+':'+st[k+'Hash']] = st[k+'Url']; }
     delete st[k+'Hash']; delete st[k+'Url'];
   });
-  // 무한정 쌓이지 않게 상한 — 넘으면 다음 장착 때 한 번만 다시 올린다.
-  /* ⚠️ [2026-09-18 · 제보 3-7 (나)] 넘었다고 **통째로** 비우면 안 된다. 해시가 바뀐 전환기에는
-     한 그림이 옛 이름·새 이름 두 칸을 차지해 상한에 금방 닿는데, 거기서 통째로 비우면 방금 올린
-     새 파일까지 잊고 **전원이 또 재업로드한다** — Class A 를 두 번 치르는 길이다.
-     그래서 구형(`h2` 로 시작하지 않는) 항목을 **먼저** 버리고, 그러고도 넘칠 때만 통째로 비운다.
-     ★ 구형 항목을 조회에 **쓰지는 않는다**(_storageFaceUrlOne 은 새 키 하나만 본다) — 옛 해시가
-       같다는 것은 「그림이 같다」는 뜻이 아니어서, 그걸 믿고 URL 을 물려주면 이 제보가 그대로
-       재현된다. 여기서 남기는 것은 순전히 «전환기에 통째 비움을 늦추기» 위해서다. */
-  if(Object.keys(st).length > 60){
-    for(const k of Object.keys(st)){
-      const h = k.slice(k.indexOf(':') + 1);
-      if(!/^h2/.test(h)) delete st[k];
-    }
-    if(Object.keys(st).length > 60) st = {};
-  }
+  // 무한정 쌓이지 않게 상한 — 넘치면 오래 안 쓴 것부터 버린다(규칙은 shared/upload-cache.js 한 곳).
+  st = faceUploadCache.trim(st, faceUploadCache.FACE_CACHE_MAX);
   return st;
 }
-function _roomFaceCacheSave(st){ try{ localStorage.setItem('tw.roomFaceUrls', JSON.stringify(st)); }catch(_){} }
+/* 저장 직전에 지금 저장본과 합친다 — 방 입장 · 슬롯 올리기 · 보관함이 각자 사본을 들고 있다가 나중 쪽이 앞의 것을 지우던 길. */
+function _roomFaceCacheSave(st){
+  try{
+    let cur = {}; try{ cur = JSON.parse(localStorage.getItem('tw.roomFaceUrls')||'{}'); }catch(_){}
+    const out = faceUploadCache.trim(faceUploadCache.merge(cur, st), faceUploadCache.FACE_CACHE_MAX);
+    localStorage.setItem('tw.roomFaceUrls', JSON.stringify(out));
+  }catch(_){}
+}
 /* 그림 한 장 → Storage URL. 캐시(st)에 있으면 업로드 없이 그 URL. 실패·그림 아님 → null.
    ★ 파일 이름에 '그림 내용 해시'를 넣는다 — 예전엔 users/{uid}/roomface_face.png 처럼
      캐릭터 구분 없이 한 경로만 써서, 동물을 만들면 그 얼굴(투명 배경)이 인간이 쓰던 파일을
@@ -218,8 +213,8 @@ async function _storageFaceUrlOne(uid, st, key, cv){
   if(!dataUrl || !dataUrl.startsWith('data:')) return null;
   const h = _quickHash(dataUrl);
   const ck = key + ':' + h;
-  if(st[ck]) return st[ck];   // 이 그림은 전에 올려둔 적이 있다 — 캐릭터를 몇 번 바꿔도 다시 안 올린다
-  const r = await firebaseAPI.uploadRoomFace(uid, key + '_' + h, dataUrl);
+  if(st[ck]){ faceUploadCache.touch(st, ck); return st[ck]; }   // 전에 올려둔 그림 — 다시 안 올린다
+  const r = await faceUploadCache.once('face/' + uid + '/' + ck, ()=>firebaseAPI.uploadRoomFace(uid, key + '_' + h, dataUrl));
   if(r && r.ok){ st[ck] = r.url; return r.url; }
   return null;
 }

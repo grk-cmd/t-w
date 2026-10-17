@@ -2,7 +2,7 @@
    app.js 의 방 def 전송 · poke · 자동 퇴장 · 감시견 네 구역 본문 을 parts/room/room-sync.js 로 옮겼다(글자 그대로 · 바뀐 줄 5 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(방 통신 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · makeFirebaseProvider · serializeDefForNetwork)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 12줄 그대로 · 부르는 곳은 roomSyncMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 13줄 그대로 · 부르는 곳은 roomSyncMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · room-sync.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -22,12 +22,12 @@ const NET_PRE = NET + '\nvar TwNetReady = window.TwNetReady;\n';
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_autoAwayResetClock","_chatIsHost","_chatIsSecretRoom","getMyUserId","loadImg","newCanvas","toast"];
-const VAL_DEPS = ["twNav"];
+const VAL_DEPS = ["faceUploadCache","twNav"];
 const GET_DEPS = ["DESK_LICENSE_HOLD","ITEM_LICENSE_HOLD","Presence","savedDesks"];
 const SET_DEPS = [];
 const EXPORTS = ["AUTO_EXIT_AFTER_AWAY_MS","AUTO_EXIT_WARN_MS","POKE_SKEW_MS","_autoExitCancel","_autoExitWarn","_defSizeNames","_loadImgCors","_pokeFresh","_quickHash","_roomFaceCacheLoad","_roomFaceCacheSave","_srvNow","_storageFaceUrlOne","defWireForSize","deserializeDefFromNetwork","ensureRoomFaceUrls","makeFirebaseProvider","serializeDefForNetwork"];
 const MOVED = ["POKE_FRESH_MS","POKE_SKEW_MS","_srvNow","_pokeFresh","AUTO_EXIT_AFTER_AWAY_MS","AUTO_EXIT_WARN_MS","_autoExitOv","_autoExitTimer","_autoExitDue","_autoExitDone","_autoExitInRoom","_autoExitExempt","_autoExitCancel","_autoExitDo","_autoExitWarn","ROOM_FACE_SEND_DATAURL","_quickHash","_roomFaceCacheLoad","_roomFaceCacheSave","_storageFaceUrlOne","ensureRoomFaceUrls","serializeDefForNetwork","_DEF_SIZE_URL","_DEF_SIZE_IMGS","defWireForSize","_defSizeNames","DEF_DIAG_WARN_BYTES","_defDiagLastSig","_defPayloadDiag","_loadImgCors","_roomFaceUrlToCanvas","deserializeDefFromNetwork","_lastSentRoomPayload","_roomSnapSeq","_sameRoomVal","_diffRoomPayload","makeFirebaseProvider"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,","  ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,","  Presence: ()=>Presence,","  _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),","  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),","  _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  twNav: twNav,","  savedDesks: ()=>commissionMod.savedDesks(),","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,","  ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,","  Presence: ()=>Presence,","  _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),","  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),","  _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),","  faceUploadCache: uploadCacheMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  twNav: twNav,","  savedDesks: ()=>commissionMod.savedDesks(),","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
