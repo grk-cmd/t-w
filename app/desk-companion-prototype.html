@@ -6094,6 +6094,13 @@
         <div id="acctNoLogin" style="display:none;font-size:10.5px;color:var(--ink-soft);line-height:1.55;">이 PC는 로그인돼 있지 않아요. 앱을 다시 시작하면 로그인 화면이 나와요.</div>
         <div id="acctLoginMsg" style="display:none;font-size:11px;margin-top:8px;line-height:1.5;color:var(--win-error);"></div>
       </div>
+      <!-- 개인정보 처리방침 — 탭(보관함 · 휴지통 · 계정)과 상관없이 맨 아래에 늘 보인다. 주소 · 여는 방식은 설정 › 시스템 › 프로그램 정보의
+           #progPrivacyLink 와 같다(room-entry.js _bindDonate 가 클릭을 가로채 시스템 기본 브라우저로 연다 — 앱 안에서 열면 화면이 날아간다). -->
+      <p style="margin:14px 0 0;padding-top:8px;border-top:1px solid var(--win-lo-2);text-align:center;font-size:10.5px;line-height:1.6;">
+        <a id="miPrivacyLink" href="https://together-working.web.app/privacy"
+          title="개인정보 처리방침을 브라우저로 열어요"
+          style="color:var(--win-title-b);text-decoration:underline;cursor:pointer;">개인정보 처리방침</a>
+      </p>
     </div>
     <!-- 광고 배너 — 관리자가 이미지+링크 등록하면 표시, 없으면 자동 숨김 -->
     <a id="lcAdBanner" href="#" target="_blank" style="display:none;margin-top:10px;width:100%;
