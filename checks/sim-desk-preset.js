@@ -77,7 +77,7 @@ async function behave(src, storeSrc) {
   /* 저장 */
   const N5 = JSON.stringify([null, null, null, null, null]);
   let S = makeStore(storeSrc, lsOf({}));
-  t(JSON.stringify(S.loadDeskPresets()) === N5 && Object.keys(S).sort().join() === 'loadDeskPresets,saveDeskPresets', '저장 — 비어 있으면 빈 5칸 · 이름 둘');
+  t(JSON.stringify(S.loadDeskPresets()) === N5 && Object.keys(S).sort().join() === 'PRESET_SLOTS,loadDeskPresets,saveDeskPresets' && S.PRESET_SLOTS === 5, '저장 — 비어 있으면 빈 5칸 · 칸 수(PRESET_SLOTS 5)와 읽기 · 쓰기');
   S = makeStore(storeSrc, lsOf({ 'tw.deskPresets': '{깨짐' })); const s2 = makeStore(storeSrc, lsOf({ 'tw.deskPresets': '{"a":1}' }));
   t(JSON.stringify(S.loadDeskPresets()) === N5 && JSON.stringify(s2.loadDeskPresets()) === N5, '저장 — 깨진 값 · 배열이 아니면 빈 5칸');
   S = makeStore(storeSrc, lsOf({ 'tw.deskPresets': JSON.stringify([1, 2]) })); const s3 = makeStore(storeSrc, lsOf({ 'tw.deskPresets': JSON.stringify([1, 2, 3, 4, 5, 6, 7]) }));
@@ -187,7 +187,7 @@ function wire(app, html) {
   chk(!SMOKE || (/PRELOAD\.push\('desk-preset-store\.js'\);/.test(SMOKE) && /PRELOAD\.push\('desk-preset\.js'\);/.test(SMOKE)), 'smoke 가 두 파일을 먼저 싣는다');
   say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
-    ['저장 5칸 → 4칸', null, (s) => s.replace('arr.slice(0,5).concat', 'arr.slice(0,4).concat')],
+    ['저장 5칸 → 4칸', null, (s) => s.replace('const PRESET_SLOTS = 5;', 'const PRESET_SLOTS = 4;')],
     ['저장 키 바뀜', null, (s) => s.replace("const PRESET_KEY = 'tw.deskPresets';", "const PRESET_KEY = 'tw.deskPreset';")],
     ['담기에서 높이 자르기 없앰', (m) => m.replace('y:clampCharY(crState.cXform.y)', 'y:crState.cXform.y'), null],
     ['적용이 옛 앞뒤 z 를 높이로', (m) => m.replace("if(typeof p.seat.y==='number')", "if(typeof p.seat.z==='number') p.seat.y=p.seat.z; if(typeof p.seat.y==='number')"), null],

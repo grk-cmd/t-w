@@ -145,7 +145,7 @@ function renderDeskPresetSlots(){
   const box=document.getElementById('crPresetSlots'); if(!box) return;
   const arr=deskPresetStoreMod.loadDeskPresets();
   box.innerHTML='';
-  for(let i=0;i<5;i++){
+  for(let i=0;i<deskPresetStoreMod.PRESET_SLOTS;i++){
     const p=arr[i]||null;
     const btn=document.createElement('button');
     btn.type='button';

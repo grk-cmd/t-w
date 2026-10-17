@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 323 (🪑 생성기 책상 세팅을 creator/desk-setup.js 로, 카드 도우미를 creator/asset-cards.js 로 — C 구역 떼기 w4)
-대상: `sim-*.js` 302개 + `smoke.js` + `audit.py` = **304개** (개정 323 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 324 (생성기 조각 모듈의 박힌 값을 파일 위 상수로 — 동작 무변경)
+대상: `sim-*.js` 302개 + `smoke.js` + `audit.py` = **304개** (개정 324 기준 — 폴더를 센 값)
+
+**개정 324 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호)**
+- 앱: shared/paint-geom.js(되쏘는 거리 0.6 · 점 길이 0.01) · creator/paint-stroke.js(솔기 허용 0.25/4/0.02 · 가려짐 여유 1e-3 · 스포이드 알파 8) · creator/stamp.js(처음 너비 0.4 · 격자 28 · 안내 비율 0.9/0.2 · 이음새 0.35/3/0.03 · 회전 15° · 최소 20px) · creator/desk-preset-store.js(칸 수 5 — PRESET_SLOTS 로 내놓아 칸 화면도 읽는다)의 숫자를 파일 위 이름 붙은 상수로(값 그대로).
+- 검사: sim-paint-geom · sim-paint-stroke · sim-cr-stamp · sim-desk-preset 의 깨 보기를 상수 줄을 바꾸는 모양으로 · sim-desk-preset 는 PRESET_SLOTS 5 도 본다(판정 무변경).
 
 **개정 323 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호)**
 - 앱: app.js «책상 세팅(5단계)» 350줄을 둘로 — 꾸미기도 쓰는 카드 도우미(swThumb · applyDeskDotThumb · bindReorderHandle)는 `creator/asset-cards.js`(`TwAssetCards` · deps 1), 카드 그리기 · 고르기 · 지우기 · 순서 · 아이템 고르기 · 색 칸은 `creator/desk-setup.js`(`TwDeskSetup` · deps 29 — 생성기 상태는 crState 하나). bindHold 는 animal.js 가 전역으로 읽어 app.js 에 남김. 관리자 등록 창 · 기즈모는 deps 대신 갈고리(setHooks — app.js 가 crXformMod 를 만든 뒤 잇는다 · deps 로 받으면 새 순환 9). firebaseAPI 직접 호출 12곳은 데이터 provider(catalogNet)로(COMMON «서버 이관 쪽으로»). 입구 가드(카드 줄 · 색 칸 · 미리보기 · 캐릭터 — COMMON «숨은 전제를 입구로») · 옛 이야기형 주석 줄이기.
@@ -2278,7 +2282,7 @@
 | **sim-def-send.js** | 211 | **e16ae6963145** ← **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-desk-floor-clamp.js** | 201 | **1fbac335eb0e** ← **개정 291 핀 상쇄를 동작 판정으로 · 겹친 글자 판정 셋 걷음** · **개정 284 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(측정이 char-measure.js 로 · 판정 무변경)** · **개정 280 기즈모 · 좌석 세팅 글은 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** |
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** ← **개정 305 되살린 글에서 읽는다(판정 무변경)** |
-| **sim-desk-preset.js** | 212 | **57a7684f8e50** ← **개정 322 신설 · 🗂 책상 · 좌석 세팅 프리셋(creator/desk-preset-store.js · desk-preset.js) — 저장 · 담기 · 적용 · 책상 모델 · 칸 화면 · 연결** |
+| **sim-desk-preset.js** | 212 | **8838e49cec8f** ← **개정 324 깨 보기를 상수 줄로 · PRESET_SLOTS(판정 무변경)** · **개정 322 신설 · 🗂 책상 · 좌석 세팅 프리셋(creator/desk-preset-store.js · desk-preset.js) — 저장 · 담기 · 적용 · 책상 모델 · 칸 화면 · 연결** |
 | **sim-desk-setup.js** | 228 | **268fe68a88b2** ← **개정 323 신설 · 🪑 책상 세팅(creator/desk-setup.js) — 책상 · 아이템 카드 · 고르기 · 순서 · 갈고리 · 입구 전제 · 연결** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
@@ -2342,7 +2346,7 @@
 | **sim-premium-desk.js** | 96 | **9911af6ac156** ← **개정 323 책상 카드 자르는 기준을 색 칸 값 줄로(판정 무변경)** · **개정 246 «바뀌면 다시 그린다» 는 _setPremium 의 알림 · 게이트가 건 _refreshPremiumGatedUI 에서 봄(판정 무변경)** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-16 (제보 3 프리미엄 책상) · 개정 10 등재 |
 | **sim-presence.js** | 243 | **3f5b1eb57bdc** ← **개정 302 deps 20 · roomNet 으로만 입장 · 깨 보기 하나** · **개정 299 깨 보기를 상수 줄로(판정 무변경)** · **개정 259 신설 · 🛰 방 접속 상태(room/presence.js) — 부팅 상태 · payload · 채팅 · poke · 자동 자리비움 · 연결** |
 | **sim-light-tone.js** | 123 | **f4919d41228f** ← **개정 301 baseFlatOf 대체값은 FLAT_EMISSIVE · 깨 보기 하나** · **개정 300 baseFlatOf 판정 · 판단 다시 쓰지 않기 · 깨 보기 둘** · **개정 271 신설 · 💡 재질 톤(shared/light-tone.js) — FLAT_EMISSIVE 식 · 재질 함수 셋 · 연결** |
-| **sim-paint-geom.js** | 107 | **54409e59a531** ← **개정 307 신설 · ✏️ 그리기 공용 기하(shared/paint-geom.js) — strokeSeg · mirrorUVOn 수식 · 연결** |
+| **sim-paint-geom.js** | 107 | **0c187cb7b3d7** ← **개정 324 깨 보기를 상수 줄로(판정 무변경)** · **개정 307 신설 · ✏️ 그리기 공용 기하(shared/paint-geom.js) — strokeSeg · mirrorUVOn 수식 · 연결** |
 | **sim-seat-friend-req.js** | 117 | **f29161450105** ← **개정 302 deps 6 · friendNet 으로만 보냄 · 깨 보기 하나** · **개정 264 신설 · 🙋 좌석 우클릭 친구 신청(myhome/seat-friend-req.js) — 두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결** |
 | **sim-publish-fields.js** | 208 | **f461e7690a5b** ← **개정 293 provider 를 부르는 자리를 배포 자리로** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 179 §1 app.js + admin-part-register.js · §2 모듈 먼저 평가 · adminPartReg 로 들여다봄(판정 무변경)** |
 | **sim-purikura-deco.js** | 962 | **339bee3e48a1** ← **개정 272 마이홈 BGM 창구는 고리판 BGM_PLAYING · BGM_SET_PLAYING 으로 찾는다(판정 무변경)** · **개정 238 officeMode 판정을 «부를 때마다 읽는다» 로** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 207 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 렌더러 쪽 한 벌에 chat-window.js(💬 대화창 배선 — 📷 버튼) · 회사원 모드 줄은 officeMode() 모양으로** · **개정 140 렌더러 쪽 한 벌에 myhome-edit.js(🏠 마이홈 BGM 창구 — 없어야 할 글을 찾는 검사가 헛돌지 않게 · 판정 무변경)** · **개정 134 렌더러 쪽 한 벌 = app.js + purikura-ui.js · 회사원 모드 · BGM 줄은 purikuraUi 통로 · officeMode() · _setPlPlaying 모양으로** · 2026-09-13 고친 판 (§4-③) |
@@ -2384,9 +2388,9 @@
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** ← **개정 134 7절은 app.js + purikura-ui.js** · **개정 106 옛 규칙이면 fx 없이 다시 자리 잡기** · **개정 102 신설 · 🐟 스티커사진 필터 «어안» · 업데이트 안 한 참가자 안내 · 규칙 fish · fx** |
 | **sim-creator-flat-view.js** | 129 | **9104a76fb79a** ← **개정 273 옮긴 모듈까지 되살려 읽기(판정 무변경)** · **개정 271 조명 예산 상수는 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 115 5절 동물 생성기 배선(버튼 · 3 표정 · 4 감은눈만 · L 키 · 열고 닫을 때 끔 · emissive 0 + 앰비언트 1)** · **개정 105 신설 · 💡 표정 그리기 «원색 보기» — 조명 끄고 칠한 색 그대로** |
 | **sim-creator-xform.js** | 206 | **e55c1f766f7f** ← **개정 305 glue 가 crState.이름 을 읽는다(판정 무변경)** · **개정 301 ↺ 색 되돌리기 판정** · **개정 300 deps 28(baseFlatOf)** · **개정 299 깨 보기를 상수 줄로 · 한 칸 깨 보기 추가(판정 무변경)** · **개정 280 신설 · 🧭 생성기 변형(creator/creator-xform.js) — 슬라이더 · 아이템 버튼 · 기즈모 · 드래그 끝 저장 · 연결** |
-| **sim-cr-stamp.js** | 210 | **79708d0d92c8** ← **개정 308 신설 · 🖼 생성기 이미지 도장(creator/stamp.js) — 모드 · 불러오기 · 초기화 · 찍기(래스터) · 대칭 · 손잡이 · 입구 전제 · 연결** |
+| **sim-cr-stamp.js** | 210 | **aaa16fef5c4b** ← **개정 324 깨 보기를 상수 줄로(판정 무변경)** · **개정 308 신설 · 🖼 생성기 이미지 도장(creator/stamp.js) — 모드 · 불러오기 · 초기화 · 찍기(래스터) · 대칭 · 손잡이 · 입구 전제 · 연결** |
 | **sim-creator-state.js** | 105 | **4e0daf68f5c8** ← **개정 305 신설 · 🧍 생성기 상태(creator/creator-state.js) — 처음 값 58개 · get/set · 연결 · 맨 이름 참조 없음** |
-| **sim-paint-stroke.js** | 194 | **8095cb72fb18** ← **개정 307 신설 · 🖌 얼굴에 칠하기(creator/paint-stroke.js) — 획 · 쪼개기 · 가려짐 · 솔기 · 대칭 · 페인트통 · 스포이드 · 연결** |
+| **sim-paint-stroke.js** | 194 | **d25ac9eb8388** ← **개정 324 깨 보기를 상수 줄로(판정 무변경)** · **개정 307 신설 · 🖌 얼굴에 칠하기(creator/paint-stroke.js) — 획 · 쪼개기 · 가려짐 · 솔기 · 대칭 · 페인트통 · 스포이드 · 연결** |
 | **sim-creator-flow.js** | 196 | **24a3d06e5a4e** ← **개정 273 신설 · 🧍 생성기 단계 · 닫기 모듈(creator-flow.js) 구조 · 단계별 화면** |
 | **sim-creator-save.js** | 226 | **2c8803488689** ← **개정 273 신설 · 🧍 생성기 완료 모듈(creator-save.js) 구조 · def · 저장 칸** |
 | **sim-commission-import.js** | 189 | **8786e0828e84** ← **개정 278 신설 · 🎨 커미션 코드 입력 모듈(commission-import.js) 구조 · 갈래 · 등록** |

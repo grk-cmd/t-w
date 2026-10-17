@@ -8,14 +8,17 @@
 
 function createDeskPresetStore(deps){
 const PRESET_KEY = 'tw.deskPresets';
+const PRESET_SLOTS = 5;   // 프리셋 칸 수(칸 화면 desk-preset.js 도 이 값을 쓴다)
+const _emptySlots = () => new Array(PRESET_SLOTS).fill(null);
 function loadDeskPresets(){
   try{ const arr = JSON.parse(localStorage.getItem(PRESET_KEY)||'[]');
-       return Array.isArray(arr) ? arr.slice(0,5).concat([null,null,null,null,null]).slice(0,5) : [null,null,null,null,null];
-  }catch(_){ return [null,null,null,null,null]; }
+       return Array.isArray(arr) ? arr.slice(0,PRESET_SLOTS).concat(_emptySlots()).slice(0,PRESET_SLOTS) : _emptySlots();
+  }catch(_){ return _emptySlots(); }
 }
-function saveDeskPresets(arr){ try{ localStorage.setItem(PRESET_KEY, JSON.stringify(arr.slice(0,5))); }catch(_){} }
+function saveDeskPresets(arr){ try{ localStorage.setItem(PRESET_KEY, JSON.stringify(arr.slice(0,PRESET_SLOTS))); }catch(_){} }
 
 return {
+  PRESET_SLOTS,
   loadDeskPresets,
   saveDeskPresets,
 };

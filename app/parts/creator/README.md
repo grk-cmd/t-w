@@ -160,7 +160,7 @@ const paintStrokeMod = TwPaintStroke.createPaintStroke({
 cv.addEventListener('pointerdown', e=>{ pushHistory(); crState.lastPX=null; paintStrokeMod.paintFromEvent(e); });
 ```
 
-**확장할 때 고칠 자리** — 쪼개기 간격 · 횟수는 `CR_PAINT_STEP_PX` · `CR_PAINT_MAX_STEPS`(꾸미기 `_wdPicStrokeTo` 와 같은 값). 가려짐에 넣을 옷은 `_paintHitAt` 의 `occ` 목록.
+**확장할 때 고칠 자리** — 쪼개기 간격 · 횟수는 `CR_PAINT_STEP_PX` · `CR_PAINT_MAX_STEPS`(꾸미기 `_wdPicStrokeTo` 와 같은 값). 솔기 허용 `SEAM_UV_*` · 가려짐 여유 `OCCLUDE_EPS` · 스포이드 `EYEDROP_MIN_ALPHA` 는 파일 위 상수. 가려짐에 넣을 옷은 `_paintHitAt` 의 `occ` 목록.
 
 **함정**
 - 가려짐 판정에 모자 · 안경 · 탈은 넣지 않는다 — 얼굴 위에 얹는 파츠라 그 아래를 칠하려는 경우가 있다.
@@ -198,7 +198,7 @@ const crStampMod = TwCrStamp.createCrStamp({
 | `commitStamp()` | 찍기 — 90% 넘게 얼굴 밖이면 안 찍고 알림 · 20% 넘게 밖이면 «n%만 찍힘» |
 | `bindStampOverlay()` | 띄운 그림의 손잡이(이동 · Shift 가운데 맞춤 · 회전 Shift 15° · 모서리 최소 20 · Shift 비율 유지) — 부팅 때 한 번 |
 
-**확장할 때 고칠 자리** — 격자 촘촘함 `N`(28) · 외삽 칸 `EXTRA_MAX` · 이음새 허용 `_uvFar`(UV_EDGE_MAX 0.15 · 천장 0.35) · 안내 비율(0.9 · 0.2).
+**확장할 때 고칠 자리** — 파일 위 상수: 격자 `STAMP_GRID`(28) · 처음 너비 `STAMP_FIRST_W` · 안내 비율 `STAMP_SKIP_RATIO` · `STAMP_WARN_RATIO` · 이음새 허용 `STAMP_SEAM_*`(외삽한 점은 `UV_EDGE_MAX`) · 회전 단위 `STAMP_ROT_SNAP_DEG` · 최소 크기 `STAMP_MIN_PX`. 외삽 칸은 `EXTRA_MAX`.
 
 **함정**
 - 입구 전제 — 미리보기 캔버스(`#creatorPreview`) · 띄운 그림(`#stampOverlay` · `#stampOverlayImg`) · 찍기/취소 버튼이 없으면 아무것도 안 한다.
@@ -255,9 +255,9 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
 });
 ```
 
-**내놓는 것** — `deskPresetStoreMod.loadDeskPresets()` · `saveDeskPresets(arr)`. `deskPresetMod` 는 없음(만들 때 팝업 버튼을 건다).
+**내놓는 것** — `deskPresetStoreMod.loadDeskPresets()` · `saveDeskPresets(arr)` · `PRESET_SLOTS`. `deskPresetMod` 는 없음(만들 때 팝업 버튼을 건다).
 
-**확장할 때 고칠 자리** — 담을 값은 `captureDeskPreset` 과 `applyDeskPreset` 의 같은 이름 칸을 짝으로. 칸 수는 두 파일의 5.
+**확장할 때 고칠 자리** — 담을 값은 `captureDeskPreset` 과 `applyDeskPreset` 의 같은 이름 칸을 짝으로. 칸 수는 `desk-preset-store.js` 의 `PRESET_SLOTS`(칸 화면도 이 값을 읽는다).
 
 **함정**
 - 좌석 높이는 `p.seat.y` — 옛 프리셋의 `p.seat.z`(앞뒤)는 읽지 않는다(읽으면 캐릭터가 공중에 뜬다).
