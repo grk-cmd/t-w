@@ -4003,10 +4003,7 @@ canvas.addEventListener('pointerdown',e=>{
   const hit=hiddenSeatsMod._preferVisibleHit(hiddenSeatsMod._skipHiddenDesk(hiddenSeatsMod._hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true))));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기) · 보이는 것 먼저(#7)
   if(!hit.length) return;
   const seat=seatFromObject(hit[0].object); if(!seat) return;
-  /* 🪑 날아가는 중인 캐릭터는 잡지 않는다 — 잡으면 흔들기(rig 를 직접 제어한다)와 비행이 매
-     프레임 같은 좌표를 서로 덮어써서 캐릭터가 떨린다. 책상은 제자리에 있지만 슬롯 이동도
-     같이 막는다(자리를 옮기면 돌아올 자리가 바뀐다). */
-  if(seat.fly) return;
+  if(!TwSeatLabelDrag.canGrabSeat(seat)) return;   // 이름표 끌기와 같은 판단 한 줄(room/seat-label-drag.js)
   const targetType = classifyHit(seat, hit[0].object);
   // shake용 평면 — 캐릭터(rig)의 world position 기준 (책상 고정, 캐릭터만 움직임)
   const camDir = camera.getWorldDirection(new THREE.Vector3()).negate();
@@ -9444,6 +9441,7 @@ const expBarMod = TwExpBar.createExpBar({
   lvBarClass: (...a)=>lvTierMod.lvBarClass(...a),
   lvStarBarClass: (...a)=>lvTierMod.lvStarBarClass(...a),
   overheadMod: overheadMod,
+  bindLabelDrag: (...a)=>overheadMod.bindLabelDrag(...a),   // 이름표 끌기 — 경험치 바(포커스)는 방 모듈을 직접 부르지 않는다
 });
 
 /* ═══ 🕒 포커스 누적 기기 간 공유 ═══════════════════════════════════════════

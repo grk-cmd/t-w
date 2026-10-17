@@ -17,13 +17,13 @@ const MOD = ["exp-bar.js","parts/focus/exp-bar.js","app/parts/focus/exp-bar.js"]
 if(!MOD){ say('  ? 원본 못 찾음 — exp-bar.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_starPaint","lvBarClass","lvStarBarClass"];
+const FN_DEPS = ["_starPaint","lvBarClass","lvStarBarClass","bindLabelDrag"];
 const VAL_DEPS = ["overheadMod"];
 const GET_DEPS = ["_focusTotalSec"];
 const SET_DEPS = [];
 const EXPORTS = ["EXP_CELLS","EXP_SEC_PER_CELL","EXP_SEC_PER_LEVEL","myExpCells","updateSeatExpBar"];
 const MOVED = ["EXP_SEC_PER_LEVEL","EXP_SEC_PER_CELL","EXP_CELLS","EXP_BAR_H","EXP_BAR_CHROME","EXP_BAR_GAP","EXP_BAR_W","expTierClass","expCellsFromSec","myExpCells","ensureSeatExpBarEl","_expTmpA","updateSeatExpBar"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  _focusTotalSec: ()=>_focusTotalSec,","  _starPaint: (...a)=>_starPaint(...a),","  lvBarClass: (...a)=>lvBarClass(...a),","  lvStarBarClass: (...a)=>lvStarBarClass(...a),","  overheadMod: overheadMod,"];
+const GLUE = ["  _focusTotalSec: ()=>_focusTotalSec,","  _starPaint: (...a)=>_starPaint(...a),","  lvBarClass: (...a)=>lvBarClass(...a),","  lvStarBarClass: (...a)=>lvStarBarClass(...a),","  overheadMod: overheadMod,","  bindLabelDrag: (...a)=>overheadMod.bindLabelDrag(...a),   // 이름표 끌기 — 경험치 바(포커스)는 방 모듈을 직접 부르지 않는다"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

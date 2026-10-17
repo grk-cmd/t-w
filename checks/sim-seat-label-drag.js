@@ -25,6 +25,8 @@ const seat = () => ({ group: { position: { x: -1 } } });
 chk(L.canStartLabelDrag(seat(), false) === true, '보통 좌석은 끌 수 있다');
 chk(L.canStartLabelDrag(null, false) === false && L.canStartLabelDrag({}, false) === false, '  좌석 · group 이 없으면 안 됨');
 chk(L.canStartLabelDrag(seat(), true) === false, '★ 조준 중(날리기 · 때리기)은 안 끈다 — 표적 고르기');
+chk(typeof L.canGrabSeat === 'function' && L.canGrabSeat(seat()) === true && L.canGrabSeat(Object.assign(seat(), { fly: {} })) === false && L.canGrabSeat(null) === false
+  && L.canGrabSeat(Object.assign(seat(), { ridingOn: {} })) === true, '★ canGrabSeat — 날아가는 중만 막는다(캔버스와 같이 쓰는 한 줄 · 탄 중은 캔버스가 내려 준다)');
 chk(['fly', 'ridingOn', 'seatedOn'].every(k => L.canStartLabelDrag(Object.assign(seat(), { [k]: {} }), false) === false), '★ 날아가는 중 · 탄 중 · 벤치에 앉은 중은 안 끈다(group 이 제자리가 아님)');
 let begun = [], aim = { fly: false, bonk: false }, beginOk = true;
 const D = L.createSeatLabelDrag({ beginDrag: (e, s) => { begun.push(s); return beginOk; }, flyAiming: () => aim.fly, bonkAiming: () => { if (aim.bonk === 'throw') throw new Error('x'); return aim.bonk; } });
@@ -35,8 +37,8 @@ begun = []; e = ev(2);
 chk(D.onLabelPointerDown(e, s) === false && begun.length === 0 && e.prevented === 0, '  오른쪽 버튼은 안 건드린다 — 이름표 우클릭 메뉴가 그대로');
 aim.fly = true; e = ev(0);
 chk(D.onLabelPointerDown(e, s) === false && begun.length === 0 && e.stopped === 0, '  날리기 조준 중이면 시작 안 함');
-aim.fly = false; aim.bonk = 'throw'; e = ev(0);
-chk(D.onLabelPointerDown(e, s) === true, '  조준 확인이 던져도 안 죽는다(조준 아님으로 친다)');
+aim.fly = false; aim.bonk = true; e = ev(0);
+chk(D.onLabelPointerDown(e, s) === false && begun.length === 0, '  때리기 조준 중이면 시작 안 함');
 aim.bonk = false; beginOk = false; e = ev(0);
 chk(D.onLabelPointerDown(e, s) === false && e.prevented === 0 && e.stopped === 0, '  시작이 거절되면(이미 끄는 중) 이벤트를 안 멈춘다');
 
@@ -62,7 +64,17 @@ say('── 3. 배선');
 chk(/function bindLabelDrag\(el, seat\)\{\s*el\.addEventListener\('pointerdown', e=>\{ if\(_labelDragFn\) _labelDragFn\(e, seat\); \}\);/.test(OV), 'overhead.js — 리스너는 늘 걸고 누를 때 갈고리를 본다(잇기 전에 만든 라벨도 듣게)');
 const np = OV.slice(OV.indexOf('function ensureSeatNamePlateEl'), OV.indexOf('seat.namePlateEl=el; return el;'));
 chk(/bindLabelDrag\(el, seat\);/.test(np), '★ 이름표가 건다');
-chk(/overheadMod\.bindLabelDrag\(el, seat\);/.test(EXP), '★ 경험치 바도 같은 갈고리로 건다');
+const judgeShared = (app, exp) => [
+  /if\(!TwSeatLabelDrag\.canGrabSeat\(seat\)\) return;/.test(app) && !/if\(seat\.fly\) return;/.test(app),
+  /^const bindLabelDrag = deps\.bindLabelDrag;/m.test(exp) && /\n  bindLabelDrag\(el, seat\);/.test(exp) && !/overheadMod\.bindLabelDrag/.test(exp)
+    && /bindLabelDrag: \(\.\.\.a\)=>overheadMod\.bindLabelDrag\(\.\.\.a\)/.test(app),
+];
+{ const [a, b] = judgeShared(APP_RAW, EXP);
+  chk(a, '★ 캔버스 pointerdown 도 canGrabSeat 를 부른다(날기 판단 한 줄 — 다시 쓰지 않음)');
+  chk(b, '★ 경험치 바는 방 모듈을 직접 안 부르고 deps.bindLabelDrag 로 받는다(app.js 가 잇는다)');
+  const [a2] = judgeShared(APP_RAW.replace('if(!TwSeatLabelDrag.canGrabSeat(seat)) return;', 'if(seat.fly) return;'), EXP);
+  const [, b2] = judgeShared(APP_RAW, EXP.replace('\n  bindLabelDrag(el, seat);', '\n  overheadMod.bindLabelDrag(el, seat);'));
+  chk(!a2 && !b2, '  깨 보기: 캔버스에 날기 조건을 다시 쓰거나 경험치 바가 overheadMod 를 바로 부르면 빨강'); }
 chk(/overheadMod\.setLabelDrag\(\(e, seat\)=>seatLabelDragMod\.onLabelPointerDown\(e, seat\)\);/.test(APP_RAW) && /beginDrag: _beginLabelSlotDrag/.test(APP_RAW), 'app.js 가 판단 모듈을 만들어 잇는다');
 chk(/drag\.mode = \(drag\.targetType === 'char'\) \? 'shake' : 'slot';/.test(APP), '★ 끌면 책상 끌기(slot) — 자리 계산 · 맨 오른쪽 고정(dragIndex)이 같은 줄');
 const up = APP_RAW.slice(APP_RAW.indexOf("canvas.addEventListener('pointerup',e=>{"));   // app.js 본래 글 — 되살린 글엔 꾸미기 창의 pointerup 이 먼저 온다

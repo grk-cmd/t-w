@@ -17,6 +17,7 @@ const _starPaint = deps._starPaint;
 const lvBarClass = deps.lvBarClass;
 const lvStarBarClass = deps.lvStarBarClass;
 const overheadMod = deps.overheadMod;
+const bindLabelDrag = deps.bindLabelDrag;   // 이름표 끌기(app.js 가 room/overhead.js 를 잇는다)
 const EXP_SEC_PER_LEVEL = 3600;                                   // getFocusLevel()의 1레벨과 반드시 같아야 함
 const EXP_SEC_PER_CELL  = 300;                                    // 5분
 const EXP_CELLS         = EXP_SEC_PER_LEVEL / EXP_SEC_PER_CELL;   // 12
@@ -49,7 +50,7 @@ function ensureSeatExpBarEl(seat){
   const el = document.createElement('div'); el.className = 'seat-exp';
   const fill = document.createElement('div'); fill.className = 'exp-fill';
   el.appendChild(fill);
-  overheadMod.bindLabelDrag(el, seat);   // 🏷️ 눌러 끌면 자리 바꾸기 — 이름표와 같은 길(room/seat-label-drag.js)
+  bindLabelDrag(el, seat);   // 🏷️ 눌러 끌면 자리 바꾸기 — 이름표와 같은 길(room/seat-label-drag.js)
   layer.appendChild(el);
   seat.expBarEl = el; seat.expFillEl = fill;
   return el;
