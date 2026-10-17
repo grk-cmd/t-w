@@ -1,7 +1,7 @@
 /* sim-data-gateway.js — 🚪 범용 데이터 통로(shared/data-gateway.js) 검사
    ・1절: 순수 판단 — matchRoute(표 · 별표 칸 · 모양 틀린 줄) · toServerPath(내 코드만 me) · pathOf · snapshotOf · parseSse
    ・2절: **표가 비면 지금과 똑같다** — 모든 기본 동작이 같은 SDK 함수를 같은 인자로 부르고 그 돌려준 값을 그대로 돌려준다(실제로 돌려 판정)
-   ・3절: 표에 걸리면 서버로(POST 본문 · 주소에 매개변수 없음) — 내 코드는 me · 번역표(Firebase 로 / 오류로) · 조건(query) 본문 · 못 보내는 조건 · 로그인 없음 · update 섞임 · push · 듣기 두 단계
+   ・3절: 표에 걸리면 서버로(POST 본문 · 주소에 매개변수 없음) — 내 코드는 me · 번역표(Firebase 로 / 오류로) · 조건(query) 본문 · 못 보내는 조건 · 로그인 없음 · update 섞임 · push · 듣기 두 단계 · 듣기 끊기면 다시 붙기
    ・4절: 연결 — firebase-init.js 가 SDK 기본 동작을 통로 뒤로만 부른다 · 다른 앱 파일은 Firebase DB 라이브러리를 안 부른다 · 원격 설정 칸 · 규칙 config/dataRoutes · html 차례 · smoke
    ・5절: 일부러 깨 보기 */
 'use strict';
@@ -138,6 +138,31 @@ async function judge(S){
     chk(F.calls.length === before + 1 && notes.slice(m0).join() === 'E-DATA-01', '듣기가 권한 거절이면 Firebase 로 안 가고 E-DATA-01');
     off3();
   }
+  {
+    /* 값을 받은 뒤 끊김(서버 배포 · 재시작) — 쉬고 다시 붙는다 · 다시 붙기도 첫 값 전에 끊기면 Firebase · 끊은 듣기는 다시 안 붙음 */
+    const F = fakeSdk(); const streams = []; const laters = []; const got = [];
+    const gw = mkGw(G, SS, F, { routes: () => ['users/*/home'], later: (f, ms) => laters.push([f, ms]),
+      stream: (req, onData, onError) => { const s = { req, onData, onError, off: 0 }; streams.push(s); return () => { s.off++; }; } });
+    const r = fakeRef('users/u1/home');
+    const off = gw.onValue(r, (s) => got.push(s.val()));
+    streams[0].onData({ value: 1 });
+    streams[0].onError(Object.assign(new Error('끊김'), { code: 'NETWORK' }));
+    chk(laters.length === 1 && laters[0][1] === G.RESUBSCRIBE_DELAY_MS && streams.length === 1 && !F.calls.length, '값을 받은 뒤 끊기면 바로 Firebase 로 가지 않고 쉬었다 다시 붙기를 건다');
+    laters[0][0]();
+    chk(streams.length === 2 && streams[1].req.path === 'users/me/home', '  ↳ 쉬고 나서 같은 본문으로 서버에 다시 붙는다');
+    streams[1].onData({ value: 2 });
+    chk(got.join() === '1,2' && !F.calls.length, '  ↳ 다시 붙은 뒤 값이 이어서 온다');
+    streams[1].onError(Object.assign(new Error('끊김'), { code: 'NETWORK' }));
+    laters[1][0]();
+    streams[2].onError(Object.assign(new Error('연결 실패'), { code: 'NETWORK' }));
+    chk(F.calls.length === 1 && F.calls[0].name === 'onValue', '  ↳ 다시 붙기가 첫 값 전에 끊기면 Firebase 로 듣는다(조용히 멈추지 않음)');
+    off();
+    const off2 = gw.onValue(r, () => {});
+    const n = streams.length; streams[n - 1].onData({ value: 3 });
+    off2();
+    streams[n - 1].onError(Object.assign(new Error('끊김'), { code: 'NETWORK' }));
+    chk(laters.length === 2, '  ↳ 사용하는 쪽이 끊은 듣기는 다시 붙지 않는다');
+  }
 
   say('── 4. 연결');
   const FI = strip(S.FI);
@@ -212,7 +237,9 @@ async function judge(S){
     ['GW', "    if(t === null) return sdk.onValue(r, cb, ...rest);", "    if(t === null){ sdk.onValue(r, cb, ...rest); return () => {}; }", '표가 비었을 때 SDK 끊기 함수를 안 돌려줌'],
     ['GW', "    if(!keys.length || sides.some((s) => s !== SERVER)){", "    if(!keys.length || sides.every((s) => s !== SERVER)){", 'update 섞이면 서버로'],
     ['GW', "      () => sdk.set(r, value, ...rest)).then(finish);", "      () => Promise.reject(new Error('x'))).then(finish);", '서버 실패에 Firebase 로 안 넘어감'],
-    ['GW', "          if(!got && tr === FIREBASE) return toFirebase(e);", "", '듣기가 끊겨도 Firebase 로 안 넘어감'],
+    ['GW', "            if(!got && tr === FIREBASE) return toFirebase(e);", "", '듣기가 끊겨도 Firebase 로 안 넘어감'],
+    ['GW', "            if(tr === FIREBASE) later(() => { if(!closed) open(); }, RESUBSCRIBE_DELAY_MS);", "", '값을 받은 뒤 끊기면 다시 안 붙음(조용히 멈춤)'],
+    ['GW', "            if(closed) return;", "", '끊은 듣기도 다시 붙음'],
     ['GW', "  const body = (op, t, extra) => Object.assign({ op, path: sp(t.path) },", "  const body = (op, t, extra) => Object.assign({ op, path: t.path },", '서버로 보낼 때 내 코드를 그대로 보냄'],
     ['GW', "  if(status === 404) return FIREBASE;", "", '모르는 경로(404)를 오류로'],
     ['GW', "  ACCESS_DENIED: (notifyError, e) => notifyError('E-DATA-01', e),", "", '권한 거절을 모르는 오류로'],
