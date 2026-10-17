@@ -26,7 +26,7 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **책임**: 런처 카드의 3D 미리보기 — 렌더러 · 씬 · 카메라(도트 느낌 저해상도), 칸 캐릭터 올리기(몸 기준 프레이밍 · 둥둥 · 깜빡임),
   다 그린 뒤 한 장 찍어 슬롯 섬네일(`def.thumb`) 갈아 끼우기.
 - **만드는 법**: `TwLauncherPreview.createLauncherPreview(deps)` — 만들 때는 아무것도 그리지 않는다(`ensureLauncherPreview` 가 렌더러를 처음 한 번 만든다).
-  - 값: `slots` · `CHAR_Z` · `RIG_TURN` · 조명 상수(`_MAIN_LIGHT_*` · `_KEY_LIGHT_MUL` · `_FILL_LIGHT_MUL`) · `scene` · `commSceneCache`
+  - 값: `slots` · `CHAR_Z` · `RIG_TURN` · 조명 상수(`_MAIN_LIGHT_*` · `_KEY_LIGHT_MUL` · `_FILL_LIGHT_MUL`) · `scene` · `commSceneCache` · `FrameBudget`(프레임 상한) · `blinkTiming`(= `TwBlinkTiming`, 좌석과 같은 깜빡임 시간표)
   - 읽는 함수: `customItems` · `assetCodeMod` · `slotSaveMod`
   - 함수: 책상 · 파츠 · 모델 도우미 20개(`buildDesk` · `defToBase` · `applyEquippedPartsToSeat` · `setFaceMap` …)
 - **내놓는 것**: `ensureLauncherPreview()` · `setLauncherChar(def)`(그 캐릭터로 갈아 올림 · null 이면 비움) · `sizeLauncherPreview()`(창 크기가 바뀌면) ·
@@ -38,8 +38,9 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   이 모듈로 옮기면 순환이 생긴다(sim-dep-cycles).
 - **확장할 때**: 구도는 `sizeLauncherPreview` 의 `FILL`(키가 세로를 채우는 몫) · 시선 오프셋, 도트 거칠기는 `PS1_PIXEL_SCALE`, 섬네일은 `LC_THUMB_SETTLE_MS` · `LC_THUMB_MAX`.
 - **함정**: 캔버스에 px 를 박지 않는다(박은 값을 다시 읽어 크기가 굳는다). 섬네일은 render 와 같은 틱에서 복사한다(렌더러에 preserveDrawingBuffer 없음).
+  `launcherLoop` 는 `FrameBudget.FPS_LAUNCHER`(30)까지만 그린다 — 상한을 빼면 주사율만큼 그려 런처 GPU 부하가 3~4배. 깜빡임 박자를 여기서 따로 세지 않는다(프레임 수로 세면 주사율 따라 달라진다 — `shared/blink-timing.js`).
   프레임 높이는 파츠를 뺀 몸 박스로 잰다 — 파츠까지 넣으면 파츠가 튈 때 캐릭터가 작아진다.
-- **검사**: `checks/sim-launcher-preview.js` — 모듈 모양 · 연결 · 깨 보기 + 렌더러 한 번만 · 도트 배율 · 경계(0 · 아주 작은 칸) · 카메라 거리 역산 · 비우기.
+- **검사**: `checks/sim-launcher-preview.js` — 모듈 모양 · 연결 · 깨 보기 + 4절 런처 부하(120Hz 에서 30번 · 깜빡임 횟수 주사율 무관 · 후원 반짝임 steps).
 
 ## click-through-policy.js — 🖱 클릭 통과 판단 규칙 한 곳
 

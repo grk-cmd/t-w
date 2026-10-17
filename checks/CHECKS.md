@@ -1,7 +1,15 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 321 (클릭 통과 판단을 한 곳으로 — click-through-policy.js · 동작 변화 없음)
-대상: `sim-*.js` 299개 + `smoke.js` + `audit.py` = **301개** (개정 321 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 323 (런처 화면 부하 줄이기 — 미리보기 프레임 상한 30 · 깜빡임은 좌석과 같은 시간표 · 후원 반짝임 steps)
+대상: `sim-*.js` 300개 + `smoke.js` + `audit.py` = **302개** (개정 323 기준 — 폴더를 센 값)
+
+**개정 323 에서 한 것 (2026-10-17 · 런처 화면 부하 — 동작 변경 · 사용자 승인)**
+- 앱: 런처 미리보기(`launcherLoop`)를 `FrameBudget.FPS_LAUNCHER`(30)까지만 그린다 — 예전엔 모니터 주사율(120 · 144Hz)만큼. 깜빡임은 프레임마다 16ms 로 세던 런처 전용 셈(`lBlinkT`)을 걷고 좌석과 같은 시간표(`blink-timing.js` · 개정 273)를 부른다 — 주사율과 무관 · 런처를 숨기면 시간표를 비웠다가 다시 열 때 새로 시작. 후원 문구 무지개 흐름(`.donate-shine`)은 `steps(90)`(초당 20번 칠하기). 맥 120Hz 측정: 런처 화면 GPU 프로세스 CPU 18~20% → 5~6%(실행 화면 4~5% 와 비슷) · 끊긴 프레임 0 · 슬롯 섬네일 그대로.
+- 검사: `sim-launcher-preview.js` 4절 신설 **25·0** — 가짜 미리보기로 120Hz 1초에 30번 그림 · 깜빡임은 blink-timing 을 부름 · 감은/뜬 그림 번갈아 · 1분에 눈 감는 횟수가 60/120/144Hz · 실제 시각 기준과 같음 · 숨겼다 열면 새로 시작 · 런처 전용 셈 없음 · 반짝임 steps · 깨 보기 4. deps 에 `FrameBudget` · `blinkTiming`. `sim-frame-budget.js` 에 `FPS_LAUNCHER === 30` 한 줄.
+
+**개정 322 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 무변경)**
+- 앱: app.js 의 깜빡임 시간표(`scheduleBlinks` · `eyeClose` · 좌석 `blink` 초기값 · 감은 눈 문턱 0.5)를 `app/parts/shared/blink-timing.js`(`window.TwBlinkTiming` · 순수 계산)로 묶었다. 숫자는 이름 붙은 상수로. 좌석은 `TwBlinkTiming.이름` 으로 부른다. 다음 개정에서 런처 미리보기가 같은 시간표를 쓴다(따로 세던 `lBlinkT+=16` 대신).
+- 검사: `sim-blink-timing.js` 신설 **21·0** — 옮기기 전 글(그대로 실어 둠)과 같은 씨앗으로 2분 돌려 한 칸도 안 다름 · 처음 값 · 한 번씩 2~3번 뒤 세 번 연달아 · 감은 정도 곡선 · 주사율 30~144Hz 에서 깜빡임 간격이 두 장 안 · 연결(app.js 옛 선언 없음 · html 순서) · 깨 보기 6.
 
 **개정 321 에서 한 것 (2026-10-17 · 클릭 통과 판단 묶기 — 동작 변화 없음)**
 - 앱: «클릭 통과로 바꿀지» 판단이 네 길(desktop-run.js mousemove · onPenHitTest · 고착 회복 사다리 `__mouseKick` / main.js 안전장치 ⓔ·ⓕ·ⓖ)에 흩어져 있던 것을 `app/parts/launcher/click-through-policy.js`(`window.TwClickThroughPolicy` · 순수 함수 12개 · 상수 16개)로. 렌더러는 `deps.clickPolicy`, main 은 같은 파일을 `require`. 네 길은 사실만 모아 부르고 결정대로 IPC · 타이머 · 로그만 한다.
@@ -2368,7 +2376,7 @@
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** ← **개정 305 되살린 글에서 읽는다(판정 무변경)** · **개정 273 옮긴 모듈까지 되살려 읽기 · gotoStep 머리 자르기 두 모양(판정 무변경)** · **개정 239 가드 걷은 글 모양** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 103 신설 · 🐾 동물 편집 순서 모양 → 책상 → 좌석 — 판정 표 · gotoStep 실행 · 배선 · 동물 생성기 위 «책상 세팅» · «좌석 세팅»** |
 | **sim-seat-slot.js** | 114 | **bf05469a5050** ← **개정 291 3절 가두기를 동작 판정으로** · **개정 275 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(평준화 깃발이 seat-equalize.js 로 · 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 93 신설 · 🪑 평준화 중 «책상 위» 파츠를 자기 좌석 자리 안으로** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 201 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 방 코드 칸을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **개정 165 방 코드 칸에 놀러 가기 go 표시 허용(정규식만)** · **개정 94 신설 · 🩹 친구창 방 코드 글꼴 · 경험치 바 길이 공통 · 화면 아래 이름표** |
-| **sim-frame-budget.js** | 100 | **520f0c799e70** ← **개정 258 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(카메라가 seat-camera.js 로 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 95 신설 · 🔋 실행 화면 프레임 상한(60 · 30 · 20) · 해상도 배율 1.5 · 1분 진단 줄** |
+| **sim-frame-budget.js** | 101 | **567aede74208** ← **개정 323 FPS_LAUNCHER === 30** · **개정 258 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(카메라가 seat-camera.js 로 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 95 신설 · 🔋 실행 화면 프레임 상한(60 · 30 · 20) · 해상도 배율 1.5 · 1분 진단 줄** |
 | **sim-design-site.js** | 61 | **5c8de512f913** ← **개정 100 신설 · 🎨 디자인 시스템 페이지 hosting/design/ 이 docs/design-system/ 에서 다시 만든 것과 같은지 · 토큰 · CSP · sandbox** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 95 다시 씀 · 🔋 최대 60 · 손 안 대면 30 · 비포커스 20 — app.js 째로 rAF 를 흘려 장 수를 센다** |
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** ← **개정 134 7절은 app.js + purikura-ui.js** · **개정 106 옛 규칙이면 fx 없이 다시 자리 잡기** · **개정 102 신설 · 🐟 스티커사진 필터 «어안» · 업데이트 안 한 참가자 안내 · 규칙 fish · fx** |
@@ -2486,7 +2494,7 @@
 | **sim-async-prompt.js** | 112 | **298066b0cef9** ← **개정 296 4절 — window.prompt 금지 · .dcc 비밀번호는 asyncPrompt** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 216 신설 · ✏️ 인앱 프롬프트 모듈(async-prompt.js) 구조** |
 | **sim-launcher-chrome.js** | 95 | **ed62fec910ad** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 216 신설 · 🪟 런처 타이틀바 · 팝업 흐림 모듈(launcher-chrome.js) 구조** |
 | **sim-launcher-controls.js** | 204 | **78202998b89b** ← **개정 257 신설 · 🎛️ 런처 컨트롤 모듈(launcher-controls.js) 구조 · 버튼 동작** |
-| **sim-launcher-preview.js** | 96 | **df1cb3ff7694** ← **개정 260 신설 · 🖼️ 런처 미리보기 모듈(launcher-preview.js) 구조 · 크기 맞춤** |
+| **sim-launcher-preview.js** | 159 | **b5c8d04accdf** ← **개정 323 4절 신설 · 런처 부하(프레임 상한 30 · 깜빡임은 blink-timing · 후원 반짝임 steps) · deps FrameBudget · blinkTiming** · **개정 260 신설 · 🖼️ 런처 미리보기 모듈(launcher-preview.js) 구조 · 크기 맞춤** |
 | **sim-mat-tone.js** | 174 | **8055614c531b** ← **개정 263 신설 · 💡 재질 톤 모듈(mat-tone.js) 구조 · 재질 손질 입력 → 결과** |
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 216 신설 · 🪟 팝업 바깥 클릭으로 닫기 모듈(outside-close.js) 구조** |
 | **sim-wardrobe-panel.js** | 95 | **1070574caf86** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps progSettingsMod → twNav(라이선스 탭 열기는 통로로 — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 217 신설 · 🎨 꾸미기 사이드 패널 모듈(wardrobe-panel.js) 구조** |
@@ -2516,6 +2524,7 @@
 | **sim-catalog-sync.js** | 277 | **aa362d893f59** ← **개정 293 deps catalogSourceMod · 4절 진짜 provider** · **개정 289 mergeCatalogList 를 상수 줄과 같이 뽑음** · **개정 287 mergeCatalogList 순수 함수 판정 6줄** · **개정 267 신설 · 🔄 카탈로그 실시간 동기화 모듈 구조 + 동작** |
 | **sim-catalog-source.js** | 99 | **578fb4579a9a** ← **개정 306 4절 입구 가드** · **개정 293 신설 · 🔌 카탈로그 데이터 provider 모양 · 연결 · 동작** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** ← **개정 270 신설 · 🧸 책상 위 아이템 등록부 모듈 구조 + 동작** |
+| **sim-blink-timing.js** | 112 | **624e0321ea28** ← **개정 322 신설 · 👁 깜빡임 시간표(blink-timing.js) — 옛 글과 같은 결과 · 동작 · 주사율 무관 · 연결** |
 | **sim-desk-visual.js** | 214 | **2428c62e17b8** ← **개정 286 옮긴 이름 목록에서 지운 셋을 뺌** · **개정 274 신설 · 🪑 책상 모양 모듈 구조 + 동작** |
 | **sim-toast.js** | 142 | **099b0d5e048c** ← **개정 282 신설 · 🍞 토스트 · 저장 실패 문구 모듈 구조 + 동작** |
 | **sim-dot-render.js** | 223 | **ed34e53f22dd** ← **개정 303 deps ps1Dither — PS1 값은 shared/ps1-dither.js 에서** · **개정 292 켠 뒤 들어온 메쉬 · 가짜 표식 · 색조 덮어쓰기 · 캐시 키 · sweepIfOn(5절) — 도트 버그 수정** · **개정 258 깨 보기 «부르는 곳이 옛 이름» — app.js 에 부르는 자리가 없으면 옛 이름 부름을 끼워 본다(부르는 곳이 seat-camera.js 로)** · **개정 256 신설 · 🕹️ 도트 모드 머티리얼 모듈 구조 + 동작(가짜 씬)** |
