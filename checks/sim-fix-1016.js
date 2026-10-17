@@ -90,10 +90,12 @@ say('§11 캐릭터 편집 위로 마이홈 패널이 비침');
 {
   const css = HTML.match(/<style[\s\S]*?<\/style>/g) || [];
   const all = css.join('\n');
-  /* 숨기던 땜질(:has 숨김)은 걷었다 — 근본 원인(창 앞뒤를 숫자로 따로 적음)을 창 층 표 · 창 쌓기로 고쳤다(sim-z-layers 가 돌려 본다) */
+  /* 앞뒤 순서는 창 층 표 · 창 쌓기(sim-z-layers 가 돌려 본다), 편집 중 마이홈 · 방명록 숨기기는 #258 의 의도라 그대로 둔다(사용자 결정 10-17) */
   const ZL = require('./sim-z-layers.js'), T = ZL.parseTable(HTML);
   const zOf = (sel) => { const m = all.match(new RegExp(sel + '\\{[^}]*z-index:([^;}]+)')); return m ? ZL.resolveZ(HTML, m[1]) : null; };
-  chk(!/body:has\(#creatorOverlay\.on\)[^{]*#myHomeOverlay/.test(all), '★ 편집창이 켜져도 마이홈 · 방명록을 숨기지 않는다(둘 다 떠 있고 누른 쪽이 앞)');
+  const HIDE = /body:has\(#creatorOverlay\.on\) #myHomeOverlay, body:has\(#creatorOverlay\.on\) #mhGbOverlay\{visibility:hidden;\}/;
+  chk(HIDE.test(all), '★ 편집창이 켜진 동안 마이홈 · 방명록 창을 숨긴다(CSS :has — #258 의 의도)');
+  chk(!HIDE.test(all.replace('body:has(#creatorOverlay.on) #myHomeOverlay, body:has(#creatorOverlay.on) #mhGbOverlay{visibility:hidden;}', '')), '  ↳ 깨 보기: 숨기는 줄을 걷으면 빨강');
   const WSRC = ['win-stack.js', 'parts/shared/win-stack.js', 'app/parts/shared/win-stack.js'].map((f) => { try { return require('fs').readFileSync(f, 'utf8'); } catch (_) { return null; } }).find(Boolean) || '';
   chk(/'creatorOverlay'/.test((/const _WIN_Z_LAYERS = \[([^\]]*)\]/.exec(WSRC) || [])[1] || ''), '  ↳ 편집창은 창 쌓기 목록에 있다(열면 맨 앞)');
   chk(zOf('#codeOverlay') > 92 && T['--z-dialog'] > 92, '  ↳ 편집 중 여는 코드 창 · 대화상자는 창 쌓기(83~92) 위라 편집창 밑에 깔리지 않는다');
