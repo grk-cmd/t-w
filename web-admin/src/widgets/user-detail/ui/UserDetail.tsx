@@ -6,7 +6,6 @@ import {
   isBadLicense,
   LICENSE_LABEL,
   realName,
-  sameLicenseUsers,
   useUserBrief,
   useUserFocusSec,
   useUserName,
@@ -15,6 +14,7 @@ import {
 } from '@/entities/user';
 import { DeleteAccountButton } from '@/features/user/delete-account';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
+import { useSameLicenseUsers, useUserByCode } from '@/features/user/user-rows';
 import { copyText, formatDate, formatHours } from '@/shared/lib';
 import { useModalDialog, useToast } from '@/shared/ui';
 import styles from './UserDetail.module.css';
@@ -61,10 +61,12 @@ function UserLink({ row, onOpen }: { row: UserRow; onOpen: (uid: string) => void
   );
 }
 
-// 목록에 있는 사람이면 이미 받은 이름을 쓰고, 없으면(계정 요약 · 친구코드 명단에 없음) 이름 한 칸만 읽는다.
-function Inviter({ uid, rows, onOpen }: { uid: string; rows: UserRow[]; onOpen: (uid: string) => void }) {
-  const known = rows.find((r) => r.userCode === uid);
-  const name = useUserName(uid, !known);
+// 사용자 목록에 있는 사람이면(사용자코드로 한 줄 찾기) 링크로, 없으면(계정 요약 · 친구코드 명단에 없음) 이름 한 칸만 읽는다.
+function Inviter({ uid, onOpen }: { uid: string; onOpen: (uid: string) => void }) {
+  const found = useUserByCode(uid);
+  const known = found.data ?? null;
+  const name = useUserName(uid, !found.isLoading && !known);
+  if (found.isLoading) return <>…</>;
   if (known) return <UserLink row={known} onOpen={onOpen} />;
   return (
     <>
@@ -73,27 +75,19 @@ function Inviter({ uid, rows, onOpen }: { uid: string; rows: UserRow[]; onOpen: 
   );
 }
 
-function Joined({
-  invitedBy,
-  rows,
-  onOpen,
-}: {
-  invitedBy: string | null;
-  rows: UserRow[];
-  onOpen: (uid: string) => void;
-}) {
+function Joined({ invitedBy, onOpen }: { invitedBy: string | null; onOpen: (uid: string) => void }) {
   const kind = inviterKind(invitedBy);
   if (kind === 'existing' || !invitedBy) return <>기존</>;
   if (kind === 'admin') return <>초대 · 관리자</>;
   return (
     <>
-      초대 · <Inviter uid={invitedBy} rows={rows} onOpen={onOpen} />
+      초대 · <Inviter uid={invitedBy} onOpen={onOpen} />
     </>
   );
 }
 
 // 이 사람이 만든 초대 코드 → 그 코드로 들어온 사람. 쓴 사람만 이름으로, 나머지는 개수로.
-function Invitees({ uid, rows, onOpen }: { uid: string; rows: UserRow[]; onOpen: (uid: string) => void }) {
+function Invitees({ uid, onOpen }: { uid: string; onOpen: (uid: string) => void }) {
   const issued = useIssuedInvites(uid);
   return (
     <Loaded q={issued}>
@@ -105,7 +99,7 @@ function Invitees({ uid, rows, onOpen }: { uid: string; rows: UserRow[]; onOpen:
         return (
           <span className={styles.invitees}>
             {used.map((i) => (
-              <Inviter key={i.code} uid={i.usedBy!} rows={rows} onOpen={onOpen} />
+              <Inviter key={i.code} uid={i.usedBy!} onOpen={onOpen} />
             ))}
             <small className="soft">
               코드 {list.length}개{pending ? ` · 가입 중 ${pending}` : ''}
@@ -194,14 +188,14 @@ function Badges({ row }: { row: UserRow }) {
   );
 }
 
-function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> & { row: UserRow }) {
+function Body({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> & { row: UserRow }) {
   const uid = row.userCode;
   const toast = useToast();
   const brief = useUserBrief(uid);
   const focus = useUserFocusSec(uid);
   const invite = useUserInvite(uid);
   const reports = useUserReportCount(uid);
-  const same = sameLicenseUsers(rows, row);
+  const same = useSameLicenseUsers(row);
   const name = row.name ?? realName(brief.data?.name);
   const who = name ?? row.friendCode ?? uid;
 
@@ -234,16 +228,20 @@ function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
         </Field>
         {row.license && (
           <Field label="같은 키">
-            {same.length === 0 ? (
-              <span className="soft">없음</span>
-            ) : (
-              <>
-                <b className="warn">{same.length}명</b>
-                {same.map((r) => (
-                  <UserLink key={r.userCode} row={r} onOpen={onOpen} />
-                ))}
-              </>
-            )}
+            <Loaded q={same}>
+              {(list) =>
+                list.length === 0 ? (
+                  <span className="soft">없음</span>
+                ) : (
+                  <>
+                    <b className="warn">{list.length}명</b>
+                    {list.map((r) => (
+                      <UserLink key={r.userCode} row={r} onOpen={onOpen} />
+                    ))}
+                  </>
+                )
+              }
+            </Loaded>
           </Field>
         )}
       </Section>
@@ -267,14 +265,14 @@ function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
           <>
             <Field label="가입일">{invite.data.joinedAt ? formatDate(invite.data.joinedAt) : '—'}</Field>
             <Field label="경로">
-              <Joined invitedBy={invite.data.invitedBy} rows={rows} onOpen={onOpen} />
+              <Joined invitedBy={invite.data.invitedBy} onOpen={onOpen} />
             </Field>
             <Field label="초대권">
               {invite.data.invitesLeft === null ? '—' : `${invite.data.invitesLeft}장`}
               <GrantInvitesButton uid={uid} who={who} />
             </Field>
             <Field label="초대한 사람">
-              <Invitees uid={uid} rows={rows} onOpen={onOpen} />
+              <Invitees uid={uid} onOpen={onOpen} />
             </Field>
           </>
         ) : (
@@ -330,8 +328,6 @@ function Body({ row, rows, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> &
 interface Props {
   /** 열 사람. null 이면 닫힌다. */
   row: UserRow | null;
-  /** 같은 키 · 초대한 사람을 찾아 이름을 붙이는 데 쓰는 전체 목록(이미 받은 것). */
-  rows: UserRow[];
   /** 같은 키를 쓰는 사람 · 초대한 사람을 누르면 그 사람으로 바꾼다. */
   onOpen: (uid: string) => void;
   onClose: () => void;
@@ -340,7 +336,7 @@ interface Props {
 }
 
 /** 한 사람을 한 화면에 — 창을 열 때만, 그 사람 몫의 작은 칸들만 읽는다(users/{uid} 통째는 마이홈 · 캐릭터까지 딸려 와 크다). */
-export function UserDetail({ row, rows, onOpen, onClose, onDeleted }: Props) {
+export function UserDetail({ row, onOpen, onClose, onDeleted }: Props) {
   // 안에 있는 초대권 지급 · 계정 삭제 창의 close 는 훅이 걸러 낸다 — 이 창 자신의 것만 받는다.
   const { dialogProps } = useModalDialog({ open: row !== null, onClose });
 
@@ -365,7 +361,7 @@ export function UserDetail({ row, rows, onOpen, onClose, onDeleted }: Props) {
         </button>
       </div>
       {row && <Badges row={row} />}
-      {row && <Body key={row.userCode} row={row} rows={rows} onOpen={onOpen} onDeleted={onDeleted} />}
+      {row && <Body key={row.userCode} row={row} onOpen={onOpen} onDeleted={onDeleted} />}
     </dialog>
   );
 }

@@ -53,14 +53,19 @@ const DAY = 24 * 60 * 60 * 1000;
 export function versionCounts(rows: UserRow[], now: number, days = ACTIVE_DAYS): VersionCount[] {
   const since = now - days * DAY;
   const counts = new Map<string | null, number>();
-  let total = 0;
   for (const row of rows) {
     if (!row.hasAccount || row.lastSeen < since) continue;
     counts.set(row.ver, (counts.get(row.ver) ?? 0) + 1);
-    total++;
   }
-  return [...counts.entries()]
-    .map(([ver, count]) => ({ ver, count, share: count / total }))
+  return toVersionCounts([...counts.entries()].map(([ver, count]) => ({ ver, count })));
+}
+
+/** 버전별 수 → 몫을 붙이고 큰 버전부터, 기록 없음은 맨 뒤. API 가 센 수도 같은 모양으로 맞춘다. */
+export function toVersionCounts(list: readonly { ver: string | null; count: number }[]): VersionCount[] {
+  const total = list.reduce((sum, v) => sum + v.count, 0);
+  return list
+    .filter((v) => v.count > 0)
+    .map(({ ver, count }) => ({ ver, count, share: count / total }))
     .sort((a, b) => (a.ver === null ? 1 : b.ver === null ? -1 : compareVerDesc(a.ver, b.ver)));
 }
 

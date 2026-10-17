@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { ROOM_SERVER_MIN_APP_VER, useRoomServerConfig } from '@/entities/room-server';
 import {
   isBadLicense,
@@ -10,9 +10,15 @@ import {
   type UserRow,
 } from '@/entities/user';
 import { appVerBlock, ServerSelect } from '@/features/room-server/manage-allow';
-import { filterUsers } from '@/features/user/user-filter';
-import { useUserRows } from '@/features/user/user-rows';
-import { errorMessage, formatDate, usePaging } from '@/shared/lib';
+import { useReloadUsers, useUserPage, useUserStats } from '@/features/user/user-rows';
+import {
+  errorMessage,
+  formatDate,
+  pageForSize,
+  readPageSize,
+  savePageSize,
+  useDebouncedValue,
+} from '@/shared/lib';
 import { Pager } from '@/shared/ui';
 import styles from './RoomServerUsers.module.css';
 
@@ -84,14 +90,37 @@ function UserLine({
   );
 }
 
-// 사용자 목록에서 바로 서버 지정 — 목록은 사용자 화면과 같은 요약(캐시 공유) · 쪽 단위로만 줄마다 읽는다.
+const LIST_KEY = 'roomServerUsers';
+/** 입력이 이만큼 멈추면 묻는다 — 글자마다 서버에 묻지 않게. */
+const SEARCH_DEBOUNCE_MS = 300;
+
+// 사용자 목록에서 바로 서버 지정 — 사용자 화면과 같은 목록(API 사본 · 폴백은 통째 캐시)을 쪽 단위로, 줄마다 읽는 칸은 보이는 쪽만.
 export function RoomServerUsers() {
-  const { rows, error, refresh } = useUserRows();
+  const reload = useReloadUsers();
   const { data: cfg } = useRoomServerConfig();
   const [text, setText] = useState('');
+  const q = useDebouncedValue(text, SEARCH_DEBOUNCE_MS);
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(() => readPageSize(LIST_KEY));
   const [message, setMessage] = useState<Message>(null);
-  const found = useMemo(() => (rows ? filterUsers(rows, 'all', text) : []), [rows, text]);
-  const paging = usePaging(found, 'roomServerUsers');
+  const list = useUserPage({ filter: 'all', q, ver: undefined }, page, size);
+  const stats = useUserStats();
+  const view = list.data;
+  const error = list.error;
+  if (view && !list.isPlaceholderData && page > view.pageCount) setPage(view.pageCount);
+  const paging = {
+    items: view?.items ?? [],
+    page: view?.page ?? page,
+    pageCount: view?.pageCount ?? 1,
+    size,
+    total: view?.total ?? 0,
+    setPage: (next: number) => setPage(Math.max(1, next)),
+    setSize: (next: number) => {
+      savePageSize(LIST_KEY, next);
+      setPage(pageForSize(page, size, next));
+      setSize(next);
+    },
+  };
   const servers = Object.keys(cfg?.servers ?? {}).sort();
   const onResult = (t: string, err: boolean) => setMessage({ text: t, error: err });
 
@@ -99,8 +128,8 @@ export function RoomServerUsers() {
     <section className="card">
       <div className="card-head">
         <h2 className="grow">사용자별 서버</h2>
-        <span className="soft">{rows && `${found.length} / ${rows.length}명`}</span>
-        <button type="button" className="btn" onClick={refresh}>
+        <span className="soft">{view && stats.data && `${view.total} / ${stats.data.total}명`}</span>
+        <button type="button" className="btn" onClick={reload}>
           새로고침
         </button>
       </div>
@@ -116,12 +145,12 @@ export function RoomServerUsers() {
         value={text}
         onChange={(e) => {
           setText(e.target.value);
-          paging.setPage(1);
+          setPage(1);
         }}
       />
       {error && <p className="msg err">{errorMessage(error, '사용자 목록을 불러오지 못했어요')}</p>}
-      {!error && !rows && <p className="soft">불러오는 중…</p>}
-      {rows && (
+      {!error && !view && <p className="soft">불러오는 중…</p>}
+      {view && (
         <div className={styles.wrap}>
           <table className={styles.table}>
             <thead>

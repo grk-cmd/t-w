@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
-import { useFriendCodes } from '@/entities/user';
+import { useState } from 'react';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
-import { uniqueUserIds, type GrantScope } from '../model/grantInvites';
-import { useRevokeInvites } from '../model/useGrantInvites';
+import type { GrantScope } from '../model/grantInvites';
+import { useLoadAllUserIds, useRevokeInvites } from '../model/useGrantInvites';
 import { InviteDialog } from './InviteDialog';
 import styles from './InviteDialog.module.css';
 
@@ -13,23 +12,38 @@ const CONFIRM_WORD = '전체 회수';
 interface Props {
   scope: GrantScope;
   uids: string[];
+  /** 대상을 누를 때 받는다(전체) — 있으면 uids 대신 쓴다. */
+  load?: () => Promise<string[]>;
   /** 회수를 마치고 창을 닫을 때 — 선택 회수는 선택을 비운다. */
   onDone?: () => void;
 }
 
-function RevokeInvitesButton({ scope, uids, onDone }: Props) {
+function RevokeInvitesButton({ scope, uids, load, onDone }: Props) {
   const env = useEnv();
   const revoke = useRevokeInvites(scope);
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
   // 창을 연 순간의 대상 — 도는 중에 선택이 바뀌어도 진행 표시가 흔들리지 않게.
   const [targets, setTargets] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<unknown>(null);
   const all = scope === 'all';
 
-  const show = () => {
+  const show = async () => {
     setTyped('');
-    setTargets(uids);
     revoke.reset();
+    setLoadError(null);
+    if (load) {
+      setLoading(true);
+      try {
+        setTargets(await load());
+      } catch (e) {
+        setTargets([]);
+        setLoadError(e);
+      } finally {
+        setLoading(false);
+      }
+    } else setTargets(uids);
     setOpen(true);
   };
 
@@ -44,8 +58,13 @@ function RevokeInvitesButton({ scope, uids, onDone }: Props) {
 
   return (
     <>
-      <button type="button" className={all ? 'btn danger' : 'btn'} disabled={!uids.length} onClick={show}>
-        {all ? '전체 초대권 회수' : `선택 초대권 회수 (${uids.length})`}
+      <button
+        type="button"
+        className={all ? 'btn danger' : 'btn'}
+        disabled={loading || (!load && !uids.length)}
+        onClick={() => void show()}
+      >
+        {all ? (loading ? '대상 읽는 중…' : '전체 초대권 회수') : `선택 초대권 회수 (${uids.length})`}
       </button>
       <InviteDialog
         open={open}
@@ -102,6 +121,7 @@ function RevokeInvitesButton({ scope, uids, onDone }: Props) {
             {r.failed ? ` · ${r.failed}명 실패` : ''}
           </p>
         )}
+        {!!loadError && <p className="msg err">{errorMessage(loadError, '대상 사용자를 읽지 못했어요')}</p>}
         {revoke.error && <p className="msg err">{errorMessage(revoke.error, '회수를 시작하지 못했어요')}</p>}
         <div className={styles.actions}>
           {running ? (
@@ -129,11 +149,10 @@ function RevokeInvitesButton({ scope, uids, onDone }: Props) {
   );
 }
 
+const NO_UIDS: string[] = [];
+
 export function RevokeInvitesAllButton() {
-  // 사용자 화면이 이미 받아 둔 friendCodes 캐시를 그대로 쓴다 — 다시 받지 않는다.
-  const friendCodes = useFriendCodes();
-  const uids = useMemo(() => (friendCodes.data ? uniqueUserIds(friendCodes.data) : []), [friendCodes.data]);
-  return <RevokeInvitesButton scope="all" uids={uids} />;
+  return <RevokeInvitesButton scope="all" uids={NO_UIDS} load={useLoadAllUserIds()} />;
 }
 
 export function RevokeInvitesSelectedButton({ uids, onDone }: { uids: string[]; onDone: () => void }) {

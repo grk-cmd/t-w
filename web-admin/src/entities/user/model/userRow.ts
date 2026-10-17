@@ -28,6 +28,8 @@ export interface UserRow {
   focusTotalSec: number;
   /** 계정 요약의 앱 버전. 없으면 null — 옛 앱이거나 계정이 없다. */
   ver: string | null;
+  /** 이 키를 쓰는 사람 수(목록 전체 기준 · 본인 포함). 키가 없으면 0. */
+  licenseUsers: number;
 }
 
 // 앱은 이름을 안 정한 사람에게 이 글자를 실제 이름처럼 저장한다 — 이름이 없는 것으로 본다.
@@ -59,6 +61,7 @@ export function buildUserRows(
       lastSeen: snap.ts ?? 0,
       focusTotalSec: snap.focusTotalSec ?? 0,
       ver: cleanVer(snap.ver),
+      licenseUsers: 0,
     });
   }
 
@@ -75,10 +78,14 @@ export function buildUserRows(
       lastSeen: 0,
       focusTotalSec: 0,
       ver: null,
+      licenseUsers: 0,
     });
   }
 
-  return [...rows.values()].sort((a, b) => b.lastSeen - a.lastSeen);
+  const all = [...rows.values()];
+  const counts = licenseUseCounts(all);
+  for (const row of all) row.licenseUsers = row.license ? (counts.get(row.license) ?? 0) : 0;
+  return all.sort((a, b) => b.lastSeen - a.lastSeen);
 }
 
 /** 키 → 그 키를 쓰는 사람 수. 계정 요약에 적힌 키만 센다 — 계정 없는 사람은 키를 모른다. */
