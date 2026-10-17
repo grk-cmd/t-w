@@ -3,6 +3,13 @@
 여럿이 같은 파일을 동시에 고치다 충돌이 나지 않게 하려고 둔다. **작업을 시작하기 전에 «건드리는 파일» 칸을 보고, 내 파일이 겹치면 그 줄 담당과 먼저 맞춘다.**
 머지 담당(검증 세션)이 PR 을 올리거나 머지할 때마다 고친다. 기준: 2026-10-17.
 
+## 작업 시작 절차 — 누구든 코드를 만지기 전에 이것부터
+1. `git pull` 로 이 파일을 받아 «진행 중» 표를 본다. 내가 고칠 파일이 다른 줄의 «건드리는 파일» 과 겹치면 **시작하지 말고** 그 담당과 먼저 맞춘다.
+2. 겹치지 않으면 «진행 중» 표에 한 줄을 더한다 — 묶음 이름 · **담당(사람 또는 세션 이름)** · 내용 · 건드리는 파일 · 제보 번호(있으면).
+3. **이 파일 하나만은 PR 없이 main 에 바로 커밋 · push 한다**(`docs(status): <묶음> 시작 — <담당>`). 다른 파일을 같은 커밋에 섞지 않는다 · force push 금지 · push 가 거절되면 `git pull --rebase` 뒤 다시.
+4. PR 을 올리면 그 줄에 PR 번호를, 머지되면 줄을 «머지 완료» 로 옮긴다(이것도 main 에 바로).
+- 웹 관리자 📋 할 일(`adminTodos`)은 계속 써도 되지만, «지금 누가 어느 파일을 만지는가» 는 이 파일이 정본이다.
+
 ## 규칙
 - **한 번에 한 사람만 머지한다.** 지금 머지 담당은 검증 세션 하나뿐이다. 다른 세션은 PR 을 올리기까지만 하고 머지는 하지 않는다(같은 대기열을 둘이 머지하면 CHECKS 개정 번호가 엉킨다).
 - `checks/CHECKS.md` 개정 번호는 머지 직전에 main 다음 번호로 다시 매긴다. PR 을 올릴 땐 임시 번호여도 된다.
@@ -10,14 +17,14 @@
 - 버그 제보를 고친 PR 은 제목 끝에 `(B-MMDD-n)` 을 붙이고, 아래 «제보 → 수정» 표에 한 줄 더한다.
 
 ## 진행 중 — 검증 · PR 올리는 중
-| 묶음 | 담당 | 내용 | 건드리는 파일 |
-|---|---|---|---|
-| #315 | 검증 세션 | 클릭 통과 판단을 한 곳으로(main #261 의 onUI 조건 포함) | `launcher/click-through-policy.js`(새) · `launcher/desktop-run.js` · `main.js` · 클릭 검사들 |
-| w4 묶음 | 도우미 1 | 구역 떼기 C · w4 다섯 줄(코드로 추가하기 · 책상 프리셋 · 책상 세팅 · 박힌 값 상수 · 좌석 우클릭 메뉴) | `creator/asset-import.js` · `desk-preset-store.js` · `desk-preset.js` · `desk-setup.js` · `asset-cards.js` · `room/seat-menu.js`(새) · `app.js` · html · smoke |
-| wQ 묶음 | 도우미 2 | 내 코드가 없으면 친구 · 부팅 · 마이홈 · 일정 · 방명록 · 방 만들기 요청을 안 보낸다 | `myhome/friends-sub.js` · `myhome/myhome-init.js` · 일정 · 방명록 · 방 만들기 창 |
-| wW 묶음 | 도우미 2 | 디자인 프리셋 판단 한 곳 → 프리셋에 그림도 담기 (B-1013-8) | `myhome/myhome-preset.js`(새) · `myhome/myhome-edit.js` |
-| wY | 도우미 2 | 파츠 바뀐 뒤 좌석 다시 맞추기 한 벌(seat-refit.js) | `character/seat-refit.js`(새) · `app.js` |
-| 낱개 | 도우미 3 | 문서 규칙(429c52b) · 두 번째 실행 10초(wT) · 토스트 문구(wS) · realtime 공통부(wP-C 6d352f0) · 에러코드(4c55c3c — 충돌 크면 다시 얹기) | `CLAUDE.md` · `main.js`(두 번째 실행) · 토스트 · `room/realtime-link.js`(새) · 에러코드 표 |
+| 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
+|---|---|---|---|---|
+| #315 | 검증 세션 | 클릭 통과 판단을 한 곳으로(main #261 의 onUI 조건 포함) | `launcher/click-through-policy.js`(새) · `launcher/desktop-run.js` · `main.js` · 클릭 검사들 | #315 |
+| w4 묶음 | 도우미 1 | 구역 떼기 C · w4 다섯 줄(코드로 추가하기 · 책상 프리셋 · 책상 세팅 · 박힌 값 상수 · 좌석 우클릭 메뉴) | `creator/asset-import.js` · `desk-preset-store.js` · `desk-preset.js` · `desk-setup.js` · `asset-cards.js` · `room/seat-menu.js`(새) · `app.js` · html · smoke | — |
+| wQ 묶음 | 도우미 2 | 내 코드가 없으면 친구 · 부팅 · 마이홈 · 일정 · 방명록 · 방 만들기 요청을 안 보낸다 | `myhome/friends-sub.js` · `myhome/myhome-init.js` · 일정 · 방명록 · 방 만들기 창 | — |
+| wW 묶음 | 도우미 2 | 디자인 프리셋 판단 한 곳 → 프리셋에 그림도 담기 (B-1013-8) | `myhome/myhome-preset.js`(새) · `myhome/myhome-edit.js` | — |
+| wY | 도우미 2 | 파츠 바뀐 뒤 좌석 다시 맞추기 한 벌(seat-refit.js) | `character/seat-refit.js`(새) · `app.js` | — |
+| 낱개 | 도우미 3 | 문서 규칙(429c52b) · 두 번째 실행 10초(wT) · 토스트 문구(wS) · realtime 공통부(wP-C 6d352f0) · 에러코드(4c55c3c — 충돌 크면 다시 얹기) | `CLAUDE.md` · `main.js`(두 번째 실행) · 토스트 · `room/realtime-link.js`(새) · 에러코드 표 | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
