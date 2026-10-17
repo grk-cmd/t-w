@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 356 (서버 주소를 together-working.com 으로(duckdns 는 옛 앱 · dev 용으로 계속 허용))
-대상: `sim-*.js` 316개 + `smoke.js` + `audit.py` = **318개** (개정 356 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 357 (토스트를 눌러 글 복사)
+대상: `sim-*.js` 316개 + `smoke.js` + `audit.py` = **318개** (개정 357 기준 — 폴더를 센 값)
+
+**개정 357 에서 한 것 (2026-10-17 · wAE · 토스트 눌러 복사 — 사용자 승인 동작 변경)**
+- 앱: 켜진 토스트(`.toast.on`)를 누르면 지금 보이는 글을 `navigator.clipboard.writeText` 로 복사하고, 같은 토스트 글 끝에 « (복사했어요)»(거절되면 « (복사하지 못했어요)»)를 붙인다 — 오류 번호(E-…)를 제보에 붙여 넣기 쉽게. 사라지는 시간은 남은 시간 + 1.5초(`TOAST_COPY_EXTRA_MS`). `.toast.on` 에만 `pointer-events:auto · cursor:pointer` — 꺼진(투명) 토스트는 그대로 클릭을 통과시킨다. `.toast` 는 원래 클릭 통과 판정 목록(`UI_HIT_SEL`)에 있어 켜져 있는 동안 그 자리는 «우리 UI» 로 잡힌다(판정 규칙은 무변경). 채팅 복사 표시(`#chatCopyToast`)는 그대로.
+- 검사: `sim-toast.js` **33·0**(+9) — 4절 «누르기»: 클릭 받기 한 번만 · 복사 함수가 보이는 글 그대로 · 같은 토스트 끝에 표시 · 타이머 남은 시간 + 1.5초 · 다시 눌러도 표시 한 번 · 복사 중 새 토스트면 표시 안 붙임 · 거절 문구 · 꺼진 토스트는 복사 안 함 · html `.toast.on` 만 클릭 받기(빼면 빨강).
 
 **개정 356 에서 한 것 (2026-10-17 · 서버 주소 together-working.com)**
 - 앱: `api-client.js` 운영 · dev API 주소를 `https://api.together-working.com` · `https://api-dev.together-working.com` 으로, `API_BASE_RE` 는 `*.together-working.com` · `*.togetherworking.duckdns.org` 둘 다. `room-server-gate.js` 운영 기본 방 서버 `wss://realtime.together-working.com`(dev 는 새 이름이 없어 duckdns 그대로) · `ROOM_SERVER_HOST_SUFFIXES` 두 개 · `ROOM_SERVER_URL_RE` 둘 다 · `ROOM_SERVER_HOST_ALIAS`(운영 설정 servers 의 옛 운영 주소 rooms.togetherworking.duckdns.org → realtime.together-working.com — 설정값은 옛 앱 때문에 그대로 두고 새 앱만 바꿔 붙는다) · `aliasServerUrl` · dev 앱은 옛 운영 주소로도 안 간다. html CSP 두 줄에 `wss · https://*.together-working.com`.
@@ -2689,7 +2693,7 @@
 | **sim-blink-timing.js** | 112 | **624e0321ea28** ← **개정 322 신설 · 👁 깜빡임 시간표(blink-timing.js) — 옛 글과 같은 결과 · 동작 · 주사율 무관 · 연결** |
 | **sim-desk-visual.js** | 214 | **2428c62e17b8** ← **개정 286 옮긴 이름 목록에서 지운 셋을 뺌** · **개정 274 신설 · 🪑 책상 모양 모듈 구조 + 동작** |
 | **sim-desk-place.js** | 187 | **2de2d6fa296b** ← **개정 347 신설 · 📐 책상 자리 · 크기 모듈 구조 + 동작** |
-| **sim-toast.js** | 146 | **d8c98c57f64c** ← **개정 339 토스트 pre-line 판정 +1** · **개정 282 신설 · 🍞 토스트 · 저장 실패 문구 모듈 구조 + 동작** |
+| **sim-toast.js** | 174 | **25bd36f5c6a5** ← **개정 357 토스트 눌러 복사 판정 +9** · **개정 339 토스트 pre-line 판정 +1** · **개정 282 신설 · 🍞 토스트 · 저장 실패 문구 모듈 구조 + 동작** |
 | **sim-dot-render.js** | 223 | **ed34e53f22dd** ← **개정 303 deps ps1Dither — PS1 값은 shared/ps1-dither.js 에서** · **개정 292 켠 뒤 들어온 메쉬 · 가짜 표식 · 색조 덮어쓰기 · 캐시 키 · sweepIfOn(5절) — 도트 버그 수정** · **개정 258 깨 보기 «부르는 곳이 옛 이름» — app.js 에 부르는 자리가 없으면 옛 이름 부름을 끼워 본다(부르는 곳이 seat-camera.js 로)** · **개정 256 신설 · 🕹️ 도트 모드 머티리얼 모듈 구조 + 동작(가짜 씬)** |
 | **sim-ps1-dither.js** | 100 | **061d45e351ad** ← **개정 303 신설 · 🕹️ PS1 디더 규칙 한 곳 — 도트 셰이더 · 스티커사진 필터가 묶기 전과 같은지** |
 | **sim-seat-camera.js** | 146 | **a6c064a98ed9** ← **개정 295 안 쓰는 _deskViewH · _deskCanvasH 지움 — deps · 정답값에서 뺌** · **개정 258 신설 · 🎥 좌석 줄 카메라 모듈 구조 + 동작(옮기기 전 값)** |

@@ -1456,11 +1456,12 @@
   .lc-menu button#lcDelete:hover{color:#fff;}
 
   /* 🔔 알림은 창(83~92) · 마이홈(71) · 뽑기 화면(120) 위에 — 60 이면 창 뒤에서 떠서 안 보였다. 마이홈 팝업(9200~) · 충돌 대화상자(99990)보다는 아래.
-     white-space:pre-line — 문구 안 \n 을 줄바꿈으로 그린다(글은 textContent 그대로 · shared/toast.js). 토스트를 그리는 곳은 #toast 하나뿐. */
+     white-space:pre-line — 문구 안 \n 을 줄바꿈으로 그린다(글은 textContent 그대로 · shared/toast.js). 토스트를 그리는 곳은 #toast 하나뿐.
+     .on 일 때만 pointer-events:auto — 눌러 글을 복사한다(shared/toast.js onToastClick). 꺼진(투명) 토스트는 클릭을 그대로 통과시킨다. */
   .toast{position:fixed;bottom:42px;left:50%;transform:translateX(-50%) translateY(18px);z-index:9100;opacity:0;transition:.25s;
     background:#FFFFE1;color:#000;font-weight:normal;font-size:12px;padding:8px 16px;pointer-events:none;white-space:pre-line;
     border:1px solid #000;box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.3));font-family:var(--tw-font-legacy);}
-  .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;cursor:pointer;}
 
   #codeOverlay{position:fixed;inset:0;z-index:var(--z-dialog-code);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
   #codeOverlay.on{display:flex;}
