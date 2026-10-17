@@ -36,6 +36,10 @@ const SAMPLES = {
     good: ['-Nabc_12-xYz', '2026-10', '17', '0', 'x1', 'c123abc', '2026-W42-wd', 'a b'],
     bad: ['null', 'undefined', 'NaN', ' x1', 'x1 ', ' '],
   },
+  userPadded: {   // 폰 연결(mobileLink) — 단축어 주소에 낀 공백은 받고 서버 함수가 정상 칸으로 옮긴다(state 는 연결 키가 맞을 때만 · 아래 4절)
+    good: ['umu00pdxvk6d9x8mx', 'U0ABCDEFGH', ' umu00pdxvk6d9x8mx', 'umu00pdxvk6d9x8mx ', '  umu00pdxvk6d9x8mx'],
+    bad: ['null', 'undefined', ' undefined', 'NaN', '', ' ', 'u1234567', ' xmu00pdxvk6d9x8mx', 'umu00-pdxvk6d9x8'],
+  },
   own: {     // 원래 자기 형식이 있던 칸(슬롯 번호 · 탭 id …) — 사고 키만 거절하는지 본다
     good: [],
     bad: ['null', 'undefined', 'NaN', ' 0'],
@@ -91,7 +95,7 @@ const KIND = {
   '/users/$userId/chalPaidTags/$tag': 'other',
   '/playlistIndex/$uid': 'user',
   '/mobileKeys/$userId': 'user',
-  '/mobileLink/$userId': 'user',
+  '/mobileLink/$userId': 'userPadded',
   '/leaderboard/$userId': 'user',
   '/invites/$code': 'invite',
   '/friendRequests/$toId': 'user',
@@ -262,7 +266,28 @@ console.log('\n── 2. 사용자 id 형식이 앱과 같다(앱이 만드는 i
   }
 }
 
-console.log('\n── 3. 깨 보기 — 형식 검사를 빼거나 느슨하게 하면 빨강');
+console.log('\n── 3. 폰 연결 — 공백 낀 칸은 연결 키가 맞는 state 만 · live 는 정상 칸만');
+{
+  const ml = rules.mobileLink.$userId;
+  const KEY = 'ABCDEFGHJKLMNPQRSTUVWXYZ', U = 'umu00pdxvk6d9x8mx';
+  const snap = (val) => ({ exists: () => val != null, val: () => (val === undefined ? null : val), isString: () => typeof val === 'string',
+    hasChildren: (ks) => ks.every(k => val && val[k] !== undefined), child: (k) => snap(val && typeof val === 'object' ? val[k] : null) });
+  const root = { child: (p) => snap(p === 'mobileKeys/' + U ? KEY : null) };
+  const run = (expr, id, nv) => {
+    const P = String.prototype; P.matches = function (re) { return re.test(String(this)); };
+    try { return !!new Function('$userId', 'newData', 'root', 'now', 'return (' + expr.replace(/\.replace\(/g, '.replaceAll(') + ');')(id, snap(nv), root, 1); }
+    finally { delete P.matches; }
+  };
+  const st = ml.state['.validate'], lv = ml.live['.validate'];
+  const S = (key) => ({ on: true, ts: 1, key });
+  chk(typeof st === 'string' && run(st, U, { on: true, ts: 1 }), '정상 칸 state — 키 없이도 받음(예전 그대로 · 쓰기 권한은 .write 가 본다)');
+  chk(run(st, ' ' + U, S(KEY)) && run(st, U + ' ', S(KEY)) && run(st, '  ' + U, S(KEY)), '공백 낀 칸 state — 공백 뺀 코드의 연결 키와 맞으면 받음(앞 · 뒤 · 두 칸)');
+  chk(!run(st, ' ' + U, S('ZZZZZZZZZZZZZZZZZZZZZZZZ')) && !run(st, ' ' + U, { on: true, ts: 1 }) && !run(st, ' u0abcdefgh12', S(KEY)),
+    '  ↳ 키가 틀리거나 · 없거나 · 연결 키가 없는 사람이면 거절');
+  chk(typeof lv === 'string' && run(lv, U, { at: 1 }) && !run(lv, ' ' + U, { at: 1 }), 'live 는 정상 칸만(PC 는 공백 칸에 쓰지 않는다)');
+}
+
+console.log('\n── 4. 깨 보기 — 형식 검사를 빼거나 느슨하게 하면 빨강');
 {
   const mutate = (fn) => { const r = JSON.parse(RULES_TEXT).rules; try { fn(r); } catch (_) { return 1; }   // 고칠 자리가 없는 규칙(옛 판)은 빨강으로 친다
    const f0 = fail; check(r, true); const n = fail - f0; fail = f0; return n; };
@@ -275,6 +300,7 @@ console.log('\n── 3. 깨 보기 — 형식 검사를 빼거나 느슨하게 
   chk(mutate(r => { r.rooms.$room['.validate'] = "$room.matches(/^[A-Za-z]{4}-[A-Z0-9]{4}$/)"; }) > 0, '방 코드에 소문자를 받게 느슨히 하면 빨강');
   chk(mutate(r => { r.users.$userId.newThing = { $x: { '.validate': 'true' } }; }) > 0, '표에 없는 새 경로 변수가 생기면 빨강');
   chk(mutate(r => { r.catalog.parts.$partId['.write'] = 'true'; }) > 0, '«관리자만» 으로 빼 둔 곳을 누구나 쓰게 바꾸면 빨강');
+  chk(mutate(r => { r.mobileLink.$userId['.validate'] = "$userId.matches(/^[uU][0-9a-zA-Z]{8,40}$/)"; }) > 0, '폰 연결에서 공백 낀 칸을 막아 버리면 빨강(서버 함수가 옮길 길이 없어진다)');
 }
 
 console.log(fail ? `\n✗ ${fail}건 실패` : '\n✓ 전부 통과');
