@@ -137,6 +137,30 @@
 꾸미기 창 · 파츠 · 동물 · 슬롯 · 코드 · 가챠 · 좌석 크기. app.js 가 deps 로 이어 주고, 이 폴더 모듈끼리는 서로의 속을 직접 부르지 않는다.
 절은 모듈마다 하나 — 다른 사람이 만든 절은 건드리지 않고 자기 절만 더한다.
 
+## desk-place.js — 📐 책상 자리 · 크기 · 책상 위 파츠 핀
+
+- **책임**: 책상 그룹의 자리와 크기만 — 크기 · 길이, 위치 오프셋, 동물 배율 · 평준화로 캐릭터에서 뺀 몫을 책상이 지는 z 보정, «책상 위» 파츠 핀이 책상 위치 · 슬라이더 크기를 따라가지 않게 상쇄. 평준화 깃발은 모른다(평준화 때 파츠 가두기는 `seat-eq-clamp.js`).
+- **만드는 법**: app.js «🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기» 끝에서 `const deskPlaceMod = TwDeskPlace.createDeskPlace({ … });` — deps 5
+  - 값: `CHAR_Z` · `DESK_SCALE_MIN` · `DESK_SCALE_MAX` · `DESK_SCALE_DEFAULT` · `crState`(생성기 상태 한 벌 — `cDesk` · `cDeskLenX` 를 그때그때 읽는다)
+- **내보내는 것**
+  - `setDeskScale(deskGroup, scale?, lenX?)` — `scale` 을 안 주면 기억해 둔 원본(`userData.deskScaleBase`). 그룹 배율 = 원본 × `animCorr` × `eqK`(길이는 x 에만).
+  - `setCreatorDeskScale(scale)` — 생성기 책상(`crState.cDesk`)에 생성기 길이로.
+  - `setDeskPos(deskGroup, {x,y,z})` — 원본은 `userData.deskPosBase` 에(배율은 굽지 않는다).
+  - `syncSeatDeskZ(deskGroup)` — z = base.z·a·k + CHAR_Z·(1 − a·k), 그리고 파츠 핀 상쇄.
+  - `deskPartAnchorOf(seat)` · `syncDeskPartAnchor(deskGroup)` · `DESK_PART_ANCHOR_NAME`('__deskPartAnchor') — 핀 얻기 · 상쇄 다시 걸기.
+  ```js
+  deskPlaceMod.setDeskScale(seat.desk, def.deskScale || 1, def.deskLenX || 1);
+  deskPlaceMod.setDeskPos(seat.desk, def.deskPos);
+  const pin = deskPlaceMod.deskPartAnchorOf(seat); pin.add(partWrap);
+  ```
+- **확장할 때 고칠 자리**: 새 좌석 배율이 생기면 `seatDeskPosMul` · `seatDeskZCorr` · `setDeskScale` 의 곱셈 — 꾸미기 미리보기(`_wdDeskGrp`)도 같은 값을 직접 곱으니 함께.
+- **함정**
+  - 위치 곱셈은 네 자리가 한 벌 — 여기 셋(`setDeskPos` · `syncSeatDeskZ` · `syncDeskPartAnchor`) + 꾸미기 미리보기.
+  - `deskPosBase` · `deskScaleBase` 에 보정 · 배율을 굽지 말 것(열 때마다 누적).
+  - 크기 상쇄는 슬라이더 범위(`DESK_SCALE_MIN~MAX`) 안일 때만 — `def.deskScale||1` 의 1 은 «모름».
+  - 평준화 깃발(`seatEqMod`)을 여기서 읽지 말 것 — seat-equalize 가 이 모듈을 부르므로 순환이 생긴다(sim-dep-cycles 빨강).
+  - 검사: `checks/sim-desk-place.js`(4절 — 크기 · 원본 기억 · 경계 0 · 생성기 · z 보정 · 위치 배율과 경계 · 핀 상쇄 크기 · 위치) · 옛 검사 `sim-char-z` · `sim-desk-part-scale` · `sim-desk-floor-clamp` · `sim-seat-eq`.
+
 ## seat-equalize.js — 🪑 좌석 크기 평준화
 
 - **책임**: 좌석 하나의 «실효 크기» 를 정하는 유일한 곳. 내 화면에서만 남의 좌석(자리추가 부캐 포함)을 내 캐릭터 크기에 맞춘다 — 배율 `k = 내 userScale ÷ 그 좌석 userScale`, 좌석 전체(캐릭터 · 책상 · 라벨 높이)에 같은 k. 켜고 끄는 깃발(`tw.seatEq`)도 이 모듈이 든다.

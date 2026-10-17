@@ -1364,9 +1364,9 @@ const seatEqMod = TwSeatEqualize.createSeatEqualize({
   findMySeat: (...a)=>findMySeat(...a),
   fitModel: (...a)=>fitModel(...a),
   seats: seats,
-  setDeskPos: (...a)=>setDeskPos(...a),
-  setDeskScale: (...a)=>setDeskScale(...a),
-  syncSeatDeskZ: (...a)=>syncSeatDeskZ(...a),
+  setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
+  setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
+  syncSeatDeskZ: (...a)=>deskPlaceMod.syncSeatDeskZ(...a),
 });
 let roomSeatMode = window.TwSeatPin ? TwSeatPin.loadMode(localStorage) : 'row';   // 🪑 방에서 내 자리 — 줄 안에 함께 · 맨 오른쪽 고정(seat-pin.js)
 /* 본문은 character/deco-parts-visibility.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -2605,7 +2605,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   clampDeskScale: (...a)=>clampDeskScale(...a),
   humanEar: humanEar,
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
-  setDeskScale: (...a)=>setDeskScale(...a),
+  setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   swThumb: (...a)=>assetCardsMod.swThumb(...a),
 });
 /* ═══ 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(commitWdDraft) · 색 영역 ═══ */
@@ -3704,7 +3704,7 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
   cBase: ()=>crState.cBase,
   deskItemDef: (...a)=>deskItemsMod.deskItemDef(...a),
-  deskPartAnchorOf: (...a)=>deskPartAnchorOf(...a),
+  deskPartAnchorOf: (...a)=>deskPlaceMod.deskPartAnchorOf(...a),
   equipDeskItem: (...a)=>equipDeskItem(...a),
   findMySeat: (...a)=>findMySeat(...a),
   isAdmin: ()=>isAdmin,
@@ -5814,8 +5814,8 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
   premiumMod: premiumMod,
-  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
-  setDeskPos: (...a)=>setDeskPos(...a),
+  setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
+  setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
   swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
   toast: (...a)=>toast(...a),
 });
@@ -6216,11 +6216,11 @@ const deskSetupMod = TwDeskSetup.createDeskSetup({
   ndc: ndc,
   premiumMod: premiumMod,
   ray: ray,
-  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
+  setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
   swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
   toast: (...a)=>toast(...a),
 });
-document.getElementById('deskScale').addEventListener('input',e=>{ crState.cDeskScale=+e.target.value; setCreatorDeskScale(crState.cDeskScale); });   // 카메라 고정 — 책상 크기 가늠 쉽게
+document.getElementById('deskScale').addEventListener('input',e=>{ crState.cDeskScale=+e.target.value; deskPlaceMod.setCreatorDeskScale(crState.cDeskScale); });   // 카메라 고정 — 책상 크기 가늠 쉽게
 // 버튼을 꾹 누르고 있으면 뗄 때까지 계속 반복 실행 (첫 클릭은 즉시, 0.35초 뒤부터 빠르게 반복)
 function bindHold(el, fn){
   let iv=null, delayTimer=null;
@@ -6235,7 +6235,7 @@ function bindHold(el, fn){
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const crXformMod = TwCreatorXform.createCreatorXform({
   CHAR_Y_MAX: CHAR_Y_MAX,
-  DESK_PART_ANCHOR_NAME: ()=>DESK_PART_ANCHOR_NAME,
+  DESK_PART_ANCHOR_NAME: ()=>deskPlaceMod.DESK_PART_ANCHOR_NAME,
   DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
   _applyItemColor: (...a)=>_applyItemColor(...a),
   applyCreatorXform: (...a)=>creatorPrevMod.applyCreatorXform(...a),
@@ -6257,10 +6257,10 @@ const crXformMod = TwCreatorXform.createCreatorXform({
   floorClampWrapper: (...a)=>charMeasureMod.floorClampWrapper(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   openAssetImport: (...a)=>twNav.go(twNav.NAV.ASSET_IMPORT, ...a),
-  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
-  setDeskPos: (...a)=>setDeskPos(...a),
+  setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
+  setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
   slotSaveMod: ()=>slotSaveMod,
-  syncDeskPartAnchor: (...a)=>syncDeskPartAnchor(...a),
+  syncDeskPartAnchor: (...a)=>deskPlaceMod.syncDeskPartAnchor(...a),
   toast: (...a)=>toast(...a),
   setCDeskLenX: (v)=>{ crState.cDeskLenX = v; },
   setCDeskPos: (v)=>{ crState.cDeskPos = v; },
@@ -6330,7 +6330,7 @@ const assetImportMod = TwAssetImport.createAssetImport({
   partSceneMod: ()=>partSceneMod,
   premiumMod: premiumMod,
   renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
-  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
+  setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
   swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
   toast: (...a)=>toast(...a),
 });
@@ -6686,7 +6686,7 @@ function openCreator(mode){
   crState.cDeskLenX = (src&&src.deskLenX) || 1;
   const lenEl=document.getElementById('deskLenX'); if(lenEl) lenEl.value=crState.cDeskLenX;
   crState.activeCustomDeskId=null;
-  if(crState.cDesk){ setCreatorDeskScale(crState.cDeskScale); setDeskPos(crState.cDesk, crState.cDeskPos); crXformMod.updateDeskPosNum(); }
+  if(crState.cDesk){ deskPlaceMod.setCreatorDeskScale(crState.cDeskScale); deskPlaceMod.setDeskPos(crState.cDesk, crState.cDeskPos); crXformMod.updateDeskPosNum(); }
   if(crState.cBase){ creatorPrevMod.applyCreatorXform(); creatorPrevMod.clearCreatorItems(); creatorPrevMod.clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
     if(crState.cDesk)crState.cDesk.userData.deskScale=crState.cDeskScale; deskVisualMod.swapDeskVisual(crState.cDesk,null);
     (async()=>{
@@ -6714,7 +6714,7 @@ function openCreator(mode){
             // ★ 코드베이스의 다른 swapDeskVisual 호출부(8381·8399·8407·9241·13717·13720·13721)는 전부
             //   직후에 setCreatorDeskScale로 크기를 다시 먹인다. 이 '기본 책상 override' 분기만 빠져 있어서
             //   교체 전 스케일 상태에 의존하고 있었다 — 실행 경로(applyDeskCatalogRefToSeat)와 동일하게 맞춤.
-            setCreatorDeskScale(crState.cDeskScale);
+            deskPlaceMod.setCreatorDeskScale(crState.cDeskScale);
           }catch(e){ console.warn('[생성기] 기본 책상 GLB 파싱 실패', e); }
         }
       }
@@ -6867,8 +6867,8 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   getCommissionScene: (...a)=>getCommissionScene(...a),
   registerCustomItem: (...a)=>deskItemsMod.registerCustomItem(...a),
   scene: scene,
-  setDeskPos: (...a)=>setDeskPos(...a),
-  setDeskScale: (...a)=>setDeskScale(...a),
+  setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
+  setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
   slotSaveMod: ()=>slotSaveMod,
   slots: slots,
@@ -7100,7 +7100,7 @@ function applyCharToSeat(seat,def){
      ⚠️ 아래쪽 setDeskPos(def.deskPos) 가 어차피 같은 일을 하지만, 그 줄에 도달하기 전에
        **되돌아 나가는 갈래**가 있다(커미션 GLB 가 캐시에 없으면 파싱을 걸고 return —
        그 사이 한 화면은 옛 z 로 그려진다). 그래서 여기서 한 번 더 맞춘다. */
-  try{ if(seat.desk) syncSeatDeskZ(seat.desk); }catch(_){}
+  try{ if(seat.desk) deskPlaceMod.syncSeatDeskZ(seat.desk); }catch(_){}
   // 커미션 캐릭터: 커스텀 베이스 GLB로 인스턴스 생성. 캐시 없으면 비동기 파싱 후 재호출
   let customScene = null;
   if(def.commGlb){
@@ -7239,14 +7239,14 @@ function applyCharToSeat(seat,def){
   if(seat.deskMat) lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   
   
   // [수정] 생성기에서 조절한 책상 크기(def.deskScale)를 메인 화면의 책상(seat.desk)에 강제로 반영합니다!
-  setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);
-  setDeskPos(seat.desk, def.deskPos);   // 🪑 책상 위치 오프셋 — 없으면 0,0,0 = 예전과 동일
+  deskPlaceMod.setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);
+  deskPlaceMod.setDeskPos(seat.desk, def.deskPos);   // 🪑 책상 위치 오프셋 — 없으면 0,0,0 = 예전과 동일
   
   
   (async()=>{  
     if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
     if(def.deskCatalogId){ deskVisualMod.applyDeskCatalogRefToSeat(seat, def); }
-    else if(def.deskGlb){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; deskVisualMod.swapDeskVisual(seat.desk,sc); setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)deskVisualMod.applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
+    else if(def.deskGlb){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; deskVisualMod.swapDeskVisual(seat.desk,sc); deskPlaceMod.setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)deskVisualMod.applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
     else { deskVisualMod.applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
     // ★ 새 아이템 목록을 적용하기 전에 기존에 붙어있던 아이템을 먼저 확실히 뗌 — 이 단계가 없어서
     //   실행 중인 캐릭터를 우클릭으로 수정할 때(특히 아이템을 끄거나 다른 걸로 바꿀 때) 예전 아이템이
@@ -8250,7 +8250,7 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   renderLauncher: (...a)=>renderLauncher(...a),
   rideBenchMod: rideBenchMod,
   seats: seats,
-  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
+  setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
   swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
   toast: (...a)=>toast(...a),
   unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
@@ -8271,7 +8271,7 @@ const deskVisualMod = TwDeskVisual.createDeskVisual({
   commissionMod: commissionMod,
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
-  setDeskScale: (...a)=>setDeskScale(...a),
+  setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   toast: (...a)=>toast(...a),
 });
 /* (구역 떼기 C · w2) 이 자리의 본문도 character/catalog-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -8297,89 +8297,21 @@ async function loadSavedItemsIntoSession(){
 }
 
 /* (구역 떼기 C · w2) 이 자리의 본문도 character/desk-visual.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-// ★ 어플 3-1: 책상 길이(X축) 슬라이더 지원 — deskGroup.scale에서 X만 lenX배로 더 늘리거나 줄임.
-//   기존 uniform scale은 그대로 유지되므로 기존 저장 데이터/코드 호환.
-//   ★ 책상 위 아이템(deskAnchor 자식)은 같이 늘어나면 안 되므로 deskAnchor에 역스케일(1/lenX)을 걸어서
-//     책상만 X로 늘어나고 아이템 크기/위치는 그대로 유지되게 함(요청사항).
-function setDeskScale(deskGroup,scale,lenX){ if(!deskGroup) return;
-  // 🐾 동물 좌석은 책상도 캐릭터와 같은 비율(ANIMAL_RUN_SCALE = 40%)로 축소 —
-  //   applyCharToSeat가 seat.desk.userData.animCorr에 심어둠.
-  //   ⚠️ 이 주석은 예전에 "60%"라고 적혀 있었다. 코드는 처음부터 ANIMAL_RUN_SCALE(0.4)이었다 —
-  //     숫자를 여기 적지 말고 상수를 보라. 그 낡은 숫자 때문에 꾸미기 미리보기의 비율 검토가
-  //     한 번 잘못됐다(아래 참고).
-  //   곱셈을 여기 한 곳에서 하는 이유: 좌석 책상 적용 경로가 기본 책상·카탈로그 책상·커스텀 GLB로 나뉘고
-  //   일부는 비동기라, 호출처마다 붙이면 반드시 빠지는 곳이 생김. 생성기(cDesk)·런처(lHolder.desk)는
-  //   animCorr가 없으므로 1 — 즉 생성기는 동물 100%+책상 100%, 실행은 40%+40%로 비율이 일치함.
-  //   ★ 예외: 꾸미기/보관함 미리보기(_wdDeskGrp)는 이 함수를 타지 않고, 캐릭터가 40%로 들어오므로
-  //     그쪽에서 ANIMAL_RUN_SCALE을 직접 곱한다(refreshWdPreviewChar의 _wdAnim). 규약이 다르다.
-  /* ⚠️ scale 을 안 주고 부르는 경우가 있다(평준화 재적용). 그때 (scale||1) 로 읽으면 모르는 값이
-       1 로 굳어 책상이 통째로 커진다 — 아래 deskScaleBase 저장까지 같이 1 로 덮여 원본이 영영 사라진다.
-       안 주면 **기억해둔 원본**을 쓰고, 그것도 없으면 1(첫 호출이라 달리 알 길이 없다). */
-  const _base = (scale != null) ? scale : deskGroup.userData.deskScaleBase;
-  const s = (_base||1) * (deskGroup.userData.animCorr || 1) * (deskGroup.userData.eqK || 1);
-  const lx = (lenX!=null) ? lenX : (deskGroup.userData.deskLenX || 1);
-  deskGroup.scale.set(s*lx, s, s);
-  deskGroup.userData.deskLenX = lx;
-  /* 🪑 평준화가 켜지고 꺼질 때 def 없이도 다시 걸 수 있게 '원래 크기'를 기억해 둔다
-     (syncSeatEqualize 가 이 값으로 재호출한다). 호출부 다섯 곳이 저마다 다른 곳에서 deskScale 을
-     꺼내 오기 때문에, 되돌릴 값을 여기 한 곳에 남기는 편이 안전하다.
-     ⚠️ scale 을 안 받은 호출(평준화 재적용)에서는 **갱신하지 않는다.** 그때 쓴 값은 원본이 아니라
-     여기 기억해둔 값 자신이고, 모르는 상태(undefined)를 1 로 굳히면 되돌릴 원본이 사라진다. */
-  if(scale != null) deskGroup.userData.deskScaleBase = (scale||1);
-  const anchor = deskGroup.userData.deskAnchor;
-  if(anchor){ anchor.scale.set(1/lx, 1, 1); }   // 아이템은 부모의 X 스트레치를 상쇄
-  /* 🐾 앞뒤 보정도 여기서 다시 건다 — `animCorr`·`eqK` 가 화면에 반영되는 **유일한 길목**이
-     이 함수다(applyCharToSeat 가 userData 에 심어두면 여기서 처음 곱해진다). 캐릭터에서 뺀
-     배율의 몫이 곧 책상의 z 이므로, 배율이 바뀌는 순간 z 도 함께 바뀌어야 한다.
-     📌 파츠 핀의 상쇄량은 **배율로 나눈 값**이라 크기가 바뀌면 같이 다시 계산해야 한다 —
-       syncSeatDeskZ 가 끝에서 syncDeskPartAnchor 를 부르므로 그 줄이 여기에 흡수됐다.
-       (예전엔 여기서 syncDeskPartAnchor 를 직접 불렀다. 빠지면 책상 크기 슬라이더를
-        만지는 순간 파츠만 어긋난다.) */
-  syncSeatDeskZ(deskGroup);
-}
-// ★ 어플 9 (미리보기가 정답 기준으로 확정된 뒤로) 이 시각 보정은 제거됨 — 미리보기와 실행 화면이
-//   동일한 setDeskScale 공식을 쓰게 두는 것이 옳음. 이 상수를 예전엔 1.2로 두어 미리보기 책상을
-//   실행보다 20% 크게 그렸는데, 그 결과 "실행 화면이 미리보기보다 작다"는 인식이 생김.
-const CREATOR_DESK_VISUAL_OFFSET = 1;
-function setCreatorDeskScale(scale){ setDeskScale(crState.cDesk, (scale||1) * CREATOR_DESK_VISUAL_OFFSET, crState.cDeskLenX); }
+/* 본문은 character/desk-place.js 로 옮겼다(구역 떼기 C · w2).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const deskPlaceMod = TwDeskPlace.createDeskPlace({
+  CHAR_Z: CHAR_Z,
+  DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
+  DESK_SCALE_MAX: DESK_SCALE_MAX,
+  DESK_SCALE_MIN: DESK_SCALE_MIN,
+  crState: crState,
+});
 /* ═══ 📌 책상 위 파츠 앵커 · 책상 위치 · 배율 ═══ */
-/* 🪑📌 '책상 위' **파츠**가 붙는 자리 — deskAnchor 안의 작은 자식 하나.
-   [무엇을 푸는가] 생성기에서 책상 위치 기즈모로 책상을 옮기면 파츠보관함의 '책상 위' 파츠까지
-     따라 움직였다(제보). 파츠의 자리는 보관함 상세조정(xf)에서만 정하고 싶다는 요청이다.
-   [어떻게] 파츠를 deskAnchor 대신 이 핀에 붙이고, 핀의 로컬 좌표로 **책상 위치 오프셋만**
-     정확히 상쇄한다. 결과적으로 파츠의 월드 자리는 deskPos 와 무관해진다.
-   ★ 위치 상쇄만이 아니라 **크기 상쇄도 한다** — 아래 '크기' 절 참고.
-   ★ 책상 위 **아이템(소품)** 은 예전 그대로 deskAnchor 에 붙어 책상을 따라간다 — 소품은
-     생성기 아이템 기즈모로 책상 기준으로 놓는 물건이라 규약이 다르다.
-   ⚠️ deskPos 가 0 이고 책상 크기가 기본값이면 **예전과 완전히 같은 화면**이다. 이미 책상을 옮겨
-     두거나 크기를 바꿔 두고 그 위에 파츠를 얹어 둔 사람만 파츠가 옛 자리·옛 크기에 남는다 —
-     보관함에서 한 번 다시 잡아야 한다. 이 변경의 유일한 대가다.
-
-   ── 크기 ──────────────────────────────────────────────────────
-   [무엇을 푸는가] 생성기에서 책상 크기 슬라이더를 움직이면 '책상 위' 파츠까지 같이 커지고
-     작아졌다. 파츠 크기는 보관함 상세조정(xf)에서만 정하고 싶다는 요청이다.
-   ⛔ 폐기된 지침 — 예전 주석: "상쇄만 한다 — 크기는 그대로 물려받는다. 그것까지 끊으면 책상 위
-     파츠가 책상과 다른 배율로 떠서 완전히 다른 사고가 된다."
-     그 경고 자체는 옳다. 다만 그것은 **배율을 통째로 1 로 끊는 경우**의 이야기다 —
-     슬라이더 값이 곧 책상 그룹의 배율이라(범위 0.05~0.3, 기본 0.175) 통째로 끊으면 파츠가
-     약 5.7 배로 커진다. 그건 이미 겪은 사고다(refreshWdPreviewChar 주석의 "미리보기에서는
-     엄청나게 큰데 실제 화면에서는 정상").
-   [해법] 통째로가 아니라 **기본값에서 움직인 몫만** 끊는다: ratio = 기본값 / 슬라이더값.
-     ・슬라이더가 기본값이면 ratio = 1 → **화면이 한 픽셀도 안 바뀐다**(대부분의 사용자).
-     ・책상을 절반으로 줄이면 ratio = 2 → 파츠는 기본 크기를 유지한다.
-   ★ animCorr(동물 40%)·eqK(평준화)·lx(책상 길이)는 **그대로 물려받는다.** 그건 사용자가 정한
-     '책상 크기'가 아니라 좌석 규약이 거는 배율이다. 여기서 같이 끊으면 동물 좌석에서만
-     파츠가 2.5 배로 뜬다 — 그게 위 ⛔ 경고가 말한 '완전히 다른 사고'다.
-   ★ 위치도 같은 비율로 함께 산다 — pin.scale 은 자식의 로컬 좌표(파츠 xf)에도 걸리므로,
-     책상을 줄여도 파츠가 얹혀 있던 자리에 그대로 머문다. 크기만 지키고 자리는 따라가면
-     파츠가 책상 밖으로 밀려나므로 이쪽이 맞다.
-   ⚠️ deskScaleBase 는 setDeskScale 이 심는다. 그 경로를 안 타는 화면(꾸미기/보관함 미리보기)은
-     자기가 직접 심어 둔다 — 없으면 ratio = 1 이라 조용히 예전 동작으로 떨어진다. */
-const DESK_PART_ANCHOR_NAME = '__deskPartAnchor';
+/* (구역 떼기 C · w2) 이 자리의 본문도 character/desk-place.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* 본문은 character/seat-eq-clamp.js 로 옮겼다(구역 떼기 C · wAC). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
-  DESK_PART_ANCHOR_NAME: DESK_PART_ANCHOR_NAME,
+  DESK_PART_ANCHOR_NAME: deskPlaceMod.DESK_PART_ANCHOR_NAME,
   MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
   SPACING: ()=>SPACING,
   seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
@@ -8388,158 +8320,7 @@ const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
   seats: seats,
 });
 const seatSlot = (typeof SeatSlot === 'undefined') ? null : SeatSlot.createSeatSlot({ THREE });
-function syncDeskPartAnchor(deskGroup){
-  if(!deskGroup) return;
-  const anchor = (deskGroup.userData && deskGroup.userData.deskAnchor)
-              || (deskGroup.getObjectByName && deskGroup.getObjectByName('deskAnchor'));
-  if(!anchor || !anchor.getObjectByName) return;
-  const pin = anchor.getObjectByName(DESK_PART_ANCHOR_NAME);
-  if(!pin) return;                       // 아직 파츠가 안 붙었다 — 만들 때 여기로 다시 온다
-  /* 📐 크기 상쇄 — 슬라이더가 기본값에서 움직인 몫만 되돌린다(위 '크기' 절).
-     ⚠️ 위치 상쇄보다 **먼저** 건다. 아래에는 deskPosBase 가 없을 때의 이른 return 이 있는데,
-       크기를 그 뒤에 걸면 '책상을 한 번도 안 옮긴 사람'만 크기 상쇄를 못 받는다. */
-  const _sBase = deskGroup.userData && deskGroup.userData.deskScaleBase;
-  /* ⚠️ 슬라이더 범위 밖의 값은 **손대지 않는다**(ratio = 1 = 예전 동작).
-       호출부 여러 곳이 `def.deskScale||1` 로 폴백하는데, 그 1 은 '기본 크기'가 아니라
-       '값을 모른다'는 뜻이다(기본은 DESK_SCALE_DEFAULT = 0.175). 그걸 슬라이더 값으로 믿고
-       상쇄하면 파츠가 0.175 배로 쪼그라든다. 범위 안일 때만 = 슬라이더가 실제로 정한 값일 때만 건다. */
-  const _ratio = (typeof _sBase === 'number' && isFinite(_sBase)
-                  && _sBase >= DESK_SCALE_MIN && _sBase <= DESK_SCALE_MAX)
-               ? (DESK_SCALE_DEFAULT / _sBase) : 1;
-  pin.scale.set(_ratio, _ratio, _ratio);
-  const b = deskGroup.userData && deskGroup.userData.deskPosBase;
-  if(!b){ pin.position.set(0,0,0); return; }
-  /* 상쇄할 양은 **책상이 실제로 옮겨간 월드 거리**다 = base × (setDeskPos 가 곱한 배율).
-     ⚠️ 여기서 `userData.eqK` 를 직접 읽지 말 것 — setDeskPos 가 곱하는 값과 한 글자라도
-       갈리면 그 차이만큼 파츠가 책상을 따라 움직인다. animCorr 을 더할 때 실제로 그랬다. */
-  const k = seatDeskPosMul(deskGroup);
-  /* 부모 사슬의 배율로 나눠야 로컬 이동량이 된다. 사슬은 책상 그룹(s·lx) → 앵커(1/lx) 둘뿐이고
-     회전은 없다 — 그래서 성분별 나눗셈으로 정확히 상쇄된다(둘을 곱하면 lx 가 약분돼 s 만 남는다). */
-  const sx = (deskGroup.scale.x || 1) * (anchor.scale.x || 1);
-  const sy = (deskGroup.scale.y || 1) * (anchor.scale.y || 1);
-  const sz = (deskGroup.scale.z || 1) * (anchor.scale.z || 1);
-  pin.position.set(-(+b.x||0)*k/(sx||1), -(+b.y||0)*k/(sy||1), -(+b.z||0)*k/(sz||1));
-}
-/* 파츠를 붙일 핀을 얻는다(없으면 만든다). 좌석·생성기·런처·꾸미기 미리보기가 전부 이 길로 온다 —
-   holder 마다 만들어 두지 않고 여기서 지연 생성하는 이유는, 앵커를 만드는 자리가 네 군데라
-   하나만 빠뜨려도 그 화면에서만 파츠가 사라지기 때문이다. */
-function deskPartAnchorOf(seat){
-  const anchor = seat && seat.deskAnchor;
-  if(!anchor) return null;
-  let pin = anchor.getObjectByName && anchor.getObjectByName(DESK_PART_ANCHOR_NAME);
-  if(!pin){
-    pin = new THREE.Group();
-    pin.name = DESK_PART_ANCHOR_NAME;
-    anchor.add(pin);
-  }
-  syncDeskPartAnchor(anchor.parent);   // 앵커의 부모가 곧 책상 그룹이다
-  return pin;
-}
-
-/* 🪑 책상 위치 — 좌석 원점(캐릭터 발밑) 기준 오프셋.
-   ★ 크기(setDeskScale)와 **따로** 둔다. 스케일은 deskGroup.scale 을 건드리고 여기는 position 만
-     건드리므로 서로 안 밟는다. 둘을 한 함수로 합치면 호출처마다 다른 쪽 값을 같이 넘겨야 해서
-     반드시 한 군데를 빠뜨린다(deskLenX 가 실제로 그랬다).
-   ⚠️ 책상 위 **아이템(소품)** 은 deskAnchor 의 자식이라 **저절로 같이 따라온다.**
-     여기서 따로 옮기지 말 것 — 옮기면 두 번 더해진다.
-   📌 '책상 위' **파츠**는 반대로 따라오면 안 된다 — 아래 syncDeskPartAnchor 가 상쇄한다. */
-function setDeskPos(deskGroup, pos){
-  if(!deskGroup) return;
-  const p = pos || {};
-  /* 🪑 위치 오프셋도 크기와 **같은 배율**을 지나야 한다(seatCharZ 의 그 이유와 같다).
-     책상을 옮겨둔 사람만 평준화에서 그 오프셋이 원래 크기로 남아 캐릭터와의 거리가 어긋난다.
-     ★ 되돌릴 원본은 여기 기억해 둔다 — setDeskScale 의 deskScaleBase 와 같은 규약이고,
-       syncSeatEqualize 가 k 가 바뀔 때 이 값으로 다시 건다.
-     ★ 생성기(cDesk)·런처(lHolder.desk)는 animCorr·eqK 가 없어 곱셈이 1 — 예전과 완전히 같다.
-
-     🐾 [제보] **동물 캐릭터를 책상 기즈모로 옮기면 실행 화면에서 더 뒤로 가 있었다.**
-       '같은 배율'이 여기서 **eqK 하나뿐**이었던 것이 원인이다. 크기 쪽(setDeskScale)은
-       `animCorr × eqK` 둘 다 지나는데 위치만 eqK 만 지났다 → 동물 좌석은 캐릭터 40% ·
-       책상 40% 인 세계인데 **옮긴 양만 100% 단위로** 들어가 화면에서 정확히 2.5배가 됐다.
-       (실측: deskPos.z = −0.2 → 생성기 간격 0.270 인데 실행은 환산 −0.030 = 책상이 캐릭터 뒤로 넘어감.
-        어긋남 = 1.5 × deskPos. **deskPos 가 0 인 좌석에서만 0** 이라 여태 안 보였다.)
-     ★ 이 곱셈이 들어오면 실행 간격이 정확히 `animCorr × eqK ×` 생성기 간격이 된다 —
-       좌석 전체가 그 배율로 줄어든 세계이므로 이게 맞는 값이다(syncSeatDeskZ 의 유도 참고).
-     ⚠️ 배율은 **base 에 굽지 않는다.** deskPosBase 는 언제나 생성기가 정한 100% 단위 원본이고,
-       화면 값만 여기서 곱한다. 구우면 열 때마다 0.4 가 누적돼 책상이 캐릭터에 붙는다.
-     ⚠️ 이 곱셈은 **네 자리가 한 벌**이다 — 여기 · syncSeatDeskZ · syncDeskPartAnchor(상쇄) ·
-       꾸미기 미리보기(_wdDeskGrp 의 deskPos 세 줄). 하나만 고치면 파츠만 어긋난다. */
-  const base = { x:+p.x||0, y:+p.y||0, z:+p.z||0 };
-  deskGroup.userData.deskPosBase = base;
-  const k = seatDeskPosMul(deskGroup);
-  deskGroup.position.set(base.x*k, base.y*k, base.z*k);
-  /* 🐾 z 만은 여기서 끝나지 않는다 — 캐릭터에서 뺀 배율의 몫이 얹힌다. syncSeatDeskZ 가
-     position.z 를 다시 쓰고 파츠 상쇄(syncDeskPartAnchor)까지 이어서 한다. */
-  syncSeatDeskZ(deskGroup);
-}
-/* 🐾🪑 캐릭터에서 뺀 배율(동물 0.4 · 평준화 k)의 **몫을 책상이 대신 진다**.
-
-   [무엇을 푸는가] seatCharZ 주석 참고 — 좌석마다 다른 깊이에 서면 발선이 갈린다.
-     그래서 캐릭터는 CHAR_Z 로 고정하고, 그때 잃은 간격을 책상을 옮겨서 되찾는다.
-
-   [공식] 간격은 그대로 두고 기준만 옮긴다.
-       옛 간격 = deskZ_old − CHAR_Z·a·k = base.z·a·k − CHAR_Z·a·k
-       새 간격 = deskZ_new − CHAR_Z
-     둘이 같으려면   deskZ_new = base.z·a·k + CHAR_Z·(1 − a·k)
-                                              └─ 보정항 ─┘
-     ★ 정리하면 **실행 간격 = a·k × (base.z − CHAR_Z) = a·k × 생성기 간격.** 좌석 전체가 a·k 로
-       줄어든 세계이므로 이 형태가 맞다는 것이 눈으로 확인된다(그 검산이 sim-char-z §3 이다).
-     🐾 base.z 의 `a` 는 나중에 붙었다 — 예전엔 `base.z·k` 였고, 그래서 책상을 옮겨둔 **동물**
-       좌석만 옮긴 양이 2.5배로 들어갔다(setDeskPos 의 제보 주석 참고). deskPos 가 0 이면
-       두 식이 같으므로 그때까지 아무에게도 안 보였다.
-   ★ **사람 + 평준화 꺼짐(a=1·k=1) 이면 보정항이 정확히 0** — 가장 흔한 경우는 한 픽셀도
-     안 움직인다. 이 성질이 이 변경의 안전판이다. 회귀가 나면 동물이거나 평준화가 켜진 좌석뿐이다.
-   ★ 생성기(cDesk) · 런처(lHolder.desk) 는 animCorr·eqK 가 아예 없어 보정항이 0 이다 —
-     예전과 완전히 같은 화면이다. 그래서 "실행이 생성기 규약으로 합류하는 것"이지
-     생성기가 바뀌는 게 아니다.
-
-   ⚠️ **deskPosBase 를 절대 건드리지 않는다.** 보정항은 파생값이고, base 에 더하면 유저가
-     옮겨둔 값에 보정이 누적 저장되어 열 때마다 책상이 더 밀린다
-     (setDeskScale 의 deskScaleBase 가 같은 이유로 조심스럽게 짜여 있다 — 그 주석 참고).
-   ⚠️ base 가 아직 없으면서 보정항도 0 이면 **position.z 를 아예 안 건드린다.**
-     기즈모 드래그처럼 setDeskPos 를 안 타고 position 을 직접 쓰는 경로(생성기)를
-     0 으로 덮지 않기 위한 것이다. */
-function seatDeskZCorr(deskGroup){
-  const ud = deskGroup && deskGroup.userData;
-  if(!ud) return 0;
-  const a = +ud.animCorr, k = +ud.eqK;
-  const A = (isFinite(a) && a > 0) ? a : 1;      // 없으면(undefined) 1 — 사람·생성기·런처
-  const K = (isFinite(k) && k > 0) ? k : 1;
-  return CHAR_Z * (1 - A*K);
-}
-/* 🐾🪑 **책상 위치 오프셋(deskPos)이 지나는 배율 — 이 앱에서 이 값을 정하는 곳은 여기 하나다.**
-   `deskPos` 는 생성기에서 정한 값이고 생성기는 캐릭터 100% · 책상 100% 다. 실행 화면의 좌석은
-   그 세계를 `animCorr × eqK` 로 줄인 것이므로, **옮긴 거리도 같은 배율로 줄어야** 생성기에서
-   본 자리가 그대로 재현된다. 크기(setDeskScale)가 두 곱셈을 다 지나는 것과 같은 이유다.
-   ★ 읽는 자리가 셋이다 — setDeskPos(x·y·z) · syncSeatDeskZ(z) · syncDeskPartAnchor(파츠 상쇄).
-     셋이 같은 값을 봐야 하므로 함수로 묶어 둔다. 예전엔 `userData.eqK || 1` 을 세 곳에 각각
-     적어 뒀는데, 그래서 `animCorr` 을 더할 때 세 곳을 다 고쳐야 했다(그게 이 제보의 정체다).
-   ★ 없으면 1 — 생성기(cDesk)·런처(lHolder.desk)·def 가 아직 안 얹힌 좌석은 예전과 똑같다.
-   ⚠️ 꾸미기 미리보기(_wdDeskGrp)는 userData 가 아니라 `_wdAnim` 을 직접 곱한다(그쪽 규약).
-     값은 같아야 한다 — 한쪽만 고치면 미리보기와 실행이 갈린다. */
-function seatDeskPosMul(deskGroup){
-  const ud = deskGroup && deskGroup.userData;
-  if(!ud) return 1;
-  const a = +ud.animCorr, k = +ud.eqK;
-  const A = (isFinite(a) && a > 0) ? a : 1;
-  const K = (isFinite(k) && k > 0) ? k : 1;
-  return A*K;
-}
-function syncSeatDeskZ(deskGroup){
-  if(!deskGroup) return;
-  const b = deskGroup.userData && deskGroup.userData.deskPosBase;
-  const corr = seatDeskZCorr(deskGroup);
-  if(b || corr !== 0){
-    const k = seatDeskPosMul(deskGroup);
-    deskGroup.position.z = ((b ? (+b.z||0) : 0) * k) + corr;
-  }
-  /* 📌 '책상 위' 파츠 — 상쇄량은 **deskPosBase 만** 본다(보정항은 안 본다).
-     보정항은 좌석 전체가 함께 뒤로 물러난 양이므로 파츠도 같이 따라가는 게 맞다.
-     따라가지 않으면 동물 좌석에서만 파츠가 0.282 앞에 남아 뜬다.
-     ⚠️ syncSeatDeskZ 를 부르는 경로(setDeskPos·setDeskScale·syncSeatEqualize·applyCharToSeat)는
-       이 한 줄 덕분에 파츠 상쇄를 따로 챙길 필요가 없다. 여기서 빼지 말 것. */
-  syncDeskPartAnchor(deskGroup);
-}
+/* (구역 떼기 C · w2) 이 자리의 본문도 character/desk-place.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 📦 복제 코드 불러오기 · 내보내기 · 풀 GLB ═══ */
 /* 본문은 char-code.js 로 옮겼다(앱 FSD 38번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
