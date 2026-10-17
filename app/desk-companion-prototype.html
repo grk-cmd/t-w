@@ -1509,7 +1509,9 @@
   #creatorOverlay{position:fixed;inset:0;z-index:var(--z-work);display:none;align-items:center;justify-content:center;
     background:rgba(0,0,0,.35);}
   #creatorOverlay.on{display:flex;}
-  /* 편집 중에도 마이홈 · 방명록은 숨기지 않는다 — 편집창도 창 쌓기라 열면 맨 앞, 누른 창이 앞(B-1016-4). 편집 중 여는 대화상자는 창 층 표의 대화상자 층(창 쌓기 위)이라 깔리지 않는다. */
+  /* 캐릭터 편집이 켜진 동안 마이홈 · 방명록 창을 숨긴다(#258 의 의도 · B-1016-4) — 편집창 위로 비쳐 보였다. 닫는 곳이 여럿이라 CSS 로 건다.
+     앞뒤 순서는 창 층 표 · 창 쌓기가 정한다(편집도 창 쌓기 · 대화상자는 그 위) — 여기서는 숨기기만. */
+  body:has(#creatorOverlay.on) #myHomeOverlay, body:has(#creatorOverlay.on) #mhGbOverlay{visibility:hidden;}
   /* 회원 탈퇴를 누르면 계정 탭(로그인 수단 ~ 로그아웃)을 탈퇴 안내로 바꿔 보인다 — 아래에 덧붙이면 화면이 너무 길어졌다. 켜고 끄기는 my-info.js */
   #acctLoggedIn.acct-deleting > :not(#acctDeleteZone){display:none !important;}
   #acctLoggedIn.acct-deleting #acctDeleteZone{margin-top:0 !important;padding-top:0 !important;border-top:none !important;}
