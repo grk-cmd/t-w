@@ -1,7 +1,7 @@
 /* 🧪 1번 검증 — 모자 파츠를 끼고 벗어도 '머리 꼭대기' 측정값이 안 흔들리는가.
    app.js 에서 해당 함수 원문만 뽑아 최소 THREE 스텁 위에서 돌린다(파일 수정 없이 실제 코드를 평가). */
 const fs = require('fs');
-const src = fs.readFileSync((process.argv[2] || __dirname + '/app.js'), 'utf8');
+const src = require('./sim-renderer-src.js').joinRenderer(fs.readFileSync((process.argv[2] || __dirname + '/app.js'), 'utf8'));   // 옮긴 모듈(char-measure.js 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다(판정 무변경)
 
 // ── 원문 추출: HEAD_DECOR_MESH_KEYS 선언부터 measureHeadBoxNoParts 끝까지
 const start = src.indexOf("const HEAD_DECOR_MESH_KEYS");

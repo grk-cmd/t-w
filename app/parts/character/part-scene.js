@@ -41,6 +41,9 @@ async function getPartScene(rec){
 }
 // 파츠 도트 썸네일 — 등록 · 편집 때 32×32 정면으로 구워 rec.thumbnail(PNG)에 채운다(카드는 CSS pixelated 로 키움).
 const THUMB_SIZE = 32;
+const THUMB_MARGIN = 0.55;            // 가장 긴 변 × 이 값 = 프레이밍 반폭(여백 약 10%)
+const THUMB_LIGHT_MUL_MAX = 1.5;      // 광량 배율 상한
+const THUMB_KEY_POS = [1, 2.5, 2];    // 키 라이트 자리 — 비스듬히 위
 let _thumbRenderer = null, _thumbScene = null, _thumbCam = null;
 function _ensureThumbRig(){
   if(_thumbRenderer) return;
@@ -56,12 +59,12 @@ function _ensureThumbRig(){
      ⚠️ 흰 파츠가 뭉개지면 THUMB_FRONT_TOTAL 만 내린다. 썸네일은 구워 둔 것이라 값을 바꾸면 generateAllPartThumbnails(true) 로 다시 굽는다. */
   const THUMB_FRONT_TOTAL = TONE_FRONT_TOTAL;   // 장착 화면과 같은 총합
   const _THUMB_LIGHT_AT_1 = (0.95 * _MAIN_LIGHT_INT) + (_MAIN_LIGHT_INT * _KEY_LIGHT_MUL);
-  const THUMB_LIGHT_MUL = Math.max(0, Math.min(1.5,
+  const THUMB_LIGHT_MUL = Math.max(0, Math.min(THUMB_LIGHT_MUL_MAX,
     (THUMB_FRONT_TOTAL - FLAT_EMISSIVE) / (_THUMB_LIGHT_AT_1 || 1)));
   _thumbScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT * THUMB_LIGHT_MUL));
   const key = new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL * THUMB_LIGHT_MUL);
   /* 정수리 위에서 비추면 정면이 어둡고, 정면에서 비추면 음영이 사라져 납작하다 — 비스듬히 위에서 준다. */
-  key.position.set(1, 2.5, 2); _thumbScene.add(key);
+  key.position.set(...THUMB_KEY_POS); _thumbScene.add(key);
   _thumbCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
   _thumbCam.position.set(0, 0, 3);
   _thumbCam.lookAt(0, 0, 0);
@@ -90,7 +93,7 @@ async function generatePartThumbnail(rec){
     // 오브젝트를 원점 중앙에 위치시키기
     obj.position.sub(center);
     // 카메라 프레이밍 — 오브젝트가 딱 맞게 들어오도록 스케일 조정
-    const half = maxDim * 0.55;   // 여백 10% 정도
+    const half = maxDim * THUMB_MARGIN;
     _thumbCam.left = -half; _thumbCam.right = half;
     _thumbCam.top = half; _thumbCam.bottom = -half;
     _thumbCam.updateProjectionMatrix();

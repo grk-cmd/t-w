@@ -9,7 +9,7 @@
    ・4절: 세션 콜백 — onPeers · onMeta · onPeerEvent · onShot 이 창이 닫혀 있어도 안 터진다
    ・5절: app.js 배선 — 정의는 모듈에만 · createPurikuraUi 는 원래 자리(세션 입구 _purikura 뒤 · 🎟️ 하루 횟수 앞) ·
           부르는 곳은 purikuraUi.이름 · 빈 껍데기 · deps 모양 · html 순서 · 전역 이름
-   [실행] purikura-ui.js · purikura-net.js · app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서. */
+   [실행] purikura-ui.js · purikura-net.js · ps1-dither.js · app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
@@ -18,7 +18,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['purikura-ui.js', 'purikura-net.js', 'app.js', 'desk-companion-prototype.html', 'chat-window.js', 'myhome-hooks.js'];
+const need = ['purikura-ui.js', 'purikura-net.js', 'ps1-dither.js', 'app.js', 'desk-companion-prototype.html', 'chat-window.js', 'myhome-hooks.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['purikura-ui.js'], NET = SRC['purikura-net.js'];
@@ -102,6 +102,7 @@ function mkEnv(opt){
   ctx.addEventListener = (t, fn) => { (env.winL[t] = env.winL[t] || []).push(fn); };
   ctx.removeEventListener = (t, fn) => { env.winL[t] = (env.winL[t] || []).filter(f => f !== fn); };
   vm.createContext(ctx);
+  vm.runInContext(SRC['ps1-dither.js'], ctx, { filename: 'ps1-dither.js' });   // 🕹️ PS1 필터가 부를 때 읽는 디더 규칙(TwPs1Dither)
   vm.runInContext(NET, ctx, { filename: 'purikura-net.js' });
   vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });
   /* 🎵 마이홈 BGM 고리(myhome-edit.js 가 부팅 때 고리판에 건다) — 여기선 마이홈 BGM 이 안 도는 판 */

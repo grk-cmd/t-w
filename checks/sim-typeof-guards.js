@@ -42,6 +42,7 @@ const EXEMPT = {
   DeskItemOrigin: { why: '책상 아이템 원점 모듈 — 없으면 null' },
   SeatSlot: { why: '좌석 칸 모듈 — 없으면 null' },
   HumanEar: { why: '사람 귀 모듈 — 없으면 null' },
+  cb: { files: ['character/catalog-source.js'], why: 'provider 입구 가드 — 넘겨받은 구독 콜백이 함수인지(값 모양 확인 · 없는 모듈을 «있으면 부르기» 가 아님)' },
 };
 
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');

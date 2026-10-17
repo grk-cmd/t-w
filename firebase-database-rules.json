@@ -797,6 +797,27 @@
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 1000"
       },
+      "apiCors": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".validate": "newData.hasChildren()",
+        "$i": {
+          ".validate": "$i.matches(/^(0|[1-9]|1[0-9])$/) && newData.isString() && newData.val().length <= 200 && newData.val().matches(/^https:\\/\\/[a-z0-9.-]+$/)"
+        }
+      },
+      "apiCache": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "config": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 600" },
+        "count": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 600" },
+        "card": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 600" },
+        "leaderboard": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 600" },
+        "$other": { ".validate": false }
+      },
+      "logLevel": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "api": { ".validate": "newData.isString() && newData.val().matches(/^(error|warn|info|debug)$/)" },
+        "realtime": { ".read": true, ".validate": "newData.isString() && newData.val().matches(/^(error|warn|info|debug)$/)" },
+        "$other": { ".validate": false }
+      },
       "roomServer": {
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         "on": { ".read": true, ".validate": "newData.isBoolean()" },
@@ -828,6 +849,12 @@
           "togetherroom": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1 && newData.val() <= 100000" },
           "$other": { ".validate": false }
         },
+        "frame": {
+          ".read": true,
+          "maxBytes": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 65536 && newData.val() <= 1048576" },
+          "maxSmallBytes": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1024 && newData.val() <= 65536" },
+          "$other": { ".validate": false }
+        },
         "timing": {
           ".read": true,
           "graceMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 600000" },
@@ -836,6 +863,8 @@
           "refreshMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 5000 && newData.val() <= 600000" },
           "joinWaitMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 3000 && newData.val() <= 60000" },
           "clientGiveUpMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 15000 && newData.val() <= 600000" },
+          "roomStatsRefreshMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 5000 && newData.val() <= 600000" },
+          "statsLogMs": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 5000 && newData.val() <= 3600000" },
           "$other": { ".validate": false }
         },
         "$other": { ".validate": false }

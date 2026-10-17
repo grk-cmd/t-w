@@ -674,7 +674,10 @@ function _miCodeLoad(){
         /* 🚪 이 계정에 묶인 코드가 없다 — 게이트 앞의 임시 코드를 묶어주는 대신 그렇게 말한다.
            예전에는 여기서 그 임시 코드를 **묶어버리고** 나서 거절했다. 유저 눈에는 똑같이
            거절 화면이지만, 그 한 번이 원래 컴퓨터의 계정을 빈 계정으로 갈아치우는 씨앗이었다. */
-        if(r.needCode) gm('이 계정에는 아직 연결된 기록이 없어요. 초대 코드로 먼저 입장해 주세요.', false);
+        if(r.needCode){
+          gm('초대 코드를 넣어 주세요', false);
+          window._inviteGateWantGoogle();   // 게이트 버튼은 _showInviteGate 가 연 뒤에만 보인다 — 그때 이미 걸려 있다
+        }
         return;
       }
       if(r.switched){

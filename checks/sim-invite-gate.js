@@ -13,6 +13,7 @@
    【2】 이미 묶인 계정으로 로그인하면 alreadyOwner 로 답하고 도장을 찍는다
    【3】 첫 결속(bound=true)은 자격이 아니다 — 도장이 안 찍힌다
    【4】 게이트를 밖에서 닫는 문(_inviteGatePass)이 열려 있다
+   【5】 초대 코드 전에 처음 본 구글 → «초대 코드를 넣어 주세요» · 코드가 통과하면 그 자리에서 구글 가입으로 이어 간다
 */
 'use strict';
 const _MI_JOIN = require('./sim-renderer-src.js').joinRenderer;   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -50,6 +51,8 @@ const probe = `
   passed: () => { try{ return localStorage.getItem(INVITE_PASS_KEY); }catch(_){ return null; } },
   clearPass: () => { try{ localStorage.removeItem(INVITE_PASS_KEY); }catch(_){} },
   myId: () => getMyUserId(),
+  showGate: () => _showInviteGate(),
+  MY_USER_ID_KEY,
 };`;
 
 const quiet = console.log; console.log = () => {}; console.warn = () => {};
@@ -92,8 +95,41 @@ window.firebaseAPI = api; globalThis.firebaseAPI = api;
   chk(!!handler && /window\._inviteGatePass/.test(handler[0]), '게이트의 구글 버튼이 그 문을 쓴다');
   chk(!!handler && !/relaunch|다시 실행/i.test(handler[0].split('else')[0]),
       'uid 가 안 바뀌었으므로 **재시작을 요구하지 않는다**');
-  const stuck = /이 계정에는 아직 연결된 기록이 없어요/.test(src);
-  chk(stuck, '첫 결속용 안내 문구는 그대로 남아 있다 (그 경우엔 맞는 말이다)');
+
+  say('\n【5】 초대 코드 전에 처음 본 구글을 눌렀을 때');
+  {
+    const byId = id => document.getElementById(id);
+    try{ localStorage.removeItem(G.MY_USER_ID_KEY); }catch(_){}
+    const calls = [];
+    api.authSignInWithGoogle = (tok, code) => {
+      calls.push(code == null ? null : String(code));
+      return Promise.resolve(code == null ? { ok: false, needCode: true, reason: '이 구글 계정에 연결된 기록이 없어요' }
+                                          : { ok: false, reason: '여기까지만 본다' });
+    };
+    api.redeemInvite = () => Promise.resolve({ ok: true });
+    G.showGate();   // 게이트가 열린 채로 둔다(통과할 때까지 안 풀린다)
+    await byId('inviteGateGoogleBtn').onclick();
+    chk(byId('inviteGateLoginMsg').textContent === '초대 코드를 넣어 주세요', '안내는 «초대 코드를 넣어 주세요» 한 줄');
+    chk(calls.length === 1 && calls[0] === null, '이때는 묶지 않는다 (코드를 안 건넨다)');
+    byId('inviteGateInput').value = 'ABCD-1234';
+    await byId('inviteGateOk').onclick();
+    for (let k = 0; k < 20 && calls.length < 2; k++) await new Promise(r => setImmediate(r));
+    chk(calls.length === 2 && !!calls[1], '★ 초대 코드가 통과하면 [구글로 가입]이 이어서 돈다 (가입할 uid 를 건넨다)');
+  }
+  {
+    /* 고친 줄을 되돌리면 빨강이 나는가 — 게이트 버튼이 표시를 안 남기면 구글 가입이 안 이어진다. */
+    const calls = [];
+    api.authSignInWithGoogle = (tok, code) => { calls.push(code); return Promise.resolve({ ok: false, needCode: true }); };
+    const keep = window._inviteGateWantGoogle;
+    G.showGate();
+    window._inviteGateWantGoogle = () => {};
+    await document.getElementById('inviteGateGoogleBtn').onclick();
+    window._inviteGateWantGoogle = keep;
+    document.getElementById('inviteGateInput').value = 'ABCD-1234';
+    await document.getElementById('inviteGateOk').onclick();
+    for (let k = 0; k < 20; k++) await new Promise(r => setImmediate(r));
+    chk(calls.length === 1, '(대조) 표시가 없으면 코드 통과 뒤 구글 가입이 저절로 돌지 않는다');
+  }
 
   say(fail ? '\n✗ ' + fail + '개 실패' : '\n✓ 전부 통과');
   process.exit(fail ? 1 : 0);
