@@ -178,7 +178,7 @@ function renderMyHomeFriendList(){
   if(headCnt) headCnt.textContent = '('+(_notice ? '-' : ids.length)+'/'+FRIEND_MAX+')';
   if(_notice){
     _mhUpdateFriendHit('', 0);
-    list.innerHTML='<div class="mh-fempty">'+escHtml(_notice)+'</div>';
+    list.innerHTML='<div class="mh-fempty" style="white-space:pre-line;">'+escHtml(_notice)+'</div>';   // 안내 두 문장 사이 줄바꿈(friends-sub NOTICE)
     renderMhChat();
     return;
   }

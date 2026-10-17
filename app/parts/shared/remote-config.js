@@ -1,5 +1,5 @@
 /* remote-config.js — ⚙️ 원격 설정: 관리자가 웹 관리자 ⚙️ 설정에서 바꾸는 운영 값 (검사 sim-remote-config.js)
-   [왜] 운영 값(방 상한 · 정원 · 가입 스위치 · 방 서버 · 방 서버 연결 시간 · 최소 버전 · 제보 상한)을 앱 릴리스 없이 바꾸려고.
+   [왜] 운영 값(방 상한 · 정원 · 가입 스위치 · 친구 목록 서버 스위치 · 방 서버 · 방 서버 연결 시간 · 최소 버전 · 제보 상한)을 앱 릴리스 없이 바꾸려고.
      쓰기 원본은 Firebase config/*(웹 관리자가 씀)이고, 우리 API(t-w-server · PostgreSQL)는 그 읽기 전용 사본이다.
      Firebase 요금은 내려받은 바이트라 평소에는 사본(API)에서 읽는다.
    [읽는 차례] API GET /v1/config(로그인 없이 · 몇백 바이트 · data = { version, syncedAt, config }) → 못 받으면(사본 미준비 503 CONFIG_NOT_READY 포함)
@@ -39,18 +39,19 @@ const TIMING_RANGES = Object.freeze({
    허용 목록 · 서버 주소는 쓸 때 한 칸씩(allow/{내 코드} · servers/{이름}). */
 const FALLBACK_PATHS = Object.freeze({
   roomLimits: 'config/roomLimits', roomMaxPeople: 'config/roomMaxPeople',
-  inviteGate: 'config/flags/inviteGate', existingSignup: 'config/flags/existingSignup', bugDailyMax: 'config/bugDailyMax',
+  inviteGate: 'config/flags/inviteGate', existingSignup: 'config/flags/existingSignup', friendsApi: 'config/flags/friendsApi', bugDailyMax: 'config/bugDailyMax',
   minAppVer: 'config/minAppVer', minRoomVer: 'config/minRoomVer',
   rsOn: 'config/roomServer/on', rsDefault: 'config/roomServer/default', rsPercent: 'config/roomServer/defaultPercent',
   rsJoinWait: 'config/roomServer/timing/joinWaitMs', rsGiveUp: 'config/roomServer/timing/clientGiveUpMs',
 });
 const FB_ALLOW = 'config/roomServer/allow/', FB_SERVERS = 'config/roomServer/servers/';
-const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'roomServer', 'roomServerTiming', 'minVersion', 'bugDailyMax'];
+const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'friendsApi', 'roomServer', 'roomServerTiming', 'minVersion', 'bugDailyMax'];
 const DEFAULTS = Object.freeze({
   roomLimits: Object.freeze({ workingroom: 300, togetherroom: 300 }),
   roomMaxPeople: 10,
   inviteGate: true,
   existingSignup: true,
+  friendsApi: true,             // 친구 목록을 서버(GET /v1/me/friends)에서 먼저 받는다 — 끄면 옛 길(Firebase)만(friends-port.js)
   roomServer: Object.freeze({ on: false, default: null, defaultPercent: 0, servers: Object.freeze({}) }),
   roomServerTiming: Object.freeze({ joinWaitMs: TIMING_RANGES.joinWaitMs[2], clientGiveUpMs: TIMING_RANGES.clientGiveUpMs[2] }),
   minVersion: Object.freeze({ app: null, room: null }),
@@ -114,11 +115,11 @@ function clean(key, raw){
   if(key === 'bugDailyMax') return cleanBugDailyMax(raw);
   return cleanFlag(raw, DEFAULTS[key]);
 }
-/* GET /v1/config 의 data → 칸별 원값. flags 는 두 칸으로 편다. */
+/* GET /v1/config 의 data → 칸별 원값. flags 는 세 칸으로 편다. */
 function fieldsOf(data){
   const d = isObj(data) ? data : {};
   const f = isObj(d.flags) ? d.flags : {};
-  return { roomLimits: d.roomLimits, roomMaxPeople: d.roomMaxPeople, inviteGate: f.inviteGate, existingSignup: f.existingSignup,
+  return { roomLimits: d.roomLimits, roomMaxPeople: d.roomMaxPeople, inviteGate: f.inviteGate, existingSignup: f.existingSignup, friendsApi: f.friendsApi,
     roomServer: d.roomServer, roomServerTiming: d.roomServerTiming, minVersion: d.minVersion, bugDailyMax: d.bugDailyMax };
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -186,7 +187,7 @@ function createRemoteConfig(){
     const v = {}; names.forEach((k, i) => { v[k] = vals[i]; });
     if(names.every((k) => v[k] === undefined)) return false;
     const data = { roomLimits: v.roomLimits, roomMaxPeople: v.roomMaxPeople, bugDailyMax: v.bugDailyMax,
-      flags: { inviteGate: v.inviteGate, existingSignup: v.existingSignup },
+      flags: { inviteGate: v.inviteGate, existingSignup: v.existingSignup, friendsApi: v.friendsApi },
       minVersion: { app: v.minAppVer, room: v.minRoomVer },
       roomServer: { on: v.rsOn, default: v.rsDefault, defaultPercent: v.rsPercent, servers: {} },
       roomServerTiming: { joinWaitMs: v.rsJoinWait, clientGiveUpMs: v.rsGiveUp } };
@@ -291,6 +292,7 @@ function createRemoteConfig(){
     maxPeople: () => cur.roomMaxPeople,
     inviteGate: () => cur.inviteGate,
     existingSignup: () => cur.existingSignup,
+    friendsApi: () => cur.friendsApi,
     roomServer: () => cur.roomServer,
     roomServerTiming: () => cur.roomServerTiming,
     minAppVer: () => cur.minVersion.app,

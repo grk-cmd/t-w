@@ -1,5 +1,6 @@
 /*
  * 계정 삭제 — 웹 관리자가 부르는 adminDeleteAccount(호출형)의 로직. 개인정보 처리방침 8항(요청 시 서버 데이터 · 로그인 계정 삭제).
+ *   앱 [내 정보 › 계정 › 회원 탈퇴]가 부르는 deleteMyAccount(본인 탈퇴)도 같은 계획 · 실행을 쓴다 — 대상만 «로그인한 본인» 으로 정한다.
  *   입력 { code, dryRun } — code 는 사용자 코드(u…) 또는 친구 코드(MATE-XXXX · COZY-XXXX · 뒤 4자리).
  *   dryRun 이면 지울 것을 세어 돌려주기만 하고, 아니면 Storage → 로그인 계정 → DB(+ 작업 기록) 순서로 지운다.
  * 순서가 이런 이유: DB 를 먼저 지우면 userAuth/{코드}(로그인 계정 uid)가 사라져 중간에 실패했을 때 다시 찾을 수 없다.
@@ -16,6 +17,10 @@ const FRIEND_CODE_PREFIXES = ['MATE', 'COZY'];
 const SAFE_KEY_RE = /^[^.#$\[\]\/]{1,128}$/;
 const ADMIN_LOG = 'adminLog';
 const LOG_ACTION = 'account.delete';
+const SELF_LOG_ACTION = 'account.selfDelete';
+// 본인 탈퇴는 이 글자를 그대로 보낼 때만 지운다 — 앱 account-delete-net.js DELETE_CONFIRM_WORD 와 같아야 한다.
+const SELF_CONFIRM_WORD = '탈퇴';
+const ONLINE_WARNING = '지금 접속 중이에요 — 앱이 켜져 있으면 지운 뒤 일부를 다시 쓸 수 있어요';
 const LOG_TARGET_MAX = 60;
 const LOG_DETAIL_MAX = 120;
 // 친구 · 요청이 비정상적으로 많아도 함수 한 번에 끝나게 자른다(잘리면 경고로 알린다).
@@ -231,7 +236,7 @@ async function planAccountDelete(db, code, deps, viaFc){
   if (noBucket) warnings.push('Storage 버킷이 없는 프로젝트라 파일은 건너뛰었어요');
 
   const dbPaths = pruneNested(GROUPS.flatMap(([k]) => groups[k]));
-  if (online === true) warnings.push('지금 접속 중이에요 — 앱이 켜져 있으면 지운 뒤 일부를 다시 쓸 수 있어요');
+  if (online === true) warnings.push(ONLINE_WARNING);
   return {
     code,
     friendCode: fcs[0] || null,
@@ -277,7 +282,7 @@ function logId(nowMs, rand){
 }
 
 /* 지운다. deps: deleteFile(name) · deleteAuthUser(uid) · serverNow(). 작업 기록은 DB 삭제와 같은 update 에 싣는다. */
-async function executeAccountDelete(db, plan, deps, by, nowMs){
+async function executeAccountDelete(db, plan, deps, by, nowMs, action){
   const names = plan.storage.flatMap((s) => s.files);
   const failed = [];
   await inChunks(names, async (n) => { try { await deps.deleteFile(n); } catch (e) { failed.push(n); } });
@@ -295,7 +300,7 @@ async function executeAccountDelete(db, plan, deps, by, nowMs){
   patch[ADMIN_LOG + '/' + id] = {
     at: deps.serverNow(),
     by,
-    action: LOG_ACTION,
+    action: action || LOG_ACTION,
     target: plan.code.slice(0, LOG_TARGET_MAX),
     detail: logDetail(plan.dbPaths.length, names.length, authDeleted),
   };
@@ -319,6 +324,34 @@ async function handleAdminDeleteAccount(db, request, deps, nowMs){
   if (dryRun || out.empty) return out;
   out.done = await executeAccountDelete(db, plan, deps, auth.uid, nowMs);
   console.log('[adminDeleteAccount]', JSON.stringify({ by: auth.uid, code: plan.code, ...out.done }));
+  return out;
+}
+
+/* 본인 탈퇴 — 로그인한 사람이 자기 계정을 지운다. 대상은 입력이 아니라 로그인 계정이 묶인 코드 하나다
+   (authUsers/{로그인}.userCode 와 userAuth/{코드} 가 서로를 가리킬 때만 — 한쪽만 맞으면 남의 코드일 수 있다).
+   dryRun 을 false 로 분명히 보내고 confirm 이 «탈퇴» 일 때만 지운다. 앱은 부르기 전에 DB 연결을 끊어서
+   «접속 중» 경고는 본인에게 보여 주지 않는다. */
+async function handleSelfDeleteAccount(db, request, deps, nowMs){
+  const auth = request && request.auth;
+  if (!auth || !auth.uid) throw fail('unauthenticated', '로그인이 필요해요');
+  const provider = auth.token && auth.token.firebase && auth.token.firebase.sign_in_provider;
+  if (provider === 'anonymous') throw fail('failed-precondition', '가입을 마친 계정만 탈퇴할 수 있어요');
+  if (!SAFE_KEY_RE.test(auth.uid)) throw fail('permission-denied', '이 계정의 주인으로 확인되지 않았어요');
+
+  const data = (request && request.data) || {};
+  const dryRun = data.dryRun !== false;
+  if (!dryRun && data.confirm !== SELF_CONFIRM_WORD) throw fail('invalid-argument', '확인 글자 «' + SELF_CONFIRM_WORD + '» 를 그대로 입력해 주세요');
+
+  const code = (await db.ref('authUsers/' + auth.uid + '/userCode').get()).val();
+  if (typeof code !== 'string' || !USER_CODE_RE.test(code)) throw fail('failed-precondition', '이 로그인에 연결된 계정이 없어요');
+  if ((await db.ref('userAuth/' + code).get()).val() !== auth.uid) throw fail('permission-denied', '이 계정의 주인으로 확인되지 않았어요');
+
+  const plan = await planAccountDelete(db, code, deps, null);
+  plan.warnings = plan.warnings.filter((w) => w !== ONLINE_WARNING);
+  const out = summarize(plan, dryRun);
+  if (dryRun || out.empty) return out;
+  out.done = await executeAccountDelete(db, plan, deps, auth.uid, nowMs, SELF_LOG_ACTION);
+  console.log('[deleteMyAccount]', JSON.stringify({ code: plan.code, ...out.done }));
   return out;
 }
 
@@ -368,6 +401,6 @@ function adminDeps(db){
 
 module.exports = {
   parseTarget, resolveTarget, pruneNested, planAccountDelete, summarize, executeAccountDelete,
-  handleAdminDeleteAccount, adminDeps, storageTargets, logDetail,
-  GROUPS, KEPT, LOG_ACTION, FRIEND_CODE_RE,
+  handleAdminDeleteAccount, handleSelfDeleteAccount, adminDeps, storageTargets, logDetail,
+  GROUPS, KEPT, LOG_ACTION, SELF_LOG_ACTION, SELF_CONFIRM_WORD, FRIEND_CODE_RE,
 };

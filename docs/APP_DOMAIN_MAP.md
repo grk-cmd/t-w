@@ -14,7 +14,7 @@
 | `room/` ✅ | 🛰 방(워킹룸 · 투게더룸) — 입장 · 동기화 · 방 서버 · 방 안 놀이 | 21 | 7,200 |
 | `chat/` ✅ | 💬 채팅 — 대화창 · 기록 · 설정 · 이모티콘 | 8 | 2,600 |
 | `myhome/` ✅ | 🏠 마이홈 — 페이지 · 편집 · 스티커 · 친구 · 우편 · 방명록 · 바탕화면 앱 | 19 | 13,900 |
-| `friends/` | 👥 친구 데이터 — 포트 · provider(firebase 옛 길 · api · ws 자리). 화면 · 마이홈은 포트만 부른다 | 2 | 60 |
+| `friends/` | 👥 친구 데이터 — 포트 · provider(firebase 옛 길 · api · ws 자리). 화면 · 마이홈은 포트만 부른다 | 3 | 180 |
 | `character/` ✅ | 🧍 캐릭터 · 꾸미기 — 꾸미기 창 · 파츠 · 동물 · 슬롯 · 코드 · 가챠 | 19 | 10,500 |
 | `creator/` ✅ | 🎨 생성기 — 그리기 도구 · 단계 길잡이 (+ app.js 에 남은 생성기 묶음을 여기로) | 6 | 650 (+ 약 3,500) |
 | `focus/` ✅ | ⭐ 집중 · 레벨 — 포커스 기록 · 레벨 · 경험치 · 달성표 · 뽀모도로 | 9 | 2,700 |
@@ -69,7 +69,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | 파일 | 하는 일 | 서버 |
 |---|---|---|
 | `myhome-init.js` | 마이홈 시작(INIT 에서 한 번) — 접속 표시 · 프로필 · 친구 · 요청 · 우편 · 공지 구독 | fb 13 |
-| `friends-sub.js` | 내 친구 목록 구독 한 벌 — 상태(불러오는 중 · 못 불러옴 · 받음) · 목록 열 때 다시 걸기(동시 1개) · 판정용 한 번 읽기(중복 조회 방지) | fb 0(subscribe · 읽기를 deps 로) |
+| `friends-sub.js` | 내 친구 목록 한 벌 — 상태(불러오는 중 · 못 불러옴 · 받음) · 목록 열 때 다시 걸기(동시 1개) · 판정용 한 번 읽기 · 이름 받기 · 열려 있는 동안만 접속 상태 | fb 0(포트 friends/ 를 deps 로) |
 | `myhome-visit.js` · `myhome-page.js` | 내 마이홈 데이터 · 친구 홈 구경 · 페이지 불러오기 · 그리기 | fb 6 · 2 |
 | `myhome-ui.js` · `myhome-edit.js` | 창 버튼 · 탭 · 프로필 레일 · 페이지 편집(자동저장 · BGM · 배경 · 테마 · 디자인 스튜디오) | fb 10 · 4 |
 | `myhome-sticker.js` · `myhome-sticker-layout.js` | 스티커 관리 창 · 배치 계산(그리기 `renderMyHomeStickers` 는 app.js) | — |
@@ -84,7 +84,8 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | 파일 | 하는 일 | 서버 |
 |---|---|---|
 | `friends-port.js` | 포트 — 친구 목록 받기 · 목록 듣기 · 접속 상태 듣기. friends-sub.js(마이홈)가 부른다 | — |
-| `friends-firebase.js` | 옛 길 provider — firebase-init.js 친구 함수를 포트 모양으로(나중에 걷음) | fb 0(deps 로) |
+| `friends-firebase.js` | 옛 길 provider — 상시 구독은 목록 하나 · 카드는 열 때 한 번 · 접속 상태는 목록이 열려 있는 동안만(나중에 걷음) | fb 0(deps 로) |
+| `friends-api.js` | api provider — GET /v1/me/friends · 요청 규칙(5초 · 서버 문제면 두 번 더 · 401 · 400 은 바로 옛 길) | api(로그인) |
 
 ## 5. 🧍 `character/` — 캐릭터 · 꾸미기 ✅ 옮김(폴더 10번)
 

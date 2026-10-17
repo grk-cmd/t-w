@@ -17,13 +17,13 @@ const MOD = ["myhome-ui.js","parts/myhome/myhome-ui.js","app/parts/myhome/myhome
 if(!MOD){ say('  ? 원본 못 찾음 — myhome-ui.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_mhApplyVisitUI","_mhCloseStickerAnim","_saveFailMsg","applyDesktopRunClass","closeFriendHomeView","escRegisterWindow","friendsForCheck","friendsRetry","getDisplayName","getMyUserId","loadMyHomePage","renderMyHomePage","renderMyHomeStickers","toast"];
+const FN_DEPS = ["_mhApplyVisitUI","_mhCloseStickerAnim","_saveFailMsg","applyDesktopRunClass","closeFriendHomeView","escRegisterWindow","friendsForCheck","friendsRetry","friendsOpen","friendsClose","getDisplayName","getMyUserId","loadMyHomePage","renderMyHomePage","renderMyHomeStickers","toast"];
 const VAL_DEPS = ["FRIEND_MAX","MY_FRIEND_CODE_KEY","friendManage","inboxMod","mhScheduler","twNav"];
 const GET_DEPS = ["_mhViewingUserId","_myFriendRequests","_myHomeFriends","isAdmin","myHomeOpen","myHomeSticker"];
 const SET_DEPS = ["myHomeOpen"];
-const EXPORTS = ["renderMhProfileRail"];
-const MOVED = ["renderMhProfileRail","_mhSubscribeDMForSelected"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  FRIEND_MAX: FRIEND_MAX,","  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),","  _mhCloseStickerAnim: (...a)=>mhStLayoutMod._mhCloseStickerAnim(...a),","  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _saveFailMsg: (...a)=>_saveFailMsg(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  closeFriendHomeView: (...a)=>mhVisitMod.closeFriendHomeView(...a),","  escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),","  friendManage: friendManage,","  friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),","  friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: inboxMod,","  isAdmin: ()=>isAdmin,","  loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  myHomeSticker: ()=>myHomeSticker,","  renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  toast: (...a)=>toast(...a),","  setMyHomeOpen: (v)=>{ myHomeOpen = v; },","  twNav: twNav,"];
+const EXPORTS = ["renderMhProfileRail","syncFriendsOpen"];
+const MOVED = ["renderMhProfileRail","_mhSubscribeDMForSelected","syncFriendsOpen"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
+const GLUE = ["  FRIEND_MAX: FRIEND_MAX,","  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),","  _mhCloseStickerAnim: (...a)=>mhStLayoutMod._mhCloseStickerAnim(...a),","  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _saveFailMsg: (...a)=>_saveFailMsg(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  closeFriendHomeView: (...a)=>mhVisitMod.closeFriendHomeView(...a),","  escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),","  friendManage: friendManage,","  friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),","  friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),","  friendsOpen: (...a)=>friendsSubMod.open(...a),","  friendsClose: (...a)=>friendsSubMod.close(...a),","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: inboxMod,","  isAdmin: ()=>isAdmin,","  loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  myHomeSticker: ()=>myHomeSticker,","  renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  toast: (...a)=>toast(...a),","  setMyHomeOpen: (v)=>{ myHomeOpen = v; },","  twNav: twNav,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -32,18 +32,20 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, o){
+  o = o || {};
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  Object.assign(deps, o.deps || {});
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'module', 'TwMyHomeHooks',   // 🪝 마이홈 고리판(myhome-hooks.js) — 만들 때 거는 줄이 던지지 않게 가짜로
-    src + '\nreturn window.TwMyHomeUi;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, undefined, any);
+    src + '\nreturn window.TwMyHomeUi;')(win, o.doc ? o.doc(any) : any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, undefined, any);
   return api.createMyHomeUi(deps);
 }
 
@@ -68,11 +70,39 @@ function judgeAll(mod, app, html){
   t(!bare.length, '부르는 곳은 myHomeUiMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
   const iM = html.indexOf('<script src="parts/myhome/myhome-ui.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — parts/myhome/myhome-ui.js 를 app.js 보다 먼저 싣는다');
+  t(/for\(const id of \['myHomeOverlay', 'mhPageFriend'\]\)\{\n  const el = document\.getElementById\(id\);\n  if\(el\) new MutationObserver\(\(\)=>myHomeUiMod\.syncFriendsOpen\(\)\)\.observe\(el, \{ attributes:true, attributeFilter:\['class'\] \}\);\n\}/.test(app),
+    'app.js — 마이홈 창 · 친구 탭 두 칸의 class 를 지켜보다 syncFriendsOpen');
   return r;
 }
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+
+/* 👥 친구 목록이 보이는 동안(마이홈 .on · 친구 탭 #mhPageFriend.on)만 friends-sub 에 «열림» — 여는 길이 여럿이라 두 칸의 class 를 지켜본다 */
+function judgeFriendsOpen(mod){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const mkEl = () => { const cls = new Set(); return { cls, el: { classList: { contains: (c) => cls.has(c), add: (c) => cls.add(c), remove: (c) => cls.delete(c), toggle: (c, on) => { ((on === undefined) ? !cls.has(c) : on) ? cls.add(c) : cls.delete(c); } } } }; };
+  const ov = mkEl(), pf = mkEl(), log = [];
+  const doc = (any) => new Proxy({}, { get: (tt, k) => k === 'getElementById' ? ((id) => id === 'myHomeOverlay' ? new Proxy(ov.el, { get: (x, kk) => kk in x ? x[kk] : any }) : id === 'mhPageFriend' ? pf.el : any) : any });
+  let out = null;
+  try{
+    out = build(mod, { doc, deps: { friendsOpen: (k) => log.push('open:' + k), friendsClose: (k) => log.push('close:' + k) } });
+  }catch(e){ t(false, '만들다 던짐 — ' + e.message); return r; }
+  const fire = () => out.syncFriendsOpen();
+  t(out && typeof out.syncFriendsOpen === 'function', 'syncFriendsOpen 을 내놓는다(app.js 가 class 를 지켜보다 부른다)');
+  fire();
+  t(log[log.length - 1] === 'close:myhome', '  둘 다 닫힘 — 닫힘');
+  ov.cls.add('on'); fire();
+  t(log[log.length - 1] === 'close:myhome', '  마이홈만 열림(다른 탭) — 목록 닫힘으로 친다');
+  pf.cls.add('on'); fire();
+  t(log[log.length - 1] === 'open:myhome', '  친구 탭이 보이면 — 열림(key myhome)');
+  ov.cls.delete('on'); fire();
+  t(log[log.length - 1] === 'close:myhome', '  마이홈이 닫히면(어느 길로든) — 닫힘');
+  return r;
+}
+say('── 2-2. 친구 목록 열림 · 닫힘');
+judgeFriendsOpen(MOD).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/myhome/myhome-ui.js"></script>', '')],
@@ -84,6 +114,15 @@ const breaks = [
   ['부르는 곳이 옛 이름', null, a => { const n = EXPORTS.find(x => a.includes('myHomeUiMod.' + x)); return n ? a.replace('myHomeUiMod.' + n, n) : a; }, null],
   ['만들 때 던짐', m => m.replace('function createMyHomeUi(deps){', 'function createMyHomeUi(deps){ throw new Error("깨 봄");'), null, null],
 ];
+for(const [name, from, to] of [
+  ['친구 탭을 안 봄(마이홈만 열려도 열림)', " && !!pf && pf.classList.contains('on')", ''],
+  ['마이홈 창을 안 봄(친구 탭만 on 이어도 열림)', "!!ov && ov.classList.contains('on') && ", ''],
+  ['닫혀도 안 알림', " else friendsClose('myhome');", ''],
+]){
+  const m2 = MOD.split(from).join(to);
+  let rows2; try{ rows2 = judgeFriendsOpen(m2); }catch(_){ rows2 = [[false, '던짐']]; }
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
