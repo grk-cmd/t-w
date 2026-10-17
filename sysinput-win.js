@@ -269,10 +269,70 @@ function stopGlobalHooks(){
   try{ uIOhook.stop(); }catch(_){}
 }
 
+/* ── 🎮 게임패드(XInput) ─────────────────────────────────────────────────
+   게임이 앞에 있으면 크로미움 Gamepad API 는 뒤에 있는 우리 창에 패드 값을 주지 않는다 — Xbox 패드로만
+   게임하면 기록이 멈추고 잠들었다. 그래서 Windows 는 XInput 을 직접 읽는다.
+   값은 Gamepad API 모양({ index, id, buttons, axes })으로 돌려주고, «바뀌었나» 는 main 이 렌더러와 같은
+   gamepad-activity.js 로 판정한다(여기서는 읽기만).
+   ⚠️ 연결 안 된 자리를 XInputGetState 로 부르면 느리다(장치를 다시 찾는다) — 빈 자리는 몇 번에 한 번만 다시 묻는다.
+   ⚠️ koffi · DLL 을 못 불러오면 빈 목록 — 패드 신호가 없을 뿐 앱은 그대로다(위 네이티브 로드 원칙). */
+const XINPUT_DLLS = ['xinput1_4.dll', 'xinput9_1_0.dll'];   // Windows 8+ · 그 전 판(재배포 없이 깔려 있는 것)
+const XINPUT_SLOTS = 4;
+const XINPUT_STATE_BYTES = 16;     // XINPUT_STATE — dwPacketNumber(4) + XINPUT_GAMEPAD(12)
+const XINPUT_TRIGGER_PRESS = 30;   // XINPUT_GAMEPAD_TRIGGER_THRESHOLD
+const PAD_EMPTY_RETRY = 6;         // 빈 자리는 readPads 6번(500ms 폴링이면 3초)에 한 번
+let _xGetState;                    // undefined = 아직 안 불러옴 · null = 못 씀
+const _xBuf = Buffer.alloc(XINPUT_STATE_BYTES);
+const _xEmptyWait = new Array(XINPUT_SLOTS).fill(0);
+
+function _loadXInput(){
+  if(_xGetState !== undefined) return _xGetState;
+  _xGetState = null;
+  let koffi;
+  try{ koffi = require('koffi'); }
+  catch(err){ _log('koffi 로드 실패 — 게임패드 읽기 없음: ' + (err && err.message || err)); return null; }
+  for(const dll of XINPUT_DLLS){
+    try{
+      _xGetState = koffi.load(dll).func('uint32_t __stdcall XInputGetState(uint32_t dwUserIndex, void *pState)');
+      return _xGetState;
+    }catch(_){}
+  }
+  _log('XInput DLL 을 찾지 못함 — 게임패드 읽기 없음');
+  return null;
+}
+
+function _padOf(slot, b){
+  const w = b.readUInt16LE(4);
+  const buttons = [];
+  for(let i = 0; i < 16; i++){
+    const p = !!(w & (1 << i));
+    buttons.push({ pressed: p, value: p ? 1 : 0 });
+  }
+  buttons.push({ pressed: b[6] > XINPUT_TRIGGER_PRESS, value: b[6] / 255 },
+               { pressed: b[7] > XINPUT_TRIGGER_PRESS, value: b[7] / 255 });
+  const axes = [8, 10, 12, 14].map(o => b.readInt16LE(o) / 32767);
+  return { index: slot, id: 'xinput', connected: true, buttons, axes };
+}
+
+function readPads(){
+  const get = _loadXInput();
+  if(!get) return [];
+  const out = [];
+  for(let slot = 0; slot < XINPUT_SLOTS; slot++){
+    if(_xEmptyWait[slot] > 0){ _xEmptyWait[slot]--; continue; }
+    let r;
+    try{ r = get(slot, _xBuf); }catch(_){ r = -1; }
+    if(r !== 0){ _xEmptyWait[slot] = PAD_EMPTY_RETRY - 1; continue; }
+    out.push(_padOf(slot, _xBuf));
+  }
+  return out;
+}
+
 module.exports = {
   init,
   startGlobalHooks, stopGlobalHooks,
   getActiveWindow, listWindows,
   selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
+  readPads,
   WINLIST_SKIP,
 };

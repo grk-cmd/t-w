@@ -58,7 +58,7 @@ contextBridge.exposeInMainWorld('companion', {
   },
 
   // 🖊️ 펜 활동 — WinTab 태블릿처럼 전역 클릭/키 훅에 안 잡히는 입력 보완.
-  // 펜 앱이 활성일 때만, 커서가 실제로 움직였을 때 초당 최대 1회 호출됨. 인자 없음.
+  // 커서가 실제로 움직였거나 게임패드(Windows XInput)를 만졌을 때 초당 최대 1회 호출됨. 인자 없음.
   onPenActivity(callback) {
     ipcRenderer.on('companion:penActivity', () => callback());
   },
