@@ -83,6 +83,8 @@ const HoverPoke = require('./hover-poke');
 /* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
+/* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
+const GamepadActivity = require('./app/parts/focus/gamepad-activity');
 /* 호출부 17곳의 이름·형태를 그대로 두기 위한 이음매 — 본문은 모듈에 있다.
    ⚠️ 화살표 상수가 아니라 **함수 선언**이다. 원래가 그랬고(호이스팅), 여기서 모양을 바꾸면
      정의보다 앞선 자리에서 부르는 코드가 생겼을 때 조용히 TDZ 로 죽는다. */
@@ -1183,6 +1185,21 @@ function _reportCursorActivity(pt, minPx){
   }
 }
 
+/* 🎮 게임패드 — 게임이 앞이면 렌더러의 Gamepad API 는 패드 값을 못 받는다. 그래서 main 이 직접 읽어
+   커서 이동과 같은 통로(penActivity · 전송 간격 공유)로 보낸다 — 받는 쪽 처리가 같다. */
+function _reportPadActivity(){
+  const now = Date.now();
+  if(now - _penActivitySentAt < PEN_ACTIVITY_MIN_MS) return;
+  _penActivitySentAt = now;
+  if(mainWindow && !mainWindow.isDestroyed()){
+    try{ mainWindow.webContents.send('companion:penActivity'); }catch(_){}
+  }
+}
+const _padActivity = GamepadActivity.createGamepadActivity({
+  getPads: () => sysinput.readPads(),
+  onActivity: _reportPadActivity,
+});
+
 // forward 옵션만 재적용 (타이머 sync 없이 — _checkCursorNearChar 내부용, 재귀 방지)
 function _applyForwardOnly(){
   if(!mainWindow || mainWindow.isDestroyed()) return;
@@ -1395,6 +1412,7 @@ function startActiveWinPolling(){
       try{ _reportCursorActivity(screen.getCursorScreenPoint(), CURSOR_MOVE_MIN_PX); }catch(_){}
       try{ _inputDiagTick(Date.now()); }catch(_){}   // 🩺 [입력] 1분에 한 줄 — 선언부 주석 참고
       try{ _kbBlindTick(Date.now()); }catch(_){}     // ⌨️ 키 훅 미수신 진단 — 선언부 주석 참고(활동으로 쓰지 않는다)
+      try{ _padActivity.poll(); }catch(_){}          // 🎮 게임패드 — _reportPadActivity 주석
     }
   }, 500);
 }
@@ -1790,7 +1808,7 @@ const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
      횟수를 묶는다 — 두 번째부터는 기록만 한다. */
 let _rendererReloads = 0, _childGoneHooked = false;
 const RENDERER_AUTO_RELOAD_MAX = 1;
-const _unresponsiveWins = new WeakSet();   // 'unresponsive' 뒤 'responsive' 가 아직 안 온 창 — 두 번째 실행 판정(_secondInstanceAction)이 본다
+const _unresponsiveSince = new WeakMap();   // 창 → 'unresponsive' 가 시작된 시각(ms). 'responsive' 가 오면 지운다 — 두 번째 실행 판정(_secondInstanceAction)이 본다
 function _watchRendererHealth(win){
   if(!win || win.isDestroyed()) return;
   const wc = win.webContents;
@@ -1806,8 +1824,8 @@ function _watchRendererHealth(win){
     if(isMainFrame === false) return;   // 안쪽 iframe(유튜브 등) 실패는 앱 화면과 무관
     _diagLog('[렌더러] 로드 실패 — ' + code + ' ' + desc + ' | ' + String(url || '').slice(-80));
   });
-  win.on('unresponsive', () => { _unresponsiveWins.add(win); _diagLog('[렌더러] 응답 없음(unresponsive)'); });
-  win.on('responsive',   () => { _unresponsiveWins.delete(win); _diagLog('[렌더러] 응답 재개(responsive)'); });
+  win.on('unresponsive', () => { if(!_unresponsiveSince.has(win)) _unresponsiveSince.set(win, Date.now()); _diagLog('[렌더러] 응답 없음(unresponsive)'); });
+  win.on('responsive',   () => { _unresponsiveSince.delete(win); _diagLog('[렌더러] 응답 재개(responsive)'); });
   if(!_childGoneHooked){
     _childGoneHooked = true;
     app.on('child-process-gone', (e, d) => {
@@ -3743,25 +3761,26 @@ function createWindow() {
 }
 
 /* 🔁 두 번째 실행 때 옛 인스턴스를 어떻게 할지 — 순수 판정(검사 sim-second-instance).
-   s = { ready, created, hasWindow, destroyed, crashed, unresponsive }
+   s = { ready, created, hasWindow, destroyed, crashed, hungSince(응답 없음이 시작된 시각 ms · 없으면 null) } · now = 지금 시각 ms
    · 'wait'     — 아직 부팅 중(준비 전 · 창을 만들기 전). 예전처럼 아무것도 안 한다 — 부팅 중인 앱을 죽이지 않는다.
-   · 'relaunch' — 창이 없거나 · 파괴됐거나 · 렌더러가 죽었거나 · 응답 없음. 앞으로 올려도 쓸 수 없으니 정리하고 새로 띄운다.
-   · 'focus'    — 멀쩡하다. 앞으로 올리기만(재시작하면 방에서 튕긴다). */
-function _secondInstanceAction(s){
-  s = s || {};
-  if(!s.ready || !s.created) return 'wait';
-  if(!s.hasWindow || s.destroyed || s.crashed || s.unresponsive) return 'relaunch';
-  return 'focus';
+   · 'relaunch' — 창이 없거나 · 파괴됐거나 · 렌더러가 죽었으면 바로. 응답 없음은 RELAUNCH_HUNG_MS 이상 이어졌을 때만.
+   · 'focus'    — 멀쩡하거나 잠깐 멈춤(로딩 · GC). 앞으로 올리기만(재시작하면 방에서 튕긴다). */
+const RELAUNCH_HUNG_MS = 10000;   // 응답 없음이 이만큼 이어져야 정리하고 새로 띄운다(10-17 사용자 결정)
+function _secondInstanceAction(s, now){
+  if(!s || !s.ready || !s.created) return 'wait';
+  if(!s.hasWindow || s.destroyed || s.crashed) return 'relaunch';
+  if(s.hungSince == null || !(now - s.hungSince >= RELAUNCH_HUNG_MS)) return 'focus';
+  return 'relaunch';
 }
 let _mainWindowCreated = false;   // createWindow 가 한 번이라도 창을 만들었나 — «부팅 중» 과 «창이 사라짐» 을 가른다
 function _mainWindowHealth(){
   const w = mainWindow;
-  const s = { ready: app.isReady(), created: _mainWindowCreated, hasWindow: !!w, destroyed: false, crashed: false, unresponsive: false };
+  const s = { ready: app.isReady(), created: _mainWindowCreated, hasWindow: !!w, destroyed: false, crashed: false, hungSince: null };
   if(!w) return s;
   try{ s.destroyed = w.isDestroyed(); }catch(_){ s.destroyed = true; }
   if(s.destroyed) return s;
   try{ const wc = w.webContents; s.crashed = !wc || wc.isDestroyed() || wc.isCrashed(); }catch(_){ s.crashed = true; }
-  s.unresponsive = _unresponsiveWins.has(w);
+  if(_unresponsiveSince.has(w)) s.hungSince = _unresponsiveSince.get(w);
   return s;
 }
 /* 정리하고 새로 띄운다 — 정리는 session-end 와 같은 _exitNow()(네이티브 훅 · 타이머 먼저 → 창 destroy → app.exit(0)).
@@ -3780,7 +3799,7 @@ if (!gotLock) {
 } else {
   app.on('second-instance', () => {
     const health = _mainWindowHealth();
-    const act = _secondInstanceAction(health);
+    const act = _secondInstanceAction(health, Date.now());
     if (act === 'relaunch') { _relaunchFresh(health); return; }
     if (act === 'focus') {
       if (mainWindow.isMinimized()) mainWindow.restore();

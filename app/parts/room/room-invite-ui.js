@@ -244,6 +244,7 @@ const ROOM_INVITE_STALE_MS = 10 * 60 * 1000;
 function _bindRoomInviteReceiver(){
   if(!(window.firebaseAPI && firebaseAPI.subscribeRoomInvites)) return;
   const myId = getMyUserId();
+  if(!myId) return;   // 내 코드가 없으면 구독하지 않는다(roomInvites/null)
   firebaseAPI.subscribeRoomInvites(myId, invites=>{
     let ids = Object.keys(invites || {});
     if(!ids.length || _roomInviteBusy) return;
@@ -323,8 +324,7 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   box.querySelector('[data-a="no"]').onclick = ()=>done(false);
 }
 // Firebase 준비되면 수신 구독 시작
-if(window.firebaseAPI) _bindRoomInviteReceiver();
-else window.addEventListener('firebase-ready', ()=>_bindRoomInviteReceiver(), { once:true });
+TwNetReady.whenNetReady(()=>_bindRoomInviteReceiver());
 
 return {
   showPopup: showRoomInvitePopup,     // 받은 초대 팝업(검사용)

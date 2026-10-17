@@ -137,6 +137,30 @@
 꾸미기 창 · 파츠 · 동물 · 슬롯 · 코드 · 가챠 · 좌석 크기. app.js 가 deps 로 이어 주고, 이 폴더 모듈끼리는 서로의 속을 직접 부르지 않는다.
 절은 모듈마다 하나 — 다른 사람이 만든 절은 건드리지 않고 자기 절만 더한다.
 
+## desk-place.js — 📐 책상 자리 · 크기 · 책상 위 파츠 핀
+
+- **책임**: 책상 그룹의 자리와 크기만 — 크기 · 길이, 위치 오프셋, 동물 배율 · 평준화로 캐릭터에서 뺀 몫을 책상이 지는 z 보정, «책상 위» 파츠 핀이 책상 위치 · 슬라이더 크기를 따라가지 않게 상쇄. 평준화 깃발은 모른다(평준화 때 파츠 가두기는 `seat-eq-clamp.js`).
+- **만드는 법**: app.js «🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기» 끝에서 `const deskPlaceMod = TwDeskPlace.createDeskPlace({ … });` — deps 5
+  - 값: `CHAR_Z` · `DESK_SCALE_MIN` · `DESK_SCALE_MAX` · `DESK_SCALE_DEFAULT` · `crState`(생성기 상태 한 벌 — `cDesk` · `cDeskLenX` 를 그때그때 읽는다)
+- **내보내는 것**
+  - `setDeskScale(deskGroup, scale?, lenX?)` — `scale` 을 안 주면 기억해 둔 원본(`userData.deskScaleBase`). 그룹 배율 = 원본 × `animCorr` × `eqK`(길이는 x 에만).
+  - `setCreatorDeskScale(scale)` — 생성기 책상(`crState.cDesk`)에 생성기 길이로.
+  - `setDeskPos(deskGroup, {x,y,z})` — 원본은 `userData.deskPosBase` 에(배율은 굽지 않는다).
+  - `syncSeatDeskZ(deskGroup)` — z = base.z·a·k + CHAR_Z·(1 − a·k), 그리고 파츠 핀 상쇄.
+  - `deskPartAnchorOf(seat)` · `syncDeskPartAnchor(deskGroup)` · `DESK_PART_ANCHOR_NAME`('__deskPartAnchor') — 핀 얻기 · 상쇄 다시 걸기.
+  ```js
+  deskPlaceMod.setDeskScale(seat.desk, def.deskScale || 1, def.deskLenX || 1);
+  deskPlaceMod.setDeskPos(seat.desk, def.deskPos);
+  const pin = deskPlaceMod.deskPartAnchorOf(seat); pin.add(partWrap);
+  ```
+- **확장할 때 고칠 자리**: 새 좌석 배율이 생기면 `seatDeskPosMul` · `seatDeskZCorr` · `setDeskScale` 의 곱셈 — 꾸미기 미리보기(`_wdDeskGrp`)도 같은 값을 직접 곱으니 함께.
+- **함정**
+  - 위치 곱셈은 네 자리가 한 벌 — 여기 셋(`setDeskPos` · `syncSeatDeskZ` · `syncDeskPartAnchor`) + 꾸미기 미리보기.
+  - `deskPosBase` · `deskScaleBase` 에 보정 · 배율을 굽지 말 것(열 때마다 누적).
+  - 크기 상쇄는 슬라이더 범위(`DESK_SCALE_MIN~MAX`) 안일 때만 — `def.deskScale||1` 의 1 은 «모름».
+  - 평준화 깃발(`seatEqMod`)을 여기서 읽지 말 것 — seat-equalize 가 이 모듈을 부르므로 순환이 생긴다(sim-dep-cycles 빨강).
+  - 검사: `checks/sim-desk-place.js`(4절 — 크기 · 원본 기억 · 경계 0 · 생성기 · z 보정 · 위치 배율과 경계 · 핀 상쇄 크기 · 위치) · 옛 검사 `sim-char-z` · `sim-desk-part-scale` · `sim-desk-floor-clamp` · `sim-seat-eq`.
+
 ## seat-equalize.js — 🪑 좌석 크기 평준화
 
 - **책임**: 좌석 하나의 «실효 크기» 를 정하는 유일한 곳. 내 화면에서만 남의 좌석(자리추가 부캐 포함)을 내 캐릭터 크기에 맞춘다 — 배율 `k = 내 userScale ÷ 그 좌석 userScale`, 좌석 전체(캐릭터 · 책상 · 라벨 높이)에 같은 k. 켜고 끄는 깃발(`tw.seatEq`)도 이 모듈이 든다.
@@ -164,6 +188,30 @@
   - 한 좌석에서 던지면 나머지 좌석을 그 바퀴에 건너뛴다 — `CONFIRM.md` 에 적어 둠.
   - 검사: `checks/sim-seat-equalize.js`(4절 — 깃발 · k · 이상한 값 · 부캐 · 들림 · 다시 걸기 · 재진입 · 던짐) · `sim-seat-eq` · `sim-char-z`(app.js 전체로).
 
+## seat-eq-clamp.js — 🪑 평준화 가두기
+
+- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 책상이 뻗은 거리(`seatDeskHalfWidth`) + 좌석 사이 여백의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
+- **왜 따로**: 책상 자리 · 크기(desk-place)가 평준화 깃발을 읽으면 desk-place ↔ seat-equalize 순환이 생긴다. 가두기는 평준화 몫이라 여기로 떼어 desk-place 는 seat-equalize 를 모른다(의존: seat-eq-clamp → seat-equalize · 파츠 핀 이름).
+- **만드는 법**(app.js «📌 책상 위 파츠 앵커» 자리, `DESK_PART_ANCHOR_NAME` 바로 뒤):
+  ```js
+  const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
+    DESK_PART_ANCHOR_NAME, seatEqMod, seats,                   // 값
+    MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING, SPACING: ()=>SPACING, seatSlot: ()=>seatSlot,   // 읽는 함수(다시 대입 · 뒤에서 선언)
+    seatDeskHalfWidth,                                         // 함수(화살표로)
+  });
+  ```
+- **내보내는 것**
+  - `_clampSeatDeskParts(now?)` — 프레임 루프가 매 프레임 부른다(0.5초마다만 돈다 · `now` 를 안 주면 `performance.now()`).
+  ```js
+  seatEqClampMod._clampSeatDeskParts(now);
+  ```
+- **확장할 때 고칠 자리**: 주기는 `SEAT_SLOT_EVERY_MS` · 가두지 않을 좌석 조건은 `on` 한 줄(지금: 올라탄 좌석 · 책상이 숨은 좌석).
+- **함정**
+  - `seatSlot` 은 app.js 가 `SeatSlot` 이 있을 때만 만든다(없으면 아무것도 안 한다) — 만드는 줄보다 뒤에 선언돼 읽는 함수로 받는다.
+  - 감싼 파츠(`userData.__twPartWrap`)만 민다 — 핀의 다른 자식은 그대로.
+  - 한 좌석에서 던지면 경고만 하고 다음 좌석으로 간다.
+  - 검사: `checks/sim-seat-eq-clamp.js`(4절 — 주기 · 경계 500ms · 멀티 간격 · 올라탄 · 숨은 책상 · 꺼짐 · 좌석 없음 · 계산 모듈 없음 · 던짐) · 옛 검사 `sim-seat-slot`(되살린 글로).
+
 ## deco-parts-visibility.js — 🎁 꾸미기 파츠 표시
 
 - **책임**: «꾸미기 파츠 보이기» 깃발(`tw.decoParts`, 기본 켜짐) 하나와, 좌석 하나에 그 깃발을 거는 일. 끄면 내 화면에서만 모든 좌석의 꾸미기 파츠 wrapper 를 숨긴다(서버에 안 쓴다). 책상 위 카테고리(`bone:'desk'`)는 늘 보인다.
@@ -183,7 +231,7 @@
 ## char-measure.js — 📐 캐릭터 실측
 
 - **책임**: 캐릭터 · 파츠 wrapper 의 3D 박스를 재는 도우미 묶음. 값을 재서 돌려주거나(박스 · 깊이 · 보정량) wrapper 하나를 바닥 위로 올린다. 좌석 배율 · 위치를 거는 일은 app.js `fitModel`, 콘솔 진단은 `floor-snap-diag.js`.
-- **만드는 법**: deps 없음(THREE 전역) — `const charMeasureMod = TwCharMeasure.createCharMeasure({` / `});`.
+- **만드는 법**: deps 하나 — `const charMeasureMod = TwCharMeasure.createCharMeasure({ measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a) });`. 맨 몸 · 맨 머리 · 발밑 깊이는 `measureBodyBox`(body-measure.js)에 옵션만 고른다.
 - **내보내는 것**
   - `measureCharBox(root)` — 맨 몸 박스(스킨드 · 리깅 · 꾸미기 wrapper 제외). fitModel 의 키 정규화 분모.
   - `measureHeadBoxNoParts(root, outBoxes?, meshHost?)` — 맨 머리 박스(숨은 메쉬 · 꾸미기 파츠 제외, meshHost 를 주면 기본 장식 메쉬도). 올라타기 · 이름표 · 귀가 쓴다.
@@ -248,3 +296,48 @@
   ```
 - **확장할 때 고칠 자리**: 탭 상태 이모지 표(`emo`) · 탭 이름 규칙(나 / friendName / 친구i).
 - **함정**: `selected` 는 app.js 가 든 값 — 이 모듈은 읽는 · 쓰는 함수로만 만진다. 검사: `checks/sim-seat-panel.js`(4절 — 가짜 DOM 으로 탭 · 고르기 · 안내 · 수동/자동 · 쓰다듬기 버튼).
+
+## body-measure.js — 📏 캐릭터 몸 박스 재기 한 규칙
+
+- **책임**: root 아래 메시들의 월드 박스를 «무엇을 셀지» 옵션 하나로 잰다(꾸미기 파츠 · 리깅 파츠 · 숨은 메시 · 기본 머리 장식 빼기). 그리지도 옮기지도 않는다.
+- **만드는 법**: app.js 맨 앞(SETUP)에서 `const bodyMeasureMod = TwBodyMeasure.createBodyMeasure({\n});` — 빈 deps. 다른 도메인(tricks · status-chip · away-pic · launcher-preview · ride-bench)은 deps `measureBodyBox`(ride-bench 는 `isPartByRigOrName` 도)로 받는다.
+- **내보내는 것**
+  - `measureBodyBox(root, opts, out)` — 옵션: `excludeParts`(`true` = 파츠 wrapper(`rigged` · `__partWrap_` 이름 · `__twPartWrap` 표식) 하위와 리깅 스킨드메시(`_origBind`) 빼기 · `'rigged'` = 리깅만 빼기 · `'skinned'` = 리깅 스킨드메시만 빼기) · `partTest`(excludeParts:true 의 «파츠 wrapper 인가» 판정 바꾸기) · `visibleOnly`(자기 · 조상 숨김 빼기, root 자신은 안 봄) · `skipMeshes`(Set) · `skipBranch`(함수 — 참인 가지 통째로 빼기, root 자신은 안 봄) · `frame`(노드 — 그 노드 좌표계로, 메시 자기 도형 × 역행렬) · `updateWorld`(false 면 행렬 안 세움) · `selfOnly`(메시 자기 도형만) · `outBoxes`(배열). 옵션이 없으면 `setFromObject(root)` 그대로.
+  - `countsAsBody(mesh, root, opts)` · `isPartNode(node)` · `isPartByRigOrName(node)`(옛 판정 — 리깅 · 이름만, 표식은 안 봄) · `PART_WRAP_PREFIX`
+  ```js
+  measureCharBox(root)          // = measureBodyBox(root, { excludeParts: true })                       키 정규화 · 센터링 · 날기 벽(tricks — gltfRoot 를 재고 비면 rig 째 옵션 없음)
+  measureHeadBoxNoParts(r,o,h)  // = { excludeParts: true, visibleOnly: true, skipMeshes: 장식 }         올라타기 · 맨 머리
+  measureUnderfootDepth(root)   // = { excludeParts: 'rigged', visibleOnly: true } 의 min.y            발밑 파츠 바닥 맞춤
+  _boxExcluding(root, skipSub)  // = { skipBranch: o => o.visible === false || skipSub(o) }            책상 바닥 맞춤(파츠 핀 빼기)
+  measureBodyBox(o, RIDE_WRAP_OPTS)  // = { excludeParts: 'skinned', visibleOnly: true, updateWorld: false }  올라타기 — 파츠 · 귀 wrapper 하나 안
+  ```
+- **어디서 무엇을 재나**(대상 · 좌표계 · 빼는 것 — 묶은 곳은 옵션만 다르다)
+
+  | 쓰임 | 대상 | 좌표계 | 빼는 것 | 묶음 |
+  |---|---|---|---|---|
+  | `measureCharBox`(키 정규화 · 센터링) | 캐릭터 root | 월드 | 파츠 · 리깅 스킨드 (숨은 것은 셈) | ✓ 1차 |
+  | `measureHeadBoxNoParts`(올라타기 · 맨 머리) | gltfRoot | 월드 | 파츠 · 리깅 스킨드 · 숨김 · 장식 메시 | ✓ 1차 |
+  | `measureUnderfootDepth`(발밑 바닥 맞춤) | 모델 | 월드 min.y | 리깅만 · 숨김 | ✓ 1차 |
+  | 날기 벽 · 이동 여백 · 상태칩 · 자리비움 | rig · group · bodyWrap | 월드 | 옵션별 | ✓ 1차 |
+  | launcher-preview `_lcBodyBox`(런처 프레임) | 미리보기 group | 월드 | `'__part'` 접두 · 리깅 · 리깅 스킨드 (숨은 것은 셈) — 비면 전체 | ✓ `partTest` |
+  | `_measureBodyBoxInLocal`(머리 공간 진단 로그) | 모델 | 지정 노드 로컬 | 리깅 · `__partWrap_` 이름 · 리깅 스킨드 · 숨김 | ✓ `frame` · `isPartByRigOrName` |
+  | `_headTopAboveBone`(동물 머리 파츠 보정) | 모델 | 모델 로컬 · 메시마다 max.y | 위와 같음 + 장식 메시 | ✓ `frame` · `outBoxes` |
+  | `_boxExcluding`(책상 바닥 맞춤 · char-measure.js) | 책상 wrapper | 월드 | 숨은 가지 · 파츠 핀 가지 (파츠 규칙 없음 · root 는 안 봄) | ✓ `skipBranch` |
+  | ride-bench 머리 파츠 · 귀 박스 | 파츠 · 귀 wrapper 하나 | 월드(행렬 안 세움) | 숨김 · 리깅 스킨드 (wrapper 자신의 숨김은 부르는 쪽이 먼저 거름) | ✓ `'skinned'` |
+  | ride-bench 검증 로그 `_hbAll` | gltfRoot | 월드(행렬 안 세움) | 리깅 · 이름 · 리깅 스킨드 (숨김 · 장식은 셈) | ✓ `partTest` |
+  | 스티커사진 `_pkBodyBox` · `_pkVisibleBox` | **복제본** | 월드 | 원본 짝 표(`srcOf`)로 판정 | ✗ 아래 |
+  | `_floorSnapProbe`(바닥 맞춤 진단 · floor-snap-diag.js) | 모델 | 메시마다 | 바닥 맞춤과 같은 규칙 + «왜 뺐나» 글 | ✗ 아래 |
+  | 생성기 카메라 맞춤 `setFromObject(inst.root)` | 생성기 모델 | 월드 | 없음 | ✗ 아래 |
+  | `_charBoneBindInverses` | 모델의 스킨드메시 | — | 박스가 아니라 본 모음 | ✗ 아래 |
+
+- **묶지 않은 곳 · 이유**
+  - 스티커사진 `_pkBodyBox`: 복제본은 `userData` 가 비어 있어 판정을 **원본 노드**(복제 · 원본 짝 표)로 하고, root 위 조상까지 끝까지 올라가 보며, 잴 게 없으면 `null`(빈 박스가 아니라 «옛 규칙으로 다시 재라»). 옵션 셋(짝 표 · 조상 끝까지 · 잰 메시 수)을 더 늘려야 해서 그대로 둔다. `_pkVisibleBox` 도 조상 끝까지 · 파츠 밑 스킨드메시만 빼는 다른 규칙.
+  - `_floorSnapProbe`: 박스가 아니라 메시마다 «왜 뺐나» 를 적는 진단이고, 박스 값은 이미 `measureUnderfootDepth` 를 부른다. 대신 센 · 뺀 메시 수가 `countsAsBody({ excludeParts: 'rigged', visibleOnly: true })` 와 같은지 `sim-body-measure.js` 2-b 가 본다.
+  - 생성기 카메라 맞춤: «몸» 이 아니라 화면에 올라간 전부(파츠 · 숨은 것 포함)를 프레임에 넣는 것이 목적 — 다른 측정이다.
+  - `_charBoneBindInverses`: 박스를 재지 않는다(캐릭터 본의 바인드 역행렬 모음 — 파츠 리그는 뺀다).
+- **확장할 때 고칠 자리**: 새 «파츠» 표식은 `isPartNode` 한 곳. 새 쓰임은 손으로 traverse 하지 말고 옵션을 골라 부른다.
+- **함정**
+  - three r128 `setFromObject` 는 숨은 메시도 세고, 리깅 메시는 **스키닝 전 원본** 박스를 잰다(리깅 모자 원본 y 2.18~5.31). «몸» 을 재려면 `excludeParts` 를 켠다.
+  - `checks/sim-body-measure.js` 4절이 body-measure.js 밖의 `setFromObject(좌석.rig · bodyWrap · gltfRoot · 좌석.group)` 를, 3-b절이 메시를 훑으며 `_origBind` 를 손으로 거르는 곳(남긴 `_pkBodyBox` · `_charBoneBindInverses` 말고)을 빨강으로 잡는다.
+  - 옛 규칙을 지키느라 판정이 조금씩 다르다 — 런처는 `'__part'` 접두(`__part_` 도)를 빼고 숨은 것은 센다 · 진단 · 머리 여유 · 검증 로그는 표식 `__twPartWrap` 을 안 본다(`isPartByRigOrName`). 지금은 이름 · 표식이 함께 붙어 결과가 같다. 하나로 맞추려면 동작 변경이라 따로 승인받는다.
+  - `skipBranch` · `partTest` 는 순수 함수만 넘긴다(던지면 measureBodyBox 밖으로 나간다 — `_boxExcluding` 은 던지면 빈 박스).

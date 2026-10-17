@@ -428,6 +428,5 @@ window._bugReportLink = ()=> (_bugReportConf && _bugReportConf.link) || '';
     if(!window.firebaseAPI || !firebaseAPI.subscribeBugReport) return;
     firebaseAPI.subscribeBugReport(conf=>{ _bugReportConf = conf; });
   };
-  if(window.firebaseAPI) sub();
-  else window.addEventListener('firebase-ready', sub, { once:true });
+  TwNetReady.whenNetReady(sub);
 })();

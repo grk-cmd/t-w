@@ -149,3 +149,64 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - 임시 객체는 공유된다 — 값을 들고 있으려면 `clone()`.
   - 동물 팔 기본각 `ANIMAL_HAND_REST` 는 animal.js 가 전역으로 읽어 app.js 에 남겼다.
   - 검사: `checks/sim-ride-tuning.js`(4절 — 값 표 50개가 옮기기 전과 같다 · 임시 객체가 따로따로 · 값 범위).
+
+## seat-refit.js — 🪑 파츠 구성이 바뀐 뒤 좌석 다시 맞추기
+
+- **책임**: 파츠를 붙이거나 뗀 좌석을 한 순서로 다시 맞춘다 — 끝난 장착 기다리기(거부돼도 다시 맞추기는 한다) → 아직 같은 좌석 · 같은 캐릭터인지 → `fitModel`(발밑 깊이 · 리깅 파츠) → `layoutSeats`(원할 때만) → 다시 맞춘 뒤 알림(app.js 가 건 올라탄 사람 높이 다시 재기 `rideBenchMod._remeasureRideHeadTop`).
+- **만드는 법**(app.js «🪑 좌석 배치» 자리 — `layoutSeats` 바로 뒤 · `rideBenchMod` 보다 뒤):
+  ```js
+  const seatRefitMod = TwSeatRefit.createSeatRefit({
+    fitModel: (...a)=>fitModel(...a),
+    layoutSeats: (...a)=>layoutSeats(...a),   // 맨 아래 «데스크탑 창 크기» 가 다시 대입하므로 화살표로
+    requestFrame: (...a)=>requestAnimationFrame(...a),
+    seats: seats,                              // 다음 프레임 맞추기는 실행 화면 좌석만
+  });
+  seatRefitMod.onRefitted((s)=>rideBenchMod._remeasureRideHeadTop(s));   // 알림으로 — ride-bench 를 deps 로 받으면 새 순환(sim-dep-cycles)
+  ```
+  다른 모듈에는 `refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a)` 로 넘긴다(wardrobe · room-entry · catalog-sync · admin-part-register).
+- **내보내는 것**
+  - `refitSeatAfterParts(seat, { wait, layout, isCurrent })` → Promise(다시 맞췄으면 true). 다시 맞춘 좌석과 그 좌석이 탄 대상(`ridingOn`)에 `onRefitted` 알림을 한 번씩.
+  - `requestRefit(seat)` — 파츠를 뗀 자리(app.js `unequipStackablePart` · `unequipPartFromSeat` → `_refitAfterUnequip`)가 부른다. 다음 프레임에 한 번(같은 프레임 여러 번이면 좌석마다 한 번) · 실행 화면 좌석만 · 그 전에 장착 뒤 맞추기가 돌았으면 건너뜀.
+  - `onRefitted(fn)` — 다시 맞춘 뒤 할 일(지금은 올라탄 사람 높이 다시 재기 하나).
+  ```js
+  // 친구 파츠가 바뀌었을 때(room-entry.js)
+  refitSeatAfterParts(s, { wait: applyEquippedPartsToSeat(s, fdef), layout: true, isCurrent: ()=>s.charDef===fdef });
+  // 꾸미기 저장(wardrobe.js) — 끝날 때까지 기다린 뒤 저장 · 방 전송
+  await refitSeatAfterParts(mySeat, { wait: applyEquippedPartsToSeat(mySeat, def) });
+  ```
+- **확장할 때 고칠 자리**: «파츠가 바뀌었다» 를 만드는 새 길은 같은 순서를 다시 쓰지 말고 이 함수를 부른다. 다시 맞출 것이 늘면(예: 이름표 높이) 이 함수 안에 한 줄 — 길마다 더하지 않는다.
+- **함정**
+  - 매 프레임 부르지 말 것 — 올라탄 사람 높이는 이름표 · 말풍선 자리의 기준이라 프레임마다 다시 재면 라벨이 떤다.
+  - `isCurrent` 를 빼면 기다리는 사이 나간 사람 · 바뀐 캐릭터의 좌석에 뒤늦게 `fitModel` 이 발사된다(원격 캐릭터 크기가 튀던 경위).
+  - 생성기 미리보기(`fitCreator`) · 꾸미기 미리보기는 다른 맞추기라 이 함수를 쓰지 않는다(`requestRefit` 도 `seats` 밖 좌석은 건너뛴다).
+  - 떼기 뒤 바로 재지 않고 다음 프레임인 까닭 — 뗀 뒤 `applyClothVisibility` 가 기본 메쉬(머리카락 등)를 되돌려야 맞는 높이가 나온다.
+  - 방 동기화(`_applyRemoteRides`)의 «같은 상태면 건너뜀» 은 그대로 둔다 — 파츠가 바뀐 뒤 높이 다시 재기는 이 모듈이 판단한다.
+  - 검사: `checks/sim-seat-refit.js`(순서 · 거부 · 낡은 좌석 · 길마다 부르는지 · 깨 보기).
+
+## `seat-menu.js` — 🖱 좌석 우클릭 메뉴
+
+**책임** — 캐릭터 · 이름표를 우클릭하면 그 좌석에 할 수 있는 일을 띄운다. 남의 좌석: 마이홈 구경(친구) / 친구 신청 · 숨기기(워킹룸 — 신고로 숨긴 사람은 채널과 상관없이 다시 보이기) · 때리기(프리미엄) · 신고. 내 좌석: 캐릭터 편집 · 자리비움 토글 · 때리기. 닫기는 투명 뒷판(실행 화면은 투명 오버레이라 바깥 클릭이 뒤 창으로 흘러서) · 바깥 클릭 · 우클릭 · ESC.
+
+**만드는 법** — app.js «DRAG / PET» 의 캔버스 우클릭 바로 뒤, 그리고 이름표 갈고리:
+
+```js
+const seatMenuMod = TwSeatMenu.createSeatMenu({
+  hiddenSeatsMod: hiddenSeatsMod, mhVisitMod: mhVisitMod, seatFriendReqMod: seatFriendReqMod, tricksMod: tricksMod,   // 값
+  reportMod: ()=>reportMod, _myHomeFriends: ()=>_myHomeFriends, userStatus: ()=>userStatus,                      // 읽는 함수
+  // … 함수 4(_premiumOn · openCreator · setUserStatus · toast)
+});
+overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 우클릭
+```
+
+**내놓는 것** — `_seatCtxMenu(ev, seat)`.
+
+**확장할 때 고칠 자리** — 새 항목은 `mk(라벨, 할 일, 막힘?, 그림)` 한 줄. 남 / 나 갈래 안에, 서로 다른 무리 사이에는 `sep()`(뒤따르는 줄이 있을 때만).
+
+**함정**
+- 메뉴 클래스는 `cr-preset-ctx` 를 그대로 쓴다 — 다른 팝업의 바깥 클릭 닫기가 이 이름을 예외로 둔다(새 이름이면 즉시 닫힌다).
+- 뒷판은 메뉴와 수명을 같이 한다(지우는 곳은 `close()` 하나) — 남으면 화면 전체가 클릭을 먹는다.
+- ESC 는 캡처 단계에서 전파를 끊는다 — 안 끊으면 마이홈까지 같이 닫힌다.
+- 이름표(overhead.js)는 메뉴를 deps 로 받지 않는다 — 메뉴가 신고 · 마이홈 · 놀이를 거쳐 이름표로 돌아와 순환이 된다. `setSeatMenu` 갈고리로만.
+- 입구 전제 — 이벤트 · 좌석 · 화면(document.body)이 없으면 열지 않는다.
+
+검사: `checks/sim-seat-menu.js`.

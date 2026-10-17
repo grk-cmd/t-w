@@ -17,6 +17,8 @@ const APP = need('parts/app.js');
 const STATUS = need('parts/status/status-chip.js');
 const TRICKS = need('parts/room/tricks.js');
 const MEASURE = need('parts/character/char-measure.js');
+const BODY = need('parts/character/body-measure.js');   // 몸 박스 재기 한 규칙 — measureCharBox 가 deps 로 받는다
+const SEATMENU = need('parts/room/seat-menu.js');   // 좌석 우클릭 메뉴(구역 떼기 w4 로 app.js 에서 옮김 — 판정 무변경)
 const HTML = need('desk-companion-prototype.html');
 const THREE_SRC = read('app/vendor/three/three.min.js', 'vendor/three/three.min.js', 'three.min.js');
 let THREE = null;
@@ -65,7 +67,7 @@ say('§2 알림콩 — 읽음 표시는 서버 시각 순서(ts → id)로');
 
 say('§6 좌석 우클릭 메뉴가 열린 채 단축키 — 메뉴(투명 뒷판)부터 닫는다');
 {
-  const fn = (strip(APP).match(/function _seatCtxMenu\(ev, seat\)\{[\s\S]*?\n\}/) || [''])[0];
+  const fn = (strip(SEATMENU).match(/function _seatCtxMenu\(ev, seat\)\{[\s\S]*?\n\}/) || [''])[0];
   const h = (fn.match(/onEsc = e=>\{[\s\S]*?\n  \};/) || [''])[0];
   chk(!!h, 'onEsc 처리기를 찾았다');
   const run = (key) => { let closed = 0, stopped = 0; const close = () => closed++; const f = new Function('close', 'return ' + h.replace(/^onEsc = /, '').replace(/;$/, ''))(close); f({ key, stopPropagation: () => stopped++ }); return { closed, stopped }; };
@@ -88,24 +90,30 @@ say('§11 캐릭터 편집 위로 마이홈 패널이 비침');
 {
   const css = HTML.match(/<style[\s\S]*?<\/style>/g) || [];
   const all = css.join('\n');
-  chk(/body:has\(#creatorOverlay\.on\) #myHomeOverlay, body:has\(#creatorOverlay\.on\) #mhGbOverlay\{visibility:hidden;\}/.test(all), '★ 편집창이 켜진 동안 마이홈 · 방명록 창을 숨긴다(CSS :has)');
-  const zOf = (sel) => { const m = all.match(new RegExp(sel.replace('#', '#') + '\\{[^}]*z-index:(\\d+)')); return m ? Number(m[1]) : null; };
-  chk(zOf('#creatorOverlay') === 55 && zOf('#codeOverlay') === 56, '  ↳ 편집창(55) 자리는 그대로 — 편집 중 여는 코드 창(56)이 위에 남는다');
-  chk(zOf('#myHomeOverlay') > 55 && zOf('#mhGbOverlay') > 55, '  ↳ 숨기는 두 창은 편집창보다 위층이라 숨겨야 한다(옮기면 이 검사를 다시 본다)');
+  /* 숨기던 땜질(:has 숨김)은 걷었다 — 근본 원인(창 앞뒤를 숫자로 따로 적음)을 창 층 표 · 창 쌓기로 고쳤다(sim-z-layers 가 돌려 본다) */
+  const ZL = require('./sim-z-layers.js'), T = ZL.parseTable(HTML);
+  const zOf = (sel) => { const m = all.match(new RegExp(sel + '\\{[^}]*z-index:([^;}]+)')); return m ? ZL.resolveZ(HTML, m[1]) : null; };
+  chk(!/body:has\(#creatorOverlay\.on\)[^{]*#myHomeOverlay/.test(all), '★ 편집창이 켜져도 마이홈 · 방명록을 숨기지 않는다(둘 다 떠 있고 누른 쪽이 앞)');
+  const WSRC = ['win-stack.js', 'parts/shared/win-stack.js', 'app/parts/shared/win-stack.js'].map((f) => { try { return require('fs').readFileSync(f, 'utf8'); } catch (_) { return null; } }).find(Boolean) || '';
+  chk(/'creatorOverlay'/.test((/const _WIN_Z_LAYERS = \[([^\]]*)\]/.exec(WSRC) || [])[1] || ''), '  ↳ 편집창은 창 쌓기 목록에 있다(열면 맨 앞)');
+  chk(zOf('#codeOverlay') > 92 && T['--z-dialog'] > 92, '  ↳ 편집 중 여는 코드 창 · 대화상자는 창 쌓기(83~92) 위라 편집창 밑에 깔리지 않는다');
 }
 
 say('§12 날기 — 기준점 높이는 몸만 잰다');
 {
   const T = strip(TRICKS);
   const fn = (T.match(/function _flyProbeY\(seat\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(/measureCharBox\(seat\.gltfRoot\)/.test(fn) && /_flyBox\.setFromObject\(seat\.rig\)/.test(fn), '★ 몸(gltfRoot)을 measureCharBox 로 · 비면 예전처럼 rig 째');
+  chk(/measureCharBox\(seat\.gltfRoot\)/.test(fn) && /measureBodyBox\(seat\.rig, null, _flyBox\)/.test(fn), '★ 몸(gltfRoot)을 measureCharBox 로 · 비면 예전처럼 rig 째(measureBodyBox 옵션 없음 — 몸 재기는 body-measure.js 한 곳)');
   chk(/const measureCharBox = deps\.measureCharBox;/.test(T) && /measureCharBox: \(\.\.\.a\)=>charMeasureMod\.measureCharBox\(\.\.\.a\),/.test((APP.match(/const tricksMod = TwTricks\.createTricks\(\{[\s\S]*?\n\}\);/) || [''])[0]), '  ↳ app.js 가 tricks 에 measureCharBox(char-measure.js)를 넘긴다');
   if (!THREE) { say('  · three.min.js 가 없어 흉내는 건너뜀'); }
   else {
-    const mcb = (MEASURE.match(/function measureCharBox\(root\)\{[\s\S]*?\n\}/) || [''])[0];
-    const measureCharBox = new Function('THREE', mcb + '\nreturn measureCharBox;')(THREE);
+    /* 진짜 body-measure.js · char-measure.js 를 같은 three 위에서 만든다 — measureCharBox 도 measureBodyBox 를 거친다 */
+    const bmWin = {}; new Function('window', 'module', 'THREE', BODY)(bmWin, undefined, THREE);
+    const bm = bmWin.TwBodyMeasure.createBodyMeasure({});
+    const cmWin = {}; new Function('window', 'module', 'THREE', 'console', MEASURE)(cmWin, undefined, THREE, { warn(){}, log(){} });
+    const measureCharBox = cmWin.TwCharMeasure.createCharMeasure({ measureBodyBox: (...a)=>bm.measureBodyBox(...a) }).measureCharBox;
     const _flyBox = new THREE.Box3(), _flyW = new THREE.Vector3();
-    const probe = new Function('THREE', '_flyBox', '_flyW', 'measureCharBox', 'seatScale', 'ANIMAL_RUN_SCALE', 'FLY_PROBE_FALLBACK', fn + '\nreturn _flyProbeY;')(THREE, _flyBox, _flyW, measureCharBox, () => 1, 0.6, 0.35);
+    const probe = new Function('THREE', '_flyBox', '_flyW', 'measureCharBox', 'measureBodyBox', 'seatScale', 'ANIMAL_RUN_SCALE', 'FLY_PROBE_FALLBACK', fn + '\nreturn _flyProbeY;')(THREE, _flyBox, _flyW, measureCharBox, bm.measureBodyBox, () => 1, 0.6, 0.35);
     const mkSeat = (withItem) => {
       const rig = new THREE.Group();
       const body = new THREE.Group(); rig.add(body);

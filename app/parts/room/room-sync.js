@@ -558,7 +558,7 @@ function makeFirebaseProvider(hooks){
     timer = setTimeout(inject, RETRY_GAP_MS);
   }
 
-  window.addEventListener('firebase-ready', ()=>{
+  TwNetReady.onNetReady(()=>{
     done = true; clearTimeout(timer); hideNotice();
     if(tries > 0) toast('🛰 서버에 다시 연결됐어요');
   });

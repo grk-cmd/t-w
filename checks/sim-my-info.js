@@ -15,6 +15,10 @@ const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["my-info.js","parts/account/my-info.js","app/parts/account/my-info.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — my-info.js'); process.exit(2); }
+/* 🛰 네트워크 준비 기다리기(shared/net-ready.js — 모듈이 TwNetReady.whenNetReady 를 부른다) — 가짜 window 위에 진짜 파일을 먼저 싣는다 */
+const NET = ["net-ready.js","parts/shared/net-ready.js","app/parts/shared/net-ready.js"].map(read).find(Boolean);
+if(!NET){ say('  ? 원본 못 찾음 — net-ready.js'); process.exit(2); }
+const NET_PRE = NET + '\nvar TwNetReady = window.TwNetReady;\n';
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_charsActive","_charsBoxGet","_charsBoxOnlyCount","_charsBoxToDesk","_charsBoxTrash","_charsBoxTrashMany","_charsCachedUid","_charsDeleteWords","_charsDeskGet","_charsIsTomb","_charsMoveMsg","_charsRestore","_charsSync","_charsTrashView","_licenseSnapForPush","_loginDoGoogle","_loginDoLogout","_loginDoDeleteAccount","_pushLevelIfChanged","_slotsNow","closeGearMenu","commitUserName","focusCycleOf","getDisplayName","getFocusLevel","getMyLoginEmail","getMyUserId","getStarColor","getUserName","lvStarStr","myFocusShow","openCodeModal","refreshAccountTab","renderLauncher","saveCurSlot","setStarColor","toast","_acctRelaunchAfterDetach"];
@@ -43,7 +47,7 @@ function build(src){
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'module',
-    src + '\nreturn window.TwMyInfo;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, undefined);
+    NET_PRE + src + '\nreturn window.TwMyInfo;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, undefined);
   return api.createMyInfo(deps);
 }
 

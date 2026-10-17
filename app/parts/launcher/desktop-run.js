@@ -112,7 +112,7 @@ if(desktopMode){
     });
   }
   /* 🎮 게임패드 — 버튼 · 스틱 값이 실제로 바뀌었을 때만(parts/gamepad-activity.js). 처리는 펜 활동과 같다.
-     창이 뒤에 있을 때 값이 안 들어오는 OS 면 신호가 없을 뿐이다(모듈 주석). */
+     창이 뒤에 있으면 값이 안 들어온다 — Windows 는 main 이 XInput 으로 따로 읽어 위 penActivity 로 보낸다(모듈 주석). */
   if(window.TwGamepadActivity && navigator.getGamepads){
     try{
       TwGamepadActivity.createGamepadActivity({
@@ -185,7 +185,7 @@ if(desktopMode){
        두 곳에 따로 적어 두면 새 창을 추가할 때 한쪽만 고치게 되고, 그러면 main 과 렌더러가
        서로 다른 것을 보며 싸운다 — 그게 이번 제보의 정체였다(핸드오프5 §1-4).
        ⇒ body 에 붙는 팝업을 새로 만들면 **여기 한 곳에만** 추가하면 된다. */
-    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #appVerGateOverlay, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, .seat-nameplate';
+    const UI_HIT_SEL = '#myStatusChip, #wardrobePanel, #wdPreviewPanel, .wd-color-palette, .mh-color-pop, #deskBar, .toast, #creatorOverlay, #launcher, #focusSettingsPanel, #programSettingsOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #gameCfgOverlay, #mobLinkOverlay, #raceOverlay, #partRegOverlay, #deskRegOverlay, #exportOverlay, #glbEncOverlay, #glbLoadOverlay, #assetGenOverlay, #assetImpOverlay, #chatOverlay, #inviteOverlay, #inviteIssuedOverlay, #inviteGrantOverlay, #commGenOverlay, #updateReadyBanner, #focusLogOverlay, #myHomeOverlay, #mhPromptOverlay, #mhStickerAnimOverlay, #mhStickerMgrOverlay, .mh-sticker-handle, #mhDesignWin, .seat-bubble-dom, .seat-announce, #bellWin, #categoryManageOverlay, #codeOverlay, #codeModal, #appVerGateOverlay, #inviteGateOverlay, #deviceSessionOverlay, #existingSignupOverlay, #signupDoneOverlay, #needLoginOverlay, #charsLinkedOverlay, #mhDesignOverlay, #updateNoticeAdminOverlay, #updateNoticeUserOverlay, #mhGbOverlay, #totalStatsOverlay, #roomInvitePickOverlay, #ideskInvOverlay, #gachaInvOverlay, #gachaDrawOverlay, #pkOverlay, .cr-preset-ctx, .seat-ctx-backdrop, .app-popup-ov, #friendPicker, .seat-exp, .seat-nameplate';
     /* 📐 지금 화면에 떠 있는 "우리 창"들의 사각형 — main 에게 보낸다.
 
        [왜 필요한가 — 이번 제보의 뿌리] main 의 회수 안전장치(ⓕ·ⓖ)와 펜 근접 판정은 지금까지

@@ -28,7 +28,6 @@ const chatUiMod = deps.chatUiMod;
 const createSeat = deps.createSeat;
 const curSlot = deps.curSlot;   // 읽는 함수
 const deserializeDefFromNetwork = deps.deserializeDefFromNetwork;
-const fitModel = deps.fitModel;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
@@ -40,6 +39,7 @@ const maxPeople = deps.maxPeople;
 const myExpCells = deps.myExpCells;
 const officeMode = deps.officeMode;   // 읽는 함수
 const pruneSeatPartsAgainstDef = deps.pruneSeatPartsAgainstDef;
+const refitSeatAfterParts = deps.refitSeatAfterParts;
 const removeSeatLabels = deps.removeSeatLabels;
 const renderSeatTabs = deps.renderSeatTabs;
 const rideBenchMod = deps.rideBenchMod;
@@ -88,8 +88,7 @@ function _firebaseRoomHooks(){
 }
 /* 💬 대화 기록(firebase-init chatHistory)이 «이 PC 에 저장할지» 를 가르는 채널 — 채널(window._activeChannel)을 바꾸는 곳이 이 파일이라 여기서 건다 */
 function _bindChatHistoryChannel(){ firebaseAPI.chatHistory.bindChannel(()=>(window._activeChannel === 2 ? 'togetherroom' : 'workingroom')); }
-if(window.firebaseAPI) _bindChatHistoryChannel();
-else window.addEventListener('firebase-ready', _bindChatHistoryChannel, { once:true });
+TwNetReady.whenNetReady(_bindChatHistoryChannel);
 function makeServerProvider(net, create){
   return net.makeProvider({
     serializeDef: serializeDefForNetwork,
@@ -261,15 +260,7 @@ async function _serverRandomRooms(limit){
 /* 🧪 가짜 방 — 개발 표식이 있을 때만(Presence.start 주석). */
 const NET_READY_WAIT_MS = 10000;
 function _mockRoomAllowed(){ try{ return localStorage.getItem('tw.mockRoom') === '1'; }catch(_){ return false; } }
-function _waitFirebaseApi(ms){
-  return new Promise(res=>{
-    if(window.firebaseAPI) return res(true);
-    let done = false;
-    const fin = ()=>{ if(done) return; done = true; res(!!window.firebaseAPI); };
-    try{ window.addEventListener('firebase-ready', fin, { once:true }); }catch(_){}
-    setTimeout(fin, ms);
-  });
-}
+function _waitFirebaseApi(ms){ return TwNetReady.waitNetReady(ms); }
 function makeMockProvider(){
   let timer=null, cb=null, fr={};
   const names=['민지','현우','소라'], skins=[2,3,4,1], tops=['#c98a8a','#8aa0c9','#9ac98a'];
@@ -407,7 +398,9 @@ function _applyRemoteRides(){
       if(!want || want === 'self'){ if(seat.ridingOn){ try{ rideBenchMod.unmountRide(seat); }catch(_){} } return; }
       const target = (myUid && want === myUid) ? me : (byUser[want] || byFriend[want] || null);
       if(!target) return;                                  // 일시적 조회 실패 — 내리지 않고 유지(다음 sync에 반영)
-      if(seat.ridingOn === target) return;                 // 이미 같은 상태면 건드리지 않음(재실측 방지)
+      /* 이미 같은 상태면 건드리지 않음(재실측 방지). 파츠가 바뀐 뒤의 높이 다시 재기는 여기서 판단하지 않는다 —
+         파츠를 붙이고 떼는 자리가 refitSeatAfterParts · requestRefit(seat-refit.js)으로 그 좌석과 탄 대상 높이를 다시 잰다(판단은 그 한 곳). */
+      if(seat.ridingOn === target) return;
       if(target===seat || rideBenchMod._rideIsAbove(target, seat)) return;   // 순환 방지
       try{ seat.ridingOn = null; rideBenchMod.mountRide(seat, target); }catch(_){}
     });
@@ -465,13 +458,9 @@ function syncFriendSeats(friends){
                파츠만 붙이고 fitModel 을 안 불러서 내 화면에서는 그 사람만 욕조가 바닥에 파묻힌 채로
                남았다(다른 사람은 applyCharToSeat 경로라 재계산이 있었다 — 그래서 '하나만' 어긋난다).
                욕조를 벗는 쪽도 마찬가지로 뜬 채 남는다.
-             ★ 레이스 가드는 applyCharToSeat 의 .then 과 같은 이유·같은 조건이다 — 파츠 GLB 가
+             ★ 레이스 가드는 applyCharToSeat 와 같은 이유·같은 조건이다 — 파츠 GLB 가
                비동기로 붙는 동안 그 사람이 나가거나 캐릭터를 바꾸면 낡은 좌석에 뒤늦게 발사된다. */
-          applyEquippedPartsToSeat(s, fdef).then(()=>{   // 남아있는/새로 생긴 파츠는 적용(교체 포함)
-            try{
-              if(s && s.charDef===fdef && s.gltfRoot){ fitModel(s); layoutSeats(); }
-            }catch(_){}
-          });
+          refitSeatAfterParts(s, { wait: applyEquippedPartsToSeat(s, fdef), layout: true, isCurrent: ()=>s.charDef===fdef });   // 남아있는/새로 생긴 파츠는 적용(교체 포함)
         }
       }
     }
@@ -628,6 +617,7 @@ function _refreshSecretRoomUI(){
   if(_mySecretRoomCode !== null){ apply(_mySecretRoomCode); return; }
   try{
     if(!(window.firebaseAPI && firebaseAPI.getMySecretRoom)) return;
+    if(!getMyUserId()) return;   // 내 코드가 없으면 시크릿룸을 안 읽는다(읽어도 거부 → 칸은 안 보임 · 같은 화면)
     Promise.resolve(firebaseAPI.getMySecretRoom(getMyUserId())).then(c=>{
       _mySecretRoomCode = c || '';
       apply(_mySecretRoomCode);
@@ -932,6 +922,7 @@ _bindDonate(document.getElementById('donateLink'));    // 방 만들기 / 참여
 _bindDonate(document.getElementById('lcDonateBtn'));   // 런처 (예전 [공사중] 자리)
 _bindDonate(document.getElementById('progIconCredit')); // 설정 → 시스템 → 프로그램 정보 (아이콘 출처 @Miraclelife_CM)
 _bindDonate(document.getElementById('progPrivacyLink')); // 설정 → 시스템 → 프로그램 정보 (개인정보 처리방침)
+_bindDonate(document.getElementById('miPrivacyLink'));   // 내 정보 맨 아래 (개인정보 처리방침 — 같은 주소)
 
 /* --- 런처의 "🏠 마이홈" 버튼 (예전엔 이름 설정 버튼이었음) --- */
 document.getElementById('lcNameBtn').onclick=()=>{
@@ -1062,8 +1053,9 @@ async function doJoinRandomRoom(){
   if(_srv.length){ startRoom(_srv[0]); return; }
   const none = ()=>toast('지금은 참여할 수 있는 방이 없어요. 방을 만들어 보세요 🎲');
   let cands = null;
-  try{ cands = await firebaseAPI.findRandomRooms(12); }catch(_){}
-  if(cands === null){ toast('방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요'); return; }
+  let listErr = null;
+  try{ cands = await firebaseAPI.findRandomRooms(12); }catch(e){ listErr = e; }
+  if(cands === null){ TwErrorCodes.notify('E-ROOM-01', listErr); return; }
   if(!cands.length){ none(); return; }
   let tries = 0;
   for(const code of cands){
@@ -1103,12 +1095,13 @@ async function doHopRandomRoom(){
     if(_srv.length){
       await doLeaveRoom({ wipeChat: true });
       await startRoom(_srv[0]);
-      if(!Presence.active()) toast('방을 옮기지 못했어요 — 참여를 다시 눌러주세요');
+      if(!Presence.active()) TwErrorCodes.notify('E-ROOM-02');
       return;
     }
     let cands = null;
-    try{ cands = await firebaseAPI.findRandomRooms(12); }catch(_){}
-    if(cands === null){ toast('방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요'); return; }
+    let listErr = null;
+    try{ cands = await firebaseAPI.findRandomRooms(12); }catch(e){ listErr = e; }
+    if(cands === null){ TwErrorCodes.notify('E-ROOM-01', listErr); return; }
     cands = cands.filter(c => c !== cur);
     /* doJoinRandomRoom 과 같은 후보 검증 — 인덱스는 최대 90초 낡을 수 있다.
        cnt===0(유령 방)을 건너뛰는 이유도 같다: 거기로 가면 '빈 방 승격'이 돌아 새 방을 여는 셈이라
@@ -1129,7 +1122,7 @@ async function doHopRandomRoom(){
     await startRoom(target);
     /* startRoom 이 조용히 되돌아가는 경로가 여럿 있다(정원 재확인·버전 게이트 등).
        그 경우 방 밖에 남으므로, 나갔다는 사실만이라도 분명히 알려준다. */
-    if(!Presence.active()) toast('방을 옮기지 못했어요 — 참여를 다시 눌러주세요');
+    if(!Presence.active()) TwErrorCodes.notify('E-ROOM-02');
   } finally {
     _hoppingRoom = false; _setHopBusy(false);
     refreshInviteUI();

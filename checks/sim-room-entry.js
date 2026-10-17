@@ -15,15 +15,19 @@ const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["room-entry.js","parts/room/room-entry.js","app/parts/room/room-entry.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — room-entry.js'); process.exit(2); }
+/* 🛰 네트워크 준비 기다리기(shared/net-ready.js — 모듈이 TwNetReady.whenNetReady 를 부른다) — 가짜 window 위에 진짜 파일을 먼저 싣는다 */
+const NET = ["net-ready.js","parts/shared/net-ready.js","app/parts/shared/net-ready.js"].map(read).find(Boolean);
+if(!NET){ say('  ? 원본 못 찾음 — net-ready.js'); process.exit(2); }
+const NET_PRE = NET + '\nvar TwNetReady = window.TwNetReady;\n';
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_chatNotifyIncoming","_clearHiddenSeats","_onDeviceSessionLost","_pokeFresh","_refreshChatMembers","applyCharToSeat","applyEquippedPartsToSeat","createSeat","deserializeDefFromNetwork","fitModel","getDisplayName","getMyUserId","layoutSeats","maxPeople","myExpCells","pruneSeatPartsAgainstDef","removeSeatLabels","renderSeatTabs","serializeDefForNetwork","showChatBubble","spawnFloater","toast","triggerPet","uiIconEl","updateMyStatusChipPosition","_rcStore"];
+const FN_DEPS = ["_chatNotifyIncoming","_clearHiddenSeats","_onDeviceSessionLost","_pokeFresh","_refreshChatMembers","applyCharToSeat","applyEquippedPartsToSeat","createSeat","deserializeDefFromNetwork","getDisplayName","getMyUserId","layoutSeats","maxPeople","myExpCells","pruneSeatPartsAgainstDef","refitSeatAfterParts","removeSeatLabels","renderSeatTabs","serializeDefForNetwork","showChatBubble","spawnFloater","toast","triggerPet","uiIconEl","updateMyStatusChipPosition","_rcStore"];
 const VAL_DEPS = ["FLOATER_BURST","Presence","chatUiMod","rideBenchMod","scene","seats","settingsMod","slots","tricksMod","twNav"];
 const GET_DEPS = ["EXP_CELLS","awayPicMod","curSlot","focusLevelMod","isAdmin","isPremium","officeMode"];
 const SET_DEPS = [];
 const EXPORTS = ["CHANNEL_NAMES","NET_READY_WAIT_MS","ROOM_PREFIX","_mockRoomAllowed","_srFmtDate","_updateRoomCountUI","_waitFirebaseApi","doLeaveRoom","makeMockProvider","refreshInviteUI","startRoom","startRoomCountWatch","syncFriendSeats"];
 const MOVED = ["_roomServerNet","_roomServerOn","_onServerRoomMeta","makeServerProvider","ROOM_SERVER_LOST_MSG","ROOM_SERVER_BUSY_MSG","_roomServerJoinMessage","ROOM_SERVER_CONNECTING_TOAST_MS","_myRoomLicensed","_startRoomOnServer","_srvRoomStats","_srvRoomStatsAt","_addServerRoomCounts","_withServerRoomCounts","_serverRandomRooms","NET_READY_WAIT_MS","_mockRoomAllowed","_waitFirebaseApi","makeMockProvider","mockFriendDef","_charIdentityFingerprint","_deskStateFingerprint","_applyRemoteBenchSeats","_applyRemoteRides","syncFriendSeats","ROOM_PREFIX","ROOM_CODE_RE","_roomPrefixFor","_myRoomPrefix","genRoomCode","presenceChanged","_srFmtDate","_mySecretRoomCode","_refreshSecretRoomUI","refreshInviteUI","_verLt","_ensureRoomVersionOk","startRoom","_bindDonate","CHANNEL_NAMES","roomLimitOf","_channelFullMsg","_paintRoomLimits","_paintMaxPeople","_liveRoomCount","_updateRoomCountUI","_roomCountTimer","refreshRoomCountOnce","_roomCountUnsub","_paintRoomCounts","startRoomCountWatch","doCreateRoomInChannel","RANDOM_JOIN_TRIES","doJoinRandomRoom","_hoppingRoom","_setHopBusy","doHopRandomRoom","_refreshChannelPickUI","_joiningRoom","_resolveRoomCode","doJoinRoom","doJoinSecretRoom","doLeaveRoom","doCopyRoomCode","fsInviteCreate","fsInviteJoinBtn","fsInviteLeaveBtn","fsInviteRoomCopyBtn","_setupRoomCodeInput","_setupSecretCodeInput"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  EXP_CELLS: ()=>expBarMod.EXP_CELLS,","  FLOATER_BURST: floatersMod.FLOATER_BURST,","  Presence: Presence,","  _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),","  _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),","  _onDeviceSessionLost: (...a)=>deviceLostMod._onDeviceSessionLost(...a),","  _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),","  _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  awayPicMod: ()=>awayPicMod,","  chatUiMod: chatUiMod,","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  deserializeDefFromNetwork: (...a)=>roomSyncMod.deserializeDefFromNetwork(...a),","  fitModel: (...a)=>fitModel(...a),","  focusLevelMod: ()=>focusLevelMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  layoutSeats: (...a)=>layoutSeats(...a),","  maxPeople: (...a)=>maxPeople(...a),","  myExpCells: (...a)=>expBarMod.myExpCells(...a),","  officeMode: ()=>officeMode,","  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),","  removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),","  renderSeatTabs: (...a)=>renderSeatTabs(...a),","  rideBenchMod: rideBenchMod,","  scene: scene,","  seats: seats,","  serializeDefForNetwork: (...a)=>roomSyncMod.serializeDefForNetwork(...a),","  settingsMod: settingsMod,","  showChatBubble: (...a)=>showChatBubble(...a),","  slots: slots,","  spawnFloater: (...a)=>floatersMod.spawnFloater(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  triggerPet: (...a)=>triggerPet(...a),","  uiIconEl: (...a)=>statusChipMod.uiIconEl(...a),","  updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),","  twNav: twNav,"];
+const GLUE = ["  EXP_CELLS: ()=>expBarMod.EXP_CELLS,","  FLOATER_BURST: floatersMod.FLOATER_BURST,","  Presence: Presence,","  _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),","  _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),","  _onDeviceSessionLost: (...a)=>deviceLostMod._onDeviceSessionLost(...a),","  _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),","  _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  awayPicMod: ()=>awayPicMod,","  chatUiMod: chatUiMod,","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  deserializeDefFromNetwork: (...a)=>roomSyncMod.deserializeDefFromNetwork(...a),","  focusLevelMod: ()=>focusLevelMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  layoutSeats: (...a)=>layoutSeats(...a),","  maxPeople: (...a)=>maxPeople(...a),","  myExpCells: (...a)=>expBarMod.myExpCells(...a),","  officeMode: ()=>officeMode,","  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  rideBenchMod: rideBenchMod,","  scene: scene,","  seats: seats,","  serializeDefForNetwork: (...a)=>roomSyncMod.serializeDefForNetwork(...a),","  settingsMod: settingsMod,","  showChatBubble: (...a)=>showChatBubble(...a),","  slots: slots,","  spawnFloater: (...a)=>floatersMod.spawnFloater(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  triggerPet: (...a)=>triggerPet(...a),","  uiIconEl: (...a)=>statusChipMod.uiIconEl(...a),","  updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),","  twNav: twNav,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -43,7 +47,7 @@ function build(src){
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
-    src + '\nreturn window.TwRoomEntry;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+    NET_PRE + src + '\nreturn window.TwRoomEntry;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
   return api.createRoomEntry(deps);
 }
 
@@ -72,9 +76,34 @@ function judgeAll(mod, app, html){
   return r;
 }
 
+/* 내 코드(getMyUserId)가 없는 기기 — 방 만들기 창(refreshInviteUI)이 부르는 firebaseAPI 이름들 */
+function callsWith(src, uid){
+  const any = anything(), calls = [];
+  const fa = new Proxy({}, { get: (t, k) => new Proxy(function(){}, { apply: () => { calls.push(String(k)); return any; }, get: () => any }) });   // chatHistory.bindChannel 같은 칸도 받는다
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  deps.getMyUserId = () => uid;
+  const win = new Proxy({ firebaseAPI: fa }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
+    NET_PRE + src + '\nreturn window.TwRoomEntry;')(win, any, ls, any, fa, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+  try{ api.createRoomEntry(deps).refreshInviteUI(); }catch(_){}
+  return calls;
+}
+const judgeNoUid = (src) => !callsWith(src, null).includes('getMySecretRoom') && callsWith(src, 'ME').includes('getMySecretRoom');
+
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 내 코드 없음 — 그 요청 0');
+chk(judgeNoUid(MOD), '내 코드 없음 → 방 만들기 창 시크릿룸 읽기(getMySecretRoom) 0 · 코드 있으면 읽는다');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+{
+  const m2 = MOD.replace(/\n *if\(!getMyUserId\(\)\) return;   \/\/ 내 코드가 없으면 시크릿룸[^\n]*/, '');
+  chk(m2 !== MOD && !judgeNoUid(m2), '내 코드 확인을 빼면 — 내 코드 없음 판정이 빨강');
+}
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/room-entry.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
