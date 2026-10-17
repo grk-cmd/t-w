@@ -172,7 +172,8 @@ say('── 5. main.js 배선 · 보호 장치 그대로');
 
 say('── 6. app.js 보호 장치 그대로');
 {
-  const kick = (APP.match(/window\.__mouseKick = function\(offOverlay\)\{[\s\S]*?\n    \};/) || [''])[0];
+  // 10-16 제보 13 에서 둘째 인자 onUI 가 붙었다 — 인자 목록은 어느 쪽이든 받는다(판정 무변경)
+  const kick = (APP.match(/window\.__mouseKick = function\(offOverlay(?:, onUI)?\)\{[\s\S]*?\n    \};/) || [''])[0];
   chk(/if\(_penAppFocused\)\{[\s\S]*?return;\s*\}/.test(kick), '★ 사다리는 펜 앱이면 건너뛴다(그리는 중 포커스 뺏김 방지)');
   chk(/if\(_lastPokePen && _lastPokeAt && now - _lastPokeAt < 3000\) return;/.test(kick), '  pen=false 재판정은 생존 신호가 아니다 — 호버 찌르기가 사다리 시계를 되감지 않는다');
   chk(/_notePoke\(pt && pt\.pen\);/.test(APP), '  재판정 수신은 _notePoke 로만 기록');
