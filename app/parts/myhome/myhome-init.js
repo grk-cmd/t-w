@@ -24,6 +24,7 @@ const deviceLostMod = deps.deviceLostMod;
 const ensureMyFriendCode = deps.ensureMyFriendCode;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const friendManage = deps.friendManage;
+const friendsSub = deps.friendsSub;   // 👥 친구 목록 구독 한 벌(friends-sub.js) — 상태 · 자동 다시 걸기
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
 const inboxMod = deps.inboxMod;   // 읽는 함수
@@ -49,6 +50,14 @@ async function initMyHome(){
   _waitForFirebaseAPI(async ()=>{
     const myId = getMyUserId();
     try{
+      /* 👥 친구 목록 구독은 맨 먼저 — 아래 쓰기 · await 가 거부되거나 늦어도 목록은 온다(아래 «벽» 주석의 원칙).
+         실패하면 friendsSub 가 간격을 늘려 가며 다시 건다. 상태가 바뀌면 친구 탭을 다시 그린다(«불러오는 중» · «못 불러옴»). */
+      friendsSub.start(myId, friends=>{
+        setMyHomeFriends(friends);
+        inboxMod().renderMyHomeFriendList();
+        // 📖 방명록 쓰기 게이트는 이 목록으로 판정한다 — 목록이 도착/변경되면 열려 있는 창에 즉시 반영.
+        window._mhGbRefreshWriteUI();
+      }, ()=>{ try{ inboxMod().renderMyHomeFriendList(); }catch(_){} });
       firebaseAPI.setMyPresenceOnline(myId);
       /* 📱 태블릿·폰 연결 — presence 등록 직후(§4-②). 키가 없는 사람은 아무 일도 안 한다. */
       try{ focusLevelMod()._mobileStart(); }catch(_){}
@@ -59,7 +68,7 @@ async function initMyHome(){
          [경위] 규칙 게시 직후 제보: "구글 연동한 유저만 친구 목록이 통째로 사라진다."
            데이터는 RTDB 에 멀쩡히 살아 있었고 읽기 규칙도 열려 있었다. 사라진 것은 목록이
            아니라 **구독** 이었다. setMyProfile 이 permission_denied 로 던지면 이 try 가
-           통째로 끊겨서 아래 subscribeMyFriends·친구요청·D-day·수령함이 **한 줄도 안 걸렸다.**
+           통째로 끊겨서 아래 친구요청·D-day·수령함이 **한 줄도 안 걸렸다.**
            쓰기 하나가 거부됐을 뿐인데 화면에서는 친구·요청·우편이 전부 증발한 것으로 보인다.
          ★ 원칙: 읽기(구독)는 쓰기의 성공에 기대지 않는다. 규칙상 users/{코드} 읽기는 항상
            열려 있으므로, 쓰기가 어떻게 되든 구독은 반드시 걸려야 한다.
@@ -69,12 +78,6 @@ async function initMyHome(){
       catch(e){ _warnOwnerWriteDenied('프로필', e); }
       try{ await ensureMyFriendCode(); }
       catch(e){ console.warn('[마이홈] 친추 코드 확보 실패 — 구독은 그대로 진행', e); }
-      firebaseAPI.subscribeMyFriends(myId, friends=>{
-        setMyHomeFriends(friends);
-        inboxMod().renderMyHomeFriendList();
-        // 📖 방명록 쓰기 게이트는 이 목록으로 판정한다 — 목록이 도착/변경되면 열려 있는 창에 즉시 반영.
-        window._mhGbRefreshWriteUI();
-      });
       // 📌 D-day 구독 (스케줄러 우측 목록)
       if(firebaseAPI.subscribeDdays){
         firebaseAPI.subscribeDdays(myId, dd=>{ mhScheduler.setDdays(dd || {}); mhScheduler.renderDdays(); mhScheduler.refreshBellBadge(); });

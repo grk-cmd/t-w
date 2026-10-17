@@ -96,7 +96,10 @@ if (missing.length) {
 //   ⚠ `unpublishPart(` 도 문자열로는 걸리므로 앞 글자를 보고 걸러낸다.
 //   페이로드는 두 모양 다 인정한다: 인자에 바로 부르거나(빌더가 그 자리에 보이거나),
 //   변수로 받아 넘기거나(그 변수가 빌더로 만들어졌으면 OK).
-const publishCalls = [...SRC.matchAll(/(.)publishPart\(([\s\S]{0,200})/g)]
+//   카탈로그 provider(catalog-source.js)의 catalogSrcPublishPart 는 받은 페이로드를 그대로 넘기는 길이라
+//   그 함수 몸은 빼고, 대신 그것을 부르는 자리를 배포 자리로 센다.
+const SRC_PUB = SRC.replace(/function catalogSrcPublishPart\([^)]*\)\{[^\n]*\}/, '');
+const publishCalls = [...SRC_PUB.matchAll(/(.)(?:catalogSrcPublishPart|publishPart)\(([\s\S]{0,200})/g)]
   .filter(m => !/[A-Za-z]/.test(m[1]));
 chk(publishCalls.length >= 2, 'publishPart 호출을 찾았다 (' + publishCalls.length + '곳)');
 const usesBuilder = (tail) => {

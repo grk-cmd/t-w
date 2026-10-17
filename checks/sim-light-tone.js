@@ -16,6 +16,8 @@ const MOD = read('shared/light-tone.js'), APP = read('app.js'), HTML = read('des
 if (!MOD || !APP || !HTML) { say('  ? 원본 못 찾음 — light-tone.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 const near = (a, b) => Math.abs(a - b) < 1e-9;
+/* «baseFlat 이 있으면 그 값, 없으면 대체값» 판단을 baseFlatOf 밖에서 다시 쓰는 글 — 대체값이 곳마다 갈라지던 원인 */
+const REPEAT_RE = /userData\.baseFlat\s*!=\s*null\)\s*\?/;
 
 /* 가짜 THREE.Color — 재질 함수가 쓰는 만큼(r 하나로 본다) */
 class Color { constructor(v) { this.r = v == null ? 0 : (typeof v === 'number' ? (v === 0xffffff ? 1 : v) : 0.5); } copy(c) { this.r = c.r; return this; } multiplyScalar(k) { this.r *= k; return this; } setScalar(k) { this.r = k; return this; } set(v) { this.r = typeof v === 'number' ? v : 0.25; return this; } }
@@ -32,8 +34,8 @@ function behave(src) {
   const t = (ok, msg) => r.push([!!ok, msg]);
   let w = null, err = null;
   try { w = make(src); } catch (e) { err = e; }
-  const NAMES = ['FLAT_EMISSIVE', 'LIGHT_PRESET', 'TONE_FRONT_TOTAL', '_applyItemMatTone', '_applyPartMatTone', '_setDeskMatColor'];
-  t(!err && w && Object.keys(w.out).sort().join() === NAMES.join(), '만들 때 던지지 않고 내놓는 이름 여섯' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
+  const NAMES = ['FLAT_EMISSIVE', 'LIGHT_PRESET', 'TONE_FRONT_TOTAL', '_applyItemMatTone', '_applyPartMatTone', '_setDeskMatColor', 'baseFlatOf'];
+  t(!err && w && Object.keys(w.out).sort().join() === NAMES.join(), '만들 때 던지지 않고 내놓는 이름 일곱' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   if (!w) return r;
   const { out } = w;
   t(out.LIGHT_PRESET.b === 1.2 && out.LIGHT_PRESET.h === 0.09 && out.LIGHT_PRESET.e === 0.46 && out.TONE_FRONT_TOTAL === 1.05, 'LIGHT_PRESET {b 1.2 · h 0.09 · e 0.46} · TONE_FRONT_TOTAL 1.05');
@@ -70,6 +72,10 @@ function behave(src) {
   m = { emissive: new Color(0.7) };
   out._setDeskMatColor(m, 0.4);
   t(m.emissive.r === 0.7 && !m.userData, '색이 없는 재질은 건드리지 않는다');
+  const bf = out.baseFlatOf;
+  t(bf({ userData: { baseFlat: 0.2 } }) === 0.2 && bf({ userData: { baseFlat: 0 } }) === 0, 'baseFlatOf — 심은 값을 돌려준다(0 도 심은 값)');
+  t([{ userData: {} }, { userData: { baseFlat: null } }, {}, null, undefined].every((x) => bf(x) === out.FLAT_EMISSIVE), 'baseFlatOf — 없으면(칸 없음 · null · userData 없음 · 재질 없음) 공용 기준 FLAT_EMISSIVE');
+  t(bf({}, 0.4) === out.FLAT_EMISSIVE, 'baseFlatOf — 부르는 쪽이 대체값을 넘겨도 공용 기준(곳마다 갈라지지 않는다)');
   return r;
 }
 
@@ -82,6 +88,7 @@ function wire(app, html) {
   t(mk.split('\n').map((l) => l.trim()).join('|') === '_FILL_LIGHT_MUL: _FILL_LIGHT_MUL,|_MAIN_LIGHT_INT: _MAIN_LIGHT_INT,|_fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),', '만드는 줄(가드 없이) · deps 3');
   t(/^const LIGHT_PRESET = lightToneMod\.LIGHT_PRESET;\s+\/\/ 옛 전역 이름/m.test(app), '옛 전역 이름 LIGHT_PRESET 한 줄(animal.js 가 읽는다)');
   t(!/(^|[^.\w$])(FLAT_EMISSIVE|TONE_FRONT_TOTAL|_applyPartMatTone|_applyItemMatTone|_setDeskMatColor)\b(?!\s*:)/.test(A.replace(/const lightToneMod = [\s\S]*?\n\}\);/, '')), '부르는 곳은 lightToneMod.이름');
+  t(!REPEAT_RE.test(A), 'app.js 는 baseFlat 판단을 다시 쓰지 않는다(lightToneMod.baseFlatOf 로)');
   const iM = html.indexOf('<script src="parts/shared/light-tone.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — shared/light-tone.js 를 app.js 보다 먼저 싣는다');
   return r;
@@ -91,15 +98,19 @@ const B = behave(MOD);
 B.forEach(([ok, msg], i) => { const s = { 0: '── 1. 만들 때 · 상수', 5: '── 2. _applyPartMatTone', 8: '── 3. _applyItemMatTone', 11: '── 4. _setDeskMatColor' }; if (s[i]) say(s[i]); chk(ok, msg); });
 say('── 5. app.js 연결');
 wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
+for (const f of ['character/wardrobe.js', 'creator/creator-xform.js']) { const x = read(f); chk(x && !REPEAT_RE.test(strip(x)), f + ' 도 baseFlat 판단은 baseFlatOf 로(다시 쓰지 않는다)'); }
 say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['총합 1.05 → 1.10', (m) => m.replace('const TONE_FRONT_TOTAL = 1.05;', 'const TONE_FRONT_TOTAL = 1.10;'), null, null],
   ['0 아래 막기 없앰', (m) => m.replace('const FLAT_EMISSIVE = Math.max(0,', 'const FLAT_EMISSIVE = (0,'), null, null],
+  ['baseFlatOf 대체값을 숫자 0.4 로', (m) => m.replace('mat.userData.baseFlat : FLAT_EMISSIVE;', 'mat.userData.baseFlat : 0.4;'), null, null],
+  ['baseFlatOf 가 0 을 없음으로 봄', (m) => m.replace('mat.userData.baseFlat!=null)', 'mat.userData.baseFlat)'), null, null],
   ['solid 아이템 0 으로', (m) => m.replace('const ITEM_SOLID_FLAT = FLAT_EMISSIVE;', 'const ITEM_SOLID_FLAT = 0;'), null, null],
   ['책상 baseFlat 안 심음', (m) => m.replace('if(m.userData.baseFlat == null) m.userData.baseFlat = m.map ? FLAT_EMISSIVE : ITEM_SOLID_FLAT;', ''), null, null],
   ['만들 때 던짐', (m) => m.replace('function createLightTone(deps){', 'function createLightTone(deps){ throw new Error("깨 봄");'), null, null],
   ['app.js 에 본문이 남음', null, (a) => a + '\nfunction _setDeskMatColor(){}', null],
   ['옛 전역 이름 줄 빠짐', null, (a) => a.replace(/^const LIGHT_PRESET = lightToneMod\.LIGHT_PRESET;.*\n/m, ''), null],
+  ['app.js 에 baseFlat 판단을 다시 씀', null, (a) => a + '\nconst _f = (m.userData && m.userData.baseFlat!=null) ? m.userData.baseFlat : 0.4;', null],
   ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/shared/light-tone.js"></script>', '')],
 ];
 for (const [name, fm, fa, fh] of breaks) {

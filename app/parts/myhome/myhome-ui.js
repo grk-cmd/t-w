@@ -24,6 +24,8 @@ const applyDesktopRunClass = deps.applyDesktopRunClass;
 const closeFriendHomeView = deps.closeFriendHomeView;
 const escRegisterWindow = deps.escRegisterWindow;
 const friendManage = deps.friendManage;
+const friendsForCheck = deps.friendsForCheck;   // 👥 판정용 친구 목록(friends-sub.js) — 못 받았으면 한 번 읽고 · 실패면 null(토스트는 거기서)
+const friendsRetry = deps.friendsRetry;   // 👥 친구 목록을 못 불러왔으면 다시 건다(친구 탭을 열 때)
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
 const inboxMod = deps.inboxMod;
@@ -241,6 +243,8 @@ function renderMhProfileRail(){ /* 제거됨 */ }
       if(tab.dataset.tab==='mail' && typeof inboxMod.renderInbox==='function') inboxMod.renderInbox();
       // 👥 친구 탭에 들어올 때 오른쪽 '친구 관리' 칸을 그림 (받은 요청 / 선물함)
       if(tab.dataset.tab==='friend') friendManage.renderFriendManage();
+      // 👥 친구 목록을 못 불러왔으면 탭을 열 때 다시 건다(다시 시도는 목록을 열 때만)
+      if(tab.dataset.tab==='friend') friendsRetry();
       // 🔍 다른 탭으로 나가면 검색줄을 접는다 — 접힌 채 필터만 남으면 다음에 와서 친구가 사라져 보인다
       if(tab.dataset.tab!=='friend' && typeof inboxMod.friendSearchToggle==='function') inboxMod.friendSearchToggle(false);
       // ★ 예전엔 탭 전환 시 loadMyHomePage()를 다시 호출했는데, 프리미엄 스튜디오 등에서 방금 커밋한
@@ -277,7 +281,10 @@ function renderMhProfileRail(){ /* 제거됨 */ }
     else if(/^(MATE|COZY)-[A-Z0-9]{4}$/.test(code)){ candidates = [code]; }
     else { candidates = [code]; }   // 혹시 다른 형식이면 그대로 시도
     if(!window.firebaseAPI || !firebaseAPI.lookupFriendCode){ toast('아직 준비 중이에요, 잠시 후 다시 시도해주세요'); return; }
-    if(Object.keys(_myHomeFriends()).length>=FRIEND_MAX){ toast('친구는 최대 '+FRIEND_MAX+'명까지만 추가할 수 있어요'); return; }
+    /* 👥 받은 목록으로 판정한다 — 못 받았으면 friends-sub 가 한 번 읽는다(못 읽으면 아무것도 안 보낸다). */
+    const _fr = await friendsForCheck();
+    if(!_fr) return;
+    if(Object.keys(_fr).length>=FRIEND_MAX){ toast('친구는 최대 '+FRIEND_MAX+'명까지만 추가할 수 있어요'); return; }
     const myCode=localStorage.getItem(MY_FRIEND_CODE_KEY);
     if(myCode && candidates.includes(myCode)){ toast('내 코드는 추가할 수 없어요'); return; }
     try{
@@ -288,7 +295,7 @@ function renderMhProfileRail(){ /* 제거됨 */ }
         if(friendId){ matchedCode = cand; break; }
       }
       if(!friendId){ toast('존재하지 않는 코드예요'); return; }
-      if(_myHomeFriends()[friendId]){ toast('이미 친구예요'); return; }
+      if(_fr[friendId] || _myHomeFriends()[friendId]){ toast('이미 친구예요'); return; }
       if(!firebaseAPI.sendFriendRequest){ toast('아직 준비 중이에요'); return; }
       /* 📤 뒤 두 인자는 **보낸 요청 목록에 보여줄 이름표**다. 코드로 추가하면 상대 이름을 모르니
          프로필에서 한 번 읽어 넘긴다 — 목록에 '닉네임 (MATE-5H3K)' 로 뜨게 하는 값이다.

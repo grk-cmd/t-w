@@ -17,8 +17,8 @@
        그 0 은 책상 다리가 아니라 제자리에 남은 파츠의 바닥이었다.
 
    ★ 무엇을 보는가 (두 층)
-     §1 소스 대조 — 클램프가 skipSub 를 받는가 · 책상 호출이 파츠 핀을 빼는가 ·
-        되먹임의 다른 쪽 짝(syncDeskPartAnchor 의 상쇄)이 그대로인가
+     §1 배선 · 짝 — 책상 호출이 파츠 핀을 빼는가 · 되먹임의 다른 쪽 짝(syncDeskPartAnchor 의 상쇄)을
+        진짜 함수로 돌려 핀이 좌석 원점에 남는가
      §2 런타임 — app.js 에서 _boxExcluding · floorClampWrapper 를 **원본 그대로 떼어내** 돌린다.
         상쇄되는 파츠를 매단 책상을 여러 번 클램프해서, 지금 코드는 안 솟고
         **옛 방식(전부 재기)으로 돌리면 실제로 솟는 것**까지 확인한다.
@@ -29,7 +29,8 @@
    ⚠ 기즈모 자체(TransformControls)는 보지 않는다. 클램프 산수만 본다. */
 'use strict';
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 아이템 기즈모 · 좌석 세팅은 creator/creator-xform.js 로 옮겼다(C 구역 떼기 w4) — «옮기기 전 app.js 글» 로 되살려 읽는다
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const say = console.log;
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
@@ -40,13 +41,7 @@ say('');
 /* ── §1. 소스 대조 ───────────────────────────────────────────────── */
 say('· §1 소스 대조 — 잰 것과 움직이는 것이 같은가');
 
-chk(/function\s+_boxExcluding\s*\(\s*root\s*,\s*skipSub\s*\)/.test(SRC),
-    '_boxExcluding(root, skipSub) 가 있다');
-chk(/function\s+floorClampWrapper\s*\(\s*w\s*,\s*tag\s*,\s*hard\s*,\s*skipSub\s*\)/.test(SRC),
-    'floorClampWrapper 가 skipSub 를 받는다');
-chk(/skipSub\s*\?\s*_boxExcluding\(w,\s*skipSub\)\s*:\s*new THREE\.Box3\(\)\.setFromObject\(w\)/.test(SRC),
-    'skipSub 를 안 넘기면 예전처럼 전부 잰다 (다른 호출부는 무변화)');
-
+/* _boxExcluding · floorClampWrapper 의 skipSub 동작은 §2 가 원본 함수를 돌려 본다(없으면 cut 이 던져 빨강) */
 const deskCall = (SRC.match(/floorClampWrapper\(cDesk[^;]*;/) || [''])[0];
 chk(/DESK_PART_ANCHOR_NAME/.test(deskCall),
     '★ 책상 클램프가 파츠 핀(__deskPartAnchor)을 측정에서 뺀다 — 제보 2-1 의 수정');
@@ -56,9 +51,21 @@ const itemCalls = [...SRC.matchAll(/floorClampWrapper\((?!cDesk)[^;]*;/g)].map(m
 chk(itemCalls.length > 0 && itemCalls.every(c => !/DESK_PART_ANCHOR_NAME/.test(c)),
     '파츠·아이템 자신의 클램프는 예전 그대로다 (' + itemCalls.length + '곳)');
 
-// 되먹임의 다른 쪽 짝 — 상쇄가 사라지면 이 수정의 전제도 사라진다
-chk(/pin\.position\.set\(\s*-\(\+b\.x/.test(SRC),
-    'syncDeskPartAnchor 의 상쇄가 그대로다 (이게 없어지면 파츠도 책상을 따라가므로 빼면 안 된다)');
+// 되먹임의 다른 쪽 짝 — 상쇄가 사라지면 이 수정의 전제도 사라진다. 진짜 syncDeskPartAnchor 를 돌려 본다
+{
+  const grab = (n) => { const i = SRC.indexOf('function ' + n + '('); let k = SRC.indexOf('{', i), d = 0; for(; k < SRC.length; k++){ if(SRC[k] === '{') d++; else if(SRC[k] === '}' && --d === 0) return SRC.slice(i, k + 1); } return ''; };
+  const num = (n) => +(new RegExp(n + '\\s*=\\s*([\\d.]+)').exec(SRC) || [])[1];
+  const P = (o) => Object.assign({ x: 0, y: 0, z: 0, set(x, y, z){ this.x = x; this.y = y; this.z = z; } }, o);
+  const pin = { scale: P({ x: 1, y: 1, z: 1 }), position: P() };
+  const anchor = { scale: P({ x: 1 / 1.5, y: 1, z: 1 }), getObjectByName: (n) => n === '__deskPartAnchor' ? pin : null };
+  const base = { x: 0.5, y: 0.2, z: -0.3 }, ud = { deskAnchor: anchor, deskPosBase: base, deskScaleBase: 0.175, animCorr: 0.4, eqK: 0.5 };
+  const desk = { userData: ud, scale: P({ x: 0.175 * 0.2 * 1.5, y: 0.175 * 0.2, z: 0.175 * 0.2 }), position: P({ x: base.x * 0.2, y: base.y * 0.2, z: base.z * 0.2 }) };
+  new Function('DESK_PART_ANCHOR_NAME', 'DESK_SCALE_MIN', 'DESK_SCALE_MAX', 'DESK_SCALE_DEFAULT', grab('seatDeskPosMul') + '\n' + grab('syncDeskPartAnchor') + '\nreturn syncDeskPartAnchor;')(
+    '__deskPartAnchor', num('DESK_SCALE_MIN'), num('DESK_SCALE_MAX'), num('DESK_SCALE_DEFAULT'))(desk);
+  const w = (c) => desk.position[c] + desk.scale[c] * anchor.scale[c] * pin.position[c];
+  chk(['x', 'y', 'z'].every(c => Math.abs(w(c)) < 1e-9),
+      'syncDeskPartAnchor 의 상쇄가 그대로다 — 책상을 옮겨도 파츠 핀은 좌석 원점에 남는다 (이게 없어지면 파츠도 책상을 따라가므로 빼면 안 된다)');
+}
 
 say('');
 

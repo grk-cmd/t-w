@@ -544,6 +544,15 @@ function _lockChildZoom(win){
   wc.on('zoom-changed', (event) => { event.preventDefault(); try{ wc.setZoomFactor(1); }catch(_){} });
   wc.on('before-input-event', (event, input) => { if(_zoomKeyOp(input)) event.preventDefault(); });
 }
+/* 바로 끝내기 — 네이티브 훅 · 타이머를 먼저 내리고 → 창 destroy → app.exit(0). 끝내는 길은 이 함수 하나로 모은다(순서를 한 곳에서).
+   ⚠️ 저장하지 않는다(설정은 바뀔 때마다 이미 쓴다 · 쓰기를 넣으면 느려져 종료를 막는다). quit() 이 아니라 exit(0) — 창을 하나씩 닫는 시간이 곧 «종료를 막는 앱»이다. */
+function _exitNow(){
+  try{ sysinput.stopGlobalHooks(); }catch(_){}
+  try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
+  try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
+  try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
+  try{ app.exit(0); }catch(_){}
+}
 let _saveFailLogged = false;
 function saveSettings(){
   if(!SETTINGS_PATH) return false;
@@ -1899,6 +1908,7 @@ const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
      횟수를 묶는다 — 두 번째부터는 기록만 한다. */
 let _rendererReloads = 0, _childGoneHooked = false;
 const RENDERER_AUTO_RELOAD_MAX = 1;
+const _unresponsiveWins = new WeakSet();   // 'unresponsive' 뒤 'responsive' 가 아직 안 온 창 — 두 번째 실행 판정(_secondInstanceAction)이 본다
 function _watchRendererHealth(win){
   if(!win || win.isDestroyed()) return;
   const wc = win.webContents;
@@ -1914,8 +1924,8 @@ function _watchRendererHealth(win){
     if(isMainFrame === false) return;   // 안쪽 iframe(유튜브 등) 실패는 앱 화면과 무관
     _diagLog('[렌더러] 로드 실패 — ' + code + ' ' + desc + ' | ' + String(url || '').slice(-80));
   });
-  win.on('unresponsive', () => _diagLog('[렌더러] 응답 없음(unresponsive)'));
-  win.on('responsive',   () => _diagLog('[렌더러] 응답 재개(responsive)'));
+  win.on('unresponsive', () => { _unresponsiveWins.add(win); _diagLog('[렌더러] 응답 없음(unresponsive)'); });
+  win.on('responsive',   () => { _unresponsiveWins.delete(win); _diagLog('[렌더러] 응답 재개(responsive)'); });
   if(!_childGoneHooked){
     _childGoneHooked = true;
     app.on('child-process-gone', (e, d) => {
@@ -2096,6 +2106,7 @@ function createWindow() {
 
   _fdInstrument(mainWindow);   // 🩺 [진단] 활성화 원인 추적 — 창을 올리는 메서드에 표식만 심는다(동작 불변)
 
+  _mainWindowCreated = true;
   _watchRendererHealth(mainWindow);   // 🩺 렌더러 사망 · 로드 실패 · 무응답 기록(+ 사망 시 1회 재로드) — 제보 #1
   _logGpuOnce(mainWindow);            // 🩺 그래픽카드 · GPU 기능 상태 · 시험 스위치 한 줄 — 제보 #1-B
   mainWindow.loadFile(path.join(__dirname, 'app', 'desk-companion-prototype.html'));
@@ -3839,23 +3850,50 @@ function createWindow() {
          (app.quit()은 창을 하나씩 닫으며 이벤트를 도는데, 그 시간이 곧 '종료를 막는 앱'이 된다)
      ⚠️ 이 경로에서는 저장을 하지 않는다. 설정은 바뀔 때마다 이미 파일에 쓰고 있으므로
        여기서 추가로 쓸 것이 없고, 쓰기를 넣으면 다시 같은 문제(느려서 종료를 막음)가 된다. */
-  app.on('session-end', () => {
-    try{ sysinput.stopGlobalHooks(); }catch(_){}
-    try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
-    try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
-    try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
-    try{ app.exit(0); }catch(_){}
-  });
+  app.on('session-end', () => { _exitNow(); });
+}
+
+/* 🔁 두 번째 실행 때 옛 인스턴스를 어떻게 할지 — 순수 판정(검사 sim-second-instance).
+   s = { ready, created, hasWindow, destroyed, crashed, unresponsive }
+   · 'wait'     — 아직 부팅 중(준비 전 · 창을 만들기 전). 예전처럼 아무것도 안 한다 — 부팅 중인 앱을 죽이지 않는다.
+   · 'relaunch' — 창이 없거나 · 파괴됐거나 · 렌더러가 죽었거나 · 응답 없음. 앞으로 올려도 쓸 수 없으니 정리하고 새로 띄운다.
+   · 'focus'    — 멀쩡하다. 앞으로 올리기만(재시작하면 방에서 튕긴다). */
+function _secondInstanceAction(s){
+  s = s || {};
+  if(!s.ready || !s.created) return 'wait';
+  if(!s.hasWindow || s.destroyed || s.crashed || s.unresponsive) return 'relaunch';
+  return 'focus';
+}
+let _mainWindowCreated = false;   // createWindow 가 한 번이라도 창을 만들었나 — «부팅 중» 과 «창이 사라짐» 을 가른다
+function _mainWindowHealth(){
+  const w = mainWindow;
+  const s = { ready: app.isReady(), created: _mainWindowCreated, hasWindow: !!w, destroyed: false, crashed: false, unresponsive: false };
+  if(!w) return s;
+  try{ s.destroyed = w.isDestroyed(); }catch(_){ s.destroyed = true; }
+  if(s.destroyed) return s;
+  try{ const wc = w.webContents; s.crashed = !wc || wc.isDestroyed() || wc.isCrashed(); }catch(_){ s.crashed = true; }
+  s.unresponsive = _unresponsiveWins.has(w);
+  return s;
+}
+/* 정리하고 새로 띄운다 — 정리는 session-end 와 같은 _exitNow()(네이티브 훅 · 타이머 먼저 → 창 destroy → app.exit(0)).
+   ⚠️ relaunch() 는 예약일 뿐이라 _exitNow() 를 꼭 이어 부른다. 멈춘 렌더러를 기다리지 않게 quit() 이 아니라 exit(0). */
+function _relaunchFresh(s){
+  _diagLog('[중복 실행] 옛 창을 쓸 수 없어 정리하고 새로 띄움 — ' + JSON.stringify(s));
+  try{ app.relaunch(); }catch(e){ _diagLog('[중복 실행] relaunch 실패 — ' + (e && e.message)); }
+  _exitNow();
 }
 
 // 앱 중복 실행 방지 — 이미 하나 켜져있는데 또 실행하면(바탕화면 아이콘 재클릭 등),
-// 새 인스턴스는 바로 종료하고 기존 창을 활성화/최상위로 끌어올림.
+// 새 인스턴스는 바로 종료하고 기존 창을 활성화/최상위로 끌어올림(옛 창을 쓸 수 없으면 정리하고 새로 띄움).
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
   app.on('second-instance', () => {
-    if (mainWindow) {
+    const health = _mainWindowHealth();
+    const act = _secondInstanceAction(health);
+    if (act === 'relaunch') { _relaunchFresh(health); return; }
+    if (act === 'focus') {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
       mainWindow.focus();

@@ -2,11 +2,12 @@
    app.js «🛰 방 접속 상태(Presence)» 구역 본문을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다.
    ・책임: 지금 방(provider · room · friends)과 내가 방에 보내는 값(상태 · 레벨 · 자리비움 그림 · 소음 · 채팅 …)을 한 곳에서 들고 보낸다.
      20분 무반응 자동 자리비움 · 6시간 자동 퇴장 시계도 내 상태(myUserStatus)를 같이 써서 이 안에 있다.
-   ・받는 deps 19 — 함수 3(getMyUserId · toast · triggerPet)은 화살표, 다시 대입되거나 뒤에서 선언되는 9개
+   ・받는 deps 20 — 함수 3(getMyUserId · toast · triggerPet)은 화살표, 다시 대입되거나 뒤에서 선언되는 9개
      (awayPicMod · customStatusConf · expBarMod · focusLevelMod · focusShareMod · isAdmin · isPremium · lastAnyInput · roomEntryMod)는 읽는 함수 — 이름() 으로 읽는다.
+     roomNet 도 읽는 함수 — 데이터 provider(지금은 app.js 가 window.firebaseAPI 를 넘긴다). 준비 확인 · Firebase 방 provider 고르기에만 쓴다.
    ・내놓는 것: { Presence } — app.js 가 «const Presence = presenceMod.Presence;» 한 줄로 옛 전역 이름을 잇는다(app.js 의 54곳 · animal.js · noise.js 가 Presence.이름 으로 부른다).
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 읽는 함수 자리 19줄과 옛 이야기형 주석 줄이기뿐.
-   ⚠️ document · window · firebaseAPI · localStorage · companion 은 예전처럼 전역 이름으로 쓴다. 전역 setUserStatus 는 꼭 window. 으로(안쪽 같은 이름이 가린다).
+   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 읽는 함수 자리와 roomNet 줄 · 파일 위 상수 · 옛 이야기형 주석 줄이기뿐.
+   ⚠️ firebaseAPI 는 직접 보지 않는다(roomNet 으로만). document · window · localStorage · companion 은 예전처럼 전역 이름으로 쓴다. 전역 setUserStatus 는 꼭 window. 으로(안쪽 같은 이름이 가린다).
    ⚠️ 전역 이름은 TwPresence — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-presence.js */
 (function(){
@@ -26,11 +27,18 @@ const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
 const lastAnyInput = deps.lastAnyInput;   // 읽는 함수
 const roomEntryMod = deps.roomEntryMod;   // 읽는 함수
+const roomNet = deps.roomNet;   // 읽는 함수 — 데이터 provider, 준비 전이면 없음
 const roomSyncMod = deps.roomSyncMod;
 const seats = deps.seats;
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const triggerPet = deps.triggerPet;
+/* 방으로 보내는 칸의 길이 상한 · 처음 값 — 서버 규칙과 짝(채팅 text ≤ 140). 바꾸면 규칙 · 방 서버도 같이 본다. */
+const CHAT_TEXT_MAX = 140;   // 채팅 한 줄 글자 수
+const CHAT_TAB_MAX = 16;     // 채팅 탭 이름
+const FLY_COLOR_MAX = 16;    // 날리기 색 글
+const FLY_SIZE_MAX = 2;      // 날리기 크기 글('m' · 's')
+const AWAY_SZ_DEFAULT = 80;  // 자리비움 그림 화면 크기 처음 값(awayPicMod 의 기본과 같은 값)
 const Presence=(()=>{
   let provider=null, room=null, friends={}, myDef=null, myName='나', myState='idle', myUserStatus=null, myLevel=1, onChange=null;
   /* 🛰 내 노드 poke 의 중복·유통기한 판정용. friends 쪽 `_lastPokeTs` 와 같은 역할이다.
@@ -40,8 +48,8 @@ const Presence=(()=>{
   let myAwayImg='';        // 🫧 자리비움 그림 URL — 방에 실어 보낸다(없으면 빈 문자열 · 구버전은 무시)
   /* 📏 그 그림의 화면 크기(60·80·100) — 받는 쪽이 이 크기로 그린다(구버전은 무시 → 그쪽 고정값).
      ⚠️ 초기값을 AWAY_PIC_SCREEN_PX 로 쓰지 말 것 — 그 var 는 파일 아래쪽이라 이 IIFE 가 도는 순간엔 undefined 이고,
-       Firebase 는 undefined 가 든 payload 를 통째로 거절한다(방 입장이 깨진다). 숫자로 둔다(기본 80 과 같은 값). */
-  let myAwaySz=80;
+       Firebase 는 undefined 가 든 payload 를 통째로 거절한다(방 입장이 깨진다). 이 파일 위 숫자 상수로 둔다. */
+  let myAwaySz=AWAY_SZ_DEFAULT;
   let myFocusShow=null;   // 📊 오늘 기록 전시 {emo,text} — 상태가 없을 때만 custom 칸으로 실어 보낸다(_statusOut)
   let myCustomStatus=null;   // ✨ 커스텀 상태(프리미엄) {emo,text} — userStatus==='custom'일 때 친구에게 보여줄 문구
 
@@ -187,8 +195,8 @@ const Presence=(()=>{
     try{ await roomSyncMod.ensureRoomFaceUrls(myDef); }catch(_){}
     /* firebaseAPI(모듈 스크립트) 준비를 기다린다(최대 NET_READY_WAIT_MS). 그래도 없으면 들어가지 않고 알린다.
        ⚠️ 가짜 방(makeMockProvider)으로 떨어지면 남의 가짜 캐릭터가 뜬다 — 가짜 방은 개발 표식(tw.mockRoom=1)일 때만. */
-    if(!window.firebaseAPI) await roomEntryMod()._waitFirebaseApi(roomEntryMod().NET_READY_WAIT_MS);
-    if(!window.firebaseAPI && !roomEntryMod()._mockRoomAllowed()){
+    if(!roomNet()) await roomEntryMod()._waitFirebaseApi(roomEntryMod().NET_READY_WAIT_MS);
+    if(!roomNet() && !roomEntryMod()._mockRoomAllowed()){
       room = null; provider = null; friends = {}; if(onChange) onChange({});
       try{ toast('서버 연결이 아직 준비되지 않았어요 — 잠시 뒤 다시 들어가 주세요'); }catch(_){}
       console.warn('[방] firebaseAPI 가 준비되지 않아 입장을 멈췄다(가짜 방으로 떨어지지 않음)');
@@ -196,7 +204,7 @@ const Presence=(()=>{
     }
     const _srv = (opts && opts.provider) || null;   // 🛰 방 서버 provider(_startRoomOnServer) — 없으면 아래 줄 그대로
     if(_srv) provider = _srv;
-    else provider = window.firebaseAPI ? roomSyncMod.makeFirebaseProvider(opts && opts.hooks) : roomEntryMod().makeMockProvider();
+    else provider = roomNet() ? roomSyncMod.makeFirebaseProvider(opts && opts.hooks) : roomEntryMod().makeMockProvider();
     try{ myAwayImg = awayPicMod()._awayUrlOk(awayPicMod().awayImgUrl()) ? awayPicMod().awayImgUrl() : ''; }catch(_){ myAwayImg = ''; }   // 🫧 입장 때 한 번
     try{ myAwaySz = awayPicMod()._awaySzOk(awayPicMod().awayImgSz()) ? awayPicMod().awayImgSz() : awayPicMod().AWAY_PIC_SCREEN_PX(); }catch(_){ myAwaySz = awayPicMod().AWAY_PIC_SCREEN_PX(); }
     try{ myFocusShow = focusShareMod()._focusShowConf(); focusShareMod()._focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
@@ -388,13 +396,13 @@ const Presence=(()=>{
        `chat` 칸으로 보내면 구버전이 탭을 모른 채 방 전원에게 띄운다(sim-chat-tabs ①). */
   function sendChat(text, fly, flyColor, flySize, tab){
     if(!(provider && provider.update)) return;
-    const chat = { text:String(text).slice(0,140), ts:Date.now() };
-    if(tab && tab !== 'general') chat.tab = String(tab).slice(0,16);
+    const chat = { text:String(text).slice(0,CHAT_TEXT_MAX), ts:Date.now() };
+    if(tab && tab !== 'general') chat.tab = String(tab).slice(0,CHAT_TAB_MAX);
     if(fly){
       chat.fly = true;
-      if(flyColor) chat.flyColor = String(flyColor).slice(0,16);
+      if(flyColor) chat.flyColor = String(flyColor).slice(0,FLY_COLOR_MAX);
       // 대(l)는 기본값이라 안 싣는다 — 받는 쪽이 «없으면 대» 로 읽는다.
-      if(flySize && flySize !== 'l') chat.flySize = String(flySize).slice(0,2);
+      if(flySize && flySize !== 'l') chat.flySize = String(flySize).slice(0,FLY_SIZE_MAX);
     }
     if(chat.tab){ provider.update(Object.assign(_basePayload(), { chatTab: chat })); return; }
     provider.update(Object.assign(_basePayload(), { chat }));
