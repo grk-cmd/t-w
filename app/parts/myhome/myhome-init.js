@@ -69,7 +69,9 @@ function _subscribeInboxBroadcast(){
 async function initMyHome(){
   _waitForFirebaseAPI(async ()=>{
     const myId = getMyUserId();
-    if(!myId){ _subscribeInboxBroadcast(); return; }   // 내 코드가 없으면 내 경로(presence · 프로필 · 친구 · 요청 · 우편)는 걸지 않는다 — 공용 공지만
+    /* 내 코드가 없으면 내 경로(presence · 프로필 · 친구 · 요청 · 우편)는 걸지 않는다 — 공용 공지만.
+       ⚠️ 친구 목록은 «코드 없음» 으로 시작해 둔다(요청 없이 «받음 · 0명») — 안 부르면 친구 탭이 «불러오는 중» 에 멈춘다. */
+    if(!myId){ friendsSub.start(null); _subscribeInboxBroadcast(); return; }
     try{
       /* 👥 친구 목록 구독은 맨 먼저 — 아래 쓰기 · await 가 거부되거나 늦어도 목록은 온다(아래 «벽» 주석의 원칙).
          실패하면 friendsSub 가 간격을 늘려 가며 다시 건다. 상태가 바뀌면 친구 탭을 다시 그린다(«불러오는 중» · «못 불러옴»). */

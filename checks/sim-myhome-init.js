@@ -84,6 +84,7 @@ async function callsWith(src, uid){
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
   let done; const fin = new Promise(r => { done = r; });
   deps.getMyUserId = () => uid;
+  deps.friendsSub = new Proxy({}, { get: (t, k) => (...a) => { calls.push('friendsSub.' + String(k) + '(' + (a.length ? String(a[0]) : '') + ')'); return any; } });
   deps._waitForFirebaseAPI = (cb) => { Promise.resolve(cb()).then(done, done); };
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
@@ -94,17 +95,19 @@ async function callsWith(src, uid){
 }
 const judgeNoUid = async (src) => {
   const none = await callsWith(src, null), mine = await callsWith(src, 'ME');
-  return none.join() === 'subscribeInboxBroadcast' && mine[0] === 'setMyPresenceOnline';   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
+  return none.join() === 'friendsSub.start(null),subscribeInboxBroadcast' && mine.filter(c => !c.startsWith('friendsSub.'))[0] === 'setMyPresenceOnline';   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
 };
 
 (async () => {
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 내 코드 없음 — 내 경로 요청 0');
-chk(await judgeNoUid(MOD), '내 코드 없음 → presence · 기기 · 프로필 · 친구 · 요청 · 우편 요청 0 · 공용 공지 구독만 · 코드 있으면 presence 부터');
+chk(await judgeNoUid(MOD), '내 코드 없음 → presence · 기기 · 프로필 · 친구 · 요청 · 우편 요청 0 · 친구 목록은 «코드 없음» 으로 시작(요청 없음) · 공용 공지 구독만 · 코드 있으면 presence 부터');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
-  const m2 = MOD.replace(/\n *if\(!myId\)\{ _subscribeInboxBroadcast\(\); return; \}[^\n]*/, '');
+  const m2 = MOD.replace(/\n *if\(!myId\)\{ friendsSub\.start\(null\); _subscribeInboxBroadcast\(\); return; \}[^\n]*/, '');
+  const m3 = MOD.replace('if(!myId){ friendsSub.start(null); ', 'if(!myId){ ');
+  chk(m3 !== MOD && !(await judgeNoUid(m3)), '친구 목록 시작을 빼면(#320 되돌림 — 친구 탭이 «불러오는 중» 에 멈춤) 빨강');
   chk(m2 !== MOD && !(await judgeNoUid(m2)), '입구 가드를 지우면 — 내 코드 없음 판정이 빨강');
 }
 const breaks = [
