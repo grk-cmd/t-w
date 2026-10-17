@@ -7,9 +7,11 @@
      kind 'auth' · 'request' — 401/403 · 그 밖의 4xx. 부르는 쪽 문제라 덮지 않는다(shouldFallback 이 false).
    [쉬기] 'unavailable' 이면 BACKOFF_MS 동안 묻지 않고 곧장 'unavailable'(code BACKOFF) — API 가 죽었을 때 부를 때마다 시간 제한만큼 기다리지 않게.
    [캐시] get(path, { cacheMs }) 로 성공 값을 메모리에 잠깐 둔다. 같은 경로를 동시에 부르면 요청은 하나.
+   [로그인] get(path, { auth: true, headers }) — deps.getToken() 의 값을 Authorization: Bearer 로 붙인다(로그인이 필요한 경로 · 첫 사용자 friends-api.js).
+     토큰이 없으면 보내지 않고 'auth'(code NO_TOKEN). 로그인 요청은 캐시하지 않는다. headers 는 그 요청에만 더한다.
    [주소] 운영 앱 = 운영 API · dev 앱(--tw-firebase=dev) = dev API. dev 앱만 tw.apiBaseUrl 로 다른 주소(CSP 묶음 안)를 쓸 수 있다.
      CSP connect-src https://*.togetherworking.duckdns.org 안이어야 한다(desk-companion-prototype.html).
-   Electron(file://)의 fetch 는 Origin 헤더 없이 나가고 CORS 를 보지 않는다 — 공개 GET 은 토큰 · 쿠키 없이 보낸다.
+   Electron(file://)의 fetch 는 Origin 헤더 없이 나가고 CORS 를 보지 않는다 — 공개 GET 은 토큰 · 쿠키 없이 보낸다(쿠키는 늘 omit).
    classic script — remote-config.js · app.js 보다 먼저 싣는다(window.TwApi). Firebase 를 모른다. */
 (function(){
 'use strict';
@@ -44,7 +46,7 @@ const envOf = (w) => (w && w.companion && w.companion.firebaseEnv === 'dev') ? '
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/* deps: { baseUrl, fetch, now, timeoutMs, backoffMs } */
+/* deps: { baseUrl, fetch, now, timeoutMs, backoffMs, getToken() → Promise<토큰 | null>(로그인 요청만 · 없으면 로그인 요청은 늘 NO_TOKEN) } */
 function createApiClient(deps){
   const d = deps || {};
   const base = String(d.baseUrl || '').replace(/\/+$/, '');
@@ -52,18 +54,31 @@ function createApiClient(deps){
   const now = d.now || (() => Date.now());
   const timeoutMs = d.timeoutMs || TIMEOUT_MS;
   const backoffMs = (d.backoffMs == null) ? BACKOFF_MS : d.backoffMs;
+  const getToken = d.getToken || null;   // 로그인 통로만 넘긴다 — 공개 통로는 없다
   const cache = new Map();      // path → { data, until }
   const inflight = new Map();   // path → Promise
   let downUntil = 0;
 
-  async function once(path, ms){
+  async function authHeaders(o){
+    const h = Object.assign({}, o.headers || {});
+    if(!o.auth) return h;
+    let tok = null;
+    try{ tok = getToken ? await getToken() : null; }catch(_){ tok = null; }
+    if(!tok) throw new ApiError('auth', 0, 'NO_TOKEN', '로그인 토큰이 없어요');
+    h.Authorization = 'Bearer ' + tok;
+    return h;
+  }
+
+  async function once(path, ms, o){
     const ctl = (typeof AbortController === 'function') ? new AbortController() : null;
     let timer = null;
     const timeout = new Promise((_, rej) => { timer = setTimeout(() => { try{ ctl && ctl.abort(); }catch(_){} rej(new ApiError('unavailable', 0, 'TIMEOUT', 'API 응답이 늦어요')); }, ms); });
+    timeout.catch(() => {});   // 토큰에서 끝난 요청도 시간 제한 거부가 «잡히지 않은 오류» 로 남지 않게
     let res, body = null;
     try{
+      const headers = await Promise.race([authHeaders(o), timeout]);   // 토큰 새로 받기가 멈춰도 시간 제한 안에서 끝난다
       try{
-        res = await Promise.race([fetchFn(base + path, { headers: {}, credentials: 'omit', signal: ctl ? ctl.signal : undefined }), timeout]);
+        res = await Promise.race([fetchFn(base + path, { headers, credentials: 'omit', signal: ctl ? ctl.signal : undefined }), timeout]);
       }catch(e){
         if(e instanceof ApiError) throw e;
         throw new ApiError('unavailable', 0, 'NETWORK', 'API 에 연결하지 못했어요');
@@ -82,17 +97,17 @@ function createApiClient(deps){
     return body.data;
   }
 
-  /* opts: { cacheMs, timeoutMs } */
+  /* opts: { cacheMs, timeoutMs, auth, headers } */
   function get(path, opts){
     const o = opts || {};
     if(!base || !fetchFn) return Promise.reject(new ApiError('unavailable', 0, 'NO_API', 'API 주소 없음'));
-    const c = cache.get(path);
+    const c = o.auth ? null : cache.get(path);
     if(c && c.until > now()) return Promise.resolve(c.data);
     if(downUntil > now()) return Promise.reject(new ApiError('unavailable', 0, 'BACKOFF', 'API 를 잠깐 쉬는 중'));
     if(inflight.has(path)) return inflight.get(path);
-    const p = once(path, o.timeoutMs || timeoutMs).then((data) => {
+    const p = once(path, o.timeoutMs || timeoutMs, o).then((data) => {
       downUntil = 0;
-      if(o.cacheMs > 0) cache.set(path, { data, until: now() + o.cacheMs });
+      if(o.cacheMs > 0 && !o.auth) cache.set(path, { data, until: now() + o.cacheMs });
       return data;
     }, (e) => {
       if(e && e.kind === 'unavailable' && backoffMs > 0) downUntil = now() + backoffMs;

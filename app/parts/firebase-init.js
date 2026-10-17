@@ -428,6 +428,11 @@
   /* 🛰 방 서버(웹소켓) — 관리자 스위치(원격 설정 roomServer)가 켜고, 어느 서버로 갈지는 문지기(room-server-gate.js)가 정한다.
      여기서는 설정 · 서버 주소 · 내 서버(API · 못 받으면 Firebase) · roomDir 칸 읽기 · 토큰 · 버전 · userId 만 잇는다. _rsUrl = 문지기가 마지막으로 고른 주소(null 이면 서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
+  /* 🌐 로그인이 필요한 API 통로(첫 사용자 friends/friends-api.js) — 공용 통로와 같은 주소 · 이 Firebase ID 토큰을 붙인다(api-client.js getToken).
+     쉬기는 끈다 — 이 경로의 실패가 공용 통로(원격 설정 · 공개 읽기)를 쉬게 하지 않고, 부르는 쪽이 다시 묻기를 정한다. 토큰은 여기서만 넘긴다(api-client 는 Firebase 를 모른다). */
+  const _authApi = (window.TwApi && window.TwApi.client) ? window.TwApi.createApiClient({
+    baseUrl: window.TwApi.client.baseUrl(), fetch: (...a) => window.fetch(...a), getToken: () => _getIdToken(false), backoffMs: 0,
+  }) : null;
   let _rsUrl = null;
   const _roomServerGate = createRoomServerGate({
     getConfig: async () => { if(!_rc) return null; await _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }); return _rc.roomServer(); },
@@ -585,6 +590,8 @@
       return m;
     },
     getIdToken(force){ return _getIdToken(force); },
+    // 로그인 API GET — get(path, { auth:true, headers, timeoutMs }) 그대로(api-client.js). 통로가 없으면 'unavailable'(NO_API).
+    apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
     setPresenceRoom(code){ _syncPresenceRoom(code || null); },
     /* 🛰 소켓이 실제로 열렸는가 — 감시견(app.js `_fbBootWatch`)이 부팅 때 한 번 부른다.

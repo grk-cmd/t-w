@@ -2761,12 +2761,21 @@ const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
   getList: (...a)=>firebaseAPI.getMyFriendList(...a),
   watchAll: (...a)=>firebaseAPI.subscribeMyFriends(...a),
 });
+const friendsApiMod = TwFriendsApi.createFriendsApi({
+  get: (...a)=>firebaseAPI.apiGetAuthed(...a),   // 로그인 API 통로(firebase-init.js — 토큰은 거기서 붙인다)
+  wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
+  warn: (...a)=>console.warn(...a),
+});
 const friendsPortMod = TwFriendsPort.createFriendsPort({
   firebase: friendsFirebaseMod,
+  api: friendsApiMod,
+  apiOn: ()=>{ const s = acctStateMod._rcStore(); return s ? s.friendsApi() : true; },   // 원격 설정 flags.friendsApi — 끄면 옛 길만
+  warn: (...a)=>console.warn(...a),
 });
 const friendsSubMod = TwFriendsSub.createFriendsSub({
   subscribe: (...a)=>friendsPortMod.watchList(...a),
   fetchOnce: (id)=>friendsPortMod.listFriends(id, { idsOnly:true }),
+  listFriends: (...a)=>friendsPortMod.listFriends(...a),
   current: ()=>_myHomeFriends,
   setFriends: (v)=>{ _myHomeFriends = v; },
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -2921,6 +2930,8 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   friendManage: friendManage,
   friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),
   friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),
+  friendsOpen: (...a)=>friendsSubMod.open(...a),
+  friendsClose: (...a)=>friendsSubMod.close(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: inboxMod,
@@ -2935,6 +2946,11 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
   twNav: twNav,
 });
+/* 👥 친구 목록이 보이는 동안만 friends-sub 에 «열림» — 마이홈을 여닫는 길이 여럿이라(열기 · 친구 홈 구경 · 런처 복귀 · 단축키) 두 칸의 class 를 지켜본다. */
+for(const id of ['myHomeOverlay', 'mhPageFriend']){
+  const el = document.getElementById(id);
+  if(el) new MutationObserver(()=>myHomeUiMod.syncFriendsOpen()).observe(el, { attributes:true, attributeFilter:['class'] });
+}
 
 /* ============================================================ 🏠 마이홈 (2단계: 프로필/게시글/스티커) */
 /* 본문은 myhome-visit.js 로 옮겼다(앱 FSD 44번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -10434,6 +10450,8 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   myHomeFriends: ()=>_myHomeFriends,
   friendsNotice: (...a)=>friendsSubMod.notice(...a),
   friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),
+  friendsOpen: (...a)=>friendsSubMod.open(...a),
+  friendsClose: (...a)=>friendsSubMod.close(...a),
   presence: Presence,
 });
 
