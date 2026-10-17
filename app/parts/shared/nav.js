@@ -12,6 +12,7 @@ const NAV = Object.freeze({
   PROGRAM_SETTINGS_CLOSE: 'programSettingsClose',   // ⚙️ 프로그램 설정 창 닫기 · 거는 곳 program-settings.js
   MY_HOME: 'myHome',                                // 🏠 마이홈 창 열기 · 거는 곳 myhome-ui.js
   LEAVE_ROOM: 'leaveRoom',                          // 🚪 방 나가기 — (opts) · 거는 곳 room-entry.js
+  ASSET_IMPORT: 'assetImport',                      // ➕ 코드로 추가하기 창 열기 — (kind, cat) · 거는 곳 creator/asset-import.js
 });
 const _fns = {};
 function on(name, fn){ _fns[name] = fn; }

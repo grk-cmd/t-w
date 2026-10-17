@@ -87,9 +87,9 @@ wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
 chk(!SMOKE || /PRELOAD\.push\('paint-geom\.js'\);/.test(SMOKE), 'smoke 가 paint-geom.js 를 먼저 싣는다');
 say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
-  ['점 길이 0.01 → 0.1', (m) => m.replace('_seg(ctx,x,y,x+0.01,y+0.01)', '_seg(ctx,x,y,x+0.1,y+0.1)'), null, null],
+  ['점 길이 0.01 → 0.1', (m) => m.replace('const DOT_LEN = 0.01;', 'const DOT_LEN = 0.1;'), null, null],
   ['앞 점 0 을 없음으로', (m) => m.replace('if(lx==null)', 'if(!lx)'), null, null],
-  ['되쏘기 0.6 → 0.5', (m) => m.replace('(off>0?off:0.6)', '(off>0?off:0.5)'), null, null],
+  ['되쏘기 0.6 → 0.5', (m) => m.replace('const MIRROR_BACKOFF = 0.6;', 'const MIRROR_BACKOFF = 0.5;'), null, null],
   ['x 반전 중심 없앰', (m) => m.replace('_mp.x = 2*(cx||0) - _mp.x;', '_mp.x = - _mp.x;'), null, null],
   ['법선 x 를 안 뒤집음', (m) => m.replace('_mn.set(-n.x,n.y,n.z)', '_mn.set(n.x,n.y,n.z)'), null, null],
   ['자식까지 맞힘', (m) => m.replace('_mray.intersectObject(mesh,false)', '_mray.intersectObject(mesh,true)'), null, null],

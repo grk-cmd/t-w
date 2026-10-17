@@ -15,7 +15,10 @@ function createOverhead(deps){
 const ANIMAL_RUN_SCALE = deps.ANIMAL_RUN_SCALE;
 const _chatEsc = deps._chatEsc;
 const _diceSvg = deps._diceSvg;
-const _seatCtxMenu = deps._seatCtxMenu;
+/* 좌석 우클릭 메뉴를 열 곳 — 메뉴(room/seat-menu.js)가 신고 · 마이홈 · 놀이를 거쳐 이 모듈로 돌아오므로 deps 로 받으면 서로를 부른다(sim-dep-cycles).
+   app.js 가 메뉴를 만든 뒤 setSeatMenu 로 잇는다. */
+let _seatMenuFn = null;   // 이름이 메뉴 함수(_seatCtxMenu)와 겹치지 않게 — 되살린 글(sim-renderer-src)에서 한 글이 된다
+function setSeatMenu(fn){ _seatMenuFn = fn; }
 const _starPaint = deps._starPaint;
 const _wpTmp3 = deps._wpTmp3;
 const camera = deps.camera;
@@ -74,7 +77,7 @@ function ensureSeatNamePlateEl(seat){
     e.preventDefault(); e.stopPropagation();
     try{ if((typeof tricksMod._flyAiming !== 'undefined' && tricksMod._flyAiming()) || (typeof tricksMod._bonkAiming !== 'undefined' && tricksMod._bonkAiming())) return; }catch(_){}
     if(typeof officeMode() !== 'undefined' && officeMode() && seat.remote) return;
-    _seatCtxMenu(e, seat);
+    if(_seatMenuFn) _seatMenuFn(e, seat);
   });
   layer.appendChild(el);
   seat.namePlateEl=el; return el;
@@ -633,6 +636,7 @@ function removeSeatLabels(seat){
 }
 
 return {
+  setSeatMenu,
   NAMEPLATE_BELOW_EXPBAR,
   _officeDemojiHtml,
   _seatLabelName,

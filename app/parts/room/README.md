@@ -149,3 +149,31 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - 임시 객체는 공유된다 — 값을 들고 있으려면 `clone()`.
   - 동물 팔 기본각 `ANIMAL_HAND_REST` 는 animal.js 가 전역으로 읽어 app.js 에 남겼다.
   - 검사: `checks/sim-ride-tuning.js`(4절 — 값 표 50개가 옮기기 전과 같다 · 임시 객체가 따로따로 · 값 범위).
+
+## `seat-menu.js` — 🖱 좌석 우클릭 메뉴
+
+**책임** — 캐릭터 · 이름표를 우클릭하면 그 좌석에 할 수 있는 일을 띄운다. 남의 좌석: 마이홈 구경(친구) / 친구 신청 · 숨기기(워킹룸 — 신고로 숨긴 사람은 채널과 상관없이 다시 보이기) · 때리기(프리미엄) · 신고. 내 좌석: 캐릭터 편집 · 자리비움 토글 · 때리기. 닫기는 투명 뒷판(실행 화면은 투명 오버레이라 바깥 클릭이 뒤 창으로 흘러서) · 바깥 클릭 · 우클릭 · ESC.
+
+**만드는 법** — app.js «DRAG / PET» 의 캔버스 우클릭 바로 뒤, 그리고 이름표 갈고리:
+
+```js
+const seatMenuMod = TwSeatMenu.createSeatMenu({
+  hiddenSeatsMod: hiddenSeatsMod, mhVisitMod: mhVisitMod, seatFriendReqMod: seatFriendReqMod, tricksMod: tricksMod,   // 값
+  reportMod: ()=>reportMod, _myHomeFriends: ()=>_myHomeFriends, userStatus: ()=>userStatus,                      // 읽는 함수
+  // … 함수 4(_premiumOn · openCreator · setUserStatus · toast)
+});
+overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 우클릭
+```
+
+**내놓는 것** — `_seatCtxMenu(ev, seat)`.
+
+**확장할 때 고칠 자리** — 새 항목은 `mk(라벨, 할 일, 막힘?, 그림)` 한 줄. 남 / 나 갈래 안에, 서로 다른 무리 사이에는 `sep()`(뒤따르는 줄이 있을 때만).
+
+**함정**
+- 메뉴 클래스는 `cr-preset-ctx` 를 그대로 쓴다 — 다른 팝업의 바깥 클릭 닫기가 이 이름을 예외로 둔다(새 이름이면 즉시 닫힌다).
+- 뒷판은 메뉴와 수명을 같이 한다(지우는 곳은 `close()` 하나) — 남으면 화면 전체가 클릭을 먹는다.
+- ESC 는 캡처 단계에서 전파를 끊는다 — 안 끊으면 마이홈까지 같이 닫힌다.
+- 이름표(overhead.js)는 메뉴를 deps 로 받지 않는다 — 메뉴가 신고 · 마이홈 · 놀이를 거쳐 이름표로 돌아와 순환이 된다. `setSeatMenu` 갈고리로만.
+- 입구 전제 — 이벤트 · 좌석 · 화면(document.body)이 없으면 열지 않는다.
+
+검사: `checks/sim-seat-menu.js`.

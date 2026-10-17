@@ -160,7 +160,7 @@ const paintStrokeMod = TwPaintStroke.createPaintStroke({
 cv.addEventListener('pointerdown', e=>{ pushHistory(); crState.lastPX=null; paintStrokeMod.paintFromEvent(e); });
 ```
 
-**확장할 때 고칠 자리** — 쪼개기 간격 · 횟수는 `CR_PAINT_STEP_PX` · `CR_PAINT_MAX_STEPS`(꾸미기 `_wdPicStrokeTo` 와 같은 값). 가려짐에 넣을 옷은 `_paintHitAt` 의 `occ` 목록.
+**확장할 때 고칠 자리** — 쪼개기 간격 · 횟수는 `CR_PAINT_STEP_PX` · `CR_PAINT_MAX_STEPS`(꾸미기 `_wdPicStrokeTo` 와 같은 값). 솔기 허용 `SEAM_UV_*` · 가려짐 여유 `OCCLUDE_EPS` · 스포이드 `EYEDROP_MIN_ALPHA` 는 파일 위 상수. 가려짐에 넣을 옷은 `_paintHitAt` 의 `occ` 목록.
 
 **함정**
 - 가려짐 판정에 모자 · 안경 · 탈은 넣지 않는다 — 얼굴 위에 얹는 파츠라 그 아래를 칠하려는 경우가 있다.
@@ -198,7 +198,7 @@ const crStampMod = TwCrStamp.createCrStamp({
 | `commitStamp()` | 찍기 — 90% 넘게 얼굴 밖이면 안 찍고 알림 · 20% 넘게 밖이면 «n%만 찍힘» |
 | `bindStampOverlay()` | 띄운 그림의 손잡이(이동 · Shift 가운데 맞춤 · 회전 Shift 15° · 모서리 최소 20 · Shift 비율 유지) — 부팅 때 한 번 |
 
-**확장할 때 고칠 자리** — 격자 촘촘함 `N`(28) · 외삽 칸 `EXTRA_MAX` · 이음새 허용 `_uvFar`(UV_EDGE_MAX 0.15 · 천장 0.35) · 안내 비율(0.9 · 0.2).
+**확장할 때 고칠 자리** — 파일 위 상수: 격자 `STAMP_GRID`(28) · 처음 너비 `STAMP_FIRST_W` · 안내 비율 `STAMP_SKIP_RATIO` · `STAMP_WARN_RATIO` · 이음새 허용 `STAMP_SEAM_*`(외삽한 점은 `UV_EDGE_MAX`) · 회전 단위 `STAMP_ROT_SNAP_DEG` · 최소 크기 `STAMP_MIN_PX`. 외삽 칸은 `EXTRA_MAX`.
 
 **함정**
 - 입구 전제 — 미리보기 캔버스(`#creatorPreview`) · 띄운 그림(`#stampOverlay` · `#stampOverlayImg`) · 찍기/취소 버튼이 없으면 아무것도 안 한다.
@@ -206,3 +206,106 @@ const crStampMod = TwCrStamp.createCrStamp({
 - `character/animal.js` 의 `aCommitStamp` 에 찍기 코드가 한 벌 더 있다 — 한쪽을 고치면 다른 쪽도(묶기는 IMPROVEMENT_BACKLOG).
 
 검사: `checks/sim-cr-stamp.js` (모드 · 불러오기 · 초기화 · 찍기 진짜 래스터 · 90% / 20% · 대칭 · 손잡이 · 입구 전제 · 연결 · 깨 보기 14).
+
+## `asset-import.js` — 📥 코드로 추가하기(책상 · 아이템 · 파츠)
+
+**책임** — 판매자가 준 암호 코드 + 비밀번호를 풀어 책상 · 아이템 · 파츠를 **이 기기에만** 넣는다(카탈로그 · Firebase 에는 안 올림). 넣을 종류는 코드 안의 값이 아니라 어느 버튼으로 창을 열었는지로 정한다. 거르기 순서: 복호화 → GLB 1MB → 종류별 개수 한도(파츠는 그 칸의 꾸미기 통만 · 가챠 빼고) → 생성기가 열려 있고 책상 · 아이템이면 캐릭터 용량(책상은 지금 책상 자리를 비운 나머지와 견줌).
+
+**만드는 법** — app.js «책상·아이템 코드: 가져오기» 자리, 바로 뒤에 구독 한 줄:
+
+```js
+const assetImportMod = TwAssetImport.createAssetImport({
+  crState: crState,                       // 값 — _assetImpKind · _assetImpCat · cBase · cDesk · cDeskScale …
+  premiumMod: premiumMod,                 // 값 — 파츠 칸 · 개수 · 저장
+  assetCodeMod: ()=>assetCodeMod,         // 읽는 함수 — 복호화 · 풀기 · GLB 파싱(뒤에서 만들어짐)
+  // … 함수 8 · 읽는 함수 8(DEF_SIZE_TOAST_MS · codeCryptoMod · commissionMod · creatorOpen · customItems · deskItemsMod · partSceneMod)
+});
+assetImportMod.onPartAdded(()=>wardrobeMod.renderWardrobe());   // 파츠를 넣으면 꾸미기 창을 다시 그린다
+```
+
+**내놓는 것**
+- `openAssetImport(kind, cat)` — `'desk' | 'item' | 'part'`(파츠는 칸 `cat`). 제목 · 입력 비우기 · 창 열기.
+- `onPartAdded(fn)` — 파츠를 넣은 뒤 부를 곳. 꾸미기 창이 이 창을 열기도 해서 `wardrobeMod` 를 deps 로 받으면 둘이 서로를 부른다(sim-dep-cycles) — 그래서 구독.
+
+**확장할 때 고칠 자리** — 새 종류는 `openAssetImport` 의 제목 · [추가] 처리의 한도(`arr` · `_maxAssets`) · 등록 갈래 세 곳. 한도 숫자는 commissionMod · premiumMod 의 상수.
+
+**함정**
+- 입구 전제 — 창(`#assetImpOverlay`) · [추가] · [취소] 버튼이 없으면 만들 때 버튼을 걸지 않고, 열지도 않는다.
+- 책상을 넣을 때 크기(`cDeskScale`)는 바꾸지 않는다 — 슬라이더로 맞춰 둔 값을 그대로 둔다(처음값으로 돌리면 매번 슬라이더가 튄다).
+
+검사: `checks/sim-asset-import.js` (창 열기 · 거르기 7 · 등록 3 · 구독 · 입구 전제 · 연결 · 깨 보기 12).
+
+## `desk-preset-store.js` · `desk-preset.js` — 🗂 책상 · 좌석 세팅 프리셋(5칸)
+
+**책임** — 생성기 5 · 6단계의 책상 · 좌석 세팅을 5칸(모든 캐릭터 칸 공용)에 담아 두었다가 지금 캐릭터에 한 번에 적용한다.
+- `desk-preset-store.js` — 저장만: localStorage `tw.deskPresets` 를 늘 5칸으로 읽고(빈 칸 null · 깨진 값이면 빈 5칸), 앞 5칸만 쓴다.
+- `desk-preset.js` — 담기(책상 색 · 크기 · 길이 · 위치 · 모델 · 아이템 · 로컬 아이템 · 좌석) · 적용 · 칸 화면(클릭 불러오기 · 우클릭 저장 / 비우기 · 팝업 버튼).
+
+**만드는 법** — app.js 생성기 «책상 크기 슬라이더» 앞, 저장 모듈을 먼저:
+
+```js
+const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
+});
+const deskPresetMod = TwDeskPreset.createDeskPreset({
+  crState: crState,                          // 값 — cDesk* · cXform · activeCustomDeskId · cDeskGlbB64 · deskCamSaved · crStep
+  deskPresetStoreMod: deskPresetStoreMod,    // 값 — 5칸 읽기 · 쓰기
+  premiumMod: premiumMod,                    // 값 — 라이선스 전용 책상 판정
+  isPremium: ()=>isPremium,                  // 읽는 함수
+  // … 함수 15 · 읽는 함수 8 · DEFAULT_DESK_OVERRIDE_ID
+});
+```
+
+**내놓는 것** — `deskPresetStoreMod.loadDeskPresets()` · `saveDeskPresets(arr)` · `PRESET_SLOTS`. `deskPresetMod` 는 없음(만들 때 팝업 버튼을 건다).
+
+**확장할 때 고칠 자리** — 담을 값은 `captureDeskPreset` 과 `applyDeskPreset` 의 같은 이름 칸을 짝으로. 칸 수는 `desk-preset-store.js` 의 `PRESET_SLOTS`(칸 화면도 이 값을 읽는다).
+
+**함정**
+- 좌석 높이는 `p.seat.y` — 옛 프리셋의 `p.seat.z`(앞뒤)는 읽지 않는다(읽으면 캐릭터가 공중에 뜬다).
+- 로컬 아이템의 라이선스 전용 여부는 프리셋 값이 아니라 원본 카탈로그(savedItems)에서. 라이선스 전용 책상은 라이선스 · 관리자가 아니면 쓰지 않고 기본 책상으로 연다.
+- «기본 책상» 프리셋은 관리자가 등록한 기본 책상(`__default_desk__`)이 있으면 그것을 — 내장 책상과 폭이 달라 미리보기 크기가 어긋난다.
+- 입구 전제 — 적용 · 저장은 캐릭터(`crState.cBase`)가 있어야, 칸 화면은 `#crPresetSlots` · 버튼이 있어야.
+
+검사: `checks/sim-desk-preset.js` (저장 4 · 담기 · 적용 · 책상 모델 7 · 칸 화면 · 팝업 · 입구 전제 · 연결 · 깨 보기 12).
+
+## `asset-cards.js` — 🃏 자산 카드 공용(카드 · 도트 썸네일 · ☰ 순서)
+
+**책임** — 생성기 책상 세팅과 꾸미기가 같이 쓰는 카드 도우미 셋. 썸네일 카드 한 장(`swThumb`), 카드에 GLB 도트 썸네일 얹기(`applyDeskDotThumb` — 배포 썸네일 우선 · 없으면 한 번만 구워 `window._deskThumbCache` 에 · 실패는 기억), 포인터로 끄는 순서 바꾸기(`bindReorderHandle` — Electron 에서 HTML5 draggable 이 불안정해서).
+
+**만드는 법** — `const assetCardsMod = TwAssetCards.createAssetCards({ partSceneMod: ()=>partSceneMod });`(«책상 세팅(5단계)» 머리).
+
+**내놓는 것** — `swThumb(label, on, icon, onDelete, active)` → 카드(첫 자식 = 아이콘 상자) · `applyDeskDotThumb(rec, card)` · `bindReorderHandle(handle, cardEl, id, onDrop)` — 카드에 `dataset.reorderId` 를 붙여 두면 놓은 자리를 찾는다.
+
+**함정** — 썸네일을 얹을 때 이모지(글자 노드)만 걷는다 — × · ✎ · ☰ 버튼은 남긴다. 고름(active) 색이 켜짐 색보다 먼저다.
+
+검사: `checks/sim-asset-cards.js`.
+
+## `desk-setup.js` — 🪑 책상 세팅(5단계)
+
+**책임** — 책상 카드(기본 · 저장 책상 — 전용 책상은 관리자만 · 카탈로그 것은 관리자만 회수)와 아이템 카드(기본 셋 + 커스텀, 5개씩 쪽 넘김)를 그리고, 고르기 · 지우기 · 순서 바꾸기(관리자 — 카탈로그 순서 저장) · 놓인 아이템 고르기(카드 우클릭 · 미리보기 우클릭) · 책상 색 칸을 잇는다.
+
+**만드는 법** — app.js «책상 세팅(5단계)» 자리, 그리고 crXformMod 를 만든 바로 뒤에 갈고리:
+
+```js
+const deskSetupMod = TwDeskSetup.createDeskSetup({
+  crState: crState, assetCardsMod: assetCardsMod, premiumMod: premiumMod,
+  catalogNet: ()=>window.firebaseAPI,   // 데이터 provider — 회수 · 순서 저장(서버 이관 때 이 줄만)
+  // … 값 5 · 함수 10 · 읽는 함수 10
+});
+// … const crXformMod = …;
+deskSetupMod.setHooks({
+  openDeskRegister: (...a)=>adminPartReg.openDeskRegister(...a),
+  attachItemGizmo: ()=>crXformMod.attachItemGizmoToActive(),
+});
+```
+
+**내놓는 것** — `renderCrItems()` · `selectDeskItemForAdjust(pivot)` · `setHooks({ openDeskRegister, attachItemGizmo })`.
+
+**확장할 때 고칠 자리** — 쪽당 카드 수 `CR_ITEM_PAGE_SIZE`(5). 카드에 새 버튼은 `swThumb` 결과의 첫 자식(아이콘 상자)에 붙인다.
+
+**함정**
+- 관리자 등록 창 · 기즈모 모듈을 deps 로 받지 않는다 — 둘 다 책상 카드를 다시 그리려고 이 모듈을 불러 서로를 부르게 된다(sim-dep-cycles). 갈고리로만.
+- 카탈로그 책상 · 아이템은 GLB 를 def 에 안 싣는다 — 용량은 코드로 넣은 것만 잰다.
+- 입구 전제 — 카드 줄(`#crDeskRow` · `#crItemRow`) · 색 칸 · 미리보기가 없으면 그리지 · 걸지 않는다. 아이템 고르기는 캐릭터가 있어야.
+- `bindHold`(꾹 누르면 반복)는 animal.js 가 전역으로 읽어서 app.js 에 남겼다.
+
+검사: `checks/sim-desk-setup.js`.

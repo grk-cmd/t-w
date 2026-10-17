@@ -185,15 +185,15 @@ wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
 chk(!SMOKE || /PRELOAD\.push\('stamp\.js'\);/.test(SMOKE), 'smoke 가 stamp.js 를 먼저 싣는다');
 say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
-  ['처음 너비 0.4 → 0.5', (m) => m.replace('const baseW = Math.min(r2.width, r2.height) * 0.4;', 'const baseW = Math.min(r2.width, r2.height) * 0.5;'), null, null],
+  ['처음 너비 0.4 → 0.5', (m) => m.replace('const STAMP_FIRST_W = 0.4;', 'const STAMP_FIRST_W = 0.5;'), null, null],
   ['dirty 무시', (m) => m.replace('    if(!crState.stampDirty){', '    if(true){'), null, null],
   ['초기화가 위치도 옮김', (m) => m.replace('  if(alsoPos){ crState.stampPlace.cx = r.width/2; crState.stampPlace.cy = r.height/2; }', '  { crState.stampPlace.cx = r.width/2; crState.stampPlace.cy = r.height/2; }'), null, null],
   ['clearStampState 가 그림을 지움', (m) => m.replace('function clearStampState(){\n  crState.stampMode=false;', 'function clearStampState(){\n  crState.stampMode=false; crState.stampImg=null;'), null, null],
-  ['90% 밖이어도 찍음', (m) => m.replace('    if(ratio >= 0.9){', '    if(ratio >= 9){'), null, null],
+  ['90% 밖이어도 찍음', (m) => m.replace('STAMP_SKIP_RATIO = 0.9,', 'STAMP_SKIP_RATIO = 9,'), null, null],
   ['되돌리기 안 남김', (m) => m.replace('  pushHistory();\n  // 가장자리', '  // 가장자리'), null, null],
   ['대칭 생략 조건 없앰', (m) => m.replace('if(crState.symmetry && Math.abs(crState.stampPlace.cx - r.width/2) >= crState.stampPlace.w*0.5){', 'if(crState.symmetry){'), null, null],
-  ['회전 스냅 15° → 10°', (m) => m.replace('const step=15*Math.PI/180;', 'const step=10*Math.PI/180;'), null, null],
-  ['모서리 최소 20 → 10', (m) => m.replace('newW=Math.max(20,newW); newH=Math.max(20,newH);', 'newW=Math.max(10,newW); newH=Math.max(10,newH);'), null, null],
+  ['회전 스냅 15° → 10°', (m) => m.replace('const STAMP_ROT_SNAP_DEG = 15;', 'const STAMP_ROT_SNAP_DEG = 10;'), null, null],
+  ['모서리 최소 20 → 10', (m) => m.replace('const STAMP_MIN_PX = 20;', 'const STAMP_MIN_PX = 10;'), null, null],
   ['입구 전제 없앰(찍기)', (m) => m.replace("  if(!document.getElementById('creatorPreview')) return;   // 입구 전제 — 미리보기 캔버스\n  const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();\n  // 도장", "  const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();\n  // 도장"), null, null],
   ['만들 때 던짐', (m) => m.replace('function createCrStamp(deps){', 'function createCrStamp(deps){ throw new Error("깨 봄");'), null, null],
   ['app.js 에 본문이 남음', null, (a) => a + '\nfunction commitStamp(){}', null],
