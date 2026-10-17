@@ -86,6 +86,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'todo.note': '할 일 공용 메모',
   'account.delete': '계정 삭제',
   'account.selfDelete': '회원 탈퇴(본인)',
+  'account.resetPassword': '비밀번호 초기화',
 };
 
 /** 필터 칩 — action 의 앞부분(«종류»)으로 묶는다. */

@@ -13,6 +13,7 @@ import {
   type UserRow,
 } from '@/entities/user';
 import { DeleteAccountButton } from '@/features/user/delete-account';
+import { ResetPasswordButton } from '@/features/user/reset-password';
 import { GrantInvitesButton } from '@/features/user/grant-invites';
 import { useSameLicenseUsers, useUserByCode } from '@/features/user/user-rows';
 import { copyText, formatDate, formatHours } from '@/shared/lib';
@@ -313,6 +314,12 @@ function Body({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> & { row
       <Section title="시크릿룸">
         <Field label="코드">
           <SecretRoom uid={uid} />
+        </Field>
+      </Section>
+
+      <Section title="로그인">
+        <Field label="비밀번호">
+          <ResetPasswordButton code={uid} />
         </Field>
       </Section>
 

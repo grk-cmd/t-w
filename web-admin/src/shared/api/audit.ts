@@ -81,9 +81,10 @@ export const AUDIT_ACTIONS = [
   'todo.applyRelease',
   'todo.releaseTpl',
   'todo.note',
-  // 서버 함수(adminDeleteAccount · deleteMyAccount)가 쓴다 — 웹은 이름만 보여 준다.
+  // 서버 함수(adminDeleteAccount · deleteMyAccount · adminResetPassword)가 쓴다 — 웹은 이름만 보여 준다.
   'account.delete',
   'account.selfDelete',
+  'account.resetPassword',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
