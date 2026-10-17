@@ -149,3 +149,29 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - 임시 객체는 공유된다 — 값을 들고 있으려면 `clone()`.
   - 동물 팔 기본각 `ANIMAL_HAND_REST` 는 animal.js 가 전역으로 읽어 app.js 에 남겼다.
   - 검사: `checks/sim-ride-tuning.js`(4절 — 값 표 50개가 옮기기 전과 같다 · 임시 객체가 따로따로 · 값 범위).
+
+## seat-refit.js — 🪑 파츠 구성이 바뀐 뒤 좌석 다시 맞추기
+
+- **책임**: 파츠를 붙이거나 뗀 좌석을 한 순서로 다시 맞춘다 — 끝난 장착 기다리기(거부돼도 다시 맞추기는 한다) → 아직 같은 좌석 · 같은 캐릭터인지 → `fitModel`(발밑 깊이 · 리깅 파츠) → `layoutSeats`(원할 때만) → 그 좌석 위에 탄 사람의 머리 꼭대기 값 다시 재기(`rideBenchMod._remeasureRideHeadTop`).
+- **만드는 법**(app.js «🪑 좌석 배치» 자리 — `layoutSeats` 바로 뒤, `rideBenchMod` 를 값으로 넘기므로 그보다 뒤):
+  ```js
+  const seatRefitMod = TwSeatRefit.createSeatRefit({
+    fitModel: (...a)=>fitModel(...a),
+    layoutSeats: (...a)=>layoutSeats(...a),   // 맨 아래 «데스크탑 창 크기» 가 다시 대입하므로 화살표로
+    rideBenchMod: rideBenchMod,
+  });
+  ```
+  다른 모듈에는 `refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a)` 로 넘긴다(wardrobe · room-entry · catalog-sync · admin-part-register).
+- **내보내는 것**: `refitSeatAfterParts(seat, { wait, layout, isCurrent })` → Promise(다시 맞췄으면 true)
+  ```js
+  // 친구 파츠가 바뀌었을 때(room-entry.js)
+  refitSeatAfterParts(s, { wait: applyEquippedPartsToSeat(s, fdef), layout: true, isCurrent: ()=>s.charDef===fdef });
+  // 꾸미기 저장(wardrobe.js) — 끝날 때까지 기다린 뒤 저장 · 방 전송
+  await refitSeatAfterParts(mySeat, { wait: applyEquippedPartsToSeat(mySeat, def) });
+  ```
+- **확장할 때 고칠 자리**: «파츠가 바뀌었다» 를 만드는 새 길은 같은 순서를 다시 쓰지 말고 이 함수를 부른다. 다시 맞출 것이 늘면(예: 이름표 높이) 이 함수 안에 한 줄 — 길마다 더하지 않는다.
+- **함정**
+  - 매 프레임 부르지 말 것 — 올라탄 사람 높이는 이름표 · 말풍선 자리의 기준이라 프레임마다 다시 재면 라벨이 떤다.
+  - `isCurrent` 를 빼면 기다리는 사이 나간 사람 · 바뀐 캐릭터의 좌석에 뒤늦게 `fitModel` 이 발사된다(원격 캐릭터 크기가 튀던 경위).
+  - 생성기 미리보기(`fitCreator`) · 꾸미기 미리보기는 다른 맞추기라 이 함수를 쓰지 않는다.
+  - 검사: `checks/sim-seat-refit.js`(순서 · 거부 · 낡은 좌석 · 길마다 부르는지 · 깨 보기).

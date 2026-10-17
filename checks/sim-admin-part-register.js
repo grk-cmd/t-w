@@ -25,8 +25,8 @@ const noStr = (s) => s.replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|
 
 const VALUES = ['MAX_CUSTOM_ASSETS', 'MAX_CUSTOM_ITEMS', 'MAX_GACHA_PARTS_PER_CAT', 'MAX_GLB_BYTES', 'MAX_PARTS_PER_CAT',
   'PART_CATS', 'gachaMod', 'partSceneCache', 'savedDesks', 'savedItems', 'savedParts', 'wdGizmo', 'wdPreviewBase'];
-const FNS = ['_b64', 'applyClothVisibility', 'catEquippedIds', 'equipPartOnSeat', 'findEntryById', 'fitModel', 'generatePartThumbnail', 'getPartScene',
-  'getRecHides', 'parseGlbBytes', 'partCatInfo', 'partCatLimit', 'partEntryXf', 'partsInCat', 'partsInCatFor', 'persistSavedParts', 'removeEntryFromCat',
+const FNS = ['_b64', 'applyClothVisibility', 'catEquippedIds', 'equipPartOnSeat', 'findEntryById', 'generatePartThumbnail', 'getPartScene',
+  'getRecHides', 'parseGlbBytes', 'partCatInfo', 'partCatLimit', 'partEntryXf', 'partsInCat', 'partsInCatFor', 'persistSavedParts', 'refitSeatAfterParts', 'removeEntryFromCat',
   'renderCrItems', 'renderWardrobe', 'resolveCatalogGlb', 'saveSlots', 'syncWdGizmoToXf', 'toHidesForSave', 'toast', 'unequipPartFromSeat', 'unequipStackablePart'];
 const EXPORTS = ['openPartRegister', 'openDeskRegister', 'deletePart', 'buildPartPublishData', 'syncPartRegGachaLock'];
 

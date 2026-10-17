@@ -556,6 +556,8 @@ PRELOAD.push('catalog-glb.js');
 PRELOAD.push('catalog-sync.js');
 /* seat-layout.js — 🪑 좌석 줄 배치(layoutSeats 본문)(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatLayout 를 같이 굴린다. */
 PRELOAD.push('seat-layout.js');
+/* seat-refit.js — 🪑 파츠 구성이 바뀐 뒤 좌석 다시 맞추기 한 벌. 같은 까닭 — app.js 가 좌석 배치 자리에서 부르는 createSeatRefit 을 같이 굴린다. */
+PRELOAD.push('seat-refit.js');
 /* desk-items.js — 🧸 책상 위 아이템 등록부(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskItems 를 같이 굴린다. */
 PRELOAD.push('desk-items.js');
 /* light-tone.js — 💡 재질 톤(조명 예산 · 파츠 · 아이템 · 책상 emissive)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLightTone 를 같이 굴린다. */

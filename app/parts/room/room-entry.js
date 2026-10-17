@@ -28,7 +28,6 @@ const chatUiMod = deps.chatUiMod;
 const createSeat = deps.createSeat;
 const curSlot = deps.curSlot;   // 읽는 함수
 const deserializeDefFromNetwork = deps.deserializeDefFromNetwork;
-const fitModel = deps.fitModel;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
@@ -40,6 +39,7 @@ const maxPeople = deps.maxPeople;
 const myExpCells = deps.myExpCells;
 const officeMode = deps.officeMode;   // 읽는 함수
 const pruneSeatPartsAgainstDef = deps.pruneSeatPartsAgainstDef;
+const refitSeatAfterParts = deps.refitSeatAfterParts;
 const removeSeatLabels = deps.removeSeatLabels;
 const renderSeatTabs = deps.renderSeatTabs;
 const rideBenchMod = deps.rideBenchMod;
@@ -465,13 +465,9 @@ function syncFriendSeats(friends){
                파츠만 붙이고 fitModel 을 안 불러서 내 화면에서는 그 사람만 욕조가 바닥에 파묻힌 채로
                남았다(다른 사람은 applyCharToSeat 경로라 재계산이 있었다 — 그래서 '하나만' 어긋난다).
                욕조를 벗는 쪽도 마찬가지로 뜬 채 남는다.
-             ★ 레이스 가드는 applyCharToSeat 의 .then 과 같은 이유·같은 조건이다 — 파츠 GLB 가
+             ★ 레이스 가드는 applyCharToSeat 와 같은 이유·같은 조건이다 — 파츠 GLB 가
                비동기로 붙는 동안 그 사람이 나가거나 캐릭터를 바꾸면 낡은 좌석에 뒤늦게 발사된다. */
-          applyEquippedPartsToSeat(s, fdef).then(()=>{   // 남아있는/새로 생긴 파츠는 적용(교체 포함)
-            try{
-              if(s && s.charDef===fdef && s.gltfRoot){ fitModel(s); layoutSeats(); }
-            }catch(_){}
-          });
+          refitSeatAfterParts(s, { wait: applyEquippedPartsToSeat(s, fdef), layout: true, isCurrent: ()=>s.charDef===fdef });   // 남아있는/새로 생긴 파츠는 적용(교체 포함)
         }
       }
     }

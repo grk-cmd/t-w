@@ -349,6 +349,8 @@ say('§13 꾸미기 초안 — 캐릭터를 바꾼 뒤 저장해도 원래 캐�
   let run = null;
   try {
     run = new Function('env', 'let wdDraftDef = env.draft; const {seats, slots, saveSlots, toast, Presence, pruneSeatPartsAgainstDef, applyEquippedPartsToSeat, fitModel} = env; const console = { warn(){} };\n'
+      + 'const refitSeatAfterParts = async (seat, o) => { try{ await o.wait; }catch(_){} };\n'   // 다시 맞추기 한 벌 — 장착을 기다리기만(판정은 sim-seat-refit)
+
       + src + '\nreturn _commitWdDraftToOwner(env.draft, true).then(r => ({ r, left: wdDraftDef }));');
   } catch (e) { say('  ' + e.message); }
   if (!run) chk(false, '_commitWdDraftToOwner 를 꺼냈다');

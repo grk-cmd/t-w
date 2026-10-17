@@ -95,6 +95,7 @@ const MODULES = [
   { file: 'catalog-glb.js', mod: 'catalogGlbMod', glob: 'TwCatalogGlb', sample: 'function resolveCatalogGlb(' },   // 구역 떼기 C · w2
   { file: 'catalog-sync.js', mod: 'catalogSyncMod', glob: 'TwCatalogSync', sample: 'function mergeCatalogIntoSavedItems(' },   // 구역 떼기 C · w2
   { file: 'seat-layout.js', mod: 'seatLayoutMod', glob: 'TwSeatLayout', sample: 'function layoutSeatRow(' },   // 구역 떼기 C · w1
+  { file: 'seat-refit.js', mod: 'seatRefitMod', glob: 'TwSeatRefit', sample: 'async function refitSeatAfterParts(' },   // 파츠 바뀐 뒤 좌석 다시 맞추기 한 벌
   { file: 'desk-items.js', mod: 'deskItemsMod', glob: 'TwDeskItems', sample: 'function _savedItemMeta(' },   // 구역 떼기 C · w2
   { file: 'light-tone.js', mod: 'lightToneMod', glob: 'TwLightTone', sample: 'function _applyPartMatTone(' },   // C 구역 떼기 w4
   { file: 'creator-preview.js', mod: 'creatorPrevMod', glob: 'TwCreatorPreview', sample: 'function updateCreatorLights(' },   // C 구역 떼기 · w3

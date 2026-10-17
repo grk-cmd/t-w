@@ -1824,6 +1824,12 @@ const seatLayoutMod = TwSeatLayout.createSeatLayout({
 /* layoutSeats 는 이 이름 그대로 app.js 에 둔다 — 맨 아래 «데스크탑 창 크기» 가 감싸 다시 대입하고(앱 FSD 32번),
    부르는 곳 · 다른 모듈 deps 는 이 이름을 본다(감싼 판이 불린다). */
 function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }
+/* 파츠 구성이 바뀐 뒤 좌석 다시 맞추기 한 벌(room/seat-refit.js) — 꾸미기 저장 · 친구 파츠 변경 · 좌석 다시 짓기 · 카탈로그 · 관리자 등록이 같이 부른다. */
+const seatRefitMod = TwSeatRefit.createSeatRefit({
+  fitModel: (...a)=>fitModel(...a),
+  layoutSeats: (...a)=>layoutSeats(...a),
+});
+seatRefitMod.onRefitted((s)=>rideBenchMod._remeasureRideHeadTop(s));   // 올라탄 사람 높이 다시 재기 — 알림으로 거는 까닭은 seat-refit.js 머리 주석
 /* 본문은 room/seat-camera.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatCameraMod = TwSeatCamera.createSeatCamera({
@@ -2554,7 +2560,6 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   findEntryById: (...a)=>premiumMod.findEntryById(...a),
   findMySeat: (...a)=>findMySeat(...a),
   firstEntryForCat: (...a)=>premiumMod.firstEntryForCat(...a),
-  fitModel: (...a)=>fitModel(...a),
   floorClampWrapper: (...a)=>charMeasureMod.floorClampWrapper(...a),
   gachaMod: ()=>gachaMod,
   getCommissionScene: (...a)=>getCommissionScene(...a),
@@ -2574,6 +2579,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),
   partsInGroup: (...a)=>premiumMod.partsInGroup(...a),
   pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),
+  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
   removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
   removePartEntryInstance: (...a)=>premiumMod.removePartEntryInstance(...a),
   reorderSavedPart: (...a)=>premiumMod.reorderSavedPart(...a),
@@ -3723,7 +3729,6 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
   equipPartOnSeat: (...a)=>equipPartOnSeat(...a),
   findEntryById: (...a)=>premiumMod.findEntryById(...a),
-  fitModel: (...a)=>fitModel(...a),
   generatePartThumbnail: (...a)=>partSceneMod.generatePartThumbnail(...a),
   getPartScene: (...a)=>partSceneMod.getPartScene(...a),
   getRecHides: (...a)=>premiumMod.getRecHides(...a),
@@ -3734,6 +3739,7 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   partsInCat: (...a)=>premiumMod.partsInCat(...a),
   partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),
   persistSavedParts: (...a)=>premiumMod.persistSavedParts(...a),
+  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
   removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
   renderCrItems: (...a)=>renderCrItems(...a),
   renderWardrobe: (...a)=>wardrobeMod.renderWardrobe(...a),
@@ -7768,13 +7774,7 @@ function applyCharToSeat(seat,def){
     //   ★ 레이스 가드: 투게더룸에서 사람이 나가거나 캐릭터가 교체되면 이 비동기 .then이 "낡은 좌석"에
     //     뒤늦게 발사되어 크기가 튀는 문제(원격 캐릭터가 갑자기 커지는 증상)가 있어서, 좌석이 여전히
     //     같은 charDef를 들고 있고 모델도 살아있을 때만 재계산.
-    applyEquippedPartsToSeat(seat, def).then(()=>{
-      try{
-        if(seat && seat.charDef===def && seat.gltfRoot){
-          fitModel(seat); layoutSeats();   // fitModel 내부에서 리깅 파츠 xf도 다시 구움
-        }
-      }catch(_){}
-    });
+    seatRefitMod.refitSeatAfterParts(seat, { wait: applyEquippedPartsToSeat(seat, def), layout: true, isCurrent: ()=>seat.charDef===def });   // fitModel 내부에서 리깅 파츠 xf도 다시 구움
     
     if(selected===seat){ 
       document.getElementById('sScale').value=seat.userScale; 
@@ -8045,7 +8045,6 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   createSeat: (...a)=>createSeat(...a),
   curSlot: ()=>curSlot,
   deserializeDefFromNetwork: (...a)=>roomSyncMod.deserializeDefFromNetwork(...a),
-  fitModel: (...a)=>fitModel(...a),
   focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -8056,6 +8055,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   myExpCells: (...a)=>expBarMod.myExpCells(...a),
   officeMode: ()=>officeMode,
   pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),
+  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
   removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),
   renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),
   rideBenchMod: rideBenchMod,
@@ -8835,12 +8835,11 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   customItems: ()=>customItems,
   equipDeskItem: (...a)=>equipDeskItem(...a),
   equipPartOnSeat: (...a)=>equipPartOnSeat(...a),
-  fitModel: (...a)=>fitModel(...a),
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
-  layoutSeats: (...a)=>layoutSeats(...a),
   loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
   premiumMod: premiumMod,
+  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
   renderCrItems: (...a)=>renderCrItems(...a),
   renderLauncher: (...a)=>renderLauncher(...a),
   rideBenchMod: rideBenchMod,
