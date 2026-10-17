@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 362 (프리셋 읽기 · 쓰기를 shared/json-store.js 한 곳으로(B-1015-3 준비 · 동작 무변경))
-대상: `sim-*.js` 319개 + `smoke.js` + `audit.py` = **321개** (개정 362 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 363 (생성기 프리셋 저장 · 읽기 실패를 알림 — «저장했어요» 는 써진 뒤에만 · E-CHAR-01~05 (B-1015-3))
+대상: `sim-*.js` 319개 + `smoke.js` + `audit.py` = **321개** (개정 363 기준 — 폴더를 센 값)
+
+**개정 363 에서 한 것 (2026-10-17 · B-1015-3 고침 — 동작 변경 · 사용자 결정: 0.11.4 에 넣음)**
+- 앱: 생성기 프리셋 저장 · 읽기가 실패해도 조용히 지나가 «저장했어요» 가 뜨던 것 — 저장 성공 안내는 실제로 써진 뒤에만, 실패면 이유 한 마디 + 번호. 사람 책상: 저장 · 비우기 E-CHAR-01(`creator/desk-preset.js` `_saveNotice`) · 읽기 E-CHAR-02(`desk-preset-store.js`) · 프리셋 책상 모델 E-CHAR-03. 동물: 저장 · 삭제 E-CHAR-04 · 읽기 E-CHAR-05(`animal.js`). 이유 · 진단 글은 `shared/json-store.js`(failReason · saveFailText · diagLine) 한 곳. 번호는 `error-codes.js` 표 · `docs/ERROR_CODES.md`.
+- 검사: `sim-json-store.js` 4절 실패 알림(이유 · 진단 · 사람 · 동물 성공/실패 · 번호가 표에 있다 · 깨 보기) · 배선 판정 deps. `sim-desk-preset.js` 저장 모듈이 내놓는 이름 · 책상 모델 실패는 번호 · 만드는 줄 deps 28. `sim-error-codes.js` 는 deps 로 받은 `notifyError('E-…')` 로 부르는 곳도 센다(잇는 줄 `TwErrorCodes.notify(...a)` 는 건넴이라 뺌 · «글자 그대로» 판정 그대로).
 
 **개정 362 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 무변경 · B-1015-3 준비)**
 - 앱: 사람 책상 프리셋(`creator/desk-preset-store.js` · `tw.deskPresets`)과 동물 프리셋(`character/animal.js` · `tw.animalPresets`)이 따로 들던 «localStorage 읽기 → JSON 해석 / 만들기 → 쓰기» 를 `shared/json-store.js`(`TwJsonStore` — load · save, 실패를 결과로) 한 곳으로. 책상 프리셋 저장은 `jsonStore` 를 deps 로 받고 저장 결과를 돌려준다(부르는 쪽은 아직 쓰지 않음). 읽기 결과 · 5칸 맞추기 · 해석 실패 시 빈 값은 예전 그대로. 원래 작업(wAA 2c2d0e9)의 «preset-store.js» 대신 이미 main 에 있는 책상 프리셋 저장 위에 얹었다.
@@ -2454,8 +2458,8 @@
 | **sim-def-send.js** | 211 | **e16ae6963145** ← **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** ← **개정 353 body-measure.js 를 넘겨 돌림(_boxExcluding 은 char-measure.js · 판정 무변경)** · **개정 291 핀 상쇄를 동작 판정으로 · 겹친 글자 판정 셋 걷음** · **개정 284 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(측정이 char-measure.js 로 · 판정 무변경)** · **개정 280 기즈모 · 좌석 세팅 글은 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** |
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** ← **개정 305 되살린 글에서 읽는다(판정 무변경)** |
-| **sim-desk-preset.js** | 215 | **3f08aa3661e8** ← **개정 362 진짜 json-store 를 넘김 · 만드는 줄 deps(판정 무변경)** · **개정 335 깨 보기를 상수 줄로 · PRESET_SLOTS(판정 무변경)** · **개정 333 신설 · 🗂 책상 · 좌석 세팅 프리셋(creator/desk-preset-store.js · desk-preset.js) — 저장 · 담기 · 적용 · 책상 모델 · 칸 화면 · 연결** |
-| **sim-json-store.js** | 128 | **038b04186856** ← **개정 362 신설 · localStorage JSON 칸 읽기 · 쓰기 한 곳(shared/json-store.js) — 경계 · 프리셋 두 벌 동작 · 배선** |
+| **sim-desk-preset.js** | 215 | **0f95b9b1e295** ← **개정 363 내놓는 이름 · E-CHAR-03 · deps 28** · **개정 362 진짜 json-store 를 넘김 · 만드는 줄 deps(판정 무변경)** · **개정 335 깨 보기를 상수 줄로 · PRESET_SLOTS(판정 무변경)** · **개정 333 신설 · 🗂 책상 · 좌석 세팅 프리셋(creator/desk-preset-store.js · desk-preset.js) — 저장 · 담기 · 적용 · 책상 모델 · 칸 화면 · 연결** |
+| **sim-json-store.js** | 182 | **00e2d0b6a8c0** ← **개정 363 4절 실패 알림 · 깨 보기** · **개정 362 신설 · localStorage JSON 칸 읽기 · 쓰기 한 곳(shared/json-store.js) — 경계 · 프리셋 두 벌 동작 · 배선** |
 | **sim-desk-setup.js** | 228 | **268fe68a88b2** ← **개정 334 신설 · 🪑 책상 세팅(creator/desk-setup.js) — 책상 · 아이템 카드 · 고르기 · 순서 · 갈고리 · 입구 전제 · 연결** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
@@ -2697,7 +2701,7 @@
 | **sim-dep-cycles.js** | 237 | **6aa063b0b8b1** ← **개정 241 신설 · 렌더러 모듈 순환이 늘지 않는가(기준선 dep-cycles-baseline.json) · 만드는 도중 아직 없는 이름 읽기** |
 | **sim-domain-calls.js** | 157 | **8b9f85e7d696** ← **개정 349 신설 · 도메인끼리 직접 부르는 곳(인스턴스 · 전역 모듈 · 창 고리)이 기준선보다 늘지 않는가** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** ← **개정 243 신설 · 🧭 방 공용 상태(room-state.js) — 처음 값 · 싣는 순서 · 바꾸는 파일** |
-| **sim-error-codes.js** | 107 | **6c8019315bf2** ← **개정 341 신설 · ⚠️ 에러코드 표(error-codes.js) — 번호 모양 · notify · 부른 번호가 표에 · 표의 번호가 쓰임 · 싣는 순서 · 문서** |
+| **sim-error-codes.js** | 109 | **c3b25d49f7c4** ← **개정 341 신설 · ⚠️ 에러코드 표(error-codes.js) — 번호 모양 · notify · 부른 번호가 표에 · 표의 번호가 쓰임 · 싣는 순서 · 문서** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 245 신설 · 🏠 마이홈 공용 상태(myhome-state.js) — 처음 값 · 이름 창구 · 싣는 순서 · 바꾸는 곳** |
 | **sim-account-state.js** | 94 | **d9d3c39a82ed** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 246 신설 · 🪪 계정 핵심 상태(account-state.js) — 값 · 프리미엄 알림 · 싣는 순서 · 거는 곳 · 바꾸는 곳** |
 | **sim-nav.js** | 85 | **c2cf2cc50405** ← **개정 332 ** · **개정 250 app.js 는 window.TwNav 를 그대로 받는다 · 빈 껍데기 없음(가드 걷기 3차-2)** · **개정 247 신설 · 🧭 창 열기 통로(nav.js) — 걸고 부르기 · 거는 곳 한 곳 · 아는 이름만 · 표 · 싣는 순서** |

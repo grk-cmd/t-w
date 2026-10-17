@@ -2,7 +2,8 @@
    ・1절: load — 키 없음 · 빈 글 · 해석 성공 · 해석 실패 · 저장소 못 엶 → {ok, list, err, bytes} · 던지지 않는다
    ・2절: save — 성공(bytes) · 용량 초과 · JSON 못 만듦 · 저장소 못 엶 → {ok, err, bytes} · 던지지 않는다
    ・3절: 부르는 쪽 동작 고정 — 사람 책상 프리셋(desk-preset-store.js — 5칸 맞추기) · 동물 프리셋(animal.js — 객체 그대로)
-   ・4절: 배선 — html 이 책상 프리셋 저장 · animal.js · app.js 보다 먼저 · 두 곳이 localStorage 를 직접 안 만진다 · smoke PRELOAD
+   ・4절: 실패 알림 — 이유 한 마디 · 진단 줄 · 저장 실패면 성공 안내 대신 번호(E-CHAR-01 · 04) · 읽기 실패 번호(02 · 05) · 표에 번호가 있다
+   ・5절: 배선 — html 이 책상 프리셋 저장 · animal.js · app.js 보다 먼저 · 두 곳이 localStorage 를 직접 안 만진다 · smoke PRELOAD
    [실행] node checks/run.js sim-json-store */
 'use strict';
 const fs = require('fs');
@@ -17,6 +18,8 @@ const SRC = {
   app: read('app.js', 'app/parts/app.js', '../app/parts/app.js'),
   html: read('desk-companion-prototype.html', 'app/desk-companion-prototype.html', '../app/desk-companion-prototype.html'),
   smoke: read('smoke.js', 'checks/smoke.js'),
+  deskui: read('desk-preset.js', 'app/parts/creator/desk-preset.js', '../app/parts/creator/desk-preset.js'),
+  codes: read('error-codes.js', 'app/parts/shared/error-codes.js', '../app/parts/shared/error-codes.js'),
 };
 for(const k of Object.keys(SRC)) if(SRC[k] == null){ say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const load = (src, name) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
@@ -77,7 +80,7 @@ say('── 3. 부르는 쪽 동작 고정');
 {
   const st = fakeStorage();
   const S = J.createJsonStore({ storage: () => st });
-  const D = load(SRC.desk).createDeskPresetStore({ jsonStore: S });
+  const D = new Function('window', 'module', 'console', SRC.desk + '\nreturn window.TwDeskPresetStore;')({}, undefined, { warn(){} }).createDeskPresetStore({ jsonStore: S, notifyError: () => true });
   const nulls5 = (a) => Array.isArray(a) && a.length === 5 && a.every(x => x === null);
   chk(nulls5(D.loadDeskPresets()), '사람: 키 없음 → 빈 5칸');
   st.m.set(KEY, '[{"ts":1},{"ts":2}]');
@@ -93,11 +96,11 @@ say('── 3. 부르는 쪽 동작 고정');
   const r = D.saveDeskPresets([1, 2, 3, 4, 5, 6]);
   chk(st.m.get(KEY) === '[1,2,3,4,5]' && r && r.ok === true, '사람: 저장은 앞 5칸만 · 결과를 돌려준다');
 
-  const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return null; const e = src.indexOf('\n', i); return src.slice(i, e); };
+  const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return null; let d = 0, j = src.indexOf('{', i); for(; j < src.length; j++){ if(src[j] === '{') d++; else if(src[j] === '}' && --d === 0) break; } return src.slice(i, j + 1); };
   const AK = 'tw.animalPresets';
   const al = grab(SRC.animal, '_loadPresets'), as = grab(SRC.animal, '_savePresets');
   chk(!!al && !!as, 'animal.js 에 _loadPresets · _savePresets 가 있다');
-  const an = new Function('TwJsonStore', 'ANP_PRESET_KEY', al + '\n' + as + '\nreturn { _loadPresets, _savePresets };')(S, AK);
+  const an = new Function('TwJsonStore', 'ANP_PRESET_KEY', 'TwErrorCodes', 'console', al + '\n' + as + '\nreturn { _loadPresets, _savePresets };')(Object.assign({}, J, S), AK, { notify: () => true }, { warn(){} });
   let o = an._loadPresets();
   chk(o && typeof o === 'object' && !Array.isArray(o) && Object.keys(o).length === 0, '동물: 키 없음 → {}');
   const o2 = an._loadPresets(); o.p1 = 1;
@@ -108,7 +111,58 @@ say('── 3. 부르는 쪽 동작 고정');
   chk(Object.keys(an._loadPresets()).length === 0, '동물: 해석 실패 → {}(예전과 같게)');
 }
 
-say('── 4. 배선');
+say('── 4. 실패 알림');
+{
+  const grabFn = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return null; let d = 0, j = src.indexOf('{', i); for(; j < src.length; j++){ if(src[j] === '{') d++; else if(src[j] === '}' && --d === 0) break; } return src.slice(i, j + 1); };
+  const q = new Error('quota'); q.name = 'QuotaExceededError';
+  chk(J.failReason(q) === '저장 공간이 부족해요' && J.failReason({ name: 'NS_ERROR_DOM_QUOTA_REACHED' }) === '저장 공간이 부족해요', '용량 초과 → «저장 공간이 부족해요»');
+  chk(J.failReason(new TypeError('c')) === 'TypeError' && J.failReason(null) === '알 수 없는 오류' && J.failReason('x'.repeat(99)).length === 40, '그 밖 → 오류 이름 · 빈 오류 · 긴 글 40자');
+  chk(J.saveFailText(q) === '프리셋을 저장하지 못했어요 — 저장 공간이 부족해요', '저장 실패 문구');
+  chk(J.diagLine('save', KEY, { err: q, bytes: 9 }, 3) === '[프리셋] save 실패 key=tw.deskPresets bytes=9 err=QuotaExceededError slot=3' && J.diagLine('load', KEY, {}).endsWith('err=- slot=-'), '콘솔 진단 한 줄');
+  const notes = [], toasts = [], warns = [];
+  const EC = { notify: (code, err, text) => { notes.push([code, text]); return true; } };
+  const CON = { warn: (l) => warns.push(l) };
+  /* 사람 — 책상 프리셋 저장(읽기 실패 번호) · 칸 화면 _saveNotice(저장 실패 번호) */
+  const st = fakeStorage(60);
+  const S = J.createJsonStore({ storage: () => st });
+  const D = new Function('window', 'module', 'console', SRC.desk + '\nreturn window.TwDeskPresetStore;')({}, undefined, CON).createDeskPresetStore({ jsonStore: S, notifyError: EC.notify });
+  st.m.set(KEY, '[{');
+  D.loadDeskPresets();
+  chk(notes.length === 1 && notes[0][0] === 'E-CHAR-02' && /load 실패/.test(warns[0] || ''), '사람: 읽기 실패 → E-CHAR-02 · 진단 줄');
+  notes.length = 0;
+  const sn = grabFn(SRC.deskui, '_saveNotice');
+  chk(!!sn, 'desk-preset.js 에 _saveNotice 가 있다');
+  const notice = new Function('deskPresetStoreMod', 'toast', 'notifyError', 'console', sn + '\nreturn _saveNotice;')(D, (m) => toasts.push(m), EC.notify, CON);
+  st.m.delete(KEY);
+  notice(D.saveDeskPresets(['x'.repeat(80)]), 2, '프리셋 2번에 저장했어요');
+  chk(toasts.length === 0 && notes.length === 1 && notes[0][0] === 'E-CHAR-01' && notes[0][1] === '프리셋을 저장하지 못했어요 — 저장 공간이 부족해요', '사람: 저장 실패 → 성공 안내 없이 E-CHAR-01 · 이유');
+  notes.length = 0;
+  notice(D.saveDeskPresets([1]), 1, '프리셋 1번에 저장했어요');
+  chk(toasts.join() === '프리셋 1번에 저장했어요' && notes.length === 0, '사람: 저장 성공 → 안내만');
+  chk(/notifyError\('E-CHAR-03', err\)/.test(SRC.deskui), '사람: 프리셋 책상 모델 실패 → E-CHAR-03');
+  /* 동물 */
+  toasts.length = 0; notes.length = 0;
+  const AK = 'tw.animalPresets';
+  const fns = ['_loadPresets', '_savePresets', '_presetSaveNotice'].map((n) => grabFn(SRC.animal, n));
+  chk(fns.every(Boolean), 'animal.js 에 _loadPresets · _savePresets · _presetSaveNotice 가 있다');
+  const S2 = Object.assign({}, J, J.createJsonStore({ storage: () => st }));
+  const an = new Function('TwJsonStore', 'ANP_PRESET_KEY', 'TwErrorCodes', 'console', 'toast', fns.join('\n') + '\nreturn { _loadPresets, _savePresets, _presetSaveNotice };')(S2, AK, EC, CON, (m) => toasts.push(m));
+  st.m.set(AK, '{"p');
+  an._loadPresets();
+  chk(notes.length === 1 && notes[0][0] === 'E-CHAR-05', '동물: 읽기 실패 → E-CHAR-05');
+  notes.length = 0; st.m.delete(AK);
+  an._presetSaveNotice(an._savePresets({ p1: 'x'.repeat(80) }), 1, '프리셋 1에 저장했어요');
+  chk(toasts.length === 0 && notes.length === 1 && notes[0][0] === 'E-CHAR-04', '동물: 저장 실패 → 성공 안내 없이 E-CHAR-04');
+  const E = load(SRC.codes);
+  chk(['E-CHAR-01', 'E-CHAR-02', 'E-CHAR-03', 'E-CHAR-04', 'E-CHAR-05'].every((c) => E.info(c)), '번호 다섯이 에러코드 표에 있다');
+  /* 깨 보기 — 저장 결과를 안 보고 늘 성공 안내를 띄우면 */
+  const broke = sn.replace('if(res.ok){ toast(okMsg); return; }', 'toast(okMsg); return;');
+  toasts.length = 0; notes.length = 0;
+  new Function('deskPresetStoreMod', 'toast', 'notifyError', 'console', broke + '\nreturn _saveNotice;')(D, (m) => toasts.push(m), EC.notify, CON)({ ok: false, err: q }, 1, '저장했어요');
+  chk(broke !== sn && toasts.length === 1 && notes.length === 0, '  깨 보기: 실패에도 성공 안내를 띄우면 → 위 판정이 빨강(안내 1 · 번호 0)');
+}
+
+say('── 5. 배선');
 {
   const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
   const h = SRC.html, iJ = h.indexOf('<script src="parts/shared/json-store.js"></script>');
@@ -117,10 +171,10 @@ say('── 4. 배선');
   chk(!/localStorage/.test(strip(SRC.desk)), 'desk-preset-store.js 는 localStorage 를 직접 안 만진다');
   const ap = (SRC.animal.match(/function _loadPresets[^\n]*\n[^\n]*/) || [''])[0];
   chk(ap && !/localStorage/.test(ap), 'animal.js 프리셋 읽기 · 쓰기는 localStorage 를 직접 안 만진다');
-  chk(/createDeskPresetStore\(\{\n  jsonStore: TwJsonStore,\n\}\);/.test(SRC.app), 'app.js — 책상 프리셋 저장에 jsonStore 를 deps 로');
+  chk(/createDeskPresetStore\(\{\n  jsonStore: TwJsonStore,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n\}\);/.test(SRC.app), 'app.js — 책상 프리셋 저장에 jsonStore · notifyError 를 deps 로');
   chk(/PRELOAD\.push\('json-store\.js'\);/.test(SRC.smoke), 'smoke PRELOAD 에 json-store.js');
   /* 깨 보기 — 저장소가 직접 localStorage 를 다시 쓰면 위 판정이 잡는다 */
-  const broke = SRC.desk.replace('jsonStore.load(PRESET_KEY, []).list', "JSON.parse(localStorage.getItem(PRESET_KEY)||'[]')");
+  const broke = SRC.desk.replace('jsonStore.load(PRESET_KEY, [])', "({ ok: true, list: JSON.parse(localStorage.getItem(PRESET_KEY)||'[]') })");
   chk(broke !== SRC.desk && /localStorage/.test(strip(broke)), '  깨 보기: 책상 프리셋 저장이 localStorage 를 직접 읽으면 → 빨강');
 }
 
