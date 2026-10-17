@@ -25,6 +25,7 @@
 | wW 묶음 | 도우미 2 | 디자인 프리셋 판단 한 곳 → 프리셋에 그림도 담기 (B-1013-8) | `myhome/myhome-preset.js`(새) · `myhome/myhome-edit.js` | — |
 | wY | 도우미 2 | 파츠 바뀐 뒤 좌석 다시 맞추기 한 벌(seat-refit.js) | `character/seat-refit.js`(새) · `app.js` | — |
 | 낱개 | 도우미 3 | 문서 규칙(429c52b) · 두 번째 실행 10초(wT) · 토스트 문구(wS) · realtime 공통부(wP-C 6d352f0) · 에러코드(4c55c3c — 충돌 크면 다시 얹기) | `CLAUDE.md` · `main.js`(두 번째 실행) · 토스트 · `room/realtime-link.js`(새) · 에러코드 표 | — |
+| #265 다시 얹기 | 검증 세션 | 런처 화면 GPU 부하 줄이기 — 미리보기 1초 30번 · 깜빡임은 좌석과 같은 시간표 · 후원 반짝임(사용자 적용 승인 10-17) | `launcher/launcher-preview.js` · `shared/blink-timing.js`(새) · 좌석 깜빡임 · `shared/README.md` · 후원 문구 css | #265 → 새 PR |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
