@@ -43,10 +43,9 @@ function _applyGameCfg(cfg){
   }
 }
 try{
-  if(window.firebaseAPI && firebaseAPI.subscribeGameConfig) firebaseAPI.subscribeGameConfig(_applyGameCfg);
-  else window.addEventListener('firebase-ready', ()=>{
+  TwNetReady.whenNetReady(()=>{
     try{ firebaseAPI.subscribeGameConfig(_applyGameCfg); }catch(_){}
-  }, { once:true });
+  }, 'subscribeGameConfig');
 }catch(_){}
 
 refreshAdBanner();

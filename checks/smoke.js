@@ -618,6 +618,8 @@ PRELOAD.push('asset-cards.js');
 PRELOAD.push('desk-setup.js');
 /* seat-menu.js — 🖱 좌석 우클릭 메뉴(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatMenu 를 같이 굴린다. */
 PRELOAD.push('seat-menu.js');
+/* net-ready.js — 🛰 «네트워크(provider) 준비됨» 기다리기 한 곳(firebase-ready 묶기). 같은 까닭 — 스케줄러 · 방 · 계정 · 카탈로그 모듈이 만들 때 TwNetReady.whenNetReady 를 부른다. */
+PRELOAD.push('net-ready.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

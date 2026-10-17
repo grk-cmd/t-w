@@ -88,8 +88,7 @@ function _firebaseRoomHooks(){
 }
 /* 💬 대화 기록(firebase-init chatHistory)이 «이 PC 에 저장할지» 를 가르는 채널 — 채널(window._activeChannel)을 바꾸는 곳이 이 파일이라 여기서 건다 */
 function _bindChatHistoryChannel(){ firebaseAPI.chatHistory.bindChannel(()=>(window._activeChannel === 2 ? 'togetherroom' : 'workingroom')); }
-if(window.firebaseAPI) _bindChatHistoryChannel();
-else window.addEventListener('firebase-ready', _bindChatHistoryChannel, { once:true });
+TwNetReady.whenNetReady(_bindChatHistoryChannel);
 function makeServerProvider(net, create){
   return net.makeProvider({
     serializeDef: serializeDefForNetwork,
@@ -261,15 +260,7 @@ async function _serverRandomRooms(limit){
 /* 🧪 가짜 방 — 개발 표식이 있을 때만(Presence.start 주석). */
 const NET_READY_WAIT_MS = 10000;
 function _mockRoomAllowed(){ try{ return localStorage.getItem('tw.mockRoom') === '1'; }catch(_){ return false; } }
-function _waitFirebaseApi(ms){
-  return new Promise(res=>{
-    if(window.firebaseAPI) return res(true);
-    let done = false;
-    const fin = ()=>{ if(done) return; done = true; res(!!window.firebaseAPI); };
-    try{ window.addEventListener('firebase-ready', fin, { once:true }); }catch(_){}
-    setTimeout(fin, ms);
-  });
-}
+function _waitFirebaseApi(ms){ return TwNetReady.waitNetReady(ms); }
 function makeMockProvider(){
   let timer=null, cb=null, fr={};
   const names=['민지','현우','소라'], skins=[2,3,4,1], tops=['#c98a8a','#8aa0c9','#9ac98a'];

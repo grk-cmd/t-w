@@ -20,7 +20,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(버그 제보 탭이 TwNetReady.whenNetReady 를 부른다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], BUG = SRC['bug-board-ui.js'];
@@ -275,6 +275,7 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
   Object.defineProperty(ctx, 'isAdmin', { get: () => env.admin });
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
   vm.runInContext(BUG, ctx, { filename: 'bug-board-ui.js' });
   chk(typeof ctx._bugReportLink === 'function' && ctx._bugReportLink() === '', 'window._bugReportLink — 아직 안 받았으면 빈 문자열');
   chk(typeof env.L['firebase-ready'] === 'function', 'firebaseAPI 가 아직 없으면 firebase-ready 를 기다린다');

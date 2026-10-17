@@ -2736,8 +2736,7 @@ const friendManage = TwFriendManage.createFriendManage({
 let _myHomeReady = false;
 /* 포기하지 않는다 — SDK 를 실행 때 gstatic 에서 받아 느린 망이면 20초를 넘긴다(예전 20초 포기 → 친구 · 우편 구독이 영영 안 걸렸다). */
 function _waitForFirebaseAPI(cb){
-  if(window.firebaseAPI && firebaseAPI.watchMyFriendList){ cb(); return; }
-  window.addEventListener('firebase-ready', ()=>cb(), { once:true });
+  TwNetReady.whenNetReady(()=>cb(), 'watchMyFriendList');
 }
 /* 🔇 소유권이 걸린 쓰기가 거부됐을 때 침묵을 깬다.
    [경위] 규칙을 게시한 뒤 users/{코드} 의 자기 소유 가지는 "주인이 없거나 나일 때"만 쓸 수 있다.
@@ -6459,8 +6458,7 @@ const adminUsers = TwAdminUsers.createAdminUsers({
     const doVerify = () => licenseGateMod.verifyLicense(key).then(r=>{
       if(!r.ok && !r.offline){ try{localStorage.removeItem(acctStateMod.LICENSE_KEY_STORAGE);}catch(e){} acctStateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
     });
-    if(window.firebaseAPI) doVerify();
-    else window.addEventListener('firebase-ready', doVerify, { once:true });
+    TwNetReady.whenNetReady(doVerify);
   }
 })();
 
@@ -6478,8 +6476,7 @@ const REMOTE_FLAGS_WAIT_MS = 3000;
       .then(shownI => (shownI ? true : licenseGateMod._needLoginCheck()))                 // 🔐 K — I 가 아니면(이미 묶인 uid) 로그인이 맞는지(§9-11)
       .catch(err=>{ console.warn('[invite] 게이트 확인 실패', err); });
   };
-  if(window.firebaseAPI) run();
-  else window.addEventListener('firebase-ready', run, { once:true });
+  TwNetReady.whenNetReady(run);
 })();
 /* 🔐 관리자 모드(비밀번호 창 · 켜기 · Ctrl+E 끄기 · 관리자 버튼 보이기 · Ctrl·⌘+클릭 진입)는 admin/admin-mode.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
    isAdmin 을 바꾸는 곳은 그 모듈 하나다(setIsAdmin). savedParts 는 뒤에서 선언되는 let 이라 읽는 함수로 넘긴다.
@@ -7845,8 +7842,7 @@ async function _checkUpdateNoticeOnStartup(){
   }catch(_){}
 }
 // firebase 준비되면 한 번 실행
-if(window.firebaseAPI) _checkUpdateNoticeOnStartup();
-else window.addEventListener('firebase-ready', ()=>_checkUpdateNoticeOnStartup(), { once:true });
+TwNetReady.whenNetReady(()=>_checkUpdateNoticeOnStartup());
 
 // ===== Phase 3: 관리자 카테고리 관리 =====
 /* 카테고리 관리 본문은 admin/admin-category.js, 뒤쪽의 라이선스 요청 · 발급 버튼 · 친구코드로 발급은 admin/admin-license.js 로 옮겼다.

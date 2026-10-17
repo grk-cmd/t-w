@@ -18,7 +18,8 @@ const USERS = { 'catalog-sync.js': find('character/catalog-sync.js'), 'catalog-g
 if(!SRC || !HTML || !MOD || Object.values(USERS).some(v => !v)){ say('  ? 원본 못 찾음 — app.js · html · catalog-source.js · 세 모듈'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 const EXPORTS = ['catalogSrcReady', 'catalogSrcCan', 'catalogSrcSubscribe', 'catalogSrcMigrateGacha', 'catalogSrcFetchGlb', 'catalogSrcPublishPart'];
-const make = (win) => { new Function('window', 'module', MOD)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
+const NET_PRE = (['net-ready.js', 'parts/shared/net-ready.js', 'app/parts/shared/net-ready.js'].map(read).find(Boolean) || '') + '\nvar TwNetReady = window.TwNetReady;\n';   // 🛰 네트워크 준비 기다리기(shared/net-ready.js) — catalogSrcReady 가 TwNetReady.whenNetReady 로 넘긴다
+const make = (win) => { new Function('window', 'module', NET_PRE + MOD)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
 
 say('── 1. 모양');
 {

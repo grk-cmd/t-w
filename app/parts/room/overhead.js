@@ -291,7 +291,7 @@ function _initAnnounceSubscription(){
   }
 }
 if(document.readyState === 'complete') _initAnnounceSubscription();
-else window.addEventListener('firebase-ready', _initAnnounceSubscription);
+else TwNetReady.onNetReady(_initAnnounceSubscription);
 
 /* 🔻 반전 배치(캐릭터가 화면 위쪽에 있어 라벨이 발 밑으로 뒤집힌 경우) 말풍선 여백(px).
    두 값을 나눠 쓴다 — 위에 라벨이 있을 때와 없을 때 필요한 여백이 다르다.

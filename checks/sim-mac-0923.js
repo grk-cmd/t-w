@@ -46,10 +46,13 @@ say('── 3. 🧪 가짜 방');
   const i = CODE.indexOf('provider = window.firebaseAPI ? makeFirebaseProvider(opts && opts.hooks) : makeMockProvider();'), seg = CODE.slice(i - 700, i);
   chk(i > 0 && /if\(!window\.firebaseAPI\) await _waitFirebaseApi\(NET_READY_WAIT_MS\);/.test(seg) && /if\(!window\.firebaseAPI && !_mockRoomAllowed\(\)\)\{[\s\S]*return;\s*\}/.test(seg), '기다리고 · 없으면 입장하지 않는다');
   const W = { firebaseAPI:null, _l:{}, addEventListener(n, f){ this._l[n] = f; } };
-  const mk = new Function('window', 'setTimeout', grab(SRC, '_waitFirebaseApi') + ' return _waitFirebaseApi;');
+  /* _waitFirebaseApi 는 shared/net-ready.js 의 waitNetReady 로 넘긴다 — 그 파일을 같이 싣고 굴린다(판정은 그대로) */
+  const NET = read('net-ready.js') || '';
+  const WAIT = NET + '\nvar TwNetReady = window.TwNetReady;\n' + grab(SRC, '_waitFirebaseApi') + ' return _waitFirebaseApi;';
+  const mk = new Function('window', 'setTimeout', 'module', WAIT);
   const wait = mk(W, (f, ms)=>{ W._t = f; });
   let p = wait(10000); W.firebaseAPI = {}; W._l['firebase-ready'](); chk(await p === true, '준비 신호가 오면 곧바로 풀린다');
-  const W2 = { firebaseAPI:null, addEventListener(){} }; const wait2 = new Function('window', 'setTimeout', grab(SRC, '_waitFirebaseApi') + ' return _waitFirebaseApi;')(W2, (f)=>f());
+  const W2 = { firebaseAPI:null, addEventListener(){} }; const wait2 = new Function('window', 'setTimeout', 'module', WAIT)(W2, (f)=>f());
   chk(await wait2(10) === false, '시간이 다 되면 false(가짜 방으로 떨어지지 않음)');
   const A = new Function('localStorage', grab(SRC, '_mockRoomAllowed') + ' return _mockRoomAllowed;');
   chk(A({ getItem:()=>null })() === false && A({ getItem:()=>'1' })() === true, '가짜 방은 tw.mockRoom=1 일 때만');
