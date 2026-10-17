@@ -150,8 +150,8 @@ await sec('── 2. 친구 고르기 창', () => {
   const ld = mkEnv({ friends: {}, notice: '친구 목록을 불러오는 중이에요' }); ld.mk(); ld.open();
   chk(ld.retries === 1, '초대 목록을 열면 friends-sub 에 «못 불러왔으면 다시 걸기» 를 한 번 부탁한다');
   chk(ld.els.roomInvitePickList.textContent === '친구 목록을 불러오는 중이에요' && !/아직 친구가 없어요/.test(ld.els.roomInvitePickList.innerHTML) && ld.els.roomInvitePickOverlay.style.display === 'flex', '불러오는 중 — 안내만 · «친구 없음» 아님 · 창은 열린다');
-  const er = mkEnv({ friends: { a: { name: '옛친구', online: true } }, notice: '친구 목록을 불러오지 못했어요. 잠시 후 다시 시도할게요' }); er.mk(); er.open();
-  chk(er.rows().length === 1 && er.els.roomInvitePickList.textContent === '친구 목록을 불러오지 못했어요. 잠시 후 다시 시도할게요', '못 불러옴 — 안내 한 줄만(옛 목록으로 초대 줄을 만들지 않는다)');
+  const er = mkEnv({ friends: { a: { name: '옛친구', online: true } }, notice: '친구 목록을 불러오지 못했어요.\n잠시 후 다시 시도할게요' }); er.mk(); er.open();
+  chk(er.rows().length === 1 && er.els.roomInvitePickList.textContent === '친구 목록을 불러오지 못했어요.\n잠시 후 다시 시도할게요' && /white-space:pre-line/.test(er.rows()[0].style.cssText), '못 불러옴 — 안내 한 칸만(옛 목록으로 초대 줄을 만들지 않는다) · 두 문장 사이 줄바꿈(pre-line)');
   const xs = mkEnv({ friends: {}, notice: '<b>x</b>' }); xs.mk(); xs.open();
   chk(!/<b>/.test(xs.els.roomInvitePickList.innerHTML) && xs.els.roomInvitePickList.textContent === '<b>x</b>', '  안내는 글자로(textContent) 넣는다');
   const g = mkEnv({ friends: {

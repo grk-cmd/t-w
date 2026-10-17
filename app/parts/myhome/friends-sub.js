@@ -23,7 +23,8 @@ const SUB_WAIT_MS = 3000;   // 판정이 연결 시도 중인 구독을 기다�
 const STATUS = { IDLE: 'idle', LOADING: 'loading', ERROR: 'error', READY: 'ready' };
 const NOTICE = {
   loading: '친구 목록을 불러오는 중이에요',
-  error: '친구 목록을 불러오지 못했어요. 잠시 후 다시 시도할게요',
+  error: '친구 목록을 불러오지 못했어요.\n잠시 후 다시 시도할게요',   // 두 문장 사이 줄바꿈 — 그리는 쪽은 white-space:pre-line(마이홈 친구 탭 · 초대 목록)
+  /* 토스트(app.js toast)는 textContent 에 pre-line 이 없어 줄바꿈을 못 그린다 — 그래서 한 줄 그대로 */
   checkFail: '친구 목록을 불러오지 못했어요. 잠시 후 다시 눌러 주세요',
 };
 

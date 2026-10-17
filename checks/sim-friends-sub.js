@@ -60,8 +60,8 @@ async function judge(S){
   chk(!('retryDelayMs' in FS) && !('RETRY_DELAYS_MS' in FS), '  시간 간격 재시도(5 → 15 → 30 → 60초)는 걷었다');
   chk(FS.noticeFor('ready') === null && FS.noticeFor('loading') === '친구 목록을 불러오는 중이에요' && FS.noticeFor('idle') === FS.noticeFor('loading'),
     '받았으면 null · 받기 전(시작 전 포함)은 «불러오는 중이에요»');
-  chk(FS.noticeFor('error') === '친구 목록을 불러오지 못했어요. 잠시 후 다시 시도할게요', '못 받았으면 «불러오지 못했어요. 잠시 후 다시 시도할게요»');
-  chk(FS.NOTICE.checkFail === '친구 목록을 불러오지 못했어요. 잠시 후 다시 눌러 주세요', '판정용 읽기 실패 토스트 «잠시 후 다시 눌러 주세요»');
+  chk(FS.noticeFor('error') === '친구 목록을 불러오지 못했어요.\n잠시 후 다시 시도할게요', '못 받았으면 «불러오지 못했어요.⏎잠시 후 다시 시도할게요»(두 문장 사이 줄바꿈)');
+  chk(FS.NOTICE.checkFail === '친구 목록을 불러오지 못했어요. 잠시 후 다시 눌러 주세요', '판정용 읽기 실패 토스트 «잠시 후 다시 눌러 주세요» — 토스트는 줄바꿈을 못 그려 한 줄 그대로');
 
   /* ── 2. 구독 한 벌 ── */
   say('── 2. friends-sub.js — 상태 · 목록 열 때만 다시 걸기 · 동시 구독 1개');

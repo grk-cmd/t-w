@@ -64,7 +64,7 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
     const notice = _friendsNotice();
     if(notice){
       const box = document.createElement('div');
-      box.style.cssText = 'padding:16px;text-align:center;color:var(--ink-soft);font-size:11px;';
+      box.style.cssText = 'padding:16px;text-align:center;color:var(--ink-soft);font-size:11px;white-space:pre-line;';   // 안내 두 문장 사이 줄바꿈(friends-sub NOTICE)
       box.textContent = notice;
       pickList.appendChild(box);
       pickList.style.maxHeight = '';
