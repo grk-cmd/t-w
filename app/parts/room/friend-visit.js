@@ -2,6 +2,7 @@
    ・코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 — 기존 «🙋 방 초대» 창(showRoomInvitePopup)과 같은 틀 · 같은 테마 변수 · lc-btn.
    ・[놀러 가기] = 초대 수락과 같은 길 — 방에 있으면 doLeaveRoom({ wipeChat: true }) 뒤 startRoom(코드). 정원 · 버전 안내는 startRoom 이 한다.
    ・같은 방이면 창 없이 알림만. 창을 띄운 사이 친구가 방을 옮기거나 나갔으면 누를 때 다시 보고 알림만(옛 코드로 가지 않는다).
+     누를 때 그 친구의 접속 상태를 한 번 읽는다(refreshFriend — 친구 목록이 닫혀 접속 상태를 안 듣고 있을 수 있다).
    ⚠️ 방 코드는 _friendRoomTag 로만 얻는다(시크릿룸은 빈 값 = 누를 칸이 아예 없다) — 판정을 여기에 복사하지 말 것.
    ⚠️ 껍데기는 app-popup-ov + pointer-events:none — 화면 전체를 막지 않는다(초대 창 주석과 같은 근거).
    기본 포커스는 [취소] — Enter 한 번에 방이 바뀌지 않게(디자인 시스템 확인창 규칙). */
@@ -23,6 +24,7 @@ function createFriendVisit(deps){
 
   /* 창이 떠 있는 사이 바뀌었을 수 있으니 누를 때 다시 본다 */
   async function _go(fid, code){
+    try{ await deps.refreshFriend(fid); }catch(_){}   // 못 읽으면 지난 값으로 본다
     const f = deps.getFriend(fid);
     const name = (f && f.name) || '친구';
     if(deps.roomTagOf(f) !== code){ toast(name + ' 님이 방을 나갔어요'); return; }

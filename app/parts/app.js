@@ -1657,6 +1657,7 @@ const tricksMod = TwTricks.createTricks({
   seatCharZ: (...a)=>seatCharZ(...a),
   seatFromObject: (...a)=>seatFromObject(...a),
   seatScale: (...a)=>seatEqMod.seatScale(...a),
+  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
   seats: seats,
   showChatBubble: (...a)=>showChatBubble(...a),
   spawnFloater: (...a)=>floatersMod.spawnFloater(...a),
@@ -2253,6 +2254,7 @@ const plMod = TwPlaylist.createPlaylist({
   myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
   myHomeData: ()=>mhStateMod._myHomeData(),
   myHomeFriends: ()=>_myHomeFriends,
+  friendsRefreshPresence: (...a)=>friendsSubMod.refreshPresence(...a),
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   // 🪟 상태칩 팝업 · 창 겹침 · ESC
   closeChipPopups: (...a)=>chipPopupsMod._closeChipPopups(...a),
@@ -2661,15 +2663,9 @@ function findMySeat(){ return seats.find(s=>s.isMe) || seats.find(s=>!s.remote) 
 /* 👥 친구 상한. **다섯 곳이 전부 이 값 하나를 본다** — 추가·수락(둘)·코드추가·우클릭추가 +
    마이홈 친구창 헤더의 (n/상한) 표기. 한 곳만 빠뜨리면 "추가는 되는데 요청 수락은 막힌다" 가 된다.
 
-   [상시 비용 — 실측이 아니라 코드로 확인한 것]
-     HTML `subscribeMyFriends` 는 친구 **1명당 onValue 를 4개** 건다
-       (`users/{fid}/profile` · `/presence` · `/home/bio` · `/home/avatar`).
-     따라서 상시 구독 수 = 친구 수 × 4.
-       50명 → 200개  ·  100명 → 400개  ·  300명 → 1200개
-     100 은 지금의 2배다. 300(원래 요청값)은 6배라 **방 인원을 늘린 것보다 훨씬 큰 상시 비용**이고,
-     같은 이유로 목록 렌더도 6배로 튄다. 그래서 **100 에서 멈춘다.**
-   ⚠️ 더 올리려면 구독을 줄이는 쪽을 먼저 볼 것 — bio/avatar 는 목록에 한 줄 띄우자고 상시로
-     듣고 있는 값이라, 목록을 열 때만 받아오게 바꾸면 구독이 절반이 된다.
+   [상시 비용] 상시 구독은 친구 목록(users/{나}/friends) 1개 — 이름 · 사진은 목록을 열 때 한 번(서버 먼저),
+     접속 상태는 목록이 열려 있는 동안만 친구 수만큼(friends/friends-port.js · myhome/friends-sub.js).
+     상한을 올리면 «열려 있는 동안 구독 수» 와 목록 렌더가 친구 수에 비례해 는다.
    ⚠️ 이 상한은 **클라이언트 판정**이다. 서버 규칙에는 상한이 없다. */
 const FRIEND_MAX = 100;
 let _myHomeFriends = {};   // 최근 구독 결과 캐시(렌더용)
@@ -2732,7 +2728,7 @@ const friendManage = TwFriendManage.createFriendManage({
 let _myHomeReady = false;
 /* 포기하지 않는다 — SDK 를 실행 때 gstatic 에서 받아 느린 망이면 20초를 넘긴다(예전 20초 포기 → 친구 · 우편 구독이 영영 안 걸렸다). */
 function _waitForFirebaseAPI(cb){
-  if(window.firebaseAPI && firebaseAPI.subscribeMyFriends){ cb(); return; }
+  if(window.firebaseAPI && firebaseAPI.watchMyFriendList){ cb(); return; }
   window.addEventListener('firebase-ready', ()=>cb(), { once:true });
 }
 /* 🔇 소유권이 걸린 쓰기가 거부됐을 때 침묵을 깬다.
@@ -2759,14 +2755,31 @@ const deviceLostMod = TwDeviceLost.createDeviceLost({
 /* 👥 친구 데이터는 포트(friends/friends-port.js) 하나로 — 그 뒤 provider 가 Firebase(옛 길)를 안다. friends-sub · 화면은 Firebase 를 모른다. */
 const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
   getList: (...a)=>firebaseAPI.getMyFriendList(...a),
-  watchAll: (...a)=>firebaseAPI.subscribeMyFriends(...a),
+  watchList: (...a)=>firebaseAPI.watchMyFriendList(...a),
+  getCard: (...a)=>firebaseAPI.getFriendCard(...a),
+  watchPresence: (...a)=>firebaseAPI.watchFriendPresence(...a),
+  getPresence: (...a)=>firebaseAPI.getFriendPresence(...a),
+  setTimer: (fn, ms)=>setTimeout(fn, ms),
+  clearTimer: (id)=>clearTimeout(id),
+  now: ()=>Date.now(),
+});
+const friendsApiMod = TwFriendsApi.createFriendsApi({
+  get: (...a)=>firebaseAPI.apiGetAuthed(...a),   // 로그인 API 통로(firebase-init.js — 토큰은 거기서 붙인다)
+  wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
+  warn: (...a)=>console.warn(...a),
 });
 const friendsPortMod = TwFriendsPort.createFriendsPort({
   firebase: friendsFirebaseMod,
+  api: friendsApiMod,
+  apiOn: ()=>{ const s = acctStateMod._rcStore(); return s ? s.friendsApi() : true; },   // 원격 설정 flags.friendsApi — 끄면 옛 길만
+  warn: (...a)=>console.warn(...a),
 });
 const friendsSubMod = TwFriendsSub.createFriendsSub({
   subscribe: (...a)=>friendsPortMod.watchList(...a),
   fetchOnce: (id)=>friendsPortMod.listFriends(id, { idsOnly:true }),
+  listFriends: (...a)=>friendsPortMod.listFriends(...a),
+  watchPresence: (...a)=>friendsPortMod.watchPresence(...a),
+  readPresence: (...a)=>friendsPortMod.readPresence(...a),
   current: ()=>_myHomeFriends,
   setFriends: (v)=>{ _myHomeFriends = v; },
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -2873,7 +2886,7 @@ const richTextMod = TwRichText.createRichText({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 /* 🏠 친구 방에 놀러 가기 — 방 코드 누르기 · 묻는 창 · 이동은 friend-visit.js. 여기는 연결만. */
 const friendVisit = window.TwFriendVisit ? TwFriendVisit.createFriendVisit({ document, escHtml, toast,
-  getFriend: fid => _myHomeFriends[fid], roomTagOf: (...a)=>inboxMod.friendRoomTag(...a),
+  getFriend: fid => _myHomeFriends[fid], refreshFriend: fid => friendsSubMod.refreshPresence([fid]), roomTagOf: (...a)=>inboxMod.friendRoomTag(...a),
   myRoom: () => (typeof Presence !== 'undefined' && Presence.roomCode) ? Presence.roomCode() : null,
   inRoom: () => typeof Presence !== 'undefined' && Presence.active(),
   leaveRoom: () => roomEntryMod.doLeaveRoom({ wipeChat: true }), startRoom: c => roomEntryMod.startRoom(c),
@@ -2921,6 +2934,8 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   friendManage: friendManage,
   friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),
   friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),
+  friendsOpen: (...a)=>friendsSubMod.open(...a),
+  friendsClose: (...a)=>friendsSubMod.close(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: inboxMod,
@@ -2935,6 +2950,11 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
   twNav: twNav,
 });
+/* 👥 친구 목록이 보이는 동안만 friends-sub 에 «열림» — 마이홈을 여닫는 길이 여럿이라(열기 · 친구 홈 구경 · 런처 복귀 · 단축키) 두 칸의 class 를 지켜본다. */
+for(const id of ['myHomeOverlay', 'mhPageFriend']){
+  const el = document.getElementById(id);
+  if(el) new MutationObserver(()=>myHomeUiMod.syncFriendsOpen()).observe(el, { attributes:true, attributeFilter:['class'] });
+}
 
 /* ============================================================ 🏠 마이홈 (2단계: 프로필/게시글/스티커) */
 /* 본문은 myhome-visit.js 로 옮겼다(앱 FSD 44번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -4068,7 +4088,12 @@ function _seatCtxMenu(ev, seat){
     if(b.bottom > innerHeight - 4) menu.style.top = Math.max(4, innerHeight - b.height - 4) + 'px';
   }catch(_){}
   closer = e=>{ if(!menu.contains(e.target)) close(); };
-  onEsc = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); close(); } };
+  /* 단축키(T 가챠 · F2 꾸미기 …)로 창이 열리면 뒷판(9998) 밑에 깔려, 다음 클릭을 뒷판이 받는다 — 그 창은 «바깥 클릭» 으로 저장 · 닫힌다.
+     그래서 조합 키가 아닌 키는 메뉴부터 닫고 그대로 흘려보낸다(Esc 만 삼킨다). */
+  onEsc = e=>{
+    if(e.key === 'Escape'){ e.stopPropagation(); close(); return; }
+    if(!/^(Shift|Control|Alt|Meta|CapsLock|Process|Unidentified)$/.test(e.key)) close();
+  };
   // setTimeout(…,0) — 지금 이 이벤트에 바로 닫히지 않게(프리셋 메뉴와 같은 이유)
   setTimeout(()=>document.addEventListener('mousedown', closer, true), 0);
   document.addEventListener('keydown', onEsc, true);
@@ -8248,6 +8273,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
   _licenseSnapForPush: (...a)=>licenseGateMod._licenseSnapForPush(...a),
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
   _loginDoLogout: (...a)=>accountMod._loginDoLogout(...a),
+  _loginDoDeleteAccount: (...a)=>accountMod._loginDoDeleteAccount(...a),
   _myHomeData: ()=>mhStateMod._myHomeData(),
   _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
   _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
@@ -10434,6 +10460,8 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   myHomeFriends: ()=>_myHomeFriends,
   friendsNotice: (...a)=>friendsSubMod.notice(...a),
   friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),
+  friendsOpen: (...a)=>friendsSubMod.open(...a),
+  friendsClose: (...a)=>friendsSubMod.close(...a),
   presence: Presence,
 });
 

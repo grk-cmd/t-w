@@ -304,9 +304,9 @@ async function behave(src){
     /* 친구 목록을 아직 못 받았거나 못 받았으면 «친구 없음» 과 따로 — 빈 목록으로 그리면 없는 줄 안다(v0.11.3 제보) */
     e.notice = '친구 목록을 불러오는 중이에요'; m.renderMyHomeFriendList();
     chk(head.textContent === '(-/100)' && /불러오는 중이에요/.test(list.innerHTML) && !/아직 친구가 없어요/.test(list.innerHTML) && e.profileRail === 2, '불러오는 중 — (-/상한) · «불러오는 중» · «친구 없음» 아님');
-    e.notice = '친구 목록을 불러오지 못했어요. 잠시 후 다시 시도할게요';
+    e.notice = '친구 목록을 불러오지 못했어요.\n잠시 후 다시 시도할게요';
     e.friends = { f9: { name: 'Old', online: true } }; m.renderMyHomeFriendList();
-    chk(head.textContent === '(-/100)' && /불러오지 못했어요\. 잠시 후 다시 시도할게요/.test(list.innerHTML) && !/Old/.test(list.innerHTML), '못 불러옴 — 안내만(옛 목록을 사실처럼 그리지 않는다)');
+    chk(head.textContent === '(-/100)' && /불러오지 못했어요\.\n잠시 후 다시 시도할게요/.test(list.innerHTML) && /white-space:pre-line/.test(list.innerHTML) && !/Old/.test(list.innerHTML), '못 불러옴 — 안내만(옛 목록을 사실처럼 그리지 않는다) · 두 문장 사이 줄바꿈(pre-line)');
     e.notice = '<b>x</b>'; m.renderMyHomeFriendList();
     chk(!/<b>/.test(list.innerHTML), '  안내 문구도 escHtml');
     e.notice = null; e.friends = {};

@@ -711,6 +711,10 @@ if(desktopMode){
       }
     }
 
+    // 끄는 중이고 main 도 클릭을 받는 중이면 판정을 건너뛴다 — 캐릭터 밖으로 나가도 통과로 바꾸면 끌기가 끊긴다.
+    // ⚠️ main 이 이미 통과(_ignoreSent!==false)면 끌기가 성립할 수 없으니 남은 drag 플래그로 보고 판정한다.
+    function _holdForDrag(){ return !!drag() && _ignoreSent === false; }
+
     // forward:true 덕분에 무시 중에도 mousemove는 계속 들어옴. 매 프레임 raycast는 부담이라 살짝 throttle.
     let _lastCheck = 0;
     window.addEventListener('mousemove', e=>{
@@ -735,7 +739,7 @@ if(desktopMode){
          하지만 그건 **클릭을 받고 있을 때** 이야기다. main 이 이미 통과(_ignoreSent===true)라면
          드래그가 성립할 수 없으므로, 그 조합은 '드래그 중'이 아니라 '플래그가 남은 것'이다.
          → 그때는 건너뛰지 않고 다시 판정한다. drag 가 어떤 이유로 남더라도 유령이 되지 않는다. */
-      if(drag() && _ignoreSent === false) return;   // 진짜 드래그 중 — 무시 해제 상태 유지
+      if(_holdForDrag()) return;   // 진짜 드래그 중 — 무시 해제 상태 유지
       _updateIgnore(e.clientX, e.clientY);
     });
     // 드래그 중엔 캐릭터 밖으로 벗어나도 계속 잡아야 하므로, 드래그 동안은 무시 해제 유지
@@ -789,6 +793,8 @@ if(desktopMode){
             if(_ignoreDebounce){ clearTimeout(_ignoreDebounce); _ignoreDebounce = null; }
             _ignoring = null; _ignoreSent = null;
           }
+          // 끄는 동안은 mousemove 와 같은 규칙 — 펜 앱이 앞이면 캐릭터 원 밖에서 left 가 와 끌기가 끊겼다.
+          if(_holdForDrag()) return;
           // 근처에서 벗어남 → 통과 상태로 복귀 판정. (구버전 main 은 null 을 보낸다 — 둘 다 받는다)
           if(!pt || pt.left){ _updateIgnore(-9999, -9999); return; }
           _updateIgnore(pt.x, pt.y);

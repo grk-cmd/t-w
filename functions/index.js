@@ -11,6 +11,7 @@
    chatExpire — 서버 대화 보관(매시간 30분). 보관 일수(기본 3일 · 방 종류별 config/chatKeepDays)가 지난 chatLog · _chatTab 줄을 지우고, 서울 04시 실행에서만 기록마다 최근 300줄을 넘는 옛 줄도 지운다(방장 지우기 표시 줄은 남김). 로직은 chat-expire.js.
    usageSnapshot — 사용량(비용) 기록(매시간). Cloud Monitoring 하루 합계를 metrics/usage/{서울 날짜} 에. 로직은 usage-snapshot.js.
    adminDeleteAccount — 계정 삭제(호출형 · 관리자만). 웹 관리자 사용자 페이지가 부른다. 로직은 account-delete.js.
+   deleteMyAccount — 회원 탈퇴(호출형 · 로그인한 본인). 앱 [내 정보 › 계정 › 회원 탈퇴]가 부른다. 로직은 account-delete.js.
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -318,5 +319,21 @@ exports.adminDeleteAccount = onCall({ timeoutSeconds: 300, maxInstances: 2 },
       if (e && e.httpsCode) throw new HttpsError(e.httpsCode, e.message);
       console.error('[adminDeleteAccount] 실패', e && e.message);
       throw new HttpsError('internal', '삭제 중에 문제가 생겼어요 — 다시 미리 보기로 남은 것을 확인해 주세요');
+    }
+  });
+
+/* 회원 탈퇴 — 앱 [내 정보 › 계정 › 회원 탈퇴]가 부른다. 로그인한 본인 계정만(대상은 로그인이 정한다), 익명 거절.
+   { dryRun, confirm } — dryRun 을 false 로 · confirm 을 «탈퇴» 로 분명히 보낼 때만 지운다. 지우는 범위는 관리자 삭제와 같다. */
+exports.deleteMyAccount = onCall({ timeoutSeconds: 300, maxInstances: 5 },
+  async (request) => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const mod = require('./account-delete');
+    const db = getDatabase();
+    try {
+      return await mod.handleSelfDeleteAccount(db, request, mod.adminDeps(db), Date.now());
+    } catch (e) {
+      if (e && e.httpsCode) throw new HttpsError(e.httpsCode, e.message);
+      console.error('[deleteMyAccount] 실패', e && e.message);
+      throw new HttpsError('internal', '탈퇴 중에 문제가 생겼어요 — 잠시 뒤 다시 눌러 주세요(남은 것부터 이어서 지워요)');
     }
   });

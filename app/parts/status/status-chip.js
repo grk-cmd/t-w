@@ -910,7 +910,8 @@ const DESK_EMOJI_SIZE = 1.4;
 function ensureSeatDeskEmoji(seat){
   if(seat.deskEmojiSprite) return seat.deskEmojiSprite;
   if(!seat.deskAnchor) return null;
-  const mat=new THREE.SpriteMaterial({map:null, transparent:true, depthTest:true, depthWrite:false});
+  /* depthTest:false — 동물은 책상이 작아져(약 40%) 이모지가 머리 · 귀 안쪽 높이에 놓여 몸에 가려졌다. renderOrder 만으로는 불투명 몸의 깊이를 못 이긴다. */
+  const mat=new THREE.SpriteMaterial({map:null, transparent:true, depthTest:false, depthWrite:false});
   const sp=new THREE.Sprite(mat); sp.scale.set(DESK_EMOJI_SIZE,DESK_EMOJI_SIZE,1); sp.visible=false; sp.renderOrder=850;
   sp.position.set(0, DESK_EMOJI_Y_OFFSET, DESK_EMOJI_Z_OFFSET);
   seat.deskAnchor.add(sp);

@@ -44,6 +44,7 @@ const _focusTotalSec = deps._focusTotalSec;   // 읽는 함수
 const _licenseSnapForPush = deps._licenseSnapForPush;
 const _loginDoGoogle = deps._loginDoGoogle;
 const _loginDoLogout = deps._loginDoLogout;
+const _loginDoDeleteAccount = deps._loginDoDeleteAccount;
 const _myHomeData = deps._myHomeData;   // 읽는 함수
 const _pushLevelIfChanged = deps._pushLevelIfChanged;
 const _slotsNow = deps._slotsNow;
@@ -655,6 +656,65 @@ function _miCodeLoad(){
     if(forceBtn) forceBtn.onclick = () => runLogout(forceBtn, true);
     const quit = $('acctLogoutQuit');
     if(quit) quit.onclick = ()=>{ if(window.companion && companion.quitApp) companion.quitApp(); };
+
+    /* ── 🗑️ 회원 탈퇴: 버튼 → 고지 · 확인 → 완료(다시 시작). 고지 글은 HTML 에 고정해 두고(서버에 닿지 않아도 읽을 수 있게),
+       열 때 미리 보기로 «지울 곳 몇 곳 · 파일 몇 개» 한 줄만 더한다. [탈퇴하기]는 체크 + «탈퇴» 입력이 다 맞을 때만 켜진다. */
+    const dBtn = $('acctDeleteBtn'), dBox = $('acctDeleteConfirm'), dYes = $('acctDeleteYes');
+    const dAgree = $('acctDeleteAgree'), dWord = $('acctDeleteWord'), dCount = $('acctDeleteCount');
+    const dSay = (text) => { const el = $('acctDeleteMsg'); if(!el) return; el.style.display = text ? 'block' : 'none'; el.textContent = text || ''; };
+    let _delBusy = false, _delSeq = 0;
+    const delReady = () => !!(dAgree && dAgree.checked && dWord && dWord.value.trim() === '탈퇴');
+    const delSync = () => { if(dYes) dYes.disabled = _delBusy || !delReady(); };
+    const delShowCount = (p) => {
+      if(!dCount) return;
+      if(!p || !p.ok){ dCount.style.display = 'none'; return; }
+      const files = (p.storage && p.storage.count) || 0;
+      dCount.textContent = '서버에서 지울 곳 ' + (p.dbCount || 0) + '곳 · 올린 파일 ' + files + '개'
+        + (p.warnings && p.warnings.length ? ' — ' + p.warnings.join(' · ') : '');
+      dCount.style.display = 'block';
+    };
+    if(dBtn) dBtn.onclick = () => {
+      dBtn.style.display = 'none';
+      if(dAgree) dAgree.checked = false;
+      if(dWord) dWord.value = '';
+      if(dYes) dYes.textContent = '탈퇴하기';
+      dSay(''); delShowCount(null); delSync();
+      if(dBox) dBox.style.display = 'block';
+      const cancelBtn = $('acctDeleteCancel'); if(cancelBtn) try{ cancelBtn.focus(); }catch(_){}
+      const seq = ++_delSeq;
+      const api = window.firebaseAPI && firebaseAPI.accountDelete;
+      if(api) api.preview().then(p => { if(seq === _delSeq) delShowCount(p); }).catch(()=>{});
+    };
+    if(dAgree) dAgree.onchange = delSync;
+    if(dWord){ dWord.oninput = delSync; dWord.onkeydown = (e) => { if(e.key === 'Enter' && dYes && !dYes.disabled) dYes.click(); }; }
+    const dCancel = $('acctDeleteCancel');
+    if(dCancel) dCancel.onclick = () => {
+      if(_delBusy) return;
+      _delSeq++;
+      if(dBox) dBox.style.display = 'none';
+      dSay('');
+      if(dBtn) dBtn.style.display = 'block';
+    };
+    if(dYes) dYes.onclick = async () => {
+      if(_delBusy || !delReady()) return;
+      _delBusy = true; delSync(); dSay('');
+      if(dCancel) dCancel.disabled = true;
+      dYes.textContent = '지우는 중…';
+      let r; try{ r = await _loginDoDeleteAccount(dWord.value); }catch(_){ r = { ok:false, reason:'탈퇴 중 오류가 났어요 — 다시 눌러 주세요' }; }
+      _delBusy = false;
+      if(dCancel) dCancel.disabled = false;
+      if(!r || !r.ok){
+        dYes.textContent = '다시 시도';
+        delSync();
+        dSay('⚠️ ' + ((r && r.reason) || '탈퇴하지 못했어요') + ' 이 PC의 기록은 그대로예요.');
+        return;
+      }
+      if(dBox) dBox.style.display = 'none';
+      const dn = $('acctDeleteDone'); if(dn) dn.style.display = 'block';
+      _acctRelaunchAfterDetach(null);
+    };
+    const dQuit = $('acctDeleteQuit');
+    if(dQuit) dQuit.onclick = () => { if(window.companion && companion.quitApp) companion.quitApp(); };
 
     /* ── 🔁 [개정 16 · 설계 §6-⑤ 걷음] 계정 되찾기(acctRecover* · recCandidates · recGo) — 없앴다.
        «이 기기가 버린 uid» 로 결속을 되돌리던 출구였다. 계정 = 친구 코드 + 비밀번호/구글(H · K)이 된 뒤로는
