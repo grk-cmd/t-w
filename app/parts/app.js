@@ -780,7 +780,7 @@ function equipDeskItem(holder,def,on){
     _rememberCrItemOrigin(holder, pivot);   // 새로 놓인 아이템의 처음 자리(불러온 저장값은 applyDeskItemsTo 가 다시 적는다)
     if(pivot.userData.colors) _applyItemColor(pivot);
     pivot.userData.holder = holder;   // 어플 8: idle 재생 판정에 필요 — 소유 좌석 상태를 알아야 함
-    if(typeof crState.cBase!=='undefined' && holder===crState.cBase) selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
+    if(typeof crState.cBase!=='undefined' && holder===crState.cBase) deskSetupMod.selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
   }
 }
 // 아이템 pivot을 클릭했을 때 idle 애니메이션을 한 번 재생 (끝나면 마지막 프레임에서 정지)
@@ -2542,7 +2542,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   applyHueTint: (...a)=>applyHueTint(...a),
   applyPartXf: (...a)=>applyPartXf(...a),
   baseFlatOf: (...a)=>lightToneMod.baseFlatOf(...a),
-  bindReorderHandle: (...a)=>bindReorderHandle(...a),
+  bindReorderHandle: (...a)=>assetCardsMod.bindReorderHandle(...a),
   boneSide: (...a)=>boneSide(...a),
   charFootFix: (...a)=>charMeasureMod.charFootFix(...a),
   clampCharY: (...a)=>clampCharY(...a),
@@ -2593,12 +2593,12 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   _humanEarPic: (...a)=>_humanEarPic(...a),
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
   applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
-  applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),
+  applyDeskDotThumb: (...a)=>assetCardsMod.applyDeskDotThumb(...a),
   clampDeskScale: (...a)=>clampDeskScale(...a),
   humanEar: humanEar,
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   setDeskScale: (...a)=>setDeskScale(...a),
-  swThumb: (...a)=>swThumb(...a),
+  swThumb: (...a)=>assetCardsMod.swThumb(...a),
 });
 /* ═══ 📝 꾸미기 초안(draft) — 미리보기 캐릭터 · 저장(commitWdDraft) · 색 영역 ═══ */
 /* (앱 FSD 29번) 이 자리의 본문도 wardrobe.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -3735,7 +3735,7 @@ const adminPartReg = TwAdminPartRegister.createAdminPartRegister({
   partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),
   persistSavedParts: (...a)=>premiumMod.persistSavedParts(...a),
   removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
-  renderCrItems: (...a)=>renderCrItems(...a),
+  renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   renderWardrobe: (...a)=>wardrobeMod.renderWardrobe(...a),
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
@@ -6276,323 +6276,44 @@ document.getElementById('crPrev').addEventListener('click',()=>creatorFlowMod.go
 [...document.getElementById('crStages').children].forEach(el=>{ el.addEventListener('click',()=>{
   const stg=+el.dataset.stg; creatorFlowMod.gotoStep(stg===0?Math.min(crState.crStep,4):(stg===1?5:6)); }); });
 /* === 책상 세팅(5단계): 책상 색 + 책상 위 아이템(소품) + 위치조작 === */
-/* 🎨 책상 아이템 카드 도트 썸네일 — 꾸미기 파츠와 동일한 렌더러(generatePartThumbnail)를 재사용.
-   rec.thumbnail(배포에 포함된 것) 우선, 없으면 GLB에서 지연 생성해 메모리 캐시. 실패 시 이모지 유지. */
-function applyDeskDotThumb(rec, it){
-  try{
-    if(!rec || !it || !it.firstChild) return;
-    const c = window._deskThumbCache = window._deskThumbCache || {};
-    const put = url=>{ const box=it.firstChild; if(!box||!url) return;
-      // 이모지(텍스트 노드)만 제거 — ×삭제·✎수정·☰핸들 등 버튼 엘리먼트는 보존
-      Array.from(box.childNodes).forEach(n=>{ if(n.nodeType===3) box.removeChild(n); });
-      if(box.querySelector('img.desk-dot-thumb')) return;   // 중복 삽입 방지
-      const im=document.createElement('img'); im.className='desk-dot-thumb'; im.src=url; im.draggable=false;
-      im.style.cssText='width:52px;height:46px;object-fit:contain;image-rendering:pixelated;pointer-events:none;';
-      box.insertBefore(im, box.firstChild||null); };
-    const k=rec.id, v=c[k];
-    if(typeof v==='string' && v.startsWith('data:')){ put(v); return; }
-    if(v==='pending' || v==='fail') return;
-    const _t = rec.thumbUrl || rec.thumbnail;
-    if(_t){ c[k]=_t; put(_t); return; }
-    if((!rec.glb && !rec.glbUrl)){ c[k]='fail'; return; }
-    c[k]='pending';
-    partSceneMod.generatePartThumbnail(rec).then(url=>{ if(url){ c[k]=url; put(url); } else c[k]='fail'; }).catch(()=>{ c[k]='fail'; });
-  }catch(_){}
-}
-function swThumb(label,on,icon,onDelete,active){ const d=document.createElement('div');
-  d.style.cssText='width:66px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;position:relative;';
-  const box=document.createElement('div'); box.textContent=icon||'';
-  const borderColor = active ? '#e0842a' : (on?'#7ba05b':'#0002');
-  const bgColor = active ? '#fbebd9' : (on?'#eef3e6':'#fffc');
-  box.style.cssText='width:60px;height:54px;border-radius:12px;border:2px solid '+borderColor+';background:'+bgColor+';display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 1px 3px #0001;position:relative;';
-  if(onDelete){
-    const x=document.createElement('div'); x.textContent='×';
-    x.style.cssText='position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#d98e73;color:#fff;font-size:13px;line-height:16px;text-align:center;cursor:pointer;box-shadow:0 1px 3px #0003;font-weight:bold;z-index:2;';
-    x.onclick=e=>{ e.stopPropagation(); onDelete(); };
-    box.appendChild(x);
-  }
-  const cap=document.createElement('span'); cap.textContent=label; cap.style.cssText='font-size:11px;color:#555;text-align:center;line-height:1.1;max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-  d.appendChild(box); d.appendChild(cap); return d; }
-const DESK_ICON={plant:'🪴',cup:'☕',books:'📚'};
-// ★ 관리자 전용 카드 순서 재배치 — HTML5 draggable 대신 포인터 이벤트로 직접 구현.
-//   (Electron 환경에서 네이티브 HTML5 드래그가 안정적으로 안 먹히는 경우가 있어서 더 확실한 방식 사용)
-//   handle: 잡는 손잡이(☰) 엘리먼트, cardEl: 카드 전체(투명도 표시용), id: 이 카드의 식별자,
-//   onDrop(draggedId, targetId): 다른 카드 위에서 손을 뗐을 때 호출.
-function bindReorderHandle(handle, cardEl, id, onDrop){
-  handle.style.touchAction='none';   // 터치/트랙패드 제스처가 가로채는 것 방지
-  handle.addEventListener('pointerdown', e=>{
-    if(e.button!==0) return;   // 좌클릭만
-    e.preventDefault(); e.stopPropagation();
-    cardEl.style.opacity='.4';
-    let lastOver=null;
-    const onMove=(ev)=>{
-      const el=document.elementFromPoint(ev.clientX, ev.clientY);
-      const card=el && el.closest ? el.closest('[data-reorder-id]') : null;
-      if(lastOver && lastOver!==card) lastOver.style.outline='';
-      if(card && card.dataset.reorderId!==id){ card.style.outline='2px dashed #7ba05b'; lastOver=card; }
-      else lastOver=null;
-    };
-    const cleanup=()=>{
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onUp);
-      document.removeEventListener('pointercancel', onUp);
-      cardEl.style.opacity='1';
-      if(lastOver) lastOver.style.outline='';
-    };
-    const onUp=()=>{
-      const target = lastOver;
-      cleanup();
-      if(target) onDrop(id, target.dataset.reorderId);
-    };
-    document.addEventListener('pointermove', onMove);
-    document.addEventListener('pointerup', onUp);
-    document.addEventListener('pointercancel', onUp);
-  });
-}
-function renderCrItems(){
-  const dr=document.getElementById('crDeskRow'); dr.innerHTML='';
-  // 기본 책상 카드 (활성 책상이 커스텀이 아닐 때 on)
-  const defThumb=swThumb('기본 책상', !crState.activeCustomDeskId, '🪑');
-  defThumb.onclick=async()=>{
-    crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=null;
-    if(crState.cDesk){
-      const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거 표시
-      if(ov){
-        if(!ov.glb && ov.glbUrl){
-          try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
-        }
-        try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); deskVisualMod.swapDeskVisual(crState.cDesk,sc,true); }catch(e){ deskVisualMod.swapDeskVisual(crState.cDesk,null); }
-      }
-      else deskVisualMod.swapDeskVisual(crState.cDesk,null);
-      deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale);
-    }
-    renderCrItems();
-  };
-  if(isAdmin) defThumb.oncontextmenu=e=>{ e.preventDefault(); adminPartReg.openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID); };
-  dr.appendChild(defThumb);
-  // 저장된 책상 카드들
-  /* 🪑 [2026-09-18] 라이선스 전용 책상은 **여기 안 나온다** — 🎨 꾸미기 › 책상 으로 옮겼다
-     (WD_DESK_TAB 주석의 «왜 옮기나»). 미보유자에게 쓸 수 없는 카드가 목록을 채우던 군더더기이자,
-     «고르면 저장값에 굳는» 입구이기도 했다(제보 2).
-     ⚠️ 관리자는 그대로 본다 — 등록·검수(우클릭 → openDeskRegister)와 순서 재배치(☰)가
-        이 카드에서만 열린다. 꾸미기창 쪽에는 그 손잡이가 없다.
-     ★ 아래 deskLocked 갈래는 **지우지 않는다.** 관리자 화면에 쓰이고, 카탈로그가 늦게 도착해
-       licenseOnly 를 아직 모르는 순간의 안전망이기도 하다. 지우면 그 틈으로 다시 골라진다. */
-  commissionMod.savedDesks().filter(rec=>rec.id!==DEFAULT_DESK_OVERRIDE_ID && (isAdmin || !rec.licenseOnly)).forEach(rec=>{
-    const on=(crState.activeCustomDeskId===rec.id);
-    const deleteHandler = (rec.fromCatalog && !isAdmin) ? null : ()=>{
-      // X 삭제: localStorage에서 제거 + 현재 활성 책상이면 기본으로 복귀
-      // 카탈로그에서 온 것(fromCatalog)이면 관리자 전용 "회수"로 처리 — 모두에게서 배포 취소
-      if(rec.fromCatalog){
-        if(!confirm('"'+(rec.name||'책상')+'"을(를) 모든 사용자에게서 회수할까요?')){ window.focus(); return; } window.focus();
-        if(window.firebaseAPI && window.firebaseAPI.unpublishDesk) window.firebaseAPI.unpublishDesk(rec.id).catch(()=>toast('회수 실패(네트워크 확인)'));
-      }
-      commissionMod.setSavedDesks(commissionMod.savedDesks().filter(d=>d.id!==rec.id)); commissionMod.persistSavedAssets();
-      if(crState.activeCustomDeskId===rec.id){ crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=null;
-        if(crState.cDesk){
-          const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거로 복귀(진짜 원본 아님)
-          if(ov){ assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ deskVisualMod.swapDeskVisual(crState.cDesk,sc,true); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }).catch(()=>{ deskVisualMod.swapDeskVisual(crState.cDesk,null); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }); }
-          else { deskVisualMod.swapDeskVisual(crState.cDesk,null); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }
-        } }
-      renderCrItems();
-    };
-    const card=swThumb(rec.name||'책상', on, rec.icon||'🪑', deleteHandler);
-    card.dataset.reorderId = rec.id;   // bindReorderHandle의 elementFromPoint 탐색용
-    /* 🔒 [2026-09-15] 라이선스 전용 책상은 라이선스(isPremium)·관리자가 아니면 **고르지 못한다** —
-       아이템 카드(renderCrItems 아래쪽)와 같은 모양·같은 조건. 예전엔 책상만 여기 게이트가 없어서
-       골라지긴 하는데 실행 화면에서 기본 책상으로 떨어졌다(applyDeskCatalogRefToSeat 의 게이트는
-       '장착 시점에만 막을 것' 이라 적어 두고 정작 장착 자리에 게이트가 없었다). */
-    const deskLocked = !!(rec.licenseOnly && !isPremium && !isAdmin);
-    if(deskLocked){
-      const lock=document.createElement('div'); lock.textContent='🔒'; lock.title='라이선스 보유자 전용';
-      lock.style.cssText='position:absolute;bottom:-4px;right:-4px;font-size:13px;filter:drop-shadow(0 1px 1px #fff);z-index:2;';
-      card.firstChild.appendChild(lock);
-      card.style.opacity='.55';
-    }
-    if(isAdmin && rec.fromCatalog){
-      const edit=document.createElement('div'); edit.textContent='✎';
-      edit.style.cssText='position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:#7ba05b;color:#fff;font-size:11px;line-height:18px;text-align:center;cursor:pointer;box-shadow:0 1px 3px #0003;font-weight:bold;z-index:2;';
-      edit.onclick=e=>{ e.stopPropagation(); adminPartReg.openDeskRegister('desk', rec.id); };
-      card.firstChild.appendChild(edit);   // box(첫 자식)에 붙임 — swThumb 구조상 첫 자식이 아이콘 박스
-      card.oncontextmenu=e=>{ e.preventDefault(); adminPartReg.openDeskRegister('desk', rec.id); };
-      // ☰ 드래그 핸들 — 책상 카드 순서 재배치(전체 사용자에게 동기화됨). 아이템 카드와 동일한 방식.
-      const handle=document.createElement('div'); handle.textContent='☰';
-      handle.title='드래그해서 순서 바꾸기';
-      handle.style.cssText='position:absolute;bottom:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:#8a7d6b;color:#fff;font-size:10px;line-height:18px;text-align:center;cursor:grab;box-shadow:0 1px 3px #0003;z-index:2;';
-      card.firstChild.appendChild(handle);
-      bindReorderHandle(handle, card, rec.id, reorderSavedDesk);
-    }
-    card.onclick=async()=>{
-      if(crState.activeCustomDeskId===rec.id) return;   // 이미 활성
-      if(deskLocked){ toast('🔒 "'+(rec.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요'); return; }   // 🔒 위 주석
-      // Storage 이관 후속: rec.glb가 없고 glbUrl만 있으면 Storage에서 fetch
-      if(!rec.glb && rec.glbUrl){
-        try{ await catalogGlbMod.resolveCatalogGlb(rec); }catch(_){}
-      }
-      if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
-      /* 📦 코드로 넣은 책상만 GLB 가 def 에 실린다(카탈로그 책상은 id 만) — crDone 과 같은 갈래. */
-      if(!rec.fromCatalog){
-        const _sz = creatorSaveMod._creatorSizeGrow(d=>{ d.deskGlb = rec.glb; delete d.deskCatalogId; });
-        if(!_sz.ok){ toast(_sz.message, null, creatorSaveMod.DEF_SIZE_TOAST_MS); return; }
-      }
-      try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(rec.glb));
-        crState.cDeskTemplate=sc; crState.cDeskGlbB64=rec.glb; crState.cDeskScale=clampDeskScale(crState.cDeskScale||DESK_SCALE_DEFAULT); crState.activeCustomDeskId=rec.id;
-        if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk,sc); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
-        renderCrItems();
-      }catch(e){ toast('책상 적용 실패'); }
-    };
-    dr.appendChild(card);
-  });
-
-  /* 🪑 [2026-09-18] 전용 책상을 꾸미기창으로 옮겼으니 «어디로 갔는지» 를 여기서 알려 준다.
-     안 알려 주면 보유자에게는 «내 책상이 사라졌다» 로 보인다. 관리자 화면에는 카드가 그대로
-     남아 있으므로 띄우지 않는다. 전용 책상이 하나도 등록돼 있지 않으면 띄울 이유가 없다. */
-  const _licHint = document.getElementById('crDeskLicenseHint');
-  if(_licHint){
-    const _hasLic = premiumMod._wdLicenseDesks().length;
-    _licHint.style.display = (_hasLic && !isAdmin) ? 'flex' : 'none';
-  }
-
-  document.getElementById('deskColor').value=crState.cDeskColor;
-  _syncCrColorSwatches();   // ★ 위 topColor·botColor 와 같은 이유
-  const dsc=document.getElementById('deskScale'); if(dsc){ dsc.value=crState.cDeskScale; dsc.parentElement.style.display='flex'; setCreatorDeskScale(crState.cDeskScale); }
-  const row=document.getElementById('crItemRow'); row.innerHTML='';
-  // ★ 기본 내장 아이템(화분/머그컵/책)과 커스텀 아이템을 하나의 목록으로 합쳐서 페이지네이션 적용
-  //   (요청사항 — 예전엔 기본 아이템은 항상 위에 고정으로 보여서 5개 기준 계산에서 빠져있었음).
-  const _builtinIds=new Set(DESK_ITEMS.map(d=>d.id));
-  const _allEntries = [
-    ...DESK_ITEMS.map(def=>({type:'builtin', def})),
-    ...commissionMod.savedItems().filter(rec=>!_builtinIds.has(rec.id)).map(rec=>({type:'custom', rec})),
-  ];
-  const CR_ITEM_PAGE_SIZE = 5;
-  const _totalPages = Math.max(1, Math.ceil(_allEntries.length / CR_ITEM_PAGE_SIZE));
-  if(crState.crItemPage >= _totalPages) crState.crItemPage = _totalPages-1;
-  if(crState.crItemPage < 0) crState.crItemPage = 0;
-  const _pageEntries = _allEntries.slice(crState.crItemPage*CR_ITEM_PAGE_SIZE, crState.crItemPage*CR_ITEM_PAGE_SIZE + CR_ITEM_PAGE_SIZE);
-
-  _pageEntries.forEach(entry=>{
-    if(entry.type==='builtin'){
-      const def=entry.def;
-      const on=!!(crState.cBase&&crState.cBase.deskItems&&crState.cBase.deskItems[def.id]);
-      const active = !!(crState.cBase && crState.cBase.activeDeskItem && on && crState.cBase.deskItems[def.id]===crState.cBase.activeDeskItem);
-      const eff0=deskItemsMod.deskItemDef(def.id)||def;   // ★ 관리자가 교체해뒀으면 그 이름으로 표시 (예전엔 기본 이름 고정이던 문제)
-      const it=swThumb(eff0.name||def.name,on,DESK_ICON[def.id]||'▫',null,active);
-      applyDeskDotThumb(commissionMod.savedItems().find?commissionMod.savedItems().find(r=>r.id===def.id):null, it);   // 교체분 GLB 도트 썸네일
-      it.onclick=()=>{ if(!crState.cBase||!crState.cBase.deskAnchor)return; const eff=deskItemsMod.deskItemDef(def.id)||def; equipDeskItem(crState.cBase,eff,!on); renderCrItems(); autoSaveDeskItemsNow(); };   // eff: 관리자가 교체해뒀으면 그 커스텀 def, 아니면 기본
-      if(isAdmin) it.oncontextmenu=e=>{ e.preventDefault(); adminPartReg.openDeskRegister('item', def.id); };   // def.id(plant/cup/books) 그대로 써서 진짜 교체되게
-      else it.oncontextmenu=e=>{ e.preventDefault(); if(on && crState.cBase.deskItems[def.id]) selectDeskItemForAdjust(crState.cBase.deskItems[def.id]); };   // 일반모드: 이미 장착돼있으면 우클릭으로 바로 선택
-      row.appendChild(it);
-      return;
-    }
-    // 커스텀 아이템
-    const rec = entry.rec;
-    const def = customItems[rec.id]; if(!def) return;   // 아직 세션에 파싱 안 된(로딩 중) 아이템은 건너뜀
-    const on=!!(crState.cBase&&crState.cBase.deskItems&&crState.cBase.deskItems[def.id]);
-    const active = !!(crState.cBase && crState.cBase.activeDeskItem && on && crState.cBase.deskItems[def.id]===crState.cBase.activeDeskItem);
-    const deleteHandler = (rec && rec.fromCatalog && !isAdmin) ? null : ()=>{
-      // X 삭제: 세션 + localStorage + 현재 장착돼 있으면 해제
-      // 카탈로그에서 온 것(fromCatalog)이면 관리자 전용 "회수"로 처리 — 모두에게서 배포 취소
-      if(rec && rec.fromCatalog){
-        if(!confirm('"'+(def.name||'아이템')+'"을(를) 모든 사용자에게서 회수할까요?')){ window.focus(); return; } window.focus();
-        if(window.firebaseAPI && window.firebaseAPI.unpublishItem) window.firebaseAPI.unpublishItem(def.id).catch(()=>toast('회수 실패(네트워크 확인)'));
-      }
-      if(crState.cBase&&crState.cBase.deskItems&&crState.cBase.deskItems[def.id]) equipDeskItem(crState.cBase,def,false);
-      delete customItems[def.id];
-      commissionMod.setSavedItems(commissionMod.savedItems().filter(s=>s.id!==def.id)); commissionMod.persistSavedAssets();
-      renderCrItems();
-    };
-    const it=swThumb(def.name, on, def.icon||'📦', deleteHandler, active);
-    applyDeskDotThumb(rec, it);   // 🎨 GLB 도트 썸네일 (생성 전까진 이모지)
-    it.dataset.reorderId = def.id;   // bindReorderHandle의 elementFromPoint 탐색용
-    if(def.licenseOnly && !isPremium && !isAdmin){
-      const lock=document.createElement('div'); lock.textContent='🔒'; lock.title='라이선스 보유자 전용';
-      lock.style.cssText='position:absolute;bottom:-4px;right:-4px;font-size:13px;filter:drop-shadow(0 1px 1px #fff);z-index:2;';
-      it.firstChild.appendChild(lock);
-      it.style.opacity='.55';
-    }
-    if(isAdmin && rec && rec.fromCatalog){
-      const edit=document.createElement('div'); edit.textContent='✎';
-      edit.style.cssText='position:absolute;top:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:#7ba05b;color:#fff;font-size:11px;line-height:18px;text-align:center;cursor:pointer;box-shadow:0 1px 3px #0003;font-weight:bold;z-index:2;';
-      edit.onclick=e=>{ e.stopPropagation(); adminPartReg.openDeskRegister('item', def.id); };
-      it.firstChild.appendChild(edit);
-      it.oncontextmenu=e=>{ e.preventDefault(); adminPartReg.openDeskRegister('item', def.id); };
-      // ☰ 드래그 핸들 — 커스텀 아이템끼리 순서 재배치(전체 사용자에게 동기화됨)
-      const handle=document.createElement('div'); handle.textContent='☰';
-      handle.title='드래그해서 순서 바꾸기';
-      handle.style.cssText='position:absolute;bottom:-6px;left:-6px;width:18px;height:18px;border-radius:50%;background:#8a7d6b;color:#fff;font-size:10px;line-height:18px;text-align:center;cursor:grab;box-shadow:0 1px 3px #0003;z-index:2;';
-      it.firstChild.appendChild(handle);
-      bindReorderHandle(handle, it, def.id, reorderSavedItem);
-    } else if(!isAdmin){
-      it.oncontextmenu=e=>{ e.preventDefault(); if(on && crState.cBase.deskItems[def.id]) selectDeskItemForAdjust(crState.cBase.deskItems[def.id]); };   // 일반모드: 이미 장착돼있으면 우클릭으로 바로 선택
-    }
-    it.onclick=()=>{ if(!crState.cBase||!crState.cBase.deskAnchor)return;
-      /* 📦 켜는 것만 잰다 — 카탈로그 아이템은 GLB 를 def 에 안 싣는다(crDone 과 같은 갈래). */
-      if(!on && !(rec && rec.fromCatalog)){
-        const _sz = creatorSaveMod._creatorSizeGrow(d=>{ d.customItems = d.customItems || {}; d.customItems[def.id] = { name: def.name, glb: def.glb }; });
-        if(!_sz.ok){ toast(_sz.message, null, creatorSaveMod.DEF_SIZE_TOAST_MS); return; }
-      }
-      equipDeskItem(crState.cBase,def,!on); renderCrItems(); autoSaveDeskItemsNow(); };
-    row.appendChild(it);
-  });
-  // 페이지 버튼 렌더 — 페이지가 2개 이상일 때만 표시
-  const pager = document.getElementById('crItemPager');
-  if(pager){
-    pager.innerHTML='';
-    if(_totalPages > 1){
-      pager.style.display='flex';
-      for(let p=0; p<_totalPages; p++){
-        const pbtn=document.createElement('button'); pbtn.className='cr-item-page-btn'+(p===crState.crItemPage?' on':'');
-        pbtn.textContent=String(p+1); pbtn.type='button';
-        pbtn.onclick=()=>{ crState.crItemPage=p; renderCrItems(); };
-        pager.appendChild(pbtn);
-      }
-    } else {
-      pager.style.display='none';
-    }
-  }
-  // 한도 표시: 6개 다 차면 "+ 코드로 추가하기" 비활성화 느낌
-  const dac=document.getElementById('deskAddCode'), iac=document.getElementById('itemAddCode');
-  if(dac){ const full=commissionMod.savedDesks().length>=commissionMod.MAX_CUSTOM_ASSETS; dac.style.opacity=full?'0.4':'1'; dac.title=full?'최대 '+commissionMod.MAX_CUSTOM_ASSETS+'개. 카드 X로 지운 뒤 추가하세요':''; }
-  if(iac){ const full=commissionMod.savedItems().length>=commissionMod.MAX_CUSTOM_ITEMS; iac.style.opacity=full?'0.4':'1'; iac.title=full?'최대 '+commissionMod.MAX_CUSTOM_ITEMS+'개. 카드 X로 지운 뒤 추가하세요':''; }
-}
-/* 관리자 — 커스텀 아이템끼리 드래그로 진열 순서 변경, 카탈로그(Firebase)에 order 반영해서 전체 사용자 동기화 */
-function reorderSavedItem(draggedId, targetId){
-  const draggedIdx = commissionMod.savedItems().findIndex(p=>p.id===draggedId);
-  const targetIdx = commissionMod.savedItems().findIndex(p=>p.id===targetId);
-  if(draggedIdx<0 || targetIdx<0) return;
-  const [item] = commissionMod.savedItems().splice(draggedIdx,1);
-  commissionMod.savedItems().splice(targetIdx,0,item);
-  commissionMod.savedItems().forEach((p,i)=>{ p.order=i; });
-  commissionMod.persistSavedAssets();
-  renderCrItems();
-  // 런처4-2: 활성 아이템이 없으면(사용자가 카드 선택 안 함) 캐릭터 위에 남아있던 기즈모 숨김.
-  crXformMod.attachItemGizmoToActive();
-  if(window.firebaseAPI && window.firebaseAPI.updateItemsOrder){
-    const orderMap={};
-    commissionMod.savedItems().forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });
-    if(Object.keys(orderMap).length){
-      window.firebaseAPI.updateItemsOrder(orderMap).catch(()=>{ toast('⚠ 순서가 온라인에는 반영 안 됐어요(인터넷 연결 확인) — 이 화면에서만 바뀐 상태예요'); });
-    }
-  }
-}
-function reorderSavedDesk(draggedId, targetId){
-  const draggedIdx = commissionMod.savedDesks().findIndex(p=>p.id===draggedId);
-  const targetIdx = commissionMod.savedDesks().findIndex(p=>p.id===targetId);
-  if(draggedIdx<0 || targetIdx<0) return;
-  const [item] = commissionMod.savedDesks().splice(draggedIdx,1);
-  commissionMod.savedDesks().splice(targetIdx,0,item);
-  commissionMod.savedDesks().forEach((p,i)=>{ p.order=i; });
-  commissionMod.persistSavedAssets();
-  renderCrItems();
-  if(window.firebaseAPI && window.firebaseAPI.updateDesksOrder){
-    const orderMap={};
-    commissionMod.savedDesks().forEach((p,i)=>{ if(p.fromCatalog) orderMap[p.id]=i; });
-    if(Object.keys(orderMap).length){
-      window.firebaseAPI.updateDesksOrder(orderMap).catch(()=>{ toast('⚠ 순서가 온라인에는 반영 안 됐어요(인터넷 연결 확인) — 이 화면에서만 바뀐 상태예요'); });
-    }
-  }
-}
-document.getElementById('deskColor').addEventListener('input',e=>{ crState.cDeskColor=e.target.value; lightToneMod._setDeskMatColor(crState.cDeskMat, crState.cDeskColor); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); });
+/* 본문은 creator/asset-cards.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const assetCardsMod = TwAssetCards.createAssetCards({
+  partSceneMod: ()=>partSceneMod,
+});
+/* 본문은 creator/desk-setup.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const deskSetupMod = TwDeskSetup.createDeskSetup({
+  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  DEF_SIZE_TOAST_MS: ()=>creatorSaveMod.DEF_SIZE_TOAST_MS,
+  DESK_ITEMS: DESK_ITEMS,
+  DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
+  _creatorSizeGrow: (...a)=>creatorSaveMod._creatorSizeGrow(...a),
+  _syncCrColorSwatches: (...a)=>_syncCrColorSwatches(...a),
+  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
+  assetCardsMod: assetCardsMod,
+  assetCodeMod: ()=>assetCodeMod,
+  autoSaveDeskItemsNow: (...a)=>autoSaveDeskItemsNow(...a),
+  b64ToBuf: (...a)=>b64ToBuf(...a),
+  catalogGlbMod: ()=>catalogGlbMod,
+  catalogNet: ()=>window.firebaseAPI,
+  clampDeskScale: (...a)=>clampDeskScale(...a),
+  commissionMod: ()=>commissionMod,
+  crState: crState,
+  creatorOpen: ()=>creatorOpen,
+  customItems: ()=>customItems,
+  deskItemsMod: ()=>deskItemsMod,
+  equipDeskItem: (...a)=>equipDeskItem(...a),
+  isAdmin: ()=>isAdmin,
+  isPremium: ()=>isPremium,
+  lightToneMod: ()=>lightToneMod,
+  ndc: ndc,
+  premiumMod: premiumMod,
+  ray: ray,
+  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
+  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
+  toast: (...a)=>toast(...a),
+});
 document.getElementById('deskScale').addEventListener('input',e=>{ crState.cDeskScale=+e.target.value; setCreatorDeskScale(crState.cDeskScale); });   // 카메라 고정 — 책상 크기 가늠 쉽게
 // 버튼을 꾹 누르고 있으면 뗄 때까지 계속 반복 실행 (첫 클릭은 즉시, 0.35초 뒤부터 빠르게 반복)
 function bindHold(el, fn){
@@ -6603,30 +6324,7 @@ function bindHold(el, fn){
   el.addEventListener('pointerleave', stop);
   el.addEventListener('pointercancel', stop);
 }
-// 일반(비관리자) 모드: 3D 미리보기에서 이미 놓인 아이템을 우클릭하면 그걸 선택 상태로 만들어서
-// 껐다 켜지 않고도 바로 위치조작 버튼으로 조정할 수 있게 함. 선택되면 주황색 테두리로 표시.
-function selectDeskItemForAdjust(pivot){
-  crState.cBase.activeDeskItem = pivot;
-  if(creatorOpen) renderCrItems();
-  crXformMod.attachItemGizmoToActive();
-}
-document.getElementById('creatorPreview').addEventListener('contextmenu', e=>{
-  console.log('[아이템 우클릭 감지] isAdmin:', isAdmin, '| crStep:', crState.crStep, '| cBase 있음:', !!crState.cBase, '| deskItems:', crState.cBase&&crState.cBase.deskItems);
-  if(isAdmin) return;   // 관리자는 카드 우클릭으로 GLB 수정하는 흐름을 쓰므로 여기선 건너뜀
-  if(crState.crStep!==5 || !crState.cBase || !crState.cBase.deskItems || !crState.cCam) return;   // 책상 세팅 단계에서만
-  const pivots = Object.values(crState.cBase.deskItems).filter(Boolean);
-  console.log('[아이템 우클릭] pivots 개수:', pivots.length);
-  if(!pivots.length) return;
-  e.preventDefault();
-  const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();
-  ndc.x=((e.clientX-r.left)/r.width)*2-1; ndc.y=-((e.clientY-r.top)/r.height)*2+1;
-  ray.setFromCamera(ndc, crState.cCam);
-  const hit = ray.intersectObjects(pivots, true);
-  console.log('[아이템 우클릭] 히트 개수:', hit.length);
-  if(!hit.length) return;
-  let p=hit[0].object; while(p && !p.userData.isDeskItemPivot) p=p.parent;
-  if(p) selectDeskItemForAdjust(p);
-});
+
 /* 본문은 creator/creator-xform.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const crXformMod = TwCreatorXform.createCreatorXform({
@@ -6661,6 +6359,10 @@ const crXformMod = TwCreatorXform.createCreatorXform({
   setCDeskLenX: (v)=>{ crState.cDeskLenX = v; },
   setCDeskPos: (v)=>{ crState.cDeskPos = v; },
   setCDeskScale: (v)=>{ crState.cDeskScale = v; },
+});
+deskSetupMod.setHooks({   // 책상 세팅이 부르는 두 모듈 — 그 둘이 책상 카드를 다시 그리려고 deskSetupMod 를 불러서 deps 대신 여기서 잇는다
+  openDeskRegister: (...a)=>adminPartReg.openDeskRegister(...a),
+  attachItemGizmo: ()=>crXformMod.attachItemGizmoToActive(),
 });
 /* === 책상·아이템 코드: 생성(판매자) === */
 /* 관리자가 쓰는 코드 굽는 창 셋(📦 책상·아이템 코드 · 🎁 커미션 캐릭터 · 🔐 암호화 GLB 불러오기)은 admin/admin-asset.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
@@ -6721,7 +6423,7 @@ const assetImportMod = TwAssetImport.createAssetImport({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   partSceneMod: ()=>partSceneMod,
   premiumMod: premiumMod,
-  renderCrItems: (...a)=>renderCrItems(...a),
+  renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
   swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
   toast: (...a)=>toast(...a),
@@ -6791,7 +6493,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
-  renderCrItems: (...a)=>renderCrItems(...a),
+  renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),
   seats: seats,
   setUserStatus: (...a)=>setUserStatus(...a),
@@ -7019,7 +6721,6 @@ const creatorFlowMod = TwCreatorFlow.createCreatorFlow({
   isDeskSeatOnly: (...a)=>isDeskSeatOnly(...a),
   isDrawStep: (...a)=>isDrawStep(...a),
   redoB: redoB,
-  renderCrItems: (...a)=>renderCrItems(...a),
   renderLauncher: (...a)=>renderLauncher(...a),
   reopenAnimalFromCreator: (...a)=>reopenAnimalFromCreator(...a),
   setStampMode: (...a)=>crStampMod.setStampMode(...a),
@@ -7032,6 +6733,7 @@ const creatorFlowMod = TwCreatorFlow.createCreatorFlow({
   setCrStep: (v)=>{ crState.crStep = v; },
   setCreatorOpen: (v)=>{ creatorOpen = v; },
 });
+creatorFlowMod.onItemsStep(()=>deskSetupMod.renderCrItems());   // 5단계 아이템 목록 — 구독으로 잇는다(creator-flow ↔ desk-setup 순환 없게)
 /* 생성기 여는 입구 — 동물 생성기 · 종족 선택창 · 친구 추가 · 런처가 부르고, 동물이면 동물 생성기로 되돌리는 연결 자리라 app.js 에 둔다
    (creator-flow.js 로 옮기면 animal.js ↔ 생성기 모듈 순환이 생긴다). 3D 는 creatorPrevMod · 단계는 creatorFlowMod. */
 function openCreator(mode){
@@ -7115,7 +6817,7 @@ function openCreator(mode){
       if(src&&src.customItems){ for(const id in src.customItems){ const c=src.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,c.icon||'',animations);}catch(e){} } }
       await loadSavedItemsIntoSession();   // localStorage에 저장된 아이템 모두 customItems에 등록
       if(src&&src.deskItems) applyDeskItemsTo(crState.cBase, src.deskItems);
-      if(crState.crStep===5) renderCrItems();
+      if(crState.crStep===5) deskSetupMod.renderCrItems();
       // 런처4-2: 페이지 전환 시 활성 아이템 없으면 기즈모 숨김 (등록/삭제/재렌더 후 잔상 방지)
       if(crState.crStep===5) crXformMod.attachItemGizmoToActive();
       // ★ 커스텀 책상 GLB가 이 시점에야 로드 완료됨(비동기) — 그 전에 이미 한 번 계산된 카메라 프레이밍은
@@ -8646,7 +8348,7 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   layoutSeats: (...a)=>layoutSeats(...a),
   loadSavedItemsIntoSession: (...a)=>loadSavedItemsIntoSession(...a),
   premiumMod: premiumMod,
-  renderCrItems: (...a)=>renderCrItems(...a),
+  renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   renderLauncher: (...a)=>renderLauncher(...a),
   rideBenchMod: rideBenchMod,
   seats: seats,

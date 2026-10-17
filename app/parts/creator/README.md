@@ -266,3 +266,46 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
 - 입구 전제 — 적용 · 저장은 캐릭터(`crState.cBase`)가 있어야, 칸 화면은 `#crPresetSlots` · 버튼이 있어야.
 
 검사: `checks/sim-desk-preset.js` (저장 4 · 담기 · 적용 · 책상 모델 7 · 칸 화면 · 팝업 · 입구 전제 · 연결 · 깨 보기 12).
+
+## `asset-cards.js` — 🃏 자산 카드 공용(카드 · 도트 썸네일 · ☰ 순서)
+
+**책임** — 생성기 책상 세팅과 꾸미기가 같이 쓰는 카드 도우미 셋. 썸네일 카드 한 장(`swThumb`), 카드에 GLB 도트 썸네일 얹기(`applyDeskDotThumb` — 배포 썸네일 우선 · 없으면 한 번만 구워 `window._deskThumbCache` 에 · 실패는 기억), 포인터로 끄는 순서 바꾸기(`bindReorderHandle` — Electron 에서 HTML5 draggable 이 불안정해서).
+
+**만드는 법** — `const assetCardsMod = TwAssetCards.createAssetCards({ partSceneMod: ()=>partSceneMod });`(«책상 세팅(5단계)» 머리).
+
+**내놓는 것** — `swThumb(label, on, icon, onDelete, active)` → 카드(첫 자식 = 아이콘 상자) · `applyDeskDotThumb(rec, card)` · `bindReorderHandle(handle, cardEl, id, onDrop)` — 카드에 `dataset.reorderId` 를 붙여 두면 놓은 자리를 찾는다.
+
+**함정** — 썸네일을 얹을 때 이모지(글자 노드)만 걷는다 — × · ✎ · ☰ 버튼은 남긴다. 고름(active) 색이 켜짐 색보다 먼저다.
+
+검사: `checks/sim-asset-cards.js`.
+
+## `desk-setup.js` — 🪑 책상 세팅(5단계)
+
+**책임** — 책상 카드(기본 · 저장 책상 — 전용 책상은 관리자만 · 카탈로그 것은 관리자만 회수)와 아이템 카드(기본 셋 + 커스텀, 5개씩 쪽 넘김)를 그리고, 고르기 · 지우기 · 순서 바꾸기(관리자 — 카탈로그 순서 저장) · 놓인 아이템 고르기(카드 우클릭 · 미리보기 우클릭) · 책상 색 칸을 잇는다.
+
+**만드는 법** — app.js «책상 세팅(5단계)» 자리, 그리고 crXformMod 를 만든 바로 뒤에 갈고리:
+
+```js
+const deskSetupMod = TwDeskSetup.createDeskSetup({
+  crState: crState, assetCardsMod: assetCardsMod, premiumMod: premiumMod,
+  catalogNet: ()=>window.firebaseAPI,   // 데이터 provider — 회수 · 순서 저장(서버 이관 때 이 줄만)
+  // … 값 5 · 함수 10 · 읽는 함수 10
+});
+// … const crXformMod = …;
+deskSetupMod.setHooks({
+  openDeskRegister: (...a)=>adminPartReg.openDeskRegister(...a),
+  attachItemGizmo: ()=>crXformMod.attachItemGizmoToActive(),
+});
+```
+
+**내놓는 것** — `renderCrItems()` · `selectDeskItemForAdjust(pivot)` · `setHooks({ openDeskRegister, attachItemGizmo })`.
+
+**확장할 때 고칠 자리** — 쪽당 카드 수 `CR_ITEM_PAGE_SIZE`(5). 카드에 새 버튼은 `swThumb` 결과의 첫 자식(아이콘 상자)에 붙인다.
+
+**함정**
+- 관리자 등록 창 · 기즈모 모듈을 deps 로 받지 않는다 — 둘 다 책상 카드를 다시 그리려고 이 모듈을 불러 서로를 부르게 된다(sim-dep-cycles). 갈고리로만.
+- 카탈로그 책상 · 아이템은 GLB 를 def 에 안 싣는다 — 용량은 코드로 넣은 것만 잰다.
+- 입구 전제 — 카드 줄(`#crDeskRow` · `#crItemRow`) · 색 칸 · 미리보기가 없으면 그리지 · 걸지 않는다. 아이템 고르기는 캐릭터가 있어야.
+- `bindHold`(꾹 누르면 반복)는 animal.js 가 전역으로 읽어서 app.js 에 남겼다.
+
+검사: `checks/sim-desk-setup.js`.

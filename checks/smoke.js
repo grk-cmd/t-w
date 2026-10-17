@@ -606,6 +606,10 @@ PRELOAD.push('asset-import.js');
 PRELOAD.push('desk-preset-store.js');
 /* desk-preset.js — 🗂 책상 · 좌석 세팅 프리셋(담기 · 적용 · 5칸 화면)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskPreset 를 같이 굴린다. */
 PRELOAD.push('desk-preset.js');
+/* asset-cards.js — 🃏 자산 카드(썸네일 카드 · 도트 썸네일 · 순서 손잡이 — 생성기 · 꾸미기)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAssetCards 를 같이 굴린다. */
+PRELOAD.push('asset-cards.js');
+/* desk-setup.js — 🪑 생성기 책상 세팅(5단계 — 책상 · 아이템 카드 · 순서 · 색 · 크기 · 아이템 고르기)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskSetup 를 같이 굴린다. */
+PRELOAD.push('desk-setup.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
