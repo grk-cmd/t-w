@@ -64,6 +64,7 @@
 | ~~빈 카탈로그 사본 막기~~ 취소 | 검증-도우미15 | 취소 — 앱 · 서버 보험 코드 없이 이관 순서로 막음(서버를 다 채운 뒤 앱을 붙인다 · 사용자 결정 10-17). 앱에 «빈 카탈로그를 의심하는 보험» 은 넣지 않는다 | — | — |
 | 서버 가지 정리 — 요청 올림(합치기 대기) | 서버 정리 세션 | t-w-server 남은 가지를 dev 위로 다시 얹어 요청으로. 권하는 차례 #51 → #57 → #58 → #52 → #54 → #53 · #55 는 아무 때나. 앱 쪽: 봇 계정 규칙(bugBoard/list · friendRequests 읽기 · 친구 거울 쓰기) · 새 config 칸 .validate | t-w-server 가지들 | t-w-server #51 · #52 · #53 · #54 · #55 · #57 · #58 |
 | 생성기 프리셋 고침 다시 얹기(B-1015-3) | 검증-도우미16 | 0.11.4 에 넣음(사용자 결정 10-17) — 프리셋 읽기 · 쓰기 한 곳 · 저장 · 읽기 실패 알림 · 망가진 프리셋 위에 덮어쓰지 않기 | `creator/desk-preset-store.js` · `desk-preset.js` · `character/animal.js`(동물 프리셋) · `shared/error-codes.js` · checks | — |
+| 관리자 제보 목록 API 열어 두기 | 검증-도우미17 | 서버 #51(dev) + 앱 wX 세 줄(viaApiOr 한 벌 · bugBoard/list 봇 읽기 규칙 · 제보 목록 쪽 번호) — 관리자 전용 · 서버 없으면 RTDB 폴백 · 기능 멈춤 예외(사용자 10-17) | `web-admin/src/shared/api` · `web-admin` 제보 목록 · `firebase-database-rules.json` · checks | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
@@ -81,7 +82,7 @@
 |---|---|
 | wR 721ae87 친구 목록 스위치 빼기 | `feat/api-me-friends` |
 | wP-C 943cc36 · b81d6e2 · ca05542 · bd69537 · 735a70a · e67dbea(규칙) | `feat/realtime-presence` · `feat/api-friends-write` |
-| wX a7e6b43 · 7cb3745(규칙) · cbdec78 웹 관리자 제보 목록 API | `feat/api-admin-bugs` |
+| ~~wX a7e6b43 · 7cb3745(규칙) · cbdec78 웹 관리자 제보 목록 API~~ 진행 중으로 옮김 | `feat/api-admin-bugs` |
 | (머지됨) #289 · #290 운영 설정 · #293 카탈로그 API | `feat/ops-hot-config` · 카탈로그 GET(앱 릴리스 전 배포) |
 
 ## 보류 — 결정 · 다시 얹기 대기
