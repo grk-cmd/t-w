@@ -239,7 +239,7 @@ say('· §4 소스 — 창·키·캡처·업로드의 규약');
       '창을 닫을 때 정원 구독을 해제한다');
 
   /* ⑦ HTML 쪽 — 세 겹의 순서와 시작 z. */
-  chk(/#pkOverlay\{[^}]*z-index:82/.test(HTML),
+  chk((() => { const m = /#pkOverlay\{[^}]*z-index:([^;}]+)/.exec(HTML); return !!m && require('./sim-z-layers.js').resolveZ(HTML, m[1]) === 82; })(),   // 창 층 표의 이름으로 적혀 있어도 풀어서 82
       '#pkOverlay 의 시작 z 가 82 다 (낮추면 처음 한 번은 안 올라온다)');
   chk(HTML.indexOf('id="pkStage"') < HTML.indexOf('id="pkStageOv"'),
       '★ #pkStage 가 #pkStageOv 보다 앞이다 (뒤집히면 프레임이 무대를 덮는다)');

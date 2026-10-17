@@ -89,7 +89,7 @@ say('§11 캐릭터 편집 위로 마이홈 패널이 비침');
   const css = HTML.match(/<style[\s\S]*?<\/style>/g) || [];
   const all = css.join('\n');
   chk(/body:has\(#creatorOverlay\.on\) #myHomeOverlay, body:has\(#creatorOverlay\.on\) #mhGbOverlay\{visibility:hidden;\}/.test(all), '★ 편집창이 켜진 동안 마이홈 · 방명록 창을 숨긴다(CSS :has)');
-  const zOf = (sel) => { const m = all.match(new RegExp(sel.replace('#', '#') + '\\{[^}]*z-index:(\\d+)')); return m ? Number(m[1]) : null; };
+  const zOf = (sel) => { const m = all.match(new RegExp(sel.replace('#', '#') + '\\{[^}]*z-index:([^;}]+)')); return m ? require('./sim-z-layers.js').resolveZ(HTML, m[1]) : null; };   // 창 층 표의 이름(var(--z-…))도 숫자로 푼다
   chk(zOf('#creatorOverlay') === 55 && zOf('#codeOverlay') === 56, '  ↳ 편집창(55) 자리는 그대로 — 편집 중 여는 코드 창(56)이 위에 남는다');
   chk(zOf('#myHomeOverlay') > 55 && zOf('#mhGbOverlay') > 55, '  ↳ 숨기는 두 창은 편집창보다 위층이라 숨겨야 한다(옮기면 이 검사를 다시 본다)');
 }
