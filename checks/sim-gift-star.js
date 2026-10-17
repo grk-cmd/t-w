@@ -20,9 +20,12 @@ let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 
-const APP = read('app.js'), ML = read('mallang.js'), FB = read('firebase-init.js');
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const APP0 = read('app.js'), MI = read('myhome-inbox.js'), ML = read('mallang.js'), FB = read('firebase-init.js');
 const RULES = read('firebase-database-rules.json');
-if (!APP || !ML || !FB || !RULES) { say('  ? 원본 못 찾음 — app.js · mallang.js · firebase-init.js · firebase-database-rules.json'); process.exit(2); }
+if (!APP0 || !MI || !ML || !FB || !RULES) { say('  ? 원본 못 찾음 — app.js · myhome-inbox.js · mallang.js · firebase-init.js · firebase-database-rules.json'); process.exit(2); }
+const APP = APP0 + '\n' + MI;
 
 /* ── §1 ── mallang.js 에서 상수·함수만 떼어 돌린다 (IIFE 전체는 DOM 이 필요하다) */
 say('§1 순서 · 자동 정리');
@@ -94,7 +97,7 @@ chk(/_giftStat\('⭐ '\+starN\+'\/'\+lim\.starMax\+' · 보관 '\+keys\.length\+
 const HTML = read('desk-companion-prototype.html') || '';
 const fmTabs = (HTML.match(/<div id="mhFmTabs">[\s\S]*?<\/div>/) || [''])[0];
 chk(/id="mhGiftStat"/.test(fmTabs), '그 표시는 서브탭 줄(#mhFmTabs) 안에 있다 — 격자 위에 줄을 더하면 스크롤이 생긴다');
-/* renderFriendManage 는 parts/friend-manage.js 로 옮겼다(앱 FSD 5번). */
+/* renderFriendManage 는 parts/myhome/friend-manage.js 로 옮겼다(앱 FSD 5번). */
 chk(/function renderFriendManage\(\)\{\s*if\(_fmTab !== 'gift'\) _giftStat\(''\)/.test(read('friend-manage.js') || ''),'다른 서브탭으로 가면 표시를 비운다');
 chk(/getElementById\('myHomeWin'\)/.test(ask) && /win\.appendChild\(ov\)/.test(ask) && !/document\.body\.appendChild/.test(ask),
   '확인창은 #myHomeWin 의 자식 (body 로 빼면 run 모드에서 클릭이 뚫린다)');
@@ -103,6 +106,21 @@ chk(!/\bconfirm\(/.test(noComments(paint + ask)), 'confirm() 을 쓰지 않는�
 chk(/escHtml\(text\)/.test(ask) && /escHtml\(title\)/.test(ask), '확인창 문구는 escHtml 을 거친다 (fromName 은 친구가 정한 문자열)');
 chk(/live = live\.filter\(x=>!\(x\.gift && x\.gift\.giftId===giftId\)\)/.test(ML) && /h\.delete\(giftId\)/.test(ML),
   '삭제 시 마이홈 live 목록 · 로컬 치움 목록에서도 뺀다');
+
+say('§4 내 코드 없음 — 말랑이 · 선물 요청 0(로컬 백업은 그대로)');
+const noUidCalls = (ml) => {
+  const pick = (re) => (ml.match(re) || [''])[0];
+  const fns = pick(/async function loadImgsFor\([\s\S]*?\n  \}/) + '\n' + pick(/async function loadGifts\([\s\S]*?\n  \}/);
+  const calls = [];
+  const ctx = { calls, imgs: [], localStorage: { getItem: () => '["https://i/anon.png"]' }, lsKey: () => 'tw.mallang.anon', myId: () => null, fbReady: () => true,
+    firebaseAPI: new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return Promise.resolve({}); } }),
+    _hiddenSet: () => new Set(), _saveHidden(){}, spawnGift(){}, updateGiftBadge(){}, giftOverflow: () => [], GIFT_MAX: 30, JSON };
+  try { vm.runInNewContext(fns + '\nloadImgsFor(null).catch(()=>{}); loadGifts(null).catch(()=>{});', ctx); } catch (e) { return ['던짐 ' + e.message]; }
+  return calls;
+};
+chk(noUidCalls(ML).length === 0, '내 코드 없음 → getMallangImgs · getMallangGifts 요청 0');
+chk(noUidCalls(ML.replace('if(fbReady() && userId) raw =', 'if(fbReady()) raw =').replace('if(!ownerId || !fbReady() || !firebaseAPI.getMallangGifts) return;', 'if(!fbReady() || !firebaseAPI.getMallangGifts) return;')).length === 2,
+  '  깨 보기 — 내 코드 확인을 빼면 두 요청이 나간다(빨강)');
 
 say('');
 say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — ⭐ 는 서버에 남고, 자동 정리·우클릭 어느 쪽으로도 지워지지 않는다');

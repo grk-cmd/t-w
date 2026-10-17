@@ -1,11 +1,11 @@
 /*
- * 앱 최소 버전(config/minAppVer) — 이 앱이 낮으면 «업데이트해 주세요» 로 앱 전체를 막는가.
+ * 앱 최소 버전(원격 설정 minVersion.app · API) — 이 앱이 낮으면 «업데이트해 주세요» 로 앱 전체를 막는가.
  * 1. app-version-gate.js 비교 — 숫자 비교(0.10.0 > 0.9.8) · 꼬리 무시 · 모르는 값으로는 안 막음
  * 2. 게이트를 그대로 돌린다 — 낮으면 막음 · 같거나 높으면 · 값 없음 · 읽기 실패 · 시간 초과 · 버전 모름은 안 막음
  * 3. 단추 — 받기 끝(재시작 설치) · 맥(릴리스 열기) · 받는 중(누를 수 없음) · 실패(다시 시도) · 링크(다운로드 페이지) · 막기 전에 온 상태 기억
  * 4. 화면 — 닫기 없음 · textContent 만 · id 가 app.js 클릭 통과 목록에 있음
- * 5. 연결 — firebase-init 가 config/minAppVer 를 한 번 읽어 게이트를 켠다 · main/preload 다시 확인 채널 · 다운로드 주소 = package.json 저장소
- * 6. 규칙 — config/minAppVer 관리자만 쓰기 · 누구나 읽기 · 문자열 20자
+ * 5. 연결 — firebase-init 가 원격 설정의 첫 답(API 값만 · 못 받으면 null)으로 게이트를 켠다 · main/preload 다시 확인 채널 · 다운로드 주소 = package.json 저장소
+ * 6. 규칙 — config/minAppVer(옛 앱 0.11.3 까지 · 웹 관리자가 API 와 같이 씀) 관리자만 쓰기 · 누구나 읽기 · 문자열 20자
  */
 'use strict';
 const fs = require('fs');
@@ -14,16 +14,17 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (...names) => { for(const n of names){ const s = read(n); if(s != null) return s; } say('  ? 원본 못 찾음 — ' + names[0]); process.exit(2); };
-const GATE = need('app-version-gate.js', 'parts/app-version-gate.js', 'app/parts/app-version-gate.js');
+const GATE = need('app-version-gate.js', 'parts/shared/app-version-gate.js', 'app/parts/shared/app-version-gate.js');
 const FI = need('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js');
-const APP = need('app.js', 'parts/app.js', 'app/parts/app.js');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈(🖥️ 데스크탑 실행 화면 — UI_HIT_SEL 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const APP = _joinRenderer(need('app.js', 'parts/app.js', 'app/parts/app.js'));
 const MAIN = need('main.js');
 const PRE = need('preload.js');
 const PKG = JSON.parse(need('package.json'));
 const RULES = JSON.parse(need('firebase-database-rules.json')).rules;
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const M = new Function(GATE.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { parseVer, isBelow, viewOf, createAppVersionGate, createAppVersionGateDom, MIN_APP_VER_PATH, MIN_APP_VER_MAX, RELEASES_URL, GATE_ID };')();
+  '\nreturn { parseVer, isBelow, viewOf, createAppVersionGate, createAppVersionGateDom, MIN_APP_VER_MAX, RELEASES_URL, GATE_ID };')();
 
 // 가짜 companion — onUpdateStatus 로 상태를 밀어 넣고, 부른 것을 적는다
 function fakeCompanion(){
@@ -39,7 +40,7 @@ function fakeCompanion(){
 function fakeUi(){ const shown = []; return { shown, show: (v) => shown.push(v), update: (v) => shown.push(v) }; }
 
 (async () => {
-  const { parseVer, isBelow, viewOf, createAppVersionGate, createAppVersionGateDom, MIN_APP_VER_PATH, MIN_APP_VER_MAX, RELEASES_URL, GATE_ID } = M;
+  const { parseVer, isBelow, viewOf, createAppVersionGate, createAppVersionGateDom, MIN_APP_VER_MAX, RELEASES_URL, GATE_ID } = M;
 
   say('── 1. 버전 비교');
   chk(isBelow('0.9.8', '0.10.0') && !isBelow('0.10.0', '0.9.8'), '★ 숫자로 비교한다 — 0.9.8 < 0.10.0 (문자열 비교면 거꾸로)');
@@ -145,14 +146,14 @@ function fakeUi(){ const shown = []; return { shown, show: (v) => shown.push(v),
   say('── 5. 연결');
   {
     const code = strip(FI);
-    chk(/import \{ createAppVersionGate, createAppVersionGateDom \} from "\.\/app-version-gate\.js";/.test(code), 'firebase-init 가 모듈을 들여온다');
+    chk(/import \{ createAppVersionGate, createAppVersionGateDom \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?app-version-gate\.js";/.test(code), 'firebase-init 가 모듈을 들여온다');
     const i = code.indexOf('createAppVersionGate({');
     const block = i >= 0 ? code.slice(i, code.indexOf('.start()', i) + 8) : '';
-    chk(/readMin: \(\) => get\(ref\(db, 'config\/minAppVer'\)\)\.then\(s => s\.val\(\)\)/.test(block) && MIN_APP_VER_PATH === 'config/minAppVer',
-      '★ config/minAppVer 하나만 get 한 번(구독 아님 · 작은 읽기)');
+    chk(/readMin: \(\) => _rc \? _rc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\) => _rc\.minAppVer\(\)\) : null/.test(block) && /const MIN_APP_VER_WAIT_MS = (\d+);/.test(code) && +code.match(/const MIN_APP_VER_WAIT_MS = (\d+);/)[1] < 8000,
+      '★ 원격 설정(API GET /v1/config)의 첫 답을 기다려 minVersion.app — 기다림은 게이트 시간 초과(8초)보다 짧게 · 못 받으면 null(막지 않음)');
     chk(/getVersion: \(\) => _appVer\.ready/.test(block) && /ui: createAppVersionGateDom\(document\)/.test(block) && /\.start\(\)$/.test(block), '  ↳ 앱 버전 · 화면 · 켤 때 시작');
     chk(i > 0 && i < code.indexOf('createVisitPing({') && i < code.indexOf('window.firebaseAPI = {'), '  ↳ DB 가 생기자마자 — 다른 일보다 먼저');
-    chk((code.match(/config\/minAppVer/g) || []).length === 1 && !/onValue\(ref\(db, 'config\/minAppVer'/.test(code), '  ↳ 읽는 곳은 한 곳 · 구독하지 않는다');
+    chk(!/config\/minAppVer/.test(code), '  ↳ Firebase config/minAppVer 는 더 읽지 않는다');
     chk(/ipcMain\.on\('companion:checkUpdate', \(\) => \{ startUpdateCheck\(\); \}\);/.test(MAIN), '★ main — 다시 확인은 startUpdateCheck 한 입구(맥 갈래 그대로)');
     chk(/checkUpdate\(\) \{\s*ipcRenderer\.send\('companion:checkUpdate'\);/.test(PRE) && /installUpdate\(\) \{\s*ipcRenderer\.send\('companion:installUpdate'\);/.test(PRE), '  ↳ preload checkUpdate · installUpdate');
     const pub = [].concat(PKG.build && PKG.build.publish || []).find(p => p && p.provider === 'github') || {};

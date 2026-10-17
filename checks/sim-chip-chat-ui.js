@@ -1,5 +1,5 @@
 /* sim-chip-chat-ui.js — ✨▁ 상태칩 정리 · 대화창 최소화 검사
-   실행:  node sim-chip-chat-ui.js   (app.js · desk-companion-prototype.html 과 같은 폴더에서)
+   실행:  node sim-chip-chat-ui.js   (app.js · chat-window.js · desk-companion-prototype.html 과 같은 폴더에서)
 
    ★ 왜 이 검사가 있는가 — 이번 변경 둘 다 **"기존 규칙이 새 요소를 잘못 집어가는"** 종류의
      사고를 안고 있다. 실제로 만들면서 두 번 밟았다:
@@ -17,8 +17,12 @@
 
    ⚠ 눈으로 볼 것은 따로 있다(핸드오프 7절). 여기서 지키는 건 규약뿐이다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+/* 💬 대화창 배선(타이틀바 끌기 예외)은 parts/chat/chat-window.js 로 옮겼다(앱 FSD 14번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+let CW = null; try{ CW = fs.readFileSync('chat-window.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — chat-window.js'); process.exit(2); }
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + CW;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;

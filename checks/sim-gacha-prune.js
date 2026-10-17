@@ -1,11 +1,12 @@
 /* sim-gacha-prune.js — 🎰 미보유 가챠 파츠 자동 해제(pruneUnownedGachaParts) 검증기
    실행: node sim-gacha-prune.js  (app.js · gacha.js · smoke.js 와 같은 폴더에서)
-   ※ 🎰 가챠 코어는 parts/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가하고, 보유분 · 회수 · 동기화는 gachaMod 로 부른다.
+   ※ 🎰 가챠 코어는 parts/character/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가하고, 보유분 · 회수 · 동기화는 gachaMod 로 부른다.
 
    제보 재현:
      · A기기에서 뽑아 착용 → B기기 연동 → 보관함은 ❔인데 화면엔 그대로 붙어 있다
      · 패치 전부터 켜져 있던 PC에서 초기화된 욕조가 계속 보인다(보관함에도 없어 해제 불가) */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -37,7 +38,7 @@ const probe = `
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
 /* gacha.js 가 없으면 «못 찾음» 으로 멈춘다 — app.js 만 굴리면 빈 껍데기(GACHA_OFF)라 아무것도 안 지킨 채 초록이 된다. */
 if (!fs.existsSync('gacha.js')) { say('  ? 원본 못 찾음 — gacha.js'); process.exit(2); }
-try { vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,5).join('\n')); process.exit(1); }
 console.log = say;
 

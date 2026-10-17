@@ -1,5 +1,5 @@
 /* sim-purikura-deco.js — 🎨 꾸미기 창 검사
-   실행:  node sim-purikura-deco.js   (app.js · purikura-ui.js · desk-companion-prototype.html 과 같은 폴더에서)
+   실행:  node sim-purikura-deco.js   (app.js · purikura-ui.js · chat-window.js · desk-companion-prototype.html 과 같은 폴더에서)
 
    ★ 왜 이 검사가 있는가
      이 화면의 사고는 **저장하고 나서야 보인다.** 화면(360px)에서는 선이 멀쩡한데
@@ -16,15 +16,18 @@
 
    ⚠️ 실제로 예쁜지는 여기서 못 본다 — 그건 눈으로 볼 것. 여기서 지키는 것은 규약뿐이다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const P = require('./purikura-net.js');
 /* 📷 촬영 창 · 무대 · 꾸미기 화면은 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
 let PU = null; try{ PU = fs.readFileSync('purikura-ui.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — purikura-ui.js'); process.exit(2); }
-/* 🏠 마이홈 BGM 창구(_mhBgmPlaying · _mhBgmSetPlaying)는 parts/myhome-edit.js 가 건다(앱 FSD 7-2) — 같은 방식으로 이어 붙인다.
+/* 🏠 마이홈 BGM 창구(고리판 BGM_PLAYING · BGM_SET_PLAYING)는 parts/myhome/myhome-edit.js 가 건다(앱 FSD 7-2 · 순환 끊기 8) — 같은 방식으로 이어 붙인다.
    ⚠️ 빼면 «창구는 표시만 바꾼다»(없어야 할 글을 찾는 검사)가 아무것도 안 보고 초록이 된다. */
 let ME = null; try{ ME = fs.readFileSync('myhome-edit.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
-const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + PU + '\n' + ME;
+/* 💬 대화창 배선(📷 버튼)은 parts/chat/chat-window.js 로 옮겼다(앱 FSD 14번) — 같은 방식으로 이어 붙인다. */
+let CW = null; try{ CW = fs.readFileSync('chat-window.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — chat-window.js'); process.exit(2); }
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + PU + '\n' + ME + '\n' + CW;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;
@@ -319,7 +322,8 @@ say('· §5 회사원 모드 — 못 열고, 열려 있던 것도 접히는가')
   /* 🏢 게이트가 한 겹이면 반드시 샌다. 버튼은 «누른 사람에게 알리는» 자리이고,
      openPurikura 는 «어떤 경로로 들어와도 걸리는» 자리다. 둘은 역할이 다르다. */
   const btn = /const cam=document\.getElementById\('chatPhotoBtn'\);[\s\S]*?\n  \};/.exec(SRC);
-  chk(!!btn && /if\(officeMode\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}/.test(btn[0]),
+  /* officeMode() — chat-window.js 는 app.js 의 let 을 읽는 함수로 받는다(앱 FSD 14번) */
+  chk(!!btn && /if\(officeMode\(\)\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}/.test(btn[0]),
       '★ 📷 버튼이 회사원 모드에서 안내하고 멈춘다 (💣 와 같은 문구·같은 방식)');
   chk(!!btn && btn[0].indexOf('officeMode') < btn[0].indexOf('_purikura()'),
       '★ 게이트가 세션을 만들기 **전**이다 (뒤면 자리를 잡아 놓고 막는 꼴이 된다)');
@@ -328,8 +332,10 @@ say('· §5 회사원 모드 — 못 열고, 열려 있던 것도 접히는가')
   /* officeMode() — purikura-ui.js 는 app.js 의 let 을 읽는 함수로 받는다(앱 FSD 3번) */
   chk(!!open && /officeMode\(\)\)\{ toast\('🏢 회사원 모드에서는 쓸 수 없어요'\); return; \}/.test(open[0]),
       '★ openPurikura 안에도 그물이 있다 (문은 여기 하나뿐 — 다른 입구가 생겨도 샌다)');
-  chk(!!open && /typeof officeMode !== 'undefined'/.test(open[0]),
-      "officeMode 가 아직 없을 때도 안 터진다 (부팅 순서에 안 기댄다)");
+  /* (개정 238) typeof 가드를 걷었다 — officeMode 는 deps 의 «읽는 함수»(()=>officeMode)라 늘 함수이고, 가드는 TDZ 를 막지도 못했다.
+     대신 «값을 만들 때 잡아 두지 않고 부를 때마다 읽는다» 를 본다(사용자가 누를 때는 부팅이 끝난 뒤다) */
+  chk(!!open && /officeMode\(\)\)\{/.test(open[0]) && !/typeof officeMode/.test(open[0]),
+      "officeMode 는 부를 때마다 읽는다 — 읽는 함수 officeMode() (가드 없이)");
 
   /* 버튼을 숨기지는 않는다 — 숨기면 이런 기능이 있다는 것 자체를 모르고 지나간다. */
   chk(!/chatPhotoBtn[\s\S]{0,200}style\.display\s*=/.test(SRC),
@@ -934,7 +940,7 @@ say('· §14 BGM — 창이 열려 있는 동안만, 그리고 소리가 겹치�
   const hush = /function _pkHushOthers\(\)\{[\s\S]*?\n\}/.exec(SRC);
   chk(!!hush && (hush[0].match(/companion\.pauseBgm/g) || []).length === 2,
       '★ 재우는 호출이 한 번뿐이다 (창을 공유하므로 두 번 부를 이유가 없다)');
-  chk(!!hush && /_setPlPlaying\(false\)/.test(hush[0]) && /_mhBgmSetPlaying/.test(hush[0]),   // _plPlaying 은 app.js 의 let — 모듈은 setPlPlaying 으로 쓴다
+  chk(!!hush && /_setPlPlaying\(false\)/.test(hush[0]) && /HOOK\.BGM_SET_PLAYING/.test(hush[0]),   // _plPlaying 은 app.js 의 let — 모듈은 setPlPlaying 으로 쓴다
       '★ 양쪽의 «재생 중» 표시도 내린다 (안 내리면 ▶ 버튼이 재생 중인 척한다)');
   chk(!!hush && /PK\.hushed = \{ pl:pl, home:home \}/.test(hush[0]),
       '★ 누가 나고 있었는지 기억한다 (안 하면 안 듣던 것까지 켜 준다)');
@@ -945,9 +951,9 @@ say('· §14 BGM — 창이 열려 있는 동안만, 그리고 소리가 겹치�
       '★ 열 때 «재우고 켜기», 닫을 때 «끄고 깨우기» 순서다');
   chk(/function closePurikura[\s\S]{0,900}_pkBgmStop\(\)/.test(SRC),
       '★ 창이 닫히는 모든 길에서 소리가 멎는다 (⎋·✕·회사원 모드 전부 closePurikura 를 지난다)');
-  chk(/window\._mhBgmPlaying = function/.test(SRC) && /window\._mhBgmSetPlaying = function/.test(SRC),
+  chk(/mhHooks\.on\(mhHooks\.HOOK\.BGM_PLAYING, function/.test(SRC) && /mhHooks\.on\(mhHooks\.HOOK\.BGM_SET_PLAYING, function/.test(SRC),
       '마이홈이 «지금 나는 중인가»를 알려주는 창구를 열어 뒀다');
-  chk(!/_mhBgmSetPlaying = function[\s\S]{0,140}companion\./.test(SRC),
+  chk(!/HOOK\.BGM_SET_PLAYING, function[\s\S]{0,140}companion\./.test(SRC),
       '★ 그 창구는 표시만 바꾼다 (거기서 companion 을 또 부르면 두 번 재워진다)');
 }
 say('');

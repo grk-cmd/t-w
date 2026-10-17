@@ -5,12 +5,16 @@ export interface RoomIndexEntry {
   lastSeen?: number;
   channel?: Channel;
   open?: boolean;
+  /** 방 서버 이름 — 방 서버(t-w-server)가 올린 줄. Firebase rooms/{방} 에 사람이 없어도 정상이다. */
+  srv?: string;
 }
 
 export interface RoomStats {
   workingroom?: number;
   togetherroom?: number;
   at?: number;
+  /** 그중 방 서버 몫(functions/room-stats.js 가 srv 줄을 따로 셈) — 이미 위 두 칸에 들어 있다. */
+  server?: { workingroom?: number; togetherroom?: number };
 }
 
 export const SECRET_ROOM_PREFIX = 'SCRT-';
@@ -19,12 +23,22 @@ export const ROOM_LIVE_MS = 90 * 1000;
 // functions 가 1분마다 쓰므로 이보다 낡았으면 함수가 멈춘 것이다 — 앱 ROOM_STATS_FRESH_MS 와 같다.
 export const ROOM_STATS_FRESH_MS = 3 * 60 * 1000;
 
+/**
+ * 전체 채널별 방 상한의 기본값 — config/roomLimits 가 없을 때 앱 · 방 서버가 쓰는 값(0.11.4 원격 설정).
+ * 실제 값은 config/roomLimits(model/roomConfig.ts). config/roomServer/limits 는 방 서버 한 대 보호용이라 이것과 다르다.
+ */
+export const ROOM_TOTAL_LIMITS: Record<Channel, number> = { workingroom: 300, togetherroom: 300 };
+
 export const CHANNEL_LABEL: Record<Channel, string> = {
   workingroom: '워킹룸',
   togetherroom: '투게더룸',
 };
 
 export const isSecretRoom = (code: string) => code.startsWith(SECRET_ROOM_PREFIX);
+
+/** 방 서버가 올린 줄이면 그 서버 이름, 아니면 null. */
+export const serverOf = (entry: RoomIndexEntry | null | undefined): string | null =>
+  typeof entry?.srv === 'string' && entry.srv ? entry.srv : null;
 
 // 앱은 channel 이 없으면 워킹룸으로 센다.
 export const roomChannel = (entry: RoomIndexEntry | null | undefined): Channel =>
@@ -49,9 +63,16 @@ export function orphanCodes(index: Record<string, unknown>, codes: readonly stri
   return codes.filter((code) => !(code in index) && !isSecretRoom(code)).sort();
 }
 
-/** 전체 종료 대상 — 앱 closeAllRooms 처럼 rooms 의 모든 방(시크릿룸 포함) + roomIndex 에만 남은 줄. */
-export function allRoomCodes(index: Record<string, unknown>, codes: readonly string[]): string[] {
-  return [...new Set([...Object.keys(index), ...codes])].sort();
+/**
+ * 전체 종료 대상 — 앱 closeAllRooms 처럼 rooms 의 모든 방(시크릿룸 포함) + roomIndex 에만 남은 줄.
+ * 방 서버 줄은 뺀다 — Firebase 에서 지워도 방 서버 방은 닫히지 않고 30초 뒤 줄이 되살아난다.
+ */
+export function allRoomCodes(
+  index: Record<string, RoomIndexEntry | null>,
+  codes: readonly string[],
+): string[] {
+  const serverOnly = (code: string) => !!serverOf(index[code]) && !codes.includes(code);
+  return [...new Set([...Object.keys(index), ...codes])].filter((code) => !serverOnly(code)).sort();
 }
 
 const probeAlive = (probe: RoomProbe | undefined, now: number) =>
@@ -60,21 +81,27 @@ const probeAlive = (probe: RoomProbe | undefined, now: number) =>
 /**
  * 유령 방 코드 — roomIndex 에서 신호가 90초 넘게 끊긴 줄 + 멤버 신호가 끊긴 고아 방.
  * 고아 방은 살펴본 결과(probes)가 있어야 넣는다. 시크릿룸은 roomIndex 를 안 쓰니 자동 청소에서 뺀다.
+ * 방 서버 줄은 뺀다 — 방은 방 서버에 있어 rooms 를 지워도 닫히지 않고, 낡은 줄은 functions roomStats 가 10분 뒤 걷는다.
  */
 export function ghostCodes(
   index: Record<string, RoomIndexEntry | null>,
   now: number,
   rooms: { codes?: readonly string[]; probes?: Record<string, RoomProbe> } = {},
 ): string[] {
-  const indexed = Object.keys(index).filter((code) => !isSecretRoom(code) && !isRoomAlive(index[code], now));
+  const indexed = Object.keys(index).filter(
+    (code) => !isSecretRoom(code) && !serverOf(index[code]) && !isRoomAlive(index[code], now),
+  );
   const orphans = orphanCodes(index, rooms.codes ?? []).filter(
     (code) => rooms.probes?.[code] && !probeAlive(rooms.probes[code], now),
   );
   return [...indexed, ...orphans].sort();
 }
 
-/** indexed: roomIndex 에 줄이 있음 · orphan: rooms 에만 있음 · secret: 시크릿룸(roomIndex 를 안 씀). */
-export type RoomKind = 'indexed' | 'orphan' | 'secret';
+/**
+ * indexed: roomIndex 에 줄이 있음 · server: 방 서버가 올린 줄(Firebase 에 멤버 없음이 정상) ·
+ * orphan: rooms 에만 있음 · secret: 시크릿룸(roomIndex 를 안 씀).
+ */
+export type RoomKind = 'indexed' | 'server' | 'orphan' | 'secret';
 
 export interface RoomRow {
   code: string;
@@ -85,6 +112,8 @@ export interface RoomRow {
   lastSeen: number | null;
   alive: boolean;
   secret: boolean;
+  /** 방 서버 이름 — 방 서버 방이면. 인원은 방 서버에 있어 Firebase 로는 모른다. */
+  server: string | null;
   /** rooms/{방} 의 멤버 키 수 — 아직 못 셌으면 null. */
   members: number | null;
 }
@@ -99,15 +128,17 @@ export function roomRows(
   const members = (code: string) => probes[code]?.members ?? null;
   const indexed: RoomRow[] = Object.entries(index).map(([code, e]) => {
     const seen = Number(e?.lastSeen);
+    const server = serverOf(e);
     return {
       code,
-      kind: isSecretRoom(code) ? 'secret' : 'indexed',
+      kind: isSecretRoom(code) ? 'secret' : server ? 'server' : 'indexed',
       channel: roomChannel(e),
       open: e?.open === true,
       lastSeen: Number.isFinite(seen) ? seen : null,
       alive: isRoomAlive(e, now),
       secret: isSecretRoom(code),
-      members: members(code),
+      server,
+      members: server ? null : members(code),
     };
   });
   const rest: RoomRow[] = (rooms.codes ?? [])
@@ -120,6 +151,7 @@ export function roomRows(
       lastSeen: probes[code]?.lastSeen ?? null,
       alive: !isSecretRoom(code) && probeAlive(probes[code], now),
       secret: isSecretRoom(code),
+      server: null,
       members: members(code),
     }));
   return [...indexed, ...rest].sort(
@@ -137,17 +169,25 @@ export interface RoomStatsSummary {
   togetherroom: number;
   at: number | null;
   fresh: boolean;
+  /** 그중 방 서버 몫 — 함수가 따로 세기 전(배포 전) 값이면 null. */
+  server: Record<Channel, number> | null;
 }
 
 export function roomStatsSummary(stats: RoomStats | null, now: number): RoomStatsSummary | null {
   if (!stats || typeof stats.workingroom !== 'number' || typeof stats.togetherroom !== 'number') return null;
   const at = typeof stats.at === 'number' ? stats.at : null;
+  const s = stats.server;
+  const server =
+    s && typeof s === 'object'
+      ? { workingroom: Number(s.workingroom) || 0, togetherroom: Number(s.togetherroom) || 0 }
+      : null;
   return {
     total: stats.workingroom + stats.togetherroom,
     workingroom: stats.workingroom,
     togetherroom: stats.togetherroom,
     at,
     fresh: at !== null && now - at < ROOM_STATS_FRESH_MS,
+    server,
   };
 }
 

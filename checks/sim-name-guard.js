@@ -5,12 +5,13 @@
    §3 규칙 — users/$userId/profile 의 name 을 같은 목록으로 막되, 이름이 그대로면(옛 사용자) · 관리자면 통과
    ⚠️ 규칙을 실제로 돌린 것은 에뮬레이터(PR 본문)다. 방 이름표 · 채팅 이름은 막지 않는다(들어올 때마다 새로 쓰여 옛 사용자가 막힌다). */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const say = console.log;
 let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const NG = read('name-guard.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), RULES = read('firebase-database-rules.json');
+const NG = read('name-guard.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html'), RULES = read('firebase-database-rules.json');
 if (!NG || !APP || !HTML || !RULES) { say('  ? 원본 못 찾음 — name-guard.js · app.js · HTML · 규칙'); process.exit(2); }
 
 say('§1 name-guard.js (실행)');
@@ -26,7 +27,7 @@ const body = ci >= 0 ? APP.slice(ci, APP.indexOf('\n}\n', ci)) : '';
 const iGuard = body.indexOf('isStaffName(v)'), iSave = body.indexOf('setUserName(');
 chk(iGuard > 0 && iSave > iGuard && /return;/.test(body.slice(iGuard, iSave)), '닉네임 저장(commitUserName)이 저장 전에 막고 돌아간다');
 chk(/v !== getUserName\(\)\.trim\(\)/.test(body) && /isAdmin/.test(body.slice(iGuard, iSave)), '  ↳ 이미 그 이름인 사람 · 관리자는 예외 (규칙과 같다)');
-const iNg = HTML.indexOf('<script src="parts/name-guard.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
+const iNg = HTML.indexOf('<script src="parts/account/name-guard.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
 chk(iNg > 0 && iApp > iNg, 'name-guard.js 는 app.js 보다 먼저 싣는다');
 
 say('§3 규칙');

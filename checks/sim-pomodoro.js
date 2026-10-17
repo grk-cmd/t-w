@@ -7,12 +7,13 @@
           머리 위 문구는 _focusShowConf 의 typeof 가드로만(새 필드 없음).
    ・3절: 동작 — 실제 함수(_pomoStartPhase · _pomoAdvance · _pomoTick · _pomoShowText · _pomoLeftMs)를 떼어 시계를 돌려 본다.
    [실행] app.js · weekly-challenge.js · pomodoro.js · desk-companion-prototype.html 이 있는 폴더에서.
-   ※ 👑 달성표는 parts/weekly-challenge.js 로 옮겼다(앱 FSD 2번) — _chalOpen 은 그 파일에서 찾고, 뽀모 쪽은 weeklyChal.open(false) 로 부른다.
-   ※ 🍅 뽀모 본체는 parts/pomodoro.js 로 옮겼다(앱 FSD 6번) — 뽀모 블록 · _pomo* 함수는 그 파일에서 찾는다. 알림음 풀 · _focusShowConf 는 app.js.
+   ※ 👑 달성표는 parts/focus/weekly-challenge.js 로 옮겼다(앱 FSD 2번) — _chalOpen 은 그 파일에서 찾고, 뽀모 쪽은 weeklyChal.open(false) 로 부른다.
+   ※ 🍅 뽀모 본체는 parts/focus/pomodoro.js 로 옮겼다(앱 FSD 6번) — 뽀모 블록 · _pomo* 함수는 그 파일에서 찾는다. 알림음 풀 · _focusShowConf 는 app.js.
      만들 때 배선 · 버튼 흐름은 sim-pomodoro-module 이 본다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 let WC = null; try{ WC = fs.readFileSync('weekly-challenge.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — weekly-challenge.js'); process.exit(2); }
 let PM = null; try{ PM = fs.readFileSync('pomodoro.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — pomodoro.js'); process.exit(2); }

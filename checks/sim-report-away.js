@@ -5,10 +5,14 @@
           신고자 정보는 닉네임 + 코드 뒷자리 4 + 사유뿐 · 신고 성공 = 내 화면에서 숨김 · 관리자 목록은 서로 다른 3명 이상.
    ・3절: 규칙 — users/$userId/awayImg · reports(관리자만 읽기 · 본인 칸만 쓰기 · 자기 자신 금지 · $other 거절).
    ・4절: 이름표 우클릭 = 좌석 메뉴(조준 · 회사원 게이트) · 클릭 받기(CSS · UI_HIT_SEL).
-   [실행] app.js · desk-companion-prototype.html · firebase-init.js · firebase-database-rules.json 이 있는 폴더에서. */
+   [실행] app.js · report.js · admin-report.js · desk-companion-prototype.html · firebase-init.js · firebase-database-rules.json 이 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+/* 🚩 신고하기는 앱 FSD 11번에서 report.js(신고 창) · admin/admin-report.js(관리자 목록)로 옮겼다 — 세 글을 이어 읽는다(없으면 빈 글). */
+const _readOne = (...ns) => { for(const n of ns){ try{ return fs.readFileSync(n, 'utf8'); }catch(_){} } return ''; };
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈(🫧 자리비움 그림 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + _readOne('report.js', 'parts/support/report.js', 'app/parts/support/report.js')
+  + '\n' + _readOne('admin-report.js', 'parts/admin/admin-report.js', 'app/parts/admin/admin-report.js');
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const FI   = fs.existsSync('firebase-init.js') ? fs.readFileSync('firebase-init.js', 'utf8') : null;
 const RULES = fs.existsSync('firebase-database-rules.json') ? JSON.parse(fs.readFileSync('firebase-database-rules.json', 'utf8')) : null;
@@ -49,7 +53,7 @@ say('── 1. 자리비움 그림');
   chk(pic({ remote: true, remoteAwayImg: 'https://evil.example/a.png' }, 'away', false) === null, 'Storage 주소가 아니면 없음');
   chk(/const _awayPic = _awayPicFor\(seat, us, _hidden\);/.test(CODE) && /!_hidden && !_awayPic\) \? _conf\.emo : null/.test(CODE), '프레임 루프: 그림이 서면 책상 🫧 는 안 띄운다');
   const fr = strip(grabFn('_awayImgFrame'));
-  chk(/setFromObject\(seat\.bodyWrap \|\| seat\.rig\)/.test(fr) && /sp\.scale\.set\(h, h, 1\)/.test(fr) && /> 500/.test(fr), '캐릭터 경계상자 높이에 맞춘 정사각형 · 0.5초에 한 번 잰다');
+  chk(/setFromObject\(seat\.bodyWrap \|\| seat\.rig\)|measureBodyBox\(seat\.bodyWrap \|\| seat\.rig, null, _awayBox\)/.test(fr) && /sp\.scale\.set\(h, h, 1\)/.test(fr) && /> 500/.test(fr), '캐릭터 경계상자 높이에 맞춘 정사각형 · 0.5초에 한 번 잰다');
   /* 👑 프리미엄 전용(2026-09-23 요청) — 등록만 잠근다. 보는 쪽 · [기본으로] 는 그대로. */
   chk(/function _awayPremium\(\)\{[^}]*_premiumOn\(\)/.test(CODE), '프리미엄 판정은 _premiumOn 한 곳');
   chk(/pk\.disabled = !!_awayBusy \|\| !prem/.test(CODE) && /if\(!_awayPremium\(\)\)\{ _awayRenderUI\('👑/.test(CODE), '비프리미엄은 [그림 등록] 잠김 · 올리기도 막힌다');
@@ -66,7 +70,7 @@ say('── 1. 자리비움 그림');
 say('── 2. 신고하기');
 {
   const menu = strip(grabFn('_seatCtxMenu'));
-  chk(/if\(seat\.remote\)\{ sep\(\); mk\('🚩 신고하기…', \(\)=>_openReportDialog\(seat\)\); \}/.test(menu), '남의 좌석 메뉴 끝 «🚩 신고하기…»(채널 조건 밖)');
+  chk(/if\(seat\.remote\)\{ sep\(\); mk\('🚩 신고하기…', \(\)=>reportMod\.openDialog\(seat\)\); \}/.test(menu), '남의 좌석 메뉴 끝 «🚩 신고하기…»(채널 조건 밖) — report.js 의 openDialog');
   const dlg = strip(grabFn('_openReportDialog'));
   chk(/REPORT_KINDS\.forEach/.test(dlg) && /\{ k:'char'[\s\S]*\{ k:'away'[\s\S]*\{ k:'nick'[\s\S]*\{ k:'etc'/.test(CODE), '사유 넷: 캐릭터 · 자리비움 그림 · 닉네임 · 기타');
   chk(/etc\.maxLength = 40/.test(dlg) && /r\.type = 'radio'/.test(dlg), '라디오 · 기타는 40자');
@@ -101,7 +105,8 @@ if(RULES){
 say('── 4. 이름표 우클릭');
 {
   const np = strip(grabFn('ensureSeatNamePlateEl'));
-  chk(/addEventListener\('contextmenu'/.test(np) && /_seatCtxMenu\(e, seat\)/.test(np), '이름표 우클릭 = 좌석 메뉴');
+  /* 이름표(overhead.js)는 메뉴를 갈고리(setSeatMenu → _seatMenuFn)로 받는다 — app.js 가 메뉴를 만든 뒤 잇는다(C 구역 떼기 w4 · 순환 끊기) */
+  chk(/addEventListener\('contextmenu'/.test(np) && /_seatMenuFn\(e, seat\)/.test(np) && /setSeatMenu\(\(\.\.\.a\)=>(?:seatMenuMod\.)?_seatCtxMenu\(\.\.\.a\)\)/.test(SRC), '이름표 우클릭 = 좌석 메뉴(갈고리로 잇는다)');
   chk(/officeMode && seat\.remote\) return/.test(np) && /_flyAiming/.test(np) && /_bonkAiming/.test(np), '조준 중 · 회사원 모드(남) 게이트는 캔버스와 같게');
   chk(/\.seat-nameplate\{[^}]*pointer-events:auto/.test(HTML), '이름표가 클릭을 받는다(CSS)');
   chk(/const UI_HIT_SEL = '[^']*\.seat-nameplate'/.test(SRC), 'UI_HIT_SEL 에 .seat-nameplate(실행 화면 클릭 통과 방지)');

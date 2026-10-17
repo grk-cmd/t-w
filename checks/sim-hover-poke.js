@@ -9,6 +9,7 @@
    ・7절: package.json build.files 에 main 이 부르는 루트 모듈이 다 있다(빠지면 설치본이 안 켜진다)
    [실행] hover-poke.js · main.js · app.js · package.json 이 있는 폴더에서(러너가 평평하게 펼친다). */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -21,7 +22,7 @@ for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 
 const mod = { exports: {} };
 new Function('module', 'exports', 'require', SRC['hover-poke.js'])(mod, mod.exports, require);
 const H = mod.exports;
-const MAIN = SRC['main.js'], APP = SRC['app.js'];
+const MAIN = SRC['main.js'], APP = _joinRenderer(SRC['app.js']);
 const fnBody = (name) => (MAIN.match(new RegExp('function ' + name + '\\([^)]*\\)\\{[\\s\\S]*?\\n\\}')) || [''])[0];
 
 say('── 1. shouldPoll — 돌아야 할 때만 돈다');
@@ -171,11 +172,15 @@ say('── 5. main.js 배선 · 보호 장치 그대로');
 
 say('── 6. app.js 보호 장치 그대로');
 {
-  const kick = (APP.match(/window\.__mouseKick = function\(offOverlay\)\{[\s\S]*?\n    \};/) || [''])[0];
-  chk(/if\(_penAppFocused\)\{[\s\S]*?return;\s*\}/.test(kick), '★ 사다리는 펜 앱이면 건너뛴다(그리는 중 포커스 뺏김 방지)');
-  chk(/if\(_lastPokePen && _lastPokeAt && now - _lastPokeAt < 3000\) return;/.test(kick), '  pen=false 재판정은 생존 신호가 아니다 — 호버 찌르기가 사다리 시계를 되감지 않는다');
+  // 10-16 제보 13 에서 둘째 인자 onUI 가 붙었다 — 인자 목록은 어느 쪽이든 받는다(판정 무변경)
+  const kick = (APP.match(/window\.__mouseKick = function\(offOverlay(?:, onUI)?\)\{[\s\S]*?\n    \};/) || [''])[0];
+  /* 사다리 판단은 click-through-policy.js(kickStep)로 묶였다 — 사실을 넘기는 줄과 정책 결과를 같이 본다(판정은 그대로) */
+  const POL = (() => { const t = read('click-through-policy.js') || read('../app/parts/launcher/click-through-policy.js'); if(!t) return null; const m = { exports: {} }; new Function('module', 'exports', 'window', t)(m, m.exports, undefined); return m.exports; })();
+  const K = (o) => POL ? POL.kickStep(Object.assign({ ignoreSent: true, offOverlay: false, penApp: false, now: 100000, lastKickAt: 0, lastMoveSeen: 0, lastPokePen: false, lastPokeAt: 0, stage: 0 }, o)).act : '?';
+  chk(/penApp: _penAppFocused\b/.test(kick) && /if\(k\.act === 'skip-pen'\)\{[\s\S]*?return;\s*\}/.test(kick) && K({ penApp: true }) === 'skip-pen', '★ 사다리는 펜 앱이면 건너뛴다(그리는 중 포커스 뺏김 방지)');
+  chk(/lastPokePen: _lastPokePen, lastPokeAt: _lastPokeAt/.test(kick) && K({ lastPokePen: false, lastPokeAt: 99000 }) === 'rearm' && K({ lastPokePen: true, lastPokeAt: 99000 }) === 'none', '  pen=false 재판정은 생존 신호가 아니다 — 호버 찌르기가 사다리 시계를 되감지 않는다');
   chk(/_notePoke\(pt && pt\.pen\);/.test(APP), '  재판정 수신은 _notePoke 로만 기록');
-  chk(/_ignoreDebounce = setTimeout\(\(\)=>\{ _ignoreDebounce = null; _sendIgnore\(true\); \}, 150\);/.test(APP), '  통과 복귀 150ms 디바운스 그대로');
+  chk(/_ignoreDebounce = setTimeout\(\(\)=>\{ _ignoreDebounce = null; _sendIgnore\(true\); \}, clickPolicy\.PASS_DEBOUNCE_MS\);/.test(APP) && POL && POL.PASS_DEBOUNCE_MS === 150, '  통과 복귀 150ms 디바운스 그대로');
 }
 
 say('── 7. package.json — main 이 부르는 루트 모듈이 설치본에 들어간다');

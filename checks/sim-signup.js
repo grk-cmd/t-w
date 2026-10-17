@@ -29,7 +29,8 @@ let pass = 0, fail = 0;
 const say = s => console.log(s);
 const chk = (c, m) => { if (c) { pass++; say('  ✓ ' + m); } else { fail++; say('  ✗ ' + m); } };
 
-const APP = fs.readFileSync('app.js', 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const APP = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const FI  = fs.readFileSync('firebase-init.js', 'utf8');
 
 /* 함수 본문 떼어 오기 — `function 이름(` 부터 짝 맞는 `}` 까지. 문자열·주석 안의 괄호는 이 파일들에선 짝이 맞는다. */
@@ -525,7 +526,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
   chk(/rgba\(0,0,0,\.45\)/.test(IM), '배경 반투명(뒤의 앱은 그대로)');
   chk(/#deviceSessionOverlay, #existingSignupOverlay,/.test(APP), '★ 클릭 통과 목록(UI_HIT_SEL)에 등록 — 없으면 투명 창에서 클릭이 빠진다');
   chk(/checkInviteGate\(\)\s*\.then\(\(\)=>\{ refreshInviteBtn\(\); return _existingSignupCheck\(\); \}\)/.test(APP), '초대 게이트를 지난 뒤 한 번 판정한다');
-  chk(/const EXISTING_SIGNUP_ENABLED = true;/.test(APP), '스위치 켜짐');
+  chk(/function existingSignupOn\(\)\{ const s = _rcStore\(\); return s \? s\.existingSignup\(\) : true; \}/.test(APP), '스위치 — 원격 설정 config/flags/existingSignup(없으면 켜짐)');
   const needI = ['function getMyUserId(', 'function genFriendCodeCandidate(', 'function _signupPendingSave(', 'async function _signupClaimCode(',
     'async function _existingSignupCode(', 'async function _existingSignupNeed(', 'async function _existingSignupDoPassword('];
   const missI = needI.filter(h => !takeFn(APP, h));
@@ -553,7 +554,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       Object.defineProperty(globalThis, 'firebaseAPI', { get: () => w.firebaseAPI, configurable: true });
       const src4 = [
         "const MY_USER_ID_KEY = 'tw.myUserId'; const MY_FRIEND_CODE_KEY = 'tw.myFriendCode'; const LOGIN_EMAIL_KEY = 'tw.loginEmail'; const LOGIN_UID_KEY = 'tw.loginUid'; const SIGNUP_PENDING_KEY = 'tw.signupPending';",
-        "const EXISTING_SIGNUP_ENABLED = " + (o.off ? 'false' : 'true') + ";",
+        "function existingSignupOn(){ return " + (o.off ? 'false' : 'true') + "; }",
         "function _loginLocalSnapshot(){ return { v:1 }; }",
         ...needI.map(h => takeFn(APP, h)),
         'return { need:_existingSignupNeed, go:_existingSignupDoPassword };',
@@ -964,7 +965,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     ['miBack','miAvatar','miAvatarImg','miAvatarPh','miNick','miLv','miNameEdit','miNameInput','miNameSave','miCode','miCopy','miTabBox','miTabTrash','miTabAcct',
      'miPageBox','miBoxCount','miBoxList','miBoxEmpty','miCodeLoad','miPageAcct'].forEach(id => chk(MI.includes('id="' + id + '"'), '  #' + id));
     chk(/id="miAvatar" style="width:44px;height:44px;/.test(MI), '★ 머리는 작게 — 사진 44px(사용자 요청 · 면적 줄임)');
-    chk(/<span id="miLv"><\/span>/.test(MI) && /const lv = \$e\('miLv'\); if\(lv\)\{[^\n]*_plFillLv\(lv, n(, st)?\)/.test(A), '  레벨 배지는 친구 목록과 같은 _plFillLv(개정 46)');
+    chk(/<span id="miLv"><\/span>/.test(MI) && /const lv = \$e\('miLv'\); if\(lv\)\{[^\n]*plMod\.fillLv\(lv, n(, st)?\)/.test(A), '  레벨 배지는 친구 목록과 같은 _plFillLv(개정 46 · playlist.js 로 옮겨 plMod.fillLv — 앱 FSD 16번)');
     chk(/id="miAvatar" style="[^"]*border:1px solid;[^"]*var\(--win-lo-2\) var\(--win-hi\)/.test(MI) && !/id="miAvatar"[^>]*#111/.test(MI), '  사진 틀은 테마 베벨(개정 46)');
     chk(/id="miTabTrash"[^>]*display:none/.test(MI), '  휴지통 탭은 처음엔 숨김 — 보관함이 열린 PC 에서 코드가 연다(12절 · 개정 49)');
     /* 보관함 — 넣은 캐릭터만 */
@@ -1030,10 +1031,14 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const leftA = gone.filter(id => A.includes("getElementById('" + id + "')") || A.includes("$('" + id + "')"));
     chk(!leftH.length && !leftA.length, '★ 걷은 것(설정 › 계정 탭 · 로그인 전 얼굴 · 되찾기 · 이전/연동/해제)이 없다' + (leftH.concat(leftA).length ? ' — ' + leftH.concat(leftA).join(' ') : ''));
     chk(!/initAccountTransfer|firebaseAPI\.setTransferHash|firebaseAPI\.verifyTransfer|firebaseAPI\.authRebindUserCode|recCandidates/.test(Ac), '  이전 · 연동 · 되찾기 호출이 없다');
-    chk(count(A, /async function _sha256Hex\(/g) === 1 && /async function _sha256Hex\(s\)\{[\s\S]{0,600}catch\(e\)\{ return null; \}/.test(A), '  _sha256Hex 는 한 벌 · 실패하면 null');
+    /* _sha256Hex 는 관리자 모드와 함께 admin/admin-mode.js 로 옮겼다(관리자 코드 admin 폴더 7번) — app.js + 그 파일에서 한 벌 */
+    const _AM = ['admin-mode.js', 'parts/admin/admin-mode.js', 'app/parts/admin/admin-mode.js'].map(f => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return ''; } }).find(Boolean) || '';
+    const _AH = A + '\n' + _AM;
+    chk(count(_AH, /async function _sha256Hex\(/g) === 1 && /async function _sha256Hex\(s\)\{[\s\S]{0,600}catch\(e\)\{ return null; \}/.test(_AH), '  _sha256Hex 는 한 벌 · 실패하면 null');
     const tabs = takeFn(A, 'function setProgSettingsTab(') || '';
     chk(!!tabs && !/account/.test(tabs.replace(/\/\/.*$/mg, '')) && !/설정 → 계정|설정 › 계정/.test(Ac), '  설정 탭에 계정 없음 · 없어진 [설정 › 계정]을 가리키는 안내 없음');
-    const gateUI = A.slice(A.indexOf('(function initAccountLoginUI('), A.indexOf('function _acctRelaunchAfterDetach('));
+    const _iLU = A.indexOf('(function initAccountLoginUI(');   // 덩이 끝은 그 즉시 실행 함수의 닫는 줄(«다시 켜기» 도우미는 계정 핵심 상태로 옮겼다 — 모듈 순환 끊기 5)
+    const gateUI = _iLU < 0 ? '' : A.slice(_iLU, A.indexOf('\n})();', _iLU));
     chk(/const gate = \$\('inviteGateGoogleBtn'\)/.test(gateUI) && /const runLogin =/.test(gateUI), '  게이트 H 의 구글 버튼 처리는 남았다');
     /* 계정 C4 순서 */
     const iPA = MI.indexOf('id="miPageAcct"'), iAM = MI.indexOf('<div id="acctMethods"'), iSB = MI.indexOf('id="acctSyncBox"'), iLO = MI.indexOf('<button id="acctLogoutBtn"'), iLD = MI.indexOf('id="acctLogoutDone"');
@@ -1074,7 +1079,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const st = takeFn(A, 'function _miSetTab(') || '';
     chk(/const trashOn = _miTrashOn\(\);/.test(st) && /tab === 'trash' && trashOn/.test(st) && /tt\.style\.display = trashOn \? '' : 'none'/.test(st) && /\['miTabTrash','trash'\]/.test(st) && /_miRenderTrash\(\)/.test(st),
       '★ 휴지통 탭은 보관함이 열린 PC 에서만 보이고 열린다(스위치 · 첫 채택 뒤) — 아니면 보관함으로');
-    chk(/function _miTrashOn\(\)\{ return typeof _charsActive === 'function' && _charsActive\(\); \}/.test(A), '  «열림» 판정은 _charsActive 하나');
+    chk(/function _miTrashOn\(\)\{ return _charsActive\(\); \}/.test(A), '  «열림» 판정은 _charsActive 하나');
     const ld = takeFn(A, 'async function _miTrashLoad(') || '';
     chk(/firebaseAPI\.loadCharsTrashAll\(uid\)/.test(ld) && /_charsTrashView\(t, _charsBoxGet\(\), _slotsNow\(\)\)/.test(ld) && /_miTrashErr = \(t === null\)/.test(ld), '  읽기는 loadCharsTrashAll · 고르기는 _charsTrashView(보관함 사본 기준) · 읽기 실패는 따로 알린다');
     chk(/_miTrashLoad\(\);/.test(takeFn(A, 'function openMyInfo(') || '') && /on\('miTabTrash', \(\) => \{[^\n]*_miSetTab\('trash'\); _miTrashLoad\(\); \}\)/.test(A), '  [내 정보]를 열 때 · 탭을 누를 때 다시 읽는다(«휴지통 N»)');
@@ -1171,14 +1176,15 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     chk(G.indexOf('_switchPrepare(before, r.userCode)') > 0 && G.indexOf('_switchPrepare(before, r.userCode)') < G.indexOf('if(!_setMyUserId(r.userCode))'), '★ 구글 로그인: 정리 → uid 기록 순서');
     chk(FC.indexOf('_switchPrepare(before, r.userCode)') > 0 && FC.indexOf('_switchPrepare(before, r.userCode)') < FC.indexOf('_setMyUserId(r.userCode)'), '★ 친구 코드 로그인: 정리 → uid 기록 순서');
     chk(/'tw\.charsLinked'/.test((A.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || ''), '  F 표시는 로그아웃 목록에 (다음 사람에게 띄우지 않는다)');
-    chk(/_charsBoot\('boot'\)\.then\(r => \{ if\(r && r\.ok\) _charsLinkedMaybeShow\(\); \}/.test(A), '  F 는 부팅 _charsBoot 가 성공한 뒤에만');
+    chk(/_charsBoot\('boot'\)\.then\(r => \{ if\(r && r\.ok\) _bootLinkedFns\.forEach\(fn=>fn\(\)\); \}/.test(A) && /onBootLinked\(\(\)=>(accountMod\.)?_charsLinkedMaybeShow\(\)\)/.test(A), '  F 는 부팅 _charsBoot 가 성공한 뒤에만(보관함 onBootLinked 에 계정이 건다)');
     chk(/#needLoginOverlay, #charsLinkedOverlay/.test(A), '  F 창이 클릭 통과 목록(UI_HIT_SEL)에');
     /* 마크업 */
     const ids = ['charsLinkedOverlay','clCount','clCodeWrap','clCode','clThumbs','clCnt','clBox','clSplit','clFull','clNote','clOpen','clOk'];
     chk(ids.every(id => H.includes('id="' + id + '"')), '★ F 마크업 id 열둘');
     const FM = H.slice(H.indexOf('<div id="charsLinkedOverlay"'), H.indexOf('<div id="needLoginOverlay"'));
     chk(/캐릭터를 계정에 연동했어요/.test(FM) && !/마리/.test(FM) && /아무것도 지워지지 않았어요/.test(FM), '  제목 · «마리» 없음 · 안내 줄');
-    chk(/z-index:94/.test(FM), '  게이트(96~97)보다 아래');
+    chk((() => { const Z = require('./sim-z-layers.js'), T = Z.parseTable(H), m = /z-index:([^;]+);/.exec(FM), v = Z.resolveZ(H, m && m[1]);   // 창 층 표의 이름으로 적혀 있다 — 풀어서 견준다
+      return v != null && v < T['--z-gate-signup'] && v < T['--z-gate-done']; })(), '  게이트(가입 · 로그인 · 가입 완료)보다 아래');
     if (fPlan && fPrep && fShow && fTomb && fTime){
       /* _charsLinkPlan — 순수 */
       const P = new Function(fTomb + '\n' + fTime + '\n' + fPlan + '\nreturn _charsLinkPlan;')();
@@ -1431,10 +1437,11 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const hd = takeFn(A, 'function _miRenderHead(') || '';
     chk(/_miRenderRank\(\);/.test(hd), '★ 머리를 그릴 때 순위도(비동기)');
     const sy = takeFn(A, 'async function syncFocusTotalToServer(') || '';
-    const iOk = sy.indexOf("if(!r || !r.ok){ _focusSyncFailed(reason, r, delta); return; }"), iPush = sy.indexOf('_lbPush(uid, server)');
-    chk(iOk > 0 && iPush > iOk && !/_lbPush\([^)]*(_focusTotalSec|mine)/.test(sy), '★ 동기화가 **성공한 뒤** · 로컬값이 아니라 서버 총합(server)을 올린다');
+    /* 올리는 일은 «서버와 맞췄다» 알림(onTotalSynced)에 내 정보 _lbPush 가 걸려서 한다(모듈 순환 끊기 5) — 알림을 부르는 자리 · 넘기는 값 · 건 줄을 본다 */
+    const iOk = sy.indexOf("if(!r || !r.ok){ _focusSyncFailed(reason, r, delta); return; }"), iPush = sy.indexOf('fn(uid, server)');
+    chk(iOk > 0 && iPush > iOk && !/fn\([^)]*(_focusTotalSec|mine)/.test(sy) && /onTotalSynced\(\(uid, sec\)=>(myInfoMod\.)?_lbPush\(uid, sec\)\);/.test(A), '★ 동기화가 **성공한 뒤** · 로컬값이 아니라 서버 총합(server)을 올린다(«맞췄다» 알림에 _lbPush 가 걸려 있다)');
     chk((A.match(/_lbPush\(/g) || []).length === 2, '  올리는 곳은 한 곳(정의 + 동기화 뒤 한 줄)');
-    const rk = takeFn(A, 'function rankOf(') || '', rl = takeFn(A, 'function rankLabel(') || '', rr = takeFn(A, 'function _miRenderRank(') || '', ap = takeFn(A, 'function _miApplyRank(') || '', lp = takeFn(A, 'function _lbPush(') || '';
+    const rk = takeFn(A, 'function rankOf(') || '', rl = takeFn(A, 'function rankLabel(') || '', rr = takeFn(A, 'function _miRenderRank(') || '', ap = takeFn(A, 'function _miApplyRank(') || '', lp = takeFn(A, 'function _lbPush(') || '', lf = takeFn(A, 'async function _lbFetchRank(') || '';
     chk(rk && rl && rr && ap && lp && ![rk, rl, rr, ap, lp].some(f => /myFocusShow|getFocusLevel|focusCycleOf/.test(f)),
       '★ 순위는 누적초 하나 — 표시 레벨·해금 레벨·회차를 안 쓴다');
     /* firebase-init */
@@ -1450,14 +1457,14 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     else {
       const lb = RU.leaderboard || {}, row = lb.$userId || {};
       const own = ((RU.users || {}).$userId || {}).focus || {};
-      chk(lb['.read'] === "query.orderByChild == 'sec' && query.limitToLast <= 100" && lb['.indexOn'] === 'sec', '★ 목록 읽기는 sec 정렬 · 100줄 이하만 · 색인 sec');
+      chk(lb['.read'] === "(query.orderByChild == 'sec' && query.limitToLast <= 100) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)" && lb['.indexOn'] === 'sec', '★ 목록 읽기는 sec 정렬 · 100줄 이하만(서버 봇 apiBots 는 사본용 통째 읽기) · 색인 sec');
       chk(!!row['.write'] && row['.write'] === String(own['.write'] || '').replace(/\$userId/g, '$userId'), '★ 쓰기는 본인만 — users/$userId/focus 와 같은 소유권 식');
       chk(row.$other && row.$other['.validate'] === false && /hasChildren\(\['sec','ts'\]\)/.test(row['.validate'] || ''), '  sec·ts 둘 다 · 다른 키 거부($other)');
       chk(/<= 359640000$/.test((row.sec || {})['.validate'] || '') && /newData\.val\(\) >= 0/.test((row.sec || {})['.validate'] || ''), '  sec 0 ~ 누적 상한');
       chk(/newData\.val\(\) <= now \+ 60000/.test((row.ts || {})['.validate'] || ''), '  ts ≤ now + 60초');
     }
     /* 떼어 와 돌린다 — rankOf · rankLabel · 그리기 */
-    if (rk && rl && rr && ap && lp){
+    if (rk && rl && rr && ap && lp && lf){
       const mkEl = () => { const cl = new Set(); return { style: { display: 'none', marginBottom: '8px' }, textContent: '', classList: { toggle(c, on){ on ? cl.add(c) : cl.delete(c); }, has: c => cl.has(c) } }; };
       const mk = (opts) => {
         const els = {}; ['miRank','miRankV','miHalo','miCrown','miTopBar'].forEach(id => els[id] = mkEl());
@@ -1466,6 +1473,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
           fetchLeaderboardTop(){ env.calls++; return Promise.resolve(typeof env.rows === 'function' ? env.rows() : env.rows); },
           setLeaderboardSec(u, v){ env.sets.push([u, v]); return Promise.resolve({ ok: true, same: false }); },
         };
+        if ('myRank' in opts) fb.fetchMyRank = (u) => { env.rankCalls = (env.rankCalls || 0) + 1; return Promise.resolve(opts.myRank); };
         const f = new Function('document', 'window', 'env', `
           const firebaseAPI = window.firebaseAPI; const Date = { now: () => env.now };
           const _acctDetached = false;
@@ -1474,12 +1482,21 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
           const LB_TOP_N = 100, LB_CACHE_MS = 60*1000;
           ${rk}\n${rl}
           let _lbSent = null, _miRankCache = null, _miRankSeq = 0;
-          ${lp}\n${ap}\n${rr}
+          ${lp}\n${ap}\n${lf}\n${rr}
           return { rankOf, rankLabel, render: _miRenderRank, push: _lbPush, cache: () => _miRankCache };`);
         return Object.assign(f({ getElementById: id => els[id] || null }, { firebaseAPI: fb }, env), { els, env });
       };
       const flush = () => new Promise(r => setImmediate(r));
       const v0 = mk({ rows: [], uid: 'uMe' });
+      {
+        /* 🌐 API 한 줄(fetchMyRank) 먼저 — 받으면 100줄 안 읽음 · undefined(못 받음)면 예전처럼 100줄 → rankOf */
+        const a = mk({ rows: [{ uid: 'uMe', sec: 1, ts: 1 }], uid: 'uMe', myRank: 2 }); a.render(); await flush(); await flush();
+        chk(a.env.rankCalls === 1 && a.env.calls === 0 && a.els.miRankV.textContent === '🥈 2위', '★ 내 순위는 API 한 줄 먼저 — 받으면 100줄 안 읽고 같은 모양(🥈 2위)');
+        const b = mk({ rows: [{ uid: 'uMe', sec: 1, ts: 1 }], uid: 'uMe', myRank: null }); b.render(); await flush(); await flush();
+        chk(b.env.calls === 0 && b.els.miRank.style.display === 'none', '  ↳ API 가 «표 밖»(null)이면 자리 비움 · 100줄 안 읽음');
+        const c = mk({ rows: [{ uid: 'uMe', sec: 1, ts: 1 }], uid: 'uMe', myRank: undefined }); c.render(); await flush(); await flush();
+        chk(c.env.rankCalls === 1 && c.env.calls === 1 && c.els.miRankV.textContent === '🥇 1위', '  ↳ API 를 못 받으면(undefined) 예전처럼 100줄 받아 rankOf');
+      }
       /* rankOf */
       const R100 = Array.from({ length: 100 }, (_, i) => ({ uid: 'u' + i, sec: 100000 - i, ts: 5 }));
       chk(v0.rankOf(R100, 'u0') === 1 && v0.rankOf(R100, 'u56') === 57 && v0.rankOf(R100, 'u99') === 100, '★ 누적초 내림차순 — 1 · 57 · 100위');

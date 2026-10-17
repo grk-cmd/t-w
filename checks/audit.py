@@ -116,6 +116,12 @@ section('검사 2 · 화이트리스트에 빠진 창 (클릭 뚫림)')
 """
 _wl_m = re.search(r"const\s+UI_HIT_SEL\s*=\s*'([^']+)'", app_code)
 if not _wl_m:
+    # 🖥️ 데스크탑 실행 화면 덩이(클릭 통과 · UI_HIT_SEL 정의)는 desktop-run.js 로 옮겼다(앱 FSD 32번) — 정의는 거기서 찾는다
+    for _dp in ('desktop-run.js', os.path.join(os.path.dirname(APP), 'desktop-run.js'), os.path.join('app', 'parts', 'desktop-run.js')):
+        if os.path.exists(_dp):
+            _wl_m = re.search(r"const\s+UI_HIT_SEL\s*=\s*'([^']+)'", _strip_js_comments(open(_dp, encoding='utf-8').read()))
+            break
+if not _wl_m:
     problems.append('검사2: UI_HIT_SEL 정의를 찾지 못함 — 개명·이동됐다면 이 검사도 같이 고칠 것')
     print('  ⚠️ UI_HIT_SEL 정의 자체를 못 찾음 (위 주석의 「닮은 목록 다섯」으로 옮기지 말 것)')
 else:
@@ -355,8 +361,23 @@ _callers = {}
 # gacha.js — 🎰 파츠 가챠 코어 · 보관함(앱 FSD 8번). loadGachaOwned · saveGachaOwned 를 부른다.
 # myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오(앱 FSD 7-2). saveMyHome · uploadUserImage 를 부른다.
 # room-invite-ui.js — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기(앱 FSD 10번). sendRoomInvite · subscribeRoomInvites · clearRoomInvite 를 부른다.
-for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js'):
-    try: _cs = _strip_js_comments(open(_cf, encoding='utf-8').read())
+# myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). removeFriend · getMallangGifts · setMallangGiftStarred · deleteInboxBroadcast · deleteInboxMessage · setInboxBroadcastPinned · markInboxRead 를 부른다.
+# playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). publishMyPlaylist · removeMyPlaylist · fetchPlaylistCard · fetchRandomPlaylist · fetchPlaylistOf 를 부른다.
+# admin/*.js — 🛠️ 관리자 코드는 parts/admin/ 에 모은다(관리자 코드 admin 폴더). 러너 스테이징은 한 층만 펼쳐서 이 폴더가
+#   parts/admin/ 로 남는다 — 이름만으로 못 열면 그 자리도 본다(_open_part). admin-license-bulk.js 는 createLicense · sendInboxMessage ·
+#   lookupFriendCode · listLicenses · getUserNameById · issueSecretRoom · expireSecretRoom · getSecretRoomPub · getMySecretRoom ·
+#   setMySecretRoom · getUserLastSeen · getUserFriendCode 를 부른다. admin-console.js 는 cleanupCatalogBase64 · analyzeCatalog ·
+#   cleanupGhostRooms · reclaimInvitesSince · publishPart · publishDesk · publishItem 을 부른다. admin-license.js · admin-notice.js ·
+#   admin-category.js(관리자 3번)는 라이선스 발급 · 요청 · 공지 · 카테고리 쓰기를 부른다. admin-part-register.js(4번)는 publishPart ·
+#   publishDesk · publishItem 등 카탈로그 쓰기를 부른다. admin-users.js · admin-launcher.js(5번)는 통계 · 초대권 지급 · 방 종료 ·
+#   유령 방 · 게임 설정 · 광고 배너 게시를 부른다. report.js · admin-report.js(앱 FSD 11번)는 reportUser · listReports ·
+#   getUserBrief · setAwayImg · deleteStorageUrl · clearReports 를 부른다. my-info.js(앱 FSD 17번 — 🪪 [내 정보] · 🏆 랭킹 · 계정 탭 로그인) · chars.js(18번 — 🧬 캐릭터 보관함) · slot-sync.js(19번 — ☁️ 슬롯 기기 간 동기화) · away-pic.js · myhome-ui.js(22번) · tricks.js(25번 — 💃 깜짝쇼 · 🪄 때리기) · ride-bench.js(30번 — 🗼 올라타기 · 🪑 멀티좌석) · part-paint.js(21번 — 🖍️ 파츠에 직접 그리기) · focus-level.js(26번 — ⭐ 포커스 레벨 · 공유 · 태블릿) · chat-ui.js(24번 — 💬 채팅 날리기 · 탭 · 복사 · 이모티콘) · license-gate.js(31번 — 🎟️ 초대장 · 라이선스) · account.js(23번 — 🔑 계정) · wardrobe.js(29번 — 🎨 꾸미기 창) · settings-panel.js(27번 — ⚙ 설정 패널) · desktop-run.js(32번 — 🖥️ 데스크탑 실행 화면) · room-entry.js(33번 — 🛰 방 서버 · 입장 · 방 개수) · overhead.js(34번 — 💬 머리 위 말풍선 · 🏷️ 이름표)도 본다.
+def _open_part(name):
+    for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):
+        if os.path.exists(_p): return open(_p, encoding='utf-8')
+    return open(name, encoding='utf-8')
+for _cf in ('app.js', 'myhome-desktop.js', 'mallang.js', 'animal.js', 'scheduler.js', 'weekly-challenge.js', 'purikura-ui.js', 'guestbook.js', 'friend-manage.js', 'bug-board-ui.js', 'gacha.js', 'myhome-edit.js', 'room-invite-ui.js', 'myhome-inbox.js', 'playlist.js', 'admin-license-bulk.js', 'admin-console.js', 'admin-license.js', 'admin-notice.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'admin-launcher.js', 'report.js', 'admin-report.js', 'my-info.js', 'chars.js', 'slot-sync.js', 'away-pic.js', 'myhome-ui.js', 'tricks.js', 'ride-bench.js', 'part-paint.js', 'focus-level.js', 'chat-ui.js', 'license-gate.js', 'account.js', 'wardrobe.js', 'settings-panel.js', 'desktop-run.js', 'room-entry.js', 'overhead.js', 'room-sync.js', 'status-chip.js', 'premium-assets.js', 'char-code.js', 'dice-games.js', 'program-settings.js', 'chat-prefs.js', 'rich-text.js', 'win-stack.js', 'sfx.js', 'face-heal.js', 'slot-save.js', 'interaction-desk.js', 'ad-banner.js', 'license-request.js', 'fn-keys.js', 'hidden-seats.js', 'theme-ui.js', 'myhome-sticker-layout.js', 'myhome-diag.js', 'myhome-visit.js', 'exp-bar.js', 'focus-share.js', 'focus-total.js', 'commission.js', 'code-crypto.js', 'add-friend.js', 'floaters.js', 'roulette.js', 'chat-lock.js', 'device-lost.js', 'demoji-palette.js', 'outside-close.js', 'launcher-chrome.js', 'myhome-links.js', 'async-prompt.js', 'myhome-page.js', 'theme.js', 'asset-code.js', 'license-key.js', 'license-ui.js', 'race-picker.js', 'wardrobe-panel.js', 'lv-tier.js', 'myhome-init.js'):
+    try: _cs = _strip_js_comments(_open_part(_cf).read())
     except Exception: continue
     for _mm in set(re.findall(r'firebaseAPI\.(\w+)', _cs)):
         _callers.setdefault(_mm, []).append(_cf)
@@ -628,7 +649,13 @@ section('검사 17 · JS 가 붙이는 레벨 티어/표식 클래스에 CSS 규
 # ⚠️ 티어 개수를 app.js 의 LV_TIERS 에서 읽는다 — 여기에 12 를 박아두면 티어를 늘릴 때
 #    검사가 조용히 낡는다(이 검사가 막으려는 실패 양상과 똑같아진다).
 _sty17 = re.search(r'<style>(.*?)</style>', html, re.S)
-_tbl17 = re.search(r'LV_TIERS\s*=\s*\[(.*?)\]\s*;', app, re.S)
+# 🏅 레벨 티어 구역은 lv-tier.js 로 옮겼다(앱 FSD 48번) — 표와 클래스 함수는 app.js 뒤에 그 파일 글을 이어 읽는다
+_app17 = app
+for _lp in ('lv-tier.js', os.path.join(os.path.dirname(APP), 'lv-tier.js'), os.path.join('app', 'parts', 'lv-tier.js')):
+    if os.path.exists(_lp):
+        _app17 = app + '\n' + open(_lp, encoding='utf-8').read()
+        break
+_tbl17 = re.search(r'LV_TIERS\s*=\s*\[(.*?)\]\s*;', _app17, re.S)
 if not _sty17 or not _tbl17:
     problems.append('검사17: <style> 또는 app.js 의 LV_TIERS 표를 못 찾음 — 코드 구조 변경?')
     print('  ⚠️ <style> / LV_TIERS 를 못 찾음')
@@ -645,7 +672,7 @@ else:
             if _v not in _m17.group(1):
                 _miss17.append('t%d 블록에 %s 가 없음' % (_t, _v))
     # (b) JS 가 붙이는 표식 클래스(lvBadgeClass·lvBarClass 의 문자열 리터럴)에 규칙이 있는가
-    _js17 = '\n'.join(re.findall(r'function lv(?:BadgeClass|BarClass)\([^)]*\)\{(.*?)\n\}', app, re.S))
+    _js17 = '\n'.join(re.findall(r'function lv(?:BadgeClass|BarClass)\([^)]*\)\{(.*?)\n\}', _app17, re.S))
     _marks17 = sorted(set(re.findall(r"'\s+([a-z-]+)'", _js17)))
     for _mk in _marks17:
         if not re.search(r'\.(?:mh-flv|seat-exp)\.%s\b' % re.escape(_mk), _css17):
@@ -667,7 +694,7 @@ else:
     # (e) 🌟 회차(개정 71) — lv-star 는 LV_TIERS 에 없어서 (a)(b) 가 안 센다. 따로 본다.
     #     JS 가 lvStarBadgeClass/lvStarBarClass 로 붙이는 클래스마다 규칙이 있는가 · 그 블록이 두 토큰을 --pre-c 에서 내려주는가 ·
     #     별 두 자리(.mh-flv .pre · .seat-nameplate .np-star)가 있는가. 함수가 없으면(회차 전 판) 건너뛴다.
-    _star17 = re.findall(r"function lvStar(?:BadgeClass|BarClass)\(\)\{\s*return\s*'([^']*)'", app)
+    _star17 = re.findall(r"function lvStar(?:BadgeClass|BarClass)\(\)\{\s*return\s*'([^']*)'", _app17)
     if _star17:
         _mb17 = re.search(r'\.mh-flv\.lv-star\s*,\s*\.seat-exp\.lv-star\s*\{([^{}]*)\}', _css17)
         if not _mb17:
@@ -794,6 +821,12 @@ else:
 
 # ③ _mhLoadRT 가 읽는 쪽 sanitize 를 거치는가 (저장형 XSS 회귀 — 자세한 것은 sim-mh-sanitize.js)
 _m19b = re.search(r'function\s+_mhLoadRT\s*\([^)]*\)\s*\{(.*?)\n\}', app, re.S)
+if not _m19b:
+    # 🛡️ 리치 텍스트 구역은 rich-text.js 로 옮겼다(앱 FSD 42번) — 정의는 거기서 찾는다
+    for _rp in ('rich-text.js', os.path.join(os.path.dirname(APP), 'rich-text.js'), os.path.join('app', 'parts', 'rich-text.js')):
+        if os.path.exists(_rp):
+            _m19b = re.search(r'function\s+_mhLoadRT\s*\([^)]*\)\s*\{(.*?)\n\}', open(_rp, encoding='utf-8').read(), re.S)
+            break
 if not _m19b or '_mhSanitizeHtml' not in _m19b.group(1):
     _p19.append('_mhLoadRT 가 _mhSanitizeHtml 을 안 거칩니다 — 남의 bio·게시글이 씻기지 않고 그려집니다')
 else:
@@ -827,10 +860,31 @@ def _safe19(e):
     if re.fullmatch(r'[\d.]+', e): return True
     if re.fullmatch(r'\(?\s*[^\'"?]*\?\s*([\'"])[^\'"]*\1\s*:\s*([\'"])[^\'"]*\2\s*\)?', e): return True  # 글자리터럴 삼항
     if re.fullmatch(r'[A-Z][A-Z0-9_]{2,}', e): return True                                      # 대문자 상수
+    if re.fullmatch(r'[a-z]\w*Mod\.[A-Z][A-Z0-9_]{2,}', e): return True                        # 모듈로 옮긴 대문자 상수(앱 FSD — xxxMod.상수)
     if re.fullmatch(r'(i|j|k|n|idx|no|ii)', e): return True                                     # 반복 첨자
     return False
 _hit19 = []
-for _n19b, _l19 in enumerate(app_lines, 1):
+# myhome-inbox.js — 친구 목록 · 수령함 · 선물함 마크업(친구가 정한 이름 · 선물 글 · 공지 링크)을 app.js 에서 옮겼다(앱 FSD 15번).
+#   빼면 그 innerHTML 들이 이 검사의 시야에서 사라진다. 없으면(검사가 app.js 만 볼 때) 건너뛴다.
+_files19 = [('app.js', app_lines)]
+try: _files19.append(('myhome-inbox.js', open('myhome-inbox.js', encoding='utf-8').read().split('\n')))
+except Exception: pass
+# playlist.js — 🎵 플레이리스트 창(곡 행 · 담기 메뉴 · 반복 아이콘)을 app.js 에서 옮겼다(앱 FSD 16번). 곡 제목이 남의 입력이라 시야에 둔다.
+try: _files19.append(('playlist.js', open('playlist.js', encoding='utf-8').read().split('\n')))
+except Exception: pass
+# admin-license-bulk.js — 📄 엑셀 일괄 발급 미리보기 표(받는 사람 닉네임 · 파일에 적힌 메모)를 app.js 에서 옮겼다(관리자 코드 admin 폴더).
+try: _files19.append(('admin-license-bulk.js', _open_part('admin-license-bulk.js').read().split('\n')))
+except Exception: pass
+# admin-license.js · admin-category.js — 키 목록(메모) · 대기 요청(요청한 사람 이름) · 카테고리 칩 마크업을 app.js 에서 옮겼다(관리자 3번).
+# admin-part-register.js — 등록 창 카테고리 · 미리보기 마크업(관리자 4번).
+# admin-users.js — 📊 통계 창 마크업(숫자)(관리자 5번).
+# my-info.js — [내 정보] 머리 · 보관함 · 휴지통 줄(남의 것 아님 · 내 캐릭터 이름 · 섬네일)(앱 FSD 17번).
+# away-pic.js · myhome-ui.js — 자리비움 그림 · 마이홈 창 마크업(앱 FSD 22번).
+for _f19a in ('admin-license.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'my-info.js', 'away-pic.js', 'myhome-ui.js'):
+  try: _files19.append((_f19a, _open_part(_f19a).read().split('\n')))
+  except Exception: pass
+for _f19, _lines19 in _files19:
+  for _n19b, _l19 in enumerate(_lines19, 1):
     if '<' not in _l19: continue
     for _m in _SINK19.finditer(_l19):
         for _im in _INT19.finditer(_m.group(3)):
@@ -838,7 +892,7 @@ for _n19b, _l19 in enumerate(app_lines, 1):
             if not _e19 or _safe19(_e19): continue
             _key19 = _m.group(1).lower() + '|' + _e19
             if _key19 in _OK19: continue
-            _hit19.append('app.js:%d — %s' % (_n19b, _key19))
+            _hit19.append('%s:%d — %s' % (_f19, _n19b, _key19))
 if _hit19:
     for _h19 in _hit19:
         _p19.append('검사19: 속성값에 안 씻은 보간 — ' + _h19)

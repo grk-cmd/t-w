@@ -112,6 +112,19 @@ console.log('\n── 3. 새는 곳이 없는가');
       '봇 명단(apiBots)은 앱에서 읽지도 쓰지도 못한다 (콘솔에서만)');
   chk(isAdmin(r('licenses')) && isBot(r('licenses')) && !w('licenses'),
       '라이선스 전체 읽기는 관리자 또는 봇 — 봇에게 쓰기 길 없음');
+  // 웹 관리자 사용자 목록을 API 로 — 봇이 accountSnap · friendCodes 를 통째로 읽는다. 관리자 조건과 || 로 이어야 관리자 읽기가 안 막히고, 봇 조건은 목록 읽기 한 곳뿐.
+  // 운영 설정(config) · 관리자 작업 기록(adminLog) 도 같은 모양 — API 가 읽기 사본을 만든다(쓰기 원본은 그대로 Firebase · 관리자).
+  for (const [p, label] of [['accountSnap', '계정 요약(accountSnap)'], ['friendCodes', '친구코드 명단(friendCodes)'], ['config', '운영 설정(config)'], ['adminLog', '관리자 작업 기록(adminLog)']]) {
+    const rd = String(r(p));
+    chk(isAdmin(rd) && isBot(rd) && /\|\|/.test(rd) && !w(p) && !/apiBots/.test(JSON.stringify(at(p)).replace(rd, '')),
+        `${label} 전체 읽기는 관리자 또는 봇 — 봇은 아래 칸 읽기 · 쓰기 없음`);
+  }
+  // 공개 읽기 사본(파도타기 색인 · 랭킹) — 사람은 예전 쿼리 조건 그대로, 봇만 통째로 읽는다. 쓰기 · 아래 칸은 그대로.
+  const BOT = "(auth != null && root.child('apiBots').child(auth.uid).val() === true)";
+  chk(r('playlistIndex') === 'query.limitToLast <= 60 || ' + BOT && !/apiBots/.test(JSON.stringify(at('playlistIndex')).replace(String(r('playlistIndex')), '')),
+      '파도타기 색인(playlistIndex) 읽기 — 최근 60줄 쿼리 또는 봇 · 봇은 다른 칸 없음');
+  chk(r('leaderboard') === "(query.orderByChild == 'sec' && query.limitToLast <= 100) || " + BOT && !/apiBots/.test(JSON.stringify(at('leaderboard')).replace(String(r('leaderboard')), '')),
+      '랭킹(leaderboard) 읽기 — sec 정렬 100줄 쿼리 또는 봇 · 봇은 다른 칸 없음');
   chk(!!at('admins/$uid') && at('admins/$uid')['.write'] === false, '관리자 명단은 앱에서 쓸 수 없다 (콘솔에서만)');
   chk(r('srKey') === false && w('srKey') === false, '시크릿룸 발급 키는 그대로 잠겨 있다');
   chk(/srKey\/v/.test(String(w('secretRooms/$code'))), '시크릿룸 발급은 기존 키 방식 그대로다');
@@ -119,7 +132,7 @@ console.log('\n── 3. 새는 곳이 없는가');
 
 console.log('\n── 4. 앱이 거부를 조용히 넘기지 않는가');
 {
-  const src = fs.readFileSync('app.js', 'utf8');
+  const src = require('./sim-renderer-src.js').joinRenderer(fs.readFileSync('app.js', 'utf8'));   // 옮긴 모듈(shared/toast.js)을 «옮기기 전 app.js 글» 로 되살려 읽는다
   chk(/function _saveFailMsg/.test(src), '권한 거부와 네트워크 오류를 가르는 헬퍼가 있다');
   chk(/permission\[_-\]\?denied/i.test(src), 'PERMISSION_DENIED 를 알아본다');
   chk((src.match(/_saveFailMsg\(/g) || []).length >= 5,
@@ -128,14 +141,19 @@ console.log('\n── 4. 앱이 거부를 조용히 넘기지 않는가');
 
 console.log('\n── 5. 관리자 모드 진입 — 화면과 실제 권한이 어긋나지 않는가');
 {
-  const src = fs.readFileSync('app.js', 'utf8');
+  /* 관리자 모드 진입은 관리자 코드 admin 폴더 7번에서 admin/admin-mode.js 로 옮겼다 — 그 파일이 있으면 그쪽을 본다.
+     거기서는 isAdmin = true 가 setIsAdmin(true) 다(이 모듈이 isAdmin 을 바꾸는 단 한 곳). */
+  const _readOne = (...ns) => { for (const n of ns) { try { return fs.readFileSync(n, 'utf8'); } catch (_) {} } return ''; };
+  const AM = _readOne('admin-mode.js', 'parts/admin/admin-mode.js', 'app/parts/admin/admin-mode.js');
+  const src = AM || fs.readFileSync('app.js', 'utf8');
   const html = fs.readFileSync('desk-companion-prototype.html', 'utf8');
   const submit = src.slice(src.indexOf('async function _submitAdminPass'), src.indexOf('function exitAdmin'));
-  const trigger = src.slice(src.indexOf('function bindAdminTrigger'), src.indexOf('function setFaceMap'));
+  const trigger = src.slice(src.indexOf('function bindAdminTrigger'), AM ? src.indexOf('return { refreshAdminVisibility }') : src.indexOf('function setFaceMap'));
   const enter = src.slice(src.indexOf('function tryEnterAdmin'), src.indexOf('async function _submitAdminPass'));
 
   chk(/_myAuthUid\(\)/.test(submit), '비밀번호가 맞아도 로그인 여부를 확인한다');
-  chk(submit.indexOf('_myAuthUid()') < submit.indexOf('isAdmin = true'), '  ↳ 확인이 isAdmin 을 켜기 전에 온다');
+  { const _on = submit.search(/setIsAdmin\(true\)|isAdmin = true/);
+    chk(_on > 0 && submit.indexOf('_myAuthUid()') < _on, '  ↳ 확인이 isAdmin 을 켜기 전에 온다'); }
   chk(/구글 로그인이 필요해요/.test(submit), '로그인이 없으면 무엇이 필요한지 알려준다');
   chk(/authCurrentUid/.test(src) && !/getMyUserId\(\)[^\n]*admins/.test(src),
       '권한 판정에 앱 자체 id(getMyUserId)를 쓰지 않는다');

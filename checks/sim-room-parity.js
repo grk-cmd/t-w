@@ -6,12 +6,13 @@
  * 2. makeFirebaseProvider 의 메서드 ⊆ 서버 provider 의 메서드
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const NET = read('room-server-net.js'), APP = read('app.js');
+const NET = read('room-server-net.js'), APP = _joinRenderer(read('app.js'));
 for(const [n, v] of [['room-server-net.js', NET], ['app.js', APP]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }

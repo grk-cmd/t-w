@@ -14,12 +14,13 @@
      §4 맨 아래면 새 메시지에 따라 내려간다(_renderChatLog)
      §5 옛 CSS 를 넣으면 §1 · §2 가 빨강이 된다(검사가 실제로 잡는지) */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const say = console.log;
 let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const HTML = read('desk-companion-prototype.html'), APP = read('app.js');
+const HTML = read('desk-companion-prototype.html'), APP = _joinRenderer(read('app.js'));
 if (!HTML || !APP) { say('  ? 원본 못 찾음 — desk-companion-prototype.html · app.js'); process.exit(2); }
 
 /* 첫 <style> 블록만 — 창 안의 CSS 가 모두 여기 있다. 주석을 지워 주석 속 예시에 속지 않는다. */

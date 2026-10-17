@@ -20,9 +20,10 @@
       이쪽은 «게이트에 걸린 뒤 저장값이 어떻게 되는가» 를 본다. 한쪽만 보면 제보가 되살아난다.
    [실행] app.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 
 let pass = 0, fail = 0, huhs = 0;
 const say = (s) => console.log(s);

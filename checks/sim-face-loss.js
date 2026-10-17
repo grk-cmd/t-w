@@ -10,6 +10,7 @@
      이 검증기는 (1)을 강제로 일으키고, (3) 뒤에도 localStorage 원본이 살아 있는지 본다.
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -88,7 +89,7 @@ const probe = `
 const say = console.log;
 let warns = [];
 console.log = () => {}; console.warn = (...a) => { warns.push(a.map(String).join(' ')); };
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 console.log = say;
 

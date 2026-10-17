@@ -19,7 +19,8 @@
    [실행] app.js · firebase-init.js · firebase-database-rules.json 이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const FI  = fs.readFileSync('firebase-init.js', 'utf8');
 const RULES = JSON.parse(fs.readFileSync('firebase-database-rules.json', 'utf8'));
 
@@ -122,7 +123,9 @@ if(!block || !fSlotToObj || !fImg || !fSave || !fHash || !fCL || !fCS || !fOne){
       "const clearTimeout=()=>{}; const setInterval=()=>0;",
       "const getMyUserId=()=>env.uid; const _srvNow=()=>env.now;",
       "let creatorOpen=false;",
-      "const renderLauncher=()=>{ env.launcherRender++; }; const renderCharSlots=()=>{};",
+      "const renderLauncher=()=>{ env.launcherRender++; }; const slotsReplaced=()=>{};",
+      /* «저장 뒤» 알림 자리 — slot-save.js 와 같은 모양(동기화는 이 자리에 시각 · 올리기 예약을 건다 · 모듈 순환 끊기 3) */
+      "const _savedFns=[]; function onSaved(fn){ _savedFns.push(fn); }",
       "const _warnServerWriteDenied=()=>{ env.denied++; };",
       "const _roomFaceUrlToCanvas=async(url)=>{ const d=env.urlToData.get(url); if(!d) throw new Error('없는 URL '+url); return { toDataURL:()=>d }; };",
       "const fetch=async(url)=>{ const b=env.urlToData.get(url); if(!b) return { ok:false, status:404 };" +
@@ -458,7 +461,7 @@ if(!block || !fSlotToObj || !fImg || !fSave || !fHash || !fCL || !fCS || !fOne){
     chk(gi > 0 && si > gi, '  가챠 pull 다음이다(받은 캐릭터가 입은 파츠 보유분이 먼저)');
     chk(/setTimeout\(\(\)=>\{ try\{ syncSlotsToServer\('boot'\); \}catch\(_\)\{\} \}, 4600\);/.test(SRC), '  부팅 4.6초(가챠 4.2초 다음) 1회');
     chk(/setInterval\(\(\)=>\{ try\{ syncSlotsToServer\('tick'\); \}catch\(_\)\{\} \}, SLOTS_SYNC_INTERVAL_MS\);/.test(SRC) && /SLOTS_SYNC_INTERVAL_MS = 30\*60\*1000/.test(SRC), '  30분 주기(ts 한 값)');
-    chk(/if\(_str !== null && _str !== prevRaw\)\{/.test(fSave) && /_slotsSchedulePush\(\)/.test(fSave), '  saveSlots 는 문자열이 달라졌을 때만 push 를 예약한다');
+    chk(/const _changed = _str !== null && _str !== prevRaw;/.test(fSave) && /fn\(out, _changed\)/.test(fSave) && /onSaved\(\(out, changed\)=>\{\n  if\(!changed\) return;\n  try\{ _slotsTouch\(\); \}catch\(_\)\{\}\n  try\{ _slotsSchedulePush\(\); \}catch\(_\)\{\}/.test(SRC), '  saveSlots 는 문자열이 달라졌을 때만 push 를 예약한다(«저장 뒤» 알림 · changed)');
     const ensure = grabFn(SRC, 'ensureRoomFaceUrls', 'async function ') || '';
     chk(/_roomFaceCacheLoad\(\)/.test(ensure) && /_storageFaceUrlOne\(uid, st, key, cv\)/.test(ensure) && /_roomFaceCacheSave\(st\)/.test(ensure), '  방 입장 업로드가 같은 캐시·같은 업로더를 쓴다(같은 그림은 두 번 안 올라간다)');
     chk(/\['face','face'\], \['blink','blink'\]/.test(SRC) && /\['animalBody','aBody'\]/.test(SRC) && /\['animalEarBlinkL','aEarLB'\]/.test(SRC), '  슬롯 얼굴 키가 방 입장 키와 같다(face·blink·aBody·aEarL·aEarR·aEarLB·aEarRB·aBlink)');

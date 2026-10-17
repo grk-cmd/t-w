@@ -1,5 +1,5 @@
 /* ═══ 🍅 sim-pomodoro-module.js — 뽀모도로 모듈 (2026-10-10 신설 · 앱 FSD 6번) ═══════════════
-   app.js 의 «🍅 뽀모도로» 구역 앞머리(상태 · 구간 넘기기 · 서랍 그리기 · 버튼 연결)를 parts/pomodoro.js 로 옮겼다.
+   app.js 의 «🍅 뽀모도로» 구역 앞머리(상태 · 구간 넘기기 · 서랍 그리기 · 버튼 연결)를 parts/focus/pomodoro.js 로 옮겼다.
    동작은 그대로여야 한다. 마크업 · 구간 셈(함수를 떼어 시계를 돌림)은 sim-pomodoro 가 본다 — 여기서는 «옮긴 것» 을 통째로 굴린다.
    ・1절: 만들 때 — 저장된 설정 · 진행 읽기 · 1초 tick 하나 · 🍅 버튼 연결 · 첫 그리기 · window._pomoShowText 고리 · DOM 없으면 조용히
    ・2절: 서랍 — 🍅 를 누르면 열리고 👑 달성표 서랍은 닫는다(weeklyChal.open(false)) · 다시 누르면 닫힌다 · 창 자리 맞춤
@@ -188,28 +188,34 @@ await sec('── 7. app.js 배선', () => {
   chk(/window\.TwPomodoro = api/.test(MOD) && (code.match(/TwPomodoro\.createPomodoro\(/g) || []).length === 1, '모듈은 window.TwPomodoro · createPomodoro 는 한 곳');
   const iMk = APP.indexOf('TwPomodoro.createPomodoro('), iPrev = APP.indexOf('TwWeeklyChallenge.createWeeklyChallenge('), iNext = APP.indexOf('let myHomeOpen = false;');
   chk(iPrev > 0 && iMk > iPrev && iNext > iMk, '원래 자리 — 👑 달성표 연결 뒤 · myHomeOpen 앞');
-  const iConf = APP.indexOf('function _focusShowConf('), iBind = APP.indexOf('(function bindFocusShow(){');
-  chk(iConf > 0 && iBind > iConf && iMk > iBind && /const _pt = \(typeof _pomoShowText === 'function'\) \? _pomoShowText\(\) : '';/.test(APP),
+  /* 📊 오늘 기록 전시(_focusShowConf · bindFocusShow)는 focus-share.js 로 옮겼다(앱 FSD 45번) — 모듈 안 차례와, 그 모듈 만드는 줄이 뽀모 만드는 줄보다 앞인지 본다 */
+  const FS = read('focus-share.js') || '';
+  const inApp = APP.includes('function _focusShowConf(');
+  const FSRC = inApp ? APP : FS;
+  const iConf = FSRC.indexOf('function _focusShowConf('), iBind = FSRC.indexOf('(function bindFocusShow(){');
+  const iMkFs = inApp ? iBind : APP.indexOf('TwFocusShare.createFocusShare(');
+  chk(iConf > 0 && iBind > iConf && iMkFs > 0 && iMk > iMkFs && /const _pt = \(typeof _pomoShowText === 'function'\) \? _pomoShowText\(\) : '';/.test(FSRC),
     '★ _focusShowConf 는 만드는 줄보다 먼저 불린다(bindFocusShow) — typeof 가드로 window 고리만 본다(반환값 const 는 TDZ)');
   chk(/^window\._pomoShowText = _pomoShowText;$/m.test(MOD), '  모듈이 window._pomoShowText 고리를 건다');
   const call = (APP.match(/TwPomodoro\.createPomodoro\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 4 && /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/.test(deps[0]) && /^focusShowPush: \(\.\.\.a\)=>_focusShowPush\(\.\.\.a\),$/.test(deps[1])
-    && /^weeklyChal: weeklyChal,$/.test(deps[2]) && /^pomoSnd: _pomoSnd,$/.test(deps[3]), 'deps 4개 — 함수는 화살표 · weeklyChal · _pomoSnd 는 앞에 선언된 const 값 (' + deps.length + ')');
-  const iWc = APP.indexOf('const weeklyChal = '), iSnd = APP.indexOf("const _pomoSnd = _mkSndPool('pomo'");
+  chk(deps.length === 4 && /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/.test(deps[0]) && /^focusShowPush: \(\.\.\.a\)=>(?:focusShareMod\.)?_focusShowPush\(\.\.\.a\),$/.test(deps[1])
+    && /^weeklyChal: weeklyChal,$/.test(deps[2]) && /^pomoSnd: (?:sfxMod\.)?_pomoSnd,$/.test(deps[3]), 'deps 4개 — 함수는 화살표 · weeklyChal · _pomoSnd 는 앞에 선언된 const 값 (' + deps.length + ')');
+  const iWc = APP.indexOf('const weeklyChal = '), iSnd = (APP.indexOf("const _pomoSnd = _mkSndPool('pomo'") > 0) ? APP.indexOf("const _pomoSnd = _mkSndPool('pomo'")
+    : ((read('sfx.js') || '').includes("const _pomoSnd = _mkSndPool('pomo'") ? APP.indexOf('TwSfx.createSfx(') : -1);   // 효과음 공장은 sfx.js 로 옮겼다(앱 FSD 42번) — 만드는 줄 자리로 본다
   chk(iWc > 0 && iWc < iMk && iSnd > 0 && iSnd < iMk && !/\b(weeklyChal|_pomoSnd)\s*=[^=]/.test(code.replace(/const (weeklyChal|_pomoSnd) = /g, '')), '  둘 다 만드는 줄보다 앞 · 다시 대입되지 않는다');
   const m = strip(MOD);
   chk(/const toast = deps\.toast;/.test(m) && /const _focusShowPush = deps\.focusShowPush;/.test(m) && /const weeklyChal = deps\.weeklyChal;/.test(m) && /const _pomoSnd = deps\.pomoSnd;/.test(m), '모듈은 받은 넷을 같은 이름으로(본문 글자 그대로)');
   const off = (APP.match(/const POMODORO_OFF = \{([^\n]*)\};/) || [])[1] || '';
-  chk(['showText', 'open', 'render', 'tick', 'cfg', 'run'].every(n => new RegExp('\\b' + n + '\\s*(\\(|:)').test(off)) && /showText:\(\)=>''/.test(off), '빈 껍데기 POMODORO_OFF — 반환값 이름을 다 갖는다 · 문구는 빈 값');
-  const iW = HTML.indexOf('<script src="parts/weekly-challenge.js"></script>'), iP = HTML.indexOf('<script src="parts/pomodoro.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  chk(!/\bPOMODORO_OFF\b/.test(APP), '빈 껍데기 POMODORO_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
+  const iW = HTML.indexOf('<script src="parts/focus/weekly-challenge.js"></script>'), iP = HTML.indexOf('<script src="parts/focus/pomodoro.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iW > 0 && iP > iW && iA > iP, 'html — pomodoro.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwPomodoro') && !/window\.Pomodoro\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */
   const wire = (APP.match(/const POMODORO_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   const box = { toast(){}, _focusShowPush(){}, weeklyChal: {}, _pomoSnd: {} };
   let got = null; try{ got = vm.runInNewContext(wire + '\npomodoro;', box); }catch(_){}
-  chk(!!got && got.showText() === '' && typeof got.open === 'function', '모듈이 안 실려도 그 자리는 서지 않는다(빈 껍데기)');
+  chk(/^const pomodoro = TwPomodoro\.createPomodoro\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
 say('');

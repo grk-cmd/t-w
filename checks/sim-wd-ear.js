@@ -192,7 +192,8 @@ const dr3 = {}; WE.copyIntoDraft(dr3, {});
 chk(!('earAdj' in dr3), '조정값이 없는 def 의 초안에는 earAdj 를 안 만든다');
 
 say('── 3. app.js 배선');
-const APP = SRC['app.js'];
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const APP = _joinRenderer(SRC['app.js']);
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const A = strip(APP);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;
@@ -294,7 +295,7 @@ say('── 3-e. 저장 · 불러오기 — 껐다 켜도 귀가 남는다 (제�
 
 say('── 4. html · smoke');
 const HTML = SRC['desk-companion-prototype.html'];
-const iH = HTML.indexOf('<script src="parts/human-ear.js">'), iW = HTML.indexOf('<script src="parts/wd-ear.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
+const iH = HTML.indexOf('<script src="parts/character/human-ear.js">'), iW = HTML.indexOf('<script src="parts/character/wd-ear.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
 chk(iH > 0 && iW > iH && iW < iA, 'html — human-ear.js → wd-ear.js → app.js 순서');
 chk(/<div id="wdEarAdjRow" style="display:none;"><\/div>/.test(HTML), '미리보기 패널에 조정할 귀 줄 자리');
 chk(/const PRELOAD = \['human-ear\.js', 'wd-ear\.js'\];/.test(SRC['smoke.js']), 'smoke.js 가 두 모듈을 app.js 앞에 평가한다');

@@ -5,15 +5,19 @@
    ・4절: 🍎 단축키 — mac 은 ⌘1~⌘5 도 F1~F5 로 · 표시도 ⌘ 로
    ・5절: 🐢 성능 — mac 실행 화면 픽셀 비율 상한 · 설정(런처) 화면에서 숨은 3D 를 안 그린다
    ・6절: 🖌️ 펜 앱 — mac 은 표시 이름으로 판정(main.js _isPenApp)
-   [실행] app.js · main.js 가 있는 폴더에서. */
+   [실행] app.js · chat-window.js · main.js 가 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('app.js'), MAIN = read('main.js');
-if(!SRC || !MAIN){ say('  ? 원본 못 찾음 — app.js · main.js'); process.exit(2); }
+/* 💬 대화창 배선(#chatInput Enter)은 parts/chat/chat-window.js 로 옮겼다(앱 FSD 14번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const APP = _joinRenderer(read('app.js')), CW = read('chat-window.js'), MAIN = read('main.js');
+if(!APP || !MAIN || !CW){ say('  ? 원본 못 찾음 — app.js · main.js · chat-window.js'); process.exit(2); }
+const SRC = APP + '\n' + CW;
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(SRC), MC = strip(MAIN);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;
@@ -39,13 +43,16 @@ say('── 2. 🖊️ 묶인 점');
 }
 say('── 3. 🧪 가짜 방');
 {
-  const i = CODE.indexOf('provider = window.firebaseAPI ? makeFirebaseProvider() : makeMockProvider();'), seg = CODE.slice(i - 700, i);
+  const i = CODE.indexOf('provider = window.firebaseAPI ? makeFirebaseProvider(opts && opts.hooks) : makeMockProvider();'), seg = CODE.slice(i - 700, i);
   chk(i > 0 && /if\(!window\.firebaseAPI\) await _waitFirebaseApi\(NET_READY_WAIT_MS\);/.test(seg) && /if\(!window\.firebaseAPI && !_mockRoomAllowed\(\)\)\{[\s\S]*return;\s*\}/.test(seg), '기다리고 · 없으면 입장하지 않는다');
   const W = { firebaseAPI:null, _l:{}, addEventListener(n, f){ this._l[n] = f; } };
-  const mk = new Function('window', 'setTimeout', grab(SRC, '_waitFirebaseApi') + ' return _waitFirebaseApi;');
+  /* _waitFirebaseApi 는 shared/net-ready.js 의 waitNetReady 로 넘긴다 — 그 파일을 같이 싣고 굴린다(판정은 그대로) */
+  const NET = read('net-ready.js') || '';
+  const WAIT = NET + '\nvar TwNetReady = window.TwNetReady;\n' + grab(SRC, '_waitFirebaseApi') + ' return _waitFirebaseApi;';
+  const mk = new Function('window', 'setTimeout', 'module', WAIT);
   const wait = mk(W, (f, ms)=>{ W._t = f; });
   let p = wait(10000); W.firebaseAPI = {}; W._l['firebase-ready'](); chk(await p === true, '준비 신호가 오면 곧바로 풀린다');
-  const W2 = { firebaseAPI:null, addEventListener(){} }; const wait2 = new Function('window', 'setTimeout', grab(SRC, '_waitFirebaseApi') + ' return _waitFirebaseApi;')(W2, (f)=>f());
+  const W2 = { firebaseAPI:null, addEventListener(){} }; const wait2 = new Function('window', 'setTimeout', 'module', WAIT)(W2, (f)=>f());
   chk(await wait2(10) === false, '시간이 다 되면 false(가짜 방으로 떨어지지 않음)');
   const A = new Function('localStorage', grab(SRC, '_mockRoomAllowed') + ' return _mockRoomAllowed;');
   chk(A({ getItem:()=>null })() === false && A({ getItem:()=>'1' })() === true, '가짜 방은 tw.mockRoom=1 일 때만');

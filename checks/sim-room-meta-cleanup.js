@@ -7,6 +7,7 @@
  * 3. 들어오는 길 — 남은 _meta 가 있는 빈 방도 새로 연다(선점 · 시크릿룸 · 되살리기 · 방 서버) · 새 탭은 빈 기록
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -14,7 +15,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
-const FI = need('firebase-init.js'), APP = need('app.js');
+const FI = need('firebase-init.js'), APP = _joinRenderer(need('app.js'));
 const FX = need('functions/index.js');
 need('functions/room-stats.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
@@ -139,6 +140,27 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     chk(r.L.reads.filter(p => p === 'roomAlive').length === 1, '  ↳ roomAlive 트리는 한 번만 읽는다 (유령 청소와 같이 쓴다)');
     chk(!r.L.reads.some(p => /^rooms\/[^/]+$/.test(p) || p === 'rooms'), '  ↳ 방 노드를 통째로 받지 않는다 (shallow · 칸 하나씩)');
 
+    r = await run(room('PS', { 'roomDir/PS': { srv: 'realtime-1', ts: now - 60 * MIN, meta: { channel: 'togetherroom' } } }));
+    chk(!('rooms/PS/_meta' in r.srv) && !('roomIndex/PS' in r.srv), '🛰 같은 코드의 방 서버 방이 살아 있어도 빈 Firebase 방의 _meta · 줄은 걷는다');
+    chk('rooms/PS/chatLog/k1' in r.srv && 'rooms/PS/_chatTab/s1/k1' in r.srv && r.sum.emptied.serverKept === 1 && r.sum.emptied.cleared === 0,
+      '★ 방 서버 방(roomDir)이 살아 있으면 #일반 · 탭 대화를 남긴다 — 그 방이 같이 쓰는 대화다 (serverKept)');
+    r = await run(room('PL'));
+    chk(JSON.stringify(r.sum.emptied.codes) === '["PL"]', '  ↳ 대화까지 지운 방 코드는 요약(로그)에 남는다 (codes)');
+    // 방 서버 방이 닫힘(roomDir 삭제 트리거) — 같은 규칙으로 대화를 걷는다
+    const closed = async (code, srv, prev) => { const m = mkDb(srv); const out = await f.onServerRoomClosed(m.db, code, prev); return { out, srv: m.L.srv }; };
+    const chatOf = (code) => ({ ['rooms/' + code + '/chatLog/k1']: { text: 'hi', ts: 1 }, ['rooms/' + code + '/_chatTab/s1/k1']: { text: 'hi', ts: 1 } });
+    let c = await closed('PX', chatOf('PX'), { srv: 'realtime-1', meta: { channel: 'togetherroom' } });
+    chk(c.out === 'cleared' && !('rooms/PX/chatLog/k1' in c.srv) && !('rooms/PX/_chatTab/s1/k1' in c.srv), '🛰 방 서버 투게더룸이 닫히면 #일반 · 탭 대화를 지운다 (나가면 정리)');
+    c = await closed('PY', chatOf('PY'), { srv: 'realtime-1', meta: { channel: 'workingroom' } });
+    chk('rooms/PY/chatLog/k1' in c.srv && !('rooms/PY/_chatTab/s1/k1' in c.srv), '  ↳ 워킹룸은 #일반을 남기고 탭 대화만 (Firebase 빈 방과 같다)');
+    c = await closed('SCRT-PZ', chatOf('SCRT-PZ'), { srv: 'realtime-1', meta: { channel: 'togetherroom', secret: true } });
+    chk(c.out === 'secret' && 'rooms/SCRT-PZ/chatLog/k1' in c.srv && 'rooms/SCRT-PZ/_chatTab/s1/k1' in c.srv, '  ↳ 시크릿룸은 다 남긴다');
+    c = await closed('PR', Object.assign(chatOf('PR'), { 'roomDir/PR': { srv: 'realtime-2', ts: now, meta: { channel: 'togetherroom' } } }), { srv: 'realtime-1', meta: { channel: 'togetherroom' } });
+    chk(c.out === 'reopened' && 'rooms/PR/chatLog/k1' in c.srv, '  ↳ 그새 방 서버 방이 다시 열렸으면 그만둔다');
+    c = await closed('PF', Object.assign(chatOf('PF'), { 'rooms/PF/_meta': { channel: 'togetherroom', ts: now } }), { srv: 'realtime-1', meta: { channel: 'togetherroom' } });
+    chk(c.out === 'firebase' && 'rooms/PF/chatLog/k1' in c.srv, '  ↳ 같은 코드의 Firebase 방이 열려 있으면 그만둔다 (그 방이 비면 빈 방 정리가 걷는다)');
+    chk(/exports\.roomDirOnClose = onValueDeleted\(\{ ref: '\/roomDir\/\{room\}'/.test(FX) && /onServerRoomClosed\(getDatabase\(\), code, event\.data/.test(FX),
+      '  ↳ functions/index.js — roomDir/{방} 삭제 트리거가 부른다');
     r = await run(room('P2', { 'roomIndex/P2': { lastSeen: 0, emptyAt: now - 1 * MIN } }));
     chk('rooms/P2/_meta' in r.srv && 'roomIndex/P2' in r.srv && !r.L.reads.includes('shallow:rooms/P2'), '2분 안 됐으면 아무것도 안 한다 (읽지도 않는다)');
 
@@ -234,8 +256,8 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     chk(/if\(_roomCount === 0\)\{[\s\S]{0,1200}firebaseAPI\.claimEmptyRoom\(code, getMyUserId\(\), _iAmLicensed\)/.test(APP), '빈 방(0명)이면 선점(claimEmptyRoom)으로 연다');
     // 시크릿룸 · 되살리기 · 방 서버
     chk(/if\(_isSecret\)\{[\s\S]{0,400}firebaseAPI\.setRoomChannel\(code, 'togetherroom', _secretOwner\)/.test(APP), '시크릿룸은 들어올 때마다 channel · host(주인) · ts 를 다시 쓴다 — 남은 _meta 도 주인 방으로');
-    const restore = grab(FI, 'async restoreRoomMeta(room, m){', '\n    },');
-    chk(/const meta = \{ channel:/.test(restore) && /meta\.ts = meta\.openTs = meta\.restoredTs = _svNow\(\);/.test(restore), '되살리기는 _meta 를 새 객체로 쓴다 (남은 값 안 물려받음) · ts 를 찍는다');
+    chk(!/restoreRoomMeta/.test(FI) && /if\(meta\.restoredTs && \(_svNow\(\) - meta\.restoredTs\) < ROOM_RESTORE_GRACE_MS\) return;/.test(FI),
+      '0.11.4 는 방 서버 방을 Firebase 에 되살리지 않는다 — 옛 앱이 되살린 방의 방장 유예만 남김');
     chk(/const _via = await _startRoomOnServer\(code,[\s\S]{0,80}if\(_via !== 'firebase'\) return;/.test(APP), '방 서버 방은 Firebase _meta 를 쓰기 전에 갈라진다 — 이 청소와 무관');
     // 새 탭은 빈 기록으로
     const add = grab(FI, 'async addChatTab(room, name){', '\n    },');

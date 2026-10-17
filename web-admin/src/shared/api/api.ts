@@ -1,7 +1,7 @@
 // 자체 API 서버(t-w-server api/) 통로. 기능 코드가 fetch · 토큰을 직접 다루지 않게 하고, 테스트에서는 가짜 fetch 를 넣는다.
 
 /** 운영 API — 운영 Firebase(together-working) 토큰만 받는다. */
-export const PROD_API_BASE_URL = 'https://api.togetherworking.duckdns.org';
+export const PROD_API_BASE_URL = 'https://api.together-working.com';
 const PROD_PROJECT_ID = 'together-working';
 
 /** 이 시간 안에 답이 없으면 끊고 «연결 안 됨» 으로 본다 — 예전 방식(RTDB)으로 넘어가는 기준이라 길게 두지 않는다. */

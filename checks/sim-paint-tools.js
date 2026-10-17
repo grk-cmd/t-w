@@ -10,6 +10,7 @@
    [실행] uv-fill.js · paint-tools.js · key-input.js · animal-glb.js · base-glb.js · app.js · animal.js ·
           desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -19,6 +20,7 @@ const read = (f) => { for(const p of [f, 'parts/' + f, 'app/parts/' + f, 'app/' 
 const need = ['uv-fill.js', 'paint-tools.js', 'key-input.js', 'animal-glb.js', 'base-glb.js', 'app.js', 'animal.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
+SRC['app.js'] = _joinRenderer(SRC['app.js']);   // 앱 FSD 로 옮긴 모듈(🖍️ 파츠 그림 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const win = { addEventListener(){} };
 ['uv-fill.js', 'paint-tools.js', 'animal-glb.js', 'base-glb.js'].forEach(f => new Function('window', 'module', SRC[f])(win, undefined));
 const hotkeyLetter = new Function('window', SRC['key-input.js'] + '\nreturn hotkeyLetter;')(win);
@@ -261,8 +263,8 @@ chk(/if\(k==='g' && e\.shiftKey\)\{ pFillAll\(\);/.test(N) && /aPaintTool\.handl
 chk(/aPaintTool\.mount\(overlay\.querySelector\('#anpToolSeg'\)\)/.test(N) && !/anpEraser/.test(SRC['animal.js']), '동물 — 도구 줄을 붙인다 · 옛 지우개 버튼 없음');
 chk(/Shift\+G<\/b> 전체 채우기/.test(SRC['animal.js']) && /<b>G<\/b> 페인트통/.test(SRC['animal.js']), '동물 — 안내 줄에 G 페인트통 · Shift+G 전체 채우기');
 /* html */
-const sU = HTML.indexOf('<script src="parts/uv-fill.js">'), sP = HTML.indexOf('<script src="parts/paint-tools.js">'),
-      sA = HTML.indexOf('<script src="parts/app.js">'), sN = HTML.indexOf('<script src="parts/animal.js">');
+const sU = HTML.indexOf('<script src="parts/creator/uv-fill.js">'), sP = HTML.indexOf('<script src="parts/creator/paint-tools.js">'),
+      sA = HTML.indexOf('<script src="parts/app.js">'), sN = HTML.indexOf('<script src="parts/character/animal.js">');
 chk(sU > 0 && sU < sP && sP < sA && sA < sN, 'html — uv-fill.js → paint-tools.js → app.js → animal.js');
 chk(/<span id="crToolSeg"><\/span>/.test(HTML) && /<b>G<\/b> 페인트통/.test(HTML), 'html — 사람 도구 줄 자리 · 안내 줄');
 chk(/\.pt-seg\{display:inline-flex;/.test(HTML) && /\.cr-tools \.pt-seg button\{/.test(HTML), 'html — 도구 줄 스타일(.cr-tools 버튼 모양 · 눌림 .on 을 그대로)');
@@ -288,7 +290,7 @@ if(armIsl.length === 2){
 chk(/const LOCK_MSG=\{ ear:'지금은 귀만 칠할 수 있어요/.test(SRC['animal.js']) && /face:'지금은 얼굴만 칠할 수 있어요/.test(SRC['animal.js']) && /body:'지금은 몸만 칠할 수 있어요/.test(SRC['animal.js']), '🔒 잠금 안내 문구 셋(귀만 · 얼굴만 · 몸만)');
 chk(/if\(!_partAllowed\(tgt\)\)\{ _lockToast\(\); return false; \}/.test(pb) && /if\(!_partAllowed\(tgt\)\)\{ pLastX=pLastY=null; _lockToast\(\); return; \}/.test(grab(N, 'pPaintEvent')), '🔒 페인트통 · 붓이 잠금에 막히면 알린다');
 chk(/if\(now-_lockToastAt<1500\) return;/.test(grab(N, '_lockToast')), '🔒 붓은 한 획에 여러 번 막히므로 1.5초에 한 번만');
-chk(/if\(!hit \|\| !hit\.object\)\{ if\(typeof toast==='function'\) toast\('캐릭터를 눌러 채워요'\); return false; \}/.test(pb) && /if\(!hit\)\{ if\(typeof toast==='function'\) toast\('얼굴을 눌러 채워요'\); return false; \}/.test(bf), '빈 곳을 페인트통으로 누르면 알린다(사람 · 동물)');
+chk(/if\(!hit \|\| !hit\.object\)\{ (?:if\(typeof toast==='function'\) )?toast\('캐릭터를 눌러 채워요'\); return false; \}/.test(pb) && /if\(!hit\)\{ (?:if\(typeof toast==='function'\) )?toast\('얼굴을 눌러 채워요'\); return false; \}/.test(bf), '빈 곳을 페인트통으로 누르면 알린다(사람 · 동물)');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

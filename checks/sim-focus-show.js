@@ -6,8 +6,9 @@
           입장 페이로드도 같은 통로 · 내 화면 거울(statusConfFor)은 상태가 없을 때만.
    [실행] app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 
 let pass = 0, fail = 0;
@@ -65,7 +66,8 @@ say('── 3. 배관');
 {
   const so = strip(grabFn('_statusOut'));
   chk(/if\(!myUserStatus && myFocusShow\) return \{ userStatus:'custom', customStatus:myFocusShow \}/.test(so), '상태가 없을 때만 custom 칸으로 싣는다(상태 우선)');
-  const out = new Function('u', 'f', 'c', 'let myUserStatus=u, myFocusShow=f, myCustomStatus=c;' + grabFn('_statusOut') + ' return _statusOut();');
+  /* 📱 폰 켜짐 갈래는 sim-mobile-focus 가 본다 — 여기선 꺼짐(앱 코드는 typeof 가드 없이 _mobileOn() 을 바로 부른다 · 개정 238) */
+  const out = new Function('u', 'f', 'c', 'let myUserStatus=u, myFocusShow=f, myCustomStatus=c; const _mobileOn=()=>false;' + grabFn('_statusOut') + ' return _statusOut();');
   const F = { emo: '🕒', text: '오늘 3:20' }, C = { emo: '✨', text: '마감 중' };
   let r = out(null, F, C); chk(r.userStatus === 'custom' && r.customStatus === F, '상태 없음 → 기록');
   r = out('custom', F, C); chk(r.userStatus === 'custom' && r.customStatus === C, '커스텀 상태 켜짐 → 그 문구가 이긴다');

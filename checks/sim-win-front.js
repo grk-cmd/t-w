@@ -4,6 +4,7 @@
    · 천장에 닿으면 앞뒤 순서를 지킨 채 번호만 다시 매기는가.
    실행: node sim-win-front.js  (app.js · smoke.js · desk-companion-prototype.html 과 같은 폴더에서) */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -34,7 +35,7 @@ const probe = `
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,5).join('\n')); process.exit(1); }
 console.log = say;
 
@@ -45,9 +46,10 @@ const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 /* HTML 에 적힌 CSS 기본 z-index 를 읽어 온다 — 목록에 넣어도 그 값보다 낮으면 소용이 없다 */
 const html = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const _flat = html.replace(/\s+/g, '');
+const { resolveZ: _resolveZ } = require('./sim-z-layers.js');   // 창 앞뒤는 :root 창 층 표의 이름(var(--z-…))으로 적는다 — 숫자로 풀어 읽는다
 function cssZ(id){
-  const m = new RegExp('#' + id + '\\{[^}]*?z-index:(\\d+)').exec(_flat);
-  return m ? parseInt(m[1], 10) : null;
+  const m = new RegExp('#' + id + '\\{[^}]*?z-index:([^;}]+)').exec(_flat);
+  return m ? _resolveZ(html, m[1]) : null;
 }
 
 say('\n── 1. 제보된 창이 목록에 있다');

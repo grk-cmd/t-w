@@ -26,8 +26,19 @@
  *   워킹룸 · 시크릿룸(SCRT-)은 예전처럼 남긴다. 채널은 지우는 `_meta` 트랜잭션이 본 값, 없으면 roomIndex 줄의 값.
  *   🔒 시크릿룸은 비어도 방이 유지된다(2026-10-11 결정) — `_meta`(채팅 탭 목록 · 방장) · `_chatTab` · chatLog 를 모두 남기고
  *   비었음 줄만 걷는다. 다시 들어올 때 앱은 `_meta` 를 update 로 고쳐 쓰므로(setRoomChannel) 탭 목록이 그대로 이어진다.
+ *   🛰 같은 코드의 방 서버 방이 살아 있으면(roomDir/{코드}) `_chatTab` · chatLog 를 남긴다 — 방 서버 방도 대화는 Firebase 같은 자리에 쓴다.
+ *   방 서버에 못 붙은 앱이 같은 코드로 Firebase 방을 열었다 나가면 그 빈 Firebase 방만 걷어야 하는데, 대화까지 지워
+ *   살아 있는 방 서버 방의 대화가 통째로 사라졌다. 요약에 `serverKept`, 대화를 지운 방 코드는 `codes`(앞 CODES_LOG_MAX 개).
+ *   그 대화는 방 서버 방이 닫힐 때(roomDir/{코드} 가 지워질 때) 정리한다 — onServerRoomClosed. 같은 규칙: 시크릿룸은 다 남기고,
+ *   `_chatTab` 은 지우고, chatLog 는 투게더룸만. 방 서버는 재시작 때 roomDir 칸을 지우지 않고 되살리므로 재시작으로는 안 지워진다.
  *   비었음 표시 없이 조용해진 방(강제 종료 · 절전)은 건드리지 않는다 — 절전에서 깨어난, 혼자 있던 사람이 표지를 잃는다.
  *   옛 앱(0.11.x 이하)은 예전처럼 직접 지운다 — 그 방은 줄이 없어 여기 오지 않는다.
+ *
+ * 🛰 방 서버 줄 — 방 서버(t-w-server realtime)도 자기 방(시크릿룸 제외)을 roomIndex/{코드} = { lastSeen, channel, srv } 로 올리고
+ * 30초마다 갱신한다. roomIndex 가 Firebase 방 + 서버 방의 단일 장부라 여기서 세는 값이 곧 전체 개수(채널 상한 250 기준)다.
+ * `srv` 가 있는 줄은 Firebase rooms/{코드} 에 사람이 없어도 정상이므로 빈 방 청소 · channel 채우기 · `_meta` 옮기기 대상이 아니다.
+ * 개수에는 넣고(stats.server 에 서버 몫을 따로도 적는다), 서버가 죽어 lastSeen 이 낡으면 일반 줄처럼 90초 뒤 개수에서 빠지고
+ * ROOM_INDEX_DROP_MS 뒤 줄만 지운다.
  *
  * 📈 지난날 지표 요약(daily-summary.js) — 1분 주기 실행이 어제 요약이 없을 때 한 번 만든다. 새 예약 함수를 늘리지 않으려고 여기 붙였다.
  */
@@ -45,11 +56,16 @@ const ROOM_ALIVE_SWEEP_MAX = 200;            // 한 번에 이만큼만(줄마�
 const EMPTY_GRACE_MS = 2 * 60 * 1000;        // 비었음 표시 뒤 이만큼 아무도 안 들어와야 표지를 걷는다(주기 1분 → 2~3번째 실행)
 const MEMBER_GONE_MS = 10 * 60 * 1000;       // 옛 방식(lastSeen) 멤버를 «없다» 로 볼 문턱 — 입장 검사(5분)보다 넉넉하게
 const EMPTY_SWEEP_MAX = 50;                  // 한 번에 이만큼만(방마다 shallow 1 · 트랜잭션 2)
+const CODES_LOG_MAX = 20;                    // 로그에 남길 방 코드 수
 
 // 줄이 조용해진 때 — 하트비트(lastSeen)와 비었음 표시(emptyAt) 중 늦은 쪽. 비었음 표시는 lastSeen 을 0 으로 쓴다.
 function quietSince(e){
   const a = Number(e && e.lastSeen), b = Number(e && e.emptyAt);
   return Math.max(Number.isFinite(a) ? a : 0, Number.isFinite(b) ? b : 0);
+}
+// 방 서버가 올린 줄인가(맨 위 🛰) — srv 는 방 서버 이름.
+function isServerRow(e){
+  return !!(e && typeof e === 'object' && typeof e.srv === 'string' && e.srv);
 }
 // 비었음 표시가 그대로인가 — 표시 뒤에 하트비트가 찍혔으면(다시 들어옴) 아니다.
 function isEmptyMark(e){
@@ -58,20 +74,23 @@ function isEmptyMark(e){
 }
 
 function roomStatsFrom(idx, now){
-  const out = { [CHANNEL.WORKING]: 0, [CHANNEL.TOGETHER]: 0, at: now };
+  // server = 그중 방 서버 몫(이미 위 두 칸에 들어 있다 — 따로 더하지 않는다)
+  const out = { [CHANNEL.WORKING]: 0, [CHANNEL.TOGETHER]: 0, at: now, server: { [CHANNEL.WORKING]: 0, [CHANNEL.TOGETHER]: 0 } };
   const drop = [], repair = [], empty = [];
   for (const code in (idx || {})){
     const e = idx[code];
     if (!e || typeof e !== 'object') continue;
     const seen = Number(e.lastSeen);
     if (!Number.isFinite(seen)) continue;
-    if (isEmptyMark(e) && now - Number(e.emptyAt) >= EMPTY_GRACE_MS) empty.push(code);
+    const srv = isServerRow(e);
+    if (!srv && isEmptyMark(e) && now - Number(e.emptyAt) >= EMPTY_GRACE_MS) empty.push(code);
     if (now - quietSince(e) >= ROOM_INDEX_DROP_MS){ drop.push(code); continue; }
     if (code.indexOf(SECRET_ROOM_PREFIX) === 0) continue;
     if (now - seen >= ROOM_LIVE_MS) continue;
-    if (e.channel !== CHANNEL.WORKING && e.channel !== CHANNEL.TOGETHER) repair.push(code);
+    if (!srv && e.channel !== CHANNEL.WORKING && e.channel !== CHANNEL.TOGETHER) repair.push(code);
     const ch = (e.channel === CHANNEL.TOGETHER) ? CHANNEL.TOGETHER : CHANNEL.WORKING;
     out[ch]++;
+    if (srv) out.server[ch]++;
   }
   return { stats: out, drop: drop.slice(0, ROOM_DROP_MAX), repair: repair.slice(0, ROOM_REPAIR_MAX), empty: empty.slice(0, EMPTY_SWEEP_MAX) };
 }
@@ -202,9 +221,15 @@ async function isPublicTogether(db, code, metaChannel){
   if (!ch){ try{ ch = (await db.ref('roomIndex/' + code + '/channel').get()).val(); }catch(_){ ch = null; } }
   return ch === CHANNEL.TOGETHER;
 }
+/* 방 서버에 같은 코드의 방이 살아 있는가 — 방 서버는 방을 닫을 때 roomDir/{코드} 를 지운다. 칸 하나만 읽는다. */
+async function serverRoomLive(db, code){
+  const srv = (await db.ref('roomDir/' + code + '/srv').get()).val();
+  return typeof srv === 'string' && srv.length > 0;
+}
 async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
   const done = new Set();
-  let cleared = 0, busy = 0, kept = 0, failed = 0, secretKept = 0;
+  const codesOut = [];
+  let cleared = 0, busy = 0, kept = 0, failed = 0, secretKept = 0, serverKept = 0;
   for (const code of codes){
     try{
       const keys = await shallow('rooms/' + code);   // 방 노드가 없으면 null
@@ -237,13 +262,31 @@ async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
         return null;
       }, undefined, false);
       if (!r.committed){ kept++; continue; }
+      if (await serverRoomLive(db, code)){
+        await dropEmptyRow(db, code, now);
+        done.add(code); serverKept++; continue;
+      }
       if (keys && keys._chatTab) await db.ref('rooms/' + code + '/_chatTab').remove();
       if (keys && keys.chatLog && await isPublicTogether(db, code, metaChannel)) await db.ref('rooms/' + code + '/chatLog').remove();
       await dropEmptyRow(db, code, now);
       done.add(code); cleared++;
+      if (codesOut.length < CODES_LOG_MAX) codesOut.push(code);
     }catch(e){ failed++; }
   }
-  return { done, cleared, busy, kept, failed, secretKept };
+  return { done, cleared, busy, kept, failed, secretKept, serverKept, codes: codesOut };
+}
+
+/* 🛰 방 서버 방이 닫혔다(roomDir/{코드} 삭제 트리거 · prev = 지워진 칸) — 빈 Firebase 방과 같은 규칙으로 대화를 걷는다.
+   같은 코드의 Firebase 방이 열려 있거나(_meta) 그새 방 서버 방이 다시 열렸으면 그만둔다 — 그 방이 쓰는 대화다.
+   Firebase 방이 비면 sweepEmptyRooms 가 같은 규칙으로 걷는다(그땐 roomDir 이 없으니 대화도). */
+async function onServerRoomClosed(db, code, prev){
+  const meta = (prev && prev.meta) || {};
+  if (String(code).indexOf(SECRET_ROOM_PREFIX) === 0 || meta.secret === true) return 'secret';
+  if (await serverRoomLive(db, code)) return 'reopened';
+  if ((await db.ref('rooms/' + code + '/_meta/channel').get()).val() != null) return 'firebase';
+  await db.ref('rooms/' + code + '/_chatTab').remove();
+  if (meta.channel === CHANNEL.TOGETHER) await db.ref('rooms/' + code + '/chatLog').remove();
+  return 'cleared';
 }
 
 // opts.drop === false 면 세기만 한다(열림 · 닫힘 트리거). 낡은 줄 지우기 · channel 채우기는 주기 실행만.
@@ -256,7 +299,7 @@ async function runRoomStats(db, now, opts){
   await db.ref('roomStats').transaction(cur => ((cur && Number(cur.at) > stats.at) ? undefined : stats), undefined, false);
   // 💓 유령 멤버를 먼저 걷고(빈 방 판정이 유령 hb:2 노드에 걸리지 않게) 같은 roomAlive 트리로 빈 방을 본다 — 트리는 한 번만 읽는다.
   let alive = { ghosts: 0, orphans: 0, kept: 0, failed: 0 };
-  let emptied = { done: new Set(), cleared: 0, busy: 0, kept: 0, failed: 0, secretKept: 0 };
+  let emptied = { done: new Set(), cleared: 0, busy: 0, kept: 0, failed: 0, secretKept: 0, serverKept: 0, codes: [] };
   if (!light){
     let tree = null;
     try{ tree = (await db.ref('roomAlive').get()).val() || {}; }catch(e){ alive.failed++; }
@@ -272,7 +315,8 @@ async function runRoomStats(db, now, opts){
   const cutoff = now - ROOM_INDEX_DROP_MS;
   for (const code of drop){
     try{
-      await keepInMeta(db, code, idx[code]);
+      // 방 서버 줄은 Firebase 방이 아니다 — 같은 코드의 옛 Firebase `_meta` 에 channel · open 을 옮기지 않는다.
+      if (!isServerRow(idx[code])) await keepInMeta(db, code, idx[code]);
       // 첫 호출의 cur 는 로컬 추측값(대개 null)이라 null 을 돌려줘야 서버 값으로 다시 불린다.
       // 그새 다시 들어와 lastSeen 이 새로워진 줄은 그만둔다(undefined).
       const r = await db.ref('roomIndex/' + code).transaction(cur => {
@@ -291,12 +335,14 @@ async function runRoomStats(db, now, opts){
     }catch(e){ console.warn('[roomStats] 지표 요약 못 함', e && e.message); }
   }
   const sum = { live: stats.workingroom + stats.togetherroom, working: stats.workingroom, together: stats.togetherroom,
+                server: stats.server.workingroom + stats.server.togetherroom,
                 rows: Object.keys(idx).length, dropped, kept, failed, repaired, alive,
-                emptied: { cleared: emptied.cleared, busy: emptied.busy, kept: emptied.kept, failed: emptied.failed, secretKept: emptied.secretKept } };
-  if (dropped || failed || repaired || alive.ghosts || alive.failed || emptied.cleared || emptied.failed) console.log('[roomStats]', JSON.stringify(sum));
+                emptied: { cleared: emptied.cleared, busy: emptied.busy, kept: emptied.kept, failed: emptied.failed, secretKept: emptied.secretKept,
+                           serverKept: emptied.serverKept, codes: emptied.codes } };
+  if (dropped || failed || repaired || alive.ghosts || alive.failed || emptied.cleared || emptied.failed || emptied.serverKept) console.log('[roomStats]', JSON.stringify(sum));
   return sum;
 }
 
-module.exports = { roomStatsFrom, runRoomStats, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, isEmptyMark, quietSince,
+module.exports = { roomStatsFrom, runRoomStats, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, serverRoomLive, onServerRoomClosed, isEmptyMark, quietSince, isServerRow,
   ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_DROP_MAX, ROOM_REPAIR_MAX, ROOM_ALIVE_STALE_MS, ROOM_ALIVE_HB,
   EMPTY_GRACE_MS, MEMBER_GONE_MS, EMPTY_SWEEP_MAX };

@@ -10,7 +10,8 @@
 'use strict';
 const fs = require('fs');
 if(!fs.existsSync('app.js') || !fs.existsSync('desk-companion-prototype.html')) process.exit(2);
-const SRC = fs.readFileSync('app.js', 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);

@@ -26,9 +26,16 @@
      여기서 알 수 없다 — 새 필드를 넣을 때 firebase-database-rules.json 도 같이 볼 것.
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
-const SRC = fs.readFileSync('app.js', 'utf8');
+const APP_SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
+/* 파츠 등록 창 · 배포 필드 목록(PART_PUBLISH_FIELDS · buildPartPublishData)은 관리자 코드 admin 폴더 4번에서 admin/admin-part-register.js 로
+   옮겼다. §1 은 두 글을 이어 읽고, §2 는 그 모듈을 먼저 평가한 뒤 app.js 가 만든 adminPartReg 로 들여다본다. */
+const PREG = ['admin-part-register.js', 'parts/admin/admin-part-register.js', 'app/parts/admin/admin-part-register.js']
+  .map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);
+if (!PREG) { console.log('  ? 원본 못 찾음 — admin-part-register.js'); process.exit(2); }
+const SRC = APP_SRC + '\n' + PREG;
 const say = console.log;
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
@@ -89,7 +96,10 @@ if (missing.length) {
 //   ⚠ `unpublishPart(` 도 문자열로는 걸리므로 앞 글자를 보고 걸러낸다.
 //   페이로드는 두 모양 다 인정한다: 인자에 바로 부르거나(빌더가 그 자리에 보이거나),
 //   변수로 받아 넘기거나(그 변수가 빌더로 만들어졌으면 OK).
-const publishCalls = [...SRC.matchAll(/(.)publishPart\(([\s\S]{0,200})/g)]
+//   카탈로그 provider(catalog-source.js)의 catalogSrcPublishPart 는 받은 페이로드를 그대로 넘기는 길이라
+//   그 함수 몸은 빼고, 대신 그것을 부르는 자리를 배포 자리로 센다.
+const SRC_PUB = SRC.replace(/function catalogSrcPublishPart\([^)]*\)\{[^\n]*\}/, '');
+const publishCalls = [...SRC_PUB.matchAll(/(.)(?:catalogSrcPublishPart|publishPart)\(([\s\S]{0,200})/g)]
   .filter(m => !/[A-Za-z]/.test(m[1]));
 chk(publishCalls.length >= 2, 'publishPart 호출을 찾았다 (' + publishCalls.length + '곳)');
 const usesBuilder = (tail) => {
@@ -125,12 +135,12 @@ globalThis.Image = class {
 globalThis.HTMLImageElement = globalThis.Image;
 
 const probe = `
-;globalThis.__P = { buildPartPublishData, PART_PUBLISH_FIELDS,
+;globalThis.__P = { buildPartPublishData: adminPartReg.buildPartPublishData, PART_PUBLISH_FIELDS: adminPartReg.PART_PUBLISH_FIELDS,
                     mergeCatalogIntoSavedParts, getSavedParts: () => savedParts };`;
 
 const _log = console.log, _warn = console.warn;
 console.log = () => {}; console.warn = () => {};
-try { vm.runInThisContext(SRC + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(PREG, { filename: 'admin-part-register.js' }); vm.runInThisContext(APP_SRC + probe, { filename: 'app.js' }); }
 catch (e) { console.log = _log; say('  ✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 console.log = _log; console.warn = _warn;
 

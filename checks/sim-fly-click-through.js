@@ -14,12 +14,13 @@
      §3 잡기(pointerdown)는 여전히 seat.fly 면 돌아간다 — 판정에서 빼도 받을 클릭이 없다
      §4 이빨 — 옛 판정 줄(_skipHiddenDesk(_ix0))을 넣으면 §2 가 빨강 */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const say = console.log;
 let fail = 0, pass = 0;
 const chk = (ok, msg) => { ok ? pass++ : fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const HTML = read('desk-companion-prototype.html'), APP = read('app.js');
+const HTML = read('desk-companion-prototype.html'), APP = _joinRenderer(read('app.js'));
 if (!HTML || !APP) { say('  ? 원본 못 찾음 — desk-companion-prototype.html · app.js'); process.exit(2); }
 
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
@@ -111,7 +112,11 @@ say('§3 잡기는 원래 날아가는 캐릭터를 받지 않는다');
 {
   const i = APP.indexOf("const hit=_preferVisibleHit(_skipHiddenDesk(_hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true))));");
   const seg = i >= 0 ? strip(APP.slice(i, i + 1200)) : '';
-  chk(i >= 0 && /if\(seat\.fly\) return;/.test(seg), 'pointerdown 은 seat.fly 면 돌아간다');
+  /* 날기 판단은 room/seat-label-drag.js canGrabSeat 한 줄(이름표 끌기와 같이 쓴다) — 부르는지 보고 그 함수를 실제로 돌려 본다 */
+  const SLD = read('seat-label-drag.js'); let canGrab = null;
+  try{ const m = { exports: {} }; new Function('module', 'window', SLD)(m, undefined); canGrab = m.exports.canGrabSeat; }catch(_){}
+  const calls = /if\(!TwSeatLabelDrag\.canGrabSeat\(seat\)\) return;/.test(seg) || /if\(seat\.fly\) return;/.test(seg);
+  chk(i >= 0 && calls && (!/canGrabSeat/.test(seg) || (canGrab && canGrab({ fly: {} }) === false && canGrab({}) === true)), 'pointerdown 은 seat.fly 면 돌아간다(canGrabSeat)');
   chk(/function startFlight\([\s\S]*?_flyActive\+\+/.test(grabFn(APP, 'startFlight')), 'startFlight 가 _flyActive 를 바로 올린다(첫 프레임 전에도 거른다)');
 }
 

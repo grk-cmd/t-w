@@ -12,6 +12,7 @@ import {
   serverInUse,
   serverProblem,
   setAllow,
+  setRegisterIndex,
   setRoomLimits,
   setRoomServerSwitch,
   uptimeLabel,
@@ -27,6 +28,7 @@ describe('방 서버 설정 읽기', () => {
       limits: { workingroom: null, togetherroom: null },
       default: null,
       defaultPercent: 0,
+      registerIndex: false,
     });
   });
 
@@ -39,6 +41,7 @@ describe('방 서버 설정 읽기', () => {
       limits: { workingroom: 400, togetherroom: 2.5, other: 3 },
       default: 'BAD NAME',
       defaultPercent: 101,
+      registerIndex: 'yes',
     });
     expect(cfg).toEqual({
       on: true,
@@ -47,6 +50,7 @@ describe('방 서버 설정 읽기', () => {
       limits: { workingroom: 400, togetherroom: null },
       default: null,
       defaultPercent: 0,
+      registerIndex: false,
     });
   });
 
@@ -75,6 +79,8 @@ describe('방 서버 설정 바꾸기', () => {
   it('앱 CSP 에 든 주소만 «앱이 씀»', () => {
     expect(isAppServerUrl('wss://rooms.togetherworking.duckdns.org/')).toBe(true);
     expect(isAppServerUrl('wss://rooms-dev.togetherworking.duckdns.org')).toBe(true);
+    expect(isAppServerUrl('wss://realtime.together-working.com')).toBe(true);
+    expect(isAppServerUrl('wss://evil-together-working.com')).toBe(false);
     expect(isAppServerUrl('wss://other.example')).toBe(false);
   });
 
@@ -121,6 +127,23 @@ describe('방 서버 설정 바꾸기', () => {
       ['roomServer.serverDelete', 'rooms-1', undefined],
       ['roomServer.allow', 'u1abc2345', 'rooms-1'],
       ['roomServer.allowDelete', 'u1abc2345', 'rooms-1'],
+    ]);
+  });
+
+  it('장부 등록(registerIndex) — 없거나 bool 이 아니면 꺼짐 · 한 칸과 기록을 한 묶음으로', async () => {
+    expect(parseRoomServerConfig({}).registerIndex).toBe(false);
+    expect(parseRoomServerConfig({ registerIndex: true }).registerIndex).toBe(true);
+    expect(parseRoomServerConfig({ registerIndex: 'true' }).registerIndex).toBe(false);
+    const { db, writes } = fakeDb();
+    await setRegisterIndex(db, true);
+    await setRegisterIndex(db, false);
+    expect(writes.filter((w) => !w[1].startsWith('adminLog/'))).toEqual([
+      ['commit', 'config/roomServer/registerIndex', true],
+      ['commit', 'config/roomServer/registerIndex', false],
+    ]);
+    expect(auditsOf(writes).map((a) => [a.action, a.target, a.detail])).toEqual([
+      ['roomServer.registerIndex', 'registerIndex', '켜기'],
+      ['roomServer.registerIndex', 'registerIndex', '끄기'],
     ]);
   });
 });

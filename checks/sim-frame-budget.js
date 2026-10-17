@@ -15,12 +15,14 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['frame-budget.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
+SRC['app.js'] = require('./sim-renderer-src.js').joinRenderer(SRC['app.js']);   // 옮긴 모듈(seat-camera.js 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다(판정 무변경)
 const win = {};
 new Function('window', 'module', SRC['frame-budget.js'])(win, undefined);
 const F = win.FrameBudget;
 
 say('── 1. pickFps');
 chk(F.FPS_ACTIVE === 60 && F.FPS_IDLE === 30 && F.FPS_UNFOCUSED === 20, '상한 셋: 60 · 30 · 20');
+chk(F.FPS_LAUNCHER === 30, '런처 미리보기 상한 30(주사율만큼 그리지 않는다)');
 const idle = F.IDLE_AFTER_MS;
 chk(F.pickFps({ focused:true, runMode:true, idleMs:0 }) === 60, '포커스 · 방금 손댐 → 60(상한 없음이 아니다)');
 chk(F.pickFps({ focused:true, runMode:true, idleMs:idle - 1 }) === 60, '문턱 직전 → 60');
@@ -85,7 +87,7 @@ say('── 4. 포커스 비율 · 진단 줄');
 say('── 5. 배선');
 {
   const H = SRC['desk-companion-prototype.html'];
-  const a = H.indexOf('<script src="parts/frame-budget.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
+  const a = H.indexOf('<script src="parts/shared/frame-budget.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
   chk(a > 0 && b > a, 'html 이 frame-budget.js 를 app.js 앞에 싣는다');
   const code = SRC['app.js'].replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
   chk(/FrameBudget\.runPixelRatio\(devicePixelRatio, dotRenderEnabled\)/.test(code), '실행 화면 배율을 runPixelRatio 로(한 곳)');

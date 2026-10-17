@@ -9,8 +9,9 @@
           못 나는 때(회사원 · 쉬는 중 · canFly)는 주사위만 · 기록 문장은 날든 안 날든 원래 🎲 문장 그대로(«날아갔어요» 꼬리 없음 · 2026-09-23 요청).
    [실행] app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 
 let pass = 0, fail = 0;
@@ -67,6 +68,8 @@ function run(o){
     flySeed: () => 42, applyRemoteFly: (s, v) => log.remoteFly.push(v),
     setTimeout: (f) => timers.push(f), Date: { now: () => o.now || 100000 }, Math: M,
     _myFlyCoolUntil: o.cool || 0, _rouletteAt: o.last || 0, ROULETTE_COOL_MS: 3000, ROULETTE_FLY_DELAY_MS: 700,
+    /* 🎟️ 하루 횟수는 아래 7절이 따로 본다 — 여기서는 늘 남아 있는 것으로(앱 코드가 typeof 가드 없이 바로 부른다) */
+    _dailyPlayTake: () => ({ ok: true, left: 5 }), DAILY_PLAY_MAX: 6,
   };
   const keys = Object.keys(env);
   new Function(...keys, READY + '\n' + FLY + '\n' + (o.fn || FN) + '\n' + (o.call || '_rollRoulette') + '();')(...keys.map(k => env[k]));

@@ -1,5 +1,5 @@
 /* ═══ 🕒 sim-focus-log.js — 포커스 기록 팝업 모듈 (2026-10-13 신설 · 앱 FSD 13번) ═══════════════
-   app.js 의 «🕒 포커스 기록 팝업» 구역을 parts/focus-log.js 로 옮겼다.
+   app.js 의 «🕒 포커스 기록 팝업» 구역을 parts/focus/focus-log.js 로 옮겼다.
    동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwFocusLog 뿐 · 만들면 버튼 다섯 · 본문 누름 · ESC 등록 · window._focusLogClamp · 매초 갱신 · 끌기 연결 ·
            창 DOM 이 없으면 아무것도 안 건다
@@ -11,6 +11,7 @@
    ・7절: 일부러 깨 보기 — 모듈 글을 조금씩 망가뜨려 2~5절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] focus-log.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0, done = false, quiet = false, qfail = 0;
@@ -20,7 +21,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['focus-log.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ console.log('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['focus-log.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['focus-log.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 
 const IDS = ['focusLogOverlay', 'focusLogWin', 'focusLogTitle', 'focusLogTime', 'focusLogCaption', 'fsFocusLogBtn', 'focusLogClose', 'focusLogOk',
@@ -216,8 +217,12 @@ sec('── 6. app.js 배선', () => {
   chk(/window\.TwFocusLog = api/.test(MOD) && (code.match(/TwFocusLog\.createFocusLog\(/g) || []).length === 1, '모듈은 window.TwFocusLog · 만드는 곳은 한 곳');
   const iHead = APP.indexOf('/* ═══ 🕒 포커스 기록 팝업 ═══ */'), iMk = APP.indexOf('TwFocusLog.createFocusLog('), iNext = APP.indexOf('/* ═══ ✥ 프로그램 이동 모드 ═══ */');
   const iPrev = APP.lastIndexOf('})();', iHead);
-  chk(iHead > 0 && iMk > iHead && iNext > iMk && /^\s*\n\s*$/.test(APP.slice(iPrev + 5, iHead)) && /refreshFsAdBanner/.test(APP.slice(iPrev - 600, iPrev)),
-    '원래 자리 — 광고 배너 설정 묶음 뒤 · 구역 머리 아래 · ✥ 프로그램 이동 모드 앞');
+  /* 광고 배너 설정 묶음은 settings-panel.js 로 옮겼다(앱 FSD 27번) — 그 뒤엔 app.js 에서 설정 패널 모듈 만드는 줄이 바로 앞이다 */
+  const RAW = SRC['app.js'], rHead = RAW.indexOf('/* ═══ 🕒 포커스 기록 팝업 ═══ */'), rPrev = RAW.lastIndexOf('\n});', rHead);
+  const afterSettings = rHead > 0 && rPrev > 0 && /^\s*$/.test(RAW.slice(rPrev + 4, rHead)) && /TwSettingsPanel\.createSettingsPanel\(/.test(RAW.slice(RAW.lastIndexOf('\nconst ', rPrev), rPrev));
+  const afterBanner = /^\s*\n\s*$/.test(APP.slice(iPrev + 5, iHead)) && /refreshFsAdBanner/.test(APP.slice(iPrev - 600, iPrev));
+  chk(iHead > 0 && iMk > iHead && iNext > iMk && (afterBanner || afterSettings),
+    '원래 자리 — 광고 배너 설정 묶음(지금은 설정 패널 모듈 만드는 줄) 뒤 · 구역 머리 아래 · ✥ 프로그램 이동 모드 앞');
   const call = (APP.match(/TwFocusLog\.createFocusLog\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   const want = [
@@ -234,13 +239,13 @@ sec('── 6. app.js 배선', () => {
   chk(/formatHMS\(_focusTotalSec\(\)\)/.test(m) && /formatHMS\(_focusSessionSec\(\)\)/.test(m) && !/formatHMS\(_focus(Total|Session)Sec\)/.test(m), '모듈은 누적 · 현재 기록을 그릴 때마다 읽는다');
   chk(!/[^.\w]_focus(Total|Session|Today)Sec\s*[+-]?=[^=]/.test(m.replace(/const _focus(Total|Session)Sec = deps\.focus(Total|Session)Sec;/g, '')), '  모듈은 포커스 시간에 쓰지 않는다');
   const off = (APP.match(/const FOCUS_LOG_OFF = (\{[^\n]*?\});/) || [])[1];
-  chk(off === '{}', '빈 껍데기 FOCUS_LOG_OFF — 반환값과 같은 빈 객체');
-  const iR = HTML.indexOf('<script src="parts/room-invite-ui.js"></script>'), iF = HTML.indexOf('<script src="parts/focus-log.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  chk(!/\bFOCUS_LOG_OFF\b/.test(APP), '빈 껍데기 FOCUS_LOG_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
+  const iR = HTML.indexOf('<script src="parts/room/room-invite-ui.js"></script>'), iF = HTML.indexOf('<script src="parts/focus/focus-log.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iR > 0 && iF > iR && iA > iF, 'html — focus-log.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwFocusLog') && !/window\.FocusLog\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   const wire = (APP.match(/const FOCUS_LOG_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   let got = null; try{ got = vm.runInNewContext(wire + '\nfocusLog;', {}); }catch(_){}
-  chk(!!got && !Object.keys(got).length, '모듈이 안 실려도 그 자리는 서지 않는다(빈 껍데기)');
+  chk(/^const focusLog = TwFocusLog\.createFocusLog\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
 sec('── 7. 일부러 깨 보기 — 이 검사가 헛돌지 않는가', () => {

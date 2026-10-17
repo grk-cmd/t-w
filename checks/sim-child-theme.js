@@ -8,13 +8,14 @@
    ・3절: 배선 — 열 때 주입, applyTheme 전파, 토큰이 메인 HTML 에 실제로 정의돼 있다.
    [실행] app.js · guestbook.js · myhome-edit.js · desk-companion-prototype.html 이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-/* 📖 방명록 창(GB_HTML · 여는 곳)은 parts/guestbook.js 로 옮겼다(앱 FSD 4번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+/* 📖 방명록 창(GB_HTML · 여는 곳)은 parts/myhome/guestbook.js 로 옮겼다(앱 FSD 4번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 못 찾은 문자열로 빨개지지 않게. */
 let GBF = null; try{ GBF = fs.readFileSync('guestbook.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — guestbook.js'); process.exit(2); }
-/* 👑 디자인 창(DS_HTML · 여는 곳)은 parts/myhome-edit.js 로 옮겼다(앱 FSD 7-2) — 같은 방식으로 이어 붙인다. */
+/* 👑 디자인 창(DS_HTML · 여는 곳)은 parts/myhome/myhome-edit.js 로 옮겼다(앱 FSD 7-2) — 같은 방식으로 이어 붙인다. */
 let MEF = null; try{ MEF = fs.readFileSync('myhome-edit.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
-const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + GBF + '\n' + MEF;
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + GBF + '\n' + MEF;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 
 let pass = 0, fail = 0, huhs = 0;
@@ -88,9 +89,11 @@ chk(/setAttribute\('data-theme', t\)/.test(atc) && /setAttribute\('data-accent',
 chk(/removeAttribute\('data-theme'\)/.test(atc), '기본 테마면 data-theme 을 뗀다 (메인과 같은 규칙 — 남겨 두면 버블이 안 풀린다)');
 chk(/head\.insertBefore\(st, head\.firstChild\)/.test(atc), '토큰 <style> 은 창 자신의 <style> 보다 앞');
 chk(/_themeChildDocs\.push\(d\)/.test(atc), '연 창을 _themeChildDocs 에 기억한다');
+/* 열린 창에 다시 거는 함수는 theme-ui 가 onApplied 로 건다(theme.js 가 위층 theme-ui 를 부르던 순환 끊기 — 모듈 순환 끊기 2) */
 const at = grabFn('applyTheme') || '';
-chk(/_themeChildDocs = _themeChildDocs\.filter/.test(at) && /applyThemeToChildDoc\(d\)/.test(at), '★ applyTheme 가 열린 창에도 다시 건다');
-chk(/d\.defaultView\.closed\) return false/.test(at), '닫힌 창은 목록에서 떨어진다');
+const atHook = (SRC.match(/\nonApplied\(\(\)=>\{[\s\S]*?\n\}\);/) || [''])[0];
+chk(/for\(const fn of _onAppliedFns\)/.test(at) && /_themeChildDocs = _themeChildDocs\.filter/.test(atHook) && /applyThemeToChildDoc\(d\)/.test(atHook), '★ applyTheme 가 열린 창에도 다시 건다(theme-ui 가 onApplied 로 건 함수)');
+chk(/d\.defaultView\.closed\) return false/.test(atHook), '닫힌 창은 목록에서 떨어진다');
 const tcc = grabFn('_themeChildCss') || '';
 chk(/getComputedStyle\(document\.documentElement\)/.test(tcc) && /getPropertyValue\(k\)/.test(tcc), '토큰 값은 메인 문서 computed style 에서 읽는다 (CSS 두 벌 아님)');
 const undefinedInMain = TOKENS.filter(t => !new RegExp(t.replace(/-/g, '\\-') + '\\s*:').test(HTML));

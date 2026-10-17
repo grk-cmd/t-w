@@ -33,7 +33,7 @@ say('── 1. 붙는 방식');
   chk((B.match(/addFolder\(/g) || []).length === 1 && !/addEnvMenu|advDesktop\.appendChild/.test(B), '바탕화면에 붙는 길은 addFolder 하나뿐');
   chk(/createWindow\(\{ id:'bmWin'[^)]*host:'side'/.test(B), '서랍은 host:\'side\'');
   chk(/onVisit\(v, ownerId\)\{\s*\n?\s*bmOpen = false; bmEditorClose\(\); D\.closeWindow\('bmWin'\);/.test(B), '방문 전환 때 서랍을 닫는다');
-  chk(/<script src="parts\/bookmark\.js"><\/script>/.test(HTML), 'html 에 script 한 줄');
+  chk(/<script src="parts\/(?:myhome\/)?bookmark\.js"><\/script>/.test(HTML), 'html 에 script 한 줄');
   if(MHD) chk(!/북마크|bookmark|bmWin/.test(MHD), 'myhome-desktop.js 에 북마크라는 말이 없다(파일 하나만 지우면 끝)');
   else { huh++; say('  ? myhome-desktop.js 없음'); }
 }

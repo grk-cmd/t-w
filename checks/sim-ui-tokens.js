@@ -33,6 +33,11 @@ const stripJs = (s) => stripCss(s).replace(/(^|[^:\\'"])(\/\/[^\n]*)/g, (m, a, b
 const files = [['desk-companion-prototype.html', stripCss(fs.readFileSync(htmlPath, 'utf8'))]];
 for(const f of fs.readdirSync(partsDir).filter(f => f.endsWith('.js')).sort())
   files.push([f, stripJs(fs.readFileSync(path.join(partsDir, f), 'utf8'))]);
+/* 관리자 코드는 parts/admin/ 에 모은다 — 한 층 아래도 본다(이름은 'admin/파일'). 빼면 app.js 에서 옮긴 관리자 창의 손 색이 시야에서 사라진다. */
+const adminDir = path.join(partsDir, 'admin');
+if(fs.existsSync(adminDir))
+  for(const f of fs.readdirSync(adminDir).filter(f => f.endsWith('.js')).sort())
+    files.push(['admin/' + f, stripJs(fs.readFileSync(path.join(adminDir, f), 'utf8'))]);
 const HTML = files[0][1];
 const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 

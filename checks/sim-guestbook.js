@@ -1,5 +1,5 @@
 /* ═══ 📖 sim-guestbook.js — 방명록 모듈 (2026-10-10 신설 · 앱 FSD 4번) ═══════════════════════════
-   app.js 의 📖 방명록 세 구역(새 글 뱃지 · 팝업 머리 · 독립 팝업 창)을 parts/guestbook.js 로 옮겼다. 동작은 그대로여야 한다.
+   app.js 의 📖 방명록 세 구역(새 글 뱃지 · 팝업 머리 · 독립 팝업 창)을 parts/myhome/guestbook.js 로 옮겼다. 동작은 그대로여야 한다.
    자식 창 테마 규약(GB_HTML 토큰 · 열 때 applyThemeToChildDoc)은 sim-child-theme 이 이 파일을 읽어 보고, 여기서는 «옮긴 것» 자체를 굴려 본다.
    ・1절: 만들 때 — #mhGuestbookBtn 클릭 연결 · window 고리 일곱 · 반환값이 같은 함수 · DOM 이 없으면 조용히
    ・2절: 새 글 배지 — 내 방명록 구독 · 마지막으로 본 뒤 글 수 · 99+ · 관람 중엔 숨김(_mhViewingUserId 는 읽는 함수) ·
@@ -13,6 +13,7 @@
           부르는 곳은 window 고리 그대로 · 빈 껍데기 · html 순서 · 전역 이름
    [실행] guestbook.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0, done = false;
@@ -22,7 +23,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['guestbook.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['guestbook.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['guestbook.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 8) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
 
@@ -60,7 +61,7 @@ function mkChildWin(env){
 function mkEnv(opt){
   opt = opt || {};
   const env = { toasts: [], warns: [], ls: {}, subs: [], unsubs: 0, adds: [], dels: [], claps: [], emojis: [], themed: [], wins: [], childClosed: 0,
-    viewing: opt.viewing || null, friends: opt.friends || {}, me: 'uA', name: '나', btnL: null };
+    viewing: opt.viewing || null, friends: opt.friends || {}, me: 'me' in opt ? opt.me : 'uA', name: '나', btnL: null };
   const mainEls = {};
   const getEl = id => (opt.noDom ? null : (mainEls[id] || (mainEls[id] = mkEl('div', id))));
   const subs = {};   // 경로 → 콜백 (가짜 RTDB 구독)
@@ -85,7 +86,7 @@ function mkEnv(opt){
   ctx.window = ctx;
   ctx.open = () => { if(opt.blocked) return null; const w = mkChildWin(env); env.wins.push(w); return w; };
   vm.createContext(ctx);
-  vm.runInContext(MOD, ctx, { filename: 'guestbook.js' });
+  vm.runInContext(opt.src || MOD, ctx, { filename: 'guestbook.js' });
   env.ctx = ctx; env.els = mainEls; env.push = (k, v) => { if(subs[k]) subs[k](v); };
   env.mk = () => ctx.TwGuestbook.createGuestbook({
     getMyUserId: () => env.me,
@@ -193,6 +194,16 @@ await sec('── 3. 창 — 열기 · 목록 · 관람 · 외부인', async () 
   chk(eb.toasts[0] === '방명록 창을 열 수 없어요', '창이 막히면 안내');
 });
 
+await sec('── 3-2. 내 코드 없음 — 방명록 요청 0', () => {
+  const noUid = (src) => { const e = mkEnv({ me: null, src }); e.mk(); e.ctx._mhGbStartWatch();
+    e.viewing = 'uB'; e.ctx._mhReSubscribeGuestbook(); const a = e.subs.join();
+    e.viewing = null; e.ctx._mhReSubscribeGuestbook();
+    return a === 'gb:uB,clap:uB' && e.subs.join() === a && e.unsubs === 2; };
+  chk(noUid(), '내 코드 없음 → 새 글 배지 · 관람에서 돌아와도 내 방명록 · 박수 구독 0(guestbook/null) · 친구 것은 그대로 · 끊기는 그대로');
+  const m2 = MOD.replace(/\n *if\(!target\) return;[^\n]*/, '');
+  chk(m2 !== MOD && !noUid(m2), '  깨 보기 — 내 코드 확인을 빼면 빨강');
+});
+
 await sec('── 4. 쓰기 · 박수 · 폭죽', async () => {
   const e = mkEnv(); e.mk(); e.ctx.openMyGuestbook();
   const d = e.wins[0].document, inp = d.getElementById('gbInput');
@@ -257,10 +268,11 @@ await sec('── 5. app.js 배선', () => {
   const off = (APP.match(/const GUESTBOOK_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const ret = (MOD.match(/return \{\n  open: window\.openMyGuestbook,([\s\S]*?)\n\};/) || [])[0] || '';
   const names = [...ret.matchAll(/^\s+(\w+): window\./gm)].map(x => x[1]);
-  chk(names.length === 7 && names.every(n => new RegExp('\\b' + n + '\\(').test(off)), '빈 껍데기 GUESTBOOK_OFF 가 반환값 이름을 다 갖는다 (' + names.join(' · ') + ')');
-  const calls = (code.match(/typeof (window\.)?(_mhGb\w+|_mhReSubscribeGuestbook)\s*===\s*'function'/g) || []).length;
-  chk(calls === 8, '부르는 곳(친구 목록 · 마이홈 열기 · 닫기 · 관람 시작 · 끝 · 런처로)은 window 고리를 typeof 로 본다 — 모듈이 없으면 조용히 넘어간다 (' + calls + ')');
-  const iG = HTML.indexOf('<script src="parts/guestbook.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  chk(!/\bGUESTBOOK_OFF\b/.test(APP), '빈 껍데기 GUESTBOOK_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
+  const guarded = (code.match(/typeof (window\.)?(_mhGb\w+|_mhReSubscribeGuestbook)\s*===\s*'function'/g) || []).length;
+  const calls = (code.match(/(?<![\w.])(window\.)?(_mhGb(?:StartWatch|StopWatch|RefreshBadge|RefreshWriteUI|MarkAllRead)|_mhReSubscribeGuestbook)\(/g) || []).length;
+  chk(guarded === 0 && calls >= 8, '부르는 곳(친구 목록 · 마이홈 열기 · 닫기 · 관람 시작 · 끝 · 런처로)은 window 고리를 가드 없이 부른다 — 고리는 부팅 때 늘 걸린다(가드 걷기 4단계 · 부르는 곳 ' + calls + ' · 가드 ' + guarded + ')');
+  const iG = HTML.indexOf('<script src="parts/myhome/guestbook.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iG > 0 && iG < iA, 'html — guestbook.js 를 app.js 앞에 싣는다');
   /* #103 교훈 — 크로미움 내장 전역(Scheduler 등)과 겹치면 typeof 가드가 늘 통과한다. 접두사로 피한다(헤드리스 크로미움에서 typeof 확인) */
   chk(/^Tw[A-Z]/.test('TwGuestbook') && !/window\.Guestbook\s*=/.test(MOD), '전역 이름은 Tw 접두사');

@@ -26,8 +26,9 @@
    ⚠ **합격 판정은 눈으로 볼 것** — 실행 화면 콘솔에서 좌석별 발점을 화면 픽셀로 투영해
      그 값이 전부 같으면 성공이다(핸드오프 2절 끝의 스니펫). */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const say = console.log;
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };

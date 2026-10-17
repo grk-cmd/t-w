@@ -17,8 +17,9 @@
 
    ⚠ 소스 대조만 한다(런타임 RTDB 는 안 본다). 눈으로 볼 것은 핸드오프의 확인표에 있다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 /* 🔒 CSP(3절) — 예전엔 firebase 초기화가 HTML 안의 인라인 모듈이었다. `script-src` 에서
    'unsafe-inline' 을 버리려고 `parts/firebase-init.js` 로 뺐다. 이 검사는 chatLog 보존 상수를
    **HTML 안에서** 찾으므로, 파일이 있으면 이어 붙여 외부화 전과 같은 시야를 만든다.
@@ -101,9 +102,10 @@ say('· §2 _meta 는 서버 함수가 걷는다 · roomIndex 줄엔 비었음 �
 const finalCleanup = (HTML.match(/const _finalCleanup = async \(keys\)=>\{[\s\S]*?\n {10}\};/) || [''])[0];
 const FN_RS = ['functions/room-stats.js', '../functions/room-stats.js'].map(f => fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '').join('');
 chk(finalCleanup.length > 0, '_finalCleanup 블록을 찾았다');
-chk(FN_RS.length > 0 && (FN_RS.match(/chatLog'\)\.remove/g) || []).length === 1
-    && /if \(keys && keys\.chatLog && await isPublicTogether\(db, code, metaChannel\)\) await db\.ref\('rooms\/' \+ code \+ '\/chatLog'\)\.remove\(\);/.test(FN_RS),
-  '서버 함수는 chatLog 를 공용 투게더룸(시크릿 제외)일 때 한 곳에서만 지운다 — 워킹룸 · 시크릿룸은 남긴다');
+chk(FN_RS.length > 0 && (FN_RS.match(/chatLog'\)\.remove/g) || []).length === 2
+    && /if \(keys && keys\.chatLog && await isPublicTogether\(db, code, metaChannel\)\) await db\.ref\('rooms\/' \+ code \+ '\/chatLog'\)\.remove\(\);/.test(FN_RS)
+    && /if \(meta\.channel === CHANNEL\.TOGETHER\) await db\.ref\('rooms\/' \+ code \+ '\/chatLog'\)\.remove\(\);/.test(FN_RS),
+  '서버 함수는 chatLog 를 공용 투게더룸(시크릿 제외)일 때만 지운다 — 빈 Firebase 방 · 닫힌 방 서버 방 두 곳 · 워킹룸 · 시크릿룸은 남긴다');
 chk(/if \(String\(code\)\.indexOf\(SECRET_ROOM_PREFIX\) === 0\)\{\s*\/\/[^\n]*\n\s*await dropEmptyRow\(db, code, now\);\s*done\.add\(code\); secretKept\+\+; continue;/.test(FN_RS),
   '  시크릿룸은 _meta(탭 목록) · _chatTab 지우기보다 먼저 빠진다 — 비었음 줄만 걷고 방은 유지');
 chk(/const r = await db\.ref\('rooms\/' \+ code \+ '\/_meta'\)\.transaction\(/.test(FN_RS),

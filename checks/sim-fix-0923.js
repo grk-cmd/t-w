@@ -6,12 +6,13 @@
    ・5절: 🫨 말랑이 제자리 떨림 — 짧은 간격으로 세 번째 돌아서려 하면 쉰다
    [실행] app.js · purikura-ui.js · desk-companion-prototype.html · mallang.js · animal.js 가 있는 폴더에서. */
 'use strict';
+const _MI_JOIN = require('./sim-renderer-src.js').joinRenderer;   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('app.js'), ML = read('mallang.js'), AN = read('animal.js');
+const SRC = _MI_JOIN(read('app.js')), ML = read('mallang.js'), AN = read('animal.js');
 if(!SRC || !ML){ say('  ? 원본 못 찾음 — app.js · mallang.js'); process.exit(2); }
 /* 📷 스티커사진 무대(_pkCloneChar)는 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 4절은 그 파일을 본다 */
 const PU = read('purikura-ui.js');
@@ -26,8 +27,30 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
   const N = new Function(grab(SRC, '_normPartRec') + ' return _normPartRec;')();
   chk(N({ id:'g', gacha:true, stackable:false }).stackable === true, '옛 가챠 파츠(stackable:false) → true');
   chk(N({ id:'n', stackable:false }).stackable === false, '일반 파츠는 그대로');
-  chk(/savedParts\.forEach\(_normPartRec\)/.test(strip(grab(SRC, 'loadSavedParts'))), '입구 ① 로컬 캐시(loadSavedParts)');
-  chk(/map\(id=>_normPartRec\(\{ id, \.\.\.catalogObj\[id\], fromCatalog:true \}\)\)/.test(strip(grab(SRC, 'mergeCatalogIntoSavedParts'))), '입구 ② 카탈로그(mergeCatalogIntoSavedParts)');
+  /* 입구 두 곳은 글 모양이 아니라 진짜 함수를 돌려 본다 — 합치기 규칙을 옮겨도 판정이 안 깨지게 */
+  const IN = new Function('localStorage', 'document', [
+    "const SAVED_PARTS_KEY = 'tw.savedParts', CATALOG_ORDER_LAST = 9999; let savedParts = [];",
+    'const log = [], seats = [];',
+    'const persistSavedParts = () => {}, applyClothVisibility = () => {}, unequipPartFromSeat = () => {}, fitModel = () => {}, layoutSeats = () => {};',
+    'const refitSeatAfterParts = () => {};',   // 다시 맞추기 한 벌(seat-refit.js — 판정은 sim-seat-refit)
+    'const renderLauncher = () => {}, refreshWdPreviewChar = () => {}, renderWardrobe = () => {}, _remeasureRideHeadTop = () => {};',
+    'const gachaMod = { pruneUnownedGachaParts: () => {} }, partEntryXf = (e) => e && e.xf;',
+    "const partEntryId = (e) => typeof e === 'string' ? e : (e && e.id), entriesForCat = (def, c) => [].concat(def.equippedParts[c]);",
+    'const equipPartOnSeat = (s, cat, rec, opt) => { log.push([rec.id, opt.stackableXf]); };',
+    ['_normPartRec', 'loadSavedParts', 'mergeCatalogList', 'mergeCatalogIntoSavedParts'].map(n => grab(SRC, n)).join('\n'),
+    'return { load: loadSavedParts, merge: mergeCatalogIntoSavedParts, parts: () => savedParts, seats, log };',
+  ].join('\n'));
+  const doc = { getElementById: () => null };
+  const old = [{ id:'g1', cat:'hat', gacha:true, stackable:false }, { id:'n1', cat:'hat', stackable:false }];
+  let E = IN({ getItem: () => JSON.stringify(old) }, doc);
+  E.load();
+  chk(E.parts().find(p => p.id === 'g1').stackable === true && E.parts().find(p => p.id === 'n1').stackable === false, '입구 ① 로컬 캐시(loadSavedParts) — 옛 가챠 기록을 읽으면 stackable · 일반 파츠는 그대로');
+  E = IN({ getItem: () => '[]' }, doc);
+  E.seats.push({ charDef:{ equippedParts:{ hat:[{ id:'hat0', xf:{} }, { id:'g2', xf:{ y:1 } }] } } });
+  E.merge({ g2:{ cat:'hat', gacha:true, stackable:false }, n2:{ cat:'hat', stackable:false } });
+  const g2 = E.parts().find(p => p.id === 'g2');
+  chk(g2 && g2.stackable === true && E.parts().find(p => p.id === 'n2').stackable === false, '입구 ② 카탈로그(mergeCatalogIntoSavedParts) — 서버가 stackable:false 로 보낸 가챠 파츠도 stackable');
+  chk(E.log.length === 1 && E.log[0][0] === 'g2' && E.log[0][1] && E.log[0][1].y === 1, '  그래서 착용 중인 가챠 파츠는 겹쳐 달기(자기 xf)로 다시 붙는다');
   const body = ['partEntryId', 'isPartEntryContainer', 'entriesForCat', '_flattenCatContainer', 'addEntryToCat', 'removeEntryFromCat'].map(n => grab(SRC, n)).join('\n');
   const F = new Function(body + ' return { add:addEntryToCat, rm:removeEntryFromCat, list:entriesForCat };')();
   const hat = { id:'hat', xf:{} }, rib = { id:'rib', xf:{} };
@@ -52,7 +75,7 @@ say('── 2. 🖼️ 슬롯 섬네일 = 런처');
   chk(/lChar\.charDef !== job\.def/.test(tk) && /slots\.indexOf\(job\.def\) < 0/.test(tk), '다른 캐릭터·지워진 슬롯이면 안 찍는다');
   chk(/lChar\.group\.position\.y = lCharBaseY;/.test(tk) && /finally\{ try\{ lChar\.group\.position\.y = y;/.test(tk), '둥둥을 멈춘 자리에서 찍고 되돌린다');
   chk(/if\(a < 255 \* 20\) return;/.test(tk), '빈 그림이면 덮지 않는다');
-  chk(/if\(url && url !== job\.def\.thumb\)\{ job\.def\.thumb = url; if\(typeof saveSlots === 'function'\) saveSlots\(\); \}/.test(tk), '바뀌었을 때만 저장');
+  chk(/if\(url && url !== job\.def\.thumb\)\{ job\.def\.thumb = url; saveSlots\(\); \}/.test(tk), '바뀌었을 때만 저장');
   chk(/const LC_THUMB_SETTLE_MS = 900, LC_THUMB_MAX = 160;/.test(CODE), '크기 상한 160px(칸은 52px)');
   chk(/out\.thumb = null;/.test(CODE), '섬네일은 서버로 안 간다(로컬 전용 — 쓰기가 안 는다)');
 }
@@ -189,7 +212,7 @@ say('── 7. 🗼 탑에서 룰렛 — 나만 빠지고 탑은 한 칸 내려�
   const af = strip(grab(SRC, 'applyRemoteFly'));
   chk(/_rideLeaveTower\(seat\);\s*const ok = startFlight\(/.test(af), '받는 화면마다 «먼저 탑에서 빼고 → 날린다»');
   chk(/if\(seat\.fly\) return;\s*const want = seat\._remoteRidingOn;/.test(CODE), '날아가는 중인 좌석에는 늦게 온 «타고 있음» 을 다시 붙이지 않는다');
-  chk(/if\(!_rideQuietToast && typeof toast==='function'\) toast\('🐾 머리 위에 올라탔어요!/.test(CODE), '탑이 내려앉으며 다시 태울 땐 토스트 없음');
+  chk(/if\(!_rideQuietToast\) toast\('🐾 머리 위에 올라탔어요!/.test(CODE), '탑이 내려앉으며 다시 태울 땐 토스트 없음');
 }
 
 say('── 8. 🖼️ 자리비움 그림 = 화면 px 고정 (개정 76 · 150 → 기본 80 · 주인이 60·80·100)');
@@ -212,7 +235,7 @@ say('── 9. 🗼 탑 위 자리비움 그림 — 바로 아래 캐릭터의 �
 {
   const fr = strip(grab(SRC, '_awayImgFrame'));
   chk(/const _host = seat\.ridingOn;\s*if\(_host && _host\.rig && seats\.indexOf\(_host\) >= 0\)\{/.test(fr), '올라탄 동안에만 갈래를 탄다');
-  chk(/_awayHostBox\.setFromObject\(_host\.bodyWrap \|\| _host\.rig\);/.test(fr) && /fy = _awayHostBox\.max\.y;/.test(fr), '밑변 = 바로 아래 캐릭터의 꼭대기');
+  chk(/_awayHostBox\.setFromObject\(_host\.bodyWrap \|\| _host\.rig\);|measureBodyBox\(_host\.bodyWrap \|\| _host\.rig, null, _awayHostBox\);/.test(fr) && /fy = _awayHostBox\.max\.y;/.test(fr), '밑변 = 바로 아래 캐릭터의 꼭대기');
   chk(/cx = \(_awayHostBox\.min\.x \+ _awayHostBox\.max\.x\)\/2;/.test(fr) && /cz = \(_awayHostBox\.min\.z \+ _awayHostBox\.max\.z\)\/2;/.test(fr), '가로·앞뒤 = 그 캐릭터 가운데');
   chk(fr.indexOf('fy = _awayHostBox.max.y;') < fr.indexOf('const h = _awayWorldForPx(_awayPxFor(seat), cx, fy, cz);'), '크기는 바뀐 자리의 깊이로 잰다');
   chk(/var _awayBox = null, _awayGW = null, _awayHostBox = null;/.test(CODE), '상자는 하나를 재사용한다(매 측정 new 없음)');
@@ -228,7 +251,8 @@ say('── 10. 📏 자리비움 그림 크기 60·80·100 — 그림 주인이
   const px = new Function('AWAY_SZ_OPTIONS', 'AWAY_PIC_SCREEN_PX', 'awayImgSz', ok + pf + ' return _awayPxFor;')([60, 80, 100], 80, 100);
   chk(px({ isMe:true }) === 100 && px({ remote:true, remoteAwaySz:60 }) === 60, '내 좌석 = 내가 고른 값 · 남의 좌석 = 그 사람이 보낸 값');
   chk(px({ remote:true, remoteAwaySz:null }) === 80 && px({ remote:true, remoteAwaySz:999 }) === 80 && px(null) === 80, '안 보냈거나(구버전) 엉뚱한 값이면 기본 80');
-  chk(/let myAwaySz=80;/.test(CODE) && !/let myAwaySz=AWAY_PIC_SCREEN_PX/.test(CODE), 'Presence 초기값은 숫자 — 아래쪽 var 를 읽으면 load 순간 undefined(방 payload 거절)');
+  chk((/let myAwaySz=80;/.test(CODE) || (/let myAwaySz=AWAY_SZ_DEFAULT;/.test(CODE) && /const AWAY_SZ_DEFAULT = 80;/.test(CODE) && CODE.indexOf('const AWAY_SZ_DEFAULT = 80;') < CODE.indexOf('let myAwaySz=AWAY_SZ_DEFAULT;'))) && !/let myAwaySz=AWAY_PIC_SCREEN_PX/.test(CODE),   // 숫자 상수(presence.js 위 — C 구역 떼기 w4)도 같은 뜻
+  'Presence 초기값은 숫자 — 아래쪽 var 를 읽으면 load 순간 undefined(방 payload 거절)');
   chk(/\.\.\.myStarOut\(\), awaySz:myAwaySz, lic:/.test(CODE) && /\{def:myDef,name:myName,awaySz:myAwaySz,state:myState,/.test(CODE), '평소 · 입장 payload 에 awaySz(다른 검사가 붙잡은 줄 모양은 안 흔든다)');
   chk(/s\.remoteAwaySz=_awaySzOk\(friends\[id\]\.awaySz\) \? friends\[id\]\.awaySz : null;/.test(CODE), '받는 쪽은 세 값만 받는다');
   chk(/function setAwaySz\(px\)\{[\s\S]{0,160}if\(v === myAwaySz\) return;/.test(CODE) && /setAwayImg, setAwaySz,/.test(CODE), 'Presence.setAwaySz — 같으면 안 보냄 · 내보냄');

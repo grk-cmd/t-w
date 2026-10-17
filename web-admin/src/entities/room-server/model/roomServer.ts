@@ -12,6 +12,11 @@ export interface RoomServerConfig {
   default: string | null;
   /** 기본 서버로 보낼 비율 0~100(정수). 칸이 없거나 틀리면 0(아무도 안 감 — 앱도 같게 본다). */
   defaultPercent: number;
+  /**
+   * 방 서버가 자기 방을 roomIndex 장부에 올릴지. 켜면 전체 상한(config/roomLimits)을 Firebase 방 + 방 서버 방 합계로 본다.
+   * 끄면 Firebase 방만 전체 상한과 견주고 방 서버 방은 서버 한 대 상한(limits)으로 따로. 칸이 없거나 bool 이 아니면 false.
+   */
+  registerIndex: boolean;
 }
 
 export const CHANNELS = ['workingroom', 'togetherroom'] as const;
@@ -30,8 +35,10 @@ export const SERVER_URL_RE = /^wss?:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?$/;
 export const SERVER_URL_MAX = 200;
 export const USER_CODE_RE = /^u[0-9a-z]{6,40}$/;
 
-// 앱 CSP connect-src · room-server-gate.js ROOM_SERVER_URLS 와 같은 주소 — 여기 없는 주소는 앱이 쓰지 않는다.
+// 앱 CSP connect-src · room-server-gate.js ROOM_SERVER_URL_RE 안의 주소 — 여기 없는 주소는 앱이 쓰지 않는다.
+// rooms.togetherworking.duckdns.org 는 옛 앱도 아는 운영 주소(새 앱은 realtime.together-working.com 으로 바꿔 붙는다 — ROOM_SERVER_HOST_ALIAS).
 export const APP_SERVER_URLS = [
+  'wss://realtime.together-working.com',
   'wss://rooms.togetherworking.duckdns.org',
   'wss://rooms-dev.togetherworking.duckdns.org',
   'ws://127.0.0.1:8787',
@@ -63,6 +70,7 @@ export function parseRoomServerConfig(raw: unknown): RoomServerConfig {
     limits: parseLimits(o.limits),
     default: typeof o.default === 'string' && SERVER_NAME_RE.test(o.default) ? o.default : null,
     defaultPercent: isDefaultPercent(o.defaultPercent) ? o.defaultPercent : 0,
+    registerIndex: o.registerIndex === true,
   };
 }
 

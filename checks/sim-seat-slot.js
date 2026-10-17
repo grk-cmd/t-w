@@ -3,7 +3,7 @@
    ・1절: clampShift 표 — 안쪽 · 왼쪽 넘침 · 오른쪽 넘침 · 자리보다 넓음(가운데) · 잘못된 값
    ・2절: clampParts 를 실제 three 로 — 배율 있는 부모 사슬(책상 그룹 · 앵커 · 핀) · 끄면 되돌림 ·
           밖에서 자리를 다시 잡으면(applyPartXf) 민 값을 두 번 빼지 않음 · 여러 번 돌려도 그대로
-   ・3절: app.js 배선 — 평준화일 때만 · 자리 = 책상이 뻗은 거리 + 여백 절반 · 올라탄 좌석 제외 · 띄엄띄엄 · 저장값 안 건드림
+   ・3절: 가두기 동작 — 진짜 _clampSeatDeskParts 를 가짜 좌석 위에서: 평준화일 때만 · 자리 = 책상이 뻗은 거리 + 여백 절반 · 올라탄 좌석 제외 · 띄엄띄엄 · 저장값 안 건드림 · 프레임 루프 배선
    ・4절: html 로드
    ⚠️ 실제 좌석은 2026-10-08 헤드리스 크로미움에서 확인했다(넓은 파츠 -4~-2 → 평준화 켜면 자리 안 · 끄면 -4~-2 로 복귀).
    [실행] seat-slot.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. three 는 vendor/three/three.min.js. */
@@ -67,24 +67,47 @@ chk(near((w2.min.x + w2.max.x) / 2, 5), '자리보다 넓으면 좌석 가운데
 const lone = new THREE.Group();
 chk(SL.clampParts([lone, null], 5, 1, true) === 0, '부모 없는 파츠 · 빈 칸은 건너뛴다');
 
-say('── 3. app.js 배선');
-const APP = SRC['app.js'];
+const APP = require('./sim-renderer-src.js').joinRenderer(SRC['app.js']);   // 옮긴 모듈(seat-equalize.js 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다(판정 무변경)
+say('── 3. 가두기 동작 · 배선');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const A = strip(APP);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;
   for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
-const cp = grab(A, '_clampSeatDeskParts');
-chk(/const on = !!\(seatEqualizeOn && !s\.ridingOn && s\.desk && s\.desk\.visible !== false\);/.test(cp), '평준화일 때만 · 올라탄 좌석(책상 숨음)은 제외');
-chk(/const half = on \? seatDeskHalfWidth\(s\) \+ gap \/ 2 : 0;/.test(cp) && /const gap = seats\.some\(s=>s\.remote\) \? MULTIPLAYER_SPACING : SPACING;/.test(cp), '자리 = 책상이 뻗은 거리 + 좌석 사이 여백(layoutSeats 와 같은 값)의 절반');
-chk(/getObjectByName\(DESK_PART_ANCHOR_NAME\)/.test(cp) && /o\.userData && o\.userData\.__twPartWrap/.test(cp), '대상은 «책상 위» 파츠 핀에 붙은 파츠 wrapper 만');
-chk(/if\(t < _seatSlotNext\) return;/.test(cp) && /const SEAT_SLOT_EVERY_MS = 500;/.test(A), '띄엄띄엄(0.5초) — 박스 실측이라 매 프레임은 무겁다');
+/* 가두기 판정은 글 모양이 아니라 진짜 _clampSeatDeskParts 를 가짜 좌석 위에서 돌려 본다 */
+const PIN = (/DESK_PART_ANCHOR_NAME\s*=\s*'([^']+)'/.exec(A) || [])[1];
+const EVERY = +(/SEAT_SLOT_EVERY_MS\s*=\s*(\d+)/.exec(A) || [])[1];
+const CL = (o) => {
+  const calls = [], touched = [];
+  const spy = { clampParts: (parts, x, half, on) => calls.push({ ids: parts.map(p => p.id).join(), x, half, on }) };
+  const run = new Function('seats', 'seatSlot', 'seatEqualizeOn', 'seatDeskHalfWidth', 'SPACING', 'MULTIPLAYER_SPACING', 'DESK_PART_ANCHOR_NAME', 'SEAT_SLOT_EVERY_MS',
+    'performance', 'console', 'saveSlots', 'setPartEntryInstanceXf',
+    'let _seatSlotNext = 0;\n' + grab(APP, '_clampSeatDeskParts') + '\nreturn _clampSeatDeskParts;')(
+    o.seats, o.noSlot ? null : spy, !!o.eq, (s) => s.half, 2, 3, PIN, EVERY,
+    { now: () => 0 }, { warn: () => {} }, () => touched.push('saveSlots'), () => touched.push('xf'));
+  return { run, calls, touched };
+};
+const seat = (o) => { const pin = { name: PIN, children: o.kids || [{ id: 'p1', userData: { __twPartWrap: true } }, { id: 'item', userData: {} }] };
+  return Object.assign({ half: 1, desk: { visible: o.hidden ? false : true }, group: { position: { x: o.x || 0 } },
+    deskAnchor: { getObjectByName: (n) => n === PIN ? pin : null }, charDef: { equippedParts: { hat: { id: 'p1', xf: { pos: [0, 0, 0] } } } } }, o); };
+let R = CL({ eq: true, seats: [seat({ x: 4, half: 1.5 }), seat({ ridingOn: {} }), seat({ hidden: true }), seat({ kids: [] })] });
+R.run(1000);
+chk(R.calls.length === 3 && R.calls[0].ids === 'p1' && R.calls[0].on === true && R.calls[1].on === false && R.calls[2].on === false, '평준화일 때만 · 올라탄 좌석 · 책상 숨은 좌석은 제외(끈 채로 넘겨 되돌린다) · 파츠 없는 좌석은 건너뜀 · wrapper 만 넘긴다');
+chk(R.calls[0].x === 4 && R.calls[0].half === 1.5 + 2 / 2 && R.calls[1].half === 0, '자리 = 좌석 x · 책상이 뻗은 거리 + 좌석 사이 여백(layoutSeats 와 같은 값)의 절반');
+R = CL({ eq: true, seats: [seat({}), seat({ remote: true })] });
+R.run(1000);
+chk(R.calls[0].half === 1 + 3 / 2, '  친구가 있으면 멀티 간격으로');
+R.run(1000 + EVERY - 1); const n1 = R.calls.length; R.run(1000 + EVERY);
+chk(EVERY === 500 && n1 === 2 && R.calls.length === 4, '띄엄띄엄(0.5초) — 박스 실측이라 매 프레임은 무겁다');
+R = CL({ eq: false, seats: [seat({})] }); R.run(10);
+chk(R.calls[0].on === false && R.calls[0].half === 0 && !R.touched.length, '평준화를 끄면 반폭 0 · 끔(되돌리기) · 저장값(xf) · 슬롯은 건드리지 않는다 — 내 화면에서만');
 chk(/_clampSeatDeskParts\(now\);/.test(grab(A, 'frame')), '프레임 루프에서 부른다(평준화를 끄면 다음 차례에 되돌린다)');
-chk(!/xf\.pos|setPartEntryInstanceXf|saveSlots/.test(cp), '저장값(xf) · 슬롯은 건드리지 않는다 — 내 화면에서만');
-chk(/const seatSlot = \(typeof SeatSlot === 'undefined'\) \? null/.test(A) && /if\(!seatSlot\) return;/.test(cp), 'seat-slot.js 가 없어도 앱은 켜진다');
+R = CL({ noSlot: true, eq: true, seats: [seat({})] });
+let thrown = null; try{ R.run(10); }catch(e){ thrown = e; }
+chk(/const seatSlot = \(typeof SeatSlot === 'undefined'\) \? null/.test(A) && !thrown && !R.calls.length, 'seat-slot.js 가 없어도 앱은 켜진다(가두기만 안 한다)');
 
 say('── 4. html');
 const HTML = SRC['desk-companion-prototype.html'];
-const iS = HTML.indexOf('<script src="parts/seat-slot.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
+const iS = HTML.indexOf('<script src="parts/character/seat-slot.js">'), iA = HTML.indexOf('<script src="parts/app.js">');
 chk(iS > 0 && iS < iA, 'seat-slot.js 를 app.js 앞에 싣는다');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

@@ -9,9 +9,10 @@
           구버전 main(필드 없음)에서는 예전처럼 탄다. 실제로 돌려 본다.
    [실행] main.js · app.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const MAIN = fs.readFileSync('main.js', 'utf8');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 
 let pass = 0, fail = 0, huhs = 0;
 const say = (s) => console.log(s);
@@ -65,15 +66,18 @@ if(a >= 0){
   for(; k < SRC.length; k++){ if(SRC[k] === '{') d++; else if(SRC[k] === '}' && --d === 0){ handler = SRC.slice(SRC.indexOf('(({x,y,button,...state})=>', a) + 1, k + 1); break; } }
 }
 chk(!!handler, 'onGlobalClick 핸들러를 뗐다');
-chk(handler && /window\.__mouseKick && !\(state && state\.wheel === true\)/.test(handler), '★ wheel === true 면 __mouseKick 을 안 부른다');
+/* 휠 판단은 click-through-policy.js(clickMayKick)로 묶였다 — 부르는 줄과 정책 본문을 같이 본다(판정은 그대로) */
+const POLSRC = ['click-through-policy.js', '../app/parts/launcher/click-through-policy.js', 'app/parts/launcher/click-through-policy.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '';
+const POL = (() => { if(!POLSRC) return null; const m = { exports: {} }; new Function('module', 'exports', 'window', POLSRC)(m, m.exports, undefined); return m.exports; })();
+chk(handler && /window\.__mouseKick && clickPolicy\.clickMayKick\(state\)/.test(handler) && /return !\(state && state\.wheel === true\);/.test(POLSRC), '★ wheel === true 면 __mouseKick 을 안 부른다');
 chk(handler && handler.indexOf('_applyActiveAppState(state)') < handler.indexOf('if(window.__mouseKick'), '  _applyActiveAppState 가 먼저(펜 앱 게이트 순서 — 예전 결정 유지)');
 chk(handler && /anyInput\(\);/.test(handler) && /activity\(\);/.test(handler), '  활동 기록(anyInput·activity)은 남아 있다 — 읽기만 하는 동안 자리비움으로 안 빠지는 원래 목적');
 if(handler){
-  const env = { kicks: [], any: 0, act: 0, applied: [] };
+  const env = { kicks: [], any: 0, act: 0, applied: [], pol: POL };
   const run = new Function('env',
     "const window = { __mouseKick:(off)=>env.kicks.push(off) }; const focusGateSleep = false;\n" +
     "const _applyActiveAppState=(s)=>env.applied.push(s); const anyInput=()=>env.any++; const activity=()=>env.act++;\n" +
-    "const seats = []; const performance = { now:()=>0 };\n" +
+    "const seats = []; const performance = { now:()=>0 }; const clickPolicy = env.pol;\n" +
     "return " + handler + ";")(env);
   run({ x:1, y:2, button:0, exeName:'chrome.exe', wheel:true, offOverlay:false });
   chk(env.kicks.length === 0 && env.any === 1 && env.act === 1, '① 휠(wheel:true): 사다리 0회 · 활동 1회 — 스크롤은 입력이지 고착 신호가 아니다');

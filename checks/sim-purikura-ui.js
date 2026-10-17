@@ -9,18 +9,20 @@
    ・4절: 세션 콜백 — onPeers · onMeta · onPeerEvent · onShot 이 창이 닫혀 있어도 안 터진다
    ・5절: app.js 배선 — 정의는 모듈에만 · createPurikuraUi 는 원래 자리(세션 입구 _purikura 뒤 · 🎟️ 하루 횟수 앞) ·
           부르는 곳은 purikuraUi.이름 · 빈 껍데기 · deps 모양 · html 순서 · 전역 이름
-   [실행] purikura-ui.js · purikura-net.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
+   [실행] purikura-ui.js · purikura-net.js · ps1-dither.js · app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['purikura-ui.js', 'purikura-net.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['purikura-ui.js', 'purikura-net.js', 'ps1-dither.js', 'app.js', 'desk-companion-prototype.html', 'chat-window.js', 'myhome-hooks.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['purikura-ui.js'], NET = SRC['purikura-net.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['purikura-ui.js'], NET = SRC['purikura-net.js'];
+const CW = SRC['chat-window.js'];   // 💬 대화창 배선(📷 버튼)은 chat-window.js 로 옮겼다(앱 FSD 14번)
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 8) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
 
@@ -100,7 +102,11 @@ function mkEnv(opt){
   ctx.addEventListener = (t, fn) => { (env.winL[t] = env.winL[t] || []).push(fn); };
   ctx.removeEventListener = (t, fn) => { env.winL[t] = (env.winL[t] || []).filter(f => f !== fn); };
   vm.createContext(ctx);
+  vm.runInContext(SRC['ps1-dither.js'], ctx, { filename: 'ps1-dither.js' });   // 🕹️ PS1 필터가 부를 때 읽는 디더 규칙(TwPs1Dither)
   vm.runInContext(NET, ctx, { filename: 'purikura-net.js' });
+  vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });
+  /* 🎵 마이홈 BGM 고리(myhome-edit.js 가 부팅 때 고리판에 건다) — 여기선 마이홈 BGM 이 안 도는 판 */
+  ctx.TwMyHomeHooks.on(ctx.TwMyHomeHooks.HOOK.BGM_PLAYING, () => false); ctx.TwMyHomeHooks.on(ctx.TwMyHomeHooks.HOOK.BGM_SET_PLAYING, () => {});
   vm.runInContext(MOD, ctx, { filename: 'purikura-ui.js' });
   env.ctx = ctx; env.els = els;
   env.mk = () => ctx.TwPurikuraUi.createPurikuraUi({
@@ -216,25 +222,26 @@ await sec('── 5. app.js 배선', () => {
   chk(/onPeers: p => \{ purikuraUi\.onPeers\(p\); \}/.test(APP) && /onMeta : m => \{ purikuraUi\.onMeta\(m\); \}/.test(APP)
     && /onEvent: \(slot, ev\) => \{ purikuraUi\.onPeerEvent\(slot, ev\); \}/.test(APP) && /onShot : s => \{ purikuraUi\.onShot\(s\); \}/.test(APP),
     '세션 콜백 넷이 모듈로 들어간다');
-  chk(/try\{ if\(purikuraUi\.isOpen\(\)\) return; \}catch\(_\)\{\}/.test(code) && /try\{ await purikuraUi\.open\(\); \}/.test(code)
+  chk(/try\{ if\(purikuraUi\.isOpen\(\)\) return; \}catch\(_\)\{\}/.test(code) && /try\{ await purikuraUi\.open\(\); \}/.test(strip(CW))
     && /if\(purikuraUi\.isOpen\(\)\)\{\s*if\(purikuraUi\.phase\(\) === 'shooting'\)[^\n]*\n\s*else if\(purikuraUi\.close\(true\)\)/.test(code),
-    '부르는 곳 — 때리기 조준 키 · 📷 버튼 · 회사원 모드 켜기');
+    '부르는 곳 — 때리기 조준 키 · 📷 버튼(chat-window.js) · 회사원 모드 켜기');
   const off = (APP.match(/const PURIKURA_UI_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/purikuraUi\.(\w+)/g) || []).map(s => s.split('.')[1]))];
-  chk(off && used.every(n => new RegExp('\\b' + n + '\\b').test(off)), '빈 껍데기 PURIKURA_UI_OFF 가 부르는 이름을 다 갖는다 (' + used.join(' · ') + ')');
+  chk(!/\bPURIKURA_UI_OFF\b/.test(APP), '빈 껍데기 PURIKURA_UI_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const call = (APP.match(/TwPurikuraUi\.createPurikuraUi\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 31 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ _\w+ = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),
+  chk(deps.length === 31 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ (_\w+|plMod\.st\.\w+) = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),
     'deps 31개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만 (' + deps.length + ')');
-  chk(/plPlaying: \(\)=>_plPlaying,/.test(call) && /setPlPlaying: v=>\{ _plPlaying = v; \},/.test(call) && /officeMode: \(\)=>officeMode,/.test(call),
-    '다시 대입되는 let(officeMode · _plPlaying)은 읽는 함수로 · 쓰기는 setPlPlaying');
+  chk(/plPlaying: \(\)=>plMod\.st\.playing,/.test(call) && /setPlPlaying: v=>\{ plMod\.st\.playing = v; \},/.test(call) && /officeMode: \(\)=>officeMode,/.test(call),
+    '다시 대입되는 let(officeMode · _plPlaying — playlist.js 상태 묶음 plMod.st.playing)은 읽는 함수로 · 쓰기는 setPlPlaying');
   chk(['presence: ()=>Presence', 'spineAxis: ()=>SPINE_AXIS', 'headAxis: ()=>HEAD_AXIS', 'handRest: ()=>HAND_REST', 'shakeArmDroop: ()=>SHAKE_ARM_DROOP'].every(s => call.indexOf(s) >= 0)
     && ['const Presence', 'const SPINE_AXIS', 'const HAND_REST', 'const SHAKE_ARM_DROOP'].every(s => APP.indexOf(s) > iMk),
     '이 줄보다 뒤에 선언되는 const(Presence · 리그 상수 넷)는 읽는 함수로 — 만들 때 읽으면 TDZ');
   const m = strip(MOD);
   chk(!/[^.\w]officeMode\)/.test(m) && !/!!_plPlaying;/.test(m) && !/_plPlaying = (true|false)/.test(m) && !/Presence\.roomCode/.test(m) && !/SPINE_AXIS\*|HEAD_AXIS\*|: HAND_REST,|SHAKE_ARM_DROOP,/.test(m),
     '모듈 본문은 읽는 함수만 부른다(값으로 쓰면 함수가 늘 참이 된다)');
-  const iU = HTML.indexOf('<script src="parts/purikura-ui.js"></script>'), iN = HTML.indexOf('<script src="parts/purikura-net.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const at = (f) => { const m = HTML.match(new RegExp('<script src="parts/(?:purikura/)?' + f.replace('.', '\\.') + '"></script>')); return m ? m.index : -1; };   // 📂 purikura/ 폴더로 옮겼다(구조 정리 3단계) — 예전 자리도 받는다
+  const iU = at('purikura-ui.js'), iN = at('purikura-net.js'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iN > 0 && iU > iN && iU < iA, 'html — purikura-ui.js 를 purikura-net.js 뒤 · app.js 앞에 싣는다');
   /* #103 교훈 — 크로미움 내장 전역(Scheduler 등)과 겹치면 typeof 가드가 늘 통과한다. 접두사로 피한다(헤드리스 크로미움에서 typeof 확인) */
   chk(/^Tw[A-Z]/.test('TwPurikuraUi') && !/window\.(Purikura|PurikuraUi)\s*=/.test(MOD), '전역 이름은 Tw 접두사 — 내장 전역 · 통신 계층(window.Purikura)과 안 겹침');

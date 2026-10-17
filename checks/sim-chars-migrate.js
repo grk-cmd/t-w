@@ -21,7 +21,8 @@
 'use strict';
 const fs = require('fs');
 if(!fs.existsSync('app.js')) process.exit(2);
-const SRC = fs.readFileSync('app.js', 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 
 let pass = 0, fail = 0, huhs = 0;
 const say = (s) => console.log(s);
@@ -587,13 +588,15 @@ async function sec8(){
   /* 배선 — 정적 */
   const fnSrc = (sig) => { const i = SRC.indexOf(sig); return i < 0 ? '' : SRC.slice(i, fnEnd(SRC, i)); };
   const ss = fnSrc('function saveSlots(){');
-  chk((ss.match(/_charsAfterSave\(/g) || []).length === 1 && /_charsAfterSave\(out, _str !== null && _str !== prevRaw\)/.test(ss) && ss.indexOf('_charsAfterSave(') > ss.indexOf('localStorage.setItem(LS_KEY'),
-    '★ saveSlots — LS_KEY 에 쓴 뒤 _charsAfterSave(out, 달라졌나) 한 곳(부르는 스무 자리에 훅을 달지 않는다)');
+  /* 모듈 순환 끊기 3 — saveSlots 는 보관함을 직접 부르지 않고 «저장 뒤» 알림(_savedFns)을 돌린다 · 보관함이 onSaved(_charsAfterSave) 로 건다 */
+  chk((ss.match(/_savedFns\.forEach\(/g) || []).length === 1 && /const _changed = _str !== null && _str !== prevRaw;/.test(ss) && /fn\(out, _changed\)/.test(ss)
+      && ss.indexOf('_savedFns.forEach(') > ss.indexOf('localStorage.setItem(LS_KEY') && (SRC.match(/^onSaved\(_charsAfterSave\);$/gm) || []).length === 1,
+    '★ saveSlots — LS_KEY 에 쓴 뒤 «저장 뒤» 알림 한 곳 · 보관함은 onSaved(_charsAfterSave) 로 받는다(부르는 스무 자리에 훅을 달지 않는다)');
   const dd = fnSrc('function doDeleteCurSlot(){');
   chk(dd.indexOf('_charsTrashMove(curSlot)') > 0 && dd.indexOf('_charsTrashMove(curSlot)') < dd.indexOf('slots[i]=slots[i+1]') && /_toTrash \? '휴지통으로 옮겼어요' : '삭제했어요'/.test(dd),
     '  휴지통 이동은 당기기 전에(칸 번호가 바뀌기 전) · 토스트도 스위치를 따른다');
   const cr = SRC.slice(SRC.indexOf("let target = creatorMode.edit ? creatorMode.slot"), SRC.indexOf('/* --- 런처 미리보기 렌더러 --- */'));
-  chk(/if\(!creatorMode\.edit && typeof _charsBoxFull==='function' && _charsBoxFull\(\)\) return;/.test(cr) && /if\(!creatorMode\.edit\)\{ try\{ if\(typeof _charsOnNew==='function'\) _charsOnNew\(target\);/.test(cr) && cr.indexOf('_charsOnNew(target)') < cr.indexOf('saveSlots()'),
+  chk(/if\(!creatorMode\.edit && _charsBoxFull\(\)\) return;/.test(cr) && /if\(!creatorMode\.edit\)\{ try\{ _charsOnNew\(target\);/.test(cr) && cr.indexOf('_charsOnNew(target)') < cr.indexOf('saveSlots()'),
     '  생성기 완료 — 새로 만들 때만 문턱·새 cid(수정은 saveSlots 훅이 잡는다) · saveSlots 앞');
   const cm = SRC.slice(SRC.indexOf('// 슬롯에 저장 + 영구 저장'), SRC.indexOf('// 슬롯에 저장 + 영구 저장') + 400);
   chk(/_charsBoxFull\(\)\) return;/.test(cm) && cm.indexOf('_charsOnNew(idx)') > cm.indexOf('slots[idx]=def') && cm.indexOf('_charsOnNew(idx)') < cm.indexOf('saveSlots()'), '  커미션 등록 — 문턱 · 새 cid');
@@ -602,12 +605,12 @@ async function sec8(){
   const le = SRC.slice(SRC.indexOf("document.getElementById('lcEmpty').onclick"), SRC.indexOf("document.getElementById('lcEmpty').onclick") + 400);
   chk(le.indexOf('_charsBoxFull()') > 0 && le.indexOf('_charsBoxFull()') < le.indexOf('openRacePicker'), '  빈 칸 [＋] — 종족 고르기 전에 문턱');
   const sy = fnSrc('async function syncSlotsToServer(');
-  const gate = sy.indexOf('_charsActive()'), firstAdopt = sy.indexOf('_slotsAdoptFromServer'), firstConf = sy.indexOf('_slotsConflictNote');
+  const gate = sy.indexOf('_charsActiveFn()'), firstAdopt = sy.indexOf('_slotsAdoptFromServer'), firstConf = sy.indexOf('_slotsConflictNote');
   const gateBody = gate > 0 ? sy.slice(gate, sy.indexOf('return;\n    }', gate)) : '';
-  chk(gate > 0 && gate < firstAdopt && gate < firstConf && /_slotsPushToServer\(uid\)/.test(gateBody) && !/_slotsAdoptFromServer|_slotsConflictNote|loadSlotsRemote/.test(gateBody),
+  chk(/^setCharsActiveCheck\(_charsActive\);$/m.test(SRC) && gate > 0 && gate < firstAdopt && gate < firstConf && /_slotsPushToServer\(uid\)/.test(gateBody) && !/_slotsAdoptFromServer|_slotsConflictNote|loadSlotsRemote/.test(gateBody),
     '★ 옛 slots 동기화 — 채택 뒤엔 첫머리에서 올리기만 하고 돌아간다(받기·④ 대화상자 전에)');
   const rb = fnSrc('async function restoreSlotsBackup(');
-  chk(rb.indexOf('_charsRemapDesk()') > rb.indexOf('await loadSlots()'), '  백업 되돌리기 — 다시 읽은 뒤 열쇠로 보관함과 다시 짝짓기');
+  chk(rb.indexOf('_restoredFns.forEach(') > rb.indexOf('await loadSlots()') && /^onBackupRestored\(_charsRemapDesk\);$/m.test(SRC), '  백업 되돌리기 — 다시 읽은 뒤 열쇠로 보관함과 다시 짝짓기(보관함이 onBackupRestored 로 건다)');
   const aki = SRC.indexOf('const ACCOUNT_LOCAL_KEYS = ()=>['), ak = aki < 0 ? '' : SRC.slice(aki, SRC.indexOf('\n];', aki));
   chk(["'deskFriends.chars.v1'", "'deskFriends.chars.desk'", "'deskFriends.chars.trashPend'"].every(k => ak.indexOf(k) > 0), '  로그아웃 목록에 보관함 · 책상 표 · 휴지통 대기 줄(설계 §9-5)');
   chk(/call\(typeof _charsSync === 'function' \? _charsSync : null, 'logout'\)/.test(fnSrc('async function _acctFlushToServer(')), '  로그아웃 flush 가 먼저 올린다');

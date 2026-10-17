@@ -231,7 +231,7 @@ chk(wP && Array.isArray(wP.userData.picMeshes) && wP.userData.picMeshes.length =
 
 say('── 6. 배선');
 const HTML = SRC['desk-companion-prototype.html'];
-const iH = HTML.indexOf('<script src="parts/human-ear.js">'), iApp = HTML.indexOf('<script src="parts/app.js">');
+const iH = HTML.indexOf('<script src="parts/character/human-ear.js">'), iApp = HTML.indexOf('<script src="parts/app.js">');
 chk(iH > 0 && iH < iApp, 'html — human-ear.js 가 app.js 보다 먼저');
 chk(/\nwindow\.parseAnimalEar=_parseEar;/.test(A), 'animal.js 가 귀 파서(parseAnimalEar)를 내준다 — 파싱 캐시 공유');
 

@@ -311,7 +311,7 @@ say('\n── 7. 토글 통로 4단 (main IPC → preload → HTML → app.js)')
       '  칸 이름에 🧪(실험실)를 쓰지 않는다 — 증상 이름을 붙여야 그 증상이 없는 사람이 안 켠다');
   }
 
-  const app = readIf('app.js');
+  const app = require('./sim-renderer-src.js').joinRenderer(readIf('app.js'));   // 앱 FSD 로 옮긴 모듈(⚙️ 프로그램 설정 창 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
   if (app == null) skip('app.js 가 옆에 없어 ④단은 건너뜀');
   else {
     const a = stripComments(app);

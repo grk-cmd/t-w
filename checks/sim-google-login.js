@@ -39,7 +39,8 @@
 'use strict';
 const fs = require('fs'), vm = require('vm');
 
-const SRC  = fs.readFileSync('app.js', 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const pick = (...c) => { for (const p of c) if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8'); return null; };
 const FB   = pick('firebase-init.js', 'parts/firebase-init.js');
@@ -109,7 +110,9 @@ if (F_IN){
   chk(/canceled/.test(F_IN), '⑦ 취소를 실패와 구분해 돌려준다');
 }
 /* ③ 갈아탄 뒤 안내에 재시작이 들어 있는가 */
-const UI = SRC.slice(SRC.indexOf('(function initAccountLoginUI('), SRC.indexOf('📤 계정 이전 / 연동'));
+/* 시작 다음에 나오는 표지까지 — initAccountLoginUI 는 앱 FSD 17번에서 my-info.js 로 옮겨 SRC 뒤쪽에 이어져 있다(표지가 없으면 끝까지) */
+const _uiS = SRC.indexOf('(function initAccountLoginUI('), _uiE = _uiS >= 0 ? SRC.indexOf('📤 계정 이전 / 연동', _uiS) : -1;
+const UI = _uiS >= 0 ? SRC.slice(_uiS, _uiE > 0 ? _uiE : undefined) : '';
 chk(!!UI, 'initAccountLoginUI 를 찾았다');
 chk(/r\.switched[\s\S]{0,400}(종료|다시 실행)/.test(UI),
     '③ 갈아탄 뒤 안내가 재시작을 말한다');
@@ -149,8 +152,7 @@ else {
     chk(/runTransaction\(\s*ref\(db,\s*`userAuth\//.test(body), '④ 선점을 runTransaction 으로 한다');
     chk(!/set\(\s*ref\(db,\s*`userAuth\//.test(body),          '④ userAuth 를 set 으로 덮지 않는다');
     chk(/cur\s*==\s*null\s*\?/.test(body),                      '④ 비어 있을 때만 차지한다');
-    chk((body.match(/fbSignOut\(auth\)/g) || []).length >= 2,
-        '⑤ 선점 실패·쓰기 실패 두 경우 모두 로그아웃시켜 되돌린다');
+    /* ⑤ 묶지 않고 물리는 갈래(로그아웃 · 막 생긴 계정 지우기)는 §3-2 에서 실제로 돌려 본다. */
     chk(/authUsers\/\$\{uid\}/.test(body), '이미 묶인 계정이면 그 유저 코드를 그대로 쓴다');
     chk(!/userCode\s*:\s*String\(userCode\)[\s\S]{0,80}v\.userCode/.test(body),
         '기존 결속을 새 유저 코드로 덮어쓰지 않는다');
@@ -465,8 +467,10 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
         const AS = (R.accountSnap && R.accountSnap.$userId) || {};
         const OWN_ONLY = "auth != null && root.child('userAuth/'+$userId).val() === auth.uid";
         // 안에 라이선스 키 원문이 있다 — 목록은 관리자만(웹 관리자 사용자 목록). 관리자는 licenses 목록도 이미 읽으므로 새로 드러나는 것은 없다.
-        chk(R.accountSnap && R.accountSnap['.read'] === "auth != null && root.child('admins').child(auth.uid).val() === true" && R.accountSnap['.write'] === undefined,
-            'accountSnap 모음은 관리자만 읽고, 모음째 쓰기는 없다');
+        // 개정 172: 관리자 서버 봇(apiBots)도 모음 읽기만 — 사람 계정은 여전히 관리자만.
+        const AS_READ = "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)";
+        chk(R.accountSnap && R.accountSnap['.read'] === AS_READ && R.accountSnap['.write'] === undefined,
+            'accountSnap 모음은 관리자(와 관리자 서버 봇)만 읽고, 모음째 쓰기는 없다');
         chk(AS['.read'] === OWN_ONLY && AS['.write'] === OWN_ONLY, 'accountSnap/{코드} 는 결속된 주인만 읽고 쓴다 (미결속 갈래 없음)');
         chk(AS.license && /length <= 40/.test(AS.license['.validate']) && AS.friendCode && /length <= 12/.test(AS.friendCode['.validate'])
             && AS.name && /length <= 40/.test(AS.name['.validate']) && AS.focusTotalSec && /359640000/.test(AS.focusTotalSec['.validate'])
@@ -565,6 +569,61 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
       /* ⑦ 부르는 쪽 — app.js 는 여전히 두 함수만 부르고, transferData 를 직접 만지지 않는다 */
       const CODE = SRC.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/mg, '');
       chk(!/transferData|accountSnap/.test(CODE), '  app.js 코드는 스냅샷 자리를 직접 만지지 않는다 (통로 두 함수뿐)');
+    }
+  }
+
+  /* ── §3-2. authSignInWithGoogle 을 떼어 돌린다 — 묶지 않고 물릴 때 빈 계정이 남지 않는가 ── */
+  say('');
+  say('· §3-2 묶지 않고 물릴 때 — 막 생긴 로그인 계정은 지우고, 원래 있던 계정은 로그아웃만');
+  if (!FB){ say('  (firebase-init.js 를 못 찾음 — 건너뜀)'); }
+  else {
+    const i0 = FB.indexOf('    async authSignInWithGoogle(');
+    const i1 = FB.indexOf('\n    },', i0);
+    const d0 = FB.indexOf('  const _dropGoogleSession = ');
+    const d1 = FB.indexOf('\n  };', d0);
+    chk(i0 > 0 && i1 > i0 && d0 > 0 && d1 > d0, 'authSignInWithGoogle · _dropGoogleSession 을 찾았다');
+    if (i0 > 0 && i1 > i0 && d0 > 0 && d1 > d0){
+      const method = FB.slice(i0, i1 + '\n    }'.length);
+      const drop = FB.slice(d0, d1 + '\n  };'.length);
+      const run = async (o) => {
+        const log = [];
+        const user = { uid: 'G1', email: 'me@gmail.com' };
+        const rows = Object.assign({}, o.rows || {});
+        const env = {
+          auth: {}, db: {},
+          GoogleAuthProvider: { credential: t => ({ t }) },
+          signInWithCredential: async () => ({ user, _new: !!o.isNew }),
+          getAdditionalUserInfo: c => ({ isNewUser: !!c._new }),
+          deleteUser: async u => { log.push('delete:' + u.uid); if (o.deleteFails) throw new Error('x'); },
+          fbSignOut: async () => { log.push('out'); },
+          ref: (d, path) => ({ path }),
+          get: async r => ({ val: () => (rows[r.path] === undefined ? null : rows[r.path]) }),
+          set: async (r, v) => { log.push('set:' + r.path); rows[r.path] = v; },
+          update: async () => {},
+          runTransaction: async (r, fn) => { const nv = fn(rows[r.path] === undefined ? null : rows[r.path]); if (nv !== undefined) rows[r.path] = nv; return { snapshot: { val: () => rows[r.path] } }; },
+        };
+        const names = Object.keys(env);
+        const api = (new Function(...names, drop + '\nreturn ({\n' + method + '\n});'))(...names.map(n => env[n]));
+        const r = await api.authSignInWithGoogle('TOKEN', o.code);
+        return { r, log, rows };
+      };
+      let X = await run({ isNew: true, code: null });
+      chk(X.r.needCode && X.log.includes('delete:G1') && !X.log.some(l => l.startsWith('set:')),
+          '★ 초대 코드 전 처음 본 구글 → needCode · 막 생긴 계정을 지운다 · DB 에 안 쓴다');
+      X = await run({ isNew: false, code: null });
+      chk(X.r.needCode && !X.log.some(l => l.startsWith('delete')) && X.log.includes('out'),
+          '★ 원래 있던(묶이지 않은) 계정은 지우지 않고 로그아웃만');
+      X = await run({ isNew: true, code: null, deleteFails: true });
+      chk(X.r.needCode && X.log.includes('out'), '지우기가 실패해도 로그아웃은 한다');
+      X = await run({ isNew: true, code: 'uMINE', rows: { 'userAuth/uMINE': 'OTHER' } });
+      chk(!X.r.ok && X.log.includes('delete:G1') && X.rows['userAuth/uMINE'] === 'OTHER',
+          '★ 기기 코드가 남의 것이라 물릴 때도 막 생긴 계정은 지운다 · 남의 선점은 그대로');
+      X = await run({ isNew: true, code: 'uMINE' });
+      chk(X.r.ok && X.r.bound && !X.log.some(l => l.startsWith('delete')) && X.rows['authUsers/G1'] && X.rows['userAuth/uMINE'] === 'G1',
+          '구글 가입(코드 있음)은 지우지 않고 묶는다');
+      X = await run({ isNew: false, code: null, rows: { 'authUsers/G1': { userCode: 'uOLD' } } });
+      chk(X.r.ok && X.r.userCode === 'uOLD' && !X.log.some(l => l.startsWith('delete') || l === 'out'),
+          '이미 가입된 구글 → 로그인 (지우거나 로그아웃하지 않는다)');
     }
   }
 

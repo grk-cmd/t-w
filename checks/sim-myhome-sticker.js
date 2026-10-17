@@ -1,6 +1,6 @@
 /* ═══ 🎨 sim-myhome-sticker.js — 마이홈 스티커 관리 창 모듈 (2026-10-10 신설 · 앱 FSD 7번) ═══════════════
    app.js 의 «🎨 스티커 관리 창» 구역 가운데 스티커 몫 두 덩이(관리 창 · 편집모드 · 드래그 · 회전 · 크기)를
-   parts/myhome-sticker.js 로 옮겼다. 동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
+   parts/myhome/myhome-sticker.js 로 옮겼다. 동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwMyHomeSticker 뿐 · 만들면 창 버튼 둘(✕ · 전부 화면 안으로) 연결 · DOM 없으면 조용히
    ・2절: 관리 창 — 관람 중이면 안 열림(안내) · 열면 목록 · 개수 · [＋ 새 스티커] 상한 · [전부 화면 안으로] 는 밖에 있을 때만 · 닫기
    ・3절: 줄 버튼 — ◎ 데려오기(밖이면 안으로 · 안이면 가운데) · ✎ 편집(밖이면 먼저 데려옴 · 창 닫고 편집모드) · ✨ 움직임 ·
@@ -11,6 +11,7 @@
            부르는 곳은 myHomeSticker.이름 · 빈 껍데기 · html 순서 · 전역 이름
    [실행] myhome-sticker.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0, done = false;
@@ -21,7 +22,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['myhome-sticker.js', 'app.js', 'desk-companion-prototype.html', 'myhome-edit.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['myhome-sticker.js'], EDIT = SRC['myhome-edit.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['myhome-sticker.js'], EDIT = SRC['myhome-edit.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
 /* DOM 칸 — classList · style · 이벤트 · 자식은 진짜 */
@@ -72,6 +73,7 @@ function mkEnv(opt){
   };
   ctx.window = ctx;
   ctx.focus = () => { env.focus++; };
+  ctx._mhFitWindow = () => { env.fit = (env.fit || 0) + 1; };   // 런처 창 넓히기 고리(myhome-sticker-layout.js 가 부팅 때 건다)
   vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'myhome-sticker.js' });
   env.ctx = ctx; env.els = els;
@@ -277,15 +279,15 @@ await sec('── 6. app.js 배선', () => {
   const codeAll = code + '\n' + strip(EDIT);   // [+ 스티커] · 새 스티커 붙이기는 myhome-edit.js 가 부른다
   chk(calls.every(c => codeAll.includes(c)) && (codeAll.match(/myHomeSticker\.editEnd\(\)/g) || []).length === 2, '부르는 곳 — 마이홈 닫기 · renderMyHomeStickers · [+ 스티커] · 새 스티커 붙이기');
   const off = (APP.match(/const MYHOME_STICKER_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
-  chk(['open', 'close', 'render', 'bringIn', 'editStart', 'editEnd', 'bindDrag', 'bindRotate', 'bindResize'].every(n => new RegExp('\\b' + n + '\\(\\)\\{\\}').test(off)), '빈 껍데기 MYHOME_STICKER_OFF — 반환값 이름을 다 갖는다');
-  const iP = HTML.indexOf('<script src="parts/pomodoro.js"></script>'), iS = HTML.indexOf('<script src="parts/myhome-sticker.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  chk(!/\bMYHOME_STICKER_OFF\b/.test(APP), '빈 껍데기 MYHOME_STICKER_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
+  const iP = HTML.indexOf('<script src="parts/focus/pomodoro.js"></script>'), iS = HTML.indexOf('<script src="parts/myhome/myhome-sticker.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iP > 0 && iS > iP && iA > iS, 'html — myhome-sticker.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwMyHomeSticker') && !/window\.MyHomeSticker\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */
   const wire = (APP.match(/const MYHOME_STICKER_OFF = [\s\S]*?\n\}\);/) || [''])[0];
   const box = { STICKER_MAX: 5, STICKER_BASE: 40, STICKER_ROT_SNAP: 3 };
   let got = null; try{ got = vm.runInNewContext(wire + '\nmyHomeSticker;', box); }catch(_){}
-  chk(!!got && typeof got.open === 'function' && got.close() === undefined && got.editEnd() === undefined, '모듈이 안 실려도 그 자리는 서지 않는다(빈 껍데기)');
+  chk(/^const myHomeSticker = TwMyHomeSticker\.createMyHomeSticker\(\{/m.test(APP), '만드는 줄에 «없으면 빈 껍데기» 가드가 없다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
 });
 
 await sec('── 7. 런처에서도 창 밖 스티커가 그 자리에 보이게 — 창을 넓힌다 (app.js · main.js 실행)', () => {

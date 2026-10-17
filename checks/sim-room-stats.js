@@ -3,6 +3,7 @@
  * 1. functions/room-stats.js  2. room-index.js  3. room-stats.js  4. firebase-init.js 연결 · 규칙
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -96,6 +97,35 @@ const tick = () => new Promise(r => setTimeout(r, 0));
       chk(('roomIndex/D1' in L.srv) && !L.srv['roomIndex/R1'].channel && s2.dropped === 0 && s2.repaired === 0,
           'drop:false(열림 · 닫힘 트리거)는 세기만 한다 — 지우기 · 채우기 없음');
     }
+    // 🛰 방 서버 줄({ lastSeen, channel, srv }) — 세고, 빈 방 청소 · channel 채우기 · _meta 옮기기는 안 하고, 낡으면 줄만 지운다
+    {
+      const r = f.roomStatsFrom({
+        V1: { lastSeen: now - 1000, channel: 'togetherroom', srv: 'realtime-1' },
+        V2: { lastSeen: now - 1000, channel: 'workingroom', srv: 'realtime-1' },
+        F1: { lastSeen: now - 1000, channel: 'togetherroom' },
+        VS: { lastSeen: now - 100 * 1000, channel: 'workingroom', srv: 'realtime-1' },        // 90초 넘음 — 안 셈
+        VD: { lastSeen: now - 11 * 60 * 1000, channel: 'workingroom', srv: 'realtime-1' },    // 10분 넘음 — 줄만 지움
+        VE: { lastSeen: 0, emptyAt: now - 5 * 60 * 1000, channel: 'workingroom', srv: 'realtime-1' }, // 비었음 모양이어도 빈 방 청소 아님
+        VR: { lastSeen: now - 1000, srv: 'realtime-1' },                                      // channel 없어도 _meta 로 채우지 않음
+      }, now);
+      chk(r.stats.togetherroom === 2 && r.stats.workingroom === 2, `서버 줄도 Firebase 줄과 똑같이 센다 (워킹 ${r.stats.workingroom} · 투게더 ${r.stats.togetherroom}) = 2 · 2`);
+      chk(r.stats.server && r.stats.server.togetherroom === 1 && r.stats.server.workingroom === 2, '  ↳ 그중 서버 몫을 stats.server 에 따로 적는다 (이미 합계에 들어 있다)');
+      chk(f.isServerRow({ srv: 'realtime-1' }) && !f.isServerRow({ lastSeen: 1 }) && !f.isServerRow({ srv: '' }), 'isServerRow — srv 가 빈 문자열이 아닐 때만');
+      chk(r.empty.indexOf('VE') === -1, '서버 줄은 빈 방 청소(_meta · _chatTab · chatLog 지우기) 대상이 아니다');
+      chk(r.repair.indexOf('VR') === -1, '서버 줄은 Firebase _meta 로 channel 을 채우지 않는다');
+      chk(r.drop.indexOf('VD') !== -1 && r.drop.indexOf('VS') === -1 && r.drop.indexOf('V1') === -1, '낡은 서버 줄(서버가 죽음)은 10분 뒤 지울 대상 — 90초만 넘은 줄은 남긴다');
+      const dead = { lastSeen: now - 11 * 60 * 1000, channel: 'workingroom', open: true, srv: 'realtime-1' };
+      ({ db, L } = mkDb({ VD: dead }, { 'roomIndex/VD': dead, 'rooms/VD/_meta': { channel: 'togetherroom', host: 'u1' } }));
+      sum = await quiet(() => f.runRoomStats(db, now));
+      chk(!('roomIndex/VD' in L.srv) && sum.dropped === 1, '낡은 서버 줄은 줄만 지운다');
+      chk(L.srv['rooms/VD/_meta'] && !('open' in L.srv['rooms/VD/_meta']) && L.srv['rooms/VD/_meta'].channel === 'togetherroom',
+          '  ↳ 같은 코드의 Firebase _meta 는 건드리지 않는다 (서버 줄의 channel · open 을 옮기지 않음)');
+      const live = { lastSeen: now - 1000, channel: 'workingroom', srv: 'realtime-1' };
+      ({ db, L } = mkDb({ V1: live }, { 'roomIndex/V1': live }));
+      sum = await quiet(() => f.runRoomStats(db, now));
+      chk(L.srv['roomIndex/V1'] && L.stats.workingroom === 1 && L.stats.server.workingroom === 1 && sum.server === 1,
+          'runRoomStats — Firebase rooms 에 사람이 없어도 살아 있는 서버 줄은 지우지 않고 센다');
+    }
     const FX = need('functions/index.js');
     chk(/exports\.roomStatsOnOpen = onValueCreated\(\{ ref: '\/roomIndex\/\{room\}'[\s\S]{0,500}runRoomStats\(getDatabase\(\), Date\.now\(\), \{ drop: false \}\)/.test(FX),
         '방이 열리면(roomIndex 줄 생성) 바로 다시 센다 — 줄 수정(하트비트)에는 반응하지 않는 onValueCreated');
@@ -145,6 +175,8 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(JSON.stringify(await mk({ workingroom: 3, togetherroom: 2, at: now - 1000 }, now).counts()) === '{"total":5,"workingroom":3,"togetherroom":2}', 'counts = 채널 둘의 합');
     chk(await mk({ workingroom: 3, togetherroom: 2, at: now - ROOM_STATS_FRESH_MS }, now).counts() === null, '3분 낡으면 null → roomIndex 로 물러난다');
     chk(await mk(null, now).counts() === null, '없으면(함수 배포 전) null');
+    chk(JSON.stringify(await mk({ workingroom: 3, togetherroom: 2, at: now - 1000, server: { workingroom: 1, togetherroom: 0 } }, now).counts())
+        === '{"total":5,"workingroom":3,"togetherroom":2,"inclServer":true}', '🛰 server 몫이 있으면 inclServer — 합계에 이미 서버 방이 들어 있다(더하지 않는다)');
     chk(await mk({ workingroom: '3', togetherroom: 2, at: now }, now).counts() === null, '모양이 틀리면 null');
     chk(await createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => { throw new Error('permission_denied'); }, now: () => now }).counts() === null, '규칙 거부(규칙 배포 전)도 null');
     {
@@ -164,14 +196,14 @@ const tick = () => new Promise(r => setTimeout(r, 0));
 
   say('── 4. firebase-init.js 연결 · 규칙');
   {
-    chk(/import \{ createRoomIndex \} from "\.\/room-index\.js";/.test(CODE) && /import \{ createRoomStats \} from "\.\/room-stats\.js";/.test(CODE), 'room-index.js · room-stats.js 를 import 한다');
+    chk(/import \{ createRoomIndex \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-index\.js";/.test(CODE) && /import \{ createRoomStats \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-stats\.js";/.test(CODE), 'room-index.js · room-stats.js 를 import 한다');
     chk(/createRoomIndex\(\{[\s\S]{0,200}state: \(\) => \(\{ room: _roomCode, meta: _roomMetaVal \}\)/.test(CODE), 'roomIndex 에 방 상태를 «부를 때마다» 읽는 함수로 넘긴다');
     chk(/function _touchRoomIndex\(room, extra\)\{ _roomIndex\.touch\(room, extra\); \}/.test(CODE), '_touchRoomIndex 는 모듈로 넘기기만 한다 (하트비트 · 재접속 · 유령 복구가 모두 이 길)');
     chk(/if\(open === true \|\| open === false\) meta\.open = open;\s*await update\(ref\(db, `rooms\/\$\{room\}\/_meta`\), meta\);/.test(CODE), 'setRoomChannel 이 open 을 _meta 에도 쓴다 (명시한 boolean 일 때만)');
     chk(/async getRoomCounts\(opts\)\{\s*if\(opts && opts\.quick\)\{\s*const qc = await _roomStats\.counts\(\);/.test(CODE), 'getRoomCounts 는 quick 일 때만 roomStats 를 본다');
     chk((CODE.match(/_roomStats\./g) || []).length === 2, 'roomStats 를 쓰는 자리는 quick 카운트 · 구독 둘뿐');
     chk(/createRoomStats\(\{ db, ref, get, onValue, now: \(\) => _svNow\(\) \}\)/.test(CODE) && /watchRoomCounts\(cb\)\{ return _roomStats\.watch\(cb\); \}/.test(CODE), 'firebaseAPI.watchRoomCounts 로 구독을 연다 · 신선도는 서버 기준 시각(_svNow)');
-    const APP = strip(need('app.js'));
+    const APP = strip(_joinRenderer(need('app.js')));
     const sw = APP.match(/function startRoomCountWatch\(\)\{[\s\S]*?\n\}/);
     chk(!!sw && /_roomCountUnsub = firebaseAPI\.watchRoomCounts\(_paintRoomCounts\)/.test(sw[0]), '방 창을 열면 구독한다 (startRoomCountWatch)');
     chk(!!sw && /clearInterval\(_roomCountTimer\);[\s\S]{0,80}_roomCountUnsub\(\)/.test(sw[0]), '  ↳ 방 창이 닫히면 구독을 끊는다');
@@ -179,6 +211,11 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(!!fr && !/_roomStats/.test(fr[0]) && /get\(ref\(db, 'roomIndex'\)\)/.test(fr[0]), '랜덤 참여는 roomIndex 를 직접 읽는다 (방금 연 방도 후보에)');
     const gc = CODE.match(/async getRoomCount\([^)]*\)\{[\s\S]*?\n    \},/);
     chk(!!gc && !/_roomStats/.test(gc[0]), '정원 검사(getRoomCount)는 roomStats 를 쓰지 않는다');
+    const gcnt = CODE.match(/async getRoomCounts\(opts\)\{[\s\S]*?\n    \},/);
+    chk(!!gcnt && /if\(e\.srv\) out\.inclServer = true;/.test(gcnt[0]), '🛰 getRoomCounts — 방 서버 줄이 있으면 inclServer (서버 방이 합계에 들어 있다)');
+    chk(/function _addServerRoomCounts\(c\)\{[\s\S]{0,120}if\(!c \|\| c\.inclServer \|\|/.test(APP), '  ↳ app.js 는 inclServer 면 방 서버 stats 를 또 더하지 않는다 (두 번 세기)');
+    const cg = CODE.match(/async cleanGhostRooms\(\)\{[\s\S]*?\n    \},/);
+    chk(!!cg && /if\(idx\[code\] && idx\[code\]\.srv\) continue;[^\n]*\n\s*if\(!\(code in all\)/.test(cg[0]), '🛰 유령 방 청소는 방 서버 줄을 «rooms 에 없는 고아» 로 지우지 않는다');
     let rr = null; try{ rr = JSON.parse(RULES).rules.roomStats; }catch(_){}
     chk(!!rr && rr['.read'] === true && !('.write' in rr) && Object.keys(rr).length === 1, '규칙: roomStats 는 읽기만 — 쓰기는 서버(Admin SDK)만');
   }

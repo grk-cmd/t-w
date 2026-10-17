@@ -18,7 +18,12 @@
    ⚠ 실제 재생은 여기서 못 본다(유튜브 자식창은 main.js 쪽이다). 여기서 지키는 것은 분기 규약뿐이다. */
 'use strict';
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+/* 🎵 플레이리스트는 parts/status/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
+const PL = read('playlist.js');
+if (!PL) { console.log('  ? 원본 못 찾음 — playlist.js'); process.exit(2); }
+const SRC  = fs.readFileSync('app.js', 'utf8') + '\n' + PL;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;

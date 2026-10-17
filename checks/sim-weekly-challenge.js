@@ -1,5 +1,5 @@
 /* ═══ 👑 sim-weekly-challenge.js — 달성표 모듈 (2026-10-10 신설 · 앱 FSD 2번) ═══════════════════
-   app.js 의 두 구역(👑 달성표 — 주간 규칙 · 기록 / 화면)을 parts/weekly-challenge.js 로 옮겼다. 동작은 그대로여야 한다.
+   app.js 의 두 구역(👑 달성표 — 주간 규칙 · 기록 / 화면)을 parts/focus/weekly-challenge.js 로 옮겼다. 동작은 그대로여야 한다.
    ・1절: 셈 — ISO 주 이름(오전 6시 경계 · 연말연시) · 페이즈 · 칸 번호 · 보상 횟수 · 선지급 키 · 규칙 줄 · 보상 문구 · 조건 이름 · 판정 키 · 숫자 칸
    ・2절: 만들 때 — 로컬 기록 읽기(옛 기록은 주중) · 부팅 동기화 4.4초 · 20초 tick · beforeunload · 버튼 연결 · 프리미엄 게이트 · 뽀모 서랍 닫기 · DOM 없으면 조용히
    ・3절: 📋규칙 트랙 — 진행 화면 · 오늘 항목 체크 → 달성 · 3일째 선지급(서버 tag) · 두 번 안 줌
@@ -8,8 +8,9 @@
    ・6절: 로그아웃 지우기(resetMemory) · 서버 동기화(ts 최신 승 · 읽기 실패면 아무것도 안 함)
    ・7절: app.js 배선 — 정의는 모듈에만 · createWeeklyChallenge 는 원래 자리 · 부르는 곳은 weeklyChal.이름 · CHAL_KEY 는 app.js · html 순서 · 전역 이름
    [실행] weekly-challenge.js · app.js · pomodoro.js · desk-companion-prototype.html 이 있는 폴더에서.
-   ※ 🍅 뽀모 서랍은 parts/pomodoro.js 로 옮겼다(앱 FSD 6번) — 뽀모 쪽이 weeklyChal.open(false) 를 부르는 곳은 그 파일에서 본다. */
+   ※ 🍅 뽀모 서랍은 parts/focus/pomodoro.js 로 옮겼다(앱 FSD 6번) — 뽀모 쪽이 weeklyChal.open(false) 를 부르는 곳은 그 파일에서 본다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0;
@@ -19,7 +20,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['weekly-challenge.js', 'app.js', 'desk-companion-prototype.html', 'pomodoro.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['weekly-challenge.js'], POMO = SRC['pomodoro.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['weekly-challenge.js'], POMO = SRC['pomodoro.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 6) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
 
@@ -205,9 +206,10 @@ await sec('── 3. 📋규칙 트랙 — 체크 · 달성 · 3일째 선지급
   e.els.chalToday.fire('click', { target: target('data-i', '1') }); await flush();
   chk(W.state().days[2] === 1 && e.toasts.includes('👑 오늘 달성! 3일째'), '둘 다 체크 → 오늘 ✓ · «오늘 달성! 3일째»');
   const key = wk + '-wd';
-  /* ⚠️ 옛 동작 그대로 — 선지급은 대기줄(due)에 먼저 적고 바로 지급하는데, 같은 tick 의 _chalRetryDue 가 ts:0 인 그 줄을 곧장 한 번 더
-       두드린다. 서버가 같은 tag 를 dup 으로 막아 **한 번만** 나간다(그래서 여기서는 «서버 호출 수» 가 아니라 «나간 횟수» 를 본다). */
-  chk(e.bonusCalls.length >= 1 && e.bonusCalls.every(c => c.n === 1 && c.tag === key) && e.bonus === 1 && W.state().early === key, '3일째 선지급 1회 — 서버 tag ' + key + ' · 한 번만 나감 · early 표식');
+  /* 선지급은 대기줄(due)에 «지금 시도함» 으로 적고 바로 지급한다 — 같은 tick 의 _chalRetryDue 가 1분 안에 같은 tag 를 또 보내지 않는다
+       (예전엔 ts:0 이라 곧장 한 번 더 보내, 그쪽이 먼저 받으면 토스트가 «밀렸던 뽑기» 로 떴다) */
+  chk(e.bonusCalls.length === 1 && e.bonusCalls[0].n === 1 && e.bonusCalls[0].tag === key && e.bonus === 1 && W.state().early === key, '3일째 선지급 1회 — 서버 tag ' + key + ' · 서버 호출 한 번 · early 표식');
+  chk(!e.toasts.some(t => /밀렸던 뽑기/.test(t)), '  «밀렸던 뽑기» 토스트가 섞이지 않는다');
   chk(e.toasts.some(t => /뽑기 1회를 받았어요/.test(t)) && e.bonusLocal[e.bonusLocal.length - 1] === 1 && (W.state().due == null), '받았다 토스트 · 로컬 보너스 = 서버 값 · 대기줄 비움');
   chk(/<i class="chal-pay">1<\/i>/.test(e.els.chalWeek.innerHTML) && /1번만 더.*1회는 이미 받았어요/.test(e.els.chalReward.innerHTML), '선지급 칸 표시 · 보상 문구');
   W.tick(); await flush(); W.tick(); await flush();
@@ -323,13 +325,13 @@ await sec('── 7. app.js 배선', () => {
     '부르는 곳 — 런처 동기화 · 로그아웃 flush · 메모리 지우기 · 🎯 초 · 플랫폼 · 뽀모 서랍(pomodoro.js — weeklyChal 을 deps 로)');
   const off = (APP.match(/const WEEKLY_CHAL_OFF = \{([^\n]*)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/weeklyChal\.(\w+)/g) || []).map(s => s.split('.')[1]))];
-  chk(off && used.every(n => new RegExp('\\b' + n + '\\b').test(off)), '빈 껍데기 WEEKLY_CHAL_OFF 가 부르는 이름을 다 갖는다 (' + used.join(' · ') + ')');
+  chk(!/\bWEEKLY_CHAL_OFF\b/.test(APP), '빈 껍데기 WEEKLY_CHAL_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const call = (APP.match(/TwWeeklyChallenge\.createWeeklyChallenge\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   chk(deps.length === 13 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|[A-Z_]+,$)/.test(l)), 'deps 13개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만');
   /* 🎰 가챠는 gacha.js 로 옮겼다(앱 FSD 8번) — _gachaBonus 는 그 모듈의 let 이라 gachaMod.bonus() 로 읽는다 */
   chk(/appMode: \(\)=>appMode,/.test(call) && /gachaBonus: \(\)=>gachaMod\.bonus\(\),/.test(call), '다시 대입되는 let(appMode · 가챠 _gachaBonus)은 읽는 함수로');
-  const iW = HTML.indexOf('<script src="parts/weekly-challenge.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iW = HTML.indexOf('<script src="parts/focus/weekly-challenge.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iW > 0 && iW < iA, 'html — weekly-challenge.js 를 app.js 앞에 싣는다');
   /* #103 교훈 — 크로미움 내장 전역(Scheduler 등)과 겹치면 typeof 가드가 늘 통과한다. 접두사로 피한다(헤드리스 크로미움에서 typeof 확인) */
   chk(/^Tw[A-Z]/.test('TwWeeklyChallenge') && !/window\.(WeeklyChallenge|Challenge)\s*=/.test(MOD), '전역 이름은 Tw 접두사 — 내장 전역과 안 겹침');

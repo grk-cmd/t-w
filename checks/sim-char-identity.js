@@ -31,6 +31,7 @@
      "지문이 알아야 할 필드 목록"을 만든다 — animal.js 가 새 필드를 읽기 시작하면 여기가 먼저 운다.
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -47,7 +48,7 @@ const probe = `
 
 const say = console.log;
 console.log = () => {}; console.warn = () => {};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 /* console.log 은 계속 막아둔다 — app.js 의 [def-diag] 가 §2 에서 검사 결과 사이에 끼어든다.
    이 파일의 출력은 붙잡아 둔 원본(say)으로만 낸다. */

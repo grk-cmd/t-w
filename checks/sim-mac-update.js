@@ -14,6 +14,7 @@
    종료 코드: 0=통과 · 1=실패 · 2=원본 없음
 */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 
@@ -25,7 +26,7 @@ function load(name){
   return null;
 }
 const MAIN = load('main.js');
-const APP  = load('app.js');
+const APP  = _joinRenderer(load('app.js'));
 if (!MAIN){ console.log(`? main.js 를 못 찾음 — main.js 가 있는 폴더에서 실행할 것`); process.exit(2); }
 if (!APP){  console.log(`? app.js 를 못 찾음 — app.js 가 있는 폴더에서 실행할 것`);  process.exit(2); }
 

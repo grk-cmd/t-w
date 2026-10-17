@@ -1,7 +1,7 @@
 /*
  * 관리자 전체 초대권 회수 검사. invite-revoke.js 를 그대로 불러 가짜 DB 로 돌린다.
  * 1. 1장 이상만 0 · 0장 · 마이너스 · 칸 없음은 건너뜀 · 친구코드 여럿인 사람 한 번  2. 트랜잭션 — 빈 캐시 · 그 사이 다 씀 · 실패
- * 3. 연결(firebase-init) · 우클릭 두 번 게이트(app.js) · 안내 문구(html)
+ * 3. 연결(firebase-init) · 우클릭 두 번 게이트(admin/admin-users.js — 관리자 코드 admin 폴더 5번에서 app.js 에서 옮김) · 안내 문구(html)
  */
 'use strict';
 const fs = require('fs');
@@ -9,7 +9,10 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const need = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } };
-const IR = need('invite-revoke.js'), FI = need('firebase-init.js'), APP = need('app.js'), HTML = need('desk-companion-prototype.html');
+const IR = need('invite-revoke.js'), FI = need('firebase-init.js'), HTML = need('desk-companion-prototype.html');
+/* 초대권 지급 창(전체 지급 · 우클릭 전체 회수)은 admin/admin-users.js 로 옮겼다 — 저장소 루트에서 돌 때도 찾게 자리를 몇 곳 본다 */
+const APP = ['admin-users.js', 'parts/admin/admin-users.js', 'app/parts/admin/admin-users.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean)
+  || (say('  ? 원본 못 찾음 — admin-users.js'), process.exit(2));
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const { createInviteRevokeAll } = new Function(IR.replace(/^export function /mg, 'function ') + '\nreturn { createInviteRevokeAll };')();
 
@@ -79,7 +82,7 @@ const mk = (data, o = {}) => {
 
   say('── 3. 연결 · 우클릭 게이트');
   const fi = strip(FI), app = strip(APP);
-  chk(/import\s*\{\s*createInviteRevokeAll\s*\}\s*from\s*["']\.\/invite-revoke\.js["']/.test(fi), 'firebase-init 이 모듈을 불러온다');
+  chk(/import\s*\{\s*createInviteRevokeAll\s*\}\s*from\s*["']\.\/(?:(?:\.\.\/)?[\w-]+\/)?invite-revoke\.js["']/.test(fi), 'firebase-init 이 모듈을 불러온다');
   chk(/revokeInvitesAll:\s*createInviteRevokeAll\(\{\s*db,\s*ref,\s*get,\s*runTransaction\s*\}\)/.test(fi), 'firebaseAPI.revokeInvitesAll 로 연결');
   const i0 = app.indexOf("getElementById('inviteGrantAll')"), blk = i0 >= 0 ? app.slice(i0, i0 + 4000) : '';
   chk(!!blk, '전체 지급 버튼 묶음을 찾음');

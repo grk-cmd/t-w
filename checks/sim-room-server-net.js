@@ -17,20 +17,25 @@
  * 10. firebase-init.js · app.js · HTML 연결
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('room-server-net.js'), FI = read('firebase-init.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
-for(const [n, v] of [['room-server-net.js', SRC], ['firebase-init.js', FI], ['app.js', APP], ['desk-companion-prototype.html', HTML]]){
+const SRC = read('room-server-net.js'), LINK = read('realtime-link.js'), FI = read('firebase-init.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
+for(const [n, v] of [['room-server-net.js', SRC], ['realtime-link.js', LINK], ['firebase-init.js', FI], ['app.js', APP], ['desk-companion-prototype.html', HTML]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
-// ESM 파일을 그대로 함수로 — export 만 떼어 낸다
-const names = [...SRC.matchAll(/^export (?:const|function|async function) (\w+)/gm)].map((m) => m[1]);
-const M = new Function('Buffer', SRC.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);
+// ESM 파일을 그대로 함수로 — export 만 떼어 낸다. 연결 공통부(realtime-link.js)는 firebase-init 처럼 createLink 로 넘긴다.
+const esm = (src) => {
+  const names = [...src.matchAll(/^export (?:const|function|async function) (\w+)/gm)].map((m) => m[1]);
+  return new Function('Buffer', src.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);
+};
+const L = esm(LINK);
+const M = Object.assign({}, L, esm(SRC));
 
 // ── 가짜 시계 · 가짜 웹소켓 ──────────────────────────────────────────────
 const tick = async () => { for(let i = 0; i < 20; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
@@ -77,12 +82,14 @@ function mkNet(o = {}){
   const { FakeWS, socks } = mkWS();
   const calls = { token: [] };
   const net = M.createRoomServerNet({
+    createLink: L.createRealtimeLink,
     WebSocket: FakeWS,
     enabled: () => o.enabled !== false,
     url: () => ('url' in o) ? o.url : 'ws://127.0.0.1:8787',
     getToken: async (force) => { calls.token.push(!!force); return o.token ? o.token(force, calls.token.length) : 'tok' + calls.token.length; },
     getUserId: () => ('uid' in o) ? o.uid : 'u1',
     getVersion: async () => '0.11.0',
+    timing: () => o.timing || null,
     now: () => clock.t,
     setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
     setInterval: clock.setInterval, clearInterval: clock.clearInterval,
@@ -100,6 +107,7 @@ function mkHooks(o = {}){
     onDisband: () => h.log.push(['disband']),
     onReplaced: () => h.log.push(['replaced']),
     onLost: (c) => h.log.push(['lost', c]),
+    onReconnecting: (on) => h.log.push(['reconn', on]),
     onJoined: (r) => h.log.push(['joined', r]),
     onLeft: (r) => h.log.push(['left', r]),
   };
@@ -688,10 +696,11 @@ async function joined(o = {}){
     chk(d.socks.length === 2 && d.socks[1].url === 'ws://alive', '  ↳ 다른 주소는 바로 시도한다');
   }
 
-  say('── 9-3. 서버가 안 돌아옴');
+  say('── 9-3. 서버가 안 돌아옴 · 다시 연결 중 · 입장 대기');
   {
-    chk(M.ROOM_LOST_AFTER_MS === 30000, '포기 기준 30초(재연결 1·2·4·8·15초를 다 써 본다)');
-    // 잠깐 끊김 — 몇 초 뒤 돌아오면 그대로 이어 붙는다
+    chk(M.TIMING_DEFAULTS.joinWaitMs === 10000 && M.TIMING_DEFAULTS.clientGiveUpMs === 90000 && M.RECONNECT_NOTICE_MS === 15000,
+      '기본 — 입장 대기 10초 · 포기 90초 · 15초 넘게 끊기면 «다시 연결 중»');
+    // 잠깐 끊김 — 몇 초 뒤 돌아오면 그대로 이어 붙는다(알림 없음)
     const e = await joined();
     e.ws.close();
     await e.clock.advance(1000);
@@ -700,29 +709,74 @@ async function joined(o = {}){
     await tick();
     s2.msg(WELCOME({ resumed: true }));
     await tick();
-    chk(!e.h.has('lost') && e.net.inRoom(), '잠깐 끊김(1초) — 이어 붙고 방은 그대로');
+    chk(!e.h.has('lost') && !e.h.has('reconn') && e.net.inRoom(), '잠깐 끊김(1초) — 이어 붙고 방은 그대로 · «다시 연결 중» 안 띄움');
     // 계속 안 돌아옴 — 붙자마자 닫히는 서버
     s2.close();
-    let lostAt = -1;
-    for(let t = 0; t <= 40000; t += 500){
+    let lostAt = -1, noticeAt = -1;
+    for(let t = 0; t <= 120000; t += 500){
       await e.clock.advance(500);
       const last = e.socks[e.socks.length - 1];
       if(!last.closed) last.close();
+      if(noticeAt < 0 && e.h.log.some((x) => x[0] === 'reconn' && x[1] === true)) noticeAt = t;
       if(e.h.has('lost')){ lostAt = t; break; }
     }
     const lostCode = (e.h.log.find((x) => x[0] === 'lost') || [])[1];
-    chk(lostCode === 'unreachable' && lostAt >= 29000 && lostAt <= 32000, '30초 넘게 못 붙으면 onLost(unreachable) (' + lostAt + 'ms)');
-    chk(!e.net.inRoom(), '  ↳ 방에서 떨어진다(다시 붙기 그만)');
+    chk(noticeAt >= 14000 && noticeAt <= 16000, '15초 넘게 못 붙으면 onReconnecting(true) 한 번 (' + noticeAt + 'ms)');
+    chk(lostCode === 'unreachable' && lostAt >= 89000 && lostAt <= 105000, '포기 기준(기본 90초)이 넘으면 onLost(unreachable) (' + lostAt + 'ms)');
+    chk(!e.net.inRoom() && e.h.log.filter((x) => x[0] === 'reconn').length === 1, '  ↳ 방에서 떨어진다(다시 붙기 그만) · «다시 연결됐어요» 는 안 보낸다');
     const n = e.socks.length;
     const r = await e.net.ensureReady();
-    chk(r.ok === false && e.socks.length === n, '  ↳ 그 서버는 1분 동안 다시 붙지 않는다(Firebase 입장이 기다리지 않게)');
+    chk(r.ok === false && e.socks.length === n, '  ↳ 새 방 · peek 길은 그 서버를 1분 동안 다시 기다리지 않는다');
+    e.net.ensureReady(10000, { retry: true });
+    await tick();
+    chk(e.socks.length === n + 1, '  ↳ 이미 열린 방에 다시 들어가기(retry)는 바로 다시 붙어 본다');
+
+    // 포기 시간은 원격 설정(timing) — 20초로 줄이면 20초에
+    const g = await joined({ net: { timing: { clientGiveUpMs: 20000 } } });
+    g.ws.close();
+    let gAt = -1;
+    for(let t = 0; t <= 60000; t += 500){
+      await g.clock.advance(500);
+      const last = g.socks[g.socks.length - 1];
+      if(!last.closed) last.close();
+      if(g.h.has('lost')){ gAt = t; break; }
+    }
+    chk(gAt >= 19000 && gAt <= 35000, '원격 설정 clientGiveUpMs 를 따른다 — 재연결 사이에 재므로 최대 한 간격(15초) 늦다 (20초 → ' + gAt + 'ms)');
+
+    // 15초 넘게 끊겼다 돌아오면 onReconnecting(false)
+    const b = await joined();
+    b.ws.close();
+    for(let t = 0; t < 17000; t += 500){
+      await b.clock.advance(500);
+      const last = b.socks[b.socks.length - 1];
+      if(!last.closed && b.clock.t < 16500) last.close();
+    }
+    const back = b.socks[b.socks.length - 1];
+    if(back.closed){ await b.clock.advance(16000); }
+    const s3 = b.socks[b.socks.length - 1];
+    s3.open(); s3.msg({ t: 'ready', pv: 1, now: 0 });
+    await tick();
+    const rc = b.h.log.filter((x) => x[0] === 'reconn').map((x) => x[1]);
+    chk(JSON.stringify(rc) === '[true,false]' && b.net.inRoom(), '오래 끊겼다 돌아오면 onReconnecting(false) — 방은 그대로 (' + JSON.stringify(rc) + ')');
+
+    // 입장 대기 — 10초를 주면 재연결 한 번 시간(5초)이 지나도 기다린다
+    const j = mkNet();
+    const jr = j.net.ensureReady(10000, { retry: true });
+    await tick();
+    j.socks[0].open();
+    await j.clock.advance(6000);
+    let settled = false; jr.then(() => { settled = true; });
+    await tick();
+    chk(!settled && !j.socks[0].closed, '입장 대기 10초 — 5초가 지나도 연결을 끊지 않는다');
+    await j.clock.advance(4500);
+    chk((await jr).ok === false, '  ↳ 10초가 넘으면 실패로 끝난다');
   }
 
   say('── 10. 연결');
   {
     const FC = strip(FI), AC = strip(APP), RC = strip(SRC);
     chk(!/^\s*import\s/m.test(SRC) && !/firebase|gstatic/i.test(RC.replace(/firebase-init|Firebase/g, '')), 'room-server-net.js 는 아무것도 import 하지 않는다(Firebase 직접 호출 없음)');
-    chk(/import \{ createRoomServerNet \} from "\.\/room-server-net\.js";/.test(FC) && /import \{ createRoomServerGate \} from "\.\/room-server-gate\.js";/.test(FC), 'firebase-init.js 가 room-server-net.js · room-server-gate.js 를 import');
+    chk(/import \{ createRoomServerNet \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-server-net\.js";/.test(FC) && /import \{ createRoomServerGate \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-server-gate\.js";/.test(FC), 'firebase-init.js 가 room-server-net.js · room-server-gate.js 를 import');
     chk(/enabled: \(\) => !!_rsUrl,\s*url: \(\) => _rsUrl,/.test(FC), '  ↳ 주소는 문지기가 고른 _rsUrl 하나 — 없으면 서버 안 씀');
     chk(/if\(r\.via === 'server'\) _rsUrl = r\.url;/.test(FC) && /if\(m && !_roomServer\.inRoom\(\)\) _rsUrl = m\.url;/.test(FC), '  ↳ resolveRoomServer 가 서버로 고르면 주소를 건다 · 방 개수 · 랜덤은 방 안이면 안 바꾼다');
     chk(/getToken: _getIdToken/.test(FC) && /auth\.currentUser\.getIdToken\(!!force\)/.test(FC), '  ↳ 토큰은 Firebase Auth getIdToken');
@@ -733,25 +787,20 @@ async function joined(o = {}){
     const iSrv = body.indexOf('const _via = await _startRoomOnServer('), iFb = body.indexOf('firebaseAPI.setRoomChannel');
     chk(sr > 0 && iSrv > 0 && iFb > iSrv && /const _via = await _startRoomOnServer\(code,[^)]*\);\s*if\(_via !== 'firebase'\) return;/.test(body),
       'startRoom — 서버 갈래(문지기가 고름)를 Firebase 쓰기(setRoomChannel)보다 먼저');
-    chk(/if\(_srv\) provider = _srv;\s*else provider = window\.firebaseAPI \? makeFirebaseProvider\(\) : makeMockProvider\(\);/.test(AC), 'Presence.start — provider 를 안 넘기면 예전 그대로(Firebase · 가짜 방)');
-    const fp = AC.slice(AC.indexOf('function makeFirebaseProvider(){'), AC.indexOf('function _roomServerNet(){'));
-    chk(/window\.firebaseAPI\.joinRoom\(room, payload,/.test(fp) && /const delta = _diffRoomPayload\(payload\);/.test(fp), 'makeFirebaseProvider 는 그대로');
+    chk(/if\(_srv\) provider = _srv;\s*else provider = window\.firebaseAPI \? makeFirebaseProvider\(opts && opts\.hooks\) : makeMockProvider\(\);/.test(AC), 'Presence.start — provider 를 안 넘기면 예전 그대로(Firebase · 가짜 방)');
+    const fp = AC.slice(AC.indexOf('function makeFirebaseProvider(hooks){'), AC.indexOf('function _roomServerNet(){'));
+    chk(/window\.firebaseAPI\.joinRoom\(room, payload,/.test(fp) && /\}, onPoked, hooks\);/.test(fp) && /const delta = _diffRoomPayload\(payload\);/.test(fp), 'makeFirebaseProvider 는 그대로');
     chk(/function _roomServerOn\(\)\{\s*try\{ return !!\(_roomServerNet\(\) && firebaseAPI\.roomServerMineNow && firebaseAPI\.roomServerMineNow\(\)\); \}/.test(AC), '_roomServerOn(방 개수) — «내 서버»(허용 목록) 가 있을 때만 · 읽기 없음');
-    chk(/onDisband: \(\)=>\{ if\(typeof window\._onRoomDisbanded === 'function'\) window\._onRoomDisbanded\(\); \}/.test(AC), 'disband → _onRoomDisbanded(지금 해산 흐름)');
+    chk(/onDisband: \(\)=>\{ window\._onRoomDisbanded\(\); \}/.test(AC), 'disband → _onRoomDisbanded(지금 해산 흐름)');
     chk(/onReplaced: \(\)=>\{ try\{ _onDeviceSessionLost\(\); \}catch\(_\)\{\} \}/.test(AC), 'replaced → _onDeviceSessionLost(한 계정 한 기기)');
-    chk(/if\(code === 'unreachable' && room\)\{ Promise\.resolve\(_roomServerFallback\(room\)\)/.test(AC), 'unreachable → 같은 코드로 Firebase 에 다시 입장(_roomServerFallback)');
-    const fb = AC.slice(AC.indexOf('async function _roomServerFallback(code){'));
-    chk(/await doLeaveRoom\(\);\s*window\._roomServerSkipOnce = code;[^\n]*\n[^\n]*\n\s*try\{ await startRoom\(code\); \}\s*finally\{ window\._roomServerSkipOnce = null; window\._roomRestore = null; \}/.test(fb) && /if\(window\._roomServerSkipOnce && window\._roomServerSkipOnce === code\) return 'firebase';/.test(AC),
-      '  ↳ 나간 뒤 그 코드 한 번은 서버 갈래를 건너뛴다');
-    chk(/window\._roomRestore = \(meta && meta\.channel\) \? \{ code, meta \} : null;/.test(fb), '  ↳ 서버 방의 마지막 meta 를 들고 «원래 방 되살리기» 로');
-    const sr2 = AC.slice(AC.indexOf('async function startRoom(code){'));
-    chk(/if\(!_restore && !_isSecret && !window\._pendingRoomChannel && _roomCount === 0\)\{/.test(sr2), '  ↳ 되살리기는 코드 옮기기(_roomPrefixFor)를 하지 않는다');
-    chk(/\} else if\(_restore && _roomCount === 0 && window\.firebaseAPI && firebaseAPI\.restoreRoomMeta\)\{/.test(sr2) && sr2.indexOf('firebaseAPI.restoreRoomMeta') < sr2.indexOf('firebaseAPI.claimEmptyRoom('),
-      '  ↳ 빈 방이면 restoreRoomMeta 로 _meta 를 세운다(빈 방 선점 · 라이선스 · 개수 상한보다 먼저)');
-    const rm = FI.slice(FI.indexOf('async restoreRoomMeta(room, m){'));
-    chk(/if\(cur && cur\.channel && cur\.restoredTs && \(_svNow\(\) - cur\.restoredTs\) < ROOM_RESTORE_FRESH_MS\)\{ had = true; return; \}/.test(rm) && /meta\.ts = meta\.openTs = meta\.restoredTs = _svNow\(\);/.test(rm),
-      '  ↳ restoreRoomMeta — 먼저 되살린 값은 덮지 않는다 · restoredTs 를 찍는다');
-    chk(/if\(meta\.restoredTs && \(_svNow\(\) - meta\.restoredTs\) < ROOM_RESTORE_GRACE_MS\) return;/.test(FI) && /const ROOM_RESTORE_GRACE_MS = 60 \* 1000;/.test(FI), '  ↳ 되살린 방은 60초 동안 방장 승계 · 해산을 미룬다');
+    const ol = AC.slice(AC.indexOf('onLost: (code)=>{'), AC.indexOf('onJoined: (room)=>'));
+    chk(/toast\(code === 'unreachable' \? ROOM_SERVER_LOST_MSG : '방 서버와 연결이 끊겨 방에서 나왔어요 — 다시 들어가 주세요'\);\s*Promise\.resolve\(doLeaveRoom\(\)\)/.test(ol)
+      && /const ROOM_SERVER_LOST_MSG = '방 서버 연결이 끊겨 방에서 나왔어요 — 잠시 후 다시 들어와 주세요';/.test(AC),
+      '★ 방 안에서 못 돌아오면(unreachable) Firebase 로 옮기지 않고 방에서 나오며 «잠시 후 다시 들어와 주세요» — 방이 갈리지 않게');
+    chk(!/_roomServerFallback|_roomServerSkipOnce|_roomRestore|restoreRoomMeta/.test(AC + FI), '  ↳ Firebase 로 되살리기 길(_roomServerFallback · restoreRoomMeta)은 없앴다');
+    chk(/onReconnecting: \(on\)=>\{ toast\(on \? '📡 방 서버 연결이 끊겨 다시 연결하는 중이에요…' : '방 서버에 다시 연결됐어요'\); \}/.test(ol), '  ↳ 15초 넘게 끊기면 «다시 연결하는 중» · 돌아오면 «다시 연결됐어요»');
+    chk(/if\(meta\.restoredTs && \(_svNow\(\) - meta\.restoredTs\) < ROOM_RESTORE_GRACE_MS\) return;/.test(FI) && /const ROOM_RESTORE_GRACE_MS = 60 \* 1000;/.test(FI), '  ↳ 옛 앱이 되살린 방은 60초 동안 방장 승계 · 해산을 미룬다(유예는 남김)');
+    chk(/timing: \(\) => _rc \? _rc\.roomServerTiming\(\) : null,/.test(FC), 'firebase-init — 입장 대기 · 포기 시간은 원격 설정 roomServerTiming');
     chk(/window\._onRoomMeta\(meta\)/.test(AC.slice(AC.indexOf('function _onServerRoomMeta'))) && /window\._roomMetaCache = meta;/.test(AC), 'meta → _roomMetaCache · _onRoomMeta');
     chk(/if\(code === 'full'\)/.test(AC) && /if\(code === 'channelFull'\)/.test(AC) && /if\(code === 'secretClosed'\)/.test(AC), 'full · channelFull · secretClosed → 안내 문구');
     chk(/const _sp = \(Presence\.serverProvider && Presence\.serverProvider\(\)\) \|\| null;/.test(AC) && /_sp \? await _sp\.setMeta\(\{ chatOff: next \}\)/.test(AC), '채팅 잠금 — 서버 방이면 meta 를 서버로');
@@ -762,11 +811,14 @@ async function joined(o = {}){
       '💬 채팅 탭 — 서버 방이면 만들기 · 이름 바꾸기 · 지우기를 방 서버 meta 로(기록 지우기는 Firebase) · 아니면 Firebase _meta/tabs');
     chk(/r = await _chatTabAdd\(room, c\.name\);/.test(AC) && /else r = await _chatTabRename\(room, edit\.id, c\.name\);/.test(AC) && /const r = await _chatTabDelete\(_chatRoomCode\(\), id\);/.test(AC)
       && !/firebaseAPI\.(addChatTab|renameChatTab|deleteChatTab)\(/.test(AC.replace(ctAdd, '')) && !/_chatTabsOnServer/.test(AC), '  ↳ 탭 줄 · 메뉴는 이 셋만 부른다 · 서버 방이라고 [+] 를 숨기지 않는다');
-    chk(/meta\.tabs = tabs;/.test(rm.slice(0, rm.indexOf('meta.ts = meta.openTs'))) && /t\.name\.length <= 10 && typeof t\.ts === 'number'/.test(rm), '  ↳ Firebase 로 되살릴 때 채팅 탭 정의도 옮긴다(규칙 모양만)');
     chk(/await _withServerRoomCounts\(await firebaseAPI\.getRoomCounts\(\{ quick: true \}\)\)/.test(AC) && /c = _addServerRoomCounts\(c\);/.test(AC), '방 개수 — 서버 몫을 더한다(켜져 있을 때만)');
     const so = AC.slice(AC.indexOf('async function _startRoomOnServer('), AC.indexOf('/* 방 개수 — 서버 방 몫을 더한다'));
     chk(/rs = await firebaseAPI\.resolveRoomServer\(code, \{ creating \}\);/.test(so) && /if\(!\(rs && rs\.via === 'server'\)\) return 'firebase';/.test(so), '서버로 갈지는 firebaseAPI.resolveRoomServer 한 곳 — 아니면 Firebase');
-    chk(/const following = rs\.from === 'dir';/.test(so) && /net\.ensureReady\(following \? ROOM_SERVER_FOLLOW_WAIT_MS : undefined\)/.test(so) && /const ROOM_SERVER_FOLLOW_WAIT_MS = 3000;/.test(AC), '  ↳ 주소록 따라가기는 연결을 3초만 기다린다');
+    chk(/const following = rs\.from === 'dir';/.test(so) && /rd = await net\.ensureReady\(net\.timing\(\)\.joinWaitMs, \{ retry: true \}\);/.test(so) && /if\(!rd\.ok\) return blockFollow\(rd\.code\);/.test(so),
+      '★ 주소록에 있는 방(이미 열림)은 입장 대기(원격 · 기본 10초)만큼 기다리고, 못 붙으면 Firebase 로 가지 않고 막는다');
+    chk(/if\(!msg && following\) return blockFollow\(r && r\.code\);/.test(so) && /toast\(ROOM_SERVER_BUSY_MSG\);/.test(so)
+      && /const ROOM_SERVER_BUSY_MSG = '방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';/.test(AC), '  ↳ 입장 시간 초과 등도 막고 «잠시 후 다시 시도해 주세요»');
+    chk(/rd = await net\.ensureReady\(\);\s*if\(!rd\.ok\)\{ console\.warn\('\[방 서버\] 연결 안 됨 — Firebase 방식으로 들어갑니다/.test(so), '  ↳ 주소록에 없는 방(새 방 · peek)은 지금처럼 Firebase 로 — 갈릴 사람이 없다');
     chk(/if\(!creating && !following\)\{\s*let pk = null;/.test(so), '  ↳ 주소록 따라가기는 peek 없이 바로 join(되살릴 후보 방은 peek 에 안 나온다) · join 이 실패할 때만 Firebase');
     const iPeek = so.indexOf('await net.peek(code)'), iFbCnt = so.indexOf('firebaseAPI.checkRoomCapacity(code)'), iStart = so.indexOf('await Presence.start(');
     chk(iPeek > 0 && iFbCnt > iPeek && iStart > iFbCnt && /if\(!\(pk && pk\.exists\)\)\{/.test(so) && /if\(typeof fb === 'number' && fb > 0\) return 'firebase';/.test(so),
@@ -774,7 +826,7 @@ async function joined(o = {}){
     chk(!/Presence\.stop\(\);\s*\/\/ 서버에는 없던 방/.test(so) && !/\bprobe\b/.test(so), '  ↳ 들어갔다 나오는 탐색(probe)은 없앴다');
     chk(/const _srv = await _serverRandomRooms\(12\);/.test(AC) && /_serverRandomRooms\(12\)\)\.filter\(c => c !== cur\)/.test(AC), '랜덤 입장 · 갈아타기 — 서버 방 먼저');
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => m[1]);
-    chk(csp.length === 2 && csp.every((c) => /connect-src [^;]*wss:\/\/rooms\.togetherworking\.duckdns\.org wss:\/\/rooms-dev\.togetherworking\.duckdns\.org ws:\/\/127\.0\.0\.1:8787 ws:\/\/localhost:8787;/.test(c)), 'CSP 두 줄 connect-src 에 운영 · dev 방 서버 + 로컬 8787');
+    chk(csp.length === 2 && csp.every((c) => /connect-src [^;]*wss:\/\/\*\.togetherworking\.duckdns\.org https:\/\/\*\.togetherworking\.duckdns\.org ws:\/\/127\.0\.0\.1:8787 ws:\/\/localhost:8787;/.test(c)), 'CSP 두 줄 connect-src 에 방 서버 묶음(wss · https://*.togetherworking.duckdns.org) + 로컬 8787');
     chk(csp.every((c) => !/ws:\/\/(127\.0\.0\.1|localhost):\*/.test(c)), '  ↳ 로컬은 포트 하나만(모든 포트 * 아님)');
   }
 

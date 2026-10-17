@@ -1,0 +1,432 @@
+/* ═══ 🐞 버그제보 게시판 화면 — parts/bug-board-ui.js ═══════════════════════════════
+   마이홈 「버그제보」 탭 안에서 목록 → 상세 → 글쓰기 세 화면을 바꿔 끼운다. 데이터는 firebaseAPI.bugBoard(bug-board.js).
+   ★ 비공개 글 — 남에게는 제목과 «익명» 만 보이고 누를 수 없다. 본문 · 답변은 서버 규칙이 막고 여기는 모양만 맞춘다.
+     목록 줄에 제목이 없는 옛 비공개 글은 남에게 «🔒 비공개 제보예요», 이름은 옛 글도 «익명» 으로 보인다.
+   ★ 답변 알림은 우편함 tag 'bug' + bugId. 우편함에서 누르면 window._bugBoardOpen(id) 로 이 글이 열린다.
+   ★ 탭 배지 = 내 글 중 lastReplyTs > bugSeen[id] 개수. 글을 열면 bugSeen[id] = 지금.
+   ★ 글쓴이 답글 — 내 글 상세 맨 아래 칸. 답글과 함께 상태(확인 중 · 해결 안 됨 · 해결 완료)를 고를 수 있다.
+     관리자 목록에는 운영자 답변보다 늦은 글쓴이 답글이 있으면 «✍ 글쓴이 답글».
+   ⚠️ app.js 뒤에 싣는다 — isAdmin · toast · escHtml · getMyUserId · getDisplayName 을 그대로 쓴다.
+   ⚠️ 확인창·메뉴를 따로 띄우지 않는다(전부 탭 안 화면). alert/confirm 금지(audit 검사 4). */
+(function(){
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const api = () => (window.firebaseAPI && firebaseAPI.bugBoard) || null;
+  const C = () => (api() && api().C) || { cats: [], status: {}, page: 8, anon: '익명', kakaoRe: /^https:\/\/open\.kakao\.com\//, answerNoticeBody: () => '버그제보 탭에서 확인해 주세요' };
+  const esc = (s) => escHtml(String(s == null ? '' : s));
+  const myUid = () => { try{ return firebaseAPI.authCurrentUid(); }catch(_){ return null; } };
+  const admin = () => (typeof isAdmin !== 'undefined') && !!isAdmin;
+  const who = () => ({ name: getDisplayName(), code: getMyUserId(), isAdmin: admin() });
+
+  let filter = 'all', cursors = [null], nextCursor = null;
+  let mineCache = null;   // 내 글 — 1쪽을 열 때 받아 두고 다음 쪽은 여기서 자른다(pageItems)
+  let unseenIds = new Set();
+  const titleCache = new Map();   // 목록 줄에 제목이 없는 옛 비공개 글의 제목(글쓴이 · 관리자만 읽힌다)
+  let migrated = false;
+
+  function fmtDate(ts, withTime){
+    if(!ts) return '';
+    const d = new Date(ts), p = (n) => String(n).padStart(2, '0');
+    const day = d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate());
+    return withTime ? day + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) : day;
+  }
+  const catName = (k) => { const c = C().cats.find(x => x[0] === k); return c ? c[1] : '기타'; };
+  const chip = (it) => it.notice
+    ? '<span class="bb-chip notice">공지</span>'
+    : '<span class="bb-chip ' + esc(it.status) + '">' + esc(C().status[it.status] || '접수') + '</span>';
+  const canSeePrv = (it) => it.authUid === myUid() || admin();
+  // 🛡 운영진 글 — 이름이 아니라 byAdmin(규칙상 관리자만 쓸 수 있는 칸)으로 가른다. 공지도 관리자만 쓴다.
+  // 비공개 글은 늘 «익명» — 옛 글은 목록 줄에 실명이 남아 있어도 화면에서는 가린다.
+  const whoName = (it) => (it.vis === 'prv' ? esc(C().anon) : esc(it.name)) + ((it.byAdmin === true || it.notice) ? ' <span class="bb-adm" title="운영진">🛡</span>' : '');
+
+  function show(view){
+    $('bbListView').style.display = view === 'list' ? '' : 'none';
+    $('bbDetailView').style.display = view === 'detail' ? '' : 'none';
+    $('bbWriteView').style.display = view === 'write' ? '' : 'none';
+    const pg = $('mhPageBugreport'); if(pg) pg.scrollTop = 0;
+  }
+
+  /* ── 목록 ───────────────────────────────────────────── */
+  function rowHtml(it){
+    const mine = it.authUid === myUid();
+    if(it.vis === 'prv' && !canSeePrv(it)){
+      return '<div class="bb-row locked" title="글쓴이와 관리자만 볼 수 있어요">' + chip(it) +
+        '<div class="bb-main"><div class="bb-title"><span class="bb-tag">[비공개]</span>🔒 ' + esc(it.title || '비공개 제보예요') + '</div></div>' +
+        '<div class="bb-who">' + whoName(it) + '<br>' + fmtDate(it.ts) + '</div></div>';
+    }
+    const tag = it.notice ? '📌' : (it.vis === 'pub' ? '[공개]' : '[비공개]');
+    const title = it.vis === 'pub' ? (it.title || '(제목 없음)') : (it.title || titleCache.get(it.id) || '…');
+    const isNew = mine && unseenIds.has(it.id);
+    return '<div class="bb-row' + (it.notice ? ' notice' : '') + '" data-id="' + esc(it.id) + '">' + chip(it) +
+      '<div class="bb-main"><div class="bb-title"><span class="bb-tag">' + tag + '</span><span class="bb-tt" data-tid="' + esc(it.id) + '">' + esc(title) + '</span>' +
+      (isNew ? '<span class="bb-new">새 답변</span>' : '') +
+      ((admin() && C().hasAuthorReply && C().hasAuthorReply(it)) ? '<span class="bb-new mine">✍ 글쓴이 답글</span>' : '') + '</div>' +
+      (it.notice ? '' : '<div class="bb-sub">' + esc(catName(it.cat)) + ' · 👍' + (it.likeN || 0) + ' · 답변 ' + (it.ansN || 0) + '</div>') +
+      '</div><div class="bb-who">' + whoName(it) + '<br>' + fmtDate(it.ts) + '</div></div>';
+  }
+  /* 목록 줄에 제목이 없는 옛 비공개 글만 행마다 따로 읽는다. */
+  function fillPrvTitles(items){
+    items.filter(it => it.vis === 'prv' && !it.title && canSeePrv(it) && !titleCache.has(it.id)).forEach(it => {
+      api().prvTitle(it).then(t => {
+        titleCache.set(it.id, t || '(제목 없음)');
+        const el = document.querySelector('#bbRows .bb-tt[data-tid="' + CSS.escape(it.id) + '"]');
+        if(el) el.textContent = titleCache.get(it.id);
+      });
+    });
+  }
+  /* 빈 목록 문구. 2쪽부터 빈 것은 «글이 딱 한 쪽(BUG_PAGE)의 배수라 [다음] 이 켜졌는데 더 없던» 경우다 —
+     한 쪽만큼만 받아서(하나 더 미리 보지 않음) 헛걸음 한 번은 생긴다. */
+  function emptyText(f, page){
+    if(page > 1) return f === 'open' ? '더 이전 미해결 제보가 없어요' : '더 이전 제보가 없어요';
+    return f === 'mine' ? '아직 쓴 제보가 없어요' : f === 'open' ? '미해결 제보가 없어요' : '아직 제보가 없어요';
+  }
+  async function loadList(){
+    const rows = $('bbRows'); if(!rows) return;
+    document.querySelectorAll('#bbListView .bb-flt').forEach(b => b.classList.toggle('on', b.dataset.f === filter));
+    if(!api()){ rows.innerHTML = '<div class="bb-empty">서버에 연결하는 중이에요…</div>'; return; }
+    rows.innerHTML = '<div class="bb-empty">불러오는 중…</div>';
+    const page = cursors.length;
+    try{
+      const [res, notes] = await Promise.all([
+        pageItems(page),
+        (filter === 'all' && page === 1) ? api().notices() : Promise.resolve([]),
+      ]);
+      nextCursor = res.next;
+      const all = notes.concat(res.items);
+      rows.innerHTML = all.length ? all.map(rowHtml).join('')
+        : '<div class="bb-empty">' + emptyText(filter, page) + '</div>';
+      fillPrvTitles(all);
+    }catch(e){
+      rows.innerHTML = '<div class="bb-empty">목록을 불러오지 못했어요 — 네트워크를 확인해 주세요</div>';
+      nextCursor = null;
+    }
+    rows.scrollTop = 0;   // 목록은 #bbRows 안에서 스크롤한다(창 높이 고정) — 쪽을 넘기면 맨 위부터
+    $('bbPageNo').textContent = String(page);
+    $('bbPrev').disabled = page <= 1;
+    $('bbNext').disabled = !nextCursor;
+  }
+  /* 한 쪽 받기. 내 글은 서버에서 쪽을 넘기지 못해(equalTo · bug-board.js listPage) 1쪽에서 한 번에(최대 BUG_MINE_MAX) 받아 두고
+     화면에서만 한 쪽(C().page)씩 나눈다 — 받는 양 · 새 답변 배지 범위는 그대로. next 는 다음 쪽 번호(없으면 null). */
+  async function pageItems(page){
+    if(filter !== 'mine') return api().listPage(filter, cursors[cursors.length - 1]);
+    if(page === 1 || !mineCache) mineCache = (await api().listPage('mine')).items;
+    const n = C().page, from = (page - 1) * n;
+    return { items: mineCache.slice(from, from + n), next: from + n < mineCache.length ? page + 1 : null };
+  }
+
+  /* ── 상세 ───────────────────────────────────────────── */
+  async function openPost(id){
+    const box = $('bbDetailView'); if(!box || !api()) return;
+    show('detail');
+    box.innerHTML = '<button class="bb-btn bb-back" type="button" data-act="back">◀ 목록</button><div class="bb-empty">불러오는 중…</div>';
+    let d = null;
+    try{ d = await api().getPost(id); }catch(_){}
+    if(!d || !d.item){ box.innerHTML = '<button class="bb-btn bb-back" type="button" data-act="back">◀ 목록</button><div class="bb-empty">글을 찾지 못했어요</div>'; return; }
+    const it = d.item, ct = d.content;
+    if(it.vis === 'prv' && !canSeePrv(it)){ box.innerHTML = '<button class="bb-btn bb-back" type="button" data-act="back">◀ 목록</button><div class="bb-empty">🔒 비공개 제보예요</div>'; return; }
+    if(it.authUid === myUid()){
+      api().setSeen(getMyUserId(), id).then(refreshBadge);
+      unseenIds.delete(id);
+    }
+    const title = ct ? ct.title : (it.title || '(제목 없음)');
+    if(it.vis === 'prv' && ct) titleCache.set(id, ct.title);
+    const h = [];
+    h.push('<button class="bb-btn bb-back" type="button" data-act="back">◀ 목록</button>');
+    h.push('<div class="bb-dhead">' + chip(it) + '<span class="bb-tag">' + (it.notice ? '📌' : it.vis === 'pub' ? '[공개]' : '[비공개]') + '</span>' + esc(title) + '</div>');
+    // 고정 번호(B-MMDD-n · 서버 함수가 붙인다)는 관리자에게만 — 커밋 · PR 에서 제보를 가리키는 번호다.
+    h.push('<div class="bb-dmeta">' + ((admin() && it.no) ? '<span class="bb-no">' + esc(it.no) + '</span> · ' : '') +
+      whoName(it) + ' · ' + fmtDate(it.ts, true) + (it.notice ? '' : ' · ' + esc(catName(it.cat))) + '</div>');
+    h.push('<div class="bb-body">' + esc(ct ? ct.body : '(내용을 불러오지 못했어요)') + '</div>');
+    if(ct && ct.env) h.push('<div class="bb-env">🖥 ' + esc(ct.env) + '</div>');
+    if(it.vis === 'pub' && !it.notice){
+      h.push('<button class="bb-btn bb-like' + (d.liked ? ' on' : '') + '" type="button" data-act="like"' + (d.liked ? ' disabled' : '') + '>👍 나도 겪었어요 ' + (it.likeN || 0) + '</button>');
+    }
+    d.answers.forEach(a => {
+      if(a.byAuthor){
+        const stName = a.st && C().authorStatus ? (C().authorStatus.find(x => x[0] === a.st) || [])[1] : '';
+        h.push('<div class="bb-ans mine"><div class="bb-ans-h">✍ 글쓴이 답글<span class="bb-ans-v">' + fmtDate(a.ts, true) + '</span>' +
+          (stName ? '<span class="bb-ans-st">상태 → <b>' + esc(stName) + '</b></span>' : '') + '</div><div class="bb-ans-t">' + esc(a.text) + '</div></div>');
+        return;
+      }
+      h.push('<div class="bb-ans' + (a.vis === 'prv' ? ' prv' : '') + '"><div class="bb-ans-h">🛡 운영자 답변<span class="bb-ans-v">' +
+        (a.vis === 'prv' ? '🔒 비공개' : '공개') + ' · ' + fmtDate(a.ts, true) + '</span></div><div class="bb-ans-t">' + esc(a.text) + '</div>' +
+        ((a.kakao && C().kakaoRe.test(a.kakao)) ? '<div class="bb-kakao"><button type="button" data-kakao="' + esc(a.kakao) + '">💬 오픈카톡으로 이야기하기</button><small>' + esc(a.kakao) + '</small></div>' : '') +
+        '</div>');
+    });
+    if(admin()) h.push(adminForm(it));
+    else if(it.authUid === myUid() && !it.notice) h.push(authorForm(it));
+    box.innerHTML = h.join('');
+    box._post = { id, it, title };
+  }
+  function adminForm(it){
+    const prvOnly = it.vis === 'prv';
+    const opts = Object.keys(C().status).map(k => '<option value="' + k + '"' + (k === it.status ? ' selected' : '') + '>' + esc(C().status[k]) + '</option>').join('');
+    return '<div class="bb-admin"><div class="bb-ans-h">답변 달기 (관리자)</div>' +
+      '<textarea id="bbAText" maxlength="' + (C().ansMax || 1000) + '" placeholder="답변 내용"></textarea>' +
+      '<div class="bb-row2">' +
+      '<label><input type="radio" name="bbAVis" value="pub"' + (prvOnly ? ' disabled' : ' checked') + '> 공개</label>' +
+      '<label><input type="radio" name="bbAVis" value="prv"' + (prvOnly ? ' checked disabled' : '') + '> 비공개</label>' +
+      '<select id="bbAStatus">' + opts + '</select>' +
+      '<button class="bb-btn" type="button" id="bbAKakaoBtn" data-act="kakao">💬 오픈카톡</button>' +
+      '<span class="bb-sp"></span><button class="bb-btn" type="button" data-act="answer">답변 등록</button></div>' +
+      (prvOnly ? '<div class="bb-hint">비공개 글이라 답변도 비공개로만 달려요.</div>' : '') +
+      '<div class="bb-kk" id="bbAKk">💬 답변 아래에 오픈카톡 버튼이 붙어요 · 링크 <input id="bbAKakao" type="text" maxlength="300"><span class="bb-kk-x" data-act="kakaoX" title="취소">✕</span></div>' +
+      '<div class="bb-err" id="bbAErr"></div><div class="bb-hint">등록하면 글쓴이 우편함에 알림이 가요.</div></div>';
+  }
+  /* 글쓴이 답글 칸 — 상태는 늘 하나를 고른다(기본 «해결 안 됨» — 답글을 다는 건 대개 아직 안 고쳐져서다).
+     «그대로» 버튼은 해결 안 됨과 같은 뜻으로 읽혀 뺐다. 고른 버튼은 눌린 모양(.on). */
+  const AUTHOR_DEFAULT_ST = 'unfixed';
+  function authorForm(it){
+    const sts = C().authorStatus || [];
+    return '<div class="bb-admin mine"><div class="bb-ans-h">✍ 답글 달기 (글쓴이)</div>' +
+      '<textarea id="bbRText" maxlength="' + (C().ansMax || 1000) + '" placeholder="업데이트 후에도 그런지, 더 알려 줄 내용"></textarea>' +
+      '<div class="bb-row2"><span class="bb-k">상태</span>' +
+      sts.map(s => '<button class="bb-btn bb-rst' + (s[0] === AUTHOR_DEFAULT_ST ? ' on' : '') + '" type="button" data-act="rst" data-st="' + s[0] + '">' + esc(s[1]) + '</button>').join('') +
+      '</div><div class="bb-row2">' +
+      (it.vis === 'prv' ? '<span class="bb-hint">비공개 글이라 답글도 글쓴이 · 관리자만 봐요.</span>' : '<span class="bb-hint">공개 글이라 답글도 모두에게 보여요.</span>') +
+      '<span class="bb-sp"></span><button class="bb-btn" type="button" data-act="reply">답글 등록</button></div>' +
+      '<div class="bb-err" id="bbRErr"></div></div>';
+  }
+  async function submitReply(btn){
+    const box = $('bbDetailView'), post = box._post; if(!post) return;
+    const err = $('bbRErr');
+    const on = box.querySelector('.bb-rst.on');
+    btn.disabled = true; err.textContent = '';
+    let r = null;
+    try{ r = await api().addReply(post.id, { text: $('bbRText').value, status: on ? on.dataset.st : '' }); }
+    catch(_){ r = { ok: false, reason: '등록하지 못했어요 — 네트워크를 확인해 주세요' }; }
+    btn.disabled = false;
+    if(!r || !r.ok){ err.textContent = (r && r.reason) || '등록하지 못했어요'; return; }
+    toast('답글을 등록했어요');
+    openPost(post.id);
+  }
+  async function submitAnswer(btn){
+    const box = $('bbDetailView'), post = box._post; if(!post || !admin()) return;
+    const err = $('bbAErr');
+    const kkOn = $('bbAKk').classList.contains('on');
+    const kakao = kkOn ? $('bbAKakao').value.trim() : '';
+    if(kkOn && !C().kakaoRe.test(kakao)){ err.textContent = '오픈카톡 링크는 https://open.kakao.com/ 으로 시작해야 해요'; return; }
+    const vis = (document.querySelector('input[name="bbAVis"]:checked') || {}).value || 'prv';
+    btn.disabled = true; err.textContent = '';
+    let r = null;
+    try{ r = await api().addAnswer(post.id, { text: $('bbAText').value, vis, status: $('bbAStatus').value, kakao }); }catch(e){ r = { ok: false, reason: '등록하지 못했어요 — 권한이나 네트워크를 확인해 주세요' }; }
+    btn.disabled = false;
+    if(!r || !r.ok){ err.textContent = (r && r.reason) || '등록하지 못했어요'; return; }
+    // 글쓴이 우편함 알림 — 실패해도 답변은 남아 있다(조용히 넘기지 않고 알린다)
+    try{
+      await firebaseAPI.sendInboxMessage(post.it.code, 'bug', '접수된 제보에 답변이 달렸어요',
+        C().answerNoticeBody(post.it.vis, post.title, !!r.kakao), { bugId: post.id });
+    }catch(_){ toast('답변은 등록됐지만 알림을 보내지 못했어요'); }
+    toast('답변을 등록했어요');
+    openPost(post.id);
+  }
+  async function likePost(btn){
+    const post = $('bbDetailView')._post; if(!post) return;
+    btn.disabled = true;
+    const r = await api().like(post.id).catch(() => null);
+    if(r && r.ok){ btn.classList.add('on'); btn.textContent = '👍 나도 겪었어요 ' + r.n; }
+    else { btn.disabled = false; toast('누르지 못했어요 — 이미 눌렀거나 네트워크 문제예요'); }
+  }
+
+  /* ── 글쓰기 ─────────────────────────────────────────── */
+  function openWrite(){
+    if(!api() || !myUid()){ toast('서버에 연결된 뒤에 쓸 수 있어요'); return; }
+    const sel = $('bbWCat');
+    if(!sel.options.length) sel.innerHTML = C().cats.map(c => '<option value="' + c[0] + '">' + esc(c[1]) + '</option>').join('');
+    $('bbWTitle').value = ''; $('bbWBody').value = ''; $('bbWErr').textContent = '';
+    document.querySelectorAll('input[name="bbWVis"]').forEach(r => { r.disabled = false; r.checked = r.value === 'pub'; });
+    $('bbWEnv').checked = true; $('bbWNotice').checked = false;
+    show('write');
+    $('bbWTitle').focus();
+    showQuota();
+  }
+  /* 오늘 남은 제보 수 — 상한(원격 설정 bugDailyMax · 게시판 열 때 받음) − 오늘 쓴 수. 다 썼으면 등록 단추를 끈다. 관리자는 제한 없음. */
+  async function showQuota(){
+    const btn = $('bbWSubmit');
+    btn.disabled = false; btn.textContent = '등록';
+    if(admin()) return;
+    const max = api().dailyMax();
+    const n = await api().todayCount(getMyUserId());
+    if($('bbWriteView').style.display === 'none') return;
+    if(n >= max){
+      btn.disabled = true;
+      $('bbWErr').textContent = '오늘은 제보를 ' + max + '건 모두 썼어요 — 내일 다시 써 주세요';
+    }else btn.textContent = '등록 (오늘 ' + (max - n) + '건 남음)';
+  }
+  async function envString(){
+    let ver = '';
+    try{ if(window.companion && companion.getAppVersion) ver = await companion.getAppVersion(); }catch(_){}
+    const ua = navigator.userAgent || '';
+    const os = /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '기타 OS';
+    return (ver ? 'v' + ver + ' · ' : '') + os;
+  }
+  async function submitWrite(btn){
+    const err = $('bbWErr');
+    const notice = admin() && $('bbWNotice').checked;
+    const p = {
+      cat: $('bbWCat').value, title: $('bbWTitle').value, body: $('bbWBody').value,
+      vis: notice ? 'pub' : ((document.querySelector('input[name="bbWVis"]:checked') || {}).value || 'pub'),
+      notice,
+    };
+    const bad = api().checkPost(p); if(bad){ err.textContent = bad; return; }
+    if($('bbWEnv').checked) p.env = await envString();
+    btn.disabled = true; err.textContent = '';
+    let r = null;
+    try{ r = await api().createPost(p, who()); }catch(e){ r = { ok: false, reason: '등록하지 못했어요 — 네트워크를 확인해 주세요' }; }
+    btn.disabled = false;
+    if(!r || !r.ok){ err.textContent = (r && r.reason) || '등록하지 못했어요'; return; }
+    toast(notice ? '📌 공지를 등록했어요' : '🐞 제보를 등록했어요');
+    cursors = [null];
+    openPost(r.id);
+  }
+
+  /* ── 배지 ───────────────────────────────────────────── */
+  async function refreshBadge(){
+    if(!api() || !myUid()) return;
+    let n = 0;
+    try{ const r = await api().unseen(getMyUserId()); n = r.n; unseenIds = new Set(r.ids); }catch(_){ return; }
+    const tab = document.querySelector('#myHomeTabs .mh-tab[data-tab="bugreport"]');
+    if(tab){
+      let badge = tab.querySelector('.mh-tab-badge');
+      if(n > 0){
+        if(!badge){ badge = document.createElement('span'); badge.className = 'mh-tab-badge'; tab.appendChild(badge); }
+        badge.textContent = n > 9 ? '9+' : String(n);
+        badge.style.display = 'inline-block';
+      }else if(badge) badge.style.display = 'none';
+    }
+    const dot = $('bbMineDot'); if(dot) dot.classList.toggle('on', n > 0);
+  }
+
+  /* ── 탭 들어올 때 · 우편함에서 열 때 ───────────────────── */
+  async function enter(){
+    show('list');
+    if(api()) api().loadDailyMax();   // 하루 상한 — 열 때 한 번(기다리지 않는다 · 못 읽으면 5)
+    if(admin() && !migrated && api()){
+      migrated = true;
+      try{ const r = await api().migrateNotice(who()); if(r && r.ok && !r.skipped) toast('예전 버그제보 공지를 첫 공지글로 옮겼어요'); }catch(_){}
+    }
+    await refreshBadge();
+    loadList();
+  }
+  window._bugBoardRefreshBadge = refreshBadge;
+  window._bugBoardOpen = function(id){
+    const tab = document.querySelector('#myHomeTabs .mh-tab[data-tab="bugreport"]');
+    if(tab && !tab.classList.contains('on')) tab.click();   // 탭 바인딩이 enter() 를 부른다
+    openPost(id);
+  };
+
+  function bind(){
+    const board = $('bbBoard'); if(!board) return;
+    const tab = document.querySelector('#myHomeTabs .mh-tab[data-tab="bugreport"]');
+    if(tab) tab.addEventListener('click', enter);
+    document.querySelectorAll('#bbListView .bb-flt').forEach(b => b.addEventListener('click', () => {
+      filter = b.dataset.f; cursors = [null]; loadList();
+    }));
+    $('bbPrev').addEventListener('click', () => { if(cursors.length > 1){ cursors.pop(); loadList(); } });
+    $('bbNext').addEventListener('click', () => { if(nextCursor != null){ cursors.push(nextCursor); loadList(); } });
+    $('bbWriteBtn').addEventListener('click', openWrite);
+    $('bbWCancel').addEventListener('click', () => show('list'));
+    $('bbWSubmit').addEventListener('click', (e) => submitWrite(e.currentTarget));
+    $('bbWNotice').addEventListener('change', (e) => {
+      // 공지는 공개 글이다 — 고르는 동안 공개 범위를 공개로 묶는다
+      document.querySelectorAll('input[name="bbWVis"]').forEach(r => { r.disabled = e.target.checked; if(e.target.checked && r.value === 'pub') r.checked = true; });
+    });
+    $('bbRows').addEventListener('click', (e) => {
+      const row = e.target.closest('.bb-row[data-id]'); if(row) openPost(row.dataset.id);
+    });
+    $('bbDetailView').addEventListener('click', (e) => {
+      const k = e.target.closest('[data-kakao]');
+      if(k){
+        const url = k.dataset.kakao;
+        if(C().kakaoRe.test(url) && window.companion && companion.openBrowser) companion.openBrowser(url);
+        return;
+      }
+      const el = e.target.closest('[data-act]'); if(!el) return;
+      const act = el.dataset.act;
+      if(act === 'back'){ show('list'); loadList(); }
+      else if(act === 'like') likePost(el);
+      else if(act === 'answer') submitAnswer(el);
+      else if(act === 'reply') submitReply(el);
+      else if(act === 'rst'){ el.parentNode.querySelectorAll('.bb-rst').forEach(b => b.classList.toggle('on', b === el)); }
+      else if(act === 'kakao'){
+        const kk = $('bbAKk'), on = !kk.classList.contains('on');
+        kk.classList.toggle('on', on); el.classList.toggle('on', on);
+        if(on && !$('bbAKakao').value) $('bbAKakao').value = (window._bugReportLink && window._bugReportLink()) || '';
+      }
+      else if(act === 'kakaoX'){ $('bbAKk').classList.remove('on'); $('bbAKakaoBtn').classList.remove('on'); }
+    });
+    /* 부팅 뒤 배지 한 번 — 로그인(uid)이 늦게 붙으므로 몇 번만 다시 본다. 붙으면 끝(반복 폴링 아님). */
+    let tries = 0;
+    const boot = () => { if(api() && myUid()) refreshBadge(); else if(++tries < 8) setTimeout(boot, 5000); };
+    setTimeout(boot, 6000);
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
+/* ↓ app.js 에서 옮긴 🐞 버그 제보 탭(오픈카톡 기본 링크) — 앱 FSD 5번 · docs/APP_FSD_MAP.md.
+   ★ 글자 그대로(들여쓰기도) 옮겼다. 위 게시판 IIFE 밖 맨 앞 칸이라 예전처럼 전역 이름(_bugReportConf · window._bugReportLink)이다.
+   ★ 이 파일은 app.js 뒤에 싣지만 firebase-init.js(type="module")보다 앞이라 «firebase-ready» 를 기다리는 구독 시작 때가 예전과 같다.
+     버튼 연결도 사람이 누를 수 있기 전에 끝난다. window._bugReportLink 는 위 답변 칸의 [💬 오픈카톡] 이 누를 때 부른다.
+   ⚠️ app.js 의 isAdmin · toast · _saveFailMsg 를 그대로 쓴다(위 게시판과 같은 방식). */
+/* ═══════════════════ 🐞 버그 제보 탭 — 오픈카톡 기본 링크 ═══════════════════
+   게시판 화면은 parts/bug-board-ui.js 다. 여기는 bugReport/current 만 맡는다.
+   ★ 예전 공지(notice)는 첫 공지글로 옮겨졌다(bug-board.js migrateNotice). current.link 는
+     답변에 붙는 [💬 오픈카톡] 의 기본 주소로 계속 쓴다. 편집은 관리자만(.admin-only + 저장 때 isAdmin 재확인). */
+let _bugReportConf = null;   // { notice, link, ts }
+window._bugReportLink = ()=> (_bugReportConf && _bugReportConf.link) || '';
+
+(function bindBugReport(){
+  const editBtn   = document.getElementById('mhBugEditBtn');
+  const form      = document.getElementById('mhBugEditForm');
+  const linkIn    = document.getElementById('mhBugLinkInput');
+  const saveBtn   = document.getElementById('mhBugSaveBtn');
+  const cancelBtn = document.getElementById('mhBugCancelBtn');
+  const msgEl     = document.getElementById('mhBugEditMsg');
+
+  const showMsg = (text, isErr)=>{
+    if(!msgEl) return;
+    msgEl.textContent = text;
+    msgEl.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
+    msgEl.style.display = text ? 'block' : 'none';
+  };
+  const closeForm = ()=>{ if(form) form.style.display = 'none'; };
+
+  if(editBtn){
+    editBtn.addEventListener('click', ()=>{
+      if(!isAdmin) return;   // .admin-only로 숨겨져 있지만 한 번 더 확인
+      if(form && form.style.display !== 'none'){ closeForm(); return; }
+      if(linkIn) linkIn.value = window._bugReportLink();
+      showMsg('', false);
+      if(form) form.style.display = 'block';
+      if(linkIn) linkIn.focus();
+    });
+  }
+  if(cancelBtn) cancelBtn.addEventListener('click', closeForm);
+
+  if(saveBtn){
+    saveBtn.addEventListener('click', async ()=>{
+      if(!isAdmin){ toast('관리자만 수정할 수 있어요'); return; }
+      if(!window.firebaseAPI || !firebaseAPI.setBugReport){ toast('네트워크 연결이 필요해요'); return; }
+      const link = (linkIn ? linkIn.value : '').trim();
+      if(link && !/^https:\/\/open\.kakao\.com\//.test(link)){ showMsg('오픈카톡 링크는 https://open.kakao.com/ 으로 시작해야 해요', true); return; }
+      /* ⚠️ 규칙이 notice 를 필수로 본다(웹 관리자도 같은 노드를 쓴다) — 있던 글을 그대로 실어 보낸다. */
+      const notice = (_bugReportConf && _bugReportConf.notice) || '버그 제보는 버그제보 게시판에 남겨 주세요.';
+      saveBtn.disabled = true; showMsg('저장 중…', false);
+      try{
+        await firebaseAPI.setBugReport(notice, link);
+        toast('오픈카톡 기본 링크를 저장했어요');
+        closeForm();
+      }catch(e){
+        showMsg(_saveFailMsg(e, '저장에 실패했어요 — 인터넷 연결을 확인해 주세요'), true);
+      }
+      saveBtn.disabled = false;
+    });
+  }
+
+  const sub = ()=>{
+    if(!window.firebaseAPI || !firebaseAPI.subscribeBugReport) return;
+    firebaseAPI.subscribeBugReport(conf=>{ _bugReportConf = conf; });
+  };
+  TwNetReady.whenNetReady(sub);
+})();

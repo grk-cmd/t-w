@@ -4,6 +4,7 @@
    · 고르면 그 프리셋으로 들어가고 메뉴는 닫힌다. 보고 있던 프리셋(_plCur)은 안 바뀐다.
    실행: node sim-pl-grab-pick.js  (app.js · smoke.js 와 같은 폴더에서) */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -16,25 +17,30 @@ globalThis.setTimeout = (fn)=>0;
 globalThis.setInterval = () => 0;
 globalThis.clearInterval = () => {};
 
+/* 🎵 플레이리스트는 parts/status/playlist.js 로 옮겼다(앱 FSD 16번) — 그 파일을 먼저 평가하고, app.js 가 원래 자리에서 만든 plMod 로 들여다본다.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 빈 껍데기(PLAYLIST_OFF)로 돌아 초록인 척하지 않게. */
+const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
+const PL_SRC = read('playlist.js');
+if (!PL_SRC) { console.log('  ? 원본 못 찾음 — playlist.js'); process.exit(2); }
 const probe = `
 ;globalThis.__P = {
-  MAX: PL_MAX, SETS: PL_SETS,
-  sets: ()=>_plSets,
-  label: k=>_plSetLabel(k),
-  items: k=>_plSetItems(k),
-  block: (k, it)=>_plGrabBlock(k, it),
-  grabTo: k=>_plGrabTo(k),
-  open: btn=>_plOpenGrabPick(btn),
-  close: ()=>_plCloseGrabPick(),
-  cur: ()=>_plCur,
-  setCur: k=>{ _plCur = k; },
-  setView: v=>{ _plView = v; },
-  setSel: i=>{ _plSel = i; },
-  song: ()=>_plGrabSong(),
+  MAX: plMod.PL_MAX, SETS: plMod.PL_SETS,
+  sets: ()=>plMod.st.sets,
+  label: k=>plMod.setLabel(k),
+  items: k=>plMod.mineOf(k),
+  block: (k, it)=>plMod.grabBlock(k, it),
+  grabTo: k=>plMod.grabTo(k),
+  open: btn=>plMod.openGrabPick(btn),
+  close: ()=>plMod.closeGrabPick(),
+  cur: ()=>plMod.st.cur,
+  setCur: k=>{ plMod.st.cur = k; },
+  setView: v=>{ plMod.st.view = v; },
+  setSel: i=>{ plMod.st.sel = i; },
+  song: ()=>plMod.grabSong(),
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(PL_SRC, { filename: 'playlist.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,5).join('\n')); process.exit(1); }
 console.log = say;
 

@@ -283,6 +283,35 @@ g.alert = () => {}; g.confirm = () => false; g.prompt = () => null;
 g.open = () => null; g.close = () => {}; g.focus = () => {}; g.blur = () => {};
 g.scrollTo = () => {}; g.getSelection = () => ({ toString: () => '', removeAllRanges() {} });
 
+/* ── 다른 script 가 거는 이름 ────────────────────────────────────────
+   app.js 는 HTML 이 먼저 싣는 파일들이 거는 이름(window.X = … · 맨 위 function)을 typeof 가드 없이 바로 부른다(개정 239).
+   여기서는 app.js 만 돌리므로, HTML 의 <script src="parts/…"> 목록에서 app.js 앞 파일을 **진짜로 실어** 둔다(못 실으면 그대로 실패).
+   ⚠️ 목록을 손으로 적지 않는다 — 파일이 늘면 조용히 낡는다. */
+(function loadSiblingScripts(){
+  /* require 줄은 스텁을 빌려 쓰는 검사들이 걸러 내므로 process.getBuiltinModule 로 받는다 */
+  const fs = process.getBuiltinModule('fs'), path = process.getBuiltinModule('path'), vm = process.getBuiltinModule('vm');
+  const htmlPath = ['desk-companion-prototype.html', path.join('app', 'desk-companion-prototype.html')].find(p => fs.existsSync(p));
+  if (!htmlPath) return;
+  const html = fs.readFileSync(htmlPath, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
+  /* app.js **보다 먼저** 실리는 파일만 — 진짜 앱에서도 app.js 를 싣는 순간 뒤 파일의 이름은 아직 없다 */
+  const all = [...html.matchAll(/<script\b([^>]*)\bsrc="parts\/([^"]+\.js)"/g)].filter(m => !/type="module"/.test(m[1])).map(m => m[2]);
+  const iApp = all.findIndex(s => /(^|\/)app\.js$/.test(s));
+  const srcs = all.slice(0, iApp < 0 ? 0 : iApp);
+  /* app.js 가 아직 «typeof 이름 === 'undefined' 면 빈 껍데기» 로 받는 모듈은 싣지 않는다 — 실으면 검사마다 따로 다루던 그 갈래가 바뀐다 */
+  const appPath = ['app.js', path.join('parts', 'app.js'), path.join('app', 'parts', 'app.js')].find(x => fs.existsSync(x));
+  const appSrc = appPath ? fs.readFileSync(appPath, 'utf8') : '';
+  const shellGuarded = (n) => new RegExp('typeof\\s+' + n.replace(/\$/g, '\\$') + "\\s*===\\s*'undefined'").test(appSrc);
+  for (const s of srcs) {
+    const p = [s, path.basename(s), path.join('parts', s), path.join('app', 'parts', s)].find(x => fs.existsSync(x));
+    if (!p) continue;
+    const t = fs.readFileSync(p, 'utf8');
+    const exp = [...t.matchAll(/(?:window|root)\.([A-Za-z_$][\w$]*)\s*=\s*api\b/g)].map(m => m[1]);
+    if (exp.length && exp.every(shellGuarded)) continue;
+    /* 진짜로 싣는다(진짜 앱과 같은 구현). 못 실으면 대역으로 넘기지 않고 그대로 던진다 — 조용히 넘어가는 자리를 만들지 않는다 */
+    vm.runInThisContext(t, { filename: path.basename(p) });
+  }
+})();
+
 /* firebaseAPI / companion 은 **일부러 안 만든다.**
    app.js 는 둘 다 없을 수 있다고 보고 가드해야 한다(웹 미리보기·초기 로딩 순간이 실제로 그렇다).
    여기서 스텁을 깔아버리면 그 가드가 빠진 곳을 영영 못 잡는다. */
@@ -323,8 +352,282 @@ PRELOAD.push('myhome-edit.js');
 PRELOAD.push('room-invite-ui.js');
 /* focus-log.js — 🕒 포커스 기록 팝업(앱 FSD 13번). 같은 까닭 — 만들 때 하는 일(버튼 · ESC 등록 · window._focusLogClamp · 매초 갱신 · 타이틀바 끌기 연결)을 같이 굴린다. */
 PRELOAD.push('focus-log.js');
+/* chat-window.js — 💬 대화창 배선(앱 FSD 14번). 같은 까닭 — 만들 때 하는 일(버튼 · 메뉴 · 끌기 · 크기 손잡이 · ESC · 입력 · 이모티콘 그리드 연결 · 저장값 반영 · 복사 · 탭 묶기)을 같이 굴린다. */
+PRELOAD.push('chat-window.js');
+/* myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). 같은 까닭 — 만들 때 하는 일(상태 초기값)과 app.js 가 원래 자리에서 부르는 createMyHomeInbox 를 같이 굴린다. */
+PRELOAD.push('myhome-inbox.js');
+/* playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 같은 까닭 — 만들 때 하는 일(🪟 창 위치 초기화 등록 · 저장값 읽기 · 버튼 · ESC · 끌기 연결 · 미니미 ·
+   300ms 폴링 · BGM 신호 구독 · 음량 한 번 · window 고리)과 app.js 가 원래 자리에서 부르는 createPlaylist 를 같이 굴린다. */
+PRELOAD.push('playlist.js');
+/* admin/admin-license-bulk.js — 🛠️ 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급(관리자 코드 admin 폴더 1번). 같은 까닭 — 만들 때 하는 일
+   (버튼 연결 · window._lxHideWin)과 app.js 가 원래 자리에서 부르는 createAdminLicenseBulk 를 같이 굴린다. 관리자 모듈은 parts/admin/ 에 있다. */
+PRELOAD.push('admin-license-bulk.js');
+/* admin/admin-console.js — 🛠️ 🧹 F12 콘솔 도구 일곱(관리자 코드 admin 폴더 2번). 같은 까닭 — 만들 때 하는 일(window 에 콘솔 함수 걸기)과
+   app.js 가 원래 자리에서 부르는 createAdminConsole 을 같이 굴린다. */
+PRELOAD.push('admin-console.js');
+/* admin/admin-license.js · admin-notice.js · admin-category.js — 🛠️ 라이선스 발급 · 공지 · 카테고리 관리(관리자 코드 admin 폴더 3번).
+   같은 까닭 — 만들 때 하는 일(버튼 연결)과 app.js 가 원래 자리에서 부르는 create 셋을 같이 굴린다. */
+PRELOAD.push('admin-license.js', 'admin-notice.js', 'admin-category.js');
+/* admin/admin-part-register.js — 🛠️ 파츠 · 책상 · 아이템 등록 창(관리자 코드 admin 폴더 4번). 같은 까닭 — 만들 때 하는 일(버튼 · 파일 칸 연결)과
+   app.js 가 원래 자리에서 부르는 createAdminPartRegister 를 같이 굴린다. */
+PRELOAD.push('admin-part-register.js');
+/* admin/admin-users.js · admin-launcher.js — 🛠️ 통계 · 초대권 지급 · 방 종료 · 유령 방 · 게임 설정 · 광고 배너 편집(관리자 코드 admin 폴더 5번).
+   같은 까닭 — 만들 때 하는 일(버튼 연결)과 app.js 가 원래 자리에서 부르는 create 둘을 같이 굴린다. */
+PRELOAD.push('admin-users.js', 'admin-launcher.js');
+/* admin/admin-asset.js — 🛠️ 📦 책상·아이템 코드 · 🎁 커미션 캐릭터 · 🔐 암호화 GLB 불러오기(관리자 코드 admin 폴더 6번). 같은 까닭 — 만들 때 버튼 연결과 createAdminAsset. */
+PRELOAD.push('admin-asset.js');
+/* admin/admin-mode.js — 🛠️ 🔐 관리자 모드 진입(관리자 코드 admin 폴더 7번). 같은 까닭 — 만들 때 하는 일(비밀번호 창 연결 · Ctrl+E · Ctrl·⌘+클릭 가로채기)과
+   app.js 가 원래 자리에서 부르는 createAdminMode · 부팅 때 adminMode.refreshAdminVisibility 를 같이 굴린다. */
+PRELOAD.push('admin-mode.js');
+/* report.js · admin/admin-report.js — 🚩 신고하기 · 관리자 신고 목록(앱 FSD 11번). 같은 까닭 — 만들 때 하는 일(관리자 버튼 연결)과 create 둘. */
+PRELOAD.push('report.js', 'admin-report.js');
+/* my-info.js — 🪪 [내 정보] 화면 · 🏆 랭킹(앱 FSD 17번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyInfo 를 같이 굴린다. */
+PRELOAD.push('my-info.js');
+/* chars.js — 🧬 캐릭터 보관함(chars) — 병합 · 이관 · 조율(앱 FSD 18번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChars 를 같이 굴린다. */
+PRELOAD.push('chars.js');
+/* slot-sync.js — ☁️ 슬롯 기기 간 동기화 · 연동 UI(앱 FSD 19번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSlotSync 를 같이 굴린다. */
+PRELOAD.push('slot-sync.js');
+/* away-pic.js — 🫧 자리비움 그림(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAwayPic 를 같이 굴린다. */
+PRELOAD.push('away-pic.js');
+/* myhome-ui.js — 🏠 마이홈 창 버튼 연결(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeUi 를 같이 굴린다. */
+PRELOAD.push('myhome-ui.js');
+/* tricks.js — 💃 깜짝쇼 · 🪄 때리기(앱 FSD 25번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createTricks 를 같이 굴린다. */
+PRELOAD.push('tricks.js');
+/* ride-bench.js — 🗼 올라타기 · 🪑 멀티좌석 책상(앱 FSD 30번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRideBench 를 같이 굴린다. */
+PRELOAD.push('ride-bench.js');
+/* ride-chain.js — 🗼 탑 바닥 찾기(구역 떼기 C · w1). 같은 까닭 — app.js 가 부르는 createRideChain 을 같이 굴린다. */
+PRELOAD.push('ride-chain.js');
+/* part-paint.js — 🖍️ 파츠에 직접 그리기 · 그림칸(앱 FSD 21번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPartPaint 를 같이 굴린다. */
+PRELOAD.push('part-paint.js');
+/* focus-level.js — ⭐ 포커스 레벨 · 공유 · 태블릿(앱 FSD 26번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFocusLevel 를 같이 굴린다. */
+PRELOAD.push('focus-level.js');
+/* chat-ui.js — 💬 채팅 — 날리기 · 읽음 · 탭 · 복사 · 이모티콘(앱 FSD 24번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatUi 를 같이 굴린다. */
+PRELOAD.push('chat-ui.js');
+/* nav.js — 🧭 창 열기 통로(모듈 순환 끊기 6). 같은 까닭 — 창 모듈이 만들 때 여는 함수를 걸고 부르는 쪽이 이름으로 부탁한다(빈 껍데기면 부탁이 아무 일도 안 한다). */
+PRELOAD.push('nav.js');
+/* demoji-catalog.js — 😊 기본 이모티콘 목록(맨 아래 고정 표). chat-ui 를 만드는 줄이 TwDemojiCatalog 를 넘기므로 먼저 싣는다. */
+PRELOAD.push('demoji-catalog.js');
+/* account-state.js — 🪪 계정 핵심 상태(모듈 순환 끊기 5). 같은 까닭 — 초대 게이트 · 계정 · 내 정보 · 포커스 레벨이 만들 때 이 모듈의 알림 자리(onPremiumChanged)를 받는다. */
+PRELOAD.push('account-state.js');
+/* license-gate.js — 🎟️ 초대장 · 라이선스(앱 FSD 31번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseGate 를 같이 굴린다. */
+PRELOAD.push('license-gate.js');
+/* account.js — 🔑 계정(앱 FSD 23번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAccount 를 같이 굴린다. */
+PRELOAD.push('account.js');
+/* wardrobe.js — 🎨 꾸미기 창(앱 FSD 29번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createWardrobe 를 같이 굴린다. */
+PRELOAD.push('wardrobe.js');
+/* settings-panel.js — ⚙ 설정 패널(앱 FSD 27번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSettingsPanel 를 같이 굴린다. */
+PRELOAD.push('settings-panel.js');
+/* desktop-run.js — 🖥️ 데스크탑 실행 화면(앱 FSD 32번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDesktopRun 를 같이 굴린다. */
+/* click-through-policy.js — 클릭 통과 판단 규칙(순수 함수). desktop-run.js 가 deps.clickPolicy 로 받으므로 먼저 싣는다. */
+PRELOAD.push('click-through-policy.js');
+PRELOAD.push('desktop-run.js');
+/* room-entry.js — 🛰 방 서버 · 입장 · 방 개수(앱 FSD 33번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomEntry 를 같이 굴린다. */
+PRELOAD.push('room-entry.js');
+/* overhead.js — 💬 머리 위 말풍선 · 🏷️ 이름표(앱 FSD 34번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createOverhead 를 같이 굴린다. */
+PRELOAD.push('overhead.js');
+/* room-sync.js — 📦 방 def 전송 · poke · 자동 퇴장 · 감시견(앱 FSD 35번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomSync 를 같이 굴린다. */
+PRELOAD.push('room-sync.js');
+/* status-chip.js — 📍 상태칩 자리 · 팝업 · 상태 이모지(앱 FSD 36번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createStatusChip 를 같이 굴린다. */
+PRELOAD.push('status-chip.js');
+/* premium-assets.js — 🎀 프리미엄 파츠 · 라이선스 책상(앱 FSD 37번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPremiumAssets 를 같이 굴린다. */
+PRELOAD.push('premium-assets.js');
+/* char-code.js — 📦 캐릭터 복제 코드(앱 FSD 38번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCharCode 를 같이 굴린다. */
+PRELOAD.push('char-code.js');
+/* dice-games.js — 🎲 주사위 · 하루 횟수(앱 FSD 39번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDiceGames 를 같이 굴린다. */
+PRELOAD.push('dice-games.js');
+/* user-name.js — 🏷️ 닉네임 저장(모듈 순환 끊기 7 — 설정 창에서 떼어 냄). 같은 까닭 — app.js 가 원래 자리에서 부르는 createUserName 을 같이 굴린다. */
+PRELOAD.push('user-name.js');
+/* program-settings.js — ⚙️ 프로그램 설정 창(앱 FSD 40번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createProgramSettings 를 같이 굴린다. */
+PRELOAD.push('program-settings.js');
+/* chat-prefs.js — 💬 채팅 투명도 · 알림음 · 기록 삭제(앱 FSD 41번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatPrefs 를 같이 굴린다. */
+PRELOAD.push('chat-prefs.js');
+/* rich-text.js — 🛡️ 리치 텍스트 sanitize(앱 FSD 42번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRichText 를 같이 굴린다. */
+PRELOAD.push('rich-text.js');
+/* win-stack.js — 🪟 창 겹침 · ESC 스택(앱 FSD 42번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createWinStack 를 같이 굴린다. */
+PRELOAD.push('win-stack.js');
+/* sfx.js — 🔊 효과음 공장(앱 FSD 42번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSfx 를 같이 굴린다. */
+PRELOAD.push('sfx.js');
+/* face-heal.js — 얼굴 자동 복구(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFaceHeal 를 같이 굴린다. */
+PRELOAD.push('face-heal.js');
+/* slot-save.js — 슬롯 저장(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSlotSave 를 같이 굴린다. */
+PRELOAD.push('slot-save.js');
+/* interaction-desk.js — 상호작용 책상 카탈로그(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createInteractionDesk 를 같이 굴린다. */
+PRELOAD.push('interaction-desk.js');
+/* ad-banner.js — 광고 배너 · 게임 설정(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAdBanner 를 같이 굴린다. */
+PRELOAD.push('ad-banner.js');
+/* license-request.js — 라이선스 요청(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseRequest 를 같이 굴린다. */
+PRELOAD.push('license-request.js');
+/* fn-keys.js — 함수키 단축키(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFnKeys 를 같이 굴린다. */
+PRELOAD.push('fn-keys.js');
+/* hidden-seats.js — 워킹룸 숨기기(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createHiddenSeats 를 같이 굴린다. */
+PRELOAD.push('hidden-seats.js');
+/* theme-ui.js — 테마(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createThemeUi 를 같이 굴린다. */
+PRELOAD.push('theme-ui.js');
+/* myhome-sticker-layout.js — 마이홈 스티커 배치(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeStickerLayout 를 같이 굴린다. */
+PRELOAD.push('myhome-sticker-layout.js');
+/* myhome-diag.js — 마이홈 클릭 진단(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeDiag 를 같이 굴린다. */
+PRELOAD.push('myhome-diag.js');
+/* myhome-state.js — 🏠 마이홈 공용 상태(모듈 순환 끊기 4). 같은 까닭 — 친구 홈 구경 · 페이지가 읽고 쓰는 값이 빈 껍데기가 아닌 진짜에 있게. */
+PRELOAD.push('myhome-state.js');
+/* myhome-hooks.js — 🪝 마이홈 고리판(모듈 순환 끊기 8). 같은 까닭 — 편집 묶음 · 마이홈 창이 만들 때 거는 저장 · 배경 · 테마 · BGM 함수를 부르는 쪽이 진짜에서 찾게. */
+PRELOAD.push('myhome-hooks.js');
+/* myhome-preset.js — 👑 디자인 프리셋 규칙(순수 함수). 같은 까닭 — 편집 묶음이 만들 때 TwMyHomePreset 을 받으므로 진짜가 먼저 있게. */
+PRELOAD.push('myhome-preset.js');
+/* myhome-visit.js — 마이홈 데이터 · 친구 홈 구경(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeVisit 를 같이 굴린다. */
+PRELOAD.push('myhome-visit.js');
+/* exp-bar.js — 경험치 바(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createExpBar 를 같이 굴린다. */
+PRELOAD.push('exp-bar.js');
+/* focus-share.js — 오늘 기록 전시(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFocusShare 를 같이 굴린다. */
+PRELOAD.push('focus-share.js');
+/* focus-total.js — 포커스 누적(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFocusTotal 를 같이 굴린다. */
+PRELOAD.push('focus-total.js');
+/* commission.js — 커미션 · 저장 에셋(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCommission 를 같이 굴린다. */
+PRELOAD.push('commission.js');
+/* code-crypto.js — 캐릭터 코드 암호화(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCodeCrypto 를 같이 굴린다. */
+PRELOAD.push('code-crypto.js');
+/* add-friend.js — 책상에서 친구 추가(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAddFriend 를 같이 굴린다. */
+PRELOAD.push('add-friend.js');
+/* floaters.js — 이모지 떠오르기(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFloaters 를 같이 굴린다. */
+PRELOAD.push('floaters.js');
+/* roulette.js — 러시안룰렛(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoulette 를 같이 굴린다. */
+PRELOAD.push('roulette.js');
+/* chat-lock.js — 시크릿룸 채팅 잠금(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatLock 를 같이 굴린다. */
+PRELOAD.push('chat-lock.js');
+/* device-lost.js — 밀려난 기기 처리(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeviceLost 를 같이 굴린다. */
+PRELOAD.push('device-lost.js');
+/* demoji-palette.js — 기본 이모티콘 팔레트(앱 FSD 46번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDemojiPalette 를 같이 굴린다. */
+PRELOAD.push('demoji-palette.js');
+/* outside-close.js — 팝업 바깥 클릭으로 닫기(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createOutsideClose 를 같이 굴린다. */
+PRELOAD.push('outside-close.js');
+/* launcher-chrome.js — 런처 타이틀바 · 팝업 흐림(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLauncherChrome 를 같이 굴린다. */
+PRELOAD.push('launcher-chrome.js');
+/* myhome-links.js — 마이홈 본문 링크(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeLinks 를 같이 굴린다. */
+PRELOAD.push('myhome-links.js');
+/* async-prompt.js — 인앱 프롬프트(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAsyncPrompt 를 같이 굴린다. */
+PRELOAD.push('async-prompt.js');
+/* myhome-page.js — 마이홈 불러오기 · 그리기(앱 FSD 47번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomePage 를 같이 굴린다. */
+PRELOAD.push('myhome-page.js');
+/* theme.js — 디자인 테마(앱 FSD 48번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createTheme 를 같이 굴린다. */
+PRELOAD.push('theme.js');
+/* asset-code.js — 에셋 코드 암호화(앱 FSD 48번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAssetCode 를 같이 굴린다. */
+PRELOAD.push('asset-code.js');
+/* license-key.js — 라이선스 키 등록 · 해제(앱 FSD 48번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseKey 를 같이 굴린다. */
+PRELOAD.push('license-key.js');
+/* license-ui.js — 라이선스 등록 화면(앱 FSD 48번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseUi 를 같이 굴린다. */
+PRELOAD.push('license-ui.js');
+/* race-picker.js — 종족 선택창(앱 FSD 48번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRacePicker 를 같이 굴린다. */
+PRELOAD.push('race-picker.js');
+/* wardrobe-panel.js — 꾸미기 사이드 패널(앱 FSD 48번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createWardrobePanel 를 같이 굴린다. */
+PRELOAD.push('wardrobe-panel.js');
+/* lv-tier.js — 레벨 티어(앱 FSD 48번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLvTier 를 같이 굴린다. */
+PRELOAD.push('lv-tier.js');
+/* friends-sub.js — 친구 목록 구독 한 벌(상태 · 자동 다시 걸기). 같은 까닭 — app.js 가 원래 자리에서 부르는 createFriendsSub 를 같이 굴린다. */
+/* friends-firebase.js · friends-api.js · friends-port.js — 친구 데이터 provider · 포트. 같은 까닭 — app.js 가 원래 자리에서 부르는 create 를 같이 굴린다. */
+PRELOAD.push('friends-firebase.js');
+PRELOAD.push('friends-api.js');
+PRELOAD.push('friends-port.js');
+PRELOAD.push('friends-sub.js');
+/* myhome-init.js — 마이홈 처음 준비(앱 FSD 44번 남은 몫). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeInit 를 같이 굴린다. */
+PRELOAD.push('myhome-init.js');
+/* dot-render.js — 🕹️ 도트 모드 머티리얼(텍스처 필터 · PS1 셰이더)(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDotRender 를 같이 굴린다. */
+PRELOAD.push('ps1-dither.js');   // 🕹️ PS1 디더 규칙 — dot-render.js 가 만들 때 읽는다
+PRELOAD.push('dot-render.js');
+/* launcher-controls.js — 🎛️ 런처 컨트롤(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLauncherControls 를 같이 굴린다. */
+PRELOAD.push('launcher-controls.js');
+/* seat-camera.js — 🎥 좌석 줄 카메라 · 캔버스 맞춤(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatCamera 를 같이 굴린다. */
+PRELOAD.push('seat-camera.js');
+/* presence.js — 🛰 방 접속 상태(Presence)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPresence 를 같이 굴린다. */
+PRELOAD.push('presence.js');
+/* launcher-preview.js — 🖼️ 런처 미리보기(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLauncherPreview 를 같이 굴린다. */
+PRELOAD.push('launcher-preview.js');
+/* part-scene.js — 🧊 파츠 GLB 파싱 캐시 · 썸네일(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPartScene 를 같이 굴린다. */
+PRELOAD.push('part-scene.js');
+/* catalog-source.js — 🔌 카탈로그 데이터 provider(구역 떼기 C · w2 · 서버 이관). 같은 까닭 — app.js 가 고르는 줄의 createCatalogSource 를 같이 굴린다. */
+PRELOAD.push('catalog-source.js');
+/* admin-thumbs.js — 🖼️ 관리자 콘솔 — 파츠 썸네일 다시 굽기(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAdminThumbs 를 같이 굴린다. */
+PRELOAD.push('admin-thumbs.js');
+/* mat-tone.js — 💡 재질 톤(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMatTone 를 같이 굴린다. */
+PRELOAD.push('mat-tone.js');
+/* seat-friend-req.js — 🙋 좌석 우클릭 친구 신청(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatFriendReq 를 같이 굴린다. */
+PRELOAD.push('seat-friend-req.js');
+/* glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createGlbIdbCache 를 같이 굴린다. */
+PRELOAD.push('glb-idb-cache.js');
+/* catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCatalogGlb 를 같이 굴린다. */
+PRELOAD.push('catalog-glb.js');
+/* catalog-sync.js — 🔄 카탈로그 실시간 동기화(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCatalogSync 를 같이 굴린다. */
+PRELOAD.push('catalog-sync.js');
+/* seat-layout.js — 🪑 좌석 줄 배치(layoutSeats 본문)(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatLayout 를 같이 굴린다. */
+PRELOAD.push('seat-layout.js');
+/* seat-refit.js — 🪑 파츠 구성이 바뀐 뒤 좌석 다시 맞추기 한 벌. 같은 까닭 — app.js 가 좌석 배치 자리에서 부르는 createSeatRefit 을 같이 굴린다. */
+PRELOAD.push('seat-refit.js');
+/* desk-items.js — 🧸 책상 위 아이템 등록부(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskItems 를 같이 굴린다. */
+PRELOAD.push('desk-items.js');
+/* light-tone.js — 💡 재질 톤(조명 예산 · 파츠 · 아이템 · 책상 emissive)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLightTone 를 같이 굴린다. */
+PRELOAD.push('light-tone.js');
+/* creator-preview.js — 🧍 생성기 미리보기(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCreatorPreview 를 같이 굴린다. */
+PRELOAD.push('creator-preview.js');
+/* creator-flow.js — 🧍 생성기 흐름(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCreatorFlow 를 같이 굴린다. */
+PRELOAD.push('creator-flow.js');
+/* creator-save.js — 🧍 생성기 완료(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCreatorSave 를 같이 굴린다. */
+PRELOAD.push('creator-save.js');
+/* desk-visual.js — 🪑 책상 모양(바꿔 끼기 · 색 · 좌석 책상)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskVisual 를 같이 굴린다. */
+PRELOAD.push('desk-visual.js');
+/* seat-equalize.js — 🪑 좌석 크기 평준화(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatEqualize 를 같이 굴린다. */
+PRELOAD.push('seat-equalize.js');
+/* commission-import.js — 🎨 커미션 코드 입력(C 구역 떼기 · w3). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCommissionImport 를 같이 굴린다. */
+PRELOAD.push('commission-import.js');
+/* deco-parts-visibility.js — 🎁 꾸미기 파츠 표시(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDecoPartsVisibility 를 같이 굴린다. */
+PRELOAD.push('deco-parts-visibility.js');
+/* creator-xform.js — 🧭 생성기 변형 — 아이템 3D 기즈모 · 좌석 세팅(6단계)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCreatorXform 를 같이 굴린다. */
+PRELOAD.push('creator-xform.js');
+/* ride-measure.js — 📏 올라타기 실측(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRideMeasure 를 같이 굴린다. */
+PRELOAD.push('ride-measure.js');
+/* toast.js — 🍞 토스트 · 저장 실패 문구(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createToast 를 같이 굴린다. */
+PRELOAD.push('toast.js');
+/* ride-tuning.js — 🎛️ 올라타기 · 묘기 튜닝 값(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRideTuning 를 같이 굴린다. */
+PRELOAD.push('ride-tuning.js');
+/* char-measure.js — 📐 캐릭터 실측(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCharMeasure 를 같이 굴린다. */
+PRELOAD.push('char-measure.js');
+/* floor-snap-diag.js — 🩺 바닥 맞춤 진단(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFloorSnapDiag 를 같이 굴린다. */
+PRELOAD.push('floor-snap-diag.js');
+/* seat-model-load.js — 📦 좌석 모델 싣기(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatModelLoad 를 같이 굴린다. */
+PRELOAD.push('seat-model-load.js');
+/* seat-panel.js — 🎚️ 좌석 패널(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatPanel 를 같이 굴린다. */
+PRELOAD.push('seat-panel.js');
+/* user-status-table.js — 🍚 상태 표 · 커스텀 상태 저장값(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createUserStatusTable 를 같이 굴린다. */
+PRELOAD.push('user-status-table.js');
+/* chip-popups.js — 🗂️ 상태칩 팝업 «한 번에 하나»(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChipPopups 를 같이 굴린다. */
+PRELOAD.push('chip-popups.js');
+/* creator-state.js — 🧍 생성기 상태(C 구역 떼기 w4). 같은 까닭 — app.js 가 createCreatorState 로 만든 crState 를 곳곳이 읽는다. */
+PRELOAD.push('creator-state.js');
+/* paint-geom.js — ✏️ 그리기 공용 기하(획 조각 · 거울 UV — 생성기 · 꾸미기 파츠)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPaintGeom 를 같이 굴린다. */
+PRELOAD.push('paint-geom.js');
+/* paint-stroke.js — 🖌 얼굴에 칠하기(획 · 대칭 · 페인트통 · 스포이드)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPaintStroke 를 같이 굴린다. */
+PRELOAD.push('paint-stroke.js');
+/* stamp.js — 🖼 생성기 이미지 도장(띄워 놓고 확정 박기)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCrStamp 를 같이 굴린다. */
+PRELOAD.push('stamp.js');
+/* asset-import.js — 📥 코드로 추가하기(책상 · 아이템 · 파츠 — 생성기 · 꾸미기 안에서)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAssetImport 를 같이 굴린다. */
+PRELOAD.push('asset-import.js');
+/* desk-preset-store.js — 💾 책상 프리셋 저장(5칸 · localStorage)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskPresetStore 를 같이 굴린다. */
+PRELOAD.push('desk-preset-store.js');
+/* desk-preset.js — 🗂 책상 · 좌석 세팅 프리셋(담기 · 적용 · 5칸 화면)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskPreset 를 같이 굴린다. */
+PRELOAD.push('desk-preset.js');
+/* asset-cards.js — 🃏 자산 카드(썸네일 카드 · 도트 썸네일 · 순서 손잡이 — 생성기 · 꾸미기)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAssetCards 를 같이 굴린다. */
+PRELOAD.push('asset-cards.js');
+/* desk-setup.js — 🪑 생성기 책상 세팅(5단계 — 책상 · 아이템 카드 · 순서 · 색 · 크기 · 아이템 고르기)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskSetup 를 같이 굴린다. */
+PRELOAD.push('desk-setup.js');
+/* seat-menu.js — 🖱 좌석 우클릭 메뉴(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatMenu 를 같이 굴린다. */
+PRELOAD.push('seat-menu.js');
+/* net-ready.js — 🛰 «네트워크(provider) 준비됨» 기다리기 한 곳(firebase-ready 묶기). 같은 까닭 — 스케줄러 · 방 · 계정 · 카탈로그 모듈이 만들 때 TwNetReady.whenNetReady 를 부른다. */
+PRELOAD.push('net-ready.js');
+/* seat-eq-clamp.js — 🪑 평준화 가두기(책상 위 파츠를 자기 자리 안으로)(구역 떼기 C · wAC). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatEqClamp 를 같이 굴린다. */
+PRELOAD.push('seat-eq-clamp.js');
+/* desk-place.js — 📐 책상 자리 · 크기(크기 · 위치 · z 보정 · 파츠 핀)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskPlace 를 같이 굴린다. */
+PRELOAD.push('desk-place.js');
+/* body-measure.js — 캐릭터 몸 박스 재기 한 규칙. app.js 가 맨 앞(SETUP)에서 createBodyMeasure 로 만든다. */
+PRELOAD.push('body-measure.js');
 for (const f of PRELOAD) {
-  const p = [f, path.join(path.dirname(FILE), f)].find(x => fs.existsSync(x));
+  const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
   try { vm.runInThisContext(fs.readFileSync(p, 'utf8'), { filename: p }); }
   catch (e) { failed = failed || { where: f, err: e }; }

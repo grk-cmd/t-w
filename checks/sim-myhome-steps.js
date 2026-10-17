@@ -20,8 +20,9 @@
 
    ⚠ 실제 화면은 여기서 못 본다. 콘솔의 `[마이홈 열기] … 실패` / `[말랑이] 폴더 …` 줄이 눈으로 볼 단서다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const ML  = fs.readFileSync('mallang.js', 'utf8');
 const say = console.log;
 let fail = 0;
@@ -62,8 +63,8 @@ chk(/console\.error\([^)]*마이홈 열기/.test(OPEN),
 chk(/Promise\.resolve\(\s*window\._mallangOnOpen/.test(OPEN),
     '★ _mallangOnOpen 은 async 다 — Promise 를 .catch 로 받는다(try/catch 로는 못 잡는다)');
 chk(/_mallangOnOpen[\s\S]{0,300}\.catch\(/.test(OPEN), '   그 .catch 가 실제로 붙어 있다');
-chk(/mallang\.js/.test(OPEN),
-    '   훅이 아예 없을 때(스크립트 미로드)도 안내한다');
+chk(!/typeof window\._mallangOnOpen/.test(OPEN) && /try\{\s*Promise\.resolve\(window\._mallangOnOpen/.test(OPEN),
+    '   고리는 가드 없이 부른다(mallang.js 는 부팅 때 늘 건다) — 없으면 try 가 받아 «말랑이 열기 실패» 로 콘솔에 남는다');
 
 say('');
 
@@ -74,14 +75,14 @@ say('· §2 닫기 — 저장이 정리에 인질로 잡히지 않는가');
    경위 설명으로 언급하고 있어서, 안 지우면 그 주석을 '호출 자리'로 착각해 순서가 뒤집혀 보인다
    (이 검사를 처음 돌렸을 때 실제로 그렇게 잡혔다). */
 const CLOSE_CODE = CLOSE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
-const iSave  = CLOSE_CODE.indexOf('commitMyHomePage');
+const iSave  = CLOSE_CODE.indexOf('HOOK.COMMIT');   // 💾 자동 저장 — 마이홈 고리판으로 부른다(순환 끊기 8)
 const iMl    = CLOSE_CODE.indexOf('_mallangOnClose');
 const iOff   = CLOSE_CODE.indexOf("overlay.classList.remove('on')");
 chk(iSave > -1 && iMl > -1 && iSave < iMl,
     '★ 마지막 저장이 말랑이 정리보다 **먼저**다 — 정리가 던져도 편집분이 남는다');
 chk(iOff > -1 && iOff < iMl,
     '★ 창 닫기도 정리보다 먼저다 — 정리가 던져도 창이 남지 않는다');
-chk(/_step\([\s\S]{0,40}commitMyHomePage/.test(CLOSE), '저장도 감싸져 있다 — 저장 실패가 창을 못 닫게 하지 않는다');
+chk(/_step\([\s\S]{0,60}HOOK\.COMMIT\b/.test(CLOSE), '저장도 감싸져 있다 — 저장 실패가 창을 못 닫게 하지 않는다');
 chk(/_step\([\s\S]{0,40}_mallangOnClose/.test(CLOSE), '말랑이 정리가 감싸져 있다');
 chk(/console\.error\([^)]*마이홈 닫기/.test(CLOSE), '죽은 칸을 콘솔에 남긴다');
 

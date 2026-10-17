@@ -16,6 +16,7 @@
    종료 코드: 0=통과 · 1=실패 · 2=원본 없음
 */
 'use strict';
+const _MI_JOIN = require('./sim-renderer-src.js').joinRenderer;   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 
@@ -25,8 +26,13 @@ function load(name){
   }
   return null;
 }
-const APP = load('app.js');
-if (!APP){ console.log('? app.js 를 못 찾음 — app.js 가 있는 폴더에서 실행할 것'); process.exit(2); }
+const APP0 = _MI_JOIN(load('app.js'));
+if (!APP0){ console.log('? app.js 를 못 찾음 — app.js 가 있는 폴더에서 실행할 것'); process.exit(2); }
+/* 🎵 레벨 배지(_plFillLv)는 parts/status/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const PLJS = load('playlist.js') || load('parts/status/playlist.js');
+if (!PLJS){ console.log('? playlist.js 를 못 찾음 — app.js 가 있는 폴더에서 실행할 것'); process.exit(2); }
+const APP = APP0 + '\n' + PLJS;
 const FI    = load('firebase-init.js');
 const RULES = load('firebase-database-rules.json');
 
@@ -175,7 +181,7 @@ t(dispMod === starOn,
                : '★ 별만 붙었다 — 표시 레벨이 안 접힌다'));
 /* 표시 자리는 전부 myFocusShow 를 거친다 — 좌석 루프 · 내 정보 머리 · 마이홈 카드 */
 t(/const st = myFocusShow\(\), lv = st \? st\.lv : getFocusLevel\(\);/.test(CODE4), '내 좌석 — 회차면 이번 바퀴 레벨 + 별');
-t(/if\(lv\)\{ let n = 1, st = null; try\{ n = getFocusLevel\(\); st = myFocusShow\(\); \}catch\(_\)\{\} _plFillLv\(lv, n, st\); \}/.test(CODE4), '[내 정보] 머리 배지도 myFocusShow');
+t(/if\(lv\)\{ let n = 1, st = null; try\{ n = getFocusLevel\(\); st = myFocusShow\(\); \}catch\(_\)\{\} plMod\.fillLv\(lv, n, st\); \}/.test(CODE4), '[내 정보] 머리 배지도 myFocusShow (배지는 playlist.js 의 _plFillLv — plMod.fillLv)');
 /* 보내는 level 은 해금 레벨 그대로 — 받는 쪽 게이트(날리기 색)와 옛 판 */
 t(/level:myLevel, exp:_myExpCells\(\), \.\.\.myStarOut\(\),/.test(CODE4) && /myLevel=getFocusLevel\(\);/.test(CODE4), '★ 프리즌스 level 은 해금 레벨 · 표시는 cyc/clv/starC 로 따로');
 const setProfCalls = (CODE4.match(/setMyProfile\([^;]*\)/g) || []);

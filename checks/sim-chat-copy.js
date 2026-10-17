@@ -12,12 +12,13 @@
      §2 HTML — 스크립트 순서 · 선택 허용 범위 · 칩/메뉴/토스트가 #chatWindow 안
      §3 app.js — 보류 분기가 innerHTML 앞 · 원문 번호(data-i) · Ctrl/Cmd 둘 다 · 우클릭 메뉴 · 선택 풀리면 그림 */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const say = console.log;
 let fail = 0;
 const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const CC = read('chat-copy.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const CC = read('chat-copy.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
 if (!CC || !APP || !HTML) { say('  ? 원본 못 찾음 — chat-copy.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 
 /* ── §1 ── */
@@ -46,7 +47,7 @@ chk(String(C.EMOJI_RE) === String(/\[(?:emoji|demoji):[^\]]*\]/g), '마커 정�
 
 /* ── §2 ── */
 say('§2 HTML');
-const iCC = HTML.indexOf('<script src="parts/chat-copy.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
+const iCC = HTML.indexOf('<script src="parts/chat/chat-copy.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
 chk(iCC > 0 && iCC < iApp, 'chat-copy.js 를 app.js 보다 먼저 싣는다');
 chk(/body\{[^}]*user-select:none/.test(HTML.replace(/\s+/g, ' ')) || /user-select:none;-webkit-user-select:none;\}\s*\/\* 더블클릭/.test(HTML), 'body 의 user-select:none 은 그대로다');
 chk(/\.chat-messages, \.chat-messages \*\{user-select:text/.test(HTML), '대화 칸(.chat-messages)과 그 자식만 user-select:text');

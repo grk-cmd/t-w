@@ -6,10 +6,14 @@
    ・2절: 소리 풀 — _mkSndPool 로 만들고, prime 등록보다 먼저 만든다(once:true) · 회사원 모드 게이트는 풀 안.
    ・3절: 울리는 자리 — 상대 채팅이 화면에 뜬 분기 한 곳뿐(내 메시지 · chatLog 구독에는 없음) · 워킹룸은 조용.
    ・4절: HTML — 목록 id 가 CHAT_SFX_LIST 와 같다 · 서브메뉴가 #chatWindow 안 · :hover 로 열림 · fly 이름 안 씀.
-   [실행] app.js · desk-companion-prototype.html 이 있는 폴더에서(chat-notify-*.mp3 는 있으면 본다). */
+   [실행] app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서(chat-notify-*.mp3 는 있으면 본다). */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+/* 💬 대화창 배선(🔔 알림음 메뉴 연결 · 저장값 반영)은 parts/chat/chat-window.js 로 옮겼다(앱 FSD 14번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+let CW = null; try{ CW = fs.readFileSync('chat-window.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — chat-window.js'); process.exit(2); }
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + CW;
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 
 let pass = 0, fail = 0;
@@ -105,12 +109,12 @@ say('── 3. 울리는 자리');
      두 번 울리지 않는다. 대화창 기록 구독(chatLog · _chatTab)에는 여전히 없어야 한다. */
   chk(calls === 3, '★ 호출은 정의 1 + 부르는 자리 2 (chat · chatTab) 뿐 [' + calls + ']');
   const tabRecv = (SRC.match(/const ctab = friends\[id\]\.chatTab;[\s\S]*?\n    \}/) || [''])[0];
-  chk(/if\(_shown && typeof _chatNotifyIncoming === 'function'\) _chatNotifyIncoming\(\);/.test(tabRecv), '  두 번째 자리는 chatTab 수신 분기 — 화면에 뜬 경우에만');
+  chk(/if\(_shown\) _chatNotifyIncoming\(\);/.test(tabRecv), '  두 번째 자리는 chatTab 수신 분기 — 화면에 뜬 경우에만');
   const recv = (SRC.match(/const chat=friends\[id\]\.chat;[\s\S]*?\n    \}/) || [''])[0];
-  chk(/_chatShown = true;[\s\S]*_chatShown = true;[\s\S]*if\(_chatShown && window\._activeChannel === 2 && typeof _chatNotifyIncoming === 'function'\) _chatNotifyIncoming\(\);/.test(recv),
+  chk(/_chatShown = true;[\s\S]*_chatShown = true;[\s\S]*if\(_chatShown && window\._activeChannel === 2\) _chatNotifyIncoming\(\);/.test(recv),
       '★ 상대 채팅 수신 분기에서, 날리기·말풍선이 **실제로 뜬 경우에만** 부른다');
   /* 워킹룸(채널1)에서 이모티콘 말풍선이 떠도 조용하게 — 투게더룸(채널2)에서만 울린다. */
-  chk(/if\(_chatShown && window\._activeChannel === 2 &&/.test(recv), '★ 워킹룸(채널1)은 이모티콘 말풍선이 떠도 안 울린다 — 투게더룸에서만');
+  chk(/if\(_chatShown && window\._activeChannel === 2\)/.test(recv), '★ 워킹룸(채널1)은 이모티콘 말풍선이 떠도 안 울린다 — 투게더룸에서만');
   const sub = SRC.indexOf('firebaseAPI.subscribeChatLog(room');
   chk(sub > 0 && !/_chatNotifyIncoming/.test(SRC.slice(sub, sub + 300)), '  chatLog 구독에는 걸지 않았다 (한 줄에 두 번 울림 방지)');
   const send = grabFn('sendMyChat');

@@ -1,4 +1,4 @@
-/* sim-broadcast-cache.js — 공용 공지 버전 확인(inboxBroadcastMeta) + 로컬 캐시 (app/parts/broadcast-cache.js)
+/* sim-broadcast-cache.js — 공용 공지 버전 확인(inboxBroadcastMeta) + 로컬 캐시 (app/parts/myhome/broadcast-cache.js)
    [무엇을 보는가] 부팅마다 inboxBroadcast 를 통째로 onValue 하던 것을 inboxBroadcastMeta 버전 확인 + 로컬 캐시 +
      «최근 30개 + 고정 공지» 받기로 바꿨다. 구독기 자체는 카탈로그와 같은 것(catalog-cache.js createCatalogSync)이라
      안전장치 하나하나는 sim-catalog-cache.js 가 본다. 이 검사는
@@ -14,16 +14,20 @@
    ・4절: 구독기를 가짜 DB · 가짜 저장소로 돌려 본다
    [실행] firebase-init.js · catalog-cache.js · broadcast-cache.js · app.js · firebase-database-rules.json 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const FI = read('firebase-init.js'), CC = read('catalog-cache.js'), BC = read('broadcast-cache.js'),
-      RJ = read('firebase-database-rules.json'), APP = read('app.js');
-for(const [n, v] of [['firebase-init.js', FI], ['catalog-cache.js', CC], ['broadcast-cache.js', BC], ['firebase-database-rules.json', RJ], ['app.js', APP]]){
+      RJ = read('firebase-database-rules.json'), APP0 = _joinRenderer(read('app.js')), MI = read('myhome-inbox.js');
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+for(const [n, v] of [['firebase-init.js', FI], ['catalog-cache.js', CC], ['broadcast-cache.js', BC], ['firebase-database-rules.json', RJ], ['app.js', APP0], ['myhome-inbox.js', MI]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
+const APP = APP0 + '\n' + MI;
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(FI);
 const body = (name) => {
@@ -35,7 +39,7 @@ const body = (name) => {
 
 say('── 1. firebase-init.js 연결');
 {
-  chk(/import \{ createBroadcastSync \} from "\.\/broadcast-cache\.js";/.test(CODE), 'broadcast-cache.js 를 import 한다');
+  chk(/import \{ createBroadcastSync \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?broadcast-cache\.js";/.test(CODE), 'broadcast-cache.js 를 import 한다');
   chk(/\bequalTo\b[^;]*\} from "https:\/\/www\.gstatic\.com\/firebasejs\/[\d.]+\/firebase-database\.js"/.test(CODE), '  ↳ equalTo 를 database SDK 에서 들여온다');
   chk(/metaRef:\s*\(\) => ref\(db, 'inboxBroadcastMeta'\)/.test(CODE) && /fullRef:\s*\(\) => ref\(db, 'inboxBroadcast'\)/.test(CODE),
       '경로는 firebase-init.js 가 만든다 (audit 검사 7 이 규칙과 대조한다)');
@@ -85,7 +89,7 @@ say('── 3. 합치기 (순수 함수)');
 const CCX = CC.replace(/^export (const|function) /mg, '$1 ');
 const cat = new Function(CCX + '\nreturn { CATALOG_CACHE_SCHEMA, CATALOG_CACHE_MAX_AGE_MS, OFFLINE_GRACE_MS, LIVE_COALESCE_MIN_MS, LIVE_COALESCE_SPREAD_MS, createCatalogSync };')();
 const mod = new Function('createCatalogSync',
-  BC.replace(/^import \{ createCatalogSync \} from '\.\/catalog-cache\.js';$/m, '').replace(/^export (const|function) /mg, '$1 ') +
+  BC.replace(/^import \{ createCatalogSync \} from '(?:\.\.?\/)+(?:[\w-]+\/)*catalog-cache\.js';$/m, '')   /* 📂 폴더로 나눠도(../catalog-cache.js 등) */.replace(/^export (const|function) /mg, '$1 ') +
   '\nreturn { BROADCAST_KIND, BROADCAST_LATEST, mergeBroadcasts, createBroadcastSync };')(cat.createCatalogSync);
 const { BROADCAST_KIND, BROADCAST_LATEST, mergeBroadcasts: M } = mod;
 {

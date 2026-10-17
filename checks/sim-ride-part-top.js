@@ -1,8 +1,10 @@
 /* 🧪 3번 검증 — 머리 중앙 파츠 위에 얹기 판정.
    app.js 에서 _measureRideablePartTop 원문과 RIDE_PART_CENTER_MARGIN 상수를 뽑아 스텁 위에서 돌린다.
+   파츠 박스 재기는 character/body-measure.js 의 measureBodyBox(진짜 모듈을 같은 스텁 THREE 위에 올려 넘긴다).
    사용: node sim-ride-part-top.js [app.js 경로] */
 const fs = require('fs');
-const src = fs.readFileSync(process.argv[2] || __dirname + '/app.js', 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈(🗼 올라타기 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const src = _joinRenderer(fs.readFileSync(process.argv[2] || __dirname + '/app.js', 'utf8'));
 
 function pick(a, b){
   const i = src.indexOf(a); if(i < 0) throw new Error('추출 실패 — ' + a);
@@ -15,6 +17,7 @@ const FN_SRC     = pick('function _partAllowsRideTop', '\n/* 🐾 대상의');
 class Box3 {
   constructor(){ this.min={x:0,y:0,z:0}; this.max={x:0,y:0,z:0}; this.empty=true; }
   isEmpty(){ return this.empty; }
+  makeEmpty(){ this.empty = true; return this; }
   setFromObject(o){ this.empty = true; if(o.box){ this.min={...o.box.min}; this.max={...o.box.max}; this.empty=false; } return this; }
   union(b){
     if(b.empty) return this;
@@ -24,12 +27,16 @@ class Box3 {
   }
 }
 const THREE = { Box3 };
+const BM_SRC = [__dirname + '/body-measure.js', 'body-measure.js', __dirname + '/../app/parts/character/body-measure.js'].filter(p => fs.existsSync(p)).map(p => fs.readFileSync(p, 'utf8'))[0];
+if(!BM_SRC) throw new Error('추출 실패 — body-measure.js');
+const BM = (() => { const win = {}; new Function('THREE', 'window', 'module', BM_SRC)(THREE, win, undefined); return win.TwBodyMeasure.createBodyMeasure({}); })();
 let savedParts = [];
-const env = new Function('THREE', 'savedParts', `
+const _env = new Function('THREE', 'savedParts', 'measureBodyBox', 'isPartByRigOrName', `
   ${MARGIN_SRC}
   ${FN_SRC}
   return { _measureRideablePartTop, RIDE_PART_CENTER_MARGIN };
 `);
+const env = (T, parts) => _env(T, parts, BM.measureBodyBox, BM.isPartByRigOrName);
 
 function node(name, box, extra){
   return Object.assign({ name, box, isMesh:!!box, visible:true, userData:{}, children:[], parent:null,

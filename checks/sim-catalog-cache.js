@@ -1,4 +1,4 @@
-/* sim-catalog-cache.js — 카탈로그 버전 확인(catalogMeta) + 로컬 캐시 (app/parts/catalog-cache.js)
+/* sim-catalog-cache.js — 카탈로그 버전 확인(catalogMeta) + 로컬 캐시 (app/parts/character/catalog-cache.js)
    [무엇을 보는가] 부팅마다 catalog/parts · gachaParts · items · desks 를 통째로 받던 것을
      catalogMeta/{종류} 버전 확인 + 로컬 캐시로 바꿨다. 이 검사는
        · 카탈로그를 쓰는 함수가 하나도 빠짐없이 버전을 같이 올리는가 (빠지면 사용자가 옛 카탈로그를 본다)
@@ -10,7 +10,7 @@
    ・1절: firebase-init.js — import · 구독 연결 · 쓰기가 전부 _catalogUpdate 를 지나는가
    ・2절: firebase-database-rules.json — catalogMeta 규칙
    ・3절: catalog-cache.js — 캐시 판정(순수 함수) 표
-   ・4절: catalog-cache.js — 구독기를 가짜 DB · 가짜 저장소로 돌려 본다
+   ・4절: catalog-cache.js — 구독기를 가짜 DB · 가짜 저장소로 돌려 본다 · 본문 받기(API 사본 먼저 → Firebase)를 가짜 API 로
    [실행] firebase-init.js · catalog-cache.js · firebase-database-rules.json 이 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
@@ -34,7 +34,10 @@ const body = (name) => {
 
 say('── 1. firebase-init.js 연결');
 {
-  chk(/import \{ createCatalogSync \} from "\.\/catalog-cache\.js";/.test(CODE), 'catalog-cache.js 를 import 한다');
+  chk(/import \{ createCatalogSync, createApiCatalogFetch \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?catalog-cache\.js";/.test(CODE), 'catalog-cache.js 를 import 한다');
+  const sk = CODE.slice(CODE.indexOf('const _subscribeCatalogKind = createCatalogSync({'), CODE.indexOf('\n  });', CODE.indexOf('const _subscribeCatalogKind = createCatalogSync({')));
+  chk(/\sfetch: createApiCatalogFetch\(\{\s*api: \(window\.TwApi && window\.TwApi\.client\) \|\| null,\s*shouldFallback: window\.TwApi && window\.TwApi\.shouldFallback,\s*firebaseGet: \(kind\) => get\(ref\(db, 'catalog\/' \+ kind\)\),\s*\}\)/.test(sk),
+      '카탈로그 본문은 API 읽기 사본 먼저(앱 공통 API 통로) · 못 받으면 Firebase get — 구독기의 fetch 로 잇는다');
   chk(/metaRef:\s*\(kind\) => ref\(db, 'catalogMeta\/' \+ kind\)/.test(CODE) && /catalogRef: \(kind\) => ref\(db, 'catalog\/' \+ kind\)/.test(CODE),
       '경로는 firebase-init.js 가 만든다 (audit 검사 7 이 catalogMeta 를 규칙과 대조한다)');
   chk(/scope: \(firebaseConfig && \(firebaseConfig\.databaseURL/.test(CODE), '캐시 키 앞머리 = DB 주소 (운영/dev 섞임 방지)');
@@ -87,7 +90,7 @@ say('── 2. 규칙 — catalogMeta');
 
 say('── 3. 캐시 판정 (순수 함수)');
 const mod = new Function(CC.replace(/^export (const|function) /mg, '$1 ') +
-  '\nreturn { CATALOG_CACHE_MAX_AGE_MS, CATALOG_CACHE_SCHEMA, OFFLINE_GRACE_MS, LIVE_COALESCE_MIN_MS, LIVE_COALESCE_SPREAD_MS, isCatalogVer, decideCatalogCache, usableOfflineCache, createCatalogSync, createIdbCatalogStore };')();
+  '\nreturn { CATALOG_CACHE_MAX_AGE_MS, CATALOG_CACHE_SCHEMA, OFFLINE_GRACE_MS, LIVE_COALESCE_MIN_MS, LIVE_COALESCE_SPREAD_MS, isCatalogVer, decideCatalogCache, usableOfflineCache, createCatalogSync, createIdbCatalogStore, createApiCatalogFetch, CATALOG_API_PATH, CATALOG_API_TIMEOUT_MS };')();
 const { CATALOG_CACHE_MAX_AGE_MS: AGE, CATALOG_CACHE_SCHEMA: SCH, OFFLINE_GRACE_MS: GRACE,
         LIVE_COALESCE_MIN_MS: LIVE_MIN, LIVE_COALESCE_SPREAD_MS: LIVE_SPREAD, isCatalogVer, decideCatalogCache: D, usableOfflineCache: U } = mod;
 {
@@ -143,6 +146,7 @@ say('── 4. 구독기 (가짜 DB · 가짜 저장소)');
       clearTimer: (t) => { const i = env.timers.indexOf(t); if(i >= 0) env.timers.splice(i, 1); },
       random: () => (o.random == null ? 0.5 : o.random),
       warn: () => {},
+      fetch: o.fetchOf ? o.fetchOf(env) : undefined,
     });
     env.fire = (p, v) => { for(const s of (env.subs[p] || [])) if(s.on) s.cb({ val: () => (v == null ? null : JSON.parse(JSON.stringify(v))) }); };
     env.deny = (p) => { for(const s of (env.subs[p] || [])) if(s.on && s.err) { s.on = false; s.err({ code: 'PERMISSION_DENIED' }); } };
@@ -315,6 +319,46 @@ say('── 4. 구독기 (가짜 DB · 가짜 저장소)');
     e = mk(); e.mem['https://tw.db|parts'] = fresh(e, V, { c1: { name: '캐시' } }); got = [];
     e.sub('parts', v => got.push(v))();
     chk(!graceOf(e), '해제하면 오프라인 대기 타이머도 치운다');
+
+    /* 본문 받기 — API 읽기 사본 먼저(createApiCatalogFetch) */
+    const apiOf = (reply) => { const a = { calls: [], get: async (path, opts) => { a.calls.push([path, opts]); return reply(path); } }; return a; };
+    const fbLog = [];
+    const fbGet = (k) => { fbLog.push(k); return { val: () => ({ fb: { name: 'firebase' } }) }; };
+    const warns = [];
+    const TwApi = require(require('path').resolve(['api-client.js', 'app/parts/shared/api-client.js'].find(f => fs.existsSync(f))));   // 진짜 shouldFallback(조용히 넘어갈 실패)
+    const AF = (api) => mod.createApiCatalogFetch({ api, shouldFallback: TwApi.shouldFallback, firebaseGet: fbGet, warn: (...a) => warns.push(a.join(' ')) });
+    let api = apiOf(() => ({ kind: 'parts', ver: V, data: { a1: { name: 'API' } } }));
+    let sn = await AF(api)('parts', V);
+    const v1 = sn.val(), v2 = sn.val();
+    chk(v1.a1.name === 'API' && v1 !== v2 && !fbLog.length && api.calls[0][0] === mod.CATALOG_API_PATH + 'parts?v=' + V && mod.CATALOG_API_PATH === '/v1/catalog/',
+        'API 사본의 ver 가 구독한 버전과 같으면 그 본문 — Firebase 는 안 부른다 · 묻는 주소에 버전(v)을 붙인다(같으면 하루 캐시)');
+    chk(api.calls[0][1].timeoutMs === mod.CATALOG_API_TIMEOUT_MS && mod.CATALOG_API_TIMEOUT_MS > 2500, '  본문이 커서 시간 제한을 API 공통(2.5초)보다 길게');
+    chk(v1 !== v2 && (v1.a1.name = 'x', v2.a1.name === 'API'), '  val() 은 부를 때마다 새 객체(캐시용 · 화면용을 따로 뗀다)');
+    sn = await AF(apiOf(() => ({ kind: 'items', ver: V, data: null })))('items', V);
+    chk(JSON.stringify(sn.val()) === '{}' && !fbLog.length, '  빈 종류(data null)는 빈 객체');
+    sn = await AF(apiOf(() => ({ kind: 'parts', ver: V - 1, data: { old: {} } })))('parts', V);
+    chk(fbLog.join() === 'parts' && sn.val().fb && warns.length === 1, '사본 버전이 다르면(서버가 아직 못 따라옴) Firebase get · 경고');
+    fbLog.length = 0; warns.length = 0;
+    const thrower = (kind) => apiOf(() => { throw Object.assign(new Error(kind), { kind }); });
+    await AF(thrower('unavailable'))('parts', V); await AF(thrower('notReady'))('parts', V);
+    chk(fbLog.length === 2 && !warns.length, 'API 가 꺼졌거나(unavailable) 사본이 아직(notReady)이면 조용히 Firebase get');
+    fbLog.length = 0;
+    await AF(thrower('auth'))('desks', V);
+    chk(fbLog.join() === 'desks' && warns.length === 1, '  그 밖의 실패도 Firebase get(던지면 통째 구독으로 물러나 더 받는다) · 경고만');
+    fbLog.length = 0;
+    api = apiOf(() => ({ kind: 'parts', ver: V, data: ['배열'] }));
+    await AF(api)('parts', V);
+    chk(fbLog.length === 1, '  본문 모양이 객체가 아니면 Firebase get');
+    fbLog.length = 0;
+    api = apiOf(() => ({ kind: 'x', ver: V, data: {} }));
+    await AF(null)('parts', V); await AF(api)('parts', null); await AF(api)('inboxBroadcast', V);
+    chk(fbLog.length === 3 && !api.calls.length, '경계 — API 통로 없음 · 버전 없음 · 카탈로그 네 종류가 아님 → API 를 묻지 않고 Firebase get');
+    /* 구독기에 끼워 — 받은 본문이 화면 · 캐시로 */
+    e = mk({ fetchOf: (env) => mod.createApiCatalogFetch({ api: apiOf((p) => ({ kind: 'parts', ver: V, data: { a1: { name: 'API' } }, path: p })), firebaseGet: (k) => { env.got.push('fb:' + k); return { val: () => ({}) }; }, warn: () => {} }) }); got = [];
+    e.sub('parts', v => got.push(v));
+    e.fire('catalogMeta/parts', V); await flush(); await flush();
+    chk(got.length === 1 && got[0].a1.name === 'API' && !e.got.length && e.mem['https://tw.db|parts'].data.a1.name === 'API' && e.mem['https://tw.db|parts'].ver === V,
+        '구독기 — 버전이 바뀌면 API 본문을 화면에 넘기고 그 버전으로 캐시한다(Firebase 본문 받기 0)');
 
     /* IndexedDB 가 없는 환경 */
     const st = mod.createIdbCatalogStore(null);

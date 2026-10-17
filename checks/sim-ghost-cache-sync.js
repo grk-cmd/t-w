@@ -28,6 +28,7 @@
  *   실행: node sim-ghost-cache-sync.js     (main.js · app.js 와 같은 폴더에서)
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 
@@ -52,13 +53,19 @@ function strip(src){
 }
 
 const mainSrc = read('main.js');
-const appSrc  = read('app.js');
+const appSrc  = _joinRenderer(read('app.js'));
 if (!mainSrc || !appSrc){
   say('✗ main.js / app.js 를 같은 폴더에서 못 찾음');
   process.exit(2);
 }
 const mainCode = strip(mainSrc);
 const appCode  = strip(appSrc);
+/* 클릭 통과 판단 규칙은 click-through-policy.js 한 곳에 있다(렌더러 · main 이 같이 쓴다) — 조건 글은 거기서 찾는다(판정은 그대로) */
+const POL_FILES = ['click-through-policy.js', 'parts/launcher/click-through-policy.js', 'app/parts/launcher/click-through-policy.js',
+  '../app/parts/launcher/click-through-policy.js'];
+const polFile = POL_FILES.find(f => read(f));
+const polCode = polFile ? strip(read(polFile)) : '';
+const POL = polFile ? require(path.join(HERE, polFile)) : null;
 
 /* ══ 1. 재판정 통로가 한 군데로 모여 있는가 ══════════════════════════════ */
 say('── 1. 재판정 신호는 한 함수로만 나간다');
@@ -109,7 +116,8 @@ say('\n── 3. 렌더러는 main 이 알려준 상태를 자기 캐시보다 �
   else {
     const body = rx[0];
     chk(/pt\.ig/.test(body), '★ 수신부가 pt.ig 를 본다');
-    chk(/typeof\s+pt\.ig\s*===\s*'boolean'/.test(body),
+    chk(/clickPolicy\.pokeStep\(/.test(body) && /typeof\s+pt\.ig\s*===\s*'boolean'/.test(polCode)
+        && POL && POL.pokeStep({ pt: { left: true }, ignoreSent: false, dragging: null }).resync === false,
       '  구버전 main(ig 없음)에서는 아무것도 안 한다 — undefined 를 불일치로 세면 매번 캐시를 버린다');
     chk(/_ignoreSent\s*=\s*null/.test(body) && /_ignoring\s*=\s*null/.test(body),
       '★ 불일치면 두 캐시를 다 버린다 — _ignoring 만 남기면 miss 쪽 분기가 또 침묵한다');
@@ -133,7 +141,7 @@ say('\n── 4. 원래 있던 방어를 걷어내는 방식으로 고치지 않
   else chk(/_ignoreSent\s*===\s*v\s*\)\s*return/.test(snd[0]),
     '★ 중복 방지가 살아 있다 — 이걸 빼면 통과 중 초당 100회 IPC 가 나가 깜빡임 쪽 사안을 건드린다');
 
-  chk(/_ignoreSent\s*!==\s*true\s*\)\s*return/.test(appCode),
+  chk(/ignoreSent\s*!==\s*true\s*\)\s*return/.test(polCode) && /clickPolicy\.kickStep\(\{\s*ignoreSent:\s*_ignoreSent/.test(appCode),
     '  사다리(__mouseKick)의 첫 게이트도 그대로다 — 이 고침은 게이트를 푸는 게 아니라 캐시를 맞추는 것이다');
   chk(/GHOST_MAX_POKES\s*=\s*3/.test(mainCode),
     '  포기 한도 3회도 그대로다 — 계속 찌르면 렌더러 사다리가 못 돈다(main.js GHOST_MAX_POKES 주석)');
@@ -189,7 +197,8 @@ say('\n── 7. 못 믿을 캐릭터 좌표를 확신으로 바꾸지 않는다
        단정하면 그게 곧 유령을 만드는 자리다(회수 → 렌더러 캐시 어긋남 → 통로 사망). */
     const fgn = mainCode.match(/function\s+_guardForeignInput[\s\S]*?\n\}/);
     if (!fgn) huh('_guardForeignInput 을 못 찾음');
-    else chk(/if\(!_lastCharBounds\s*\|\|\s*!_mainWinScreenBounds\)\s*return/.test(fgn[0]),
+    else chk(/haveBounds\s*=\s*!!\(_lastCharBounds\s*&&\s*_mainWinScreenBounds\)/.test(fgn[0]) && /if\(!f\.haveBounds\)\s*return NO/.test(polCode)
+      && POL && POL.foreignInputStep({ kind: 'click', haveBounds: false, focused: false, boundsAge: 0, cursor: { x: 0, y: 0 }, onOverlay: true, now: 1e9, firedAt: 0 }).act === null,
       '★ ⓖ 의 좌표 분기는 좌표가 없으면 판단을 보류한다');
   }
   chk(/캐릭터거리=보류|좌표보류/.test(mainSrc),
@@ -262,6 +271,89 @@ say('\n── 8. 갇히는 순서를 그대로 재현한다 (모델)');
     '★ 옛 동작: 이미 어긋난 뒤엔 몇 번을 얹어도 침묵한다 — 복구 통로가 죽어 있다');
   chk(stuckNew.escaped && stuckNew.pokes === 1,
     '★ 새 동작: 첫 재판정 한 번에 풀린다 (재판정 ' + stuckNew.pokes + '회)');
+}
+
+/* ══ 9. 끄는 동안 재판정 — desktop-run.js 원문을 가짜 입력으로 돌린다 ══════
+   펜 앱이 앞이면 mousemove 가 안 오고 main 의 penHitTest 만 온다. 캐릭터 원 밖에서 {left} 가 왔을 때
+   끄는 중(클릭받는 중)이면 통과로 바꾸지 않아야 끌기가 안 끊긴다 — mousemove 쪽과 같은 규칙. */
+say('\n── 9. 끄는 동안 penHitTest 가 와도 끌기가 안 끊긴다 (원문 실행)');
+{
+  const MOD = ['desktop-run.js', 'parts/launcher/desktop-run.js', 'app/parts/launcher/desktop-run.js',
+    '../app/parts/launcher/desktop-run.js'].map(f => read(f)).find(Boolean);
+  function harness(src){
+    const any = (function mk(){ const f = function(){ return P; };
+      const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : k === 'length' ? 0 : P,
+        apply: () => P, construct: () => P, set: () => true, has: () => true }); return P; })();
+    const S = { drag: null, sent: [], pen: null, timers: [], listeners: {} };
+    const companion = { setIgnoreMouse: (v) => S.sent.push(v), onPenHitTest: (fn) => { S.pen = fn; } };
+    const listen = (k, fn) => { (S.listeners[k] = S.listeners[k] || []).push(fn); };
+    const win = new Proxy({ companion, addEventListener: listen }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+    const doc = new Proxy({
+      body: { classList: { contains: (c) => c === 'runmode', add(){}, remove(){}, toggle(){} }, appendChild(){} },
+      getElementById: () => null,
+      // x>=0 이면 우리 UI 위(캐릭터 흉내), 아니면 빈 곳
+      elementFromPoint: (x) => x >= 0 ? { closest: () => ({ id: 'charStub' }) } : null,
+    }, { get: (t, k) => k in t ? t[k] : any });
+    const setT = (fn, ms) => { S.timers.push({ fn, ms: ms || 0 }); return S.timers.length; };
+    const clearT = (id) => { if(id && S.timers[id - 1]) S.timers[id - 1].fn = null; };
+    S.flush = () => { const q = S.timers.slice(); q.forEach(t => { const f = t.fn; t.fn = null; if(f) f(); }); };
+    const deps = new Proxy({
+      desktopMode: true, seats: [], drag: () => S.drag, moveMode: () => false,
+      _charBoundsLatest: () => null, _twMoveSeenAt: () => 0, clickPolicy: POL,
+      setTwMoveSeenAt(){}, setLastActivity(){}, setLastAnyInput(){},
+      _skipFlyingRigs: (a) => a, _skipHiddenDesk: (a) => a,
+    }, { get: (t, k) => k in t ? t[k] : (() => any) });
+    const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval',
+      'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'console',
+      src + '\nreturn window.TwDesktopRun;')(win, doc, any, any, any, companion, setT, () => 0, clearT, () => {}, (fn) => setT(fn, 0),
+      any, listen, () => {}, undefined, { log(){}, warn(){}, error(){} });
+    api.createDesktopRun(deps);
+    S.last = () => S.sent[S.sent.length - 1];
+    S.up = (x, y) => (S.listeners.pointerup || []).forEach(fn => fn({ clientX: x, clientY: y }));
+    return S;
+  }
+  /* 출발점: 커서가 캐릭터 위 → 클릭받기(false) → 끌기 시작 */
+  function start(src){
+    const S = harness(src);
+    if(!S.pen) return null;
+    S.pen({ x: 10, y: 10, pen: true, ig: true });
+    S.drag = { seat: 0 };
+    return S;
+  }
+  let S = null;
+  if(MOD){ try{ S = start(MOD); }catch(e){ huh('원문 실행 실패 — ' + String(e.message || e).slice(0, 80)); } }
+  if(!S) huh('desktop-run.js 를 못 돌림(onPenHitTest 못 받음) — 모양이 바뀌었다면 이 절도 같이 고칠 것');
+  else {
+    chk(S.last() === false, '  출발점: 캐릭터 위 재판정 → 클릭받기(false)');
+    S.pen({ left: true, pen: true, ig: false }); S.flush();
+    chk(S.last() === false && S.sent.length === 1,
+      '★ 끄는 중 + 클릭받는 중 → left 가 와도 통과로 안 바뀐다(150ms 예약도 없음) — 보낸 값 ' + JSON.stringify(S.sent));
+    S.pen({ x: -50, y: -50, pen: true, ig: false }); S.flush();
+    chk(S.last() === false, '  끄는 중 원 안 좌표가 캐릭터를 비껴도 통과로 안 바뀐다');
+
+    /* 놓으면: pointerup 재판정 · 다음 left 가 예전처럼 통과로 */
+    S.drag = null; S.up(-9999, -9999); S.flush(); S.flush();
+    chk(S.last() === true, '★ 놓은 뒤 pointerup 재판정(빈 곳) → 150ms 뒤 통과로 돌아온다');
+    const S2 = start(MOD); S2.drag = null;
+    S2.pen({ left: true, pen: true, ig: false });
+    chk(S2.last() === false, '  끌기 아님: left 직후엔 아직 클릭받기(150ms 디바운스)');
+    S2.flush();
+    chk(S2.last() === true, '★ 끌기 아님 → left 면 지금처럼 150ms 뒤 통과');
+
+    /* main 이 이미 통과로 바꿨다면(ig=true) 끄는 중이어도 따라간다 — 남은 drag 플래그로 유령이 되지 않게 */
+    const S3 = start(MOD);
+    S3.pen({ left: true, pen: true, ig: true }); S3.flush();
+    chk(S3.last() === true, '★ 끄는 중이지만 main 이 이미 통과 → 캐시 버리고 따라간다(통과)');
+
+    /* 일부러 깨 보기 — 보호 줄을 빼면 끄는 중 left 가 통과로 바뀌어야 한다 */
+    const broken = MOD.replace(/\n\s*if\(p\.act === 'keep'\) return;\n/, '\n');
+    if(broken === MOD) huh('깨 보기용 보호 줄을 못 찾음');
+    else {
+      const B = start(broken);
+      B.pen({ left: true, pen: true, ig: false }); B.flush();
+      chk(B.last() === true, '  깨 보기: penHitTest 보호를 빼면 끄는 중에도 통과로 바뀐다(옛 동작 재현)');
+    }
+  }
 }
 
 say('');

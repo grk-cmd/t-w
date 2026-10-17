@@ -5,8 +5,10 @@
    ・1절: 순수 함수 — 순서(ts 먼저) · 합치기(나중 것이 이김) · 지우기 표시 · 커서 · 채널 · 저장하는 방
    ・2절: 기록 열기 — 첫 받기 전엔 안 그림(입장 컷) · 저장 → 다시 열면 저장분 먼저 + 그 뒤만 · 지우기 표시 · 투게더룸은 저장 안 함 · 채널 정리 · 방 지우기 · 채널마다 최근 300줄
    ・3절: 연결 · 배선 — firebase-init(ts 커서 · 지운 줄은 안 넘김) · app.js(직접 나갈 때만 지움) · 규칙 ts 색인 · 설정 버튼
-   ・4절: 서버 함수 — 3일 · 300줄 값이 앱과 같다 · 표시 줄은 남긴다 · 300줄 넘는 옛 줄 지우기(같은 ts 경계) · 매일 예약 · 처리방침 문구 */
+   ・4절: 서버 함수 — 3일 · 300줄 값이 앱과 같다 · 표시 줄은 남긴다 · 300줄 넘는 옛 줄 지우기(같은 ts 경계) · 방 종류별 보관 일수(config/chatKeepDays) ·
+          300줄 정리는 서울 04시 실행만 · 매시간 예약 · 규칙 범위 · 처리방침 문구 */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -14,7 +16,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const find = (...c) => { for (const f of c) for (const d of ['', 'parts/', 'app/parts/', 'app/', 'hosting/']) if (fs.existsSync(d + f)) return d + f; return null; };
 const read = (...c) => { const f = find(...c); return f ? fs.readFileSync(f, 'utf8') : null; };
-const MOD = read('chat-history.js'), FI = read('firebase-init.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
+const MOD = read('chat-history.js'), FI = read('firebase-init.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
 const RULES_SRC = read('firebase-database-rules.json'), FX = read('functions/index.js'), PRIV = read('privacy.html');
 const EXP_PATH = find('functions/chat-expire.js');
 if (!MOD || !FI || !APP || !HTML || !RULES_SRC || !FX || !PRIV || !EXP_PATH) {
@@ -150,7 +152,7 @@ async function run(){
 
 run().then(() => {
   say('§3 연결 · 배선');
-  chk(/import \{ createChatHistory, createIdbChatStore, chatOrder \} from "\.\/chat-history\.js"/.test(FI) && /const _chatOrder = chatOrder;/.test(FI),
+  chk(/import \{ createChatHistory, createIdbChatStore, chatOrder \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?chat-history\.js"/.test(FI) && /const _chatOrder = chatOrder;/.test(FI),
     'firebase-init 은 chat-history.js 를 연결만 · 순서 함수는 한 벌');
   const sub = (FI.match(/subscribeChatSince\(room, tabId, since, onMsg, onReady, limit\)\{[\s\S]*?\n    \},/) || [''])[0];
   chk(/orderByChild\('ts'\), startAt\(since\)/.test(sub) && /onChildAdded\(q, one\)/.test(sub) && /onChildChanged\(q, one\)/.test(sub) && !/onChildRemoved/.test(sub),
@@ -164,9 +166,10 @@ run().then(() => {
   chk(/inviteLeave'\)\.onclick=\(\)=>doLeaveRoom\(\{ wipeChat: true \}\)/.test(APP) && /fsInviteLeaveBtn\.onclick=\(\)=>doLeaveRoom\(\{ wipeChat: true \}\)/.test(APP),
     '[나가기] 버튼 둘 — 지운다');
   chk(/_roomDisbanding = false; \}\);/.test(APP) && /doLeaveRoom\(\{ wipeChat: true \}\)\)\.catch\(\(\)=>\{\}\)\.then\(\(\)=>\{ window\._roomDisbanding/.test(APP), '방 해산 — 지운다');
-  const noWipe = [/doLeaveRoom\(\)\)\.catch\(\(\)=>\{\}\)\.then\(\(\)=>\{ window\._roomOverCapLeaving/, /function _onDeviceSessionLost\(\)\{[\s\S]{0,300}?doLeaveRoom\(\)\)/,
-    /방 서버와 연결이 끊겨 방에서 나왔어요[\s\S]{0,80}?doLeaveRoom\(\)\)/, /async function _roomServerFallback\(code\)\{[\s\S]{0,300}?await doLeaveRoom\(\);/];
-  chk(noWipe.every(re => re.test(APP)), '★ 튕김(정원 초과 · 다른 기기 로그인 · 방 서버 끊김 · 서버 방 → Firebase 갈아타기)은 안 지운다 — 다시 들어오면 이어진다');
+  chk(/^twNav\.on\(twNav\.NAV\.LEAVE_ROOM, doLeaveRoom\);/m.test(APP), '  창 열기 통로의 방 나가기는 doLeaveRoom 그대로(부탁할 때 인자를 안 넘기면 기록을 안 지운다)');
+  const noWipe = [/doLeaveRoom\(\)\)\.catch\(\(\)=>\{\}\)\.then\(\(\)=>\{ window\._roomOverCapLeaving/, /function _onDeviceSessionLost\(\)\{[\s\S]{0,300}?twNav\.go\(twNav\.NAV\.LEAVE_ROOM\)\)/,   /* 창 열기 통로로 나간다 — 걸린 함수가 인자 없는 doLeaveRoom(모듈 순환 끊기 6) */
+    /방 서버와 연결이 끊겨 방에서 나왔어요[\s\S]{0,80}?doLeaveRoom\(\)\)/];
+  chk(noWipe.every(re => re.test(APP)), '★ 튕김(정원 초과 · 다른 기기 로그인 · 방 서버 끊김)은 안 지운다 — 다시 들어오면 이어진다');
   chk(/firebaseAPI\.chatHistory\.open\(room, tab, _onList\)/.test(APP) && /_ch \? _ch\.clear\(room, _chatMyTabId\(\)\)/.test(APP) && /chatHistory\.syncTabs\(room, _chatTabMeta\(\)\)/.test(APP) && /chatHistory\.wipeAll\(\)/.test(APP),
     'app.js 배선 — 열기 · 방장 지우기 · 채널 정리 · 계정 놓기');
   const R = JSON.parse(RULES_SRC);
@@ -179,12 +182,14 @@ run().then(() => {
   chk(X.CHAT_KEEP_MAX === M.CHAT_KEEP_MAX, '★ 서버 줄 수 상한이 앱과 같다 (' + X.CHAT_KEEP_MAX + ')');
   const updates = [];
   /* 가짜 기록 — ts 순 정렬 · endAt · limitToLast 만 */
-  const mkDb = (rowsOf) => ({ ref: (p) => {
+  const reads = [];
+  const mkDb = (rowsOf, valOf) => ({ ref: (p) => {
     const rows = () => rowsOf(p).slice().sort((a, b) => (a.v.ts ?? -1) - (b.v.ts ?? -1));
     const snap = (arr) => ({ forEach: (fn) => arr.forEach(x => fn({ key: x.key, val: () => x.v })) });
     return {
       orderByChild: () => ({ endAt: (cut) => ({ get: async () => snap(rows().filter(x => (x.v.ts ?? -1) <= cut)) }),
                              limitToLast: (k) => ({ get: async () => snap(rows().slice(-k)) }) }),
+      get: async () => { reads.push(p); const v = valOf ? valOf(p) : undefined; return { val: () => (v === undefined ? null : v) }; },
       update: async (u) => { updates.push({ p, u }); } };
   } });
   const fakeDb = mkDb(() => [{ key: 'o1', v: { ts: 1 } }, { key: 'c', v: { ts: 2, sys: 'clr' } }]);
@@ -201,10 +206,36 @@ run().then(() => {
     const t2 = await X.trimLog(mkDb(() => big.slice(0, 300)), 'rooms/R/chatLog');
     chk(t2 === 0 && updates.length === 0, '  ' + X.CHAT_KEEP_MAX + '줄 이하면 아무것도 안 지운다');
     updates.length = 0;
-    return X.runChatExpire(fakeDb, 10 + X.CHAT_SERVER_KEEP_MS, async (p) => (p === 'rooms' ? { R: true } : p === 'rooms/R' ? { chatLog: true, _chatTab: true } : { s1: true }));
-  }).then(sum => {
+    const sum = await X.runChatExpire(fakeDb, 10 + X.CHAT_SERVER_KEEP_MS, async (p) => (p === 'rooms' ? { R: true } : p === 'rooms/R' ? { chatLog: true, _chatTab: true } : { s1: true }), { trim: true });
     chk(sum.rooms === 1 && sum.logs === 2 && sum.failed === 0, '방마다 #일반 · 채널 기록을 본다(shallow 로 키만)');
-    chk(/exports\.chatExpire = onSchedule\(\{ schedule: 'every day 04:30'/.test(FX) && /require\('\.\/chat-expire'\)\.runChatExpire/.test(FX), '매일 04:30 예약 함수(functions/index.js)');
+    chk(!reads.some(p => /_meta|roomDir/.test(p)), '★ 종류별 칸이 없으면 방 종류를 안 읽는다(설정이 비면 예전과 같은 다운로드)');
+
+    // 방 종류별 보관 일수 — 범위 밖 값 · 0 · 소수는 버린다
+    const D = 24 * 3600 * 1000;
+    const pol = X.keepPolicy({ default: 2, secret: 1, workingroom: 0, togetherroom: 31, couple: 1.5 });
+    chk(pol.defMs === 2 * D && JSON.stringify(pol.byKind) === JSON.stringify({ secret: D }), 'keepPolicy — default · 종류별 · 범위(1~30 정수) 밖은 없는 것으로');
+    chk(X.keepPolicy(null).defMs === X.CHAT_SERVER_KEEP_MS, '설정이 없으면 3일');
+
+    // 시크릿룸 1일 · 워킹룸(방 서버 방) 기본 3일 · 종류 모르는 방 기본 — 1.5일 된 줄
+    const now = 100 * D;
+    const old15 = [{ key: 'm', v: { ts: now - 1.5 * D } }];
+    const kdb = mkDb(() => old15, (p) => ({ 'config/chatKeepDays': { secret: 1, workingroom: 3 }, 'roomDir/W/meta/channel': 'workingroom' })[p]);
+    updates.length = 0; reads.length = 0;
+    const ks = await X.runChatExpire(kdb, now, async (p) => (p === 'rooms' ? { 'SCRT-AB12': true, W: true, Z: true } : { chatLog: true }), { trim: false });
+    const hit = updates.map(u => u.p).sort();
+    chk(JSON.stringify(hit) === '["rooms/SCRT-AB12/chatLog"]', '★ 시크릿룸만 1일 — 방 서버 워킹룸(roomDir) · 종류 모르는 방은 3일이라 1.5일 된 줄을 남긴다');
+    chk(!reads.includes('rooms/SCRT-AB12/_meta/channel') && reads.includes('rooms/W/_meta/channel') && reads.includes('roomDir/W/meta/channel'),
+      '종류 — 시크릿룸은 코드로 · 나머지는 rooms/_meta 다음 roomDir/meta 한 칸씩');
+    chk(ks.trimmed === 0 && ks.trim === false, '300줄 정리는 trim 일 때만(매시간 실행은 지우기만)');
+    const H = 3600 * 1000, base = Date.UTC(2026, 9, 14);
+    const trimAt = async (ms) => (await X.runChatExpire(mkDb(() => []), ms, async () => null)).trim;
+    chk(await trimAt(base + (4 - 9 + 24) % 24 * H + 30 * 60000) === true && await trimAt(base + 30 * 60000) === false, '기본 trim — 서울 04시 실행만 true');
+    return sum;
+  }).then(() => {
+    chk(/exports\.chatExpire = onSchedule\(\{ schedule: '30 \* \* \* \*', timeZone: 'Asia\/Seoul'/.test(FX) && /require\('\.\/chat-expire'\)\.runChatExpire/.test(FX), '매시간 30분 예약 함수(functions/index.js)');
+    const KD = JSON.parse(RULES_SRC).rules.config.chatKeepDays;
+    chk(KD && KD['.read'] === true && /admins/.test(KD['.write']) && /\^\[a-z\]\{1,20\}\$/.test(KD.$kind['.validate']) && /<= 30/.test(KD.$kind['.validate']) && />= 1/.test(KD.$kind['.validate']) && X.KEEP_DAYS_MIN === 1 && X.KEEP_DAYS_MAX === 30,
+      '★ 규칙 config/chatKeepDays — 관리자만 쓰기 · 종류 이름 열어 둠(영소문자) · 1~30 이 함수와 같다');
     chk(/3일/.test(PRIV) && /이 PC|이용자 PC/.test(PRIV) && /대화 기록/.test(PRIV), '처리방침 — 서버 3일 · PC 저장 · 지우는 법');
     say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass + ' — 대화는 서버 3일 · 이 PC 에 채널마다 최근 300줄 남고, 지울 때만 지운다'));
     process.exit(fail ? 1 : 0);

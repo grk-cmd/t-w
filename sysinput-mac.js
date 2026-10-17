@@ -365,10 +365,14 @@ function stopGlobalHooks(){
 /* ⚠️ UiohookKey 는 지금 어디에서도 안 쓰인다 — win 판과 같은 상태로 맞춰 둔다. */
 void UiohookKey;
 
+/* 🎮 win 판은 XInput 을 직접 읽는다. mac 은 직접 읽는 길이 없어 빈 목록 — 렌더러 Gamepad API(앞에 있을 때)만 남는다. */
+function readPads(){ return []; }
+
 module.exports = {
   init,
   startGlobalHooks, stopGlobalHooks,
   getActiveWindow, listWindows,
   selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
+  readPads,
   WINLIST_SKIP,
 };

@@ -2,6 +2,7 @@
    smoke.js 의 스텁을 빌려 app.js 를 실제로 평가한 뒤, 평준화 배율이 캐릭터·책상에
    같은 값으로 걸리는지와 동물 40% 가 살아남는지를 본다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
 smokeSrc = smokeSrc.slice(0, smokeSrc.indexOf('/* ── 실행'))
@@ -15,7 +16,7 @@ const probe = `
   A: ANIMAL_RUN_SCALE,
 };`;
 const say = console.log; console.log = () => {}; console.warn = () => {};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 console.log = say;
 
@@ -73,6 +74,27 @@ P.on(false); P.syncSeatEqualize();
 chk(near(P.seatScale(big), 1.5) && near(big.desk._s, 1.5), '끄면 원래 크기로 정확히 돌아온다 (' + big.desk._s.toFixed(3) + ')');
 P.on(true); P.syncSeatEqualize(); P.on(false); P.syncSeatEqualize();
 chk(near(big.desk._s, 1.5), '켰다 껐다를 반복해도 값이 누적되지 않는다 (' + big.desk._s.toFixed(3) + ')');
+
+/* 한 좌석이 던져도 — 오류 대비가 좌석 하나 단위여야 뒤 좌석이 이번 바퀴에 빠지지 않는다 */
+say('--- 중간 좌석이 실패할 때');
+P.seats.length = 0;
+const me2 = seat({ isMe:true, userScale:1.0 });
+const bad = seat({ userScale:1.5 });
+let badThrows = true;
+Object.defineProperty(bad.desk.userData, 'eqK', { set(){ if (badThrows) throw new Error('깨 봄'); }, get(){ return undefined; }, configurable:true });
+const after = seat({ userScale:2.0 });
+P.seats.push(me2, bad, after);
+P.seats.forEach(s2 => P.setDeskScale(s2.desk, s2.userScale, 1));
+const warns = []; const _w = console.warn; console.warn = (...a) => warns.push(a.join(' '));
+P.on(true); P.seats.forEach(s2 => { s2._eqK = undefined; }); P.syncSeatEqualize();
+chk(near(P.seatScale(after), 1.0) && near(after.desk._s, 1.0), '실패한 좌석 뒤의 좌석도 이번 바퀴에 맞춰진다');
+chk(bad._eqK === undefined, '실패한 좌석은 «맞췄음» 표시가 안 남는다(다음 바퀴에 다시)');
+P.syncSeatEqualize();
+chk(warns.length === 1 && /평준화/.test(warns[0]), '경고는 좌석마다 한 번만 남긴다 (' + warns.length + '번)');
+badThrows = false; P.syncSeatEqualize();
+console.warn = _w;
+chk(near(P.seatEqK(bad), 1 / 1.5) && bad._eqK === P.seatEqK(bad), '고장이 풀리면 다음 바퀴에 그 좌석도 맞춰진다');
+P.on(false); P.syncSeatEqualize();
 
 say('');
 if (fail) { say('문제 ' + fail + '건'); process.exit(1); }

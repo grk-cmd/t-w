@@ -15,7 +15,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const APP = read('app.js');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
+const APP = _joinRenderer(read('app.js'));
 if (!APP) { say('  ? 원본 못 찾음 — app.js'); process.exit(2); }
 const grab = (name, async) => (APP.match(new RegExp((async ? 'async ' : '') + 'function ' + name + '\\([^)]*\\)\\{[\\s\\S]*?\\n\\}')) || [''])[0];
 const noCmt = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
@@ -23,8 +24,11 @@ const noCmt = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '
 say('── 1. 좌석 다시 잇기 (_relinkSeatsToSlots)');
 const relSrc = grab('_relinkSeatsToSlots');
 chk(!!relSrc, '_relinkSeatsToSlots 를 꺼냈다');
+/* 열린 초안 주인 바꾸기는 꾸미기(wardrobe.js relinkDraftSrc)가 슬롯 저장의 onSeatRelinked 알림으로 받는다(모듈 순환 끊기 3) — 그 둘을 같이 돌린다 */
+const drSrc = grab('relinkDraftSrc');
+chk(!!drSrc && /slotSaveMod\.onSeatRelinked\(\(old, cur\)=>wardrobeMod\.relinkDraftSrc\(old, cur\)\);|onSeatRelinked\(\(old, cur\)=>relinkDraftSrc\(old, cur\)\);/.test(APP), '  꾸미기가 «좌석 다시 이음» 알림에 걸려 있다(onSeatRelinked → relinkDraftSrc)');
 const run = (env) => new Function('env', 'const {seats, slots} = env; let wdDraftDef = env.draft; const console = { warn(){} };\n'
-  + relSrc + '\n_relinkSeatsToSlots(env.old, env.skip); return wdDraftDef;')(env);
+  + drSrc + '\nconst _relinkFns = [relinkDraftSrc];\n' + relSrc + '\n_relinkSeatsToSlots(env.old, env.skip); return wdDraftDef;')(env);
 if (relSrc) {
   const oA = { n: 'A' }, oB = { n: 'B' }, oC = { n: 'C' }, nA = { n: 'A2' }, nB = { n: 'B2' }, nC = { n: 'C2' };
   const me = { isMe: true, slot: 0, charDef: oA }, ex = { slot: 1, charDef: oB }, gone = { slot: 2, charDef: oC };
@@ -63,11 +67,11 @@ chk(relinkCalls(grab('_charsSync', true) || APP.slice(APP.indexOf('async functio
 say('── 3. 저장 순서 — 파츠 받기 전에 saveSlots');
 {
   const now = noCmt(grab('_commitWdDraftNow', true));
-  const iPart = now.indexOf('def.partXfMemory ='), iSave = now.indexOf('saveSlots()', iPart), iApply = now.indexOf('await applyEquippedPartsToSeat(mySeat, def);');
+  const iPart = now.indexOf('def.partXfMemory ='), iSave = now.indexOf('saveSlots()', iPart), iApply = now.indexOf('applyEquippedPartsToSeat(mySeat, def)');   // 다시 맞추기 한 벌(refitSeatAfterParts)이 기다리는 장착
   chk(iPart > 0 && iSave > iPart && iApply > iSave, '★ _commitWdDraftNow — def 에 쓴 직후 저장, GLB 받기는 그 뒤 (꺼져도 남는다)');
   chk(now.indexOf('saveSlots()', iApply) > iApply, '  받은 뒤에도 한 번 더(적용 중 정리된 것 — 그대로면 saveSlots 가 아무것도 안 올린다)');
   const own = noCmt(grab('_commitWdDraftToOwner', true));
-  const jPart = own.indexOf('src.partXfMemory ='), jSave = own.indexOf('saveSlots()', jPart), jApply = own.indexOf('await applyEquippedPartsToSeat(seat, src);');
+  const jPart = own.indexOf('src.partXfMemory ='), jSave = own.indexOf('saveSlots()', jPart), jApply = own.indexOf('applyEquippedPartsToSeat(seat, src)');
   chk(jPart > 0 && jSave > jPart && jApply > jSave, '  _commitWdDraftToOwner 도 같다');
 }
 

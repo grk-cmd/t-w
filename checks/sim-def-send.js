@@ -15,6 +15,7 @@
    ⚠ 여기서 통과한다고 제보가 해결된 것은 아니다 — '보내는 쪽은 아니다'까지만 말한다.
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
 let smokeSrc = fs.readFileSync('smoke.js', 'utf8');
@@ -43,7 +44,7 @@ const probe = `
    이 파일의 출력은 붙잡아 둔 원본(say)으로만 낸다. */
 const say = console.log;
 console.log = () => {}; console.warn = () => {};
-try { vm.runInThisContext(fs.readFileSync('app.js', 'utf8') + probe, { filename: 'app.js' }); }
+try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 
 const P = globalThis.__P;

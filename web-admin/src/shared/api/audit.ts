@@ -44,6 +44,17 @@ export const AUDIT_ACTIONS = [
   'roomServer.default',
   'settings.minAppVer',
   'settings.bugDailyMax',
+  'settings.chatKeepDays',
+  'settings.roomLimits',
+  'settings.roomMaxPeople',
+  'settings.inviteGate',
+  'settings.existingSignup',
+  'roomServer.registerIndex',
+  'settings.apiCors',
+  'settings.apiCache',
+  'settings.logLevel',
+  'roomServer.frame',
+  'roomServer.timing',
   'room.close',
   'room.closeAll',
   'room.cleanGhost',
@@ -57,6 +68,8 @@ export const AUDIT_ACTIONS = [
   'bug.answerDelete',
   'bug.status',
   'bug.delete',
+  // 서버 함수(bugCleanup)가 쓴다 — 해결 뒤 30일 지난 제보 자동 삭제.
+  'bug.autoClean',
   'bug.edit',
   'improvements.add',
   'improvements.edit',
@@ -67,8 +80,9 @@ export const AUDIT_ACTIONS = [
   'todo.applyRelease',
   'todo.releaseTpl',
   'todo.note',
-  // 서버 함수(adminDeleteAccount)가 쓴다 — 웹은 이름만 보여 준다.
+  // 서버 함수(adminDeleteAccount · deleteMyAccount)가 쓴다 — 웹은 이름만 보여 준다.
   'account.delete',
+  'account.selfDelete',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

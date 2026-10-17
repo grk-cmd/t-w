@@ -1,6 +1,6 @@
 /* ═══ 👥 sim-friend-manage-module.js — 친구 관리 모듈 · 버그 제보 탭 자리 옮김 (2026-10-10 신설 · 앱 FSD 5번) ═══════════════
-   app.js 의 «🐞 버그 제보 탭» 구역에 섞여 있던 친구 쪽 코드(👋 요청 팝업 · 👥 친구 관리 · 📤 보낸 요청)를 parts/friend-manage.js 로,
-   앞머리의 🐞 버그 제보 탭(오픈카톡 기본 링크)을 parts/bug-board-ui.js 끝으로 옮겼다. 동작은 그대로여야 한다.
+   app.js 의 «🐞 버그 제보 탭» 구역에 섞여 있던 친구 쪽 코드(👋 요청 팝업 · 👥 친구 관리 · 📤 보낸 요청)를 parts/myhome/friend-manage.js 로,
+   앞머리의 🐞 버그 제보 탭(오픈카톡 기본 링크)을 parts/support/bug-board-ui.js 끝으로 옮겼다. 동작은 그대로여야 한다.
    일괄 수락의 자리 계산 · 서브탭 클래스 공유 · 보낸 요청 미러는 sim-friend-manage 가, 선물함 표시 비우기는 sim-gift-star 가 본다.
    여기서는 «옮긴 것» 자체를 굴려 본다.
    ・1절: 만들 때 — 아무것도 안 건드린다 · 반환값 이름 · 빈 껍데기
@@ -13,16 +13,17 @@
    ・7절: 🐞 버그 제보 탭 — app.js 에 없고 bug-board-ui.js 끝(IIFE 밖 · 전역 그대로) · 링크 구독 · 관리자만 편집 · 링크 모양 · 공지는 그대로 실어 보냄
    [실행] friend-manage.js · bug-board-ui.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
 let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(버그 제보 탭이 TwNetReady.whenNetReady 를 부른다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], BUG = SRC['bug-board-ui.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], BUG = SRC['bug-board-ui.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 12) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
 
@@ -101,6 +102,7 @@ function mkEnv(opt){
     myHomeFriends: () => env.friends,
     myFriendRequests: () => env.reqs,
     friendMax: opt.max || 5,
+    friendsForCheck: () => { env.checks = (env.checks || 0) + 1; return Promise.resolve(env.checkFail ? null : env.friends); },
   });
   return env;
 }
@@ -214,6 +216,12 @@ await sec('── 5. 👋 팝업 · reqVisible', async () => {
   chk(e.accepted.length === 1 && e.toasts.some(t => /최대 2명까지만/.test(t)), '  상한이면 수락 안 하고 남김(_myHomeFriends 는 읽는 함수)');
   const p3 = fm.showFriendRequestPopup(); await flush(); noBtn.onclick(); await p3; await flush();
   chk(e.rejected.join() === 'uA<b', '팝업 [거절]');
+  /* 친구 목록을 못 받았고 판정용 읽기도 실패하면 — 수락을 서버로 안 보내고 요청은 남긴다(토스트는 friends-sub 가) */
+  e.checkFail = true; e.reqs = { c: { name: '수진', ts: 3 } }; e.friends = {};
+  const nAcc = e.accepted.length;
+  const p4 = fm.showFriendRequestPopup(); await flush(); okBtn.onclick(); await p4; await flush();
+  chk(e.accepted.length === nAcc && e.checks > 0, '판정용 목록을 못 읽으면 수락을 안 보낸다(요청은 남김)');
+  e.checkFail = false;
   e.reqs = {}; await fm.showFriendRequestPopup(['zz']);
   chk(e.body.children.length === 0, '물을 요청이 없으면 안 띄운다');
 });
@@ -228,17 +236,17 @@ await sec('── 6. app.js 배선', () => {
   chk(iPrev > 0 && iMk > iPrev && iNext > iMk, '원래 자리 — 📅 스케줄러 연결 뒤 · 마이홈 준비(_myHomeReady) 앞');
   const call = (APP.match(/TwFriendManage\.createFriendManage\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 10 && deps.filter(l => !/^friendMax:/.test(l)).every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>)/.test(l)) && /friendMax: FRIEND_MAX,/.test(call),
-    'deps 10개 — 함수 · 다시 대입되는 let 은 화살표, 상한은 FRIEND_MAX 값 (' + deps.length + ')');
+  chk(deps.length === 11 && /friendsForCheck: \(\.\.\.a\)=>friendsSubMod\.friendsForCheck\(\.\.\.a\),/.test(call) && deps.filter(l => !/^friendMax:/.test(l)).every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>)/.test(l)) && /friendMax: FRIEND_MAX,/.test(call),
+    'deps 11개 — 함수 · 다시 대입되는 let 은 화살표, 상한은 FRIEND_MAX 값 (' + deps.length + ')');
   chk(/myHomeOpen: \(\)=>myHomeOpen,/.test(call) && /myHomeFriends: \(\)=>_myHomeFriends,/.test(call) && /myFriendRequests: \(\)=>_myFriendRequests,/.test(call),
     '다시 대입되는 let(myHomeOpen · _myHomeFriends · _myFriendRequests)은 읽는 함수로');
   const m = strip(MOD).replace(/const (_myFriendRequests|_myHomeFriends|myHomeOpen) = deps\.\w+;/g, '');
   chk(!/\b_myFriendRequests\b(?!\(\))/.test(m) && !/\b_myHomeFriends\b(?!\(\))/.test(m) && !/\bmyHomeOpen\b(?!\(\))/.test(m), '모듈 본문은 읽는 함수만 부른다(값으로 쓰면 늘 참 · 옛 값이 된다)');
   const off = (APP.match(/const FRIEND_MANAGE_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
-  chk(NAMES.every(n => new RegExp('\\b' + n + '\\s*(\\(|:)').test(off)), '빈 껍데기 FRIEND_MANAGE_OFF 가 부르는 이름 열하나를 다 갖는다');
+  chk(!/\bFRIEND_MANAGE_OFF\b/.test(APP), '빈 껍데기 FRIEND_MANAGE_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const used = [...new Set([...code.matchAll(/\bfriendManage\.(\w+)/g)].map(x => x[1]))];
   chk(used.length >= 10 && used.every(n => NAMES.includes(n)), '부르는 곳은 friendManage.이름 — 반환값에 있는 이름만 (' + used.join(' · ') + ')');
-  const iF = HTML.indexOf('<script src="parts/friend-manage.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iF = HTML.indexOf('<script src="parts/myhome/friend-manage.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iF > 0 && iF < iA, 'html — friend-manage.js 를 app.js 앞에 싣는다');
   chk(/^Tw[A-Z]/.test('TwFriendManage') && !/window\.FriendManage\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
 });
@@ -249,7 +257,7 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
   const iI = BUG.indexOf('})();\n\n/* ↓ app.js 에서 옮긴'), iB = BUG.indexOf('(function bindBugReport(){');
   chk(iB > 0 && /^let _bugReportConf = null;/m.test(BUG) && /^window\._bugReportLink = /m.test(BUG), 'bug-board-ui.js 맨 앞 칸 — 전역 이름 그대로(_bugReportConf · window._bugReportLink)');
   chk(iI > 0 && iB > iI, '  게시판 IIFE 뒤(밖)에 있다');
-  const iBU = HTML.indexOf('<script src="parts/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+  const iBU = HTML.indexOf('<script src="parts/support/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   const iFB = HTML.indexOf('<script type="module" src="parts/firebase-init.js"></script>');
   chk(iBU > iA && iFB > 0, 'html — bug-board-ui.js 는 app.js 뒤 · firebase-init.js 는 module(classic 스크립트가 다 돈 뒤에 돈다 → firebase-ready 를 놓치지 않는다)');
   /* 굴려 보기 — 게시판 IIFE 는 DOMContentLoaded 를 기다리게 두고(loading), 끝의 버그 제보 탭만 돈다 */
@@ -267,6 +275,7 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
   Object.defineProperty(ctx, 'isAdmin', { get: () => env.admin });
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
   vm.runInContext(BUG, ctx, { filename: 'bug-board-ui.js' });
   chk(typeof ctx._bugReportLink === 'function' && ctx._bugReportLink() === '', 'window._bugReportLink — 아직 안 받았으면 빈 문자열');
   chk(typeof env.L['firebase-ready'] === 'function', 'firebaseAPI 가 아직 없으면 firebase-ready 를 기다린다');

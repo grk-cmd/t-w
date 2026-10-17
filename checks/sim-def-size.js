@@ -10,6 +10,7 @@
    ・7절: app.js 배선 — [완료] · 아이템 켜기 · 책상 고르기 · 코드로 추가 · 커미션 등록 / html 순서
    [실행] def-size.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -21,7 +22,7 @@ for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 
 const win = {};
 new Function('window', 'module', SRC['def-size.js'])(win, undefined);
 const S = win.DefSize;
-const A = SRC['app.js'];
+const A = _joinRenderer(SRC['app.js']);
 const KB = 1024;
 const blob = (n) => 'A'.repeat(n);   // base64 GLB 흉내 — n 바이트
 
@@ -148,7 +149,7 @@ chk(/function serializeDefForNetwork\(def, opts\)\{/.test(A) && /if\(!_quiet\) _
 chk(!/DefSize/.test(grabFn('serializeDefForNetwork') || 'DefSize'), '보내는 순간에는 막지 않는다(serializeDefForNetwork 에 판정 없음)');
 {
   const H = SRC['desk-companion-prototype.html'];
-  const a = H.indexOf('<script src="parts/def-size.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
+  const a = H.indexOf('<script src="parts/character/def-size.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
   chk(a > 0 && b > a, 'html 이 def-size.js 를 app.js 앞에 싣는다');
 }
 

@@ -3,12 +3,13 @@
  * 1. 판정이 예전(노드 통째) 판정과 같은가 · invite 가 있으면 그 하나만 읽는가  2. 폴백  3. 연결 · 런처 동작 그대로
  */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const need = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } };
-const IA = need('invite-account.js'), FI = need('firebase-init.js'), APP = need('app.js');
+const IA = need('invite-account.js'), FI = need('firebase-init.js'), APP = _joinRenderer(need('app.js'));
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const { createInviteAccount } = new Function(IA.replace(/^export function /mg, 'function ') + '\nreturn { createInviteAccount };')();
 
@@ -67,7 +68,7 @@ const mk = (node, o = {}) => {
 
   say('── 3. 연결');
   const CODE = strip(FI), A = strip(APP);
-  chk(/import \{ createInviteAccount \} from "\.\/invite-account\.js";/.test(CODE), 'firebase-init.js 가 invite-account.js 를 import 한다');
+  chk(/import \{ createInviteAccount \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?invite-account\.js";/.test(CODE), 'firebase-init.js 가 invite-account.js 를 import 한다');
   chk(/getInviteAccount: createInviteAccount\(\{ db, ref, get, databaseURL:/.test(CODE), 'firebaseAPI.getInviteAccount 는 모듈로 넘긴다');
   chk(!/get\(ref\(db, `users\/\$\{userId\}`\)\)/.test(CODE), 'firebase-init.js 에 users/{uid} 통째 get 이 남아 있지 않다');
   const rb = A.match(/async function refreshInviteBtn\(\)\{[\s\S]*?\n\}/);

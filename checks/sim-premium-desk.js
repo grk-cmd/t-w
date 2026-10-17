@@ -10,8 +10,9 @@
    ・4절: 생성기에서 고르지 못한다.
    [실행] app.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC = fs.readFileSync('app.js', 'utf8');
+const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 
 let pass = 0, fail = 0, huhs = 0;
 const say = (s) => console.log(s);
@@ -56,7 +57,7 @@ const setCalls = (SRC.match(/_setPremium\(/g) || []).length - 1;
 chk(setCalls >= 5, '_setPremium 호출 ' + setCalls + '곳 (로컬 키 · 활성화 · 해제 · 재검증 실패 · 계정 이전 복원 = 5)');
 const setSrc = grabFn('_setPremium') || '';
 chk(/if\(isPremium === v\) return;/.test(setSrc), '같은 값이면 다시 그리지 않는다');
-chk(/_refreshPremiumGatedUI\(\)/.test(setSrc), '바뀌면 _refreshPremiumGatedUI 를 부른다');
+chk(/_premiumChanged\(\)/.test(setSrc) && /^onPremiumChanged\(_refreshPremiumGatedUI\);/m.test(SRC), '바뀌면 _refreshPremiumGatedUI 가 돈다(계정 핵심 상태의 «프리미엄이 바뀌었다» 알림에 초대 게이트가 건다 — 모듈 순환 끊기 5)');
 const xfer = grabFn('_applyTransferSnapshot') || '';
 chk(/r\.license[\s\S]{0,120}_setPremium\(true\)/.test(xfer), '★ 계정 이전 복원이 키 저장과 함께 isPremium 을 올린다 (예전엔 키만 저장 — 재시작 전까지 기본 책상)');
 const verifyFail = /if\(!r\.ok && !r\.offline\)\{.{0,200}/.exec(SRC);   // 한 줄 — 안에 catch(e){} 가 있어 [^}] 로는 못 잡는다
@@ -77,7 +78,7 @@ chk(/refreshCustomStatusMenuItem/.test(refresh), '원래 하던 일(커스텀 �
 /* ── 4. 고르지 못한다 ── */
 say('── 4. 생성기에서 라이선스 없이는 전용 책상을 고르지 못한다');
 const rc = grabFn('renderCrItems') || '';
-const deskPart = rc.slice(0, rc.indexOf("document.getElementById('deskColor')"));
+const deskPart = rc.slice(0, rc.indexOf("document.getElementById('deskColor').value"));   // 책상 카드 부분 = 색 칸에 값 넣는 줄 앞까지(머리의 입구 가드에도 deskColor 가 있다)
 chk(/const deskLocked = !!\(rec\.licenseOnly && !isPremium && !isAdmin\)/.test(deskPart), '★ 책상 카드에 잠금 조건이 있다 (아이템 카드와 같은 조건)');
 chk(/if\(deskLocked\)\{[\s\S]*?textContent='🔒'/.test(deskPart), '잠긴 책상에 🔒 표시');
 chk(/card\.onclick=async\(\)=>\{[\s\S]*?if\(deskLocked\)\{[^}]*return; \}/.test(deskPart), '★ 잠긴 책상은 클릭해도 활성 책상이 안 된다 (toast 후 return)');

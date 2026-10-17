@@ -1,5 +1,5 @@
 /* ═══ 📅 sim-scheduler.js — 스케줄러 · 🔔 일정 알림 모듈 (2026-10-10 신설 · 앱 FSD 1번) ═══════════════════
-   app.js 의 두 구역(📅 스케줄러 · 🔔 일정 알림)을 parts/scheduler.js 로 옮겼다. 동작은 그대로여야 한다.
+   app.js 의 두 구역(📅 스케줄러 · 🔔 일정 알림)을 parts/myhome/scheduler.js 로 옮겼다. 동작은 그대로여야 한다.
    ・1절: 셈 — 날짜 차이 · «그날이 1일» · 카드 글자(D-3 · D-day · 100일) · 이정표(당일 · 50 · 100 단위)
    ・2절: 만들 때 — 알림 구독 둘(친구 태그 · 오늘 일정) · firebase 가 늦으면 firebase-ready 뒤 · 1분 타이머 · ESC 창 등록 · window._closeBellWin
    ・3절: 🔔 뱃지 · 알림 목록 — 오늘 일정 · 100일째 기념일 · 친구 태그(토스트) · 창을 열면 읽음 → 뱃지 0 · 닫기
@@ -7,15 +7,16 @@
    ・5절: app.js 배선 — 정의는 모듈에만 · createScheduler 는 원래 자리 · 부르는 곳은 mhScheduler.이름 · BELL_SEEN_KEY 는 app.js · html 순서 · 내장 전역 이름과 안 겹침
    [실행] scheduler.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['scheduler.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['scheduler.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(모듈이 TwNetReady.whenNetReady 를 부른다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = SRC['app.js'], HTML = SRC['desk-companion-prototype.html'], MOD = SRC['scheduler.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['scheduler.js'];
 /* 절마다 따로 — 옛 코드(모듈 없음)에 대면 멈추지 않고 그 절을 빨강 하나로 센다 */
 const sec = (title, fn) => { say(title); try{ fn(); }catch(e){ chk(false, '이 절을 못 돌았다 — ' + (e && e.message)); } };
 
@@ -74,10 +75,10 @@ function mkEnv(opt){
   const setInterval = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
   const raf = fn => 0;
   const g = { viewing: null, friends: {} };
-  new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', MOD)
+  new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', SRC['net-ready.js'] + '\nvar TwNetReady = window.TwNetReady;\n' + (opt.src || MOD))
     (win, undefined, document, localStorage, win.firebaseAPI, setInterval, raf, 1280, 800);
   const S = win.MhScheduler.createScheduler({
-    getMyUserId: () => 'me1', getDisplayName: () => '나나',
+    getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'), getDisplayName: () => '나나',
     viewingUserId: () => g.viewing, myHomeFriends: () => g.friends,
     toast: m => toasts.push(m),
     uiIconEl: (name) => { const e = mkEl('img'); e.dataset.icon = name; return e; },
@@ -126,6 +127,14 @@ sec('── 2. 만들 때', () => {
   chk(N.subs.notices.length === 0 && N.timers.length === 0 && N.escWins.length === 0, 'DOM 이 없으면(창 요소 없음) 아무것도 걸지 않는다 — 예전처럼 조용히');
 });
 
+sec('── 2-2. 내 코드 없음 — 일정 요청 0', () => {
+  const noUid = (src) => { const E = mkEnv({ uid: null, src }); E.S.renderSchedCalendar(); E.S.subscribeMonth(); E.timers.forEach(x => { if(x.ms === 60 * 1000) x.fn(); });
+    return E.subs.notices.length === 0 && E.subs.month.length === 0; };
+  chk(noUid(), '내 코드 없음 → 태그 알림 · 오늘 일정 · 달력 구독 0(users/null/schedNotices · schedule)');
+  const m2 = MOD.replace(/\n *if\(!schedOwner\) return;[^\n]*/, '').replace(/\n *if\(!getMyUserId\(\)\) return;[^\n]*/g, '');
+  chk(m2 !== MOD && !noUid(m2), '  깨 보기 — 내 코드 확인을 빼면 빨강');
+});
+
 sec('── 3. 🔔 뱃지 · 알림 목록', () => {
   const E = mkEnv({ inbox: 1 });
   const badge = E.el('myBellBadge'), list = E.el('bellList');
@@ -150,12 +159,15 @@ sec('── 3. 🔔 뱃지 · 알림 목록', () => {
   chk(!txt.includes('조용'), '  알림을 끈 기념일은 안 뜬다');
   chk(txt.includes('수령함 확인') && txt.includes('NEW 1'), '  아래 [📪 수령함 확인] · 안 읽은 수');
   chk(Number(E.ls.get('tw.bellSeenTs')) >= now, '  열면 읽음 시각을 tw.bellSeenTs 에 적는다');
-  /* ⚠️ 옛 셈 그대로 — 본 날(seenDay)은 UTC 날짜(toISOString), 오늘은 로컬 날짜라 한국 0~9시에는 둘이 달라
-       기념일 이정표가 다시 센다. 옮기기만 한 PR 이라 고치지 않고 그 차이를 그대로 기대한다. */
-  const sameDay = new Date(Number(E.ls.get('tw.bellSeenTs'))).toISOString().slice(0, 10) === TODAY;
-  chk(badge.textContent === (sameDay ? '1' : '2'), '  열고 나면 본 것은 빠지고 수령함 1 만 남는다' + (sameDay ? '' : ' (+ 기념일 1 — UTC 날짜 차이, 옛 셈 그대로)'));
+  /* 본 날(seenDay)도 오늘과 같은 로컬 날짜로 센다 — 예전엔 UTC(toISOString)라 한국 0~9시에 기념일을 다시 셌다 */
+  chk(badge.textContent === '1', '  열고 나면 본 것은 빠지고 수령함 1 만 남는다(기념일은 오늘 본 것으로 — 시간대와 상관없이)');
+  chk(!/toISOString\(\)\.slice\(0,\s*10\)/.test(MOD) && /const seenDay = seen \? _localYMD\(seen\)/.test(MOD), '  본 날은 이 기기 시간대 날짜(_localYMD) — UTC 로 자르지 않는다');
   E.el('bellClose').fire('click');
   chk(E.el('bellWin').style.display === 'none' && !E.S.isBellOpen(), '✕ → 닫힌다');
+  E.el('myBellBtn').fire('click');
+  const inboxBtn = list.children.find(c => c.className === 'bell-inbox-btn');
+  try{ inboxBtn.onclick(); }catch(_){}
+  chk(!!inboxBtn && E.el('bellWin').style.display === 'none' && !E.S.isBellOpen(), '[📪 수령함 확인] → 알림창이 닫힌다(예전엔 typeof closeBell 이 늘 거짓이라 안 닫혔다)');
   const E2 = mkEnv();
   E2.S.renderBellList();
   chk(E2.el('bellList').textContent.includes('오늘 예정된 일정이 없어요'), '아무것도 없으면 «오늘 예정된 일정이 없어요»');
@@ -207,7 +219,7 @@ sec('── 5. app.js 배선 · html', () => {
   chk(!/═+ 📅 스케줄러|═+ 🔔 일정 알림/.test(APP) && /═+ 📅 스케줄러/.test(MOD) && /═+ 🔔 일정 알림/.test(MOD), '구역 머리 둘이 모듈로 옮겨 갔다');
   const iC = APP.indexOf('MhScheduler.createScheduler('), iV = APP.indexOf('let _mhViewingUserId'), iB = APP.indexOf('TwFriendManage.createFriendManage(');   // 🐞 버그 제보 탭 구역은 옮겼다(앱 FSD 5번) — 그 자리의 👥 친구 관리 연결
   chk(iC > 0 && iC < iB && iC < iV, 'createScheduler 는 원래 자리(옛 🐞 버그 제보 탭 — 지금은 👥 친구 관리 연결 — 바로 앞)에서 부른다');
-  chk(/const mhScheduler = \(typeof MhScheduler === 'undefined'\) \? SCHEDULER_OFF/.test(APP), '  모듈이 없으면 빈 껍데기(SCHEDULER_OFF) — 앱 · 검사가 안 선다');
+  chk(/^const mhScheduler = MhScheduler\.createScheduler\(\{/m.test(APP) && !/\bSCHEDULER_OFF\b/.test(APP), '  빈 껍데기(SCHEDULER_OFF) 없이 만든다 — 모듈이 안 실리면 그 줄에서 멈춘다(가드 걷기 3차)');
   chk(/viewingUserId: \(\)=>_mhViewingUserId/.test(APP) && /myHomeFriends: \(\)=>_myHomeFriends/.test(APP), '  다시 대입되는 let 둘은 읽는 함수로 넘긴다');
   chk(/const BELL_SEEN_KEY = 'tw\.bellSeenTs';/.test(APP) && /bellSeenKey: BELL_SEEN_KEY/.test(APP) && !/'tw\.bellSeenTs';/.test(MOD.replace(/\/\/.*$/gm, '')),
       'BELL_SEEN_KEY 는 app.js 한 곳(계정 전환 지움 목록이 같이 쓴다) — 모듈은 deps 로 받는다');
@@ -217,7 +229,7 @@ sec('── 5. app.js 배선 · html', () => {
   chk(/mhScheduler\.setDdays\(dd \|\| \{\}\); mhScheduler\.renderDdays\(\); mhScheduler\.refreshBellBadge\(\);/.test(APP), '  내 D-day 구독 → setDdays · 그리기 · 뱃지');
   chk((APP.match(/mhScheduler\.setDdaysVisit\(/g) || []).length === 3 && (APP.match(/mhScheduler\.subscribeMonth\(\)/g) || []).length === 2, '  관람 시작 · 끝 → setDdaysVisit · subscribeMonth');
   chk(/if\(tab\.dataset\.tab==='scheduler'\)\{\s*mhScheduler\.renderSchedCalendar\(\); mhScheduler\.renderDdays\(\);/.test(APP), '  [스케줄러] 탭 → 달력 · D-day 그리기');
-  const a = HTML.indexOf('<script src="parts/scheduler.js"></script>'), b = HTML.indexOf('<script src="parts/app.js"></script>');
+  const a = HTML.indexOf('<script src="parts/myhome/scheduler.js"></script>'), b = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(a > 0 && b > a, 'html 이 scheduler.js 를 app.js 앞에 싣는다');
   /* 크로미움(Electron)에는 내장 전역 Scheduler · scheduler(작업 예약 API)가 있다 — 같은 이름을 쓰면 typeof 가드가 늘 통과하고
      모듈이 안 실렸을 때 내장 생성자에 createScheduler 를 부르다 app.js 가 선다(헤드리스 크로미움에서 실제로 typeof Scheduler === 'function'). */

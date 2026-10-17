@@ -22,8 +22,13 @@
 
    ⚠ 실제 화면의 겹침은 여기서 못 본다 — 그건 눈으로 볼 것. 여기서 지키는 것은 규약뿐이다. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
-const SRC  = fs.readFileSync('app.js', 'utf8');
+/* 🎵 플레이리스트는 parts/status/playlist.js 로 옮겼다(앱 FSD 16번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const PL_FILE = ['playlist.js', 'parts/status/playlist.js', 'app/parts/status/playlist.js'].find(c => fs.existsSync(c));
+if (!PL_FILE) { console.log('  ? 원본 못 찾음 — playlist.js'); process.exit(2); }
+const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8')) + '\n' + fs.readFileSync(PL_FILE, 'utf8');
 const HTML = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const say = console.log;
 let fail = 0;
@@ -40,12 +45,13 @@ function cut(name){
   throw new Error(name + ' 의 끝을 못 찾음');
 }
 /* CSS 규칙 하나에서 z-index 를 읽는다. 셀렉터가 여러 줄에 걸쳐 있어도 블록 안만 본다. */
+const { resolveZ: _resolveZ } = require('./sim-z-layers.js');
 function cssZ(sel){
   const i = HTML.indexOf(sel + '{');
   if (i < 0) return null;
   const j = HTML.indexOf('}', i);
-  const m = /z-index:\s*(\d+)/.exec(HTML.slice(i, j));
-  return m ? +m[1] : null;
+  const m = /z-index:\s*([^;}]+)/.exec(HTML.slice(i, j));
+  return m ? _resolveZ(HTML, m[1]) : null;   // 창 층 표의 이름(var(--z-…))도 숫자로 푼다
 }
 
 say('=== 🪟 창 앞뒤(z)·자동 닫힘 규약 검사 ===');

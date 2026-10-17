@@ -9,12 +9,13 @@
    ・5절: 소리 자료 · 재생 상수 — 셋 다 WebM · 루프 앞뒤 0.15초 · 페이드 0.1/0.5 · 책장 «가끔 한 번».
    [실행] app.js · desk-companion-prototype.html · noise.js · noise-sounds.js 가 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('app.js'), HTML = read('desk-companion-prototype.html'), NZ = read('noise.js'), SND = read('noise-sounds.js');
+const SRC = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html'), NZ = read('noise.js'), SND = read('noise-sounds.js');
 if(!SRC || !HTML || !NZ || !SND){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html · noise.js · noise-sounds.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(SRC), NZC = strip(NZ);
@@ -39,9 +40,9 @@ say('── 1. 마크업');
   chk(iPlBtn > 0 && iNzK > iPlBtn, '.plBtn.nzK 규칙이 #myPlaylistBox .plBtn 보다 뒤(여백 우선순위 함정)');
   const iVol = HTML.indexOf('  #myPlaylistBox .plVol{'), iNzV = HTML.indexOf('#myPlNoise .plVol.nzVol{max-width:none;}');
   chk(iVol > 0 && iNzV > iVol, '백색소음 슬라이더는 62px 상한을 푼다(뒤에서)');
-  const sApp = HTMLC.indexOf('<script src="parts/app.js">'), sSnd = HTMLC.indexOf('<script src="parts/noise-sounds.js">'), sNz = HTMLC.indexOf('<script src="parts/noise.js">');
+  const sApp = HTMLC.indexOf('<script src="parts/app.js">'), sSnd = HTMLC.indexOf('<script src="parts/status/noise-sounds.js">'), sNz = HTMLC.indexOf('<script src="parts/status/noise.js">');
   chk(sApp > 0 && sSnd > sApp && sNz > sSnd, '<script> 순서 — app.js → noise-sounds.js → noise.js');
-  chk((HTMLC.match(/parts\/noise\.js/g) || []).length === 1 && (HTMLC.match(/parts\/noise-sounds\.js/g) || []).length === 1, '두 파일 모두 한 번씩만 실린다');
+  chk((HTMLC.match(/parts\/(?:status\/)?noise\.js/g) || []).length === 1 && (HTMLC.match(/parts\/(?:status\/)?noise-sounds\.js/g) || []).length === 1, '두 파일 모두 한 번씩만 실린다');
 }
 
 /* ── 실제 noise.js 를 돌린다(스텁 위) ── */
@@ -55,7 +56,7 @@ const ctx = {
   document:{ readyState:'complete', getElementById:()=>null, addEventListener(){}, activeElement:null },
   seats:[], findMySeat:()=> ctx.seats.find(s=>s.isMe) || null,
   seatState:(s)=> env.states.get(s) || 'idle',
-  _seatHidden:(s)=> env.hidden.has(s),
+  hiddenSeatsMod:{ _seatHidden:(s)=> env.hidden.has(s) },   // 🙈 hidden-seats.js 가 내놓는 이름(app.js 의 hiddenSeatsMod)
   Presence:{ setNoise:(k)=>env.sent.push(k) },
 };
 Object.defineProperty(ctx, 'officeMode', { get:()=>env.office, enumerable:true });

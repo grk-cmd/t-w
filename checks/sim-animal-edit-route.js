@@ -15,9 +15,10 @@ const path = require('path');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const APP = read('app.js'), ANI = read('animal.js'), MOD = read('animal-edit-route.js'), HTML = read('desk-companion-prototype.html');
-if(!APP || !ANI || !MOD || !HTML){ say('  ? 원본 못 찾음 — ' + [[APP, 'app.js'], [ANI, 'animal.js'], [MOD, 'animal-edit-route.js'], [HTML, 'desk-companion-prototype.html']].filter(x => !x[0]).map(x => x[1]).join(' ')); process.exit(2); }
+const APP = _joinRenderer(read('app.js') || ''), ANI = read('animal.js'), MOD = read('animal-edit-route.js'), HTML = read('desk-companion-prototype.html');
+if(!read('app.js') || !ANI || !MOD || !HTML){ say('  ? 원본 못 찾음 — ' + [[read('app.js'), 'app.js'], [ANI, 'animal.js'], [MOD, 'animal-edit-route.js'], [HTML, 'desk-companion-prototype.html']].filter(x => !x[0]).map(x => x[1]).join(' ')); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const A = strip(APP), N = strip(ANI);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;
@@ -45,7 +46,8 @@ chk(R.prevRoute(HUMAN, 1).step === 1, '사람 1단계 [이전] — 1 아래로 �
 
 say('── 2. gotoStep 머리를 실제로 돌린다');
 const gs = grab(APP, 'gotoStep');
-const head = gs.slice(0, gs.indexOf('crStep=n;'));
+/* 모듈로 옮긴 글을 되살리면 «crStep = n;» 으로 띄어 쓴다 — 두 모양을 다 찾는다 */
+const head = gs.slice(0, gs.search(/crStep ?= ?n;/));
 chk(head.length > 0 && !/동물 생성기에서 편집해요/.test(A), '옛 동물 토스트 «동물 생성기에서 편집해요 …» 가 없다');
 const mk = (route, def) => {
   const log = { toast: [], reopen: [] };
@@ -79,7 +81,7 @@ chk(!/openCreator\(\{(?![^}]*fromAnimal)[^}]*\}\)/.test(N), 'animal.js 의 openC
 chk(/window\.reopenAnimalCreator=function\(def, opts\)\{/.test(N) && /opts\.tab : 'blink'/.test(N), '재편집 탭 — opts.tab(처음 얼굴) · 없으면 감은눈');
 chk(/_editSeat = \(typeof creatorMode!=='undefined' && creatorMode && creatorMode\.kind==='seat'\) \? creatorMode\.seat : null;/.test(N), '좌석 편집 — creatorMode.seat 을 그대로 이어받는다');
 chk(/else saveAnimalSlot\(\);/.test(N) && /'다음 → 책상·좌석'/.test(N), '동물 생성기 마지막 탭 [다음 → 책상·좌석] = 저장 후 책상');
-const iMod = HTML.indexOf('<script src="parts/animal-edit-route.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
+const iMod = HTML.indexOf('<script src="parts/creator/animal-edit-route.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
 chk(iMod > 0 && iMod < iApp, 'html — animal-edit-route.js 가 app.js 보다 먼저');
 
 say('── 4. 동물 생성기 위 «책상 세팅» · «좌석 세팅»');
@@ -96,7 +98,7 @@ chk(S({ targetSlot: null, hasEmptySlot: true }, 'desk').enabled, '새 동물 · 
 chk(/<span data-stg="desk">책상 세팅<\/span><span data-stg="seat">좌석 세팅<\/span>/.test(ANI) && !/다음 단계에서 지원/.test(ANI), 'animal.js 머리 — 두 탭이 data-stg · 옛 «다음 단계에서 지원» 흐림 걷음');
 chk(/id="anpStages"/.test(ANI), '…탭 줄 id anpStages(사람 생성기 cr-steps 와 같은 모양)');
 const clickBlk = N.slice(N.indexOf("querySelectorAll('#anpStages span[data-stg]').forEach(sp=>{"), N.indexOf("const nextBtn=overlay.querySelector('#anpNextBtn');"));
-chk(/if\(!st\.enabled\)\{ if\(typeof toast==='function'\) toast\(st\.title\); return; \}/.test(clickBlk), '누를 수 없으면 저장하지 않고 이유만 알린다');
+chk(/if\(!st\.enabled\)\{ toast\(st\.title\); return; \}/.test(clickBlk), '누를 수 없으면 저장하지 않고 이유만 알린다');
 chk(/if\(!_blinkTouched && !\(_editSrcDef && _editSrcDef\.animalBlink\)\) _copyPaintSide\('face','blink'\);/.test(clickBlk), '감은눈을 안 거쳤으면 감은눈 탭처럼 표정을 가져온다(빈 감은눈 저장 방지)');
 chk(/saveAnimalSlot\(\{startStep: st\.step\}\);/.test(clickBlk), '…그 뒤 [다음 → 책상·좌석] 과 같은 saveAnimalSlot');
 chk((N.match(/fromAnimal:true, startStep:_startStep\}\)/g) || []).length === 2, '저장 뒤 openCreator 두 곳(슬롯 · 좌석)이 startStep 을 넘긴다');

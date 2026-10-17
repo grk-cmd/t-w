@@ -8,13 +8,17 @@
      고치기 전 이름표 아래 끝 921 / 화면 900 → 고친 뒤 898).
    [실행] app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const APP = read('app.js'), HTML = read('desk-companion-prototype.html');
-if(!APP || !HTML){ say('  ? 원본 못 찾음 — ' + (!APP ? 'app.js ' : '') + (!HTML ? 'desk-companion-prototype.html' : '')); process.exit(2); }
+/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
+   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+const APP0 = _joinRenderer(read('app.js')), MI = read('myhome-inbox.js'), HTML = read('desk-companion-prototype.html');
+if(!APP0 || !MI || !HTML){ say('  ? 원본 못 찾음 — ' + (!APP0 ? 'app.js ' : '') + (!MI ? 'myhome-inbox.js ' : '') + (!HTML ? 'desk-companion-prototype.html' : '')); process.exit(2); }
+const APP = APP0 + '\n' + MI;
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const A = strip(APP);
 const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0;

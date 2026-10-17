@@ -13,10 +13,12 @@ const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = ['desk-item-origin.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
+SRC['app.js'] = _joinRenderer(SRC['app.js']);
 const win = {};
 new Function('window', 'module', SRC['desk-item-origin.js'])(win, undefined);
 const D = win.DeskItemOrigin;
@@ -94,7 +96,7 @@ chk(/p\.userData\.adj\.scale = \(p\.userData\.autoScale!=null\) \? p\.userData\.
 say('── 5. html');
 {
   const H = SRC['desk-companion-prototype.html'];
-  const a = H.indexOf('<script src="parts/desk-item-origin.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
+  const a = H.indexOf('<script src="parts/creator/desk-item-origin.js"></script>'), b = H.indexOf('<script src="parts/app.js"></script>');
   chk(a > 0 && b > a, 'html 이 desk-item-origin.js 를 app.js 앞에 싣는다');
 }
 
