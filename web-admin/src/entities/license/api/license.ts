@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { maskKey, shouldFallback, useApi, useDb, withAudit, type Api, type Db } from '@/shared/api';
+import { maskKey, REPLICA_LAG_MS, useApi, useDb, viaApiOr, withAudit, type Api, type Db } from '@/shared/api';
 import { genLicenseKey, NOTE_MAX, type License } from '../model/license';
 import {
   LICENSE_QUERY_MAX,
@@ -9,7 +9,6 @@ import {
   statsFromApi,
   type ApiLicensePage,
   type ApiLicenseStats,
-  type LicenseFallback,
   type LicensePageQuery,
   type LicensePageView,
   type LicenseStatsView,
@@ -18,12 +17,6 @@ import {
 const LICENSES_KEY = ['licenses'];
 const STATS_KEY = ['licenseStats'];
 const PAGE_KEY = ['licensePage'];
-
-/**
- * API 읽기 사본은 RTDB 를 몇 초 늦게 따라온다. 쓰기 직후 바로 다시 읽으면 옛 값이 오므로 이만큼 기다렸다 다시 읽는다.
- * (사본은 1초마다 반영 — 넉넉히 잡는다.)
- */
-export const REPLICA_LAG_MS = 3000;
 
 // licenses 는 통째로 받는 노드다(요금 = 내려받은 바이트) — 구독하지 않고 캐시해 두었다가 쓰기 직후에만 다시 받는다.
 // 라이선스 화면은 API 로 읽고, 이 통째 읽기는 API 를 못 쓸 때(폴백) · 사용자 화면 · 일괄 발급의 이력 확인에만 쓴다.
@@ -50,21 +43,6 @@ export function useLoadAllLicenses() {
 }
 
 type LoadAll = () => Promise<Record<string, License>>;
-
-/** API 를 먼저, 닿지 못하면(또는 이 환경에 없으면) 예전 방식으로. 권한 · 요청 오류는 그대로 던진다. */
-async function viaApiOr<T>(
-  api: Api | null,
-  fromApi: (api: Api) => Promise<T>,
-  fromAll: (fallback: LicenseFallback) => Promise<T>,
-): Promise<T> {
-  if (!api) return fromAll('no-api');
-  try {
-    return await fromApi(api);
-  } catch (error) {
-    if (shouldFallback(error)) return fromAll('unavailable');
-    throw error;
-  }
-}
 
 export function fetchLicenseStats(api: Api | null, loadAll: LoadAll): Promise<LicenseStatsView> {
   return viaApiOr(

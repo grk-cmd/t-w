@@ -34,6 +34,30 @@ export function shouldFallback(error: unknown): boolean {
   return error instanceof ApiError && error.kind === 'unavailable';
 }
 
+/** 예전 방식으로 읽은 까닭 — 이 환경에 API 가 없음(dev · e2e) · API 에 닿지 못함. */
+export type ApiFallback = 'no-api' | 'unavailable';
+
+/**
+ * API 읽기 사본은 RTDB 를 몇 초 늦게 따라온다. 쓰기 직후 바로 다시 읽으면 옛 값이 오므로 이만큼 기다렸다 다시 읽는다.
+ * (사본은 1초마다 반영 — 넉넉히 잡는다.)
+ */
+export const REPLICA_LAG_MS = 3000;
+
+/** API 를 먼저, 닿지 못하면(또는 이 환경에 없으면) 예전 방식으로. 권한 · 요청 오류는 그대로 던진다. */
+export async function viaApiOr<T>(
+  api: Api | null,
+  fromApi: (api: Api) => Promise<T>,
+  fromFallback: (fallback: ApiFallback) => Promise<T>,
+): Promise<T> {
+  if (!api) return fromFallback('no-api');
+  try {
+    return await fromApi(api);
+  } catch (error) {
+    if (shouldFallback(error)) return fromFallback('unavailable');
+    throw error;
+  }
+}
+
 export function isApiAuthError(error: unknown): error is ApiError {
   return error instanceof ApiError && error.kind === 'auth';
 }
