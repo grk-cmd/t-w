@@ -8,14 +8,13 @@ import {
   USER_QUERY_MAX,
   type ApiUserPage,
   type ApiUserStats,
-  type UserFallback,
   type UserPageView,
   type UserQuery,
   type UserRow,
   type UserSource,
   type UserStatsView,
 } from '@/entities/user';
-import { shouldFallback, type Api, type ApiParams } from '@/shared/api';
+import { viaApiOr, type Api, type ApiParams } from '@/shared/api';
 
 // 사용자 목록 읽기 — API(읽기 사본)를 먼저, 닿지 못하면(또는 이 환경에 없으면) 예전 방식(RTDB 통째 → 화면에서 거름)으로.
 // 권한 · 요청 오류(401 · 403 · 400)는 넘어가지 않고 그대로 던진다(라이선스 화면과 같은 규칙).
@@ -28,20 +27,6 @@ export const CODES_MAX = 100;
 
 /** 전체 줄을 RTDB 에서(캐시가 있으면 캐시) — 예전 방식 · 폴백 전용. */
 export type LoadAllRows = () => Promise<UserRow[]>;
-
-async function viaApiOr<T>(
-  api: Api | null,
-  fromApi: (api: Api) => Promise<T>,
-  fromAll: (fallback: UserFallback) => Promise<T>,
-): Promise<T> {
-  if (!api) return fromAll('no-api');
-  try {
-    return await fromApi(api);
-  } catch (error) {
-    if (shouldFallback(error)) return fromAll('unavailable');
-    throw error;
-  }
-}
 
 /** 화면 조건 → 쿼리. 기본값(전체 · 빈 검색어 · 버전 없음)은 보내지 않는다. */
 export function queryParams(query: UserQuery): ApiParams {

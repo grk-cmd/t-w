@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery, useQueryClient, type QueryClient } from '@t
 import { listAccountSnaps } from '@/entities/account';
 import { listLicenses } from '@/entities/license';
 import { buildUserRows, listFriendCodes, type UserQuery, type UserRow } from '@/entities/user';
-import { useApi, useDb, type Db } from '@/shared/api';
+import { REPLICA_LAG_MS, useApi, useDb, type Db } from '@/shared/api';
 import {
   fetchAllUsers,
   fetchLicenseUsers,
@@ -15,8 +15,6 @@ import {
 
 /** API 로 읽은 화면들 — 쓰기 직후에는 사본이 따라올 때까지 기다렸다가 다시 읽는다. */
 const USERS_KEY = ['users'];
-/** API 읽기 사본은 RTDB 를 1초마다 따라온다 — 넉넉히 잡는다(라이선스 화면과 같다). */
-export const USERS_REPLICA_LAG_MS = 3000;
 
 // 예전 방식 · 폴백의 원본 셋. 사용자 화면 · 방 서버 화면 · 라이선스 화면이 같은 캐시를 나눠 쓴다(같은 키).
 const RTDB_KEYS = [['accountSnap'], ['friendCodes'], ['licenses']];
@@ -122,7 +120,7 @@ function readViaApi(client: QueryClient): boolean {
  * 다시 읽기. RTDB 통째 캐시 · 상세 창 칸은 바로 무효로(원본이라 바로 맞다).
  * 목록은 예전 방식으로 읽고 있었으면 바로, API 로 읽고 있었으면 사본이 따라올 때까지 기다렸다 다시 읽는다.
  */
-export function refreshUsers(client: QueryClient, lagMs: number = USERS_REPLICA_LAG_MS): void {
+export function refreshUsers(client: QueryClient, lagMs: number = REPLICA_LAG_MS): void {
   // 상세 창만 쓰는 칸(집중 · 시크릿룸 · 신고 수)도 함께 — 열려 있는 창은 바로 다시 읽는다.
   const keys = [...RTDB_KEYS, ['userName'], ['userFocus'], ['userSecretRoom'], ['reports']];
   for (const queryKey of keys) void client.invalidateQueries({ queryKey });
