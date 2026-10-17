@@ -48,7 +48,7 @@
 | #163 다시 얹기 | 검증 세션 | 내 정보 맨 아래 개인정보 처리방침 링크(시스템 기본 브라우저로) | `app/desk-companion-prototype.html`(내 정보 계정 칸 아래) · `room/room-entry.js`(링크 거는 줄) | — |
 | ~~토스트 누르면 복사(wAE)~~ 머지 #345 | 검증-도우미8 | 켜진 토스트를 누르면 글 복사 · «(복사했어요)» — 사용자 승인 | `shared/toast.js` · html | #345 |
 | ~~편집 중 마이홈 숨기기 되살리기~~ 머지 #346 | 검증-도우미9 | #342 위에 #258 의 숨기기만 다시(창 층 표는 그대로) · B-1016-4 · 사용자 결정 10-17 | `app/desk-companion-prototype.html`(편집 중 숨김 css) · 숨김 검사 | #346 |
-| 해결된 버그 제보 한 달 뒤 삭제 | 검증-도우미11 | 해결 시각(doneTs) · 자동 정리 함수 · 탈퇴 때 제보 삭제 · 처리방침(제보 · AWS 서울 · 게임패드 · 시행일) | `functions/`(새 함수 · account-delete.js) · `web-admin/src/entities/bug-board` · `features` · `hosting/privacy.html` · `firebase-database-rules.json` · `checks/` | — |
+| ~~해결된 버그 제보 한 달 뒤 삭제~~ 머지 #347 | 검증-도우미11 | 해결 시각(doneTs) · 자동 정리 함수 · 탈퇴 때 제보 삭제 · 처리방침(제보 · AWS 서울 · 게임패드 · 시행일) | `functions/`(새 함수 · account-delete.js) · `web-admin/src/entities/bug-board` · `features` · `hosting/privacy.html` · `firebase-database-rules.json` · `checks/` | #347 |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
@@ -91,6 +91,7 @@
 | 리깅 모자 날기 | 모자 쓰고 날면 화면 아래에서 맴돎 | wL2 | 대기 |
 
 ## 머지 완료(10-17 검증 세션)
+- 10-17 밤: #347 해결된 버그 제보 한 달 뒤 자동 삭제 · 탈퇴 때 제보 삭제 · 처리방침 보강 — **배포 필요(규칙 · 함수 3 · Hosting)**
 - 10-17 밤(검증-도우미8): #340 몸 크기 재기 한 곳 · #342 창 겹침(B-1016-4 · grk 탈퇴 안내 css 지킴) · #343 서버 주소 together-working.com(웹 관리자 Hosting 배포 필요) · #344 자동 검사 판정 한 벌(릴리스 버튼 구멍 막음) · #345 토스트 누르면 복사
 - 10-17 저녁: #339 이름표 · 경험치 바 끌어 좌석 바꾸기(grk #334 대신 — 날기 판단 한 줄을 캔버스와 같이 · 경험치 바는 deps 로 · 개정 350 · 351)
 - 10-17 저녁: #338 도메인끼리 직접 부르는 곳이 늘면 빨강(sim-domain-calls.js · 기준선 34곳)
