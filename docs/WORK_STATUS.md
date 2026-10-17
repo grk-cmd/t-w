@@ -26,7 +26,7 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
-| ci 릴리스 시작 고침 | 검증 세션 | release-start 가 검사를 직접 돌릴 때 typescript 를 안 깔아 빨강 2 — checks.yml 과 같은 설치 줄 | `.github/workflows/release-start.yml` | — |
+| ~~ci 릴리스 시작 고침~~ 머지 #356 | 검증 세션 | release-start 가 검사를 직접 돌릴 때 typescript 를 안 깔아 빨강 2 — checks.yml 과 같은 설치 줄 | `.github/workflows/release-start.yml` | — |
 | ~~#315~~ 머지 | 검증 세션 | 클릭 통과 판단을 한 곳으로(main #261 의 onUI 조건 포함) | `launcher/click-through-policy.js`(새) · `launcher/desktop-run.js` · `main.js` · 클릭 검사들 | #315 |
 | ~~w4 묶음~~ 머지 #326 | 검증-도우미1 | 구역 떼기 C · w4 다섯 줄(코드로 추가하기 · 책상 프리셋 · 책상 세팅 · 박힌 값 상수 · 좌석 우클릭 메뉴) | `creator/asset-import.js` · `desk-preset-store.js` · `desk-preset.js` · `desk-setup.js` · `asset-cards.js` · `room/seat-menu.js`(새) · `app.js` · html · smoke | — |
 | ~~wQ 묶음~~ 머지 #320 | 검증-도우미2 | 내 코드가 없으면 친구 · 부팅 · 마이홈 · 일정 · 방명록 · 방 만들기 요청을 안 보낸다 | `myhome/friends-sub.js` · `myhome/myhome-init.js` · 일정 · 방명록 · 방 만들기 창 | — |
