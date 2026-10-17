@@ -140,6 +140,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
     if(_gbUnsubClap){ try{ _gbUnsubClap(); }catch(_){} _gbUnsubClap=null; }
     _gbCurrentTarget = target;
     _entries = {}; _clap = {count:0,img:null};
+    if(!target) return;   // 내 코드가 없으면(관람에서 돌아옴) 방명록 · 박수를 구독하지 않는다
     if(window.firebaseAPI && firebaseAPI.subscribeGuestbook){
       _gbUnsubEntries = firebaseAPI.subscribeGuestbook(target, v=>{ _entries=v||{}; if(typeof _gbRenderList==='function') _gbRenderList(); });
       _gbUnsubClap    = firebaseAPI.subscribeClap(target, v=>{ _clap=v||{count:0,img:null}; if(typeof _gbRenderClap==='function') _gbRenderClap(); });

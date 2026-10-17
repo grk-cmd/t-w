@@ -136,6 +136,10 @@ say('── 4. 동작 — 토스트 · 저장 실패 문구');
   chk(log.timers.slice(2).every(t => t.ms === 1900), '  경계 — 0 · 음수 · 숫자 아닌 시간은 1.9초');
   api.toast('d', '');
   chk(!el.kids.length, '  빈 그림 주소는 img 를 안 만든다');
+  /* 문구 안 \n 은 줄바꿈 — .toast 규칙의 white-space:pre-line 이 맡는다(글은 textContent 그대로). 규칙에서 빼면 빨강인지도 같이 굴려 본다 */
+  const preLine = (h) => /\.toast\{[^}]*white-space:pre-line;/.test(h);
+  api.toast('첫 줄\n둘째 줄');
+  chk(preLine(HTML) && !preLine(HTML.replace(/(\.toast\{[^}]*)white-space:pre-line;/, '$1')) && el.textContent === '첫 줄\n둘째 줄' && !/innerHTML/.test(strip(MOD)), '  toast 는 pre-line — 문구 안 \\n 을 줄바꿈으로(글은 textContent 그대로 · innerHTML 안 씀)');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

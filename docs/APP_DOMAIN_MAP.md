@@ -73,6 +73,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `friends-sub.js` | 내 친구 목록 한 벌 — 상태(불러오는 중 · 못 불러옴 · 받음) · 목록 열 때 다시 걸기(동시 1개) · 판정용 한 번 읽기 · 이름 받기 · 열려 있는 동안만 접속 상태 | fb 0(포트 friends/ 를 deps 로) |
 | `myhome-visit.js` · `myhome-page.js` | 내 마이홈 데이터 · 친구 홈 구경 · 페이지 불러오기 · 그리기 | fb 6 · 2 |
 | `myhome-ui.js` · `myhome-edit.js` | 창 버튼 · 탭 · 프로필 레일 · 페이지 편집(자동저장 · BGM · 배경 · 테마 · 디자인 스튜디오) | fb 10 · 4 |
+| `myhome-preset.js` | 👑 디자인 프리셋 규칙(지금 디자인 ↔ 칸 · 저장본 씻기 · 그림 키 · 그림 올릴 이름) — 순수 함수 | — |
 | `myhome-sticker.js` · `myhome-sticker-layout.js` | 스티커 관리 창 · 배치 계산(그리기 `renderMyHomeStickers` 는 app.js) | — |
 | `myhome-inbox.js` · `friend-manage.js` · `add-friend.js` | 수령함 · 선물함 · 친구 목록 · 친구 관리 · 책상에서 친구 추가 | fb 13 · 10 |
 | `guestbook.js` · `scheduler.js` | 방명록 · 스케줄러 · 일정 알림 | fb 15 · 24 |

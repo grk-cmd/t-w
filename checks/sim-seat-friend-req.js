@@ -78,12 +78,12 @@ async function behave(src) {
 function wire(app, html) {
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
-  const A = strip(app);
+  const A = strip(app), M = strip(read('room/seat-menu.js') || '');   // 좌석 메뉴는 room/seat-menu.js(C 구역 떼기 w4)
   t(!/function _friendReqAsk\b|function _friendReqSend\b|let _friendReqArmed\b/.test(A), 'app.js 에 옮긴 선언이 안 남았다');
   const mk = (app.match(/const seatFriendReqMod = TwSeatFriendReq\.createSeatFriendReq\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   t(mk.split('\n').map((l) => l.trim()).join('|') === 'FRIEND_MAX: FRIEND_MAX,|_myHomeFriends: ()=>_myHomeFriends,|friendNet: ()=>window.firebaseAPI,|getDisplayName: (...a)=>getDisplayName(...a),|getMyUserId: (...a)=>getMyUserId(...a),|toast: (...a)=>toast(...a),',
     '만드는 줄(가드 없이) · deps 6 — 값 FRIEND_MAX · 읽는 함수 2(_myHomeFriends · friendNet 데이터 provider 고르기 한 줄) · 함수 3');
-  t(/seatFriendReqMod\._friendReqAsk\(uid, seat\)/.test(A) && !/[^.\w]_friendReqAsk\(/.test(A), '부르는 곳(좌석 메뉴)은 seatFriendReqMod._friendReqAsk');
+  t(/seatFriendReqMod\._friendReqAsk\(uid, seat\)/.test(M) && !/[^.\w]_friendReqAsk\(/.test(A + M), '부르는 곳(좌석 메뉴)은 seatFriendReqMod._friendReqAsk');
   const iM = html.indexOf('<script src="parts/myhome/seat-friend-req.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — myhome/seat-friend-req.js 를 app.js 보다 먼저 싣는다');
   return r;
