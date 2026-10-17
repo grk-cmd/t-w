@@ -922,7 +922,7 @@ function createSeat(){
     breathePhase:Math.random()*6.28, swayPhase:Math.random()*6.28, headPhase:Math.random()*6.28,
     smooth:0.0016+Math.random()*0.0012,
     bones:{spine:null,head:null,handL:null,handR:null,legL:null,legR:null,ear:[]}, boneRest:{}, hasRig:false,
-    blink:{pulses:[],nextAt:performance.now()+800+Math.random()*2200,singles:2+Math.floor(Math.random()*2),closed:false},
+    blink:TwBlinkTiming.createBlink(performance.now()),
     // 귀 까닥임(랜덤, 가끔) — ear 본이 있는 캐릭터에서만 동작. 상태(idle/focus 등)와 무관하게 독립적으로 작동.
     earNextAt: performance.now()+3000+Math.random()*5000, earFlickStart:null,
     // 머리 위 레벨/이름 이름표 — group에 직접 붙여서(rig 아님) 드래그/흔들기 중에도 책상처럼 제자리에 고정.
@@ -6822,6 +6822,8 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   CHAR_Z: CHAR_Z,
+  FrameBudget: FrameBudget,
+  blinkTiming: TwBlinkTiming,
   RIG_TURN: creatorPrevMod.RIG_TURN,
   _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
   _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
@@ -8887,12 +8889,6 @@ function animateRig(seat,now,state){
   }
 }
 
-function scheduleBlinks(bl,now){ if(now<bl.nextAt)return;
-  if(bl.singles>0){bl.pulses.push({start:now,dur:170});bl.singles--;bl.nextAt=now+1800+Math.random()*1900;}
-  else{bl.pulses.push({start:now,dur:160});bl.pulses.push({start:now+280,dur:160});bl.pulses.push({start:now+560,dur:160});
-    bl.singles=2+Math.floor(Math.random()*2);bl.nextAt=now+720+2400+Math.random()*1800;}}
-function eyeClose(bl,now){let c=0;for(let i=bl.pulses.length-1;i>=0;i--){const p=bl.pulses[i],e=now-p.start;
-  if(e<0)continue;if(e>p.dur){bl.pulses.splice(i,1);continue;}c=Math.max(c,Math.sin(e/p.dur*Math.PI));}return c;}
 function setClip(seat,state){ if(!seat.mixer)return; const a=seat.actions[state]||seat.actions.idle; if(!a||a===seat.current)return;
   if(seat.current)seat.current.fadeOut(0.3); a.reset().fadeIn(0.3).play(); seat.current=a;}
 
@@ -9139,7 +9135,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
        ⚠️ 여기보다 아래에서 bodyWrap.scale 을 다시 쓰는 코드가 생기면 이 곱셈이 지워진다. */
     tricksMod._bonkFrame(seat, now);
     /* blink */
-    scheduleBlinks(seat.blink,now); const ca=eyeClose(seat.blink,now);
+    TwBlinkTiming.scheduleBlinks(seat.blink,now); const ca=TwBlinkTiming.eyeClose(seat.blink,now);   // 깜빡임 시간표는 blink-timing.js
     if(seat.isPlaceholder){
       const ey=Math.max(0.06,seat.pose.eyeOpen*(1-ca*0.95));
       seat.placeholder.eyeL.scale.y=ey; seat.placeholder.eyeR.scale.y=ey;
@@ -9157,7 +9153,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
       const isRecovering = (state==='shaking') && drag && drag.seat===seat
         && drag.dizzy > 30 && _moveAgo > 300 && _moveAgo < 1300;
       const shakingHard = (state==='shaking') && recentlyFast && drag && drag.seat===seat;
-      const wantClosed=(state==='sleep')||(state==='pet')||(state==='dizzy')||shakingHard||isRecovering||(ca>0.5);
+      const wantClosed=(state==='sleep')||(state==='pet')||(state==='dizzy')||shakingHard||isRecovering||(ca>TwBlinkTiming.SHUT_AT);
       if(wantClosed!==seat.blink.closed){seat.blink.closed=wantClosed;matToneMod.setFaceMap(seat.faceMat, wantClosed?seat.blinkTex:seat.faceMapOrig);}
     }
     if(state==='sleep' && us!=='away' && us!=='meal' && now-(seat._lastZ||0)>900){seat._lastZ=now;floatersMod.spawnFloater('Z','#7fa8e0',seat);}
@@ -9796,6 +9792,7 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   anyInput: (...a)=>anyInput(...a),
   backToLauncher: (...a)=>backToLauncher(...a),
   camera: camera,
+  clickPolicy: TwClickThroughPolicy,
   desktopMode: desktopMode,
   drag: ()=>drag,
   focusGateSleep: ()=>focusGateSleep,

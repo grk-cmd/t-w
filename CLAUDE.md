@@ -14,10 +14,11 @@
 - 절대 커밋하지 않는 것: `oauth-config.js`(OAuth 시크릿), `.env*`, `.idea/`, `*.iml`, `dist/`.
 
 ## 작업 전 할 일 확인
-여럿이 같이 고치니 같은 일을 겹쳐 하지 않게 웹 관리자 📋 할 일(`adminTodos`)을 먼저 본다. 자세한 건 `/todo` 스킬.
-1. **확인** — 코드 작업을 시작하기 전에 `node scripts/todo.js find <낱말>` · `brief`. 비슷한 일이 진행 중이면 멈추고 사용자에게 묻는다.
-2. **등록** — 겹치지 않으면 `node scripts/todo.js start "<제목>" --type feat|bug`. 나온 id 를 PR 본문 `할 일:` 줄에.
-3. **완료** — PR 이 머지되면 `node scripts/todo.js done <id> --release <다음 버전>`.
+여럿이 같이 고치니 같은 일을 겹쳐 하지 않게 **현황판(`docs/WORK_STATUS.md`)을 맨 먼저**, 그다음 웹 관리자 📋 할 일(`adminTodos`)을 본다. 할 일은 `/todo` 스킬.
+1. **맨 먼저 — 받아서 지금 누가 하는지 보기**: `git pull` 로 `docs/WORK_STATUS.md` 를 받아 «진행 중» 표에서 내가 건드릴 파일이 겹치는지 본다. 겹치면 **시작하지 말고** 그 담당과 먼저 맞춘다. 안 겹치면 담당 · 건드리는 파일을 한 줄 적어 **그 파일만 main 에 바로 push**(PR 없음 · 유일한 예외). 머지는 한 사람(검증 담당)만 한다. 자세한 절차는 그 파일 맨 위.
+2. **확인** — 코드 작업을 시작하기 전에 `node scripts/todo.js find <낱말>` · `brief`. 비슷한 일이 진행 중이면 멈추고 사용자에게 묻는다.
+3. **등록** — 겹치지 않으면 `node scripts/todo.js start "<제목>" --type feat|bug`. 나온 id 를 PR 본문 `할 일:` 줄에.
+4. **완료** — PR 이 머지되면 `node scripts/todo.js done <id> --release <다음 버전>`.
 - 관리자 Google 계정으로 `gcloud auth login` 한 사람만 쓴다. 처음 한 번 `node scripts/todo.js setup`. 세션 시작 때 진행 중인 할 일이 자동으로 보인다(관리자가 아니면 조용히 안 나온다).
 
 ## 구조
@@ -85,6 +86,7 @@
 | `app/parts/myhome/myhome-visit.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 44번) — 👀 친구 홈 구경(`openFriendHomeView` · `closeFriendHomeView`). 내 마이홈 데이터 · 관람 중 uid 같은 공용 상태는 `myhome-state.js`. classic script(`window.TwMyHomeVisit`), 부르는 곳은 `mhVisitMod.이름` |
 | `app/parts/myhome/myhome-state.js` | 🏠 마이홈 공용 상태 — 내 마이홈 데이터(`_myHomeData` · 서버 모양 맞추기) · 불러옴 · 불러온 계정 · 관람 중 uid · 이름 창구 · 👁 미리보기 깃발 처음 값. 여러 모듈이 읽어 맨 아래에 둔다(room-state.js 와 같은 까닭). classic script(`window.TwMyHomeState`) 를 읽는 모듈 · app.js 보다 먼저 싣고, app.js 가 친구 홈 구경보다 먼저 `createMyHomeState(deps)` · 부르는 곳은 `mhStateMod.이름`. 바꾸는 곳은 페이지 불러오기 · 친구 홈 구경 · 편집(계정 바뀜)뿐 — `sim-myhome-state.js` |
 | `app/parts/myhome/myhome-hooks.js` | 🪝 마이홈 고리판 — 편집 묶음(`myhome-edit.js`) · 마이홈 창(`myhome-ui.js`)이 만들 때 거는 «💾 저장 · 🖼️ 배경 · 🎨 테마 · 🎵 BGM(새로 고침 · 재생 중 · 표시 · 창 닫기 · 창 자리) · 👑 스튜디오 닫기 · 🏷️ 닉네임 취소» 를 다른 파일(페이지 · 친구 목록 · 스티커 배치 · 친구 홈 구경 · 설정 패널 · 스티커사진 · 바탕화면)이 이름(`HOOK.이름`)으로 부르는 한 곳 — 서로의 파일을 몰라서 순환이 안 생긴다. 걸기 `mhHooks.on` · 부르기 `mhHooks.call`(안 걸렸으면 던진다 — 예전 window 고리와 같다) · 열 때만 걸리는 것은 `has` 로 본다. 표는 `sim-myhome-hooks.js`. classic script(`window.TwMyHomeHooks`)를 쓰는 모듈 · app.js 보다 먼저 싣고, 쓰는 모듈은 `const mhHooks = TwMyHomeHooks;` 로 받는다 |
+| `app/parts/myhome/myhome-preset.js` | 👑 디자인 프리셋 규칙 — «지금 디자인 → 칸»(`snapshot`) · «칸 → 지금 디자인»(`apply`) · 저장본 씻기(`normalize`) · 그림 키 · 그림 올릴 이름(`uploadSlot`)을 한 곳에(순수 함수 · DOM · firebase 없음). classic script(`window.TwMyHomePreset`)를 `myhome-edit.js` · app.js 보다 먼저 싣고, 편집 묶음이 `const mhPreset = TwMyHomePreset;` 로 받는다 — `sim-myhome-preset.js` |
 | `app/parts/character/code-crypto.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 45번) — 🔐 캐릭터 코드 암호화(`encryptCode` · `decryptCode` — base64 · 비밀번호로 키 만들기 · 이미지 줄이기). classic script(`window.TwCodeCrypto`), 부르는 곳은 `codeCryptoMod.이름` |
 | `app/parts/character/commission.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 45번) — 📦 커미션 zip 풀기 · 커미션 암호화 · 💾 저장한 책상 · 아이템(`savedDesks` · `savedItems` — localStorage). `customItems` 는 app.js. classic script(`window.TwCommission`), 부르는 곳은 `commissionMod.이름` |
 | `app/parts/focus/exp-bar.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 45번) — ⭐ 경험치 바 — 캐릭터 발밑 레벨 진행도 게이지(내 좌석 · 상대 좌석 공용). classic script(`window.TwExpBar`), 부르는 곳은 `expBarMod.이름` |
@@ -141,6 +143,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 - 새 로직은 `firebase-init.js` · `app.js` 에 쌓지 말고 도메인 모듈 파일로 만든다(위 구조 표). 모듈마다 검사(`sim-*.js`)를 붙인다. 두 파일은 줄 상한 · 새 구역 머리를 `sim-app-size` 가 막는다 — 옮겨서 줄었으면 같은 PR 에서 `node checks/sim-app-size.js --write-baseline`(지도 `docs/APP_FSD_MAP.md`).
 - UI 를 고치거나 새로 만들 때는 `docs/design-system/` (원칙 · 토큰 · 부품 지침)을 따른다. 그 폴더를 고쳤으면 `npm run design:build` 로 `hosting/design/` 도 다시 만든다.
 - 주석은 한국어로, **코드만 봐서는 모를 이유**만 짧게. 변경 이력 · 날짜 · 실측치는 커밋 메시지와 PR 에 적고, 이모지 꼬리표는 쓰지 않는다. 할 일은 `TODO:`.
+  - 옛 코드엔 이 규칙 전에 쓴 **이야기형 주석**(제보 사연 · «개정 n 에서» · 날짜 · 실측치 · 코드를 말로 다시 쓴 줄)이 많다. 한 번에 걷는 PR 은 만들지 않고, **손대는 구역만 같은 PR 에서** 줄인다 — «왜 · 다시 넣지 말 것 · ⚠️ 함정» 은 1~3줄로 남기고, 나머지는 걷는다(사연은 커밋에 이미 있다). 동작 코드는 건드리지 않는다.
 - **함수 · 모듈 기본 원칙**
   - 필요한 값(파라미터 · 내 코드 · 준비 상태)이 없으면 함수 맨 앞에서 얼리 리턴. 흐름에서 모듈로 뺄 때 그 흐름이 보장하던 값도 입구에서 확인한다. 추가 장치(래퍼 · 경로 검사 함수)는 만들지 않는다. 예: 친구 구독 `if(!myId) return`.
   - 한 함수 · 한 모듈 = 한 책임. 계산 · 화면 · 저장을 섞지 않고, 순수 계산은 따로 떼어 검사한다.

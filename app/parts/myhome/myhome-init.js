@@ -46,9 +46,30 @@ function _warnOwnerWriteDenied(what, err){
   toast('🔑 이 PC의 로그인이 풀려 있어 변경 내용이 저장되지 않아요 — 앱을 다시 시작하면 로그인 화면이 나와요');
 }
 
+/* 📢 공용 공지 구독 — 내 코드가 없어도 건다(전체 대상이라 uid 가 필요 없다). */
+function _subscribeInboxBroadcast(){
+  // 📢 공용 공지 구독 — 전체 대상 공지/업데이트 (개인 inbox와 합쳐서 표시)
+  if(firebaseAPI.subscribeInboxBroadcast){
+    firebaseAPI.subscribeInboxBroadcast(bc=>{
+      const prevIds = Object.keys(_inboxBroadcast()||{});
+      setInboxBroadcast(bc || {});
+      if(typeof inboxMod().renderInbox === 'function') inboxMod().renderInbox();
+      mhScheduler.refreshBellBadge();
+      if(mhScheduler.isBellOpen()) mhScheduler.renderBellList();
+      Object.keys(_inboxBroadcast()).forEach(id=>{
+        if(prevIds.includes(id)) return;
+        const m = _inboxBroadcast()[id];
+        const lbl = m.tag==='update' ? '🆕 업데이트' : m.tag==='reward' ? '📩 우편' : '📢 공지';
+        toast(`📩 ${lbl}: ${m.title||''}`);
+      });
+    });
+  }
+}
+
 async function initMyHome(){
   _waitForFirebaseAPI(async ()=>{
     const myId = getMyUserId();
+    if(!myId){ _subscribeInboxBroadcast(); return; }   // 내 코드가 없으면 내 경로(presence · 프로필 · 친구 · 요청 · 우편)는 걸지 않는다 — 공용 공지만
     try{
       /* 👥 친구 목록 구독은 맨 먼저 — 아래 쓰기 · await 가 거부되거나 늦어도 목록은 온다(아래 «벽» 주석의 원칙).
          실패하면 friendsSub 가 간격을 늘려 가며 다시 건다. 상태가 바뀌면 친구 탭을 다시 그린다(«불러오는 중» · «못 불러옴»). */
@@ -128,22 +149,7 @@ async function initMyHome(){
           });
         });
       }
-      // 📢 공용 공지 구독 — 전체 대상 공지/업데이트 (개인 inbox와 합쳐서 표시)
-      if(firebaseAPI.subscribeInboxBroadcast){
-        firebaseAPI.subscribeInboxBroadcast(bc=>{
-          const prevIds = Object.keys(_inboxBroadcast()||{});
-          setInboxBroadcast(bc || {});
-          if(typeof inboxMod().renderInbox === 'function') inboxMod().renderInbox();
-          mhScheduler.refreshBellBadge();
-          if(mhScheduler.isBellOpen()) mhScheduler.renderBellList();
-          Object.keys(_inboxBroadcast()).forEach(id=>{
-            if(prevIds.includes(id)) return;
-            const m = _inboxBroadcast()[id];
-            const lbl = m.tag==='update' ? '🆕 업데이트' : m.tag==='reward' ? '📩 우편' : '📢 공지';
-            toast(`📩 ${lbl}: ${m.title||''}`);
-          });
-        });
-      }
+      _subscribeInboxBroadcast();
       setMyHomeReady(true);
       const codeEl=document.getElementById('mhMyCode');
       if(codeEl){ const c=localStorage.getItem(MY_FRIEND_CODE_KEY); if(c) codeEl.textContent=c; }

@@ -382,7 +382,7 @@ function renderGiftBox(listEl){
   listEl.innerHTML = '<div class="mh-ibx-empty">불러오는 중…</div>';
   (async ()=>{
     let gifts = {};
-    try{ if(window.firebaseAPI && firebaseAPI.getMallangGifts) gifts = await firebaseAPI.getMallangGifts(getMyUserId()) || {}; }catch(_){}
+    try{ if(getMyUserId() && window.firebaseAPI && firebaseAPI.getMallangGifts) gifts = await firebaseAPI.getMallangGifts(getMyUserId()) || {}; }catch(_){}
     _giftBoxPaint(listEl, gifts);
   })();
 }

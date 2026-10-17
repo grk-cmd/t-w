@@ -25,7 +25,7 @@ function build(mod, o) {
   const m = api.createUserName({
     Presence: { active: () => env.active, setName: (n) => env.plates.push(n) },
     focusLevelMod: () => ({ getFocusLevel: () => 7, myStarProfileOut: () => 'c3' }),
-    getDisplayName: () => env.name || '나', getMyUserId: () => 'u1', getUserName: () => env.name,
+    getDisplayName: () => env.name || '나', getMyUserId: () => ('uid' in o ? o.uid : 'u1'), getUserName: () => env.name,
     isAdmin: () => env.admin, setUserName: (v) => { env.name = v; }, toast: (t) => env.toasts.push(t),
   });
   return { m, env, win, nameEl };
@@ -44,6 +44,7 @@ function judge(mod, html, app) {
     b = build(mod, { name: '운영자' }); b.m.commitUserName('운영자'); r.same = b.env.toasts[0] === '이름이 저장됐어요';
     b = build(mod, { active: false }); b.m.commitUserName('아무개'); r.noRoom = b.env.plates.length === 0 && b.env.name === '아무개';
     r.win = typeof b.win.commitUserName === 'function';
+    b = build(mod, { uid: null }); b.m.commitUserName('아무개'); r.noUid = b.env.profiles.length === 0 && b.env.name === '아무개' && b.env.toasts[0] === '이름이 저장됐어요';
   } catch (e) { r.err = String(e && e.message || e); }
   const order = [...html.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map(m => m[1]);
   const at = order.indexOf('account/user-name.js');
@@ -63,6 +64,7 @@ chk(R.empty, '비우면 «나»');
 chk(R.staff && R.admin && R.same, '운영진처럼 보이는 이름은 막는다 — 관리자 · 이미 그 이름인 사람은 예외(name-guard.js)');
 chk(R.noRoom, '방에 없으면 이름표는 안 건드린다');
 chk(R.win, 'window.commitUserName 도 예전처럼 건다');
+chk(R.noUid, '내 코드 없음 — 프로필 요청 0 · 이름은 이 기기에 저장 · «이름이 저장됐어요» 그대로');
 const REJ = (async () => {
   /* 로그인 전 기기는 규칙이 프로필 쓰기를 거부한다 — 그 거부가 «잡히지 않은 오류» 로 남지 않아야 한다(async 라 try 로는 못 받는다) */
   const caught = []; const onU = (e) => caught.push(e);
@@ -80,6 +82,7 @@ chk(R.callers >= 3 && R.old === 0, '부르는 곳은 userNameMod.이름(' + R.ca
 say('── 3. 일부러 깨 보기');
 chk(!judge(MOD.replace('.slice(0, USER_NAME_MAX)', ''), HTML, APP).cut, '자르기를 빼면 빨강');
 chk(!judge(MOD.replace("  if(isStaffName(v) && v !== getUserName().trim() && !(typeof isAdmin() !== 'undefined' && isAdmin())){", '  if(false){'), HTML, APP).staff, '운영진 이름 막기를 빼면 빨강');
+chk(!judge(MOD.replace('if(getMyUserId() && window.firebaseAPI && firebaseAPI.setMyProfile)', 'if(window.firebaseAPI && firebaseAPI.setMyProfile)'), HTML, APP).noUid, '내 코드 확인을 빼면 빨강');
 chk(!judge(MOD, HTML.replace('<script src="parts/account/user-name.js"></script>', ''), APP).order, 'html 줄이 빠지면 빨강');
 chk(judge(MOD, HTML, APP + '\nprogSettingsMod.commitUserName("x");\n').old > 0, '설정 창 이름으로 부르면 빨강');
 
