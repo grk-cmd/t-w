@@ -3,6 +3,9 @@
 # 그래서 `npm ci`(네이티브 모듈 컴파일)를 건너뛴다. 빠르고, 리눅스에서 네이티브가 안 붙어도 상관없다.
 # 예외: sim-global-names.js 는 코드를 범위대로 읽으려고 typescript 파서를 쓴다 — 그것 하나만 깐다.
 # run.js 종료코드: 빨강 · 시간초과 · 정본(CHECKS.md 해시) 불일치 → 1. «원본없음» 은 실패가 아니다.
+# «바뀐 폴더» job 이 먼저 보고, 볼 것이 없는 검사는 건너뛴다(Skipped) — 문서만 바뀐 PR 에 5분짜리 검사를 돌리지 않게.
+#   워크플로째 paths-ignore 로 빼지 않는 까닭: 실행 자체가 안 생기면 필수 검사로 걸었을 때 «대기» 로 영원히 남는다. job 의 if 로 건너뛰면 Skipped(통과로 침).
+#   release-start 는 main 의 이 실행에서 «npm run check» job 이 실제로 success 일 때만 검사를 건너뛴다(Skipped 면 직접 돌림).
 
 name: checks
 
@@ -15,13 +18,16 @@ on:
 permissions:
   contents: read
 
+# 같은 PR 에 push 가 몰리면 앞 실행은 취소한다(main push 는 하나하나 끝까지 — release-start 가 그 결과를 본다)
+concurrency:
+  group: checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  # 무엇이 바뀌었나 — 문서만 바뀌면 앱 검사를, 웹 관리자가 안 바뀌면 웹 관리자 테스트를 건너뛴다(기다림 줄이기).
-  # ⚠️ 나중에 «필수 검사(branch protection)» 로 걸면 건너뛴 PR 이 대기로 남는다 — 그때는 늘 도는 요약 job 을 같이 둔다.
   changes:
-    name: 바뀐 곳 보기
+    name: 바뀐 폴더
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 5
     outputs:
       app: ${{ steps.f.outputs.app }}
       admin: ${{ steps.f.outputs.admin }}
@@ -32,22 +38,33 @@ jobs:
       - id: f
         env:
           EVENT: ${{ github.event_name }}
-          BASE: ${{ github.event.pull_request.base.sha }}
-          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
-          if [ "$EVENT" = "workflow_dispatch" ]; then echo "app=true" >> "$GITHUB_OUTPUT"; echo "admin=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          if [ "$EVENT" = "pull_request" ]; then FROM="$BASE"; else FROM="$BEFORE"; fi
-          # 처음 push · 지난 커밋을 못 찾으면 둘 다 돈다(놓치지 않는 쪽)
-          if [ -z "$FROM" ] || ! git cat-file -e "$FROM" 2>/dev/null; then echo "app=true" >> "$GITHUB_OUTPUT"; echo "admin=true" >> "$GITHUB_OUTPUT"; exit 0; fi
-          FILES=$(git diff --name-only "$FROM" HEAD)
-          echo "바뀐 파일:"; echo "$FILES"
-          # 앱 검사를 건너뛰어도 되는 파일: 문서(디자인 시스템 제외 — 검사가 읽음) · 루트 .md · 웹 관리자 · PR 틀
-          APP=$(echo "$FILES" | grep -vP '^(docs/(?!design-system/)|web-admin/|[^/]+\.md$|\.github/pull_request_template\.md$)' | grep -c . || true)
-          ADMIN=$(echo "$FILES" | grep -cE '^(web-admin/|\.github/workflows/checks\.yml$)' || true)
-          [ "$(echo "$FILES" | grep -c '^\.github/workflows/checks\.yml$' || true)" -gt 0 ] && APP=1
-          echo "app=$([ "$APP" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "admin=$([ "$ADMIN" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "앱 검사 대상 $APP 개 · 웹 관리자 $ADMIN 개"
+          set -euo pipefail
+          all(){ { echo app=true; echo admin=true; } >> "$GITHUB_OUTPUT"; echo "$1 — 전부 돈다"; exit 0; }
+          # 수동 실행 · 비교 대상 없음(첫 push · 강제 push 로 사라진 커밋)은 전부
+          [ "$EVENT" = workflow_dispatch ] && all '수동 실행'
+          { [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; } && all '비교할 커밋 없음'
+          files=$(git diff --name-only "$BASE" HEAD)
+          printf '%s\n' "$files"
+          # 워크플로 · 저장소 설정이 바뀌면 전부
+          grep -qE '^\.github/' <<< "$files" && all '.github 바뀜'
+          # 웹 관리자 — 자기 폴더 · 규칙 파일(테스트가 읽는다)
+          if grep -qE '^(web-admin/|firebase-database-rules\.json$)' <<< "$files"; then echo admin=true >> "$GITHUB_OUTPUT"; else echo admin=false >> "$GITHUB_OUTPUT"; fi
+          # 앱 검사 — 아래 «건너뛰어도 되는 파일» 만 바뀌었으면 false.
+          #   web-admin/ (run.js 가 스테이징에서 뺀다) · 문서(.md) 중 검사가 읽지 않는 것.
+          #   검사가 읽는 문서: checks/ 안(CHECKS.md 정본) · docs/design-system/ · 검사 코드에 따옴표로 이름이 나오는 것(예: 'docs/ERROR_CODES.md')
+          app=false
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in web-admin/*) continue ;; esac
+            if [[ $f == *.md && $f != checks/* && $f != docs/design-system/* ]]; then
+              b=$(basename "$f")
+              if ! grep -qsF -e "'$f'" -e "\"$f\"" -e "'$b'" -e "\"$b\"" checks/*.js checks/*.py; then continue; fi
+            fi
+            echo "앱 검사가 볼 파일: $f"; app=true; break
+          done <<< "$files"
+          echo "app=$app" >> "$GITHUB_OUTPUT"
 
   check:
     name: npm run check

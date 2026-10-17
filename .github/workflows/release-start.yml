@@ -57,15 +57,22 @@ jobs:
         run: |
           SHA=$(git rev-parse HEAD)
           # 조회가 실패해도 멈추지 않는다 — 그때는 아래에서 검사를 직접 돌린다.
-          RUN=$(gh api "repos/${{ github.repository }}/actions/workflows/checks.yml/runs?head_sha=$SHA&status=success&per_page=1" \
-                  -q '.workflow_runs[0].html_url // empty' 2>/dev/null || true)
+          # 실행이 success 여도 «npm run check» job 이 Skipped(문서만 바뀐 커밋)면 검사를 안 한 것이다 — job 결론까지 본다
+          RID=$(gh api "repos/${{ github.repository }}/actions/workflows/checks.yml/runs?head_sha=$SHA&status=success&per_page=1" \
+                  -q '.workflow_runs[0].id // empty' 2>/dev/null || true)
+          RUN=""
+          if [ -n "$RID" ]; then
+            JOB=$(gh api "repos/${{ github.repository }}/actions/runs/$RID/jobs" \
+                    -q '[.jobs[] | select(.name == "npm run check")][0].conclusion // empty' 2>/dev/null || true)
+            [ "$JOB" = success ] && RUN="https://github.com/${{ github.repository }}/actions/runs/$RID"
+          fi
           if [ -n "$RUN" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "이 커밋(${SHA::7})의 checks 가 이미 통과했다 — 검사를 건너뛴다: $RUN"
             echo "검사: 건너뜀 — main ${SHA::7} 의 checks 통과 기록 $RUN" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "이 커밋(${SHA::7})의 checks 통과 기록이 없다(도는 중 · 실패 · 조회 실패) — 여기서 검사를 돌린다"
+            echo "이 커밋(${SHA::7})의 «npm run check» 통과 기록이 없다(도는 중 · 실패 · 건너뜀 · 조회 실패) — 여기서 검사를 돌린다"
           fi
 
       - name: 검사 (npm run check)
