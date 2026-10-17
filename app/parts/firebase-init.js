@@ -47,6 +47,7 @@
   import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
   import { createBroadcastSync } from "./myhome/broadcast-cache.js";
   import { createVisitPing } from "./shared/visit-ping.js";
+  import { createRealtimeLink } from "./realtime/realtime-link.js";
   import { createRoomServerNet } from "./room/room-server-net.js";
   import { createRoomServerGate } from "./room/room-server-gate.js";
   import { createApiPublicReads } from "./shared/api-public-reads.js";
@@ -444,6 +445,7 @@
     storage: _lsOrNull(),
   });
   const _roomServer = createRoomServerNet({
+    createLink: createRealtimeLink,   // 연결 공통부(realtime/realtime-link.js)
     WebSocket: (typeof WebSocket === 'function') ? WebSocket : null,
     enabled: () => !!_rsUrl,
     url: () => _rsUrl,

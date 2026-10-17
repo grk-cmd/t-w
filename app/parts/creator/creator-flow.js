@@ -49,7 +49,6 @@ const isCommissionEditing = deps.isCommissionEditing;
 const isDeskSeatOnly = deps.isDeskSeatOnly;
 const isDrawStep = deps.isDrawStep;
 const redoB = deps.redoB;
-const renderCrItems = deps.renderCrItems;
 const renderLauncher = deps.renderLauncher;
 const reopenAnimalFromCreator = deps.reopenAnimalFromCreator;
 const setStampMode = deps.setStampMode;
@@ -61,6 +60,10 @@ const setCamPitch = deps.setCamPitch;   // 쓰는 함수
 const setCamYaw = deps.setCamYaw;   // 쓰는 함수
 const setCrStep = deps.setCrStep;   // 쓰는 함수
 const setCreatorOpen = deps.setCreatorOpen;   // 쓰는 함수
+/* 5단계(책상 · 아이템)에 들어올 때 부를 곳 — 책상 세팅 모듈이 저장(creator-save) → 이 모듈을 거쳐 순환이 되지 않게 deps 대신 구독으로 받는다 */
+const _onItemsStep = [];
+function onItemsStep(fn){ _onItemsStep.push(fn); }
+
 function gotoStep(n){
   // 1~4단계(피부/표정/감은눈/색상)는 사람용 — 동물은 동물 생성기로, 커미션은 막고 책상(5)에 머문다
   if(_editRoute){
@@ -113,7 +116,7 @@ function gotoStep(n){
   document.getElementById('crPrev').style.display=n>1?'block':'none';
   document.getElementById('crNext').style.display=n<6?'block':'none';
   document.getElementById('crDone').style.display=n===6?'block':'none';
-  if(n===5){ renderCrItems(); }
+  if(n===5){ for(const fn of _onItemsStep) fn(); }   // 아이템 목록 다시 그리기 — app.js 가 책상 세팅(desk-setup.js)을 잇는다
   if(n===6){ document.getElementById('crScale').value=cXform().s;
     document.getElementById('crZ').value=clampCharY(cXform().y); document.getElementById('crRot').value=cXform().rot; }   // 🧍 crZ = 높이 슬라이더
   const deskView=(n>=5);
@@ -145,6 +148,7 @@ document.getElementById('creatorClose').addEventListener('click',closeCreator);
 return {
   closeCreator,
   gotoStep,
+  onItemsStep,
 };
 }
 

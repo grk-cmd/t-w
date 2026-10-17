@@ -626,6 +626,7 @@ function _refreshSecretRoomUI(){
   if(_mySecretRoomCode !== null){ apply(_mySecretRoomCode); return; }
   try{
     if(!(window.firebaseAPI && firebaseAPI.getMySecretRoom)) return;
+    if(!getMyUserId()) return;   // 내 코드가 없으면 시크릿룸을 안 읽는다(읽어도 거부 → 칸은 안 보임 · 같은 화면)
     Promise.resolve(firebaseAPI.getMySecretRoom(getMyUserId())).then(c=>{
       _mySecretRoomCode = c || '';
       apply(_mySecretRoomCode);
@@ -1060,8 +1061,9 @@ async function doJoinRandomRoom(){
   if(_srv.length){ startRoom(_srv[0]); return; }
   const none = ()=>toast('지금은 참여할 수 있는 방이 없어요. 방을 만들어 보세요 🎲');
   let cands = null;
-  try{ cands = await firebaseAPI.findRandomRooms(12); }catch(_){}
-  if(cands === null){ toast('방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요'); return; }
+  let listErr = null;
+  try{ cands = await firebaseAPI.findRandomRooms(12); }catch(e){ listErr = e; }
+  if(cands === null){ TwErrorCodes.notify('E-ROOM-01', listErr); return; }
   if(!cands.length){ none(); return; }
   let tries = 0;
   for(const code of cands){
@@ -1101,12 +1103,13 @@ async function doHopRandomRoom(){
     if(_srv.length){
       await doLeaveRoom({ wipeChat: true });
       await startRoom(_srv[0]);
-      if(!Presence.active()) toast('방을 옮기지 못했어요 — 참여를 다시 눌러주세요');
+      if(!Presence.active()) TwErrorCodes.notify('E-ROOM-02');
       return;
     }
     let cands = null;
-    try{ cands = await firebaseAPI.findRandomRooms(12); }catch(_){}
-    if(cands === null){ toast('방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요'); return; }
+    let listErr = null;
+    try{ cands = await firebaseAPI.findRandomRooms(12); }catch(e){ listErr = e; }
+    if(cands === null){ TwErrorCodes.notify('E-ROOM-01', listErr); return; }
     cands = cands.filter(c => c !== cur);
     /* doJoinRandomRoom 과 같은 후보 검증 — 인덱스는 최대 90초 낡을 수 있다.
        cnt===0(유령 방)을 건너뛰는 이유도 같다: 거기로 가면 '빈 방 승격'이 돌아 새 방을 여는 셈이라
@@ -1127,7 +1130,7 @@ async function doHopRandomRoom(){
     await startRoom(target);
     /* startRoom 이 조용히 되돌아가는 경로가 여럿 있다(정원 재확인·버전 게이트 등).
        그 경우 방 밖에 남으므로, 나갔다는 사실만이라도 분명히 알려준다. */
-    if(!Presence.active()) toast('방을 옮기지 못했어요 — 참여를 다시 눌러주세요');
+    if(!Presence.active()) TwErrorCodes.notify('E-ROOM-02');
   } finally {
     _hoppingRoom = false; _setHopBusy(false);
     refreshInviteUI();

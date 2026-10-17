@@ -23,6 +23,13 @@ const paintStrokeMod = deps.paintStrokeMod;
 const partPaintMod = deps.partPaintMod;
 const pushHistory = deps.pushHistory;
 const toast = deps.toast;
+/* 도장 상수 */
+const STAMP_FIRST_W = 0.4;                  // 처음 불러온 도장 너비 = 미리보기 짧은 변 × 이 값
+const STAMP_GRID = 28;                      // 찍을 때 화면 격자 N×N(촘촘할수록 굽은 면을 잘 따라간다 · 레이 (N+1)²)
+const STAMP_SKIP_RATIO = 0.9, STAMP_WARN_RATIO = 0.2;   // 얼굴 밖 격자점 비율 — 이 이상이면 안 찍음 / 넘으면 «잘렸어요»
+const STAMP_SEAM_CAP = 0.35, STAMP_SEAM_MUL = 3, STAMP_SEAM_BASE = 0.03;   // 이음새 허용 = min(CAP, 3D 거리 × UV 배율 × MUL + BASE)
+const STAMP_ROT_SNAP_DEG = 15;              // Shift 회전 단위
+const STAMP_MIN_PX = 20;                    // 모서리로 줄일 때 최소 크기(px)
 /* === 이미지 도장 (절충안: 떠 있는 미리보기 → Z 또는 ✓로 확정 박기) =================
    흐름:
    1) 이미지 불러오면 캔버스 위에 떠 있는 오버레이로 표시. 4코너 핸들로 비례 크기, 회전 손잡이로 회전, 본체 드래그로 이동.
@@ -86,7 +93,7 @@ function loadStampFromFile(file){
     if(!crState.stampDirty){
       const cv=document.getElementById('creatorPreview'), r2=cv.getBoundingClientRect();
       crState.stampPlace.aspect = im.naturalWidth/Math.max(1,im.naturalHeight);
-      const baseW = Math.min(r2.width, r2.height) * 0.4;
+      const baseW = Math.min(r2.width, r2.height) * STAMP_FIRST_W;
       crState.stampPlace.w = baseW; crState.stampPlace.h = baseW / crState.stampPlace.aspect;
       crState.stampPlace.cx = r2.width/2; crState.stampPlace.cy = r2.height/2; crState.stampPlace.rot=0;
     } else {
@@ -105,7 +112,7 @@ function resetStampPlacement(alsoPos){
   if(!document.getElementById('creatorPreview')) return;   // 입구 전제 — 미리보기 캔버스
   const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();
   crState.stampPlace.aspect = crState.stampImg.naturalWidth/Math.max(1,crState.stampImg.naturalHeight);
-  const baseW = Math.min(r.width, r.height) * 0.4;
+  const baseW = Math.min(r.width, r.height) * STAMP_FIRST_W;
   crState.stampPlace.w = baseW; crState.stampPlace.h = baseW / crState.stampPlace.aspect;
   crState.stampPlace.rot = 0;
   // ★ 값은 loadStampFromFile 의 첫 배치와 같아야 한다 — "처음 불러온 상태"가 이 버튼의 약속이다.
@@ -130,7 +137,7 @@ function commitStamp(){
   }
   // N×N 격자
   /* 격자 28 — 굽은 면(턱 밑)을 따라가고 진짜 이음새에서 버려지는 칸이 작다(레이 841회, 대칭이면 두 배). 이음새는 3D 거리 대비로 판정(_uvFar). */
-  const N=28;
+  const N=STAMP_GRID;
   /* 얼굴은 리깅이라 기본 레이캐스트는 바인드 포즈를 맞힌다 — 지금 자세로 맞히는 _picIntersect(앞면만)를 쓴다. */
   function _stampFaceHit(){
     const c=partPaintMod._picIntersect(paintStrokeMod._pray.ray, [crState.cBase.face]);
@@ -205,11 +212,11 @@ function commitStamp(){
     let miss=0; for(let k=0;k<uvs.length;k++) if(!uvs[k]) miss++;
     const ratio = miss / Math.max(1, uvs.length);
     if(ratio > 0.02) console.log('[도장] 얼굴 밖 격자점', miss, '/', uvs.length, '(', Math.round(ratio*100), '% )');
-    if(ratio >= 0.9){
+    if(ratio >= STAMP_SKIP_RATIO){
       toast('도장이 캐릭터 밖에 있어요 — 얼굴 위로 옮겨주세요');
       return;   // 거의 다 놓쳤으면 찍지 않는다(엉뚱한 자국만 남는 걸 방지)
     }
-    if(ratio > 0.2) toast('도장 일부가 얼굴을 벗어나 잘렸어요 ('+Math.round((1-ratio)*100)+'%만 찍힘)');
+    if(ratio > STAMP_WARN_RATIO) toast('도장 일부가 얼굴을 벗어나 잘렸어요 ('+Math.round((1-ratio)*100)+'%만 찍힘)');
   }
   const dstCtx=actC().getContext('2d');
   /* 도장은 오프스크린에 다 조립한 뒤 얼굴 캔버스에 source-over 로 딱 한 번 얹는다 — 삼각형마다 바로 그리면 겹친 띠에서 알파가 두 번 쌓여
@@ -222,11 +229,11 @@ function commitStamp(){
   // 셀별로 삼각형 2개씩 그려서 매핑. 누락 셀은 폐기. 클립 영역을 셀 중심에서 외측으로 살짝 부풀려 인접 셀과 겹치게 → 흰선 제거.
   /* 실루엣 가장자리를 스치는 광선은 옆면 · 이음새에 맞아 UV 가 텍스처 반대편으로 벌어질 수 있다 — 그런 삼각형은 버린다(늘어난 그림이 엉뚱한 부위에 겹쳐 찍힘). */
   const UV_EDGE_MAX = 0.15;
-  /* 이음새 판정 — 둘 다 맞힌 점이면 허용치 = 3D 거리 × UV 배율 × 3 + 0.03(천장 0.35), 외삽한 점이면 0.15. 비스듬한 턱 밑은 통과, 진짜 이음새는 걸린다. */
+  /* 이음새 판정 — 둘 다 맞힌 점이면 위 STAMP_SEAM_*, 외삽한 점이면 UV_EDGE_MAX. 비스듬한 턱 밑은 통과, 진짜 이음새는 걸린다. */
   const _uvK = partPaintMod._wdPicUvScale(crState.cBase.face);
   function _uvFar(p,q){
     const dx=p.x-q.x, dy=p.y-q.y, uvD=Math.sqrt(dx*dx+dy*dy);
-    if(p.p && q.p){ const allow=Math.min(0.35, p.p.distanceTo(q.p)*_uvK*3 + 0.03); return uvD > allow; }
+    if(p.p && q.p){ const allow=Math.min(STAMP_SEAM_CAP, p.p.distanceTo(q.p)*_uvK*STAMP_SEAM_MUL + STAMP_SEAM_BASE); return uvD > allow; }
     return uvD > UV_EDGE_MAX;
   }
   /* 삼각형을 픽셀 단위로 직접 래스터화한다 — clip 경계의 안티앨리어싱이 이음매(진한 · 밝은 빗금)를 만들어 합성 모드로는 못 고친다.
@@ -375,7 +382,7 @@ function bindStampOverlay(){
     }
     else if(drag.type==='rot'){ const ang=Math.atan2(p.y-crState.stampPlace.cy,p.x-crState.stampPlace.cx);
       let r=drag.oRot+(ang-drag.startAng);
-      if(e.shiftKey){ const step=15*Math.PI/180; r=Math.round(r/step)*step; }   // 15도 스냅
+      if(e.shiftKey){ const step=STAMP_ROT_SNAP_DEG*Math.PI/180; r=Math.round(r/step)*step; }   // 15도 스냅
       crState.stampPlace.rot=r;
       crState.stampDirty=true;
     }
@@ -387,7 +394,7 @@ function bindStampOverlay(){
       const localY=dx*sn + dy*cs;
       // 드래그 코너의 부호(sx,sy = ±0.5). 반대편 부호로 곱해 폭/높이의 절댓값 추출
       let newW=Math.abs(localX), newH=Math.abs(localY);
-      newW=Math.max(20,newW); newH=Math.max(20,newH);
+      newW=Math.max(STAMP_MIN_PX,newW); newH=Math.max(STAMP_MIN_PX,newH);
       // Shift: 비례 고정 (큰 변화량 쪽 비율 따라 양 축 같이)
       if(e.shiftKey){
         const ar=drag.oAspect;

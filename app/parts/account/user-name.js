@@ -28,7 +28,7 @@ function commitUserName(raw){
   setUserName(v || '나');
   toast('이름이 저장됐어요');
   // ★ 마이홈 친구 목록에도 새 이름이 보이도록 프로필도 같이 갱신(마이홈 초기화 전이면 조용히 무시됨)
-  if(window.firebaseAPI && firebaseAPI.setMyProfile){ try{ Promise.resolve(firebaseAPI.setMyProfile(getMyUserId(), getDisplayName(), focusLevelMod().getFocusLevel(), focusLevelMod().myStarProfileOut())).catch(e => console.warn('[이름] 프로필 서버 반영 실패 — 이름은 이 기기에 저장됨', (e && e.code) || e)); }catch(e){} }   // async 라 try 는 거부를 못 받는다(로그인 전 기기는 규칙이 거부)
+  if(getMyUserId() && window.firebaseAPI && firebaseAPI.setMyProfile){ try{ Promise.resolve(firebaseAPI.setMyProfile(getMyUserId(), getDisplayName(), focusLevelMod().getFocusLevel(), focusLevelMod().myStarProfileOut())).catch(e => console.warn('[이름] 프로필 서버 반영 실패 — 이름은 이 기기에 저장됨', (e && e.code) || e)); }catch(e){} }   // async 라 try 는 거부를 못 받는다(로그인 전 기기는 규칙이 거부)
   // 🏷️ 방에 들어가 있으면 친구 화면의 내 이름표도 즉시 갱신 — 예전엔 방을 다시 들어가야 바뀌었다.
   try{ if(typeof Presence!=='undefined' && Presence.active() && Presence.setName) Presence.setName(getDisplayName()); }catch(_){}
   const nameEl=document.getElementById('mhMyName'); if(nameEl) nameEl.textContent=getDisplayName();   // 마이홈 페이지가 열려있으면 표시도 즉시 갱신

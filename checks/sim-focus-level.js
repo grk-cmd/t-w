@@ -72,9 +72,33 @@ function judgeAll(mod, app, html){
   return r;
 }
 
+/* 내 코드(getMyUserId)가 없는 기기 — 레벨 프로필 올리기(_pushLevelIfChanged) 가 부르는 firebaseAPI 이름들 */
+function callsWith(src, uid){
+  const any = anything(), calls = [];
+  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return any; } });
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  deps.getMyUserId = () => uid;
+  const win = new Proxy({ firebaseAPI: fa }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwFocusLevel;')(win, any, ls, fa, undefined);
+  try{ api.createFocusLevel(deps)._pushLevelIfChanged(); }catch(_){}
+  return calls;
+}
+const judgeNoUid = (src) => !callsWith(src, null).includes('setMyProfile') && callsWith(src, 'ME').includes('setMyProfile');
+
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 내 코드 없음 — 그 요청 0');
+chk(judgeNoUid(MOD), '내 코드 없음 → 레벨 프로필 요청(setMyProfile) 0 · 코드 있으면 보낸다');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+{
+  const m2 = MOD.replace('if(getMyUserId() && window.firebaseAPI && firebaseAPI.setMyProfile)', 'if(window.firebaseAPI && firebaseAPI.setMyProfile)');
+  chk(m2 !== MOD && !judgeNoUid(m2), '내 코드 확인을 빼면 — 내 코드 없음 판정이 빨강');
+}
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/focus/focus-level.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */

@@ -17,13 +17,13 @@ const MOD = ["creator-flow.js","parts/creator/creator-flow.js","app/parts/creato
 if(!MOD){ say('  ? 원본 못 찾음 — creator-flow.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_syncCrColorSwatches","applyDesktopRunClass","blit","clampCharY","clearStampState","detachItemGizmo","isAnimalEditing","isCommissionEditing","isDeskSeatOnly","isDrawStep","renderCrItems","renderLauncher","reopenAnimalFromCreator","setStampMode","showEl","toast"];
+const FN_DEPS = ["_syncCrColorSwatches","applyDesktopRunClass","blit","clampCharY","clearStampState","detachItemGizmo","isAnimalEditing","isCommissionEditing","isDeskSeatOnly","isDrawStep","renderLauncher","reopenAnimalFromCreator","setStampMode","showEl","toast"];
 const VAL_DEPS = ["CANVAS_SZ","_editRoute","blinkC","cBodyCenter","cFaceCenter","camTarget","creatorPrevMod","deskItemOrigin","faceC","histB","redoB"];
 const GET_DEPS = ["blinkEdited","cBodyDist","cDesk","cFaceDist","cXform","camDist","camPitch","camYaw","crStep","creatorMode","creatorOpen","currentCreatorDef","deskCamSaved","faceCamSaved","stampMode"];
 const SET_DEPS = ["camDist","camPitch","camYaw","crStep","creatorOpen"];
-const EXPORTS = ["closeCreator","gotoStep"];
+const EXPORTS = ["closeCreator","gotoStep","onItemsStep"];
 const MOVED = ["gotoStep","closeCreator"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CANVAS_SZ: CANVAS_SZ,","  _editRoute: _editRoute,","  _syncCrColorSwatches: (...a)=>_syncCrColorSwatches(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  blinkC: blinkC,","  blinkEdited: ()=>blinkEdited,","  blit: (...a)=>blit(...a),","  cBodyCenter: cBodyCenter,","  cBodyDist: ()=>cBodyDist,","  cDesk: ()=>cDesk,","  cFaceCenter: cFaceCenter,","  cFaceDist: ()=>cFaceDist,","  cXform: ()=>cXform,","  camDist: ()=>camDist,","  camPitch: ()=>camPitch,","  camTarget: camTarget,","  camYaw: ()=>camYaw,","  clampCharY: (...a)=>clampCharY(...a),","  clearStampState: (...a)=>clearStampState(...a),","  crStep: ()=>crStep,","  creatorMode: ()=>creatorMode,","  creatorOpen: ()=>creatorOpen,","  creatorPrevMod: creatorPrevMod,","  currentCreatorDef: ()=>currentCreatorDef,","  deskCamSaved: ()=>deskCamSaved,","  deskItemOrigin: deskItemOrigin,","  detachItemGizmo: (...a)=>detachItemGizmo(...a),","  faceC: faceC,","  faceCamSaved: ()=>faceCamSaved,","  histB: histB,","  isAnimalEditing: (...a)=>isAnimalEditing(...a),","  isCommissionEditing: (...a)=>isCommissionEditing(...a),","  isDeskSeatOnly: (...a)=>isDeskSeatOnly(...a),","  isDrawStep: (...a)=>isDrawStep(...a),","  redoB: redoB,","  renderCrItems: (...a)=>renderCrItems(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  reopenAnimalFromCreator: (...a)=>reopenAnimalFromCreator(...a),","  setStampMode: (...a)=>setStampMode(...a),","  showEl: (...a)=>showEl(...a),","  stampMode: ()=>stampMode,","  toast: (...a)=>toast(...a),","  setCamDist: (v)=>{ camDist = v; },","  setCamPitch: (v)=>{ camPitch = v; },","  setCamYaw: (v)=>{ camYaw = v; },","  setCrStep: (v)=>{ crStep = v; },","  setCreatorOpen: (v)=>{ creatorOpen = v; },"];
+const GLUE = ["  CANVAS_SZ: CANVAS_SZ,","  _editRoute: _editRoute,","  _syncCrColorSwatches: (...a)=>_syncCrColorSwatches(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  blinkC: blinkC,","  blinkEdited: ()=>blinkEdited,","  blit: (...a)=>blit(...a),","  cBodyCenter: cBodyCenter,","  cBodyDist: ()=>cBodyDist,","  cDesk: ()=>cDesk,","  cFaceCenter: cFaceCenter,","  cFaceDist: ()=>cFaceDist,","  cXform: ()=>cXform,","  camDist: ()=>camDist,","  camPitch: ()=>camPitch,","  camTarget: camTarget,","  camYaw: ()=>camYaw,","  clampCharY: (...a)=>clampCharY(...a),","  clearStampState: (...a)=>clearStampState(...a),","  crStep: ()=>crStep,","  creatorMode: ()=>creatorMode,","  creatorOpen: ()=>creatorOpen,","  creatorPrevMod: creatorPrevMod,","  currentCreatorDef: ()=>currentCreatorDef,","  deskCamSaved: ()=>deskCamSaved,","  deskItemOrigin: deskItemOrigin,","  detachItemGizmo: (...a)=>detachItemGizmo(...a),","  faceC: faceC,","  faceCamSaved: ()=>faceCamSaved,","  histB: histB,","  isAnimalEditing: (...a)=>isAnimalEditing(...a),","  isCommissionEditing: (...a)=>isCommissionEditing(...a),","  isDeskSeatOnly: (...a)=>isDeskSeatOnly(...a),","  isDrawStep: (...a)=>isDrawStep(...a),","  redoB: redoB,","  renderLauncher: (...a)=>renderLauncher(...a),","  reopenAnimalFromCreator: (...a)=>reopenAnimalFromCreator(...a),","  setStampMode: (...a)=>setStampMode(...a),","  showEl: (...a)=>showEl(...a),","  stampMode: ()=>stampMode,","  toast: (...a)=>toast(...a),","  setCamDist: (v)=>{ camDist = v; },","  setCamPitch: (v)=>{ camPitch = v; },","  setCamYaw: (v)=>{ camYaw = v; },","  setCrStep: (v)=>{ crStep = v; },","  setCreatorOpen: (v)=>{ creatorOpen = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다. */
 function anything(){
@@ -63,6 +63,7 @@ function judgeAll(mod, app, html){
   const left = MOVED.filter(n => new RegExp('^(?:async\\s+)?(?:function\\s+' + n.replace(/\$/g, '\\$') + '\\b|(?:const|let|var)\\s+' + n.replace(/\$/g, '\\$') + '\\b)', 'm').test(A));
   t(!left.length, 'app.js 에 옮긴 꼭대기 선언이 안 남았다' + (left.length ? ' — ' + left.slice(0, 5).join(' · ') : ''));
   t(app.includes("const creatorFlowMod = TwCreatorFlow.createCreatorFlow({"), '만드는 줄(가드 없이 — 모듈은 늘 싣는다)');
+  t(/\n\}\);\ncreatorFlowMod\.onItemsStep\(\(\)=>deskSetupMod\.renderCrItems\(\)\);/.test(app), '만드는 줄 바로 뒤에서 5단계 아이템 목록을 구독으로 잇는다(creator-flow ↔ desk-setup 순환 없게)');
   const mk = (app.match(new RegExp("const creatorFlowMod = TwCreatorFlow\\.createCreatorFlow\\(\\{\\n([\\s\\S]*?)\\n?\\}\\);")) || [])[1] || '';
   /* 키 이름과 넘기는 방식만 본다 — 오른쪽(다른 모듈로 옮긴 이름이면 «mod.이름»)은 옮길 때마다 바뀔 수 있다 */
   const kindOf = (l) => { const m = /^  ([\w$]+): (\(\.\.\.a\)=>|\(\)=>|\(v\)=>)?/.exec(l); return m ? m[1] + '|' + (m[2] === '(...a)=>' ? 'fn' : m[2] === '()=>' ? 'get' : m[2] === '(v)=>' ? 'set' : 'val') : '?' + l; };
@@ -140,7 +141,7 @@ function rigF(o){
     crStep: () => st.step, setCrStep: (v) => { st.step = v; }, creatorOpen: () => st.open, setCreatorOpen: (v) => { st.open = v; },
     blinkEdited: () => st.blinkEdited, stampMode: () => !!st.stamp, setStampMode: log('stamp'),
     isDrawStep: () => st.step === 2 || st.step === 3, isDeskSeatOnly: () => st.deskOnly, isCommissionEditing: () => st.comm, isAnimalEditing: () => false,
-    showEl: (id, on) => { shown[id] = on; }, toast: log('toast'), blit: log('blit'), renderCrItems: log('items'), _syncCrColorSwatches: log('swatch'),
+    showEl: (id, on) => { shown[id] = on; }, toast: log('toast'), blit: log('blit'), _syncCrColorSwatches: log('swatch'),
     cXform: () => ({ s: 0.7, y: 0.1, rot: 0.2 }), clampCharY: (y) => y, cDesk: () => st.deskObj || null,
     camTarget: target, cFaceCenter: v3(0, 1.3, 0), cBodyCenter: v3(0, 0.8, 0), cFaceDist: () => 1.1, cBodyDist: () => 3.5,
     setCamDist: (v) => { st.dist = v; }, setCamYaw: (v) => { st.yaw = v; }, setCamPitch: (v) => { st.pitch = v; },
@@ -149,6 +150,7 @@ function rigF(o){
     creatorMode: () => st.mode, deskItemOrigin: { clear: log('originClear') }, detachItemGizmo: log('gizmo'), clearStampState: log('stampClear'),
     renderLauncher: log('renderLauncher'), applyDesktopRunClass: log('runClass') };
   const api = build(MOD, Object.assign(over, o.over || {}), { document: D.document });
+  api.onItemsStep(log('items'));   // app.js 가 구독으로 잇는 아이템 목록 다시 그리기
   return { D, st, api, calls, el: (id) => D.document.getElementById(id), shown, target, n: (k) => calls.filter(c => c[0] === k).length, last: (k) => (calls.filter(c => c[0] === k).pop() || [])[1] };
 }
 { const r = rigF(); r.api.gotoStep(1);

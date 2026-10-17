@@ -87,10 +87,10 @@ async function showFriendRequestPopup(onlyIds){
       try{
         await firebaseAPI.acceptFriendRequest(getMyUserId(), fromId);
         toast(nm + ' 님과 친구가 됐어요');
-      }catch(e){ toast('수락에 실패했어요'); }
+      }catch(e){ TwErrorCodes.notify('E-FR-01', e); }
     } else if(answer === 'no'){
       try{ await firebaseAPI.rejectFriendRequest(getMyUserId(), fromId); }
-      catch(e){ toast('거절에 실패했어요'); }
+      catch(e){ TwErrorCodes.notify('E-FR-02', e); }
     }
   }
   _friendReqPopupBusy = false;
@@ -269,7 +269,7 @@ async function renderSentRequests(listEl){
           row.remove();
           if(!Object.keys(_fmSent || {}).length) renderSentRequests(listEl);   // 빈 목록 안내로 되돌린다
         } else {
-          toast('취소에 실패했어요');
+          TwErrorCodes.notify('E-FR-03', r && r.reason);
           cancelBtn.disabled = false;
         }
       };
@@ -384,14 +384,14 @@ function renderFriendRequests(){
       if(r === 'ok'){ toast((req.name || '친구') + ' 님과 친구가 됐어요'); _fmPicked.delete(fromId); return; }
       // 자리가 없으면 요청은 **남겨둔다** — 지우면 상대가 다시 보내야 한다
       if(r === 'full') toast('친구는 최대 ' + FRIEND_MAX + '명까지만 추가할 수 있어요');
-      else if(r === 'err') toast('수락에 실패했어요');
+      else if(r === 'err') TwErrorCodes.notify('E-FR-01');
       unlock();
     };
     noBtn.onclick = async ()=>{
       if(!window.firebaseAPI || !firebaseAPI.rejectFriendRequest) return;
       lock();
       try{ await firebaseAPI.rejectFriendRequest(getMyUserId(), fromId); _fmPicked.delete(fromId); }
-      catch(e){ toast('거절에 실패했어요'); unlock(); }
+      catch(e){ TwErrorCodes.notify('E-FR-02', e); unlock(); }
     };
 
     const btns = document.createElement('div'); btns.className = 'mh-req-btns';
@@ -426,7 +426,7 @@ async function _fmBulkAccept(){
   }
   if(ok)   toast(ok + '명과 친구가 됐어요');
   if(full) toast('친구는 최대 ' + FRIEND_MAX + '명까지만 추가할 수 있어요 — ' + full + '건은 자리가 없어 그대로 남겨뒀어요');
-  if(err)  toast(err + '건은 수락에 실패했어요');
+  if(err)  TwErrorCodes.notify('E-FR-04', null, err + '건은 수락하지 못했어요');
   if(!ok && !full && !err) toast('처리할 요청이 없었어요');
   renderFriendRequests();
 }
@@ -445,7 +445,7 @@ async function _fmBulkReject(){
     catch(e){ err++; }
   }
   if(ok)  toast(ok + '건을 거절했어요');
-  if(err) toast(err + '건은 처리에 실패했어요');
+  if(err) TwErrorCodes.notify('E-FR-04', null, err + '건은 거절하지 못했어요');
   renderFriendRequests();
 }
 

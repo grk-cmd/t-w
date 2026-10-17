@@ -471,6 +471,8 @@ PRELOAD.push('myhome-diag.js');
 PRELOAD.push('myhome-state.js');
 /* myhome-hooks.js — 🪝 마이홈 고리판(모듈 순환 끊기 8). 같은 까닭 — 편집 묶음 · 마이홈 창이 만들 때 거는 저장 · 배경 · 테마 · BGM 함수를 부르는 쪽이 진짜에서 찾게. */
 PRELOAD.push('myhome-hooks.js');
+/* myhome-preset.js — 👑 디자인 프리셋 규칙(순수 함수). 같은 까닭 — 편집 묶음이 만들 때 TwMyHomePreset 을 받으므로 진짜가 먼저 있게. */
+PRELOAD.push('myhome-preset.js');
 /* myhome-visit.js — 마이홈 데이터 · 친구 홈 구경(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeVisit 를 같이 굴린다. */
 PRELOAD.push('myhome-visit.js');
 /* exp-bar.js — 경험치 바(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createExpBar 를 같이 굴린다. */
@@ -604,6 +606,18 @@ PRELOAD.push('paint-geom.js');
 PRELOAD.push('paint-stroke.js');
 /* stamp.js — 🖼 생성기 이미지 도장(띄워 놓고 확정 박기)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCrStamp 를 같이 굴린다. */
 PRELOAD.push('stamp.js');
+/* asset-import.js — 📥 코드로 추가하기(책상 · 아이템 · 파츠 — 생성기 · 꾸미기 안에서)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAssetImport 를 같이 굴린다. */
+PRELOAD.push('asset-import.js');
+/* desk-preset-store.js — 💾 책상 프리셋 저장(5칸 · localStorage)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskPresetStore 를 같이 굴린다. */
+PRELOAD.push('desk-preset-store.js');
+/* desk-preset.js — 🗂 책상 · 좌석 세팅 프리셋(담기 · 적용 · 5칸 화면)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskPreset 를 같이 굴린다. */
+PRELOAD.push('desk-preset.js');
+/* asset-cards.js — 🃏 자산 카드(썸네일 카드 · 도트 썸네일 · 순서 손잡이 — 생성기 · 꾸미기)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAssetCards 를 같이 굴린다. */
+PRELOAD.push('asset-cards.js');
+/* desk-setup.js — 🪑 생성기 책상 세팅(5단계 — 책상 · 아이템 카드 · 순서 · 색 · 크기 · 아이템 고르기)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskSetup 를 같이 굴린다. */
+PRELOAD.push('desk-setup.js');
+/* seat-menu.js — 🖱 좌석 우클릭 메뉴(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatMenu 를 같이 굴린다. */
+PRELOAD.push('seat-menu.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
