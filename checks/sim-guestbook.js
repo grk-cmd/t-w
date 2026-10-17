@@ -61,7 +61,7 @@ function mkChildWin(env){
 function mkEnv(opt){
   opt = opt || {};
   const env = { toasts: [], warns: [], ls: {}, subs: [], unsubs: 0, adds: [], dels: [], claps: [], emojis: [], themed: [], wins: [], childClosed: 0,
-    viewing: opt.viewing || null, friends: opt.friends || {}, me: 'uA', name: '나', btnL: null };
+    viewing: opt.viewing || null, friends: opt.friends || {}, me: 'me' in opt ? opt.me : 'uA', name: '나', btnL: null };
   const mainEls = {};
   const getEl = id => (opt.noDom ? null : (mainEls[id] || (mainEls[id] = mkEl('div', id))));
   const subs = {};   // 경로 → 콜백 (가짜 RTDB 구독)
@@ -86,7 +86,7 @@ function mkEnv(opt){
   ctx.window = ctx;
   ctx.open = () => { if(opt.blocked) return null; const w = mkChildWin(env); env.wins.push(w); return w; };
   vm.createContext(ctx);
-  vm.runInContext(MOD, ctx, { filename: 'guestbook.js' });
+  vm.runInContext(opt.src || MOD, ctx, { filename: 'guestbook.js' });
   env.ctx = ctx; env.els = mainEls; env.push = (k, v) => { if(subs[k]) subs[k](v); };
   env.mk = () => ctx.TwGuestbook.createGuestbook({
     getMyUserId: () => env.me,
@@ -192,6 +192,16 @@ await sec('── 3. 창 — 열기 · 목록 · 관람 · 외부인', async () 
   chk(ok && e.wins.length === 3, '  창이 없으면 아무것도 안 한다(창을 열지 않는다)');
   const eb = mkEnv({ blocked: true }); eb.mk(); eb.ctx.openMyGuestbook();
   chk(eb.toasts[0] === '방명록 창을 열 수 없어요', '창이 막히면 안내');
+});
+
+await sec('── 3-2. 내 코드 없음 — 방명록 요청 0', () => {
+  const noUid = (src) => { const e = mkEnv({ me: null, src }); e.mk(); e.ctx._mhGbStartWatch();
+    e.viewing = 'uB'; e.ctx._mhReSubscribeGuestbook(); const a = e.subs.join();
+    e.viewing = null; e.ctx._mhReSubscribeGuestbook();
+    return a === 'gb:uB,clap:uB' && e.subs.join() === a && e.unsubs === 2; };
+  chk(noUid(), '내 코드 없음 → 새 글 배지 · 관람에서 돌아와도 내 방명록 · 박수 구독 0(guestbook/null) · 친구 것은 그대로 · 끊기는 그대로');
+  const m2 = MOD.replace(/\n *if\(!target\) return;[^\n]*/, '');
+  chk(m2 !== MOD && !noUid(m2), '  깨 보기 — 내 코드 확인을 빼면 빨강');
 });
 
 await sec('── 4. 쓰기 · 박수 · 폭죽', async () => {

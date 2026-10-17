@@ -72,9 +72,34 @@ function judgeAll(mod, app, html){
   return r;
 }
 
+/* 내 코드(getMyUserId)가 없는 기기 — 런처 초대장 버튼(refreshInviteBtn) 가 부르는 firebaseAPI 이름들 */
+function callsWith(src, uid){
+  const any = anything(), calls = [];
+  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return any; } });
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  deps.getMyUserId = () => uid;
+  deps.isAdmin = () => false;
+  const win = new Proxy({ firebaseAPI: fa }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwLicenseGate;')(win, any, ls, fa, undefined);
+  try{ api.createLicenseGate(deps).refreshInviteBtn(); }catch(_){}
+  return calls;
+}
+const judgeNoUid = (src) => !callsWith(src, null).includes('getInvitesLeft') && callsWith(src, 'ME').includes('getInvitesLeft');
+
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 내 코드 없음 — 그 요청 0');
+chk(judgeNoUid(MOD), '내 코드 없음 → 초대장 남은 수 요청(getInvitesLeft) 0 · 코드 있으면 읽는다');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+{
+  const m2 = MOD.replace('|| !firebaseAPI.getInvitesLeft || !getMyUserId()){', '|| !firebaseAPI.getInvitesLeft){');
+  chk(m2 !== MOD && !judgeNoUid(m2), '내 코드 확인을 빼면 — 내 코드 없음 판정이 빨강');
+}
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/account/license-gate.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
