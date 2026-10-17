@@ -44,6 +44,7 @@
 | B-1016-4 창 겹침 | 검증-도우미8(검증 · 합치기) · 작업 도우미1 | 창 층 표 → 편집 · 종족도 창 쌓기 · grk 탈퇴 안내 css 세 줄 지킴 | `desk-companion-prototype.html` · `shared/win-stack.js` | — |
 | 서버 주소 together-working.com | 검증-도우미8 · 작업 w2 | 운영 API · 방 서버 · CSP 새 주소(옛 주소 계속 허용) | html CSP · 주소 상수 | — |
 | 자동 검사 앞 실행 취소 | 검증-도우미8 · 작업 w2 | #337 위에 같은 요청 앞 실행 취소 등 빠진 것만 | `.github/workflows/checks.yml` | — |
+| #163 다시 얹기 | 검증 세션 | 내 정보 맨 아래 개인정보 처리방침 링크(시스템 기본 브라우저로) | `app/desk-companion-prototype.html`(내 정보 계정 칸 아래) · `room/room-entry.js`(링크 거는 줄) | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
