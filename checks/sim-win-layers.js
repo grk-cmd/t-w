@@ -45,12 +45,13 @@ function cut(name){
   throw new Error(name + ' 의 끝을 못 찾음');
 }
 /* CSS 규칙 하나에서 z-index 를 읽는다. 셀렉터가 여러 줄에 걸쳐 있어도 블록 안만 본다. */
+const { resolveZ: _resolveZ } = require('./sim-z-layers.js');
 function cssZ(sel){
   const i = HTML.indexOf(sel + '{');
   if (i < 0) return null;
   const j = HTML.indexOf('}', i);
-  const m = /z-index:\s*(\d+)/.exec(HTML.slice(i, j));
-  return m ? +m[1] : null;
+  const m = /z-index:\s*([^;}]+)/.exec(HTML.slice(i, j));
+  return m ? _resolveZ(HTML, m[1]) : null;   // 창 층 표의 이름(var(--z-…))도 숫자로 푼다
 }
 
 say('=== 🪟 창 앞뒤(z)·자동 닫힘 규약 검사 ===');

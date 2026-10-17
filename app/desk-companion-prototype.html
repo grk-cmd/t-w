@@ -76,6 +76,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Desk Companion — 멀티 좌석 프로토타입</title>
 <style>
+  /* 🪟 창 층 표 — 화면 맨 바깥에 뜨는 창들의 앞뒤(z-index)는 **여기 이름으로만** 정한다. 창 쪽 CSS · 인라인은 var(--z-…) 만 쓴다.
+     ★ 숫자를 창마다 따로 적으면 «이 창은 저 창보다 위» 가 숫자끼리의 우연한 크기로만 정해져, 하나를 바꾸면 엮인 창이 다 흔들린다(B-1016-4).
+     ★ 층 차례: 런처 → 작업창 · 창 쌓기 창(열거나 누르면 83~92 안에서 맨 위 — shared/win-stack.js) → 꾸미기(93) → 대화상자(100~) → 막는 창(가입 · 로그인 · 기기 110~).
+       대화상자는 어느 창에서 열든 그 창 위에 떠야 해서 창 쌓기 위에 둔다(예전 57 은 편집 · 마이홈을 창 쌓기에 넣는 순간 그 뒤로 숨는다).
+     ⚠️ 이 표 밖(가챠 120 · 마이홈 팝업 9200 · 토스트 9100 · 색 고르기 9999)은 이 표보다 늘 위다. 검사: checks/sim-z-layers.js */
+  :root{
+    --z-friend-picker: 46;   /* 친구 고르기 */
+    --z-launcher: 50;        /* 런처 화면 */
+    --z-work: 55;            /* 큰 작업창 — 캐릭터 편집(#creatorOverlay) · 종족 선택(#raceOverlay) · 창 쌓기의 처음 자리 */
+    --z-win-settings: 58;    /* ⚙️ 설정(창 쌓기) */
+    --z-win-bell: 62;        /* 🔔 다가오는 일정(창 쌓기) */
+    --z-win-focuslog: 70;    /* ⏱ 포커스 기록(창 쌓기) */
+    --z-win-myhome: 71;      /* 🏠 마이홈(창 쌓기) */
+    --z-win-guestbook: 74;   /* 📖 방명록(창 쌓기) */
+    --z-win-chat: 82;        /* 💬 대화창 · 📷 스티커사진(창 쌓기) — 창 쌓기의 시작값과 같다 */
+    --z-wardrobe: 93;        /* 🎨 꾸미기 · 꾸미기 미리보기 */
+    --z-dialog-code: 100;    /* 캐릭터 코드 창 */
+    --z-dialog: 101;         /* 코드 · 등록 대화상자 묶음(코드로 추가하기 · 파츠 / 책상 등록 · 내보내기 …) */
+    --z-dialog-program: 102; /* 프로그램 설정 */
+    --z-dialog-admin: 103;   /* 관리자 · 초대 · 공지 대화상자 */
+    --z-dialog-notice: 104;  /* 업데이트 공지(사용자) */
+    --z-gate-device: 110;    /* 캐릭터 연결 안내 · 다른 기기 접속 */
+    --z-gate-invite: 111;    /* 초대장 게이트 */
+    --z-mh-design: 111;      /* 👑 마이홈 디자인 스튜디오(초대 게이트와 같은 자리였다) */
+    --z-gate-signup: 112;    /* 이미 가입 · 로그인 필요 */
+    --z-gate-done: 113;      /* 가입 완료 */
+  }
   /* ══════════════════════════════════════════════════════════════════════════
      🎨 디자인 테마 — 축이 두 개다.
         · 모양 : html[data-theme]  = (없음)=기본 / "bubble"
@@ -557,7 +584,7 @@
   .win98titlebtns{ display:flex; gap:2px; }
   /* ★ 프리미엄 대화창 */
   /* ★ F4 마이홈처럼 자유 이동 창 — 배경 오버레이 없이 창만(다른 요소 클릭 방해 안 함) */
-  #chatOverlay{position:fixed;inset:0;z-index:82;pointer-events:none;}
+  #chatOverlay{position:fixed;inset:0;z-index:var(--z-win-chat);pointer-events:none;}
   #chatWindow{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     width:430px;height:380px;min-width:300px;min-height:260px;max-width:96vw;max-height:92vh;
     background:var(--win-face);pointer-events:auto;display:flex;flex-direction:column;
@@ -898,7 +925,7 @@
        83 으로 올려 주므로 여기를 낮추면 "처음 한 번은 안 올라온다"가 된다.
      ⚠️ 베젤(border-color:hi/lo/face)을 쓰는 규칙에는 전부 border-radius:var(--win-radius-el)
        !important 를 넣는다 — 테마가 모서리를 갈아끼우는 통로다(:root 주석 참고). */
-  #pkOverlay{display:none;position:fixed;inset:0;z-index:82;pointer-events:none;}
+  #pkOverlay{display:none;position:fixed;inset:0;z-index:var(--z-win-chat);pointer-events:none;}
   #pkOverlay.on{display:block;}
   #pkWin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     width:600px;max-width:calc(100vw - 30px);max-height:calc(100vh - 30px);
@@ -1301,7 +1328,7 @@
      1080p 등)에 맞춰 줄이기 때문(_fitConfigRect). 예전 align-items:center 는 넘치는 카드를 위아래 동시에
      잘라 스크롤도 안 됐다. 세로 센터링은 .lc-card 의 margin:auto 가 대신한다(자리가 남으면 중앙, 넘치면
      위부터 채우고 #launcher 가 스크롤). ⚠️ align-items:center 를 되돌리면 잘림이 그대로 돌아온다. */
-  #launcher{position:fixed;inset:0;z-index:50;display:none;justify-content:center;overflow-y:auto;overflow-x:hidden;
+  #launcher{position:fixed;inset:0;z-index:var(--z-launcher);display:none;justify-content:center;overflow-y:auto;overflow-x:hidden;
     background:var(--win-accent);}
   #launcher.on{display:flex;}
   .lc-card.dimmed{ filter:grayscale(.5) brightness(.75); pointer-events:none; }
@@ -1435,7 +1462,7 @@
     border:1px solid #000;box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.3));font-family:var(--tw-font-legacy);}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
-  #codeOverlay{position:fixed;inset:0;z-index:56;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
+  #codeOverlay{position:fixed;inset:0;z-index:var(--z-dialog-code);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
   #codeOverlay.on{display:flex;}
   #codeModal,#exportModal,#glbEncModal,#glbLoadModal,#assetGenModal,#assetImpModal,#inviteModal{width:420px;max-width:92vw;padding:0 18px 18px;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -1469,7 +1496,7 @@
     padding:8px 6px;font-size:12px;font-family:var(--tw-font-legacy);
     color:var(--ink);letter-spacing:2px;text-transform:uppercase;}
   .room-code-in::placeholder{letter-spacing:.5px;color:#a0a0a0;}
-  #exportOverlay,#glbEncOverlay,#glbLoadOverlay,#assetGenOverlay,#assetImpOverlay,#inviteOverlay,#commGenOverlay,#partRegOverlay,#deskRegOverlay{position:fixed;inset:0;z-index:57;display:none;align-items:center;justify-content:center;background:none;pointer-events:none;}
+  #exportOverlay,#glbEncOverlay,#glbLoadOverlay,#assetGenOverlay,#assetImpOverlay,#inviteOverlay,#commGenOverlay,#partRegOverlay,#deskRegOverlay{position:fixed;inset:0;z-index:var(--z-dialog);display:none;align-items:center;justify-content:center;background:none;pointer-events:none;}
   #exportOverlay.on,#glbEncOverlay.on,#glbLoadOverlay.on,#assetGenOverlay.on,#assetImpOverlay.on,#inviteOverlay.on,#commGenOverlay.on,#partRegOverlay.on,#deskRegOverlay.on{display:flex;}
   #exportModal,#glbEncModal,#glbLoadModal,#assetGenModal,#assetImpModal,#inviteModal,#commGenModal,#partRegModal,#deskRegModal{pointer-events:auto;}
   #exportOverlay .code-btns{margin-top:10px;}
@@ -1478,16 +1505,14 @@
   .lc-foot button:hover{color:var(--ink);}
   .lc-foot span{color:var(--ink-soft);opacity:.6;font-size:10px;}
 
-  #creatorOverlay{position:fixed;inset:0;z-index:55;display:none;align-items:center;justify-content:center;
+  #creatorOverlay{position:fixed;inset:0;z-index:var(--z-work);display:none;align-items:center;justify-content:center;
     background:rgba(0,0,0,.35);}
   #creatorOverlay.on{display:flex;}
+  /* 편집 중에도 마이홈 · 방명록은 숨기지 않는다 — 편집창도 창 쌓기라 열면 맨 앞, 누른 창이 앞(B-1016-4). 편집 중 여는 대화상자는 창 층 표의 대화상자 층(창 쌓기 위)이라 깔리지 않는다. */
   /* 회원 탈퇴를 누르면 계정 탭(로그인 수단 ~ 로그아웃)을 탈퇴 안내로 바꿔 보인다 — 아래에 덧붙이면 화면이 너무 길어졌다. 켜고 끄기는 my-info.js */
   #acctLoggedIn.acct-deleting > :not(#acctDeleteZone){display:none !important;}
   #acctLoggedIn.acct-deleting #acctDeleteZone{margin-top:0 !important;padding-top:0 !important;border-top:none !important;}
   #acctLoggedIn.acct-deleting .acct-del-notice{max-height:none !important;overflow:visible !important;}
-  /* 캐릭터 편집(55)이 켜진 동안 마이홈 · 방명록 창(71~92, win-stack)을 숨긴다 — 편집창 위로 비쳐 보였다.
-     편집창을 맨 위로 올리지 않는 까닭: 편집 중에 여는 코드 창(56) 같은 대화상자가 그 밑에 깔린다. 닫는 곳이 여럿이라 CSS 로 건다. */
-  body:has(#creatorOverlay.on) #myHomeOverlay, body:has(#creatorOverlay.on) #mhGbOverlay{visibility:hidden;}
   #creatorModal{width:680px;max-width:calc(100vw - 40px);max-height:calc(100vh - 56px);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -1573,7 +1598,7 @@
   #charCtx button#ctxDelete{color:var(--win-error);}
   #charCtx button#ctxDelete:hover{color:#fff;}
 
-  #friendPicker{position:fixed;inset:0;z-index:46;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
+  #friendPicker{position:fixed;inset:0;z-index:var(--z-friend-picker);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
   #friendPicker.on{display:flex;}
   .fp-card{background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -1623,7 +1648,7 @@
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
 
   /* 종족 선택창 */
-  #raceOverlay{position:fixed;inset:0;z-index:55;display:none;align-items:center;justify-content:center;background:none;pointer-events:none;}
+  #raceOverlay{position:fixed;inset:0;z-index:var(--z-work);display:none;align-items:center;justify-content:center;background:none;pointer-events:none;}
   #raceOverlay #raceModal{pointer-events:auto;}
   #raceOverlay.on{display:flex;}
   #raceModal{width:540px;max-width:92vw;padding:0;
@@ -2474,7 +2499,7 @@
   .fs-mob-sub{font-size:10px;color:var(--ink-soft);}
   .fs-mob-btns{display:flex;gap:6px;margin-top:7px;}
   .fs-mob-btns .fs-toggle-btn{flex:1 1 0;white-space:nowrap;}
-  #mobLinkOverlay{position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+  #mobLinkOverlay{position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
     background:none;pointer-events:none;}
   #mobLinkOverlay.on{display:flex;}
   #mobLinkOverlay .box{pointer-events:auto;width:280px;max-width:92vw;max-height:92vh;overflow-y:auto;
@@ -2693,7 +2718,7 @@
   #myCustomStatusBox #myCustomStatusEmo{flex:0 0 34px;width:34px;min-width:34px;text-align:center;padding:4px 2px;}
 
   /* 캐릭터 머리 위 설정 패널 (톱니바퀴 클릭 시) */
-  #focusSettingsPanel{position:fixed;z-index:58;transform:translate(-50%,-100%);
+  #focusSettingsPanel{position:fixed;z-index:var(--z-win-settings);transform:translate(-50%,-100%);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     padding:0;width:300px;box-sizing:border-box;display:none;font-family:var(--tw-font-legacy);border-radius:var(--win-radius-el) !important;}
@@ -2821,7 +2846,7 @@
 
   /* 포커스 기록 팝업 — 드래그로 위치 옮길 수 있는 Win98 스타일 창. 딤 배경은 클릭통과 막지 않게 pointer-events:none,
      실제 창 박스만 pointer-events:auto (이전에 여러 번 겪은 "딤 배경이 클릭통과 막던 버그" 패턴 재발 방지). */
-  #focusLogOverlay{display:none;position:fixed;inset:0;z-index:70;background:none;pointer-events:none;}
+  #focusLogOverlay{display:none;position:fixed;inset:0;z-index:var(--z-win-focuslog);background:none;pointer-events:none;}
   #focusLogOverlay.on{display:block;}
   #focusLogWin{position:absolute;left:50%;top:38%;width:230px;transform:translate(-50%,-50%);pointer-events:auto;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -2872,7 +2897,7 @@
   #focusLogWin.mini #chalDrawer{display:none !important;}
 
   /* 🏠 마이홈 — 목업(마이홈/친구 탭 시안)에 맞춘 레이아웃 */
-  #myHomeOverlay{display:none;position:fixed;inset:0;z-index:71;background:none;pointer-events:none;}
+  #myHomeOverlay{display:none;position:fixed;inset:0;z-index:var(--z-win-myhome);background:none;pointer-events:none;}
   #myHomeOverlay.on{display:block;}
   #myHomeWin{position:absolute;left:50%;top:50%;width:760px;transform:translate(-50%,-50%);pointer-events:auto;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -2959,7 +2984,7 @@
   #myChatBadge.on{display:block;}
 
   /* 🔔 알림 창 — 참고 UI(Playlists) 스타일. 굵은 제목 + 우측 작은 메타. */
-  #bellWin{position:fixed;z-index:62;width:280px;
+  #bellWin{position:fixed;z-index:var(--z-win-bell);width:280px;
     background:var(--win-face);border:2px solid;
     border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -3530,7 +3555,7 @@
   #mhBgMenu button{font-family:var(--tw-font-legacy);font-size:11px;text-align:left;padding:6px 12px;background:none;border:none;cursor:pointer;color:var(--ink);}
   #mhBgMenu button:hover{background:var(--win-select);color:#fff;}
   /* 👑 프리미엄 디자인 스튜디오 팝업 */
-  #mhDesignOverlay{display:none;position:fixed;inset:0;z-index:95;pointer-events:none;}
+  #mhDesignOverlay{display:none;position:fixed;inset:0;z-index:var(--z-mh-design);pointer-events:none;}
   #mhDesignOverlay.on{display:block;}
   #mhDesignWin{position:absolute;right:24px;top:60px;width:320px;max-height:78vh;display:flex;flex-direction:column;
     pointer-events:auto;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -3593,7 +3618,7 @@
       '눌러진다'는 신호이고, 그게 없으면 관람자가 링크를 발견할 방법이 사라진다) */
   .mh-sticker.linked.editing{border-color:#4a5fc1;box-shadow:0 0 0 1px #4a5fc133;}
   /* 📖 방명록 팝업 */
-  #mhGbOverlay{display:none;position:fixed;inset:0;z-index:74;background:transparent;pointer-events:none;}
+  #mhGbOverlay{display:none;position:fixed;inset:0;z-index:var(--z-win-guestbook);background:transparent;pointer-events:none;}
   #mhGbOverlay.on{display:block;}
   #mhGbWin{position:absolute;left:50%;top:50%;width:300px;transform:translate(-50%,-50%);pointer-events:auto;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -4565,7 +4590,7 @@
     width:360px;max-height:calc(100vh - 60px);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    z-index:93;display:flex;flex-direction:column;overflow:hidden;
+    z-index:var(--z-wardrobe);display:flex;flex-direction:column;overflow:hidden;
     transition:transform .32s cubic-bezier(.34,1.56,.64,1);border-radius:var(--win-radius-el) !important;}
   #wardrobePanel.on{transform:translate(0, -50%);}
   /* 꾸미기 미리보기 — 꾸미기 패널 왼쪽에 나란히 뜨는 정적 3D 미리보기 */
@@ -4574,7 +4599,7 @@
     width:320px;min-height:420px;max-height:78vh;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    z-index:93;flex-direction:column;overflow:hidden;
+    z-index:var(--z-wardrobe);flex-direction:column;overflow:hidden;
     display:none;   /* ★ transform으로 화면 밖에 숨기던 방식은 창 폭이 좁으면(런처 등) 일부가 그대로 보이는 문제가 있어서 display로 확실히 숨김 */;border-radius:var(--win-radius-el) !important;}
   #wdPreviewPanel.on{display:flex;}
   #wdPreviewPanel .wd-top h2{font-size:11px;}
@@ -6127,7 +6152,7 @@
 </div>
 
 <!-- 🎟️ 관리자: 유저 초대권 지급 — 대상 친추코드 + 지급 장수를 한 창에서 입력 -->
-<div id="inviteGrantOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+<div id="inviteGrantOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6168,7 +6193,7 @@
 </div>
 
 <!-- 🎟️ 초대장 발급 결과 — 발급된 코드를 한 번만 보여줌(목록 관리 없음). 복사해서 전달하는 용도. -->
-<div id="inviteIssuedOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+<div id="inviteIssuedOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6208,7 +6233,7 @@
      ★ 세 버튼 같은 크기(전부 lc-btn · ghost 아님). 계정이 있으면 **초대 코드 없이** 들어온다.
      ★ 옛 «유저 코드(u…) + 이전 비밀번호 = 계정 이전» 줄은 걷었다 — 친구 코드 로그인이 그 자리다(설계 §9 결정 9).
      원격 설정 config/flags/inviteGate 가 false면 아예 뜨지 않음. 불투명 배경으로 뒤를 완전히 가림. -->
-<div id="inviteGateOverlay" style="position:fixed;inset:0;z-index:95;display:none;align-items:center;justify-content:center;
+<div id="inviteGateOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-invite);display:none;align-items:center;justify-content:center;
   background:#3a6ea5;">
   <div id="inviteGateCard" style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6305,7 +6330,7 @@
      [회원가입 설계 §3 · §7-I · 시안 확정] **닫기 없음** — 가입하거나 구글을 연결해야 앱으로. 오프라인이면 이번엔 안 뜨고 다음 온라인 부팅에 다시.
      지금 친구 코드가 곧 아이디(고정 표시) · 비밀번호만 정한다. uid 는 그대로라 캐릭터·레벨·친구·마이홈이 바뀌지 않는다.
      배경은 반투명(뒤의 앱은 그대로 있다 · 시안 rgba(0,0,0,.45)). -->
-<div id="existingSignupOverlay" style="position:fixed;inset:0;z-index:96;display:none;align-items:center;justify-content:center;
+<div id="existingSignupOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-signup);display:none;align-items:center;justify-content:center;
   background:rgba(0,0,0,.45);">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6354,7 +6379,7 @@
      J(비밀번호 가입): 아이디 · «로그인돼 있는 PC 에서 바꾸기» 안내 · 경고 · [시작하기] · [구글도 연결하기](보조).
      J2(구글 가입): 아이디 · «비밀번호는 아직 없어요» · [시작하기]. 되찾기 코드는 없다((가) — 로그인된 PC 에서 바꾼다).
      [시작하기]: A 는 재시작(uid 가 이 세션에서 처음 정해졌다) · I 는 닫기(uid 그대로). 배경은 부르는 쪽이 정한다(A 불투명 · I 반투명). -->
-<div id="signupDoneOverlay" style="position:fixed;inset:0;z-index:97;display:none;align-items:center;justify-content:center;background:#3a6ea5;">
+<div id="signupDoneOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-done);display:none;align-items:center;justify-content:center;background:#3a6ea5;">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
@@ -6392,7 +6417,7 @@
   #charsLinkedOverlay .cl-cnt.full{color:#7a2f1b;}
   #charsLinkedOverlay .cl-cnt.full b{color:#B5624A;}
 </style>
-<div id="charsLinkedOverlay" style="position:fixed;inset:0;z-index:94;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+<div id="charsLinkedOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-device);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
@@ -6418,7 +6443,7 @@
 <!-- 🔐 K · 이 PC는 로그인이 필요해요 — 이 PC 의 uid 가 **이미 계정에 묶였는데** 여기선 그 계정으로 로그인돼 있지 않을 때(부팅 · 게이트 뒤).
      같은 uid 를 두 PC 에서 쓰던 기존 사용자의 두 번째 PC · 다른 PC 에서 비밀번호를 바꿔 이 PC 로그인이 끊긴 판. [설계 §9-11 · §7-K · 시안 확정 개정 13]
      **닫기 없음**(로그인 필수) · 오프라인이면 안 뜬다. 아이디는 고정(계정의 친구 코드) → 비밀번호만. -->
-<div id="needLoginOverlay" style="position:fixed;inset:0;z-index:96;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+<div id="needLoginOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-signup);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
@@ -6455,7 +6480,7 @@
 
 <!-- 🖥️ 한 계정 한 기기 — 다른 PC 에서 같은 계정으로 로그인하면 이 PC 가 보는 화면 [2026-09-17 제보 3 · 시안 확정(왼쪽)].
      초대 게이트와 같은 틀. 뒤를 완전히 가리지는 않는다(캐릭터는 그대로 있고 방 접속만 끊긴 상태) — 배경은 반투명. -->
-<div id="deviceSessionOverlay" style="position:fixed;inset:0;z-index:94;display:none;align-items:center;justify-content:center;
+<div id="deviceSessionOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-device);display:none;align-items:center;justify-content:center;
   background:rgba(0,0,0,.35);">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6476,7 +6501,7 @@
   </div>
 </div>
 
-<div id="adminPassOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+<div id="adminPassOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6500,7 +6525,7 @@
 </div>
 
 <!-- 라이선스 키 생성 모달 (관리자 전용) -->
-<div id="licenseGenOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+<div id="licenseGenOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   gap:12px;flex-wrap:wrap;background:none;pointer-events:none;">
   <div style="pointer-events:auto;max-height:90vh;overflow-y:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6637,7 +6662,7 @@
 <!-- 📣 확성기 공지 모달 (관리자 전용) — 런처5:
      짧은 공지를 firebase에 발행하면 접속 중인 모든 유저의 캐릭터 위(레벨 닉네임 위)에 1분간 표시.
      200px 폭 마퀴로 왼쪽으로 흘러가고, 다른 유저가 나중에 접속해도 60초 이내면 남은 시간만큼 표시. -->
-<div id="announceOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+<div id="announceOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6663,7 +6688,7 @@
 </div>
 
 <!-- 업데이트 공지 편집 모달 (관리자) — 팝업으로 제목/본문을 저장, 유저에게 첫 실행 시 한 번 팝업 -->
-<div id="updateNoticeAdminOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+<div id="updateNoticeAdminOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6695,7 +6720,7 @@
 </div>
 
 <!-- 업데이트 공지 팝업 (유저) — 앱 시작 시 발행된 공지가 있으면 한 번 표시 -->
-<div id="updateNoticeUserOverlay" style="position:fixed;inset:0;z-index:75;display:none;align-items:center;justify-content:center;
+<div id="updateNoticeUserOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-notice);display:none;align-items:center;justify-content:center;
   background:transparent;pointer-events:none;">
   <div style="pointer-events:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.5);
@@ -6717,7 +6742,7 @@
   </div>
 </div>
 <!-- Phase 3: 카테고리 관리 모달 (관리자) -->
-<div id="categoryManageOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+<div id="categoryManageOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:460px;max-width:92vw;max-height:88vh;overflow-y:auto;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -6821,7 +6846,7 @@
     </div>
   </div>
 </div>
-<div id="gameCfgOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+<div id="gameCfgOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:300px;max-width:90vw;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -6840,7 +6865,7 @@
     </div>
   </div>
 </div>
-<div id="adBannerOverlay" style="position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;
+<div id="adBannerOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-admin);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:320px;max-width:90vw;max-height:88vh;overflow-y:auto;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -6894,7 +6919,7 @@
 </div>
 
 <!-- 프로그램 설정 모달 — 라이선스 / 모니터 탭 (run 모드 ⚙ 설정 패널과 같은 탭 스타일) -->
-<div id="programSettingsOverlay" style="position:fixed;inset:0;z-index:59;display:none;align-items:center;justify-content:center;
+<div id="programSettingsOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-program);display:none;align-items:center;justify-content:center;
   background:none;pointer-events:none;">
   <div style="pointer-events:auto;width:300px;max-width:90vw;max-height:90vh;overflow-y:auto;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -7506,7 +7531,7 @@
 </div>
 
 <!-- 📊 관리자 Total 통계 -->
-<div id="totalStatsOverlay" style="display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:rgba(0,0,0,.35);pointer-events:auto;">
+<div id="totalStatsOverlay" style="display:none;position:fixed;inset:0;z-index:var(--z-dialog-admin);align-items:center;justify-content:center;background:rgba(0,0,0,.35);pointer-events:auto;">
   <div style="width:320px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);">
     <div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;">
       <span>📊 전체 통계</span>
@@ -7522,7 +7547,7 @@
 </div>
 
 <!-- 🙋 친구 초대 — 친구 목록에서 골라 현재 방으로 초대 -->
-<div id="roomInvitePickOverlay" style="display:none;position:fixed;inset:0;z-index:60;align-items:center;justify-content:center;background:none;pointer-events:none;">
+<div id="roomInvitePickOverlay" style="display:none;position:fixed;inset:0;z-index:var(--z-dialog-admin);align-items:center;justify-content:center;background:none;pointer-events:none;">
   <div id="roomInvitePickWin" style="width:320px;max-height:70vh;display:flex;flex-direction:column;pointer-events:auto;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);">
     <div id="roomInvitePickHead" style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;">
       <span>🙋 친구 초대</span>

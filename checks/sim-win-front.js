@@ -46,9 +46,10 @@ const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 /* HTML 에 적힌 CSS 기본 z-index 를 읽어 온다 — 목록에 넣어도 그 값보다 낮으면 소용이 없다 */
 const html = fs.readFileSync('desk-companion-prototype.html', 'utf8');
 const _flat = html.replace(/\s+/g, '');
+const { resolveZ: _resolveZ } = require('./sim-z-layers.js');   // 창 앞뒤는 :root 창 층 표의 이름(var(--z-…))으로 적는다 — 숫자로 풀어 읽는다
 function cssZ(id){
-  const m = new RegExp('#' + id + '\\{[^}]*?z-index:(\\d+)').exec(_flat);
-  return m ? parseInt(m[1], 10) : null;
+  const m = new RegExp('#' + id + '\\{[^}]*?z-index:([^;}]+)').exec(_flat);
+  return m ? _resolveZ(html, m[1]) : null;
 }
 
 say('\n── 1. 제보된 창이 목록에 있다');

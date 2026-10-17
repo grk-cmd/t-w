@@ -1183,7 +1183,8 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     chk(ids.every(id => H.includes('id="' + id + '"')), '★ F 마크업 id 열둘');
     const FM = H.slice(H.indexOf('<div id="charsLinkedOverlay"'), H.indexOf('<div id="needLoginOverlay"'));
     chk(/캐릭터를 계정에 연동했어요/.test(FM) && !/마리/.test(FM) && /아무것도 지워지지 않았어요/.test(FM), '  제목 · «마리» 없음 · 안내 줄');
-    chk(/z-index:94/.test(FM), '  게이트(96~97)보다 아래');
+    chk((() => { const Z = require('./sim-z-layers.js'), T = Z.parseTable(H), m = /z-index:([^;]+);/.exec(FM), v = Z.resolveZ(H, m && m[1]);   // 창 층 표의 이름으로 적혀 있다 — 풀어서 견준다
+      return v != null && v < T['--z-gate-signup'] && v < T['--z-gate-done']; })(), '  게이트(가입 · 로그인 · 가입 완료)보다 아래');
     if (fPlan && fPrep && fShow && fTomb && fTime){
       /* _charsLinkPlan — 순수 */
       const P = new Function(fTomb + '\n' + fTime + '\n' + fPlan + '\nreturn _charsLinkPlan;')();

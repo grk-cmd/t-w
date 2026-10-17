@@ -53,8 +53,10 @@ const WIN_Z_MIN = 83, WIN_Z_MAX = 92;
 /*     - #pkOverlay         📷 스티커사진 촬영 창 — CSS 기본값이 82(대화창과 같다)라 목록에
        없으면 어떤 창을 눌러도 그 위로 못 올라온다. 대화창의 📷 로 여는 창이라 둘이 같이
        떠 있는 것이 기본 상황이고, 그래서 앞뒤가 바뀌어야 한다. */
+/*     - #creatorOverlay · #raceOverlay  🧍 캐릭터 편집 · 🐾 종족 선택(큰 작업창) — 목록 밖 고정값(55)이면 마이홈(71) · 대화창(82)이 늘 위에 겹쳤다(B-1016-4).
+       목록에 넣고 «열면 맨 앞» 규칙을 따른다. 그 안에서 여는 대화상자는 창 층 표의 대화상자 층(창 쌓기 위)이라 숨지 않는다. */
 const _WIN_Z_LAYERS = ['chatOverlay', 'focusSettingsPanel', 'myStatusChip', 'focusLogOverlay',
-                       'bellWin', 'myHomeOverlay', 'mhGbOverlay', 'pkOverlay'];
+                       'bellWin', 'myHomeOverlay', 'mhGbOverlay', 'pkOverlay', 'creatorOverlay', 'raceOverlay'];
 let _winZTop = WIN_Z_MIN - 1;
 function _winZOf(el){
   const v = parseInt(el && el.style && el.style.zIndex, 10);
@@ -65,7 +67,8 @@ function bringWinToFront(id){
   if(!el) return;
   if(_winZTop >= WIN_Z_MIN && _winZOf(el) === _winZTop) return;   // 이미 맨 앞 — 건드릴 것 없다
   if(_winZTop >= WIN_Z_MAX){
-    const order = _WIN_Z_LAYERS.map(x=>document.getElementById(x)).filter(Boolean)
+    /* 올리려는 창은 빼고 다시 매긴다 — 넣으면 창이 칸 수(10)만큼일 때 마지막 창이 천장을 넘는다(93 = 꾸미기 자리). */
+    const order = _WIN_Z_LAYERS.map(x=>document.getElementById(x)).filter(e2=>e2 && e2!==el)
                                .sort((a,b)=>_winZOf(a)-_winZOf(b));
     _winZTop = WIN_Z_MIN - 1;
     order.forEach(e2=>{ e2.style.zIndex = String(++_winZTop); });
@@ -78,6 +81,21 @@ function bringWinToFront(id){
    ② 드래그로 창을 옮기기 시작할 때도 그 창이 앞으로 와야 한다 — 손을 뗄 때 올라오면 늦다.
    ⚠️ #chatOverlay 는 화면 전체를 덮지만 pointer-events:none 이라 빈 곳을 눌러도 경로에 안 들어온다.
      여기서 따로 걸러낼 필요가 없는 이유다. */
+/* 열면 맨 앞 — 목록의 창이 «안 보임 → 보임» 이 되는 순간 올린다(누를 때만 올리면 나중에 연 창이 먼저 있던 창 뒤에 깔린다 — B-1016-4).
+   ★ 여는 길(버튼 · F 키 · 다른 창이 여는 경우)마다 훅을 심지 않고 class · style 을 관찰한다 — ESC 스택과 같은 까닭(어느 길로 열려도 맞는다).
+   ⚠️ 보임은 계산된 display · visibility 로 본다(창마다 .on · .hidden · style.display 가 섞여 있다). 올릴 때 바꾸는 style.zIndex 는 보임을 안 바꿔 되풀이되지 않는다. */
+function _winShown(el){
+  try{ const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden'; }catch(_){ return false; }
+}
+_WIN_Z_LAYERS.forEach(id=>{
+  const el = document.getElementById(id);
+  if(!el) return;
+  let shown = _winShown(el);
+  try{
+    new MutationObserver(()=>{ const now = _winShown(el); if(now && !shown) bringWinToFront(id); shown = now; })
+      .observe(el, { attributes:true, attributeFilter:['class','style'] });
+  }catch(_){}
+});
 document.addEventListener('pointerdown', e=>{
   const path = (e.composedPath && e.composedPath()) || [e.target];
   for(let i = 0; i < _WIN_Z_LAYERS.length; i++){
