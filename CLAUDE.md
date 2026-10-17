@@ -14,10 +14,11 @@
 - 절대 커밋하지 않는 것: `oauth-config.js`(OAuth 시크릿), `.env*`, `.idea/`, `*.iml`, `dist/`.
 
 ## 작업 전 할 일 확인
-여럿이 같이 고치니 같은 일을 겹쳐 하지 않게 웹 관리자 📋 할 일(`adminTodos`)을 먼저 본다. 자세한 건 `/todo` 스킬.
-1. **확인** — 코드 작업을 시작하기 전에 `node scripts/todo.js find <낱말>` · `brief`. 비슷한 일이 진행 중이면 멈추고 사용자에게 묻는다.
-2. **등록** — 겹치지 않으면 `node scripts/todo.js start "<제목>" --type feat|bug`. 나온 id 를 PR 본문 `할 일:` 줄에.
-3. **완료** — PR 이 머지되면 `node scripts/todo.js done <id> --release <다음 버전>`.
+여럿이 같이 고치니 같은 일을 겹쳐 하지 않게 **현황판(`docs/WORK_STATUS.md`)을 맨 먼저**, 그다음 웹 관리자 📋 할 일(`adminTodos`)을 본다. 할 일은 `/todo` 스킬.
+1. **맨 먼저 — 받아서 지금 누가 하는지 보기**: `git pull` 로 `docs/WORK_STATUS.md` 를 받아 «진행 중» 표에서 내가 건드릴 파일이 겹치는지 본다. 겹치면 **시작하지 말고** 그 담당과 먼저 맞춘다. 안 겹치면 담당 · 건드리는 파일을 한 줄 적어 **그 파일만 main 에 바로 push**(PR 없음 · 유일한 예외). 머지는 한 사람(검증 담당)만 한다. 자세한 절차는 그 파일 맨 위.
+2. **확인** — 코드 작업을 시작하기 전에 `node scripts/todo.js find <낱말>` · `brief`. 비슷한 일이 진행 중이면 멈추고 사용자에게 묻는다.
+3. **등록** — 겹치지 않으면 `node scripts/todo.js start "<제목>" --type feat|bug`. 나온 id 를 PR 본문 `할 일:` 줄에.
+4. **완료** — PR 이 머지되면 `node scripts/todo.js done <id> --release <다음 버전>`.
 - 관리자 Google 계정으로 `gcloud auth login` 한 사람만 쓴다. 처음 한 번 `node scripts/todo.js setup`. 세션 시작 때 진행 중인 할 일이 자동으로 보인다(관리자가 아니면 조용히 안 나온다).
 
 ## 구조
