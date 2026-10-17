@@ -620,6 +620,8 @@ PRELOAD.push('desk-setup.js');
 PRELOAD.push('seat-menu.js');
 /* net-ready.js — 🛰 «네트워크(provider) 준비됨» 기다리기 한 곳(firebase-ready 묶기). 같은 까닭 — 스케줄러 · 방 · 계정 · 카탈로그 모듈이 만들 때 TwNetReady.whenNetReady 를 부른다. */
 PRELOAD.push('net-ready.js');
+/* upload-cache.js — 🗂️ 업로드 캐시 상한 규칙 한 곳. app.js 가 만들 때 TwUploadCache.createUploadCache 를 부른다. */
+PRELOAD.push('upload-cache.js');
 /* seat-eq-clamp.js — 🪑 평준화 가두기(책상 위 파츠를 자기 자리 안으로)(구역 떼기 C · wAC). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatEqClamp 를 같이 굴린다. */
 PRELOAD.push('seat-eq-clamp.js');
 /* desk-place.js — 📐 책상 자리 · 크기(크기 · 위치 · z 보정 · 파츠 핀)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDeskPlace 를 같이 굴린다. */

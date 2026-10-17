@@ -182,3 +182,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - `onNetReady` 는 신호가 두 번 오면 두 번 부른다. overhead 의 once 없음은 원래 동작 그대로 둔 것이다(CONFIRM.md).
 
 검사: `checks/sim-net-ready.js` (바로 · once 한 번 · need · 이벤트 인자 · onNetReady 두 번 · waitNetReady 신호 · 시간 · 한 번만 풀림 · 직접 귀 0곳 · 쓰는 파일 11곳 · html 순서 · smoke · 깨 보기 9).
+
+## `upload-cache.js` — 🗂️ 업로드 캐시 상한 규칙
+
+- **책임**: 업로드 캐시(`«종류:내용해시» → URL`)가 상한을 넘었을 때 무엇을 버리나 — 이 판단 하나. 읽기 · 쓰기(localStorage)는 쓰는 모듈이 한다.
+- **쓰는 곳**: 얼굴 캐시 `room/room-sync.js`(`tw.roomFaceUrls`) · 슬롯 GLB 캐시 `character/slot-sync.js`(`tw.slotGlbUrls`).
+- **만드는 법**: app.js 가 `const uploadCacheMod = TwUploadCache.createUploadCache();` 로 하나 만들어 두 모듈에 `uploadCache` deps 로 넘긴다(받는 deps 없음).
+- **내놓는 것**: `trim(st, max, { dropLegacyFirst })` · `FACE_CACHE_MAX` · `GLB_CACHE_MAX`.
+- **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 `trim` 을 부른다 — 쓰는 모듈에 «넘치면 비우기» 를 다시 쓰지 않는다.
+- **함정**: 옛 해시(`h2` 로 시작하지 않는) 항목은 조회에 쓰지 않는다 — 같은 해시가 같은 그림이라는 보장이 없다.
+- **검사**: `checks/sim-upload-cache.js`.

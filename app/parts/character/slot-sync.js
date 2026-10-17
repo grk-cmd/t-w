@@ -16,6 +16,7 @@
 function createSlotSync(deps){
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
 const LS_KEY = deps.LS_KEY;
+const glbUploadCache = deps.glbUploadCache;   // 업로드 캐시 상한 규칙(shared/upload-cache.js)
 const _blinkEverDrawn = deps._blinkEverDrawn;
 const _faceEverDrawn = deps._faceEverDrawn;
 const _quickHash = deps._quickHash;
@@ -206,8 +207,7 @@ function _slotsSchedulePush(){
 function _slotGlbCacheLoad(){
   let st = {}; try{ st = JSON.parse(localStorage.getItem(SLOT_GLB_CACHE_KEY) || '{}'); }catch(_){}
   if(!st || typeof st !== 'object') st = {};
-  if(Object.keys(st).length > 40) st = {};
-  return st;
+  return glbUploadCache.trim(st, glbUploadCache.GLB_CACHE_MAX);   // 상한 규칙은 shared/upload-cache.js 한 곳
 }
 function _slotGlbCacheSave(st){ try{ localStorage.setItem(SLOT_GLB_CACHE_KEY, JSON.stringify(st)); }catch(_){} }
 async function _storageGlbUrlOne(uid, st, key, b64){

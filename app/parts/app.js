@@ -1529,6 +1529,7 @@ let _flyActive = 0;
    창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다 */
 const twNav = TwNav;
 const demojiCatalog = TwDemojiCatalog;   // 😊 기본 이모티콘 목록(demoji-catalog.js — 채팅 · 마이홈 바탕화면이 같이 읽는 맨 아래 표)
+const uploadCacheMod = TwUploadCache.createUploadCache();   // 🗂️ 업로드 캐시 상한 규칙 — 얼굴(room-sync) · 슬롯 GLB(slot-sync)가 같이 쓴다
 const roomSyncMod = TwRoomSync.createRoomSync({
   DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
@@ -1536,6 +1537,7 @@ const roomSyncMod = TwRoomSync.createRoomSync({
   _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),   // 🛰 Presence(room/presence.js)가 거는 시계 되감기 — 모듈끼리 window 로 서로 부르지 않게 여기서 잇는다
   _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
   _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),
+  faceUploadCache: uploadCacheMod,
   getMyUserId: (...a)=>getMyUserId(...a),
   loadImg: (...a)=>loadImg(...a),
   newCanvas: (...a)=>newCanvas(...a),
@@ -7938,6 +7940,7 @@ const slotSyncMod = TwSlotSync.createSlotSync({
   _warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),
   creatorOpen: ()=>creatorOpen,
   getMyUserId: (...a)=>getMyUserId(...a),
+  glbUploadCache: uploadCacheMod,
   loadSlots: (...a)=>slotSaveMod.loadSlots(...a),
   renderLauncher: (...a)=>renderLauncher(...a),
   slotToObj: (...a)=>slotSaveMod.slotToObj(...a),
