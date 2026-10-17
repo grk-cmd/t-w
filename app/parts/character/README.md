@@ -52,7 +52,7 @@
 - **내보내는 것**
   - `catalogSrcReady(fn)` — 연결이 있으면 바로, 없으면 `firebase-ready` 를 한 번만 기다려 부른다.
   - `catalogSrcCan(op)` → bool — op: `items` · `desks` · `parts` · `customCats` · `catOverrides` · `migrateGacha` · `fetchGlb` · `publishPart`.
-  - `catalogSrcSubscribe(kind, cb)` · `catalogSrcMigrateGacha()` · `catalogSrcFetchGlb(url)` · `catalogSrcPublishPart(id, data)` — 인자 · 돌려받는 값(약속)을 그대로 넘긴다.
+  - `catalogSrcSubscribe(kind, cb)` · `catalogSrcMigrateGacha()` · `catalogSrcFetchGlb(url)` · `catalogSrcPublishPart(id, data)` — 인자 · 돌려받는 값(약속)을 그대로 넘긴다. 입구에서 스스로 `catalogSrcCan` 을 본다 — 연결 · 함수가 없거나 모르는 종류 · 빈 인자(콜백 · url · id · data)면 요청 없이 `null`(던지지 않음).
   ```js
   if(!catalogSourceMod.catalogSrcCan('parts')) return;
   catalogSourceMod.catalogSrcSubscribe('parts', async obj => { … });
@@ -60,8 +60,8 @@
 - **확장할 때 고칠 자리**: 서버 API 판은 같은 이름 여섯을 내놓는 provider 를 하나 더 만들고 app.js 의 고르는 줄만 바꾼다(room-server-gate.js 처럼). 새 서버 일은 `CATALOG_SRC_FB_OPS` 에 이름 하나 + 함수 하나.
 - **함정**
   - `firebaseAPI` 는 부를 때마다 읽는다 — 만들 때 붙잡아 두면 부팅 뒤에 생긴 연결을 못 쓴다.
-  - 할 수 있는지(`catalogSrcCan`)를 먼저 묻는 자리는 옛 «함수가 없으면 조용히 건너뜀» 동작이다 — 빼면 옛 firebase-init 과 섞일 때 던진다.
-  - 검사: `checks/sim-catalog-source.js`(모양 · 연결 · 세 모듈 직접 호출 0 · 기다리기 · 넘기기 · 늦게 생긴 연결).
+  - 부르는 쪽이 `catalogSrcCan` 을 먼저 묻는 자리는 옛 «함수가 없으면 조용히 건너뜀» 동작이다. 같은 가드가 provider 입구에도 있어서 빠뜨려도 던지거나 빈 요청을 보내지 않는다 — 새 provider 판도 같은 입구 가드를 둔다.
+  - 검사: `checks/sim-catalog-source.js`(모양 · 연결 · 세 모듈 직접 호출 0 · 기다리기 · 넘기기 · 입구 가드 · 늦게 생긴 연결).
 
 ## catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)
 
