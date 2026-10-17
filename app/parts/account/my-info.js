@@ -96,6 +96,9 @@ function _miSetTab(tab){
   const $e = id => document.getElementById(id);
   const trashOn = _miTrashOn();
   _miTab = (tab === 'acct' || (tab === 'trash' && trashOn)) ? tab : 'box';
+  /* 탭을 옮기면 열려 있던 탈퇴 안내는 접는다 — 돌아왔을 때 계정 탭이 사라진 채로 남지 않게(지우는 중이면 그대로) */
+  const li = $e('acctLoggedIn'), dc = $e('acctDeleteCancel');
+  if(li && li.classList.contains('acct-deleting') && dc && !dc.disabled && $e('acctDeleteConfirm') && $e('acctDeleteConfirm').style.display !== 'none') dc.click();
   const tt = $e('miTabTrash'); if(tt) tt.style.display = trashOn ? '' : 'none';
   const pg = $e('lcMyInfo'); if(pg) pg.classList.toggle('mi-noscroll', _miTab === 'acct');   // 계정 탭은 스크롤바 숨김(개정 53)   // 휴지통 탭 = 보관함이 열려야(스위치 · 첫 채택 뒤)
   const pb = $e('miPageBox'), pa = $e('miPageAcct'), pt = $e('miPageTrash');
@@ -673,13 +676,18 @@ function _miCodeLoad(){
         + (p.warnings && p.warnings.length ? ' — ' + p.warnings.join(' · ') : '');
       dCount.style.display = 'block';
     };
+    /* 탈퇴 안내를 여는 동안 계정 탭(로그인 수단 ~ 로그아웃)을 숨기고 그 자리에 보인다 — CSS #acctLoggedIn.acct-deleting */
+    const delMode = (on) => { const li = $('acctLoggedIn'); if(li) li.classList.toggle('acct-deleting', !!on); };
     if(dBtn) dBtn.onclick = () => {
       dBtn.style.display = 'none';
+      delMode(true);
       if(dAgree) dAgree.checked = false;
       if(dWord) dWord.value = '';
       if(dYes) dYes.textContent = '탈퇴하기';
       dSay(''); delShowCount(null); delSync();
       if(dBox) dBox.style.display = 'block';
+      const pg = $('lcMyInfo'), zone = $('acctDeleteZone');
+      if(pg && zone) try{ pg.scrollTop = Math.max(0, zone.offsetTop - 8); }catch(_){}   // 안내 머리가 보이게
       const cancelBtn = $('acctDeleteCancel'); if(cancelBtn) try{ cancelBtn.focus(); }catch(_){}
       const seq = ++_delSeq;
       const api = window.firebaseAPI && firebaseAPI.accountDelete;
@@ -694,6 +702,7 @@ function _miCodeLoad(){
       if(dBox) dBox.style.display = 'none';
       dSay('');
       if(dBtn) dBtn.style.display = 'block';
+      delMode(false);
     };
     if(dYes) dYes.onclick = async () => {
       if(_delBusy || !delReady()) return;

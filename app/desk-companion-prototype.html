@@ -1480,6 +1480,10 @@
   #creatorOverlay{position:fixed;inset:0;z-index:55;display:none;align-items:center;justify-content:center;
     background:rgba(0,0,0,.35);}
   #creatorOverlay.on{display:flex;}
+  /* 회원 탈퇴를 누르면 계정 탭(로그인 수단 ~ 로그아웃)을 탈퇴 안내로 바꿔 보인다 — 아래에 덧붙이면 화면이 너무 길어졌다. 켜고 끄기는 my-info.js */
+  #acctLoggedIn.acct-deleting > :not(#acctDeleteZone){display:none !important;}
+  #acctLoggedIn.acct-deleting #acctDeleteZone{margin-top:0 !important;padding-top:0 !important;border-top:none !important;}
+  #acctLoggedIn.acct-deleting .acct-del-notice{max-height:none !important;overflow:visible !important;}
   /* 캐릭터 편집(55)이 켜진 동안 마이홈 · 방명록 창(71~92, win-stack)을 숨긴다 — 편집창 위로 비쳐 보였다.
      편집창을 맨 위로 올리지 않는 까닭: 편집 중에 여는 코드 창(56) 같은 대화상자가 그 밑에 깔린다. 닫는 곳이 여럿이라 CSS 로 건다. */
   body:has(#creatorOverlay.on) #myHomeOverlay, body:has(#creatorOverlay.on) #mhGbOverlay{visibility:hidden;}
@@ -6027,12 +6031,12 @@
         <!-- 🗑️ 회원 탈퇴 — 버튼 → 고지 · 확인(체크 + «탈퇴» 입력) → 완료(다시 시작). 서버 함수 deleteMyAccount 가 관리자 삭제와 같은 범위를 지운다.
              고지 글은 functions/account-delete.js 의 GROUPS(지우는 것) · KEPT(남는 것)와 같은 내용이다 — 그쪽을 바꾸면 여기도 본다.
              숫자 한 줄(acctDeleteCount)은 미리 보기로 받아 my-info.js 가 채운다. -->
-        <div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--win-lo);">
+        <div id="acctDeleteZone" style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--win-lo);">
           <button id="acctDeleteBtn" class="lc-btn" type="button" style="width:100%;margin-top:0;font-size:11px;color:var(--win-error);">회원 탈퇴</button>
           <div id="acctDeleteConfirm" style="display:none;background:var(--win-select-bg);
             border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:9px 10px;">
             <p style="margin:0 0 7px;font-size:11.5px;color:var(--win-error);font-weight:bold;line-height:1.5;">정말 탈퇴할까요? 탈퇴하면 되돌릴 수 없어요.</p>
-            <div style="margin:0 0 8px;font-size:10.5px;color:var(--ink);line-height:1.6;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:7px 9px;max-height:210px;overflow-y:auto;">
+            <div style="margin:0 0 8px;font-size:10.5px;color:var(--ink);line-height:1.6;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:7px 9px;max-height:210px;overflow-y:auto;" class="acct-del-notice">
               <b>서버와 이 PC에서 바로 지워지는 것</b>
               <ul style="margin:3px 0 7px;padding-left:16px;">
                 <li>캐릭터 · 파츠(뽑은 파츠 포함) · 꾸미기 · 휴지통</li>
