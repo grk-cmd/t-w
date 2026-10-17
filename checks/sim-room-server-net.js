@@ -23,15 +23,19 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('room-server-net.js'), FI = read('firebase-init.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
-for(const [n, v] of [['room-server-net.js', SRC], ['firebase-init.js', FI], ['app.js', APP], ['desk-companion-prototype.html', HTML]]){
+const SRC = read('room-server-net.js'), LINK = read('realtime-link.js'), FI = read('firebase-init.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
+for(const [n, v] of [['room-server-net.js', SRC], ['realtime-link.js', LINK], ['firebase-init.js', FI], ['app.js', APP], ['desk-companion-prototype.html', HTML]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
-// ESM 파일을 그대로 함수로 — export 만 떼어 낸다
-const names = [...SRC.matchAll(/^export (?:const|function|async function) (\w+)/gm)].map((m) => m[1]);
-const M = new Function('Buffer', SRC.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);
+// ESM 파일을 그대로 함수로 — export 만 떼어 낸다. 연결 공통부(realtime-link.js)는 firebase-init 처럼 createLink 로 넘긴다.
+const esm = (src) => {
+  const names = [...src.matchAll(/^export (?:const|function|async function) (\w+)/gm)].map((m) => m[1]);
+  return new Function('Buffer', src.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);
+};
+const L = esm(LINK);
+const M = Object.assign({}, L, esm(SRC));
 
 // ── 가짜 시계 · 가짜 웹소켓 ──────────────────────────────────────────────
 const tick = async () => { for(let i = 0; i < 20; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
@@ -78,6 +82,7 @@ function mkNet(o = {}){
   const { FakeWS, socks } = mkWS();
   const calls = { token: [] };
   const net = M.createRoomServerNet({
+    createLink: L.createRealtimeLink,
     WebSocket: FakeWS,
     enabled: () => o.enabled !== false,
     url: () => ('url' in o) ? o.url : 'ws://127.0.0.1:8787',
