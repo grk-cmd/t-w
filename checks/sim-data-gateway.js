@@ -2,7 +2,7 @@
    ・1절: 순수 판단 — matchRoute(표 · 별표 칸 · 모양 틀린 줄) · toServerPath(내 코드만 me) · pathOf · snapshotOf · parseSse
    ・2절: **표가 비면 지금과 똑같다** — 모든 기본 동작이 같은 SDK 함수를 같은 인자로 부르고 그 돌려준 값을 그대로 돌려준다(실제로 돌려 판정)
    ・3절: 표에 걸리면 서버로(POST 본문 · 주소에 매개변수 없음) — 내 코드는 me · 번역표(Firebase 로 / 오류로) · 조건(query) 본문 · 못 보내는 조건 · 로그인 없음 · update 섞임 · push · 듣기 두 단계
-   ・4절: 연결 — firebase-init.js 가 SDK 기본 동작을 통로 뒤로만 부른다 · 다른 앱 파일은 Firebase DB 라이브러리를 안 부른다 · 원격 설정 칸 · 규칙 · html 차례 · smoke
+   ・4절: 연결 — firebase-init.js 가 SDK 기본 동작을 통로 뒤로만 부른다 · 다른 앱 파일은 Firebase DB 라이브러리를 안 부른다 · 원격 설정 칸 · 규칙 config/dataRoutes · html 차례 · smoke
    ・5절: 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -175,6 +175,10 @@ async function judge(S){
     && RC.cleanDataRoutes({ 0: 'users/*/home', 1: 7, 2: '' }).join() === 'users/*/home' && RC.cleanDataRoutes(['a', 'b']).join() === 'a,b' && RC.cleanDataRoutes('x').length === 0
     && RC.store.dataRoutes().length === 0,
     '원격 설정 dataRoutes — 기본 빈 표 · Firebase config/dataRoutes · {0:…} 도 받음 · 글자 칸만');
+  let rules = null; try{ rules = JSON.parse(S.RULES); }catch(_){ rules = null; }
+  const dr = rules && rules.rules && rules.rules.config && rules.rules.config.dataRoutes;
+  chk(!!dr && dr['.read'] === true && /admins/.test(dr['.write'] || '') && /\$i\.matches/.test((dr.$i || {})['.validate'] || '') && /isString/.test((dr.$i || {})['.validate'] || ''),
+    '규칙 config/dataRoutes — 누구나 읽기 · 관리자만 쓰기 · 칸은 번호 · 글자');
   const H = S.HTML, iSS = H.indexOf('src="parts/shared/source-switch.js"'), iGW = H.indexOf('src="parts/shared/data-gateway.js"');
   /* firebase-init.js 는 type="module"(지연 실행)이라 html 자리와 상관없이 classic 스크립트(통로 포함)가 다 돈 뒤에 돈다 */
   chk(iSS > 0 && iGW > iSS && /<script type="module" src="parts\/firebase-init\.js"><\/script>/.test(H) && !/<script src="parts\/shared\/data-gateway\.js" type="module"/.test(H),
@@ -219,6 +223,7 @@ async function judge(S){
     ['FI', "  const get = (...a) => _gw.get(...a);", "  const get = _sdkGet;", '기능 함수의 get 이 통로를 건너뜀'],
     ['FI', "    return _gw.update(r, v);", "    return _dbUpdate(r, v);", 'update 가 통로를 건너뜀'],
     ['RC', "  dataRoutes: Object.freeze([]),", "  dataRoutes: Object.freeze(['users']),", '기본 표가 비어 있지 않음'],
+    ['RULES', '"dataRoutes": {\n        ".read": true,', '"dataRoutes": {\n        ".read": false,', '규칙이 표 읽기를 막음'],
     ['SMOKE', "PRELOAD.push('data-gateway.js');", "", 'smoke 가 통로를 안 실음'],
   ];
   const caught = [];

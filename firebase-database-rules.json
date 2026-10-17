@@ -805,6 +805,13 @@
           ".validate": false
         }
       },
+      "dataRoutes": {
+        ".read": true,
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$i": {
+          ".validate": "$i.matches(/^[0-9]{1,3}$/) && newData.isString() && newData.val().length >= 1 && newData.val().length <= 200"
+        }
+      },
       "sources": {
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         "$feature": {

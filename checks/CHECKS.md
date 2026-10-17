@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 368 (🚪 범용 데이터 통로 — Firebase 기본 동작 앞의 문 하나(표가 비면 그대로))
-대상: `sim-*.js` 321개 + `smoke.js` + `audit.py` = **323개** (개정 368 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 369 (규칙 config/dataRoutes — 범용 통로 표(누구나 읽기 · 관리자만 쓰기))
+대상: `sim-*.js` 321개 + `smoke.js` + `audit.py` = **323개** (개정 369 기준 — 폴더를 센 값)
+
+**개정 369 에서 한 것 (2026-10-18 · 규칙 한 칸 — 범용 통로 표)**
+- 규칙: `config/dataRoutes` — 누구나 읽기 · 관리자만 쓰기 · 칸은 번호(0~999) · 글자 1~200자. 앱(원격 설정)이 Firebase 로 표를 읽을 때 쓴다. 비어 있으면 앱은 지금과 같다.
+- 검사: `sim-data-gateway.js` 4절에 규칙 판정 · 깨 보기 하나 · `sim-rules-keys.js` 경로 변수 표에 `/config/dataRoutes/$i`.
 
 **개정 368 에서 한 것 (2026-10-18 · 범용 데이터 통로 — 표가 비면 동작 무변경 · 사용자 결정 «서버만 배포해서 기능 옮기기»)**
 - 앱: `shared/data-gateway.js`(새 · `TwDataGateway`) — `firebase-init.js` 의 Firebase 기본 동작(get · set · update · remove · push · onValue · 조건 query)이 이 문을 지난다. 원격 설정 `dataRoutes` 표에 걸린 경로만 서버(`POST /v1/data` 본문 · 듣기는 `POST /v1/data/stream` → 열쇠 → `GET /v1/data/stream/{열쇠}` SSE)로, **표가 비면 SDK 를 같은 인자로 그대로** 부른다. 경로의 내 코드는 `me` 로 · 신원은 ID 토큰 · 로그인 세션 없으면 Firebase. 서버 오류는 번역표 한 곳(준비 안 됨 · 연결 실패 · 404 · 로그인 없음 → Firebase / 권한 · 잘못된 요청 · 동시 수정 · 모르는 code → E-DATA-01~04). `api-client.js` 에 post(본문 JSON) · 원격 설정 `dataRoutes`(기본 빈 표) · 에러코드 DATA 영역 넷 · 기능 함수 256개는 손대지 않음.
@@ -2623,7 +2627,7 @@
 | **sim-api-public-reads.js** | 191 | **0ffa0ae11a5c** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 180 신설 · 🌐 공개 읽기 API 먼저(api-public-reads.js) — 파도타기 · 명함 · 사진 · 랭킹 · 방 개수(quick 만) · 랜덤 후보 · data:null = 없음 · 실패면 원래 Firebase 함수 · 배선** |
 | **sim-remote-config.js** | 441 | **d94647895cd7** ← **개정 356 CSP 두 도메인** · **개정 319 규칙식을 돌릴 때 경로 변수에 정상 키를 넘김(키 형식 조건이 생김 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 175 §1 · §2 새로 — 읽는 차례 API → Firebase config 칸 → 저장값 → 기본값 · API 성공이면 Firebase 안 읽음 · 최소 버전 저장값 안 씀 · 503 CONFIG_NOT_READY · 멈춤 · 1분 기억 · 허용 목록 API → Firebase allow · 서버 주소 · firebase-init 배선** · **개정 172 신설 · ⚙️ 원격 설정(remote-config.js) — 기본값 · 범위 · 타입 · 알림 · ready · 칸 넷 구독 · 규칙 식 실행(roomLimits · roomMaxPeople · flags · bugPostCount 100) · app.js 배선 · 화면 숫자 · 방 서버 길 빈 방 상한(되살리기 · 시크릿룸 · 만들기 · 있는 방 제외) · html · CSP** |
 | **sim-source-switch.js** | 176 | **d37fe90aa0a3** ← **개정 361 신설 · 기능별 받는 곳 고르기 한 곳(source-switch.js)** |
-| **sim-data-gateway.js** | 240 | **c605e4153b6c** ← **개정 368 신설 · 🚪 범용 데이터 통로(data-gateway.js) — 표가 비면 그대로 · 서버 길 · 번역표** |
+| **sim-data-gateway.js** | 245 | **ed15b727902e** ← **개정 369 규칙 config/dataRoutes 판정 · 깨 보기** · **개정 368 신설 · 🚪 범용 데이터 통로(data-gateway.js) — 표가 비면 그대로 · 서버 길 · 번역표** |
 | **sim-myhome-inbox.js** | 494 | **8cd51faeea8b** ← **개정 327 내 코드 없음 요청 0** · **개정 314 못 불러옴 안내 줄바꿈(pre-line)** · **개정 309 친구 탭 불러오는 중 · 못 불러옴 안내 · 헤더 (-/상한) · deps 19 · 깨 보기 하나** · **개정 272 무대에 진짜 고리판(테마 다시 걸기)** · **개정 252 무대에 _mallangGiftOrder · _mhApplyTheme 고리(부팅 때 늘 걸림 — 판정 무변경)** · **개정 250 빈 껍데기 INBOX_OFF 없음 · 껍데기 판정 · 깨 보기 하나를 걷음(가드 걷기 3차-2)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 신설 · 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록 모듈(myhome-inbox.js) — 만들 때 · 수령함 셈 · 배지 · 그리기(필터 · 📌 · 읽음 · 🐞 · × · 고정) · 링크 · 키 복사 · 선물함(⭐ · 상한 · 확인창) · 친구 목록(정렬 · 검색 · 시크릿룸 · 🏠 · 삭제) · app.js 배선 · 일부러 깨 보기 28가지** |
 | **sim-playlist.js** | 541 | **a423b9b5e11a** ← **개정 313 친구 고르기 — 열 때 접속 상태 한 번 · deps 21** · **개정 250 빈 껍데기 PLAYLIST_OFF 없음 · 껍데기 깨 보기 하나를 걷음(가드 걷기 3차-2)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 173 신설 · 🎵 상태칩 플레이리스트 모듈(playlist.js) — 만들 때(ESC 등록 · BGM 신호 셋 · 300ms 폴링 · 음량 한 번 · window 고리 셋 · 창 위치 초기화) · 프리셋 저장값(관문 · 옛 목록 이관 · 반복 옛 키 · 공개 «1» 만 · 프리셋 0 거울) · 목록(＋ 제목 자동 · 직접 · 중복 · 상한 · Delete · 프리셋 고르기 · 이름) · 재생(▶ · ▐▐ · ■ · ⏭ · ended · err · loop · 반복 · 셔플 · 프리셋 갈아타기 · 창 소유권) · 파도타기 · 담기 · 서버 사본(3초 · 지문 · 빈 목록 지움 · 🔒) · 감시견 · 상태 묶음 st · app.js 배선(deps 20 · 원래 자리 · 남긴 머리 · 빈 껍데기 · 부르는 곳 · html 순서 · Tw 접두사) · 일부러 깨 보기 30가지** |
 | **sim-ui-tokens.js** | 128 | **c4e31dbe90c9** ← **개정 176 parts/admin/*.js 도 본다(이름 admin/파일)** · **개정 101 신설 · 🧩 --tw-* 토큰 다리 · 직접 적은 글꼴 · 손 회색이 기준선(ui-tokens-baseline.json)보다 늘지 않는다** |
@@ -2762,7 +2766,7 @@
 | **sim-seat-panel.js** | 163 | **2f9bad25ac96** ← **개정 288 신설 · 🎚️ 좌석 탭 · 상태 버튼 모듈 구조 + 동작(가짜 DOM)** |
 | **sim-user-status-table.js** | 125 | **8727d9f8adac** ← **개정 290 신설 · 🍚 상태 표 · 커스텀 상태 저장값 모듈 구조 + 동작** |
 | **sim-chip-popups.js** | 128 | **f9e9fcf20acd** ← **개정 290 신설 · 🗂️ 칩 팝업 닫기 모듈 구조 + 동작(가짜 DOM)** |
-| **sim-rules-keys.js** | 307 | **1a09d59a942c** ← **개정 361 config/sources/$feature 변수(관리자만 씀)** · **개정 320 mobileLink 는 공백 낀 사용자 id(서버 함수가 옮김) · 3절 폰 연결 · 깨 보기 하나** · **개정 319 신설 · 🔐 서버 규칙 경로 키 형식 — 키 조건을 돌려 운영 모양 통과 · 사고 키 거절 · 표에 없는 변수 빨강 · 앱 id 와 같음** |
+| **sim-rules-keys.js** | 307 | **874fceef60d9** ← **개정 369 경로 변수 /config/dataRoutes/$i** · **개정 361 config/sources/$feature 변수(관리자만 씀)** · **개정 320 mobileLink 는 공백 낀 사용자 id(서버 함수가 옮김) · 3절 폰 연결 · 깨 보기 하나** · **개정 319 신설 · 🔐 서버 규칙 경로 키 형식 — 키 조건을 돌려 운영 모양 통과 · 사고 키 거절 · 표에 없는 변수 빨강 · 앱 id 와 같음** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** ← **개정 320 신설 · 📱 폰 연결 주소 공백 떼기 함수 — 가짜 DB 로 옮기기 · 지우기 · index.js 연결 · 규칙과 같은 모양** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
