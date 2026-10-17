@@ -78,7 +78,9 @@ function createApiClient(deps){
     try{
       const headers = await Promise.race([authHeaders(o), timeout]);   // 토큰 새로 받기가 멈춰도 시간 제한 안에서 끝난다
       try{
-        res = await Promise.race([fetchFn(base + path, { headers, credentials: 'omit', signal: ctl ? ctl.signal : undefined }), timeout]);
+        const init = { headers, credentials: 'omit', signal: ctl ? ctl.signal : undefined };
+        if(o.method){ init.method = o.method; init.headers = Object.assign({ 'Content-Type': 'application/json' }, headers); init.body = JSON.stringify(o.body === undefined ? null : o.body); }
+        res = await Promise.race([fetchFn(base + path, init), timeout]);
       }catch(e){
         if(e instanceof ApiError) throw e;
         throw new ApiError('unavailable', 0, 'NETWORK', 'API 에 연결하지 못했어요');
@@ -97,7 +99,7 @@ function createApiClient(deps){
     return body.data;
   }
 
-  /* opts: { cacheMs, timeoutMs, auth, headers } */
+  /* opts: { cacheMs, timeoutMs, auth, headers } — once 는 opts.method · body 가 있으면 그대로 실어 보낸다(post) */
   function get(path, opts){
     const o = opts || {};
     if(!base || !fetchFn) return Promise.reject(new ApiError('unavailable', 0, 'NO_API', 'API 주소 없음'));
@@ -117,8 +119,17 @@ function createApiClient(deps){
     return p;
   }
 
+  /* 보내기(POST · JSON) — 범용 데이터 통로(data-gateway.js) 몫. 캐시 · 같은 요청 합치기 · 쉬기는 하지 않는다(쓰기는 매번 다르다).
+     opts: { auth, headers, timeoutMs } — 실패 모양은 get 과 같다(ApiError). */
+  function post(path, body, opts){
+    const o = Object.assign({}, opts || {}, { method: 'POST', body });
+    if(!base || !fetchFn) return Promise.reject(new ApiError('unavailable', 0, 'NO_API', 'API 주소 없음'));
+    return once(path, o.timeoutMs || timeoutMs, o);
+  }
+
   return {
     get,
+    post,
     baseUrl: () => base || null,
     resting: () => downUntil > now(),
     clearCache: () => { cache.clear(); },

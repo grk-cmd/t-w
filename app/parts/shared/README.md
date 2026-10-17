@@ -212,3 +212,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **만드는 법**: 렌더러에서는 `window.TwJsonStore`(`load` · `save`)를 바로 쓴다. 검사 · 다른 저장소는 `TwJsonStore.createJsonStore({ storage: () => 저장소 })`.
 - **내놓는 것**: `load(key, fallback)` → `{ ok, list, err, bytes }`(키가 없거나 빈 글이면 ok · fallback) · `save(key, value)` → `{ ok, err, bytes }`(던지지 않는다).
 - **함정**: 값의 모양(배열 · 객체)은 부르는 쪽이 본다. DOM · 토스트를 모른다 — 알리기는 부르는 쪽. 검사 `checks/sim-json-store.js`.
+
+## `data-gateway.js` — 🚪 범용 데이터 통로(서버만 배포해서 기능 옮기기)
+
+- **책임**: `firebase-init.js` 의 Firebase 기본 동작(get · set · update · remove · push · onValue) 앞의 문 하나. 원격 설정 **dataRoutes** 표에 걸린 경로만 서버 범용 끝점(`POST /v1/data` · 듣기는 `GET /v1/data/stream` SSE)으로 보내고, 나머지는 SDK 를 같은 인자로 그대로 부른다. **표가 비면 지금과 똑같다.**
+- **왜**: 기능 함수(firebaseAPI 256개)마다 서버 주소를 박으면 기능을 옮길 때마다 앱 업데이트가 필요하다. 문 하나를 두면 «서버에 그 경로 처리기 추가 + 표에 경로 한 줄» 만으로 옮긴다(앱 업데이트 없음 · 표에서 빼면 즉시 되돌림).
+- **만드는 법**: `TwDataGateway.createDataGateway({ sdk, routes, myCode, serverFirst, post, stream, isQuery, warn })` — firebase-init.js 가 만든다(`post` · `stream` 은 로그인 통로 `_authApi` · ID 토큰).
+- **표**: `config/dataRoutes`(관리자만 쓰기 · 누구나 읽기 · 글자 배열) · `GET /v1/config` 의 `dataRoutes`. 경로 앞부분 — 칸 자리에 별표를 쓰면 아무 칸.
+- **신원**: 경로 속 코드는 데이터 주소일 뿐이다. 서버로 보낼 때 **내 코드인 칸만 `me`** 로 바꾼다(`toServerPath`). 신원은 서버가 ID 토큰에서만 정한다.
+- **실패하면**: 연결 실패 · 시간 초과 · 5xx · 404(서버가 모르는 경로) → 그 호출은 Firebase 로(`source-switch.js` serverFirst 한 벌). 듣기는 첫 값 전에 끊기면 Firebase 로 듣는다.
+- **늘 Firebase**: 조건 붙은 읽기(query) · 트랜잭션 · onDisconnect · 자식 단위 듣기(onChild*).
+- **⚠️ 함정**: 기능 함수에서 SDK 함수를 새로 import 해 직접 부르지 말 것 — 통로를 건너뛰면 그 기능은 서버로 못 옮긴다(`checks/sim-data-gateway.js`). 다중 경로 update 는 칸이 서버 · Firebase 로 섞이면 쪼개지 않고 통째로 Firebase.

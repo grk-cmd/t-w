@@ -44,11 +44,14 @@ const FALLBACK_PATHS = Object.freeze({
   rsOn: 'config/roomServer/on', rsDefault: 'config/roomServer/default', rsPercent: 'config/roomServer/defaultPercent',
   rsJoinWait: 'config/roomServer/timing/joinWaitMs', rsGiveUp: 'config/roomServer/timing/clientGiveUpMs',
   srcFriends: 'config/sources/friends', srcRooms: 'config/sources/rooms', srcCatalog: 'config/sources/catalog',
+  dataRoutes: 'config/dataRoutes',
 });
 const FB_ALLOW = 'config/roomServer/allow/', FB_SERVERS = 'config/roomServer/servers/';
-const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'friendsApi', 'roomServer', 'roomServerTiming', 'minVersion', 'bugDailyMax', 'sources'];
+const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'friendsApi', 'roomServer', 'roomServerTiming', 'minVersion', 'bugDailyMax', 'sources', 'dataRoutes'];
 /* 기능별 받는 곳(source-switch.js FEATURES 와 같은 이름) — 칸 값은 'server' | 'firebase', 없으면 null(옛 스위치 · 기본값) */
 const SOURCE_FEATURES = Object.freeze(['friends', 'rooms', 'catalog']);
+const DATA_ROUTES_MAX = 200;      // 범용 통로 표 줄 수 상한(data-gateway.js ROUTE_MAX 와 같은 값)
+const DATA_ROUTE_LEN_MAX = 200;   // 한 줄 길이 상한(규칙 config/dataRoutes/$i 와 같은 값)
 const DEFAULTS = Object.freeze({
   roomLimits: Object.freeze({ workingroom: 300, togetherroom: 300 }),
   roomMaxPeople: 10,
@@ -60,6 +63,7 @@ const DEFAULTS = Object.freeze({
   minVersion: Object.freeze({ app: null, room: null }),
   bugDailyMax: 5,
   sources: Object.freeze({ friends: null, rooms: null, catalog: null }),
+  dataRoutes: Object.freeze([]),   // 범용 통로(data-gateway.js)가 서버로 보낼 경로 앞부분 — 비면 모든 동작이 Firebase(지금 길)
 });
 
 const isInt = (v) => typeof v === 'number' && isFinite(v) && v % 1 === 0;
@@ -116,7 +120,13 @@ function cleanSources(raw){
   for(const f of SOURCE_FEATURES) out[f] = (r[f] === 'server' || r[f] === 'firebase') ? r[f] : null;
   return out;
 }
+/* 범용 통로 표 — 글자 칸만(배열이 Firebase 에서 {0:…} 로 와도 받는다) · 길이 상한. 경로 모양 판단은 data-gateway.js matchRoute 한 곳. */
+function cleanDataRoutes(raw){
+  const list = Array.isArray(raw) ? raw : (isObj(raw) ? Object.values(raw) : []);
+  return list.filter((v) => typeof v === 'string' && v.length > 0 && v.length <= DATA_ROUTE_LEN_MAX).slice(0, DATA_ROUTES_MAX);
+}
 function clean(key, raw){
+  if(key === 'dataRoutes') return cleanDataRoutes(raw);
   if(key === 'sources') return cleanSources(raw);
   if(key === 'roomLimits') return cleanRoomLimits(raw);
   if(key === 'roomMaxPeople') return cleanMaxPeople(raw);
@@ -131,7 +141,7 @@ function fieldsOf(data){
   const d = isObj(data) ? data : {};
   const f = isObj(d.flags) ? d.flags : {};
   return { roomLimits: d.roomLimits, roomMaxPeople: d.roomMaxPeople, inviteGate: f.inviteGate, existingSignup: f.existingSignup, friendsApi: f.friendsApi,
-    roomServer: d.roomServer, roomServerTiming: d.roomServerTiming, minVersion: d.minVersion, bugDailyMax: d.bugDailyMax, sources: d.sources };
+    roomServer: d.roomServer, roomServerTiming: d.roomServerTiming, minVersion: d.minVersion, bugDailyMax: d.bugDailyMax, sources: d.sources, dataRoutes: d.dataRoutes };
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -202,7 +212,7 @@ function createRemoteConfig(){
       minVersion: { app: v.minAppVer, room: v.minRoomVer },
       roomServer: { on: v.rsOn, default: v.rsDefault, defaultPercent: v.rsPercent, servers: {} },
       roomServerTiming: { joinWaitMs: v.rsJoinWait, clientGiveUpMs: v.rsGiveUp },
-      sources: { friends: v.srcFriends, rooms: v.srcRooms, catalog: v.srcCatalog } };
+      sources: { friends: v.srcFriends, rooms: v.srcRooms, catalog: v.srcCatalog }, dataRoutes: v.dataRoutes };
     src = 'firebase';
     apply(data, false); saveCache(data);
     return true;
@@ -311,12 +321,13 @@ function createRemoteConfig(){
     minRoomVer: () => cur.minVersion.room,
     bugDailyMax: () => cur.bugDailyMax,
     sources: () => cur.sources,   // 기능별 받는 곳 — 고르기는 source-switch.js pickSource 한 곳
+    dataRoutes: () => cur.dataRoutes,   // 범용 통로 표 — 경로 고르기는 data-gateway.js matchRoute 한 곳
   };
 }
 
 const api = { FALLBACK_PATHS, FB_ALLOW, FB_SERVERS, CONFIG_PATH, ALLOW_PATH, CACHE_KEY, REFRESH_MS, STALE_MS, FETCH_TIMEOUT_MS,
   KEYS, SOURCE_FEATURES, CHANNELS, DEFAULTS, TIMING_RANGES, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
-  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanMinVersion, cleanRoomServer, cleanTiming, cleanSources, fieldsOf,
+  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanMinVersion, cleanRoomServer, cleanTiming, cleanSources, cleanDataRoutes, DATA_ROUTES_MAX, DATA_ROUTE_LEN_MAX, fieldsOf,
   createRemoteConfig, store: createRemoteConfig() };
 if(typeof window !== 'undefined') window.TwRemoteConfig = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;

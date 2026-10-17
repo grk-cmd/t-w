@@ -22,6 +22,7 @@ const AREAS = {
   CHAT: '채팅',
   CHAR: '캐릭터 · 꾸미기 · 가챠',
   FOCUS: '포커스 · 레벨',
+  DATA: '범용 데이터 통로(서버로 옮긴 경로)',
   SYS: '그 밖',
 };
 const CODE_RE = /^E-([A-Z]+)-(\d{2})$/;
@@ -42,6 +43,10 @@ const CODES = {
   'E-CHAR-05': { msg: '프리셋을 읽지 못했어요', where: 'character/animal.js — 동물 프리셋 읽기 해석 실패 (_loadPresets · tw.animalPresets)' },
   'E-CHAR-06': { msg: '저장된 프리셋을 읽지 못해 덮어쓰지 않았어요', where: 'creator/desk-preset.js — 📐 책상 프리셋 저장 · 비우기를 막음(tw.deskPresets 해석 실패 · json-store save blocked)' },
   'E-CHAR-07': { msg: '저장된 프리셋을 읽지 못해 덮어쓰지 않았어요', where: 'character/animal.js — 동물 프리셋 저장 · 삭제를 막음(tw.animalPresets 해석 실패 · json-store save blocked)' },
+  'E-DATA-01': { msg: '이 작업을 할 권한이 없어요', where: 'shared/data-gateway.js — 서버 범용 통로 ACCESS_DENIED(경로 처리기가 권한 거절)' },
+  'E-DATA-02': { msg: '요청 모양이 맞지 않아 처리하지 못했어요', where: 'shared/data-gateway.js — 서버 범용 통로 INVALID_REQUEST' },
+  'E-DATA-03': { msg: '다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요', where: 'shared/data-gateway.js — 서버 범용 통로 CONCURRENT_UPDATE' },
+  'E-DATA-04': { msg: '서버에서 처리하지 못했어요 — 잠시 후 다시 시도해 주세요', where: 'shared/data-gateway.js — 서버 범용 통로 모르는 code(번역표에 없음)' },
 };
 /* 걷은 번호 — { 번호: '언제 · 왜' }. 다시 쓰지 않으려고 남긴다. */
 const RETIRED = {};
