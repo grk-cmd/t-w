@@ -2,11 +2,12 @@
    app.js «🛰 방 접속 상태(Presence)» 구역 본문을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다.
    ・책임: 지금 방(provider · room · friends)과 내가 방에 보내는 값(상태 · 레벨 · 자리비움 그림 · 소음 · 채팅 …)을 한 곳에서 들고 보낸다.
      20분 무반응 자동 자리비움 · 6시간 자동 퇴장 시계도 내 상태(myUserStatus)를 같이 써서 이 안에 있다.
-   ・받는 deps 19 — 함수 3(getMyUserId · toast · triggerPet)은 화살표, 다시 대입되거나 뒤에서 선언되는 9개
+   ・받는 deps 20 — 함수 3(getMyUserId · toast · triggerPet)은 화살표, 다시 대입되거나 뒤에서 선언되는 9개
      (awayPicMod · customStatusConf · expBarMod · focusLevelMod · focusShareMod · isAdmin · isPremium · lastAnyInput · roomEntryMod)는 읽는 함수 — 이름() 으로 읽는다.
+     roomNet 도 읽는 함수 — 데이터 provider(지금은 app.js 가 window.firebaseAPI 를 넘긴다). 준비 확인 · Firebase 방 provider 고르기에만 쓴다.
    ・내놓는 것: { Presence } — app.js 가 «const Presence = presenceMod.Presence;» 한 줄로 옛 전역 이름을 잇는다(app.js 의 54곳 · animal.js · noise.js 가 Presence.이름 으로 부른다).
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 읽는 함수 자리 19줄과 옛 이야기형 주석 줄이기뿐.
-   ⚠️ document · window · firebaseAPI · localStorage · companion 은 예전처럼 전역 이름으로 쓴다. 전역 setUserStatus 는 꼭 window. 으로(안쪽 같은 이름이 가린다).
+   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 읽는 함수 자리와 roomNet 줄 · 파일 위 상수 · 옛 이야기형 주석 줄이기뿐.
+   ⚠️ firebaseAPI 는 직접 보지 않는다(roomNet 으로만). document · window · localStorage · companion 은 예전처럼 전역 이름으로 쓴다. 전역 setUserStatus 는 꼭 window. 으로(안쪽 같은 이름이 가린다).
    ⚠️ 전역 이름은 TwPresence — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-presence.js */
 (function(){
@@ -26,6 +27,7 @@ const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
 const lastAnyInput = deps.lastAnyInput;   // 읽는 함수
 const roomEntryMod = deps.roomEntryMod;   // 읽는 함수
+const roomNet = deps.roomNet;   // 읽는 함수 — 데이터 provider, 준비 전이면 없음
 const roomSyncMod = deps.roomSyncMod;
 const seats = deps.seats;
 const toast = deps.toast;
@@ -193,8 +195,8 @@ const Presence=(()=>{
     try{ await roomSyncMod.ensureRoomFaceUrls(myDef); }catch(_){}
     /* firebaseAPI(모듈 스크립트) 준비를 기다린다(최대 NET_READY_WAIT_MS). 그래도 없으면 들어가지 않고 알린다.
        ⚠️ 가짜 방(makeMockProvider)으로 떨어지면 남의 가짜 캐릭터가 뜬다 — 가짜 방은 개발 표식(tw.mockRoom=1)일 때만. */
-    if(!window.firebaseAPI) await roomEntryMod()._waitFirebaseApi(roomEntryMod().NET_READY_WAIT_MS);
-    if(!window.firebaseAPI && !roomEntryMod()._mockRoomAllowed()){
+    if(!roomNet()) await roomEntryMod()._waitFirebaseApi(roomEntryMod().NET_READY_WAIT_MS);
+    if(!roomNet() && !roomEntryMod()._mockRoomAllowed()){
       room = null; provider = null; friends = {}; if(onChange) onChange({});
       try{ toast('서버 연결이 아직 준비되지 않았어요 — 잠시 뒤 다시 들어가 주세요'); }catch(_){}
       console.warn('[방] firebaseAPI 가 준비되지 않아 입장을 멈췄다(가짜 방으로 떨어지지 않음)');
@@ -202,7 +204,7 @@ const Presence=(()=>{
     }
     const _srv = (opts && opts.provider) || null;   // 🛰 방 서버 provider(_startRoomOnServer) — 없으면 아래 줄 그대로
     if(_srv) provider = _srv;
-    else provider = window.firebaseAPI ? roomSyncMod.makeFirebaseProvider(opts && opts.hooks) : roomEntryMod().makeMockProvider();
+    else provider = roomNet() ? roomSyncMod.makeFirebaseProvider(opts && opts.hooks) : roomEntryMod().makeMockProvider();
     try{ myAwayImg = awayPicMod()._awayUrlOk(awayPicMod().awayImgUrl()) ? awayPicMod().awayImgUrl() : ''; }catch(_){ myAwayImg = ''; }   // 🫧 입장 때 한 번
     try{ myAwaySz = awayPicMod()._awaySzOk(awayPicMod().awayImgSz()) ? awayPicMod().awayImgSz() : awayPicMod().AWAY_PIC_SCREEN_PX(); }catch(_){ myAwaySz = awayPicMod().AWAY_PIC_SCREEN_PX(); }
     try{ myFocusShow = focusShareMod()._focusShowConf(); focusShareMod()._focusShowMarkSent(myFocusShow); }catch(_){ myFocusShow = null; }   // 📊 입장 때 한 번 — 입장 페이로드에 싣고 5분 시계를 여기서 시작
