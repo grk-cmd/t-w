@@ -68,6 +68,8 @@ export const AUDIT_ACTIONS = [
   'bug.answerDelete',
   'bug.status',
   'bug.delete',
+  // 서버 함수(bugCleanup)가 쓴다 — 해결 뒤 30일 지난 제보 자동 삭제.
+  'bug.autoClean',
   'bug.edit',
   'improvements.add',
   'improvements.edit',

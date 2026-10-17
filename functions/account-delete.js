@@ -11,6 +11,7 @@
  */
 'use strict';
 const { USER_CODE_RE, METRICS_DAILY } = require('./daily-active');
+const { bugPaths } = require('./bug-cleanup');
 
 const FRIEND_CODE_RE = /^(MATE|COZY)-[A-Z0-9]{4}$/;
 const FRIEND_CODE_PREFIXES = ['MATE', 'COZY'];
@@ -54,6 +55,7 @@ const GROUPS = [
   ['invite', '이 사람이 만든 안 쓴 초대 코드'],
   ['licenseRequest', '라이선스 신청 기록 (이름 · 친구 코드)'],
   ['metrics', '날짜별 접속자 명단 속 이 사람'],
+  ['bugReport', '버그 제보 (글 · 운영자 답변 · 답글 · 공감)'],
 ];
 
 // 지우지 않는 것 — 화면에 그대로 보여 준다. 처리방침 5항의 보관 기간을 따른다.
@@ -218,6 +220,18 @@ async function planAccountDelete(db, code, deps, viaFc){
   const invites = (await db.ref('invites').orderByChild('issuedBy').equalTo(code).get()).val();
   for (const ic of safeKeys(invites)) if (!invites[ic].usedBy) add('invite', 'invites/' + ic);
 
+  // 버그 제보 — 로그인한 사람만 쓸 수 있어 로그인 계정(authUid) 색인으로 그 사람 글만 받는다. 같은 코드로 쓴 글만(다른 코드에 묶인 로그인이면 그 코드 글은 둔다).
+  // 지우는 경로는 해결 뒤 자동 정리(bug-cleanup.js)와 같은 bugPaths — 없는 칸은 세지 않는다.
+  if (typeof authUid === 'string' && SAFE_KEY_RE.test(authUid)){
+    const bugs = (await db.ref('bugBoard/list').orderByChild('authUid').equalTo(authUid).get()).val();
+    for (const id of safeKeys(bugs)){
+      if (!bugs[id] || bugs[id].code !== code) continue;
+      const paths = bugPaths(id, bugs[id]);
+      const there = await Promise.all(paths.map((bp) => has(bp)));
+      paths.forEach((bp, i) => there[i] && add('bugReport', bp));
+    }
+  }
+
   // 접속 지표 — 날짜 목록은 키만 받고, 날마다 이 사람 한 칸만 본다.
   const days = safeKeys(await deps.shallow(METRICS_DAILY));
   await inChunks(days, async (d) => {
@@ -251,7 +265,7 @@ async function planAccountDelete(db, code, deps, viaFc){
   };
 }
 
-const hideAuthUid = (p) => (p.startsWith('authUsers/') ? 'authUsers/(로그인 계정)' : p);
+const hideAuthUid = (p) => (p.startsWith('authUsers/') ? 'authUsers/(로그인 계정)' : p.replace(/^bugBoard\/prv\/[^/]+\//, 'bugBoard/prv/(로그인 계정)/'));
 
 /* 화면으로 돌려줄 모양 — 로그인 계정 uid · 파일 이름은 싣지 않는다. */
 function summarize(plan, dryRun){
