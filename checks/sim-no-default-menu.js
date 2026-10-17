@@ -1,7 +1,7 @@
 /* ═══ ⌨️ sim-no-default-menu.js — 일렉트론 기본 메뉴 단축키를 막는다 (개정 256 신설) ═══════════════════════
    [제보] 방명록 창에서 Ctrl+- 가 일렉트론 기본 메뉴의 Zoom Out 으로 들어가 방명록만 작아졌다. 기본 메뉴가 살아 있어
      Ctrl+R · Ctrl+Shift+I · F11 · Ctrl+W 도 모든 창에서 먹었다.
-   ・1절: 자리 — 앱 시작 때 메뉴를 정하고(창보다 먼저 · 한 곳) · 자식 창마다 줌을 묶는다 · 메인 창 F12 · applyUiZoom 은 그대로
+   ・1절: 자리 — 앱 시작 때 메뉴를 정하고(창보다 먼저 · 한 곳) · 자식 창마다 줌을 묶는다 · 메인 창 F12(devtools-gate) · applyUiZoom 은 그대로
    ・2절: main.js 원문(APP_MENU_TEMPLATE · _applyAppMenu)을 가짜 Menu 위에서 돌린다 — win32/linux 는 null ·
           darwin 은 앱 메뉴(quit) + editMenu 둘뿐
    ・3절: 원문(_zoomKeyOp · _lockChildZoom)을 가짜 webContents 에 걸고 가짜 입력을 넣는다 — 줌 키 · 휠은 막고 100% 로 되돌림 ·
@@ -29,7 +29,7 @@ const dcw = (MAIN.match(/mainWindow\.webContents\.on\('did-create-window', \(win
 chk(/^\s*_lockChildZoom\(win\);/.test(dcw), 'did-create-window 첫 줄에서 모든 자식 창에 _lockChildZoom(win)');
 chk(count(/_lockChildZoom\(win\)/g) === 2, '  _lockChildZoom 은 정의 + 부름 한 번(지금 ' + count(/_lockChildZoom\(win\)/g) + ')');
 const mainKey = (MAIN.match(/mainWindow\.webContents\.on\('before-input-event', \(event, input\) => \{[\s\S]*?\n  \}\);/) || [''])[0];
-chk(/input\.key === 'F12'\) \{\s*mainWindow\.webContents\.toggleDevTools\(\);/.test(mainKey), '메인 창 F12 개발자 도구 토글은 그대로');
+chk(/devtoolsGate\.attach\(mainWindow\.webContents\);/.test(MAIN), '메인 창 F12 개발자 도구 토글은 devtools-gate.js 가 맡는다(설치본은 관리자 모드만 — sim-devtools-gate.js)');
 chk(/const zop = _zoomKeyOp\(input\);\s*if\(zop\)\{ event\.preventDefault\(\); applyUiZoom\(zop, 'key'\); \}/.test(mainKey), '메인 창 줌 키 → applyUiZoom 그대로');
 chk(/mainWindow\.webContents\.on\('zoom-changed', \(event, dir\) => \{\s*event\.preventDefault\(\);\s*applyUiZoom\(dir === 'in' \? 'in' : 'out', 'wheel'\);/.test(MAIN), '메인 창 Ctrl+휠 → applyUiZoom 그대로');
 

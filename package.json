@@ -41,6 +41,7 @@
       "sysinput-win.js",
       "sysinput-mac.js",
       "hover-poke.js",
+      "devtools-gate.js",
       "oauth-config.js",
       "app/**/*"
     ],
