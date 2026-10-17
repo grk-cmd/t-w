@@ -164,6 +164,30 @@
   - 한 좌석에서 던지면 나머지 좌석을 그 바퀴에 건너뛴다 — `CONFIRM.md` 에 적어 둠.
   - 검사: `checks/sim-seat-equalize.js`(4절 — 깃발 · k · 이상한 값 · 부캐 · 들림 · 다시 걸기 · 재진입 · 던짐) · `sim-seat-eq` · `sim-char-z`(app.js 전체로).
 
+## seat-eq-clamp.js — 🪑 평준화 가두기
+
+- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 책상이 뻗은 거리(`seatDeskHalfWidth`) + 좌석 사이 여백의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
+- **왜 따로**: 책상 자리 · 크기(desk-place)가 평준화 깃발을 읽으면 desk-place ↔ seat-equalize 순환이 생긴다. 가두기는 평준화 몫이라 여기로 떼어 desk-place 는 seat-equalize 를 모른다(의존: seat-eq-clamp → seat-equalize · 파츠 핀 이름).
+- **만드는 법**(app.js «📌 책상 위 파츠 앵커» 자리, `DESK_PART_ANCHOR_NAME` 바로 뒤):
+  ```js
+  const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
+    DESK_PART_ANCHOR_NAME, seatEqMod, seats,                   // 값
+    MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING, SPACING: ()=>SPACING, seatSlot: ()=>seatSlot,   // 읽는 함수(다시 대입 · 뒤에서 선언)
+    seatDeskHalfWidth,                                         // 함수(화살표로)
+  });
+  ```
+- **내보내는 것**
+  - `_clampSeatDeskParts(now?)` — 프레임 루프가 매 프레임 부른다(0.5초마다만 돈다 · `now` 를 안 주면 `performance.now()`).
+  ```js
+  seatEqClampMod._clampSeatDeskParts(now);
+  ```
+- **확장할 때 고칠 자리**: 주기는 `SEAT_SLOT_EVERY_MS` · 가두지 않을 좌석 조건은 `on` 한 줄(지금: 올라탄 좌석 · 책상이 숨은 좌석).
+- **함정**
+  - `seatSlot` 은 app.js 가 `SeatSlot` 이 있을 때만 만든다(없으면 아무것도 안 한다) — 만드는 줄보다 뒤에 선언돼 읽는 함수로 받는다.
+  - 감싼 파츠(`userData.__twPartWrap`)만 민다 — 핀의 다른 자식은 그대로.
+  - 한 좌석에서 던지면 경고만 하고 다음 좌석으로 간다.
+  - 검사: `checks/sim-seat-eq-clamp.js`(4절 — 주기 · 경계 500ms · 멀티 간격 · 올라탄 · 숨은 책상 · 꺼짐 · 좌석 없음 · 계산 모듈 없음 · 던짐) · 옛 검사 `sim-seat-slot`(되살린 글로).
+
 ## deco-parts-visibility.js — 🎁 꾸미기 파츠 표시
 
 - **책임**: «꾸미기 파츠 보이기» 깃발(`tw.decoParts`, 기본 켜짐) 하나와, 좌석 하나에 그 깃발을 거는 일. 끄면 내 화면에서만 모든 좌석의 꾸미기 파츠 wrapper 를 숨긴다(서버에 안 쓴다). 책상 위 카테고리(`bone:'desk'`)는 늘 보인다.

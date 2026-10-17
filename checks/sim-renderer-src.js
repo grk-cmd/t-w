@@ -125,6 +125,7 @@ const MODULES = [
   { file: 'asset-cards.js', mod: 'assetCardsMod', glob: 'TwAssetCards', sample: 'function applyDeskDotThumb(' },   // C 구역 떼기 w4
   { file: 'desk-setup.js', mod: 'deskSetupMod', glob: 'TwDeskSetup', sample: 'function renderCrItems(' },   // C 구역 떼기 w4
   { file: 'seat-menu.js', mod: 'seatMenuMod', glob: 'TwSeatMenu', sample: 'function _seatCtxMenu(' },   // C 구역 떼기 w4
+  { file: 'seat-eq-clamp.js', mod: 'seatEqClampMod', glob: 'TwSeatEqClamp', sample: 'function _clampSeatDeskParts(' },   // 구역 떼기 C · wAC
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
