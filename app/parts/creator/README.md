@@ -206,3 +206,31 @@ const crStampMod = TwCrStamp.createCrStamp({
 - `character/animal.js` 의 `aCommitStamp` 에 찍기 코드가 한 벌 더 있다 — 한쪽을 고치면 다른 쪽도(묶기는 IMPROVEMENT_BACKLOG).
 
 검사: `checks/sim-cr-stamp.js` (모드 · 불러오기 · 초기화 · 찍기 진짜 래스터 · 90% / 20% · 대칭 · 손잡이 · 입구 전제 · 연결 · 깨 보기 14).
+
+## `asset-import.js` — 📥 코드로 추가하기(책상 · 아이템 · 파츠)
+
+**책임** — 판매자가 준 암호 코드 + 비밀번호를 풀어 책상 · 아이템 · 파츠를 **이 기기에만** 넣는다(카탈로그 · Firebase 에는 안 올림). 넣을 종류는 코드 안의 값이 아니라 어느 버튼으로 창을 열었는지로 정한다. 거르기 순서: 복호화 → GLB 1MB → 종류별 개수 한도(파츠는 그 칸의 꾸미기 통만 · 가챠 빼고) → 생성기가 열려 있고 책상 · 아이템이면 캐릭터 용량(책상은 지금 책상 자리를 비운 나머지와 견줌).
+
+**만드는 법** — app.js «책상·아이템 코드: 가져오기» 자리, 바로 뒤에 구독 한 줄:
+
+```js
+const assetImportMod = TwAssetImport.createAssetImport({
+  crState: crState,                       // 값 — _assetImpKind · _assetImpCat · cBase · cDesk · cDeskScale …
+  premiumMod: premiumMod,                 // 값 — 파츠 칸 · 개수 · 저장
+  assetCodeMod: ()=>assetCodeMod,         // 읽는 함수 — 복호화 · 풀기 · GLB 파싱(뒤에서 만들어짐)
+  // … 함수 8 · 읽는 함수 8(DEF_SIZE_TOAST_MS · codeCryptoMod · commissionMod · creatorOpen · customItems · deskItemsMod · partSceneMod)
+});
+assetImportMod.onPartAdded(()=>wardrobeMod.renderWardrobe());   // 파츠를 넣으면 꾸미기 창을 다시 그린다
+```
+
+**내놓는 것**
+- `openAssetImport(kind, cat)` — `'desk' | 'item' | 'part'`(파츠는 칸 `cat`). 제목 · 입력 비우기 · 창 열기.
+- `onPartAdded(fn)` — 파츠를 넣은 뒤 부를 곳. 꾸미기 창이 이 창을 열기도 해서 `wardrobeMod` 를 deps 로 받으면 둘이 서로를 부른다(sim-dep-cycles) — 그래서 구독.
+
+**확장할 때 고칠 자리** — 새 종류는 `openAssetImport` 의 제목 · [추가] 처리의 한도(`arr` · `_maxAssets`) · 등록 갈래 세 곳. 한도 숫자는 commissionMod · premiumMod 의 상수.
+
+**함정**
+- 입구 전제 — 창(`#assetImpOverlay`) · [추가] · [취소] 버튼이 없으면 만들 때 버튼을 걸지 않고, 열지도 않는다.
+- 책상을 넣을 때 크기(`cDeskScale`)는 바꾸지 않는다 — 슬라이더로 맞춰 둔 값을 그대로 둔다(처음값으로 돌리면 매번 슬라이더가 튄다).
+
+검사: `checks/sim-asset-import.js` (창 열기 · 거르기 7 · 등록 3 · 구독 · 입구 전제 · 연결 · 깨 보기 12).

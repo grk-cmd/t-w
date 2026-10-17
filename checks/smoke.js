@@ -600,6 +600,8 @@ PRELOAD.push('paint-geom.js');
 PRELOAD.push('paint-stroke.js');
 /* stamp.js — 🖼 생성기 이미지 도장(띄워 놓고 확정 박기)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCrStamp 를 같이 굴린다. */
 PRELOAD.push('stamp.js');
+/* asset-import.js — 📥 코드로 추가하기(책상 · 아이템 · 파츠 — 생성기 · 꾸미기 안에서)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAssetImport 를 같이 굴린다. */
+PRELOAD.push('asset-import.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
