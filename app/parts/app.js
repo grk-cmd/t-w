@@ -443,7 +443,7 @@ function applyDeskAdj(p){ const a=p.userData.adj; p.position.set(a.x||0,a.y||0,a
 /* 🪑 생성기 아이템마다 «이번 편집에서 처음 나타난 자리» — ⟲ 이동·회전 초기화가 돌아갈 곳(desk-item-origin.js) */
 const deskItemOrigin = (typeof DeskItemOrigin === 'undefined') ? null : DeskItemOrigin.createDeskItemOrigin();
 function _rememberCrItemOrigin(holder, p){
-  if(!deskItemOrigin || !p || typeof cBase==='undefined' || holder!==cBase) return;
+  if(!deskItemOrigin || !p || typeof crState.cBase==='undefined' || holder!==crState.cBase) return;
   deskItemOrigin.remember(p, p.userData.adj);
 }
 const activeItemMixers = new Set();   // 매 프레임 업데이트해야 할 아이템 애니메이션 믹서들
@@ -675,7 +675,7 @@ function equipDeskItem(holder,def,on){
     if(holder.activeDeskItem===cur){
       holder.activeDeskItem=null;
       // 런처4-2: 활성 아이템이 방금 해제됐으니 기즈모도 즉시 숨김
-      if(holder===cBase) crXformMod.attachItemGizmoToActive();
+      if(holder===crState.cBase) crXformMod.attachItemGizmoToActive();
     }
   }
   // ★ 아이템의 attachTo가 'handL'/'handR'이고 캐릭터 본이 있으면 책상 앵커 대신 손 본에 부착 —
@@ -763,7 +763,7 @@ function equipDeskItem(holder,def,on){
       const itemScale = isFinite(maxDim) ? ITEM_TARGET_SIZE/maxDim : 1;
       // 🔎 진단 로그(아이템 크기 컨텍스트 차이) — 문제 원인 파악 후 이 두 줄만 지우면 됨.
       const _parentSc = (holder && holder.desk) ? holder.desk.scale.x : (holder && holder.deskAnchor ? holder.deskAnchor.getWorldScale(new THREE.Vector3()).x : '?');
-      console.log('[아이템크기]', def.id, '| holder=', holder===cBase?'생성기':(holder===launcherPrevMod.lHolder()?'런처':'실행'), '| desk.scale=', _parentSc, '| maxDim=', maxDim.toFixed(3), '| itemScale=', itemScale.toFixed(3));
+      console.log('[아이템크기]', def.id, '| holder=', holder===crState.cBase?'생성기':(holder===launcherPrevMod.lHolder()?'런처':'실행'), '| desk.scale=', _parentSc, '| maxDim=', maxDim.toFixed(3), '| itemScale=', itemScale.toFixed(3));
       pivot.userData.autoScale = itemScale;   // ★ "지금 이 컨텍스트에서" 계산된 순수 자동 크기값 — 저장/복원 시 사용자 조정 비율을 재적용하기 위해 별도 보관
       pivot.userData.adj={x:0,y:ITEM_Y_START_OFFSET,z:ITEM_Z_START_OFFSET,scale:itemScale,rot:0};
     } else {
@@ -780,7 +780,7 @@ function equipDeskItem(holder,def,on){
     _rememberCrItemOrigin(holder, pivot);   // 새로 놓인 아이템의 처음 자리(불러온 저장값은 applyDeskItemsTo 가 다시 적는다)
     if(pivot.userData.colors) _applyItemColor(pivot);
     pivot.userData.holder = holder;   // 어플 8: idle 재생 판정에 필요 — 소유 좌석 상태를 알아야 함
-    if(typeof cBase!=='undefined' && holder===cBase) selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
+    if(typeof crState.cBase!=='undefined' && holder===crState.cBase) selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
   }
 }
 // 아이템 pivot을 클릭했을 때 idle 애니메이션을 한 번 재생 (끝나면 마지막 프레임에서 정지)
@@ -799,9 +799,9 @@ function collectDeskItems(holder){ const d={}; let any=false; deskItemsMod.allDe
    토글 즉시 저장되는 것과 비대칭) — 아이템 켜고/끄는 즉시 여기서 바로 def에 반영 + 저장까지 함.
    단, 새 캐릭터(아직 한 번도 저장 안 한)일 땐 cBase.charDef가 없어서 조용히 건너뜀(완성 시 정상 저장됨). */
 function autoSaveDeskItemsNow(){
-  if(!cBase || !cBase.charDef) return;
-  const def = cBase.charDef;
-  const di = collectDeskItems(cBase);
+  if(!crState.cBase || !crState.cBase.charDef) return;
+  const def = crState.cBase.charDef;
+  const di = collectDeskItems(crState.cBase);
   def.deskItems = di;
   if(di){
     const ci={}; Object.keys(di).forEach(id=>{ const c=customItems[id]; const rec=commissionMod.savedItems().find(s=>s.id===id);
@@ -826,7 +826,7 @@ function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Obj
     }
     // 🔎 진단 로그 2 — 최종 복원 단계. e.autoScale(저장된 자동값), e.adj.scale(저장된 최종값),
     //   p.userData.autoScale(지금 막 새로 계산된 값), savedAdj.scale(이번에 실제로 적용될 최종값)을 비교.
-    console.log('[아이템크기-복원]', id, '| holder=', holder===cBase?'생성기':(holder===launcherPrevMod.lHolder()?'런처':'실행'),
+    console.log('[아이템크기-복원]', id, '| holder=', holder===crState.cBase?'생성기':(holder===launcherPrevMod.lHolder()?'런처':'실행'),
       '| 저장된 autoScale=', e.autoScale, '| 저장된 adj.scale=', e.adj.scale,
       '| 지금 계산된 autoScale=', p.userData.autoScale, '| 최종 적용 scale=', savedAdj.scale,
       '| rot=', savedAdj.rot);   // 🔄 [제보 4] 회전이 저장까지 왔는지 한눈에
@@ -3652,7 +3652,7 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   Presence: ()=>Presence,
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
-  cBase: ()=>cBase,
+  cBase: ()=>crState.cBase,
   deskItemDef: (...a)=>deskItemsMod.deskItemDef(...a),
   deskPartAnchorOf: (...a)=>deskPartAnchorOf(...a),
   equipDeskItem: (...a)=>equipDeskItem(...a),
@@ -5659,8 +5659,21 @@ let _blankFaceConfirmed = false;   // 생성기에서 «비운 채 저장»을 �
 const CUR_SLOT_KEY='tw.curSlot';
 function _loadCurSlot(){ try{ const v=parseInt(localStorage.getItem(CUR_SLOT_KEY),10); if(v>=0&&v<CHAR_SLOT_MAX) return v; }catch(e){} return 0; }
 function saveCurSlot(){ try{ localStorage.setItem(CUR_SLOT_KEY, String(curSlot)); }catch(e){} }
-let curSlot=_loadCurSlot(), editingSlot=-1, pendingSlot=0;
-let cTopColor='#9dba8a', cBotColor='#d98e73';
+/* 🪑 책상 크기 슬라이더의 **기본값** — 흩어져 있던 0.175 리터럴의 단 하나의 출처.
+   [왜 상수가 필요해졌나] '책상 위' 파츠가 이 슬라이더를 따라 커지고 작아지는 것을 끊으면서
+     "무엇을 기준으로 안 따라가는가"를 정해야 했다. 답이 이 값이다 — 슬라이더가 기본값일 때가
+     파츠 크기의 기준이고, 거기서 움직인 몫만 syncDeskPartAnchor 가 상쇄한다.
+     그래서 이 값이 흔들리면 **파츠 크기의 기준 자체가 흔들린다.** 리터럴로 흩어 두면 안 된다.
+   ⚠️ HTML 슬라이더(`#deskScale` 의 `value="0.175"`)와 **같은 값이어야 한다.** 거기는 마크업이라
+     이 상수를 못 읽는다 — 바꿀 때 두 곳을 같이 본다(HTML 쪽에도 이 주석을 걸어 뒀다).
+   ⚠️ 슬라이더 범위(DESK_SCALE_MIN·MAX)는 clampDeskScale 옆에 따로 있다. 이 값은 그 사이여야 한다. */
+const DESK_SCALE_DEFAULT = 0.175;
+/* 🧍 생성기 상태(세션 값 58개) — 본문은 creator/creator-state.js(C 구역 떼기 w4). 읽기 · 쓰기는 crState.이름 — 처음 값도 거기 한 곳.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const crState = TwCreatorState.createCreatorState({
+  DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
+});
+let curSlot=_loadCurSlot();
 const CANVAS_SZ=512;
 const FACE_SYM_SUM=0.36;                 // 얼굴 UV 좌우 대칭축(u0≈0.18) → 미러 u' = 0.36 - u
 const SYM_PX=FACE_SYM_SUM*CANVAS_SZ;     // 픽셀 기준 미러 합
@@ -5801,10 +5814,9 @@ function defToBase(def, customScene){
 const faceC=newCanvas(), blinkC=newCanvas();      // 저장 레이어(깨끗한 원본)
 const dispC=newCanvas();                          // 모델에 보이는 합성 텍스처(양파껍질 포함)
 const dispTex=new THREE.CanvasTexture(dispC); dispTex.flipY=false;dispTex.encoding=THREE.sRGBEncoding;
-let crStep=1, creatorMode={kind:'slot',edit:false}, brushColor='#333333', brushSize=11, eraser=false, blinkEdited=false, skinIndex=0;
-let currentCreatorDef = null;   // openCreator로 들어온 원본 def — 커미션 여부 판정에 사용
-function isCommissionEditing(){ return !!(currentCreatorDef && currentCreatorDef.isCommission); }
-function isAnimalEditing(){ return !!(currentCreatorDef && currentCreatorDef.animal); }
+let creatorMode={kind:'slot',edit:false};
+function isCommissionEditing(){ return !!(crState.currentCreatorDef && crState.currentCreatorDef.isCommission); }
+function isAnimalEditing(){ return !!(crState.currentCreatorDef && crState.currentCreatorDef.animal); }
 function isDeskSeatOnly(){ return isCommissionEditing() || isAnimalEditing(); }   // 페인트 단계 없이 책상·좌석만 하는 캐릭터
 /* 🐾 동물 편집 길잡이(animal-edit-route.js) — 모양은 동물 생성기, 책상·좌석은 여기 5·6단계.
    모듈이 없으면(검사가 app.js 만 평가할 때 등) null — gotoStep · openCreator 가 예전처럼 책상부터 연다. */
@@ -5812,24 +5824,11 @@ const _editRoute = (typeof window!=='undefined' && window.AnimalEditRoute) || nu
 /* 사람 생성기를 닫고 지금 편집 중인 동물을 동물 생성기로 연다(같은 슬롯·좌석 — creatorMode 를 animal.js 가 읽는다).
    tab: 동물 생성기에서 처음 보일 탭 — 책상에서 돌아갈 땐 마지막(감은눈), 처음 들어갈 땐 얼굴. */
 function reopenAnimalFromCreator(tab){
-  const def=currentCreatorDef;
+  const def=crState.currentCreatorDef;
   document.getElementById('creatorOverlay').classList.remove('on'); creatorOpen=false;
   if(typeof window.reopenAnimalCreator==='function'){ window.reopenAnimalCreator(def, {tab}); return true; }
   return false;
 }
-/* 🪑 책상 크기 슬라이더의 **기본값** — 흩어져 있던 0.175 리터럴의 단 하나의 출처.
-   [왜 상수가 필요해졌나] '책상 위' 파츠가 이 슬라이더를 따라 커지고 작아지는 것을 끊으면서
-     "무엇을 기준으로 안 따라가는가"를 정해야 했다. 답이 이 값이다 — 슬라이더가 기본값일 때가
-     파츠 크기의 기준이고, 거기서 움직인 몫만 syncDeskPartAnchor 가 상쇄한다.
-     그래서 이 값이 흔들리면 **파츠 크기의 기준 자체가 흔들린다.** 리터럴로 흩어 두면 안 된다.
-   ⚠️ HTML 슬라이더(`#deskScale` 의 `value="0.175"`)와 **같은 값이어야 한다.** 거기는 마크업이라
-     이 상수를 못 읽는다 — 바꿀 때 두 곳을 같이 본다(HTML 쪽에도 이 주석을 걸어 뒀다).
-   ⚠️ 슬라이더 범위(DESK_SCALE_MIN·MAX)는 clampDeskScale 옆에 따로 있다. 이 값은 그 사이여야 한다. */
-const DESK_SCALE_DEFAULT = 0.175;
-let cXform={s:0.7,y:0,z:0,rot:0}, cDeskColor='#c9a36a', cDeskScale=DESK_SCALE_DEFAULT, cDeskLenX=1;
-/* 🪑 책상 위치 오프셋(생성기 세션). 저장은 def.deskPos — 전부 0 이면 아예 저장하지 않는다
-   (기존 캐릭터 데이터에 없던 필드라, 0 을 굳이 적어 넣으면 옛 저장분과 모양이 갈린다). */
-let cDeskPos = {x:0, y:0, z:0};   // 좌석 변형 · 책상 색 · 커스텀 책상 크기 · 책상 길이(X)
 
 // ★ 런처3-2: 책상+좌석 세팅 프리셋 (5슬롯, 전 캐릭터 슬롯 공용, localStorage 'tw.deskPresets').
 //   저장: 지금 생성기의 책상 관련 상태 + 좌석 xf(크기/앞뒤/회전) 통째로.
@@ -5845,18 +5844,18 @@ function captureDeskPreset(){
   // 지금 생성기의 실제 상태로부터 프리셋 페이로드 생성
   const p = {
     // 책상
-    deskColor: cDeskColor,
-    deskScale: cDeskScale,
-    deskLenX: cDeskLenX,
-    deskPos: {x:cDeskPos.x, y:cDeskPos.y, z:cDeskPos.z},
-    deskCatalogId: activeCustomDeskId || null,
-    deskGlb: (activeCustomDeskId && cDeskGlbB64) ? cDeskGlbB64 : null,
-    deskItems: cBase ? collectDeskItems(cBase) : null,
+    deskColor: crState.cDeskColor,
+    deskScale: crState.cDeskScale,
+    deskLenX: crState.cDeskLenX,
+    deskPos: {x:crState.cDeskPos.x, y:crState.cDeskPos.y, z:crState.cDeskPos.z},
+    deskCatalogId: crState.activeCustomDeskId || null,
+    deskGlb: (crState.activeCustomDeskId && crState.cDeskGlbB64) ? crState.cDeskGlbB64 : null,
+    deskItems: crState.cBase ? collectDeskItems(crState.cBase) : null,
     // 커스텀 아이템(카탈로그에 없는 로컬 등록분)도 함께 — 다른 슬롯에서 불러올 때 참조가 살아있게
     customItems: (function(){ const ci={}; Object.keys(customItems).forEach(id=>{ const c=customItems[id]; ci[id]={name:c.name, glb:c.glb}; }); return Object.keys(ci).length?ci:null; })(),
     // 좌석 (편집 도중이라 cXform 참조 — 슬라이더/스와치와 동일한 값)
     // 🧍 z(앞뒤) → y(높이). 옛 프리셋의 z 는 로드 쪽에서 무시한다.
-    seat: { s:cXform.s, y:clampCharY(cXform.y), rot:cXform.rot },
+    seat: { s:crState.cXform.s, y:clampCharY(crState.cXform.y), rot:crState.cXform.rot },
     ts: Date.now(),
   };
   return p;
@@ -5865,22 +5864,22 @@ function captureDeskPreset(){
 //   프레이밍도 재계산해야 함(fit는 캐릭터 기준, frameDeskCam은 책상까지 포함해 카메라 거리 조정).
 function _refitPreviewAfterPreset(){
   try{
-    creatorPrevMod.fitCreator(crStep<=4 ? 'edit' : 'app');
-    if((crStep===5||crStep===6)) creatorPrevMod.frameDeskCam(false);
+    creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
+    if((crState.crStep===5||crState.crStep===6)) creatorPrevMod.frameDeskCam(false);
   }catch(_){}
 }
 function applyDeskPreset(p){
-  if(!p || !cBase){ toast('먼저 캐릭터를 선택해 주세요'); return; }
+  if(!p || !crState.cBase){ toast('먼저 캐릭터를 선택해 주세요'); return; }
   // 런처3-2 후속: 프리셋 로드 시 이전 카메라 상태 초기화 — 안 그러면 5·6단계 재진입 시 옛 책상 기준으로
   //   저장된 카메라 위치가 복원돼서 새 책상 크기와 어긋난 프레이밍이 보임(요청사항: 미리보기 크기 안 맞음).
-  deskCamSaved = null;
+  crState.deskCamSaved = null;
   // 1) 좌석 세팅 적용 (슬라이더 값 + 즉시 반영)
   if(p.seat){
-    if(typeof p.seat.s==='number')   { cXform.s   = p.seat.s;   const el=document.getElementById('crScale'); if(el) el.value=p.seat.s; }
+    if(typeof p.seat.s==='number')   { crState.cXform.s   = p.seat.s;   const el=document.getElementById('crScale'); if(el) el.value=p.seat.s; }
     /* 🧍 높이 — #crZ 가 이제 높이 슬라이더다. 옛 프리셋의 p.seat.z(앞뒤)는 폐기된 값이라 읽지 않는다
        (읽으면 앞뒤로 맞춰둔 옛 숫자가 그대로 '높이' 로 해석돼 캐릭터가 공중에 뜬다). */
-    if(typeof p.seat.y==='number')   { cXform.y   = clampCharY(p.seat.y); const el=document.getElementById('crZ'); if(el) el.value=cXform.y; }
-    if(typeof p.seat.rot==='number') { cXform.rot = p.seat.rot; const el=document.getElementById('crRot');   if(el) el.value=p.seat.rot; }
+    if(typeof p.seat.y==='number')   { crState.cXform.y   = clampCharY(p.seat.y); const el=document.getElementById('crZ'); if(el) el.value=crState.cXform.y; }
+    if(typeof p.seat.rot==='number') { crState.cXform.rot = p.seat.rot; const el=document.getElementById('crRot');   if(el) el.value=p.seat.rot; }
     creatorPrevMod.applyCreatorXform();
   }
   // 2) 커스텀 아이템 카탈로그(세션) 병합 — 프리셋이 참조하는 로컬 아이템이 있으면 함께 복원
@@ -5896,20 +5895,20 @@ function applyDeskPreset(p){
   });
   // 3) 책상 색/크기/길이 (슬라이더/스와치도 갱신)
   if(typeof p.deskColor==='string'){
-    cDeskColor = p.deskColor;
-    const el=document.getElementById('deskColor'); if(el){ el.value=cDeskColor; el.dispatchEvent(new Event('input',{bubbles:true})); }
-    if(cDeskMat) cDeskMat.color.set(cDeskColor);
-    deskVisualMod.applyDeskColorToCustom(cDesk, cDeskColor);
+    crState.cDeskColor = p.deskColor;
+    const el=document.getElementById('deskColor'); if(el){ el.value=crState.cDeskColor; el.dispatchEvent(new Event('input',{bubbles:true})); }
+    if(crState.cDeskMat) crState.cDeskMat.color.set(crState.cDeskColor);
+    deskVisualMod.applyDeskColorToCustom(crState.cDesk, crState.cDeskColor);
   }
-  if(typeof p.deskScale==='number'){ cDeskScale=clampDeskScale(p.deskScale); const el=document.getElementById('deskScale'); if(el) el.value=cDeskScale; setCreatorDeskScale(cDeskScale); }
-  if(typeof p.deskLenX==='number'){  cDeskLenX=p.deskLenX;  const el=document.getElementById('deskLenX');  if(el) el.value=cDeskLenX;  setCreatorDeskScale(cDeskScale); }
-  if(p.deskPos && typeof p.deskPos==='object'){ cDeskPos={x:+p.deskPos.x||0, y:+p.deskPos.y||0, z:+p.deskPos.z||0}; setDeskPos(cDesk, cDeskPos); crXformMod.updateDeskPosNum(); }
+  if(typeof p.deskScale==='number'){ crState.cDeskScale=clampDeskScale(p.deskScale); const el=document.getElementById('deskScale'); if(el) el.value=crState.cDeskScale; setCreatorDeskScale(crState.cDeskScale); }
+  if(typeof p.deskLenX==='number'){  crState.cDeskLenX=p.deskLenX;  const el=document.getElementById('deskLenX');  if(el) el.value=crState.cDeskLenX;  setCreatorDeskScale(crState.cDeskScale); }
+  if(p.deskPos && typeof p.deskPos==='object'){ crState.cDeskPos={x:+p.deskPos.x||0, y:+p.deskPos.y||0, z:+p.deskPos.z||0}; setDeskPos(crState.cDesk, crState.cDeskPos); crXformMod.updateDeskPosNum(); }
   // 4) 책상 모델(카탈로그 id or GLB)
   const applyDeskModel = ()=>{
     // 현재 아이템 전부 제거 (프리셋의 아이템으로 교체)
-    if(cBase){ deskItemsMod.allDeskItems().forEach(def=>{ if(cBase.deskItems && cBase.deskItems[def.id]) equipDeskItem(cBase,def,false); }); }
+    if(crState.cBase){ deskItemsMod.allDeskItems().forEach(def=>{ if(crState.cBase.deskItems && crState.cBase.deskItems[def.id]) equipDeskItem(crState.cBase,def,false); }); }
     // 프리셋에 아이템 복원
-    if(p.deskItems && cBase) applyDeskItemsTo(cBase, p.deskItems);
+    if(p.deskItems && crState.cBase) applyDeskItemsTo(crState.cBase, p.deskItems);
     autoSaveDeskItemsNow();
   };
   /* 🪑 [제보 2] 프리셋에 남은 라이선스 전용 책상 — 여기서 막지 않으면 activeCustomDeskId 가 서고,
@@ -5918,14 +5917,14 @@ function applyDeskPreset(p){
   const _presetDeskLocked = (!isPremium && !isAdmin) && premiumMod._licenseLockedDeskId(p.deskCatalogId);
   if(p.deskCatalogId && p.deskGlb && !_presetDeskLocked){
     assetCodeMod.parseGlbBytes(b64ToBuf(p.deskGlb)).then(sc=>{
-      cDeskTemplate=sc; cDeskGlbB64=p.deskGlb; activeCustomDeskId=p.deskCatalogId;
+      crState.cDeskTemplate=sc; crState.cDeskGlbB64=p.deskGlb; crState.activeCustomDeskId=p.deskCatalogId;
       const isDefaultOverride = (p.deskCatalogId === DEFAULT_DESK_OVERRIDE_ID);
-      if(cDesk){ deskVisualMod.swapDeskVisual(cDesk, sc, isDefaultOverride); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
+      if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk, sc, isDefaultOverride); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
       applyDeskModel();
       _refitPreviewAfterPreset();
     }).catch(()=>{ toast('프리셋의 책상 모델을 불러오지 못했어요'); applyDeskModel(); _refitPreviewAfterPreset(); });
   } else {
-    cDeskTemplate=null; cDeskGlbB64=null; activeCustomDeskId=null;
+    crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=null;
     // ★ 런처3-2 후속(진짜 원인): "기본 책상"으로 저장된 프리셋을 로드할 때 하드코딩 내장 책상을 보여주고
     //   있었는데, 생성기 재진입·실행 화면은 관리자가 등록한 기본 책상 오버라이드(__default_desk__)를 보여줌 —
     //   모델 자체가 달라서(단위 폭 3.0 vs 5.33) 미리보기만 캐릭터/아이템이 커 보이던 원인.
@@ -5938,15 +5937,15 @@ function applyDeskPreset(p){
         }
         try{
           const sc = await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb));
-          if(cDesk){ deskVisualMod.swapDeskVisual(cDesk, sc, true); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
+          if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk, sc, true); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
         }catch(_){
-          if(cDesk){ deskVisualMod.swapDeskVisual(cDesk, null); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
+          if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk, null); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
         }
         applyDeskModel();
         _refitPreviewAfterPreset();
       })();
     } else {
-      if(cDesk){ deskVisualMod.swapDeskVisual(cDesk, null); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
+      if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk, null); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
       applyDeskModel();
       _refitPreviewAfterPreset();
     }
@@ -5987,7 +5986,7 @@ function renderDeskPresetSlots(){
         it.onclick=()=>{ fn(); menu.remove(); document.removeEventListener('mousedown', closer, true); };
         menu.appendChild(it); };
       mk(p?'💾 이 슬롯에 덮어쓰기':'💾 지금 세팅을 여기 저장', ()=>{
-        if(!cBase){ toast('먼저 캐릭터를 선택해 주세요'); return; }
+        if(!crState.cBase){ toast('먼저 캐릭터를 선택해 주세요'); return; }
         const cur=loadDeskPresets(); cur[i]=captureDeskPreset(); saveDeskPresets(cur);
         renderDeskPresetSlots(); toast('프리셋 '+(i+1)+'번에 저장했어요');
       });
@@ -6033,22 +6032,17 @@ function renderDeskPresetSlots(){
 //   그래서 불러올 때마다 이 범위로 확실히 clamp함.
 const DESK_SCALE_MIN = 0.05, DESK_SCALE_MAX = 0.3;
 function clampDeskScale(v){ return Math.max(DESK_SCALE_MIN, Math.min(DESK_SCALE_MAX, v)); }
-let faceCamSaved=null;   // 1~3단계(피부/표정/감은눈) 카메라 각도 유지용
-let deskCamSaved=null;   // 5~6단계(책상/좌석) 카메라 각도 유지용
-let painting=false, lastPX=null, lastPY=null, lastSX=null, lastSY=null, symmetry=false;
-/* 🖌 칠하기 도구(붓 · 페인트통 · 지우개 — paint-tools.js). 아래 도구 줄을 만들 때 채운다. 없으면(모듈 누락) 붓만. */
-let crPaintTool=null;
-function _crDropEraser(){ if(crPaintTool) crPaintTool.dropEraser(); else eraser=false; }
+function _crDropEraser(){ if(crState.crPaintTool) crState.crPaintTool.dropEraser(); else crState.eraser=false; }
 const histF=[], histB=[];
 const redoF=[], redoB=[];
-function isDrawStep(){return crStep===2||crStep===3;}
-function activeFace(){return crStep===3?'blink':'face';}
+function isDrawStep(){return crState.crStep===2||crState.crStep===3;}
+function activeFace(){return crState.crStep===3?'blink':'face';}
 function actC(){return activeFace()==='blink'?blinkC:faceC;}
 function curHist(){return activeFace()==='blink'?histB:histF;}
 function curRedo(){return activeFace()==='blink'?redoB:redoF;}
 function blit(){const x=dispC.getContext('2d');x.clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
-  x.drawImage(skinCanvasFor(skinIndex),0,0);          // 베이스 피부(지워지지 않는 원본)
-  x.drawImage(crStep===3?blinkC:faceC,0,0);           // 그림 레이어
+  x.drawImage(skinCanvasFor(crState.skinIndex),0,0);          // 베이스 피부(지워지지 않는 원본)
+  x.drawImage(crState.crStep===3?blinkC:faceC,0,0);           // 그림 레이어
   dispTex.needsUpdate=true;}
 function pushHistory(){const h=curHist();try{h.push(actC().getContext('2d').getImageData(0,0,CANVAS_SZ,CANVAS_SZ));}catch(e){}if(h.length>30)h.shift();
   curRedo().length=0;   // 새 액션 → redo 스택 폐기 (표준 동작)
@@ -6083,9 +6077,9 @@ function mirrorUVOn(hit, mesh, cam, cx, castFn, off){ if(!mesh||!hit)return null
   const h=_mray.intersectObject(mesh,false);
   if(h.length&&h[0].uv) return {x:h[0].uv.x,y:h[0].uv.y};
   return null; }
-function mirrorUV(hit){ if(!cBase||!cBase.face)return null;
+function mirrorUV(hit){ if(!crState.cBase||!crState.cBase.face)return null;
   /* 🩹 [2026-10-02] 대칭 되쏘기도 지금 자세로 맞힌다 — 얼굴이 리깅이라 기본 캐스트는 바인드 포즈를 맞혔다(_stampFaceHit 주석). */
-  return mirrorUVOn(hit, cBase.face, cCam, cBase.faceCx||0, (ray, mesh)=>partPaintMod._picIntersect(ray,[mesh])); }
+  return mirrorUVOn(hit, crState.cBase.face, crState.cCam, crState.cBase.faceCx||0, (ray, mesh)=>partPaintMod._picIntersect(ray,[mesh])); }
 function strokeSeg(ctx,lx,ly,x,y){ if(lx==null)_seg(ctx,x,y,x+0.01,y+0.01); else _seg(ctx,lx,ly,x,y); }
 /* 🩹 [2026-10-02 제보 #12] «캐릭터 생성 때 머리 윗부분은 끝까지 칠해도 되는데, 수염을 그리려고 아래쪽을 칠하면 튀어서 제멋대로 그려진다»
    [원인] 생성기 칠하기는 얼굴 메쉬 **하나만** 맞히고 직전 점과 이번 점을 텍스처 위에서 직선으로 이었다.
@@ -6100,23 +6094,22 @@ function strokeSeg(ctx,lx,ly,x,y){ if(lx==null)_seg(ctx,x,y,x+0.01,y+0.01); else
      · 빠른 움직임 쪼개기: 화면 경로를 몇 px 단위로 나눠 각 지점을 따로 맞힌다(_wdPicStrokeTo 와 같은 상수).
    ⚠️ 가려짐 판정에 모자·안경·탈은 넣지 않는다 — 얼굴 위에 얹는 파츠라 그 아래를 칠하려는 경우가 있다.
    ⚠️ 스포이드·도장은 손대지 않는다(이번 증상과 무관). */
-let _pLastScr = null, _pLastUV = null, _pLastPt = null, _pLastSUV = null;
-function _paintBreak(){ lastPX=lastPY=null; lastSX=lastSY=null; _pLastUV=null; _pLastPt=null; _pLastSUV=null; }
+function _paintBreak(){ crState.lastPX=crState.lastPY=null; crState.lastSX=crState.lastSY=null; crState._pLastUV=null; crState._pLastPt=null; crState._pLastSUV=null; }
 function _paintHitAt(clientX, clientY){
-  const cv=document.getElementById('creatorPreview'); if(!cv || !cBase || !cBase.face) return null;
+  const cv=document.getElementById('creatorPreview'); if(!cv || !crState.cBase || !crState.cBase.face) return null;
   const r=cv.getBoundingClientRect();
   _pndc.x=((clientX-r.left)/r.width)*2-1; _pndc.y=-((clientY-r.top)/r.height)*2+1;
-  _pray.setFromCamera(_pndc,cCam);
+  _pray.setFromCamera(_pndc,crState.cCam);
   /* 🩹 얼굴·옷 모두 리깅이라 지금 자세로 맞힌다(_picIntersect — 앞면만). 기본 캐스트는 바인드 포즈라 아래쪽이 어긋났다. */
-  const hit=partPaintMod._picIntersect(_pray.ray, [cBase.face]);
+  const hit=partPaintMod._picIntersect(_pray.ray, [crState.cBase.face]);
   if(!hit || !hit.uv) return null;
   hit.distance = _pray.ray.origin.distanceTo(hit.point);
-  const occ=[cBase.upMesh, cBase.loMesh, cBase.onepieceMesh];
+  const occ=[crState.cBase.upMesh, crState.cBase.loMesh, crState.cBase.onepieceMesh];
   /* ⚠️ 같은 장면에 붙어 있는 옷만 본다 — 동물 생성기로 바뀌면 cBase.face 만 동물 것으로 바뀌고 옷 참조는 옛 사람
      인스턴스를 가리킬 수 있다(장면에서 떼어진 메쉬). 그 낡은 위치에 맞으면 엉뚱하게 칠이 막힌다. */
-  let _fr=cBase.face; while(_fr.parent) _fr=_fr.parent;
+  let _fr=crState.cBase.face; while(_fr.parent) _fr=_fr.parent;
   for(let i=0;i<occ.length;i++){
-    const o=occ[i]; if(!o || o === cBase.face) continue;
+    const o=occ[i]; if(!o || o === crState.cBase.face) continue;
     let vis=true, q=o, root=o; for(;q;q=q.parent){ if(q.visible===false){ vis=false; break; } root=q; }
     if(!vis || root !== _fr) continue;
     const oh=partPaintMod._picIntersect(_pray.ray, [o]);
@@ -6125,42 +6118,42 @@ function _paintHitAt(clientX, clientY){
   return hit;
 }
 function paintAt(hit){ const ctx=actC().getContext('2d');ctx.lineCap='round';ctx.lineJoin='round';
-  ctx.lineWidth=brushSize;
-  ctx.globalCompositeOperation=eraser?'destination-out':'source-over';ctx.strokeStyle=brushColor;
+  ctx.lineWidth=crState.brushSize;
+  ctx.globalCompositeOperation=crState.eraser?'destination-out':'source-over';ctx.strokeStyle=crState.brushColor;
   const cx=hit.uv.x*CANVAS_SZ, cy=hit.uv.y*CANVAS_SZ;
   /* 🧵 솔기 판정(_wdPicPaint 와 같은 식) — 천장 0.25 까지 그대로. */
-  const wD=(_pLastPt && hit.point) ? _pLastPt.distanceTo(hit.point) : 0;
+  const wD=(crState._pLastPt && hit.point) ? crState._pLastPt.distanceTo(hit.point) : 0;
   const allow=Math.min(0.25, wD * partPaintMod._wdPicUvScale(hit.object) * 4 + 0.02);
-  if(_pLastUV && Math.hypot(hit.uv.x-_pLastUV.x, hit.uv.y-_pLastUV.y) > allow){ lastPX=lastPY=null; }
-  strokeSeg(ctx,lastPX,lastPY,cx,cy); lastPX=cx; lastPY=cy;
-  _pLastUV={x:hit.uv.x, y:hit.uv.y};
-  if(hit.point){ if(!_pLastPt) _pLastPt=new THREE.Vector3(); _pLastPt.copy(hit.point); }
-  if(symmetry){ const m=mirrorUV(hit);
+  if(crState._pLastUV && Math.hypot(hit.uv.x-crState._pLastUV.x, hit.uv.y-crState._pLastUV.y) > allow){ crState.lastPX=crState.lastPY=null; }
+  strokeSeg(ctx,crState.lastPX,crState.lastPY,cx,cy); crState.lastPX=cx; crState.lastPY=cy;
+  crState._pLastUV={x:hit.uv.x, y:hit.uv.y};
+  if(hit.point){ if(!crState._pLastPt) crState._pLastPt=new THREE.Vector3(); crState._pLastPt.copy(hit.point); }
+  if(crState.symmetry){ const m=mirrorUV(hit);
     if(m){
-      const mj=!!(_pLastSUV && Math.hypot(m.x-_pLastSUV.x, m.y-_pLastSUV.y) > allow);
-      const mx=m.x*CANVAS_SZ, my=m.y*CANVAS_SZ; strokeSeg(ctx,mj?null:lastSX,mj?null:lastSY,mx,my); lastSX=mx; lastSY=my; _pLastSUV={x:m.x,y:m.y};
+      const mj=!!(crState._pLastSUV && Math.hypot(m.x-crState._pLastSUV.x, m.y-crState._pLastSUV.y) > allow);
+      const mx=m.x*CANVAS_SZ, my=m.y*CANVAS_SZ; strokeSeg(ctx,mj?null:crState.lastSX,mj?null:crState.lastSY,mx,my); crState.lastSX=mx; crState.lastSY=my; crState._pLastSUV={x:m.x,y:m.y};
     }
-    else { lastSX=lastSY=null; _pLastSUV=null; } }
+    else { crState.lastSX=crState.lastSY=null; crState._pLastSUV=null; } }
   ctx.globalCompositeOperation='source-over'; blit(); }
 /* 🪣 페인트통 — 누른 얼굴 메쉬의 조각(UV 섬)만 지금 색으로 채운다(erase 면 그 조각만 지운다 → 피부가 보인다).
    붓과 같은 광선(_paintHitAt — 앞면만 · 옷에 가려지면 안 칠함)을 쓰고, 그림 층(actC)에만 칠하므로
    저장 · 되돌리기 · 감은눈 복사가 붓 획과 똑같이 다룬다. 대칭이면 거울 자리의 조각도 같은 되돌리기 한 칸에. */
-function bucketFromEvent(e, erase){ if(!isDrawStep()||!cBase||!crPaintTool)return false;
+function bucketFromEvent(e, erase){ if(!isDrawStep()||!crState.cBase||!crState.crPaintTool)return false;
   const hit=_paintHitAt(e.clientX, e.clientY);
   if(!hit){ toast('얼굴을 눌러 채워요'); return false; }   // 빈 곳 · 옷에 가려진 곳
   const ctx=actC().getContext('2d'), g=hit.object&&hit.object.geometry;
-  const n=crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, faceIndex:hit.faceIndex, uv:hit.uv, color:brushColor, erase, pushHistory });
+  const n=crState.crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, faceIndex:hit.faceIndex, uv:hit.uv, color:crState.brushColor, erase, pushHistory });
   if(!n){ toast('여기는 채울 자리가 없어요 — 얼굴을 눌러 주세요'); return false; }
-  if(symmetry){ const m=mirrorUV(hit); if(m) crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, uv:m, color:brushColor, erase }); }
-  if(crStep===3) blinkEdited=true;
+  if(crState.symmetry){ const m=mirrorUV(hit); if(m) crState.crPaintTool.bucket({ ctx, geometry:g, size:CANVAS_SZ, uv:m, color:crState.brushColor, erase }); }
+  if(crState.crStep===3) crState.blinkEdited=true;
   blit();
   return true; }
 const _pray=new THREE.Raycaster(), _pndc=new THREE.Vector2();
 const CR_PAINT_STEP_PX = 6, CR_PAINT_MAX_STEPS = 8;   // _wdPicStrokeTo 와 같은 값
-function paintFromEvent(e){ if(!isDrawStep()||!cBase)return;
+function paintFromEvent(e){ if(!isDrawStep()||!crState.cBase)return;
   /* 획의 첫 점(pointerdown 이 lastPX 를 비우고 부른다) — 쪼개기 출발점을 새로 잡는다. */
-  if(lastPX==null && lastSX==null && !_pLastUV) _pLastScr=null;
-  const sx=_pLastScr ? _pLastScr.x : null, sy=_pLastScr ? _pLastScr.y : null;
+  if(crState.lastPX==null && crState.lastSX==null && !crState._pLastUV) crState._pLastScr=null;
+  const sx=crState._pLastScr ? crState._pLastScr.x : null, sy=crState._pLastScr ? crState._pLastScr.y : null;
   if(sx==null){
     const h=_paintHitAt(e.clientX, e.clientY);
     if(h) paintAt(h); else _paintBreak();
@@ -6172,21 +6165,21 @@ function paintFromEvent(e){ if(!isDrawStep()||!cBase)return;
       if(h) paintAt(h); else _paintBreak();   // 얼굴 밖·가려진 곳 — 거기서 끊는다
     }
   }
-  _pLastScr={x:e.clientX, y:e.clientY};
+  crState._pLastScr={x:e.clientX, y:e.clientY};
 }
 // 우클릭 스포이드: 표정 텍스처 캔버스에서 픽셀 색을 읽어 브러시 색으로 적용
-function eyedropFromEvent(e){ if(!isDrawStep()||!cBase)return false;
+function eyedropFromEvent(e){ if(!isDrawStep()||!crState.cBase)return false;
   const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();
   _pndc.x=((e.clientX-r.left)/r.width)*2-1; _pndc.y=-((e.clientY-r.top)/r.height)*2+1;
-  _pray.setFromCamera(_pndc,cCam);
-  const _eh=partPaintMod._picIntersect(_pray.ray, [cBase.face]);   // 🩹 지금 자세로 맞힌다(리깅 · _stampFaceHit 주석)
+  _pray.setFromCamera(_pndc,crState.cCam);
+  const _eh=partPaintMod._picIntersect(_pray.ray, [crState.cBase.face]);   // 🩹 지금 자세로 맞힌다(리깅 · _stampFaceHit 주석)
   if(!_eh||!_eh.uv) return false;
   const cx=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.x*CANVAS_SZ)));
   const cy=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.y*CANVAS_SZ)));
   let d; try{ d=actC().getContext('2d').getImageData(cx,cy,1,1).data; }catch(_){ return false; }
   if(d[3]<8) return false;   // 빈 픽셀은 무시
   const hex='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
-  brushColor=hex; _crDropEraser();
+  crState.brushColor=hex; _crDropEraser();
   const bc=document.getElementById('brushCustom'); if(bc)bc.value=hex;
   [...swEl.children].forEach(x=>x.classList.remove('on'));
   return true; }
@@ -6197,30 +6190,26 @@ function eyedropFromEvent(e){ if(!isDrawStep()||!cBase)return false;
    3) ESC 또는 ✕ 취소 → 박지 않고 빠져나옴.
    대칭 ON이면 박을 때 거울 위치에도 동시 박힘.
 =========================================================================== */
-let stampMode=false, stampImg=null;
-let stampDirty=false;   // true면 사용자가 크기/회전을 만진 상태 — 새 이미지 불러와도 이전 변형 유지(b안: 가로·세로 그대로)
-// placement: 캔버스(미리보기) 픽셀 좌표 기준. cx,cy = 중심, w/h = 화면상 크기, rot = 라디안
-let stampPlace={cx:0,cy:0,w:120,h:120,rot:0,aspect:1};
 function stampOverlayEl(){return document.getElementById('stampOverlay');}
 function refreshStampOverlay(){
-  const ov=stampOverlayEl(); if(!ov||!stampMode||!stampImg){if(ov)ov.style.display='none';return;}
+  const ov=stampOverlayEl(); if(!ov||!crState.stampMode||!crState.stampImg){if(ov)ov.style.display='none';return;}
   // 오버레이의 부모는 .decor-left지만 stampPlace.cx/cy는 캔버스 기준 좌표 → 캔버스의 부모 내 오프셋을 더해야 일치
   const cv=document.getElementById('creatorPreview');
   const ox=cv.offsetLeft, oy=cv.offsetTop;
   ov.style.display='block';
-  ov.style.left=(ox+stampPlace.cx-stampPlace.w/2)+'px';
-  ov.style.top=(oy+stampPlace.cy-stampPlace.h/2)+'px';
-  ov.style.width=stampPlace.w+'px';
-  ov.style.height=stampPlace.h+'px';
-  ov.style.transform=`rotate(${stampPlace.rot}rad)`;
+  ov.style.left=(ox+crState.stampPlace.cx-crState.stampPlace.w/2)+'px';
+  ov.style.top=(oy+crState.stampPlace.cy-crState.stampPlace.h/2)+'px';
+  ov.style.width=crState.stampPlace.w+'px';
+  ov.style.height=crState.stampPlace.h+'px';
+  ov.style.transform=`rotate(${crState.stampPlace.rot}rad)`;
 }
 function setStampMode(on){
-  stampMode=on;
+  crState.stampMode=on;
   const sb=document.getElementById('stampBtn'); if(sb)sb.classList.toggle('on',on);
   const sp=document.getElementById('stampPanel'); if(sp)sp.style.display=on?'flex':'none';
   if(on){ _crDropEraser();
     // 이전에 불러둔 이미지가 있으면 버튼 다시 노출 (모드 OFF→ON 복귀 시 이미지 유지)
-    if(stampImg){
+    if(crState.stampImg){
       const sa=document.getElementById('stampApply'); if(sa)sa.style.display='inline-block';
       const sc=document.getElementById('stampCancel'); if(sc)sc.style.display='inline-block';
       const sr=document.getElementById('stampReset'); if(sr)sr.style.display='inline-block';
@@ -6234,7 +6223,7 @@ function setStampMode(on){
    만들거나 다른 캐릭터를 수정할 때도 방금 불러온 도장 이미지와 그 배치를 그대로 기억해뒀다가
    바로 다시 쓸 수 있게 하기 위함(요청사항). 완전히 새로 지우고 싶으면 도장 패널의 "취소" 버튼 사용. */
 function clearStampState(){
-  stampMode=false;
+  crState.stampMode=false;
   const sa=document.getElementById('stampApply'); if(sa)sa.style.display='none';
   const sc=document.getElementById('stampCancel'); if(sc)sc.style.display='none';
   const sr=document.getElementById('stampReset'); if(sr)sr.style.display='none';
@@ -6245,24 +6234,24 @@ function clearStampState(){
 function loadStampFromFile(file){
   if(!file||!file.type||!file.type.startsWith('image/'))return;
   const r=new FileReader();
-  r.onload=ev=>{ const im=new Image(); im.onload=()=>{ stampImg=im;
+  r.onload=ev=>{ const im=new Image(); im.onload=()=>{ crState.stampImg=im;
     const th=document.getElementById('stampThumb'); if(th){ th.src=ev.target.result; th.style.display='inline-block'; }
     document.getElementById('stampOverlayImg').src=ev.target.result;
     document.getElementById('stampApply').style.display='inline-block';
     document.getElementById('stampCancel').style.display='inline-block';
     { const sr=document.getElementById('stampReset'); if(sr) sr.style.display='inline-block'; }
     // 사용자가 이전에 변형(크기/회전)을 만진 상태(stampDirty)면 그대로 유지 → 이미지만 교체. 늘어남 OK(b안).
-    if(!stampDirty){
+    if(!crState.stampDirty){
       const cv=document.getElementById('creatorPreview'), r2=cv.getBoundingClientRect();
-      stampPlace.aspect = im.naturalWidth/Math.max(1,im.naturalHeight);
+      crState.stampPlace.aspect = im.naturalWidth/Math.max(1,im.naturalHeight);
       const baseW = Math.min(r2.width, r2.height) * 0.4;
-      stampPlace.w = baseW; stampPlace.h = baseW / stampPlace.aspect;
-      stampPlace.cx = r2.width/2; stampPlace.cy = r2.height/2; stampPlace.rot=0;
+      crState.stampPlace.w = baseW; crState.stampPlace.h = baseW / crState.stampPlace.aspect;
+      crState.stampPlace.cx = r2.width/2; crState.stampPlace.cy = r2.height/2; crState.stampPlace.rot=0;
     } else {
       // 새 이미지의 aspect만 갱신 (코너 핸들 Shift 비례 복귀 시 새 이미지의 원본 비율 기준)
-      stampPlace.aspect = im.naturalWidth/Math.max(1,im.naturalHeight);
+      crState.stampPlace.aspect = im.naturalWidth/Math.max(1,im.naturalHeight);
     }
-    if(!stampMode) setStampMode(true);
+    if(!crState.stampMode) setStampMode(true);
     refreshStampOverlay();
   }; im.src=ev.target.result; };
   r.readAsDataURL(file);
@@ -6274,15 +6263,15 @@ function loadStampFromFile(file){
      누를 방법이 없어진다(제보). 그래서 항상 제자리에 있는 패널 쪽에 '처음 불러온 상태로' 되돌리는
      버튼을 따로 둔다. 기존 ↺ 의 '위치는 그대로' 성질은 손대지 않는다 — 그건 그대로 쓸모가 있다. */
 function resetStampPlacement(alsoPos){
-  if(!stampImg) return;
+  if(!crState.stampImg) return;
   const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();
-  stampPlace.aspect = stampImg.naturalWidth/Math.max(1,stampImg.naturalHeight);
+  crState.stampPlace.aspect = crState.stampImg.naturalWidth/Math.max(1,crState.stampImg.naturalHeight);
   const baseW = Math.min(r.width, r.height) * 0.4;
-  stampPlace.w = baseW; stampPlace.h = baseW / stampPlace.aspect;
-  stampPlace.rot = 0;
+  crState.stampPlace.w = baseW; crState.stampPlace.h = baseW / crState.stampPlace.aspect;
+  crState.stampPlace.rot = 0;
   // ★ 값은 loadStampFromFile 의 첫 배치와 같아야 한다 — "처음 불러온 상태"가 이 버튼의 약속이다.
-  if(alsoPos){ stampPlace.cx = r.width/2; stampPlace.cy = r.height/2; }
-  stampDirty = false;   // 초기화했으니 dirty 해제 → 다음 이미지 로드 시 또 디폴트로
+  if(alsoPos){ crState.stampPlace.cx = r.width/2; crState.stampPlace.cy = r.height/2; }
+  crState.stampDirty = false;   // 초기화했으니 dirty 해제 → 다음 이미지 로드 시 또 디폴트로
   refreshStampOverlay();
 }
 
@@ -6291,10 +6280,10 @@ function resetStampPlacement(alsoPos){
    - 격자(N×N)로 세분화하여 작은 quad마다 이미지 일부를 affine 매핑으로 그림
    - face에 안 닿는 격자 점은 폐기 (구멍이 생길 수 있지만 자연스러움) */
 function commitStamp(){
-  if(!stampImg||!cBase||!cBase.face)return;
+  if(!crState.stampImg||!crState.cBase||!crState.cBase.face)return;
   const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();
   // 도장 오버레이의 4꼭짓점(미리보기 픽셀)
-  const cx=stampPlace.cx, cy=stampPlace.cy, w=stampPlace.w, h=stampPlace.h, rot=stampPlace.rot;
+  const cx=crState.stampPlace.cx, cy=crState.stampPlace.cy, w=crState.stampPlace.w, h=crState.stampPlace.h, rot=crState.stampPlace.rot;
   const cs=Math.cos(rot), sn=Math.sin(rot);
   function localToScreen(lx,ly){ // (-0.5..0.5)*w,h → 화면 픽셀
     return {x: cx + lx*cs - ly*sn, y: cy + lx*sn + ly*cs};
@@ -6314,7 +6303,7 @@ function commitStamp(){
      [대응] 꾸미기 그리기가 이 문제로 만든 _picIntersect(리깅이면 지금 자세의 정점으로 직접 교차 · 앞면만)를 쓴다.
        리깅이 아니면 평소 레이캐스트 + 앞면 필터라 예전과 같다. */
   function _stampFaceHit(){
-    const c=partPaintMod._picIntersect(_pray.ray, [cBase.face]);
+    const c=partPaintMod._picIntersect(_pray.ray, [crState.cBase.face]);
     if(!c||!c.uv) return null;
     return {x:c.uv.x, y:c.uv.y, p:c.point.clone()};
   }
@@ -6327,15 +6316,15 @@ function commitStamp(){
       const sp=localToScreen(lx,ly);
       // 화면 좌표 → NDC (캔버스 픽셀 크기는 r.width/r.height 사용)
       _pndc.x=(sp.x/r.width)*2-1; _pndc.y=-(sp.y/r.height)*2+1;
-      _pray.setFromCamera(_pndc,cCam);
+      _pray.setFromCamera(_pndc,crState.cCam);
       const _h=_stampFaceHit();
       uvs.push(_h);
       if(!_h) _wrapRays[uvs.length-1]={o:_pray.ray.origin.clone(), d:_pray.ray.direction.clone()};
     }
   }
   // 🩹 #3 감아 칠하기 — 턱 밑처럼 정면에서 못 맞힌 칸을 이웃에서부터 이어 채운다(_stampWrapFill 주석)
-  const _wrapCtr=partPaintMod._stampWrapCenter(cBase.face);
-  const _wrapN=partPaintMod._stampWrapFill(uvs, N, _wrapRays, [cBase.face], _wrapCtr);
+  const _wrapCtr=partPaintMod._stampWrapCenter(crState.cBase.face);
+  const _wrapN=partPaintMod._stampWrapFill(uvs, N, _wrapRays, [crState.cBase.face], _wrapCtr);
   if(_wrapN) console.log('[도장] 감아 칠한 격자점', _wrapN);
   pushHistory();
   // 가장자리 폐기 셀의 UV를 인접 유효 셀에서 *바깥으로 외삽*해서 채움 — 도장이 얼굴을 더 꽉 채우게
@@ -6417,7 +6406,7 @@ function commitStamp(){
   stampOff.width=CANVAS_SZ; stampOff.height=CANVAS_SZ;
   const ctx=stampOff.getContext('2d');
   ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';   // 부드러운 보간으로 셀 경계 시인성 ↓
-  const imgW=stampImg.naturalWidth, imgH=stampImg.naturalHeight;
+  const imgW=crState.stampImg.naturalWidth, imgH=crState.stampImg.naturalHeight;
   // 셀별로 삼각형 2개씩 그려서 매핑. 누락 셀은 폐기. 클립 영역을 셀 중심에서 외측으로 살짝 부풀려 인접 셀과 겹치게 → 흰선 제거.
   /* ★ 침범 중첩 방지 — 도장이 얼굴 실루엣 가장자리를 벗어나면, 스치듯 지나가는 레이가 얼굴의
      옆면·이음새(UV 점프) 지점에 맞아 인접 격자점의 UV가 텍스처 반대편으로 크게 벌어질 수 있다.
@@ -6430,7 +6419,7 @@ function commitStamp(){
        비스듬한 턱 밑은 3D 거리도 같이 커서 통과하고, 진짜 이음새(3D 는 붙어 있는데 UV 가 멀다)는 걸린다.
        천장은 «텍스처를 가로지르는 긴 띠» 를 막는 마지막 울타리다.
      · 외삽으로 채운 점(p 없음): 예전 그대로 0.15. */
-  const _uvK = partPaintMod._wdPicUvScale(cBase.face);
+  const _uvK = partPaintMod._wdPicUvScale(crState.cBase.face);
   function _uvFar(p,q){
     const dx=p.x-q.x, dy=p.y-q.y, uvD=Math.sqrt(dx*dx+dy*dy);
     if(p.p && q.p){ const allow=Math.min(0.35, p.p.distanceTo(q.p)*_uvK*3 + 0.03); return uvD > allow; }
@@ -6446,7 +6435,7 @@ function commitStamp(){
        알파도 원본 그대로다. 경계는 EPS(0.5px)만큼 넓혀 인접 삼각형이 같은 픽셀을 덮게 한다.
      ⚠️ animal.js aCommitStamp에 같은 코드가 있다. 한쪽을 고치면 반드시 다른 쪽도 고칠 것. */
   const _sc=document.createElement('canvas'); _sc.width=imgW; _sc.height=imgH;
-  _sc.getContext('2d').drawImage(stampImg,0,0);
+  _sc.getContext('2d').drawImage(crState.stampImg,0,0);
   const srcD=_sc.getContext('2d').getImageData(0,0,imgW,imgH).data;
   const dstImg=ctx.createImageData(CANVAS_SZ,CANVAS_SZ), dstD=dstImg.data;
   function sampleSrc(u,v,o){
@@ -6497,27 +6486,27 @@ function commitStamp(){
   // ★ 단, 도장이 중앙 부근이면 미러본이 원본과 겹쳐 "반전 이중상"이 되므로 생략 —
   //   감은눈처럼 얼굴 전체를 덮는 이미지를 중앙에 찍는 경우가 여기 해당.
   //   한쪽으로 치우친 도장(볼터치 등)은 기존대로 반대쪽에 짝으로 찍힘.
-  if(symmetry && Math.abs(stampPlace.cx - r.width/2) >= stampPlace.w*0.5){
-    const savedCx=stampPlace.cx, savedRot=stampPlace.rot;
-    stampPlace.cx = r.width - savedCx;
-    stampPlace.rot = -savedRot;
+  if(crState.symmetry && Math.abs(crState.stampPlace.cx - r.width/2) >= crState.stampPlace.w*0.5){
+    const savedCx=crState.stampPlace.cx, savedRot=crState.stampPlace.rot;
+    crState.stampPlace.cx = r.width - savedCx;
+    crState.stampPlace.rot = -savedRot;
     // 거울 도장: 이미지를 좌우 반전한 뒤 같은 방식으로
     const off=document.createElement('canvas'); off.width=imgW; off.height=imgH;
-    const octx=off.getContext('2d'); octx.translate(imgW,0); octx.scale(-1,1); octx.drawImage(stampImg,0,0);
-    const savedImg=stampImg; stampImg=off;
+    const octx=off.getContext('2d'); octx.translate(imgW,0); octx.scale(-1,1); octx.drawImage(crState.stampImg,0,0);
+    const savedImg=crState.stampImg; crState.stampImg=off;
     // 격자 raycast 다시
     const uvs2=[], _wrapRays2=[];
-    const cs2=Math.cos(stampPlace.rot), sn2=Math.sin(stampPlace.rot);
+    const cs2=Math.cos(crState.stampPlace.rot), sn2=Math.sin(crState.stampPlace.rot);
     for(let j=0;j<=N;j++){ for(let i=0;i<=N;i++){
-      const lx=(i/N-0.5)*stampPlace.w, ly=(j/N-0.5)*stampPlace.h;
-      const sx=stampPlace.cx+lx*cs2-ly*sn2, sy=stampPlace.cy+lx*sn2+ly*cs2;
+      const lx=(i/N-0.5)*crState.stampPlace.w, ly=(j/N-0.5)*crState.stampPlace.h;
+      const sx=crState.stampPlace.cx+lx*cs2-ly*sn2, sy=crState.stampPlace.cy+lx*sn2+ly*cs2;
       _pndc.x=(sx/r.width)*2-1; _pndc.y=-(sy/r.height)*2+1;
-      _pray.setFromCamera(_pndc,cCam);
+      _pray.setFromCamera(_pndc,crState.cCam);
       const _h2=_stampFaceHit();
       uvs2.push(_h2);   // 🩹 원본 도장과 같은 판정(앞면 · 3D 위치 포함)
       if(!_h2) _wrapRays2[uvs2.length-1]={o:_pray.ray.origin.clone(), d:_pray.ray.direction.clone()};
     }}
-    partPaintMod._stampWrapFill(uvs2, N, _wrapRays2, [cBase.face], _wrapCtr);   // 거울 도장도 같이 감는다
+    partPaintMod._stampWrapFill(uvs2, N, _wrapRays2, [crState.cBase.face], _wrapCtr);   // 거울 도장도 같이 감는다
     extrapolateUVs(uvs2, N);
     for(let j=0;j<N;j++){ for(let i=0;i<N;i++){
       const a=uvs2[j*(N+1)+i], b=uvs2[j*(N+1)+(i+1)], c=uvs2[(j+1)*(N+1)+i], d=uvs2[(j+1)*(N+1)+(i+1)];
@@ -6526,7 +6515,7 @@ function commitStamp(){
       if(a&&b&&c) drawTri(su0,su1,su2,a,b,c);
       if(b&&c&&d) drawTri(su1,su2,su3,b,c,d);
     }}
-    stampImg=savedImg; stampPlace.cx=savedCx; stampPlace.rot=savedRot;
+    crState.stampImg=savedImg; crState.stampPlace.cx=savedCx; crState.stampPlace.rot=savedRot;
   }
   // ★ 조립 끝 — 얼굴 캔버스에 source-over로 딱 한 번 얹는다. 여기서만 알파가 합성되므로
   //   반투명 PNG도 원본 그대로의 농도로 찍힌다.
@@ -6536,7 +6525,7 @@ function commitStamp(){
   dstCtx.imageSmoothingEnabled=true;
   dstCtx.drawImage(stampOff,0,0);      // 얼굴 캔버스에 딱 한 번 합성 (여기서만 알파 합성)
   dstCtx.restore();
-  if(crStep===3)blinkEdited=true;
+  if(crState.crStep===3)crState.blinkEdited=true;
   blit();
   // 모드·이미지·위치 모두 유지 → 같은 이미지로 다른 위치에 연속 찍기 가능. 종료는 ESC/✕/다른 도구 선택/단계 이동으로.
 }
@@ -6550,7 +6539,7 @@ function bindStampOverlay(){
   let drag=null;   // {type:'move'|'tl'|'tr'|'bl'|'br'|'rot', startX,startY, ...}
   function pos(e){const r=cv.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
   img.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();
-    const p=pos(e); drag={type:'move',sx:p.x,sy:p.y,ox:stampPlace.cx,oy:stampPlace.cy};
+    const p=pos(e); drag={type:'move',sx:p.x,sy:p.y,ox:crState.stampPlace.cx,oy:crState.stampPlace.cy};
     img.setPointerCapture(e.pointerId);
   });
   ['tl','tr','bl','br'].forEach(corner=>{
@@ -6562,18 +6551,18 @@ function bindStampOverlay(){
       const sx=(corner==='tl'||corner==='bl')?-0.5:0.5;
       const sy=(corner==='tl'||corner==='tr')?-0.5:0.5;
       // 화면(부모) 좌표계에서 고정점(대각 반대편 코너)의 위치를 계산
-      const cs=Math.cos(stampPlace.rot), sn=Math.sin(stampPlace.rot);
-      const fxL=-sx*stampPlace.w, fyL=-sy*stampPlace.h;   // 고정점의 로컬 좌표
-      const fixedX=stampPlace.cx + fxL*cs - fyL*sn;
-      const fixedY=stampPlace.cy + fxL*sn + fyL*cs;
-      drag={type:corner, sx, sy, fixedX, fixedY, oAspect: stampPlace.aspect||(stampPlace.w/Math.max(1,stampPlace.h))};
+      const cs=Math.cos(crState.stampPlace.rot), sn=Math.sin(crState.stampPlace.rot);
+      const fxL=-sx*crState.stampPlace.w, fyL=-sy*crState.stampPlace.h;   // 고정점의 로컬 좌표
+      const fixedX=crState.stampPlace.cx + fxL*cs - fyL*sn;
+      const fixedY=crState.stampPlace.cy + fxL*sn + fyL*cs;
+      drag={type:corner, sx, sy, fixedX, fixedY, oAspect: crState.stampPlace.aspect||(crState.stampPlace.w/Math.max(1,crState.stampPlace.h))};
       h.setPointerCapture(e.pointerId);
     });
   });
   const rh=ov.querySelector('.stamp-h-rot');
   rh.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();
-    const p=pos(e); const ang=Math.atan2(p.y-stampPlace.cy,p.x-stampPlace.cx);
-    drag={type:'rot',startAng:ang,oRot:stampPlace.rot};
+    const p=pos(e); const ang=Math.atan2(p.y-crState.stampPlace.cy,p.x-crState.stampPlace.cx);
+    drag={type:'rot',startAng:ang,oRot:crState.stampPlace.rot};
     rh.setPointerCapture(e.pointerId);
   });
   // 회전 손잡이 옆 ↺: 크기/회전 디폴트로(위치 유지). stampDirty 해제하여 다음 이미지 로드 시에도 디폴트로 들어옴.
@@ -6582,19 +6571,19 @@ function bindStampOverlay(){
     rs.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();resetStampPlacement();}); }
   function onMove(e){ if(!drag)return; const p=pos(e);
     if(drag.type==='move'){
-      stampPlace.cx=drag.ox+(p.x-drag.sx); stampPlace.cy=drag.oy+(p.y-drag.sy);
+      crState.stampPlace.cx=drag.ox+(p.x-drag.sx); crState.stampPlace.cy=drag.oy+(p.y-drag.sy);
       // Shift = 캔버스 가로 중앙선으로 자동 스냅, y만 따라감
-      if(e.shiftKey){ const cv=document.getElementById('creatorPreview'); stampPlace.cx=cv.getBoundingClientRect().width/2; }
+      if(e.shiftKey){ const cv=document.getElementById('creatorPreview'); crState.stampPlace.cx=cv.getBoundingClientRect().width/2; }
     }
-    else if(drag.type==='rot'){ const ang=Math.atan2(p.y-stampPlace.cy,p.x-stampPlace.cx);
+    else if(drag.type==='rot'){ const ang=Math.atan2(p.y-crState.stampPlace.cy,p.x-crState.stampPlace.cx);
       let r=drag.oRot+(ang-drag.startAng);
       if(e.shiftKey){ const step=15*Math.PI/180; r=Math.round(r/step)*step; }   // 15도 스냅
-      stampPlace.rot=r;
-      stampDirty=true;
+      crState.stampPlace.rot=r;
+      crState.stampDirty=true;
     }
     else { // 코너 자유변형: 대각 반대편 코너(fixedX/fixedY)를 고정점으로 잡고 마우스 위치가 새 코너
       // 마우스 위치를 *고정점 기준 로컬 좌표*로 변환(회전 역적용)해서 폭/높이 추출
-      const cs=Math.cos(-stampPlace.rot), sn=Math.sin(-stampPlace.rot);
+      const cs=Math.cos(-crState.stampPlace.rot), sn=Math.sin(-crState.stampPlace.rot);
       const dx=p.x-drag.fixedX, dy=p.y-drag.fixedY;
       const localX=dx*cs - dy*sn;   // 고정점→마우스 방향의 로컬 x (드래그 코너의 부호와 같은 방향이어야 양수)
       const localY=dx*sn + dy*cs;
@@ -6607,13 +6596,13 @@ function bindStampOverlay(){
         // newW/newH 중 ar에서 더 멀어진 쪽을 우선 — 사용자 의도에 가까움
         if(newW/newH > ar) newH=newW/ar; else newW=newH*ar;
       }
-      stampPlace.w=newW; stampPlace.h=newH;
+      crState.stampPlace.w=newW; crState.stampPlace.h=newH;
       // 새 중심: 고정점에서 *드래그 코너 방향*으로 (w/2, h/2)만큼 떨어진 곳의 반대 = 고정점에서 중심까지 (sx*w, sy*h) 만큼 (로컬)에 회전 적용
-      const cs2=Math.cos(stampPlace.rot), sn2=Math.sin(stampPlace.rot);
+      const cs2=Math.cos(crState.stampPlace.rot), sn2=Math.sin(crState.stampPlace.rot);
       const cxL=drag.sx*newW, cyL=drag.sy*newH;
-      stampPlace.cx=drag.fixedX + cxL*cs2 - cyL*sn2;
-      stampPlace.cy=drag.fixedY + cxL*sn2 + cyL*cs2;
-      stampDirty=true;
+      crState.stampPlace.cx=drag.fixedX + cxL*cs2 - cyL*sn2;
+      crState.stampPlace.cy=drag.fixedY + cxL*sn2 + cyL*cs2;
+      crState.stampDirty=true;
     }
     refreshStampOverlay();
   }
@@ -6628,30 +6617,30 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
   cv.addEventListener('pointerdown',e=>{
     // 🖱️ 우클릭: 드래그하면 카메라 회전, 움직임 없이 떼면 기존처럼 스포이드(그리기 단계에서만).
     //   어느 단계에서든 우클릭 드래그로 캐릭터를 돌려볼 수 있음 — 동물 생성기와 통일된 조작.
-    if(e.button===2){ _rcOrbit={x:e.clientX,y:e.clientY,moved:false}; cv.setPointerCapture(e.pointerId); return; }
+    if(e.button===2){ crState._rcOrbit={x:e.clientX,y:e.clientY,moved:false}; cv.setPointerCapture(e.pointerId); return; }
     if(!isDrawStep())return;
     // 도장 편집 중에는 캔버스 클릭으로 그리지 않음(오버레이 조작 우선)
-    if(stampMode) return;
+    if(crState.stampMode) return;
     if(e.button!==0)return;
-    const act=crPaintTool?crPaintTool.pointerAction(e):'stroke';
+    const act=crState.crPaintTool?crState.crPaintTool.pointerAction(e):'stroke';
     if(act!=='stroke'){ bucketFromEvent(e, act==='fillErase'); return; }   // 🪣 한 번 누르면 끝 — 끌기 획이 아니다
-    if(crStep===3)blinkEdited=true;pushHistory();painting=true;_paintBreak();_pLastScr=null;paintFromEvent(e);cv.setPointerCapture(e.pointerId);   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
+    if(crState.crStep===3)crState.blinkEdited=true;pushHistory();crState.painting=true;_paintBreak();crState._pLastScr=null;paintFromEvent(e);cv.setPointerCapture(e.pointerId);   // 🩹 #12 — 새 획: 솔기·쪼개기 기억도 비운다
   });
   cv.addEventListener('pointermove',e=>{
-    if(_rcOrbit){
-      const dx=e.clientX-_rcOrbit.x, dy=e.clientY-_rcOrbit.y;
-      if(_rcOrbit.moved || Math.abs(dx)+Math.abs(dy)>4){
-        _rcOrbit.moved=true;
-        camYaw += wardrobeMod.ORBIT_DRAG_DIR * dx*0.012;   // 오른쪽 드래그 = 앵글도 오른쪽으로 (부호는 ORBIT_DRAG_DIR 한 곳에서 관리 — 꾸미기 미리보기와 동일)
-        camPitch = Math.max(-0.6, Math.min(1.0, camPitch + dy*0.008));
+    if(crState._rcOrbit){
+      const dx=e.clientX-crState._rcOrbit.x, dy=e.clientY-crState._rcOrbit.y;
+      if(crState._rcOrbit.moved || Math.abs(dx)+Math.abs(dy)>4){
+        crState._rcOrbit.moved=true;
+        crState.camYaw += wardrobeMod.ORBIT_DRAG_DIR * dx*0.012;   // 오른쪽 드래그 = 앵글도 오른쪽으로 (부호는 ORBIT_DRAG_DIR 한 곳에서 관리 — 꾸미기 미리보기와 동일)
+        crState.camPitch = Math.max(-0.6, Math.min(1.0, crState.camPitch + dy*0.008));
         creatorPrevMod.updateCreatorCam();
-        _rcOrbit.x=e.clientX; _rcOrbit.y=e.clientY;
+        crState._rcOrbit.x=e.clientX; crState._rcOrbit.y=e.clientY;
       }
       return;
     }
     /* 🖌 커서 = 지금 도구(붓 + · 페인트통 · 지우개). 단계 이동(gotoStep)이 crosshair 로 되돌려도 움직이면 다시 맞는다. */
-    if(crPaintTool && isDrawStep() && !stampMode){ const cu=crPaintTool.cursor(); if(cv.style.cursor!==cu) cv.style.cursor=cu; }
-    if(!painting)return;
+    if(crState.crPaintTool && isDrawStep() && !crState.stampMode){ const cu=crState.crPaintTool.cursor(); if(cv.style.cursor!==cu) cv.style.cursor=cu; }
+    if(!crState.painting)return;
     const evs=(typeof e.getCoalescedEvents==='function')?e.getCoalescedEvents():null;
     /* 🖊️ [Mac 제보 2026-09-23] "표정을 그리면 선이 위아래로 튄다."
        getCoalescedEvents 의 점들은 **마지막 것이 이 이벤트 자신**이어야 한다(규격). 그런데 환경에 따라
@@ -6663,15 +6652,15 @@ function bindPaint(){const cv=document.getElementById('creatorPreview');
     else paintFromEvent(e);
   });
   cv.addEventListener('pointerup',(e)=>{
-    if(_rcOrbit){
-      const was=_rcOrbit; _rcOrbit=null;
+    if(crState._rcOrbit){
+      const was=crState._rcOrbit; crState._rcOrbit=null;
       // 움직이지 않고 뗀 우클릭 = 기존 스포이드 동작 그대로
-      if(!was.moved && isDrawStep() && !stampMode){ if(crStep===3)blinkEdited=true; eyedropFromEvent(e); }
+      if(!was.moved && isDrawStep() && !crState.stampMode){ if(crState.crStep===3)crState.blinkEdited=true; eyedropFromEvent(e); }
       return;
     }
-    painting=false;lastPX=lastPY=null;lastSX=lastSY=null;
+    crState.painting=false;crState.lastPX=crState.lastPY=null;crState.lastSX=crState.lastSY=null;
   });
-  cv.addEventListener('wheel',e=>{e.preventDefault();camDist=Math.max(0.4,Math.min(7,camDist*(e.deltaY>0?1.12:0.89)));creatorPrevMod.updateCreatorCam();},{passive:false});
+  cv.addEventListener('wheel',e=>{e.preventDefault();crState.camDist=Math.max(0.4,Math.min(7,crState.camDist*(e.deltaY>0?1.12:0.89)));creatorPrevMod.updateCreatorCam();},{passive:false});
   // 드래그앤드롭: 이미지 파일을 캔버스에 떨어뜨리면 도장으로 불러옴
   cv.addEventListener('dragover',e=>{e.preventDefault();});
   cv.addEventListener('drop',e=>{e.preventDefault(); if(!isDrawStep())return;
@@ -6698,12 +6687,12 @@ addEventListener('keydown',e=>{
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea')return;
     e.preventDefault();
-    if(crPaintTool) crPaintTool.toggleEraser();   // 지우개 ↔ 붓 — eraser 변수와 버튼 표시는 도구 줄(onChange)이 맞춘다
+    if(crState.crPaintTool) crState.crPaintTool.toggleEraser();   // 지우개 ↔ 붓 — eraser 변수와 버튼 표시는 도구 줄(onChange)이 맞춘다
   }
   // B 붓 · G 페인트통 · E 지우개 (paint-tools.js — 한글 상태 맥도 hotkeyLetter 로 같은 키)
-  if(crPaintTool && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
+  if(crState.crPaintTool && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
-    if(tag!=='input' && tag!=='textarea' && crPaintTool.handleKey(e)) e.preventDefault();
+    if(tag!=='input' && tag!=='textarea' && crState.crPaintTool.handleKey(e)) e.preventDefault();
   }
   // X: 좌우 대칭 ON/OFF 토글
   if(hotkeyLetter(e)==='x' && isDrawStep() && !e.ctrlKey && !e.metaKey && !e.altKey){
@@ -6725,17 +6714,17 @@ addEventListener('keydown',e=>{
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea')return;
     e.preventDefault();
-    setStampMode(!stampMode);
+    setStampMode(!crState.stampMode);
   }
   // Enter: 도장 편집 중이면 찍기 (✓ 버튼과 동일)
-  if(e.key==='Enter' && stampMode && stampImg){
+  if(e.key==='Enter' && crState.stampMode && crState.stampImg){
     const tag=(e.target&&e.target.tagName||'').toLowerCase();
     if(tag==='input'||tag==='textarea'||tag==='button')return;   // 버튼 포커스 중엔 무시(스페이스/엔터로 버튼 활성화)
     e.preventDefault();
     commitStamp();
   }
   // ESC: 도장 편집 중이면 취소(박지 않고 빠져나옴)
-  if(e.key==='Escape' && stampMode){
+  if(e.key==='Escape' && crState.stampMode){
     e.preventDefault();
     cancelStamp();
   }
@@ -6743,31 +6732,31 @@ addEventListener('keydown',e=>{
 const swEl=document.getElementById('brushColors');
 ['#333333','#ffffff','#e0607a','#5a8fd8','#e0a050'].forEach((c,i)=>{const s=document.createElement('span');
   s.className='sw'+(i===0?' on':'');s.style.background=c;
-  s.onclick=()=>{brushColor=c;_crDropEraser();[...swEl.children].forEach(x=>x.classList.toggle('on',x===s));};
+  s.onclick=()=>{crState.brushColor=c;_crDropEraser();[...swEl.children].forEach(x=>x.classList.toggle('on',x===s));};
   swEl.appendChild(s);});
-document.getElementById('brushCustom').addEventListener('input',e=>{brushColor=e.target.value;_crDropEraser();
+document.getElementById('brushCustom').addEventListener('input',e=>{crState.brushColor=e.target.value;_crDropEraser();
   [...swEl.children].forEach(x=>x.classList.remove('on'));});
 /* 🎨 [2026-10-02 제보] "자유 색으로 칠하다 기본 칩을 눌렀다가, 아까 그 자유 색으로 돌아가려고 칸을 다시
    눌러도 그 색이 안 잡힌다." — <input type="color"> 는 **값이 바뀔 때만** input/change 를 보낸다.
    같은 색 그대로 창을 닫으면 이벤트가 없어서 브러시가 기본 칩 색에 머물렀다.
    ⇒ 칸을 누르는 순간 지금 들어 있는 색(=마지막 자유 색·스포이드 색)을 바로 브러시로 잡는다.
      창은 평소처럼 열리고, 거기서 색을 바꾸면 위 input 이 그대로 이어받는다. */
-document.getElementById('brushCustom').addEventListener('click',e=>{brushColor=e.target.value;_crDropEraser();
+document.getElementById('brushCustom').addEventListener('click',e=>{crState.brushColor=e.target.value;_crDropEraser();
   [...swEl.children].forEach(x=>x.classList.remove('on'));});
-document.getElementById('brushSize').addEventListener('input',e=>brushSize=+e.target.value);
+document.getElementById('brushSize').addEventListener('input',e=>crState.brushSize=+e.target.value);
 /* 🖌 도구 줄 — 붓 · 페인트통 · 지우개. eraser 변수(paintAt 이 본다)는 여기서만 맞춘다.
    붓이 아닌 도구를 고르면 도장 모드를 닫는다(예전 «지우개와 도장은 동시 사용 X» 와 같은 이유 — 도장 중엔 캔버스 클릭이 안 칠한다). */
 if(typeof PaintTools!=='undefined'){
-  crPaintTool=PaintTools.createPaintTools({ doc:document, uvFill:UvFill,
+  crState.crPaintTool=PaintTools.createPaintTools({ doc:document, uvFill:UvFill,
     hotkeyLetter:hotkeyLetter,
-    onChange:(t)=>{ eraser=(t==='eraser'); if(t!=='brush' && stampMode) setStampMode(false);
-      const cv=document.getElementById('creatorPreview'); if(cv && isDrawStep() && !stampMode) cv.style.cursor=crPaintTool.cursor(); } });
-  crPaintTool.mount(document.getElementById('crToolSeg'));
+    onChange:(t)=>{ crState.eraser=(t==='eraser'); if(t!=='brush' && crState.stampMode) setStampMode(false);
+      const cv=document.getElementById('creatorPreview'); if(cv && isDrawStep() && !crState.stampMode) cv.style.cursor=crState.crPaintTool.cursor(); } });
+  crState.crPaintTool.mount(document.getElementById('crToolSeg'));
 }
-document.getElementById('symBtn').addEventListener('click',e=>{symmetry=!symmetry;e.target.classList.toggle('on',symmetry);});
+document.getElementById('symBtn').addEventListener('click',e=>{crState.symmetry=!crState.symmetry;e.target.classList.toggle('on',crState.symmetry);});
 document.getElementById('clearBtn').addEventListener('click',()=>{pushHistory();actC().getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);blit();});
 /* 도장 모드 + 파일 입력 + 슬라이더 */
-document.getElementById('stampBtn').addEventListener('click',()=>setStampMode(!stampMode));
+document.getElementById('stampBtn').addEventListener('click',()=>setStampMode(!crState.stampMode));
 document.getElementById('stampLoad').addEventListener('click',()=>document.getElementById('stampFile').click());
 document.getElementById('stampFile').addEventListener('change',e=>{
   const f=e.target.files&&e.target.files[0]; if(f) loadStampFromFile(f);
@@ -6779,9 +6768,9 @@ document.getElementById('stampCancel').addEventListener('click',()=>cancelStamp(
    유일한 복구 통로라, 오버레이가 아니라 **항상 제자리에 있는 패널**에 둔다. */
 { const sr=document.getElementById('stampReset');
   if(sr) sr.addEventListener('click', ()=>{ resetStampPlacement(true); }); }
-document.getElementById('blinkResetBtn').addEventListener('click',()=>{ if(crStep!==3)return;
+document.getElementById('blinkResetBtn').addEventListener('click',()=>{ if(crState.crStep!==3)return;
   pushHistory();   // 되돌리기 가능하게
-  const bx=blinkC.getContext('2d'); bx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); bx.drawImage(faceC,0,0); blinkEdited=false; blit(); });
+  const bx=blinkC.getContext('2d'); bx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); bx.drawImage(faceC,0,0); crState.blinkEdited=false; blit(); });
 /* 🙂 감은눈 → 표정 (2단계). 위 ⟳ 표정 복사의 **반대 방향**이다.
    ⚠️ 두 버튼은 대칭이 아니다 — 그 차이가 아래 두 줄의 이유다.
      · 감은눈은 표정에서 **파생된다**(gotoStep 의 `n===3 && !blinkEdited` 자동 복사). 그래서
@@ -6792,16 +6781,16 @@ document.getElementById('blinkResetBtn').addEventListener('click',()=>{ if(crSte
      그대로 복사하면 표정이 통째로 지워지므로 막는다. 버튼도 gotoStep 에서 같이 잠근다.
    ★ 확인을 묻지 않는다 — pushHistory 를 먼저 하므로 [↶ 되돌리기]와 Ctrl+Z 로 되돌아온다.
      그게 이 창의 관례고, 팝업을 하나 더 띄우는 것보다 손이 덜 간다. */
-document.getElementById('faceCopyBlinkBtn').addEventListener('click',()=>{ if(crStep!==2)return;
-  if(!blinkEdited){ toast('아직 감은눈을 그린 적이 없어요 — 3단계에서 먼저 그려주세요'); return; }
+document.getElementById('faceCopyBlinkBtn').addEventListener('click',()=>{ if(crState.crStep!==2)return;
+  if(!crState.blinkEdited){ toast('아직 감은눈을 그린 적이 없어요 — 3단계에서 먼저 그려주세요'); return; }
   pushHistory();   // 표정은 원본이라 덮어쓰기 전에 반드시 되돌릴 자리를 남긴다
   const fx=faceC.getContext('2d'); fx.clearRect(0,0,CANVAS_SZ,CANVAS_SZ); fx.drawImage(blinkC,0,0); blit(); });
 document.getElementById('undoBtn').addEventListener('click',undo);
 const ROT_STEP=Math.PI/12;   // 15°
 // ★ 버튼을 꾹 누르면 연속으로 이동하도록(bindHold, 기존 아이템 위치조작 버튼과 동일한 방식) 변경.
 // ◀▶ 버튼·←→ 키도 우클릭 드래그와 같은 부호를 써야 한다 — 안 그러면 같은 창에서 조작끼리 반대로 돈다.
-bindHold(document.getElementById('cpLeft'), ()=>{camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
-bindHold(document.getElementById('cpRight'), ()=>{camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
+bindHold(document.getElementById('cpLeft'), ()=>{crState.camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
+bindHold(document.getElementById('cpRight'), ()=>{crState.camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
 bindHold(document.getElementById('cpUp'), ()=>{camTarget.y+=0.12;creatorPrevMod.updateCreatorCam();});
 bindHold(document.getElementById('cpDown'), ()=>{camTarget.y-=0.12;creatorPrevMod.updateCreatorCam();});
 // ★ 키보드 방향키로도 동일하게 조작 — 생성기가 열려있을 때만 동작, 꾹 누르면 버튼처럼 연속 이동.
@@ -6820,25 +6809,25 @@ function bindCamKey(key, fn){
   });
   document.addEventListener('keyup', e=>{ if(e.key===key) stop(); });
 }
-bindCamKey('ArrowLeft',  ()=>{camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
-bindCamKey('ArrowRight', ()=>{camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
+bindCamKey('ArrowLeft',  ()=>{crState.camYaw-=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
+bindCamKey('ArrowRight', ()=>{crState.camYaw+=wardrobeMod.ORBIT_DRAG_DIR*ROT_STEP;creatorPrevMod.updateCreatorCam();});
 bindCamKey('ArrowUp',    ()=>{camTarget.y+=0.12;creatorPrevMod.updateCreatorCam();});
 bindCamKey('ArrowDown',  ()=>{camTarget.y-=0.12;creatorPrevMod.updateCreatorCam();});
 document.getElementById('cpReset').addEventListener('click',()=>{
   // 현재 단계 그룹의 저장된 카메라를 비우고 그 그룹의 기본 카메라로 되돌림
-  if(crStep<=3){          // 표정·감은눈 그룹
-    faceCamSaved=null;
-    if(cFaceCenter){ camTarget.copy(cFaceCenter); camDist=cFaceDist; camYaw=0; camPitch=0.0; }
-  } else if(crStep>=5){   // 책상·좌석 그룹
-    deskCamSaved=null;
+  if(crState.crStep<=3){          // 표정·감은눈 그룹
+    crState.faceCamSaved=null;
+    if(cFaceCenter){ camTarget.copy(cFaceCenter); crState.camDist=crState.cFaceDist; crState.camYaw=0; crState.camPitch=0.0; }
+  } else if(crState.crStep>=5){   // 책상·좌석 그룹
+    crState.deskCamSaved=null;
     creatorPrevMod.frameDeskCam(false);
   } else {                // 4단계(전신 색상) — 단독
-    camTarget.copy(cBodyCenter); camDist=cBodyDist; camYaw=0; camPitch=0.04;
+    camTarget.copy(cBodyCenter); crState.camDist=crState.cBodyDist; crState.camYaw=0; crState.camPitch=0.04;
   }
   creatorPrevMod.updateCreatorCam();
 });
-document.getElementById('topColor').addEventListener('input',e=>{cTopColor=e.target.value;if(cBase&&cBase.upMat)cBase.upMat.color.set(cTopColor);if(cBase&&cBase.hatMat)cBase.hatMat.color.set(cTopColor);creatorPrevMod.updateCreatorLights();});
-document.getElementById('botColor').addEventListener('input',e=>{cBotColor=e.target.value;if(cBase&&cBase.loMat)cBase.loMat.color.set(cBotColor);creatorPrevMod.updateCreatorLights();});
+document.getElementById('topColor').addEventListener('input',e=>{crState.cTopColor=e.target.value;if(crState.cBase&&crState.cBase.upMat)crState.cBase.upMat.color.set(crState.cTopColor);if(crState.cBase&&crState.cBase.hatMat)crState.cBase.hatMat.color.set(crState.cTopColor);creatorPrevMod.updateCreatorLights();});
+document.getElementById('botColor').addEventListener('input',e=>{crState.cBotColor=e.target.value;if(crState.cBase&&crState.cBase.loMat)crState.cBase.loMat.color.set(crState.cBotColor);creatorPrevMod.updateCreatorLights();});
 // ★ 런처8: 생성기의 세 컬러픽커에 꾸미기와 동일한 커스텀 팝업을 얹음 — 최근 5색 공유(localStorage 'tw.charColorHistory').
 //   네이티브 <input type="color">는 상태 저장 그릇으로만 남기고 클릭 시 우리 팝업을 대신 띄움.
 const _crColorSw = [];   // 색 입력칸 ↔ 보이는 스와치 짝 (아래 _syncCrColorSwatches 가 쓴다)
@@ -6891,7 +6880,7 @@ function _syncCrColorSwatches(){
 const skinRow=document.getElementById('skinRow');
 const skinSwatchEls=[];
 SKIN_COLORS.forEach((c,i)=>{const s=document.createElement('button');s.className='skin-sw'+(i===0?' on':'');s.style.background=c;
-  s.onclick=()=>{skinIndex=i;[...skinRow.children].forEach((x,j)=>x.classList.toggle('on',j===i));blit();};   // 스킨은 face 텍스처 베이스로 합성됨
+  s.onclick=()=>{crState.skinIndex=i;[...skinRow.children].forEach((x,j)=>x.classList.toggle('on',j===i));blit();};   // 스킨은 face 텍스처 베이스로 합성됨
   skinRow.appendChild(s);skinSwatchEls.push(s);});
 /* 스와치 대표색을 캔버스에서 추출 (평평한 피부 영역 샘플) */
 function swatchColorFromCanvas(cv){try{const p=cv.getContext('2d').getImageData(Math.floor(CANVAS_SZ*0.8),Math.floor(CANVAS_SZ*0.8),1,1).data;return 'rgb('+p[0]+','+p[1]+','+p[2]+')';}catch(e){return null;}}
@@ -6916,14 +6905,14 @@ function loadSkins(){const pngs=window.SKIN_PNGS||{};
       if(failed) console.warn('[피부] '+failed+'/'+total+'개 실패 — 해당 피부는 단색으로 표시됩니다.');
       if(failed >= total){ try{ toast('피부 텍스처를 불러오지 못했어요 — 프로그램을 다시 설치해 주세요'); }catch(_){} }
     });}
-document.getElementById('crNext').addEventListener('click',()=>creatorFlowMod.gotoStep(Math.min(6,crStep+1)));
+document.getElementById('crNext').addEventListener('click',()=>creatorFlowMod.gotoStep(Math.min(6,crState.crStep+1)));
 // 🐾 동물이 책상(5)에서 [이전] 을 누르면 gotoStep 이 동물 생성기로 돌려보낸다(1~4는 사람용 단계).
-document.getElementById('crPrev').addEventListener('click',()=>creatorFlowMod.gotoStep(Math.max(1,crStep-1)));
+document.getElementById('crPrev').addEventListener('click',()=>creatorFlowMod.gotoStep(Math.max(1,crState.crStep-1)));
 // 상단 3단계 스텝퍼 클릭으로 이동 (캐릭터=1, 책상=5, 좌석=6)
 /* 1 피부 · 2 표정 · 3 감은눈 · 4 색상 — 눌러서 그 단계로(위 큰 탭과 같은 길). 동물 · 커미션은 gotoStep 이 알아서 돌려보낸다. */
 [...document.getElementById('crSteps').children].forEach((el,i)=>{ el.style.cursor='pointer'; el.addEventListener('click',()=>creatorFlowMod.gotoStep(i+1)); });
 [...document.getElementById('crStages').children].forEach(el=>{ el.addEventListener('click',()=>{
-  const stg=+el.dataset.stg; creatorFlowMod.gotoStep(stg===0?Math.min(crStep,4):(stg===1?5:6)); }); });
+  const stg=+el.dataset.stg; creatorFlowMod.gotoStep(stg===0?Math.min(crState.crStep,4):(stg===1?5:6)); }); });
 /* === 책상 세팅(5단계): 책상 색 + 책상 위 아이템(소품) + 위치조작 === */
 /* 🎨 책상 아이템 카드 도트 썸네일 — 꾸미기 파츠와 동일한 렌더러(generatePartThumbnail)를 재사용.
    rec.thumbnail(배포에 포함된 것) 우선, 없으면 GLB에서 지연 생성해 메모리 캐시. 실패 시 이모지 유지. */
@@ -6998,23 +6987,22 @@ function bindReorderHandle(handle, cardEl, id, onDrop){
     document.addEventListener('pointercancel', onUp);
   });
 }
-let crItemPage = 0;   // 책상 세팅 - 아이템 목록 현재 페이지(0부터 시작)
 function renderCrItems(){
   const dr=document.getElementById('crDeskRow'); dr.innerHTML='';
   // 기본 책상 카드 (활성 책상이 커스텀이 아닐 때 on)
-  const defThumb=swThumb('기본 책상', !activeCustomDeskId, '🪑');
+  const defThumb=swThumb('기본 책상', !crState.activeCustomDeskId, '🪑');
   defThumb.onclick=async()=>{
-    cDeskTemplate=null; cDeskGlbB64=null; activeCustomDeskId=null;
-    if(cDesk){
+    crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=null;
+    if(crState.cDesk){
       const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거 표시
       if(ov){
         if(!ov.glb && ov.glbUrl){
           try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
         }
-        try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); deskVisualMod.swapDeskVisual(cDesk,sc,true); }catch(e){ deskVisualMod.swapDeskVisual(cDesk,null); }
+        try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); deskVisualMod.swapDeskVisual(crState.cDesk,sc,true); }catch(e){ deskVisualMod.swapDeskVisual(crState.cDesk,null); }
       }
-      else deskVisualMod.swapDeskVisual(cDesk,null);
-      deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale);
+      else deskVisualMod.swapDeskVisual(crState.cDesk,null);
+      deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale);
     }
     renderCrItems();
   };
@@ -7029,7 +7017,7 @@ function renderCrItems(){
      ★ 아래 deskLocked 갈래는 **지우지 않는다.** 관리자 화면에 쓰이고, 카탈로그가 늦게 도착해
        licenseOnly 를 아직 모르는 순간의 안전망이기도 하다. 지우면 그 틈으로 다시 골라진다. */
   commissionMod.savedDesks().filter(rec=>rec.id!==DEFAULT_DESK_OVERRIDE_ID && (isAdmin || !rec.licenseOnly)).forEach(rec=>{
-    const on=(activeCustomDeskId===rec.id);
+    const on=(crState.activeCustomDeskId===rec.id);
     const deleteHandler = (rec.fromCatalog && !isAdmin) ? null : ()=>{
       // X 삭제: localStorage에서 제거 + 현재 활성 책상이면 기본으로 복귀
       // 카탈로그에서 온 것(fromCatalog)이면 관리자 전용 "회수"로 처리 — 모두에게서 배포 취소
@@ -7038,11 +7026,11 @@ function renderCrItems(){
         if(window.firebaseAPI && window.firebaseAPI.unpublishDesk) window.firebaseAPI.unpublishDesk(rec.id).catch(()=>toast('회수 실패(네트워크 확인)'));
       }
       commissionMod.setSavedDesks(commissionMod.savedDesks().filter(d=>d.id!==rec.id)); commissionMod.persistSavedAssets();
-      if(activeCustomDeskId===rec.id){ cDeskTemplate=null; cDeskGlbB64=null; activeCustomDeskId=null;
-        if(cDesk){
+      if(crState.activeCustomDeskId===rec.id){ crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=null;
+        if(crState.cDesk){
           const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);   // 관리자가 기본 책상을 교체해뒀으면 그거로 복귀(진짜 원본 아님)
-          if(ov){ assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ deskVisualMod.swapDeskVisual(cDesk,sc,true); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); }).catch(()=>{ deskVisualMod.swapDeskVisual(cDesk,null); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); }); }
-          else { deskVisualMod.swapDeskVisual(cDesk,null); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); }
+          if(ov){ assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)).then(sc=>{ deskVisualMod.swapDeskVisual(crState.cDesk,sc,true); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }).catch(()=>{ deskVisualMod.swapDeskVisual(crState.cDesk,null); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }); }
+          else { deskVisualMod.swapDeskVisual(crState.cDesk,null); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }
         } }
       renderCrItems();
     };
@@ -7073,7 +7061,7 @@ function renderCrItems(){
       bindReorderHandle(handle, card, rec.id, reorderSavedDesk);
     }
     card.onclick=async()=>{
-      if(activeCustomDeskId===rec.id) return;   // 이미 활성
+      if(crState.activeCustomDeskId===rec.id) return;   // 이미 활성
       if(deskLocked){ toast('🔒 "'+(rec.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요'); return; }   // 🔒 위 주석
       // Storage 이관 후속: rec.glb가 없고 glbUrl만 있으면 Storage에서 fetch
       if(!rec.glb && rec.glbUrl){
@@ -7086,8 +7074,8 @@ function renderCrItems(){
         if(!_sz.ok){ toast(_sz.message, null, creatorSaveMod.DEF_SIZE_TOAST_MS); return; }
       }
       try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(rec.glb));
-        cDeskTemplate=sc; cDeskGlbB64=rec.glb; cDeskScale=clampDeskScale(cDeskScale||DESK_SCALE_DEFAULT); activeCustomDeskId=rec.id;
-        if(cDesk){ deskVisualMod.swapDeskVisual(cDesk,sc); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); setCreatorDeskScale(cDeskScale); }
+        crState.cDeskTemplate=sc; crState.cDeskGlbB64=rec.glb; crState.cDeskScale=clampDeskScale(crState.cDeskScale||DESK_SCALE_DEFAULT); crState.activeCustomDeskId=rec.id;
+        if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk,sc); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
         renderCrItems();
       }catch(e){ toast('책상 적용 실패'); }
     };
@@ -7103,9 +7091,9 @@ function renderCrItems(){
     _licHint.style.display = (_hasLic && !isAdmin) ? 'flex' : 'none';
   }
 
-  document.getElementById('deskColor').value=cDeskColor;
+  document.getElementById('deskColor').value=crState.cDeskColor;
   _syncCrColorSwatches();   // ★ 위 topColor·botColor 와 같은 이유
-  const dsc=document.getElementById('deskScale'); if(dsc){ dsc.value=cDeskScale; dsc.parentElement.style.display='flex'; setCreatorDeskScale(cDeskScale); }
+  const dsc=document.getElementById('deskScale'); if(dsc){ dsc.value=crState.cDeskScale; dsc.parentElement.style.display='flex'; setCreatorDeskScale(crState.cDeskScale); }
   const row=document.getElementById('crItemRow'); row.innerHTML='';
   // ★ 기본 내장 아이템(화분/머그컵/책)과 커스텀 아이템을 하나의 목록으로 합쳐서 페이지네이션 적용
   //   (요청사항 — 예전엔 기본 아이템은 항상 위에 고정으로 보여서 5개 기준 계산에서 빠져있었음).
@@ -7116,29 +7104,29 @@ function renderCrItems(){
   ];
   const CR_ITEM_PAGE_SIZE = 5;
   const _totalPages = Math.max(1, Math.ceil(_allEntries.length / CR_ITEM_PAGE_SIZE));
-  if(crItemPage >= _totalPages) crItemPage = _totalPages-1;
-  if(crItemPage < 0) crItemPage = 0;
-  const _pageEntries = _allEntries.slice(crItemPage*CR_ITEM_PAGE_SIZE, crItemPage*CR_ITEM_PAGE_SIZE + CR_ITEM_PAGE_SIZE);
+  if(crState.crItemPage >= _totalPages) crState.crItemPage = _totalPages-1;
+  if(crState.crItemPage < 0) crState.crItemPage = 0;
+  const _pageEntries = _allEntries.slice(crState.crItemPage*CR_ITEM_PAGE_SIZE, crState.crItemPage*CR_ITEM_PAGE_SIZE + CR_ITEM_PAGE_SIZE);
 
   _pageEntries.forEach(entry=>{
     if(entry.type==='builtin'){
       const def=entry.def;
-      const on=!!(cBase&&cBase.deskItems&&cBase.deskItems[def.id]);
-      const active = !!(cBase && cBase.activeDeskItem && on && cBase.deskItems[def.id]===cBase.activeDeskItem);
+      const on=!!(crState.cBase&&crState.cBase.deskItems&&crState.cBase.deskItems[def.id]);
+      const active = !!(crState.cBase && crState.cBase.activeDeskItem && on && crState.cBase.deskItems[def.id]===crState.cBase.activeDeskItem);
       const eff0=deskItemsMod.deskItemDef(def.id)||def;   // ★ 관리자가 교체해뒀으면 그 이름으로 표시 (예전엔 기본 이름 고정이던 문제)
       const it=swThumb(eff0.name||def.name,on,DESK_ICON[def.id]||'▫',null,active);
       applyDeskDotThumb(commissionMod.savedItems().find?commissionMod.savedItems().find(r=>r.id===def.id):null, it);   // 교체분 GLB 도트 썸네일
-      it.onclick=()=>{ if(!cBase||!cBase.deskAnchor)return; const eff=deskItemsMod.deskItemDef(def.id)||def; equipDeskItem(cBase,eff,!on); renderCrItems(); autoSaveDeskItemsNow(); };   // eff: 관리자가 교체해뒀으면 그 커스텀 def, 아니면 기본
+      it.onclick=()=>{ if(!crState.cBase||!crState.cBase.deskAnchor)return; const eff=deskItemsMod.deskItemDef(def.id)||def; equipDeskItem(crState.cBase,eff,!on); renderCrItems(); autoSaveDeskItemsNow(); };   // eff: 관리자가 교체해뒀으면 그 커스텀 def, 아니면 기본
       if(isAdmin) it.oncontextmenu=e=>{ e.preventDefault(); adminPartReg.openDeskRegister('item', def.id); };   // def.id(plant/cup/books) 그대로 써서 진짜 교체되게
-      else it.oncontextmenu=e=>{ e.preventDefault(); if(on && cBase.deskItems[def.id]) selectDeskItemForAdjust(cBase.deskItems[def.id]); };   // 일반모드: 이미 장착돼있으면 우클릭으로 바로 선택
+      else it.oncontextmenu=e=>{ e.preventDefault(); if(on && crState.cBase.deskItems[def.id]) selectDeskItemForAdjust(crState.cBase.deskItems[def.id]); };   // 일반모드: 이미 장착돼있으면 우클릭으로 바로 선택
       row.appendChild(it);
       return;
     }
     // 커스텀 아이템
     const rec = entry.rec;
     const def = customItems[rec.id]; if(!def) return;   // 아직 세션에 파싱 안 된(로딩 중) 아이템은 건너뜀
-    const on=!!(cBase&&cBase.deskItems&&cBase.deskItems[def.id]);
-    const active = !!(cBase && cBase.activeDeskItem && on && cBase.deskItems[def.id]===cBase.activeDeskItem);
+    const on=!!(crState.cBase&&crState.cBase.deskItems&&crState.cBase.deskItems[def.id]);
+    const active = !!(crState.cBase && crState.cBase.activeDeskItem && on && crState.cBase.deskItems[def.id]===crState.cBase.activeDeskItem);
     const deleteHandler = (rec && rec.fromCatalog && !isAdmin) ? null : ()=>{
       // X 삭제: 세션 + localStorage + 현재 장착돼 있으면 해제
       // 카탈로그에서 온 것(fromCatalog)이면 관리자 전용 "회수"로 처리 — 모두에게서 배포 취소
@@ -7146,7 +7134,7 @@ function renderCrItems(){
         if(!confirm('"'+(def.name||'아이템')+'"을(를) 모든 사용자에게서 회수할까요?')){ window.focus(); return; } window.focus();
         if(window.firebaseAPI && window.firebaseAPI.unpublishItem) window.firebaseAPI.unpublishItem(def.id).catch(()=>toast('회수 실패(네트워크 확인)'));
       }
-      if(cBase&&cBase.deskItems&&cBase.deskItems[def.id]) equipDeskItem(cBase,def,false);
+      if(crState.cBase&&crState.cBase.deskItems&&crState.cBase.deskItems[def.id]) equipDeskItem(crState.cBase,def,false);
       delete customItems[def.id];
       commissionMod.setSavedItems(commissionMod.savedItems().filter(s=>s.id!==def.id)); commissionMod.persistSavedAssets();
       renderCrItems();
@@ -7173,15 +7161,15 @@ function renderCrItems(){
       it.firstChild.appendChild(handle);
       bindReorderHandle(handle, it, def.id, reorderSavedItem);
     } else if(!isAdmin){
-      it.oncontextmenu=e=>{ e.preventDefault(); if(on && cBase.deskItems[def.id]) selectDeskItemForAdjust(cBase.deskItems[def.id]); };   // 일반모드: 이미 장착돼있으면 우클릭으로 바로 선택
+      it.oncontextmenu=e=>{ e.preventDefault(); if(on && crState.cBase.deskItems[def.id]) selectDeskItemForAdjust(crState.cBase.deskItems[def.id]); };   // 일반모드: 이미 장착돼있으면 우클릭으로 바로 선택
     }
-    it.onclick=()=>{ if(!cBase||!cBase.deskAnchor)return;
+    it.onclick=()=>{ if(!crState.cBase||!crState.cBase.deskAnchor)return;
       /* 📦 켜는 것만 잰다 — 카탈로그 아이템은 GLB 를 def 에 안 싣는다(crDone 과 같은 갈래). */
       if(!on && !(rec && rec.fromCatalog)){
         const _sz = creatorSaveMod._creatorSizeGrow(d=>{ d.customItems = d.customItems || {}; d.customItems[def.id] = { name: def.name, glb: def.glb }; });
         if(!_sz.ok){ toast(_sz.message, null, creatorSaveMod.DEF_SIZE_TOAST_MS); return; }
       }
-      equipDeskItem(cBase,def,!on); renderCrItems(); autoSaveDeskItemsNow(); };
+      equipDeskItem(crState.cBase,def,!on); renderCrItems(); autoSaveDeskItemsNow(); };
     row.appendChild(it);
   });
   // 페이지 버튼 렌더 — 페이지가 2개 이상일 때만 표시
@@ -7191,9 +7179,9 @@ function renderCrItems(){
     if(_totalPages > 1){
       pager.style.display='flex';
       for(let p=0; p<_totalPages; p++){
-        const pbtn=document.createElement('button'); pbtn.className='cr-item-page-btn'+(p===crItemPage?' on':'');
+        const pbtn=document.createElement('button'); pbtn.className='cr-item-page-btn'+(p===crState.crItemPage?' on':'');
         pbtn.textContent=String(p+1); pbtn.type='button';
-        pbtn.onclick=()=>{ crItemPage=p; renderCrItems(); };
+        pbtn.onclick=()=>{ crState.crItemPage=p; renderCrItems(); };
         pager.appendChild(pbtn);
       }
     } else {
@@ -7242,8 +7230,8 @@ function reorderSavedDesk(draggedId, targetId){
     }
   }
 }
-document.getElementById('deskColor').addEventListener('input',e=>{ cDeskColor=e.target.value; lightToneMod._setDeskMatColor(cDeskMat, cDeskColor); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); });
-document.getElementById('deskScale').addEventListener('input',e=>{ cDeskScale=+e.target.value; setCreatorDeskScale(cDeskScale); });   // 카메라 고정 — 책상 크기 가늠 쉽게
+document.getElementById('deskColor').addEventListener('input',e=>{ crState.cDeskColor=e.target.value; lightToneMod._setDeskMatColor(crState.cDeskMat, crState.cDeskColor); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); });
+document.getElementById('deskScale').addEventListener('input',e=>{ crState.cDeskScale=+e.target.value; setCreatorDeskScale(crState.cDeskScale); });   // 카메라 고정 — 책상 크기 가늠 쉽게
 // 버튼을 꾹 누르고 있으면 뗄 때까지 계속 반복 실행 (첫 클릭은 즉시, 0.35초 뒤부터 빠르게 반복)
 function bindHold(el, fn){
   let iv=null, delayTimer=null;
@@ -7256,21 +7244,21 @@ function bindHold(el, fn){
 // 일반(비관리자) 모드: 3D 미리보기에서 이미 놓인 아이템을 우클릭하면 그걸 선택 상태로 만들어서
 // 껐다 켜지 않고도 바로 위치조작 버튼으로 조정할 수 있게 함. 선택되면 주황색 테두리로 표시.
 function selectDeskItemForAdjust(pivot){
-  cBase.activeDeskItem = pivot;
+  crState.cBase.activeDeskItem = pivot;
   if(creatorOpen) renderCrItems();
   crXformMod.attachItemGizmoToActive();
 }
 document.getElementById('creatorPreview').addEventListener('contextmenu', e=>{
-  console.log('[아이템 우클릭 감지] isAdmin:', isAdmin, '| crStep:', crStep, '| cBase 있음:', !!cBase, '| deskItems:', cBase&&cBase.deskItems);
+  console.log('[아이템 우클릭 감지] isAdmin:', isAdmin, '| crStep:', crState.crStep, '| cBase 있음:', !!crState.cBase, '| deskItems:', crState.cBase&&crState.cBase.deskItems);
   if(isAdmin) return;   // 관리자는 카드 우클릭으로 GLB 수정하는 흐름을 쓰므로 여기선 건너뜀
-  if(crStep!==5 || !cBase || !cBase.deskItems || !cCam) return;   // 책상 세팅 단계에서만
-  const pivots = Object.values(cBase.deskItems).filter(Boolean);
+  if(crState.crStep!==5 || !crState.cBase || !crState.cBase.deskItems || !crState.cCam) return;   // 책상 세팅 단계에서만
+  const pivots = Object.values(crState.cBase.deskItems).filter(Boolean);
   console.log('[아이템 우클릭] pivots 개수:', pivots.length);
   if(!pivots.length) return;
   e.preventDefault();
   const cv=document.getElementById('creatorPreview'), r=cv.getBoundingClientRect();
   ndc.x=((e.clientX-r.left)/r.width)*2-1; ndc.y=-((e.clientY-r.top)/r.height)*2+1;
-  ray.setFromCamera(ndc, cCam);
+  ray.setFromCamera(ndc, crState.cCam);
   const hit = ray.intersectObjects(pivots, true);
   console.log('[아이템 우클릭] 히트 개수:', hit.length);
   if(!hit.length) return;
@@ -7289,15 +7277,15 @@ const crXformMod = TwCreatorXform.createCreatorXform({
   autoSaveDeskItemsNow: (...a)=>autoSaveDeskItemsNow(...a),
   baseFlatOf: (...a)=>lightToneMod.baseFlatOf(...a),
   bindHold: (...a)=>bindHold(...a),
-  cBase: ()=>cBase,
-  cCam: ()=>cCam,
-  cDesk: ()=>cDesk,
-  cDeskLenX: ()=>cDeskLenX,
-  cDeskPos: ()=>cDeskPos,
-  cDeskScale: ()=>cDeskScale,
-  cRenderer: ()=>cRenderer,
-  cScene: ()=>cScene,
-  cXform: ()=>cXform,
+  cBase: ()=>crState.cBase,
+  cCam: ()=>crState.cCam,
+  cDesk: ()=>crState.cDesk,
+  cDeskLenX: ()=>crState.cDeskLenX,
+  cDeskPos: ()=>crState.cDeskPos,
+  cDeskScale: ()=>crState.cDeskScale,
+  cRenderer: ()=>crState.cRenderer,
+  cScene: ()=>crState.cScene,
+  cXform: ()=>crState.cXform,
   clampCharY: (...a)=>clampCharY(...a),
   deskItemOrigin: deskItemOrigin,
   floorClampWrapper: (...a)=>charMeasureMod.floorClampWrapper(...a),
@@ -7308,9 +7296,9 @@ const crXformMod = TwCreatorXform.createCreatorXform({
   slotSaveMod: ()=>slotSaveMod,
   syncDeskPartAnchor: (...a)=>syncDeskPartAnchor(...a),
   toast: (...a)=>toast(...a),
-  setCDeskLenX: (v)=>{ cDeskLenX = v; },
-  setCDeskPos: (v)=>{ cDeskPos = v; },
-  setCDeskScale: (v)=>{ cDeskScale = v; },
+  setCDeskLenX: (v)=>{ crState.cDeskLenX = v; },
+  setCDeskPos: (v)=>{ crState.cDeskPos = v; },
+  setCDeskScale: (v)=>{ crState.cDeskScale = v; },
 });
 /* === 책상·아이템 코드: 생성(판매자) === */
 /* 관리자가 쓰는 코드 굽는 창 셋(📦 책상·아이템 코드 · 🎁 커미션 캐릭터 · 🔐 암호화 GLB 불러오기)은 admin/admin-asset.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
@@ -7354,9 +7342,7 @@ document.getElementById('commImpFileInput').addEventListener('change', e=>{
 
 /* === 책상·아이템 코드: 가져오기(생성기 안에서) === */
 const assetImpOverlay=document.getElementById('assetImpOverlay');
-let _assetImpKind='item';   // 코드로 추가하기 창을 어느 버튼(책상/아이템/파츠)으로 열었는지 기억 — 코드 자체의 종류가 아니라 이 값을 기준으로 등록함
-let _assetImpCat=null;      // kind==='part'일 때, 어느 카테고리(모자/탈/안경 등)에 등록할지
-function openAssetImport(kind, cat){ _assetImpKind=kind; _assetImpCat=cat||null;
+function openAssetImport(kind, cat){ crState._assetImpKind=kind; crState._assetImpCat=cat||null;
   const label = kind==='desk'?'책상' : kind==='part'?((premiumMod.partCatInfo(cat)&&premiumMod.partCatInfo(cat).label)||'파츠') : '아이템';
   document.getElementById('assetImpTitle').textContent=label+' 코드로 추가하기';
   document.getElementById('assetImpCode').value=''; document.getElementById('assetImpPass').value=''; assetImpOverlay.classList.add('on'); }
@@ -7367,17 +7353,17 @@ document.getElementById('assetImpGo').onclick=async()=>{
   if(!code||!pass){toast('코드와 비밀번호를 입력해 주세요');return;}
   try{ const dec=await assetCodeMod.decryptAssetCode(code,pass); const u=assetCodeMod.unwrapAsset(dec.buf);
     if(u.glbBuf.byteLength>commissionMod.MAX_GLB_BYTES){ toast('GLB가 1MB를 넘어요'); return; }
-    const kind = _assetImpKind;   // 코드 자체에 담긴 종류가 아니라, 사용자가 어느 버튼(책상/아이템/파츠)으로 열었는지를 기준으로 등록
+    const kind = crState._assetImpKind;   // 코드 자체에 담긴 종류가 아니라, 사용자가 어느 버튼(책상/아이템/파츠)으로 열었는지를 기준으로 등록
     // 한도 검사: 같은 종류의 저장 배열 길이 확인
     // ★ 파츠는 꾸미기 통만 센다 — 코드로 받는 커미션 파츠는 언제나 비(非)가챠라, 관리자가 등록해둔
     //   가챠 파츠 때문에 유저의 코드 추가가 막히면 안 된다(등록 쪽과 같은 이유).
-    const arr = (kind==='desk') ? commissionMod.savedDesks() : (kind==='part') ? premiumMod.partsInCatFor(_assetImpCat, false) : commissionMod.savedItems();
+    const arr = (kind==='desk') ? commissionMod.savedDesks() : (kind==='part') ? premiumMod.partsInCatFor(crState._assetImpCat, false) : commissionMod.savedItems();
     const _maxAssets = (kind==='desk') ? commissionMod.MAX_CUSTOM_ASSETS : (kind==='part') ? premiumMod.MAX_PARTS_PER_CAT : commissionMod.MAX_CUSTOM_ITEMS;
     if(arr.length>=_maxAssets){ toast('최대 '+_maxAssets+'개까지 추가할 수 있어요. 카드의 X로 지운 뒤 다시 시도해 주세요'); return; }
     const glbB64=codeCryptoMod._b64(u.glbBuf);
     /* 📦 넣자마자 이 캐릭터에 실리는 것(책상 · 아이템)은 파일 하나로 남은 용량을 넘으면 받지 않는다.
        책상은 지금 책상 자리를 비운 나머지와 견준다(바꿔 끼우는 것이라). 파츠는 def 에 GLB 가 안 실린다. */
-    if(creatorOpen && cBase && (kind==='desk' || kind==='item')){
+    if(creatorOpen && crState.cBase && (kind==='desk' || kind==='item')){
       const _rest = creatorSaveMod._creatorBuildDef(true);
       if(kind==='desk'){ delete _rest.deskGlb; delete _rest.deskCatalogId; }
       const _add = (kind==='desk' ? DefSize.jsonBytes(glbB64) + 12 : DefSize.jsonBytes({ name: u.name, glb: glbB64 }) + 20);
@@ -7391,14 +7377,14 @@ document.getElementById('assetImpGo').onclick=async()=>{
       commissionMod.savedDesks().push(rec); commissionMod.persistSavedAssets();
       // 즉시 활성 책상으로 swap (사용자 의도 — 방금 추가한 책상은 바로 보이도록)
       // ★ 크기(cDeskScale)는 건드리지 않음 — 이전에 슬라이더로 맞춰둔 값을 그대로 유지(고정값으로 리셋하면 매번 슬라이더가 튀어 보임)
-      cDeskTemplate=scene; cDeskGlbB64=glbB64;
-      if(cDesk){ deskVisualMod.swapDeskVisual(cDesk,scene); setCreatorDeskScale(cDeskScale); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); }
-      activeCustomDeskId=id;
+      crState.cDeskTemplate=scene; crState.cDeskGlbB64=glbB64;
+      if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk,scene); setCreatorDeskScale(crState.cDeskScale); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }
+      crState.activeCustomDeskId=id;
       toast('책상을 추가했어요');
       renderCrItems();
     } else if(kind==='part'){
       // ★ 관리자 등록(admin)과 달리 카탈로그(Firebase)에는 절대 안 올림 — 이 기기(로컬)에만 저장됨.
-      rec.cat = _assetImpCat; rec.order = premiumMod.partsInCat(_assetImpCat).length;
+      rec.cat = crState._assetImpCat; rec.order = premiumMod.partsInCat(crState._assetImpCat).length;
       premiumMod.savedParts().push(rec); premiumMod.persistSavedParts();
       partSceneMod.partSceneCache.delete(id);   // 혹시 모를 캐시 충돌 방지
       toast('파츠를 추가했어요(이 기기에만 저장됨)');
@@ -7406,7 +7392,7 @@ document.getElementById('assetImpGo').onclick=async()=>{
     } else {
       commissionMod.savedItems().push(rec); commissionMod.persistSavedAssets();
       deskItemsMod.registerCustomItem(id,u.name,glbB64,scene,u.icon||'',animations);
-      if(cBase&&cBase.deskAnchor) equipDeskItem(cBase,customItems[id],true);
+      if(crState.cBase&&crState.cBase.deskAnchor) equipDeskItem(crState.cBase,customItems[id],true);
       toast('아이템을 추가했어요');
       renderCrItems();
     }
@@ -7575,12 +7561,9 @@ const matToneMod = TwMatTone.createMatTone({
   FLAT_EMISSIVE: lightToneMod.FLAT_EMISSIVE,
 });
 /* 🧍 생성기 상태 — 생성기 묶음 전체(그리기 · 책상 · 기즈모 · animal.js)가 같이 읽고 쓴다. 모듈(creator-preview · creator-flow · creator-save)은 읽는 · 쓰는 함수로 받는다. */
-let cRenderer=null,cScene=null,cCam=null,cBase=null,creatorOpen=false,cAmb=null,cKey=null,cFill=null,cDesk=null,cDeskMat=null,cFloor=null;
-let camDist=1.5,camYaw=0,camPitch=0.05,orbiting=false,lastMX=0,lastMY=0;
-let _rcOrbit=null;   // 우클릭 드래그 회전 상태 — {x,y,moved}. 클릭만이면 스포이드로 폴백
+let creatorOpen=false;
 const camTarget=new THREE.Vector3(0,1.2,0);
 const cFaceCenter=new THREE.Vector3(0,1.2,0), cBodyCenter=new THREE.Vector3(0,0.85,0);
-let cFaceDist=1.15, cBodyDist=3.9;
 /* 본문은 creator/creator-preview.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
@@ -7602,39 +7585,39 @@ const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   boneSide: (...a)=>boneSide(...a),
   buildCreatorBase: (...a)=>buildCreatorBase(...a),
   buildDesk: (...a)=>buildDesk(...a),
-  cAmb: ()=>cAmb,
-  cBase: ()=>cBase,
+  cAmb: ()=>crState.cAmb,
+  cBase: ()=>crState.cBase,
   cBodyCenter: cBodyCenter,
-  cBodyDist: ()=>cBodyDist,
-  cBotColor: ()=>cBotColor,
-  cCam: ()=>cCam,
-  cDesk: ()=>cDesk,
-  cDeskColor: ()=>cDeskColor,
-  cDeskMat: ()=>cDeskMat,
+  cBodyDist: ()=>crState.cBodyDist,
+  cBotColor: ()=>crState.cBotColor,
+  cCam: ()=>crState.cCam,
+  cDesk: ()=>crState.cDesk,
+  cDeskColor: ()=>crState.cDeskColor,
+  cDeskMat: ()=>crState.cDeskMat,
   cFaceCenter: cFaceCenter,
-  cFaceDist: ()=>cFaceDist,
-  cFill: ()=>cFill,
-  cFloor: ()=>cFloor,
-  cKey: ()=>cKey,
-  cRenderer: ()=>cRenderer,
-  cScene: ()=>cScene,
-  cTopColor: ()=>cTopColor,
-  cXform: ()=>cXform,
-  camDist: ()=>camDist,
-  camPitch: ()=>camPitch,
+  cFaceDist: ()=>crState.cFaceDist,
+  cFill: ()=>crState.cFill,
+  cFloor: ()=>crState.cFloor,
+  cKey: ()=>crState.cKey,
+  cRenderer: ()=>crState.cRenderer,
+  cScene: ()=>crState.cScene,
+  cTopColor: ()=>crState.cTopColor,
+  cXform: ()=>crState.cXform,
+  camDist: ()=>crState.camDist,
+  camPitch: ()=>crState.camPitch,
   camTarget: camTarget,
-  camYaw: ()=>camYaw,
+  camYaw: ()=>crState.camYaw,
   charFootFix: (...a)=>charMeasureMod.charFootFix(...a),
   clampCharY: (...a)=>clampCharY(...a),
   compositeFace: (...a)=>compositeFace(...a),
-  crStep: ()=>crStep,
+  crStep: ()=>crState.crStep,
   creatorOpen: ()=>creatorOpen,
-  deskCamSaved: ()=>deskCamSaved,
+  deskCamSaved: ()=>crState.deskCamSaved,
   deskItemOrigin: deskItemOrigin,
   dispTex: dispTex,
   equipDeskItem: (...a)=>equipDeskItem(...a),
   extractBonesInto: (...a)=>extractBonesInto(...a),
-  faceCamSaved: ()=>faceCamSaved,
+  faceCamSaved: ()=>crState.faceCamSaved,
   getCommissionScene: (...a)=>getCommissionScene(...a),
   instantiateBase: (...a)=>instantiateBase(...a),
   isAnimalEditing: (...a)=>isAnimalEditing(...a),
@@ -7646,25 +7629,25 @@ const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   normalizeModel: (...a)=>normalizeModel(...a),
   sizeFloorTo: (...a)=>sizeFloorTo(...a),
   skinColorFor: (...a)=>skinColorFor(...a),
-  skinIndex: ()=>skinIndex,
+  skinIndex: ()=>crState.skinIndex,
   toast: (...a)=>toast(...a),
-  setCAmb: (v)=>{ cAmb = v; },
-  setCBase: (v)=>{ cBase = v; },
-  setCBodyDist: (v)=>{ cBodyDist = v; },
-  setCCam: (v)=>{ cCam = v; },
-  setCDesk: (v)=>{ cDesk = v; },
-  setCDeskMat: (v)=>{ cDeskMat = v; },
-  setCFaceDist: (v)=>{ cFaceDist = v; },
-  setCFill: (v)=>{ cFill = v; },
-  setCFloor: (v)=>{ cFloor = v; },
-  setCKey: (v)=>{ cKey = v; },
-  setCRenderer: (v)=>{ cRenderer = v; },
-  setCScene: (v)=>{ cScene = v; },
-  setCamDist: (v)=>{ camDist = v; },
-  setCamPitch: (v)=>{ camPitch = v; },
-  setCamYaw: (v)=>{ camYaw = v; },
-  setDeskCamSaved: (v)=>{ deskCamSaved = v; },
-  setFaceCamSaved: (v)=>{ faceCamSaved = v; },
+  setCAmb: (v)=>{ crState.cAmb = v; },
+  setCBase: (v)=>{ crState.cBase = v; },
+  setCBodyDist: (v)=>{ crState.cBodyDist = v; },
+  setCCam: (v)=>{ crState.cCam = v; },
+  setCDesk: (v)=>{ crState.cDesk = v; },
+  setCDeskMat: (v)=>{ crState.cDeskMat = v; },
+  setCFaceDist: (v)=>{ crState.cFaceDist = v; },
+  setCFill: (v)=>{ crState.cFill = v; },
+  setCFloor: (v)=>{ crState.cFloor = v; },
+  setCKey: (v)=>{ crState.cKey = v; },
+  setCRenderer: (v)=>{ crState.cRenderer = v; },
+  setCScene: (v)=>{ crState.cScene = v; },
+  setCamDist: (v)=>{ crState.camDist = v; },
+  setCamPitch: (v)=>{ crState.camPitch = v; },
+  setCamYaw: (v)=>{ crState.camYaw = v; },
+  setDeskCamSaved: (v)=>{ crState.deskCamSaved = v; },
+  setFaceCamSaved: (v)=>{ crState.faceCamSaved = v; },
 });
 /* (C 구역 떼기 · w3) 이 자리의 본문도 character/mat-tone.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🧍 생성기 미리보기 — 렌더러 · 카메라 · 열기 · 닫기 · 완료 ═══ */
@@ -7677,30 +7660,30 @@ const creatorFlowMod = TwCreatorFlow.createCreatorFlow({
   _syncCrColorSwatches: (...a)=>_syncCrColorSwatches(...a),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   blinkC: blinkC,
-  blinkEdited: ()=>blinkEdited,
+  blinkEdited: ()=>crState.blinkEdited,
   blit: (...a)=>blit(...a),
   cBodyCenter: cBodyCenter,
-  cBodyDist: ()=>cBodyDist,
-  cDesk: ()=>cDesk,
+  cBodyDist: ()=>crState.cBodyDist,
+  cDesk: ()=>crState.cDesk,
   cFaceCenter: cFaceCenter,
-  cFaceDist: ()=>cFaceDist,
-  cXform: ()=>cXform,
-  camDist: ()=>camDist,
-  camPitch: ()=>camPitch,
+  cFaceDist: ()=>crState.cFaceDist,
+  cXform: ()=>crState.cXform,
+  camDist: ()=>crState.camDist,
+  camPitch: ()=>crState.camPitch,
   camTarget: camTarget,
-  camYaw: ()=>camYaw,
+  camYaw: ()=>crState.camYaw,
   clampCharY: (...a)=>clampCharY(...a),
   clearStampState: (...a)=>clearStampState(...a),
-  crStep: ()=>crStep,
+  crStep: ()=>crState.crStep,
   creatorMode: ()=>creatorMode,
   creatorOpen: ()=>creatorOpen,
   creatorPrevMod: creatorPrevMod,
-  currentCreatorDef: ()=>currentCreatorDef,
-  deskCamSaved: ()=>deskCamSaved,
+  currentCreatorDef: ()=>crState.currentCreatorDef,
+  deskCamSaved: ()=>crState.deskCamSaved,
   deskItemOrigin: deskItemOrigin,
   detachItemGizmo: (...a)=>crXformMod.detachItemGizmo(...a),
   faceC: faceC,
-  faceCamSaved: ()=>faceCamSaved,
+  faceCamSaved: ()=>crState.faceCamSaved,
   histB: histB,
   isAnimalEditing: (...a)=>isAnimalEditing(...a),
   isCommissionEditing: (...a)=>isCommissionEditing(...a),
@@ -7712,12 +7695,12 @@ const creatorFlowMod = TwCreatorFlow.createCreatorFlow({
   reopenAnimalFromCreator: (...a)=>reopenAnimalFromCreator(...a),
   setStampMode: (...a)=>setStampMode(...a),
   showEl: (...a)=>showEl(...a),
-  stampMode: ()=>stampMode,
+  stampMode: ()=>crState.stampMode,
   toast: (...a)=>toast(...a),
-  setCamDist: (v)=>{ camDist = v; },
-  setCamPitch: (v)=>{ camPitch = v; },
-  setCamYaw: (v)=>{ camYaw = v; },
-  setCrStep: (v)=>{ crStep = v; },
+  setCamDist: (v)=>{ crState.camDist = v; },
+  setCamPitch: (v)=>{ crState.camPitch = v; },
+  setCamYaw: (v)=>{ crState.camYaw = v; },
+  setCrStep: (v)=>{ crState.crStep = v; },
   setCreatorOpen: (v)=>{ creatorOpen = v; },
 });
 /* 생성기 여는 입구 — 동물 생성기 · 종족 선택창 · 친구 추가 · 런처가 부르고, 동물이면 동물 생성기로 되돌리는 연결 자리라 app.js 에 둔다
@@ -7736,41 +7719,41 @@ function openCreator(mode){
   let src=null;
   if(creatorMode.kind==='slot'&&creatorMode.edit) src=slots[creatorMode.slot];
   if(creatorMode.kind==='seat') src=creatorMode.seat.charDef;
-  currentCreatorDef = src;   // 커미션 여부 등 판정용 (gotoStep·잠금에서 사용)
+  crState.currentCreatorDef = src;   // 커미션 여부 등 판정용 (gotoStep·잠금에서 사용)
   // 🐾 동물 편집은 모양(동물 생성기)부터 — 거기서 [다음 → 책상·좌석] 이 fromAnimal 을 달고 다시 이리로 온다
   if(_editRoute && _editRoute.entryRoute(src, creatorMode)==='animal' && reopenAnimalFromCreator('face')) return;
   faceC.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);blinkC.getContext('2d').clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
   histF.length=0;histB.length=0;redoF.length=0;redoB.length=0;
-  if(src){faceC.getContext('2d').drawImage(src.face,0,0);blinkC.getContext('2d').drawImage(src.blink,0,0);cTopColor=src.top;cBotColor=src.bot;skinIndex=src.skin||0;}
-  else{cTopColor='#9dba8a';cBotColor='#d98e73';skinIndex=0;}
-  if(cBase) cBase.charDef = src;   // applyPartXf가 파츠별 위치/크기(xf)를 찾을 때 필요 — 실제 파츠 부착은 베이스 재구성 이후(swapCreatorBaseTo* 다음)에 함
-  blinkEdited=!!src;   // 편집이면 기존 감은눈 유지, 신규면 3단계에서 표정을 복사해 시작
-  document.getElementById('topColor').value=cTopColor;document.getElementById('botColor').value=cBotColor;
+  if(src){faceC.getContext('2d').drawImage(src.face,0,0);blinkC.getContext('2d').drawImage(src.blink,0,0);crState.cTopColor=src.top;crState.cBotColor=src.bot;crState.skinIndex=src.skin||0;}
+  else{crState.cTopColor='#9dba8a';crState.cBotColor='#d98e73';crState.skinIndex=0;}
+  if(crState.cBase) crState.cBase.charDef = src;   // applyPartXf가 파츠별 위치/크기(xf)를 찾을 때 필요 — 실제 파츠 부착은 베이스 재구성 이후(swapCreatorBaseTo* 다음)에 함
+  crState.blinkEdited=!!src;   // 편집이면 기존 감은눈 유지, 신규면 3단계에서 표정을 복사해 시작
+  document.getElementById('topColor').value=crState.cTopColor;document.getElementById('botColor').value=crState.cBotColor;
   _syncCrColorSwatches();   // ★ value 대입은 input 이벤트를 안 낸다 — 스와치는 여기서 직접 맞춘다
-  [...document.getElementById('skinRow').children].forEach((x,j)=>x.classList.toggle('on',j===skinIndex));
-  if(cBase){ if(cBase.upMat)cBase.upMat.color.set(cTopColor); if(cBase.loMat)cBase.loMat.color.set(cBotColor); if(cBase.hatMat)cBase.hatMat.color.set(cTopColor); }
+  [...document.getElementById('skinRow').children].forEach((x,j)=>x.classList.toggle('on',j===crState.skinIndex));
+  if(crState.cBase){ if(crState.cBase.upMat)crState.cBase.upMat.color.set(crState.cTopColor); if(crState.cBase.loMat)crState.cBase.loMat.color.set(crState.cBotColor); if(crState.cBase.hatMat)crState.cBase.hatMat.color.set(crState.cTopColor); }
   creatorPrevMod.updateCreatorLights();   // 수정 진입 시에도 emissive 톤 갱신
   /* 🧍 높이는 살리고 앞뒤는 죽인다 — z 는 폐기된 값이라 옛 저장본이 무엇을 갖고 있든 0 으로 읽는다.
      ★ 이 함수 말고도 읽는 자리가 넷 더 있다(applyCharToSeat · 런처 미리보기 · 꾸미기 미리보기 ·
        프리셋 로드). 전부 0 으로 죽여야 "어느 화면에서만 옛 앞뒤가 살아 있는" 상태가 안 생긴다. */
-  cXform = (src&&src.xf) ? {s:src.xf.s, y:clampCharY(src.xf.y), z:0, rot:src.xf.rot} : {s:0.7,y:0,z:0,rot:0};
+  crState.cXform = (src&&src.xf) ? {s:src.xf.s, y:clampCharY(src.xf.y), z:0, rot:src.xf.rot} : {s:0.7,y:0,z:0,rot:0};
   // ★ 방어: 예전 저장 데이터에 xf.s가 없거나 0이면 cXform.s가 0이 되어 fitCreator에서 캐릭터 크기가
   //   0으로 계산되던 버그(첫 진입 시 캐릭터 축소 원인). 유효한 값(>0)이 아니면 기본 슬라이더 중간값으로.
-  if(!(typeof cXform.s==='number' && isFinite(cXform.s) && cXform.s>0)) cXform.s = 0.7;
-  cXform.y = clampCharY(cXform.y);   // 🧍 NaN·음수·상한 초과를 한 곳에서 정리
-  cXform.z = 0;                      // 🚫 폐기
-  if(typeof cXform.rot!=='number' || !isFinite(cXform.rot)) cXform.rot = 0;
-  faceCamSaved=null; deskCamSaved=null;
-  cDeskColor = (src&&src.deskColor) || '#c9a36a';
-  if(cDeskMat) cDeskMat.color.set(cDeskColor);
-  customItems={}; cDeskTemplate=null; cDeskGlbB64=null; cDeskScale=clampDeskScale((src&&src.deskScale)||DESK_SCALE_DEFAULT);
-  cDeskPos = (src && src.deskPos) ? {x:+src.deskPos.x||0, y:+src.deskPos.y||0, z:+src.deskPos.z||0} : {x:0,y:0,z:0};   // 세션 커스텀 에셋 초기화(기본은 슬라이더 중간값, 범위 벗어난 옛날 값은 clamp)
-  cDeskLenX = (src&&src.deskLenX) || 1;
-  const lenEl=document.getElementById('deskLenX'); if(lenEl) lenEl.value=cDeskLenX;
-  activeCustomDeskId=null;
-  if(cDesk){ setCreatorDeskScale(cDeskScale); setDeskPos(cDesk, cDeskPos); crXformMod.updateDeskPosNum(); }
-  if(cBase){ creatorPrevMod.applyCreatorXform(); creatorPrevMod.clearCreatorItems(); creatorPrevMod.clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
-    if(cDesk)cDesk.userData.deskScale=cDeskScale; deskVisualMod.swapDeskVisual(cDesk,null);
+  if(!(typeof crState.cXform.s==='number' && isFinite(crState.cXform.s) && crState.cXform.s>0)) crState.cXform.s = 0.7;
+  crState.cXform.y = clampCharY(crState.cXform.y);   // 🧍 NaN·음수·상한 초과를 한 곳에서 정리
+  crState.cXform.z = 0;                      // 🚫 폐기
+  if(typeof crState.cXform.rot!=='number' || !isFinite(crState.cXform.rot)) crState.cXform.rot = 0;
+  crState.faceCamSaved=null; crState.deskCamSaved=null;
+  crState.cDeskColor = (src&&src.deskColor) || '#c9a36a';
+  if(crState.cDeskMat) crState.cDeskMat.color.set(crState.cDeskColor);
+  customItems={}; crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.cDeskScale=clampDeskScale((src&&src.deskScale)||DESK_SCALE_DEFAULT);
+  crState.cDeskPos = (src && src.deskPos) ? {x:+src.deskPos.x||0, y:+src.deskPos.y||0, z:+src.deskPos.z||0} : {x:0,y:0,z:0};   // 세션 커스텀 에셋 초기화(기본은 슬라이더 중간값, 범위 벗어난 옛날 값은 clamp)
+  crState.cDeskLenX = (src&&src.deskLenX) || 1;
+  const lenEl=document.getElementById('deskLenX'); if(lenEl) lenEl.value=crState.cDeskLenX;
+  crState.activeCustomDeskId=null;
+  if(crState.cDesk){ setCreatorDeskScale(crState.cDeskScale); setDeskPos(crState.cDesk, crState.cDeskPos); crXformMod.updateDeskPosNum(); }
+  if(crState.cBase){ creatorPrevMod.applyCreatorXform(); creatorPrevMod.clearCreatorItems(); creatorPrevMod.clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
+    if(crState.cDesk)crState.cDesk.userData.deskScale=crState.cDeskScale; deskVisualMod.swapDeskVisual(crState.cDesk,null);
     (async()=>{
       if(src&&src.deskCatalogId){
         const m=commissionMod.savedDesks().find(d=>d.id===src.deskCatalogId);
@@ -7781,35 +7764,35 @@ function openCreator(mode){
           if(!m.glb && m.glbUrl){
             try{ await catalogGlbMod.resolveCatalogGlb(m); }catch(_){}
           }
-          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(m.glb)); cDeskGlbB64=m.glb; cDeskTemplate=sc; activeCustomDeskId=m.id;
-            deskVisualMod.swapDeskVisual(cDesk,sc); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor); }catch(e){}
+          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(m.glb)); crState.cDeskGlbB64=m.glb; crState.cDeskTemplate=sc; crState.activeCustomDeskId=m.id;
+            deskVisualMod.swapDeskVisual(crState.cDesk,sc); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); }catch(e){}
         }
-      } else if(src&&src.deskGlb){ cDeskGlbB64=src.deskGlb; try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(src.deskGlb)); cDeskTemplate=sc; deskVisualMod.swapDeskVisual(cDesk,sc); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor);
-        const m=commissionMod.savedDesks().find(d=>d.glb===src.deskGlb); if(m) activeCustomDeskId=m.id;
+      } else if(src&&src.deskGlb){ crState.cDeskGlbB64=src.deskGlb; try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(src.deskGlb)); crState.cDeskTemplate=sc; deskVisualMod.swapDeskVisual(crState.cDesk,sc); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor);
+        const m=commissionMod.savedDesks().find(d=>d.glb===src.deskGlb); if(m) crState.activeCustomDeskId=m.id;
       }catch(e){} } else {
         const ov=commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
         if(ov){
           if(!ov.glb && ov.glbUrl){
             try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
           }
-          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); deskVisualMod.swapDeskVisual(cDesk,sc,true); deskVisualMod.applyDeskColorToCustom(cDesk,cDeskColor);
+          try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb)); deskVisualMod.swapDeskVisual(crState.cDesk,sc,true); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor);
             // ★ 코드베이스의 다른 swapDeskVisual 호출부(8381·8399·8407·9241·13717·13720·13721)는 전부
             //   직후에 setCreatorDeskScale로 크기를 다시 먹인다. 이 '기본 책상 override' 분기만 빠져 있어서
             //   교체 전 스케일 상태에 의존하고 있었다 — 실행 경로(applyDeskCatalogRefToSeat)와 동일하게 맞춤.
-            setCreatorDeskScale(cDeskScale);
+            setCreatorDeskScale(crState.cDeskScale);
           }catch(e){ console.warn('[생성기] 기본 책상 GLB 파싱 실패', e); }
         }
       }
       if(src&&src.customItems){ for(const id in src.customItems){ const c=src.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,c.icon||'',animations);}catch(e){} } }
       await loadSavedItemsIntoSession();   // localStorage에 저장된 아이템 모두 customItems에 등록
-      if(src&&src.deskItems) applyDeskItemsTo(cBase, src.deskItems);
-      if(crStep===5) renderCrItems();
+      if(src&&src.deskItems) applyDeskItemsTo(crState.cBase, src.deskItems);
+      if(crState.crStep===5) renderCrItems();
       // 런처4-2: 페이지 전환 시 활성 아이템 없으면 기즈모 숨김 (등록/삭제/재렌더 후 잔상 방지)
-      if(crStep===5) crXformMod.attachItemGizmoToActive();
+      if(crState.crStep===5) crXformMod.attachItemGizmoToActive();
       // ★ 커스텀 책상 GLB가 이 시점에야 로드 완료됨(비동기) — 그 전에 이미 한 번 계산된 카메라 프레이밍은
       //   기본 책상 크기 기준이라, 실제 책상 크기(스케일 값 자체는 정상)와 화면에 보이는 줌이 어긋나 보이던
       //   원인. 로드가 다 끝난 지금 시점에 책상/좌석 화면이면 카메라를 다시 계산해서 맞춤.
-      if(crStep===5||crStep===6){ creatorPrevMod.fitCreator('app'); creatorPrevMod.frameDeskCam(false); }   // 아이템도 비동기로 늦게 붙을 수 있어 크기·카메라 둘 다 다시 계산
+      if(crState.crStep===5||crState.crStep===6){ creatorPrevMod.fitCreator('app'); creatorPrevMod.frameDeskCam(false); }   // 아이템도 비동기로 늦게 붙을 수 있어 크기·카메라 둘 다 다시 계산
     })();
   }
   document.getElementById('creatorOverlay').classList.add('on');document.getElementById('launcher').classList.remove('on');
@@ -7819,7 +7802,7 @@ function openCreator(mode){
       if(src && src.animal){
         creatorFlowMod.gotoStep(_editRoute ? _editRoute.deskStep(creatorMode) : 5);   // 🐾 동물 생성기 «좌석 세팅» 으로 왔으면 6
         creatorPrevMod.swapCreatorBaseToAnimal(src).then(()=>{
-          if(cBase) creatorPrevMod.fitCreator('app');
+          if(crState.cBase) creatorPrevMod.fitCreator('app');
           // 진단(임시) — 실행 쪽과 같은 조건(책상 GLB 비동기 로드 완료 후)에서 재야 비교가 성립한다.
           /* 🐾 착용 파츠 부착 — 이 한 줄이 **이 가지에만 빠져 있었다.**
              커미션(아래)·기본(그 아래) 두 가지는 베이스 교체 직후 applyEquippedPartsToSeat 을 부르는데
@@ -7829,31 +7812,31 @@ function openCreator(mode){
              ★ 순서가 중요하다 — swapCreatorBaseToAnimal 이 extractBonesInto 로 부착점을 다시 뽑은
                **뒤**여야 한다. 그 전에 부르면 옛 인간 본에 붙었다가 베이스와 함께 사라진다.
              ★ 부착이 끝난 뒤 fitCreator 를 한 번 더 — 파츠가 바운딩박스를 늘리므로(커미션 가지와 같은 이유). */
-          if(cBase && src.equippedParts){
-            applyEquippedPartsToSeat(cBase, src).then(()=>{
-              if(cBase) creatorPrevMod.fitCreator(crStep<=4 ? 'edit' : 'app');
+          if(crState.cBase && src.equippedParts){
+            applyEquippedPartsToSeat(crState.cBase, src).then(()=>{
+              if(crState.cBase) creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
             });
           }
         });
       } else if(src && src.isCommission){
         creatorFlowMod.gotoStep(5);
         creatorPrevMod.swapCreatorBaseToCommission(src).then(()=>{
-          if(cBase && src.equippedParts){
-            applyEquippedPartsToSeat(cBase, src).then(()=>{
+          if(crState.cBase && src.equippedParts){
+            applyEquippedPartsToSeat(crState.cBase, src).then(()=>{
               // ★ 파츠가 비동기로 늦게 붙는데, 그 전에 이미 계산돼서 굳어버린 크기(fitCreator)가 그대로
               //   남아있던 문제 — 부착이 끝난 시점에 지금 스텝에 맞는 모드로 다시 계산해서 맞춤.
-              if(cBase) creatorPrevMod.fitCreator(crStep<=4 ? 'edit' : 'app');
+              if(crState.cBase) creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
             });
           }
         });
       } else {
         // 💡 기다릴 필요 없이 즉시 뼈대 복구 후 1단계로 진입합니다.
         creatorPrevMod.swapCreatorBaseToDefault(); 
-        if(cBase && src && src.equippedParts){
-          applyEquippedPartsToSeat(cBase, src).then(()=>{
+        if(crState.cBase && src && src.equippedParts){
+          applyEquippedPartsToSeat(crState.cBase, src).then(()=>{
             // ★ 파츠가 붙은 뒤 다시 계산 — 파츠(망토·귀 등)가 캐릭터 바운딩박스를 늘려서 refSize.y가
             //   달라짐. 첫 진입 때 파츠가 아직 안 붙은 상태로 계산된 크기가 작게 나오던 원인.
-            if(cBase) creatorPrevMod.fitCreator(crStep<=4 ? 'edit' : 'app');
+            if(crState.cBase) creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
           });
         }
         creatorFlowMod.gotoStep(1);
@@ -7871,22 +7854,22 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
   Presence: ()=>Presence,
   _blankFaceConfirmed: ()=>_blankFaceConfirmed,
   _isBlankDraw: (...a)=>_isBlankDraw(...a),
-  activeCustomDeskId: ()=>activeCustomDeskId,
+  activeCustomDeskId: ()=>crState.activeCustomDeskId,
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   blinkC: blinkC,
-  cBase: ()=>cBase,
-  cBotColor: ()=>cBotColor,
-  cCam: ()=>cCam,
-  cDeskColor: ()=>cDeskColor,
-  cDeskGlbB64: ()=>cDeskGlbB64,
-  cDeskLenX: ()=>cDeskLenX,
-  cDeskPos: ()=>cDeskPos,
-  cDeskScale: ()=>cDeskScale,
-  cRenderer: ()=>cRenderer,
-  cScene: ()=>cScene,
-  cTopColor: ()=>cTopColor,
-  cXform: ()=>cXform,
+  cBase: ()=>crState.cBase,
+  cBotColor: ()=>crState.cBotColor,
+  cCam: ()=>crState.cCam,
+  cDeskColor: ()=>crState.cDeskColor,
+  cDeskGlbB64: ()=>crState.cDeskGlbB64,
+  cDeskLenX: ()=>crState.cDeskLenX,
+  cDeskPos: ()=>crState.cDeskPos,
+  cDeskScale: ()=>crState.cDeskScale,
+  cRenderer: ()=>crState.cRenderer,
+  cScene: ()=>crState.cScene,
+  cTopColor: ()=>crState.cTopColor,
+  cXform: ()=>crState.cXform,
   charDef: (...a)=>charDef(...a),
   charsMod: ()=>charsMod,
   clampCharY: (...a)=>clampCharY(...a),
@@ -7898,7 +7881,7 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
   creatorMode: ()=>creatorMode,
   creatorOpen: ()=>creatorOpen,
   curSlot: ()=>curSlot,
-  currentCreatorDef: ()=>currentCreatorDef,
+  currentCreatorDef: ()=>crState.currentCreatorDef,
   customItems: ()=>customItems,
   faceC: faceC,
   layoutSeats: (...a)=>layoutSeats(...a),
@@ -7907,7 +7890,7 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
   roomSyncMod: roomSyncMod,
   saveCurSlot: (...a)=>saveCurSlot(...a),
   selectSeat: (...a)=>seatPanelMod.selectSeat(...a),
-  skinIndex: ()=>skinIndex,
+  skinIndex: ()=>crState.skinIndex,
   slotSaveMod: ()=>slotSaveMod,
   slots: slots,
   snapCanvas: (...a)=>snapCanvas(...a),
@@ -9305,7 +9288,7 @@ const adminConsole = TwAdminConsole.createAdminConsole({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const catalogSyncMod = TwCatalogSync.createCatalogSync({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
-  activeCustomDeskId: ()=>activeCustomDeskId,
+  activeCustomDeskId: ()=>crState.activeCustomDeskId,
   adminCategory: adminCategory,
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
@@ -9313,12 +9296,12 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
   assetCodeMod: assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
-  cBase: ()=>cBase,
-  cDesk: ()=>cDesk,
-  cDeskColor: ()=>cDeskColor,
-  cDeskGlbB64: ()=>cDeskGlbB64,
-  cDeskScale: ()=>cDeskScale,
-  cDeskTemplate: ()=>cDeskTemplate,
+  cBase: ()=>crState.cBase,
+  cDesk: ()=>crState.cDesk,
+  cDeskColor: ()=>crState.cDeskColor,
+  cDeskGlbB64: ()=>crState.cDeskGlbB64,
+  cDeskScale: ()=>crState.cDeskScale,
+  cDeskTemplate: ()=>crState.cDeskTemplate,
   catalogGlbMod: catalogGlbMod,
   catalogSourceMod: catalogSourceMod,
   clearHolderDeskItems: (...a)=>creatorPrevMod.clearHolderDeskItems(...a),
@@ -9342,8 +9325,8 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
   toast: (...a)=>toast(...a),
   unequipPartFromSeat: (...a)=>unequipPartFromSeat(...a),
   wardrobeMod: wardrobeMod,
-  setCDeskGlbB64: (v)=>{ cDeskGlbB64 = v; },
-  setCDeskTemplate: (v)=>{ cDeskTemplate = v; },
+  setCDeskGlbB64: (v)=>{ crState.cDeskGlbB64 = v; },
+  setCDeskTemplate: (v)=>{ crState.cDeskTemplate = v; },
 });
 /* 본문은 character/desk-visual.js 로 옮겼다(구역 떼기 C · w2). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -9371,8 +9354,6 @@ const deskItemsMod = TwDeskItems.createDeskItems({
   commissionMod: commissionMod,
   customItems: ()=>customItems,
 });
-/* 현재 활성 책상의 저장 ID (기본 책상이면 null) — 카드 on 표시용 */
-let activeCustomDeskId=null;
 
 /* 저장된 모든 아이템 코드를 customItems에 등록 (생성기 진입 시 호출) */
 async function loadSavedItemsIntoSession(){
@@ -9430,7 +9411,7 @@ function setDeskScale(deskGroup,scale,lenX){ if(!deskGroup) return;
 //   동일한 setDeskScale 공식을 쓰게 두는 것이 옳음. 이 상수를 예전엔 1.2로 두어 미리보기 책상을
 //   실행보다 20% 크게 그렸는데, 그 결과 "실행 화면이 미리보기보다 작다"는 인식이 생김.
 const CREATOR_DESK_VISUAL_OFFSET = 1;
-function setCreatorDeskScale(scale){ setDeskScale(cDesk, (scale||1) * CREATOR_DESK_VISUAL_OFFSET, cDeskLenX); }
+function setCreatorDeskScale(scale){ setDeskScale(crState.cDesk, (scale||1) * CREATOR_DESK_VISUAL_OFFSET, crState.cDeskLenX); }
 /* ═══ 📌 책상 위 파츠 앵커 · 책상 위치 · 배율 ═══ */
 /* 🪑📌 '책상 위' **파츠**가 붙는 자리 — deskAnchor 안의 작은 자식 하나.
    [무엇을 푸는가] 생성기에서 책상 위치 기즈모로 책상을 옮기면 파츠보관함의 '책상 위' 파츠까지
@@ -9673,7 +9654,6 @@ const charCodeMod = TwCharCode.createCharCode({
   toast: (...a)=>toast(...a),
   setCurSlot: (v)=>{ curSlot = v; },
 });
-let cDeskTemplate=null, cDeskGlbB64=null;   // 생성기 세션의 커스텀 책상
 
 
 /* ═══ 🍞 토스트(toast) · 저장 실패 문구 ═══ */

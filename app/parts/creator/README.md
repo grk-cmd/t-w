@@ -1,6 +1,7 @@
 # creator/ — 캐릭터 생성기
 
 모듈마다 절 하나. 모양은 모두 같다 — `window.TwXxx = { createXxx(deps) }`, app.js 가 원래 구역 자리에서 `const xMod = TwXxx.createXxx({ … })` 로 만든다.
+생성기 상태(`cBase` · `cDesk` · `cDeskPos` · `cXform` …)는 `creator-state.js` 한 곳에 있다 — app.js 는 `crState.이름`, 새 생성기 조각 모듈은 `crState` 하나를 deps 로 받는다.
 
 **생성기 상태는 app.js 에 있다** — `cRenderer` · `cScene` · `cCam` · `cBase` · `creatorOpen` · 조명(`cAmb` · `cKey` · `cFill`) · 책상(`cDesk` · `cDeskMat` · `cFloor`) ·
 카메라 궤도(`camDist` · `camYaw` · `camPitch` · `camTarget`) · 얼굴/몸 중심과 거리. 그리기 · 책상 세팅 · 기즈모 · `character/animal.js` 가 같이 읽고 쓰기 때문이다.
@@ -94,3 +95,35 @@ const crXformMod = TwCreatorXform.createCreatorXform({
 - 생성기 책상은 배율 1 이라 position 이 곧 deskPos 다(생성기에 animCorr 을 심으면 깨진다).
 
 검사: `checks/sim-creator-xform.js` (슬라이더 · 아이템 버튼 · 기즈모 붙이기 · 드래그 끝 저장 · 책상 위치 · 길이 · 배율 · 연결 · 깨 보기).
+
+## `creator-state.js` — 🧍 생성기 상태(세션 값)
+
+**책임** — 캐릭터 생성기 한 세션의 값 58개(미리보기 3D `cRenderer · cScene · cCam · cBase` · 카메라 `camDist · camYaw …` · 단계 `crStep` · 붓 `brushColor · brushSize · eraser · lastPX …` · 도장 `stampMode · stampPlace …` · 책상 세팅 `cDesk · cDeskPos · cDeskScale · cXform …` · 코드 가져오기 `_assetImpKind · _assetImpCat`)를 처음 값과 함께 한 곳에 든다. 값을 들고 내놓기만 한다(그리기 · 저장 · DOM 없음).
+
+**만드는 법** — app.js «CREATOR + LAUNCHER» 머리, `DESK_SCALE_DEFAULT` 바로 뒤(이 값보다 앞에서 생성기 상태를 쓰는 부팅 줄은 없다):
+
+```js
+const crState = TwCreatorState.createCreatorState({
+  DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,   // 값 — 책상 크기 처음 값(HTML 슬라이더와 짝이라 app.js 에 둔다)
+});
+```
+
+**내놓는 것** — 이름마다 get · set 이 붙은 객체 하나. 보통 변수처럼 읽고 대입한다.
+
+```js
+if(!crState.cBase) return;
+crState.crStep = 5;
+crState.cDeskPos.x = 0.1;          // 안쪽을 바꾸는 것도 그대로
+crState.camYaw += dx * 0.01;
+```
+
+생성기 조각을 모듈로 옮길 때는 이름마다 읽는 · 쓰는 함수를 넘기지 말고 `crState: crState` 하나를 넘긴다(모듈 안에서 `const crState = deps.crState;` → `crState.cBase`).
+
+**확장할 때 고칠 자리** — 새 세션 값은 모듈의 `let` 줄(처음 값)과 맨 아래 `return { get … set … }` 한 줄 · `checks/sim-creator-state.js` 의 `INIT` 표. app.js 에 생성기 값을 새 꼭대기 `let` 으로 만들지 않는다.
+
+**함정**
+- `creatorOpen` · `creatorMode` · `curSlot` 은 여기 없다 — animal.js 가 전역 이름으로 직접 읽어서 app.js 에 남겼다(옮기려면 animal.js 를 deps 로 바꾼 뒤).
+- `crState` 는 만드는 줄보다 앞에서 부팅 때 바로 쓰면 TDZ — 함수 안(나중에 불림)은 괜찮다.
+- 처음 값의 객체(`cXform` · `cDeskPos` · `stampPlace`)는 만들 때마다 새것이다 — 다른 곳과 같이 쓰는 객체로 바꾸지 말 것.
+
+검사: `checks/sim-creator-state.js` (처음 값 58개 · get/set · 만들 때마다 따로 · 연결 · 맨 이름 참조 없음 · 깨 보기).

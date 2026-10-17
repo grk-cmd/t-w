@@ -114,6 +114,7 @@ const MODULES = [
   { file: 'seat-panel.js', mod: 'seatPanelMod', glob: 'TwSeatPanel', sample: 'function setInfo(' },   // 구역 떼기 C · w1
   { file: 'user-status-table.js', mod: 'userStatusTableMod', glob: 'TwUserStatusTable', sample: 'function loadCustomStatusFromStorage(' },   // 구역 떼기 C · w1
   { file: 'chip-popups.js', mod: 'chipPopupsMod', glob: 'TwChipPopups', sample: 'function _closeChipPopups(' },   // 구역 떼기 C · w1
+  { file: 'creator-state.js', mod: 'crState', glob: 'TwCreatorState', sample: 'let cRenderer=null, cScene=null' },   // C 구역 떼기 w4 — 생성기 상태(crState.이름 → 옛 let)
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');
@@ -154,7 +155,7 @@ function joinRenderer(app){
     const getters = [...glue.matchAll(/^  ([\w$]+): \(\)=>(?:[\w$]+\.)?([\w$]+)(?:\(\))?,$/gm)].map(x => x[1]);   // 키 = 모듈 안 이름(오른쪽이 다른 모듈의 읽는 함수여도)
     /* 데이터 provider 고르기 한 줄(«roomNet: ()=>window.firebaseAPI,»)은 키가 아니라 오른쪽 글로 되살린다 — 옮기기 전 글은 window.firebaseAPI 를 직접 봤다 */
     const winGet = {}; for(const x of glue.matchAll(/^  ([\w$]+): \(\)=>(window\.[\w$]+),$/gm)) winGet[x[1]] = x[2];
-    const setters = [...glue.matchAll(/^  ([\w$]+): \(v\)=>\{ ([\w$]+) = v; \},$/gm)].map(x => [x[1], x[2]]);
+    const setters = [...glue.matchAll(/^  ([\w$]+): \(v\)=>\{ (?:crState\.)?([\w$]+) = v; \},$/gm)].map(x => [x[1], x[2]]);   // 생성기 상태는 crState.이름 에 대입한다(creator-state.js)
     for(const x of txt.matchAll(/^  ([\w$]+): \(\)=>([\w$]+),/gm)) retGet.push([m.mod, x[1]]);
     for(const x of txt.matchAll(/^  ([\w$]+): \(v\)=>\{ ([\w$]+) = v; \},/gm)) retSet.push([m.mod, x[1], x[2]]);
     /* 껍데기(IIFE · createX(deps){ … return {…} })를 벗기고 본문만 — 옮긴 선언이 옛 자리처럼 꼭대기에 선다(함수를 돌려 보는 검사용) */
