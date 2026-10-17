@@ -1,7 +1,7 @@
 /* sim-fix-1016.js — 🐞 버그 제보 묶음(2026-10-16 접수분 · 난이도 «하») 검사
    실행:  node sim-fix-1016.js   (저장소 루트에서 · 러너는 app/ 을 펼친 자리에서)
    제보마다 절 하나 — «고친 자리가 그대로 있는가» 와, 할 수 있는 건 «옛 모양이면 증상이 나고 새 모양이면 안 나는가» 를 흉내로 본다.
-   §1 도트 렌더 — 색 바꾼 가챠 파츠가 원래 색   §2 알림콩 — 새 글 없이 뜨고 안 꺼짐   §6 좌석 메뉴 + T — 가챠 창이 저장 · 닫힘
+   (§1 도트 렌더 색은 main 이 먼저 같은 방식으로 고쳐 그쪽 검사가 지킨다 — 이 파일에서 뺐다)   §2 알림콩 — 새 글 없이 뜨고 안 꺼짐   §6 좌석 메뉴 + T — 가챠 창이 저장 · 닫힘
    §10 상태 이모지가 동물 뒤로   §11 캐릭터 편집 위로 마이홈 패널   §12 날기 — 꾸미기 착용 시 보이지 않는 천장 */
 'use strict';
 const fs = require('fs');
@@ -12,48 +12,15 @@ const read = (...cands) => { for (const c of cands) if (fs.existsSync(c)) return
 const need = (rel) => { const s = read('app/' + rel, rel, rel.replace(/^parts\/[^/]+\//, 'parts/'), rel.split('/').pop()); if (s == null) { say('  ? 원본 못 찾음 — ' + rel); process.exit(2); } return s; };
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
-const DOT = need('parts/shared/dot-render.js');
 const CHAT = need('parts/chat/chat-ui.js');
 const APP = need('parts/app.js');
 const STATUS = need('parts/status/status-chip.js');
 const TRICKS = need('parts/room/tricks.js');
+const MEASURE = need('parts/character/char-measure.js');
 const HTML = need('desk-companion-prototype.html');
 const THREE_SRC = read('app/vendor/three/three.min.js', 'vendor/three/three.min.js', 'three.min.js');
 let THREE = null;
 if (THREE_SRC) { const m = { exports: {} }; new Function('module', 'exports', THREE_SRC)(m, m.exports); THREE = m.exports; }
-
-say('§1 도트 렌더 — 셰이더 캐시 키가 감싸기 전 구분을 남긴다');
-{
-  const api = (() => { const m = { exports: {} }; new Function('module', 'exports', 'window', DOT)(m, m.exports, undefined); return m.exports; })();
-  const hueA = { uHue: 1 }, hueB = { uHue: 2 };
-  const hueOBC = (u) => (shader) => { shader.uniforms = shader.uniforms || {}; shader.uniforms.uHue = u.uHue; shader.fragmentShader += '\n/*hue*/'; };
-  const proto = { onBeforeCompile: function(){}, customProgramCacheKey: function(){ return this.onBeforeCompile.toString(); } };
-  const mk = (obc) => { const m = Object.create(proto); m.userData = {}; if (obc) m.onBeforeCompile = obc; return m; };
-  const plain = mk(null), hue1 = mk(hueOBC(hueA)), hue2 = mk(hueOBC(hueB));
-  const mats = [plain, hue1, hue2];
-  const scene = { traverse: (fn) => mats.forEach((mat) => fn({ isMesh: true, material: mat })) };
-  const dot = api.createDotRender({ scene });
-  const before = mats.map((m) => m.customProgramCacheKey());
-  chk(before[0] !== before[1] && before[1] === before[2], '켜기 전 — 색조 재질은 맨 재질과 키가 다르다(three 기본값 = onBeforeCompile 글자)');
-  dot.applyPS1Shader(true);
-  const on = mats.map((m) => m.customProgramCacheKey());
-  chk(on[0] !== on[1], '★ 도트를 켠 뒤에도 색조 재질과 맨 재질의 키가 다르다 — 셰이더를 나눠 쓰지 않는다');
-  chk(on[1] === on[2] && on.every((k) => k.startsWith('ps1|')), '  ↳ 같은 색조 코드끼리는 같은 키(재사용 그대로) · 도트 셰이더라는 표시(ps1|)');
-  const oldKey = (m) => m.onBeforeCompile.toString();
-  chk(oldKey(plain) === oldKey(hue1), '  ↳ 흉내: 고치기 전(기본 키 = 감싸개 글자)이면 둘이 같은 키였다 — 이게 원래 색으로 보이던 까닭');
-  const sh = { fragmentShader: 'void main(){\n#include <dithering_fragment>\n}', uniforms: {} };
-  hue1.onBeforeCompile(sh);
-  chk(/\/\*hue\*\//.test(sh.fragmentShader) && /_bayer/.test(sh.fragmentShader) && sh.uniforms.uHue === 1, '  ↳ 감싼 onBeforeCompile 은 색조 → 도트 순으로 둘 다 넣는다(체인 그대로)');
-  dot.applyPS1Shader(false);
-  chk(mats.every((m, i) => !Object.prototype.hasOwnProperty.call(m, 'customProgramCacheKey') && m.customProgramCacheKey() === before[i]), '끄면 키가 켜기 전과 같아진다(덧붙인 키를 걷는다)');
-  const own = mk(null); own.customProgramCacheKey = () => 'mine';
-  const s2 = { traverse: (fn) => fn({ isMesh: true, material: own }) };
-  const d2 = api.createDotRender({ scene: s2 });
-  d2.applyPS1Shader(true);
-  chk(own.customProgramCacheKey() === 'ps1|mine', '자기 키가 있던 재질은 그 키를 이어 쓴다');
-  d2.applyPS1Shader(false);
-  chk(own.customProgramCacheKey() === 'mine', '  ↳ 끄면 자기 키로 돌아간다');
-}
 
 say('§2 알림콩 — 읽음 표시는 서버 시각 순서(ts → id)로');
 {
@@ -132,10 +99,10 @@ say('§12 날기 — 기준점 높이는 몸만 잰다');
   const T = strip(TRICKS);
   const fn = (T.match(/function _flyProbeY\(seat\)\{[\s\S]*?\n\}/) || [''])[0];
   chk(/measureCharBox\(seat\.gltfRoot\)/.test(fn) && /_flyBox\.setFromObject\(seat\.rig\)/.test(fn), '★ 몸(gltfRoot)을 measureCharBox 로 · 비면 예전처럼 rig 째');
-  chk(/const measureCharBox = deps\.measureCharBox;/.test(T) && /measureCharBox: \(\.\.\.a\)=>measureCharBox\(\.\.\.a\),/.test(APP), '  ↳ app.js 가 measureCharBox 를 넘긴다');
+  chk(/const measureCharBox = deps\.measureCharBox;/.test(T) && /measureCharBox: \(\.\.\.a\)=>charMeasureMod\.measureCharBox\(\.\.\.a\),/.test((APP.match(/const tricksMod = TwTricks\.createTricks\(\{[\s\S]*?\n\}\);/) || [''])[0]), '  ↳ app.js 가 tricks 에 measureCharBox(char-measure.js)를 넘긴다');
   if (!THREE) { say('  · three.min.js 가 없어 흉내는 건너뜀'); }
   else {
-    const mcb = (APP.match(/function measureCharBox\(root\)\{[\s\S]*?\n\}/) || [''])[0];
+    const mcb = (MEASURE.match(/function measureCharBox\(root\)\{[\s\S]*?\n\}/) || [''])[0];
     const measureCharBox = new Function('THREE', mcb + '\nreturn measureCharBox;')(THREE);
     const _flyBox = new THREE.Box3(), _flyW = new THREE.Vector3();
     const probe = new Function('THREE', '_flyBox', '_flyW', 'measureCharBox', 'seatScale', 'ANIMAL_RUN_SCALE', 'FLY_PROBE_FALLBACK', fn + '\nreturn _flyProbeY;')(THREE, _flyBox, _flyW, measureCharBox, () => 1, 0.6, 0.35);

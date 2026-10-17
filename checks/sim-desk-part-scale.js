@@ -3,7 +3,8 @@
    사용: node sim-desk-part-scale.js [app.js 경로] */
 const fs = require('fs');
 const path = (process.argv[2] || __dirname + '/app.js');
-const src = fs.readFileSync(path, 'utf8');
+const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 생성기 상태(let cXform …)는 creator/creator-state.js 로 모았다(C 구역 떼기 w4) — «옮기기 전 app.js 글» 로 되살려 읽는다
+const src = _joinRenderer(fs.readFileSync(path, 'utf8'));
 
 function pick(startMark, endMark){
   const a = src.indexOf(startMark);

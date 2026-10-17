@@ -103,12 +103,12 @@ function mkEnv(o){
   new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'companion', 'navigator', 'confirm', 'queueMicrotask', 'TwMyHomeHooks', o.src || SRC['myhome-inbox.js'])
     (sb.window, undefined, doc, ls, api, companion, nav, confirmFn, (fn) => fn(), hw.TwMyHomeHooks);
   env.win = win;
-  env.myInbox = {}; env.bc = {}; env.friends = {}; env.admin = false;
+  env.myInbox = {}; env.bc = {}; env.friends = {}; env.admin = false; env.notice = null;
   env.mk = (extra) => win.TwMyHomeInbox.createMyHomeInbox(Object.assign({
     escHtml, toast: (m) => env.toasts.push(m), getMyUserId: () => 'ME01',
     myInbox: () => env.myInbox, inboxBroadcast: () => env.bc, INBOX_BC_READ_KEY: 'tw.inboxBcRead', isAdmin: () => env.admin,
     mhScheduler: { refreshBellBadge: () => { env.bell++; } },
-    myHomeFriends: () => env.friends, FRIEND_MAX: 100, friendVisit: o.noVisit ? null : { ask: (fid) => env.calls.push('visit ' + fid) },
+    myHomeFriends: () => env.friends, friendsNotice: () => env.notice, FRIEND_MAX: 100, friendVisit: o.noVisit ? null : { ask: (fid) => env.calls.push('visit ' + fid) },
     mhStripHtml: (h) => String(h || '').replace(/<[^>]*>/g, ''),
     starFromRemote: (f) => (f && f.star) ? { color: f.star, cyc: 2, lv: 7 } : null, lvStarBadgeClass: () => 'lv-star lvx', lvStarStr: (n) => '★' + n,
     lvBadgeClass: (n) => 'lv' + n, openFriendHomeView: (fid) => env.homeView.push(fid), renderMhProfileRail: () => { env.profileRail++; },
@@ -301,6 +301,15 @@ async function behave(src){
     sInp.focus = () => { e.focused += 10; }; sInp.select = () => {};
     m.renderMyHomeFriendList();
     chk(head.textContent === '(0/100)' && /아직 친구가 없어요/.test(list.innerHTML) && e.profileRail === 1, '비었을 때 — (0/상한) · 안내 · 수령함도 같이 그린다(renderMhChat)');
+    /* 친구 목록을 아직 못 받았거나 못 받았으면 «친구 없음» 과 따로 — 빈 목록으로 그리면 없는 줄 안다(v0.11.3 제보) */
+    e.notice = '친구 목록을 불러오는 중이에요'; m.renderMyHomeFriendList();
+    chk(head.textContent === '(-/100)' && /불러오는 중이에요/.test(list.innerHTML) && !/아직 친구가 없어요/.test(list.innerHTML) && e.profileRail === 2, '불러오는 중 — (-/상한) · «불러오는 중» · «친구 없음» 아님');
+    e.notice = '친구 목록을 불러오지 못했어요. 잠시 후 다시 시도할게요';
+    e.friends = { f9: { name: 'Old', online: true } }; m.renderMyHomeFriendList();
+    chk(head.textContent === '(-/100)' && /불러오지 못했어요\. 잠시 후 다시 시도할게요/.test(list.innerHTML) && !/Old/.test(list.innerHTML), '못 불러옴 — 안내만(옛 목록을 사실처럼 그리지 않는다)');
+    e.notice = '<b>x</b>'; m.renderMyHomeFriendList();
+    chk(!/<b>/.test(list.innerHTML), '  안내 문구도 escHtml');
+    e.notice = null; e.friends = {};
     e.friends = {
       f1: { name: 'Bob', online: true, room: 'PLAY-AB12', inRoom: true, level: 12, bio: '<b>안녕</b>' },
       f2: { name: 'alice', online: true, room: 'SCRT-XYZ1', inRoom: true, level: null },
@@ -384,12 +393,12 @@ function wiring(MI, APP, HTML){
   const want = [
     /^escHtml: \(\.\.\.a\)=>escHtml\(\.\.\.a\),$/, /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/, /^getMyUserId: \(\.\.\.a\)=>getMyUserId\(\.\.\.a\),$/,
     /^myInbox: \(\)=>_myInbox,$/, /^inboxBroadcast: \(\)=>_inboxBroadcast,$/, /^INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,$/, /^isAdmin: \(\)=>isAdmin,$/, /^mhScheduler: mhScheduler,$/,
-    /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^FRIEND_MAX: FRIEND_MAX,$/, /^friendVisit: friendVisit,$/, /^mhStripHtml: \(\.\.\.a\)=>_mhStripHtml\(\.\.\.a\),$/,
+    /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^FRIEND_MAX: FRIEND_MAX,$/, /^friendVisit: friendVisit,$/, /^mhStripHtml: \(\.\.\.a\)=>_mhStripHtml\(\.\.\.a\),$/,
     /^starFromRemote: \(\.\.\.a\)=>starFromRemote\(\.\.\.a\),$/, /^lvStarBadgeClass: \(\.\.\.a\)=>lvStarBadgeClass\(\.\.\.a\),$/, /^lvStarStr: \(\.\.\.a\)=>lvStarStr\(\.\.\.a\),$/,
     /^lvBadgeClass: \(\.\.\.a\)=>lvBadgeClass\(\.\.\.a\),$/, /^openFriendHomeView: \(\.\.\.a\)=>openFriendHomeView\(\.\.\.a\),$/, /^renderMhProfileRail: \(\.\.\.a\)=>renderMhProfileRail\(\.\.\.a\),$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 18개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 19개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const iAdm = APP.indexOf('\nlet isAdmin = false;');
   chk(iAdm > iMk, '  isAdmin 은 만드는 줄보다 뒤에 선언되는 let — 값이면 TDZ');
   const iSt = APP.indexOf('\nconst mhScheduler = '), iFM = APP.indexOf('\nconst FRIEND_MAX = ');
@@ -446,7 +455,8 @@ async function runAll(MI, APP, HTML){
     ['MI', 'win.appendChild(ov);', 'document.body.appendChild(ov);', '확인창이 body 로'],
     ['MI', "' data-img=\"'+escHtml(g.imgUrl||'')+'\" data-msg=\"'+escHtml(g.msg||'')+'\" title=\"'+escHtml(tip)+'\">'", "' data-img=\"'+escHtml(g.imgUrl||'')+'\" data-msg=\"'+(g.msg||'')+'\" title=\"'+(tip)+'\">'", '선물 글을 속성값에 그대로'],
     ['MI', "if(!r || r.indexOf('SCRT-') === 0) return '';", "if(!r) return '';", '시크릿룸 코드가 보임'],
-    ['MI', "headCnt.textContent = '('+ids.length+'/'+FRIEND_MAX+')';", "headCnt.textContent = '('+ids.length+'/50)';", '친구 상한을 숫자로 박음'],
+    ['MI', "headCnt.textContent = '('+(_notice ? '-' : ids.length)+'/'+FRIEND_MAX+')';", "headCnt.textContent = '('+(_notice ? '-' : ids.length)+'/50)';", '친구 상한을 숫자로 박음'],
+    ['MI', "  if(_notice){\n    _mhUpdateFriendHit('', 0);", "  if(false){\n    _mhUpdateFriendHit('', 0);", '못 받은 친구 목록을 «친구 없음» 으로 그림'],
     ['MI', "       + '<span class=\"mh-hl\">' + escHtml(s.slice(i, i + qs.length)) + '</span>'", "       + '<span class=\"mh-hl\">' + s.slice(i, i + qs.length) + '</span>'", '강조 조각을 안 씻음'],
     ['MI', "  if(inp) inp.value = '';\n  _friendFilter = '';", "  if(inp) inp.value = '';", '검색줄 닫아도 검색어가 남음'],
     ['MI', "if(f.avatar && /^(data:image\\/|https?:)/i.test(String(f.avatar))){", 'if(f.avatar){', '아바타 주소를 아무거나'],

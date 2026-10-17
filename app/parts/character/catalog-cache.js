@@ -24,6 +24,10 @@
  * 캐시는 IndexedDB(tw-catalog-cache)다. localStorage(약 5MB · 동기)는 옛 항목에 base64 glb 가 남은 노드가
  * 수 MB 라 맞지 않는다. 용량 초과를 포함한 열기 · 읽기 · 쓰기 실패는 전부 «캐시 없음» 으로 보고 서버에서 받는다.
  * 받기(get)까지 실패하면 ① 과 같은 옛 방식으로 물러난다.
+ *
+ * [본문은 API 읽기 사본 먼저] 버전 알림은 그대로 Firebase catalogMeta(숫자 하나), 본문만 우리 API(GET /v1/catalog/{종류}?v=)에서 받는다
+ *   — 관리자가 고칠 때마다 켜져 있는 앱 전부가 Firebase 에서 통째로 다시 받던 몫(createApiCatalogFetch).
+ *   API 가 못 주거나(꺼짐 · 사본 아직) 사본 버전이 구독한 버전과 다르면 지금처럼 Firebase get. 쓰기는 그대로 Firebase(원본).
  * 캐시 키에 DB 주소를 넣는다 — 운영과 dev(start:dev)가 같은 PC 에서 돌 수 있다.
  *
  * 공용 공지(inboxBroadcast)도 같은 구독기를 쓴다 — 받는 방법(fetch)만 다르다(broadcast-cache.js).
@@ -39,6 +43,8 @@ export const LIVE_COALESCE_MIN_MS = 10 * 1000;               // 켜져 있는 �
 export const LIVE_COALESCE_SPREAD_MS = 40 * 1000;           // (수명 타이머 MIN_RECHECK_MS 보다 짧게)
 const IDB_TIMEOUT_MS = 3000;                                 // IDB 가 막혀(다른 창이 버전 업그레이드 중 등) 안 열리면 기다리지 않는다
 const MIN_RECHECK_MS = 60 * 1000;                            // 수명 타이머가 너무 촘촘히 돌지 않게
+export const CATALOG_API_PATH = '/v1/catalog/';             // t-w-server api — 공개 읽기 · v 가 같으면 하루 캐시
+export const CATALOG_API_TIMEOUT_MS = 8000;                  // 본문이 수백 KB 라 API 공통 시간 제한(2.5초)보다 길게 — 넘으면 Firebase 로
 
 /* 버전은 서버 시각(ms) 양수만 인정한다 — 규칙 catalogMeta/$kind 도 같은 모양만 받는다.
    null(아직 없음) · 문자열 · 0 이하 · NaN 은 «버전 없음» = 안전장치 ① */
@@ -72,6 +78,34 @@ export function decideCatalogCache(entry, ver, now, maxAge){
 export function usableOfflineCache(entry){
   return !!entry && typeof entry === 'object' && entry.schema === CATALOG_CACHE_SCHEMA &&
     isCatalogVer(entry.ver) && isCatalogData(entry.data);
+}
+
+/* 본문 받기 — API 읽기 사본 먼저, 못 받으면 Firebase get. createCatalogSync 의 deps.fetch 로 넘긴다.
+   deps: api(TwApi.client — get(path, opts) → 봉투의 data) · shouldFallback(TwApi.shouldFallback — 조용히 넘어갈 실패인가) · firebaseGet(kind) → snapshot · warn · tag
+   ⚠️ 사본의 ver 가 구독한 버전과 같을 때만 쓴다 — 서버는 버전과 본문을 따로 구독해서 잠깐 어긋날 수 있다.
+   ⚠️ 어떤 실패든 Firebase get 으로 넘어간다(오류를 던지면 createCatalogSync 가 통째 구독으로 물러나 더 많이 받는다).
+   val() 은 부를 때마다 새 객체(캐시용 · 화면용을 따로 뗀다 — Firebase snapshot 과 같은 약속). */
+export function createApiCatalogFetch(deps){
+  const api = deps.api || null;
+  const firebaseGet = deps.firebaseGet;
+  const shouldFallback = deps.shouldFallback || (() => false);
+  const tag = '[' + (deps.tag || 'catalog-cache') + ']';
+  const warn = deps.warn || ((...a) => { try{ console.warn(...a); }catch(_){} });
+  return async function fetchKind(kind, ver){
+    if(api && isCatalogVer(ver) && CATALOG_KINDS.includes(kind)){
+      try{
+        const body = await api.get(CATALOG_API_PATH + kind + '?v=' + ver, { timeoutMs: CATALOG_API_TIMEOUT_MS });
+        if(body && body.ver === ver && (body.data == null || isCatalogData(body.data))){
+          const json = JSON.stringify(body.data || {});
+          return { val: () => JSON.parse(json) };
+        }
+        warn(tag + ' API 사본 버전이 달라 Firebase 로 받는다 —', kind, body && body.ver, '≠', ver);
+      }catch(e){
+        if(!shouldFallback(e)) warn(tag + ' API 받기 실패 — Firebase 로 받는다', kind, e && (e.code || e.message));
+      }
+    }
+    return firebaseGet(kind);
+  };
 }
 
 /* IndexedDB 저장소 — { read(key) → 레코드|null, write(key, 레코드) → 성공 여부 }. 둘 다 reject 하지 않는다.
@@ -135,7 +169,7 @@ export function createIdbCatalogStore(idb){
      onValue(ref, cb, errCb) → 해제 함수 · get(ref) → snapshot — Firebase 것 그대로
      store — { read, write } (기본: createIdbCatalogStore)
      scope — 캐시 키 앞머리(DB 주소)
-     fetch(kind) → snapshot 모양({ val() }) — 받기를 한 번의 get 이 아닌 다른 방법으로 할 때(공용 공지: 최근 n 개 + 고정).
+     fetch(kind, ver) → snapshot 모양({ val() }) — 받기를 한 번의 get 이 아닌 다른 방법으로 할 때(카탈로그: API 사본 먼저 · 공용 공지: 최근 n 개 + 고정).
        val() 은 부를 때마다 새 객체를 돌려줘야 한다(캐시용 · 화면용을 따로 뗀다). 없으면 get(catalogRef(kind)).
      tag — 경고 줄 머리말(기본 catalog-cache)
      liveNow() → 참이면 켜져 있는 동안의 바뀜도 모으지 않고 바로 받는다 — 이 기기가 방금 쓴 경우(관리자가 지운 공지가 바로 사라지게)
@@ -215,7 +249,7 @@ export function createCatalogSync(deps){
       }
       /* get 은 한 번 받고 끝이라 구독 비용이 안 남는다 — 그 뒤 바뀜은 버전 구독이 알려 준다. */
       let snap;
-      try{ snap = await fetchKind(kind); }
+      try{ snap = await fetchKind(kind, ver); }
       catch(e){
         if(my !== seq || stopped) return;
         warn(tag + ' 받기 실패 —', kind, e && (e.code || e.message));

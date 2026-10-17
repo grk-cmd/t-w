@@ -2,7 +2,7 @@
    app.js 의 카탈로그 GLB 해결 본문 을 parts/character/catalog-glb.js 로 옮겼다(글자 그대로 · 바뀐 줄 0 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(4절 — 가짜 영구 캐시 · 서버 받기로 메모리 → 캐시 → 서버 차례 · 실패 · 스냅샷 전부).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(resolveCatalogGlb · resolveCatalogGlbAll)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 1줄 그대로 · 부르는 곳은 catalogGlbMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 2줄 그대로 · 부르는 곳은 catalogGlbMod.이름 · html(app.js 앞)
    ・4절: 동작 — 순수 판정 · 가짜 객체로 입력 → 출력 · 경계값(옮기기 전 app.js 글로도 같은 판정이 돈다)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · catalog-glb.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -18,13 +18,15 @@ const MOD = ["catalog-glb.js","parts/character/catalog-glb.js","app/parts/charac
 if(!MOD){ say('  ? 원본 못 찾음 — catalog-glb.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
+const CSRC = ["catalog-source.js","parts/character/catalog-source.js","app/parts/character/catalog-source.js"].map(read).find(Boolean);   // 서버 provider — 4절은 진짜 Firebase 판을 가짜 window 위에 만든다
+const mkSource = (win) => { new Function('window', 'module', CSRC)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
 const FN_DEPS = [];
-const VAL_DEPS = ["glbIdbMod"];
+const VAL_DEPS = ["catalogSourceMod","glbIdbMod"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["resolveCatalogGlb","resolveCatalogGlbAll"];
 const MOVED = ["_glbUrlCache","resolveCatalogGlb","resolveCatalogGlbAll"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  glbIdbMod: glbIdbMod,"];
+const GLUE = ["  catalogSourceMod: catalogSourceMod,","  glbIdbMod: glbIdbMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -114,7 +116,7 @@ say('── 4. 동작 — 카탈로그 GLB 해결(메모리 → 영구 캐시 �
     if(!PREMOVE){
       const w = Object.assign({}, win);
       new Function('window', 'module', 'firebaseAPI', 'console', MOD)(w, undefined, fb, cons);
-      api = w.TwCatalogGlb.createCatalogGlb({ glbIdbMod: fns });
+      api = w.TwCatalogGlb.createCatalogGlb({ glbIdbMod: fns, catalogSourceMod: mkSource(w) });
     } else {
       const a = SRC.indexOf('const _glbUrlCache'), b = SRC.indexOf('/* ═══ 🧹 관리자 콘솔 도구', a);
       api = new Function('window', 'firebaseAPI', 'console', '_glbIdbGet', '_glbIdbPut', '_glbIdbPrune', SRC.slice(a, b) + '\nreturn { resolveCatalogGlb, resolveCatalogGlbAll };')(win, fb, cons, fns._glbIdbGet, fns._glbIdbPut, fns._glbIdbPrune);

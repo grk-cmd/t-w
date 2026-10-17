@@ -83,7 +83,10 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwRacePicker = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
-  ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const racePickerMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('racePickerMod.' + x)); if(n){ ls[i] = ls[i].replace('racePickerMod.' + n, n); return ls.join('\n'); } } return a; }, null],
+  /* app.js 가 racePickerMod.이름 을 직접 부르는 자리가 없으면(부르는 곳이 모두 deps 로 받는 모듈 — C 구역 떼기) 이 깨 보기는 해당 없음 */
+  ...(SRC.split('\n').some(l => !l.startsWith('const racePickerMod =') && !/^  [\w$]+: /.test(l) && EXPORTS.some(x => l.includes('racePickerMod.' + x))) ? [
+    ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const racePickerMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('racePickerMod.' + x)); if(n){ ls[i] = ls[i].replace('racePickerMod.' + n, n); return ls.join('\n'); } } return a; }, null],
+  ] : []),
   ['만들 때 던짐', m => m.replace('function createRacePicker(deps){', 'function createRacePicker(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){

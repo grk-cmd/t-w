@@ -29,6 +29,7 @@ const myHomeOpen = deps.myHomeOpen;              // 🏠 마이홈이 열려 있
 const _myHomeFriends = deps.myHomeFriends;       // 👥 친구 목록 캐시 — app.js 의 let(구독마다 다시 대입된다)
 const _myFriendRequests = deps.myFriendRequests; // 👋 나에게 온 친구 요청 — app.js 의 let(구독마다 다시 대입된다)
 const FRIEND_MAX = deps.friendMax;               // 👥 친구 상한 — app.js 한 곳(다섯 곳이 이 값 하나를 본다)
+const friendsForCheck = deps.friendsForCheck;   // 👥 판정용 친구 목록(friends-sub.js) — 못 받았으면 한 번 읽고 · 실패면 null(토스트는 거기서)
 
 /* 👋 대기 중 친구 요청 팝업 — 요청이 여러 개면 한 번에 하나씩 순차로.
 
@@ -76,7 +77,10 @@ async function showFriendRequestPopup(onlyIds){
       box.querySelector('[data-a="no"]').onclick = ()=>done('no');
     });
     if(answer === 'ok'){
-      if(Object.keys(_myHomeFriends()).length >= FRIEND_MAX){
+      /* 👥 받은 목록으로 판정한다 — 못 받았으면 friends-sub 가 한 번 읽는다. 못 읽으면 이 요청은 남겨 둔다(아무것도 안 보냄). */
+      const _fr = await friendsForCheck();
+      if(!_fr) continue;
+      if(Object.keys(_fr).length >= FRIEND_MAX){
         toast('친구는 최대 '+FRIEND_MAX+'명까지만 추가할 수 있어요 — 나중에 자리를 만든 뒤 다시 요청받아 주세요');
         continue;   // 이 요청은 남겨둠 — 나중에 처리
       }

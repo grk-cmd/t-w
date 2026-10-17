@@ -6,19 +6,43 @@
 ## dot-render.js — 🕹️ 도트 모드 머티리얼
 
 - **책임**: 도트 렌더 모드일 때 씬 머티리얼만 바꾼다 — 텍스처를 Nearest 필터로, 프래그먼트 셰이더 끝에 PS1 색 양자화(16단계) + 4×4 Bayer 디더를 넣는다. 끄면 원래대로. *언제* 켤지는 부르는 쪽(app.js `applyCameraAndCanvas`)이 정한다.
-- **만드는 법**: `const dotRenderMod = TwDotRender.createDotRender({ scene });` — `scene` 은 `traverse(cb)` 가 있는 THREE.Scene.
+- **만드는 법**: `const dotRenderMod = TwDotRender.createDotRender({ scene, ps1Dither: TwPs1Dither });` — `scene` 은 `traverse(cb)` 가 있는 THREE.Scene, `ps1Dither` 는 아래 `ps1-dither.js`(색 단계 · Bayer 표).
 - **내보내는 것**
   - `applyDotTextureFilter(on)` — `map · emissiveMap · normalMap · roughnessMap · metalnessMap` 의 min/mag 필터를 바꾼다. 원래 값은 `tex.userData._origMinFilter/_origMagFilter` 에 둔다.
-  - `applyPS1Shader(on)` — 머티리얼의 `onBeforeCompile` 을 감싼다(원래 것은 `userData._ps1PrevOBC` 에 두고 먼저 부른다) · `needsUpdate = true` 로 다시 컴파일.
+  - `applyPS1Shader(on)` — 머티리얼의 `onBeforeCompile` 을 감싼다(원래 것을 먼저 부른다) · 셰이더 캐시 키(`customProgramCacheKey`)에 원래 훅 글자를 넣는다 · `needsUpdate = true` 로 다시 컴파일.
+  - 켬은 부를 때마다 씬을 훑고 **이미 걸린 것만 건너뛴다**(Nearest 인 텍스처 · 지금 훅이 우리 것인 머티리얼). 끔은 켠 적이 있을 때만 훑는다.
+  - `sweepIfOn(now)` — 프레임 루프가 매 프레임 부른다. 켜져 있을 때만 `SWEEP_MS`(0.5초)마다 한 번 위 두 함수를 다시 불러, 켠 뒤 들어온 캐릭터 · 파츠 · 바꿔 낀 표정 텍스처 · 덮어쓴 색조 셰이더를 받는다.
   ```js
   if(dotOn){ dotRenderMod.applyDotTextureFilter(true); dotRenderMod.applyPS1Shader(true); }
   else { dotRenderMod.applyDotTextureFilter(false); dotRenderMod.applyPS1Shader(false); }
+  // frame(now) 안에서
+  dotRenderMod.sweepIfOn(now);
   ```
-- **확장할 때 고칠 자리**: 색 단계는 `_PS1_LEVELS`(스티커사진 `purikura-net.js` 의 `PS1_LEVELS` 와 같은 값이어야 한다) · 디더 행렬 · 넣을 GLSL 은 `_PS1_FRAG_INJECT` · 필터를 바꿀 텍스처 칸은 `applyDotTextureFilter` 안 목록.
+- **확장할 때 고칠 자리**: 색 단계 · 디더 행렬은 `ps1-dither.js` 한 곳(스티커사진 PS1 필터도 같이 바뀐다) · 넣을 GLSL 은 `_PS1_FRAG_INJECT` · 필터를 바꿀 텍스처 칸은 `DOT_TEX_KEYS` · 다시 훑는 간격은 `SWEEP_MS`.
 - **함정**
-  - 두 함수 모두 **마지막 상태와 같으면 아무것도 안 한다**(모드가 바뀔 때 한 번). 켠 뒤 새로 더해진 메쉬는 껐다 켤 때까지 안 훑는다 — `CONFIRM.md` 에 적어 둠.
+  - «걸렸나» 는 `userData._ps1Hooked` 표식이 아니라 **지금 `onBeforeCompile` 이 우리 훅인가**로 본다. `m.clone()` 은 userData 를 JSON 으로 복사하고 `onBeforeCompile` 은 안 옮겨서 표식만 따라온 가짜가 생기고, 색조 셰이더(`_ensureHueUniforms`)가 나중에 훅을 덮어쓰기도 한다. 표식은 스티커사진(`purikura-ui.js`)이 읽어서 그대로 적어 둔다.
+  - three r128 은 셰이더를 `customProgramCacheKey()`(기본 = `onBeforeCompile` 글자)로 나눠 쓴다. 감싼 훅은 글자가 늘 같으니 키에 원래 훅 글자를 넣어야 염색 재질과 보통 재질이 한 셰이더를 나눠 쓰지 않는다(염색 빠짐).
+  - 끌 때 그새 남이 덮어쓴 `onBeforeCompile`(색조)은 지우지 않는다 — 우리 훅일 때만 되돌린다.
+  - 켬 상태에서 텍스처에 `needsUpdate` 를 다시 걸지 않는다(이미 Nearest 면 건너뜀) — 걸면 0.5초마다 텍스처를 GPU 에 다시 올린다.
   - 셰이더는 three 의 `#include <dithering_fragment>` 뒤에 붙는다. 그 줄이 없는 머티리얼이면 마지막 `}` 앞에 넣는다.
-  - 검사: `checks/sim-dot-render.js`(4절이 가짜 씬으로 켜고 끄기 · 다시 부르기 · 빈 씬).
+  - 검사: `checks/sim-dot-render.js`(4절이 가짜 씬으로 켜고 끄기 · 다시 부르기 · 빈 씬 · 5절이 켠 뒤 들어온 메쉬 · 가짜 표식 · 덮어쓴 색조 · 캐시 키 · 훑기 간격).
+
+## ps1-dither.js — 🕹️ PS1 디더 규칙(색 단계 · Bayer 표 · 한 칸 식)
+
+- **책임**: PS1 느낌 디더의 값과 식을 한 곳에 둔다 — 도트 모드 셰이더(`dot-render.js`)와 스티커사진 PS1 필터(`purikura/purikura-net.js` `applyFilter('ps1')`)가 같이 읽는다. 값과 순수 함수뿐이라 DOM · THREE 를 모른다.
+- **만드는 법**: 만들 것 없음 — `window.TwPs1Dither`(얼린 객체)를 그대로 쓴다. html 에서 `purikura-net.js` · `dot-render.js` 보다 먼저 싣는다. node 에서는 `require('./ps1-dither.js')`.
+- **내보내는 것**
+  - `PS1_LEVELS` — 채널당 색 단계(16) · `BAYER4` — 4×4 Bayer 임계값 0~15(가로 4칸씩)
+  - `bayerThreshold(x, y)` — 픽셀 자리의 임계값 0~15/16 (4칸마다 되풀이)
+  - `ditherQuantize(v, t)` — 0~1 색 값을 임계값만큼 흔든 뒤 단계로 스냅. 0~1 밖으로 한 단계까지 나갈 수 있다 — 자르기는 부르는 쪽
+  ```js
+  const t = TwPs1Dither.bayerThreshold(x, y);
+  const out = Math.max(0, Math.min(255, TwPs1Dither.ditherQuantize(px / 255, t) * 255));
+  ```
+- **확장할 때 고칠 자리**: 단계 · 표는 이 파일 위 상수 두 개. 식을 바꾸면 `dot-render.js` 의 `_PS1_FRAG_INJECT`(GLSL 은 이 함수를 못 부르므로 같은 식을 글로 다시 쓴다)도 같이.
+- **함정**
+  - `purikura-net.js` 는 `TwPs1Dither` 를 **부를 때** 읽는다 — 그 파일만 node 로 싣는 검사가 많아서, 실을 때 읽으면 그 검사들이 죽는다.
+  - 검사: `checks/sim-ps1-dither.js`(값 · 경계값 · 도트 셰이더 글 · 스티커사진 필터 결과가 묶기 전과 픽셀까지 같음 · 깨 보기).
 
 ## glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)
 
@@ -62,6 +86,7 @@ const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름(animal.js
 | `_applyPartMatTone(m)` | 파츠 재질 — map 이 있으면 emissiveMap 도 · emissive = 색 × 플랫 · `userData.baseFlat` |
 | `_applyItemMatTone(m)` | 아이템 · 책상 GLB 재질 — GLB 의 emissive 를 덮어쓴다 · emissiveIntensity 는 1 로 |
 | `_setDeskMatColor(m, color)` | 책상 색 바꾸기 — baseFlat 으로 emissive 다시 계산(없으면 처음 심는다) |
+| `baseFlatOf(mat)` | 재질에 심은 플랫 배율(baseFlat), 없으면 공용 기준 `FLAT_EMISSIVE` — 색을 다시 칠하는 곳(아이템 · 꾸미기 · 생성기)은 모두 이것으로 읽는다. 0 도 심은 값 |
 
 ```js
 lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 색은 꼭 이 함수로(color.set 직접 금지)
@@ -70,8 +95,48 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 **확장할 때 고칠 자리** — 화면이 밝다 / 어둡다 → `TONE_FRONT_TOTAL` 하나만. 파츠만 · 아이템만 톤을 달리해야 하면 `PART_TEX_FLAT` · `ITEM_SOLID_FLAT` 줄에 숫자를.
 
 **함정**
+- «baseFlat 이 있으면 그 값, 없으면 …» 판단을 부르는 쪽에 다시 쓰지 않는다 — `baseFlatOf` 를 부른다(곳마다 쓰면 대체값이 갈라진다 · `sim-light-tone` 이 잡는다).
 - `LIGHT_PRESET.e` 를 바꾸면 app.js 위쪽 `_MAIN_LIGHT_INT`(= b × e, 숫자로 적힘)도 같이 — 한쪽만 고치면 생성기와 실행 화면 밝기가 갈라진다.
 - 1.16 을 넘기면 측면도 잘려 밝아지지 않고 계조만 사라진다.
 - 재질 색을 바꾸는 새 코드는 `color.set` 만 하지 말고 baseFlat 으로 emissive 를 다시 계산해야 한다(책상은 `_setDeskMatColor`).
 
 검사: `checks/sim-light-tone.js` (FLAT_EMISSIVE 식 · 경계 · 재질 함수 셋 · 연결 · 깨 보기).
+
+## toast.js — 🍞 토스트 · 저장 실패 문구
+
+- **책임**: `#toast` 한 줄 알림을 띄우고 시간이 되면 끈다 · 저장 실패 오류가 규칙 거부(PERMISSION_DENIED)인지 가려 문구를 고른다. 도메인을 모른다.
+- **만드는 법**: `const toastMod = TwToast.createToast({});` — deps 없음. app.js 는 그 바로 뒤에 같은 이름의 이음 함수 `toast(...)` · `_saveFailMsg(...)` 를 둔다(«옛 전역 이름» — app.js 150여 곳 · 다른 파일 · `window.toast` 가 전역으로 부른다).
+- **내보내는 것**
+  - `toast(msg, iconSrc?, ms?)` — 글은 `textContent`, `iconSrc` 가 있으면 앞에 16px img. `ms` 가 양수 숫자가 아니면 1.9초. 새 토스트는 앞 타이머를 지운다.
+  - `_saveFailMsg(e, fallback?)` — `e.code || e.message` 에 `permission-denied`(_ · - · 대소문자 무관)가 있으면 «관리자 계정으로 로그인» 안내, 아니면 `fallback` 또는 «인터넷 연결을 확인해 주세요».
+  ```js
+  toast('저장했어요');
+  try{ await save(); }catch(e){ toast(_saveFailMsg(e, '전송에 실패했어요 — 네트워크 확인')); }
+  ```
+- **확장할 때 고칠 자리**: 기본 시간 1900 · 그림 크기는 `toast` 안. 새 실패 갈래(예: 용량 초과)는 `_saveFailMsg` 의 정규식 아래에 한 줄.
+- **함정**
+  - 글을 `innerHTML` 로 바꾸지 말 것 — 닉네임 등 남이 친 글이 섞인다.
+  - 이음 함수는 모듈을 만든 줄 뒤에서만 돈다 — 부팅 중 그보다 먼저 부르면 예전처럼(옛 `toastT`) 멈춘다.
+  - 도메인 단계에서 부르는 곳이 deps 로 받게 되면 이음 함수 둘을 걷는다.
+  - 검사: `checks/sim-toast.js`(4절 — 띄우기 · 끄기 · 그림 · 앞 타이머 지우기 · 시간 경계 · 거부 문구 갈래).
+
+## `paint-geom.js` — ✏️ 그리기 공용 기하(획 조각 · 거울 UV)
+
+**책임** — 생성기 얼굴 칠하기(`creator/paint-stroke.js`)와 꾸미기 파츠 그리기(`character/part-paint.js`)가 같이 쓰는 기하 두 가지. 캔버스 2D 에 선 한 조각을 긋고, 3D 메쉬의 거울 자리 표면점을 되쏘아 UV 를 찾는다. 한쪽 그리기에 두면 두 그리기가 서로를 부르게 되어(sim-dep-cycles) 아래층에 둔다.
+
+**만드는 법** — `const paintGeomMod = TwPaintGeom.createPaintGeom({ });`(deps 0 · 생성기 «되돌리기 · blit» 바로 뒤).
+
+**내놓는 것**
+- `strokeSeg(ctx, lx, ly, x, y)` — 앞 점(lx)이 `null` 이면 그 자리에 0.01 짧은 선(점), 아니면 앞 점에서 이번 점까지. 선 굵기 · 색 · 합성은 부르는 쪽이 ctx 에 먼저 맞춘다.
+- `mirrorUVOn(hit, mesh, cam, cx, castFn, off)` — 맞은 점을 메쉬 로컬에서 중심 `cx` 로 x 반전 → 거울 법선(없으면 카메라 쪽) 바깥 `off`(기본 0.6)에서 표면 쪽으로 되쏜다. `castFn(ray, mesh)` 를 주면 그것으로 맞힌다(리깅 메쉬는 지금 자세로 맞히는 함수를 넘긴다). 못 맞히면 `null`.
+  ```js
+  const m = paintGeomMod.mirrorUVOn(hit, crState.cBase.face, crState.cCam, crState.cBase.faceCx||0, (ray, mesh)=>partPaintMod._picIntersect(ray,[mesh]));
+  ```
+
+**확장할 때 고칠 자리** — 되쏘는 거리 기본값은 `mirrorUVOn` 안의 0.6(캐릭터 얼굴 크기 기준). 파츠마다 다르면 부르는 쪽이 `off` 를 넘긴다.
+
+**함정**
+- 옷처럼 몸통 · 소매가 겹친 파츠에서 0.6 을 물러나면 반대편 표면 대신 앞쪽 천에서 출발한다 — 그래서 `off` 를 열어 두었다.
+- 리깅 메쉬에 기본 레이캐스트(castFn 없음)를 쓰면 바인드 포즈를 맞혀 대칭이 빗나간다.
+
+검사: `checks/sim-paint-geom.js` (strokeSeg 점 · 잇기 · 0 · mirrorUVOn 반전 · 0.6 · off · cx 없음 · 법선 없음 · castFn 없음 · null · 연결 · 깨 보기 9).
