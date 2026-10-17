@@ -13,6 +13,7 @@
    usageSnapshot — 사용량(비용) 기록(매시간). Cloud Monitoring 하루 합계를 metrics/usage/{서울 날짜} 에. 로직은 usage-snapshot.js.
    adminDeleteAccount — 계정 삭제(호출형 · 관리자만). 웹 관리자 사용자 페이지가 부른다. 로직은 account-delete.js.
    deleteMyAccount — 회원 탈퇴(호출형 · 로그인한 본인). 앱 [내 정보 › 계정 › 회원 탈퇴]가 부른다. 로직은 account-delete.js.
+   adminResetPassword — 비밀번호 초기화(호출형 · 관리자만). 웹 관리자 사용자 상세가 부른다 — 무작위 임시 비밀번호 · 다른 PC 로그인 끊기 · 작업 기록. 로직은 password-reset.js.
    mobileLinkTrim — 폰 연결 주소에 낀 공백 떼기. mobileLink/{코드}/state 쓰기마다 코드에 공백이 있으면 정상 칸으로 옮긴다. 로직은 mobile-link-trim.js.
 
    changePassword (호출형 · onCall)
@@ -336,6 +337,21 @@ exports.adminDeleteAccount = onCall({ timeoutSeconds: 300, maxInstances: 2 },
       if (e && e.httpsCode) throw new HttpsError(e.httpsCode, e.message);
       console.error('[adminDeleteAccount] 실패', e && e.message);
       throw new HttpsError('internal', '삭제 중에 문제가 생겼어요 — 다시 미리 보기로 남은 것을 확인해 주세요');
+    }
+  });
+
+/* 비밀번호 초기화 — 웹 관리자 사용자 상세가 부른다. 관리자(admins/{uid} === true)만, 익명 거절. { code, memo }(제보 번호 · 연락 경로 — 형식 자유 · 필수).
+   임시 비밀번호는 돌려주기만 하고 로그 · 작업 기록에 적지 않는다. 모듈이 던진 httpsCode 를 HttpsError 로 바꿔 화면에 문구가 가게 한다. */
+exports.adminResetPassword = onCall({ timeoutSeconds: 30, maxInstances: 2 },
+  async (request) => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const mod = require('./password-reset');
+    try {
+      return await mod.handleAdminResetPassword(getDatabase(), request, mod.adminDeps(), Date.now());
+    } catch (e) {
+      if (e && e.httpsCode) throw new HttpsError(e.httpsCode, e.message);
+      console.error('[adminResetPassword] 실패', e && e.message);
+      throw new HttpsError('internal', '초기화 중에 문제가 생겼어요 — 다시 눌러 주세요');
     }
   });
 
