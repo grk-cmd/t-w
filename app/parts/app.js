@@ -5878,201 +5878,41 @@ function reopenAnimalFromCreator(tab){
   return false;
 }
 
-// ★ 런처3-2: 책상+좌석 세팅 프리셋 (5슬롯, 전 캐릭터 슬롯 공용, localStorage 'tw.deskPresets').
-//   저장: 지금 생성기의 책상 관련 상태 + 좌석 xf(크기/앞뒤/회전) 통째로.
-//   불러오기: 클릭한 프리셋을 지금 편집 중인 캐릭터에 적용 (책상/좌석 세팅 4·5단계 값 한 번에).
-const PRESET_KEY = 'tw.deskPresets';
-function loadDeskPresets(){
-  try{ const arr = JSON.parse(localStorage.getItem(PRESET_KEY)||'[]');
-       return Array.isArray(arr) ? arr.slice(0,5).concat([null,null,null,null,null]).slice(0,5) : [null,null,null,null,null];
-  }catch(_){ return [null,null,null,null,null]; }
-}
-function saveDeskPresets(arr){ try{ localStorage.setItem(PRESET_KEY, JSON.stringify(arr.slice(0,5))); }catch(_){} }
-function captureDeskPreset(){
-  // 지금 생성기의 실제 상태로부터 프리셋 페이로드 생성
-  const p = {
-    // 책상
-    deskColor: crState.cDeskColor,
-    deskScale: crState.cDeskScale,
-    deskLenX: crState.cDeskLenX,
-    deskPos: {x:crState.cDeskPos.x, y:crState.cDeskPos.y, z:crState.cDeskPos.z},
-    deskCatalogId: crState.activeCustomDeskId || null,
-    deskGlb: (crState.activeCustomDeskId && crState.cDeskGlbB64) ? crState.cDeskGlbB64 : null,
-    deskItems: crState.cBase ? collectDeskItems(crState.cBase) : null,
-    // 커스텀 아이템(카탈로그에 없는 로컬 등록분)도 함께 — 다른 슬롯에서 불러올 때 참조가 살아있게
-    customItems: (function(){ const ci={}; Object.keys(customItems).forEach(id=>{ const c=customItems[id]; ci[id]={name:c.name, glb:c.glb}; }); return Object.keys(ci).length?ci:null; })(),
-    // 좌석 (편집 도중이라 cXform 참조 — 슬라이더/스와치와 동일한 값)
-    // 🧍 z(앞뒤) → y(높이). 옛 프리셋의 z 는 로드 쪽에서 무시한다.
-    seat: { s:crState.cXform.s, y:clampCharY(crState.cXform.y), rot:crState.cXform.rot },
-    ts: Date.now(),
-  };
-  return p;
-}
-// ★ 런처3-2 후속: 프리셋 로드 후 미리보기 렌더 갱신 — 책상 크기 변화가 화면에 반영되려면 카메라
-//   프레이밍도 재계산해야 함(fit는 캐릭터 기준, frameDeskCam은 책상까지 포함해 카메라 거리 조정).
-function _refitPreviewAfterPreset(){
-  try{
-    creatorPrevMod.fitCreator(crState.crStep<=4 ? 'edit' : 'app');
-    if((crState.crStep===5||crState.crStep===6)) creatorPrevMod.frameDeskCam(false);
-  }catch(_){}
-}
-function applyDeskPreset(p){
-  if(!p || !crState.cBase){ toast('먼저 캐릭터를 선택해 주세요'); return; }
-  // 런처3-2 후속: 프리셋 로드 시 이전 카메라 상태 초기화 — 안 그러면 5·6단계 재진입 시 옛 책상 기준으로
-  //   저장된 카메라 위치가 복원돼서 새 책상 크기와 어긋난 프레이밍이 보임(요청사항: 미리보기 크기 안 맞음).
-  crState.deskCamSaved = null;
-  // 1) 좌석 세팅 적용 (슬라이더 값 + 즉시 반영)
-  if(p.seat){
-    if(typeof p.seat.s==='number')   { crState.cXform.s   = p.seat.s;   const el=document.getElementById('crScale'); if(el) el.value=p.seat.s; }
-    /* 🧍 높이 — #crZ 가 이제 높이 슬라이더다. 옛 프리셋의 p.seat.z(앞뒤)는 폐기된 값이라 읽지 않는다
-       (읽으면 앞뒤로 맞춰둔 옛 숫자가 그대로 '높이' 로 해석돼 캐릭터가 공중에 뜬다). */
-    if(typeof p.seat.y==='number')   { crState.cXform.y   = clampCharY(p.seat.y); const el=document.getElementById('crZ'); if(el) el.value=crState.cXform.y; }
-    if(typeof p.seat.rot==='number') { crState.cXform.rot = p.seat.rot; const el=document.getElementById('crRot');   if(el) el.value=p.seat.rot; }
-    creatorPrevMod.applyCreatorXform();
-  }
-  // 2) 커스텀 아이템 카탈로그(세션) 병합 — 프리셋이 참조하는 로컬 아이템이 있으면 함께 복원
-  if(p.customItems) Object.keys(p.customItems).forEach(id=>{
-    /* 🪑 [제보 2] 예전엔 licenseOnly:false 를 **명시로 박았다.** 프리셋 payload(captureDeskPreset)는
-       {name, glb} 만 담으므로 그 false 가 그대로 남아 equipDeskItem 의 게이트가 통째로 안 걸렸다.
-       원본은 카탈로그 레코드(savedItems)다 — 없으면 false 지만, 그때는 아래 정리가 다시 본다. */
-    if(!customItems[id]){
-      let _si=null; try{ _si=commissionMod.savedItems(); }catch(_){}
-      const _rec = (_si && _si.find) ? _si.find(s=>s.id===id) : null;
-      customItems[id] = Object.assign({id, cat:'item', deskItem:true, licenseOnly:!!(_rec && _rec.licenseOnly)}, p.customItems[id]);
-    }
-  });
-  // 3) 책상 색/크기/길이 (슬라이더/스와치도 갱신)
-  if(typeof p.deskColor==='string'){
-    crState.cDeskColor = p.deskColor;
-    const el=document.getElementById('deskColor'); if(el){ el.value=crState.cDeskColor; el.dispatchEvent(new Event('input',{bubbles:true})); }
-    if(crState.cDeskMat) crState.cDeskMat.color.set(crState.cDeskColor);
-    deskVisualMod.applyDeskColorToCustom(crState.cDesk, crState.cDeskColor);
-  }
-  if(typeof p.deskScale==='number'){ crState.cDeskScale=clampDeskScale(p.deskScale); const el=document.getElementById('deskScale'); if(el) el.value=crState.cDeskScale; setCreatorDeskScale(crState.cDeskScale); }
-  if(typeof p.deskLenX==='number'){  crState.cDeskLenX=p.deskLenX;  const el=document.getElementById('deskLenX');  if(el) el.value=crState.cDeskLenX;  setCreatorDeskScale(crState.cDeskScale); }
-  if(p.deskPos && typeof p.deskPos==='object'){ crState.cDeskPos={x:+p.deskPos.x||0, y:+p.deskPos.y||0, z:+p.deskPos.z||0}; setDeskPos(crState.cDesk, crState.cDeskPos); crXformMod.updateDeskPosNum(); }
-  // 4) 책상 모델(카탈로그 id or GLB)
-  const applyDeskModel = ()=>{
-    // 현재 아이템 전부 제거 (프리셋의 아이템으로 교체)
-    if(crState.cBase){ deskItemsMod.allDeskItems().forEach(def=>{ if(crState.cBase.deskItems && crState.cBase.deskItems[def.id]) equipDeskItem(crState.cBase,def,false); }); }
-    // 프리셋에 아이템 복원
-    if(p.deskItems && crState.cBase) applyDeskItemsTo(crState.cBase, p.deskItems);
-    autoSaveDeskItemsNow();
-  };
-  /* 🪑 [제보 2] 프리셋에 남은 라이선스 전용 책상 — 여기서 막지 않으면 activeCustomDeskId 가 서고,
-     crDone 이 그것을 def.deskCatalogId 로 굳힌다(생성기 진입 26733 이 애써 떨어뜨린 것이 되살아난다).
-     라이선스가 없으면 아래 else 로 떨어져 기본 책상으로 열린다 — 프리셋 자체는 그대로 남는다. */
-  const _presetDeskLocked = (!isPremium && !isAdmin) && premiumMod._licenseLockedDeskId(p.deskCatalogId);
-  if(p.deskCatalogId && p.deskGlb && !_presetDeskLocked){
-    assetCodeMod.parseGlbBytes(b64ToBuf(p.deskGlb)).then(sc=>{
-      crState.cDeskTemplate=sc; crState.cDeskGlbB64=p.deskGlb; crState.activeCustomDeskId=p.deskCatalogId;
-      const isDefaultOverride = (p.deskCatalogId === DEFAULT_DESK_OVERRIDE_ID);
-      if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk, sc, isDefaultOverride); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
-      applyDeskModel();
-      _refitPreviewAfterPreset();
-    }).catch(()=>{ toast('프리셋의 책상 모델을 불러오지 못했어요'); applyDeskModel(); _refitPreviewAfterPreset(); });
-  } else {
-    crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=null;
-    // ★ 런처3-2 후속(진짜 원인): "기본 책상"으로 저장된 프리셋을 로드할 때 하드코딩 내장 책상을 보여주고
-    //   있었는데, 생성기 재진입·실행 화면은 관리자가 등록한 기본 책상 오버라이드(__default_desk__)를 보여줌 —
-    //   모델 자체가 달라서(단위 폭 3.0 vs 5.33) 미리보기만 캐릭터/아이템이 커 보이던 원인.
-    //   재진입 로직과 동일하게 오버라이드가 있으면 그걸 표시.
-    const ov = commissionMod.savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
-    if(ov){
-      (async ()=>{
-        if(!ov.glb && ov.glbUrl){
-          try{ await catalogGlbMod.resolveCatalogGlb(ov); }catch(_){}
-        }
-        try{
-          const sc = await assetCodeMod.parseGlbBytes(b64ToBuf(ov.glb));
-          if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk, sc, true); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
-        }catch(_){
-          if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk, null); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
-        }
-        applyDeskModel();
-        _refitPreviewAfterPreset();
-      })();
-    } else {
-      if(crState.cDesk){ deskVisualMod.swapDeskVisual(crState.cDesk, null); deskVisualMod.applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
-      applyDeskModel();
-      _refitPreviewAfterPreset();
-    }
-  }
-  renderDeskPresetSlots();   // 저장 시각/썸네일 갱신
-  toast('프리셋을 불러왔어요');
-}
-function renderDeskPresetSlots(){
-  const box=document.getElementById('crPresetSlots'); if(!box) return;
-  const arr=loadDeskPresets();
-  box.innerHTML='';
-  for(let i=0;i<5;i++){
-    const p=arr[i]||null;
-    const btn=document.createElement('button');
-    btn.type='button';
-    btn.style.cssText='flex:1;padding:8px 6px;font-size:12px;cursor:pointer;'
-      + 'background:'+(p?'#fff':'#eee')+';border:1px solid;border-color:#888 #ddd #ddd #888;'
-      + 'color:'+(p?'#333':'#888')+';';
-    btn.textContent = (i+1) + (p?' ✓':'');
-    btn.title = p ? ('클릭 = 불러오기 / 우클릭 = 덮어쓰기·삭제  (저장 시각: '+new Date(p.ts).toLocaleString()+')')
-                  : ('빈 슬롯 — 우클릭해서 지금 세팅을 여기 저장');
-    btn.onclick = ()=>{
-      if(!p) return toast('빈 슬롯이에요 — 우클릭해서 지금 세팅을 저장할 수 있어요');
-      applyDeskPreset(p);
-    };
-    btn.oncontextmenu = ev=>{
-      ev.preventDefault();
-      const menu=document.createElement('div');
-      menu.className='cr-preset-ctx';   // 팝업 outside-close에서 예외 처리하려고
-      const rect=btn.getBoundingClientRect();
-      menu.style.cssText='position:fixed;z-index:9999;background:var(--win-face);'
-        +'border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);'
-        +'box-shadow:2px 2px 4px rgba(0,0,0,.3);padding:4px 0;font-size:11px;min-width:130px;'
-        +'left:'+ev.clientX+'px;top:'+ev.clientY+'px;';
-      const mk=(label, fn)=>{ const it=document.createElement('div'); it.textContent=label;
-        it.style.cssText='padding:5px 10px;cursor:pointer;color:var(--ink);';
-        it.onmouseenter=()=>it.style.background='var(--win-select)'; it.onmouseleave=()=>it.style.background='';
-        it.onclick=()=>{ fn(); menu.remove(); document.removeEventListener('mousedown', closer, true); };
-        menu.appendChild(it); };
-      mk(p?'💾 이 슬롯에 덮어쓰기':'💾 지금 세팅을 여기 저장', ()=>{
-        if(!crState.cBase){ toast('먼저 캐릭터를 선택해 주세요'); return; }
-        const cur=loadDeskPresets(); cur[i]=captureDeskPreset(); saveDeskPresets(cur);
-        renderDeskPresetSlots(); toast('프리셋 '+(i+1)+'번에 저장했어요');
-      });
-      if(p) mk('🗑 이 슬롯 비우기', ()=>{
-        const cur=loadDeskPresets(); cur[i]=null; saveDeskPresets(cur);
-        renderDeskPresetSlots(); toast('프리셋 '+(i+1)+'번을 비웠어요');
-      });
-      document.body.appendChild(menu);
-      const closer=(e)=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('mousedown', closer, true); } };
-      setTimeout(()=>document.addEventListener('mousedown', closer, true), 0);
-    };
-    box.appendChild(btn);
-  }
-}
-// 생성기 진입 시 UI 그림
-(function _initDeskPresetBar(){
-  function bind(){
-    renderDeskPresetSlots();
-    const btn=document.getElementById('crPresetBtn'), pop=document.getElementById('crPresetPopup');
-    if(!btn || !pop || btn.dataset.bound) return;
-    btn.dataset.bound = '1';
-    btn.addEventListener('click', e=>{
-      e.stopPropagation();
-      const open = pop.style.display !== 'none';
-      pop.style.display = open ? 'none' : 'block';
-      if(!open) renderDeskPresetSlots();   // 열 때마다 최신 상태로
-    });
-    document.addEventListener('mousedown', e=>{
-      if(pop.style.display==='none') return;
-      if(pop.contains(e.target) || e.target===btn) return;
-      // 우클릭 메뉴(뜬 상태에서 슬롯 우클릭 → contextmenu에서 열림)는 유지 — 그 안 클릭 시 자동 닫힘 신경 X
-      if(e.target.closest && e.target.closest('.cr-preset-ctx')) return;
-      pop.style.display='none';
-    }, true);
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', bind, {once:true});
-  else bind();
-})();
+/* 🗂 책상 · 좌석 세팅 프리셋(5칸 · 모든 캐릭터 칸 공용) — 저장은 creator/desk-preset-store.js, 담기 · 적용 · 칸 화면은 creator/desk-preset.js(C 구역 떼기 w4).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
+});
+/* 본문은 creator/desk-preset.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const deskPresetMod = TwDeskPreset.createDeskPreset({
+  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  applyCreatorXform: (...a)=>creatorPrevMod.applyCreatorXform(...a),
+  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
+  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
+  assetCodeMod: ()=>assetCodeMod,
+  autoSaveDeskItemsNow: (...a)=>autoSaveDeskItemsNow(...a),
+  b64ToBuf: (...a)=>b64ToBuf(...a),
+  catalogGlbMod: ()=>catalogGlbMod,
+  clampCharY: (...a)=>clampCharY(...a),
+  clampDeskScale: (...a)=>clampDeskScale(...a),
+  collectDeskItems: (...a)=>collectDeskItems(...a),
+  commissionMod: ()=>commissionMod,
+  crState: crState,
+  crXformMod: ()=>crXformMod,
+  customItems: ()=>customItems,
+  deskItemsMod: ()=>deskItemsMod,
+  deskPresetStoreMod: deskPresetStoreMod,
+  equipDeskItem: (...a)=>equipDeskItem(...a),
+  fitCreator: (...a)=>creatorPrevMod.fitCreator(...a),
+  frameDeskCam: (...a)=>creatorPrevMod.frameDeskCam(...a),
+  isAdmin: ()=>isAdmin,
+  isPremium: ()=>isPremium,
+  premiumMod: premiumMod,
+  setCreatorDeskScale: (...a)=>setCreatorDeskScale(...a),
+  setDeskPos: (...a)=>setDeskPos(...a),
+  swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
+  toast: (...a)=>toast(...a),
+});
 // ★ 책상 크기 슬라이더의 실제 min/max — HTML의 #deskScale range와 반드시 같은 값으로 맞춰야 함.
 //   슬라이더 범위를 바꾼 적이 있어서, 그 이전 범위 기준으로 저장된 캐릭터의 deskScale이 새 범위를
 //   벗어나 있을 수 있음(예: 옛날엔 0.34가 정상 범위였는데 지금은 최대 0.3) — 그대로 슬라이더에 넣으면

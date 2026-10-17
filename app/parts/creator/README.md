@@ -234,3 +234,35 @@ assetImportMod.onPartAdded(()=>wardrobeMod.renderWardrobe());   // 파츠를 넣
 - 책상을 넣을 때 크기(`cDeskScale`)는 바꾸지 않는다 — 슬라이더로 맞춰 둔 값을 그대로 둔다(처음값으로 돌리면 매번 슬라이더가 튄다).
 
 검사: `checks/sim-asset-import.js` (창 열기 · 거르기 7 · 등록 3 · 구독 · 입구 전제 · 연결 · 깨 보기 12).
+
+## `desk-preset-store.js` · `desk-preset.js` — 🗂 책상 · 좌석 세팅 프리셋(5칸)
+
+**책임** — 생성기 5 · 6단계의 책상 · 좌석 세팅을 5칸(모든 캐릭터 칸 공용)에 담아 두었다가 지금 캐릭터에 한 번에 적용한다.
+- `desk-preset-store.js` — 저장만: localStorage `tw.deskPresets` 를 늘 5칸으로 읽고(빈 칸 null · 깨진 값이면 빈 5칸), 앞 5칸만 쓴다.
+- `desk-preset.js` — 담기(책상 색 · 크기 · 길이 · 위치 · 모델 · 아이템 · 로컬 아이템 · 좌석) · 적용 · 칸 화면(클릭 불러오기 · 우클릭 저장 / 비우기 · 팝업 버튼).
+
+**만드는 법** — app.js 생성기 «책상 크기 슬라이더» 앞, 저장 모듈을 먼저:
+
+```js
+const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
+});
+const deskPresetMod = TwDeskPreset.createDeskPreset({
+  crState: crState,                          // 값 — cDesk* · cXform · activeCustomDeskId · cDeskGlbB64 · deskCamSaved · crStep
+  deskPresetStoreMod: deskPresetStoreMod,    // 값 — 5칸 읽기 · 쓰기
+  premiumMod: premiumMod,                    // 값 — 라이선스 전용 책상 판정
+  isPremium: ()=>isPremium,                  // 읽는 함수
+  // … 함수 15 · 읽는 함수 8 · DEFAULT_DESK_OVERRIDE_ID
+});
+```
+
+**내놓는 것** — `deskPresetStoreMod.loadDeskPresets()` · `saveDeskPresets(arr)`. `deskPresetMod` 는 없음(만들 때 팝업 버튼을 건다).
+
+**확장할 때 고칠 자리** — 담을 값은 `captureDeskPreset` 과 `applyDeskPreset` 의 같은 이름 칸을 짝으로. 칸 수는 두 파일의 5.
+
+**함정**
+- 좌석 높이는 `p.seat.y` — 옛 프리셋의 `p.seat.z`(앞뒤)는 읽지 않는다(읽으면 캐릭터가 공중에 뜬다).
+- 로컬 아이템의 라이선스 전용 여부는 프리셋 값이 아니라 원본 카탈로그(savedItems)에서. 라이선스 전용 책상은 라이선스 · 관리자가 아니면 쓰지 않고 기본 책상으로 연다.
+- «기본 책상» 프리셋은 관리자가 등록한 기본 책상(`__default_desk__`)이 있으면 그것을 — 내장 책상과 폭이 달라 미리보기 크기가 어긋난다.
+- 입구 전제 — 적용 · 저장은 캐릭터(`crState.cBase`)가 있어야, 칸 화면은 `#crPresetSlots` · 버튼이 있어야.
+
+검사: `checks/sim-desk-preset.js` (저장 4 · 담기 · 적용 · 책상 모델 7 · 칸 화면 · 팝업 · 입구 전제 · 연결 · 깨 보기 12).
