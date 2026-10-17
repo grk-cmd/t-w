@@ -28,7 +28,6 @@ const chatUiMod = deps.chatUiMod;
 const createSeat = deps.createSeat;
 const curSlot = deps.curSlot;   // 읽는 함수
 const deserializeDefFromNetwork = deps.deserializeDefFromNetwork;
-const fitModel = deps.fitModel;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
@@ -40,6 +39,7 @@ const maxPeople = deps.maxPeople;
 const myExpCells = deps.myExpCells;
 const officeMode = deps.officeMode;   // 읽는 함수
 const pruneSeatPartsAgainstDef = deps.pruneSeatPartsAgainstDef;
+const refitSeatAfterParts = deps.refitSeatAfterParts;
 const removeSeatLabels = deps.removeSeatLabels;
 const renderSeatTabs = deps.renderSeatTabs;
 const rideBenchMod = deps.rideBenchMod;
@@ -407,7 +407,9 @@ function _applyRemoteRides(){
       if(!want || want === 'self'){ if(seat.ridingOn){ try{ rideBenchMod.unmountRide(seat); }catch(_){} } return; }
       const target = (myUid && want === myUid) ? me : (byUser[want] || byFriend[want] || null);
       if(!target) return;                                  // 일시적 조회 실패 — 내리지 않고 유지(다음 sync에 반영)
-      if(seat.ridingOn === target) return;                 // 이미 같은 상태면 건드리지 않음(재실측 방지)
+      /* 이미 같은 상태면 건드리지 않음(재실측 방지). 파츠가 바뀐 뒤의 높이 다시 재기는 여기서 판단하지 않는다 —
+         파츠를 붙이고 떼는 자리가 refitSeatAfterParts · requestRefit(seat-refit.js)으로 그 좌석과 탄 대상 높이를 다시 잰다(판단은 그 한 곳). */
+      if(seat.ridingOn === target) return;
       if(target===seat || rideBenchMod._rideIsAbove(target, seat)) return;   // 순환 방지
       try{ seat.ridingOn = null; rideBenchMod.mountRide(seat, target); }catch(_){}
     });
@@ -465,13 +467,9 @@ function syncFriendSeats(friends){
                파츠만 붙이고 fitModel 을 안 불러서 내 화면에서는 그 사람만 욕조가 바닥에 파묻힌 채로
                남았다(다른 사람은 applyCharToSeat 경로라 재계산이 있었다 — 그래서 '하나만' 어긋난다).
                욕조를 벗는 쪽도 마찬가지로 뜬 채 남는다.
-             ★ 레이스 가드는 applyCharToSeat 의 .then 과 같은 이유·같은 조건이다 — 파츠 GLB 가
+             ★ 레이스 가드는 applyCharToSeat 와 같은 이유·같은 조건이다 — 파츠 GLB 가
                비동기로 붙는 동안 그 사람이 나가거나 캐릭터를 바꾸면 낡은 좌석에 뒤늦게 발사된다. */
-          applyEquippedPartsToSeat(s, fdef).then(()=>{   // 남아있는/새로 생긴 파츠는 적용(교체 포함)
-            try{
-              if(s && s.charDef===fdef && s.gltfRoot){ fitModel(s); layoutSeats(); }
-            }catch(_){}
-          });
+          refitSeatAfterParts(s, { wait: applyEquippedPartsToSeat(s, fdef), layout: true, isCurrent: ()=>s.charDef===fdef });   // 남아있는/새로 생긴 파츠는 적용(교체 포함)
         }
       }
     }

@@ -37,12 +37,11 @@ const creatorOpen = deps.creatorOpen;   // 읽는 함수
 const customItems = deps.customItems;   // 읽는 함수
 const equipDeskItem = deps.equipDeskItem;
 const equipPartOnSeat = deps.equipPartOnSeat;
-const fitModel = deps.fitModel;
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const isAdmin = deps.isAdmin;   // 읽는 함수
-const layoutSeats = deps.layoutSeats;
 const loadSavedItemsIntoSession = deps.loadSavedItemsIntoSession;
 const premiumMod = deps.premiumMod;
+const refitSeatAfterParts = deps.refitSeatAfterParts;
 const renderCrItems = deps.renderCrItems;
 const renderLauncher = deps.renderLauncher;
 const rideBenchMod = deps.rideBenchMod;
@@ -172,9 +171,7 @@ function mergeCatalogIntoSavedParts(catalogObj){
     /* 🦶 카탈로그가 늦게 와 여기서 붙은 파츠도 바닥 맞춤을 받아야 한다(부팅 fitModel 은 이미 지나갔다).
        ★ 새로 붙은 게 없으면 fitModel 을 안 부른다 — 카탈로그가 올 때마다 좌석 전부가 다시 굴러간다. */
     if(_pending.length){
-      Promise.all(_pending.map(p=>Promise.resolve(p).catch(()=>{}))).then(()=>{
-        try{ if(s && s.gltfRoot){ fitModel(s); layoutSeats(); } }catch(_){}
-      });
+      refitSeatAfterParts(s, { wait: Promise.all(_pending.map(p=>Promise.resolve(p).catch(()=>{}))), layout: true });
     }
     /* 🎩 카탈로그가 늦게 와 rideTop(위에 얹을 수 있음)만 바뀐 경우 — 이미 붙은 파츠라 위 루프는 건너뛰므로
        머리 꼭대기를 좌석마다 직접 다시 잰다. ⚠️ _pending 과 무관하게 부른다(아무도 안 타면 바로 빠져나온다). */

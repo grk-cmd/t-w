@@ -32,6 +32,7 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
     "const SAVED_PARTS_KEY = 'tw.savedParts', CATALOG_ORDER_LAST = 9999; let savedParts = [];",
     'const log = [], seats = [];',
     'const persistSavedParts = () => {}, applyClothVisibility = () => {}, unequipPartFromSeat = () => {}, fitModel = () => {}, layoutSeats = () => {};',
+    'const refitSeatAfterParts = () => {};',   // 다시 맞추기 한 벌(seat-refit.js — 판정은 sim-seat-refit)
     'const renderLauncher = () => {}, refreshWdPreviewChar = () => {}, renderWardrobe = () => {}, _remeasureRideHeadTop = () => {};',
     'const gachaMod = { pruneUnownedGachaParts: () => {} }, partEntryXf = (e) => e && e.xf;',
     "const partEntryId = (e) => typeof e === 'string' ? e : (e && e.id), entriesForCat = (def, c) => [].concat(def.equippedParts[c]);",

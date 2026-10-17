@@ -21,7 +21,6 @@ const applyClothVisibility = deps.applyClothVisibility;
 const catEquippedIds = deps.catEquippedIds;
 const equipPartOnSeat = deps.equipPartOnSeat;
 const findEntryById = deps.findEntryById;
-const fitModel = deps.fitModel;
 const generatePartThumbnail = deps.generatePartThumbnail;
 const getPartScene = deps.getPartScene;
 const getRecHides = deps.getRecHides;
@@ -32,6 +31,7 @@ const partEntryXf = deps.partEntryXf;
 const partsInCat = deps.partsInCat;
 const partsInCatFor = deps.partsInCatFor;
 const persistSavedParts = deps.persistSavedParts;
+const refitSeatAfterParts = deps.refitSeatAfterParts;
 const removeEntryFromCat = deps.removeEntryFromCat;
 const renderCrItems = deps.renderCrItems;
 const renderWardrobe = deps.renderWardrobe;
@@ -330,9 +330,7 @@ function openPartRegister(cat, editRec){
               const stackableXf = rec.stackable ? partEntryXf(entry) : null;
               /* 🦶 파츠 GLB 를 고쳐 저장하면 발밑 깊이도 달라진다 — 다시 붙인 뒤 바닥을 맞춘다.
                  (욕조를 조금 더 깊게 그려 저장했는데 화면은 예전 높이 그대로였던 경로) */
-              Promise.resolve(equipPartOnSeat(s, c, rec, { stackableXf })).then(()=>{
-                try{ if(s && s.gltfRoot) fitModel(s); }catch(_){}
-              }).catch(()=>{});
+              refitSeatAfterParts(s, { wait: Promise.resolve(equipPartOnSeat(s, c, rec, { stackableXf })) });
             }
           }
           applyClothVisibility(s);
