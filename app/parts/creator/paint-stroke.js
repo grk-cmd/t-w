@@ -23,6 +23,10 @@ const partPaintMod = deps.partPaintMod;
 const pushHistory = deps.pushHistory;
 const swEl = deps.swEl;   // 읽는 함수
 const toast = deps.toast;
+/* 칠하기 상수 — 솔기 허용치는 꾸미기 파츠 그리기(_wdPicPaint)와 같은 식이다 */
+const SEAM_UV_CAP = 0.25, SEAM_UV_MUL = 4, SEAM_UV_BASE = 0.02;   // 허용 UV 점프 = min(CAP, 3D 이동 × UV 배율 × MUL + BASE)
+const OCCLUDE_EPS = 1e-3;      // 옷이 얼굴보다 이만큼 이상 앞이어야 가린 것으로 본다
+const EYEDROP_MIN_ALPHA = 8;   // 스포이드가 무시하는 거의 투명한 픽셀(알파 < 이 값)
 function mirrorUV(hit){ if(!crState.cBase||!crState.cBase.face)return null;
   /* 대칭 되쏘기도 지금 자세로 맞힌다 — 얼굴이 리깅이라 기본 캐스트는 바인드 포즈를 맞힌다. */
   return paintGeomMod.mirrorUVOn(hit, crState.cBase.face, crState.cCam, crState.cBase.faceCx||0, (ray, mesh)=>partPaintMod._picIntersect(ray,[mesh])); }
@@ -48,7 +52,7 @@ function _paintHitAt(clientX, clientY){
     let vis=true, q=o, root=o; for(;q;q=q.parent){ if(q.visible===false){ vis=false; break; } root=q; }
     if(!vis || root !== _fr) continue;
     const oh=partPaintMod._picIntersect(_pray.ray, [o]);
-    if(oh && oh.point && _pray.ray.origin.distanceTo(oh.point) < hit.distance - 1e-3) return null;   // 옷이 앞에 있다 — 안 보이는 곳이다
+    if(oh && oh.point && _pray.ray.origin.distanceTo(oh.point) < hit.distance - OCCLUDE_EPS) return null;   // 옷이 앞에 있다 — 안 보이는 곳이다
   }
   return hit;
 }
@@ -56,9 +60,9 @@ function paintAt(hit){ const ctx=actC().getContext('2d');ctx.lineCap='round';ctx
   ctx.lineWidth=crState.brushSize;
   ctx.globalCompositeOperation=crState.eraser?'destination-out':'source-over';ctx.strokeStyle=crState.brushColor;
   const cx=hit.uv.x*CANVAS_SZ, cy=hit.uv.y*CANVAS_SZ;
-  /* 🧵 솔기 판정(_wdPicPaint 와 같은 식) — 천장 0.25 까지 그대로. */
+  /* 🧵 솔기 판정(_wdPicPaint 와 같은 식 · 위 SEAM_UV_*) */
   const wD=(crState._pLastPt && hit.point) ? crState._pLastPt.distanceTo(hit.point) : 0;
-  const allow=Math.min(0.25, wD * partPaintMod._wdPicUvScale(hit.object) * 4 + 0.02);
+  const allow=Math.min(SEAM_UV_CAP, wD * partPaintMod._wdPicUvScale(hit.object) * SEAM_UV_MUL + SEAM_UV_BASE);
   if(crState._pLastUV && Math.hypot(hit.uv.x-crState._pLastUV.x, hit.uv.y-crState._pLastUV.y) > allow){ crState.lastPX=crState.lastPY=null; }
   paintGeomMod.strokeSeg(ctx,crState.lastPX,crState.lastPY,cx,cy); crState.lastPX=cx; crState.lastPY=cy;
   crState._pLastUV={x:hit.uv.x, y:hit.uv.y};
@@ -114,7 +118,7 @@ function eyedropFromEvent(e){ if(!isDrawStep()||!crState.cBase)return false;
   const cx=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.x*CANVAS_SZ)));
   const cy=Math.max(0,Math.min(CANVAS_SZ-1,Math.floor(_eh.uv.y*CANVAS_SZ)));
   let d; try{ d=actC().getContext('2d').getImageData(cx,cy,1,1).data; }catch(_){ return false; }
-  if(d[3]<8) return false;   // 빈 픽셀은 무시
+  if(d[3]<EYEDROP_MIN_ALPHA) return false;   // 빈 픽셀은 무시
   const hex='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
   crState.brushColor=hex; _crDropEraser();
   const bc=document.getElementById('brushCustom'); if(bc)bc.value=hex;

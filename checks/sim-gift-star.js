@@ -107,6 +107,21 @@ chk(/escHtml\(text\)/.test(ask) && /escHtml\(title\)/.test(ask), '확인창 문�
 chk(/live = live\.filter\(x=>!\(x\.gift && x\.gift\.giftId===giftId\)\)/.test(ML) && /h\.delete\(giftId\)/.test(ML),
   '삭제 시 마이홈 live 목록 · 로컬 치움 목록에서도 뺀다');
 
+say('§4 내 코드 없음 — 말랑이 · 선물 요청 0(로컬 백업은 그대로)');
+const noUidCalls = (ml) => {
+  const pick = (re) => (ml.match(re) || [''])[0];
+  const fns = pick(/async function loadImgsFor\([\s\S]*?\n  \}/) + '\n' + pick(/async function loadGifts\([\s\S]*?\n  \}/);
+  const calls = [];
+  const ctx = { calls, imgs: [], localStorage: { getItem: () => '["https://i/anon.png"]' }, lsKey: () => 'tw.mallang.anon', myId: () => null, fbReady: () => true,
+    firebaseAPI: new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return Promise.resolve({}); } }),
+    _hiddenSet: () => new Set(), _saveHidden(){}, spawnGift(){}, updateGiftBadge(){}, giftOverflow: () => [], GIFT_MAX: 30, JSON };
+  try { vm.runInNewContext(fns + '\nloadImgsFor(null).catch(()=>{}); loadGifts(null).catch(()=>{});', ctx); } catch (e) { return ['던짐 ' + e.message]; }
+  return calls;
+};
+chk(noUidCalls(ML).length === 0, '내 코드 없음 → getMallangImgs · getMallangGifts 요청 0');
+chk(noUidCalls(ML.replace('if(fbReady() && userId) raw =', 'if(fbReady()) raw =').replace('if(!ownerId || !fbReady() || !firebaseAPI.getMallangGifts) return;', 'if(!fbReady() || !firebaseAPI.getMallangGifts) return;')).length === 2,
+  '  깨 보기 — 내 코드 확인을 빼면 두 요청이 나간다(빨강)');
+
 say('');
 say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — ⭐ 는 서버에 남고, 자동 정리·우클릭 어느 쪽으로도 지워지지 않는다');
 process.exit(fail ? 1 : 0);

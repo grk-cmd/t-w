@@ -83,7 +83,7 @@ async function judge(S){
       readPresence: (fid) => { E.reads.push(fid); if(o.readFail) return Promise.reject(new Error('offline')); return Promise.resolve({ online: true, room: 'R-' + fid }); },
       current: () => E.friends,
       setFriends: (v) => { E.sets++; E.friends = v; },
-      getMyUserId: () => 'ME',
+      getMyUserId: () => (o.noUid ? null : 'ME'),
       toast: (m) => E.toasts.push(m),
       setTimer: T.set, clearTimer: T.clear,
       onUnload: (fn) => E.unload.push(fn),
@@ -346,6 +346,13 @@ async function judge(S){
     const r0 = await E.mod.friendsForCheck();
     chk(E.subs.length === 0 && E.fetches.length === 0 && E.T.pending() === 0 && E.mod.status() === 'ready' && E.mod.notice() === null && r0 && !Object.keys(r0).length,
       '내 코드 없음 — 요청 0(구독 · 읽기 · 다시 걸기) · «친구 없음»(안내 null → 화면은 «아직 친구가 없어요»)');
+  }
+  {
+    /* 내 코드 없음 · 시작 전(idle)에 친구 [추가] — users/null/friends 를 읽지 않는다: 판정 요청 0 · 빈 목록 · 토스트 0 */
+    const E = mk({ noUid: true });
+    const r0 = await E.mod.friendsForCheck();
+    chk(E.fetches.length === 0 && E.subs.length === 0 && E.toasts.length === 0 && r0 && !Object.keys(r0).length,
+      '내 코드 없음 · 시작 전 판정 — 요청 0 · 빈 목록 · 토스트 0');
   }
   /* ── 3. firebase-init.js 친구 함수(옛 길) ── */
   say('── 3. firebase-init.js — 목록 구독 하나(친구별 구독 없음) · 카드 한 번 읽기 · 접속 상태 구독 · 한 번 읽기');

@@ -78,7 +78,7 @@ chk(/refreshCustomStatusMenuItem/.test(refresh), '원래 하던 일(커스텀 �
 /* ── 4. 고르지 못한다 ── */
 say('── 4. 생성기에서 라이선스 없이는 전용 책상을 고르지 못한다');
 const rc = grabFn('renderCrItems') || '';
-const deskPart = rc.slice(0, rc.indexOf("document.getElementById('deskColor')"));
+const deskPart = rc.slice(0, rc.indexOf("document.getElementById('deskColor').value"));   // 책상 카드 부분 = 색 칸에 값 넣는 줄 앞까지(머리의 입구 가드에도 deskColor 가 있다)
 chk(/const deskLocked = !!\(rec\.licenseOnly && !isPremium && !isAdmin\)/.test(deskPart), '★ 책상 카드에 잠금 조건이 있다 (아이템 카드와 같은 조건)');
 chk(/if\(deskLocked\)\{[\s\S]*?textContent='🔒'/.test(deskPart), '잠긴 책상에 🔒 표시');
 chk(/card\.onclick=async\(\)=>\{[\s\S]*?if\(deskLocked\)\{[^}]*return; \}/.test(deskPart), '★ 잠긴 책상은 클릭해도 활성 책상이 안 된다 (toast 후 return)');

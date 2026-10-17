@@ -628,6 +628,7 @@ function _refreshSecretRoomUI(){
   if(_mySecretRoomCode !== null){ apply(_mySecretRoomCode); return; }
   try{
     if(!(window.firebaseAPI && firebaseAPI.getMySecretRoom)) return;
+    if(!getMyUserId()) return;   // 내 코드가 없으면 시크릿룸을 안 읽는다(읽어도 거부 → 칸은 안 보임 · 같은 화면)
     Promise.resolve(firebaseAPI.getMySecretRoom(getMyUserId())).then(c=>{
       _mySecretRoomCode = c || '';
       apply(_mySecretRoomCode);

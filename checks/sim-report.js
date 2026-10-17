@@ -12,7 +12,9 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
+/* 좌석 우클릭 메뉴는 room/seat-menu.js 로 옮겼다(C 구역 떼기 w4) — 메뉴 글을 app.js 글에 이어 붙여 읽는다(신고는 읽는 함수 reportMod() 를 거친다) */
+const _MENU = ['seat-menu.js', 'parts/room/seat-menu.js', 'app/parts/room/seat-menu.js'].map(read).find(Boolean) || '';
+const _APP = read('app.js'), SRC = _APP && (_APP + '\n' + _MENU), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const REP = ['report.js', 'parts/support/report.js', 'app/parts/support/report.js'].map(read).find(Boolean);
 const ADM = ['admin-report.js', 'parts/admin/admin-report.js', 'app/parts/admin/admin-report.js'].map(read).find(Boolean);
@@ -105,7 +107,7 @@ async function judgeAll(rep, adm, app, html){
     'deps — 관리자 목록 열하나(isAdmin 은 읽는 함수 · 팝업 칸 · 창 틀은 reportMod 를 거침)');
   const iH = app.indexOf('/* ═══ 🚩 신고하기'), iR = app.indexOf('const reportMod ='), iA2 = app.indexOf('const adminReport =');
   t(iH > 0 && iR > iH && iA2 > iR, '만드는 줄은 원래 자리 · report.js 먼저');
-  t(/mk\('🚩 신고하기…', \(\)=>reportMod\.openDialog\(seat\)\)/.test(AP) && !/_openReportDialog\(/.test(AP), '좌석 우클릭 메뉴는 reportMod.openDialog');
+  t(/mk\('🚩 신고하기…', \(\)=>reportMod(?:\(\))?\.openDialog\(seat\)\)/.test(AP) && !/_openReportDialog\(/.test(AP), '좌석 우클릭 메뉴는 reportMod.openDialog');
   const iRep = html.indexOf('<script src="parts/support/report.js"></script>'), iAdm = html.indexOf('<script src="parts/admin/admin-report.js"></script>'), iApp = html.indexOf('<script src="parts/app.js"></script>');
   t(iRep > 0 && iAdm > iRep && iApp > iAdm, 'html — report.js → admin-report.js → app.js');
   return r;
@@ -122,7 +124,7 @@ async function judgeAll(rep, adm, app, html){
     ['관리자 목록이 팝업 칸을 안 이어받음', { adm: s => s.replace('document.body.appendChild(ov); setReportOv(ov);', 'document.body.appendChild(ov);') }],
     ['관리자 목록이 신고 창을 안 닫음', { adm: s => s.replace('  _reportClose();\n  const { ov, body } = _reportBox(\'🚩 신고 목록\', 460);', "  const { ov, body } = _reportBox('🚩 신고 목록', 460);") }],
     ['관리자 확인을 값으로 붙잡음', { adm: s => s.replace('const isAdmin = deps.isAdmin;', 'const isAdmin = ((v)=>()=>v)(deps.isAdmin());') }],
-    ['메뉴가 옛 이름', { app: s => s.replace('()=>reportMod.openDialog(seat)', '()=>_openReportDialog(seat)') }],
+    ['메뉴가 옛 이름', { app: s => s.replace('()=>reportMod().openDialog(seat)', '()=>_openReportDialog(seat)') }],
     ['html 순서 틀림', { html: s => s.replace('<script src="parts/support/report.js"></script>', '').replace('<script src="parts/app.js"></script>', '<script src="parts/support/report.js"></script>\n<script src="parts/app.js"></script>') }],
     ['deps 하나 빠짐', { app: s => s.replace('  setReportEsc: (...a)=>reportMod.setEsc(...a),\n', '') }],
   ];
