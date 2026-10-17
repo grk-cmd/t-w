@@ -718,8 +718,19 @@ function _applyEarAdj(side){
 }
 function applyEars(){ _attachEar('L'); _attachEar('R'); }
 const ANP_PRESET_KEY='tw.animalPresets';
-function _loadPresets(){ try{ return JSON.parse(localStorage.getItem(ANP_PRESET_KEY)||'{}'); }catch(_){ return {}; } }
-function _savePresets(o){ try{ localStorage.setItem(ANP_PRESET_KEY, JSON.stringify(o)); }catch(_){} }
+function _loadPresets(){
+  const r = TwJsonStore.load(ANP_PRESET_KEY, {});
+  if(!r.ok){ console.warn(TwJsonStore.diagLine('load', ANP_PRESET_KEY, r)); TwErrorCodes.notify('E-CHAR-05', r.err); }
+  return r.list;
+}
+function _savePresets(o){ return TwJsonStore.save(ANP_PRESET_KEY, o); }   // 읽기 · 쓰기는 shared/json-store.js 한 곳
+/* 저장 성공 안내는 실제로 써진 뒤에만 — 실패면 이유 · 번호를 띄운다(사람 책상 프리셋과 같은 모양). */
+function _presetSaveNotice(res, slot, okMsg){
+  if(res.ok){ toast(okMsg); return; }
+  if(res.blocked){ TwErrorCodes.notify('E-CHAR-07', res.err); return; }   // 망가진 저장분 위에는 쓰지 않았다
+  console.warn(TwJsonStore.diagLine('save', ANP_PRESET_KEY, res, slot));
+  TwErrorCodes.notify('E-CHAR-04', res.err, TwJsonStore.saveFailText(res.err));
+}
 function renderPresetSlots(){
   if(!overlay) return;
   const box=overlay.querySelector('#anpPresetSlots'); if(!box) return;
@@ -745,8 +756,8 @@ function renderPresetSlots(){
     b.oncontextmenu=(e)=>{
       e.preventDefault();
       const all=_loadPresets();
-      if(all['p'+i]){ delete all['p'+i]; _savePresets(all); renderPresetSlots(); toast('프리셋 '+i+' 삭제'); }
-      else { all['p'+i]={face:curFace,earL:curEarL,earR:curEarR,sx:scl.x,sy:scl.y,sa:scl.all}; _savePresets(all); renderPresetSlots(); toast('프리셋 '+i+'에 저장했어요'); }
+      if(all['p'+i]){ delete all['p'+i]; const res=_savePresets(all); renderPresetSlots(); _presetSaveNotice(res, i, '프리셋 '+i+' 삭제'); }
+      else { all['p'+i]={face:curFace,earL:curEarL,earR:curEarR,sx:scl.x,sy:scl.y,sa:scl.all}; const res=_savePresets(all); renderPresetSlots(); _presetSaveNotice(res, i, '프리셋 '+i+'에 저장했어요'); }
     };
     box.appendChild(b);
   }
