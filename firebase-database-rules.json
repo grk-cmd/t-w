@@ -789,6 +789,10 @@
           ".read": true,
           ".validate": "newData.isBoolean()"
         },
+        "friendsApi": {
+          ".read": true,
+          ".validate": "newData.isBoolean()"
+        },
         "$other": {
           ".validate": false
         }

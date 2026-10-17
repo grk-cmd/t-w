@@ -43,6 +43,9 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
   const friendsSubMod = TwFriendsSub.createFriendsSub({
     subscribe: (...a)=>friendsPortMod.watchList(...a),                // (myId, onChange, onError) → 해제 함수 — 포트(friends/)
     fetchOnce: (id)=>friendsPortMod.listFriends(id, { idsOnly:true }), // 판정용 한 번 읽기 — 부르는 곳은 이 모듈뿐
+    listFriends: (...a)=>friendsPortMod.listFriends(...a),            // 이름 · 레벨 · 소개 · 사진(서버 먼저) — 켤 때 + 목록 열 때
+    watchPresence: (...a)=>friendsPortMod.watchPresence(...a),        // 접속 상태 — 목록이 열려 있는 동안만
+    readPresence: (...a)=>friendsPortMod.readPresence(...a),          // 접속 상태 한 번 — 그 친구만
     current: ()=>_myHomeFriends,
     setFriends: (v)=>{ _myHomeFriends = v; },
     getMyUserId: (...a)=>getMyUserId(...a),
@@ -53,16 +56,24 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
   });
   ```
 - 내보내는 것: `start(myId, onFriends, onStatus)`(myhome-init.js 가 부팅 때 한 번) · `stop()` · `status()`(`idle` · `loading` · `error` · `ready`) · `notice()`(문구 또는 null) ·
-  `retryIfFailed()`(못 불러왔을 때만 다시 건다 — 목록을 여는 곳이 부른다) · `friendsForCheck()` → Promise<목록 | null>.
-  순수(`TwFriendsSub` 위): `noticeFor(status)` · `NOTICE` · `STATUS` · `SUB_WAIT_MS`.
+  `retryIfFailed()`(못 불러왔을 때만 다시 건다 — 목록을 여는 곳이 부른다) · `friendsForCheck()` → Promise<목록 | null> ·
+  `open(key, onUpdate)`(목록이 보이기 시작 — 다시 걸기 · 이름 · 사진 다시 받기 · 접속 상태 듣기 · 열려 있는 동안 바뀌면 onUpdate) · `close(key)`(마지막 목록이 닫히면 접속 상태 구독을 푼다) ·
+  `refreshPresence(ids)` → Promise(듣고 있지 않은 친구만 접속 상태 한 번 읽기).
+  순수(`TwFriendsSub` 위): `noticeFor(status)` · `friendOf(entry, card, pres)` · `mergeFriends(ids, details, presence)` · `NOTICE` · `STATUS` · `SUB_WAIT_MS`.
 - 쓰는 예:
   - 목록을 그리는 쪽: deps 로 `friendsNotice: (...a)=>friendsSubMod.notice(...a)` — 값이 있으면 그 문구만 그리고 끝낸다(myhome-inbox.js · room-invite-ui.js).
   - 목록을 여는 쪽: `friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a)` 를 열 때 한 번(myhome-ui.js 친구 탭 · room-invite-ui.js openPick).
+  - 목록이 보이는 동안: `friendsOpen('myhome')` · `friendsClose('myhome')`(myhome-ui.js — 마이홈 창 · 친구 탭 두 칸의 class 를 지켜본다) ·
+    `friendsOpen('invite', 다시 그리기)` · `friendsClose('invite')`(room-invite-ui.js — 열기 · ✕ · 바깥 누름).
   - 판정하는 쪽: `const fr = await friendsForCheck(); if(!fr) return;` — null 이면 토스트는 이미 떴다. 아무것도 서버로 안 보낸다(myhome-ui.js 친구 추가 · friend-manage.js 수락).
 - 확장할 때: 문구는 `NOTICE`, 판정 대기 상한은 `SUB_WAIT_MS` 한 곳. 친구 목록으로 판정하는 새 자리는 `friendsForCheck` 를 쓴다(직접 get 금지 — sim-friends-sub 5-2절이 센다).
 - 함정:
   - 구독이 연결 시도 중이면 판정은 따로 읽지 않고 `SUB_WAIT_MS` 까지 기다린다(같은 경로를 두 번 읽지 않게). 진행 중인 판정은 하나 — 부르는 곳 모두가 같은 Promise 를 기다린다.
   - 한 번 읽은 값은 그 판정에만 쓴다(받음으로 치지 않음). 그 사이 구독 값이 왔으면 구독 값이 이긴다.
+  - 이름 · 레벨 · 소개 · 사진은 실시간이 아니다(켤 때 한 번 + 목록 열 때). 누가 친구인지(추가 · 삭제)만 구독이 실시간으로 준다.
+  - 접속 상태(온라인 · 방)는 목록이 열려 있는 동안만 실시간이다. 닫은 뒤 `_myHomeFriends` 의 online · room 은 **마지막 값**이다 —
+    닫힌 채로 접속 상태가 필요한 곳은 `refreshPresence([그 친구])` 를 먼저 부른다(friend-visit.js 놀러 가기 · playlist.js 파도타기 친구 고르기).
+    받은 뒤라도 첫 이름 받기 동안은 `notice()` 가 «불러오는 중» 이다(이름 없는 '...' 목록을 잠깐 보이지 않게).
   - `_myHomeFriends` 는 못 받은 동안에도 `{}` 다 — 다른 곳(방명록 게이트 · 스케줄러 · 파도타기)은 예전처럼 «없음» 으로 동작한다. 받았는지는 `status()` 로만 안다.
-  - subscribeMyFriends 를 직접 또 걸지 않는다(친구 1명당 onValue 4개 — 겹치면 비용이 곱이 된다). 검사: `checks/sim-friends-sub.js`.
+  - 친구 목록 · 접속 상태를 직접 또 걸지 않는다(포트 · 이 모듈 한 곳 — 겹치면 비용이 곱이 된다). 검사: `checks/sim-friends-sub.js` · `checks/sim-friends-port.js`.
 - 내 코드(myId)가 없으면(로그인 전 — `getMyUserId()` 가 null) `start` 입구에서 바로 돌아간다 — 구독 · 읽기 · 다시 걸기 없이 «친구 없음»(`ready` · 빈 목록) · 화면은 main 과 같은 «아직 친구가 없어요». 코드가 생기면 마이홈 시작이 그때 건다.

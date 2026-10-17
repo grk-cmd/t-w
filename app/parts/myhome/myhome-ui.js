@@ -4,7 +4,7 @@
      _mhViewingUserId · _myFriendRequests · _myHomeFriends · isAdmin · myHomeOpen · myHomeSticker 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMyHomeOpen(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 12개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: renderMhProfileRail — app.js 는 myHomeUiMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: renderMhProfileRail · syncFriendsOpen — app.js 는 myHomeUiMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwMyHomeUi — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-myhome-ui.js */
@@ -26,6 +26,8 @@ const escRegisterWindow = deps.escRegisterWindow;
 const friendManage = deps.friendManage;
 const friendsForCheck = deps.friendsForCheck;   // 👥 판정용 친구 목록(friends-sub.js) — 못 받았으면 한 번 읽고 · 실패면 null(토스트는 거기서)
 const friendsRetry = deps.friendsRetry;   // 👥 친구 목록을 못 불러왔으면 다시 건다(친구 탭을 열 때)
+const friendsOpen = deps.friendsOpen;     // 👥 친구 목록이 보이기 시작함(friends-sub open — 이름 · 사진 다시 받기)
+const friendsClose = deps.friendsClose;   // 👥 친구 목록이 안 보이게 됨
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
 const inboxMod = deps.inboxMod;
@@ -43,6 +45,13 @@ const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) �
 //   아래 칸: 내 마이홈 프로필 사진(마이홈 탭에서 등록한 사진과 자동 연동, 없으면 안내 문구).
 // 프로필 레일은 수령함 확장으로 제거됨 — 기존 호출부가 있어 no-op으로 유지
 function renderMhProfileRail(){ /* 제거됨 */ }
+/* 👥 친구 목록이 «보이는 동안» = 마이홈이 떠 있고(.on) 친구 탭(#mhPageFriend.on)일 때만 friends-sub 에 «열림».
+   여는 길이 여럿이라(열기 · 친구 홈 구경 · 런처 복귀 · 단축키) 부르는 자리를 늘리지 않고, app.js 가 두 칸의 class 를 지켜보다 이것을 부른다. */
+function syncFriendsOpen(){
+  const ov = document.getElementById('myHomeOverlay'), pf = document.getElementById('mhPageFriend');
+  const on = !!ov && ov.classList.contains('on') && !!pf && pf.classList.contains('on');
+  if(on) friendsOpen('myhome'); else friendsClose('myhome');
+}
 (function bindMyHomeUI(){
   const btn=document.getElementById('fsMyHomeBtn');   // ★ 상태칩 독립 버튼 대신 설정창 안 버튼으로 이동
   const overlay=document.getElementById('myHomeOverlay');
@@ -471,6 +480,7 @@ function _mhSubscribeDMForSelected(){ /* 수령함으로 대체됨 */ }
 
 return {
   renderMhProfileRail,
+  syncFriendsOpen,
 };
 }
 

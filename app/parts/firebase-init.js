@@ -259,8 +259,7 @@
     return n;
   }
   let _myPokeRef = null, _myPokeListener = null, _memberId = null, _roomCode = null;
-  let _friendListListeners = {};   // {friendId: {profileUnsub, presenceUnsub, bioUnsub, avatarUnsub}} — 각 친구별 실시간 구독 정리용
-  let _myFriendsOff = null;   // 지금 걸린 subscribeMyFriends 의 해제 함수 — 동시에 하나만(새로 걸면 앞의 것을 푼다)
+  let _myFriendsOff = null;   // 지금 걸린 watchMyFriendList 의 해제 함수 — 동시에 하나만(새로 걸면 앞의 것을 푼다)
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
   let _presenceWritten = false;   // presence 를 한 번이라도 set 했는가 — 버전이 늦게 오면 그때만 메운다
   let _mobLive = null;   // 📱 태블릿·폰 연결 — { uid, stop } (mobileLinkStart)
@@ -429,6 +428,11 @@
   /* 🛰 방 서버(웹소켓) — 관리자 스위치(원격 설정 roomServer)가 켜고, 어느 서버로 갈지는 문지기(room-server-gate.js)가 정한다.
      여기서는 설정 · 서버 주소 · 내 서버(API · 못 받으면 Firebase) · roomDir 칸 읽기 · 토큰 · 버전 · userId 만 잇는다. _rsUrl = 문지기가 마지막으로 고른 주소(null 이면 서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
+  /* 🌐 로그인이 필요한 API 통로(첫 사용자 friends/friends-api.js) — 공용 통로와 같은 주소 · 이 Firebase ID 토큰을 붙인다(api-client.js getToken).
+     쉬기는 끈다 — 이 경로의 실패가 공용 통로(원격 설정 · 공개 읽기)를 쉬게 하지 않고, 부르는 쪽이 다시 묻기를 정한다. 토큰은 여기서만 넘긴다(api-client 는 Firebase 를 모른다). */
+  const _authApi = (window.TwApi && window.TwApi.client) ? window.TwApi.createApiClient({
+    baseUrl: window.TwApi.client.baseUrl(), fetch: (...a) => window.fetch(...a), getToken: () => _getIdToken(false), backoffMs: 0,
+  }) : null;
   let _rsUrl = null;
   const _roomServerGate = createRoomServerGate({
     getConfig: async () => { if(!_rc) return null; await _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }); return _rc.roomServer(); },
@@ -586,6 +590,8 @@
       return m;
     },
     getIdToken(force){ return _getIdToken(force); },
+    // 로그인 API GET — get(path, { auth:true, headers, timeoutMs }) 그대로(api-client.js). 통로가 없으면 'unavailable'(NO_API).
+    apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
     setPresenceRoom(code){ _syncPresenceRoom(code || null); },
     /* 🛰 소켓이 실제로 열렸는가 — 감시견(app.js `_fbBootWatch`)이 부팅 때 한 번 부른다.
@@ -1870,91 +1876,22 @@
       const snap = await get(ref(db, `users/${myId}/friends`));
       return snap.val() || {};
     },
-    // 내 친구 목록 실시간 구독 — friends 목록이 바뀔 때마다 각 친구의 프로필/온라인상태도 같이 구독해서
-    // onChange(friendsObj)로 전달. friendsObj = { [friendId]: {name, online, lastSeen, addedAt} }
-    // onError(err) — 목록 구독이 거부 · 끊기면 한 번. 그때는 친구별 구독까지 다 풀어 둔다(다시 걸기는 부르는 쪽 · friends-sub.js).
-    // @return 해제 함수. ⚠️ 동시에 하나만 — 새로 걸면 앞의 것을 먼저 푼다(친구 1명당 onValue 4개라 겹치면 비용이 곱이 된다).
-    subscribeMyFriends(myId, onChange, onError){
+    /* 내 친구 목록 실시간 구독 — users/{나}/friends 하나만({친구id:{addedAt}}). 실시간은 추가 · 삭제뿐이다:
+       이름 · 레벨 · 소개 · 사진은 목록을 열 때 한 번(getFriendCard · 서버 먼저 — friends/friends-port.js), 접속 상태는 목록이 열려 있는 동안만(watchFriendPresence).
+       onError(err) — 거부 · 끊기면 한 번(다시 걸기는 부르는 쪽 · friends-sub.js). @return 해제 함수. ⚠️ 동시에 하나만 — 새로 걸면 앞의 것을 먼저 푼다. */
+    watchMyFriendList(myId, onChange, onError){
       if(_myFriendsOff) _myFriendsOff();
-      const friendsRef = ref(db, `users/${myId}/friends`);
-      const combined = {};
-      const _offFriend = fid=>{
-        const l=_friendListListeners[fid];
-        if(l.profileUnsub) off(l.profileUnsub.ref, 'value', l.profileUnsub.cb);
-        if(l.presenceUnsub) off(l.presenceUnsub.ref, 'value', l.presenceUnsub.cb);
-        if(l.bioUnsub) off(l.bioUnsub.ref, 'value', l.bioUnsub.cb);
-        if(l.avatarUnsub) off(l.avatarUnsub.ref, 'value', l.avatarUnsub.cb);
-        if(l.homeUnsub) off(l.homeUnsub.ref, 'value', l.homeUnsub.cb);   // 구버전 잔여 구독 호환
-        delete _friendListListeners[fid]; delete combined[fid];
-      };
       let _dead = false, _listOff = null;
-      /* 🚦 갱신 폭주 묶기 — 친구 1명당 onValue 가 4개(profile·presence·bio·avatar)라,
-         부팅 때 콜백이 **친구 수 × 4** 번 몰려온다. onChange 는 마이홈 친구 목록을
-         innerHTML 로 통째로 다시 그리므로(renderMyHomeFriendList), 100명이면
-         400번 × 100줄 = 4만 줄을 짓는 셈이 되어 창이 눈에 띄게 멈춘다.
-         ★ 50ms 창에 한 번만 그린다. **디바운스가 아니라 스로틀(뒷날)이다** —
-           디바운스로 하면 콜백이 끊이지 않고 들어오는 동안 화면이 영영 안 그려진다.
-         ⚠️ 값 자체는 combined 에 즉시 반영된다. 늦추는 것은 '그리기'뿐이다. */
-      let _nTimer = null, _nDirty = false;
-      const notify = ()=>{
-        _nDirty = true;
-        if(_nTimer) return;
-        _nTimer = setTimeout(()=>{
-          _nTimer = null;
-          if(_dead) return;
-          if(_nDirty){ _nDirty = false; onChange({...combined}); }
-        }, 50);
-      };
       const teardown = ()=>{
         if(_dead) return;
         _dead = true;
-        if(_nTimer){ clearTimeout(_nTimer); _nTimer = null; }
         if(_listOff){ try{ _listOff(); }catch(_){} }
-        Object.keys(_friendListListeners).forEach(_offFriend);
         if(_myFriendsOff === teardown) _myFriendsOff = null;
       };
       _myFriendsOff = teardown;
-      _listOff = onValue(friendsRef, snap=>{
+      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{
         if(_dead) return;
-        const ids = Object.keys(snap.val()||{});
-        // 목록에서 빠진 친구는 구독 해제 + combined에서 제거
-        Object.keys(_friendListListeners).forEach(fid=>{
-          if(!ids.includes(fid)) _offFriend(fid);
-        });
-        // 새로 추가된 친구는 프로필/온라인상태/마이홈(사진·소개글) 구독 시작
-        ids.forEach(fid=>{
-          if(_friendListListeners[fid]) return;
-          combined[fid] = combined[fid] || {name:'...', online:false, lastSeen:0, addedAt:(snap.val()[fid]||{}).addedAt};
-          const profRef = ref(db, `users/${fid}/profile`);
-          const profCb = psnap=>{ const p=psnap.val()||{}; combined[fid].name=p.name||'(이름 없음)';
-            //  ★ 값이 없으면 null. '아직 새 버전으로 접속 안 한 친구'와 '진짜 Lv.1'을 구분해야
-            //    전원이 Lv.1로 보이는 오해가 안 생긴다(배지를 아예 숨김).
-            combined[fid].level = (typeof p.level === 'number' && p.level >= 1) ? p.level : null;
-            //  🌟 회차(개정 70) — 날것 그대로 넘기고 거르는 것은 app.js starFromRemote 한 곳.
-            combined[fid].cyc = p.cyc; combined[fid].clv = p.clv; combined[fid].starC = p.starC;
-            notify(); };
-          onValue(profRef, profCb);
-          const presRef = ref(db, `users/${fid}/presence`);
-          const presCb = psnap=>{ const p=psnap.val()||{}; combined[fid].online=!!p.online; combined[fid].lastSeen=p.lastSeen||0; combined[fid].room=p.room||null;
-            /* 🏠 '방에 있음'은 코드와 **별개 필드**다 — 시크릿룸은 code 를 안 올리므로 room 만 보면 못 잡는다.
-               옛 판(inRoom 이 없던 클라이언트)은 room 이 있으면 방에 있는 것으로 친다(하위호환). */
-            combined[fid].inRoom = (p.inRoom !== undefined) ? !!p.inRoom : !!p.room;
-            notify(); };
-          onValue(presRef, presCb);
-          // 목업의 이름 아래 소개글/프로필 썸네일용 — 친구의 마이홈에서 bio/avatar만 가져옴.
-          // 💰 예전엔 users/{친구}/home 을 통째로 구독해서, 친구가 게시글·테마·스티커를 건드릴 때마다
-          //    home 전체(게시글 본문·테마·스티커 목록 등)가 모든 친구에게 다시 전송됐음.
-          //    실제로 쓰는 건 bio/avatar 둘뿐이라 그 경로만 각각 구독하도록 좁힘(동작은 동일, 트래픽만 감소).
-          const bioRef = ref(db, `users/${fid}/home/bio`);
-          const bioCb = bsnap=>{ combined[fid].bio = bsnap.val() || ''; notify(); };
-          onValue(bioRef, bioCb);
-          const avaRef = ref(db, `users/${fid}/home/avatar`);
-          const avaCb = asnap=>{ combined[fid].avatar = asnap.val() || null; notify(); };
-          onValue(avaRef, avaCb);
-          _friendListListeners[fid] = { profileUnsub:{ref:profRef,cb:profCb}, presenceUnsub:{ref:presRef,cb:presCb},
-            bioUnsub:{ref:bioRef,cb:bioCb}, avatarUnsub:{ref:avaRef,cb:avaCb} };
-        });
-        notify();
+        onChange(snap.val() || {});
       }, err=>{
         teardown();
         console.warn('[친구 목록] 구독이 끊겼어요', err);
@@ -1962,6 +1899,22 @@
       });
       if(_dead && _listOff){ try{ _listOff(); }catch(_){} }   // onValue 가 돌아오기 전에 실패가 왔으면 지금 푼다
       return teardown;
+    },
+    /* 친구 한 명의 이름 · 레벨 · 회차 · 소개 · 사진 한 번 읽기 → 날것 { profile, bio, avatar }(거르기는 friends/friends-firebase.js cardOf).
+       💰 home 통째가 아니라 bio · avatar 두 칸만(예전 구독과 같은 경로 — 게시글 · 테마 · 스티커는 안 받는다). */
+    async getFriendCard(fid){
+      const [p, b, a] = await Promise.all([`users/${fid}/profile`, `users/${fid}/home/bio`, `users/${fid}/home/avatar`].map(path => get(ref(db, path))));
+      return { profile: p.val(), bio: b.val(), avatar: a.val() };
+    },
+    /* 친구 한 명의 접속 상태(presence) 구독 → onChange(날것). 목록(친구 탭 · 초대 목록)이 열려 있는 동안만 건다(friends-sub.js). @return 해제 함수 */
+    watchFriendPresence(fid, onChange){
+      const presRef = ref(db, `users/${fid}/presence`);   // 읽기만 — 쓰기는 _myPresenceRef 한 곳(sim-app-version)
+      const off = onValue(presRef, snap=>onChange(snap.val()));
+      return ()=>{ try{ off(); }catch(_){} };
+    },
+    /* 친구 한 명의 접속 상태 한 번 읽기 — 목록이 닫혀 있을 때 필요한 곳(놀러 가기 · 파도타기 친구 고르기)만 */
+    async getFriendPresence(fid){
+      return (await get(ref(db, `users/${fid}/presence`))).val();
     },
     // ===== 마이홈 페이지(프로필사진/소개글/게시글/스티커) =====
     async getMyHome(userId){
