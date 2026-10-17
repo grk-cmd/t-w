@@ -102,6 +102,23 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 검사: `checks/sim-light-tone.js` (FLAT_EMISSIVE 식 · 경계 · 재질 함수 셋 · 연결 · 깨 보기).
 
+## blink-timing.js — 👁 깜빡임 시간표
+
+- **책임**: 눈을 *언제* 감는지만 정한다 — 한 번씩 2~3번 깜빡인 뒤 세 번 연달아, 사이 간격은 무작위. 시간은 실제 시각(ms)으로만 센다. 무슨 그림으로 바꿀지는 부르는 쪽이 정한다.
+- **만드는 법**: 만들 것 없음 — `window.TwBlinkTiming` 의 순수 함수(DOM · THREE 안 봄).
+- **내보내는 것**
+  - `createBlink(now, rand?)` → 깜빡임 상태 `{ pulses, nextAt, singles, closed }` · `scheduleBlinks(bl, now, rand?)` — 때가 됐으면 예약 · `eyeClose(bl, now)` → 감은 정도 0~1 · `SHUT_AT` — 이보다 크면 감은 눈 그림.
+  ```js
+  seat.blink = TwBlinkTiming.createBlink(performance.now());
+  TwBlinkTiming.scheduleBlinks(seat.blink, now);
+  const shut = TwBlinkTiming.eyeClose(seat.blink, now) > TwBlinkTiming.SHUT_AT;
+  ```
+- **확장할 때 고칠 자리**: 박자는 머리의 상수(`SINGLE_DUR_MS` · `SINGLE_GAP_*` · `TRIPLE_*` · `FIRST_*`). 바꾸면 실행 화면 좌석과 런처 미리보기가 같이 바뀐다.
+- **함정**
+  - 프레임마다 고정 ms 를 더하는 식으로 다시 쓰지 않는다 — 주사율 · 프레임 상한에 따라 주기가 달라진다(예전 런처가 그랬다).
+  - `rand` 는 검사용(씨앗 고정). 앱에서는 비워 두면 `Math.random`.
+  - 검사: `checks/sim-blink-timing.js`(옮기기 전 글과 같은 결과 · 주사율 무관 · 연결).
+
 ## toast.js — 🍞 토스트 · 저장 실패 문구
 
 - **책임**: `#toast` 한 줄 알림을 띄우고 시간이 되면 끈다 · 저장 실패 오류가 규칙 거부(PERMISSION_DENIED)인지 가려 문구를 고른다. 도메인을 모른다.
@@ -133,7 +150,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   const m = paintGeomMod.mirrorUVOn(hit, crState.cBase.face, crState.cCam, crState.cBase.faceCx||0, (ray, mesh)=>partPaintMod._picIntersect(ray,[mesh]));
   ```
 
-**확장할 때 고칠 자리** — 되쏘는 거리 기본값은 `mirrorUVOn` 안의 0.6(캐릭터 얼굴 크기 기준). 파츠마다 다르면 부르는 쪽이 `off` 를 넘긴다.
+**확장할 때 고칠 자리** — 되쏘는 거리 기본값 `MIRROR_BACKOFF`(0.6 · 캐릭터 얼굴 크기 기준) · 점 길이 `DOT_LEN` 은 파일 위 상수. 파츠마다 다르면 부르는 쪽이 `off` 를 넘긴다.
 
 **함정**
 - 옷처럼 몸통 · 소매가 겹친 파츠에서 0.6 을 물러나면 반대편 표면 대신 앞쪽 천에서 출발한다 — 그래서 `off` 를 열어 두었다.

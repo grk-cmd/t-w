@@ -10,7 +10,7 @@
    ・5절: 닉네임 · 게시글 제목 인라인 편집 — Enter 저장 · Esc 취소 · 관람 중 막힘 · 길이 상한
    ・6절: 🎵 BGM — 등록 · 재생 · 일시정지 · 재개 · 지우기 · 창 주인 아닐 때 안 닫음 · 플레이리스트로 넘어감
    ・7절: 바깥 배경 · 테마 · [✎ 마이홈 수정] 분기(라이선스 → 디자인 스튜디오 · 아니면 메뉴) · 초기화
-   ・8절: 👑 디자인 스튜디오 · 프리셋 — 창 열기(테마 주입) · 항목 · 프리셋 저장(색만) · 불러오기(두 번 · 그림은 그대로) · 이름 · 전체 초기화 · 닫기
+   ・8절: 👑 디자인 스튜디오 · 프리셋 — 창 열기(테마 주입) · 항목 · 프리셋 저장(색 · 그림) · 불러오기(두 번 · 색 · 그림 통째로) · 이름 · 칸별 그림 파일 · 전체 초기화 · 닫기
    ・9절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양 · window 고리 이름 · 빈 껍데기 · html 순서 · 전역 이름
    [실행] myhome-edit.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
@@ -21,7 +21,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['myhome-edit.js', 'app.js', 'desk-companion-prototype.html', 'myhome-hooks.js'];
+const need = ['myhome-edit.js', 'app.js', 'desk-companion-prototype.html', 'myhome-hooks.js', 'myhome-preset.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['myhome-edit.js'];
@@ -146,6 +146,7 @@ function mkEnv(opt){
   ctx.innerWidth = 1600; ctx.innerHeight = 900;
   vm.createContext(ctx);
   vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });   // 🪝 마이홈 고리판 — 편집 묶음이 만들 때 건다(순환 끊기 8)
+  vm.runInContext(SRC['myhome-preset.js'], ctx, { filename: 'myhome-preset.js' });   // 👑 디자인 프리셋 규칙 — 편집 묶음이 만들 때 받는다
   vm.runInContext(MOD, ctx, { filename: 'myhome-edit.js' });
   env.ctx = ctx;
   env.H = ctx.TwMyHomeHooks; env.K = ctx.TwMyHomeHooks.HOOK;
@@ -443,10 +444,11 @@ await sec('── 8. 👑 디자인 스튜디오 · 프리셋', async () => {
   chk(/background:#333333;/.test(body.children[1].innerHTML) && /data-act="img"/.test(body.children[1].innerHTML), '  바깥 배경 칸 — 지금 색 · IMG 버튼');
   const line = d.getElementById('dsPresets');
   chk(line.children.length === 4 && line.children[3].className === 'ps-save' && line.children[0].className === 'ps-tab cur', '프리셋 줄 — 칸 셋 + [저장] · 1번이 고른 칸');
-  /* 저장 — 색만 */
+  chk(line.children[3].title === '1 에 지금 디자인 담기 (색 · 그림 모두)', '  [저장] 툴팁 — 색 · 그림 모두');
+  /* 저장 — 색 · 그림 */
   line.children[3].fire('click'); await flush();
   const p0 = e.data.themePresets[0];
-  chk(JSON.stringify(p0) === '{"name":"","theme":{"tab":"#111111","left":"#222222"},"bg":{"color":"#333333"}}' && e.data.themePresetCur === 0 && e.saveCount() === 1, '★ 저장 — 색만 담는다(그림 키 tabImg 는 안 담김)');
+  chk(JSON.stringify(p0) === '{"name":"","theme":{"tab":"#111111","tabImg":"https://i/t","left":"#222222"},"bg":{"color":"#333333"},"img":true}' && e.data.themePresetCur === 0 && e.saveCount() === 1, '★ 저장 — 색 · 그림 키(tabImg)까지 담는다');
   chk(e.toasts.slice(-1)[0] === '👑 1 에 저장했어요', '  안내');
   line.children[3].fire('click'); await flush();
   chk(e.saveCount() === 1 && line.children[3].textContent === '한 번 더', '  찬 칸에 다시 저장 — 한 번 더 눌러야');
@@ -457,12 +459,12 @@ await sec('── 8. 👑 디자인 스튜디오 · 프리셋', async () => {
   chk(e.data.themePresetCur === 1 && line.children[1].className === 'ps-tab cur' && /2번 칸을 골랐어요/.test(e.toasts.slice(-1)[0]), '빈 칸 — 고르기만(확인 없음)');
   e.data.theme = { tab: '#999999', tabImg: 'https://i/t2' }; e.data.bg = { img: 'https://i/bg' };
   line.children[3].fire('click'); await flush();
-  chk(JSON.stringify(e.data.themePresets[1]) === '{"name":"","theme":{"tab":"#999999"},"bg":null}', '  빈 칸 [저장] — 바로 담김 · 그림 배경은 안 담김');
-  /* 불러오기 — 두 번 · 그림은 그대로 */
+  chk(JSON.stringify(e.data.themePresets[1]) === '{"name":"","theme":{"tab":"#999999","tabImg":"https://i/t2"},"bg":{"img":"https://i/bg"},"img":true}', '  빈 칸 [저장] — 바로 담김 · 그림 배경까지');
+  /* 불러오기 — 두 번 · 색 · 그림 통째로 */
   line.children[0].fire('click');
   chk(line.children[0].classList.contains('armed') && line.children[0].textContent === '한 번 더' && e.data.theme.tab === '#999999', '다른 칸 — 한 번은 «한 번 더» 만');
   line.children[0].fire('click'); await flush();
-  chk(JSON.stringify(e.data.theme) === '{"tabImg":"https://i/t2","tab":"#111111","left":"#222222"}' && e.data.bg.img === 'https://i/bg' && e.data.themePresetCur === 0, '★ 두 번 — 색은 통째로 갈리고 그림(tabImg · 바깥 그림)은 그대로');
+  chk(JSON.stringify(e.data.theme) === '{"tab":"#111111","tabImg":"https://i/t","left":"#222222"}' && JSON.stringify(e.data.bg) === '{"color":"#333333"}' && e.data.themePresetCur === 0, '★ 두 번 — 그 칸의 색 · 그림(tabImg · 바깥 배경)으로 통째로 바뀐다');
   chk(/1 로 바꿨어요/.test(e.toasts.slice(-1)[0]) && body.children.length === 17, '  안내 · 항목 다시 그림');
   e.timers.forEach(t => { if(t.ms === 3000) t.fn(); });
   /* 이름 */
@@ -488,7 +490,10 @@ await sec('── 8. 👑 디자인 스튜디오 · 프리셋', async () => {
   /* 그림 올리기 */
   const n = e.uploads.length;
   body.children[3].querySelector('[data-act="img"]').fire('click'); await flush(); await flush(); await flush();
-  chk(e.uploads.length === n + 1 && e.uploads[n][1] === 'tabImg' && e.data.theme.tabImg === 'https://st/tabImg', 'IMG — 고른 그림을 줄여 올리고 주소를 테마에');
+  chk(e.uploads.length === n + 1 && e.uploads[n][1] === 'p0_tabImg' && e.data.theme.tabImg === 'https://st/p0_tabImg', 'IMG — 고른 그림을 줄여 고른 칸(1번) 파일에 올리고 주소를 테마에');
+  e.data.themePresetCur = 1; d.getElementById('dsBody').children[1].querySelector('[data-act="img"]').fire('click'); await flush(); await flush(); await flush();
+  chk(e.uploads[n + 1][1] === 'p1_bg' && JSON.stringify(e.data.bg) === '{"img":"https://st/p1_bg"}', '  ★ 2번 칸에서 올린 바깥 그림은 2번 칸 파일(design_p1_bg) — 1번 칸 파일을 덮지 않는다');
+  e.data.themePresetCur = 0;
   /* 탭 · 전체 초기화 · 다시 열기 · 닫기 */
   W.tabs[1].fire('click');
   chk(body.children.length === 10 && e.clicks.includes('mh-tab'), '친구 탭 — 항목 바뀜(10줄) · 마이홈 탭도 친구로');

@@ -8,6 +8,9 @@
 (function(){
 
 function createPaintGeom(deps){
+/* 그리기 기하 상수 */
+const MIRROR_BACKOFF = 0.6;   // 거울 표면점에서 바깥으로 물러나 되쏘는 거리 기본값(캐릭터 얼굴 크기 기준 — 파츠마다 다르면 off)
+const DOT_LEN = 0.01;        // 첫 점(앞 점 없음)을 찍는 짧은 선 길이(px)
 function _seg(ctx,x0,y0,x1,y1){ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();}
 /* === 3D 메쉬 중앙 기준 x축 대칭 ===
    미러 지점을 메쉬 로컬에서 x반전한 뒤, 그 지점에 두 번째 레이캐스트를 쏘아 '실제 표면'의 UV를 얻음.
@@ -25,7 +28,7 @@ function mirrorUVOn(hit, mesh, cam, cx, castFn, off){ if(!mesh||!hit)return null
   /* 표면 바깥 어디에서 되쏠 것인가. 기본 0.6 은 얼굴(캐릭터 크기) 기준으로 정해진 값이다.
      ⚠️ 옷처럼 몸통·소매가 겹친 파츠에서는 이만큼 물러나면 **반대편 표면 대신 앞쪽 천**에서
        출발하게 된다. 그래서 부르는 쪽이 파츠 크기에 맞는 값을 넘길 수 있게 열어 뒀다. */
-  _mo.copy(_mp).addScaledVector(_mn, (off>0?off:0.6));
+  _mo.copy(_mp).addScaledVector(_mn, (off>0?off:MIRROR_BACKOFF));
   _mdir.copy(_mn).negate();                               // 표면 쪽으로
   _mray.set(_mo,_mdir);
   if(castFn){ const hh=castFn(_mray.ray, mesh); return (hh&&hh.uv)?{x:hh.uv.x,y:hh.uv.y}:null; }
@@ -33,7 +36,7 @@ function mirrorUVOn(hit, mesh, cam, cx, castFn, off){ if(!mesh||!hit)return null
   if(h.length&&h[0].uv) return {x:h[0].uv.x,y:h[0].uv.y};
   return null; }
 
-function strokeSeg(ctx,lx,ly,x,y){ if(lx==null)_seg(ctx,x,y,x+0.01,y+0.01); else _seg(ctx,lx,ly,x,y); }
+function strokeSeg(ctx,lx,ly,x,y){ if(lx==null)_seg(ctx,x,y,x+DOT_LEN,y+DOT_LEN); else _seg(ctx,lx,ly,x,y); }
 
 return {
   mirrorUVOn,

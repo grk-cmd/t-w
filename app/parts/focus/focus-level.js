@@ -55,7 +55,7 @@ function _pushLevelIfChanged(){
     if(lv === _lastPushedLevel && sk === _lastPushedStar) return;
     const lvChanged = lv !== _lastPushedLevel;
     _lastPushedLevel = lv; _lastPushedStar = sk;
-    if(window.firebaseAPI && firebaseAPI.setMyProfile)
+    if(getMyUserId() && window.firebaseAPI && firebaseAPI.setMyProfile)   // 내 코드가 없으면 보내지 않는다(규칙이 거부)
       Promise.resolve(firebaseAPI.setMyProfile(getMyUserId(), getDisplayName(), lv, so)).catch(e => console.warn('[레벨] 프로필 서버 반영 실패', (e && e.code) || e));   // async 라 바깥 try 는 거부를 못 받는다
     if(!lvChanged) return;
     _notifyDeskUnlocks(lv);   // 🪑 이 레벨에서 새로 해금된 상호작용 책상이 있으면 수령함 알림

@@ -23,6 +23,10 @@ if (!APP) { say('  ? 원본 못 찾음 — app.js'); process.exit(2); }
    거기서는 _myHomeData 가 app.js 의 let 을 읽는 함수라 _myHomeData().X 로 쓴다. */
 const EDIT = read('myhome-edit.js');
 if (!EDIT) { say('  ? 원본 못 찾음 — myhome-edit.js'); process.exit(2); }
+/* 프리셋 저장본 씻기 · 고른 칸은 myhome-preset.js 로 모았다 — 편집 묶음이 받는 그 모듈을 같이 넘긴다 */
+const PRESET = read('myhome-preset.js');
+if (!PRESET) { say('  ? 원본 못 찾음 — myhome-preset.js'); process.exit(2); }
+const mhPreset = new Function('window', 'module', PRESET + '\nreturn window.TwMyHomePreset;')({}, undefined);
 
 /* 이름으로 함수 본문을 중괄호 짝으로 떼어 온다(문자열 속 중괄호는 이 함수들에 없다). */
 function fnSrc(src, name){
@@ -68,8 +72,8 @@ function judge(fromSrc, quiet){
   /* 디자인 스튜디오가 칸 이름을 그리는 함수를 그대로 떼어 와 돌린다 */
   const presetFns = ['_mhPresets', '_mhPresetCur', '_mhPresetLabel'].map(n => fnSrc(EDIT, n));
   if (presetFns.every(Boolean)){
-    const lab = new Function('_myHomeData', 'MH_PRESET_MAX', 'MH_PRESET_NAME_MAX',
-      presetFns.join('\n') + '\nreturn { label:_mhPresetLabel, cur:_mhPresetCur };')(() => back, constVal(EDIT, 'MH_PRESET_MAX') || 3, constVal(EDIT, 'MH_PRESET_NAME_MAX') || 8);
+    const lab = new Function('_myHomeData', 'MH_PRESET_MAX', 'MH_PRESET_NAME_MAX', 'mhPreset',
+      presetFns.join('\n') + '\nreturn { label:_mhPresetLabel, cur:_mhPresetCur };')(() => back, constVal(EDIT, 'MH_PRESET_MAX') || mhPreset.MAX, constVal(EDIT, 'MH_PRESET_NAME_MAX') || mhPreset.NAME_MAX, mhPreset);
     c(lab.label(0) === '봄' && lab.label(1) === '2' && lab.label(2) === '겨울', '★ 다시 연 디자인 스튜디오 프리셋 이름 — 봄 · 2 · 겨울 (지금: ' + [0, 1, 2].map(lab.label).join(' · ') + ')');
     c(lab.cur() === 2, '고른 칸(themePresetCur)이 되살아난다');
   } else c(false, '프리셋 함수(_mhPresets · _mhPresetCur · _mhPresetLabel)를 못 찾음');
