@@ -53,7 +53,7 @@
 | ~~편집 중 마이홈 숨기기 되살리기~~ 머지 #346 | 검증-도우미9 | #342 위에 #258 의 숨기기만 다시(창 층 표는 그대로) · B-1016-4 · 사용자 결정 10-17 | `app/desk-companion-prototype.html`(편집 중 숨김 css) · 숨김 검사 | #346 |
 | ~~해결된 버그 제보 한 달 뒤 삭제~~ 머지 #347 | 검증-도우미11 | 해결 시각(doneTs) · 자동 정리 함수 · 탈퇴 때 제보 삭제 · 처리방침(제보 · AWS 서울 · 게임패드 · 시행일) | `functions/`(새 함수 · account-delete.js) · `web-admin/src/entities/bug-board` · `features` · `hosting/privacy.html` · `firebase-database-rules.json` · `checks/` | #347 |
 | 기능별 받는 곳 고르기 통일 | 검증-도우미12 | 친구 · 방 · 카탈로그의 «서버 / 파이어베이스» 고르기를 `shared/source-switch.js` 한 곳 · 스위치 자리 `config/sources/{기능}` 하나로 · 웹 관리자 «🎚️ 기능 스위치» 페이지 | `shared/source-switch.js`(새) · `shared/remote-config.js` · `friends/friends-port.js` · `room/room-server-gate.js` · `character/catalog-source.js` · `app.js`(연결) · html · 규칙 · `web-admin/src`(새 페이지 · 방 서버 스위치) · checks | — |
-| 오래된 요청 #255 · #153 합치기 | 검증-도우미13 | #255 앱 크기 기준선 쓰기 · #153 웹 관리자 사용자 목록을 관리자 API 로 | `checks/sim-app-size.js` · `checks/app-size-baseline.json` · `web-admin/src/`(사용자 목록 · 통계) · `checks/CHECKS.md` | #255 · #153 |
+| ~~오래된 요청 #255 · #153 합치기~~ 머지 | 검증-도우미13 | #255 앱 크기 기준선 쓰기 · #153 웹 관리자 사용자 목록을 관리자 API 로 | `checks/sim-app-size.js` · `checks/app-size-baseline.json` · `web-admin/src/`(사용자 목록 · 통계) · `checks/CHECKS.md` | #255 · #153 |
 | 같은 그림 반복 업로드 줄이기(#39 새로 쓰기) | 검증-도우미14 | 동시 업로드 합치기 · 썸네일은 외모가 바뀔 때만 · 업로드 캐시 LRU(통째 비우기 없앰) · 마이홈 주소 되쓰기 | `shared/upload-cache.js`(새) · `room/room-sync.js` · `character/slot-sync.js` · `firebase-init.js`(업로드 길) · 마이홈 · 검사 | — |
 | 테스트 빌드도 운영 DB 로 | 검증 세션 | 깃허브에서 만드는 테스트(beta) 빌드도 운영 Firebase 에 붙게 — 개발 서버는 내 PC 의 `npm run start:dev` 에서만 | `.github/workflows/release.yml` · `release-start.yml` · `CLAUDE.md` · `docs/RELEASE.md` | — |
 | 빈 카탈로그 사본 막기 | 검증-도우미15 | 원래 목록이 있던 기기에 서버가 «성공» + 빈 카탈로그(또는 본문 null)를 주면 믿지 않고 Firebase 로 받기(좌석 캐릭터 파츠가 떼어지는 길 막기 · 사용자 결정 10-17) | `app/parts/character/catalog-cache.js` · `catalog-source.js` · checks | — |
@@ -99,6 +99,7 @@
 | 리깅 모자 날기 | 모자 쓰고 날면 화면 아래에서 맴돎 | wL2 | 대기 |
 
 ## 머지 완료(10-17 검증 세션)
+- 10-17 밤: #255 앱 크기 기준선 쓰기(개정 360) · #153 웹 관리자 사용자 목록을 관리자 API 로(못 닿으면 옛 RTDB · 웹 관리자 Hosting 배포 필요)
 - 10-17 밤 운영 배포 끝(사용자): 규칙(doneTs) · 함수 bugCleanup · adminDeleteAccount · deleteMyAccount · Hosting(웹 관리자 새 서버 주소 #343 · 처리방침 시행일 2026-10-18)
 - 10-17 밤: #347 해결된 버그 제보 한 달 뒤 자동 삭제 · 탈퇴 때 제보 삭제 · 처리방침 보강 — **배포 필요(규칙 · 함수 3 · Hosting)**
 - 10-17 밤(검증-도우미8): #340 몸 크기 재기 한 곳 · #342 창 겹침(B-1016-4 · grk 탈퇴 안내 css 지킴) · #343 서버 주소 together-working.com(웹 관리자 Hosting 배포 필요) · #344 자동 검사 판정 한 벌(릴리스 버튼 구멍 막음) · #345 토스트 누르면 복사
