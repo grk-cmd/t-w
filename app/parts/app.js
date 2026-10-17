@@ -4092,7 +4092,9 @@ canvas.addEventListener('pointerup',e=>{
   if(!drag)return;
   const seat = drag.seat;
   if(!drag.moved){
-    if(drag.targetType && typeof drag.targetType==='object' && drag.targetType.type==='item'){
+    if(drag.targetType==='label'){
+      // 🏷️ 이름표 · 경험치 바를 누르기만 했다 — 쓰다듬지 않는다(끌어야 자리 바꾸기)
+    } else if(drag.targetType && typeof drag.targetType==='object' && drag.targetType.type==='item'){
       playItemIdle(drag.targetType.pivot);   // 아이템 클릭 — idle 애니메이션 한 번 재생
     } else if(drag.targetType==='desk' && seat.desk && seat.desk.userData.deskIdleAction && seat.desk.userData.deskPlayMode==='click'){
       // 책상 클릭 — 클릭 재생 모드 책상은 여기서 한 번 재생
@@ -4184,6 +4186,24 @@ function clearDragStuck(){
 }
 canvas.addEventListener('pointercancel', clearDragStuck);
 window.addEventListener('blur', clearDragStuck);
+/* 🏷️ 이름표 · 경험치 바를 눌러 끌면 책상 끌기와 같은 자리 바꾸기 — 시작 판단은 room/seat-label-drag.js.
+   ★ 같은 drag 상태를 쓰고 캔버스가 포인터를 잡는다 — 위 pointermove · pointerup 이 책상 끌기(slot)로 그대로 처리한다. */
+function _beginLabelSlotDrag(e, seat){
+  if(drag) return false;
+  _uiHot(3000);
+  drag={ seat, startX:e.clientX, startY:e.clientY, moved:false, mode:null, targetType:'label',
+    grabX: worldX(e) - seat.group.position.x,
+    lastX:e.clientX, lastY:e.clientY, lastT:performance.now(), velX:0, velY:0, dizzy:0 };
+  seatPanelMod.selectSeat(seat);
+  try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
+  return true;
+}
+const seatLabelDragMod = TwSeatLabelDrag.createSeatLabelDrag({
+  beginDrag: _beginLabelSlotDrag,
+  flyAiming: ()=>tricksMod._flyAiming(),
+  bonkAiming: ()=>tricksMod._bonkAiming(),
+});
+overheadMod.setLabelDrag((e, seat)=>seatLabelDragMod.onLabelPointerDown(e, seat));
 
 
 /* 전역 마우스 NDC — 액자 고정 캐릭터의 머리가 마우스 따라가도록 */

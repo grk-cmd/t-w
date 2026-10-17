@@ -49,6 +49,7 @@ function ensureSeatExpBarEl(seat){
   const el = document.createElement('div'); el.className = 'seat-exp';
   const fill = document.createElement('div'); fill.className = 'exp-fill';
   el.appendChild(fill);
+  overheadMod.bindLabelDrag(el, seat);   // 🏷️ 눌러 끌면 자리 바꾸기 — 이름표와 같은 길(room/seat-label-drag.js)
   layer.appendChild(el);
   seat.expBarEl = el; seat.expFillEl = fill;
   return el;
