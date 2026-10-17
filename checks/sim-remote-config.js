@@ -271,7 +271,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const ADMIN = "auth != null && root.child('admins').child(auth.uid).val() === true";
     const run = (expr, val) => {
       const nd = { isNumber: () => typeof val === 'number', isBoolean: () => typeof val === 'boolean', isString: () => typeof val === 'string', val: () => val, exists: () => val != null };
-      // 경로 키 형식 조건(개정 315)이 있어 경로 변수엔 정상 키를 넣는다 — 여기서 보는 것은 값 조건이다
+      // 경로 키 형식 조건(개정 316)이 있어 경로 변수엔 정상 키를 넣는다 — 여기서 보는 것은 값 조건이다
       const P = String.prototype; P.matches = function (re) { return re.test(String(this)); }; P.beginsWith = P.startsWith;
       try { return Function('newData', '$date', 'return (' + expr + ');')(nd, '2026-10-17'); }
       finally { delete P.matches; delete P.beginsWith; }
