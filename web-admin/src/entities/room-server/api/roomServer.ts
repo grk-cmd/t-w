@@ -33,7 +33,14 @@ const onOff = (v: boolean) => (v ? '켜기' : '끄기');
 /** on — 방 서버 전체(비상 정지 스위치). 앱은 다음 입장부터 따른다. */
 export function setRoomServerSwitch(db: Db, value: boolean): Promise<void> {
   return db.commit(
-    withAudit(db, { [`${ROOM_SERVER_PATH}/on`]: value }, 'roomServer.switch', 'on', onOff(value)),
+    // 🎚️ 기능 스위치(config/sources/rooms)와 같은 값을 같이 쓴다 — 두 화면이 다르게 보이지 않게(앱은 새 칸이 있으면 그쪽을 본다)
+    withAudit(
+      db,
+      { [`${ROOM_SERVER_PATH}/on`]: value, 'config/sources/rooms': value ? 'server' : 'firebase' },
+      'roomServer.switch',
+      'on',
+      onOff(value),
+    ),
   );
 }
 

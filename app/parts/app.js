@@ -2777,7 +2777,8 @@ const friendsApiMod = TwFriendsApi.createFriendsApi({
 const friendsPortMod = TwFriendsPort.createFriendsPort({
   firebase: friendsFirebaseMod,
   api: friendsApiMod,
-  apiOn: ()=>{ const s = acctStateMod._rcStore(); return s ? s.friendsApi() : true; },   // 원격 설정 flags.friendsApi — 끄면 옛 길만
+  source: ()=>TwSourceSwitch.store.pick('friends'),   // 받는 곳 — 원격 설정 sources.friends(없으면 옛 flags.friendsApi) · 고르기는 shared/source-switch.js
+  serverFirst: TwSourceSwitch.serverFirst,
   warn: (...a)=>console.warn(...a),
 });
 const friendsSubMod = TwFriendsSub.createFriendsSub({

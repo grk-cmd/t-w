@@ -437,6 +437,7 @@
   let _rsUrl = null;
   const _roomServerGate = createRoomServerGate({
     getConfig: async () => { if(!_rc) return null; await _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }); return _rc.roomServer(); },
+    pickSource: () => window.TwSourceSwitch.store.pick('rooms'),   // 방 서버를 쓸지 — 원격 설정 sources.rooms(없으면 옛 roomServer.on)
     serverAddr: (name) => _rc ? _rc.serverAddr(name) : null,
     myServer: (uid) => _rc ? _rc.myServer(uid) : null,
     read: (path) => get(ref(db, path)).then(s => s.val()),
@@ -482,6 +483,8 @@
       api: (window.TwApi && window.TwApi.client) || null,
       shouldFallback: window.TwApi && window.TwApi.shouldFallback,
       firebaseGet: (kind) => get(ref(db, 'catalog/' + kind)),
+      source: () => window.TwSourceSwitch.store.pick('catalog'),   // 받는 곳 — 원격 설정 sources.catalog(없으면 늘 서버 먼저)
+      serverFirst: window.TwSourceSwitch.serverFirst, SKIP: window.TwSourceSwitch.SKIP,
     }),
   });
   /* 카탈로그 쓰기는 전부 여기를 지난다 — 같은 다중 경로 update 로 catalogMeta/{종류} 버전(서버 시각)도 올린다.

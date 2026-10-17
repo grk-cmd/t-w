@@ -80,8 +80,9 @@ export function usableOfflineCache(entry){
     isCatalogVer(entry.ver) && isCatalogData(entry.data);
 }
 
-/* 본문 받기 — API 읽기 사본 먼저, 못 받으면 Firebase get. createCatalogSync 의 deps.fetch 로 넘긴다.
+/* 본문 받기 — 받는 곳 고르기(shared/source-switch.js — 기능 'catalog')가 서버면 API 읽기 사본 먼저, 못 받으면 Firebase get. createCatalogSync 의 deps.fetch 로 넘긴다.
    deps: api(TwApi.client — get(path, opts) → 봉투의 data) · shouldFallback(TwApi.shouldFallback — 조용히 넘어갈 실패인가) · firebaseGet(kind) → snapshot · warn · tag
+         source() → 'server' | 'firebase'(source-switch pick('catalog')) · serverFirst · SKIP(source-switch — 넘어가기 한 벌)
    ⚠️ 사본의 ver 가 구독한 버전과 같을 때만 쓴다 — 서버는 버전과 본문을 따로 구독해서 잠깐 어긋날 수 있다.
    ⚠️ 어떤 실패든 Firebase get 으로 넘어간다(오류를 던지면 createCatalogSync 가 통째 구독으로 물러나 더 많이 받는다).
    val() 은 부를 때마다 새 객체(캐시용 · 화면용을 따로 뗀다 — Firebase snapshot 과 같은 약속). */
@@ -91,20 +92,22 @@ export function createApiCatalogFetch(deps){
   const shouldFallback = deps.shouldFallback || (() => false);
   const tag = '[' + (deps.tag || 'catalog-cache') + ']';
   const warn = deps.warn || ((...a) => { try{ console.warn(...a); }catch(_){} });
+  const source = deps.source;
+  const serverFirst = deps.serverFirst;
+  const SKIP = deps.SKIP;
   return async function fetchKind(kind, ver){
-    if(api && isCatalogVer(ver) && CATALOG_KINDS.includes(kind)){
-      try{
-        const body = await api.get(CATALOG_API_PATH + kind + '?v=' + ver, { timeoutMs: CATALOG_API_TIMEOUT_MS });
-        if(body && body.ver === ver && (body.data == null || isCatalogData(body.data))){
-          const json = JSON.stringify(body.data || {});
-          return { val: () => JSON.parse(json) };
-        }
-        warn(tag + ' API 사본 버전이 달라 Firebase 로 받는다 —', kind, body && body.ver, '≠', ver);
-      }catch(e){
-        if(!shouldFallback(e)) warn(tag + ' API 받기 실패 — Firebase 로 받는다', kind, e && (e.code || e.message));
+    const fromApi = (api && isCatalogVer(ver) && CATALOG_KINDS.includes(kind)) ? async () => {
+      const body = await api.get(CATALOG_API_PATH + kind + '?v=' + ver, { timeoutMs: CATALOG_API_TIMEOUT_MS });
+      if(body && body.ver === ver && (body.data == null || isCatalogData(body.data))){
+        const json = JSON.stringify(body.data || {});
+        return { val: () => JSON.parse(json) };
       }
-    }
-    return firebaseGet(kind);
+      warn(tag + ' API 사본 버전이 달라 Firebase 로 받는다 —', kind, body && body.ver, '≠', ver);
+      return SKIP;
+    } : null;
+    const r = await serverFirst(source(), fromApi, () => firebaseGet(kind),
+      (e) => { if(!shouldFallback(e)) warn(tag + ' API 받기 실패 — Firebase 로 받는다', kind, e && (e.code || e.message)); });
+    return r.v;
   };
 }
 

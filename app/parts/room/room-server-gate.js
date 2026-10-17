@@ -4,7 +4,8 @@
  * (firebase-init.js 가 getConfig · serverAddr · myServer · read(path) 를 넘긴다 — 원격 설정 remote-config.js 가 API 먼저 · 못 받으면 Firebase).
  *
  * 관리자 스위치 — 원격 설정 roomServer(쓰기 원본 Firebase config/roomServer · 읽기는 API 사본 GET /v1/config 먼저 · 웹 관리자 ⚙️ 설정 «방 서버(시험)»):
- *   on      : true 일 때만 아래가 동작한다. 아니면 전원 Firebase(비상 정지 스위치).
+ *   on      : true 일 때만 아래가 동작한다. 아니면 전원 Firebase(비상 정지 스위치). 새 자리 sources.rooms('server' | 'firebase')가 있으면 그쪽이 이긴다 —
+ *             고르기는 shared/source-switch.js 한 곳(deps.pickSource)이고, 이 파일은 그 답만 본다.
  *             켜져 있으면 허용 목록에 없는 사람도 «서버에 있는 방» 코드로 들어갈 때 늘 그 서버로 따라간다 —
  *             안 따라가면 Firebase 의 «같은 코드 다른 방» 에 들어가 서로 못 본다.
  *   servers : { <서버 이름>: 'wss://…' } — 주소가 방 서버 묶음(wss/https://<이름>.together-working.com · <이름>.togetherworking.duckdns.org = CSP connect-src)이 아니면 무시.
@@ -96,7 +97,8 @@ export function devOverride(env, storage){
 
 export const roomDirPath = (code) => ROOM_DIR_ROOT + '/' + code;
 
-/* deps: getConfig() → Promise<roomServer 설정 { on, default, defaultPercent }>, serverAddr(name) → Promise<주소 원값 | null>,
+/* deps: getConfig() → Promise<roomServer 설정 { on, default, defaultPercent }>, pickSource() → 'server' | 'firebase'(source-switch pick('rooms') — 설정을 받은 뒤 부른다),
+         serverAddr(name) → Promise<주소 원값 | null>,
          myServer(uid) → Promise<서버 이름 | null>,
          read(path) → Promise<값 | null>(roomDir 만), getUserId() → 문자열 | null, env 'prod' | 'dev', storage */
 export function createRoomServerGate(deps){
@@ -107,6 +109,7 @@ export function createRoomServerGate(deps){
   const myId = () => { try{ return deps.getUserId() || null; }catch(_){ return null; } };
   const config = async () => { try{ const c = await deps.getConfig(); return (c && typeof c === 'object') ? c : null; }catch(_){ return null; } };
   const myServer = async (uid) => { try{ const v = await deps.myServer(uid); return typeof v === 'string' ? v : null; }catch(_){ return null; } };
+  const pickSource = () => { try{ return deps.pickSource(); }catch(_){ return 'firebase'; } };   // 못 고르면 Firebase(입장을 막지 않는다)
 
   /* 서버 이름 → 주소. 표에 없거나 낯선 주소면 null. */
   async function serverUrl(name){
@@ -125,7 +128,7 @@ export function createRoomServerGate(deps){
     if(dev){ mine = { name: 'dev', url: dev.url, from: 'dev' }; return { via: 'server', url: dev.url, server: 'dev', from: 'dev' }; }
     const uid = myId();
     const cfg = await config();
-    if(!cfg || cfg.on !== true){ mine = null; return { via: 'firebase', why: 'off' }; }
+    if(!cfg || pickSource() !== 'server'){ mine = null; return { via: 'firebase', why: 'off' }; }
     const [allowName, dir] = await Promise.all([
       uid ? myServer(uid) : Promise.resolve(null),
       (creating || !code) ? Promise.resolve(null) : read(roomDirPath(code)),

@@ -132,7 +132,7 @@ const SKIP = {
   '/apiBots/$uid': 'closed',
 };
 for (const p of ['/catalog/parts/$partId', '/catalog/gachaParts/$partId', '/catalog/desks/$deskId', '/catalog/items/$itemId',
-  '/catalog/customCats/$catId', '/catalog/catOverrides/$catId', '/catalogMeta/$kind', '/config/chatKeepDays/$kind',
+  '/catalog/customCats/$catId', '/catalog/catOverrides/$catId', '/catalogMeta/$kind', '/config/chatKeepDays/$kind', '/config/sources/$feature',
   '/config/apiCors/$i', '/config/roomServer/servers/$name', '/config/roomServer/allow/$userId', '/bugBoard/seq/$day',
   '/bugBoard/ans/pub/$id', '/bugBoard/ans/pub/$id/$rid', '/bugBoard/ans/prv/$id', '/bugBoard/ans/prv/$id/$rid',
   '/inboxBroadcast/$msgId', '/adminLog/$logId', '/metrics/improvements/$id', '/metrics/improvements/$id/items/$i',

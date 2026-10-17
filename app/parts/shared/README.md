@@ -182,3 +182,16 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - `onNetReady` 는 신호가 두 번 오면 두 번 부른다. overhead 의 once 없음은 원래 동작 그대로 둔 것이다(CONFIRM.md).
 
 검사: `checks/sim-net-ready.js` (바로 · once 한 번 · need · 이벤트 인자 · onNetReady 두 번 · waitNetReady 신호 · 시간 · 한 번만 풀림 · 직접 귀 0곳 · 쓰는 파일 11곳 · html 순서 · smoke · 깨 보기 9).
+
+## `source-switch.js` — 🎚️ 기능별 받는 곳 고르기(서버 / 파이어베이스)
+
+- **책임**: 기능(친구 · 방 · 카탈로그 …)마다 «서버(우리 API · 방 서버) / 파이어베이스(옛 길)» 중 어디서 받을지 고르고(`pickSource`), «서버 먼저 → 못 받으면 파이어베이스» 를 한 벌로 돌린다(`serverFirst`). 기능 쪽은 이것만 부른다 — 스위치 이름 · 기본값 · 넘어가기 조건을 다시 쓰지 않는다(`sim-source-switch.js` 가 막는다).
+- **스위치 자리**: 원격 설정 `sources.{기능}`(쓰기 원본 Firebase `config/sources/{기능}` · 웹 관리자 «🎚️ 기능 스위치») = `'server'` | `'firebase'`. 칸이 없으면 기능 표(`FEATURES`)의 옛 자리를 읽는다 — 친구 `flags.friendsApi`(끌 때만 false) · 방 `roomServer.on`(true 일 때만) · 카탈로그(옛 스위치 없음 — 늘 서버 먼저). 그래서 칸을 비워 두면 예전 동작 그대로다.
+- **만드는 법**: 브라우저는 `TwSourceSwitch.store`(원격 설정 store 를 부를 때마다 읽는 한 벌)를 쓴다. 시험에서는 `createSourceSwitch({ valueOf(기능), legacyOf(기능) })`.
+- **내놓는 것**: `SOURCE` · `SKIP` · `FEATURES` · `cleanSource` · `pickSource(기능, 새 값, 옛 값)` · `serverFirst(받는 곳, 서버 함수 | null, 파이어베이스 함수, 실패 알림)` → `{ v, from }` · `createSourceSwitch(deps)` → `{ pick, serverFirst }` · `store`.
+  ```js
+  // 친구 포트
+  const r = await serverFirst(source(), apiProvider ? () => apiProvider.listFriends(myId) : null, () => firebase.listFriends(myId), onFail);
+  ```
+- **확장**: 새 기능을 서버로 옮길 때 `FEATURES` 에 한 줄(옛 스위치가 없으면 `legacy: () => 기본값`) · `remote-config.js` `SOURCE_FEATURES` · 웹 관리자 기능 스위치 표에 한 줄. 규칙은 `config/sources/$feature` 한 칸으로 이미 받는다.
+- **함정**: 서버 함수가 «값은 왔는데 못 쓴다»(예: 사본 버전이 다름)면 던지지 말고 `SKIP` 을 돌려준다 — 실패 알림 없이 파이어베이스로 간다. 파이어베이스 쪽 오류는 숨기지 않고 그대로 던진다. 방의 허용 목록 · 비율 · 기본 서버는 이 스위치가 «서버» 일 때 `room-server-gate.js` 가 그다음에 본다.

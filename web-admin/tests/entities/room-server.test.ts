@@ -108,7 +108,9 @@ describe('방 서버 설정 바꾸기', () => {
     await removeAllow(db, 'u1abc2345', 'rooms-1');
     expect(writes.filter((w) => !w[1].startsWith('adminLog/'))).toEqual([
       ['commit', 'config/roomServer/on', true],
+      ['commit', 'config/sources/rooms', 'server'],
       ['commit', 'config/roomServer/on', false],
+      ['commit', 'config/sources/rooms', 'firebase'],
       ['commit', 'config/roomServer/servers/rooms-1', 'wss://rooms.togetherworking.duckdns.org'],
       ['commit', 'config/roomServer/servers/rooms-1', 'wss://rooms-dev.togetherworking.duckdns.org'],
       ['commit', 'config/roomServer/servers/rooms-1', null],

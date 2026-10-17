@@ -28,6 +28,7 @@ const M = new Function(SRC.replace(/^export (const|function|async function) /gm,
 // PROD = 새 앱이 붙는 운영 주소 · OLD = 운영 설정 servers 에 남겨 둔 옛 주소(옛 앱도 읽는다 — 새 앱은 별칭으로 PROD 에 붙는다)
 const PROD = 'wss://realtime.together-working.com', OLD = 'wss://rooms.togetherworking.duckdns.org', DEV = 'wss://rooms-dev.togetherworking.duckdns.org';
 const C = 'config/roomServer';
+const SW = require(require('path').resolve(['source-switch.js', 'app/parts/shared/source-switch.js'].find(f => fs.existsSync(f))));   // 진짜 받는 곳 고르기(기능 rooms)
 function mkGate(db, o = {}){
   const reads = [], me = [], addr = [];
   let cfgCalls = 0;
@@ -38,6 +39,7 @@ function mkGate(db, o = {}){
   };
   const gate = M.createRoomServerGate({
     getConfig: async () => { cfgCalls++; if(o.fail) throw new Error('net'); return cfgOf(); },
+    pickSource: () => SW.pickSource('rooms', o.source, cfgOf().on),   // 새 자리 sources.rooms(o.source) · 없으면 옛 on
     serverAddr: async (name) => { addr.push(name); if(o.fail) throw new Error('net'); const v = cfgOf().servers[name]; return v == null ? null : v; },
     myServer: async (uid) => { me.push(uid); if(o.fail) throw new Error('net'); const v = db[C + '/allow/' + uid]; return v == null ? null : v; },
     read: async (p) => { reads.push(p); if(o.fail) throw new Error('net'); return (p in db) ? db[p] : null; },
@@ -96,6 +98,12 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     g = mkGate(Object.assign(base(), { [C + '/allow/u1abc234']: 'rooms-1', [C + '/on']: false }));
     r = await g.gate.resolveRoomServer('X', { creating: true });
     chk(r.via === 'firebase' && g.reads.length === 0 && g.me.length === 0, '꺼져 있으면(on:false) 설정만 보고 Firebase(/v1/config/me · 주소록 안 읽음)');
+    g = mkGate(Object.assign(base(), { [C + '/allow/u1abc234']: 'rooms-1' }), { source: 'firebase' });
+    r = await g.gate.resolveRoomServer('ABCD-1234', { creating: true });
+    chk(r.via === 'firebase' && r.why === 'off' && g.me.length === 0, '★ 기능 스위치(sources.rooms)를 파이어베이스로 — on 이 true 여도 Firebase(허용 목록 안 읽음)');
+    g = mkGate(Object.assign(base(), { [C + '/allow/u1abc234']: 'rooms-1', [C + '/on']: false }), { source: 'server' });
+    r = await g.gate.resolveRoomServer('ABCD-1234', { creating: true });
+    chk(r.via === 'server' && r.server === 'rooms-1', '  ↳ 기능 스위치를 서버로 — 옛 on 이 false 여도 방 서버 길(허용 목록 · 비율은 그대로 본다)');
     g = mkGate(Object.assign(base(), { [C + '/allow/u1abc234']: 'rooms-1' }), { fail: true });
     chk((await g.gate.resolveRoomServer('X', { creating: true })).via === 'firebase', '읽기 실패 → Firebase(입장을 막지 않는다)');
     g = mkGate(Object.assign(base(), { [C + '/allow/u1abc234']: 'rooms-1' }), { uid: null });
@@ -271,6 +279,7 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     const gi = FC.indexOf('const _roomServerGate = createRoomServerGate({'), gb = gi > 0 ? FC.slice(gi, FC.indexOf('createRoomServerNet(', gi)) : '';
     chk(/getConfig: async \(\) => \{ if\(!_rc\) return null; await _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\); return _rc\.roomServer\(\); \},/.test(gb),
       'firebase-init — 설정은 원격 설정(API)에서 · 오래됐으면(STALE_MS) 한 번 더 묻고 넘긴다');
+    chk(/pickSource: \(\) => window\.TwSourceSwitch\.store\.pick\('rooms'\),/.test(gb) && !/cfg\.on !== true|\.on === true/.test(GC), '  ↳ 방 서버를 쓸지는 받는 곳 고르기(source-switch rooms) 한 곳 — 문지기는 on 을 직접 보지 않는다');
     chk(/myServer: \(uid\) => _rc \? _rc\.myServer\(uid\) : null,/.test(gb) && /serverAddr: \(name\) => _rc \? _rc\.serverAddr\(name\) : null,/.test(gb), '  ↳ 허용 목록 · 서버 주소도 원격 설정(_rc.myServer · _rc.serverAddr)');
     chk(/read: \(path\) => get\(ref\(db, path\)\)\.then\(s => s\.val\(\)\),/.test(gb) && /env: FIREBASE_ENV,/.test(gb), '  ↳ 주소록 칸 읽기 · 환경을 넘긴다');
     chk(/async resolveRoomServer\(code, opts\)\{/.test(FC) && /roomServerMineNow\(\)\{ return _roomServerGate\.mine\(\); \}/.test(FC), '  ↳ firebaseAPI.resolveRoomServer · roomServerMine · roomServerMineNow');

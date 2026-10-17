@@ -1,0 +1,22 @@
+.row {
+  display: grid;
+  gap: 4px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line, #ddd);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.choices {
+  display: flex;
+  gap: 12px;
+}

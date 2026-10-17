@@ -805,6 +805,13 @@
           ".validate": false
         }
       },
+      "sources": {
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$feature": {
+          ".read": true,
+          ".validate": "$feature.matches(/^[a-z]{1,20}$/) && newData.isString() && (newData.val() === 'server' || newData.val() === 'firebase')"
+        }
+      },
       "releaseAnswerTpl": {
         ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
         ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 1000"
