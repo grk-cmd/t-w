@@ -81,6 +81,7 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
 ## `myhome-preset.js` — 👑 디자인 프리셋 규칙
 
 **책임** — 디자인 스튜디오 프리셋 3칸의 판단 한 벌: «지금 디자인 → 칸»(무엇을 담나) · «칸 → 지금 디자인»(어떻게 얹나) · 저장본 씻기 · 고른 칸 번호 · 그림 키 집합 · 그림 올릴 이름.
+칸 한 벌 = 색 + 그림(theme 의 그림 키 · 바깥 배경 `bg.img`) 통째 — 그림까지 담은 칸은 `img: true` 표시. 표시 없는 칸(그림 담기 전에 저장했거나 옛 앱이 다시 쓴 칸)은 예전 규칙(색만 갈고 지금 그림 그대로).
 순수 함수만 — DOM · firebase · `_myHomeData` 를 모르고, 받은 값을 고치지 않고 새 값을 돌려준다.
 
 **만드는 법** — 만들지 않는다(받는 것 없음 · 실릴 때 바로). `myhome-edit.js` · app.js 보다 먼저 싣고, 편집 묶음이 아래층으로 받는다:
@@ -90,7 +91,8 @@ const mhPreset = TwMyHomePreset;   // myhome-edit.js 머리(고리판 TwMyHomeHo
 ```
 
 **내놓는 것** — `MAX`(3) · `NAME_MAX`(8) · `imgKeyOf(row)` · `imgKeys(rows)` → Set · `normalize(raw)` → 3칸 배열 · `cur(raw)` → 0~2 ·
-`snapshot(home, imgKeys, name)` → 칸 한 벌 · `apply(home, preset, imgKeys)` → `{ theme, bg }`(부르는 쪽이 home 에 넣는다) · `uploadSlot(key)` → `uploadUserImage` 의 slot.
+`snapshot(home, imgKeys, name)` → 칸 한 벌 · `apply(home, preset, imgKeys)` → `{ theme, bg }`(부르는 쪽이 home 에 넣는다) ·
+`uploadSlot(cur, key)` → `uploadUserImage` 의 slot(`p0_bg` → `users/{uid}/design_p0_bg.jpg` — 고른 칸마다 다른 파일).
 
 ```js
 arr[i] = mhPreset.snapshot(_myHomeData(), mhPreset.imgKeys(_MH_DS_ROWS), arr[i] && arr[i].name);   // 저장
@@ -101,4 +103,7 @@ const next = mhPreset.apply(_myHomeData(), p, keys); _myHomeData().theme = next.
 그림 키는 디자인 스튜디오 항목 표(`_MH_DS_ROWS`)에서 뽑는다 — 여기에 따로 적지 않는다.
 
 **함정** — Realtime DB 는 빈 자리가 있는 배열을 `{0:…, 2:…}` 객체로 돌려준다 — `normalize` 를 거치지 않고 배열로 단정하지 말 것.
+그림 올리는 이름은 `uploadSlot` 한 곳 — 칸 번호를 빼면 칸끼리 같은 파일을 덮어 한 칸에서 바꾼 그림이 다른 칸까지 바꾼다. 같은 칸에 다시 올리면 같은 파일을 덮는다(파일은 지우지 않는다 · 쌓이지 않는다).
+그 전에 올린 `design_bg.jpg` 같은 옛 파일을 가리키는 칸은 그대로 둔다. `data:` 그림(옛 base64)은 칸에 담지 않는다 — 칸마다 복사되면 홈 노드가 몇 배로 커진다.
+옛 앱의 씻기는 `bg.img` · `img` 표시를 버린다 — 옛 앱이 새 저장본을 읽으면 그 칸은 «색만» 칸으로 보인다(깨지지 않는다).
 검사: `checks/sim-myhome-preset.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).

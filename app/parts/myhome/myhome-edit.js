@@ -896,9 +896,9 @@ const mhPreset = TwMyHomePreset;                         // 👑 디자인 프�
     '<span style="flex:1;"></span><button id="dsDone" type="button">\uC644\uB8CC</button></div>'+
     '</body></html>';
   /* ══ 👑 디자인 프리셋 (라이선스 전용) ══════════════════════════════════════
-     프리셋 한 칸 = 디자인 한 벌 통째 — 마이홈 · 친구 · 스케줄러 세 탭의 색이 한 덩어리로 들어간다.
+     프리셋 한 칸 = 디자인 한 벌 통째 — 마이홈 · 친구 · 스케줄러 세 탭의 색과 그림이 한 덩어리로 들어간다.
      저장 자리: _myHomeData.themePresets (3칸) · themePresetCur (지금 고른 칸) → users/{uid}/home 아래로 그대로 따라간다.
-     «무엇을 담고 · 어떻게 얹는가» 는 myhome-preset.js 한 곳(그림은 담지 않는다 — 올리는 자리가 항목당 하나라 칸끼리 같은 파일을 덮는다). */
+     «무엇을 담고 · 어떻게 얹는가» 와 그림을 칸마다 다른 파일에 올리는 이름은 myhome-preset.js 한 곳. */
   const MH_PRESET_MAX = mhPreset.MAX;
   const MH_PRESET_NAME_MAX = mhPreset.NAME_MAX;
   /* 그림 키 목록은 _MH_DS_ROWS 에서 뽑는다 — 다시 적으면 항목이 늘 때 한쪽만 고쳐진다 */
@@ -1014,7 +1014,7 @@ const mhPreset = TwMyHomePreset;                         // 👑 디자인 프�
     const save = d.createElement('span');
     save.className = 'ps-save' + (_mhDsArmed === 'save' ? ' armed' : '');
     save.textContent = _mhDsArmed === 'save' ? '한 번 더' : '저장';
-    save.title = _mhPresetLabel(cur) + ' 에 지금 디자인 담기 (색만 — 그림은 안 담겨요)';
+    save.title = _mhPresetLabel(cur) + ' 에 지금 디자인 담기 (색 · 그림 모두)';
     save.addEventListener('click', ()=>{
       /* 빈 칸에는 덮어쓸 것이 없으므로 그냥 담는다. 되돌릴 수 없는 것만 두 번 묻는다. */
       if(!arr[cur]){ _mhPresetSave(cur); _mhDsRenderPresets(); return; }
@@ -1118,7 +1118,7 @@ const mhPreset = TwMyHomePreset;                         // 👑 디자인 프�
           const kb = Math.round(dataUrl.length * 0.75 / 1024);
           toast(`이미지를 올리는 중… (${c.width}×${c.height}, 약 ${kb}KB)`);
           try{
-            const slot = mhPreset.uploadSlot(isBg ? 'bg' : imgKey);
+            const slot = mhPreset.uploadSlot(_mhPresetCur(), isBg ? 'bg' : imgKey);   // 고른 칸마다 다른 파일 — 다른 칸이 담은 그림을 덮지 않게
             const res = await firebaseAPI.uploadUserImage(getMyUserId(), slot, dataUrl);
             if(res && res.ok){ applyUrl(res.url); toast(`이미지를 등록했어요 (${c.width}×${c.height}, 약 ${kb}KB)`); }
             else toast((res && res.reason) || '업로드에 실패했어요');
