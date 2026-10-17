@@ -25,7 +25,8 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^
 const names = [...SRC.matchAll(/^export (?:const|function|async function) (\w+)/gm)].map((m) => m[1]);
 const M = new Function(SRC.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')();
 
-const PROD = 'wss://rooms.togetherworking.duckdns.org', DEV = 'wss://rooms-dev.togetherworking.duckdns.org';
+// PROD = 새 앱이 붙는 운영 주소 · OLD = 운영 설정 servers 에 남겨 둔 옛 주소(옛 앱도 읽는다 — 새 앱은 별칭으로 PROD 에 붙는다)
+const PROD = 'wss://realtime.together-working.com', OLD = 'wss://rooms.togetherworking.duckdns.org', DEV = 'wss://rooms-dev.togetherworking.duckdns.org';
 const C = 'config/roomServer';
 function mkGate(db, o = {}){
   const reads = [], me = [], addr = [];
@@ -46,21 +47,27 @@ function mkGate(db, o = {}){
   });
   return { gate, reads, me, addr, cfgCalls: () => cfgCalls };
 }
-const base = () => ({ [C + '/on']: true, [C + '/servers/rooms-1']: PROD });
+const base = () => ({ [C + '/on']: true, [C + '/servers/rooms-1']: OLD });
 const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
 
 (async () => {
   say('── 1. 주소 거르기 · 개발용 켜기');
   {
     chk(M.ROOM_SERVER_URLS.prod === PROD && M.ROOM_SERVER_URLS.dev === DEV, '운영 · dev 방 서버 주소');
-    chk(M.serverUrlOk(PROD, 'prod') && !M.serverUrlOk(DEV, 'prod') && M.serverUrlOk(DEV + '/', 'dev') && !M.serverUrlOk(PROD, 'dev'), '운영 앱은 dev 서버로 · dev 앱은 운영 서버로 안 간다(끝 / 무시)');
-    const SFX = '.togetherworking.duckdns.org';
-    chk(M.serverUrlOk('wss://rooms-2' + SFX, 'prod') && M.serverUrlOk('https://realtime-9' + SFX, 'prod') && M.serverUrlOk('wss://rooms-2' + SFX, 'dev'),
-      '  ↳ 방 서버 묶음(wss · https://<이름>' + SFX + ')은 새 이름도 붙는다 — 관리자가 servers 에 이름만 더한다');
-    chk(['ws://rooms-2' + SFX, 'http://rooms-2' + SFX, 'wss://evil-togetherworking.duckdns.org', 'wss://a.b' + SFX, 'wss://x' + SFX + ':8443',
-      'wss://x' + SFX + '.evil.com', 'wss://x' + SFX + '/p', 'wss://-x' + SFX, 'wss://' + SFX.slice(1), 'wss://x.duckdns.org'].every((u) => !M.serverUrlOk(u, 'prod') && !M.serverUrlOk(u, 'dev')),
-      '  ↳ 다른 도메인 · 접미사 흉내 · 하위 두 칸 · 포트 · 경로 · ws/http 는 막는다');
-    chk(M.ROOM_SERVER_HOST_SUFFIX === SFX && String(M.ROOM_SERVER_URL_RE) === String(/^(?:wss|https):\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.togetherworking\.duckdns\.org$/), '  ↳ 접미사 · 정규식 그대로');
+    chk(M.serverUrlOk(PROD, 'prod') && M.serverUrlOk(OLD, 'prod') && !M.serverUrlOk(DEV, 'prod') && M.serverUrlOk(DEV + '/', 'dev') && !M.serverUrlOk(PROD, 'dev') && !M.serverUrlOk(OLD, 'dev'),
+      '운영 앱은 dev 서버로 · dev 앱은 운영 서버(새 주소 · 옛 주소 둘 다)로 안 간다(끝 / 무시)');
+    for(const SFX of ['.together-working.com', '.togetherworking.duckdns.org']){
+      chk(M.serverUrlOk('wss://rooms-2' + SFX, 'prod') && M.serverUrlOk('https://realtime-9' + SFX, 'prod') && M.serverUrlOk('wss://rooms-2' + SFX, 'dev'),
+        '  ↳ 방 서버 묶음(wss · https://<이름>' + SFX + ')은 새 이름도 붙는다 — 관리자가 servers 에 이름만 더한다');
+      const evil = SFX === '.together-working.com' ? 'wss://evil-together-working.com' : 'wss://evil-togetherworking.duckdns.org';
+      chk(['ws://rooms-2' + SFX, 'http://rooms-2' + SFX, evil, 'wss://a.b' + SFX, 'wss://x' + SFX + ':8443',
+        'wss://x' + SFX + '.evil.com', 'wss://x' + SFX + '/p', 'wss://-x' + SFX, 'wss://' + SFX.slice(1), 'wss://x.duckdns.org', 'wss://x.together-working.co'].every((u) => !M.serverUrlOk(u, 'prod') && !M.serverUrlOk(u, 'dev')),
+        '  ↳ ' + SFX + ' — 다른 도메인 · 접미사 흉내 · 하위 두 칸 · 포트 · 경로 · ws/http 는 막는다');
+    }
+    chk(M.ROOM_SERVER_HOST_SUFFIXES.join() === '.together-working.com,.togetherworking.duckdns.org' && String(M.ROOM_SERVER_URL_RE) === String(/^(?:wss|https):\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:together-working\.com|togetherworking\.duckdns\.org)$/), '  ↳ 접미사 두 개 · 정규식');
+    chk(M.aliasServerUrl(OLD) === PROD && M.aliasServerUrl(OLD + '/') === PROD && M.aliasServerUrl('https://rooms.togetherworking.duckdns.org') === 'https://realtime.together-working.com'
+      && M.aliasServerUrl(DEV) === DEV && M.aliasServerUrl('wss://rooms-2.togetherworking.duckdns.org') === 'wss://rooms-2.togetherworking.duckdns.org' && M.aliasServerUrl(PROD) === PROD && M.aliasServerUrl('') === '',
+      '별칭 — 운영 설정의 옛 운영 주소만 새 주소로(스킴 그대로) · dev · 다른 이름 · 새 주소 · 빈 값은 그대로');
     chk(!M.serverUrlOk('ws://127.0.0.1:8787', 'prod') && M.serverUrlOk('ws://127.0.0.1:8787', 'dev') && !M.serverUrlOk('ws://127.0.0.1:9999', 'dev'), '로컬(8787)은 dev 앱만');
     chk(!M.serverUrlOk('wss://evil.example', 'prod') && !M.serverUrlOk('', 'prod') && !M.serverUrlOk(null, 'dev'), '낯선 주소 · 빈 값은 안 된다');
     const on = ls({ 'tw.roomServer': '1', 'tw.roomServerUrl': 'ws://127.0.0.1:8787' });

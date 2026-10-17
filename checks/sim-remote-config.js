@@ -426,10 +426,11 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk((HTML.match(/<span data-tw-max-people>10<\/span>/g) || []).length === 4 && !/최대 10명/.test(HTML), '«최대 10명» 네 곳이 설정을 따라가는 자리');
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => m[1]);
     const conn = csp.map((c) => (/connect-src ([^;]+);/.exec(c) || [])[1] || '');
-    chk(csp.length === 2 && conn.every((c) => /(^| )wss:\/\/\*\.togetherworking\.duckdns\.org( |$)/.test(c) && /(^| )https:\/\/\*\.togetherworking\.duckdns\.org( |$)/.test(c)),
-      'CSP 두 줄 — wss · https://*.togetherworking.duckdns.org');
-    chk(/^https:\/\/[a-z0-9-]+\.togetherworking\.duckdns\.org$/.test(require(path.resolve(where('api-client.js'))).API_BASE_PROD), '  ↳ API 주소(api-client.js API_BASE_PROD)도 같은 https 와일드카드 안(CSP 를 따로 열지 않음)');
-    chk(conn.every((c) => !/rooms(-dev)?\.togetherworking/.test(c) && !/\bws:\/\/\*|wss:\/\/\*\.duckdns|\*\.duckdns\.org|https?:\/\/\*( |$)/.test(c)), '  ↳ 다른 도메인은 그대로 막는다(duckdns 전체 · ws 와일드카드 없음)');
+    const has = (c, pre, dom) => new RegExp('(^| )' + pre + ':\\/\\/\\*\\.' + dom.replace(/\./g, '\\.') + '( |$)').test(c);
+    chk(csp.length === 2 && conn.every((c) => ['together-working.com', 'togetherworking.duckdns.org'].every((d) => has(c, 'wss', d) && has(c, 'https', d))),
+      'CSP 두 줄 — wss · https://*.together-working.com(새 도메인) · *.togetherworking.duckdns.org(옛 주소 — 옛 설정값 · dev)');
+    chk(/^https:\/\/[a-z0-9-]+\.together-working\.com$/.test(require(path.resolve(where('api-client.js'))).API_BASE_PROD), '  ↳ API 주소(api-client.js API_BASE_PROD)도 새 https 와일드카드 안(CSP 를 따로 열지 않음)');
+    chk(conn.every((c) => !/rooms(-dev)?\.togetherworking/.test(c) && !/\bws:\/\/\*|wss:\/\/\*\.duckdns|\*\.duckdns\.org|https?:\/\/\*( |$)|\*\.com( |$)|\*-working/.test(c)), '  ↳ 다른 도메인은 그대로 막는다(duckdns 전체 · .com 전체 · ws 와일드카드 없음)');
   }
   finish();
 })().catch((e) => { fail++; say('  ✗ 예외: ' + (e && e.stack || e)); finish(); });

@@ -35,8 +35,10 @@ export const SERVER_URL_RE = /^wss?:\/\/[A-Za-z0-9.-]+(:[0-9]{1,5})?$/;
 export const SERVER_URL_MAX = 200;
 export const USER_CODE_RE = /^u[0-9a-z]{6,40}$/;
 
-// 앱 CSP connect-src · room-server-gate.js ROOM_SERVER_URLS 와 같은 주소 — 여기 없는 주소는 앱이 쓰지 않는다.
+// 앱 CSP connect-src · room-server-gate.js ROOM_SERVER_URL_RE 안의 주소 — 여기 없는 주소는 앱이 쓰지 않는다.
+// rooms.togetherworking.duckdns.org 는 옛 앱도 아는 운영 주소(새 앱은 realtime.together-working.com 으로 바꿔 붙는다 — ROOM_SERVER_HOST_ALIAS).
 export const APP_SERVER_URLS = [
+  'wss://realtime.together-working.com',
   'wss://rooms.togetherworking.duckdns.org',
   'wss://rooms-dev.togetherworking.duckdns.org',
   'ws://127.0.0.1:8787',

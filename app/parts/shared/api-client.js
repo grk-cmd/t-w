@@ -10,16 +10,16 @@
    [로그인] get(path, { auth: true, headers }) — deps.getToken() 의 값을 Authorization: Bearer 로 붙인다(로그인이 필요한 경로 · 첫 사용자 friends-api.js).
      토큰이 없으면 보내지 않고 'auth'(code NO_TOKEN). 로그인 요청은 캐시하지 않는다. headers 는 그 요청에만 더한다.
    [주소] 운영 앱 = 운영 API · dev 앱(--tw-firebase=dev) = dev API. dev 앱만 tw.apiBaseUrl 로 다른 주소(CSP 묶음 안)를 쓸 수 있다.
-     CSP connect-src https://*.togetherworking.duckdns.org 안이어야 한다(desk-companion-prototype.html).
+     CSP connect-src https://*.together-working.com · *.togetherworking.duckdns.org 안이어야 한다(desk-companion-prototype.html). duckdns 는 옛 주소 — dev 시험 주소용으로만 남는다.
    Electron(file://)의 fetch 는 Origin 헤더 없이 나가고 CORS 를 보지 않는다 — 공개 GET 은 토큰 · 쿠키 없이 보낸다(쿠키는 늘 omit).
    classic script — remote-config.js · app.js 보다 먼저 싣는다(window.TwApi). Firebase 를 모른다. */
 (function(){
 'use strict';
 
-const API_BASE_PROD = 'https://api.togetherworking.duckdns.org';
-const API_BASE_DEV = 'https://api-dev.togetherworking.duckdns.org';
+const API_BASE_PROD = 'https://api.together-working.com';
+const API_BASE_DEV = 'https://api-dev.together-working.com';
 const API_BASE_DEV_KEY = 'tw.apiBaseUrl';
-const API_BASE_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.togetherworking\.duckdns\.org$/;
+const API_BASE_RE = /^https:\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:together-working\.com|togetherworking\.duckdns\.org)$/;
 const TIMEOUT_MS = 2500;
 const BACKOFF_MS = 30 * 1000;
 

@@ -7,7 +7,7 @@
  *   on      : true 일 때만 아래가 동작한다. 아니면 전원 Firebase(비상 정지 스위치).
  *             켜져 있으면 허용 목록에 없는 사람도 «서버에 있는 방» 코드로 들어갈 때 늘 그 서버로 따라간다 —
  *             안 따라가면 Firebase 의 «같은 코드 다른 방» 에 들어가 서로 못 본다.
- *   servers : { <서버 이름>: 'wss://…' } — 주소가 방 서버 묶음(wss/https://<이름>.togetherworking.duckdns.org = CSP connect-src)이 아니면 무시.
+ *   servers : { <서버 이름>: 'wss://…' } — 주소가 방 서버 묶음(wss/https://<이름>.together-working.com · <이름>.togetherworking.duckdns.org = CSP connect-src)이 아니면 무시.
  *             새 서버는 이 접미사 아래 이름만 더하면 앱 릴리스 없이 붙는다. 다른 도메인 · 포트 · 경로는 막는다.
  *   허용 목록 : 설정 응답에 없다 — 한 사람씩 GET /v1/config/room-server/allow/{내 코드}(못 받으면 Firebase allow/{내 코드} 한 칸)로 «내 서버 이름» 을 받는다(myServer).
  *             이 사람이 방을 «만들면» 그 서버에 연다.
@@ -22,14 +22,20 @@
  */
 export const ROOM_DIR_ROOT = 'roomDir';
 // 운영 · dev 기본 방 서버(dev 개발용 켜기의 기본 주소). 붙어도 되는 주소는 아래 ROOM_SERVER_URL_RE — CSP connect-src 의
-// wss://*.togetherworking.duckdns.org · https://*.togetherworking.duckdns.org 와 같은 범위여야 한다.
+// wss · https://*.together-working.com · *.togetherworking.duckdns.org 와 같은 범위여야 한다. dev 방 서버는 새 도메인 이름이 없어 duckdns 그대로.
 export const ROOM_SERVER_URLS = {
-  prod: 'wss://rooms.togetherworking.duckdns.org',
+  prod: 'wss://realtime.together-working.com',
   dev: 'wss://rooms-dev.togetherworking.duckdns.org',
 };
-// 방 서버 묶음 — 이 접미사의 이름 한 칸(wss · https만 · 포트 · 경로 없음). 접미사 앞을 꼭 «.» 로 끊어 evil-togetherworking… 같은 이름을 막는다.
-export const ROOM_SERVER_HOST_SUFFIX = '.togetherworking.duckdns.org';
-export const ROOM_SERVER_URL_RE = /^(?:wss|https):\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.togetherworking\.duckdns\.org$/;
+// 방 서버 묶음 — 이 접미사들의 이름 한 칸(wss · https만 · 포트 · 경로 없음). 접미사 앞을 꼭 «.» 로 끊어 evil-together-working… 같은 이름을 막는다.
+// duckdns 는 옛 앱이 아직 그 주소만 알아서 남긴다(운영 설정 servers 값을 옛 앱 · 새 앱이 같이 읽는다).
+export const ROOM_SERVER_HOST_SUFFIXES = ['.together-working.com', '.togetherworking.duckdns.org'];
+export const ROOM_SERVER_URL_RE = /^(?:wss|https):\/\/[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.(?:together-working\.com|togetherworking\.duckdns\.org)$/;
+// 옛 주소 → 같은 서버의 새 주소. 운영 설정 servers 는 옛 앱 때문에 duckdns 로 두고, 새 앱은 여기서 바꿔 붙는다.
+// 옛 앱이 다 사라지면(minVer 를 올린 뒤) 운영 설정을 새 주소로 바꾸고 이 표를 걷는다.
+export const ROOM_SERVER_HOST_ALIAS = {
+  'rooms.togetherworking.duckdns.org': 'realtime.together-working.com',
+};
 // 로컬 시험용 — dev 환경(--tw-firebase=dev)에서만 받는다. 운영 앱은 CSP 에 있어도 여기로 붙지 않는다.
 export const LOCAL_SERVER_URLS = ['ws://127.0.0.1:8787', 'ws://localhost:8787'];
 export const SERVER_NAME_RE = /^[a-z0-9][a-z0-9-]{0,31}$/;
@@ -59,12 +65,21 @@ export const inDefaultPercent = (uid, percent) => !!uid && userBucket(uid) < def
 /* 이 환경의 앱이 붙어도 되는 주소인가 — 방 서버 묶음(ROOM_SERVER_URL_RE)만. 단 운영 앱은 dev 서버로, dev 앱은 운영 서버로 안 간다
    (환경이 섞이면 서로 다른 Firebase 토큰으로 붙어 거절만 된다). dev 앱은 로컬도. */
 const hostOf = (u) => String(u).replace(/^[a-z]+:\/\//, '');
-const OTHER_ENV_HOST = { prod: hostOf(ROOM_SERVER_URLS.dev), dev: hostOf(ROOM_SERVER_URLS.prod) };
+/* 주소의 호스트를 ROOM_SERVER_HOST_ALIAS 로 바꾼다(없으면 그대로). 스킴은 그대로. */
+export function aliasServerUrl(url){
+  const u = trimUrl(url);
+  const m = /^([a-z]+:\/\/)(.*)$/.exec(u);
+  if(!m) return u;
+  const to = Object.prototype.hasOwnProperty.call(ROOM_SERVER_HOST_ALIAS, m[2]) ? ROOM_SERVER_HOST_ALIAS[m[2]] : null;
+  return to ? m[1] + to : u;
+}
+// 운영 서버의 옛 이름(별칭 표의 왼쪽)도 운영 쪽이다 — dev 앱이 그리로 붙지 않게
+const OTHER_ENV_HOSTS = { prod: [hostOf(ROOM_SERVER_URLS.dev)], dev: [hostOf(ROOM_SERVER_URLS.prod)].concat(Object.keys(ROOM_SERVER_HOST_ALIAS)) };
 export function serverUrlOk(url, env){
   const u = trimUrl(url);
   if(!u) return false;
   const e = env === 'dev' ? 'dev' : 'prod';
-  if(ROOM_SERVER_URL_RE.test(u)) return hostOf(u) !== OTHER_ENV_HOST[e];
+  if(ROOM_SERVER_URL_RE.test(u)) return OTHER_ENV_HOSTS[e].indexOf(hostOf(u)) < 0;
   return e === 'dev' && LOCAL_SERVER_URLS.indexOf(u) >= 0;
 }
 
@@ -98,7 +113,7 @@ export function createRoomServerGate(deps){
     if(typeof name !== 'string' || !SERVER_NAME_RE.test(name)) return null;
     let v = null;
     try{ v = await deps.serverAddr(name); }catch(_){ v = null; }
-    return (typeof v === 'string' && serverUrlOk(v, env)) ? trimUrl(v) : null;
+    return (typeof v === 'string' && serverUrlOk(v, env)) ? aliasServerUrl(v) : null;
   }
 
   /* 이 방을 어디로 — { via:'server', url, server, from } | { via:'firebase', why }
