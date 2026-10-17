@@ -2,7 +2,7 @@
    app.js 의 🖥️ 데스크탑 실행 화면 덩이 을 parts/launcher/desktop-run.js 로 옮겼다(글자 그대로 · 바뀐 줄 18 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(데스크탑 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(없음)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 22줄 그대로 · 부르는 곳은 desktopRunMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 23줄 그대로(clickPolicy 는 클릭 통과 판단 규칙) · 부르는 곳은 desktopRunMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · desktop-run.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — desktop-run.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_applyActiveAppState","_skipFlyingRigs","_skipHiddenDesk","activity","anyInput","backToLauncher"];
-const VAL_DEPS = ["camera","desktopMode","ray","renderer","seats"];
+const VAL_DEPS = ["camera","clickPolicy","desktopMode","ray","renderer","seats"];
 const GET_DEPS = ["_charBoundsLatest","_penAppFocused","_twMoveSeenAt","drag","focusGateSleep","lastActivity","lastAnyInput","moveMode"];
 const SET_DEPS = ["_twMoveSeenAt","lastActivity","lastAnyInput"];
 const EXPORTS = [];
 const MOVED = [];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  _applyActiveAppState: (...a)=>_applyActiveAppState(...a),","  _charBoundsLatest: ()=>_charBoundsLatest,","  _penAppFocused: ()=>_penAppFocused,","  _skipFlyingRigs: (...a)=>_skipFlyingRigs(...a),","  _skipHiddenDesk: (...a)=>_skipHiddenDesk(...a),","  _twMoveSeenAt: ()=>_twMoveSeenAt,","  activity: (...a)=>activity(...a),","  anyInput: (...a)=>anyInput(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  camera: camera,","  desktopMode: desktopMode,","  drag: ()=>drag,","  focusGateSleep: ()=>focusGateSleep,","  lastActivity: ()=>lastActivity,","  lastAnyInput: ()=>lastAnyInput,","  moveMode: ()=>moveMode,","  ray: ray,","  renderer: renderer,","  seats: seats,","  setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },","  setLastActivity: (v)=>{ lastActivity = v; },","  setLastAnyInput: (v)=>{ lastAnyInput = v; },"];
+const GLUE = ["  _applyActiveAppState: (...a)=>_applyActiveAppState(...a),","  _charBoundsLatest: ()=>_charBoundsLatest,","  _penAppFocused: ()=>_penAppFocused,","  _skipFlyingRigs: (...a)=>_skipFlyingRigs(...a),","  _skipHiddenDesk: (...a)=>_skipHiddenDesk(...a),","  _twMoveSeenAt: ()=>_twMoveSeenAt,","  activity: (...a)=>activity(...a),","  anyInput: (...a)=>anyInput(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  camera: camera,","  clickPolicy: TwClickThroughPolicy,","  desktopMode: desktopMode,","  drag: ()=>drag,","  focusGateSleep: ()=>focusGateSleep,","  lastActivity: ()=>lastActivity,","  lastAnyInput: ()=>lastAnyInput,","  moveMode: ()=>moveMode,","  ray: ray,","  renderer: renderer,","  seats: seats,","  setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },","  setLastActivity: (v)=>{ lastActivity = v; },","  setLastAnyInput: (v)=>{ lastAnyInput = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

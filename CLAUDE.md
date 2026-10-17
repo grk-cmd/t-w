@@ -14,10 +14,11 @@
 - 절대 커밋하지 않는 것: `oauth-config.js`(OAuth 시크릿), `.env*`, `.idea/`, `*.iml`, `dist/`.
 
 ## 작업 전 할 일 확인
-여럿이 같이 고치니 같은 일을 겹쳐 하지 않게 웹 관리자 📋 할 일(`adminTodos`)을 먼저 본다. 자세한 건 `/todo` 스킬.
-1. **확인** — 코드 작업을 시작하기 전에 `node scripts/todo.js find <낱말>` · `brief`. 비슷한 일이 진행 중이면 멈추고 사용자에게 묻는다.
-2. **등록** — 겹치지 않으면 `node scripts/todo.js start "<제목>" --type feat|bug`. 나온 id 를 PR 본문 `할 일:` 줄에.
-3. **완료** — PR 이 머지되면 `node scripts/todo.js done <id> --release <다음 버전>`.
+여럿이 같이 고치니 같은 일을 겹쳐 하지 않게 **현황판(`docs/WORK_STATUS.md`)을 맨 먼저**, 그다음 웹 관리자 📋 할 일(`adminTodos`)을 본다. 할 일은 `/todo` 스킬.
+1. **맨 먼저 — 받아서 지금 누가 하는지 보기**: `git pull` 로 `docs/WORK_STATUS.md` 를 받아 «진행 중» 표에서 내가 건드릴 파일이 겹치는지 본다. 겹치면 **시작하지 말고** 그 담당과 먼저 맞춘다. 안 겹치면 담당 · 건드리는 파일을 한 줄 적어 **그 파일만 main 에 바로 push**(PR 없음 · 유일한 예외). 머지는 한 사람(검증 담당)만 한다. 자세한 절차는 그 파일 맨 위.
+2. **확인** — 코드 작업을 시작하기 전에 `node scripts/todo.js find <낱말>` · `brief`. 비슷한 일이 진행 중이면 멈추고 사용자에게 묻는다.
+3. **등록** — 겹치지 않으면 `node scripts/todo.js start "<제목>" --type feat|bug`. 나온 id 를 PR 본문 `할 일:` 줄에.
+4. **완료** — PR 이 머지되면 `node scripts/todo.js done <id> --release <다음 버전>`.
 - 관리자 Google 계정으로 `gcloud auth login` 한 사람만 쓴다. 처음 한 번 `node scripts/todo.js setup`. 세션 시작 때 진행 중인 할 일이 자동으로 보인다(관리자가 아니면 조용히 안 나온다).
 
 ## 구조
@@ -141,6 +142,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 - 새 로직은 `firebase-init.js` · `app.js` 에 쌓지 말고 도메인 모듈 파일로 만든다(위 구조 표). 모듈마다 검사(`sim-*.js`)를 붙인다. 두 파일은 줄 상한 · 새 구역 머리를 `sim-app-size` 가 막는다 — 옮겨서 줄었으면 같은 PR 에서 `node checks/sim-app-size.js --write-baseline`(지도 `docs/APP_FSD_MAP.md`).
 - UI 를 고치거나 새로 만들 때는 `docs/design-system/` (원칙 · 토큰 · 부품 지침)을 따른다. 그 폴더를 고쳤으면 `npm run design:build` 로 `hosting/design/` 도 다시 만든다.
 - 주석은 한국어로, **코드만 봐서는 모를 이유**만 짧게. 변경 이력 · 날짜 · 실측치는 커밋 메시지와 PR 에 적고, 이모지 꼬리표는 쓰지 않는다. 할 일은 `TODO:`.
+  - 옛 코드엔 이 규칙 전에 쓴 **이야기형 주석**(제보 사연 · «개정 n 에서» · 날짜 · 실측치 · 코드를 말로 다시 쓴 줄)이 많다. 한 번에 걷는 PR 은 만들지 않고, **손대는 구역만 같은 PR 에서** 줄인다 — «왜 · 다시 넣지 말 것 · ⚠️ 함정» 은 1~3줄로 남기고, 나머지는 걷는다(사연은 커밋에 이미 있다). 동작 코드는 건드리지 않는다.
 - **함수 · 모듈 기본 원칙**
   - 필요한 값(파라미터 · 내 코드 · 준비 상태)이 없으면 함수 맨 앞에서 얼리 리턴. 흐름에서 모듈로 뺄 때 그 흐름이 보장하던 값도 입구에서 확인한다. 추가 장치(래퍼 · 경로 검사 함수)는 만들지 않는다. 예: 친구 구독 `if(!myId) return`.
   - 한 함수 · 한 모듈 = 한 책임. 계산 · 화면 · 저장을 섞지 않고, 순수 계산은 따로 떼어 검사한다.

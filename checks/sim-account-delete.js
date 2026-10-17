@@ -433,6 +433,11 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     const M = strip(MI);
     chk(/dAgree\.checked && dWord && dWord\.value\.trim\(\) === '탈퇴'/.test(M), '  ↳ 체크와 글자가 다 맞아야 켜진다');
     chk(/cancelBtn\.focus\(\)/.test(M), '  ↳ 열면 포커스는 [취소](디자인 시스템 확인창)');
+    // 탈퇴 안내는 계정 탭(로그인 수단 ~ 로그아웃) 자리를 바꿔 보인다 — 아래에 덧붙이면 화면이 너무 길었다
+    chk(/#acctLoggedIn\.acct-deleting > :not\(#acctDeleteZone\)\{display:none !important;\}/.test(HTML) && /<div id="acctDeleteZone"/.test(HTML), '★ 탈퇴 안내를 여는 동안 계정 탭의 다른 칸(로그인 수단 ~ 로그아웃)은 숨는다');
+    chk(/#acctLoggedIn\.acct-deleting \.acct-del-notice\{max-height:none/.test(HTML) && /class="acct-del-notice"/.test(HTML), '  ↳ 그때 고지 상자는 안쪽 스크롤 없이 다 펼친다');
+    chk(/delMode\(true\)/.test(M) && /delMode\(false\)/.test(M) && /classList\.toggle\('acct-deleting'/.test(M), '  ↳ [회원 탈퇴]가 켜고 [취소]가 끈다');
+    chk(/classList\.contains\('acct-deleting'\)[^\n]*dc\.click\(\)/.test(strip(MI)), '  ↳ 탭을 옮기면 열린 안내를 접는다(돌아왔을 때 계정 탭이 사라진 채로 남지 않게)');
     chk(/_loginDoDeleteAccount\(dWord\.value\)/.test(M) && /_acctRelaunchAfterDetach\(null\)/.test(M.split('_loginDoDeleteAccount(dWord.value)')[1] || ''), '성공하면 완료 안내 → 앱 다시 켜기');
     if (WA_AUDIT != null && WA_LOG != null) chk(/'account\.selfDelete'/.test(WA_AUDIT) && /'account\.selfDelete': '/.test(WA_LOG), '웹 관리자 작업 기록이 «account.selfDelete» 를 안다');
     else say('  · 웹 관리자 폴더가 없는 자리(러너) — 작업 기록 이름 검사는 저장소에서 돈다');

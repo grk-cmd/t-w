@@ -16,6 +16,7 @@
 const FPS_ACTIVE = 60;          // 상한의 꼭대기 — 고주사율 모니터에서도 이 이상 그리지 않는다
 const FPS_IDLE = 30;            // 포커스는 있지만 손을 안 댄 지 IDLE_AFTER_MS 가 지났을 때
 const FPS_UNFOCUSED = 20;       // 다른 창을 보는 중(예전 app.js 의 값 그대로)
+const FPS_LAUNCHER = 30;        // 런처 미리보기(작은 캐릭터가 살짝 둥둥 뜨는 정도라 이만큼이면 충분)
 const IDLE_AFTER_MS = 8000;     // 이만큼 입력이 없어야 30 으로 — 짧으면 오르내림이 잦아진다
 const FRAME_SLACK_MS = 4;       // rAF 가 예정보다 이만큼 일찍 와도 그린다(60Hz 모니터에서 한 장씩 빠지지 않게)
 const RUN_MAX_PR = 1.5;         // 실행 화면 해상도 배율 상한(DPR 2 면 픽셀 56%)
@@ -87,7 +88,7 @@ function createFrameBudget(deps){
 }
 
 const api = {
-  FPS_ACTIVE, FPS_IDLE, FPS_UNFOCUSED, IDLE_AFTER_MS, FRAME_SLACK_MS, RUN_MAX_PR,
+  FPS_ACTIVE, FPS_IDLE, FPS_UNFOCUSED, FPS_LAUNCHER, IDLE_AFTER_MS, FRAME_SLACK_MS, RUN_MAX_PR,
   pickFps, runPixelRatio, diagLine, createFrameBudget,
 };
 if(typeof window !== 'undefined') window.FrameBudget = api;
