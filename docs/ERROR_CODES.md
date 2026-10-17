@@ -23,6 +23,7 @@
 | `CHAT` | 채팅 |
 | `CHAR` | 캐릭터 · 꾸미기 · 가챠 |
 | `FOCUS` | 포커스 · 레벨 |
+| `DATA` | 범용 데이터 통로(서버로 옮긴 경로) |
 | `SYS` | 그 밖 |
 
 ## 번호
@@ -42,6 +43,10 @@
 | `E-CHAR-05` | 프리셋을 읽지 못했어요 | `character/animal.js` — 동물 프리셋 읽기 해석 실패 |
 | `E-CHAR-06` | 저장된 프리셋을 읽지 못해 덮어쓰지 않았어요 | `creator/desk-preset.js` — 책상 프리셋 저장 · 비우기를 막음(망가진 저장분 그대로 둠) |
 | `E-CHAR-07` | 저장된 프리셋을 읽지 못해 덮어쓰지 않았어요 | `character/animal.js` — 동물 프리셋 저장 · 삭제를 막음(망가진 저장분 그대로 둠) |
+| `E-DATA-01` | 이 작업을 할 권한이 없어요 | `shared/data-gateway.js` — 서버 범용 통로 `ACCESS_DENIED` |
+| `E-DATA-02` | 요청 모양이 맞지 않아 처리하지 못했어요 | `shared/data-gateway.js` — 서버 범용 통로 `INVALID_REQUEST` |
+| `E-DATA-03` | 다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요 | `shared/data-gateway.js` — 서버 범용 통로 `CONCURRENT_UPDATE` |
+| `E-DATA-04` | 서버에서 처리하지 못했어요 — 잠시 후 다시 시도해 주세요 | `shared/data-gateway.js` — 서버 범용 통로 모르는 code |
 
 ## 걷은 번호
 (아직 없음)
