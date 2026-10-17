@@ -88,10 +88,13 @@ say('§11 캐릭터 편집 위로 마이홈 패널이 비침');
 {
   const css = HTML.match(/<style[\s\S]*?<\/style>/g) || [];
   const all = css.join('\n');
-  chk(/body:has\(#creatorOverlay\.on\) #myHomeOverlay, body:has\(#creatorOverlay\.on\) #mhGbOverlay\{visibility:hidden;\}/.test(all), '★ 편집창이 켜진 동안 마이홈 · 방명록 창을 숨긴다(CSS :has)');
-  const zOf = (sel) => { const m = all.match(new RegExp(sel.replace('#', '#') + '\\{[^}]*z-index:([^;}]+)')); return m ? require('./sim-z-layers.js').resolveZ(HTML, m[1]) : null; };   // 창 층 표의 이름(var(--z-…))도 숫자로 푼다
-  chk(zOf('#creatorOverlay') === 55 && zOf('#codeOverlay') === 56, '  ↳ 편집창(55) 자리는 그대로 — 편집 중 여는 코드 창(56)이 위에 남는다');
-  chk(zOf('#myHomeOverlay') > 55 && zOf('#mhGbOverlay') > 55, '  ↳ 숨기는 두 창은 편집창보다 위층이라 숨겨야 한다(옮기면 이 검사를 다시 본다)');
+  /* 숨기던 땜질(:has 숨김)은 걷었다 — 근본 원인(창 앞뒤를 숫자로 따로 적음)을 창 층 표 · 창 쌓기로 고쳤다(sim-z-layers 가 돌려 본다) */
+  const ZL = require('./sim-z-layers.js'), T = ZL.parseTable(HTML);
+  const zOf = (sel) => { const m = all.match(new RegExp(sel + '\\{[^}]*z-index:([^;}]+)')); return m ? ZL.resolveZ(HTML, m[1]) : null; };
+  chk(!/body:has\(#creatorOverlay\.on\)[^{]*#myHomeOverlay/.test(all), '★ 편집창이 켜져도 마이홈 · 방명록을 숨기지 않는다(둘 다 떠 있고 누른 쪽이 앞)');
+  const WSRC = ['win-stack.js', 'parts/shared/win-stack.js', 'app/parts/shared/win-stack.js'].map((f) => { try { return require('fs').readFileSync(f, 'utf8'); } catch (_) { return null; } }).find(Boolean) || '';
+  chk(/'creatorOverlay'/.test((/const _WIN_Z_LAYERS = \[([^\]]*)\]/.exec(WSRC) || [])[1] || ''), '  ↳ 편집창은 창 쌓기 목록에 있다(열면 맨 앞)');
+  chk(zOf('#codeOverlay') > 92 && T['--z-dialog'] > 92, '  ↳ 편집 중 여는 코드 창 · 대화상자는 창 쌓기(83~92) 위라 편집창 밑에 깔리지 않는다');
 }
 
 say('§12 날기 — 기준점 높이는 몸만 잰다');

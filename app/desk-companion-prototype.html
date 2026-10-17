@@ -78,24 +78,30 @@
 <style>
   /* 🪟 창 층 표 — 화면 맨 바깥에 뜨는 창들의 앞뒤(z-index)는 **여기 이름으로만** 정한다. 창 쪽 CSS · 인라인은 var(--z-…) 만 쓴다.
      ★ 숫자를 창마다 따로 적으면 «이 창은 저 창보다 위» 가 숫자끼리의 우연한 크기로만 정해져, 하나를 바꾸면 엮인 창이 다 흔들린다(B-1016-4).
-     ★ 창 쌓기(shared/win-stack.js)에 든 창은 여기 값이 «처음 자리» 일 뿐이고, 누르면 83~92 안에서 맨 위로 올라간다.
-     ⚠️ 이 표 밖(가챠 120 · 마이홈 팝업 9200 · 토스트 9100 · 색 고르기 9999 · 가입 게이트 94~97)은 이 표보다 늘 위다. 검사: checks/sim-z-layers.js */
+     ★ 층 차례: 런처 → 작업창 · 창 쌓기 창(열거나 누르면 83~92 안에서 맨 위 — shared/win-stack.js) → 꾸미기(93) → 대화상자(100~) → 막는 창(가입 · 로그인 · 기기 110~).
+       대화상자는 어느 창에서 열든 그 창 위에 떠야 해서 창 쌓기 위에 둔다(예전 57 은 편집 · 마이홈을 창 쌓기에 넣는 순간 그 뒤로 숨는다).
+     ⚠️ 이 표 밖(가챠 120 · 마이홈 팝업 9200 · 토스트 9100 · 색 고르기 9999)은 이 표보다 늘 위다. 검사: checks/sim-z-layers.js */
   :root{
     --z-friend-picker: 46;   /* 친구 고르기 */
     --z-launcher: 50;        /* 런처 화면 */
-    --z-work: 55;            /* 큰 작업창 — 캐릭터 편집(#creatorOverlay) · 종족 선택(#raceOverlay) */
-    --z-dialog-code: 56;     /* 캐릭터 코드 창 */
-    --z-dialog: 57;          /* 코드 · 등록 대화상자 묶음(코드로 추가하기 · 파츠 / 책상 등록 · 내보내기 …) */
+    --z-work: 55;            /* 큰 작업창 — 캐릭터 편집(#creatorOverlay) · 종족 선택(#raceOverlay) · 창 쌓기의 처음 자리 */
     --z-win-settings: 58;    /* ⚙️ 설정(창 쌓기) */
-    --z-dialog-program: 59;  /* 프로그램 설정 */
-    --z-dialog-admin: 60;    /* 관리자 · 초대 · 공지 대화상자 */
     --z-win-bell: 62;        /* 🔔 다가오는 일정(창 쌓기) */
     --z-win-focuslog: 70;    /* ⏱ 포커스 기록(창 쌓기) */
     --z-win-myhome: 71;      /* 🏠 마이홈(창 쌓기) */
     --z-win-guestbook: 74;   /* 📖 방명록(창 쌓기) */
-    --z-dialog-notice: 75;   /* 업데이트 공지(사용자) */
     --z-win-chat: 82;        /* 💬 대화창 · 📷 스티커사진(창 쌓기) — 창 쌓기의 시작값과 같다 */
     --z-wardrobe: 93;        /* 🎨 꾸미기 · 꾸미기 미리보기 */
+    --z-dialog-code: 100;    /* 캐릭터 코드 창 */
+    --z-dialog: 101;         /* 코드 · 등록 대화상자 묶음(코드로 추가하기 · 파츠 / 책상 등록 · 내보내기 …) */
+    --z-dialog-program: 102; /* 프로그램 설정 */
+    --z-dialog-admin: 103;   /* 관리자 · 초대 · 공지 대화상자 */
+    --z-dialog-notice: 104;  /* 업데이트 공지(사용자) */
+    --z-gate-device: 110;    /* 캐릭터 연결 안내 · 다른 기기 접속 */
+    --z-gate-invite: 111;    /* 초대장 게이트 */
+    --z-mh-design: 111;      /* 👑 마이홈 디자인 스튜디오(초대 게이트와 같은 자리였다) */
+    --z-gate-signup: 112;    /* 이미 가입 · 로그인 필요 */
+    --z-gate-done: 113;      /* 가입 완료 */
   }
   /* ══════════════════════════════════════════════════════════════════════════
      🎨 디자인 테마 — 축이 두 개다.
@@ -1501,9 +1507,7 @@
   #creatorOverlay{position:fixed;inset:0;z-index:var(--z-work);display:none;align-items:center;justify-content:center;
     background:rgba(0,0,0,.35);}
   #creatorOverlay.on{display:flex;}
-  /* 캐릭터 편집(55)이 켜진 동안 마이홈 · 방명록 창(71~92, win-stack)을 숨긴다 — 편집창 위로 비쳐 보였다.
-     편집창을 맨 위로 올리지 않는 까닭: 편집 중에 여는 코드 창(56) 같은 대화상자가 그 밑에 깔린다. 닫는 곳이 여럿이라 CSS 로 건다. */
-  body:has(#creatorOverlay.on) #myHomeOverlay, body:has(#creatorOverlay.on) #mhGbOverlay{visibility:hidden;}
+  /* 편집 중에도 마이홈 · 방명록은 숨기지 않는다 — 편집창도 창 쌓기라 열면 맨 앞, 누른 창이 앞(B-1016-4). 편집 중 여는 대화상자는 창 층 표의 대화상자 층(창 쌓기 위)이라 깔리지 않는다. */
   #creatorModal{width:680px;max-width:calc(100vw - 40px);max-height:calc(100vh - 56px);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -3545,7 +3549,7 @@
   #mhBgMenu button{font-family:var(--tw-font-legacy);font-size:11px;text-align:left;padding:6px 12px;background:none;border:none;cursor:pointer;color:var(--ink);}
   #mhBgMenu button:hover{background:var(--win-select);color:#fff;}
   /* 👑 프리미엄 디자인 스튜디오 팝업 */
-  #mhDesignOverlay{display:none;position:fixed;inset:0;z-index:95;pointer-events:none;}
+  #mhDesignOverlay{display:none;position:fixed;inset:0;z-index:var(--z-mh-design);pointer-events:none;}
   #mhDesignOverlay.on{display:block;}
   #mhDesignWin{position:absolute;right:24px;top:60px;width:320px;max-height:78vh;display:flex;flex-direction:column;
     pointer-events:auto;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
@@ -6216,7 +6220,7 @@
      ★ 세 버튼 같은 크기(전부 lc-btn · ghost 아님). 계정이 있으면 **초대 코드 없이** 들어온다.
      ★ 옛 «유저 코드(u…) + 이전 비밀번호 = 계정 이전» 줄은 걷었다 — 친구 코드 로그인이 그 자리다(설계 §9 결정 9).
      원격 설정 config/flags/inviteGate 가 false면 아예 뜨지 않음. 불투명 배경으로 뒤를 완전히 가림. -->
-<div id="inviteGateOverlay" style="position:fixed;inset:0;z-index:95;display:none;align-items:center;justify-content:center;
+<div id="inviteGateOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-invite);display:none;align-items:center;justify-content:center;
   background:#3a6ea5;">
   <div id="inviteGateCard" style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6313,7 +6317,7 @@
      [회원가입 설계 §3 · §7-I · 시안 확정] **닫기 없음** — 가입하거나 구글을 연결해야 앱으로. 오프라인이면 이번엔 안 뜨고 다음 온라인 부팅에 다시.
      지금 친구 코드가 곧 아이디(고정 표시) · 비밀번호만 정한다. uid 는 그대로라 캐릭터·레벨·친구·마이홈이 바뀌지 않는다.
      배경은 반투명(뒤의 앱은 그대로 있다 · 시안 rgba(0,0,0,.45)). -->
-<div id="existingSignupOverlay" style="position:fixed;inset:0;z-index:96;display:none;align-items:center;justify-content:center;
+<div id="existingSignupOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-signup);display:none;align-items:center;justify-content:center;
   background:rgba(0,0,0,.45);">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -6362,7 +6366,7 @@
      J(비밀번호 가입): 아이디 · «로그인돼 있는 PC 에서 바꾸기» 안내 · 경고 · [시작하기] · [구글도 연결하기](보조).
      J2(구글 가입): 아이디 · «비밀번호는 아직 없어요» · [시작하기]. 되찾기 코드는 없다((가) — 로그인된 PC 에서 바꾼다).
      [시작하기]: A 는 재시작(uid 가 이 세션에서 처음 정해졌다) · I 는 닫기(uid 그대로). 배경은 부르는 쪽이 정한다(A 불투명 · I 반투명). -->
-<div id="signupDoneOverlay" style="position:fixed;inset:0;z-index:97;display:none;align-items:center;justify-content:center;background:#3a6ea5;">
+<div id="signupDoneOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-done);display:none;align-items:center;justify-content:center;background:#3a6ea5;">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
@@ -6400,7 +6404,7 @@
   #charsLinkedOverlay .cl-cnt.full{color:#7a2f1b;}
   #charsLinkedOverlay .cl-cnt.full b{color:#B5624A;}
 </style>
-<div id="charsLinkedOverlay" style="position:fixed;inset:0;z-index:94;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+<div id="charsLinkedOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-device);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
@@ -6426,7 +6430,7 @@
 <!-- 🔐 K · 이 PC는 로그인이 필요해요 — 이 PC 의 uid 가 **이미 계정에 묶였는데** 여기선 그 계정으로 로그인돼 있지 않을 때(부팅 · 게이트 뒤).
      같은 uid 를 두 PC 에서 쓰던 기존 사용자의 두 번째 PC · 다른 PC 에서 비밀번호를 바꿔 이 PC 로그인이 끊긴 판. [설계 §9-11 · §7-K · 시안 확정 개정 13]
      **닫기 없음**(로그인 필수) · 오프라인이면 안 뜬다. 아이디는 고정(계정의 친구 코드) → 비밀번호만. -->
-<div id="needLoginOverlay" style="position:fixed;inset:0;z-index:96;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
+<div id="needLoginOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-signup);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
@@ -6463,7 +6467,7 @@
 
 <!-- 🖥️ 한 계정 한 기기 — 다른 PC 에서 같은 계정으로 로그인하면 이 PC 가 보는 화면 [2026-09-17 제보 3 · 시안 확정(왼쪽)].
      초대 게이트와 같은 틀. 뒤를 완전히 가리지는 않는다(캐릭터는 그대로 있고 방 접속만 끊긴 상태) — 배경은 반투명. -->
-<div id="deviceSessionOverlay" style="position:fixed;inset:0;z-index:94;display:none;align-items:center;justify-content:center;
+<div id="deviceSessionOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-device);display:none;align-items:center;justify-content:center;
   background:rgba(0,0,0,.35);">
   <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
