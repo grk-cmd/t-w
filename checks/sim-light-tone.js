@@ -73,8 +73,9 @@ function behave(src) {
   out._setDeskMatColor(m, 0.4);
   t(m.emissive.r === 0.7 && !m.userData, '색이 없는 재질은 건드리지 않는다');
   const bf = out.baseFlatOf;
-  t(bf({ userData: { baseFlat: 0.2 } }, 9) === 0.2 && bf({ userData: { baseFlat: 0 } }, 9) === 0, 'baseFlatOf — 심은 값을 돌려준다(0 도 심은 값)');
-  t(bf({ userData: {} }, 9) === 9 && bf({ userData: { baseFlat: null } }, 9) === 9 && bf({}, 9) === 9 && bf(null, 9) === 9 && bf(undefined, 9) === 9, 'baseFlatOf — 없으면(칸 없음 · null · userData 없음 · 재질 없음) 대체값');
+  t(bf({ userData: { baseFlat: 0.2 } }) === 0.2 && bf({ userData: { baseFlat: 0 } }) === 0, 'baseFlatOf — 심은 값을 돌려준다(0 도 심은 값)');
+  t([{ userData: {} }, { userData: { baseFlat: null } }, {}, null, undefined].every((x) => bf(x) === out.FLAT_EMISSIVE), 'baseFlatOf — 없으면(칸 없음 · null · userData 없음 · 재질 없음) 공용 기준 FLAT_EMISSIVE');
+  t(bf({}, 0.4) === out.FLAT_EMISSIVE, 'baseFlatOf — 부르는 쪽이 대체값을 넘겨도 공용 기준(곳마다 갈라지지 않는다)');
   return r;
 }
 
@@ -102,6 +103,7 @@ say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['총합 1.05 → 1.10', (m) => m.replace('const TONE_FRONT_TOTAL = 1.05;', 'const TONE_FRONT_TOTAL = 1.10;'), null, null],
   ['0 아래 막기 없앰', (m) => m.replace('const FLAT_EMISSIVE = Math.max(0,', 'const FLAT_EMISSIVE = (0,'), null, null],
+  ['baseFlatOf 대체값을 숫자 0.4 로', (m) => m.replace('mat.userData.baseFlat : FLAT_EMISSIVE;', 'mat.userData.baseFlat : 0.4;'), null, null],
   ['baseFlatOf 가 0 을 없음으로 봄', (m) => m.replace('mat.userData.baseFlat!=null)', 'mat.userData.baseFlat)'), null, null],
   ['solid 아이템 0 으로', (m) => m.replace('const ITEM_SOLID_FLAT = FLAT_EMISSIVE;', 'const ITEM_SOLID_FLAT = 0;'), null, null],
   ['책상 baseFlat 안 심음', (m) => m.replace('if(m.userData.baseFlat == null) m.userData.baseFlat = m.map ? FLAT_EMISSIVE : ITEM_SOLID_FLAT;', ''), null, null],

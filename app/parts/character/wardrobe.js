@@ -2,7 +2,7 @@
    app.js 꾸미기 다섯 구역(👀 미리보기 · 📝 초안 · 🎛️ 상세조정 · 🎨 색 줄 · 🎨 창 그리기 · 파츠 착용) 본문을 그대로 옮긴 모듈이다(앱 FSD 29번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 5개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 70줄 —
-     LIGHT_PRESET · PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+     PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 51개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · clampWdPreviewIntoView · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdPreview · refreshWdPreviewChar · refreshWdPreviewColorSection · relinkDraftSrc · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdPreviewSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
@@ -14,7 +14,6 @@
 function createWardrobe(deps){
 const ANIMAL_RUN_SCALE = deps.ANIMAL_RUN_SCALE;
 const CHAR_Z = deps.CHAR_Z;
-const LIGHT_PRESET = deps.LIGHT_PRESET;   // 읽는 함수
 const baseFlatOf = deps.baseFlatOf;   // 재질 플랫 배율 읽기(shared/light-tone.js)
 const PART_CATS = deps.PART_CATS;   // 읽는 함수
 const PART_DEFAULT_OFFSET = deps.PART_DEFAULT_OFFSET;   // 읽는 함수
@@ -1471,7 +1470,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
           if(isHueTintMesh(m)){ applyHueTint(m, hex, xf.colorHSV[key]); m.material.needsUpdate = true; return; }
           if(m.material.color) m.material.color.set(hex);
           if(m.material.emissive){
-            const baseFlat = baseFlatOf(m.material, (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5)));
+            const baseFlat = baseFlatOf(m.material);
             m.material.emissive.set(hex).multiplyScalar(baseFlat);
           }
           m.material.needsUpdate = true;
@@ -1501,7 +1500,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
           const hex = '#'+m.userData.origColor;
           if(m.material.color) m.material.color.set(hex);
           if(m.material.emissive){
-            const baseFlat = baseFlatOf(m.material, (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5)));
+            const baseFlat = baseFlatOf(m.material);
             m.material.emissive.set(hex).multiplyScalar(baseFlat);
           }
           m.material.needsUpdate = true;
@@ -1536,7 +1535,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
         if(isHueTintMesh(m)){ applyHueTint(m, val); m.material.needsUpdate = true; return; }
         if(m.material.color) m.material.color.set(val);
         if(m.material.emissive){
-          const baseFlat = baseFlatOf(m.material, (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5)));
+          const baseFlat = baseFlatOf(m.material);
           m.material.emissive.set(val).multiplyScalar(baseFlat);
         }
         m.material.needsUpdate = true;
@@ -1589,7 +1588,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
         const hex = '#'+m.userData.origColor;
         if(m.material.color) m.material.color.set(hex);
         if(m.material.emissive){
-          const baseFlat = baseFlatOf(m.material, (1 - (typeof LIGHT_PRESET()!=='undefined' ? LIGHT_PRESET().e : 0.5)));
+          const baseFlat = baseFlatOf(m.material);
           m.material.emissive.set(hex).multiplyScalar(baseFlat);
         }
         m.material.needsUpdate = true;

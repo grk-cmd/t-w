@@ -24,12 +24,15 @@ function el(id, extra) {
     addEventListener(t, f) { (this.ev[t] = this.ev[t] || []).push(f); }, fire(t, e) { (this.ev[t] || []).forEach((f) => f(e || { target: this })); } }, extra || {});
 }
 function world(src, o = {}) {
-  const log = { toasts: [], saves: 0, applyXf: 0, layouts: 0, imports: [], setDeskPos: [], deskScale: [], clamp: [], slotSaves: 0 };
+  const log = { toasts: [], saves: 0, applyXf: 0, layouts: 0, imports: [], setDeskPos: [], deskScale: [], clamp: [], slotSaves: 0, bf: [] };
   const ids = ['crItemColors', 'crItemBigger', 'crItemSmaller', 'crItemRemove', 'crItemXfReset', 'deskAddCode', 'itemAddCode', 'crScale', 'crZ', 'crRot', 'deskPosNum', 'deskPosGz', 'deskPosReset', 'deskScaleReset', 'deskScale', 'deskLenX', 'deskLenXReset'];
   const E = {}; ids.forEach((i) => { E[i] = el(i); });
   const modeBtns = ['translate', 'rotate'].map((m) => el('mode-' + m, { dataset: { mode: m } }));
   const rsBtns = ['s', 'z', 'rot'].map((k) => el('rs-' + k, { dataset: { rs: k } }));
-  const doc = { getElementById: (i) => E[i] || null, querySelectorAll: (q) => (q.includes('cr-gz-mode') ? modeBtns : q.includes('mini-reset') ? rsBtns : []) };
+  const rows = [];
+  E.crItemColors.appendChild = (r) => rows.push(r);
+  const mkDiv = () => { const d = { style: {}, innerHTML: '', q: {}, querySelector(sel) { return (d.q[sel] = d.q[sel] || el(sel)); } }; return d; };
+  const doc = { createElement: mkDiv, getElementById: (i) => E[i] || null, querySelectorAll: (q) => (q.includes('cr-gz-mode') ? modeBtns : q.includes('mini-reset') ? rsBtns : []) };
   class TC { constructor() { this.ev = {}; this.object = null; this.visible = false; this.mode = 'translate'; }
     setSize(n) { this.size = n; } setSpace(s) { this.space = s; } setMode(m) { this.mode = m; } addEventListener(t, f) { (this.ev[t] = this.ev[t] || []).push(f); }
     attach(x) { this.object = x; } detach() { this.object = null; } update() {} fire(t, e) { (this.ev[t] || []).forEach((f) => f(e)); } }
@@ -47,6 +50,7 @@ function world(src, o = {}) {
     clampCharY: (v) => Math.max(0, Math.min(0.6, v)),
     deskItemOrigin: o.noOrigin ? null : { resetXf: (p, adj) => { adj.x = 9; return true; } },
     floorClampWrapper: (obj, label, hard, filt) => { log.clamp.push({ obj, label, hard, filt }); return o.clampDy || 0; },
+    baseFlatOf: (m, ...rest) => { log.bf.push(rest.length); return m.k; },   // light-tone.baseFlatOf 대신 — 재질마다 표시값을 돌려준다
     layoutSeats: () => { log.layouts++; }, openAssetImport: (k) => log.imports.push(k),
     setCreatorDeskScale: (v) => log.deskScale.push(v), setDeskPos: (d, p) => log.setDeskPos.push(Object.assign({}, p)),
     slotSaveMod: () => ({ saveSlots: () => { log.slotSaves++; } }), syncDeskPartAnchor: () => {}, toast: (m) => log.toasts.push(m),
@@ -54,7 +58,7 @@ function world(src, o = {}) {
   };
   const T = new Function('window', 'document', 'THREE', 'module', src + '\nreturn window.TwCreatorXform;')({ openCharColorPicker: null }, doc, THREE, undefined);
   const out = T.createCreatorXform(deps);
-  return { out, log, E, modeBtns, rsBtns, state, scene, gizmo: () => scene.added[0] };
+  return { out, log, E, rows, modeBtns, rsBtns, state, scene, gizmo: () => scene.added[0] };
 }
 const item = (adj) => ({ userData: { adj: Object.assign({ x: 0, y: 0, z: 0, rot: 0, scale: 1 }, adj || {}) }, position: { x: 1, y: 2, z: 3 }, scale: { x: 1.5 }, quaternion: { yawYXZ: 2.5 }, rotation: { y: 0.6 } });
 
@@ -130,6 +134,21 @@ function behave(src) {
   const w5 = world(src, { noTC: true }); let threw = false; try { w5.state.cBase.activeDeskItem = item(); w5.out.attachItemGizmoToActive(); } catch (_) { threw = true; }
   t(!threw && !w5.scene.added.length, 'TransformControls 가 없으면 조용히 아무 일도 안 한다');
 
+  /* 색 되돌리기(↺) — 플랫 배율은 baseFlatOf(재질) 하나로 읽는다(대체값을 따로 넘기지 않는다) */
+  {
+    const x2 = world(src);
+    const col = () => ({ v: 0, set(h) { this.v = h === '#ffffff' ? 1 : 0.5; return this; } });
+    const emi = () => ({ r: 0, copy(c) { this.r = c.v; return this; }, multiplyScalar(k) { this.r *= k; return this; } });
+    const mA = { k: 0.366, color: col(), emissive: emi(), userData: {} };
+    const mB = { k: 0.2, color: col(), emissive: emi(), userData: { baseFlat: 0.2 } };
+    const pc = item(); pc.userData.colorGroups = { col1: [{ material: mA, userData: { origColor: 'ffffff' } }, { material: mB, userData: { origColor: 'ffffff' } }] }; pc.userData.colors = { col1: '#000' };
+    x2.state.cBase.activeDeskItem = pc;
+    x2.out.attachItemGizmoToActive();   // 색 패널을 그린다
+    const rst = x2.rows[0] && x2.rows[0].q['.cr-item-rst'];
+    if (rst) rst.fire('click');
+    t(rst && Math.abs(mA.emissive.r - 0.366) < 1e-9 && Math.abs(mB.emissive.r - 0.2) < 1e-9 && !('col1' in pc.userData.colors) && x2.log.bf.length === 2 && x2.log.bf.every((n) => n === 0),
+      '색 되돌리기 — 원래 색 × baseFlatOf(재질) · 대체값을 따로 넘기지 않음 · 저장된 색 지움');
+  }
   w = world(src);
   w.E.deskLenX.fire('input', { target: { value: '1.5' } });
   t(w.state.cDeskLenX === 1.5 && w.state.cBase.charDef.deskLenX === 1.5 && w.log.slotSaves === 1 && w.log.deskScale[0] === 0.175, '책상 길이 1.5 → 상태 · 캐릭터 def · 슬롯 저장 · 배율 다시');

@@ -178,7 +178,7 @@ function renderItemColorPanel(){
         const hex='#'+m.userData.origColor;
         if(m.material.color) m.material.color.set(hex);
         if(m.material.emissive){
-          const flat = baseFlatOf(m.material, 0.4);
+          const flat = baseFlatOf(m.material);
           m.material.emissive.copy(m.material.color).multiplyScalar(flat);
           m.material.needsUpdate=true;
         }

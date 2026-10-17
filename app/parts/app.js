@@ -844,7 +844,7 @@ function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Obj
           const hex='#'+m.userData.origColor;
           if(m.material.color) m.material.color.set(hex);
           if(m.material.emissive){
-            const flat=lightToneMod.baseFlatOf(m.material, 0.4);
+            const flat=lightToneMod.baseFlatOf(m.material);
             m.material.emissive.copy(m.material.color).multiplyScalar(flat);
             m.material.needsUpdate=true;
           }
@@ -863,7 +863,7 @@ function _applyItemColor(pivot){
       if(!o.material) return;
       if(o.material.color) o.material.color.set(val);
       if(o.material.emissive){
-        const flat = lightToneMod.baseFlatOf(o.material, 0.4);
+        const flat = lightToneMod.baseFlatOf(o.material);
         o.material.emissive.copy(o.material.color).multiplyScalar(flat);
         o.material.needsUpdate = true;
       }
@@ -2515,7 +2515,6 @@ const wdPanelMod = TwWardrobePanel.createWardrobePanel({
 const wardrobeMod = TwWardrobe.createWardrobe({
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   CHAR_Z: CHAR_Z,
-  LIGHT_PRESET: ()=>lightToneMod.LIGHT_PRESET,
   PART_CATS: ()=>premiumMod.PART_CATS(),
   PART_DEFAULT_OFFSET: ()=>PART_DEFAULT_OFFSET,
   PART_GROUPS: ()=>premiumMod.PART_GROUPS,
@@ -5361,7 +5360,7 @@ function _applyXfToWrapper(wrp, xf, cat){
         if(isHueTintMesh(m)){ applyHueTint(m, c, xf.colorHSV && xf.colorHSV[key]); m.material.needsUpdate=true; return; }
         if(m.material.color) m.material.color.set(c);
         if(m.material.emissive){
-          const baseFlat = lightToneMod.baseFlatOf(m.material, lightToneMod.FLAT_EMISSIVE);
+          const baseFlat = lightToneMod.baseFlatOf(m.material);
           m.material.emissive.set(c).multiplyScalar(baseFlat);
         }
         m.material.needsUpdate=true;
