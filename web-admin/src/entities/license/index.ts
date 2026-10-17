@@ -7,7 +7,6 @@ export {
   patchLicenseRows,
   refreshLicenses,
   removeLicensesWrite,
-  REPLICA_LAG_MS,
   revokeLicensesWrite,
   useLicensePage,
   useLicenses,

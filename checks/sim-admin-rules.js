@@ -125,6 +125,12 @@ console.log('\n── 3. 새는 곳이 없는가');
       '파도타기 색인(playlistIndex) 읽기 — 최근 60줄 쿼리 또는 봇 · 봇은 다른 칸 없음');
   chk(r('leaderboard') === "(query.orderByChild == 'sec' && query.limitToLast <= 100) || " + BOT && !/apiBots/.test(JSON.stringify(at('leaderboard')).replace(String(r('leaderboard')), '')),
       '랭킹(leaderboard) 읽기 — sec 정렬 100줄 쿼리 또는 봇 · 봇은 다른 칸 없음');
+  // 웹 관리자 버그 제보 목록을 API 로(전체 수 · 쪽 번호) — 사람은 예전 20줄 쿼리 그대로, 봇만 목록 한 줄들을 통째로. 본문 · 답변은 봇도 못 읽는다.
+  {
+    const rd = String(r('bugBoard/list'));
+    chk(/^query\.limitToLast <= 20 && \(/.test(rd) && rd.endsWith(') || ' + BOT) && !/apiBots/.test(JSON.stringify(at('bugBoard')).replace(rd, '')),
+        '버그 제보 목록(bugBoard/list) 읽기 — 20줄 쿼리 또는 봇 · 봇은 다른 칸(본문 · 답변) 없음');
+  }
   chk(!!at('admins/$uid') && at('admins/$uid')['.write'] === false, '관리자 명단은 앱에서 쓸 수 없다 (콘솔에서만)');
   chk(r('srKey') === false && w('srKey') === false, '시크릿룸 발급 키는 그대로 잠겨 있다');
   chk(/srKey\/v/.test(String(w('secretRooms/$code'))), '시크릿룸 발급은 기존 키 방식 그대로다');

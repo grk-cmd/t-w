@@ -1,3 +1,4 @@
+import type { ApiFallback } from '@/shared/api';
 import { queryUsers, type UserQuery } from './userQuery';
 import type { UserLicense, UserRow } from './userRow';
 import { ACTIVE_DAYS, cleanVer, toVersionCounts, versionCounts, type VersionCount } from './version';
@@ -6,7 +7,8 @@ import { ACTIVE_DAYS, cleanVer, toVersionCounts, versionCounts, type VersionCoun
 
 /** 어디서 읽었나. rtdb 면 왜 넘어왔는지(fallback): 이 환경에 API 가 없음 · API 에 닿지 못함. */
 export type UserSource = { via: 'api' } | { via: 'rtdb'; fallback: UserFallback };
-export type UserFallback = 'no-api' | 'unavailable';
+/** 예전 방식으로 읽은 까닭 — shared/api 의 ApiFallback 과 같은 값(viaApiOr 한 벌). */
+export type UserFallback = ApiFallback;
 
 export interface UserPageView {
   items: UserRow[];

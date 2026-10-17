@@ -62,8 +62,9 @@
 | 같은 그림 반복 업로드 줄이기(#39 새로 쓰기) — **요청까지 · 0.11.4 뒤 합침** | 검증-도우미14 | 동시 업로드 합치기 · 썸네일은 외모가 바뀔 때만 · 업로드 캐시 LRU(통째 비우기 없앰) · 마이홈 주소 되쓰기 | `shared/upload-cache.js`(새) · `room/room-sync.js` · `character/slot-sync.js` · `firebase-init.js`(업로드 길) · 마이홈 · 검사 | #350 |
 | 테스트 빌드도 운영 DB 로 | 검증 세션 | 깃허브에서 만드는 테스트(beta) 빌드도 운영 Firebase 에 붙게 — 개발 서버는 내 PC 의 `npm run start:dev` 에서만 | `.github/workflows/release.yml` · `release-start.yml` · `CLAUDE.md` · `docs/RELEASE.md` | — |
 | ~~빈 카탈로그 사본 막기~~ 취소 | 검증-도우미15 | 취소 — 앱 · 서버 보험 코드 없이 이관 순서로 막음(서버를 다 채운 뒤 앱을 붙인다 · 사용자 결정 10-17). 앱에 «빈 카탈로그를 의심하는 보험» 은 넣지 않는다 | — | — |
-| 서버 가지 정리 | 서버 정리 세션 | t-w-server 에 남은 가지를 dev 위로 다시 얹어 요청(PR)으로 올려 두기 — 합치기 · 배포는 사용자가 하나씩 | t-w-server 가지들 | — |
+| 서버 가지 정리 — 요청 올림(합치기 대기) | 서버 정리 세션 | t-w-server 남은 가지를 dev 위로 다시 얹어 요청으로. 권하는 차례 #51 → #57 → #58 → #52 → #54 → #53 · #55 는 아무 때나. 앱 쪽: 봇 계정 규칙(bugBoard/list · friendRequests 읽기 · 친구 거울 쓰기) · 새 config 칸 .validate | t-w-server 가지들 | t-w-server #51 · #52 · #53 · #54 · #55 · #57 · #58 |
 | 생성기 프리셋 고침 다시 얹기(B-1015-3) | 검증-도우미16 | 0.11.4 에 넣음(사용자 결정 10-17) — 프리셋 읽기 · 쓰기 한 곳 · 저장 · 읽기 실패 알림 · 망가진 프리셋 위에 덮어쓰지 않기 | `creator/desk-preset-store.js` · `desk-preset.js` · `character/animal.js`(동물 프리셋) · `shared/error-codes.js` · checks | — |
+| ~~관리자 제보 목록 API 열어 두기~~ 머지 #351 · 서버 #51(dev) | 검증-도우미17 | 서버 #51(dev) + 앱 wX 세 줄(viaApiOr 한 벌 · bugBoard/list 봇 읽기 규칙 · 제보 목록 쪽 번호) — 관리자 전용 · 서버 없으면 RTDB 폴백 · 기능 멈춤 예외(사용자 10-17) | `web-admin/src/shared/api` · `web-admin` 제보 목록 · `firebase-database-rules.json` · checks | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
@@ -81,7 +82,7 @@
 |---|---|
 | wR 721ae87 친구 목록 스위치 빼기 | `feat/api-me-friends` |
 | wP-C 943cc36 · b81d6e2 · ca05542 · bd69537 · 735a70a · e67dbea(규칙) | `feat/realtime-presence` · `feat/api-friends-write` |
-| wX a7e6b43 · 7cb3745(규칙) · cbdec78 웹 관리자 제보 목록 API | `feat/api-admin-bugs` |
+| ~~wX a7e6b43 · 7cb3745(규칙) · cbdec78 웹 관리자 제보 목록 API~~ 진행 중으로 옮김 | `feat/api-admin-bugs` |
 | (머지됨) #289 · #290 운영 설정 · #293 카탈로그 API | `feat/ops-hot-config` · 카탈로그 GET(앱 릴리스 전 배포) |
 
 ## 보류 — 결정 · 다시 얹기 대기
@@ -107,6 +108,7 @@
 | 리깅 모자 날기 | 모자 쓰고 날면 화면 아래에서 맴돎 | wL2 | 대기 |
 
 ## 머지 완료(10-17 검증 세션)
+- 10-17 밤: #351 웹 관리자 제보 목록 관리자 API(전체 쪽 수 · 쪽 번호 · 폴백) + viaApiOr 한 벌 + bugBoard/list 봇 읽기 규칙 · 서버 t-w-server #51 dev 합침 — 운영 배포: 규칙 → 서버 → 웹 관리자
 - 10-17 밤: #255 앱 크기 기준선 쓰기(개정 360) · #153 웹 관리자 사용자 목록을 관리자 API 로(못 닿으면 옛 RTDB · 웹 관리자 Hosting 배포 필요)
 - 10-17 밤 운영 배포 끝(사용자): 규칙(doneTs) · 함수 bugCleanup · adminDeleteAccount · deleteMyAccount · Hosting(웹 관리자 새 서버 주소 #343 · 처리방침 시행일 2026-10-18)
 - 10-17 밤: #347 해결된 버그 제보 한 달 뒤 자동 삭제 · 탈퇴 때 제보 삭제 · 처리방침 보강 — **배포 필요(규칙 · 함수 3 · Hosting)**

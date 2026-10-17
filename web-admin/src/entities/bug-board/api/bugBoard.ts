@@ -1,8 +1,24 @@
-import { keepPreviousData, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, withAudit, type Db } from '@/shared/api';
+import {
+  keepPreviousData,
+  useQueries,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
+import {
+  REPLICA_LAG_MS,
+  useApi,
+  useDb,
+  viaApiOr,
+  withAudit,
+  type Api,
+  type ApiFallback,
+  type Db,
+} from '@/shared/api';
 import { DAY_MS, kstDateKey, kstDayStart } from '@/shared/lib';
 import {
   bugDay,
+  bugListFromApi,
   bugNo,
   BUG_DAILY_MAX_DEFAULT,
   BUG_DAILY_MAX_PATH,
@@ -14,11 +30,13 @@ import {
   toAnswers,
   toBugItem,
   toBugPage,
+  type ApiBugPage,
   type BugAnswer,
   type BugContent,
   type BugCursor,
   type BugFilter,
   type BugItem,
+  type BugListView,
   type BugNo,
   type BugPage,
 } from '../model/bugBoard';
@@ -39,11 +57,47 @@ export async function listBugPage(db: Db, filter: BugFilter, before: BugCursor |
   return toBugPage(raw, key);
 }
 
-export function useBugPage(filter: BugFilter, before: BugCursor | null) {
+export interface BugListQuery {
+  filter: BugFilter;
+  /** API(쪽 번호)로 읽을 때 — 1부터. */
+  page: number;
+  size: number;
+  /** 예전 방식(커서)으로 넘기는 중일 때만 — 첫 쪽은 null. */
+  before: BugCursor | null;
+}
+
+/**
+ * 목록 — API 읽기 사본을 먼저(전체 수 · 쪽 번호), 닿지 못하면(또는 이 환경에 없으면) 예전처럼 RTDB 커서로 20줄씩.
+ * 커서는 예전 방식에서만 생긴다 — 커서로 넘기는 중이면 API 를 묻지 않는다(쪽 번호와 섞이지 않게).
+ */
+export function fetchBugList(api: Api | null, db: Db, query: BugListQuery): Promise<BugListView> {
+  const fromRtdb = async (fallback: ApiFallback): Promise<BugListView> => ({
+    via: 'rtdb',
+    fallback,
+    ...(await listBugPage(db, query.filter, query.before)),
+  });
+  if (query.before) return fromRtdb(api ? 'unavailable' : 'no-api');
+  return viaApiOr(
+    api,
+    async (a) =>
+      bugListFromApi(
+        await a.get<ApiBugPage>('/v1/admin/bugs', {
+          page: query.page,
+          size: query.size,
+          filter: query.filter,
+        }),
+      ),
+    fromRtdb,
+  );
+}
+
+export function useBugList(query: BugListQuery) {
+  const api = useApi();
   const db = useDb();
+  const { filter, page, size, before } = query;
   return useQuery({
-    queryKey: [...BUG_KEY, 'list', filter, before?.value ?? null, before?.key ?? null],
-    queryFn: () => listBugPage(db, filter, before),
+    queryKey: [...BUG_KEY, 'list', filter, page, size, before?.value ?? null, before?.key ?? null],
+    queryFn: () => fetchBugList(api, db, query),
     placeholderData: keepPreviousData,
   });
 }
@@ -205,15 +259,27 @@ export function useRefreshPrvTitle() {
   return (id: string) => client.invalidateQueries({ queryKey: [...BUG_KEY, 'prvTitle', id] });
 }
 
-/** 목록 · 상세 · 오늘 순번을 다시 받는다(지난 날짜 순번 · 비공개 제목은 그대로). */
+const LIST_KEY = [...BUG_KEY, 'list'];
+
+/**
+ * 목록 · 상세 · 오늘 순번을 다시 받는다(지난 날짜 순번 · 비공개 제목은 그대로).
+ * 목록을 API 사본으로 읽고 있었으면 쓰기 직후엔 사본이 늦으니 [lagMs] 뒤에 목록을 한 번 더 받는다.
+ */
+export function refreshBugBoard(client: QueryClient, lagMs: number = REPLICA_LAG_MS): Promise<void> {
+  const viaApi = client
+    .getQueriesData<BugListView>({ queryKey: LIST_KEY })
+    .some(([, data]) => data?.via === 'api');
+  if (viaApi && lagMs > 0) setTimeout(() => void client.invalidateQueries({ queryKey: LIST_KEY }), lagMs);
+  return client.invalidateQueries({
+    queryKey: BUG_KEY,
+    predicate: (q) => {
+      const [, kind, arg] = q.queryKey;
+      return kind === 'list' || kind === 'post' || (kind === 'day' && arg === kstDateKey(Date.now()));
+    },
+  });
+}
+
 export function useRefreshBugBoard() {
   const client = useQueryClient();
-  return () =>
-    client.invalidateQueries({
-      queryKey: BUG_KEY,
-      predicate: (q) => {
-        const [, kind, arg] = q.queryKey;
-        return kind === 'list' || kind === 'post' || (kind === 'day' && arg === kstDateKey(Date.now()));
-      },
-    });
+  return () => refreshBugBoard(client);
 }

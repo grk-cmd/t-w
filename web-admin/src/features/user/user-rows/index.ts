@@ -17,7 +17,6 @@ export {
   useAllUsers,
   useRefreshUsers,
   useReloadUsers,
-  USERS_REPLICA_LAG_MS,
   useSameLicenseUsers,
   useUserByCode,
   useUserPage,
