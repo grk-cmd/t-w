@@ -5,7 +5,7 @@
      focusLevelMod · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 6개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: NAMEPLATE_BELOW_EXPBAR · _officeDemojiHtml · _seatLabelName · applyChipOrientation · chipHorizontal · dismissSeatHeadBubble · ensureSeatLabelsLayer · nameplateEnabled · projectWorldToScreenPx · removeSeatLabels · setSeatHeadBubble · setSeatNamePlate — app.js 는 overheadMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: setSeatMenu · setLabelDrag · bindLabelDrag · NAMEPLATE_BELOW_EXPBAR · _officeDemojiHtml · _seatLabelName · applyChipOrientation · chipHorizontal · dismissSeatHeadBubble · ensureSeatLabelsLayer · nameplateEnabled · projectWorldToScreenPx · removeSeatLabels · setSeatHeadBubble · setSeatNamePlate — app.js 는 overheadMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwOverhead — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-overhead.js */
@@ -19,6 +19,13 @@ const _diceSvg = deps._diceSvg;
    app.js 가 메뉴를 만든 뒤 setSeatMenu 로 잇는다. */
 let _seatMenuFn = null;   // 이름이 메뉴 함수(_seatCtxMenu)와 겹치지 않게 — 되살린 글(sim-renderer-src)에서 한 글이 된다
 function setSeatMenu(fn){ _seatMenuFn = fn; }
+/* 🏷️ 이름표 · 경험치 바를 눌러 끌면 자리 바꾸기(room/seat-label-drag.js) — 끌기 상태가 app.js 에 있어 만든 뒤 setLabelDrag 로 잇는다.
+   ⚠️ 잇기 전에 만든 라벨도 듣도록 리스너는 늘 걸고, 누를 때 함수를 본다. */
+let _labelDragFn = null;
+function setLabelDrag(fn){ _labelDragFn = fn; }
+function bindLabelDrag(el, seat){
+  el.addEventListener('pointerdown', e=>{ if(_labelDragFn) _labelDragFn(e, seat); });
+}
 const _starPaint = deps._starPaint;
 const _wpTmp3 = deps._wpTmp3;
 const camera = deps.camera;
@@ -79,6 +86,7 @@ function ensureSeatNamePlateEl(seat){
     if(typeof officeMode() !== 'undefined' && officeMode() && seat.remote) return;
     if(_seatMenuFn) _seatMenuFn(e, seat);
   });
+  bindLabelDrag(el, seat);
   layer.appendChild(el);
   seat.namePlateEl=el; return el;
 }
@@ -637,6 +645,8 @@ function removeSeatLabels(seat){
 
 return {
   setSeatMenu,
+  setLabelDrag,
+  bindLabelDrag,
   NAMEPLATE_BELOW_EXPBAR,
   _officeDemojiHtml,
   _seatLabelName,
