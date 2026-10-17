@@ -40,6 +40,8 @@
 | `E-CHAR-03` | 프리셋의 책상 모델을 불러오지 못했어요 | `creator/desk-preset.js` — 프리셋 적용 중 책상 GLB 해석 실패 |
 | `E-CHAR-04` | 프리셋을 저장하지 못했어요 | `character/animal.js` — 동물 프리셋 저장 · 삭제(`tw.animalPresets`) |
 | `E-CHAR-05` | 프리셋을 읽지 못했어요 | `character/animal.js` — 동물 프리셋 읽기 해석 실패 |
+| `E-CHAR-06` | 저장된 프리셋을 읽지 못해 덮어쓰지 않았어요 | `creator/desk-preset.js` — 책상 프리셋 저장 · 비우기를 막음(망가진 저장분 그대로 둠) |
+| `E-CHAR-07` | 저장된 프리셋을 읽지 못해 덮어쓰지 않았어요 | `character/animal.js` — 동물 프리셋 저장 · 삭제를 막음(망가진 저장분 그대로 둠) |
 
 ## 걷은 번호
 (아직 없음)

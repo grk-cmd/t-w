@@ -6,11 +6,14 @@
      · failReason(err) · saveFailText(err) · diagLine(op, key, res, slot) — 실패 알림 글(원인을 사용자가 불러 줄 수 있게). 번호 토스트는 부르는 쪽이 TwErrorCodes.notify 로.
      · load: 키가 없거나 빈 글이면 ok:true · list=fallback. 해석 · 읽기 실패면 ok:false · list=fallback · err. 값의 모양(배열 · 객체)은 부르는 쪽이 본다.
      · save: 만들기 · 쓰기가 던지면 ok:false · err. bytes 는 (키 + 글) × 2(크로미움 저장 한도를 세는 단위).
+       이미 있는 글이 해석이 안 되면(망가진 저장분) 쓰지 않고 ok:false · blocked:true · err.name=UNREADABLE —
+       읽기 실패는 빈 칸으로 보이므로 그 위에 쓰면 나머지 칸까지 지워진다(B-1015-3). 망가진 글은 지우지 않고 남긴다(원인 조사용).
    ⚠️ DOM · 토스트를 모른다(shared). 알리는 건 부르는 쪽. 전역 이름 TwJsonStore(Tw 접두사 #103).
    검사: checks/sim-json-store.js */
 (function(){
 'use strict';
 
+const UNREADABLE = 'StoredValueUnreadable';
 function createJsonStore(deps){
   const d = deps || {};
   const storage = d.storage || (()=>null);
@@ -23,8 +26,20 @@ function createJsonStore(deps){
       return { ok: true, list: JSON.parse(raw), err: null, bytes };
     }catch(err){ return { ok: false, list: fallback, err, bytes }; }
   }
+  /* 지금 저장된 글이 있는데 해석이 안 되면 true — 저장소 자체를 못 열면 판단하지 않고 쓰기에 맡긴다. */
+  function unreadable(key){
+    let raw = null;
+    try{ raw = storage().getItem(key); }catch(_){ return false; }
+    if(!raw) return false;
+    try{ JSON.parse(raw); return false; }catch(_){ return true; }
+  }
   function save(key, value){
     let bytes = 0;
+    if(unreadable(key)){
+      const err = new Error('저장된 값을 해석하지 못해 덮어쓰지 않음');
+      err.name = UNREADABLE;
+      return { ok: false, err, bytes, blocked: true };
+    }
     try{
       const text = JSON.stringify(value);
       bytes = (key.length + (text ? text.length : 0)) * 2;
@@ -50,7 +65,7 @@ function diagLine(op, key, res, slot){
   return '[프리셋] ' + op + ' 실패 key=' + key + ' bytes=' + (r.bytes || 0) + ' err=' + name + ' slot=' + (slot == null ? '-' : slot);
 }
 
-const api = { createJsonStore, failReason, saveFailText, diagLine, QUOTA_NAMES };
+const api = { createJsonStore, failReason, saveFailText, diagLine, QUOTA_NAMES, UNREADABLE };
 if(typeof window !== 'undefined'){
   const store = createJsonStore({ storage: ()=>window.localStorage });
   api.load = store.load;

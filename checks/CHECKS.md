@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 363 (생성기 프리셋 저장 · 읽기 실패를 알림 — «저장했어요» 는 써진 뒤에만 · E-CHAR-01~05 (B-1015-3))
-대상: `sim-*.js` 319개 + `smoke.js` + `audit.py` = **321개** (개정 363 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 364 (망가진 프리셋 위에 덮어쓰지 않음 — 저장 · 비우기 · 삭제를 막고 E-CHAR-06 · 07 (B-1015-3))
+대상: `sim-*.js` 319개 + `smoke.js` + `audit.py` = **321개** (개정 364 기준 — 폴더를 센 값)
+
+**개정 364 에서 한 것 (2026-10-17 · B-1015-3 고침 — 동작 변경 · 사용자 결정: 0.11.4 에 넣음)**
+- 앱: 저장된 프리셋 글이 해석되지 않으면(망가진 저장분) 읽기는 빈 칸으로 보여, 그 위에 저장 · 비우기 · 삭제하면 나머지 칸까지 지워지던 것 — `shared/json-store.js` save 가 쓰지 않고 `blocked` 로 돌려준다(망가진 원본은 그대로 남김). 사람 책상 E-CHAR-06 · 동물 E-CHAR-07, 성공 안내 없음.
+- 검사: `sim-json-store.js` 2절 막기 · 해석되는 글 · 키 없음 · 빈 글 · 깨 보기 · 4절 사람 · 동물 막기 번호 · 번호 일곱이 표에.
 
 **개정 363 에서 한 것 (2026-10-17 · B-1015-3 고침 — 동작 변경 · 사용자 결정: 0.11.4 에 넣음)**
 - 앱: 생성기 프리셋 저장 · 읽기가 실패해도 조용히 지나가 «저장했어요» 가 뜨던 것 — 저장 성공 안내는 실제로 써진 뒤에만, 실패면 이유 한 마디 + 번호. 사람 책상: 저장 · 비우기 E-CHAR-01(`creator/desk-preset.js` `_saveNotice`) · 읽기 E-CHAR-02(`desk-preset-store.js`) · 프리셋 책상 모델 E-CHAR-03. 동물: 저장 · 삭제 E-CHAR-04 · 읽기 E-CHAR-05(`animal.js`). 이유 · 진단 글은 `shared/json-store.js`(failReason · saveFailText · diagLine) 한 곳. 번호는 `error-codes.js` 표 · `docs/ERROR_CODES.md`.
@@ -2459,7 +2463,7 @@
 | **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** ← **개정 353 body-measure.js 를 넘겨 돌림(_boxExcluding 은 char-measure.js · 판정 무변경)** · **개정 291 핀 상쇄를 동작 판정으로 · 겹친 글자 판정 셋 걷음** · **개정 284 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(측정이 char-measure.js 로 · 판정 무변경)** · **개정 280 기즈모 · 좌석 세팅 글은 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** |
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** ← **개정 305 되살린 글에서 읽는다(판정 무변경)** |
 | **sim-desk-preset.js** | 215 | **0f95b9b1e295** ← **개정 363 내놓는 이름 · E-CHAR-03 · deps 28** · **개정 362 진짜 json-store 를 넘김 · 만드는 줄 deps(판정 무변경)** · **개정 335 깨 보기를 상수 줄로 · PRESET_SLOTS(판정 무변경)** · **개정 333 신설 · 🗂 책상 · 좌석 세팅 프리셋(creator/desk-preset-store.js · desk-preset.js) — 저장 · 담기 · 적용 · 책상 모델 · 칸 화면 · 연결** |
-| **sim-json-store.js** | 182 | **00e2d0b6a8c0** ← **개정 363 4절 실패 알림 · 깨 보기** · **개정 362 신설 · localStorage JSON 칸 읽기 · 쓰기 한 곳(shared/json-store.js) — 경계 · 프리셋 두 벌 동작 · 배선** |
+| **sim-json-store.js** | 209 | **e17a3e4475e2** ← **개정 364 망가진 저장분 막기 · E-CHAR-06 · 07 · 깨 보기** · **개정 363 4절 실패 알림 · 깨 보기** · **개정 362 신설 · localStorage JSON 칸 읽기 · 쓰기 한 곳(shared/json-store.js) — 경계 · 프리셋 두 벌 동작 · 배선** |
 | **sim-desk-setup.js** | 228 | **268fe68a88b2** ← **개정 334 신설 · 🪑 책상 세팅(creator/desk-setup.js) — 책상 · 아이템 카드 · 고르기 · 순서 · 갈고리 · 입구 전제 · 연결** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |

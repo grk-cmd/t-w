@@ -145,6 +145,7 @@ function applyDeskPreset(p){
 /* 저장 성공 안내는 실제로 써진 뒤에만 — 실패면 이유 · 번호를 띄워 사용자가 불러 줄 수 있게. */
 function _saveNotice(res, slot, okMsg){
   if(res.ok){ toast(okMsg); return; }
+  if(res.blocked){ notifyError('E-CHAR-06', res.err); return; }   // 망가진 저장분 위에는 쓰지 않았다 — 나머지 칸을 지키려고
   console.warn(deskPresetStoreMod.diagSave(res, slot));
   notifyError('E-CHAR-01', res.err, deskPresetStoreMod.saveFailText(res.err));
 }

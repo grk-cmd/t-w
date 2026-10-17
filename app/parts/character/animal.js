@@ -727,6 +727,7 @@ function _savePresets(o){ return TwJsonStore.save(ANP_PRESET_KEY, o); }   // 읽
 /* 저장 성공 안내는 실제로 써진 뒤에만 — 실패면 이유 · 번호를 띄운다(사람 책상 프리셋과 같은 모양). */
 function _presetSaveNotice(res, slot, okMsg){
   if(res.ok){ toast(okMsg); return; }
+  if(res.blocked){ TwErrorCodes.notify('E-CHAR-07', res.err); return; }   // 망가진 저장분 위에는 쓰지 않았다
   console.warn(TwJsonStore.diagLine('save', ANP_PRESET_KEY, res, slot));
   TwErrorCodes.notify('E-CHAR-04', res.err, TwJsonStore.saveFailText(res.err));
 }

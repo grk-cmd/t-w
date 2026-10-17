@@ -1,6 +1,7 @@
 /* ═══ 💾 sim-json-store.js — localStorage JSON 칸 읽기 · 쓰기 한 곳 (shared/json-store.js) ═══
    ・1절: load — 키 없음 · 빈 글 · 해석 성공 · 해석 실패 · 저장소 못 엶 → {ok, list, err, bytes} · 던지지 않는다
    ・2절: save — 성공(bytes) · 용량 초과 · JSON 못 만듦 · 저장소 못 엶 → {ok, err, bytes} · 던지지 않는다
+     · 저장된 글이 해석 안 되면 쓰지 않는다(blocked) — 망가진 원본 그대로 · 사람 E-CHAR-06 · 동물 E-CHAR-07
    ・3절: 부르는 쪽 동작 고정 — 사람 책상 프리셋(desk-preset-store.js — 5칸 맞추기) · 동물 프리셋(animal.js — 객체 그대로)
    ・4절: 실패 알림 — 이유 한 마디 · 진단 줄 · 저장 실패면 성공 안내 대신 번호(E-CHAR-01 · 04) · 읽기 실패 번호(02 · 05) · 표에 번호가 있다
    ・5절: 배선 — html 이 책상 프리셋 저장 · animal.js · app.js 보다 먼저 · 두 곳이 localStorage 를 직접 안 만진다 · smoke PRELOAD
@@ -74,6 +75,23 @@ say('── 2. save');
   chk(r.ok === false && r.err.name === 'TypeError' && r.bytes === 0, 'JSON 못 만듦 → ok:false · TypeError');
   let threw = false; try{ r = J.createJsonStore({ storage: () => { throw new Error('denied'); } }).save(KEY, []); }catch(_){ threw = true; }
   chk(!threw && r.ok === false, '저장소를 못 열어도 던지지 않는다');
+  const st2 = fakeStorage();
+  const S3 = J.createJsonStore({ storage: () => st2 });
+  st2.m.set(KEY, '[{"ts":1},');
+  r = S3.save(KEY, [null, null]);
+  chk(r.ok === false && r.blocked === true && r.err.name === J.UNREADABLE && st2.m.get(KEY) === '[{"ts":1},', '저장된 글이 해석 안 되면 쓰지 않는다 · 망가진 원본 그대로');
+  st2.m.set(KEY, '[]');
+  chk(S3.save(KEY, [1]).ok === true && st2.m.get(KEY) === '[1]', '해석되는 글 위에는 그대로 쓴다');
+  st2.m.delete(KEY);
+  chk(S3.save(KEY, [2]).ok === true, '키가 없으면(처음) 쓴다');
+  st2.m.set(KEY, '');
+  chk(S3.save(KEY, [3]).ok === true, '빈 글이면 쓴다(읽기에서 키 없음과 같게)');
+  /* 깨 보기 — 막기를 빼면 망가진 원본이 덮인다 */
+  const brokeSrc = SRC.js.replace('if(unreadable(key)){', 'if(false){');
+  const JB = load(brokeSrc).createJsonStore({ storage: () => st2 });
+  st2.m.set(KEY, '[{');
+  JB.save(KEY, [9]);
+  chk(brokeSrc !== SRC.js && st2.m.get(KEY) === '[9]', '  깨 보기: 막기를 빼면 망가진 원본이 덮인다 → 위 판정이 잡는다');
 }
 
 say('── 3. 부르는 쪽 동작 고정');
@@ -153,8 +171,17 @@ say('── 4. 실패 알림');
   notes.length = 0; st.m.delete(AK);
   an._presetSaveNotice(an._savePresets({ p1: 'x'.repeat(80) }), 1, '프리셋 1에 저장했어요');
   chk(toasts.length === 0 && notes.length === 1 && notes[0][0] === 'E-CHAR-04', '동물: 저장 실패 → 성공 안내 없이 E-CHAR-04');
+  /* 망가진 저장분 — 사람 E-CHAR-06 · 동물 E-CHAR-07, 성공 안내 없음 · 원본 그대로 */
+  toasts.length = 0; notes.length = 0;
+  st.m.set(KEY, '[{"ts":1},');
+  notice(D.saveDeskPresets([1]), 1, '저장했어요');
+  chk(toasts.length === 0 && notes.length === 1 && notes[0][0] === 'E-CHAR-06' && st.m.get(KEY) === '[{"ts":1},', '사람: 망가진 저장분 → 덮어쓰지 않고 E-CHAR-06');
+  notes.length = 0;
+  st.m.set(AK, '{"p');
+  an._presetSaveNotice(an._savePresets({ p1: 1 }), 1, '저장했어요');
+  chk(toasts.length === 0 && notes.length === 1 && notes[0][0] === 'E-CHAR-07' && st.m.get(AK) === '{"p', '동물: 망가진 저장분 → 덮어쓰지 않고 E-CHAR-07');
   const E = load(SRC.codes);
-  chk(['E-CHAR-01', 'E-CHAR-02', 'E-CHAR-03', 'E-CHAR-04', 'E-CHAR-05'].every((c) => E.info(c)), '번호 다섯이 에러코드 표에 있다');
+  chk(['E-CHAR-01', 'E-CHAR-02', 'E-CHAR-03', 'E-CHAR-04', 'E-CHAR-05', 'E-CHAR-06', 'E-CHAR-07'].every((c) => E.info(c)), '번호 일곱이 에러코드 표에 있다');
   /* 깨 보기 — 저장 결과를 안 보고 늘 성공 안내를 띄우면 */
   const broke = sn.replace('if(res.ok){ toast(okMsg); return; }', 'toast(okMsg); return;');
   toasts.length = 0; notes.length = 0;

@@ -40,6 +40,8 @@ const CODES = {
   'E-CHAR-03': { msg: '프리셋의 책상 모델을 불러오지 못했어요', where: 'creator/desk-preset.js — applyDeskPreset 책상 GLB 해석 실패' },
   'E-CHAR-04': { msg: '프리셋을 저장하지 못했어요', where: 'character/animal.js — 동물 프리셋 저장 · 삭제 (_savePresets · tw.animalPresets)' },
   'E-CHAR-05': { msg: '프리셋을 읽지 못했어요', where: 'character/animal.js — 동물 프리셋 읽기 해석 실패 (_loadPresets · tw.animalPresets)' },
+  'E-CHAR-06': { msg: '저장된 프리셋을 읽지 못해 덮어쓰지 않았어요', where: 'creator/desk-preset.js — 📐 책상 프리셋 저장 · 비우기를 막음(tw.deskPresets 해석 실패 · json-store save blocked)' },
+  'E-CHAR-07': { msg: '저장된 프리셋을 읽지 못해 덮어쓰지 않았어요', where: 'character/animal.js — 동물 프리셋 저장 · 삭제를 막음(tw.animalPresets 해석 실패 · json-store save blocked)' },
 };
 /* 걷은 번호 — { 번호: '언제 · 왜' }. 다시 쓰지 않으려고 남긴다. */
 const RETIRED = {};
