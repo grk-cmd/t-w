@@ -115,6 +115,8 @@ const MODULES = [
   { file: 'user-status-table.js', mod: 'userStatusTableMod', glob: 'TwUserStatusTable', sample: 'function loadCustomStatusFromStorage(' },   // 구역 떼기 C · w1
   { file: 'chip-popups.js', mod: 'chipPopupsMod', glob: 'TwChipPopups', sample: 'function _closeChipPopups(' },   // 구역 떼기 C · w1
   { file: 'creator-state.js', mod: 'crState', glob: 'TwCreatorState', sample: 'let cRenderer=null, cScene=null' },   // C 구역 떼기 w4 — 생성기 상태(crState.이름 → 옛 let)
+  { file: 'paint-geom.js', mod: 'paintGeomMod', glob: 'TwPaintGeom', sample: 'function _seg(' },   // C 구역 떼기 w4
+  { file: 'paint-stroke.js', mod: 'paintStrokeMod', glob: 'TwPaintStroke', sample: 'function mirrorUV(' },   // C 구역 떼기 w4
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

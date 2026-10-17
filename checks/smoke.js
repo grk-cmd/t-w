@@ -588,6 +588,10 @@ PRELOAD.push('user-status-table.js');
 PRELOAD.push('chip-popups.js');
 /* creator-state.js — 🧍 생성기 상태(C 구역 떼기 w4). 같은 까닭 — app.js 가 createCreatorState 로 만든 crState 를 곳곳이 읽는다. */
 PRELOAD.push('creator-state.js');
+/* paint-geom.js — ✏️ 그리기 공용 기하(획 조각 · 거울 UV — 생성기 · 꾸미기 파츠)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPaintGeom 를 같이 굴린다. */
+PRELOAD.push('paint-geom.js');
+/* paint-stroke.js — 🖌 얼굴에 칠하기(획 · 대칭 · 페인트통 · 스포이드)(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPaintStroke 를 같이 굴린다. */
+PRELOAD.push('paint-stroke.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
