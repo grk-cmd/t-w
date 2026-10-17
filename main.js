@@ -24,6 +24,13 @@ const FIREBASE_ENV = app.isPackaged
   : ((process.argv.includes('--tw-firebase=dev') || process.env.TW_FIREBASE === 'dev') ? 'dev' : 'prod');
 function _pkgFirebaseEnv(){ try{ return require('./package.json').twFirebase || null; }catch(_){ return null; } }
 if(FIREBASE_ENV === 'dev') console.log('[firebase-env] dev Firebase(together-working-dev)로 실행');
+// 🔒 개발자 도구 — 설치본에서는 막고 관리자 모드 창에서만 연다(devtools-gate.js). 개발 실행 · dev 빌드는 늘 연다.
+const { createDevtoolsGate } = require('./devtools-gate');
+const devtoolsGate = createDevtoolsGate({ packaged: app.isPackaged, env: FIREBASE_ENV });
+// 렌더러(admin/admin-mode.js)가 관리자 모드를 켜고 끌 때 알린다 — 메인 창이 보낸 것만 받는다
+ipcMain.on('companion:setAdminMode', (e, on) => {
+  if(mainWindow && !mainWindow.isDestroyed() && e.sender === mainWindow.webContents) devtoolsGate.setAdmin(!!on);
+});
 // dev 는 앱 데이터 폴더를 따로 쓴다. 같이 쓰면 localStorage(uid · 초대 통과 도장 · 슬롯 캐시 등)가 운영과 섞여
 // dev 에서 신규 가입 흐름을 재현할 수 없고, dev 에서 바꾼 로컬 상태가 운영 앱에 남는다. ready 전에 정해야 한다.
 if(FIREBASE_ENV === 'dev') app.setPath('userData', path.join(app.getPath('appData'), app.getName() + '-dev'));
@@ -2248,6 +2255,7 @@ function createWindow() {
           contextIsolation: true,
           nodeIntegration: false,
           partition: 'persist:googleauth',   // 메인 세션과 쿠키를 섞지 않는다
+          devTools: devtoolsGate.always,     // 보조 창은 관리자 예외 없이 설치본에서 막는다
         },
       });
       /* run 모드의 메인 창은 alwaysOnTop('screen-saver') 이라, 같은 단계로 올리지 않으면
@@ -2387,11 +2395,11 @@ function createWindow() {
   });
 
   // mainWindow.webContents.openDevTools({ mode: 'detach' });
-  // F12로 개발자도구 토글 (frame:false 창은 기본 메뉴/단축키가 없어서 직접 등록해야 함)
+  // F12로 개발자도구 토글 — 설치본에서는 관리자 모드일 때만(devtools-gate.js · 열림 감시 포함)
+  devtoolsGate.attach(mainWindow.webContents);
+  // 방명록 · 디자인 스튜디오 같은 팝업(window.open)도 같은 규칙 — 설치본에서 관리자 모드가 아니면 열리자마자 닫는다
+  mainWindow.webContents.on('did-create-window', (child) => { devtoolsGate.attach(child.webContents); });
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown' && input.key === 'F12') {
-      mainWindow.webContents.toggleDevTools();
-    }
     /* 🔍 Ctrl(+Shift)+= / Ctrl+- / Ctrl+0 — 기본 가속기가 먹기 전에 가로채 한 통로로 보낸다(applyUiZoom 주석). */
     const zop = _zoomKeyOp(input);
     if(zop){ event.preventDefault(); applyUiZoom(zop, 'key'); }
@@ -2990,6 +2998,7 @@ function createWindow() {
            ⚠️ 비용은 숨어 있는 동안에도 500ms tick 이 계속 도는 것뿐이다(querySelector 몇 번).
              어차피 소리를 내려고 살려 두는 페이지라 실질적인 추가 부담이 없다. */
         backgroundThrottling: false,
+        devTools: devtoolsGate.always,   // 보조 창은 관리자 예외 없이 설치본에서 막는다
       }
     });
     const fakeUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';

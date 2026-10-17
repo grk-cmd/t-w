@@ -28,6 +28,11 @@ contextBridge.exposeInMainWorld('companion', {
     ipcRenderer.send('companion:flashFrame', !!on);
   },
 
+  // 🔒 관리자 모드를 켜고 끌 때 — 설치본에서 개발자 도구(F12)는 관리자 모드에서만 열린다(main.js devtools-gate)
+  setAdminMode(on) {
+    ipcRenderer.send('companion:setAdminMode', !!on);
+  },
+
   // 타이틀바 × 버튼 — 앱 완전 종료
   quitApp() {
     ipcRenderer.send('companion:quitApp');

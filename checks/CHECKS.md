@@ -1,7 +1,13 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 369 (규칙 config/dataRoutes — 범용 통로 표(누구나 읽기 · 관리자만 쓰기))
-대상: `sim-*.js` 321개 + `smoke.js` + `audit.py` = **323개** (개정 369 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 370 (설치본 개발자 도구(F12) 막기 · 관리자 모드만 허용(devtools-gate.js))
+대상: `sim-*.js` 322개 + `smoke.js` + `audit.py` = **324개** (개정 370 기준 — 폴더를 센 값)
+
+**개정 370 에서 한 것 (2026-10-17 · 설치본 F12 막기 — 동작 변경 · 사용자 결정)**
+- 앱: 새 메인 프로세스 모듈 `devtools-gate.js`(설치 목록 package.json build.files 에 추가) — 설치본 운영 빌드에서는 개발자 도구를 막고 관리자 모드 창에서만 연다. 개발 실행 · dev 빌드는 늘 연다. `main.js`: 게이트 · 관리자 모드 IPC(메인 창이 보낸 것만) · 메인 창 · 팝업(did-create-window)에 F12 토글 · 열림 감시 · 보조 창 둘(구글 로그인 · 음악) webPreferences.devTools = always. `preload.js`: companion.setAdminMode(admin-mode.js 가 이미 켜고 끌 때 부르던 자리 — 지금까지 없어서 조용히 건너뛰었다).
+- 검사: `sim-devtools-gate.js` 신설 **20·0** — 여는 조건(개발 · dev 늘 · 설치본은 관리자만 · 끄면 막힘) · 가짜 창(F12 · 다른 길로 열림 → 닫음 · 관리자 끄면 닫음 · 닫힌 창 잊기 · 개발 실행 그대로) · 배선. 변이: F12 늘 열기 · 열림 감시 빼기 · 끌 때 닫기 빼기 · IPC 발신자 확인 빼기 · 팝업 걸기 빼기 → 모두 빨강.
+- \`sim-no-default-menu.js\` 1절: «메인 창 F12 토글 그대로» → «devtools-gate 가 맡는다».
+- 실제 앱(dev 실행): 켜짐 · companion.setAdminMode 있음 · firebaseAPI 있음.
 
 **개정 369 에서 한 것 (2026-10-18 · 규칙 한 칸 — 범용 통로 표)**
 - 규칙: `config/dataRoutes` — 누구나 읽기 · 관리자만 쓰기 · 칸은 번호(0~999) · 글자 1~200자. 앱(원격 설정)이 Firebase 로 표를 읽을 때 쓴다. 비어 있으면 앱은 지금과 같다.
@@ -2576,7 +2582,7 @@
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** ← **개정 268 setZoomFactor 한 곳 판정을 메인 창 기준으로(자식 창 _lockChildZoom 의 setZoomFactor(1) 제외)** · **개정 198 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 80 하한 50 → 20%** · 2026-09-17 고침(122→125줄) · 행 이름 «프로그램 크기»·부연 문구 제거·−/+ 한 글자 버튼(시안 확정) — 옛 판정은 거짓 빨강. 2026-09-16 신규 · 제보 3-2 F-1 렌더러 줌 (§20) |
 | **sim-zoom-window.js** | 68 | **77ab3834d455** ← **개정 148 함수 상자에 _mhPad(마이홈 스티커 여백 — _modeSize 가 읽는다)** · ← **개정 80 신설 · 📐 프로그램 크기(줌)를 바꾸면 런처·생성기·마이홈 창도 같이 커진다 · 하한 20%** |
 | **sim-z-layers.js** | 168 | **75e6e7bd9f39** ← **개정 355 새 층 · 층 차례 · 창 쌓기 돌려 보기** · **개정 354 신설 · 🪟 창 층 표(:root --z-…) — 창마다 표의 이름만 · 값** |
-| **sim-no-default-menu.js** | 95 | **7c766cb59315** ← **개정 268 신설 · ⌨️ 일렉트론 기본 메뉴 걷기 · 자식 창 줌 100% 고정 · mac 편집 역할 유지** |
+| **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** ← **개정 370 메인 창 F12 는 devtools-gate 가 맡는다** · **개정 268 신설 · ⌨️ 일렉트론 기본 메뉴 걷기 · 자식 창 줌 100% 고정 · mac 편집 역할 유지** |
 | **sim-ops-hot-config.js** | 162 | **bc2e1a9dbb34** ← **개정 294 신설 · ⚙️ 운영 원격 설정 규칙 — apiCors · apiCache · logLevel · roomServer/frame · timing 새 두 칸을 규칙 실행기로(관리자 쓰기 · 봇/공개 읽기 · 범위 · 모르는 칸)** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** ← **개정 251 _aCast 는 partPaintMod._picIntersect 를 부른다(옛 전역 이름 다리 걷기 — 판정 무변경)** · **개정 239 가드 걷은 글 모양 · 폴백 0** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 81 신설 · 🐾 동물 생성기 광선(붓·스포이드·도장·대칭)이 지금 자세의 얼굴을 맞힌다 · 대칭은 같은 부위만** |
 | **sim-human-ear.js** | 239 | **b2f21075bb26** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 87 5절 대칭 그리기(실제 귀 GLB) · 그림칸** · **개정 85 움직이는 중에 달아도 바인드 기준 · readAdj** · **개정 84 신설 · 🐾 사람 귀(꾸미기 › 머리 › 귀) — 자리 상수 · 대칭 복사 · 옮길 양 · 머리 따라 움직임** |
@@ -2625,6 +2631,7 @@
 | **sim-chat-window.js** | 559 | **95901abb7f00** ← **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 238 가드 걷은 글 모양 · 깨 보기 글** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 신설 · 💬 대화창 배선 모듈(chat-window.js) — 만들 때 · 닫기 · 최소화 · ESC · Enter · 링크 · 끌기 · 크기 · 메뉴 · 알림음 · 투명도 · 날리기 · 잠금 · 기록 삭제 · 이모티콘 · 주사위 · 💣 · 📷 · app.js 배선 · 일부러 깨 보기 29가지** |
 | **sim-api-client.js** | 162 | **f93d00872b1a** ← **개정 356 새 API 주소 · CSP 두 묶음** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 175 신설 · 🌐 앱 공통 API 통로(api-client.js) — 주소(운영 · dev · tw.apiBaseUrl) · 봉투 · 실패 한 모양(unavailable · notReady · auth · request) · 시간 제한 · 쉬기(BACKOFF) · 캐시 · 같은 요청 하나 · window.TwApi · html 차례 · CSP** |
 | **sim-api-public-reads.js** | 191 | **0ffa0ae11a5c** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 180 신설 · 🌐 공개 읽기 API 먼저(api-public-reads.js) — 파도타기 · 명함 · 사진 · 랭킹 · 방 개수(quick 만) · 랜덤 후보 · data:null = 없음 · 실패면 원래 Firebase 함수 · 배선** |
+| **sim-devtools-gate.js** | 87 | **0f94e5a4320f** ← **개정 370 신설 · 🔒 설치본 F12 막기 · 관리자 모드만** |
 | **sim-remote-config.js** | 441 | **d94647895cd7** ← **개정 356 CSP 두 도메인** · **개정 319 규칙식을 돌릴 때 경로 변수에 정상 키를 넘김(키 형식 조건이 생김 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 175 §1 · §2 새로 — 읽는 차례 API → Firebase config 칸 → 저장값 → 기본값 · API 성공이면 Firebase 안 읽음 · 최소 버전 저장값 안 씀 · 503 CONFIG_NOT_READY · 멈춤 · 1분 기억 · 허용 목록 API → Firebase allow · 서버 주소 · firebase-init 배선** · **개정 172 신설 · ⚙️ 원격 설정(remote-config.js) — 기본값 · 범위 · 타입 · 알림 · ready · 칸 넷 구독 · 규칙 식 실행(roomLimits · roomMaxPeople · flags · bugPostCount 100) · app.js 배선 · 화면 숫자 · 방 서버 길 빈 방 상한(되살리기 · 시크릿룸 · 만들기 · 있는 방 제외) · html · CSP** |
 | **sim-source-switch.js** | 176 | **d37fe90aa0a3** ← **개정 361 신설 · 기능별 받는 곳 고르기 한 곳(source-switch.js)** |
 | **sim-data-gateway.js** | 245 | **ed15b727902e** ← **개정 369 규칙 config/dataRoutes 판정 · 깨 보기** · **개정 368 신설 · 🚪 범용 데이터 통로(data-gateway.js) — 표가 비면 그대로 · 서버 길 · 번역표** |
