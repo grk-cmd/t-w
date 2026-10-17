@@ -56,7 +56,7 @@
 | ~~오래된 요청 #255 · #153 합치기~~ 머지 | 검증-도우미13 | #255 앱 크기 기준선 쓰기 · #153 웹 관리자 사용자 목록을 관리자 API 로 | `checks/sim-app-size.js` · `checks/app-size-baseline.json` · `web-admin/src/`(사용자 목록 · 통계) · `checks/CHECKS.md` | #255 · #153 |
 | 같은 그림 반복 업로드 줄이기(#39 새로 쓰기) | 검증-도우미14 | 동시 업로드 합치기 · 썸네일은 외모가 바뀔 때만 · 업로드 캐시 LRU(통째 비우기 없앰) · 마이홈 주소 되쓰기 | `shared/upload-cache.js`(새) · `room/room-sync.js` · `character/slot-sync.js` · `firebase-init.js`(업로드 길) · 마이홈 · 검사 | — |
 | 테스트 빌드도 운영 DB 로 | 검증 세션 | 깃허브에서 만드는 테스트(beta) 빌드도 운영 Firebase 에 붙게 — 개발 서버는 내 PC 의 `npm run start:dev` 에서만 | `.github/workflows/release.yml` · `release-start.yml` · `CLAUDE.md` · `docs/RELEASE.md` | — |
-| ~~빈 카탈로그 사본 막기~~ 취소 | 검증-도우미15 | 취소 — 서버 쪽에서 고침(사용자 결정 10-17). 앱에 «빈 카탈로그를 의심하는 보험» 은 넣지 않는다 | — | — |
+| ~~빈 카탈로그 사본 막기~~ 취소 | 검증-도우미15 | 취소 — 앱 · 서버 보험 코드 없이 이관 순서로 막음(서버를 다 채운 뒤 앱을 붙인다 · 사용자 결정 10-17). 앱에 «빈 카탈로그를 의심하는 보험» 은 넣지 않는다 | — | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
