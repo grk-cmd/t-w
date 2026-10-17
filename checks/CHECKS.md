@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 348 (🎮 게임이 앞일 때도 게임패드 활동 — Windows 는 main 이 XInput 을 직접 읽는다 · `sim-gamepad-activity.js` 3절)
-대상: `sim-*.js` 312개 + `smoke.js` + `audit.py` = **314개** (개정 348 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 349 (🧱 도메인끼리 직접 부르는 곳이 늘면 빨강 — sim-domain-calls.js · 기준선 34곳)
+대상: `sim-*.js` 313개 + `smoke.js` + `audit.py` = **315개** (개정 349 기준 — 폴더를 센 값)
+
+**개정 349 에서 한 것 (2026-10-17 · 검사 신설 — 앱 동작 무변경)**
+- 검사: `sim-domain-calls.js` 신설 — CLAUDE.md «도메인끼리는 서로의 모듈을 직접 부르지 않는다(app.js 가 deps 로 잇는다 · shared 는 도메인을 모른다)» 를 판정으로. app/parts/<도메인> 모듈이 ① app.js 가 만든 다른 도메인 인스턴스(`xMod.`) ② 다른 도메인 전역 모듈(`TwY`) ③ 다른 도메인 창 고리(`window.이름`)를 그 파일 선언 없이 읽는 곳을 센다(도메인 → shared 는 아래 방향이라 안 셈 · shared → 도메인은 셈). 지금 34곳 · 파일 18개를 `domain-calls-baseline.json` 기준선으로 두고 파일마다 늘면 빨강 · 줄면 내리라고 빨강(--write-baseline 은 합계가 늘면 거절). 예외 3(마이홈 고리판 · 기본 이모티콘 표 · 방 공용 상태 _activeChannel — 이유는 EXEMPT). 깨 보기 10.
+- 문서: CLAUDE.md 그 줄 끝에 검사 이름.
 
 **개정 348 에서 한 것 (2026-10-17 · 10-16 제보 7 — Xbox 패드로만 게임하면 잠듦)**
 - 앱: 게임이 앞이면 크로미움 Gamepad API 가 뒤에 있는 우리 창에 패드 값을 안 준다. `sysinput-win.js` 에 `readPads`(koffi 로 `XInputGetState` — Gamepad API 모양 · 빈 자리는 6번에 한 번 · 못 불러오면 빈 목록) · `sysinput-mac.js` 는 같은 이름 빈 함수. `main.js` 가 렌더러와 같은 `gamepad-activity.js` 로 판정해 500ms 활성 창 폴링 끝에서 `penActivity` 로 보낸다(전송 간격 공유). 의존성 `koffi` · asarUnpack.
@@ -2630,6 +2634,7 @@
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 222 신설 · 📂 렌더러 경로가 실제 폴더 기준으로 맞는가(<script src> · 상대 import)** |
 | **sim-global-names.js** | 236 | **4da03342e299** ← **개정 259 날기 쿨다운 깨 보기는 그 글이 있는 파일에서(판정 무변경)** · **개정 249 모듈 이름 ↔ 전역 이름 짝을 가드 걷은 만드는 줄에서도 읽는다(판정 무변경)** · **개정 237 읽는 함수를 값처럼 typeof 비교 판정 추가** · **개정 236 신설 · 부르는 이름이 전역에 다 있는가(전역 이름 실종)** |
 | **sim-dep-cycles.js** | 237 | **6aa063b0b8b1** ← **개정 241 신설 · 렌더러 모듈 순환이 늘지 않는가(기준선 dep-cycles-baseline.json) · 만드는 도중 아직 없는 이름 읽기** |
+| **sim-domain-calls.js** | 157 | **8b9f85e7d696** ← **개정 349 신설 · 도메인끼리 직접 부르는 곳(인스턴스 · 전역 모듈 · 창 고리)이 기준선보다 늘지 않는가** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** ← **개정 243 신설 · 🧭 방 공용 상태(room-state.js) — 처음 값 · 싣는 순서 · 바꾸는 파일** |
 | **sim-error-codes.js** | 107 | **6c8019315bf2** ← **개정 341 신설 · ⚠️ 에러코드 표(error-codes.js) — 번호 모양 · notify · 부른 번호가 표에 · 표의 번호가 쓰임 · 싣는 순서 · 문서** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 245 신설 · 🏠 마이홈 공용 상태(myhome-state.js) — 처음 값 · 이름 창구 · 싣는 순서 · 바꾸는 곳** |
