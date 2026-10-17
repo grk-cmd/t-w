@@ -407,7 +407,9 @@ function _applyRemoteRides(){
       if(!want || want === 'self'){ if(seat.ridingOn){ try{ rideBenchMod.unmountRide(seat); }catch(_){} } return; }
       const target = (myUid && want === myUid) ? me : (byUser[want] || byFriend[want] || null);
       if(!target) return;                                  // 일시적 조회 실패 — 내리지 않고 유지(다음 sync에 반영)
-      if(seat.ridingOn === target) return;                 // 이미 같은 상태면 건드리지 않음(재실측 방지)
+      /* 이미 같은 상태면 건드리지 않음(재실측 방지). 파츠가 바뀐 뒤의 높이 다시 재기는 여기서 판단하지 않는다 —
+         파츠를 붙이고 떼는 자리가 refitSeatAfterParts · requestRefit(seat-refit.js)으로 그 좌석과 탄 대상 높이를 다시 잰다(판단은 그 한 곳). */
+      if(seat.ridingOn === target) return;
       if(target===seat || rideBenchMod._rideIsAbove(target, seat)) return;   // 순환 방지
       try{ seat.ridingOn = null; rideBenchMod.mountRide(seat, target); }catch(_){}
     });

@@ -152,17 +152,22 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 
 ## seat-refit.js — 🪑 파츠 구성이 바뀐 뒤 좌석 다시 맞추기
 
-- **책임**: 파츠를 붙이거나 뗀 좌석을 한 순서로 다시 맞춘다 — 끝난 장착 기다리기(거부돼도 다시 맞추기는 한다) → 아직 같은 좌석 · 같은 캐릭터인지 → `fitModel`(발밑 깊이 · 리깅 파츠) → `layoutSeats`(원할 때만) → 그 좌석 위에 탄 사람의 머리 꼭대기 값 다시 재기(`rideBenchMod._remeasureRideHeadTop`).
-- **만드는 법**(app.js «🪑 좌석 배치» 자리 — `layoutSeats` 바로 뒤, `rideBenchMod` 를 값으로 넘기므로 그보다 뒤):
+- **책임**: 파츠를 붙이거나 뗀 좌석을 한 순서로 다시 맞춘다 — 끝난 장착 기다리기(거부돼도 다시 맞추기는 한다) → 아직 같은 좌석 · 같은 캐릭터인지 → `fitModel`(발밑 깊이 · 리깅 파츠) → `layoutSeats`(원할 때만) → 다시 맞춘 뒤 알림(app.js 가 건 올라탄 사람 높이 다시 재기 `rideBenchMod._remeasureRideHeadTop`).
+- **만드는 법**(app.js «🪑 좌석 배치» 자리 — `layoutSeats` 바로 뒤 · `rideBenchMod` 보다 뒤):
   ```js
   const seatRefitMod = TwSeatRefit.createSeatRefit({
     fitModel: (...a)=>fitModel(...a),
     layoutSeats: (...a)=>layoutSeats(...a),   // 맨 아래 «데스크탑 창 크기» 가 다시 대입하므로 화살표로
-    rideBenchMod: rideBenchMod,
+    requestFrame: (...a)=>requestAnimationFrame(...a),
+    seats: seats,                              // 다음 프레임 맞추기는 실행 화면 좌석만
   });
+  seatRefitMod.onRefitted((s)=>rideBenchMod._remeasureRideHeadTop(s));   // 알림으로 — ride-bench 를 deps 로 받으면 새 순환(sim-dep-cycles)
   ```
   다른 모듈에는 `refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a)` 로 넘긴다(wardrobe · room-entry · catalog-sync · admin-part-register).
-- **내보내는 것**: `refitSeatAfterParts(seat, { wait, layout, isCurrent })` → Promise(다시 맞췄으면 true)
+- **내보내는 것**
+  - `refitSeatAfterParts(seat, { wait, layout, isCurrent })` → Promise(다시 맞췄으면 true). 다시 맞춘 좌석과 그 좌석이 탄 대상(`ridingOn`)에 `onRefitted` 알림을 한 번씩.
+  - `requestRefit(seat)` — 파츠를 뗀 자리(app.js `unequipStackablePart` · `unequipPartFromSeat` → `_refitAfterUnequip`)가 부른다. 다음 프레임에 한 번(같은 프레임 여러 번이면 좌석마다 한 번) · 실행 화면 좌석만 · 그 전에 장착 뒤 맞추기가 돌았으면 건너뜀.
+  - `onRefitted(fn)` — 다시 맞춘 뒤 할 일(지금은 올라탄 사람 높이 다시 재기 하나).
   ```js
   // 친구 파츠가 바뀌었을 때(room-entry.js)
   refitSeatAfterParts(s, { wait: applyEquippedPartsToSeat(s, fdef), layout: true, isCurrent: ()=>s.charDef===fdef });
@@ -173,5 +178,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - **함정**
   - 매 프레임 부르지 말 것 — 올라탄 사람 높이는 이름표 · 말풍선 자리의 기준이라 프레임마다 다시 재면 라벨이 떤다.
   - `isCurrent` 를 빼면 기다리는 사이 나간 사람 · 바뀐 캐릭터의 좌석에 뒤늦게 `fitModel` 이 발사된다(원격 캐릭터 크기가 튀던 경위).
-  - 생성기 미리보기(`fitCreator`) · 꾸미기 미리보기는 다른 맞추기라 이 함수를 쓰지 않는다.
+  - 생성기 미리보기(`fitCreator`) · 꾸미기 미리보기는 다른 맞추기라 이 함수를 쓰지 않는다(`requestRefit` 도 `seats` 밖 좌석은 건너뛴다).
+  - 떼기 뒤 바로 재지 않고 다음 프레임인 까닭 — 뗀 뒤 `applyClothVisibility` 가 기본 메쉬(머리카락 등)를 되돌려야 맞는 높이가 나온다.
+  - 방 동기화(`_applyRemoteRides`)의 «같은 상태면 건너뜀» 은 그대로 둔다 — 파츠가 바뀐 뒤 높이 다시 재기는 이 모듈이 판단한다.
   - 검사: `checks/sim-seat-refit.js`(순서 · 거부 · 낡은 좌석 · 길마다 부르는지 · 깨 보기).
