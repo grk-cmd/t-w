@@ -1222,8 +1222,7 @@ function renderBellList(){
     }
     _bellSubscribeToday();
   };
-  if(window.firebaseAPI) sub();
-  else window.addEventListener('firebase-ready', sub, { once:true });
+  TwNetReady.whenNetReady(sub);
 
   // 날짜가 바뀌면(자정 넘김) 오늘 일정 구독을 새 날짜로 갱신
   let _bellDay = _todayYMD();

@@ -324,8 +324,7 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   box.querySelector('[data-a="no"]').onclick = ()=>done(false);
 }
 // Firebase 준비되면 수신 구독 시작
-if(window.firebaseAPI) _bindRoomInviteReceiver();
-else window.addEventListener('firebase-ready', ()=>_bindRoomInviteReceiver(), { once:true });
+TwNetReady.whenNetReady(()=>_bindRoomInviteReceiver());
 
 return {
   showPopup: showRoomInvitePopup,     // 받은 초대 팝업(검사용)

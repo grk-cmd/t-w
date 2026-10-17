@@ -19,7 +19,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['room-invite-ui.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['room-invite-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(모듈이 TwNetReady.whenNetReady 를 부른다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['room-invite-ui.js'];
@@ -85,6 +85,7 @@ function mkEnv(opt, mod){
   if(!opt.noFb) ctx.firebaseAPI = fb;
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
   vm.runInContext(mod || MOD, ctx, { filename: 'room-invite-ui.js' });
   env.ctx = ctx; env.els = els; env.fb = fb;
   env.mk = () => (env.api = ctx.TwRoomInviteUi.createRoomInviteUi({
@@ -348,7 +349,7 @@ await sec('── 6. app.js 배선', () => {
   chk(iP > 0 && iP < iMk && !/[^.\w]Presence\s*=[^=>]/.test(code.replace('const Presence=(', '')), '  Presence 는 만드는 줄보다 앞의 const · 다시 대입 안 됨 — 그래서 값');
   const m = strip(MOD);
   chk(/const friends = _myHomeFriends\(\) \|\| \{\};/.test(m) && !/[^.\w]_myHomeFriends\s*=[^=]/.test(m.replace('const _myHomeFriends = deps.myHomeFriends;', '')), '모듈은 친구 목록을 부를 때마다 읽는다 · 직접 쓰지 않는다');
-  chk(/if\(window\.firebaseAPI\) _bindRoomInviteReceiver\(\);\nelse window\.addEventListener\('firebase-ready', \(\)=>_bindRoomInviteReceiver\(\), \{ once:true \}\);/.test(MOD), '만들 때 수신 구독(또는 firebase-ready) — 예전 부팅 줄 그대로');
+  chk(/^TwNetReady\.whenNetReady\(\(\)=>_bindRoomInviteReceiver\(\)\);$/m.test(MOD), '만들 때 수신 구독(또는 firebase-ready) — 네트워크 준비 기다리기 한 곳(net-ready.js)으로');
   const off = (APP.match(/const ROOM_INVITE_UI_OFF = \{([^\n]*?)\};/) || [])[1] || '';
   chk(!/\bROOM_INVITE_UI_OFF\b/.test(APP), '빈 껍데기 ROOM_INVITE_UI_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const iE = HTML.indexOf('<script src="parts/myhome/myhome-edit.js"></script>'), iS = HTML.indexOf('<script src="parts/room/room-invite-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');

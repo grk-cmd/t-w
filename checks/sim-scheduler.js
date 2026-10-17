@@ -13,7 +13,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['scheduler.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['scheduler.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(모듈이 TwNetReady.whenNetReady 를 부른다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['scheduler.js'];
@@ -75,7 +75,7 @@ function mkEnv(opt){
   const setInterval = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
   const raf = fn => 0;
   const g = { viewing: null, friends: {} };
-  new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', opt.src || MOD)
+  new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', SRC['net-ready.js'] + '\nvar TwNetReady = window.TwNetReady;\n' + (opt.src || MOD))
     (win, undefined, document, localStorage, win.firebaseAPI, setInterval, raf, 1280, 800);
   const S = win.MhScheduler.createScheduler({
     getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'), getDisplayName: () => '나나',

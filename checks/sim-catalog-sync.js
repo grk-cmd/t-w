@@ -19,7 +19,8 @@ if(!MOD){ say('  ? 원본 못 찾음 — catalog-sync.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const CSRC = ["catalog-source.js","parts/character/catalog-source.js","app/parts/character/catalog-source.js"].map(read).find(Boolean);   // 서버 provider — 4절은 진짜 Firebase 판을 가짜 window 위에 만든다
-const mkSource = (win) => { new Function('window', 'module', CSRC)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
+const NET_PRE = (['net-ready.js', 'parts/shared/net-ready.js', 'app/parts/shared/net-ready.js'].map(read).find(Boolean) || '') + '\nvar TwNetReady = window.TwNetReady;\n';   // 🛰 네트워크 준비 기다리기(shared/net-ready.js) — catalogSrcReady 가 TwNetReady.whenNetReady 로 넘긴다
+const mkSource = (win) => { new Function('window', 'module', NET_PRE + CSRC)(win, undefined); return win.TwCatalogSource.createCatalogSource({}); };
 const FN_DEPS = ["applyClothVisibility","applyDeskCatalogRefToSeat","applyDeskColorToCustom","applyDeskItemsTo","b64ToBuf","clearHolderDeskItems","equipDeskItem","equipPartOnSeat","loadSavedItemsIntoSession","refitSeatAfterParts","renderCrItems","renderLauncher","setCreatorDeskScale","swapDeskVisual","toast","unequipPartFromSeat"];
 const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","adminCategory","assetCodeMod","catalogGlbMod","catalogSourceMod","commissionMod","premiumMod","rideBenchMod","seats","wardrobeMod"];
 const GET_DEPS = ["activeCustomDeskId","cBase","cDesk","cDeskColor","cDeskGlbB64","cDeskScale","cDeskTemplate","creatorOpen","customItems","gachaMod","isAdmin"];

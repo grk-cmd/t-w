@@ -817,8 +817,7 @@ function _miCodeLoad(){
   };
 
   const boot = ()=>{ push(); warnUnbound(); };
-  if(window.firebaseAPI) boot();
-  else window.addEventListener('firebase-ready', boot, { once:true });
+  TwNetReady.whenNetReady(boot);
 })();
 
 /* 🔁 신원을 놓은 뒤 앱을 껐다 켠다 — 연동 해제와 로그아웃이 **함께 쓰는 한 자리.**

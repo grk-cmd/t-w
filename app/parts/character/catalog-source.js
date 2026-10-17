@@ -26,8 +26,7 @@ const CATALOG_SRC_SUB_KINDS = ['items', 'desks', 'parts', 'customCats', 'catOver
 function _catalogSrcFb(){ return window.firebaseAPI; }
 /* 연결이 이미 있으면 바로, 아니면 firebase-ready 를 한 번만 기다린다 */
 function catalogSrcReady(fn){
-  if(_catalogSrcFb()) fn();
-  else window.addEventListener('firebase-ready', fn, { once:true });
+  TwNetReady.whenNetReady(fn);
 }
 function catalogSrcCan(op){
   const fb = _catalogSrcFb();

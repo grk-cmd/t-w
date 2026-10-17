@@ -28,6 +28,7 @@ const SRC0 = {
   UI: pick(['myhome-ui.js', 'parts/myhome/myhome-ui.js', 'app/parts/myhome/myhome-ui.js']),
   FM: pick(['friend-manage.js', 'parts/myhome/friend-manage.js', 'app/parts/myhome/friend-manage.js']),
   RI: pick(['room-invite-ui.js', 'parts/room/room-invite-ui.js', 'app/parts/room/room-invite-ui.js']),
+  NET: pick(['net-ready.js', 'parts/shared/net-ready.js', 'app/parts/shared/net-ready.js']),   // 🛰 _waitForFirebaseAPI 가 넘기는 네트워크 준비 기다리기 한 곳
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 /* 5-2절 «직접 읽기 0곳» 이 훑는 렌더러 파일 전부(스테이징 평면의 .js) — firebase-init.js 만 경로를 안다 */
@@ -429,7 +430,7 @@ async function judge(S){
     const run = (ready) => {
       const L = [], timers = [];
       const win = { firebaseAPI: ready ? { watchMyFriendList(){} } : undefined, addEventListener: (t, fn, o) => L.push({ t, fn, o }) };
-      const wait = new Function('window', 'setTimeout', 'setInterval', 'with(window){\n' + fnSrc + '\nreturn _waitForFirebaseAPI;\n}')(win, (f, ms) => { timers.push(ms); return 1; }, (f, ms) => { timers.push(ms); return 1; });
+      const wait = new Function('window', 'setTimeout', 'setInterval', 'module', S.NET + '\nvar TwNetReady = window.TwNetReady;\nwith(window){\n' + fnSrc + '\nreturn _waitForFirebaseAPI;\n}')(win, (f, ms) => { timers.push(ms); return 1; }, (f, ms) => { timers.push(ms); return 1; });
       let n = 0;
       wait(() => { n++; });
       return { L, timers, win, n: () => n };
@@ -536,8 +537,8 @@ const BREAKS = [
   ['FB', '      if(_myFriendsOff) _myFriendsOff();\n', '', '새로 걸 때 앞의 것을 안 풂(동시 2개)'],
   ['FB', '      }, err=>{\n        teardown();', '      }, err=>{', '거부돼도 친구별 구독이 남음'],
   ['FB', '        if(onError) onError(err);\n', '', '에러를 안 알림'],
-  ['APP', "  window.addEventListener('firebase-ready', ()=>cb(), { once:true });", "  setTimeout(()=>_waitForFirebaseAPI(cb), 500);", '예전 폴링으로 되돌림'],
-  ['APP', "{ once:true });\n}\n/* 🔇", "{ once:false });\n}\n/* 🔇", 'once 를 뺌'],
+  ['APP', "  TwNetReady.whenNetReady(()=>cb(), 'watchMyFriendList');", "  setTimeout(()=>_waitForFirebaseAPI(cb), 500);", '예전 폴링으로 되돌림'],
+  ['NET', "  window.addEventListener(NET_READY_EVENT, cb, { once:true });", "  window.addEventListener(NET_READY_EVENT, cb, { once:false });", 'once 를 뺌'],
   ['MI', '      friendsSub.start(myId,', '      await Promise.resolve();\n      friendsSub.start(myId,', '구독을 await 뒤로'],
   ['UI', '    if(!_fr) return;\n', '', '판정용 목록을 못 읽어도 보냄'],
   ['UI', "      if(tab.dataset.tab==='friend') friendsRetry();\n", '', '친구 탭을 열어도 다시 안 걺'],
