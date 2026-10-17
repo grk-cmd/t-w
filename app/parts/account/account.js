@@ -7,7 +7,7 @@
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
    ★ «연동됨» 안내 창(_charsLinkedMaybeShow)은 보관함 화면이 있는 my-info.js 로 옮겼다 — 표시 키 CHARS_LINKED_KEY 는 쓰는 쪽(여기)에 두고 내놓는다.
-   ★ 밖에서 부르는 이름: CHARS_LINKED_KEY · _applyTransferSnapshot · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginLocalSnapshot · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: CHARS_LINKED_KEY · _applyTransferSnapshot · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _loginLocalSnapshot · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAccount — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-account.js */
@@ -457,6 +457,19 @@ async function _loginDoLogout(opt){
   return { ok:true };
 }
 
+/* 🗑️ 회원 탈퇴 — 서버에서 계정을 지운 뒤(account-delete-net.js) 이 PC 의 신원 · 소지품도 로그아웃과 같은 한 벌로 지운다.
+   ★ 로그아웃과 달리 올리기 · 검문을 하지 않는다 — 지울 계정에 올릴 까닭이 없고, DB 연결도 이미 끊었다.
+   ★ 기기 세션(releaseDeviceSession)도 놓지 않는다 — users/{코드} 째로 서버가 지웠다.
+   @return { ok, reason } — ok=false 면 이 PC 는 그대로다(서버는 지우다 멈췄을 수 있다 — 다시 누르면 이어서 지운다). */
+async function _loginDoDeleteAccount(word){
+  const api = window.firebaseAPI && firebaseAPI.accountDelete;
+  if(!api) return { ok:false, reason:'탈퇴 기능을 불러오지 못했어요 — 앱을 다시 시작해 주세요' };
+  const r = await api.run(word);
+  if(!r || !r.ok) return r || { ok:false, reason:'탈퇴하지 못했어요' };
+  _wipeAccountLocal();
+  return r;
+}
+
 /* 🔐 [회원가입 설계 §7-C2·C3 · 개정 14 · 시안 확정] 계정 탭 — 로그인 수단 · 비밀번호 만들기(C3) · 바꾸기(C2).
    ★ 모드는 Auth 세션의 제공자(providerData)가 정한다 — 로컬 키가 아니라. 로그인 표시(LOGIN_EMAIL_KEY)는 «탭을 로그인 얼굴로» 만 정한다.
        비밀번호 있음 → C2(바꾸기 · 구글 없으면 경고 + [연결하기]) · 구글만 → C3(만들기) · 세션 없음 → 한 줄(«다시 시작하면 로그인 화면» — 그게 K) · 익명 → 숨김.
@@ -822,6 +835,7 @@ return {
   _loginDoFriendCode,
   _loginDoGoogle,
   _loginDoLogout,
+  _loginDoDeleteAccount,
   _loginLocalSnapshot,
   refreshAccountTab,
 };

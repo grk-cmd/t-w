@@ -8267,6 +8267,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
   _licenseSnapForPush: (...a)=>licenseGateMod._licenseSnapForPush(...a),
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
   _loginDoLogout: (...a)=>accountMod._loginDoLogout(...a),
+  _loginDoDeleteAccount: (...a)=>accountMod._loginDoDeleteAccount(...a),
   _myHomeData: ()=>mhStateMod._myHomeData(),
   _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
   _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
