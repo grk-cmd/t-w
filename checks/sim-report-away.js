@@ -105,7 +105,8 @@ if(RULES){
 say('── 4. 이름표 우클릭');
 {
   const np = strip(grabFn('ensureSeatNamePlateEl'));
-  chk(/addEventListener\('contextmenu'/.test(np) && /_seatCtxMenu\(e, seat\)/.test(np), '이름표 우클릭 = 좌석 메뉴');
+  /* 이름표(overhead.js)는 메뉴를 갈고리(setSeatMenu → _seatMenuFn)로 받는다 — app.js 가 메뉴를 만든 뒤 잇는다(C 구역 떼기 w4 · 순환 끊기) */
+  chk(/addEventListener\('contextmenu'/.test(np) && /_seatMenuFn\(e, seat\)/.test(np) && /setSeatMenu\(\(\.\.\.a\)=>(?:seatMenuMod\.)?_seatCtxMenu\(\.\.\.a\)\)/.test(SRC), '이름표 우클릭 = 좌석 메뉴(갈고리로 잇는다)');
   chk(/officeMode && seat\.remote\) return/.test(np) && /_flyAiming/.test(np) && /_bonkAiming/.test(np), '조준 중 · 회사원 모드(남) 게이트는 캔버스와 같게');
   chk(/\.seat-nameplate\{[^}]*pointer-events:auto/.test(HTML), '이름표가 클릭을 받는다(CSS)');
   chk(/const UI_HIT_SEL = '[^']*\.seat-nameplate'/.test(SRC), 'UI_HIT_SEL 에 .seat-nameplate(실행 화면 클릭 통과 방지)');

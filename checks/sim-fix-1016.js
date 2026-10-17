@@ -17,6 +17,7 @@ const APP = need('parts/app.js');
 const STATUS = need('parts/status/status-chip.js');
 const TRICKS = need('parts/room/tricks.js');
 const MEASURE = need('parts/character/char-measure.js');
+const SEATMENU = need('parts/room/seat-menu.js');   // 좌석 우클릭 메뉴(구역 떼기 w4 로 app.js 에서 옮김 — 판정 무변경)
 const HTML = need('desk-companion-prototype.html');
 const THREE_SRC = read('app/vendor/three/three.min.js', 'vendor/three/three.min.js', 'three.min.js');
 let THREE = null;
@@ -65,7 +66,7 @@ say('§2 알림콩 — 읽음 표시는 서버 시각 순서(ts → id)로');
 
 say('§6 좌석 우클릭 메뉴가 열린 채 단축키 — 메뉴(투명 뒷판)부터 닫는다');
 {
-  const fn = (strip(APP).match(/function _seatCtxMenu\(ev, seat\)\{[\s\S]*?\n\}/) || [''])[0];
+  const fn = (strip(SEATMENU).match(/function _seatCtxMenu\(ev, seat\)\{[\s\S]*?\n\}/) || [''])[0];
   const h = (fn.match(/onEsc = e=>\{[\s\S]*?\n  \};/) || [''])[0];
   chk(!!h, 'onEsc 처리기를 찾았다');
   const run = (key) => { let closed = 0, stopped = 0; const close = () => closed++; const f = new Function('close', 'return ' + h.replace(/^onEsc = /, '').replace(/;$/, ''))(close); f({ key, stopPropagation: () => stopped++ }); return { closed, stopped }; };
