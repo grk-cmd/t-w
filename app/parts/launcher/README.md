@@ -41,3 +41,27 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   `launcherLoop` 는 `FrameBudget.FPS_LAUNCHER`(30)까지만 그린다 — 상한을 빼면 주사율만큼 그려 런처 GPU 부하가 3~4배. 깜빡임 박자를 여기서 따로 세지 않는다(프레임 수로 세면 주사율 따라 달라진다 — `shared/blink-timing.js`).
   프레임 높이는 파츠를 뺀 몸 박스로 잰다 — 파츠까지 넣으면 파츠가 튈 때 캐릭터가 작아진다.
 - **검사**: `checks/sim-launcher-preview.js` — 모듈 모양 · 연결 · 깨 보기 + 4절 런처 부하(120Hz 에서 30번 · 깜빡임 횟수 주사율 무관 · 후원 반짝임 steps).
+
+## click-through-policy.js — 🖱 클릭 통과 판단 규칙 한 곳
+
+- **책임**: «투명 전체화면 창을 클릭 통과(setIgnoreMouseEvents true)로 둘지 · 받기로 바꿀지» 의 판단만. 순수 함수 — 입력은 «무슨 일이 있었나» 사실,
+  출력은 결정 문자열 · 작은 객체. DOM · IPC · 타이머 · 로그는 부르는 쪽(desktop-run.js · main.js)이 한다.
+  예전엔 같은 판단이 네 길(렌더러 mousemove · 재판정 onPenHitTest · 고착 회복 사다리 `__mouseKick` / main 안전장치 ⓔ·ⓕ·ⓖ)에 흩어져 제보마다 한 길만 고쳤다.
+- **만드는 법**: 만들 것이 없다(상태 없음). 렌더러는 `window.TwClickThroughPolicy`(html 이 desktop-run.js 보다 먼저 싣는다)를 app.js 가 `clickPolicy: TwClickThroughPolicy` 로 넘기고,
+  desktop-run.js 는 `const clickPolicy = deps.clickPolicy;` 로 받는다. main.js 는 `require('./app/parts/launcher/click-through-policy')` — **같은 파일**이다(설치본은 `app/**/*` 로 들어간다).
+- **내놓는 것**:
+  - 렌더러 — `moveStep(f)` → `{act:'receive'|'keep'|'judge', stamp}` · `hitStep({hit, ignoring})` → `'receive'|'pass-later'|'keep'` · `pointerDownStep({ignoring})`
+    · `pokeStep({pt, ignoreSent, dragging})` → `{resync, act, x, y}` · `clickMayKick(state)` · `kickStep(f)` → `{act:'none'|'skip-off'|'skip-pen'|'rearm'|'probe', stage}` · `holdForDrag(f)`
+  - main — `mainArmed` · `stallStep`(ⓔ) · `staleCaptureStep`(ⓕ) · `foreignInputStep`(ⓖ → `{act:null|'recall'|'defer'|'wait', why, poke}`) · `deferExpiredStep`
+  - 상수 — `PASS_DEBOUNCE_MS` · `KICK_PROBE_MS` · `RENDERER_STALL_MS` · `FWD_*` · `FGN_*` 등(파일 위 한 곳)
+  ```js
+  const k = clickPolicy.kickStep({ ignoreSent: _ignoreSent, offOverlay, penApp: _penAppFocused(), now,
+    lastKickAt: _lastKickAt, lastMoveSeen: _lastMoveSeen, lastPokePen: _lastPokePen, lastPokeAt: _lastPokeAt, stage: _kickStage });
+  if(k.act === 'probe'){ /* 0.8초 받아 보기 */ }
+  ```
+- **확장할 때**: 새 규칙은 해당 `*Step` 에 줄 하나 + 필요한 사실을 입력 칸으로. 부르는 쪽은 사실만 모아 넘긴다 — 새 길(이벤트 · 안전장치)을 만들 때도 여기 함수를 부른다.
+  문턱을 바꾸면 `checks/sim-click-through-policy.js` 1절 상수 표도 같이 고친다(값이 곧 동작이다).
+- **함정**: 같은 조건(`drag() && _ignoreSent` · `offOverlay === true` · `_isConfigMode || _lastIgnoreRequested` · `FWD_*` 상수 등)을 다른 파일에 다시 쓰면 검사 5절이 빨강이다.
+  사다리는 펜 앱 · 다른 모니터 · 휠에서 돌지 않는다 — 3단계(받아 보기)가 남의 창 포커스를 뺏는 유일한 자리다. 통과를 임의로 «받기» 로 푸는 규칙은 넣지 않는다(예전 워치독 사고).
+- **검사**: `checks/sim-click-through-policy.js` — 모양 · 상수 값 · 렌더러/main 표(상황 → 결정, 경계값) · 네 길 연결 · 같은 조건 재사용 금지(+깨 보기).
+  동작 판정은 원래 검사들(`sim-ghost-cache-sync` · `sim-wheel-kick` · `sim-hover-poke` 등)도 그대로 본다.

@@ -70,24 +70,31 @@ function syncSeatEqualize(){
   _eqSyncing = true;
   try{
     seats.forEach(seat=>{
-      const k = seatEqK(seat);
-      if(seat._eqK === k) return;
-      seat._eqK = k;
-      /* 책상은 setDeskScale 이 userData 의 곱셈들(animCorr · eqK)을 모아서 건다 —
-         호출부가 다섯 곳이라 거기에 직접 곱하면 반드시 한 곳이 빠진다(animCorr 이 그래서 여기 있다). */
-      if(seat.desk){
-        seat.desk.userData.eqK = k;
-        /* ⚠️ deskScaleBase 가 없으면 «아직 모르는 값» 이지 1 이 아니다(def 가 안 얹힌 좌석) — 1 로 걸면 작은 책상이 커져 간격이 벌어진다.
-           ★ 없을 때는 책상을 건드리지 않고 eqK 만 심어 둔다 — 다음 setDeskScale 이 userData.eqK 를 읽어 같이 건다. */
-        const _base = seat.desk.userData.deskScaleBase;
-        if(_base != null) setDeskScale(seat.desk, _base, seat.desk.userData.deskLenX);
-        /* 옮겨 둔 책상은 위치 오프셋도 같은 k 를 지난다(안 옮긴 책상은 base 0 이라 그대로). */
-        const _pb = seat.desk.userData.deskPosBase;
-        if(_pb) setDeskPos(seat.desk, _pb);
-        /* 🐾 앞뒤 보정(CHAR_Z·(1−a·k))은 책상을 옮겼는지와 무관하게 k 가 바뀌면 달라진다 — 조건 없이 다시 건다. */
-        syncSeatDeskZ(seat.desk);
+      /* ⚠️ 오류 대비는 좌석 하나 단위다 — 한 좌석이 던져도 남은 좌석은 이번 바퀴에 맞추고,
+         던진 좌석은 «맞췄음»(_eqK)을 지워 다음 바퀴에 다시 건다. 경고는 좌석마다 한 번만(layoutSeats 마다 불린다). */
+      try{
+        const k = seatEqK(seat);
+        if(seat._eqK === k) return;
+        seat._eqK = k;
+        /* 책상은 setDeskScale 이 userData 의 곱셈들(animCorr · eqK)을 모아서 건다 —
+           호출부가 다섯 곳이라 거기에 직접 곱하면 반드시 한 곳이 빠진다(animCorr 이 그래서 여기 있다). */
+        if(seat.desk){
+          seat.desk.userData.eqK = k;
+          /* ⚠️ deskScaleBase 가 없으면 «아직 모르는 값» 이지 1 이 아니다(def 가 안 얹힌 좌석) — 1 로 걸면 작은 책상이 커져 간격이 벌어진다.
+             ★ 없을 때는 책상을 건드리지 않고 eqK 만 심어 둔다 — 다음 setDeskScale 이 userData.eqK 를 읽어 같이 건다. */
+          const _base = seat.desk.userData.deskScaleBase;
+          if(_base != null) setDeskScale(seat.desk, _base, seat.desk.userData.deskLenX);
+          /* 옮겨 둔 책상은 위치 오프셋도 같은 k 를 지난다(안 옮긴 책상은 base 0 이라 그대로). */
+          const _pb = seat.desk.userData.deskPosBase;
+          if(_pb) setDeskPos(seat.desk, _pb);
+          /* 🐾 앞뒤 보정(CHAR_Z·(1−a·k))은 책상을 옮겼는지와 무관하게 k 가 바뀌면 달라진다 — 조건 없이 다시 건다. */
+          syncSeatDeskZ(seat.desk);
+        }
+        if(seat.bodyWrap) fitModel(seat);   // 캐릭터·앵커 높이 재적용
+      }catch(e){
+        seat._eqK = undefined;
+        if(!seat._eqWarned){ seat._eqWarned = true; console.warn('[평준화] 좌석 하나 맞추기 실패 — 다음 배치 때 다시', e); }
       }
-      if(seat.bodyWrap) fitModel(seat);   // 캐릭터·앵커 높이 재적용
     });
   }catch(_){}
   _eqSyncing = false;

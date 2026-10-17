@@ -7,7 +7,7 @@
    ・3절: 방 입장 · payload — join 칸 · 방 코드 돌려줌 · friends 콜백 · 같은 값은 다시 안 보냄 · 거르기(소음 · 그림 크기 · 이름)
    ・4절: 채팅 · poke · 나가기 — 140자 · 탭 · 날리기 칸 · poke 중복 / 지난 값 거르기 · 쓰다듬기 · stop
    ・5절: 자동 자리비움 — 20분 무반응이면 away(auto) · 돌아오면 직전 상태 · 밥 · 게임은 건너뜀 · 손으로 고르면 manual
-   ・6절: app.js 연결 — 옮긴 선언이 app.js 에 안 남음 · deps 19줄 · 옛 전역 이름 한 줄 · html(app.js 앞) · smoke · 되살리기 도우미
+   ・6절: app.js 연결 — 옮긴 선언이 app.js 에 안 남음 · deps 20줄 · 옛 전역 이름 한 줄 · html(app.js 앞) · smoke · 되살리기 도우미
    ・7절: 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -22,7 +22,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = ['getMyUserId', 'toast', 'triggerPet'];
 const VAL_DEPS = ['USER_STATUSES', 'chatUiMod', 'floatersMod', 'iDeskMod', 'roomSyncMod', 'seats', 'tricksMod'];
-const GET_DEPS = ['awayPicMod', 'customStatusConf', 'expBarMod', 'focusLevelMod', 'focusShareMod', 'isAdmin', 'isPremium', 'lastAnyInput', 'roomEntryMod'];
+const GET_DEPS = ['awayPicMod', 'customStatusConf', 'expBarMod', 'focusLevelMod', 'focusShareMod', 'isAdmin', 'isPremium', 'lastAnyInput', 'roomEntryMod', 'roomNet'];
 const STATUSES = { meal: 1, gaming: 1, away: 1, custom: 1, busy: 1 };
 
 /* 가짜 세상 — 모듈을 만들고 무엇이 불렸는지 적는다. o 로 저장값 · 유휴 시간 등을 바꾼다 */
@@ -49,6 +49,7 @@ function world(src, o = {}) {
     focusLevelMod: () => ({ getFocusLevel: () => 7, myStarOut: () => ({ cyc: 0, clv: 7, starC: '' }), _mobileOn: () => env.mobile, _mobileRoomLabel: () => null }),
     focusShareMod: () => ({ _focusShowConf: () => o.focusShow || null, _focusShowMarkSent: () => {} }),
     isAdmin: () => false, isPremium: () => !!o.premium, lastAnyInput: () => 0,
+    roomNet: () => (o.noApi ? undefined : {}),   // 데이터 provider — 전역 firebaseAPI 는 일부러 비워 둔다(모듈이 roomNet 만 보는지)
     roomEntryMod: () => ({ _waitFirebaseApi: async () => {}, NET_READY_WAIT_MS: 1, _mockRoomAllowed: () => !!o.mockOk, makeMockProvider: () => provider }),
   };
   let pokeCb = null;
@@ -56,7 +57,7 @@ function world(src, o = {}) {
     join: (room, payload, onFriends, onPoke) => { log.joins.push({ room, payload }); pokeCb = onPoke; onFriends({ f1: { name: '친구' } }); return o.joinRes; },
     update: (p) => log.updates.push(p), poke: (id, t) => log.pokes.push([id, t]), pokeSelf: (t) => log.pokes.push(['self', t]), leave: () => { log.leaves++; },
   };
-  const win = { firebaseAPI: o.noApi ? undefined : {}, companion: { getIdleSeconds: async () => env.idleSec } };
+  const win = { firebaseAPI: undefined, companion: { getIdleSeconds: async () => env.idleSec } };
   win.setUserStatus = (v) => { log.winStatus.push(v); P.setUserStatus(v); };
   const perf = { now: () => env.now };
   const api = new Function('window', 'localStorage', 'setTimeout', 'clearTimeout', 'performance', 'companion', 'module',
@@ -159,7 +160,7 @@ async function behave(src) {
   /* 서버가 준비 안 됨 · 가짜 방 막힘 */
   const w2 = world(src, { noApi: true });
   const r2 = await w2.P.start('R2', {}, '나');
-  t(r2 === undefined && !w2.P.active() && w2.log.toasts.length === 1 && w2.log.joins.length === 0, 'firebaseAPI 없음 · 가짜 방 막힘 → 들어가지 않고 알린다');
+  t(r2 === undefined && !w2.P.active() && w2.log.toasts.length === 1 && w2.log.joins.length === 0, '데이터 provider(roomNet) 없음 · 가짜 방 막힘 → 들어가지 않고 알린다');
   const w3 = world(src, { joinRes: Promise.resolve({ ok: false, code: 'full' }) });
   const r3 = await w3.P.start('R3', {}, '나', null, { provider: w3.provider });
   t(r3 && r3.ok === false && r3.code === 'full' && !w3.P.active(), '방 서버 입장 실패 → { ok:false, code } · 방 밖');
@@ -194,7 +195,7 @@ function wire(app, html) {
   const kindOf = (l) => { const m = /^  ([\w$]+): (\(\.\.\.a\)=>|\(\)=>)?/.exec(l); return m ? m[1] + '|' + (m[2] === '(...a)=>' ? 'fn' : m[2] === '()=>' ? 'get' : 'val') : '?' + l; };
   const want = [...FN_DEPS.map((n) => n + '|fn'), ...VAL_DEPS.map((n) => n + '|val'), ...GET_DEPS.map((n) => n + '|get')].sort();
   const got = mk ? mk.split('\n').map(kindOf).sort() : [];
-  t(got.length === 19 && want.every((k, i) => got[i] === k), '만드는 줄(가드 없이) · deps 19개 — 함수 3 · 값 7 · 읽는 함수 9');
+  t(got.length === 20 && want.every((k, i) => got[i] === k), '만드는 줄(가드 없이) · deps 20개 — 함수 3 · 값 7 · 읽는 함수 10');
   t(/^const Presence = presenceMod\.Presence;\s+\/\/ 옛 전역 이름/m.test(app) && app.indexOf('const Presence = presenceMod.Presence;') > app.indexOf('const presenceMod = TwPresence.createPresence('), '옛 전역 이름 한 줄(만드는 줄 바로 뒤)');
   t(!/presenceMod\.Presence\b/.test(A.replace('const Presence = presenceMod.Presence;', '')), 'app.js 나머지는 Presence.이름 그대로(presenceMod.Presence 를 직접 부르지 않는다)');
   const iM = html.indexOf('<script src="parts/room/presence.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
@@ -217,15 +218,17 @@ function wire(app, html) {
 
   say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
-    ['140자 자르기를 141로', (m) => m.replace('String(text).slice(0,140)', 'String(text).slice(0,141)'), null, null],
+    ['140자 자르기를 141로', (m) => m.replace('const CHAT_TEXT_MAX = 140;', 'const CHAT_TEXT_MAX = 141;'), null, null],
     ['같은 소음도 다시 보냄', (m) => m.replace('if(v === myNoise) return;', ''), null, null],
     ['poke 중복 거르기 없앰', (m) => m.replace('if(_pts <= _myPokeSeenTs) return;', ''), null, null],
     ['20분을 21분으로', (m) => m.replace('const AUTO_AWAY_MS = 20 * 60 * 1000;', 'const AUTO_AWAY_MS = 21 * 60 * 1000;'), null, null],
     ['밥 · 게임 예외 없앰', (m) => m.replace("myUserStatus === 'meal' || myUserStatus === 'gaming'", 'false'), null, null],
     ['manual 기록 무시', (m) => m.replace("if(rec && rec.k === 'manual') return;", ''), null, null],
+    ['provider 대신 전역 firebaseAPI 를 봄', (m) => m.replace('if(!roomNet() && !roomEntryMod()', 'if(!window.firebaseAPI && !roomEntryMod()'), null, null],
     ['만들 때 던짐', (m) => m.replace('function createPresence(deps){', 'function createPresence(deps){ throw new Error("깨 봄");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nconst Presence=(()=>{ return {}; })();', null],
-    ['deps 하나 빠짐', null, (a) => a.replace('  triggerPet: (...a)=>triggerPet(...a),\n', ''), null],
+    /* presence 를 만드는 줄 안의 것을 지운다 — 같은 deps 줄이 다른 모듈(seat-panel 등)을 만드는 줄에도 있다 */
+    ['deps 하나 빠짐', null, (a) => { const i = a.indexOf('const presenceMod = TwPresence.createPresence({'); const j = a.indexOf('\n});', i) + 1; return a.slice(0, i) + a.slice(i, j).replace('  triggerPet: (...a)=>triggerPet(...a),\n', '') + a.slice(j); }, null],
     ['옛 전역 이름 줄 빠짐', null, (a) => a.replace(/^const Presence = presenceMod\.Presence;.*\n/m, ''), null],
     ['html 줄 빠짐', null, null, (h) => h.replace('<script src="parts/room/presence.js"></script>', '')],
   ];

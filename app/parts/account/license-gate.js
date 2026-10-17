@@ -488,6 +488,7 @@ function _showInviteGate(){
     const msg = document.getElementById('inviteGateMsg');
     if(!ov || !inp || !ok){ resolve(true); return; }   // 마크업이 없으면 막지 않음
     ov.style.display = 'flex';
+    let wantGoogle = false;   // 초대 코드 전에 구글을 눌렀다 — 코드가 통과하면 구글 가입으로 바로 간다
     setTimeout(()=>inp.focus(), 50);
     /* ✍️ A · 계정 만들기 — 같은 오버레이의 두 번째 카드. H 에서 초대 코드를 통과한 새 사람만 온다(설계 §3 · §7-A).
        가입이 끝나면 J · J2(_showSignupDone) → [시작하기] 에서 재시작. */
@@ -543,6 +544,7 @@ function _showInviteGate(){
       };
       if(okB) okB.onclick = goPw;
       if(gB) gB.onclick = goG;
+      if(wantGoogle){ wantGoogle = false; goG(); return; }
       if(pw1) pw1.onkeydown = e=>{ if(e.key==='Enter'){ if(pw2) pw2.focus(); } };
       if(pw2) pw2.onkeydown = e=>{ if(e.key==='Enter') goPw(); };
       setTimeout(()=>{ if(pw1) pw1.focus(); }, 50);
@@ -635,6 +637,11 @@ function _showInviteGate(){
     window._inviteGatePass = ()=>{
       try{ ov.style.display = 'none'; }catch(_){}
       resolve(true);
+    };
+    /* 게이트의 구글 버튼이 «연결된 기록 없음» 을 받았을 때 — 초대 코드 칸으로 보내고, 통과하면 [구글로 가입]을 이어 누른다. */
+    window._inviteGateWantGoogle = ()=>{
+      wantGoogle = true;
+      try{ inp.focus(); }catch(_){}
     };
   });
 }

@@ -92,5 +92,21 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
+/* ── 4. 브라우저 기본 입력 창 금지 — Electron 은 window.prompt 를 안 띄우고 null 을 준다(조용히 건너뜀). 입력은 asyncPrompt 로 */
+say('── 4. window.prompt 를 쓰는 곳 없음');
+{
+  const path = require('path');
+  const BASE = ['.', 'app'].map(d => path.resolve(d)).find(d => fs.existsSync(path.join(d, 'parts')));
+  const walk = (dir, rel, out) => { for(const d of fs.readdirSync(dir, { withFileTypes: true })){ if(d.isDirectory()){ if(d.name !== 'vendor' && d.name !== 'node_modules') walk(path.join(dir, d.name), rel + d.name + '/', out); } else if(d.name.endsWith('.js')) out.push([rel + d.name, fs.readFileSync(path.join(dir, d.name), 'utf8')]); } return out; };
+  /* 주석 · 따옴표 글자를 지운 뒤 «window.prompt(» 또는 앞에 . · 이름 글자가 없는 «prompt(» 를 찾는다 */
+  const nativePrompt = (src) => { const code = strip(src).replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\.|[^`\\])*`/g, "''"); return /\bwindow\.prompt\s*\(|(^|[^.\w$])prompt\s*\(/m.test(code); };
+  const files = BASE ? walk(path.join(BASE, 'parts'), '', []) : [['app.js', SRC]];
+  const bad = files.filter(([, src]) => nativePrompt(src)).map(([f]) => f);
+  chk(!bad.length, 'parts/ 의 .js ' + files.length + '개에 window.prompt 없음' + (bad.length ? ' — ' + bad.join(' · ') : ''));
+  /* handleFiles(.dcc 넣기)는 character/seat-model-load.js 로 옮겨 갔다 — 거기서 deps 의 asyncPrompt 로 묻는다 */
+  const ML = (files.find(([f]) => /(^|\/)seat-model-load\.js$/.test(f)) || [])[1] || '';
+  chk(ML.includes("await asyncPrompt({ title: '캐릭터 비밀번호'") && SRC.includes('  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),'), '.dcc 비밀번호는 asyncPrompt 로 묻는다(seat-model-load.js handleFiles · app.js 가 이어 줌)');
+  chk(nativePrompt("x; const p = window.prompt('a');") && nativePrompt("if(!prompt('a')) return;") && !nativePrompt("asyncPrompt({}); obj.prompt(1); // window.prompt('a')\nconst s = 'window.prompt(';"), '  깨 보기 — 찾는 판정이 진짜 부름만 잡고 주석 · 글자 · asyncPrompt · obj.prompt 는 넘긴다');
+}
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

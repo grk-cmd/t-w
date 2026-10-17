@@ -40,6 +40,7 @@ const mhScheduler = deps.mhScheduler;                // 🔔 벨 뱃지 — 만�
 const mhHooks = TwMyHomeHooks;                       // 🪝 마이홈 고리판(myhome-hooks.js) — 테마 다시 칠하기는 편집 묶음이 건다
 // 👥 친구 목록
 const _myHomeFriends = deps.myHomeFriends;           // 읽는 함수 — 친구 목록 캐시(구독마다 다시 대입)
+const _friendsNotice = deps.friendsNotice;           // 읽는 함수 — 친구 목록을 아직 못 받았으면 안내 문구, 받았으면 null(friends-sub.js)
 const FRIEND_MAX = deps.FRIEND_MAX;                  // 👥 친구 상한(상수)
 const friendVisit = deps.friendVisit;                // 🏠 친구 방 놀러 가기(friend-visit.js — 없으면 null)
 const _mhStripHtml = deps.mhStripHtml;               // 소개글 한 줄 요약 — 태그를 걷어낸 글자(sanitize 구역)
@@ -171,8 +172,16 @@ function renderMyHomeFriendList(){
   // A안 헤더에 (n/상한) 표시 — 하단 문구는 제거됨.
   //   ⚠️ 숫자를 여기 다시 박지 말 것 — 상한은 FRIEND_MAX 한 곳에서만 나온다.
   //     예전엔 50 이 박혀 있어서, 추가·수락 쪽 상한을 올려도 이 표기만 옛 숫자로 남았다.
+  /* 👥 아직 못 받았거나(불러오는 중) 못 받았으면(다시 거는 중) «친구 없음» 과 따로 알린다 — 빈 목록으로 그리면 없는 줄 안다. */
+  const _notice = _friendsNotice();
   const headCnt = document.getElementById('mhFriendHeadCount');
-  if(headCnt) headCnt.textContent = '('+ids.length+'/'+FRIEND_MAX+')';
+  if(headCnt) headCnt.textContent = '('+(_notice ? '-' : ids.length)+'/'+FRIEND_MAX+')';
+  if(_notice){
+    _mhUpdateFriendHit('', 0);
+    list.innerHTML='<div class="mh-fempty" style="white-space:pre-line;">'+escHtml(_notice)+'</div>';   // 안내 두 문장 사이 줄바꿈(friends-sub NOTICE)
+    renderMhChat();
+    return;
+  }
   if(_mhSelectedFriend && !_myHomeFriends()[_mhSelectedFriend]) _mhSelectedFriend=null;   // 삭제된 친구가 선택돼 있으면 해제
   if(!ids.length){
     _mhUpdateFriendHit('', 0);

@@ -1,15 +1,14 @@
 /* catalog-sync.js — 🔄 카탈로그 실시간 동기화 — 아이템 · 책상 · 파츠 · 카테고리 구독을 저장 목록과 좌석에 반영
    책임: Firebase 카탈로그(catalog/items · desks · parts · 카테고리) 구독을 걸고, 스냅샷이 오면 저장 목록(savedItems · savedDesks · savedParts)에 합친 뒤(카탈로그 순서 · 지워진 것 빼기 · 로컬 전용 남기기) 떠 있는 좌석 · 생성기 · 런처 · 꾸미기 미리보기에 다시 반영한다.
-   받는 deps: 저장 목록 모듈(commissionMod · premiumMod) · GLB 해결(catalogGlbMod) · 좌석에 입히기(equipDeskItem · applyDeskItemsTo · equipPartOnSeat · applyDeskCatalogRefToSeat …) · 생성기 상태(cDesk · cBase · creatorOpen …, 읽는 · 쓰는 함수) · 화면 다시 그리기(wardrobeMod · gachaMod · adminCategory · renderLauncher).
-   데이터는 catalogNet() 으로만 본다 — 데이터 provider(지금은 app.js 가 window.firebaseAPI 를 넘김 · 서버로 옮길 때 그 한 줄만 바꾼다).
-   내보내는 것: 없음 — 만들 때 구독을 건다(catalogNet() 이 아직 없으면 firebase-ready 를 기다린다).
+   받는 deps: 저장 목록 모듈(commissionMod · premiumMod) · GLB 해결(catalogGlbMod) · 서버(catalogSourceMod — character/catalog-source.js) · 좌석에 입히기(equipDeskItem · applyDeskItemsTo · equipPartOnSeat · applyDeskCatalogRefToSeat …) · 생성기 상태(cDesk · cBase · creatorOpen …, 읽는 · 쓰는 함수) · 화면 다시 그리기(wardrobeMod · gachaMod · adminCategory · renderLauncher).
+   내보내는 것: 없음 — 만들 때 구독을 건다(서버는 catalogSourceMod 를 거친다 — 연결이 아직 없으면 연결을 기다린다). 합치기 규칙 mergeCatalogList 는 이 안의 순수 함수(검사는 글을 뽑아 직접 돌린다).
    app.js «🔄 카탈로그 실시간 동기화» 구역을 그대로 옮겼다(구역 떼기 C · w2 — 좌석 책상을 그리는 applyDeskCatalogRefToSeat 는 책상 몫이라 남김). 동작은 옮기기 전과 같다.
    ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 18줄 —
      activeCustomDeskId · cBase · cDesk · cDeskColor · cDeskGlbB64 · cDeskScale · cDeskTemplate · creatorOpen · customItems · gachaMod · isAdmin 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCDeskGlbB64 · setCDeskTemplate(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 17개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: 없음 — 만들 때 건다.
-   ⚠️ firebaseAPI 는 직접 보지 않는다(catalogNet 으로만). document · window · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
+   ⚠️ firebaseAPI 는 직접 보지 않는다(catalogSourceMod 로만). document · window · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwCatalogSync — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-catalog-sync.js */
 (function(){
@@ -31,7 +30,7 @@ const cDeskGlbB64 = deps.cDeskGlbB64;   // 읽는 함수
 const cDeskScale = deps.cDeskScale;   // 읽는 함수
 const cDeskTemplate = deps.cDeskTemplate;   // 읽는 함수
 const catalogGlbMod = deps.catalogGlbMod;
-const catalogNet = deps.catalogNet;   // 읽는 함수 — 데이터 provider(지금은 app.js 가 window.firebaseAPI 를 넘긴다) · 준비 전이면 없음
+const catalogSourceMod = deps.catalogSourceMod;
 const clearHolderDeskItems = deps.clearHolderDeskItems;
 const commissionMod = deps.commissionMod;
 const creatorOpen = deps.creatorOpen;   // 읽는 함수
@@ -55,20 +54,28 @@ const unequipPartFromSeat = deps.unequipPartFromSeat;
 const wardrobeMod = deps.wardrobeMod;
 const setCDeskGlbB64 = deps.setCDeskGlbB64;   // 쓰는 함수
 const setCDeskTemplate = deps.setCDeskTemplate;   // 쓰는 함수
+/* 카탈로그 스냅샷을 저장 목록과 합치는 규칙 — 아이템 · 책상 · 파츠가 같이 쓴다(순수 계산 · DOM · 3D · 서버 없음).
+   ★ 카탈로그 항목은 fromCatalog:true 로 서버판이 이기고, order 오름차순(관리자가 드래그로 정한 순서 · 없으면 CATALOG_ORDER_LAST 로 뒤).
+   ★ fromCatalog 인데 지금 목록에 없으면 관리자가 지운 것(removedIds) — 로컬에도 안 남긴다. 남기는 건 카탈로그에 온 적 없는 로컬 전용뿐(뒤에).
+   norm 을 주면 카탈로그 항목마다 먼저 다듬는다(파츠 — _normPartRec). saved 는 바꾸지 않는다. */
+const CATALOG_ORDER_LAST = 9999;   // order 가 없는 옛 항목의 자리 — 뒤로
+function mergeCatalogList(catalogObj, saved, norm){
+  const catalogList = Object.keys(catalogObj||{}).map(id=>{ const rec = { id, ...catalogObj[id], fromCatalog:true }; return norm ? norm(rec) : rec; });
+  catalogList.sort((a,b)=> (a.order!=null?a.order:CATALOG_ORDER_LAST) - (b.order!=null?b.order:CATALOG_ORDER_LAST));
+  const catalogIds = new Set(catalogList.map(p=>p.id));
+  const removedIds = saved.filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
+  const localOnly = saved.filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
+  return { list: [...catalogList, ...localOnly], removedIds };
+}
 /* 카탈로그에 있는 id 는 늘 서버 최신본으로 덮고, 카탈로그에 온 적 없는 로컬 항목은 남긴다. 구독(onValue)이라 켜 둔 동안에도 새 항목이 뜬다. */
 async function mergeCatalogIntoSavedItems(catalogObj){
-  const catalogList = Object.keys(catalogObj||{}).map(id=>({ id, ...catalogObj[id], fromCatalog:true }));
-  // ★ order 필드 기준 오름차순 정렬 — 관리자가 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
-  catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
-  const catalogIds = new Set(catalogList.map(p=>p.id));
-  const removedIds = commissionMod.savedItems().filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
-  const localOnly = commissionMod.savedItems().filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
+  const { list, removedIds } = mergeCatalogList(catalogObj, commissionMod.savedItems());
   if(removedIds.length){
     // 삭제된 아이템을 지금 올려놓은 좌석이 있으면 치움
     seats.forEach(s=>{ removedIds.forEach(id=>{ if(s.deskItems && s.deskItems[id]){ const def=customItems()[id]||{id}; equipDeskItem(s,def,false); } }); });
     removedIds.forEach(id=>{ delete customItems()[id]; });
   }
-  commissionMod.setSavedItems([...catalogList, ...localOnly]);
+  commissionMod.setSavedItems(list);
   commissionMod.persistSavedAssets();
   /* ⚠️ 세션 등록이 끝난 **뒤에** 좌석을 다시 적용한다 — 기다리지 않으면 옛 정의(크기 0.8)로 다시 만든다. */
   try{ await loadSavedItemsIntoSession(); }catch(_){}   // 세션 customItems에도 최신 상태 반영(새로 추가/수정된 GLB 등록)
@@ -89,26 +96,20 @@ async function mergeCatalogIntoSavedItems(catalogObj){
   catch(e){ console.warn('[라이선스] 아이템 카탈로그 도착 후 정리 실패', e); }
 }
 function subscribeCatalogItems(){
-  if(!catalogNet() || !catalogNet().subscribeCatalogItems) return;
-  catalogNet().subscribeCatalogItems(async catalogObj=>{
+  if(!catalogSourceMod.catalogSrcCan('items')) return;
+  catalogSourceMod.catalogSrcSubscribe('items', async catalogObj=>{
     await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
     await mergeCatalogIntoSavedItems(catalogObj);
   });
 }
-if(catalogNet()) subscribeCatalogItems();
-else window.addEventListener('firebase-ready', subscribeCatalogItems, { once:true });
+catalogSourceMod.catalogSrcReady(subscribeCatalogItems);
 function mergeCatalogIntoSavedDesks(catalogObj){
-  const catalogList = Object.keys(catalogObj||{}).map(id=>({ id, ...catalogObj[id], fromCatalog:true }));
-  // ★ order 필드 기준 오름차순 정렬 — 관리자가 드래그로 정한 순서가 모든 사용자에게 그대로 반영됨.
-  catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
-  const catalogIds = new Set(catalogList.map(p=>p.id));
-  const removedIds = commissionMod.savedDesks().filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
-  const localOnly = commissionMod.savedDesks().filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
+  const { list, removedIds } = mergeCatalogList(catalogObj, commissionMod.savedDesks());
   if(removedIds.length){
     // 삭제된 책상을 지금 쓰고 있는 좌석이 있으면 기본 책상으로 되돌림
     seats.forEach(s=>{ if(s.charDef && removedIds.includes(s.charDef.deskCatalogId)){ s.charDef.deskCatalogId=null; s.charDef.deskGlb=null; if(s.desk) swapDeskVisual(s.desk,null); } });
   }
-  commissionMod.setSavedDesks([...catalogList, ...localOnly]);
+  commissionMod.setSavedDesks(list);
   commissionMod.persistSavedAssets();
   // 지금 이 책상을 쓰고 있는 좌석이 있으면(수정됐을 수 있으니) 즉시 새 GLB로 다시 그림 — "교체하면 실시간 반영" 요구사항
   // 기본 책상(별도 deskCatalogId/deskGlb 없음)을 쓰는 좌석도 __default_desk__ 오버라이드가 있으면/없어졌으면 반영
@@ -133,28 +134,21 @@ function mergeCatalogIntoSavedDesks(catalogObj){
   if(creatorOpen()) renderCrItems();
 }
 function subscribeCatalogDesks(){
-  if(!catalogNet() || !catalogNet().subscribeCatalogDesks) return;
-  catalogNet().subscribeCatalogDesks(async catalogObj=>{
+  if(!catalogSourceMod.catalogSrcCan('desks')) return;
+  catalogSourceMod.catalogSrcSubscribe('desks', async catalogObj=>{
     await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
     mergeCatalogIntoSavedDesks(catalogObj);
   });
 }
-if(catalogNet()) subscribeCatalogDesks();
-else window.addEventListener('firebase-ready', subscribeCatalogDesks, { once:true });
+catalogSourceMod.catalogSrcReady(subscribeCatalogDesks);
 
 function mergeCatalogIntoSavedParts(catalogObj){
-  const catalogList = Object.keys(catalogObj||{}).map(id=>premiumMod._normPartRec({ id, ...catalogObj[id], fromCatalog:true }));   // 🎰 가챠 = stackable(_normPartRec 주석)
-  // ★ order 오름차순(관리자가 드래그로 정한 순서) · order 없는 옛 항목은 뒤로.
-  catalogList.sort((a,b)=> (a.order!=null?a.order:9999) - (b.order!=null?b.order:9999));
-  const catalogIds = new Set(catalogList.map(p=>p.id));
-  // ★ fromCatalog 인데 지금 목록에 없으면 관리자가 지운 것 — 로컬에도 남기지 않는다(남기는 건 카탈로그에 온 적 없는 로컬 전용뿐).
-  const removedIds = premiumMod.savedParts().filter(p=>p.fromCatalog && !catalogIds.has(p.id)).map(p=>p.id);
-  const localOnly = premiumMod.savedParts().filter(p=>!catalogIds.has(p.id) && !p.fromCatalog);
+  const { list, removedIds } = mergeCatalogList(catalogObj, premiumMod.savedParts(), r=>premiumMod._normPartRec(r));   // 🎰 가챠 = stackable(_normPartRec 주석)
   if(removedIds.length){
     // 삭제된 파츠를 지금 착용 중인 좌석이 있으면 해제
     seats.forEach(s=>{ if(s.charDef&&s.charDef.equippedParts){ for(const c in s.charDef.equippedParts){ if(removedIds.includes(premiumMod.partEntryId(s.charDef.equippedParts[c]))){ delete s.charDef.equippedParts[c]; unequipPartFromSeat(s,c); } } } applyClothVisibility(s); });
   }
-  premiumMod.setSavedParts([...catalogList, ...localOnly]);
+  premiumMod.setSavedParts(list);
   premiumMod.persistSavedParts();   // 오프라인에서도 마지막으로 받은 카탈로그를 쓸 수 있게 캐시
   // 시작 때 rec.glb 가 없어 못 붙인 파츠를 다시 붙인다 — entry 단위로 돈다.
   // ⚠️ 겹쳐 다는(stackable) 파츠는 stackedPartObjs 에 있다 — equippedPartObjs 만 보면 매번 xf 없이 다시 붙어 자리가 원점으로 간다.
@@ -203,27 +197,26 @@ function mergeCatalogIntoSavedParts(catalogObj){
   catch(e){ console.warn('[가챠] 카탈로그 도착 후 정리 실패', e); }
 }
 function subscribeCatalogParts(){
-  if(!catalogNet() || !catalogNet().subscribeCatalogParts) return;
-  catalogNet().subscribeCatalogParts(async catalogObj=>{
+  if(!catalogSourceMod.catalogSrcCan('parts')) return;
+  catalogSourceMod.catalogSrcSubscribe('parts', async catalogObj=>{
     await catalogGlbMod.resolveCatalogGlbAll(catalogObj);
     mergeCatalogIntoSavedParts(catalogObj);
     /* 🎰 이관 과도기 — catalog/parts 에 남은 옛 가챠 항목(_legacyGacha)을 관리자 세션이 gachaParts 로 옮긴다(옛 앱이 뽑지 않고 낀다).
        ⚠️ 관리자만 — 일반 기기가 조용히 카탈로그를 옮기게 두지 않는다. 멱등이라 관리자 기기가 여럿이어도 된다. */
-    if(isAdmin() && !window.__gachaMigrated && catalogNet().migrateGachaCatalog
+    if(isAdmin() && !window.__gachaMigrated && catalogSourceMod.catalogSrcCan('migrateGacha')
        && Object.keys(catalogObj||{}).some(id=>catalogObj[id] && catalogObj[id]._legacyGacha)){
       window.__gachaMigrated = true;   // 콜백이 연달아 와도 한 번만
-      catalogNet().migrateGachaCatalog()
+      catalogSourceMod.catalogSrcMigrateGacha()
         .then(r=>{ if(r && r.moved && r.moved.length) toast('🎰 가챠 파츠 '+r.moved.length+'개를 새 카탈로그 경로로 옮겼어요 (구버전 노출 차단)'); })
         .catch(()=>{ window.__gachaMigrated = false; });   // 실패하면 다음 콜백에서 재시도
     }
   });
 }
-if(catalogNet()) subscribeCatalogParts();
-else window.addEventListener('firebase-ready', subscribeCatalogParts, { once:true });
+catalogSourceMod.catalogSrcReady(subscribeCatalogParts);
 // 커스텀 서브카테고리 구독 — 받아서 PART_CATS 에 합친다.
 function subscribeCustomCats(){
-  if(!catalogNet() || !catalogNet().subscribeCustomCats) return;
-  catalogNet().subscribeCustomCats(catObj=>{
+  if(!catalogSourceMod.catalogSrcCan('customCats')) return;
+  catalogSourceMod.catalogSrcSubscribe('customCats', catObj=>{
     premiumMod.setCustomPartCats(Object.keys(catObj||{}).map(k=>catObj[k]).filter(c=>c && c.cat));
     premiumMod.rebuildPartCats();
     wardrobeMod.renderWardrobe();
@@ -232,16 +225,15 @@ function subscribeCustomCats(){
 }
 // 기본 카테고리 이름 덮어쓰기 구독 (예: 망토 → 겉옷)
 function subscribeCatOverrides(){
-  if(!catalogNet() || !catalogNet().subscribeCatOverrides) return;
-  catalogNet().subscribeCatOverrides(obj=>{
+  if(!catalogSourceMod.catalogSrcCan('catOverrides')) return;
+  catalogSourceMod.catalogSrcSubscribe('catOverrides', obj=>{
     premiumMod.setPartCatOverrides(obj || {});
     premiumMod.rebuildPartCats();
     wardrobeMod.renderWardrobe();
     if(typeof adminCategory.renderCategoryManager==='function') adminCategory.renderCategoryManager();
   });
 }
-if(catalogNet()){ subscribeCustomCats(); subscribeCatOverrides(); }
-else window.addEventListener('firebase-ready', ()=>{ subscribeCustomCats(); subscribeCatOverrides(); }, { once:true });
+catalogSourceMod.catalogSrcReady(()=>{ subscribeCustomCats(); subscribeCatOverrides(); });
 
 return {
 

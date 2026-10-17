@@ -1,7 +1,7 @@
 /* desk-visual.js — 🪑 책상 모양 — 커스텀 · 카탈로그 책상 GLB 로 바꿔 끼기 · 색 · 좌석 책상 그리기
    책임: 책상 그룹(deskGroup)의 «모양» 만 — 기본 책상 메쉬를 숨기고 커스텀 GLB 로 바꿔 끼우며(swapDeskVisual — 톤 · _col 색 메쉬 · 애니메이션 재생 모드), 바닥 · 가운데 맞춤(normalizeDeskObj), _col 색(applyDeskColorToCustom), 좌석 def 의 카탈로그 책상을 찾아 그리기(applyDeskCatalogRefToSeat — 라이선스 전용은 내 좌석에서만 막는다).
    받는 deps: 저장 책상(commissionMod) · GLB 풀기(assetCodeMod · b64ToBuf) · 톤(_applyItemMatTone · _setDeskMatColor) · 재생 목록(activeItemMixers · _idleItemPivots) · 크기(setDeskScale) · 라이선스(isPremium · isAdmin · toast) · DEFAULT_DESK_OVERRIDE_ID.
-   내보내는 것: swapDeskVisual · applyDeskColorToCustom · applyDeskCatalogRefToSeat(normalizeDeskObj · autoScaleDeskToTarget 는 안에서만).
+   내보내는 것: swapDeskVisual · applyDeskColorToCustom · applyDeskCatalogRefToSeat(normalizeDeskObj 는 안에서만).
    app.js «🔄 카탈로그 실시간 동기화» 사이의 applyDeskCatalogRefToSeat 와 «🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기» 구역 가운데(모양 몫)를 그대로 옮겼다(구역 떼기 C · w2). 동작은 옮기기 전과 같다.
    ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 1줄 —
      isAdmin · isPremium 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
@@ -55,23 +55,14 @@ async function applyDeskCatalogRefToSeat(seat, def){
 
 /* 커스텀 책상: 기본 책상 메쉬를 숨기고 커스텀 GLB로 교체(앵커는 그대로) */
 // 크기는 GLB 원본 그대로(조절은 «책상 크기» 슬라이더 setDeskScale 만) — 여기선 바닥 가운데로 자리만 맞춘다.
+const DESK_FRONT_Z = 0.6;   // 책상 가운데를 좌석 원점에서 앞으로 둘 거리
+const DESK_LIFT_Y = 0.15;   // 바닥에 피벗을 맞춘 뒤 메쉬를 올리는 높이
 function normalizeDeskObj(obj){ obj.scale.set(1,1,1); obj.position.set(0,0,0); obj.updateMatrixWorld(true);
   let box=new THREE.Box3().setFromObject(obj); const c=box.getCenter(new THREE.Vector3());
-  obj.position.x+=(0-c.x); obj.position.z+=(0.6-c.z); 
+  obj.position.x+=(0-c.x); obj.position.z+=(DESK_FRONT_Z-c.z); 
   // 피벗은 바닥, 메쉬만 0.15만큼 올리기 (수치 조절 가능)
-  obj.position.y+=(0-box.min.y) + 0.15; 
+  obj.position.y+=(0-box.min.y) + DESK_LIFT_Y; 
   return obj; }
-// 새 책상 GLB 를 폭 DESK_TARGET_WIDTH 에 맞추는 배율 — ⚠️ 지금 부르는 곳이 없다(아래 DESK_SIZE_OFFSET 과 함께 옛 자동 크기 몫).
-const DESK_TARGET_WIDTH = 3.0;
-function autoScaleDeskToTarget(obj){
-  const box = new THREE.Box3().setFromObject(obj);
-  const size = box.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.z, 0.001);   // 폭(넓이) 기준 — 책상은 x/z 평면
-  if(!isFinite(maxDim) || maxDim <= 0) return 1;
-  return DESK_TARGET_WIDTH / maxDim;
-}
-// 새 책상 크기 배율(기본 책상 덮어쓰기는 제외) — ⚠️ 지금 쓰는 곳이 없다.
-const DESK_SIZE_OFFSET = 1.3;   // 새로 등록하는 책상들의 크기 배율 — 1보다 크면 더 크게. 필요하면 이 숫자만 조절
 function swapDeskVisual(deskGroup,template,isDefaultOverride,animations,playMode){ if(!deskGroup)return;
   const prev=deskGroup.getObjectByName('customDesk'); if(prev)deskGroup.remove(prev);
   // 이전 책상에 애니메이션 mixer가 있었으면 해제
@@ -92,7 +83,7 @@ function swapDeskVisual(deskGroup,template,isDefaultOverride,animations,playMode
     } } });
     deskGroup.userData.customMats=mats;
     normalizeDeskObj(obj);
-    // ⚠️ 새 책상도 GLB 원본 크기 그대로 — 새 책상만 자동 크기를 걸었더니 같은 크기로 만든 기본 책상과 달라졌다.
+    // ⚠️ 새 책상도 GLB 원본 크기 그대로 — 새 책상만 자동 크기를 걸었더니 같은 크기로 만든 기본 책상과 달라졌다(그 자동 크기 코드는 지웠다).
     deskGroup.add(obj); defaults.forEach(m=>m.visible=false);
     // ★ 책상 GLB에 애니메이션이 있고 playMode가 지정돼 있으면 아이템과 동일한 방식으로 mixer 설정
     if(animations && animations.length && playMode){

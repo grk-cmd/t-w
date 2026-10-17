@@ -9,7 +9,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import {
     getDatabase, ref as _dbRef, set, update as _dbUpdate, remove, onValue, off, onDisconnect, serverTimestamp, get, runTransaction,
-    push, query, limitToLast, orderByChild, orderByKey, startAt, endBefore, equalTo, onChildAdded, onChildChanged
+    push, query, limitToLast, orderByChild, orderByKey, startAt, endBefore, equalTo, onChildAdded, onChildChanged, goOffline, goOnline
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
@@ -29,7 +29,8 @@
   import {
     getAuth, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword,
     signInAnonymously, linkWithCredential, EmailAuthProvider, reauthenticateWithCredential,
-    signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
+    signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged,
+    getAdditionalUserInfo, deleteUser
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig, FIREBASE_ENV } from "./firebase-config.js";
   import { createGhostHeal } from "./room/room-ghost-heal.js";
@@ -43,12 +44,13 @@
   import { createAppVersionGate, createAppVersionGateDom } from "./shared/app-version-gate.js";
   import { createBugBoard } from "./support/bug-board.js";
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
-  import { createCatalogSync } from "./character/catalog-cache.js";
+  import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
   import { createBroadcastSync } from "./myhome/broadcast-cache.js";
   import { createVisitPing } from "./shared/visit-ping.js";
   import { createRoomServerNet } from "./room/room-server-net.js";
   import { createRoomServerGate } from "./room/room-server-gate.js";
   import { createApiPublicReads } from "./shared/api-public-reads.js";
+  import { createAccountDelete } from "./account/account-delete-net.js";
   /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
      ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
        그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
@@ -155,6 +157,16 @@
      이미 통과했으면 await 비용은 0이다(정착된 뒤엔 마이크로태스크 한 번). */
   const _whenAuthReady = ()=> _authSettled ? Promise.resolve() : _authReadyPromise;
 
+  /* 구글 로그인을 묶지 않고 물릴 때 — 이번 로그인으로 막 생긴 계정이면 지운다.
+     로그아웃만 하면 빈 계정이 그 구글을 붙잡아, 나중에 진짜 계정에 구글을 연결할 때 credential-already-in-use 가 난다.
+     ⚠️ 막 생긴 계정만 — 원래 있던 계정은 어딘가에 묶였을 수 있다. */
+  const _dropGoogleSession = async (cred)=>{
+    let fresh = false;
+    try{ fresh = !!(cred && getAdditionalUserInfo(cred)?.isNewUser); }catch(_){}
+    if(fresh){ try{ await deleteUser(cred.user); return; }catch(_){} }
+    try{ await fbSignOut(auth); }catch(_){}
+  };
+
   let _roomRef = null, _roomListener = null, _myMemberRef = null, _fbHeartbeat = null;
   /* 💰 방 리스너에서 chatLog를 떼어내기 위한 상태.
      rooms/{방} 아래 자식은 세 종류뿐이다 — `_meta`, `chatLog`, 그리고 멤버 노드(전부 'm'으로 시작:
@@ -247,7 +259,7 @@
     return n;
   }
   let _myPokeRef = null, _myPokeListener = null, _memberId = null, _roomCode = null;
-  let _friendListListeners = {};   // {friendId: {profileUnsub, presenceUnsub, bioUnsub, avatarUnsub}} — 각 친구별 실시간 구독 정리용
+  let _myFriendsOff = null;   // 지금 걸린 watchMyFriendList 의 해제 함수 — 동시에 하나만(새로 걸면 앞의 것을 푼다)
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
   let _presenceWritten = false;   // presence 를 한 번이라도 set 했는가 — 버전이 늦게 오면 그때만 메운다
   let _mobLive = null;   // 📱 태블릿·폰 연결 — { uid, stop } (mobileLinkStart)
@@ -416,6 +428,11 @@
   /* 🛰 방 서버(웹소켓) — 관리자 스위치(원격 설정 roomServer)가 켜고, 어느 서버로 갈지는 문지기(room-server-gate.js)가 정한다.
      여기서는 설정 · 서버 주소 · 내 서버(API · 못 받으면 Firebase) · roomDir 칸 읽기 · 토큰 · 버전 · userId 만 잇는다. _rsUrl = 문지기가 마지막으로 고른 주소(null 이면 서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
+  /* 🌐 로그인이 필요한 API 통로(첫 사용자 friends/friends-api.js) — 공용 통로와 같은 주소 · 이 Firebase ID 토큰을 붙인다(api-client.js getToken).
+     쉬기는 끈다 — 이 경로의 실패가 공용 통로(원격 설정 · 공개 읽기)를 쉬게 하지 않고, 부르는 쪽이 다시 묻기를 정한다. 토큰은 여기서만 넘긴다(api-client 는 Firebase 를 모른다). */
+  const _authApi = (window.TwApi && window.TwApi.client) ? window.TwApi.createApiClient({
+    baseUrl: window.TwApi.client.baseUrl(), fetch: (...a) => window.fetch(...a), getToken: () => _getIdToken(false), backoffMs: 0,
+  }) : null;
   let _rsUrl = null;
   const _roomServerGate = createRoomServerGate({
     getConfig: async () => { if(!_rc) return null; await _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }); return _rc.roomServer(); },
@@ -458,6 +475,12 @@
     catalogRef: (kind) => ref(db, 'catalog/' + kind),
     onValue, get,
     scope: (firebaseConfig && (firebaseConfig.databaseURL || firebaseConfig.projectId)) || '',
+    /* 본문은 API 읽기 사본(GET /v1/catalog/{종류}?v=) 먼저 — 못 받으면 아래 Firebase get. 버전 알림은 위 metaRef 그대로. */
+    fetch: createApiCatalogFetch({
+      api: (window.TwApi && window.TwApi.client) || null,
+      shouldFallback: window.TwApi && window.TwApi.shouldFallback,
+      firebaseGet: (kind) => get(ref(db, 'catalog/' + kind)),
+    }),
   });
   /* 카탈로그 쓰기는 전부 여기를 지난다 — 같은 다중 경로 update 로 catalogMeta/{종류} 버전(서버 시각)도 올린다.
      하나라도 빠지면 그 종류는 버전이 그대로라 사용자가 옛 카탈로그(캐시)를 계속 본다(최대 수명 24시간까지).
@@ -567,6 +590,8 @@
       return m;
     },
     getIdToken(force){ return _getIdToken(force); },
+    // 로그인 API GET — get(path, { auth:true, headers, timeoutMs }) 그대로(api-client.js). 통로가 없으면 'unavailable'(NO_API).
+    apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
     setPresenceRoom(code){ _syncPresenceRoom(code || null); },
     /* 🛰 소켓이 실제로 열렸는가 — 감시견(app.js `_fbBootWatch`)이 부팅 때 한 번 부른다.
@@ -1846,76 +1871,50 @@
         [`users/${friendId}/friends/${myId}`]: null,
       });
     },
-    // 내 친구 목록 실시간 구독 — friends 목록이 바뀔 때마다 각 친구의 프로필/온라인상태도 같이 구독해서
-    // onChange(friendsObj)로 전달. friendsObj = { [friendId]: {name, online, lastSeen, addedAt} }
-    subscribeMyFriends(myId, onChange){
-      const friendsRef = ref(db, `users/${myId}/friends`);
-      const combined = {};
-      /* 🚦 갱신 폭주 묶기 — 친구 1명당 onValue 가 4개(profile·presence·bio·avatar)라,
-         부팅 때 콜백이 **친구 수 × 4** 번 몰려온다. onChange 는 마이홈 친구 목록을
-         innerHTML 로 통째로 다시 그리므로(renderMyHomeFriendList), 100명이면
-         400번 × 100줄 = 4만 줄을 짓는 셈이 되어 창이 눈에 띄게 멈춘다.
-         ★ 50ms 창에 한 번만 그린다. **디바운스가 아니라 스로틀(뒷날)이다** —
-           디바운스로 하면 콜백이 끊이지 않고 들어오는 동안 화면이 영영 안 그려진다.
-         ⚠️ 값 자체는 combined 에 즉시 반영된다. 늦추는 것은 '그리기'뿐이다. */
-      let _nTimer = null, _nDirty = false;
-      const notify = ()=>{
-        _nDirty = true;
-        if(_nTimer) return;
-        _nTimer = setTimeout(()=>{
-          _nTimer = null;
-          if(_nDirty){ _nDirty = false; onChange({...combined}); }
-        }, 50);
+    // 내 친구 목록 한 번 읽기 — users/{나}/friends 만({친구id: {addedAt}}). 판정용 · 부르는 곳은 friends-sub.js 한 곳(중복 조회 방지).
+    async getMyFriendList(myId){
+      const snap = await get(ref(db, `users/${myId}/friends`));
+      return snap.val() || {};
+    },
+    /* 내 친구 목록 실시간 구독 — users/{나}/friends 하나만({친구id:{addedAt}}). 실시간은 추가 · 삭제뿐이다:
+       이름 · 레벨 · 소개 · 사진은 목록을 열 때 한 번(getFriendCard · 서버 먼저 — friends/friends-port.js), 접속 상태는 목록이 열려 있는 동안만(watchFriendPresence).
+       onError(err) — 거부 · 끊기면 한 번(다시 걸기는 부르는 쪽 · friends-sub.js). @return 해제 함수. ⚠️ 동시에 하나만 — 새로 걸면 앞의 것을 먼저 푼다. */
+    watchMyFriendList(myId, onChange, onError){
+      if(_myFriendsOff) _myFriendsOff();
+      let _dead = false, _listOff = null;
+      const teardown = ()=>{
+        if(_dead) return;
+        _dead = true;
+        if(_listOff){ try{ _listOff(); }catch(_){} }
+        if(_myFriendsOff === teardown) _myFriendsOff = null;
       };
-      const listRef = onValue(friendsRef, snap=>{
-        const ids = Object.keys(snap.val()||{});
-        // 목록에서 빠진 친구는 구독 해제 + combined에서 제거
-        Object.keys(_friendListListeners).forEach(fid=>{
-          if(!ids.includes(fid)){
-            const l=_friendListListeners[fid];
-            if(l.profileUnsub) off(l.profileUnsub.ref, 'value', l.profileUnsub.cb);
-            if(l.presenceUnsub) off(l.presenceUnsub.ref, 'value', l.presenceUnsub.cb);
-            if(l.bioUnsub) off(l.bioUnsub.ref, 'value', l.bioUnsub.cb);
-            if(l.avatarUnsub) off(l.avatarUnsub.ref, 'value', l.avatarUnsub.cb);
-            if(l.homeUnsub) off(l.homeUnsub.ref, 'value', l.homeUnsub.cb);   // 구버전 잔여 구독 호환
-            delete _friendListListeners[fid]; delete combined[fid];
-          }
-        });
-        // 새로 추가된 친구는 프로필/온라인상태/마이홈(사진·소개글) 구독 시작
-        ids.forEach(fid=>{
-          if(_friendListListeners[fid]) return;
-          combined[fid] = combined[fid] || {name:'...', online:false, lastSeen:0, addedAt:(snap.val()[fid]||{}).addedAt};
-          const profRef = ref(db, `users/${fid}/profile`);
-          const profCb = psnap=>{ const p=psnap.val()||{}; combined[fid].name=p.name||'(이름 없음)';
-            //  ★ 값이 없으면 null. '아직 새 버전으로 접속 안 한 친구'와 '진짜 Lv.1'을 구분해야
-            //    전원이 Lv.1로 보이는 오해가 안 생긴다(배지를 아예 숨김).
-            combined[fid].level = (typeof p.level === 'number' && p.level >= 1) ? p.level : null;
-            //  🌟 회차(개정 70) — 날것 그대로 넘기고 거르는 것은 app.js starFromRemote 한 곳.
-            combined[fid].cyc = p.cyc; combined[fid].clv = p.clv; combined[fid].starC = p.starC;
-            notify(); };
-          onValue(profRef, profCb);
-          const presRef = ref(db, `users/${fid}/presence`);
-          const presCb = psnap=>{ const p=psnap.val()||{}; combined[fid].online=!!p.online; combined[fid].lastSeen=p.lastSeen||0; combined[fid].room=p.room||null;
-            /* 🏠 '방에 있음'은 코드와 **별개 필드**다 — 시크릿룸은 code 를 안 올리므로 room 만 보면 못 잡는다.
-               옛 판(inRoom 이 없던 클라이언트)은 room 이 있으면 방에 있는 것으로 친다(하위호환). */
-            combined[fid].inRoom = (p.inRoom !== undefined) ? !!p.inRoom : !!p.room;
-            notify(); };
-          onValue(presRef, presCb);
-          // 목업의 이름 아래 소개글/프로필 썸네일용 — 친구의 마이홈에서 bio/avatar만 가져옴.
-          // 💰 예전엔 users/{친구}/home 을 통째로 구독해서, 친구가 게시글·테마·스티커를 건드릴 때마다
-          //    home 전체(게시글 본문·테마·스티커 목록 등)가 모든 친구에게 다시 전송됐음.
-          //    실제로 쓰는 건 bio/avatar 둘뿐이라 그 경로만 각각 구독하도록 좁힘(동작은 동일, 트래픽만 감소).
-          const bioRef = ref(db, `users/${fid}/home/bio`);
-          const bioCb = bsnap=>{ combined[fid].bio = bsnap.val() || ''; notify(); };
-          onValue(bioRef, bioCb);
-          const avaRef = ref(db, `users/${fid}/home/avatar`);
-          const avaCb = asnap=>{ combined[fid].avatar = asnap.val() || null; notify(); };
-          onValue(avaRef, avaCb);
-          _friendListListeners[fid] = { profileUnsub:{ref:profRef,cb:profCb}, presenceUnsub:{ref:presRef,cb:presCb},
-            bioUnsub:{ref:bioRef,cb:bioCb}, avatarUnsub:{ref:avaRef,cb:avaCb} };
-        });
-        notify();
+      _myFriendsOff = teardown;
+      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{
+        if(_dead) return;
+        onChange(snap.val() || {});
+      }, err=>{
+        teardown();
+        console.warn('[친구 목록] 구독이 끊겼어요', err);
+        if(onError) onError(err);
       });
+      if(_dead && _listOff){ try{ _listOff(); }catch(_){} }   // onValue 가 돌아오기 전에 실패가 왔으면 지금 푼다
+      return teardown;
+    },
+    /* 친구 한 명의 이름 · 레벨 · 회차 · 소개 · 사진 한 번 읽기 → 날것 { profile, bio, avatar }(거르기는 friends/friends-firebase.js cardOf).
+       💰 home 통째가 아니라 bio · avatar 두 칸만(예전 구독과 같은 경로 — 게시글 · 테마 · 스티커는 안 받는다). */
+    async getFriendCard(fid){
+      const [p, b, a] = await Promise.all([`users/${fid}/profile`, `users/${fid}/home/bio`, `users/${fid}/home/avatar`].map(path => get(ref(db, path))));
+      return { profile: p.val(), bio: b.val(), avatar: a.val() };
+    },
+    /* 친구 한 명의 접속 상태(presence) 구독 → onChange(날것). 목록(친구 탭 · 초대 목록)이 열려 있는 동안만 건다(friends-sub.js). @return 해제 함수 */
+    watchFriendPresence(fid, onChange){
+      const presRef = ref(db, `users/${fid}/presence`);   // 읽기만 — 쓰기는 _myPresenceRef 한 곳(sim-app-version)
+      const off = onValue(presRef, snap=>onChange(snap.val()));
+      return ()=>{ try{ off(); }catch(_){} };
+    },
+    /* 친구 한 명의 접속 상태 한 번 읽기 — 목록이 닫혀 있을 때 필요한 곳(놀러 가기 · 파도타기 친구 고르기)만 */
+    async getFriendPresence(fid){
+      return (await get(ref(db, `users/${fid}/presence`))).val();
     },
     // ===== 마이홈 페이지(프로필사진/소개글/게시글/스티커) =====
     async getMyHome(userId){
@@ -3197,6 +3196,13 @@
       subscribeSince: (room, tab, since, onMsg, onReady) => window.firebaseAPI.subscribeChatSince(room, tab, since, onMsg, onReady),
       clearLog: (room, tab) => window.firebaseAPI.clearChatLog(room, tab),
       sendLog: (room, msg, tab) => window.firebaseAPI.sendChatLog(room, msg, tab) }),
+    /* 🗑️ 회원 탈퇴(함수 deleteMyAccount) — 순서 · 까닭은 account-delete-net.js. 여기는 연결만. */
+    accountDelete: createAccountDelete({
+      callFn: async (name, data) => { const mod = await import(FUNCTIONS_SDK_URL); return mod.httpsCallable(mod.getFunctions(fbApp, FUNCTIONS_REGION), name, { timeout: 300000 })(data); },
+      signedIn: () => { const u = auth && auth.currentUser; return !u ? 'none' : (u.isAnonymous ? 'anonymous' : 'ok'); },
+      cancelPresence: () => (_myPresenceRef ? onDisconnect(_myPresenceRef).cancel() : null),
+      goOffline: () => goOffline(db), goOnline: () => goOnline(db),
+      signOut: () => (auth ? fbSignOut(auth) : null) }),
     getInviteAccount: createInviteAccount({ db, ref, get, databaseURL: db && db.app && db.app.options && db.app.options.databaseURL }),
     // 기존 유저 grandfather 처리 — 초대 정보가 없으면 5장 부여하고 통과
     async grandfatherInvite(userId, grantCount){
@@ -3989,9 +3995,10 @@
              방금 태어난 임시 코드를 이 계정에 영구히 묶어놓고, 화면에는 "연결된 기록이 없어요"라며
              입장을 거부당했다. 그다음 원래 컴퓨터에서 로그인하면 서버가 그 빈 코드를 정답으로
              돌려줘서 마이홈·친구가 통째로 사라졌다. 묶기를 거절하는 이 한 줄이 그 경로를 끊는다.
-           ⚠️ 로그아웃까지 해야 한다 — 세션만 남기면 "로그인은 됐는데 계정은 없는" 상태가 된다(규약 ⑤). */
+           ⚠️ 로그아웃까지 해야 한다 — 세션만 남기면 "로그인은 됐는데 계정은 없는" 상태가 된다(규약 ⑤).
+             막 생긴 계정은 로그아웃 대신 지운다(_dropGoogleSession). */
         if(!userCode){
-          try{ await fbSignOut(auth); }catch(_){}
+          await _dropGoogleSession(cred);
           return { ok:false, needCode:true, reason:'이 구글 계정에 연결된 기록이 없어요' };
         }
         /* 선점은 runTransaction 으로. set 으로 덮으면 한 기기에서 두 계정으로 로그인한 사람이
@@ -4001,7 +4008,7 @@
         if(owner !== uid){
           /* 이 기기 코드는 이미 남의 계정 것이다. 로그아웃시켜 되돌린다 —
              로그인 상태로 남겨두면 "로그인은 됐는데 내 데이터가 아닌" 상태가 된다. */
-          try{ await fbSignOut(auth); }catch(_){}
+          await _dropGoogleSession(cred);
           return { ok:false, reason:'이 기기의 계정은 이미 다른 구글 계정에 연결돼 있어요.' };
         }
         await set(ref(db, `authUsers/${uid}`), { userCode:String(userCode), ts: Date.now() });   // 이메일 거울 없음(§9-2)

@@ -50,6 +50,11 @@ export const AUDIT_ACTIONS = [
   'settings.inviteGate',
   'settings.existingSignup',
   'roomServer.registerIndex',
+  'settings.apiCors',
+  'settings.apiCache',
+  'settings.logLevel',
+  'roomServer.frame',
+  'roomServer.timing',
   'room.close',
   'room.closeAll',
   'room.cleanGhost',
@@ -73,8 +78,9 @@ export const AUDIT_ACTIONS = [
   'todo.applyRelease',
   'todo.releaseTpl',
   'todo.note',
-  // 서버 함수(adminDeleteAccount)가 쓴다 — 웹은 이름만 보여 준다.
+  // 서버 함수(adminDeleteAccount · deleteMyAccount)가 쓴다 — 웹은 이름만 보여 준다.
   'account.delete',
+  'account.selfDelete',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

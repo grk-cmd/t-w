@@ -7,7 +7,7 @@
  *      · on:false · 표에 없는 이름 · 낯선 주소 · 틀린 비율 → Firebase · 들어가기(주소록 따라가기)는 그대로
  * 3. 들어가기 — 주소록(roomDir) 따라가기(on 이면 늘 · follow 칸은 안 읽음) · 허용된 사람 · 꺼짐
  * 4. 읽는 곳 — 설정 한 벌 + /v1/config/me + roomDir/{방 코드} 한 칸뿐 · 꺼져 있으면 설정만
- * 5. 규칙 — config 는 칸 단위 공개 · 쓰기 관리자만 · limits 정수 범위 · default 이름 · defaultPercent 정수 0~100 · roomDir 앱 쓰기 막힘 · minRoomVer 그대로 공개
+ * 5. 규칙 — config 는 칸 단위 공개 · 쓰기 관리자만 · limits 정수 범위 · default 이름 · defaultPercent 정수 0~100 · timing · frame 정수 범위 · roomDir 앱 쓰기 막힘 · minRoomVer 그대로 공개
  * 6. 연결 — firebase-init 이 원격 설정(remote-config.js)을 넘긴다 · Firebase config 는 안 읽는다 · app.js 가 문지기 한 곳(resolveRoomServer)으로 고른다
  */
 'use strict';
@@ -242,10 +242,15 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
       '  ↳ defaultPercent — 누구나 한 칸 읽기 · 정수 0~100');
     const tm = rs.timing || {};
     const runV = (expr, val) => Function('newData', 'return (' + expr + ');')({ isNumber: () => typeof val === 'number', val: () => val });
-    const TR = { graceMs: [0, 600000], pingIntervalMs: [1000, 120000], restoreWindowMs: [0, 1800000], refreshMs: [5000, 600000], joinWaitMs: [3000, 60000], clientGiveUpMs: [15000, 600000] };   // t-w-server api roomServerTiming 범위와 같다(뒤 두 칸은 앱이 읽는다 — remote-config.js TIMING_RANGES)
+    const TR = { graceMs: [0, 600000], pingIntervalMs: [1000, 120000], restoreWindowMs: [0, 1800000], refreshMs: [5000, 600000], roomStatsRefreshMs: [5000, 600000], statsLogMs: [5000, 3600000], joinWaitMs: [3000, 60000], clientGiveUpMs: [15000, 600000] };   // t-w-server api roomServerTiming 범위와 같다(joinWaitMs · clientGiveUpMs 는 앱이 읽는다 — remote-config.js TIMING_RANGES)
     chk(tm['.read'] === true && !tm['.write'] && Object.keys(TR).every((k) => { const v = (tm[k] || {})['.validate'] || ''; const [lo, hi] = TR[k];
       return runV(v, lo) && runV(v, hi) && !runV(v, lo - 1) && !runV(v, hi + 1) && !runV(v, lo + 0.5) && !runV(v, String(lo)); }) && tm.$other && tm.$other['.validate'] === false,
-      '  ↳ timing(방 서버 연결 시간값) — 누구나 읽기 · 쓰기는 roomServer 관리자 · graceMs 0~600000 · pingIntervalMs 1000~120000 · restoreWindowMs 0~1800000 · refreshMs 5000~600000 · 앱 joinWaitMs 3000~60000 · clientGiveUpMs 15000~600000 정수(서버와 같음) · 모르는 칸 거절');
+      '  ↳ timing(방 서버 연결 시간값) — 누구나 읽기 · 쓰기는 roomServer 관리자 · graceMs 0~600000 · pingIntervalMs 1000~120000 · restoreWindowMs 0~1800000 · refreshMs 5000~600000 · roomStatsRefreshMs 5000~600000 · statsLogMs 5000~3600000 · 앱 joinWaitMs 3000~60000 · clientGiveUpMs 15000~600000 정수(서버와 같음) · 모르는 칸 거절');
+    const fr = rs.frame || {};
+    const FR = { maxBytes: [65536, 1048576], maxSmallBytes: [1024, 65536] };   // t-w-server realtime roomServerFrame 범위와 같다
+    chk(fr['.read'] === true && !fr['.write'] && Object.keys(FR).every((k) => { const v = (fr[k] || {})['.validate'] || ''; const [lo, hi] = FR[k];
+      return runV(v, lo) && runV(v, hi) && !runV(v, lo - 1) && !runV(v, hi + 1) && !runV(v, lo + 0.5) && !runV(v, String(lo)); }) && fr.$other && fr.$other['.validate'] === false,
+      '  ↳ frame(방 서버 프레임 상한) — 누구나 읽기 · 쓰기는 roomServer 관리자 · maxBytes 65536~1048576 · maxSmallBytes 1024~65536 정수 · 모르는 칸 거절');
     chk(rs.$other && rs.$other['.validate'] === false, '  ↳ 모르는 칸은 거절');
     const rd = R.roomDir || {};
     chk(!rd['.read'] && rd.$code && rd.$code['.read'] === true && rd.$code['.write'] === false, 'roomDir — 방 코드 한 칸만 누구나 읽기 · 앱은 못 씀(방 서버가 관리자 키로)');

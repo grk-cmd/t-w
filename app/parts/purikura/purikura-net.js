@@ -9,6 +9,7 @@
      여기 상수 넷을 잘못 만지면 요금이 10배가 된다. 그래서 화면과 **완전히 분리**해서
      따로 두고, sim-purikura-net.js 로 이 파일만 따로 검사한다.
      THREE 도 DOM 도 안 쓴다 — 그래야 node 에서 그대로 굴려볼 수 있다.
+   ⚠️ 먼저 실려 있어야 하는 것: shared/ps1-dither.js(전역 TwPs1Dither) — PS1 필터가 부를 때 읽는다. html 순서는 sim-ps1-dither.js 가 지킨다.
 
    ★ 절대 건드리면 안 되는 설계 셋 (계산 근거는 handoff-purikura-1.md)
      ① 좌표는 rooms/{code}/_photo/p 라는 **별도 노드**에 쓴다. (이름의 밑줄까지가 규칙이다 — base() 주석)
@@ -407,7 +408,6 @@ function drawBg(g, w, h, id){
    ⚠️ 세기(강도)는 안 연다. 슬라이더를 열면 방 전체가 맞춰야 할 값이 하나 더 늘고,
      끌 때마다 쓰기가 나가서 «시선처럼 얹기»를 따로 설계해야 한다. 일곱을 각각 한 자리로 고정한다. */
 var PS1_BLOCK  = 3;      // 도트 한 칸(무대 기준 px). 캡처에서는 k 를 곱해 커진다
-var PS1_LEVELS = 16;     // 채널당 색 단계 — app.js 의 _PS1_LEVELS(도트 모드)와 같은 값이다
 var SOFT_BLUR  = 5.5;    // 뽀샤시 번짐 반경(무대 기준 px)
 var SOFT_MIX   = 0.62;   // 번진 판을 얹는 세기
 /* 🐟 어안 — 꽉 찬 볼록렌즈(원형 · 검은 테두리 없음). 결과 반지름 r(귀퉁이 = 1)에서 원본 반지름을
@@ -533,12 +533,13 @@ function applyFilter(g, src, w, h, id, k, mk){
     cg.clearRect(0, 0, sw, sh);
     cg.drawImage(src, 0, 0, w, h, 0, 0, sw, sh);
     var d = cg.getImageData(0, 0, sw, sh), p = d.data;
-    var bay = [0,8,2,10, 12,4,14,6, 3,11,1,9, 15,7,13,5];   // app.js 의 4×4 Bayer 그대로
+    /* 색 단계 · Bayer 표 · 한 칸 식은 shared/ps1-dither.js 하나 — 도트 모드 셰이더와 같은 값.
+       ⚠️ 부를 때 읽는다(이 파일은 node 로 따로 싣는 검사가 많아 실을 때 읽으면 그 검사들이 죽는다). */
+    var D = TwPs1Dither;
     for(var y=0; y<sh; y++) for(var x=0; x<sw; x++){
-      var i = (y*sw + x) * 4, t = bay[(y%4)*4 + (x%4)] / 16;
+      var i = (y*sw + x) * 4, t = D.bayerThreshold(x, y);
       for(var ch=0; ch<3; ch++){
-        var v = p[i+ch]/255 + (t - 0.5)/PS1_LEVELS;
-        v = Math.floor(v*PS1_LEVELS + 0.5)/PS1_LEVELS * 255;
+        var v = D.ditherQuantize(p[i+ch]/255, t) * 255;
         p[i+ch] = v < 0 ? 0 : (v > 255 ? 255 : v);
       }
     }
@@ -1311,7 +1312,7 @@ return {
   filterList: filterList, filterOf: filterOf, filterAllowed: filterAllowed,
   filterScale: filterScale, applyFilter: applyFilter, drawFilterSample: drawFilterSample,
   filterLaggards: filterLaggards, FILTER_REV: FILTER_REV, FISH_S: FISH_S, fishMap: fishMap, fishRemap: fishRemap,
-  PS1_BLOCK: PS1_BLOCK, PS1_LEVELS: PS1_LEVELS, SOFT_BLUR: SOFT_BLUR,
+  PS1_BLOCK: PS1_BLOCK, SOFT_BLUR: SOFT_BLUR,
   GRADES: GRADES, filterIn: filterIn,
   strokeGroups: strokeGroups, needsScratch: needsScratch, outlineInk: outlineInk,
   penPath: penPath, penRender: penRender,

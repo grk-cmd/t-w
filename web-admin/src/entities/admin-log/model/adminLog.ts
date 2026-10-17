@@ -54,6 +54,11 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'settings.inviteGate': '신규 가입 초대 코드',
   'settings.existingSignup': '기존 사용자 가입 강제',
   'roomServer.registerIndex': '방 서버 장부 등록',
+  'settings.apiCors': 'API CORS 허용 출처',
+  'settings.apiCache': '공개 캐시 초',
+  'settings.logLevel': '서버 로그 수준',
+  'roomServer.frame': '방 서버 프레임 상한',
+  'roomServer.timing': '방 서버 타이밍',
   'room.close': '방 종료',
   'room.closeAll': '방 전체 종료',
   'room.cleanGhost': '유령 방 청소',
@@ -78,6 +83,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'todo.releaseTpl': '릴리스 답변 템플릿',
   'todo.note': '할 일 공용 메모',
   'account.delete': '계정 삭제',
+  'account.selfDelete': '회원 탈퇴(본인)',
 };
 
 /** 필터 칩 — action 의 앞부분(«종류»)으로 묶는다. */

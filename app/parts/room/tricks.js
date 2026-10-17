@@ -48,6 +48,7 @@ const ray = deps.ray;   // 읽는 함수
 const seatCharZ = deps.seatCharZ;
 const seatFromObject = deps.seatFromObject;
 const seatScale = deps.seatScale;
+const measureCharBox = deps.measureCharBox;   // 몸만 잰 경계상자(꾸미기 파츠 · 리깅 파츠 뺌) — app.js
 const seats = deps.seats;
 const showChatBubble = deps.showChatBubble;
 const spawnFloater = deps.spawnFloater;
@@ -244,7 +245,11 @@ const FLY_PROBE_FALLBACK = 0.35;
 function _flyProbeY(seat){
   try{
     seat.rig.updateMatrixWorld(true);
-    _flyBox.setFromObject(seat.rig);
+    /* 몸만 잰다 — rig 째 재면 키 큰 꾸미기 아이템이 가운데를 몸보다 한참 위로 끌어올려, 몸이 화면 가운데인데
+       위 벽(FLY_EDGE_TOP)에 닿은 것으로 판정됐다(«보이지 않는 천장»). 몸 상자가 비면 예전처럼 rig 째. */
+    const body = seat.gltfRoot ? measureCharBox(seat.gltfRoot) : null;
+    if(body && !body.isEmpty()) _flyBox.copy(body);
+    else _flyBox.setFromObject(seat.rig);
     seat.rig.getWorldPosition(_flyW);
     const mid = (_flyBox.min.y + _flyBox.max.y) / 2 - _flyW.y;
     if(isFinite(mid) && mid > 0.02 && mid < 5) return mid;
