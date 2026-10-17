@@ -52,6 +52,7 @@
 | ~~해결된 버그 제보 한 달 뒤 삭제~~ 머지 #347 | 검증-도우미11 | 해결 시각(doneTs) · 자동 정리 함수 · 탈퇴 때 제보 삭제 · 처리방침(제보 · AWS 서울 · 게임패드 · 시행일) | `functions/`(새 함수 · account-delete.js) · `web-admin/src/entities/bug-board` · `features` · `hosting/privacy.html` · `firebase-database-rules.json` · `checks/` | #347 |
 | 기능별 받는 곳 고르기 통일 | 검증-도우미12 | 친구 · 방 · 카탈로그의 «서버 / 파이어베이스» 고르기를 `shared/source-switch.js` 한 곳 · 스위치 자리 `config/sources/{기능}` 하나로 · 웹 관리자 «🎚️ 기능 스위치» 페이지 | `shared/source-switch.js`(새) · `shared/remote-config.js` · `friends/friends-port.js` · `room/room-server-gate.js` · `character/catalog-source.js` · `app.js`(연결) · html · 규칙 · `web-admin/src`(새 페이지 · 방 서버 스위치) · checks | — |
 | 오래된 요청 #255 · #153 합치기 | 검증-도우미13 | #255 앱 크기 기준선 쓰기 · #153 웹 관리자 사용자 목록을 관리자 API 로 | `checks/sim-app-size.js` · `checks/app-size-baseline.json` · `web-admin/src/`(사용자 목록 · 통계) · `checks/CHECKS.md` | #255 · #153 |
+| 같은 그림 반복 업로드 줄이기(#39 새로 쓰기) | 검증-도우미14 | 동시 업로드 합치기 · 썸네일은 외모가 바뀔 때만 · 업로드 캐시 LRU(통째 비우기 없앰) · 마이홈 주소 되쓰기 | `shared/upload-cache.js`(새) · `room/room-sync.js` · `character/slot-sync.js` · `firebase-init.js`(업로드 길) · 마이홈 · 검사 | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
