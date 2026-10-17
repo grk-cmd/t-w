@@ -47,6 +47,7 @@
 | #163 다시 얹기 | 검증 세션 | 내 정보 맨 아래 개인정보 처리방침 링크(시스템 기본 브라우저로) | `app/desk-companion-prototype.html`(내 정보 계정 칸 아래) · `room/room-entry.js`(링크 거는 줄) | — |
 | ~~토스트 누르면 복사(wAE)~~ 머지 #345 | 검증-도우미8 | 켜진 토스트를 누르면 글 복사 · «(복사했어요)» — 사용자 승인 | `shared/toast.js` · html | #345 |
 | ~~편집 중 마이홈 숨기기 되살리기~~ 머지 #346 | 검증-도우미9 | #342 위에 #258 의 숨기기만 다시(창 층 표는 그대로) · B-1016-4 · 사용자 결정 10-17 | `app/desk-companion-prototype.html`(편집 중 숨김 css) · 숨김 검사 | #346 |
+| 해결된 버그 제보 한 달 뒤 삭제 | 검증-도우미11 | 해결 시각(doneTs) · 자동 정리 함수 · 탈퇴 때 제보 삭제 · 처리방침(제보 · AWS 서울 · 게임패드 · 시행일) | `functions/`(새 함수 · account-delete.js) · `web-admin/src/entities/bug-board` · `features` · `hosting/privacy.html` · `firebase-database-rules.json` · `checks/` | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
