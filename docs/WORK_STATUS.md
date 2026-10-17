@@ -31,7 +31,7 @@
 | 도메인 together-working.com | w2 세션 | 앱 · 웹 관리자 서버 주소를 together-working.com 으로(운영 API · 방 서버 · CSP) · duckdns 는 옛 앱 · dev 용으로 계속 허용 · 운영 설정 servers 는 그대로(새 앱만 별칭으로 새 주소) — 브랜치 `feat/together-working-domain` 84eb017 · CHECKS 개정 322(임시) · QUEUE | `room/room-server-gate.js` · `shared/api-client.js` · `desk-companion-prototype.html`(CSP meta 두 줄 · 맨 위 — 창 층 표와 다른 자리) · `firebase.json` · `web-admin/src/shared/api/api.ts` · `web-admin/src/entities/room-server/model/roomServer.ts` · `sim-room-server-gate` · `sim-api-client` · `sim-remote-config` · `sim-account-delete` | — |
 | 카탈로그 본문 API 읽기 | w2 세션 | 카탈로그 본문을 API(/v1/catalog — 운영 배포 끝 v0.2.1)에서 먼저 · 실패면 Firebase — 브랜치 `feat/catalog-api-read` 70183a0 · CHECKS 개정 271(임시) · QUEUE | `firebase-init.js`(카탈로그 구독 한 줄) · `shared/catalog-cache.js` · `sim-catalog-cache` | — |
 | ~~회원 탈퇴 안내 자리~~ 머지 #322 | 계정 세션 | [내 정보 › 계정] 탈퇴를 누르면 «로그인 수단 ~ 이 컴퓨터에서 로그아웃» 자리가 탈퇴 안내로 바뀜(머지는 검증 세션) · ⚠️ html css 는 `#creatorOverlay.on` 줄 바로 뒤에 붙어 B-1016-4 와 같은 자리 — 그쪽이 «편집 중 마이홈 숨김» 줄을 걷을 때 우리 세 줄은 남겨 주세요 | `desk-companion-prototype.html`(#acctDeleteZone · css 세 줄) · `account/my-info.js` · `sim-account-delete.js` | #319 |
-| 게임패드 뒤에서도 읽기 (10-16 제보 7) | 계정 세션 | 게임이 앞이면 크로미움 Gamepad API 가 값을 안 줘서 Xbox 패드가 활동으로 안 잡힘 → Windows 는 main 이 XInput 을 직접 읽어(koffi) 렌더러에 «패드 활동» 을 보낸다 · mac 은 지금 그대로 | `sysinput-win.js` · `sysinput-mac.js`(같은 이름 빈 함수) · `main.js`(500ms 활성 창 폴링 끝에 한 줄 · IPC) · `preload.js` · `launcher/desktop-run.js` · `focus/gamepad-activity.js` · `package.json` · `package-lock.json` · `checks/sim-gamepad-activity.js` | #333 |
+| ~~게임패드 뒤에서도 읽기 (10-16 제보 7)~~ 머지 #333 | 계정 세션 | 게임이 앞이면 크로미움 Gamepad API 가 값을 안 줘서 Xbox 패드가 활동으로 안 잡힘 → Windows 는 main 이 XInput 을 직접 읽어(koffi) 렌더러에 «패드 활동» 을 보낸다 · mac 은 지금 그대로 | `sysinput-win.js` · `sysinput-mac.js`(같은 이름 빈 함수) · `main.js`(500ms 활성 창 폴링 끝에 한 줄 · IPC) · `preload.js` · `launcher/desktop-run.js` · `focus/gamepad-activity.js` · `package.json` · `package-lock.json` · `checks/sim-gamepad-activity.js` | #333 |
 | ~~#265 다시 얹기~~ 머지 | 검증 세션 | 런처 화면 GPU 부하 줄이기 — 미리보기 1초 30번 · 깜빡임은 좌석과 같은 시간표 · 후원 반짝임(사용자 적용 승인 10-17) | `launcher/launcher-preview.js` · `shared/blink-timing.js`(새) · 좌석 깜빡임 · `shared/README.md` · 후원 문구 css | #318 |
 | ~~#320 되돌림 고치기~~ 머지 #329 | 검증 세션 | 새 프로필(내 코드 없음) 친구 탭이 «불러오는 중» 에 멈춤 → «아직 친구가 없어요» — 마이홈 시작이 일찍 끝날 때 친구 목록도 «코드 없음» 으로 시작 | `myhome/myhome-init.js` · `checks/sim-myhome-init.js` | — |
 | ~~대기열 다섯 줄~~ 끝 | 검증-도우미5 | 머지: #330 친구 목록 실패 토스트 줄바꿈 · #331 네트워크 준비 기다리기 묶기 · #332 평준화 가두기 · 책상 자리. 안 올림: 토스트 누르면 복사(wAE — 보이는 동작 변경 · 승인 대기 CONFIRM) · 몸 크기 재기(wL2 — grk #258 «날기 천장» 과 겹침 · 다시 얹기) | — | #330 · #331 · #332 |
@@ -68,6 +68,7 @@
 | v0.11.3 제보 | «친구 없음» 인데 추가하면 «이미 친구» | #306 · #307 | 머지 |
 | 10-16 제보 1 · 2 · 6 · 10 · 11 · 12 | 알림콩 · 가챠 창 닫힘 · 상태 이모지 · 편집창 겹침 · 날기 천장 | #258 | 머지 |
 | 10-16 제보 9 · 13 | 보관함 이동 복제 · 다른 앱 더블클릭 때 앞으로 옴 | #261 | 머지 |
+| 10-16 제보 7 | Xbox 패드로만 게임하면 기록이 멈추고 잠듦(게임이 앞이면 패드 값을 못 받음) | #333 | 머지 |
 | B-1016-7 | 다른 앱 더블클릭을 먹음(회복 사다리) | #261(일부) · wAD | 대기 |
 | B-1016-4 | 마이홈을 띄운 채 캐릭터 편집을 열면 마이홈이 위에 겹침 | #258(숨김 땜질) → B-1016-4 창 겹침 근본 | 진행 중 |
 | B-1013-8 | 디자인 프리셋에 그림이 안 담김 | #324 | 머지 |
@@ -75,6 +76,7 @@
 | 리깅 모자 날기 | 모자 쓰고 날면 화면 아래에서 맴돎 | wL2 | 대기 |
 
 ## 머지 완료(10-17 검증 세션)
+- 10-17 저녁(계정 세션 · 사용자 요청으로 직접 머지): #333 게임패드 — 게임이 앞이어도 XInput 으로 읽기(개정 348)
 - 10-17 저녁(검증-도우미5): #330 친구 목록 실패 토스트 줄바꿈 · #331 네트워크 준비 기다리기 net-ready.js 한 곳 · #332 평준화 가두기 seat-eq-clamp.js · 책상 자리 desk-place.js(28f731c 순환 없이)
 - 10-17 저녁(검증-합치기): #320 내 코드 없으면 요청 안 보냄 · #324 디자인 프리셋 그림(B-1013-8) · #326 w4 다섯 줄 · #329 #320 되돌림 고침 · #321 두 번째 실행 10초 · #323 토스트 줄바꿈 · #325 realtime 공통부 · #327 에러코드 · #328 좌석 다시 맞추기(개정 325~343)
 - 10-17 오후: #318 런처 GPU 부하 줄이기(#265 대신) · #322 회원 탈퇴 안내를 계정 탭 자리에(grk #319 대신 — 검사 기록 번호만 다시 매김)
