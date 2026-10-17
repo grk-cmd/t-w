@@ -26,6 +26,7 @@
 | wY | 도우미 2 | 파츠 바뀐 뒤 좌석 다시 맞추기 한 벌(seat-refit.js) | `character/seat-refit.js`(새) · `app.js` | — |
 | 낱개 | 도우미 3 | 문서 규칙(429c52b) · 두 번째 실행 10초(wT) · 토스트 문구(wS) · realtime 공통부(wP-C 6d352f0) · 에러코드(4c55c3c — 충돌 크면 다시 얹기) | `CLAUDE.md` · `main.js`(두 번째 실행) · 토스트 · `room/realtime-link.js`(새) · 에러코드 표 | — |
 | B-1016-4 창 겹침 근본 | 도우미 1 | 창 앞뒤를 :root «창 층 표» 한 곳으로(동작 무변경) → 편집 · 종족도 창 쌓기 · 연 창이 맨 앞 · 대화상자는 창 쌓기 위 · #258 의 «편집 중 마이홈 숨김» 땜질 걷기 | `desk-companion-prototype.html`(z-index 37곳 · 창 층 표) · `shared/win-stack.js` · `sim-z-layers.js`(새) · `sim-win-front` · `sim-win-layers` · `sim-purikura-stage` · `sim-signup` · `sim-fix-1016` | — |
+| 회원 탈퇴 안내 자리 | 계정 세션 | [내 정보 › 계정] 탈퇴를 누르면 «로그인 수단 ~ 이 컴퓨터에서 로그아웃» 자리가 탈퇴 안내로 바뀜(머지는 검증 세션) · ⚠️ html css 는 `#creatorOverlay.on` 줄 바로 뒤에 붙어 B-1016-4 와 같은 자리 — 그쪽이 «편집 중 마이홈 숨김» 줄을 걷을 때 우리 세 줄은 남겨 주세요 | `desk-companion-prototype.html`(#acctDeleteZone · css 세 줄) · `account/my-info.js` · `sim-account-delete.js` | #319 |
 | #265 다시 얹기 | 검증 세션 | 런처 화면 GPU 부하 줄이기 — 미리보기 1초 30번 · 깜빡임은 좌석과 같은 시간표 · 후원 반짝임(사용자 적용 승인 10-17) | `launcher/launcher-preview.js` · `shared/blink-timing.js`(새) · 좌석 깜빡임 · `shared/README.md` · 후원 문구 css | #318 |
 
 ## 대기 — 앞 줄이 머지돼야 올림
@@ -52,6 +53,7 @@
 |---|---|
 | wAA 2c2d0e9 · 36fcf04 · 0353063 (B-1015-3) | w4 `desk-preset-store.js` 와 같은 묶기 — w4 머지 뒤 그 위로 다시 얹기(총괄) |
 | wP-C 797d022 | 토스트 줄바꿈이 먼저 들어가야 |
+| 머지된 브랜치 정리 — `claude/great-gates-o9jj5g`(#252) · `fix/bugs-1016-easy`(#258) · `fix/bugs-1016-medium`(#261) | 셋 다 머지 끝 · 아직 안 지움. 다른 담당이 이 브랜치 위에 쌓은 일이 없는지 보고 지워도 되면 지운다(검증 세션 · 총괄 확인) |
 
 ## 제보 → 수정
 | 제보 | 증상 | 수정 PR | 상태 |
