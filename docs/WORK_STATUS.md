@@ -51,6 +51,7 @@
 | ~~편집 중 마이홈 숨기기 되살리기~~ 머지 #346 | 검증-도우미9 | #342 위에 #258 의 숨기기만 다시(창 층 표는 그대로) · B-1016-4 · 사용자 결정 10-17 | `app/desk-companion-prototype.html`(편집 중 숨김 css) · 숨김 검사 | #346 |
 | ~~해결된 버그 제보 한 달 뒤 삭제~~ 머지 #347 | 검증-도우미11 | 해결 시각(doneTs) · 자동 정리 함수 · 탈퇴 때 제보 삭제 · 처리방침(제보 · AWS 서울 · 게임패드 · 시행일) | `functions/`(새 함수 · account-delete.js) · `web-admin/src/entities/bug-board` · `features` · `hosting/privacy.html` · `firebase-database-rules.json` · `checks/` | #347 |
 | 기능별 받는 곳 고르기 통일 | 검증-도우미12 | 친구 · 방 · 카탈로그의 «서버 / 파이어베이스» 고르기를 `shared/source-switch.js` 한 곳 · 스위치 자리 `config/sources/{기능}` 하나로 · 웹 관리자 «🎚️ 기능 스위치» 페이지 | `shared/source-switch.js`(새) · `shared/remote-config.js` · `friends/friends-port.js` · `room/room-server-gate.js` · `character/catalog-source.js` · `app.js`(연결) · html · 규칙 · `web-admin/src`(새 페이지 · 방 서버 스위치) · checks | — |
+| 오래된 요청 #255 · #153 합치기 | 검증-도우미13 | #255 앱 크기 기준선 쓰기 · #153 웹 관리자 사용자 목록을 관리자 API 로 | `checks/sim-app-size.js` · `checks/app-size-baseline.json` · `web-admin/src/`(사용자 목록 · 통계) · `checks/CHECKS.md` | #255 · #153 |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
