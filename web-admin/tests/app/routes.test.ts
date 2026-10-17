@@ -10,7 +10,7 @@ describe('좌측 메뉴 묶음', () => {
       ['🏠 방 · 서버', ['rooms', 'roomServer']],
       ['🗂️ 콘텐츠', ['catalog']],
       ['📊 성능 · 비용', ['metrics', 'usage', 'improvements']],
-      ['⚙️ 시스템', ['settings', 'log']],
+      ['⚙️ 시스템', ['settings', 'featureSwitch', 'log']],
     ]);
   });
 

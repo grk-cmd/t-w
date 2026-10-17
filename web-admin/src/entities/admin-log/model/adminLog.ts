@@ -52,6 +52,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'settings.roomLimits': '전체 방 상한',
   'settings.roomMaxPeople': '방 정원',
   'settings.inviteGate': '신규 가입 초대 코드',
+  'settings.featureSource': '기능 스위치(받는 곳)',
   'settings.existingSignup': '기존 사용자 가입 강제',
   'roomServer.registerIndex': '방 서버 장부 등록',
   'settings.apiCors': 'API CORS 허용 출처',

@@ -49,6 +49,7 @@ export const AUDIT_ACTIONS = [
   'settings.roomMaxPeople',
   'settings.inviteGate',
   'settings.existingSignup',
+  'settings.featureSource',
   'roomServer.registerIndex',
   'settings.apiCors',
   'settings.apiCache',
