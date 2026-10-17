@@ -28,6 +28,7 @@ const SRC0 = {
   UI: pick(['myhome-ui.js', 'parts/myhome/myhome-ui.js', 'app/parts/myhome/myhome-ui.js']),
   FM: pick(['friend-manage.js', 'parts/myhome/friend-manage.js', 'app/parts/myhome/friend-manage.js']),
   RI: pick(['room-invite-ui.js', 'parts/room/room-invite-ui.js', 'app/parts/room/room-invite-ui.js']),
+  NET: pick(['net-ready.js', 'parts/shared/net-ready.js', 'app/parts/shared/net-ready.js']),   // 🛰 _waitForFirebaseAPI 가 넘기는 네트워크 준비 기다리기 한 곳
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 /* 5-2절 «직접 읽기 0곳» 이 훑는 렌더러 파일 전부(스테이징 평면의 .js) — firebase-init.js 만 경로를 안다 */
@@ -61,7 +62,7 @@ async function judge(S){
   chk(FS.noticeFor('ready') === null && FS.noticeFor('loading') === '친구 목록을 불러오는 중이에요' && FS.noticeFor('idle') === FS.noticeFor('loading'),
     '받았으면 null · 받기 전(시작 전 포함)은 «불러오는 중이에요»');
   chk(FS.noticeFor('error') === '친구 목록을 불러오지 못했어요.\n잠시 후 다시 시도할게요', '못 받았으면 «불러오지 못했어요.⏎잠시 후 다시 시도할게요»(두 문장 사이 줄바꿈)');
-  chk(FS.NOTICE.checkFail === '친구 목록을 불러오지 못했어요. 잠시 후 다시 눌러 주세요', '판정용 읽기 실패 토스트 «잠시 후 다시 눌러 주세요» — 토스트는 줄바꿈을 못 그려 한 줄 그대로');
+  chk(FS.NOTICE.checkFail === '친구 목록을 불러오지 못했어요.\n잠시 후 다시 눌러 주세요', '판정용 읽기 실패 토스트 «불러오지 못했어요.⏎잠시 후 다시 눌러 주세요»(두 문장 사이 줄바꿈 — toast pre-line)');
 
   /* ── 2. 구독 한 벌 ── */
   say('── 2. friends-sub.js — 상태 · 목록 열 때만 다시 걸기 · 동시 구독 1개');
@@ -83,7 +84,7 @@ async function judge(S){
       readPresence: (fid) => { E.reads.push(fid); if(o.readFail) return Promise.reject(new Error('offline')); return Promise.resolve({ online: true, room: 'R-' + fid }); },
       current: () => E.friends,
       setFriends: (v) => { E.sets++; E.friends = v; },
-      getMyUserId: () => 'ME',
+      getMyUserId: () => (o.noUid ? null : 'ME'),
       toast: (m) => E.toasts.push(m),
       setTimer: T.set, clearTimer: T.clear,
       onUnload: (fn) => E.unload.push(fn),
@@ -347,6 +348,13 @@ async function judge(S){
     chk(E.subs.length === 0 && E.fetches.length === 0 && E.T.pending() === 0 && E.mod.status() === 'ready' && E.mod.notice() === null && r0 && !Object.keys(r0).length,
       '내 코드 없음 — 요청 0(구독 · 읽기 · 다시 걸기) · «친구 없음»(안내 null → 화면은 «아직 친구가 없어요»)');
   }
+  {
+    /* 내 코드 없음 · 시작 전(idle)에 친구 [추가] — users/null/friends 를 읽지 않는다: 판정 요청 0 · 빈 목록 · 토스트 0 */
+    const E = mk({ noUid: true });
+    const r0 = await E.mod.friendsForCheck();
+    chk(E.fetches.length === 0 && E.subs.length === 0 && E.toasts.length === 0 && r0 && !Object.keys(r0).length,
+      '내 코드 없음 · 시작 전 판정 — 요청 0 · 빈 목록 · 토스트 0');
+  }
   /* ── 3. firebase-init.js 친구 함수(옛 길) ── */
   say('── 3. firebase-init.js — 목록 구독 하나(친구별 구독 없음) · 카드 한 번 읽기 · 접속 상태 구독 · 한 번 읽기');
   const i0 = S.FB.indexOf('    watchMyFriendList(myId, onChange, onError){');
@@ -422,7 +430,7 @@ async function judge(S){
     const run = (ready) => {
       const L = [], timers = [];
       const win = { firebaseAPI: ready ? { watchMyFriendList(){} } : undefined, addEventListener: (t, fn, o) => L.push({ t, fn, o }) };
-      const wait = new Function('window', 'setTimeout', 'setInterval', 'with(window){\n' + fnSrc + '\nreturn _waitForFirebaseAPI;\n}')(win, (f, ms) => { timers.push(ms); return 1; }, (f, ms) => { timers.push(ms); return 1; });
+      const wait = new Function('window', 'setTimeout', 'setInterval', 'module', S.NET + '\nvar TwNetReady = window.TwNetReady;\nwith(window){\n' + fnSrc + '\nreturn _waitForFirebaseAPI;\n}')(win, (f, ms) => { timers.push(ms); return 1; }, (f, ms) => { timers.push(ms); return 1; });
       let n = 0;
       wait(() => { n++; });
       return { L, timers, win, n: () => n };
@@ -529,8 +537,8 @@ const BREAKS = [
   ['FB', '      if(_myFriendsOff) _myFriendsOff();\n', '', '새로 걸 때 앞의 것을 안 풂(동시 2개)'],
   ['FB', '      }, err=>{\n        teardown();', '      }, err=>{', '거부돼도 친구별 구독이 남음'],
   ['FB', '        if(onError) onError(err);\n', '', '에러를 안 알림'],
-  ['APP', "  window.addEventListener('firebase-ready', ()=>cb(), { once:true });", "  setTimeout(()=>_waitForFirebaseAPI(cb), 500);", '예전 폴링으로 되돌림'],
-  ['APP', "{ once:true });\n}\n/* 🔇", "{ once:false });\n}\n/* 🔇", 'once 를 뺌'],
+  ['APP', "  TwNetReady.whenNetReady(()=>cb(), 'watchMyFriendList');", "  setTimeout(()=>_waitForFirebaseAPI(cb), 500);", '예전 폴링으로 되돌림'],
+  ['NET', "  window.addEventListener(NET_READY_EVENT, cb, { once:true });", "  window.addEventListener(NET_READY_EVENT, cb, { once:false });", 'once 를 뺌'],
   ['MI', '      friendsSub.start(myId,', '      await Promise.resolve();\n      friendsSub.start(myId,', '구독을 await 뒤로'],
   ['UI', '    if(!_fr) return;\n', '', '판정용 목록을 못 읽어도 보냄'],
   ['UI', "      if(tab.dataset.tab==='friend') friendsRetry();\n", '', '친구 탭을 열어도 다시 안 걺'],

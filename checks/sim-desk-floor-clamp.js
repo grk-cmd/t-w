@@ -93,6 +93,7 @@ chk(isFinite(SNAP_MIN) && isFinite(SNAP_MAX) && !!PIN_NAME,
 function V3(){ this.x = 0; this.y = 0; this.z = 0; }
 function Box3(){ this.min = { x:0, y:Infinity, z:0 }; this.max = { x:0, y:-Infinity, z:0 }; }
 Box3.prototype.isEmpty = function(){ return this.max.y < this.min.y; };
+Box3.prototype.makeEmpty = function(){ this.min.y = Infinity; this.max.y = -Infinity; return this; };
 Box3.prototype.union = function(b){
   if (!b.isEmpty()){ this.min.y = Math.min(this.min.y, b.min.y); this.max.y = Math.max(this.max.y, b.max.y); }
   return this;
@@ -117,16 +118,20 @@ function node(name){
   return { name, isMesh:false, visible:true, children:[], parent:null,
     position:{x:0,y:0,z:0}, scale:{x:1,y:1,z:1},
     add(c){ c.parent = this; this.children.push(c); return c; },
+    traverse(cb){ cb(this); this.children.forEach(c => c.traverse(cb)); },
     updateWorldMatrix(){},
     getWorldScale(v){ let s = 1, p = this; while (p){ s *= p.scale.y; p = p.parent; } v.y = s; return v; } };
 }
 function mesh(name, y0, y1){ const n = node(name); n.isMesh = true; n.box = [y0, y1]; return n; }
 
-/* 떼어낸 함수 두 개를 이 THREE 위에서 살린다 */
-const mk = new Function('THREE', 'FLOOR_SNAP_MIN', 'FLOOR_SNAP_MAX',
+/* 떼어낸 함수 두 개를 이 THREE 위에서 살린다 — _boxExcluding 이 재는 몫은 character/body-measure.js(진짜 모듈을 같은 THREE 위에) */
+const BM_SRC = ['body-measure.js', __dirname + '/body-measure.js', __dirname + '/../app/parts/character/body-measure.js'].filter(p => fs.existsSync(p)).map(p => fs.readFileSync(p, 'utf8'))[0];
+if (!BM_SRC) throw new Error('body-measure.js 를 못 찾음');
+const bodyMeasureMod = (() => { const win = {}; new Function('THREE', 'window', 'module', BM_SRC)(THREE, win, undefined); return win.TwBodyMeasure.createBodyMeasure({}); })();
+const mk = new Function('THREE', 'FLOOR_SNAP_MIN', 'FLOOR_SNAP_MAX', 'bodyMeasureMod', 'measureBodyBox',   // char-measure.js 의 _boxExcluding 은 deps 로 받은 measureBodyBox 를 부른다
   cut('_boxExcluding') + '\n' + cut('floorClampWrapper') +
   '\n;return {_boxExcluding, floorClampWrapper};');
-const F = mk(THREE, SNAP_MIN, SNAP_MAX);
+const F = mk(THREE, SNAP_MIN, SNAP_MAX, bodyMeasureMod, (...a) => bodyMeasureMod.measureBodyBox(...a));
 
 /* 생성기 책상 한 벌.
    scale 0.175 는 setDeskScale 의 실제 배율대이고, 다리는 로컬 0~0.42 (buildDesk 의 deskTopY-0.04). */

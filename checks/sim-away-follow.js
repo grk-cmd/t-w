@@ -81,6 +81,7 @@ say('── 3. _awayImgFrame — 자리 재기');
     function _awayWorldForPx(){ return env.h; }
     function _awayPxFor(){ return 80; }   // 개정 76 — 주인이 고른 크기(60·80·100). 이 검사는 크기를 보지 않는다(env.h 가 정한다)
     function measureHeadBoxNoParts(root){ return root.__head || null; }
+    function measureBodyBox(root, opts, out){ return out.setFromObject(root); }   // 옵션 없음 = setFromObject 그대로(body-measure.js)
     ${grabFn('_awayImgFrame')}
     return _awayImgFrame;
   `);

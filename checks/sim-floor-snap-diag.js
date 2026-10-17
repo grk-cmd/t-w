@@ -113,7 +113,10 @@ say('── 4. 동작 — 바닥 맞춤 보고서');
       new Function('window', 'module', 'THREE', 'console', MOD)(win, undefined, THREE, con);
       /* measureUnderfootDepth 는 char-measure.js — 옮기기 전 글을 그대로 굴려 준다 */
       const a = SRC_M.indexOf('function measureUnderfootDepth('), b = SRC_M.indexOf('\n}\n', a) + 3;
-      const mud = new Function('THREE', 'console', 'const FLOOR_SNAP_MAX = 1.2, FLOOR_SNAP_MIN = 0.005;\n' + SRC_M.slice(a, b) + '\nreturn measureUnderfootDepth;')(THREE, con);
+      const _bmSrc = ['character/body-measure.js', 'parts/character/body-measure.js', 'app/parts/character/body-measure.js', 'body-measure.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);   // 몸 박스 규칙(deps measureBodyBox) — 진짜 모듈을 같은 three 위에서 만든다
+      const bmWin = {}; new Function('window', 'module', 'THREE', _bmSrc)(bmWin, undefined, THREE);
+      const measureBodyBox = (...x) => bmWin.TwBodyMeasure.createBodyMeasure({}).measureBodyBox(...x);   // char-measure.js 가 deps 로 받는 몸 박스 규칙
+      const mud = new Function('THREE', 'console', 'measureBodyBox', 'const FLOOR_SNAP_MAX = 1.2, FLOOR_SNAP_MIN = 0.005;\n' + SRC_M.slice(a, b) + '\nreturn measureUnderfootDepth;')(THREE, con, measureBodyBox);
       win.TwFloorSnapDiag.createFloorSnapDiag({ charMeasureMod: { measureUnderfootDepth: mud }, findMySeat: () => me, wardrobeMod: () => wd });
       return { report: win.floorSnapReport, win };   // 밖으로는 window.floorSnapReport 하나만(콘솔에서 부른다)
     }

@@ -13,6 +13,7 @@ const snippet = src.slice(start, endMark);
 class Box3 {
   constructor(){ this.min={x:0,y:0,z:0}; this.max={x:0,y:0,z:0}; this.empty=true; }
   isEmpty(){ return this.empty; }
+  makeEmpty(){ this.empty = true; return this; }
   clone(){ const b=new Box3(); b.min={...this.min}; b.max={...this.max}; b.empty=this.empty; return b; }
   setFromObject(o){
     this.empty = true;
@@ -31,8 +32,15 @@ class Box3 {
 }
 const THREE = { Box3 };
 
-const fn = new Function('THREE', snippet + '\n return { measureHeadBoxNoParts, headDecorMeshSet };');
-const { measureHeadBoxNoParts } = fn(THREE);
+// 규칙 본문은 character/body-measure.js 로 묶였다 — 같은 스텁 위에서 그 모듈을 만들어 넘긴다
+const path = require('path');
+const bmSrc = [path.join(__dirname, 'body-measure.js'), path.join(__dirname, 'parts/character/body-measure.js'), path.join(__dirname, '../app/parts/character/body-measure.js')]
+  .map(p => { try{ return fs.readFileSync(p, 'utf8'); }catch(_){ return null; } }).find(Boolean);
+if (!bmSrc) throw new Error('추출 실패 — body-measure.js 를 못 찾음');
+const bmWin = {}; new Function('THREE', 'window', 'module', bmSrc)(THREE, bmWin, undefined);
+const bodyMeasureMod = bmWin.TwBodyMeasure.createBodyMeasure({});
+const fn = new Function('THREE', 'bodyMeasureMod', 'measureBodyBox', snippet + '\n return { measureHeadBoxNoParts, headDecorMeshSet };');   // char-measure.js 는 deps 로 받은 measureBodyBox 를 부른다
+const { measureHeadBoxNoParts } = fn(THREE, bodyMeasureMod, (...a) => bodyMeasureMod.measureBodyBox(...a));
 
 // ── 장면 구성: 몸 + 기본 모자(몸보다 위로 뻗음)
 function node(name, box, extra){

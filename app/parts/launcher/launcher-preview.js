@@ -36,6 +36,7 @@ const defToBase = deps.defToBase;
 const equipDeskItem = deps.equipDeskItem;
 const extractBonesInto = deps.extractBonesInto;
 const getCommissionScene = deps.getCommissionScene;
+const measureBodyBox = deps.measureBodyBox;
 const registerCustomItem = deps.registerCustomItem;
 const scene = deps.scene;
 const setDeskPos = deps.setDeskPos;
@@ -65,21 +66,11 @@ function ensureLauncherPreview(){
   const dt=desk.getObjectByName('deskTop'); if(dt){dt.material=dt.material.clone(); lDeskMat=dt.material;}
   lHolder={desk:desk, deskAnchor:desk.userData.deskAnchor, deskItems:{}, deskMat:lDeskMat, activeDeskItem:null};}
 /* 🧍 런처 미리보기 프레이밍용 "몸만" 바운딩박스 — 파츠(__part_/__partWrap_ wrapper와 리깅 스킨드메시)를
-   제외하고 캐릭터 몸 메쉬만 union. 파츠 위치가 어긋나도 프레임 크기가 흔들리지 않게 하는 것이 목적. */
+   제외하고 캐릭터 몸 메쉬만 union. 파츠 위치가 어긋나도 프레임 크기가 흔들리지 않게 하는 것이 목적.
+   ★ 재기는 measureBodyBox(character/body-measure.js) — 파츠 판정만 이 화면의 옛 규칙('__part' 접두 · 리깅 · 숨김은 셈). */
+const LC_BODY_OPTS = { excludeParts: true, partTest: p => (p.userData && p.userData.rigged) || String(p.name||'').startsWith('__part') };
 function _lcBodyBox(group){
-  const box=new THREE.Box3(), tmp=new THREE.Box3();
-  group.updateWorldMatrix(true,true);
-  group.traverse(o=>{
-    if(!o.isMesh) return;
-    if(o.userData && o.userData._origBind) return;          // 리깅 파츠 스킨드메시
-    let p=o, skip=false;
-    while(p && p!==group){
-      if((p.userData && p.userData.rigged) || String(p.name||'').startsWith('__part')){ skip=true; break; }
-      p=p.parent;
-    }
-    if(skip) return;
-    try{ tmp.setFromObject(o); if(!tmp.isEmpty()) box.union(tmp); }catch(_){}
-  });
+  const box = measureBodyBox(group, LC_BODY_OPTS);
   // 파츠만 있고 몸을 못 찾은 극단적 경우엔 전체 박스로 폴백(빈 프레임 방지)
   if(box.isEmpty()){ try{ box.setFromObject(group); }catch(_){} }
   return box;

@@ -251,6 +251,13 @@ async function behave(src){
     chk(list.innerHTML === '<div class="mh-ibx-empty">불러오는 중…</div>', '먼저 «불러오는 중…»');
     await flush(); await flush();
     chk(e.calls.join() === 'getMallangGifts ME01', '  받은 선물은 내 코드로 한 번 받는다');
+    const noUid = async (o) => { const u = E(o); const um = u.mk({ getMyUserId: () => null }); u.reg('mhGiftStat'); u.reg('myHomeWin'); u.gifts = e.gifts; const l = mkEl('div', u); um.renderGiftBox(l); await flush(); await flush();
+      return u.calls.length === 0 && /아직 받은 선물이 없어요/.test(l.innerHTML); };
+    chk(await noUid(), '  내 코드 없음 — 선물 요청 0 · «아직 받은 선물이 없어요»(읽기 실패 때와 같은 화면)');
+    if(src === SRC['myhome-inbox.js']){
+      const m2 = src.replace('if(getMyUserId() && window.firebaseAPI && firebaseAPI.getMallangGifts)', 'if(window.firebaseAPI && firebaseAPI.getMallangGifts)');
+      chk(m2 !== src && !(await noUid({ src: m2 })), '    깨 보기 — 내 코드 확인을 빼면 빨강');
+    }
     const cells = list.innerHTML.match(/<div class="gift-cell[^"]*"/g) || [];
     chk(cells.length === 30 && cells.filter(c => /empty/.test(c)).length === 27, '격자 30칸 — 남은 칸은 빈 칸');
     chk(/data-gid="g2"[\s\S]*data-gid="g-out"[\s\S]*data-gid="g1"/.test(list.innerHTML), '  순서 — 최신순(mallang 정렬이 없으면)');

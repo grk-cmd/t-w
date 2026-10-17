@@ -67,6 +67,7 @@ function _schedSubscribeMonth(){
   if(_schedUnsubMonth){ try{ _schedUnsubMonth(); }catch(_){} _schedUnsubMonth = null; }
   // 👀 관람 중이면 친구의 달력을 — 단 "친구에게 공개" 체크된 일정만 남김
   const schedOwner = viewingUserId() || getMyUserId();
+  if(!schedOwner) return;   // 내 코드가 없으면 달력을 구독하지 않는다(users/null/schedule)
   const viewingAtSub = viewingUserId();
   _schedUnsubMonth = firebaseAPI.subscribeScheduleMonth(schedOwner, _schedYM, data=>{
     let d = data || {};
@@ -940,6 +941,7 @@ function _bellSubscribeToday(){
   const ym = _ymOf(t.y, t.m);
   const dd = _pad2(t.d);
   if(_bellUnsubToday){ try{ _bellUnsubToday(); }catch(_){} }
+  if(!getMyUserId()) return;   // 내 코드가 없으면 오늘 일정을 구독하지 않는다
   _bellUnsubToday = firebaseAPI.subscribeScheduleMonth(getMyUserId(), ym, data=>{
     const dayObj = (data && data[dd]) || {};
     _bellTodayItems = Object.keys(dayObj).map(id=>({ id, text: dayObj[id].text||'', ts: dayObj[id].ts||0 }));
@@ -1201,6 +1203,7 @@ function renderBellList(){
   // 친구 태그 알림 구독
   const sub = ()=>{
     if(!window.firebaseAPI) return;
+    if(!getMyUserId()) return;   // 내 코드가 없으면 태그 알림을 구독하지 않는다(users/null/schedNotices)
     if(firebaseAPI.subscribeSchedNotices){
       firebaseAPI.subscribeSchedNotices(getMyUserId(), notices=>{
         const prevIds = Object.keys(_bellNotices||{});
@@ -1219,8 +1222,7 @@ function renderBellList(){
     }
     _bellSubscribeToday();
   };
-  if(window.firebaseAPI) sub();
-  else window.addEventListener('firebase-ready', sub, { once:true });
+  TwNetReady.whenNetReady(sub);
 
   // 날짜가 바뀌면(자정 넘김) 오늘 일정 구독을 새 날짜로 갱신
   let _bellDay = _todayYMD();

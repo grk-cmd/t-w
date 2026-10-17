@@ -173,11 +173,11 @@ say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['쪼개기 최대 8 → 9', (m) => m.replace('CR_PAINT_MAX_STEPS = 8', 'CR_PAINT_MAX_STEPS = 9'), null, null],
   ['쪼개기 6px → 5px', (m) => m.replace('CR_PAINT_STEP_PX = 6', 'CR_PAINT_STEP_PX = 5'), null, null],
-  ['옷 가려짐 없앰', (m) => m.replace('< hit.distance - 1e-3) return null;', '< -1) return null;'), null, null],
+  ['옷 가려짐 없앰', (m) => m.replace('< hit.distance - OCCLUDE_EPS) return null;', '< -1) return null;'), null, null],
   ['솔기 판정 없앰', (m) => m.replace('> allow){ crState.lastPX=crState.lastPY=null; }', '> 99){ crState.lastPX=crState.lastPY=null; }'), null, null],
   ['대칭 없앰', (m) => m.replace('if(crState.symmetry){ const m=mirrorUV(hit);\n', 'if(false){ const m=mirrorUV(hit);\n'), null, null],
   ['스포이드 입구 전제 없앰', (m) => m.replace("  if(!crState.cBase.face || !document.getElementById('creatorPreview')) return false;\n", ''), null, null],
-  ['스포이드 알파 8 → 0', (m) => m.replace('if(d[3]<8) return false;', 'if(d[3]<0) return false;'), null, null],
+  ['스포이드 알파 8 → 0', (m) => m.replace('const EYEDROP_MIN_ALPHA = 8;', 'const EYEDROP_MIN_ALPHA = 0;'), null, null],
   ['지우개 되돌리기 없앰', (m) => m.replace("ctx.globalCompositeOperation='source-over'; blit(); }", 'blit(); }'), null, null],
   ['만들 때 던짐', (m) => m.replace('function createPaintStroke(deps){', 'function createPaintStroke(deps){ throw new Error("깨 봄");'), null, null],
   ['app.js 에 본문이 남음', null, (a) => a + '\nfunction paintAt(hit){}', null],

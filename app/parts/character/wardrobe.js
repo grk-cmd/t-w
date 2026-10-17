@@ -50,7 +50,6 @@ const escHtml = deps.escHtml;
 const findEntryById = deps.findEntryById;
 const findMySeat = deps.findMySeat;
 const firstEntryForCat = deps.firstEntryForCat;
-const fitModel = deps.fitModel;
 const floorClampWrapper = deps.floorClampWrapper;
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const getCommissionScene = deps.getCommissionScene;
@@ -70,6 +69,7 @@ const partsInCat = deps.partsInCat;
 const partsInCatFor = deps.partsInCatFor;
 const partsInGroup = deps.partsInGroup;
 const pruneSeatPartsAgainstDef = deps.pruneSeatPartsAgainstDef;
+const refitSeatAfterParts = deps.refitSeatAfterParts;
 const removeEntryFromCat = deps.removeEntryFromCat;
 const removePartEntryInstance = deps.removePartEntryInstance;
 const reorderSavedPart = deps.reorderSavedPart;
@@ -880,11 +880,9 @@ async function _commitWdDraftNow(silent){
   saveSlots();
   // 실제 캐릭터에서 "뺀 파츠"를 먼저 걷어냄 — 🔗 stackable은 id 단위까지 대조 (안 하면 예전 파츠가 유령으로 남음)
   pruneSeatPartsAgainstDef(mySeat, def);
-  await applyEquippedPartsToSeat(mySeat, def);   // 남아있는/새로 생긴 파츠는 적용(같은 카테고리 교체도 내부에서 처리됨)
-  /* 🦶 파츠가 바뀌면 발밑 깊이도 바뀐다 — 여기서 다시 맞춘다.
-     ⚠️ 이 호출이 없으면 욕조를 벗은 뒤에도 캐릭터가 그 깊이만큼 뜬 채로 남아 있다가 다음 실행에서야
-       제자리로 돌아온다. 부팅 경로(applyCharToSeat)에는 이미 같은 재계산이 있다. */
-  try{ if(mySeat && mySeat.gltfRoot) fitModel(mySeat); }catch(_){}
+  /* 남아있는/새로 생긴 파츠는 적용(같은 카테고리 교체도 내부에서 처리됨) → 🦶 발밑 깊이 · 올라탄 사람 높이를 다시 맞춘다.
+     ⚠️ 빠지면 욕조를 벗은 뒤에도 그 깊이만큼 뜬 채로 남아 있다가 다음 실행에서야 제자리로 돌아온다. */
+  await refitSeatAfterParts(mySeat, { wait: applyEquippedPartsToSeat(mySeat, def) });
   saveSlots();   // 적용 중 def 가 정리됐으면(옷 겹침 등) 한 번 더 — 그대로면 아무 일 없다
   if(mySeat.isMe && typeof Presence()!=='undefined' && Presence().active()){
     Presence().updateDef(def);
@@ -917,8 +915,7 @@ async function _commitWdDraftToOwner(draft, silent){
   if(seat){
     if(_earChanged) _attachHumanEars(seat.modelRoot, src);
     pruneSeatPartsAgainstDef(seat, src);
-    await applyEquippedPartsToSeat(seat, src);
-    try{ if(seat.gltfRoot) fitModel(seat); }catch(_){}
+    await refitSeatAfterParts(seat, { wait: applyEquippedPartsToSeat(seat, src) });
     saveSlots();
   }
   if(seat && seat.isMe && typeof Presence()!=='undefined' && Presence().active()) Presence().updateDef(src);

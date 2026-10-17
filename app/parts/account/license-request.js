@@ -82,8 +82,7 @@ document.getElementById('licenseReqApplyBtn').onclick=async ()=>{
 (function resumePendingLicenseRequest(){
   let reqId=null; try{ reqId=localStorage.getItem(LICENSE_REQ_ID_KEY); }catch(e){}
   if(!reqId) return;
-  if(window.firebaseAPI) watchMyLicenseRequest(reqId);
-  else window.addEventListener('firebase-ready', ()=>watchMyLicenseRequest(reqId), {once:true});
+  TwNetReady.whenNetReady(()=>watchMyLicenseRequest(reqId));
 })();
 
 /* --- 관리자 비밀번호 창 버튼 연결은 admin/admin-mode.js 로 옮겼다(관리자 모드 진입과 한 묶음) --- */

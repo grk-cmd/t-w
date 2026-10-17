@@ -67,11 +67,11 @@ chk(relinkCalls(grab('_charsSync', true) || APP.slice(APP.indexOf('async functio
 say('── 3. 저장 순서 — 파츠 받기 전에 saveSlots');
 {
   const now = noCmt(grab('_commitWdDraftNow', true));
-  const iPart = now.indexOf('def.partXfMemory ='), iSave = now.indexOf('saveSlots()', iPart), iApply = now.indexOf('await applyEquippedPartsToSeat(mySeat, def);');
+  const iPart = now.indexOf('def.partXfMemory ='), iSave = now.indexOf('saveSlots()', iPart), iApply = now.indexOf('applyEquippedPartsToSeat(mySeat, def)');   // 다시 맞추기 한 벌(refitSeatAfterParts)이 기다리는 장착
   chk(iPart > 0 && iSave > iPart && iApply > iSave, '★ _commitWdDraftNow — def 에 쓴 직후 저장, GLB 받기는 그 뒤 (꺼져도 남는다)');
   chk(now.indexOf('saveSlots()', iApply) > iApply, '  받은 뒤에도 한 번 더(적용 중 정리된 것 — 그대로면 saveSlots 가 아무것도 안 올린다)');
   const own = noCmt(grab('_commitWdDraftToOwner', true));
-  const jPart = own.indexOf('src.partXfMemory ='), jSave = own.indexOf('saveSlots()', jPart), jApply = own.indexOf('await applyEquippedPartsToSeat(seat, src);');
+  const jPart = own.indexOf('src.partXfMemory ='), jSave = own.indexOf('saveSlots()', jPart), jApply = own.indexOf('applyEquippedPartsToSeat(seat, src)');
   chk(jPart > 0 && jSave > jPart && jApply > jSave, '  _commitWdDraftToOwner 도 같다');
 }
 

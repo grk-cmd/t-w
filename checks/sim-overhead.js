@@ -1,8 +1,8 @@
 /* ═══ 💬 sim-overhead.js — 💬 머리 위 말풍선 · 회사원 모드 라벨 · 🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너 모듈 구조 (2026-10-14 신설 · 앱 FSD 34번) ═══════════════
    app.js 의 머리 위 말풍선 · 이름표 두 구역 본문 을 parts/room/overhead.js 로 옮겼다(글자 그대로 · 바뀐 줄 3 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(말풍선 · 이름표 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(NAMEPLATE_BELOW_EXPBAR · _officeDemojiHtml · _seatLabelName · applyChipOrientation · chipHorizontal · setChipHorizontal · dismissSeatHeadBubble · ensureSeatLabelsLayer · nameplateEnabled · setNameplateEnabled · projectWorldToScreenPx · removeSeatLabels · setSeatHeadBubble · setSeatNamePlate)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 15줄 그대로 · 부르는 곳은 overheadMod.이름 · html(app.js 앞)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(NAMEPLATE_BELOW_EXPBAR · _officeDemojiHtml · _seatLabelName · setSeatMenu · setLabelDrag · bindLabelDrag · applyChipOrientation · chipHorizontal · setChipHorizontal · dismissSeatHeadBubble · ensureSeatLabelsLayer · nameplateEnabled · setNameplateEnabled · projectWorldToScreenPx · removeSeatLabels · setSeatHeadBubble · setSeatNamePlate)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 14줄 그대로(좌석 메뉴는 setSeatMenu 갈고리) · 부르는 곳은 overheadMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · overhead.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -15,15 +15,19 @@ const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["overhead.js","parts/room/overhead.js","app/parts/room/overhead.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — overhead.js'); process.exit(2); }
+/* 🛰 네트워크 준비 기다리기(shared/net-ready.js — 모듈이 TwNetReady.whenNetReady 를 부른다) — 가짜 window 위에 진짜 파일을 먼저 싣는다 */
+const NET = ["net-ready.js","parts/shared/net-ready.js","app/parts/shared/net-ready.js"].map(read).find(Boolean);
+if(!NET){ say('  ? 원본 못 찾음 — net-ready.js'); process.exit(2); }
+const NET_PRE = NET + '\nvar TwNetReady = window.TwNetReady;\n';
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_chatEsc","_diceSvg","_seatCtxMenu","_starPaint","getDisplayName","seatScale"];
+const FN_DEPS = ["_chatEsc","_diceSvg","_starPaint","getDisplayName","seatScale"];
 const VAL_DEPS = ["ANIMAL_RUN_SCALE","_wpTmp3","camera","chatUiMod","renderer","seats","tricksMod"];
 const GET_DEPS = ["focusLevelMod","officeMode"];
 const SET_DEPS = [];
-const EXPORTS = ["NAMEPLATE_BELOW_EXPBAR","_officeDemojiHtml","_seatLabelName","applyChipOrientation","chipHorizontal","setChipHorizontal","dismissSeatHeadBubble","ensureSeatLabelsLayer","nameplateEnabled","setNameplateEnabled","projectWorldToScreenPx","removeSeatLabels","setSeatHeadBubble","setSeatNamePlate"];
+const EXPORTS = ["NAMEPLATE_BELOW_EXPBAR","_officeDemojiHtml","_seatLabelName","setSeatMenu","setLabelDrag","bindLabelDrag","applyChipOrientation","chipHorizontal","setChipHorizontal","dismissSeatHeadBubble","ensureSeatLabelsLayer","nameplateEnabled","setNameplateEnabled","projectWorldToScreenPx","removeSeatLabels","setSeatHeadBubble","setSeatNamePlate"];
 const MOVED = ["nameplateEnabled","chipHorizontal","applyChipOrientation","_labelWP","projectWorldToScreenPx","ensureSeatLabelsLayer","ensureSeatNamePlateEl","seatLabelHeadY","LABEL_INV_GAP_PX","NAMEPLATE_BELOW_EXPBAR","setSeatNamePlate","ensureSeatAnnounceEl","_seatShowsAnnounce","updateSeatAnnounceEl","_activeAnnounceText","_announceExpireTimer","_refreshAnnounceState","_hideAllAnnounceEls","_initAnnounceSubscription","BUBBLE_INV_GAP_LABEL_PX","BUBBLE_INV_GAP_FEET_PX","BUBBLE_X_NUDGE_PX","ensureSeatBubbleEl","_officeLabelHtml","OFFICE_DEMOJI_PX","_officeDemojiHtml","_seatLabelName","_bubSnapTransform","setSeatHeadBubble","dismissSeatHeadBubble","removeSeatLabels"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  _chatEsc: (...a)=>_chatEsc(...a),","  _diceSvg: (...a)=>_diceSvg(...a),","  _seatCtxMenu: (...a)=>_seatCtxMenu(...a),","  _starPaint: (...a)=>_starPaint(...a),","  _wpTmp3: _wpTmp3,","  camera: camera,","  chatUiMod: chatUiMod,","  focusLevelMod: ()=>focusLevelMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  officeMode: ()=>officeMode,","  renderer: renderer,","  seatScale: (...a)=>seatScale(...a),","  seats: seats,","  tricksMod: tricksMod,"];
+const GLUE = ["  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  _chatEsc: (...a)=>_chatEsc(...a),","  _diceSvg: (...a)=>_diceSvg(...a),","  _starPaint: (...a)=>_starPaint(...a),","  _wpTmp3: _wpTmp3,","  camera: camera,","  chatUiMod: chatUiMod,","  focusLevelMod: ()=>focusLevelMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  officeMode: ()=>officeMode,","  renderer: renderer,","  seatScale: (...a)=>seatScale(...a),","  seats: seats,","  tricksMod: tricksMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -43,7 +47,7 @@ function build(src){
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
-    src + '\nreturn window.TwOverhead;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+    NET_PRE + src + '\nreturn window.TwOverhead;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
   return api.createOverhead(deps);
 }
 

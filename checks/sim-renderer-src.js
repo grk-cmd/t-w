@@ -95,6 +95,7 @@ const MODULES = [
   { file: 'catalog-glb.js', mod: 'catalogGlbMod', glob: 'TwCatalogGlb', sample: 'function resolveCatalogGlb(' },   // 구역 떼기 C · w2
   { file: 'catalog-sync.js', mod: 'catalogSyncMod', glob: 'TwCatalogSync', sample: 'function mergeCatalogIntoSavedItems(' },   // 구역 떼기 C · w2
   { file: 'seat-layout.js', mod: 'seatLayoutMod', glob: 'TwSeatLayout', sample: 'function layoutSeatRow(' },   // 구역 떼기 C · w1
+  { file: 'seat-refit.js', mod: 'seatRefitMod', glob: 'TwSeatRefit', sample: 'async function refitSeatAfterParts(' },   // 파츠 바뀐 뒤 좌석 다시 맞추기 한 벌
   { file: 'desk-items.js', mod: 'deskItemsMod', glob: 'TwDeskItems', sample: 'function _savedItemMeta(' },   // 구역 떼기 C · w2
   { file: 'light-tone.js', mod: 'lightToneMod', glob: 'TwLightTone', sample: 'function _applyPartMatTone(' },   // C 구역 떼기 w4
   { file: 'creator-preview.js', mod: 'creatorPrevMod', glob: 'TwCreatorPreview', sample: 'function updateCreatorLights(' },   // C 구역 떼기 · w3
@@ -118,6 +119,14 @@ const MODULES = [
   { file: 'paint-geom.js', mod: 'paintGeomMod', glob: 'TwPaintGeom', sample: 'function _seg(' },   // C 구역 떼기 w4
   { file: 'paint-stroke.js', mod: 'paintStrokeMod', glob: 'TwPaintStroke', sample: 'function mirrorUV(' },   // C 구역 떼기 w4
   { file: 'stamp.js', mod: 'crStampMod', glob: 'TwCrStamp', sample: 'function stampOverlayEl(' },   // C 구역 떼기 w4
+  { file: 'asset-import.js', mod: 'assetImportMod', glob: 'TwAssetImport', sample: 'function openAssetImport(' },   // C 구역 떼기 w4
+  { file: 'desk-preset-store.js', mod: 'deskPresetStoreMod', glob: 'TwDeskPresetStore', sample: 'function loadDeskPresets(' },   // C 구역 떼기 w4
+  { file: 'desk-preset.js', mod: 'deskPresetMod', glob: 'TwDeskPreset', sample: 'function captureDeskPreset(' },   // C 구역 떼기 w4
+  { file: 'asset-cards.js', mod: 'assetCardsMod', glob: 'TwAssetCards', sample: 'function applyDeskDotThumb(' },   // C 구역 떼기 w4
+  { file: 'desk-setup.js', mod: 'deskSetupMod', glob: 'TwDeskSetup', sample: 'function renderCrItems(' },   // C 구역 떼기 w4
+  { file: 'seat-menu.js', mod: 'seatMenuMod', glob: 'TwSeatMenu', sample: 'function _seatCtxMenu(' },   // C 구역 떼기 w4
+  { file: 'seat-eq-clamp.js', mod: 'seatEqClampMod', glob: 'TwSeatEqClamp', sample: 'function _clampSeatDeskParts(' },   // 구역 떼기 C · wAC
+  { file: 'desk-place.js', mod: 'deskPlaceMod', glob: 'TwDeskPlace', sample: 'function setDeskScale(' },   // 구역 떼기 C · w2
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

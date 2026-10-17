@@ -32,6 +32,7 @@ say('── 1. 🎰 가챠 = stackable · 숫자키 맵');
     "const SAVED_PARTS_KEY = 'tw.savedParts', CATALOG_ORDER_LAST = 9999; let savedParts = [];",
     'const log = [], seats = [];',
     'const persistSavedParts = () => {}, applyClothVisibility = () => {}, unequipPartFromSeat = () => {}, fitModel = () => {}, layoutSeats = () => {};',
+    'const refitSeatAfterParts = () => {};',   // 다시 맞추기 한 벌(seat-refit.js — 판정은 sim-seat-refit)
     'const renderLauncher = () => {}, refreshWdPreviewChar = () => {}, renderWardrobe = () => {}, _remeasureRideHeadTop = () => {};',
     'const gachaMod = { pruneUnownedGachaParts: () => {} }, partEntryXf = (e) => e && e.xf;',
     "const partEntryId = (e) => typeof e === 'string' ? e : (e && e.id), entriesForCat = (def, c) => [].concat(def.equippedParts[c]);",
@@ -234,7 +235,7 @@ say('── 9. 🗼 탑 위 자리비움 그림 — 바로 아래 캐릭터의 �
 {
   const fr = strip(grab(SRC, '_awayImgFrame'));
   chk(/const _host = seat\.ridingOn;\s*if\(_host && _host\.rig && seats\.indexOf\(_host\) >= 0\)\{/.test(fr), '올라탄 동안에만 갈래를 탄다');
-  chk(/_awayHostBox\.setFromObject\(_host\.bodyWrap \|\| _host\.rig\);/.test(fr) && /fy = _awayHostBox\.max\.y;/.test(fr), '밑변 = 바로 아래 캐릭터의 꼭대기');
+  chk(/_awayHostBox\.setFromObject\(_host\.bodyWrap \|\| _host\.rig\);|measureBodyBox\(_host\.bodyWrap \|\| _host\.rig, null, _awayHostBox\);/.test(fr) && /fy = _awayHostBox\.max\.y;/.test(fr), '밑변 = 바로 아래 캐릭터의 꼭대기');
   chk(/cx = \(_awayHostBox\.min\.x \+ _awayHostBox\.max\.x\)\/2;/.test(fr) && /cz = \(_awayHostBox\.min\.z \+ _awayHostBox\.max\.z\)\/2;/.test(fr), '가로·앞뒤 = 그 캐릭터 가운데');
   chk(fr.indexOf('fy = _awayHostBox.max.y;') < fr.indexOf('const h = _awayWorldForPx(_awayPxFor(seat), cx, fy, cz);'), '크기는 바뀐 자리의 깊이로 잰다');
   chk(/var _awayBox = null, _awayGW = null, _awayHostBox = null;/.test(CODE), '상자는 하나를 재사용한다(매 측정 new 없음)');

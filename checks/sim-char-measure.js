@@ -18,13 +18,13 @@ const MOD = ["char-measure.js","parts/character/char-measure.js","app/parts/char
 if(!MOD){ say('  ? 원본 못 찾음 — char-measure.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = [];
+const FN_DEPS = ["measureBodyBox"];
 const VAL_DEPS = [];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["charFootFix","floorClampWrapper","headDecorMeshSet","measureCharBox","measureHeadBoxNoParts","measureUnderfootDepth"];
 const MOVED = ["HEAD_DECOR_MESH_KEYS","_EMPTY_MESH_SET","headDecorMeshSet","measureHeadBoxNoParts","measureCharBox","FLOOR_SNAP_MAX","FLOOR_SNAP_MIN","measureUnderfootDepth","FOOT_FIX_MAX_RATIO","charFootFix","_boxExcluding","floorClampWrapper"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = [];
+const GLUE = ["  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -101,8 +101,11 @@ say('── 4. 동작 — 박스 · 깊이 · 보정 · 바닥 맞춤');
   const warns = []; const con = { warn: (...a) => warns.push(a.join(' ')), log(){} };
   function load(){
     if(typeof MOD === 'string' && MOD){
+      const _bmSrc = ['character/body-measure.js', 'parts/character/body-measure.js', 'app/parts/character/body-measure.js', 'body-measure.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);   // 몸 박스 규칙(deps measureBodyBox) — 진짜 모듈을 같은 three 위에서 만든다
+      const bmWin = {}; new Function('window', 'module', 'THREE', _bmSrc)(bmWin, undefined, THREE);
+      const bm = bmWin.TwBodyMeasure.createBodyMeasure({});
       const win = {}; new Function('window', 'module', 'THREE', 'console', MOD)(win, undefined, THREE, con);
-      return win.TwCharMeasure.createCharMeasure({ findMySeat: () => null, wardrobeMod: () => ({}) });
+      return win.TwCharMeasure.createCharMeasure({ measureBodyBox: (...a)=>bm.measureBodyBox(...a) });
     }
     const a = SRC.indexOf("/* 🎩 '머리가 아니라 머리에 얹힌 것'"), b = SRC.indexOf('/* 🩺 바닥 맞춤 진단');
     return new Function('THREE', 'console', SRC.slice(a, b) + '\nreturn { headDecorMeshSet, measureHeadBoxNoParts, measureCharBox, measureUnderfootDepth, charFootFix, floorClampWrapper, HEAD_DECOR_MESH_KEYS, FLOOR_SNAP_MAX, FLOOR_SNAP_MIN };')(THREE, con);
