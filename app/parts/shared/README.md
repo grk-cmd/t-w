@@ -195,3 +195,11 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   ```
 - **확장**: 새 기능을 서버로 옮길 때 `FEATURES` 에 한 줄(옛 스위치가 없으면 `legacy: () => 기본값`) · `remote-config.js` `SOURCE_FEATURES` · 웹 관리자 기능 스위치 표에 한 줄. 규칙은 `config/sources/$feature` 한 칸으로 이미 받는다.
 - **함정**: 서버 함수가 «값은 왔는데 못 쓴다»(예: 사본 버전이 다름)면 던지지 말고 `SKIP` 을 돌려준다 — 실패 알림 없이 파이어베이스로 간다. 파이어베이스 쪽 오류는 숨기지 않고 그대로 던진다. 방의 허용 목록 · 비율 · 기본 서버는 이 스위치가 «서버» 일 때 `room-server-gate.js` 가 그다음에 본다.
+
+## json-store.js — 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳
+
+- **책임**: 한 키의 JSON 을 읽고(해석) 쓴다. 실패를 삼키지 않고 결과 `{ ok, err, bytes }` 로 돌려준다 — 부르는 쪽이 알릴 수 있게.
+- **쓰는 곳**: 사람 책상 프리셋(`creator/desk-preset-store.js` · `tw.deskPresets`) · 동물 프리셋(`character/animal.js` · `tw.animalPresets`). 같은 «읽기 → 해석 / 만들기 → 쓰기» 를 두 곳이 따로 들던 것을 묶었다.
+- **만드는 법**: 렌더러에서는 `window.TwJsonStore`(`load` · `save`)를 바로 쓴다. 검사 · 다른 저장소는 `TwJsonStore.createJsonStore({ storage: () => 저장소 })`.
+- **내놓는 것**: `load(key, fallback)` → `{ ok, list, err, bytes }`(키가 없거나 빈 글이면 ok · fallback) · `save(key, value)` → `{ ok, err, bytes }`(던지지 않는다).
+- **함정**: 값의 모양(배열 · 객체)은 부르는 쪽이 본다. DOM · 토스트를 모른다 — 알리기는 부르는 쪽. 검사 `checks/sim-json-store.js`.

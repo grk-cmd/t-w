@@ -718,8 +718,8 @@ function _applyEarAdj(side){
 }
 function applyEars(){ _attachEar('L'); _attachEar('R'); }
 const ANP_PRESET_KEY='tw.animalPresets';
-function _loadPresets(){ try{ return JSON.parse(localStorage.getItem(ANP_PRESET_KEY)||'{}'); }catch(_){ return {}; } }
-function _savePresets(o){ try{ localStorage.setItem(ANP_PRESET_KEY, JSON.stringify(o)); }catch(_){} }
+function _loadPresets(){ return TwJsonStore.load(ANP_PRESET_KEY, {}).list; }
+function _savePresets(o){ return TwJsonStore.save(ANP_PRESET_KEY, o); }   // 읽기 · 쓰기는 shared/json-store.js 한 곳
 function renderPresetSlots(){
   if(!overlay) return;
   const box=overlay.querySelector('#anpPresetSlots'); if(!box) return;

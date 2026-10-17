@@ -19,7 +19,10 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 const flush = async () => { for (let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r)); };
 
 function lsOf(init, o = {}) { const m = Object.assign({}, init); return { m, getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { if (o.throwSet) throw new Error('full'); m[k] = v; } }; }
-const makeStore = (src, ls) => new Function('localStorage', 'window', 'module', src + '\nreturn window.TwDeskPresetStore;')(ls, {}, undefined).createDeskPresetStore({});
+/* 읽기 · 쓰기는 shared/json-store.js 가 한다(판정 무변경) — 같은 가짜 저장소 위에 진짜 json-store 를 만들어 넘긴다 */
+const JSON_STORE = read('json-store.js') || read('parts/shared/json-store.js') || read('app/parts/shared/json-store.js') || read('../app/parts/shared/json-store.js');
+const jsonStoreOf = (ls) => { const m = { exports: {} }; new Function('window', 'module', JSON_STORE)(undefined, m); return m.exports.createJsonStore({ storage: () => ls }); };
+const makeStore = (src, ls) => new Function('localStorage', 'window', 'module', src + '\nreturn window.TwDeskPresetStore;')(ls, {}, undefined).createDeskPresetStore({ jsonStore: jsonStoreOf(ls) });
 
 /* 가짜 DOM */
 function el(tag, id) {
@@ -171,7 +174,7 @@ function wire(app, html) {
   const t = (ok, msg) => r.push([!!ok, msg]);
   const A = strip(app);
   t(!/function captureDeskPreset\b|function applyDeskPreset\b|function renderDeskPresetSlots\b|function loadDeskPresets\b|const PRESET_KEY\b/.test(A), 'app.js 에 옮긴 선언이 안 남았다');
-  t(/const deskPresetStoreMod = TwDeskPresetStore\.createDeskPresetStore\(\{\n\}\);/.test(app), '저장 만드는 줄(가드 없이) · deps 0');
+  t(/const deskPresetStoreMod = TwDeskPresetStore\.createDeskPresetStore\(\{\n  jsonStore: TwJsonStore,\n\}\);/.test(app), '저장 만드는 줄(가드 없이) · deps 는 jsonStore 하나');
   const mk = (app.match(/const deskPresetMod = TwDeskPreset\.createDeskPreset\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   t(mk.split('\n').length === 27 && /  crState: crState,/.test(mk) && /  deskPresetStoreMod: deskPresetStoreMod,/.test(mk) && app.indexOf('const deskPresetStoreMod =') < app.indexOf('const deskPresetMod ='), '프리셋 만드는 줄(가드 없이) · deps 27 · 저장 모듈을 먼저 만든다');
   const iS = html.indexOf('<script src="parts/creator/desk-preset-store.js"></script>'), iM = html.indexOf('<script src="parts/creator/desk-preset.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
