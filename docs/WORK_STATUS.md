@@ -19,13 +19,13 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
-| #315 | 검증 세션 | 클릭 통과 판단을 한 곳으로(main #261 의 onUI 조건 포함) | `launcher/click-through-policy.js`(새) · `launcher/desktop-run.js` · `main.js` · 클릭 검사들 | #315 |
+| ~~#315~~ 머지 | 검증 세션 | 클릭 통과 판단을 한 곳으로(main #261 의 onUI 조건 포함) | `launcher/click-through-policy.js`(새) · `launcher/desktop-run.js` · `main.js` · 클릭 검사들 | #315 |
 | w4 묶음 | 도우미 1 | 구역 떼기 C · w4 다섯 줄(코드로 추가하기 · 책상 프리셋 · 책상 세팅 · 박힌 값 상수 · 좌석 우클릭 메뉴) | `creator/asset-import.js` · `desk-preset-store.js` · `desk-preset.js` · `desk-setup.js` · `asset-cards.js` · `room/seat-menu.js`(새) · `app.js` · html · smoke | — |
 | wQ 묶음 | 도우미 2 | 내 코드가 없으면 친구 · 부팅 · 마이홈 · 일정 · 방명록 · 방 만들기 요청을 안 보낸다 | `myhome/friends-sub.js` · `myhome/myhome-init.js` · 일정 · 방명록 · 방 만들기 창 | — |
 | wW 묶음 | 도우미 2 | 디자인 프리셋 판단 한 곳 → 프리셋에 그림도 담기 (B-1013-8) | `myhome/myhome-preset.js`(새) · `myhome/myhome-edit.js` | — |
 | wY | 도우미 2 | 파츠 바뀐 뒤 좌석 다시 맞추기 한 벌(seat-refit.js) | `character/seat-refit.js`(새) · `app.js` | — |
 | 낱개 | 도우미 3 | 문서 규칙(429c52b) · 두 번째 실행 10초(wT) · 토스트 문구(wS) · realtime 공통부(wP-C 6d352f0) · 에러코드(4c55c3c — 충돌 크면 다시 얹기) | `CLAUDE.md` · `main.js`(두 번째 실행) · 토스트 · `room/realtime-link.js`(새) · 에러코드 표 | — |
-| #265 다시 얹기 | 검증 세션 | 런처 화면 GPU 부하 줄이기 — 미리보기 1초 30번 · 깜빡임은 좌석과 같은 시간표 · 후원 반짝임(사용자 적용 승인 10-17) | `launcher/launcher-preview.js` · `shared/blink-timing.js`(새) · 좌석 깜빡임 · `shared/README.md` · 후원 문구 css | #265 → 새 PR |
+| #265 다시 얹기 | 검증 세션 | 런처 화면 GPU 부하 줄이기 — 미리보기 1초 30번 · 깜빡임은 좌석과 같은 시간표 · 후원 반짝임(사용자 적용 승인 10-17) | `launcher/launcher-preview.js` · `shared/blink-timing.js`(새) · 좌석 깜빡임 · `shared/README.md` · 후원 문구 css | #318 |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
@@ -64,4 +64,5 @@
 | 리깅 모자 날기 | 모자 쓰고 날면 화면 아래에서 맴돎 | wL2 | 대기 |
 
 ## 머지 완료(10-17 검증 세션)
+- 10-17 오후: #315 클릭 통과 판단 한 곳 · #316 옛 주석 줄이기 규칙 · #317 이 현황판
 #255 이후 검증 세션이 올려 머지한 것: #256 · #263 · #269 · #270 · #273 · #281 · #284 · #286 · #288 ~ #312(카탈로그 · 친구 사슬 · 펜 끌기 등). 줄별 기록은 대기열(`docs/local/carve-handoff/QUEUE.md`, 이 PC 에만 있음).
