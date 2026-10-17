@@ -24,6 +24,9 @@ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(34,1,0.1,100);   // 생성기와 동일한 원근 렌즈 (WYSIWYG)
+/* 캐릭터 몸 박스 재기 — 규칙은 character/body-measure.js 한 곳. 키 정규화 · 올라타기 · 바닥 맞춤 · 날기 벽이 부팅 중에도 부를 수 있어 맨 앞에서 만든다. */
+const bodyMeasureMod = TwBodyMeasure.createBodyMeasure({
+});
 
 // ★ Bloom 후처리(UnrealBloomPass)는 시도해봤지만 이 앱(바탕화면이 비치는 투명 배경 오버레이)과 근본적으로
 //   안 맞아서 제거함 — 화면 전체를 대상으로 하는 후처리라 (1)배경 투명도가 깨져서 까맣게 나오고,
@@ -1253,17 +1256,8 @@ function _myPanHalfFrac(){
     if(!me || !me.group || !_cvEl) return null;
     const cr = _cvEl.getBoundingClientRect();
     if(!cr.width || !cr.height) return null;
-    // ★ Box3.setFromObject는 '숨겨진 메시'도 포함한다(r128). 동물 좌석에는 인간 크기의 숨은
-    //   placeholder가 남아 있어서, 그대로 재면 박스가 실제보다 크고 위아래로 비대칭이 된다
-    //   (동물만 바닥이 더 가라앉던 원인). 보이는 메시만 골라서 잰다.
-    const box = new THREE.Box3(); const _tb = new THREE.Box3();
-    me.group.traverse(o=>{
-      if(!o.isMesh || o.visible === false) return;
-      let p=o, hidden=false;
-      while(p && p!==me.group){ if(p.visible===false){ hidden=true; break; } p=p.parent; }
-      if(hidden) return;
-      try{ _tb.setFromObject(o); if(!_tb.isEmpty()) box.union(_tb); }catch(_){}
-    });
+    // ★ 숨은 메시는 뺀다 — 동물 좌석의 숨은 인간 크기 placeholder 가 박스를 키운다(r128 setFromObject 는 숨은 것도 센다).
+    const box = bodyMeasureMod.measureBodyBox(me.group, { visibleOnly: true, updateWorld: false });
     if(box.isEmpty()) return null;
     let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; const v=new THREE.Vector3();
     for(let i=0;i<8;i++){
@@ -1650,6 +1644,7 @@ const tricksMod = TwTricks.createTricks({
   flySeed: (...a)=>flySeed(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   ndc: ()=>ndc,
   officeMode: ()=>officeMode,
   purikuraUi: ()=>purikuraUi,
@@ -1757,9 +1752,11 @@ const rideBenchMod = TwRideBench.createRideBench({
   charLiftWorld: (...a)=>seatEqMod.charLiftWorld(...a),
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
   isDeskUnlocked: (...a)=>iDeskMod.isDeskUnlocked(...a),
+  isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   matWood: matWood,
   matWoodD: matWoodD,
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   measureHeadBoxNoParts: (...a)=>charMeasureMod.measureHeadBoxNoParts(...a),
   savedParts: ()=>premiumMod.savedParts(),
   seatScale: (...a)=>seatEqMod.seatScale(...a),
@@ -1859,6 +1856,7 @@ const dotRenderMod = TwDotRender.createDotRender({
 /* 본문은 character/char-measure.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const charMeasureMod = TwCharMeasure.createCharMeasure({
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
 });
 /* 본문은 character/floor-snap-diag.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -2196,6 +2194,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   camera: camera,
   chatUiMod: ()=>chatUiMod,
   customStatusConf: ()=>userStatusTableMod.customStatusConf(),
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   moveMode: ()=>moveMode,
   overheadMod: ()=>overheadMod,
   renderer: renderer,
@@ -5100,28 +5099,8 @@ function _computePartAuthorOffset(bb, center, bone, modelRoot, cat, charBones){
    인간·동물 각각 한 번씩 로그를 받아 두 박스의 비율로 보정을 유도하는 것이 다음 단계다. */
 function _measureBodyBoxInLocal(modelRoot, refNode){
   // refNode 로컬 좌표계에서 캐릭터 '본체' 박스 — 꾸미기 파츠·리깅 파츠(동물 귀 포함)·숨은 메쉬 제외.
-  // measureHeadBoxNoParts와 같은 제외 규칙이지만, 월드가 아니라 지정한 노드 기준으로 잰다.
-  const box = new THREE.Box3(), tmp = new THREE.Box3(), M = new THREE.Matrix4();
-  modelRoot.updateWorldMatrix(true, true); refNode.updateWorldMatrix(true, true);
-  const inv = new THREE.Matrix4().copy(refNode.matrixWorld).invert();
-  modelRoot.traverse(o=>{
-    if(!o.isMesh || !o.geometry) return;
-    if(o.userData && o.userData._origBind) return;              // 리깅 파츠의 스킨드메시
-    let p = o, skip = false;
-    while(p && p !== modelRoot){
-      if(p.visible === false){ skip = true; break; }
-      if(p.userData && p.userData.rigged){ skip = true; break; }
-      if(typeof p.name === 'string' && p.name.indexOf('__partWrap_') === 0){ skip = true; break; }
-      p = p.parent;
-    }
-    if(skip || o.visible === false) return;
-    try{
-      if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-      tmp.copy(o.geometry.boundingBox).applyMatrix4(M.copy(inv).multiply(o.matrixWorld));
-      if(!tmp.isEmpty()) box.union(tmp);
-    }catch(_){}
-  });
-  return box;
+  // 파츠 판정은 옛 규칙(리깅 · 이름 — isPartByRigOrName). 월드가 아니라 지정한 노드 기준으로 잰다(frame).
+  return bodyMeasureMod.measureBodyBox(modelRoot, { excludeParts: true, partTest: bodyMeasureMod.isPartByRigOrName, visibleOnly: true, frame: refNode });
 }
 function _diagPartHeadSpace(cat, modelRoot, bone, bb, center, seat, isRigged){
   try{
@@ -5162,25 +5141,11 @@ function _headTopAboveBone(modelRoot, bone, meshHost){
   modelRoot.updateWorldMatrix(true, true);
   const inv = new THREE.Matrix4().copy(modelRoot.matrixWorld).invert();
   const bp = bone.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
-  const tmp = new THREE.Box3(), M = new THREE.Matrix4();
+  // 숨은 메쉬(얼굴 변형 미선택 등) · 리깅 부착물(동물 귀 등) · 이름 파츠 · 장식 메쉬 제외 — 모델 좌표계(frame)로 메쉬마다 잰다
+  const boxes = [];
+  bodyMeasureMod.measureBodyBox(modelRoot, { excludeParts: true, partTest: bodyMeasureMod.isPartByRigOrName, visibleOnly: true, skipMeshes: skip, frame: modelRoot, updateWorld: false, outBoxes: boxes });
   let top = -Infinity;
-  modelRoot.traverse(o=>{
-    if(!o.isMesh || !o.geometry || skip.has(o)) return;
-    if(o.userData && o.userData._origBind) return;                 // 리깅 파츠의 스킨드메시
-    let p = o, drop = false;
-    while(p && p !== modelRoot){
-      if(p.visible === false){ drop = true; break; }               // 숨은 메쉬(얼굴 변형 미선택 등)
-      if(p.userData && p.userData.rigged){ drop = true; break; }    // 동물 귀 등 부착물
-      if(typeof p.name === 'string' && p.name.indexOf('__partWrap_') === 0){ drop = true; break; }
-      p = p.parent;
-    }
-    if(drop || o.visible === false) return;
-    try{
-      if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-      tmp.copy(o.geometry.boundingBox).applyMatrix4(M.copy(inv).multiply(o.matrixWorld));
-      if(!tmp.isEmpty() && tmp.max.y > top) top = tmp.max.y;
-    }catch(_){}
-  });
+  boxes.forEach(b=>{ if(b.max.y > top) top = b.max.y; });
   return (top > -Infinity) ? (top - bp.y) : 0;
 }
 /* 사람(기본 GLB) 기준 머리 여유 — 파츠가 저작된 리그의 값. 1회 측정 후 캐시.
@@ -6882,6 +6847,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   extractBonesInto: (...a)=>extractBonesInto(...a),
   getCommissionScene: (...a)=>getCommissionScene(...a),
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   registerCustomItem: (...a)=>deskItemsMod.registerCustomItem(...a),
   scene: scene,
   setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
@@ -9204,6 +9170,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   camera: camera,
   findMySeat: (...a)=>findMySeat(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   measureHeadBoxNoParts: (...a)=>charMeasureMod.measureHeadBoxNoParts(...a),
   officeMode: ()=>officeMode,
   renderer: renderer,

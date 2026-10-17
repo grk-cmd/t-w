@@ -31,6 +31,7 @@ const backToLauncher = deps.backToLauncher;
 const camera = deps.camera;
 const chatUiMod = deps.chatUiMod;   // 읽는 함수
 const customStatusConf = deps.customStatusConf;   // 읽는 함수
+const measureBodyBox = deps.measureBodyBox;
 const moveMode = deps.moveMode;   // 읽는 함수
 const overheadMod = deps.overheadMod;   // 읽는 함수
 const renderer = deps.renderer;
@@ -110,36 +111,11 @@ const _CHIP_METRIC_MS = 400;
 const CHIP_METRIC_HOLD_MS = 4000;
 const _chipOriginTmp = new THREE.Vector3();
 const _chipBoxTmp = new THREE.Box3();
-const _chipMeshBoxTmp = new THREE.Box3();
-/* ★ Box3.setFromObject는 visible=false인 오브젝트도 포함시킨다(three r128 — Raycaster와 같은 함정).
-   bodyWrap에는 기본 도형 placeholder가 숨겨진 채로 계속 남아 있는데(몸통 구 반지름 0.42),
-   그게 그대로 잡히면 실제 몸이 더 작은 동물 캐릭터에서 반폭이 placeholder 크기로 고정돼
-   상태칩이 과도하게 멀어진다. 그래서 보이는 메쉬만 직접 순회해서 박스를 만든다.
-   ★ 꾸미기 파츠(__partWrap_ 하위 / 리깅 스킨드메시)도 제외한다 — measureHeadBoxNoParts와 같은 규칙.
-     파츠가 잘못 붙어 엉뚱한 위치로 늘어나면 그 박스가 그대로 "캐릭터 크기"가 되어
-     상태칩이 화면 구석으로 날아갔다. 칩은 '몸' 실루엣을 따라가는 게 맞다. */
-function _isPartSubtree(node, root){
-  let p = node;
-  while(p && p !== root){
-    if(p.userData && p.userData.rigged) return true;                                  // 리깅 파츠
-    if(typeof p.name === 'string' && p.name.indexOf('__partWrap_') === 0) return true; // 꾸미기 파츠 wrapper
-    p = p.parent;
-  }
-  return false;
-}
-function _expandVisibleBox(node, box, root){
-  if(!node || node.visible === false) return;   // 숨긴 서브트리는 통째로 제외
-  if(typeof node.name === 'string' && node.name.indexOf('__partWrap_') === 0) return;   // 파츠 서브트리 통째 제외
-  if(node.isMesh && node.geometry && !(node.userData && node.userData._origBind)){
-    if(!node.geometry.boundingBox) node.geometry.computeBoundingBox();
-    if(node.geometry.boundingBox && !_isPartSubtree(node, root)){
-      _chipMeshBoxTmp.copy(node.geometry.boundingBox).applyMatrix4(node.matrixWorld);
-      box.union(_chipMeshBoxTmp);
-    }
-  }
-  const kids = node.children;
-  for(let i=0; i<kids.length; i++) _expandVisibleBox(kids[i], box, root);
-}
+/* ★ 보이는 '몸' 메시만 잰다(measureBodyBox — 숨은 것 · 꾸미기 파츠 · 리깅 파츠 빼기).
+   bodyWrap 에는 숨은 기본 도형 placeholder 가 남아 있고(r128 setFromObject 는 숨은 것도 센다),
+   잘못 붙은 파츠가 늘어나면 그 박스가 "캐릭터 크기" 가 되어 상태칩이 구석으로 날아갔다.
+   selfOnly · updateWorld:false — 400ms 마다 도는 옛 방식 그대로(메시 자기 도형만 · 행렬은 렌더가 세운 값). */
+const CHIP_BODY_OPTS = { excludeParts: true, visibleOnly: true, selfOnly: true, updateWorld: false };
 function _chipCharMetrics(seat){
   const now = performance.now();
   const prev = seat._chipMetrics;
@@ -150,7 +126,7 @@ function _chipCharMetrics(seat){
     const target = seat.bodyWrap || seat.rig || seat.gltfRoot;
     if(target){
       const box = _chipBoxTmp.makeEmpty();
-      _expandVisibleBox(target, box, target);
+      if(target.visible !== false) measureBodyBox(target, CHIP_BODY_OPTS, box);   // 숨긴 몸은 통째로 빈다(아래 «직전 값 유지»)
       if(!box.isEmpty()){
         /* ★ 원점(seat.group)을 빼는 대신 **박스 자신의 크기**로 잰다.
            캐릭터를 드래그(shake)하면 pointermove 가 seat.rig.position 만 움직이고 seat.group 은
@@ -169,7 +145,7 @@ function _chipCharMetrics(seat){
   }catch(_){}
   /* ★ 못 쟀을 때는 폴백 상수로 **내려가지 말고 직전 값을 그대로 유지**한다.
      🫧 자리비움은 setSeatOpacity가 몸 메쉬의 visible을 false로 만드는데(영혼 연출),
-     _expandVisibleBox는 안 보이는 노드를 통째로 건너뛰므로 박스가 빈다. 예전엔 그 순간
+     몸 재기는 안 보이는 노드를 통째로 건너뛰므로 박스가 빈다. 예전엔 그 순간
      폴백 1.45/0.30 으로 튀면서 상태칩과 경험치 바가 이동했다 — 사람은 우연히 값이 비슷해
      티가 덜 나지만 동물·치비 캐릭터는 크게 어긋난다. 자리비움이 풀리면 다시 재기 시작한다. */
   if(!measured && prev){ prev.t = now; return prev; }
@@ -308,7 +284,7 @@ const CHIP_VERT_TOP_RATIO = 0.25;   // 0.41(어깨) → 0.32로 조금 올림
    [경위] 여백이 6px 고정이라 캐릭터를 키우면 그 6px 만 안 커졌다. 크기 슬라이더(focusCharScale)는
      모델을 키우는 게 아니라 **카메라를 당기므로**(applyCameraAndCanvas 의 dist / focusCharScale)
      화면상 캐릭터가 커진 만큼 실루엣도 같이 커지는데, 여백만 그대로라 상대적으로 붙는다.
-     게다가 실측 박스는 **파츠를 일부러 뺀 '몸'만**이므로(_expandVisibleBox) 모자·머리카락·날개는
+     게다가 실측 박스는 **파츠를 일부러 뺀 '몸'만**이므로(CHIP_BODY_OPTS) 모자·머리카락·날개는
      그 밖으로 튀어나온다. 몸 옆 6px 자리는 작을 땐 몇 px 만 물리지만 크면 그만큼 크게 물린다 —
      그게 "좌석이 커지면 칩이 캐릭터를 가린다"의 정체다.
    ⚠️ px 상수로 되돌리지 말 것. 크기·동물·커미션마다 다시 어긋난다(CHIP_VERT_TOP_RATIO 와 같은 이유).

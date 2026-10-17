@@ -53,7 +53,7 @@ say('── 1. 자리비움 그림');
   chk(pic({ remote: true, remoteAwayImg: 'https://evil.example/a.png' }, 'away', false) === null, 'Storage 주소가 아니면 없음');
   chk(/const _awayPic = _awayPicFor\(seat, us, _hidden\);/.test(CODE) && /!_hidden && !_awayPic\) \? _conf\.emo : null/.test(CODE), '프레임 루프: 그림이 서면 책상 🫧 는 안 띄운다');
   const fr = strip(grabFn('_awayImgFrame'));
-  chk(/setFromObject\(seat\.bodyWrap \|\| seat\.rig\)/.test(fr) && /sp\.scale\.set\(h, h, 1\)/.test(fr) && /> 500/.test(fr), '캐릭터 경계상자 높이에 맞춘 정사각형 · 0.5초에 한 번 잰다');
+  chk(/setFromObject\(seat\.bodyWrap \|\| seat\.rig\)|measureBodyBox\(seat\.bodyWrap \|\| seat\.rig, null, _awayBox\)/.test(fr) && /sp\.scale\.set\(h, h, 1\)/.test(fr) && /> 500/.test(fr), '캐릭터 경계상자 높이에 맞춘 정사각형 · 0.5초에 한 번 잰다');
   /* 👑 프리미엄 전용(2026-09-23 요청) — 등록만 잠근다. 보는 쪽 · [기본으로] 는 그대로. */
   chk(/function _awayPremium\(\)\{[^}]*_premiumOn\(\)/.test(CODE), '프리미엄 판정은 _premiumOn 한 곳');
   chk(/pk\.disabled = !!_awayBusy \|\| !prem/.test(CODE) && /if\(!_awayPremium\(\)\)\{ _awayRenderUI\('👑/.test(CODE), '비프리미엄은 [그림 등록] 잠김 · 올리기도 막힌다');

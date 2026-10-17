@@ -41,6 +41,7 @@ const creatorOpen = deps.creatorOpen;   // 읽는 함수
 const flySeed = deps.flySeed;
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
+const measureBodyBox = deps.measureBodyBox;
 const ndc = deps.ndc;   // 읽는 함수
 const officeMode = deps.officeMode;   // 읽는 함수
 const purikuraUi = deps.purikuraUi;   // 읽는 함수
@@ -239,17 +240,17 @@ const _flyBox = new THREE.Box3(), _flyW = new THREE.Vector3();
      (seatEqK)·유저 배율(userScale)도 곱해지므로, 인간 기준 값을 그대로 쓰면 **작은 캐릭터일수록
      실제 몸보다 한참 위를 재게 되고** 그만큼 위 벽에 일찍 부딪힌다("동물이 화면 꼭대기까지
      못 올라간다"가 이 증상이다).
-   그래서 파츠까지 포함한 실제 경계상자를 비행 시작 때 **한 번** 잰다. 커스텀 GLB 로 키가
-   제각각이어도 자동으로 맞는다. 실패하면 배율만 곱한 근삿값으로 물러선다. */
+   그래서 실제 경계상자를 비행 시작 때 **한 번** 잰다 — 몸만(measureCharBox · 안에서 body-measure.js 를 거친다), 몸이 비면 rig 째(measureBodyBox 옵션 없음).
+   커스텀 GLB 로 키가 제각각이어도 자동으로 맞는다. 실패하면 배율만 곱한 근삿값으로 물러선다. */
 const FLY_PROBE_FALLBACK = 0.35;
 function _flyProbeY(seat){
   try{
     seat.rig.updateMatrixWorld(true);
     /* 몸만 잰다 — rig 째 재면 키 큰 꾸미기 아이템이 가운데를 몸보다 한참 위로 끌어올려, 몸이 화면 가운데인데
-       위 벽(FLY_EDGE_TOP)에 닿은 것으로 판정됐다(«보이지 않는 천장»). 몸 상자가 비면 예전처럼 rig 째. */
+       위 벽(FLY_EDGE_TOP)에 닿은 것으로 판정됐다(«보이지 않는 천장»). 몸 상자가 비면 예전처럼 rig 째(옵션 없음). */
     const body = seat.gltfRoot ? measureCharBox(seat.gltfRoot) : null;
     if(body && !body.isEmpty()) _flyBox.copy(body);
-    else _flyBox.setFromObject(seat.rig);
+    else measureBodyBox(seat.rig, null, _flyBox);
     seat.rig.getWorldPosition(_flyW);
     const mid = (_flyBox.min.y + _flyBox.max.y) / 2 - _flyW.y;
     if(isFinite(mid) && mid > 0.02 && mid < 5) return mid;

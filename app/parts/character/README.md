@@ -231,7 +231,7 @@
 ## char-measure.js — 📐 캐릭터 실측
 
 - **책임**: 캐릭터 · 파츠 wrapper 의 3D 박스를 재는 도우미 묶음. 값을 재서 돌려주거나(박스 · 깊이 · 보정량) wrapper 하나를 바닥 위로 올린다. 좌석 배율 · 위치를 거는 일은 app.js `fitModel`, 콘솔 진단은 `floor-snap-diag.js`.
-- **만드는 법**: deps 없음(THREE 전역) — `const charMeasureMod = TwCharMeasure.createCharMeasure({` / `});`.
+- **만드는 법**: deps 하나 — `const charMeasureMod = TwCharMeasure.createCharMeasure({ measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a) });`. 맨 몸 · 맨 머리 · 발밑 깊이는 `measureBodyBox`(body-measure.js)에 옵션만 고른다.
 - **내보내는 것**
   - `measureCharBox(root)` — 맨 몸 박스(스킨드 · 리깅 · 꾸미기 wrapper 제외). fitModel 의 키 정규화 분모.
   - `measureHeadBoxNoParts(root, outBoxes?, meshHost?)` — 맨 머리 박스(숨은 메쉬 · 꾸미기 파츠 제외, meshHost 를 주면 기본 장식 메쉬도). 올라타기 · 이름표 · 귀가 쓴다.
@@ -296,3 +296,48 @@
   ```
 - **확장할 때 고칠 자리**: 탭 상태 이모지 표(`emo`) · 탭 이름 규칙(나 / friendName / 친구i).
 - **함정**: `selected` 는 app.js 가 든 값 — 이 모듈은 읽는 · 쓰는 함수로만 만진다. 검사: `checks/sim-seat-panel.js`(4절 — 가짜 DOM 으로 탭 · 고르기 · 안내 · 수동/자동 · 쓰다듬기 버튼).
+
+## body-measure.js — 📏 캐릭터 몸 박스 재기 한 규칙
+
+- **책임**: root 아래 메시들의 월드 박스를 «무엇을 셀지» 옵션 하나로 잰다(꾸미기 파츠 · 리깅 파츠 · 숨은 메시 · 기본 머리 장식 빼기). 그리지도 옮기지도 않는다.
+- **만드는 법**: app.js 맨 앞(SETUP)에서 `const bodyMeasureMod = TwBodyMeasure.createBodyMeasure({\n});` — 빈 deps. 다른 도메인(tricks · status-chip · away-pic · launcher-preview · ride-bench)은 deps `measureBodyBox`(ride-bench 는 `isPartByRigOrName` 도)로 받는다.
+- **내보내는 것**
+  - `measureBodyBox(root, opts, out)` — 옵션: `excludeParts`(`true` = 파츠 wrapper(`rigged` · `__partWrap_` 이름 · `__twPartWrap` 표식) 하위와 리깅 스킨드메시(`_origBind`) 빼기 · `'rigged'` = 리깅만 빼기 · `'skinned'` = 리깅 스킨드메시만 빼기) · `partTest`(excludeParts:true 의 «파츠 wrapper 인가» 판정 바꾸기) · `visibleOnly`(자기 · 조상 숨김 빼기, root 자신은 안 봄) · `skipMeshes`(Set) · `skipBranch`(함수 — 참인 가지 통째로 빼기, root 자신은 안 봄) · `frame`(노드 — 그 노드 좌표계로, 메시 자기 도형 × 역행렬) · `updateWorld`(false 면 행렬 안 세움) · `selfOnly`(메시 자기 도형만) · `outBoxes`(배열). 옵션이 없으면 `setFromObject(root)` 그대로.
+  - `countsAsBody(mesh, root, opts)` · `isPartNode(node)` · `isPartByRigOrName(node)`(옛 판정 — 리깅 · 이름만, 표식은 안 봄) · `PART_WRAP_PREFIX`
+  ```js
+  measureCharBox(root)          // = measureBodyBox(root, { excludeParts: true })                       키 정규화 · 센터링 · 날기 벽(tricks — gltfRoot 를 재고 비면 rig 째 옵션 없음)
+  measureHeadBoxNoParts(r,o,h)  // = { excludeParts: true, visibleOnly: true, skipMeshes: 장식 }         올라타기 · 맨 머리
+  measureUnderfootDepth(root)   // = { excludeParts: 'rigged', visibleOnly: true } 의 min.y            발밑 파츠 바닥 맞춤
+  _boxExcluding(root, skipSub)  // = { skipBranch: o => o.visible === false || skipSub(o) }            책상 바닥 맞춤(파츠 핀 빼기)
+  measureBodyBox(o, RIDE_WRAP_OPTS)  // = { excludeParts: 'skinned', visibleOnly: true, updateWorld: false }  올라타기 — 파츠 · 귀 wrapper 하나 안
+  ```
+- **어디서 무엇을 재나**(대상 · 좌표계 · 빼는 것 — 묶은 곳은 옵션만 다르다)
+
+  | 쓰임 | 대상 | 좌표계 | 빼는 것 | 묶음 |
+  |---|---|---|---|---|
+  | `measureCharBox`(키 정규화 · 센터링) | 캐릭터 root | 월드 | 파츠 · 리깅 스킨드 (숨은 것은 셈) | ✓ 1차 |
+  | `measureHeadBoxNoParts`(올라타기 · 맨 머리) | gltfRoot | 월드 | 파츠 · 리깅 스킨드 · 숨김 · 장식 메시 | ✓ 1차 |
+  | `measureUnderfootDepth`(발밑 바닥 맞춤) | 모델 | 월드 min.y | 리깅만 · 숨김 | ✓ 1차 |
+  | 날기 벽 · 이동 여백 · 상태칩 · 자리비움 | rig · group · bodyWrap | 월드 | 옵션별 | ✓ 1차 |
+  | launcher-preview `_lcBodyBox`(런처 프레임) | 미리보기 group | 월드 | `'__part'` 접두 · 리깅 · 리깅 스킨드 (숨은 것은 셈) — 비면 전체 | ✓ `partTest` |
+  | `_measureBodyBoxInLocal`(머리 공간 진단 로그) | 모델 | 지정 노드 로컬 | 리깅 · `__partWrap_` 이름 · 리깅 스킨드 · 숨김 | ✓ `frame` · `isPartByRigOrName` |
+  | `_headTopAboveBone`(동물 머리 파츠 보정) | 모델 | 모델 로컬 · 메시마다 max.y | 위와 같음 + 장식 메시 | ✓ `frame` · `outBoxes` |
+  | `_boxExcluding`(책상 바닥 맞춤 · char-measure.js) | 책상 wrapper | 월드 | 숨은 가지 · 파츠 핀 가지 (파츠 규칙 없음 · root 는 안 봄) | ✓ `skipBranch` |
+  | ride-bench 머리 파츠 · 귀 박스 | 파츠 · 귀 wrapper 하나 | 월드(행렬 안 세움) | 숨김 · 리깅 스킨드 (wrapper 자신의 숨김은 부르는 쪽이 먼저 거름) | ✓ `'skinned'` |
+  | ride-bench 검증 로그 `_hbAll` | gltfRoot | 월드(행렬 안 세움) | 리깅 · 이름 · 리깅 스킨드 (숨김 · 장식은 셈) | ✓ `partTest` |
+  | 스티커사진 `_pkBodyBox` · `_pkVisibleBox` | **복제본** | 월드 | 원본 짝 표(`srcOf`)로 판정 | ✗ 아래 |
+  | `_floorSnapProbe`(바닥 맞춤 진단 · floor-snap-diag.js) | 모델 | 메시마다 | 바닥 맞춤과 같은 규칙 + «왜 뺐나» 글 | ✗ 아래 |
+  | 생성기 카메라 맞춤 `setFromObject(inst.root)` | 생성기 모델 | 월드 | 없음 | ✗ 아래 |
+  | `_charBoneBindInverses` | 모델의 스킨드메시 | — | 박스가 아니라 본 모음 | ✗ 아래 |
+
+- **묶지 않은 곳 · 이유**
+  - 스티커사진 `_pkBodyBox`: 복제본은 `userData` 가 비어 있어 판정을 **원본 노드**(복제 · 원본 짝 표)로 하고, root 위 조상까지 끝까지 올라가 보며, 잴 게 없으면 `null`(빈 박스가 아니라 «옛 규칙으로 다시 재라»). 옵션 셋(짝 표 · 조상 끝까지 · 잰 메시 수)을 더 늘려야 해서 그대로 둔다. `_pkVisibleBox` 도 조상 끝까지 · 파츠 밑 스킨드메시만 빼는 다른 규칙.
+  - `_floorSnapProbe`: 박스가 아니라 메시마다 «왜 뺐나» 를 적는 진단이고, 박스 값은 이미 `measureUnderfootDepth` 를 부른다. 대신 센 · 뺀 메시 수가 `countsAsBody({ excludeParts: 'rigged', visibleOnly: true })` 와 같은지 `sim-body-measure.js` 2-b 가 본다.
+  - 생성기 카메라 맞춤: «몸» 이 아니라 화면에 올라간 전부(파츠 · 숨은 것 포함)를 프레임에 넣는 것이 목적 — 다른 측정이다.
+  - `_charBoneBindInverses`: 박스를 재지 않는다(캐릭터 본의 바인드 역행렬 모음 — 파츠 리그는 뺀다).
+- **확장할 때 고칠 자리**: 새 «파츠» 표식은 `isPartNode` 한 곳. 새 쓰임은 손으로 traverse 하지 말고 옵션을 골라 부른다.
+- **함정**
+  - three r128 `setFromObject` 는 숨은 메시도 세고, 리깅 메시는 **스키닝 전 원본** 박스를 잰다(리깅 모자 원본 y 2.18~5.31). «몸» 을 재려면 `excludeParts` 를 켠다.
+  - `checks/sim-body-measure.js` 4절이 body-measure.js 밖의 `setFromObject(좌석.rig · bodyWrap · gltfRoot · 좌석.group)` 를, 3-b절이 메시를 훑으며 `_origBind` 를 손으로 거르는 곳(남긴 `_pkBodyBox` · `_charBoneBindInverses` 말고)을 빨강으로 잡는다.
+  - 옛 규칙을 지키느라 판정이 조금씩 다르다 — 런처는 `'__part'` 접두(`__part_` 도)를 빼고 숨은 것은 센다 · 진단 · 머리 여유 · 검증 로그는 표식 `__twPartWrap` 을 안 본다(`isPartByRigOrName`). 지금은 이름 · 표식이 함께 붙어 결과가 같다. 하나로 맞추려면 동작 변경이라 따로 승인받는다.
+  - `skipBranch` · `partTest` 는 순수 함수만 넘긴다(던지면 measureBodyBox 밖으로 나간다 — `_boxExcluding` 은 던지면 빈 박스).
