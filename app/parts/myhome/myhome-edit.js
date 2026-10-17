@@ -63,6 +63,7 @@ const DS_IMG_MAX_BG_H = deps.dsImgMaxBgH;
 const DS_IMG_MAX_PANEL = deps.dsImgMaxPanel;
 const DS_IMG_QUALITY = deps.dsImgQuality;
 const mhHooks = TwMyHomeHooks;                           // 🪝 마이홈 고리판(myhome-hooks.js — 먼저 싣는 아래층) — 다른 파일이 부를 함수를 건다
+const mhPreset = TwMyHomePreset;                         // 👑 디자인 프리셋 규칙(myhome-preset.js — 먼저 싣는 아래층 · 순수 함수)
 
   // ★ 저장 버튼 없이 자동저장 — 아래 여러 지점(사진 변경/스티커 추가삭제이동/텍스트칸에서 포커스 벗어남)에서
   //   이 함수를 호출해서 그 즉시 Firebase에 반영함.
@@ -895,51 +896,19 @@ const mhHooks = TwMyHomeHooks;                           // 🪝 마이홈 고�
     '<span style="flex:1;"></span><button id="dsDone" type="button">\uC644\uB8CC</button></div>'+
     '</body></html>';
   /* ══ 👑 디자인 프리셋 (라이선스 전용) ══════════════════════════════════════
-     프리셋 한 칸 = **디자인 한 벌 통째**다. 마이홈·친구·스케줄러 세 탭의 색이 한 덩어리로 들어간다.
-     저장 자리: _myHomeData.themePresets (3칸) · themePresetCur (지금 고른 칸)
-       → users/{uid}/home 아래로 그대로 따라간다. **DB 규칙은 손댈 것이 없다** —
-         그쪽 .validate 는 bio·post·postTitle·avatar 넷에만 걸려 있어 새 자식은 그대로 통과한다.
-
-     ★★ 그림은 담지 않는다 — 용량 때문이 아니라 **덮어쓰기 때문이다.**
-        디자인 스튜디오의 이미지는 이제 base64 가 아니라 Storage URL 인데(uploadUserImage),
-        올리는 자리가 항목당 **고정 슬롯 하나**다(`users/{uid}/bg.jpg`, `users/{uid}/{imgKey}`).
-        즉 프리셋 세 벌이 같은 파일 한 개를 가리키게 되고, 2번 프리셋에서 배경 그림을 바꾸면
-        1번·3번의 그림까지 같이 바뀐다. 프리셋마다 다른 그림을 가지려면 슬롯 이름을 프리셋별로
-        나누고 지우는 시점까지 관리해야 하는데, 그건 이 기능의 몫이 아니다.
-     ⚠️ 그래서 불러오기는 **그림을 건드리지 않는다**. 색만 갈리고 지금 깔린 그림은 그대로 남는다.
-       이 성질을 바꾸려면 위 슬롯 문제부터 풀 것. */
-  const MH_PRESET_MAX = 3;
-  const MH_PRESET_NAME_MAX = 8;   // 세 칸이 340px 안에 나란히 서므로 길면 잘린다
-  /* 그림 키 목록은 **_MH_DS_ROWS 에서 뽑아 쓴다.** 여기에 다시 적으면 항목이 늘 때마다 한쪽만
-     고쳐지고, 빠뜨린 그림 키가 프리셋에 섞여 들어간다(그 순간 위 덮어쓰기 문제가 터진다). */
-  function _mhImgKeySet(){
-    const s = new Set();
-    Object.keys(_MH_DS_ROWS).forEach(tab=>{
-      (_MH_DS_ROWS[tab]||[]).forEach(row=>{ if(row && row.img && !row.group) s.add(_mhDsImgKeyOf(row)); });
-    });
-    return s;
-  }
-  /* 저장본을 항상 3칸 배열로 씻어서 돌려준다.
-     ⚠️ Realtime DB 는 빈 자리가 있는 배열을 {0:…, 2:…} 객체로 되돌려준다 — 배열로 단정하면
-       두 칸만 저장한 사람의 목록이 통째로 사라진다(이 코드베이스의 entriesForCat 과 같은 사정). */
+     프리셋 한 칸 = 디자인 한 벌 통째 — 마이홈 · 친구 · 스케줄러 세 탭의 색이 한 덩어리로 들어간다.
+     저장 자리: _myHomeData.themePresets (3칸) · themePresetCur (지금 고른 칸) → users/{uid}/home 아래로 그대로 따라간다.
+     «무엇을 담고 · 어떻게 얹는가» 는 myhome-preset.js 한 곳(그림은 담지 않는다 — 올리는 자리가 항목당 하나라 칸끼리 같은 파일을 덮는다). */
+  const MH_PRESET_MAX = mhPreset.MAX;
+  const MH_PRESET_NAME_MAX = mhPreset.NAME_MAX;
+  /* 그림 키 목록은 _MH_DS_ROWS 에서 뽑는다 — 다시 적으면 항목이 늘 때 한쪽만 고쳐진다 */
+  function _mhImgKeySet(){ return mhPreset.imgKeys(_MH_DS_ROWS); }
+  /* 저장본을 항상 3칸 배열로 씻어서 돌려준다(RTDB 가 빈 자리 배열을 객체로 돌려주는 것까지 — myhome-preset.js normalize) */
   function _mhPresets(){
-    const out = new Array(MH_PRESET_MAX).fill(null);
-    const raw = _myHomeData() && _myHomeData().themePresets;
-    if(!raw || typeof raw !== 'object') return out;
-    for(let i = 0; i < MH_PRESET_MAX; i++){
-      const p = raw[i];
-      if(!p || typeof p !== 'object') continue;
-      out[i] = {
-        name : String(p.name || '').slice(0, MH_PRESET_NAME_MAX),
-        theme: (p.theme && typeof p.theme === 'object') ? p.theme : {},
-        bg   : (p.bg && p.bg.color) ? { color: p.bg.color } : null,
-      };
-    }
-    return out;
+    return mhPreset.normalize(_myHomeData() && _myHomeData().themePresets);
   }
   function _mhPresetCur(){
-    const n = parseInt(_myHomeData() && _myHomeData().themePresetCur, 10);
-    return (n >= 0 && n < MH_PRESET_MAX) ? n : 0;
+    return mhPreset.cur(_myHomeData() && _myHomeData().themePresetCur);
   }
   function _mhPresetLabel(i){
     const p = _mhPresets()[i];
@@ -951,41 +920,22 @@ const mhHooks = TwMyHomeHooks;                           // 🪝 마이홈 고�
     if(!p) return '';
     return (p.bg && p.bg.color) || (p.theme && (p.theme.tab || p.theme.left || p.theme.right)) || '';
   }
-  /* 지금 화면의 디자인을 i 번 칸에 담는다 — **색만.** */
+  /* 지금 화면의 디자인을 i 번 칸에 담는다 */
   function _mhPresetSave(i){
-    const imgKeys = _mhImgKeySet();
-    const t = _myHomeData().theme || {};
-    const theme = {};
-    Object.keys(t).forEach(k=>{ if(!imgKeys.has(k) && t[k]) theme[k] = t[k]; });
     const arr = _mhPresets();
-    arr[i] = {
-      name : (arr[i] && arr[i].name) || '',
-      theme,
-      bg   : (_myHomeData().bg && _myHomeData().bg.color) ? { color: _myHomeData().bg.color } : null,
-    };
+    arr[i] = mhPreset.snapshot(_myHomeData(), _mhImgKeySet(), arr[i] && arr[i].name);
     _myHomeData().themePresets = arr;
     _myHomeData().themePresetCur = i;
     commitMyHomePage(true);
     toast('👑 ' + _mhPresetLabel(i) + ' 에 저장했어요');
   }
-  /* i 번 칸의 디자인을 화면에 얹는다.
-     ★ 색은 **통째로 갈린다** — 프리셋에 없는 색은 지운다. 얹기만 하면 이전 디자인의 색이
-       남아 섞이고, 같은 프리셋을 불러도 어디서 왔는지 모를 색이 하나씩 붙는다.
-     ⚠️ 그림 키(*Img)와 배경 그림은 **손대지 않는다**(위 ★★ 참고). */
+  /* i 번 칸의 디자인을 화면에 얹는다 */
   function _mhPresetApply(i){
     const p = _mhPresets()[i];
     if(!p) return false;
-    const imgKeys = _mhImgKeySet();
-    const cur = _myHomeData().theme || {};
-    const next = {};
-    Object.keys(cur).forEach(k=>{ if(imgKeys.has(k)) next[k] = cur[k]; });   // 그림은 그대로 살린다
-    Object.keys(p.theme || {}).forEach(k=>{ if(!imgKeys.has(k)) next[k] = p.theme[k]; });
-    _myHomeData().theme = next;
-    /* 바깥 배경 — 지금 그림이 깔려 있으면 건드리지 않는다. bg 는 color 와 img 가 배타적이라
-       색을 넣는 순간 그림이 사라지는데, 그건 "그림은 그대로 남는다"는 약속을 깨는 것이다. */
-    if(!(_myHomeData().bg && _myHomeData().bg.img)){
-      _myHomeData().bg = (p.bg && p.bg.color) ? { color: p.bg.color } : null;
-    }
+    const next = mhPreset.apply(_myHomeData(), p, _mhImgKeySet());
+    _myHomeData().theme = next.theme;
+    _myHomeData().bg = next.bg;
     _myHomeData().themePresetCur = i;
     window._mhApplyBg();
     window._mhApplyTheme();
@@ -1101,7 +1051,7 @@ const mhHooks = TwMyHomeHooks;                           // 🪝 마이홈 고�
     inp.focus(); inp.select();
   }
 
-  function _mhDsImgKeyOf(row){ return row.imgKey || (row.key+'Img'); }
+  function _mhDsImgKeyOf(row){ return mhPreset.imgKeyOf(row); }
   function _mhDsRender(){
     if(!_mhDsWin || _mhDsWin.closed) return;
     const d=_mhDsWin.document;
@@ -1168,7 +1118,7 @@ const mhHooks = TwMyHomeHooks;                           // 🪝 마이홈 고�
           const kb = Math.round(dataUrl.length * 0.75 / 1024);
           toast(`이미지를 올리는 중… (${c.width}×${c.height}, 약 ${kb}KB)`);
           try{
-            const slot = isBg ? 'bg' : String(imgKey);
+            const slot = mhPreset.uploadSlot(isBg ? 'bg' : imgKey);
             const res = await firebaseAPI.uploadUserImage(getMyUserId(), slot, dataUrl);
             if(res && res.ok){ applyUrl(res.url); toast(`이미지를 등록했어요 (${c.width}×${c.height}, 약 ${kb}KB)`); }
             else toast((res && res.reason) || '업로드에 실패했어요');

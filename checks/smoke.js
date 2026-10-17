@@ -471,6 +471,8 @@ PRELOAD.push('myhome-diag.js');
 PRELOAD.push('myhome-state.js');
 /* myhome-hooks.js — 🪝 마이홈 고리판(모듈 순환 끊기 8). 같은 까닭 — 편집 묶음 · 마이홈 창이 만들 때 거는 저장 · 배경 · 테마 · BGM 함수를 부르는 쪽이 진짜에서 찾게. */
 PRELOAD.push('myhome-hooks.js');
+/* myhome-preset.js — 👑 디자인 프리셋 규칙(순수 함수). 같은 까닭 — 편집 묶음이 만들 때 TwMyHomePreset 을 받으므로 진짜가 먼저 있게. */
+PRELOAD.push('myhome-preset.js');
 /* myhome-visit.js — 마이홈 데이터 · 친구 홈 구경(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeVisit 를 같이 굴린다. */
 PRELOAD.push('myhome-visit.js');
 /* exp-bar.js — 경험치 바(앱 FSD 45번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createExpBar 를 같이 굴린다. */

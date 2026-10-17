@@ -77,3 +77,28 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
   - `_myHomeFriends` 는 못 받은 동안에도 `{}` 다 — 다른 곳(방명록 게이트 · 스케줄러 · 파도타기)은 예전처럼 «없음» 으로 동작한다. 받았는지는 `status()` 로만 안다.
   - 친구 목록 · 접속 상태를 직접 또 걸지 않는다(포트 · 이 모듈 한 곳 — 겹치면 비용이 곱이 된다). 검사: `checks/sim-friends-sub.js` · `checks/sim-friends-port.js`.
 - 내 코드(myId)가 없으면(로그인 전 — `getMyUserId()` 가 null) `start` 입구에서 바로 돌아간다 — 구독 · 읽기 · 다시 걸기 없이 «친구 없음»(`ready` · 빈 목록) · 화면은 main 과 같은 «아직 친구가 없어요». 코드가 생기면 마이홈 시작이 그때 건다.
+
+## `myhome-preset.js` — 👑 디자인 프리셋 규칙
+
+**책임** — 디자인 스튜디오 프리셋 3칸의 판단 한 벌: «지금 디자인 → 칸»(무엇을 담나) · «칸 → 지금 디자인»(어떻게 얹나) · 저장본 씻기 · 고른 칸 번호 · 그림 키 집합 · 그림 올릴 이름.
+순수 함수만 — DOM · firebase · `_myHomeData` 를 모르고, 받은 값을 고치지 않고 새 값을 돌려준다.
+
+**만드는 법** — 만들지 않는다(받는 것 없음 · 실릴 때 바로). `myhome-edit.js` · app.js 보다 먼저 싣고, 편집 묶음이 아래층으로 받는다:
+
+```js
+const mhPreset = TwMyHomePreset;   // myhome-edit.js 머리(고리판 TwMyHomeHooks 와 같은 모양)
+```
+
+**내놓는 것** — `MAX`(3) · `NAME_MAX`(8) · `imgKeyOf(row)` · `imgKeys(rows)` → Set · `normalize(raw)` → 3칸 배열 · `cur(raw)` → 0~2 ·
+`snapshot(home, imgKeys, name)` → 칸 한 벌 · `apply(home, preset, imgKeys)` → `{ theme, bg }`(부르는 쪽이 home 에 넣는다) · `uploadSlot(key)` → `uploadUserImage` 의 slot.
+
+```js
+arr[i] = mhPreset.snapshot(_myHomeData(), mhPreset.imgKeys(_MH_DS_ROWS), arr[i] && arr[i].name);   // 저장
+const next = mhPreset.apply(_myHomeData(), p, keys); _myHomeData().theme = next.theme; _myHomeData().bg = next.bg;   // 불러오기
+```
+
+**확장할 때 고칠 자리** — 칸에 담는 것을 늘리면 `snapshot` · `apply` · `normalize` 셋을 같이(옛 앱이 새 저장본을 읽는 길도 `normalize` 가 정한다). 칸 수 · 이름 길이는 `MAX` · `NAME_MAX`.
+그림 키는 디자인 스튜디오 항목 표(`_MH_DS_ROWS`)에서 뽑는다 — 여기에 따로 적지 않는다.
+
+**함정** — Realtime DB 는 빈 자리가 있는 배열을 `{0:…, 2:…}` 객체로 돌려준다 — `normalize` 를 거치지 않고 배열로 단정하지 말 것.
+검사: `checks/sim-myhome-preset.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
