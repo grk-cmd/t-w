@@ -784,7 +784,7 @@
   async function loadImgsFor(userId){
     imgs = [];
     let raw = [];
-    if(fbReady()) raw = await firebaseAPI.getMallangImgs(userId).catch(()=>[]) || [];
+    if(fbReady() && userId) raw = await firebaseAPI.getMallangImgs(userId).catch(()=>[]) || [];   // 내 코드가 없으면 서버는 안 읽고 로컬 백업('anon')만
     // 서버가 비었고 '내 것'을 보는 중이면 로컬 백업에서 복원 (규칙 미반영 등 대비)
     if((!raw || !raw.length) && userId===myId()){
       try{ const ls=JSON.parse(localStorage.getItem(lsKey())||'null'); if(Array.isArray(ls)) raw=ls; }catch(_){}
@@ -882,7 +882,7 @@
 
   /* ── 🎁 받은 선물 말랑이 로드/소환 ── */
   async function loadGifts(ownerId){
-    if(!fbReady() || !firebaseAPI.getMallangGifts) return;
+    if(!ownerId || !fbReady() || !firebaseAPI.getMallangGifts) return;   // 내 코드가 없으면 선물을 안 읽는다
     const gifts = await firebaseAPI.getMallangGifts(ownerId).catch(()=>({})) || {};
     const isOwner = (ownerId===myId());
     let ids = Object.keys(gifts);

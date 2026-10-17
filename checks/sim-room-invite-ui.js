@@ -48,7 +48,7 @@ function mkEl(tag, id, env){
   return el;
 }
 
-function mkEnv(opt){
+function mkEnv(opt, mod){
   opt = opt || {};
   const env = {
     toasts: [], sent: [], cleared: [], left: [], started: [], flashes: [], subs: [], now: 1e12, timers: [], docL: {}, winL: {},
@@ -85,12 +85,12 @@ function mkEnv(opt){
   if(!opt.noFb) ctx.firebaseAPI = fb;
   ctx.window = ctx;
   vm.createContext(ctx);
-  vm.runInContext(MOD, ctx, { filename: 'room-invite-ui.js' });
+  vm.runInContext(mod || MOD, ctx, { filename: 'room-invite-ui.js' });
   env.ctx = ctx; env.els = els; env.fb = fb;
   env.mk = () => (env.api = ctx.TwRoomInviteUi.createRoomInviteUi({
     toast: (m) => env.toasts.push(m),
     escHtml: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
-    getMyUserId: () => 'ME',
+    getMyUserId: () => ('uid' in opt ? opt.uid : 'ME'),
     getDisplayName: () => '나나',
     startRoom: async (c) => { env.started.push(c); },
     doLeaveRoom: async (o) => { env.left.push(o); env.active = false; },
@@ -135,6 +135,10 @@ await sec('── 1. 만들 때', () => {
   const d = mkEnv({ noDom: true });
   let ok = true; try{ d.mk(); }catch(_){ ok = false; }
   chk(ok && d.subs.length === 1 && !(d.winL.resize || []).length, '고르기 창 DOM 이 없으면 창 연결은 건너뛰고 초대 받기는 건다');
+  const noUid = (mod) => { const u = mkEnv({ uid: null }, mod); u.mk(); return u.subs.length === 0 && u.els.inviteFriendBtn._L.click.length === 1; };
+  chk(noUid(), '내 코드 없음 — 초대함 구독 요청 0(roomInvites/null) · 버튼 연결은 그대로');
+  const m2 = MOD.replace(/\n *if\(!myId\) return;[^\n]*\n *firebaseAPI\.subscribeRoomInvites/, '\n  firebaseAPI.subscribeRoomInvites');
+  chk(m2 !== MOD && !noUid(m2), '  깨 보기 — 내 코드 확인을 빼면 빨강');
 });
 
 await sec('── 2. 친구 고르기 창', () => {

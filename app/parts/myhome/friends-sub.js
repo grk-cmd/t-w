@@ -197,10 +197,12 @@ function _waitSub(){
   });
 }
 async function _fetch(){
+  const id = _myId || getMyUserId();
+  if(!id) return {};
   const seq = _okSeq;
   _fetching = true;
   try{
-    const ids = await fetchOnce(_myId || getMyUserId());
+    const ids = await fetchOnce(id);
     if(_okSeq !== seq || _status === STATUS.READY) return current() || {};   // 그 사이 구독 값이 왔다 — 구독 값이 이긴다
     const cur = current() || {}, out = {};
     Object.keys(ids || {}).forEach(fid=>{

@@ -651,7 +651,7 @@ async function refreshInviteBtn(){
   const btn = document.getElementById('lcInviteIssueBtn');
   if(!btn) return;
   if(isAdmin()){ btn.textContent = '🎟️ 초대장 (무제한)'; btn.disabled = false; btn.style.opacity=''; return; }
-  if(!window.firebaseAPI || !firebaseAPI.getInvitesLeft){ btn.textContent = '🎟️ 초대장'; return; }
+  if(!window.firebaseAPI || !firebaseAPI.getInvitesLeft || !getMyUserId()){ btn.textContent = '🎟️ 초대장'; return; }   // 내 코드가 없으면 읽지 않는다(읽어도 거부 → 같은 글)
   try{
     // 🩹 self-heal: "정식으로 게이트를 통과한 적 있는 기기(INVITE_PASS_KEY)"의 기존 유저가
     //   invite 노드를 잃었을 때만 재지급. 게이트 통과 전 신규 유저에겐 절대 발동 안 함 —
