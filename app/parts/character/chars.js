@@ -548,7 +548,7 @@ async function _charsDeskToBox(i){
   desk[CHAR_SLOT_MAX - 1] = null;
   try{ localStorage.setItem(CHARS_DESK_KEY, JSON.stringify(desk)); }catch(e){ return { ok: false, why: 'save' }; }
   _charsGen++;
-  return { ok: true, cid };
+  return { ok: true, cid, slot: i };   // slot = 실제로 당긴 칸(동기화를 기다리는 사이 따라간 번호) — 부르는 쪽은 이 번호로 슬롯을 당긴다
 }
 async function _charsBoxToDesk(cid){
   if(!_charsActive()) return { ok: false, why: 'off' };

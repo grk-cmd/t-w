@@ -146,7 +146,7 @@ if(desktopMode){
            mousemove 가 없는 것이 정상이다 — 그걸 «통로가 죽었다» 로 읽어 1.5초마다 kick3 를 반복한 것이
            «여백에 커서를 두면 뒤의 크롬이 스크롤이 안 된다» 의 정체였다(main.js _onGlobalWheel 주석에 로그 근거).
            구버전 main 은 이 필드를 안 보내므로 undefined = 예전처럼 탄다. */
-      if(window.__mouseKick && !(state && state.wheel === true)) try{ window.__mouseKick(state && state.offOverlay); }catch(_){}
+      if(window.__mouseKick && !(state && state.wheel === true)) try{ window.__mouseKick(state && state.offOverlay, state && state.onUI); }catch(_){}
       anyInput();   // 자동 자리비움 판정용 — 어떤 앱을 쓰든 입력이 있었다는 사실만 기록
       if(!focusGateSleep()){
         activity();
@@ -579,7 +579,8 @@ if(desktopMode){
          그래도 굳어 있으면 그때 사다리가 정상적으로 돈다.
        ⚠️ 구버전 main 은 이 필드를 안 보낸다 — undefined 면 예전처럼 동작한다(막지 않는다). */
     let _penSkipLoggedAt = 0, _offSkipLoggedAt = 0;
-    window.__mouseKick = function(offOverlay){
+    let _offUiSkipLoggedAt = 0;
+    window.__mouseKick = function(offOverlay, onUI){
       // 이미 클릭을 받는 상태면 고착이 아니다 — 아무것도 하지 않는다.
       if(_ignoreSent !== true) return;
       const now = performance.now();
@@ -617,6 +618,18 @@ if(desktopMode){
         return;
       }
 
+      /* 🖱️ 3단계는 **우리 UI 위 클릭일 때만** — main 이 onUI 를 실어 보낸다(구버전 main 은 undefined → 예전처럼).
+         [10-16 제보 13] 크롬 · 한글처럼 forward mousemove 가 안 오는 앱 앞에서는 단계가 3 에 머문 채, 그 앱을 누를 때마다
+           0.8초 클릭받기가 걸렸다. 더블클릭의 두 번째 클릭이 투명 오버레이로 새면 Windows 가 투게더워킹을 앞으로 올린다.
+         ★ 남의 앱 위 클릭에는 구할 고착이 없다 — 굳어서 문제가 되는 건 우리 UI 를 누를 때뿐이고,
+           그쪽은 main 의 커서 감시(hover-poke)가 UI 에 들어오는 순간 재판정을 시킨다. */
+      if(onUI === false){
+        if(now - _offUiSkipLoggedAt > 10000){
+          _offUiSkipLoggedAt = now;
+          console.warn('[클릭통과] 우리 UI 밖 클릭 — 사다리 3단계(클릭받기)를 건너뛴다');
+        }
+        return;
+      }
       /* 3단계 — 여기까지 왔으면 재무장으로 안 되는 고착이다. 잠깐 클릭을 받아 본다.
          받는 동안 mousemove 가 한 번이라도 오면 아래 타이머가 손을 떼고 정상 판정에 넘긴다. */
       const before = _lastMoveSeen;

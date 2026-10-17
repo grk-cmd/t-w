@@ -83,6 +83,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'todo.releaseTpl': '릴리스 답변 템플릿',
   'todo.note': '할 일 공용 메모',
   'account.delete': '계정 삭제',
+  'account.selfDelete': '회원 탈퇴(본인)',
 };
 
 /** 필터 칩 — action 의 앞부분(«종류»)으로 묶는다. */

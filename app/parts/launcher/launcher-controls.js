@@ -108,9 +108,11 @@ async function doMoveCurSlotToBox(){
     try{ r = await charsMod()._charsDeskToBox(i); }catch(e){ r = { ok: false, why: 'err', err: String(e && e.message || e) }; }
   }finally{ _moveToBoxBusy = false; }
   if(!r.ok){ charsMod()._charsMoveFailLog(r, i); toast(charsMod()._charsMoveMsg(r)); return; }
-  /* 기다리는 사이 칸이 바뀌었을 수 있다(동기화 · 다른 창) — 옮긴 그 캐릭터가 지금 몇 번 칸인지 다시 찾는다. */
-  const at = slots.indexOf(slotObj);
-  if(at < 0){ renderLauncher(); toast('보관함으로 옮겼어요'); return; }   // 이미 칸에서 빠져 있다 — 당길 것이 없다
+  /* 기다리는 사이 칸이 바뀌었을 수 있다(동기화 · 다른 창). 슬롯 표(desk)를 당긴 그 번호(r.slot)로 슬롯도 당긴다 — 둘이 늘 같은 칸을 가리킨다.
+     ⚠️ 객체(slotObj)로 다시 찾으면 안 된다: 동기화가 칸을 바꿔 앉히면(loadSlots) 슬롯 객체가 새로 만들어져 못 찾고,
+       «이미 빠져 있다» 로 보고 슬롯을 그대로 둔 채 desk 만 당겨져 — 보관함에도 있고 슬롯에도 남는 복제가 됐다. */
+  const at = (typeof r.slot === 'number' && r.slot >= 0 && r.slot < slots.length) ? r.slot : slots.indexOf(slotObj);
+  if(at < 0){ renderLauncher(); toast('보관함으로 옮겼어요'); return; }   // 옛 판(번호를 안 돌려줌)에서 이미 칸에서 빠져 있다 — 당길 것이 없다
   for(let k = at; k < slots.length - 1; k++){ slots[k] = slots[k + 1]; }
   slots[slots.length - 1] = null;
   if(Array.isArray(settingsMod.extraSeatSlots())){

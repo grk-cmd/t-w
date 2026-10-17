@@ -88,7 +88,7 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
       if(typeof expr !== 'string') return expr === undefined || expr === true;
       String.prototype.matches = function(re){ return re.test(String(this)); };   // eslint-disable-line no-extend-native
       String.prototype.beginsWith = String.prototype.startsWith;                  // eslint-disable-line no-extend-native
-      // 경로 키 형식 조건(개정 316)이 있어 경로 변수엔 정상 키를 넣는다 — 여기서 보는 것은 값 조건이다
+      // 경로 키 형식 조건(개정 319)이 있어 경로 변수엔 정상 키를 넣는다 — 여기서 보는 것은 값 조건이다
       try{ return !!new Function('newData', '$reqId', '$userId', 'return (' + expr + ');')(snap(v), '-Nabc123', 'umu00pdxvk6d9x8mx'); }
       finally{ delete String.prototype.matches; delete String.prototype.beginsWith; }
     };
