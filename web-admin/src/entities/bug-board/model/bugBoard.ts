@@ -1,3 +1,4 @@
+import type { ApiFallback } from '@/shared/api';
 import { kstDateKey } from '@/shared/lib';
 
 /*
@@ -489,4 +490,49 @@ export function editWrite(
     updates[`${BUG_ROOT}/rep/${item.vis}/${item.id}`] = null;
   }
   return updates;
+}
+
+// ── 목록 — API(읽기 사본, 쪽 번호 · 전체 수) 또는 예전 방식(RTDB 커서 20줄) ──
+
+/** API 한 줄 — 웹 관리자 BugItem 과 같은 이름(t-w-server api/README.md «관리자 버그 제보 목록»). 없는 칸은 null. */
+export type ApiBugItem = { id: string } & Record<string, unknown>;
+
+export interface ApiBugPage {
+  items: ApiBugItem[];
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+  syncedAt: string | null;
+}
+
+export type BugListView =
+  | {
+      via: 'api';
+      items: BugItem[];
+      /** 1부터 — 범위를 넘은 쪽은 서버가 빈 채로 돌려준다(화면이 끝 쪽으로 맞춘다). */
+      page: number;
+      pageCount: number;
+      total: number;
+      /** 이 시각까지의 RTDB 변경은 반영됨. */
+      syncedAt: number | null;
+    }
+  | {
+      via: 'rtdb';
+      fallback: ApiFallback;
+      items: BugItem[];
+      next: BugCursor | null;
+    };
+
+/** API 쪽 → 화면 모양. 줄 판정은 RTDB 로 읽을 때와 같은 toBugItem(모양이 틀린 줄은 버린다). */
+export function bugListFromApi(raw: ApiBugPage): BugListView {
+  const synced = raw.syncedAt ? Date.parse(raw.syncedAt) : NaN;
+  return {
+    via: 'api',
+    items: raw.items.map((it) => toBugItem(it.id, it)).filter((it): it is BugItem => !!it),
+    page: raw.page,
+    pageCount: Math.max(1, raw.totalPages),
+    total: raw.total,
+    syncedAt: Number.isFinite(synced) ? synced : null,
+  };
 }

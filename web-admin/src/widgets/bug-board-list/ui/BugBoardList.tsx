@@ -8,15 +8,16 @@ import {
   hasAuthorReply,
   isStaffPost,
   StatusChip,
+  useBugList,
   useBugNo,
-  useBugPage,
   usePrvTitle,
   useRefreshBugBoard,
   type BugCursor,
   type BugFilter,
   type BugItem,
 } from '@/entities/bug-board';
-import { errorMessage, formatDate } from '@/shared/lib';
+import { errorMessage, formatDate, pageForSize, readPageSize, savePageSize } from '@/shared/lib';
+import { Pager } from '@/shared/ui';
 import styles from './BugBoardList.module.css';
 
 function Title({ item }: { item: BugItem }) {
@@ -82,26 +83,46 @@ function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: 
   );
 }
 
+const LIST_KEY = 'bugs';
+
 /**
- * 한 쪽 20개씩(규칙 상한) — 앞 쪽들의 자리(cursor)를 쌓아 [이전] 으로 돌아간다.
- * 쪽 수 · 총 개수는 모른다(세려면 전부 받아야 한다).
+ * API 읽기 사본으로 읽으면 전체 수 · 쪽 번호(Pager). 닿지 못하면 예전처럼 한 쪽 20개씩(규칙 상한) —
+ * 앞 쪽들의 자리(cursor)를 쌓아 [이전] 으로 돌아가고, 쪽 수 · 총 개수는 모른다(세려면 전부 받아야 한다).
  */
 export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
   const [filter, setFilter] = useState<BugFilter>('open');
+  const [page, setPage] = useState(1);
+  const [size, setSize] = useState(() => readPageSize(LIST_KEY));
   const [cursors, setCursors] = useState<(BugCursor | null)[]>([null]);
   const before = cursors[cursors.length - 1];
-  const { data, error, isFetching } = useBugPage(filter, before);
+  const { data, error, isFetching, isPlaceholderData } = useBugList({ filter, page, size, before });
   const refresh = useRefreshBugBoard();
   // 할 일 전체를 한 번 받아 줄마다 찾는다 — 줄마다 읽지 않는다.
   const todos = useTodos();
   const refreshTodos = useRefreshTodos();
   const byReport = useMemo(() => todoByReport(todos.data ?? []), [todos.data]);
 
+  // 지우기 · 상태 바꾸기로 줄어 지금 쪽이 끝을 넘으면 끝 쪽으로(API 는 넘은 쪽을 빈 채로 돌려준다)
+  if (data?.via === 'api' && !isPlaceholderData && page > data.pageCount) setPage(data.pageCount);
+
   const pick = (next: BugFilter) => {
     setFilter(next);
+    setPage(1);
     setCursors([null]);
   };
-  const page = cursors.length;
+
+  const paging = {
+    page: data?.via === 'api' ? data.page : page,
+    pageCount: data?.via === 'api' ? data.pageCount : 1,
+    size,
+    total: data?.via === 'api' ? data.total : 0,
+    setPage: (next: number) => setPage(Math.max(1, next)),
+    setSize: (next: number) => {
+      savePageSize(LIST_KEY, next);
+      setPage(pageForSize(page, size, next));
+      setSize(next);
+    },
+  };
 
   return (
     <section className="card">
@@ -157,25 +178,28 @@ export function BugBoardList({ onOpen }: { onOpen: (id: string) => void }) {
           </table>
         </div>
       )}
-      <div className={styles.pager}>
-        <button
-          type="button"
-          className="btn"
-          disabled={page <= 1 || isFetching}
-          onClick={() => setCursors(cursors.slice(0, -1))}
-        >
-          이전
-        </button>
-        <span className="soft">{page}쪽</span>
-        <button
-          type="button"
-          className="btn"
-          disabled={!data?.next || isFetching}
-          onClick={() => data?.next && setCursors([...cursors, data.next])}
-        >
-          다음
-        </button>
-      </div>
+      {data?.via === 'api' && <Pager paging={paging} />}
+      {data?.via === 'rtdb' && (
+        <div className={styles.pager}>
+          <button
+            type="button"
+            className="btn"
+            disabled={cursors.length <= 1 || isFetching}
+            onClick={() => setCursors(cursors.slice(0, -1))}
+          >
+            이전
+          </button>
+          <span className="soft">{cursors.length}쪽</span>
+          <button
+            type="button"
+            className="btn"
+            disabled={!data.next || isFetching}
+            onClick={() => data.next && setCursors([...cursors, data.next])}
+          >
+            다음
+          </button>
+        </div>
+      )}
     </section>
   );
 }
