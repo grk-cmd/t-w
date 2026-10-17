@@ -26,6 +26,7 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
+| 서버 범용 통로 바닥(요청만 · 0.11.4 뒤 합침) | 서버-통로1 | t-w-server: ① `/v1/config` 에 dataRoutes ② `POST /v1/data` · `/v1/data/stream` + 경로 처리기 등록부 + `me`(토큰 → authUsers) + 모르는 경로 404 — PR 하나씩 · 그 뒤 처리기 1개 = PR 1개(친구 → 방 초대 → 포커스 → 친구코드 → 방명록) | t-w-server `api/` 설정 · 새 data 모듈 | — |
 | ~~앱 TS 방향 문서~~ 머지 #357 | 검증 세션 | 앱은 TS 로 간다(React 는 안 함) · 단계 · 지금부터 TS 를 고려해 짜는 법 — 문서만 | `docs/TYPESCRIPT.md`(새) · `CLAUDE.md`(코드 컨벤션 한 줄 · 문서 목록 한 줄) | — |
 | ~~ci 릴리스 시작 고침~~ 머지 #356 | 검증 세션 | release-start 가 검사를 직접 돌릴 때 typescript 를 안 깔아 빨강 2 — checks.yml 과 같은 설치 줄 | `.github/workflows/release-start.yml` | — |
 | ~~#315~~ 머지 | 검증 세션 | 클릭 통과 판단을 한 곳으로(main #261 의 onUI 조건 포함) | `launcher/click-through-policy.js`(새) · `launcher/desktop-run.js` · `main.js` · 클릭 검사들 | #315 |
