@@ -25,7 +25,7 @@ for(const [n, v] of [['api-client.js', SRC], ['desk-companion-prototype.html', H
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const A = require(path.resolve(where('api-client.js')));
 const memStore = (o) => ({ getItem: (k) => (k in (o || {}) ? o[k] : null) });
-const PROD = 'https://api.togetherworking.duckdns.org', DEV = 'https://api-dev.togetherworking.duckdns.org';
+const PROD = 'https://api.together-working.com', DEV = 'https://api-dev.together-working.com';
 const res = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => { if(body instanceof Error) throw body; return body; } });
 const mkFetch = (fn) => { const calls = []; const f = async (url, init) => { calls.push({ url, init }); return fn(url, init, calls.length); }; f.calls = calls; return f; };
 const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
@@ -37,7 +37,9 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     chk(A.apiBaseFor('prod', memStore({ 'tw.apiBaseUrl': 'https://x.togetherworking.duckdns.org' })) === PROD && A.apiBaseFor(undefined, null) === PROD, '★ 운영 앱은 늘 운영 API(시험 주소 무시)');
     chk(A.apiBaseFor('dev', memStore()) === DEV && A.apiBaseFor('dev', null) === DEV, 'dev 앱은 dev API');
     chk(A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-test.togetherworking.duckdns.org/' })) === 'https://api-test.togetherworking.duckdns.org', '  ↳ dev 앱만 tw.apiBaseUrl(끝 / 무시)');
-    chk(['https://evil.example', 'http://api-test.togetherworking.duckdns.org', 'https://a.togetherworking.duckdns.org.evil.com', 'https://a.b.togetherworking.duckdns.org', PROD]
+    chk(A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': 'https://api-test.together-working.com' })) === 'https://api-test.together-working.com', '  ↳ 새 도메인 묶음(*.together-working.com)도 시험 주소로');
+    chk(['https://evil.example', 'http://api-test.togetherworking.duckdns.org', 'https://a.togetherworking.duckdns.org.evil.com', 'https://a.b.togetherworking.duckdns.org', PROD,
+      'https://evil-together-working.com', 'https://a.together-working.com.evil.com', 'https://a.b.together-working.com', 'http://a.together-working.com', 'https://together-working.com']
       .every((u) => A.apiBaseFor('dev', memStore({ 'tw.apiBaseUrl': u })) === DEV), '  ↳ 묶음 밖 · http · 접미사 흉내 · 두 칸 · 운영 API 는 무시(dev API)');
     chk(A.apiBaseFor('dev', { getItem(){ throw new Error('blocked'); } }) === DEV, '  ↳ 저장소가 막혀도 dev API');
     chk(A.envOf({ companion: { firebaseEnv: 'dev' } }) === 'dev' && A.envOf({ companion: {} }) === 'prod' && A.envOf({}) === 'prod' && A.envOf(null) === 'prod', '환경은 preload 의 companion.firebaseEnv(firebase-config.js 와 같은 방식)');
@@ -151,8 +153,8 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     const iApi = HTML.indexOf('<script src="parts/shared/api-client.js"></script>'), iRc = HTML.indexOf('<script src="parts/shared/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
     chk(iApi > 0 && iApi < iRc && iRc < iApp, 'html — api-client.js → remote-config.js → app.js 차례');
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => (/connect-src ([^;]+);/.exec(m[1]) || [])[1] || '');
-    const inCsp = (u) => csp.length === 2 && csp.every((c) => /(^| )https:\/\/\*\.togetherworking\.duckdns\.org( |$)/.test(c)) && A.API_BASE_RE.test(u);
-    chk(inCsp(PROD) && inCsp(DEV), '  ↳ 운영 · dev API 주소가 CSP connect-src(https://*.togetherworking.duckdns.org) 안');
+    const inCsp = (u) => csp.length === 2 && csp.every((c) => /(^| )https:\/\/\*\.together-working\.com( |$)/.test(c) && /(^| )https:\/\/\*\.togetherworking\.duckdns\.org( |$)/.test(c)) && A.API_BASE_RE.test(u);
+    chk(inCsp(PROD) && inCsp(DEV), '  ↳ 운영 · dev API 주소가 CSP connect-src(https://*.together-working.com) 안 · 옛 duckdns 묶음도 그대로 열림');
   }
 
   say('\n' + pass + ' · ' + fail);
