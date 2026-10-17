@@ -23,6 +23,7 @@ const SRC0 = {
   FAPI: pick(at('friends-api.js', 'friends')),
   AC: pick(at('api-client.js', 'shared')),
   RC: pick(at('remote-config.js', 'shared')),
+  SS: pick(at('source-switch.js', 'shared')),
   RULES: pick(['firebase-database-rules.json']),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
   FS: pick(at('friends-sub.js', 'myhome')),
@@ -40,8 +41,8 @@ const flush = async () => { for(let i = 0; i < 8; i++) await Promise.resolve(); 
 
 async function judge(S){
   say('── 1. 포트 — provider 로 그대로');
-  let P = null, F = null;
-  try{ P = load(S.PORT, 'TwFriendsPort'); F = load(S.FBP, 'TwFriendsFirebase'); }catch(e){ chk(false, '싣다 던짐 — ' + e.message); return; }
+  let P = null, F = null, SW = null;
+  try{ P = load(S.PORT, 'TwFriendsPort'); F = load(S.FBP, 'TwFriendsFirebase'); SW = load(S.SS, 'TwSourceSwitch'); }catch(e){ chk(false, '싣다 던짐 — ' + e.message); return; }
   chk(P && typeof P.createFriendsPort === 'function' && F && typeof F.createFriendsFirebase === 'function', '전역 이름 TwFriendsPort · TwFriendsFirebase');
   {
     const log = [];
@@ -51,7 +52,7 @@ async function judge(S){
       watchList: (id, ok, err) => { log.push(['watch', id, typeof ok, typeof err]); return un; },
       watchPresence: (id, ids, ok) => { log.push(['pres', id, ids.join(), typeof ok]); return un; },
     };
-    const port = P.createFriendsPort({ firebase: fake, api: null, apiOn: () => true, warn(){} });
+    const port = P.createFriendsPort({ firebase: fake, api: null, source: () => 'server', serverFirst: SW.serverFirst, warn(){} });
     const r = await port.listFriends('ME', { idsOnly: true });
     chk(r && r.f1 && JSON.stringify(log[0]) === JSON.stringify(['list', 'ME', { idsOnly: true }]), 'listFriends(myId, opts) — provider 로 · 값 그대로');
     await port.listFriends('ME');
@@ -63,15 +64,16 @@ async function judge(S){
   }
 
   {
-    chk(P.pickListSource(true, true) === 'api' && P.pickListSource(undefined, true) === 'api' && P.pickListSource(null, true) === 'api',
-      'pickListSource(순수) — 스위치가 켜졌거나 값이 없으면 api');
-    chk(P.pickListSource(false, true) === 'firebase' && P.pickListSource(true, false) === 'firebase', '  ↳ 끄면 · api provider 가 없으면 옛 길');
+    chk(SW.pickSource('friends', null, true) === 'server' && SW.pickSource('friends', null, undefined) === 'server' && SW.pickSource('friends', null, null) === 'server',
+      '받는 곳(source-switch pickSource) — 옛 스위치가 켜졌거나 값이 없으면 서버');
+    chk(SW.pickSource('friends', null, false) === 'firebase', '  ↳ 옛 스위치(flags.friendsApi)를 끄면 옛 길');
+    chk(SW.pickSource('friends', 'firebase', true) === 'firebase' && SW.pickSource('friends', 'server', false) === 'server', '  ↳ 새 자리(sources.friends)가 있으면 그쪽이 이긴다');
     const mkPort = (o) => {
       const L = { api: 0, fb: [], warn: 0 };
       const port = P.createFriendsPort({
         firebase: { listFriends: async (id, op) => { L.fb.push(op); return { f: { from: 'fb' } }; }, watchList(){}, watchPresence(){} },
         api: o.noApi ? null : { listFriends: async (id) => { L.api++; if(o.apiFail) throw Object.assign(new Error('x'), { status: 503 }); return { f: { from: 'api', id } }; } },
-        apiOn: o.apiOn, warn: () => { L.warn++; },
+        source: () => SW.createSourceSwitch({ valueOf: () => o.value, legacyOf: () => o.apiOn() }).pick('friends'), serverFirst: SW.serverFirst, warn: () => { L.warn++; },
       });
       return { port, L };
     };
@@ -89,9 +91,15 @@ async function judge(S){
     k = mkPort({ apiOn: () => { throw new Error('설정 아직'); } });
     v = await k.port.listFriends('ME');
     chk(v.f.from === 'api', '  ↳ 스위치를 못 읽으면(설정 준비 전) 켜짐으로');
+    k = mkPort({ apiOn: () => true, value: 'firebase' });
+    v = await k.port.listFriends('ME');
+    chk(v.f.from === 'fb' && k.L.api === 0, '★ 새 자리를 파이어베이스로 — 옛 스위치가 켜져 있어도 api 를 안 부른다');
+    k = mkPort({ apiOn: () => false, value: 'server' });
+    v = await k.port.listFriends('ME');
+    chk(v.f.from === 'api', '  ↳ 새 자리를 서버로 — 옛 스위치가 꺼져 있어도 서버 먼저');
     k = mkPort({ apiOn: () => true, noApi: true });
     v = await k.port.listFriends('ME');
-    chk(v.f.from === 'fb', '  ↳ api provider 가 없으면 옛 길');
+    chk(v.f.from === 'fb' && k.L.warn === 0, '  ↳ api provider 가 없으면 옛 길(실패가 아니라 진단 줄 없음)');
     chk(P.LIVE_SOURCE === 'firebase', '듣기(목록 · 접속 상태)는 아직 옛 길 — ws 자리(LIVE_SOURCE)');
   }
 
@@ -169,7 +177,7 @@ async function judge(S){
       const timers = [];
       const fbp = F.createFriendsFirebase({ getList: (...a) => api.getMyFriendList(...a), watchList: (...a) => api.watchMyFriendList(...a), getCard: (...a) => api.getFriendCard(...a),
         watchPresence: (...a) => api.watchFriendPresence(...a), getPresence: (...a) => api.getFriendPresence(...a), setTimer: (fn) => { timers.push(fn); return timers.length; }, clearTimer: () => {}, now: () => 0 });
-      const port = P.createFriendsPort({ firebase: fbp, api: null, apiOn: () => true, warn(){} });
+      const port = P.createFriendsPort({ firebase: fbp, api: null, source: () => 'server', serverFirst: SW.serverFirst, warn(){} });
       let cur = {};
       const sub = FS.createFriendsSub({ subscribe: (...a) => port.watchList(...a), fetchOnce: (id) => port.listFriends(id, { idsOnly: true }), listFriends: (...a) => port.listFriends(...a),
         watchPresence: (...a) => port.watchPresence(...a), readPresence: (...a) => port.readPresence(...a), current: () => cur, setFriends: (v) => { cur = v; }, getMyUserId: () => 'ME',
@@ -308,7 +316,7 @@ async function judge(S){
     chk(/const friendsFirebaseMod = TwFriendsFirebase\.createFriendsFirebase\(\{\n  getList: \(\.\.\.a\)=>firebaseAPI\.getMyFriendList\(\.\.\.a\),\n  watchList: \(\.\.\.a\)=>firebaseAPI\.watchMyFriendList\(\.\.\.a\),\n  getCard: \(\.\.\.a\)=>firebaseAPI\.getFriendCard\(\.\.\.a\),\n  watchPresence: \(\.\.\.a\)=>firebaseAPI\.watchFriendPresence\(\.\.\.a\),\n  getPresence: \(\.\.\.a\)=>firebaseAPI\.getFriendPresence\(\.\.\.a\),\n/.test(a),
       'app.js — firebase provider 가 firebaseAPI 친구 함수 다섯을 deps 로 받는다(목록 한 번 · 목록 구독 · 카드 · 접속 상태 구독 · 한 번)');
     chk(/  watchPresence: \(\.\.\.a\)=>friendsPortMod\.watchPresence\(\.\.\.a\),\n  readPresence: \(\.\.\.a\)=>friendsPortMod\.readPresence\(\.\.\.a\),/.test(a), '  ↳ friends-sub 의 접속 상태 듣기 · 한 번 읽기도 포트로');
-    chk(/const friendsPortMod = TwFriendsPort\.createFriendsPort\(\{\n  firebase: friendsFirebaseMod,\n  api: friendsApiMod,\n  apiOn: \(\)=>\{ const s = acctStateMod\._rcStore\(\); return s \? s\.friendsApi\(\) : true; \},/.test(a), '  ↳ 포트가 provider 둘 · 스위치(원격 설정 friendsApi — 설정이 없으면 켜짐)를 받는다');
+    chk(/const friendsPortMod = TwFriendsPort\.createFriendsPort\(\{\n  firebase: friendsFirebaseMod,\n  api: friendsApiMod,\n  source: \(\)=>TwSourceSwitch\.store\.pick\('friends'\),[^\n]*\n  serverFirst: TwSourceSwitch\.serverFirst,/.test(a), '  ↳ 포트가 provider 둘 · 스위치(원격 설정 friendsApi — 설정이 없으면 켜짐)를 받는다');
     chk(/const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  get: \(\.\.\.a\)=>firebaseAPI\.apiGetAuthed\(\.\.\.a\),[^\n]*\n  wait: \(ms\)=>new Promise\(r=>setTimeout\(r, ms\)\),/.test(a), '  ↳ api provider 가 로그인 API 통로(firebase-init apiGetAuthed) · 쉬기를 받는다');
     const fi = strip(S.FI);
     chk(/const _authApi = \(window\.TwApi && window\.TwApi\.client\) \? window\.TwApi\.createApiClient\(\{\n    baseUrl: window\.TwApi\.client\.baseUrl\(\), fetch: \(\.\.\.a\) => window\.fetch\(\.\.\.a\), getToken: \(\) => _getIdToken\(false\), backoffMs: 0,\n  \}\) : null;/.test(fi)
@@ -339,7 +347,7 @@ await judge(SRC0);
 
 say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const BREAKS = [
-  ['PORT', 'await firebase.listFriends(myId, opts || {});', 'await firebase.listFriends(myId, {});', 'opts 를 버림'],
+  ['PORT', 'firebase.listFriends(myId, opts || {})', 'firebase.listFriends(myId, {})', 'opts 를 버림'],
   ['PORT', 'return firebase.watchList(myId, onChange, onError);', 'return firebase.watchList(myId, onChange);', '에러 콜백을 안 넘김'],
   ['PORT', 'return firebase.watchPresence(myId, ids, onChange);', 'firebase.watchPresence(myId, ids, onChange);', '해제 함수를 안 돌려줌'],
   ['FS', "  const want = (Object.keys(_open).length && _status", "  const want = (_status", '목록이 닫혀 있어도 접속 상태를 들음'],
@@ -351,9 +359,11 @@ const BREAKS = [
   ['FBP', "  return { online: !!p.online, lastSeen: p.lastSeen || 0, room: p.room || null, inRoom: (p.inRoom !== undefined) ? !!p.inRoom : !!p.room };", "  return { online: !!p.online, lastSeen: p.lastSeen || 0, room: p.room || null, inRoom: !!p.room };", '시크릿룸 «방에 있음» 을 코드로 판정'],
   ['FI', "      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{\n        if(_dead) return;\n        onChange(snap.val() || {});", "      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{\n        if(_dead) return;\n        Object.keys(snap.val() || {}).forEach(fid=>onValue(ref(db, `users/${fid}/profile`), ()=>{}));\n        onChange(snap.val() || {});", '친구별 구독을 되살림'],
   ['APP', '  subscribe: (...a)=>friendsPortMod.watchList(...a),', '  subscribe: (...a)=>firebaseAPI.subscribeMyFriends(...a),', 'friends-sub 가 포트를 건너뜀'],
-  ['PORT', "  return (apiOn !== false && hasApi) ? SOURCE.API : SOURCE.FIREBASE;", "  return hasApi ? SOURCE.API : SOURCE.FIREBASE;", '스위치를 안 봄'],
-  ['PORT', "  return (apiOn !== false && hasApi) ? SOURCE.API : SOURCE.FIREBASE;", "  return (apiOn === true && hasApi) ? SOURCE.API : SOURCE.FIREBASE;", '값이 없으면 꺼짐으로'],
-  ['PORT', "        warn('[친구 목록] 서버에서 못 받음", "        throw e; warn('[친구 목록] 서버에서 못 받음", 'api 실패를 옛 길로 안 넘김'],
+  ['SS', "  friends: Object.freeze({ legacy: (v) => (v === false ? SOURCE.FIREBASE : SOURCE.SERVER),", "  friends: Object.freeze({ legacy: (v) => SOURCE.SERVER,", '옛 스위치를 안 봄'],
+  ['SS', "  friends: Object.freeze({ legacy: (v) => (v === false ? SOURCE.FIREBASE : SOURCE.SERVER),", "  friends: Object.freeze({ legacy: (v) => (v === true ? SOURCE.SERVER : SOURCE.FIREBASE),", '값이 없으면 꺼짐으로'],
+  ['SS', "  return cleanSource(value) || f.legacy(legacy);", "  return f.legacy(legacy);", '새 자리(sources.friends)를 안 봄'],
+  ['SS', "      if(onFail) onFail(e);", "      throw e;", 'api 실패를 옛 길로 안 넘김'],
+  ['PORT', "      apiProvider ? () => apiProvider.listFriends(myId) : null,", "      () => apiProvider.listFriends(myId),", 'api provider 가 없어도 서버 길'],
   ['FAPI', "const RETRY_DELAYS_MS = [1000, 3000];", "const RETRY_DELAYS_MS = [1000, 3000, 9000];", '다시 묻기 횟수가 늘어남'],
   ['FAPI', "const REQUEST_TIMEOUT_MS = 5000;", "const REQUEST_TIMEOUT_MS = 2500;", '시간 제한이 달라짐'],
   ['FAPI', "  if(e.code === 'NETWORK' || e.code === 'TIMEOUT') return true;", "  if(e.code === 'NETWORK') return true;", '시간 초과를 다시 안 물음'],

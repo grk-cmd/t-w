@@ -1,5 +1,5 @@
 /* remote-config.js — ⚙️ 원격 설정: 관리자가 웹 관리자 ⚙️ 설정에서 바꾸는 운영 값 (검사 sim-remote-config.js)
-   [왜] 운영 값(방 상한 · 정원 · 가입 스위치 · 친구 목록 서버 스위치 · 방 서버 · 방 서버 연결 시간 · 최소 버전 · 제보 상한)을 앱 릴리스 없이 바꾸려고.
+   [왜] 운영 값(방 상한 · 정원 · 가입 스위치 · 친구 목록 서버 스위치 · 방 서버 · 방 서버 연결 시간 · 최소 버전 · 제보 상한 · 기능별 받는 곳)을 앱 릴리스 없이 바꾸려고.
      쓰기 원본은 Firebase config/*(웹 관리자가 씀)이고, 우리 API(t-w-server · PostgreSQL)는 그 읽기 전용 사본이다.
      Firebase 요금은 내려받은 바이트라 평소에는 사본(API)에서 읽는다.
    [읽는 차례] API GET /v1/config(로그인 없이 · 몇백 바이트 · data = { version, syncedAt, config }) → 못 받으면(사본 미준비 503 CONFIG_NOT_READY 포함)
@@ -43,9 +43,12 @@ const FALLBACK_PATHS = Object.freeze({
   minAppVer: 'config/minAppVer', minRoomVer: 'config/minRoomVer',
   rsOn: 'config/roomServer/on', rsDefault: 'config/roomServer/default', rsPercent: 'config/roomServer/defaultPercent',
   rsJoinWait: 'config/roomServer/timing/joinWaitMs', rsGiveUp: 'config/roomServer/timing/clientGiveUpMs',
+  srcFriends: 'config/sources/friends', srcRooms: 'config/sources/rooms', srcCatalog: 'config/sources/catalog',
 });
 const FB_ALLOW = 'config/roomServer/allow/', FB_SERVERS = 'config/roomServer/servers/';
-const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'friendsApi', 'roomServer', 'roomServerTiming', 'minVersion', 'bugDailyMax'];
+const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'friendsApi', 'roomServer', 'roomServerTiming', 'minVersion', 'bugDailyMax', 'sources'];
+/* 기능별 받는 곳(source-switch.js FEATURES 와 같은 이름) — 칸 값은 'server' | 'firebase', 없으면 null(옛 스위치 · 기본값) */
+const SOURCE_FEATURES = Object.freeze(['friends', 'rooms', 'catalog']);
 const DEFAULTS = Object.freeze({
   roomLimits: Object.freeze({ workingroom: 300, togetherroom: 300 }),
   roomMaxPeople: 10,
@@ -56,6 +59,7 @@ const DEFAULTS = Object.freeze({
   roomServerTiming: Object.freeze({ joinWaitMs: TIMING_RANGES.joinWaitMs[2], clientGiveUpMs: TIMING_RANGES.clientGiveUpMs[2] }),
   minVersion: Object.freeze({ app: null, room: null }),
   bugDailyMax: 5,
+  sources: Object.freeze({ friends: null, rooms: null, catalog: null }),
 });
 
 const isInt = (v) => typeof v === 'number' && isFinite(v) && v % 1 === 0;
@@ -106,7 +110,14 @@ function cleanTiming(raw){
   }
   return out;
 }
+function cleanSources(raw){
+  const r = isObj(raw) ? raw : {};
+  const out = {};
+  for(const f of SOURCE_FEATURES) out[f] = (r[f] === 'server' || r[f] === 'firebase') ? r[f] : null;
+  return out;
+}
 function clean(key, raw){
+  if(key === 'sources') return cleanSources(raw);
   if(key === 'roomLimits') return cleanRoomLimits(raw);
   if(key === 'roomMaxPeople') return cleanMaxPeople(raw);
   if(key === 'roomServer') return cleanRoomServer(raw);
@@ -120,7 +131,7 @@ function fieldsOf(data){
   const d = isObj(data) ? data : {};
   const f = isObj(d.flags) ? d.flags : {};
   return { roomLimits: d.roomLimits, roomMaxPeople: d.roomMaxPeople, inviteGate: f.inviteGate, existingSignup: f.existingSignup, friendsApi: f.friendsApi,
-    roomServer: d.roomServer, roomServerTiming: d.roomServerTiming, minVersion: d.minVersion, bugDailyMax: d.bugDailyMax };
+    roomServer: d.roomServer, roomServerTiming: d.roomServerTiming, minVersion: d.minVersion, bugDailyMax: d.bugDailyMax, sources: d.sources };
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -190,7 +201,8 @@ function createRemoteConfig(){
       flags: { inviteGate: v.inviteGate, existingSignup: v.existingSignup, friendsApi: v.friendsApi },
       minVersion: { app: v.minAppVer, room: v.minRoomVer },
       roomServer: { on: v.rsOn, default: v.rsDefault, defaultPercent: v.rsPercent, servers: {} },
-      roomServerTiming: { joinWaitMs: v.rsJoinWait, clientGiveUpMs: v.rsGiveUp } };
+      roomServerTiming: { joinWaitMs: v.rsJoinWait, clientGiveUpMs: v.rsGiveUp },
+      sources: { friends: v.srcFriends, rooms: v.srcRooms, catalog: v.srcCatalog } };
     src = 'firebase';
     apply(data, false); saveCache(data);
     return true;
@@ -298,12 +310,13 @@ function createRemoteConfig(){
     minAppVer: () => cur.minVersion.app,
     minRoomVer: () => cur.minVersion.room,
     bugDailyMax: () => cur.bugDailyMax,
+    sources: () => cur.sources,   // 기능별 받는 곳 — 고르기는 source-switch.js pickSource 한 곳
   };
 }
 
 const api = { FALLBACK_PATHS, FB_ALLOW, FB_SERVERS, CONFIG_PATH, ALLOW_PATH, CACHE_KEY, REFRESH_MS, STALE_MS, FETCH_TIMEOUT_MS,
-  KEYS, CHANNELS, DEFAULTS, TIMING_RANGES, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
-  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanMinVersion, cleanRoomServer, cleanTiming, fieldsOf,
+  KEYS, SOURCE_FEATURES, CHANNELS, DEFAULTS, TIMING_RANGES, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
+  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanMinVersion, cleanRoomServer, cleanTiming, cleanSources, fieldsOf,
   createRemoteConfig, store: createRemoteConfig() };
 if(typeof window !== 'undefined') window.TwRemoteConfig = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -6,14 +6,15 @@
 ## friends-port.js — 친구 데이터 포트
 - 책임: 친구 목록 받기(`listFriends`) · 목록(추가 · 삭제) 듣기(`watchList`) · 접속 상태 듣기(`watchPresence`) 를 provider 로 잇는다.
   목록 받기는 **api 먼저 → 못 받으면 옛 길(firebase)**. 듣기 둘은 아직 옛 길(ws 는 다음 단계 — `LIVE_SOURCE` 자리).
-- 고르기: `pickListSource(apiOn, hasApi)` **한 함수**만 고른다. 스위치는 원격 설정 `flags.friendsApi`(기본 켜짐 — 쓰기 원본 Firebase `config/flags/friendsApi`).
+- 고르기: 받는 곳은 `shared/source-switch.js`(기능 `'friends'`)가 고르고 넘어가기도 그 `serverFirst` 한 벌이다. 스위치는 원격 설정 `sources.friends`(웹 관리자 «🎚️ 기능 스위치» · 쓰기 원본 Firebase `config/sources/friends`), 칸이 없으면 옛 `flags.friendsApi`(기본 켜짐). api provider 가 없으면 실패가 아니라 바로 옛 길.
   끄면 api 를 부르지도 않고 옛 길만. 비율 · 단계 켜기는 없다.
 - 만드는 법(app.js):
   ```js
   const friendsPortMod = TwFriendsPort.createFriendsPort({
     firebase: friendsFirebaseMod,   // 옛 길 provider
     api: friendsApiMod,             // api provider(없으면 null — 옛 길만)
-    apiOn: ()=>{ const s = acctStateMod._rcStore(); return s ? s.friendsApi() : true; },
+    source: ()=>TwSourceSwitch.store.pick('friends'),
+    serverFirst: TwSourceSwitch.serverFirst,
     warn: (...a)=>console.warn(...a),
   });
   ```
