@@ -35,14 +35,14 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
 검사: `checks/sim-seat-friend-req.js` (두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결 · 깨 보기).
 
 ## friends-sub.js — 내 친구 목록 구독 한 벌
-- 책임: `firebaseAPI.subscribeMyFriends` 를 **동시에 하나만** 건다. 실패하면 **목록을 열 때만**(친구 탭 · 워킹룸 초대 목록) 다시 건다 — 타이머 재시도 · 연결 감시는 없다.
+- 책임: 친구 목록 구독(포트 `friends/friends-port.js` 의 watchList)을 **동시에 하나만** 건다. 실패하면 **목록을 열 때만**(친구 탭 · 워킹룸 초대 목록) 다시 건다 — 타이머 재시도 · 연결 감시는 없다.
   친구 추가 · 수락 판정은 `friendsForCheck()` 로 받은 목록을 쓴다(못 받았으면 이 모듈 한 곳에서만 한 번 읽는다).
   화면은 `notice()` 하나로 «불러오는 중» · «못 불러옴» 을 «친구 없음»(받은 목록이 빈 것)과 따로 그린다.
 - 만드는 법(app.js):
   ```js
   const friendsSubMod = TwFriendsSub.createFriendsSub({
-    subscribe: (...a)=>firebaseAPI.subscribeMyFriends(...a),   // (myId, onChange, onError) → 해제 함수
-    fetchOnce: (...a)=>firebaseAPI.getMyFriendList(...a),      // users/{나}/friends 한 번 읽기 — 부르는 곳은 이 모듈뿐
+    subscribe: (...a)=>friendsPortMod.watchList(...a),                // (myId, onChange, onError) → 해제 함수 — 포트(friends/)
+    fetchOnce: (id)=>friendsPortMod.listFriends(id, { idsOnly:true }), // 판정용 한 번 읽기 — 부르는 곳은 이 모듈뿐
     current: ()=>_myHomeFriends,
     setFriends: (v)=>{ _myHomeFriends = v; },
     getMyUserId: (...a)=>getMyUserId(...a),

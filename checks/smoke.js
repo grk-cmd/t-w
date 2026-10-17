@@ -518,6 +518,9 @@ PRELOAD.push('wardrobe-panel.js');
 /* lv-tier.js — 레벨 티어(앱 FSD 48번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLvTier 를 같이 굴린다. */
 PRELOAD.push('lv-tier.js');
 /* friends-sub.js — 친구 목록 구독 한 벌(상태 · 자동 다시 걸기). 같은 까닭 — app.js 가 원래 자리에서 부르는 createFriendsSub 를 같이 굴린다. */
+/* friends-firebase.js · friends-port.js — 친구 데이터 provider · 포트. 같은 까닭 — app.js 가 원래 자리에서 부르는 create 를 같이 굴린다. */
+PRELOAD.push('friends-firebase.js');
+PRELOAD.push('friends-port.js');
 PRELOAD.push('friends-sub.js');
 /* myhome-init.js — 마이홈 처음 준비(앱 FSD 44번 남은 몫). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeInit 를 같이 굴린다. */
 PRELOAD.push('myhome-init.js');

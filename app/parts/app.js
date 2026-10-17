@@ -2756,9 +2756,17 @@ const deviceLostMod = TwDeviceLost.createDeviceLost({
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
 /* 본문은 myhome-init.js 로 옮겼다(앱 FSD 44번 남은 몫). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+/* 👥 친구 데이터는 포트(friends/friends-port.js) 하나로 — 그 뒤 provider 가 Firebase(옛 길)를 안다. friends-sub · 화면은 Firebase 를 모른다. */
+const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
+  getList: (...a)=>firebaseAPI.getMyFriendList(...a),
+  watchAll: (...a)=>firebaseAPI.subscribeMyFriends(...a),
+});
+const friendsPortMod = TwFriendsPort.createFriendsPort({
+  firebase: friendsFirebaseMod,
+});
 const friendsSubMod = TwFriendsSub.createFriendsSub({
-  subscribe: (...a)=>firebaseAPI.subscribeMyFriends(...a),
-  fetchOnce: (...a)=>firebaseAPI.getMyFriendList(...a),
+  subscribe: (...a)=>friendsPortMod.watchList(...a),
+  fetchOnce: (id)=>friendsPortMod.listFriends(id, { idsOnly:true }),
   current: ()=>_myHomeFriends,
   setFriends: (v)=>{ _myHomeFriends = v; },
   getMyUserId: (...a)=>getMyUserId(...a),
