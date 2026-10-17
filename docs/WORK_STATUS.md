@@ -65,6 +65,7 @@
 | 서버 가지 정리 — 요청 올림(합치기 대기) | 서버 정리 세션 | t-w-server 남은 가지를 dev 위로 다시 얹어 요청으로. 권하는 차례 #51 → #57 → #58 → #52 → #54 → #53 · #55 는 아무 때나. 앱 쪽: 봇 계정 규칙(bugBoard/list · friendRequests 읽기 · 친구 거울 쓰기) · 새 config 칸 .validate | t-w-server 가지들 | t-w-server #51 · #52 · #53 · #54 · #55 · #57 · #58 |
 | ~~생성기 프리셋 고침 다시 얹기(B-1015-3)~~ 머지 #353 | 검증-도우미16 | 0.11.4 에 넣음(사용자 결정 10-17) — 프리셋 읽기 · 쓰기 한 곳 · 저장 · 읽기 실패 알림 · 망가진 프리셋 위에 덮어쓰지 않기 | `creator/desk-preset-store.js` · `desk-preset.js` · `character/animal.js`(동물 프리셋) · `shared/error-codes.js` · checks | #353 |
 | ~~관리자 제보 목록 API 열어 두기~~ 머지 #351 · 서버 #51(dev) | 검증-도우미17 | 서버 #51(dev) + 앱 wX 세 줄(viaApiOr 한 벌 · bugBoard/list 봇 읽기 규칙 · 제보 목록 쪽 번호) — 관리자 전용 · 서버 없으면 RTDB 폴백 · 기능 멈춤 예외(사용자 10-17) | `web-admin/src/shared/api` · `web-admin` 제보 목록 · `firebase-database-rules.json` · checks | — |
+| 앱 범용 통로(서버만 배포로 기능 옮기기) | 검증-도우미18 | firebase-init.js 의 Firebase 기본 동작 앞에 통로 하나 — 원격 설정 dataRoutes 표에 걸린 경로만 서버 POST /v1/data 로, 표가 비면 지금과 똑같이 Firebase · 요청까지만(0.11.4 에 넣을지 사용자 확인) | `app/parts/firebase-init.js` · `app/parts/shared/data-gateway.js`(새) · `shared/remote-config.js` · 규칙 · checks | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
