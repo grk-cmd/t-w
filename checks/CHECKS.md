@@ -1,7 +1,14 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 340 (realtime 연결 공통부(realtime-link.js) 떼어 냄)
-대상: `sim-*.js` 307개 + `smoke.js` + `audit.py` = **309개** (개정 340 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 341 (에러코드 — 실패 토스트에 E-영역-번호 · 표 한 곳 error-codes.js)
+대상: `sim-*.js` 308개 + `smoke.js` + `audit.py` = **310개** (개정 341 기준 — 폴더를 센 값)
+
+**개정 341 에서 한 것 (2026-10-16 · 에러코드)**
+- 앱: `app/parts/shared/error-codes.js` 신설(`window.TwErrorCodes`) — 번호 표(`CODES` · 걷은 번호 `RETIRED` · 영역 `AREAS`)와 알리는 통로 `notify(번호, err, 문구?)`. 토스트는 «⚠️ 문구 · 오류 E-FR-01» 로 4초, 진단 기록(`companion.diagNote`)에 «[오류] 번호 원인» 한 줄, 같은 번호는 10초 안에 토스트 한 번, 표에 없는 번호는 E-SYS-01. html 이 부르는 모듈 · app.js 보다 먼저 싣는다. 토스트(app.js `toast`)는 부를 때 찾는다.
+- 앱: 실패 토스트에 번호 — 친구 요청 수락 · 거절 · 취소 · 일괄(`friend-manage.js` E-FR-01~04) · 방 목록 못 불러옴 · 갈아타기 뒤 방 밖(`room-entry.js` E-ROOM-01 · 02). 방 목록은 삼키던 오류를 진단 기록으로 넘긴다. 문구는 같은 뜻 그대로.
+- 문서: `docs/ERROR_CODES.md` — 번호 규칙 · 영역 · 번호 표 · 걷은 번호.
+- 검사: `sim-error-codes.js` 신설 — 표 모양 · notify(문구 · 진단 · 10초 · 모르는 번호 · 최근 기록 상한 · 던져도 안 샘) · 렌더러 전부에서 부른 번호가 표에 있고 표의 번호는 쓰인다 · 싣는 순서 · 문서에 번호가 다 있다.
+- 검증 중: `error-codes.js` 의 토스트 연결 `if(typeof window.toast === 'function')` 가드를 걷고 바로 부른다(새 typeof 가드 금지 · app.js 전역 toast · 실패 알림은 부팅 뒤에만).
 
 **개정 340 에서 한 것 (2026-10-17 · 친구 접속 상태 서버 이관 10 — 동작 무변경)**
 - 앱: `room/room-server-net.js` 의 연결 공통부(열기 · hello · ready 기다리기 · 토큰 갱신 · 다시 붙기 백오프 · rid 요청 짝짓기 · 쉬면 닫기 · 못 붙은 주소 1분 쉼)를 `realtime/realtime-link.js`(ES · `createRealtimeLink`)로 떼어 냈다. 방 몫(방 안일 때만 다시 붙기 · 15초 알림 · 포기 · 방 밖 60초 쉬면 닫기)은 room-server-net 에 남고 `deps.createLink` 로 받는다 — firebase-init.js 가 import 해 넘긴다. 친구 접속 상태 연결(다음 개정)이 같은 공통부를 쓴다.
@@ -2590,6 +2597,7 @@
 | **sim-global-names.js** | 236 | **4da03342e299** ← **개정 259 날기 쿨다운 깨 보기는 그 글이 있는 파일에서(판정 무변경)** · **개정 249 모듈 이름 ↔ 전역 이름 짝을 가드 걷은 만드는 줄에서도 읽는다(판정 무변경)** · **개정 237 읽는 함수를 값처럼 typeof 비교 판정 추가** · **개정 236 신설 · 부르는 이름이 전역에 다 있는가(전역 이름 실종)** |
 | **sim-dep-cycles.js** | 237 | **6aa063b0b8b1** ← **개정 241 신설 · 렌더러 모듈 순환이 늘지 않는가(기준선 dep-cycles-baseline.json) · 만드는 도중 아직 없는 이름 읽기** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** ← **개정 243 신설 · 🧭 방 공용 상태(room-state.js) — 처음 값 · 싣는 순서 · 바꾸는 파일** |
+| **sim-error-codes.js** | 107 | **6c8019315bf2** ← **개정 341 신설 · ⚠️ 에러코드 표(error-codes.js) — 번호 모양 · notify · 부른 번호가 표에 · 표의 번호가 쓰임 · 싣는 순서 · 문서** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 245 신설 · 🏠 마이홈 공용 상태(myhome-state.js) — 처음 값 · 이름 창구 · 싣는 순서 · 바꾸는 곳** |
 | **sim-account-state.js** | 94 | **d9d3c39a82ed** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 246 신설 · 🪪 계정 핵심 상태(account-state.js) — 값 · 프리미엄 알림 · 싣는 순서 · 거는 곳 · 바꾸는 곳** |
 | **sim-nav.js** | 85 | **c2cf2cc50405** ← **개정 332 ** · **개정 250 app.js 는 window.TwNav 를 그대로 받는다 · 빈 껍데기 없음(가드 걷기 3차-2)** · **개정 247 신설 · 🧭 창 열기 통로(nav.js) — 걸고 부르기 · 거는 곳 한 곳 · 아는 이름만 · 표 · 싣는 순서** |
