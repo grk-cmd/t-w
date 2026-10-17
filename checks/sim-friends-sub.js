@@ -6,7 +6,8 @@
          동시 구독 1개 · 멈추면 다 풀림 · 늦은 소식 버림 · 바로 던지거나 바로 실패해도 새지 않음 · 종료 때 멈춤
    ・2-2절: friendsForCheck — ready 면 읽기 0회 · 못 받음이면 1회(동시 N번도 1회) · 연결 시도 중이면 상한 전 0회 · 상한 넘으면 1회 ·
          실패면 null + 토스트 한 번 · 늦은 읽기가 구독 값을 안 덮음 · 읽는 중 다시 걸기는 끝난 뒤로
-   ・3절: firebase-init.js subscribeMyFriends 를 떼어 가짜 onValue 로 — 새로 걸면 앞의 것(친구별 4개까지) 다 풀림 · 에러 콜백 · 해제 함수 · 판정용 읽기 경로
+   ・2-4절: 접속 상태 — 목록이 열려 있는 동안만 듣는다(평소 0 · 열면 1벌 · 닫으면 0) · 그 친구만 한 번 읽기(refreshPresence)
+   ・3절: firebase-init.js 친구 함수를 떼어 가짜 onValue 로 — 목록 구독 1개(친구별 0) · 새로 걸면 앞의 것 풀림 · 에러 콜백 · 카드 · 접속 상태 · 판정용 읽기 경로
    ・4절: app.js _waitForFirebaseAPI — 포기 없음(타이머 안 씀) · firebase-ready 를 once 로 기다림 · 이미 준비면 바로
    ・5절: myhome-init.js — 친구 구독이 첫 await(쓰기)보다 먼저 · 쓰기가 영영 안 끝나도 구독은 걸림 · subscribeMyFriends 를 직접 안 부름
    ・5-2절: 부르는 곳 — 친구 추가 · 수락은 friendsForCheck 로 판정 · 친구 탭 · 초대 목록을 열 때 retryIfFailed · 다른 파일에 친구 경로 직접 읽기 0곳
@@ -67,7 +68,7 @@ async function judge(S){
   const mk = (o) => {
     o = o || {};
     const T = mkTimers();
-    const E = { T, subs: [], live: 0, maxLive: 0, statuses: [], got: [], unload: [], fetches: [], lists: [], friends: {}, toasts: [], sets: 0 };
+    const E = { T, subs: [], live: 0, maxLive: 0, statuses: [], got: [], unload: [], fetches: [], lists: [], pres: [], presLive: 0, reads: [], friends: {}, toasts: [], sets: 0 };
     E.mod = FS.createFriendsSub({
       subscribe: (id, ok, err) => {
         const s = { id, ok, err, on: true };
@@ -78,6 +79,8 @@ async function judge(S){
       },
       fetchOnce: (id) => new Promise((res, rej) => { E.fetches.push({ id, res, rej }); }),
       listFriends: (id) => new Promise((res, rej) => { const l = { id, res, rej }; E.lists.push(l); if(!o.holdList) res(o.details || {}); }),
+      watchPresence: (id, ids, cb) => { const w = { id, ids: ids.slice(), cb, on: true }; E.pres.push(w); E.presLive++; return () => { if(w.on){ w.on = false; E.presLive--; } }; },
+      readPresence: (fid) => { E.reads.push(fid); if(o.readFail) return Promise.reject(new Error('offline')); return Promise.resolve({ online: true, room: 'R-' + fid }); },
       current: () => E.friends,
       setFriends: (v) => { E.sets++; E.friends = v; },
       getMyUserId: () => 'ME',
@@ -270,6 +273,70 @@ async function judge(S){
     chk(E.lists.length === 2 && E.got[E.got.length - 1][1].f1.name !== 'OLD' && E.mod.notice() === FS.NOTICE.loading, '멈추고 다시 켜면 — 지난 실행의 늦은 이름은 버린다(이번 받기는 그대로 기다림)');
   }
 
+  /* ── 2-4. 접속 상태 — 목록이 열려 있는 동안만 ── */
+  say('── 2-4. 접속 상태 — 목록이 열려 있는 동안만 듣는다 · 닫힌 동안은 그 친구만 한 번 읽기');
+  {
+    const E = mk(); E.start(); await flush();
+    E.last().ok({ f1: {}, f2: {} }); await flush();
+    chk(E.presLive === 0 && E.pres.length === 0, '★ 평소(목록 닫힘) — 접속 상태 구독 0 (상시 구독은 목록 1개뿐)');
+    let n = 0; E.mod.open('myhome', () => n++);
+    chk(E.presLive === 1 && E.pres[0].ids.join() === 'f1,f2' && E.pres[0].id === 'ME', '★ 목록을 열면 — 친구 전원을 한 벌로(1 + n)');
+    E.mod.open('invite', () => {});
+    chk(E.presLive === 1 && E.pres.length === 1, '  다른 목록을 또 열어도 한 벌 그대로(겹쳐 걸지 않음)');
+    E.pres[0].cb({ f1: { online: true, room: 'PLAY-1', inRoom: true } });
+    const g = E.got[E.got.length - 1][1];
+    chk(g.f1.online === true && g.f1.room === 'PLAY-1' && g.f2.online === false && n >= 1, '  받은 접속 상태를 목록에 얹어 넘긴다 · 열린 목록 다시 그리기');
+    E.last().ok({ f1: {}, f2: {} });
+    chk(E.pres.length === 1 && E.presLive === 1, '  친구가 그대로면 다시 걸지 않는다');
+    E.last().ok({ f1: {}, f2: {}, f3: {} });
+    chk(E.pres.length === 2 && E.presLive === 1 && !E.pres[0].on && E.pres[1].ids.join() === 'f1,f2,f3', '  친구가 늘면 — 풀고 새 목록으로 한 벌(동시 1)');
+    E.mod.close('myhome');
+    chk(E.presLive === 1, '  하나만 닫으면 — 다른 목록이 열려 있으니 그대로');
+    E.mod.close('invite');
+    chk(E.presLive === 0, '★ 다 닫으면 — 접속 상태 구독을 푼다(다시 목록 1개)');
+    E.last().ok({ f1: {}, f2: {}, f3: {} });
+    chk(E.presLive === 0 && E.got[E.got.length - 1][1].f1.online === true, '  닫은 뒤 — 다시 안 건다 · 마지막 접속 상태는 남는다');
+    E.pres[1].cb({ f1: { online: false } });
+    chk(E.got[E.got.length - 1][1].f1.online === true || E.presLive === 0, '  (풀린 구독은 provider 가 더 안 부른다 — 부르더라도 열린 목록이 없으니 다시 걸지 않음)');
+    await E.mod.refreshPresence(['f2', 'f3']);
+    chk(E.reads.join() === 'f2,f3' && E.got[E.got.length - 1][1].f2.room === 'R-f2', '★ 닫힌 동안 필요한 곳 — 그 친구만 한 번 읽어 얹는다(refreshPresence)');
+    E.mod.open('myhome', () => {});
+    E.reads.length = 0;
+    await E.mod.refreshPresence(['f1', 'f9']);
+    chk(E.reads.join() === 'f9', '  듣고 있는 친구는 다시 안 읽는다');
+    E.mod.close('myhome');
+    E.mod.stop();
+    chk(E.presLive === 0, 'stop — 접속 상태 구독도 푼다');
+  }
+  {
+    const E = mk(); E.start(); await flush();
+    E.mod.open('myhome', () => {});
+    chk(E.presLive === 0, '받기 전(불러오는 중)에 열어도 — 아직 안 건다');
+    E.last().ok({});
+    chk(E.presLive === 0, '  친구가 없으면 안 건다');
+    E.last().ok({ f1: {} });
+    chk(E.presLive === 1, '  받으면(열려 있으니) 건다');
+    E.last().err(new Error('x'));
+    chk(E.presLive === 0 && E.mod.status() === 'error', '  목록 구독이 끊기면 접속 상태도 푼다');
+    E.mod.close('myhome');
+    E.mod.open('myhome', () => {});
+    E.last().ok({ f1: {} });
+    chk(E.presLive === 1, '  다시 열어 받으면 다시 건다');
+    const old = E.pres[E.pres.length - 1];
+    E.mod.stop();
+    chk(E.presLive === 0, '  목록이 열린 채 멈춰도(로그아웃 · 종료) 접속 상태 구독을 푼다');
+    E.start(); await flush(); E.last().ok({ f1: {} });
+    old.cb({ f1: { online: true } });
+    chk(!E.got.some(x => x[1].f1 && x[1].f1.online === true), '  멈춘 뒤 지난 실행의 늦은 접속 상태는 버린다');
+  }
+  {
+    const E = mk({ readFail: true }); E.start(); await flush(); E.last().ok({ f1: {} });
+    const before = E.got.length;
+    await E.mod.refreshPresence(['f1']);
+    chk(E.reads.join() === 'f1' && E.got.length === before + 1 && E.got[E.got.length - 1][1].f1.online === false, '한 번 읽기가 실패해도 — 끝나고 지난 값으로 다시 넘긴다');
+    chk((await E.mod.refreshPresence([])) === undefined && E.reads.length === 1, '  빈 목록이면 안 읽는다');
+  }
+
   {
     /* 내 코드 없음(로그인 전 · getMyUserId()=null) — main 과 같은 «아직 친구가 없어요»: 요청 0 · 안내 null(빈 목록을 그린다) */
     const E = mk();
@@ -280,48 +347,56 @@ async function judge(S){
     chk(E.subs.length === 0 && E.fetches.length === 0 && E.T.pending() === 0 && E.mod.status() === 'ready' && E.mod.notice() === null && r0 && !Object.keys(r0).length,
       '내 코드 없음 — 요청 0(구독 · 읽기 · 다시 걸기) · «친구 없음»(안내 null → 화면은 «아직 친구가 없어요»)');
   }
-  /* ── 3. firebase-init.js subscribeMyFriends ── */
-  say('── 3. firebase-init.js subscribeMyFriends — 동시 하나 · 에러 콜백 · 해제');
-  const i0 = S.FB.indexOf('    subscribeMyFriends(myId, onChange, onError){');
-  const i1 = i0 < 0 ? -1 : S.FB.indexOf('\n    },\n', i0);
-  chk(i0 > 0 && i1 > i0, 'subscribeMyFriends(myId, onChange, onError) — 에러 콜백을 받는다');
-  if(i0 > 0 && i1 > i0){
-    const method = S.FB.slice(i0, i1 + 6);
-    const R = { live: [], T: mkTimers() };
+  /* ── 3. firebase-init.js 친구 함수(옛 길) ── */
+  say('── 3. firebase-init.js — 목록 구독 하나(친구별 구독 없음) · 카드 한 번 읽기 · 접속 상태 구독 · 한 번 읽기');
+  const i0 = S.FB.indexOf('    watchMyFriendList(myId, onChange, onError){');
+  const i1 = i0 < 0 ? -1 : S.FB.indexOf('    async getFriendPresence(fid){', i0);
+  const i2 = i1 < 0 ? -1 : S.FB.indexOf('\n    },\n', i1);
+  chk(i0 > 0 && i1 > i0 && i2 > i1 && S.FB.indexOf('    subscribeMyFriends(') < 0, 'watchMyFriendList · getFriendCard · watchFriendPresence · getFriendPresence — 친구별 4개 구독(subscribeMyFriends)은 없앴다');
+  if(i0 > 0 && i2 > i1){
+    const method = S.FB.slice(i0, i2 + 6);
+    const R = { live: [], gets: [] };
     const ref = (db, p) => ({ p });
     const onValue = (r, cb, err) => { const l = { p: r.p, cb, err, on: true }; R.live.push(l); return () => { l.on = false; }; };
-    const off = (r, ev, cb) => { R.live.filter(l => l.p === r.p && l.cb === cb).forEach(l => { l.on = false; }); };
+    const get = async (r) => { R.gets.push(r.p); return { val: () => ({ 'users/F/profile': { name: 'N', level: 2 }, 'users/F/home/bio': 'B', 'users/F/home/avatar': 'A', 'users/F/presence': { online: true } })[r.p] }; };
     let fb = null;
     try{
-      fb = new Function('ref', 'onValue', 'off', 'db', 'setTimeout', 'clearTimeout', 'console',
-        'let _friendListListeners = {}; let _myFriendsOff = null;\nconst api = {\n' + method + '\n};\nreturn api;')(ref, onValue, off, {}, R.T.set, R.T.clear, { warn(){}, log(){} });
+      fb = new Function('ref', 'onValue', 'get', 'db', 'console',
+        'let _myFriendsOff = null;\nconst api = {\n' + method + '\n};\nreturn api;')(ref, onValue, get, {}, { warn(){}, log(){} });
     }catch(e){ chk(false, '떼어 굴리기 실패 — ' + e.message); }
     if(fb){
       const on = (p) => R.live.filter(l => l.on && (!p || l.p === p));
       const got = [], errs = [];
-      const offA = fb.subscribeMyFriends('ME', (f) => got.push(['A', f]), (e) => errs.push(['A', e]));
+      const offA = fb.watchMyFriendList('ME', (f) => got.push(['A', f]), (e) => errs.push(['A', e]));
       chk(typeof offA === 'function' && on().length === 1 && on()[0].p === 'users/ME/friends' && typeof on()[0].err === 'function', '목록 구독 1개 · onValue 에 에러 콜백 · 해제 함수를 돌려준다');
       const listA = on()[0];
-      listA.cb({ val: () => ({ f1: { addedAt: 1 }, f2: { addedAt: 2 } }) });
-      chk(on().length === 9, '  친구 2명 → 목록 1 + 친구별 4 × 2 = 9개');
-      R.T.next();
-      chk(got.length === 1 && Object.keys(got[0][1]).join() === 'f1,f2', '  묶어서 한 번 넘긴다');
-      const offB = fb.subscribeMyFriends('ME', (f) => got.push(['B', f]), (e) => errs.push(['B', e]));
-      chk(on().length === 1 && on()[0] !== listA, '다시 걸면 앞의 것(목록 · 친구별)을 다 풀고 새 목록 1개만');
-      listA.cb({ val: () => ({ f3: {} }) }); R.T.next();
-      chk(on().length === 1 && !got.some(g => g[0] === 'A' && g[1].f3), '  풀린 구독의 늦은 소식은 아무것도 안 건다');
+      const many = {}; for(let k = 0; k < 100; k++) many['f' + k] = { addedAt: k };
+      listA.cb({ val: () => many });
+      chk(on().length === 1 && got.length === 1 && Object.keys(got[0][1]).length === 100, '★ 친구 100명이어도 구독은 목록 1개(친구별 구독 0) · 받은 대로 바로 넘긴다');
+      const offB = fb.watchMyFriendList('ME', (f) => got.push(['B', f]), (e) => errs.push(['B', e]));
+      chk(on().length === 1 && on()[0] !== listA, '다시 걸면 앞의 것을 풀고 새 목록 1개만');
+      listA.cb({ val: () => ({ late: {} }) });
+      chk(!got.some(g => g[0] === 'A' && g[1].late), '  풀린 구독의 늦은 소식은 버린다');
       const listB = on()[0];
-      listB.cb({ val: () => null }); R.T.next();
-      chk(got.length === 2 && got[1][0] === 'B' && Object.keys(got[1][1]).length === 0, '빈 목록도 넘긴다(받음 · 친구 없음)');
-      listB.cb({ val: () => ({ f1: {} }) });
-      chk(on().length === 5, '  친구 1명 → 5개');
+      listB.cb({ val: () => null });
+      chk(got[got.length - 1][0] === 'B' && Object.keys(got[got.length - 1][1]).length === 0, '빈 목록도 넘긴다(받음 · 친구 없음)');
       listB.err(new Error('permission_denied'));
-      chk(on().length === 0 && errs.length === 1 && errs[0][0] === 'B', '거부 · 끊김 — 친구별까지 다 풀고 onError 한 번');
+      chk(on().length === 0 && errs.length === 1 && errs[0][0] === 'B', '거부 · 끊김 — 풀고 onError 한 번');
       offB(); offA();
       chk(on().length === 0, '  해제 함수는 몇 번 불러도 탈 없음');
-      const offC = fb.subscribeMyFriends('ME', () => {}, () => {});
-      offC();
-      chk(on().length === 0 && R.T.pending() === 0, '해제하면 목록 구독 · 그리기 타이머까지 남지 않음');
+      const c = await fb.getFriendCard('F');
+      chk(R.gets.join() === 'users/F/profile,users/F/home/bio,users/F/home/avatar' && c.profile.name === 'N' && c.bio === 'B' && c.avatar === 'A',
+        '카드 한 번 읽기 — 프로필 · 소개 · 사진 세 칸만(home 통째 아님) · 날것 그대로');
+      const pres = [];
+      const offP = fb.watchFriendPresence('F', (v) => pres.push(v));
+      const pl = on('users/F/presence')[0];
+      chk(pl && on().length === 1, '접속 상태 구독 — users/{친구}/presence 1개');
+      pl.cb({ val: () => ({ online: true }) });
+      offP();
+      chk(pres.length === 1 && pres[0].online === true && on().length === 0, '  날것을 넘긴다 · 해제하면 0개');
+      R.gets.length = 0;
+      const p1 = await fb.getFriendPresence('F');
+      chk(R.gets.join() === 'users/F/presence' && p1.online === true && on().length === 0, '접속 상태 한 번 읽기 — 그 친구 presence 한 칸 · 구독 안 남김');
     }
   }
   {
@@ -346,7 +421,7 @@ async function judge(S){
     const fnSrc = S.APP.slice(w0, w1 + 2);
     const run = (ready) => {
       const L = [], timers = [];
-      const win = { firebaseAPI: ready ? { subscribeMyFriends(){} } : undefined, addEventListener: (t, fn, o) => L.push({ t, fn, o }) };
+      const win = { firebaseAPI: ready ? { watchMyFriendList(){} } : undefined, addEventListener: (t, fn, o) => L.push({ t, fn, o }) };
       const wait = new Function('window', 'setTimeout', 'setInterval', 'with(window){\n' + fnSrc + '\nreturn _waitForFirebaseAPI;\n}')(win, (f, ms) => { timers.push(ms); return 1; }, (f, ms) => { timers.push(ms); return 1; });
       let n = 0;
       wait(() => { n++; });
@@ -358,7 +433,7 @@ async function judge(S){
       const b = run(false);
       chk(b.n() === 0 && b.timers.length === 0, '준비 전 — 부르지 않고 · 타이머를 안 쓴다(몇 초 뒤 포기하는 길이 없다)');
       chk(b.L.length === 1 && b.L[0].t === 'firebase-ready' && b.L[0].o && b.L[0].o.once === true, '  firebase-ready 를 { once:true } 로 기다린다');
-      b.win.firebaseAPI = { subscribeMyFriends(){} };
+      b.win.firebaseAPI = { watchMyFriendList(){} };
       if(b.L[0]) b.L[0].fn({});
       chk(b.n() === 1, '  준비되면(30초 뒤라도) 한 번 부른다');
     }catch(e){ chk(false, '굴리기 실패 — ' + e.message); }
@@ -369,7 +444,7 @@ async function judge(S){
   const body = ((S.MI.match(/async function initMyHome\(\)\{([\s\S]*?)\nreturn \{/) || [])[1] || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');   // 주석 속 «await» 글자는 빼고
   const iStart = body.indexOf('friendsSub.start('), iAwait = body.search(/\bawait\b/);
   chk(iStart > 0 && iAwait > 0 && iStart < iAwait, 'friendsSub.start 가 첫 await 보다 앞');
-  chk(!/firebaseAPI\.subscribeMyFriends\(/.test(S.MI), '  subscribeMyFriends 는 friends-sub 로만 건다(두 벌로 걸지 않음)');
+  chk(!/firebaseAPI\.(subscribeMyFriends|watchMyFriendList)\(/.test(S.MI), '  친구 목록 구독은 friends-sub 로만 건다(두 벌로 걸지 않음)');
   try{
     const any = new Proxy(function(){}, { get: (t, k) => k === 'then' ? undefined : any, apply: () => any });
     const hang = new Promise(() => {});
@@ -441,7 +516,15 @@ const BREAKS = [
   ['FS', '  _loadDetails();   // 켤 때 한 번', '  // 켤 때 안 받음', '켤 때 이름을 안 받음'],
   ['FS', "      if(run !== _run) return;\n      _detailsP = null;", "      _detailsP = null;", '지난 실행의 늦은 이름을 받아 씀'],
   ['FS', '  if(_status === STATUS.READY && _detailsP && !_detailsTried) return NOTICE.loading;\n', '', '첫 이름 받기 동안 이름 없는 목록을 보여 줌'],
-  ['FS', "function close(key){ delete _open[key]; }", "function close(key){}", '닫아도 다시 그리기를 부름'],
+  ['FS', "function close(key){ delete _open[key]; _syncPresence(); }", "function close(key){ _syncPresence(); }", '닫아도 다시 그리기를 부름'],
+  ['FS', "function close(key){ delete _open[key]; _syncPresence(); }", "function close(key){ delete _open[key]; }", '닫아도 접속 상태 구독이 남음'],
+  ['FS', "  const want = (Object.keys(_open).length && _status", "  const want = (_status", '목록이 닫혀 있어도 접속 상태를 들음(상시 1 + n)'],
+  ['FS', "  if(want && want === _presKey && _presOff) return;\n", '', '친구가 그대로여도 다시 걺'],
+  ['FS', "fid && watching.indexOf(fid) < 0", "fid", '듣고 있는 친구도 또 읽음'],
+  ['FS', "  _stopPresence();\n  _status = STATUS.IDLE;", "  _status = STATUS.IDLE;", '멈춰도 접속 상태 구독이 남음'],
+  ['FS', "mergeFriends(_ids, _details, _presence)", "mergeFriends(_ids, _details)", '접속 상태를 목록에 안 얹음'],
+  ['FS', "p=>{ if(run !== _run) return; Object.assign(_presence, p); _emit(); }", "p=>{ Object.assign(_presence, p); _emit(); }", '지난 실행의 늦은 접속 상태를 받아 씀'],
+  ['FS', "  _wake();\n  _syncPresence();\n}\nfunction _attach", "  _wake();\n}\nfunction _attach", '목록 구독이 끊겨도 접속 상태가 남음'],
   ['FS', "  if(_status === STATUS.READY) return Promise.resolve(current() || {});", "", 'ready 여도 읽음'],
   ['FB', '      if(_myFriendsOff) _myFriendsOff();\n', '', '새로 걸 때 앞의 것을 안 풂(동시 2개)'],
   ['FB', '      }, err=>{\n        teardown();', '      }, err=>{', '거부돼도 친구별 구독이 남음'],
