@@ -30,6 +30,7 @@ const _friendInRoom = deps.friendInRoom;       // 🏠 다른 방에 있는 친�
 const Presence = deps.presence;
 const _myHomeFriends = deps.myHomeFriends;     // 읽는 함수 — app.js 가 다시 대입하는 let
 const _friendsNotice = deps.friendsNotice;     // 읽는 함수 — 친구 목록을 아직 못 받았으면 안내 문구, 받았으면 null(friends-sub.js · 마이홈 친구 탭과 같은 문구)
+const _friendsRetry = deps.friendsRetry;       // 친구 목록을 못 불러왔으면 다시 건다(초대 목록을 열 때)
 (function bindRoomInvite(){
   const pickOv   = document.getElementById('roomInvitePickOverlay');
   const pickList = document.getElementById('roomInvitePickList');
@@ -41,6 +42,7 @@ const _friendsNotice = deps.friendsNotice;     // 읽는 함수 — 친구 목�
     if(!code){ toast('먼저 방에 연결해 주세요'); return; }
     // 초대 가능한 채널인지 — 채널3(플레이룸)은 준비중이므로 초대도 막힘
     pickList.innerHTML = '';
+    _friendsRetry();   // 못 불러왔으면 지금 다시 건다(다시 시도는 목록을 열 때만)
     const friends = _myHomeFriends() || {};
     const ids = Object.keys(friends);
     const notice = _friendsNotice();

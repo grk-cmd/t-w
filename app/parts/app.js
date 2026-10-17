@@ -2727,6 +2727,7 @@ const friendManage = TwFriendManage.createFriendManage({
   myHomeFriends: ()=>_myHomeFriends,
   myFriendRequests: ()=>_myFriendRequests,
   friendMax: FRIEND_MAX,
+  friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),
 });
 let _myHomeReady = false;
 /* 포기하지 않는다 — SDK 를 실행 때 gstatic 에서 받아 느린 망이면 20초를 넘긴다(예전 20초 포기 → 친구 · 우편 구독이 영영 안 걸렸다). */
@@ -2757,6 +2758,11 @@ const deviceLostMod = TwDeviceLost.createDeviceLost({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const friendsSubMod = TwFriendsSub.createFriendsSub({
   subscribe: (...a)=>firebaseAPI.subscribeMyFriends(...a),
+  fetchOnce: (...a)=>firebaseAPI.getMyFriendList(...a),
+  current: ()=>_myHomeFriends,
+  setFriends: (v)=>{ _myHomeFriends = v; },
+  getMyUserId: (...a)=>getMyUserId(...a),
+  toast: (...a)=>toast(...a),
   setTimer: (fn, ms)=>setTimeout(fn, ms),
   clearTimer: (id)=>clearTimeout(id),
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),
@@ -2905,6 +2911,8 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   closeFriendHomeView: (...a)=>mhVisitMod.closeFriendHomeView(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   friendManage: friendManage,
+  friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),
+  friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: inboxMod,
@@ -10417,6 +10425,7 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   friendInRoom: (...a)=>inboxMod.friendInRoom(...a),
   myHomeFriends: ()=>_myHomeFriends,
   friendsNotice: (...a)=>friendsSubMod.notice(...a),
+  friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),
   presence: Presence,
 });
 
