@@ -137,6 +137,30 @@
 꾸미기 창 · 파츠 · 동물 · 슬롯 · 코드 · 가챠 · 좌석 크기. app.js 가 deps 로 이어 주고, 이 폴더 모듈끼리는 서로의 속을 직접 부르지 않는다.
 절은 모듈마다 하나 — 다른 사람이 만든 절은 건드리지 않고 자기 절만 더한다.
 
+## desk-place.js — 📐 책상 자리 · 크기 · 책상 위 파츠 핀
+
+- **책임**: 책상 그룹의 자리와 크기만 — 크기 · 길이, 위치 오프셋, 동물 배율 · 평준화로 캐릭터에서 뺀 몫을 책상이 지는 z 보정, «책상 위» 파츠 핀이 책상 위치 · 슬라이더 크기를 따라가지 않게 상쇄. 평준화 깃발은 모른다(평준화 때 파츠 가두기는 `seat-eq-clamp.js`).
+- **만드는 법**: app.js «🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기» 끝에서 `const deskPlaceMod = TwDeskPlace.createDeskPlace({ … });` — deps 5
+  - 값: `CHAR_Z` · `DESK_SCALE_MIN` · `DESK_SCALE_MAX` · `DESK_SCALE_DEFAULT` · `crState`(생성기 상태 한 벌 — `cDesk` · `cDeskLenX` 를 그때그때 읽는다)
+- **내보내는 것**
+  - `setDeskScale(deskGroup, scale?, lenX?)` — `scale` 을 안 주면 기억해 둔 원본(`userData.deskScaleBase`). 그룹 배율 = 원본 × `animCorr` × `eqK`(길이는 x 에만).
+  - `setCreatorDeskScale(scale)` — 생성기 책상(`crState.cDesk`)에 생성기 길이로.
+  - `setDeskPos(deskGroup, {x,y,z})` — 원본은 `userData.deskPosBase` 에(배율은 굽지 않는다).
+  - `syncSeatDeskZ(deskGroup)` — z = base.z·a·k + CHAR_Z·(1 − a·k), 그리고 파츠 핀 상쇄.
+  - `deskPartAnchorOf(seat)` · `syncDeskPartAnchor(deskGroup)` · `DESK_PART_ANCHOR_NAME`('__deskPartAnchor') — 핀 얻기 · 상쇄 다시 걸기.
+  ```js
+  deskPlaceMod.setDeskScale(seat.desk, def.deskScale || 1, def.deskLenX || 1);
+  deskPlaceMod.setDeskPos(seat.desk, def.deskPos);
+  const pin = deskPlaceMod.deskPartAnchorOf(seat); pin.add(partWrap);
+  ```
+- **확장할 때 고칠 자리**: 새 좌석 배율이 생기면 `seatDeskPosMul` · `seatDeskZCorr` · `setDeskScale` 의 곱셈 — 꾸미기 미리보기(`_wdDeskGrp`)도 같은 값을 직접 곱으니 함께.
+- **함정**
+  - 위치 곱셈은 네 자리가 한 벌 — 여기 셋(`setDeskPos` · `syncSeatDeskZ` · `syncDeskPartAnchor`) + 꾸미기 미리보기.
+  - `deskPosBase` · `deskScaleBase` 에 보정 · 배율을 굽지 말 것(열 때마다 누적).
+  - 크기 상쇄는 슬라이더 범위(`DESK_SCALE_MIN~MAX`) 안일 때만 — `def.deskScale||1` 의 1 은 «모름».
+  - 평준화 깃발(`seatEqMod`)을 여기서 읽지 말 것 — seat-equalize 가 이 모듈을 부르므로 순환이 생긴다(sim-dep-cycles 빨강).
+  - 검사: `checks/sim-desk-place.js`(4절 — 크기 · 원본 기억 · 경계 0 · 생성기 · z 보정 · 위치 배율과 경계 · 핀 상쇄 크기 · 위치) · 옛 검사 `sim-char-z` · `sim-desk-part-scale` · `sim-desk-floor-clamp` · `sim-seat-eq`.
+
 ## seat-equalize.js — 🪑 좌석 크기 평준화
 
 - **책임**: 좌석 하나의 «실효 크기» 를 정하는 유일한 곳. 내 화면에서만 남의 좌석(자리추가 부캐 포함)을 내 캐릭터 크기에 맞춘다 — 배율 `k = 내 userScale ÷ 그 좌석 userScale`, 좌석 전체(캐릭터 · 책상 · 라벨 높이)에 같은 k. 켜고 끄는 깃발(`tw.seatEq`)도 이 모듈이 든다.
@@ -163,6 +187,30 @@
   - `deskScaleBase` 가 없는 좌석(def 가 아직 안 얹힘)은 책상을 건드리지 않고 `eqK` 만 심는다.
   - 한 좌석에서 던지면 나머지 좌석을 그 바퀴에 건너뛴다 — `CONFIRM.md` 에 적어 둠.
   - 검사: `checks/sim-seat-equalize.js`(4절 — 깃발 · k · 이상한 값 · 부캐 · 들림 · 다시 걸기 · 재진입 · 던짐) · `sim-seat-eq` · `sim-char-z`(app.js 전체로).
+
+## seat-eq-clamp.js — 🪑 평준화 가두기
+
+- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 책상이 뻗은 거리(`seatDeskHalfWidth`) + 좌석 사이 여백의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
+- **왜 따로**: 책상 자리 · 크기(desk-place)가 평준화 깃발을 읽으면 desk-place ↔ seat-equalize 순환이 생긴다. 가두기는 평준화 몫이라 여기로 떼어 desk-place 는 seat-equalize 를 모른다(의존: seat-eq-clamp → seat-equalize · 파츠 핀 이름).
+- **만드는 법**(app.js «📌 책상 위 파츠 앵커» 자리, `DESK_PART_ANCHOR_NAME` 바로 뒤):
+  ```js
+  const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
+    DESK_PART_ANCHOR_NAME, seatEqMod, seats,                   // 값
+    MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING, SPACING: ()=>SPACING, seatSlot: ()=>seatSlot,   // 읽는 함수(다시 대입 · 뒤에서 선언)
+    seatDeskHalfWidth,                                         // 함수(화살표로)
+  });
+  ```
+- **내보내는 것**
+  - `_clampSeatDeskParts(now?)` — 프레임 루프가 매 프레임 부른다(0.5초마다만 돈다 · `now` 를 안 주면 `performance.now()`).
+  ```js
+  seatEqClampMod._clampSeatDeskParts(now);
+  ```
+- **확장할 때 고칠 자리**: 주기는 `SEAT_SLOT_EVERY_MS` · 가두지 않을 좌석 조건은 `on` 한 줄(지금: 올라탄 좌석 · 책상이 숨은 좌석).
+- **함정**
+  - `seatSlot` 은 app.js 가 `SeatSlot` 이 있을 때만 만든다(없으면 아무것도 안 한다) — 만드는 줄보다 뒤에 선언돼 읽는 함수로 받는다.
+  - 감싼 파츠(`userData.__twPartWrap`)만 민다 — 핀의 다른 자식은 그대로.
+  - 한 좌석에서 던지면 경고만 하고 다음 좌석으로 간다.
+  - 검사: `checks/sim-seat-eq-clamp.js`(4절 — 주기 · 경계 500ms · 멀티 간격 · 올라탄 · 숨은 책상 · 꺼짐 · 좌석 없음 · 계산 모듈 없음 · 던짐) · 옛 검사 `sim-seat-slot`(되살린 글로).
 
 ## deco-parts-visibility.js — 🎁 꾸미기 파츠 표시
 
