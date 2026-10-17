@@ -112,7 +112,7 @@ if(desktopMode){
     });
   }
   /* 🎮 게임패드 — 버튼 · 스틱 값이 실제로 바뀌었을 때만(parts/gamepad-activity.js). 처리는 펜 활동과 같다.
-     창이 뒤에 있을 때 값이 안 들어오는 OS 면 신호가 없을 뿐이다(모듈 주석). */
+     창이 뒤에 있으면 값이 안 들어온다 — Windows 는 main 이 XInput 으로 따로 읽어 위 penActivity 로 보낸다(모듈 주석). */
   if(window.TwGamepadActivity && navigator.getGamepads){
     try{
       TwGamepadActivity.createGamepadActivity({
