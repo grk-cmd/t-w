@@ -31,6 +31,7 @@
 | 카탈로그 본문 API 읽기 | w2 세션 | 카탈로그 본문을 API(/v1/catalog — 운영 배포 끝 v0.2.1)에서 먼저 · 실패면 Firebase — 브랜치 `feat/catalog-api-read` 70183a0 · CHECKS 개정 271(임시) · QUEUE | `firebase-init.js`(카탈로그 구독 한 줄) · `shared/catalog-cache.js` · `sim-catalog-cache` | — |
 | ~~회원 탈퇴 안내 자리~~ 머지 #322 | 계정 세션 | [내 정보 › 계정] 탈퇴를 누르면 «로그인 수단 ~ 이 컴퓨터에서 로그아웃» 자리가 탈퇴 안내로 바뀜(머지는 검증 세션) · ⚠️ html css 는 `#creatorOverlay.on` 줄 바로 뒤에 붙어 B-1016-4 와 같은 자리 — 그쪽이 «편집 중 마이홈 숨김» 줄을 걷을 때 우리 세 줄은 남겨 주세요 | `desk-companion-prototype.html`(#acctDeleteZone · css 세 줄) · `account/my-info.js` · `sim-account-delete.js` | #319 |
 | ~~#265 다시 얹기~~ 머지 | 검증 세션 | 런처 화면 GPU 부하 줄이기 — 미리보기 1초 30번 · 깜빡임은 좌석과 같은 시간표 · 후원 반짝임(사용자 적용 승인 10-17) | `launcher/launcher-preview.js` · `shared/blink-timing.js`(새) · 좌석 깜빡임 · `shared/README.md` · 후원 문구 css | #318 |
+| #320 되돌림 고치기 | 검증 세션 | 새 프로필(내 코드 없음) 친구 탭이 «불러오는 중» 에 멈춤 → «아직 친구가 없어요» — 마이홈 시작이 일찍 끝날 때 친구 목록도 «코드 없음» 으로 시작 | `myhome/myhome-init.js` · `checks/sim-myhome-init.js` | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
