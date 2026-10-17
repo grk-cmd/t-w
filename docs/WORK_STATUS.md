@@ -40,6 +40,10 @@
 | ~~#334 이름표 끌기 — 공통 판단 묶기 · 도메인 잇기~~ 머지 | 검증-도우미6 | grk #334 위에서 끌기 시작 판단을 캔버스와 한 함수로 · 경험치 바가 방 모듈을 직접 안 부르게(app.js deps) · 합치기 | `room/seat-label-drag.js` · `focus/exp-bar.js` · `room/overhead.js` · `app.js`(캔버스 pointerdown) · 관련 검사 | #339 |
 | ~~도메인 직접 호출 검사~~ 머지 #338 | 검증-도우미7 | «도메인끼리 서로의 모듈을 직접 부르지 않는다» 를 검사로 — 지금 수를 기준선으로 두고 늘면 빨강 | `checks/sim-domain-calls.js`(새) · `checks/domain-calls-baseline.json`(새) · `checks/CHECKS.md` | — |
 | ~~자동 검사 빠르게~~ 머지 #337 | 검증 세션 | 문서만 바뀌면 앱 검사 건너뛰기 · 웹 관리자가 안 바뀌면 웹 관리자 테스트 건너뛰기 · actions @v5 | `.github/workflows/checks.yml` | — |
+| wL3 몸 크기 재기 한 곳 | 검증-도우미8 | body-measure.js 로 묶기 · #258 날기 경로도 거침(동작 무변경) | `character/body-measure.js`(새) · 몸 재기 쓰는 곳 | — |
+| B-1016-4 창 겹침 | 검증-도우미8(검증 · 합치기) · 작업 도우미1 | 창 층 표 → 편집 · 종족도 창 쌓기 · grk 탈퇴 안내 css 세 줄 지킴 | `desk-companion-prototype.html` · `shared/win-stack.js` | — |
+| 서버 주소 together-working.com | 검증-도우미8 · 작업 w2 | 운영 API · 방 서버 · CSP 새 주소(옛 주소 계속 허용) | html CSP · 주소 상수 | — |
+| 자동 검사 앞 실행 취소 | 검증-도우미8 · 작업 w2 | #337 위에 같은 요청 앞 실행 취소 등 빠진 것만 | `.github/workflows/checks.yml` | — |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
