@@ -24,8 +24,7 @@ const STATUS = { IDLE: 'idle', LOADING: 'loading', ERROR: 'error', READY: 'ready
 const NOTICE = {
   loading: '친구 목록을 불러오는 중이에요',
   error: '친구 목록을 불러오지 못했어요.\n잠시 후 다시 시도할게요',   // 두 문장 사이 줄바꿈 — 그리는 쪽은 white-space:pre-line(마이홈 친구 탭 · 초대 목록)
-  /* 토스트(app.js toast)는 textContent 에 pre-line 이 없어 줄바꿈을 못 그린다 — 그래서 한 줄 그대로 */
-  checkFail: '친구 목록을 불러오지 못했어요. 잠시 후 다시 눌러 주세요',
+  checkFail: '친구 목록을 불러오지 못했어요.\n잠시 후 다시 눌러 주세요',   // 토스트 — 줄바꿈은 toast 의 pre-line(fix/toast-newline)이 그린다
 };
 
 /* 친구 한 명 = 목록 칸(entry — addedAt) 위에 이름 · 사진(card) · 접속 상태(pres)를 얹는다. 값이 undefined 인 칸은 덮지 않는다
