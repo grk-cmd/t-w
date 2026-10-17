@@ -15,6 +15,7 @@
 | `chat/` ✅ | 💬 채팅 — 대화창 · 기록 · 설정 · 이모티콘 | 8 | 2,600 |
 | `myhome/` ✅ | 🏠 마이홈 — 페이지 · 편집 · 스티커 · 친구 · 우편 · 방명록 · 바탕화면 앱 | 19 | 13,900 |
 | `friends/` | 👥 친구 데이터 — 포트 · provider(firebase 옛 길 · api · ws 자리). 화면 · 마이홈은 포트만 부른다 | 3 | 180 |
+| `realtime/` | 🔌 realtime 서버 웹소켓 연결 공통부(열기 · hello · 토큰 · 백오프 · rid 요청) — 방 연결(`room/room-server-net.js`)과 친구 접속 상태 연결이 같이 쓴다 | 1 | 270 |
 | `character/` ✅ | 🧍 캐릭터 · 꾸미기 — 꾸미기 창 · 파츠 · 동물 · 슬롯 · 코드 · 가챠 | 19 | 10,500 |
 | `creator/` ✅ | 🎨 생성기 — 그리기 도구 · 단계 길잡이 (+ app.js 에 남은 생성기 묶음을 여기로) | 6 | 650 (+ 약 3,500) |
 | `focus/` ✅ | ⭐ 집중 · 레벨 — 포커스 기록 · 레벨 · 경험치 · 달성표 · 뽀모도로 | 9 | 2,700 |
@@ -50,7 +51,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `ride-bench.js` · `interaction-desk.js` | 올라타기(탑) · 벤치 · 상호작용 책상 · 춤 목록 · 재주 상수 | — |
 | `tricks.js` · `dice-games.js` · `roulette.js` · `floaters.js` | 깜짝쇼 · 때리기 · 주사위 · 하루 횟수 · 러시안룰렛 · 이모지 떠오르기 | fb 2 · 2 |
 | `overhead.js` · `away-pic.js` | 머리 위 말풍선 · 이름표 · 공지 배너 · 자리비움 그림 | fb 2 |
-| `room-server-net.js` (ES) | 방 서버 웹소켓 provider(PROTOCOL v1) | ws |
+| `room-server-net.js` (ES) | 방 서버 웹소켓 provider(PROTOCOL v1) — 연결 공통부는 `realtime/realtime-link.js` | ws |
 | `room-server-gate.js` (ES) | 이 방을 방 서버로 열지 · 어느 서버로 갈지 | api 2 |
 | `room-alive.js` · `room-ghost-heal.js` · `room-index.js` · `room-channel.js` · `room-stats.js` (ES) | 살아 있음 판정 · 사라진 멤버 다시 등록 · roomIndex · 채널 값 · roomStats 읽기 | (firebase-init 이 연결) |
 
