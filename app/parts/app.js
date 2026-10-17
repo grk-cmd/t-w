@@ -1844,6 +1844,7 @@ const seatCameraMod = TwSeatCamera.createSeatCamera({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const dotRenderMod = TwDotRender.createDotRender({
   scene: scene,
+  ps1Dither: TwPs1Dither,
 });
 /* ============================================================ FIT */
 /* 본문은 character/char-measure.js 로 옮겼다(구역 떼기 C · w1).

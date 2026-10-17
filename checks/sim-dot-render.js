@@ -17,15 +17,18 @@ const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["dot-render.js","parts/shared/dot-render.js","app/parts/shared/dot-render.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — dot-render.js'); process.exit(2); }
+/* 🕹️ PS1 디더 규칙(색 단계 · Bayer 표) — dot-render.js 가 만들 때 읽는다 */
+const PS1D = (() => { const src = ["ps1-dither.js","parts/shared/ps1-dither.js","app/parts/shared/ps1-dither.js"].map(read).find(Boolean); if(!src) return null; const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; })();
+if(!PS1D){ say('  ? 원본 못 찾음 — ps1-dither.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = [];
-const VAL_DEPS = ["scene"];
+const VAL_DEPS = ["scene","ps1Dither"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["applyDotTextureFilter","applyPS1Shader","sweepIfOn"];
 const MOVED = ["_dotFilterState","applyDotTextureFilter","_PS1_LEVELS","_PS1_FRAG_INJECT","_ps1State","applyPS1Shader"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  scene: scene,"];
+const GLUE = ["  scene: scene,","  ps1Dither: TwPs1Dither,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -102,7 +105,7 @@ say('── 4. 동작 — 텍스처 필터 · PS1 셰이더 켜고 끄기');
     if(typeof MOD === 'string' && MOD){
       const win = {};
       new Function('window', 'module', 'THREE', MOD)(win, undefined, THREE_);
-      return win.TwDotRender.createDotRender({ scene });
+      return win.TwDotRender.createDotRender({ scene, ps1Dither: PS1D });
     }
     /* 옮기기 전 — app.js 의 그 자리 글을 그대로 굴린다 */
     const a = SRC.indexOf('/* 도트 렌더 모드일 때 씬의'), b = SRC.indexOf('/* ============================================================ FIT */');
@@ -158,7 +161,7 @@ say('── 5. 켠 뒤 들어온 메쉬 · 텍스처 · 셰이더');
   const objs = [];
   const scene = { traverse: (cb) => { scene.n++; objs.forEach(cb); }, n: 0 };
   const win = {}; new Function('window', 'module', 'THREE', MOD)(win, undefined, THREE_);
-  const D = win.TwDotRender.createDotRender({ scene });
+  const D = win.TwDotRender.createDotRender({ scene, ps1Dither: PS1D });
   const tex = () => ({ minFilter: 1008, magFilter: 1006, needsUpdate: false, userData: {} });
   const mesh = (m) => { const o = { isMesh: true, material: m }; objs.push(o); return o; };
   const DEFAULT_OBC = function(){};   // three 기본 onBeforeCompile 자리

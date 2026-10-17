@@ -11,6 +11,10 @@
    [직접 실행] 되살리기가 맞는지 스스로 본다(모듈마다 deps 줄 · mod. 이 안 남고, 옛 이름 선언이 다시 보인다). */
 'use strict';
 const fs = require('fs');
+/* 값 · 순수 함수만 내놓는 공용 모듈(«createX(deps)» 없음) — joinRenderer 가 맨 앞에 «var glob = …» 으로 깐다 */
+const VALUE_MODULES = [
+  { file: 'ps1-dither.js', glob: 'TwPs1Dither' },   // 🕹️ PS1 디더 규칙 — dot-render.js 가 만들 때 읽는다
+];
 const MODULES = [
   { file: 'my-info.js', mod: 'myInfoMod', glob: 'TwMyInfo', sample: 'function openMyInfo(' },   // 앱 FSD 17번
   { file: 'chars.js', mod: 'charsMod', glob: 'TwChars', sample: 'function _charsSync(' },       // 앱 FSD 18번
@@ -157,6 +161,8 @@ function joinRenderer(app){
     const h = txt.match(/\nfunction create[\w$]*\(deps\)\{\n/);
     const r = txt.lastIndexOf('\nreturn {');
     let body = (h && r > h.index) ? txt.slice(h.index + h[0].length, r) : txt;
+    /* 이름이 다른 값 deps(«key: 딴이름,» — 예 ps1Dither: TwPs1Dither)는 지우지 않고 «const key = 딴이름;» 으로 남긴다 */
+    for(const x of glue.matchAll(/^  ([\w$]+): ([\w$]+),$/gm)) if(x[1] !== x[2]) body = body.replace(new RegExp('^const ' + esc(x[1]) + ' = deps\\.' + esc(x[1]) + ';.*$', 'm'), 'const ' + x[1] + ' = ' + x[2] + ';');
     body = body.replace(/^const [\w$]+ = deps\.[\w$]+;.*\n/gm, '').replace(/^const [\w$]+ = deps\.[\w$]+, [\w$]+ = deps\.[\w$]+;.*\n/gm, '');
     if(getters.length) body = body.replace(new RegExp('\\b(' + getters.map(esc).join('|') + ')\\(\\)', 'g'), (all, k) => winGet[k] || k);
     for(const [set, name] of setters) body = replaceCalls(body, set, (arg) => name + ' = ' + arg);
@@ -176,12 +182,15 @@ function joinRenderer(app){
     else tail.push(body);
   }
   if(tail.length) all += '\n' + tail.join('\n');
+  /* 값만 내놓는 공용 모듈(만드는 줄이 없다)은 맨 앞에 전역 이름으로 깐다 — 되살린 본문이 그 이름을 읽는다 */
+  const pre = VALUE_MODULES.map(v => { const t = readPart(v.file); return t ? 'var ' + v.glob + ' = (function(){ var module = { exports: {} }, window; ' + t + '\n; return module.exports; })();\n' : ''; }).join('');
+  all = pre + all;
   for(const [mod, n] of retGet) all = all.replace(new RegExp('\\b' + esc(mod) + '\\.' + esc(n) + '\\(\\)', 'g'), n);
   for(const [mod, set, name] of retSet) all = replaceCalls(all, mod + '.' + set, (arg) => name + ' = ' + arg);
   for(const m of MODULES) all = all.replace(new RegExp('\\b' + esc(m.mod) + '\\.', 'g'), '');
   return all;
 }
-module.exports = { joinRenderer, MODULES };
+module.exports = { joinRenderer, MODULES, VALUE_MODULES };
 
 if(require.main === module){
   let pass = 0, fail = 0;
