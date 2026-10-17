@@ -240,12 +240,15 @@ export function deleteWrite(item: Pick<BugItem, 'id' | 'vis' | 'authUid'>): Reco
   };
 }
 
-/** 상태만 바꾸는 쓰기 — openTs 는 미해결일 때만 ts(공지는 늘 없음). 앱 addAnswer 와 같은 규칙. */
+/** 상태만 바꾸는 쓰기 — openTs 는 미해결일 때만 ts(공지는 늘 없음). 앱 addAnswer 와 같은 규칙.
+ * 미해결로 되돌리면 해결 시각(doneTs)을 지운다 — 남아 있으면 다시 해결될 때 옛 시각으로 30일을 세어 일찍 지워진다.
+ * 해결 시각을 적는 것은 서버 정리 함수(functions/bug-cleanup.js)뿐이다 — 글쓴이 · 옛 앱 길까지 빠짐없이. */
 export function statusWrite(item: BugItem, status: BugStatus): Record<string, unknown> {
   const base = `${BUG_LIST}/${item.id}`;
   return {
     [`${base}/status`]: status,
     [`${base}/openTs`]: isOpen(status) && !item.notice ? item.ts : null,
+    ...(isOpen(status) ? { [`${base}/doneTs`]: null } : {}),
   };
 }
 

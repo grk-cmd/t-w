@@ -72,6 +72,7 @@ export const ACTION_LABEL: Record<AuditAction, string> = {
   'bug.answerDelete': '답변 삭제',
   'bug.status': '제보 상태',
   'bug.delete': '제보 삭제',
+  'bug.autoClean': '제보 자동 정리',
   'bug.edit': '제보 수정',
   'improvements.add': '개선 기록 추가',
   'improvements.edit': '개선 기록 수정',

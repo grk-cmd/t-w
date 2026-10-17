@@ -1002,7 +1002,8 @@
           "ts",
           "openTs",
           "nts",
-          "authUid"
+          "authUid",
+          "doneTs"
         ],
         "$id": {
           ".read": true,
@@ -1036,6 +1037,9 @@
           },
           "ts": {
             ".validate": "true"
+          },
+          "doneTs": {
+            ".validate": "newData.isNumber()"
           },
           "lastReplyTs": {
             ".validate": "true"

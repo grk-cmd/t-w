@@ -5,6 +5,7 @@
    roomStats · roomStatsOnOpen · roomStatsOnClose — 열린 방 개수 요약(1분마다 · 방이 열리고 닫힐 때). 로직은 room-stats.js.
    dailyActive — 일일 접속 집계(DAU · 방문 수). accountSnap 쓰기마다 metrics/daily/{서울 날짜} 에 적는다. 로직은 daily-active.js.
    bugNo — 버그 제보 고정 번호. bugBoard/list/{id} 가 생기면 no = «B-MMDD-n»(서울 날짜 · 그날 순번 · bugBoard/seq 트랜잭션). 로직은 bug-no.js.
+   bugCleanup — 버그 제보 정리(매일 서울 04:40). 해결(수정 완료 · 재현 안 됨)된 뒤 30일 지난 제보를 통째로 지운다(처리방침 5항) · 해결 시각 doneTs 는 처음 본 날 적는다. 로직은 bug-cleanup.js.
    partEquipCount — 카탈로그 항목별 장착 사용자 수. users/{코드}/slots 쓰기마다 장착 집합의 차이만 metrics/parts/equipped 에 더하고 뺀다. 로직은 part-equip.js.
    visitPing — IP 기준 일일 방문자(호출형 · 로그인 없이). 앱이 켜질 때 한 번 부른다. IP 는 해시로만 적는다. 로직은 visit-ping.js.
      비밀 값 METRICS_IP_SALT 가 있어야 배포된다: firebase functions:secrets:set METRICS_IP_SALT (길고 무작위한 값).
@@ -282,6 +283,13 @@ exports.bugNo = onValueCreated({ ref: '/bugBoard/list/{id}', timeoutSeconds: 60,
   async (event) => {
     const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
     await require('./bug-no').runBugNo(getDatabase(), event, Date.parse(event.time) || Date.now());
+  });
+
+exports.bugCleanup = onSchedule({ schedule: '40 4 * * *', timeZone: 'Asia/Seoul', timeoutSeconds: 300, retryCount: 0, maxInstances: 1 },
+  async () => {
+    const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
+    const r = await require('./bug-cleanup').runBugCleanup(getDatabase(), Date.now());
+    console.log('[bugCleanup]', JSON.stringify(r));
   });
 
 // 슬롯(캐릭터 5칸)이 바뀔 때마다 장착한 카탈로그 id 집합의 차이만 센다(part-equip.js). 처음 숫자는 scripts/backfill-part-equip.js 로 채운다.
