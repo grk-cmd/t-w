@@ -75,10 +75,10 @@ function mkEnv(opt){
   const setInterval = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
   const raf = fn => 0;
   const g = { viewing: null, friends: {} };
-  new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', MOD)
+  new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', opt.src || MOD)
     (win, undefined, document, localStorage, win.firebaseAPI, setInterval, raf, 1280, 800);
   const S = win.MhScheduler.createScheduler({
-    getMyUserId: () => 'me1', getDisplayName: () => '나나',
+    getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'), getDisplayName: () => '나나',
     viewingUserId: () => g.viewing, myHomeFriends: () => g.friends,
     toast: m => toasts.push(m),
     uiIconEl: (name) => { const e = mkEl('img'); e.dataset.icon = name; return e; },
@@ -125,6 +125,14 @@ sec('── 2. 만들 때', () => {
   chk(L.subs.notices.length === 0 && (L.winListeners['firebase-ready'] || []).length === 1, 'firebase 가 아직이면 firebase-ready 를 기다린다');
   const N = mkEnv({ only: [] });
   chk(N.subs.notices.length === 0 && N.timers.length === 0 && N.escWins.length === 0, 'DOM 이 없으면(창 요소 없음) 아무것도 걸지 않는다 — 예전처럼 조용히');
+});
+
+sec('── 2-2. 내 코드 없음 — 일정 요청 0', () => {
+  const noUid = (src) => { const E = mkEnv({ uid: null, src }); E.S.renderSchedCalendar(); E.S.subscribeMonth(); E.timers.forEach(x => { if(x.ms === 60 * 1000) x.fn(); });
+    return E.subs.notices.length === 0 && E.subs.month.length === 0; };
+  chk(noUid(), '내 코드 없음 → 태그 알림 · 오늘 일정 · 달력 구독 0(users/null/schedNotices · schedule)');
+  const m2 = MOD.replace(/\n *if\(!schedOwner\) return;[^\n]*/, '').replace(/\n *if\(!getMyUserId\(\)\) return;[^\n]*/g, '');
+  chk(m2 !== MOD && !noUid(m2), '  깨 보기 — 내 코드 확인을 빼면 빨강');
 });
 
 sec('── 3. 🔔 뱃지 · 알림 목록', () => {

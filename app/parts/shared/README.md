@@ -151,7 +151,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   const m = paintGeomMod.mirrorUVOn(hit, crState.cBase.face, crState.cCam, crState.cBase.faceCx||0, (ray, mesh)=>partPaintMod._picIntersect(ray,[mesh]));
   ```
 
-**확장할 때 고칠 자리** — 되쏘는 거리 기본값은 `mirrorUVOn` 안의 0.6(캐릭터 얼굴 크기 기준). 파츠마다 다르면 부르는 쪽이 `off` 를 넘긴다.
+**확장할 때 고칠 자리** — 되쏘는 거리 기본값 `MIRROR_BACKOFF`(0.6 · 캐릭터 얼굴 크기 기준) · 점 길이 `DOT_LEN` 은 파일 위 상수. 파츠마다 다르면 부르는 쪽이 `off` 를 넘긴다.
 
 **함정**
 - 옷처럼 몸통 · 소매가 겹친 파츠에서 0.6 을 물러나면 반대편 표면 대신 앞쪽 천에서 출발한다 — 그래서 `off` 를 열어 두었다.

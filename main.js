@@ -1790,7 +1790,7 @@ const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
      횟수를 묶는다 — 두 번째부터는 기록만 한다. */
 let _rendererReloads = 0, _childGoneHooked = false;
 const RENDERER_AUTO_RELOAD_MAX = 1;
-const _unresponsiveWins = new WeakSet();   // 'unresponsive' 뒤 'responsive' 가 아직 안 온 창 — 두 번째 실행 판정(_secondInstanceAction)이 본다
+const _unresponsiveSince = new WeakMap();   // 창 → 'unresponsive' 가 시작된 시각(ms). 'responsive' 가 오면 지운다 — 두 번째 실행 판정(_secondInstanceAction)이 본다
 function _watchRendererHealth(win){
   if(!win || win.isDestroyed()) return;
   const wc = win.webContents;
@@ -1806,8 +1806,8 @@ function _watchRendererHealth(win){
     if(isMainFrame === false) return;   // 안쪽 iframe(유튜브 등) 실패는 앱 화면과 무관
     _diagLog('[렌더러] 로드 실패 — ' + code + ' ' + desc + ' | ' + String(url || '').slice(-80));
   });
-  win.on('unresponsive', () => { _unresponsiveWins.add(win); _diagLog('[렌더러] 응답 없음(unresponsive)'); });
-  win.on('responsive',   () => { _unresponsiveWins.delete(win); _diagLog('[렌더러] 응답 재개(responsive)'); });
+  win.on('unresponsive', () => { if(!_unresponsiveSince.has(win)) _unresponsiveSince.set(win, Date.now()); _diagLog('[렌더러] 응답 없음(unresponsive)'); });
+  win.on('responsive',   () => { _unresponsiveSince.delete(win); _diagLog('[렌더러] 응답 재개(responsive)'); });
   if(!_childGoneHooked){
     _childGoneHooked = true;
     app.on('child-process-gone', (e, d) => {
@@ -3743,25 +3743,26 @@ function createWindow() {
 }
 
 /* 🔁 두 번째 실행 때 옛 인스턴스를 어떻게 할지 — 순수 판정(검사 sim-second-instance).
-   s = { ready, created, hasWindow, destroyed, crashed, unresponsive }
+   s = { ready, created, hasWindow, destroyed, crashed, hungSince(응답 없음이 시작된 시각 ms · 없으면 null) } · now = 지금 시각 ms
    · 'wait'     — 아직 부팅 중(준비 전 · 창을 만들기 전). 예전처럼 아무것도 안 한다 — 부팅 중인 앱을 죽이지 않는다.
-   · 'relaunch' — 창이 없거나 · 파괴됐거나 · 렌더러가 죽었거나 · 응답 없음. 앞으로 올려도 쓸 수 없으니 정리하고 새로 띄운다.
-   · 'focus'    — 멀쩡하다. 앞으로 올리기만(재시작하면 방에서 튕긴다). */
-function _secondInstanceAction(s){
-  s = s || {};
-  if(!s.ready || !s.created) return 'wait';
-  if(!s.hasWindow || s.destroyed || s.crashed || s.unresponsive) return 'relaunch';
-  return 'focus';
+   · 'relaunch' — 창이 없거나 · 파괴됐거나 · 렌더러가 죽었으면 바로. 응답 없음은 RELAUNCH_HUNG_MS 이상 이어졌을 때만.
+   · 'focus'    — 멀쩡하거나 잠깐 멈춤(로딩 · GC). 앞으로 올리기만(재시작하면 방에서 튕긴다). */
+const RELAUNCH_HUNG_MS = 10000;   // 응답 없음이 이만큼 이어져야 정리하고 새로 띄운다(10-17 사용자 결정)
+function _secondInstanceAction(s, now){
+  if(!s || !s.ready || !s.created) return 'wait';
+  if(!s.hasWindow || s.destroyed || s.crashed) return 'relaunch';
+  if(s.hungSince == null || !(now - s.hungSince >= RELAUNCH_HUNG_MS)) return 'focus';
+  return 'relaunch';
 }
 let _mainWindowCreated = false;   // createWindow 가 한 번이라도 창을 만들었나 — «부팅 중» 과 «창이 사라짐» 을 가른다
 function _mainWindowHealth(){
   const w = mainWindow;
-  const s = { ready: app.isReady(), created: _mainWindowCreated, hasWindow: !!w, destroyed: false, crashed: false, unresponsive: false };
+  const s = { ready: app.isReady(), created: _mainWindowCreated, hasWindow: !!w, destroyed: false, crashed: false, hungSince: null };
   if(!w) return s;
   try{ s.destroyed = w.isDestroyed(); }catch(_){ s.destroyed = true; }
   if(s.destroyed) return s;
   try{ const wc = w.webContents; s.crashed = !wc || wc.isDestroyed() || wc.isCrashed(); }catch(_){ s.crashed = true; }
-  s.unresponsive = _unresponsiveWins.has(w);
+  if(_unresponsiveSince.has(w)) s.hungSince = _unresponsiveSince.get(w);
   return s;
 }
 /* 정리하고 새로 띄운다 — 정리는 session-end 와 같은 _exitNow()(네이티브 훅 · 타이머 먼저 → 창 destroy → app.exit(0)).
@@ -3780,7 +3781,7 @@ if (!gotLock) {
 } else {
   app.on('second-instance', () => {
     const health = _mainWindowHealth();
-    const act = _secondInstanceAction(health);
+    const act = _secondInstanceAction(health, Date.now());
     if (act === 'relaunch') { _relaunchFresh(health); return; }
     if (act === 'focus') {
       if (mainWindow.isMinimized()) mainWindow.restore();
