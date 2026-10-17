@@ -153,7 +153,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
   - 실패와 «없음» 을 구분해 그린다(빈 목록 ≠ 못 불러옴).
   - 동작이 바뀌는 수정은 사용자 확인 뒤에, 동작 무변경 정리 커밋과 섞지 않는다(`docs/GIT_CONVENTION.md` 1.4).
   - «동작이 바뀐다» 는 화면 · 문구 · 타이밍 · 요청 수 중 하나라도 달라지는 것 — 작아도 먼저 확인한다.
-  - 도메인끼리는 서로의 모듈을 직접 부르지 않는다 — app.js 가 deps 로 이어 준다(shared 는 도메인을 모른다).
+  - 도메인끼리는 서로의 모듈을 직접 부르지 않는다 — app.js 가 deps 로 이어 준다(shared 는 도메인을 모른다). 지금 있는 곳은 기준선이고 늘면 `sim-domain-calls.js` 가 빨강.
   - 새 «있으면 부르기» 가드(`typeof x === 'function' && x()`)는 만들지 않는다 — 필요한 것은 deps 로 받는다.
   - 다시 대입되는 공유 값(let)은 값으로 넘기지 않고 읽는 함수 · 쓰는 함수로 넘긴다.
   - 모듈 모양: `window.TwXxx = { createXxx(deps) }` · 모듈 안은 `const X = deps.X;` · app.js 원래 자리에서 `const xMod = TwXxx.createXxx({...})`(TDZ 안 생기게) · html 과 `checks/smoke.js` PRELOAD 에 app.js 보다 먼저 · 그 도메인 폴더 `README.md` 에 절 하나(책임 · deps · 내놓는 것 · 함정).

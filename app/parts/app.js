@@ -4002,10 +4002,7 @@ canvas.addEventListener('pointerdown',e=>{
   const hit=hiddenSeatsMod._preferVisibleHit(hiddenSeatsMod._skipHiddenDesk(hiddenSeatsMod._hitsSkipHidden(ray.intersectObjects(seats.map(s=>s.group),true))));   // 🙈 숨긴 캐릭터는 잡히지 않는다(흔들기·쓰다듬기) · 보이는 것 먼저(#7)
   if(!hit.length) return;
   const seat=seatFromObject(hit[0].object); if(!seat) return;
-  /* 🪑 날아가는 중인 캐릭터는 잡지 않는다 — 잡으면 흔들기(rig 를 직접 제어한다)와 비행이 매
-     프레임 같은 좌표를 서로 덮어써서 캐릭터가 떨린다. 책상은 제자리에 있지만 슬롯 이동도
-     같이 막는다(자리를 옮기면 돌아올 자리가 바뀐다). */
-  if(seat.fly) return;
+  if(!TwSeatLabelDrag.canGrabSeat(seat)) return;   // 이름표 끌기와 같은 판단 한 줄(room/seat-label-drag.js)
   const targetType = classifyHit(seat, hit[0].object);
   // shake용 평면 — 캐릭터(rig)의 world position 기준 (책상 고정, 캐릭터만 움직임)
   const camDir = camera.getWorldDirection(new THREE.Vector3()).negate();
@@ -4091,7 +4088,9 @@ canvas.addEventListener('pointerup',e=>{
   if(!drag)return;
   const seat = drag.seat;
   if(!drag.moved){
-    if(drag.targetType && typeof drag.targetType==='object' && drag.targetType.type==='item'){
+    if(drag.targetType==='label'){
+      // 🏷️ 이름표 · 경험치 바를 누르기만 했다 — 쓰다듬지 않는다(끌어야 자리 바꾸기)
+    } else if(drag.targetType && typeof drag.targetType==='object' && drag.targetType.type==='item'){
       playItemIdle(drag.targetType.pivot);   // 아이템 클릭 — idle 애니메이션 한 번 재생
     } else if(drag.targetType==='desk' && seat.desk && seat.desk.userData.deskIdleAction && seat.desk.userData.deskPlayMode==='click'){
       // 책상 클릭 — 클릭 재생 모드 책상은 여기서 한 번 재생
@@ -4183,6 +4182,24 @@ function clearDragStuck(){
 }
 canvas.addEventListener('pointercancel', clearDragStuck);
 window.addEventListener('blur', clearDragStuck);
+/* 🏷️ 이름표 · 경험치 바를 눌러 끌면 책상 끌기와 같은 자리 바꾸기 — 시작 판단은 room/seat-label-drag.js.
+   ★ 같은 drag 상태를 쓰고 캔버스가 포인터를 잡는다 — 위 pointermove · pointerup 이 책상 끌기(slot)로 그대로 처리한다. */
+function _beginLabelSlotDrag(e, seat){
+  if(drag) return false;
+  _uiHot(3000);
+  drag={ seat, startX:e.clientX, startY:e.clientY, moved:false, mode:null, targetType:'label',
+    grabX: worldX(e) - seat.group.position.x,
+    lastX:e.clientX, lastY:e.clientY, lastT:performance.now(), velX:0, velY:0, dizzy:0 };
+  seatPanelMod.selectSeat(seat);
+  try{ canvas.setPointerCapture(e.pointerId); }catch(_){}
+  return true;
+}
+const seatLabelDragMod = TwSeatLabelDrag.createSeatLabelDrag({
+  beginDrag: _beginLabelSlotDrag,
+  flyAiming: ()=>tricksMod._flyAiming(),
+  bonkAiming: ()=>tricksMod._bonkAiming(),
+});
+overheadMod.setLabelDrag((e, seat)=>seatLabelDragMod.onLabelPointerDown(e, seat));
 
 
 /* 전역 마우스 NDC — 액자 고정 캐릭터의 머리가 마우스 따라가도록 */
@@ -9391,6 +9408,7 @@ const expBarMod = TwExpBar.createExpBar({
   lvBarClass: (...a)=>lvTierMod.lvBarClass(...a),
   lvStarBarClass: (...a)=>lvTierMod.lvStarBarClass(...a),
   overheadMod: overheadMod,
+  bindLabelDrag: (...a)=>overheadMod.bindLabelDrag(...a),   // 이름표 끌기 — 경험치 바(포커스)는 방 모듈을 직접 부르지 않는다
 });
 
 /* ═══ 🕒 포커스 누적 기기 간 공유 ═══════════════════════════════════════════

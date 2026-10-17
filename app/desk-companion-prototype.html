@@ -1329,7 +1329,7 @@
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:6px 2px 8px;
     background:linear-gradient(#46505e,#262d36);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
   .mi-star-stage .seat-nameplate{position:static;transform:none;display:inline-block;pointer-events:none;}
-  .mi-star-stage .seat-exp{position:static;transform:none;display:block;width:70px;}
+  .mi-star-stage .seat-exp{position:static;transform:none;display:block;width:70px;pointer-events:none;}
   .mi-star-pal{display:grid;grid-template-columns:repeat(4,22px);gap:5px;align-content:center;}
   .mi-star-sw{width:22px;height:22px;padding:0;margin:0;cursor:pointer;background:var(--sw);border:2px solid;
     border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
@@ -2113,9 +2113,10 @@
     --lv-drop:0 0 3px color-mix(in srgb, var(--pre-c,#ffd76a) 55%, transparent);
     --lv-speed:8s; }
 
-  .seat-exp{position:absolute;transform:translate(-50%,0);display:none;pointer-events:none;
+  .seat-exp{position:absolute;transform:translate(-50%,0);display:none;pointer-events:auto;cursor:grab;touch-action:none;   /* 🏷️ 눌러 끌면 자리 바꾸기(room/seat-label-drag.js) — UI_HIT_SEL 에 .seat-exp */
     border:1px solid var(--win-lo-2);background:var(--win-face);padding:1px;
     height:var(--exp-bar-h);box-sizing:content-box;line-height:0;overflow:hidden;}
+  .seat-nameplate{cursor:grab;user-select:none;touch-action:none;}   /* 🏷️ 이름표도 눌러 끌면 자리 바꾸기 — 위 .seat-exp 와 같은 길 */
   /* 채움은 티어 토큰만 읽는다. ⚠️ 여기에 색을 직접 적지 말 것(위 토큰 블록이 유일한 출처). */
   .seat-exp .exp-fill{height:100%;width:0;transition:width .35s ease;background:var(--lv-bar);}
   /* 흐름·발광은 표식 클래스로 받는다 — 티어 번호를 나열하지 않기 위해서다(JS 가 함께 붙인다). */
@@ -8142,6 +8143,7 @@
 <script src="parts/launcher/click-through-policy.js"></script>   <!-- 🖱 클릭 통과 판단 규칙(순수 함수 · main.js 도 require) — desktop-run.js 보다 먼저 -->
 <script src="parts/launcher/desktop-run.js"></script>   <!-- 🖥️ 데스크탑 실행 화면 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDesktopRun.createDesktopRun 로 만든다) -->
 <script src="parts/room/room-entry.js"></script>   <!-- 🛰 방 서버 · 입장 · 방 개수 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomEntry.createRoomEntry 로 만든다) -->
+<script src="parts/room/seat-label-drag.js"></script>   <!-- 🏷️ 이름표 · 경험치 바 끌어 자리 바꾸기(window.TwSeatLabelDrag) — app.js 보다 먼저 -->
 <script src="parts/room/overhead.js"></script>   <!-- 💬 머리 위 말풍선 · 🏷️ 이름표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwOverhead.createOverhead 로 만든다) -->
 <script src="parts/room/room-sync.js"></script>   <!-- 📦 방 def 전송 · poke · 자동 퇴장 · 감시견 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomSync.createRoomSync 로 만든다) -->
 <script src="parts/status/status-chip.js"></script>   <!-- 📍 상태칩 자리 · 팝업 · 상태 이모지 — app.js 보다 먼저(app.js 가 원래 자리에서 TwStatusChip.createStatusChip 로 만든다) -->
