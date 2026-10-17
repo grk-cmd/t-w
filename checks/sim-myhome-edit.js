@@ -153,6 +153,7 @@ function mkEnv(opt){
   env.origRender = () => { env.origRenders++; };
   env.curRender = env.origRender;
   env.mk = () => ctx.TwMyHomeEdit.createMyHomeEdit({
+    homeUploadCache: (() => { const t = ['upload-cache.js', 'parts/shared/upload-cache.js', 'app/parts/shared/upload-cache.js', '../app/parts/shared/upload-cache.js'].map((f) => { try { return require('fs').readFileSync(f, 'utf8'); } catch (_) { return null; } }).find(Boolean); const m = { exports: {} }; new Function('module', 'window', t)(m, undefined); return m.exports.createUploadCache(); })(),
     toast: (m) => env.toasts.push(m),
     asyncPrompt: async (o) => { env.prompts.push(o); return env.promptAns.length ? env.promptAns.shift() : null; },
     renderMyHomePage: () => { env.page++; },
@@ -527,11 +528,11 @@ await sec('── 9. app.js 배선', () => {
   const getters = ['myHomeData: ()=>_myHomeData,', 'mhViewingUserId: ()=>_mhViewingUserId,', 'myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeUid: ()=>_myHomeUid,',
     'mhStickerDragDist: ()=>_mhStickerDragDist,', 'isPremium: ()=>isPremium,', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,', 'getRenderMyHomeStickers: ()=>renderMyHomeStickers,'];
   const setters = ['setMyHomeLoaded: (v)=>{ _myHomeLoaded = v; },', 'setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },', 'setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },'];
-  const vals = ['myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
-  chk(deps.length === 34 && fnDeps.length === 15 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
-      'deps 34개 — 함수 15는 화살표 · 읽는 함수 9 · 쓰는 함수 3 · 앞에 선언된 const 7은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  const vals = ['homeUploadCache: uploadCacheMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
+  chk(deps.length === 35 && fnDeps.length === 15 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
+      'deps 35개 — 함수 15는 화살표 · 읽는 함수 9 · 쓰는 함수 3 · 앞에 선언된 const 8은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   const before = (n) => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; };
-  chk(['myHomeSticker', 'STICKER_MAX', 'STICKER_IMG_MAX_W', 'DS_IMG_MAX_BG_W', 'DS_IMG_MAX_BG_H', 'DS_IMG_MAX_PANEL', 'DS_IMG_QUALITY'].every(before), '  값으로 넘기는 것은 만드는 줄보다 앞에 선언된 const');
+  chk(['uploadCacheMod', 'myHomeSticker', 'STICKER_MAX', 'STICKER_IMG_MAX_W', 'DS_IMG_MAX_BG_W', 'DS_IMG_MAX_BG_H', 'DS_IMG_MAX_PANEL', 'DS_IMG_QUALITY'].every(before), '  값으로 넘기는 것은 만드는 줄보다 앞에 선언된 const');
   chk(!before('USER_NAME_MAX') && APP.search(/^const USER_NAME_MAX\s*=/m) > iMk, '  ★ USER_NAME_MAX 는 만드는 줄보다 뒤 — 그래서 읽는 함수');
   const m = strip(MOD);
   chk(!/[^.\w$](_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|_mhStickerDragDist|isPremium|isAdmin|USER_NAME_MAX|renderMyHomeStickers)\s*=[^=]/.test(m.replace(/const (_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|_mhStickerDragDist|isPremium|isAdmin|USER_NAME_MAX|renderMyHomeStickers) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');

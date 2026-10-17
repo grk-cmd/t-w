@@ -209,13 +209,20 @@ function _slotGlbCacheLoad(){
   if(!st || typeof st !== 'object') st = {};
   return glbUploadCache.trim(st, glbUploadCache.GLB_CACHE_MAX);   // 상한 규칙은 shared/upload-cache.js 한 곳
 }
-function _slotGlbCacheSave(st){ try{ localStorage.setItem(SLOT_GLB_CACHE_KEY, JSON.stringify(st)); }catch(_){} }
+/* 저장 직전에 지금 저장본과 합친다 — 슬롯 올리기 · 보관함이 각자 사본을 들고 있다가 앞의 것을 지우던 길. */
+function _slotGlbCacheSave(st){
+  try{
+    let cur = {}; try{ cur = JSON.parse(localStorage.getItem(SLOT_GLB_CACHE_KEY) || '{}'); }catch(_){}
+    const out = glbUploadCache.trim(glbUploadCache.merge(cur, st), glbUploadCache.GLB_CACHE_MAX);
+    localStorage.setItem(SLOT_GLB_CACHE_KEY, JSON.stringify(out));
+  }catch(_){}
+}
 async function _storageGlbUrlOne(uid, st, key, b64){
   if(typeof b64 !== 'string' || !b64) return null;
   const h = _quickHash(b64);
   const ck = key + ':' + h;
-  if(st[ck]) return st[ck];
-  const r = await firebaseAPI.uploadSlotGlb(uid, key + '_' + h, b64);
+  if(st[ck]){ glbUploadCache.touch(st, ck); return st[ck]; }
+  const r = await glbUploadCache.once('glb/' + uid + '/' + ck, ()=>firebaseAPI.uploadSlotGlb(uid, key + '_' + h, b64));
   if(r && r.ok){ st[ck] = r.url; return r.url; }
   return null;
 }

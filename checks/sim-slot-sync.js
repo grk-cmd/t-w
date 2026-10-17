@@ -400,7 +400,7 @@ if(!block || !fSlotToObj || !fImg || !fSave || !fHash || !fCL || !fCS || !fOne){
     /* 캐시 상한 — 전환기에 통째로 비우지 않는다(비우면 Class A 를 두 번 치른다) */
     const e13 = mkEnv();
     const pre = {};
-    for(let i = 0; i < 40; i++) pre['face:' + i.toString(36) + '.1234'] = 'https://st/old' + i + '.png';   // 구형
+    for(let i = 0; i < 90; i++) pre['face:' + i.toString(36) + '.1234'] = 'https://st/old' + i + '.png';   // 구형 — 합쳐서 얼굴 상한(upload-cache.js 100)을 넘게
     for(let i = 0; i < 25; i++) pre['face:h2' + i.toString(36) + '.z.1234'] = 'https://st/new' + i + '.png';
     e13.LS.setItem('tw.roomFaceUrls', JSON.stringify(pre));
     const kept = e13.m.cacheLoad();

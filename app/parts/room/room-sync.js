@@ -191,11 +191,18 @@ function _roomFaceCacheLoad(){
     if(st[k+'Hash'] && st[k+'Url']){ st[k+':'+st[k+'Hash']] = st[k+'Url']; }
     delete st[k+'Hash']; delete st[k+'Url'];
   });
-  // 무한정 쌓이지 않게 상한 — 넘치면 옛 해시부터 버린다(규칙은 shared/upload-cache.js 한 곳).
-  st = faceUploadCache.trim(st, faceUploadCache.FACE_CACHE_MAX, { dropLegacyFirst: true });
+  // 무한정 쌓이지 않게 상한 — 넘치면 오래 안 쓴 것부터 버린다(규칙은 shared/upload-cache.js 한 곳).
+  st = faceUploadCache.trim(st, faceUploadCache.FACE_CACHE_MAX);
   return st;
 }
-function _roomFaceCacheSave(st){ try{ localStorage.setItem('tw.roomFaceUrls', JSON.stringify(st)); }catch(_){} }
+/* 저장 직전에 지금 저장본과 합친다 — 방 입장 · 슬롯 올리기 · 보관함이 각자 사본을 들고 있다가 나중 쪽이 앞의 것을 지우던 길. */
+function _roomFaceCacheSave(st){
+  try{
+    let cur = {}; try{ cur = JSON.parse(localStorage.getItem('tw.roomFaceUrls')||'{}'); }catch(_){}
+    const out = faceUploadCache.trim(faceUploadCache.merge(cur, st), faceUploadCache.FACE_CACHE_MAX);
+    localStorage.setItem('tw.roomFaceUrls', JSON.stringify(out));
+  }catch(_){}
+}
 /* 그림 한 장 → Storage URL. 캐시(st)에 있으면 업로드 없이 그 URL. 실패·그림 아님 → null.
    ★ 파일 이름에 '그림 내용 해시'를 넣는다 — 예전엔 users/{uid}/roomface_face.png 처럼
      캐릭터 구분 없이 한 경로만 써서, 동물을 만들면 그 얼굴(투명 배경)이 인간이 쓰던 파일을
@@ -206,8 +213,8 @@ async function _storageFaceUrlOne(uid, st, key, cv){
   if(!dataUrl || !dataUrl.startsWith('data:')) return null;
   const h = _quickHash(dataUrl);
   const ck = key + ':' + h;
-  if(st[ck]) return st[ck];   // 이 그림은 전에 올려둔 적이 있다 — 캐릭터를 몇 번 바꿔도 다시 안 올린다
-  const r = await firebaseAPI.uploadRoomFace(uid, key + '_' + h, dataUrl);
+  if(st[ck]){ faceUploadCache.touch(st, ck); return st[ck]; }   // 전에 올려둔 그림 — 다시 안 올린다
+  const r = await faceUploadCache.once('face/' + uid + '/' + ck, ()=>firebaseAPI.uploadRoomFace(uid, key + '_' + h, dataUrl));
   if(r && r.ok){ st[ck] = r.url; return r.url; }
   return null;
 }

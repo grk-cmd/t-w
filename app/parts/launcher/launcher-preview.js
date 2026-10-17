@@ -19,6 +19,7 @@ const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
 const _MAIN_LIGHT_COL = deps._MAIN_LIGHT_COL;
 const _MAIN_LIGHT_INT = deps._MAIN_LIGHT_INT;
 const _mkFrontFill = deps._mkFrontFill;
+const _quickHash = deps._quickHash;
 const _setDeskMatColor = deps._setDeskMatColor;
 const allDeskItems = deps.allDeskItems;
 const applyDeskColorToCustom = deps.applyDeskColorToCustom;
@@ -102,11 +103,30 @@ function sizeLauncherPreview(){const c=document.getElementById('lcPreview');
    ★ lRenderer 에는 preserveDrawingBuffer 가 없다 → render 와 같은 틱에서 바로 복사한다(launcherLoop). */
 const LC_THUMB_SETTLE_MS = 900, LC_THUMB_MAX = 160;
 let _lcThumbJob = null;   // { def, readyAt }
+/* 외모 지문 — 섬네일은 외모가 바뀔 때만 다시 찍는다. 대기 동작 · 소품 움직임 · 창 크기로 픽셀이 매번 조금씩 달라
+   «바뀜» 으로 보고 새 섬네일 → 새 이름 업로드가 나던 길이다. 지문은 이 PC 에만 둔다(슬롯 저장본에 넣으면 옛 앱과 섞일 때 다른 캐릭터로 본다). */
+const LC_THUMB_SIGS_KEY = 'tw.thumbSigs', LC_THUMB_SIGS_MAX = 30;
+function _lcAppearanceSig(def){
+  const o = Object.assign({}, slotSaveMod().slotToObj(def));
+  delete o.thumb; delete o.thumbUrl; delete o.partXfMemory;
+  return _quickHash(JSON.stringify(o));
+}
+function _lcThumbSigsLoad(){
+  try{ const m = JSON.parse(localStorage.getItem(LC_THUMB_SIGS_KEY) || '{}'); return (m && typeof m === 'object') ? m : {}; }catch(_){ return {}; }
+}
+function _lcThumbSigsSave(m){
+  const ks = Object.keys(m);
+  for(let i = 0; i < ks.length - LC_THUMB_SIGS_MAX; i++) delete m[ks[i]];
+  try{ localStorage.setItem(LC_THUMB_SIGS_KEY, JSON.stringify(m)); }catch(_){}
+}
 function _lcThumbArm(def){ _lcThumbJob = { def, readyAt: performance.now() + LC_THUMB_SETTLE_MS }; }
 function _lcThumbTake(){
   const job = _lcThumbJob; _lcThumbJob = null;
   if(!job || !lChar || !lRenderer || lChar.charDef !== job.def) return;   // 그 사이 다른 슬롯으로 넘어갔다
   if(!Array.isArray(slots) || slots.indexOf(job.def) < 0) return;          // 지워졌거나 갈아 끼워진 def
+  let sig = null, sigs = null;
+  try{ sig = _lcAppearanceSig(job.def); sigs = _lcThumbSigsLoad(); }catch(_){ sig = null; }
+  if(sig && job.def.thumb && sigs[_quickHash(job.def.thumb)] === sig) return;   // 외모가 그대로 — 다시 찍지 않는다
   const y = lChar.group.position.y;
   try{
     lChar.group.position.y = lCharBaseY;                 // 둥둥을 멈춘 자리
@@ -122,6 +142,7 @@ function _lcThumbTake(){
     for(let i = 3; i < px.length; i += 16) a += px[i];
     if(a < 255 * 20) return;
     const url = cv.toDataURL('image/png');
+    if(sig && url){ delete sigs[_quickHash(url)]; sigs[_quickHash(url)] = sig; _lcThumbSigsSave(sigs); }
     if(url && url !== job.def.thumb){ job.def.thumb = url; slotSaveMod().saveSlots(); }
   }catch(e){ try{ console.warn('[런처] 섬네일 찍기 실패', e); }catch(_){} }
   finally{ try{ lChar.group.position.y = y; }catch(_){} }

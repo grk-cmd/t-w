@@ -3185,6 +3185,7 @@ const mhLinksMod = TwMyHomeLinks.createMyHomeLinks({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   toast: (...a)=>toast(...a),
+  homeUploadCache: uploadCacheMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
@@ -6831,6 +6832,7 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
   _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
   _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
+  _quickHash: (...a)=>roomSyncMod._quickHash(...a),
   _mkFrontFill: (...a)=>_mkFrontFill(...a),
   _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
