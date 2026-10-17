@@ -2779,7 +2779,8 @@ const friendsApiMod = TwFriendsApi.createFriendsApi({
 const friendsPortMod = TwFriendsPort.createFriendsPort({
   firebase: friendsFirebaseMod,
   api: friendsApiMod,
-  apiOn: ()=>{ const s = acctStateMod._rcStore(); return s ? s.friendsApi() : true; },   // 원격 설정 flags.friendsApi — 끄면 옛 길만
+  source: ()=>TwSourceSwitch.store.pick('friends'),   // 받는 곳 — 원격 설정 sources.friends(없으면 옛 flags.friendsApi) · 고르기는 shared/source-switch.js
+  serverFirst: TwSourceSwitch.serverFirst,
   warn: (...a)=>console.warn(...a),
 });
 const friendsSubMod = TwFriendsSub.createFriendsSub({
@@ -5772,6 +5773,8 @@ function reopenAnimalFromCreator(tab){
 /* 🗂 책상 · 좌석 세팅 프리셋(5칸 · 모든 캐릭터 칸 공용) — 저장은 creator/desk-preset-store.js, 담기 · 적용 · 칸 화면은 creator/desk-preset.js(C 구역 떼기 w4).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
+  jsonStore: TwJsonStore,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 /* 본문은 creator/desk-preset.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -5802,6 +5805,7 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
   setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
   setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
   swapDeskVisual: (...a)=>deskVisualMod.swapDeskVisual(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   toast: (...a)=>toast(...a),
 });
 // ★ 책상 크기 슬라이더의 실제 min/max — HTML의 #deskScale range와 반드시 같은 값으로 맞춰야 함.

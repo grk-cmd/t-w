@@ -2,7 +2,7 @@
    app.js «런처3-2 프리셋» 조각(저장 빼고)을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다(바뀐 줄은 읽는 함수 자리 11줄 · 옛 이야기형 주석 줄이기).
    ・책임: 담기(captureDeskPreset — 책상 색 · 크기 · 길이 · 위치 · 모델 · 아이템 · 로컬 아이템 · 좌석) · 적용(applyDeskPreset — 좌석 → 아이템 목록 → 책상 → 모델 →
      아이템 다시 놓기 → 카메라 다시 맞추기) · 칸 화면(renderDeskPresetSlots — 클릭 불러오기 · 우클릭 저장/비우기 · 팝업 버튼).
-   ・받는 deps 27 — 값 crState · deskPresetStoreMod(5칸 읽기 · 쓰기) · premiumMod · DEFAULT_DESK_OVERRIDE_ID · 함수 15 · 읽는 함수 8(뒤에서 만들어지는 모듈 · isAdmin · isPremium).
+   ・받는 deps 28 — notifyError — 번호 실패 알림(shared/error-codes.js) · 값 crState · deskPresetStoreMod(5칸 읽기 · 쓰기) · premiumMod · DEFAULT_DESK_OVERRIDE_ID · 함수 15 · 읽는 함수 8(뒤에서 만들어지는 모듈 · isAdmin · isPremium).
    ・내놓는 것: 없음 — 만들 때 팝업 버튼을 건다(DOM 이 준비 전이면 DOMContentLoaded 에).
    ・입구 전제: 적용 · 저장은 캐릭터(crState.cBase)가 있어야 한다(없으면 «먼저 캐릭터를 선택해 주세요») · 칸 상자(#crPresetSlots) · 버튼이 없으면 그리지 · 걸지 않는다.
    ⚠️ document · localStorage · setTimeout 은 전역 이름 그대로. 전역 이름은 TwDeskPreset(Tw 접두사 #103).
@@ -37,6 +37,7 @@ const setCreatorDeskScale = deps.setCreatorDeskScale;
 const setDeskPos = deps.setDeskPos;
 const swapDeskVisual = deps.swapDeskVisual;
 const toast = deps.toast;
+const notifyError = deps.notifyError;
 function captureDeskPreset(){
   // 지금 생성기의 실제 상태로부터 프리셋 페이로드 생성
   const p = {
@@ -113,7 +114,7 @@ function applyDeskPreset(p){
       if(crState.cDesk){ swapDeskVisual(crState.cDesk, sc, isDefaultOverride); applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
       applyDeskModel();
       _refitPreviewAfterPreset();
-    }).catch(()=>{ toast('프리셋의 책상 모델을 불러오지 못했어요'); applyDeskModel(); _refitPreviewAfterPreset(); });
+    }).catch((err)=>{ notifyError('E-CHAR-03', err); applyDeskModel(); _refitPreviewAfterPreset(); });
   } else {
     crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=null;
     // «기본 책상» 프리셋 — 관리자가 등록한 기본 책상(DEFAULT_DESK_OVERRIDE_ID)이 있으면 그것을(생성기 재진입 · 실행 화면과 같은 모델 · 내장 책상과 폭이 다르다).
@@ -140,6 +141,13 @@ function applyDeskPreset(p){
   }
   renderDeskPresetSlots();   // 저장 시각/썸네일 갱신
   toast('프리셋을 불러왔어요');
+}
+/* 저장 성공 안내는 실제로 써진 뒤에만 — 실패면 이유 · 번호를 띄워 사용자가 불러 줄 수 있게. */
+function _saveNotice(res, slot, okMsg){
+  if(res.ok){ toast(okMsg); return; }
+  if(res.blocked){ notifyError('E-CHAR-06', res.err); return; }   // 망가진 저장분 위에는 쓰지 않았다 — 나머지 칸을 지키려고
+  console.warn(deskPresetStoreMod.diagSave(res, slot));
+  notifyError('E-CHAR-01', res.err, deskPresetStoreMod.saveFailText(res.err));
 }
 function renderDeskPresetSlots(){
   const box=document.getElementById('crPresetSlots'); if(!box) return;
@@ -175,12 +183,12 @@ function renderDeskPresetSlots(){
         menu.appendChild(it); };
       mk(p?'💾 이 슬롯에 덮어쓰기':'💾 지금 세팅을 여기 저장', ()=>{
         if(!crState.cBase){ toast('먼저 캐릭터를 선택해 주세요'); return; }
-        const cur=deskPresetStoreMod.loadDeskPresets(); cur[i]=captureDeskPreset(); deskPresetStoreMod.saveDeskPresets(cur);
-        renderDeskPresetSlots(); toast('프리셋 '+(i+1)+'번에 저장했어요');
+        const cur=deskPresetStoreMod.loadDeskPresets(); cur[i]=captureDeskPreset(); const res=deskPresetStoreMod.saveDeskPresets(cur);
+        renderDeskPresetSlots(); _saveNotice(res, i+1, '프리셋 '+(i+1)+'번에 저장했어요');
       });
       if(p) mk('🗑 이 슬롯 비우기', ()=>{
-        const cur=deskPresetStoreMod.loadDeskPresets(); cur[i]=null; deskPresetStoreMod.saveDeskPresets(cur);
-        renderDeskPresetSlots(); toast('프리셋 '+(i+1)+'번을 비웠어요');
+        const cur=deskPresetStoreMod.loadDeskPresets(); cur[i]=null; const res=deskPresetStoreMod.saveDeskPresets(cur);
+        renderDeskPresetSlots(); _saveNotice(res, i+1, '프리셋 '+(i+1)+'번을 비웠어요');
       });
       document.body.appendChild(menu);
       const closer=(e)=>{ if(!menu.contains(e.target)){ menu.remove(); document.removeEventListener('mousedown', closer, true); } };

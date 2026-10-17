@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import { AdminLogPage } from '@/pages/admin-log';
 import { BugBoardPage } from '@/pages/bug-board';
 import { CatalogPage } from '@/pages/catalog';
+import { FeatureSwitchPage } from '@/pages/feature-switch';
 import { ImprovementsPage } from '@/pages/improvements';
 import { LicensePage } from '@/pages/license';
 import { MetricsPage } from '@/pages/metrics';
@@ -62,6 +63,7 @@ export const ROUTE_GROUPS: RouteGroup[] = [
     label: '⚙️ 시스템',
     items: [
       { id: 'settings', label: '⚙️ 설정', Page: SettingsPage },
+      { id: 'featureSwitch', label: '🎚️ 기능 스위치', Page: FeatureSwitchPage },
       { id: 'log', label: '🧾 기록', Page: AdminLogPage },
     ],
   },

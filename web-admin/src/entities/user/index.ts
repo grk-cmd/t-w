@@ -40,7 +40,32 @@ export {
   compareVerDesc,
   matchesVer,
   OLD_VER_LABEL,
+  toVersionCounts,
   verLabel,
   versionCounts,
   type VersionCount,
 } from './model/version';
+export {
+  ALL_USERS,
+  filterUsers,
+  queryUsers,
+  USER_QUERY_MAX,
+  type UserFilter,
+  type UserQuery,
+  type VerFilter,
+} from './model/userQuery';
+export {
+  pageFromApi,
+  pageFromRows,
+  rowFromApi,
+  statsFromApi,
+  statsFromRows,
+  userSourceNote,
+  type ApiUserPage,
+  type ApiUserRow,
+  type ApiUserStats,
+  type UserFallback,
+  type UserPageView,
+  type UserSource,
+  type UserStatsView,
+} from './model/userView';

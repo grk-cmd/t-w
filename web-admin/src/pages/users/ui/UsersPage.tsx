@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { licenseUseCounts, matchesVer } from '@/entities/user';
+import { userSourceNote, type UserQuery, type UserRow } from '@/entities/user';
 import { DeleteAccountButton } from '@/features/user/delete-account';
 import {
   CreateInviteCodesButton,
@@ -9,7 +9,6 @@ import {
   RevokeInvitesSelectedButton,
 } from '@/features/user/grant-invites';
 import {
-  filterUsers,
   hasPeriod,
   inPeriod,
   NO_SEARCH,
@@ -21,96 +20,135 @@ import {
   type UserSearch,
   type VerFilter,
 } from '@/features/user/user-filter';
-import { errorMessage, usePaging, useSelection } from '@/shared/lib';
+import {
+  useAllUsers,
+  useRefreshUsers,
+  useReloadUsers,
+  useUserByCode,
+  useUserPage,
+  useUserStats,
+} from '@/features/user/user-rows';
+import { errorMessage, pageForSize, usePaging, useSelection } from '@/shared/lib';
 import { Pager, SelectionBar } from '@/shared/ui';
 import { UserDetail } from '@/widgets/user-detail';
 import { UserTable } from '@/widgets/user-table';
-import { useUserRows } from '@/features/user/user-rows';
 
+const LIST_KEY = 'users';
+const NO_ROWS: UserRow[] = [];
+
+// 보통은 쪽 단위로 받는다(API 는 서버가 거르고 자른다, 폴백은 통째로 받아 화면에서). 선택은 지금 보이는 쪽 안에서만.
+// 기간 검색은 사람마다 한 칸씩 읽어야 알 수 있어, 걸었을 때만 조건에 맞는 사람을 전부 받아 화면에서 거르고 자른다.
 export function UsersPage() {
-  const { rows, error, refresh } = useUserRows();
+  const reload = useReloadUsers();
+  const refresh = useRefreshUsers();
   const [filter, setFilter] = useState<UserFilter>('all');
   const [search, setSearch] = useState<UserSearch>(NO_SEARCH);
   const [ver, setVer] = useState<VerFilter>(undefined);
   const [openUid, setOpenUid] = useState<string | null>(null);
-  const openRow = useMemo(() => rows?.find((r) => r.userCode === openUid) ?? null, [rows, openUid]);
+  const query: UserQuery = useMemo(() => ({ filter, q: search.text, ver }), [filter, search.text, ver]);
 
-  // 키 중복은 이미 받은 계정 요약의 키로 센다 — 따로 내려받지 않는다.
-  const licenseCounts = useMemo(() => (rows ? licenseUseCounts(rows) : null), [rows]);
-  const base = useMemo(() => {
-    if (!rows || !licenseCounts) return null;
-    const found = filterUsers(rows, filter, search.text, licenseCounts);
-    return ver === undefined ? found : found.filter((r) => matchesVer(r, ver));
-  }, [rows, licenseCounts, filter, search.text, ver]);
-  // 기간은 사람마다 한 칸씩 읽어야 알 수 있다 — 기간을 걸었을 때만, 칩 · 글자로 좁힌 사람만 읽는다.
   const periodOn = hasPeriod(search.period);
-  const { times, progress } = usePeriodTimes(periodOn ? base : null, search.period.field);
-  const filtered = useMemo(() => {
-    if (!base) return [];
-    if (!periodOn) return base;
-    return times ? base.filter((r) => inPeriod(times.get(r.userCode), search.period)) : [];
-  }, [base, periodOn, times, search.period]);
-  const fieldLabel = PERIOD_FIELDS.find((f) => f.id === search.period.field)?.label;
-  const paging = usePaging(filtered, 'users');
-  const ids = useMemo(() => filtered.map((r) => r.userCode), [filtered]);
-  const pageIds = useMemo(() => paging.items.map((r) => r.userCode), [paging.items]);
-  const selection = useSelection(ids, pageIds);
+  const stats = useUserStats();
+  const all = useAllUsers(query, periodOn);
+  const base = periodOn ? (all.data?.rows ?? null) : null;
+  const { times, progress } = usePeriodTimes(base, search.period.field);
+  const periodRows = useMemo(() => {
+    if (!base || !times) return NO_ROWS;
+    return base.filter((r) => inPeriod(times.get(r.userCode), search.period));
+  }, [base, times, search.period]);
+  // 쪽 · 개수는 한 곳에서 든다 — 기간 검색이면 받아 둔 줄을 자르고, 아니면 고른 쪽(want)을 서버에 묻는다.
+  const local = usePaging(periodRows, LIST_KEY);
+  const list = useUserPage(query, local.want, local.size, !periodOn);
+  const view = list.data;
 
+  // 지우기로 줄어 지금 쪽이 끝을 넘으면 끝 쪽으로(API 는 넘은 쪽을 빈 채로 돌려준다). 렌더 중에 맞추는 React 권장 모양
+  if (!periodOn && view && !list.isPlaceholderData && local.want > view.pageCount)
+    local.setPage(view.pageCount);
+
+  const paging = periodOn
+    ? local
+    : {
+        items: view?.items ?? NO_ROWS,
+        page: view?.page ?? local.want,
+        pageCount: view?.pageCount ?? 1,
+        size: local.size,
+        total: view?.total ?? 0,
+        start: ((view?.page ?? local.want) - 1) * local.size,
+        setPage: local.setPage,
+        setSize: (next: number) => {
+          local.setSize(next);
+          local.setPage(pageForSize(local.want, local.size, next));
+        },
+      };
+  const items = paging.items;
+  const pageIds = useMemo(() => items.map((r) => r.userCode), [items]);
+  const selection = useSelection(pageIds);
+
+  // 상세 창은 지금 쪽에 없는 사람(같은 키 · 초대한 사람을 눌러 건너감)도 연다 — 그때만 그 한 사람을 찾는다.
+  const inPage = items.find((r) => r.userCode === openUid) ?? null;
+  const found = useUserByCode(inPage ? null : openUid);
+  const openRow = inPage ?? found.data ?? null;
+
+  const firstPage = () => local.setPage(1);
   // 조건이 바뀌면 첫 쪽부터 본다.
   const changeFilter = (next: UserFilter) => {
     setFilter(next);
-    paging.setPage(1);
+    firstPage();
   };
   const changeSearch = (next: UserSearch) => {
     setSearch(next);
-    paging.setPage(1);
+    firstPage();
+  };
+  const changeVer = (next: VerFilter) => {
+    setVer(next);
+    firstPage();
   };
   // 지운 사람은 목록에서 빠져야 한다 — 상세 창을 닫고 다시 읽는다.
   const afterDelete = () => {
     setOpenUid(null);
     refresh();
   };
-  const changeVer = (next: VerFilter) => {
-    setVer(next);
-    paging.setPage(1);
-  };
+
+  const error = (periodOn ? all.error : list.error) ?? stats.error;
+  const loaded = periodOn ? !!base : !!view;
+  const allCount = stats.data?.total;
+  const source = (periodOn ? all.data?.source : view?.source) ?? stats.data?.source;
+  const fieldLabel = PERIOD_FIELDS.find((f) => f.id === search.period.field)?.label;
+  const countText = progress
+    ? `${fieldLabel} 확인 중 ${progress.done} / ${progress.total}명`
+    : loaded && allCount !== undefined
+      ? `${paging.total} / ${allCount}명`
+      : '';
 
   return (
     <section className="card">
       <div className="card-head">
         <span className="soft grow">
-          {progress
-            ? `${fieldLabel} 확인 중 ${progress.done} / ${progress.total}명`
-            : rows && `${filtered.length} / ${rows.length}명`}
+          <span>{countText}</span>
+          {/* 서버 사본이면 기준 시각을, 예전 방식이면 왜 넘어왔는지를 작게 */}
+          {source && countText && <small> · {userSourceNote(source, stats.data?.syncedAt ?? null)}</small>}
         </span>
         <CreateInviteCodesButton />
         <GrantInvitesAllButton />
         <RevokeInvitesAllButton />
         <DeleteAccountButton onDeleted={afterDelete} />
-        <button type="button" className="btn" onClick={refresh}>
+        <button type="button" className="btn" onClick={reload}>
           새로고침
         </button>
       </div>
-      {rows && <VersionSummary rows={rows} value={ver} onChange={changeVer} />}
+      {stats.data && <VersionSummary counts={stats.data.versions} value={ver} onChange={changeVer} />}
       <UserFilterBar filter={filter} search={search} onFilterChange={changeFilter} onSearch={changeSearch} />
       {error && <p className="msg err">{errorMessage(error, '사용자 목록을 불러오지 못했어요')}</p>}
-      {!error && !rows && <p className="soft">불러오는 중…</p>}
-      {rows && (
+      {!error && !loaded && <p className="soft">불러오는 중…</p>}
+      {loaded && (
         <>
           <SelectionBar count={selection.selected.length} onClear={selection.clear}>
             <GrantInvitesSelectedButton uids={selection.selected} onDone={selection.clear} />
             <RevokeInvitesSelectedButton uids={selection.selected} onDone={selection.clear} />
           </SelectionBar>
-          <UserTable
-            rows={paging.items}
-            startIndex={paging.start}
-            selection={selection}
-            licenseCounts={licenseCounts}
-            onOpen={setOpenUid}
-          />
+          <UserTable rows={items} startIndex={paging.start} selection={selection} onOpen={setOpenUid} />
           <UserDetail
             row={openRow}
-            rows={rows}
             onOpen={setOpenUid}
             onClose={() => setOpenUid(null)}
             onDeleted={afterDelete}

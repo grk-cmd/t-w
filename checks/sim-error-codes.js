@@ -72,7 +72,9 @@ const used = new Map();
 let calls = 0, nonLiteral = [];
 for(const f of rendererFiles()){
   const text = read(f) || '';
-  for(const m of text.matchAll(/TwErrorCodes\.notify\(\s*([^,)]*)/g)){
+  /* deps 로 넘겨 받은 이름(notifyError)으로 부르는 곳도 센다 — 잇는 줄 «TwErrorCodes.notify(...a)» 는 부르는 곳이 아니라 건넴이라 뺀다 */
+  for(const m of text.matchAll(/(?:TwErrorCodes\.notify|\bnotifyError)\(\s*([^,)]*)/g)){
+    if(m[1].trim() === '...a') continue;
     calls++;
     const lit = /^'([^']*)'$/.exec(m[1].trim());
     if(!lit){ nonLiteral.push(path.basename(f)); continue; }

@@ -18,9 +18,12 @@ export {
   createApi,
   isApiAuthError,
   PROD_API_BASE_URL,
+  REPLICA_LAG_MS,
   shouldFallback,
+  viaApiOr,
   type Api,
   type ApiErrorKind,
+  type ApiFallback,
   type ApiParams,
 } from './api';
 export { isIndexMissing, isPermissionDenied, type Db, type LastRange } from './db';

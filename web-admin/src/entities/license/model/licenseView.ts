@@ -1,3 +1,4 @@
+import type { ApiFallback } from '@/shared/api';
 import {
   countLicenses,
   filterLicenses,
@@ -11,7 +12,7 @@ import {
 
 /** 어디서 읽었나. rtdb 면 왜 넘어왔는지(fallback): 이 환경에 API 가 없음 · API 에 닿지 못함. */
 export type LicenseSource = { via: 'api' } | { via: 'rtdb'; fallback: LicenseFallback };
-export type LicenseFallback = 'no-api' | 'unavailable';
+export type LicenseFallback = ApiFallback;
 
 export interface LicenseRow {
   key: string;
