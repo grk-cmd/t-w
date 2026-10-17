@@ -16,7 +16,7 @@
    서버로 보내지 않는 것(늘 Firebase): 트랜잭션 · onDisconnect · 자식 단위 듣기(onChild*) · 위에 없는 조건.
    받는 deps(createDataGateway): sdk{ get, set, update, remove, push, onValue } · routes() → 표 · myCode() → 내 코드 | null · canServer() → 로그인 세션 있나 ·
      queryOf(r) → undefined(조건 없는 ref) | null(서버로 못 보내는 조건) | { ref, query } · serverFirst · post(주소, 본문) → Promise<data> ·
-     stream(본문, onData, onError) → 끊기 함수 · notifyError — 번호 · 오류를 받아 알림 · warn(...a)
+     stream(본문, onData, onError) → 끊기 함수 · notifyError — 번호 · 오류를 받아 알림 · warn(...a) · later(f, ms) — 다시 붙기 전 쉬기(없으면 setTimeout)
    내놓는 것: DATA_PATH · STREAM_PATH · REQUEST_TIMEOUT_MS · ME · QUERY_KEYS · FALLBACK_CODES · ERROR_NOTICES · matchRoute · pathOf · toServerPath ·
      translate(err) · snapshotOf · parseSse · makeStream(통로) → stream · createDataGateway(deps) → { route, get, set, update, remove, push, onValue }
    검사: checks/sim-data-gateway.js */
@@ -26,6 +26,7 @@ const SERVER = 'server', FIREBASE = 'firebase';
 const DATA_PATH = '/v1/data';                   // 서버 범용 끝점(본문 { op, path, value?, query? })
 const STREAM_PATH = '/v1/data/stream';          // 듣기 — POST 로 열쇠를 받고 GET STREAM_PATH/{열쇠} 로 SSE
 const REQUEST_TIMEOUT_MS = 8000;                // 서버 한 번 기다리기 — 넘으면 Firebase 로
+const RESUBSCRIBE_DELAY_MS = 3000;              // 서버 듣기가 값을 받은 뒤 끊기면(배포 · 재시작) 이만큼 쉬고 다시 붙는다 — 못 붙으면 Firebase 로
 const ME = 'me';                                // 서버로 보내는 경로에서 «내 코드» 칸 자리
 const ROUTE_MAX = 200;                          // 표 상한 — 원격 설정이 이보다 길면 앞의 것만
 const ROUTE_RE = /^[A-Za-z0-9_\-*]+(\/[A-Za-z0-9_\-*]+)*$/;   // 경로 앞부분 모양 — '.' · '$' · '#' · '[' · ']' 는 Firebase 키에도 못 쓴다
@@ -158,6 +159,7 @@ function createDataGateway(deps){
   const queryOf = deps.queryOf;
   const serverFirst = deps.serverFirst;
   const post = deps.post;
+  const later = deps.later || ((f, ms) => setTimeout(f, ms));
   const stream = deps.stream;
   const notifyError = deps.notifyError;
   const warn = deps.warn || (() => {});
@@ -244,21 +246,28 @@ function createDataGateway(deps){
       off = sdk.onValue(r, cb, ...rest);
     };
     const req = Object.assign({ path: sp(t.path) }, t.query ? { query: t.query } : {});
-    try{
-      off = stream(req, (d) => { got = true; if(!closed) cb(snapshotOf(lastSeg(t.path), d && d.value)); },
-        (e) => {
-          const tr = translate(e);
-          if(!got && tr === FIREBASE) return toFirebase(e);
-          if(tr !== FIREBASE){ try{ ERROR_NOTICES[tr](notifyError, e); }catch(_){} }
-          warn('[통로] 서버 듣기 끊김:', t.path, e && (e.code || e.status || e.message));
-        });
-    }catch(e){ toFirebase(e); }
+    /* 값을 받은 뒤 닿지 못해 끊기면 잠깐 뒤 다시 붙는다 — 다시 붙기도 첫 값 전에 끊기면 위 toFirebase 로 간다(조용히 멈추지 않게) */
+    const open = () => {
+      got = false;
+      try{
+        off = stream(req, (d) => { got = true; if(!closed) cb(snapshotOf(lastSeg(t.path), d && d.value)); },
+          (e) => {
+            if(closed) return;
+            const tr = translate(e);
+            if(!got && tr === FIREBASE) return toFirebase(e);
+            if(tr !== FIREBASE){ try{ ERROR_NOTICES[tr](notifyError, e); }catch(_){} }
+            warn('[통로] 서버 듣기 끊김:', t.path, e && (e.code || e.status || e.message));
+            if(tr === FIREBASE) later(() => { if(!closed) open(); }, RESUBSCRIBE_DELAY_MS);
+          });
+      }catch(e){ toFirebase(e); }
+    };
+    open();
     return () => { closed = true; try{ off && off(); }catch(_){} };
   }
   return { route, get, set, update, remove, push, onValue };
 }
 
-const api = { SERVER, FIREBASE, ROUTE_MAX, ROUTE_RE, DATA_PATH, STREAM_PATH, REQUEST_TIMEOUT_MS, ME, QUERY_KEYS, FALLBACK_CODES, ERROR_NOTICES,
+const api = { SERVER, FIREBASE, ROUTE_MAX, ROUTE_RE, DATA_PATH, STREAM_PATH, REQUEST_TIMEOUT_MS, RESUBSCRIBE_DELAY_MS, ME, QUERY_KEYS, FALLBACK_CODES, ERROR_NOTICES,
   matchRoute, pathOf, toServerPath, translate, snapshotOf, parseSse, makeStream, createDataGateway };
 if(typeof window !== 'undefined') window.TwDataGateway = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
