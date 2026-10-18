@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""하네스 훅 시험 — 가드(ship-gate.py)가 세션의 대신 승인을 막고 읽기는 막지 않는지, 승인 판정(risk.py)이 맞는지.
+"""하네스 훅 시험 — 가드(ship-gate.py)가 세션의 대신 승인을 막고 읽기는 막지 않는지, 승인 판정(risk.py)이 맞는지, 시작 hook(role-start.py)이 역할 · 판 요약을 언제 붙이는지.
 CI 는 돌리지 않는다(.claude/ 는 검사 실행기 대상이 아님) — 훅을 고치면 손으로: python3 .claude/hooks/test_hooks.py
 """
 import json, os, subprocess, sys, tempfile
@@ -148,6 +148,99 @@ if '"deny"' in buf.getvalue():
 else:
     bad += 1
     print('  ✗ 머지 가드: API 실패인데 막지 않음')
+
+# 세션 시작 hook(role-start.py) — 역할 지침 · 판 요약을 언제 붙이나
+spec = importlib.util.spec_from_file_location('role_start', os.path.join(HERE, 'role-start.py'))
+rs = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(rs)
+ROLES = {'_공통': '공통글', '서버담당': '서버글', '질문': '질문글'}
+FACTS = {'notes': [], 'releases': {'0.12.0': {'ahead': 2, 'subjects': ['feat: 가']}, '0.13.0': {'ahead': 1, 'subjects': ['fix: 나']}},
+         'prs': [{'number': 7, 'title': '판 PR', 'head': 'fix/a', 'base': 'release/0.12.0'},
+                 {'number': 8, 'title': '하네스 PR', 'head': 'harness/b', 'base': 'main'}],
+         'status': [{'상태': '작업중', '담당': 'grk', '판': '0.12.0', '브랜치': 'fix/a', '내용': '고침'},
+                    {'상태': '작업완료(0.13.0)', '담당': '나', '판': '0.13.0', '브랜치': 'fix/c', '내용': '끝'},
+                    {'상태': '검토중', '담당': '오케', '판': 'main', '브랜치': 'harness/b', '내용': '하네스'}],
+         'overlaps': [('0.12.0', '0.13.0', ['app/parts/app.js'])]}
+def boom_gather():
+    raise RuntimeError('fetch 실패(시험)')
+STATUS_MD = ('# 현황판\n\n## 진행 중\n\n| 상태 | 판 | 브랜치 |\n|---|---|---|\n| 작업중 | 0.12.0 | fix/a |\n'
+             '| 칸이 | 모자람 |\n| 검토중 | main | harness/b |\n\n## 끝난 것\n\n| 상태 | 판 | 브랜치 |\n|---|---|---|\n| x | y | z |\n')
+role_cases = [
+    # (이름, 실제 값, 기대 값)
+    ('역할 이름 → 공통 + 역할', rs.role_text('서버담당', ROLES), '공통글\n\n서버글'),
+    ('앞뒤 공백 이름', rs.role_text(' 서버담당 ', ROLES), '공통글\n\n서버글'),
+    ('NFD 로 조합된 이름', rs.role_text(__import__('unicodedata').normalize('NFD', '서버담당'), ROLES), '공통글\n\n서버글'),
+    ('이름 없음', rs.role_text('', ROLES), None),
+    ('None 이름', rs.role_text(None, ROLES), None),
+    ('모르는 이름', rs.role_text('아무개', ROLES), None),
+    ('공통 파일 이름은 역할 아님', rs.role_text('_공통', ROLES), None),
+    ('판 묻기: main 새 세션', rs.needs_pick('서버담당', 'main', 'startup'), True),
+    ('판 묻기: 이름 없는 세션도', rs.needs_pick(None, 'main', 'startup'), True),
+    ('판 묻기: /clear', rs.needs_pick(None, 'release/0.12.0', 'clear'), True),
+    ('판 묻기: 떨어진 HEAD', rs.needs_pick(None, '', 'startup'), True),
+    ('판 안 물음: 작업 브랜치 위', rs.needs_pick('서버담당', 'fix/a', 'startup'), False),
+    ('판 안 물음: 질문 세션', rs.needs_pick('질문', 'main', 'startup'), False),
+    ('판 안 물음: resume', rs.needs_pick('서버담당', 'main', 'resume'), False),
+    ('판 안 물음: compact', rs.needs_pick(None, 'main', 'compact'), False),
+    ('판 이름: release/', rs.rel_name('release/0.12.0'), '0.12.0'),
+    ('판 이름: 작업완료(…)', rs.rel_name('작업완료(0.13.0)'), '0.13.0'),
+    ('판 이름: main', rs.rel_name(' main '), 'main'),
+    ('판 이름: 빈 값', rs.rel_name(None), ''),
+    ('현황판: 진행 중 표만 · 칸 모자란 줄 버림', [r['브랜치'] for r in rs.parse_status(STATUS_MD)], ['fix/a', 'harness/b']),
+    ('현황판: 머리 없음', rs.parse_status('# 다른 글\n| a |\n'), []),
+    ('현황판: 빈 글', rs.parse_status(None), []),
+    ('겹침: 같은 파일만', rs.overlaps({'0.12.0': ['a', 'b'], '0.13.0': ['b', 'c'], '0.14.0': ['d']}), [('0.12.0', '0.13.0', ['b'])]),
+    ('겹침: 판 하나', rs.overlaps({'0.12.0': ['a']}), []),
+    ('자르기: 상한 그대로', rs.cut('가' * 60), '가' * 60),
+    ('자르기: 넘치면 …', rs.cut('가' * 61), '가' * 59 + '…'),
+    ('build: resume 은 역할만', rs.build('서버담당', 'resume', 'main', ROLES, boom_gather), '공통글\n\n서버글'),
+    ('build: 작업 브랜치 · 모르는 이름 → 없음', rs.build('아무개', 'startup', 'fix/a', ROLES, boom_gather), None),
+    ('build: 질문 세션은 요약 없이 역할만', rs.build('질문', 'startup', 'main', ROLES, boom_gather), '공통글\n\n질문글'),
+]
+for name, got, want in role_cases:
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 시작 hook: {name} — {got!r} (기대 {want!r})')
+
+def has(name, text, *parts, absent=()):
+    global ok, bad
+    miss = [p for p in parts if p not in text] + [f'(없어야 함) {p}' for p in absent if p in text]
+    if miss:
+        bad += 1
+        print(f'  ✗ 시작 hook: {name} — 빠짐 {miss}')
+    else:
+        ok += 1
+
+t = rs.build('서버담당', 'startup', 'main', ROLES, boom_gather)
+has('모으기 실패 → 못 불러옴 + 판 질문', t, '서버글', '요약을 못 불러옴', 'fetch 실패(시험)', '어느 버전에 나갈 작업')
+t = rs.render(FACTS)
+has('요약: 판마다 PR · 현황판 · 겹침', t, '### release/0.12.0', '### release/0.13.0', '열린 PR #7', '현황판: 작업중 · grk · fix/a',
+    '현황판: 작업완료(0.13.0)', '열린 PR 없음', '### 판 밖', '열린 PR #8 → main', '현황판: 검토중 · 오케', 'release/0.12.0 ↔ release/0.13.0: app/parts/app.js')
+t = rs.render(dict(FACTS, prs=None, notes=['열린 PR 을 못 읽음']))
+has('요약: PR 못 읽음 ≠ 열린 PR 없음', t, '⚠️ 열린 PR 을 못 읽음', absent=('열린 PR 없음', '열린 PR #'))
+t = rs.render({'notes': [], 'releases': {}, 'prs': [], 'status': []})
+has('요약: 판 없음', t, '열린 판 브랜치(`release/*`)가 없다', absent=('판끼리',))
+t = rs.render(dict(FACTS, releases={'0.12.0': FACTS['releases']['0.12.0']}, overlaps=[]))
+has('요약: 판 하나면 겹침 칸 없음', t, '### release/0.12.0', absent=('판끼리 겹치는',))
+
+# 실제로 실행 — git 저장소가 아닌 곳 · 깨진 입력에도 세션을 막지 않는가(종료 0 · JSON 한 줄)
+RS = os.path.join(HERE, 'role-start.py')
+for name, stdin, want in (
+        ('실행: 역할 이름 · 저장소 아님', json.dumps({'session_title': '질문', 'source': 'startup', 'cwd': CWD}), '너는 질문 담당이다'),
+        ('실행: 이름 없음 · 저장소 아님 → 판 질문', json.dumps({'source': 'startup', 'cwd': CWD}), '판을 못 읽음'),
+        ('실행: 깨진 입력 → 오류 안내만', '{깨짐', '세션 시작 hook 오류')):
+    p = subprocess.run([sys.executable, '-B', RS], input=stdin, capture_output=True, text=True, timeout=30)
+    try:
+        body = json.dumps(json.loads(p.stdout), ensure_ascii=False)
+    except ValueError:
+        body = ''
+    if p.returncode == 0 and want in body:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 시작 hook: {name} — 종료 {p.returncode} · {p.stdout[:120]!r} {p.stderr[:120]!r}')
 
 print(f'{"✓" if not bad else "✗"} 통과 {ok} · 실패 {bad}')
 sys.exit(1 if bad else 0)
