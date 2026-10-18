@@ -43,13 +43,16 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 - `python3 .claude/hooks/risk.py <번호>` → `high` 면:
   - 승인자의 리뷰를 읽는다: `gh api $R/pulls/<번호>/reviews` · `gh api $R/pulls/<번호>/comments` · `gh api $R/issues/<번호>/comments` 에서 user.login = `mihioon` 인 것.
   - **CHANGES_REQUESTED 이거나 고칠 것을 적은 코멘트**가 머리 커밋 뒤에 있으면 → 고치고(3 처럼) → 고친 지적마다 `/lesson` → push → 2 부터.
-  - 머리 커밋에 **APPROVED** 가 있으면 → 5 로.
+  - 머리 커밋에 **APPROVED** 가 있거나, `mihioon` 코멘트에 한 줄 «승인 <머리 커밋 앞 7자리>» 가 있으면 → 5 로(이 PC 세션이 올린 PR 은 작성자가 mihioon 이라 GitHub Approve 가 안 된다 — 코멘트로 받는다). 이 한 줄은 세션이 쓰지 않는다(가드가 막는다). 승인자가 그 머리 커밋에 Request changes 를 달았으면 코멘트로는 풀리지 않는다 — 고쳐서 새 커밋을 올리고 다시 승인받는다(남이 올린 PR 은 Approve 로).
   - 아직 없으면 → 승인 요청을 남기고 **멈춘다**:
     ```
     gh api $R/statuses/$SHA -f state=pending -f context=tw/owner -f description='mihioon 승인 대기'
-    gh api $R/issues/<번호>/comments -f body="<승인 요청 본문>"
+    gh api $R/issues/<번호>/comments -F body=@- <<'EOF'
+    <승인 요청 본문>
+    EOF
     ```
-    본문: «@mihioon 승인 요청 — 위험도 높음: <risk 이유>» + 컨펌자의 «설계 요약» + 검증자 «돌린 것» + «Approve 하면 다음 /ship 이 머지합니다 · 고칠 것은 Request changes 나 코멘트로». 사용자에게는 «승인 대기로 올렸다 — 승인되면 /ship 을 다시» 라고만 말한다.
+    본문은 꼭 따옴표 친 heredoc(`<<'EOF'`)으로 — `-f body="…"` 큰따옴표 안의 백틱은 셸이 명령으로 실행해 붙여 넣을 한 줄이 빈칸이 된다.
+    본문: «@mihioon 승인 요청 — 위험도 높음: <risk 이유>» + 컨펌자의 «설계 요약» + 검증자 «돌린 것» + «Approve 하거나 이 한 줄을 코멘트로 달면 다음 /ship 이 머지합니다: `승인 <머리 커밋 앞 7자리>` · 고칠 것은 Request changes 나 코멘트로»(한 줄은 백틱으로 감싸 그 코멘트 자체가 승인으로 읽히지 않게). 사용자에게는 «승인 대기로 올렸다 — 승인되면 /ship 을 다시» 라고만 말한다.
 - 낮으면 → 5 로.
 
 ## 5. CI → 머지

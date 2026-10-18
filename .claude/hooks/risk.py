@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """PR 위험도 판정 — 세션의 판단이 아니라 diff 로 기계적으로 정한다. /ship 과 가드(ship-gate.py)가 같이 쓴다.
 
-높음 = 데이터 경로 · 권한 · 서버 · 빌드에 닿는 변경. 높으면 머지 전에 승인자(OWNER)의 GitHub Approve 가 있어야 한다.
+높음 = 데이터 경로 · 권한 · 서버 · 빌드에 닿는 변경. 높으면 머지 전에 승인자(OWNER)의 승인이 있어야 한다 —
+GitHub Approve, 또는 PR 코멘트 한 줄 «승인 <머리 커밋 앞 7자리 이상>»(GitHub 은 작성자가 자기 PR 을 Approve 못 하는데
+이 PC 세션들은 OWNER 계정으로 PR 을 올린다). 커밋 번호를 받는 까닭: 시각으로 가리면 승인 뒤 옛 날짜 커밋을 올려도 통과한다.
 낮음 = 문구 · 화면 배치 · 스타일 · 데이터 경로가 그대로인 수정 · 문서 — 컨펌자 · 검증자 통과로 머지.
 
   python3 .claude/hooks/risk.py <PR 번호>     → {"high": bool, "reasons": [...]} (gh api REST 만 씀 — 웹 세션에서도 된다)
@@ -10,6 +12,8 @@ import json, re, subprocess, sys
 
 REPO = 'grk-cmd/t-w'
 OWNER = 'mihioon'
+# 한 줄 전체가 «승인 <sha 앞자리>» 일 때만 — 승인 요청 코멘트(«승인 요청 — …»)와 섞이지 않게
+APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
 
 # 이 파일을 바꾸면 늘 높음
 RISKY_FILES = [
@@ -65,15 +69,27 @@ def assess(pr):
     return {'high': bool(reasons), 'reasons': sorted(reasons)}
 
 
+def _rows(pages):
+    return [r for page in pages for r in (page if isinstance(page, list) else [page])]
+
+
+def comment_approves(body, head_sha):
+    return any(head_sha.startswith(m.group(1)) for m in APPROVE_LINE.finditer(body or ''))
+
+
 def owner_approved(pr, head_sha):
-    """승인자의 마지막 리뷰가 APPROVED 이고 그 리뷰가 지금 머리 커밋에 대한 것인가."""
-    pages = api(f'repos/{REPO}/pulls/{pr}/reviews?per_page=100')
-    reviews = [r for page in pages for r in (page if isinstance(page, list) else [page])
-               if (r.get('user') or {}).get('login') == OWNER and r.get('state') in ('APPROVED', 'CHANGES_REQUESTED', 'DISMISSED')]
-    if not reviews:
+    """승인자가 지금 머리 커밋을 승인했는가 — 마지막 리뷰가 그 커밋의 APPROVED 이거나, «승인 <그 커밋>» 코멘트가 있다."""
+    if not head_sha:
         return False
-    last = reviews[-1]
-    return last['state'] == 'APPROVED' and last.get('commit_id') == head_sha
+    reviews = [r for r in _rows(api(f'repos/{REPO}/pulls/{pr}/reviews?per_page=100'))
+               if (r.get('user') or {}).get('login') == OWNER and r.get('state') in ('APPROVED', 'CHANGES_REQUESTED', 'DISMISSED')]
+    last = reviews[-1] if reviews else {}
+    if last.get('commit_id') == head_sha and last.get('state') == 'APPROVED':
+        return True
+    if last.get('commit_id') == head_sha and last.get('state') == 'CHANGES_REQUESTED':
+        return False   # 그 커밋에 Request changes 를 했으면 코멘트로 덮지 않는다
+    comments = _rows(api(f'repos/{REPO}/issues/{pr}/comments?per_page=100'))
+    return any((c.get('user') or {}).get('login') == OWNER and comment_approves(c.get('body'), head_sha) for c in comments)
 
 
 if __name__ == '__main__':
