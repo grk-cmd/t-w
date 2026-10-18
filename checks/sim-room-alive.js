@@ -3,6 +3,7 @@
  * 1. room-alive.js 판정 함수  2. functions/room-stats.js 청소(가짜 DB)  3. firebase-init.js 연결  4. 규칙
  */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -11,7 +12,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
 const FI = need('firebase-init.js'), RA = need('room-alive.js');
-const RULES = JSON.parse(need('firebase-database-rules.json'));
+const RULES = JSON.parse(stripReadGate(need('firebase-database-rules.json')));
 need('functions/room-stats.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(FI);
