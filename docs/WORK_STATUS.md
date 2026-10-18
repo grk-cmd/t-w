@@ -26,7 +26,7 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
-| grk PR #361~#365 · #367 → 0.11.4 | 검증 담당 위임 | 사용자 10-18 결정(기능 멈춤 예외) — 차례로(#367 → #361 → #362 → #363 → #364 → #365) 오늘 main 위로 cherry-pick · CHECKS 개정 다시 매김 · 검사 · 머지 | 각 PR 의 파일(app.js · myhome · room · launcher · creator · CHECKS.md 등) | — |
+| grk PR #361~#365 · #367 → 0.11.4 | 검증 담당 위임 | 사용자 10-18 결정(기능 멈춤 예외). #367 → #368 로 머지(개정 376). 방식 바꿈: 나머지는 grk PR 브랜치에 main 을 합치고 그 PR 을 그대로 머지 — #361 은 main 합침 · 개정 377 · CI 초록 · 머지 대기(권한) · #362~#365 대기 | 각 PR 의 파일(app.js · myhome · room · launcher · CHECKS.md 등) | #368 · #361 |
 | ~~통로 듣기 다시 붙기~~ 머지 #360 | 검증 세션 | 서버 듣기가 값을 받은 뒤 끊기면(서버 배포 · 재시작) 조용히 멈추던 것 → 잠깐 뒤 다시 붙고, 못 붙으면 Firebase 로 | `shared/data-gateway.js` · `checks/sim-data-gateway.js` · `CHECKS.md` | — |
 | 서버 범용 통로 바닥(요청만 · 0.11.4 뒤 합침) | 서버-통로1 | t-w-server: ① `/v1/config` 에 dataRoutes ② `POST /v1/data` · `/v1/data/stream` + 경로 처리기 등록부 + `me`(토큰 → authUsers) + 모르는 경로 404 — PR 하나씩 · 그 뒤 처리기 1개 = PR 1개(친구 → 방 초대 → 포커스 → 친구코드 → 방명록) | t-w-server `api/` 설정 · 새 data 모듈 | — |
 | ~~앱 TS 방향 문서~~ 머지 #357 | 검증 세션 | 앱은 TS 로 간다(React 는 안 함) · 단계 · 지금부터 TS 를 고려해 짜는 법 — 문서만 | `docs/TYPESCRIPT.md`(새) · `CLAUDE.md`(코드 컨벤션 한 줄 · 문서 목록 한 줄) | — |
