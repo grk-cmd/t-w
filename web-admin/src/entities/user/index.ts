@@ -52,6 +52,7 @@ export {
   queryUsers,
   USER_QUERY_MAX,
   type UserFilter,
+  type LastSeenOrder,
   type UserQuery,
   type VerFilter,
 } from './model/userQuery';

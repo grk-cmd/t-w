@@ -41,10 +41,15 @@ export function filterUsers(rows: UserRow[], filter: UserFilter, search: string)
 }
 
 /** 목록 조건 — 칩 · 검색어 · 버전 칩. */
+/** 마지막 접속 순서 — 기본은 최근부터. */
+export type LastSeenOrder = 'desc' | 'asc';
+
 export interface UserQuery {
   filter: UserFilter;
   q: string;
   ver: VerFilter;
+  /** 없으면 desc. «키 중복» 은 같은 키끼리 붙이는 순서가 먼저다. */
+  order?: LastSeenOrder;
 }
 
 export const ALL_USERS: UserQuery = { filter: 'all', q: '', ver: undefined };
@@ -54,5 +59,8 @@ export const USER_QUERY_MAX = 100;
 
 export function queryUsers(rows: UserRow[], query: UserQuery): UserRow[] {
   const found = filterUsers(rows, query.filter, query.q.slice(0, USER_QUERY_MAX));
-  return query.ver === undefined ? found : found.filter((r) => matchesVer(r, query.ver as string | null));
+  const byVer =
+    query.ver === undefined ? found : found.filter((r) => matchesVer(r, query.ver as string | null));
+  // rows 는 최근 순으로 온다(buildUserRows) — 오래된 순은 뒤집기만 한다.
+  return query.order === 'asc' && query.filter !== 'dup-license' ? [...byVer].reverse() : byVer;
 }

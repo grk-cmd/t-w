@@ -42,6 +42,7 @@ const queryKeyOf = (query: UserQuery) => [
   query.filter,
   query.q.trim(),
   query.ver === undefined ? '' : (query.ver ?? null),
+  query.order ?? 'desc',
 ];
 
 /** 한 쪽 — API 는 서버가 거르고 자른다, 폴백은 통째로 받아 화면에서. */
