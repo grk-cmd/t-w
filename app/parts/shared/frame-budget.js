@@ -21,6 +21,24 @@ const IDLE_AFTER_MS = 8000;     // 이만큼 입력이 없어야 30 으로 — �
 const FRAME_SLACK_MS = 4;       // rAF 가 예정보다 이만큼 일찍 와도 그린다(60Hz 모니터에서 한 장씩 빠지지 않게)
 const RUN_MAX_PR = 1.5;         // 실행 화면 해상도 배율 상한(DPR 2 면 픽셀 56%)
 
+/* 🎚️ 실행 화면 화질 — 프로그램 설정 › 모니터에서 고른다(이 PC 저장). 기본은 «선명하게»(예전 그대로).
+   · 자동: 그린 장 수가 상한에 한참 못 미치는 게 이어지면(그래픽이 버거운 PC) 배율을 1 로 — 앱을 다시 켜기 전까지
+   · 가볍게: 배율 1 + 테두리 다듬기(antialias) 끔. antialias 는 WebGL 을 만들 때만 정해져서 앱을 다시 켜야 적용된다
+   ⚠️ 예전엔 도트 렌더 저장값으로 antialias 를 정해서, 개발 실행과 설치본이 저장소를 같이 쓰며 «안 보이는 끔» 으로 굳었다.
+     이 값은 화면에 보이는 고르기라 사용자가 언제든 되돌릴 수 있다 — 다른 설정에서 이 키를 몰래 쓰지 말 것. */
+const QUALITY_KEY = 'tw.renderQuality';
+const QUALITY = { SHARP: 'sharp', AUTO: 'auto', LIGHT: 'light' };
+const SLOW_WIN_MS = 5000;       // 이만큼씩 끊어 센다
+const SLOW_SHARE = 0.6;         // 상한으로 그렸어야 할 장 수의 이만큼도 못 그리면 «느린 구간»
+const SLOW_WINDOWS = 3;         // 느린 구간이 이만큼 이어지면(15초) 낮춘다 — 잠깐 튀는 건 넘긴다
+const SLOW_GAP_MS = 1000;       // 장 사이가 이보다 벌어지면 창이 가려졌거나 rAF 가 멈춘 것 — 느린 게 아니라 쉰 것이라 새로 센다
+
+/* 저장값 → 화질. 모르는 값 · 없음은 «선명하게» */
+function qualityFrom(raw){
+  return (raw === QUALITY.AUTO || raw === QUALITY.LIGHT) ? raw : QUALITY.SHARP;
+}
+function antialiasFor(quality){ return qualityFrom(quality) !== QUALITY.LIGHT; }
+
 /* 지금 상한 fps.
    hot  = 비행 · 끌기 · 방금 누름 — 포커스와 상관없이 60(예전엔 상한 없음)
    busy = 춤 · 입력칸 · 꾸미기/생성기 — 포커스가 있을 때 30 으로 내려가지 않게만 막는다 */
@@ -32,9 +50,11 @@ function pickFps(s){
   return FPS_ACTIVE;
 }
 
-/* 실행 화면 해상도 배율 — 도트 렌더면 1, 아니면 기기 배율을 RUN_MAX_PR 까지 */
-function runPixelRatio(dpr, dot){
+/* 실행 화면 해상도 배율 — 도트 렌더 · 가볍게 · 자동에서 낮춘 뒤면 1, 아니면 기기 배율을 RUN_MAX_PR 까지 */
+function runPixelRatio(dpr, dot, quality, lowered){
   if(dot) return 1;
+  const q = qualityFrom(quality);
+  if(q === QUALITY.LIGHT || (q === QUALITY.AUTO && lowered)) return 1;
   const d = (dpr > 0) ? dpr : 1;
   return Math.min(d, RUN_MAX_PR);
 }
@@ -45,7 +65,29 @@ function diagLine(m){
   const secs = Math.max(1, Math.round((m.ms || 0) / 1000));
   return '[프레임] ' + secs + '초 ' + (m.frames | 0) + '장 ' + Math.round((m.frames || 0) / secs) + 'fps'
     + ' · 포커스 ' + Math.round((m.focusedShare || 0) * 100) + '%'
-    + ' · 상한 ' + m.cap + ' · 배율 ' + m.pr + ' · ' + m.w + 'x' + m.h;
+    + ' · 상한 ' + m.cap + ' · 배율 ' + m.pr + ' · ' + m.w + 'x' + m.h
+    + (m.q ? ' · 화질 ' + m.q + (m.lowered ? '(낮춤)' : '') : '');
+}
+
+/* 🐢 «자동» 화질의 느림 감시 — 그린 장마다 note(t, 상한fps). 낮춰야 할 때 한 번만 true 를 돌려준다(그 뒤로는 늘 false). */
+function createSlowWatch(){
+  let winStart = 0, last = null, frames = 0, expected = 0, streak = 0, lowered = false;
+  function note(t, cap){
+    if(lowered) return false;
+    if(last == null || t - last > SLOW_GAP_MS || !(cap > 0)){
+      winStart = t; last = t; frames = 0; expected = 0; streak = 0;
+      return false;
+    }
+    expected += (t - last) * cap / 1000;
+    frames++; last = t;
+    if(t - winStart < SLOW_WIN_MS) return false;
+    streak = (frames < expected * SLOW_SHARE) ? streak + 1 : 0;
+    winStart = t; frames = 0; expected = 0;
+    if(streak < SLOW_WINDOWS) return false;
+    lowered = true;
+    return true;
+  }
+  return { note, lowered: () => lowered };
 }
 
 function createFrameBudget(deps){
@@ -89,7 +131,8 @@ function createFrameBudget(deps){
 
 const api = {
   FPS_ACTIVE, FPS_IDLE, FPS_UNFOCUSED, FPS_LAUNCHER, IDLE_AFTER_MS, FRAME_SLACK_MS, RUN_MAX_PR,
-  pickFps, runPixelRatio, diagLine, createFrameBudget,
+  QUALITY_KEY, QUALITY, SLOW_WIN_MS, SLOW_SHARE, SLOW_WINDOWS, SLOW_GAP_MS,
+  pickFps, runPixelRatio, qualityFrom, antialiasFor, diagLine, createFrameBudget, createSlowWatch,
 };
 if(typeof window !== 'undefined') window.FrameBudget = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
