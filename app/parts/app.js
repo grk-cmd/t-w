@@ -3051,9 +3051,10 @@ function renderMyHomeStickers(){
   const data = mhStLayoutMod._mhStickersData();
   const canEdit = mhStLayoutMod._mhCanEditStickers();
   zone.innerHTML='';
-  Object.keys(data).forEach(sid=>{
+  TwMyHomeStickerRules.orderedIds(data).forEach(sid=>{   // 🎨 z 순서대로(뒤 → 앞) — 관리 창 ▲▼
     const s=data[sid];
     const el=document.createElement('div'); el.className='mh-sticker';
+    if(canEdit && TwMyHomeStickerRules.isLocked(s)) el.classList.add('locked');   // 🔒 끌리지 않음 표시
     if(s.img){ const im=document.createElement('img'); im.src=s.img; im.draggable=false; el.appendChild(im); }
     else {
       // ✨ 이모지도 애니메이션을 걸려면 안쪽 요소가 필요하다(바깥 div는 크기·회전이 이미 쓰고 있음).

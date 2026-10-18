@@ -1,4 +1,4 @@
-/* myhome-sticker.js — 🎨 마이홈 스티커 관리 창(목록 · ◎ 데려오기 · ✎ 편집 · ✨ 움직임 · 🔗 링크 · × 삭제 · 전부 화면 안으로)
+/* myhome-sticker.js — 🎨 마이홈 스티커 관리 창(목록 · ▲▼ 순서 · 🔒 잠금 · ✎ 편집 · ⋯ 메뉴[◎ 데려오기 · ✨ 움직임 · 🔗 링크 · × 삭제] · 전부 화면 안으로)
    · 스티커 편집모드(우클릭) · 드래그 이동 · 회전 핸들 · 크기 핸들
    app.js 의 «🎨 스티커 관리 창» 구역 가운데 스티커 몫 두 덩이를 그대로 옮긴 모듈이다(앱 FSD 7번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
@@ -48,6 +48,8 @@ const _setMhStickerDragDist = deps.setMhStickerDragDist; // 드래그 이동거�
 const STICKER_MAX = deps.stickerMax;
 const STICKER_BASE = deps.stickerBase;
 const STICKER_ROT_SNAP = deps.stickerRotSnap;
+const stRules = TwMyHomeStickerRules;                    // 🔒 잠금 · 순서 규칙(같은 폴더 · 순수 함수)
+const LOCKED_MSG = '🔒 잠긴 스티커예요 — 스티커 관리에서 잠금을 풀 수 있어요';
 
 /* ============================================================ 🎨 스티커 관리 창
    [왜 필요했나] 스티커를 드래그하다 마이홈 창 밖으로 밀어내면 화면에서 통째로 사라지는데,
@@ -70,12 +72,12 @@ function renderStickerMgr(){
   if(!ov || !ov.classList.contains('on')) return;
   const list=document.getElementById('stMgrList'); if(!list) return;
   const data=(_myHomeData() && _myHomeData().stickers) || {};
-  const ids=Object.keys(data);
+  const ids=stRules.orderedIds(data).reverse();   // 목록은 맨 앞에 그려지는 것부터(위 = 앞)
   const cnt=document.getElementById('stMgrCount');
   if(cnt) cnt.textContent = ids.length + ' / ' + STICKER_MAX;
   const addBtn=document.getElementById('stMgrAdd');
   if(addBtn) addBtn.disabled = ids.length >= STICKER_MAX;
-  const outCount = ids.filter(id=>_mhStickerOutOfView(data[id])).length;
+  const outCount = ids.filter(id=>_mhStickerOutOfView(data[id]) && !stRules.isLocked(data[id])).length;
   const allBtn=document.getElementById('stMgrBringAll');
   if(allBtn) allBtn.disabled = outCount === 0;
 
@@ -86,9 +88,21 @@ function renderStickerMgr(){
     d.style.whiteSpace='pre-line';
     list.appendChild(d); return;
   }
-  ids.forEach(sid=>{
+  ids.forEach((sid, k)=>{
     const s=data[sid];
-    const row=document.createElement('div'); row.className='st-mgr-row';
+    const locked=stRules.isLocked(s);
+    const row=document.createElement('div'); row.className='st-mgr-row' + (locked ? ' locked' : '');
+    const redraw=()=>{ renderMyHomeStickers(); commitMyHomePage(true); renderStickerMgr(); };
+
+    /* ▲▼ 그리는 순서 — 줄 맨 앞(레이어 목록처럼). ▲ 는 한 칸 앞(다른 스티커 위로). 잠겨도 순서는 바꿀 수 있다(자리 · 크기만 잠근다). */
+    const ord=document.createElement('div'); ord.className='st-mgr-ord';
+    const mkOrd=(txt, title, dir, off)=>{ const b=document.createElement('button'); b.type='button';
+      b.textContent=txt; b.title=title; b.disabled=off;
+      b.onclick=()=>{ if(stRules.move(data, sid, dir)) redraw(); };
+      ord.appendChild(b); };
+    mkOrd('▲', '한 칸 앞으로(다른 스티커 위에)', 1, k===0);
+    mkOrd('▼', '한 칸 뒤로', -1, k===ids.length-1);
+    row.appendChild(ord);
 
     const th=document.createElement('div'); th.className='st-mgr-th';
     if(s.img){ const im=document.createElement('img'); im.src=s.img; im.draggable=false; th.appendChild(im); }
@@ -100,7 +114,8 @@ function renderStickerMgr(){
     const pos=document.createElement('div');
     pos.innerHTML = '위치 ' + Math.round(s.x||0) + ', ' + Math.round(s.y||0)
       + ' · 크기 ' + Math.round(((typeof s.size==='number'&&s.size>0)?s.size:1)*100) + '%'
-      + (out ? ' <span class="st-mgr-out">· 화면 밖</span>' : '');
+      + (out ? ' <span class="st-mgr-out">· 화면 밖</span>' : '')
+      + (locked ? ' · 🔒 잠김' : '');
     meta.appendChild(pos);
     const lk=document.createElement('span'); lk.className='lk';
     lk.textContent = s.link ? ('🔗 ' + s.link) : '링크 없음';
@@ -108,26 +123,45 @@ function renderStickerMgr(){
     meta.appendChild(lk);
     row.appendChild(meta);
 
+    /* 버튼은 자주 쓰는 둘(🔒 · ✎)만 줄에 두고, 나머지는 ⋯ 메뉴에 글자와 함께 — 한 줄에 여덟 개면 무엇이 무엇인지 안 보인다. */
     const btns=document.createElement('div'); btns.className='st-mgr-btns';
-    const mk=(txt, title, fn)=>{ const b=document.createElement('button'); b.type='button';
-      b.textContent=txt; b.title=title; b.onclick=fn; btns.appendChild(b); return b; };
+    const mk=(parent, txt, title, fn)=>{ const b=document.createElement('button'); b.type='button';
+      b.textContent=txt; b.title=title; b.onclick=fn; parent.appendChild(b); return b; };
 
-    mk('◎', '보이는 자리로 데려오기', ()=>{
-      _mhBringStickerIn(sid);
-      renderMyHomeStickers(); commitMyHomePage(true); renderStickerMgr();
+    /* 🔒 잠금 — 자리 · 크기 · 회전을 굳힌다(끌기 · 편집 모드 · ◎ 가 안 듣는다). 편집 중인 것을 잠그면 편집을 끝낸다. */
+    const lockBtn = mk(btns, locked ? '🔒' : '🔓', locked ? '잠금 풀기' : '잠그기(자리 · 크기 고정)', ()=>{
+      stRules.setLocked(s, !locked);
+      if(!locked && _mhStickerEditSid()===sid) _mhStickerEditEnd();
+      redraw();
     });
+    lockBtn.classList.toggle('on', locked);
     /* ★ 편집은 관리 창을 닫고 스티커 자체로 넘긴다 — 이동·크기·회전은 실제 화면에서 봐야 맞출 수 있다.
        화면 밖에 있던 스티커라면 먼저 데려온 뒤 편집모드로 들어간다(안 그러면 또 안 보인다). */
-    mk('✎', '편집 (이동·크기·회전)', ()=>{
+    mk(btns, '✎', locked ? '잠긴 스티커는 편집하지 않아요' : '편집 (이동·크기·회전)', ()=>{
       if(_mhStickerOutOfView(s)){ _mhBringStickerIn(sid); commitMyHomePage(true); }
       closeStickerMgr();
       renderMyHomeStickers();
       _mhStickerEditStart(sid);
+    }).disabled = locked;
+
+    /* ⋯ 더보기 — 누르면 버튼 아래로 펼치고, 고르거나 · 다시 누르거나 · 줄 밖으로 나가면 접는다.
+       ⚠️ 목록이 스크롤 상자라 메뉴는 화면 기준(fixed)으로 놓는다 — 상자 안에 두면 마지막 줄 메뉴가 잘린다. */
+    const moreWrap=document.createElement('div'); moreWrap.className='st-mgr-more';
+    const menu=document.createElement('div'); menu.className='st-mgr-menu';
+    const moreBtn=mk(moreWrap, '⋯', '더보기', ()=>{
+      const on=!menu.classList.contains('on');
+      menu.classList.toggle('on', on);
+      if(!on) return;
+      const r=moreBtn.getBoundingClientRect();
+      menu.style.left=(r.left+r.width)+'px'; menu.style.top=(r.top+r.height+2)+'px';
     });
-    mk('✨', '움직임 고르기', ()=>{ _mhOpenStickerAnim(sid); });
-    /* 🔗 링크 수정 — 예전엔 "등록 후에는 못 바꾼다"고 안내하고 삭제 후 재등록을 시켰다.
-       고칠 자리가 생겼으니 여기서 바꾼다(이미지를 다시 고를 필요가 없다). */
-    mk('🔗', '링크 바꾸기', async ()=>{
+    const item=(txt, title, fn)=>mk(menu, txt, title, (...a)=>{ menu.classList.remove('on'); return fn(...a); });
+    item('◎ 보이는 자리로', locked ? '잠긴 스티커는 옮기지 않아요' : '창 안 보이는 자리로 데려오기', ()=>{
+      _mhBringStickerIn(sid); redraw();
+    }).disabled = locked;
+    item('✨ 움직임', '움직임 고르기', ()=>{ _mhOpenStickerAnim(sid); });
+    /* 🔗 링크 수정 — 삭제 후 다시 붙이지 않고 여기서 바꾼다(이미지를 다시 고를 필요가 없다). */
+    item('🔗 링크 바꾸기', '클릭하면 열릴 주소', async ()=>{
       const v=await asyncPrompt({ title:'스티커 링크',
         message:'클릭 시 이동할 링크 (비우면 링크 없음)\n\n※ 시스템 기본 브라우저에서 열려요.',
         defaultValue:s.link||'', maxLength:300 });
@@ -135,14 +169,17 @@ function renderStickerMgr(){
       const u=(v||'').trim().slice(0,300);
       if(u && !/^https?:\/\//i.test(u)){ toast('http:// 또는 https:// 로 시작하는 주소만 넣을 수 있어요'); return; }
       s.link = u || null;
-      renderMyHomeStickers(); commitMyHomePage(true); renderStickerMgr();
+      redraw();
     });
-    mk('×', '삭제', ()=>{
+    item('× 삭제', '이 스티커 지우기', ()=>{
       if(!confirm('이 스티커를 지울까요?')){ window.focus(); return; } window.focus();
       delete _myHomeData().stickers[sid];
       if(_mhStickerEditSid()===sid) _mhStickerEditEnd();
-      renderMyHomeStickers(); commitMyHomePage(true); renderStickerMgr();
-    });
+      redraw();
+    }).classList.add('danger');
+    moreWrap.appendChild(menu);
+    btns.appendChild(moreWrap);
+    row.addEventListener('mouseleave', ()=>menu.classList.remove('on'));
     row.appendChild(btns);
     list.appendChild(row);
   });
@@ -151,6 +188,7 @@ function renderStickerMgr(){
    "◎를 눌렀는데 아무 일도 안 일어난다"가 없도록 두 경우 모두 무언가는 움직인다. */
 function _mhBringStickerIn(sid){
   const s=(_myHomeData() && _myHomeData().stickers || {})[sid]; if(!s) return;
+  if(stRules.isLocked(s)) return;
   if(!_mhStickerOutOfView(s)){
     const { W, H } = _mhHomeWinSize();
     const d = _mhStickerDispSize(s);
@@ -163,13 +201,15 @@ try{
   document.getElementById('stMgrBringAll').onclick = ()=>{
     const data=(_myHomeData() && _myHomeData().stickers) || {};
     let n=0;
-    Object.keys(data).forEach(sid=>{ if(_mhStickerOutOfView(data[sid])){ _mhClampStickerPos(data[sid]); n++; } });
+    Object.keys(data).forEach(sid=>{ if(_mhStickerOutOfView(data[sid]) && !stRules.isLocked(data[sid])){ _mhClampStickerPos(data[sid]); n++; } });
     if(n){ renderMyHomeStickers(); commitMyHomePage(true); toast(n+'개를 화면 안으로 데려왔어요'); }
     renderStickerMgr();
   };
 }catch(_){}
 
 function _mhStickerEditStart(sid){
+  const s=(_myHomeData() && _myHomeData().stickers || {})[sid];
+  if(stRules.isLocked(s)){ toast(LOCKED_MSG); return; }
   _setMhStickerEditSid(sid);
   const hint = document.getElementById('mhStickerEditHint');
   if(hint) hint.classList.add('on');
@@ -200,7 +240,7 @@ function _mhBindStickerDrag(el, sid){
     if(e.target.classList.contains('mh-sticker-del')) return;
     if(e.target.classList.contains('mh-sticker-anim')) return;    // ✨ 움직임 버튼 — 드래그로 삼키지 않게
     e.preventDefault(); e.stopPropagation();
-    const s = (_myHomeData().stickers||{})[sid]; if(!s) return;
+    const s = (_myHomeData().stickers||{})[sid]; if(!s || stRules.isLocked(s)) return;
     dragging=true; sx=e.clientX; sy=e.clientY;
     ox=s.x||0; oy=s.y||0; _setMhStickerDragDist(0);
     try{ el.setPointerCapture(e.pointerId); }catch(_){}
@@ -238,7 +278,7 @@ function _mhBindStickerRotate(handle, sid, lblEl){
 
   handle.addEventListener('pointerdown', e=>{
     e.preventDefault(); e.stopPropagation();
-    const s=(_myHomeData().stickers||{})[sid]; if(!s) return;
+    const s=(_myHomeData().stickers||{})[sid]; if(!s || stRules.isLocked(s)) return;
     const node = el(); if(!node) return;
     const r = node.getBoundingClientRect();
     cx = r.left + r.width/2;
@@ -283,7 +323,7 @@ function _mhBindStickerResize(handle, sid){
   let dragging=false, sx=0, sy=0, startSize=1;
   handle.addEventListener('pointerdown', e=>{
     e.preventDefault(); e.stopPropagation();
-    const s=(_myHomeData().stickers||{})[sid]; if(!s) return;
+    const s=(_myHomeData().stickers||{})[sid]; if(!s || stRules.isLocked(s)) return;
     dragging=true; sx=e.clientX; sy=e.clientY;
     startSize=(typeof s.size==='number' && s.size>0)?s.size:1;
     try{ handle.setPointerCapture(e.pointerId); }catch(_){}
