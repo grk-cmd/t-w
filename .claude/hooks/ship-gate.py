@@ -3,6 +3,7 @@
 
 1. 머지 — `gh pr merge` · `gh api …/pulls/N/merge`: 그 PR 머리 커밋에 상태값 `tw/confirm`(컨펌자) · `tw/verify`(검증자)가
    둘 다 success 가 아니면 막는다. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
+   위험도가 높은 PR(risk.py — 데이터 경로 · 규칙 · 서버 · 빌드)은 승인자(mihioon)가 그 머리 커밋을 Approve 해야 한다.
 2. 보호 브랜치에 직접 push — `main` · `release/*`. 예외: main 에 `docs/WORK_STATUS.md` 만 바꾼 push.
 3. 판 브랜치 밖에서 새 브랜치 따기 — 작업 전에 «어느 버전에 릴리스될 작업인가» 를 묻고 `release/X.Y.Z` 에서.
    예외: `hotfix/*` · `harness/*`(하네스 · 작업 규칙)는 main 에서.
@@ -61,6 +62,15 @@ def check_merge(toks):
     if not pr:
         deny('머지할 PR 번호를 알 수 없다 — `/ship` 으로 머지한다.')
     ok, missing = gate_ok(pr)
+    if ok:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import risk
+        r = risk.assess(pr)
+        sha = run('gh', 'api', f'repos/{REPO}/pulls/{pr}', '--jq', '.head.sha')
+        if r['high'] and not risk.owner_approved(pr, sha):
+            deny(f'#{pr} 은 위험도 높음({"; ".join(r["reasons"][:4])}) — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 해야 머지한다. '
+                 f'`/ship` 이 PR 에 설계 요약을 남기고 «승인 대기» 로 멈춘다.')
+        return
     if not ok:
         deny(f'#{pr} 머리 커밋에 컨펌 · 검증 통과 기록이 없다({missing}). `/ship` 으로 컨펌자(tw-confirmer) · 검증자(tw-verifier)를 돌려 '
              f'둘 다 통과해야 머지할 수 있다. 커밋을 더 올렸으면 다시 돌린다.')

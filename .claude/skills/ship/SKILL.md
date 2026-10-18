@@ -1,12 +1,13 @@
 ---
 name: ship
-description: 작업 끝내기 — PR 을 올리고 컨펌자(tw-confirmer) · 검증자(tw-verifier)를 깨끗한 맥락으로 돌려, 둘 다 통과하고 CI 가 초록이면 판 브랜치에 머지한다. 걸리면 스스로 고쳐 다시 돈다. 터미널 · 클라우드(웹) 세션 모두에서. 작업(커밋)을 마쳤을 때 · «올려 줘» · «머지해 줘» 에 쓴다.
+description: 작업 끝내기 — PR 을 올리고 컨펌자(tw-confirmer) · 검증자(tw-verifier)를 깨끗한 맥락으로 돌려, 둘 다 통과하고 CI 가 초록이면 판 브랜치에 머지한다(위험도 높은 PR 은 승인자 mihioon 의 Approve 뒤에). 걸리면 스스로 고쳐 다시 돈다. 터미널 · 클라우드(웹) 세션 모두에서. 작업(커밋)을 마쳤을 때 · «올려 줘» · «머지해 줘» 에 쓴다.
 ---
 
 # /ship — PR · 컨펌 · 검증 · 머지
 
 머지 담당 세션이 따로 없다. 이 흐름이 그 일을 한다 — 컨펌자 · 검증자 판정을 머리 커밋의 상태값(`tw/confirm` · `tw/verify`)으로 남기고,
 가드(`.claude/hooks/ship-gate.py`)는 그 둘이 success 가 아니면 머지를 막는다.
+**위험도**(`python3 .claude/hooks/risk.py <PR>` — diff 로 기계 판정: 데이터 경로 · 규칙 · 서버 · 빌드 · 새 모듈)가 높으면 승인자 **mihioon** 이 머리 커밋을 GitHub 에서 Approve 해야 머지된다(가드가 확인). 낮으면 승인 없이 머지.
 
 **클라우드 세션에서는 `gh pr …` 이 막혀 있다(GraphQL). 모든 GitHub 일은 `gh api`(REST)로 한다.** 아래 `R=repos/grk-cmd/t-w`.
 
@@ -38,6 +39,19 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 ```
 판정을 꾸며 올리지 않는다 — 이 두 줄은 실제 «통과» 답을 받았을 때만 쓴다.
 
+## 4-1. 위험도 — 높으면 승인 대기
+- `python3 .claude/hooks/risk.py <번호>` → `high` 면:
+  - 승인자의 리뷰를 읽는다: `gh api $R/pulls/<번호>/reviews` · `gh api $R/pulls/<번호>/comments` · `gh api $R/issues/<번호>/comments` 에서 user.login = `mihioon` 인 것.
+  - **CHANGES_REQUESTED 이거나 고칠 것을 적은 코멘트**가 머리 커밋 뒤에 있으면 → 고치고(3 처럼) → 고친 지적마다 `/lesson` → push → 2 부터.
+  - 머리 커밋에 **APPROVED** 가 있으면 → 5 로.
+  - 아직 없으면 → 승인 요청을 남기고 **멈춘다**:
+    ```
+    gh api $R/statuses/$SHA -f state=pending -f context=tw/owner -f description='mihioon 승인 대기'
+    gh api $R/issues/<번호>/comments -f body="<승인 요청 본문>"
+    ```
+    본문: «@mihioon 승인 요청 — 위험도 높음: <risk 이유>» + 컨펌자의 «설계 요약» + 검증자 «돌린 것» + «Approve 하면 다음 /ship 이 머지합니다 · 고칠 것은 Request changes 나 코멘트로». 사용자에게는 «승인 대기로 올렸다 — 승인되면 /ship 을 다시» 라고만 말한다.
+- 낮으면 → 5 로.
+
 ## 5. CI → 머지
 - CI 확인: `gh api $R/commits/$SHA/check-runs --jq '[.check_runs[] | {name, status, conclusion}]'` — 모두 completed · success(또는 skipped)일 때까지 기다린다(기다리기와 머지를 한 명령으로 잇지 않는다). 빨강이면 3 으로.
 - base 와 충돌(`gh api $R/pulls/<번호> --jq .mergeable` 이 false)이면 base 를 합쳐(`git merge origin/<base>` — rebase · force 금지) 풀고 push → 머리 커밋이 바뀌었으니 2 부터.
@@ -46,6 +60,7 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 - 브랜치 지우기는 클라우드에서 막힐 수 있다 — 막히면 그대로 둔다.
 
 ## 6. 끝
+- 위험도 높음이었으면 `gh api $R/statuses/$SHA -f state=success -f context=tw/owner -f description='mihioon 승인'`.
 - 버그 제보 수정이면 `node scripts/todo.js done <id> --release <판>`(관리자 gcloud 로그인이 있을 때만 — 없으면 건너뛰고 알린다).
 - 사용자에게 한 번만 보고: PR 링크 · 컨펌 · 검증 결과 한 줄씩 · 머지한 판 브랜치. 끝난 것을 다시 나열하지 않는다.
 
