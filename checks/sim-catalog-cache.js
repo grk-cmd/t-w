@@ -13,12 +13,13 @@
    ・4절: catalog-cache.js — 구독기를 가짜 DB · 가짜 저장소로 돌려 본다 · 본문 받기(API 사본 먼저 → Firebase)를 가짜 API 로
    [실행] firebase-init.js · catalog-cache.js · firebase-database-rules.json 이 있는 폴더에서. */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const FI = read('firebase-init.js'), CC = read('catalog-cache.js'), RJ = read('firebase-database-rules.json');
+const FI = read('firebase-init.js'), CC = read('catalog-cache.js'), RJ = stripReadGate(read('firebase-database-rules.json'));
 if(!FI){ say('  ? 원본 못 찾음 — firebase-init.js'); process.exit(2); }
 if(!CC){ say('  ? 원본 못 찾음 — catalog-cache.js'); process.exit(2); }
 if(!RJ){ say('  ? 원본 못 찾음 — firebase-database-rules.json'); process.exit(2); }

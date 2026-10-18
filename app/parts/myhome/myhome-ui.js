@@ -78,7 +78,7 @@ function syncFriendsOpen(){
     if(!win || !title) return;
     let dragging=false, offX=0, offY=0, dragScreenX=0, dragScreenY=0, dragMovesOsWindow=false;
     title.addEventListener('pointerdown', e=>{
-      if(e.target.closest && e.target.closest('#myHomeClose, #mhEditHomeBtn, #mhBackHomeBtn, #mhPreviewBtn, #mhPreviewExitBtn')) return;
+      if(e.target.closest && e.target.closest('#myHomeClose, #mhEditHomeBtn, #mhBackHomeBtn, #mhPreviewBtn, #mhPreviewExitBtn, #mhMallangHideBtn')) return;
       dragging=true;
       // 런처(=런처 카드가 켜져 있는) 화면에선 마이홈 창이 뷰포트보다 커서 DOM 드래그로는 사실상 못 옮김 —
       //  이 경우엔 OS 창(Electron mainWindow) 자체를 이동. deskBar grip과 같은 방식.

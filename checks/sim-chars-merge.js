@@ -118,14 +118,17 @@ if(fs.existsSync('firebase-database-rules.json')){
   else{
     const own = "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid";
     const c = u.chars, t = u.trash, m = u.charsMeta;
-    chk(!!c && c['.write'] === own, '★ chars 블록 · .write 가 slots 와 같은 소유 식');
+    /* 소유 식 뒤에 ≤0.10.2 막기(presence ver)가 붙어도 된다 — slots 와 같은 문장이고 소유 식을 품으면 된다(개정 374) */
+    const ownW = String((u.slots || {})['.write'] || '');
+    const sameOwn = (w) => w === ownW && ownW.indexOf(own) >= 0;
+    chk(!!c && sameOwn(c['.write']), '★ chars 블록 · .write 가 slots 와 같은 소유 식');
     chk(!!c && c.$cid && /c\[a-z0-9\]\{6,24\}/.test(c.$cid['.validate']) && /hasChild\('def'\) \|\| newData\.hasChild\('del'\)/.test(c.$cid['.validate']), '  cid 모양 · def 또는 del 이 있어야 한다');
     const slotDef = u.slots && u.slots.s && u.slots.s.$i && u.slots.s.$i['.validate'];
     chk(!!c && c.$cid && slotDef && slotDef.indexOf(c.$cid.def['.validate']) >= 0, '  def 검증이 slots.s.$i 와 같다(≤150000 · base64 금지)');
     chk(!!c && c.$cid && c.$cid.$other && c.$cid.$other['.validate'] === false, '  $other 거부');
     chk(!!t && !t['.write'] && t.$cid && t.$cid.$mtime && /!data\.exists\(\) && newData\.exists\(\)/.test(t.$cid.$mtime['.write']), '★ trash 는 붙이기만 — .write 가 **잎**에 있고(부모에 두면 내려와서 삭제를 막지 못한다) !data.exists() && newData.exists()');
     chk(!!t && t.$cid && t.$cid.$mtime && /overwritten/.test(t.$cid.$mtime.why['.validate']) && /deleted/.test(t.$cid.$mtime.why['.validate']), '  why 는 overwritten | deleted');
-    chk(!!m && m['.write'] === own && m.migratedFrom && /'slots'/.test(m.migratedFrom['.validate']) && m.$other && m.$other['.validate'] === false, '  charsMeta — migratedFrom=slots · $other 거부');
+    chk(!!m && sameOwn(m['.write']) && m.migratedFrom && /'slots'/.test(m.migratedFrom['.validate']) && m.$other && m.$other['.validate'] === false, '  charsMeta — migratedFrom=slots · $other 거부');
     chk(!!u.slots && !!u.slotsPrev, '★ slots · slotsPrev 가 아직 있다 — 이관 창(N · N+1). N+2 에서 내린다(설계 §5)');
   }
 } else huh('firebase-database-rules.json 없음 — 2절 검사못함');

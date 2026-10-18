@@ -8,6 +8,7 @@
    ・4절: 서버 함수 — 3일 · 300줄 값이 앱과 같다 · 표시 줄은 남긴다 · 300줄 넘는 옛 줄 지우기(같은 ts 경계) · 방 종류별 보관 일수(config/chatKeepDays) ·
           300줄 정리는 서울 04시 실행만 · 매시간 예약 · 규칙 범위 · 처리방침 문구 */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
@@ -17,7 +18,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const find = (...c) => { for (const f of c) for (const d of ['', 'parts/', 'app/parts/', 'app/', 'hosting/']) if (fs.existsSync(d + f)) return d + f; return null; };
 const read = (...c) => { const f = find(...c); return f ? fs.readFileSync(f, 'utf8') : null; };
 const MOD = read('chat-history.js'), FI = read('firebase-init.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
-const RULES_SRC = read('firebase-database-rules.json'), FX = read('functions/index.js'), PRIV = read('privacy.html');
+const RULES_SRC = stripReadGate(read('firebase-database-rules.json')), FX = read('functions/index.js'), PRIV = read('privacy.html');
 const EXP_PATH = find('functions/chat-expire.js');
 if (!MOD || !FI || !APP || !HTML || !RULES_SRC || !FX || !PRIV || !EXP_PATH) {
   say('  ? 원본 못 찾음 — chat-history.js · firebase-init.js · app.js · desk-companion-prototype.html · firebase-database-rules.json · functions/index.js · functions/chat-expire.js · privacy.html');

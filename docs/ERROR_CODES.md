@@ -43,6 +43,7 @@
 | `E-CHAR-05` | 프리셋을 읽지 못했어요 | `character/animal.js` — 동물 프리셋 읽기 해석 실패 |
 | `E-CHAR-06` | 저장된 프리셋을 읽지 못해 덮어쓰지 않았어요 | `creator/desk-preset.js` — 책상 프리셋 저장 · 비우기를 막음(망가진 저장분 그대로 둠) |
 | `E-CHAR-07` | 저장된 프리셋을 읽지 못해 덮어쓰지 않았어요 | `character/animal.js` — 동물 프리셋 저장 · 삭제를 막음(망가진 저장분 그대로 둠) |
+| `E-CHAR-08` | 프리셋의 책상을 찾지 못해 기본 책상으로 열었어요 | `creator/desk-preset.js` — 프리셋 적용 중 카탈로그 책상을 못 찾음 · 못 받음(프리셋엔 카탈로그 책상 id 만 담는다) |
 | `E-DATA-01` | 이 작업을 할 권한이 없어요 | `shared/data-gateway.js` — 서버 범용 통로 `ACCESS_DENIED` |
 | `E-DATA-02` | 요청 모양이 맞지 않아 처리하지 못했어요 | `shared/data-gateway.js` — 서버 범용 통로 `INVALID_REQUEST` |
 | `E-DATA-03` | 다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요 | `shared/data-gateway.js` — 서버 범용 통로 `CONCURRENT_UPDATE` |

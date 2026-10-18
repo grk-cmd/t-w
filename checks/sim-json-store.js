@@ -198,7 +198,7 @@ say('── 5. 배선');
   chk(!/localStorage/.test(strip(SRC.desk)), 'desk-preset-store.js 는 localStorage 를 직접 안 만진다');
   const ap = (SRC.animal.match(/function _loadPresets[^\n]*\n[^\n]*/) || [''])[0];
   chk(ap && !/localStorage/.test(ap), 'animal.js 프리셋 읽기 · 쓰기는 localStorage 를 직접 안 만진다');
-  chk(/createDeskPresetStore\(\{\n  jsonStore: TwJsonStore,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n\}\);/.test(SRC.app), 'app.js — 책상 프리셋 저장에 jsonStore · notifyError 를 deps 로');
+  chk(/createDeskPresetStore\(\{\n  jsonStore: TwJsonStore,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n(?:  [^\n]*\n)*?\}\);/.test(SRC.app), 'app.js — 책상 프리셋 저장에 jsonStore · notifyError 를 deps 로(다른 deps 는 sim-desk-preset.js 가 본다)');
   chk(/PRELOAD\.push\('json-store\.js'\);/.test(SRC.smoke), 'smoke PRELOAD 에 json-store.js');
   /* 깨 보기 — 저장소가 직접 localStorage 를 다시 쓰면 위 판정이 잡는다 */
   const broke = SRC.desk.replace('jsonStore.load(PRESET_KEY, [])', "({ ok: true, list: JSON.parse(localStorage.getItem(PRESET_KEY)||'[]') })");

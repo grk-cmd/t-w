@@ -6,6 +6,7 @@
    ・5절: 연결 — html 싣는 차례 · smoke · 친구 · 방 · 카탈로그가 이 모듈만 쓴다(옛 스위치를 직접 읽거나 넘어가기를 따로 쓰면 빨강)
    ・6절: 일부러 깨 보기 */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
@@ -23,7 +24,7 @@ const SRC0 = {
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js', 'checks/smoke.js']),
-  RULES: pick(['firebase-database-rules.json']),
+  RULES: stripReadGate(pick(['firebase-database-rules.json'])),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');

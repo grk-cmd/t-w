@@ -3052,9 +3052,10 @@ function renderMyHomeStickers(){
   const data = mhStLayoutMod._mhStickersData();
   const canEdit = mhStLayoutMod._mhCanEditStickers();
   zone.innerHTML='';
-  Object.keys(data).forEach(sid=>{
+  TwMyHomeStickerRules.orderedIds(data).forEach(sid=>{   // 🎨 z 순서대로(뒤 → 앞) — 관리 창 ▲▼
     const s=data[sid];
     const el=document.createElement('div'); el.className='mh-sticker';
+    if(canEdit && TwMyHomeStickerRules.isLocked(s)) el.classList.add('locked');   // 🔒 끌리지 않음 표시
     if(s.img){ const im=document.createElement('img'); im.src=s.img; im.draggable=false; el.appendChild(im); }
     else {
       // ✨ 이모지도 애니메이션을 걸려면 안쪽 요소가 필요하다(바깥 div는 크기·회전이 이미 쓰고 있음).
@@ -5776,6 +5777,7 @@ function reopenAnimalFromCreator(tab){
 const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
   jsonStore: TwJsonStore,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  isCatalogDesk: (id)=>commissionMod.catalogBacked(commissionMod.savedDesks().find(d=>d.id===id)),
 });
 /* 본문은 creator/desk-preset.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -8784,6 +8786,7 @@ function frame(now, manual){
     return;
   }
   const dt=Math.min((now-prev)/1000,0.05);prev=now;
+  overheadMod.beginLabelFrame();   // 라벨이 쓰는 캔버스 사각형을 이번 프레임에 한 번만 잰다(room/label-measure.js)
   updateIdleItemPlayback();   // 어플 8: 자리비움 감지로 아이템 재생/정지 자동 전환
   updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
   if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트

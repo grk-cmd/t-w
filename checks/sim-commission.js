@@ -22,7 +22,7 @@ const FN_DEPS = ["_b64","_deriveKey","_unb64","toast"];
 const VAL_DEPS = [];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["MAX_COMMISSION_BYTES","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","decryptCommission","encryptCommission","persistSavedAssets","savedDesks","setSavedDesks","savedItems","setSavedItems","unpackCommissionZip"];
+const EXPORTS = ["MAX_COMMISSION_BYTES","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","catalogBacked","decryptCommission","encryptCommission","persistSavedAssets","savedDesks","setSavedDesks","savedItems","setSavedItems","unpackCommissionZip"];
 const MOVED = ["MAX_COMMISSION_BYTES","COMMISSION_TEX_SIZE","resizeImgBlobTo","unpackCommissionZip","encryptCommission","decryptCommission","SAVED_DESK_KEY","SAVED_ITEM_KEY","MAX_CUSTOM_ASSETS","MAX_CUSTOM_ITEMS","MAX_GLB_BYTES","savedDesks","savedItems","loadSavedAssets","persistSavedAssets"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  _b64: (...a)=>_b64(...a),","  _deriveKey: (...a)=>_deriveKey(...a),","  _unb64: (...a)=>_unb64(...a),","  toast: (...a)=>toast(...a),"];
 
