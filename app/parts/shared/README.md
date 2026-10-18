@@ -223,3 +223,21 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **실패하면**: 연결 실패 · 시간 초과 · 5xx · 404(서버가 모르는 경로) → 그 호출은 Firebase 로(`source-switch.js` serverFirst 한 벌). 듣기는 첫 값 전에 끊기면 Firebase 로 듣는다.
 - **늘 Firebase**: 조건 붙은 읽기(query) · 트랜잭션 · onDisconnect · 자식 단위 듣기(onChild*).
 - **⚠️ 함정**: 기능 함수에서 SDK 함수를 새로 import 해 직접 부르지 말 것 — 통로를 건너뛰면 그 기능은 서버로 못 옮긴다(`checks/sim-data-gateway.js`). 다중 경로 update 는 칸이 서버 · Firebase 로 섞이면 쪼개지 않고 통째로 Firebase.
+
+## `app-version.js` — 🏷️ 앱 버전(ver) 싣기
+
+**책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence · 라이선스 요청에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
+
+**만드는 법** — `firebase-init.js` 가 `createAppVersion({ getVersion, onReady })`. `onReady(ver)` 는 처음 받았을 때 한 번 — presence 를 이미 썼으면 ver 만 update 하고 onDisconnect 를 다시 건다.
+
+**내놓는 것**
+- `ready` — 받은 버전(못 받으면 `null` · 거부 없음). 최소 버전 게이트 · 방 서버 · 방문 집계 · accountSnap 은 이것(«모름» = null)을 본다.
+- `get()` — 지금 아는 버전 또는 `null`.
+- `withVer(obj)` — 쓰는 객체에 ver 를 **늘** 붙인다. 아직 모르거나 못 받았으면 `APP_VER_UNKNOWN`(`'unknown'`).
+- `cleanAppVer(v)` · `APP_VER_MAX`(20 · 규칙 상한).
+
+**함정**
+- presence 에 쓰는 것은 set · update · onDisconnect 전부 `withVer` 를 거친다. 규칙은 `online:true` 인데 ver 가 없으면 옛 앱으로 보고 그 사람의 읽기 · 쓰기를 막고 구독도 끊는다(ver 없는 오프라인 쓰기도 `inRoom` 이 있으면 거절). 버전이 늦거나 못 받았다고 ver 를 빼면 지금 앱이 막힌다.
+- presence 첫 쓰기(로그인 뒤)는 `ready` 를 기다린다 — «unknown» 으로 쓰고 메우는 쓰기를 줄인다. 그 전에 `.info/connected` 가 먼저 오면 그쪽이 «unknown» 으로 쓰고, 받은 뒤 `onReady` 가 메운다.
+
+검사: `checks/sim-app-version.js` (1절 모듈 · 2절 쓰는 자리 · 3절 규칙 · 5절 presence 쓰기를 실제로 돌림 — 평소 · 늦게 옴 · 못 받음 · companion 없음 · 영영 안 옴 · 오프라인 · 규칙 판정 · 깨 보기 3).
