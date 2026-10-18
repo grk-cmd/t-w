@@ -460,8 +460,8 @@
           ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
           "imgs": {
             "$i": {
-              ".validate": "$i.matches(/^[0-3]$/) && ((newData.isString() && newData.val().length <= 200000) || newData.hasChild('url'))",
-              "url": { ".validate": "newData.isString() && newData.val().length <= 200000" },
+              ".validate": "$i.matches(/^[0-3]$/) && ((newData.isString() && newData.val().length <= 1000 && newData.val().beginsWith('https://firebasestorage.googleapis.com/')) || newData.hasChild('url'))",
+              "url": { ".validate": "newData.isString() && newData.val().length <= 1000 && newData.val().beginsWith('https://firebasestorage.googleapis.com/')" },
               "on": { ".validate": "newData.isBoolean()" },
               "$other": { ".validate": false }
             }
@@ -471,7 +471,7 @@
         "mallangGifts": {
           ".write": true,
           "$giftId": {
-            ".validate": "!$giftId.matches(/^(null|undefined|NaN)$/) && !$giftId.beginsWith(' ') && !$giftId.endsWith(' ') && (newData.hasChildren(['imgUrl','ts']) && newData.child('imgUrl').isString() && newData.child('imgUrl').val().length <= 400 && (!newData.child('fromName').exists() || newData.child('fromName').val().length <= 20) && (!newData.child('fromId').exists() || newData.child('fromId').val().length <= 40) && newData.child('ts').isNumber() && (!newData.child('msg').exists() || (newData.child('msg').isString() && newData.child('msg').val().length <= 50)) && (!newData.child('hidden').exists() || newData.child('hidden').isBoolean()) && (!newData.child('starred').exists() || newData.child('starred').isBoolean()))",
+            ".validate": "!$giftId.matches(/^(null|undefined|NaN)$/) && !$giftId.beginsWith(' ') && !$giftId.endsWith(' ') && (newData.hasChildren(['imgUrl','ts']) && newData.child('imgUrl').isString() && newData.child('imgUrl').val().length <= 400 && newData.child('imgUrl').val().beginsWith('https://firebasestorage.googleapis.com/') && (!newData.child('fromName').exists() || newData.child('fromName').val().length <= 20) && (!newData.child('fromId').exists() || newData.child('fromId').val().length <= 40) && newData.child('ts').isNumber() && (!newData.child('msg').exists() || (newData.child('msg').isString() && newData.child('msg').val().length <= 50)) && (!newData.child('hidden').exists() || newData.child('hidden').isBoolean()) && (!newData.child('starred').exists() || newData.child('starred').isBoolean()))",
             "imgUrl": { ".validate": true },
             "fromName": { ".validate": "newData.isString() && newData.val().length <= 20" },
             "fromId": { ".validate": "newData.isString() && newData.val().length <= 48 && (root.child('users/'+newData.val()+'/presence/ver').exists() || root.child('users/'+newData.val()+'/presence/online').val() !== true)" },
