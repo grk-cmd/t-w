@@ -10,10 +10,17 @@
 - 커밋 형식: `타입(스코프): 무엇을 — 부연` + 빈 줄 + `- 파일: 내용` 목록. 타입: `feat` `fix` `security` `refactor` `perf` `test` `docs` `ci` `build` `chore`. 자세한 건 `docs/GIT_CONVENTION.md`.
 - 버그 제보를 고친 커밋 · PR 은 제목 끝에 `(B-MMDD-n)` 을 붙이고(여러 건이면 `(B-1009-1 · B-1009-3)`), 본문 «무엇을» 줄 앞에도 같은 번호를 적는다. 번호는 웹 관리자 🐞 제보에 보이는 고정 번호(«(임시)» 표시가 붙은 번호는 쓰지 않는다).
 - 한 커밋에 한 의도. `checks/` 를 바꿨으면 `checks/CHECKS.md` §3 해시를 **같은 커밋**에서 갱신한다. CHECKS.md 에 개정 번호 · «개정 n 에서 한 것» 기록은 적지 않는다(내력은 `git log` — PR 마다 같은 줄을 고쳐 늘 충돌이 났다), 커밋 제목에도 `(CHECKS 개정 N)` 을 붙이지 않는다.
-- 검사 전체는 **CI 가 돈다**. 로컬에선 내가 고친 `sim-*.js` 만 돌리고(`node checks/run.js <이름>`), PR 올리기 전 · 머지 때 `npm run check` 전체를 다시 돌리지 않는다. 머지는 «main 합쳐 push → CI 초록 → 머지», 문서만 바뀐 PR 은 CI 확인 뒤 바로 머지.
+- 검사 전체는 **CI 가 돈다**. 로컬에선 내가 고친 `sim-*.js` 만 돌리고(`node checks/run.js <이름>`), PR 올리기 전 · 머지 때 `npm run check` 전체를 다시 돌리지 않는다. 머지는 «그 판 브랜치(`release/X.Y.Z`) 합쳐 push → CI 초록 → 머지», 문서만 바뀐 PR 은 CI 확인 뒤 바로 머지.
 - 커밋·push 전에 무엇을 올리는지 한 줄로 알리고 진행한다. **force push 는 하지 않는다.**
 - **PR**: 한 PR = 한 의도(버그 수정 묶음과 새 기능은 나눈다). 제목은 커밋 제목 형식(이모지 없음), 본문은 `.github/pull_request_template.md` 틀 그대로 — «무엇을» 은 커밋과 1:1. 자세한 건 `docs/GIT_CONVENTION.md` 3장.
 - 절대 커밋하지 않는 것: `oauth-config.js`(OAuth 시크릿), `.env*`, `.idea/`, `*.iml`, `dist/`.
+
+## 작업 전 — 어느 판에 나가는가 (판 브랜치)
+**작업을 시작하기 전에 사용자에게 묻는다: «이 작업은 어느 버전에 릴리스될 작업인가요?»** 답을 받기 전에는 브랜치를 따지 않는다.
+- 답한 판의 브랜치 `release/X.Y.Z` 에서 작업 브랜치를 따고, PR base 도 그 판 브랜치로 한다(GitHub 기본값이 `main` 이라 **매번 바꾼다**). 예) «0.12.0 버그 수정» → `release/0.12.0` 에서 따서 `release/0.12.0` 으로 PR.
+- 그 판 브랜치가 아직 없으면 만들지 말고 사용자에게 알린다(판 브랜치는 사용자가 정해 연다).
+- `main` 은 **낸 것만** 담는다 — 작업 PR 을 `main` 으로 보내지 않는다. 예외: 현황판(`docs/WORK_STATUS.md`) 한 줄 push · 작업 규칙 문서 · 긴급 수정(`hotfix/*`).
+- 자세한 흐름은 `docs/GIT_CONVENTION.md` 2장.
 
 ## 작업 전 할 일 확인
 여럿이 같이 고치니 같은 일을 겹쳐 하지 않게 **현황판(`docs/WORK_STATUS.md`)을 맨 먼저** 본다. 웹 관리자 📋 할 일(`adminTodos`)에는 **버그 제보와 관련된 일만** 적는다 — 기능 · 리팩터 · 릴리스 계획 · 운영 작업은 현황판 · PR 로 나눈다(할 일에 쌓지 않는다). 할 일은 `/todo` 스킬.
@@ -182,12 +189,12 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 - `firebase deploy` 는 **모든 사용자에게 즉시 적용**된다. 기본 프로젝트(`.firebaserc`)는 **운영 `together-working`**.
 - 규칙을 바꾸면 순서: ① 앱에서 그 경로를 쓰는 곳을 전부 grep(`firebase-init.js`, `app.js`, `purikura-net.js`, `purikura-ui.js`, `functions/`) ② `npm run check` ③ **dev 에 먼저**: `firebase deploy --only database --project together-working-dev` ④ 확인 후 운영 배포.
 - 규칙 함정: 상위 `.write` 가 하위 삭제를 대신 받아 주는 곳이 있다(예: `rooms/$room` ↔ `_photo`). 삭제(null)에는 `.validate` 가 안 돈다. 권한이 거부된 `onValue` 구독은 재시도 없이 끊긴다.
-- 자동화(GitHub Actions): `main` 에 규칙이 바뀌어 push 되면 `deploy-dev.yml` 이 dev 에 반영한다 — **단 저장소 변수 `GCP_WIF_PROVIDER` · `GCP_SA_EMAIL` 이 설정돼야 돌고, 지금은 없어서 늘 «건너뜀»(10-17 확인) — 그 전까지 dev 규칙은 `firebase deploy --only database --project together-working-dev` 로 손으로 맞춘다**, 운영 규칙은 **사람이 태그 전에 직접** 배포한다(`release.yml` 은 규칙을 다루지 않는다). `config/minRoomVer` 는 웹 관리자 ⚙️ 설정에서(최신 릴리스까지만 · 작업 기록에 남음). `min-room-ver.yml` 은 운영 권한 변수가 생기기 전까지 동작하지 않는다. 릴리스 절차는 `docs/RELEASE.md`.
+- 자동화(GitHub Actions): 판 브랜치(`release/*`)에 규칙이 바뀌어 push 되면 `deploy-dev.yml` 이 dev 에 반영한다 — **단 저장소 변수 `GCP_WIF_PROVIDER` · `GCP_SA_EMAIL` 이 설정돼야 돌고, 지금은 없어서 늘 «건너뜀»(10-17 확인) — 그 전까지 dev 규칙은 `firebase deploy --only database --project together-working-dev` 로 손으로 맞춘다**, 운영 규칙은 **사람이 태그 전에 직접** 배포한다(`release.yml` 은 규칙을 다루지 않는다). `config/minRoomVer` 는 웹 관리자 ⚙️ 설정에서(최신 릴리스까지만 · 작업 기록에 남음). `min-room-ver.yml` 은 운영 권한 변수가 생기기 전까지 동작하지 않는다. 릴리스 절차는 `docs/RELEASE.md`.
 - 운영 DB 데이터를 대량으로 읽거나 고치기 전에는 몇 건·무엇을 읽는지 먼저 말하고 확인받는다.
 
 ## 릴리스 순서: ① 서버 → ② 버전 태그(→ 자동 공개)
 1. **서버** (바뀐 것만): 함수는 자동 배포가 없으니 `firebase deploy --only functions:<이름> --project together-working` 을 앱 릴리스 **전에** 직접. 운영 규칙도 바뀌었으면 태그 전에 직접 `firebase deploy --only database --project together-working`. 옛 앱이 깨지지 않는지 확인한다.
-2. **버전 태그**: Actions › **release-start** › Run workflow(patch · minor · beta) 버튼, 또는 main 에서 `git pull --rebase` → `npm run check` → `npm version patch -m "chore: %s"` → `git push --follow-tags`. 태그가 올라가면 `release.yml` 이 Windows · Mac 빌드 → 설치 파일 검사(dmg 열림 · 버전 · arch · 켜짐 · yml sha512 · 업로드 sha256) → **통과하면 공개**까지 자동. 빨강이면 초안으로 남는다. 버튼의 «공개 방식» 을 `초안으로 대기` 로 고르면 검사까지 같고 공개만 Releases 에서 사람이 누른다(정식은 «Set as the latest release» 체크 확인). 버튼은 main 의 그 커밋에 `checks.yml` 이 이미 초록이면 검사를 건너뛴다(없으면 직접 돌림). 테스트 빌드는 `npm version prerelease --preid=beta`(정식처럼 **운영 Firebase** 에 붙고 Pre-release 라 일반 사용자 자동 업데이트엔 안 감 — dev Firebase 는 내 PC 의 `npm run start:dev` 에서만).
+2. **버전 태그**: Actions › **release-start** › Run workflow(patch · minor · beta) 버튼, 또는 판 브랜치를 `main` 에 합친(merge commit) 뒤 main 에서 `git pull --rebase` → `npm run check` → `npm version patch -m "chore: %s"` → `git push --follow-tags`. 태그가 올라가면 `release.yml` 이 Windows · Mac 빌드 → 설치 파일 검사(dmg 열림 · 버전 · arch · 켜짐 · yml sha512 · 업로드 sha256) → **통과하면 공개**까지 자동. 빨강이면 초안으로 남는다. 버튼의 «공개 방식» 을 `초안으로 대기` 로 고르면 검사까지 같고 공개만 Releases 에서 사람이 누른다(정식은 «Set as the latest release» 체크 확인). 버튼은 main 의 그 커밋에 `checks.yml` 이 이미 초록이면 검사를 건너뛴다(없으면 직접 돌림). 테스트 빌드는 `npm version prerelease --preid=beta`(정식처럼 **운영 Firebase** 에 붙고 Pre-release 라 일반 사용자 자동 업데이트엔 안 감 — dev Firebase 는 내 PC 의 `npm run start:dev` 에서만).
 3. 방 통신 형식이 바뀐 버전이면, 사용자 대부분이 업데이트한 뒤 웹 관리자 ⚙️ 설정의 «방 입장 최소 버전» 으로 `config/minRoomVer` 를 올린다(올리면 낮은 앱은 방 입장이 막힌다). 자세한 절차는 `docs/RELEASE.md`.
 
 ## 문서
