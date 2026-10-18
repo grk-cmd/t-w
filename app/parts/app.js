@@ -2774,6 +2774,7 @@ const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
 });
 const friendsApiMod = TwFriendsApi.createFriendsApi({
   get: (...a)=>firebaseAPI.apiGetAuthed(...a),   // 로그인 API 통로(firebase-init.js — 토큰은 거기서 붙인다)
+  getCard: (...a)=>firebaseAPI.fetchUserCardApi(...a),   // 친구 한 명 명함 — 공개 읽기 통로(api-public-reads.js)
   wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
   warn: (...a)=>console.warn(...a),
 });
@@ -2788,6 +2789,7 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   subscribe: (...a)=>friendsPortMod.watchList(...a),
   fetchOnce: (id)=>friendsPortMod.listFriends(id, { idsOnly:true }),
   listFriends: (...a)=>friendsPortMod.listFriends(...a),
+  readFriend: (...a)=>friendsPortMod.readFriend(...a),
   watchPresence: (...a)=>friendsPortMod.watchPresence(...a),
   readPresence: (...a)=>friendsPortMod.readPresence(...a),
   current: ()=>_myHomeFriends,

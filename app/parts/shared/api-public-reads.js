@@ -12,6 +12,7 @@
  *
  * deps: api(TwApi.client — get(path)) · readCell(path) → Promise<값>(Firebase 한 칸 · 사진이 사본에 없을 때만) · now
  * wrap(firebaseAPI) — 위 함수들(fetchAvatar · fetchMyRank 포함)을 «API 먼저» 판으로 바꿔 끼운다. 원래 함수는 대체 길로 남는다.
+ *   fetchUserCardApi(uid) 는 명함 날것만 단다(대체 길 없음 — 친구 포트가 넘어가기를 정한다).
  */
 export const API_PATHS = Object.freeze({
   randomPlaylist: '/v1/playlists/random',
@@ -108,6 +109,10 @@ export function createApiPublicReads(deps){
       if(d !== null && !isObj(d)){ warn('명함 모양', null); return orig.fetchPlaylistCard(uid); }
       return cardOf(d, await avatarFrom(uid, d));
     };
+
+    /* 👥 명함 날것만(API · Firebase 대체 길 없음) — 친구 포트(friends-api.js)가 부른다. 넘어가기는 포트가 정한다(source-switch).
+       data | null(없는 사람) · 실패는 던진다. */
+    fb.fetchUserCardApi = (uid) => apiCard(uid);
 
     /* 🖼 프로필 사진 하나 — 예전엔 사진 하나 때문에 users/{uid}/home 을 통째로 받았다(게시글 · 스티커까지).
        API 명함 → 못 받으면 원래 함수(Firebase home/avatar 한 칸 · firebase-init). 없으면 null. */

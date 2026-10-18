@@ -783,6 +783,8 @@
     },
     /* 🏆 내 순위 한 줄은 API 에만 있다 — Firebase 길은 undefined(부르는 쪽이 100줄 + rankOf). */
     async fetchMyRank(){ return undefined; },
+    /* 👥 명함 날것은 API 에만 있다 — api-public-reads.js 가 바꿔 끼운다. 그 전엔 거절(친구 포트가 옛 길 카드로). */
+    fetchUserCardApi(){ return Promise.reject(Object.assign(new Error('API 통로 없음'), { code: 'NO_API' })); },
     /* 🎲 남의 목록에서 **비지 않은 프리셋 하나를 무작위로** 고른다.
        [왜 여기 한 곳인가] 무작위 파도타기와 친구 지목 파도타기가 같은 규칙을 써야 한다.
          두 곳에서 각각 뽑으면 «친구 것은 늘 1번만 뜬다» 같은 어긋남이 조용히 생긴다.

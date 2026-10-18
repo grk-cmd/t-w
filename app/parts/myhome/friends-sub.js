@@ -1,12 +1,13 @@
 /* friends-sub.js — 👥 내 친구 목록 한 벌 — 상태(불러오는 중 · 못 불러옴 · 받음) · 다시 걸기 · 판정용 한 번 읽기 · 목록 열기/닫기
    책임: 친구 목록 구독(포트 friends/friends-port.js 의 watchList — 추가 · 삭제)을 «동시에 하나만» 건다. 실패하면 목록을 열 때(친구 탭 · 워킹룸 초대 목록)만 다시 건다 — 타이머 재시도는 없다.
      이름 · 레벨 · 소개 · 사진은 실시간이 아니다 — 켤 때 한 번 + 목록을 열 때 포트의 listFriends(서버 먼저)로 받아 목록에 얹는다.
+     그 사이 새로 생긴 친구(구독에 늘어난 id)는 그 친구만 readFriend(서버 먼저)로 한 번 받는다 — 실행마다 친구당 한 번 · 실패면 자리표시('...') 그대로.
      접속 상태(온라인 · 방)는 목록이 하나라도 열려 있는 동안만 듣는다(watchPresence — 친구 n명이면 n개) · 닫으면 푼다(마지막 값은 남는다).
      닫혀 있을 때 접속 상태가 필요한 곳(놀러 가기 · 파도타기 친구 고르기)은 refreshPresence(ids) 로 그 친구만 한 번 읽는다.
      친구 추가 · 수락 판정은 friendsForCheck() 로 — 받았으면 지금 목록, 아니면 이 모듈 한 곳에서만 한 번 읽는다(진행 중이면 모두가 같은 Promise).
      화면은 notice() 하나로 같은 문구 · 같은 상태를 읽는다.
    deps: subscribe(myId, onChange, onError) → 해제 함수 · fetchOnce(myId) → Promise<{친구id:{addedAt}}>(판정용) ·
-         listFriends(myId) → Promise<{친구id: 친구}>(이름 · 레벨 · 소개 · 사진) · watchPresence(myId, ids, onChange) → 해제 함수 ·
+         listFriends(myId) → Promise<{친구id: 친구}>(이름 · 레벨 · 소개 · 사진) · readFriend(fid) → Promise<친구 | null>(새 친구 한 명) · watchPresence(myId, ids, onChange) → 해제 함수 ·
          readPresence(fid) → Promise<접속 상태> · current() → 지금 목록 ·
          setFriends(v) · getMyUserId() · toast(msg) · setTimer(fn, ms) → id · clearTimer(id) · onUnload(fn)(앱 종료 · 로그아웃 뒤 재시작 때 정리)
    내보냄: start(myId, onFriends, onStatus) · stop() · status() · notice() · retryIfFailed() · friendsForCheck() ·
@@ -55,6 +56,7 @@ function createFriendsSub(deps){
 const subscribe = deps.subscribe;
 const fetchOnce = deps.fetchOnce;
 const listFriends = deps.listFriends;
+const readFriend = deps.readFriend;
 const watchPresence = deps.watchPresence;
 const readPresence = deps.readPresence;
 const current = deps.current;
@@ -77,6 +79,8 @@ let _details = {};     // listFriends 로 받은 이름 · 레벨 · 소개 · �
 let _detailsP = null;  // 진행 중인 이름 받기(하나뿐)
 let _detailsTried = false;   // 이름 받기를 한 번이라도 끝냈나(성공이든 실패든) — 첫 받기 동안만 «불러오는 중»
 let _run = 0;          // start · stop 마다 올린다 — 지난 실행의 늦은 이름 받기는 버린다
+let _gotIds = false;   // 이번 실행에서 구독 값을 한 번이라도 받았나 — 그 뒤에 늘어난 id 만 «새 친구»
+let _asked = {};       // 이번 실행에서 한 명 받기를 이미 물은 친구 { 친구id: true } — 진행 중 · 실패도 다시 안 묻는다(다음 목록 받기가 채운다)
 let _open = {};        // 열려 있는 목록 { key: onUpdate | null }
 let _presence = {};    // 접속 상태 { 친구id: { online, lastSeen, room, inRoom } } — 닫은 뒤에도 마지막 값은 남는다
 let _presOff = null;   // 지금 걸린 접속 상태 듣기의 해제 함수(하나뿐 — 친구 n명을 한 벌로)
@@ -104,11 +108,28 @@ function _emit(){
 function _ok(gen, friends){
   if(gen !== _gen) return;
   _okSeq++;
+  const prev = _gotIds ? _ids : null;
   _ids = friends || {};
+  _gotIds = true;
   _status = STATUS.READY;   // 그리기 전에 바꾼다 — onFriends 가 그리는 화면이 notice() 를 읽는다
   _emit();
   _wake();
   _syncPresence();   // 목록이 열려 있으면 늘어난 · 줄어든 친구에 맞춰 다시 듣는다
+  if(prev) _loadNew(Object.keys(_ids).filter(fid=>!(fid in prev)));
+}
+/* 새로 생긴 친구(지난 구독 값에 없던 id) 중 이름을 아직 모르는 친구만 한 명씩 받는다.
+   첫 구독 값은 새 친구로 치지 않는다 — 첫 목록 받기가 실패했을 때 친구 n명을 한 명씩 묻지 않게. 첫 목록 받기 중이면 그것이 채운다. */
+function _loadNew(added){
+  if(!_detailsTried || !_myId) return;
+  const run = _run;
+  for(const fid of added){
+    if(_details[fid] || _asked[fid]) continue;
+    _asked[fid] = true;
+    Promise.resolve()
+      .then(()=>readFriend(fid))
+      .then(v=>{ if(run !== _run || !v) return; _details[fid] = v; _emit(); },
+            e=>{ if(run === _run) console.warn('[친구 목록] 새 친구 이름 · 사진을 못 받음 — 자리표시 그대로', fid, e); });
+  }
 }
 function _stopPresence(){
   const u = _presOff; _presOff = null; _presKey = '';
@@ -125,6 +146,12 @@ function _syncPresence(){
   try{ _presOff = watchPresence(_myId, want.split(','), p=>{ if(run !== _run) return; Object.assign(_presence, p); _emit(); }); }
   catch(e){ _presOff = null; console.warn('[친구 목록] 접속 상태 듣기 실패', e); }
 }
+/* 다시 받은 목록에 없는 지금 친구(서버 사본이 늦음)는 알던 이름을 남긴다 — 한 명 받기로 채운 새 친구가 '...' 로 돌아가지 않게. */
+function _keepKnown(next){
+  const out = Object.assign({}, next);
+  for(const fid of Object.keys(_ids)) if(!out[fid] && _details[fid]) out[fid] = _details[fid];
+  return out;
+}
 /* 이름 · 레벨 · 소개 · 사진 받기 — 포트가 서버 먼저 · 못 받으면 옛 길. 진행 중이면 그것을 같이 기다린다. 실패해도 목록은 그대로 그린다. */
 function _loadDetails(){
   if(_detailsP) return _detailsP;
@@ -132,7 +159,7 @@ function _loadDetails(){
   const run = _run, myId = _myId;
   _detailsP = Promise.resolve()
     .then(()=>listFriends(myId))
-    .then(v=>{ if(run === _run) _details = v || {}; },
+    .then(v=>{ if(run === _run) _details = _keepKnown(v || {}); },
           e=>{ if(run === _run) console.warn('[친구 목록] 이름 · 사진을 못 받음 — 받은 목록 그대로', e); })
     .then(()=>{
       if(run !== _run) return;
@@ -175,7 +202,7 @@ function stop(){
   _detach();
   _stopPresence();
   _status = STATUS.IDLE;
-  _ids = {}; _details = {}; _detailsP = null; _detailsTried = false; _presence = {};
+  _ids = {}; _details = {}; _detailsP = null; _detailsTried = false; _presence = {}; _asked = {}; _gotIds = false;
   _wake();
 }
 /* 목록을 열 때 부른다. 못 불러온 상태일 때만 다시 건다 — 받았거나 · 거는 중이면 아무것도 안 한다.

@@ -44,6 +44,7 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
     subscribe: (...a)=>friendsPortMod.watchList(...a),                // (myId, onChange, onError) → 해제 함수 — 포트(friends/)
     fetchOnce: (id)=>friendsPortMod.listFriends(id, { idsOnly:true }), // 판정용 한 번 읽기 — 부르는 곳은 이 모듈뿐
     listFriends: (...a)=>friendsPortMod.listFriends(...a),            // 이름 · 레벨 · 소개 · 사진(서버 먼저) — 켤 때 + 목록 열 때
+    readFriend: (...a)=>friendsPortMod.readFriend(...a),              // 새로 생긴 친구 한 명(서버 먼저) — 늘어난 id 만
     watchPresence: (...a)=>friendsPortMod.watchPresence(...a),        // 접속 상태 — 목록이 열려 있는 동안만
     readPresence: (...a)=>friendsPortMod.readPresence(...a),          // 접속 상태 한 번 — 그 친구만
     current: ()=>_myHomeFriends,
@@ -71,6 +72,9 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
   - 구독이 연결 시도 중이면 판정은 따로 읽지 않고 `SUB_WAIT_MS` 까지 기다린다(같은 경로를 두 번 읽지 않게). 진행 중인 판정은 하나 — 부르는 곳 모두가 같은 Promise 를 기다린다.
   - 한 번 읽은 값은 그 판정에만 쓴다(받음으로 치지 않음). 그 사이 구독 값이 왔으면 구독 값이 이긴다.
   - 이름 · 레벨 · 소개 · 사진은 실시간이 아니다(켤 때 한 번 + 목록 열 때). 누가 친구인지(추가 · 삭제)만 구독이 실시간으로 준다.
+    켠 뒤 새로 생긴 친구(구독 값에 늘어난 id)는 그 친구만 `readFriend` 로 한 번 받는다 — 목록 전체를 다시 받지 않는다. 실행마다 친구당 한 번 ·
+    실패 · 없음이면 자리표시('...') 그대로(타이머 재시도 없음 — 다음 목록 받기가 채운다). 첫 구독 값은 새 친구로 치지 않는다(첫 받기가 실패했을 때 n명을 한 명씩 묻지 않게).
+    다시 받은 목록에 없는 지금 친구(서버 사본이 늦음)는 알던 이름을 남긴다.
   - 접속 상태(온라인 · 방)는 목록이 열려 있는 동안만 실시간이다. 닫은 뒤 `_myHomeFriends` 의 online · room 은 **마지막 값**이다 —
     닫힌 채로 접속 상태가 필요한 곳은 `refreshPresence([그 친구])` 를 먼저 부른다(friend-visit.js 놀러 가기 · playlist.js 파도타기 친구 고르기).
     받은 뒤라도 첫 이름 받기 동안은 `notice()` 가 «불러오는 중» 이다(이름 없는 '...' 목록을 잠깐 보이지 않게).
