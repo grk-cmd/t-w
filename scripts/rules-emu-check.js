@@ -119,6 +119,11 @@ const LIMIT_CASES = [
   ['친구 코드 — 모르는 칸', 'PUT', 'friendCodes/COZY-EF56', { userId: GOOD_U, junk: 1 }, false],
 
   /* 말랑이 선물 */
+  ['말랑이 — 칸 묶음 {url, on} 저장(앱이 실제로 쓰는 모양)', 'PUT', `users/${GOOD_U}/mallang`, { imgs: [{ url: URL_S, on: true }, { url: URL_S, on: false }] }, true],
+  ['말랑이 — 옛 글자 모양도 받음', 'PUT', `users/${GOOD_U}/mallang`, { imgs: [URL_S] }, true],
+  ['말랑이 — 전부 지우기', 'PUT', `users/${GOOD_U}/mallang`, { imgs: [] }, true],
+  ['말랑이 — 칸에 모르는 키', 'PUT', `users/${GOOD_U}/mallang`, { imgs: [{ url: URL_S, junk: 1 }] }, false],
+  ['말랑이 — 다섯 번째 칸', 'PUT', `users/${GOOD_U}/mallang/imgs/4`, { url: URL_S, on: true }, false],
   ['선물 — 보내기 통째', 'PUT', `users/${GOOD_U2}/mallangGifts/-Ngift1`, { imgUrl: URL_S, fromName: '민수', fromId: GOOD_U, ts: 1, msg: '안녕' }, true],
   ['선물 — 숨기기', 'PUT', `users/${GOOD_U2}/mallangGifts/-Ngift1/hidden`, true, true],
   ['선물 — 별표', 'PUT', `users/${GOOD_U2}/mallangGifts/-Ngift1/starred`, true, true],
