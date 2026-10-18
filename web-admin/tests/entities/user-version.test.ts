@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildUserRows,
   compareVerDesc,
+  currentVer,
   matchesVer,
   OLD_VER_LABEL,
   verLabel,
@@ -31,12 +32,23 @@ describe('사용자 버전', () => {
     expect(ver).toMatchObject({ a: '0.10.3', d: null, g: null, z: null });
   });
 
-  it('표시 — 계정은 있는데 버전이 없으면 «0.10.2 이하», 계정이 없으면 —', () => {
+  it('presence 를 못 받으면 계정 요약 — 계정은 있는데 버전이 없으면 «0.10.2 이하», 계정이 없으면 —', () => {
     const by = (id: string) => rows.find((r) => r.userCode === id)!;
-    expect(verLabel(by('a'))).toBe('0.10.3');
-    expect(verLabel(by('d'))).toBe(OLD_VER_LABEL);
+    expect(verLabel(currentVer(null, by('a')))).toBe('0.10.3');
+    expect(verLabel(currentVer(null, by('d')))).toBe(OLD_VER_LABEL);
     expect(OLD_VER_LABEL).toBe('0.10.2 이하');
-    expect(verLabel(by('z'))).toBe('—');
+    expect(verLabel(currentVer(null, by('z')))).toBe('—');
+  });
+
+  it('presence 가 있으면 그것만 — 계정 요약에 남은 옛 값은 안 본다', () => {
+    const by = (id: string) => rows.find((r) => r.userCode === id)!;
+    // 요약은 비었는데(로그인 기기가 다시 안 올림) 지금 앱은 0.11.3
+    expect(currentVer({ ver: '0.11.3' }, by('d'))).toEqual({ ver: '0.11.3', old: false });
+    // 요약엔 0.10.3 이 남았는데 지금 켠 앱은 버전을 안 남기는 옛 앱
+    expect(currentVer({ ver: null }, by('a'))).toEqual({ ver: null, old: true });
+    // 계정이 없어도 presence 로 안다
+    expect(verLabel(currentVer({ ver: '0.11.0' }, by('z')))).toBe('0.11.0');
+    expect(verLabel(currentVer({ ver: null }, by('z')))).toBe(OLD_VER_LABEL);
   });
 
   it('버전 비교 — 숫자 자리로, 정식판이 베타보다 크다', () => {

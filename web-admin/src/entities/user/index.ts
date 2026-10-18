@@ -38,11 +38,13 @@ export {
 export {
   ACTIVE_DAYS,
   compareVerDesc,
+  currentVer,
   matchesVer,
   OLD_VER_LABEL,
   toVersionCounts,
   verLabel,
   versionCounts,
+  type CurrentVer,
   type VersionCount,
 } from './model/version';
 export {
