@@ -58,20 +58,21 @@ describe('사용자 버전', () => {
     expect(sorted).toEqual(['0.10.10', '0.10.4', '0.10.4-beta.2', '0.10.4-beta.1', '0.10.3', '0.9.9']);
   });
 
-  it('최근 7일 접속한 계정만 버전별로 — 큰 버전부터, 기록 없음은 맨 뒤', () => {
-    const counts = versionCounts(rows, NOW);
+  it('계정마다 가장 최근 값으로 버전별로(기간 없음) — 큰 버전부터, 기록 없음은 맨 뒤', () => {
+    const counts = versionCounts(rows);
     expect(counts.map((c) => [c.ver, c.count])).toEqual([
       ['0.10.10', 1],
+      ['0.10.4', 1], // e — 8일 전이어도 센다
       ['0.10.4-beta.1', 1],
       ['0.10.3', 2],
       [null, 2], // d(옛 앱) + g(이상한 값)
     ]);
     expect(counts.reduce((s, c) => s + c.share, 0)).toBeCloseTo(1);
-    expect(counts.find((c) => c.ver === '0.10.3')?.share).toBeCloseTo(2 / 6);
+    expect(counts.find((c) => c.ver === '0.10.3')?.share).toBeCloseTo(2 / 7);
   });
 
   it('아무도 없으면 빈 목록', () => {
-    expect(versionCounts([], NOW)).toEqual([]);
+    expect(versionCounts([])).toEqual([]);
   });
 
   it('버전으로 좁히기 — null 은 기록 없는 계정만(계정 없는 사람은 빠진다)', () => {

@@ -36,7 +36,6 @@ export {
   type UserRow,
 } from './model/userRow';
 export {
-  ACTIVE_DAYS,
   compareVerDesc,
   currentVer,
   matchesVer,

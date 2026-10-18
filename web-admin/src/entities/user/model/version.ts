@@ -57,18 +57,14 @@ export interface VersionCount {
   share: number;
 }
 
-export const ACTIVE_DAYS = 7;
-const DAY = 24 * 60 * 60 * 1000;
-
 /**
- * 최근 days 일 안에 앱을 켠(계정 요약을 올린) 사람을 버전별로 센다 — 큰 버전부터, 기록 없음은 맨 뒤.
- * 계정이 없는 사람은 lastSeen 이 0 이라 저절로 빠진다.
+ * 계정마다 가장 최근 값으로 버전별로 센다(기간 없음 — 눌러서 나오는 목록과 같은 사람들) — 큰 버전부터, 기록 없음은 맨 뒤.
+ * 계정이 없는 사람은 버전을 알 수 없어 빠진다.
  */
-export function versionCounts(rows: UserRow[], now: number, days = ACTIVE_DAYS): VersionCount[] {
-  const since = now - days * DAY;
+export function versionCounts(rows: UserRow[]): VersionCount[] {
   const counts = new Map<string | null, number>();
   for (const row of rows) {
-    if (!row.hasAccount || row.lastSeen < since) continue;
+    if (!row.hasAccount) continue;
     counts.set(row.ver, (counts.get(row.ver) ?? 0) + 1);
   }
   return toVersionCounts([...counts.entries()].map(([ver, count]) => ({ ver, count })));
