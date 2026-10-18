@@ -828,7 +828,7 @@
       }
     },
     "playlistIndex": {
-      ".read": "query.limitToLast <= 60 && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
+      ".read": "(auth != null && root.child('apiBots').child(auth.uid).val() === true) || (query.limitToLast <= 60 && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true))",
       ".indexOn": "ts",
       "$uid": {
         ".write": "(!root.child('userAuth/'+$uid).exists() || root.child('userAuth/'+$uid).val() === auth.uid) && (root.child('users/'+$uid+'/presence/ver').exists() || root.child('users/'+$uid+'/presence/online').val() !== true)",
@@ -1177,7 +1177,7 @@
     "bugBoard": {
       ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "list": {
-        ".read": "query.limitToLast <= 20 && (query.orderByChild == 'ts' || query.orderByChild == 'openTs' || query.orderByChild == 'nts' || (query.orderByChild == 'authUid' && auth != null && query.equalTo == auth.uid)) && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
+        ".read": "(auth != null && root.child('apiBots').child(auth.uid).val() === true) || (query.limitToLast <= 20 && (query.orderByChild == 'ts' || query.orderByChild == 'openTs' || query.orderByChild == 'nts' || (query.orderByChild == 'authUid' && auth != null && query.equalTo == auth.uid)) && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true))",
         ".indexOn": [
           "ts",
           "openTs",

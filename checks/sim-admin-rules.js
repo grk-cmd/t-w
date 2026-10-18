@@ -122,15 +122,16 @@ console.log('\n── 3. 새는 곳이 없는가');
   }
   // 공개 읽기 사본(파도타기 색인 · 랭킹) — 사람은 예전 쿼리 조건 그대로, 봇만 통째로 읽는다. 쓰기 · 아래 칸은 그대로.
   const BOT = "(auth != null && root.child('apiBots').child(auth.uid).val() === true)";
-  chk(r('playlistIndex') === 'query.limitToLast <= 60 || ' + BOT && !/apiBots/.test(JSON.stringify(at('playlistIndex')).replace(String(r('playlistIndex')), '')),
-      '파도타기 색인(playlistIndex) 읽기 — 최근 60줄 쿼리 또는 봇 · 봇은 다른 칸 없음');
+  // 봇 갈래가 앞 — «최근 N개» 조건이 앞이면 조건 없는 봇 통째 읽기에서 계산이 먼저 실패해 봇도 401(10-18 · scripts/rules-emu-check.js «서버 봇»)
+  chk(r('playlistIndex') === BOT + ' || (query.limitToLast <= 60)' && !/apiBots/.test(JSON.stringify(at('playlistIndex')).replace(String(r('playlistIndex')), '')),
+      '파도타기 색인(playlistIndex) 읽기 — 봇(먼저) 또는 최근 60줄 쿼리 · 봇은 다른 칸 없음');
   chk(r('leaderboard') === "(query.orderByChild == 'sec' && query.limitToLast <= 100) || " + BOT && !/apiBots/.test(JSON.stringify(at('leaderboard')).replace(String(r('leaderboard')), '')),
       '랭킹(leaderboard) 읽기 — sec 정렬 100줄 쿼리 또는 봇 · 봇은 다른 칸 없음');
   // 웹 관리자 버그 제보 목록을 API 로(전체 수 · 쪽 번호) — 사람은 예전 20줄 쿼리 그대로, 봇만 목록 한 줄들을 통째로. 본문 · 답변은 봇도 못 읽는다.
   {
     const rd = String(r('bugBoard/list'));
-    chk(/^query\.limitToLast <= 20 && \(/.test(rd) && rd.endsWith(') || ' + BOT) && !/apiBots/.test(JSON.stringify(at('bugBoard')).replace(rd, '')),
-        '버그 제보 목록(bugBoard/list) 읽기 — 20줄 쿼리 또는 봇 · 봇은 다른 칸(본문 · 답변) 없음');
+    chk(rd.startsWith(BOT + ' || (query.limitToLast <= 20 && (') && !/apiBots/.test(JSON.stringify(at('bugBoard')).replace(rd, '')),
+        '버그 제보 목록(bugBoard/list) 읽기 — 봇(먼저) 또는 20줄 쿼리 · 봇은 다른 칸(본문 · 답변) 없음');
   }
   chk(!!at('admins/$uid') && at('admins/$uid')['.write'] === false, '관리자 명단은 앱에서 쓸 수 없다 (콘솔에서만)');
   chk(r('srKey') === false && w('srKey') === false, '시크릿룸 발급 키는 그대로 잠겨 있다');
