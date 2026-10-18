@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 375 (≤0.10.2 앱 읽기도 막기 — 규칙만)
-대상: `sim-*.js` 324개 + `smoke.js` + `audit.py` = **326개** (개정 375 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 376 (생성기 프리셋 카탈로그 책상 id 만 담기 — 제보 8)
+대상: `sim-*.js` 324개 + `smoke.js` + `audit.py` = **326개** (개정 376 기준 — 폴더를 센 값)
+
+**개정 376 에서 한 것 (2026-10-18 · 생성기 프리셋에 카탈로그 책상 파일 통째로 넣지 않기 — 10-16 제보 8 · 동작 변경 · 사용자 요청)**
+- 앱: `creator/desk-preset-store.js` 저장 때 카탈로그 책상(다시 받을 수 있음 — `commission.js` catalogBacked 한 곳)은 GLB 바이트를 빼고 id 만(`slimPresets` · 옛 칸도 같이). `creator/desk-preset.js` 적용 때 바이트가 없으면 카탈로그 기록에서 받고(`_presetDeskGlb`), 카탈로그에도 없으면 새 번호 `E-CHAR-08` + 기본 책상. 예전에는 1MB 책상이면 4번째 칸부터 이 PC 저장소가 넘쳐 저장이 실패했다(0.11.3 은 실패해도 «저장했어요»).
+- 검사: `sim-desk-preset.js` 4-2절 여덟(id 만 저장 · 직접 넣은 책상은 바이트 · 옛 칸 가볍게 · slimPresets 경계 · URL 받기 · 기록 바이트 · 못 찾음 E-CHAR-08 · 라이선스 잠김은 안 받음) · 깨 보기 셋 · world 가 깨 본 저장 글을 쓰게 — **57·0**. `sim-commission.js` 내놓는 이름에 catalogBacked(판정 무변경). `sim-json-store.js` 만드는 줄 deps 가 늘어도 읽게(판정 무변경).
 
 **개정 375 에서 한 것 (2026-10-18 · ≤0.10.2 앱 읽기도 막기 — 규칙만 · 앱 무변경 · 사용자 결정 «이전 버전으로 아무것도 못 하게»)**
 - 규칙: 앱이 읽는 .read 71곳에 같은 조건 — 읽는 사람 로그인(auth.uid) → authUsers/{authUid}.userCode → 그 코드의 presence 가 «켜짐 · ver 없음» 이면 거절. 로그인 없음(0.11 의 로그인 없는 REST · 링크 페이지) · 이어진 코드 없음(가입 중 익명 · 봇)은 통과. 관리자 · 봇 갈래 · mobileLink · mobileKeys 는 그대로. 다른 조건 뒤에는 « && 조건» 으로만 붙여 걷으면 예전 글과 같다. presence: ver 없는 수동 오프라인(inRoom 실림 — 0.10.2 의 토글)은 거절 · onDisconnect(inRoom 없음)는 받음 — 옛 앱이 «꺼짐» 으로 빠져나가지 못한다.
@@ -2510,8 +2514,8 @@
 | **sim-def-send.js** | 211 | **e16ae6963145** ← **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
 | **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** ← **개정 353 body-measure.js 를 넘겨 돌림(_boxExcluding 은 char-measure.js · 판정 무변경)** · **개정 291 핀 상쇄를 동작 판정으로 · 겹친 글자 판정 셋 걷음** · **개정 284 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(측정이 char-measure.js 로 · 판정 무변경)** · **개정 280 기즈모 · 좌석 세팅 글은 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** |
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** ← **개정 305 되살린 글에서 읽는다(판정 무변경)** |
-| **sim-desk-preset.js** | 215 | **0f95b9b1e295** ← **개정 364 내놓는 이름 · E-CHAR-03 · deps 28** · **개정 363 진짜 json-store 를 넘김 · 만드는 줄 deps(판정 무변경)** · **개정 335 깨 보기를 상수 줄로 · PRESET_SLOTS(판정 무변경)** · **개정 333 신설 · 🗂 책상 · 좌석 세팅 프리셋(creator/desk-preset-store.js · desk-preset.js) — 저장 · 담기 · 적용 · 책상 모델 · 칸 화면 · 연결** |
-| **sim-json-store.js** | 209 | **e17a3e4475e2** ← **개정 365 망가진 저장분 막기 · E-CHAR-06 · 07 · 깨 보기** · **개정 364 4절 실패 알림 · 깨 보기** · **개정 363 신설 · localStorage JSON 칸 읽기 · 쓰기 한 곳(shared/json-store.js) — 경계 · 프리셋 두 벌 동작 · 배선** |
+| **sim-desk-preset.js** | 251 | **3ed07bb98346** ← **개정 376 카탈로그 책상 id 만 저장 · 불러올 때 받기 · E-CHAR-08(제보 8)** · **개정 364 내놓는 이름 · E-CHAR-03 · deps 28** · **개정 363 진짜 json-store 를 넘김 · 만드는 줄 deps(판정 무변경)** · **개정 335 깨 보기를 상수 줄로 · PRESET_SLOTS(판정 무변경)** · **개정 333 신설 · 🗂 책상 · 좌석 세팅 프리셋(creator/desk-preset-store.js · desk-preset.js) — 저장 · 담기 · 적용 · 책상 모델 · 칸 화면 · 연결** |
+| **sim-json-store.js** | 209 | **05d6cff00a2f** ← **개정 376 만드는 줄 deps 가 늘어도 읽게(판정 무변경)** · **개정 365 망가진 저장분 막기 · E-CHAR-06 · 07 · 깨 보기** · **개정 364 4절 실패 알림 · 깨 보기** · **개정 363 신설 · localStorage JSON 칸 읽기 · 쓰기 한 곳(shared/json-store.js) — 경계 · 프리셋 두 벌 동작 · 배선** |
 | **sim-desk-setup.js** | 228 | **268fe68a88b2** ← **개정 334 신설 · 🪑 책상 세팅(creator/desk-setup.js) — 책상 · 아이템 카드 · 고르기 · 순서 · 갈고리 · 입구 전제 · 연결** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
@@ -2724,7 +2728,7 @@
 | **sim-myhome-diag.js** | 95 | **26738cf17aa4** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 신설 · 🔍 마이홈 클릭 진단 모듈(myhome-diag.js) 구조** |
 | **sim-myhome-visit.js** | 96 | **bc02dfa9f8e2** ← **개정 272 만들 때 가짜 고리판을 준다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 245 공용 상태를 myhome-state.js 로 — deps +9(읽는 함수 · 쓰는 함수) · 내놓는 이름 12 → 3(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 신설 · 🏠 마이홈 데이터 · 👀 친구 홈 구경 모듈(myhome-visit.js) 구조** |
 | **sim-code-crypto.js** | 96 | **65e908d410f1** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 214 신설 · 🔐 캐릭터 코드 암호화 모듈(code-crypto.js) 구조** |
-| **sim-commission.js** | 103 | **df2537b16091** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 235 만들 때 되부름 · 부팅 등록 줄 판정 추가** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 214 신설 · 📦 커미션 · 💾 저장 에셋 모듈(commission.js) 구조** |
+| **sim-commission.js** | 103 | **f2dfe500eb47** ← **개정 376 내놓는 이름에 catalogBacked(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 235 만들 때 되부름 · 부팅 등록 줄 판정 추가** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 214 신설 · 📦 커미션 · 💾 저장 에셋 모듈(commission.js) 구조** |
 | **sim-exp-bar.js** | 96 | **74b98b49f42f** ← **개정 351 deps 에 bindLabelDrag** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 214 신설 · ⭐ 경험치 바 모듈(exp-bar.js) 구조** |
 | **sim-focus-total.js** | 96 | **8cffe6294bd4** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 214 신설 · ⏱️ 포커스 누적 모듈(focus-total.js) 구조** |
 | **sim-focus-share.js** | 96 | **18932a701a4c** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 214 신설 · 📊 오늘 기록 전시 모듈(focus-share.js) 구조** |

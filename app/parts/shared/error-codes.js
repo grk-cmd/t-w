@@ -43,6 +43,7 @@ const CODES = {
   'E-CHAR-05': { msg: '프리셋을 읽지 못했어요', where: 'character/animal.js — 동물 프리셋 읽기 해석 실패 (_loadPresets · tw.animalPresets)' },
   'E-CHAR-06': { msg: '저장된 프리셋을 읽지 못해 덮어쓰지 않았어요', where: 'creator/desk-preset.js — 📐 책상 프리셋 저장 · 비우기를 막음(tw.deskPresets 해석 실패 · json-store save blocked)' },
   'E-CHAR-07': { msg: '저장된 프리셋을 읽지 못해 덮어쓰지 않았어요', where: 'character/animal.js — 동물 프리셋 저장 · 삭제를 막음(tw.animalPresets 해석 실패 · json-store save blocked)' },
+  'E-CHAR-08': { msg: '프리셋의 책상을 찾지 못해 기본 책상으로 열었어요', where: 'creator/desk-preset.js — applyDeskPreset 카탈로그 책상을 못 찾음 · 못 받음(프리셋엔 id 만)' },
   'E-DATA-01': { msg: '이 작업을 할 권한이 없어요', where: 'shared/data-gateway.js — 서버 범용 통로 ACCESS_DENIED(경로 처리기가 권한 거절)' },
   'E-DATA-02': { msg: '요청 모양이 맞지 않아 처리하지 못했어요', where: 'shared/data-gateway.js — 서버 범용 통로 INVALID_REQUEST' },
   'E-DATA-03': { msg: '다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요', where: 'shared/data-gateway.js — 서버 범용 통로 CONCURRENT_UPDATE' },
