@@ -2132,7 +2132,7 @@ function refreshMyStatusUI(){
   if(c){
     // 세로 배열 A안: 라벨 요소는 없앴고 대신 title(툴팁)로 현재 상태 표시. dot 색은 그대로 상태 시각화.
     btn.title = (c.emo ? c.emo+' ' : '') + c.label;
-    if(dot){ dot.style.background = c.dot||'#9dba8a'; dot.style.boxShadow='0 0 0 2px '+statusChipMod.hexToRgba(c.dot||'#9dba8a',.18); }
+    if(dot){ dot.style.background = TwSafeHtml.cssColor(c.dot||'#9dba8a'); dot.style.boxShadow='0 0 0 2px '+statusChipMod.hexToRgba(c.dot||'#9dba8a',.18); }
   } else {
     btn.title = '상태';
     if(dot){ dot.style.background = '#9dba8a'; dot.style.boxShadow='0 0 0 2px rgba(157,186,138,.18)'; }
@@ -2835,22 +2835,10 @@ let _myInboxReady = false;
 let _inboxBroadcast = {};       // 📢 공용 공지(전체 대상) { id: {tag, title, body, ts} } — 읽음은 로컬
 const INBOX_BC_READ_KEY = 'tw.inboxBcRead';   // 공용 공지 읽음 id 집합(로컬)
 /* ═══ 🛡️ 공용 HTML 이스케이프(escHtml) ═══ */
-/* 🛡️ 공용 HTML 이스케이프 — **다섯 문자 전부**(`& < > " '`)를 막는다.
-   [경위] 예전엔 강도가 다른 헬퍼가 셋이었다: `_chatEsc`(다섯 전부) · `_mhEsc`(`&`·`<` 둘뿐) ·
-     `_linkifyText` 내부(`'` 만 빠짐). 약한 쪽이 **속성값 안에서** 쓰이면 닉네임에 `"` 를 넣어
-     속성을 빠져나와 `on*` 이벤트를 새로 붙일 수 있다 — 친구 목록 `title=` 이 그 구멍이었다.
-     그래서 하나로 합쳤다. `_mhEsc` 는 없앴고, `_chatEsc` 는 **이름만** 별칭으로 남긴다
-     (채팅 쪽 마커 복원 구조가 그 이름을 쓴다).
-   ⚠️ **다섯 문자에서 하나도 빼지 말 것.** 하나만 빠져도 속성 안에서 뚫린다.
-     audit 검사 19 가 다섯 개를 세고 있다.
-   ⚠️ 이스케이프는 **마크업 문자열을 만들 때만** 쓴다. `el.title = …` · `el.textContent = …`
-     처럼 프로퍼티로 넣는 자리에 쓰면 `&quot;` 가 글자로 보인다. 속성은 되도록
-     보간을 버리고 `setAttribute`/프로퍼티로 옮기는 쪽이 낫다 — 이스케이프보다 안전하다. */
-function escHtml(s){
-  return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
-    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
-  ));
-}
+/* 🛡️ 공용 HTML 이스케이프 — 본문은 `shared/safe-html.js` 의 `TwSafeHtml.text`(다섯 글자 전부). 이 이름은 옛 호출부가 쓰는 별칭.
+   ⚠️ 마크업 문자열을 만들 때만 쓴다 — `el.title` · `el.textContent` 같은 프로퍼티에 쓰면 `&quot;` 가 글자로 보인다.
+   ⚠️ 다른 escape 를 새로 만들지 않는다(sim-safe-html.js 가 빨강). */
+function escHtml(s){ return TwSafeHtml.text(s); }
 
 /* ═══ 💬 채팅창 투명도 · 글자 크기 ═══ */
 /* 본문은 chat-prefs.js 로 옮겼다(앱 FSD 41번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -3058,7 +3046,8 @@ function renderMyHomeStickers(){
     const s=data[sid];
     const el=document.createElement('div'); el.className='mh-sticker';
     if(canEdit && TwMyHomeStickerRules.isLocked(s)) el.classList.add('locked');   // 🔒 끌리지 않음 표시
-    if(s.img){ const im=document.createElement('img'); im.src=s.img; im.draggable=false; el.appendChild(im); }
+    const stSrc = s.img && TwSafeHtml.safeUrl(s.img, 'image');   // 친구 홈 구경에서는 남의 스티커 — 허용된 그림 주소만
+    if(s.img){ const im=document.createElement('img'); if(stSrc) im.src=stSrc; im.draggable=false; el.appendChild(im); }
     else {
       // ✨ 이모지도 애니메이션을 걸려면 안쪽 요소가 필요하다(바깥 div는 크기·회전이 이미 쓰고 있음).
       const sp=document.createElement('span'); sp.className='st-emoji'; sp.textContent=s.emoji||'⭐';
@@ -6106,13 +6095,13 @@ const _crColorSw = [];   // 색 입력칸 ↔ 보이는 스와치 짝 (아래 _s
     btn.className='cr-color-sw';
     btn.style.cssText='width:46px;height:26px;border-radius:13px;border:1px solid rgba(0,0,0,.12);'
       +'cursor:pointer;padding:0;vertical-align:middle;';
-    btn.style.background = inp.value || '#888888';
+    btn.style.background = TwSafeHtml.cssColor(inp.value || '#888888');
     inp.parentNode.insertBefore(btn, inp);
     btn.addEventListener('click', e=>{
       e.preventDefault(); e.stopPropagation();
       if(typeof window.openCharColorPicker !== 'function') return;
       window.openCharColorPicker(btn, inp.value, (c)=>{
-        inp.value = c; btn.style.background = c;
+        inp.value = c; btn.style.background = TwSafeHtml.cssColor(c);
         inp.dispatchEvent(new Event('input', {bubbles:true}));
       });
     });
@@ -6125,8 +6114,8 @@ const _crColorSw = [];   // 색 입력칸 ↔ 보이는 스와치 짝 (아래 _s
          "미리보기는 맞는데 팔레트만 기본색"이라는 제보 문구가 정확히 그 모양이다.
        ★ 그래서 이벤트에 기대지 않고 **직접 맞추는 창구**(_syncCrColorSwatches)를 둔다.
          change 도 함께 듣는다 — 브라우저 기본 색상 선택기는 input 없이 change 만 주는 경우가 있다. */
-    inp.addEventListener('input',  ()=>{ btn.style.background = inp.value; });
-    inp.addEventListener('change', ()=>{ btn.style.background = inp.value; });
+    inp.addEventListener('input',  ()=>{ btn.style.background = TwSafeHtml.cssColor(inp.value); });
+    inp.addEventListener('change', ()=>{ btn.style.background = TwSafeHtml.cssColor(inp.value); });
     _crColorSw.push({ inp, btn });
   };
   bind('topColor');
@@ -6137,7 +6126,7 @@ const _crColorSw = [];   // 색 입력칸 ↔ 보이는 스와치 짝 (아래 _s
    ★ 요소가 셋뿐이라 비용이 없다 — 잊어버리기 쉬운 자리(단계 이동)에서도 그냥 한 번 더 부른다.
      "부르는 것을 잊어서 또 어긋나는" 쪽이 실제로 일어난 사고라, 싸게 여러 번 부르는 편을 택했다. */
 function _syncCrColorSwatches(){
-  try{ _crColorSw.forEach(o=>{ if(o.inp && o.btn) o.btn.style.background = o.inp.value; }); }catch(_){}
+  try{ _crColorSw.forEach(o=>{ if(o.inp && o.btn) o.btn.style.background = TwSafeHtml.cssColor(o.inp.value); }); }catch(_){}
 }
 const skinRow=document.getElementById('skinRow');
 const skinSwatchEls=[];

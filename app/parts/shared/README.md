@@ -241,3 +241,24 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - presence 첫 쓰기(로그인 뒤)는 `ready` 를 기다린다 — «unknown» 으로 쓰고 메우는 쓰기를 줄인다. 그 전에 `.info/connected` 가 먼저 오면 그쪽이 «unknown» 으로 쓰고, 받은 뒤 `onReady` 가 메운다.
 
 검사: `checks/sim-app-version.js` (1절 모듈 · 2절 쓰는 자리 · 3절 규칙 · 5절 presence 쓰기를 실제로 돌림 — 평소 · 늦게 옴 · 못 받음 · companion 없음 · 영영 안 옴 · 오프라인 · 규칙 판정 · 깨 보기 3).
+
+## safe-html.js — 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳
+
+- **책임**: 남이 쓸 수 있는 글(닉네임 · 메모 · 서버 값)을 **친 그대로 보이게** 하고 HTML 로는 절대 안 읽히게 한다. «초마 <뚱쟁이>» · «병준이<3» · «>_<» 는 진짜 이름이다 — 지우거나 거절하지 않는다. 주소 · CSS 값도 여기서 거른다. 순수 함수 · DOM 없음.
+- **만드는 법**: 만들지 않는다(받는 것 없음). `window.TwSafeHtml`(얼린 객체)를 그대로 쓴다. html · `checks/smoke.js` PRELOAD 에서 쓰는 모듈 · app.js 보다 먼저 싣는다. node 에서는 `require('./safe-html.js')`.
+- **내보내는 것**
+  - `text(s)` — 마크업 글자 · 속성값 안에 넣을 값. `& < > " '` 다섯 글자를 엔티티로. app.js `escHtml` · `_chatEsc`, 파일 안 `esc` 는 이것을 부르는 별칭.
+  - `attr(s)` — `text` + 보이지 않는 제어 글자 빼기(줄바꿈 · 탭은 남김 — title 여러 줄). XML 칸(엑셀 내보내기)도 이것.
+  - `safeUrl(u, kind)` → 허용 안 되면 `''`. `'image'` = `data:image/(png|jpeg|webp|gif);base64,` · `https:`(호스트는 아직 안 좁힘) / `'link'` = `https:` · `http:`(2048자 상한). `new URL` 로 읽어 `JaVaScRiPt:` · `\tjavascript:` · `//evil` · 상대 주소를 막는다. 돌려주는 값은 정규화한 주소.
+  - `cssUrl(u)` → `url("…")` 통째로(`safeUrl(u,'image')` + 따옴표 · 역슬래시 막기), 안 되면 `''`.
+  - `cssColor(c)` → 색 · 그라데이션 값 그대로, 주소를 부르는 글(`url(` · `image-set(` …)이나 다른 선언으로 넘어가는 글자(`; { } \ < >` 따옴표)가 있으면 `''`.
+  ```js
+  el.innerHTML = '<b title="' + TwSafeHtml.attr(m.memo) + '">' + TwSafeHtml.text(m.name) + '</b>';
+  const src = TwSafeHtml.safeUrl(item.url, 'image'); if(src) img.src = src;
+  box.style.background = TwSafeHtml.cssUrl(t.img) || TwSafeHtml.cssColor(t.color);
+  ```
+- **확장할 때 고칠 자리**: 그림 형식 · 링크 스킴 · 길이 상한은 파일 위 상수(`DATA_IMAGE` · `LINK_MAX` · `CSS_BAD`). https 호스트를 좁히는 일은 따로 정한다.
+- **함정**
+  - 프로퍼티(`textContent` · `title` · `value` · 토스트)에 넣는 값은 씻지 않는다 — `&lt;` 가 글자로 보인다. 주소만은 프로퍼티라도 `safeUrl`.
+  - 앱 안 그림의 **상대 경로**(`emoji/…` · `assets/…`)는 `safeUrl` 이 막는다 — 그런 고정 경로는 감싸지 않는다(검사는 앞 글자가 주소를 정한 길 조각을 통과시킨다).
+  - **다른 escape 를 새로 만들지 않는다.** `checks/sim-safe-html.js` 가 parts/ 전체 · html `<script>` · main.js · preload.js 를 typescript 파서로 읽어 innerHTML · outerHTML · insertAdjacentHTML · `.src` · `.href` · `style.background*` · `url(` 에 들어가는 값을 끝까지 따라가고, 씻지 않은 잎 · 집에서 만든 escape 가 있으면 빨강. 예외는 그 파일 `ALLOW` 에 이유와 함께만.

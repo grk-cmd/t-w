@@ -37,7 +37,7 @@ function renderCategoryManager(){
     // 그룹 헤더
     const head=document.createElement('div');
     head.style.cssText='font-size:11px;font-weight:bold;color:#333;margin-bottom:6px;padding-bottom:3px;border-bottom:1px solid #a0a0a0;display:flex;justify-content:space-between;';
-    head.innerHTML='<span>'+g.icon+' '+g.label+'</span><span style="color:#666;font-weight:normal;font-size:10px;">'+catsInGroup.length+'개 카테고리</span>';
+    head.innerHTML='<span>'+TwSafeHtml.text(g.icon)+' '+TwSafeHtml.text(g.label)+'</span><span style="color:#666;font-weight:normal;font-size:10px;">'+catsInGroup.length+'개 카테고리</span>';
     sec.appendChild(head);
     // 카테고리 목록
     const catRow=document.createElement('div');
@@ -47,7 +47,7 @@ function renderCategoryManager(){
       const isBuiltin = c.builtin;
       chip.style.cssText='display:inline-flex;align-items:center;gap:3px;padding:4px 8px;font-size:11px;color:#333;border:1px solid #a0a0a0;'
         + (isBuiltin ? 'background:#d4d0c8;' : 'background:#fff4d0;border-color:#d4a020;');
-      chip.innerHTML = c.icon+' '+c.label + (isBuiltin ? ' <span style="font-size:9px;color:#666;">기본</span>' : '');
+      chip.innerHTML = TwSafeHtml.text(c.icon)+' '+TwSafeHtml.text(c.label) + (isBuiltin ? ' <span style="font-size:9px;color:#666;">기본</span>' : '');
       if(isBuiltin){
         // ✎ 기본 카테고리 이름/아이콘 수정 — cat 식별자와 동작(부착 본·숨김 규칙)은 그대로 두고 표시 이름만 바꿈.
         //   모든 사용자에게 반영됨(catalog/catOverrides).

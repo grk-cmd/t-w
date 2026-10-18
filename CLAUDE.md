@@ -70,6 +70,7 @@
 | `app/parts/launcher/program-settings.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 40번) — ⚙️ 프로그램 설정 창(열기 · 닫기 · 회사원 · 피규어 모드 · 모니터 탭 🎚️ 실행 화면 화질 — 규칙은 `shared/frame-budget.js`, 상태 `_renderQuality` 는 app.js). classic script(`window.TwProgramSettings`). 열기 · 닫기는 창 열기 통로(`nav.js`)에 건다 |
 | `app/parts/chat/chat-prefs.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 41번) — 🗑 대화 기록 삭제(방장) · 💬 채팅창 투명도 · 글자 크기 · 🔔 채팅 알림음(상태 · 저장 · 메뉴). classic script(`window.TwChatPrefs`), 부르는 곳은 `chatPrefsMod.이름` |
 | `app/parts/shared/rich-text.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🛡️ 리치 텍스트 sanitize(`_mhSanitizeHtml`) · 저장 · 불러오기(`_mhLoadRT` — 남의 bio · 게시글은 반드시 여기를 거친다) · 글자 수. classic script(`window.TwRichText`), 부르는 곳은 `richTextMod.이름` |
+| `app/parts/shared/safe-html.js` | 🛡️ 남이 쓸 수 있는 값을 화면(HTML · 속성 · 주소 · CSS)에 넣는 단 한 곳 — `text`(다섯 글자) · `attr` · `safeUrl(u, 'image'|'link')` · `cssUrl` · `cssColor`. 친 그대로 보이게 하고 HTML 로는 안 읽히게(이름을 지우거나 거절하지 않음). 순수 모듈(`window.TwSafeHtml`)을 쓰는 모듈 · app.js 보다 먼저 싣는다 · app.js `escHtml` · `_chatEsc` 는 별칭 — `sim-safe-html.js` |
 | `app/parts/shared/nav.js` | 🧭 창 열기 통로 — 아래 기능이 «⚙️ 설정 창 열기 · 닫기 · 🏠 마이홈 열기 · 🚪 방 나가기» 를 이름(`NAV.이름`)으로 부탁하는 한 곳. 창 모듈이 만들 때 여는 함수를 `on` 으로 걸고, 부르는 쪽은 `twNav.go(twNav.NAV.이름)` — 부르는 쪽이 창 모듈을 몰라서 순환이 안 생긴다. 새 창 열기 부탁은 이름을 여기에 더하고 거는 곳 하나 · 표는 `sim-nav.js`. classic script(`window.TwNav`), app.js 는 `twNav` 로 받아 deps 로 넘긴다 |
 | `app/parts/shared/win-stack.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🪟 창 겹침: 누른 창 맨 앞(`bringWinToFront`) · ESC 스택(`escRegisterWindow`) · 창 자리 되돌리기 목록(`window.__winPosResetters`) 처음 값(올리는 모듈보다 먼저 싣는다). classic script(`window.TwWinStack`), 부르는 곳은 `winStackMod.이름` |
 | `app/parts/shared/sfx.js` | app.js 에서 옮긴 렌더러 모듈(앱 FSD 42번) — 🔊 효과음 공장(`_mkSndPool` — 풀 · preload · 자동재생 잠금 해제 · 회사원 모드 무음) · 때리기 · 클릭음 · 채팅 알림음 · 뽀모도로 알림음 풀. classic script(`window.TwSfx`), 부르는 곳은 `sfxMod.이름` |
@@ -166,6 +167,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
   - 일찍 끝내기(얼리 리턴)를 넣을 땐 끝내기 전 그 함수가 하던 «요청 아닌 일»(상태 정리 · 빈 화면 표시 · 구독 해제)을 확인하고, 실제 앱에서 그 화면을 직접 열어 본다.
   - 클릭 통과(setIgnoreMouseEvents) 조건은 `app/parts/launcher/click-through-policy.js` 한 곳에만 쓴다(다른 파일에 쓰면 `sim-click-through-policy.js` 빨강).
 - **검사(`sim-*.js`)는 실제로 돌려서 판정한다** — 글자를 찾는 정규식 판정 대신 함수를 불러 입력 → 출력 · 경계값(0 · 빈 값 · 상한)을 보고, 일부러 깨 봐서(«깨 보기») 빨강이 나는지까지 넣는다.
+- 남이 쓸 수 있는 값을 화면(HTML · 속성 · 주소 · CSS)에 넣을 땐 `shared/safe-html.js`(`TwSafeHtml`)만 쓴다 — 다른 escape 를 새로 만들지 않는다(검사 `sim-safe-html.js` 가 빨강).
 - localStorage 키는 `tw.` 접두사.
 - 사용자에게 보이는 **실패**(저장 · 불러오기 · 요청 실패)는 토스트 대신 `TwErrorCodes.notify('E-영역-번호', err)` — 번호는 `app/parts/shared/error-codes.js` 표에 먼저 넣고, 한 번 쓴 번호는 다시 쓰지 않는다(규칙 · 목록 `docs/ERROR_CODES.md` · 검사 `sim-error-codes`).
 - 서버 데이터는 **Firebase Realtime Database**(JSON 트리). 요금은 **내려받은 바이트**로 나온다 —

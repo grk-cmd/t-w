@@ -6,6 +6,7 @@
    ・4절: 동작 — 가짜 DOM · deps 로 모듈을 만들어 입력 → 결과(경계값 포함)를 본다
    [실행] app.js · desk-companion-prototype.html · commission-import.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
+globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -135,7 +136,7 @@ function rigI(o){
   const over = { CANVAS_SZ: 8, slots,
     racePickerMod: { _raceTargetSlot: () => (o.target === undefined ? null : o.target) },
     charCodeMod: () => ({ importCloneCode: async (c, p, t) => { calls.push(['clone', c, p, t]); return !!o.cloneOk; } }),
-    commissionMod: () => ({ decryptCommission: async (c, p) => { if(o.badPass) throw new Error('bad'); return o.payload || { t: 'comm', name: '고양이', glb: 'GLB', face: 'data:f', blink: 'data:b' }; } }),
+    commissionMod: () => ({ decryptCommission: async (c, p) => { if(o.badPass) throw new Error('bad'); return o.payload || { t: 'comm', name: '고양이', glb: 'GLB', face: 'data:image/png;base64,Zg==', blink: 'data:image/png;base64,Yg==' }; } }),
     creatorSaveMod: { _defSizeFile: (rest, bytes) => (calls.push(['size', rest, bytes]), o.tooBig ? { ok: false, message: '너무 커요' } : { ok: true }), DEF_SIZE_TOAST_MS: 4000 },
     charsMod: () => ({ _charsBoxFull: () => !!o.boxFull, _charsOnNew: log('onNew') }), slotSaveMod: () => ({ saveSlots: log('save') }),
     curSlot: () => st.cur, setCurSlot: (v) => { st.cur = v; }, saveCurSlot: log('saveCur'), renderLauncher: log('render'),

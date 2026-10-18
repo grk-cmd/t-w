@@ -331,7 +331,7 @@ function _buildWdPicSection(){
   if(wdPaintTool) wdPaintTool.mount(toolSeg);
   const symB=mk('button','wd-pic-btn','대칭');     symB.id='wdPicSym';
   const swat=mk('button','wd-pic-swatch');         swat.id='wdPicColor';
-  swat.style.background=_wdPic.color; swat.title='색 고르기';
+  swat.style.background=TwSafeHtml.cssColor(_wdPic.color); swat.title='색 고르기';
   symB.onclick=()=>_wdPicSetSym(!_wdPic.sym);
   symB.classList.toggle('on', _wdPic.sym);
   if(_wdPic.ear){
@@ -343,7 +343,7 @@ function _buildWdPicSection(){
   const outside=e=>{ if(pal && !pal.contains(e.target) && e.target!==swat) closePal(); };
   swat.onclick=()=>{
     if(pal){ closePal(); return; }
-    pal=buildFreeColorPicker(_wdPic.color, v=>{ _wdPic.color=v; swat.style.background=v; _wdPicSetEraser(false); });
+    pal=buildFreeColorPicker(_wdPic.color, v=>{ _wdPic.color=v; swat.style.background=TwSafeHtml.cssColor(v); _wdPicSetEraser(false); });
     /* 옆줄 안에 그냥 넣으면 조상의 overflow 에 잘린다 — 색상 줄이 쓰는 방식 그대로 body 에 붙이고
        스와치 위치를 기준으로 좌표를 계산한다. */
     pal.style.position='fixed';
@@ -365,7 +365,7 @@ function _buildWdPicSection(){
   const rng=document.createElement('input');
   rng.type='range'; rng.min='1'; rng.max='40'; rng.step='1'; rng.value=String(_wdPic.size); rng.style.flex='1';
   const dot=mk('span','wd-pic-dot');
-  const syncDot=()=>{ const d=Math.max(4,Math.min(18,_wdPic.size)); dot.style.width=d+'px'; dot.style.height=d+'px'; dot.style.background=_wdPic.color; };
+  const syncDot=()=>{ const d=Math.max(4,Math.min(18,_wdPic.size)); dot.style.width=d+'px'; dot.style.height=d+'px'; dot.style.background=TwSafeHtml.cssColor(_wdPic.color); };
   rng.oninput=()=>{ _wdPic.size=parseInt(rng.value,10)||1; syncDot(); };
   syncDot();
   sz.appendChild(rng); sz.appendChild(dot);
@@ -731,8 +731,8 @@ function _wdPicEyedrop(e){
   if(d[3]<8) return false;   // 빈 픽셀은 무시
   _wdPic.color='#'+[d[0],d[1],d[2]].map(v=>v.toString(16).padStart(2,'0')).join('');
   _wdPicSetEraser(false);
-  const sw=document.getElementById('wdPicColor'); if(sw) sw.style.background=_wdPic.color;
-  const dot=document.querySelector('#wdPicSection .wd-pic-dot'); if(dot) dot.style.background=_wdPic.color;
+  const sw=document.getElementById('wdPicColor'); if(sw) sw.style.background=TwSafeHtml.cssColor(_wdPic.color);
+  const dot=document.querySelector('#wdPicSection .wd-pic-dot'); if(dot) dot.style.background=TwSafeHtml.cssColor(_wdPic.color);
   return true;
 }
 /* 획을 끊는다 — 다음 점부터 새 획. 끊는 자리가 여러 곳이라 한 함수로 모은다. */

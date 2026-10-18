@@ -22,7 +22,7 @@ function refreshAdBanner(){
   if(_lcAdTimer){ clearInterval(_lcAdTimer); _lcAdTimer=null; }
   _lcAdSlides = settingsMod.loadAdBannerSlides(); _lcAdIdx=0;
   if(!_lcAdSlides.length){ a.style.display='none'; return; }
-  const show=()=>{ const s=_lcAdSlides[_lcAdIdx % _lcAdSlides.length]; img.src=s.img; a.href=s.link||'#'; };
+  const show=()=>{ const s=_lcAdSlides[_lcAdIdx % _lcAdSlides.length]; img.src=TwSafeHtml.safeUrl(s.img, 'image'); a.href=TwSafeHtml.safeUrl(s.link, 'link')||'#'; };   // 서버 배너 — 허용된 그림 · 링크 주소만
   show(); a.style.display='block';
   if(_lcAdSlides.length>1) _lcAdTimer=setInterval(()=>{ _lcAdIdx=(_lcAdIdx+1)%_lcAdSlides.length; show(); }, 4000);
 }

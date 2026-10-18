@@ -539,7 +539,7 @@ function _plFillAva(el, url){
   el.textContent = '';
   if(url){
     const img = document.createElement('img');
-    img.src = url; img.draggable = false; img.alt = '';
+    img.src = TwSafeHtml.safeUrl(url, 'image'); img.draggable = false; img.alt = '';   // 남의 명함 사진일 수 있다
     el.appendChild(img);
   }else{
     el.textContent = '👤';

@@ -212,7 +212,7 @@ function _awayRenderUI(msg, isErr){
   const pk = document.getElementById('miAwayPick');
   const has = _awayUrlOk(awayImgUrl);
   const prem = _awayPremium();
-  if(im){ if(has){ im.src = awayImgUrl; im.style.display = ''; } else { im.removeAttribute('src'); im.style.display = 'none'; } }
+  if(im){ if(has){ im.src = TwSafeHtml.safeUrl(awayImgUrl, 'image'); im.style.display = ''; } else { im.removeAttribute('src'); im.style.display = 'none'; } }
   if(ph) ph.style.display = has ? 'none' : '';
   if(rs) rs.style.display = has ? '' : 'none';
   if(pk) pk.disabled = !!_awayBusy || !prem;

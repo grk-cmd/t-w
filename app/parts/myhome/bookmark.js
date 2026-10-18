@@ -165,9 +165,10 @@
     const it = bmView().items[id]; if(!it) return null;
     const cell = document.createElement('div'); cell.className = 'bm-cell'; cell.dataset.bid = id;
     const b = document.createElement('div'); b.className = 'bm-book';
-    b.style.width = BM_W[it.w] + 'px'; b.style.height = BM_H[it.h] + 'px'; b.style.background = it.color;
+    b.style.width = BM_W[it.w] + 'px'; b.style.height = BM_H[it.h] + 'px'; b.style.background = TwSafeHtml.cssColor(it.color);
     /* 그림과 제목은 **따로 논다**(요청) — 그림 위에 제목을 겹쳐 쓸 수 있고, [제목 숨기기]로 끌 수도 있다. */
-    if(it.img){ const im = document.createElement('img'); im.className = 'bm-i'; im.src = it.img; im.alt = ''; im.draggable = false; b.appendChild(im); }
+    const itSrc = TwSafeHtml.safeUrl(it.img, 'image');   // 남의 책장일 수 있다 — 허용된 그림 주소만
+    if(itSrc){ const im = document.createElement('img'); im.className = 'bm-i'; im.src = itSrc; im.alt = ''; im.draggable = false; b.appendChild(im); }
     if(it.title && !it.hideTitle){
       const t = document.createElement('div'); t.className = 'bm-t'; t.textContent = it.title;
       t.style.color = it.tcolor || BM_DEFAULT_TCOLOR;
@@ -461,7 +462,7 @@
         const mine = (palHost === row);
         palClose();
         if(mine) return;
-        const pop = wardrobeMod.buildFreeColorPicker(draft[key], c=>{ draft[key] = c; hex.value = c; sw.style.background = c; paint(); });
+        const pop = wardrobeMod.buildFreeColorPicker(draft[key], c=>{ draft[key] = c; hex.value = c; sw.style.background = TwSafeHtml.cssColor(c); paint(); });
         pop.style.top = '26px'; pop.style.left = '0';
         row.appendChild(pop); palHost = row;
         palOff = ev=>{ if(!pop.contains(ev.target) && ev.target !== sw) palClose(); };
@@ -469,7 +470,7 @@
       };
       hex.addEventListener('change', ()=>{
         const v = hex.value.trim();
-        if(/^#[0-9a-fA-F]{6}$/.test(v)){ draft[key] = v; sw.style.background = v; paint(); }
+        if(/^#[0-9a-fA-F]{6}$/.test(v)){ draft[key] = v; sw.style.background = TwSafeHtml.cssColor(v); paint(); }
         else hex.value = draft[key];
       });
       return row;
@@ -507,8 +508,9 @@
       prev.textContent = '';
       const b = document.createElement('div'); b.className = 'bm-book';
       b.style.cssText = 'position:relative;box-sizing:border-box;overflow:hidden;border:1px solid #2e1c0f;border-radius:2px 2px 0 0;box-shadow:1px 2px 3px rgba(0,0,0,.45);margin-bottom:12px;';
-      b.style.width = BM_W[draft.w] + 'px'; b.style.height = BM_H[draft.h] + 'px'; b.style.background = draft.color;
-      if(draft.img){ const im = document.createElement('img'); im.className = 'bm-i'; im.src = draft.img; im.alt = ''; b.appendChild(im); }
+      b.style.width = BM_W[draft.w] + 'px'; b.style.height = BM_H[draft.h] + 'px'; b.style.background = TwSafeHtml.cssColor(draft.color);
+      const dSrc = TwSafeHtml.safeUrl(draft.img, 'image');
+      if(dSrc){ const im = document.createElement('img'); im.className = 'bm-i'; im.src = dSrc; im.alt = ''; b.appendChild(im); }
       if(titleEl.value && !draft.hideTitle){
         const t = document.createElement('div'); t.className = 'bm-t'; t.textContent = titleEl.value.slice(0, BM_TITLE_MAX);
         t.style.color = draft.tcolor; b.appendChild(t);

@@ -213,13 +213,14 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     html+='<div class="grid">';
     for(let i=0;i<5;i++){
       const c=recent[i];
-      if(c) html+='<div class="sw" data-c="'+c+'" style="background:'+c+';"></div>';
+      const cc=TwSafeHtml.cssColor(c);   // 이 기기에 저장한 최근 색 — 색이 아니면 빈 칸
+      if(cc) html+='<div class="sw" data-c="'+cc+'" style="background:'+cc+';"></div>';
       else html+='<div class="sw" style="background:#fff;border-style:dashed;"></div>';
     }
     html+='</div>';
     // 기본 팔레트
     html+='<div class="lbl">팔레트</div><div class="grid">';
-    _MH_PALETTE.forEach(c=>{ html+='<div class="sw" data-c="'+c+'" style="background:'+c+';"></div>'; });
+    _MH_PALETTE.forEach(c=>{ html+='<div class="sw" data-c="'+TwSafeHtml.cssColor(c)+'" style="background:'+TwSafeHtml.cssColor(c)+';"></div>'; });
     html+='</div>';
     // 자유 선택 — OS 색 선택 대화상자(스포이드·색 섞기 등 OS 기능 그대로) + HEX 직접 입력.
     //   HEX 칸은 대화상자가 어떤 환경에서 안 뜨더라도 임의 색을 넣을 수 있는 우회로 겸용이다.
@@ -640,8 +641,10 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
   function applyMyHomeBg(){
     const win=document.getElementById('myHomeWin'); if(!win) return;
     const bg=_myHomeData().bg;
-    if(bg && bg.img) win.style.background='url('+bg.img+') center/cover no-repeat, var(--win-face)';
-    else if(bg && bg.color) win.style.background=bg.color;
+    /* 친구 홈 구경에서는 남의 값 — 허용된 그림 주소 · 색만(shared/safe-html.js) */
+    const bgUrl = bg ? TwSafeHtml.cssUrl(bg.img) : '';
+    if(bgUrl) win.style.background=bgUrl+' center/cover no-repeat, var(--win-face)';
+    else if(bg && bg.color) win.style.background=TwSafeHtml.cssColor(bg.color);
     else win.style.background='var(--win-face)';
   }
   window._mhApplyBg=applyMyHomeBg;
@@ -650,15 +653,17 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
   //   이미지 키(...Img)가 있으면 색보다 우선. 라이선스 보유자(isPremium)/관리자 전용 편집(적용·표시는 누구나).
   function _mhBg(el, color, img){
     if(!el) return;
-    if(img) el.style.background = 'url('+img+') center/cover no-repeat';
-    else el.style.background = color || '';
+    const u = TwSafeHtml.cssUrl(img);   // 친구 홈 구경에서는 남의 값 — 허용된 그림 주소 · 색만
+    if(u) el.style.background = u+' center/cover no-repeat';
+    else el.style.background = TwSafeHtml.cssColor(color);
   }
   function applyMyHomeTheme(){
     const t=_myHomeData().theme||{};
     // 공통 — 탭버튼
     document.querySelectorAll('.mh-tab').forEach(el=>{
-      if(t.tabImg) el.style.background='url('+t.tabImg+') center/cover no-repeat';
-      else el.style.background = t.tab || '';
+      const tu=TwSafeHtml.cssUrl(t.tabImg);
+      if(tu) el.style.background=tu+' center/cover no-repeat';
+      else el.style.background = TwSafeHtml.cssColor(t.tab);
       el.style.color = t.tabText || '';
     });
     // 마이홈 페이지
@@ -671,11 +676,12 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     const pt=document.getElementById('mhPostTitle'); if(pt) pt.style.color = t.postTitle || '';
     const room=document.getElementById('mhRoomPreview');
     if(room){
-      if(t.roomImg) room.style.background='url('+t.roomImg+') center/cover no-repeat';
-      else if(t.roomBg) room.style.background=t.roomBg;
+      const ru=TwSafeHtml.cssUrl(t.roomImg);
+      if(ru) room.style.background=ru+' center/cover no-repeat';
+      else if(t.roomBg) room.style.background=TwSafeHtml.cssColor(t.roomBg);
       else room.style.background='';   // 비우면 CSS의 기본 핑크 그라데이션으로 복귀
     }
-    const gbBtn=document.getElementById('mhGuestbookBtn'); if(gbBtn) gbBtn.style.background = t.gbBtn || '';
+    const gbBtn=document.getElementById('mhGuestbookBtn'); if(gbBtn) gbBtn.style.background = TwSafeHtml.cssColor(t.gbBtn);
     // 친구 페이지
     _mhBg(document.getElementById('mhFriendLeft'), t.fList, t.fListImg);
     /* 👥 친구 관리 · 📩 우편함은 **CSS 에서 이미 한 규칙을 공유한다**
@@ -690,20 +696,20 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     const fHeadEls = [document.getElementById('mhFriendHead'),
                       document.getElementById('mhInboxTop'),
                       document.getElementById('mhFmTop')];
-    fHeadEls.forEach(el=>{ if(el){ el.style.background = t.fHead || ''; el.style.color = t.fHeadText || ''; } });
+    fHeadEls.forEach(el=>{ if(el){ el.style.background = TwSafeHtml.cssColor(t.fHead); el.style.color = t.fHeadText || ''; } });
     // 우편함 왼쪽 세로 메뉴 · 우편 칸 아래 버튼 줄도 «카테고리 줄» 과 같은 색 — 새 항목을 만들지 않는다(이미 꾸민 디자인이 그대로 따라오게)
     [document.getElementById('mhInboxTabs'), document.getElementById('mhFmTabs'),
      document.getElementById('mhInboxRail'), document.getElementById('mhInboxFoot')]
-      .forEach(el=>{ if(el) el.style.background = t.fTabsBg || ''; });
+      .forEach(el=>{ if(el) el.style.background = TwSafeHtml.cssColor(t.fTabsBg); });
     // 📅 스케줄러 — 달력 / 우측(기념일·D-day) 영역
     _mhBg(document.getElementById('mhSchedCal'), t.schedCal, t.schedCalImg);
     _mhBg(document.getElementById('mhSchedDday'), t.schedSide, t.schedSideImg);
 
     // bio·게시글 칸 배경 — 기본은 투명(패널이 비침), 테마에서 색을 지정하면 그 색으로
     const bioBox = document.getElementById('mhBioBox');
-    if(bioBox) bioBox.style.background = t.bioBg || '';
+    if(bioBox) bioBox.style.background = TwSafeHtml.cssColor(t.bioBg);
     const postBox = document.getElementById('mhPostBox');
-    if(postBox) postBox.style.background = t.postBg || '';
+    if(postBox) postBox.style.background = TwSafeHtml.cssColor(t.postBg);
     document.querySelectorAll('#mhFriendList .mh-fname').forEach(el=>{ el.style.color = t.fListText || ''; });
     /* 목록 칸 — 👥 친구 관리와 📩 우편함이 같은 토큰을 쓴다(위 짝 주석 참고).
        ⚠️ 우편함은 #mhInboxBody 한 곳에 — 소식의 제목 목록 · 본문에 따로 깔면 그림이 둘로 잘린다. */
@@ -1002,7 +1008,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
            브라우저가 알아서 거른다(audit 검사 19 가 보는 자리다). */
         const dot = _mhPresetDot(p);
         tab.innerHTML = '<i class="ps-dot"></i><span class="ps-nm' + (p && p.name ? '' : ' empty') + '"></span>';
-        if(dot) tab.querySelector('.ps-dot').style.background = dot;
+        if(dot) tab.querySelector('.ps-dot').style.background = TwSafeHtml.cssColor(dot);
         tab.querySelector('.ps-nm').textContent = _mhPresetLabel(i);
         tab.title = isCur ? (_mhPresetLabel(i) + ' — 지금 이 디자인 (한 번 더 누르면 이름 고치기)')
                   : (p ? (_mhPresetLabel(i) + ' 로 바꾸기') : ((i + 1) + '번 빈 칸 — 눌러서 고른 뒤 [저장]'));
@@ -1075,7 +1081,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
       const r=d.createElement('div'); r.className='ds-row';
       // special:'bg'는 _myHomeData.bg에, 나머지는 _myHomeData.theme에 저장
       const isBg = row.special==='bg';
-      const cur = isBg ? ((_myHomeData().bg && _myHomeData().bg.color) || '') : (t[row.key]||'');
+      const cur = TwSafeHtml.cssColor(isBg ? (_myHomeData().bg && _myHomeData().bg.color) : t[row.key]);
       const imgKey=_mhDsImgKeyOf(row);
       const hasImg = isBg ? !!(_myHomeData().bg && _myHomeData().bg.img) : !!t[imgKey];
       r.innerHTML='<span class="lb">'+row.label+'</span>'

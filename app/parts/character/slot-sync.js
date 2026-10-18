@@ -523,16 +523,16 @@ function _slotsRenderBand(){
   let html = '';
   if(loss.kind === 'restored'){
     calm();
-    html = '<div style="font-weight:bold;color:var(--ink);margin-bottom:6px;">' + loss.to + '개로 되돌렸어요 — 다른 컴퓨터가 켜져 있으면 다시 바뀔 수 있어요</div>'
+    html = '<div style="font-weight:bold;color:var(--ink);margin-bottom:6px;">' + TwSafeHtml.text(loss.to) + '개로 되돌렸어요 — 다른 컴퓨터가 켜져 있으면 다시 바뀔 수 있어요</div>'
       + '<div style="display:flex;gap:6px;">' + _slotsBtn('lcSyncOk', '확인') + '</div>';
   }else if(!loss.bak){
     warn();
-    html = '<div style="font-weight:bold;color:#3d1f16;margin-bottom:6px;">캐릭터 ' + loss.from + '개가 ' + loss.to + '개로 바뀌었고, 백업을 남기지 못했어요</div>'
+    html = '<div style="font-weight:bold;color:#3d1f16;margin-bottom:6px;">캐릭터 ' + TwSafeHtml.text(loss.from) + '개가 ' + TwSafeHtml.text(loss.to) + '개로 바뀌었고, 백업을 남기지 못했어요</div>'
       + '<div style="font-size:10px;color:#3d1f16;background:rgba(0,0,0,.07);padding:5px 7px;margin-bottom:6px;">이 컴퓨터의 저장 공간이 모자랐어요. 바뀌기 전 캐릭터는 계정 서버의 이전 사본에 남아 있을 수 있어요 — 계정 탭 › 기기 연동에서 되돌려 보세요.</div>'
       + '<div style="display:flex;gap:6px;">' + _slotsBtn('lcSyncClose', '닫기') + '</div>';
   }else{
     warn();
-    html = '<div style="font-weight:bold;color:#3d1f16;margin-bottom:6px;">캐릭터 ' + loss.from + '개가 다른 컴퓨터의 ' + loss.to + '개로 바뀌었어요</div>'
+    html = '<div style="font-weight:bold;color:#3d1f16;margin-bottom:6px;">캐릭터 ' + TwSafeHtml.text(loss.from) + '개가 다른 컴퓨터의 ' + TwSafeHtml.text(loss.to) + '개로 바뀌었어요</div>'
       + '<div style="display:flex;gap:6px;">' + _slotsBtn('lcSyncRestore', '되돌리기', { bold: true }) + _slotsBtn('lcSyncKeep', '유지하기') + '</div>';
   }
   el.innerHTML = html; el.style.display = 'block';
@@ -557,26 +557,26 @@ function _slotsRenderAcctSync(){
   const note = (txt) => '<p style="margin:6px 0;font-size:10px;color:var(--ink);line-height:1.55;background:rgba(0,0,0,.05);padding:6px 8px;">' + txt + '</p>';
   let html = '';
   if(c){
-    html = head('warn', '양쪽에서 바뀌어 연동을 멈춰 뒀어요') + row('이 컴퓨터', c.localCount + '개') + row('계정 (다른 컴퓨터)', c.serverCount + '개')
+    html = head('warn', '양쪽에서 바뀌어 연동을 멈춰 뒀어요') + row('이 컴퓨터', TwSafeHtml.text(c.localCount) + '개') + row('계정 (다른 컴퓨터)', TwSafeHtml.text(c.serverCount) + '개')
       + '<div style="display:flex;margin-top:7px;">' + _slotsBtn('acctSyncPick', '어느 쪽을 쓸지 고르기', { bold: true, size: '12px' }) + '</div>';
   }else if(loss && !loss.dismissed && loss.kind === 'loss'){
-    html = head('warn', '이 컴퓨터의 캐릭터 ' + loss.from + '개가<br>다른 컴퓨터의 ' + loss.to + '개로 바뀌었어요') + row('바뀐 때', _slotsFmtWhen(loss.at))
+    html = head('warn', '이 컴퓨터의 캐릭터 ' + TwSafeHtml.text(loss.from) + '개가<br>다른 컴퓨터의 ' + TwSafeHtml.text(loss.to) + '개로 바뀌었어요') + row('바뀐 때', _slotsFmtWhen(loss.at))
       + note('되돌리면 바뀌기 <b>직전의 이 컴퓨터 상태</b>로 돌아가요. 다른 컴퓨터를 켜 두면 다시 바뀔 수 있으니, 되돌린 뒤엔 그 컴퓨터를 한 번 꺼 주세요.')
-      + '<div style="display:flex;">' + _slotsBtn('acctSyncRestore', loss.bak ? loss.from + '개로 되돌리기' : '서버 이전 사본에서 되돌리기', { bold: true, size: '12px' }) + '</div>';
+      + '<div style="display:flex;">' + _slotsBtn('acctSyncRestore', loss.bak ? TwSafeHtml.text(loss.from) + '개로 되돌리기' : '서버 이전 사본에서 되돌리기', { bold: true, size: '12px' }) + '</div>';
   }else{
     const when = last ? _slotsFmtWhen(last.at) : '—';
-    if(loss && !loss.dismissed && loss.kind === 'restored') html = head('ok', loss.to + '개로 되돌렸어요 — 계정에도 올라가는 중이에요');
+    if(loss && !loss.dismissed && loss.kind === 'restored') html = head('ok', TwSafeHtml.text(loss.to) + '개로 되돌렸어요 — 계정에도 올라가는 중이에요');
     else if(!last) html = head('', '아직 연동한 적이 없어요');
     else if(last.ok) html = head('ok', '캐릭터가 연동됐어요.');
-    else html = head('warn', '마지막 연동이 실패했어요' + (last.why ? ' — ' + last.why : ''));
+    else html = head('warn', '마지막 연동이 실패했어요' + (last.why ? ' — ' + TwSafeHtml.text(last.why) : ''));
     html += row('마지막 연동', when);
-    html += row('계정에 저장된 캐릭터', (last && last.serverCount != null ? last.serverCount + '개' : '—') + ' (이 기기 ' + localN + '개)');
+    html += row('계정에 저장된 캐릭터', (last && last.serverCount != null ? TwSafeHtml.text(last.serverCount) + '개' : '—') + ' (이 기기 ' + localN + '개)');
   }
   box.innerHTML = html;
   if(fail){
     if(pf){
       fail.innerHTML = '<div style="font-size:10.5px;color:var(--win-error);font-weight:bold;">올리기가 한 번 실패했어요</div>'
-        + '<div style="margin-top:3px;">' + pf.why + ' (' + _slotsFmtWhen(pf.at) + '). 이 컴퓨터의 캐릭터가 아직 계정에 안 올라가 있어요.</div>'
+        + '<div style="margin-top:3px;">' + TwSafeHtml.text(pf.why) + ' (' + _slotsFmtWhen(pf.at) + '). 이 컴퓨터의 캐릭터가 아직 계정에 안 올라가 있어요.</div>'
         + '<div style="display:flex;margin-top:6px;">' + _slotsBtn('acctSyncRetry', '지금 다시 올리기', { bold: true }) + '</div>';
       fail.style.display = 'block';
     }else{ fail.style.display = 'none'; fail.innerHTML = ''; }
