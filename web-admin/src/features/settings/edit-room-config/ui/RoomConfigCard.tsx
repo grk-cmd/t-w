@@ -1,4 +1,4 @@
-import { REMOTE_CONFIG_EDIT_LOCKED, REMOTE_CONFIG_LOCK_NOTE } from '@/shared/config';
+import { REMOTE_CONFIG_EDIT_LOCKED, REMOTE_CONFIG_LOCK_NOTE, ROOM_LIMITS_EDIT_LOCKED } from '@/shared/config';
 import { useState, type FormEvent } from 'react';
 import {
   CHANNEL_LABEL,
@@ -68,7 +68,7 @@ function RoomLimitsForm() {
               inputMode="numeric"
               maxLength={5}
               aria-label={`${CHANNEL_LABEL[ch]} 전체 방 상한`}
-              disabled={isPending || REMOTE_CONFIG_EDIT_LOCKED}
+              disabled={isPending || ROOM_LIMITS_EDIT_LOCKED}
               value={isPending ? '' : inputs[ch]}
               onChange={(e) => setDraft({ ...inputs, [ch]: e.target.value })}
             />
@@ -78,7 +78,7 @@ function RoomLimitsForm() {
         <button
           type="submit"
           className="btn primary"
-          disabled={isPending || save.isPending || !draft || REMOTE_CONFIG_EDIT_LOCKED}
+          disabled={isPending || save.isPending || !draft || ROOM_LIMITS_EDIT_LOCKED}
         >
           {save.isPending ? '저장 중…' : '저장'}
         </button>
@@ -159,8 +159,8 @@ export function RoomConfigCard() {
   return (
     <section className="card">
       <h2>방 상한 · 정원</h2>
-      {REMOTE_CONFIG_EDIT_LOCKED && <p className="soft">{REMOTE_CONFIG_LOCK_NOTE}</p>}
       <RoomLimitsForm />
+      {REMOTE_CONFIG_EDIT_LOCKED && <p className="soft">방 정원 — {REMOTE_CONFIG_LOCK_NOTE}</p>}
       <RoomMaxPeopleForm />
     </section>
   );
