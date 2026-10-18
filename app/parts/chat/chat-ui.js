@@ -373,6 +373,18 @@ function _markChatRead(){
   const old = _loadChatReadMarker(_chatReadRoom);
   if(!old || !CHAT_MARK_RE.test(old) || _chatIsAfter(last, old)) _saveChatReadMarker(_chatReadRoom, _chatMarkOf(last));
 }
+/* ✉️ 내가 보낸 메시지까지 읽음 — «보내는 순간 = 거기까지 읽었다».
+   창을 닫을 때(_markChatRead)는 화면 목록의 마지막으로 저장하는데, 방금 보낸 내 줄은 서버 시각이
+   오기 전이라 내 PC 가 어림한 임시 시각이다. 그 사이 방을 나가면 읽음이 진짜 시각보다 앞에 저장되어
+   다시 들어왔을 때 내 메시지가 «안 읽음 1» 로 잡혔다. 그래서 서버가 받은 뒤의 진짜 시각으로 따로 저장한다.
+   · 보내는 쪽 promise 에서 부른다 — 창을 닫거나 방을 나가 구독이 끊겨도 저장된다.
+   · 앞으로만 간다(옛 형식 표시는 _markChatRead 와 같이 덮는다).
+   · 창이 열려 있어도 구분선 기준(_chatReadMarker)은 그대로 둔다 — 저장만. */
+function _chatMarkSentRead(key, sent){
+  if(!key || !sent || !sent.id || _chatMsgTs(sent) === null) return;
+  const old = _loadChatReadMarker(key);
+  if(!old || !CHAT_MARK_RE.test(old) || _chatIsAfter(sent, old)) _saveChatReadMarker(key, _chatMarkOf(sent));
+}
 
 /* ── 💬 안 읽은 개수 뱃지 ────────────────────────────────────────────────
    대화창이 닫혀 있는 동안에만 얇게 구독해서(최근 CHAT_BADGE_LIMIT건) 마커보다 뒤인 메시지를 센다.
@@ -1147,8 +1159,11 @@ function _sendChatWindowMsg(){
        반영하고 거부가 돌아오면 되돌리기 때문이다. 예전엔 그 실패가 어디에도 안 남아서,
        보내는 사람에게는 «쳤는데 없어지거나 순서가 뒤엉킨» 것으로만 보였다.
        ★ 친 글은 입력칸에 돌려준다 — 잠금·도배 제한과 같은 관례다(길게 쓴 줄을 날리지 않는다). */
-    Promise.resolve(firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text:outText }, _chatMyTabId()))
+    const sendTab = _chatMyTabId();
+    const sendKey = _chatMarkKey(room, sendTab);   // 읽음은 보낸 채널에만 — 그 사이 탭 · 방을 옮겨도
+    Promise.resolve(firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text:outText }, sendTab, { wantTs:true }))
       .then(r=>{
+        if(r && r.ok) _chatMarkSentRead(sendKey, r);
         if(r && r.ok === false){
           toast('전송에 실패했어요 — 잠시 뒤 다시 보내주세요');
           const el=document.getElementById('chatInput');
