@@ -37,6 +37,11 @@ const renderer = deps.renderer;
 const seatScale = deps.seatScale;
 const seats = deps.seats;
 const tricksMod = deps.tricksMod;
+/* 📐 잰 값 기억(room/label-measure.js) — 라벨을 적은 뒤 바로 재서 매 프레임 강제 레이아웃이 나지 않게 */
+const labelMeasure = TwLabelMeasure.createLabelMeasure({
+  readCanvasRect: ()=>renderer.domElement.getBoundingClientRect(),
+  now: ()=>performance.now(),
+});
 /* ── 머리 위 레벨/이름 이름표 + 말풍선 — DOM 요소로 구현(3D 스프라이트 아님).
    이유: 1) 저해상도(도트) 렌더는 WebGL 캔버스 전체 해상도를 낮추는 방식이라 3D 스프라이트도 같이 뭉개졌는데,
         DOM은 별도 레이어라 전혀 영향 안 받음. 2) 캔버스 텍스처는 고정 폭이라 긴 이름이 잘렸는데, DOM 텍스트는
@@ -64,7 +69,7 @@ try{ applyChipOrientation(); }catch(_){}
 const _labelWP=new THREE.Vector3();
 function projectWorldToScreenPx(worldVec3){
   _labelWP.copy(worldVec3).project(camera);
-  const rect=renderer.domElement.getBoundingClientRect();
+  const rect=labelMeasure.canvasRect();
   return { x: rect.left+(_labelWP.x*0.5+0.5)*rect.width, y: rect.top+(-_labelWP.y*0.5+0.5)*rect.height };
 }
 function ensureSeatLabelsLayer(){
@@ -118,6 +123,12 @@ const LABEL_INV_GAP_PX = 5;
       머리 위'를 유지하기 때문이다 — 여기서 같이 뒤집으면 말풍선까지 발밑으로 내려간다.
    false 로 두면 예전 3자리 규칙으로 그대로 돌아간다. */
 const NAMEPLATE_BELOW_EXPBAR = true;
+/* 이름표 높이(px) — 경험치 바(화면 아래 눌러 올리기)와 이름표가 같이 읽는다. 못 잰 적이 없으면 0 */
+function nameplateHeight(seat){
+  const el = seat && seat.namePlateEl;
+  const m = el ? labelMeasure.size(el, el._npKey + '|' + el.className) : null;
+  return (m && m.h) || 0;
+}
 function setSeatNamePlate(seat, level, name, star){
   const el=ensureSeatNamePlateEl(seat); if(!el) return;
   // ★ 말풍선(headAnchor 기준, userScale에 비례)이랑 순서가 안 뒤집히게 이름표도 같은 비례식으로 "머리 바로 위" 높이 계산.
@@ -148,19 +159,17 @@ function setSeatNamePlate(seat, level, name, star){
      잰다(transform·클래스·단위가 어떻게 바뀌어도 이미 반영된 결과값이라서). */
   if(NAMEPLATE_BELOW_EXPBAR){
     const _mb = seat.expBarEl;
-    if(_mb && _mb.style.display !== 'none'){
-      const _mr = _mb.getBoundingClientRect();
-      if(_mr.height) _plateTop = Math.max(_plateTop, _mr.bottom + 4);
-    }
+    if(_mb && _mb.style.display !== 'none' && _mb._bottom != null) _plateTop = Math.max(_plateTop, _mb._bottom + 4);
   }
   /* 화면 아래로 잘리지 않게 — 이름표는 바가 아니라 **발밑**을 기준으로 놓이므로, 바만 화면 안으로 올리면
      이름표는 그대로 밖에 남는다(제보: 화면 아래에 두면 이름이 잘림). 바는 이미 이 높이만큼 올라가 있다
      (updateSeatExpBar 의 below) — 그래서 이 제한과 위의 «바 아래» 가 서로 밀지 않는다. */
+  const _h = nameplateHeight(seat);
   if(_atFeet){
-    const _h = el.offsetHeight || seat._npH || 0;
     if(_h) _plateTop = Math.min(_plateTop, innerHeight - _h - 2);
   }
   el.style.left=p.x+'px'; el.style.top=_plateTop+'px';
+  el._bottom = _atFeet ? _plateTop + _h : _plateTop;   // 말풍선 · 공지가 사각형을 다시 재지 않고 읽는다
   el.classList.toggle('inverted', _atFeet);   // CSS의 transform 방향 뒤집기
   seat._plateAtFeet = _atFeet;                // (배너는 더 이상 이 값을 안 본다 — updateSeatAnnounceEl 주석 참고)
   /* 🗑️ [폐기] '올라탄 좌석의 이름표를 탑 바닥 발밑으로 내리는' 분기가 여기 있었다.
@@ -219,7 +228,7 @@ function updateSeatAnnounceEl(seat, headY){
   const el=ensureSeatAnnounceEl(seat); if(!el) return;
   const inner=el.querySelector('.marquee');
   const displayText = '📢[공지] ' + active;   // 요청사항: 관리자가 안 넣어도 말머리는 항상 붙음
-  if(inner.textContent!==displayText) inner.textContent=displayText;
+  if(inner.textContent!==displayText){ inner.textContent=displayText; el._annFit = false; }
   // 위치: 정상은 머리 위(headY+0.4), 반전은 발밑 라벨 아래.
   /* 📢 배너 자리 — 이름표를 따라다니지 **않는다**. 이름표는 NAMEPLATE_BELOW_EXPBAR 로 항상 발밑에
      내려갔지만, 배너까지 같이 내려가니 발밑에 바·이름표·칩·배너가 한 줄로 쌓여서 가로 배치
@@ -237,8 +246,8 @@ function updateSeatAnnounceEl(seat, headY){
     /* 반전 — 이름표 아래변에 붙인다. 이 함수는 setSeatNamePlate가 이름표 좌표를 찍은 '직후'에
        불리므로 같은 프레임의 최신 값이다(말풍선은 순서상 한 프레임 전 값을 본다). */
     const np = seat.namePlateEl;
-    const npBottom = (np && np.style.display !== 'none' && np.classList.contains('inverted'))
-      ? ((parseFloat(np.style.top) || 0) + (np.offsetHeight || 0)) : null;
+    const npBottom = (np && np.style.display !== 'none' && np.classList.contains('inverted') && np._bottom != null)
+      ? np._bottom : null;
     _top = (npBottom != null ? npBottom : p.y) + LABEL_INV_GAP_PX;
     /* 🎛️ 반전일 때는 상태칩보다 **아래**로 내려간다.
        [왜] 발밑이 뒤집힌 자리에는 가로 배치 상태칩도 같이 앉는다(updateMyStatusChipPosition 이
@@ -250,19 +259,25 @@ function updateSeatAnnounceEl(seat, headY){
     const _chip = document.getElementById('myStatusChip');
     if(_chip && _chip.style.display !== 'none'){
       const _cr = _chip.getBoundingClientRect();
-      const _halfW = (el.offsetWidth || 200) / 2;
+      const _as = labelMeasure.size(el, el.className);
+      const _halfW = ((_as && _as.w) || 200) / 2;
       if(_cr.height && _cr.right > p.x - _halfW && _cr.left < p.x + _halfW)
         _top = Math.max(_top, _cr.bottom + LABEL_INV_GAP_PX);
     }
   }
   el.style.left=p.x+'px'; el.style.top=_top+'px';
   el.classList.toggle('inverted', invert);   // CSS의 transform 방향 뒤집기
+  { const _as = labelMeasure.size(el, displayText + '|' + el.className);
+    el._bottom = invert ? _top + ((_as && _as.h) || 0) : _top; }
   if(document.body.classList.contains('config')){ el.style.display='none'; return; }
   el.style.display='block';
-  // 텍스트가 배너 폭보다 길면 마퀴 스크롤, 짧으면 정지 & 중앙 정렬
+  /* 텍스트가 배너 폭보다 길면 마퀴 스크롤, 짧으면 정지 & 중앙 정렬 — 글이 바뀌었을 때만 잰다(매 프레임 재면 강제 레이아웃) */
+  if(el._annFit) return;
+  el._annFit = true;
   requestAnimationFrame(()=>{
     const textW = inner.scrollWidth;
     const wrapW = el.clientWidth;
+    if(!wrapW){ el._annFit = false; return; }   // 그 사이 숨음 — 다시 보일 때 잰다
     if(textW > wrapW - 4){
       el.classList.add('scrolling');
       inner.style.paddingLeft = '100%';
@@ -535,10 +550,10 @@ function setSeatHeadBubble(seat, text, think){
          라벨이 화면 아래로 계속 흘러내린다.
        ※ 이 함수는 프레임 루프에서 이름표·바보다 **나중에** 돈다(그 호출부 주석 참고). 그래야
          여기서 읽는 사각형이 이번 프레임 값이다. */
+    /* 바 · 이름표 · 공지는 이번 프레임에 이미 자리를 적으며 아래변(_bottom)을 남겼다 — 다시 재면 강제 레이아웃 */
     const _bottomOf = e => {
-      if(!e || e.style.display === 'none') return -Infinity;
-      const r = e.getBoundingClientRect();
-      return r.height ? r.bottom : -Infinity;
+      if(!e || e.style.display === 'none' || e._bottom == null) return -Infinity;
+      return e._bottom;
     };
     const _labelBottom = Math.max(_bottomOf(seat.namePlateEl), _bottomOf(seat.announceEl),
                                   _bottomOf(seat.expBarEl));
@@ -648,6 +663,9 @@ return {
   setLabelDrag,
   bindLabelDrag,
   NAMEPLATE_BELOW_EXPBAR,
+  beginLabelFrame: labelMeasure.beginFrame,
+  labelSize: labelMeasure.size,
+  nameplateHeight,
   _officeDemojiHtml,
   _seatLabelName,
   applyChipOrientation,

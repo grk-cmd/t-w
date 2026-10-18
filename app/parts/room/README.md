@@ -113,6 +113,19 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - 1번 자리부터 책상 반폭에 줌 상한(1.1)이 걸리는 지금 동작은 `CONFIRM.md` 에 적어 둠(`seats.map(seatDeskHalfWidth)` 가 인덱스를 forZoom 으로 넘김).
   - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 빈 목록).
 
+## label-measure.js — 📐 좌석 라벨 잰 값 기억
+
+- **책임**: 경험치 바 · 이름표 · 공지 · 말풍선이 매 프레임 쓰는 «잰 값»(캔버스 사각형 · 라벨 크기)을 기억해, 자리를 적은 뒤 바로 다시 재는 강제 레이아웃을 없앤다. 순수 모듈(DOM 읽기는 deps).
+- **만드는 법**: `overhead.js` 가 만들 때 `TwLabelMeasure.createLabelMeasure({ readCanvasRect, now })` — html · smoke PRELOAD 에서 overhead.js 보다 먼저.
+- **내보내는 것**
+  - `beginFrame()` — 프레임 맨 앞(app.js `frame()` 이 `overheadMod.beginLabelFrame()`)에서 캔버스 사각형을 비운다. 이번 프레임 첫 `canvasRect()` 가 새로 잰다.
+  - `size(el, key)` — `{ w, h }`. 열쇠(글 · 클래스)가 같고 `REFRESH_MS`(500) 안이면 기억한 값, 숨었거나 0 이면 마지막 값.
+  - overhead.js 가 밖에 내놓는 이름: `beginLabelFrame` · `labelSize` · `nameplateHeight(seat)`. 바 · 이름표 · 공지는 자리를 적으며 아래변을 `el._bottom` 에 남기고, 뒤에 도는 이름표 · 말풍선 · 공지는 사각형 대신 그것을 읽는다.
+- **함정**
+  - `beginLabelFrame` 을 빼면 캔버스 사각형이 영영 안 바뀐다(창 크기가 바뀌어도 라벨이 옛 자리) — `checks/sim-label-measure.js` 가 frame 안 자리를 본다.
+  - 프레임 루프 순서(바 → 이름표 → 공지 → 말풍선 → 상태칩)가 곧 `_bottom` 이 이번 프레임 값인 까닭이다. 순서를 바꾸면 한 프레임 전 값을 읽는다.
+  - 상태칩(`status-chip.js`)은 아직 사각형을 직접 읽는다 — 프레임에 한 번(그 자리에서 이번 프레임 쓰기가 한꺼번에 반영)이라 그대로 뒀다.
+
 ## ride-measure.js — 📏 올라타기 실측
 
 - **책임**: 올라타기에 쓰는 «한 번 재서 캐싱하는» 3D 실측 셋. 값만 돌려주고 좌석에 쓰지 않는다(캐싱 · 적용은 `ride-bench.js`).
