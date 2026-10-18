@@ -26,7 +26,8 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
-| 접속 상태 첫 쓰기에 앱 버전 먼저 — 버전 대답 전에 presence 가 «ver 없음» 으로 적혀 잠깐 옛 앱(0.10.2) 막기에 걸리던 틈 | 검증 담당 | presence 를 쓰기 전에 앱 버전 대답(_appVer.ready)을 기다린다 · 0.12.0 | `app/parts/firebase-init.js`(presence 쓰기) · `checks/` 검사 | — |
+| #377 친구 명함(켠 뒤 새 친구 이름 · 사진) — main 합치기 · CHECKS 개정 다시 매김 · 머지 | 검증 담당 | #377 브랜치에 main 합침(force 없음) | `checks/CHECKS.md` | #377 |
+| 접속 상태 첫 쓰기에 앱 버전 먼저 — 버전 대답 전에 presence 가 «ver 없음» 으로 적혀 잠깐 옛 앱(0.10.2) 막기에 걸리던 틈 | 다른 세션(`../tw-presence-ver` · fix/presence-ver-first) 진행 · 검증 담당은 머지만 | presence 를 쓰기 전에 앱 버전 대답(_appVer.ready)을 기다린다 · 0.12.0 | `app/parts/firebase-init.js`(presence 쓰기) · `checks/` 검사 | — |
 | ~~#366 규칙 제한 전수 훑기~~ 끝 — 앱 쓰기 거절 더 없음 · 서버 웹박수 봇 쓰기만 거절(통로가 Firebase 로 넘어가 사용자 영향 없음) | 검증 담당 | 3251aa9^1 ↔ main 규칙 차이 경로 × 앱 · 함수 · 웹 관리자 · 서버가 쓰는 값 대조, 에뮬레이터로 실제 모양 시험 | 없음(조사) | — |
 | ~~웹 관리자 방 상한 잠금 풀기~~ 머지 #373(Hosting 배포 필요) | w2 세션 | 전체 방 상한(config/roomLimits)만 편집 잠금을 푼다 — 실제 투게더룸 454개로 300 을 넘어 값을 맞추려고(사용자 10-18). 정원 · 가입 스위치 · 방 서버 장부 등록은 0.11.4 퍼질 때까지 그대로 잠금 · 앱 코드 안 만짐(Hosting 만) | `web-admin/src/shared/config/remoteConfig.ts` · `web-admin/src/shared/config/index.ts` · `web-admin/src/features/settings/edit-room-config/ui/RoomConfigCard.tsx` | #373 |
 | ~~grk PR #361~#365 · #367 → 0.11.4~~ 머지 #368 · #361 · #362 · #363 · #364 · #365 | 검증 담당 위임 | 사용자 10-18 결정(기능 멈춤 예외). #367 → #368(개정 376) · 나머지는 grk PR 브랜치에 main 을 합쳐 그 PR 을 머지 — #361 개정 377 · #362 378 · #363 379 · #364 380 · #365 381 | 각 PR 의 파일(app.js · myhome · room · launcher · creator · CHECKS.md 등) | #368 · #361~#365 |
