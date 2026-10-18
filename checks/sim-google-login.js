@@ -37,6 +37,7 @@
      자물쇠가 아니라 편의다. 규칙 파일을 받으면 `userAuth` 근거 규칙을 여기서 함께 볼 것.
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs'), vm = require('vm');
 
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -431,7 +432,7 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
        보인다. 그래서 클라이언트 검사만으로는 아무것도 증명되지 않는다 — 여기서 같이 본다. */
   say('');
   say('· §8 규칙 파일 — 되찾기를 허락하고, 남의 계정은 막는가');
-  const RULES_TXT = pick('firebase-database-rules.json', '../firebase-database-rules.json');
+  const RULES_TXT = stripReadGate(pick('firebase-database-rules.json', '../firebase-database-rules.json'));
   if (!RULES_TXT){ say('  (firebase-database-rules.json 을 못 찾음 — 건너뜀)'); }
   else {
     let R = null;
@@ -471,7 +472,10 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
         const AS_READ = "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)";
         chk(R.accountSnap && R.accountSnap['.read'] === AS_READ && R.accountSnap['.write'] === undefined,
             'accountSnap 모음은 관리자(와 관리자 서버 봇)만 읽고, 모음째 쓰기는 없다');
-        chk(AS['.read'] === OWN_ONLY && AS['.write'] === OWN_ONLY, 'accountSnap/{코드} 는 결속된 주인만 읽고 쓴다 (미결속 갈래 없음)');
+        /* 쓰기 뒤에 ≤0.10.2 막기(presence ver · 개정 374)가 && 로만 붙는다 — 갈래(||)가 늘면 안 된다 */
+        const asW = String(AS['.write'] || '');
+        chk(AS['.read'] === OWN_ONLY && (asW === OWN_ONLY || (asW.indexOf(OWN_ONLY + " && (root.child('users/'+$userId+'/presence/ver').exists()") === 0)),
+            'accountSnap/{코드} 는 결속된 주인만 읽고 쓴다 (미결속 갈래 없음)');
         chk(AS.license && /length <= 40/.test(AS.license['.validate']) && AS.friendCode && /length <= 12/.test(AS.friendCode['.validate'])
             && AS.name && /length <= 40/.test(AS.name['.validate']) && AS.focusTotalSec && /359640000/.test(AS.focusTotalSec['.validate'])
             && AS.$other && AS.$other['.validate'] === false && /hasChildren\(\['ts'\]\)/.test(AS['.validate']),
@@ -481,6 +485,16 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
       ['profile','home','presence','friendCode','playlist','gacha',
        'chal','emojis','schedule','ddays','focus','secretRoom','advBg','mallang']
         .forEach(k => chk(!!U[k] && OWN.test(String(U[k]['.write'])), 'users/' + k + ' 은 주인만 쓴다'));
+      /* 🚧 ≤0.10.2 막기(개정 374) — presence 가 켜짐인데 ver 가 없으면(옛 앱이 켜져 있음) 자기 칸 쓰기를 막는다.
+         presence 는 표지라 막지 않는다 · 가입 · 이전 길(friendCode · invite · transfer*)과 기기 세션도 막지 않는다. */
+      {
+        const GATE = "(root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)";
+        const gated = ['profile','home','focus','playlist','gacha','chal','emojis','schedule','ddays','advBg','mallang','slots','slotsPrev','chars','charsMeta','awayImg','awaySz'];
+        chk(gated.every(k => String((U[k] || {})['.write']).indexOf(GATE) >= 0), 'users/' + gated.length + '칸 쓰기에 옛 앱 막기가 붙었다');
+        chk(['presence','friendCode','invite','transferHash','transferData','session'].every(k => String((U[k] || {})['.write']).indexOf('presence/ver') < 0),
+            '  presence(표지) · 가입 · 이전 · 기기 세션 길은 막지 않는다');
+        chk(String(((U.clap || {}).count || {})['.write']) === 'true', '  박수 +1 은 쓰는 사람을 몰라 그대로 누구나');
+      }
       /* 이쪽은 **열려 있어야 한다.** 잠그면 친구 수락·방명록·박수·선물이 조용히 전부 죽는다
          (전부 남의 users 노드에 쓰는 기능이다 — acceptFriendRequest, writeGuestbook,
           clapOnce, sendMallangGift, 일정 알림). */
@@ -490,9 +504,12 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
           'users/invite 는 주인 또는 관리자만 쓴다 (관리자 초대권 지급)');
       ['friends','guestbook','clap','mallangGifts','schedNotices']
         .forEach(k => {
-          const w = U[k] && (U[k]['.write'] !== undefined ? U[k]['.write'] : (U[k].$friendId||{})['.write']);
+          /* clap 은 박수(count)만 남이 쓴다 — 그림 · 이모지는 주인만(크기 제한 개정) */
+          const w = U[k] && (k === 'clap' ? (U[k].count||{})['.write'] : U[k]['.write'] !== undefined ? U[k]['.write'] : (U[k].$friendId||{})['.write']);
           chk(w === true, 'users/' + k + ' 은 남도 쓸 수 있다 (' + k + ' 기능이 죽지 않게)');
         });
+      chk(OWN.test(String(((U.clap||{}).img||{})['.write'])) && OWN.test(String(((U.clap||{}).emoji||{})['.write'])) && !('.write' in (U.clap||{})),
+          'users/clap 그림 · 이모지는 주인만 (clap 통째 .write 없음 — 남이 큰 그림을 못 심는다)');
       /* 잠근 가지는 **로그인 안 한 기기에서도** 돌아야 한다 — 아직 아무 계정에도 안 묶인 코드는
          첫 절에서 통과한다. 이 절이 빠지면 로그인 안 한 기존 유저 전원이 자기 마이홈에 못 쓴다. */
       chk(OWN.test(String(U.profile['.write'])) && /!root\.child\('userAuth\/'\+\$userId\)\.exists\(\)/.test(String(U.profile['.write'])),

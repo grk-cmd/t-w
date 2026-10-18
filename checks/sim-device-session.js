@@ -8,6 +8,7 @@
    ・3절: HTML — #deviceSessionOverlay 두 버튼 · 클릭 통과 화이트리스트(UI_HIT_SEL)에 등록.
    [실행] app.js · firebase-init.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const SRC  = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
@@ -37,7 +38,7 @@ say('── 1. firebase-init.js — claim / lost / release 를 실제로 돌린�
   chk(/필요한 규칙:\s+"session": \{/.test(FB) && /root\.child\('userAuth\/'\+\$uid\)\.val\(\) === auth\.uid/.test(FB), '  필요한 규칙 블록이 주석에 적혀 있다');
   /* 규칙 파일이 있으면 실제 블록을 본다 — 로그인 계정만 쓰고, 삭제(release)도 통과해야 한다. */
   if(fs.existsSync('firebase-database-rules.json')){
-    const rules = JSON.parse(fs.readFileSync('firebase-database-rules.json', 'utf8'));
+    const rules = JSON.parse(stripReadGate(fs.readFileSync('firebase-database-rules.json', 'utf8')));
     const u = rules.rules && rules.rules.users && rules.rules.users['$userId'];
     const sess = u && u.session;
     chk(!!sess, '★ 규칙 users/$userId/session 블록이 있다');

@@ -27,6 +27,7 @@
      (firebase-database-rules.json 을 받으면 그쪽도 같이 볼 것).
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs'), vm = require('vm');
 
@@ -126,7 +127,7 @@ say('');
 say('· §1-B 미러 정합성 — 한 사실을 두 곳에 적는 값이 어긋나지 않는가');
 
 const RULES = fs.existsSync('firebase-database-rules.json')
-  ? fs.readFileSync('firebase-database-rules.json', 'utf8') : null;
+  ? stripReadGate(fs.readFileSync('firebase-database-rules.json', 'utf8')) : null;
 chk(!!RULES, 'firebase-database-rules.json 이 있다 (없으면 미러 쓰기가 전부 거부된다)');
 if (RULES) {
   const r = JSON.parse(RULES).rules || {};
