@@ -65,7 +65,7 @@
   function myId(){ try{ return getMyUserId(); }catch(_){ return null; } }
   function fbReady(){ return !!(window.firebaseAPI && firebaseAPI.getMallangImgs); }
   function hasLicense(){ try{ return !!window._premiumOn(); }catch(_){ return false; } }
-  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js)
   function lsKey(){ return 'tw.mallang.' + (myId()||'anon'); }
   function saveLocal(){ try{ localStorage.setItem(lsKey(), JSON.stringify(imgs)); }catch(_){} }
   /* 💾 로컬 먼저, 서버는 그 다음. **이 함수는 던지지 않는다.**
@@ -248,7 +248,11 @@
       const item = imgs[i];
       if(item){
         if(!item.on) slot.classList.add('off');
-        slot.innerHTML = '<img src="'+item.url+'" alt=""><button class="ml-del" data-i="'+i+'">×</button>';
+        /* 주소는 남의 것일 수 있다(선물) — 허용된 그림 주소만 · 마크업에 붙이지 않고 요소로 */
+        const src = TwSafeHtml.safeUrl(item.url, 'image');
+        if(src){ const im = document.createElement('img'); im.src = src; im.alt = ''; slot.appendChild(im); }
+        const del = document.createElement('button'); del.className = 'ml-del'; del.dataset.i = String(i); del.textContent = '×';
+        slot.appendChild(del);
         slot.querySelector('.ml-del').addEventListener('click', (e)=>{ e.stopPropagation(); removeImg(i, inp); });
         // 우클릭 = 활성/비활성 토글
         slot.addEventListener('contextmenu', (e)=>{ e.preventDefault(); e.stopPropagation(); toggleImg(i, inp); });
@@ -403,8 +407,10 @@
       if(!rafId) rafId = requestAnimationFrame(tick);
       syncHideBtn();
     };
+    const src = TwSafeHtml.safeUrl(url, 'image');   // 남의 집 · 선물 주소 — 허용된 그림 주소만
+    if(!src){ _release(); return; }
     guy.appendChild(im);
-    im.src = url;
+    im.src = src;
     layer.appendChild(guy);
   }
 
@@ -1031,7 +1037,7 @@
          유저가 구분할 수 없다. 조회 실패(-1)는 막지 않는다. */
     const full = (theirVisible >= 0 && theirVisible >= GIFT_SEND_CAP);
     const note = full
-      ? '<div class="ml-note ml-full"><b>'+esc(friendName||'친구')+'</b> 님의 마이홈에 말랑이가 가득 찼어요 ('+theirVisible+'/'+GIFT_SEND_CAP+')<br>몇 마리 치우면 다시 보낼 수 있어요.</div>'
+      ? '<div class="ml-note ml-full"><b>'+esc(friendName||'친구')+'</b> 님의 마이홈에 말랑이가 가득 찼어요 ('+esc(theirVisible)+'/'+GIFT_SEND_CAP+')<br>몇 마리 치우면 다시 보낼 수 있어요.</div>'
       : '<div class="ml-note">보낼 말랑이를 고르세요. 오늘 남은 횟수: <b>'+remain+'/'+DAILY_LIMIT+'</b></div>';
     pop.innerHTML =
       '<div class="ml-hd"><span>🎁 '+esc(friendName||'친구')+'에게 말랑이 선물</span><span class="x" id="mlGiftClose">×</span></div>'+
@@ -1050,7 +1056,8 @@
     if(full) grid.classList.add('off');   // 눌러도 안 되는 것이 눈에 보이게 (핸들러도 아래에서 한 번 더 막는다)
     mine.forEach(item=>{
       const cell = document.createElement('div'); cell.className='ml-gcell';
-      cell.innerHTML = '<img src="'+item.url+'" alt="">';
+      const gsrc = TwSafeHtml.safeUrl(item.url, 'image');
+      if(gsrc){ const gim = document.createElement('img'); gim.src = gsrc; gim.alt = ''; cell.appendChild(gim); }
       cell.addEventListener('click', async ()=>{
         /* ⚠️ 흐리게 만든 것만으로는 부족하다 — 창을 열어둔 채 시간이 지나면 값이 낡는다.
            보내기 직전에 한 번 더 본다(로컬 판정이라 왕복은 없다). */
@@ -1060,7 +1067,7 @@
         const myName = getDisplayName();
         const msg = msgInp ? msgInp.value.trim().slice(0, MSG_MAX) : '';
         const r = await firebaseAPI.sendMallangGift(myId(), myName, friendId, item.url, todayStr(), msg);
-        if(r&&r.ok){ toast('🎁 '+esc(friendName||'친구')+'에게 말랑이를 보냈어요!'); pop.remove(); }
+        if(r&&r.ok){ toast('🎁 '+(friendName||'친구')+'에게 말랑이를 보냈어요!'); pop.remove(); }   // 토스트는 textContent — 씻으면 &lt; 가 글자로 보인다
         else { cell.style.pointerEvents=''; cell.style.opacity=''; toast((r&&r.reason)||'전송 실패'); }
       });
       grid.appendChild(cell);

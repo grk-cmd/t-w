@@ -800,7 +800,7 @@ function _pkOnFrames(o){
        그중 몇 장을 쓸지는 _pkPaintUp·_pkSyncFrame 이 PK.cuts 를 보고 정한다. */
   let pending = 0;
   for(let i=0;i<PK_MAX_CUTS;i++){
-    const u = o[i];
+    const u = TwSafeHtml.safeUrl(o[i], 'image');   // 방장이 올린 프레임 — 허용된 그림 주소만
     if(!u){ PK.up[i] = null; continue; }
     if(PK.up[i] && PK.up[i].url === u) continue;
     pending++;
@@ -829,7 +829,7 @@ function _pkPaintSlots(){
     d.className = 'pk-slot' + (m ? (i===_pkHostSlot() ? ' host' : '') : ' empty');
     const mine = m && m.uid === getMyUserId();
     d.innerHTML = '<div class="pk-av"></div>'
-      + '<div>' + (m ? (mine ? '나' : (m.name || '손님')) : '비어 있음') + '</div>'
+      + '<div>' + (m ? (mine ? '나' : TwSafeHtml.text(m.name || '손님')) : '비어 있음') + '</div>'
       + '<div class="pk-rl">' + (m ? (i===_pkHostSlot() ? '👑 시작 권한' : '참가') : '먼저 온 순서') + '</div>';
     el.appendChild(d);
   }

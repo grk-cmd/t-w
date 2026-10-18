@@ -105,7 +105,7 @@ function renderStickerMgr(){
     row.appendChild(ord);
 
     const th=document.createElement('div'); th.className='st-mgr-th';
-    if(s.img){ const im=document.createElement('img'); im.src=s.img; im.draggable=false; th.appendChild(im); }
+    if(s.img){ const im=document.createElement('img'); im.src=TwSafeHtml.safeUrl(s.img, 'image'); im.draggable=false; th.appendChild(im); }
     else th.textContent = s.emoji || '⭐';
     row.appendChild(th);
 

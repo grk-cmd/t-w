@@ -17,7 +17,7 @@ function applyDeskDotThumb(rec, it){
   try{
     if(!rec || !it || !it.firstChild) return;
     const c = window._deskThumbCache = window._deskThumbCache || {};
-    const put = url=>{ const box=it.firstChild; if(!box||!url) return;
+    const put = raw=>{ const box=it.firstChild; const url=TwSafeHtml.safeUrl(raw, 'image'); if(!box||!url) return;   // 카탈로그 · 만든 썸네일 — 허용된 그림 주소만
       // 이모지(텍스트 노드)만 제거 — ×삭제·✎수정·☰핸들 등 버튼 엘리먼트는 보존
       Array.from(box.childNodes).forEach(n=>{ if(n.nodeType===3) box.removeChild(n); });
       if(box.querySelector('img.desk-dot-thumb')) return;   // 중복 삽입 방지

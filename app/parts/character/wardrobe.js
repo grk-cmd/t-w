@@ -1445,7 +1445,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
       const head = document.createElement('div');
       head.className = 'wd-adj-row';
       head.innerHTML = `<span class="wd-adj-lab">${label}</span>`
-                     + `<span class="wd-adj-swatch" style="flex:1;background:${curColor};"></span>`
+                     + `<span class="wd-adj-swatch" style="flex:1;background:${TwSafeHtml.cssColor(curColor)};"></span>`
                      + `<button class="wd-adj-reset" title="원본 색으로">↺</button>`;
       const rowH = mk('색조', 0, 359, Math.round(_h*360), '°');
       /* 🎚️ 채도만 양음(-100~100)이다. 가운데 0 이 '원본 그대로'이고, 왼쪽 끝이 회색이다.
@@ -1461,7 +1461,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
         xf.colorHSV[key] = { h:_h, s:_s, v:_v };
         const hex = _hsvToHex(_h, _s, _v);
         xf.color[key] = hex;                 // 표시용·플랫 메쉬용 사본
-        swatch.style.background = hex;
+        swatch.style.background = TwSafeHtml.cssColor(hex);
         meshes.forEach(m=>{
           if(!m.material) return;
           if(isHueTintMesh(m)){ applyHueTint(m, hex, xf.colorHSV[key]); m.material.needsUpdate = true; return; }
@@ -1512,8 +1512,8 @@ function buildColorRows(cat, xf, wrapper, syncFn){
       return;   // 아래 팔레트 경로는 타지 않는다
     }
     colorRow.innerHTML = `<span class="wd-adj-lab">${label}</span>
-                          <span class="wd-adj-swatch" style="background:${curColor};"></span>
-                          <input type="text" class="wd-adj-hex" value="${curColor}" maxlength="7" spellcheck="false">
+                          <span class="wd-adj-swatch" style="background:${TwSafeHtml.cssColor(curColor)};"></span>
+                          <input type="text" class="wd-adj-hex" value="${escHtml(curColor)}" maxlength="7" spellcheck="false">
                           <button class="wd-adj-reset" title="원본 색으로">↺</button>`;
     const swatchBtn = colorRow.querySelector('.wd-adj-swatch');
     const hexInput = colorRow.querySelector('.wd-adj-hex');
@@ -1521,7 +1521,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
     const applyColor = (val)=>{
       if(!/^#[0-9a-fA-F]{6}$/.test(val)) return;   // 올바른 6자리 헥스코드가 아니면 무시
       xf.color[key] = val;
-      swatchBtn.style.background = val;
+      swatchBtn.style.background = TwSafeHtml.cssColor(val);
       // ★ meshes는 미리보기 좌석의 메쉬라 여기서 바로 미리보기에 반영됨. 드래그 중 여러 번 호출될 수
       //   있어 화면 갱신은 즉시(가벼움), syncFn 호출은 프레임당 한 번만.
       //   ★ emissive도 함께 갱신 — 이 앱은 emissive(평면 조명)로 실제 화면 색이 결정되기 때문에 color만
@@ -1555,7 +1555,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
       //   서로 어긋나지 않게 함.
       const savedColor = xf.color[key] || hexInput.value || ('#'+firstOrig);
       if(hexInput.value !== savedColor) hexInput.value = savedColor;
-      swatchBtn.style.background = savedColor;
+      swatchBtn.style.background = TwSafeHtml.cssColor(savedColor);
       paletteEl = buildFreeColorPicker(savedColor, (val)=>{ hexInput.value=val; applyColor(val); });
       // ★ colorRow 안(스크롤되는 색상 영역 등)에 그냥 넣으면 조상의 overflow:hidden/auto에 잘려 보이는
       //   문제가 있어서, body에 position:fixed로 붙이고 스와치 위치를 기준으로 좌표를 직접 계산함.
@@ -1695,7 +1695,7 @@ function renderWardrobe(){
   const list=partsInCat(info.cat).filter(p=>!gachaMod().isGachaPart(p));
   const sec=document.createElement('div'); sec.className='wd-cat';
   const head=document.createElement('div'); head.className='wd-cat-head';
-  head.innerHTML='<h3>'+info.icon+' '+info.label+'</h3>';  const actions=document.createElement('div'); actions.className='wd-cat-head-actions';
+  head.innerHTML='<h3>'+escHtml(info.icon)+' '+escHtml(info.label)+'</h3>';  const actions=document.createElement('div'); actions.className='wd-cat-head-actions';
   const addCode=document.createElement('button'); addCode.className='wd-add-code'; addCode.textContent='+ 코드로 추가';
   addCode.title='코드+비밀번호로 받은 커미션 파츠를 이 기기에만 추가해요';
   addCode.onclick=()=>openAssetImport('part', info.cat);
@@ -1722,7 +1722,7 @@ function renderWardrobe(){
   }
   if(list.length===0 && !isAdmin()){
     const empty=document.createElement('div'); empty.className='wd-empty';
-    empty.innerHTML='<span class="ic">'+info.icon+'</span>아직 등록된 '+info.label+' 파츠가 없어요.';
+    empty.innerHTML='<span class="ic">'+escHtml(info.icon)+'</span>아직 등록된 '+escHtml(info.label)+' 파츠가 없어요.';
     sec.appendChild(empty);
     wrap.appendChild(sec);
     return;
@@ -1745,7 +1745,7 @@ function renderWardrobe(){
          발행한 값이지만 이름이 **파일명 유래**라 `"` 나 `&` 가 섞일 수 있고, 그 한 글자가
          `src=` 속성을 빠져나온다. 값의 출처를 믿는 것보다 여기서 막는 편이 싸다. */
     const thumbHtml = _thumbSrc
-      ? '<img class="wd-thumb" src="'+escHtml(_thumbSrc)+'" alt="">'
+      ? '<img class="wd-thumb" src="'+escHtml(TwSafeHtml.safeUrl(_thumbSrc,'image'))+'" alt="">'
       : '<span>'+escHtml(rec.icon||info.icon)+'</span>';
     card.innerHTML = thumbHtml + '<span class="nm">'+escHtml(rec.name||'파츠')+'</span>';
     // 🔗 다른 파츠와 함께 착용 가능한 파츠는 우상단에 뱃지 표시

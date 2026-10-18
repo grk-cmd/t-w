@@ -69,7 +69,6 @@ const setStarColor = deps.setStarColor;
 const slots = deps.slots;
 const toast = deps.toast;
 const setCurSlot = deps.setCurSlot;   // 쓰는 함수
-const MI_IMG_OK = /^(data:image\/|https?:)/i;
 let _miTab = 'box', _miBusy = false;
 let _miBoxAsk = null, _miTrashRows = null, _miTrashErr = false, _miTrashFullShown = false;   // 🗑️ 개정 49
 const _miPick = new Set(); let _miBulkAsk = false;                                              // 🧺 D2 가득 참 — 고른 것 · 되묻기(개정 51)
@@ -255,8 +254,9 @@ async function _miRenderAvatar(){
       if(data.avatar){ av = data.avatar; if(typeof _myHomeData() !== 'undefined' && _myHomeData()) _myHomeData().avatar = data.avatar; }
     }catch(_){}
   }
-  const ok = !!av && MI_IMG_OK.test(String(av));
-  if(img){ if(ok) img.src = av; img.style.display = ok ? 'block' : 'none'; }
+  const avSrc = TwSafeHtml.safeUrl(av, 'image');   // 허용된 그림 주소만(shared/safe-html.js)
+  const ok = !!avSrc;
+  if(img){ if(ok) img.src = avSrc; img.style.display = ok ? 'block' : 'none'; }
   if(ph) ph.style.display = ok ? 'none' : 'block';
 }
 function _miNameEditStart(){
@@ -289,7 +289,8 @@ function _miCopyCode(){
 function _miSlotThumb(def){
   if(!def) return null;
   for(const v of [def.thumbUrl, def.thumb, def.faceUrl, def._faceUrl, def.face]){
-    if(typeof v === 'string' && MI_IMG_OK.test(v)) return v;
+    const s = TwSafeHtml.safeUrl(v, 'image');
+    if(s) return s;
   }
   return null;
 }

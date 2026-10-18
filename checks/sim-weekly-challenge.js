@@ -10,6 +10,7 @@
    [실행] weekly-challenge.js · app.js · pomodoro.js · desk-companion-prototype.html 이 있는 폴더에서.
    ※ 🍅 뽀모 서랍은 parts/focus/pomodoro.js 로 옮겼다(앱 FSD 6번) — 뽀모 쪽이 weeklyChal.open(false) 를 부르는 곳은 그 파일에서 본다. */
 'use strict';
+globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
@@ -98,7 +99,7 @@ function mkEnv(opt){
   };
   ctx.window = ctx;
   ctx.addEventListener = (t, fn) => { (env.winL[t] = env.winL[t] || []).push(fn); };
-  vm.createContext(ctx);
+  ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(HELP.join('\n') + '\nthis.__help = { _dayShifted, _focusDayStr, escHtml, formatHMS, DAY_START_HOUR };', ctx);
   vm.runInContext(MOD, ctx, { filename: 'weekly-challenge.js' });
   const H = ctx.__help;

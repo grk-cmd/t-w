@@ -322,7 +322,8 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
   function renderClap(){
     const d=gbDoc(); if(!d) return;
     const hint=d.getElementById('gbClapHint'), img=d.getElementById('gbClapImg');
-    if(_clap && _clap.img){ if(img){img.src=_clap.img; img.style.display='block';} if(hint) hint.style.display='none'; }
+    const clapSrc = _clap && TwSafeHtml.safeUrl(_clap.img, 'image');   // 그 집 주인이 올린 웹박수 그림 — 허용된 그림 주소만
+    if(clapSrc){ if(img){img.src=clapSrc; img.style.display='block';} if(hint) hint.style.display='none'; }
     else { if(img) img.style.display='none'; if(hint) hint.style.display='block'; }
     const t=d.getElementById('gbClapTotal'); if(t) t.textContent='TOTAL CLAP : '+((_clap&&_clap.count)||0);
     /* 🎆 폭죽 이모지 동기화. ⚠️ 지금 그 칸에 타이핑 중이면 건드리지 않는다 — 서버 스냅샷이

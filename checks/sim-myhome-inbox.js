@@ -15,6 +15,7 @@
    ・8절: 일부러 깨 보기 — 모듈 · app.js 글을 조금씩 망가뜨려 2~7절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] myhome-inbox.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -555,7 +556,7 @@ async function runAll(MI, APP, HTML){
     ['MI', "  if(_notice){\n    _mhUpdateFriendHit('', 0);", "  if(false){\n    _mhUpdateFriendHit('', 0);", '못 받은 친구 목록을 «친구 없음» 으로 그림'],
     ['MI', "       + '<span class=\"mh-hl\">' + escHtml(s.slice(i, i + qs.length)) + '</span>'", "       + '<span class=\"mh-hl\">' + s.slice(i, i + qs.length) + '</span>'", '강조 조각을 안 씻음'],
     ['MI', "  if(inp) inp.value = '';\n  _friendFilter = '';", "  if(inp) inp.value = '';", '검색줄 닫아도 검색어가 남음'],
-    ['MI', "if(f.avatar && /^(data:image\\/|https?:)/i.test(String(f.avatar))){", 'if(f.avatar){', '아바타 주소를 아무거나'],
+    ['MI', "const fSrc = TwSafeHtml.safeUrl(f.avatar, 'image');", 'const fSrc = f.avatar;', '아바타 주소를 아무거나'],
     ['MI', 'const online = shown.filter(id=>_myHomeFriends()[id].online).sort(byName);', 'const online = shown.filter(id=>_myHomeFriends()[id].online);', '온라인 친구를 이름순으로 안 둠'],
     ['MI', 'setInboxFilter: (v)=>{ _inboxFilter = v; },', '', 'setInboxFilter 를 안 내놓음'],
     ['MI', "if(typeof window !== 'undefined') window.TwMyHomeInbox = api;", "if(typeof window !== 'undefined') window.MyHomeInbox = api;", '전역 이름에 Tw 가 없음'],

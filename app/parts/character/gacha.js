@@ -515,7 +515,7 @@ function _gachaWornIds(){
   }
   return out;
 }
-function _gachaThumb(rec){ return rec.thumbUrl || rec.thumbnail || null; }
+function _gachaThumb(rec){ return TwSafeHtml.safeUrl(rec.thumbUrl || rec.thumbnail, 'image') || null; }   // 카탈로그 그림 — 허용된 그림 주소만
 function _gachaPips(n, max){ const m = max || GACHA_DUPES_FOR_COLOR;
   return '●'.repeat(Math.min(n, m)) + '○'.repeat(Math.max(0, m - n)); }
 const GACHA_SEASON_MONTH = { spring:'3월', summer:'6월', autumn:'9월', winter:'12월' };
@@ -676,7 +676,7 @@ function renderGachaInv(){
   if(!bar || !grid) return;
   const season = gachaSeasonNow();
   const left = gachaTicketsLeft();
-  bar.innerHTML = '레벨 <b>' + getFocusLevel() + '</b> · 남은 뽑기 <b>' + left + '회</b>'
+  bar.innerHTML = '레벨 <b>' + Number(getFocusLevel()) + '</b> · 남은 뽑기 <b>' + left + '회</b>'
     + ' <span style="opacity:.6">(' + GACHA_LEVELS_PER_TICKET + '레벨당 1회'
       + ((_gachaBonus|0) > 0 ? ' + 👑달성표 ' + (_gachaBonus|0) + '회' : '') + ')</span><br>'
     + '이번 시즌 가챠 — <b>' + (GACHA_SEASON_LABEL[season] || season) + '</b>';

@@ -61,7 +61,7 @@
       '<div class="bb-main"><div class="bb-title"><span class="bb-tag">' + tag + '</span><span class="bb-tt" data-tid="' + esc(it.id) + '">' + esc(title) + '</span>' +
       (isNew ? '<span class="bb-new">새 답변</span>' : '') +
       ((admin() && C().hasAuthorReply && C().hasAuthorReply(it)) ? '<span class="bb-new mine">✍ 글쓴이 답글</span>' : '') + '</div>' +
-      (it.notice ? '' : '<div class="bb-sub">' + esc(catName(it.cat)) + ' · 👍' + (it.likeN || 0) + ' · 답변 ' + (it.ansN || 0) + '</div>') +
+      (it.notice ? '' : '<div class="bb-sub">' + esc(catName(it.cat)) + ' · 👍' + Number(it.likeN || 0) + ' · 답변 ' + Number(it.ansN || 0) + '</div>') +
       '</div><div class="bb-who">' + whoName(it) + '<br>' + fmtDate(it.ts) + '</div></div>';
   }
   /* 목록 줄에 제목이 없는 옛 비공개 글만 행마다 따로 읽는다. */
@@ -139,7 +139,7 @@
     h.push('<div class="bb-body">' + esc(ct ? ct.body : '(내용을 불러오지 못했어요)') + '</div>');
     if(ct && ct.env) h.push('<div class="bb-env">🖥 ' + esc(ct.env) + '</div>');
     if(it.vis === 'pub' && !it.notice){
-      h.push('<button class="bb-btn bb-like' + (d.liked ? ' on' : '') + '" type="button" data-act="like"' + (d.liked ? ' disabled' : '') + '>👍 나도 겪었어요 ' + (it.likeN || 0) + '</button>');
+      h.push('<button class="bb-btn bb-like' + (d.liked ? ' on' : '') + '" type="button" data-act="like"' + (d.liked ? ' disabled' : '') + '>👍 나도 겪었어요 ' + Number(it.likeN || 0) + '</button>');
     }
     d.answers.forEach(a => {
       if(a.byAuthor){
@@ -160,9 +160,9 @@
   }
   function adminForm(it){
     const prvOnly = it.vis === 'prv';
-    const opts = Object.keys(C().status).map(k => '<option value="' + k + '"' + (k === it.status ? ' selected' : '') + '>' + esc(C().status[k]) + '</option>').join('');
+    const opts = Object.keys(C().status).map(k => '<option value="' + esc(k) + '"' + (k === it.status ? ' selected' : '') + '>' + esc(C().status[k]) + '</option>').join('');
     return '<div class="bb-admin"><div class="bb-ans-h">답변 달기 (관리자)</div>' +
-      '<textarea id="bbAText" maxlength="' + (C().ansMax || 1000) + '" placeholder="답변 내용"></textarea>' +
+      '<textarea id="bbAText" maxlength="' + Number(C().ansMax || 1000) + '" placeholder="답변 내용"></textarea>' +
       '<div class="bb-row2">' +
       '<label><input type="radio" name="bbAVis" value="pub"' + (prvOnly ? ' disabled' : ' checked') + '> 공개</label>' +
       '<label><input type="radio" name="bbAVis" value="prv"' + (prvOnly ? ' checked disabled' : '') + '> 비공개</label>' +
@@ -179,9 +179,9 @@
   function authorForm(it){
     const sts = C().authorStatus || [];
     return '<div class="bb-admin mine"><div class="bb-ans-h">✍ 답글 달기 (글쓴이)</div>' +
-      '<textarea id="bbRText" maxlength="' + (C().ansMax || 1000) + '" placeholder="업데이트 후에도 그런지, 더 알려 줄 내용"></textarea>' +
+      '<textarea id="bbRText" maxlength="' + Number(C().ansMax || 1000) + '" placeholder="업데이트 후에도 그런지, 더 알려 줄 내용"></textarea>' +
       '<div class="bb-row2"><span class="bb-k">상태</span>' +
-      sts.map(s => '<button class="bb-btn bb-rst' + (s[0] === AUTHOR_DEFAULT_ST ? ' on' : '') + '" type="button" data-act="rst" data-st="' + s[0] + '">' + esc(s[1]) + '</button>').join('') +
+      sts.map(s => '<button class="bb-btn bb-rst' + (s[0] === AUTHOR_DEFAULT_ST ? ' on' : '') + '" type="button" data-act="rst" data-st="' + esc(s[0]) + '">' + esc(s[1]) + '</button>').join('') +
       '</div><div class="bb-row2">' +
       (it.vis === 'prv' ? '<span class="bb-hint">비공개 글이라 답글도 글쓴이 · 관리자만 봐요.</span>' : '<span class="bb-hint">공개 글이라 답글도 모두에게 보여요.</span>') +
       '<span class="bb-sp"></span><button class="bb-btn" type="button" data-act="reply">답글 등록</button></div>' +
@@ -232,7 +232,7 @@
   function openWrite(){
     if(!api() || !myUid()){ toast('서버에 연결된 뒤에 쓸 수 있어요'); return; }
     const sel = $('bbWCat');
-    if(!sel.options.length) sel.innerHTML = C().cats.map(c => '<option value="' + c[0] + '">' + esc(c[1]) + '</option>').join('');
+    if(!sel.options.length) sel.innerHTML = C().cats.map(c => '<option value="' + esc(c[0]) + '">' + esc(c[1]) + '</option>').join('');
     $('bbWTitle').value = ''; $('bbWBody').value = ''; $('bbWErr').textContent = '';
     document.querySelectorAll('input[name="bbWVis"]').forEach(r => { r.disabled = false; r.checked = r.value === 'pub'; });
     $('bbWEnv').checked = true; $('bbWNotice').checked = false;

@@ -153,3 +153,13 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 잠금은 자리 · 크기 · 회전만 — 끌기(`myhome-edit.js`) · 편집 모드 · ◎ · 전부 화면 안으로가 본다. 지우기 · 링크 · 움직임 · 순서는 잠겨도 된다.
 옛 앱은 `z` · `locked` 를 모른다 — 만든 차례로 그리고 잠금 없이 움직인다(칸은 지우지 않고 남긴다).
 검사: `checks/sim-myhome-sticker-rules.js`.
+
+## 화면에 넣는 값 — `mallang.js` · `myhome-desktop.js` · 마이홈 창 공통
+
+**책임** — 마이홈은 친구 홈 구경 · 선물 · 파티로 **남의 값**(이름 · 사진 주소 · 테마 색 · 배경 그림)을 그대로 그리는 곳이 많다. 그 값은 모두 `shared/safe-html.js`(`TwSafeHtml`)를 지난다.
+
+**쓰는 법** — 마크업 글자는 `TwSafeHtml.text`(파일 안 `esc` · deps `escHtml` 은 그 별칭), 그림 주소는 `TwSafeHtml.safeUrl(u, 'image')` 를 거쳐 **요소로** 만든다(`'<img src="'+url+'"'` 로 붙이지 않는다), 테마 · 배경은 `cssUrl(img) || cssColor(color)`.
+
+**함정** — 토스트 · `title` · `textContent` 는 씻지 않는다(말랑이 선물 토스트가 `&lt;` 를 글자로 보이던 자리). 허용 안 된 주소는 그리지 않고 빈 칸 · 기본 모양으로 둔다.
+`myhome-desktop.js` 모험 시나리오는 상수 표의 고정 마크업이라 검사 예외(`checks/sim-safe-html.js` ALLOW)에 이유와 함께 있다. ⚠️ 파티 방장이 보내는 `storyHtml` 은 남은 구멍 — 받은 마크업을 그대로 그린다(비트 id 로 바꾸는 일은 따로 결정).
+검사: `checks/sim-safe-html.js`.

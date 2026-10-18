@@ -13,6 +13,7 @@
            빈 껍데기 · html 순서 · 전역 이름
    [실행] gacha.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
@@ -103,7 +104,7 @@ function mkEnv(opt){
     loadGachaOwned: async () => { env.loads = (env.loads || 0) + 1; if(env.srvDelay) await new Promise(r => setTimeout(r, env.srvDelay)); return env.srv === null ? null : JSON.parse(JSON.stringify(env.srv)); },
     saveGachaOwned: async (uid, owned, ts) => { env.pushes.push({ uid, owned: JSON.parse(JSON.stringify(owned)), ts }); if(env.pushOk) env.srv = { owned: JSON.parse(JSON.stringify(owned)), ts }; return env.pushOk; },
   };
-  vm.createContext(ctx);
+  ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'gacha.js' });
   env.ctx = ctx; env.els = els; env.tabs = tabs;
   env.mk = () => { const m = ctx.TwGacha.createGacha({

@@ -258,7 +258,7 @@ function renderAnnivCards(){
     card.className = 'mh-dcard' + (dd.bgImg ? ' hasimg' : '') + (isPast ? ' past' : '');
     card.draggable = true;
     card.dataset.id = id;
-    if(dd.bgImg) card.style.backgroundImage = `url("${dd.bgImg}")`;
+    if(dd.bgImg) card.style.backgroundImage = TwSafeHtml.cssUrl(dd.bgImg);   // 허용된 그림 주소만
     else if(dd.bgColor) card.style.backgroundColor = dd.bgColor;
 
     const face = document.createElement('div'); face.className = 'dc-face';
@@ -1068,7 +1068,7 @@ function renderBellList(){
   const inboxNew = _inboxUnreadCount();
   const hr = document.createElement('div'); hr.className = 'bell-inbox-sep'; list.appendChild(hr);
   const btn = document.createElement('div'); btn.className = 'bell-inbox-btn';
-  btn.innerHTML = '📪 수령함 확인' + (inboxNew > 0 ? ' <span class="bell-inbox-new">NEW '+inboxNew+'</span>' : '');
+  btn.innerHTML = '📪 수령함 확인' + (inboxNew > 0 ? ' <span class="bell-inbox-new">NEW '+Number(inboxNew)+'</span>' : '');
   btn.onclick = ()=>{
     window._closeBellWin();   // closeBell 은 창을 만드는 함수 안의 이름이라 여기서는 안 보인다 — 그 함수가 거는 고리로 닫는다
     // 마이홈 열고 → 우편함 탭(수령함)으로 이동
