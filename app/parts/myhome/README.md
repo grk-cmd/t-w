@@ -78,6 +78,29 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
   - 친구 목록 · 접속 상태를 직접 또 걸지 않는다(포트 · 이 모듈 한 곳 — 겹치면 비용이 곱이 된다). 검사: `checks/sim-friends-sub.js` · `checks/sim-friends-port.js`.
 - 내 코드(myId)가 없으면(로그인 전 — `getMyUserId()` 가 null) `start` 입구에서 바로 돌아간다 — 구독 · 읽기 · 다시 걸기 없이 «친구 없음»(`ready` · 빈 목록) · 화면은 main 과 같은 «아직 친구가 없어요». 코드가 생기면 마이홈 시작이 그때 건다.
 
+## `inbox-sections.js` — 📩 우편함 칸 나누기 규칙
+
+**책임** — 우편함 탭 안 왼쪽 세로 메뉴(📩 우편 · 📢 소식 · 📘 도움말)의 판단 한 벌: 어느 우편이 어느 칸에 드는지 · 칸마다 순서 · 안 읽은 수 · 탭에 들어올 때 처음 보일 칸.
+소식 = 모두에게 보낸(broadcast) 공지 · 업데이트(태그 없음 · 모르는 태그는 공지로). 우편 = 나머지 전부 — 개인 우편 · 🐞 답변 · 모두에게 보낸 «📩 우편»(이벤트 보상 — 사용자 결정).
+순수 함수만 — DOM · firebase · localStorage 를 모르고, 받은 값을 고치지 않는다.
+
+**만드는 법** — 만들지 않는다(받는 것 없음 · 실릴 때 바로). `myhome-inbox.js` · app.js 보다 먼저 싣고, 수령함 모듈이 받는다:
+
+```js
+const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHomeHooks 와 같은 모양)
+```
+
+**내놓는 것** — `SECS`(['mail','news','help']) · `CATS`(['all','notice','update']) · `tagOf(m)` · `sectionOf(m)` → 'mail' | 'news' ·
+`normSec(s)` · `normCat(c)`(옛 필터 값 'reward' · 'gift' → 'all') · `mailIds(merged)` · `newsIds(merged, cat)`(📌 고정은 종류와 상관없이 맨 위) ·
+`unread(merged)` → `{ mail, news, notice, update, total }` · `firstSec(merged)`(안 읽은 우편이 있으면 'mail', 없으면 'news').
+`merged` 는 `myhome-inbox.js` 의 `_inboxMerged()` 모양(개인 `_src:'personal'` + 공용 `_src:'broadcast'` · 공용 읽음은 이 PC 집합).
+
+**확장할 때 고칠 자리** — 칸을 늘리면 `SECS` · html `#mhInboxRail` 버튼 · `#mhInboxPane-이름` 칸 · `myhome-inbox.js` 의 칸 제목 표(`_INBOX_SEC_TITLE`). 새 태그는 `tagOf` · `sectionOf`.
+
+**함정** — 서버 태그 키는 그대로다(`reward` 를 바꾸면 이미 보낸 우편이 전부 공지로 떨어진다). 보이는 글자만 `myhome-inbox.js` 표에서 바꾼다.
+우편함 탭 배지 · 🔔 벨 수는 `unread().total` 과 같아야 한다 — 따로 세지 말 것.
+검사: `checks/sim-inbox-sections.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
+
 ## `myhome-preset.js` — 👑 디자인 프리셋 규칙
 
 **책임** — 디자인 스튜디오 프리셋 3칸의 판단 한 벌: «지금 디자인 → 칸»(무엇을 담나) · «칸 → 지금 디자인»(어떻게 얹나) · 저장본 씻기 · 고른 칸 번호 · 그림 키 집합 · 그림 올릴 이름.

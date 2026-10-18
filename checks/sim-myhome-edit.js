@@ -411,8 +411,9 @@ await sec('── 7. 바깥 배경 · 테마 · [✎ 마이홈 수정]', async (
   M.applyTheme();
   chk(e.mhTabs.every(t => t.style.background === '#a1' && t.style.color === '#a2'), '테마 — 탭 배경 · 글씨');
   chk(e.$('mhHomeLeft').style.background === 'url(https://i/l) center/cover no-repeat' && e.$('mhMyName').style.color === '#a4' && e.$('mhRoomPreview').style.background === '#b1' && e.$('mhBioBox').style.background === '#b2', '  그림이 색보다 먼저 · 이름 · 방 미리보기 · 소개글 칸');
-  chk(['mhFriendHead', 'mhInboxTop', 'mhFmTop'].every(id => e.$(id).style.background === '#a5' && e.$(id).style.color === '#a6') && ['mhInboxTabs', 'mhFmTabs'].every(id => e.$(id).style.background === '#a7'), '  ★ 친구 · 친구 관리 · 우편함 헤더와 카테고리 줄은 한 토큰(짝을 빠뜨리지 않는다)');
-  chk(['mhInboxList', 'mhFmList'].every(id => e.$(id).style.background === 'url(https://i/c) center/cover no-repeat' && e.$(id).style.color === '#a9'), '  목록 칸 — 친구 관리 · 우편함이 한 토큰');
+  chk(['mhFriendHead', 'mhInboxTop', 'mhFmTop'].every(id => e.$(id).style.background === '#a5' && e.$(id).style.color === '#a6') && ['mhInboxTabs', 'mhFmTabs', 'mhInboxRail', 'mhInboxFoot'].every(id => e.$(id).style.background === '#a7'), '  ★ 친구 · 친구 관리 · 우편함 헤더와 카테고리 줄은 한 토큰(짝을 빠뜨리지 않는다) · 우편함 왼쪽 메뉴 · 아래 버튼 줄도 카테고리 줄 색');
+  chk(['mhInboxBody', 'mhFmList'].every(id => e.$(id).style.background === 'url(https://i/c) center/cover no-repeat' && e.$(id).style.color === '#a9'), '  목록 칸 — 친구 관리 · 우편함이 한 토큰');
+  chk(['mhInboxList', 'mhNewsList', 'mhNewsView'].every(id => !e.$(id).style.background), '  ★ 우편함 목록 칸 그림은 감싼 칸(#mhInboxBody) 한 곳에 — 소식 목록 · 본문에 따로 깔지 않는다(그림이 둘로 잘린다)');
   e.data.theme = null; M.applyTheme();
   chk(e.mhTabs[0].style.background === '' && e.$('mhRoomPreview').style.background === '', '  비우면 CSS 기본으로');
   /* [✎ 마이홈 수정] */

@@ -3487,39 +3487,88 @@
   #mhFmBarSel{font-size:10.5px;color:#8a6a3a;flex:1;min-width:0;}
   .mh-fm-note{font-size:10px;color:#8a6a3a;background:#fdf8ec;border:1px solid #e0d5bd;
     padding:6px 8px;margin:0 0 6px;line-height:1.6;}
-  .mh-ibx-item{position:relative;padding:8px 10px;margin-bottom:5px;background:#fdfcf6;
+  /* 우편함 안 나눔선 — 테마 선 색(--tw-line)을 옅게. 클래식의 선 색은 진한 회색이라 그대로 쓰면 목록이 무거워진다 */
+  #mhPageMail{--mh-ibx-line:color-mix(in srgb, var(--tw-line) 55%, transparent);--mh-ibx-line-soft:color-mix(in srgb, var(--tw-line) 25%, transparent);}
+  /* 📩 우편함 왼쪽 세로 메뉴 — 디자인 스튜디오 «카테고리 줄 배경»(fTabsBg)을 같이 받는다 */
+  #mhInboxRail{width:104px;flex-shrink:0;display:flex;flex-direction:column;gap:2px;padding:6px 0;
+    background:var(--win-face-2);border-right:1px solid var(--mh-ibx-line);}
+  .mh-ibx-sec{position:relative;display:flex;align-items:center;gap:4px;background:none;border:none;text-align:left;
+    padding:8px 10px;font-family:var(--tw-font-legacy);font-size:12px;color:var(--ink-soft);cursor:pointer;}
+  .mh-ibx-sec:hover{color:var(--win-select);}
+  .mh-ibx-sec.on{background:#fff;color:var(--ink);font-weight:bold;box-shadow:inset 3px 0 0 var(--win-select);}
+  .mh-ibx-secn{margin-left:auto;min-width:14px;padding:0 4px;box-sizing:border-box;font-size:10px;line-height:15px;font-weight:normal;
+    text-align:center;color:#fff;background:#c0504d;border-radius:8px;}
+  .mh-ibx-rail-sep{border-top:1px solid var(--mh-ibx-line);margin:4px 8px;}
+  /* 칸 — 디자인 스튜디오 «목록 칸»(fChat)은 #mhInboxBody 한 곳에 칠한다(안쪽 칸은 투명) */
+  #mhInboxBody{flex:1;min-height:0;display:flex;}
+  .mh-ibx-pane{display:none;flex:1;min-width:0;min-height:0;}
+  #mhInboxPane-mail.on{display:flex;flex-direction:column;}
+  #mhInboxPane-news.on{display:flex;}
+  #mhInboxPane-help.on{display:block;overflow-y:auto;}
+  #mhInboxFoot{display:flex;align-items:center;gap:8px;padding:6px 10px;flex-shrink:0;
+    background:var(--win-face-2);border-top:1px solid var(--mh-ibx-line);}
+  #mhInboxFootInfo{flex:1;font-size:11px;color:var(--ink-soft);}
+  #mhInboxFoot button{font-family:var(--tw-font-legacy);font-size:11px;padding:4px 12px;cursor:pointer;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
+  /* 📩 우편 카드 */
+  .mh-ibx-card{position:relative;padding:8px 10px;margin-bottom:6px;background:#fdfcf6;
     border:1px solid #e2ddc9;cursor:pointer;transition:background .12s ease;}
-  .mh-ibx-item:hover{background:#fff7d6;}
-  .mh-ibx-item.unread{background:#eef4ff;border-color:#c8d6f0;}
-  .mh-ibx-item.unread:hover{background:#e2ecff;}
-  .mh-ibx-item.open{background:#fff;border-color:#999;}
-  /* 📌 고정 공지 — 은은한 상단강조 배경 + 좌측 핀 색 띠. 안 읽음(파랑)과 겹쳐도 구분되게. */
-  .mh-ibx-item.pinned{background:#fff7e6;border-color:#e8cf94;box-shadow:inset 3px 0 0 #d9a33a;}
-  .mh-ibx-item.pinned.unread{background:#fef2df;}
-  .mh-ibx-item.pinned:hover{background:#fdeecb;}
+  .mh-ibx-card:hover{background:#fff7d6;}
+  .mh-ibx-card.unread{background:#fff;border-color:#c8d6f0;box-shadow:inset 3px 0 0 #c0504d;}
+  .mh-ibx-card.read .mh-ibx-crow{opacity:.6;}
+  .mh-ibx-card.open{background:#fff;border-color:var(--tw-ink-soft);}
+  .mh-ibx-card.open .mh-ibx-crow{opacity:1;}
+  .mh-ibx-crow{display:flex;align-items:center;gap:10px;}
+  .mh-ibx-ic{width:34px;height:34px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;
+    background:var(--win-face);border:2px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  .mh-ibx-cmain{flex:1;min-width:0;}
+  .mh-ibx-title{font-size:12px;font-weight:bold;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mh-ibx-sub{font-size:10px;color:var(--tw-ink-soft);margin-top:2px;}
+  .mh-ibx-go{flex-shrink:0;font-family:var(--tw-font-legacy);font-size:11px;padding:3px 12px;cursor:pointer;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
+  .mh-ibx-card.unread .mh-ibx-go{font-weight:bold;}
   .mh-ibx-pin{flex-shrink:0;font-size:10px;margin-right:1px;line-height:1;}
   .mh-ibx-pinbtn{flex-shrink:0;cursor:pointer;font-size:11px;opacity:.35;filter:grayscale(1);padding:0 2px;line-height:1;}
   .mh-ibx-pinbtn:hover{opacity:.8;filter:none;}
   .mh-ibx-pinbtn.on{opacity:1;filter:none;}
   .mh-ibc-pin{display:flex;align-items:center;gap:6px;font-size:11px;margin-top:8px;cursor:pointer;user-select:none;}
   .mh-ibc-pin input{cursor:pointer;}
-
-  .mh-ibx-head{display:flex;align-items:center;gap:6px;font-size:11px;}
-  .mh-ibx-tag{padding:1px 6px;font-size:9.5px;font-weight:bold;color:#fff;flex-shrink:0;}
-  .mh-ibx-tag.notice{background:#6a7ba5;}
-  .mh-ibx-tag.update{background:#5aa06a;}
-  .mh-ibx-tag.reward{background:#c88a3a;}
-  .mh-ibx-tag.bug{background:#a0566a;}
-  .mh-ibx-title{flex:1;min-width:0;font-weight:bold;color:var(--ink);
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .mh-ibx-item.unread .mh-ibx-title::before{content:'●';color:#c0504d;margin-right:4px;font-size:9px;}
-  .mh-ibx-time{font-size:9.5px;color:#999;flex-shrink:0;}
-  .mh-ibx-x{cursor:pointer;color:#bbb;font-size:12px;flex-shrink:0;padding:0 2px;line-height:1;}
+  .mh-ibx-x{cursor:pointer;color:var(--mh-ibx-line);font-size:12px;flex-shrink:0;padding:0 2px;line-height:1;}
   .mh-ibx-x:hover{color:var(--win-error);}
   /* 펼쳐진 본문 */
-  .mh-ibx-body{display:none;font-size:11px;color:#333;line-height:1.6;margin-top:6px;padding-top:6px;
-    border-top:1px dashed #ccc;white-space:pre-wrap;word-break:break-word;}
-  .mh-ibx-item.open .mh-ibx-body{display:block;}
+  .mh-ibx-body{display:none;font-size:11px;color:var(--tw-ink);line-height:1.6;margin:8px 0 0 44px;padding-top:6px;
+    border-top:1px dashed var(--mh-ibx-line);white-space:pre-wrap;word-break:break-word;}
+  .mh-ibx-card.open .mh-ibx-body{display:block;}
+  /* 📢 소식 — 가운데 제목 목록(위에 종류 고르기 #mhInboxTabs) + 오른쪽 본문 */
+  #mhNewsLeft{width:220px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--mh-ibx-line);}
+  #mhNewsList{flex:1;overflow-y:auto;min-height:0;}
+  .mh-ibx-tab.new::after{content:'';display:inline-block;width:5px;height:5px;margin-left:3px;vertical-align:top;
+    border-radius:50%;background:#c0504d;}
+  .mh-news-item{padding:7px 10px;border-bottom:1px solid var(--mh-ibx-line-soft);cursor:pointer;}
+  .mh-news-item:hover{background:#f5f8fd;}
+  .mh-news-item.sel{background:#eef4ff;box-shadow:inset 3px 0 0 var(--win-select);}
+  /* 📌 고정 — 어떤 종류를 골라도 맨 위 · 노란 바탕 */
+  .mh-news-item.pinned{background:#fff7e6;}
+  .mh-news-item.pinned.sel{background:#fdeecb;box-shadow:inset 3px 0 0 #d9a33a;}
+  .mh-news-head{display:flex;align-items:center;gap:4px;font-size:12px;min-width:0;}
+  .mh-news-dot{width:6px;height:6px;flex-shrink:0;border-radius:50%;}
+  .mh-news-item.unread .mh-news-dot{background:#c0504d;}
+  .mh-news-cat{flex-shrink:0;font-size:10px;color:var(--tw-ink-soft);border:1px solid var(--mh-ibx-line);padding:0 3px;line-height:14px;}
+  .mh-news-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tw-ink-soft);}
+  .mh-news-item.unread .mh-news-title{color:var(--ink);font-weight:bold;}
+  .mh-news-date{font-size:10px;color:var(--tw-ink-soft);margin:2px 0 0 10px;}
+  #mhNewsView{flex:1;min-width:0;overflow-y:auto;padding:12px 14px;}
+  .mh-news-banner{display:flex;align-items:center;justify-content:center;height:84px;padding:0 12px;margin-bottom:10px;
+    border:1px solid var(--mh-ibx-line);color:#fff;font-size:14px;font-weight:bold;text-align:center;text-shadow:1px 1px 0 rgba(0,0,0,.35);
+    background:linear-gradient(135deg,#7a8fc4,#b9c7ea);overflow:hidden;}
+  .mh-news-banner.update{background:linear-gradient(135deg,#5f9e72,#b8dfc0);}
+  .mh-news-vtitle{font-size:14px;font-weight:bold;color:var(--ink);word-break:break-word;}
+  .mh-news-meta{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--tw-ink-soft);padding:3px 0 8px;margin-bottom:8px;border-bottom:1px dashed var(--mh-ibx-line);}
+  .mh-news-meta>span:first-child{flex:1;}
+  .mh-news-del{cursor:pointer;color:var(--win-error);}
+  .mh-news-body{font-size:12px;color:var(--tw-ink);line-height:1.7;white-space:pre-wrap;word-break:break-word;}
   .mh-ibx-empty{color:#aaa;font-size:11px;text-align:center;padding:40px 8px;line-height:1.8;}
 
   /* 💝 선물 보내기 모달 (준비중) */
@@ -5561,29 +5610,48 @@
       </div>
 
     </div>
-    <!-- 📩 우편함 — 수령함(공지·업데이트·보상). 예전엔 친구 탭 오른쪽 칸에 붙어 있었는데,
-         그 자리를 친구 관리가 쓰게 되면서 독립 탭으로 나왔다. 폭이 238px 만큼 넓어졌다. -->
+    <!-- 📩 우편함 — 왼쪽 세로 메뉴로 📩 우편(나한테 온 것) · 📢 소식(모두에게 보낸 공지 · 업데이트) · 📘 도움말을 고른다. -->
     <div id="mhPageMail" class="mh-page">
-      <!-- 📩 수령함 — 공지·업데이트·보상 알림을 한 곳에서 확인 -->
+      <!-- 📩 왼쪽 세로 메뉴 — 탭을 늘리지 않고 우편함 안에서 칸을 고른다(칸 나누기 규칙은 inbox-sections.js) -->
+      <div id="mhInboxRail">
+        <button class="mh-ibx-sec on" data-sec="mail" type="button">📩 우편<span class="mh-ibx-secn"></span></button>
+        <button class="mh-ibx-sec"    data-sec="news" type="button">📢 소식<span class="mh-ibx-secn"></span></button>
+        <div class="mh-ibx-rail-sep"></div>
+        <button class="mh-ibx-sec"    data-sec="help" type="button">📘 도움말</button>
+      </div>
       <div id="mhInboxInline">
         <div id="mhInboxTop">
-          <span>📩 수령함 <span id="mhInboxCount"></span></span>
+          <span><span id="mhInboxTitle">📩 우편</span> <span id="mhInboxCount"></span></span>
           <span style="display:flex;gap:10px;align-items:center;">
             <span id="mhInboxComposeBtn" class="admin-only" title="전체 유저에게 공지·업데이트·우편 보내기">✎ 작성</span>
-            <span id="mhInboxReadAllBtn" title="모두 읽음 처리">전체 읽음</span>
+            <span id="mhInboxReadAllBtn" title="우편 · 소식 모두 읽음 처리">전체 읽음</span>
           </span>
         </div>
-        <!-- 태그별 필터 -->
-        <div id="mhInboxTabs">
-          <button class="mh-ibx-tab on" data-tag="all"    type="button">전체</button>
-          <button class="mh-ibx-tab"    data-tag="notice" type="button">📢 공지</button>
-          <button class="mh-ibx-tab"    data-tag="update" type="button">🆕 업데이트</button>
-          <!-- ⚠️ data-tag 는 'reward' 그대로 둘 것 — 이미 발송된 우편이 이 키로 저장돼 있다. 보이는 글자만 바꿨다. -->
-          <button class="mh-ibx-tab"    data-tag="reward" type="button">📩 우편</button>
-          <!-- 💝 선물함은 친구 관리(#mhFmTabs)로 갔다 — 선물은 친구에게서 오는 것이라 그쪽이 제자리다.
-               .mh-ibx-tab.gift CSS 규칙은 지우지 말 것: 옮겨간 버튼이 그 규칙을 그대로 쓴다. -->
+        <!-- 디자인 스튜디오 «목록 칸» 은 이 칸 하나에 칠한다 — 소식의 목록 · 본문에 따로 깔면 그림이 둘로 잘린다 -->
+        <div id="mhInboxBody">
+          <div id="mhInboxPane-mail" class="mh-ibx-pane on">
+            <div id="mhInboxList"></div>
+            <div id="mhInboxFoot">
+              <span id="mhInboxFootInfo"></span>
+              <button id="mhInboxClearRead" type="button">읽은 우편 지우기</button>
+            </div>
+          </div>
+          <div id="mhInboxPane-news" class="mh-ibx-pane">
+            <div id="mhNewsLeft">
+              <!-- 소식 종류 — ⚠️ data-tag 는 서버에 저장된 태그 이름 그대로(notice · update) -->
+              <div id="mhInboxTabs">
+                <button class="mh-ibx-tab on" data-tag="all"    type="button">전체</button>
+                <button class="mh-ibx-tab"    data-tag="notice" type="button">공지</button>
+                <button class="mh-ibx-tab"    data-tag="update" type="button">업데이트</button>
+              </div>
+              <div id="mhNewsList"></div>
+            </div>
+            <div id="mhNewsView"></div>
+          </div>
+          <div id="mhInboxPane-help" class="mh-ibx-pane">
+            <div class="mh-ibx-empty">📘 도움말은 준비 중이에요<br><small>앱 사용법을 여기서 볼 수 있게 할 예정이에요</small></div>
+          </div>
         </div>
-        <div id="mhInboxList"></div>
       </div>
 
       <!-- 관리자: 브로드캐스트 작성 모달 -->
@@ -8175,6 +8243,7 @@
 <script src="parts/room/room-invite-ui.js"></script>   <!-- 🙋 투게더룸 친구 초대(친구 고르기 창 · 초대 보내기) · 🚪 방 초대 받기 팝업 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomInviteUi.createRoomInviteUi 로 만든다) -->
 <script src="parts/focus/focus-log.js"></script>   <!-- 🕒 포커스 기록 팝업(현재 / 누적 · 오늘 기록 · 미니미 · 끌기) — app.js 보다 먼저(app.js 가 원래 자리에서 TwFocusLog.createFocusLog 로 만든다) -->
 <script src="parts/chat/chat-window.js"></script>   <!-- 💬 대화창 배선(닫기 · 최소화 · 끌기 · 크기 · 메뉴 · 버튼 · 입력 · 이모티콘) — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatWindow.createChatWindow 로 만든다) -->
+<script src="parts/myhome/inbox-sections.js"></script>   <!-- 📩 우편함 칸 나누기 규칙(우편 · 소식 · 순서 · 안 읽은 수 — 순수 함수) — myhome-inbox.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-inbox.js"></script>   <!-- 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(Ctrl+F 검색) — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeInbox.createMyHomeInbox 로 만든다) -->
 <script src="parts/status/playlist.js"></script>   <!-- 🎵 상태칩 플레이리스트(프리셋 · 화면 · 고르기 · 파도타기 · 재생 감시견 · 재생 제어) — app.js 보다 먼저(app.js 가 원래 자리에서 TwPlaylist.createPlaylist 로 만든다) -->
 <script src="parts/admin/admin-license-bulk.js"></script>   <!-- 🛠️ 관리자: 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급 — 관리자 코드는 parts/admin/ 에 모은다 · app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminLicenseBulk.createAdminLicenseBulk 로 만든다) -->

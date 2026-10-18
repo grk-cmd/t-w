@@ -679,7 +679,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     // 친구 페이지
     _mhBg(document.getElementById('mhFriendLeft'), t.fList, t.fListImg);
     /* 👥 친구 관리 · 📩 우편함은 **CSS 에서 이미 한 규칙을 공유한다**
-         (#mhInboxTop,#mhFmTop / #mhInboxTabs,#mhFmTabs / #mhInboxList,#mhFmList — 그쪽 주석 참고).
+         (#mhInboxTop,#mhFmTop / #mhInboxTabs,#mhFmTabs — 그쪽 주석 참고). 목록 칸은 우편함 쪽이 #mhInboxBody(우편 · 소식 · 도움말을 감싼 칸).
        그래서 테마도 같은 토큰을 쓴다. 새 키를 만들면 **CSS 는 같은데 색만 갈라지는** 상태가 되고,
        나란히 서던 두 칸이 테마를 켠 순간 서로 다른 창처럼 보인다.
        [경위] 친구 관리는 뒤에 생긴 칸이라 여기 이름 나열에서 빠져 있었다 — 테마를 칠해도 그 칸만
@@ -691,7 +691,9 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
                       document.getElementById('mhInboxTop'),
                       document.getElementById('mhFmTop')];
     fHeadEls.forEach(el=>{ if(el){ el.style.background = t.fHead || ''; el.style.color = t.fHeadText || ''; } });
-    [document.getElementById('mhInboxTabs'), document.getElementById('mhFmTabs')]
+    // 우편함 왼쪽 세로 메뉴 · 우편 칸 아래 버튼 줄도 «카테고리 줄» 과 같은 색 — 새 항목을 만들지 않는다(이미 꾸민 디자인이 그대로 따라오게)
+    [document.getElementById('mhInboxTabs'), document.getElementById('mhFmTabs'),
+     document.getElementById('mhInboxRail'), document.getElementById('mhInboxFoot')]
       .forEach(el=>{ if(el) el.style.background = t.fTabsBg || ''; });
     // 📅 스케줄러 — 달력 / 우측(기념일·D-day) 영역
     _mhBg(document.getElementById('mhSchedCal'), t.schedCal, t.schedCalImg);
@@ -703,8 +705,9 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     const postBox = document.getElementById('mhPostBox');
     if(postBox) postBox.style.background = t.postBg || '';
     document.querySelectorAll('#mhFriendList .mh-fname').forEach(el=>{ el.style.color = t.fListText || ''; });
-    /* 목록 칸 — 👥 친구 관리와 📩 우편함이 같은 토큰을 쓴다(위 짝 주석 참고). */
-    [document.getElementById('mhInboxList'), document.getElementById('mhFmList')].forEach(el=>{
+    /* 목록 칸 — 👥 친구 관리와 📩 우편함이 같은 토큰을 쓴다(위 짝 주석 참고).
+       ⚠️ 우편함은 #mhInboxBody 한 곳에 — 소식의 제목 목록 · 본문에 따로 깔면 그림이 둘로 잘린다. */
+    [document.getElementById('mhInboxBody'), document.getElementById('mhFmList')].forEach(el=>{
       if(!el) return;
       _mhBg(el, t.fChat, t.fChatImg);
       el.style.color = t.fChatText || '';
@@ -796,7 +799,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
       {group:'상단 헤더'},
       {key:'fHead',    label:'헤더 배경 (친구·관리·우편함 공통)'},
       {key:'fHeadText',label:'헤더 글씨색'},
-      {key:'fTabsBg',  label:'카테고리 줄 배경'},
+      {key:'fTabsBg',  label:'카테고리 줄 배경 (우편함 왼쪽 메뉴 포함)'},
       {group:'친구 목록'},
       {key:'fList',    label:'목록 배경',      img:true},
       {key:'fListText',label:'친구 이름 글씨색'},
