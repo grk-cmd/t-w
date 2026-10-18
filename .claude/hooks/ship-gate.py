@@ -5,6 +5,8 @@
    둘 다 success 가 아니면 막는다. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
    위험도가 높은 PR(risk.py — 데이터 경로 · 규칙 · 서버 · 빌드)은 승인자(mihioon)가 그 머리 커밋을 Approve 해야 한다.
 2. 보호 브랜치에 직접 push — `main` · `release/*`. 예외: main 에 `docs/WORK_STATUS.md` 만 바꾼 push.
+2-1. 승인을 세션이 대신 남기기 — Approve 리뷰 · «승인 <커밋>» 코멘트. 세션도 승인자 계정으로 GitHub 를 쓰니
+   이걸 막지 않으면 승인이 사람 확인이 아니게 된다(사람은 GitHub 화면에서 단다).
 3. 판 브랜치 밖에서 새 브랜치 따기 — 작업 전에 «어느 버전에 릴리스될 작업인가» 를 묻고 `release/X.Y.Z` 에서.
    예외: `hotfix/*` · `harness/*`(하네스 · 작업 규칙)는 main 에서.
 가드가 스스로 깨지면 막지 않고 알린다.
@@ -68,12 +70,43 @@ def check_merge(toks):
         r = risk.assess(pr)
         sha = run('gh', 'api', f'repos/{REPO}/pulls/{pr}', '--jq', '.head.sha')
         if r['high'] and not risk.owner_approved(pr, sha):
-            deny(f'#{pr} 은 위험도 높음({"; ".join(r["reasons"][:4])}) — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 해야 머지한다. '
+            deny(f'#{pr} 은 위험도 높음({"; ".join(r["reasons"][:4])}) — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 하거나 «승인 {(sha or "")[:7]}» 코멘트를 달아야 머지한다. '
                  f'`/ship` 이 PR 에 설계 요약을 남기고 «승인 대기» 로 멈춘다.')
         return
     if not ok:
         deny(f'#{pr} 머리 커밋에 컨펌 · 검증 통과 기록이 없다({missing}). `/ship` 으로 컨펌자(tw-confirmer) · 검증자(tw-verifier)를 돌려 '
              f'둘 다 통과해야 머지할 수 있다. 커밋을 더 올렸으면 다시 돌린다.')
+
+
+def check_self_approve(cmd, cwd):
+    if not re.search(r'\bgh\b', cmd):
+        return
+    if re.search(r'\bgh\s+pr\s+review\b', cmd) and re.search(r'(^|\s)(--approve|-a)(\s|$)', cmd):
+        deny('승인(Approve)은 승인자가 GitHub 화면에서 직접 한다 — 세션이 남기지 않는다.')
+    if re.search(r'/reviews\b', cmd) and re.search(r'APPROVE', cmd):
+        deny('승인(Approve)은 승인자가 GitHub 화면에서 직접 한다 — 세션이 남기지 않는다.')
+    if not re.search(r'/comments\b|\bgh\s+(pr|issue)\s+comment\b', cmd):
+        return
+    texts = [cmd]
+    try:
+        toks = shlex.split(cmd)
+    except ValueError:
+        toks = cmd.split()
+    for j, t in enumerate(toks):   # 인자 값만 따로 — 한 줄로 쓴 본문은 명령 글에서는 «한 줄 전체» 가 아니다
+        if '=' in t:
+            texts.append(t.split('=', 1)[1])
+        if t in ('--body', '-b') and j + 1 < len(toks):
+            texts.append(toks[j + 1])
+    for m in re.finditer(r'(?:body=@|--body-file[ =]|-F\s*\S*=@)(\S+)', cmd):
+        path = os.path.join(cwd, os.path.expanduser(m.group(1).strip('\'"')))
+        try:
+            texts.append(open(path, encoding='utf-8').read())
+        except OSError:
+            pass
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import risk
+    if any(risk.APPROVE_LINE.search(t) for t in texts):
+        deny('«승인 <커밋>» 코멘트는 승인자가 GitHub 화면에서 직접 단다 — 세션이 남기지 않는다(승인 요청 본문에는 이 한 줄을 `코드` 로 감싸 적는다).')
 
 
 def check_push(cwd, sub):
@@ -104,6 +137,7 @@ def main():
     data = json.load(sys.stdin)
     cmd = data.get('tool_input', {}).get('command', '')
     cwd = data.get('cwd') or os.getcwd()
+    check_self_approve(cmd, cwd)
     for toks in segments(cmd):
         if toks[0] == 'cd' and len(toks) > 1:
             cwd = os.path.join(cwd, os.path.expanduser(toks[1]))
