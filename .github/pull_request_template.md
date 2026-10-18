@@ -1,4 +1,4 @@
-할 일: <!-- node scripts/todo.js start 로 받은 id (예: tmv1tiuezg94bz0) · 머지되면 done <id> --release <버전> -->
+할 일: <!-- 버그 제보 수정이면 node scripts/todo.js start 로 받은 id (예: tmv1tiuezg94bz0) · 머지되면 done <id> --release <버전> · 그 밖은 «없음» -->
 
 ## 무엇을
 
