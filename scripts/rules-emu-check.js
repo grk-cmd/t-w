@@ -31,8 +31,162 @@ function userToken(uid){
   return b({ alg: 'none', typ: 'JWT' }) + '.' + b({ sub: uid, user_id: uid, iat: now, exp: now + 3600, aud: PROJECT, iss: 'https://securetoken.google.com/' + PROJECT, firebase: { sign_in_provider: 'google.com' } }) + '.';
 }
 
-/* [이름, 방법, 경로(인코딩 전), 본문, 기대(true = 통과), 사용자 토큰?] — 경로 조각은 그대로 넣는다(공백 · null 도) */
 const TS = { '.sv': 'timestamp' };
+
+/* 📏 크기 · 키 제한 — 앱이 실제로 쓰는 모양(통째 payload)은 통과, 모르는 칸 · 너무 긴 값은 거절.
+   모양은 firebase-init.js · presence.js · room-index.js · web-admin 쓰는 곳에서 그대로 옮겼다(v0.11.0~ 같은 모양).
+   OWNER 는 규칙을 건너뛰는 준비용 쓰기(에뮬레이터 관리자) — 시험 데이터 깔기에만 쓴다. */
+const OWNER = '!owner';
+const ADMIN_A = 'adminA';
+const MEMBER2 = 'mabc67890';
+const URL_S = 'https://firebasestorage.googleapis.com/v0/b/x/o/users%2Fu%2Fa.png?alt=media&token=abc';
+const FUTURE = Date.now() + 10 * 60 * 1000;
+const DEF = { v: 2, skin: '#ffddcc', faceUrl: URL_S, blinkUrl: URL_S, equippedParts: [{ id: 'p1', xf: { s: 1, y: 0.1 } }], scale: 1, animal: false };
+const JOIN = { name: '민수', def: DEF, state: 'focus', userStatus: null, level: 12, userId: GOOD_U, lic: false, lastSeen: TS };
+const BASE = { state: 'focus', userStatus: 'custom', customStatus: { emo: '🕒', text: '오늘 1:23' }, level: 12, exp: 5, cyc: 1, clv: 3, starC: '#ff00aa',
+  awaySz: 80, lic: true, awayImg: URL_S, ridingOn: GOOD_U2, seatedOn: { host: 'self', slot: 1 }, bench: { seats: 2, deskId: '-Ndesk123' },
+  mobile: '태블릿·폰', danceStyle: 'sway', tab: 's1', flyCool: 1760000000000, noise: 'pencil', lastSeen: TS };
+const META_FULL = { channel: 'togetherroom', host: GOOD_U, open: true, chatOff: true, tabs: { s1: { name: '영화', ts: 1 }, s2: { name: '공부방', ts: 2 } }, ts: 3, openTs: 3, openLic: true, restoredTs: 3 };
+const LIMIT_CASES = [
+  ['준비: 관리자 한 명(admins/adminA)', 'PUT', `admins/${ADMIN_A}`, true, true, OWNER],
+
+  /* 방 멤버 — 입장 set · _basePayload 통째 update · 채팅 · 탭 채팅 · 하트비트 · poke */
+  ['멤버 — 입장 set(_myMemberData + lastSeen)', 'PUT', `rooms/${ROOM}/${MEMBER}`, JOIN, true],
+  ['멤버 — _basePayload 통째 update', 'PATCH', `rooms/${ROOM}/${MEMBER}`, BASE, true],
+  ['멤버 — null 칸 섞인 update(내리기)', 'PATCH', `rooms/${ROOM}/${MEMBER}`, { ...BASE, ridingOn: null, seatedOn: null, bench: null, userStatus: null, customStatus: null, exp: null, flyCool: null, mobile: '', noise: '' }, true],
+  ['멤버 — 이름 · def 바꾸기', 'PATCH', `rooms/${ROOM}/${MEMBER}`, { ...BASE, name: '민수2', def: DEF }, true],
+  ['멤버 — 채팅(날리기 포함)', 'PATCH', `rooms/${ROOM}/${MEMBER}`, { ...BASE, chat: { text: '안'.repeat(140), ts: 1760000000000, fly: true, flyColor: '#ff0000', flySize: 's' } }, true],
+  ['멤버 — 탭 채팅', 'PATCH', `rooms/${ROOM}/${MEMBER}`, { ...BASE, chatTab: { text: 'hi', ts: 1760000000000, tab: 's1', fly: true, flyColor: 'rainbow', flySize: 'm' } }, true],
+  ['멤버 — 하트비트 hb · exp', 'PATCH', `rooms/${ROOM}/${MEMBER}`, { hb: 2, exp: 3, lastSeen: TS }, true],
+  ['멤버 — 남이 poke(bonk)', 'PUT', `rooms/${ROOM}/${MEMBER}/poke`, { type: 'bonk:' + GOOD_U2, from: MEMBER2, ts: TS }, true],
+  ['멤버 — 모르는 칸', 'PATCH', `rooms/${ROOM}/${MEMBER}`, { junk: 'x' }, false],
+  ['멤버 — 채팅 안 모르는 칸', 'PATCH', `rooms/${ROOM}/${MEMBER}`, { chat: { text: 'a', ts: 1, img: 'x' } }, false],
+  ['멤버 — poke 안 모르는 칸', 'PUT', `rooms/${ROOM}/${MEMBER}/poke`, { type: 'pet', from: MEMBER2, ts: TS, blob: 'x' }, false],
+  ['멤버 — awayImg 601자', 'PATCH', `rooms/${ROOM}/${MEMBER}`, { awayImg: 'a'.repeat(601) }, false],
+  ['멤버 — userId 49자', 'PATCH', `rooms/${ROOM}/${MEMBER}`, { userId: 'u'.repeat(49) }, false],
+
+  /* 방 표지 _meta — 쓰는 곳마다 */
+  ['_meta — setRoomChannel update', 'PATCH', `rooms/${ROOM}/_meta`, { channel: 'workingroom', ts: TS, host: GOOD_U, open: true }, true],
+  ['_meta — 채팅 잠금', 'PATCH', `rooms/${ROOM}/_meta`, { chatOff: false }, true],
+  ['_meta — claimEmptyRoom 통째', 'PUT', `rooms/${ROOM}/_meta`, { host: GOOD_U, channel: 'togetherroom', openLic: true, openTs: 1, ts: 1 }, true],
+  ['_meta — 채팅 탭 추가(tabs 통째)', 'PUT', `rooms/${ROOM}/_meta/tabs`, { s1: { name: '영화', ts: 1 }, s2: { name: '공부방', ts: 2 } }, true],
+  ['_meta — 탭 이름 바꾸기', 'PUT', `rooms/${ROOM}/_meta/tabs/s1/name`, '영화관', true],
+  ['_meta — restoreRoomMeta 통째(되살리기)', 'PUT', `rooms/${ROOM}/_meta`, META_FULL, true],
+  ['_meta — claimHostIfVacant(지금 값 + host · ts)', 'PUT', `rooms/${ROOM}/_meta`, { ...META_FULL, host: GOOD_U2, ts: 4 }, true],
+  ['_meta — 모르는 칸', 'PATCH', `rooms/${ROOM}/_meta`, { junk: 1 }, false],
+  ['_meta — 탭 안 모르는 칸', 'PUT', `rooms/${ROOM}/_meta/tabs/s1`, { name: 'a', ts: 1, junk: 1 }, false],
+  ['_meta — host 41자', 'PATCH', `rooms/${ROOM}/_meta`, { host: 'u'.repeat(41) }, false],
+  ['준비: 옛 칸이 남은 _meta(규칙 건너뜀)', 'PUT', `rooms/WORK-ABCD/_meta`, { channel: 'workingroom', host: GOOD_U, ts: 1, legacy: 'x' }, true, OWNER],
+  ['_meta — 옛 칸을 그대로 실은 통째 쓰기는 거절(바뀌지 않은 칸도 다시 검사된다 — 알고 둔다)', 'PUT', `rooms/WORK-ABCD/_meta`, { channel: 'workingroom', host: GOOD_U2, ts: 2, legacy: 'x' }, false],
+  ['_meta — 옛 칸이 있어도 update 는 통과', 'PATCH', `rooms/WORK-ABCD/_meta`, { host: GOOD_U2, ts: 2 }, true],
+
+  /* 대화 기록 */
+  ['채팅 기록 — 1200자 · uid', 'PUT', `rooms/${ROOM}/chatLog/-Nmsg1`, { uid: GOOD_U, name: '민수', text: 'a'.repeat(1200), ts: TS }, true],
+  ['채팅 기록 — 방장 지우기 표시 sys', 'PUT', `rooms/${ROOM}/chatLog/-Nmsg2`, { uid: GOOD_U, name: '민수', text: '', ts: TS, sys: 'clr' }, true],
+  ['채팅 기록 — 탭(_chatTab)', 'PUT', `rooms/${ROOM}/_chatTab/s1/-Nmsg3`, { uid: GOOD_U, name: '민수', text: 'hi', ts: TS }, true],
+  ['채팅 기록 — 모르는 칸', 'PUT', `rooms/${ROOM}/chatLog/-Nmsg4`, { name: 'a', text: 'b', ts: TS, img: 'x' }, false],
+  ['채팅 기록 — 탭 모르는 칸', 'PUT', `rooms/${ROOM}/_chatTab/s1/-Nmsg5`, { name: 'a', text: 'b', ts: TS, img: 'x' }, false],
+  ['채팅 기록 — 1201자', 'PUT', `rooms/${ROOM}/chatLog/-Nmsg6`, { name: 'a', text: 'a'.repeat(1201), ts: TS }, false],
+  ['채팅 기록 — sys 11자', 'PUT', `rooms/${ROOM}/chatLog/-Nmsg7`, { name: 'a', text: 'b', ts: TS, sys: 'x'.repeat(11) }, false],
+
+  /* 방 목록 */
+  ['방 목록 — 하트비트 update', 'PATCH', `roomIndex/${ROOM}`, { lastSeen: TS, channel: 'togetherroom', open: true }, true],
+  ['방 목록 — 마지막 사람 «비었음»', 'PATCH', `roomIndex/${ROOM}`, { lastSeen: 0, emptyAt: TS }, true],
+  ['방 목록 — 미래 lastSeen', 'PATCH', `roomIndex/${ROOM}`, { lastSeen: FUTURE }, false],
+  ['방 목록 — 미래 emptyAt', 'PATCH', `roomIndex/${ROOM}`, { lastSeen: 0, emptyAt: FUTURE }, false],
+  ['방 목록 — 모르는 칸', 'PATCH', `roomIndex/${ROOM}`, { lastSeen: TS, junk: 1 }, false],
+
+  /* 방 읽기 — 모음은 관리자만 · 방 하나는 누구나 */
+  ['rooms 모음 읽기 — 로그인 없이', 'GET', 'rooms', null, false],
+  ['rooms 모음 읽기 — 로그인(관리자 아님)', 'GET', 'rooms', null, false, 'authA'],
+  ['rooms 모음 읽기 — 관리자', 'GET', 'rooms', null, true, ADMIN_A],
+  ['rooms/방 하나 읽기 — 로그인 없이', 'GET', `rooms/${ROOM}`, null, true],
+
+  /* 라이선스 신청 */
+  ['라이선스 신청 — 앱 신청 통째', 'PUT', 'licenseRequests/r1abc', { name: '민수', status: 'pending', requestedAt: TS, issuedKey: null, ver: '0.11.3' }, true],
+  ['라이선스 신청 — 관리자 승인(웹 관리자 · 칸 셋)', 'PATCH', '', { 'licenseRequests/r1abc/status': 'approved', 'licenseRequests/r1abc/issuedKey': 'ABCD-EFGH-JKLM-NPQR', 'licenseRequests/r1abc/approvedAt': TS }, true, ADMIN_A],
+  ['라이선스 신청 — 모르는 칸', 'PUT', 'licenseRequests/r2abc', { name: 'a', status: 'pending', junk: 'x' }, false],
+
+  /* 친구 코드 — 처음 쓰기 · 같은 사람 다시 쓰기는 통과, 남의 코드 덮기는 거절 */
+  ['친구 코드 — 처음 선점', 'PUT', 'friendCodes/COZY-CD34', { userId: GOOD_U }, true],
+  ['친구 코드 — 같은 사람이 다시(트랜잭션 재시도)', 'PUT', 'friendCodes/COZY-CD34', { userId: GOOD_U }, true],
+  ['친구 코드 — 다른 사람이 덮기', 'PUT', 'friendCodes/COZY-CD34', { userId: GOOD_U2 }, false],
+  ['친구 코드 — 로그인 없이 지우기', 'DELETE', 'friendCodes/COZY-CD34', null, false],
+  ['친구 코드 — 관리자는 고칠 수 있다', 'PUT', 'friendCodes/COZY-CD34', { userId: GOOD_U2 }, true, ADMIN_A],
+  ['친구 코드 — 모르는 칸', 'PUT', 'friendCodes/COZY-EF56', { userId: GOOD_U, junk: 1 }, false],
+
+  /* 말랑이 선물 */
+  ['선물 — 보내기 통째', 'PUT', `users/${GOOD_U2}/mallangGifts/-Ngift1`, { imgUrl: URL_S, fromName: '민수', fromId: GOOD_U, ts: 1, msg: '안녕' }, true],
+  ['선물 — 숨기기', 'PUT', `users/${GOOD_U2}/mallangGifts/-Ngift1/hidden`, true, true],
+  ['선물 — 별표', 'PUT', `users/${GOOD_U2}/mallangGifts/-Ngift1/starred`, true, true],
+  ['선물 — 모르는 칸', 'PUT', `users/${GOOD_U2}/mallangGifts/-Ngift2`, { imgUrl: URL_S, ts: 1, junk: 'x' }, false],
+  ['선물 — fromName 21자', 'PUT', `users/${GOOD_U2}/mallangGifts/-Ngift3`, { imgUrl: URL_S, ts: 1, fromName: 'a'.repeat(21) }, false],
+
+  /* 친구 · 방명록 */
+  ['친구 — 모르는 칸', 'PUT', `users/${GOOD_U}/friends/${GOOD_U2}`, { addedAt: 1, junk: 1 }, false],
+  ['방명록 — 글 통째(주인 본인)', 'PUT', `users/${GOOD_U}/guestbook/g1abc`, { name: '민수', text: '안녕', ts: 1, uid: GOOD_U }, true],
+  ['방명록 — 모르는 칸', 'PUT', `users/${GOOD_U}/guestbook/g2abc`, { name: '민수', text: '안녕', ts: 1, uid: GOOD_U, junk: 1 }, false],
+
+  /* 웹박수 — 박수는 누구나 +1 만, 그림 · 이모지는 주인만 */
+  ['박수 — 첫 박수 1', 'PUT', `users/${OWNED_U}/clap/count`, 1, true],
+  ['박수 — 누구나 +1', 'PUT', `users/${OWNED_U}/clap/count`, 2, true],
+  ['박수 — +5 는 거절', 'PUT', `users/${OWNED_U}/clap/count`, 7, false],
+  ['박수 그림 — 남(로그인 없이)', 'PATCH', `users/${OWNED_U}/clap`, { img: URL_S }, false],
+  ['박수 그림 — 주인', 'PATCH', `users/${OWNED_U}/clap`, { img: URL_S }, true, 'authA'],
+  ['박수 이모지 — 주인', 'PATCH', `users/${OWNED_U}/clap`, { emoji: '🎉' }, true, 'authA'],
+  ['박수 이모지 — 남', 'PATCH', `users/${OWNED_U}/clap`, { emoji: '💩' }, false],
+  ['박수 — 모르는 칸(주인이라도)', 'PATCH', `users/${OWNED_U}/clap`, { junk: 1 }, false, 'authA'],
+  ['박수 그림 — 400001자(주인이라도)', 'PATCH', `users/${OWNED_U}/clap`, { img: 'a'.repeat(400001) }, false, 'authA'],
+
+  /* 일정 알림 */
+  ['일정 알림 — 보내기(여러 칸 한 번에)', 'PATCH', '', { [`users/${GOOD_U2}/schedNotices/n1abc`]: { fromId: GOOD_U, fromName: '민수', text: '회의', date: '2026-10-18', ts: 1 } }, true],
+  ['일정 알림 — 모르는 칸', 'PUT', `users/${GOOD_U2}/schedNotices/n2abc`, { fromId: GOOD_U, fromName: 'a', text: 'b', date: '2026-10-18', ts: 1, junk: 1 }, false],
+  ['일정 알림 — date 17자', 'PUT', `users/${GOOD_U2}/schedNotices/n3abc`, { fromId: GOOD_U, fromName: 'a', text: 'b', date: 'x'.repeat(17), ts: 1 }, false],
+
+  /* 파도타기 색인 — 주인만 */
+  ['파도타기 색인 — 안 묶인 코드(본인)', 'PUT', `playlistIndex/${GOOD_U}`, { name: '민수', n: 5, ts: 1 }, true],
+  ['파도타기 색인 — 묶인 코드에 남', 'PUT', `playlistIndex/${OWNED_U}`, { name: 'x', n: 1, ts: 1 }, false],
+  ['파도타기 색인 — 묶인 코드 주인', 'PUT', `playlistIndex/${OWNED_U}`, { name: '민수', n: 1, ts: 1 }, true, 'authA'],
+  ['파도타기 색인 — 모르는 칸', 'PUT', `playlistIndex/${GOOD_U}`, { name: 'a', n: 1, ts: 1, junk: 1 }, false],
+
+  /* 초대 코드 — 발급 · 소진 · 토큰→uid 는 통과, 발급자 바꾸기는 거절 */
+  ['초대 — 발급 통째', 'PUT', 'invites/ABCD-EF12-GH35', { issuedBy: GOOD_U, createdAt: 1, usedBy: null, usedAt: null }, true],
+  ['초대 — 소진(기기 토큰)', 'PUT', 'invites/ABCD-EF12-GH35', { issuedBy: GOOD_U, createdAt: 1, usedBy: 'tabcdefghij012345', usedAt: 2 }, true],
+  ['초대 — 토큰을 uid 로', 'PUT', 'invites/ABCD-EF12-GH35', { issuedBy: GOOD_U, createdAt: 1, usedBy: GOOD_U2, usedAt: 2 }, true],
+  ['초대 — 발급자 바꾸기', 'PUT', 'invites/ABCD-EF12-GH35', { issuedBy: GOOD_U2, createdAt: 1, usedBy: GOOD_U2, usedAt: 2 }, false],
+  ['초대 — 발급 시각 바꾸기', 'PUT', 'invites/ABCD-EF12-GH35', { issuedBy: GOOD_U, createdAt: 9, usedBy: GOOD_U2, usedAt: 2 }, false],
+  ['초대 — 웹 관리자 발급(admin)', 'PUT', 'invites/ADMN-EF12-GH36', { issuedBy: 'admin', createdAt: 3 }, true, ADMIN_A],
+  ['초대 — 모르는 칸', 'PUT', 'invites/ABCD-EF12-GH37', { issuedBy: GOOD_U, createdAt: 1, junk: 1 }, false],
+  ['초대 — usedBy 65자', 'PUT', 'invites/ABCD-EF12-GH38', { issuedBy: GOOD_U, createdAt: 1, usedBy: 'u'.repeat(65) }, false],
+
+  /* 친구 요청 · 보낸 요청 · 방 초대 */
+  ['친구 요청 — 요청 + 거울 한 번에', 'PATCH', '', { [`friendRequests/${GOOD_U2}/${GOOD_U}`]: { name: '민수', ts: 1 }, [`sentFriendRequests/${GOOD_U}/${GOOD_U2}`]: { ts: 1, toName: '지영', toCode: 'MATE-AB12' } }, true],
+  ['친구 요청 — 모르는 칸', 'PUT', `friendRequests/${GOOD_U2}/${GOOD_U}`, { name: 'a', ts: 1, junk: 1 }, false],
+  ['보낸 요청 — 모르는 칸', 'PUT', `sentFriendRequests/${GOOD_U}/${GOOD_U2}`, { ts: 1, junk: 1 }, false],
+  ['방 초대 — 통째', 'PUT', `roomInvites/${GOOD_U2}/${GOOD_U}`, { roomCode: ROOM, fromName: '민수', ts: 1 }, true],
+  ['방 초대 — 모르는 칸', 'PUT', `roomInvites/${GOOD_U2}/${GOOD_U}`, { roomCode: ROOM, ts: 1, junk: 1 }, false],
+
+  /* 우편함 */
+  ['우편함 — 앱 보내기 통째(bugId)', 'PUT', `inbox/${GOOD_U}/m1abc`, { tag: 'bug', title: '답변', body: '본문', ts: 1, read: false, bugId: '-Nbug1' }, true],
+  ['우편함 — 읽음', 'PATCH', `inbox/${GOOD_U}/m1abc`, { read: true }, true],
+  ['우편함 — 웹 관리자가 묶인 사람에게', 'PATCH', '', { [`inbox/${OWNED_U}/m2abc`]: { tag: 'reward', title: '보상', body: '', ts: 1, read: false } }, true, ADMIN_A],
+  ['우편함 — 모르는 칸', 'PUT', `inbox/${GOOD_U}/m3abc`, { tag: 'notice', title: 'a', ts: 1, junk: 1 }, false],
+
+  /* 안 묶인 옛 코드만 열린 users/* — 말랑이 · 접속 · 포커스 · 프로필 */
+  ['말랑이 — 그림 목록', 'PUT', `users/${GOOD_U}/mallang`, { imgs: [URL_S, URL_S, URL_S, URL_S] }, true],
+  ['말랑이 — 다섯째 그림', 'PUT', `users/${GOOD_U}/mallang/imgs/4`, URL_S, false],
+  ['말랑이 — 모르는 칸', 'PUT', `users/${GOOD_U}/mallang`, { imgs: [URL_S], junk: 1 }, false],
+  ['말랑이 — 그림 200001자', 'PUT', `users/${GOOD_U}/mallang`, { imgs: ['a'.repeat(200001)] }, false],
+  ['접속 — 켜기 통째(ver)', 'PUT', `users/${GOOD_U}/presence`, { online: true, lastSeen: 1, room: ROOM, inRoom: true, ver: '0.11.3' }, true],
+  ['접속 — 방 나감 update', 'PATCH', `users/${GOOD_U}/presence`, { room: null, inRoom: false, lastSeen: 2 }, true],
+  ['접속 — 모르는 칸', 'PATCH', `users/${GOOD_U}/presence`, { junk: 1 }, false],
+  ['포커스 — 누적 초', 'PUT', `users/${GOOD_U}/focus/totalSec`, 100, true],
+  ['포커스 — 모르는 칸', 'PUT', `users/${GOOD_U}/focus`, { totalSec: 1, junk: 1 }, false],
+  ['프로필 — 통째(레벨 · 회차 · 별 색)', 'PUT', `users/${GOOD_U}/profile`, { name: '민수', updatedAt: 1, level: 120, cyc: 1, clv: 3, starC: '#ff00aa' }, true],
+  ['프로필 — 모르는 칸', 'PUT', `users/${GOOD_U}/profile`, { name: '민수', junk: 1 }, false],
+];
+
+/* [이름, 방법, 경로(인코딩 전), 본문, 기대(true = 통과), 사용자 토큰?] — 경로 조각은 그대로 넣는다(공백 · null 도) */
 const CASES = [
   ['준비: 폰 연결 키', 'PUT', `mobileKeys/${GOOD_U}`, KEY, true],
   ['준비: 신고하는 사람을 로그인에 묶기', 'PUT', `userAuth/${OWNED_U}`, 'authA', true, 'authA'],
@@ -92,6 +246,7 @@ const CASES = [
   ['여러 칸 한 번에 — 하나가 null 이면 통째로 거절', 'PATCH', '', { [`users/${GOOD_U}/focus`]: { totalSec: 1 }, 'users/null/focus': { totalSec: 1 } }, false],
   ['여러 칸 한 번에 — 전부 정상', 'PATCH', '', { [`users/${GOOD_U}/focus`]: { totalSec: 1 }, [`users/${GOOD_U2}/focus`]: { totalSec: 1 } }, true],
   ['지우기는 형식과 상관없음(잘못 들어간 것을 치울 수 있게)', 'DELETE', 'users/null/profile', null, true],
+  ...LIMIT_CASES,
 ];
 
 async function inner(){
@@ -101,8 +256,10 @@ async function inner(){
     if(only && !name.includes(only) && !name.startsWith('준비')) continue;
     const enc = p.split('/').map(encodeURIComponent).join('/');
     /* 토큰은 ?auth= 로 — Authorization 머리에 실으면 에뮬레이터가 관리자(규칙 건너뜀)로 본다 */
-    const url = `http://127.0.0.1:${PORT}/${enc}.json?ns=${NS}` + (uid ? '&auth=' + userToken(uid) : '');
-    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body === null ? undefined : JSON.stringify(body) });
+    const owner = uid === OWNER;   // 준비용 — Authorization 머리 = 에뮬레이터 관리자(규칙 건너뜀)
+    const url = `http://127.0.0.1:${PORT}/${enc}.json?ns=${NS}` + (uid && !owner ? '&auth=' + userToken(uid) : '');
+    const headers = { 'Content-Type': 'application/json', ...(owner ? { Authorization: 'Bearer owner' } : {}) };
+    const r = await fetch(url, { method, headers, body: body === null ? undefined : JSON.stringify(body) });
     const ok = r.status === 200;
     const pass = ok === want;
     if(!pass) fail++;

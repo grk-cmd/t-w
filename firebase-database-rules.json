@@ -18,7 +18,7 @@
       }
     },
     "rooms": {
-      ".read": true,
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
       "$room": {
         ".validate": "$room.matches(/^[A-Z]{4}-[A-Z0-9]{4}$/)",
         ".read": true,
@@ -29,16 +29,33 @@
           "restoredTs": { ".validate": "newData.isNumber()" },
           "tabs": {
             "$tabId": {
-              ".validate": "$tabId.matches(/^s[12]$/) && newData.hasChildren(['name','ts']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 10 && newData.child('ts').isNumber()"
+              ".validate": "$tabId.matches(/^s[12]$/) && newData.hasChildren(['name','ts']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 10 && newData.child('ts').isNumber()",
+              "name": { ".validate": true },
+              "ts": { ".validate": true },
+              "$other": { ".validate": false }
             }
-          }
+          },
+          "channel": { ".validate": "newData.isString()" },
+          "host": { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "ts": { ".validate": "newData.isNumber()" },
+          "open": { ".validate": "newData.isBoolean()" },
+          "chatOff": { ".validate": "newData.isBoolean()" },
+          "openLic": { ".validate": "newData.isBoolean()" },
+          "openTs": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
         },
         "chatLog": {
           ".write": true,
           ".indexOn": ["ts"],
           "$msgId": {
             ".write": true,
-            ".validate": "!$msgId.matches(/^(null|undefined|NaN)$/) && !$msgId.beginsWith(' ') && !$msgId.endsWith(' ') && (newData.hasChildren(['name','text','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('text').isString() && newData.child('text').val().length <= 1200 && newData.child('ts').isNumber() && (!newData.child('uid').exists() || (newData.child('uid').isString() && newData.child('uid').val().length <= 40)))"
+            ".validate": "!$msgId.matches(/^(null|undefined|NaN)$/) && !$msgId.beginsWith(' ') && !$msgId.endsWith(' ') && (newData.hasChildren(['name','text','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('text').isString() && newData.child('text').val().length <= 1200 && newData.child('ts').isNumber() && (!newData.child('uid').exists() || (newData.child('uid').isString() && newData.child('uid').val().length <= 40)))",
+            "uid": { ".validate": true },
+            "name": { ".validate": true },
+            "text": { ".validate": true },
+            "ts": { ".validate": true },
+            "sys": { ".validate": "newData.isString() && newData.val().length <= 10" },
+            "$other": { ".validate": false }
           }
         },
         "_chatTab": {
@@ -49,7 +66,13 @@
             ".indexOn": ["ts"],
             "$msgId": {
               ".write": true,
-              ".validate": "!$msgId.matches(/^(null|undefined|NaN)$/) && !$msgId.beginsWith(' ') && !$msgId.endsWith(' ') && (newData.hasChildren(['name','text','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('text').isString() && newData.child('text').val().length <= 1200 && newData.child('ts').isNumber() && (!newData.child('uid').exists() || (newData.child('uid').isString() && newData.child('uid').val().length <= 40)))"
+              ".validate": "!$msgId.matches(/^(null|undefined|NaN)$/) && !$msgId.beginsWith(' ') && !$msgId.endsWith(' ') && (newData.hasChildren(['name','text','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('text').isString() && newData.child('text').val().length <= 1200 && newData.child('ts').isNumber() && (!newData.child('uid').exists() || (newData.child('uid').isString() && newData.child('uid').val().length <= 40)))",
+              "uid": { ".validate": true },
+              "name": { ".validate": true },
+              "text": { ".validate": true },
+              "ts": { ".validate": true },
+              "sys": { ".validate": "newData.isString() && newData.val().length <= 10" },
+              "$other": { ".validate": false }
             }
           }
         },
@@ -165,15 +188,81 @@
         },
         "$memberId": {
           ".write": true,
-          ".validate": "$memberId.matches(/^m[0-9a-z]{6,40}$/) && (newData.hasChildren(['name','state']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('state').isString() && newData.child('state').val().length <= 20 && (!newData.child('chat').exists() || (newData.child('chat').child('text').isString() && newData.child('chat').child('text').val().length <= 140 && (!newData.child('chat').child('fly').exists() || newData.child('chat').child('fly').isBoolean()) && (!newData.child('chat').child('flyColor').exists() || (newData.child('chat').child('flyColor').isString() && newData.child('chat').child('flyColor').val().length <= 16)) && (!newData.child('chat').child('flySize').exists() || (newData.child('chat').child('flySize').isString() && newData.child('chat').child('flySize').val().length <= 2)))) && (!newData.child('customStatus').exists() || (newData.child('customStatus').child('text').isString() && newData.child('customStatus').child('text').val().length <= 12 && (!newData.child('customStatus').child('emo').exists() || newData.child('customStatus').child('emo').val().length <= 4))) && (!newData.child('cyc').exists() || (newData.child('cyc').isNumber() && newData.child('cyc').val() >= 1 && newData.child('cyc').val() <= 100)) && (!newData.child('clv').exists() || (newData.child('clv').isNumber() && newData.child('clv').val() >= 1 && newData.child('clv').val() <= 999)) && (!newData.child('starC').exists() || (newData.child('starC').isString() && newData.child('starC').val().matches(/^#[0-9a-f]{6}$/))) && (!newData.child('mobile').exists() || (newData.child('mobile').isString() && newData.child('mobile').val().length <= 40)) && (!newData.child('tab').exists() || (newData.child('tab').isString() && newData.child('tab').val().length <= 16)) && (!newData.child('chatTab').exists() || (newData.child('chatTab').child('tab').isString() && newData.child('chatTab').child('tab').val().length <= 16 && newData.child('chatTab').child('text').isString() && newData.child('chatTab').child('text').val().length <= 140 && newData.child('chatTab').child('ts').isNumber() && (!newData.child('chatTab').child('fly').exists() || newData.child('chatTab').child('fly').isBoolean()) && (!newData.child('chatTab').child('flyColor').exists() || (newData.child('chatTab').child('flyColor').isString() && newData.child('chatTab').child('flyColor').val().length <= 16)) && (!newData.child('chatTab').child('flySize').exists() || (newData.child('chatTab').child('flySize').isString() && newData.child('chatTab').child('flySize').val().length <= 2)))))"
+          ".validate": "$memberId.matches(/^m[0-9a-z]{6,40}$/) && (newData.hasChildren(['name','state']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('state').isString() && newData.child('state').val().length <= 20 && (!newData.child('chat').exists() || (newData.child('chat').child('text').isString() && newData.child('chat').child('text').val().length <= 140 && (!newData.child('chat').child('fly').exists() || newData.child('chat').child('fly').isBoolean()) && (!newData.child('chat').child('flyColor').exists() || (newData.child('chat').child('flyColor').isString() && newData.child('chat').child('flyColor').val().length <= 16)) && (!newData.child('chat').child('flySize').exists() || (newData.child('chat').child('flySize').isString() && newData.child('chat').child('flySize').val().length <= 2)))) && (!newData.child('customStatus').exists() || (newData.child('customStatus').child('text').isString() && newData.child('customStatus').child('text').val().length <= 12 && (!newData.child('customStatus').child('emo').exists() || newData.child('customStatus').child('emo').val().length <= 4))) && (!newData.child('cyc').exists() || (newData.child('cyc').isNumber() && newData.child('cyc').val() >= 1 && newData.child('cyc').val() <= 100)) && (!newData.child('clv').exists() || (newData.child('clv').isNumber() && newData.child('clv').val() >= 1 && newData.child('clv').val() <= 999)) && (!newData.child('starC').exists() || (newData.child('starC').isString() && newData.child('starC').val().matches(/^#[0-9a-f]{6}$/))) && (!newData.child('mobile').exists() || (newData.child('mobile').isString() && newData.child('mobile').val().length <= 40)) && (!newData.child('tab').exists() || (newData.child('tab').isString() && newData.child('tab').val().length <= 16)) && (!newData.child('chatTab').exists() || (newData.child('chatTab').child('tab').isString() && newData.child('chatTab').child('tab').val().length <= 16 && newData.child('chatTab').child('text').isString() && newData.child('chatTab').child('text').val().length <= 140 && newData.child('chatTab').child('ts').isNumber() && (!newData.child('chatTab').child('fly').exists() || newData.child('chatTab').child('fly').isBoolean()) && (!newData.child('chatTab').child('flyColor').exists() || (newData.child('chatTab').child('flyColor').isString() && newData.child('chatTab').child('flyColor').val().length <= 16)) && (!newData.child('chatTab').child('flySize').exists() || (newData.child('chatTab').child('flySize').isString() && newData.child('chatTab').child('flySize').val().length <= 2)))))",
+          "name": { ".validate": true },
+          "state": { ".validate": true },
+          "def": { ".validate": true },
+          "userStatus": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "customStatus": {
+            "text": { ".validate": true },
+            "emo": { ".validate": "newData.isString()" },
+            "$other": { ".validate": false }
+          },
+          "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100000" },
+          "exp": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000" },
+          "cyc": { ".validate": true },
+          "clv": { ".validate": true },
+          "starC": { ".validate": true },
+          "userId": { ".validate": "newData.isString() && newData.val().length <= 48" },
+          "lic": { ".validate": "newData.isBoolean()" },
+          "lastSeen": { ".validate": "newData.isNumber()" },
+          "hb": { ".validate": "newData.isNumber()" },
+          "awaySz": { ".validate": "newData.isNumber()" },
+          "flyCool": { ".validate": "newData.isNumber()" },
+          "awayImg": { ".validate": "newData.isString() && newData.val().length <= 600" },
+          "ridingOn": { ".validate": "newData.isString() && newData.val().length <= 48" },
+          "seatedOn": {
+            "host": { ".validate": "newData.isString() && newData.val().length <= 48" },
+            "slot": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          },
+          "bench": {
+            "seats": { ".validate": "newData.isNumber()" },
+            "deskId": { ".validate": "newData.isString() && newData.val().length <= 128" },
+            "$other": { ".validate": false }
+          },
+          "mobile": { ".validate": true },
+          "tab": { ".validate": true },
+          "danceStyle": { ".validate": "newData.isString() && newData.val().length <= 32" },
+          "noise": { ".validate": "newData.isString() && newData.val().length <= 16" },
+          "chat": {
+            "text": { ".validate": true },
+            "ts": { ".validate": "newData.isNumber()" },
+            "fly": { ".validate": true },
+            "flyColor": { ".validate": true },
+            "flySize": { ".validate": true },
+            "$other": { ".validate": false }
+          },
+          "chatTab": {
+            "tab": { ".validate": true },
+            "text": { ".validate": true },
+            "ts": { ".validate": true },
+            "fly": { ".validate": true },
+            "flyColor": { ".validate": true },
+            "flySize": { ".validate": true },
+            "$other": { ".validate": false }
+          },
+          "poke": {
+            "type": { ".validate": "newData.isString() && newData.val().length <= 64" },
+            "from": { ".validate": "newData.isString() && newData.val().length <= 48" },
+            "ts": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          },
+          "$other": { ".validate": false }
         }
       }
     },
     "roomIndex": {
       ".read": true,
+      ".indexOn": ["lastSeen"],
       "$room": {
         ".write": true,
-        ".validate": "$room.matches(/^[A-Z]{4}-[A-Z0-9]{4}$/) && (newData.hasChild('lastSeen') && newData.child('lastSeen').isNumber() && (!newData.child('channel').exists() || (newData.child('channel').isString() && newData.child('channel').val().matches(/^(workingroom|togetherroom)$/))) && (!newData.child('open').exists() || newData.child('open').isBoolean()))"
+        ".validate": "$room.matches(/^[A-Z]{4}-[A-Z0-9]{4}$/) && (newData.hasChild('lastSeen') && newData.child('lastSeen').isNumber() && (!newData.child('channel').exists() || (newData.child('channel').isString() && newData.child('channel').val().matches(/^(workingroom|togetherroom)$/))) && (!newData.child('open').exists() || newData.child('open').isBoolean()))",
+        "lastSeen": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+        "channel": { ".validate": true },
+        "open": { ".validate": true },
+        "emptyAt": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+        "$other": { ".validate": false }
       }
     },
     "roomAlive": {
@@ -209,7 +298,15 @@
       "$reqId": {
         ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (!data.exists() && newData.child('status').val() === 'pending' && !newData.child('issuedKey').exists() && !newData.child('approvedAt').exists())",
         ".validate": "!$reqId.matches(/^(null|undefined|NaN)$/) && !$reqId.beginsWith(' ') && !$reqId.endsWith(' ') && (newData.hasChildren(['name','status']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('status').isString() && newData.child('status').val().length <= 20 && (!newData.child('friendCode').exists() || (newData.child('friendCode').isString() && newData.child('friendCode').val().matches(/^(MATE|COZY)-[A-Z0-9]{4}$/))) && (!newData.child('ver').exists() || (newData.child('ver').isString() && newData.child('ver').val().length <= 20)))",
-        ".read": true
+        ".read": true,
+        "name": { ".validate": true },
+        "status": { ".validate": true },
+        "requestedAt": { ".validate": "newData.isNumber()" },
+        "approvedAt": { ".validate": "newData.isNumber()" },
+        "issuedKey": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "ver": { ".validate": true },
+        "friendCode": { ".validate": true },
+        "$other": { ".validate": false }
       }
     },
     "catalog": {
@@ -333,8 +430,10 @@
       ".read": "root.child('admins').child(auth.uid).val() === true || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       "$code": {
         ".read": true,
-        ".write": true,
-        ".validate": "$code.matches(/^[A-Z]{4}-[A-Z0-9]{4}$/) && (newData.hasChildren(['userId']) && newData.child('userId').isString() && newData.child('userId').val().length <= 40)"
+        ".write": "!data.exists() || data.child('userId').val() === newData.child('userId').val() || (auth != null && root.child('admins').child(auth.uid).val() === true)",
+        ".validate": "$code.matches(/^[A-Z]{4}-[A-Z0-9]{4}$/) && (newData.hasChildren(['userId']) && newData.child('userId').isString() && newData.child('userId').val().length <= 40)",
+        "userId": { ".validate": true },
+        "$other": { ".validate": false }
       }
     },
     "users": {
@@ -358,12 +457,26 @@
           ".validate": "false"
         },
         "mallang": {
-          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid"
+          ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
+          "imgs": {
+            "$i": {
+              ".validate": "$i.matches(/^[0-3]$/) && newData.isString() && newData.val().length <= 200000"
+            }
+          },
+          "$other": { ".validate": false }
         },
         "mallangGifts": {
           ".write": true,
           "$giftId": {
-            ".validate": "!$giftId.matches(/^(null|undefined|NaN)$/) && !$giftId.beginsWith(' ') && !$giftId.endsWith(' ') && (newData.hasChildren(['imgUrl','ts']) && newData.child('imgUrl').isString() && newData.child('imgUrl').val().length <= 400 && (!newData.child('fromName').exists() || newData.child('fromName').val().length <= 20) && (!newData.child('fromId').exists() || newData.child('fromId').val().length <= 40) && newData.child('ts').isNumber() && (!newData.child('msg').exists() || (newData.child('msg').isString() && newData.child('msg').val().length <= 50)) && (!newData.child('hidden').exists() || newData.child('hidden').isBoolean()) && (!newData.child('starred').exists() || newData.child('starred').isBoolean()))"
+            ".validate": "!$giftId.matches(/^(null|undefined|NaN)$/) && !$giftId.beginsWith(' ') && !$giftId.endsWith(' ') && (newData.hasChildren(['imgUrl','ts']) && newData.child('imgUrl').isString() && newData.child('imgUrl').val().length <= 400 && (!newData.child('fromName').exists() || newData.child('fromName').val().length <= 20) && (!newData.child('fromId').exists() || newData.child('fromId').val().length <= 40) && newData.child('ts').isNumber() && (!newData.child('msg').exists() || (newData.child('msg').isString() && newData.child('msg').val().length <= 50)) && (!newData.child('hidden').exists() || newData.child('hidden').isBoolean()) && (!newData.child('starred').exists() || newData.child('starred').isBoolean()))",
+            "imgUrl": { ".validate": true },
+            "fromName": { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "fromId": { ".validate": "newData.isString() && newData.val().length <= 48" },
+            "ts": { ".validate": true },
+            "msg": { ".validate": true },
+            "hidden": { ".validate": true },
+            "starred": { ".validate": true },
+            "$other": { ".validate": false }
           }
         },
         "mallangGiftCount": {
@@ -390,11 +503,20 @@
         },
         "profile": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
-          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && (!newData.child('name').val().toLowerCase().matches(/^ *(운영자|관리자|운영팀|관리팀|admin|administrator) *$/) || newData.child('name').val() === data.child('name').val() || (auth != null && root.child('admins').child(auth.uid).val() === true)) && (!newData.child('level').exists() || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 9999)) && (!newData.child('cyc').exists() || (newData.child('cyc').isNumber() && newData.child('cyc').val() >= 1 && newData.child('cyc').val() <= 100)) && (!newData.child('clv').exists() || (newData.child('clv').isNumber() && newData.child('clv').val() >= 1 && newData.child('clv').val() <= 999)) && (!newData.child('starC').exists() || (newData.child('starC').isString() && newData.child('starC').val().matches(/^#[0-9a-f]{6}$/)))"
+          ".validate": "newData.hasChildren(['name']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && (!newData.child('name').val().toLowerCase().matches(/^ *(운영자|관리자|운영팀|관리팀|admin|administrator) *$/) || newData.child('name').val() === data.child('name').val() || (auth != null && root.child('admins').child(auth.uid).val() === true)) && (!newData.child('level').exists() || (newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('level').val() <= 9999)) && (!newData.child('cyc').exists() || (newData.child('cyc').isNumber() && newData.child('cyc').val() >= 1 && newData.child('cyc').val() <= 100)) && (!newData.child('clv').exists() || (newData.child('clv').isNumber() && newData.child('clv').val() >= 1 && newData.child('clv').val() <= 999)) && (!newData.child('starC').exists() || (newData.child('starC').isString() && newData.child('starC').val().matches(/^#[0-9a-f]{6}$/)))",
+          "name": { ".validate": true },
+          "updatedAt": { ".validate": "newData.isNumber()" },
+          "level": { ".validate": true },
+          "cyc": { ".validate": true },
+          "clv": { ".validate": true },
+          "starC": { ".validate": true },
+          "$other": { ".validate": false }
         },
         "focus": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
-          ".validate": "!newData.child('totalSec').exists() || (newData.child('totalSec').isNumber() && newData.child('totalSec').val() >= 0 && newData.child('totalSec').val() <= 359640000)"
+          ".validate": "!newData.child('totalSec').exists() || (newData.child('totalSec').isNumber() && newData.child('totalSec').val() >= 0 && newData.child('totalSec').val() <= 359640000)",
+          "totalSec": { ".validate": true },
+          "$other": { ".validate": false }
         },
         "gacha": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid",
@@ -573,7 +695,12 @@
           ".validate": "newData.hasChildren(['online']) && newData.child('online').isBoolean()",
           "ver": {
             ".validate": "newData.isString() && newData.val().length <= 20"
-          }
+          },
+          "online": { ".validate": "newData.isBoolean()" },
+          "lastSeen": { ".validate": "newData.isNumber()" },
+          "room": { ".validate": "newData.isString() && newData.val().length <= 20" },
+          "inRoom": { ".validate": "newData.isBoolean()" },
+          "$other": { ".validate": false }
         },
         "session": {
           ".write": "root.child('userAuth/'+$userId).exists() && root.child('userAuth/'+$userId).val() === auth.uid",
@@ -582,7 +709,9 @@
         "friends": {
           "$friendId": {
             ".write": true,
-            ".validate": "$friendId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $friendId !== 'undefined' && (newData.hasChildren(['addedAt']) && newData.child('addedAt').isNumber())"
+            ".validate": "$friendId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $friendId !== 'undefined' && (newData.hasChildren(['addedAt']) && newData.child('addedAt').isNumber())",
+            "addedAt": { ".validate": true },
+            "$other": { ".validate": false }
           }
         },
         "home": {
@@ -592,12 +721,27 @@
         "guestbook": {
           ".write": true,
           "$entryId": {
-            ".validate": "!$entryId.matches(/^(null|undefined|NaN)$/) && !$entryId.beginsWith(' ') && !$entryId.endsWith(' ') && (newData.hasChildren(['name','text','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('text').isString() && newData.child('text').val().length <= 200 && newData.child('ts').isNumber() && newData.hasChild('uid') && (newData.child('uid').val() == $userId || root.child('users').child($userId).child('friends').child(newData.child('uid').val()).exists()))"
+            ".validate": "!$entryId.matches(/^(null|undefined|NaN)$/) && !$entryId.beginsWith(' ') && !$entryId.endsWith(' ') && (newData.hasChildren(['name','text','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('text').isString() && newData.child('text').val().length <= 200 && newData.child('ts').isNumber() && newData.hasChild('uid') && (newData.child('uid').val() == $userId || root.child('users').child($userId).child('friends').child(newData.child('uid').val()).exists()))",
+            "name": { ".validate": true },
+            "text": { ".validate": true },
+            "ts": { ".validate": true },
+            "uid": { ".validate": true },
+            "$other": { ".validate": false }
           }
         },
         "clap": {
-          ".write": true,
-          ".validate": "(!newData.child('count').exists() || newData.child('count').isNumber()) && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().length <= 400000)) && (!newData.child('emoji').exists() || (newData.child('emoji').isString() && newData.child('emoji').val().length <= 32))"
+          ".validate": "(!newData.child('count').exists() || newData.child('count').isNumber()) && (!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().length <= 400000)) && (!newData.child('emoji').exists() || (newData.child('emoji').isString() && newData.child('emoji').val().length <= 32))",
+          "count": {
+            ".write": true,
+            ".validate": "newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1"
+          },
+          "img": {
+            ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid"
+          },
+          "emoji": {
+            ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid"
+          },
+          "$other": { ".validate": false }
         },
         "invite": {
           ".write": "!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid || (auth != null && root.child('admins').child(auth.uid).val() === true)",
@@ -627,7 +771,13 @@
         "schedNotices": {
           ".write": true,
           "$id": {
-            ".validate": "!$id.matches(/^(null|undefined|NaN)$/) && !$id.beginsWith(' ') && !$id.endsWith(' ') && (newData.hasChildren(['fromId','text','ts']) && newData.child('fromId').isString() && newData.child('text').isString() && newData.child('text').val().length <= 40 && newData.child('ts').isNumber())"
+            ".validate": "!$id.matches(/^(null|undefined|NaN)$/) && !$id.beginsWith(' ') && !$id.endsWith(' ') && (newData.hasChildren(['fromId','text','ts']) && newData.child('fromId').isString() && newData.child('text').isString() && newData.child('text').val().length <= 40 && newData.child('ts').isNumber())",
+            "fromId": { ".validate": "newData.isString() && newData.val().length <= 48" },
+            "fromName": { ".validate": "newData.isString() && newData.val().length <= 24" },
+            "text": { ".validate": true },
+            "date": { ".validate": "newData.isString() && newData.val().length <= 16" },
+            "ts": { ".validate": true },
+            "$other": { ".validate": false }
           }
         },
         "awayImg": {
@@ -681,8 +831,12 @@
       ".read": "query.limitToLast <= 60 || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       ".indexOn": "ts",
       "$uid": {
-        ".write": true,
-        ".validate": "$uid.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $uid !== 'undefined' && (newData.hasChildren(['ts']) && newData.child('ts').isNumber() && (!newData.child('name').exists() || (newData.child('name').isString() && newData.child('name').val().length <= 20)) && (!newData.child('n').exists() || newData.child('n').isNumber()))"
+        ".write": "!root.child('userAuth/'+$uid).exists() || root.child('userAuth/'+$uid).val() === auth.uid",
+        ".validate": "$uid.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $uid !== 'undefined' && (newData.hasChildren(['ts']) && newData.child('ts').isNumber() && (!newData.child('name').exists() || (newData.child('name').isString() && newData.child('name').val().length <= 20)) && (!newData.child('n').exists() || newData.child('n').isNumber()))",
+        "name": { ".validate": true },
+        "n": { ".validate": true },
+        "ts": { ".validate": true },
+        "$other": { ".validate": false }
       }
     },
     "mobileKeys": {
@@ -908,8 +1062,13 @@
       ".indexOn": ["issuedBy"],
       "$code": {
         ".read": true,
-        ".write": true,
-        ".validate": "$code.matches(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/) && (newData.hasChildren(['issuedBy','createdAt']) && newData.child('issuedBy').isString() && newData.child('createdAt').isNumber())"
+        ".write": "!data.exists() || (data.child('issuedBy').val() === newData.child('issuedBy').val() && data.child('createdAt').val() === newData.child('createdAt').val()) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
+        ".validate": "$code.matches(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/) && (newData.hasChildren(['issuedBy','createdAt']) && newData.child('issuedBy').isString() && newData.child('createdAt').isNumber())",
+        "issuedBy": { ".validate": "newData.isString() && newData.val().length <= 48" },
+        "createdAt": { ".validate": true },
+        "usedBy": { ".validate": "newData.isString() && newData.val().length <= 64" },
+        "usedAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
       }
     },
     "friendRequests": {
@@ -918,7 +1077,10 @@
         ".read": true,
         "$fromId": {
           ".write": true,
-          ".validate": "$fromId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $fromId !== 'undefined' && (newData.hasChildren(['name','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('ts').isNumber())"
+          ".validate": "$fromId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $fromId !== 'undefined' && (newData.hasChildren(['name','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('ts').isNumber())",
+          "name": { ".validate": true },
+          "ts": { ".validate": true },
+          "$other": { ".validate": false }
         }
       }
     },
@@ -928,7 +1090,11 @@
         ".read": true,
         "$toId": {
           ".write": true,
-          ".validate": "$toId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $toId !== 'undefined' && (newData.hasChildren(['ts']) && newData.child('ts').isNumber() && (!newData.child('toName').exists() || (newData.child('toName').isString() && newData.child('toName').val().length <= 20)) && (!newData.child('toCode').exists() || (newData.child('toCode').isString() && newData.child('toCode').val().length <= 12)))"
+          ".validate": "$toId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $toId !== 'undefined' && (newData.hasChildren(['ts']) && newData.child('ts').isNumber() && (!newData.child('toName').exists() || (newData.child('toName').isString() && newData.child('toName').val().length <= 20)) && (!newData.child('toCode').exists() || (newData.child('toCode').isString() && newData.child('toCode').val().length <= 12)))",
+          "ts": { ".validate": true },
+          "toName": { ".validate": true },
+          "toCode": { ".validate": true },
+          "$other": { ".validate": false }
         }
       }
     },
@@ -1238,7 +1404,14 @@
         ".read": true,
         ".write": "!root.child('userAuth/'+$uid).exists() || root.child('userAuth/'+$uid).val() === auth.uid || (auth != null && root.child('admins').child(auth.uid).val() === true)",
         "$msgId": {
-          ".validate": "!$msgId.matches(/^(null|undefined|NaN)$/) && !$msgId.beginsWith(' ') && !$msgId.endsWith(' ') && (newData.hasChildren(['tag','title','ts']) && newData.child('tag').isString() && newData.child('tag').val().matches(/^(notice|update|reward|bug)$/) && newData.child('title').isString() && newData.child('title').val().length <= 80 && (!newData.child('body').exists() || (newData.child('body').isString() && newData.child('body').val().length <= 600)) && newData.child('ts').isNumber() && (!newData.child('read').exists() || newData.child('read').isBoolean()) && (!newData.child('bugId').exists() || (newData.child('bugId').isString() && newData.child('bugId').val().length <= 40)))"
+          ".validate": "!$msgId.matches(/^(null|undefined|NaN)$/) && !$msgId.beginsWith(' ') && !$msgId.endsWith(' ') && (newData.hasChildren(['tag','title','ts']) && newData.child('tag').isString() && newData.child('tag').val().matches(/^(notice|update|reward|bug)$/) && newData.child('title').isString() && newData.child('title').val().length <= 80 && (!newData.child('body').exists() || (newData.child('body').isString() && newData.child('body').val().length <= 600)) && newData.child('ts').isNumber() && (!newData.child('read').exists() || newData.child('read').isBoolean()) && (!newData.child('bugId').exists() || (newData.child('bugId').isString() && newData.child('bugId').val().length <= 40)))",
+          "tag": { ".validate": true },
+          "title": { ".validate": true },
+          "body": { ".validate": true },
+          "ts": { ".validate": true },
+          "read": { ".validate": true },
+          "bugId": { ".validate": true },
+          "$other": { ".validate": false }
         }
       }
     },
@@ -1282,7 +1455,11 @@
         ".read": true,
         "$fromId": {
           ".write": true,
-          ".validate": "$fromId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $fromId !== 'undefined' && (newData.hasChildren(['roomCode','ts']) && newData.child('roomCode').isString() && newData.child('roomCode').val().length <= 20 && (!newData.child('fromName').exists() || (newData.child('fromName').isString() && newData.child('fromName').val().length <= 20)) && newData.child('ts').isNumber())"
+          ".validate": "$fromId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $fromId !== 'undefined' && (newData.hasChildren(['roomCode','ts']) && newData.child('roomCode').isString() && newData.child('roomCode').val().length <= 20 && (!newData.child('fromName').exists() || (newData.child('fromName').isString() && newData.child('fromName').val().length <= 20)) && newData.child('ts').isNumber())",
+          "roomCode": { ".validate": true },
+          "fromName": { ".validate": true },
+          "ts": { ".validate": true },
+          "$other": { ".validate": false }
         }
       }
     },

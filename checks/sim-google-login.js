@@ -490,9 +490,12 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
           'users/invite 는 주인 또는 관리자만 쓴다 (관리자 초대권 지급)');
       ['friends','guestbook','clap','mallangGifts','schedNotices']
         .forEach(k => {
-          const w = U[k] && (U[k]['.write'] !== undefined ? U[k]['.write'] : (U[k].$friendId||{})['.write']);
+          /* clap 은 박수(count)만 남이 쓴다 — 그림 · 이모지는 주인만(크기 제한 개정) */
+          const w = U[k] && (k === 'clap' ? (U[k].count||{})['.write'] : U[k]['.write'] !== undefined ? U[k]['.write'] : (U[k].$friendId||{})['.write']);
           chk(w === true, 'users/' + k + ' 은 남도 쓸 수 있다 (' + k + ' 기능이 죽지 않게)');
         });
+      chk(OWN.test(String(((U.clap||{}).img||{})['.write'])) && OWN.test(String(((U.clap||{}).emoji||{})['.write'])) && !('.write' in (U.clap||{})),
+          'users/clap 그림 · 이모지는 주인만 (clap 통째 .write 없음 — 남이 큰 그림을 못 심는다)');
       /* 잠근 가지는 **로그인 안 한 기기에서도** 돌아야 한다 — 아직 아무 계정에도 안 묶인 코드는
          첫 절에서 통과한다. 이 절이 빠지면 로그인 안 한 기존 유저 전원이 자기 마이홈에 못 쓴다. */
       chk(OWN.test(String(U.profile['.write'])) && /!root\.child\('userAuth\/'\+\$userId\)\.exists\(\)/.test(String(U.profile['.write'])),

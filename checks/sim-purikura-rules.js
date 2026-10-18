@@ -224,7 +224,7 @@ say('· §5 기존 앱이 쓰던 길이 안 막혔는가 (잠그는 사고가 �
   /* [2026-10-03] 방 통째 삭제는 관리자만(유령 방 청소) — 그래서 photo 노드 청소는 _photo 가 직접 받는다. */
   chk(/^!newData\.exists\(\) && .*admins/.test(String(w('rooms/$room'))), '방 통째 삭제는 관리자만 (유령 방 청소)');
   chk(w('rooms/$room/_photo') === '!newData.exists()', '★ photo 노드 청소(마지막 사람)는 _photo 가 받아준다');
-  chk(at('rooms')['.read'] === true, '방 읽기는 그대로다');
+  chk(at('rooms/$room')['.read'] === true && /admins/.test(String(at('rooms')['.read'])), '방 하나 읽기는 그대로 누구나 · 방 모음 통째 읽기는 관리자만');
   chk(/newData\.val\(\) === \(data\.exists\(\) \? data\.val\(\) : 0\) \+ 1/.test(String(w('stats/userCount'))), '누적 이용자 수는 +1 쓰기만 열려 있다');
 }
 
