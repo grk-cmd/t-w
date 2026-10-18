@@ -10,10 +10,24 @@ export function cleanVer(v: unknown): string | null {
   return typeof v === 'string' && v && v.length <= VER_MAX ? v : null;
 }
 
-/** 목록 · 상세에 보일 글자. 계정이 없는 사람은 계정 요약을 안 올려 버전을 알 수 없다. */
-export function verLabel(row: Pick<UserRow, 'ver' | 'hasAccount'>): string {
-  if (row.ver) return row.ver;
-  return row.hasAccount ? OLD_VER_LABEL : '—';
+/** 지금 쓰는 앱 버전. ver 가 없고 old 면 버전을 안 남기는 옛 앱(0.10.2 이하), 둘 다 아니면 모름. */
+export interface CurrentVer {
+  ver: string | null;
+  old: boolean;
+}
+
+// presence 는 모든 앱이 켤 때마다 쓰지만(0.11.0 부터 ver 포함) 계정 요약은 로그인된 기기가 켤 때만 다시 써서
+// 옛 버전이 남는다 — presence 가 있으면 그것만 믿고, presence 를 못 받았을 때만 계정 요약을 본다.
+export function currentVer(
+  presence: { ver: string | null } | null,
+  row: Pick<UserRow, 'ver' | 'hasAccount'>,
+): CurrentVer {
+  if (presence) return { ver: presence.ver, old: !presence.ver };
+  return { ver: row.ver, old: !row.ver && row.hasAccount };
+}
+
+export function verLabel({ ver, old }: CurrentVer): string {
+  return ver ?? (old ? OLD_VER_LABEL : '—');
 }
 
 function parts(v: string): { core: number[]; pre: string } {

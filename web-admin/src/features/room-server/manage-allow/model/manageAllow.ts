@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { compareVersion } from '@/entities/min-version';
 import { removeAllow, ROOM_SERVER_MIN_APP_VER, setAllow, useRefreshRoomServer } from '@/entities/room-server';
+import type { CurrentVer } from '@/entities/user';
 import { useDb } from '@/shared/api';
 
 /** 드롭다운의 «Firebase(기본)» — allow/{코드} 칸이 없다는 뜻. */
@@ -13,7 +14,7 @@ export interface ServerOption {
   disabled?: true;
 }
 
-/** 그 사람 앱 버전 — ver 는 presence · 계정 요약에 올라온 값(없으면 null). */
+/** 계정 요약에서 본 그 사람 — presence 를 못 받았을 때만 쓴다(currentVer). */
 export interface AppVerInfo {
   ver: string | null;
   /** 계정 요약이 있다 — 그런데 ver 가 없으면 0.10.2 이하(버전을 안 올리던 앱). */
@@ -24,9 +25,9 @@ export interface AppVerInfo {
  * 방 서버로 지정하면 안 되는 이유(드롭다운 옆 글), 되면 null.
  * 낮은 앱은 서버 지정을 몰라 늘 Firebase 로 연다 — 지정해 봐야 소용없고 헷갈린다.
  */
-export function appVerBlock({ ver, hasAccount }: AppVerInfo): string | null {
+export function appVerBlock({ ver, old }: CurrentVer): string | null {
   if (ver) return compareVersion(ver, ROOM_SERVER_MIN_APP_VER) >= 0 ? null : `앱 업데이트 필요 (현재 ${ver})`;
-  return hasAccount ? '앱 업데이트 필요 (현재 0.10.2 이하)' : '버전 모름';
+  return old ? '앱 업데이트 필요 (현재 0.10.2 이하)' : '버전 모름';
 }
 
 /**
