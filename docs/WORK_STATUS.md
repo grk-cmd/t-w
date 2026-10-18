@@ -104,7 +104,7 @@
 | #51 안 묶인 uid 쓰기 37곳 잠금(보안) | 비밀번호 초기화(w2 세션)와 같은 계정 · 로그인 자리 — 그 작업이 합쳐진 뒤 그 위에 새로 만든다(검증 세션). 그때까지 구멍은 열려 있음 |
 | ~~wAA~~ 진행 중으로 옮김 2c2d0e9 · 36fcf04 · 0353063 (B-1015-3) | w4 `desk-preset-store.js` 와 같은 묶기 — w4 머지 뒤 그 위로 다시 얹기(총괄) |
 | wP-C 797d022 | 토스트 줄바꿈이 먼저 들어가야 |
-| 머지된 브랜치 정리 — `claude/great-gates-o9jj5g`(#252) · `fix/bugs-1016-easy`(#258) · `fix/bugs-1016-medium`(#261) · `feat/account-delete-swap`(#319 닫힘 — #322 로 대신 머지) · `feat/account-delete-swap-v2`(#322) | 셋 다 머지 끝 · 아직 안 지움. 다른 담당이 이 브랜치 위에 쌓은 일이 없는지 보고 지워도 되면 지운다(검증 세션 · 총괄 확인) |
+| 머지된 브랜치 정리 — `claude/great-gates-o9jj5g`(#252) · `fix/bugs-1016-easy`(#258) · `fix/bugs-1016-medium`(#261) · `feat/account-delete-swap`(#319 닫힘 — #322 로 대신 머지) · `feat/account-delete-swap-v2`(#322) · `fix/desk-preset-slim`(#367 닫힘 — #368 로 대신 머지) | 셋 다 머지 끝 · 아직 안 지움. 다른 담당이 이 브랜치 위에 쌓은 일이 없는지 보고 지워도 되면 지운다(검증 세션 · 총괄 확인) |
 
 ## 제보 → 수정
 | 제보 | 증상 | 수정 PR | 상태 |
