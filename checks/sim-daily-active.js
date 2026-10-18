@@ -3,6 +3,7 @@
  * 1. 서울 날짜 경계  2. 쓰기 묶음  3. 처리기(지우기 무시 · 한 번에 update)  4. index.js 연결 · 규칙
  */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -10,7 +11,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
-const RULES = need('firebase-database-rules.json');
+const RULES = stripReadGate(need('firebase-database-rules.json'));
 const FX = need('functions/index.js');
 need('functions/daily-active.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');

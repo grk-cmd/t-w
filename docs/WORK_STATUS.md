@@ -26,6 +26,7 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
+| grk PR #361~#365 · #367 → 0.11.4 | 검증 담당 위임 | 사용자 10-18 결정(기능 멈춤 예외). #367 → #368 로 머지(개정 376). 방식 바꿈: 나머지는 grk PR 브랜치에 main 을 합치고 그 PR 을 그대로 머지 — #361 은 main 합침 · 개정 377 · CI 초록 · 머지 대기(권한) · #362~#365 대기 | 각 PR 의 파일(app.js · myhome · room · launcher · CHECKS.md 등) | #368 · #361 |
 | ~~통로 듣기 다시 붙기~~ 머지 #360 | 검증 세션 | 서버 듣기가 값을 받은 뒤 끊기면(서버 배포 · 재시작) 조용히 멈추던 것 → 잠깐 뒤 다시 붙고, 못 붙으면 Firebase 로 | `shared/data-gateway.js` · `checks/sim-data-gateway.js` · `CHECKS.md` | — |
 | 서버 범용 통로 바닥(요청만 · 0.11.4 뒤 합침) | 서버-통로1 | t-w-server: ① `/v1/config` 에 dataRoutes ② `POST /v1/data` · `/v1/data/stream` + 경로 처리기 등록부 + `me`(토큰 → authUsers) + 모르는 경로 404 — PR 하나씩 · 그 뒤 처리기 1개 = PR 1개(친구 → 방 초대 → 포커스 → 친구코드 → 방명록) | t-w-server `api/` 설정 · 새 data 모듈 | — |
 | ~~앱 TS 방향 문서~~ 머지 #357 | 검증 세션 | 앱은 TS 로 간다(React 는 안 함) · 단계 · 지금부터 TS 를 고려해 짜는 법 — 문서만 | `docs/TYPESCRIPT.md`(새) · `CLAUDE.md`(코드 컨벤션 한 줄 · 문서 목록 한 줄) | — |
@@ -57,8 +58,11 @@
 | ~~B-1016-4 창 겹침~~ 머지 #342 | 검증-도우미8(검증 · 합치기) · 작업 도우미1 | 창 층 표 → 편집 · 종족도 창 쌓기 · grk 탈퇴 안내 css 세 줄 지킴 | `desk-companion-prototype.html` · `shared/win-stack.js` | — |
 | ~~서버 주소 together-working.com~~ 머지 #343(웹 관리자 Hosting 배포 필요) | 검증-도우미8 · 작업 w2 | 운영 API · 방 서버 · CSP 새 주소(옛 주소 계속 허용) | html CSP · 주소 상수 | — |
 | ~~자동 검사 판정 한 벌~~ 머지 #344 | 검증-도우미8 · 작업 w2 | #337 위에 같은 요청 앞 실행 취소 등 빠진 것만 | `.github/workflows/checks.yml` | — |
-| 이름표 · 경험치 바 레이아웃 강제 계산 줄이기 | 계정 세션 | 매 프레임 좌석마다 «위치 적기 → 바로 재기» 로 브라우저가 화면 배치를 다시 계산하던 것(사람 많은 방에서 버벅임 후보) → 캔버스 사각형 · 라벨 높이를 기억해 두고 재기를 줄인다(보이는 자리는 그대로) | `room/overhead.js` · `focus/exp-bar.js` · `status/status-chip.js` · `app.js`(frame 안 한두 줄) · 새 검사 | — |
+| 화질 고르기(프로그램 설정 › 모니터) | 계정 세션(머지는 검증 세션) | 실행 화면 화질을 «선명하게(기본 · 지금 그대로) · 자동(버벅이면 배율 1배로) · 가볍게(배율 1배 + 테두리 다듬기 끔 — 다시 켜면 적용)» 중에서 고른다 · 이 PC 에 저장 | `shared/frame-budget.js` · `room/seat-camera.js` · `launcher/program-settings.js` · `app.js`(렌더러 만드는 줄 · frame 한두 줄 · 만드는 줄 deps) · `desk-companion-prototype.html`(모니터 탭 칸) · 검사 | #364 |
+| 이름표 · 경험치 바 레이아웃 강제 계산 줄이기 | 계정 세션(머지는 검증 세션) | 매 프레임 좌석마다 «위치 적기 → 바로 재기» 로 브라우저가 화면 배치를 다시 계산하던 것(사람 많은 방에서 버벅임 후보) → 캔버스 사각형 · 라벨 높이를 기억해 두고 재기를 줄인다(보이는 자리는 그대로) | `room/overhead.js` · `focus/exp-bar.js` · `status/status-chip.js` · `app.js`(frame 안 한두 줄) · 새 검사 | #363 |
+| 생성기 프리셋에 책상 파일 통째로 넣지 않기(10-16 제보 8) | 계정 세션(머지는 검증 세션) | 프리셋이 카탈로그 책상 GLB 를 base64 로 통째로 담아 이 PC 저장소가 넘침(1MB 책상이면 4번째 칸부터 저장 실패 · 0.11.3 은 실패해도 «저장했어요») → 카탈로그에 있는 책상은 id 만 담고 불러올 때 카탈로그에서 받는다 · 저장할 때 옛 칸도 같은 규칙으로 가볍게 · 책상을 못 찾으면 기본 책상 + 번호 알림 | `creator/desk-preset.js` · `creator/desk-preset-store.js` · `app.js`(만드는 줄 deps) · `shared/error-codes.js`(번호 하나) · `docs/ERROR_CODES.md` · 검사 | #367 |
 | 말랑이 잠깐 숨기기 버튼 | 계정 세션(머지는 검증 세션) | 마이홈 제목줄 «👁 방문자 시점» 옆에 «말랑이 숨기기» — 누르면 떠다니는 말랑이를 잠깐 가린다(다시 누르면 보임 · 집을 옮기거나 마이홈을 닫으면 다시 보임 · 서버 · 저장 없음) | `myhome/mallang.js` · `myhome/myhome-ui.js`(제목줄 끌기 제외 한 줄) · `desk-companion-prototype.html`(제목줄 span 하나) · `checks/sim-mallang-hide.js`(새) | #362 |
+| 우편함 개편(우편 · 소식 · 도움말) | 우편함 세션 | 마이홈 우편함 탭 안에 왼쪽 세로 메뉴 📩 우편(카드) · 📢 소식(공지 · 업데이트 — 목록 위 종류 고르기 · 📌 고정은 늘 위 · 오른쪽 본문) · 📘 도움말(준비 중) — 탭 수 그대로 · 서버 · 규칙 · 데이터 그대로 · 디자인 스튜디오 기존 항목(fHead · fTabsBg · fChat)을 새 칸에 이음 · ⚠️ #362 와 `myhome-ui.js`(내 몫은 우편함 연결) · #361 과 `myhome-edit.js`(내 몫은 applyMyHomeTheme) · B-1016-4 와 html(내 몫은 우편함 마크업 · css, z-index 안 건드림) | `myhome/myhome-inbox.js` · `myhome/inbox-sections.js`(새) · `myhome/myhome-ui.js` · `myhome/myhome-edit.js` · `myhome/scheduler.js`(🔔 수령함 확인) · `desk-companion-prototype.html` · `shared/error-codes.js` · `checks/smoke.js` · `sim-myhome-inbox` · `sim-myhome-edit` · `sim-friend-manage` · `sim-inbox-sections`(새) | #365 |
 | 마이홈 스티커 잠금 · 순서 바꾸기 | 계정 세션(머지는 검증 세션) | 스티커 관리 창에 🔒 잠금(잠기면 끌기 · 편집 모드 · ◎ 로 안 움직임) · ▲▼ 순서(위로 그릴수록 앞) — 스티커에 `locked` · `z` 칸(규칙 · 서버 모양 그대로, 옛 앱은 무시) · ⚠️ #350 과 `myhome-edit.js` 가 겹침(내 몫은 스티커 끌기 한 줄 · 새 스티커 z 한 줄) | `myhome/myhome-sticker-rules.js`(새) · `myhome/myhome-sticker.js` · `myhome/myhome-edit.js` · `app.js`(renderMyHomeStickers 순서 · 잠금 표시) · html(관리 창 버튼 css · script 태그) · `myhome/README.md` · `checks/smoke.js` · `sim-myhome-sticker` · `sim-myhome-sticker-rules`(새) | #361 |
 | #163 다시 얹기 | 검증 세션 | 내 정보 맨 아래 개인정보 처리방침 링크(시스템 기본 브라우저로) | `app/desk-companion-prototype.html`(내 정보 계정 칸 아래) · `room/room-entry.js`(링크 거는 줄) | — |
 | ~~토스트 누르면 복사(wAE)~~ 머지 #345 | 검증-도우미8 | 켜진 토스트를 누르면 글 복사 · «(복사했어요)» — 사용자 승인 | `shared/toast.js` · html | #345 |
@@ -69,7 +73,7 @@
 | 같은 그림 반복 업로드 줄이기(#39 새로 쓰기) — **요청까지 · 0.11.4 뒤 합침** | 검증-도우미14 | 동시 업로드 합치기 · 썸네일은 외모가 바뀔 때만 · 업로드 캐시 LRU(통째 비우기 없앰) · 마이홈 주소 되쓰기 | `shared/upload-cache.js`(새) · `room/room-sync.js` · `character/slot-sync.js` · `firebase-init.js`(업로드 길) · 마이홈 · 검사 | #350 |
 | 테스트 빌드도 운영 DB 로 | 검증 세션 | 깃허브에서 만드는 테스트(beta) 빌드도 운영 Firebase 에 붙게 — 개발 서버는 내 PC 의 `npm run start:dev` 에서만 | `.github/workflows/release.yml` · `release-start.yml` · `CLAUDE.md` · `docs/RELEASE.md` | — |
 | ~~빈 카탈로그 사본 막기~~ 취소 | 검증-도우미15 | 취소 — 앱 · 서버 보험 코드 없이 이관 순서로 막음(서버를 다 채운 뒤 앱을 붙인다 · 사용자 결정 10-17). 앱에 «빈 카탈로그를 의심하는 보험» 은 넣지 않는다 | — | — |
-| 규칙 크기 · 키 제한(요금 공격 방어) — 요청까지 | 규칙 크기 세션 | 누구나 쓰는 노드에 모르는 키 차단 · 글자 수 상한, `/rooms` 모음 읽기 관리자만, 친추코드 덮어쓰기 · 초대 코드 발급자 바꿔치기 막기 — 0.11.0 이상 앱이 그대로 통과(에뮬레이터 확인). 할 일 tmvd9tah97fmfqm | `firebase-database-rules.json` · `scripts/rules-emu-check.js` · 규칙 검사(`sim-room-meta-cleanup` · `sim-google-login` · `sim-admin-rules` · `sim-rules-keys` · `sim-purikura-rules`) · `checks/CHECKS.md` | — |
+| 규칙 크기 · 키 제한(요금 공격 방어) + 0.10.2 이하 앱 쓰기 · 읽기 막기 — ✅ #366 머지(개정 373~375) · 규칙 배포(dev → 운영)는 사용자 · 규칙 크기 세션의 로컬 브랜치 security/rules-size-limits 는 이제 안 씀 | 규칙 크기 세션 → 검증 담당 | 누구나 쓰는 노드에 모르는 키 차단 · 글자 수 상한, `/rooms` 모음 읽기 관리자만, 친추코드 덮어쓰기 · 초대 코드 발급자 바꿔치기 막기 — 0.11.0 이상 앱이 그대로 통과(에뮬레이터 확인). 할 일 tmvd9tah97fmfqm | `firebase-database-rules.json` · `scripts/rules-emu-check.js` · 규칙 검사(`sim-room-meta-cleanup` · `sim-google-login` · `sim-admin-rules` · `sim-rules-keys` · `sim-purikura-rules`) · `checks/CHECKS.md` | — |
 | 서버 가지 정리 — 요청 올림(합치기 대기) | 서버 정리 세션 | t-w-server 남은 가지를 dev 위로 다시 얹어 요청으로. 권하는 차례 #51 → #57 → #58 → #52 → #54 → #53 · #55 는 아무 때나. 앱 쪽: 봇 계정 규칙(bugBoard/list · friendRequests 읽기 · 친구 거울 쓰기) · 새 config 칸 .validate | t-w-server 가지들 | t-w-server #51 · #52 · #53 · #54 · #55 · #57 · #58 |
 | ~~생성기 프리셋 고침 다시 얹기(B-1015-3)~~ 머지 #353 | 검증-도우미16 | 0.11.4 에 넣음(사용자 결정 10-17) — 프리셋 읽기 · 쓰기 한 곳 · 저장 · 읽기 실패 알림 · 망가진 프리셋 위에 덮어쓰지 않기 | `creator/desk-preset-store.js` · `desk-preset.js` · `character/animal.js`(동물 프리셋) · `shared/error-codes.js` · checks | #353 |
 | ~~관리자 제보 목록 API 열어 두기~~ 머지 #351 · 서버 #51(dev) | 검증-도우미17 | 서버 #51(dev) + 앱 wX 세 줄(viaApiOr 한 벌 · bugBoard/list 봇 읽기 규칙 · 제보 목록 쪽 번호) — 관리자 전용 · 서버 없으면 RTDB 폴백 · 기능 멈춤 예외(사용자 10-17) | `web-admin/src/shared/api` · `web-admin` 제보 목록 · `firebase-database-rules.json` · checks | — |
@@ -100,7 +104,7 @@
 | #51 안 묶인 uid 쓰기 37곳 잠금(보안) | 비밀번호 초기화(w2 세션)와 같은 계정 · 로그인 자리 — 그 작업이 합쳐진 뒤 그 위에 새로 만든다(검증 세션). 그때까지 구멍은 열려 있음 |
 | ~~wAA~~ 진행 중으로 옮김 2c2d0e9 · 36fcf04 · 0353063 (B-1015-3) | w4 `desk-preset-store.js` 와 같은 묶기 — w4 머지 뒤 그 위로 다시 얹기(총괄) |
 | wP-C 797d022 | 토스트 줄바꿈이 먼저 들어가야 |
-| 머지된 브랜치 정리 — `claude/great-gates-o9jj5g`(#252) · `fix/bugs-1016-easy`(#258) · `fix/bugs-1016-medium`(#261) · `feat/account-delete-swap`(#319 닫힘 — #322 로 대신 머지) · `feat/account-delete-swap-v2`(#322) | 셋 다 머지 끝 · 아직 안 지움. 다른 담당이 이 브랜치 위에 쌓은 일이 없는지 보고 지워도 되면 지운다(검증 세션 · 총괄 확인) |
+| 머지된 브랜치 정리 — `claude/great-gates-o9jj5g`(#252) · `fix/bugs-1016-easy`(#258) · `fix/bugs-1016-medium`(#261) · `feat/account-delete-swap`(#319 닫힘 — #322 로 대신 머지) · `feat/account-delete-swap-v2`(#322) · `fix/desk-preset-slim`(#367 닫힘 — #368 로 대신 머지) | 여섯 다 머지 끝(닫힌 두 PR 은 다른 PR 로 대신 머지) · 아직 안 지움. 다른 담당이 이 브랜치 위에 쌓은 일이 없는지 보고 지워도 되면 지운다(검증 세션 · 총괄 확인) |
 
 ## 제보 → 수정
 | 제보 | 증상 | 수정 PR | 상태 |
@@ -108,6 +112,8 @@
 | v0.11.3 제보 | «친구 없음» 인데 추가하면 «이미 친구» | #306 · #307 | 머지 |
 | 10-16 제보 1 · 2 · 6 · 10 · 11 · 12 | 알림콩 · 가챠 창 닫힘 · 상태 이모지 · 편집창 겹침 · 날기 천장 | #258 | 머지 |
 | 10-16 제보 9 · 13 | 보관함 이동 복제 · 다른 앱 더블클릭 때 앞으로 옴 | #261 | 머지 |
+| 10-16 제보 4b | 올라탄 동물을 다른 동물로 바꾸면 이전 위치에 떠 있음 | — (main 40e84b5 에서 재현 안 됨 — 바꾸면 내려와 자기 자리 바닥으로 · 탑 가운데 · 꼭대기 · 아래 사람 바꾸기도 정상 · 4a 는 #328) | 제보자에게 최신 버전으로 다시 확인 요청 · «바꿔도 계속 타고 있기» 를 바란 거면 새 기능(계정 세션) |
+| 10-16 제보 8 | 라이선스 등록 뒤 저장한 생성기 프리셋을 못 불러옴 — 프리셋이 카탈로그 책상 GLB 를 통째로 담아 저장소가 넘침(1MB 책상이면 4번째 칸부터) | #367 | 검증 |
 | 10-16 제보 7 | Xbox 패드로만 게임하면 기록이 멈추고 잠듦(게임이 앞이면 패드 값을 못 받음) | #333 | 머지 |
 | B-1016-4 | 마이홈 띄운 채 편집 열면 마이홈이 위에 겹침 | #342 | 머지 |
 | B-1016-7 | 다른 앱 더블클릭을 먹음(회복 사다리) | #261(일부) · wAD | 대기 |

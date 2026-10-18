@@ -40,6 +40,26 @@
   let built = false;
   let visiting = false;      // 남의 마이홈 관람 중인가
 
+  /* 잠깐 숨기기 — 마이홈 제목줄 버튼(#mhMallangHideBtn). 말랑이가 가득해 마이홈이 안 보일 때 판(#mlLayer)만 가린다.
+     내 화면에서만 · 저장 없음 — 집을 옮기거나 마이홈을 닫으면(clearAll) 다시 보인다. 숨긴 동안은 움직임도 멈춘다(그릴 필요가 없다).
+     버튼은 말랑이가 한 마리라도 있을 때만 보인다 — live 를 바꾼 자리는 모두 syncHideBtn() 을 부른다. */
+  const HIDE_BTN_ID = 'mhMallangHideBtn';
+  const HIDE_LABEL = { off: '말랑이 숨기기', on: '말랑이 보이기' };
+  let hidden = false;
+  function syncHideBtn(){
+    const layer = document.getElementById('mlLayer');
+    if(layer) layer.classList.toggle('ml-hidden', hidden);
+    const b = document.getElementById(HIDE_BTN_ID); if(!b) return;
+    b.style.display = (hidden || liveCount() > 0) ? 'inline' : 'none';
+    b.textContent = hidden ? HIDE_LABEL.on : HIDE_LABEL.off;
+    b.title = hidden ? '숨긴 말랑이를 다시 보여요' : '떠다니는 말랑이를 잠깐 가려요(이 화면에서만)';
+  }
+  function setHidden(on){
+    hidden = !!on;
+    if(!hidden && live.length && !rafId) rafId = requestAnimationFrame(tick);
+    syncHideBtn();
+  }
+
   function homeWin(){ return document.getElementById('myHomeWin'); }
   function roomBox(){ return document.getElementById('mhRoomPreview'); }   // 청록 바탕화면 박스
   function myId(){ try{ return getMyUserId(); }catch(_){ return null; } }
@@ -105,6 +125,8 @@
       inp.id = 'mlFileInput'; inp.type = 'file'; inp.accept = 'image/png,image/*'; inp.style.display = 'none';
       win.appendChild(inp);
     }
+    const hideBtn = document.getElementById(HIDE_BTN_ID);
+    if(hideBtn) hideBtn.addEventListener('click', ()=>setHidden(!hidden));
     injectStyle();
     built = true;
   }
@@ -149,6 +171,7 @@
       #mlFolder .ml-ico{font-size:30px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.35));}
       #mlFolder .ml-lbl{display:inline-block;margin-top:3px;font-size:10px;color:#fff;padding:1px 3px;line-height:1.3;}
       #mlFolder:hover .ml-lbl{background:#000080;}
+      #mlLayer.ml-hidden{visibility:hidden;}   /* 잠깐 숨기기 — 말랑이 · 하트 · 말풍선을 통째로 가린다(누를 수도 없다) */
       #mlLayer .ml-guy{position:absolute;pointer-events:auto;cursor:grab;user-select:none;
         will-change:transform;touch-action:none;}
       #mlLayer .ml-guy img{width:100%;height:100%;display:block;pointer-events:none;-webkit-user-drag:none;}
@@ -378,6 +401,7 @@
       bindGuy(inst);
       live.push(inst);
       if(!rafId) rafId = requestAnimationFrame(tick);
+      syncHideBtn();
     };
     guy.appendChild(im);
     im.src = url;
@@ -664,12 +688,13 @@
     try{ inst.el.remove(); }catch(_){}
     live = live.filter(x=>x!==inst);
     if(!live.length && rafId){ cancelAnimationFrame(rafId); rafId=null; }
+    syncHideBtn();
   }
 
   /* ── 애니메이션 루프: 창 안에서 통통 튀기 ── */
   function tick(){
     const win = homeWin();
-    if(!win){ rafId=null; return; }
+    if(!win || hidden){ rafId=null; return; }   // 숨긴 동안은 멈춘다 — 다시 보이면 setHidden 이 깨운다
     const wrect = win.getBoundingClientRect();
 
     live.forEach(inst=>{
@@ -778,6 +803,8 @@
     _pending = 0;   // 🎫 아직 안 실린 예약도 같이 버린다 — 안 그러면 다음에 열 때 자리가 모자라다
     if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
     const layer = document.getElementById('mlLayer'); if(layer) layer.innerHTML='';
+    hidden = false;   // 집을 옮기거나 닫으면 다시 보인다(«잠깐» 숨기기)
+    syncHideBtn();
   }
 
   /* ── 이미지 목록 로드 (내 것 또는 방문 대상) ── */
@@ -876,6 +903,7 @@
     live.filter(x=>x.gift && x.gift.giftId===giftId).forEach(inst=>{ try{ inst.el.remove(); }catch(_){} });
     live = live.filter(x=>!(x.gift && x.gift.giftId===giftId));
     if(!live.length && rafId){ cancelAnimationFrame(rafId); rafId=null; }
+    syncHideBtn();
     const h=_hiddenSet(); if(h.delete(giftId)) _saveHidden(h);
     return 'ok';
   };

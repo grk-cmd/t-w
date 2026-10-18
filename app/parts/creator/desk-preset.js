@@ -1,6 +1,6 @@
 /* desk-preset.js — 🗂 책상 · 좌석 세팅 프리셋: 지금 생성기의 책상 · 좌석 세팅을 5칸에 담고, 고른 칸을 지금 캐릭터에 한 번에 적용한다
    app.js «런처3-2 프리셋» 조각(저장 빼고)을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다(바뀐 줄은 읽는 함수 자리 11줄 · 옛 이야기형 주석 줄이기).
-   ・책임: 담기(captureDeskPreset — 책상 색 · 크기 · 길이 · 위치 · 모델 · 아이템 · 로컬 아이템 · 좌석) · 적용(applyDeskPreset — 좌석 → 아이템 목록 → 책상 → 모델 →
+   ・책임: 담기(captureDeskPreset — 책상 색 · 크기 · 길이 · 위치 · 모델 · 아이템 · 로컬 아이템 · 좌석 — 카탈로그 책상 GLB 는 저장 때 빠진다) · 적용(applyDeskPreset — 좌석 → 아이템 목록 → 책상 → 모델(바이트가 없으면 카탈로그에서) →
      아이템 다시 놓기 → 카메라 다시 맞추기) · 칸 화면(renderDeskPresetSlots — 클릭 불러오기 · 우클릭 저장/비우기 · 팝업 버튼).
    ・받는 deps 28 — notifyError — 번호 실패 알림(shared/error-codes.js) · 값 crState · deskPresetStoreMod(5칸 읽기 · 쓰기) · premiumMod · DEFAULT_DESK_OVERRIDE_ID · 함수 15 · 읽는 함수 8(뒤에서 만들어지는 모듈 · isAdmin · isPremium).
    ・내놓는 것: 없음 — 만들 때 팝업 버튼을 건다(DOM 이 준비 전이면 DOMContentLoaded 에).
@@ -65,6 +65,17 @@ function _refitPreviewAfterPreset(){
     if((crState.crStep===5||crState.crStep===6)) frameDeskCam(false);
   }catch(_){}
 }
+/* 프리셋 책상의 GLB(base64) — 옛 프리셋은 바이트를 담고 있고, 새 프리셋은 카탈로그 id 만 담는다(desk-preset-store.js slimPresets).
+   없으면 카탈로그 기록에서 받는다. 카탈로그에도 없으면 null. */
+async function _presetDeskGlb(p){
+  if(p.deskGlb) return p.deskGlb;
+  const rec = commissionMod().savedDesks().find(d=>d.id===p.deskCatalogId);
+  if(!rec) return null;
+  if(!rec.glb && rec.glbUrl){
+    try{ await catalogGlbMod().resolveCatalogGlb(rec); }catch(_){}
+  }
+  return rec.glb || null;
+}
 function applyDeskPreset(p){
   if(!p || !crState.cBase){ toast('먼저 캐릭터를 선택해 주세요'); return; }
   // 이전 카메라 상태를 지운다 — 안 그러면 5 · 6단계 재진입 때 옛 책상 기준 카메라가 돌아와 새 책상 크기와 어긋난다.
@@ -105,19 +116,9 @@ function applyDeskPreset(p){
     if(p.deskItems && crState.cBase) applyDeskItemsTo(crState.cBase, p.deskItems);
     autoSaveDeskItemsNow();
   };
-  /* 프리셋에 남은 라이선스 전용 책상은 라이선스가 없으면 쓰지 않는다(쓰면 완료 때 def 에 굳는다) — 기본 책상으로 열고 프리셋은 그대로 둔다. */
-  const _presetDeskLocked = (!isPremium() && !isAdmin()) && premiumMod._licenseLockedDeskId(p.deskCatalogId);
-  if(p.deskCatalogId && p.deskGlb && !_presetDeskLocked){
-    assetCodeMod().parseGlbBytes(b64ToBuf(p.deskGlb)).then(sc=>{
-      crState.cDeskTemplate=sc; crState.cDeskGlbB64=p.deskGlb; crState.activeCustomDeskId=p.deskCatalogId;
-      const isDefaultOverride = (p.deskCatalogId === DEFAULT_DESK_OVERRIDE_ID);
-      if(crState.cDesk){ swapDeskVisual(crState.cDesk, sc, isDefaultOverride); applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
-      applyDeskModel();
-      _refitPreviewAfterPreset();
-    }).catch((err)=>{ notifyError('E-CHAR-03', err); applyDeskModel(); _refitPreviewAfterPreset(); });
-  } else {
+  /* «기본 책상» — 관리자가 등록한 기본 책상(DEFAULT_DESK_OVERRIDE_ID)이 있으면 그것을(생성기 재진입 · 실행 화면과 같은 모델 · 내장 책상과 폭이 다르다). */
+  const applyDefaultDesk = ()=>{
     crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=null;
-    // «기본 책상» 프리셋 — 관리자가 등록한 기본 책상(DEFAULT_DESK_OVERRIDE_ID)이 있으면 그것을(생성기 재진입 · 실행 화면과 같은 모델 · 내장 책상과 폭이 다르다).
     const ov = commissionMod().savedDesks().find(d=>d.id===DEFAULT_DESK_OVERRIDE_ID);
     if(ov){
       (async ()=>{
@@ -138,7 +139,22 @@ function applyDeskPreset(p){
       applyDeskModel();
       _refitPreviewAfterPreset();
     }
-  }
+  };
+  /* 프리셋에 남은 라이선스 전용 책상은 라이선스가 없으면 쓰지 않는다(쓰면 완료 때 def 에 굳는다) — 기본 책상으로 열고 프리셋은 그대로 둔다. */
+  const _presetDeskLocked = (!isPremium() && !isAdmin()) && premiumMod._licenseLockedDeskId(p.deskCatalogId);
+  if(p.deskCatalogId && !_presetDeskLocked){
+    _presetDeskGlb(p).then(b64=>{
+      /* 카탈로그에서 빠졌거나 받지 못했다 — 프리셋은 그대로 두고 기본 책상으로 연다(조용히 바꾸지 않는다) */
+      if(!b64){ notifyError('E-CHAR-08'); applyDefaultDesk(); return; }
+      return assetCodeMod().parseGlbBytes(b64ToBuf(b64)).then(sc=>{
+        crState.cDeskTemplate=sc; crState.cDeskGlbB64=b64; crState.activeCustomDeskId=p.deskCatalogId;
+        const isDefaultOverride = (p.deskCatalogId === DEFAULT_DESK_OVERRIDE_ID);
+        if(crState.cDesk){ swapDeskVisual(crState.cDesk, sc, isDefaultOverride); applyDeskColorToCustom(crState.cDesk,crState.cDeskColor); setCreatorDeskScale(crState.cDeskScale); }
+        applyDeskModel();
+        _refitPreviewAfterPreset();
+      });
+    }).catch((err)=>{ notifyError('E-CHAR-03', err); applyDeskModel(); _refitPreviewAfterPreset(); });
+  } else applyDefaultDesk();
   renderDeskPresetSlots();   // 저장 시각/썸네일 갱신
   toast('프리셋을 불러왔어요');
 }
