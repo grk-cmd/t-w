@@ -191,7 +191,7 @@ function syncFriendsOpen(){
   const _origOpen = window.openMyHome;
   window.openMyHome = function(){
     _origOpen();
-    if(typeof inboxMod.refreshFriendTabBadge==='function') inboxMod.refreshFriendTabBadge();   // 🎁 열릴 때 우편함 탭 보상 배지 갱신
+    if(typeof inboxMod.refreshFriendTabBadge==='function') inboxMod.refreshFriendTabBadge();   // 📩 열릴 때 우편함 탭 안 읽은 수 배지 갱신
     /* ⚠️ 예전엔 여기서 300ms 뒤에 showFriendRequestPopup() 을 불러 **밀린 요청을 전부 모달로**
        물었다. 2단계에서 뺐다 — 친구 관리 화면이 그 일을 맡는데, 화면이 열리자마자 모달이 그
        앞을 덮으면 관리 화면을 만든 의미가 없다. 대신 친구 탭에 배지(n)를 띄운다. */
@@ -249,7 +249,7 @@ function syncFriendsOpen(){
       renderMyHomeStickers();
       // 📩 우편함 탭에 들어올 때 수령함을 그림 — 예전엔 친구 탭 옆에 늘 떠 있어서
       //   renderMhChat 이 대신 그려주고 있었다. 이제 자기 탭이 생겼으니 여기서 그린다.
-      if(tab.dataset.tab==='mail' && typeof inboxMod.renderInbox==='function') inboxMod.renderInbox();
+      if(tab.dataset.tab==='mail'){ inboxMod.inboxEnter(); inboxMod.renderInbox(); }   // 안 읽은 우편이 있으면 우편, 없으면 소식부터
       // 👥 친구 탭에 들어올 때 오른쪽 '친구 관리' 칸을 그림 (받은 요청 / 선물함)
       if(tab.dataset.tab==='friend') friendManage.renderFriendManage();
       // 👥 친구 목록을 못 불러왔으면 탭을 열 때 다시 건다(다시 시도는 목록을 열 때만)
@@ -341,16 +341,24 @@ function syncFriendsOpen(){
       : '<span class="mh-fdot off"></span> 오프라인 <small>(누르면 온라인)</small>';
     toast(_mhPresenceOnline ? '이제 친구들에게 온라인으로 보여요' : '이제 친구들에게 오프라인으로 보여요');
   });
-  /* 📩 수령함 UI 바인딩 — 태그 필터, 전체 읽음, 관리자 작성.
-     ⚠️ 반드시 #mhInboxTabs 안으로 좁힐 것 — 친구 관리 서브탭이 같은 .mh-ibx-tab 클래스라
-       전역으로 걸면 '받은 요청'을 눌렀을 때 수령함 필터가 undefined→'all' 로 같이 바뀐다. */
-  document.querySelectorAll('#mhInboxTabs .mh-ibx-tab').forEach(tab=>{
-    tab.addEventListener('click', ()=>{
-      inboxMod.setInboxFilter(tab.dataset.tag || 'all');
-      inboxMod.setInboxOpenId(null);   // 필터 바꾸면 펼침 상태 리셋
+  /* 📩 우편함 UI 바인딩 — 왼쪽 세로 메뉴, 소식 종류, 읽은 우편 지우기, 전체 읽음, 관리자 작성.
+     ⚠️ 소식 종류는 반드시 #mhInboxTabs 안으로 좁힐 것 — 친구 관리 서브탭이 같은 .mh-ibx-tab 클래스라
+       전역으로 걸면 '받은 요청'을 눌렀을 때 소식 종류가 undefined→'all' 로 같이 바뀐다. */
+  document.querySelectorAll('#mhInboxRail .mh-ibx-sec').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      inboxMod.setInboxSec(btn.dataset.sec);
+      inboxMod.setInboxOpenId(null);   // 칸 바꾸면 펼친 우편은 접는다
       inboxMod.renderInbox();
     });
   });
+  document.querySelectorAll('#mhInboxTabs .mh-ibx-tab').forEach(tab=>{
+    tab.addEventListener('click', ()=>{
+      inboxMod.setInboxFilter(tab.dataset.tag || 'all');
+      inboxMod.renderInbox();
+    });
+  });
+  const clearReadBtn = document.getElementById('mhInboxClearRead');
+  if(clearReadBtn) clearReadBtn.addEventListener('click', ()=>inboxMod.inboxClearRead());
 
   /* ── 🔍 Ctrl+F 친구 검색 바인딩 ──────────────────────────────────────
      ⚠️ **마이홈이 열려 있고 친구 탭일 때만** 먹어야 한다. 조건을 안 걸면 실행 화면이나

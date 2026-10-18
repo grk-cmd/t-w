@@ -1078,10 +1078,7 @@ function renderBellList(){
        친구 목록만 뜨고 정작 읽으려던 공지가 안 보인다. */
     setTimeout(()=>{
       const mailTab = document.querySelector('.mh-tab[data-tab="mail"]');
-      if(mailTab) mailTab.click();
-      // 안 읽은 공지/업데이트가 잘 보이게 '전체' 필터로
-      const allTab = document.querySelector('.mh-ibx-tab[data-tag="all"]');
-      if(allTab) allTab.click();
+      if(mailTab) mailTab.click();   // 탭에 들어오면 안 읽은 우편이 있는 칸부터 보인다(inbox-sections.js firstSec)
     }, 320);
   };
   list.appendChild(btn);
