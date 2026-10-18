@@ -1,12 +1,11 @@
 /* ============================================================ SETUP */
 const canvas=document.getElementById('scene');
-// ★ antialias는 항상 켜둠. 예전엔 초기 로드 시점 localStorage의 도트렌더 값(tw.dotRender)을 보고
-//   antialias:!initDot 로 결정했는데, WebGL 컨텍스트 특성상 이건 생성 후엔 못 바꿈. 문제는 개발용 실행과
-//   패키징된 exe가 같은 사용자 데이터(localStorage)를 공유해서, 예전에 도트렌더를 켰던 적이 있으면
-//   새로 설치한 앱도 "처음 실행"인데 도트렌더가 켜진 걸로 읽혀서 antialias가 꺼진 채로 굳어버리는 버그가 있었음
-//   (설정에서 도트렌더를 껐다 켜도 해상도만 높아질 뿐 이미 생성된 렌더러의 antialias는 안 바뀜 — 눈속임이었음).
-//   도트 느낌은 실행 중 해상도 축소(DOT_RENDER_SCALE)+텍스처 필터 전환만으로 충분히 나서, antialias는 고정해도 무방.
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+/* 🎚️ 실행 화면 화질(프로그램 설정 › 모니터 — FrameBudget.QUALITY). antialias 는 WebGL 을 만들 때만 정해져서 «가볍게» 는 다시 켜야 적용된다.
+   ⚠️ 도트 렌더 저장값으로 antialias 를 정하지 말 것 — 개발 실행 · 설치본이 저장소를 같이 써서 안 보이게 꺼진 채 굳었다(도트 느낌은 DOT_RENDER_SCALE 로 충분). */
+let _renderQuality = FrameBudget.qualityFrom(localStorage.getItem(FrameBudget.QUALITY_KEY));
+let _runLowered = false;   // «자동» 이 이번 실행에서 배율을 낮췄는가
+const _renderAA = FrameBudget.antialiasFor(_renderQuality);
+const renderer=new THREE.WebGLRenderer({canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setClearColor(0x000000, 0);   // 항상 투명 배경으로 클리어 (Electron 투명창 흰 화면 예방)
 /* 🧯 메인 캔버스 WebGL 연결 끊김 — 기록하고, 6초 안에 안 돌아오면 화면을 한 번 다시 불러온다(parts/gl-recover.js · 제보 #11).
    three.js 자기 리스너가 먼저 붙어 preventDefault 를 하므로 여기는 기록 · 시간 재기만 한다. */
@@ -1847,6 +1846,8 @@ const seatCameraMod = TwSeatCamera.createSeatCamera({
   focusCharScale: ()=>focusCharScale,
   renderer: renderer,
   sizeFactor: ()=>sizeFactor,
+  renderQuality: ()=>_renderQuality,
+  runLowered: ()=>_runLowered,
 });
 /* 본문은 shared/dot-render.js 로 옮겼다(구역 떼기 C · w1).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -7529,6 +7530,10 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   setFocusGateSleep: (v)=>{ focusGateSleep = v; },
   setOfficeMode: (v)=>{ officeMode = v; },
   twNav: twNav,
+  renderQuality: ()=>_renderQuality,
+  setRenderQuality: (v)=>{ _renderQuality = v; },
+  renderAntialias: _renderAA,
+  applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),
 });
 
 /* ═══════════════════ 🔑 구글 로그인 (계정) ═══════════════════
@@ -8672,6 +8677,13 @@ let prev=performance.now();
    ★ frame-budget.js 는 HTML 이 app.js 보다 먼저 싣는다 — 가드 없이 바로 쓴다. */
 const _FB = FrameBudget;
 const _frameBudget = _FB ? _FB.createFrameBudget({ now: ()=>performance.now() }) : null;
+/* 🐢 «자동» 화질 — 그린 장 수가 상한에 한참 못 미치는 게 이어지면 배율을 1 로(이번 실행만 · 진단 로그에 한 줄) */
+const _runSlowWatch = FrameBudget.createSlowWatch();
+function _lowerRunQuality(){
+  _runLowered = true;
+  seatCameraMod.updateCameraOnly();
+  if(window.companion && companion.diagNote) companion.diagNote('[화질] 자동 — 그린 장 수가 상한에 못 미쳐 배율 1 로 낮춤');
+}
 let _appFocused = true;
 /* 🔥 상한 임시 해제 — **만지는 동안에는 비포커스여도 60fps(FrameBudget.FPS_ACTIVE)로 돌린다.**
    [제보] "다른 브라우저를 띄워 둔 채 캐릭터를 클릭하면 앱이 무겁고 버벅인다. 앱을 활성화하면 멀쩡하다."
@@ -8757,7 +8769,7 @@ try{
     const m = _frameBudget.takeMinute(t);
     if(!document.body.classList.contains('runmode')) return;
     if(!(window.companion && companion.diagNote)) return;
-    m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height;
+    m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height; m.q = _renderQuality; m.lowered = _runLowered;
     companion.diagNote(_FB.diagLine(m));
   }, 60000);
 }catch(_){}
@@ -9006,6 +9018,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
      상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
   if(!(document.body.classList.contains('desktop') && document.body.classList.contains('config'))) renderer.render(scene,camera);
   statusChipMod.updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
+  if(_renderQuality === FrameBudget.QUALITY.AUTO && document.body.classList.contains('runmode') && _runSlowWatch.note(now, _frameCap(now))) _lowerRunQuality();
   if(!manual) requestAnimationFrame(frame);
 }
 

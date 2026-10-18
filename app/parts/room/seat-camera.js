@@ -1,6 +1,6 @@
 /* seat-camera.js — 🎥 좌석 줄 카메라 · 캔버스 맞춤 — 좌석 줄 폭에 맞춰 카메라 거리 · 각도 · 화면 밀기 · 캔버스 크기
    책임: 좌석 줄(가운데 · 폭)을 받아 메인 카메라와 캔버스 크기를 맞춘다 — 실행 화면(전체 화면 · 이동 오프셋 · 도트 렌더)과 런처 미리보기 두 갈래.
-   받는 deps: camera · renderer · canvas · BASE_PXW · DOT_RENDER_SCALE(값) · sizeFactor · focusCharScale · deskPanX/Y · dotRenderEnabled · dotRenderMod · _cachedRowCenter/Span(읽는 함수).
+   받는 deps: camera · renderer · canvas · BASE_PXW · DOT_RENDER_SCALE(값) · sizeFactor · focusCharScale · deskPanX/Y · dotRenderEnabled · dotRenderMod · _cachedRowCenter/Span · renderQuality · runLowered(읽는 함수).
    내보내는 것: applyCameraAndCanvas(rowCenter, rowSpan) · updateCameraOnly().
    app.js «🪑 좌석 배치(layoutSeats) · 카메라 · 도트 텍스처 필터» 구역의 카메라 몫을 그대로 옮겼다(구역 떼기 C · w1). 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄임). 바뀐 코드 줄은 12줄 —
@@ -26,6 +26,8 @@ const dotRenderMod = deps.dotRenderMod;   // 읽는 함수
 const focusCharScale = deps.focusCharScale;   // 읽는 함수
 const renderer = deps.renderer;
 const sizeFactor = deps.sizeFactor;   // 읽는 함수
+const renderQuality = deps.renderQuality;   // 읽는 함수 — 프로그램 설정 › 모니터의 화질
+const runLowered = deps.runLowered;   // 읽는 함수 — «자동» 이 이번 실행에서 낮췄는가
 /* 📐 카메라 · 캔버스 박힌 값 — 바꾸면 실행 화면 · 런처 미리보기의 캐릭터 크기 · 자리가 함께 움직인다 */
 const LOOK_Y = 0.5;                 // 카메라가 바라보는 높이(바닥이 화면 가운데쯤 오게 살짝 낮춤)
 const ROW_BOX_H = 1.4, ROW_BOX_D = 0.8;   // 좌석 줄 내용 상자 높이 · 깊이(폭은 줄 폭)
@@ -63,7 +65,7 @@ function applyCameraAndCanvas(rowCenter, rowSpan){
     canvasH = innerHeight;
     // 설정에서 "저해상도(도트) 렌더"를 켰으면 pixelRatio를 낮춰 도트 느낌 (성능도 가벼워짐)
     /* 실행 화면은 화면 전체 크기의 투명 캔버스라 DPR 이 가장 큰 상시 비용이다 — FrameBudget.RUN_MAX_PR(1.5)로 누른다. 도트 렌더면 1. */
-    const wantPR = FrameBudget.runPixelRatio(devicePixelRatio, dotRenderEnabled());
+    const wantPR = FrameBudget.runPixelRatio(devicePixelRatio, dotRenderEnabled(), renderQuality(), runLowered());
     if(renderer.getPixelRatio() !== wantPR) renderer.setPixelRatio(wantPR);
     canvas.style.imageRendering = dotRenderEnabled() ? 'pixelated' : 'auto';
   } else {

@@ -6976,6 +6976,15 @@
         <div class="fs-monitors" id="progMonitors" style="display:none;"></div>
         <p id="progMonitorSingleMsg" style="margin:0;font-size:11px;color:var(--ink-soft);line-height:1.5;">연결된 모니터가 1개뿐이라 선택할 필요가 없어요.</p>
 
+        <!-- 🎚️ 실행 화면 화질 — 고르면 이 PC 에 저장(launcher/program-settings.js · 규칙은 shared/frame-budget.js) -->
+        <div class="fs-label" style="margin-top:14px;border-top:1px solid var(--win-lo-2);padding-top:12px;">실행 화면 화질</div>
+        <div class="fs-monitors" id="progQualityRow">
+          <button class="fs-mon-btn" type="button" data-q="sharp">선명하게</button>
+          <button class="fs-mon-btn" type="button" data-q="auto">자동</button>
+          <button class="fs-mon-btn" type="button" data-q="light">가볍게</button>
+        </div>
+        <p id="progQualityHint" style="margin:6px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.5;"></p>
+
         <!-- 🎨 디자인 테마 — 모양(2) × 색상(5). 고르면 즉시 적용되고 이 PC에 저장돼요. -->
         <div class="fs-label" style="margin-top:14px;border-top:1px solid var(--win-lo-2);padding-top:12px;">디자인 테마</div>
         <div class="theme-grid">
