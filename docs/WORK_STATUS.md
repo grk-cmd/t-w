@@ -57,7 +57,7 @@
 | ~~B-1016-4 창 겹침~~ 머지 #342 | 검증-도우미8(검증 · 합치기) · 작업 도우미1 | 창 층 표 → 편집 · 종족도 창 쌓기 · grk 탈퇴 안내 css 세 줄 지킴 | `desk-companion-prototype.html` · `shared/win-stack.js` | — |
 | ~~서버 주소 together-working.com~~ 머지 #343(웹 관리자 Hosting 배포 필요) | 검증-도우미8 · 작업 w2 | 운영 API · 방 서버 · CSP 새 주소(옛 주소 계속 허용) | html CSP · 주소 상수 | — |
 | ~~자동 검사 판정 한 벌~~ 머지 #344 | 검증-도우미8 · 작업 w2 | #337 위에 같은 요청 앞 실행 취소 등 빠진 것만 | `.github/workflows/checks.yml` | — |
-| 말랑이 잠깐 숨기기 버튼 | 계정 세션 | 마이홈 제목줄 «👁 방문자 시점» 옆에 «🙈 말랑이 숨기기» — 누르면 떠다니는 말랑이를 잠깐 가린다(다시 누르면 보임 · 집을 옮기거나 마이홈을 닫으면 다시 보임 · 서버 · 저장 없음) | `myhome/mallang.js` · `desk-companion-prototype.html`(제목줄 span 하나) · `checks/sim-mallang-hide.js`(새) | — |
+| 말랑이 잠깐 숨기기 버튼 | 계정 세션 | 마이홈 제목줄 «👁 방문자 시점» 옆에 «🙈 말랑이 숨기기» — 누르면 떠다니는 말랑이를 잠깐 가린다(다시 누르면 보임 · 집을 옮기거나 마이홈을 닫으면 다시 보임 · 서버 · 저장 없음) | `myhome/mallang.js` · `myhome/myhome-ui.js`(제목줄 끌기 제외 한 줄) · `desk-companion-prototype.html`(제목줄 span 하나) · `checks/sim-mallang-hide.js`(새) | #362 |
 | 마이홈 스티커 잠금 · 순서 바꾸기 | 계정 세션(머지는 검증 세션) | 스티커 관리 창에 🔒 잠금(잠기면 끌기 · 편집 모드 · ◎ 로 안 움직임) · ▲▼ 순서(위로 그릴수록 앞) — 스티커에 `locked` · `z` 칸(규칙 · 서버 모양 그대로, 옛 앱은 무시) · ⚠️ #350 과 `myhome-edit.js` 가 겹침(내 몫은 스티커 끌기 한 줄 · 새 스티커 z 한 줄) | `myhome/myhome-sticker-rules.js`(새) · `myhome/myhome-sticker.js` · `myhome/myhome-edit.js` · `app.js`(renderMyHomeStickers 순서 · 잠금 표시) · html(관리 창 버튼 css · script 태그) · `myhome/README.md` · `checks/smoke.js` · `sim-myhome-sticker` · `sim-myhome-sticker-rules`(새) | #361 |
 | #163 다시 얹기 | 검증 세션 | 내 정보 맨 아래 개인정보 처리방침 링크(시스템 기본 브라우저로) | `app/desk-companion-prototype.html`(내 정보 계정 칸 아래) · `room/room-entry.js`(링크 거는 줄) | — |
 | ~~토스트 누르면 복사(wAE)~~ 머지 #345 | 검증-도우미8 | 켜진 토스트를 누르면 글 복사 · «(복사했어요)» — 사용자 승인 | `shared/toast.js` · html | #345 |
