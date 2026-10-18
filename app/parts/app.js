@@ -5775,6 +5775,7 @@ function reopenAnimalFromCreator(tab){
 const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
   jsonStore: TwJsonStore,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  isCatalogDesk: (id)=>commissionMod.catalogBacked(commissionMod.savedDesks().find(d=>d.id===id)),
 });
 /* 본문은 creator/desk-preset.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */

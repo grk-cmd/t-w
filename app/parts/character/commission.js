@@ -99,14 +99,16 @@ function loadSavedAssets(){
   try{ savedDesks=JSON.parse(localStorage.getItem(SAVED_DESK_KEY)||'[]'); }catch(_){ savedDesks=[]; }
   try{ savedItems=JSON.parse(localStorage.getItem(SAVED_ITEM_KEY)||'[]'); }catch(_){ savedItems=[]; }
 }
+/* 카탈로그에서 다시 받을 수 있는 자산인가 — 그렇다면 GLB 바이트를 이 PC 저장소에 복사해 두지 않는다(필요할 때 resolveCatalogGlb).
+   책상 프리셋(creator/desk-preset-store.js)도 이 판단을 쓴다 — 조건을 다시 쓰지 말 것. */
+function catalogBacked(rec){ return !!(rec && rec.fromCatalog && rec.glbUrl); }
 function persistSavedAssets(){
-  // Storage 이관 후속: base64 glb는 로컬 저장에서 제외 (glbUrl만 있는 catalog은 필요 시점 fetch)
   const stripDesks = savedDesks.map(p=>{
-    if(p.fromCatalog && p.glbUrl){ const clone={...p}; delete clone.glb; return clone; }
+    if(catalogBacked(p)){ const clone={...p}; delete clone.glb; return clone; }
     return p;
   });
   const stripItems = savedItems.map(p=>{
-    if(p.fromCatalog && p.glbUrl){ const clone={...p}; delete clone.glb; return clone; }
+    if(catalogBacked(p)){ const clone={...p}; delete clone.glb; return clone; }
     return p;
   });
   try{ localStorage.setItem(SAVED_DESK_KEY,JSON.stringify(stripDesks)); }catch(_){ toast('저장 공간이 부족해요'); }
@@ -119,6 +121,7 @@ return {
   MAX_CUSTOM_ASSETS,
   MAX_CUSTOM_ITEMS,
   MAX_GLB_BYTES,
+  catalogBacked,
   decryptCommission,
   encryptCommission,
   persistSavedAssets,

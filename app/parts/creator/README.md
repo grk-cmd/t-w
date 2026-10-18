@@ -238,13 +238,16 @@ assetImportMod.onPartAdded(()=>wardrobeMod.renderWardrobe());   // 파츠를 넣
 ## `desk-preset-store.js` · `desk-preset.js` — 🗂 책상 · 좌석 세팅 프리셋(5칸)
 
 **책임** — 생성기 5 · 6단계의 책상 · 좌석 세팅을 5칸(모든 캐릭터 칸 공용)에 담아 두었다가 지금 캐릭터에 한 번에 적용한다.
-- `desk-preset-store.js` — 저장만: localStorage `tw.deskPresets` 를 늘 5칸으로 읽고(빈 칸 null · 깨진 값이면 빈 5칸), 앞 5칸만 쓴다.
+- `desk-preset-store.js` — 저장만: localStorage `tw.deskPresets` 를 늘 5칸으로 읽고(빈 칸 null · 깨진 값이면 빈 5칸), 앞 5칸만 쓴다. 쓸 때 카탈로그 책상은 GLB 바이트를 빼고 id 만 남긴다(`slimPresets` — 옛 칸도 같이).
 - `desk-preset.js` — 담기(책상 색 · 크기 · 길이 · 위치 · 모델 · 아이템 · 로컬 아이템 · 좌석) · 적용 · 칸 화면(클릭 불러오기 · 우클릭 저장 / 비우기 · 팝업 버튼).
 
 **만드는 법** — app.js 생성기 «책상 크기 슬라이더» 앞, 저장 모듈을 먼저:
 
 ```js
 const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
+  jsonStore: TwJsonStore,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  isCatalogDesk: (id)=>commissionMod.catalogBacked(commissionMod.savedDesks().find(d=>d.id===id)),   // 카탈로그 판단은 commission.js 한 곳
 });
 const deskPresetMod = TwDeskPreset.createDeskPreset({
   crState: crState,                          // 값 — cDesk* · cXform · activeCustomDeskId · cDeskGlbB64 · deskCamSaved · crStep
@@ -255,7 +258,7 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
 });
 ```
 
-**내놓는 것** — `deskPresetStoreMod.loadDeskPresets()` · `saveDeskPresets(arr)` · `PRESET_SLOTS`. `deskPresetMod` 는 없음(만들 때 팝업 버튼을 건다).
+**내놓는 것** — `deskPresetStoreMod.loadDeskPresets()` · `saveDeskPresets(arr)` · `slimPresets(arr)` · `PRESET_SLOTS`. `deskPresetMod` 는 없음(만들 때 팝업 버튼을 건다).
 
 **확장할 때 고칠 자리** — 담을 값은 `captureDeskPreset` 과 `applyDeskPreset` 의 같은 이름 칸을 짝으로. 칸 수는 `desk-preset-store.js` 의 `PRESET_SLOTS`(칸 화면도 이 값을 읽는다).
 
@@ -263,9 +266,10 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
 - 좌석 높이는 `p.seat.y` — 옛 프리셋의 `p.seat.z`(앞뒤)는 읽지 않는다(읽으면 캐릭터가 공중에 뜬다).
 - 로컬 아이템의 라이선스 전용 여부는 프리셋 값이 아니라 원본 카탈로그(savedItems)에서. 라이선스 전용 책상은 라이선스 · 관리자가 아니면 쓰지 않고 기본 책상으로 연다.
 - «기본 책상» 프리셋은 관리자가 등록한 기본 책상(`__default_desk__`)이 있으면 그것을 — 내장 책상과 폭이 달라 미리보기 크기가 어긋난다.
+- 카탈로그 책상 GLB 를 칸마다 base64 로 담으면 이 PC 저장소가 넘친다(1MB 책상이면 4번째 칸부터 저장 실패 — 10-16 제보 8). 그래서 저장은 id 만, 적용은 바이트가 없으면 카탈로그 기록에서 받는다(`_presetDeskGlb`). 카탈로그에도 없으면 `E-CHAR-08` + 기본 책상. 직접 넣은(카탈로그에 없는) 책상은 다시 받을 곳이 없어 예전처럼 바이트를 담는다.
 - 입구 전제 — 적용 · 저장은 캐릭터(`crState.cBase`)가 있어야, 칸 화면은 `#crPresetSlots` · 버튼이 있어야.
 
-검사: `checks/sim-desk-preset.js` (저장 4 · 담기 · 적용 · 책상 모델 7 · 칸 화면 · 팝업 · 입구 전제 · 연결 · 깨 보기 12).
+검사: `checks/sim-desk-preset.js` (저장 4 · 담기 · 적용 · 책상 모델 7 · 카탈로그 책상 8 · 칸 화면 · 팝업 · 입구 전제 · 연결 · 깨 보기 15).
 
 ## `asset-cards.js` — 🃏 자산 카드 공용(카드 · 도트 썸네일 · ☰ 순서)
 
