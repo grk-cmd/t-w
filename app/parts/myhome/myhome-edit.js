@@ -65,6 +65,7 @@ const DS_IMG_MAX_PANEL = deps.dsImgMaxPanel;
 const DS_IMG_QUALITY = deps.dsImgQuality;
 const mhHooks = TwMyHomeHooks;                           // 🪝 마이홈 고리판(myhome-hooks.js — 먼저 싣는 아래층) — 다른 파일이 부를 함수를 건다
 const mhPreset = TwMyHomePreset;                         // 👑 디자인 프리셋 규칙(myhome-preset.js — 먼저 싣는 아래층 · 순수 함수)
+const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠금 · 순서 규칙(myhome-sticker-rules.js — 순수 함수)
 
   // ★ 저장 버튼 없이 자동저장 — 아래 여러 지점(사진 변경/스티커 추가삭제이동/텍스트칸에서 포커스 벗어남)에서
   //   이 함수를 호출해서 그 즉시 Firebase에 반영함.
@@ -373,6 +374,7 @@ const mhPreset = TwMyHomePreset;                         // 👑 디자인 프�
           x: 60 + n*18, y: 60 + n*18,
           w, h,                            // 원본 비율 — 렌더 시 이 비율로 표시
           size: 1,
+          z: mhStickerRules.nextZ(_myHomeData().stickers),   // 새 스티커는 맨 앞에
         };
         _mhClampStickerPos(_myHomeData().stickers[sid]);   // 창이 작으면 처음부터 밖에 놓일 수 있다
         renderMyHomeStickers();
@@ -389,6 +391,7 @@ const mhPreset = TwMyHomePreset;                         // 👑 디자인 프�
     zone.addEventListener('mousedown', e=>{
       if(_mhViewingUserId() || window._mhPreviewMode) return;   // ★ 관람/미리보기 중에는 스티커를 만질 수 없음
       const el=e.target.closest('.mh-sticker'); if(!el) return;
+      if(mhStickerRules.isLocked((_myHomeData().stickers||{})[el.dataset.sid])) return;   // 🔒 잠긴 스티커는 끌리지 않는다
       dragSticker=el; const r=el.getBoundingClientRect();
       dragOffX=e.clientX-r.left; dragOffY=e.clientY-r.top;
       dragStartX=e.clientX; dragStartY=e.clientY; _setMhStickerDragDist(0);

@@ -75,6 +75,7 @@ const KIND = {
   '/users/$userId/slots/s/$i': 'own',
   '/users/$userId/slotsPrev/s/$i': 'own',
   '/users/$userId/chars/$cid': 'own',
+  '/users/$userId/mallang/imgs/$i': 'own',
   '/users/$userId/trash/$cid': 'other',
   '/users/$userId/trash/$cid/$mtime': 'other',
   '/users/$userId/chal/days/$i': 'other',
