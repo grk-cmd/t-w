@@ -10,6 +10,7 @@
    ・4절: 일부러 깨 보기 — 하나라도 못 잡으면 빨강
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
@@ -24,7 +25,7 @@ const SRC0 = {
   AC: pick(at('api-client.js', 'shared')),
   RC: pick(at('remote-config.js', 'shared')),
   SS: pick(at('source-switch.js', 'shared')),
-  RULES: pick(['firebase-database-rules.json']),
+  RULES: stripReadGate(pick(['firebase-database-rules.json'])),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
   FS: pick(at('friends-sub.js', 'myhome')),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),

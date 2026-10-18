@@ -7,8 +7,9 @@
    ⚠️ 반대 방향도 같이 본다 — 일반 사용자가 하던 쓰기(라이선스 등록, 신청, 이용자 수)까지
      잠가 버리면 앱이 조용히 멎는다. 잠그는 것보다 이쪽 사고가 더 크다. */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
-const rules = JSON.parse(fs.readFileSync('firebase-database-rules.json', 'utf8')).rules;
+const rules = JSON.parse(stripReadGate(fs.readFileSync('firebase-database-rules.json', 'utf8'))).rules;
 
 let fail = 0;
 const chk = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
@@ -244,7 +245,8 @@ console.log('\n── 6. 관리자 작업 기록(adminLog) — 관리자만, 새
     chk(!run(inv['.read'], { uid: 'user9' }) && !run(inv['.read'], {}), '★ invites 통째 읽기 — 비관리자 · 로그인 안 한 사람은 거절');
     chk(run(inv['.read'], { uid: ADMIN }), '  ↳ 관리자는 목록을 읽는다');
     chk(JSON.stringify(inv['.indexOn']) === '["issuedBy"]', '  ↳ .indexOn ["issuedBy"] — 한 사람이 낸 코드만 getEqual 로');
-    chk(r('invites/$code') === true && w('invites/$code') === true, '코드 하나 읽기 · 쓰기는 그대로 누구나 (가입 게이트가 코드 하나로 확인 · 소진)');
+    chk(r('invites/$code') === true && /^!data\.exists\(\) \|\| \(data\.child\('issuedBy'\)\.val\(\) === newData\.child\('issuedBy'\)\.val\(\) && data\.child\('createdAt'\)\.val\(\) === newData\.child\('createdAt'\)\.val\(\)\)/.test(String(w('invites/$code'))),
+        '코드 하나 읽기는 누구나 · 쓰기는 새 코드거나 발급자 · 발급 시각을 그대로 둔 소진만 (가입 게이트가 로그인 없이 확인 · 소진)');
     chk(/ref\(db, *`invites\/\$\{code\}`\)/.test(fbSrc) && !/ref\(db, *['`]invites['`]\)/.test(fbSrc),'  ↳ 앱은 invites 모음을 읽지 않는다 (코드 하나 경로만)');
   }
 }

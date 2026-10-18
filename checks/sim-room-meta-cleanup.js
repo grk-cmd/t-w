@@ -54,7 +54,8 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
       '랜덤 참여 후보(findRandomRooms)도 안 고른다 — 빈 방으로 보내지 않는다');
     const RULES = JSON.parse(need('firebase-database-rules.json').replace(/^\s*\/\/[^\n]*$/mg, ''));
     const v = RULES.rules.roomIndex.$room['.validate'];
-    chk(/newData\.child\('lastSeen'\)\.isNumber\(\)/.test(v) && !RULES.rules.roomIndex.$room.$other, '규칙: 줄은 lastSeen 숫자면 받는다 · 다른 칸(emptyAt)을 막지 않는다 — 규칙 변경 없음');
+    const ri = RULES.rules.roomIndex.$room;
+    chk(/newData\.child\('lastSeen'\)\.isNumber\(\)/.test(v) && (!ri.$other || (!!ri.emptyAt && /isNumber\(\)/.test(ri.emptyAt['.validate']))), '규칙: 줄은 lastSeen 숫자면 받는다 · 모르는 칸을 막아도 emptyAt 은 받는다');
   }
 
   say('── 2. 서버 함수 — 2분 뒤 · 멤버 재확인 · _meta 트랜잭션');

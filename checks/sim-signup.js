@@ -23,6 +23,7 @@
    실행: node sim-signup.js   (app.js · firebase-init.js · desk-companion-prototype.html 과 같은 폴더에서 — run.js 가 맞춰 준다)
 */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 
 let pass = 0, fail = 0;
@@ -1055,7 +1056,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     chk(/commitUserName\(inp\.value\)/.test(nameSave) && !/setUserName/.test(nameSave), '  닉네임 저장은 commitUserName 하나');
     chk(/'캐릭터가 모두 찼습니다'/.test(codeLoad) && /openCodeModal\(\)/.test(codeLoad), '  [코드로 캐릭터 불러오기] → openCodeModal(슬롯 꽉 차면 옛 토스트)');
     /* 규칙 — 옛 이전 비밀번호 */
-    const RJ = JSON.parse(fs.readFileSync('firebase-database-rules.json', 'utf8')).rules.users.$userId;
+    const RJ = JSON.parse(stripReadGate(fs.readFileSync('firebase-database-rules.json', 'utf8'))).rules.users.$userId;
     chk(/^!newData\.exists\(\) && \(/.test(RJ.transferHash['.write']) && RJ.transferHash['.validate'] === 'false', '★ users/{uid}/transferHash — 지우기만(결정 12)');
     /* 개정 55 (설계 §9-12): 계정 스냅샷은 accountSnap/{코드}(주인만)로 옮겼다 — transferData 도 transferHash 처럼 지우기만. */
     chk(/^!newData\.exists\(\) && \(/.test(RJ.transferData['.write']) && RJ.transferData['.validate'] === 'false', '  users/{uid}/transferData — 지우기만(개정 55 · 스냅샷은 accountSnap 으로)');
@@ -1458,7 +1459,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     chk(/const CAP = 999\*3600\*100;/.test(sl), '  어댑터 상한 = 누적 상한');
     chk(/query\(ref\(db, 'leaderboard'\), orderByChild\('sec'\), limitToLast\(100\)\)/.test(ft) && /return null;/.test(ft), '★ fetchLeaderboardTop — sec 정렬 상위 100줄 · 실패는 null');
     /* 규칙 */
-    let RU = null; try { RU = JSON.parse(fs.readFileSync('firebase-database-rules.json', 'utf8')).rules; } catch (_){}
+    let RU = null; try { RU = JSON.parse(stripReadGate(fs.readFileSync('firebase-database-rules.json', 'utf8'))).rules; } catch (_){}
     if (!RU) say('  · 규칙 파일이 없다 — 규칙 대조 건너뜀');
     else {
       const lb = RU.leaderboard || {}, row = lb.$userId || {};

@@ -8,6 +8,7 @@
  * 6. 규칙 — config/minAppVer(옛 앱 0.11.3 까지 · 웹 관리자가 API 와 같이 씀) 관리자만 쓰기 · 누구나 읽기 · 문자열 20자
  */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -21,7 +22,7 @@ const APP = _joinRenderer(need('app.js', 'parts/app.js', 'app/parts/app.js'));
 const MAIN = need('main.js');
 const PRE = need('preload.js');
 const PKG = JSON.parse(need('package.json'));
-const RULES = JSON.parse(need('firebase-database-rules.json')).rules;
+const RULES = JSON.parse(stripReadGate(need('firebase-database-rules.json'))).rules;
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const M = new Function(GATE.replace(/^export (function|const) /mg, '$1 ') +
   '\nreturn { parseVer, isBelow, viewOf, createAppVersionGate, createAppVersionGateDom, MIN_APP_VER_MAX, RELEASES_URL, GATE_ID };')();
