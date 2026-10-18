@@ -26,6 +26,7 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
+| ~~판(버전) 브랜치~~ 머지 #390 — 앱 PR 은 이제 `release/0.12.0` 으로 | 다른 세션 · 머지는 검증 담당 | 작업 전 «어느 판에 나가나» 묻고 release/X.Y.Z 로 PR | `CLAUDE.md` · `docs/GIT_CONVENTION.md` · `checks.yml` · `deploy-dev.yml` | #390 |
 | ~~CHECKS 개정 번호 없애기~~ 머지 #389 · #383 콘솔 부탁 금지 머지 | 검증 담당 | CHECKS.md 개정 줄 · 기록 걷기 · 검사 전체는 CI 한 번만(사용자 10-19) | `checks/CHECKS.md` · `CLAUDE.md` · `docs/GIT_CONVENTION.md` · 이 파일 · PR 틀 | #389 |
 | ~~할 일은 버그 제보만~~ 머지 #387 | 할 일 관리 세션 | 할 일(adminTodos)에는 버그 제보 관련만 적고 기능 · 계획은 현황판 · PR 로 — 문서만 | `CLAUDE.md`(작업 전 할 일 확인) · `.claude/skills/todo/SKILL.md` · `docs/GIT_CONVENTION.md` · `.github/pull_request_template.md` · `docs/WORK_STATUS.md`(16줄) | #387 |
 | ~~대화 기록 지움 남기기~~ 머지 #385(함수 배포 필요) | w2 세션 | 서버 대화(rooms/{방}/chatLog · _chatTab/{탭})가 통째로 지워지면 누가(authType · authId) · 몇 줄 · 표시 줄 유무를 함수 로그에 남긴다 — PLAY-BFBT 70줄이 서버 함수 기록 없이 사라진 원인 찾기(10-19 사용자) · 앱 안 바뀜 · 함수 배포만 | `functions/chat-delete-log.js`(새) · `functions/index.js`(export) · `checks/sim-chat-delete-log.js`(새) · `checks/CHECKS.md` | — |
