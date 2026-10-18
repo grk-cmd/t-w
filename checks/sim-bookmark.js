@@ -8,6 +8,7 @@
    ・6절: bmClean · 순서 바꾸기를 떼어 와 돌린다.
    [실행] app.js · desk-companion-prototype.html · parts 원본들이 있는 폴더에서. */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 /* 원본은 평평한 폴더(러너 스테이징) 또는 parts/ 아래에 있다 — 둘 다 본다. */
 const rd = f => { for(const p of [f, 'parts/' + f]) if(fs.existsSync(p)) return fs.readFileSync(p, 'utf8'); return null; };
@@ -17,7 +18,7 @@ const BM   = rd('bookmark.js');
 const MHD  = rd('myhome-desktop.js');
 const FI   = rd('firebase-init.js');
 const APP  = rd('app.js');
-const RULES = rd('firebase-database-rules.json');
+const RULES = stripReadGate(rd('firebase-database-rules.json'));
 const STOR  = rd('storage.rules');
 
 let pass = 0, fail = 0, huh = 0;

@@ -37,6 +37,7 @@
      자물쇠가 아니라 편의다. 규칙 파일을 받으면 `userAuth` 근거 규칙을 여기서 함께 볼 것.
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs'), vm = require('vm');
 
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -431,7 +432,7 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
        보인다. 그래서 클라이언트 검사만으로는 아무것도 증명되지 않는다 — 여기서 같이 본다. */
   say('');
   say('· §8 규칙 파일 — 되찾기를 허락하고, 남의 계정은 막는가');
-  const RULES_TXT = pick('firebase-database-rules.json', '../firebase-database-rules.json');
+  const RULES_TXT = stripReadGate(pick('firebase-database-rules.json', '../firebase-database-rules.json'));
   if (!RULES_TXT){ say('  (firebase-database-rules.json 을 못 찾음 — 건너뜀)'); }
   else {
     let R = null;

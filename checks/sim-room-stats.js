@@ -3,6 +3,7 @@
  * 1. functions/room-stats.js  2. room-index.js  3. room-stats.js  4. firebase-init.js 연결 · 규칙
  */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
@@ -13,7 +14,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
 const FI = need('firebase-init.js'), RI = need('room-index.js'), RS = need('room-stats.js');
 need('room-channel.js');
-const RULES = need('firebase-database-rules.json');
+const RULES = stripReadGate(need('firebase-database-rules.json'));
 need('functions/room-stats.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(FI);

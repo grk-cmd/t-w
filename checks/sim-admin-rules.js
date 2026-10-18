@@ -7,8 +7,9 @@
    ⚠️ 반대 방향도 같이 본다 — 일반 사용자가 하던 쓰기(라이선스 등록, 신청, 이용자 수)까지
      잠가 버리면 앱이 조용히 멎는다. 잠그는 것보다 이쪽 사고가 더 크다. */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
-const rules = JSON.parse(fs.readFileSync('firebase-database-rules.json', 'utf8')).rules;
+const rules = JSON.parse(stripReadGate(fs.readFileSync('firebase-database-rules.json', 'utf8'))).rules;
 
 let fail = 0;
 const chk = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };

@@ -16,6 +16,7 @@
    종료 코드: 0=통과 · 1=실패 · 2=원본 없음
 */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const _MI_JOIN = require('./sim-renderer-src.js').joinRenderer;   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
@@ -34,7 +35,7 @@ const PLJS = load('playlist.js') || load('parts/status/playlist.js');
 if (!PLJS){ console.log('? playlist.js 를 못 찾음 — app.js 가 있는 폴더에서 실행할 것'); process.exit(2); }
 const APP = APP0 + '\n' + PLJS;
 const FI    = load('firebase-init.js');
-const RULES = load('firebase-database-rules.json');
+const RULES = stripReadGate(load('firebase-database-rules.json'));
 
 let pass = 0, fail = 0;
 const ok  = (m) => { pass++; console.log('  ✓ ' + m); };

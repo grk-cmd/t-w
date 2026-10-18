@@ -24,8 +24,9 @@
      §4 프레임은 https URL 만 받는가 (dataURL 이 들어가면 다운로드 단가가 40배)
      §5 기존 앱이 쓰던 길이 안 막혔는가 (잠그는 사고보다 이쪽이 크다) */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
-const rules = JSON.parse(fs.readFileSync('firebase-database-rules.json', 'utf8')).rules;
+const rules = JSON.parse(stripReadGate(fs.readFileSync('firebase-database-rules.json', 'utf8'))).rules;
 const Purikura = require('./purikura-net.js');
 
 let fail = 0;

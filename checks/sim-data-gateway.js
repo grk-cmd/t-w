@@ -5,6 +5,7 @@
    ・4절: 연결 — firebase-init.js 가 SDK 기본 동작을 통로 뒤로만 부른다 · 다른 앱 파일은 Firebase DB 라이브러리를 안 부른다 · 원격 설정 칸 · 규칙 config/dataRoutes · html 차례 · smoke
    ・5절: 일부러 깨 보기 */
 'use strict';
+const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
@@ -20,7 +21,7 @@ const SRC0 = {
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js', 'checks/smoke.js']),
-  RULES: pick(['firebase-database-rules.json']),
+  RULES: stripReadGate(pick(['firebase-database-rules.json'])),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');

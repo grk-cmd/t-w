@@ -41,6 +41,7 @@ const ADMIN_A = 'adminA';
 const MEMBER2 = 'mabc67890';
 const OLD_U = 'uoldver00001';   // ≤0.10.2 앱을 켠 사람(로그인에 안 묶임)
 const NEW_U = 'unewacct0001';   // 0.11 로 새로 가입하는 사람
+const OLD2_U = 'uoldver00002', NEW2_U = 'unewacct0002', UP_U = 'uupgrade0001', LIS_U = 'ulisten00001';   // 읽기 막기 시험용
 const URL_S = 'https://firebasestorage.googleapis.com/v0/b/x/o/users%2Fu%2Fa.png?alt=media&token=abc';
 const FUTURE = Date.now() + 10 * 60 * 1000;
 const DEF = { v: 2, skin: '#ffddcc', faceUrl: URL_S, blinkUrl: URL_S, equippedParts: [{ id: 'p1', xf: { s: 1, y: 0.1 } }], scale: 1, animal: false };
@@ -230,6 +231,40 @@ const LIMIT_CASES = [
   ['새 계정 ⑩ 기기 세션', 'PUT', `users/${NEW_U}/session`, { id: 'd1', at: 1 }, true, 'authN'],
   ['새 계정 ⑪ 포커스 · 랭킹 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`leaderboard/${NEW_U}`]: { sec: 5, ts: TS }, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
   ['새 계정 ⑫ 신고(쓰는 사람 = 나)', 'PUT', `reports/${GOOD_U2}/${NEW_U}`, { kind: 'etc', nick: 'a', code4: 'AB12', ts: 1 }, true, 'authN'],
+  /* 🚧 ≤0.10.2 읽기 막기 — 읽는 사람의 로그인(auth.uid) → authUsers/{authUid}.userCode → 그 코드의 presence 가 «켜짐 · ver 없음» 이면 거절.
+     로그인 안 함(auth null) · 이어진 코드 없음(익명 가입 중 · 봇)은 막지 않는다 — 0.11 의 로그인 없는 REST 읽기 · 가입 중 읽기가 산다. */
+  ['준비: 옛 앱 로그인 이음(authUsers/authOld → OLD2)', 'PUT', `authUsers/authOld`, { userCode: OLD2_U, ts: 1 }, true, OWNER],
+  ['준비: 새 앱 로그인 이음(authNew2 → NEW2) · presence 아직 없음', 'PUT', `authUsers/authNew2`, { userCode: NEW2_U, ts: 1 }, true, OWNER],
+  ['준비: 올린 첫 부팅(authUp → UP) · 옛 앱이 남긴 꺼짐(ver 없음)', 'PATCH', '', { 'authUsers/authUp': { userCode: UP_U, ts: 1 }, [`users/${UP_U}/presence`]: { online: false, lastSeen: 1 } }, true, OWNER],
+  ['새 앱(로그인 · presence 전) — 카탈로그 읽기', 'GET', 'catalog/parts', null, true, 'authNew2'],
+  ['새 앱(로그인 · presence 전) — 내 authUsers 읽기', 'GET', 'authUsers/authNew2', null, true, 'authNew2'],
+  ['새 앱(로그인 · presence 전) — 원격 설정', 'GET', 'config/minAppVer', null, true, 'authNew2'],
+  ['새 앱(올린 첫 부팅 · presence 전) — 친구 사용자 칸', 'GET', `users/${GOOD_U2}`, null, true, 'authUp'],
+  ['새 앱(익명 · 이음 없음) — 카탈로그', 'GET', 'catalog/parts', null, true, 'authAnon'],
+  ['로그인 없음 — 방 하나 shallow(REST)', 'GET', `rooms/${ROOM}?shallow=true`, null, true],
+  ['로그인 없음 — 공지', 'GET', 'announce', null, true],
+  ['옛 앱 — presence 켜기(ver 없음)', 'PUT', `users/${OLD2_U}/presence`, { online: true, lastSeen: 1, room: null, inRoom: false }, true],
+  ['옛 앱 — 카탈로그 읽기', 'GET', 'catalog/parts', null, false, 'authOld'],
+  ['옛 앱 — 카탈로그 버전', 'GET', 'catalogMeta', null, false, 'authOld'],
+  ['옛 앱 — 원격 설정(minRoomVer)', 'GET', 'config/minRoomVer', null, false, 'authOld'],
+  ['옛 앱 — 공지 · 업데이트 공지', 'GET', 'announce/current', null, false, 'authOld'],
+  ['옛 앱 — 업데이트 공지', 'GET', 'updateNotice/current', null, false, 'authOld'],
+  ['옛 앱 — 친구 사용자 칸', 'GET', `users/${GOOD_U2}`, null, false, 'authOld'],
+  ['옛 앱 — 내 authUsers(로그인 확인)', 'GET', 'authUsers/authOld', null, false, 'authOld'],
+  ['옛 앱 — 방 하나', 'GET', `rooms/${ROOM}`, null, false, 'authOld'],
+  ['옛 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, false, 'authOld'],
+  ['새 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, true, 'authNew2'],
+  ['옛 앱 — 랭킹 쿼리', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, false, 'authOld'],
+  ['새 앱 — 랭킹 쿼리', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, true, 'authNew2'],
+  ['옛 앱 — 우편함 공용', 'GET', 'inboxBroadcast', null, false, 'authOld'],
+  ['옛 앱 — 관리자 칸은 원래 막힘(시험 도구 확인)', 'GET', 'adminTodos', null, false, 'authOld'],
+  ['관리자(이음 없음) — 관리자 읽기 그대로', 'GET', 'rooms', null, true, ADMIN_A],
+  ['옛 앱 — 꺼짐으로 빠져나가기(수동 오프라인 · inRoom 실림)', 'PUT', `users/${OLD2_U}/presence`, { online: false, lastSeen: 2, room: null, inRoom: false }, false],
+  ['  ↳ 그래서 여전히 막힘', 'GET', 'catalog/parts', null, false, 'authOld'],
+  ['옛 앱 — 꺼짐(onDisconnect 모양 · inRoom 없음)은 받는다', 'PUT', `users/${OLD2_U}/presence`, { online: false, lastSeen: 3 }, true],
+  ['  ↳ 꺼진 뒤 다음 부팅의 presence 전 읽기는 열린다(규칙만으로 못 닫음)', 'GET', 'catalog/parts', null, true, 'authOld'],
+  ['새 앱 — 수동 오프라인(ver 실림)', 'PUT', `users/${NEW2_U}/presence`, { online: false, lastSeen: 1, room: null, inRoom: false, ver: '0.11.3' }, true],
+  ['새 앱 — presence(ver) 뒤 읽기', 'GET', 'catalog/parts', null, true, 'authNew2'],
 ];
 
 /* [이름, 방법, 경로(인코딩 전), 본문, 기대(true = 통과), 사용자 토큰?] — 경로 조각은 그대로 넣는다(공백 · null 도) */
@@ -300,10 +335,11 @@ async function inner(){
   const only = process.env.TW_EMU_ONLY;
   for(const [name, method, p, body, want, uid] of CASES){
     if(only && !name.includes(only) && !name.startsWith('준비')) continue;
-    const enc = p.split('/').map(encodeURIComponent).join('/');
+    const [pp, qs] = p.split('?');   // 쿼리(orderBy · limitToLast)는 그대로 붙인다
+    const enc = pp.split('/').map(encodeURIComponent).join('/');
     /* 토큰은 ?auth= 로 — Authorization 머리에 실으면 에뮬레이터가 관리자(규칙 건너뜀)로 본다 */
     const owner = uid === OWNER;   // 준비용 — Authorization 머리 = 에뮬레이터 관리자(규칙 건너뜀)
-    const url = `http://127.0.0.1:${PORT}/${enc}.json?ns=${NS}` + (uid && !owner ? '&auth=' + userToken(uid) : '');
+    const url = `http://127.0.0.1:${PORT}/${enc}.json?ns=${NS}` + (qs ? '&' + qs : '') + (uid && !owner ? '&auth=' + userToken(uid) : '');
     const headers = { 'Content-Type': 'application/json', ...(owner ? { Authorization: 'Bearer owner' } : {}) };
     const r = await fetch(url, { method, headers, body: body === null ? undefined : JSON.stringify(body) });
     const ok = r.status === 200;
@@ -311,8 +347,33 @@ async function inner(){
     if(!pass) fail++;
     console.log(`  ${pass ? '✓' : '✗'} ${name} — ${ok ? '통과' : '거절'}${pass ? '' : ' (기대: ' + (want ? '통과' : '거절') + ')'}`);
   }
-  console.log(fail ? `\n✗ ${fail}건이 기대와 다름` : `\n✓ ${CASES.length}건 모두 기대대로`);
+  /* 🎧 먼저 붙은 구독 — 옛 앱이 presence 를 쓰기 전에 건 듣기가, presence 가 «켜짐 · ver 없음» 으로 바뀌는 순간 끊기는가(event: cancel) */
+  const listen = await listenCancelCase();
+  if(!listen.pass) fail++;
+  console.log(`  ${listen.pass ? '✓' : '✗'} 옛 앱 — 막히기 전에 건 구독(카탈로그)은 presence 가 켜지는 순간 끊긴다 — ${listen.got}`);
+  const total = CASES.length + 1;
+  console.log(fail ? `\n✗ ${fail}건이 기대와 다름` : `\n✓ ${total}건 모두 기대대로`);
   process.exit(fail ? 1 : 0);
+}
+
+async function listenCancelCase(){
+  const base = `http://127.0.0.1:${PORT}`;
+  const ownerPut = (p, b) => fetch(`${base}/${p}.json?ns=${NS}`, { method: 'PUT', headers: { Authorization: 'Bearer owner' }, body: JSON.stringify(b) });
+  await ownerPut('authUsers/authListen', { userCode: LIS_U, ts: 1 });
+  await ownerPut(`users/${LIS_U}/presence`, { online: false, lastSeen: 1 });
+  const ctl = new AbortController();
+  let log = '';
+  try{
+    const r = await fetch(`${base}/catalog/parts.json?ns=${NS}&auth=${userToken('authListen')}`, { headers: { Accept: 'text/event-stream' }, signal: ctl.signal });
+    const rd = r.body.getReader(), dec = new TextDecoder();
+    (async () => { try{ for(;;){ const { value, done } = await rd.read(); if(done) break; log += dec.decode(value); } }catch(_){} })();
+    await new Promise(z => setTimeout(z, 600));
+    if(!/event: put/.test(log)) return { pass: false, got: '구독이 처음 값을 못 받음' };
+    await fetch(`${base}/users/${LIS_U}/presence.json?ns=${NS}`, { method: 'PUT', body: JSON.stringify({ online: true, lastSeen: 2, room: null, inRoom: false }) });
+    await new Promise(z => setTimeout(z, 1200));
+  }finally{ ctl.abort(); }
+  const cancelled = /event: cancel/.test(log);
+  return { pass: cancelled, got: cancelled ? '끊김(cancel)' : '안 끊김' };
 }
 
 function freePort(){
