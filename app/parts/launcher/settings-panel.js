@@ -155,7 +155,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     finally{ _winPickerBusy = false; }
     if(!document.getElementById('fsWinPicker')) return;   // 그 사이에 닫혔음
     const head='<div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:bold;color:var(--ink);padding:3px 6px 5px;">'
-      +'<span>'+(idx+1)+'번 슬롯에 등록할 창</span><span id="fsWinPickX" style="cursor:pointer;padding:0 4px;">×</span></div>';
+      +'<span>'+(Number(idx)+1)+'번 슬롯에 등록할 창</span><span id="fsWinPickX" style="cursor:pointer;padding:0 4px;">×</span></div>';
     if(timedOut){
       /* 여기까지 왔다는 것은 main 이 살아는 있는데 창 열거가 오래 걸린다는 뜻이다.
          강종까지 가지 않은 판이므로, 같은 결과를 얻는 다른 길을 알려준다. */
@@ -207,7 +207,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
       const el=document.createElement('div');
       el.className='fs-slot'+(a?' filled':'');
       el.innerHTML = `<span class="fs-num">${i+1}</span>`+
-        (a ? `<span class="fs-name">${(a.name||'').replace('.exe','')}</span><span class="fs-x">×</span>`
+        (a ? `<span class="fs-name">${TwSafeHtml.text((a.name||'').replace('.exe',''))}</span><span class="fs-x">×</span>`
            : `<span style="font-size:18px;">+</span>`);
       el.title = (a ? `등록됨: ${a.name}\n좌클릭: 지금 초점 앱으로 교체 · ×로 해제`
                     : '좌클릭: 지금 쓰던 프로그램을 등록')
@@ -614,11 +614,12 @@ function refreshFsAdBanner(){
   if(_fsAdTimer){ clearInterval(_fsAdTimer); _fsAdTimer=null; }
   try{
     const mine = localStorage.getItem(MY_AD_BANNER_KEY);
-    if(mine){ img.src=mine; img.style.display='block'; return; }   // 개인 이미지는 고정 하나(슬라이드 아님)
+    const mineSrc = TwSafeHtml.safeUrl(mine, 'image');
+    if(mineSrc){ img.src=mineSrc; img.style.display='block'; return; }   // 개인 이미지는 고정 하나(슬라이드 아님)
   }catch(e){}
   _fsAdSlides = loadAdBannerSlides(); _fsAdIdx=0;
   if(!_fsAdSlides.length){ img.style.display='none'; return; }
-  const show=()=>{ img.src=_fsAdSlides[_fsAdIdx % _fsAdSlides.length].img; };
+  const show=()=>{ img.src=TwSafeHtml.safeUrl(_fsAdSlides[_fsAdIdx % _fsAdSlides.length].img, 'image'); };   // 서버 광고 그림 — 허용된 그림 주소만
   show(); img.style.display='block';
   if(_fsAdSlides.length>1) _fsAdTimer=setInterval(()=>{ _fsAdIdx=(_fsAdIdx+1)%_fsAdSlides.length; show(); }, 4000);
 }
@@ -766,9 +767,10 @@ function applyExtraSeatForMode(){
 // 슬롯 아이콘 엘리먼트 생성 — def.thumb(런처 미리보기를 찍은 것 · _lcThumbTake — 런처에서 아직 안 본 슬롯은 생성기 캡처)이 있으면 그걸 그대로 쓰고,
 // 없으면(예전에 저장돼서 스냅샷이 없는 캐릭터) 기존 2D 합성 아이콘(drawFaceThumb)으로 대신 보여줌.
 function makeCharThumbEl(d){
-  if(d.thumb){
+  const thumb = TwSafeHtml.safeUrl(d.thumb, 'image');
+  if(thumb){
     const img=document.createElement('img');
-    img.src=d.thumb;
+    img.src=thumb;
     return img;
   }
   const cv=document.createElement('canvas'); cv.width=cv.height=80; drawFaceThumb(cv,d);   // drawFaceThumb은 80x80 기준 좌표라 이 크기로 그려야 안 잘림(CSS로 박스 크기에 맞게 축소 표시)

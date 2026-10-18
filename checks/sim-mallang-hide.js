@@ -39,7 +39,7 @@ function mkEnv(src){
   const room = mk('div'); room.id = 'mhRoomPreview';
   const btn = mk('span'); btn.id = 'mhMallangHideBtn'; btn.style.display = 'none';
   class FakeImage { constructor(){ this.naturalWidth = 100; this.naturalHeight = 100; imgs.push(this); } set src(v){ this._src = v; } get src(){ return this._src; } }
-  const gifts = { home1: { g1: { imgUrl: 'a.png' }, g2: { imgUrl: 'b.png' } }, empty: {} };
+  const gifts = { home1: { g1: { imgUrl: 'https://x.example/a.png' }, g2: { imgUrl: 'https://x.example/b.png' } }, empty: {} };
   const ctx = {
     console: { log(){}, warn(){} }, Math, JSON, String, Number, Array, Object, Set, Promise, Date, Error,
     document: { getElementById: (id) => byId[id] || null, createElement: mk, head: mk('head'), querySelectorAll: () => [] },
@@ -50,6 +50,7 @@ function mkEnv(src){
     firebaseAPI: { getMallangImgs: async () => [], getMallangGifts: async (id) => gifts[id] || {} },
   };
   ctx.window = ctx;
+  ctx.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => fs.existsSync(p)));   // 🛡️ 공용 씻기 — 진짜 파일
   vm.createContext(ctx);
   vm.runInContext(src, ctx, { filename: 'mallang.js' });
   const loadAll = () => { imgs.splice(0).forEach(im => im.onload && im.onload()); };

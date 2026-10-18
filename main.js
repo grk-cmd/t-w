@@ -2023,8 +2023,15 @@ function createWindow() {
   //   (닫힌 이름있는 창의 프록시 재사용 이슈)가 없음. 유저가 옮겨둔 위치는 savedGbPos로 기억.
   let savedGbPos = null;   // { x, y } | null — 방명록 창을 옮겨둔 위치(세션 동안 기억)
   let savedDsPos = null;   // { x, y } | null — 👑 디자인 스튜디오 창 위치 기억
-  mainWindow.webContents.setWindowOpenHandler(({ frameName })=>{
-    if(frameName && frameName.startsWith('mhGuestbook')){
+  /* 🔒 새 창은 앱이 직접 여는 자식 창(빈 문서 + 이름 머리 mhGuestbook · mhDesign)만 연다. 그 밖은 전부 막고,
+     http(s) 주소면 기본 브라우저로 돌린다(광고 배너 target=_blank · window.open 웹 폴백 — 앱 창 안에 웹 페이지를 띄우지 않는다). */
+  const _isChildDoc = (url) => !url || url === 'about:blank';
+  mainWindow.webContents.setWindowOpenHandler(({ url, frameName })=>{
+    if(!_isChildDoc(url) || !frameName){
+      if(url && /^https?:\/\//i.test(url)) shell.openExternal(url);
+      return { action:'deny' };
+    }
+    if(frameName.startsWith('mhGuestbook')){
       const opts = {
         width: 320, height: 560, frame: false, resizable: false,
         /* ★ [2026-09-16 제보 5 후속] 모서리는 **OS(DWM)에 맡긴다** — 네 모서리 8px.
@@ -2053,7 +2060,7 @@ function createWindow() {
       if(savedGbPos){ opts.x = savedGbPos.x; opts.y = savedGbPos.y; }
       return { action:'allow', overrideBrowserWindowOptions: opts };
     }
-    if(frameName && frameName.startsWith('mhDesign')){
+    if(frameName.startsWith('mhDesign')){
       const opts = {
         width: 340, height: 580, frame: false, resizable: false,
         skipTaskbar: true, backgroundColor: '#c0c0c0', alwaysOnTop: true,   // 동일 이유
@@ -2062,7 +2069,7 @@ function createWindow() {
       if(savedDsPos){ opts.x = savedDsPos.x; opts.y = savedDsPos.y; }
       return { action:'allow', overrideBrowserWindowOptions: opts };
     }
-    return { action:'allow' };   // 그 외(광고 배너 target=_blank 등)는 기존 기본 동작 유지
+    return { action:'deny' };
   });
 
   /* 🔒 메인 창은 **로컬 앱 문서 밖으로 절대 이동하지 않는다.**

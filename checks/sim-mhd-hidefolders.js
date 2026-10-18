@@ -9,6 +9,7 @@
    ・4절: iconSrc 걸러내기 — 바깥 주소 · 상위 폴더 · 스크립트는 받지 않는다.
    [실행] myhome-desktop.js · firebase-database-rules.json 이 있는 폴더에서. */
 'use strict';
+globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const fs = require('fs');
 const MHD = fs.readFileSync('myhome-desktop.js', 'utf8');
 
@@ -28,7 +29,7 @@ say('── 1. 마크업 · CSS · 배선');
   chk(/>📁 파일</.test(menu) && />🌐 URL</.test(menu) && />↺ 배경 초기화</.test(menu), '① 줄인 문구(파일 · URL · 배경 초기화)');
   chk(!/class=\\?["']fly["'\s\\]/.test(menu), "맨 '.fly' 클래스 없음(sim-mhd-envsub 와 같은 함정 — 채팅 날리기 규칙)");
   chk(/#advDesktop\.mhd-hide-folders \.mhd-app\{display:none !important;\}/.test(code), '② 숨기기는 클래스 하나로 — 인라인 display(setFolderVisible)보다 우선');
-  chk(/class="adv-icon mhd-app" id="'\+a\.iconId\+'"/.test(code), '② 외부 앱 폴더만 mhd-app 표식(캐릭터세팅 등 기본 아이콘은 안 숨는다)');
+  chk(/class="adv-icon mhd-app" id="'\+esc\(a\.iconId\)\+'"/.test(code), '② 외부 앱 폴더만 mhd-app 표식(캐릭터세팅 등 기본 아이콘은 안 숨는다)');
   chk(!/id="advIconChar"[^']*mhd-app/.test(code), '기본 아이콘(캐릭터세팅)에는 표식이 없다');
   const ab = strip(grabFn('advApplyBg'));
   chk(/advApplyFolderHide\(\);\s*\}$/.test(ab.trim()), '② 배경을 칠할 때마다(내 집 · 남의 집 전환 · 서버 맞춤) 같이 맞춘다');

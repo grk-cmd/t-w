@@ -179,9 +179,7 @@ function _lxWasIssued(idx, code){
 /* 2차원 글자 배열 → xlsx(Uint8Array). 모든 칸은 inlineStr(숫자도 글자로 — 키·코드가 숫자로 바뀌지 않게). */
 async function _lxWriteXlsx(rows, sheetName){
   if(typeof JSZip === 'undefined') throw new Error('JSZip 라이브러리가 로드되지 않았어요');
-  const esc = v => String(v == null ? '' : v)
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const esc = TwSafeHtml.attr;   // XML 글자 칸 — 다섯 글자 + 제어 글자 빼기(XML 에 못 들어감)
   const colName = i => { let s = ''; i++; while(i > 0){ const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
   const width = [];
   rows.forEach(r => r.forEach((v, i) => { width[i] = Math.max(width[i] || 8, Math.min(48, String(v || '').length * 1.6 + 2)); }));
@@ -268,7 +266,7 @@ async function _lxWriteXlsx(rows, sheetName){
     S.rows.forEach(r => {
       const dim = actionable(r) || r.res ? '' : 'color:#999;';
       const st = r.res || r.st;
-      h += '<tr style="' + escHtml(dim) + '"><td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + r.line + '</td>'
+      h += '<tr style="' + escHtml(dim) + '"><td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + Number(r.line) + '</td>'
         + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + (r.raw ? esc(r.raw) + (r.code && r.code !== r.raw.toUpperCase().replace(/\s+/g,'') ? ' <span style="color:var(--ink-soft);">→ ' + esc(r.code) + '</span>' : '') : '<span style="color:var(--ink-soft);">(비어 있음)</span>') + '</td>'
         + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;">' + esc(r.name || '—') + '</td>'
         + '<td style="padding:4px 5px;border-bottom:1px solid #e3e3e3;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.memo) + '">' + esc(r.memo) + '</td>'
@@ -388,7 +386,7 @@ async function _lxWriteXlsx(rows, sheetName){
       + (c('sendfail') ? chip('sendfail', ' ' + c('sendfail')) : '') + chip('fail', ' ' + c('fail')).replace('✗ 발급 실패', '실패')
       + (skip ? chip('issued', ' ' + skip).replace('⚠ 발급한 적 있음', '건너뜀') : '');
     const hand = S.rows.filter(r => r.key && r.res !== 'ok');
-    keyOnly.innerHTML = hand.map(r => '<div>' + r.line + '행 · ' + esc(r.memo || r.raw || '—') + ' · <span style="font-family:\'Courier New\',monospace;font-weight:bold;user-select:all;">' + esc(r.key) + '</span></div>').join('')
+    keyOnly.innerHTML = hand.map(r => '<div>' + Number(r.line) + '행 · ' + esc(r.memo || r.raw || '—') + ' · <span style="font-family:\'Courier New\',monospace;font-weight:bold;user-select:all;">' + esc(r.key) + '</span></div>').join('')
       + (hand.length ? '<div style="color:var(--ink-soft);">↑ 이 키들은 직접 전달해야 해요 (결과 엑셀에도 들어 있어요)</div>' : '');
     show(keyOnly, hand.length > 0);
     show(done, true);

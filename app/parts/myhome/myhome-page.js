@@ -63,7 +63,8 @@ function renderMyHomePage(){
   // 툴바의 글자수 카운트 초기화
   if(typeof richTextMod._mhUpdateRTCount==='function'){ richTextMod._mhUpdateRTCount('mhBioBox'); richTextMod._mhUpdateRTCount('mhPostBox'); }
   const img=document.getElementById('mhAvatarImg'), ph=document.getElementById('mhAvatarPlaceholder');
-  if(mhStateMod._myHomeData().avatar){ if(img){img.src=mhStateMod._myHomeData().avatar; img.style.display='block';} if(ph) ph.style.display='none'; }
+  const avSrc = TwSafeHtml.safeUrl(mhStateMod._myHomeData().avatar, 'image');   // 친구 홈 구경에서는 남의 사진 — 허용된 그림 주소만
+  if(avSrc){ if(img){img.src=avSrc; img.style.display='block';} if(ph) ph.style.display='none'; }
   else { if(img) img.style.display='none'; if(ph) ph.style.display='flex'; }
   // ★ 각 렌더 단계를 개별 격리 — 한 유저의 손상된 데이터(예: 깨진 스티커/테마 값)로 한 곳이
   //   throw해도 마이홈 전체가 "빈 화면"이 되지 않게. 죽은 단계는 콘솔에 남겨 원인 추적.

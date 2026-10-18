@@ -14,6 +14,7 @@
    ・9절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양 · window 고리 이름 · 빈 껍데기 · html 순서 · 전역 이름
    [실행] myhome-edit.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
+globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
@@ -144,7 +145,7 @@ function mkEnv(opt){
   ctx.window = ctx;
   ctx.document.defaultView = { innerWidth: 1600, innerHeight: 900 };
   ctx.innerWidth = 1600; ctx.innerHeight = 900;
-  vm.createContext(ctx);
+  ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });   // 🪝 마이홈 고리판 — 편집 묶음이 만들 때 건다(순환 끊기 8)
   vm.runInContext(SRC['myhome-preset.js'], ctx, { filename: 'myhome-preset.js' });   // 👑 디자인 프리셋 규칙 — 편집 묶음이 만들 때 받는다
   vm.runInContext(SRC['myhome-sticker-rules.js'], ctx, { filename: 'myhome-sticker-rules.js' });   // 🔒 스티커 잠금 · 순서 규칙 — 편집 묶음이 만들 때 받는다
@@ -404,15 +405,15 @@ await sec('── 7. 바깥 배경 · 테마 · [✎ 마이홈 수정]', async (
   e.data.bg = { color: '#123456' }; M.applyBg();
   chk(win.style.background === '#123456', '바깥 배경 — 색');
   e.data.bg = { img: 'https://i/b.jpg' }; M.applyBg();
-  chk(win.style.background === 'url(https://i/b.jpg) center/cover no-repeat, var(--win-face)', '  그림');
+  chk(win.style.background === 'url("https://i/b.jpg") center/cover no-repeat, var(--win-face)', '  그림');
   e.data.bg = null; M.applyBg();
   chk(win.style.background === 'var(--win-face)', '  없으면 창 기본색');
   e.data.theme = { tab: '#a1', tabText: '#a2', left: '#a3', leftImg: 'https://i/l', name: '#a4', fHead: '#a5', fHeadText: '#a6', fTabsBg: '#a7', fChat: '#a8', fChatImg: 'https://i/c', fChatText: '#a9', roomBg: '#b1', bioBg: '#b2' };
   M.applyTheme();
   chk(e.mhTabs.every(t => t.style.background === '#a1' && t.style.color === '#a2'), '테마 — 탭 배경 · 글씨');
-  chk(e.$('mhHomeLeft').style.background === 'url(https://i/l) center/cover no-repeat' && e.$('mhMyName').style.color === '#a4' && e.$('mhRoomPreview').style.background === '#b1' && e.$('mhBioBox').style.background === '#b2', '  그림이 색보다 먼저 · 이름 · 방 미리보기 · 소개글 칸');
+  chk(e.$('mhHomeLeft').style.background === 'url("https://i/l") center/cover no-repeat' && e.$('mhMyName').style.color === '#a4' && e.$('mhRoomPreview').style.background === '#b1' && e.$('mhBioBox').style.background === '#b2', '  그림이 색보다 먼저 · 이름 · 방 미리보기 · 소개글 칸');
   chk(['mhFriendHead', 'mhInboxTop', 'mhFmTop'].every(id => e.$(id).style.background === '#a5' && e.$(id).style.color === '#a6') && ['mhInboxTabs', 'mhFmTabs', 'mhInboxRail', 'mhInboxFoot'].every(id => e.$(id).style.background === '#a7'), '  ★ 친구 · 친구 관리 · 우편함 헤더와 카테고리 줄은 한 토큰(짝을 빠뜨리지 않는다) · 우편함 왼쪽 메뉴 · 아래 버튼 줄도 카테고리 줄 색');
-  chk(['mhInboxBody', 'mhFmList'].every(id => e.$(id).style.background === 'url(https://i/c) center/cover no-repeat' && e.$(id).style.color === '#a9'), '  목록 칸 — 친구 관리 · 우편함이 한 토큰');
+  chk(['mhInboxBody', 'mhFmList'].every(id => e.$(id).style.background === 'url("https://i/c") center/cover no-repeat' && e.$(id).style.color === '#a9'), '  목록 칸 — 친구 관리 · 우편함이 한 토큰');
   chk(['mhInboxList', 'mhNewsList', 'mhNewsView'].every(id => !e.$(id).style.background), '  ★ 우편함 목록 칸 그림은 감싼 칸(#mhInboxBody) 한 곳에 — 소식 목록 · 본문에 따로 깔지 않는다(그림이 둘로 잘린다)');
   e.data.theme = null; M.applyTheme();
   chk(e.mhTabs[0].style.background === '' && e.$('mhRoomPreview').style.background === '', '  비우면 CSS 기본으로');

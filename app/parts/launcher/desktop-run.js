@@ -71,7 +71,7 @@ if(desktopMode){
       +'background:var(--win-face, #d4d0c8);border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);'
       +'box-shadow:2px 2px 0 rgba(0,0,0,.3);padding:8px 10px;display:flex;align-items:center;gap:8px;'
       +'font-size:12px;color:#222;-webkit-app-region:no-drag;';
-    const ver=version?(' v'+version):'';
+    const ver=version?(' v'+TwSafeHtml.text(version)):'';
     b.innerHTML='<span>'+(downloadUrl?('🍎 새 버전'+ver+'이 나왔어요'):('🔄 새 버전'+ver+'이 준비됐어요'))+'</span>'
       +'<button id="updateReadyBtn" style="padding:4px 8px;font-weight:bold;cursor:pointer;">'
       +(downloadUrl?'받으러 가기':'지금 재시작')+'</button>'

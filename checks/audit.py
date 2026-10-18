@@ -799,18 +799,27 @@ section('검사 19 · 이스케이프 헬퍼가 온전한가 · 속성값에 안
 #   사람 눈으로는 다시 늘어나는 것을 못 막는다.
 _p19 = []
 
-# ① escHtml 이 다섯 문자를 전부 막는가 (구현이 조용히 약해지는 회귀)
-_m19 = re.search(r'function\s+escHtml\s*\([^)]*\)\s*\{(.*?)\n\}', app, re.S)
+# ① 공용 escape 가 다섯 문자를 전부 막는가 (구현이 조용히 약해지는 회귀)
+#   본문은 shared/safe-html.js 의 text — app.js escHtml 은 그것을 부르는 별칭이다(실행 판정은 sim-safe-html.js).
+_sh19 = None
+for _sp in ('safe-html.js', os.path.join('parts', 'shared', 'safe-html.js'), os.path.join('app', 'parts', 'shared', 'safe-html.js')):
+    if os.path.exists(_sp):
+        _sh19 = open(_sp, encoding='utf-8').read()
+        break
+_m19 = re.search(r'function\s+escHtml\s*\([^)]*\)\s*\{(.*?)\}', app, re.S)
 if not _m19:
-    _p19.append('escHtml 이 없습니다 — 공용 이스케이프 헬퍼가 사라졌습니다')
+    _p19.append('escHtml 이 없습니다 — 공용 이스케이프 별칭이 사라졌습니다')
+elif 'TwSafeHtml.text(' not in _m19.group(1):
+    _p19.append('escHtml 이 TwSafeHtml.text 를 부르지 않습니다 — escape 가 둘로 갈라졌습니다')
+elif not _sh19:
+    _p19.append('shared/safe-html.js 가 없습니다 — 공용 escape 본문이 사라졌습니다')
 else:
-    _body19 = _m19.group(1)
     _need19 = [('&', '&amp;'), ('<', '&lt;'), ('>', '&gt;'), ('"', '&quot;'), ("'", '&#39;')]
-    _miss19 = [c for c, ent in _need19 if ent not in _body19]
+    _miss19 = [c for c, ent in _need19 if ent not in _sh19]
     if _miss19:
-        _p19.append('escHtml 이 %s 를 안 막습니다 — 속성값 안에서 뚫립니다' % ' '.join(_miss19))
+        _p19.append('TwSafeHtml.text 가 %s 를 안 막습니다 — 속성값 안에서 뚫립니다' % ' '.join(_miss19))
     else:
-        print('  통과 ✅ (escHtml 이 다섯 문자를 전부 막는다)')
+        print('  통과 ✅ (escHtml → TwSafeHtml.text 가 다섯 문자를 전부 막는다)')
 
 # ② 약한 옛 헬퍼가 되살아나지 않았는가 (호출부 0. 주석의 경위 서술은 세지 않는다)
 _n19 = len(re.findall(r'_mhEsc\s*\(', app))
@@ -850,12 +859,19 @@ _OK19 = {
     'placeholder|st.totalUsers',  # 관리자 통계 숫자
     'data-a|b.a',                 # 팝업 버튼 id — 부르는 자리의 글자 리터럴
     'class|cls',                  # 계산된 고정 클래스
+    # 시야를 parts/ 전체로 넓히며 본 자리(파서 판정 sim-safe-html.js 는 통과 — 이 줄 검사가 식을 끝까지 못 따라가는 것들)
+    'style|pct', 'style|w', 'style|fs', 'style|nx', 'style|ny',   # 🧟 모험 — 계산한 숫자(퍼센트 · 글자 크기 · 좌표)
+    'style|acol', 'style|col', 'style|bg', 'style|edgeStyle', 'style|ADV_THEMES[k].color', 'style|ci[1]',   # 🧟 모험 — 상수 표 색 · 테두리 글
+    'data-x|x', 'data-y|y',       # 🧟 모험 지도 칸 좌표(숫자)
+    "class|(d.kind==='bad'?' dead':'')", 'class|vcls', 'class|sg.lv', "class|(a.vis === 'prv' ? ' prv' : '')",   # 고정 클래스 갈래
+    "title|(label||'')", 'title|advOfferGet(o))', "title|lack):''))", "title|k.desc):''))", 'title|FACE_LABELS[k]',   # esc(…) 안쪽 조각을 줄 검사가 잘못 자른 것 · 상수 표
+    'data-c|cc', 'style|cc',      # 마이홈 최근 색 — TwSafeHtml.cssColor 를 거친 값
 }
 _SINK19 = re.compile(r'(?:^|[\s<])(src|href|title|alt|placeholder|value|style|class|on\w+|data-[\w-]+)\s*=\s*(["\'])((?:(?!\2).)*?)\2', re.I)
 _INT19 = re.compile(r'\$\{([^{}]*)\}|\'\s*\+\s*([^+]+?)\s*\+\s*\'|"\s*\+\s*([^+]+?)\s*\+\s*"')
 def _safe19(e):
     e = e.strip()
-    if re.search(r'escHtml\(|_chatEsc\(|encodeURIComponent\(', e): return True                  # 씻었다
+    if re.search(r'escHtml\(|_chatEsc\(|encodeURIComponent\(|TwSafeHtml\.\w+\(|\besc\(', e): return True   # 씻었다(esc = 파일 안 TwSafeHtml.text 별칭)
     if re.search(r'\|\s*0\b|Number\(|parseInt|parseFloat|toFixed\(|Math\.', e): return True     # 숫자
     if re.fullmatch(r'[\d.]+', e): return True
     if re.fullmatch(r'\(?\s*[^\'"?]*\?\s*([\'"])[^\'"]*\1\s*:\s*([\'"])[^\'"]*\2\s*\)?', e): return True  # 글자리터럴 삼항
@@ -864,25 +880,25 @@ def _safe19(e):
     if re.fullmatch(r'(i|j|k|n|idx|no|ii)', e): return True                                     # 반복 첨자
     return False
 _hit19 = []
-# myhome-inbox.js — 친구 목록 · 수령함 · 선물함 마크업(친구가 정한 이름 · 선물 글 · 공지 링크)을 app.js 에서 옮겼다(앱 FSD 15번).
-#   빼면 그 innerHTML 들이 이 검사의 시야에서 사라진다. 없으면(검사가 app.js 만 볼 때) 건너뛴다.
+# 시야 = parts/ 아래 **모든** .js(손으로 적은 목록 아님 — 새 파일도 저절로 들어온다). vendor/ 는 남의 코드라 뺀다.
+#   app.js 는 위에서 읽은 것을 쓴다(스테이징 맨 위). 파서로 끝까지 따라가는 판정은 sim-safe-html.js — 이 검사는 마크업 속성값 자리를 줄 단위로 한 번 더 본다.
 _files19 = [('app.js', app_lines)]
-try: _files19.append(('myhome-inbox.js', open('myhome-inbox.js', encoding='utf-8').read().split('\n')))
-except Exception: pass
-# playlist.js — 🎵 플레이리스트 창(곡 행 · 담기 메뉴 · 반복 아이콘)을 app.js 에서 옮겼다(앱 FSD 16번). 곡 제목이 남의 입력이라 시야에 둔다.
-try: _files19.append(('playlist.js', open('playlist.js', encoding='utf-8').read().split('\n')))
-except Exception: pass
-# admin-license-bulk.js — 📄 엑셀 일괄 발급 미리보기 표(받는 사람 닉네임 · 파일에 적힌 메모)를 app.js 에서 옮겼다(관리자 코드 admin 폴더).
-try: _files19.append(('admin-license-bulk.js', _open_part('admin-license-bulk.js').read().split('\n')))
-except Exception: pass
-# admin-license.js · admin-category.js — 키 목록(메모) · 대기 요청(요청한 사람 이름) · 카테고리 칩 마크업을 app.js 에서 옮겼다(관리자 3번).
-# admin-part-register.js — 등록 창 카테고리 · 미리보기 마크업(관리자 4번).
-# admin-users.js — 📊 통계 창 마크업(숫자)(관리자 5번).
-# my-info.js — [내 정보] 머리 · 보관함 · 휴지통 줄(남의 것 아님 · 내 캐릭터 이름 · 섬네일)(앱 FSD 17번).
-# away-pic.js · myhome-ui.js — 자리비움 그림 · 마이홈 창 마크업(앱 FSD 22번).
-for _f19a in ('admin-license.js', 'admin-category.js', 'admin-part-register.js', 'admin-users.js', 'my-info.js', 'away-pic.js', 'myhome-ui.js'):
-  try: _files19.append((_f19a, _open_part(_f19a).read().split('\n')))
-  except Exception: pass
+_seen19 = {'app.js'}
+for _root19 in ('parts', os.path.join('app', 'parts')):
+    if not os.path.isdir(_root19):
+        continue
+    for _d19, _dirs19, _fs19 in os.walk(_root19):
+        _dirs19[:] = [x for x in _dirs19 if x not in ('vendor', 'node_modules')]
+        for _fn19 in sorted(_fs19):
+            if not _fn19.endswith('.js') or _fn19 in _seen19:
+                continue
+            _seen19.add(_fn19)
+            try: _files19.append((_fn19, open(os.path.join(_d19, _fn19), encoding='utf-8').read().split('\n')))
+            except Exception: pass
+    break
+for _need19f in ('purikura-ui.js', 'mallang.js', 'myhome-desktop.js', 'chat-ui.js'):
+    if _need19f not in _seen19:
+        _p19.append('검사19: 시야에 %s 가 없습니다 — parts/ 를 못 찾았습니다' % _need19f)
 for _f19, _lines19 in _files19:
   for _n19b, _l19 in enumerate(_lines19, 1):
     if '<' not in _l19: continue

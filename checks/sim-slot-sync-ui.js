@@ -68,7 +68,7 @@ const restore = grabFn(SRC, 'restoreSlotsBackup', 'async function ') || '';
 chk(/_slotsJsonSet\(SLOTS_LOSS_KEY, \{ kind: 'restored', to: _slotsFilledCount\(bak\), at: _slotsNow\(\) \}\)/.test(restore), '  되돌리면 «되돌린 직후» 기록(띠 ③)');
 
 say('── 3. 문구 — 시안 그대로');
-chk(/캐릭터 ' \+ loss\.from \+ '개가 다른 컴퓨터의 ' \+ loss\.to \+ '개로 바뀌었어요/.test(bandFn) && /'되돌리기', \{ bold: true \}/.test(bandFn) && /'유지하기'/.test(bandFn), '  ① 줄어든 교체 — «N개가 다른 컴퓨터의 M개로 바뀌었어요» [되돌리기] [유지하기]');
+chk(/캐릭터 ' \+ TwSafeHtml\.text\(loss\.from\) \+ '개가 다른 컴퓨터의 ' \+ TwSafeHtml\.text\(loss\.to\) \+ '개로 바뀌었어요/.test(bandFn) && /'되돌리기', \{ bold: true \}/.test(bandFn) && /'유지하기'/.test(bandFn), '  ① 줄어든 교체 — «N개가 다른 컴퓨터의 M개로 바뀌었어요» [되돌리기] [유지하기]');
 chk(/백업을 남기지 못했어요/.test(bandFn) && /저장 공간이 모자랐어요/.test(bandFn) && /'닫기'/.test(bandFn) && !/어떻게 해야 하나요/.test(bandFn), '  ② 백업 없음 — 사유 한 줄 + [닫기] 만');
 chk(/개로 되돌렸어요 — 다른 컴퓨터가 켜져 있으면 다시 바뀔 수 있어요/.test(bandFn) && /'확인'/.test(bandFn), '  ③ 되돌린 직후 — [확인]');
 chk(/캐릭터가 연동됐어요\./.test(acctFn) && /'마지막 연동'/.test(acctFn) && /'계정에 저장된 캐릭터'/.test(acctFn), '  평상시 — «캐릭터가 연동됐어요.» · 마지막 연동 · 개수(이 기기 N개)');

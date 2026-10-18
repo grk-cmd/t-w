@@ -211,14 +211,14 @@ function renderMyHomeFriendList(){
     /* 🌟 회차 친구 — 흰 별 + 이번 바퀴 레벨 · 몸통은 그 사람이 고른 색(개정 70).
        ★ 색은 starFromRemote 가 **팔레트 안의 값으로만** 돌려준다. 그래도 속성값이라 escHtml 을 한 겹 더 건다(audit 검사 19). */
     const st = starFromRemote(f);
-    if(st) return '<span class="mh-flv ' + escHtml(lvStarBadgeClass()) + '" style="--pre-c:' + escHtml(st.color) + '"><i class="pre">' + lvStarStr(st.cyc) + '</i>' + st.lv + '</span>';
+    if(st) return '<span class="mh-flv ' + escHtml(lvStarBadgeClass()) + '" style="--pre-c:' + escHtml(st.color) + '"><i class="pre">' + escHtml(lvStarStr(st.cyc)) + '</i>' + escHtml(st.lv) + '</span>';
     // 레벨 정보가 없는 친구(구버전 접속 상태)는 배지를 표시하지 않는다 — Lv.1로 오해되지 않게.
     if(lv == null) return '';
     const n = Math.max(1, parseInt(lv,10) || 1);
     /* ★ 접두사를 <i class="lvp"> 로 분리한다 — 숫자만 Consolas(등폭)로 찍고 'Lv' 는 본문 폰트로
        두어서, 3/8 을 갈라내면서도 배지 폭은 예전과 같게 유지한다(.mh-flv 주석 참고).
        마침표도 뺐다 — 등폭에서 점 하나가 숫자 한 칸을 통째로 먹는다. */
-    return '<span class="mh-flv '+lvBadgeClass(n)+'"><i class="lvp">Lv</i>'+n+'</span>';
+    return '<span class="mh-flv '+escHtml(lvBadgeClass(n))+'"><i class="lvp">Lv</i>'+escHtml(n)+'</span>';
   };
   const byName=(a,b)=>(_myHomeFriends()[a].name||'').localeCompare(_myHomeFriends()[b].name||'');
   const online = shown.filter(id=>_myHomeFriends()[id].online).sort(byName);
@@ -267,10 +267,11 @@ function renderMyHomeFriendList(){
            `data:image/…` 이고 Storage URL(http(s))도 있을 수 있다. 그 둘만 통과시킨다.
            (`<img src>` 는 `javascript:` 를 실행하지 않지만, 통과 목록을 좁혀 두면 나중에
             아바타 저장 경로가 바뀌어도 이 자리가 먼저 막는다) */
-        if(f.avatar && /^(data:image\/|https?:)/i.test(String(f.avatar))){
+        const fSrc = TwSafeHtml.safeUrl(f.avatar, 'image');   // 친구 프로필 사진 — 허용된 그림 주소만
+        if(fSrc){
           const im = document.createElement('img');
           im.draggable = false;
-          im.src = f.avatar;
+          im.src = fSrc;
           avatarEl.appendChild(im);
         }
         avatarEl.addEventListener('click', e=>{
@@ -424,7 +425,7 @@ function _giftBoxPaint(listEl, gifts){
               + (next ? '\n새 선물이 오면 이 선물이 먼저 지워져요' : '');
     return '<div class="gift-cell gift-item'+(isHidden?' out':'')+(star?' star':'')+'" data-gid="'+escHtml(k)+'"'+
            ' data-img="'+escHtml(g.imgUrl||'')+'" data-msg="'+escHtml(g.msg||'')+'" title="'+escHtml(tip)+'">'+
-           '<img src="'+escHtml(g.imgUrl||'')+'" alt="" draggable="false">'+   // 이름은 title(마우스 올림)에만
+           '<img src="'+escHtml(TwSafeHtml.safeUrl(g.imgUrl, 'image'))+'" alt="" draggable="false">'+   // 이름은 title(마우스 올림)에만
            '<span class="gift-star" title="'+(star?'즐겨찾기 풀기':'즐겨찾기')+'">'+(star?'⭐':'☆')+'</span></div>';
   });
   // 남은 칸은 빈 칸으로 채워 격자 모양을 유지

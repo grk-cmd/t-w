@@ -1875,7 +1875,8 @@ window.reopenAnimalCreator=function(def, opts){
         if(def.animalEarAdj){ ['L','R'].forEach(side=>{ if(def.animalEarAdj[side]) earAdj[side]=Object.assign(_earAdjNew(), def.animalEarAdj[side]); }); }
         // 페인트 복원 — 저장된 dataURL을 캔버스에 다시 그림
         ensurePaintTex();
-        const load=(url,cv,after)=>{ if(!url){ if(after)after(); return; } const im=new Image(); im.onload=()=>{ const x=cv.getContext('2d'); x.clearRect(0,0,P_SZ,P_SZ); x.drawImage(im,0,0,P_SZ,P_SZ); if(after)after(); }; im.src=url; };
+        /* 남의 캐릭터 def 일 수 있다 — 허용된 그림 주소(data:image · https)만 */
+        const load=(url,cv,after)=>{ const src=TwSafeHtml.safeUrl(url,'image'); if(!src){ if(after)after(); return; } const im=new Image(); im.onload=()=>{ const x=cv.getContext('2d'); x.clearRect(0,0,P_SZ,P_SZ); x.drawImage(im,0,0,P_SZ,P_SZ); if(after)after(); }; im.src=src; };
         // ★ load()는 비동기(Image.onload)인데 아래 applyFace()는 즉시 실행된다.
         //   그래서 재질이 '아직 비어 있는 캔버스'로 먼저 만들어지고, 이미지가 도착해도 화면 갱신
         //   신호가 안 가면 얼굴·몸 그림이 빈 채로 남는다(수정 진입 시 텍스처가 늦게/안 뜨던 원인).
@@ -1936,10 +1937,11 @@ function _texFromDataURL(url, fallbackFill){
   const c=document.createElement('canvas'); c.width=c.height=P_SZ;
   const x=c.getContext('2d'); x.fillStyle=fallbackFill||'#ffffff'; x.fillRect(0,0,P_SZ,P_SZ);
   const t=new THREE.CanvasTexture(c); t.flipY=false; t.encoding=THREE.sRGBEncoding;
-  if(url){ const im=new Image(); im.crossOrigin='anonymous';   // Storage URL 텍스처용 CORS (dataURL엔 영향 없음)
+  const src=TwSafeHtml.safeUrl(url,'image');   // 남의 캐릭터 def 일 수 있다 — 허용된 그림 주소만
+  if(src){ const im=new Image(); im.crossOrigin='anonymous';   // Storage URL 텍스처용 CORS (dataURL엔 영향 없음)
     im.onload=()=>{ x.drawImage(im,0,0,P_SZ,P_SZ); t.needsUpdate=true; };
     im.onerror=()=>console.warn('[동물] 페인트 텍스처 로드 실패:', (url||'').slice(0,64));
-    im.src=url; }
+    im.src=src; }
   return t;
 }
 // 인간 재질과 같은 자체발광 평탄화 — 씬 조명 의존을 줄여 밝기를 인간과 일치시킴

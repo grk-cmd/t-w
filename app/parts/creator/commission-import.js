@@ -105,7 +105,9 @@ function dataUrlToCanvas(dataUrl, sz){
       res(cv);
     };
     im.onerror=()=>rej(new Error('image load'));
-    im.src=dataUrl;
+    const src=TwSafeHtml.safeUrl(dataUrl, 'image');   // 붙여 넣은 코드(남이 만든 것일 수 있다) — 허용된 그림 주소만
+    if(!src){ rej(new Error('image load')); return; }
+    im.src=src;
   });
 }
 

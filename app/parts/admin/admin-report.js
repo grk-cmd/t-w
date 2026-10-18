@@ -65,7 +65,7 @@ async function _openReportAdmin(){
     const th = document.createElement('div');
     th.style.cssText = 'width:48px;height:48px;flex:none;box-sizing:border-box;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);'
       + 'background:#fff repeating-conic-gradient(#e6e6e6 0% 25%, #fff 0% 50%) 0 0/8px 8px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink-soft);';
-    if(_awayUrlOk(b.awayImg)){ const im = document.createElement('img'); im.src = b.awayImg; im.alt = ''; im.style.cssText = 'max-width:100%;max-height:100%;'; th.appendChild(im); }
+    if(_awayUrlOk(b.awayImg)){ const im = document.createElement('img'); im.src = TwSafeHtml.safeUrl(b.awayImg, 'image'); im.alt = ''; im.style.cssText = 'max-width:100%;max-height:100%;'; th.appendChild(im); }
     else th.textContent = '그림 없음';
     const mid = document.createElement('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;';
     const nm = document.createElement('div');

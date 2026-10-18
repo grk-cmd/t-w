@@ -11,6 +11,7 @@
            부르는 곳은 myHomeSticker.이름 · 빈 껍데기 · html 순서 · 전역 이름
    [실행] myhome-sticker.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
+globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
@@ -74,7 +75,7 @@ function mkEnv(opt){
   ctx.window = ctx;
   ctx.focus = () => { env.focus++; };
   ctx._mhFitWindow = () => { env.fit = (env.fit || 0) + 1; };   // 런처 창 넓히기 고리(myhome-sticker-layout.js 가 부팅 때 건다)
-  vm.createContext(ctx);
+  ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(SRC['myhome-sticker-rules.js'], ctx, { filename: 'myhome-sticker-rules.js' });   // 🔒 잠금 · 순서 규칙 — 만들 때 받는다
   vm.runInContext(MOD, ctx, { filename: 'myhome-sticker.js' });
   env.ctx = ctx; env.els = els;
@@ -124,14 +125,14 @@ await sec('── 1. 만들 때', () => {
 });
 
 await sec('── 2. 관리 창 — 열기 · 목록 · 닫기', () => {
-  const e = mkEnv({ viewing: 'friend1', stickers: { a: { img: 'data:a', x: 10, y: 20, size: 1.5, link: 'https://x.y' } } });
+  const e = mkEnv({ viewing: 'friend1', stickers: { a: { img: 'data:image/png;base64,YQ==', x: 10, y: 20, size: 1.5, link: 'https://x.y' } } });
   const M = e.mk(); const E = e.els;
   M.open();
   chk(!E.mhStickerMgrOverlay && e.toasts[0] === '친구 홈에서는 스티커를 관리할 수 없어요', '관람 중이면 안 열리고 안내');
   e.viewing = null; M.open();
   chk(E.mhStickerMgrOverlay.classList.contains('on') && E.stMgrList.children.length === 1, '내 홈이면 열리고 목록 한 줄');
   const r = e.row(0);
-  chk(r.className === 'st-mgr-row' && e.part(r, 'st-mgr-th').children[0].src === 'data:a', '  줄 — 그림 섬네일');
+  chk(r.className === 'st-mgr-row' && e.part(r, 'st-mgr-th').children[0].src === 'data:image/png;base64,YQ==', '  줄 — 그림 섬네일');
   const meta = e.part(r, 'st-mgr-meta');
   chk(meta.children[0].innerHTML === '위치 10, 20 · 크기 150%' && meta.children[1].textContent === '🔗 https://x.y' && meta.children[1].title === 'https://x.y', '  위치 · 크기 · 링크');
   chk(E.stMgrCount.textContent === '1 / 5' && E.stMgrAdd.disabled === false && E.stMgrBringAll.disabled === true, '  개수 1 / 5 · [＋] 됨 · [전부 화면 안으로] 꺼짐(밖에 있는 것 없음)');

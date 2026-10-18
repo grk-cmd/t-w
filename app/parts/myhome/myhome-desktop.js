@@ -555,7 +555,7 @@ function advOrderStripHtml(){
     const cls='adv-turn-chip'+(x.enemy?' enemy':'')+(x.me?' me':'')+(i===curIdx?' now':'');
     return '<span class="'+cls+'">'+esc(x.name)+'</span>';
   }).join('<span class="adv-turn-arrow">›</span>');
-  const spect=(ADV_COMBAT.shared && ADV_COMBAT.spectators)?('<span class="adv-turn-spect">관전 '+ADV_COMBAT.spectators+'</span>'):'';
+  const spect=(ADV_COMBAT.shared && ADV_COMBAT.spectators)?('<span class="adv-turn-spect">관전 '+esc(ADV_COMBAT.spectators)+'</span>'):'';
   return '<div class="adv-turn-order"><span class="adv-turn-lb">순서</span>'+chips+spect+'</div>';
 }
 function advRecalcInitiative(cellKey, joinerUid){
@@ -571,10 +571,10 @@ function advRecalcInitiative(cellKey, joinerUid){
     +(was!==ADV_COMBAT.pFirst?' — 선공이 바뀌었다!':'')+'</p>');
 }
 function advOfferCombatJoin(cn, cellKey){   // 도착 감지 → 3선택지
-  const e=(cn&&ADV_ENEMIES[cn.ekey])||{}; const who=advFieldName(cn&&cn.initiator);
+  const e=ADV_ENEMIES[cn&&cn.ekey]||{}; const who=advFieldName(cn&&cn.initiator);
   advPrompt('<p><span class="loc">[ 교전 중 ]</span></p>'
     +'<p><span class="good">'+esc(who)+'</span>'+advJosa(who,'이','가')+' '+(e.icon||'')+' '+esc(e.name||'적')+'와(과) 싸우고 있다.</p>'
-    +'<p class="sys">적 HP '+Math.max(0,cn?cn.ehp:0)+'/'+((cn&&cn.ehpMax)||'?')+'</p>',
+    +'<p class="sys">적 HP '+Math.max(0,cn?cn.ehp:0)+'/'+esc((cn&&cn.ehpMax)||'?')+'</p>',
     [ {label:'⚔ 끼어든다', cls:'adv-reveal', on:()=>advJoinCombat(PARTY.combatNode||cn, cellKey)},
       {label:'👁 관전', on:()=>advSpectateCombat(PARTY.combatNode||cn, cellKey)},
       {label:'🏃 물러난다', on:advRetreatFromTile} ]);
@@ -597,10 +597,10 @@ function advSpectateCombat(cn, cellKey){   // 관전 — 피격·데미지 없�
   advRenderCombatSpectate(cn);
 }
 function advRenderCombatSpectate(data){
-  const e=(data&&ADV_ENEMIES[data.ekey])||{}; const who=advFieldName(data&&data.initiator);
+  const e=ADV_ENEMIES[data&&data.ekey]||{}; const who=advFieldName(data&&data.initiator);
   advPrompt('<p><span class="loc">[ 관전 ]</span></p>'
     +'<p><span class="good">'+esc(who)+'</span>의 교전을 지켜본다.</p>'
-    +'<p><span class="bad">'+(e.icon||'')+' '+esc(e.name||'적')+'</span> HP '+Math.max(0,data?data.ehp:0)+'/'+((data&&data.ehpMax)||'?')+'</p>',
+    +'<p><span class="bad">'+(e.icon||'')+' '+esc(e.name||'적')+'</span> HP '+Math.max(0,data?data.ehp:0)+'/'+esc((data&&data.ehpMax)||'?')+'</p>',
     [ {label:'⚔ 끼어든다', cls:'adv-reveal', on:()=>{ const cell=ADV._combatSpectate&&ADV._combatSpectate.cell; ADV._combatSpectate=null; advJoinCombat(PARTY.combatNode||data, cell||(data&&data.cell)||''); }},
       {label:'🏃 물러난다', on:()=>{ ADV._combatSpectate=null; advRetreatFromTile(); }} ]);
 }
@@ -724,8 +724,8 @@ function advCombatRender(){
   if(ADV.hp<=0){ advCombatDeath(); return; }   // 안전망
   const e=ADV_ENEMIES[ADV_COMBAT.ekey];
   const ehpMax=ADV_COMBAT.ehpMax||e.hp;
-  const hpBar='<p><span class="bad">'+e.icon+' '+e.name+'</span> HP '+Math.max(0,ADV_COMBAT.ehp)+'/'+ehpMax
-    +(e.boss?' <span class="crit">[BOSS]</span>':'')+(ADV_COMBAT.shared?' <span class="sys">·협공 '+ADV_COMBAT.parts+'인</span>':'')+'</p>';
+  const hpBar='<p><span class="bad">'+e.icon+' '+e.name+'</span> HP '+Math.max(0,ADV_COMBAT.ehp)+'/'+esc(ehpMax)
+    +(e.boss?' <span class="crit">[BOSS]</span>':'')+(ADV_COMBAT.shared?' <span class="sys">·협공 '+esc(ADV_COMBAT.parts)+'인</span>':'')+'</p>';
   let banner='';
   if(ADV.story && ADV.story.ret){   // 스토리에서 전환된 전투 → 페이즈 배너
     const pct=Math.max(0,Math.min(100,Math.round(ADV_COMBAT.ehp/ehpMax*100)));
@@ -871,7 +871,7 @@ function advCombatWin(){
     s.outlaws=(s.outlaws||0)+1;
     ADV.runOutlaws=(ADV.runOutlaws||0)+1;   // 세션 전용(보고서용)
     out+=advCheckTitleUnlock(s,'outlaws');
-    out+='<p class="sys">인간을 상대로 한 승리다. 뒷맛이 쓰다. (무법자 처치 '+s.outlaws+')</p>';
+    out+='<p class="sys">인간을 상대로 한 승리다. 뒷맛이 쓰다. (무법자 처치 '+esc(s.outlaws)+')</p>';
   }else{
     const gain=e.boss?10:1;
     out+=advAddKill(gain);
@@ -999,7 +999,7 @@ function advUpdateChatPanel(){
   if(!inParty || !PARTY.started){ panel.classList.add('hidden'); panel.innerHTML=''; return; }   // 로비(시작 전)·솔로 → 숨김
   panel.classList.remove('hidden');
   const near=advNearMates();
-  const nearHtml = near.length ? ('📡 근처에 동료: '+near.map(mt=>'<span style="color:'+mt.color+'">●</span>'+esc(mt.name)).join(' ')) : '';
+  const nearHtml = near.length ? ('📡 근처에 동료: '+near.map(mt=>'<span style="color:'+TwSafeHtml.cssColor(mt.color)+'">●</span>'+esc(mt.name)).join(' ')) : '';
   if(document.getElementById('advChatInput')){   // 이미 바인딩됨 → 메시지·근접표시만 갱신(입력 유지)
     const nb=document.getElementById('advChatNear'); if(nb) nb.innerHTML=nearHtml;
     advRenderChatBox(); return;
@@ -1605,7 +1605,7 @@ function advEndStory(){
 function advCurrentCamp(){ const m=advEnsureMap(); return (m.camps||[]).find(c=>c.x===ADV.map.pos.x && c.y===ADV.map.pos.y); }
 function advInvSummary(){   // ★ 보유 표기는 이모지 대신 이름으로(헷갈림 방지) — 예: 통조림×4 · 약품 상자×1
   const keys=Object.keys(ADV.inv||{}).filter(id=>ADV.inv[id]>0 && ADV_WORLD.items[id]);
-  return keys.length? keys.map(id=>ADV_WORLD.items[id].name+'×'+ADV.inv[id]).join(' · ') : '없음';
+  return keys.length? keys.map(id=>ADV_WORLD.items[id].name+'×'+esc(ADV.inv[id])).join(' · ') : '없음';
 }
 function advMatSummary(){   // 조합 재료만 추린 보유 표기
   const t=ADV_CRAFT_MATS.filter(id=>(ADV.inv[id]||0)>0).map(id=>ADV_WORLD.items[id].name+'×'+ADV.inv[id]);
@@ -1619,14 +1619,14 @@ function advOpenCamp(camp){
     advSyncMyLocation();
     if(iAmLeader() && fbReady() && firebaseAPI.advSetAtCamp){ try{ firebaseAPI.advSetAtCamp(PARTY.pid, true); }catch(_){} }
   }
-  const nm=camp?camp.name:'?';
-  const arm = ADV.armorItem ? (ADV_WORLD.items[ADV.armorItem].icon+' '+ADV_WORLD.items[ADV.armorItem].name+' · 방어력 '+ADV.armor) : '없음';
+  const nm=camp?esc(camp.name):'?';
+  const arm = ADV.armorItem ? (ADV_WORLD.items[ADV.armorItem].icon+' '+ADV_WORLD.items[ADV.armorItem].name+' · 방어력 '+esc(ADV.armor)) : '없음';
   // ★ #2 수정: 캠프 대화창을 스토리 스크립트 영역(#advTerm)에 넣지 않는다.
   //   기존엔 여기에 advChatBoxHtml()를 append해 스토리 영역에 대화창이 떴고, #advChatInput 이 하단 패널과 이중 생성됐음.
   //   파티 채팅은 하단 전용 패널(#advChatPanel)에서만 유지 → 여기선 안내 문구만.
   let chtml='<p><span class="loc">[ 캠프 '+nm+' ]</span></p>'
     +'<p class="sys">모닥불이 타오른다. 잠시 숨을 돌릴 수 있는 안전한 곳.</p>'
-    +'<p>❤ HP '+ADV.hp+'/100 · 🛡 방어구: '+arm+'</p>'
+    +'<p>❤ HP '+esc(ADV.hp)+'/100 · 🛡 방어구: '+arm+'</p>'
     +'<p class="sys">보유 물자: '+advInvSummary()+'</p>';
   if(advIsParty() && partyCount()>1) chtml += '<p class="sys" style="color:#7fd0e0">🏕 여긴 파티 허브 — 동료와의 대화는 아래 채팅 패널에서 계속돼요.</p>';
   if(ADV._campLog) chtml += ADV._campLog;   // 거래·조합 결과 한 줄(패널 조작 → 가운데엔 결과만)
@@ -1821,7 +1821,7 @@ function advRenderVote(storyId, tok){
   const myVote=(M[myUid()] && M[myUid()].voteBeat===tok && typeof M[myUid()].voteChoice==='number') ? M[myUid()].voteChoice : null;
   const choices=beat.choices||[]; const stForText = ADV.story || {};
   let html='<p><span class="loc">[ 파티 투표 ]</span></p>'
-    +'<p class="sys">동료들과 함께 결정한다. ('+t.voted+'/'+partyCount()+' 투표'+(iAmLeader()?' · 방장이 집계':'')+')</p>'
+    +'<p class="sys">동료들과 함께 결정한다. ('+esc(t.voted)+'/'+partyCount()+' 투표'+(iAmLeader()?' · 방장이 집계':'')+')</p>'
     +(typeof beat.text==='function'?beat.text(stForText):(beat.text||''));
   const btns=choices.map((c,i)=>{
     const lbl=(typeof c.label==='function'?c.label(stForText):c.label);
@@ -1871,7 +1871,7 @@ function advRenderGauge(){
   const gg=sc.gauge, w=Math.max(gg.low, Math.min(gg.high, g.wary||0));
   const rolled=g.rolled||{}, iRolled=rolled[myUid()]!=null;
   const rollers=Object.keys(rolled).length, total=partyCount();
-  let html='<p><span class="loc">[ 화술 · 라운드 '+(g.round||1)+' ]</span></p>'
+  let html='<p><span class="loc">[ 화술 · 라운드 '+esc(g.round||1)+' ]</span></p>'
     +'<p>'+advWaryMeter({wary:w}, gg)+'</p>'
     +'<p class="sys">이번 라운드 굴림 ('+rollers+'/'+total+')'+(iRolled?' · 나: 완료 ✔':'')+'</p>';
   const btns=[];
@@ -1994,7 +1994,7 @@ function advBuildReport(kind){
 function advReportFileNo(d){ return 'No.'+String(1000+((d.kills*7+d.outlaws*13)%9000)).padStart(4,'0'); }
 function advReportDateStr(d){ const t=d.ts; return t.getFullYear()+'.'+String(t.getMonth()+1).padStart(2,'0')+'.'+String(t.getDate()).padStart(2,'0'); }
 function advReportCardHtml(d){
-  const photo = d.face ? '<img src="'+d.face+'" alt="">' : d.faceEmoji;
+  const photo = d.face ? '<img src="'+esc(TwSafeHtml.safeUrl(d.face,'image'))+'" alt="">' : esc(d.faceEmoji);
   const vcls = d.kind==='normal'?'ok':'bad';   // 실종(missing)도 적색 판정
   return '<div class="adv-report" id="advReportCard">'
     +'<div class="adv-rpt-head"><span>▲▣ CLASSIFIED</span><span>'+advReportFileNo(d)+'</span></div>'
@@ -2003,13 +2003,13 @@ function advReportCardHtml(d){
     +'<div class="adv-rpt-fields">'
     +'<div class="adv-rpt-row"><span>성명</span><b>'+esc(d.name)+(d.age?(' ('+esc(String(d.age))+')'):'')+'</b></div>'
     +'<div class="adv-rpt-row"><span>분류</span><b>'+esc(d.title)+'</b></div>'
-    +'<div class="adv-rpt-row"><span>좀비 처치</span><b>'+d.kills+'</b></div>'
-    +'<div class="adv-rpt-row"><span>무법자 처치</span><b>'+d.outlaws+'</b></div>'
+    +'<div class="adv-rpt-row"><span>좀비 처치</span><b>'+esc(d.kills)+'</b></div>'
+    +'<div class="adv-rpt-row"><span>무법자 처치</span><b>'+esc(d.outlaws)+'</b></div>'
     +'<div class="adv-rpt-row"><span>확보 물자</span><b>'+esc(d.items)+'</b></div>'
     +'<div class="adv-rpt-row"><span>기록일</span><b>'+advReportDateStr(d)+'</b></div>'
     +'</div></div>'
-    +'<div class="adv-rpt-verdict '+vcls+'">판정 · '+d.verdict+'</div>'
-    +'<div class="adv-rpt-surv">당신은 <b>'+d.surv+'</b> 동안 생존했습니다.</div>'
+    +'<div class="adv-rpt-verdict '+vcls+'">판정 · '+esc(d.verdict)+'</div>'
+    +'<div class="adv-rpt-surv">당신은 <b>'+esc(d.surv)+'</b> 동안 생존했습니다.</div>'
     +'<div class="adv-rpt-stamp">TOP SECRET</div></div>';
 }
 function advShowReport(kind, lead){
@@ -2094,7 +2094,7 @@ function advDownloadReport(){
       else advToast('이미지 저장에 실패했어요');
     }
   };
-  if(d.face){ const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>paint(im); im.onerror=()=>paint(null); im.src=d.face; }
+  if(d.face){ const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>paint(im); im.onerror=()=>paint(null); const fs=TwSafeHtml.safeUrl(d.face,'image'); if(fs) im.src=fs; else paint(null); }
   else paint(null);
 }
 
@@ -2349,7 +2349,7 @@ function advCheckTitleUnlock(s, stat){
   let out='';
   ADV_TITLES.filter(t=>t.stat===stat).forEach(t=>{
     if((s[stat]||0)===t.need){   // 정확히 도달한 순간
-      out+='<p class="crit">🏅 새 칭호 획득: 「'+t.name+'」</p>';
+      out+='<p class="crit">🏅 새 칭호 획득: 「'+esc(t.name)+'」</p>';
       if(!s.title) s.title=t.id;   // 대표 칭호가 없으면 자동 장착
     }
   });
@@ -3166,11 +3166,11 @@ function advRenderFeedbackPopup(){
   if(!list.length) html='<div class="adv-fb-empty">아직 볼 수 있는 피드백이 없어요.<br>밟은 칸에서 아래에 한마디 남겨보세요.</div>';
   else html=list.map(f=>{ const pr=advFbProfile(f.uid);
       const len=(f.text||'').length; const fs= len>90?11 : len>50?12 : len>24?13 : 14;   // 길수록 축소(최대 3줄은 CSS clamp)
-      const pic= pr.img ? '<img src="'+esc(pr.img)+'" alt="">' : '<span class="emo">'+esc(pr.emoji)+'</span>';
+      const pic= pr.img ? '<img src="'+esc(TwSafeHtml.safeUrl(pr.img,'image'))+'" alt="">' : '<span class="emo">'+esc(pr.emoji)+'</span>';
       return '<div class="adv-fb-item">'
         +'<div class="adv-fb-face">'+pic+'</div>'
         +'<div class="adv-fb-body">'
-          +'<div class="adv-fb-who">'+esc(pr.name)+(pr.age?(' ('+esc(String(pr.age))+')'):'')+'<span class="adv-fb-at">@'+f.x+','+f.y+'</span></div>'
+          +'<div class="adv-fb-who">'+esc(pr.name)+(pr.age?(' ('+esc(String(pr.age))+')'):'')+'<span class="adv-fb-at">@'+esc(f.x)+','+esc(f.y)+'</span></div>'
           +'<div class="adv-fb-bubble" style="font-size:'+fs+'px">'+esc(f.text||'')+'</div>'
         +'</div></div>'; }).join('');
   if(lst._advLastHtml!==html){   // 내용 동일하면 DOM 손대지 않음(스크롤·포커스 안정)
@@ -3207,18 +3207,18 @@ function advRenderChatBox(){
   const box=document.getElementById('advChatMsgs'); if(!box) return;
   const list=(ADV._chat||[]).slice(-8);
   // [demoji:id] 마커 → 번들 이미지 (esc 이후 치환 — 아는 id만 렌더, 임의 URL 로드 없음)
-  const rend=(t)=>{ t=esc(t||''); const tok=[]; const put=h=>{ tok.push(h); return '\u0000'+(tok.length-1)+'\u0000'; };
+  const rend=(raw)=>{ let t=esc(raw||''); const tok=[]; const put=h=>{ tok.push(h); return '\u0000'+(tok.length-1)+'\u0000'; };
     t=t.replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=TwDemojiCatalog.BY_ID[id]; if(!d) return m;
       return put('<img class="adv-demoji" style="width:'+d.w+'px;height:'+d.h+'px" src="'+TwDemojiCatalog.DIR+d.file+'" alt="'+esc(d.cmd)+'">'); });
     // 🖼 스포일러 이미지 마커 [imgs:URL] — 클릭 전엔 칩, 공개했으면 이미지 (토큰으로 보호 → 이중치환 방지)
     t=t.replace(/\[imgs:(https:\/\/[^\s\]<>"']+?\.(?:png|jpe?g|gif|webp)(?:\?[^\s\]<>"']*)?)\]/gi, (m,u)=>{
       if(ADV._imgOpen && ADV._imgOpen.has(u.replace(/&amp;/g,'&')))
-        return put('<img class="adv-chat-img" src="'+u+'" alt="이미지" loading="lazy" onerror="this.outerHTML=\'<span style=&quot;color:#678&quot;>(이미지 로드 실패)</span>\'">');
-      return put('<span class="adv-img-spoiler" data-src="'+u+'">🖼 이미지 — <u>클릭해서 보기</u></span>');
+        return put('<img class="adv-chat-img" src="'+TwSafeHtml.safeUrl(u,'image')+'" alt="이미지" loading="lazy" onerror="this.outerHTML=\'<span style=&quot;color:#678&quot;>(이미지 로드 실패)</span>\'">');
+      return put('<span class="adv-img-spoiler" data-src="'+TwSafeHtml.safeUrl(u,'image')+'">🖼 이미지 — <u>클릭해서 보기</u></span>');
     });
     // 🖼 이미지 URL 임베드 — https + 이미지 확장자만
     t=t.replace(/https:\/\/[^\s<>"']+?\.(?:png|jpe?g|gif|webp)(?:\?[^\s<>"']*)?/gi,
-      m=>put('<img class="adv-chat-img" src="'+m+'" alt="이미지" loading="lazy" onerror="this.outerHTML=\'<span style=&quot;color:#678&quot;>(이미지 로드 실패)</span>\'">'));
+      m=>put('<img class="adv-chat-img" src="'+TwSafeHtml.safeUrl(m,'image')+'" alt="이미지" loading="lazy" onerror="this.outerHTML=\'<span style=&quot;color:#678&quot;>(이미지 로드 실패)</span>\'">'));
     // ★ **행동지문** → 기울임 + 전용 색. 이미지/데모지는 이미 토큰으로 보호돼 있어 주소가 훼손되지 않음.
     t=t.replace(/\*\*([^*\u0000]{1,120}?)\*\*/g, (m,inner)=> inner.trim() ? '<em class="adv-act">'+inner+'</em>' : m);
     return t.replace(/\u0000(\d+)\u0000/g, (m,i)=>tok[+i]); };
@@ -3531,7 +3531,7 @@ function mhdMountApp(a){
   if(document.getElementById(a.iconId)) return;                 // 중복 마운트 방지
   const idx = (a._slot = mhdNextSlot(a.slot));                  // 지정 칸 우선, 없으면 빈 칸
   /* 📂 mhd-app — 외부 앱 폴더 표식. «폴더 숨기기»(advApplyFolderHide)가 이 클래스로 한꺼번에 가린다. */
-  const ic=h('<div class="adv-icon mhd-app" id="'+a.iconId+'">'
+  const ic=h('<div class="adv-icon mhd-app" id="'+esc(a.iconId)+'">'
     +'<div class="ic">'+esc(a.icon||'📁')+'</div>'
     +'<span class="lb">'+esc(a.label||'')+'</span></div>');
   /* 🖼 그림 아이콘 — 문자열로 끼우지 않고 DOM 으로 만든다(경로에 따옴표가 섞여도 마크업이 깨지지 않게).
@@ -3576,7 +3576,7 @@ function mhdNotifyVisit(visiting, ownerId){
 function mhdMountEnv(e){
   const menu=document.getElementById('advEnvMenu'); if(!menu) return;
   if(document.getElementById(e.subId)) return;
-  const sub=h('<div class="mhd-envsub" id="'+e.subId+'">'
+  const sub=h('<div class="mhd-envsub" id="'+esc(e.subId)+'">'
     +'<button type="button" class="hd">'+esc(e.label)+'<span>▶</span></button>'
     +'<div class="mhd-fly"></div></div>');
   const fly=sub.querySelector('.mhd-fly');
@@ -3663,7 +3663,7 @@ window.MYHOME_DESKTOP = {
     const d=document.getElementById('advDesktop'); if(!d || !o || !o.id) return null;
     let w=document.getElementById(o.id);
     if(!w){
-      w=h('<div class="adv-win" id="'+o.id+'">'
+      w=h('<div class="adv-win" id="'+esc(o.id)+'">'
         +'<div class="adv-titlebar"><span class="mhd-title"></span>'
         +'<span class="adv-tb-right"><span class="x">×</span></span></div>'
         +'<div class="mhd-win-body"></div></div>');
@@ -4076,10 +4076,10 @@ function advRenderMoveNav(){
       const k=c.x+','+c.y; (mateAt[k]=mateAt[k]||[]).push({color:advMateColor(uid), name:(M[uid].charName||M[uid].nick||'?')}); }
   }
   const mateDots=(x,y)=>{ const a=mateAt[x+','+y]; if(!a) return '';
-    return '<span class="mm" title="'+esc(a.map(m=>m.name).join(', '))+'">'+a.slice(0,3).map(m=>'<i style="color:'+m.color+'">●</i>').join('')+'</span>'; };
+    return '<span class="mm" title="'+esc(a.map(m=>m.name).join(', '))+'">'+a.slice(0,3).map(m=>'<i style="color:'+TwSafeHtml.cssColor(m.color)+'">●</i>').join('')+'</span>'; };
   let html='<p class="adv-move-title">[ 이동 ]</p>';
   html+='<p class="adv-move-flavor">'+(enabled?(_advMoveFlavor||'어느 곳으로 갈까.'):('지금은 이동할 수 없다. <span style="opacity:.7">('+advMoveBlockReason()+')</span>'))+'</p>';
-  html+='<p class="sys" style="font-size:10px;margin:0 0 6px">어느 곳으로 이동할까? (기력 '+ADV.st+')</p>';
+  html+='<p class="sys" style="font-size:10px;margin:0 0 6px">어느 곳으로 이동할까? (기력 '+esc(ADV.st)+')</p>';
   // ★ #4-B: 목표 깃발 배너 + 하단우측 방향 점 (guidance-only)
   let _navDot='';
   const _fl=advActiveFlag();   // ★ #1: 내 깃발 없으면 팀장 깃발
@@ -4088,7 +4088,7 @@ function advRenderMoveNav(){
     const ew = dx>0?('동 '+dx):(dx<0?('서 '+(-dx)):'');
     const ns = dy>0?('남 '+dy):(dy<0?('북 '+(-dy)):'');
     const dirs = [ew,ns].filter(Boolean).join(' · ');
-    html+='<div class="adv-flag-banner"><span class="fl">🚩</span><span class="fc">'+_fl.x+','+_fl.y+(_fl.byLeader?' <span style="font-size:9px">팀장</span>':'')+'</span>'
+    html+='<div class="adv-flag-banner"><span class="fl">🚩</span><span class="fc">'+esc(_fl.x)+','+esc(_fl.y)+(_fl.byLeader?' <span style="font-size:9px">팀장</span>':'')+'</span>'
       +'<span class="fd">'+(tot===0?'도착!':('총 '+tot+'칸'+(dirs?' · '+dirs:'')))+'</span>'
       +(_fl.mine?'<button type="button" class="adv-flag-x" title="깃발 해제">✕</button>':'')+'</div>';
     if(tot>0){ const ang=Math.atan2(dy,dx); const nx=Math.round(20+15*Math.cos(ang)), ny=Math.round(20+15*Math.sin(ang));
@@ -4099,10 +4099,10 @@ function advRenderMoveNav(){
   for(let dy=-2;dy<=2;dy++){
     html+='<tr>';
     for(let dx=-2;dx<=2;dx++){
-      const x=p.x+dx, y=p.y+dy;
+      const x=Number(p.x)+dx, y=Number(p.y)+dy;
       if(dx===0&&dy===0){
         const md=mateAt[x+','+y];
-        const mrow = md ? '<span class="mm-row" title="'+esc(md.map(m=>m.name).join(', '))+'">'+md.slice(0,4).map(m=>'<i style="color:'+m.color+'">●</i>').join('')+'</span>' : '';
+        const mrow = md ? '<span class="mm-row" title="'+esc(md.map(m=>m.name).join(', '))+'">'+md.slice(0,4).map(m=>'<i style="color:'+TwSafeHtml.cssColor(m.color)+'">●</i>').join('')+'</span>' : '';
         html+='<td class="adv-move-cell cur"><span class="me-stack"><span class="sq cur" style="color:#ffdd44">■</span>'+mrow+'</span></td>'; continue;
       }
       const inb=(x>=0&&y>=0&&x<ADV_MAP_W&&y<ADV_MAP_H);
@@ -4154,7 +4154,7 @@ function advRenderCampPanel(panel){
       const out=advOfferOut(o), it=ADV_WORLD.items[out.id], ok=advCanAfford(o.give);
       html+='<div class="adv-pcell'+(ok?'':' off')+'" data-buy="'+i+'" title="'+esc(advOfferGive(o)+' → '+advOfferGet(o))+'">'
         +'<span class="ic">'+it.icon+'</span>'
-        +'<span class="nm">'+esc(it.name)+(out.n>1?(' ×'+out.n):'')+'</span>'
+        +'<span class="nm">'+esc(it.name)+(out.n>1?(' ×'+esc(out.n)):'')+'</span>'
         +'<span class="cost">'+esc(advCostText(o.give))+'</span></div>';
     });
   }else{
@@ -4383,7 +4383,7 @@ function advRenderMap(){
         mateCls=' adv-mate-cell';
         mateAttr=' data-mate="'+esc(mates.map(mt=>mt.name).join(', '))+'"';
         if(!(p.x===x&&p.y===y)){   // 내 칸이 아니면 동료 마커로 표시
-          inner='<span style="color:'+mates[0].color+';font-weight:bold">●</span>'
+          inner='<span style="color:'+TwSafeHtml.cssColor(mates[0].color)+';font-weight:bold">●</span>'
             +(mates.length>1?'<sub style="color:#fff;font-size:8px">'+mates.length+'</sub>':'');
           bg='#1a1a12';
         }
@@ -4403,7 +4403,7 @@ function advRenderMap(){
     if(mates.length){
       const ago=ADV._matesTs?Math.max(0,Math.round((Date.now()-ADV._matesTs)/1000)):0;
       const same=mates.filter(mt=>mt.x===p.x&&mt.y===p.y).length;
-      mf='<span>동료: '+mates.map(mt=>'<span style="color:'+mt.color+'">●</span>'+esc(mt.name)+' ('+mt.x+','+mt.y+')'+((mt.x===p.x&&mt.y===p.y)?' 같은 칸':'')).join('  ')+' <span style="color:#666">· '+ago+'초 전</span></span>';
+      mf='<span>동료: '+mates.map(mt=>'<span style="color:'+TwSafeHtml.cssColor(mt.color)+'">●</span>'+esc(mt.name)+' ('+esc(mt.x)+','+esc(mt.y)+')'+((mt.x===p.x&&mt.y===p.y)?' 같은 칸':'')).join('  ')+' <span style="color:#666">· '+ago+'초 전</span></span>';
     } else {
       mf='<span style="color:#888">🔄 새로고침을 눌러 동료 위치를 표시</span>';
     }
@@ -4448,9 +4448,9 @@ function advRenderMap(){
 
 function setFaceEl(el, slot, emojiClass, url){
   if(!el) return;
-  const u = (url!==undefined) ? url : slotFaceUrl(slot, 'a');   // 기본은 a
-  if(u) el.innerHTML='<img src="'+u+'" alt="">';
-  else el.innerHTML='<span class="'+(emojiClass||'')+'">'+(slot.face||'🧑‍🚒')+'</span>';
+  const u = TwSafeHtml.safeUrl((url!==undefined) ? url : slotFaceUrl(slot, 'a'), 'image');   // 기본은 a · 허용된 그림 주소만
+  if(u) el.innerHTML='<img src="'+esc(u)+'" alt="">';
+  else el.innerHTML='<span class="'+esc(emojiClass||'')+'">'+esc(slot.face||'🧑‍🚒')+'</span>';
 }
 
 // 소모품 사용 — 세션 아이템 목록에서 클릭. (무기는 캐릭터세팅에서 장착)
@@ -4490,7 +4490,7 @@ function advVaxGive(){
     advToast('💉 '+(m.charName||m.nick||'동료')+'에게 백신을 놓았다. (내 HP −20)');
     advSave(); advRenderSim(); advRouteOnOpen();
   });
-  if(ADV.hp<20){ advPrompt('<p class="bad">HP가 낮습니다('+ADV.hp+'). 백신을 놓으면 HP가 −20 됩니다. 진행할까요?</p>',
+  if(ADV.hp<20){ advPrompt('<p class="bad">HP가 낮습니다('+esc(ADV.hp)+'). 백신을 놓으면 HP가 −20 됩니다. 진행할까요?</p>',
     [ {label:'✔ 진행', cls:'adv-reveal', on:doGive}, {label:'↩ 취소', on:()=>advRouteOnOpen()} ]); }
   else doGive();
 }
@@ -4563,17 +4563,17 @@ function advRenderItems(){
   let html='<div class="adv-items-hint">더블클릭 사용/장착 · 우클릭 전달</div>';
   // 장착 중 무기 (활성 슬롯)
   if(eq){ const it=ADV_WORLD.items[eq.id];
-    html+='<div class="adv-item eqp" data-w="'+eq.id+'" data-eq="1" data-tip="'+esc(advItemTipHtml(eq.id,{dur:weaponDurPct(eq)}))+'">'
+    html+='<div class="adv-item eqp" data-w="'+esc(eq.id)+'" data-eq="1" data-tip="'+esc(advItemTipHtml(eq.id,{dur:weaponDurPct(eq)}))+'">'
       +(it?it.icon:'🗡')+' '+esc(it?it.name:eq.id)+' <span style="color:#c9a83a">⭐장착중 '+weaponDurPct(eq)+'%</span></div>'; }
   // 미장착 무기 풀
   wIds.forEach(id=>{ const it=ADV_WORLD.items[id]; if(!it) return;
     const best=Math.max(...ADV.weapons.filter(w=>w.id===id).map(w=>weaponDurPct(w)));
-    html+='<div class="adv-item" data-w="'+id+'" data-tip="'+esc(advItemTipHtml(id,{dur:best}))+'">'
-      +it.icon+' '+esc(it.name)+' ×'+wCount[id]+'<span style="color:#3a5a3a"> · '+best+'%</span></div>'; });
+    html+='<div class="adv-item" data-w="'+esc(id)+'" data-tip="'+esc(advItemTipHtml(id,{dur:best}))+'">'
+      +it.icon+' '+esc(it.name)+' ×'+esc(wCount[id])+'<span style="color:#3a5a3a"> · '+best+'%</span></div>'; });
   // 소모품
   html+=ids.map(id=>{ const it=ADV_WORLD.items[id]; if(!it) return '';
-    return '<div class="adv-item" data-item="'+id+'" data-tip="'+esc(advItemTipHtml(id))+'">'
-      +(it.icon||'📦')+' '+esc(it.name||id)+' ×'+inv[id]+'</div>'; }).join('');
+    return '<div class="adv-item" data-item="'+esc(id)+'" data-tip="'+esc(advItemTipHtml(id))+'">'
+      +(it.icon||'📦')+' '+esc(it.name||id)+' ×'+esc(inv[id])+'</div>'; }).join('');
   // ★ #5 수정: 파티 콜백(advRenderSim)이 매 좌표 갱신마다 재렌더 → innerHTML 교체가 더블클릭 두 클릭 사이에 끼면
   //   노드가 교체돼 브라우저가 더블클릭을 인식 못함(솔로는 재렌더 적어 티 안 남).
   //   (1) 내용 동일하면 DOM 교체 안 함 → 노드 안정 → 더블클릭 성립  (2) 리스너는 안정 부모(box)에 위임 바인딩(1회).
@@ -4645,11 +4645,11 @@ function advRenderSim(){
     if(_fe) _fe.classList.toggle('adv-dead', ADV.hp<=0); }   // ★ 사망 시 흑백
   advRenderItems();
   { const ki=el('advKeepIcon');   // 🎗 유품 아이콘 (지도 옆) — 마우스오버 = 설명 · 우클릭 = 동료에게 전달
-    if(ki){ if(s.keepsake){ ki.style.display='inline-flex'; ki.innerHTML='<img src="'+s.keepsake+'" alt="유품" title="'+esc((s.keepsakeDesc||'유품')+(advIsParty()&&partyCount()>1?' · 우클릭: 동료에게 전달':''))+'">'; }
+    if(ki){ if(s.keepsake){ ki.style.display='inline-flex'; ki.innerHTML='<img src="'+esc(TwSafeHtml.safeUrl(s.keepsake,'image'))+'" alt="유품" title="'+esc((s.keepsakeDesc||'유품')+(advIsParty()&&partyCount()>1?' · 우클릭: 동료에게 전달':''))+'">'; }
       else { ki.style.display='none'; ki.innerHTML=''; } }
     const rk=el('advRecvKeeps');   // D#10 받은 유품
     if(rk){ const list=ADV.recvKeeps||[];
-      rk.innerHTML=list.map(k=>'<span class="adv-recv-keep" title="'+esc('🎗 원소유자: '+k.from+(k.desc?(' · '+k.desc):''))+'"><img src="'+esc(k.img)+'" alt="유품"></span>').join(''); } }
+      rk.innerHTML=list.map(k=>'<span class="adv-recv-keep" title="'+esc('🎗 원소유자: '+k.from+(k.desc?(' · '+k.desc):''))+'"><img src="'+esc(TwSafeHtml.safeUrl(k.img,'image'))+'" alt="유품"></span>').join(''); } }
   if(el('advSimName')){
     const tt=slotTitleName(s);
     el('advSimName').innerHTML=(tt?'<span class="adv-title">'+esc(tt)+'</span> ':'')+esc(s.name||defaultName())+(s.age?(' ('+esc(s.age)+')'):'');
@@ -4752,7 +4752,7 @@ function advShowMemberInfo(uid, m){
   const pop=document.getElementById('advMemberPop'); if(!pop) return;
   const body=document.getElementById('advMemberBody');
   const ci=m.charInfo||{};
-  const faceHtml = m.faceImg ? '<img src="'+esc(m.faceImg)+'" alt="">' : '<span class="emo">'+esc(m.face||'🧑‍🚒')+'</span>';
+  const faceHtml = m.faceImg ? '<img src="'+esc(TwSafeHtml.safeUrl(m.faceImg,'image'))+'" alt="">' : '<span class="emo">'+esc(m.face||'🧑‍🚒')+'</span>';
   body.innerHTML=
     '<div class="adv-mi-head">'+
       '<div class="adv-mi-face">'+faceHtml+'</div>'+
@@ -4790,7 +4790,7 @@ function advShowSurvivors(){
       const st=row.querySelector('.st');
       if(!f.online){ st.textContent='· 오프라인'; st.classList.add('off'); }
       else if(lp && lp.pid){
-        st.innerHTML='· 무리의 리더('+lp.count+')';   // 합치기 제거 — 코드 파티만 사용
+        st.innerHTML='· 무리의 리더('+esc(lp.count)+')';   // 합치기 제거 — 코드 파티만 사용
       } else {
         st.innerHTML='· 혼자 떠도는 중 ';
         const b=h('<button type="button">파티 초대</button>');
@@ -4939,7 +4939,7 @@ function advPartyLobby(){
   const d=PARTY.data, code=PARTY.pid||'';
   const M=partyMembers(); const uids=Object.keys(M);
   const leader = d && d.leader;
-  const max = (leader && M[leader] && M[leader].max) || advPartyMax();
+  const max = Number((leader && M[leader] && M[leader].max) || advPartyMax());   // 방장이 정한 인원(서버 값)
   const over = uids.length>max;
   const others = uids.filter(u=>u!==leader);
   const readyN = others.filter(u=>M[u] && M[u].lready).length;
@@ -5145,7 +5145,7 @@ function advOpenFriendInvite(){
     });
   }).catch(()=>{ list.innerHTML='<div class="adv-fr-empty">친구 목록을 불러오지 못했어요.</div>'; });
 }
-function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js · 따옴표 ' 까지)
 
 function sceneIntro(sc){
   if(PARTY.mode==='together' && sc.introTogether) return sc.introTogether;
@@ -5202,7 +5202,7 @@ function advRenderChoices(){
   }
   sc.choices.forEach((c,i)=>{
     let reqTxt='조건 없음', ok=true;
-    if(c.need){ const [k,v]=c.need; ok=statEff(s,k)>=v; reqTxt=ADV_WORLD.statNames[k].replace(/^\S+\s/,'')+' '+(v+9)+' 필요'; }
+    if(c.need){ const [k,v]=c.need; ok=statEff(s,k)>=v; reqTxt=ADV_WORLD.statNames[k].replace(/^\S+\s/,'')+' '+(Number(v)+9)+' 필요'; }
     const stOk=ADV.st>=c.cost;
     let coopTag='', locked=false;
     if(c.gatherCoop){
@@ -5305,7 +5305,7 @@ function advShowHubReturn(){
 // 정찰로 얻은 보너스 총합 (슬롯별, 상한 5)
 const SCOUT_BONUS_MAX = 5;
 const SCOUT_CHANCE = 0.03;   // 3%
-function slotBonusTotal(s){ const b=s.bonus||{}; return (b.str||0)+(b.agi||0)+(b.int||0)+(b.luk||0); }
+function slotBonusTotal(s){ const b=s.bonus||{}; return (Number(b.str)||0)+(Number(b.agi)||0)+(Number(b.int)||0)+(Number(b.luk)||0); }
 
 // 캠프 정찰 — 기력 소모(cost는 호출 전 확인됨), 희박한 확률로 랜덤 스탯 영구 +1
 function advDoScout(c){
@@ -5408,7 +5408,7 @@ function advGainItems(gains){
     } else {
       ADV.inv[id]=(ADV.inv[id]||0)+n;
     }
-    if(it) out+='<p class="sys">+ '+it.icon+' '+it.name+' ×'+n+' (인벤토리)</p>';
+    if(it) out+='<p class="sys">+ '+it.icon+' '+esc(it.name)+' ×'+esc(n)+' (인벤토리)</p>';
   });
   return out;
 }
@@ -5425,7 +5425,7 @@ function advRenderInv(){
     const it=ADV_WORLD.items[id]; if(!it) return;
     const row=h('<div class="adv-inv-item"><span class="ic">'+it.icon+'</span>'+
       '<span class="nm">'+it.name+'<small>'+it.desc+'</small></span>'+
-      '<span class="ct">×'+ADV.inv[id]+'</span></div>');
+      '<span class="ct">×'+esc(ADV.inv[id])+'</span></div>');
     row.addEventListener('dblclick', ()=>{ advUseItem(id); advRenderInv(); });
     if(it.use){
       const b=h('<button type="button">사용</button>');
@@ -5448,8 +5448,8 @@ function advRenderInv(){
       const it=ADV_WORLD.items[id]; if(!it) return;
       const durs=ADV.weapons.filter(w=>w.id===id).map(w=>weaponDurPct(w));
       const row=h('<div class="adv-inv-item"><span class="ic">'+it.icon+'</span>'+
-        '<span class="nm">'+it.name+'<small>'+it.desc+' · 내구도 '+durs.map(p=>p+'%').join(', ')+'</small></span>'+
-        '<span class="ct">×'+wCount[id]+'</span></div>');
+        '<span class="nm">'+it.name+'<small>'+it.desc+' · 내구도 '+durs.map(p=>esc(p)+'%').join(', ')+'</small></span>'+
+        '<span class="ct">×'+esc(wCount[id])+'</span></div>');
       row.style.cursor='pointer';
       row.addEventListener('dblclick', ()=>{ advEquipWeaponById(id); advRenderInv(); });
       body.appendChild(row);
@@ -5486,13 +5486,13 @@ function advRenderChar(){
   if(el('advFName')) el('advFName').value=s.name||'';
   if(el('advFAge'))  el('advFAge').value=s.age||'';
   if(el('advFPers')) el('advFPers').value=s.personality||'';
-  if(el('advKeepBox')){ el('advKeepBox').innerHTML = s.keepsake?'<img src="'+s.keepsake+'" alt="유품">':'＋';
+  if(el('advKeepBox')){ el('advKeepBox').innerHTML = s.keepsake?'<img src="'+esc(TwSafeHtml.safeUrl(s.keepsake,'image'))+'" alt="유품">':'＋';
     el('advKeepBox').title = s.keepsake?(s.keepsakeDesc||'유품'):'유품 이미지 (클릭해서 등록 · 투명 PNG 20×20)'; }
   if(el('advKeepDesc')) el('advKeepDesc').value=s.keepsakeDesc||'';
   const cs=el('advCharStats');
   if(cs){
     const left=slotPointsLeft(s);
-    { const _t=ageTier(s); cs.innerHTML='<div class="hd">스탯 분배 · 기본 10P + 집중 레벨 보너스 · '+_t.label+' ×'+_t.mul+' (포인트 최대 50)</div>'; }
+    { const _t=ageTier(s); cs.innerHTML='<div class="hd">스탯 분배 · 기본 10P + 집중 레벨 보너스 · '+esc(_t.label)+' ×'+esc(_t.mul)+' (포인트 최대 50)</div>'; }
     const grid=h('<div class="adv-cs-grid"></div>');
     for(const k of STAT_KEYS){
       const row=h('<div class="adv-cs-row"><span class="nm">'+ADV_WORLD.statNames[k]+'</span>'+
@@ -5539,7 +5539,7 @@ function advRenderChar(){
   }
   const dv=el('advDerived');
   if(dv) dv.innerHTML='⚔ 공격력 <b>'+statAtk(s)+'</b> · 🛡 방어력 <b>'+statDef(s)+'</b> · ✨ 크리티컬 <b>'+critChance(s)+'%</b> · 💨 회피 <b>'+dodgeChance(s)+'%</b>'+
-    '<br>🧟 처치 <b>'+(s.kills||0)+'</b> · 🔦 탐색 <b>'+(s.explores||0)+'</b>';
+    '<br>🧟 처치 <b>'+esc(s.kills||0)+'</b> · 🔦 탐색 <b>'+esc(s.explores||0)+'</b>';
   if(el('advCharSp')) el('advCharSp').textContent=slotPointsLeft(s);
   const sel=el('advCharSelect');
   if(sel){
@@ -5597,8 +5597,9 @@ function advApplyBg(){
   const d=document.getElementById('advDesktop'); if(!d) return;
   // 방문 중엔 내 배경이 아니라 "그 집 주인"의 배경을 보여준다(서버에서 받아온 advVisitBg).
   const bg = advVisiting ? advVisitBg : ADV.bg;
-  if(bg&&bg.img) d.style.background='url('+bg.img+') center/cover no-repeat';
-  else if(bg&&bg.color) d.style.background=bg.color;
+  const bgUrl = bg ? TwSafeHtml.cssUrl(bg.img) : '';   // 남의 집 배경일 수 있다 — 허용된 그림 주소 · 색만
+  if(bgUrl) d.style.background=bgUrl+' center/cover no-repeat';
+  else if(bg&&bg.color) d.style.background=TwSafeHtml.cssColor(bg.color);
   // 방문 중인데 집주인 배경이 서버에 없으면(상대가 아직 업데이트 전) 청록 단색 대신 투명 처리 —
   //   그러면 그 집 마이홈 테마의 "방 미리보기 배경"이 비쳐 보여서 최소한 주인이 꾸민 색/이미지가 나온다.
   else if(advVisiting) d.style.background='transparent';
@@ -5993,7 +5994,7 @@ function advBindEvents(){
     const sl=curSlot(); const f=sl.faceImgs||(sl.faceImgs={a:null,b:null,c:null,d:null});
     ['a','b','c','d'].forEach(k=>{
       const cell=h('<div class="adv-fslot" title="'+FACE_LABELS[k]+' 상태 사진 (200×200)"><div class="box">'+
-        (f[k]?'<img src="'+f[k]+'" alt="">':'＋')+'</div><span class="lb">'+FACE_LABELS[k]+'</span></div>');
+        (f[k]?'<img src="'+esc(TwSafeHtml.safeUrl(f[k],'image'))+'" alt="">':'＋')+'</div><span class="lb">'+FACE_LABELS[k]+'</span></div>');
       cell.addEventListener('click', ev=>{ ev.stopPropagation();
         const mySlot=editSlot, key=k;
         advUploadImage('adv-char'+mySlot+'-'+key, 200, 200, 0.82, url=>{
@@ -6021,7 +6022,7 @@ function advBindEvents(){
   }
   function renderKeepsake(){
     const sl=curSlot(), box=el('advKeepBox'), desc=el('advKeepDesc'); if(!box) return;
-    box.innerHTML = sl.keepsake ? '<img src="'+sl.keepsake+'" alt="유품">' : '＋';
+    box.innerHTML = sl.keepsake ? '<img src="'+esc(TwSafeHtml.safeUrl(sl.keepsake,'image'))+'" alt="유품">' : '＋';
     box.title = sl.keepsake ? (sl.keepsakeDesc||'유품') : '유품 이미지 (클릭해서 등록 · 투명 PNG 20×20)';
     if(desc && desc.value!==(sl.keepsakeDesc||'')) desc.value=sl.keepsakeDesc||'';
   }

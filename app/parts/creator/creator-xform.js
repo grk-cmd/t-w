@@ -157,7 +157,7 @@ function renderItemColorPanel(){
     row.innerHTML =
       '<span style="min-width:44px;color:#666;">색상'+(keys.length>1?(idx+1):'')+'</span>'
       +'<button type="button" class="cr-item-sw" style="width:34px;height:22px;padding:0;cursor:pointer;'
-      +' border:1px solid rgba(0,0,0,.15);background:'+cur+';border-radius:4px;"></button>'
+      +' border:1px solid rgba(0,0,0,.15);background:'+TwSafeHtml.cssColor(cur)+';border-radius:4px;"></button>'
       +'<button type="button" class="cr-item-rst ghost" title="원본 색으로">↺</button>';
     const sw=row.querySelector('.cr-item-sw');
     sw.addEventListener('click', ev=>{
@@ -165,7 +165,7 @@ function renderItemColorPanel(){
       if(typeof window.openCharColorPicker!=='function') return;
       window.openCharColorPicker(sw, cur, (c)=>{
         p.userData.colors[key] = c;
-        sw.style.background = c;
+        sw.style.background = TwSafeHtml.cssColor(c);
         _applyItemColor(p);
         autoSaveDeskItemsNow();
       });

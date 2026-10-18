@@ -26,14 +26,14 @@ const INVITE_GRANT_MAX = deps.inviteGrantMax;   // 한 번에 줄 수 있는 초
       try{
         const st = await firebaseAPI.getAdminStats();
         if(body) body.innerHTML =
-          '<div style="display:flex;justify-content:space-between;"><span>👥 가입 유저</span><b>'+st.totalUsers+'명</b></div>' +
+          '<div style="display:flex;justify-content:space-between;"><span>👥 가입 유저</span><b>'+TwSafeHtml.text(st.totalUsers)+'명</b></div>' +
           '<div style="border-top:1px solid var(--win-lo);margin:6px 0;"></div>' +
-          '<div style="display:flex;justify-content:space-between;"><span>👑 프리미엄 유저</span><b>'+st.premiumUsers+'명</b></div>' +
-          '<div style="display:flex;justify-content:space-between;color:var(--ink-soft);font-size:11px;"><span>&nbsp;&nbsp;└ 유효 라이선스 키</span><span>'+st.licValid+'개 (사용 '+st.licUsed+')</span></div>' +
+          '<div style="display:flex;justify-content:space-between;"><span>👑 프리미엄 유저</span><b>'+TwSafeHtml.text(st.premiumUsers)+'명</b></div>' +
+          '<div style="display:flex;justify-content:space-between;color:var(--ink-soft);font-size:11px;"><span>&nbsp;&nbsp;└ 유효 라이선스 키</span><span>'+TwSafeHtml.text(st.licValid)+'개 (사용 '+TwSafeHtml.text(st.licUsed)+')</span></div>' +
           '<div style="border-top:1px solid var(--win-lo);margin:8px 0 6px;"></div>' +
           '<div style="display:flex;gap:6px;align-items:center;font-size:11px;color:var(--ink-soft);">' +
             '<span>카운터 보정:</span>' +
-            '<input id="totalStatsSetInput" type="number" min="0" style="width:70px;font-size:11px;padding:2px 4px;" placeholder="'+st.totalUsers+'">' +
+            '<input id="totalStatsSetInput" type="number" min="0" style="width:70px;font-size:11px;padding:2px 4px;" placeholder="'+TwSafeHtml.text(st.totalUsers)+'">' +
             '<button id="totalStatsSetBtn" class="lc-btn ghost" style="min-width:44px;font-size:11px;padding:3px 8px;margin:0;">설정</button>' +
           '</div>';
         const setBtn = document.getElementById('totalStatsSetBtn');

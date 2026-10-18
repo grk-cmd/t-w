@@ -8,6 +8,7 @@
    ・4절: 기즈모 — 아이템에 붙이기 · 책상 위치 모드(켜기 · 꺼짐 · 초기화 · 숫자 글) · 드래그 끝 저장(아이템 adj · yaw / 책상 cDeskPos) · 회전 모드 Y 고리만 · 바닥 클램프가 파츠 핀을 뺀다
    ・5절: 책상 길이 · 배율 버튼 · 6절: app.js 연결 · 7절: 일부러 깨 보기 */
 'use strict';
+globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);

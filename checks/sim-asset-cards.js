@@ -6,6 +6,7 @@
    ・2절: applyDeskDotThumb — 배포 썸네일 우선 · 굽기(한 번만 · 실패 기억) · GLB 없음 · 이모지만 걷고 버튼은 둠 · 겹쳐 넣지 않음
    ・3절: bindReorderHandle — 좌클릭만 · 끄는 동안 흐림 · 다른 카드 위 점선 · 놓으면 onDrop(나, 대상) · 정리 · 4절: 연결 · 5절: 깨 보기 */
 'use strict';
+globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -38,7 +39,7 @@ function mkDoc() {
 function make(src, o = {}) {
   const D = mkDoc(); const win = {}; const log = { gen: [] };
   const T = new Function('window', 'document', 'module', src + '\nreturn window.TwAssetCards;')(win, D.doc, undefined);
-  const out = T.createAssetCards({ partSceneMod: () => ({ generatePartThumbnail: (rec) => { log.gen.push(rec.id); return o.genFail ? Promise.reject(new Error('x')) : Promise.resolve(o.genNull ? null : 'data:gen-' + rec.id); } }) });
+  const out = T.createAssetCards({ partSceneMod: () => ({ generatePartThumbnail: (rec) => { log.gen.push(rec.id); return o.genFail ? Promise.reject(new Error('x')) : Promise.resolve(o.genNull ? null : 'data:image/png;base64,gen' + rec.id); } }) });
   return { out, D, win, log };
 }
 
@@ -73,9 +74,9 @@ async function behave(src) {
   w.out.applyDeskDotThumb({ id: 'g1', glb: 'G' }, c); const pend = w.win._deskThumbCache.g1;
   w.out.applyDeskDotThumb({ id: 'g1', glb: 'G' }, card(w));
   await flush();
-  t(pend === 'pending' && w.log.gen.length === 1 && w.win._deskThumbCache.g1 === 'data:gen-g1' && c.firstChild.childNodes[0].src === 'data:gen-g1', 'GLB 로 굽기 — 굽는 동안(pending)은 다시 굽지 않는다 · 다 구우면 캐시 · 카드에 얹기');
+  t(pend === 'pending' && w.log.gen.length === 1 && w.win._deskThumbCache.g1 === 'data:image/png;base64,geng1' && c.firstChild.childNodes[0].src === 'data:image/png;base64,geng1', 'GLB 로 굽기 — 굽는 동안(pending)은 다시 굽지 않는다 · 다 구우면 캐시 · 카드에 얹기');
   const c2 = card(w); w.out.applyDeskDotThumb({ id: 'g1', glb: 'G' }, c2);
-  t(c2.firstChild.childNodes[0].src === 'data:gen-g1' && w.log.gen.length === 1, '구운 data URL 은 캐시에서 바로');
+  t(c2.firstChild.childNodes[0].src === 'data:image/png;base64,geng1' && w.log.gen.length === 1, '구운 data URL 은 캐시에서 바로');
   w = make(src, { genFail: true }); c = card(w); w.out.applyDeskDotThumb({ id: 'f1', glbUrl: 'u' }, c); await flush();
   w.out.applyDeskDotThumb({ id: 'f1', glbUrl: 'u' }, c); await flush();
   const w2 = make(src); w2.out.applyDeskDotThumb({ id: 'n1' }, card(w2));

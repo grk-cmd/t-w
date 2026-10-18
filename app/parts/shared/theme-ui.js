@@ -80,11 +80,11 @@ function refreshThemeUI(){
   set.forEach(([id,name,css])=>{
     const b = document.createElement('button');
     b.type='button'; b.className='color-chip'+(id===a?' on':'');
-    b.style.background = css; b.title = name;
+    b.style.background = TwSafeHtml.cssColor(css); b.title = name;
     b.onclick = ()=>setAccent(id);
     row.appendChild(b);
   });
-  if(names) names.innerHTML = set.map(c=>'<span>'+c[1]+'</span>').join('');
+  if(names) names.innerHTML = set.map(c=>'<span>'+TwSafeHtml.text(c[1])+'</span>').join('');
 }
 function bindThemeUI(){
   const bd = document.getElementById('themeOptDefault'), bb = document.getElementById('themeOptBubble');

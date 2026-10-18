@@ -558,7 +558,8 @@ async function _refreshChatProfile(){
       }
     }catch(_){}
   }
-  if(av){ if(img){ img.src=av; img.style.display='block'; } if(ph) ph.style.display='none'; }
+  const avSrc = TwSafeHtml.safeUrl(av, 'image');   // 서버에서 온 프로필 사진 주소 — 허용된 그림 주소만
+  if(avSrc){ if(img){ img.src=avSrc; img.style.display='block'; } if(ph) ph.style.display='none'; }
   else  { if(img){ img.style.display='none'; } if(ph) ph.style.display='block'; }
   // 🏠 프로필 사진(내 것) 클릭 → 내 마이홈 열기. 중복 바인딩 방지 플래그.
   const prof=document.getElementById('chatProfile');
@@ -725,8 +726,8 @@ function _chatTabsRender(){
     if(_chatTabEdit && _chatTabEdit.mode === 'rename' && _chatTabEdit.id === t.id) return _chatTabEditHtml(t.name);
     const un = t.id === cur ? 0 : (_chatTabUnread[t.id] || 0);
     return '<span class="ct-tab' + (t.id === cur ? ' on' : '') + '" data-tab="' + escHtml(t.id) + '" title="#' + escHtml(t.name) + '">' +
-      '<span class="ct-name">#' + escHtml(t.name) + '</span><span class="ct-n">' + (cnt[t.id] || 0) + '</span>' +
-      (un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : un) + '</span>' : '') + '</span>';
+      '<span class="ct-name">#' + escHtml(t.name) + '</span><span class="ct-n">' + Number(cnt[t.id] || 0) + '</span>' +
+      (un ? '<span class="ct-unread">' + (un >= CHAT_TAB_UNREAD_LIMIT ? CHAT_TAB_UNREAD_LIMIT + '+' : Number(un)) + '</span>' : '') + '</span>';
   });
   if(_chatTabEdit && _chatTabEdit.mode === 'add') h.push(_chatTabEditHtml(''));
   else if(ChatTabs.canAdd(host, _chatTabMeta())) h.push('<span class="ct-add" title="채널 추가 (방장)">+</span>');
@@ -1026,7 +1027,7 @@ function _renderDiceMarkers(escapedText){
 function _renderChatText(rawText){
   let t=_chatEsc(rawText);
   const tokens=[];
-  t=t.replace(/\[emoji:(https?:[^\]]+)\]/g, (m,u)=>{ tokens.push(`<img class="cm-emoji" src="${u}" alt="이모티콘">`); return `\u0000${tokens.length-1}\u0000`; });
+  t=t.replace(/\[emoji:(https?:[^\]]+)\]/g, (m,u)=>{ tokens.push(`<img class="cm-emoji" src="${TwSafeHtml.safeUrl(u, 'image')}" alt="이모티콘">`); return `\u0000${tokens.length-1}\u0000`; });
   t=t.replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=DEMOJI_BY_ID[id]; if(!d) return m;
     tokens.push(`<img class="cm-emoji" style="width:${d.w}px;height:${d.h}px" src="${DEMOJI_DIR}${d.file}" alt="${_chatEsc(d.cmd)}">`); return `\u0000${tokens.length-1}\u0000`; });
   t=t.replace(/\[dice:([1-6])\]/g, (m,n)=>{ tokens.push(_diceSvg(parseInt(n,10),26)); return `\u0000${tokens.length-1}\u0000`; });
@@ -1198,7 +1199,7 @@ function _renderEmojiPanel(){
   // 기본 이모티콘 (앱 번들 — 모든 유저 공용)
   for(const d of DEMOJI_LIST){
     html += `<div class="emoji-chip" data-cmd="${_chatEsc(d.cmd)}" title="/${_chatEsc(d.cmd)} 삽입">`
-         +  `<img src="${DEMOJI_DIR}${d.file}" alt="${_chatEsc(d.cmd)}">`
+         +  `<img src="${DEMOJI_DIR}${_chatEsc(d.file)}" alt="${_chatEsc(d.cmd)}">`
          +  `<span class="ec-cmd">/${_chatEsc(d.cmd)}</span></div>`;
   }
   // 내 이모티콘 (등록된 것만 — × 삭제)
@@ -1206,7 +1207,7 @@ function _renderEmojiPanel(){
     const e=_emojiCache[i];
     if(e && e.url){
       html += `<div class="emoji-chip" data-slot="${i}" title="/${_chatEsc(e.cmd)} 삽입">`
-           +  `<img src="${_chatEsc(e.url)}" alt="${_chatEsc(e.cmd)}">`
+           +  `<img src="${_chatEsc(TwSafeHtml.safeUrl(e.url, 'image'))}" alt="${_chatEsc(e.cmd)}">`
            +  `<span class="ec-cmd">/${_chatEsc(e.cmd)}</span>`
            +  `<button class="es-del" data-del="${i}" title="삭제">×</button></div>`;
     }

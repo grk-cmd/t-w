@@ -48,10 +48,10 @@ function _renderLicenseGenListFiltered(){
       row.style.cssText='padding:4px 0;border-bottom:1px solid rgba(201,165,123,.15);display:flex;justify-content:space-between;align-items:center;gap:6px;';
       const statusTxt = d.valid===false ? '🚫 회수됨' : (d.redeemedAt?'✅ 사용됨':'⬜ 미사용');
       const left=document.createElement('span');
-      left.innerHTML = `<span style="font-family:'Courier New',monospace;">${k}</span>`;
+      left.innerHTML = `<span style="font-family:'Courier New',monospace;">${TwSafeHtml.text(k)}</span>`;
       const right=document.createElement('span');
       right.style.cssText='text-align:right;flex-shrink:0;display:flex;align-items:center;gap:6px;';
-      right.innerHTML = `<span>${statusTxt} ${d.note?('· '+d.note):''}</span>`;
+      right.innerHTML = `<span>${statusTxt} ${d.note?('· '+TwSafeHtml.text(d.note)):''}</span>`;
       if(d.valid!==false){
         const revokeBtn=document.createElement('button');
         revokeBtn.textContent='회수'; revokeBtn.style.cssText='flex-shrink:0;padding:2px 8px;font-size:10.5px;cursor:pointer;color:var(--win-error);';

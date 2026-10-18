@@ -92,11 +92,12 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
         img.style.cssText = 'display:flex;align-items:center;justify-content:center;width:28px;height:28px;'
           + 'border-radius:50%;overflow:hidden;background:var(--win-face-2, #efefef);'
           + 'border:1px solid var(--win-lo-2);font-size:14px;color:var(--ink-soft);';
-        if(f.avatar && /^(data:image\/|https?:)/i.test(String(f.avatar))){
+        const fSrc = TwSafeHtml.safeUrl(f.avatar, 'image');   // 친구 프로필 사진 — 허용된 그림 주소만
+        if(fSrc){
           const im = document.createElement('img');
           im.draggable = false;
           im.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-          im.src = f.avatar;
+          im.src = fSrc;
           img.appendChild(im);
         } else {
           img.textContent = '🙂';                     // 사진을 안 올린 친구 — 빈 원보다 덜 허전하다
