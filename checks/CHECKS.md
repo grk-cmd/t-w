@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 385 (presence 에 앱 버전 늘 싣기 — 버전이 늦어도 옛 앱으로 안 막힘)
-대상: `sim-*.js` 328개 + `smoke.js` + `audit.py` = **330개** (개정 385 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 386 (안내 문구 셋 — 💣 버튼 · 좌석 친구 신청 · 🎯 집중 힌트)
+대상: `sim-*.js` 328개 + `smoke.js` + `audit.py` = **330개** (개정 386 기준 — 폴더를 센 값)
+
+**개정 386 에서 한 것 (2026-10-18 · 💬 안내 문구 셋 — 동작 변경(문구만) · 사용자 요청(튜토리얼 대조))**
+- 앱: 대화창 💣 버튼 설명 «플라잉체어 — 내 캐릭터를 날린다» → «날려버리기 — 누르고 다른 분의 캐릭터를 클릭하면 날아가요»(실제 동작은 남을 날린다). 좌석 친구 신청 첫 안내 «한 번 더 우클릭하면 친구 신청을 보내요» → «5초 안에 우클릭 › «👤 친구 신청»을 한 번 더 누르면 보내요»(우클릭은 메뉴를 열 뿐 · 메뉴에서 다시 골라야 보낸다 · 초는 `FRIEND_REQ_ARM_MS` 에서). 👑 달성표 🎯 집중 힌트의 처음 글 «자정이 되기 전까지» → «다음 날 오전 6시가 되기 전까지»(그려지면 바로 덮어쓰던 글과 같게 · 하루 경계는 오전 6시).
+- 검사: `sim-seat-friend-req.js` 첫 안내 판정을 새 문구 전체로(판정 무변경 · 문구만).
 
 **개정 385 에서 한 것 (2026-10-18 · 🏷️ presence 첫 쓰기에 앱 버전 — 버전이 늦어도 지금 앱이 옛 앱으로 막히지 않게)**
 - 앱: 규칙은 presence 가 `online:true` 인데 `ver` 가 없으면 옛 앱(≤0.10.2)으로 보고 그 사람의 읽기 · 쓰기를 막는다. `companion.getAppVersion()` 이 늦거나 실패하면 `withVer` 가 ver 를 빼고 써서 지금 앱이 막혔다. `shared/app-version.js` `withVer` 가 모르면 `APP_VER_UNKNOWN`(`'unknown'`)을 늘 싣는다(`ready` · `get()` 은 그대로 null — 게이트 · 방 서버 · 방문 집계 · accountSnap 그대로). `firebase-init.js` presence 첫 쓰기는 로그인 뒤 `_appVer.ready` 를 기다리고, 방 바꿀 때 · 6시간 lastSeen update 도 `withVer` 를 거친다. 쓰기 수 · 타이머 그대로. 라이선스 요청도 버전을 못 받았으면 `'unknown'`.
@@ -2623,7 +2627,7 @@
 | **sim-presence.js** | 243 | **3f5b1eb57bdc** ← **개정 302 deps 20 · roomNet 으로만 입장 · 깨 보기 하나** · **개정 299 깨 보기를 상수 줄로(판정 무변경)** · **개정 259 신설 · 🛰 방 접속 상태(room/presence.js) — 부팅 상태 · payload · 채팅 · poke · 자동 자리비움 · 연결** |
 | **sim-light-tone.js** | 123 | **f4919d41228f** ← **개정 301 baseFlatOf 대체값은 FLAT_EMISSIVE · 깨 보기 하나** · **개정 300 baseFlatOf 판정 · 판단 다시 쓰지 않기 · 깨 보기 둘** · **개정 271 신설 · 💡 재질 톤(shared/light-tone.js) — FLAT_EMISSIVE 식 · 재질 함수 셋 · 연결** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** ← **개정 335 깨 보기를 상수 줄로(판정 무변경)** · **개정 307 신설 · ✏️ 그리기 공용 기하(shared/paint-geom.js) — strokeSeg · mirrorUVOn 수식 · 연결** |
-| **sim-seat-friend-req.js** | 117 | **03159c787dc3** ← **개정 336 부르는 곳은 seat-menu.js 에서(판정 무변경)** · **개정 302 deps 6 · friendNet 으로만 보냄 · 깨 보기 하나** · **개정 264 신설 · 🙋 좌석 우클릭 친구 신청(myhome/seat-friend-req.js) — 두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결** |
+| **sim-seat-friend-req.js** | 117 | **89a8bcf81a45** ← **개정 386 첫 안내 문구를 새 글 전체로(판정 무변경)** · **개정 336 부르는 곳은 seat-menu.js 에서(판정 무변경)** · **개정 302 deps 6 · friendNet 으로만 보냄 · 깨 보기 하나** · **개정 264 신설 · 🙋 좌석 우클릭 친구 신청(myhome/seat-friend-req.js) — 두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결** |
 | **sim-seat-menu.js** | 167 | **d852cfc88b06** ← **개정 336 신설 · 🖱 좌석 우클릭 메뉴(room/seat-menu.js) — 남 · 나 · 때리기 · 닫기 · 입구 전제 · 이름표 갈고리 · 연결** |
 | **sim-publish-fields.js** | 208 | **f461e7690a5b** ← **개정 293 provider 를 부르는 자리를 배포 자리로** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 179 §1 app.js + admin-part-register.js · §2 모듈 먼저 평가 · adminPartReg 로 들여다봄(판정 무변경)** |
 | **sim-purikura-deco.js** | 962 | **339bee3e48a1** ← **개정 272 마이홈 BGM 창구는 고리판 BGM_PLAYING · BGM_SET_PLAYING 으로 찾는다(판정 무변경)** · **개정 238 officeMode 판정을 «부를 때마다 읽는다» 로** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 207 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 렌더러 쪽 한 벌에 chat-window.js(💬 대화창 배선 — 📷 버튼) · 회사원 모드 줄은 officeMode() 모양으로** · **개정 140 렌더러 쪽 한 벌에 myhome-edit.js(🏠 마이홈 BGM 창구 — 없어야 할 글을 찾는 검사가 헛돌지 않게 · 판정 무변경)** · **개정 134 렌더러 쪽 한 벌 = app.js + purikura-ui.js · 회사원 모드 · BGM 줄은 purikuraUi 통로 · officeMode() · _setPlPlaying 모양으로** · 2026-09-13 고친 판 (§4-③) |
