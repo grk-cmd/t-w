@@ -4,7 +4,7 @@
    deps: getList(myId) → Promise<{친구id:{addedAt}}>(users/{나}/friends 한 번) · watchList(myId, onChange, onError) → 해제 함수(목록 구독 하나) ·
          getCard(fid) → Promise<{ profile, bio, avatar }>(날것) · watchPresence(fid, onChange(날것)) → 해제 함수 · getPresence(fid) → Promise<날것> ·
          setTimer(fn, ms) → id · clearTimer(id) · now() → ms
-   내보냄: createFriendsFirebase(deps) → { listFriends(myId, opts) · watchList(myId, onChange, onError) · watchPresence(myId, ids, onChange) · readPresence(fid) }
+   내보냄: createFriendsFirebase(deps) → { listFriends(myId, opts) · readFriend(fid) · watchList(myId, onChange, onError) · watchPresence(myId, ids, onChange) · readPresence(fid) }
      순수: cardOf(raw) · presenceOf(raw) · PRESENCE_BATCH_MS · CARD_KEEP_MS (TwFriendsFirebase 위)
    ⚠️ 접속 상태 콜백은 친구 수만큼 한꺼번에 온다 — PRESENCE_BATCH_MS 창에 한 번만 넘긴다(스로틀 · 뒷날. 디바운스면 계속 오는 동안 영영 안 그린다).
    검사: checks/sim-friends-port.js */
@@ -66,6 +66,8 @@ function createFriendsFirebase(deps){
     }));
     return out;
   }
+  /* 친구 한 명 카드 — 목록 받기와 같은 기억(CARD_KEEP_MS)을 쓴다. 못 읽으면 지난 카드 · 없으면 null. */
+  function readFriend(fid){ return _cardOf(fid, now()); }
   function watchList(myId, onChange, onError){
     return watchListRaw(myId, v=>onChange(v || {}), onError);
   }
@@ -86,7 +88,7 @@ function createFriendsFirebase(deps){
   }
   async function readPresence(fid){ return presenceOf(await getPresence(fid)); }
 
-  return { listFriends, watchList, watchPresence, readPresence };
+  return { listFriends, readFriend, watchList, watchPresence, readPresence };
 }
 
 const api = { createFriendsFirebase, cardOf, presenceOf, PRESENCE_BATCH_MS, CARD_KEEP_MS };

@@ -6,6 +6,8 @@
          동시 구독 1개 · 멈추면 다 풀림 · 늦은 소식 버림 · 바로 던지거나 바로 실패해도 새지 않음 · 종료 때 멈춤
    ・2-2절: friendsForCheck — ready 면 읽기 0회 · 못 받음이면 1회(동시 N번도 1회) · 연결 시도 중이면 상한 전 0회 · 상한 넘으면 1회 ·
          실패면 null + 토스트 한 번 · 늦은 읽기가 구독 값을 안 덮음 · 읽는 중 다시 걸기는 끝난 뒤로
+   ・2-3b절: 새 친구 — 켠 뒤 늘어난 id 만 readFriend 로 한 명씩(listFriends 다시 안 부름) · 진행 중 · 실패 · 없음도 친구당 한 번 · 지난 실행 버림 ·
+         실패면 자리표시 · 첫 구독 값 · 첫 받기 중엔 안 묻음 · 다시 받은 목록에 없는 새 친구는 알던 이름 남김
    ・2-4절: 접속 상태 — 목록이 열려 있는 동안만 듣는다(평소 0 · 열면 1벌 · 닫으면 0) · 그 친구만 한 번 읽기(refreshPresence)
    ・3절: firebase-init.js 친구 함수를 떼어 가짜 onValue 로 — 목록 구독 1개(친구별 0) · 새로 걸면 앞의 것 풀림 · 에러 콜백 · 카드 · 접속 상태 · 판정용 읽기 경로
    ・4절: app.js _waitForFirebaseAPI — 포기 없음(타이머 안 씀) · firebase-ready 를 once 로 기다림 · 이미 준비면 바로
@@ -69,7 +71,7 @@ async function judge(S){
   const mk = (o) => {
     o = o || {};
     const T = mkTimers();
-    const E = { T, subs: [], live: 0, maxLive: 0, statuses: [], got: [], unload: [], fetches: [], lists: [], pres: [], presLive: 0, reads: [], friends: {}, toasts: [], sets: 0 };
+    const E = { T, subs: [], live: 0, maxLive: 0, statuses: [], got: [], unload: [], fetches: [], lists: [], ones: [], pres: [], presLive: 0, reads: [], friends: {}, toasts: [], sets: 0 };
     E.mod = FS.createFriendsSub({
       subscribe: (id, ok, err) => {
         const s = { id, ok, err, on: true };
@@ -79,7 +81,8 @@ async function judge(S){
         return () => { if(s.on){ s.on = false; E.live--; } };
       },
       fetchOnce: (id) => new Promise((res, rej) => { E.fetches.push({ id, res, rej }); }),
-      listFriends: (id) => new Promise((res, rej) => { const l = { id, res, rej }; E.lists.push(l); if(!o.holdList) res(o.details || {}); }),
+      listFriends: (id) => new Promise((res, rej) => { const l = { id, res, rej }; E.lists.push(l); if(o.failList) rej(new Error('offline')); else if(!o.holdList) res(Object.assign({}, o.details)); }),   // 받을 때마다 새 객체(서버가 주는 것처럼)
+      readFriend: (fid) => new Promise((res, rej) => { E.ones.push({ fid, res, rej }); }),
       watchPresence: (id, ids, cb) => { const w = { id, ids: ids.slice(), cb, on: true }; E.pres.push(w); E.presLive++; return () => { if(w.on){ w.on = false; E.presLive--; } }; },
       readPresence: (fid) => { E.reads.push(fid); if(o.readFail) return Promise.reject(new Error('offline')); return Promise.resolve({ online: true, room: 'R-' + fid }); },
       current: () => E.friends,
@@ -272,6 +275,52 @@ async function judge(S){
     E.mod.stop(); E.start(); await flush(); E.last().ok({ f1: {} });
     first.res({ f1: { name: 'OLD' } }); await flush();
     chk(E.lists.length === 2 && E.got[E.got.length - 1][1].f1.name !== 'OLD' && E.mod.notice() === FS.NOTICE.loading, '멈추고 다시 켜면 — 지난 실행의 늦은 이름은 버린다(이번 받기는 그대로 기다림)');
+  }
+
+  /* ── 2-3b. 새 친구 — 그 친구만 한 명 받기 ── */
+  say('── 2-3b. 새 친구 — 켠 뒤 늘어난 친구만 readFriend 로(목록 전체를 다시 받지 않음)');
+  const lastF = (E) => E.got[E.got.length - 1][1];
+  {
+    const E = mk({ details: { f1: { name: 'A' } } });
+    E.start(); await flush(); E.last().ok({ f1: { addedAt: 1 } }); await flush();
+    chk(E.ones.length === 0 && lastF(E).f1.name === 'A', '켤 때 — 이름은 목록 받기로 · 한 명 받기 0회');
+    E.last().ok({ f1: { addedAt: 1 }, f2: { addedAt: 2 } }); await flush();
+    chk(E.ones.map(x => x.fid).join() === 'f2' && E.lists.length === 1, '★ 친구가 늘면 — 그 친구만 한 명 받기 1회 · listFriends 는 다시 안 부름');
+    chk(lastF(E).f2.name === '...', '  받기 전에는 자리표시(\'...\')');
+    E.last().ok({ f1: { addedAt: 1 } }); E.last().ok({ f1: { addedAt: 1 }, f2: { addedAt: 2 } }); await flush();
+    chk(E.ones.length === 1, '★ 받는 중에 같은 친구가 빠졌다 다시 들어와도 또 안 묻는다(진행 중 겹치기 없음)');
+    E.ones[0].res({ name: 'B', level: 2, bio: '' }); await flush();
+    const g = lastF(E);
+    chk(g.f2.name === 'B' && g.f2.level === 2 && g.f2.addedAt === 2 && g.f1.name === 'A', '★ 받으면 그 친구 이름 · 레벨을 얹어 다시 그린다(다른 친구 그대로)');
+    E.mod.open('tab', () => {}); await flush();
+    chk(E.lists.length === 2 && lastF(E).f2.name === 'B' && lastF(E).f1.name === 'A', '  다시 받은 목록에 새 친구가 없어도(서버 사본이 늦음) 알던 이름을 남긴다');
+    E.last().ok({ f1: { addedAt: 1 }, f2: { addedAt: 2 }, f3: { addedAt: 3 }, f4: { addedAt: 4 } }); await flush();
+    chk(E.ones.map(x => x.fid).join() === 'f2,f3,f4', '  여럿이 한꺼번에 늘면 늘어난 친구마다 1회');
+    E.ones[1].rej(new Error('offline')); E.ones[2].res(null); await flush();
+    chk(lastF(E).f3.name === '...' && lastF(E).f4.name === '...' && E.T.pending() === 0, '★ 실패 · 없음(null) — 자리표시 그대로 · 타이머 재시도 없음');
+    E.last().ok({ f1: {}, f2: {}, f4: {} }); E.last().ok({ f1: {}, f2: {}, f3: {}, f4: {} }); await flush();
+    chk(E.ones.length === 3, '  실패한 친구도 이번 실행에선 다시 안 묻는다(다음 목록 받기가 채운다)');
+  }
+  {
+    const E = mk({ details: {} });
+    E.start(); await flush(); E.last().ok({ f1: {} }); await flush();
+    E.last().ok({ f1: {}, f2: {} }); await flush();
+    const old = E.ones[0];
+    E.mod.stop(); E.start(); await flush(); E.last().ok({ f1: {}, f2: {} }); await flush();
+    old.res({ name: 'OLD' }); await flush();
+    chk(E.ones.length === 1 && lastF(E).f2.name === '...', '★ 멈추고 다시 켜면 — 지난 실행의 늦은 한 명 받기는 버린다 · 새 실행의 첫 구독 값은 새 친구가 아님');
+  }
+  {
+    const E = mk({ failList: true });
+    E.start(); await flush(); E.last().ok({ f1: {}, f2: {}, f3: {} }); await flush();
+    chk(E.ones.length === 0 && lastF(E).f1.name === '...', '★ 첫 목록 받기가 실패해도 — 첫 구독 값의 친구를 한 명씩 묻지 않는다(n회 폭주 없음)');
+    E.last().ok({ f1: {}, f2: {}, f3: {}, f9: {} }); await flush();
+    chk(E.ones.map(x => x.fid).join() === 'f9', '  그 뒤 늘어난 친구만 한 명 받기');
+  }
+  {
+    const E = mk({ holdList: true });
+    E.start(); await flush(); E.last().ok({ f1: {} }); E.last().ok({ f1: {}, f2: {} }); await flush();
+    chk(E.ones.length === 0, '첫 목록 받기 중에 늘어난 친구는 — 그 받기가 채운다(한 명 받기 0회)');
   }
 
   /* ── 2-4. 접속 상태 — 목록이 열려 있는 동안만 ── */
@@ -534,6 +583,13 @@ const BREAKS = [
   ['FS', "p=>{ if(run !== _run) return; Object.assign(_presence, p); _emit(); }", "p=>{ Object.assign(_presence, p); _emit(); }", '지난 실행의 늦은 접속 상태를 받아 씀'],
   ['FS', "  _wake();\n  _syncPresence();\n}\nfunction _attach", "  _wake();\n}\nfunction _attach", '목록 구독이 끊겨도 접속 상태가 남음'],
   ['FS', "  if(_status === STATUS.READY) return Promise.resolve(current() || {});", "", 'ready 여도 읽음'],
+  ['FS', "  if(prev) _loadNew(Object.keys(_ids).filter(fid=>!(fid in prev)));\n", '', '새 친구 이름을 안 받음(재시작 전까지 \'...\')'],
+  ['FS', "  if(prev) _loadNew(", "  _loadNew(", '첫 구독 값의 친구까지 한 명씩 물음'],
+  ['FS', "filter(fid=>!(fid in prev))", "filter(fid=>true)", '늘어난 친구가 아니어도 물음'],
+  ['FS', "    if(_details[fid] || _asked[fid]) continue;", "    if(_details[fid]) continue;", '받는 중 · 실패한 친구를 또 물음'],
+  ['FS', "      .then(v=>{ if(run !== _run || !v) return;", "      .then(v=>{ if(!v) return;", '지난 실행의 늦은 한 명 받기를 받아 씀'],
+  ['FS', "  if(!_detailsTried || !_myId) return;", "  if(!_myId) return;", '첫 목록 받기 중에도 한 명씩 물음'],
+  ['FS', "_details = _keepKnown(v || {});", "_details = v || {};", '다시 받은 목록이 새 친구 이름을 지움'],
   ['FB', '      if(_myFriendsOff) _myFriendsOff();\n', '', '새로 걸 때 앞의 것을 안 풂(동시 2개)'],
   ['FB', '      }, err=>{\n        teardown();', '      }, err=>{', '거부돼도 친구별 구독이 남음'],
   ['FB', '        if(onError) onError(err);\n', '', '에러를 안 알림'],

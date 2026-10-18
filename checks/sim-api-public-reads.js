@@ -1,7 +1,7 @@
 /* ═══ 🌐 sim-api-public-reads.js — 공개 읽기를 API 사본에서 먼저(api-public-reads.js) ═══════════════
    [왜] 파도타기 · 명함 · 사진 · 랭킹 · 방 개수(표시) · 랜덤 참여 후보를 API 에서 먼저 읽고, 못 받으면 지금 Firebase 길 그대로.
    1. 파도타기 무작위 · 친구 지목 — 모양 같음 · data:null = 없음(Firebase 안 감) · 실패 · 모양 틀림 → 원래 함수(같은 인자)
-   2. 명함 · 사진 — avatarUrl · avatarInline(그때만 Firebase 한 칸) · 파도타기에 실려 온 명함 기억 · 실패 → 원래 함수 / Firebase 한 칸
+   2. 명함 · 사진 — avatarUrl · avatarInline(그때만 Firebase 한 칸) · 파도타기에 실려 온 명함 기억 · 실패 → 원래 함수 / Firebase 한 칸 · 명함 날것(fetchUserCardApi — 대체 길 없음)
    3. 랭킹 — 내 순위 한 줄(rank · null · 못 받음 undefined) · 100줄(API → 원래 함수)
    4. 방 개수 — 표시용(quick)만 API · 정원 검사(quick 아님)는 늘 Firebase · 랜덤 참여 후보(워킹룸 · SCRT 빼기 · 빈 배열 = 없음)
    5. 실패 종류 — 닿지 못함 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 400 · API 없음 모두 Firebase 길
@@ -100,6 +100,11 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     chk(cf.FB === 1 && log.join() === 'card,uDown', '  ↳ 못 받으면 원래 함수(profile + home/avatar)');
     await fb.fetchPlaylistCard('uBad');
     chk(log.length === 2 && log[1][1] === 'uBad', '  ↳ 모양이 틀려도 원래 함수');
+    api.calls.length = 0;
+    chk(JSON.stringify(await fb.fetchUserCardApi('uA')) === JSON.stringify(CARD) && api.calls.join() === '/v1/users/uA/card', '★ 명함 날것(fetchUserCardApi · 친구 포트용) — GET /v1/users/{uid}/card 의 data 그대로');
+    chk((await fb.fetchUserCardApi('uZ')) === null, '  ↳ 없는 사람(data:null) → null');
+    let ue = null; try{ await fb.fetchUserCardApi('uDown'); }catch(e){ ue = e; }
+    chk(ue && ue.code === 'NETWORK' && log.length === 2, '  ↳ 못 받으면 던진다 · Firebase 대체 길 없음(넘어가기는 친구 포트가 정한다)');
     cells = [];
     chk((await fb.fetchAvatar('uA')) === 'https://img/av.png' && cells.length === 0, '★ 사진 하나(fetchAvatar) — 명함의 avatarUrl · home 통째 읽기 없음');
     chk((await fb.fetchAvatar('uZ')) === null && cells.length === 0, '  ↳ 없는 사람 → null');
