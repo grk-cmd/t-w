@@ -1,2475 +1,7 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 390 (👥 친구 이름 · 레벨 다시 실시간 — 목록이 열려 있는 동안 프로필도 듣기)
-대상: `sim-*.js` 332개 + `smoke.js` + `audit.py` = **334개** (개정 390 기준 — 폴더를 센 값)
-
-**개정 390 에서 한 것 (2026-10-19 · 👥 친구 이름 · 레벨을 다시 실시간으로 — 포트 개편 회귀 · 사용자 결정)**
-- 앱: 친구 포트 개편(10-16~17)이 친구별 상시 구독을 없애면서 이름(`users/{fid}/profile`) 구독까지 빠져, 친구가 이름을 바꿔도 목록 · 마이홈 구경에 옛 이름이었다(0.11.4 beta.1 제보). 목록이 열려 있는 동안(접속 상태와 같은 조건 · 같은 수명) 친구마다 프로필도 듣는다 — `firebase-init.js` `watchFriendProfile` · `getFriendProfile` → `friends-firebase.js` `watchProfile` · `readProfile`(들은 값은 카드 10분 기억에도 얹음) → `friends-port.js` → `friends-sub.js`(접속 상태 듣기와 한 벌로 걸고 풀기 · 들은 값이 늦은 목록 받기를 이김 · `refreshProfile(fid)`). 소개 · 사진은 열 때 한 번 그대로. 마이홈 구경(`myhome-visit.js`)은 받아 둔 이름으로 먼저 그리고 그 친구 프로필만 한 번 새로 읽어 다르면 다시 그린다.
-- 검사: `sim-friend-profile-live.js` 신설 — firebase-init(가짜 onValue · get) → provider → 포트 → friends-sub 를 실제로 이어서 평소 1 · 열면 1 + 2n · 닫으면 1 · 소개 · 사진 구독 0 · 이름 바뀌면 목록 값 바뀜 · 10분 안 다시 열어도 옛 이름 안 돌아옴 · 늦은 목록 받기가 안 덮음 · refreshProfile(그 친구 프로필 한 칸만 · 듣는 중이면 0) · 마이홈 구경 이름 갱신 · 깨 보기 13가지. `sim-friends-port.js` 2-1절 열면 1 + n → 1 + 2n · 3절 app.js 친구 deps 여섯 → 여덟 줄 · 화면 파일 금지 목록에 새 함수 둘. `sim-myhome-visit.js` deps 에 `refreshFriendProfile` 한 줄.
-- (PR 은 387 → main 에 387 · 388 이 먼저 들어가고 389(#388)가 앞이라 390 으로 다시 매김)
-
-**개정 388 에서 한 것 (2026-10-19 · ✉️ 메시지를 보내면 그 메시지까지 읽음 — 사용자 제보 · 사용자가 정한 방식)**
-- 앱: 투게더룸에서 보내자마자 방을 나갔다 들어오면 💬 에 «안 읽음 1»(내 메시지)이 뜨던 것. 읽음은 창을 닫을 때 화면 목록의 마지막으로 저장하는데, 방금 보낸 내 줄은 서버 시각이 오기 전 내 PC 가 어림한 임시 시각이라 진짜 시각보다 앞에 저장됐다. `chat-ui.js` `_chatMarkSentRead` — 보내는 쪽 promise 에서 서버가 받은 뒤의 진짜 시각으로 **보낸 채널**(markKey) 읽음을 저장(앞으로만 · 옛 형식은 덮음 · 열린 창의 구분선 기준은 그대로). `firebase-init.js` `sendChatLog(room, msg, tab, { wantTs:true })` 가 쓰기 뒤 그 줄의 `ts` 한 칸만 읽어 `{ ok, id, ts }` 를 돌려준다(다른 호출은 안 읽음). 날리기도 기록에 남아 같이 맞춘다.
-- 검사: `sim-chat-read-on-send.js` 신설 — 실제 chat-ui.js · chat-tabs.js 를 가짜 DOM · 서버 위에서 돌림: 확인 뒤 저장 · 앞으로만 · 보낸 채널에만(확인 사이 방 · 탭이 바뀌어도) · 보내고 나갔다 다시 들어와 셀 때 0 · 구분선 안 움직임 · 날리기, sendChatLog 를 떼어 ts 한 칸만 읽는지 — **32·0**(깨 보기 8). `sim-chat-tabs.js` «기록도 지금 탭으로» 를 보낸 탭 변수(sendTab)에 맞춤.
-
-**개정 387 에서 한 것 (2026-10-19 · 대화 기록 지움 남기기 — 함수만)**
-- 함수: `functions/chat-delete-log.js`(새 · summarizeDeleted) · `functions/index.js` chatLogDeleted · chatTabDeleted — rooms/{방}/chatLog · _chatTab/{탭} 이 통째로 지워지면 `[chatDeleted]` 로그 한 줄(방 · 탭 · 줄 수 · 보낸 사람 수 · 첫 · 마지막 시각 · 방장 지우기 표시 줄 유무 · authType · authId · 글은 안 실음). 지우기는 막지 않음. 원인: 10-19 PLAY-BFBT 70줄이 서버 함수 기록 없이 사라짐.
-- 검사: `sim-chat-delete-log.js` 신설 11 — 요약 · index.js 를 firebase 패키지 가짜로 실제 로드해 두 트리거 처리기를 돌림(경로 · 로그 한 줄) · 표시 줄 · #일반 값이 앱과 같음. 변이: 로그 빼기 → 2 빨강 · authId 빼기 → 2 · 경로 틀림 → 1.
-
-**개정 386 에서 한 것 (2026-10-18 · 🛡️ 보이는 걸 제대로 보이게 — 공용 safe-html.js · 사용자 결정)**
-- 앱: 새 `shared/safe-html.js`(`window.TwSafeHtml` — text · attr · safeUrl · cssUrl · cssColor). 남이 쓸 수 있는 값은 친 그대로 보이고(«초마 <뚱쟁이>» · «병준이<3» · «>_<» 를 지우거나 거절하지 않음) HTML 로는 안 읽힌다. app.js `escHtml` · `_chatEsc` · 파일 안 `esc`(mallang · myhome-desktop — 따옴표 ' 를 안 막던 것) · 엑셀 XML 칸은 별칭. 날값이 들어가던 자리: 스티커사진 자리 이름 · 말랑이 그림(요소로 · safeUrl) · 설정 포커싱 앱 이름 · 모험 파티 색 · 좌표 · 얼굴 · 유품 그림 · 마이홈 테마 · 배경(cssUrl · cssColor) · 친구 사진 · 광고 배너 링크 등 — 정상 값은 보이는 것 같음, 허용 안 된 주소 · 색은 안 그림. 말랑이 선물 토스트가 이름을 &lt; 로 보이던 것 고침.
-- main.js `setWindowOpenHandler`: 빈 문서 + 이름 mhGuestbook…(방명록) · mhDesign…(디자인 스튜디오)만 열고 나머지는 막는다 · http(s) 는 기본 브라우저(shell.openExternal). CSP · 규칙은 그대로.
-- 검사: `sim-safe-html.js` 신설 — 1절 실행 · 2절 파서로 전부 훑기(예외 ALLOW · ⚠️ 남은 구멍 1: 모험 파티 storyHtml) · 새 창 처리기 실행 · 3절 깨 보기. `audit.py` 검사 19 시야를 parts/ 전체로. 모듈을 싣는 검사 17개가 진짜 safe-html.js 를 함께 싣는다 · 가짜 그림 주소를 진짜 모양으로(판정 무변경).
-- (#385 로 올렸으나 main 에 385(#381 presence)가 먼저 들어가 386 으로 다시 매김)
-
-**개정 385 에서 한 것 (2026-10-18 · 🏷️ presence 첫 쓰기에 앱 버전 — 버전이 늦어도 지금 앱이 옛 앱으로 막히지 않게)**
-- 앱: 규칙은 presence 가 `online:true` 인데 `ver` 가 없으면 옛 앱(≤0.10.2)으로 보고 그 사람의 읽기 · 쓰기를 막는다. `companion.getAppVersion()` 이 늦거나 실패하면 `withVer` 가 ver 를 빼고 써서 지금 앱이 막혔다. `shared/app-version.js` `withVer` 가 모르면 `APP_VER_UNKNOWN`(`'unknown'`)을 늘 싣는다(`ready` · `get()` 은 그대로 null — 게이트 · 방 서버 · 방문 집계 · accountSnap 그대로). `firebase-init.js` presence 첫 쓰기는 로그인 뒤 `_appVer.ready` 를 기다리고, 방 바꿀 때 · 6시간 lastSeen update 도 `withVer` 를 거친다. 쓰기 수 · 타이머 그대로. 라이선스 요청도 버전을 못 받았으면 `'unknown'`.
-- 검사: `sim-app-version.js` 1절 «받기 전 · 못 받음도 ver» 로 고침 · 5절 신설 — presence 쓰기(`_syncPresenceRoom` · `setMyPresenceOnline` · `setMyPresenceState` · onReady)를 가짜 서버에서 실제로 돌린다: 평소 · 늦게 옴 · 못 받음 · companion 없음 · 영영 안 옴 · 오프라인 · 규칙 판정, 깨 보기 셋(예전 withVer · 방 update 에서 ver 뺌 · 버전 기다리기 뺌) — **56·0**.
-- (#380 이 384 로 올렸으나 main 에 384(#377)가 먼저 들어가 385 로 다시 매김)
-
-**개정 384 에서 한 것 (2026-10-18 · 👥 새 친구 이름 · 사진 — 0.11.4-beta 회귀 고침 · 동작 변경(요청 +1/새 친구) · 사용자 결정 «새 친구 정보만 받기»)**
-- 앱: 켠 뒤 구독에 늘어난 친구는 이름 · 레벨 · 사진이 없어 재시작 전까지 '...' 로 보이던 것. `friends-sub.js` 가 늘어난 id 만 포트 `readFriend(fid)`(서버 먼저 — 공개 명함 `GET /v1/users/{uid}/card` · 못 받으면 옛 길 카드 10분 기억)로 한 번 받아 얹는다. 실행마다 친구당 한 번(진행 중 · 실패 · 없음도) · 지난 실행 버림 · 실패면 자리표시 · 타이머 재시도 없음 · 첫 구독 값과 첫 목록 받기 중엔 안 묻는다. 다시 받은 목록에 없는 지금 친구는 알던 이름을 남긴다.
-- 명함 경로 · 통로는 `shared/api-public-reads.js` 한 곳 — 날것 `fetchUserCardApi(uid)`(대체 길 없음). `friends-api.js` 는 목록 줄 · 명함을 같은 `cardOf` 로(명함 avatarInline 은 불리언이라 사진 아님 · 소개 '' 는 다음 목록 받기가 채움).
-- 검사: `sim-friends-sub.js` 2-3b절 새 친구 **130·0**(깨 보기 +7) · `sim-friends-port.js` readFriend(포트 고르기 · firebase 기억 · api cardOf · null · 실패) · 배선 **105·0**(깨 보기 +6) · `sim-api-public-reads.js` 명함 날것 세 줄.
-- (#377 이 383 으로 올렸으나 main 에 383(날기 천장 #378)이 먼저 들어가 384 로 다시 매김)
-
-**개정 383 에서 한 것 (2026-10-18 · 날기 천장 재발 막기 — 검사만)**
-- 검사: `sim-fix-1016.js` §12 에 파츠 종류별 흉내 다섯 — 겹쳐 입은 키 큰 모자 둘(__partWrap_hat_i0 · _i1 — 마녀모자) · 몸을 가리는 원피스(몸 메시 숨김 + 리깅 — 유령옷) · 리깅 스킨드 메시(_origBind · 몸의 여섯 배) · __twPartWrap 표식 wrapper · 전부 한꺼번에 → 날기 기준점이 늘 몸 가운데. 변이: measureCharBox 파츠 빼기 끄기 → 6건 빨강 · 리깅(_origBind) 빼기 끄기 → 3건 빨강.
-- 실제 앱(dev · 새 시험 프로필 · origin/main): 운영 카탈로그 파츠 95개 중 입혀진 79개를 하나씩 입혀 몸 가운데 차이 0(rig 째였다면 마녀모자 +1.16 · 메이드 +0.95 · 유령옷 +0.43). 못 입힌 16개(꼬리 · 머리카락 · 뒷머리 · 목도리 — 다른 입히기 길)는 재지 못함. 유령옷 날기 세 번 위쪽 반사 2.3~5.1%(마녀모자 · 맨몸과 같은 범위).
-
-**개정 382 에서 한 것 (2026-10-18 · 🤖 규칙 — 서버 봇 읽기 갈래를 앞으로 · 동작: 봇만 읽기가 열림 · 사람 쪽 그대로)**
-- `firebase-database-rules.json` 의 `bugBoard/list` · `playlistIndex` `.read` 가 «최근 N개 쿼리 … || 봇» 순서라, API 읽기 사본(조건 없는 통째 듣기)에서 `query.limitToLast` 가 비어 규칙 계산이 먼저 실패 → 봇도 401(Grafana 1분마다 경고). 봇 갈래를 앞으로 옮김(«봇 || (쿼리 …)»). 사람의 쿼리 조건 · 옛 앱 읽기 막기는 그대로.
-- `sim-admin-rules.js` · `sim-bug-board.js`: 새 순서에 맞춤(봇이 먼저 · 사람은 쿼리만). 실제 판정은 `scripts/rules-emu-check.js` «서버 봇» 8건(되돌리면 2건 빨강).
-
-**개정 381 에서 한 것 (2026-10-18 · 📩 우편함 개편 — 동작 변경 · 사용자 결정(시안 확인))**
-- 앱: 마이홈 우편함 탭 안에 왼쪽 세로 메뉴 📩 우편 · 📢 소식 · 📘 도움말(탭 수 그대로). 우편 = 나한테 온 것 + 모두에게 보낸 «📩 우편» — 카드(아이콘 · 제목 · 종류 · 시각 · 보기/가기) · 아래 «읽은 우편 지우기»(확인창 · 읽은 개인 우편만). 소식 = 모두에게 보낸 공지 · 업데이트 — 위에서 종류(전체 · 공지 · 업데이트 · 새 글 빨간 점) · 📌 고정은 어떤 종류를 골라도 맨 위 · 고르면 오른쪽 본문(색 띠 · 제목 · 본문) · 관리자는 본문 머리에 📌 · 🗑(확인창). 도움말은 «준비 중». 탭에 들어오면 안 읽은 우편이 있으면 우편, 없으면 소식부터. 우편함 탭 배지는 안 읽은 보상 수 → 안 읽은 수 합계(우편 + 소식). 🔔 «수령함 확인» 은 탭만 연다(처음 칸이 고른다). 서버 · 규칙 · 데이터 · 읽음 저장 그대로.
-- 칸 나누기 · 순서 · 안 읽은 수 · 처음 칸은 새 `myhome/inbox-sections.js`(순수 함수) 한 곳. 디자인 스튜디오는 새 항목 없이 기존 항목을 이음 — 카테고리 줄(fTabsBg) → 왼쪽 메뉴 · 아래 버튼 줄도, 목록 칸(fChat) → #mhInboxBody 한 곳(그림이 둘로 안 잘리게). 새 css 회색은 토큰(--tw-line · --tw-ink-soft)을 옅게 섞어 씀.
-- 검사: `sim-inbox-sections.js` 신설 **17·0**(깨 보기 11) · `sim-myhome-inbox.js` 3절 새로 **128·0**(깨 보기 37) · `sim-myhome-edit.js` 7절 · smoke PRELOAD · typeof 가드 기준선 174 → 173(myhome-ui.js 5 → 4).
-
-**개정 380 에서 한 것 (2026-10-18 · 실행 화면 화질 고르기 — 동작 변경 · 사용자 요청)**
-- 앱: 프로그램 설정 › 모니터 탭에 «실행 화면 화질» — 선명하게(기본 · 예전 그대로) · 자동(그린 장 수가 상한의 60% 에 못 미치는 5초 구간이 세 번 이어지면 배율 1 · 이번 실행만 · 진단 로그 한 줄) · 가볍게(배율 1 + 테두리 다듬기 끔 — 다시 켜야 적용). 규칙은 `shared/frame-budget.js`(qualityFrom · antialiasFor · runPixelRatio 넷째 · createSlowWatch), 상태 `_renderQuality` 는 app.js(렌더러를 만들 때 읽는다), 고르기는 `launcher/program-settings.js`, 저장 키 `tw.renderQuality`. 1분 진단 줄에 화질 · 낮춤.
-- 검사: `sim-frame-budget.js` 3절 화질 표 · 3-2절 느림 감시(12fps 면 15초 뒤 한 번 · 60/60 · 20/20 · 40/60 은 안 낮춤 · 30/60 은 낮춤 · 1초 넘는 쉼은 새로 셈 · 번갈아 튐은 넘김 · 깨 보기 넷) · 5절 배선(렌더러 antialias 는 화질에서 · 자동일 때 실행 화면에서만 · 모니터 탭 칸) — **66·0**. `sim-seat-camera.js` 화질 · 낮춤을 넘기는 한 줄. `sim-program-settings.js` deps 24(판정 무변경). `sim-mac-0923.js` runPixelRatio 인자가 늘어도 읽게(판정 무변경).
-
-**개정 379 에서 한 것 (2026-10-18 · 좌석 라벨 강제 레이아웃 줄이기 — 버벅임 미리 막기 · 보이는 자리 그대로)**
-- 앱: 새 `room/label-measure.js` — 캔버스 사각형은 프레임에 한 번(`frame()` 이 `overheadMod.beginLabelFrame()`), 라벨 크기는 글 · 클래스가 바뀌었거나 500ms 마다만 잰다. `overhead.js` · `exp-bar.js` 는 자리를 적으며 아래변(`el._bottom`)을 남기고, 이름표 · 말풍선 · 공지는 사각형을 다시 재지 않고 그것을 읽는다. 공지 마퀴 재기는 매 프레임 → 글이 바뀔 때만. 예전에는 좌석마다 «적고 바로 재기» 가 프레임당 두세 번(가짜 DOM 6좌석 60프레임 833번 → 11번).
-- 검사: `sim-label-measure.js` 신설 **31·0** — 1절 기억 모듈(경계 499 · 500ms · 숨김 · 0) · 2절 실제 overhead.js · exp-bar.js 를 가짜 DOM 에서 돌려 «쓰기 뒤 읽기» 를 센다 · 남긴 아래변 = 화면 사각형 · 3절 깨 보기 다섯 · 4절 배선. `sim-overhead.js` label-measure.js 를 먼저 싣고 내놓는 이름 셋 더(판정 무변경). `smoke.js` PRELOAD 에 label-measure.js(판정 무변경).
-
-**개정 378 에서 한 것 (2026-10-18 · 말랑이 잠깐 숨기기 — 사용자 요청 · 동작 추가)**
-- 앱: 마이홈 제목줄 «👁 방문자 시점» 앞에 «말랑이 숨기기» 버튼(말랑이가 한 마리라도 있을 때만 보임). 누르면 말랑이 판(`#mlLayer`)을 가리고 움직임을 멈춘다 · 다시 누르면 «말랑이 보이기» 로 되돌림. 내 화면에서만 · 저장 없음 — 집을 옮기거나 마이홈을 닫으면 다시 보인다(`mallang.js` clearAll). 남의 집에서도 된다. 제목줄 끌기는 이 버튼을 잡지 않는다(`myhome-ui.js`).
-- 검사: `sim-mallang-hide.js` 신설 **17·0** — mallang.js 를 가짜 DOM 에서 실행(뜨면 버튼 · 가리기 · 멈춤 · 다시 보이기 · 닫기 · 집 옮기기 · 없으면 버튼 없음) · 깨 보기 5 · 배선.
-
-**개정 377 에서 한 것 (2026-10-18 · 마이홈 스티커 잠금 · 순서 — 사용자 요청 · 동작 추가)**
-- 앱: 스티커에 `locked` · `z` 칸. 잠기면 마이홈 끌기(`myhome-edit.js`) · 편집 모드(이동 · 크기 · 회전) · ◎ · 전부 화면 안으로가 안 듣는다(지우기 · 링크 · 움직임 · 순서는 된다). 그리기는 z 순서(뒤 → 앞 · z 없는 옛 스티커는 키 순서로 뒤) · 새 스티커는 맨 앞 z. 규칙은 `app/parts/myhome/myhome-sticker-rules.js`(`window.TwMyHomeStickerRules` · 순수 함수). 관리 창 줄은 ▲▼ · 🔒 · ✎ · ⋯(◎ ✨ 🔗 × 를 글자와 함께) 로 정리 · 목록은 앞 → 뒤.
-- 검사: `sim-myhome-sticker-rules.js` 신설 **29·0**(규칙 실행 · 깨 보기 6 · 배선). `sim-myhome-sticker.js` 2절 줄 모양(셋 + ⋯ 메뉴) · 5-2절 잠금 · 순서 실행 · 줄 찾기 도우미(목록이 앞 → 뒤 · ⋯ 안 버튼) **96·0**. `sim-myhome-edit.js` · `smoke.js` 는 규칙 파일을 먼저 싣는다(판정 무변경).
-
-**개정 376 에서 한 것 (2026-10-18 · 생성기 프리셋에 카탈로그 책상 파일 통째로 넣지 않기 — 10-16 제보 8 · 동작 변경 · 사용자 요청)**
-- 앱: `creator/desk-preset-store.js` 저장 때 카탈로그 책상(다시 받을 수 있음 — `commission.js` catalogBacked 한 곳)은 GLB 바이트를 빼고 id 만(`slimPresets` · 옛 칸도 같이). `creator/desk-preset.js` 적용 때 바이트가 없으면 카탈로그 기록에서 받고(`_presetDeskGlb`), 카탈로그에도 없으면 새 번호 `E-CHAR-08` + 기본 책상. 예전에는 1MB 책상이면 4번째 칸부터 이 PC 저장소가 넘쳐 저장이 실패했다(0.11.3 은 실패해도 «저장했어요»).
-- 검사: `sim-desk-preset.js` 4-2절 여덟(id 만 저장 · 직접 넣은 책상은 바이트 · 옛 칸 가볍게 · slimPresets 경계 · URL 받기 · 기록 바이트 · 못 찾음 E-CHAR-08 · 라이선스 잠김은 안 받음) · 깨 보기 셋 · world 가 깨 본 저장 글을 쓰게 — **57·0**. `sim-commission.js` 내놓는 이름에 catalogBacked(판정 무변경). `sim-json-store.js` 만드는 줄 deps 가 늘어도 읽게(판정 무변경).
-
-**개정 375 에서 한 것 (2026-10-18 · ≤0.10.2 앱 읽기도 막기 — 규칙만 · 앱 무변경 · 사용자 결정 «이전 버전으로 아무것도 못 하게»)**
-- 규칙: 앱이 읽는 .read 71곳에 같은 조건 — 읽는 사람 로그인(auth.uid) → authUsers/{authUid}.userCode → 그 코드의 presence 가 «켜짐 · ver 없음» 이면 거절. 로그인 없음(0.11 의 로그인 없는 REST · 링크 페이지) · 이어진 코드 없음(가입 중 익명 · 봇)은 통과. 관리자 · 봇 갈래 · mobileLink · mobileKeys 는 그대로. 다른 조건 뒤에는 « && 조건» 으로만 붙여 걷으면 예전 글과 같다. presence: ver 없는 수동 오프라인(inRoom 실림 — 0.10.2 의 토글)은 거절 · onDisconnect(inRoom 없음)는 받음 — 옛 앱이 «꺼짐» 으로 빠져나가지 못한다.
-- 검사: `sim-rules-src.js` 신설(조건 빠진 열린 읽기 없음 · 걷은 글 JSON · 제외 칸 · presence 오프라인 · 깨 보기). 규칙 글을 맞춰 보던 21개는 `stripReadGate` 로 읽는다(판정 무변경). 에뮬레이터에 읽기 막기 · 새 앱 읽기(로그인 · 익명 · 로그인 없음 · presence 전 · 올린 첫 부팅) · 수동 오프라인 거절 · 먼저 건 구독이 끊기는지 시험 33건.
-
-**개정 374 에서 한 것 (2026-10-18 · ≤0.10.2 앱 쓰기 막기 — 규칙만 · 앱 무변경 · 사용자 결정)**
-- 규칙: 0.11.0 부터 presence 에 ver 를 싣는다. «presence 가 켜짐(online:true)인데 ver 가 없다» = 그 코드로 ≤0.10.2 앱이 지금 켜져 있다 — 그동안 그 코드의 자기 칸(users 17칸 · 웹박수 그림 · 이모지 · secretRoom · 말랑이 선물 수 · 버그 본 표시 등 · trash · leaderboard · playlistIndex · bookmarks · bookmarksPub · accountSnap · inbox 주인 쓰기 · reports 신고자) 쓰기와, 쓰는 사람 코드가 경로 · 값에 있는 남에게 보내는 쓰기(friendRequests · sentFriendRequests · roomInvites · 방명록 uid · 선물 fromId · 일정 알림 fromId)를 막는다. presence(표지) · 가입 · 이전 길 · 기기 세션 · mobileKeys · mobileLink · 박수 +1 · 관리자 쓰기는 그대로. 부팅 순서와 상관없다 — 0.11 은 ver 없는 «켜짐» 을 만들지 않는다(ver 를 늦게 받으면 곧바로 update).
-- 검사: `sim-google-login.js`(막기 붙은 칸 · 안 붙은 칸 · accountSnap 은 && 만) · `sim-chars-merge.js`(chars · charsMeta 는 slots 와 같은 문장). 에뮬레이터에 옛 앱 막기 · 풀림 · 새 계정 부팅 순서 시험 39건.
-
-**개정 373 에서 한 것 (2026-10-18 · 서버 규칙 크기 · 키 제한 — 요금 공격 막기 · v0.11.0 이상이 쓰는 모양은 그대로 통과 · 사용자 승인)**
-- 규칙: 누구나 쓰는 칸(방 멤버 · _meta · 대화 기록 · roomIndex · licenseRequests · friendCodes · 선물 · 친구 · 방명록 · 웹박수 · 일정 알림 · 파도타기 색인 · 초대 · 친구 요청 · 방 초대 · 우편함 · 말랑이 · 접속 · 포커스 · 프로필)에 앱이 쓰는 칸 목록 + 모르는 칸 거절(`$other`) · 빠졌던 길이 상한. 웹박수 그림 · 이모지와 파도타기 색인은 주인만, 박수는 +1 만, 친구 코드는 남이 덮지 못하고, 초대는 발급자 · 발급 시각을 못 바꾼다. rooms 모음 통째 읽기는 관리자만(방 하나 읽기는 그대로) · roomIndex 에 lastSeen 색인. 부모 `.validate` 글은 한 글자도 안 바꿨다.
-- 검사: `sim-admin-rules.js`(invites 쓰기) · `sim-google-login.js`(clap) · `sim-purikura-rules.js`(rooms 읽기) · `sim-room-meta-cleanup.js`(roomIndex $other) · `sim-rules-keys.js`(mallang/imgs/$i) — 바뀐 규칙에 맞춤. 에뮬레이터 `scripts/rules-emu-check.js` 에 크기 · 키 제한 시험(실제 payload 통과 · 모르는 칸 · 긴 값 · 미래 시각 · 덮어쓰기 거절 · 관리자 쓰기 · 읽기 권한).
-
-**개정 372 에서 한 것 (2026-10-18 · 통로 듣기 다시 붙기 — 0.11.4)**
-- 앱: `shared/data-gateway.js` onValue — 서버 듣기가 값을 받은 뒤 닿지 못해 끊기면(서버 배포 · 재시작) RESUBSCRIBE_DELAY_MS(3초) 쉬고 같은 본문으로 다시 붙는다. 다시 붙기도 첫 값 전에 끊기면 Firebase 로 듣는다. 사용하는 쪽이 끊은 듣기는 다시 안 붙는다. 예전에는 경고만 남기고 조용히 멈춰 앱을 다시 켤 때까지 값이 안 왔다(서버 #61 보고).
-- 검사: `sim-data-gateway.js` 3절에 다시 붙기 다섯 · 깨 보기 둘(다시 안 붙음 · 끊은 듣기도 다시 붙음) — **45·0** · 깨 보기 21.
-
-**개정 371 에서 한 것 (2026-10-17 · 비밀번호 초기화 — 사용자 결정)**
-- 함수: 새 `functions/password-reset.js` · `index.js` 에 `adminResetPassword`(호출형 · 관리자만 · 익명 거절) — { code, memo } 로 친구 코드 · 뒤 4자리 · 사용자 코드를 찾아(account-delete.js resolveTarget) 그 로그인 계정 비밀번호를 무작위 8자 임시 비밀번호(헷갈리는 0 O 1 l I 없음)로 바꾸고 모든 PC 로그인을 끊는다(revokeRefreshTokens). 메모(제보 번호 · 연락 경로 — 형식 자유 · 60자) 필수 · 관리자 계정은 거절. 두 경우를 한 버튼으로 — reset(비밀번호 있음 → 바꿈) · createLogin(로그인 계정 없는 옛 계정 → `{친구 코드 소문자}@tw.local` 계정을 만들고 앱 가입과 같은 모양 userAuth/{코드} = uid · authUsers/{uid} = { userCode, ts } 로 묶음 · 가입하다 끊긴 빈 계정이 있으면 그걸 씀). 구글로만 로그인하는 계정은 안내만(덧붙이면 이메일 칸이 바뀌어 뺐다). 친구 코드가 friendCodes 로 이 사람 것으로 확인될 때만 · 같은 이메일 계정이 남에게 묶여 있으면 멈춤 · 묶는 사이 경합이면 만든 계정을 지우고 멈춤. 작업 기록 adminLog(account.resetPassword · 메모) — 비밀번호는 로그 · 기록 어디에도 안 남김.
-- 웹 관리자: `features/user/reset-password`(버튼 · 메모 입력 · 임시 비밀번호 한 번 보이기 · 비공개로 보내라는 안내 · 안내 글 복사) · 사용자 상세 «로그인» 칸 · 작업 기록 이름표.
-- dev 실측(10-17 · 10-18): reset(MATE-LTCW) · createLogin(MATE-T001 → 임시 비밀번호로 친구 코드 로그인 성공). 첫 판: 웹 관리자에서 시험 계정 초기화 → 임시 비밀번호로 dev 앱 로그인 성공 · 함수 기록에 메모만(비밀번호 없음).
-- 검사: `sim-password-reset.js` 신설 **35·0** — 임시 비밀번호(모양 · 400번 안 겹침 · 넘치는 바이트 버림) · 막기 아홉(아무것도 안 바뀜) · 초기화 세 길(바꾸기 → 로그인 끊기 순서 · 기록 · 비밀번호 안 남김) · 배선. 변이: 관리자 확인 · 로그인 끊기 · 메모 확인 · 관리자 계정 막기 빼기 · 기록에 비밀번호 넣기 · 친구 코드 주인 확인 빼기 · 남에게 묶인 이메일 확인 빼기 · 연결 경합 확인 빼기 · 경합 때 만든 계정 지우기 빼기 · authUsers 쓰기 빼기 · 구글 전용 막기 빼기 → 모두 빨강. 웹 관리자 vitest 602(+7) · 결과 창에 한 일(바꿈 · 새로 만듦) · lint · tsc · format · build.
-
-**개정 370 에서 한 것 (2026-10-17 · 설치본 F12 막기 — 동작 변경 · 사용자 결정)**
-- 앱: 새 메인 프로세스 모듈 `devtools-gate.js`(설치 목록 package.json build.files 에 추가) — 설치본 운영 빌드에서는 개발자 도구를 막고 관리자 모드 창에서만 연다. 개발 실행 · dev 빌드는 늘 연다. `main.js`: 게이트 · 관리자 모드 IPC(메인 창이 보낸 것만) · 메인 창 · 팝업(did-create-window)에 F12 토글 · 열림 감시 · 보조 창 둘(구글 로그인 · 음악) webPreferences.devTools = always. `preload.js`: companion.setAdminMode(admin-mode.js 가 이미 켜고 끌 때 부르던 자리 — 지금까지 없어서 조용히 건너뛰었다).
-- 검사: `sim-devtools-gate.js` 신설 **20·0** — 여는 조건(개발 · dev 늘 · 설치본은 관리자만 · 끄면 막힘) · 가짜 창(F12 · 다른 길로 열림 → 닫음 · 관리자 끄면 닫음 · 닫힌 창 잊기 · 개발 실행 그대로) · 배선. 변이: F12 늘 열기 · 열림 감시 빼기 · 끌 때 닫기 빼기 · IPC 발신자 확인 빼기 · 팝업 걸기 빼기 → 모두 빨강.
-- \`sim-no-default-menu.js\` 1절: «메인 창 F12 토글 그대로» → «devtools-gate 가 맡는다».
-- 실제 앱(dev 실행): 켜짐 · companion.setAdminMode 있음 · firebaseAPI 있음.
-
-**개정 369 에서 한 것 (2026-10-18 · 규칙 한 칸 — 범용 통로 표)**
-- 규칙: `config/dataRoutes` — 누구나 읽기 · 관리자만 쓰기 · 칸은 번호(0~999) · 글자 1~200자. 앱(원격 설정)이 Firebase 로 표를 읽을 때 쓴다. 비어 있으면 앱은 지금과 같다.
-- 검사: `sim-data-gateway.js` 4절에 규칙 판정 · 깨 보기 하나 · `sim-rules-keys.js` 경로 변수 표에 `/config/dataRoutes/$i`.
-
-**개정 368 에서 한 것 (2026-10-18 · 범용 데이터 통로 — 표가 비면 동작 무변경 · 사용자 결정 «서버만 배포해서 기능 옮기기»)**
-- 앱: `shared/data-gateway.js`(새 · `TwDataGateway`) — `firebase-init.js` 의 Firebase 기본 동작(get · set · update · remove · push · onValue · 조건 query)이 이 문을 지난다. 원격 설정 `dataRoutes` 표에 걸린 경로만 서버(`POST /v1/data` 본문 · 듣기는 `POST /v1/data/stream` → 열쇠 → `GET /v1/data/stream/{열쇠}` SSE)로, **표가 비면 SDK 를 같은 인자로 그대로** 부른다. 경로의 내 코드는 `me` 로 · 신원은 ID 토큰 · 로그인 세션 없으면 Firebase. 서버 오류는 번역표 한 곳(준비 안 됨 · 연결 실패 · 404 · 로그인 없음 → Firebase / 권한 · 잘못된 요청 · 동시 수정 · 모르는 code → E-DATA-01~04). `api-client.js` 에 post(본문 JSON) · 원격 설정 `dataRoutes`(기본 빈 표) · 에러코드 DATA 영역 넷 · 기능 함수 256개는 손대지 않음.
-- 검사: `sim-data-gateway.js` 신설 — 순수 판단 · 표가 비면 같은 SDK 함수 · 같은 인자 · 같은 돌려준 값 · 표에 걸리면 서버(본문 · me · 조건) · 번역표 · 듣기 두 단계 · 연결 · 깨 보기. `sim-signup.js` 는 안전망만 잘라 오게(판정 무변경). `smoke.js` 에 새 모듈 한 줄.
-
-**개정 367 에서 한 것 (2026-10-17 · 같은 그림 반복 업로드 줄이기 — 동작 변경 · 사용자 승인(#39 새로 쓰기))**
-- 앱: `shared/upload-cache.js` 가 캐시를 통째로 비우지 않고 오래 안 쓴 것부터 버린다(얼굴 상한 60 → 100 · GLB 40 · 섬네일 10) · `touch` · `merge`(저장 때 다른 사본이 저장한 항목을 잃지 않음) · `once`(같은 «종류:해시» 동시 업로드는 한 번) · `applyUrlSwaps`. 얼굴 · 슬롯 GLB 업로드가 이것을 쓰고, `firebase-init.js` 는 이름이 내용 해시인 파일을 올리기 전에 있나 먼저 본다(있으면 URL 만). 마이홈 저장은 올린 자리와 URL 을 돌려주고 마이홈 편집이 들고 있는 데이터에 바꿔 넣는다(누를 때마다 같은 스티커를 다시 올리던 길). 런처 섬네일은 외모 지문(`tw.thumbSigs` · 이 PC 에만)이 같으면 다시 찍지 않는다.
-- 검사: `sim-upload-cache.js` 30 — 규칙 표(LRU · 섬네일 · touch · merge · once · swaps) · 쓰는 곳 · 깨 보기 7. `sim-myhome-edit.js` · `sim-launcher-preview.js` deps 표 · `sim-slot-sync.js` 상한 넘김 준비를 새 상한(100)에 맞춤(판정 무변경).
-
-**개정 366 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 무변경)**
-- 앱: 얼굴 업로드 캐시(`room/room-sync.js` · 넘치면 옛 해시부터 버리고 그래도 넘치면 비움)와 슬롯 GLB 캐시(`character/slot-sync.js` · 넘치면 비움)의 «상한 넘칠 때 버리기» 를 `app/parts/shared/upload-cache.js`(`TwUploadCache` · `trim` · `FACE_CACHE_MAX` 60 · `GLB_CACHE_MAX` 40) 한 곳으로 모았다. app.js 가 하나 만들어 `faceUploadCache` · `glbUploadCache` deps 로 넘긴다. 같은 결과.
-- 검사: `sim-upload-cache.js` 신설 — trim 경계(60 · 61 · 옛 해시 · 40 · 41 · 빈 값) · 두 모듈 연결 · 따로 «넘치면 비우기» 금지 · 깨 보기 4. `smoke.js` PRELOAD · `sim-room-sync.js` · `sim-slot-sync-mod.js` deps 표 · `sim-slot-sync.js` · `sim-slot-conflict.js` 틀에 진짜 모듈(판정 무변경).
-
-**개정 365 에서 한 것 (2026-10-17 · B-1015-3 고침 — 동작 변경 · 사용자 결정: 0.11.4 에 넣음)**
-- 앱: 저장된 프리셋 글이 해석되지 않으면(망가진 저장분) 읽기는 빈 칸으로 보여, 그 위에 저장 · 비우기 · 삭제하면 나머지 칸까지 지워지던 것 — `shared/json-store.js` save 가 쓰지 않고 `blocked` 로 돌려준다(망가진 원본은 그대로 남김). 사람 책상 E-CHAR-06 · 동물 E-CHAR-07, 성공 안내 없음.
-- 검사: `sim-json-store.js` 2절 막기 · 해석되는 글 · 키 없음 · 빈 글 · 깨 보기 · 4절 사람 · 동물 막기 번호 · 번호 일곱이 표에.
-
-**개정 364 에서 한 것 (2026-10-17 · B-1015-3 고침 — 동작 변경 · 사용자 결정: 0.11.4 에 넣음)**
-- 앱: 생성기 프리셋 저장 · 읽기가 실패해도 조용히 지나가 «저장했어요» 가 뜨던 것 — 저장 성공 안내는 실제로 써진 뒤에만, 실패면 이유 한 마디 + 번호. 사람 책상: 저장 · 비우기 E-CHAR-01(`creator/desk-preset.js` `_saveNotice`) · 읽기 E-CHAR-02(`desk-preset-store.js`) · 프리셋 책상 모델 E-CHAR-03. 동물: 저장 · 삭제 E-CHAR-04 · 읽기 E-CHAR-05(`animal.js`). 이유 · 진단 글은 `shared/json-store.js`(failReason · saveFailText · diagLine) 한 곳. 번호는 `error-codes.js` 표 · `docs/ERROR_CODES.md`.
-- 검사: `sim-json-store.js` 4절 실패 알림(이유 · 진단 · 사람 · 동물 성공/실패 · 번호가 표에 있다 · 깨 보기) · 배선 판정 deps. `sim-desk-preset.js` 저장 모듈이 내놓는 이름 · 책상 모델 실패는 번호 · 만드는 줄 deps 28. `sim-error-codes.js` 는 deps 로 받은 `notifyError('E-…')` 로 부르는 곳도 센다(잇는 줄 `TwErrorCodes.notify(...a)` 는 건넴이라 뺌 · «글자 그대로» 판정 그대로).
-
-**개정 363 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 무변경 · B-1015-3 준비)**
-- 앱: 사람 책상 프리셋(`creator/desk-preset-store.js` · `tw.deskPresets`)과 동물 프리셋(`character/animal.js` · `tw.animalPresets`)이 따로 들던 «localStorage 읽기 → JSON 해석 / 만들기 → 쓰기» 를 `shared/json-store.js`(`TwJsonStore` — load · save, 실패를 결과로) 한 곳으로. 책상 프리셋 저장은 `jsonStore` 를 deps 로 받고 저장 결과를 돌려준다(부르는 쪽은 아직 쓰지 않음). 읽기 결과 · 5칸 맞추기 · 해석 실패 시 빈 값은 예전 그대로. 원래 작업(wAA 2c2d0e9)의 «preset-store.js» 대신 이미 main 에 있는 책상 프리셋 저장 위에 얹었다.
-- 검사: `sim-json-store.js` 신설 — load · save 경계 · 두 프리셋 동작 고정 · 배선 · 깨 보기. `sim-desk-preset.js` 는 진짜 json-store 를 같은 가짜 저장소 위에 만들어 넘긴다 · 만드는 줄 deps(판정 무변경). `smoke.js` PRELOAD 에 json-store.js.
-
-**개정 362 에서 한 것 (2026-10-17 · 웹 관리자 버그 제보 목록을 API 읽기 사본으로)**
-- 규칙: `bugBoard/list/.read` 에 `|| (auth != null && root.child('apiBots').child(auth.uid).val() === true)` — 사람(앱 · 웹 관리자)은 예전 20줄 쿼리 그대로, API 봇만 목록 줄을 통째로 읽어 사본을 만든다(t-w-server `GET /v1/admin/bugs`). 본문 · 답변 · 쓰기는 그대로.
-- 검사: `sim-admin-rules.js` 1절(랭킹 줄 아래)에 하나 — 목록 읽기가 «20줄 쿼리 또는 봇» 이고 bugBoard 아래 다른 칸에는 봇 조건이 없다. 규칙 없는 main 에 대면 빨강. `sim-bug-board.js` ③(20줄 쿼리) 판정은 그대로 통과.
-
-**개정 361 에서 한 것 (2026-10-17 · 기능별 받는 곳 고르기 통일 — 칸을 비워 두면 동작 무변경 · 사용자 결정)**
-- 앱: 친구 · 방 · 카탈로그가 «서버 / 파이어베이스» 를 저마다 다르게 고르던 것(친구 flags.friendsApi + pickListSource · 방 roomServer.on · 카탈로그 스위치 없이 서버 먼저)을 `shared/source-switch.js` 의 `pickSource` · `serverFirst` 한 벌로. 새 스위치 자리 원격 설정 `sources.{기능}`(Firebase `config/sources/{기능}` = server · firebase) — 칸이 없으면 옛 스위치(지금 동작). 규칙 `config/sources/$feature`.
-- 검사: `sim-source-switch.js` 신설 — 기능별 옛 스위치 읽기 · 새 자리가 이김 · 넘어가기 한 벌 · 원격 설정 · 규칙 · 기능 쪽이 옛 스위치를 직접 읽거나 넘어가기를 따로 쓰면 빨강 · 깨 보기 14. `sim-friends-port` · `sim-catalog-cache` · `sim-room-server-gate` 는 진짜 source-switch 를 같이 싣고 새 자리 경우를 더함 · `smoke` PRELOAD · `sim-rules-keys` 변수 표.
-
-**개정 360 에서 한 것 (2026-10-16 · 검사 도구 — 판정 무변경 · 기준선 쓰기만 바뀐다)**
-- 검사: `sim-app-size.js --write-baseline` — 새로 잰 상한(지금 줄 수 + 여유)이 옛 상한보다 크면 예전엔 **전체 쓰기를 거절**했다. firebase-init.js 가 4444 → 4461줄로 늘어 새 상한 4561 > 옛 상한 4544 가 되면서, app.js 상한을 내리려는 사람까지 막혔다(C 구역 떼기 w3 는 app.js 칸을 손으로 고쳐야 했다). 이제 그 파일은 **옛 상한을 그대로 두고** 나머지는 쓴다(«상한은 내려가기만» 그대로 · 쓴 뒤 «그대로 둔 상한» 을 알려 준다). 지금 줄 수가 옛 상한을 이미 넘었으면 여전히 거절한다(줄이거나 --allow-increase). 검사 판정(1~4절)은 안 바뀐다 · 기준선 파일은 이 개정에서 안 바꿨다.
-
-**개정 359 에서 한 것 (2026-10-17 · 사용자 결정 — 해결된 버그 제보는 한 달 뒤 삭제)**
-- 서버 함수 `bugCleanup`(functions/bug-cleanup.js · 매일 서울 04:40): 해결(수정 완료 · 재현 안 됨) 뒤 30일 지난 제보를 목록 줄 · 내용 · 답변 · 답글 · 공감까지 통째로 지운다. 해결 시각 `doneTs` 는 함수가 처음 본 날 적는다(글쓴이 · 옛 앱 길까지 빠짐없이) · 다시 미해결이면 지운다 · 공지는 그대로 · 한 번에 200건 · 작업 기록 `bug.autoClean`(번호만).
-- 회원 탈퇴(account-delete.js)가 그 사람(같은 로그인 · 같은 코드)의 버그 제보를 같은 `bugPaths` 로 지운다 — 지우지도 «남는 것» 에 적지도 않던 구멍.
-- 규칙: 제보 목록 줄에 `doneTs`(숫자) 칸 · 색인. 웹 관리자: 미해결로 되돌리면 `doneTs` 를 지움 · 작업 기록 이름. 처리방침: 버그 제보 항목 · 해결 뒤 1달 · 탈퇴 시 삭제.
-- 검사: `sim-bug-cleanup.js` 신설(판정 경계 · 한 번 돌기 · 웹 관리자 deleteWrite 와 같은 경로 · 연결 · 규칙 · 깨 보기 6) · `sim-account-delete.js` 버그 제보 넷.
-
-**개정 358 에서 한 것 (2026-10-17 · 사용자 결정 10-17 — #258 의 숨기기 되살리기 · B-1016-4)**
-- 앱: html 에 `body:has(#creatorOverlay.on) #myHomeOverlay, … #mhGbOverlay{visibility:hidden;}` 를 다시 둔다(#342 가 걷은 줄). 앞뒤 순서는 #342 의 창 층 표 · 창 쌓기 그대로 — 숨기기만 되살림.
-- 검사: `sim-fix-1016.js` §11 — «숨기지 않는다» 판정을 «편집 중 숨긴다» 로 · 숨기는 줄을 걷으면 빨강(깨 보기).
-
-**개정 357 에서 한 것 (2026-10-17 · wAE · 토스트 눌러 복사 — 사용자 승인 동작 변경)**
-- 앱: 켜진 토스트(`.toast.on`)를 누르면 지금 보이는 글을 `navigator.clipboard.writeText` 로 복사하고, 같은 토스트 글 끝에 « (복사했어요)»(거절되면 « (복사하지 못했어요)»)를 붙인다 — 오류 번호(E-…)를 제보에 붙여 넣기 쉽게. 사라지는 시간은 남은 시간 + 1.5초(`TOAST_COPY_EXTRA_MS`). `.toast.on` 에만 `pointer-events:auto · cursor:pointer` — 꺼진(투명) 토스트는 그대로 클릭을 통과시킨다. `.toast` 는 원래 클릭 통과 판정 목록(`UI_HIT_SEL`)에 있어 켜져 있는 동안 그 자리는 «우리 UI» 로 잡힌다(판정 규칙은 무변경). 채팅 복사 표시(`#chatCopyToast`)는 그대로.
-- 검사: `sim-toast.js` **33·0**(+9) — 4절 «누르기»: 클릭 받기 한 번만 · 복사 함수가 보이는 글 그대로 · 같은 토스트 끝에 표시 · 타이머 남은 시간 + 1.5초 · 다시 눌러도 표시 한 번 · 복사 중 새 토스트면 표시 안 붙임 · 거절 문구 · 꺼진 토스트는 복사 안 함 · html `.toast.on` 만 클릭 받기(빼면 빨강).
-
-**개정 356 에서 한 것 (2026-10-17 · 서버 주소 together-working.com)**
-- 앱: `api-client.js` 운영 · dev API 주소를 `https://api.together-working.com` · `https://api-dev.together-working.com` 으로, `API_BASE_RE` 는 `*.together-working.com` · `*.togetherworking.duckdns.org` 둘 다. `room-server-gate.js` 운영 기본 방 서버 `wss://realtime.together-working.com`(dev 는 새 이름이 없어 duckdns 그대로) · `ROOM_SERVER_HOST_SUFFIXES` 두 개 · `ROOM_SERVER_URL_RE` 둘 다 · `ROOM_SERVER_HOST_ALIAS`(운영 설정 servers 의 옛 운영 주소 rooms.togetherworking.duckdns.org → realtime.together-working.com — 설정값은 옛 앱 때문에 그대로 두고 새 앱만 바꿔 붙는다) · `aliasServerUrl` · dev 앱은 옛 운영 주소로도 안 간다. html CSP 두 줄에 `wss · https://*.together-working.com`.
-- 웹 관리자: `PROD_API_BASE_URL` 새 주소 · `APP_SERVER_URLS` 에 새 방 서버 · `firebase.json` /admin CSP 에 새 API · 방 서버 주소.
-- 검사: `sim-room-server-gate.js` 접미사 두 개 · 흉내 막기(evil-together-working.com · .co) · 별칭(옛 운영 주소만 · 스킴 그대로) · 설정값이 옛 주소일 때 흐름(허용 · 비율 · 주소록)이 새 주소로 붙음 · dev 앱은 옛 운영 주소 거절. `sim-api-client.js` 새 주소 · 새 묶음 흉내 막기 · CSP 두 묶음. `sim-remote-config.js` CSP 두 도메인 · .com 전체 와일드카드 없음. `sim-account-delete.js` 웹 관리자 API 주소. 변이: 별칭 빼기 · dev 막기 빼기 · CSP 새 묶음 빼기 → 빨강.
-
-**개정 355 에서 한 것 (2026-10-17 · B-1016-4 — 창 앞뒤가 바뀐다)**
-- 앱: 캐릭터 편집(#creatorOverlay) · 종족 선택(#raceOverlay)을 창 쌓기(shared/win-stack.js) 목록에 넣고, 창 쌓기에 «열면 맨 앞»(안 보임 → 보임이 되는 순간 올림 · class · style 관찰)을 더했다 — 마이홈을 띄운 채 편집을 열면 편집이 위, 마이홈을 누르면 마이홈이 위. 창 층 표의 대화상자 층(코드 · 등록 · 프로그램 설정 · 관리자 · 공지)을 100~104 로 올려 창 쌓기(83~92) · 꾸미기(93) 위에 두고, 막는 창(가입 · 로그인 · 기기 · 마이홈 디자인)은 그 위 110~113 으로(예전 차례 그대로). #258 이 붙였던 «편집 중 마이홈 · 방명록 숨김»(:has visibility:hidden) 땜질은 걷었다(편집 중에도 둘 다 떠 있고 누른 쪽이 앞). 창이 칸 수(10)만큼이 되어 천장에서 다시 매길 때 올리는 창은 빼고 매긴다(넣으면 93 으로 넘쳤다).
-- 검사: sim-z-layers — 새 층 값 · 층 차례(대화상자 > 창 쌓기 · 꾸미기 · 막는 창 > 대화상자 · 대화상자끼리 차례) · 편집 · 종족이 목록에 · 칸 수 · 창 쌓기를 돌려 본다(마이홈 뒤 편집 열기 · 마이홈 누르기 · 연 창이 맨 앞 · 다시 올리지 않음 · 천장) · 깨 보기 5 더. sim-fix-1016 §11 — 숨기지 않는다 · 편집은 창 쌓기 목록에 · 코드 창 · 대화상자는 창 쌓기 위(숨김 판정을 바꿈). sim-signup — 캐릭터 연결 안내가 가입 게이트보다 아래를 창 층 표로 풀어 견준다(판정 무변경).
-
-**개정 354 에서 한 것 (2026-10-17 · B-1016-4 의 바탕 — 동작 변화 없음)**
-- 앱: desk-companion-prototype.html 에 «창 층 표»(:root --z-friend-picker · --z-launcher · --z-work · --z-dialog-code · --z-dialog · --z-win-settings · --z-dialog-program · --z-dialog-admin · --z-win-bell · --z-win-focuslog · --z-win-myhome · --z-win-guestbook · --z-dialog-notice · --z-win-chat · --z-wardrobe)를 두고, 화면 맨 바깥 창 37개(CSS 15 · 인라인 13 · 묶음 9)가 숫자 대신 var(--z-…) 만 쓰게 했다. 값은 그대로.
-- 검사: sim-z-layers.js 신설 — 표에 이름 15개 · 값 · 창마다 표의 이름만 쓴다(숫자 직접 금지) · 맞는 층 이름 · 깨 보기 5. sim-z-layers 는 다른 검사가 쓰는 풀이(resolveZ — 숫자 · var(--z-…) → 숫자)를 내놓는다. sim-win-front · sim-win-layers · sim-purikura-stage · sim-fix-1016 은 CSS 의 앞뒤 값을 그 풀이로 읽는다(판정 무변경).
-
-**개정 353 에서 한 것 (2026-10-17 · wL3 — wL2 2b15bbb 를 지금 main 위로 다시 얹음 · 몸 크기 재기 두 번째 묶음 · 동작 변화 없음)**
-- 앱: 손으로 돌던 몸 박스 재기 일곱 곳을 `character/body-measure.js` 의 `measureBodyBox` 로 — 옵션 넷을 더했다(`partTest` 파츠 판정 바꾸기 · `skipBranch` 가지 빼기 · `frame` 노드 좌표계 · `excludeParts:'skinned'`) · `isPartByRigOrName` 내보냄. launcher-preview `_lcBodyBox` · app.js `_measureBodyBoxInLocal` · `_headTopAboveBone` · char-measure.js `_boxExcluding`(deps measureBodyBox) · ride-bench 머리 파츠 · 귀 박스 · 검증 로그. 스티커사진 `_pkBodyBox` · floor-snap-diag.js `_floorSnapProbe` · 생성기 카메라는 이유를 character/README.md 에.
-- 검사: `sim-body-measure.js` — 1-b절 새 옵션 입력 → 박스 · 2-b절 115afe0 원문과 지금 글(app.js · char-measure.js · floor-snap-diag.js · launcher-preview.js · ride-bench.js)을 떼어 무작위 트리 300벌 대조(일곱 곳 모두 같은 박스 · `_floorSnapProbe` 의 센 · 뺀 수 = countsAsBody) · 3-b절 연결 · body-measure.js 밖에서 `_origBind` 를 손으로 거르면 빨강(남긴 곳 둘) · 깨 보기 10 더함. `sim-launcher-preview.js` · `sim-ride-bench.js` deps 목록 · `sim-ride-part-top.js` · `sim-desk-floor-clamp.js` 는 body-measure.js 를 넘겨 돌림(판정 무변경). sim-launcher-preview 는 main 의 4절(런처 부하) 위에 deps 하나만 더했다.
-
-**개정 352 에서 한 것 (2026-10-17 · wL3 — wL2 3b15806 을 #258 위로 다시 얹기 · 동작 무변경)**
-- 앱: «캐릭터 몸 박스 재기» 가 일곱 군데에 규칙이 제각각이던 것을 `app/parts/character/body-measure.js`(`window.TwBodyMeasure` · 빈 deps)의 `measureBodyBox(root, { excludeParts, visibleOnly, skipMeshes, … }, out)` 하나로. `character/char-measure.js` 의 `measureHeadBoxNoParts` · `measureCharBox` · `measureUnderfootDepth` 는 deps `measureBodyBox` 를 받아 옵션만 고르고, app.js `_myPanHalfFrac` 도 옵션만. status-chip 실측 · away-pic 자리비움 그림도 이 함수. tricks.js 날기 벽 `_flyProbeY` 는 #258 그대로 몸을 `measureCharBox(seat.gltfRoot)`(= measureBodyBox 파츠 빼기)로 재고, 몸이 비면 rig 째(`measureBodyBox(seat.rig)` 옵션 없음 = 예전 setFromObject).
-- 검사: `sim-body-measure.js` 신설 **51·0** — 1절 진짜 three r128 트리로 옵션별 박스 · 2절 묶기 전 글과 무작위 트리 300벌에서 일곱 쓰임 같은 박스 · 3절 연결(#258 날기 몸 경로 measureCharBox → char-measure.js → measureBodyBox 포함) · 4절 body-measure.js 밖 `setFromObject(좌석.rig · bodyWrap · gltfRoot · 좌석.group)` 빨강 · 5절 깨 보기 10.
-- 다른 검사(판정 무변경): `sim-fix-1016` §12 는 rig 째 갈래를 `measureBodyBox(seat.rig, null, _flyBox)` 로 읽고 흉내에 진짜 body-measure.js · char-measure.js 를 싣는다 · `sim-tricks` · `sim-status-chip` · `sim-away-pic` · `sim-char-measure` deps 목록에 measureBodyBox · `sim-ride-height` · `sim-floor-snap-diag` · `sim-char-measure` 4절은 body-measure.js 를 만들어 넘긴다 · `sim-away-follow` 흉내에 measureBodyBox · `sim-report-away` · `sim-fix-0923` 은 새 부름 꼴도 받는다. `smoke.js` 도 먼저 평가.
-
-**개정 351 에서 한 것 (2026-10-17 · 검증 중 보탬 — 동작 무변경)**
-- 앱: `room/seat-label-drag.js` 에 `canGrabSeat`(날아가는 중이면 잡지 않음) — 캔버스 pointerdown 의 `if(seat.fly) return` 을 이것으로 바꿔 한 줄을 같이 쓴다(조준 · 탄 중 · 벤치는 캔버스와 이름표가 하는 일이 달라 묶지 않음 — 주석). `focus/exp-bar.js` 는 `overheadMod.bindLabelDrag` 대신 `deps.bindLabelDrag`(app.js 가 잇는다). `aiming()` 의 try/catch 감쌈을 걷었다(조준 확인은 던지지 않는 getter).
-- 검사: `sim-seat-label-drag.js` — canGrabSeat 표 · 캔버스가 부름 · 경험치 바 deps · 깨 보기 · 때리기 조준(«던져도 안 죽음» 줄은 감쌈을 걷어 뺌).
-- `sim-exp-bar.js` deps 에 bindLabelDrag(함수 4) · `sim-fly-click-through.js` §3 은 canGrabSeat 를 부르는지 보고 그 함수를 실제로 돌려 본다(판정 그대로).
-
-**개정 350 에서 한 것 (2026-10-17 · 이름표 · 경험치 바 끌어 자리 바꾸기 — 사용자 요청 · 동작 추가)**
-- 앱: 책상을 끌 때처럼 머리 위 이름표 · 발밑 경험치 바를 눌러 끌어도 좌석 순서가 바뀐다. 시작 판단(왼쪽 버튼 · 조준 중 아님 · 날기 / 탄 중 / 벤치 아님)은 `app/parts/room/seat-label-drag.js`(`window.TwSeatLabelDrag`), 끌기는 app.js 의 같은 `drag` 상태(targetType `label` → slot)로 캔버스가 포인터를 잡아 처리 — 자리 계산 · 맨 오른쪽 고정 · 클릭 통과 유지 · blur 안전망이 같은 길. 누르기만 하면 아무 일 없음(쓰다듬지 않음). 이름표 · 경험치 바는 `overhead.js` 갈고리(`setLabelDrag` · `bindLabelDrag`)로 건다. css `.seat-exp` pointer-events:auto · 잡기 커서, `UI_HIT_SEL` 에 `.seat-exp`.
-- 검사: `sim-seat-label-drag.js` 신설 **25·0** — 1절 판단 · 2절 app.js 시작 함수를 떼어 실행 · 3절 배선. `sim-overhead.js` 내놓는 이름에 `setLabelDrag` · `bindLabelDrag`(판정 무변경).
-
-**개정 349 에서 한 것 (2026-10-17 · 검사 신설 — 앱 동작 무변경)**
-- 검사: `sim-domain-calls.js` 신설 — CLAUDE.md «도메인끼리는 서로의 모듈을 직접 부르지 않는다(app.js 가 deps 로 잇는다 · shared 는 도메인을 모른다)» 를 판정으로. app/parts/<도메인> 모듈이 ① app.js 가 만든 다른 도메인 인스턴스(`xMod.`) ② 다른 도메인 전역 모듈(`TwY`) ③ 다른 도메인 창 고리(`window.이름`)를 그 파일 선언 없이 읽는 곳을 센다(도메인 → shared 는 아래 방향이라 안 셈 · shared → 도메인은 셈). 지금 34곳 · 파일 18개를 `domain-calls-baseline.json` 기준선으로 두고 파일마다 늘면 빨강 · 줄면 내리라고 빨강(--write-baseline 은 합계가 늘면 거절). 예외 3(마이홈 고리판 · 기본 이모티콘 표 · 방 공용 상태 _activeChannel — 이유는 EXEMPT). 깨 보기 10.
-- 문서: CLAUDE.md 그 줄 끝에 검사 이름.
-
-**개정 348 에서 한 것 (2026-10-17 · 10-16 제보 7 — Xbox 패드로만 게임하면 잠듦)**
-- 앱: 게임이 앞이면 크로미움 Gamepad API 가 뒤에 있는 우리 창에 패드 값을 안 준다. `sysinput-win.js` 에 `readPads`(koffi 로 `XInputGetState` — Gamepad API 모양 · 빈 자리는 6번에 한 번 · 못 불러오면 빈 목록) · `sysinput-mac.js` 는 같은 이름 빈 함수. `main.js` 가 렌더러와 같은 `gamepad-activity.js` 로 판정해 500ms 활성 창 폴링 끝에서 `penActivity` 로 보낸다(전송 간격 공유). 의존성 `koffi` · asarUnpack.
-- 검사: `sim-gamepad-activity.js` 3절 **+19**(가짜 koffi 로 readPads 실행 — 모양 · 버튼 · 트리거 · 스틱 · 빈 자리 쉬기 · 판정까지 · koffi/DLL 없음 · export 이름 쌍 · main 배선) — **35·0**.
-
-**개정 347 에서 한 것 (2026-10-17 · 구역 떼기 C · w2 28f731c 를 순환 없이 다시 · wAC — 동작 변화 없음)**
-- 앱: app.js «🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기» 끝(`setDeskScale` · `setCreatorDeskScale`)과 «📌 책상 위 파츠 앵커 · 책상 위치 · 배율» 구역을 `app/parts/character/desk-place.js`(`window.TwDeskPlace`, deps 5 — `CHAR_Z` · 책상 크기 범위 · `crState`)로(세 덩이). 평준화 가두기는 개정 313 에서 `seat-eq-clamp.js` 로 먼저 떼어 이 모듈은 seat-equalize 를 모른다 — 28f731c 를 그대로 올리면 생기던 순환 간선 2(desk-place ↔ seat-equalize)가 없다(순환 간선 110 그대로). 코드 글자 그대로 · 옛 이야기형 주석만 줄임. 부르는 곳은 `deskPlaceMod.이름`.
-- 검사: `sim-desk-place.js` 신설 **34·0** — 1~3절 구조 · 4절 동작(크기 · 원본 기억 · 경계 · 생성기 · z 보정 · 위치 배율 · 핀 상쇄). 4절은 옮기기 전 app.js 글로도 같은 판정이 돈다. 옮긴 글을 찾던 `sim-desk-floor-clamp.js` · `sim-desk-part-scale.js` · `sim-seat-slot.js` 는 이미 되살린 글을 읽어 그대로 통과(판정 무변경).
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 desk-place.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로(10246줄 · 상한 10446 — firebase-init.js 는 남의 몫이라 그대로).
-
-**개정 346 에서 한 것 (2026-10-17 · 구역 떼기 C · wAC — 평준화 가두기를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «📌 책상 위 파츠 앵커» 안의 평준화 가두기(`_clampSeatDeskParts` · 주기 `SEAT_SLOT_EVERY_MS` · `_seatSlotNext`)를 `app/parts/character/seat-eq-clamp.js`(`window.TwSeatEqClamp`, deps 7 — 좌석 간격 · `seatSlot` 은 읽는 함수)로. 책상 자리 · 크기(desk-place, 28f731c)가 평준화 깃발을 읽어 생기던 desk-place ↔ seat-equalize 순환을 미리 끊는 자리. 가두기 계산 모듈을 만드는 줄 `seatSlot` 은 app.js 에 남김. 코드 글자 그대로. 부르는 곳은 `seatEqClampMod._clampSeatDeskParts`.
-- 검사: `sim-seat-eq-clamp.js` 신설 **23·0** — 1~3절 구조 · 4절 동작(주기 · 경계 500ms · 멀티 간격 · 올라탄 · 숨은 책상 · 꺼짐 · 좌석 없음 · 계산 모듈 없음 · 던짐). 4절은 옮기기 전 app.js 글로도 같은 판정이 돈다. `sim-seat-slot.js` 는 되살린 글로 그대로 통과(판정 무변경).
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 seat-eq-clamp.js · `smoke.js` 도 먼저 평가.
-
-**개정 345 에서 한 것 (2026-10-17 · 사용자 승인 묶기 — 동작 무변경)**
-- 앱: «firebaseAPI 가 있으면 바로, 없으면 firebase-ready 를 기다림» 15곳(app.js 넷 · room-entry 둘 · ad-banner · license-request · my-info · scheduler · overhead · room-invite-ui · room-sync · bug-board-ui · catalog-source)을 `app/parts/shared/net-ready.js`(window.TwNetReady — `whenNetReady(cb, need)` · `onNetReady(cb)` · `waitNetReady(ms)`) 한 곳으로. 바로 부르는 조건(함수 이름까지 보던 두 곳은 `need`) · once 유무(overhead · room-sync 는 once 없음 그대로) · 시간 제한(room-entry 10초) · 이벤트 인자 모두 예전 그대로. 서버 이관 때 provider 준비 신호로 갈아 끼울 자리는 이 파일 하나. html 은 nav.js 바로 뒤에 싣는다.
-- 검사: `sim-net-ready.js` 신설 — 바로 · once 한 번 · need · 이벤트 인자 · onNetReady 두 번 · waitNetReady(신호 · 시간 · 한 번만 풀림) · **firebase-ready 에 직접 addEventListener 0곳(이 모듈 빼고)** · 쓰는 파일 11곳 · html 순서 · smoke · 깨 보기 9. 모듈을 굴리던 검사 열하나(catalog-source · catalog-sync · friend-manage-module · friends-sub · mac-0923 · my-info · overhead · room-entry · room-invite-ui · room-sync · scheduler)는 net-ready.js 를 같은 가짜 window 위에 먼저 싣는다(판정 그대로) · 글자로 보던 부팅 줄 · 깨 보기 두 줄(room-invite-ui · friends-sub — once 빼기는 net-ready.js 쪽)은 새 줄로. `smoke.js` PRELOAD 에 net-ready.js.
-- 검증 중(main 과 합침): 그 사이 main 이 친구 목록 함수 이름을 `watchMyFriendList` 로 바꿔(#310) `_waitForFirebaseAPI` 의 need 를 `'watchMyFriendList'` 로 — 옛 이름 `'subscribeMyFriends'` 그대로면 firebaseAPI 에 없는 이름이라 이미 지나간 준비 신호를 영영 기다릴 뻔했다. `sim-room-entry.js` 의 코드 없음 판정 틀(#320)에도 net-ready 를 먼저 싣는다 · `sim-friends-sub.js` 깨 보기 글 새 이름 · `sim-catalog-sync.js` 합침 줄 정리(판정 무변경).
-
-**개정 344 에서 한 것 (2026-10-17 · 사용자 요청 — 보이는 글만 바뀐다)**
-- 앱(friends-sub.js NOTICE.checkFail): «친구 목록을 불러오지 못했어요.⏎잠시 후 다시 눌러 주세요» — 두 문장 사이 줄바꿈. 토스트의 pre-line 은 fix/toast-newline 브랜치에서 들어간다(그 전에는 줄바꿈이 띄어쓰기처럼 보인다).
-- 검사: sim-friends-sub(줄바꿈 든 문구 고정).
-
-**개정 343 에서 한 것 (2026-10-17 · 사용자 승인 «칠판을 빼도 남의 화면에서 동물이 떠 있음» 고치기 — 동작이 바뀐다)**
-- 앱: app.js `unequipStackablePart` · `unequipPartFromSeat` 가 무언가 뗐으면 `_refitAfterUnequip` → `seatRefitMod.requestRefit(seat)` — 다음 프레임에 한 번(같은 프레임 여러 번이면 좌석마다 한 번) fitModel · 올라탄 사람 높이 다시 재기. 실행 화면 좌석(seats)만 · 그 전에 장착 뒤 맞추기가 돌았으면 건너뜀. 가챠 회수 · 카탈로그 삭제 · 관리자 파츠 삭제 · 친구 화면 파츠 빼기(pruneSeatPartsAgainstDef)가 모두 이 길을 지난다(남은 파츠 GLB 받기를 기다리지 않는다).
-- 앱: seat-refit.js — 다시 맞춘 좌석이 남의 머리에 타 있으면 그 대상 위 높이도 다시 잰다(판단은 이 모듈 한 곳 · room-entry.js `_applyRemoteRides` 의 «같은 상태면 건너뜀» 은 그대로 두고 주석만).
-- 검사: `sim-seat-refit.js` 3절 신설 — 같은 프레임 한 번 · 다음 프레임 또 · 실행 화면 좌석만 · 나간 좌석 · 장착 뒤 맞추기와 겹치면 한 번 · 진짜 app.js 떼기 함수(뗐을 때만) · 모듈이 아직 없을 때 · deps · 떼는 길 넷 · 탄 대상 높이 · 깨 보기 +8.
-
-**개정 342 에서 한 것 (2026-10-17 · 공통 기능 묶기 — 동작 변경 두 가지 · 사용자 승인)**
-- 동작 변경 두 가지(10-17 사용자 승인 «둘 다 개선»): ① 다시 맞춘 뒤마다 올라탄 사람 높이를 다시 잰다(예전엔 장착 때 한 번) ② 장착이 거부돼도 다시 맞추고 이어 간다 — 꾸미기 저장은 저장 · 방 전송까지 간다(예전엔 그 자리에서 멈춤), 방 입장 · 좌석 적용 · 관리자 재등록도 fitModel 을 건너뛰지 않는다.
-- 앱: `room/seat-refit.js`(TwSeatRefit · `refitSeatAfterParts(seat, { wait, layout, isCurrent })` · `onRefitted`) — «끝난 장착 기다리기 → 같은 좌석인지 → fitModel → layoutSeats(원할 때만) → 올라탄 사람 높이 다시 재기(app.js 가 onRefitted 로 rideBenchMod._remeasureRideHeadTop 을 건다 — ride-bench 를 deps 로 받으면 새 순환)» 한 벌. 꾸미기 저장 두 곳(wardrobe.js) · 친구 파츠 변경(room-entry.js) · 좌석 다시 짓기(app.js applyCharToSeat) · 카탈로그 늦게 붙은 파츠(catalog-sync.js) · 관리자 파츠 다시 등록(admin-part-register.js)이 같은 순서 · 같은 조건으로 부른다. 장착이 거부되면 경고 한 줄 남기고 다시 맞춘다(예전엔 거부되면 건너뜀 · 잡히지 않은 거부). 네 모듈의 안 쓰게 된 fitModel(· catalog-sync 의 layoutSeats) deps 는 걷었다.
-- 검사: `sim-seat-refit.js` 신설 — 순서 · 거부 · 낡은 좌석 · 모델 없음 · 길마다 부르는지 · 옛 .then(fitModel) 없음 · html · 만드는 자리 · 높이 다시 재기 거는 줄 · 깨 보기 9. `sim-renderer-src.js` MODULES 에 seat-refit.js. `sim-wardrobe` · `sim-room-entry` · `sim-catalog-sync` · `sim-admin-part-register` deps 목록(fitModel → refitSeatAfterParts · catalog-sync 는 layoutSeats 도 빠짐 · 4절 가짜 deps 는 진짜 seat-refit.js). `sim-wd-parts-persist` 는 장착 줄을 refitSeatAfterParts 안에서 찾는다(판정 무변경). `sim-fix-0923` · `sim-fix-1008` 가짜 이름에 refitSeatAfterParts. `smoke.js` 가 seat-refit.js 를 먼저 싣는다.
-
-**개정 341 에서 한 것 (2026-10-16 · 에러코드)**
-- 앱: `app/parts/shared/error-codes.js` 신설(`window.TwErrorCodes`) — 번호 표(`CODES` · 걷은 번호 `RETIRED` · 영역 `AREAS`)와 알리는 통로 `notify(번호, err, 문구?)`. 토스트는 «⚠️ 문구 · 오류 E-FR-01» 로 4초, 진단 기록(`companion.diagNote`)에 «[오류] 번호 원인» 한 줄, 같은 번호는 10초 안에 토스트 한 번, 표에 없는 번호는 E-SYS-01. html 이 부르는 모듈 · app.js 보다 먼저 싣는다. 토스트(app.js `toast`)는 부를 때 찾는다.
-- 앱: 실패 토스트에 번호 — 친구 요청 수락 · 거절 · 취소 · 일괄(`friend-manage.js` E-FR-01~04) · 방 목록 못 불러옴 · 갈아타기 뒤 방 밖(`room-entry.js` E-ROOM-01 · 02). 방 목록은 삼키던 오류를 진단 기록으로 넘긴다. 문구는 같은 뜻 그대로.
-- 문서: `docs/ERROR_CODES.md` — 번호 규칙 · 영역 · 번호 표 · 걷은 번호.
-- 검사: `sim-error-codes.js` 신설 — 표 모양 · notify(문구 · 진단 · 10초 · 모르는 번호 · 최근 기록 상한 · 던져도 안 샘) · 렌더러 전부에서 부른 번호가 표에 있고 표의 번호는 쓰인다 · 싣는 순서 · 문서에 번호가 다 있다.
-- 검증 중: `error-codes.js` 의 토스트 연결 `if(typeof window.toast === 'function')` 가드를 걷고 바로 부른다(새 typeof 가드 금지 · app.js 전역 toast · 실패 알림은 부팅 뒤에만).
-
-**개정 340 에서 한 것 (2026-10-17 · 친구 접속 상태 서버 이관 10 — 동작 무변경)**
-- 앱: `room/room-server-net.js` 의 연결 공통부(열기 · hello · ready 기다리기 · 토큰 갱신 · 다시 붙기 백오프 · rid 요청 짝짓기 · 쉬면 닫기 · 못 붙은 주소 1분 쉼)를 `realtime/realtime-link.js`(ES · `createRealtimeLink`)로 떼어 냈다. 방 몫(방 안일 때만 다시 붙기 · 15초 알림 · 포기 · 방 밖 60초 쉬면 닫기)은 room-server-net 에 남고 `deps.createLink` 로 받는다 — firebase-init.js 가 import 해 넘긴다. 친구 접속 상태 연결(다음 개정)이 같은 공통부를 쓴다.
-- 검사: `sim-realtime-link.js` 신설 — 순수(jwtExpMs · LINK_TIMING) · hello 선택 칸 · rid 답 짝짓기(answers · ridless 켬/끔 · badRequest ref/ref 없음 · 시간 초과 · 끊김) · onClosed · 백오프 · markAuthRetry · 토큰 갱신 · 쉬면 닫기 · 1분 쉼 · switchOk · firebase-init 연결. `sim-room-server-net.js` 는 realtime-link.js 를 같이 읽어 createLink 로 넘길 뿐(판정 무변경 — 그대로 통과).
-
-**개정 339 에서 한 것 (2026-10-17 · wS · 토스트 줄바꿈 — 사용자 승인 동작 변경)**
-- 앱: `desk-companion-prototype.html` 의 `.toast` 규칙에 `white-space:pre-line` — 토스트 문구 안 `\n` 이 줄바꿈으로 보인다. 글은 그대로 `textContent`(`shared/toast.js`). 앱 토스트를 그리는 곳은 `#toast` · `shared/toast.js` 하나뿐(다른 모듈의 `advToast` · `toastOf` 도 이걸 부른다)이라 이 한 줄로 전부 맞춰진다. 지금 문구에 `\n` 이 든 토스트는 없다.
-- 검사: `sim-toast.js` **24·0**(+1) — 4절 «toast 는 pre-line»: `.toast` 규칙에 pre-line · 빼면 빨강(스스로 굴림) · 글은 textContent 그대로 · 모듈에 innerHTML 없음.
-
-**개정 338 에서 한 것 (2026-10-17 · 두 번째 실행 응답 없음 10초 — 앱 동작 바뀜(10-17 사용자 승인))**
-- 동작: 옛 메인 창이 «응답 없음» 이어도 그 상태가 10초(`RELAUNCH_HUNG_MS`) 이상 이어졌을 때만 정리하고 새로 띄운다 — 잠깐 멈춤(로딩 · GC)으로 방에 있는 사람이 튕기지 않게. 창 없음 · 파괴 · 렌더러 죽음은 지금처럼 바로.
-- main.js: 무응답 기록을 WeakSet → WeakMap(창 → 시작 시각, 이미 있으면 덮어쓰지 않음) · `_secondInstanceAction(s, now)` 가 `hungSince` 와 지금 시각으로 판정 · 처리기가 `Date.now()` 를 넘김.
-- 검사: sim-second-instance 판정 표(막 시작 · 9.9초 · 10초 · 10.1초 · 시각 뒤집힘 · 지금 시각 없음) · 1-2절 사건열(가짜 창에 신호를 쏘아 9.9초 앞으로 → 10.1초 새로 띄움 · responsive 초기화 · 다시 멈추면 새로 셈 · unresponsive 두 번 · 창 없음 / 파괴 바로) · 배선 · 깨 보기 13.
-
-**개정 337 에서 한 것 (2026-10-17 · #320 되돌림 고침 — 동작 변경: 예전 화면으로)**
-- 앱: `myhome/myhome-init.js` 가 내 코드가 없어 일찍 끝날 때 친구 목록을 `friendsSub.start(null)`(요청 없이 «받음 · 0명»)로 시작해 둔다. #320 이 이 줄까지 건너뛰어 새 프로필의 친구 탭 · 마이홈 친구 탭이 «친구 목록을 불러오는 중이에요» 에 멈췄다(예전: «아직 친구가 없어요»).
-- 검사: `sim-myhome-init.js` 2-2절 — 코드 없음이면 `friendsSub.start(null)` 다음 공용 공지 구독만 · 친구 목록 시작을 빼면 빨강(깨 보기).
-
-**개정 336 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음)**
-- 앱: app.js «DRAG / PET» 안의 좌석 우클릭 메뉴 124줄을 `room/seat-menu.js`(`TwSeatMenu` · deps 11)로 글자 그대로. 이름표(room/overhead.js)는 메뉴를 deps 로 받던 것을 갈고리(setSeatMenu — app.js 가 메뉴를 만든 바로 뒤에서 잇는다)로 바꿨다 — deps 로 두면 메뉴 → 신고 · 마이홈 · 놀이 → 이름표로 새 순환 6. 입구 가드(COMMON «숨은 전제를 입구로» — 이벤트 · 좌석 · 화면이 없으면 안 엶) · 옛 이야기형 주석 줄이기.
-- 검사: `sim-seat-menu.js` 신설 — 남의 좌석(마이홈 · 친구 신청 · 정보 없음 · 숨기기 / 다시 보이기 · 투게더룸 · 신고로 숨긴 사람 · 신고) · 내 좌석(편집 · 자리비움 / 해제) · 때리기(남은 횟수 · 다 씀 · 비프리미엄 · 숨긴 캐릭터) · 닫기(뒷판 · 우클릭 · ESC 전파 끊기 · 바깥 · 다시 열기 · 화면 끝) · 입구 전제 · 연결 · 깨 보기 12. 옮기기 전 본문에도 동작 판정 23개 통과. smoke PRELOAD · sim-renderer-src MODULES 한 줄. 옛 글자 판정 넷을 새 자리로(판정 무변경) — sim-overhead(deps 14 · 내놓는 이름에 setSeatMenu) · sim-report-away(이름표 우클릭은 갈고리를 거쳐 메뉴로) · sim-report · sim-seat-friend-req(메뉴 글은 room/seat-menu.js 에서 · 신고는 읽는 함수 reportMod() 를 거쳐도 같은 뜻). app-size-baseline.json 의 app.js 상한을 지금 크기 + 200 으로(톱니).
-- 검증 중(main 과 합침): 그 사이 main(#258)이 이 메뉴의 키 처리(조합 키가 아닌 키는 메뉴부터 닫고 흘려보냄 · Esc 만 삼킴)를 고쳐, 옮긴 `seat-menu.js` 에 같은 글로 옮겼다. `sim-fix-1016.js` §6 은 seat-menu.js 를 읽고 · `sim-seat-menu.js` 깨 보기 글을 지금 처리기에 맞춤(판정 무변경).
-
-**개정 335 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음)**
-- 앱: shared/paint-geom.js(되쏘는 거리 0.6 · 점 길이 0.01) · creator/paint-stroke.js(솔기 허용 0.25/4/0.02 · 가려짐 여유 1e-3 · 스포이드 알파 8) · creator/stamp.js(처음 너비 0.4 · 격자 28 · 안내 비율 0.9/0.2 · 이음새 0.35/3/0.03 · 회전 15° · 최소 20px) · creator/desk-preset-store.js(칸 수 5 — PRESET_SLOTS 로 내놓아 칸 화면도 읽는다)의 숫자를 파일 위 이름 붙은 상수로(값 그대로).
-- 검사: sim-paint-geom · sim-paint-stroke · sim-cr-stamp · sim-desk-preset 의 깨 보기를 상수 줄을 바꾸는 모양으로 · sim-desk-preset 는 PRESET_SLOTS 5 도 본다(판정 무변경).
-
-**개정 334 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음)**
-- 앱: app.js «책상 세팅(5단계)» 350줄을 둘로 — 꾸미기도 쓰는 카드 도우미(swThumb · applyDeskDotThumb · bindReorderHandle)는 `creator/asset-cards.js`(`TwAssetCards` · deps 1), 카드 그리기 · 고르기 · 지우기 · 순서 · 아이템 고르기 · 색 칸은 `creator/desk-setup.js`(`TwDeskSetup` · deps 29 — 생성기 상태는 crState 하나). bindHold 는 animal.js 가 전역으로 읽어 app.js 에 남김. 관리자 등록 창 · 기즈모는 deps 대신 갈고리(setHooks — app.js 가 crXformMod 를 만든 뒤 잇는다 · deps 로 받으면 새 순환 9). firebaseAPI 직접 호출 12곳은 데이터 provider(catalogNet)로(COMMON «서버 이관 쪽으로»). 입구 가드(카드 줄 · 색 칸 · 미리보기 · 캐릭터 — COMMON «숨은 전제를 입구로») · 옛 이야기형 주석 줄이기.
-- 검사: `sim-asset-cards.js` 신설(카드 · 색 · × · 도트 썸네일 캐시 · 순서 손잡이 · 깨 보기 7) · `sim-desk-setup.js` 신설(책상 카드 · 고르기 · 기본으로 · 지우기 · 회수 · 아이템 쪽 넘김 · 켜기 · 용량 · 한도 · 안내 · 우클릭 · 순서 · 갈고리 · 미리보기 우클릭 · 색 칸 · 입구 전제 · 깨 보기 14 — 옮기기 전 본문에도 동작 판정 29개 통과). smoke PRELOAD · sim-renderer-src MODULES 두 줄. sim-admin-part-register — 관리자 등록 창을 부르는 곳은 갈고리(_hooks.openDeskRegister)까지 세어 14 · sim-premium-desk — 책상 카드 부분을 자르는 기준을 색 칸 값 줄로(머리의 입구 가드에도 deskColor 가 있어서 · 판정 무변경 — 같은 잠금은 sim-desk-setup 에 동작 판정으로도).
-- 검증 중(main 과 합침): 그 사이 main 이 옮긴 생성기 단계(`creator-flow.js`)가 `renderCrItems` 를 deps 로 받아 «creator-flow → 책상 세팅 → 생성기 저장 → creator-flow» 순환이 새로 생겨, 5단계 들어올 때의 아이템 목록 다시 그리기를 구독(`creatorFlowMod.onItemsStep` — app.js 가 만드는 줄 바로 뒤에서 `deskSetupMod.renderCrItems` 를 잇는다)으로 바꿨다(부르는 때 같음). `sim-creator-flow.js` 는 구독으로 받는지 · 내놓는 이름 3 · 잇는 줄(깨 보기로 빨강 확인).
-
-**개정 333 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음)**
-- 앱: app.js «런처3-2 프리셋» 192줄을 책임별로 둘로 — 저장(PRESET_KEY · loadDeskPresets · saveDeskPresets)은 `creator/desk-preset-store.js`(`TwDeskPresetStore` · deps 0 · 바뀐 줄 0), 담기 · 적용 · 칸 화면은 `creator/desk-preset.js`(`TwDeskPreset` · deps 27 — 생성기 상태는 crState 하나 · 바뀐 줄은 읽는 함수 자리 11줄 · 옛 이야기형 주석 줄이기).
-- 검사: `sim-desk-preset.js` 신설 — 저장(5칸 · 깨진 값 · 배열 아님 · 앞 5칸 · 실패 조용히) · 담기(책상 · 모델 · 아이템 · 로컬 아이템 · 좌석 높이 자르기) · 적용(캐릭터 없음 · 좌석 · 옛 z 무시 · 책상 색 · 크기 자르기 · 길이 · 위치 · 라이선스는 원본에서) · 책상 모델(프리셋 · 못 읽음 · 라이선스 잠김 · 관리자 기본 책상 · URL · 실패 · 내장) · 칸 화면 · 팝업 · 입구 전제 · 연결 · 깨 보기 12. 옮기기 전 본문에도 동작 판정 29개 통과. smoke PRELOAD · sim-renderer-src MODULES 두 줄.
-
-**개정 332 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음)**
-- 앱: app.js «책상·아이템 코드: 가져오기(생성기 안에서)» 57줄을 `creator/asset-import.js`(`TwAssetImport` · deps 18 — 생성기 상태는 crState 하나)로 글자 그대로. 바뀐 줄은 읽는 함수 자리 13줄 · 파츠를 넣은 뒤 꾸미기 다시 그리기를 구독(onPartAdded — app.js 가 만드는 줄 바로 뒤에서 잇는다 · deps 로 받으면 wardrobe 와 새 순환 2) · 입구 가드(COMMON «숨은 전제를 입구로» — 창 · 버튼이 없으면 걸지도 열지도 않음).
-- 검사: `sim-asset-import.js` 신설 — 창 열기(종류별 제목 · 입력 비우기 · 종류 기억) · 닫기 · 거르기(복호화 없음 · 빈 입력 · 틀린 비밀번호 · 1MB 경계 · 개수 한도 셋 · 파츠는 꾸미기 통만 · 캐릭터 용량 책상 / 아이템 · 파츠 · 생성기 닫힘) · 등록(책상 바로 끼우기 · 아이템 등록 · 장착 · 캐릭터 없음 · 파츠 · 구독) · 입구 전제 · 연결 · 깨 보기 12. 옮기기 전 본문에도 동작 판정 18개 통과(입구 전제만 새것). smoke PRELOAD · sim-renderer-src MODULES 한 줄.
-- 검증 중(main 과 합침): 그 사이 main 이 옮긴 생성기 저장(`creatorSaveMod`) · 책상 모양(`deskVisualMod`) 이름으로 deps 를 잇자 «꾸미기 → 코드로 추가하기 → 생성기 저장 → … → 꾸미기» 순환이 새로 생겨, 이 창 열기를 창 열기 통로(`nav.js` `NAV.ASSET_IMPORT` — 거는 곳 asset-import.js)로 옮겼다. 꾸미기 · 생성기 배치 버튼은 이름으로 부탁한다(동작 같음). `sim-nav.js` 거는 곳 표에 한 줄 · `sim-asset-import.js` 는 통로에 거는지 · deps 19 · 깨 보기 글을 지금 main 에 맞춤(판정 무변경).
-
-**개정 331 에서 한 것 (2026-10-17 · 제보 B-1013-8 · 사용자 승인 «프리셋에 그림도 저장되게» — 동작이 바뀐다)**
-- 앱(myhome-preset.js): 칸에 색 · 그림 키 · 바깥 그림(bg.img)까지 담고 `img: true` 표시. 표시가 있는 칸은 불러오면 색 · 그림 통째로 바뀐다. 표시 없는 칸(예전 저장 · 옛 앱이 다시 쓴 칸)은 예전 규칙(색만 · 지금 그림 그대로). `data:` 그림은 담지 않는다. 그림 올릴 이름 `uploadSlot(고른 칸, 키)` → `p0_bg` 등(users/{uid}/design_p0_bg.jpg) — 다른 칸 파일을 덮지 않는다. 옛 design_bg.jpg 를 가리키는 칸은 그대로 · 파일은 지우지 않는다.
-- 앱(myhome-edit.js): IMG 올리기가 고른 칸 번호로 이름을 받는다 · [저장] 툴팁 «(색만 — 그림은 안 담겨요)» → «(색 · 그림 모두)».
-- 검사: sim-myhome-preset — 그림까지 담기 · data: 뺌 · 통째로 얹기 · 옛 칸은 예전 규칙 · 칸 번호 이름 · 제보 순서(B-1013-8) · 옛 앱이 새 저장본을 읽고 · 불러오고 · 다시 써도 섬 · 깨 보기 5 더. sim-myhome-edit — 8절 저장(그림까지) · 불러오기(통째로) · 툴팁 · 2번 칸에서 올린 그림은 p1_bg.
-
-**개정 330 에서 한 것 (2026-10-17 · 디자인 프리셋 판단 모으기 — 동작 무변경)**
-- 앱: 👑 디자인 프리셋의 «지금 디자인 → 칸» · «칸 → 지금 디자인» · 저장본 씻기 · 고른 칸 · 그림 키 · 그림 올릴 이름을 `parts/myhome/myhome-preset.js`(TwMyHomePreset — snapshot · apply · normalize · cur · imgKeys · imgKeyOf · uploadSlot · 순수 함수)로. myhome-edit.js 는 `const mhPreset = TwMyHomePreset;` 로 받아 부르기만. html · smoke 가 myhome-edit.js · app.js 앞에 싣는다.
-- 검사: sim-myhome-preset 신설(입력 → 출력 · 빈 값 · 객체 저장본 · 상한 · 틀린 번호 · 받은 값 안 고침 · html 순서 · 편집 묶음이 부른다 · 같은 판단을 다시 안 씀 · 깨 보기 5). sim-myhome-edit · sim-myhome-load — 새 모듈도 싣는다(판정 무변경). smoke — PRELOAD myhome-preset.js.
-
-**개정 329 에서 한 것 (2026-10-17)**
-- 앱(room-entry.js `_refreshSecretRoomUI`): 내 코드가 없으면 getMySecretRoom 을 안 읽는다(읽어도 거부 → 시크릿룸 칸은 안 보임 — 같은 화면).
-- 검사: sim-room-entry(2-2절) — 내 코드 없음 → 그 요청 0 · 코드 있으면 읽는다 · 가드를 지우면 빨강.
-
-**개정 328 에서 한 것 (2026-10-17)**
-- 앱(scheduler.js): 내 코드가 없으면 태그 알림(schedNotices) · 오늘 일정 · 달력(subscribeScheduleMonth — 관람 중 친구 달력은 그대로) 구독을 안 건다. 이전 구독 끊기는 예전 자리 그대로.
-- 앱(guestbook.js): `_gbSubscribeIfNeeded` — 홈 주인이 비면(관람에서 내 홈으로 돌아옴 · 내 코드 없음) 창 닫기 · 구독 끊기 · 비우기까지 하고 방명록 · 박수 구독은 안 건다.
-- 검사: sim-scheduler(2-2절) · sim-guestbook(3-2절) — 내 코드 없음 → 그 구독 0 · 가드를 지우면 빨강.
-
-**개정 327 에서 한 것 (2026-10-17)**
-- 앱: 내 코드가 없으면 — loadMyHomePage 는 입구에서 getMyHome 을 안 읽고 읽기 실패 때와 같은 기본값으로 그린다(«로드 실패» 경고 없음) · 말랑이 loadImgsFor 는 서버를 안 읽고 로컬 백업('anon')만 · loadGifts 는 입구에서 돌아간다 · 선물함 renderGiftBox 는 getMallangGifts 를 안 읽고 «아직 받은 선물이 없어요».
-- 검사: sim-myhome-page · sim-gift-star(§4) · sim-myhome-inbox — 내 코드 없음 → 그 요청 0 · 화면은 읽기 실패 때와 같음 · 가드를 지우면 빨강.
-
-**개정 326 에서 한 것 (2026-10-17)**
-- 앱: 내 코드(getMyUserId)가 없으면 기능 입구에서 얼리 리턴 — initMyHome(presence · 기기 · 프로필 · 친구 · 요청 · 우편 — 공용 공지 구독만 건다) · refreshInviteBtn(getInvitesLeft — 글은 예전 실패 때와 같은 «🎟️ 초대장») · _pushLevelIfChanged · commitUserName(setMyProfile) · 방 초대 받기(subscribeRoomInvites). firebase-init `_noUidPath` 안전망은 그대로.
-- 검사: sim-myhome-init · sim-license-gate · sim-focus-level · sim-user-name · sim-room-invite-ui — 내 코드 없음 → 그 요청 0 · 코드 있으면 보낸다 · 가드를 지우면 빨강.
-
-**개정 325 에서 한 것 (2026-10-17)**
-- 앱(friends-sub.js `_fetch`): 내 코드(`_myId || getMyUserId()`)가 없으면 맨 앞에서 빈 목록으로 돌아간다 — 친구 [추가] 판정이 `users/null/friends` 를 읽고 «친구 목록을 불러오지 못했어요» 토스트를 띄우던 것을 막는다.
-- 검사: sim-friends-sub — 내 코드 없음 · 시작 전 판정 → 요청 0 · 빈 목록 · 토스트 0(가드를 지우면 빨강).
-
-**개정 324 에서 한 것 (2026-10-17 · 🗑️ 회원 탈퇴 안내 자리)**
-- 앱: [회원 탈퇴]를 누르면 계정 탭(로그인 수단 ~ 로그아웃)을 숨기고 그 자리에 안내를 보인다 — HTML `#acctDeleteZone` · `#acctLoggedIn.acct-deleting` CSS(고지 상자 안쪽 스크롤도 끔) · `my-info.js` 켜기(회원 탈퇴) · 끄기(취소 · 탭 옮김).
-- 검사: `sim-account-delete.js` 11절에 네 줄.
-
-**개정 323 에서 한 것 (2026-10-17 · 런처 화면 부하 — 동작 변경 · 사용자 승인)**
-- 앱: 런처 미리보기(`launcherLoop`)를 `FrameBudget.FPS_LAUNCHER`(30)까지만 그린다 — 예전엔 모니터 주사율(120 · 144Hz)만큼. 깜빡임은 프레임마다 16ms 로 세던 런처 전용 셈(`lBlinkT`)을 걷고 좌석과 같은 시간표(`blink-timing.js` · 개정 273)를 부른다 — 주사율과 무관 · 런처를 숨기면 시간표를 비웠다가 다시 열 때 새로 시작. 후원 문구 무지개 흐름(`.donate-shine`)은 `steps(90)`(초당 20번 칠하기). 맥 120Hz 측정: 런처 화면 GPU 프로세스 CPU 18~20% → 5~6%(실행 화면 4~5% 와 비슷) · 끊긴 프레임 0 · 슬롯 섬네일 그대로.
-- 검사: `sim-launcher-preview.js` 4절 신설 **25·0** — 가짜 미리보기로 120Hz 1초에 30번 그림 · 깜빡임은 blink-timing 을 부름 · 감은/뜬 그림 번갈아 · 1분에 눈 감는 횟수가 60/120/144Hz · 실제 시각 기준과 같음 · 숨겼다 열면 새로 시작 · 런처 전용 셈 없음 · 반짝임 steps · 깨 보기 4. deps 에 `FrameBudget` · `blinkTiming`. `sim-frame-budget.js` 에 `FPS_LAUNCHER === 30` 한 줄.
-
-**개정 322 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 무변경)**
-- 앱: app.js 의 깜빡임 시간표(`scheduleBlinks` · `eyeClose` · 좌석 `blink` 초기값 · 감은 눈 문턱 0.5)를 `app/parts/shared/blink-timing.js`(`window.TwBlinkTiming` · 순수 계산)로 묶었다. 숫자는 이름 붙은 상수로. 좌석은 `TwBlinkTiming.이름` 으로 부른다. 다음 개정에서 런처 미리보기가 같은 시간표를 쓴다(따로 세던 `lBlinkT+=16` 대신).
-- 검사: `sim-blink-timing.js` 신설 **21·0** — 옮기기 전 글(그대로 실어 둠)과 같은 씨앗으로 2분 돌려 한 칸도 안 다름 · 처음 값 · 한 번씩 2~3번 뒤 세 번 연달아 · 감은 정도 곡선 · 주사율 30~144Hz 에서 깜빡임 간격이 두 장 안 · 연결(app.js 옛 선언 없음 · html 순서) · 깨 보기 6.
-
-**개정 321 에서 한 것 (2026-10-17 · 클릭 통과 판단 묶기 — 동작 변화 없음)**
-- 앱: «클릭 통과로 바꿀지» 판단이 네 길(desktop-run.js mousemove · onPenHitTest · 고착 회복 사다리 `__mouseKick` / main.js 안전장치 ⓔ·ⓕ·ⓖ)에 흩어져 있던 것을 `app/parts/launcher/click-through-policy.js`(`window.TwClickThroughPolicy` · 순수 함수 12개 · 상수 16개)로. 렌더러는 `deps.clickPolicy`, main 은 같은 파일을 `require`. 네 길은 사실만 모아 부르고 결정대로 IPC · 타이머 · 로그만 한다.
-- 검사: `sim-click-through-policy.js` 신설 — 상수 값 고정 · 렌더러/main 표(상황 → 결정, 경계값 · 회수 이유 글) · 네 길 연결 · 같은 조건을 다른 파일에 다시 쓰면 빨강(+깨 보기 4). `sim-ghost-cache-sync` · `sim-hover-poke` · `sim-wheel-kick` 은 옮긴 조건 글을 정책 모듈에서 찾고 정책을 실제로 돌려 본다(판정 무변경) · `sim-desktop-run` deps 23 · `smoke.js` PRELOAD 에 정책 모듈.
-- 검증 중(main #261 과 합침): #261 의 «사다리 3단계는 우리 UI 위 클릭일 때만»(onUI) 을 `kickStep` 으로 옮겼다 — 단계 · 연타 시각은 올리고 받기만 건너뛰는 `'skip-offui'`(동작은 #261 그대로). `sim-fix-1016b.js` 는 진짜 정책 모듈을 같이 싣는다 · `sim-hover-poke.js` 는 인자 목록 둘 다 받는다(판정 무변경). `sim-click-through-policy.js` 에 onUI 표 4줄 · 중복 목록에 onUI · **새 조건 그물**(사다리 몸통의 if 는 k.act · 기록 간격 · 3단계 타이머만 — 목록에 없는 새 판단도 빨강, 깨 보기 1).
-
-**개정 320 에서 한 것 (2026-10-17 · 폰 연결 — 단축어 주소에 공백이 껴도 기록된다 · 서버 함수 하나 추가)**
-- 규칙: `mobileLink/$userId` 는 공백을 뺀 코드가 사용자 id 면 받는다. 공백 낀 칸의 state 는 «공백 뺀 코드의 연결 키(mobileKeys)와 맞을 때만», live 는 정상 칸만(PC 는 공백 칸에 쓰지 않는다).
-- 함수: `functions/mobile-link-trim.js` · `index.js` `mobileLinkTrim` — mobileLink/{key}/state 쓰기마다 key 에 공백이 있으면, 연결 키가 맞고 PC 가 켜져 있을 때(폰이 정상 칸에 쓸 때와 같은 조건) 정상 칸 state 로 옮기고 공백 칸을 지운다. 아니면 공백 칸만 지운다. 공백 없는 칸은 읽지 않고 끝난다.
-- 검사: `sim-mobile-link-trim.js` 신설 **18·0** — 옮기기(앞 · 뒤 · 두 칸) · 키 틀림 · 키 없음 · PC 꺼짐 · 코드 아님 · 정상 칸은 읽기 0 · 지워진 쓰기 · 진짜 index.js 를 가짜 모듈로 돌려 처리기 호출 · 규칙과 같은 코드 모양 · 깨 보기 5. `sim-rules-keys.js` — mobileLink 를 «공백 낀 사용자 id» 종류로 · 3절 폰 연결(공백 칸 state 는 키가 맞을 때만 · live 는 정상 칸만) · 깨 보기 «공백 칸을 막아 버림». 에뮬레이터 확인 57건(공백 칸 8건 추가) 전부 기대대로.
-
-**개정 319 에서 한 것 (2026-10-17 · 서버 규칙 — 잘못된 경로 키 쓰기가 거절된다 · 정상 쓰기는 그대로)**
-- 규칙: 경로 변수 61곳에 키 형식 검사. 사용자 id(`u` + 영숫자 8~40 · 앱 `_setMyUserId` 와 같게 · `undefined` 따로 거절) · 방 · 친구 코드(`ABCD-1234`) · 초대 코드(4-4-4) · 방 멤버(`m…`)는 운영 키 모양 그대로, 안쪽 키(push id · 날짜 · 번호 · 태그)는 `null` · `undefined` · `NaN` · 앞뒤 공백만 거절. 상위 칸의 .validate 는 아래 칸에 쓸 때도 돌아서 `users/null/…` 같은 깊은 쓰기도 막힌다. 지우기는 그대로(삭제에는 .validate 가 안 돈다).
-- 검사: `sim-rules-keys.js` 신설 — 경로 변수 표(키 종류 · 검사 안 하는 곳과 이유)와 규칙을 맞대어, 각 변수의 키 조건을 꺼내 JS 로 돌린다(운영 키 모양 통과 · 사고 키 거절) · 표에 없는 새 변수 빨강 · «관리자만» 으로 뺀 곳은 일반 · 로그인 안 함 쓰기 길이 없는지 .write 를 돌려 봄 · 앱 `_setMyUserId` 와 서버 형식이 같은지 · 앱이 만드는 id 2000개 통과 · 깨 보기 8. 옛 규칙(main)에 대면 63건 빨강.
-- 다른 검사(판정 무변경): 규칙식을 `newData` 만 넘겨 돌리던 `sim-app-version.js`(licenseRequests) · `sim-remote-config.js`(bugPostCount) 는 경로 변수에 정상 키를 같이 넘긴다 — 새 키 조건 때문에 변수를 몰라 멈추던 것.
-- 도구(러너 밖): `scripts/rules-emu-check.js` — 데이터베이스 에뮬레이터에 규칙을 올려 49가지 쓰기를 실제로 보낸다(옛 규칙은 26건이 기대와 다름 · 새 규칙은 전부 기대대로). Java · firebase CLI 가 있어야 해서 CI 에는 없다.
-
-**개정 318 에서 한 것 (2026-10-16 · 🐞 10-16 제보 묶음 «중» 2건 · 임시 번호, 머지 때 다시 매김)**
-- 앱: ⑨ `chars.js` `_charsDeskToBox` 가 실제로 당긴 칸 번호(slot)를 돌려주고 `launcher-controls.js` 가 그 번호로 슬롯을 당긴다 — 동기화가 슬롯을 새 객체로 깔면 객체 찾기가 실패해 슬롯에 남고 보관함에도 들어가던 복제. ⑬ `main.js` 전역 mousedown 에 onUI(우리 UI 위인가) · `desktop-run.js` 고착 회복 사다리 3단계(0.8초 클릭받기)는 onUI 가 false 면 건너뜀 — 남의 앱 더블클릭의 두 번째 클릭이 오버레이로 새 투게더워킹이 앞으로 오던 것.
-- 검사: `sim-fix-1016b.js` 신설 **13·0** — 슬롯 객체가 바뀌는 흉내 · 사다리를 실제 함수로 돌림(남의 앱 · 우리 UI · 옛 main). 고치기 전 앱이면 빨강 5. `sim-fix-1008.js` §9 한 줄은 «당긴 번호 우선 · 없으면 객체로» 를 보게(판정 뜻 유지). `sim-hover-poke.js` 는 __mouseKick 인자 목록만 넓힘(판정 무변경).
-
-**개정 317 에서 한 것 (2026-10-16 · 🐞 10-16 제보 묶음 «하» 5건 · 임시 번호, 머지 때 다시 매김)**
-- 앱: (① 도트 렌더 색은 main 이 먼저 같은 방식으로 고쳐 뺐다) ② `chat-ui.js` 읽음 표시를 «T<ts>:<id>» 로 · 비교는 ts → id(알림콩 · 탭 안 읽음 · 구분선 · 접은 창) ⑥ `app.js` 좌석 우클릭 메뉴가 열린 채 조합 키가 아닌 키를 누르면 메뉴부터 닫음(T 가챠 창이 뒷판 밑에 깔려 저장 · 닫히던 것) ⑩ `status-chip.js` 책상 위 상태 이모지 depthTest:false ⑪ HTML 캐릭터 편집이 켜진 동안 마이홈 · 방명록 창 숨김(:has) ⑫ `tricks.js` 날기 기준점은 몸(measureCharBox)만 — deps 에 measureCharBox.
-- 검사: `sim-fix-1016.js` 신설 **31·0** — 절마다 흉내(옛 모양이면 증상 · 새 모양이면 없음) · 실제 three 로 날기 기준점. 고치기 전 앱으로 돌리면 빨강. `sim-tricks.js` 는 deps 한 줄(판정 무변경).
-
-**개정 316 에서 한 것 (2026-10-16 · 🗑️ 회원 탈퇴 — 본인이 앱에서 계정을 지운다)**
-- 서버: `functions/account-delete.js` 에 `handleSelfDeleteAccount` — 대상은 로그인이 정한다(`authUsers/{로그인}.userCode` 와 `userAuth/{코드}` 가 서로 가리킬 때만) · 익명 거절 · `dryRun:false` + `confirm:'탈퇴'` 일 때만 지움 · 범위는 관리자 삭제와 같은 계획 · 작업 기록 `account.selfDelete`. `functions/index.js` 에 `deleteMyAccount`(호출형).
-- 앱: `app/parts/account/account-delete-net.js`(ES 모듈 · `createAccountDelete`) — 접속 표시 onDisconnect 예약 거두기 → DB 연결 끊기 → 호출 → 로그아웃(실패면 다시 잇기). `firebase-init.js` 는 연결만(`firebaseAPI.accountDelete`). `account.js` `_loginDoDeleteAccount`(서버가 지운 뒤 이 PC 기록 지우기 — 올리기 · 검문 없음) · `my-info.js` 버튼 → 고지 · 확인 → 완료 · 다시 켜기 · HTML [내 정보 › 계정] 맨 아래.
-- 웹 관리자: 작업 기록 이름표 `account.selfDelete`. 처리방침: 앱에서 직접 탈퇴 줄.
-- 검사: `sim-account-delete.js` 9 · 10 · 11절. `sim-account.js` · `sim-my-info.js` 는 새 이름 하나씩(판정 무변경).
-
-**개정 315 에서 한 것 (2026-10-17 · 원래 있던 문제 — 동작이 바뀐다)**
-- 앱: 펜 앱이 앞에 있을 때 캐릭터를 끌면 main 의 `_checkCursorNearChar` 가 캐릭터 원 밖에서 `penHitTest{left}` 를 보내고, `desktop-run.js` onPenHitTest 가 드래그를 안 보고 150ms 뒤 클릭 통과로 바꿔 끌기가 화면 중간에서 끊겼다. mousemove 와 같은 조건(`drag() && _ignoreSent === false`)을 `_holdForDrag()` 하나로 묶어 두 곳이 같이 쓴다 — 끄는 중이고 클릭받는 중이면 재판정을 건너뛴다. main 이 이미 통과라고 알려 오면(ig) 캐시를 버리고 따라가는 처리는 그대로.
-- 검사: `sim-ghost-cache-sync.js` 9절 신설 — desktop-run.js 원문을 가짜 입력으로 돌린다(끄는 중 + 클릭받는 중 → left 와도 통과 안 바뀜 · 원 안 좌표가 비껴도 그대로 · 놓은 뒤 pointerup 재판정 → 150ms 뒤 통과 · 끌기 아님 → 지금처럼 150ms 뒤 통과 · 끄는 중이지만 main 이 이미 통과 → 따라감 · 깨 보기: 보호 줄을 빼면 옛 동작). **44·0**.
-
-**개정 314 에서 한 것 (2026-10-17 · 사용자 요청 — 보이는 글만 바뀐다)**
-- 앱(friends-sub.js NOTICE.error): «친구 목록을 불러오지 못했어요.⏎잠시 후 다시 시도할게요» — 두 문장 사이 줄바꿈. 그리는 두 곳(myhome-inbox.js 친구 탭 · room-invite-ui.js 초대 목록)이 같은 상수를 `white-space:pre-line` 으로 그린다.
-- 토스트 «… 잠시 후 다시 눌러 주세요»(NOTICE.checkFail)는 그대로 한 줄 — app.js toast 가 textContent 에 pre-line 이 없어 줄바꿈을 못 그린다(toast 는 안 바꿈).
-- 검사: sim-friends-sub(줄바꿈 든 문구 고정) · sim-myhome-inbox · sim-room-invite-ui(pre-line).
-
-**개정 313 에서 한 것 (2026-10-17 · 임시 번호 · 사용자 확정 «갱신 시점» — 동작이 바뀐다)**
-- 앱(firebase-init.js): `subscribeMyFriends`(목록 1 + 친구 1명당 profile · presence · bio · avatar 4개 상시 구독)를 걷고 넷으로 — `watchMyFriendList`(목록 구독 1개 · 동시 하나 · 에러 콜백) · `getFriendCard`(프로필 · 소개 · 사진 세 칸 한 번) · `watchFriendPresence`(친구 한 명 presence 구독) · `getFriendPresence`(한 번). 상시 구독: 친구 n명 → 1 + 4n 에서 1 로. 목록을 열면 1 + n.
-- 앱(friends/friends-firebase.js): 옛 길 provider 가 넷을 포트 모양으로 — 카드는 목록을 열 때 한 번(10분 `CARD_KEEP_MS` 안이면 다시 안 읽음) · 접속 상태는 친구별 구독을 50ms(`PRESENCE_BATCH_MS`)에 한 번 묶어 넘김 · `readPresence`. 포트에 `readPresence`.
-- 앱(friends-sub.js): 접속 상태는 목록(친구 탭 · 초대 목록)이 하나라도 열려 있는 동안만 한 벌로 듣고 다 닫으면 푼다(마지막 값은 남음) · 친구가 바뀌면 다시 · 목록 구독이 끊기거나 멈추면 푼다 · `refreshPresence(ids)` — 듣고 있지 않은 친구만 한 번 읽기.
-- 앱: 놀러 가기(friend-visit.js)는 [놀러 가기] 를 누를 때 그 친구의 접속 상태를 한 번 읽고 판정 · 파도타기 친구 고르기(playlist.js)는 열 때 친구들의 접속 상태를 한 번 읽고 다시 그림.
-- 검사: sim-friends-port — cardOf · presenceOf 순수 · 카드 10분 · 묶어 넘기기 · 풀면 n개 다 풀림 · 상시 구독 수(친구 30명 → 평소 1 · 열면 31 · 둘 열어도 31 · 닫으면 1 · 멈추면 0) · subscribeMyFriends 없음 · 깨 보기. sim-friends-sub — 접속 상태 열림 동안만(깨 보기 37) · firebase-init 넷을 떼어 굴리기(친구 100명이어도 목록 1개). sim-friend-visit — 누를 때 한 번 읽기 · 실패면 지난 값. sim-playlist — 열 때 한 번 읽고 다시 그림 · deps 21.
-- 검증 중: `sim-friends-port.js` presenceOf 판정에 «방 코드가 있어도 inRoom false(시크릿룸)» 한 경우 — 깨 보기 «시크릿룸 «방에 있음» 을 코드로 판정» 을 못 잡고 있었다(4절이 시간 제한 없이 조용히 끝나 드러나지 않던 것).
-
-**개정 312 에서 한 것 (2026-10-17 · 임시 번호 · 사용자 확정 «친구 정보를 서버로» — 동작이 바뀐다)**
-- 앱: api provider `parts/friends/friends-api.js`(TwFriendsApi) — GET /v1/me/friends(Firebase ID 토큰 · X-User-Code). 요청 한 번 5초 · 서버 문제(연결 실패 · 시간 초과 · 5xx)면 1초 · 3초 뒤 두 번 더(총 3번) · 401 · 400 · 그 밖의 4xx · 모양 틀림은 바로 옛 길(400 은 진단 로그) · 실패를 기억하지 않음(다음에 열면 다시 서버부터).
-- 앱: 포트(friends-port.js)의 목록 받기는 api 먼저 → 못 받으면 옛 길(Firebase). 고르는 곳은 `pickListSource` 하나 · 끄는 스위치 원격 설정 `flags.friendsApi`(기본 켜짐 · remote-config.js · 규칙 `config/flags/friendsApi` 누구나 읽기 · 불리언).
-- 앱: shared/api-client.js — `getToken` deps · `get(path, { auth, headers })`(토큰이 없으면 보내지 않고 auth NO_TOKEN · 토큰 받기도 시간 제한 안 · 로그인 요청은 캐시 안 함). 공개 GET 은 그대로 토큰 없음. 로그인 통로는 firebase-init.js 가 만든다(`_authApi` — 공용 주소 · ID 토큰 · 쉬기 끔 · `firebaseAPI.apiGetAuthed`) — app.js 가 만들면 api-client ↔ firebase-init 순환.
-- 앱(friends-sub.js): 이름 · 레벨 · 소개 · 사진은 켤 때 한 번 + 목록을 열 때 `listFriends` 로 받아 목록에 얹는다(`mergeFriends` — 누가 친구인지는 구독 목록만) · 첫 받기 동안 «친구 목록을 불러오는 중이에요» · `open(key, onUpdate)` · `close(key)`. 마이홈 친구 탭(myhome-ui.js `syncFriendsOpen` — app.js 가 마이홈 창 · #mhPageFriend 의 class 를 지켜보다 부름) · 워킹룸 초대 목록(room-invite-ui.js — 열려 있는 동안 바뀌면 다시 그림 · 보낸 · 보내는 중 · 한 번 알린 버튼은 이어짐 · 스크롤 그대로)이 연다.
-- 검사: sim-friends-port — 고르기 · 스위치 끄면 옛 길 · api 실패면 옛 길 · 응답 모양 · 다시 묻기 규칙(가짜 client · 쉬기) · 진짜 api-client 위 가짜 fetch(헤더 · 503 두 번 · 토큰 없음 · 시간 제한) · 스위치 기본값 · 규칙 · 배선 · 깨 보기 22. sim-friends-sub — 이름 받기(켤 때 1 · 열 때 1 · 같은 key 0 · 겹침 0 · 늦은 실행 버림 · 받기 전 안 넘김) · mergeFriends · 깨 보기 29. sim-myhome-ui — 목록 열림 · 닫힘(syncFriendsOpen · app.js 가 두 칸 지켜봄 · 깨 보기 3) · deps 29. sim-room-invite-ui — 열림 · 닫힘 · 다시 그리기 · deps 13. smoke — friends-api.js 를 먼저 싣는다.
-- 검증 중: `shared/api-client.js` 의 `getToken` 은 `d.getToken || null`(새 typeof 가드 대신 · 로그인 통로만 넘긴다). `sim-friends-port.js` 4절은 깨 본 글마다 3초 시간 제한 — «토큰 받기가 멈춤» 깨 보기가 판정을 영영 기다리게 해 node 가 0 으로 조용히 끝나(요약 줄 없이 초록) 놓치던 것을 «멈춤 = 잡음» 으로 센다 · api-client 의 «Firebase 를 모른다» 판정에서 `firebaseEnv`(dev/prod 고르는 이름)는 뺀다.
-
-**개정 311 에서 한 것 (2026-10-17 · 서버 이관 1단계 — 동작 무변경)**
-- 앱: 친구 데이터 포트 `parts/friends/friends-port.js`(TwFriendsPort — listFriends · watchList · watchPresence) · 옛 길 provider `parts/friends/friends-firebase.js`(TwFriendsFirebase — firebase-init 의 getMyFriendList · subscribeMyFriends 를 포트 모양으로). friends-sub.js 의 subscribe · fetchOnce deps 는 포트로. html · smoke 가 app.js 앞에 싣는다.
-- 검사: sim-friends-port 신설(포트 → provider 그대로 · 옛 길 provider · 배선 · friends/ 파일은 firebaseAPI 를 모름 · 화면 · 도메인 파일이 친구 데이터 firebaseAPI 함수를 직접 안 부름 · 깨 보기 6). sim-friends-sub — 직접 읽기 0곳 판정의 예외 줄을 provider deps 로. smoke — 두 파일을 먼저 싣는다.
-
-**개정 310 에서 한 것 (2026-10-16 · 사용자 승인 «그 자리에서 한 번 읽고 판정» · 재시도 방식 변경 — 동작이 바뀐다)**
-- 앱: 친구 코드로 추가(myhome-ui.js)의 상한 · «이미 친구» 와 요청 수락 팝업(friend-manage.js)의 상한을 `friendsSubMod.friendsForCheck()` 로 판정 — 받았으면 지금 목록, 못 받았으면 `users/{나}/friends` 만 한 번 읽어(firebase-init.js `getMyFriendList`) 판정하고 화면 목록도 채운다. 못 읽으면 «친구 목록을 불러오지 못했어요. 잠시 후 다시 눌러 주세요» 토스트 · 서버로 아무것도 안 보냄(수락은 요청을 남김).
-- 앱(friends-sub.js): 진행 중 판정은 하나(부르는 곳 모두 같은 Promise) · 구독이 연결 시도 중이면 따로 읽지 않고 3초(`SUB_WAIT_MS`)까지 기다림 · 읽는 중에는 다시 걸기를 미룸(같은 경로 두 번 읽지 않게) · 늦게 끝난 읽기는 그 사이 온 구독 값을 안 덮음 · 읽은 값은 그 판정에만(받음으로 안 침).
-- 앱(friends-sub.js): 시간 간격 재시도(5 → 15 → 30 → 60초)를 걷었다. 실패 상태일 때 친구 탭(myhome-ui.js) · 워킹룸 초대 목록(room-invite-ui.js)을 열 때만 `retryIfFailed()` 로 다시 건다. 연결 복귀 감시는 두지 않는다.
-- 검사: sim-friends-sub — 재시도 타이머 0개 · 목록 열 때 1회 · ready / 거는 중 0회 · 판정 ready 0회 · 동시 5번 1회 · 연결 시도 중 상한 전 0회 · 넘으면 1회 · 실패 null + 토스트 · 늦은 읽기 안 덮음 · 부르는 곳 순서 · 다른 파일 직접 읽기 0곳 · 깨 보기 22 · 풀리지 않는 판정은 멈춤으로 셈. sim-friend-manage-module(판정 실패면 수락 안 보냄 · deps 11) · sim-myhome-ui(deps 2줄) · sim-room-invite-ui(열 때 다시 걸기 · deps 11).
-
-**개정 309 에서 한 것 (2026-10-16 · 원래 있던 버그(v0.11.3 제보 «친구 없음» 인데 추가하면 «이미 친구») — 동작이 바뀐다)**
-- 앱: `_waitForFirebaseAPI`(app.js)가 500ms × 40(약 20초) 뒤 말없이 포기하던 것을 걷었다 — 이미 준비면 바로, 아니면 `firebase-ready` 를 `{ once:true }` 로 기다린다. SDK 를 실행 때 gstatic 에서 받아 느린 망이면 20초를 넘겨, 마이홈 구독(친구 · 요청 · 우편)이 영영 안 걸렸다.
-- 앱: 친구 목록 구독을 `friends-sub.js`(새 모듈 · TwFriendsSub) 한 벌로 — 상태(불러오는 중 · 못 불러옴 · 받음) · 실패하면 5 → 15 → 30 → 60초(고정) 간격으로 다시 건다 · 성공하면 멈추고 간격 처음으로 · 타이머 하나 · 동시 구독 1개 · 종료(beforeunload) 때 정리. myhome-init.js 는 이 구독을 프로필 쓰기 · 친구 코드 확보 같은 await 보다 **먼저** 건다(구독 콜백 안 순서는 그대로).
-- 앱: firebase-init.js `subscribeMyFriends(myId, onChange, onError)` — onValue 에 에러 콜백(거부 · 끊김이면 친구별 구독까지 다 풀고 onError 한 번) · 해제 함수를 돌려줌 · 새로 걸면 앞의 것을 먼저 푼다.
-- 앱: 마이홈 친구 탭(myhome-inbox.js)과 워킹룸 초대 고르기(room-invite-ui.js)가 같은 문구로 «친구 목록을 불러오는 중이에요» · «친구 목록을 불러오지 못했어요. 잠시 후 다시 시도할게요» 를 «친구 없음» 과 따로 그린다(헤더는 `(-/상한)`). `_myHomeFriends` 는 못 받은 동안에도 `{}` 라 방명록 게이트 · 스케줄러 · 파도타기는 예전처럼 «없음» 으로 돈다.
-- 검사: sim-friends-sub 신설(간격 · 문구 순수 · 가짜 구독/타이머로 상태 · 다시 걸기 · 동시 1개 · 늦은 소식 · firebase-init 구독을 떼어 가짜 onValue 로 · 포기 없는 대기 · 구독이 await 보다 먼저 · 일부러 깨 보기 13). sim-myhome-inbox · sim-room-invite-ui — 불러오는 중 · 못 불러옴 안내 · deps 한 줄. sim-myhome-init — deps 한 줄. smoke — friends-sub.js 를 app.js 앞에 싣는다.
-- 앱 · 검사(내 코드 없음): friends-sub 의 start 입구에서 내 코드(myId)가 없으면 바로 돌아간다 — 구독 · 읽기 · 다시 걸기 없이 «친구 없음»(main 과 같은 «아직 친구가 없어요» · users/null/friends 거부 → «못 불러옴» · 끝없는 다시 걸기를 막음). sim-friends-sub — 내 코드 없음 → 요청 0 · 안내 null · 깨 보기 +1.
-
-**개정 308 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호)**
-- 앱: app.js «이미지 도장» 429줄을 `creator/stamp.js`(`TwCrStamp` · deps 10 — 생성기 상태는 crState 하나)로 글자 그대로. 바뀐 줄은 입구 가드 넷(COMMON «숨은 전제를 입구로» — 미리보기 캔버스 · 띄운 그림 · 버튼이 없으면 아무것도 안 함, 예전엔 생성기 흐름이 말없이 보장 · 없으면 던졌다) · 옛 이야기형 주석 줄이기뿐. 부르는 곳 15곳은 `crStampMod.이름`.
-- 검사: `sim-cr-stamp.js` 신설 — 모드(켜기 · 끄기 · clearStampState 는 그림 · 배치 남김 · 커서) · 불러오기(그림 아님 · 처음 배치 · dirty) · 초기화(↺ · true) · 찍기(64px 그림 층에 진짜 래스터 — 도장 자리만 칠함 · 되돌리기 한 칸 · 감은눈 · 90% 밖 안 찍음 · 20% 밖 알림 · 대칭 거울 · 가운데면 생략 · 얼굴 없음) · 손잡이(끌기 · Shift 가운데 · 회전 15° · 모서리 최소 20 · 비율 유지) · 입구 전제 · 연결 · 깨 보기 14. 옮기기 전 본문에도 동작 판정 25개 통과(입구 전제만 새것). smoke PRELOAD · sim-renderer-src MODULES 한 줄. `app-size-baseline.json` app.js 상한을 지금 크기 + 200 으로 내림(톱니 · app.js 칸만 손으로).
-
-**개정 307 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호)**
-- 앱: app.js 생성기 «대칭» ~ 스포이드 130줄을 둘로 — 꾸미기 파츠 그리기와 같이 쓰는 선 긋기 · 거울 UV(_seg · strokeSeg · mirrorUVOn)는 `shared/paint-geom.js`(`TwPaintGeom` · deps 0 · 바뀐 줄 0), 나머지(맞히기 · 획 잇기 · 쪼개기 · 대칭 · 페인트통 · 스포이드)는 `creator/paint-stroke.js`(`TwPaintStroke` · deps 11 — 생성기 상태는 crState 하나 · 바뀐 줄은 swEl() 읽기 하나 · 옛 이야기형 주석 줄이기 · COMMON «숨은 전제를 입구로» — 스포이드 입구에 얼굴 메쉬 · 미리보기 캔버스 가드(예전엔 생성기 흐름이 말없이 보장 · 없으면 던졌다)). 한 파일에 두면 part-paint 와 서로를 불러 새 순환이 생긴다(이렇게 나눠 순환 간선 124 → 122).
-- 검사: `sim-paint-stroke.js` 신설 — 가짜 THREE · 가짜 캔버스(진짜 paint-geom 과 함께) 위에서 첫 점 · 잇기 · 6px 쪼개기 · 최대 8 · 빗나가면 끊기 · 지우개 · 그리기 단계 아님 · 옷 가려짐(숨은 옷 · 다른 장면 · 얼굴 뒤) · 솔기 · 대칭 · 페인트통 4 · 스포이드 2 · 입구 전제 · 연결 · 깨 보기 12(옮기기 전 본문에도 동작 판정 통과). `sim-paint-geom.js` 신설 — strokeSeg 점 · 잇기 · 0 · mirrorUVOn 반전 · 0.6 · off · cx 없음 · 법선 없음 · castFn 없음 · null · 연결 · 깨 보기 9. smoke PRELOAD · sim-renderer-src MODULES 두 줄.
-
-**개정 306 에서 한 것 (2026-10-17 · 구역 떼기 C · w2 · 모듈 입구에 숨은 전제 옮기기 — 동작 변화 없음)**
-- 앱: `character/catalog-source.js` 의 넘기는 함수 넷(`catalogSrcSubscribe` · `catalogSrcMigrateGacha` · `catalogSrcFetchGlb` · `catalogSrcPublishPart`)이 스스로 `catalogSrcCan` 을 본다. 부르는 쪽(catalog-sync · catalog-glb · admin-thumbs)이 먼저 묻던 전제를 입구로 옮긴 것 — 연결 · 함수가 없거나 모르는 구독 종류 · 빈 인자(콜백 · url · id · data)면 서버 요청 없이 `null`(던지지 않음). 지금 부르는 자리는 모두 먼저 묻고 바른 인자를 넘겨서 동작은 같다.
-- 검사: `sim-catalog-source.js` **19·0**(+4) — 4절 입구 가드: 연결 없음 · 함수 없음 · 모르는 종류 · 빈 인자 → 요청 0 · null · 안 던짐, 전제가 다 있으면 그대로 넘김. 변이: 공용 가드 · 구독 종류 · 콜백 · url · id·data 검사를 하나씩 빼기 → 모두 빨강.
-- 검증 중: `sim-typeof-guards.js` 예외 표에 `cb`(character/catalog-source.js 만) — provider 입구 가드의 `typeof cb !== 'function'` 은 넘겨받은 콜백 값 모양 확인이지 «있으면 부르기» 가 아니다(판정 무변경 · 합계 늘지 않음).
-
-**개정 305 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호)**
-- 앱: app.js 곳곳의 생성기 세션 꼭대기 let 58개(미리보기 3D · 카메라 · 단계 · 붓 · 도장 · 책상 세팅 · 코드 가져오기)를 `creator/creator-state.js`(`TwCreatorState` · deps 1 · 이름마다 get/set)로 처음 값 그대로 모았다. app.js 의 참조 933곳은 `crState.이름`(파서로 골라 바꿈 · 가린 지역 이름 없음). 만드는 줄은 «CREATOR + LAUNCHER» 머리 — DESK_SCALE_DEFAULT 선언 덩이를 그 앞으로 올렸다. animal.js 가 전역으로 읽는 creatorOpen · creatorMode · curSlot 은 app.js 에 남김.
-- 검사: `sim-creator-state.js` 신설 — 처음 값 58개(옮기기 전 let 초기값과 하나하나 대조) · DESK_SCALE_DEFAULT 따르기 · get/set · 만들 때마다 따로 · ++ / += · 만드는 줄 · 옛 let 없음 · 맨 이름 참조 없음 · 부팅 순서 · html · smoke · 깨 보기 10. sim-renderer-src — MODULES 한 줄 · 쓰는 함수 glue 가 crState.이름 에 대입해도 되살린다. sim-animal-edit-route · sim-desk-part-scale 은 되살린 글에서 읽는다 · sim-creator-xform 은 glue 가 crState.이름 을 읽는다(판정 무변경). smoke PRELOAD.
-
-**개정 304 에서 한 것 (2026-10-17 · 초대 화면 구글 — 앱 동작 바뀜 · 임시 번호, 머지 때 다시 매김)**
-- 앱: `authSignInWithGoogle` 이 묶지 않고 물릴 때(코드 없음 · 기기 코드가 남의 것) 이번 로그인으로 막 생긴 계정이면 로그아웃 대신 지운다(`_dropGoogleSession` · `isNewUser` → `deleteUser`). 쓰기 실패 갈래는 `userAuth` 가 이미 써졌을 수 있어 로그아웃만. 초대 화면 구글이 «연결된 기록 없음» 을 받으면 «초대 코드를 넣어 주세요» · 코드가 통과해 가입 화면이 열리면 [구글로 가입]을 이어 누른다(`window._inviteGateWantGoogle`).
-- 검사: `sim-google-login.js` §3 의 «fbSignOut 글자 2번 이상» 판정을 걷고 §3-2 로 실제로 돌린다 — 처음 본 구글(코드 없음 · 남의 코드)은 지움 · 원래 있던 계정은 로그아웃만 · 지우기 실패해도 로그아웃 · 코드 있으면 묶음 · 가입된 구글은 로그인. `sim-invite-gate.js` 의 옛 문구 글자 판정을 걷고 【5】로 게이트를 돌린다 — 안내 한 줄 · 묶지 않음 · 코드 통과 뒤 구글 가입 이어짐 · 대조(표시 없으면 안 이어짐). 고친 줄 둘을 되돌리면 각각 빨강.
-
-**개정 303 에서 한 것 (2026-10-17 · 공통 기능 묶기 — 동작 변화 없음)**
-- 앱: 두 곳에 따로 있던 PS1 디더 값(색 단계 16 · 4×4 Bayer 표)과 한 칸 식을 `app/parts/shared/ps1-dither.js`(`window.TwPs1Dither` · 얼린 값 + 순수 함수)로. `dot-render.js` 는 deps `ps1Dither` 로 받아 셰이더 글을 만들고, `purikura-net.js` `applyFilter('ps1')` 는 부를 때 `TwPs1Dither.bayerThreshold` · `ditherQuantize` 를 쓴다(연산 순서 그대로). 안 쓰던 `Purikura.PS1_LEVELS` 내보내기는 뺌. html · smoke PRELOAD 에 새 파일.
-- 검사: `sim-ps1-dither.js` 신설 **20·0** — 값 · 경계값 · 0~255×임계값 16 이 묶기 전 식과 비트까지 같음 · 도트 셰이더 글이 공백 빼고 묶기 전과 같음 · 스티커사진 필터 결과가 묶기 전 식과 픽셀까지 같음 · 깨 보기 6 · 숨은 전제(html 순서 · deps 넘김). `sim-dot-render.js` 는 deps 2개(`ps1Dither`)로.
-- 다른 검사(판정 무변경): 공용 도우미 `sim-renderer-src.js` 가 값 모듈(ps1-dither.js)을 맨 앞에 깔고 이름이 다른 값 deps 를 되살린다 · `sim-purikura-ui.js` 는 ps1-dither.js 도 싣는다.
-
-**개정 302 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호, 머지 때 다시 매김)**
-- 앱: room/presence.js 의 입장 준비 확인 · Firebase 방 provider 고르기(`window.firebaseAPI` 세 곳)와 myhome/seat-friend-req.js 의 `firebaseAPI.sendFriendRequest` 를 deps 읽는 함수(`roomNet` · `friendNet`)로 — app.js 가 `()=>window.firebaseAPI` 한 줄로 넘긴다(같은 객체를 같은 때에 읽는다). 서버(API)로 옮길 때 그 한 줄만 바꾼다.
-- 검사: sim-presence — deps 20 · 전역 firebaseAPI 는 비우고 roomNet 으로만 입장 · 깨 보기 «전역 firebaseAPI 를 봄». sim-seat-friend-req — deps 6 · 전역 firebaseAPI 는 부르면 들키는 덫 · 깨 보기 «전역 firebaseAPI 를 부름».
-
-**개정 301 에서 한 것 (2026-10-17 · 사용자 승인 · baseFlat 이 없는 재질만 밝기가 아주 조금 바뀐다 · 임시 번호)**
-- 앱: 개정 273 에서 한 함수로 묶은 `baseFlatOf` 의 대체값을 곳마다 넘기던 것(아이템 색 · 생성기 색 되돌리기 0.4, 꾸미기 색 1 − LIGHT_PRESET.e ≈ 0.54)을 없애고 함수 안의 공용 기준 `FLAT_EMISSIVE`(≈0.366) 하나로. 정상 경로의 재질은 baseFlat 이 있어 화면은 그대로다. wardrobe 는 쓰지 않게 된 deps LIGHT_PRESET 을 걷었다(typeof 가드 4개도 같이 사라져 기준선을 내림).
-- 검사: sim-light-tone — 없으면 FLAT_EMISSIVE · 부르는 쪽이 대체값을 넘겨도 공용 기준 · 깨 보기 «대체값을 숫자로». sim-creator-xform — ↺ 색 되돌리기는 원래 색 × baseFlatOf(재질) · 대체값을 넘기지 않음. sim-wardrobe deps LIGHT_PRESET 빠짐.
-
-**개정 300 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호)**
-- 앱: «재질에 baseFlat 이 있으면 그 값, 없으면 대체값» 판단이 app.js 세 곳 · creator-xform.js 한 곳 · wardrobe.js 네 곳에 따로 적혀 있던 것을 `lightToneMod.baseFlatOf(mat, fallback)` 하나로 묶었다. 대체값은 곳마다 원래 값 그대로 넘긴다(0.4 · 1 − LIGHT_PRESET.e · FLAT_EMISSIVE) — 값을 하나로 맞추는 것은 다음 개정에서 따로. creator-xform · wardrobe 는 deps 에 baseFlatOf(함수) 하나씩.
-- 검사: sim-light-tone — baseFlatOf 입력 → 출력(심은 값 · 0 · 칸 없음 · null · userData 없음 · 재질 없음) · app.js · wardrobe · creator-xform 이 판단을 다시 쓰지 않는다 · 깨 보기 둘. sim-creator-xform deps 28 · sim-wardrobe deps 한 줄.
-
-**개정 299 에서 한 것 (2026-10-17 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호, 머지 때 다시 매김)**
-- 앱: room/presence.js 의 채팅 · 탭 · 날리기 칸 길이(140 · 16 · 16 · 2)와 자리비움 그림 처음 크기(80), creator/creator-xform.js 의 기즈모 크기(2.1) · 아이템 크기 한 칸 · 상한 · 하한(0.05 · 2.5 · 0.05) · 캐릭터 크기 되돌리기(0.7)를 파일 위 이름 붙은 상수로 모았다(값 그대로).
-- 검사: sim-presence · sim-creator-xform 의 깨 보기를 상수 줄을 바꾸는 모양으로 · 아이템 한 칸 깨 보기 하나 더(판정 무변경). sim-chat-tabs 는 sendChat 을 떼어 돌릴 때 상수 줄을 같이 · sim-fix-0923 은 «처음 값은 숫자» 를 앞에 선언된 숫자 상수도 인정(판정 무변경).
-
-**개정 298 에서 한 것 (2026-10-17 · 버그 수정 — 평준화 중 한 좌석 오류가 남은 좌석까지 막던 것)**
-- 앱: app.js `syncSeatEqualize` — 오류 대비(try)를 forEach 전체에서 좌석 하나 단위로. 던진 좌석은 `_eqK` 를 지워 다음 배치 때 다시 걸고, `console.warn` 은 좌석마다 한 번만(`_eqWarned`). 오류가 없으면 하는 일은 같다.
-- 검사: `sim-seat-eq.js` — «중간 좌석이 실패할 때» 4판정 신설(뒤 좌석도 맞춰짐 · 실패 좌석 표시 안 남음 · 경고 한 번 · 풀리면 다시 맞춰짐). 고치기 전 app.js 로는 빨강 3.
-
-**개정 297 에서 한 것 (2026-10-17 · 서버 이관 — 카탈로그 본문 읽기를 API 로 · 동작이 바뀐다: 받는 곳)**
-- 앱: `app/parts/character/catalog-cache.js` 에 `createApiCatalogFetch` — 버전(catalogMeta)이 바뀌어 본문을 받을 때 t-w-server `GET /v1/catalog/{종류}?v=<버전>` 먼저(시간 제한 8초 · v 가 같으면 하루 캐시). 사본의 ver 가 구독한 버전과 다르거나 · 본문이 객체가 아니거나 · 어떤 실패든 지금처럼 Firebase get. 조용히 넘어갈 실패 판정은 `TwApi.shouldFallback` 을 그대로 받는다. 구독기는 `fetch(kind, ver)` 로 버전을 넘긴다. `firebase-init.js` 는 카탈로그 구독기에 이것을 잇는다. 버전 알림 · 캐시 · 안전장치 ①②③ · 쓰기(Firebase 원본)는 그대로.
-- 검사: `sim-catalog-cache.js` 전부 통과 — 1절 import · 연결(앱 공통 API 통로 · shouldFallback · Firebase get) · 4절 본문 받기 열 줄(같은 버전이면 API 본문 · v 붙이기 · 시간 제한 · val() 새 객체 · 빈 종류 · 버전 다름 · unavailable/notReady 조용히 · 그 밖 실패 경고 · 배열 본문 · API 없음/버전 없음/다른 종류 경계 · 구독기에 끼워 화면 · 캐시). 변이(버전 비교 빼기 · ver 안 넘기기 · 던지기 · val() 같은 객체 · 연결 이름 바꾸기) 모두 빨강.
-
-**개정 296 에서 한 것 (2026-10-17 · 버그 수정 — 개발용 파일 넣기의 .dcc 비밀번호 창이 안 뜨던 것)**
-- 앱: app.js `handleFiles` 의 `window.prompt` 를 `await asyncPromptMod.asyncPrompt({ title, message })` 로. Electron 은 window.prompt 를 안 띄우고 null 을 줘서 .dcc 가 조용히 건너뛰어졌다. 앱 안의 마지막 window.prompt 였다.
-- 검사: `sim-async-prompt.js` **17·0** — 4절 신설(parts/ 의 .js 전부에 window.prompt 부름 없음 · .dcc 는 asyncPrompt · 찾는 판정 깨 보기). 고치기 전 app.js 로는 빨강 2.
-- 검증 중(옮긴 자리에 맞춤): handleFiles 는 그 사이 `character/seat-model-load.js` 로 옮겨 가(#278) 고침도 거기에 — deps `asyncPrompt` 로 받고 app.js 가 `asyncPromptMod.asyncPrompt` 를 잇는다. `sim-async-prompt.js` 4절 «.dcc 는 asyncPrompt» 는 seat-model-load.js 와 app.js 이음을 본다 · `sim-seat-model-load.js` deps 목록에 asyncPrompt · 4절 가짜 deps 에 asyncPrompt(판정 무변경).
-
-**개정 295 에서 한 것 (2026-10-17 · 정리 — 동작 변화 없음)**
-- 앱: app.js `_deskViewH` · `_deskCanvasH` 와 카메라 모듈의 쓰는 함수 deps 2개 · 적는 줄을 지웠다(첫 커밋부터 읽는 곳 없음 — 이동 모드가 화면 비율 방식). 이동 모드 머리 주석을 «화면 비율 — 픽셀 ÷ 창 크기» 로 바로잡음.
-- 검사: `sim-seat-camera.js` — 쓰는 함수 deps 0 · 4절 정답값에서 vh · ch 를 뺌(나머지 카메라 · 캔버스 값은 그대로).
-
-**개정 294 에서 한 것 (2026-10-17 · 새 규칙 칸 — 서버 t-w-server feat/ops-hot-config 가 읽는다 · 앱 동작 변화 없음 · 임시 번호)**
-- 규칙: `config/apiCors`(0..19 키 · `^https://[a-z0-9.-]+$` · 200자 · 관리자 쓰기 · 읽기는 config 의 관리자 · 봇) · `config/apiCache/{config,count,card,leaderboard}`(정수 0~600 · 모르는 칸 거절) · `config/logLevel/{api,realtime}`(error|warn|info|debug · realtime 만 공개 읽기) · `config/roomServer/frame`(maxBytes 65536~1048576 · maxSmallBytes 1024~65536 · 공개 읽기 · 모르는 칸 거절) · `config/roomServer/timing` 에 roomStatsRefreshMs 5000~600000 · statsLogMs 5000~3600000.
-- 검사: `sim-ops-hot-config.js` 신설 **42·0** — 작은 규칙 실행기(경로 따라 .read/.write/.validate · $키)로 새 칸 쓰기 · 읽기를 관리자 · 봇 · 사용자 · 로그인 안 함으로 굴린다. 옛 규칙에 대면 ✗15.
-- 검사: `sim-room-server-gate.js` 5절 timing 범위 표에 두 칸 · frame 한 줄.
-
-**개정 293 에서 한 것 (2026-10-17 · 구역 떼기 C · w2 · 서버 이관 쪽으로 — 동작 변화 없음)**
-- 앱: 새 모듈 `app/parts/character/catalog-source.js`(window.TwCatalogSource · deps 0) — 카탈로그 구독 다섯 · 가챠 옮기기 · GLB 받기 · 파츠 올리기를 도메인 이름(`catalogSrcReady` · `catalogSrcCan` · `catalogSrcSubscribe` · `catalogSrcMigrateGacha` · `catalogSrcFetchGlb` · `catalogSrcPublishPart`)으로 내놓는 Firebase 판(옛 길). `catalog-sync.js` · `catalog-glb.js` · `admin/admin-thumbs.js` 는 firebaseAPI 를 직접 부르지 않고 이것을 deps(`catalogSourceMod`)로 받는다. app.js 는 세 모듈보다 먼저 한 줄로 고른다 — 서버 API 판이 생기면 그 줄만 바꾼다.
-- 검사: `sim-catalog-source.js` 신설 **15·0** — 모양 · 연결(한 줄 · 세 모듈보다 먼저 · deps · 세 모듈 직접 호출 0 · html) · 동작(연결 기다리기 once · 할 수 있는지 여덟 · 경계 · 인자 · 돌려받는 값 · 부를 때마다 읽기). 변이: 직접 호출 되살리기 · once 빼기 · 만들 때 붙잡기 → 빨강.
-- 다른 검사: `sim-catalog-sync.js` **45·0** · `sim-catalog-glb.js` **28·0** · `sim-admin-thumbs.js` **21·0** — deps 한 줄 더(`catalogSourceMod`) · 4절은 진짜 provider 를 가짜 window 위에 만들어 넘긴다(판정 무변경). `sim-publish-fields.js` (ㄹ) 는 provider 의 넘기기 몸을 빼고 `catalogSrcPublishPart` 를 부르는 자리를 배포 자리로 센다(손으로 만든 페이로드로 바꾸면 빨강). `smoke.js` PRELOAD · `sim-renderer-src.js` MODULES 에 catalog-source.js.
-
-**개정 292 에서 한 것 (2026-10-17 · 버그 수정 — 도트 렌더를 켠 뒤 생긴 메쉬가 매끈하게 보이던 것)**
-- 앱: `parts/shared/dot-render.js` — 켬은 «마지막 상태와 같으면 돌아감» 대신 매번 훑고 이미 걸린 것만 건너뜀(텍스처는 이미 Nearest 면 needsUpdate 안 함) · PS1 이 걸렸는지는 표식이 아니라 지금 onBeforeCompile 이 우리 훅인지로(m.clone() 의 가짜 표식 · 색조 셰이더 덮어쓰기) · 셰이더 캐시 키에 원래 훅 글자를 넣어 염색 재질과 보통 재질이 셰이더를 나눠 쓰지 않게 · 끌 때 남이 덮어쓴 훅은 안 지움 · `sweepIfOn(now)` 신설 — 켜져 있을 때만 0.5초마다 다시 훑음. app.js 프레임 루프가 그린 직전에 부른다.
-- 검사: `sim-dot-render.js` **44·0** — 내놓는 이름 3개 · 4절 «다시 부르기» 판정 문구를 «이미 걸린 것은 다시 올리지 않음» 으로 · 5절 신설(켠 뒤 들어온 메쉬 · 가짜 표식 사본 · 덮어쓴 색조 · 캐시 키 · 끌 때 남의 훅 보존 · 훑기 간격 · 프레임 루프 부름). 5절은 고치기 전 dot-render.js 로 돌리면 빨강 6.
-
-**개정 291 에서 한 것 (2026-10-17 · 구역 떼기 C · w2 — 검사만 · 앱 무변경)**
-- 왜: 버그 재발을 막는 판정이 소스 글자를 정규식으로 찾고 있어, 동작이 같아도 코드를 옮기면 빨강이 났다(개정 264 의 «입구 ②»). 반대로 글자는 그대로인데 동작이 깨지면 못 잡는다.
-- `sim-fix-0923.js` **89·0** — 1절 «입구 ① 로컬 캐시 · ② 카탈로그» 를 진짜 `loadSavedParts` · `mergeCatalogIntoSavedParts`(+ `mergeCatalogList` · `_normPartRec`)로 돌려 옛 가챠 기록(stackable:false)이 stackable 이 되는지 · 착용 중인 가챠 파츠가 자기 xf 로 다시 붙는지 본다.
-- `sim-seat-slot.js` **22·0** — 3절을 진짜 `_clampSeatDeskParts` 를 가짜 좌석 위에서 돌리는 판정으로(평준화일 때만 · 올라탄 · 책상 숨은 좌석 제외 · 반폭 = 책상 반폭 + 간격/2 · 멀티 간격 · 0.5초 · 저장값 안 건드림 · seat-slot.js 없어도 안 터짐). 프레임 루프 배선 · typeof 줄은 배선 판정이라 글자로 남김.
-- `sim-desk-floor-clamp.js` 전부 통과 — «상쇄가 그대로» 를 진짜 `syncDeskPartAnchor` 로 돌려 책상을 옮겨도 핀이 좌석 원점에 남는지 본다. `_boxExcluding` · `floorClampWrapper` 의 글자 판정 셋은 2절이 원본 함수를 돌려 이미 보므로 걷음.
-- 변이 확인: 원본을 일부러 깨서(가챠 정규화 빼기 두 입구 · ridingOn 제외 빼기 · 간격/2 → 간격 · 0.5초 막기 빼기 · wrapper 거르기 빼기 · 핀 상쇄 0 · 배율 1) 모두 빨강이 됨을 봤다.
-
-**개정 290 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — USER STATUS 구역의 표 · 팝업 닫기를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «USER STATUS» 구역의 상태 표 `USER_STATUSES` · 커스텀 상태 저장값(`CUSTOM_STATUS_KEY` · `CUSTOM_STATUS_MAXLEN` · `customStatusConf` · `loadCustomStatusFromStorage`) 29줄을 `app/parts/status/user-status-table.js`(`window.TwUserStatusTable` · deps 0 · 바뀐 코드 줄 0)로, 칩 팝업 «한 번에 하나» `_CHIP_POPUPS` · `_closeChipPopups` 32줄을 `app/parts/status/chip-popups.js`(`window.TwChipPopups` · deps 1 · 바뀐 코드 줄 1)로 옮겼다. 내 상태 값 · 풀이 · 칩 반영 · 커스텀 저장 · `_premiumOn` 은 app.js 에 남김 — 옮기면 상태칩 · 포커스 공유와 새 순환 간선 10개가 생기고 room-sync.js 가 `window.setUserStatus` 전역을 부른다.
-- 검사: `sim-user-status-table.js` 신설 **23·0**(4절 — 표 · 불러오기 · 자르기 · 깨진 값) · `sim-chip-popups.js` 신설 **21·0**(4절 — 가짜 DOM 으로 닫기 · exceptId · keep · force · 커스텀 ● · 없는 요소). `sim-status-chip` 은 첫 그리기 줄의 `userStatusTableMod.` 도 받는다(판정 무변경).
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 둘 · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 구역 그대로.
-
-**개정 289 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 — 박힌 값을 상수로 · 동작 변화 없음)**
-- 앱: 값은 그대로 이름만 붙였다 — `part-scene.js` `THUMB_MARGIN` 0.55 · `THUMB_LIGHT_MUL_MAX` 1.5 · `THUMB_KEY_POS` (1, 2.5, 2) / `desk-items.js` `ITEM_DEFAULT_SIZE` 0.8 / `desk-visual.js` `DESK_FRONT_Z` 0.6 · `DESK_LIFT_Y` 0.15 / `catalog-sync.js` `CATALOG_ORDER_LAST` 9999 / `toast.js` `TOAST_DEFAULT_MS` 1900. 상수는 쓰는 함수 바로 위(모듈 만드는 함수 안 — 되살린 글로 도는 옛 검사가 같이 본다).
-- 검사: `sim-catalog-sync.js` 4절이 `mergeCatalogList` 를 뽑을 때 상수 줄도 같이 **45·0**. 나머지 판정 무변경.
-
-**개정 288 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 좌석 탭 · 상태 버튼을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «UI» 구역 앞부분 21줄(패널 DOM · `setInfo` · `renderSeatTabs` · `selectSeat` · `manual`/`setManual` · 상태 버튼 클릭)을 `app/parts/character/seat-panel.js`(`window.TwSeatPanel`)로 옮겼다. 바뀐 코드 줄 3(selected 읽는 · 쓰는 함수) · deps 5. 부르는 곳은 `seatPanelMod.이름` · 수동 상태는 `seatPanelMod.manual()`. 슬라이더 · 모델 파일 입력의 이벤트 연결은 app.js 에 남김 — 모듈로 넣으면 모델 싣기 · layoutSeats 와 새 순환 간선 5개가 생긴다.
-- 검사: `sim-seat-panel.js` 신설 **23·0** — 1~3절 구조(같은 이름 지역 변수 dot · manual 은 판정에서 뺌) · 4절 동작(가짜 DOM 으로 탭 이름 · 클래스 · 고르기 · 안내 · 수동/자동 · 쓰다듬기 버튼).
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 seat-panel.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 구역 그대로.
-- 검증 중: `sim-presence.js` 깨 보기 «deps 하나 빠짐» 이 presence 를 만드는 줄 안의 `triggerPet` 을 지운다 — 이 개정에서 seat-panel 도 같은 deps 줄을 받게 되어 앞의 것을 지우던 것(판정 무변경).
-
-**개정 287 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 확인 요청 승인 — 겹친 글 하나로 · 동작 변화 없음)**
-- 앱: `app/parts/character/catalog-sync.js` 의 아이템 · 책상 · 파츠 합치기에 같은 글로 세 번 있던 규칙(fromCatalog 표시 · order 오름차순(없으면 9999) · 지운 것 · 로컬 전용 남기기)을 순수 함수 `mergeCatalogList(catalogObj, saved, norm)` → `{ list, removedIds }` 하나로 모으고 세 곳이 부르게. 파츠는 `_normPartRec` 를 화살표로 넘긴다. 함수는 `createCatalogSync` 안 맨 위(되살린 글로 합치기를 돌리는 옛 검사가 같이 본다).
-- 검사: `sim-catalog-sync.js` **45·0** — 4절에 `mergeCatalogList` 입력 → 출력(빈 · null · order 0 · 9999 · 같은 order 차례 · 서버판 우선 · 저장 목록 안 바꿈 · norm · 카탈로그가 빈 경계) 6줄 더함. 세 합치기의 기존 동작 판정은 그대로 통과. `sim-fix-0923.js` 의 «입구 ② 카탈로그» 는 같은 뜻(파츠 합치기가 `_normPartRec` 를 넘기고 규칙이 항목마다 부른다)을 새 글 모양으로 찾게.
-
-**개정 286 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 확인 요청 승인 — 죽은 코드 지우기 · 동작 변화 없음)**
-- 앱: `app/parts/character/desk-visual.js` 에서 부르는 곳이 없는 `autoScaleDeskToTarget` · `DESK_TARGET_WIDTH` · `DESK_SIZE_OFFSET`(새 책상만 자동 크기를 걸던 옛 몫) 덩이를 지웠다. README 함정 줄도 «다시 넣지 말 것» 으로.
-- 검사: `sim-desk-visual.js` 의 옮긴 이름 목록에서 셋을 뺐다 **38·0**(동작 4절 그대로).
-
-**개정 285 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 좌석 모델 싣기를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «FILE LOADING» 구역 120줄(`setupSeatModel` · `loadCharGLB` · `loadDeskGLB` · 깜빡임 · `resetSeat` · `handleFiles` · `pickClip`)을 `app/parts/character/seat-model-load.js`(`window.TwSeatModelLoad`)로 옮겼다. 바뀐 코드 줄 4(읽는 함수 자리) · deps 10. 부르는 곳은 `seatModelLoadMod.이름` · 순수 `pickClip` · `prepBlink` 도 내놓는다(검사용).
-- 검사: `sim-seat-model-load.js` 신설 **31·0** — 1~3절 구조 · 4절 동작(실제 three 로 붙이기 · 기본 xf · 앵커 · 얼굴 머티리얼 · 본 찾기 · 클립 넷 · 비우기 · 깜빡임 · 파일 고르기(.glb 책상/캐릭터 · .dcc 비밀번호 · 이미지) · 실패 문구). 4절은 비동기라 끝 줄을 약속 뒤에 센다 · 옮기기 전 app.js 글로도 같은 판정.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 seat-model-load.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 구역 그대로.
-
-**개정 284 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — FIT 구역의 측정 · 진단을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «FIT» 구역의 측정 도우미(`measureCharBox` · `measureHeadBoxNoParts` · `headDecorMeshSet` · `measureUnderfootDepth` · `charFootFix` · `floorClampWrapper` 와 상수) 229줄을 `app/parts/character/char-measure.js`(`window.TwCharMeasure` · deps 0 · 바뀐 코드 줄 0)로, 콘솔 진단 `floorSnapReport` 107줄을 `app/parts/character/floor-snap-diag.js`(`window.TwFloorSnapDiag` · deps 3 · 바뀐 코드 줄 2 · window.floorSnapReport 만 건다)로 옮겼다. 옛 이야기형 주석은 «왜 · 함정» 으로 줄임(주석을 뺀 코드 토큰은 같다). 부르는 곳은 `charMeasureMod.이름`. `fitModel` · `fitDesk` 는 app.js 에 남김(부르는 곳 45 · 핵심).
-- 검사: `sim-char-measure.js` 신설 **32·0**(4절 — 실제 three 로 맨 몸 · 맨 머리 박스 · 장식 메쉬 · 발밑 깊이 · 상한 · 피봇 보정 · 바닥 맞춤 부모 배율 환산 · hard · skipSub) · `sim-floor-snap-diag.js` 신설 **19·0**(4절 — 보고서 줄 · 불일치 경고 · 좌석 없음). 4절은 옮기기 전 app.js 글로도 같은 판정.
-- 다른 검사(판정 무변경): `sim-ride-height` · `sim-desk-floor-clamp` 는 공용 도우미로 읽는다.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 둘 · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 구역 그대로.
-
-**개정 283 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 올라타기 · 묘기 튜닝 값 표를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪑 좌석 크기 평준화» 구역 안의 올라타기 · 묘기 튜닝 상수 37개와 공용 임시 벡터 · 쿼터니언 13개(165줄)를 `app/parts/room/ride-tuning.js`(`window.TwRideTuning`)로 옮겼다. 바뀐 코드 줄 0 · 옛 이야기형 주석(재보정 이력 · 실측치)은 «왜 · 함정» 으로 줄임(주석을 뺀 코드 토큰은 같다) · deps 0. app.js 는 `rideTuneMod.이름` 으로 읽어 ride-bench · interaction-desk deps · animateRig · 와해 처리에 넘긴다. 동물 팔 기본각 `ANIMAL_HAND_REST` 는 animal.js 가 전역 이름으로 읽어 app.js 에 남김. `broadcastRide` · `_collapseRideTower` 는 방 접속 · 올라타기 모듈 · layoutSeats 를 불러 모듈로 빼면 순환이 생겨 app.js 에 남김.
-- 검사: `sim-ride-tuning.js` 신설 **18·0** — 1~3절 구조 · 4절 동작(값 표 50개가 옮기기 전과 같다 · 임시 객체 따로따로 · 값 범위 · 만들 때마다 새 객체).
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 ride-tuning.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 구역 그대로.
-
-**개정 282 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 — 토스트 · 저장 실패 문구를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🍞 토스트(toast) · 저장 실패 문구» 구역(`toast` · `toastT` · `_saveFailMsg`)을 `app/parts/shared/toast.js`(`window.TwToast`, deps 0)로. 두 이름은 app.js 150여 곳 · 다른 파일 · `window.toast` 가 전역으로 부르므로 원래 자리에 같은 이름의 이음 함수 둘(«옛 전역 이름»)을 두고 부르는 줄은 안 바꿨다. 코드 글자 그대로 · 옛 이야기형 주석만 줄임.
-- 검사: `sim-toast.js` 신설 **23·0** — 1~3절 구조(부르는 줄은 옛 이름 · 이음 함수 둘만 `toastMod.이름`) · 4절 동작(가짜 DOM · 타이머로 띄우기 · 끄기 · 그림 · 앞 타이머 지우기 · 시간 경계 · 거부 문구 갈래). 4절은 옮기기 전 app.js 글로도 같은 판정이 돈다. `_saveFailMsg` 글을 app.js 에서 찾던 `sim-admin-rules.js` 는 되살린 글(`joinRenderer`)을 읽게 — 판정 무변경.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 toast.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로.
-
-**개정 281 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 올라타기 실측 함수를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪑 좌석 크기 평준화» 구역 안 올라타기 튜닝 사이의 실측 함수 셋(`_measureCircusFootOff` · `_rideHostSpinY` · `_measureAnimalArmH`)과 그 임시 벡터 · 상한 79줄을 `app/parts/room/ride-measure.js`(`window.TwRideMeasure`)로 옮겼다. 바뀐 코드 줄 0 · 옛 이야기형 주석은 «왜 · 함정» 으로 줄임(주석을 뺀 코드 토큰은 같다) · deps 1(seatEqMod). ride-bench deps 는 `rideMeasureMod.이름`.
-- 검사: `sim-ride-measure.js` 신설 **25·0** — 1~3절 구조 · 4절 동작(실제 three 로 회전 · 위치를 뺀 접지점 · 경계 0.3 · 실패 경고 · 회전 춤 기준선 · 들린 rig 상쇄 · 크기 0). 4절은 옮기기 전 app.js 글로도 같은 판정.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 ride-measure.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 구역 그대로.
-
-**개정 280 에서 한 것 (2026-10-16 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호, 머지 때 다시 매김)**
-- 앱: app.js «👻 …» 덩어리의 «아이템 3D 기즈모(어플 3)» · «좌석 세팅(6단계)» 300줄을 `creator/creator-xform.js`(`TwCreatorXform` · deps 27 + 쓰는 함수 3)로 글자 그대로. 바뀐 줄은 생성기 상태를 읽는 · 쓰는 함수로 바꾼 36줄 · 옛 이야기형 주석 줄이기뿐. 부르는 곳 7곳은 `crXformMod.이름`.
-- 검사: `sim-creator-xform.js` 신설 — 높이 슬라이더 범위 · 캐릭터 슬라이더 · 되돌리기(data-rs z → 높이) · 아이템 크기 ＋/－(0.05 칸 · 상한 2.5 · 하한 0.05 · 바닥 클램프 되짚기) · 크기 / 이동 · 회전 초기화 · 고른 아이템 없음 · 기즈모 붙이기 · 책상 위치 모드(켜기 · 없을 때 · 초기화 · 숫자 글) · 드래그 끝 저장(아이템 adj · YXZ yaw / 책상 cDeskPos · 남은 아이템에 안 들어감) · 회전 모드 Y 고리만 · 파츠 핀 빼고 클램프 · TransformControls 없음 · 책상 길이 · 배율 · 연결 · 깨 보기 9. 옮기기 전 app.js 본문(상태를 직접 읽는 글 — with 로 묶어)에도 동작 판정이 모두 통과. smoke PRELOAD · sim-renderer-src MODULES 한 줄 · 옮긴 글을 찾던 sim-desk-floor-clamp · sim-desk-item-origin · sim-item-rot 은 되살린 글에서 읽는다(판정 무변경).
-- 검증 중(충돌 해결): w4 의 재질 톤은 `shared/light-tone.js`(`lightToneMod`)로 이름을 바꿔 들어갔다(개정 271). `sim-creator-xform.js` «부르는 곳은 crXformMod.이름» 은 빈 괄호 대신 아무 인자나 받는다 — 닫기의 `detachItemGizmo` 가 creator-flow.js 로 옮겨 가 app.js 에는 deps 이음으로 남기 때문(판정 무변경).
-
-**개정 279 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 꾸미기 파츠 표시를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪑 좌석 크기 평준화» 구역 안의 «🎁 꾸미기 파츠 표시»(깃발 `decoPartsVisible` · `_decoWrapperShow` · `applyDecoPartsVisibility`) 23줄을 `app/parts/character/deco-parts-visibility.js`(`window.TwDecoPartsVisibility`)로 옮겼다. 바뀐 코드 줄 2(premiumMod 를 읽는 함수로) · 옛 이야기형 주석은 «왜 · 함정» 으로 줄임(주석을 뺀 코드 토큰은 같다) · deps 1. 부르는 곳은 `decoPartsMod.이름`, 설정 창 깃발은 `decoPartsVisible()` · `setDecoPartsVisible(v)`.
-- 검사: `sim-deco-parts-visibility.js` 신설 **19·0** — 1~3절 구조 · 4절 동작(깃발 저장값 · 켬 · 끔 · 책상 위 예외 · 표 없음 · 빈 좌석 · 던짐).
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 deco-parts-visibility.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 구역 그대로.
-
-**개정 278 에서 한 것 (2026-10-16 · C 구역 떼기 w3 — 동작 무변경)**
-- 앱: app.js «커미션 캐릭터 코드 입력» 구역(90줄 — 종족 선택창의 [코드로 등록] 패널 · dataUrlToCanvas)을 `app/parts/creator/commission-import.js` 로 글자 그대로 옮겼다(바뀐 줄 6 — 읽는 · 쓰는 함수 자리). 내놓는 이름 없음 · deps 15.
-- 검사: `sim-commission-import.js` 신설 — 모양 · 연결 · 깨 보기 + 패널 · 머리글자 갈래(DCC1 · DCK1 · DCM1 · 그 밖) · 복호화 못 쓰는 환경 · 칸 고르기 · 등록 칸 값 · 용량 · 보관함 문턱 · 암호 틀림 · 그림 못 읽음. `sim-race-picker.js` 의 «부르는 곳이 옛 이름» 깨 보기는 app.js 가 racePickerMod.이름 을 직접 부르는 자리가 남아 있을 때만 돈다(이제 부르는 곳은 모두 deps 로 받는 모듈 — 판정 무변경). `smoke.js` · `sim-renderer-src.js` 에 한 줄씩.
-
-**개정 277 에서 한 것 (2026-10-16 · 사용자 결정 «정리하고 새로 띄움» — 동작이 바뀐다)**
-- 앱(main.js): `second-instance` — 옛 인스턴스의 메인 창이 없거나 · 파괴됐거나 · 렌더러가 죽었거나(`webContents.isCrashed`) · 응답 없음(`'unresponsive'` 뒤 `'responsive'` 가 아직 안 옴)이면 앞으로 올리지 않고 `app.relaunch()` → 전역 훅 · 타이머 정리 → 창 destroy → `app.exit(0)`(session-end 정리와 같은 순서). 멀쩡하면 예전처럼 앞으로 올리기만(방 튕김 방지). 부팅 중(준비 전 · 창을 만들기 전)이면 예전처럼 아무것도 안 한다.
-- 앱(main.js): 판정은 순수 함수 `_secondInstanceAction` · 신호 모으기는 `_mainWindowHealth` · 정리는 `_relaunchFresh`. 무응답 기록은 `_watchRendererHealth` 의 unresponsive / responsive 처리기가 WeakSet 에 넣고 뺀다(진단 로그 줄은 그대로).
-- 검사: sim-second-instance 신설(판정 표 · 가짜 창에서 신호 읽기 · 처리기 focus / relaunch 순서 · exit(0) · 부팅 중 무시 · 배선 · 일부러 깨 보기 8).
-- 검증 중 고침(공통 기능 먼저 묶기): 정리 다섯 줄을 session-end 에서 베끼지 않고 개정 276 의 `_exitNow()` 를 부른다. `sim-second-instance.js` 는 `_exitNow` 도 함께 꺼내 돌리고, 깨 보기 «exit(0) 대신 quit» 은 `_exitNow` 에 · «새로 띄우기 뒤 끝내기를 안 부름» 하나 더(같은 호출 순서 판정).
-
-**개정 276 에서 한 것 (2026-10-17 · 공통 기능 먼저 묶기 — 동작 변화 없음)**
-- 앱: main.js 의 session-end 처리 다섯 줄(전역 훅 내리기 · 커서 감시 · 폴링 타이머 지우기 · 창 destroy · app.exit(0))을 꼭대기 함수 `_exitNow()` 하나로 옮기고 session-end 는 그것을 부른다. 곧 들어올 «두 번째 실행 때 옛 창을 쓸 수 없으면 새로 띄우기»(wD 9b40ea6)가 같은 순서를 베끼지 않고 이 함수를 부르게 하려는 것.
-- 검사: `sim-sysinput.js` 의 «session-end 에서도 훅을 내린다» 판정이 이벤트가 `_exitNow()` 를 부르면 그 함수 몸통에서 `stopGlobalHooks` 를 찾는다(판정 무변경 · 함수 안에서 지우면 빨강을 손으로 확인).
-
-**개정 275 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 좌석 크기 평준화를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪑 좌석 크기 평준화» 구역의 평준화 몫(깃발 `seatEqualizeOn` · `seatEqK` · `seatScale` · `charLiftWorld` · `syncSeatEqualize`) 78줄을 `app/parts/character/seat-equalize.js`(`window.TwSeatEqualize`)로 옮겼다. 바뀐 코드 줄 0 · 옛 이야기형 주석은 «왜 · 함정» 으로 줄임(주석을 뺀 코드 토큰은 같다) · deps 8. 부르는 곳은 `seatEqMod.이름`, 설정 창의 깃발 읽기 · 쓰기는 `seatEqMod.seatEqualizeOn()` · `setSeatEqualizeOn(v)`. 같은 구역의 꾸미기 파츠 표시 · 올라타기 튜닝은 그대로(다음 커밋).
-- 검사: `sim-seat-equalize.js` 신설 **31·0** — 1~3절 구조 · 4절 동작(깃발 · k · 이상한 값 · 부캐 · 내 좌석 없음 · 들림 사람/동물 · 다시 걸기 · 그대로면 안 함 · 재진입 · 던짐) — 4절은 옮기기 전 app.js 글로도 같은 판정.
-- 다른 검사(판정 무변경): `sim-seat-slot` 은 공용 도우미로 읽는다.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 seat-equalize.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 구역 그대로.
-
-**개정 274 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 — 책상 모양을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기» 구역 가운데(`normalizeDeskObj` · `swapDeskVisual` · `applyDeskColorToCustom` · 안 쓰는 `autoScaleDeskToTarget` · `DESK_SIZE_OFFSET`)와 «🔄» 사이에 남겨 둔 `applyDeskCatalogRefToSeat` 를 `app/parts/character/desk-visual.js`(`window.TwDeskVisual`, deps 12 — `isPremium` · `isAdmin` 읽는 함수)로(두 덩이). 코드 글자 그대로 · 옛 이야기형 주석만 줄임. 부르는 곳은 `deskVisualMod.이름`.
-- 검사: `sim-desk-visual.js` 신설 **38·0** — 1~3절 구조 · 4절 동작(가짜 THREE 로 바꿔 끼기 · 되돌리기 · `_col` 모으기 · 자리 맞춤 · 재생 auto · idle · click · 색 · 카탈로그 책상 · 라이선스는 내 좌석만 · 풀기 실패). 4절은 옮기기 전 app.js 글로도 같은 판정이 돈다.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 desk-visual.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로.
-
-**개정 273 에서 한 것 (2026-10-16 · C 구역 떼기 w3 — 동작 무변경)**
-- 앱: app.js «🧍 생성기 미리보기 — 렌더러 · 카메라 · 열기 · 닫기 · 완료» 구역과 «💡 생성기 조명» 을 책임별로 셋으로 글자 그대로 옮겼다 — `creator/creator-preview.js`(3D: 렌더러 · 카메라 궤도 · fitCreator · 베이스 갈아끼우기 · 팔 각도 · 책상 아이템 · 파츠 걷기 · 조명, 343줄 · 바뀐 줄 111) · `creator/creator-flow.js`(gotoStep · closeCreator, 81줄 · 바뀐 줄 15) · `creator/creator-save.js`(_creatorBuildDef · 용량 재기 · [완료], 125줄 · 바뀐 줄 45). 바뀐 줄은 모두 읽는 · 쓰는 함수 자리.
-- 생성기 상태(cRenderer · cBase · 카메라 각도 …) 6줄은 app.js 에 남기고 💡 구역 머리로 올렸다(그리기 · 책상 · 기즈모 · animal.js 가 같이 쓴다 — animal.js 는 `creatorOpen` 에 직접 대입). 여는 입구 `openCreator` 도 남겼다 — 동물 생성기 · 종족 선택창 · 친구 추가가 부르고 동물 생성기로 되돌리는 연결 자리라 옮기면 순환 간선 10개(sim-dep-cycles).
-- 실제 앱(dev · 새 시험 프로필) 확인: 런처 넘기기 · 톱니 · 생성기 열기 · 단계 1~6(카메라 거리까지) · 닫기 · 수정 완료 · 실행 · 런처 복귀 — main 과 같은 값 · 예외 0.
-- 검사: `sim-creator-preview.js` · `sim-creator-flow.js` · `sim-creator-save.js` 신설(모양 · 연결 · 깨 보기 + 동작 — 조명 세기 · 궤도 · 각도 기억 · 팔 각도 · 단계별 화면 · 잠금 · 런처 복귀 · def 칸 · 기본값 생략 · 저장 칸 경계 · 빈 얼굴 확인). `sim-animal-edit-route.js` · `sim-creator-flat-view.js` · `sim-desk-item-origin.js` 는 옮긴 모듈까지 되살려 읽게(joinRenderer · 판정 무변경 — gotoStep 머리 자르기는 «crStep = n;» 띄어 쓴 모양도 찾는다). `app-size-baseline.json` app.js 상한 14397 → 13675(firebase-init.js 상한이 원래부터 지금 크기 + 여유보다 작아 --write-baseline 이 통째로 거절돼 app.js 칸만 손으로 내렸다). `smoke.js` · `sim-renderer-src.js` 에 한 줄씩.
-
-**개정 272 에서 한 것 (2026-10-16 · 모듈 순환 끊기 8 — 마이홈 고리판 · 앱 동작 변화 없음)**
-- 앱: `app/parts/myhome/myhome-hooks.js` 신설 — 이름 열(`HOOK.COMMIT` · `APPLY_BG` · `APPLY_THEME` · `BGM_REFRESH` · `BGM_PLAYING` · `BGM_SET_PLAYING` · `BGM_DESTROY` · `DS_CLOSE` · `CANCEL_NAME_EDIT` · `SYNC_BGM_BOUNDS`) · `on` · `call`(안 걸렸으면 던진다 — 예전 `window.이름()` 과 같다) · `has`. 편집 묶음(myhome-edit)이 아홉 · 마이홈 창(myhome-ui)이 BGM 창 자리를 만들 때 건다. 페이지 그리기 · 친구 목록 · 스티커 배치 · 친구 홈 구경 · 마이홈 창 · 설정 패널 · 스티커사진 · 바탕화면은 window 고리 대신 고리판으로 부른다(같은 함수 · 같은 때 · 같은 try). app.js 는 건드리지 않았다 — app.js 가 부르는 `commitMyHomePage` · `_bgmDestroy` · `_mhDsClose` 와 편집 묶음 · 마이홈 창 안이 부르는 `_mhApplyBg` · `_mhApplyTheme` · `_mhSyncBgmBounds` 는 window 에도 그대로 건다. 부르는 곳이 없어진 `_mhBgmRefresh` · `_mhBgmPlaying` · `_mhBgmSetPlaying` · `_mhCancelNameEdit` window 고리는 고리판으로만.
-- 남긴 것: 채팅 핵심(방 질문 · 탭 · 이모티콘) 순환은 간선이 전부 app.js 의 만드는 줄 deps 에서 나온다 — app.js 를 쪼개는 작업과 겹쳐 이번엔 안 건드렸다.
-- 검사: `sim-myhome-hooks.js` 신설 — 고리판 동작(부름 · 인자 · 돌려준 값 · 안 걸리면 던짐 · null 로 내림) · 이름마다 거는 곳 한 파일 · 부르는 곳 · 아는 이름만 · 글자 이름 없음 · 받는 줄 모양 · 싣는 순서 · smoke 가 싣는다 · 깨 보기 여섯. `smoke.js` 가 myhome-hooks.js 를 진짜로 싣는다. sim-myhome-edit 는 고리판에 거는 것 · 닉네임 취소 · BGM 재생 표시를 고리판으로 보고, sim-hook-guards 표에서 window 고리가 아닌 셋을 뺐다. sim-myhome-inbox · sim-purikura-ui 는 무대에 진짜 고리판을, 모양 검사 다섯(page · sticker-layout · ui · visit · settings-panel)은 가짜 고리판을 둔다. sim-myhome-steps · sim-purikura-deco 는 저장 · BGM 표시를 고리판 부름으로 찾는다(판정 무변경). sim-renderer-src 는 여러 모듈에 같은 «const mhHooks = TwMyHomeHooks;» 줄을 한 번만 펼친다. `dep-cycles-baseline.json` 순환 간선 122 → 110 · 묶음 35 / 4 / 2 / 2 → 34 / 4 / 2 / 2.
-- 검사: `sim-typeof-guards.js` 예외 표에서 `_mhCancelNameEdit` 를 뺐다 — 이 개정에서 typeof 가드가 고리판 `has()` 로 바뀌어 없어졌다(없어진 예외는 빨강 · 판정 무변경).
-
-**개정 271 에서 한 것 (2026-10-16 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호, 머지 때 다시 매김)**
-- 앱: app.js «👻 …» 덩어리 끝의 조명 프리셋 · 재질 톤(`LIGHT_PRESET` · `TONE_FRONT_TOTAL` · `FLAT_EMISSIVE` · `_applyPartMatTone` · `_applyItemMatTone` · `_setDeskMatColor`) 142줄을 `shared/light-tone.js`(`TwLightTone` · deps 3)로 글자 그대로(바뀐 줄 0 · 값 이력 표 등 옛 이야기형 주석만 줄임). app.js 부르는 곳 22곳은 `lightToneMod.이름` · animal.js 가 읽는 `LIGHT_PRESET` 은 «옛 전역 이름» 한 줄.
-- 검사: `sim-light-tone.js` 신설 — 상수 · FLAT_EMISSIVE 식(조명이 크면 0 · 0 이면 총합) · 파츠(텍스처 · 색 없음) · 아이템(텍스처 · emissiveMap 지키기 · solid · emissiveIntensity) · 책상(색 · baseFlat 심기 / 지키기 · 색 없는 재질) · null · 연결 · 깨 보기 8. 옮기기 전 app.js 본문에도 27개 통과. smoke PRELOAD · sim-renderer-src MODULES 한 줄 · sim-creator-flat-view 는 조명 예산 상수를 되살린 글에서 읽는다(판정 무변경). `app-size-baseline.json` app.js 상한을 지금 크기 + 200 으로 내림(톱니).
-
-**개정 270 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 — 책상 위 아이템 등록부를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪑 책상 · 아이템 등록» 구역 앞쪽(`registerCustomItem` · `allDeskItems` · `deskItemDef` · 메타 채우기)을 `app/parts/character/desk-items.js`(`window.TwDeskItems`, deps 4 — `customItems` 는 읽는 함수)로. `activeCustomDeskId`(생성기 상태)와 `loadSavedItemsIntoSession`(부팅 초반 · 만드는 줄보다 앞에서 부름)은 app.js 에 남김. 코드 글자 그대로 · 옛 이야기형 주석만 줄임. 부르는 곳은 `deskItemsMod.이름`.
-- 검사: `sim-desk-items.js` 신설 **27·0** — 1~3절 구조 · 4절 동작(기본값 · 인자 우선 · 크기 0 · 저장 레코드로 메타 채우기 · 저장 목록 못 읽음 · build 의 복제 · 그림자 · 톤 · 합친 목록과 바꿔 끼기). 4절은 옮기기 전 app.js 글로도 같은 판정이 돈다.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 desk-items.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로.
-
-**개정 269 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — layoutSeats 본문을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪑 좌석 배치(layoutSeats)» 의 본문 46줄을 `app/parts/room/seat-layout.js`(`window.TwSeatLayout`)의 `layoutSeatRow` 로 옮겼다. 바뀐 코드 줄 6(읽는 · 쓰는 함수 자리 · 탑 바닥은 ride-chain.js 의 `_rideBottom` 을 deps 로 — ride-bench 를 부르면 순환 간선 6개가 생겨서) + 함수 이름 하나 · 옛 이야기형 주석은 «왜 · 함정» 으로 줄임(주석을 뺀 코드 토큰은 같다) · deps 14 · 새 순환 간선 0. app.js 는 `function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }` 를 남긴다 — 맨 아래 «데스크탑 창 크기» 가 이 이름을 감싸 다시 대입하고(앱 FSD 32번) 부르는 곳 · 다른 모듈 deps 는 이 이름을 본다.
-- 검사: `sim-seat-layout.js` 신설 **25·0** — 1~3절 구조 · 4절 동작(혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 2층 · 맨 오른쪽 고정 · 오프셋 당기기 · 책상 폭 0 · 빈 목록). 1번부터 반폭에 줌 상한이 걸리는 지금 동작을 그대로 고정(CONFIRM.md 에 따로 적음).
-- 다른 검사(판정 무변경): `sim-seat-pin` 은 layoutSeatRow 본문을 먼저 찾는다(없으면 옮기기 전 layoutSeats).
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 seat-layout.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 구역 그대로.
-
-**개정 268 에서 한 것 (2026-10-16 · 원래 있던 문제 — 동작이 바뀐다)**
-- 앱: 앱 메뉴를 정하지 않아 일렉트론 기본 메뉴의 가속기(Ctrl+R · Ctrl+Shift+R · Ctrl+Shift+I · Ctrl+-/+/0 · F11 · Ctrl+W)가 모든 창에서 살아 있었다. 방명록 창에서 Ctrl+- 가 기본 Zoom Out 으로 들어가 방명록만 작아졌다. 시작 때 메뉴를 걷는다(Windows/Linux `null` · mac 은 앱 메뉴(종료) + 편집 역할만 — Cmd+C/V/X/A/Z 유지). 자식 창(window.open)은 열 때 100% 로 두고 줌 키 · Ctrl+휠을 막는다. 메인 창 F12 · applyUiZoom 은 그대로(main.js).
-- 검사: `sim-no-default-menu.js` 신설 **36·0** — 메뉴 원문을 가짜 Menu 에서 플랫폼별로 · 자식 창 원문에 가짜 키 · 휠 입력. 옛 main.js 에 대면 ✗7.
-- 검사: `sim-ui-zoom.js` «setZoomFactor 는 applyUiZoom 한 곳뿐» 을 메인 창 기준으로 — `_lockChildZoom` 안의 `setZoomFactor(1)` 은 빼고 세고, 그 안은 1 만 허용하는 줄 하나 추가.
-
-**개정 267 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 — 카탈로그 실시간 동기화를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🔄 카탈로그 실시간 동기화» 구역(아이템 · 책상 · 파츠 합치기 · 구독 다섯)을 `app/parts/character/catalog-sync.js`(`window.TwCatalogSync`, deps 39 — 생성기 상태 9 는 읽는 함수, `cDeskTemplate` · `cDeskGlbB64` 는 쓰는 함수)로. 좌석 책상을 그리는 `applyDeskCatalogRefToSeat` 는 책상 몫이라 app.js 에 남김(두 덩이). 💾 머리 밑에 있던 동기화 설명 주석은 모듈로. 코드 글자 그대로 · 바뀐 줄은 읽는 · 쓰는 함수 자리뿐 · 옛 이야기형 주석만 줄임. 내놓는 이름 0.
-- 검사: `sim-catalog-sync.js` 신설 **39·0** — 1~3절 구조 · 4절 동작(구독 · firebase-ready once · 아이템 · 책상 · 파츠 합치기 순서와 지운 것 · 좌석 · 생성기 다시 반영 · 세션 등록을 기다린 뒤 다시 적용 · 가챠 옮기기 한 번 · 카테고리). 4절은 옮기기 전 app.js 글로도 같은 판정이 돈다.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 catalog-sync.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로.
-- 서버 이관: 모듈은 `firebaseAPI` 를 직접 보지 않는다 — 데이터 provider `catalogNet`(읽는 함수 · 지금은 app.js 가 `()=>window.firebaseAPI`) 으로만 구독한다(21곳 · 부르는 때와 결과는 같다). `sim-catalog-sync.js` 에 «직접 보지 않는다» 판정 + 깨 보기 하나 · deps 40. 공용 도우미 `sim-renderer-src.js` 는 «X: ()=>window.Y,» 로 받은 읽는 함수를 옮기기 전 글(`window.Y`)로 되살린다(판정 무변경).
-
-**개정 266 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 탑 바닥 찾기를 아래층 순수 모듈로 · 동작 변화 없음)**
-- 앱: `ride-bench.js` 의 `_rideBottom`(5줄 · 순수)을 `app/parts/room/ride-chain.js`(`window.TwRideChain`)로 글자 그대로 옮겼다. ride-bench 는 deps 로 받아 예전처럼 내놓는다(`rideBenchMod._rideBottom` 그대로). app.js 가 ride-bench 보다 먼저 `createRideChain` 을 만든다. 좌석 줄 배치를 모듈로 뺄 때 seat-layout → ride-bench 간선이 순환을 만들지 않게 하려는 준비.
-- 검사: `sim-ride-chain.js` 신설 **14·0** — 동작(안 탄 좌석 · 2층 · 순환 x↔y · 상한 16 · 빈 값) · 연결(정의 한 벌 · 만드는 순서 · deps · html) · 깨 보기. `sim-ride-bench` 는 deps 목록에 _rideBottom(판정 무변경). `smoke.js` 도 먼저 평가.
-
-**개정 265 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 — 카탈로그 GLB 영구 캐시 · URL 해결을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결» 구역을 책임 둘로 — IndexedDB 넣기 · 꺼내기 · 치우기(`_glbIdbGet` · `_glbIdbPut` · `_glbIdbPrune`)는 도메인을 모르는 `app/parts/shared/glb-idb-cache.js`(`window.TwGlbIdbCache`, deps 0), glbUrl → rec.glb 해결(`resolveCatalogGlb` · `resolveCatalogGlbAll`)은 `app/parts/character/catalog-glb.js`(`window.TwCatalogGlb`, deps `glbIdbMod`). 코드 글자 그대로 · 옛 이야기형 주석만 줄임. 부르는 곳은 `catalogGlbMod.이름`.
-- 검사: `sim-glb-idb-cache.js` 신설 **24·0** — 4절(가짜 IndexedDB · 없음 · 열기 실패 · 넣기/꺼내기 · 한 번만 열기 · 45일 경계 치우기 · 한 번만 치우기). `sim-catalog-glb.js` 신설 **28·0** — 4절(메모리 → 영구 캐시 → 서버 차례 · 실패는 기억 안 함 · 넣기 안 기다림 · 스냅샷 전부). 4절은 둘 다 옮기기 전 app.js 글로도 같은 판정이 돈다.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 두 모듈 · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로.
-
-**개정 264 에서 한 것 (2026-10-16 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호, 머지 때 다시 매김)**
-- 앱: app.js «DRAG / PET» 안의 🙋 좌석 우클릭 친구 신청(두 번 눌러 보내기 · 앞단 검사) 43줄을 `myhome/seat-friend-req.js`(`TwSeatFriendReq` · deps 5)로 글자 그대로. 바뀐 줄은 `_myHomeFriends` 읽는 함수 2줄 · 옛 이야기형 주석 줄이기뿐. 좌석 메뉴는 `seatFriendReqMod._friendReqAsk`.
-- 검사: `sim-seat-friend-req.js` 신설 — 첫 번째 안내만 · 같은 사람 두 번째에 보냄(넘기는 값) · 다른 사람 · 5초 지나면 처음부터 · 준비 안 됨 · 나 · 이미 친구 · 정원 경계(MAX−1 보냄 · MAX 막음) · 서버 결과 셋 · 던짐 · 연결 · 깨 보기 8. 옮기기 전 app.js 의 본문에 대도 동작 판정이 모두 통과. smoke PRELOAD · sim-renderer-src MODULES 한 줄(판정 무변경).
-
-**개정 263 에서 한 것 (2026-10-16 · C 구역 떼기 w3 — 동작 무변경)**
-- 앱: app.js «💡 얼굴 텍스처 갈아끼우기 · 생성기 조명» 구역의 재질 함수 둘(`setFaceMap` · `applyLightPresetToInstance`, 48줄)을 `app/parts/character/mat-tone.js` 로 글자 그대로 옮겼다(바뀐 줄 0 · deps 는 `FLAT_EMISSIVE` 값 하나). 생성기 조명(`crFlatView` · `updateCreatorLights`)은 다음 생성기 묶음에서 옮긴다. app.js 부르는 자리 13곳은 `matToneMod.이름`.
-- 검사: `sim-mat-tone.js` 신설 — 모듈 모양 · 연결 · 깨 보기 + 가짜 재질로 입력 → 결과(맵 · emissiveMap 동기화 · 🐾 귀 감김/뜸 · 같은 그림이면 안 감 · 빠진 재질 건너뛰기 · 평탄화 배율 · 텍스처 없는 메쉬 · 색 없는 재질 · FLAT_EMISSIVE 0). 일부러 귀 판정 · 텍스처 없는 메쉬 평탄화를 깨 보면 빨강. `smoke.js` · `sim-renderer-src.js` 에 한 줄씩(판정 무변경).
-
-**개정 262 에서 한 것 (2026-10-16 · 구조 정리 빚 막기 — 동작 변화 없음)**
-- 검사: `sim-typeof-guards.js` 신설 — app/parts/**/*.js(vendor/ 빼고)의 `typeof 이름 === 'function'` · `typeof 이름 !== 'undefined'` 류 «있으면 부르기» 가드를 파일별 개수 기준선 `typeof-guards-baseline.json`(178개 · 파일 52개)으로 두고 **파일마다 늘면 빨강 · 줄었으면 기준선을 내리라고 빨강**(`node checks/sim-typeof-guards.js --write-baseline` — 합계가 늘었으면 쓰기를 거절). 값 모양 검사('string' · 'number' · 'object' · 'boolean') · 환경 검사(`typeof window` · `module` · `require` 등 ENV 표) · 주석 안은 안 센다. 일부러 남긴 가드 14개 이름은 EXEMPT 표(이유 한 줄씩 — animal.js 고리 넷 · `_pomoShowText` · 창 열 때만 거는 넷 · app.js 안 closeWardrobe 둘 · 생성기 셋 · HumanEar)로 빼고, 없어진 예외는 빨강. 깨 보기 여덟(늘면 · 새 파일 · 줄면 빨강 · 같으면 초록 · 값 모양 · 환경 · 예외 · 파일 정한 예외). sim-hook-guards 는 그대로.
-
-**개정 261 에서 한 것 (2026-10-16 · 구역 떼기 C · w2 — 파츠 GLB 파싱 캐시 · 썸네일을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🧊 파츠 GLB 파싱 캐시 · 썸네일» 구역을 둘로 — 파싱 캐시 · 썸네일 굽기(`getPartScene` · `generatePartThumbnail` · `partSceneCache`)는 `app/parts/character/part-scene.js`(`window.TwPartScene`, deps 9), F12 콘솔 `generateAllPartThumbnails` 는 `app/parts/admin/admin-thumbs.js`(`window.TwAdminThumbs`, deps 7 — 한 모듈에 두면 관리자 등록 모듈과 서로 부르는 순환이 생긴다). 코드 글자 그대로 · 바뀐 줄은 읽는 함수 자리뿐 · 옛 이야기형 주석만 줄임. 부르는 곳은 `partSceneMod.이름`.
-- 검사: `sim-part-scene.js` 신설 **32·0** — 1~3절 구조 · 4절 동작(파싱 캐시 · glbUrl 먼저 받기 · 받기 실패 · 썸네일 광량 공식과 경계 0 · 1.5 · 0 나누기 · 프레이밍 · 원본 머티리얼 보호). `sim-admin-thumbs.js` 신설 **21·0** — 4절(관리자 아님 · 없는 것만 · force · 실패 건너뛰기 · 0개 · firebaseAPI 없음). 4절은 둘 다 옮기기 전 app.js 글로도 같은 판정이 돈다.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 두 모듈 · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로.
-
-**개정 260 에서 한 것 (2026-10-16 · C 구역 떼기 w3 — 동작 무변경)**
-- 앱: app.js «🖼️ 런처 미리보기 · 슬롯 섬네일» 구역(196줄)을 `app/parts/launcher/launcher-preview.js` 로 글자 그대로 옮겼다(바뀐 줄 3 — `customItems` · `assetCodeMod` · `slotSaveMod` 를 읽는 함수로). 내놓는 이름 6(`ensureLauncherPreview` · `setLauncherChar` · `sizeLauncherPreview` · `launcherLoop` · 읽는 함수 `lRenderer` · `lHolder`) · deps 32. `renderLauncher` 는 app.js 에 남겼다 — 여러 모듈이 부르고 초대장 · 톱니 · 연동 띠 모듈을 함께 부르는 연결 자리라 옮기면 순환 간선 25개가 생긴다(sim-dep-cycles 로 확인).
-- 검사: `sim-launcher-preview.js` 신설 — 모듈 모양 · 연결 · 깨 보기 + 만들 때 안 그림 · 렌더러 한 번만 · 도트 배율(260×228 → 143×125) · 크기 못 잴 때 · 아주 작은 칸 · 되풀이해도 안 굳음 · 카메라 거리 역산 · 비우기. `smoke.js` · `sim-renderer-src.js` 에 한 줄씩(판정 무변경).
-
-**개정 259 에서 한 것 (2026-10-16 · C 구역 떼기 w4 — 동작 변화 없음 · 임시 번호, 머지 때 다시 매김)**
-- 앱: app.js «🛰 방 접속 상태(Presence)» 본문 403줄을 `room/presence.js`(`TwPresence.createPresence`)로 글자 그대로 옮겼다. 바뀐 줄은 읽는 함수 자리 19줄 · 옛 이야기형 주석 줄이기뿐. app.js 는 만드는 줄 뒤 «옛 전역 이름» 한 줄(`const Presence = presenceMod.Presence;`)로 이어 나머지 54곳 · animal.js · noise.js 는 그대로 `Presence.이름`.
-- 앱: room-sync.js 가 Presence 의 `window._autoAwayResetClock` 을 직접 부르던 것을 app.js 가 넘기는 deps 로(같은 함수를 부른다) — 모듈끼리 window 로 서로 부르면 새 순환 간선(sim-dep-cycles 18건)이 생겨서.
-- 검사: `sim-presence.js` 신설 — 부팅 상태 되살리기(auto · manual · 기록 없음 · 모르는 값) · join payload · 같은 값은 다시 안 보냄 · 소음 · 그림 크기 · 이름 거르기 · 채팅 140자 · 탭 · 날리기 칸 · poke 중복 / 지난 값 거르기 · 춤 · stop · 서버 준비 안 됨 · 방 서버 입장 실패 · 20분 자동 자리비움 · 복귀 · 밥 예외 · 폰 포커싱 · app.js 연결 · 깨 보기 11. 옮기기 전 app.js 의 본문에 대도 같은 62개가 통과하는 것을 확인. sim-room-sync deps 11 → 12 · sim-global-names 의 «날기 쿨다운» 깨 보기는 그 글이 있는 파일(presence.js)에서 · smoke PRELOAD · sim-renderer-src MODULES 한 줄(판정 무변경).
-
-**개정 258 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 카메라 · 캔버스 맞춤을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪑 좌석 배치(layoutSeats) · 카메라 · 도트 텍스처 필터» 구역의 `updateCameraOnly` · `applyCameraAndCanvas` 128줄을 `app/parts/room/seat-camera.js`(`window.TwSeatCamera`)로 옮겼다. 바뀐 코드 줄 12(읽는 · 쓰는 함수 자리) · 옛 이야기형 주석은 «왜 · 함정» 으로 줄임(주석을 뺀 코드 토큰은 옮기기 전과 같다) · deps 15. 부르는 곳은 `seatCameraMod.이름`.
-- 검사: `sim-seat-camera.js` 신설 **21·0** — 1~3절 구조 · 4절 동작(가짜 카메라 · 렌더러 · 캔버스로 런처 · 실행 화면 · 도트 · 경계값 5벌을 옮기기 전 값과 맞춤 · 캐시 · 옆 이동 상한).
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 seat-camera.js · `smoke.js` 도 먼저 평가.
-- 다른 검사(판정 무변경): `sim-frame-budget` 은 공용 도우미로 읽는다. `sim-dot-render` 깨 보기 하나는 app.js 에 부르는 자리가 없으면 옛 이름 부름을 끼워 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 13,924줄 · 구역 그대로.
-
-**개정 257 에서 한 것 (2026-10-16 · C 구역 떼기 w3 — 동작 무변경)**
-- 앱: app.js «🎛️ 런처 컨트롤 — 슬롯 넘기기 · 톱니 메뉴 · 삭제 · 보관함 이동» 구역(111줄)을 `app/parts/launcher/launcher-controls.js` 로 글자 그대로 옮겼다(바뀐 줄 21 — `curSlot` · `charsMod` · `racePickerMod` · `slotSaveMod` 를 읽는 함수로, 대입은 `setCurSlot`). 내놓는 이름은 `closeGearMenu` 하나 · deps 13. 옛 이야기형 주석은 «왜 · 함정» 만 남기고 줄였다.
-- 검사: `sim-launcher-controls.js` 신설 — 모듈 모양 · app.js 연결 · 깨 보기 + 버튼 동작(◀▶ 감아 돌기 · [＋] 막는 조건 · 삭제 되묻기 · 당기기와 자리 추가 번호 · 마지막 캐릭터 · 보관함 이동 연타 막기 · 기다린 뒤 그 캐릭터로 다시 찾기 · 실패 이유). `smoke.js` · `sim-renderer-src.js` 에 새 모듈 한 줄씩(판정 무변경).
-
-**개정 256 에서 한 것 (2026-10-16 · 구역 떼기 C · w1 — 도트 모드 머티리얼을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪑 좌석 배치 · 카메라 · 도트 텍스처 필터» 구역 끝의 `applyDotTextureFilter` 와 «🕹️ PS1 감성» 구역 본문 94줄을 `app/parts/shared/dot-render.js`(`window.TwDotRender`)로 옮겼다. 바뀐 줄 0 · deps 1(`scene`). 부르는 곳(`applyCameraAndCanvas`)은 `dotRenderMod.이름`.
-- 검사: `sim-dot-render.js` 신설 **28·0** — 1~3절 구조 · 4절 동작(가짜 씬으로 필터 켜고 끄기 · 셰이더 주입과 원래 onBeforeCompile 잇기 · 같은 상태 다시 부르기 · 빈 씬). 4절은 옮기기 전 app.js 글로도 같은 판정이 돈다.
-- 공용 도우미 `sim-renderer-src.js` MODULES 에 dot-render.js · `smoke.js` 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 14,033줄 · 🕹️ PS1 구역 머리 빠짐.
-
-**개정 255 에서 한 것 (2026-10-16 · 원래 있던 문제 — 콘솔 오류만 바뀐다)**
-- 앱: 닉네임 저장(user-name.js) · 레벨 오름(focus-level.js)이 부르는 `firebaseAPI.setMyProfile` 은 async 라 둘러싼 `try{}` 가 거부를 못 받았다. 로그인 전 기기는 규칙이 프로필 쓰기를 거부하므로, 저장 한 번마다 «잡히지 않은 오류»(PERMISSION_DENIED)가 남았다. Promise 에 `.catch` 를 붙여 경고 한 줄로 남긴다(이름 · 레벨은 이 기기에 저장된다).
-- 검사: sim-user-name — 서버가 거부해도 잡히지 않은 오류 0 · 경고 한 줄(옛 코드면 빨강).
-
-**개정 254 에서 한 것 (2026-10-16 · 원래 있던 버그 세 건 — 동작이 바뀐다)**
-- 앱: 🔔 알림창 [📪 수령함 확인] — `closeBell` 은 창을 만드는 함수 안의 이름이라 버튼을 그리는 함수에서는 `typeof` 가 늘 거짓이었다. 그 함수가 거는 `window._closeBellWin` 으로 닫는다(scheduler.js).
-- 앱: 🔔 «열면 읽음» — 본 날을 `toISOString()`(UTC)로 잘라 한국 0~9시엔 어제로 읽혀 오늘 본 기념일을 다시 셌다. 오늘과 같은 로컬 날짜(`_localYMD`)로 센다(scheduler.js).
-- 앱: 👑 달성표 선지급 — 대기줄에 «시도 시각 0» 으로 적어, 첫 응답을 기다리는 사이 tick 이 같은 tag 로 또 보냈다(서버가 막아 이중 지급은 없지만 토스트가 «밀렸던 뽑기» 로 뜰 수 있었다). 적는 순간의 시각을 넣어 1분 뒤에 다시 두드린다(weekly-challenge.js).
-- 검사: sim-scheduler · sim-weekly-challenge 의 «옛 셈 그대로» 기대를 고친 동작으로 — 수령함 확인 누르면 닫힘 · 본 날은 로컬 날짜 · 선지급 서버 호출 한 번 · «밀렸던» 토스트 없음. 옛 코드에 대면 셋 다 빨강인 것을 확인.
-
-**개정 253 에서 한 것 (2026-10-16 · 구조 정리 4단계 2-2 — 동작 변화 없음)**
-- 앱: 모듈 파일 아홉(weekly-challenge · pomodoro · focus-level · room-entry · room-sync · gacha · admin-license · admin-mode · noise)에서 부팅 때 늘 걸리는 고리 11개를 부르는 15곳의 가드를 걷었다(포커스 기록창 맞추기 · 꾸미기 닫기 · 다시 그리기 · 방 정보 · 방장 넘겨받기 · 해산 · 자리비움 시계 · 가챠 창 자리 · 플레이리스트 자리 · 일괄 발급 창). 실제 앱 기록에서 걸리기 전에 읽힌 적 0.
-- 남긴 것: app.js 안의 꾸미기 닫기 가드 둘 — 다른 세션이 app.js 구역을 떼는 중이라 겹치지 않게 그 뒤에. animal.js 고리 넷(app.js 의 셋 포함)(app.js 보다 늦게 실려 동물 캐릭터면 부팅 중 일찍 불릴 수 있다) · `_pomoShowText`(🕒 설정이 켜져 있으면 만드는 줄보다 먼저 불린다) · 창을 열 때만 걸리는 넷은 가드가 필요하다.
-- 검사: sim-hook-guards 표에 고리 10개 · sim-license-xlsx · sim-room-server-net 은 «가드로 본다» 줄을 가드 없는 모양으로(판정 무변경).
-
-**개정 252 에서 한 것 (2026-10-16 · 구조 정리 4단계 2-1 — 동작 변화 없음)**
-- 앱: 마이홈 쪽 window 고리 26개를 부르는 곳 46곳의 `typeof … === 'function'` 가드를 걷었다(myhome-ui · visit · page · edit · inbox · sticker · guestbook · init · 스티커사진 BGM · 설정 패널 · 단축키 F4 · app.js 런처로). 고리를 거는 모듈(myhome-edit · myhome-ui · sticker-layout · guestbook · mallang · bug-board-ui)은 부팅 때 만들어지며 바로 건다. 실제 앱에서 고리마다 «걸리기 전에 읽힌 적» 을 기록해 보니 런처 · 실행 화면 모두 0 이었다. 가드 뒤의 대체 동작(BGM 창 직접 닫기 · 선물 최신순 · «mallang.js 없음» 안내)은 늘 안 타던 갈래라 같이 걷었다. 창을 열 때만 걸리는 고리(_mhCancelNameEdit 등 넷)는 가드를 둔다.
-- 검사: `sim-hook-guards.js` 신설 — 고리마다 거는 곳 한 파일 · 부르는 곳 있음 · 가드 없음 · 깨 보기 셋(도메인마다 표를 늘린다). sim-guestbook · sim-myhome-steps · sim-bug-board 는 «가드로 본다» 판정을 «가드 없이 부른다» 로, sim-myhome-inbox · sim-myhome-sticker · sim-purikura-ui 는 무대에 그 고리를 건다(진짜 앱처럼).
-
-**개정 251 에서 한 것 (2026-10-16 · 구조 정리 4단계 1 — 동작 변화 없음)**
-- 앱: app.js 의 «// 옛 전역 이름» 다리 11줄(`_seatHidden` · `buildFreeColorPicker` · `_picIntersect` · `_stampWrapCenter` · `_stampWrapFill` · `DEMOJI_BY_CMD` · `DEMOJI_BY_ID` · `DEMOJI_DIR` · `saveSlots` · `getFocusLevel` · `applyTheme`)을 지웠다. 전역 이름으로 부르던 classic script 넷은 그 모듈 이름으로 부른다 — animal.js(`partPaintMod._picIntersect` · `_stampWrap*` · `slotSaveMod.saveSlots` · `focusLevelMod.getFocusLevel`) · noise.js(`hiddenSeatsMod._seatHidden`) · bookmark.js(`wardrobeMod.buildFreeColorPicker`) · myhome-desktop.js(`focusLevelMod.getFocusLevel`). 모듈 파일들은 이미 deps 로 받고 있었다.
-- 앱: 기본 이모티콘 목록(33개)을 chat-ui.js 에서 맨 아래 `chat/demoji-catalog.js`(`window.TwDemojiCatalog` — 바꿀 수 없는 표)로. 다리를 걷자 마이홈 바탕화면 → 채팅 간선이 드러났고, 채팅 → 말풍선 → 상태칩 → 플레이리스트 → 마이홈 구경 → 바탕화면 길과 만나 순환이 되기 때문이다. chat-ui 는 deps 로 받고 내놓는 `DEMOJI_*` 이름은 그대로 · 마이홈 바탕화면은 `TwDemojiCatalog` 로 읽는다.
-- 검사: `sim-demoji-catalog.js` 신설 — 33개 · id · 명령어 안 겹침 · 찾기 표 · 얼림 · 그림 파일 · 목록 글은 한 파일 · 받는 방식 · 싣는 순서 · 깨 보기 넷. `smoke.js` 가 demoji-catalog.js 를 먼저 싣는다. sim-animal-cast · sim-fix-1008 은 animal.js 의 `partPaintMod.이름` 부름을, sim-noise 는 무대에 `hiddenSeatsMod` 를 둔다(판정 무변경). sim-chat-ui deps 목록에 demojiCatalog.
-
-**개정 250 에서 한 것 (2026-10-16 · typeof 가드 걷기 3차-2 — 동작 변화 없음)**
-- 앱: 3차-1 에서 남긴 모듈 만드는 줄 25곳(스케줄러 · 가챠 · 달성표 · 뽀모도로 · 플레이리스트 · 스티커사진 · 방명록 · 친구 관리 · 우편함 · 스티커 관리 · 마이홈 편집 · 포커스 기록 · 대화창 배선 · 방 초대 · 신고 · 관리자 열)과 관리자 신고 목록(`reportMod === REPORT_OFF` 갈래) · 창 열기 통로(`twNav = TwNav`)의 «없으면 빈 껍데기» 를 걷고 빈 껍데기 정의(여러 줄짜리 포함)를 지웠다. 이제 app.js 의 모듈은 모두 빈 껍데기 없이 만든다 — 남긴 것은 귀 모듈(HumanEar — 없어도 켜지고 귀만 꺼지게 일부러 만든 자리)과 생성기 쪽 셋(CreatorFlatView · DeskItemOrigin · SeatSlot — 3차-3 환경 가드와 같이).
-- 확인: 실제 앱(macOS · dev · 빈 시험 프로필) — 이번 모듈 스무 개가 진짜(내놓는 이름 수) · 가챠 보관함 · 마이홈 우편 · 친구 관리 · 방명록 · 플레이리스트 그리기 · 예외 0.
-- 검사: 그 모듈들의 검사 24개 — «빈 껍데기가 이름을 다 갖는다 · 모듈이 안 실려도 서지 않는다» 판정을 «빈 껍데기 없음 · 만드는 줄에 가드 없음(안 실리면 그 줄에서 멈춘다)» 으로 · 관리자 검사 여덟은 만드는 줄 찾기를 새 모양으로 · 우편함 · 플레이리스트의 껍데기 깨 보기 하나씩 걷음 · 친구 관리는 진짜 모듈을 함수로 확인.
-
-**개정 249 에서 한 것 (2026-10-16 · typeof 가드 걷기 3차-1 — 동작 변화 없음 · 사용자 결정 «가드는 빼는 게 낫다»)**
-- 앱: app.js 의 모듈 만드는 줄 `const mod = (typeof TwX === 'undefined') ? X_OFF : TwX.createX({` 65곳을 `const mod = TwX.createX({` 로 · 빈 껍데기 정의 65줄을 지웠다. 대상은 검사가 «옮기기 전 글» 로 되살리는 모듈(sim-renderer-src MODULES) — 되살린 글에서는 만드는 줄이 모듈 본문으로 바뀌므로 그 껍데기를 쓰는 검사가 없다. 모듈 파일이 안 실리면 이제 app.js 가 그 줄에서 바로 멈춘다(조용히 빈 껍데기로 돌지 않는다). 그 줄 위 주석의 «typeof 가드가 …» 설명도 맞게 고침(61곳).
-- 남긴 것: 되살리지 않는 27곳(스케줄러 · 가챠 · 달성표 · 플레이리스트 · 스티커사진 · 방명록 · 친구 관리 · 마이홈 편집 · 관리자 열 · 창 열기 통로 등) — 그 검사들이 빈 껍데기 줄을 직접 읽어 3차-2 에서 검사 무대와 같이 걷는다. 환경 가드(typeof window · module)도 3차-3.
-- 확인: 실제 앱(macOS · dev · 빈 시험 프로필) — 부팅 · 모듈 열셋이 진짜(이름 수) · 워킹룸 들어갔다 나오기 · 마이홈 · 꾸미기 열기 · 예외 0. smoke.js 는 가드가 없어진 모듈을 저절로 진짜로 싣는다.
-- 검사: 모양 검사 64개 — 만드는 줄을 가드 없는 모양으로 찾고 «빈 껍데기 없음» 을 본다(문구도 바꿈) · sim-renderer-src(joinRenderer)는 두 모양을 다 찾는다 · sim-global-names · sim-user-name 은 만드는 줄을 새 모양으로.
-
-**개정 248 에서 한 것 (2026-10-16 · 모듈 순환 끊기 7 — 닉네임 저장 분리 · 앱 동작 변화 없음)**
-- 앱: `app/parts/account/user-name.js` 신설 — 🏷️ 닉네임 저장(`commitUserName` · `USER_NAME_MAX` · window.commitUserName)을 설정 창(program-settings.js)에서 글 그대로 옮겼다. 마이홈 이름 편집 · 내 정보가 이 저장 하나를 부르느라 설정 창을 바라봤고, 설정 창은 채팅 · 포커스 · 깜짝쇼 · 스티커사진 등을 부르는 위층이라 순환이 됐다. app.js 는 원래 자리(설정 창 만드는 줄 바로 앞)에서 만든다 · 설정 창 deps −7. 라이선스 키 버튼(license-key.js)의 설정 창 닫기도 창 열기 통로로.
-- 확인: 실제 앱(macOS · dev · 빈 시험 프로필) — 내 정보 [수정] 칸 12자 · Enter 저장 · «이름이 저장됐어요» · «관리자» 는 막힘 · 마이홈 이름 편집 칸 12자 · 저장 · 표시 갱신. 저장 때 Firebase 프로필 쓰기 거부(PERMISSION_DENIED — 로그인 전 기기) 예외는 main 빌드도 같다(원래 있던 것 · 개선 목록에 적음).
-- 검사: `sim-user-name.js` 신설 — 자르기 · «나» · 운영진 이름(관리자 · 같은 이름 예외 — 진짜 name-guard.js) · 프로필 · 이름표 · 표시 갱신 · html 순서 · 원래 자리 · 부르는 곳 · 깨 보기 넷. `smoke.js` 가 user-name.js 를 진짜로 싣는다. `dep-cycles-baseline.json` 순환 간선 146 → 122 · 묶음 45 / 2 → 35 / 4 / 2 / 2.
-
-**개정 247 에서 한 것 (2026-10-16 · 모듈 순환 끊기 6 — 창 열기 통로 · 앱 동작 변화 없음 · 사용자 결정 «통로 도입»)**
-- 앱: `app/parts/shared/nav.js` 신설 — 이름 넷(`NAV.PROGRAM_SETTINGS` · `PROGRAM_SETTINGS_CLOSE` · `MY_HOME` · `LEAVE_ROOM`) · `on(이름, 함수)` · `go(이름, …)`. 안 걸린 이름은 아무 일도 안 한다(예전 «typeof 함수면 부른다» 와 같다). 창 모듈이 만들 때 건다 — 설정 창(program-settings) · 마이홈 창(myhome-ui — 감싼 window.openMyHome 을 부를 때 찾는다) · 방 입장(room-entry, doLeaveRoom). 부르는 쪽은 이름으로만 — 꾸미기 라이선스 탭 · 라이선스 요청 닫기 · 일정 알림 · 채팅 · 방 입장의 마이홈 열기 · 다른 기기 밀림 · 자리비움 자동 퇴장. app.js 는 `twNav`(없으면 아무 일도 안 하는 껍데기)를 deps 로 넘긴다.
-- 확인: 실제 앱(macOS · dev · 빈 시험 프로필) — 라이선스 없이 꾸미기를 누르면 설정 창이 열리고 통로로 닫힘 · 통로로 마이홈 열고 닫기 · 워킹룸에 들어가 다른 기기 밀림을 부르면 통로로 방에서 나오고 안내 창 · 예외 0.
-- 검사: `sim-nav.js` 신설 — 통로 동작 · 이름마다 거는 곳 한 파일 · 부르는 곳이 있는지 · 아는 이름만 · 글자 이름 없음 · 이름 → 거는 곳 / 부르는 곳 표 · 싣는 순서 · 깨 보기 다섯. `smoke.js` 가 nav.js 를 진짜로 싣는다. `dep-cycles-baseline.json` 순환 간선 154 → 146 · 묶음 46 / 2 → 45 / 2. 모양 검사 여덟은 deps 에 twNav · 글자로 보던 둘(chat-history · device-session)은 통로로 나가는 줄과 거는 줄을 본다. 친구 방 놀러 가기(friend-visit)는 방 이름 상수를 같이 써서 이번엔 그대로.
-
-**개정 246 에서 한 것 (2026-10-16 · 모듈 순환 끊기 5 — 계정 묶음 · 앱 동작 변화 없음)**
-- 앱: `app/parts/account/account-state.js` 신설 — 계정 묶음 맨 아래. 옮긴 것(글 그대로): 초대 게이트의 라이선스 저장 키 · 초대 통과 표시(`_markInvitePassed`) · 프리미엄 깃발 바꾸기(`_setPremium`) · 원격 설정 한 벌(`_rcStore`), 계정의 로그인 이메일 · Auth uid 저장 키 · `getMyLoginEmail` · 친구코드 모양 · 신원 놓음(`_acctDetached`), 내 정보의 다시 켜기(`_acctRelaunchAfterDetach`). `_setPremium` 은 다시 그리기를 직접 부르지 않고 «프리미엄이 바뀌었다» 알림을 돌리고 초대 게이트가 `_refreshPremiumGatedUI` 를 건다. 계정은 신원 놓음을 쓰는 함수로 올린다.
-- 앱: 부팅 «연동됨» 안내 창(`_charsLinkedMaybeShow`)을 계정 → 내 정보로(보관함 섬네일 · 열기가 내 정보 것) — 표시 키는 적는 쪽(계정)이 내놓는다. 포커스 레벨은 서버 총합을 맞추면 «맞췄다» 알림(`onTotalSynced`)을 돌리고 app.js 가 내 정보 `_lbPush`(전체 랭킹)를 건다. 방 입장 · app.js 의 원격 설정 읽기도 같은 한 벌.
-- 확인: 실제 앱(macOS · dev · 빈 시험 프로필) — 부팅(싣는 차례 상태 26 · 게이트 64 · 계정 65 · 내 정보 54 · app.js 115 · 정원 10) · 프리미엄 켜기 · 같은 값 · 끄기(되돌리기 · 접기가 바뀔 때만 한 번씩) · 틀린 키 확인 · 내 정보 열고 닫기 · 연동 안내(보관함 안 열렸으면 표시를 둔다) · 계정 탭 · 다시 켜기 — 예외 0.
-- 검사: `sim-account-state.js` 신설 — 값 · 프리미엄 알림 · 다시 켜기 · 원격 설정 · 싣는 순서 · 거는 곳 · 바꾸는 곳 · 깨 보기 다섯. `smoke.js` 가 account-state.js · myhome-state.js 를 진짜로 싣는다. `dep-cycles-baseline.json` 순환 간선 176 → 154 · 묶음 49 / 2 → 46 / 2. 모양 검사 다섯(account · focus-level · license-gate · my-info · room-entry)은 새 모양에 · 글자로 보던 셋(premium-desk · signup 둘)은 알림에 건 함수에서 본다. `sim-global-names` 가 내 정보에 남은 옛 이름 부름(다시 켜기 2곳)을 잡아 deps 로 고쳤다.
-
-**개정 245 에서 한 것 (2026-10-16 · 모듈 순환 끊기 4 — 마이홈 공용 상태 · 앱 동작 변화 없음)**
-- 앱: `app/parts/myhome/myhome-state.js` 신설 — 내 마이홈 데이터(`_myHomeData`) · 서버 모양 맞추기(`_mhHomeFromServer`) · 불러옴 · 불러온 계정 · 관람 중 uid · 이름 · 이름 창구(`_mhViewingDisplayName`)를 myhome-visit.js 에서 글 그대로 옮겼다. 마이홈 창 · 페이지 · 편집 · 스티커 · 방명록 · 스케줄러 · 플레이리스트 · 채팅 · 내 정보가 읽는 값인데 친구 홈 구경(visit)에 있어서 읽는 모듈이 모두 visit 을 바라봤다. visit · 편집은 읽는 함수 · 쓰는 함수로 받고, 페이지(myhome-page.js)는 상태 모듈을 받는다. app.js 는 visit 보다 먼저 상태 모듈을 만든다. 👁 미리보기 깃발(`window._mhPreviewMode`)의 처음 값 false 도 이 파일이 실을 때 건다(예전엔 처음에 undefined — 읽는 곳은 모두 «거짓» 으로 봄).
-- 앱: 창 자리 되돌리기 목록(`window.__winPosResetters`)의 처음 값을 win-stack.js 가 실을 때 건다 · win-stack.js 를 올리는 모듈(스케줄러 · 플레이리스트 · 가챠 · 설정)보다 먼저 싣는다(실을 때 하는 일은 이 한 줄뿐).
-- 확인: 실제 앱(macOS · dev · 빈 시험 프로필) — 부팅(깃발 false · 싣는 차례 상태 25 · win-stack 26 · 스케줄러 27 · app.js 114 · 되돌리기 목록 3) · 마이홈 열기 · 미리보기 켜고 끄기 · 친구 홈 구경(이름 힌트 · 배지 · 관람 중 저장 안 함 · 닫으면 되돌아감) · 창 위치 초기화(목록이 다 불림) — 같은 시험을 main 빌드로 돌린 값과 같음 · 예외 0.
-- 검사: `sim-myhome-state.js` 신설 — 처음 값 · 읽고 쓰기 · 이름 창구 차례 · 서버 모양 맞추기 · 싣는 순서 · 깃발 · 상태를 바꾸는 곳 · 깨 보기 다섯. `dep-cycles-baseline.json` 순환 간선 189 → 176 · 묶음 50 / 2 → 49 / 2. 모양 검사 둘(sim-myhome-visit · sim-myhome-page)은 deps · 내놓는 이름을 새 모양에 · `sim-renderer-src.js` MODULES 에 myhome-state.js.
-
-**개정 244 에서 한 것 (2026-10-16 · 모듈 순환 끊기 3 — 캐릭터 묶음 · 앱 동작 변화 없음)**
-- 앱: 슬롯 저장(slot-save.js · 맨 아래)이 저장 · 복원 뒤 위층(동기화 · 보관함 · 프리미엄 · 꾸미기 · 설정 화면)을 직접 불렀다. 이제 `onSaved(fn(out, changed))` · `onLoaded` · `onSeatRelinked(fn(old, cur))` · `onSlotsReplaced` 알림을 내놓고 거는 차례대로 부른다. 동기화(slot-sync)와 보관함(chars)은 자기를 만들 때 스스로 건다(동기화가 먼저 — 예전 부르는 차례 그대로). 슬롯 저장보다 먼저 만들어지는 프리미엄 접기 · 꾸미기 초안 다시 잇기(`wardrobeMod.relinkDraftSrc`) · 캐릭터 탭 다시 그리기는 app.js 가 만드는 줄 바로 뒤에서 건다. 동기화 · 보관함이 칸을 갈아 끼운 뒤는 `slotsReplaced()` 로 알린다(캐릭터 탭). 동기화가 보관함을 부르던 두 곳은 보관함이 `setCharsActiveCheck(_charsActive)` · `onBackupRestored(_charsRemapDesk)` 로 건다. 부팅 채택 뒤 «연동됨» 안내는 보관함 `onBootLinked` 에 app.js 가 계정 것을 건다.
-- 앱: 꾸미기 «🐾 귀» 탭 부품(`wdEar` — WdEar.createWdEar)과 «🪑 책상» 탭(`renderWdDeskSection` · `_wdApplyDeskChange`)을 premium-assets.js → wardrobe.js 로 — 꾸미기 창 화면인데 카탈로그 모듈이 만들어 꾸미기 · 그리기를 거꾸로 불렀다. 꾸미기 안에서는 `wdEar` 를 값으로 쓴다(옮기기 전 글과 같은 모양). 진열 순서 바꾸기(`reorderSavedPart`)는 바꿨으면 true 를 돌려주고 꾸미기가 다시 그린다. `isGachaPart`(rec.gacha 깃발)는 카탈로그(premium-assets)가 정의하고 가챠는 deps 로 받는다. 꾸미기 창 열려 있으면 다시 그리기는 꾸미기가 직접(`window.refreshWardrobe` 대신).
-- 앱: 관리자 파츠 등록 · 삭제 — 꾸미기는 관리자 모듈을 부르지 않고 admin-part-register.js 가 만들 때 `setAdminPartActions({ openPartRegister, deletePart })` 로 건다. 가챠 보관함 쪽은 app.js 가 가챠를 만든 뒤 `gachaMod.setPartEditor({ openPartRegister, syncPartRegGachaLock, deletePart })` 로 건다(빈 껍데기 GACHA_OFF 에도 자리).
-- 확인: 실제 앱(macOS · dev · 빈 시험 프로필) — 저장 알림(안 바뀐 저장 changed=false · 바뀐 저장은 동기화 시각이 오르고 올리기 예약) · 복원 뒤 프리미엄 접기 1회 · 캐릭터 탭 다시 그리기 1회 · 좌석과 열린 초안이 새 칸 객체로 다시 이어진 뒤 책상 색이 저장본에 들어감 · 백업 되돌리기 → 되돌린 뒤 알림 1 · 캐릭터 탭 1 · 책상 탭(전용 책상 머리 · 기본 책상 · 색 · 길이) · 귀 탭(귀 활성 · 내용) · 관리자 [+ 등록] · 가챠 보관함 등록(🎰 미리 켜짐) 창이 뜸 · 예외 0.
-- 검사: `dep-cycles-baseline.json` 순환 간선 223 → 189 · 묶음 53 / 2 → 50 / 2. 모듈 모양 검사(slot-save · slot-sync-mod · chars · premium-assets · wardrobe · gacha · admin-part-register)는 deps · 내놓는 이름을 새 모양에 · 함수 본문을 떼어 돌리는 검사(slot-sync · slot-conflict · wd-parts-persist)는 무대에 알림 자리를 · 글자로 배선을 보던 검사(chars-migrate · signup)는 알림에 건 함수에서 본다. 판정 추가 넷 — 가챠 isGachaPart 출처 · 가챠 setPartEditor · 관리자 등록 창이 꾸미기에 건다 · 꾸미기가 «좌석 다시 이음» 알림에 걸려 있다.
-
-**개정 243 에서 한 것 (2026-10-15 · 모듈 순환 끊기 2 — 앱 동작 변화 없음)**
-- 앱: `app/parts/room/room-state.js` 신설 — `window._activeChannel`(1 워킹룸 · 2 투게더룸) · `window._roomMetaCache`(방 meta 사본)의 처음 값(1 · null)을 맨 아래 한 곳에서 건다. 채팅 · 깜짝쇼 · 주사위 · 룰렛 · 상태칩 · 숨기기 · 단축키가 읽는 값인데 처음 값이 바꾸는 쪽(room-entry)에만 있어 읽는 모듈이 모두 room-entry 를 바라봤다. 방 밖의 값 1 은 나가기(doLeaveRoom)가 되돌리는 값과 같다(`=== 1` 을 보는 숨기기는 방 안 좌석에만 걸림).
-- 앱: 때리기 소리 상수(`BONK_SND_VOL` · `BONK_SND_SRC`)를 tricks.js → sfx.js 로 — 효과음 공장(아래층)이 위층 tricks 를 부르지 않는다(sfx deps 에서 tricksMod 뺌 · tricks 내놓는 이름 −2). 테마는 `theme.js` 가 `onApplied(fn)` 을 내놓고 theme-ui.js 가 만들 때 «열린 방명록 · 디자인 창에 다시 걸기» 를 건다 — theme 이 theme-ui 를 부르지 않는다(theme deps 0 · theme-ui deps +1 · 쓰는 곳 없던 `setThemeChildDocs` 걷음).
-- 검사: `sim-room-state.js` 신설 — 처음 값 · 읽고 바꾸는 파일 12개보다 먼저 싣는다 · 바꾸는 파일은 room-entry · chat-prefs · chat-ui 뿐 · 깨 보기 셋. `dep-cycles-baseline.json` 순환 간선 238 → 223 · 묶음 55 / 2 / 2 → 53 / 2(theme ↔ theme-ui 순환 없어짐). 모듈 모양 검사 넷(sim-sfx · sim-tricks · sim-theme · sim-theme-ui)은 deps · 내놓는 이름을 새 모양에 · `sim-child-theme.js` 는 «열린 창에 다시 건다» 를 theme-ui 가 onApplied 로 건 함수에서 본다(판정 무변경).
-
-**개정 242 에서 한 것 (2026-10-15 · 모듈 순환 끊기 1 — 앱 동작 변화 없음)**
-- 앱: firebase-init.js(아래층)가 방 리스너 · 하트비트에서 위층 이름(`window._onRoomDisbanded` · `_onHostSucceeded` · `_onRoomOverCapacity` · `_onRoomMeta` · `myExpCells` · `_srOwnerUid`)을 직접 불렀다. 이제 `joinRoom(room, me, onChange, onPoked, hooks)` 가 room-entry 의 `_firebaseRoomHooks()` 묶음을 받아 그것만 부른다(방 서버 provider 가 makeServerProvider 로 받는 것과 같은 모양) — Presence.start `opts.hooks` → `makeFirebaseProvider(hooks)` → joinRoom. 대화 기록 채널(`window._activeChannel`)은 `chatHistory.bindChannel` 로 room-entry 가 firebase-ready 때 건다. 옛 전역 다리 `function myExpCells` 는 쓰는 곳이 없어져 걷었다.
-- 검사: `dep-cycles-baseline.json` 순환 간선 282 → 238 · 묶음 58 → 55(firebase-init 이 순환 덩어리에서 빠짐). 글자를 찾던 검사 여섯은 새 모양에 맞춤(판정 무변경 — sim-room-server-net 만 hooks 를 넘기는지 한 줄 더 봄).
-
-**개정 241 에서 한 것 (2026-10-15 · 모듈 순환 검사 — 앱 동작 변화 없음)**
-- 조사: HTML 이 싣는 parts/ 파일 123개 · app.js 가 만드는 모듈 93개를 파서로 읽어 «누가 누구를 부르나» 그래프를 그렸다. app.js 를 빼고 봐도 모듈 58개가 한 순환 덩어리(+ theme ↔ theme-ui · admin-license ↔ admin-license-bulk) · 서로 부르는 쌍 60 · 순환 없는 모듈 37. 덩어리 중심은 firebase-init(window 고리로 위층을 부름) · room-entry · focus-level · myhome-ui.
-- 검사: `sim-dep-cycles.js` 신설 — 간선은 «다른 파일이 거는 전역 · window 이름을 부름» 과 «만드는 줄이 넘기는 deps 가 다른 모듈(xMod · 옛 전역 이름 다리)을 가리킴». 순환 간선(같은 SCC 안) 282개를 `dep-cycles-baseline.json` 기준선으로 두고 **새로 생기면 빨강 · 줄었으면 기준선을 내리라고 빨강**(`node checks/sim-dep-cycles.js --write-baseline`). 2-2절은 모듈을 만드는 도중 부르는 deps 가 아직 선언 전인 app.js let/const 를 읽는지(deps 가 부르는 app.js 함수 안 4단계까지) — 고치기 전 코드에서 commissionMod(개정 235) · statusChipMod(개정 240) 를 잡는 것을 확인. 깨 보기 셋(새 순환 · 한 방향은 순환 아님 · 만드는 도중 자기 모듈 읽기).
-
-**개정 240 에서 한 것 (2026-10-15 · 앱 FSD 36번 회귀 고침)**
-- 앱: `status-chip.js` 가 만드는 도중에 저장된 상태 불러오기 · `refreshMyStatusUI()` · 캐릭터 크기 복원 · `refreshCustomStatusMenuItem()` 을 불렀다. 상태(🍚 밥 먹는 중 등)를 저장해 둔 사람은 `refreshMyStatusUI` 가 점 그림자 색을 `statusChipMod.hexToRgba` 로 구하다 아직 없는 `statusChipMod` 를 읽어 던졌고, 그 뒤 app.js 가 통째로 멈췄다(focusShareMod · wardrobeMod 등이 안 만들어짐 · 동물 좌석 되만들기도 안 됨). 저장된 상태가 없으면 그 줄을 안 타서 빈 프로필 시험에는 안 보였다. 다섯 부름을 app.js 의 만드는 줄 바로 뒤로 옮기고(칩 버튼 · 메뉴가 있을 때만 — 옮기기 전과 같은 조건) deps 에서 뺐다. v0.11.3 이후(FSD 36번 · #190) 들어온 것이라 배포본에는 없다.
-- 확인: dev · 빈 프로필로 저장된 상태 없음 · meal · away · custom 네 가지를 넣고 켰다 — 고친 빌드는 예외 0 · 칩 점 색 · 제목 · 상태 값이 옮기기 전(8111b93)과 같음. 잡힌 오류까지 목록이 main 과 같다(원래 있던 isPremium TDZ 의 부른 자리 이름만 바뀜).
-- 검사: `sim-status-chip.js` — deps 38 → 33 · «만들 때 deps 함수를 되부르지 않는다» · «부팅 줄은 만드는 줄 바로 뒤» 판정과 깨 보기 둘 추가.
-
-**개정 239 에서 한 것 (2026-10-15 · typeof 가드 걷기 2 — 동작 변화 없음)**
-- 앱: 다른 파일이 거는 전역 · `window.` 이름의 존재 가드 122곳을 걷었다. 조건은 **싣는 순서로 보장되는 것만** — 그 이름을 거는 파일이 HTML 에서 쓰는 파일보다 먼저 실리고, 실을 때 바로 건다(맨 위 선언 · 맨 위(또는 바로 부르는 IIFE 안)의 window.X =). 같은 파일이면 맨 위 함수 선언(호이스팅)만. 'function' 비교는 함수 선언이거나 실제 앱에서 함수로 잰 것만. 모듈을 만드는 도중에 거는 고리(_pomoShowText 등)처럼 순서 보장이 없는 88곳은 두었다(4단계 «시작은 INIT» 때). 걷은 뒤 return 아래 남은 옛 대체 줄 1곳(_aCast)을 지움 · frame-budget 주석을 사실대로.
-- 검사: `smoke.js` 가 HTML 의 app.js 앞 classic script 를 **진짜로 싣는다**(«typeof 이름 없으면 빈 껍데기» 로 받는 모듈은 빼고 · 못 실으면 실패) — 진짜 앱에서 app.js 를 싣는 순간과 같은 이름이 있다. smoke 스텁을 빌려 쓰는 검사 20개가 같이 맞춰짐. 글자 모양 판정 — sim-animal-cast(폴백 레이캐스트 0) · sim-animal-edit-route · sim-uv-fill(«없어도 켜짐» → «app.js 보다 먼저 싣는다»).
-
-**개정 238 에서 한 것 (2026-10-15 · typeof 가드 걷기 1 — 동작 변화 없음)**
-- 앱: 늘 있는 이름의 `typeof X==='function'` · `!=='undefined'` 가드 486곳을 걷고 식을 줄였다(`if(typeof X==='function') X()` → `X()` 등). 대상은 셋 — 모듈이 deps 로 받은 이름(만드는 줄이 함수 · 읽는 함수로 넘김) · 같은 파일 안 함수 선언 · 모듈 이름(xMod.이름 — 실제 앱에서 잰 typeof 가 함수). 값 종류 검사('number' 등) · 다시 대입되는 let · 늦게 거는 window 고리 · 모듈 껍데기(TwX) · 밖에서 받는 것(firebaseAPI 등)은 두었다. 이름이 사라지면 조용히 넘어가지 않고 바로 오류가 난다.
-- 근거: 가드마다 참 · 거짓을 찍는 사본으로 실제 앱을 돌려 평가된 248곳이 한 번도 «없음» 이 아니었음 · 나머지는 선언 종류 · 연결 줄 · 실제 앱의 typeof 로 판정. 걷은 빌드와 걷기 전 빌드의 «잡힌 오류까지» 목록이 같음.
-- 검사: 코드 글자를 그대로 찾던 판정을 새 모양으로(판정 뜻 무변경) — sim-chars-migrate · sim-chat-sfx · sim-chat-window · sim-fix-0923 · sim-mobile-focus · sim-paint-tools · sim-signup · sim-account-switch(순서 판정의 기준 글). 조각을 떼어 돌리던 무대에 이름을 넣어 줌(앱이 가드로 넘기던 것) — sim-fly-roulette(_dailyPlayTake) · sim-focus-show(_mobileOn). sim-purikura-deco 의 «officeMode 가 없을 때도 안 터짐» 은 deps 읽는 함수라 가드가 TDZ 도 못 막던 것 → «부를 때마다 읽는다» 로. **원래 있던 구멍**: sim-account-switch 2절이 키 목록에 LICENSE_OPTOUT_KEY 가 빠져 «?» 로 통째 안 돌고 있었다 — 넣고, 그 사이 낡은 «서버 호출 0» 판정(chal:reset 메모리 비우기를 셈)을 바로잡아 77 · 0.
-
-**개정 237 에서 한 것 (2026-10-15 · 앱 FSD 회귀 — typeof 가드 조사 중 발견)**
-- 앱: 옮길 때 let 을 «읽는 함수»(name: ()=>name)로 바꾸면서 `typeof 이름==='number'` 는 그대로 둬 늘 거짓이던 2곳 — 커미션 코드 불러오기가 [＋] 로 고른 칸을 무시하고 첫 빈칸에 저장(FSD 31번대 race-picker) · `_myFlyCool` 이 늘 null 이라 날기 쿨다운이 방에 안 감(tricks). `typeof 이름()` 으로.
-- 검사: `sim-global-names.js` 2-2절 — 읽는 함수로 내놓는 이름(모듈 return · deps 연결의 ()=>)을 값 타입으로 typeof 비교하면 빨강 · 깨 보기 하나. 고치기 전 main 에서 이 2곳을 잡는 것을 확인.
-
-**개정 236 에서 한 것 (2026-10-15 · 앱 FSD 회귀 전수조사)**
-- 조사: 옮기기 전(8111b93) · 지금 앱을 실제로 켜서 전역 이름(window + 최상위 let/const) 1,325개 차이를 모든 파일에 대조 · typeof 가드 1,481개 · 잡힌 예외까지 멈춰 본 부팅 경로 · 값 넘김 deps 를 훑었다. 옮기기 때문에 생긴 고장은 셋 — commissionMod 되부름(개정 235) · `DEMOJI_BY_CMD`(FSD 24번 — myhome-desktop.js 의 /명령어 이모티콘 변환이 typeof 가드로 조용히 꺼짐) · `window.myExpCells`(FSD 45번 — firebase-init.js 하트비트에 경험치가 안 실림).
-- 앱: `chat-ui.js` 가 `DEMOJI_BY_CMD` 를 내놓고 app.js 가 옛 전역 이름으로 잇는다 · app.js 에 `function myExpCells` 옛 전역 이름 다리.
-- 검사: `sim-global-names.js` 신설 — parts/ 전체를 typescript 파서로 범위대로 읽어, 부르는 · typeof · window. 으로 읽는 이름이 전역(일반 script 맨 위 선언 · window 대입 · HTML id · 브라우저 내장 · vendor)에 없으면 빨강. 고치기 전 main 에서 위 두 고장을 정확히 잡는 것을 확인. 원래부터 있던 것(closeBell · _cvEl 등)은 KNOWN 에 이유와 함께. `sim-chat-ui.js` 내놓는 이름 +1. CI 검사 단계가 typescript 하나만 깐다(없으면 CI 에서 빨강).
-
-**개정 235 에서 한 것 (2026-10-15 · 앱 FSD 45번 회귀 고침)**
-- 앱: `commission.js` 가 만드는 도중에 `loadSavedItemsIntoSession()` 을 불러, 그 함수가 아직 없는 `commissionMod` 를 읽다 던졌다(부팅 때 저장 아이템 등록이 안 됨 — 카탈로그 동기화가 늦게 메움). 부르는 줄을 app.js 의 만드는 줄 바로 뒤로 옮기고 deps 에서 뺐다(옮기기 전 순서와 같음).
-- 검사: `sim-commission.js` — deps 4개로 · «만들 때 deps 함수를 되부르지 않는다» · «등록 부름은 만드는 줄 바로 뒤» 판정과 깨 보기 둘 추가.
-
-**개정 234 에서 한 것 (2026-10-15 · 빈 방 정리 — 방 서버 방 대화 남기기)**
-- 서버 함수(functions/room-stats.js `sweepEmptyRooms`): `_meta` 를 걷은 뒤 `roomDir/{코드}/srv` 를 한 칸 읽어 같은 코드의 방 서버 방이 살아 있으면 `_chatTab` · chatLog 를 남기고 비었음 줄만 걷는다(`serverKept`). 방 서버에 못 붙은 앱이 같은 코드로 Firebase 방을 열었다 나가면, 그 빈 방 정리가 방 서버 방이 같이 쓰는 대화까지 지웠다. 대화를 지운 방 코드는 요약 `codes`(앞 20개)로 로그에 남긴다.
-- 서버 함수(functions/room-stats.js `onServerRoomClosed` · functions/index.js `roomDirOnClose` — 새 함수): 방 서버 방이 닫혀 `roomDir/{코드}` 가 지워지면 빈 Firebase 방과 같은 규칙으로 대화를 걷는다(시크릿룸 다 남김 · `_chatTab` 지움 · chatLog 는 투게더룸만). 그새 방 서버 방이 다시 열렸거나 같은 코드의 Firebase 방(`_meta`)이 열려 있으면 그만둔다. 방 서버 재시작은 칸을 지우지 않으므로 대화가 남는다.
-- 검사: `sim-room-meta-cleanup.js` 2절에 방 서버 방(roomDir) — 살아 있으면 Firebase `_meta` · 줄은 걷고 #일반 · 탭 대화 남김 · `codes` · 닫힘 트리거(투게더 · 워킹 · 시크릿 · 다시 열림 · Firebase 방 열림 · index.js 연결). `sim-chat-log-persist.js` 는 chatLog 지우는 곳을 둘(둘 다 투게더룸만)로.
-- ⚠️ 함수 배포 필요(`firebase deploy --only functions:roomStats,functions:roomDirOnClose --project together-working`) · 규칙 · 앱 변경 없음.
-
-**개정 233 에서 한 것 (2026-10-14 · 도메인 폴더 12번 — 동작 변화 없음)**
-- 앱: `paint-tools.js` · `uv-fill.js` · `race-picker.js` · `animal-edit-route.js` · `creator-flat-view.js` · `desk-item-origin.js` 를 `app/parts/creator/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 6개(`sim-animal-edit-route.js`, `sim-creator-flat-view.js`, `sim-desk-item-origin.js`, `sim-paint-tools.js`, `sim-race-picker.js`, `sim-uv-fill.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 232 에서 한 것 (2026-10-14 · 도메인 폴더 11번 — 동작 변화 없음)**
-- 앱: `win-stack.js` · `outside-close.js` · `async-prompt.js` · `key-input.js` · `rich-text.js` · `sfx.js` · `frame-budget.js` · `gl-recover.js` · `theme.js` · `theme-ui.js` · `api-client.js` · `remote-config.js` · `api-public-reads.js` · `app-version.js` · `app-version-gate.js` · `visit-ping.js` 를 `app/parts/shared/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로 · ES 모듈 import 경로(firebase-init.js 등)도 새 자리로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 17개(`sim-admin-mode.js`, `sim-api-client.js`, `sim-api-public-reads.js`, `sim-app-version-gate.js`, `sim-app-version.js`, `sim-async-prompt.js`, `sim-frame-budget.js`, `sim-gl-recover.js`, `sim-key-input.js`, `sim-outside-close.js`, `sim-remote-config.js`, `sim-rich-text.js`, `sim-sfx.js`, `sim-theme-ui.js`, `sim-theme.js`, `sim-visit-ping.js`, `sim-win-stack.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 231 에서 한 것 (2026-10-14 · 도메인 폴더 10번 — 동작 변화 없음)**
-- 앱: `wardrobe.js` · `wardrobe-panel.js` · `premium-assets.js` · `part-paint.js` · `animal.js` · `human-ear.js` · `wd-ear.js` · `chars.js` · `slot-save.js` · `slot-sync.js` · `char-code.js` · `code-crypto.js` · `asset-code.js` · `commission.js` · `face-heal.js` · `def-size.js` · `seat-slot.js` · `gacha.js` · `catalog-cache.js` 를 `app/parts/character/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로 · ES 모듈 import 경로(firebase-init.js 등)도 새 자리로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 25개(`sim-admin-part-register.js`, `sim-asset-code.js`, `sim-catalog-cache.js`, `sim-char-code.js`, `sim-chars.js`, `sim-code-crypto.js`, `sim-commission.js`, `sim-creator-flat-view.js`, `sim-def-size.js`, `sim-face-heal.js`, `sim-gacha-prune.js`, `sim-gacha-race.js`, `sim-gacha.js`, `sim-human-ear.js`, `sim-key-input.js`, `sim-paint-tools.js`, `sim-part-color-entry.js`, `sim-part-paint.js`, `sim-premium-assets.js`, `sim-seat-slot.js`, `sim-slot-save.js`, `sim-slot-sync-mod.js`, `sim-wardrobe-panel.js`, `sim-wardrobe.js`, `sim-wd-ear.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 230 에서 한 것 (2026-10-14 · 도메인 폴더 9번 — 동작 변화 없음)**
-- 앱: `room-entry.js` · `room-sync.js` · `room-invite-ui.js` · `friend-visit.js` · `seat-pin.js` · `hidden-seats.js` · `ride-bench.js` · `interaction-desk.js` · `tricks.js` · `dice-games.js` · `roulette.js` · `floaters.js` · `overhead.js` · `away-pic.js` · `room-server-net.js` · `room-server-gate.js` · `room-alive.js` · `room-ghost-heal.js` · `room-index.js` · `room-channel.js` · `room-stats.js` 를 `app/parts/room/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로 · ES 모듈 import 경로(firebase-init.js 등)도 새 자리로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 23개(`sim-away-pic.js`, `sim-dice-games.js`, `sim-floaters.js`, `sim-focus-log.js`, `sim-friend-visit.js`, `sim-ghost-heal.js`, `sim-hidden-seats.js`, `sim-interaction-desk.js`, `sim-myhome-inbox.js`, `sim-overhead.js`, `sim-parts-paths.js`, `sim-ride-bench.js`, `sim-room-alive.js`, `sim-room-channel.js`, `sim-room-entry.js`, `sim-room-invite-ui.js`, `sim-room-invite-wait.js`, `sim-room-server-net.js`, `sim-room-stats.js`, `sim-room-sync.js`, `sim-roulette.js`, `sim-seat-pin.js`, `sim-tricks.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 229 에서 한 것 (2026-10-14 · 도메인 폴더 8번 — 동작 변화 없음)**
-- 앱: `myhome-init.js` · `myhome-visit.js` · `myhome-page.js` · `myhome-ui.js` · `myhome-edit.js` · `myhome-sticker.js` · `myhome-sticker-layout.js` · `myhome-inbox.js` · `myhome-desktop.js` · `myhome-links.js` · `myhome-diag.js` · `friend-manage.js` · `add-friend.js` · `guestbook.js` · `scheduler.js` · `folder-free.js` · `bookmark.js` · `mallang.js` · `broadcast-cache.js` 를 `app/parts/myhome/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로 · ES 모듈 import 경로(firebase-init.js 등)도 새 자리로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 28개(`sim-add-friend.js`, `sim-bookmark.js`, `sim-broadcast-cache.js`, `sim-bug-board.js`, `sim-child-theme.js`, `sim-fix-1008b.js`, `sim-folder-free.js`, `sim-friend-manage-module.js`, `sim-friend-manage.js`, `sim-friend-visit.js`, `sim-gacha.js`, `sim-gift-star.js`, `sim-guestbook.js`, `sim-mh-sanitize.js`, `sim-myhome-diag.js`, `sim-myhome-edit.js`, `sim-myhome-inbox.js`, `sim-myhome-init.js`, `sim-myhome-links.js`, `sim-myhome-page.js`, `sim-myhome-sticker-layout.js`, `sim-myhome-sticker.js`, `sim-myhome-ui.js`, `sim-myhome-visit.js`, `sim-playlist.js`, `sim-purikura-deco.js`, `sim-room-invite-ui.js`, `sim-scheduler.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 228 에서 한 것 (2026-10-14 · 도메인 폴더 7번 — 동작 변화 없음)**
-- 앱: `settings-panel.js` · `program-settings.js` · `desktop-run.js` · `launcher-chrome.js` · `fn-keys.js` · `ad-banner.js` 를 `app/parts/launcher/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 7개(`sim-ad-banner.js`, `sim-admin-users-launcher.js`, `sim-desktop-run.js`, `sim-fn-keys.js`, `sim-launcher-chrome.js`, `sim-program-settings.js`, `sim-settings-panel.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 227 에서 한 것 (2026-10-14 · 도메인 폴더 6번 — 동작 변화 없음)**
-- 앱: `account.js` · `my-info.js` · `license-gate.js` · `license-ui.js` · `license-key.js` · `license-request.js` · `device-lost.js` · `name-guard.js` · `invite-account.js` · `invite-revoke.js` 를 `app/parts/account/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로 · ES 모듈 import 경로(firebase-init.js 등)도 새 자리로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 11개(`sim-account.js`, `sim-admin-users-launcher.js`, `sim-device-lost.js`, `sim-invite-account.js`, `sim-invite-revoke.js`, `sim-license-gate.js`, `sim-license-key.js`, `sim-license-request.js`, `sim-license-ui.js`, `sim-my-info.js`, `sim-name-guard.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 226 에서 한 것 (2026-10-14 · 도메인 폴더 5번 — 동작 변화 없음)**
-- 앱: `focus-level.js` · `lv-tier.js` · `exp-bar.js` · `focus-total.js` · `focus-log.js` · `focus-share.js` · `weekly-challenge.js` · `pomodoro.js` · `gamepad-activity.js` 를 `app/parts/focus/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 12개(`sim-chat-window.js`, `sim-exp-bar.js`, `sim-focus-level.js`, `sim-focus-log.js`, `sim-focus-share.js`, `sim-focus-total.js`, `sim-gamepad-activity.js`, `sim-lv-tier.js`, `sim-myhome-sticker.js`, `sim-pomodoro-module.js`, `sim-pomodoro.js`, `sim-weekly-challenge.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 225 에서 한 것 (2026-10-14 · 도메인 폴더 4번 — 동작 변화 없음)**
-- 앱: `status-chip.js` · `playlist.js` · `noise.js` · `noise-sounds.js` 를 `app/parts/status/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 10개(`sim-account-switch.js`, `sim-focus-cap.js`, `sim-noise.js`, `sim-pl-grab-pick.js`, `sim-pl-loop.js`, `sim-pl-next.js`, `sim-pl-watchdog.js`, `sim-playlist.js`, `sim-status-chip.js`, `sim-win-layers.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 224 에서 한 것 (2026-10-14 · 도메인 폴더 3번 — 동작 변화 없음)**
-- 앱: `chat-ui.js` · `chat-window.js` · `chat-prefs.js` · `chat-lock.js` · `chat-tabs.js` · `chat-copy.js` · `demoji-palette.js` · `chat-history.js` 를 `app/parts/chat/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로 · ES 모듈 import 경로(firebase-init.js 등)도 새 자리로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 12개(`sim-chat-copy.js`, `sim-chat-history.js`, `sim-chat-lock.js`, `sim-chat-prefs.js`, `sim-chat-sfx.js`, `sim-chat-ui.js`, `sim-chat-window.js`, `sim-chip-chat-ui.js`, `sim-demoji-palette.js`, `sim-mac-0923.js`, `sim-myhome-inbox.js`, `sim-purikura-deco.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 223 에서 한 것 (2026-10-14 · 도메인 폴더 2번 — 동작 변화 없음)**
-- 앱: `bug-board-ui.js` · `report.js` · `bug-board.js` 를 `app/parts/support/` 로 옮겼다(내용 무변경). HTML `<script src>` 경로만 바꾸고 싣는 순서는 그대로 · ES 모듈 import 경로(firebase-init.js 등)도 새 자리로.
-- 검사: HTML 줄 · import 경로를 글자 그대로 찾던 4개(`sim-bug-board.js`, `sim-friend-manage-module.js`, `sim-report-away.js`, `sim-report.js`)를 새 자리로(판정 무변경). `sim-parts-paths.js` 가 실제 폴더 기준 경로를 본다.
-
-**개정 222 에서 한 것 (2026-10-14 · 도메인 폴더 1번 — 동작 변화 없음)**
-- 앱: `purikura-net.js` · `purikura-ui.js` 를 `app/parts/purikura/` 로 옮겼다(내용 무변경). HTML `<script src>` 두 줄만 `parts/purikura/…` 로 · 싣는 순서 그대로.
-- 검사: `sim-parts-paths.js` 신설 **7·0** — 러너는 parts/ 아래 .js 를 평평하게 펴서 돌리므로 실제 앱의 `<script src>` · ES 모듈 상대 import 경로가 틀려도 다른 검사는 초록이다. 이 검사는 스테이징의 parts/ 폴더째 사본(저장소에선 app/)으로 경로를 직접 따라가 본다(HTML 130줄 · 상대 import 20줄 · 깨 보기 셋). `sim-purikura-ui.js` 는 html 순서를 볼 때 `parts/purikura/` 자리도 받는다(판정 무변경).
-
-**개정 221 에서 한 것 (2026-10-14 · 방 서버 연결 — 방이 갈리지 않게)**
-- 앱 `room-entry.js`: 주소록(roomDir)에 있는 방(이미 서버에 열린 방)에 못 붙으면 Firebase 로 가지 않고 막는다 — «방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요». 입장 대기 3초 → 원격 `joinWaitMs`(기본 10초) · 1초 넘으면 «연결 중». 주소록에 없는 방(새 방 · peek)은 지금처럼 Firebase.
-- 앱 `room-entry.js`: 방 안에서 끊긴 채 `clientGiveUpMs`(기본 90초 · 예전 30초) 동안 못 돌아오면 Firebase 로 옮기지(되살리지) 않고 방에서 나온다 — «잠시 후 다시 들어와 주세요». 15초 넘게 끊기면 «다시 연결하는 중» · 돌아오면 «다시 연결됐어요». `_roomServerFallback` · `restoreRoomMeta` 삭제(옛 앱이 되살린 방의 방장 유예는 남김).
-- 앱 `room-server-net.js`: `TIMING_DEFAULTS` · `RECONNECT_NOTICE_MS` · `deps.timing()` · `ensureReady(ms, { retry })`(이미 열린 방은 1분 쉬기 없이 다시 붙어 봄 · 연결 타이머를 대기 시간만큼) · `hooks.onReconnecting`.
-- 앱 `remote-config.js`: `roomServerTiming`(joinWaitMs 3000~60000 · clientGiveUpMs 15000~600000) — API `/v1/config` 의 roomServerTiming, 못 받으면 Firebase 두 칸.
-- 앱 `app.js`: 초대 게이트는 이 PC 저장값이 있으면 기다리지 않는다(처음 켠 PC 만 3초).
-- 규칙: `config/roomServer/timing` 에 `joinWaitMs` · `clientGiveUpMs` 칸.
-- 검사: `sim-room-server-net.js`(9-3 다시 씀 — 15초 알림 · 90초 포기 · 원격 포기 시간 · 돌아오면 알림 끄기 · 10초 입장 대기 · retry) · `sim-remote-config.js`(연결 시간 칸 · 막기 다섯 경우) · `sim-room-server-gate.js`(규칙 범위) · `sim-room-meta-cleanup.js` · `sim-chat-history.js` · `sim-room-entry.js`(이름 목록).
-
-
-**개정 220 에서 한 것 (2026-10-14 · 44번에서 남겼던 #46 — 동작 변화 없음)**
-- 앱: app.js «🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내» 구역 본문 112줄을 `app/parts/myhome-init.js`(`window.TwMyHomeInit`)로 옮겼다. deps 18 · 바뀐 줄 24(읽는 함수 · 쓰는 함수 꼴). 44번 때는 상태칩이 부팅 중 원래 자리보다 먼저 불러 남겼는데, 개정 219 에서 부르는 자리를 INIT 으로 옮겨 이제 옮길 수 있다.
-- 검사: `sim-myhome-init.js` 신설 **14·0**(구조). `sim-broadcast-cache.js` 는 렌더러 쪽 한 벌(joinRenderer)로 읽는다(공지 구독이 myhome-init.js 로 감 · 판정 무변경).
-- `smoke.js` · `audit.py`(검사 8)도 myhome-init.js 를 본다. `sim-renderer-src.js` MODULES 에 myhome-init.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 14,278 → 14,197줄 · 구역 그대로.
-
-**개정 219 에서 한 것 (2026-10-14 · 마이홈 시작 자리 옮김 — 실제 시작 시점은 그대로)**
-- 앱: 상태칩 모듈(status-chip.js)이 만들어질 때 끝에서 `initMyHome()` 을 부르던 줄을 빼고, app.js INIT(모듈을 다 만든 뒤)에서 한 번 부른다. 상태칩이 마이홈 시작을 맡을 까닭이 없다 — 한 덩어리 app.js 시절 시작 코드가 붙어 있던 흔적. `initMyHome` 의 첫 일이 «Firebase 붙을 때까지 기다리기»(`_waitForFirebaseAPI`)라, app.js 를 읽는 동안에는 0.5초 뒤 다시 보기만 예약한다 — 실제 시작은 예전처럼 firebaseAPI 가 생긴 뒤.
-- 검사: `sim-status-chip.js` 받는 이름 목록에서 `initMyHome` 을 뺐다(deps 39 → 38 · 판정 무변경).
-- 번호: 이 PR 은 처음에 개정 218 · 219 로 적었으나, 그 사이 main 에 다른 개정 218(대화 보관 일수 · #206)이 먼저 들어가 219 · 220 으로 다시 매겼다(커밋 제목의 옛 번호는 그대로).
-
-**개정 218 에서 한 것 (2026-10-14 · 방 종류별 서버 대화 보관 일수)**
-- 함수: `functions/chat-expire.js` — `config/chatKeepDays`({ default?, togetherroom?, workingroom?, secret?, … } · 일 · 1~30)를 읽어 방 종류마다 다른 일수로 지운다. 비면 3일(예전과 같음). 종류는 시크릿룸이면 코드(`SCRT-`), 아니면 `rooms/{방}/_meta/channel` → `roomDir/{방}/meta/channel` 한 칸씩. 종류별 칸이 없으면 종류를 읽지 않는다. 예약은 매일 04:30 → 매시간 30분(1일 보관이 최대 2일이 되지 않게), 300줄 정리(trimLog)는 서울 04시 실행만.
-- 규칙: `config/chatKeepDays` — 공개 읽기 · 관리자만 쓰기 · `$kind` 영소문자 1~20자 · 1~30 정수(새 방 종류는 규칙을 안 고치고 칸만 더함).
-- 웹 관리자: ⚙️ 설정 «서버 대화 보관 일수» 카드(`entities/room` chatKeep · 작업 기록 `settings.chatKeepDays` · 처리방침 3일보다 길면 확인 창에 경고).
-- 검사: `sim-chat-history.js` 57·0 — 종류별 칸이 없으면 종류를 안 읽음 · keepPolicy 범위 · 시크릿룸만 1일(방 서버 워킹룸 · 종류 모르는 방은 기본) · 종류 읽는 순서 · trim 은 서울 04시만 · 매시간 예약 · 규칙 범위가 함수와 같음.
-
-**개정 217 에서 한 것 (2026-10-14 · 앱 FSD 48번 — 동작 변화 없음)**
-- 앱: `wardrobe-panel.js`(63줄 · deps 5 · 바뀐 줄 9) · `race-picker.js`(54줄 · deps 12 · 바뀐 줄 2) · `lv-tier.js`(31줄 · deps 0 · 바뀐 줄 0) · `theme.js`(44줄 · deps 1 · 바뀐 줄 2) · `license-ui.js`(36줄 · deps 2 · 바뀐 줄 9) · `license-key.js`(21줄 · deps 4 · 바뀐 줄 0) · `asset-code.js`(36줄 · deps 2 · 바뀐 줄 0).
-- 검사 손질: `audit.py` 검사 17 은 레벨 티어 표 · 클래스 함수를 app.js 뒤에 lv-tier.js 글을 이어 읽는다(판정 무변경). 새 검사 틀은 빈 껍데기 객체의 메서드 줄임(`applyTheme(){}`)을 부르는 자리로 세지 않는다.
-- 검사: `sim-*.js` 일곱 신설 **각 14·0**(구조).
-- `smoke.js` · `audit.py`(검사 8)도 일곱 파일을 본다. `sim-renderer-src.js` MODULES 에 일곱.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 14,499 → 14,278줄 · 구역 그대로.
-
-**개정 216 에서 한 것 (2026-10-14 · 앱 FSD 47번 — 동작 변화 없음)**
-- 앱: `myhome-page.js`(51줄 · deps 6 · 바뀐 줄 0) · `myhome-links.js`(28줄 · deps 0 · 바뀐 줄 0) · `async-prompt.js`(48줄 · deps 0 · 바뀐 줄 0) · `launcher-chrome.js`(31줄 · deps 1 · 바뀐 줄 0) · `outside-close.js`(37줄 · deps 0 · 바뀐 줄 0).
-- 검사 손질: `sim-license-xlsx.js` 는 렌더러 쪽 한 벌(joinRenderer)로 읽는다(바깥 클릭 예외가 outside-close.js 로 감 · 판정 무변경). `sim-launcher-chrome.js` 는 내놓는 이름이 없어 **12·0**, 가짜 브라우저에 `MutationObserver` · `ResizeObserver` 빈 껍데기.
-- 검사: `sim-*.js` 다섯 신설 **각 14·0**(구조 — launcher-chrome 은 12·0).
-- `smoke.js` · `audit.py`(검사 8)도 다섯 파일을 본다. `sim-renderer-src.js` MODULES 에 다섯.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 14,662 → 14,499줄 · 구역 그대로.
-
-**개정 215 에서 한 것 (2026-10-14 · 앱 FSD 46번 — 동작 변화 없음)**
-- 앱: `demoji-palette.js`(48줄 · deps 6 · 바뀐 줄 6) · `chat-lock.js`(31줄 · deps 4 · 바뀐 줄 1) · `roulette.js`(38줄 · deps 9 · 바뀐 줄 3) · `floaters.js`(41줄 · deps 3 · 바뀐 줄 1) · `add-friend.js`(23줄 · deps 10 · 바뀐 줄 0) · `device-lost.js`(25줄 · deps 2 · 바뀐 줄 1).
-- 문서: APP_FSD_MAP 에 **4차 순서표(46 ~ 48)** · 더 남기는 것(3D · 부팅 · 연결 몫) 목록.
-- 검사: `sim-*.js` 여섯 신설 **각 14·0**(구조).
-- `smoke.js` · `audit.py`(검사 8)도 여섯 파일을 본다. `sim-renderer-src.js` MODULES 에 여섯.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 14,804 → 14,662줄 · 구역 그대로.
-
-**개정 214 에서 한 것 (2026-10-14 · 앱 FSD 45번 — 3차 순서표 마지막 · 동작 변화 없음)**
-- 앱: `code-crypto.js`(70줄 · deps 3 · 바뀐 줄 0) · `commission.js`(101줄 · deps 5 · 바뀐 줄 0) · `exp-bar.js`(103줄 · deps 5 · 바뀐 줄 1) · `focus-total.js`(74줄 · deps 0 · 바뀐 줄 0) · `focus-share.js`(69줄 · deps 6 · 바뀐 줄 3).
-- keep: `customItems`(커미션 구역 — 여러 모듈이 전역으로 쓴다) · `_focusTotalSec`(포커스 누적 — 여러 모듈이 전역으로 쓴다). `_focusTotalSec` 를 읽는 줄은 범위 뒤라 «날짜 키 옮기기»(`_focusMigrateDayKey`) 다음에 돈다 — 날짜 옮기기는 누적 키를 건드리지 않아 결과가 같다.
-- 검사: `sim-*.js` 다섯 신설 **각 14·0**(구조). `sim-pomodoro-module.js` 는 오늘 기록 전시가 focus-share.js 에 있으면 그 파일 안 차례와 «그 모듈 만드는 줄 < 뽀모 만드는 줄» 로 본다 · deps 줄 `focusShareMod._focusShowPush` 도 받는다(판정 무변경).
-- `smoke.js` · `audit.py`(검사 8)도 다섯 파일을 본다. `sim-renderer-src.js` MODULES 에 다섯.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 15,175 → 14,804줄 · 구역 그대로.
-
-**개정 213 에서 한 것 (2026-10-14 · 앱 FSD 44번 — 마이홈 묶음 · 테마를 모듈로 · 동작 변화 없음)**
-- 앱: `theme-ui.js`(66줄 · deps 7 · 바뀐 줄 0) · `myhome-sticker-layout.js`(146줄 · deps 4 · 바뀐 줄 4) · `myhome-diag.js`(67줄 · deps 1 · 바뀐 줄 1) · `myhome-visit.js`(195줄 · deps 9 · 바뀐 줄 7).
-- keep: `renderMyHomeStickers`(마이홈 편집 모듈이 감싸 다시 대입하는 함수 — 모듈 안에서 부르는 곳도 화살표로 app.js 이름을 찾는다). 스티커 관리 창 연결(`myHomeSticker` 만드는 줄) · 테마 최상위 호출(`applyTheme()` · `bindThemeUI()`)은 app.js 에서 모듈 만드는 줄 뒤 — 순서 그대로.
-- 옮기지 않음: #44(공용 상태 · 📅 스케줄러 · 👥 친구 관리 연결 — 모듈 연결 몫) · #46(`initMyHome` — 부팅 중 상태칩 모듈이 만들 때 바로 부른다, 원래 자리보다 앞).
-- 검사: `sim-*.js` 넷 신설 **각 14·0**(구조). `sim-child-theme.js` · `sim-myhome-load.js` 는 렌더러 쪽 한 벌(joinRenderer)로 읽는다(판정 무변경).
-- `smoke.js` · `audit.py`(검사 8)도 네 파일을 본다. `sim-renderer-src.js` MODULES 에 넷.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 15,605 → 15,175줄 · 구역 그대로.
-
-**개정 212 에서 한 것 (2026-10-14 · 앱 FSD 43번 — 작은 기능 일곱을 모듈로 · 동작 변화 없음)**
-- 앱: `face-heal.js`(117줄 · deps 16 · 바뀐 줄 1) · `slot-save.js`(153줄 · deps 15 · 바뀐 줄 4) · `interaction-desk.js`(200줄 · deps 14 · 바뀐 줄 10) · `ad-banner.js`(54줄 · deps 1 · 바뀐 줄 0) · `license-request.js`(69줄 · deps 6 · 바뀐 줄 0) · `fn-keys.js`(104줄 · deps 4 · 바뀐 줄 3) · `hidden-seats.js`(88줄 · deps 3 · 바뀐 줄 1).
-- keep: `_flyActive`(비행 중 수 — 숨기기 구역에 선언돼 있지만 app.js 의 startFlight 가 `++` 로 올린다)는 app.js 에 남기고 hidden-seats.js 는 읽는 함수로 받는다.
-- 광고 배너 구역은 두 범위로 — 관리자 런처 연결(admin-launcher.js 만드는 줄)은 app.js 에서 ad-banner.js 만드는 줄 바로 뒤. 부팅 때 배너 첫 그리기 · 서버 배너 구독이 관리자 버튼 걸기보다 먼저 돈다(서로 무관 — 런처는 버튼 손잡이만 건다).
-- 검사: `sim-*.js` 일곱 신설 **각 14·0**(구조). `sim-report.js` 는 숨김 Set 을 hidden-seats.js 가 내놓은 값으로도 받고, `sim-admin-users-launcher.js` 는 사용자 쪽을 ad-banner.js 에서 보고 런처 만드는 줄 자리를 그 모듈 만드는 줄 뒤로 본다(둘 다 판정 무변경).
-- `smoke.js` · `audit.py`(검사 8)도 일곱 파일을 본다. `sim-renderer-src.js` MODULES 에 일곱.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 16,290 → 15,605줄 · 구역 그대로.
-
-**개정 211 에서 한 것 (2026-10-14 · 앱 FSD 42번 셋째 — 효과음 공장을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🔊 효과음 공장(_mkSndPool)» 구역 본문 122줄을 `app/parts/sfx.js`(`window.TwSfx`)로 옮겼다. 바뀐 줄 1(`officeMode` → `officeMode()` 읽는 함수). deps 2(`officeMode` 읽는 함수 · `tricksMod` 값). 잠금 해제 등록(once:true)은 만드는 줄 자리 그대로 — 풀을 다 만든 뒤에 건다.
-- 검사: `sim-sfx.js` 신설 **14·0**(구조). `sim-pomodoro.js` 는 렌더러 쪽 한 벌(joinRenderer)로 읽는다(판정 무변경). `sim-pomodoro-module.js` 는 deps 줄 `pomoSnd: sfxMod._pomoSnd` 도 받고, 풀이 sfx.js 에 있으면 만드는 줄 자리로 앞뒤를 본다(판정 무변경).
-- `smoke.js` · `audit.py`(검사 8)도 sfx.js 를 본다. `sim-renderer-src.js` MODULES 에 sfx.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 16,405 → 16,290줄 · 구역 그대로.
-
-**개정 210 에서 한 것 (2026-10-14 · 앱 FSD 42번 둘째 — 창 겹침을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪟 창 겹침 — 누른 창 맨 앞(bringWinToFront) · ESC 스택(escRegisterWindow)» 구역 본문 147줄을 `app/parts/win-stack.js`(`window.TwWinStack`)로 옮겼다. 바뀐 줄 0. deps 0.
-- 검사: `sim-win-stack.js` 신설 **14·0**(구조). 만드는 틀 — deps 가 하나도 없는 모듈(`({\n});`)도 읽고, «deps 하나 빠짐» 깨 보기는 그때 거꾸로 한 줄을 끼워 본다.
-- `smoke.js` · `audit.py`(검사 8)도 win-stack.js 를 본다. `sim-renderer-src.js` MODULES 에 win-stack.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 16,547 → 16,405줄 · 구역 그대로.
-
-**개정 209 에서 한 것 (2026-10-14 · 앱 FSD 42번 — 리치 텍스트 sanitize 를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🛡️ 리치 텍스트 sanitize · 저장 · 글자 수» 구역 본문 164줄을 `app/parts/rich-text.js`(`window.TwRichText`)로 옮겼다. 바뀐 줄 0. deps 1.
-- 3차 표 42번 나눔: 같은 줄의 🪟 창 겹침 #24 · 🔊 효과음 공장 #13 은 각자 다음 PR 로.
-- 검사: `sim-rich-text.js` 신설 **14·0**(구조). `audit.py` 검사 19 ③(저장형 XSS 회귀 — `_mhLoadRT` 가 `_mhSanitizeHtml` 을 거치는가)은 app.js 에 없으면 rich-text.js 에서 찾는다 · 검사 8 시야에 rich-text.js. `sim-mh-sanitize` 는 공용 도우미로 읽는다(판정 무변경).
-- `smoke.js` 도 rich-text.js 를 먼저 평가. `sim-renderer-src.js` MODULES 에 rich-text.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 16,705 → 16,547줄 · 구역 그대로.
-
-**개정 208 에서 한 것 (2026-10-14 · 앱 FSD 41번 — 채팅 쪽 작은 셋을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🗑 대화 기록 삭제 (방장)» · «💬 채팅창 투명도 · 글자 크기» · «🔔 채팅 알림음 — 상태 · 저장 · 메뉴» 세 구역 본문 250줄을 `app/parts/chat-prefs.js`(`window.TwChatPrefs`)로 옮겼다. 바뀐 줄 9. deps 21.
-- 검사: `sim-chat-prefs.js` 신설 **14·0**(구조). 다른 검사는 그대로 초록.
-- `smoke.js` · `audit.py`(검사 8)도 chat-prefs.js 를 본다. `sim-renderer-src.js` MODULES 에 chat-prefs.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 16,925 → 16,705줄 · 구역 그대로.
-
-**개정 207 에서 한 것 (2026-10-14 · 앱 FSD 40번 — 닉네임 저장 · 프로그램 설정 창을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🏷️ 닉네임 저장 — 모달이 아니라 제자리 편집이 부르는 한 벌» 구역 본문 263줄을 `app/parts/program-settings.js`(`window.TwProgramSettings`)로 옮겼다 — 구역 안에 ⚙️ 프로그램 설정 창(열기 · 닫기 · 회사원 · 피규어 모드)도 있어 파일 이름을 그렇게 지었다. 바뀐 줄 14. deps 23(회사원 · 피규어 모드 · 집중 잠 깃발은 쓰는 함수).
-- 검사: `sim-program-settings.js` 신설 **14·0**(구조).
-- 다른 검사(판정 무변경): `sim-myhome-edit` · `sim-name-guard` · `sim-overlay-layered` · `sim-purikura-deco` 는 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8)도 program-settings.js 를 본다. `sim-renderer-src.js` MODULES 에 program-settings.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 17,157 → 16,925줄 · 구역 그대로.
-
-**개정 206 에서 한 것 (2026-10-14 · 앱 FSD 39번 — 주사위 · 하루 횟수를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🎲 주사위» · «🎟️ 하루 횟수 제한 — 🔫 러시안룰렛 · 🎲 투게더룸 주사위» 두 구역 본문 91줄을 `app/parts/dice-games.js`(`window.TwDiceGames`)로 옮겼다. 바뀐 줄 6. deps 12. 사이에 있던 📷 스티커사진 입구(`_purikura`)와 스티커사진 모듈 만드는 줄은 app.js 에 남겼다(모듈 연결은 app.js 몫).
-- 3차 표 39번 나눔: 같은 줄의 ⌨️ 함수키 #39 · 🙈 워킹룸 숨기기 #9 는 43번(작은 기능)으로.
-- 검사: `sim-dice-games.js` 신설 **14·0**(구조). 다른 검사는 그대로 초록.
-- `smoke.js` · `audit.py`(검사 8)도 dice-games.js 를 본다. `sim-renderer-src.js` MODULES 에 dice-games.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 17,229 → 17,157줄 · 구역 그대로.
-
-**개정 205 에서 한 것 (2026-10-14 · 앱 FSD 38번 — 복제 코드를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «📦 복제 코드 불러오기 · 내보내기 · 풀 GLB» 구역 본문 150줄을 `app/parts/char-code.js`(`window.TwCharCode`)로 옮겼다. 바뀐 줄 7. deps 25. 섞여 있던 생성기 상태(`cDeskGlbB64` · `cDeskTemplate` — 부르는 곳 50)는 app.js 에 남겼다(keep).
-- 3차 표 38번 범위 조정: 같은 줄의 «🔄 카탈로그 실시간 동기화»(#150)는 생성기 상태(`cDesk*` · `cBase`)를 많이 읽어 생성기 묶음으로, «🪑 책상 · 아이템 등록 · 책상 모양 · 크기»(#151)는 3D 자산 등록이라 핵심에 남긴다.
-- 검사: `sim-char-code.js` 신설 **14·0**(구조). `sim-admin-asset` 은 공용 도우미로 읽는다(판정 무변경).
-- `smoke.js` · `audit.py`(검사 8)도 char-code.js 를 본다. `sim-renderer-src.js` MODULES 에 char-code.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 17,347 → 17,229줄 · 구역 그대로.
-
-**개정 204 에서 한 것 (2026-10-14 · 앱 FSD 37번 — 프리미엄 파츠 · 라이선스 책상을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «캐릭터 꾸미기 파츠 (프리미엄)» · «라이선스 전용 책상을 꾸미기창 «책상» 탭으로» · «라이선스 없는 기기에 남은 전용 자산을 접어 둔다» 세 구역 본문 588줄을 `app/parts/premium-assets.js`(`window.TwPremiumAssets`)로 옮겼다. 바뀐 줄 18. deps 32. 카테고리 목록(`PART_CATS` · `PART_GROUPS` · 상한)도 이 모듈이 든다.
-- 검사: `sim-premium-assets.js` 신설 **14·0**(구조). 만드는 틀 — «옛 이름 부름» 판정이 따옴표 글자(안내 문구) 안의 이름은 뺀다.
-- 관리자 검사 `sim-admin-console` · `sim-admin-license` · `sim-admin-mode` · `sim-admin-part-register` 는 공용 도우미로 읽는다(deps 오른쪽이 `premiumMod.이름` 으로 바뀌어도 옛 글로 견준다 · 판정 무변경). `sim-admin-part-register` 는 꾸미기 본문이 되살린 글 안에 있으면 wardrobe.js 를 따로 세지 않고, «꾸미기에서 옛 이름으로 부름» 깨 보기도 되살린 글에서 한다(**29·0**).
-- `smoke.js` · `audit.py`(검사 8)도 premium-assets.js 를 본다. `sim-renderer-src.js` MODULES 에 premium-assets.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 17,894 → 17,347줄 · 구역 그대로.
-
-**개정 203 에서 한 것 (2026-10-14 · 앱 FSD 36번 — 상태칩 자리 · 팝업 · 상태 이모지를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «📍 상태칩 자리 · 칩 클릭 · Tab 접기» · «📐 상태칩 팝업 · 입력창 자리 계산 · 캐릭터 실측» · «🫧 상태 이모지 그림 · UI 아이콘 · 책상 위 이모지» 세 구역 본문 881줄을 `app/parts/status-chip.js`(`window.TwStatusChip`)로 옮겼다. 바뀐 줄 33. deps 34.
-- 검사: `sim-status-chip.js` 신설 **14·0**(구조). 다른 검사는 그대로 초록.
-- `smoke.js` · `audit.py`(검사 8)도 status-chip.js 를 본다. `sim-renderer-src.js` MODULES 에 status-chip.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 18,727 → 17,894줄 · 구역 그대로.
-
-**개정 202 에서 한 것 (2026-10-14 · 앱 FSD 35번 — 방 def 전송 등을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «📦 방으로 보내는 def — 직렬화 · 얼굴 URL · 델타 전송 · Firebase provider» · «🛰 poke 신선도» · «🚪 자리비움 자동 퇴장» · «🛰 서버 모듈 감시견» 네 구역 본문 566줄을 `app/parts/room-sync.js`(`window.TwRoomSync`)로 옮겼다. 바뀐 줄 5. deps 11.
-- poke 구역에 섞여 있던 날리기(`canFly` · `startFlight`)는 도메인이 달라 app.js 에 남겼다(keep — 나중 깜짝쇼 쪽 후보).
-- 검사: `sim-room-sync.js` 신설 **14·0**(구조).
-- 다른 검사(판정 무변경): `sim-def-size` 는 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8)도 room-sync.js 를 본다. `sim-renderer-src.js` MODULES 에 room-sync.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 19,269 → 18,727줄 · 구역 그대로.
-
-**개정 201 에서 한 것 (2026-10-14 · 앱 FSD 34번 — 머리 위 말풍선 · 이름표를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «💬 머리 위 말풍선 · 회사원 모드 라벨» · «🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너» 두 구역 본문 582줄을 `app/parts/overhead.js`(`window.TwOverhead`)로 옮겼다. 바뀐 줄 3. deps 15. 이름표 · 칩 방향 깃발(`nameplateEnabled` · `chipHorizontal`)은 이 모듈이 들고 읽는 · 쓰는 함수로 내놓는다 — 설정 패널 만드는 줄의 쓰는 함수가 `overheadMod.setX(v)` 를 거친다.
-- 검사: `sim-overhead.js` 신설 **14·0**(구조).
-- 공용 도우미 `sim-renderer-src.js`: 다른 모듈 만드는 줄의 쓰는 함수가 옮긴 모듈의 쓰는 함수를 거치면(`setX: (v)=>{ mod.setX(v); },`) 옛 모양 `x = v` 로 먼저 돌린다 — 그래야 그 모듈 본문의 `setX(…)` 도 되살아난다 · MODULES 에 overhead.js(**36·0**).
-- 다른 검사(판정 무변경): `sim-fix-1008b` 는 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8)도 overhead.js 를 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 19,851 → 19,269줄 · 구역 그대로.
-
-**개정 200 에서 한 것 (2026-10-14 · 앱 FSD 33번 — 방 서버 · 입장 · 방 개수를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🛰 방 서버 provider» · «🔢 방 개수 · 방 만들기 · 랜덤 참여 · 갈아타기» · «🚪 방 입장 · 나가기 · 승계 · 해산 · 코드 입력칸» 세 구역 본문 1,400줄을 `app/parts/room-entry.js`(`window.TwRoomEntry`)로 옮겼다. 바뀐 줄 13. deps 42. 내놓는 이름(`startRoom` · `doLeaveRoom` · `syncFriendSeats` · `startRoomCountWatch` · `CHANNEL_NAMES` · `ROOM_PREFIX` 등)은 `roomEntryMod.이름`.
-- 여러 모듈이 쓰는 내 이름 도우미(`getDisplayName` · `getUserName` · `setUserName` · `USER_NAME_KEY`)는 app.js 에 남겼다(keep).
-- Firebase / 방 서버 두 통로를 고르는 전략 정리는 다음 단계(컨벤션)에서 한다 — 이번은 위치만.
-- 검사: `sim-room-entry.js` 신설 **14·0**(구조).
-- 다른 검사(판정 무변경): `sim-friend-visit` · `sim-mac-0923` · `sim-noise` · `sim-room-invite-ui` · `sim-room-meta-cleanup` · `sim-room-order` · `sim-room-server-gate` · `sim-room-stats` 는 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8)도 room-entry.js 를 본다. `sim-renderer-src.js` MODULES 에 room-entry.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 21,194 → 19,851줄 · 구역 그대로.
-- 앱 FSD 2차 순서표(17~33) 끝 — 20번(캐릭터 생성기 코어) · 28번(코드 가져오기 창 — 생성기 상태와 묶임)만 도메인 단계로 미뤘다.
-
-**개정 199 에서 한 것 (2026-10-14 · 앱 FSD 32번 — 데스크탑 실행 화면 덩이를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🖥️ 데스크탑 실행 화면» 구역의 `if(desktopMode){…}` 덩이 750줄을 `app/parts/desktop-run.js`(`window.TwDesktopRun`)로 옮겼다 — 만들 때 한 번 돈다(옛 자리에서 부팅 때 한 번 돌던 것과 같은 차례). 바뀐 줄 18. deps 19. 내놓는 이름 없음.
-- 창 크기 맞추기(`applyDesktopRunClass`) · `myHomeOpen` · `layoutSeats` 감싸기는 화면 핵심이라 app.js 에 남겼다.
-- 검사: `sim-desktop-run.js` 신설 **12·0**(구조 — 내놓는 이름이 없어 «부르는 곳» 판정 둘이 빠진다).
-- `audit.py` 검사 2: 클릭 통과 목록 `UI_HIT_SEL` 정의를 app.js 에서 못 찾으면 desktop-run.js 에서 찾는다. `sim-renderer-src.js`: MODULES 에 desktop-run.js(표본 `function showUpdateReadyBanner(`)(**32·0**).
-- 다른 검사(판정 무변경): `sim-app-version-gate` · `sim-gamepad-activity` · `sim-ghost-cache-sync` · `sim-hover-poke` · `sim-mac-update` · `sim-wheel-kick` 는 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8)도 desktop-run.js 를 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 21,917 → 21,194줄 · 구역 그대로. `ui-tokens-baseline.json` 은 옮긴 색 자리만.
-
-**개정 198 에서 한 것 (2026-10-14 · 앱 FSD 27번 — 설정 패널을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «⚙ 설정 패널 — 포커싱 어플 · 화면 표시 · 캐릭터 크기 · 탭 · 광고 배너» · «설정 패널 캐릭터 탭 — 캐릭터 교체 / 자리 추가» 두 구역 본문 824줄을 `app/parts/settings-panel.js`(`window.TwSettingsPanel`)로 옮겼다. 바뀐 줄 62. deps 47 — 화면 표시 깃발(이름표 · 점 렌더 · 이모지 반응 · 꾸밈 파츠 · 칩 방향 · 좌석 간격 등)을 바꾸는 곳이라 쓰는 함수 13.
-- 이동 모드 상태(`moveMode` 등 셋) · 앱 화면 전환(`appMode` · `showEl` · `applyAppMode` · `launchApp` · `backToLauncher`)은 부팅 · 화면 핵심이라 app.js 에 남겼다(범위에서 뺌).
-- 검사: `sim-settings-panel.js` 신설 **14·0**(구조).
-- `sim-focus-log.js`: «원래 자리» 판정이 광고 배너 묶음 뒤 또는 설정 패널 모듈 만드는 줄 바로 뒤를 받는다(**72·0**). `sim-sysinput.js`: 등록 토스트를 공용 도우미로 되살린 글에서 본다.
-- 다른 검사(판정 무변경): `sim-deco-parts` · `sim-seat-pin` · `sim-slot-fit` · `sim-ui-zoom` 는 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8)도 settings-panel.js 를 본다. `sim-renderer-src.js` MODULES 에 settings-panel.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 22,674 → 21,917줄 · 구역 그대로. `ui-tokens-baseline.json` 은 옮긴 색 자리만.
-
-**개정 197 에서 한 것 (2026-10-14 · 앱 FSD 29번 — 꾸미기 창을 모듈로 · 동작 변화 없음)**
-- 앱: app.js 꾸미기 다섯 구역(«👀 미리보기 — 렌더러 · 기즈모 · 창 자리 · 카메라» · «📝 초안(draft)» · «🎛️ 상세조정 패널 · 색 고르기» · «🎨 색 줄 · 탭 상태» · «🎨 창 그리기 · 파츠 착용») 본문 1,703줄을 `app/parts/wardrobe.js`(`window.TwWardrobe`)로 옮겼다. 바뀐 줄 70. deps 71. 내놓는 이름 30(미리보기 장면 · 카메라 · 기즈모 · 초안은 읽는 함수).
-- 옛 전역 이름 잇기: bookmark.js 가 전역으로 부르는 `buildFreeColorPicker` 한 줄.
-- 검사: `sim-wardrobe.js` 신설 **14·0**(구조). 만드는 틀의 가짜가 `addEventListener` · `removeEventListener` 도 받는다.
-- `sim-admin-part-register.js`: 꾸미기의 «＋ 파츠 등록» 부르는 곳(3)은 wardrobe.js 에서 센다(`adminPartReg().이름`) · deps 는 키와 넘기는 방식만 본다(오른쪽이 `wardrobeMod.이름` 으로 바뀜) · 깨 보기 «꾸미기에서 옛 이름으로 부름» 더함(**29·0**).
-- 구조 검사 `sim-chars` · `sim-account` · `sim-license-gate` · `sim-tricks` · `sim-myhome-ui` · `sim-my-info` · `sim-ride-bench` · `sim-focus-level` · `sim-part-paint` · `sim-chat-ui` · `sim-away-pic` · `sim-slot-sync-mod`: «deps 하나 빠짐» 깨 보기는 마지막 deps 줄을 글 모양과 무관하게 뺀다(판정 무변경).
-- 다른 검사(판정 무변경): `sim-char-foot` · `sim-char-z` 는 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8)도 wardrobe.js 를 본다. `sim-renderer-src.js` MODULES 에 wardrobe.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 24,292 → 22,674줄 · 구역 그대로. `ui-tokens-baseline.json` 은 옮긴 색 자리만.
-
-**개정 196 에서 한 것 (2026-10-14 · 앱 FSD 23번 — 계정을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문 823줄을 `app/parts/account.js`(`window.TwAccount`)로 옮겼다. 바뀐 줄 49 — 대부분 뒤에서 선언되는 저장 키를 읽는 함수로. deps 36.
-- 검사: `sim-account.js` 신설 **14·0**(구조).
-- 다른 검사(판정 무변경): `sim-device-session` 은 공용 도우미로 읽는다. 앞서 만든 구조 검사 `sim-chars` · `sim-slot-sync-mod` · `sim-away-pic` · `sim-myhome-ui` · `sim-tricks` · `sim-ride-bench` 의 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다음 모듈로 옮겨 가면 깨 볼 글이 없어진다 — 31번에서 `sim-my-info` 가 먼저 겪음). `smoke.js` · `audit.py`(검사 8)도 account.js 를 본다. `sim-renderer-src.js` MODULES 에 account.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 25,067 → 24,292줄 · 구역 그대로.
-
-**개정 195 에서 한 것 (2026-10-14 · 앱 FSD 31번 — 초대장 · 라이선스를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🎟️ 초대장 (앱 접근 제한)» 구역 본문 837줄을 `app/parts/license-gate.js`(`window.TwLicenseGate`)로 옮겼다(초대 게이트 · 기존 가입 확인 · 라이선스 키 · 초대 창). 바뀐 줄 20. deps 32.
-- 여러 모듈이 읽는 `isPremium` 은 app.js 에 남겼다(만드는 줄 바로 앞 — 모듈은 읽는 · 쓰는 함수로 받고, 바꾸는 곳은 여전히 `_setPremium` 하나).
-- 같은 구역 초대 창 묶기(bindInviteUI) 안에 있던 관리자 📊 통계 · 🎟️ 초대권 지급 모듈(admin-users.js) 만드는 줄은 app.js 로 뺐다 — 초대장 모듈 만드는 줄 바로 뒤. 부팅 때 초대 창 묶기 직후 한 번 만드는 차례는 같다.
-- 검사: `sim-license-gate.js` 신설 **14·0**(구조). `sim-admin-users-launcher.js` — 초대 창은 license-gate.js 에서 보고, 통계 · 초대권 만드는 줄 자리 판정을 «초대장 모듈 만드는 줄 바로 뒤» 로, deps 는 `licenseGateMod.INVITE_GRANT_MAX` 도 받는다(**30·0**).
-- 다른 검사(판정 무변경): `sim-char-identity` · `sim-clone-code-entry` · `sim-face-loss` · `sim-gacha-prune` · `sim-invite-account` · `sim-license-leak` · `sim-premium-desk` · `sim-remote-config` · `sim-seat-eq` · `sim-unfocused-fps` · `sim-win-front` 는 공용 도우미로 읽는다. `sim-my-info.js`(구조) 의 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다. `smoke.js` · `audit.py`(검사 8)도 license-gate.js 를 본다. `sim-renderer-src.js` MODULES 에 license-gate.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 25,863 → 25,067줄 · 구역 그대로.
-
-**개정 194 에서 한 것 (2026-10-14 · 앱 FSD 24번 — 채팅 다섯 구역을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🌊 채팅 날리기» · «🔖 여기까지 읽었습니다 구분선» · «💬 채팅 탭(채널)» · «📋 대화 드래그 · 복사» · «😊 커스텀 이모티콘» 다섯 구역 본문 1,279줄을 `app/parts/chat-ui.js`(`window.TwChatUi`)로 옮겼다. 대화창 배선(chat-window.js)과 짝. 바뀐 줄 37. deps 32(대화 기록 캐시 · 구독 · 춤 명령 쿨다운은 읽는 · 쓰는 함수).
-- 옛 전역 이름 잇기: myhome-desktop.js 가 전역으로 읽는 `DEMOJI_BY_ID` · `DEMOJI_DIR` 상수 두 줄.
-- 검사: `sim-chat-ui.js` 신설 **14·0**(구조). 동작 판정은 채팅 검사들(판정 무변경).
-- 다른 검사(판정 무변경): `sim-chat-copy` · `sim-chat-fly` · `sim-chat-history` · `sim-chat-layout` · `sim-chat-log-persist` · `sim-chat-sfx` · `sim-chat-tabs` · `sim-chip-chat-ui` · `sim-fly-click-through` · `sim-room-server-net` · `sim-win-layers` 는 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8)도 chat-ui.js 를 본다. `sim-renderer-src.js` MODULES 에 chat-ui.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 27,092 → 25,863줄 · 구역 그대로. `ui-tokens-baseline.json` 은 옮긴 색 자리만.
-
-**개정 193 에서 한 것 (2026-10-14 · 앱 FSD 26번 — 포커스 레벨 · 공유 · 태블릿을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «⭐ 포커스 레벨 · 해금 안내 · 회차 별 색» · «🕒 포커스 누적 기기 간 공유» · «📱 태블릿·폰 포커싱 연결» 세 구역 본문 553줄을 `app/parts/focus-level.js`(`window.TwFocusLevel`)로 옮겼다. 바뀐 줄 26. deps 27(누적 · 오늘 · 이번 판 초는 읽는 함수 · 쓰는 함수).
-- 옛 전역 이름 잇기: animal.js · myhome-desktop.js 가 전역으로 부르는 `getFocusLevel` 한 줄.
-- 검사: `sim-focus-level.js` 신설 **14·0**(구조). 틀에 `localSame` — 내놓는 이름과 같은 이름의 딴 지역 변수(입장 페이로드의 `let myFocusShow`)는 «옛 이름 부름» 판정에서 뺀다.
-- 공용 도우미 `sim-renderer-src.js`: 쓰는 함수를 되돌릴 때 괄호 짝을 맞춘다(`setFocusTotalSec(Math.min(…))` 처럼 인자에 괄호가 있어도) · MODULES 에 focus-level.js(**20·0**).
-- 다른 검사(판정 무변경): `sim-dance-unlock-mail` · `sim-focus-auth` · `sim-focus-log` · `sim-focus-show` · `sim-focus-sync` · `sim-friend-code-keep` · `sim-gacha` · `sim-mobile-focus` · `sim-room-parity` · `sim-weekly-challenge` · `sim-pl-grab-pick` 은 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8)도 focus-level.js 를 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 27,605 → 27,092줄 · 구역 그대로.
-
-**개정 192 에서 한 것 (2026-10-14 · 앱 FSD 21번 — 파츠에 직접 그리기 · 그림칸을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🖍️ 파츠에 직접 그리기» · «🖍️ 파츠 그림칸(_pic) · UV 구제 · 그림 올리기» 두 구역 본문 972줄을 `app/parts/part-paint.js`(`window.TwPartPaint`)로 옮겼다. 바뀐 줄 24. deps 29.
-- 섞여 있던 공용 도우미 `findMySeat`(내 좌석 찾기 — noise.js 등도 씀)는 app.js 에 남겼다.
-- **옛 전역 이름 잇기(처음)**: animal.js 가 아직 전역으로 부르는 `_picIntersect` · `_stampWrapCenter` · `_stampWrapFill` 은 app.js 만드는 줄 바로 뒤에 한 줄씩 넘겨주는 함수를 둔다(표지 `// 옛 전역 이름`). 도메인 단계에서 deps 로 바꾸고 걷는다.
-- 검사: `sim-part-paint.js` 신설 **14·0**(구조 — «부르는 곳이 옛 이름» 깨 보기는 이음 줄을 건너뛴다). 동작 판정은 파츠 칠하기 · UV 검사들(판정 무변경).
-- 다른 검사(판정 무변경): `sim-animal-cast` · `sim-paint-tools` · `sim-part-color-entry` · `sim-gacha-race` · `sim-publish-fields` · `sim-uv-fill` 은 공용 도우미로 읽는다. `sim-admin-part-register` 의 «deps 하나 빠짐» 깨 보기는 같은 deps 줄이 두 모듈 만드는 줄에 생겨 파츠 등록 창 만드는 줄 안의 것을 지우게 좁혔다. `smoke.js` · `audit.py`(검사 8)도 part-paint.js 를 본다. `sim-renderer-src.js` MODULES 에 part-paint.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 28,537 → 27,605줄 · 구역 그대로. `ui-tokens-baseline.json` 은 옮긴 색 자리만.
-
-**개정 191 에서 한 것 (2026-10-14 · 앱 FSD 30번 — 올라타기 · 멀티좌석 책상을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🗼 올라타기(탑) · 벤치 좌석 자리 잡기» · «🪑 멀티좌석 책상(2·3인승 벤치)» 두 구역 본문 1,092줄을 `app/parts/ride-bench.js`(`window.TwRideBench`)로 옮겼다. 사이의 «🪑 상호작용 책상 카탈로그 + 레벨 해금» 은 app.js 에 남겼다. 바뀐 줄 6. deps 65(대부분 튜닝 상수 — 값). 내놓는 이름 17(`mountRide` · `unmountRide` · `mountBench` · `unmountBench` · `findBenchSlot` · `attachBenchToSeat` · `_rideBottom` 등) — 부르는 곳 47을 `rideBenchMod.이름` 으로.
-- 검사: `sim-ride-bench.js` 신설 **14·0**(구조). 동작 판정은 올라타기 · 벤치를 보던 검사들(판정 무변경).
-- 다른 검사(판정 무변경): `sim-ride-part-top.js` 는 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8)도 ride-bench.js 를 본다. `sim-renderer-src.js` MODULES 에 ride-bench.js · 앞으로 쓸 «옛 전역 이름 잇기» 줄(표지 `// 옛 전역 이름` — 다른 모듈이 아직 전역으로 부르는 이름을 모듈로 넘기는 한 줄)은 되살리기 전에 지운다(되살리면 자기 자신을 부른다)(**14·0**).
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 29,557 → 28,537줄 · 구역 그대로.
-
-**개정 190 에서 한 것 (2026-10-14 · 앱 FSD 25번 — 깜짝쇼 · 때리기를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «💃💥 깜짝쇼» · «🪄 때리기(bonk)» · «🪄 때리기 — 말풍선 · 재생 · 전파 · 조준 모드» 세 구역 본문 529줄을 `app/parts/tricks.js`(`window.TwTricks`)로 옮겼다. 사이의 «🔊 효과음 공장»(채팅 · 뽀모도로도 씀)은 app.js 에 남겼다. 바뀐 줄 26 — 뒤에서 선언되거나 다시 대입되는 값 아홉을 `이름()` 으로 · `_flyActive` 대입은 `setFlyActive`. deps 41. 내놓는 이름 — 때리기 · 깜짝쇼 함수와 상수 · 조준 상태(`_bonkAiming` · `_flyAiming` 는 읽는 함수 + 대화창 모듈이 바꾸는 쓰는 함수).
-- 검사: `sim-renderer-src.js` — 되살린 모듈 본문을 **만드는 줄 자리에 끼운다**(전엔 맨 끝에 이었다). app.js 에 남은 줄이 부팅 때 바로 옮긴 상수를 읽는 경우(효과음 공장 → BONK_SND_*)도 옛 차례대로 본다. 차례 정렬은 필요 없어졌다(**14·0**). MODULES 에 tricks.js.
-- 검사: `audit.py` 검사 19 — 속성값 보간에서 `xxxMod.대문자상수` 도 상수로 본다(옮긴 `BONK_BUBBLE_IMG` 가 `tricksMod.BONK_BUBBLE_IMG` 가 되어 걸렸다). 검사 8 시야에 tricks.js.
-- 검사: `sim-tricks.js` 신설 **14·0**(구조). 동작 판정은 `sim-fly-*` · 때리기 · 조준을 보던 검사들(판정 무변경).
-- 다른 검사(판정 무변경): `sim-chat-window` · `sim-key-input` · `sim-purikura-stage` · `sim-fly-roulette` · `sim-fly-egg` · `sim-purikura-ui` · `sim-seat-hide` 도 공용 도우미로 읽는다. 만드는 틀의 가짜는 `THREE` 도 받는다(만들 때 벡터를 만드는 모듈). `smoke.js` 는 tricks.js 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 30,035 → 29,557줄 · 구역 그대로.
-
-**개정 189 에서 한 것 (2026-10-14 · 앱 FSD 22번 — 자리비움 그림 · 마이홈 창 버튼 연결을 모듈 둘로 · 동작 변화 없음)**
-- 앱: app.js «🫧 자리비움 그림» 본문 309줄을 `app/parts/away-pic.js`(`window.TwAwayPic` · deps 11 · 내놓는 이름 9 — 부르는 곳 20을 `awayPicMod.이름`, var 셋은 `awayPicMod.이름()`), «🏠 마이홈 창 버튼 연결(bindMyHomeUI)» 본문 425줄을 `app/parts/myhome-ui.js`(`window.TwMyHomeUi` · deps 23 · 쓰는 함수 `setMyHomeOpen` · 내놓는 이름 `renderMhProfileRail`)로 옮겼다. 두 구역은 도메인이 달라(좌석의 자리비움 그림 · 마이홈 창) 파일을 나눴다.
-- 20번(🖼️ 이미지 도장)은 미룬다 — 구역 본문이 생성기 그리기 핵심(붓 · 지우개 · 피부색 · 카메라 궤도 · bindPaint · loadSkins)이라 읽는 함수 31 · 쓰는 함수 21 이 필요했다. 생성기(#90 · #105)와 한 묶음으로 도메인 단계에서 다룬다.
-- 옮기기 도구(작업용): 복합 대입(`camYaw += …`)과 문장으로 쓴 `++` · `--` 를 쓰는 함수로(`setX(X() + …)`) · 다른 파일이 같은 이름을 스스로 선언해 쓰면(지역) 다른 파일 사용으로 치지 않음 · html 주석 빼고 봄.
-- 검사: `sim-away-pic.js` · `sim-myhome-ui.js` 신설 **14·0 · 14·0**(구조). 만드는 틀의 가짜는 `then` 도 받는다(만들 때 부르는 서버 요청). 같은 틀로 `sim-my-info.js` · `sim-chars.js` · `sim-slot-sync-mod.js` 를 다시 만듦. `sim-renderer-src.js` MODULES 에 둘(**12·0**).
-- 다른 검사(판정 무변경): 옮긴 코드를 app.js 글에서 찾던(또는 돌려 보던) 열둘 — `sim-away-follow` · `sim-def-send` · `sim-fly-replay` · `sim-friend-manage-module` · `sim-friend-manage` · `sim-guestbook` · `sim-myhome-inbox` · `sim-report-away` · `sim-myhome-steps` · `sim-myhome-sticker` · `sim-room-live-def` · `sim-scheduler` — 는 공용 도우미로 읽는다. `smoke.js` · `audit.py`(검사 8 · 19)도 두 파일을 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 30,724 → 30,035줄 · 상한 30,235 · 구역 그대로.
-
-**개정 188 에서 한 것 (2026-10-14 · 앱 FSD 19번 — 슬롯 기기 간 동기화를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «☁️ 슬롯(캐릭터) 기기 간 동기화» · «☁️ 연동 UI — 띠(런처) · 기기 연동 구획(계정 탭)» 두 구역 본문 662줄을 `app/parts/slot-sync.js`(`window.TwSlotSync`)로 옮겼다. 슬롯 저장 · 복원(`saveSlots` · `loadSlots`)은 app.js 에 남는다. 바뀐 줄 3 — `charsMod` · `creatorOpen`(뒤에서 선언 · 다시 대입)을 `이름()` 으로. deps 19. 내놓는 이름 27 + 쓰는 함수 셋(`setSlotsTs` · `setSlotsSeen` · `setSlotsConflict` — 로그아웃 때 신원 지우기가 비운다). 부르는 곳 45를 `slotSyncMod.이름` 으로(읽는 함수로 내놓은 let 은 `slotSyncMod.이름()` · 대입은 `slotSyncMod.set이름(…)`).
-- 옮기기 도구(작업용): 범위(스코프)를 따져 본문 안 같은 이름 지역 변수(`prev` 등)는 받을 이름 · 바꿀 자리에서 뺀다 · app.js 가 대입하는 내놓을 let 은 쓰는 함수로.
-- 검사: `sim-renderer-src.js` 되살리기 보강 **8·0** — 껍데기(IIFE · createX)를 벗겨 본문을 꼭대기에(함수를 돌려 보는 검사용) · 옛 app.js 차례대로 잇기(앞 모듈 선언을 뒤 모듈이 읽음) · 모듈끼리 부르는 «mod.» 도 떼기 · 내놓은 쓰는 함수 «mod.setX(v)» → «X = v» · deps 오른쪽이 다른 모듈의 읽는 함수여도 알아봄. MODULES 에 slot-sync.js.
-- 검사: `sim-slot-sync-mod.js` 신설 **14·0**(구조). 틀 고침 — deps 판정은 «키 · 넘기는 방식» 만(오른쪽은 옮길 때마다 `mod.이름` 으로 바뀔 수 있다) · 내놓는 이름에 쓰는 함수 포함. 그 틀로 `sim-my-info.js` · `sim-chars.js` 를 다시 만듦(14·0 · 14·0). 동작 판정은 `sim-slot-sync.js`(99) · `sim-slot-conflict.js`(48) · `sim-chars-migrate.js`(165) · `sim-google-login.js` 등 — 판정 무변경.
-- 다른 검사(판정 무변경): `sim-account-switch.js` · `sim-slot-sync-ui.js` · `sim-wd-ear.js` 도 공용 도우미로 읽는다(옮긴 슬롯 동기화 코드를 app.js 글에서 찾던 것). `smoke.js` · `audit.py`(검사 8)도 slot-sync.js 를 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 줄 수 · 상한을 옮긴 만큼 내림 · 구역 그대로.
-
-**개정 187 에서 한 것 (2026-10-14 · 러너 스테이징 — app/ 하위 폴더도 처음부터 평면에)**
-- 까닭: 앱 FSD 로 렌더러 모듈이 `app/parts/` · `app/parts/admin/` 에 늘면서, 검사가 원본을 하나씩 «없다» 고 댈 때마다 «깊은 곳 끌어올리기» 가 한 바퀴씩 더 돌아 5바퀴 상한에 닿았다(개정 186 판 — 상한에 닿으면 원본이 있는데 «원본 없음» 으로 빠질 수 있다).
-- `run.js`: `flattenApp` — 스테이징 때 `app/` 아래 하위 폴더 안의 .js 를 이름으로 평면에도 둔다(`vendor/` 는 외부 라이브러리라 뺌 — audit 검사 18 이 남의 글로 빨개졌다). 이름이 이미 있으면 덮지 않고 알린다(폴더가 달라도 파일 이름은 겹치면 안 된다). 끌어올리기 바퀴는 남겨 둔다(다른 자리의 원본용).
-- 결과: 끌어올리기 0바퀴 · 검사 180개 판정 그대로(초록 179 · 빨강 0 · 원본없음 1). 검사 파일은 안 바뀜 — 도구 칸의 run.js 해시만.
-
-**개정 186 에서 한 것 (2026-10-14 · 앱 FSD 18번 — 캐릭터 보관함을 모듈로 · 검사용 공용 도우미 · 동작 변화 없음)**
-- 앱: app.js «🧬 캐릭터 단위 병합 — 순수 함수» · «🧬 이관 — slots → chars» · «🧬 이관 조율 — 서버 쓰기 + 미리보기» 세 구역 본문 868줄을 `app/parts/chars.js`(`window.TwChars`)로 옮겼다. 셋째 구역 끝의 공용 이미지 도우미 `loadImg` 와 «복제 코드» 소제목은 app.js 에 남겼다(보관함과 무관 · 여러 곳이 씀). 바뀐 줄 4 — `_slotsTs` · `creatorOpen`(다시 대입되는 let)을 `이름()` 으로. deps 29(함수 17 · 값 10 · 읽는 함수 2). 내놓는 이름 25(`_chars*` · `CHARS_BOX_MAX` · `CHARS_SYNC_ENABLED`) — 부르는 곳 66을 `charsMod.이름` 으로(«내 정보» 모듈 deps 도 `charsMod.이름` 을 거친다).
-- 검사: `sim-renderer-src.js` 신설 **6·0** — 검사용 공용 도우미 겸 자기검사. 다른 검사가 `require` 하면 «app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈(deps 줄 뺌 · 읽는 함수 이름() → 이름 · 쓰는 함수 → 대입)» 을 돌려준다(읽는 · 쓰는 함수 이름은 app.js 의 만드는 줄에서 읽음). 옮길 때마다 MODULES 에 한 줄. 직접 돌리면 되살리기가 맞는지 본다.
-- 검사: `sim-chars.js` 신설 **14·0** — 구조(만들 때 · 내놓는 이름 25 · 옮긴 선언 · deps 29줄 · 부르는 곳 · html · 일부러 깨 보기 6가지). 동작 판정은 `sim-chars-merge.js` · `sim-chars-migrate.js` · `sim-signup.js` 등이 맡는다.
-- 다른 검사(판정 무변경): 옮긴 코드를 app.js 글에서 찾던(또는 떼어 돌리던) 열셋 — `sim-chars-merge` · `sim-chars-migrate` · `sim-fix-1008` · `sim-wd-parts-persist` · `sim-signup` · `sim-google-login` · `sim-api-public-reads` · `sim-fix-0923` · `sim-focus-cap` · `sim-invite-gate` · `sim-playlist` · `sim-slot-sync` · `sim-slot-conflict` — 는 공용 도우미로 읽는다(개정 185 에서 검사마다 넣었던 «되돌려 읽기» 몇 줄을 걷고 한 줄로). `sim-my-info.js` 는 deps 53줄을 새 글(`charsMod.이름`)로. 만드는 틀의 «부르는 곳» 판정은 객체 키(`이름:`)를 빼고, «deps 하나 빠짐» 은 이 모듈을 만드는 줄 안에서 지운다. `smoke.js` · `audit.py`(검사 8)도 chars.js 를 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 32,190 → 31,360줄 · 상한 31,560 · 구역 그대로.
-
-**개정 185 에서 한 것 (2026-10-14 · 앱 FSD 17번 — [내 정보] 화면을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🪪 [내 정보] — 런처 화면 전환» · «🏆 [내 정보] 전체 랭킹 1~100위» 두 구역의 본문 702줄(구역 제목은 랭킹이지만 [내 정보] 화면 대부분 — 머리 · 별 색 · 보관함 · 휴지통 · 이름 바꾸기 · 랭킹 · 계정 탭 로그인 연결 `initAccountLoginUI`)을 `app/parts/my-info.js`(`window.TwMyInfo`)로 옮겼다. 바뀐 줄 15 — 값 열하나(`CHARS_BOX_MAX` · `EXP_*` · `FOCUS_*` · `STAR_PALETTE` · `_acctDetached` · `_focusTotalSec` · `_myHomeData` · `curSlot`)를 `이름()` 으로, `curSlot = …` 은 `setCurSlot(…)`. deps 53(함수 36 · 값 5 · 읽는 함수 11 · 쓰는 함수 1). 내놓는 이름 여섯(`openMyInfo` · `closeMyInfo` · `_miIsOpen` · `_miSlotThumb` · `_lbPush` · `_acctRelaunchAfterDetach`) — 부르는 곳 12를 `myInfoMod.이름` 으로.
-- 방법(2차부터): 받을 이름 · 바꿀 자리 · 내놓을 이름 · 부르는 곳 · 다른 파일이 그 이름을 쓰는지를 파서(typescript)로 골랐다(작업용 도구 — 저장소에 안 넣음).
-- 검사: `sim-my-info.js` 신설 **14·0** — ① 만들 때(아무 이름이나 받는 가짜 위에서 안 던짐 · 내놓는 이름 여섯 · Tw 접두사) ② app.js 연결(옮긴 꼭대기 선언 49개가 안 남음 · 빈 껍데기 · deps 53줄 그대로 · 부르는 곳은 myInfoMod.이름 · html) ③ 일부러 깨 보기 6가지. 동작 판정은 `sim-signup.js` · `sim-google-login.js` 가 계속 맡는다.
-- 다른 검사(판정 무변경): `sim-signup.js` · `sim-google-login.js` · `sim-api-public-reads.js` · `sim-fix-0923.js` · `sim-focus-cap.js` · `sim-invite-gate.js` · `sim-playlist.js` 는 «app.js 에서 `myInfoMod.` 를 뗀 글 + 옮기기 전 모양으로 되돌린 my-info.js»(읽는 함수 `이름()` → `이름` · `setCurSlot(x)` → `curSlot = x` · deps 받는 줄 뺌)를 읽는다 — 옛 판정이 같은 뜻으로 돈다. `sim-google-login.js` 의 계정 탭 잘라 보기는 시작 다음 표지까지(없으면 끝까지). `smoke.js` · `audit.py`(검사 8 · 19)도 새 파일을 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 32,832 → 32,190줄 · 상한 32,390 · 구역 그대로.
-
-**개정 184 에서 한 것 (2026-10-14 · 앱 FSD 11번 — 🚩 신고하기를 모듈 둘로 · 동작 변화 없음)**
-- 앱: app.js «🚩 신고하기» 구역(머리 아래 본문)을 둘로 나눠 옮겼다.
-  - `app/parts/report.js`(`window.TwReport`) 97줄 — 신고 종류 · 기준 인원 · 팝업 칸(`_reportOv` · `_reportEsc`) · `_myCode4` · `_reportClose` · `_reportBox` · `_openReportDialog`. 바뀐 줄 0(var 셋은 함수 안 지역 이름). 내놓는 이름 `openDialog`(좌석 우클릭 메뉴 → `reportMod.openDialog`)와 관리자 목록용 `close` · `box` · `KINDS` · `ADMIN_MIN` · `ov` · `setOv` · `esc` · `setEsc`. deps 여덟(숨김 Set · 친구 코드 키는 값).
-  - `app/parts/admin/admin-report.js`(`window.TwAdminReport`) 85줄 — `_reportAdminRows` · `_reportReasonText` · `_openReportAdmin` · 관리자 버튼 연결. 바뀐 줄 6 — 팝업 칸은 `이름()` · `setReportOv(…)` · `setReportEsc(…)`, `isAdmin` 은 `이름()`(파서로 자리 찾음). 팝업 칸은 신고 창과 «한 번에 하나만 열리는 자리»라 report.js 가 가지고, 관리자 목록은 읽는 · 쓰는 함수로만 만진다. deps 열하나(창 틀 · 종류 · 기준 · 팝업 칸은 reportMod 를 거침). report.js 가 없으면 만들지 않는다.
-- 검사: `sim-report.js` 신설 **28·0** — ① 신고 창(내놓는 이름 · 정보 없는 좌석 · 나 자신 · 기타는 글 · reportUser 인자 · 숨김 · 창 닫힘) ② 관리자 목록(관리자 아니면 안 염 · 다시 대입된 isAdmin · 열면 신고 창 닫힘 · 팝업 칸 이어받기 · ESC) ③ app.js 연결(본문 · 빈 껍데기 둘 · deps · 원래 자리 · 메뉴 · html 순서) ④ 일부러 깨 보기 8가지.
-- 다른 검사(판정 무변경): `sim-report-away.js` 는 app.js + report.js + admin-report.js 를 이어 읽고, 메뉴 줄은 `reportMod.openDialog` 를 본다(45·0). `smoke.js` · `audit.py`(검사 8)도 새 파일을 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 32,986 → 32,832줄 · 상한 33,032 · 구역 그대로. `ui-tokens-baseline.json` 은 옮긴 자리만(app.js 글꼴 1→0 · 회색 28→27, admin-report.js 글꼴 1 · 회색 1).
-
-**개정 183 에서 한 것 (2026-10-14 · 관리자 코드 admin 폴더 7번 — 관리자 모드 진입을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입» 의 뒤쪽(`_sha256Hex` · `tryEnterAdmin` · `_myAuthUid` · `_submitAdminPass` · `exitAdmin` · Ctrl+E · `refreshAdminVisibility` · `bindAdminTrigger`)과 «📨 라이선스 요청 · 관리자 비밀번호 모달» 의 비밀번호 창 버튼 연결 136줄을 `app/parts/admin/admin-mode.js`(`window.TwAdminMode`)로 옮겼다. 바뀐 줄 6 — `isAdmin` 은 `이름()` 으로 읽고 `isAdmin = …` 은 `setIsAdmin(…)`(이 모듈이 isAdmin 을 바꾸는 단 한 곳), `savedParts` 는 `이름()`. 자리는 파서로 찾았다. `isAdmin` 선언 · `ADMIN_PASS_HASH` 는 app.js 에 남김(다른 곳도 읽음). 내놓는 이름 `refreshAdminVisibility` — 부팅 때 `adminMode.refreshAdminVisibility`. deps 여섯. html 은 key-input.js(hotkeyLetter) 뒤 · app.js 앞.
-- 검사: `sim-admin-mode.js` 신설 **28·0** — 진짜 SHA-256(node webcrypto) 위에서 ① 만들 때(비밀번호 창 버튼 셋 · Ctrl+E · 캡처 클릭 · 내놓는 이름) ② 켜기(틀린 비밀번호 · 로그인 없으면 안 켬 · 켜면 setIsAdmin · body.admin · 창 쪽 알림 · 버튼 보이기) ③ 끄기 · 진입(Ctrl+E · Ctrl+클릭 · Mac 아닌 곳 Meta 무시 · Mac ⌘ · 켜져 있으면 무시) ④ app.js 연결 ⑤ 일부러 깨 보기 9가지.
-- 다른 검사(판정 무변경): `sim-admin-rules.js` 5절(로그인 확인이 켜기보다 먼저 · Ctrl+클릭)은 admin-mode.js 를 본다 — 켜기는 `setIsAdmin(true)` 도 받는다. `sim-signup.js` «_sha256Hex 는 한 벌» 은 app.js + admin-mode.js 에서 센다. `smoke.js` 는 admin-mode.js 도 먼저 평가. `sim-key-input.js` «Ctrl+E 도 hotkeyLetter» 는 admin-mode.js 도 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 줄 수 · 상한을 옮긴 만큼 내림 · 구역 그대로.
-
-**개정 182 에서 한 것 (2026-10-14 · 관리자 코드 admin 폴더 6번 — 코드 굽는 창 셋을 모듈로 · 동작 변화 없음)**
-- 앱: app.js 여기저기 흩어진 관리자 덩이 셋(«책상·아이템 코드: 생성(판매자)» · «커미션 캐릭터 코드: 생성(관리자만)» · «풀 GLB: 암호화 / 불러오기») 85줄을 `app/parts/admin/admin-asset.js`(`window.TwAdminAsset`)로 옮겼다. 바뀐 줄 2 — `MAX_GLB_BYTES` · `MAX_COMMISSION_BYTES`(뒤에서 선언하는 const)를 `이름()` 으로. 만드는 줄은 첫 덩이 자리 한 곳(모두 버튼 연결이라 거는 차례와 상관없다), 나머지 두 자리엔 옮긴 곳 안내 한 줄. 사용자 쪽(📦 코드로 추가하기 · 🎁 커미션 코드 입력 · 굽는 함수들)은 app.js 에 남김. deps 12(함수 10 · 읽는 함수 2).
-- 발견(고치지 않음 · 개선 메모): 🔐 `.glb` 를 고르면 이름이 `x.glb.glb` 가 된다 · «.dcc 만들기» 창은 여는 버튼이 없다(죽은 코드).
-- 검사: `sim-admin-asset.js` 신설 **24·0** — ① 만들 때(버튼 열다섯 · 빈 반환) ② 📦(지금 상한 · 비밀번호 · wrapAsset → encryptAssetCode) ③ 🎁(지금 상한 · 페이로드 → encryptCommission) ④ 🔐(.dcc 는 비밀번호로 풀기 · .glb 는 그대로) ⑤ app.js 연결(본문 · 사용자 쪽 · 빈 껍데기 · deps 12 · 원래 자리 · html) ⑥ 일부러 깨 보기 8가지.
-- 다른 검사: `smoke.js` 는 admin-asset.js 도 먼저 평가.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 줄 수 · 상한을 옮긴 만큼 내림 · 구역 그대로(머리는 app.js 에 남김).
-
-**개정 181 에서 한 것 (2026-10-14 · 관리자 코드 admin 폴더 5번 — 통계 · 초대권 지급 · 런처 관리자 도구를 모듈로 · 동작 변화 없음)**
-- 번호: 180 은 먼저 머지된 #166(공개 읽기 API 사본)이 쓴다 — 이 PR 은 181.
-- 앱: app.js 의 관리자 몫 두 덩이를 `app/parts/admin/` 으로 옮겼다.
-  - `admin-users.js`(`window.TwAdminUsers`) 143줄 — 📊 전체 통계(가입 · 프리미엄 · 카운터 보정) · 🎟️ 초대권 지급(한 명 · 전체 · 우클릭 전체 회수). 사용자 초대 창(`bindInviteUI`) **안쪽**에 있던 것이라 만드는 줄도 그 함수 안 원래 자리에 둔다. 그 함수의 지역 이름은 안 쓴다(파서로 확인) — 바뀐 줄 0. deps 둘(toast · `INVITE_GRANT_MAX`).
-  - `admin-launcher.js`(`window.TwAdminLauncher`) 92줄 — 🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 편집 · 📢 광고 배너 편집. 바뀐 줄 4 — `isAdmin` · `_gameCfg`(다시 대입되는 let)를 `이름()` 으로. deps 여섯. 사용자 쪽(배너 그리기 · 서버 배너 구독 · 게임 설정 구독 `_applyGameCfg`)은 app.js 에 남김.
-  - 🚩 신고 목록(관리자)은 사용자 쪽 «신고하기» 와 도우미(창 틀 · 닫기 · 신고 종류)를 같이 써서 FSD 11번(신고하기)을 옮길 때 같이 다룬다.
-- 검사: `sim-admin-users-launcher.js` 신설 **30·0** — ① 통계 · 초대권(만들 때 버튼 다섯 · 통계 읽기 · 장수 상한 · 친추코드 → uid → 장수 · 전체 지급은 두 번) ② 런처 도구(관리자 아니면 막힘 · 다시 대입된 isAdmin · «종료» 입력 · 게임 설정 1~999 · 지금 설정에 합쳐 저장 · 배너 저장 · 게시 · 다시 그리기) ③ app.js 연결(본문 · 사용자 쪽 남음 · 빈 껍데기 · deps · 원래 자리 둘 · html) ④ 일부러 깨 보기 9가지.
-- 다른 검사(판정 무변경): `sim-invite-revoke.js` 3절 우클릭 두 번 게이트는 admin-users.js 에서 찾는다(19·0). `smoke.js` · `audit.py`(검사 8 · 19)도 새 파일을 본다.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 33,385 → 33,168줄 · 상한 33,368 · 구역 그대로. `ui-tokens-baseline.json` 은 그대로.
-
-**개정 180 에서 한 것 (2026-10-14 · 🌐 공개 읽기를 API 사본에서 먼저 — 앱 + 규칙)**
-- 번호: 177 은 #162, 178 은 #164, 179 는 #165 가 먼저 썼다 — 이 PR 은 180.
-- 까닭: Firebase 요금은 내려받은 바이트다. t-w-server 가 같은 데이터의 읽기 사본을 «필요한 한 줄» 모양으로 내준다(짝 PR mihioon/t-w-server#41). 쓰기 원본은 그대로 Firebase.
-- 앱: `app/parts/api-public-reads.js` 신설(ESM · `createApiPublicReads(deps).wrap(firebaseAPI)`) — `fetchRandomPlaylist` · `fetchPlaylistOf` · `fetchPlaylistCard` · `fetchLeaderboardTop` · `getRoomCounts`(quick 만) · `findRandomRooms` 를 «API 먼저 → 실패면 원래 함수 그대로» 판으로 바꿔 끼우고 `fetchAvatar` · `fetchMyRank` 를 더한다. 실패 = ApiError 무엇이든(닿지 못함 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 4xx) · 모양 틀림. data:null 은 «없음»(Firebase 다시 안 감). 파도타기 응답의 명함은 60초 기억해 바로 뒤 명함 요청을 없앤다. 정원 · 방 만들기 상한 검사(getRoomCounts quick 아님 · getRoomCount)는 Firebase 그대로. 원래 함수는 지우지 않았다(대체 길).
-- 연결: `firebase-init.js` import 한 줄 + firebase-ready 전에 wrap 한 줄(TwApi.client · Firebase 한 칸 읽기) + Firebase 길 두 함수(`fetchAvatar` = home/avatar 한 칸 · `fetchMyRank` = undefined). `app.js` — 사진 하나 때문에 `users/{uid}/home` 을 통째로 받던 두 곳(`_refreshChatProfile` · `_miRenderAvatar`)을 `fetchAvatar`(API 명함 → 못 받으면 home/avatar 한 칸)로, 내 순위를 `_lbFetchRank`(API 한 줄 → 못 받으면 100줄 + rankOf)로. 화면 함수는 그대로.
-- 규칙: `playlistIndex/.read` · `leaderboard/.read` 에 `apiBots` 봇 조건(사람은 예전 쿼리 조건 그대로 · 봇만 통째 읽기 — 사본용).
-- 검사: `sim-api-public-reads.js` 신설 **38·0** — 파도타기(모양 · exclude · data:null · 명함 기억 · 모양 틀림 → 원래 함수 같은 인자 · this) · 명함 · 사진(avatarUrl · avatarInline 만 Firebase 한 칸 · 없는 사람 · 실패) · 랭킹(한 줄 · null · undefined · 100줄) · 방 개수(quick 만 · 정원 검사는 늘 Firebase) · 랜덤 후보(워킹룸 · SCRT 빼기 · 빈 배열) · 실패 여덟 가지 모두 원래 함수 · 배선(firebase-init 의 fetchAvatar 는 home/avatar 한 칸 · fetchMyRank Firebase 길은 undefined). `sim-signup.js` 랭킹 절 — 떼어 온 함수에 `_lbFetchRank` · API 한 줄 세 줄. `sim-admin-rules.js` — 두 노드 봇 읽기 줄.
-- 헤드리스(Chrome · 자기 포트 47131~47133 · 가짜 API https · 바깥 네트워크 막음 · 가짜 Firebase 같은 데이터): API 없음 · 정상 · 503 RTDB_UNAVAILABLE · 멈춤 네 판 모두 파도타기 화면(이름 · 레벨 · 곡 20 · 소개 · 프리셋) · 내 정보(사진 · 7위) · 채널 방 개수(30 / 300 · 11 / 300) · 랜덤 참여(WORK-0007) 가 같다. 멈춤은 첫 요청만 2.5초 기다리고 나머지는 쉬는 동안 곧장 Firebase.
-
-**개정 179 에서 한 것 (2026-10-14 · 관리자 코드 admin 폴더 4번 — 파츠 · 책상 · 아이템 등록 창을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🗂️ 카탈로그 파츠 페이로드 · 파츠 삭제(관리자)» · «🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자)» 두 구역 436줄을 `app/parts/admin/admin-part-register.js`(classic script `window.TwAdminPartRegister`)로 옮겼다. 바뀐 줄 30 — 값 열세 개(`MAX_*` 다섯 · `PART_CATS` · `gachaMod` · `partSceneCache` · `savedDesks` · `savedItems` · `savedParts` · `wdGizmo` · `wdPreviewBase`)를 `이름()` 으로 읽고, 파츠 삭제의 `savedParts = …` 는 `setSavedParts(…)`. 모듈을 만드는 줄보다 뒤에 선언되거나(const · TDZ) 다시 대입되는 let 이라서다. 자리는 파서(typescript)로 찾아 바꿨다 — 주석 · 글자 · 속성 이름은 안 건드림.
-  - app.js 는 원래 자리(두 구역 머리 아래)에서 `createAdminPartRegister(deps 41 — 함수 26 · 좌석 1 · 읽는 함수 13 · 쓰는 함수 1)` · 빈 껍데기 `ADMIN_PART_REG_OFF`.
-  - 내놓는 이름 다섯(`openPartRegister` · `openDeskRegister` · `deletePart` · `buildPartPublishData` · `syncPartRegGachaLock`) + 검사용 `PART_PUBLISH_FIELDS`. 부르는 곳 13(꾸미기 · 책상 · 아이템 · 썸네일 굽기 · 🎰 gacha deps 셋)을 `adminPartReg.이름` 으로.
-- 검사: `sim-admin-part-register.js` 신설 **28·0** — ① 만들 때(버튼 둘 · 내놓는 이름 · 안 부름) ② 파츠 삭제(다시 대입된 목록을 읽고 setSavedParts · 캐시 · 좌석 벗김 · 카탈로그 내림 · 다시 그림 · 없는 파츠) ③ 값은 늘 이름() · 직접 대입 없음 ④ app.js 연결(본문 · 빈 껍데기 · deps 41 · 원래 자리 · 부르는 곳 13 · gacha deps · html) ⑤ 일부러 깨 보기 10가지.
-- 다른 검사(판정 무변경): `sim-publish-fields.js` — §1 은 app.js + admin-part-register.js 를 이어 읽고, §2 는 모듈을 먼저 평가해 `adminPartReg.buildPartPublishData` · `PART_PUBLISH_FIELDS` 로 들여다본다. `sim-gacha.js` — «부르는 곳» 에 admin-part-register.js 의 `gachaMod().이름` 도 세고, deps 줄에 `adminPartReg.이름` 을 받는다(94·0). `smoke.js` · `audit.py`(검사 8 · 19)도 새 파일을 본다. `sim-admin-console.js` 5절 «deps 하나 빠짐» 은 콘솔 도구를 만드는 줄 안의 `savedItems` 를 지운다 — 같은 줄이 파츠 등록 deps 에도 생겨 앞의 것을 지우던 것(29·0).
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 33,773 → 33,385줄 · 상한 33,585 · 구역 그대로(두 머리는 app.js 에 남김). `ui-tokens-baseline.json` 은 그대로(옮긴 글에 손 색 · 글꼴 없음).
-
-**개정 178 에서 한 것 (2026-10-14 · 관리자 코드 admin 폴더 3번 — 라이선스 발급 · 공지 · 카테고리 관리를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자)» · «관리자 카테고리 관리» 두 구역의 관리자 몫 421줄을 `app/parts/admin/` 세 파일로 글자 그대로 옮겼다.
-  - `admin-license.js`(`window.TwAdminLicense`) 221줄 — 키 목록(검색 · 회수 · 삭제) · 발급 창 열기 · 대기 요청(발급 · 거절 · 일괄) · 새 키 · 복사 · 친구코드로 발급. 두 구역에 나뉘어 있던 덩이를 원래 차례대로 이었다. 내놓는 이름 `renderLicenseGenList`(📄 엑셀 일괄 발급이 부름 → app.js 가 `adminLicense.renderLicenseGenList`).
-  - `admin-notice.js`(`window.TwAdminNotice`) 64줄 — 📣 확성기 공지 · 📰 업데이트 공지 편집. 사용자 쪽(앱을 켤 때 업데이트 공지 팝업 `_checkUpdateNoticeOnStartup`)은 app.js 에 남김.
-  - `admin-category.js`(`window.TwAdminCategory`) 136줄 — 📁 카테고리 관리. 바뀐 줄 4 — `PART_GROUPS`(뒤에서 선언하는 const) · `PART_CATS` · `partCatOverrides`(다시 대입되는 let)를 읽는 함수로. 내놓는 이름 `renderCategoryManager` — 🔄 카탈로그 동기화의 두 곳을 `typeof renderCategoryManager` 에서 `adminCategory.renderCategoryManager` 로(옛 typeof 는 옮긴 뒤 늘 거짓이라 조용히 안 그려진다).
-  - 라이선스 요청 · 발급 버튼(옛 «카테고리 관리» 뒤쪽)은 이제 앞 구역 자리에서 걸린다 — 모두 클릭 handler 라 순서와 상관없다(같은 id 를 거는 다른 곳은 바깥 클릭 표 · 엑셀 창의 addEventListener 뿐).
-- 검사: `sim-admin-license.js` 신설 **39·0** — ① 만들 때(버튼 여덟 · 여덟 · 다섯 · 돌려주는 이름 · 서버 안 부름) ② 라이선스(창 열기 · 목록 검색 · 대기 요청 이름 씻기 · 발급 인자 · 친구코드 MATE → COZY · 키 → 수령함 reward) ③ 공지(빈 글 · 1분 · 제목 · 본문) ④ 카테고리(다시 대입된 목록 · ↺ · 이미 있는 ID · 새 카테고리) ⑤ app.js 연결(본문 안 남음 · 사용자 쪽 남음 · 빈 껍데기 셋 · deps · 원래 자리 · 바깥에서 부르던 곳 · html) ⑥ 일부러 깨 보기 10가지.
-- 다른 검사: `sim-mh-sanitize.js` §4(라이선스 요청 이름 씻기)는 admin-license.js 에서 찾는다(판정 무변경). `sim-license-xlsx.js` — 발급 창 열기 handler 는 admin-license.js 에서 찾고, deps 줄은 `adminLicense.이름` 을 받는다(38·0 그대로). `smoke.js` 는 세 파일도 먼저 평가. `audit.py` 검사 8 시야에 셋 · 검사 19 시야에 admin-license.js · admin-category.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 34,167 → 33,773줄 · 상한 33,973 · 구역 그대로. `ui-tokens-baseline.json` 은 옮긴 자리만(app.js 글꼴 2→1 · 회색 37→28, admin-license.js 글꼴 1 · admin-category.js 회색 9 — 합계 같음).
-
-**개정 177 에서 한 것 (2026-10-14 · 관리자 코드 admin 폴더 2번 — 🧹 관리자 콘솔 도구를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🧹 관리자 콘솔 도구» 구역 144줄을 `app/parts/admin/admin-console.js`(classic script `window.TwAdminConsole`)로 글자 그대로 옮겼다(앱 FSD 순서표 12번). 바뀐 줄 4 — 다시 대입되는 let 셋(`savedParts` · `savedDesks` · `savedItems`)을 읽는 함수로. F12 콘솔 함수 일곱(`previewCatalogCleanup` · `runCatalogCleanup` · `migrateCatalogGlbToStorage` · `analyzeCatalog` · `cleanupGhostRooms` · `reclaimInvitesSince` · `migrateCatalogThumbsToStorage`)은 예전처럼 만들 때 window 에 건다. app.js 는 원래 자리(머리 아래)에서 `createAdminConsole(deps 3개)` · 빈 껍데기 `ADMIN_CONSOLE_OFF`. html 은 app.js 앞에 싣는다.
-- 검사: `sim-admin-console.js` 신설 **29·0** — ① 만들 때(콘솔 함수 일곱 · 빈 반환 · 서버 안 부름) ② 미리보기 / 실행 갈래(정리 true/false · 유령 방 !apply · 초대권 회수 날짜 00:00 · 기본 2장 · 기본 미리보기 · 틀린 날짜는 안 부름 · 진단) ③ 이관 둘(다시 대입된 뒤 목록을 읽음 · 이미 옮긴 것 건너뜀 · id · fromCatalog 빼고 넘김 · data: 썸네일만) ④ app.js 연결(본문 안 남음 · 빈 껍데기 · deps 셋 읽는 함수 · 원래 자리 · Tw 접두사 · html 순서) ⑤ 일부러 깨 보기 9가지를 스스로 굴려 다 잡는지.
-- 다른 검사(판정 무변경): `smoke.js` 는 admin-console.js 도 먼저 평가. `audit.py` 검사 8 시야에 admin-console.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 34,303 → 34,167줄 · 상한 34,367 · 구역 그대로(머리는 app.js 에 남김). `ui-tokens-baseline.json` 은 그대로(옮긴 글에 손 색 · 글꼴 없음).
-
-**개정 176 에서 한 것 (2026-10-14 · 관리자 코드 admin 폴더 1번 — 📄 엑셀 일괄 발급 · 🔒 시크릿룸 발급을 모듈로 · 동작 변화 없음)**
-- 번호: 175 는 먼저 머지된 #160(원격 설정 API 읽기)이 쓴다 — 이 PR 은 176.
-- 앱: app.js «📄 엑셀(xlsx·csv)로 라이선스 일괄 발급» · «🔒 시크릿룸 발급(관리자)» 두 구역 680줄을 `app/parts/admin/admin-license-bulk.js`(classic script `window.TwAdminLicenseBulk`)로 글자 그대로 옮겼다(구역 머리 주석 · 들여쓰기까지). 관리자 코드는 이제 `app/parts/admin/` 에 모은다 — 이 PR 이 첫 파일. app.js 는 원래 자리(두 구역 머리 아래)에서 `createAdminLicenseBulk(deps 7개)` · 빈 껍데기 `ADMIN_LICENSE_BULK_OFF`. 밖에서 부르는 이름 없음(`window._lxHideWin` 은 예전처럼 만들 때 건다). html 은 app.js 앞에 싣는다.
-- 검사: `sim-license-xlsx.js` 1~3절은 모듈 글을 읽고, 4절(관리자 모듈 연결) 열 개 신설 → **38·0** — app.js 에 본문이 안 남음 · deps 7 화살표 · 빈 껍데기 · 원래 자리 · deps 이름 · Tw 접두사 · html 순서 · 가짜 DOM 에서 만들어 보기(빈 반환 · `_lxHideWin` · 버튼 셋). 일부러 깨 보기: html 줄 빼기 · app.js 에 본문 남기기 · deps 하나 빼기 → 각 ✗.
-- 다른 검사(판정 무변경): `sim-room-order.js` 2절(시크릿룸 거울 대조)은 모듈 글을 읽는다(18·0 그대로). `smoke.js` 는 admin-license-bulk.js 를 먼저 평가하고 `parts/admin/` 자리도 찾는다. `audit.py` 검사 8 · 19 시야에 admin-license-bulk.js(스테이징의 `parts/admin/` 자리도 연다 — `_open_part`). `sim-ui-tokens.js` 는 `parts/admin/*.js` 도 본다(이름 `admin/파일`).
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 34,303줄 · 상한 34,503 · 구역 173(머리 제목 그대로 — 두 머리는 app.js 에 남김). `ui-tokens-baseline.json` 은 옮긴 자리만 옮겨 적음(app.js 글꼴 3→2 · 회색 43→37, admin/admin-license-bulk.js 글꼴 1 · 회색 6 — 합계 같음 · `--allow-increase` 는 새 파일 이름 때문).
-
-**개정 175 에서 한 것 (2026-10-14 · ⚙️ 원격 설정을 API 읽기 사본에서 먼저 — 앱 + 규칙)**
-- 번호: 173 은 #158(앱 FSD 16번), 174 는 #150(apiBots 사용자 목록)이 썼다 — 이 PR 은 175.
-- 까닭: Firebase 요금은 내려받은 바이트다. 쓰기 원본은 그대로 Firebase `config/*`(웹 관리자 · 바뀐 것 없음), 읽기는 t-w-server 의 읽기 전용 사본 API(`GET /v1/config` · 공개 · data = `{ version, syncedAt, config }`)를 먼저 본다(짝 PR mihioon/t-w-server#40).
-- 앱: `app/parts/api-client.js` 신설(classic · `window.TwApi`) — 앱 공통 API 통로. 주소(운영 앱 = `https://api.togetherworking.duckdns.org` · dev 앱 = `https://api-dev.togetherworking.duckdns.org` · dev 만 `tw.apiBaseUrl`) · 시간 제한 2.5초 · 봉투 풀기 · 실패 한 모양(`ApiError` kind unavailable · notReady(`*_NOT_READY`) · auth · request · `shouldFallback`) · 짧은 메모리 캐시(`cacheMs`) · 같은 요청 하나로 · 닿지 못하면 30초 쉬기(BACKOFF). html 에서 remote-config.js 앞. 첫 사용자가 원격 설정.
-- 앱: `remote-config.js` — 읽는 차례 API → 못 받으면(사본 미준비 `503 CONFIG_NOT_READY` 포함) Firebase `config/*` 칸(칸마다 get · `FALLBACK_PATHS` 10칸) → 이 PC 저장값(`tw.remoteConfig`) → 기본값(#157 그대로 300 · 10 · true · true). 켤 때 · 5분마다 · 창이 다시 보일 때 · 방 입장 · 방 서버 고르기 · 제보 쓰기 전(1분 넘었을 때만). API 2.5초(api-client) · Firebase 칸 3초 상한. 최소 버전은 저장값을 쓰지 않는다(이번 실행에 받은 값만 · 못 받으면 막지 않음). 허용 목록은 `GET /v1/config/room-server/allow/{내 코드}`(공개 · `{ userCode, server }`) → 못 받으면 Firebase `allow/{내 코드}` 한 칸, 서버 주소는 API 판이면 응답의 servers · 아니면 Firebase `servers/{이름}` 한 칸(5분 기억). API 주소 · 시간 제한 · 쉬기는 api-client.js 가 맡는다. 옛 Firebase 구독(`store.watch`)은 지웠다.
-- 연결: `firebase-init.js` 가 `store.start`(`TwApi.client` · 저장소 · Firebase 한 칸 읽기)로 잇고, 앱 최소 버전(`readMin` = 첫 답의 minVersion.app · 7초) · 방 입장 최소 버전(`getMinRoomVer`) · 💓 새 하트비트 · 방 서버 문지기(`getConfig` · `serverAddr` · `myServer` · roomDir 읽기만) · 제보 하루 상한(`bugBoard` 의 `getDailyMax`)이 같은 store 를 본다. `MIN_APP_VER_PATH` · `BUG_DAILY_MAX_PATH` · `ROOM_SERVER_CFG` 는 지웠다.
-- 규칙: ⓐ `config/.read` · `adminLog/.read` 에 `apiBots` 봇 조건(관리자 `||` 봇 · 읽기만 · 쓰기 그대로) — API 가 운영 설정 · 작업 기록 읽기 사본을 만든다. ⓑ `config/roomServer/timing`(방 서버 연결 시간값 — graceMs 0~600000 · pingIntervalMs 1000~120000 · restoreWindowMs 0~1800000 · refreshMs 5000~600000 정수 · 서버 범위와 같음 · 누구나 읽기 · 쓰기는 roomServer 관리자 · 모르는 칸 거절).
-- 검사: `sim-api-client.js` 신설 **34·0** — 주소(운영 · dev · 시험 주소 · 환경) · 성공(봉투 · 토큰 · 쿠키 없음) · 실패 한 모양(네트워크 · 5xx · 404 · 봉투 아님 · NOT_READY · 401/403 · 4xx · 시간 초과 · abort) · 쉬기(BACKOFF · 지나면 다시 · notReady · 권한 오류는 안 쉼) · 캐시 · 같은 요청 하나 · 모듈(window.TwApi · 앱 한 벌 주소 · html 차례 · CSP). `sim-remote-config.js` §1 · §2 를 새로 — 기본값 · 범위 · 읽는 차례 넷 · API 성공이면 Firebase 0칸 · 칸 단위 읽기 · 최소 버전 저장값 안 씀 · 실패 봉투 · 503 CONFIG_NOT_READY · 멈춤 · 1분 기억 · 허용 목록 API → Firebase allow · 서버 주소 · firebase-init 배선 — **103·0**. `sim-room-server-gate.js` 는 가짜 설정 · serverAddr · myServer 로 돌리고 읽는 곳 절 · config 읽기(관리자 · 봇) · 규칙 timing — **93·0**. `sim-admin-rules.js` 봇 줄에 config · adminLog 둘. `sim-app-version-gate.js` · `sim-bug-board.js` · `sim-room-alive.js` 는 연결 모양만.
-- 헤드리스(Chrome · 가짜 API https · 바깥 네트워크 막음): API 정상 · API 와 Firebase 실패(저장값) · 처음 실행에 둘 다 실패(기본값) · 처음 실행에 API 실패(Firebase) · API 멈춤(저장값) 다섯 판 모두 부팅 · 방 개수 표시 · 방 만들기(상한 아래 startRoom · 상한이면 «꽉 찼어요(N/N)») 정상.
-
-**개정 174 에서 한 것 (2026-10-13 · 웹 관리자 사용자 목록을 관리자 API 로 — 봇 읽기 경로 둘 더함)**
-- 번호: 172 는 먼저 머지된 #157(원격 설정), 173 은 #158(앱 FSD 16번)이 쓴다 — 이 PR 은 174.
-- 규칙: `accountSnap` · `friendCodes` 목록 읽기에 `apiBots` 봇 조건을 관리자 조건과 `||` 로 더했다(쓰기 · 아래 칸은 그대로). t-w-server API 가 두 노드를 구독해 사용자 목록 읽기 사본을 만든다.
-- 검사: `sim-admin-rules.js` 1절(봇 줄 아래)에 둘 — 두 노드 목록 읽기가 «관리자 또는 봇» 이고 봇 조건은 목록 읽기 한 곳뿐(쓰기 · 아래 칸 없음). 규칙 없는 main 에 대면 둘 다 빨강.
-- 다른 검사: `sim-google-login.js` §8 이 accountSnap 모음 읽기 규칙을 글자 그대로 대조해서, 기대 글자를 «관리자 또는 봇» 식으로 바꿨다(사람 계정은 여전히 관리자만 · 모음째 쓰기 없음 그대로).
-
-**개정 173 에서 한 것 (2026-10-13 · 앱 FSD 16번 — 🎵 상태칩 플레이리스트를 모듈로 · 동작 변화 없음)**
-- 앱: app.js «🎵 상태칩 플레이리스트» · «🎵 프리셋 세 벌» · «🎵 플레이리스트 화면» · «🎵 프리셋 고르기» · «🐕 재생 감시견» 다섯 구역 1,839줄을 `app/parts/playlist.js`(classic script `window.TwPlaylist`)로 글자 그대로 옮겼다. 바뀐 줄 3 — 읽는 함수 `_myHomeLoaded()` · `_myHomeData()` · `_myHomeFriends()`. 사이의 «👤 프로필 소개칸»(머리만) · «🏅 레벨 티어» 는 app.js 에 남겼다. 상태(`_plSets` · `_plCur` · `_plNow` …)는 모듈 안에 두고, 밖(계정 이어받기 복원 · 로그아웃 · 📷 재생 재우기 · 화면 배율)은 상태 묶음 `plMod.st`(getter · setter)로 읽고 쓴다. 상태칩 팝업 자리 · noise.js 가 typeof 로 부르는 `_plHasSavedPos` · `_plApplyPos` · `_plSyncBgmBounds` 는 window 고리. 머리 다섯은 같은 제목의 한 줄 머리로 남겼다(구역 번호가 밀리지 않게) — 만드는 줄은 «🎵 상태칩 플레이리스트» 머리 아래, 나머지 넷 아래는 옮긴 곳 안내. deps 20.
-- 검사: `sim-playlist.js` 신설 **109·0** — ① 만들 때 ② 프리셋 저장값 ③ 목록 ④ 재생 ⑤ 파도타기 · 담기 · 서버 사본 ⑥ 감시견 ⑦ 상태 묶음 · window 고리 ⑧ app.js 배선 ⑨ 일부러 깨 보기 30가지를 스스로 굴려 다 잡는지 확인.
-- 다른 검사(판정 무변경 · ✓ / ✗ 수 main 과 같음): `sim-pl-next` · `sim-pl-loop` · `sim-pl-watchdog` · `sim-win-layers` · `sim-focus-cap` 은 렌더러 쪽 한 벌에 playlist.js 를 이어 붙인다(없으면 «못 찾음»). `sim-pl-grab-pick` 은 playlist.js 를 먼저 평가하고 plMod 로 들여다본다. `sim-account-switch` 는 로그아웃 · 계정 이어받기 스텁을 plMod 통로로. `sim-signup` · `sim-focus-cap` 의 배지 줄은 `plMod.fillLv`, `sim-purikura-ui` 의 deps 줄은 `plMod.st.playing`, `sim-myhome-edit` 의 화살표 deps 모양은 점(`plMod.ytVideoId`)을 허용. `smoke.js` 가 playlist.js 도 먼저 평가(PRELOAD.push). `audit.py` 검사 8 시야 · 검사 19 ④ 시야에 playlist.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 34,967줄(개정 172 의 원격 설정 +40 포함) · 상한 35,167 · 구역 173(머리 제목 그대로).
-
-**개정 172 에서 한 것 (2026-10-13 · ⚙️ 원격 설정 0.11.4 — 앱 + 규칙)**
-- 까닭: 운영 사고(10-13) — 채널당 방 상한 250 이 앱 코드(`ROOM_LIMITS`)에 박혀 있어 급히 못 바꿨다. 기본값은 지금 동작 그대로, 방 상한만 300.
-- 앱: `app/parts/remote-config.js`(classic · `window.TwRemoteConfig`) 신설 — `config/roomLimits`(1~10000 · 없으면 300) · `config/roomMaxPeople`(2~50 · 없으면 10) · `config/flags/inviteGate` · `config/flags/existingSignup`(없으면 true)를 칸마다 구독(firebase-init `store.watch`). app.js 의 `ROOM_LIMITS` · `MAX_ROOMS` · `MAX_PEOPLE` · `INVITE_GATE_ENABLED` · `EXISTING_SIGNUP_ENABLED` → `roomLimitOf()` · `maxPeople()` · `inviteGateOn()` · `existingSignupOn()`. 초대 게이트는 두 스위치의 첫 답을 최대 3초 기다린다. 방 서버 길(`_startRoomOnServer`)이 빈 방을 열 때도 [방 만들기] 와 같은 상한(주소록 따라가기 · 시크릿룸 · 있는 방은 제외). html 기본 표시 «— / 300» · «최대 N명» 자리(`data-tw-max-people`).
-- 방 서버 주소: `room-server-gate.js` `serverUrlOk` 가 `wss|https://<이름>.togetherworking.duckdns.org`(`ROOM_SERVER_URL_RE`) 를 받는다(운영 앱 ↔ dev 서버는 여전히 안 섞음) · CSP connect-src `wss://*.togetherworking.duckdns.org https://*.togetherworking.duckdns.org`.
-- 규칙: `config/roomLimits` · `config/roomMaxPeople` · `config/flags/{inviteGate, existingSignup}` · `config/roomServer/registerIndex`(누구나 읽기 · 관리자 쓰기 · 범위 · 타입 · 모르는 칸 거절) · `users/$id/bugPostCount/$date` 상한 50 → 100.
-- 검사: `sim-remote-config.js` 신설 **72·0**(모듈 · 구독 · 규칙 식 실행 · app.js 배선 · 방 서버 길 상한 실행 · html/CSP). `sim-room-server-gate.js` 주소 거르기 세 줄 · registerIndex 규칙 한 줄 · `sim-room-server-net.js` CSP 줄 · `sim-invite-gate.js` 꺼짐 분기 정규식 · `sim-signup.js` 스위치 줄(함수로).
-
-**개정 171 에서 한 것 (2026-10-13 · 앱 FSD 15번 — 수령함 · 선물함 · 친구 목록을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «📩 수령함 상태 · 안 읽은 수 · 친구 탭 배지» 의 함수 · «👥 마이홈 친구 목록 · Ctrl+F 검색» · «📩 수령함 · 💝 선물함 그리기» 와 sanitize 구역 사이의 친구 방 표시 둘(`_friendRoomTag` · `_friendInRoom`) — 560줄을 `app/parts/myhome-inbox.js`(classic script `window.TwMyHomeInbox`)로 글자 그대로 옮겼다. 바뀐 줄 14 — 읽는 함수 `_myInbox()` · `_inboxBroadcast()` · `_myHomeFriends()` · `isAdmin()`. 구독이 다시 대입하는 `_myInbox` · `_myInboxReady` · `_inboxBroadcast` 와 로그아웃 지움 목록이 쓰는 `INBOX_BC_READ_KEY` 는 app.js 에 남겼다. 구역 머리 둘(«👥 마이홈 친구 목록 · Ctrl+F 검색» · «📩 수령함 · 💝 선물함 그리기»)은 app.js 에 남겼다(구역 번호가 밀리지 않게) — 만드는 줄은 👥 머리 아래, 🏠 친구 방 놀러 가기 연결(`friendVisit` · 예전 자리 그대로 · 방 코드는 `inboxMod.friendRoomTag`) 바로 뒤. 📩 머리 아래는 옮긴 곳 안내 한 줄. 내놓는 이름 17 · deps 18.
-- 검사: `sim-myhome-inbox.js` 신설 **97·0** — ① 만들 때(아무것도 안 건드림 · 상태 초기값) ② 수령함 셈(합치기 · 공지 읽음 · 안 읽은 수 · 배지 9+ · 모두 읽음 · 다시 대입한 값을 읽음) ③ 그리기(gift→all · 📌 먼저 · 최신순 · 읽음 · 🐞 · × 셋 · 고정 단추 · 토글 · 필터 · 비었을 때) ④ 링크 · 키 ⑤ 선물함(격자 · 이스케이프 · ⭐ · 상한 · 다시 불러오기 · 확인창 #myHomeWin 안) ⑥ 친구 목록(묶음 · 이름순 · 배지 · 아바타 · 선택 · 시크릿룸 · 놀러 가기 · 삭제 · 검색 · 강조) ⑦ app.js 배선(deps 18 모양 · 선언 위치 · 원래 자리 · 남긴 머리 · 빈 껍데기 17 · 부르는 곳 · html 순서 · Tw 접두사) ⑧ 일부러 깨 보기 28가지를 스스로 굴려 다 잡는지 확인.
-- 다른 검사(이 구역 글을 app.js 에서 읽던 아홉 — 판정 무변경 · ✓ 수 main 과 같음): `sim-gift-star` · `sim-bug-board` · `sim-fix-1008b` · `sim-friend-visit` · `sim-broadcast-cache` · `sim-mh-sanitize` · `sim-friend-manage` 는 렌더러 쪽 한 벌에 myhome-inbox.js 를 이어 붙인다(없으면 «못 찾음»). `sim-friend-visit` 의 방 코드 줄은 `inboxMod.friendRoomTag` 모양으로, `sim-room-invite-ui` 의 deps 줄은 `inboxMod.friendInRoom` 으로. `smoke.js` 가 myhome-inbox.js 도 먼저 평가(PRELOAD.push). `audit.py` 검사 8 시야 · 검사 19 ④(속성값 보간) 시야에 myhome-inbox.js.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 36,718줄 · 상한 36,918 · 구역 173(머리는 그대로). `ui-tokens-baseline.json` 은 그대로(옮긴 글에 글꼴 · 손 회색 없음 — 합계 62 · 451 그대로).
-
-**개정 170 에서 한 것 (2026-10-13 · 🛰 방 개수 전체 상한을 Firebase 한 곳에서 — 방 서버 방도 roomIndex 장부에)**
-- 까닭: 방 서버(t-w-server realtime) 방이 `roomIndex` 에 안 올라가 앱 · 함수는 Firebase 방만, 방 서버는 자기 방만 세어 채널 합계가 250 을 넘었다(운영 투게더룸 Firebase 241 + 방 서버 96). 방 서버가 `roomIndex/{코드} = { lastSeen, channel, srv }` 를 쓰게 하는 짝 PR(mihioon/t-w-server#37)과 함께 간다.
-- 함수: `functions/room-stats.js` — `srv` 가 있는 줄(`isServerRow`)은 개수에 넣고(`roomStats.server` 에 서버 몫도 따로) 빈 방 청소 · channel 채우기 · `_meta` 옮기기에서 뺀다. 10분 넘게 낡으면(서버가 죽음) 줄만 지운다.
-- 앱: `room-stats.js` 는 `roomStats.server` 가 있으면 `inclServer` · `getRoomCounts` 는 srv 줄을 보면 `inclServer` → app.js `_addServerRoomCounts` 가 방 서버 stats 를 또 더하지 않는다(두 번 세기). 관리자 유령 방 청소(`cleanGhostRooms`)는 srv 줄을 «rooms 에 없는 고아» 로 지우지 않는다.
-- 웹 관리자: 방 목록에 🛰 방 서버(유령 · 정리 · 종료 · 고르기 대상 아님), 서버 집계에 «방 서버 N개 포함», ⚙️ 방 개수 상한 카드에 «전체 = Firebase N + 방 서버 M / 250»(닿으면 빨강) · 문구 «서버 한 대 보호용».
-- 검사: `sim-room-stats.js` §1 에 서버 줄 절(세기 · server 몫 · 빈 방 청소 아님 · channel 채우기 아님 · 낡으면 줄만 · 같은 코드 `_meta` 안 건드림 · 살아 있는 줄 안 지움) · §3 inclServer · §4 getRoomCounts · app.js · cleanGhostRooms 배선 — **60·0**.
-- 규칙: 바뀌지 않음(`roomIndex/$room` 은 `.write: true` · `.validate` 가 `srv` 칸을 막지 않는다 · 방 서버는 관리자 권한).
-
-**개정 169 에서 한 것 (2026-10-13 · 앱 FSD 14번 — 💬 대화창 배선을 모듈로 · 동작 변화 없음)**
-- 앱: app.js «💬 대화창 배선» 머리 아래 본문 334줄(설명 한 줄 · 즉시 실행 함수 `_wireChatWindow`)을 `app/parts/chat-window.js`(classic script `window.TwChatWindow`)로 글자 그대로 옮겼다. 바뀐 줄 8 — 읽는 함수 `officeMode()`(두 줄) · `_flyAiming()` · `isAdmin()` · `_emojiCache()`, 쓰는 함수 `_setChatFlyOn(x)` · `_setChatFlySize(x)` · `_setChatFlyColor(x)`. `officeMode` · `isAdmin` 은 만드는 줄보다 뒤에 선언되는 let 이라 값이면 TDZ. 밖에서 쓰는 이름 0(반환값 빈 객체). deps 49 — 함수 37 은 화살표 · 상수 셋 · `seats` · `purikuraUi` 는 값.
-- 검사: `sim-chat-window.js` 신설 **144·0** — ① 만들 때(onclick 열다섯 · 끌기 · 손잡이 여덟 · 메뉴 · 투명도 · 입력 · 이모티콘 · 저장값 반영 순서 · DOM 없을 때) ② 닫기 · 최소화 · ESC 한 겹씩 · Enter(조합 중 무시) · 링크 ③ 끌기 · 크기(가두기 · 최소 · 최대 · 저장) ④ 메뉴(하나만 열림 · 글자 크기 · 알림음 · 회사원 모드 잠금 · ▶ · 지우기 · 대화 저장) ⑤ 투명도 ⑥ 날리기(체크 · 크기 · 색 Lv.200 · 관리자) ⑦ 잠금 · 기록 삭제 · 이모티콘 · 주사위 ⑧ 💣 · 📷 게이트 ⑨ app.js 배선(deps 49 모양 · 선언 위치 · 빈 껍데기 · html 순서 · Tw 접두사) ⑩ 일부러 깨 보기 29가지를 스스로 굴려 다 잡는지 확인.
-- 다른 검사(이 구역 글을 app.js 에서 읽던 다섯 — 판정 무변경 · ✓ 수 main 과 같음): `sim-chip-chat-ui` · `sim-chat-sfx` · `sim-mac-0923` · `sim-purikura-deco` 는 렌더러 쪽 한 벌에 chat-window.js 를 이어 붙인다(없으면 «못 찾음»). `sim-purikura-deco` 의 📷 버튼 회사원 모드 줄은 `officeMode()` 모양으로. `sim-purikura-ui` 는 `purikuraUi.open()` 부르는 곳을 chat-window.js 에서 찾는다. `smoke.js` 가 chat-window.js 도 먼저 평가(PRELOAD.push). firebaseAPI 를 부르지 않아 `audit.py` 검사 8 시야는 그대로.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 37,245줄 · 상한 37,445 · 구역 173(머리는 그대로). `--write-baseline` 은 firebase-init.js 상한을 올리려 해서 거부된다(개정 167 · 168 과 같음). `ui-tokens-baseline.json` 은 그대로(옮긴 글에 글꼴 · 손 회색 없음).
-
-**개정 168 에서 한 것 (2026-10-13 · 앱 FSD 13번 — 🕒 포커스 기록 팝업을 모듈로 · 동작 변화 없음)**
-- 앱: app.js #37 «🕒 포커스 기록 팝업» 머리 아래 본문 125줄(설명 한 줄 · 즉시 실행 함수 `bindFocusLog`)을 `app/parts/focus-log.js`(classic script `window.TwFocusLog`)로 글자 그대로 옮겼다. 바뀐 줄 2 — `_focusTotalSec` · `_focusSessionSec`(다시 대입되고 만드는 줄보다 뒤에 선언되는 let)를 읽는 함수로. 밖에서 쓰는 이름 0(반환값 빈 객체 · `window._focusLogClamp` 는 예전처럼 만들 때 건다).
-- 검사: `sim-focus-log.js` 신설 **72·0** — ① 만들 때(버튼 다섯 · 본문 누름 · 끌기 · ESC · `_focusLogClamp` · 매초 타이머 · DOM 없을 때) ② 열기 · 닫기(현재 기록부터 · 맨 앞 · 설정창 닫기 · 누적 / 오늘 두 줄 · ✕ · ESC) ③ 매초 갱신(열렸을 때만 · 부를 때마다 읽음) ④ 미니미(저장 키 · 라벨 · 좌상단 고정 · 본문 누름) ⑤ 가두기 · 끌기 ⑥ app.js 배선(deps 6 · 빈 껍데기 · html 순서 · Tw 접두사) ⑦ 일부러 깨 보기 17가지를 스스로 굴려 다 잡는지 확인.
-- 다른 검사: `smoke.js` 가 focus-log.js 도 먼저 평가(PRELOAD.push). 이 구역 글을 app.js 에서 읽는 기존 검사는 없다 — `sim-win-front` · `sim-pomodoro` · `sim-pomodoro-module` · `sim-focus-show` · `sim-weekly-challenge` 는 html · 창 겹침 목록 · 다른 모듈만 봐서 그대로 초록(✓ 수 main 과 같음). firebaseAPI 를 부르지 않아 `audit.py` 검사 8 시야는 그대로.
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 37,517줄 · 상한 37,717 · 구역 173(머리는 그대로). `--write-baseline` 은 여전히 firebase-init.js 상한을 4,544 → 4,559 로 올리려 해서 거부된다(개정 167 과 같음). `ui-tokens-baseline.json` 은 그대로(옮긴 글에 글꼴 · 손 회색 없음).
-
-**개정 167 에서 한 것 (2026-10-13 · 앱 FSD 10번 — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기를 모듈로 · 동작 변화 없음)**
-- 번호: 165 · 166 은 먼저 머지된 #144(🏠 친구 방에 놀러 가기) · #145(💬 대화 기록 300줄)가 썼다 — 이 PR 은 167.
-- 앱: app.js #172 «🙋 투게더룸 친구 초대» 머리 아래 본문 268줄(친구 고르기 창 `bindRoomInvite` · 초대 받기 `_bindRoomInviteReceiver` · 팝업 `showRoomInvitePopup` · 깜빡임 `_flashTaskbar` · `ROOM_INVITE_WAIT_MS` · `ROOM_INVITE_STALE_MS` · 부팅 때 수신을 거는 두 줄)을 `app/parts/room-invite-ui.js`(classic script `window.TwRoomInviteUi`)로 글자 그대로 옮겼다. 바뀐 줄 1 — `_myHomeFriends`(다시 대입되는 let)를 읽는 함수로. 밖에서 쓰는 이름 0(반환값 `showPopup` · `busy` 는 검사용). app.js 는 원래 자리(INIT 뒤 · 머리는 그대로)에서 `TwRoomInviteUi.createRoomInviteUi({…})` — deps 9개(함수 7개는 화살표 · `_myHomeFriends` 는 읽는 함수 · `Presence` 는 앞에 선언된 const 라 값). 모듈이 없으면 빈 껍데기 `ROOM_INVITE_UI_OFF`. html 은 myhome-edit.js 뒤 · app.js 앞.
-- 검사: `sim-room-invite-ui.js` 신설 **78·0** — ① 만들 때(버튼 · ✕ · 바깥 · 끌기 · resize · 수신 구독 · firebase-ready 한 번 · DOM 없을 때) ② 친구 고르기 창(방 없음 · 친구 없음 · 온라인 먼저 이름순 · 사진 스킴 · 🏠 · 10줄 스크롤) ③ 초대 보내기(보낸 값 · 실패 · 연결 없음 · 다른 방 친구 한 번 더) ④ 창 끌기(손떨림 · 가두기 · ✕ · 더블클릭 · 다시 열 때) ⑤ 받기(10분 지난 것 지움 · 최근 것 · 수락 → 나간 뒤 이동 · 거절 · 3분 · busy · 깜빡임 · done 한 번 · 이름 씻기) ⑥ app.js 배선. 일부러 깨 보기 22가지 다 잡음.
-- 다른 검사: `smoke.js` 가 room-invite-ui.js 도 먼저 평가(PRELOAD.push). `sim-room-invite-wait.js` 는 옮긴 글(팝업 · 수신 · 두 상수)을 room-invite-ui.js 에서 읽게 — ✓ 수는 main 과 같다(14 · 판정 무변경). `audit.py` 검사 8 시야에 room-invite-ui.js(sendRoomInvite · subscribeRoomInvites · clearRoomInvite).
-- 기준선: `app-size-baseline.json` 의 app.js 만 손으로 — 37,627줄 · 상한 37,827 · 구역 173(머리는 그대로). `--write-baseline` 은 firebase-init.js 상한을 4,544 → 4,559 로 올리려 해서(main 에서 이미 4,459줄) 쓰지 않고, 같은 값(줄 수 + 200)을 app.js 칸에만 적었다. `ui-tokens-baseline.json` 은 옮긴 만큼 app.js → room-invite-ui.js(글꼴 4 → 3 + 1 · 손 회색 44 → 43 + 1 — 합 62 · 451 그대로 · `--allow-increase`).
-
-**개정 166 에서 한 것 (2026-10-13 · 💬 대화 기록 채널마다 최근 300줄)**
-- 번호: 165 는 먼저 머지된 #144(🏠 친구 방에 놀러 가기)가 썼다 — 이 PR 은 166.
-- 앱: `chat-history.js` 의 `CHAT_VIEW_MAX`(화면 1000줄)를 `CHAT_KEEP_MAX = 300` 으로 — 채널마다 화면 · 이 PC 저장 모두 최근 300줄, 넘으면 옛 줄부터 지운다(예전에 상한 없이 쌓인 저장도 열 때 줄인다).
-- 서버: `functions/chat-expire.js` 에 `trimLog` — 매일 04:30 정리 때 기록마다 최근 300줄을 넘는 옛 줄도 지운다(최근 301줄만 받아 넘는지 보고, 넘을 때만 경계 아래를 받는다 · 방장 지우기 표시 줄은 남김). 처리방침(서버 보관 기간 · PC 저장 항목) · 시행일.
-- 검사: `sim-chat-history.js` — 300줄 상한(화면 · 저장 · 예전 저장) · 서버 trimLog(같은 ts 경계에서 남길 줄을 지우면 빨강) · 앱 · 서버 값 대조.
-
-**개정 165 에서 한 것 (2026-10-13 · 🏠 친구 방에 놀러 가기)**
-- 앱: `friend-visit.js` 신설(classic script `window.TwFriendVisit` · app.js 앞) — 마이홈 친구 목록 «온라인 · PLAY-MFEG» 의 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창(초대 창과 같은 틀 · 테마 변수 · lc-btn · 기본 포커스 취소). [놀러 가기] = 방에 있으면 doLeaveRoom({ wipeChat: true }) 뒤 startRoom. 같은 방이면 알림만 · 창을 띄운 사이 친구가 옮기거나 나갔으면 알림만. 코드는 `_friendRoomTag` 로만(시크릿룸은 누를 칸 없음). app.js 는 연결 · 코드 칸 표시 · 누르기만.
-- 검사: `sim-friend-visit.js` 신설 — 같은 방 · 떠난 방에 가거나 묻지 않고 가면 빨강. `sim-fix-1008b.js` 는 코드 칸 정규식만(go 표시 허용 · 판정 그대로).
-
-**개정 164 에서 한 것 (2026-10-13 · 웹 관리자 CSP connect-src 에 관리자 API)**
-- `firebase.json` `/admin/**` CSP `connect-src` 에 `https://api.togetherworking.duckdns.org` — 없어서 라이선스 화면이 브라우저에 막혀 늘 RTDB 통째 읽기로 폴백했다.
-- 검사: `sim-account-delete.js` 에 «관리자 API 주소가 CSP connect-src 에» 한 줄. 고치기 전 firebase.json 에 대면 빨강.
-
-**개정 163 에서 한 것 (2026-10-13 · 관리자 서버(API 읽기 DB)용 봇 계정 `apiBots`)**
-- 규칙: `apiBots/{uid}: true`(앱에서 읽기 · 쓰기 없음 — 콘솔에서만) 인 계정이 `admins` · `licenses` 를 **읽기만** 한다. 서비스 계정 키 대신 봇 계정 + 경로 제한(t-w-server API 의 RTDB 구독).
-- 검사: `sim-admin-rules.js` — «관리자 명단 아무도 못 읽음» 을 «봇만 읽음» 으로 바꾸고, 봇 명단 잠김 · 라이선스 읽기 관리자 또는 봇(쓰기 길 없음) 두 줄 추가.
-
-**개정 162 에서 한 것 (2026-10-12 · 🪑 방에서 내 자리 «맨 오른쪽 고정» 버튼)**
-- 번호: 161 은 먼저 머지된 #129(대화 기록)가 썼다 — 이 PR 은 162.
-- 되돌린 #58(→ #81)에 있던 설정 «방에서 내 자리» 중 **맨 오른쪽 고정만** 다시 넣었다. 자동 맞춤 · 휠 · 띠 · 층은 넣지 않고 카메라 · 크기도 그대로.
-- 앱: `seat-pin.js` 신설(classic script `window.TwSeatPin` · app.js 앞) — 저장(tw.roomSeatMode · #58 과 같은 키) · 고정 조건(맨 오른쪽 고정 + 방에 다른 사람) · 나를 0번으로(pinFirst) · 책상 끌기 자리(dragIndex). app.js 는 layoutSeats 첫머리 · 책상 끌기 · 버튼만. 설정 › 캐릭터 «방에서 내 자리» 버튼(기본 «줄 안에 함께» = 예전 그대로).
-- 검사: `sim-seat-pin.js` 신설 — 남의 책상이 0번에 못 들어가는 줄을 빼면 빨강.
-
-**개정 161 에서 한 것 (2026-10-12 · 💬 대화 기록 — 서버 3일 · 이 PC 저장 · 커서 이어 받기)**
-- 번호: 156 ~ 160 은 먼저 머지된 #127 · #130 · 4a0ba25 · #128 · #131 이 썼다 — 이 PR 은 161.
-- 결정: 카카오톡처럼 서버는 3일만 두고, 워킹룸 · 시크릿룸 대화는 각자 PC(IndexedDB)에 개수 제한 없이 쌓는다. 공용 투게더룸은 PC 에 저장하지 않는다. 이미 받은 줄은 서버에서 지워져도 화면 · 저장에 남는다.
-- 앱: `chat-history.js` 신설(entities — Firebase import 없음). 저장분을 먼저 그리고 그 뒤만 ts 커서로 이어 받는다(키는 보낸 사람 시계라 ts · 규칙 `.indexOn`). 지우는 길은 넷 — 방장 [지우기] 표시 줄(sys 'clr') · 채널 삭제/같은 자리 새 채널 · 직접 나감(`doLeaveRoom({ wipeChat: true })` — 버튼 · 방 옮기기 · 초대 이동 · 해산만, 튕김은 아님) · 설정 › 시스템 [이 PC 에 저장된 대화 지우기] · 계정 놓기. `firebase-init.js` 는 `subscribeChatSince` · `chatHistory` 연결 · `_chatOrder` 를 모듈 것으로. `app.js` 는 부르는 줄만.
-- 서버: `functions/chat-expire.js` + `chatExpire`(매일 04:30) — 3일 지난 줄만 ts 색인으로 받아 지우고 표시 줄은 남긴다. 규칙 chatLog · _chatTab/$tabId 에 `.indexOn: ["ts"]`. 처리방침 §5 · §7 · 시행일.
-- 검사: `sim-chat-history.js` 신설 **44·0**(표시 줄 처리 · 나가기 조건을 일부러 빼면 빨강). `sim-chat-fly.js` 는 `doLeaveRoom(opt)` 인자를 받게 정규식만(판정 그대로).
-
-**개정 160 에서 한 것 (2026-10-12 · 🧭 포커싱 자동 등록이 셸 창을 건너뛰면 알림)**
-- 번호: 156 ~ 159 는 먼저 머지된 #127 · #130 · 4a0ba25 · #128 이 썼다 — 이 PR 은 160.
-- 개정 152(#123) 뒤로 파일 탐색기 · UWP 앱(applicationframehost.exe)처럼 셸 목록(WINLIST_SKIP)에 든 창을 등록하려 하면 그 앞 창이 **조용히** 등록됐다.
-- main.js: companion:registerFocusApp 가 건너뛴 셸 창 이름을 skipped 로 돌려준다. app.js: skipped 면 «A 대신 직전에 쓰던 B 를 등록했어요 — 우클릭으로 직접 고르기» 토스트(6초).
-- 검사: `sim-sysinput.js` 7절 두 줄(skipped 반환 · 렌더러 토스트 — 토스트를 빼면 빨강).
-
-**개정 159 에서 한 것 (2026-10-12 · 🐞 버그제보 «내 글» 도 한 쪽 8개)**
-- 번호: 156 · 157 · 158 은 먼저 머지된 #127 · #130 · 4a0ba25 가 썼다 — 이 PR 은 159.
-- 전체 · 미해결은 한 쪽 8개(개정 145)인데 «내 글» 만 20개를 한 화면에 [이전]/[다음] 없이 보였다. 내 글은 equalTo 라 서버에서 쪽을 넘기지 못한다(규칙도 equalTo == auth.uid 만 받는다).
-- 앱(bug-board-ui.js): 내 글은 1쪽을 열 때 지금처럼 한 번에(최대 BUG_MINE_MAX 20) 받아 두고 화면에서만 BUG_PAGE(8)씩 나눈다(`pageItems` · `mineCache`). [이전]/[다음] 을 숨기지 않는다. 받는 양 · 규칙 · 새 답변 배지 범위(최근 20개)는 그대로.
-- 검사: `sim-bug-board.js` ⑦ 한 줄 — 내 글을 화면에서 BUG_PAGE 씩 나누고 쪽 단추를 숨기지 않는지(옛 코드에서 빨강).
-
-**개정 158 에서 한 것 (2026-10-12 · 🐞 글쓴이 답글 상태 버튼에서 «그대로» 를 뺌)**
-- 요청: 상태 버튼 «그대로» 가 결국 «해결 안 됨» 과 같은 뜻으로 보인다 — 합쳐 달라.
-- 앱(bug-board-ui.js): 상태 버튼을 확인 중 · 해결 안 됨 · 해결 완료 셋으로. 기본으로 «해결 안 됨» 이 골라져 있다(`AUTHOR_DEFAULT_ST`). 답글을 달면 늘 상태 하나가 함께 간다.
-- 데이터 함수(bug-board.js addReply) · 규칙은 그대로 — 상태 없는 답글도 받는다(웹 관리자 · 다른 길이 쓸 수 있게).
-- 검사: `sim-bug-board.js` §6 한 줄 더(«그대로» 없음 · 기본 해결 안 됨) · 상태 없는 addReply 줄 이름만 고침 **107·0**.
-
-**개정 157 에서 한 것 (2026-10-12 · 🐞 버그제보 — 글쓴이도 답글 · 답글과 함께 상태 고르기)**
-- 요청: 운영자 답변에 글쓴이가 답글을 달 수 있게 · 답글을 달 때 [확인 중] [해결 안 됨] [해결 완료] 를 골라 글 상태를 바꿀 수 있게.
-- 규칙: `bugBoard/rep/{pub|prv}/{id}/{rid}` 신설(글쓴이만 · 새 답글만 · 글의 공개 범위 갈래 · 공지 아님 · ts = 서버 시각 · 1000자 · st 는 셋만 · 읽기는 ans 와 같음). `list/$id` 에 `userReplyTs`(글쓴이 · 서버 시각 · 10초에 한 번 · 답글이 있어야) · 글쓴이 갈래의 `status`(checking · unfixed · fixed 만) · `openTs`(미해결이면 글 ts, 아니면 지움) — 셋 다 같은 묶음의 userReplyTs === now 를 짝으로 본다. status 정규식에 `unfixed`.
-- 앱: `bug-board.js` `addReply` · `BUG_AUTHOR_STATUS` · `isOpenStatus`(unfixed 포함) · `hasAuthorReply` · getPost 가 rep 도 읽는다(userReplyTs 있는 글만). `bug-board-ui.js` 내 글 상세 맨 아래 «답글 달기» · 상태 버튼(그대로 · 확인 중 · 해결 안 됨 · 해결 완료) · 글쓴이 답글 따로 그리기 · 관리자 목록 «✍ 글쓴이 답글». HTML CSS 몇 줄.
-- 웹 관리자: 상태 `unfixed`(해결 안 됨 · 미해결) · `hasAuthorReply` 목록 표시 · 상세에 글쓴이 답글 · 지우기에 rep 둘 · 공개 범위를 바꾸면 rep 도 새 갈래로.
-- ans 와 나눈 이유: 옛 앱(0.11.2 이하)은 ans 를 전부 «🛡 운영자 답변» 으로 그린다 — 옛 앱에는 글쓴이 답글이 안 보일 뿐 잘못 보이지는 않는다.
-- 검사: `sim-bug-board.js` §6 신설(규칙 정적 · addReply 실행 · 화면) **106·0**. 규칙은 DB 에뮬레이터(v4.11.2)에 올려 실제로 돌렸다 — 되는 것 7 · 막히는 것 21 · 관리자 · 옛 동작 4, 전부 기대대로.
-- ⚠️ 운영 규칙 배포 필요(새 앱 전에). 옛 앱 관리자가 «해결 안 됨» 글에 답변하면 openTs 가 지워질 수 있다(옛 앱은 unfixed 를 미해결로 모른다).
-
-**개정 156 에서 한 것 (2026-10-12 · 🎟️ 관리자 초대권 전체 회수 — 남은 초대권을 0 장으로)**
-- 요청: 관리자 초대권 지급에 «전체 초대장 일괄 회수(0장으로)» 를 더하고, 앱에서는 «전체 유저에게 지급» 버튼을 우클릭하면 회수 게이트로.
-- 앱: `app/parts/invite-revoke.js` 신설(`createInviteRevokeAll` — firebase-init 이 `firebaseAPI.revokeInvitesAll` 로 연결). 대상은 전체 지급과 같이 friendCodes, 1장 이상만 트랜잭션으로 0 · 0장 · 마이너스(빚) · 칸 없음은 건너뜀 · 20명씩 동시에. app.js 는 같은 버튼에 우클릭 두 번(4초) 게이트 — 좌클릭 지급과 걸림을 따로 둔다.
-- 웹 관리자: 사용자 탭 «전체 초대권 회수»(«전체 회수» 입력) · 선택 줄 «선택 초대권 회수». 작업 기록 `invite.revokeAll` · `invite.revokeSelected` 한 줄.
-- 규칙: 바꾸지 않음 — `users/$userId/invite` 는 이미 관리자 쓰기 · invitesLeft 0 을 받는다.
-- 검사: `sim-invite-revoke.js` 신설 **19·0** / `audit.py` 검사 9 friendCodes 통째 get 기준선 1 → 2(관리자 버튼 1회).
-
-**개정 155 에서 한 것 (2026-10-11 · 💾 꾸미기 · 가챠 파츠가 재부팅하면 초기화되던 것)**
-- 제보: 꾸미기창 파츠 · 가챠 파츠를 저장했는데 재부팅하면 초기화된다. 저장 칸(slotToObj · loadSlots)은 빠진 것이 없었다(귀는 개정 149). 저장이 **안 되는** 길이 셋이었다.
-- 앱(app.js): ① 다른 기기에서 고친 캐릭터를 받으면(`_charsSync` · `_charsLocalAdopt`) slots[] 가 새 객체가 되는데 책상 위 좌석은 옛 객체를 쥐고 있어, 그 뒤 꾸미기 · 가챠 착용이 slots[] 밖에 저장됐다 → `_relinkSeatsToSlots` 로 loadSlots 뒤 같은 칸의 새 객체로 잇는다(비운 칸 제외 · 열린 초안 주인도). 화면 모델은 그대로(받은 모습은 다음 실행부터 — 예전과 같다). ② 두 커밋 함수가 파츠 GLB 받기를 기다린 뒤 저장해, 그 사이 꺼지면 사라졌다 → 받기 전에 저장(받은 뒤 한 번 더). ③ 설정 패널 «런처로» · 생성기 열기 · 앱 종료는 꾸미기 창을 숨기기만 했다 → closeWardrobe(=저장) 후 숨김 · beforeunload 에서 닫으며 저장(계정을 놓은 뒤는 건너뜀).
-- 검사: `sim-wd-parts-persist.js` 신설 **17·0**(옛 코드에서 9 빨강). `sim-chars-migrate.js`(꺼낸 동기화 본문에 `_relinkSeatsToSlots` 빈 함수) · `sim-fix-1008.js`(원래 주인 저장 횟수 1→2) 해시 갱신.
-- 남은 것: 옛 slots 통째 받기(`_slotsAdoptFromServer` · 백업 되돌리기)는 칸마다 같은 캐릭터인지 알 수 없어 잇지 않았다. Windows 종료(session-end — 창을 바로 destroy)는 beforeunload 가 돌지 않는다.
-
-**개정 154 에서 한 것 (2026-10-11 · 🔒 시크릿룸은 비어도 방이 유지 — 채팅 탭까지)**
-- 결정: 시크릿룸은 아무도 없어도 유지되는 방이다. 지금까지는 빈 채로 2분이 지나면 서버 함수가 `_meta`(채팅 탭 목록) · `_chatTab` 을 지워 탭이 사라졌다.
-- 서버 함수(functions/room-stats.js `sweepEmptyRooms`): 시크릿룸(SCRT-)은 `_meta` · `_chatTab` · chatLog 를 모두 남기고 비었음 줄만 걷는다(`dropEmptyRow` — 투게더 · 워킹과 같은 줄 걷기). 요약에 `secretKept`. 다시 들어올 때 앱은 `_meta` 를 update 로 고쳐 쓰므로(setRoomChannel) 탭 목록이 이어진다 — 앱 동작 변경 없음(주석 한 줄).
-- 검사: `sim-room-meta-cleanup.js` 시크릿룸 «같은 길(지움)» → «줄만 걷고 탭 · 탭 대화 · #일반 대화 유지» / `sim-chat-log-persist.js` 시크릿룸이 지우기보다 먼저 빠지는지.
-- ⚠️ 함수 배포 필요(`roomStats`). 옛 앱(0.11.2 이하)은 마지막 퇴장 때 직접 `_meta` · `_chatTab` 을 지운다 — 사람들이 업데이트한 뒤부터 효과.
-
-**개정 153 에서 한 것 (2026-10-11 · 🧹 투게더룸은 대여룸 — 모두 나가면 대화 기록 · 채팅 탭을 모두 비운다)**
-- 결정: 투게더룸은 누구나 들어오는 공용 방이라 방장까지 다 나가면 개인 기록이 남지 않게 청소한다. 워킹룸 · 시크릿룸(SCRT-)은 #일반 대화를 예전처럼 남긴다.
-- 서버 함수(functions/room-stats.js `sweepEmptyRooms`): `_meta` · `_chatTab` 에 더해 공용 투게더룸이면 `chatLog` 도 지운다(`isPublicTogether` — 채널은 지우는 `_meta` 트랜잭션이 본 값, 없으면 roomIndex 줄). 앱은 바뀌지 않음(주석 한 줄).
-- 검사: `sim-room-meta-cleanup.js` 투게더 · 워킹 · 시크릿 · _meta 없음 넷 + 가짜 DB 가 한 단계 안쪽 값을 읽게 / `sim-chat-log-persist.js` «서버도 chatLog 안 지움» → «공용 투게더룸일 때 한 곳에서만».
-- ⚠️ 함수 배포 필요(`firebase deploy --only functions:roomStats` — #89 의 sweepEmptyRooms 와 같이). 옛 앱(0.11.2 이하)이 마지막으로 나간 방은 비었음 표시가 없어 여기 오지 않는다 — 대화가 남는다.
-
-**개정 152 에서 한 것 (2026-10-11 · 🧭 포커싱 자동 등록에 작업표시줄 · 바탕화면이 잡히던 것)**
-- 번호: main 이 개정 150(#121)까지고 게임패드 PR(#122)이 151 을 쓰므로 152.
-- 제보: 한글 · PDF · 크롬 같은 문서 앱이 포커스 인식이 안 된다(관리자 권한도 같음). 원인을 가를 로그는 아직이고, 그중 로그 없이 확실히 고칠 수 있는 갈래 하나 — 슬롯 좌클릭 «자동 등록» 은 마지막 앞창을 집는데, 문서 창에서 작업표시줄을 거쳐 오면 explorer.exe 가 등록됐다.
-- 앱(main.js): `_noteForeignWindow` — 앞창을 적는 세 자리(폴링 · 클릭 직후 · 등록 재시도)를 한 함수로. 셸 목록(`sysinput.WINLIST_SKIP` — 「목록에서 직접 고르기」 와 같은 목록)이 아니면 `lastRegistrableWindow` 에도 적고, 등록은 그것을 쓴다(셸 창밖에 본 적 없으면 예전처럼). 건너뛰면 `[등록]` 진단 한 줄. 앞창 진단 로그(«앞창=») 는 그대로.
-- 검사: `sim-sysinput.js` 7절 신설(실행 둘 · 정적 둘).
-
-**개정 151 에서 한 것 (2026-10-11 · 🎮 게임패드도 포커스 · 자리비움 활동으로)**
-- 제보: 마우스 · 키보드 말고 게임패드로만 하면 기록이 멈추고 잠든다 — 활동 신호가 uiohook(키 · 클릭 · 휠) · 커서 이동뿐이었다.
-- 앱: `app/parts/gamepad-activity.js` 신설(window.TwGamepadActivity) — Gamepad API 를 0.5초마다 읽어 버튼 · 트리거(0.1) · 스틱(0.2) 이 실제로 바뀐 것만 센다. 처음 본 · 다시 꽂은 패드는 기준만. app.js 는 펜 활동 수신 바로 뒤에서 만들고, 처리는 펜과 같다(anyInput · 포커싱 앱일 때만 activity). OS 유휴시간 보정은 그대로 꺼 둔다.
-- 검사: `sim-gamepad-activity.js` 신설 **13·0**(처음 본 패드 · 떨림 · 스틱 · 유지 · 버튼 · 트리거 · 뺐다 꽂기 · 빈 자리 · 던짐 · 타이머 하나 · 배선 · html · OS 유휴 꺼짐).
-- ⚠️ 창이 뒤에 있을 때 값이 들어오는지는 실기기 확인 전(Windows XInput 기대 · mac 은 막힐 수 있음).
-
-**개정 150 에서 한 것 (2026-10-11 · 💬 재부팅하면 보던 채팅 탭이 #일반으로 돌아가던 것)**
-- 번호: main 이 개정 148(#119)까지고 귀 저장 PR(#120)이 149 를 쓰므로 150.
-- 앱(app.js): 방마다 마지막에 보던 탭을 localStorage `tw.chatTab.<방 코드>` 에 기억(#일반이면 지움). 창을 열 때 · 탭 id 를 물을 때(`_chatMyTabId` — 창을 열기 전 말풍선 · presence 도) 그 방의 기억으로 맞춘다. 방 메타가 오기 전에는 기억한 탭을 «지워졌다» 로 보지 않고, 메타가 온 뒤 풀리면 #일반으로 열어 둔 구독을 그 탭으로 옮긴다.
-- 검사: `sim-chat-tabs.js` §3 «방에 들어오면 #일반» 한 줄을 실행 검사 여섯으로(기억 · 재부팅 · 다른 방 · 지움 · 메타 전 · 구독 옮김).
-
-**개정 149 에서 한 것 (2026-10-11 · 👂 꾸미기에서 고른 귀가 재부팅하면 초기화되던 것)**
-- 원인: 슬롯 저장(`slotToObj`) · 불러오기(`loadSlots`) 필드 목록에 사람 귀 다섯 칸(`earL · earR · earAdj · earPicL · earPicR`)이 없었다 — 귀 기능을 넣을 때부터. 방 전송에는 있어서 그 자리에선 보이고 껐다 켜면 사라졌다. 서버 사본도 같은 저장본이라 함께 빠졌다.
-- 앱(app.js): `slotToObj` 가 귀 칸을 **있을 때만** 싣는다(thumbUrl 과 같은 규칙 — 늘 실으면 옛 칸의 첫 저장이 «달라짐» 이 되어 slots ts 가 일제히 오른다) · `loadSlots` 가 되살린다 · 서버로 올릴 때 dataURL 귀 그림은 뺀다 · 생성기 [완료] 가 귀를 이어받는다 · 캐릭터 코드 내보내기 · 가져오기에도 귀.
-- 검사: `sim-wd-ear.js` 3-e 절 신설(slotToObj 실행 둘 · 정적 넷).
-
-**개정 148 에서 한 것 (2026-10-11 · 🎨 창 밖 스티커는 밖에 둔 채 런처에서도 보이게 — 개정 147 방향 바꿈)**
-- 요청: 창 밖에 걸친 스티커는 안으로 당기지 말고 그 자리 그대로 보여야 한다(실행 화면처럼).
-- 되돌림(개정 147): 그릴 때 안으로 당기기 · 크기 · 회전 핸들의 붙잡기 · 창보다 크면 size 줄이기. 끌기 · 붙이기 붙잡기(옛 규칙)는 그대로, 판정은 회전한 바깥 상자(`_mhStickerBox`)로.
-- 앱(app.js): `_mhStickerOverhang` — 창 밖으로 넘친 만큼(좌우 · 위아래 큰 쪽, CSS px). `applyDesktopRunClass` 가 런처 마이홈일 때 셋째 인자로 보낸다. 다시 그릴 때(두 갈래) · 크기 · 회전 핸들을 놓을 때(`window._mhFitWindow`) 다시 맞춘다.
-- 앱(main.js · preload.js): `setConfigMode` 셋째 인자 → `_mhPad`(상한 `MH_PAD_MAX` 400). `_modeSize('myhome')` 가 양쪽으로 그만큼 넓히고(줌 · 모니터 변경 · 표시 설정이 모두 지나는 곳), 여백이 바뀐 만큼 창 좌상단을 옮겨 마이홈은 제자리.
-- 검사: `sim-myhome-sticker.js` 7절을 «넓히기» 로 바꿈(넘친 만큼 셋 · 탭 · 안 당김 · 다시 맞춤 · main _modeSize · 받은 값 · 좌상단 · preload) / `sim-zoom-window.js` 함수 상자에 `_mhPad`.
-
-**개정 147 에서 한 것 (2026-10-11 · 🎨 마이홈 스티커가 런처에서만 잘리던 것)**
-- 원인: 드래그 · 붙이기는 `_mhClampStickerPos` 로 마이홈 창 안에 붙잡는데, 크기 핸들(최대 8배) · 회전 핸들은 안 거쳐 창 밖으로 삐져나갔다. 실행 화면은 창이 화면 전체라 보였고, 런처는 OS 창(MODE_SIZE.myhome 800×580)이 마이홈보다 조금만 커서 잘렸다.
-- 앱(app.js): `_mhStickerBox` — 회전한 바깥 상자(가운데 축). `_mhClampStickerPos` · `_mhStickerOutOfView` 가 그 상자로 보고, 창보다 크면 size 부터 줄인다. `renderMyHomeStickers` 는 밖에 나간 옛 스티커를 복사본으로만 안으로 당겨 그린다(저장 값 · 관람 중 친구 것은 그대로).
-- 앱(myhome-sticker.js): 크기 · 회전 핸들이 움직이는 동안 붙잡고 left · top 도 다시 그린다.
-- 검사: `sim-myhome-sticker.js` 7절 신설(app.js 판정 넷 실행 — 45° · 8배 · 창보다 큰 것 · 밖 판정 · 핸들 둘 · 그리기 복사본).
-
-**개정 146 에서 한 것 (2026-10-11 · 🐞 버그제보 규칙 — 옛 앱의 비공개 제보가 거부되던 것)**
-- 원인: 개정 145(#116) 규칙이 글쓴이 새 비공개 글에 `name === '익명'` 을 요구했는데, 0.11.2 이하 앱은 실명을 보낸다 → 운영 규칙 배포 뒤 옛 앱의 비공개 제보가 전부 거부.
-- 규칙: `bugBoard/list/$id` .write 글쓴이 갈래에서 그 조건만 뺐다. title(공개 · 비공개 모두) 은 그대로. 새 앱은 계속 «익명» 을 보내고 화면은 비공개 글 이름을 늘 «익명» 으로 보인다.
-- 검사: `sim-bug-board.js` 규칙 줄을 «아직 요구하지 않는다» 로 뒤집음(다시 넣을 때 같이 뒤집는다 — 주석 TODO).
-
-**개정 145 에서 한 것 (2026-10-11 · 🐞 버그제보 게시판 — 한 쪽 8개 · 비공개 글 제목 공개 · 이름 익명)**
-- 번호: main 이 개정 141(#114 구역 머리)까지고 영상 겹침 PR(#115)이 142 ~ 144 를 쓰므로 145.
-- 앱: `bug-board.js` 한 쪽 `BUG_PAGE` 20 → 8(전체 · 미해결) · «내 글» 은 `BUG_MINE_MAX` 20 그대로(쪽을 못 넘기고 새 답변 배지가 그 안에서 센다) · `listEntry` 가 비공개 글에도 title 을 싣고 이름은 `BUG_ANON`(«익명»). `bug-board-ui.js` 남의 비공개 행에 제목(옛 글은 «비공개 제보예요») · 이름은 비공개 글이면 늘 «익명» · 누를 수 없는 것과 본문 · 답변 잠금은 그대로.
-- 규칙: `bugBoard/list/$id` .validate 의 title 이 공개 글 조건을 뺐다 · .write 글쓴이 새 글 갈래에 «비공개면 name === '익명'».
-- 웹 관리자: `editWrite` 가 비공개 글도 목록 줄에 title 을 둔다(테스트 `bug-edit.test.ts` 셋 고침).
-- 검사: `sim-bug-board.js` **78·0** — ⑤ 를 «제목 있음 · 이름 익명» 으로 · 규칙 두 줄 · 내 글 20 · 화면 whoName · §4 를 BUG_PAGE 기준으로.
-
-**개정 144 에서 한 것 (2026-10-11 · 🎬 «적용 안 됨» 안내 — B-1010-21 후속 요청)**
-- 앱(app.js · HTML): 설정 › 시스템의 영상 겹침이 «적용 안 됨» 이면 바로 아래에 안내 칸(`#progLabVideoWarn` · `LAB_VIDEO_BLOCKED_GUIDE`) — ① 눌러 끈 뒤 다시 켜기 ② 그래도면 마이홈 › 버그제보 + tw-mouse-diag.log. 조회 · 토글 둘 다 같은 함수(`_labVideoWarn`).
-- 앱(main.js): 부팅 재시도를 끝까지(상한 또는 마지막 시간 재시도) 했는데도 막혀 있으면 같은 순서의 기본 안내 창을 실행당 한 번(`_showLabBlockedGuide` · «다시 보지 않기» = userData/lab-video-guide-off).
-- 검사: `sim-fix-1008.js` 흉내 셋(풀리면 안내 없음 · 상한에서 안내 1번 · 마지막 시간 재시도에서 안내 1번) · 안내 창 조건 · 설정 화면 안내 / `sim-overlay-layered.js` 재시도 상한 줄이 안내 호출을 허용.
-
-**개정 143 에서 한 것 (2026-10-11 · 🎬 B-1010-21 제보자 확인 뒤 — 토글은 켜짐(파일 252)인데 실제로는 꺼짐 · 토글을 껐다 켜니 나음)**
-- 번호: 같은 브랜치에 있던 버그제보 게시판(옛 개정 142)은 PR 을 나누며 되돌렸다(`sim-bug-board.js` 해시는 141 그대로). 영상 겹침은 142 · 143 으로 다시 매김.
-- 앱(main.js): 부팅 재시도 상한 8 → 30번 · 시간 재시도 1.5초 ~ 60초 → 1.5초 ~ 10분(윈도우 시작 자동 실행은 GPU 준비가 1분을 넘길 수 있다). 막힌 동안은 여전히 창을 안 건드리고 풀리면 멈춘다.
-- 앱(app.js): 설정을 시스템 탭으로 바로 열 때도 `refreshLabVideoUI()` — 예전엔 탭 단추를 눌렀을 때만 실제 적용 상태(«적용 안 됨»)를 다시 읽었다.
-- 제보자 로그는 256KB 회전으로 부팅 줄이 이미 밀려나 gpu_compositing 값은 못 봤다(설정 파일은 settingsVer 1 · alpha 252 — 초기화 아님).
-
-**개정 142 에서 한 것 (2026-10-11 · 🎬 영상 겹침 실험 재발 대응 — B-1010-21 · B-1011-1 · 로그 받기 전 할 수 있는 것)**
-- 번호: main 이 개정 141(#114 구역 머리)까지라 142.
-- 앱(main.js): 부팅 판정이 «GPU 합성 꺼짐» 일 때의 재시도가 «딱 한 번» 이라 첫 gpu-info-update 에 덜 준비돼 있으면 그대로 꺼진 채였다 → gpu-info-update 마다 · 화면 뜬 뒤 여러 번, 풀리면 멈춤 · 상한(`LAY_RETRY_MAX`). 막힌 동안은 창 스타일을 안 건드린다.
-- 앱(main.js): 0.11.0 의 설정 초기화(SETTINGS_VER)로 실험이 꺼진 사람에게 화면이 뜬 6초 뒤 «다시 켤까요?» 기본 대화상자를 한 번(백업 `tw-settings.before-reset.json` 에 켜짐 · 지금 꺼짐 · 아직 안 물음). 물었으면 `labVideoAsked` 를 설정 파일에 남긴다. [다시 켜기] 는 토글과 같은 길.
-- 앱(app.js): 토글을 끄면 «앱을 다시 켜면 완전히 꺼져요» — 켰다 끈 창은 재시작 전까지 불투명 레이어드라 처음보다 영상을 더 가린다.
-- 검사: `sim-fix-1008.js` §4 재시도 상한 · 멈춤 · 흉내 둘 · 다시 켜기 넷 · `sim-overlay-layered.js` 호출 자리 3 → 4.
-
-**개정 141 에서 한 것 (2026-10-11 · 앱 FSD — 섞인 구역에 구역 머리만 새로 달기 · 동작 변화 없음)**
-- 번호: main 이 개정 140(#113 마이홈 편집 묶음)까지라 141.
-- 앱: app.js 에서 머리 하나에 여러 기능이 섞여 있던 16개 구역(옛 #12 #14 #19 #24 #26 #29 #31 #42 #43 #59 #63 #70 #72 #83 #89 #94)의 기능 경계에 `/* ═══ 제목 ═══ */` 한 줄씩 76줄을 넣었다. 다른 줄은 한 글자도 안 바뀜(diff 의 + 가 전부 머리 주석 · − 0).
-- 기준선: `node checks/sim-app-size.js --write-baseline --allow-new-section --allow-increase` — app.js 37,622 → 37,698줄 · 상한 37,822 → 37,898(머리 줄 수만큼) · 구역 97 → 173. 검사 파일(`sim-*.js` · `smoke.js` · `audit.py`)은 안 바뀌어 §3 해시 그대로.
-- 지도: `docs/APP_FSD_MAP.md` 구역 표를 `scripts/app-sections.js` 로 다시 뽑고, 옛 번호 → 새 번호 표 · 다음 옮길 순서 9 ~ 16 을 적었다.
-
-**개정 140 에서 한 것 (2026-10-11 · 앱 FSD 7-2 — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오를 모듈로 · 동작 변화 없음)**
-- 번호: main 이 개정 139(#112 가챠)까지라 140.
-- 앱: app.js #31 뒤쪽의 마이홈 페이지 편집 묶음 — 즉시 실행 함수 `bindMyHomePage` 하나(1,167줄 · 자동저장 · 프로필 사진 · 글 서식 · 색 팝업 · 새 스티커 붙이기 · 스티커 끌기 · 닉네임 · 게시글 제목 · 🎵 BGM · 바깥 배경 · 테마 · 👑 디자인 스튜디오 · 프리셋) — 를 `app/parts/myhome-edit.js` 한 파일로 옮겼다(디자인 스튜디오 · 프리셋은 [✎ 마이홈 수정] 버튼 · `commitMyHomePage` · `_mhOpenColorPopup` 과 이름으로 얽혀 나누면 글자 그대로가 깨진다). 본문 1,165줄은 글자 그대로이고 바뀐 줄은 69줄 — 다시 대입되는 let(`_myHomeData` · `_mhViewingUserId` · `_myHomeLoaded` · `_myHomeUid` · `_mhStickerDragDist` · `isPremium` · `isAdmin`)을 읽는 함수로, `_myHomeLoaded = false` · `_mhStickerDragDist` 쓰기를 쓰는 함수로, 묶음보다 뒤에 선언되는 `USER_NAME_MAX` 를 읽는 함수로(값이면 TDZ), `renderMyHomeStickers` 감싸기를 «감싸기 전 함수는 값으로 받고 감싼 함수는 setter 로 되돌려 넣기» 로 바꾼 것뿐. 밖으로는 예전처럼 window 고리 11개(`commitMyHomePage` · `_mhApplyBg` · `_mhApplyTheme` · `_bgmDestroy` · `_mhDsClose` · `_mhBgmPlaying` 등) — 부르는 곳(app.js · myhome-sticker.js · purikura-ui.js)은 안 고쳤다. app.js 는 원래 자리(🔗 마이홈 본문 링크 뒤 · 📖 방명록 연결 앞)에서 `TwMyHomeEdit.createMyHomeEdit({…})` — deps 34. 모듈이 없으면 빈 껍데기 `MYHOME_EDIT_OFF`. 전역 이름 `TwMyHomeEdit`(헤드리스 크로미움 main 에서 typeof undefined).
-- 검사: `sim-myhome-edit.js` 신설 **137·0** — ① 만들 때 ② 자동저장 ③ 프로필 사진 · 글 서식 · 색 팝업 ④ 새 스티커 · 끌기 · 삭제 저장 ⑤ 닉네임 · 게시글 제목 ⑥ BGM ⑦ 배경 · 테마 · [✎ 마이홈 수정] ⑧ 디자인 스튜디오 · 프리셋 ⑨ app.js 배선. 일부러 깨 보기 19가지(관람 막기 · 불러온 상태 무효 · USER_NAME_MAX 값으로 · 감싸기 전 함수 화살표로 · 드래그 최대값 · 프리셋 그림 담음 · 불러오기가 그림 지움 · 불러오기 한 번에 · 라이선스 값으로 · BGM 창 주인 · 테마 짝 · 스튜디오 테마 주입 · HEX 검사 · window 고리 · deps let 값 · deps 다시 대입 · 빈 껍데기 · html 줄 · 반환값)가 전부 빨강.
-- 다른 검사: `smoke.js` 가 myhome-edit.js 도 먼저 평가. 옮긴 글을 읽던 `sim-myhome-load`(프리셋 함수 · 쓰는 칸) · `sim-child-theme`(DS_HTML · 여는 곳) · `sim-fix-1008`(§2 자동 저장 계정 대조) · `sim-myhome-sticker`(원래 자리 끝 기준 · 다시 대입 · [+ 스티커] 부르는 곳) · `sim-purikura-deco`(마이홈 BGM 창구 — 없어야 할 글을 찾는 검사가 헛돌지 않게)는 새 파일을 읽게 — ✓ 수는 main 과 같다(31 · 31 · 92 · 67 · 246). `sim-myhome-steps` 는 그대로 초록. `audit.py` 검사 8 시야에 myhome-edit.js(saveMyHome · uploadUserImage).
-- 기준선: `node checks/sim-app-size.js --write-baseline` — app.js 37,622줄 · 상한 37,822 · 구역 97(머리는 그대로). `ui-tokens-baseline.json` 은 옮긴 만큼 app.js → myhome-edit.js(글꼴 12 → 4 + 8 · 손 회색 110 → 44 + 66 — 합은 그대로).
-
-**개정 139 에서 한 것 (2026-10-10 · 앱 FSD 8번 — 🎰 파츠 가챠 코어 · 보관함을 모듈로 · 동작 변화 없음)**
-- 번호: main 이 개정 138(#111 마이홈 스티커)까지라 139.
-- 앱: app.js 의 두 구역 «🎰 파츠 가챠 — 코어»(430줄) · «🎰 파츠 보관함 (T키) · 가챠 뽑기 창»(825줄)을 `app/parts/gacha.js` 한 파일로 옮겼다(달성표처럼 entities 규칙 + widgets 화면 — 보관함이 코어 이름 스무 개 가까이를 그대로 써서 나누면 글자 그대로가 깨진다). 본문 1,214줄은 글자 그대로이고 바뀐 줄은 28줄 — app.js 가 다시 대입하는 let(isAdmin · savedParts · PART_CATS · wdDraftDef · activeWdAdj)을 읽는 함수로, activeWdAdj 에 쓰는 것을 쓰는 함수로 바꾼 것뿐. 두 구역 사이의 🔑 «서버가 조용히 거부하는 기기» 안내(`_warnServerWriteDenied` — 캐릭터 슬롯도 부른다)와 저장 키 세 줄(`GACHA_OWNED_KEY` · `GACHA_TS_KEY` · `GACHA_BONUS_KEY` — 계정 전환 지움 목록이 같이 쓴다)은 app.js 에 남겼다. 부르는 곳(T 키 · 꾸미기 색상 영역 · 파츠 등록 · 카탈로그 도착 · 썸네일 재생성 · 런처 · 로그아웃 flush · 검문 · 메모리 지우기 · 연동 pull · 👑 달성표 deps)은 `gachaMod.이름` — 부팅 중 연결 줄보다 먼저 불리는 곳이 없음을 smoke 와 헤드리스 크로미움(main 계측)으로 확인. 모듈이 없으면 빈 껍데기 `GACHA_OFF`. 전역 이름 `TwGacha`(헤드리스 크로미움 main 에서 typeof undefined).
-- 검사: `sim-gacha.js` 신설 **94·0** — ① 만들 때 ② 셈 ③ 뽑기 ④ 서버 동기화 ⑤ 보관함 ⑥ 뽑기 창 ⑦ app.js 배선. 일부러 깨 보기 11가지(레벨당 뽑기 · 로컬 저장 · _srvRead 가드 · 삼켜진 요청 · classList 토큰 · confirm 뒤 focus · 메모리 지우기 · deps 화살표 · 옛 이름 · 빈 껍데기 · html 줄)가 전부 빨강.
-- 다른 검사: `smoke.js` 가 gacha.js 도 먼저 평가. app.js 를 통째로 평가하던 `sim-gacha-prune` · `sim-gacha-race` · `sim-part-color-entry` 는 gacha.js 를 먼저 평가(없으면 «원본 없음» — 빈 껍데기로 초록인 척하지 않게) · 판정 줄은 그대로. `sim-account-switch` 스텁 · `sim-key-input`(T 키) · `sim-weekly-challenge`(gachaBonus) 정규식을 gachaMod 로. `sim-slot-sync` 는 그대로 초록(`syncGachaToServer('transfer', 'pull')` 글자가 gachaMod. 뒤에 그대로 있다). `audit.py` 검사 8 시야에 gacha.js(loadGachaOwned · saveGachaOwned).
-- 기준선: `node checks/sim-app-size.js --write-baseline` — app.js 38,741줄 · 상한 38,941 · 구역 97(🎰 머리 둘이 빠짐 — 남은 연결 · 🔑 안내는 앞 구역 🚩 신고하기에 붙는다). `ui-tokens-baseline.json` 은 그대로(옮긴 몫에 손 회색 · 직접 적은 글꼴 없음 — 그대로 초록).
-
-**개정 138 에서 한 것 (2026-10-10 · 앱 FSD 7번 — 🎨 마이홈 스티커 관리 창을 모듈로 · 동작 변화 없음)**
-- 번호: main 이 개정 137(#110 뽀모도로)까지라 138.
-- 앱: app.js 의 «🎨 스티커 관리 창» 구역(1,481줄)은 이름과 달리 스티커 몫이 두 덩이(관리 창 119줄 · 편집모드 · 드래그 · 회전 · 크기 136줄 = 255줄)뿐이고, 나머지는 🔗 마이홈 본문 링크(28줄)와 마이홈 페이지 편집 묶음 `bindMyHomePage`(1,167줄 — 자동저장 · 프로필 사진 · 글 서식 · 새 스티커 붙이기 · 닉네임 · 🎵 BGM · 배경 · 테마 · 👑 디자인 스튜디오 · 프리셋) · 📖 방명록 연결 · 💬 `showChatBubble` 이었다. 스티커 두 덩이만 `app/parts/myhome-sticker.js` 로 옮기고 나머지는 남겼다(`bindMyHomePage` 는 `_myHomeLoaded` 에 쓰고 `renderMyHomeStickers` 를 감싸 다시 대입하는 등 얽힘이 커서 따로 나눈다). 본문은 글자 그대로(들여쓰기도) — 바뀐 것은 app.js 의 let 을 읽고 쓰는 방법뿐(`_myHomeData` · `_mhViewingUserId` · `_mhStickerEditSid` 는 읽는 함수, `_mhStickerEditSid` · `_mhStickerDragDist` 에 쓰는 것은 쓰는 함수 — 두 let 은 app.js 의 `renderMyHomeStickers` 가 읽어서 app.js 에 둔다). app.js 는 원래 자리(`renderMyHomeStickers` 뒤 · 🔗 본문 링크 앞)에서 `TwMyHomeSticker.createMyHomeSticker({…})` — deps 18개(함수 10개는 화살표 — `renderMyHomeStickers` 는 뒤에서 다시 대입되고 `commitMyHomePage` 는 window 이름이라 / let 읽기 3 · 쓰기 2 / `STICKER_*` 셋은 앞에 선언되고 다시 대입되지 않는 const 라 값). 만들 때 도는 일(#stMgrClose · #stMgrBringAll 버튼 연결)이 예전과 같은 때 돈다. 부르는 곳 여덟 줄(마이홈 닫기 · `renderMyHomeStickers` 의 편집 시작 · 끝 · 핸들 셋 · [+ 스티커] · 새 스티커 붙이기)은 모두 마이홈을 연 뒤에 돌아 `myHomeSticker.이름`. 모듈이 없으면 빈 껍데기 `MYHOME_STICKER_OFF`. 전역 이름 `TwMyHomeSticker`(헤드리스 크로미움 main 에서 typeof undefined).
-- 검사: `sim-myhome-sticker.js` 신설 **67·0** — ① 만들 때(창 버튼 둘 연결 · DOM 없으면 조용히) ② 관리 창(관람 중 막힘 · 목록 · 개수 · 상한 · 밖에 있을 때만 [전부 화면 안으로] · 닫기) ③ 줄 버튼(◎ 밖 / 안 · ✎ 먼저 데려오기 · 편집모드 · ✨ · 🔗 취소 · http 아님 · 바꿈 · 비움 · × 취소 · 편집 중이던 것) ④ 전부 화면 안으로 ⑤ 편집모드 · 드래그 · 회전(3° · Shift 15° · -180 ~ 180) · 크기(0.3 ~ 8) ⑥ app.js 배선(정의는 모듈에만 · 옛 이름 안 부름 · 원래 자리 · deps 18 모양 · 다시 대입되는 renderMyHomeStickers · 두 let 은 app.js · 부르는 곳 · 빈 껍데기 · html 순서 · Tw 접두사 · 모듈 없을 때). 이빨 21종 다 잡음.
-- 다른 검사: `smoke.js` 가 myhome-sticker.js 도 먼저 평가. 옮긴 이름을 글로 찾는 검사는 없었다(`sim-myhome-load` 는 `_mhHomeFromServer` 만 본다 — 그대로 초록). `audit.py` 는 그대로(옮긴 몫은 firebaseAPI 를 안 부른다 — 검사 4 의 confirm 뒤 window.focus 는 옮긴 줄에 글자 그대로 있다).
-- 기준선: `node checks/sim-app-size.js --write-baseline` — app.js 39,900줄 · 상한 40,100 · 구역 99(🎨 머리 하나가 빠짐 — 남은 줄은 앞 구역 🔬 에 붙는다). `ui-tokens-baseline.json` 은 그대로(옮긴 몫에 색 · 글꼴 없음).
-
-**개정 137 에서 한 것 (2026-10-10 · 앱 FSD 6번 — 🍅 뽀모도로를 모듈로 · 동작 변화 없음)**
-- 번호: main 이 개정 136(#109 친구 관리)까지라 137.
-- 앱: app.js 의 «🍅 뽀모도로» 구역(948줄) 가운데 뽀모 몫인 앞머리 176줄(상태 · 구간 넘기기 · 서랍 그리기 · 버튼 연결)을 `app/parts/pomodoro.js` 로 옮겼다. 본문은 글자 그대로(들여쓰기도 · 이름을 읽는 방법도) — 받는 넷(`toast` · `_focusShowPush` · `weeklyChal` · `_pomoSnd`)을 같은 이름의 const 로 받는다. app.js 는 원래 자리(👑 달성표 연결 바로 뒤)에서 `TwPomodoro.createPomodoro({…})` — deps 4개(함수는 화살표, `weeklyChal` · `_pomoSnd` 는 앞에 선언되고 다시 대입되지 않는 const 라 값). 만들 때 도는 일(tw.pomo · tw.pomoRun 읽기 · 버튼 연결 · 첫 그리기 · 1초 tick)이 예전과 같은 때 돈다. 밖에서 부르는 곳은 📊 `_focusShowConf` 한 곳뿐인데, 만드는 줄보다 먼저(bindFocusShow, 로드 중) 불려 반환값(const)을 볼 수 없다 — 그래서 모듈이 `window._pomoShowText` 고리를 걸고 부르는 줄은 typeof 가드 그대로(만들기 전에는 '' — 예전에도 그때는 `_pomoRun` 이 undefined 라 ''). 모듈이 없으면 빈 껍데기 `POMODORO_OFF`. 구역 뒤쪽 772줄(myHomeOpen · applyDesktopRunClass · 데스크탑 모드 — 실행 화면 입력 판정 · 클릭 통과)은 뽀모가 아니라 남겼다 → 🍅 머리가 빠져 앞 구역(📱 태블릿·폰 포커싱 연결)에 붙는다. 전역 이름 `TwPomodoro`(헤드리스 크로미움 main 에서 typeof undefined).
-- 검사: `sim-pomodoro-module.js` 신설 **60·0** — ① 만들 때(설정 · 진행 읽기 · 1초 tick 하나 · 버튼 연결 · 첫 그리기 · 고리 · DOM 없으면 조용히 · 깨진 값 버림) ② 서랍(🍅 → 열림 · 👑 달성표 닫기 · 창 자리 맞춤 · 다시 누르면 닫힘) ③ 시작 · 일시정지 · 계속 · 멈춤(프리셋 · 직접 입력 · 범위 밖 거절 · 소리 잠금 해제 · 머리 위 즉시 갱신 · 진행 저장) ④ 한 사이클(가짜 시계 — 집중 → 휴식 → 4바퀴째 긴 휴식 → 새 사이클 · 소리 · 알림 · 미니미 줄 · 몇 시간 뒤 켜짐) ⑤ 건너뛰기 · 자동 시작 꺼짐 ⑥ 재시작 이어짐 · 머리 위 고리 ⑦ app.js 배선(정의는 모듈에만 · 원래 자리 · _focusShowConf 가 먼저 불림 · deps 모양 · 빈 껍데기 · html 순서 · Tw 접두사 · 모듈 없을 때). 이빨 13종 다 잡음.
-- 다른 검사: `sim-pomodoro` 가 뽀모 블록 · `_pomo*` 함수를 pomodoro.js 에서 찾고(없으면 «못 찾음»), «상태 변수는 var» 는 모듈 본문(글자 그대로)에서, 대신 «app.js 에는 뽀모 정의가 없다 — 로드 중 `_focusShowConf` 는 typeof 가드로 window 고리만» 을 본다(41·0). `sim-weekly-challenge` 의 «원래 자리» 끝 기준을 옛 🍅 머리 → 그 자리의 `TwPomodoro.createPomodoro(` 로, «부르는 곳 · 뽀모 서랍» 은 pomodoro.js 의 `weeklyChal.open(false)` + app.js 의 `weeklyChal: weeklyChal,` 로. `smoke.js` 가 pomodoro.js 도 먼저 평가. `audit.py` 는 그대로(뽀모는 firebaseAPI 를 안 부른다).
-- 기준선: `node checks/sim-app-size.js --write-baseline` — app.js 40,126줄 · 상한 40,326 · 구역 100(🍅 머리 하나가 빠짐). `ui-tokens-baseline.json` 은 그대로(옮긴 몫에 색 · 글꼴 없음).
-
-**개정 136 에서 한 것 (2026-10-10 · 앱 FSD 5번 — 👥 친구 관리 · 🐞 버그 제보 탭을 모듈로 · 동작 변화 없음)**
-- 번호: main 이 개정 135(#108 방명록)까지라 136.
-- 앱: app.js 의 «🐞 버그 제보 탭» 구역(494줄)을 둘로 옮겼다. ① 친구 쪽(👋 새 친구 요청 팝업 · 👥 친구 관리 — 받은 요청 · 일괄 처리 · 📤 보낸 요청 · 친구 탭 배지, 432줄) → `app/parts/friend-manage.js`. 본문은 글자 그대로(들여쓰기도) — 바뀐 열여덟 줄은 이름을 읽는 방법뿐: `_myFriendRequests` → `_myFriendRequests()` · `_myHomeFriends` → `_myHomeFriends()` · `myHomeOpen` → `myHomeOpen()`(app.js 가 구독 · 마이홈 열고 닫기 때 다시 대입하는 let). app.js 는 원래 자리(📅 스케줄러 연결 뒤 · 마이홈 준비 앞)에서 `TwFriendManage.createFriendManage({…})` — deps 10개(함수 · let 은 화살표, 상한은 `FRIEND_MAX` 값). 만들 때 도는 일은 없다. 부르는 열다섯 줄(🖥️ 구역의 요청 구독 · 마이홈 열기 · 탭 전환 · 친구 코드 추가 · 서브탭 · 일괄 처리 바)은 `friendManage.이름` 으로(앞 PR 들처럼 typeof 가드는 걷음 — 예전에도 늘 정의된 함수였고, 모듈이 없으면 빈 껍데기 `FRIEND_MANAGE_OFF`). 다시 대입되던 `_fmTab` 은 `setTab` · `tab`, `_fmPicked`(같은 Set) 는 `picked`. ② 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · `window._bugReportLink`, 62줄) → 게시판 화면 옆 `app/parts/bug-board-ui.js` 끝(IIFE 밖 맨 앞 칸 · 전역 이름 그대로). 그 파일은 app.js 뒤지만 firebase-init.js(module) 앞이라 «firebase-ready» 구독 시작 때가 같다. 전역 이름 `window.TwFriendManage`(헤드리스 크로미움 main 에서 typeof undefined 확인).
-- 검사: `sim-friend-manage-module.js` 신설 **69·0** — ① 만들 때(아무것도 안 건드림 · 반환값 · DOM 없으면 조용히) ② 받은 요청((n) · 친구 탭 배지 · 9+ · 최신이 위 · 체크 · 사라진 요청은 선택에서도 · 단건 수락 · 상한이면 남김 · 거절 — 만든 뒤에 다시 대입된 값) ③ 일괄(먼저 온 것부터 자리만큼 · 거절 확인 · focus) ④ 서브탭 · 보낸 요청(살아 있는 것만 · 죽은 미러 치움 · 이름 조회 캐시 · 취소) ⑤ 팝업 · reqVisible(마이홈 열림 · 친구 탭 · 받은 요청일 때만 · 고른 요청만 · 떠 있으면 또 안 띄움 · 상한) ⑥ app.js 배선(정의는 모듈에만 · 옛 이름 안 남음 · 원래 자리 · deps 모양 · 빈 껍데기 · html 순서 · Tw 접두사) ⑦ 🐞 버그 제보 탭(app.js 에 없음 · bug-board-ui.js IIFE 밖 · firebase-ready 기다림 · 링크 · 관리자만 · 오픈카톡 주소만 · 공지글 그대로 실어 저장 · 실패 안내).
-- 다른 검사: `sim-friend-manage` 가 렌더러 쪽 한 벌 = app.js + friend-manage.js 를 보고(없으면 «못 찾음»), 런타임은 friend-manage.js 를 먼저 평가한 뒤 `friendManage` 로 잰다(진짜 모듈인지도 확인). `sim-gift-star` 의 «다른 서브탭이면 표시를 비운다» 는 friend-manage.js 를 본다. `sim-scheduler` 의 «원래 자리» 기준은 옛 🐞 머리 대신 그 자리의 👥 친구 관리 연결. `smoke.js` 가 friend-manage.js 도 먼저 평가 · `audit.py` 검사 8 이 friend-manage.js(acceptFriendRequest · rejectFriendRequest · getSentFriendRequests · isFriendRequestAlive · pruneSentFriendRequest · cancelFriendRequest · getUserNameById) · bug-board-ui.js(setBugReport · subscribeBugReport) 의 firebaseAPI 호출을 본다.
-- 기준선: `node checks/sim-app-size.js --write-baseline` — app.js 40,288줄 · 상한 40,488 · 구역 101(🐞 머리 하나가 모듈로). `ui-tokens-baseline.json` — 손 글꼴 하나(👋 팝업)가 app.js → friend-manage.js 로 자리만 옮김(합 62 그대로 · `--allow-increase`).
-
-**개정 135 에서 한 것 (2026-10-10 · 앱 FSD 4번 — 📖 방명록을 모듈로 · 동작 변화 없음)**
-- 번호: main 이 개정 134(#107 스티커사진 창)까지라 135.
-- 앱: app.js 의 📖 방명록 세 구역(«새 글 뱃지(자기 홈 관점)» · «팝업(웹박수 + 글 목록)» 머리 · «독립 팝업 창» — 475줄)을 `app/parts/guestbook.js` 로 옮겼다. 본문은 글자 그대로(들여쓰기도) — 바뀐 아홉 줄은 이름을 읽는 방법뿐: `_mhViewingUserId` → `_mhViewingUserId()` · `_myHomeFriends` → `_myHomeFriends()`(app.js 가 친구 홈 관람 · 친구 목록 구독 때 다시 대입하는 let). app.js 는 원래 자리(🎨 스티커 관리 창 뒤 · 💬 말풍선 앞)에서 `TwGuestbook.createGuestbook({…})` — deps 8개(전부 화살표로 감쌈). 만들 때 도는 일(#mhGuestbookBtn 클릭 연결 · window 고리 일곱 등록)이 예전과 같은 때 돈다. 밖으로 내놓는 이름은 예전처럼 window 고리(`_mhGbStartWatch` · `_mhGbStopWatch` · `_mhGbRefreshBadge` · `_mhGbMarkAllRead` · `_mhReSubscribeGuestbook` · `openMyGuestbook` · `_mhGbRefreshWriteUI`) — 부르는 여덟 곳(친구 목록 구독 · 마이홈 열기 · 닫기 · 관람 시작 · 끝 · 런처로)은 전부 typeof 로 보고 부르므로 고치지 않았다(scheduler.js 의 `window._closeBellWin` 과 같은 방식). 반환값도 같은 함수 일곱(검사 · 앞으로 옮길 곳용). 💬 `showChatBubble`(머리 위 말풍선)은 구역 끝에 붙어 있었지만 일곱 구역이 써서 app.js 에 남김. 모듈이 없으면 빈 껍데기 `GUESTBOOK_OFF`(고리도 없어 부르는 곳이 조용히 넘어간다). 전역 이름 `TwGuestbook`(헤드리스 크로미움 main 에서 `typeof` undefined 확인). html 이 app.js 앞에 싣는다.
-- 검사: `sim-guestbook.js` 신설 **64·0** — ① 만들 때(window 고리 일곱 · 반환값이 같은 함수 · 버튼 연결 한 번 · DOM 없으면 조용히) ② 새 글 배지(구독 하나 · 마지막으로 본 뒤 글 수 · 99+ · 관람 중 숨김 — 만든 뒤에 바뀐 값 · 다 읽음 · 끊기) ③ 창(GB_HTML 쓰고 테마 · 제목 · 목록 최신이 위 · escHtml · 내 글만 삭제 · 박수 구독 · 이미 떠 있으면 앞으로만 · 홈 주인이 바뀌면 열린 창 닫고 구독 갈아끼움 · 관람 중 이미지 · 폭죽 칸 숨김 · 외부인 안내줄 → 친구 목록이 오면 다시 칠함 · 창이 막히면 안내) ④ 쓰기(홈 주인에게 · 100자 · 실패는 창 안 · 외부인 한 번 더 막기) · 박수(보내는 중엔 또 안 보냄 · 하루 5번 · 실패하면 되돌림) · 폭죽 한 글자 · 이미지 등록 ⑤ app.js 배선 · deps 모양 · 다시 대입되는 let 은 읽는 함수 · 빈 껍데기 · 부르는 곳 typeof 여덟 · html 순서 · 전역 이름. 기다리던 응답이 안 와 판정 줄 없이 끝나면 빨강. 이빨 8종 다 잡음: 모듈 관람 판정을 값으로 → 4 · 친구 목록을 값으로 → 3 · 고리 하나 뺌 → 2 · 버튼 연결 뺌 → 1 · 박수 보내는 중 막기 뺌 → 1 · deps 를 값으로 → 2 · 빈 껍데기 이름 뺌 → 1 · html 에서 뺌 → 1.
-- 다른 검사: `sim-child-theme`(GB_HTML 조립 · «d.write 직후 applyThemeToChildDoc») 이 렌더러 쪽 한 벌 = app.js + guestbook.js 를 본다(없으면 «못 찾음» 으로 멈춤). `smoke.js` 가 guestbook.js 도 먼저 평가 · `audit.py` 검사 8 이 그 파일의 firebaseAPI 호출(subscribeGuestbook · subscribeClap · addGuestbookEntry · deleteGuestbookEntry · clapOnce · setClapEmoji · setClapImage)도 본다. `sim-win-front`(방명록 창 겹침 자리 `mhGbOverlay`)은 그대로 초록.
-- 기준선: `node checks/sim-app-size.js --write-baseline` — app.js 40,761줄 · 상한 40,961 · 구역 102(📖 머리 셋이 모듈로). `ui-tokens-baseline.json` — 손 글꼴 셋 · 손 회색 스물일곱이 app.js → guestbook.js 로 자리만 옮김(합 62 · 451 그대로 · `--allow-increase`).
-
-**개정 134 에서 한 것 (2026-10-10 · 앱 FSD 3번 — 📷 스티커사진 창을 모듈로 · 동작 변화 없음)**
-- 번호: main 이 개정 133(#105 달성표)까지라 134.
-- 앱: app.js 의 📷 스티커사진 일곱 구역(«촬영 창 + 무대» · 로비 그리기 · 무대(전용 씬 · 렌더러) · 키 · 매 프레임 · 촬영 · 🎨 꾸미기 — 창 옮기기 · 배선 `_pkWire` 까지, 2,623줄)을 `app/parts/purikura-ui.js` 로 옮겼다. 본문은 글자 그대로(들여쓰기도) — 바뀐 열네 줄은 이름을 읽는 방법뿐: `officeMode` → `officeMode()` · `_plPlaying` → `_plPlaying()` · `_plPlaying = v` → `_setPlPlaying(v)`(다시 대입되는 let) · `Presence` → `Presence()` · `SPINE_AXIS` · `HEAD_AXIS` · `HAND_REST` · `SHAKE_ARM_DROOP` → `이름()`(createPurikuraUi 를 부르는 줄보다 뒤에 선언되는 const 라 만들 때 읽으면 TDZ). app.js 는 원래 자리(세션 입구 `_purikura()` 뒤 · 🎟️ 하루 횟수 제한 앞)에서 `TwPurikuraUi.createPurikuraUi({…})` — deps 31개(함수는 화살표로 감쌈 · 조명 예산 · `seats` · `ANIMAL_HAND_REST` 는 값). 세션 입구 `_purikura()` · `_pkSession` 은 app.js 에 남김(🎲 주사위 · 📷 버튼도 씀 — 입구가 하나여야 세션 · 구독이 하나). 그 콜백 넷은 `purikuraUi.onPeers` · `onMeta` · `onPeerEvent` · `onShot` 으로. 부르던 곳(때리기 'b' 조준 키 · 📷 버튼 · 회사원 모드 켜기)은 `purikuraUi.isOpen()` · `open()` · `phase()` · `close(true)`. 모듈이 없으면 빈 껍데기 `PURIKURA_UI_OFF`. 전역 이름 `TwPurikuraUi`(헤드리스 크로미움 main 에서 `typeof` undefined 확인). html 이 purikura-net.js 뒤 · app.js 앞에 싣는다.
-- 검사: `sim-purikura-ui.js` 신설 **52·0** — ① 만들 때(`_pkWire` 버튼 · ⎋ 사다리 · 창 끌기 · resize · DOM 없으면 조용히) ② 문(회사원 모드 — 만든 뒤에 켜도 그 순간 값 · 세션 없음 · 방 밖 · 정원 닫힘 · 촬영 중 · 자리 다 참) ③ 가짜 THREE · DOM 위에서 실제로 열고 닫기(정원 · slots · frames 구독 · 방장 설정 · 프레임 노드 비우기 · 키 · 무대 루프 한 바퀴 · 플레이리스트 재우기/되살리기 · BGM · 세는 중엔 못 닫음 · 구독 해제 · 다시 열면 지난 값 없음) ④ 세션 콜백 ⑤ app.js 배선 · deps 모양 · TDZ const 는 읽는 함수 · 빈 껍데기 · html 순서 · 전역 이름. 이빨 8종 다 잡음: 모듈 `officeMode()` → 값(두 곳 · 빨강 3 · 18) · `_setPlPlaying(true)` 뺌 → 1 · escRegisterWindow 뺌 → 3 · onPeers 무시 → 1 · app.js onShot 배선 뺌 → 1 · 빈 껍데기 phase 뺌 → 1 · officeMode 를 값으로 넘김 → 2.
-- 다른 검사: app.js 글에서 스티커사진 화면을 찾던 다섯을 새 자리로 — `sim-purikura-stage` · `sim-purikura-deco` · `sim-pk-fit`(렌더러 쪽 한 벌 = app.js + purikura-ui.js · 없으면 «못 찾음» 으로 멈춤) · `sim-purikura-fish`(7절) · `sim-fix-0923`(4절 `_pkCloneChar`). 글자를 보던 줄 일곱은 새 모양으로: 때리기 조준 `purikuraUi.isOpen()) return;` · 회사원 모드 켜기 `purikuraUi.isOpen()` · `phase() === 'shooting'` · `close(true)` · `officeMode())` 두 곳 · `_setPlPlaying(false)`. `smoke.js` 가 purikura-ui.js 도 먼저 평가 · `audit.py` 검사 8 이 그 파일의 firebaseAPI 호출(pkOnValue · pkUpdate · pkUploadFrame · serverNow)도 본다.
-- 기준선: `node checks/sim-app-size.js --write-baseline` — app.js 41,217줄 · 상한 41,417 · 구역 105(📷 머리 일곱이 모듈로). `ui-tokens-baseline.json` — 손 회색 둘이 app.js → purikura-ui.js 로 자리만 옮김(합 451 그대로 · `--allow-increase`).
-
-**개정 133 에서 한 것 (2026-10-10 · 앱 FSD 2번 — 👑 달성표를 모듈로 · 동작 변화 없음)**
-- 번호: main 이 개정 132(#104 버그제보 쪽 넘김)까지라 133.
-- 앱: app.js 의 두 구역(«👑 달성표 — 주간 달성 시스템» · «👑 달성표 — 화면», 1,188줄)을 `app/parts/weekly-challenge.js` 로 옮겼다. 본문은 글자 그대로(들여쓰기도) — 바뀐 것은 `appMode` → `appMode()` · `_gachaBonus` → `gachaBonus()`(다시 대입되는 let 이라 읽는 함수로) · `CHAL_KEY` 값은 deps 로(계정 전환 지움 목록이 같이 쓰므로 정의는 app.js). app.js 는 원래 자리(📱 활성 앱 판정 뒤 · 🍅 뽀모도로 앞)에서 `TwWeeklyChallenge.createWeeklyChallenge({…})` — 로컬 기록 읽기 · 부팅 동기화 4.4초 · 20초 tick · beforeunload · 버튼 연결이 같은 때 돈다. 다른 구역이 다시 대입하던 `chalRec` · `_chalDirty`(로그아웃 지우기) · `_chalKeyPlatform`(활성 앱 판정)은 `resetMemory()` · `setKeyPlatform(v)` 로. 부르던 곳(런처 복귀 동기화 · 로그아웃 flush · 🎯 초 · 뽀모 서랍)은 `weeklyChal.이름`(syncChalToServer · resetMemory · focusTick · setKeyPlatform · open). 모듈이 없으면 빈 껍데기 `WEEKLY_CHAL_OFF`. html 이 app.js 앞에 싣는다. 전역 이름 `TwWeeklyChallenge` 는 헤드리스 크로미움에서 `typeof` 가 `undefined` 인 것을 확인했다(#103 Scheduler 교훈).
-- 검사: `sim-weekly-challenge.js` 신설 **76·0** — ① 셈(ISO 주 이름 9곳 · 월 06:00 경계 · 페이즈 · 칸 번호 · 보상 횟수 · 선지급 키 · 규칙 줄 · 보상 문구 · 조건 이름 · 판정 키 · 숫자 칸) ② 만들 때(옛 기록은 주중 · 타이머 · beforeunload · 프리미엄 게이트 · 뽀모 서랍 닫기 · 고르기 화면 · DOM 없으면 조용히) ③ 📋규칙 체크 → 오늘 ✓ → 3일째 선지급(서버 tag · 한 번만) ④ 토요일 06:00 정산(박제 · 선지급분 빼기 · 팝업 · 기록 보기 · 4일이면 2회 · 실패면 대기줄) ⑤ 🎯집중(판정 키 · 다른 플랫폼 · keyAlt · beforeunload) · 🔁반복(실행 화면 기준 · 팝업 · 못 채우는 날) ⑥ resetMemory · 동기화(ts 최신 승 · 읽기 실패) ⑦ app.js 배선 · html 순서 · deps 화살표 · 빈 껍데기. 이빨: 주중 2회 임계 5로 → 빨강 7 · 정산 대기줄 줄 지움 → 1 · resetMemory 의 dirty 지움 뺌 → 1 · 반복 실행 화면 판정 false → 3. 선지급 때 같은 tick 의 대기줄 재시도가 같은 tag 로 서버를 한 번 더 부른다(서버 dup 으로 한 번만 나감 — 옛 동작 그대로 기대).
-- 다른 검사: app.js 글에서 달성표를 찾던 넷을 새 자리로 — `sim-pomodoro`(`_chalOpen` 은 weekly-challenge.js · `_pomoOpen` 은 `weeklyChal.open(false)`) · `sim-mobile-focus`(`_applyActiveAppState` 스텁 `weeklyChal.focusTick` · `setKeyPlatform`) · `sim-account-switch`(로그아웃 스텁 `weeklyChal.syncChalToServer` · `resetMemory`) · `sim-keysof-twin`(렌더러 쪽 한 벌 = app.js + weekly-challenge.js · `--selftest` 9종 다 잡음). `smoke.js` 가 weekly-challenge.js 도 먼저 평가 · `audit.py` 검사 8 이 그 파일의 firebaseAPI 호출(loadChal · saveChal · addChalBonus · loadChalBonus)도 본다. `sim-google-login` 은 app.js 만 굴려 빈 껍데기로 그대로 초록.
-- 기준선: `node checks/sim-app-size.js --write-baseline` — app.js 43,799줄 · 상한 43,999 · 구역 112(👑 머리 둘이 모듈로). `ui-tokens-baseline.json` 은 그대로(옮긴 글에 손 회색 · 글꼴 목록 없음).
-
-**개정 132 에서 한 것 (2026-10-10 · 🐞 버그제보 탭에서 마이홈 창이 세로로 늘어나던 것)**
-- 번호: main 이 개정 131(#103 스케줄러 모듈)까지라 132.
-- 원인: `#mhPageBugreport` 에 높이 상한이 없었다(`.mh-page` 의 min-height 440px 뿐). [전체] 1쪽(20줄 + 공지)이 들어오면 페이지가 그만큼 늘고, 마이홈 창은 화면 중앙 기준(translate -50%)이라 위아래로 화면 밖까지 늘어났다(헤드리스 실측 563 → 1,215px). 옛 공지 상자(`#mhBugNotice`)에 있던 높이 상한이 게시판으로 바뀔 때(#43 · v0.11.0) 같이 빠진 것 — 그때부터의 회귀.
-- 앱: `desk-companion-prototype.html` CSS — 버그제보 페이지 `height:440px`(친구 · 우편함 탭과 같음) · 목록 화면 세로 flex · `#bbRows` 가 남은 높이를 받고 안에서 스크롤 · 단추 줄 · [이전]/[다음] · 링크 편집 폼은 안 줄어듦. `bug-board-ui.js` — 쪽을 넘기면 목록 스크롤을 맨 위로. 쪽 넘김(20개씩 · `orderByChild` + `endBefore` + `limitToLast`)은 원래 있었고 그대로 — 창이 늘어나 [이전]/[다음] 이 화면 밖으로 밀려 안 보였던 것.
-- 검사: `sim-bug-board.js` **74·0** — §4 가짜 RTDB(정렬 · endBefore · limitToLast 흉내)에 글 45개 + 공지 2개 → [다음] 으로 끝까지(18 · 20 · 7) · 빠짐 · 겹침 없음 · 순서 이어짐 · 한 번에 20개 넘게 안 받음 · [이전] 은 같은 쪽 · 미해결도 · 딱 20개면 빈 2쪽에서 끝, §5 CSS(페이지 440px 고정 · 세로 flex · #bbRows 스크롤 · 단추 줄 안 줄어듦 · 쪽 넘기면 맨 위로). 옛 CSS 로 돌리면 §5 넷이 빨강.
-
-**개정 131 에서 한 것 (2026-10-10 · 앱 FSD 1번 — 📅 스케줄러 · 🔔 일정 알림을 모듈로 · 동작 변화 없음)**
-- 번호: main 이 개정 130(#102 app.js 줄 상한 · 구역 지도)까지라 131.
-- 앱: app.js 의 두 구역(1,204줄)을 `app/parts/scheduler.js` 로 옮겼다. 본문은 글자 그대로(들여쓰기도) — 바뀐 것은 `_mhViewingUserId` → `viewingUserId()` · `_myHomeFriends` → `myHomeFriends()`(다시 대입되는 let 이라 읽는 함수로) · `BELL_SEEN_KEY` 값은 deps 로(계정 전환 지움 목록이 같이 쓰므로 정의는 app.js). app.js 는 원래 자리에서 `MhScheduler.createScheduler({…})` — 버튼 연결 · 알림 구독 · 자정 타이머가 같은 때 돈다. 부르던 곳(친구 탭 D-day 구독 · 수령함 · 공지 · 우편함 읽음 · [스케줄러] 탭 · 관람 시작 · 끝)은 `mhScheduler.이름`(renderSchedCalendar · renderDdays · subscribeMonth · setDdays · setDdaysVisit · refreshBellBadge · renderBellList · isBellOpen). 모듈이 없으면 빈 껍데기 `SCHEDULER_OFF`. html 이 app.js 앞에 싣는다. ⚠️ 이름이 `Scheduler` · `scheduler` 가 아닌 까닭 — 크로미움(Electron)에 같은 이름의 내장 전역(작업 예약 API)이 있어 `typeof Scheduler` 가드가 늘 통과한다(헤드리스 크로미움에서 확인).
-- 검사: `sim-scheduler.js` 신설 **58·0** — ① 셈(날짜 차이 · «그날이 1일» · D-3 · D-day · 100일 · 이정표) ② 만들 때(알림 구독 둘 · firebase-ready 기다림 · 1분 타이머 · ESC 등록 · `_closeBellWin` · 창 위치 초기화 · DOM 없으면 조용히) ③ 🔔 뱃지 · 목록(오늘 일정 · 100일째 기념일 · 친구 태그 토스트 · 열면 읽음 → 뱃지 · 닫기) ④ 달력 · D-day · 👀 관람(친구 것 공개만 · 편집 막음) ⑤ app.js 배선 · html 순서 · 내장 전역 이름과 안 겹침. 🔔 «열면 읽음» 은 옛 셈 그대로 본 날을 UTC 날짜로 견준다(한국 0~9시엔 기념일이 다시 셈 — 고치지 않고 그대로 기대). `smoke.js` 가 `scheduler.js` 도 먼저 평가(app.js 만 굴리면 모듈 쪽 부팅 코드를 아무도 안 돌린다 · 목록 줄은 `sim-wd-ear.js` 가 글자 그대로 봐서 `PRELOAD.push` 로). `audit.py` 검사 8 이 `scheduler.js` 의 firebaseAPI 호출도 본다.
-- 기준선: `node checks/sim-app-size.js --write-baseline` — app.js 44,966줄 · 상한 45,166 · 구역 114(📅 · 🔔 머리 둘이 모듈로). `ui-tokens-baseline.json` 은 손 회색 1개가 app.js 140 → 139 · scheduler.js 0 → 1 로 자리만 옮겨(합 451 그대로) `--write-baseline --allow-increase`.
-- 다른 검사: app.js 글에서 이 구역 함수를 찾는 검사는 없었다(`sim-account-switch` 의 `BELL_SEEN_KEY` 는 app.js 에 그대로). `sim-win-layers` · `sim-win-front` 는 `bellWin` id · 창 목록만 봐서 그대로 초록.
-
-**개정 130 에서 한 것 (2026-10-10 · 앱 FSD 1단계 — app.js 줄 상한 검사 · 구역 지도 · 앱 코드 무변경)**
-- 번호: main 이 개정 129(#100 할 일 공용 메모)까지라 130.
-- 검사: `sim-app-size.js` 신설 **12·0** — ① app.js · firebase-init.js 줄 수 ≤ 상한(기준선을 쓸 때 줄 수 + 여유 200 · 100줄) ② 구역 머리(`/* ═══` · `/* ══` · `/* ====` · firebase-init 은 4칸 들여쓴 것까지)가 기준선 목록에 있는 것뿐(빠진 것은 알리기만) ③ 톱니 — 상한보다 여유 + 500줄(firebase-init + 200줄) 넘게 줄면 빨강, 같은 PR 에서 `node checks/sim-app-size.js --write-baseline` ④ 판정 함수를 가짜 글로(넘음 · 새 머리 · 들여쓴 머리 · 빠진 머리 · 톱니).
-- 기준선 `app-size-baseline.json`(검사 파일 아님 · 해시 대상 아님 — `ui-tokens-baseline.json` 과 같은 방식): app.js 46,147줄 · 상한 46,347 · 구역 116 / firebase-init.js 4,444줄 · 상한 4,544 · 구역 31. 상한은 내려가기만(`--allow-increase` · `--allow-new-section` 은 PR 본문에 이유).
-- 지도: `docs/APP_FSD_MAP.md`(구역마다 줄 · 층 · 관련 모듈 · 결합 · 옮길 순서) · 숫자는 `scripts/app-sections.js` 로 다시 뽑는다.
-
-**개정 129 에서 한 것 (2026-10-10 · 웹 관리자 📋 할 일 «📝 공용 메모» · 규칙 한 경로 · `sim-admin-rules.js` 7절)**
-- 번호: main 이 개정 128(#97 터미널 할 일 도구)까지라 129.
-- 규칙: `adminTodoNote` 신설 — `{ text, rev, updatedBy, updatedAt }` 한 칸. 읽기 · 쓰기 관리자만, text 글자 0~2000자(비우기 허용), 처음 rev 0 · 고치면 지금 rev + 1(본 뒤 남이 먼저 고쳤으면 거절 — 할 일과 같은 방식), updatedBy = 나, updatedAt = 서버 시각, 그 밖 칸 거절. 앱은 쓰지 않는다(웹 관리자 전용).
-- 검사: `sim-admin-rules.js` 7절에 여덟(읽기 관리자만 / 처음 rev 0 / rev + 1 · 빈 글자 / 남이 먼저 고침 · 건너뛴 rev 거절 / 처음인데 rev 0 아님 거절 / 비관리자 · 로그인 안 함 거절 / 고친 사람 · 시각 / 2000자 · 숫자값 / 모르는 칸 · 빠진 rev) + 앱이 안 쓰는지 보는 줄에 `adminTodoNote`. 규칙 없는 main 에 대면 넷이 빨강.
-
-**개정 128 에서 한 것 (2026-10-10 · 사용자 결정 «같이 일하는 사람의 Claude Code 가 작업 전에 할 일을 확인 · 등록하고 머지 뒤 완료 + 버전» · `scripts/todo.js` · `.claude/skills/todo` · `.claude/settings.json`)**
-- 번호: main 이 개정 127(#98 할 일 종류)까지라 128.
-- 도구: `scripts/todo.js` — `setup`(내 관리자 uid 를 `.claude/todo-me.json` 에 · 커밋 안 함) · `brief`(진행 중 요약 · 실패하면 조용히 0 · 3초 안) · `list` · `find`(제목 · 메모 · 대소문자 무시) · `start --type feat|bug`(진행 중 · 작업자 나) · `done <id> --release`(rev + 1 · 메모 덧붙이기) · `--dry-run` · `--dev`.
-- 왜 스스로 검사하나: `gcloud auth print-access-token`(IAM) 으로 REST 를 불러 규칙을 거치지 않는다. 그래서 규칙 `adminTodos/$id` 의 모양 · rev + 1 · 만든 사람/시각 고정 · 서버 시각(`{".sv":"timestamp"}`)을 `checkValue` 가 똑같이 보고, 쓰기는 읽은 ETag 그대로일 때만(if-match). 작업 기록 `adminLog` 한 줄은 쓴 뒤 따로.
-- 종류 칸 `type`(feat · bug)은 규칙 쪽을 다른 PR 이 넣는다 — 여기선 스크립트가 쓰고 배지(🆕 · 🐞)로 보여 주기만.
-- 검사: `sim-todo-cli.js` 신설 **68·0**(start 값 · done 값 · checkValue 가 규칙과 같은 거절 · 규칙 파일 상수 대조 · find · list · brief · 인자 · gcloud 없음/DB 못 닿음에 brief 가 조용히 0).
-
-**개정 125 에서 한 것 (2026-10-10 · 제보 «플레이룸에서 몇 명만 채팅 대신 이모티콘 버튼 · 다시 들어와도 그대로» · `room-channel.js` · `firebase-init.js` · `app.js`)**
-- 번호: main 이 개정 124(#94 캐릭터 디자인 용량 상한)까지라 125.
-- 원인: 표지를 잃은 방을 되살리는 `recoverRoomChannel` 이 들어오는 사람 라이선스로 채널을 정했다 — 무료 사용자가 먼저 들어오면 PLAY- 방이 워킹룸으로 굳는다(운영 `PLAY-FVNJ`). Firebase 방은 `_activeChannel` 을 입장 때 한 번만 정해 같은 방 안에서 채팅 · 이모티콘이 갈렸다.
-- 고침: `recoverChannelFor` — `PLAY-`·`SCRT-` → 투게더룸, `WORK-` → 워킹룸, 옛 `COZY-` 만 라이선스로. 투게더룸을 되살릴 때 방장 칸은 보유자만 채운다(무료 사용자를 방장으로 세우면 그 사람이 나갈 때 해산된다). `_onRoomMeta` 가 `_meta.channel` 을 따라 `_activeChannel` 을 바꾼다(null · channel 없음은 그대로).
-- 그대로: `_maybeSucceedHost`(승계 · 해산)는 main 과 한 글자도 같다 — 방장이 나갔는데 보유자가 없으면 해산, 방장 칸이 빈 방은 승계 · 해산 대상이 아니다. 처음 판에 있던 «빈 방장 칸은 보유자가 없어도 해산하지 않음» 변경은 사용자 결정으로 뺐다.
-- 검사: `sim-room-channel.js` 2절 뒷부분 · 5~7절(6절은 승계 · 해산이 예전 그대로인지 — 빈 방장 칸이면 손대지 않음 · 방장이 나갔고 보유자 없으면 해산 · 있으면 이어받음).
-
-
-
-**개정 127 에서 한 것 (2026-10-10 · 웹 관리자 📋 할 일 «종류» 칸 · 규칙 한 칸 · `sim-admin-rules.js` 7절)**
-- 번호: 같은 PR 의 개정 126(🏷 릴리스 반영) 다음이라 127.
-- 규칙 `adminTodos/$id/type`: 선택 칸. 글자 `feat` · `bug` 만. 칸이 없던 옛 할 일은 화면에서 «미분류». 나머지(rev + 1 · 관리자만 · 모르는 칸 거절)는 개정 118 그대로.
-- 웹 관리자: 편집 창 종류 고르기(제보 «할 일에 등록» 은 기본 🐞 버그) · 줄마다 종류 배지 · 종류 거르기(전체 · 기능 · 버그 · 미분류). [🏷 릴리스 반영]은 종류와 상관없이 연결 제보만 본다. 앱은 이 경로를 쓰지 않는다.
-- 검사: `sim-admin-rules.js` 7절에 둘(feat · bug · 칸 없어도 됨 / 빈 값 · 다른 종류 · 대문자 · 숫자값 거절). 규칙 없는 main 에 대면 첫 줄이 빨강($other 거절).
-
-**개정 126 에서 한 것 (2026-10-10 · 웹 관리자 📋 할 일 «🏷 릴리스 반영» · 규칙 한 칸 · `sim-admin-rules.js` 1 · 7절)**
-- 번호: main 이 개정 125(#86 플레이룸 표지 복구)까지라 126.
-- 규칙 `config/releaseAnswerTpl`: 관리자만 쓰기(지우기 = 기본 문구로 되돌리기) · 글자 1~1000자(답변 칸 `bugBoard/ans` 상한과 같음) · 자기 `.read` 없음 — 읽기는 `config` 통째 규칙대로 관리자만. 앱은 쓰지 않는다.
-- 웹 관리자: 완료 · 버전이 GitHub 최신 공개 릴리스 이하인 할 일에 걸린 미해결 제보를 «수정 완료» 로 한 묶음 — 답변(템플릿) · 우편함 알림 · 제보마다 작업 기록. 상태 · 답변 쓰기는 손으로 할 때와 같은 칸(`statusWrite` · `answerWrite`). 새 작업 기록 이름 `todo.applyRelease` · `todo.releaseTpl`(규칙 모양 그대로).
-- 검사: `sim-admin-rules.js` 1절에 `config/releaseAnswerTpl` 관리자만 한 줄 · 7절에 여섯(1~1000자 글자 / 빈 값 · 넘음 · 숫자 거절 / 관리자 아니면 거절 / 지우기 관리자만 / 읽기 관리자만 / 앱은 안 씀). 규칙 없는 main 에 대면 1절 · 7절 첫 줄이 빨강.
-
-**개정 124 에서 한 것 (2026-10-10 · 사용자 결정 «def 직렬화 500KB 상한 · 키울 때와 저장에서 막고 무엇을 줄일지 알려 준다» · `def-size.js` · `app.js` · html)**
-- 번호: main 이 개정 123(#93 할 일 릴리스 버전)까지라 124.
-- 왜: def 는 방에 들어온 모든 사람에게 통째로 간다. 코드로 넣은 3D 파일(커미션 `commGlb` · 책상 `deskGlb` · 아이템 `customItems`)은 base64 로 def 안에 박힌다. 운영 실측 중앙값 2.3KB · p99 4.2KB · 최대 334KB(GLB). 새 방 서버는 한 번에 1MB 까지.
-- 고침: 상수 `DEF_MAX_BYTES = 500*1024` 과 부분별 크기(`breakdown`) · 안내 글 · 판정(`checkGrowth` · `checkFile`)을 `def-size.js` 로. 재는 대상은 실제 전송 함수 `serializeDefForNetwork` 결과의 JSON UTF-8 바이트(`defWireForSize` — 그림은 Storage URL 로 나가므로 URL 자리표시로 바꿔 재고 캔버스를 굽지 않음 · 콘솔 조용). 생성기 def 만들기를 `_creatorBuildDef` 한 곳으로 모아 [완료] 와 재기가 같은 것을 본다.
-- 막는 곳: 생성기 아이템 켜기(코드로 넣은 것만) · 책상 고르기(코드로 넣은 것만) · 책상/아이템 코드로 추가(파일 하나가 남은 용량보다 크면 보관함에도 안 넣음) · 커미션 등록 · [완료](원래 캐릭터보다 커졌고 500KB 를 넘으면 저장 안 함 · 생성기는 열린 채). 보내는 순간(방 입장 · updateDef)에는 막지 않는다 — 이미 넘은 옛 캐릭터는 그대로 들어가고 줄이거나 그대로 저장도 된다.
-- 안내(짧게 한 줄 · 4초 토스트): «디자인 용량 초과 (612/500KB) — 가장 큰 것: 책상 3D ‘desk.glb’ 410KB» · 업로드 «파일이 너무 커요 (410KB · 남은 용량 120KB)».
-- 검사: `sim-def-size.js` 신설 **47·0**(상수 · 바이트 · 큰 것부터 · 이름표 · 이름 · 안내 글 · 키우기/저장 판정 · 옛 캐릭터 · 파일 하나 · 실제 직렬화를 떼어 와 잼 · 배선 · html 순서).
-
-
-
-**개정 123 에서 한 것 (2026-10-10 · 웹 관리자 📋 할 일 «릴리스 버전» 칸 · 규칙 한 칸 · `sim-admin-rules.js` 7절)**
-- 번호: main 이 개정 122(#91 방에서 캐릭터 고치기)까지라 123.
-- 규칙 `adminTodos/$id/release`: 선택 칸. 글자 · 20자까지 · `^[0-9]+\.[0-9]+\.[0-9]+(-[a-z]+\.[0-9]+)?$`(0.11.3 · 0.12.0-beta.1). 칸이 없던 옛 할 일은 그대로 «버전 없음». 나머지(rev + 1 · 관리자만 · 모르는 칸 거절)는 개정 118 그대로.
-- 웹 관리자: 입력칸 · 줄마다 버전 배지(GitHub 최신 공개 릴리스와 견줘 «출시 전 · 출시됨», 조회 실패면 버전만) · 버전별 거르기 · 완료로 바꿀 때 비어 있으면 다음 patch 제안값을 채움. 앱은 이 경로를 쓰지 않는다.
-- 검사: `sim-admin-rules.js` 7절에 넷(맞는 모양 · 칸 없어도 됨 / 빈 값 · v 붙임 · 두 자리 · 글 섞임 거절 / 베타 꼬리 모양 · 숫자값 거절 / 20자). 규칙 없는 main 에 대면 첫 줄이 빨강($other 거절).
-
-**개정 122 에서 한 것 (2026-10-10 · 제보 «방에서 캐릭터 디자인을 바꿔도 남 화면에서 안 바뀐다 · 캐릭터 교체는 바뀐다» · `app.js`)**
-- 번호: main 이 개정 121(#92 방 서버 이어 붙기)까지라 122.
-- 원인: 런처 ⚙ [캐릭터 수정](생성기 `kind:'slot'`)의 [완료] 는 `slots[target]=def` 로 슬롯에만 쓰고 방으로는 안 보낸다. 런처에서 실행 화면으로 돌아오는 `launchApp` 이 내 좌석만 새 def 로 다시 그리고 방에는 알리지 않았다 — 내 화면만 바뀌고 남의 화면은 입장 때 모습. 런처에서 다른 칸을 골라 돌아와도 같다. Firebase 방 · 방 서버 방 공통(보내는 쪽이 아예 안 보냄). 우클릭 «🎨 캐릭터 편집»(`kind:'seat'`) · 설정의 캐릭터 교체(`switchMainCharacter`)는 원래 `Presence.updateDef` 로 보내서 반영됐다.
-- 고침: `Presence.myDef()`(방에 마지막으로 보낸 def) 신설. `launchApp` 이 방 안이면 그것과 지금 슬롯 def 를 견주어 **다른 객체면** 캐릭터 교체와 같은 `Presence.updateDef` 로 보낸다. 슬롯 저장은 늘 새 객체라 런처만 다녀온 왕복은 아무것도 안 보낸다(추가 다운로드 0). 보낼 때의 양은 캐릭터 교체 1번과 같다(같은 함수 · 같은 직렬화 · def 한 벌 × 방 인원).
-- 방 서버: 서버 provider 의 `update` → `def` 메시지 → 서버 `Room.setDef` 가 저장(늦게 들어온 사람 · 재접속 welcome 도 새 def) · 보낸 사람 뺀 전원에게 `def` — 서버는 그대로(이미 하던 일).
-- 검사: `sim-room-live-def.js` 신설 **16·0**(Firebase 방: 입장 · 그냥 왕복 0 · 고친 뒤 updateMe 에 새 def 1번 · URL 직렬화 · 다시 왕복 0 · 방 밖 0 / 서버 provider: 그냥 왕복 0 · 고친 뒤 update 에 새 def / 줄). main 의 app.js 에 대면 빨강.
-
-
-
-**개정 120 에서 한 것 (2026-10-10 · 제보(v0.11.2 · Windows) «[마이홈] 수정 — 제목 바꿨는데 다시 마이홈 수정 눌러보면 1 2 3 으로만 뜹니다» · `app.js`)**
-- 번호: main 이 개정 119(#89 빈 방 표지 서버 청소)까지라 120.
-- 원인: 👑 디자인 스튜디오 프리셋 칸 이름(`themePresets[i].name`)과 고른 칸(`themePresetCur`)은 저장(`saveMyHome` = `users/{uid}/home` 통째 set)에는 실려 갔지만, `loadMyHomePage` 가 `_myHomeData` 를 칸 이름을 하나하나 적어 새로 만들면서 그 둘을 빠뜨렸다. 마이홈 창을 열 때마다 불러오기가 돌아 프리셋이 비고 → 칸 이름이 자리 번호(1 2 3)로 → 다음 자동 저장이 서버의 프리셋(이름 · 담아 둔 색)까지 지웠다. 프리셋이 처음 들어온 판(v0.10.0)부터 있던 문제 — v0.10.2 → v0.11.2 사이 회귀가 아니다.
-- 고침: 서버 홈 → `_myHomeData` 옮기기를 `_mhHomeFromServer(data)` 한 곳으로 모으고 프리셋 두 칸을 넣었다. 내 홈(`loadMyHomePage`) · 친구 홈(`openFriendHomeView`) 둘 다 이 함수를 탄다. 규칙 · 저장 경로 무변경(규칙 `.validate` 는 bio · post · postTitle · avatar 만 본다).
-- ⚠️ 이미 지워진 프리셋은 돌아오지 않는다 — 고친 판에서 다시 저장하면 그때부터 남는다.
-- 검사: `sim-myhome-load.js` 신설 **31·0**(불러오기 두 곳이 같은 함수 · app.js 에서 `_myHomeData.X =` 로 쓰는 칸 전부가 불러오기 결과에 · 저장 → 불러오기 왕복(RTDB 의 빈 자리 배열 → 객체) · 두 번째 저장에도 남음 · 디자인 스튜디오 칸 이름 함수를 떼어 와 돌림(봄 · 2 · 겨울) · 빈 홈 기본값 · undefined 없음 / 옛 판이면 빨강 8). 고치기 전(origin/main) app.js 에 대면 ✗4(§1).
-
-
-
-**개정 119 에서 한 것 (2026-10-10 · 사용자 승인 근본 수정 «사람이 있는데 방 `_meta` 가 사라진다» · `firebase-init.js` · `functions/room-stats.js` · `functions/index.js`)**
-- 번호: main 이 개정 118(#87 웹 관리자 할 일)까지라 119.
-- 원인: 퇴장 정리(`_finalCleanup`)가 «남은 멤버 확인(shallow · 시차 재조회) → `_meta` · `_chatTab` · `roomIndex` 지우기» 를 클라이언트에서 했다. 한 덩어리가 아니라, 다 같이 껐다 켤 때(자동 업데이트) 그 사이 다시 들어온 사람의 방에서 `_meta` 가 사라지고 들어오는 사람 라이선스로 채널이 다시 세워졌다(투게더룸 → 워킹룸 · 복구 쪽은 #86).
-- 고침(앱): 퇴장은 `_meta` · `_chatTab` · 줄을 안 지운다. 줄에 `{ lastSeen: 0, emptyAt: 서버시각 }` 만 남긴다 — lastSeen 0 이라 방 개수 · 랜덤 후보에서 바로 빠지고, 경쟁에 걸려도 다시 들어온 사람의 하트비트가 30초 안에 되살린다. 시크릿룸도 남긴다(셀 때는 SCRT- 를 건너뛴다). `_meta/openTs` 만 걷는다(열자마자 비운 방에 다음 사람이 양보하지 않게 · 채널 · 방장은 안 건드림).
-- 고침(서버 · 1분 주기 `roomStats`): `sweepEmptyRooms` — 비었음 표시가 2분 넘게 그대로인 줄만(이미 읽는 roomIndex) → roomAlive 도장(이미 읽는 트리 · 유령 청소와 한 번) · 멤버 키(REST shallow) · 멤버마다 hb · lastSeen(옛 방식 10분)으로 다시 보고 → `_meta` 트랜잭션(ts · openTs · restoredTs 가 2분 안이면 그만) → `_chatTab` · 줄. chatLog 는 그대로. 표시 없이 조용해진 방(절전 · 강제 종료)은 안 건드린다. 줄 생성 트리거는 비었음 표시 줄에 다시 세지 않는다.
-- 고침(들어오는 길): `claimEmptyRoom` 이 방금(20초) 열린 게 아니면 `_meta` 를 통째로 새로 쓴다 — 남은 표지의 탭 · open · chatOff · restoredTs 를 안 물려받는다. `addChatTab` 은 새 자리의 기록을 비우고 연다.
-- 검사: `sim-room-meta-cleanup.js` 신설(앱 퇴장 떼어 와 돌림 · 가짜 DB 경쟁 흉내 · 선점 트랜잭션 돌림). 고치기 전(main) 원본에 대면 빨강. `sim-chat-log-persist.js` §2 · `sim-chat-tabs.js` 빈 방 정리 한 줄 · `sim-room-alive.js` 호출 줄 · `sim-room-stats.js` 트리거 정규식 폭.
-
-
-
-**개정 119 에서 한 것 (2026-10-10 · 🛰 방 서버 이어 붙기 · `room-server-net.js`)**
-- 번호: main 이 개정 118(웹 관리자 할 일)까지라 119.
-- 원인 ①: 죽어 가던 소켓에 보낸 patch · def 는 «보냄»(P.sent)으로 적혀, 이어 붙은 뒤 다시 안 나갔다 — 남들 화면에 옛 상태가 남는다. welcome 을 기다리는 사이 바뀐 칸도 다음 갱신까지 안 나갔다.
-- 고침 ①: 이어 붙으면(resumed) P.sent 를 비우고 def 도 다시 — 지금 상태 전체를 한 번 보낸다(Firebase 가 다시 붙을 때 내 노드를 통째로 다시 쓰는 것과 같다). welcome 뒤에는 늘 flush.
-- 원인 ② · 고침 ②: 끊긴 동안의 말 · 찌르기는 버려졌다 → 종류마다 마지막 5개 · 15초까지 들고 있다가 welcome 뒤에 보낸다(나 찌르기는 새 memberId 로). 방을 나가면 버린다.
-- 검사: `sim-room-server-net.js` 7-1절(고치기 전 판에 대면 빨강 8 + 실행 오류). `sim-room-parity.js` 신설 — app.js 가 방에 싣는 칸(_basePayload · 입장 · setName · 덧붙이는 칸)이 MEMBER_FIELDS ∪ {def, userId, chat, chatTab} 안인지 · makeFirebaseProvider 메서드를 서버 provider 가 다 가지는지(정적 · 칸 하나를 끼우면 빨강).
-
-**개정 118 에서 한 것 (2026-10-10 · 웹 관리자 📋 할 일 · 규칙 두 경로 · `sim-admin-rules.js` 7절)**
-- 번호: main 이 개정 117(#84 날리기 중 클릭 통과)까지라 118.
-- 규칙 `adminTodos/$id`: 읽기 · 쓰기 관리자만. 새로 만들면 rev 0 · 만든 사람 = 나 · 만든 시각 = 서버 시각, 고치면 **지금 rev + 1 만** 받고 만든 사람 · 시각은 그대로 — 화면에서 본 뒤 남이 먼저 고쳤으면 내 쓰기가 거절돼 덮어쓰지 않는다. 고친 사람 = 나 · 고친 시각 = 서버 시각. 작업자(assignee)는 `admins` 안의 uid, 이름은 작업자가 있을 때만 1~40자. 상태 todo · doing · done, 제목 1~120 · 메모 1~2000, 제보 연결 `reports/{20자 push 키}: true`, 모르는 칸 거절. 지우기는 관리자만(.validate 가 안 돌아 rev 대조는 웹 쪽에서).
-- 규칙 `adminNames/$uid`: 읽기 관리자만 · 쓰기는 본인 칸만(관리자일 때) · { name 1~40, at = 서버 시각 }.
-- 앱은 두 경로를 쓰지 않는다(웹 관리자 전용) — 앱 릴리스 필요 없음.
-- 검사: `sim-admin-rules.js` 7절 신설(규칙식을 굴려 31가지 — 만들기 · rev + 1 · 이미 오른 rev 거절 · 건너뛴 rev 거절 · 만든 사람 · 시각 고정 · 고친 사람 · 시각 · 작업자 관리자만 · 이름 · 상태 · 길이 · 제보 id 모양 · 모르는 칸 · 키 모양 · 지우기 / 이름 칸 본인만 · 비관리자 거절 · 길이 · 서버 시각 / 앱이 안 씀). 규칙 없는 main 에 대면 7절이 빨강.
-
-**개정 117 에서 한 것 (2026-10-10 · 제보 «날리기 할 때 오버레이(클릭 통과)가 안 먹어서 뒤의 작업이 막힌다» · `app.js`)**
-- 번호: main 이 개정 116(#83 대화창 탭 줄)까지라 117.
-- 원인: 날아가는 캐릭터(💣 · 🔫 룰렛 · 🎲 · 깜짝쇼)는 10초 동안 화면 전체를 튕겨 다닌다. 다른 앱을 쓰던 커서 밑을 지나가면 `_pointHitsInteractive` 의 레이캐스트가 «캐릭터 위»(`char:…`)로 잡아 클릭받기로 바꾸고, 그 순간의 클릭이 투명 창에 꽂혀 쓰던 앱의 포커스를 뺏었다. 날아가는 캐릭터는 누를 일이 없다 — 잡기(pointerdown)는 `seat.fly` 면 원래 돌아가고, 💣 · 🪄 조준도 비행 중인 표적은 거절한다.
-- 고침: `_skipFlyingRigs` — 날고 있는 좌석의 rig(몸 · 파츠) 아래 메시에 맞은 것을 판정에서 뺀다. 같은 좌석 책상은 제자리라 그대로. 아무도 안 날면(`_flyActive` 0) 같은 배열 그대로 — 빈 공간 판정의 추가 비용 0. 펜 재판정 · 호버 감시도 같은 함수를 타므로 같이 고쳐진다.
-- 채팅 «날리기»(흐르는 글자)는 원래 통과였다 — `#flyLayer` · `.fly` pointer-events:none · 화이트리스트에 없음 · `#chatOverlay` 밖. 검사로 묶어 둔다.
-- 그대로: `UI_HIT_SEL` · `_uiRegions` · `_forwardFor` · 사다리 · 호버 감시 · 잡기(pointerdown) 줄(`sim-fix-1008` 이 붙잡고 있는 순서).
-- 검사: `sim-fly-click-through.js` 신설 **24·0**(흐르는 글자 CSS · 화이트리스트 · 자리 · 클래스 / 판정 줄 · 떼어 와 돌림: 나는 몸 빠짐 · 책상 남음 · 안 나는 좌석 그대로 · 깊은 자식 · 착지하면 다시 / 잡기는 seat.fly 면 돌아감 / 옛 줄이면 빨강).
-- 확인: 헤드리스 크롬(포트 9473 · 9474)에서 실제 앱 페이지 · companion 흉내 — 좌석 하나 · 커서를 몸 위에 두고 mousemove: 안 날 때 클릭받기(`char:other#0`) → 날아가는 몸 위: main(origin/main) 클릭받기 · 이 판 **통과** → 착지 뒤 다시 클릭받기. 흐르는 글자 위는 두 판 모두 통과(`elementFromPoint` = 캔버스). 페이지 오류 0.
-
-
-**개정 115 에서 한 것 (2026-10-10 · 개정 105 «원색 보기» 를 동물 생성기에도 · `animal.js` · html CSS)**
-- 번호: main 이 개정 114(#81 좌석 줄 되돌림)까지라 115.
-- 동물 생성기 미리보기 오른쪽 아래 💡 · 위에 «원색 보기 — 칠한 색 그대로» · L 키(hotkeyLetter · 글 입력 중 무시). 3 표정 · 4 감은눈 탭에서만 보이고 벗어나면 꺼짐 · 열 때 · 닫을 때 꺼짐. `createCreatorFlatView` 를 한 번 더 만들어 쓴다(새 로직 없음).
-- 조명: 동물 미리보기 재질은 emissive 0 이라 원색 보기는 방향광 0 · 앰비언트 흰빛 `flatAmbient(0)` = 1. 끄면 원래 값(0xfdfbf7 · 0.95 / 0xfdfaf5 · 1.0 — 상수로 뺐을 뿐 같은 값). 실행 화면(`_animLit`) · 저장값은 그대로.
-- CSS: `#cpFlat` · `#cpFlatBadge` 규칙을 `#anpFlat` · `#anpFlatBadge` 와 나눠 쓴다(테마 색 그대로).
-- 검사: `sim-creator-flat-view.js` 5절 · 4절 두 줄 **43·0**. 고치기 전(main) animal.js · html 에 대면 ✗17.
-- 확인: 헤드리스 크로미움(포트 9461)에서 실제 앱 페이지 — 표정 탭에 #4a7fd4(74,127,212) 칠 → 평소 72,123,204 · 원색 보기 74,127,212 · 1 얼굴 · 2 귀 탭 숨김 · 귀 탭으로 가면 꺼짐 · 한글 상태 L(ㅣ) · 입력 칸 L 무시 · 켠 채로 닫고 다시 열면 꺼짐 · 페이지 오류 0.
-
-**개정 110 에서 한 것 (2026-10-09 · 제보 #5 «오버레이 위에 마우스를 올려도 클릭이 바로 안 잡힘 (몇 초 흔들어야 됨)» · `hover-poke.js` 신설 · `main.js` · `package.json`)**
-- 번호: main 이 개정 109(#74 폴더 자유배치)까지라 110. 처음엔 106 이었으나 그 사이 main 에 106~109 가 들어가 다시 매겼다.
-- 원인: Windows 에서 일부 전경 앱이 있으면 forward mousemove 가 끊긴다(electron#30808/#33281). 50ms 커서 감시는 펜 앱 전용이라 일반 앱은 500ms 유령 감시(GHOST_MS_PLAIN 0.4초)뿐 → 0.5~1.0초(그 전 판은 2.0~2.5초).
-- 고침: Windows · 실행 화면 · 통과 중 · 일반 앱 · 보임 · 커서가 오버레이 위일 때만 120ms 커서 폴링 → 우리 UI(`_ptOnOurUI`) 로 **들어오는 순간 한 번** 기존 `_sendHitTest` 로 재판정. 안에서 움직이면 150ms 에 한 번까지. 클릭받기 · 다른 모니터 · 숨김이면 스스로 멈추고, `_reapplyIgnoreMouse` · 활성 창 폴링(500ms)이 다시 켠다. 진단 줄 «호버 감시 — 찌른 뒤 Nms 에 클릭받기»(30초에 한 줄).
-- 그대로: `_forwardFor` · 50ms 펜 감시와 펜 앱 근처 재질문(PEN_REPOKE_MS) · 유령 감시 상수(GHOST_REPOKE_MS ↔ 사다리 3초) · 사다리 펜 앱 생략 · 통과 복귀 150ms · setIgnoreMouseEvents 부르는 곳 3곳.
-- 검사: `sim-hover-poke.js` 신설 **59·0**(shouldPoll 표 · 들어올 때 한 번 · 150ms 간격 · 펜 앱 재질문 본문을 떼어 실행 · 보호 장치 글자 대조 · build.files).
-- 실기기(Windows · 디스코드 앞): 커서를 캐릭터 위에 세워 둔 채 다른 앱에 키를 치면 ⓖ 가 통과로 회수하는데, 감시를 새로 켠 첫 틱이 세워 둔 커서를 «들어옴» 으로 보고 0.13초 만에 클릭받기로 되돌렸다(키 5번에 5번). → 첫 틱은 기준만 잡고, 감시 중에 밖 → 안 · 안에서 움직임일 때만 묻는다. 세워 둔 커서는 유령 감시(포기 한도)가 맡는다. 고치기 전 hover-poke.js 에 대면 ✗2.
-- 실측(마우스 신호를 끊고 커서를 캐릭터 위로 한 번에): main 평균 1.33초 · 최대 1.54초 → 이 판 평균 0.10초 · 최대 0.14초(8회).
-
-**개정 111 에서 한 것 (2026-10-10 · 방 서버를 앱 릴리스 없이 넓히기 · `room-server-gate.js` · 규칙 `config/roomServer/default` · `defaultPercent` · 웹 관리자 🛰 «기본 서버 · 비율»)**
-- 문지기: `on` 이고 허용 목록에서 서버를 못 얻은 사람은 `default`(서버 이름) · `defaultPercent`(정수 0~100)를 본다. 사용자 코드의 FNV-1a 해시 % 100(`userBucket`)이 비율보다 작으면 그 서버가 «내 서버»(from `default`) — 허용된 사람과 같은 길(만들기 · 주소록에 없는 코드는 peek · 방 개수 · 랜덤). 같은 비율이면 늘 같은 사람 · 올리면 더해지기만. 표에 없는 이름 · 낯선 주소 · 틀린 비율 → Firebase. 주소록 따라가기 · `on:false` 비상 정지는 그대로.
-- 읽는 양: on 이 켜져 있을 때 입장마다 작은 칸 둘(`default` · `defaultPercent`)을 허용 목록과 같이 읽는다(기다림 한 번 그대로).
-- 규칙: 두 칸 누구나 한 칸 읽기 · 쓰기는 기존 `roomServer/.write`(관리자) · `default` 서버 이름 형식(32자까지) · `defaultPercent` 정수 0~100.
-- 검사: `sim-room-server-gate.js` 2-b절 신설 · 4절(두 번째 입장 3 → 5칸) · 5절 두 줄 · 6절 두 줄 **85·0**(49 → 85). 고치기 전 판에 대면 실행 오류(✗).
-- 개정 번호: main 이 110 까지라 다음 빈 번호 111 (다른 PR 이 먼저 111 을 쓰면 합칠 때 번호를 다시 매긴다).
-
-**개정 110 에서 한 것 (2026-10-09 · main 6d4ae9a 통합 시험에서 발견 — #74 «폴더 자유배치» 의 곁가지 · `folder-free.js` · `myhome-desktop.js` · `app.js` 한 줄)**
-- 증상: 배치 중 Esc 를 누르면 배치만 끝나는 게 아니라 **마이홈 창이 통째로 닫혔다.** 어떤 때는 닫히면서 옮긴 자리가 저장되고, 어떤 때는 창만 닫히고 배치 모드가 남아 다시 열면 [완료] 띠가 그대로였다.
-- 원인: `folder-free.js` 가 Esc 를 window **버블**에서 들었는데, 마이홈을 닫는 Esc(app.js ESC 스택)는 document **캡처**라 먼저 돈다.
-- 고침: Esc 를 window **캡처**에서 듣고 `stopImmediatePropagation` · `stopPropagation` — 이번 Esc 는 배치만 끝내고(=[완료], #74 의 뜻 그대로 저장) 다음 Esc 가 창을 닫는다. 친구검색 줄과 같은 방법. ESC 스택의 `ESC_YIELD_SEL` 에도 `#myHomeOverlay.on #mhRoomPreview.mhd-ff-arrange` 한 줄(겹 안전).
-- 창이 다른 길(✕ · 단축키 · 런처로 전환)로 닫혀도: 새 `watchHost` 가 `#myHomeOverlay` 의 class · style 을 지켜보다가 배치 중이면 끝낸다(=[완료] — 옮긴 게 있으면 저장하고 알림 · 안 옮겼으면 쓰기 없음). #74 가 집 나가기 · 폴더 숨기기에서 «저장하고 끝내기» 를 고른 것, 마이홈 닫기가 편집을 저장하는 것과 같은 약속이다. 방문자 화면은 원래 배치를 시작할 수 없어 영향 없음.
-- 검사: `sim-folder-free.js` 2-b절 신설 · 3 · 4절 한 줄씩 **51·0**(37 → 51). 이벤트 흐름을 window 캡처 → document 캡처(마이홈 닫기) → window 버블 순서로 흉내 낸다. 고치기 전 판에 대면 ✗6.
-- 개정 번호: main 이 109 까지라 다음 빈 번호 110 (다른 PR 이 먼저 110 을 쓰면 합칠 때 번호를 다시 매긴다).
-
-**개정 109 에서 한 것 (2026-10-09 · 요청 «마이홈 환경 설정에 [폴더 자유배치] — 북마크 · 말랑이 폴더를 자유롭게» · 시안 확정 · `folder-free.js` 신설 · `myhome-desktop.js` · html)**
-- 환경 설정 [폴더 자유배치] → 외부 앱 폴더(.mhd-app)와 말랑이 폴더(#mlFolder)에 점선 · 끌어서 놓기 · 위 띠 «[완료] · [처음 자리로]» · Esc. 배치 중 클릭 · 우클릭은 #mhRoomPreview 에서 먼저 막아 폴더가 열리지 않는다. 붙박이 아이콘(캐릭터세팅 · 좀아칼)은 흐리게 · 그대로.
-- 위치는 바탕화면(작업표시줄 위) 크기에 대한 비율 — 창 크기가 바뀌어도 비슷한 자리 · 상자 밖으로 안 나감. [완료] 때 바뀌었으면 한 번만 저장.
-- 저장은 배경과 같은 기록(users/{uid}/advBg 의 folderPos) · 고른 시각 bgTs — 다른 기기 맞춤(advPullBg) · 방문자는 집주인 배치. 규칙 변경 없음(advBg 의 .validate 는 img · color 만 본다). 남의 집 · 폴더 숨김이면 못 옮김.
-- `myhome-desktop.js` 에 «북마크» 글자를 넣지 않는다(sim-bookmark · sim-mhd-hidefolders 약속).
-- 검사: `sim-folder-free.js` 신설 **37·0**(값 다듬기 · 가짜 요소로 끌기 · 클릭 막기 · 저장 시점 · 처음 자리로 · Esc · 배선). 고치기 전 myhome-desktop.js · html 에 대면 ✗13.
-- 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 북마크 · 말랑이 폴더를 끌어 옮김 · 배치 중 클릭으로 안 열림 · [완료] 뒤 열림 · 창 크기를 바꿔도 비율 그대로 · 처음 자리로 · 페이지 오류 0.
-
-**개정 108 에서 한 것 ② (2026-10-09 · 실기기 제보: 채운 조각 둘레에 옛 색 테두리 · «왼팔은 칠했는데 오른팔은 안 칠해져» · 조용히 아무 일도 안 함 · `uv-fill.js` · `paint-tools.js` · `app.js` · `animal.js`)**
-- 여백 몫(가운데 선까지): 조각 삼각형만 딱 맞게 칠하면 경계 바로 바깥 텍셀이 옛 색으로 남고, 쌍선형 필터 · 밉맵이 그 색을 섞어 조각 둘레에 가는 실선이 보였다. 처음엔 4텍셀만 넓혔는데(a53d299) 밉맵 깊은 단계(멀리서 볼 때)에서 다시 1텍셀 아래라 실선이 남았다(제보). 이제 같은 그림판을 쓰는 모든 조각(같은 메쉬의 섬들 + 같은 캔버스를 쓰는 **보이는** 다른 메쉬 — 동물 몸 ↔ 지금 얼굴형, 귀의 다른 메쉬, 꾸미기 파츠의 다른 메쉬)을 텍셀로 래스터화하고 빈 텍셀은 가장 가까운 조각 몫으로 정한다(BFS · 보로노이). 채우면 그 조각 + 그 몫 전부 — 여백은 이웃 조각과의 가운데 선까지 같은 색, 이웃 조각 안쪽 · 몫은 한 칸도 안 건드림. Shift 지우기도 같은 자리. 몫 표는 (geometry 묶음 · 크기)마다 한 번 만들어 기억(512² Int16 · 최근 6개). 넓이 0 조각(사람 손 · 몸이 UV 한 점을 읽음)도 그 점의 주인이라 옆 조각을 채워도 손 · 몸 색이 안 바뀐다. 안 보이는 얼굴형은 넣지 않는다 — 얼굴형 넷의 UV 가 겹쳐서 넣으면 지금 얼굴 조각 바깥 텍셀이 «다른 얼굴형 안쪽» 이 되어 못 칠하고 머리 실선이 남았다(헤드리스 확인). 사람 · 동물 · 꾸미기(메쉬 전체 채우기) 셋 다.
-- 밉맵: 칠 텍스처(CanvasTexture)는 기본값(밉맵 · LinearMipmapLinear)이고 칠한 뒤 needsUpdate 로 올릴 때 three 가 밉맵을 다시 만든다 — 낡은 밉맵 문제는 없다. 밉맵을 끄면(LinearFilter) 멀리서 자글거려서 그대로 둔다. 실선은 여백이 비어 있어서였다.
-- 서로 다른 두 조각(3D 에서 맞닿은 팔 ↔ 몸통 등) 중 하나만 채우면 그 경계에 색 차이가 보이는 것은 정상이다. 같은 색으로 둘 다 채우면 경계가 안 보인다(아래 확인).
-- 붓: 붓 획은 원래 둘레로 붓 반지름만큼 넘쳐 칠해져서 같은 테두리가 덜하다(가장자리를 따라 칠하면 생길 수 있음) — 이번엔 손대지 않았다. 바탕(사람 피부 · 동물 흰색)은 그림판 전체를 채워 두므로 바탕 쪽 여백 문제는 없다.
-- 양팔: 실제 동물 몸 GLB 에서 왼팔 · 오른팔은 서로 다른 조각(136 삼각형씩)이고 그림판에서 안 겹친다 — 헤드리스에서 다섯 각도 · 조각마다 6곳 → 7조각 42/42 칠해짐(재현 안 됨). 남는 원인은 부위 잠금인데 예전엔 말없이 막혔다.
-- 알림(채우기 · 붓): 잠금에 막히면 «지금은 얼굴만 칠할 수 있어요 — «얼굴만» 을 끄면 다른 곳도 칠해요»(귀만 · 몸만도 · 붓은 1.5초에 한 번). 빈 곳 · 칠할 그림 자리가 없는 조각(사람 손 · 몸)을 페인트통으로 누르면 알린다.
-- 스포이드(우클릭): 사용자 결정으로 **main 그대로**(이 PR 에서 한 번 바꿨다가 되돌림). 알려진 문제: 동물 생성기에서 귀를 우클릭하면 몸 화면 캔버스의 같은 UV 를 읽어 엉뚱한 색이 나온다(main 과 같음).
-- 검사: `sim-paint-tools.js` 3-b 절(여백 몫 — 경계 텍셀 · 가운데 선까지 · 좁은 여백 반씩 · 다른 메쉬와 그 몫 · 지우기 · 표 기억 · 넓이 0 조각의 점 · 실제 동물 왼팔: 다른 조각 침범 0 · 더 가까운 여백 3916/3916 · 남의 몫 0 · 실제 사람 얼굴 앞: 뒤통수 안쪽 0 · 손 · 몸이 읽는 점 그대로) · 6절(양팔 · 잠금 · 빈 곳 알림) — **91·0** · `sim-uv-fill.js` 3절 꾸미기 채우기가 `fillMeshOwned` 로 **27·0**.
-- 확인: 헤드리스 크롬 실제 앱 페이지 — 기본 동물의 모든 조각 · 사람 얼굴 메쉬(모자 숨김)의 조각을 같은 색으로 채워 가까이 · 중간 · 멀리: 삼각형만(예전) → 머리 · 허리 · 팔 · 사람 머리 둘레 흰 실선, 4텍셀(a53d299) → 멀리서 팔 · 몸통에 남음, 가운데 선까지(이번) → 사라짐. 페이지 오류 0.
-
-**개정 108 에서 한 것 ① (2026-10-09 · 사용자 결정: 생성기에도 페인트통 · 도구를 아이콘 버튼으로 골라 쓰게 · `paint-tools.js` 신설 · `uv-fill.js` · `app.js` · `animal.js` · html)**
-- 도구 줄(붓 · 페인트통 · 지우개 — 셋 중 하나만 눌림 · 인라인 SVG · currentColor · 한국어 툴팁)을 사람 생성기(2 표정 · 3 감은눈) · 동물 생성기(3 표정 · 4 감은눈) · 꾸미기 ✎ 그리기에 똑같이. 단축키 B 붓 · G 페인트통 · E 지우개(C 지우개 토글은 그대로) — 맥 한글 상태는 `hotkeyLetter`. 캔버스 커서가 도구를 따른다.
-- 생성기 페인트통: 누른 메쉬의 **조각(UV 섬)** 만 칠한다(`fillIsland`) — 사람 얼굴 메쉬는 얼굴 · 뒤통수 · 몸 · 손이 한 메쉬라 메쉬 전체를 칠하면 안 된다. UV 가 한 점에 접힌 조각(사람 몸 · 손)은 안 칠함. 그림 층에 칠해서 저장 · 되돌리기(한 칸) · 감은눈 복사가 붓 획과 같다. 대칭 · 동물 부위 잠금 그대로. Shift+클릭 = 그 조각만 지우기(바탕이 보인다).
-- 꾸미기: 예전 펜/지우개와 🪣 채우기가 따로 켜져서 «지우개 + 채우기» 가 같이 켜질 수 있었다 → 도구 하나로. 파츠를 통째로 지우던 «지우개 + 채우기» 는 페인트통 Shift+클릭. 채우기 범위(누른 메쉬 전체)는 그대로.
-- 동물 생성기 G(전체 채우기)는 Shift+G 로 옮겼다(G = 페인트통 — 꾸미기 G 와 같은 뜻).
-- 광선: 리깅 메쉬 교차(`_picSkinnedIntersect`)가 `faceIndex` 도 돌려준다(three 기본 캐스트와 같은 번호).
-- 검사: `sim-paint-tools.js` 신설 **68·0**(손으로 만든 섬 · 실제 동물 몸/얼굴 · 사람 얼굴 GLB · 도구 상태 · 되돌리기 순서 · 가짜 DOM · 배선) · `sim-uv-fill.js` 3절 꾸미기 배선 다섯 줄 고침 **26·0**.
-- 확인: 헤드리스 크롬에서 실제 앱 페이지 — 사람 2단계 페인트통: 얼굴 앞 조각만 17024px(u 5~149 · v 123~263) · 되돌리기 한 칸 → 0 · E/B 키(한글 ㄷ) · 붓 획 그대로. 동물 3단계: G(한글 ㅎ) → 얼굴 조각만 23514px · 되돌리기 0 · 몸 조각만 10366px(u 427~508) · «얼굴만» 잠금이면 몸 안 칠함 · Shift+G 전체 · E · C · 페이지 오류 0.
-
-**개정 107 에서 한 것 (2026-10-09 · 제보 «방 인원이 많으면 오른쪽 사람들 · 내 캐릭터까지 화면 밖 · 끌어도 되돌아온다» · 실기기 확인 뒤 결정 변경 여러 번 · `seat-layout.js` 신설 · `app.js` · html)**
-- 원인: 방에서는 줄 **가운데**를 화면 0.84(오른쪽)에 두고 나를 줄 오른쪽 끝에 세웠다 — 줄이 화면 폭의 32% 를 넘으면 오른쪽 절반과 나까지 화면 밖. 프로그램 이동 범위의 실측 함수(_myPanHalfFrac)는 클릭 통과 구역의 지역 변수(_cvEl)를 봐서 늘 null 이라 «줄 가운데» 만 화면 안에 묶었다.
-- 방(실행 화면 · 다른 사람 있음)의 줄은 띠(맨 오른쪽 좌석 ~ 화면 왼쪽 끝) 안에 선다. 띠 밖은 그리지 않는다(렌더러 가위 · 이름표 숨김 · 클릭 판정 · 잡기 제외).
-- **자동 맞춤**(방에서 늘 · 설정 없음): 모두가 한 줄로 화면에 들어오도록 방 줄 전체의 보기 배율(카메라 거리)을 줄인다. 내가 정한 크기(배율 1)보다 커지지 않고, 가장 작은 캐릭터의 화면 키가 `MIN_CHAR_PX`(56px · 카메라 투영으로 잰 CSS px · 실제로 설 자리에서) 아래로 안 내려간다. 그래도 넘치면 최소 크기 + 휠(마지막 수단). 사람 · 평준화 · 캐릭터 크기 · 창 크기가 바뀔 때 다시 고르고, 줄일 땐 바로 · 키울 땐 4% 넘을 때만, 바뀐 배율로는 매 프레임 조금씩. 저장값(focusCharScale · userScale)은 안 건드림.
-- 없앤 것: 층 수 설정(1 · 2 · 3층 · 위 선반 · «이 화면에서는 N층까지») · 띠 폭 손잡이(⋮ · 끌기 · 더블클릭) · ◀ ▶ · `tw.roomBandW`(창 위치 초기화가 남은 값만 치운다). 보류: «좌석 크기 평준화 · 사이즈 맞추기» — 평준화는 원래 두 가지(꺼짐 · 켜짐) 그대로.
-- 자리 바꾸기 = 책상 끌기 · 이름표 끌기(5px 넘게, 책상이 없거나 숨긴 사람도) — 놓을 자리 = 커서에 화면으로 가장 가까운 좌석, 순서는 놓을 때 한 번만. «맨 오른쪽 고정» 이면 내 좌석 제외. worldX 는 좌석 높이 평면 · 못 맞히면 세로면.
-- 캐릭터 탭 «방에서 내 자리»: 줄 안에 함께(기본 · 상태칩은 처음 자리에 남음) / 맨 오른쪽 고정(tw.roomSeatMode). 방 줄은 **한 줄**(층 기능은 뺐다 — tw.roomFloors 값은 무시). 머리 위 탑이 화면 위로 나가면 자동 맞춤이 «안 들어감» 으로 친다.
-- 발밑을 화면에서 한 줄로 — 카메라가 살짝 옆 · 위에서 보아 왼쪽일수록 위로 보였고 «맨 오른쪽 고정» 에서는 내 좌석만 낮아 보였다.
-- 프로그램 이동 좌우 여백: 방에서는 맨 오른쪽 좌석 반폭. 혼자일 때 · 위아래는 예전 그대로. «창 위치 초기화» 가 tw.deskPan · 메모리 값 · 줄 오프셋까지 되돌린다. dev 실행 전용 `__devFakeSeats(n[, {same:true}])` — 기본은 크기가 섞인 9 가지.
-- 검사: `sim-seat-layout.js` 신설 **89·0**(자동 맞춤 모형 한 줄 1 · 4 · 10 · 20 · 40명 × 세 화면 · 최소 px · 배율 1 상한 · 떨림 막기 · 없앤 것(층 · 손잡이 · ◀ ▶ · 사이즈 맞추기) · 자리 바꾸기 · 발밑 수평 · 탑 높이 · 배선).
-- 확인(자동 맞춤 · 한 줄): 헤드리스 크로미움 실제 앱 페이지 — 휠 없이 다 들어가는 최대 인원(자리표시 캐릭터): 1366×768 15명 · 1800×1069 20명 · 3840×2160 43명. 최소일 때 가장 작은 캐릭터 57px · 2명이면 배율 1(내 크기 그대로) · 페이지 오류 0.
-- 확인(자리 바꾸기 · 탑 · 발밑): 헤드리스 — 책상 · 이름표 끌기로 순서 바꾸기 · 책상 없는 사람 이름표로 옮기기 · 그 자리에 놓기 · «맨 오른쪽 고정» 내 자리 그대로 · 발밑 기울기 21px → 3px.
-
-**개정 106 에서 한 것 (2026-10-09 · 제보 «스티커사진 버튼을 눌러도 반응이 없다» · `purikura-net.js` · `app.js`)**
-- 원인: 개정 102(어안)가 자리(slots/$i)에 `fx` 를 함께 쓴다. 서버 규칙은 아직 옛 판이라(`deploy-dev.yml` 은 GCP 변수가 비어 늘 건너뜀 · 운영은 태그 때) `$other` 에 걸려 자리 쓰기가 통째로 거부되고, `pk.open` 이 던진 것을 아무도 받지 않아 토스트도 없이 멈췄다.
-- 고침: 자리 쓰기가 거부되면 `fx` 없이 한 번 더 잡는다(사진은 찍히고, 새 규칙 전까지는 방장 안내만 «업데이트 필요» 로 틀린다) · app.js 는 `pk.open` 이 던져도 «지금은 들어갈 수 없어요».
-- 검사: `sim-purikura-fish.js` 5절 — 가짜 서버(옛 규칙은 uid · name · at 밖의 칸이 있으면 거부)로 open 을 실제로 돌림 · 7절 app.js 받기 **36·0**. 고치기 전(main) 에 대면 ✗3.
-
-**개정 105 에서 한 것 (2026-10-09 · 제보 «표정에 흰색 같은 밝은 색을 칠하면 조명 때문에 칠했는지 알기 어렵다» · 시안 A · `creator-flat-view.js` 신설 · `app.js` · html)**
-- 번호: main 이 개정 104(#69 책상 아이템 처음 자리)까지라 105.
-- 원인: 생성기 조명은 따뜻한 빛(LIGHT_PRESET.h)이고 정면 총합이 1 을 조금 넘어, 밝은 피부와 흰 칠이 둘 다 크림색으로 날아간다.
-- 미리보기 오른쪽 아래 💡(↺ 반대편) · L 키: «원색 보기» — 키 · 필 0 · 앰비언트 흰빛 · 앰비언트 + FLAT_EMISSIVE = 1. 켜진 동안 위에 «원색 보기 — 칠한 색 그대로». 2 표정 · 3 감은눈에서만 보이고 벗어나면 꺼짐 · 열 때마다 꺼진 채 시작. 그림 · 저장값 · 실행 화면 조명은 그대로.
-- 검사: `sim-creator-flat-view.js` 신설 **25·0**. 고치기 전 app.js · html 에 대면 ✗12.
-- 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 흰 칠 255,251,245 → 원색 보기 255,255,255 · 1단계 숨김 · 2단계 보임 · 4단계로 가면 꺼짐 · 페이지 오류 0.
-
-**개정 104 에서 한 것 (2026-10-09 · 제보 «책상 세팅에서 아이템 이동·회전 초기화가 처음 자리가 아니라 엉뚱한 곳으로 간다» · `desk-item-origin.js` 신설 · `app.js` · html)**
-- 번호: main 은 개정 101, 열린 PR 들이 102 · 103 을 쓰고 있어 104 를 잡았다. 먼저 머지되는 순서에 따라 다시 매길 수 있다.
-- 원인: «⟲ 이동·회전 초기화»(#crItemXfReset)가 `adj.x/y/z/rot` 를 0 으로 박았다. 커스텀 아이템은 처음부터 y 가 `ITEM_Y_START_OFFSET`(1.1)이고, 불러온 캐릭터의 아이템은 저장된 자리에 있으므로 0 은 처음 자리가 아니다.
-- 고침: 생성기(cBase) 아이템마다(pivot 인스턴스) 처음 자리 x · y · z · rot 를 적는다 — 장착 직후(`equipDeskItem`) · 저장값 복원 직후(`applyDeskItemsTo`, 장착 뒤라 덮어씀). 초기화는 그 값으로(크기는 그대로) · 알림 «처음 자리로 되돌렸어요». 생성기를 닫거나(`closeCreator`) 아이템을 다시 깔 때(`clearCreatorItems`) 지운다. 적힌 게 없으면 예전처럼 0. 크기 초기화(#crItemRemove)는 그대로.
-- 검사: `sim-desk-item-origin.js` 신설 **27·0**(pickXf · 아이템마다 · 덮어쓰기 · 크기 그대로 · 없으면 0 · 편집 한 바퀴 · app.js 배선 · html 순서). 고치기 전 app.js · html 에 대면 ✗9.
-
-**개정 103 에서 한 것 (2026-10-09 · 사용자 결정 «동물 편집이 거꾸로다» · `animal-edit-route.js` 신설 · `app.js` · `animal.js` · html)**
-- 번호: main 이 개정 102(#70 스티커사진 어안)까지라 103(PR #63 · 처음엔 99).
-- 예전: 동물 캐릭터를 [캐릭터 수정] · 좌석 [캐릭터 편집] 하면 사람 생성기가 열리고 1~4단계가 막혀 «동물의 얼굴·표정은 동물 생성기에서 편집해요…» 토스트와 함께 책상(5)으로 튀었다. [이전] 을 눌러야 동물 생성기가 나왔다. 동물 생성기 위 «책상 세팅» · «좌석 세팅» 은 흐리게 막혀 있었다.
-- 이제: 동물 생성기(얼굴 탭)부터 열린다 → 마지막 탭 [다음 → 책상·좌석] 이 저장하고 `fromAnimal` 을 달아 책상(5) → 좌석(6) → [완료]. 동물 생성기 위 «책상 세팅» 은 [다음 → 책상·좌석] 과 같고, «좌석 세팅» 은 같은 저장 뒤 6단계로(`fromAnimal` + `startStep:6`). 책상에서 [이전] · 위 «캐릭터 세팅» 은 동물 생성기(감은눈 탭)로. 같은 슬롯 · 좌석(creatorMode)에 저장. 옛 동물 토스트는 걷음.
-- 그대로: 사람 · 커미션(«커미션 캐릭터는 수정할 수 없어요.» · 책상부터) · 종족 선택에서 새 동물(저장할 빈 칸이 없으면 위 두 탭도 흐리게 · 이유를 툴팁에) · 해금 판정 · 런처 복귀 체인. 모듈이 없으면(app.js 만 평가하는 검사) 예전처럼 책상부터.
-- 검사: `sim-animal-edit-route.js` 신설 **53·0**(판정 표 · gotoStep 머리를 실제로 돌림 · 위 탭 판정 · 배선). 고치기 전 app.js · animal.js 에 대면 ✗.
-
-**개정 102 에서 한 것 (2026-10-08 · 필터 시안 8 확정 · `purikura-net.js` · `app.js` · html · 규칙)**
-- 필터 줄 일곱 칸: 없음 · 뽀샤시 · PS1 · **어안** · 흑백 · 새벽 · 빈티지(로비 · 촬영 중 같은 줄). 어안 = 꽉 찬 볼록렌즈(원형 · 검은 테두리 없음) · 렌즈 세기 `FISH_S` 0.72(가운데 약 3.6배) 고정 · 가장자리 살짝 어둡게. 비율로만 계산해서 k 가 없다 — 무대 · 사진이 같은 모양.
-- 좌표표는 (w,h)별 캐시(무대 306×420 · 사진 540×740 · 축소판 46×62) · 이웃 넷 섞기(쌍선형) · willReadFrequently · 결과 판도 크기별 한 장.
-- 업데이트 안 한 참가자: 자리(slots/$i)에 내 앱이 아는 필터 판 `fx` 를 적는다. 없으면 옛 앱 — 그 사람 사진은 필터 없이 찍히고(filterIn) 방장 화면에 «○○님은 업데이트가 필요해서 필터 없이 찍혀요».
-- 규칙: `rooms/$room/_photo/meta/filter` 에 `fish` · `slots/$i/fx`(숫자 0~99).
-- 검사: `sim-purikura-fish.js` 신설 **32·0**. 고치기 전 판에 대면 ✗18.
-- 확인: 헤드리스 크로미움 실제 캔버스 — 무대 · 사진 · 축소판 모양 같음 · 얼굴 테두리 매끈 · 무대 한 프레임 약 3.6ms(사진 17ms · 한 번만).
-
-**개정 101 에서 한 것 (2026-10-09 · 디자인 시스템 이행 1단계 «토큰 다리» · html · `app.js` · `bookmark.js` · `mallang.js`)**
-- 번호: main 은 개정 99, 열린 PR #58 · #63 · #64 가 99, #67 이 100 을 쓰고 있어 그다음 101 을 잡았다. 먼저 머지되는 순서에 따라 다시 매길 수 있다.
-- html `:root` 에 `--tw-*`(면 · 글자 · 선 · 타이틀바 · 테마 안 타는 색 · 모서리 · 그림자 · 간격 · 글꼴) — 옛 `--win-*` · `--acc-*` 를 가리키기만 한다. 버블은 `--tw-title-a` 만 `--acc-l` 로.
-- 글꼴: `font-family:Tahoma,'Malgun Gothic',sans-serif` 121곳 + JS 인라인 7곳 → `var(--tw-font-legacy)`(같은 목록) · `Tahoma,"Malgun Gothic","MS Sans Serif",sans-serif` 8곳(이름표 · 말풍선 · `.win98titlebar` 등) → `var(--tw-font-classic)`(같은 목록). 별도 창(GB_HTML · DS_HTML) · `app-version-gate.js` · `myhome-desktop.js` 는 손대지 않았다(토큰 블록이 없는 문서 · 다른 목록).
-- 손 회색은 바꾸지 않았다 — 테마 범위 규칙 안에 있는 것이 0곳이라 «모든 테마에서 같은 값» 인 토큰이 없다. 기준선으로 늘어나는 것만 막는다.
-- 검사: `sim-ui-tokens.js` 신설 **8·0** — 토큰 블록 · 쓰는 `--tw-*` 가 정의된 이름 · 글꼴 토큰의 한글 · 파일별 직접 적은 글꼴(62) · 손 회색(451)이 `ui-tokens-baseline.json` 이하. 줄였으면 `node checks/sim-ui-tokens.js --write-baseline`. `sim-font-hangul.js` 는 `var(--tw-font-…)` 를 html 정의로 펼친 뒤 1 · 2절을 본다(따옴표 ' · " 둘 다).
-- 화면 확인: 정적 html 을 Electron 오프스크린으로 그려 7가지(클래식 c1 · c2 · c4 · 버블 c1 · c3 · c4 · c5) × 8상태 PNG 56장 픽셀 차이 0 · 요소 2419개의 계산 스타일 차이 0.
-
-**개정 100 에서 한 것 (2026-10-09 · 디자인 시스템을 앱 저장소로 · `docs/design-system/` · `scripts/build-design-site.js` 신설 · `hosting/design/`)**
-- 원본은 `docs/design-system/project/`(토큰 · 원칙 · 부품 지침 · 미리보기). `npm run design:build` 가 정적 페이지 `hosting/design/`(index.html · tokens.css · bundle.css)을 만들고, 그 결과를 커밋해 둔다(Hosting 배포 대상).
-- 검사: `sim-design-site.js` 신설 **20·0** — 커밋된 결과물이 원본에서 다시 만든 것과 같은지 · 세 테마 블록에 색 토큰 전부 · 부품이 쓰는 CSS 변수가 모두 정의됐는지 · 바깥 자원 없음 · CSP · iframe sandbox · 마크다운 이스케이프.
-- 개정 번호: 열려 있는 다른 PR 과 겹치면 머지 순서대로 다시 매긴다.
-
-**개정 99 에서 한 것 (2026-10-09 · 웹 관리자 📉 개선 기록 · 규칙 `metrics/improvements` · `scripts/backfill-usage.js` 신설)**
-- 규칙: `metrics/improvements/$id = { version ≤20자, releasedAt(ms), title ≤80자, items: 0~19번 각 ≤120자, adoptDays? 0~30 정수 }` — 읽기는 기존 `metrics/.read`(관리자), 쓰기는 이 칸만 관리자. 모르는 칸 거절. metrics 의 다른 곳은 그대로 쓰기 규칙 없음(함수 · Admin SDK 만).
-- 검사: `sim-admin-rules.js` 1절에 두 줄(관리자 쓰기 · 모양). «metrics 에 .write 없음» 을 보던 여섯 곳(`sim-admin-rules` · `sim-daily-active` · `sim-daily-summary` · `sim-part-equip` · `sim-visit-ping` · `sim-usage-snapshot`)은 improvements 만 빼고 본다.
-- `scripts/backfill-usage.js`: Cloud Monitoring 에 남은 날(약 6주) 중 `metrics/usage` 에 칸이 **없는** 날짜만 함수와 같은 지표 · 집계로 채운다(어제 · 오늘은 함수 몫 · 표본 없는 날은 0 으로 채우지 않음 · 미리 보기 기본 · `--write` · `--project` 필수). `sim-usage-snapshot.js` 6절 · 전체 **57·0**.
-
-**개정 98 에서 한 것 (2026-10-09 · 방 서버 채널별 방 개수 상한을 관리자 설정으로 · 규칙 `config/roomServer/limits`)**
-- 규칙: `config/roomServer/limits = { workingroom, togetherroom }` — `limits` 칸 하나는 누구나 읽기(키 없는 방 서버가 REST 로 한 번에 읽는다 · 숫자 둘뿐), 쓰기는 기존 `roomServer/.write`(관리자), 채널마다 정수 1~100000(`% 1 === 0`), 모르는 칸 거절.
-- 검사: `sim-room-server-gate.js` 5절에 두 줄(읽기 · 쓰기 · 범위 / 모르는 칸).
-
-**개정 97 에서 한 것 (2026-10-09 · 사용자 결정 «방 따라가기 스위치를 없앤다» · `room-server-gate.js` · `app.js` 주석)**
-- 따라가기가 꺼져 있으면 허용 목록에 없는 친구가 서버 방 코드로 들어갈 때 Firebase 의 «같은 코드 다른 방» 으로 갈라져 서로 못 봤다. 이제 `on` 이면 누구든 주소록(roomDir)의 서버로 따라간다 — `on` 이 비상 정지 스위치.
-- 문지기는 `config/roomServer/follow` 를 더 읽지 않는다(입장마다 칸 하나 덜 읽음). 서버가 거절하면(로그인 연결이 없는 계정 등) 지금처럼 Firebase 로.
-- 검사: `sim-room-server-gate.js` 3절(follow 없이 따라감 · DB 에 follow:false 가 남아도 따라감) · 4절(읽는 칸에서 follow 빠짐 · 두 번째 입장 3칸).
-
-**개정 96 에서 한 것 (2026-10-09 · 제보 «RTX 3060 Ti · Windows — 앱을 켜 두면 크롬(트위터)이 많이 버벅인다» · `frame-budget.js` 신설 · `app.js` · html)**
-- 원인: 실행 화면은 모니터 전체 크기 투명 캔버스인데, 내 창에 포커스가 있으면 프레임 상한이 아예 없었다. 캐릭터를 한 번 누른 뒤 크롬 위에서 휠만 굴리면(휠은 커서 아래 창으로 가고 포커스는 우리 창에 남는다) 모니터 주사율(144/165Hz)로 그렸다. Windows 는 해상도 배율도 2 까지(mac 은 1.5).
-- 상한: 어떤 경우에도 60 · 포커스가 있어도 누르기 · 키 · 휠 없이 8초 → 30(춤 · 입력칸 · 꾸미기 · 생성기 · 런처 화면은 제외) · 다른 창 20(그대로) · 누름 · 끌기 · 비행은 60(예전엔 상한 없음). 마우스 이동은 «손댐» 이 아니다(통과 중에도 들어와 30 ↔ 60 이 오르내리면 영상이 깜빡인다). 144Hz 에서 간격만 보면 48fps 가 되므로 예정 시각을 쌓아 평균 60.
-- 배율: 실행 화면 해상도 배율 상한을 mac · Windows 모두 `RUN_MAX_PR` 1.5 로(도트 렌더 1 그대로). `MAC_RUN_MAX_PR` · `_IS_MAC_RENDER` 걷음.
-- 진단: 실행 화면에서 1분마다 `tw-mouse-diag.log` 에 `[렌더러] [프레임] 60초 N장 Nfps · 포커스 N% · 상한 N · 배율 N · WxH`.
-- 검사: `sim-frame-budget.js` 신설 **35·0** · `sim-unfocused-fps.js` 다시 씀(app.js 째로 144 · 165 · 60Hz 를 흘려 장 수를 센다) · `sim-mac-0923.js` 5절 한 줄(배율 상한이 frame-budget.js 로). app.js 는 FrameBudget 이 없으면 상한 없이 돌므로(가드) smoke.js 는 그대로.
-
-**개정 95 에서 한 것 (2026-10-09 · 사용자 결정: 제보 번호를 커밋 · PR 에서 가리킬 수 있게 고정 · `functions/bug-no.js` 신설 · `functions/index.js` · 규칙 · `scripts/backfill-bug-no.js` 신설 · `bug-board-ui.js` · html)**
-- 웹 관리자의 «B-MMDD-n» 은 화면에서 그날 순번을 세던 값이라 앞 글이 지워지면 바뀌었다. 이제 새 글이 생기면 함수 `bugNo`(onValueCreated)가 그날(서울) 카운터 `bugBoard/seq/{날짜}` 를 트랜잭션으로 +1 해 `bugBoard/list/{id}/no` 에 붙인다. 카운터는 늘기만 해서 지운 글의 번호는 다시 쓰이지 않는다. 이미 no 가 있거나 그사이 글이 지워졌으면 붙이지 않는다.
-- 함수는 번호만 붙인다(하루 작성 수를 세거나 글을 지우지 않는다). 하루 작성 수는 예전대로 앱이 `users/{code}/bugPostCount/{날짜}` 로 세고, **상한만** 웹 관리자 ⚙️ 설정의 `config/bugDailyMax`(1~100 · 없거나 못 읽으면 5)에서 온다 — 게시판을 열 때 한 번 읽는다. 글쓰기 단추에 «등록 (오늘 n건 남음)» · 다 쓰면 끈다. 앱에서만 막는 제한이다(사용자 결정).
-- 새 글 ts · openTs 는 serverTimestamp, 규칙은 `=== now`(PC 시계가 빨라도 써진다 · 옛 `ts <= now + 60000` 걷음).
-- 🛡 운영진 글: 관리자가 쓴 글엔 `byAdmin: true`(규칙상 관리자만) — 앱 · 웹 관리자가 이름 옆에 🛡. 이름으로 가르지 않는다. 운영자 답변 머리에도 🛡.
-- 운영진처럼 보이는 이름은 **프로필 이름**에서 막는다(`name-guard.js` 신설 · `commitUserName`). «운영자 · 관리자 · 운영팀 · 관리팀 · admin · administrator» 와 정확히 같을 때만(앞뒤 공백 · 대소문자 무시) — «운영체제덕후» 는 된다. 규칙 `users/$userId/profile` 도 같은 목록 — 이름이 그대로면(이미 그 이름인 사람) · 관리자면 통과. 방 이름표 · 채팅 이름은 막지 않는다(들어올 때마다 새로 써서 옛 사용자가 막힌다). 제보 글의 이름 검사는 걷었다.
-- 규칙: `list/$id/no` 는 `^B-[0-9]{4}-[0-9]{1,4}$` 만 · 글쓴이 새 글은 `no` 없음 · `byAdmin` 관리자만 · `config/bugDailyMax` 누구나 읽기 · 관리자 쓰기 · `seq` 클라이언트 규칙 없음 · 프로필 이름. `bugPostCount` 는 그대로(본인 쓰기).
-- 옛 글은 `scripts/backfill-bug-no.js`(미리 보기 기본 · `--write` · `--project` 필수)로 날짜별 ts 순으로 카운터 다음부터.
-- 앱: 상세 머리에 고정 번호를 관리자에게만 작게.
-- 검사: `sim-bug-no.js` 신설 **35·0** · `sim-name-guard.js` 신설 **9·0** · `sim-bug-board.js` 상한 설정값 · ts 규칙 · byAdmin · createPost 실행 **50·0** · `sim-admin-rules.js` 1절 `config/bugDailyMax` 한 줄. 규칙은 에뮬레이터로 36가지를 돌렸다(PR 본문).
-
-**개정 94 에서 한 것 (2026-10-08 · 제보 둘 · `app.js` · html)**
-- 마이홈 친구창 방 코드: «실제 CMSW 가 OM8W 로 보인다» — 9px 이름표 글꼴에서 C·O · S·8 이 같아 보였다. 코드만 숫자·코드용 고정폭(`--win-font-num`) · 10px · 굵게.
-- 경험치 바: «누구는 길고 누구는 짧다» — 길이가 캐릭터 실측 폭(40~220)을 따라갔다. 모두 `EXP_BAR_W`(72px). «화면 아래에 두면 이름이 잘린다» — 이름표는 바 밑에 붙지만 **발밑 기준**으로 놓여, 바만 화면 안으로 올리고 이름표는 밖에 남았다. 바는 이름표 높이까지 비켜 올리고 이름표도 화면 아래로 안 나가게.
-- 검사: `sim-fix-1008b.js` 신설 **10·0**. 고치기 전 app.js · html 에 대면 ✗8.
-- 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 크기가 다른 두 좌석 바 72px · 72px · 발밑을 화면 맨 아래로: 이름표 아래 끝 921 → 898(화면 900) · 페이지 오류 0.
-
-**개정 93 에서 한 것 (2026-10-08 · 제보 «좌석 크기 평준화를 켜면 바닥에 넓게 놓인 오브제 파츠가 남의 자리를 침범한다» · `seat-slot.js` 신설 · `app.js` · html)**
-- 원인: 좌석 간격(layoutSeats · seatDeskHalfWidth)은 책상 몸통만 재고 «책상 위» 파츠는 일부러 뺀다. 평준화로 좌석이 커지면 멀리 둔 파츠가 그만큼 더 밀려 옆 자리로 넘어갔다.
-- 평준화가 켜져 있으면 «책상 위» 파츠마다 좌우(X)만 자기 자리 안으로 민다 — 자리 = 책상이 뻗은 거리 + 좌석 사이 여백의 절반(양옆이 절반씩이라 서로 안 겹친다). 자리보다 넓으면 가운데. 내 화면에서만(저장값 안 건드림) · 끄면 되돌림 · 올라탄 좌석 제외 · 0.5초마다.
-- 검사: `sim-seat-slot.js` 신설 **22·0**(clampShift 표 · 실제 three 로 배율 사슬 · 되돌림 · 밖에서 다시 잡은 자리 · 배선). 고치기 전 app.js 에 대면 ✗7.
-- 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 넓은 파츠(자리 밖 -4 ~ -2) → 평준화 켜면 자리 안 → 끄면 -4 ~ -2 로 복귀 · 페이지 오류 0.
-
-**개정 92 에서 한 것 (2026-10-08 · 제보 «귀 까딱이는 리깅까지는 안 따라온다» · `app.js` 만)**
-- 귀 까닥임(animateRig)은 좌석의 귀 목록(seat.bones.ear)에 든 것만 돌린다. 동물 귀는 붙을 때 `_registerAnimalEarOn` 으로 올라가는데 사람 귀는 그 줄이 없었다. 사람 기본 모델의 ear 본도 웨이트가 없어서 본만으로는 안 움직인다.
-- `_syncHumanEarRig`: 붙은 사람 귀를 같은 등록으로 올리고, 떨어진 옛 귀(바꿈 · 뺌)는 목록 · 쉼 자세 · 타이머에서 걷는다. 좌석 조립(setupSeatModel 뒤) · 늦게 붙는 귀(콜백) · 다시 붙이기(저장) 세 자리에서 맞춘다.
-- 검사: `sim-wd-ear.js` 3-d 절 **105·0**(개정 91 app.js 에 대면 ✗5).
-- 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 고양이 · 토끼 좌석: 귀 목록에 L · R, 까닥임 최대 0.345 rad 후 쉼 자세로 · 귀를 바꿔 다시 붙여도 2개 · 빼면 0개 · 페이지 오류 0.
-
-**개정 91 에서 한 것 (2026-10-08 · 사용자 요청 «원하는 모델을 클릭하면 그 모델 UV 에만 전체 페인팅» — (가) 메쉬 전체 · `uv-fill.js` 신설 · `app.js` · html)**
-- 꾸미기 ✎ 그리기 줄에 «🪣 채우기»(G). 켜 두면 좌클릭 한 번이 획 대신 **맞힌 메쉬의 UV 삼각형 전체**를 지금 색으로 칠한다 — 그림판 전체가 아니라서 같은 텍스처를 나눠 쓰는 다른 메쉬 · 빈 칸은 그대로다(동물 생성기 G 가 얼굴 · 몸을 같이 칠하는 한계를 피한다). 지우개면 그 자리만 지운다. 되돌리기 한 칸. 귀 대칭이면 반대쪽 귀의 같은 메쉬도.
-- 경계를 1.5px 넓혀 칠한다(솔기 실선 방지) · 지울 때는 1px 더(번진 테두리가 남던 것 — 247px → 0).
-- 검사: `sim-uv-fill.js` 신설 **26·0**(실제 귀 GLB 다섯 종 삼각형 · 가짜 2D 문맥 · app.js 배선). 개정 90 app.js 에 대면 ✗10.
-- 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 고양이 양쪽 · ✎ · G → 왼 귀 클릭 2145 / 오른 0 → 되돌리기 0 / 0 → 대칭 켜고 오른 귀 2145 / 2155 → 지우개 채우기 왼 0 · 페이지 오류 0.
-- 하지 않은 것: (나) 누른 조각(UV 섬)만 · 동물 생성기 G 바꾸기 — 사용자 결정으로 미룸.
-
-**개정 90 에서 한 것 (2026-10-08 · 앱 최소 버전 · `app-version-gate.js` 신설 · `firebase-init.js` · `app.js` 한 줄 · `main.js` · `preload.js` · 규칙 `config/minAppVer`)**
-- `config/minRoomVer` 는 방 입장만 막는다. 규칙 잠금처럼 방 밖 기능까지 옛 앱에서 깨지는 변경 전에 옛 앱을 업데이트로 보낼 장치. 켤 때 `config/minAppVer` 하나만 `get` 한 번(구독 아님).
-- 낮으면 닫기 없는 «업데이트해 주세요» 화면. 단추는 기존 자동 업데이트 흐름을 따른다 — 받기 끝이면 `installUpdate` · 맥은 main 이 보낸 릴리스 주소 · 받는 중은 진행률 · 실패면 `checkUpdate`(새 채널, `startUpdateCheck` 한 입구). 링크는 언제나 다운로드 페이지.
-- 읽기 실패 · 오프라인(8초) · 값 없음 · 버전 모름은 막지 않는다. 이 코드가 든 판(0.10.3~)부터만 효과.
-- 검사: `sim-app-version-gate.js` 신설 **50·0** · `sim-admin-rules.js` 1절에 `config/minAppVer` 관리자만 한 줄.
-
-**개정 89 에서 한 것 (2026-10-08 · 사용자 결정: 꾸미기 귀 탭도 동물 생성기 «2 귀» 처럼 왼쪽 · 오른쪽을 따로 · `wd-ear.js` · html)**
-- 귀 탭의 «좌우 같이» 체크칸과 카드 칸(wd-card)을 없애고, 동물 생성기(animal.js renderEarLists)와 같은 **왼쪽 귀 · 오른쪽 귀 상자**(cr-groupbox) 안에 버튼(skin-sw: 없음 · 고양이 · 곰 · …)을 늘 둘 다 보인다. 고른 쪽이 «조정할 귀» 가 된다. 꾸미기 창 폭에 맞게 버튼만 42px 로 — 상자마다 한 줄.
-- 저장 형식 · 조정 · 그리기 · 탑승 높이는 그대로.
-- 검사: `sim-wd-ear.js` 1절을 새 화면으로 **101·0**(상자 둘 · 이름 · 버튼 수 · 순서 · 체크칸 없음 · 한쪽만 고르기 · 체크 표시).
-- 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 왼쪽 고양이 · 오른쪽 토끼 → 미리보기 양쪽 귀 · 조정 대상 오른쪽 · 상자마다 버튼 한 줄 · 페이지 오류 0.
-
-**개정 88 에서 한 것 (2026-10-08 · 꾸미기 › 머리 › 귀 넷째 조각 · `app.js` 두 곳)**
-- 머리 위 탑승 높이(`_measureHostHeadTop`)가 «귀 포함» 을 **동물에게만** 쟀다. 사람 귀도 동물 귀처럼 rigged 표식으로 본체 측정에서 빠져 있어서, 귀 달린 사람 위에 얹으면 귀 사이 머리통에 파묻혔다. 귀 달린 사람이면 같은 규칙(숨은 메쉬 제외)으로 귀 박스를 합친다. «귀 제외»(묘기 2층+)는 그대로 합치기 전에 잰다. 귀가 없는 사람은 값이 그대로다.
-- 귀는 늦게 붙는다 — 사람 귀가 붙을 때 그 좌석에 이미 누가 타 있으면 높이를 다시 잰다(동물 귀 `_registerAnimalEarOn` 과 같은 이유).
-- 검사: `sim-wd-ear.js` 3-c 절 **97·0**(개정 87 app.js 에 대면 ✗4). `sim-ride-height.js` · `sim-ride-part-top.js` 그대로 초록.
-- 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 사람 좌석 넷의 머리 꼭대기(귀 포함 / 귀 제외): 귀 없음 0.738 / 0.738 · 고양이 1.062 / 0.737 · 토끼 1.256 / 0.737 · 강아지(처진 귀) 0.809 / 0.739.
-
-**개정 87 에서 한 것 (2026-10-08 · 꾸미기 › 머리 › 귀 셋째 조각 ✎ 그리기 · `human-ear.js` · `wd-ear.js` · `app.js` · html)**
-- 꾸미기의 ✎ 그리기 줄을 귀에도 그대로 — `_wdPic` 의 대상을 **목록**(tgts)으로 넓혔다. 파츠는 한 장(예전과 같은 동작), 귀는 좌·우 두 장. 되돌리기 한 칸 · 취소 원본 · 전체 지우기 · 완료(올리기)가 목록을 한꺼번에 다룬다.
-- 대칭: 귀는 **반대쪽 귀의 같은 자리**에 같은 획(`human-ear.js mirrorUv`). 좌·우 귀 GLB 는 정점 번호까지 거울상이고 UV 배치는 달라서, 맞힌 삼각형의 세 정점 + 무게중심 좌표를 같은 번호 정점으로 옮긴다. 좌우 종류가 다르면 대칭 잠금(버튼 · X 키). 파츠 대칭은 예전 그대로.
-- 저장: `def.earPicL · earPicR`(Storage URL — 파츠 그림과 같은 `uploadPartPic` · 같은 캐시). 귀 종류를 바꾸면 그 쪽 그림은 버린다(UV 배치가 다름). 방 전송에서 dataURL 은 뺀다 · 지문은 URL 을 통째로(`_imgSig` 는 Storage URL 앞부분이 다 같아 못 가른다).
-- 화면: 귀 탭에서 귀가 늦게 붙은 뒤 연필을 다시 맞춘다 · 그리는 동안 핸들 · 조정할 귀 줄 잠금 · 귀 탭은 바를 «연필만» 으로 줄이지 않는다 · 들어갈 때 대상을 새로 구한다(미리보기가 다시 지어지면 옛 wrap 으로 들어갔다 바로 빠져나오던 것).
-- ⚠️ 귀 GLB 의 UV 가 작다 — 귀 앞면 전체가 512 캔버스의 한두 칸(32px)에 몰려 있어 가는 선도 귀 앞면을 넓게 덮는다. 동물 생성기도 같은 GLB · 같은 UV 라 같다. 세밀하게 그리려면 Blender 에서 귀 UV 를 넓혀 다시 내보내야 한다(코드로는 못 고침).
-- 검사: `sim-human-ear.js` 5절 **42·0**(실제 귀 GLB 다섯 종 · 무작위 40곳이 반대쪽 귀의 거울 자리 · 그림칸) · `sim-wd-ear.js` 1절 끝 · 3-b 절 **93·0**(개정 86 app.js 에 대면 ✗18).
-- 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 고양이 양쪽 → ✎ → 대칭 한 획(왼 1015 · 오른 1012 픽셀) → 되돌리기 0 · 0 → 완료 → 닫기(저장) → 좌석 귀에 그림층 · 방 전송에서 dataURL 빠짐 · 오른쪽만 곰으로 바꾸면 그 그림만 버리고 대칭 잠금 · 페이지 오류 0.
-
-**개정 86 에서 한 것 (2026-10-08 · main 병합 뒤 · `app.js` 한 곳)**
-- main 이 꾸미기 저장에 «초안의 원래 주인에게 저장»(`_commitWdDraftToOwner` · `sim-fix-1008.js` §13)을 새로 냈다. 거기는 파츠만 옮겨서, 꾸미기를 연 채 캐릭터를 바꾸면 그사이 고른 귀가 사라졌다. 같은 짝으로 귀도 옮기고 좌석 귀를 다시 붙인다.
-- 검사: `sim-wd-ear.js` 한 줄 **61·0**. 병합 직후 app.js 에 대면 ✗1.
-
-**개정 85 에서 한 것 (2026-10-08 · 꾸미기 › 머리 › 귀 둘째 조각 · 결정: 귀 바탕색 줄 없음 — 흰색으로 시작, 색은 그리기로만 · `wd-ear.js` 신설 · `human-ear.js` · `app.js` · html · `smoke.js`)**
-- 귀 탭: 머리 › 모자·탈·안경 옆 «🐾 귀»(가상 탭 — 책상 탭과 같은 이유로 PART_CATS 밖). 좌우 같이(기본 · 양쪽이 같으면 켬) / 따로 · 첫 칸 «없음». 동물 캐릭터는 탭이 없고, 귀 탭인 채 동물이 되면 모자로 돌린다.
-- 미리보기 아래 «조정할 귀» 줄(◀ 왼쪽 · 오른쪽 ▶ · ⇆ 대칭 복사 · ↺) + 기존 기즈모 바(이동·회전 · －/＋). 미리보기에서 귀를 눌러도 그쪽으로. 귀 탭에서는 구도를 조금 올리고 물러선다(기본 구도는 귀가 화면 밖).
-- 저장: 초안(draft)에만 쓰고 닫을 때 def.earL · earR · earAdj 로. 없는 쪽은 필드를 안 남긴다. 바뀌었으면 좌석 귀를 다시 붙이고, 캐릭터 지문에 넣어 친구 화면도 다시 그린다. 방에는 def 문자열로 그대로 실린다(규칙 무변경).
-- 조립: defToBase(미리보기 · 런처 미리보기)와 좌석(applyCharToSeat — setupSeatModel 직전) 두 곳. `human-ear.js` 는 holder 를 만들 때(바인드 자세) 옮길 양을 재 둔다 — 꾸미기에서 귀를 고를 때는 이미 움직이는 좌석이다.
-- `smoke.js`: html 이 app.js 앞에 싣는 `human-ear.js` · `wd-ear.js` 를 먼저 평가한다(app.js 최상위가 바로 쓴다).
-- 검사: `sim-wd-ear.js` 신설 **60·0** — 가짜 DOM + 실제 three 로 탭 · 줄 · 기즈모 · 크기 · 귀 누르기 · 저장 · 배선 · 모듈이 없어도 app.js 가 켜지는지(WD_EAR_OFF). 개정 84 app.js 에 대면 ✗18.
-- ⚠️ `app.js` 만 따로 평가하는 검사가 스무 개쯤 된다 — 귀 모듈이 없으면 `humanEar = null` · `wdEar = WD_EAR_OFF`(탭 없음)로 켜진다. 모듈 로드 실패 때 앱이 서지 않게 하는 것과 같은 장치다. `sim-human-ear.js` 둘 더 **34·0**(움직이는 중에 달아도 바인드 기준 · readAdj).
-- 확인: 헤드리스 크로미움에서 실제 앱 페이지 — 관리자로 좌석을 세우고 꾸미기 › 머리 › 귀 → 고양이 → 오른쪽 · 이동 · 크기 · ⇆ → 닫기(저장) → 좌석에 양쪽 귀 · 지문 반영 · 동물이면 탭 없음. 페이지 오류 0. 320px 패널에서 줄 버튼 한 줄.
-
-**개정 84 에서 한 것 (2026-10-08 · 꾸미기 › 머리 › 귀 시안 2 확정 · 첫 조각 · `human-ear.js` 신설 · `animal.js` 한 줄 · html 한 줄)**
-- 사람 귀 모듈: 동물 생성기의 귀 GLB 를 사람 머리에 붙인다. 귀 GLB 는 동물 몸 좌표에 박혀 있어 «동물 귀 본 → 이 캐릭터 귀 본» 만큼 옮긴다(사람 기본 모델은 위로 1.01). 귀 본이 없으면 head 본 + 사람 기본 거리.
-  head 본 아래 holder 를 바인드 자세에서 붙여 두고 그 안에 귀를 단다 — 조정값은 늘 모델 원점 기준 · 늦게 파싱돼도 비뚤어지지 않는다. 대칭 복사 · 조정값 모양은 동물과 같다.
-- `animal.js`: 귀 파서를 `window.parseAnimalEar` 로 내준다(파싱 캐시 공유). 아직 화면에 연결하지 않았다 — 꾸미기 칸 · 저장 · 방 전송은 다음 조각.
-- 검사: `sim-human-ear.js` 신설 **32·0** — 자리 상수를 GLB 에서 다시 계산 · 대칭 복사를 animal.js ⇆ 식과 같은 입력으로 비교 · 실제 three 로 옮길 양 · 머리를 따라 움직임 · 늦은 콜백. 복제본 matrixWorld 갱신을 빼면 ✗2.
-- 확인: 헤드리스 크로미움에서 사람 기본 모델에 귀 다섯 종 — 앞 · 옆 모두 머리 위 제자리.
-
-**개정 82 에서 한 것 (2026-10-04 · 제보 «엑셀로 일괄 발급을 누르면 아래 창이 잘려서 나온다» · `app.js` 만)**
-- 원인: 발급 창과 일괄 창은 `#licenseGenOverlay` 안에서 flex-wrap 으로 나란히 선다. 관리자 런처 창(380px)처럼 좁으면 일괄 창이 아래 줄로 밀려 화면 밖으로 잘렸다.
-- 고침: 일괄 창을 열 때 옆에 설 자리(발급 창 폭 + 12 + 440)가 없으면 발급 창을 숨기고 일괄 창만 보인다. ✕ · 발급 창 닫기 · 바깥 클릭 · 다시 열기 모두 발급 창을 되돌린다. 넓은 창에서는 예전처럼 옆에 선다.
-- 검사: `sim-license-xlsx.js` 1절에 셋 → **28·0**. 고치기 전 app.js 에 대면 ✗3.
-- 확인: 헤드리스 크로미움에서 실제 페이지로 — 380×680 은 일괄 창만(화면 안) · 1100×700 은 나란히 · 닫으면 발급 창 복귀.
-
-**개정 81 에서 한 것 (2026-10-04 · 제보 «동물에 이미지를 찍으면 볼 쪽이 다르게 찍힌다» · «동물에서 대칭을 쓰면 한쪽 선이 끊긴다» · `animal.js` 만)**
-- 원인: 동물 몸·얼굴은 리깅인데 그리기·스포이드·도장·대칭이 three r128 기본 레이캐스트를 썼다. 바인드 포즈 경계 상자로 먼저 걸러, 얼굴 크기를 키우면 바깥 볼·눈꼬리에 광선이 안 맞았다. 사람 생성기와 같은 `_picIntersect`(지금 자세 · 앞면만)로 바꾸고, 대칭 되쏘기는 같은 부위 메쉬만 본다.
-- 검사: `sim-animal-cast.js` 신설 **18·0** — 광선 자리 넷이 `_aCast` 를 지나는지 · `_mirrorMeshes` 를 가짜 귀·얼굴로 실행 · app.js `_picIntersect` 가 여전히 지금 자세·앞면만인지. 고치기 전 animal.js 에 대면 ✗8.
-- ⚠️ 실기기: 동물 생성기에서 얼굴 좌우 크기를 키운 뒤 대칭으로 눈꼬리까지 그리기 · 볼 가장자리에 걸친 이미지 찍기.
-
-**개정 80 에서 한 것 (2026-10-02 · 요청 «프로그램 크기 최소 20%» · 제보 «키우면 마이홈 크기는 그대로고 화면만 커진다» · `main.js` 만)**
-- 🔍 `UI_ZOOM_MIN` 0.5 → **0.2**. 설정 화면 쪽(app.js)은 한계값을 안 들고 있어 그대로. [초기화]·Ctrl+0 은 늘 100%.
-- 📐 **원인:** 런처·생성기·동물·마이홈은 OS 창 크기가 `MODE_SIZE` 고정값(DIP)이다. 렌더러 줌은 안쪽 내용만 CSS px × 줌으로 키워서, 마이홈(760px)이 120% 에서 912 DIP 가 되어 800 창에서 잘렸다(줄이면 빈 테두리). 실행 화면(run)은 전체화면이라 무관.
-- **고침:** `_modeSize(mode)` = MODE_SIZE × 줌. 크기를 정하는 네 자리(createWindow 첫 창 · setConfigMode · display-metrics-changed · moveToDisplay)가 이걸 지난다. moveToDisplay 는 직접 setBounds 하던 것을 `_fitConfigRect` 로 바꿨다(_fittedSize 가 남아야 sizeToMode 가 줌 걸린 창을 알아본다). 줌을 바꾸는 순간에도 `applyUiZoom` 이 **바꾸기 전** 모드를 읽어 `_refitConfigForZoom` 으로 맞춘다(좌상단 유지 · 작업영역 안으로). `sizeToMode` 는 안 고쳤다 — `_fittedSize` 를 이미 본다(sim-cfg-fit 3절).
-- 검사: `sim-ui-zoom.js` 하한 판정 한 줄(0.5 → 0.2) · `sim-zoom-window.js` 신설 **16·0** — 함수 원문을 가짜 창·화면에서 돌린다(마이홈 120% → 960×696 · 초기화 → 800×580 · 20% → 160×116 · 런처 150% 작업영역 680 → 570×680 · run 은 안 건드림). 옛 main.js 에 대면 ✗7 로 멈춘다.
-- 이 사본 전/후(mallang.js 받음): 검사 93 · 초록 84 · 빨강 3(sim-bookmark 원본 없음 · sim-google-login ⑦ · sim-fix-0923 4절 낡은 정규식 — 개정 79 참고, 전후 같음) · 원본없음 6.
-- ⚠️ 실기기: 런처·마이홈·캐릭터 생성기에서 프로그램 크기 −/+ → 창이 같이 커지고 줄어듦 · 작은 모니터에서 크게 하면 화면 안으로 줄어듦 · 20% 까지 내려감 · 실행 화면은 그대로.
-
-**개정 79 에서 한 것 (2026-10-02 · 제보 «폴더 숨기기에서 말랑이 폴더는 안 숨겨진다» · `myhome-desktop.js` 만)**
-- 원인: 숨김 규칙은 `#advDesktop.mhd-hide-folders .mhd-app` 인데, 말랑이 폴더(`#mlFolder` · mallang.js `refreshFolder`)는 `.mhd-app` 도 없고 `#advDesktop` 안도 아니다 — **둘 다 `#mhRoomPreview` 의 자식(형제)**이다.
-- 고침: `advApplyFolderHide` 가 같은 표식(`mhd-hide-folders`)을 바깥 상자 `#mhRoomPreview` 에도 걸고, CSS `#mhRoomPreview.mhd-hide-folders #mlFolder{display:none !important;}` 한 줄. 기존 `d.classList.toggle(…)` 줄은 그대로(개정 77 `sim-mhd-hidefolders.js` 가 보는 자리). mallang.js 는 안 고쳤다 — CSS 라서 폴더가 이미지 로드 뒤 늦게 생겨도 바로 숨는다.
-- 확인: 헤드리스 크로미움에서 실제 함수·규칙으로 — 숨김 켠 뒤 말랑이 폴더가 늦게 생겨도 none · 끄면 block · 방문(주인이 숨김)이면 none.
-- ⚠️ **되돌림 사고 하나 — 고쳤다.** 이 수정을 개정 77 **이전** 판 myhome-desktop.js 에 얹어 보내서, 개정 77 이 고친 iconSrc 걸러내기(첫 글자 글자·숫자)가 옛 `^[\w./-]+` 로 되돌아갔다. 실기기 전체 실행에서 `sim-mhd-hidefolders.js` 4절 «★ 바깥 주소는 안 받는다» 가 31·1 로 잡았다(개정 77 검사가 제 몫을 했다). → `^[A-Za-z0-9][\w./-]*\.(svg|png|webp)$` 로 다시 넣었다. 입력 10종 확인: parts/icons/… · icons/a.png 만 받음, //서버/a.svg · //server · /abs · ../ · https: · C:/ · file: · ./ 거절.
-- 실기기 전체 실행(개정 79 이전 판 기준): 97개 · 초록 93 · 빨강 3(sim-fix-0923 4절 낡은 정규식 · sim-google-login ⑦ · 위 sim-mhd-hidefolders — 이번에 고침) · 원본없음 1(togetherland-ui-mockup.html).
-- 🔎 **이번에 mallang.js 를 받아 `sim-fix-0923.js` 가 처음으로 끝까지 돌았다 → 87·1.** 빨강 하나는 4절 «원본 재질 하나 → 복제본 하나» — `_pkCloneChar` 의 `_clone` 줄이 같은 날 제보 #8(스티커사진 염색 · onBeforeCompile 유니폼 공유)로 고쳐져 **검사의 정규식(옛 한 줄 모양)이 낡은 것**이다. 원본 app.js(이번 세션 시작본)에서도 똑같이 빨갛다 — 이번 수정과 무관. 검사 파일은 안 고쳤다(그 수정을 한 세션 몫).
-
-**개정 78 에서 한 것 (2026-10-02 · 제보 «초대가 뜨면 수락·거절 말고 아무것도 못 한다» · `app.js` · 검사 1개)**
-- ⏳ **방 초대 팝업**(`showRoomInvitePopup`): 껍데기가 화면 전체를 덮는 어두운 판(pointer-events:auto)이라, 실행 화면(전체화면 투명 오버레이)에서 **화면 전체가 클릭을 막았다** — 앱 버튼도 뒤 프로그램도 못 눌렀다.
-  · 껍데기를 `pointer-events:none` · 배경 없음으로, 상자만 auto 로. `_uiRegions` 는 none 껍데기를 건너뛰고 자식(상자) 사각형만 담으므로 상자 밖은 뒤로 통과한다. ⚠️ 껍데기를 다시 auto 로 바꾸지 말 것.
-  · **3분 대기**(`ROOM_INVITE_WAIT_MS`) — 팝업이 뜬 순간부터 · 남은 시간 표시 · 지나면 거절과 같은 길(`done(false)`) + 토스트 · done 은 한 번만 · 작업표시줄 깜빡임은 done 에서 끈다.
-  · **오래된 초대**(앱을 꺼 둔 사이 온 것)는 띄우지 않고 지운다. 문턱은 3분이 아니라 **10분**(`ROOM_INVITE_STALE_MS`) — 초대 ts 가 **보낸 쪽 PC 시계**(Date.now)라 시계 오차로 새 초대를 버리지 않게.
-  · 확인: 헤드리스 크로미움에서 함수 원문으로 — 상자 밖 elementFromPoint = 뒤 버튼 · 뒤 버튼 클릭됨 · 만료 → 팝업 사라짐·거절·깜빡임 꺼짐 · 수락 → startRoom · 11분 전 초대는 지워짐.
-  · 검사: `sim-room-invite-wait.js` 신설 **14·0**. 되돌림 실측 — 옛 껍데기(어두운 판 · auto)로 되돌리면 ✗2.
-  · 같은 모양의 다른 팝업(친구 요청 `friend-req-popup-ov` 등)은 이번에 안 건드렸다.
-- 이 사본(개정 77 검사 넷 · mallang.js 없음) 전/후: 검사 92 · 초록 82 · 빨강 2(sim-bookmark 원본 없음 · sim-google-login ⑦ — 전후 같음) · 원본없음 8. 개정 77 의 검사 넷은 이 사본에 없어 못 돌렸다 — **실기기 전체 실행으로 확인할 것**(이번 수정은 초대 팝업 두 함수만 건드려 그 넷이 보는 곳과 겹치지 않는다).
-- ⚠️ 실기기: 친구가 초대 → 팝업 밖 클릭이 뒤 프로그램으로 감 · 남은 시간이 줄어듦 · 3분 뒤 자동 거절 토스트 · 수락하면 이동.
-
-**개정 77 에서 한 것 (2026-10-02 · 새 기능·제보 고침을 지키는 검사 넷 신설 · 기존 검사 파일은 한 줄도 안 고침)**
-- `sim-pomodoro.js`(40) — 포커스 기록창 [누적기록][🍅 뽀모][👑 달성표] · 서랍은 #focusLogWin 안 · 달성표와 하나만 · 상태 변수 var(★ _focusShowConf 가 로드 중 먼저 불려 let 이면 TDZ) · 포커스 기록(addFocusSeconds) 무간섭 · 알림음 풀이 잠금 해제 등록 앞 · 실제 함수로 집중→휴식→4바퀴 긴 휴식→새 사이클 · 자동 시작 꺼짐 · 오래 꺼졌다 켜짐 · 머리 위 문구 12자.
-- `sim-away-follow.js`(21) — 작은 THREE 흉내로 «group 이 90° 돈 올라탄 좌석» · «옆으로 뻗은 파츠» · «모자 쓴 아래 캐릭터» · (개정 76) «아래 캐릭터도 그림» 을 재 본다. sim-fix-0923 이 지키는 옛 줄 뒤에 역변환이 덮어쓰는 순서까지. 그림 크기(_awayPxFor)는 보지 않는다 — sim-fix-0923 8~10절 몫.
-- `sim-mhd-hidefolders.js`(32) — 방문자 화면은 **그 집 주인** 설정 · 배경 초기화해도 숨김 유지 · 규칙 무변경 · 다른 기기 맞춤. ★ 4절이 실제 구멍을 잡았다: iconSrc 정규식이 `//서버/a.svg`(file:// 에서 네트워크 공유 경로)를 통과시켰다 → 첫 글자를 글자·숫자로 고침(myhome-desktop.js).
-- `sim-kb-blind.js`(24) — 500ms 폴링 안 순서(훅 읽기 → 커서 → 1분 리셋 → 판정) · 부팅 5분 · 120회 · 키가 한 번이라도 오면 끝 · 커서/클릭으로 설명되는 입력 제외 · 다시 보지 않기 · 카운터 리셋 직후.
-- 넷 다 **일부러 망가뜨려 빨강이 나는지** 확인했다(10가지 변이 전부 잡음).
-- 개정 76 의 app.js · main.js 에 대고 돌렸다(같은 날 다른 사본에서 시작했으나, 개정 76 판이 이쪽 변경을 이미 전부 담고 있음을 줄 단위로 확인 — main.js 의 BGM 자리 잡기만 개정 76 이 의도해서 다시 썼다).
-
-**개정 76 에서 한 것 (2026-10-02 · 요청 넷 · `app.js` · `animal.js` · `main.js` · 검사 2개)**
-- 🎨 **자유 색 칸을 다시 누르면 그 색이 잡힌다**(인간 `brushCustom` · 동물 `anpBrushCustom`). `<input type="color">` 는 값이 바뀔 때만 input 을 보내서, 기본 칩으로 갔다가 같은 자유 색으로 돌아오려면 방법이 없었다 → click 에서 칸의 값을 바로 브러시로 잡는다. 동물 스포이드(`pPickColor`)도 인간처럼 뽑은 색을 칸에 넣고 칩 표시를 끈다. 값 자체가 상태인 색 칸(책상·옷·마이홈 배경 등)은 대상 아님.
-- 🎵 **마이홈 BGM 창이 마이홈 밖으로 보이던 것**(#10-b · `main.js` `bgmPositionRelativeToMain`): 크기를 160x120~240x180(마이홈의 80% 이내)로 묶어 마이홈 한가운데에 · 클리핑 뒤 다시 키우지 않음 · 너무 잘리거나 마이홈 좌표가 아직 없으면 투명(setOpacity 0 · 소리 유지) · 최소 크기 180x30 → 80x20(생성 시·bgmApplyMode).
-- 🖼️ **자리비움 그림 화면 크기 — 기본 80 · 그림 주인이 60·80·100 중 고른다(A안 확정)**. 처음엔 150 → 60 으로만 내렸다가 «60 은 작다» 로 선택지가 됐다.
-  · [내 정보] › 자리비움 그림 칸 [그림 등록 · 기본으로] 아래 `크기 [60][80][100]`(그림이 있을 때만 보임). 이 기기 `tw.awaySz` + 서버 `users/{uid}/awaySz`(계정을 따라감 · 부팅 때 서버가 이김) + 방 payload `awaySz`(평소·입장 둘 다) → 받는 쪽 `seat.remoteAwaySz` → `_awayPxFor(seat)` 로 그린다. 없거나 엉뚱하면 기본 80(구버전 좌석).
-  · **규칙 추가 — 게시 필요:** `users/$userId/awaySz` (본인만 · 숫자 60·80·100 만). 게시 전에는 서버 저장만 거절되고(«이 기기에서만 바뀌었어요» 안내) 방 payload 는 규칙 변경이 없어 그대로 간다.
-  · ⚠️ `Presence` 는 load 순간 도는 IIFE 라 초기값을 아래쪽 `var AWAY_PIC_SCREEN_PX` 로 두면 undefined → Firebase 가 payload 를 통째로 거절(방 입장 깨짐). 숫자 80 으로 박았다 — 검사 10절이 지킨다.
-  · 업로드 원본(500px)은 그대로. `sim-fix-0923.js` 8·9절 갱신 + 10절(12) 신설 — 8·9·10절만 떼어 24·0(mallang.js 없음).
-- 🫧 **자리비움 그림 위에 올라탄 캐릭터가 공중에 떠 있던 것**(제보 스크린샷): `_positionRideSeat` 는 대상의 **숨은 몸의 머리 본**을 따라가서, 대상이 자리비움 그림(60~100px)일 때 그림보다 한참 위에 떴다. 대상의 `_awaySprite` 가 보이면 «꼭대기» 를 그림 윗변으로 바꿔 끼운다 — 자세 보정(1층 sink−팔높이 · 묘기 발 sink · 높이 상쇄)은 그대로(`_offY − _topUsed`), 가로·앞뒤는 그림 가운데. 짝으로 `_awayImgFrame` 탑 갈래도 아래가 그림이면 그 윗변에 내 그림을 세운다(그림 위 그림).
-  · `sim-fix-0923.js` 11절(6) — 실제 코드 조각을 가짜 벡터로 돌려 높이를 잰다. 8~11절만 떼어 30·0.
-  · ⚠️ 실기기: 자리비움(그림 있음) 사람 머리에 동물로 올라타기 → 그림 윗변에 팔을 걸침 · 2층 묘기도 그림 위 · 그림 크기 60/80/100 바꾸면 따라옴 · 자리비움 풀리면 다시 머리 위.
-- 🎟️ **🔫 룰렛 · 🎲 투게더룸 주사위 하루 6번 — 각각 따로** (`_dailyPlayTake` · localStorage `tw.dailyPlay.roulette|dice` · 로컬 자정 기준). 막힌 누름(회사원·쉬는 중·연타·canFly)은 안 깎는다. 저장이 안 되면 막지 않는다. 기기마다 따로 센다(서버 제한 아님). `sim-fly-roulette.js` 5절(7) 추가 → **39·0**.
-- 📄 **관리자 라이선스 엑셀 일괄 발급**(시안 확정): 발급 창 「친구코드로 발급」 아래 [📄 엑셀로 일괄 발급…] → 옆에 두 번째 창(`#licenseXlsxWin` · 같은 `#licenseGenOverlay` 안이라 클릭 통과·ESC·창 층 등록 불필요). 파일 → 미리보기(조회만 · 쓰기 없음) → [N건 발급](한 건씩 · 단건과 같은 createLicense → 수령함 reward) → 결과 엑셀 저장(원본 열 + 발급 키·결과·사유). 친구코드 빈 행 = 키만 · 파일 안 중복 = 첫 행만 · 발급 목록 메모에 이미 있는 코드 = 건너뜀(옵션으로 재발급) · 다시 올린 결과 파일의 «발급 키» 찬 행 = 건너뜀(결과·사유 보존).
-  · **라이브러리 안 늘림** — xlsx 는 이미 있는 JSZip + DOMParser 로 첫 시트만 읽고 같은 방식으로 쓴다(SheetJS npm 판은 알려진 취약점 · 최신판은 npm 밖). .csv(UTF-8·BOM·EUC-KR) 도 받는다. 옛 .xls 는 안내로 막음.
-  · ⚠️ 바깥 클릭 닫기(`OUTSIDE_CLOSE_OVERLAYS`)가 «첫 자식» 기준이라 두 번째 창 클릭이 발급 창을 닫았다 → licenseGenOverlay 에 `#licenseXlsxWin` 예외 한 줄.
-  · 확인: 헤드리스 크로미움에서 openpyxl·LibreOffice 가 만든 xlsx · 열 순서 바뀐 xlsx · BOM/EUC-KR csv · 제목 없는 csv 읽기, 쓴 xlsx 를 openpyxl(-W error)·LibreOffice 로 열기, 가짜 firebaseAPI 로 미리보기→발급→결과 저장→결과 파일 재업로드까지 한 바퀴. audit.py 검사 19(속성 보간) 통과.
-  · 검사: `sim-license-xlsx.js` 신설 **25·0**. 되돌림 실측 — 바깥 클릭 예외 제거 · 미리보기에서 createLicense · hasKey 처리 제거 → 각 실패 1.
-- 👥 **방 정원 8 → 10** — `app.js MAX_PEOPLE` 한 곳(입장 사전 검사 · 재확인 · 랜덤 참여 · 그리는 좌석 수 · 시크릿룸 손님 9)이 다 따라간다. `firebase-init.js` 정원 초과 자기 퇴장의 폴백 8 → 10 · HTML «최대 8명» 문구 4곳. 규칙 변경 없음(서버에는 원래 인원 제한이 없다). 검사가 8 을 붙잡은 곳 없음.
-  · ⚠️ 옛 판(8)과 섞이면: 옛 판은 친구 7명까지만 그리고 · 8명 이상 방에 못 들어오고 · 늦게 온 옛 판은 8번째부터 스스로 나간다. 배포 뒤 `config/minRoomVer` 를 새 판으로 올리면 섞이지 않는다.
-  · 💰 꽉 찬 방 기준 방 트래픽 약 1.6배(인원×(인원−1): 56 → 90).
-- 이 사본 전/후: 검사 90 · 초록 80 · 빨강 2(sim-bookmark 원본 없음 · sim-google-login ⑦ — 전후 같음) · 원본없음 8. `sim-fix-0923.js` 는 mallang.js 가 없어 이 사본에선 원본없음 — 8·9절만 떼어 돌려 12·0.
-- ⚠️ 실기기: ① 생성기 2·3단계 — 자유 색 → 칩 → 자유 색 칸 클릭 후 그냥 닫기 → 자유 색으로 칠해짐(인간·동물) ② 마이홈 BGM 재생 → 런처·실행 화면 둘 다 마이홈 밖에 유튜브 창이 안 보임 · 마이홈을 화면 가장자리로 끌어도 안 삐져나옴 · 소리 계속 ③ **규칙 게시 후** [내 정보] › 자리비움 그림 크기 60·80·100 — 내 화면 · 방 상대 화면(새 판) 둘 다 바뀜 · 다른 PC 로그인 시 같은 값 ④ 룰렛 7번째 · 🎲 7번째 토스트 · 자정 지나 풀림 ⑤ 관리자 › 라이선스 발급 › [엑셀로 일괄 발급] — 양식 받기 → 친구코드 2~3개로 발급 → 수령함 도착 · 결과 엑셀이 실제 Excel 에서 열림.
-
-**개정 75 에서 한 것 (2026-09-30 · 🍎 Mac 크래시 제보 2건 · `sysinput-mac.js` · `sysinput-win.js` · `main.js` · `app.js` · `scripts/patch-nwm.js` · `package.json` · `tools/mac-bundleid-probe.js`)**
-- 크래시: node-window-manager `getWindowTitle` 이 `kCGWindowOwnerName` nil 을 strlen(NULL) 로 넘겨 앱 전체가 죽었다(SIGSEGV · JS try 로 못 잡음). ① `sysinput-mac.js` 는 `getTitle()` 을 안 부른다 — 그 값은 창 제목이 아니라 앱 이름이라 경로에서 만든다(`_titleOf`). «제목 0건 = 화면 기록 권한» 갈래는 전제가 틀려 걷었다. ② `scripts/patch-nwm.js`(postinstall) 가 `macos.mm` 의 nil 문자열 두 곳(getWindowTitle · initWindow path)을 고치고 mac 에서 다시 빌드한다. mac-probe 로 arm64·x64 컴파일 확인.
-- 판정 키: node-window-manager 의 `path` 는 `.app` **폴더 자체**인데 `_appBundleOf` 가 부모부터 올라가 자기 자신을 못 봤다 → 키가 번들 id 가 아니라 `google chrome.app`. 그 탓에 SELF 가 안 걸려 «방금 쓰던 앱 등록» 이 투게더워킹 자신을 등록할 수 있었고, WINLIST_SKIP 이 한 줄도 안 걸렸다. ⇒ 경로 자체가 `.app` 이면 그것을 번들로 본다.
-- 옛 키(≤0.10.0 mac 저장물 — focus-apps.json · 서버 chal.cfg.key)는 **저장값을 안 고치고** 활성 창 쪽에서 옛 규칙 키(`legacyProcNameOf` → main `legacyKeyOf` → `keyAlt`)를 하나 더 만들어 둘 중 하나가 맞으면 센다. 저장은 여전히 하나 · keysOf 무변경 · Windows 는 legacy = procNameOf 라 동작 변경 0. 두 모듈 내보내기 10개 일치.
-- 검사: 러너 전/후 **초록 80 · 빨강 1(sim-bookmark — 원본 없음, 전후 같음) · 원본없음 9** · `sim-keysof-twin --selftest` 9/9 · audit.py 통과. probe 6절 +7(`.app` 폴더 경로 · 끝 / · 표시명 · 중첩 폴더 · 옛 규칙 재현 둘) → 이 환경 16·0·5.
-- ⚠️ 실기기(mac): ① 크래시 제보자 새 빌드로 확인 ② 로그 `[활성] 활성=mac:com.… 옛키=mac:….app` ③ 옛 판본으로 등록한 슬롯·달성 조건이 그대로 세지는지 ④ 설정에서 «방금 쓰던 앱 등록» 이 우리 앱이 아닌 직전 앱을 잡는지 ⑤ 창 목록에 Finder·투게더워킹이 안 뜨는지.
-
-**개정 74 에서 한 것 (2026-09-23 · 📱 태블릿·폰 포커싱 연결 · handoff-2026-09-18.md · 시안 ①~④ 승인 · `app.js` · `firebase-init.js` · html · 규칙 · `vendor/qrcode.js` · `hosting/link.html` · `firebase.json` · `.firebaserc`)**
-- 결정(사용자): 머리 위 «📱 앱» 은 **방 사람들에게도 보인다**(§6-1). §6-2 안전 상한 **4시간** · §6-3 달성표 🎯집중에 폰 시간 **안 넣음** — 제안대로.
-  말풍선 순서(이번에 정함): **사용자가 고른 상태 > 📱 앱 > 🕒 오늘 기록**. 보내는 쪽(`_statusOut` 첫 줄)과 내 화면(`_conf` 줄)이 같은 순서다.
-- 구조: QR = 연결 · 기기 자동화(iOS 단축어 «앱이 열릴 때/닫힐 때» · MacroDroid «앱 실행/종료») = 신호 · RTDB = 중계 · PC = 판정.
-  `mobileKeys/{uid}`(읽기 금지 · 24자) · `mobileLink/{uid}/live`(PC 켜짐 · onDisconnect remove) · `mobileLink/{uid}/state`({on,app,ts,key} · 폰이 REST PUT).
-  ⚠️ presence 를 «PC 켜짐» 으로 안 쓴다(«오프라인으로 보이기» 가 폰까지 끊는다). `users/*` 는 공개 읽기라 키는 **최상위**다.
-- `app.js`: `_mobileOn()`(켜짐 + 상한 안) 하나로 합친다 — `_applyActiveAppState` 에서 focusGateSleep=false · _focusWasActive=true · notFocusingNow 건너뜀(달성표는 PC 기준 `pcNotFocusing`) · `seatState` 집중 포즈(내 좌석) · `_autoAwayCheck` 유휴 0. `lastActivity` 는 안 건드린다. payload 에 `mobile:_mobileRoomLabel()`(평소 · 입장 — **남의 검사가 붙잡은 글자를 피한 자리**) · 받는 쪽 `s.remoteMobile`. 설정 칸 `_mobRenderPanel`(초록/노랑/회색) · QR 창 · 2단계 누르기(끊기 · 키 새로). 로컬 키 `tw.mobileKey`={u,k} — uid 가 다르면 없는 것 · **로그아웃 목록 밖**(돌아올 길이 없는 값). 키가 없으면 서버에 한 번도 안 간다.
-- `firebase-init.js`: `mobileLinkStart`(live + onDisconnect · 재접속 다시 걸기 · 부팅 초기화 on=false · 구독) · `mobileSetKey`(예전 state 지움) · `mobileUnlink`. `main.js` · `preload.js` 무변경.
-- 규칙: `mobileKeys` · `mobileLink`(state 쓰기 = 주인 **또는** key 일치 + live 있음) · 방 멤버 `mobile` ≤ 40. **게시해야 켜진다** — 게시 전엔 키 저장이 거부되어 [QR로 연결하기] 가 «저장하지 못했어요» 로 끝난다(다른 기능 영향 없음).
-- 검사: `sim-mobile-focus.js` **신설** → **68·0**(판정 실행 · 상한 · 달성표 제외 · 포즈 · 자리비움 · 방 payload · _statusOut 실행 · 서버 통로 · 규칙 · 화면 · QR 인코더 · 안내 페이지). 이빨: 개정 73 app.js → 빨강 9(멈춤 포함) · `notFocusingNow` 되돌림 돌연변이 → 빨강 1.
-  이 사본 전/후: 초록 75→**76** · 빨강 4→4(원본 없음 — overlay-win · sysinput-win · bookmark.js · 전후 같음) · 원본없음 10→10 · `audit.py` 전부 통과. **실기기 기준선 기대값: 초록 88 · 빨강 0 · 원본없음 1.**
-- 배포: `firebase deploy --only database`(규칙) · `firebase deploy --only hosting`(안내 페이지 `https://together-working.web.app/link`). `hosting/` 은 `build.files` 에 없다(앱에 안 들어간다).
-- ⚠️ 실기기: ① 규칙 게시 → [QR로 연결하기] → 콘솔 `mobileKeys/{코드}` · `mobileLink/{코드}/live` ② 폰으로 QR → 안내 페이지 → [신호 보내 보기] → PC 칸 3초 초록 ③ 그림 앱 자동화 «열릴 때» → 캐릭터 집중 포즈 · 머리 위 «📱 앱» · 같은 방 다른 PC 에도 ④ 10분 뒤 레벨 시간 증가 ⑤ PC 종료 → 폰 신호가 거절되는지(페이지에 «PC 가 꺼져 있거나…») ⑥ «오프라인으로 보이기» 를 켜도 연결 유지.
-  미검증 3건(handoff §4-⑤): iOS 단축어 요청 본문 «파일 ← 텍스트» 로 JSON 이 그대로 가는지 · MacroDroid PUT 본문 · 자동화마다 앱 이름을 따로 넣는 방식 — 안내 문구는 이 결과로 한 줄씩 바뀔 수 있다.
-
-**개정 73 에서 한 것 (2026-09-23 · 🏆 [내 정보] 전체 랭킹 · 사용자 확정: 시안 v2 B안 + 후광 ② · handoff-ranking.md §3 네 가지는 전부 제안대로 · `app.js` · `firebase-init.js` · html · 규칙)**
-- 결정: 기준 = **누적 집중 시간(회차 포함)** · 동점 = 먼저 도달(ts 오름) · 갱신 = [내 정보]를 열 때 상위 100줄 한 번(60초 캐시) · 부풀리기 = 처음엔 막지 않음(이상한 값은 관리자가) · 숨기기 없음(본인만 보는 순위라서).
-- 규칙: 최상위 `leaderboard/$userId = {sec, ts}` 신설. 목록 읽기는 `query.orderByChild == 'sec' && query.limitToLast <= 100` 만(playlistIndex 와 같은 방식 · 표 통째 읽기 거부) · 한 줄 읽기는 열림(아래 «같은 값 안 씀» 용) · 쓰기는 `users/$userId/focus` 와 **같은 소유권 식** · sec 0 ~ 359,640,000(누적 상한 네 번째 자리 — `sim-focus-cap` 3절이 자동 대조) · ts ≤ now + 60초 · `$other` 거부 · `.indexOn: sec`. **게시해야 켜진다** — 게시 전엔 쓰기가 거부되고 읽기가 실패해 자리가 비어 있을 뿐이다(오류 없음).
-- `firebase-init.js`: `setLeaderboardSec(uid, sec)` — 대기선 뒤 · 서버 줄의 sec 가 같으면 **안 쓴다**(부팅·기기마다 새 ts 가 찍혀 동점에서 밀리지 않게) · ts 는 `serverTimestamp()`. `fetchLeaderboardTop()` — sec 정렬 상위 100줄 `[{uid,sec,ts}]` · 실패는 null.
-- `app.js`: 순수 `rankOf(rows, uid)`(sec 내림 · ts 오름 · 100 제한 · 없으면 null) · `rankLabel(rank)`(메달 셋 · 1~3위 top · 1위 crown · 밖이면 null). `syncFocusTotalToServer` 가 **성공한 뒤** 서버 총합(`server`)을 `_lbPush` 로(이번 부팅에 같은 값이면 안 부름 · 기다리지 않음). `_miRenderRank()` — `_miRenderHead` 에서 · 60초 캐시(계정별) · 옛 값 먼저 · 실패하면 비움 · 닫힌 뒤 응답은 안 그림.
-- html: 사진 칸을 `.mi-ava-wrap`(position:relative · overflow:visible)으로 한 겹 쌈 — 왕관·후광(`#miHalo` · `#miCrown`)은 `#miAvatar`(overflow:hidden) **밖**. 머리 줄 끝에 `#miRank`(B안 · 처음엔 숨김). «◀ 내 정보» 줄에 `#miTopBar` — 1위일 때만 간격 8 → **22px**(시안의 1위 간격 그대로 · 시안 기본은 12 였지만 실제 기본 8 은 안 바꿨다). CSS 는 시안 값 그대로 · 움직임 없음.
-- 검사: `sim-signup.js` **16절 신설**(마크업 자리 · 감싸개 밖 · B안 · «100위 밖» 글자 없음 · CSS 값 · 움직임 없음 · 동기화 성공 뒤 서버 총합 · 레벨·회차 안 씀 · 어댑터 모양 · 규칙 소유권·$other·상한·읽기 제한 · rankOf 1/57/100/101/동점/ts 없음 · rankLabel · 가짜 DOM 1위·2위·57위·100위 밖·실패·uid 없음 · 캐시 60초 · 계정 바뀜 · 닫힌 뒤 · 같은 값 한 번만) → **492·0**. `sim-focus-cap` 3절이 «블록 없음» 알림 대신 **랭킹 sec 상한 대조**를 켰다.
-  이빨: 새 `sim-signup` × 개정 72 원본 → **25건 빨강**. 돌연변이 ① 규칙 leaderboard 상한만 1 낮춤 → focus-cap 3절 · 16절 둘 다 빨강 ② `_lbPush(uid, mine)`(로컬값) → 16절 빨강.
-  이 사본(main.js 등 없음) 전/후: **초록 66 · 빨강 1(sim-bookmark — bookmark.js 없음, 전후 같음) · 원본없음 22** · audit.py 전부 통과. **실기기 기준선 기대값: 초록 87 · 빨강 0 · 원본없음 1**(그대로).
-- 릴리스 노트: «내 정보에서 전체 순위(1~100위)를 볼 수 있어요. 새 버전으로 한 번 접속해야 순위에 들어가요.»
-- ⚠️ 알고 둘 것: ① 처음엔 표가 비어 있다 — 새 판으로 10분 동기화가 한 번 돌아야 들어간다(옛 판 사용자는 안 들어감). ② 관리자가 이상한 줄을 지워도 그 사람의 `users/{코드}/focus/totalSec` 이 그대로면 다음 부팅의 동기화가 같은 값을 다시 쓴다 — **둘 다 고칠 것**. ③ 100위 경계의 동점은 서버가 자른 대로(허용).
-- ⚠️ 실기기: ① 규칙 게시 → 앱 재시작 → 10분 안에 콘솔 `leaderboard/{내 코드}` 에 sec·ts ② [내 정보] 머리 오른쪽에 «전체 랭킹 / N위»(사람이 적으면 1위 → 🥇 · 왕관·후광 · ◀ 줄 간격 벌어짐) ③ 사진 없는 칸 · 사진 있는 칸 둘 다 왕관이 안 잘리는지 ④ 테마 몇 개에서 후광 모양.
-
-**개정 72 에서 한 것 (2026-09-23 · 제보 «탑 위에서 자리비움하면 그림이 밑의 캐릭터를 가린다» · `app.js` 만)**
-- 원인: 그림 자리는 «내 캐릭터 경계상자의 가운데 · 발밑» 이다. 1층으로 올라탄 캐릭터는 상대 머리에 팔을 걸치고 몸이 얼굴 앞으로 늘어진 자세(`_positionRideSeat` 팔 걸치기)라 **발밑이 상대 머리보다 아래**다 — 거기 150px 그림(개정 68)이 서면서 상대를 덮었다.
-- 고침(A안 · 확정): 올라탄 동안(`seat.ridingOn`)에는 그림 **밑변 = 바로 아래 캐릭터 경계상자의 꼭대기**, 가로·앞뒤 = 그 캐릭터 가운데. 탑 맨 위에 얹힌 모양이 되고, 층마다 각자 자기 바로 아래 캐릭터 위에 선다. 2층 이상(묘기)도 같은 규칙. 땅에 선 캐릭터는 예전 그대로(발밑). 150px 크기는 바뀐 자리의 깊이로 잰다. 상자는 `_awayHostBox` 하나를 재사용.
-- 검사: `sim-fix-0923.js` 9절(6) 추가 → **70·0**(animal.js 없으면 69).
-- ⚠️ 이번 사본의 검사 셋(`audit.py` · `sim-focus-cap.js` · `sim-signup.js`)은 개정 69~71 이전 판이라 정본 대조와 `sim-focus-cap` 이 어긋났다 — 이번 수정과 무관하다(그 셋이 보는 곳을 안 건드렸다). **실기기 전체 실행으로 확인할 것.** 기대값은 개정 71 이 적은 값 그대로(검사 수 변화 없음).
-- ⚠️ 실기기: 동물 2~3층 탑에서 위층이 자리비움 → 그림이 바로 아래 캐릭터 머리 위에 얹히고 아래 캐릭터를 가리지 않음 · 땅에 선 캐릭터의 그림은 예전 자리.
-
-**개정 71 에서 한 것 (2026-09-23 · handoff-level-tiers §6 의 «바로 할 수 있는 둘» · `app.js` · `firebase-init.js` · `audit.py`)**
-- 🌟 **별 색이 계정을 따라간다.** 원본 = 이 기기 `tw.starColor`, 서버 사본 = 프로필 `starC`.
-  · `_adoptStarColorFromProfile()` — 이 기기에 고른 값이 없으면 프로필 `starC` 를 받아 온다(팔레트 안만 · 읽는 사이 이 기기에서 고르면 그쪽이 이김). 부르는 곳: 마이홈 초기화(**첫 프로필 쓰기 앞**) · 로그인 복원 끝.
-  · `myStarProfileOut()` — 프로필에 쓸 때 고른 값이 없으면 `starC` 를 비워 보낸다. `firebase-init` `setMyProfile` 이 비어 온 경우에만 서버의 기존 `starC` 를 한 번 읽어 **지킨다**(set 통째 덮어쓰기가 다른 기기에서 고른 색을 지우지 않게). 방(프리즌스)은 보이는 색 그대로(`myStarOut`).
-  · `firebase-init` `fetchProfileStarC(uid)` 신설. `ACCOUNT_LOCAL_KEYS` 에 `'tw.starColor'` — 돌아올 길이 생겨서 넣었다(한 PC 에서 계정을 바꿔도 앞 사람 색이 안 실린다).
-- 🛡️ `audit.py` **검사 17 (e) 신설** — `lv-star` 는 `LV_TIERS` 에 없어 (a)(b) 가 안 셌다. `lvStarBadgeClass`/`lvStarBarClass` 가 있으면: 회차 변수 블록(`.mh-flv.lv-star, .seat-exp.lv-star`)과 두 토큰 · `--pre-c` 에서 파생 · 붙이는 표식마다 규칙 · 배지 별(`.mh-flv .pre`) · 이름표 별(`.seat-nameplate .np-star` · background-clip:text). 이빨: 회차 블록 선택자를 깨면 «블록 없음», 이름표 별을 깨면 «규칙 없음 + reduced-motion 목록 없음».
-- 검사: `sim-focus-cap.js` **6절 신설**(비워 보내기 · 새 기기 받아 오기 · 다시 안 읽음 · 이 기기 값이 이김 · 팔레트 밖 거절 · 읽는 사이 고름 · uid 없음 · 회차 전 · 부르는 자리 순서 · 로그아웃 목록 · firebase-init 서버 값 지키기/고른 색/회차 없음 비용) · 4절 프로필 판정 → **51·0**(6절이 비동기라 판정 줄은 그 뒤에 찍는다). `sim-signup.js` 15절 로그아웃 목록 판정 뒤집음 + 목록 본문을 정확히 떼어 오게(옛 판은 엉뚱한 `{…}` 를 잡아 «없음» 이 늘 참이었다) → **444·0**. 이빨(새 판정 × 개정 70 원본): sim-focus-cap 빨강 7 · sim-signup 1. 전/후(이 사본): 초록 66→66 · 빨강 1→1(sim-bookmark — 원본 없음) · 원본없음 22→22 · `audit.py` 통과.
-  **실기기 기준선 기대값: 초록 87 · 빨강 0 · 원본없음 1**(그대로).
-- ⚠️ 실기기: 999 전 사람은 여전히 달라지는 것이 없다. 로그아웃 → 로그인이 예전처럼 되는지만(콘솔 오류 없음).
-
-**개정 70 에서 한 것 (2026-09-23 · 🌟 회차 별 본체 — handoff-level-tiers §6-5 · `app.js` · `firebase-init.js` · 규칙)**
-- ⚠️ **옛 계획을 한 군데 바꿨다: `getFocusLevel()` 을 모듈로로 접지 않는다.** 그 값은 해금 기준이다 — 춤 · 상호작용 책상 · 💣 · 날리기 색(받는 쪽도 `friends[id].level` 로 판정) · 동물 · 가챠 뽑기 수(`레벨/N`). 접으면 2회차 사람이 Lv.1 이 되어 전부 다시 잠기고 뽑기 수가 줄어든다. 그래서 **해금 = 누적(999 에서 멈춤) · 표시 = 이번 바퀴 레벨 + 별** 로 갈랐다. 표시 설계(★342 · ☆/★ · 두 자리가 뒤집힘 · 16색)는 그대로다.
-- `app.js`: `myFocusShow()`(나) · `starFromRemote()`(남 — 범위를 자르고 팔레트 밖 색은 첫 색) · `myStarOut()`(보내는 모양). `lvStarBadgeClass` / `lvStarBarClass` / `_starPaint`. 이름표(`setSeatNamePlate` — «★342  이름» · 매 프레임 열쇠 비교) · 바(`updateSeatExpBar` — 통째 대입 문자열에 `lv-star lvx lvglow`) · 배지(`_plFillLv` · 친구 목록 `_lvBadge` · 마이홈 카드 · [내 정보] 머리). `expCellsFromSec` 의 999 분기 풀음. 프리즌스 `cyc/clv/starC`(입장 · 평소) · `setLevel` 이 회차·바퀴 레벨·색까지 보고 바뀔 때만 보냄. 프로필 쓰기 세 곳 모두 `myStarOut()` 을 싣는다(set 통째 덮어쓰기). 색을 고르면 머리 배지 · 프로필까지 바로.
-- `firebase-init.js`: `setMyProfile(…, star)` — 규칙과 같은 범위만 싣는다 · 친구 프로필 구독과 명함(`fetchPlaylistCard`)이 `cyc/clv/starC` 를 날것으로 넘긴다(거르기는 app.js 한 곳).
-- 규칙: `users/$uid/profile` · `rooms/$room/$memberId` 에 `cyc`(1~100) · `clv`(1~999) · `starC`(#rrggbb) 검증 추가. **게시해야 켜진다** — 게시 전에도 두 노드 모두 자식 제한이 없어서 쓰기는 된다(검증만 없음).
-- 검사: `sim-focus-cap.js` **4절 다시 씀**(해금 레벨은 모듈로 아님 · 표시 모듈로 ↔ 별 짝 · 표시 자리 · 보내는 level · 프로필 쓰기 전부 회차 실음 · 경험치 칸 · 떼어서 실행) · **5절 신설**(받기 걸러내기 · 회차 배지 · 재활용 요소에서 --pre-c 걷기 · 옛 판 숨김) · 2절 문구 → **36·0**. `sim-signup.js` 15절 판정 둘(--pre-c 칠하는 곳 둘 · 색 고르면 머리·프로필) · 11절 배지 호출 모양 → **444·0**. 이빨(새 판정 × 개정 69 원본): sim-focus-cap 빨강 6 · sim-signup 2. 전/후(이 사본): 초록 66→66 · 빨강 1→1(sim-bookmark — 원본 없음) · 원본없음 22→22 · `audit.py` 통과(검사 19 — 친구 목록 배지의 색·클래스 보간은 `escHtml` 로 감쌈).
-  **실기기 기준선 기대값: 초록 87 · 빨강 0 · 원본없음 1**(그대로).
-- ⚠️ 실기기: 회차 모습은 달성자가 없어 볼 수 없다. 999 전 사람에게 **아무것도 안 바뀌어야** 한다 — ① 이름표 «Lv.N 이름» · 바 · 배지 색 그대로 ② 친구 목록·방 안 상대가 옛 판이어도 그대로 ③ 규칙을 게시한 뒤 프로필·방 입장이 거부되지 않음(콘솔에 permission_denied 없음). ⚠️ 콘솔에서 `_focusTotalSec` 을 올려 보지 말 것(서버에 영구히 올라간다).
-
-**개정 69 에서 한 것 (2026-09-23 · 🌟 회차 별 색 고르는 자리 · 사용자 확정: 시안 v2 «레벨 배지를 누르면 B안 구획이 열린다» · 탭 순서 보관함 · 휴지통 · 계정)**
-- `desk-companion-prototype.html`: [내 정보] 머리의 레벨 배지(`#miLv`)를 버튼 `#miLvBtn` 으로 감쌈(▾ · aria-expanded). 머리 아래 · 자리비움 그림 위에 `#miStar` 구획 — 999시간 전은 `#miStarLock`(남은 시간 + 막대), 회차면 `#miStarOn`(진짜 좌석 CSS 로 그린 이름표·바 미리보기 + 16칸). 탭 순서 **보관함 · 휴지통 · 계정**(개정 49 의 보관함 · 계정 · 휴지통을 사용자가 다시 정함). CSS `.mi-lv-btn` · `.mi-star*` — 색은 안 적는다.
-- `app.js`: 재료 `STAR_PALETTE`(밝은 톤 16) · `getStarColor`/`setStarColor`(팔레트 밖 거절 · 기본 금 · 키 `tw.starColor`) · `focusCycleOf`(회차는 누적초에서 파생) · `lvStarStr`(☆=1 · ★=2 · 13회차부터 «★×n»). [내 정보] `_miStarToggle` · `_miRenderStar`(--pre-c 는 `#miStar` 한 곳). 열고 닫을 때마다 구획은 닫힘. `_miSetTab` 배열 순서 · 머리 주석.
-  ⚠️ **좌석·배지에는 아직 별을 안 붙였다.** `getFocusLevel` 모듈로 · 좌석 `lv-star` · 프리즌스 필드는 한 번에 하는 다음 단계(handoff-level-tiers §6 · `sim-focus-cap` 4절이 짝을 지킨다 — 미리보기의 lv-star 는 HTML 고정이라 그 판정 밖). 색은 이 기기 localStorage 만 — 그래서 `ACCOUNT_LOCAL_KEYS` 에 **안 넣었다**(돌아올 길 없는 값).
-- 검사: `sim-signup.js` **15절 신설**(마크업 · 자리 · 좌석 클래스 재사용 · CSS 가 색을 안 적음 · 배선 · 열 때마다 닫힘 · --pre-c 한 곳 · 로그아웃 목록 밖 · app.js 에 lv-star 없음 · 팔레트 16·겹침 없음·상대 휘도 0.35 이상 · 별 문자열 아홉 · 회차 파생 · 색 저장 거절/기본/옛값 · 가짜 DOM 으로 999 전 잠김 · 30분 남아도 1시간 · 회차 미리보기 · 칸 누르면 저장·체크 · 13회차) · 12절 탭 순서 판정을 새 순서로 → **444·0**. 이빨(새 판정 × 개정 68 원본): sim-signup 빨강 23. 전/후(이 사본 · main.js 등 없음): 초록 66→66 · 빨강 1→1(sim-bookmark — 원본 없음 · 무관) · 원본없음 22→22 · `audit.py` 전부 통과.
-  **실기기 기준선 기대값: 초록 87 · 빨강 0 · 원본없음 1**(그대로 · sim-signup **444·0**).
-- ⚠️ 실기기: ① [내 정보]에서 배지를 누르면 머리 아래에 구획이 열리고 다시 누르면 닫힘 · 나갔다 오면 닫혀 있음 ② 999 전 — «N시간 남았어요» + 막대 ③ 회차 모습은 실기기에서 볼 수 없다(달성자 없음). ⚠️ 콘솔에서 `_focusTotalSec` 을 올려 보지 말 것 — 다음 동기화가 max 로 그 값을 **서버에 영구히** 올린다(단조 증가). 모양은 15절 가짜 DOM · 시안 v2 로 확인 ④ 버블 테마에서 칸·미리보기 틀이 둥글어짐 ⑤ 탭이 보관함 · 휴지통 · 계정 순서.
-
-**개정 68 에서 한 것 (2026-09-23 · 요청 둘 · `app.js` 만)**
-- 🗼 **탑(올라타기) 안에서도 룰렛·🎲 로 날아간다 — A안 «나만 빠지고 탑은 한 칸 내려앉음»** (요청으로 확정)
-  · `canFly(seat, allowTower)` — 탑 허용은 **인자로만**. 🎲(`_selfFlyReady`)·룰렛(`_rollRoulette`)만 `true` 를 넘긴다. 💣(`_flyTargetCheck`)은 지금처럼 탑 안 사람을 못 겨눈다.
-  · `_rideLeaveTower` — 가운데·맨 위는 `unmountRide` 본래 동작(내 위층이 내 아래층으로 내려앉음). **맨 아래**는 바로 위층이 새 바닥이 되고 그 위는 탄 채 남는다(그냥 `unmountRide(위층)` 을 부르면 위층의 승객을 «그 아래 = 날아갈 나» 로 옮겨 싣기 때문에 승객을 잠깐 떼었다 다시 태운다).
-  · `applyRemoteFly` — **받는 화면마다** «먼저 탑에서 빼고 → 날린다». 방 전원이 같은 순서로 해서 같은 모양이 남고, 각 좌석 주인이 자기 새 `ridingOn` 을 방송해 맞춘다.
-  · `_applyRemoteRides` — 날아가는 중인 좌석은 건너뛴다(늦게 온 «아직 타고 있음» 이 비행 도중 머리 위로 다시 붙이는 것을 막음).
-  · 탑이 내려앉으며 내 캐릭터를 다시 태울 때 «올라탔어요» 토스트는 끈다(`_rideQuietToast` · 방송은 그대로).
-  ⚠️ 날아가는 출발점은 **탑 위가 아니라 자기 자리**다(비행이 좌석 기준 오프셋으로 돌고 자기 자리에 착지하는 구조). 탑에서 빠지는 순간 제자리로 내려와 곧바로 날아간다 — 실기기에서 어색하면 출발 높이를 탑 위치로 옮기는 후속 작업.
-- 🖼️ **자리비움 그림을 화면 150×150px 로 고정**(제보: 동물이면 엄청 크게 나옴). 예전엔 캐릭터 경계상자 높이에 맞췄는데 동물 경계상자가 몸보다 훨씬 컸다. 이제 원근 카메라에서 그 깊이의 «150px = 월드 길이» 를 0.5초마다 재서 쓴다(`_awayWorldForPx` · `AWAY_PIC_SCREEN_PX`). 인간·동물·캐릭터 크기 설정과 무관. 자리(가운데 · 발밑)는 예전처럼 경계상자에서.
-- 검사: `sim-fix-0923.js` 7절(탑 11) · 8절(그림 크기 6) 추가 → **64·0**(animal.js 없으면 63). 탑 세 경우(가운데·맨 아래·맨 위)를 실제 `_rideLeaveTower` 로 돌려 모양을 확인. 이 사본 전체 89 · 초록 77 · 빨강 3(무관 · 원본 없음) · 원본없음 9 — 개정 67 과 같다.
-  **실기기 기준선 기대값: 초록 87 · 빨강 0 · 원본없음 1**(그대로).
-- ⚠️ 실기기: ① 동물 3~4층 탑에서 가운데·맨 아래·맨 위가 각각 룰렛 → 그 캐릭터만 날아가고 나머지는 한 칸 내려앉음(다른 사람 화면도 같은 모양) ② 💣 로 탑 안 사람을 겨누면 여전히 «지금 날릴 수 없어요» ③ 자리비움 그림이 인간·동물 모두 150px 정사각형 · 창 크기·줌을 바꿔도 같은 크기.
-
-**개정 67 에서 한 것 (2026-09-23 · Mac 제보 여섯)** — `app.js` · `main.js` 수정. `preload.js` · `sysinput-mac.js` · `overlay-*.js` · `package.json` 은 무변경.
-- ⌨️ **③ 채팅 끝 글자 중복(«안녕하세요 → 1: 안녕하세요 1: 요»)** — 확정. mac 한글 입력기는 마지막 글자를 **조합 중인 채로** Enter keydown 을 보낸다(`isComposing`). 두 입력칸(`#chatInput` 대화창 · `#myChatInput` 말풍선)이 그 자리에서 보내서, 줄 전체가 나가고 → «요» 가 빈 칸에 확정되고 → 뒤 Enter 가 그걸 또 보냈다. 조합 중 Enter 는 무시한다(`isComposing || keyCode 229`).
-  · «안녕하세요 → 안녕세요» 씹힘은 **미확정** — 같은 가드로 줄 수 있지만(조합 중 Enter 가 조합을 끊던 갈래), 창 포커스 전환이 조합을 끊는 갈래일 수도 있다. 실기기 재현이 필요하다.
-- 🖊️ **② 표정 그릴 때 선이 위아래로 튐** — 원인 유력(확정 못 함). 그리기가 `getCoalescedEvents()` 점을 무조건 썼다. 묶인 점이 다른 좌표계로 오면 진짜 점과 번갈아 찍혀 지그재그가 된다. **마지막 묶인 점이 이벤트 자신과 2px 안일 때만** 쓴다(규격상 같아야 한다) — 원인이 이것이 아니어도 해가 없다.
-- 🧪 **⑤ 방 호스팅 때 «현우·민지» + 내 얼굴색 바뀐 캐릭터** — 확정. 시연용 가짜 방(`makeMockProvider` — 민지·현우, 내 def 를 베껴 피부색만 바꿈)이었다. 입장 순간 `firebaseAPI`(모듈 스크립트)가 준비 전이면 거기로 떨어졌다. 이제 `firebase-ready` 를 최대 10초 기다리고, 그래도 없으면 **입장하지 않고 알린다.** 가짜 방은 `tw.mockRoom=1` 일 때만.
-- 🍎 **⑥ F1~F5** — mac 에서는 ⌘1~⌘5 도 같은 동작(`e.code` Digit1~5 · Fn+F 키도 그대로). 버튼 옆 `.fkey` 표시와 title 의 `(F1)` 을 mac 에서만 ⌘ 로 바꾼다. 마크업은 Windows 표시 그대로.
-- 🐢 **④ 버벅임** — 두 가지(버그 리포트 §3 P2 와 같은 방향): ① 실행 화면은 **화면 전체 크기** 투명 캔버스인데 레티나(DPR 2)면 픽셀 4배 → mac 만 `MAC_RUN_MAX_PR = 1.5`(픽셀 56%). ② 설정(런처) 화면에서 `#scene` 이 숨었는데도 메인 3D 를 그리던 것 → 안 그린다(상태 계산은 그대로).
-  ⚠️ 캐릭터가 조금 덜 선명해질 수 있다 — 실기기에서 보고 조정. 버그 리포트의 BGM 창 구조·좌표(§3 P1)는 이번 범위 밖이다.
-- 🖌️ **① 클립스튜디오에서 타자가 안 잡힘 — 한 갈래만 고쳤다.** `main.js` `PEN_APPS` 가 **Windows exe 이름뿐**이라 mac(판정 키 = 번들 id)에서는 펜 앱 처리(4초 기록 창 · forward 끔 · 펜 활동 감지)가 통째로 꺼져 있었다. mac 은 **표시 이름(.app)** 으로 가른다(`_isPenApp` · `PEN_APPS_MAC_RE`) — 저장 안 되는 순간값이라 이름으로 봐도 잃을 것이 없다.
-  ⚠️ «키보드가 아예 안 잡힌다» 쪽은 **미확정** — 가장 유력한 것은 mac 의 **입력 모니터링** 권한(키보드 전역 감지는 손쉬운 사용과 별개 권한이 필요하다 · 클릭은 되는데 키만 안 되는 모양). 그 Mac 의 진단 로그(`[입력]` 카운트의 key=0 여부 · `[활성] 활성=… 등록=…`)로 가른다.
-- 검사: `sim-mac-0923.js` 신설(조합 3 · 묶인 점 2 · 가짜 방 5 · 단축키 3 · 성능 2 · 펜 앱 6) → **20·0**. 되돌림 실측 — IME 가드 빼면 실패 1 · 가짜 방 가드 끄면 실패 2.
-  이 사본: `main.js` 등이 들어와 전에 «원본 없음» 이던 검사 열둘이 돌기 시작 — 전부 초록. 검사 89 · 초록 77 · 빨강 3(규칙 파일 · bookmark.js 없음 — 무관) · 원본없음 9.
-  **실기기 기준선 기대값: 초록 87 · 빨강 0 · 원본없음 1.**
-- ⚠️ 실기기(mac): ① 대화창에 «안녕하세요» Enter → 한 줄 ② 표정 그리기 — 빠르게 그어도 선이 튀지 않음 ③ 앱 켜자마자 방 만들기 → 가짜 친구 없음(서버가 늦으면 안내 토스트) ④ ⌘1~⌘5 동작 · 버튼 표시 ⌘ ⑤ 실행 중 CPU(활성 상태 보기)를 전후 비교 ⑥ 클립스튜디오 활성일 때 진단 로그에 펜 앱 진입 · 키 카운트.
-
-**개정 66-b (2026-09-23 · 실기기 `C:\Users\seo\Desktop\tw` 한 바퀴 결과)**
-- 받은 결과: 검사 89 · 초록 85 · 빨강 3 · 원본없음 1(`togetherland-ui-mockup.html` — 보류분 그대로). 새 검사 셋 `sim-noise` 57·0 · `sim-fix-0923` 46·0 · `sim-myhome-steps` 초록.
-- 빨강 셋의 정체:
-  ① **`checks\myhome-desktop.js`(종료코드 1)** — 검사가 아니라 원본인데 `checks\` 에 있다(개정 64 에서 «짐 정리 필요» 로 적은 그 파일). 러너가 검사로 돌린다.
-  ② **`sim-bookmark.js` 13건** — ①과 같은 원인이다. 그 파일은 **옛 판**이다(`setFolderVisible` · `visitOwner` · `.mhd-side` 가 하나도 없다 — 개정 61~62 이전). 러너는 «이름이 겹치면 루트(여기선 `checks\`)가 이긴다» 라서 이 옛 판이 `app\parts\myhome-desktop.js` 를 가렸다. 실패 13건이 전부 서랍·계약(개정 61~62) 줄인 것이 그 표시다.
-     → **`checks\myhome-desktop.js` 를 지우면 둘 다 사라진다.** 코드 수정 없음.
-  ③ **`sim-purikura-deco.js` «복제본의 userData 는 빈 채로 둔다»** — 개정 65 의 😑 수정이 부른 것. 이 줄은 `userData = p[1]` 뒤 400자 안에 «복제본» 이라는 **글자**가 있으면 빨강이다(복제본에 userData 를 옮겨 담는 코드를 막으려는 근접 검사). 새 주석이 그 자리에서 «복제본» 이라고 썼다 — 코드는 userData 를 옮기지 않는다. 옛 검사를 느슨하게 하지 않고 **주석 단어를 «사본» 으로** 바꿨다(동작 무변경). 그 정규식을 함수 앞부분 9000자에 직접 대 보고 걸리지 않는 것을 확인했다.
-     ⚠️ 이 사본에는 `purikura-net.js` 가 없어서 개정 65 때 이 검사가 **돌지 못했다** — 그래서 실기기에서 처음 드러났다.
-- 기대값: ①을 지우면 검사 88 · **초록 86 · 빨강 0 · 원본없음 1**(개정 65·66 에서 적은 기대값 그대로).
-
-**개정 66 에서 한 것 (2026-09-23 · 제보 «노트북에서 라이선스 우편을 받은 뒤 본컴에서 받으려니 우편이 사라졌다 — 한 PC 만 되나요?»)**
-- **답: 한 PC 전용이 아니다.** 키는 여러 PC 에서 된다(`redeemLicense` 재설치 허용). 우편은 계정당 한 통(`inbox/{uid}`)이고 자동 삭제는 없다 — 사라졌다면 노트북에서 × 로 지웠거나(서버 삭제라 모든 기기에서 사라짐) 본컴이 다른 계정이다.
-- **고친 것 — 두 번째 PC 로 옮겨 가는 길의 구멍 셋** (`app.js` · 서버·규칙 변경 없음)
-  ① 등록한 순간에는 계정 스냅샷(`accountSnap`)이 안 올라갔다(다시 켜야 올라감) → `activateLicense` 가 곧바로 올린다(`_licenseSnapPushNow` · 로그인한 기기만).
-  ② 스냅샷에서 라이선스를 받는 것은 로그인·연동 순간뿐이었다 → 부팅 push 앞에서 `_licenseSnapForPush` 가 이 PC 에 키가 없으면 계정 것을 읽어 **검증 뒤** 켠다(토스트로 알림).
-  ③ ★ **로그인된 PC 는 부팅 6초 뒤 자기 스냅샷으로 `accountSnap` 을 통째로 덮어쓴다** — 라이선스 없는 PC 가 켜지면 계정의 라이선스가 null 로 지워졌다. 이제 이 PC 에 없어도 **계정의 키를 그대로 싣는다.** 계정에서 빠지는 것은 키가 회수됐을 때(검증 실패 · 오프라인 아님)뿐이다.
-  · «이 기기에서 해제» 는 이 기기만의 일 — `tw.licenseOptOut` 에 그 키를 적어 두고 다시 켜지 않는다(다른 키는 켠다). 다시 등록하면 표시를 지운다. 로그아웃 목록(`ACCOUNT_LOCAL_KEYS`)에 넣었다.
-- 지금 우편을 잃은 유저: 관리자 화면 라이선스 목록(메모 «닉네임 · 친구코드»)에서 키를 찾아 다시 보내면 된다. 이번 판이 깔린 뒤에는 **노트북을 로그인한 채 한 번 켜면**(또는 거기서 키를 다시 등록하면) 본컴이 다음 부팅 때 스스로 받는다 — 두 PC 가 같은 구글 계정일 때.
-- 검사: `sim-fix-0923.js` 6절 신설(계정에서 받아 켜기 · 해제한 키 · 다른 키 · 회수 · 오프라인 · 계정에도 없음 · 이 PC 우선 · 즉시 push · 비로그인 · 해제 표시 · 부팅 배선 · 로그아웃 목록) → **47·0**(animal.js 없으면 46). 되돌림 실측 — 계정 키를 안 실으면 실패 3 · 즉시 push 를 빼면 1 · 해제 표시를 무시하면 1.
-  이 사본 전체: 검사 88 · 초록 64 · 빨강 3(무관 · 원본 없음) · 원본없음 21 — 개정 65 와 같다. 관련 검사(`sim-account-switch` · `sim-google-login` · `sim-friend-code-keep` · `sim-license-leak` · `sim-premium-desk`) 전부 초록. **실기기 기준선 기대값 그대로 초록 86 · 빨강 0 · 원본없음 1.**
-- ⚠️ 실기기(같은 구글 계정 PC 둘): ① A 에서 키 등록 → B 를 껐다 켬 → 6초쯤 뒤 «🎫 계정에 등록된 라이선스를 이 PC에서도 켰어요» ② B 에서 [해제] → B 재시작 → 다시 안 켜짐 · A 는 그대로 ③ 콘솔 `accountSnap/{코드}/license` 가 B 재시작 뒤에도 남아 있음 ④ 키 회수(관리자) → 두 PC 다 다음 부팅에 잠김.
-
-**개정 65 에서 한 것 (2026-09-23 · 제보 다섯 · 2번은 제안 방식 승인 뒤)**
-- 🎰 **보관함 모자를 빼면 기본 모자도 빠짐** — 가챠 stackable 강제(등록 신규·수정)가 생기기 **전**에 올라간 가챠 파츠가 카탈로그에 `stackable:false` 로 남아 있었다. 그걸 보관함에서 끼우면 `toggleEquip` 이 일반 파츠로 보고 같은 칸의 기본 모자를 def 에서 빼고 갈아 끼웠다(가챠 모자가 덮고 있어 끼울 때는 티가 안 나고, 뺄 때 둘 다 없어진 것으로 보인다).
-  · 고침: 들어오는 입구 둘(`loadSavedParts` · `mergeCatalogIntoSavedParts`)에서 `_normPartRec` — 가챠면 stackable. 읽는 곳(열 군데 넘음)은 안 건드렸다. 관리자가 그 파츠를 한 번 다시 저장하면 카탈로그 값도 true 로 고쳐진다.
-  · 같이: `addEntryToCat` · `removeEntryFromCat` 가 `{0:..,1:..}` 숫자키 맵(Firebase 배열)을 몰랐다 — 넣으면 [맵, 새것] 으로 싸여 모자·리본이 사라지고, 빼면 아무것도 안 빠졌다. `_flattenCatContainer` 로 먼저 편다.
-- 🖼️ **슬롯 섬네일 = 런처 미리보기**(요청 · 제안 방식 승인) — 런처가 캐릭터를 다 그린 뒤(파츠 장착 끝 + 900ms) 그 화면을 찍어 `def.thumb` 을 갈아 끼운다(`_lcThumbTake`). 눈 뜬 순간 · 둥둥을 기준 높이에 멈추고 찍어 같은 모습이면 같은 그림 → **바뀔 때만** 저장. 160px 로 줄인다. `lRenderer` 는 preserveDrawingBuffer 가 없어 render 와 **같은 틱**에서 복사한다. 빈 그림이면 덮지 않는다. 섬네일은 로컬 전용이라 서버 쓰기는 늘지 않는다.
-  ⚠️ 런처에서 한 번도 넘겨 보지 않은 슬롯은 예전 그림(생성기 캡처)이 그대로다.
-- 🎨 **게시글 글자 배경색이 재접속하면 풀림** — 크로미움 `backColor` 는 선택이 기존 서식 태그를 꼭 채우면 **그 태그에** style 을 붙인다(`<font color style="background-color">` · `<b style>` — 실제 크로미움으로 재현). sanitizer 가 FONT·B 등의 style 을 지웠다. 띄어쓰기는 그런 태그 밖이라 span 으로 살았다.
-  · 고침: `_MH_ALLOWED_ATTRS` 에 FONT·B·STRONG·I·EM·U 의 style. 값은 기존 다섯 속성 필터를 그대로 거친다. 크로미움에서 저장 왕복 확인(배경색 남음 · position/onclick 은 지워짐).
-  ⚠️ 이 선언은 **한 줄**이어야 한다 — `sim-mh-sanitize.js` 가 줄 단위로 떼어 간다(처음 여러 줄로 썼다가 그 검사가 빨개져서 되돌렸다).
-  ⚠️ 이미 풀려 저장된 글은 되살릴 수 없다 — 다시 칠해야 한다.
-- 😑 **스티커사진 동물형 3번(눈 감기) 무반응** — `animal.js` 는 몸 + face1~4 전부에 **한 재질**을 준다(face 는 하나만 보임). `_pkCloneChar` 가 메시마다 재질을 따로 복제하고 짝으로 **마지막 메시의 것**만 남겨서, 대개 숨은 face 의 복제본이 눈 감기 대상이 됐다. 오류 없이 화면만 그대로였다.
-  · 고침: 원본 재질 하나 → 복제본 하나(Map). 같이 쓰던 메시는 복제 뒤에도 같이 쓴다. 배열 재질 속 얼굴·귀도 짝이 된다. `_pkDropChar` 의 dispose 는 공유 복제본에도 안전하다(원본·텍스처는 안 건드림).
-- 🫨 **말랑이가 갈 곳이 없으면 좌우로 빠르게 떨림** — 막히면(`tryMove` 실패 · 앞줄 2마리) 그 자리에서 방향만 뒤집었다. 반대쪽도 막혔거나 남의 머리 위처럼 폭이 좁으면 한두 프레임마다 뒤집혔다.
-  · 고침: `mallang.js` `turnOrRest` — 40프레임(약 0.7초) 안에 세 번째로 돌아서려 하면 뒤집지 않고 쉰다(REST_MIN~MAX). 쉬고 나면 `pickDir` 로 다시 고른다. 평소 벽에 닿고 돌아서는 것은 간격이 길어 안 걸린다.
-- 검사: `sim-fix-0923.js` 신설(가챠·맵 7 · 섬네일 9 · 배경색 5 · 눈 감기 6 · 말랑이 7) → **33·0**(animal.js 가 있으면 34). 되돌림 실측 — FONT style 빼기 · 로컬 입구 정규화 빼기 · 얼굴 짝 빼기 → 각 실패 1 · 말랑이 맨몸 반전으로 → 실패 2.
-  전/후(이 사본): 검사 87→88 · 초록 62→64(신설 1 + `mallang.js` 가 들어와 `sim-myhome-steps` 가 돌기 시작) · 빨강 3→3(규칙 파일 · bookmark.js 없음 — 무관) · 원본없음 22→21.
-  **실기기 기준선 기대값: 초록 86 · 빨강 0 · 원본없음 1.**
-- ⚠️ 실기기: ① 옛 가챠 모자 끼웠다 빼기 → 기본 모자가 남음 ② F1 캐릭터 교체 칸이 런처와 같은 모습(런처에서 그 슬롯을 한 번 넘겨 본 뒤) · 꾸미기로 모자 바꾸고 런처 → 칸 그림도 바뀜 ③ 글자색 준 글자에 배경색 → 저장 → 재접속 → 남음 ④ 동물형 스티커사진 3 → 눈 감김 · 귀도 같이 ⑤ 말랑이를 구석에 여럿 몰아 넣기 → 떨지 않고 멈춤.
-
-**개정 64 에서 한 것 (2026-09-23 · 🌙 백색소음 · handoff-2026-09-23-noise §4 설계 확정본 그대로 · 시안 «플레이리스트 창 안에 두는 안» 통과 뒤)**
-- 🌙 **새 파일 둘** — `app/parts/noise.js`(재생 · 합성 · 줄 배선) · `app/parts/noise-sounds.js`(소리 자료 base64 · 약 600KB). html `<script>` 두 줄은 `bookmark.js` 뒤(= `app.js` 뒤)에 **자료 → 재생기** 순서.
-  · 자료는 «들어보기 데모»에서 귀로 통과한 **그 파일**(loudnorm I=-20 · WebM/Opus 모노 48kHz · 연필 346KB · 키보드 70KB · 책장 33KB)이다 — 다시 인코딩하지 않았다.
-  · base64 인 이유: 앱이 file:// 라 옆 파일을 fetch/XHR 로 바이트째 읽는 것이 보장되지 않는다. WebAudio 로 이음새 없이(loopStart/loopEnd) 돌리려면 바이트가 필요하다 — `<audio loop>` 는 앞뒤 무음 «틱» 이 난다.
-- **합성 규칙(«합치기»)** — 종류마다 한 벌 · 1명 50 · 2명 70 · 3명+ 90 · 내 소리는 같은 벌을 100 으로 · 남의 소리 종류 기준 3겹(사람 많은 순 · 같으면 고정 순서) · 전용 슬라이더가 한 번 더 곱해진다. **데모 코드와 같은 식**이다.
-  ⚠️ 시안 설명문의 «📖 가 넷째라 빠짐» 은 내 소리까지 3겹으로 센 것처럼 읽히지만, 핸드오프 §4-1 과 귀로 통과한 데모는 **남의 소리만** 3겹으로 센다 — 데모 쪽을 따랐다. 종류가 셋뿐이라 지금은 상한이 실제로 걸릴 일이 없다.
-- **켜짐 = `seatState(좌석) === 'focus'`** 만(새 감지 없음). 페이드인 0.1초 · 멈춤 자세에서 0.5초 페이드아웃 · 잠/자리비움/춤/쓰다듬기 무음 · 🏢 회사원 모드 무조건 무음(보는 사람 기준 — `_mkSndPool` 과 같은 원칙) · 🙈 숨긴 사람(`_seatHidden`) 소리는 안 들음 · 내 좌석은 `findMySeat()`(자리추가 판).
-- **오디오는 첫 제스처에서 만든다**(pointerdown/keydown · capture). 제스처 전에 만들면 suspended 로 태어나 «남의 소리만 조용함» 이 된다(`_mkSndPool.prime` 이 겪은 함정). 15초 동안 아무것도 안 들리면 `ctx.suspend()` · 필요하면 1초에 한 번만 깨운다.
-- 📖 **책장 = «가끔 한 번»**(4.5~11초 간격 · 재생 속도 ±4%). 핸드오프 §4-6 ① 미결 — `NZ_PAGE_LOOP = true` 한 줄이면 루프(데모와 같음)로 돌아간다.
-- **전파** — `Presence` 에 `myNoise` · `setNoise()` · 입장 payload(`userId` 뒤) · `_basePayload` **끝**(`flyCool` 뒤) · 받는 쪽 `s.remoteNoise`(모르는 값 null). **규칙 · `firebase-init.js` 변경 없음**(awayImg 와 같은 통로).
-  ⚠️ 처음엔 `awayImg:myAwayImg,` 바로 뒤에 넣었다가 `sim-report-away.js` 의 «평소 · 입장 페이로드에 awayImg» 줄이 빨개졌다 — 그 검사는 글자 그대로를 본다. 남의 검사를 고치지 않고 **자리를 옮겼다.**
-- **줄(#myPlNoise)** — 음악 줄 아래 · 칸 넷(끄기/연필/키보드/책장) · 전용 슬라이더(`tw.noise.vol` · 기본 60) · «같은 방 사람들 소리도» 체크(`tw.noise.others` · 기본 켜짐) · 오른쪽 끝 ▼ 접기(`tw.noise.fold` · 접으면 머리줄에 «✏️ 연필 · 60%») · 회사원 모드면 흐리게 + «모드를 끄면 들려요» · 미니미에서는 줄째로 숨김. 접고 펼 때 `_plApplyPos` · `_plSyncBgmBounds` 를 다시 부른다(뒤에 숨은 유튜브 창 사각형).
-- 검사: `sim-noise.js` 신설(마크업 13 · 합성 규칙 15 · 좌석 읽기 11 · 전파 8 · 자료/상수 10) → **57·0**. 실제 `noise.js` 를 스텁 위에서 돌린다. 되돌림 실측 — 2명 비율을 0.6 으로 → 실패 5 · `_basePayload` 에서 noise 를 빼면 → 실패 1.
-  전/후(이 사본 · 짐에 섞여 온 `myhome-desktop.js` · 폐기된 `sim-mys-play.js` 제외): 검사 86→87 · 초록 61→62 · 빨강 3→3(규칙 파일 · bookmark.js 없음 — 무관) · 원본없음 22→22.
-  **실기기 기준선 기대값: 초록 85 · 빨강 0 · 원본없음 1.**
-- ⚠️ 실기기: ① 소리를 고르고 타자 → 0.1초 안에 들림 · 손 떼고 1.5초 뒤 잦아듦(펜 앱이면 4초) ② 앱 창을 한 번도 안 누른 채 켜 두면 남의 소리가 안 날 수 있다 — 한 번 누르면 풀린다(의도) ③ 두 계정 같은 방: 한쪽이 연필+타자 → 다른 쪽에서 50% 로 들림 · 체크 끄면 사라짐 ④ 회사원 모드 → 즉시 무음 · 줄 흐림 ⑤ 🙈 숨긴 사람 소리 안 남 ⑥ ▼ 접기 → 창이 짧아지고 유튜브 창이 삐져나오지 않음 ⑦ 📖 «가끔 한 번» 이 괜찮은지 ⑧ 음악과 같이 틀 때 균형(기본 60).
-- 🧹 **짐 정리 필요**: 이번에 받은 `checks.zip` 에 `myhome-desktop.js`(원본 · `app/parts/` 가 제자리)와 폐기된 `sim-mys-play.js` 가 섞여 있었다. 러너가 앞의 것을 검사로 돌려 빨강 1 이 난다 — `checks/` 에서 둘 다 뺄 것.
-
-**개정 63 에서 한 것 (2026-09-23 · 요청 둘 · 실기기 검증 완료 · 규칙 게시 완료 뒤)**
-- 🔫 **투게더룸에서는 룰렛 버튼을 숨긴다** — 상태칩 ▼ 메뉴를 여는 곳에서 💃 춤추기와 **같은 자리 · 같은 방식**으로 `_activeChannel === 2` 면 감춘다. 거기선 대화창 🎲 가 같은 일을 한다(하나라도 1이면 굴린 사람이 날아간다 · 개정 58-b). 워킹룸·혼자에는 그 🎲 가 없어 버튼이 필요하다. `_rollRoulette` 본체에는 채널 게이트를 넣지 않았다 — 숨기는 것과 막는 것은 다르다(단축키·콘솔로 불러도 워킹룸에서는 정상 동작해야 한다).
-- 🗑 **mysRooms 규칙 내림** — 쓰는 사람이 없음을 확인했으므로 `firebase-database-rules.json` 에서 블록을 지웠다(개정 61 에서 «다음 릴리스» 로 미뤄 둔 것). `firebase-init.js` 의 안내 주석도 고쳤다.
-  ⚠️ **남은 것은 콘솔의 옛 데이터뿐.** 규칙을 먼저 게시하고, 그 다음에 콘솔에서 `mysRooms` 노드를 지운다 — 순서가 반대면 지우자마자 옛 클라이언트가 다시 만들 수 있다(지금은 그런 클라이언트가 없지만 순서는 지키는 편이 낫다). 방이 많아 콘솔이 버거우면 방 코드 단위로 나눠 지운다.
-  · `parties` · `partyInvites` · `advGame` 규칙은 **그대로 둔다** — 이미 잠겨 있고(`read/write: false`), 좀비아포칼립스 멀티플레이를 되살릴 때 쓸 자리다(myhome-desktop.js 주석).
-- 검사: `sim-fly-roulette.js` 1절 배선 판정을 «투게더룸에서는 숨김» 으로 → **32·0** · `sim-bookmark.js` 5절에 «규칙에서도 mysRooms 가 없다» 한 줄 → **87·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 투게더룸 ▼ 메뉴에 🔫 없음 · 워킹룸·혼자에는 있음 ② 투게더룸 🎲 로 1 → 여전히 날아감 ③ 규칙 게시 뒤 콘솔에서 `mysRooms` 삭제.
-
-**개정 62-c 에서 한 것 (2026-09-23 · 제보 «우클릭 메뉴 줄을 눌러도 반응 없음»)**
-- 원인: 메뉴 덮개(`bd`)에 `pointerdown → close` 를 그냥 걸어 두어, **메뉴 안을 누를 때도** 먼저 닫혔다. 줄의 `click` 은 이미 사라진 요소로 오지 않는다.
-- 고침: 바깥을 누른 경우에만 닫는다(`if(!m.contains(e.target)) close()`).
-- 문구: «고치기…» → **«책등 수정»**(요청).
-- 검사: `sim-bookmark.js` → **86·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-
-**개정 62-b 에서 한 것 (2026-09-23 · 제보 «책등 우클릭하니 클릭 통과로 전환된다»)**
-- 원인: 개정 62 에서 만든 책 우클릭 메뉴를 `document.body` 에 붙이면서 **클래스를 안 줬다.** 실행 화면(투명 오버레이)은 `app.js` `UI_HIT_SEL` 에 걸리는 조각만 «우리 UI» 로 보므로, 그 자리가 빈 곳으로 판정돼 클릭이 뒤 프로그램으로 새 나갔다. 서랍 자체는 `#myHomeWin` 안이라 걸려 있었다.
-- 고침: 메뉴 덮개에 `.app-popup-ov`(책 꽂기 창과 같은 클래스 · 이미 화이트리스트에 있다) · 배경은 투명. 검사로 못박았고, 끌 때 따라다니는 그림자가 `pointer-events:none` 인 것도 같이 확인한다.
-- 검사: `sim-bookmark.js` → **84·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-
-**개정 62 에서 한 것 (2026-09-23 · 시안 «북마크 공개/비공개» 확정 · 책마다 공개 · 마이홈에 들어온 누구에게나 · 방문자에게는 노란 띠 안 보이게)**
-- 📚 **책마다 공개** — 책 데이터에 `pub`(기본 꺼짐 · 이미 꽂힌 책도 전부 비공개로 시작). 편집 창 체크 «마이홈 방문자에게 공개» · 책 우클릭 메뉴(신설: 공개 켜기·끄기 / 고치기… / 빼기)에서 바로 전환. 공개한 책은 책등 아래 노란 띠(`.bm-pub`)와 위 막대 «👀 공개 N» — **구경하는 사람 화면에는 안 그린다**(전부 공개 책이라 뜻이 없다 · 요청).
-- 👀 **방문자 구경 모드** — 남의 마이홈에 들어가면 그 사람의 **공개 책장**으로 갈아 끼운다(`bmVisit` · 그리는 자료는 `bmView()` 한 곳에서 갈린다). [+ 추가] · 끌어서 순서 · 우클릭 편집이 빠지고, 책을 누르면 링크만 열린다. 공개된 책이 하나도 없으면 **폴더 자체를 감춘다**(빈 서랍을 열게 하지 않는다).
-- 🔒 **공개 책은 서버에서도 따로 산다** — `bookmarksPub/{uid}`(읽기 누구나 · 쓰기 주인). 규칙은 읽기를 **노드 단위로만** 막을 수 있어서, 한 노드에 섞어 두면 방문자가 비공개 책까지 받아 간다(화면에서 가리는 것은 방어가 아니다). 저장할 때 공개로 표시한 책만 복사해 올리고, 하나도 없으면 그 노드를 지운다. `firebase-init.js`: `getPublicBookmarks` · `savePublicBookmarks`.
-- 🧩 **계약에 추가만** — `myhome-desktop.js`: `addFolder({visitable})` · `createWindow({visitable})`(남의 집에서도 열림) · `onVisit(visiting, ownerId)`(집주인 id 전달) · `setFolderVisible(id,on)` · `visitOwner()`. 기존 동작은 그대로.
-- 규칙: `bookmarks` · `bookmarksPub` 양쪽 책 칸에 `pub`(참·거짓). **규칙 다시 게시 필요.**
-- 검사: `sim-bookmark.js` 3-b 절 신설(공개 체크 · 우클릭 전환 · 띠 숨김 · 구경 모드 4 · 공개 노드 2 · 규칙 2 · 계약 3) → **82·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 책 우클릭 → 공개 켜기 → 노란 띠 · 위 막대 «👀 공개 1» ② 다른 계정으로 그 마이홈 방문 → 📚 가 보이고 공개 책만 · [+ 추가] 없음 · 끌기 안 됨 · 우클릭 안 됨 · 띠 없음 ③ 공개를 전부 끄면 방문자 화면에서 📚 가 사라짐 ④ 콘솔에서 `bookmarksPub/{uid}` 에 공개 책만 있는지 ⑤ 내 집으로 돌아오면 내 책장이 그대로.
-
-**개정 61-h 에서 한 것 (2026-09-23 · 요청 둘)**
-- 📚 책 사이 간격 — `.bm-cell` 좌우 여백 3px → **1px**(실제 틈 2px). 책장처럼 붙어 꽂힌 모양.
-- 📚 호버 — `translateY(-12px) rotate(3deg)` → **`translateY(-14px)`**(기울임 없이 위로만 뽑아 드는 모양 · 전환 .14s). 끌 때 따라다니는 유령은 예전처럼 살짝 기울인 채로 둔다(집은 것이 구분돼야 한다).
-- 검사: `sim-bookmark.js` → **56·0**(호버에 rotate 없음 · 칸 여백 1px). 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-
-**개정 61-h 에서 한 것 (2026-09-23 · 제보 여섯)**
-- 📚 **책 사이 간격** — 칸마다 좌우 3px → **1px**(실제 틈 2px). 책장처럼 빽빽하게 꽂힌 모양.
-- 📚 **호버** — `translateY(-12px) rotate(3deg)` → **위로만** `translateY(-14px)`(기울임 없음 · 요청). 전환 .14s.
-- 🎨 **제목 글자색** — 편집 창에 색 자리 둘(책등 색 · 제목 글자색). 팔레트(`buildFreeColorPicker`)는 한 번에 하나만 열리고, 바깥을 누르면 닫힌다. 책등 데이터에 `tcolor` 추가(기본 `#ffffff`).
-- 📚 **제목 숨기기 체크** — 그림이 있으면 제목을 **안 보여 주던 것**을 고쳤다. 이제 그림 위에 제목을 겹쳐 쓰고, [책등에 제목 숨기기]로 끌 수 있다(`hideTitle`).
-- 💾 **바깥 클릭 = 자동 저장** — 창 바깥을 누르면 저장하고 닫는다. 주소를 적었는데 형식이 틀릴 때만 창을 열어 둔 채 알려 준다. [취소]·Esc 만 버린다.
-- ❌ **창 ✕ 로 서랍이 안 닫히던 것** — ✕ 핸들러가 `.on` 만 뗐다. 서랍(host:'side')은 `display` 로 여닫히므로 그대로 남아 있었다. 닫는 길을 `advCloseWin` 한 곳으로 모았다(관람 모드 일괄 닫기와 같은 길).
-- 규칙: `bookmarks/$userId/items/$bid` 에 `tcolor`(문자열 9자) · `hideTitle`(참·거짓) 칸 추가. **규칙 다시 게시 필요.**
-- 검사: `sim-bookmark.js` → **66·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 책 사이가 좁고 호버하면 위로만 올라옴 ② 그림 + 제목 같이 보임 · 체크하면 제목만 사라짐 ③ 제목 글자색 바꾸기 · 팔레트 바깥 클릭으로 닫힘 ④ 입력하고 창 바깥 클릭 → 저장됨 ⑤ 서랍 ✕ 로 닫힘.
-
-**개정 61-g 에서 한 것 (2026-09-23 · 제보 «서랍이 ← 쪽으로 열린다»)**
-- `myhome-desktop.js` `.adv-win.mhd-side` 의 시작 위치 `translateX(16px)` → **`-18px`**. 창 쪽에서 오른쪽(→)으로 밀려 나온다. 양수면 오른쪽에서 왼쪽으로 들어오는 반대 방향이 된다 — 검사로 못박았다(음수여야 통과).
-- 검사: `sim-bookmark.js` → **54·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-
-**개정 61-f 에서 한 것 (2026-09-23 · 제보 일곱 가지)**
-- 📚 **폴더를 다시 누르면 닫힌다** — `myhome-desktop.js` 에 `isWindowOpen(id)` 추가(계약에 항목만 늘었다) · `bookmark.js` `onOpen` 이 열려 있으면 `closeWindow`. 창 ✕ 와 같은 길.
-- 📚 **서랍 애니메이션** — `.adv-win.mhd-side` 에 `transform/opacity` 전환(.18s) · 열 때 한 프레임 뒤 `.mhd-side-open` · 닫을 때 먼저 떼고 180ms 뒤 감춘다(관람 모드 일괄 닫기 포함).
-- 📚 **책 꽂기 창 바깥을 어둡게 덮지 않는다** — 덮개는 투명, 클릭을 받아 닫기만 한다.
-- 🎨 **색 팔레트가 바깥 클릭으로 닫힌다** — 팔레트(`buildFreeColorPicker`) 자체에는 그 처리가 없어서 여는 쪽에서 `pointerdown`(capture)을 붙였다 뗀다. 창을 닫으면 같이 사라진다.
-- 🔗 **주소는 선택** — 비워 두면 «장식 책»으로 저장된다(눌러도 아무 일 없음 · 안내 토스트). 적었는데 형식이 틀릴 때만 막는다. 씻는 쪽(`bmClean`)도 틀린 주소를 **버리지 않고 빈 칸으로** 둔다 — 책 자체가 사라지지 않게. 빈 주소는 서버로 보내지 않는다(규칙은 «있으면 http/https»). 규칙의 `url` 도 필수 → 선택으로.
-- ✍️ **책등 글자가 오른쪽으로 쏠리던 것** — 세로쓰기(`vertical-rl`)에서는 flex 축이 돌아가 `align-items` 가 **가로** 정렬이다. `flex-start`(=오른쪽) → `center`.
-- 📐 **«길게» 가 선반 칸을 2px 넘던 것** — 책등에 `box-sizing:border-box`(테두리 1px 두 줄). 미리보기도 같이.
-- 검사: `sim-bookmark.js` → **53·0**(토글 · 애니메이션 · 투명 덮개 · 팔레트 닫기 · 주소 선택 3 · 글자 가운데 · border-box). 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 📚 를 다시 눌러 닫힘 · 스르르 · ✕ 도 같음 ② [+ 추가] 창 뒤 마이홈이 그대로 보임 ③ 색 스와치 → 팔레트 → 바깥 클릭으로 닫힘 ④ 주소 없이 저장 → 장식 책 · 눌러도 안내만 ⑤ 제목이 책등 한가운데 ⑥ «길게» 책이 선반을 안 넘음. **규칙 파일도 다시 게시할 것**(url 필수 해제).
-
-**개정 61-e 에서 한 것 (2026-09-23 · 제보 3회째 «마이홈 영역 제한 때문에 북마크가 잘린다 · 런처 마이홈이다»)**
-- 원인: 앞 두 판은 서랍을 «마이홈 창 **바깥** 오른쪽»에만 세웠다. 런처에서 연 마이홈은 **앱 창(Electron) 안**에 있고, 마이홈 창(760px)과 앱 창의 폭 차이가 서랍(320px)보다 작다. 창 밖으로 나간 부분은 CSS 로 못 살린다 — OS 창이 잘라낸다.
-- `myhome-desktop.js` `mhdPlaceSide`: **바깥 오른쪽 → 바깥 왼쪽 → 창 안쪽 오른쪽** 순으로 실제 폭을 재어 들어갈 수 있는 첫 자리에 세운다. 안쪽 자리에서는 `.mhd-side-in`(왼쪽 그림자)이 붙고, 폭이 마이홈 창보다 커지지 않게 줄인다(최소 180px). 열 때와 화면 크기가 바뀔 때 다시 잰다.
-- 검사: `sim-bookmark.js` 2절에 세 자리 · 폭 재기 · 안쪽 그림자/폭 제한 3개 추가 → **44·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① **런처 마이홈**에서 📚 → 서랍이 창 안쪽 오른쪽에 통째로 보임(잘리지 않음) ② 앱 창을 넓히면 창 바깥 오른쪽으로 나감 ③ 좁혀도 왼쪽으로 밀고 나가지 않음.
-
-**개정 61-d 에서 한 것 (2026-09-23 · 제보 «1분 단위로 갱신 · 캐릭터 앞 시계 이모지 빼기»)**
-- `app.js`: `FOCUS_SHOW_MS` 5분 → **1분**, 틱 30초 → 15초(1분을 넘겨 늦지 않게). 켤 때 안내 문구도 «1분마다».
-- `_focusShowConf` 의 이모지 칸을 **비웠다**(`emo: ''`). 커스텀 상태 배관을 그대로 쓰는 탓에 이모지를 실으면 말풍선뿐 아니라 **책상 위(캐릭터 앞)** 에도 같이 떴다 — `statusConfFor` 커스텀 갈래의 «이모지를 비워두면 문구만» 처리를 그대로 탄다. 말풍선 문구(«오늘 H:MM»)는 그대로다.
-- 검사: `sim-focus-show.js` 2절 값·주기 판정을 1분·이모지 없음으로 고치고 상수 판정 하나 추가 → **27·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 🕒 켠 뒤 1분마다 분이 오르는지(방 상대 화면에서도) ② 책상 위에 아무 이모지도 안 뜨는지 ③ 상태 메시지를 켰다 끄면 그 이모지는 예전처럼 다시 뜨는지.
-
-**개정 61-d 에서 한 것 (2026-09-23 · 제보 셋: 기록을 1분마다 · 캐릭터 앞 시계 이모지 없애기 · 서랍이 아직도 가려짐)**
-- 🕒 **1분 갱신** — `FOCUS_SHOW_MS` 5분 → **1분**, 틱 30초 → 15초(1분을 넘겨 늦지 않게). 토스트 문구도 «1분마다».
-- 🕒 **캐릭터 앞 이모지 제거** — `_focusShowConf` 의 `emo` 를 `'🕒'` → `''`. 커스텀 상태 배관을 그대로 쓰기 때문에 이모지를 넣으면 말풍선뿐 아니라 **책상 위(캐릭터 앞)** 에도 같이 떴다. 빈 값이면 문구만 뜬다(`statusConfFor` 커스텀 갈래의 기존 주석과 같은 처리). 🕒 버튼 · 창 안 표시는 그대로.
-- 📚 **서랍 자리 (제보 2회째 · 앞 판의 고침이 부족했다)** — 자리를 인라인 스타일로만 잡으면 뒤에 붙는 한 줄에 쓸려 창 아래로 떨어진다. `myhome-desktop.js` 에 `.adv-win.mhd-side` 규칙을 만들어 위·아래·폭·`max-width/height` 해제를 **CSS 로 못박고**, 좌/우만 `mhdPlaceSide` 가 인라인으로 정한다(열 때마다 · 화면 크기가 바뀔 때). 오른쪽이 화면 밖으로 나갈 상황이면 **왼쪽으로 뒤집는다**.
-  ⚠️ 그 규칙에 `inset` 을 쓰면 안 된다 — `inset:auto !important` 는 좌/우를 정하는 인라인까지 이긴다(!important 가 인라인보다 세다). 검사로 못박았다.
-  ⚠️ 이 고침은 `parts/myhome-desktop.js` 에 있다. 앞 판에서 그 파일을 덮어쓰지 않았다면 증상이 그대로다 — **`bookmark.js` 와 `myhome-desktop.js` 는 반드시 같이 깔 것.**
-- 검사: `sim-focus-show.js` 2절(이모지 없음 · 1분 · 15초 틱) → **27·0** · `sim-bookmark.js` 2절(자리 CSS · inset 금지 · 좌우 뒤집기 · 재계산) → **42·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 🕒 켜고 1분 기다리면 분이 오름 · 캐릭터 앞(책상)에는 아무것도 없음 ② 마이홈 → 📚 → 서랍이 창 오른쪽 바깥에 창 높이만큼 · 마이홈 창을 화면 오른쪽 끝으로 끌고 창을 다시 열면 왼쪽으로 붙음 ③ 창 크기를 바꿔도 자리 유지.
-
-**개정 61-c 에서 한 것 (2026-09-23 · 제보 셋: 서랍이 잘려 보임 · 창이 왜 붉은색인가 · 자리비움 그림은 프리미엄만)**
-- 📚 **서랍 자리** — `myhome-desktop.js` host:'side' 인라인 스타일에서 `inset:auto` 가 `left/top/bottom` **뒤**에 있었다. 그 한 줄이 셋을 한꺼번에 auto 로 되돌려 서랍이 마이홈 창 오른쪽이 아니라 문서 흐름 끝(창 아래)으로 떨어졌다. 순서를 바꾸고 `.adv-win` 의 `max-width/height: calc(100% - …)` 도 함께 풀었다(부모 폭에 맞춰 잘리던 자리).
-- 🎨 **제목줄 테마** — `.adv-titlebar` 기본값이 미스테리au 시절의 붉은색이라 서랍도 붉었다. `bookmark.js` 가 `#bmWin` 에만 마이홈 창과 같은 그라데이션(`--win-title-a/b`) · 창 테두리 · 닫기 버튼을 덮는다(시안 4-2). `myhome-desktop.js` 의 기본값은 그대로 — 책장을 걷어내면 이 규칙도 파일과 함께 사라진다.
-- 👑 **자리비움 그림 = 프리미엄 전용** — `app.js` `_awayPremium()`(=`_premiumOn`) · 비프리미엄은 [그림 등록] 잠김 + 안내, `_awayPick` 도 막는다. **등록만** 잠근다: 남이 올린 그림은 라이선스와 무관하게 보이고(보는 쪽 `_awayPicFor` 는 라이선스를 안 본다), [기본으로]는 언제나 쓸 수 있으며, 이미 올린 그림은 라이선스가 끝나도 지우지 않는다. `_refreshPremiumGatedUI` 가 라이선스 변화 때 칸을 다시 그린다.
-  ⚠️ 서버는 라이선스를 못 본다(Storage · RTDB 규칙에 판정이 없다) — 이 게이트는 화면 쪽 약속이다. 콘솔로 우회하면 올라간다.
-- 검사: `sim-report-away.js` 프리미엄 판정 5개 추가 → **45·0** · `sim-bookmark.js` inset 순서 · 제목줄 테마 2개 추가 → **40·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 마이홈 → 📚 → 서랍이 **창 오른쪽 바깥**에 창 높이만큼 · 창을 끌면 따라옴 · 일정 영역에 안 잘림 ② 제목줄이 마이홈 창과 같은 색(테마를 바꿔도 같이 바뀜) ③ 비프리미엄 계정 [내 정보] → [그림 등록] 잠김 + 👑 안내 · 라이선스를 넣으면 곧바로 풀림 ④ 프리미엄이 올린 그림은 비프리미엄 화면에도 보임.
-
-**개정 61-b 에서 한 것 (2026-09-23 · 제보 «포커스 기록에서 시계를 눌렀는데 말풍선이 안 보인다»)**
-- 원인: `_focusShowMine`(내 머리 위 거울)에 «방에 있을 때만» 조건이 있었다. 🕒 를 누르는 자리는 대개 **혼자 있는 화면**이라, 눌러도 아무 일이 없어 고장으로 읽혔다. 보내기(방이 있어야 한다)와 내 화면 확인(혼자일 때 더 필요하다)은 다른 판정이다.
-- `app.js`: `_focusShowMine` = 보낸 값, 없으면 보낼 값(`_focusShowConf()`) — 방 조건 없음. `statusConfFor` 의 거울 줄은 `isMe` 만 보지 않고 `findMySeat()` 과 같은 기준으로(자리추가로 주 캐릭터가 바뀐 판). 🕒 를 켤 때 **상태 메시지가 켜져 있으면** 그 사실을 토스트로 알린다(그때는 상태가 먼저 보이는 것이 설계다).
-- 검사: `sim-focus-show.js` 3절 거울 판정 둘을 고치고 토스트 판정 하나 추가 → **26·0**. 기준선 기대값 그대로 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: 혼자(방 없음)에서 🕒 → 내 캐릭터 머리 위 «🕒 오늘 H:MM» · 다시 누르면 사라짐 · 상태 메시지를 켜면 그 문구가 먼저.
-
-**개정 61 에서 한 것 (2026-09-23 · handoff-2026-09-21-features §4 · 사용자 확정: 계정 연동 · 진행)**
-- 📚 **북마크 책장 신설** — `parts/bookmark.js`(새 파일 · html `<script>` 한 줄). 📚 «북마크» 0번 칸 → 마이홈 창 **오른쪽 바깥** 서랍(원목 서재 ① · 벽 `#3f2616→#5b3a22` · 선반 `#8b5a2b` · 그림자 `#2e1c0f`). 책 50권 · 두께 22/36 × 높이 116/158 · 색 자유(꾸미기 `buildFreeColorPicker` 재사용) · 책등 그림 선택(세로 400px WebP · 200KB) · 세로 제목 14자 · 호버 12px·3° · **툴팁 없음** · 누르면 `companion.openBrowser`(http/https 만) · 끌어서 순서(4px 문턱 · 노란 막대 · 빠진 자리 점선 · 자동 스크롤 · **순서 목록만 저장**) · [+ 추가] · 가득 차면 «책장이 가득 찼어요 · 한 권을 빼 주세요» · 방문 중이면 폴더·서랍 잠김. 책 고치기·빼기는 그 책 우클릭.
-- 🔗 **계정 연동** — `bookmarks/{uid} = { order:"id,id,…", items:{…}, ts }`. **users/{uid} 아래에 두지 않았다** — 그 자리는 `.read: true` 라 방문자 읽기를 규칙으로 막을 수 없다(설계 4-4 의 «소유자만 읽기»를 지키려면 최상위여야 한다). 두 기기에서 고치면 마지막에 저장한 쪽이 이긴다(슬롯 같은 충돌 판정을 두지 않는다). 책등 그림은 Storage `bookmarks/{uid}/…webp`.
-- 🧩 **계약에 추가만** — `parts/myhome-desktop.js` 에 `host:'side'`(마이홈 창 바깥 오른쪽 · 창을 끌면 따라옴 · 관람 모드 일괄 닫기 포함). 기본 · `host:'home'` 갈래는 한 줄도 안 바뀌었다. 북마크라는 말은 이 파일에 없다.
-- 🗑 **미스테리au 걷어내기** — `parts/mystery-au.js` · `parts/mys-net-bind.js` 파일과 html `<script>` 두 줄 삭제 · `firebase-init.js` 의 MYS_NET 어댑터(mysRooms 통로 · `__mysNetBind`) 걷음 · `sim-mys-play.js` 폐기. `app.js` 는 손대지 않았다(미스테리 코드가 없다). **말랑이는 바탕화면 폴더가 아니라 시메지 레이어라 칸이 밀릴 일이 없다** — 핸드오프의 «말랑이 slot 고정»은 할 일이 없었다(확인함). 옛 `tw.advZ.v2` 는 그대로 둔다.
-  ⚠️ 서버 `mysRooms` 규칙은 **다음 릴리스**에 내린다(옛 판 사용자). `parties` · `partyInvites` · `advGame` 규칙도 그때 같이 본다.
-- 규칙: `firebase-database-rules.json` 최상위 `bookmarks/$userId`(주인만 읽기·쓰기 · order 문자열 1300자 · 책마다 http/https · 네 모양 값 · 색 · 제목 14 · 그림은 Storage 주소 · 모르는 칸 거절). Storage `bookmarks/{userId}/…` 200KB 미만 · 이미지만 · 삭제 허용. **둘 다 게시해야 켜진다.**
-- 검사: `sim-bookmark.js` 신설(붙는 방식 6 · 계약 5 · 책장 9 · 저장 8 · 걷어내기 5 · 떼어 와 돌림 6) → **38·0** · `sim-mys-play.js` 등재 해제. 전/후(이 사본): 초록 74→77 · 빨강 3→3(overlay-win · sysinput-win 없음 — 무관) · 원본없음 9→6(mallang · myhome-desktop 입수 · mystery 둘 폐기) · `audit.py` 전부 통과. 기준선 기대값 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 마이홈 → 미니 바탕화면에 📚 하나만(미스테리au · 캐릭터 등록 없음) ② 폴더 → 창 오른쪽 바깥에 서랍 · 마이홈 창을 끌면 따라옴 ③ [+ 추가]로 http 링크 · 제목 · 색 · 두께/높이 → 책등 · 누르면 기본 브라우저 ④ 책을 끌어 순서 바꾸기(4px 미만은 링크가 열려야 한다) · 50권 · 가득 참 문구 ⑤ 다른 PC 로 로그인 → 같은 책장 ⑥ 남의 마이홈 구경 중 📚 무반응 · 서랍 닫힘 ⑦ 책등 그림 등록 → 콘솔 Storage `bookmarks/{uid}/` · 책을 빼면 파일도 사라짐 ⑧ 파티 중이던 사람이 앱을 켜도 아무 일 없음(미스테리 재입장이 사라졌다).
-
-**개정 60 에서 한 것 (2026-09-23 · handoff-2026-09-21-features §2 · 사용자 확정: 시안 A · 500×500 캐릭터 자리 · 300KB 예외 · [신고하기] 라디오 · 3명 이상 관리자 · 신고하면 숨김 · 책상/이름표 우클릭)**
-- 🫧 **자리비움 그림** — `desk-companion-prototype.html`: [내 정보] 머리 아래 `#miAway`(체크무늬 미리보기 · [그림 등록] · [기본으로] · 안내 · 숨은 파일 입력). `app.js`: `_awayPrepare`(500×500 비율 유지 · 아래 정렬 · WebP 0.92→0.45 · 300KB 이하 · 끝까지 넘으면 거절) · `_awayPick`/`_awayReset`(올리기 → `users/{uid}/awayImg` → 옛 파일 지움) · `_awayBootSync`(서버 값 기준) · `_awayUrlOk`(Storage 주소 · 500자만) · `_awayPicFor`(자리비움 · 안 숨김 · 회사원 아님 · 불러온 뒤) · `_awayImgFrame`(캐릭터 경계상자 높이 정사각형 스프라이트 · 0.5초마다 맞춤) · 그림이 서면 책상 🫧 없음. Presence: `myAwayImg` · `setAwayImg` · 평소 · 입장 payload `awayImg` · 받는 쪽 `remoteAwayImg`(Storage 주소만). `firebase-init.js`: `uploadAwayImg`(away/{uid}/away_{시각}.webp · dataURL 폴백 없음) · `setAwayImg` · `getAwayImg` · `deleteStorageUrl`.
-- 🚩 **신고하기** — 남의 좌석 메뉴 끝 «🚩 신고하기…»(채널 무관) → 창: 라디오(캐릭터 · 자리비움 그림(그림 없으면 잠김) · 닉네임 · 기타 40자) → `reports/{대상}/{나}` = {kind, note?, nick, code4, ts}. 성공하면 `_reportHiddenUids`(tw.reportHidden · 계정 기준 · 모든 방) 에 넣어 숨김 · 책상/이름표 우클릭 «🙉 다시 보이기». 관리자 [🚩 신고 목록](`_openReportAdmin` · 서로 다른 3명 이상 · 신고자 = 닉네임 #뒷4 — 사유 · [그림 내리기] · [문제없음]). `firebase-init.js`: `reportUser`(로그인 없으면 auth) · `listReports` · `clearReports` · `getUserBrief`.
-- 🖱 **이름표 우클릭** — `.seat-nameplate` pointer-events:auto + `UI_HIT_SEL` 등재 · `ensureSeatNamePlateEl` 이 contextmenu → `_seatCtxMenu`(조준 · 회사원 게이트는 캔버스와 같게). 책상은 원래 `seat.group` 안이라 캔버스 레이캐스트로 이미 메뉴가 뜬다.
-- 규칙: `firebase-database-rules.json` — `users/$userId/awayImg`(본인 · 미결속 · 관리자 쓰기 · Storage 주소 · 500자) · 최상위 `reports`(읽기 · 비우기 관리자 · 신고자 칸 = `userAuth/{신고자} === auth.uid` · 자기 자신 금지 · 사유 넷 · 메모 40 · `$other` 거절). Storage 규칙 — `away/{userId}/…` 300KB 미만 · 이미지만 · 삭제 허용(users/ 2MB 와 겹치지 않는 경로 — 규칙이 OR). **둘 다 게시해야 켜진다.**
-- 검사: `sim-report-away.js` 신설(그림 17 · 신고 13 · 규칙 5 · 이름표 4 · 그 밖 1) → **40·0** · `sim-seat-hide.js` 메뉴(신고 숨김 줄) · 책상 이모지 판정 · 런타임(신고 숨김 3) → **24·0** · `audit.py` 검사 9 기준선에 `'reports': 1`(관리자 [신고 목록] 1회). 이빨(새 검사 × 개정 59 app.js): 빨강. 전/후(이 사본): 초록 73→74 · 빨강 3→3(무관) · 원본없음 9→9 · `audit.py` 전부 통과. 기준선 기대값 **초록 85 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① [내 정보] › 그림 등록(큰 PNG) → 미리보기 · 콘솔 `users/{uid}/awayImg` · Storage `away/{uid}/` 파일 하나 ② 자리비움 → 내 화면 · 상대 화면 캐릭터 자리에 그림 · 책상 🫧 없음 · 동물/큰 캐릭터 옆에서 크기 ③ 그림 바꾸면 옛 파일 지워짐 ④ [기본으로] ⑤ 회사원 모드 → 예전 모양 ⑥ 상대 이름표 · 책상 우클릭 → 메뉴 ⑦ [신고하기] → 사유 → 내 화면에서 숨김 · 다른 방에서도 숨김 · «다시 보이기» ⑧ 서로 다른 3계정으로 신고 → 관리자 [신고 목록] · [그림 내리기] → 남들 화면 🫧 · 본인 재시작 뒤 [내 정보] 🫧 ⑨ 로그인 안 한(미결속) 계정 신고 → «로그인한 뒤» 안내.
-
-**개정 59 에서 한 것 (2026-09-23 · handoff-2026-09-21-features §3 · 사용자 확정: 포커스 기록창 🕒 를 누르면 켜고 끔 · 기록 꼬리 빼기)**
-- 📊 **오늘 기록 전시** — `desk-companion-prototype.html`: 첫 줄 🕒 에 `id="focusLogShowClock"` · role=button · 켜지면 `.on`(크림색 동그라미 · 꺼짐은 예전 모양 그대로). `app.js`: `focusShowOn`(tw.focusShow · `_lsSet`) · `_focusShowText`(«오늘 H:MM» · 초 없음) · `_focusShowConf`(꺼짐 · 회사원 모드 = null) · `_focusShowPush`(켜고 끈 순간 바로 · 값은 5분에 한 번 · 거둘 때는 바로 · 30초 틱) · `_focusShowMine`(방에 보낸 값 = 내 화면 거울). Presence: `myFocusShow` · `setFocusShow` · `_statusOut` — **상태가 없을 때만** userStatus 'custom' + customStatus {🕒, 오늘 H:MM} 로 싣는다(새 필드 · 규칙 변경 없음 · 구버전도 보임 · 상태가 있으면 상태가 이긴다). 입장 페이로드도 같은 통로. `statusConfFor`: 상태 없음 + 내 좌석이면 거울. 회사원 모드 전환이 즉시 다시 보낸다.
-- 🎲/🔫 기록 — 투게더룸 기록 문장의 «1이 나와 날아갔어요.💥»(🎲) · «— 1이 나와 날아갔어요/살아남았어요»(🔫) 꼬리를 뺐다. 🎲 는 원래 문장 그대로 · 🔫 는 «…님이 룰렛을 돌려 [주사위] 가 나왔습니다.». 날리기 동작은 그대로.
-- 검사: `sim-focus-show.js` 신설(마크업 · 배선 6 · 값 10 · 배관 9) → **25·0** · `sim-fly-roulette.js` 3·4절 기록 판정을 «꼬리 없음» 으로 → **32·0**. 이빨(새 검사 × 개정 58-b app.js): 빨강. 전/후(이 사본): 초록 72→73 · 빨강 3→3(overlay-win · sysinput-win 없음 — 무관) · 원본없음 9→9 · `audit.py` 전부 통과. 기준선 기대값 **초록 84 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 방 둘이서 A 가 🕒 → B 화면 A 머리 위 «🕒 오늘 H:MM» · A 화면에도 같은 말풍선 ② 5분 동안 분이 바뀌어도 그대로 · 5분 뒤 갱신 ③ A 가 커스텀 상태를 켜면 그 문구 · 끄면 다시 기록 ④ 회사원 모드 켜면 B 화면에서 곧바로 사라짐 ⑤ 🕒 끄면 곧바로 사라짐 ⑥ 재시작 뒤에도 켜짐 유지 ⑦ 투게더룸 🎲 에서 1 → 날아가고 기록은 원래 문장만.
-
-**개정 58-b 에서 한 것 (2026-09-23 · 사용자 요청 «투게더룸 🎲 도 1이 뜨면 러시안룰렛»)**
-- `app.js`: 날리기를 공용 두 함수로 뺐다 — `_selfFlyReady(seat)`(회사원 모드 · 쉬는 시간 · `canFly` · 토스트 없음) · `_selfFlyAfterDice()`(0.7초 뒤 방이면 `pokeSelf('fly:'+시드)` · 혼자면 `applyRemoteFly`). `_rollRoulette` 는 이것을 부르도록 바뀌었을 뿐 동작 무변경. `_rollDice`(채널 2 게이트 그대로): 하나라도 1이고 `_selfFlyReady` 면 날아감 · 기록 문장 끝에 « 1이 나와 날아갔어요.💥». 못 나는 때는 주사위만(굴리기는 안 막음 · 기록도 원래 문장 — 안 날았는데 «날아갔어요» 가 남지 않게).
-- 검사: `sim-fly-roulette.js` 2절(공용 한 곳 · 그 안의 pokeSelf) · **4절 신설**(정적 2 · 떼어 와 돌림 6) → **32·0**. 이빨(새 판정 × 개정 58 app.js): 빨강 6. 전/후: 초록 72→72 · 빨강 3→3(무관) · 원본없음 9→9. 기준선 기대값 그대로 **초록 83 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: 투게더룸 🎲 를 1이 나올 때까지 — 두 화면에서 같이 날아가는지 · 기록 한 줄 끝에 «날아갔어요» · 연속 3번 맞으면 쉬는 시간 뒤 🎲 는 주사위만.
-
-**개정 58 에서 한 것 (2026-09-23 · handoff-2026-09-21-features §1 · §5 · 서버 · 규칙 · 시안 변경 없음)**
-- 🔫 **러시안룰렛** — `desk-companion-prototype.html` 상태칩 ▼ 메뉴 `#myDanceBtn` 아래 `#myRouletteBtn`(채널 무관 노출). `app.js` `_rollRoulette`: 회사원 모드 = 토스트(💣·📷 관례) · 쉬는 시간(`_myFlyCoolUntil`) · `canFly` · 3초 연타 방지 → 주사위 둘 → 말풍선 + `Presence.sendChat`(모든 채널) · 기록은 채널 2 만(`_flyChatLog` · «님이») · 하나라도 1이면 0.7초 뒤 `Presence.pokeSelf('fly:'+시드)` — 방송이 돌아와 `applyRemoteFly` 로 재생(먼저 돌리지 않음). 혼자(방 없음)면 `applyRemoteFly` 직접. 레벨 게이트 없음.
-- 🙈 **워킹룸 캐릭터 숨기기** — `app.js` `_hiddenSeatIds`(Set · 키 friendId) · `_seatHidden`(원격 · 채널 1 · 목록) · `_hitsSkipHidden` · `_clearHiddenSeats`(방 입장 직전 · `doLeaveRoom`). `_seatCtxMenu` remote 갈래에 `_activeChannel === 1` 줄 «🙈 숨기기 / 🙉 다시 보이기» · 숨긴 좌석엔 때리기 줄 없음. 프레임 루프가 매 프레임 `rig.visible` · 머리 위 말풍선 · 책상 위 상태 이모지를 판정(재동기화에도 유지) · 책상 · 이름표 · 경험치 바는 남김. 좌클릭 잡기 · `_flyAimClick` · `_bonkAimClick` 이 거름 · 우클릭 경로는 안 거름.
-- 검사: `sim-fly-roulette.js` 신설(배선 3 · 정적 7 · 떼어 와 돌림 12) → **22·0** · `sim-seat-hide.js` 신설(메뉴 4 · 기억 5 · 클릭 4 · 적용·판정 7) → **20·0**. 이빨(새 검사 × 개정 57 원본): 둘 다 빨강. 전/후(이 사본): 초록 70→72 · 빨강 3→3(overlay-win · sysinput-win 없음 — 무관) · 원본없음 9→9. 기준선 기대값 **초록 83 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 워킹룸 둘이서 🔫 여러 번 — 1이 나오면 두 화면에서 같은 궤적으로 날아가는지 · 워킹룸 기록창에 줄이 안 생기는지 ② 투게더룸 — 기록 한 줄 ③ 회사원 모드 — 토스트만 ④ 혼자 — 1이 나오면 날아감 ⑤ 워킹룸에서 상대 우클릭 → 숨기기 → 캐릭터 · 말풍선 · 책상 이모지 사라짐 · 빈 자리 좌클릭 무반응 · 책상 우클릭 → 다시 보이기 ⑥ 방 나갔다 다시 들어오면 다 보임 ⑦ 투게더룸에선 메뉴 줄 없음.
-
-**개정 57 에서 한 것 (2026-09-22 · 🧬 회원가입 설계 §3 «다름» · §7-F · 설계 개정 25 · 사용자 확정: 시안 F-1 · F-2 · 권고대로 · K 는 로그아웃처럼 전부 내려놓기)**
-- **대조에서 나온 틈(고침):** 로그아웃 없이 다른 계정으로 갈아타는 길(I 의 [구글 계정으로 연결하기] · K 의 다른 계정 로그인)에서 옛 계정의 보관함 · 책상 표(`deskFriends.chars.*`)가 남았다 → 첫 채택이 «이미 채택함» 으로 건너뛰고 평상시 동기화가 옛 계정 캐릭터를 **새 계정 서버에 조용히 올렸다** · 책상 표가 옛 cid 를 가리킨 채 새 계정 칸 그림을 받아, 고치면 옛 cid 에 새 계정 캐릭터가 덮였다. K(한 PC 를 둘이 씀)면 남의 캐릭터 · 집중 시간 · 플레이리스트가 섞였다.
-- `app.js`: `_switchPrepare(before, to)` — 두 로그인(`_loginDoGoogle` · `_loginDoFriendCode`)이 **uid 기록 전에** 부른다 · 실패하면 갈아타지 않는다(세션 · 계정 표시를 놓고 이유를 돌려줌). 갈래 = `userAuth/{before}`: 못 읽음 → 실패 · 다른 계정(K) → 책상 칸 슬롯 백업(uid 대조로 남이 못 줍는다) 뒤 `_wipeAccountLocal`(로그아웃과 같은 목록) · 안 묶임(I) → ① `_charsBoot('switch')` 로 옛 uid 로 끝까지 올림(남은 dirty 가 있으면 실패) ② `_charsLinkPlan`(순수 · 옛 uid 서버의 산 캐릭터를 **같은 cid** 로 · 새 계정 쪽이 같거나 더 새것(묘비 포함)이면 안 옮김 · 묘비 · 모양 틀린 cid 안 옮김) → `saveCharsEntries(새 계정)` ③ 캐릭터 로컬 키 셋만 내려놓음(책상 칸 LS_KEY 는 둔다 — 재시작 뒤 새 계정으로 첫 채택) ④ `tw.charsLinked = { to, cids }`. 나머지(집중 · 플레이리스트)는 예전처럼(같은 사람). `_charsLinkedMaybeShow` — 부팅 `_charsBoot` 가 성공한 뒤 · 표시가 이 uid 것이고 보관함이 열렸을 때만 · 옮긴 것 중 살아 있는 것만 · 섬네일만 · 보관함 N/20 · (그 전 + 옮긴 것) · 20 이상이면 D2 와 같은 문구 + [보관함 열기]가 기본 버튼 · 띄우면 표시를 지운다. `ACCOUNT_LOCAL_KEYS` 에 `'tw.charsLinked'` · `UI_HIT_SEL` 에 `#charsLinkedOverlay`.
-- `desk-companion-prototype.html`: `#charsLinkedOverlay`(z-index 94 · 게이트 아래) — 제목 · 체크 줄 · 섬네일 격자(5열) · 보관함 칸 · 경고 상자 · 안내 줄 · [보관함 열기] [확인]. 시안 F-1 · F-2 그대로.
-- 검사: `sim-signup.js` **14절 신설**(부르는 순서 둘 · 목록 둘 · 부팅 뒤에만 · 마크업 열둘 · «마리» 없음 · `_charsLinkPlan` 셋 · `_switchPrepare` 떼어 와 열한 경우(못 읽음 · 던짐 · K 전부 내려놓음 · I 옮김 · 옛 uid 로 올림 · 캐릭터 키만 · 표시 · 올림 실패 · dirty · 쓰기 실패 · 읽기 실패 · 옮길 것 없음 · 스위치 꺼짐 · 옛 uid 없음) · `_charsLinkedMaybeShow` 떼어 와 F-1 · F-2 · 다른 uid · 채택 전 · 다 지워짐 · 책상에 올라간 것) + 5절 친구 코드 로그인(정리 호출 · 실패 시 안 갈아탐) → **399·0**. `sim-google-login.js` §5(정리를 갈아타기 전에 부름 · 실패 → uid 그대로 · 세션 놓음 · 복원 없음). 이빨(새 판정 × 개정 56 원본): sim-signup 빨강 12 · sim-google-login 5. 전/후(이 사본 · 원본 둘 없음): 초록 70→70 · 빨강 3→3(무관) · 원본없음 9→9 · `audit.py` 전부 통과. 기준선 기대값 **초록 81 · 빨강 0 · 원본없음 1**(sim-signup **399·0**).
-- ⚠️ 실기기: ① 로그인 안 한 PC(가입 I 가 뜨는 PC)에서 [구글 계정으로 연결하기] → 이미 가입된 구글 → 재시작 → 약 5초 뒤 F(섬네일 · N/20). 콘솔 `users/{새 uid}/chars` 에 옛 uid 의 cid 가 같은 값으로 · 옛 uid 쪽은 그대로. [보관함 열기] → [내 정보] › 보관함. ② K PC(다른 계정에 묶인 PC)에서 **다른** 계정으로 로그인 → 재시작 뒤 F 없음 · 그 계정 캐릭터만 · 옛 계정 캐릭터가 새 계정 서버에 없음. ③ 네트워크를 끊고 ① → «읽지 못했어요» · uid 그대로. ④ Storage 규칙이 옛 uid 의 그림 올리기를 막으면 ① 이 «올리지 못했어요» 로 멈춘다 — 그때는 알려 줄 것(규칙 확인).
-
-**개정 56 에서 한 것 (2026-09-22 · 🔗 회원가입 설계 §6-②③④⑥⑧ · 설계 개정 24 · 사용자 확정: 코드 없는 계정 = (가) · `_loginDoGoogle` 갈아타기는 남기고 `_setMyUserId` 로)**
-- 왜: 계정이 없던 시절(한 사람 = 기기마다 uid)의 장치 — 이 기기가 버린 uid 를 적어 두고 그 uid 의 코드·친구 요청을 **조건 없이** 끌어왔다. 이제 로그인은 비밀번호·구글로 확인된 계정이라 이 기기의 이전 uid 는 **다른 계정**(한 PC 를 둘이 쓰면 다른 사람)이다 — 끌어오면 남의 아이디(코드 = 로그인 아이디)와 친구 요청을 가져간다.
-- `app.js`: ② `MY_PREV_USER_IDS_KEY` · `_rememberPrevUserId` · `_isMyPrevUserId` 걷음 + `ACCOUNT_LOCAL_KEYS` 항목 걷음 + 예전 판이 남긴 `tw.myPrevUserIds` 는 로드 때 `removeItem` 한 줄. ③ `_healFriendCodeOwner` — «버린 uid» 되찾기 · 7일 되찾기 갈래 걷음(+`FC_STALE_DAYS`) · 남은 것: 내 것 · 주인 없음 선점 · 그 밖은 그대로 두고 경고. ④ `_loginDoGoogle` 갈아타기는 **남김**(게이트 H·K 의 [구글로 로그인]이 새 PC 에서 계정으로 들어가는 길 — 설계 ④ «블록 전체» 정정) · 버린 uid 기록 걷음 · `setItem(MY_USER_ID_KEY)` → `_setMyUserId`(못 쓰면 Auth 세션·계정 표시를 놓고 실패). `_loginDoFriendCode` 의 버린 uid 기록 걷음 · 복원에 입력한 코드를 넘김. ⑥ 시크릿룸 «버린 uid» 재발급 안내 토스트 걷음(손님 입장 그대로). 설계 «남는 것»: `_claimFriendCodeAfterTransfer`(로그인 직후 로컬 코드 주인을 새 uid 로 **강제로** 바꿈) 걷음 → `_adoptAccountFriendCode`: 계정에 코드 기록이 없으면(스냅샷 · 거울 둘 다 없음) 친구 코드 로그인 = 입력한 코드 · 구글 = 로컬 코드를 내려놓음(다음 부팅 `ensureMyFriendCode` 가 거울 → 첫 발급 · 재발급 아님). 소유권(friendCodes)은 어디서도 안 쓴다. 낡은 주석(transferData 두 곳 · 시크릿룸 7일 한 곳) 정정.
-- `firebase-init.js`: ⑧ `migrateFriendRequests` · `setFriendCodeOwner` 걷음(부르는 곳 없음 · 남의 코드를 가져가는 통로 — 선점은 `registerFriendCode` 트랜잭션뿐) · lastSeen 주석 정정.
-- 검사: `sim-friend-code-keep.js` 머리 · 1절(heal: 내 것 · 선점만 손대고 버린 uid 였던 것 · 오래 조용 · 활동 중인 남은 전부 그대로 · lastSeen 안 읽음) · 2절(로컬 코드 지우는 문장은 `_adoptAccountFriendCode` 한 곳 · 강제 지정·버린 uid·7일 이 코드에 없음 · firebase-init 통로 없음) · 3절(`_adoptAccountFriendCode` 를 떼어 와 (가) 다섯 경우) → **31·0**. `sim-google-login.js` 규약 ① 새로 · §2 ①(버린 uid 없음 · `_setMyUserId` + 실패 시 로그아웃) · §5 런타임(버린 uid 안 적음 · 기록 실패 → 실패·세션 놓음·복원 없음). `sim-account-switch.js` 키 표 · 1절(목록 없음 · 부팅 지움 · 버린 코드 기록은 목록에) · 2절 스텁 → 77·0. `sim-room-order.js` 3절(방장 판정 문자열 하나 · «버린 uid» 안내 없음) → 18·0. `sim-signup.js` 5절 친구 코드 로그인(옛 uid 안 적음 · 입력한 코드를 넘김) → **356·0**. 이빨(새 판정 × 개정 55 app.js): sim-google-login 빨강 8 · sim-signup 3 · sim-account-switch 2 · sim-room-order 2 · sim-friend-code-keep 죽음(종료 2 = 빨강). 전/후(이 사본 · 원본 둘 없음): 초록 70→70 · 빨강 3→3(overlay-win · sysinput-win 없음 — 무관) · 원본없음 9→9 · `audit.py` 전부 통과. 기준선 기대값 **초록 81 · 빨강 0 · 원본없음 1**(sim-signup **356·0**).
-- ⚠️ 실기기: ① 새 PC(또는 로그아웃한 PC)에서 친구 코드로 로그인 → 재시작 뒤 [내 정보] 친구 코드 = 로그인한 코드. ② 구글로 로그인 → 재시작 뒤 친구 코드 = 그 계정 코드(콘솔 `users/{uid}/friendCode` 와 같음). ③ 콘솔 `friendCodes/{이 PC 가 전에 쓰던 코드}.userId` 가 **바뀌지 않았는지**(예전엔 새 uid 로 바뀌었다). ④ F12 `localStorage.getItem('tw.myPrevUserIds')` = null.
-
-**개정 55 에서 한 것 (2026-09-22 · 🔐 회원가입 설계 §9-12 · 설계 개정 23 · 사용자 확정: 자리 accountSnap · 이관 = 일회용 함수 · transferData 잠금은 이번에)**
-- **대조에서 나온 더 큰 구멍:** 규칙 `licenses` 가 모음 자리에 `.read: true` — `/licenses.json` 한 번으로 발급된 키 전부가 보였고, 등록(`redeemLicense`)은 «있고 valid» 만 보므로 그 키로 누구나 프리미엄이 됐다. `transferData.license` 는 그 일부였다.
-- `firebase-database-rules.json`: ① `licenses` `.read` → 관리자만 · `licenses/$key` `.read: true`(키 하나 — 등록 · 재검증 · 회수 구독). 모음을 읽는 곳은 관리자 통로 둘(`listLicenses` · `getAdminStats`)뿐. ② 최상위 `accountSnap/$userId` 신설 — 읽기·쓰기 `auth != null && userAuth/{코드} === auth.uid`(미결속 갈래 없음) · `ts` 필수 · license ≤40 · name ≤40 · friendCode ≤12 · focusTotalSec 0..359640000 · `$other` 거절. ③ `users/$userId/transferData` → **지우기만**(`!newData.exists() &&` · `.validate: "false"` — transferHash 와 같은 모양).
-- `firebase-init.js`: `_acctSnapClean`(규칙 범위 밖 항목은 그 항목만 뺀다) · `setAccountSnapshot` = 루트 update 한 번으로 `accountSnap/{코드}` 쓰기 + `users/{코드}/transferData` null · `fetchAccountSnapshot` = 새 자리 → (없거나 거절) 옛 자리 → 옛 것이 있으면 한 번의 update 로 옮기고 지움(실패해도 값은 돌려줌) → profile · friendCode 폴백. 반환 모양 그대로 → **app.js 무변경**. 관리자 통로 주석 둘(모음 읽기는 관리자만).
-- `functions/index.js`: **일회용** 예약 함수 `moveAccountSnap`(일정 1월 1일 05:00 — 강제 실행으로만 씀) — `listUserIds`(shallow) 재사용 · `userAuth` 한 번 읽기 · 결속 = 옮기고 지움(accountSnap 이 같거나 새것이면 지우기만) · 미결속 = 지우기만 · 객체 아닌 값은 지우지 않고 센다 · 로그는 수만. 러너 밖 — 세션에서 떼어 돌려 **16·0**(결속 옮김 · 새것 안 덮음 · 범위 밖 항목 · 미결속 · 이상값 · 로그에 키 없음 · 멱등 · export · 앱 `_acctSnapClean` 과 같은 규칙).
-- 검사: `sim-google-login.js` §7 통로 판정을 accountSnap 으로 · §8 transferData 지우기만 + accountSnap 규칙 넷 · **§9 신설**(두 함수 + `_acctSnapClean` 떼어 와 돌림 — 새 자리 읽기 · 옛 자리만이면 옮기고 지움 · 한 번의 update · 거절되면 옛 자리 · 폴백 · 쓰기 모양 · 거절 ok:false · 스테이징에 `functions/index.js` 가 있으면 `snapClean` 이 같은지 · app.js 코드가 자리를 직접 안 만짐). `sim-signup.js` 11절 «transferData 그대로» → «지우기만»(355·0). `sim-admin-rules.js` 2절 키 하나 읽기 · 3절 목록 관리자만 + 모음 읽는 자리 둘. 이빨(새 판정 × 개정 54 원본): sim-google-login 빨강 6 · sim-signup 2 · sim-admin-rules 3. 전/후(이 사본 · 원본 둘이 없는 사본): 초록 70→70 · 빨강 3→3(overlay-win · sysinput-win 없음 — 무관) · 원본없음 9→9. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**(sim-signup 355·0).
-- ⚠️ app.js 주석 두 자리(30573 · 31697 «transferData 는 지우지 않는다»)는 낡았다 — 코드와 무관 · 다음에 app.js 를 손댈 때(§4-②) 고친다.
-- ⚠️ **순서(실기기):** ① 규칙 게시 → ② 앱 배포 → ③ `firebase deploy --only functions`(moveAccountSnap 추가) → Cloud Scheduler `firebase-schedule-moveAccountSnap-asia-southeast1` › 강제 실행 → 로그 `[moveAccountSnap] {…moved, deleted, odd, failed, left}` → 한 번 더 실행해 moved·deleted 0 → 다음 배포에서 함수 블록을 걷는다. ③ 을 ② 보다 먼저 하지 말 것(옛 판 로그인이 라이선스 복원을 못 받는다).
-- ⚠️ 옛 판 영향: 부팅 스냅샷 쓰기가 조용히 거절됨(이미 catch) · 옛 판으로 다른 계정에 로그인하면 라이선스만 복원 못 받음(이름 · 코드는 폴백).
-
-**개정 54 에서 한 것 (2026-09-22 · 회원가입 설계 §9-2 권고 «N 에서 쓰기 중단» · 사용자 «할 수 있는 데까지»)**
-- `firebase-init.js` `authSignInWithGoogle`: `authUsers/{authUid}` 에 이메일을 쓰지 않는다(첫 결속 set 에서 뺌 · 거울 갱신 update 걷음). 예전 판이 남긴 `email` 은 **로그인 때 `{ email: null }`** 로 걷는다(규칙 `!newData.exists() ||` 가 받는다). 이메일은 앱에 돌려주기만 한다(이 PC 계정 표시 · 로컬). 가입 결속(`authSignupBind`)은 원래 이메일을 안 썼다(sim-signup 6절). 규칙의 `email` 자리는 §6-⑬(N+2)에서 내린다.
-- 검사: `sim-google-login.js` §3 판정 하나(거울 안 씀 · 로그인 때 걷음). 이빨(새 판정 × 개정 52~53 firebase-init): 빨강 1. 전/후(이 사본) 같음. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: 구글로 로그인한 PC 에서 로그인 한 번 → 콘솔 `authUsers/{내 authUid}` 에 `email` 이 없는지(있었다면 사라짐) · [내 정보 › 계정] 구글 연결 표시는 그대로.
-
-**개정 53 에서 한 것 (2026-09-22 · 사용자 요청 «계정 화면 스크롤 안 보이게» · 실기기 개정 51~52 완료 — D2 는 실제로 20 이 될 때 다시)**
-- `desk-companion-prototype.html`: `#lcMyInfo.mi-noscroll` — `scrollbar-width:none` · `::-webkit-scrollbar{display:none}`. `app.js` `_miSetTab`: 계정 탭일 때만 그 클래스를 단다. 휠·끌기 스크롤은 그대로(보관함·휴지통 탭은 스크롤바 보임 — 20 줄이 넘을 수 있다).
-- 런처 X(`#lcCloseBtn`): [내 정보]가 열려 있으면 `closeMyInfo()` 만 하고 돌아간다(◀ 와 같음 · 사용자 요청). 한 번 더 누르면 앱 종료. Alt+F4 · 작업 표시줄 닫기는 그대로 종료(OS 창 닫기 · 이 버튼을 안 거친다).
-- 검사: `sim-signup.js` 12절 판정 둘(스크롤바 · X) → 355·0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
-
-**개정 52 에서 한 것 (2026-09-22 · 🧹 회원가입 설계 §6-⑧ · 핸드오프 09-22c §4-③)**
-- `firebase-init.js`: 부르는 곳이 없는 통로 셋을 걷었다 — `authRebindUserCode`(결속 고쳐 매기 · 유일한 호출자였던 되찾기 UI 는 개정 45 에서 걷음) · `setTransferHash` · `verifyTransfer`(계정 이전/연동 · 개정 45 에서 입구 걷음). 자리에 한 줄 주석. ★ **남긴 것:** `setAccountSnapshot` · `fetchAccountSnapshot`(`users/{uid}/transferData` — 로그인 복원 자리) · `migrateFriendRequests`(아직 `_healFriendCodeOwner` 의 «내가 버린 uid» 갈래가 부른다 — §6-③ 과 같이 걷는다) · 규칙(§6-⑬ · N+2).
-- `app.js`: 주석 한 줄(«같이 걷는다» → «걷었다»). 동작 무변경.
-- 검사: `sim-google-login.js` §7 — «authRebindUserCode 가 있다 + 순서 넷» → **«통로 셋이 없다 · 스냅샷 통로는 남았다»**. 이빨(새 판정 × 개정 51 firebase-init): 빨강 2. 5·6·9절(`sim-signup`) 떼어 오기 경계는 걷은 함수를 끝 표시로 쓰지 않아 그대로 — 353·0. 전/후(이 사본): 초록 70→70 · 빨강 3→3 · 원본없음 9→9. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: 따로 볼 것 없음(부르는 곳이 없던 코드). 로그인한 PC 에서 이름 · 친구 코드 · 라이선스가 그대로인지(스냅샷 통로)만 한 번.
-
-**개정 51 에서 한 것 (2026-09-22 · 🧺 D2 보관함 가득 참 · 캔버스 D2 를 [내 정보] 모양으로 다시 그려 보이고 진행 · 사용자 «보여주고 진행»)**
-- 실기기(개정 48~50) 전부 정상 — 러너 81·0·1 · 규칙 게시 · 함수 둘 · 보관함 이동/슬롯에 올리기 · 휴지통 탭/옮기기/복원/20 상자 · 다른 PC · C2/C3/로그아웃 · `cleanTrash` via shallow · 3777명 · 오류 0.
-- `desk-companion-prototype.html` (보관함 페이지): 노란 경고 `#miBoxFull`(머리 · 글) · 표제 줄 오른쪽 «고른 캐릭터 k» `#miBoxPicked` · 목록 아래 `#miBoxBulk`([선택한 캐릭터 휴지통으로 (k)] · 되묻기 `#miBoxBulkAsk` [옮기기][취소] · «3일 동안 복원»). 처음엔 다 숨김. 캔버스의 «마리» · «슬롯의 캐릭터는 고를 수 없어요»는 뺐다(개정 48 부터 슬롯 캐릭터는 보관함 목록에 없다).
-- `app.js`: `_charsBoxTrashMany(cids)`(조율 블록 · 한 개씩 `_charsBoxTrash` 와 같게 · 못 옮긴 것은 센다) · `_miRenderBoxFull(items)`(보관함(슬롯 밖) ≥ 20 → «보관함이 가득 찼어요 · n/20» · «(n−19)개 이상 휴지통으로 옮겨야 …» — 문턱이 ≥20 이라 19 까지 내려가야 풀린다 · 목록에 없는 고른 것 버림 · 20 아래면 다 접고 비움) · `_miRenderBox` 가 가득 찼을 때만 줄마다 체크칸 · 되묻는 동안 [슬롯에 올리기] 잠금 · 줄 아이콘 되묻기와 한꺼번에 되묻기는 서로 닫는다 · `_miBoxBulkStart`(0개면 토스트) · `_miBoxTrashBulk`(묘비 → 고른 것 비움 → 한 번 동기화 → «휴지통 N») · `closeMyInfo` 가 접는다.
-- 검사: `sim-signup.js` **13절 신설**(자리 열 · 순서 · 처음 숨김 · 글자 · 목록 체크칸 · 배선 · 가짜 DOM 으로 22/20 «3개 이상» · 고른 것 거름 · 되묻기 글자 · 딱 20 «1개 이상» · 19 면 다 접힘 · 안 열린 PC) → **353·0**. `sim-chars-migrate.js` 10절 ⑮-2(한꺼번에 · 슬롯/없는 것 건너뜀 · 동기화 뒤 두 줄) → **165·0**. 이빨(새 판정 × 개정 49~50 판): sim-signup 빨강 18 · sim-chars-migrate 1. 전/후(이 사본): 초록 70→70 · 빨강 3→3(사본에 없는 overlay-win.js·sysinput-win.js) · 원본없음 9→9 · audit 통과. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: 보관함을 20 으로 채우면 노란 경고 «20/20 · 1개 이상» · 체크칸 → 둘 고르고 [선택한 캐릭터 휴지통으로 (2)] → 되묻기 → [옮기기] → «휴지통으로 옮겼어요 (2)» · 경고가 사라짐 · «휴지통 2». (채우기 번거로우면 20 개가 된 김에 한 번만 확인해도 된다.)
-
-**개정 50 에서 한 것 (2026-09-22 · 🧹 휴지통 청소 · 사용자 결정 «(나) 예약 함수» · 설계 결정 10)**
-- `functions/index.js`: **`cleanTrash`**(onSchedule · `every day 04:00` · Asia/Seoul · 리전은 전역 asia-southeast1 그대로) 추가. 옮김(`deleted`) at + 3일 · 연동 교체(`overwritten`) at + 10일이 **지난** 줄을 사람마다 update(null) 한 번으로 지운다. 기한 값은 앱 `CHARS_TRASH_TTL` 과 같다(앱은 같은 날 화면에서 숨긴다). 모양 틀린 줄은 지우지 않고 센다. 사람 목록은 RTDB REST shallow(uid 만) · 못 받으면 friendCodes ∪ userAuth. `changePassword` 무변경. 규칙 무변경(Admin SDK 는 규칙 밖).
-- 검사: 러너는 `functions/` 를 스테이징하지 않는다(개정 44) → **이 세션에서 떼어 돌림 13·0**(내보내는 것은 함수 둘뿐 · 예약 04:00 서울 · 리전 · 기한 경계(딱 기한이면 지움 = 앱 `until <= now`) · 남김 · 모양 틀린 줄 안 지움 · 앱과 같은 기한 값 · shallow + 토큰 · 한 사람 한 update · 대체 목록 · 한 사람 실패해도 계속). 러너 대상 파일 무변경 — 기준선 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
-- (같은 날 고침) 첫 배포가 «User code failed to load … Timeout after 10000» 으로 멈췄다 — 새로 넣은 맨 위 `require('firebase-admin/database')` 가 CLI 의 10초 읽기 안에 못 끝난 것으로 본다. `cleanTrash` 가 돌 때 읽도록 옮겼다(맨 위 require 는 changePassword 만 있던 판 + 가벼운 scheduler 하나). 세션 검사 13·0 그대로.
-- ⚠️ 배포: `firebase deploy --only functions` — 처음이면 Cloud Scheduler API 를 켜라는 질문에 «예». 콘솔 Functions 목록에 `cleanTrash` · 다음 날 로그 `[cleanTrash] {"via":"shallow",…}` 확인(via 가 fallback 이면 shallow 토큰이 막힌 것 — 동작은 한다).
-
-**개정 49 에서 한 것 (2026-09-22 · 🗑️ 휴지통 탭 · 사용자 확정 «시안 ①~③ · 탭 순서 보관함 · 계정 · 휴지통 · 기한 지난 줄 숨김»)**
-- 대조 먼저(코드 전): 휴지통 전체를 읽는 통로가 없었다(`loadCharsTrashLatest` 는 cid 마다 def 하나 · why/at 없음). 규칙은 바꿀 것 없음 — 읽기는 `users/$userId .read: true` · 복원은 `chars/{cid}` 쓰기. 캔버스 E 보드는 옛 판(되살리기 · 이 모습으로 · 책상에 · 맞바꾸기)이라 설계 개정 7 의 E 글과 개정 48 용어로 시안을 다시 그려 확정받았다.
-- `firebase-init.js`: 통로 **`loadCharsTrashAll(uid)`** — `users/{uid}/trash` 전체를 읽기만 · 모양 거름(cid 모양 · def 문자열 · why 두 값 · at 숫자) · 실패 = null.
-- `app.js` (조율 블록 안 · `_charsDeleteWords` 뒤): `_charsBoxTrash(cid)`(슬롯 밖 항목 → 묘비 `{del, pend}` 만 · 슬롯 캐릭터는 'ondesk' · 대기 줄 없음 — 다음 동기화의 병합이 서버의 마지막 모습을 `deleted` 로 남긴다) · `_charsRestoreCid(cid, mtime)`(**'cr' + 해시** — 같은 줄이면 늘 같은 cid) · `_charsTrashView(trash, box, now)`(순수 — 기한 지난 줄 숨김 · 옮김은 cid 마다 최근 한 줄 · 옮김은 «보관함에 살아 있고 그 줄보다 나중» 이면 접힘 · **연동 교체는 복원본 cid 가 보관함에 있을 때만 접힘**(설계 §2-2 의 한 기준을 그대로 쓰면 원본을 다시 고치는 순간 옛 모습이 사라진다) · 최근 것부터) · `_charsRestore(row)`(20 문턱 → 서버 `saveCharsEntries` 먼저 → 된 뒤에만 로컬 보관함 · 시각은 그 줄 at 보다 뒤 · 이미 있으면 쓰지 않음). [내 정보]: `_miSetTab` 에 trash(`_miTrashOn` = `_charsActive` 일 때만 탭 보임) · `_miTrashLoad`(열 때 · 탭 누를 때 · «휴지통 N») · `_miRenderTrash`(섬네일 · «옮김»/«연동 교체» · «M/D 사라져요» · [복원] 폭 48px) · `_miTrashRestore`(20 이면 붉은 상자 `#miTrashFull` · 버튼은 그대로) · 보관함 줄 끝 붉은 아이콘 `_miTrashIcon`(D2 와 같은 선) → 줄 안 되묻기(`_charsDeleteWords().ask`) · [옮기기] → `_miBoxTrash`(묘비 → 바로 `_charsSync('box-trash')` → 탭 글자 다시). `closeMyInfo` 가 되묻기·상자를 접는다.
-- `desk-companion-prototype.html`: 탭 순서 **보관함 · 계정 · 휴지통**(휴지통 탭은 처음엔 숨김 그대로) · `#miPageTrash`(표제 «휴지통 (n)» 붉게 · `#miTrashFull` · `#miTrashList` · `#miTrashEmpty` · 안내 한 줄).
-- 검사: `sim-chars-migrate.js` **10절 신설**(보관함 줄 → 묘비 · 동기화 뒤 deleted 한 줄 · 꺼짐 무동작 · 복원본 cid · 보일 줄 고르기 여덟 · 복원 — 같은 cid · 연동 교체 하나 더 · 두 번/다른 PC 한 개 · 20 막힘 · 서버 실패 무변경 · 꺼짐) · 6절 통로 판정 하나 · 없는 함수는 return 에 안 넣어 8절이 통째로 죽지 않게 → **163·0**. `sim-signup.js` **12절 신설**(탭 순서 · 붉은 글자 · 페이지 · 안내 글자 · 열림 판정 · 읽기/고르기 · E 줄 · 20 상자 · 보관함 줄 아이콘·되묻기 · 가짜 DOM 그리기) · 11절 휴지통 탭 숨김 판정 문구만 → **330·0**. 이빨(새 판정 × 개정 48 원본): sim-signup 빨강 21 · sim-chars-migrate 2. 전/후 한 바퀴(이 사본 · main.js·preload.js 포함 82개): 초록 70→70 · 빨강 3→3(사본에 없는 overlay-win.js·sysinput-win.js 탓 — 전후 같음) · 원본없음 9→9 · `audit.py` 통과. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
-- ⚠️ 청소 함수(3일 · 10일)는 아직 없다 — 기한 지난 줄은 **화면에서만** 숨고 서버엔 남는다(함수 배포 때 지워짐).
-- ⚠️ 실기기: 보관함 줄 아이콘 → 되묻기 → [옮기기] → 토스트 «휴지통으로 옮겼어요» · [휴지통 1] · [복원] → «보관함으로 복원했어요» · 보관함 (n/20) · 휴지통에서 그 줄이 접힘 · 보관함 20 에서 [복원] → 붉은 상자 · 다른 PC 에서 같은 휴지통.
-
-**개정 48 에서 한 것 (2026-09-22 · 사용자 결정 «런처가 [내 정보]로 바뀐다» · 시안 G · D 바로잡기)**
-- ⚠️ **개정 47(별개 OS 창)은 되돌렸다** — `main.js` 는 개정 46 판(업로드 원본) 그대로 · `_miPopOut`/`_miEl` 없음. 개정 45 의 겹창 `#myInfoOverlay` 도 없다(팝업 목록 여덟에서 뺐다).
-- `desk-companion-prototype.html`: 런처 카드(.lc-card) 안에 겹 페이지 `#lcMyInfo`(제목줄 22px 아래를 덮음 · ◀ `#miBack`) — 작은 머리(사진 44px · 닉네임 + `_plFillLv` 배지 + [수정] · 친구 코드 + [복사]) · 탭 [보관함] [휴지통](숨김) [계정] · **보관함 = 표제 «보관함 (n/20)» + 목록 `#miBoxList` + 빈 줄 `#miBoxEmpty` + [코드로 캐릭터 불러오기]**(슬롯 격자 · «책상» 없음) · 계정 = C4(요소 그대로). 런처 톱니(시안 G): `lcToBox` [보관함 이동] · [캐릭터 수정] · [복제 코드 만들기] · 구분선 `lcGearSep` · [휴지통 이동].
-- `app.js`: `openMyInfo`/`closeMyInfo`(페이지 보이기 · 런처 다시 그림) · `_miBoxItems`(슬롯 표 밖의 산 항목만 · 최근 고친 것부터) · `_miRenderBox`(섬네일 · «마지막 수정 M/D» · [슬롯에 올리기]) · `_miBoxUp`. 🧰 `_charsDeskToBox(i)`(슬롯 표에서만 빼고 당김 · **보관함 항목은 그대로** · 못 올린 고침(dirty)은 `_charsSync('force')` 로 먼저 올리고, 못 올리면 안 옮김) · `_charsBoxToDesk(cid)`(빈 슬롯 첫 칸에 `_slotFromServerObj` 로 받아 앉힘 · 기준 h 지움 · 백업 · loadSlots) · `_charsMoveMsg`(문구 한 벌 · 슬롯 꽉 참 = D3) · `doMoveCurSlotToBox`(보관함 기록이 끝난 뒤에만 칸을 당김 · 자리 추가 번호 같이 · 토스트 «보관함으로 옮겼어요»). **20 = 보관함(슬롯 밖)만**(`_charsBoxOnlyCount` · 사용자 결정 «n/20» — 슬롯 5 + 보관함 20) · 문구 «보관함이 가득 찼어요 (n/20)»(«마리» 뺌). **`CHARS_SYNC_ENABLED = true`** — ⚠️ 규칙(chars · trash · charsMeta)이 게시된 뒤에 배포.
-- 검사: `sim-signup.js` 11절 새로(런처 안 페이지 · 작은 머리 · 보관함 = 슬롯 밖만 · n/20 · 글자에 «책상»·«마리» 없음 · 톱니 G 순서 · 보관함 이동 떼어 와 돌리기 여섯 · 슬롯에 올리기 정적 · 스위치 켬 · 걷은 것 · C4 · transferHash) → **304·0**. `sim-chars-migrate.js` 5절 «스위치 = true»(런타임 치환은 true/false 둘 다 받게) · 8절 ⑤ 20 문턱을 슬롯 밖 기준으로(슬롯 캐릭터 안 셈 · «(20/20)»). `sim-google-login.js` §1 자리 `#lcMyInfo`. 이빨(새 판정 × 개정 46 원본): 빨강 39 · 3 · 2. 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기: ① 콘솔 규칙에 `chars` · `trash` · `charsMeta` 가 있는지 먼저(없으면 게시) ② 부팅 5초 뒤 첫 채택 → 톱니 마지막 줄이 «휴지통 이동» 으로 바뀜 = 보관함 열림 ③ [보관함 이동] → 런처에서 빠짐 · [내 정보 › 보관함 (1/20)] ④ [슬롯에 올리기] → 빈 슬롯에 그림째 ⑤ 다른 PC 에서 같은 보관함.
-
-**개정 47 에서 한 것 (2026-09-22 · 🪟 [내 정보] 별개 창 · 사용자 요청 «런처와 별개 창 · 따로 드래그»)**
-- `main.js`: `setWindowOpenHandler` 에 `myInfo` 갈래(테두리 없음 · 400×640 · resizable 아님 · skipTaskbar · alwaysOnTop · **parent=메인** · `savedMiPos`) · `did-create-window` 에서 'screen-saver' 단계 · 위치 기억(`moved`/`move`) · 메인 최소화 때 닫기. 디자인 스튜디오(`mhDesign`)와 같은 방식. `preload.js` 무변경(window.open 이라 통로가 필요 없다).
-- `app.js`: `_miPopOut`(window.open('', 'myInfo_…') → 본창 `<style>` 복제 + `MI_CHILD_CSS` + `applyThemeToChildDoc` → `#myInfoWin` 조각을 **adoptNode 로 옮겨 심음** · 이벤트 그대로) · `_miReturnNode`(pagehide/beforeunload · 닫기 · 두 번 불려도 됨 → `#myInfoOverlay` 로 되돌림) · `_miEl(id)`(그 창이 떠 있으면 그 창 문서 → 아니면 본창) · 조각 안 요소를 찾는 곳 전부 `_miEl` 로(직접 18곳 + 지역 도우미 8곳 — 도우미는 `typeof _miEl` 가드라 떼어 오는 검사도 그대로 돈다) · 제목줄 `#miTitle` 만 app-region drag(버튼 no-drag) · `_miStepAside`/`_miResume`(코드 불러오기 · 복제 코드 창은 본창에 뜨는데 자식 창이 늘 그 위라 → 잠시 닫고, 그 창이 닫히면 같은 탭으로 다시 연다) · 복사는 그 창의 navigator(포커스 문제) · Esc 로 닫기(이름 칸 제외). 데스크톱 밖이거나 창을 못 열면 예전 겹창으로.
-- 검사: `sim-signup.js` 11절 별개 창 판정 12(main.js 셋은 main.js 가 있을 때만) · 떼어 와 돌리기에 `_miEl`·`_miStepAside` 스텁 · 닮은 목록 세기에서 주석 제외 → **315·0**. 이빨: 개정 46 원본에서 빨강 15. 전/후 한 바퀴(이 사본 · main.js·preload.js 포함): 종료 코드 전부 같음(사본에 없는 overlay-win.js·sysinput-win.js 탓 빨강 셋은 전/후 같음). 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
-- ⚠️ 실기기 확인 거리: 런처 [내 정보] → 별개 창 · 제목줄로 그 창만 이동 · 닫고 다시 열면 옮긴 자리 · 테마(버블/기본) 같음 · 코드 불러오기/복제 코드 → 창이 비켰다가 닫으면 다시 뜸 · 친구 코드 [복사] · 메인 최소화 때 같이 닫힘 · 토스트는 본창에 뜬다(창 뒤에 가릴 수 있음 — 거슬리면 다음에 그 창 안 토스트로).
-
-**개정 46 에서 한 것 (2026-09-22 · 🪪 [내 정보] 다듬기 · 사용자 지적 셋)**
-- 레벨 배지: 시안을 베낀 따로 만든 배지(`#miLvText`)를 걷고 **친구 목록과 같은 `_plFillLv`**(`.mh-flv` + `lvBadgeClass`)로 채운다(`#miLv`).
-- 프로필 사진 틀: 검은 3px 틀 → 마이홈 프로필 사진(`#mhAvatarBig`)과 같은 한 줄 베벨 · 테마 변수만.
-- 보관함 탭 격자 위에 «책상 (N칸)»(시안 D · N 은 `CHAR_SLOT_MAX`) — 보관함(책상 밖) 목록과 섞지 않는다. 목록 · G [보관함 이동]은 `CHARS_SYNC_ENABLED` 뒤.
-- 검사: `sim-signup.js` 11절 판정 셋 → **302·0**. 이빨: 개정 45 원본에서 빨강 3. 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1**.
-
-**개정 45 에서 한 것 (2026-09-22 · 🪪 [내 정보] · 설계 개정 16 · 시안 B2 · C4 · D 확정)**
-- `desk-companion-prototype.html`: `#myInfoOverlay`(z 54 — 런처 50 위 · 생성기/종족 55 · 코드 불러오기 56 · 복제 코드 57 · 설정 59 아래) — 머리(마이홈 프로필 사진 · 닉네임 + Lv + [수정] · 친구 코드 + [복사]) · 탭 [보관함] [휴지통](숨김 · 스위치 때) [계정]. 보관함 = 슬롯 격자(섬네일 + 칸 번호 · **이름 없음 — 사용자 확정**) · 톱니 팝 `#miSlotMenu` · 맨 아래 [코드로 캐릭터 불러오기] · 동기화 한 줄. 계정 = 옛 계정 탭의 `#acctMethods` · 기기 연동 · 로그아웃 3단계를 **C4 순서**(로그인 수단·비밀번호 → 기기 연동 → 로그아웃)로 옮김(id·글자 그대로) · «연결됨 · 이메일» 상자 없음 · 로그인 안 한 PC 는 한 줄 `#acctNoLogin`. **걷음:** 설정 탭 버튼 `progTabBtnAccount` + `#progTabAccount` 통째(로그인 전 얼굴 `acctGoogleBtn` · 유저 코드/친추 코드 줄 · 되찾기 `acctRecover*` · 계정 이전/연동/해제 `acctTransfer*`·`acctLink*`·`acctUnlink*`). 런처 `#lcLoad` 글자 [내 정보]. 로그아웃 확인 문구 «구글 계정으로 로그인» → «친구 코드나 구글로 로그인».
-- `app.js`: `openMyInfo` · `closeMyInfo` · `_miSetTab` · `_miRenderHead`(닉네임 · `getFocusLevel` · 친구 코드) · `_miRenderAvatar`(채팅 창과 같은 순서 · data:image/ · http(s) 만) · `_miNameSave`(**commitUserName 하나**) · `_miCopyCode` · `_miSlotThumb`(thumbUrl → thumb → 얼굴) · `_miRenderBox` · `_miRenderSync` · `_miMenuOpen`/`_miSlotAct`(톱니 세 항목 = 런처와 **같은 함수** — curSlot 을 그 칸으로 옮기고 openCreator · lcExport · doDeleteCurSlot · 되묻기는 메뉴 안 · `_charsDeleteWords`) · `_miCodeLoad`(꽉 차면 옛 토스트 · 아니면 openCodeModal) · `initMyInfoUI`(코드 불러오기·복제 코드 창이 닫히면 보관함 다시 그림). `#lcLoad` → `openMyInfo('box')` · `renderLauncher` 의 `lcLoad.disabled` 토글 삭제. 닮은 목록: `#programSettingsOverlay` 가 있는 7곳 전부에 `#myInfoOverlay` + 바깥 클릭 닫기 짝 `['myInfoOverlay','myInfoClose']`(여기서 연 창 위 클릭은 예외). **걷음:** `setProgSettingsTab` 의 account · 탭 버튼 배선 · `refreshAccountTab` 의 옛 두 얼굴 · `initAccountLoginUI` 의 `acctGoogleBtn` · 되찾기 블록(`recCandidates` · `acctRecoverGo`) · `initAccountTransfer` 통째 · `_acctShowMsg` · `_linkNeedsGoogleNote` · 이전 쪽 `_sha256Hex`(같은 이름 두 벌 — 뒤의 것이 이기고 있었다 → 남은 관리자 쪽 판에 try/catch 를 넣어 동작 같게). **남김:** `initAccountLoginUI` 의 게이트 구글 버튼(`inviteGateGoogleBtn` · `runLogin`) · 부팅 스냅샷 · `warnUnbound`. 없어진 [설정 › 계정]을 가리키던 토스트 넷 → K 문구(«앱을 다시 시작하면 로그인 화면»). `sim-focus-auth.js` 가 보는 «다시 로그인» 은 살렸다.
-- `firebase-database-rules.json`: `users/$userId/transferHash` — `.write` 앞에 `!newData.exists() &&`(주인이 **지우기만**) · `.validate: "false"`. ★ `transferData` 는 **그대로** — 계정 스냅샷(`setAccountSnapshot` · `fetchAccountSnapshot`)의 자리라 로그인 복원이 거기서 라이선스·이름·친구 코드·누적 시간을 받는다(핸드오프 09-22 결정 12 의 «transferData 도 지움» 은 코드 대조로 정정 · 사용자 확인).
-- `firebase-init.js` 무변경 — `setTransferHash` · `verifyTransfer` · `authRebindUserCode` 는 부르는 곳이 없어졌지만 5·6·9절 떼어 오기 경계 때문에 §6-⑧ 묶음에서 같이 걷는다.
-- 검사: `sim-signup.js` 10절 자리 판정을 새 집(`#miPageAcct`)으로 · **11절 신설**(마크업 · 층 · C4 순서 · 걷은 id 19개가 마크업과 app.js 에 없음 · 닮은 목록 개수 · 톱니/코드 불러오기/닉네임 떼어 와 돌리기 · 규칙 transferHash 지우기만 · transferData 그대로) → **299·0**. `sim-google-login.js` §1(걷은 id 는 **없어야** · 새 자리) · 탭 목록 셋 · ⑧(연동 해제 대신 로그아웃 자동 재시작) · §7 되찾기 UI → 걷음 판정 · §8 transferHash 지우기만. `sim-account-switch.js` 1절 해제 판정 셋 → «해제 입구 없음» · «`_detachAccountLocal` 부르는 곳은 로그아웃 하나» 둘. ★ **덤: 2절이 «?» 로 통째 안 돌고 있었다** — `ACCOUNT_LOCAL_KEYS` 에 들어온 `SLOTS_SEEN/LOSS/LASTSYNC/PUSHFAIL_KEY` 가 상수 표(K)에 없어 ReferenceError. 네 개를 넣어 2절이 다시 돈다(**75·0**). 종료 코드는 전에도 0(«?» 는 빨강이 아니다) — 개정 30~31 부터 가려져 있던 구멍. `sim-slot-sync-ui.js` 1절 자리(C4 — 비밀번호 다음 · 로그아웃 앞). 이빨(새 판정 × 개정 44 원본): sim-signup 빨강 40 · sim-google-login 24 · sim-account-switch 2 · sim-slot-sync-ui 1. 전/후 한 바퀴(이 사본 · 82개): 초록 62→62 · 빨강 0→0 · 원본없음 20→20 · `audit.py` 전부 통과. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
-- ⚠️ 실기기 확인 거리: [내 정보] 열기/닫기(바깥 클릭) · 코드 불러오기가 [내 정보] 위에 뜨는지 · 톱니 세 항목 · 닉네임 저장이 방 이름표까지 · 로그아웃 3단계가 새 자리에서 그대로.
-
-**개정 44 에서 한 것 (2026-09-22 · 🔐 C3 · C2 · 설계 개정 14 · 시안 확정)**
-- `desk-companion-prototype.html`: 계정 탭(`#progTabAccount`) › 로그인 후 얼굴(`#acctLoggedIn`) 안, [이 컴퓨터에서 로그아웃] 위에 `#acctMethods`(로그인 수단 · 비밀번호 만들기/바꾸기 한 벌 — 글자는 app.js 가 모드에 맞춰 채움) · `#acctMOff`(세션 풀림 한 줄). 글자는 시안 C2 · C3 그대로. ★ CSP 두 줄(1단계 · 2단계) connect-src 에 함수 호스트 `https://asia-southeast1-together-working.cloudfunctions.net`(와일드카드 아님).
-- `firebase-init.js`: `reauthenticateWithCredential` 들여옴 · `FUNCTIONS_REGION = 'asia-southeast1'`(firebase-config `databaseURL` 과 같은 리전) · `FUNCTIONS_SDK_URL`(10.12.2 · **동적 import** — 머리에 두면 못 받은 날 모듈 전체가 죽는다) · `_providersOf`. 통로 넷을 **`authSignOut` 뒤에**: `authProviders()` · `authLinkPassword(code, pw)`(C3 · 지금 세션에 `{코드}@tw.local` 붙이기 · requires-recent-login → needReauth · 이미 있음 → already · 남의 것 → taken) · `authReauthGoogle(idToken)`(세션 안 바꿈) · `authChangePassword(pw)`(C2 · 함수 `changePassword` 호출형 · not-found = «배포 전» · 성공 뒤 password 제공자 이메일 + 새 비밀번호로 **다시 로그인** · 실패해도 ok · relogged:false).
-- `app.js`: `_acctMethodsMode`(세션 없음 off · 익명 none · 비밀번호 있음 C2(구글 없으면 경고) · 구글만 C3) · `_acctPwCheck` · `_acctPwCode`(C3 아이디 = 계정 거울 → 이 기기 코드, **friendCodes 가 지금 내 uid 일 때만**) · `_acctCreatePassword`(붙이기 → 오래됐으면 구글 창 → 재인증 → 한 번 더) · `_acctChangePassword` · `_acctMethodsRender(keepMsg)` · `initAccountMethodsUI`(버튼 · Enter · C2 구글 [연결하기] = `authLinkGoogle`). `refreshAccountTab` 끝에서 다시 그림.
-- 새 파일 `functions/index.js`(저장소 루트 `functions/` · 러너 밖): `changePassword` — 로그인 필수 · 익명 거절 · 6~128자 · password 제공자 필수 · `updateUser` → `revokeRefreshTokens`. 스텁으로 7 갈래 확인(이 사본 · 러너 검사 아님).
-- `run.js`: `SKIP` 에 `'functions'` — 스테이징이 루트 한 층을 `cpSync(recursive)` 로 통째 복사하는데 SKIP 은 맨 위 이름만 봐서 `functions/node_modules` 를 못 거른다. 판정 무변경(검사가 읽는 원본이 그 안에 없다).
-- 검사: `sim-signup.js` 10절(C3 · C2) → **247·0**. 이빨: 개정 43 판에서 빨강 15. 전/후 한 바퀴(이 사본 · 81개): 종료 코드 전부 같음 · `audit.py` 전부 통과 그대로. 러너 실제 한 바퀴(가짜 저장소 · `functions/node_modules` 둠): 스테이징에 functions 없음 · sim-signup 247·0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
-- ⚠️ 실기기 확인 거리: 구글 계정에 `@tw.local` 비밀번호를 붙일 때 «이메일 바꾸기 전 확인» 정책(operation-not-allowed)에 걸리는지 · 함수 CORS(file:// 에서 부름) · 바꾼 뒤 다른 PC 가 다음 부팅에 K.
-
-**개정 43 에서 한 것 (2026-09-21 · 🎉 J · J2 · 🔐 K · 설계 개정 13 · 시안 확정)**
-- 설계 (가): **되찾기 코드 없음** — 비밀번호를 잊으면 로그인돼 있는 PC 의 [내 정보 › 계정](C2)에서 바꾼다. A 카드 아래 안내 줄도 그렇게 바꿈.
-- `desk-companion-prototype.html`: `#signupDoneOverlay`(z 97 · J/J2 한 카드 · 배경은 부르는 쪽이 정함) · `#needLoginOverlay`(z 96 · 반투명 · **닫기 없음**). 글자는 확정 시안 그대로(J 경고 두 줄은 사용자가 캔버스에서 고친 글자).
-- `firebase-init.js`: `authLinkGoogle(idToken)` — 지금 세션에 구글을 **붙인다**(`linkWithCredential` · 같은 authUid · 이미 남의 것이면 거절).
-- `app.js`: `_showSignupDone`(J · J2 · [시작하기] 에서 풀림 · [구글도 연결하기] = authLinkGoogle) · `_hideSignupDone` · A 의 `done(r, how)` → 완료 화면 → 재시작(이미 가입된 구글이면 완료 화면 없이 재시작) · I 의 가입 → 완료 화면(반투명) → 닫기(재시작 없음). K: `_needLoginNeed`(uid 있음 · `authOwnerOf` 가 문자열 · 지금 세션이 그 authUid 가 아님 · 못 읽으면 쉼 · 아이디 = 계정 거울 → 이 기기 코드) · `_needLoginCheck` · `_showNeedLogin`(구글 = `_loginDoGoogle` · 비밀번호 = `_loginDoFriendCode` · 바뀌면 재시작 · 같으면 닫기 · 잊었어요 = 안내 칸). 부팅: 게이트 → I → (I 가 아니면) K. `UI_HIT_SEL` 에 둘 등록.
-- 검사: `sim-signup.js` 9절(J · J2 · K) · 7절 I 마크업 범위를 «다음 덩어리 머리» 까지로 좁힘(J · K 가 그 사이에 들어와 «닫기 없음» 이 거짓 빨강 — 판정 무변경) → **191·0**. 이빨: 개정 42 판에서 빨강 16. 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
-
-**개정 42 에서 한 것 (2026-09-21 · 🪞 ⑥ 거울 정정 · 설계 개정 12)**
-- `app.js`: `_friendCodeMirrorFix`(계정 거울 `users/{uid}/friendCode` 가 이 기기 코드와 다르고 **그 코드가 지금 내 것일 때만** 로컬 키를 고친다 · friendCodes·거울 쓰기 0 · 비었거나 못 읽으면 아무것도 안 함) · `_fcMirrorChecked`. 부르는 곳은 `ensureMyFriendCode` 첫머리 하나(세션당 한 번) — ★ 발급보다 먼저라, 로컬 코드가 없는 PC 가 새 코드를 뽑아 계정의 진짜 코드를 버리지 않는다.
-- «다름» 자동 연동 + F 는 **이번에 안 넣었다** — 옮길 곳(계정 보관함 `users/{uid}/chars`)이 `CHARS_SYNC_ENABLED = false` · chars 규칙 미게시라 쓰기가 거부된다. 그 사이 «다름» 에서 이 PC 캐릭터는 옛날처럼 슬롯 백업(`SLOTS_BAK_KEY` · 옛 uid 가 meta 에 남음)에 남는다. 순서는 설계 개정 12.
-- 검사: `sim-signup.js` 8절(⑥) · 4절이 떼어 오는 함수에 `_friendCodeMirrorFix`(없는 판은 빈 함수 — 판정 무변경) → **161·0**. 이빨: 개정 41 판에서 8절 정적 빨강 3. 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0 (`sim-friend-code-keep.js` · `sim-google-login.js` 그대로 초록). 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
-
-**개정 41 에서 한 것 (2026-09-21 · 🪪 게이트 I · 설계 개정 11)**
-- `desk-companion-prototype.html`: `#existingSignupOverlay`(z 96 · 반투명 rgba(0,0,0,.45) · **닫기 없음**) — 시안 I 글자 그대로(제목 · 안내 · 내 아이디 고정 표시 · 비밀번호·확인 · [가입하기] · 또는 · [구글 계정으로 연결하기] · «하나도 바뀌지 않아요»).
-- `app.js`: `EXISTING_SIGNUP_ENABLED = true` · `_existingSignupNeed`(uid 있음 · `authOwnerOf(uid)` 가 **null** 일 때만 · undefined(못 읽음) → 이번엔 쉼 · 이미 묶였으면 I 아님) · `_existingSignupCode`(이 기기 코드가 내 것 → 계정 거울이 내 것 → 새 후보) · `_existingSignupDoPassword`(익명 → (내 코드 없을 때만 ③) → ④ → ⑤ 이 uid → 로그인 표시 · 거울 · **계정 스냅샷**(구글 첫 결속과 같은 일)) · `_showExistingSignup`(구글은 `_loginDoGoogle` 그대로 — 바뀌면 재시작). `initInviteGate` 가 초대 게이트 뒤에 `_existingSignupCheck()`. `_signupClaimCode(p, persist)` — I 는 `false`(가입 상태 키 안 씀). ★ `UI_HIT_SEL` 에 `#existingSignupOverlay` 등록.
-- uid 가 **다른 계정에 묶였는데 이 PC 는 로그인 안 한** 판은 I 가 아니다(가입해도 결속에서 거절) — 다루지 않았다. 설계 §9 에 적음.
-- ⚠️ 완료 화면은 A 와 같이 시안 대기 — 안내 한 줄 뒤 닫는다(uid 가 그대로라 재시작 없음).
-- 검사: `sim-signup.js` 7절(I) → **147·0**. 이빨: 개정 40 판에서 빨강 9. 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
-
-**개정 40 에서 한 것 (2026-09-21 · 🪪 게이트 A · 설계 개정 10 · §9-6 (a))**
-- `desk-companion-prototype.html`: 게이트 오버레이 안에 두 번째 카드 `#signupCard`(시안 A 글자 그대로 — 구글로 가입하기 · 또는 친구 코드로 · 내 아이디(고정 표시 `#signupCode`) · 비밀번호·확인 · [가입하기] · 되찾기 코드 안내). H 카드에 `#inviteGateCard`.
-- `firebase-init.js` 가입 통로 셋: `authSignupEnsure(email)`(남은 익명 · 같은 이메일로 승격된 세션은 이어 쓰고, 다른 세션은 놓고 익명) · `authSignupLinkPassword(code, pw)`(④ · 이미 그 이메일이면 성공) · `authSignupBind(uid)`(⑤ · userAuth 선점 runTransaction → authUsers · **이메일 거울 없음** §9-2). 셋 다 다시 불러도 안전.
-- `app.js`: `SIGNUP_PENDING_KEY`(tw.signupPending {uid, code}) · `_signupPendingEnsure`(★ `_inventMyUserId` 를 부르는 **유일한** 자리 — A 를 열 때 가입 상태에만 적고 서버·tw.myUserId 는 안 건드림) · `_signupClaimCode`(보여 준 코드 먼저 · 뺏겼으면 새 후보) · `_signupFinishLocal`(uid·코드·로그인 표시 · 거울 · 초대 마무리 · 도장 · 상태 지움) · `_signupDoPassword`(익명 → ③ → ④ → ⑤) · `_signupDoGoogle`(⑤ → ③ · 이미 가입된 구글이면 그 계정으로). 게이트: 초대 통과 뒤 임시 블록(바로 uid 발명 → 재시작)을 걷고 A 를 연다 · 가입 도중 끊긴 기기는 부팅 때 A 로 곧장.
-- ⚠️ **가입 완료 화면(아이디 · 되찾기 코드 한 번)은 안 만들었다 — 시안에 없는 새 구성이라 시안 먼저.** 지금은 A 의 안내 줄에 «가입됐어요! 내 아이디는 …» 뒤 2.5초 후 재시작. 되찾기 코드(Cloud Function)와 같이 한다.
-- ⚠️ 콘솔: [익명] · [이메일/비밀번호] 로그인을 켜야 A 가 돈다. 규칙 **변경 없음**(userAuth · authUsers · friendCodes 모두 지금 규칙으로 통과).
-- 검사: `sim-signup.js` 6절(A) · 1절 «발명 한 곳» 자리를 `_signupPendingEnsure` 로 → **122·0**. 5절 firebase-init 떼어 오기 끝을 «다음 메서드 머리» 로 좁힘(가입 통로가 그 사이에 들어와 «읽기만» 이 거짓 빨강이 됐다 — 판정 무변경). 이빨: 개정 39 판에서 빨강 14(5절은 그대로 초록). 전/후 한 바퀴(이 사본): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
-
-**개정 39 에서 한 것 (2026-09-21 · 🪪 게이트 H · 설계 §7-H 시안 그대로)**
-- `desk-companion-prototype.html` 초대 게이트를 시안 H 로: 제목 «초대 코드 입력» · 초대 코드 [입장하기] · «이미 계정이 있어요» · [구글로 로그인] · 친구 코드 + 비밀번호 [친구 코드로 로그인] · 아래 안내 한 줄. **세 버튼 같은 크기**(셋 다 `lc-btn` · 구글이 ghost 였던 것을 바꿈). id `inviteGateGoogleBtn` · `inviteGatePw` 는 그대로(검사·배선이 이름으로 잡는다) · 새 id `inviteGateFc` · `inviteGateFcBtn` · `inviteGateLoginMsg`. ★ 옛 `inviteGatePwRow`(유저 코드 u… + 이전 비밀번호) 걷음.
-- `app.js`: `_showInviteGate` 의 옛 계정 이전 갈래(isUserCode · verifyTransfer · `setItem(MY_USER_ID_KEY, raw)`) 걷음 — 옛 uid 직접 기록 입구가 넷 → 셋. `_loginDoFriendCode`(서버 userCode 를 `_setMyUserId` 로 채택 · 모양이 틀리면 기록 안 하고 Auth 도 놓음 · 스냅샷 복원 · 도장) · `FRIEND_CODE_LOGIN_RE`(`MATE-` · 옛 `COZY-`). 게이트 배선: 바뀌면 재시작 · 같으면 게이트만 닫음. 구글 문 안내도 `inviteGateLoginMsg` 로.
-- `firebase-init.js`: `authSignInWithFriendCode(code, pw)` — `signInWithEmailAndPassword` 로 `{코드 소문자}@tw.local` · **읽기만**(authUsers 줄 없으면 로그아웃 + 거절). ⚠️ **콘솔에서 [이메일/비밀번호] 로그인을 켜야 한다.** 가입(A · I)이 아직 없어 지금 이 길로 들어올 계정은 없다 — 길만 먼저 놓았다.
-- 계정 탭의 옛 [계정 이전] UI(`initAccountTransfer`)는 **그대로**(설계 §6-⑤ · 화면 단계에서 C 로).
-- 검사: `sim-signup.js` 5절(H) → **76·0**. 이빨: 개정 38 판에서 빨강 11 + 예외(5절). 전/후 한 바퀴(이 사본 · 원본없음 20): 초록 62→62 · 빨강 0→0. 기준선 기대값 그대로 **초록 81 · 빨강 0 · 원본없음 1** (82개).
-
-**개정 38 에서 한 것 (2026-09-21 · 🪪 회원가입 게이트 첫 조각 · 설계 개정 8)**
-- 설계 §9-6 답 (a) 익명 로그인 · §9-9 Blaze 확인. 게이트 순서의 첫 조각: «uid 를 부팅이 아니라 게이트가 정한다».
-- `app.js`: `getMyUserId` **읽기만**(없으면 null · §6-①) · `_inventMyUserId`(uid 를 만드는 한 곳) · `_setMyUserId`(모양 검사 · 새 기록 입구 · 옛 입구 넷 26114·30237·30684·30965 은 H·④⑤ 를 걷을 때 함께) · `ensureMyFriendCode` · 슬롯·가챠 동기화는 uid 없으면 조용히. 초대: `INVITE_TOKEN_KEY` · `_inviteTokenFor`(같은 코드면 같은 토큰) · `_inviteFinishPending` · `checkInviteGate` 가 uid 없으면 곧장 게이트 · 남은 토큰은 부팅마다 마무리. 초대 코드 입장: 토큰으로 소진 → (uid 있으면) 마무리 후 통과 · (없으면) **⏳ 임시** `_inventMyUserId` → `_setMyUserId` → 마무리 → 도장 → **재시작**(A 가입이 들어오면 이 블록이 바뀐다).
-- ★ **왜 재시작인가 — 게이트는 부팅을 막지 않는다**(`initInviteGate` 가 기다리지 않음). 처음 쓰는 PC 는 게이트 뒤에서 마이홈·구독·타이머가 uid 없이 돌았다가 빈 채로 남는다. uid 가 정해지면 다시 띄워 처음부터 제대로 돌게 한다(구글 갈아타기와 같은 결론 · 기존 사용자는 해당 없음).
-- `firebase-init.js`: **빈 uid 안전망** — `ref`·`update`·Storage `ref` 를 별칭으로 들여와 감싼다. 경로에 `null`·`undefined`·빈 세그먼트가 있으면 `_noUid/` 아래로 돌린다(규칙 루트 거부 → 부르는 쪽이 이미 다루는 permission_denied). **던지지 않는다** — 동기 호출이 부팅 IIFE 를 끊으면 게이트까지 못 온다. 다중 경로 update 는 한 줄이라도 걸리면 통째 거절. `redeemInvite(code, token)` 은 `usedBy`·`usedAt` 만 · `finishInviteSignup(code, token, uid)` 신설(usedBy 교체 · `users/{uid}/invite` · `stats/userCount` 를 **한 번**).
-- 규칙 **변경 없음**(`invites .write:true` 그대로 — §9-8).
-- 검사: `sim-signup.js` 신설·등재(§36) → **49·0**. 이빨: 개정 37 판에서 빨강 11(1절에서 멈춤). `sim-focus-sync.js` · `sim-gacha-prune.js` **준비 한 줄씩** — smoke 하네스가 빈 localStorage 로 부팅하는데 예전엔 첫 호출이 uid 를 만들어 줬다. 부팅 **뒤**에 uid 를 심어 `HAD_USER_ID_AT_BOOT` 는 옛날처럼 false · 판정 무변경(고치기 전 빨강 13·3 → 초록).
-- 전/후 한 바퀴(이 사본 · 원본없음 20): 초록 61→62 · 빨강 0→0. 기준선 기대값 **초록 81 · 빨강 0 · 원본없음 1** (82개) — 실기기 확인 전.
-
-**개정 37 에서 한 것 (2026-09-21 · 보관함 섬네일 · 시안 확정)**
-- 시안 확정(설계 개정 7)에서 «보관함은 슬롯 섬네일로 그린다» — 그런데 서버 표현(`_slotToServerObj`)이 `thumb` 을 **빼고** 올려서, 보관함(= 서버 표현)에는 섬네일이 없었다.
-- `app.js`: `_slotToServerObj` 가 섬네일(dataURL)을 얼굴과 같은 통로(`_storageFaceUrlOne` · 키 `thumb`)로 올려 `thumbUrl` 로 싣는다. ★ **못 올려도 push 를 접지 않는다**(얼굴은 접는다) — 받아 둔 URL 이 있으면 그대로, 없으면 빼고. `slotToObj` 는 `thumbUrl` 이 **있을 때만** 싣는다(늘 실으면 모든 기기의 첫 저장이 «달라짐» → 옛 slots ts 가 일제히 올라 ④ 가 뜬다). `loadSlots` 가 옮겨 적는다. `CHARS_KEY_SKIP` 에 `thumbUrl`(K2 가 섬네일 유무로 갈리면 첫 채택에서 괜한 올림·휴지통).
-- 검사: `sim-chars-migrate.js` 9절 신설 → **140·0**(이빨: 개정 36 판 app.js 에서 빨강 4). `sim-slot-sync.js` ① 판정 둘을 새 동작에 맞춤(업로드 6장 = 얼굴·감은눈 4 + 섬네일 2 · thumbUrl 이 URL 로 실림) → **99·0**(이빨: 개정 36 판에서 빨강 2). 기준선 기대값 그대로 **초록 80 · 빨강 0 · 원본없음 1** (81개).
-
-**개정 36 에서 한 것 (2026-09-21 · 평상시 동기화 · 스위치 꺼짐)**
-- `app.js` 조율 블록에 평상시 동기화: `_charsActive`(스위치 **그리고** 첫 채택 끝남 — 채택 전에 훅이 보관함 키를 만들면 첫 채택이 «이미 채택함» 으로 건너뛰어진다) · `_charsAfterSave`(saveSlots 한 곳 · 보관함 항목의 칸 문자열 해시 `h` 를 **cid 로** 맞대 고친 마리만 dirty · `h` 없으면 기준만) · `_charsOnNew` · `_charsTrashMove` · `_charsBoxFull`(20) · `_charsRemapDesk`(백업 되돌리기 뒤 열쇠로 다시 짝짓기) · `_charsPlanSync`(순수) · `_charsSync` · `_charsBoot` · `_charsDeleteWords`.
-- 훅: saveSlots(달라졌을 때) · 생성기 완료(새로 만들 때만) · 커미션 등록 · 복제 코드 · 빈 칸 [＋] · `doDeleteCurSlot`(휴지통 이동 · 문구·토스트) · 런처 톱니 문구 · `restoreSlotsBackup` · `syncSlotsToServer` 첫머리(채택 뒤엔 **올리기만** · 받기·④ 막음) · 계정 이전 · `ACCOUNT_LOCAL_KEYS`(보관함·책상 표·휴지통 대기 줄 · 문자열로) · 로그아웃 flush. 부팅 5.2초 · 30분 배선은 `if(CHARS_SYNC_ENABLED)` 안.
-- ★ **휴지통은 «잃는 것» 만.** 병합의 진 쪽을 전부 남기면 한 기기에서 슬라이더를 움직일 때마다 한 걸음 전 모습이 10일짜리로 쌓인다. overwritten = 이 기기 dirty **그리고** 서버가 `base`(고치기 시작한 서버 시각)에서 움직였을 때만. deleted = 서버 묘비가 이겼으면 이 기기가 고친 것만. 못 올린 고침을 휴지통으로 옮기면 그림째 대기 줄(`deskFriends.chars.trashPend`).
-- `firebase-init.js`: `loadCharsMetaTs` 신설 · `saveCharsEntries` 가 **같은 update 안에서** `charsMeta/ts` 를 찍고 그 값을 돌려준다(경로 키 `chars/{cid}` · 합집합 그대로). 규칙 `charsMeta.ts`(숫자) — 없으면 `$other` 거부에 걸려 **chars 쓰기까지 통째 거부**된다(다중 경로 update 는 한 덩어리).
-- 검사: `sim-chars-migrate.js` 8절 신설 · 6절 판정 셋(update 모양 · ts · 규칙) · 7절 떼어 오기 끝 표식을 `/* ── 🧬 평상시 동기화` 로 → **132·0**. 이빨: 개정 35 판 app.js 에서 빨강 5. 전/후 한 바퀴(원본없음 20 사본): 초록 61→61 · 빨강 0→0. 기준선 기대값 그대로 **초록 80 · 빨강 0 · 원본없음 1** (81개).
-
-**개정 35 에서 한 것 (2026-09-21 · 이 기기 쪽 첫 채택 · 스위치 꺼짐)**
-- 실기기 미리보기 결과(개정 34 의 확인 항목): 그림 URL **21 / 해시 21** · 칸 셋 전부 **K1 · 같음 · 그대로** · 서버 4 · 이 기기 3 → 받음 1. 열쇠 가정이 실데이터에서 맞았다.
-- `app.js` 조율 블록에 `_charsPlanLocalAdopt`(순수 · 짝짓기+병합 → 할 일 목록: box · deskCids · upload · reseat · unseat · pushServer · trashServer · trashLocal) + `_charsLocalAdopt`(그대로 올리고/받고/쓴다). 미리보기에 «첫채택» 줄.
-- ★ **결정: 보관함 로컬 사본(`deskFriends.chars.v1`)은 서버 표현(URL 만 든 문자열).** 그림은 책상 5칸(LS_KEY)에만. 20마리를 그림째 두면 localStorage 한도에 닿는다. 책상 ↔ 보관함은 `deskFriends.chars.desk`(cid ×5) — 칸 def 에 cid 를 넣지 않는다(slotToObj·loadSlots·crDone 이 필드를 하나씩 옮겨 적어 한 곳만 빠져도 조용히 떨어진다).
-- ★ **묘비 알아보기.** 묘비엔 def 가 없어 열쇠가 없다 → 다른 기기에서 지운 마리가 첫 채택에서 **새 cid 로 되살아났다**(7절 첫 판이 잡음). `firebase-init.js loadCharsTrashLatest` 로 휴지통의 마지막 모습을 읽어 묘비에 열쇠를 단다 · 못 읽으면 채택을 미룬다. `_charsFromLocalSlots` 가 열쇠 달린 묘비와도 짝짓는다(«같음» 판정은 산 마리만).
-- 실패하면 **아무것도 안 바꾼다**(칸 하나 못 올림 · 그림 못 받음 · 서버 쓰기 실패). 순서: 서버 → 책상 칸(백업 지남) → 보관함 표(= 채택 완료 표시라 맨 끝).
-- 검사: `sim-chars-migrate.js` 7절 → 82·0. 이빨: 개정 34 판에서 빨강 2(통로 여섯 · 첫 채택 함수). `sim-chars-merge.js` 무변경 35·0.
-- 전/후 한 바퀴(원본없음 8 사본): 초록 73→73 · 빨강 0→0. 기준선 기대값 그대로 **초록 80 · 빨강 0 · 원본없음 1** (81개).
-- **아직 없다(스위치를 켜기 전 필수):** 평상시 동기화 — 칸 고침 → dirty → 올림 · 칸 이동/삭제(27646 당기기 등) → desk 표 갱신 · 새 캐릭터(crDone · importCloneCode) → 새 cid · 주기적 받기.
-
-**개정 34 에서 한 것 (2026-09-21 · 이관 배선 — 서버 쪽 · 스위치 꺼짐)**
-- `firebase-init.js` — chars 통로 다섯: `loadCharsRemote` · `claimCharsMigration`(charsMeta 트랜잭션 · `migratedAt:0` = 진행 중 · 10분 지나면 재선점) · `finishCharsMigration` · `saveCharsEntries`(**update** — 합집합이라 통째 set 금지) · `appendCharsTrash`(**한 줄씩 set** — 잎 규칙 «없을 때만» 이라 한 번에 update 하면 한 줄 때문에 전부 거부 · why 는 두 값만).
-- `app.js` — 이관 조율 블록(이관 순수 함수 바로 뒤): `_charsServerMigrate(uid)`(첫 이관 = 선점한 기기만 · 되돌이 = `slots.ts` 가 도장·계정별 기록보다 나중일 때) · `charsMigrateDryRun()`(콘솔 · **읽기만** · 실데이터로 짝짓기·병합·그림 URL 해시 추출 수를 찍는다). **`CHARS_SYNC_ENABLED = false`** · 부팅에서 안 부른다 · uid 는 캐시만(`getMyUserId` 안 씀).
-- 규칙 — `charsMeta.claimAt`(숫자) 한 줄 추가(미게시 블록이라 옛 클라이언트 영향 없음).
-- 검사 — `sim-chars-migrate.js` 5절(스텁 서버로 조율 실행) · 6절(통로 · 규칙) 추가 → 61·0. 이빨: 개정 33 app.js 에서 빨강 1(조율 블록 없음). `sim-chars-merge.js` 1절 «아직 아무도 안 부른다» → «조율 블록 밖에서는 아무도 안 부른다» (35·0).
-- 서버 URL 모양 확인: `firebase-init.js uploadRoomFace` 가 `users/{uid}/roomface_{종류}_{해시}.png` 로 짓는다 — 열쇠 정규식과 맞는다. 픽스처를 실제 경로 모양으로 바꿨다.
-- 전/후 한 바퀴(`firebase-init.js` 까지 있는 사본 · 원본없음 8): **초록 73→73 · 빨강 0→0 · 원본없음 8→8.** 기준선(저장소 러너) 기대값 그대로 **초록 80 · 빨강 0 · 원본없음 1** (81개).
-
-**개정 33 에서 한 것 (2026-09-21 · 회원가입 설계 §10-4 둘째 조각 — 이관)**
-- 🧬 **이관 순수 함수 둘 + 열쇠** (`app.js` · `_charsMerge` 블록 **바로 뒤** · **아직 아무도 안 부른다**). `_charsFromServerSlots(slots, slotsPrev, chars)` → `{add, upd, deskCids}` · `_charsFromLocalSlots(localDefs, localTs, serverChars, serverDeskCids)` → `{local, deskCids, fresh}` · `_charsKeys(def)` → `{k1, k2}`.
-- ★ **설계 §5-N-2 의 «`_charIdentityFingerprint` 로 맞춘다» 를 쓰지 않았다.** 그 지문은 같은 표현끼리 비교용이라 로컬(dataURL)과 서버(Storage URL)의 같은 마리가 다르게 나온다 — 그대로면 이관 첫 부팅에 5마리가 10마리가 된다. 그림은 **내용 해시**(로컬 `_quickHash` · 서버 URL 이름 속 `h2…`)로 본다. 설계 문서 §5-N-2 를 같이 고쳤다.
-- ★ **K2 가 칸을 가른다.** 5칸 저장본은 시각이 통째 하나라 어느 칸을 고쳤는지 모른다. 첫 판은 짝지은 마리 전부에 localTs 를 달아 **안 고친 네 칸이 서버 본을 휴지통에 밀어 넣었다** — 새 검사 3절이 잡았다. 그림을 뺀 나머지(K2)가 같으면 서버 시각을 달아 병합이 «같음» 으로 떨어진다.
-- `sim-chars-migrate.js` 신설·등재 (§35) — 38·0. 이빨: 원본 app.js 에서 빨강 1(블록 없음). `sim-chars-merge.js` 는 새 app.js 에서 그대로 35·0(떼어 오기 범위 밖에 붙였다).
-- 규칙 파일 **변경 없음**. 전/후 한 바퀴(원본 일곱 없는 리눅스 사본): 초록 62→63 · 빨강 2→2(`audit.py` · `sim-chat-log-persist.js` — 둘 다 `firebase-init.js` 부재 · 전후 출력 동일) · 원본없음 16→16.
-- 기준선(저장소 러너) 기대값 **초록 80 · 빨강 0 · 원본없음 1** (81개).
-
-**개정 32 에서 한 것 (2026-09-20 · 회원가입 설계 B안 첫 구현)**
-- 🧬 **`_charsMerge` 순수 함수** (`app.js` · 슬롯 동기화 블록 끝 · **아직 아무도 안 부른다**). `design-signup-2026-09-20.md` §2-4 표 그대로 — 합집합 · 같은 cid 는 mtime 큰 쪽 · 삭제는 묘비 · 진 쪽 산 마리는 trash · 서버 미래 mtime 은 지금으로 찍어 올림. 순서는 설계 §10-4(병합 함수 · 검사 먼저 → 이관 → 게이트 → 화면). `_charsNewId`(cid 모양 `c[a-z0-9]{6,24}`) · 콘솔 출구 `window._charsMerge`.
-- `firebase-database-rules.json` — `users/$userId` 아래 **`chars` · `trash` · `charsMeta` 블록 추가(추가만 · `slots`·`slotsPrev` 그대로 = 이관 창)**. `chars/$cid.def` 검증은 `slots.s.$i` 것을 복사. ★ `trash` 는 **잎(`$cid/$mtime`)에 `.write` 를 두고 `!data.exists() && newData.exists()`** — 부모에 `.write` 를 주면 자식으로 내려와서 삭제를 못 막는다(Firebase 규칙은 허용이 상속된다). 게시는 N 배포 직전(옛 클라이언트에 무해).
-- `sim-chars-merge.js` 신설·등재 (§34) — 1절 실행(§2-4 다섯 줄 · 3-7 재현 6마리 · 되감기 · 미래 mtime · 지우는 갈래 없음 · 불변) · 2절 규칙. 이빨: 원본 app.js 에서 빨강 1(블록 없음).
-- 결정 기록: 슬롯 이관 규칙(`sim-slot-conflict.js` 1절 «이관» 판정) **유지** — 근거는 설계 §8-1. 코드 변경 없음.
-- 기준선(저장소 러너) 기대값 **초록 79 · 빨강 0 · 원본없음 1** (80개). 프로젝트 사본(원본없음 8)에서 전/후: 초록 71→72 · 빨강 0→0.
-
-**개정 31 에서 한 것 (2026-09-20)**
-- 🛟 **3-7-2 시안 확정 → 적용.** 캔버스 «3-7-2 시안» 의 다섯 보드(B안 평상시·줄어든 교체 · A안 띠·세 상태 · ④ 대화상자)를 그대로 옮겼다. 문구는 시안의 마지막 판(`캐릭터가 연동됐어요.` · `유지하기` · `백업을 남기지 못했어요` · `다른 PC(N개)로 맞추기` / `현재 PC(M개)로 맞추기` · `나중에 결정`). **«되돌릴 수 있는 기한 — 다음 연동 전까지» 줄은 뺐다** — 백업은 연동으로 사라지지 않고 되돌리기가 곧 맞바꾸기라 기한이 없다(시안에 남아 있던 내 오류).
-- `desk-companion-prototype.html` — 세 자리: `#lcSyncBand`(런처 · 그림 바로 위) · 계정 탭 «기기 연동» 구획(`#acctSyncBox` · `#acctSyncFail` · `#acctSyncHint`) · `#slotConflictDlg`(전역 오버레이 · `scd*`).
-- `app.js` — 기록 셋(`SLOTS_LOSS_KEY` · `SLOTS_LASTSYNC_KEY` · `SLOTS_PUSHFAIL_KEY` · 전부 `ACCOUNT_LOCAL_KEYS`) · `_slotsRenderBand` / `_slotsRenderAcctSync` / `_slotsShowConflictDlg` · `_slotsConflictHandler` 에 대화상자 꽂음 · 줄어든 교체의 토스트가 «바뀌었어요 — 되돌릴 수 있어요» · 올리기 실패 세 갈래가 사유를 남김 · [지금 다시 올리기] · 시안에 없던 것 하나: ④ 를 [나중에 결정] 로 미룬 사람을 위해 구획에 «양쪽에서 바뀌어 연동을 멈춰 뒀어요 · [어느 쪽을 쓸지 고르기]» 를 두었다(없으면 돌아올 길이 없다).
-- ① **서버 이전 한 벌** — `firebase-init.js`: `saveSlotsRemote` 가 **칸을 줄이는 쓰기면 본 쓰기 전에** `users/{uid}/slotsPrev` 에 덮이는 것을 남긴다(덮는 쪽은 무엇을 덮는지 모른다 — 아는 건 서버 앞의 이 함수뿐) · `saveSlotsPrevRemote`(④ 'mine' 판에서 조건 없이) · `loadSlotsPrevRemote`. 더 많은 prev 는 안 덮는다(로컬 백업 ③ 규칙과 같다). `firebase-database-rules.json` 에 `slotsPrev` 블록(`slots` 와 같은 .write·validate + `at`) — **게시해야 켜진다.** 미게시면 남기기가 거부되고 본 쓰기는 그대로(더 나빠지지 않음). `app.js` `restoreSlotsPrevRemote` — [되돌리기] 는 로컬 백업 먼저, 없으면 이것.
-- `sim-slot-sync-ui.js` 신설·등재 (§33) — 마크업 세 자리 · 배선 · 문구(시안) · 기한 줄 없음. `sim-slot-conflict.js` **고침(250줄)** — §1 «UI 안 꽂음» 판정을 «대화상자 꽂힘» 으로 뒤집고 1-b 절(① firebase-init·규칙) 추가. `sim-slot-sync.js` **고침(471줄)** — ⑨ 의 «문구 안 건드렸다(시안 대기)» 판정 하나를 새 문구 판정으로. 판정 의도는 그대로(시안 뒤에 바꾸기로 한 그 자리).
-- `audit.py` 검사19 에 두 번 걸렸다(속성값 보간) — 검사를 안 느슨하게 하고 머리글·버튼을 갈래별 글자 리터럴로 바꿨다.
-- 기준선(저장소 러너) 기대값 **초록 78 · 빨강 0 · 원본없음 1** (79개). 프로젝트 사본(firebase-init·규칙 있음, main.js 등 없음 · 원본없음 20)에서 전/후: 초록 57→59 · 빨강 0→0.
-
-**개정 30 에서 한 것 (2026-09-20)**
-- `sim-slot-conflict.js` 신설·등재 — ⚖️ **제보 3-7 후속 ④ «양쪽이 다 바뀌었으면 어느 쪽도 덮지 않는다»** (§32). 3-7 의 순서는 「서버를 본 적 없는 회사 PC(1칸)가 ts 가 크다는 이유로 집 PC(5칸) 위에 올리고, 집 PC 가 그것을 받았다」였다. ts 큰 쪽이 이기는 규칙으로는 «본 적 없음» 과 «나중에 켜짐» 을 가를 수 없다.
-- 고친 것 — `SLOTS_SEEN_KEY`(«내가 마지막으로 맞춰 본 서버 시각») 하나. 받아 적으면 서버 ts, 올려서 서버가 내 ts 가 되면 내 ts. 서버 ≠ seen **이고** 로컬 ≠ seen 일 때만 충돌 — 그때는 쓰기도 받기도 안 하고 `_slotsConflict` 에 기록한다. 한쪽만 움직인 판은 예전 갈래(ts 큰 쪽)가 그대로 처리한다(그 경우 ts 큰 쪽 = 움직인 쪽). 출구는 콘솔 `slotsConflictInfo()` · `resolveSlotsConflict('mine'|'server')`. **대화상자는 안 붙였다** — UI 가 새로 생기므로 시안 뒤. `_slotsConflictHandler` 자리만 비워 두었다.
-- ⚠️ **이관 규칙 — 결정 필요했고 조용한 쪽을 골랐다.** seen 키가 없던 기기(개정 전)는 「지금 ts 를 본 것」으로 친다. 반대(«본 적 없음»)로 두면 개정 전에 갈라져 있던 기기를 한 번은 잡지만, ts 만 어긋난 멀쩡한 기기까지 전부 묻고 그 대화상자가 아직 없어서 **연동이 멎는다.** 개정 전 갈라진 기기는 로컬 백업(3-7-1)이 받친다. 대화상자가 붙은 뒤 이 규칙을 되짚을 것.
-- `sim-slot-sync.js` **고침(471줄).** ②·③·⑤ 의 준비에 `e.m.seen(…)` 한 줄씩 — 그 셋은 「이미 맞춰 본 기기」를 전제하는 시나리오인데 준비가 seen 을 안 심어서 ④ 충돌 감지에 잡혀 섰다(거짓 빨강 · ② 는 예외로 통째 죽었다). 하네스 반환에 `seen · seenTs · conflict` 를 typeof 로 받아 개정 전 app.js 에서도 같은 결과(3·4절 86 통과). 판정은 한 글자도 안 바꿨다.
-- ① 서버 이전 한 벌(`saveSlotsPrevRemote`)은 **firebase-init.js 와 규칙 파일이 이 세션에 없어** app.js 쪽 자리만 두었다 — `keep-mine` 이 덮기 전에 있으면 부르고 없으면 건너뛴다. 다음 세션: `users/{uid}/slotsPrev` 로 `slots` 를 그대로 복사하는 함수 + 규칙 블록(`slots` 와 같은 .write · ts 숫자 · s/$i 같은 validate) · `sim-slot-conflict.js` 에 firebase-init 절 추가.
-- 기준선(저장소 러너) 기대값 **초록 77 · 빨강 0 · 원본없음 1** (78개). 프로젝트 사본(원본없음 29)에서 전/후 비교: 초록 46→47 · 빨강 2→2(둘 다 방 청소 · 이 판과 무관 · main.js 없는 환경 탓인지 실기기에서 확인).
-
-**개정 29 에서 한 것 (2026-09-20)**
-- `sim-pl-watchdog.js` §2 에 케이스 둘 — ⏸ **제보 «실행 화면 플레이리스트가 가만히 있다가 저절로 재생된다».** 원인은 `_plWatchTick` 이 **일시정지 상태를 보지 않는 것.** 하트비트가 오는 동안은 `_plWatchBeat` 의 paused 갈래가 지켜 주지만, 하트비트가 **끊기면** 그 보호가 없다. 주입 루프(main.js `bgmForcePlay`)는 `TWPL_MAX`(4시간) 뒤에 죽는데 세워 둔 동안에도 tick 이 쌓이므로, **▐▐ 로 4시간 세워 두면 신호가 끊기고 → 감시견이 «진행멈춤» → `_plNext()` → 다음 곡이 저절로 난다.**
-- 고친 것 한 줄 — `_plWatchTick` 이 `_plPlaying === false` 면 판정하지 않는다(`_plWatchMoveAt` 만 갱신). 다시 ▶ 를 누르면 그때부터 예전처럼 — 주입이 죽은 페이지는 끝나도 못 알리므로 그때의 «신호없음/진행멈춤» 은 맞는 넘김이다.
-- ⚠️ main.js 는 안 건드렸다. 세워 둔 동안 `n` 을 안 세게 하면 더 낫지만(4시간 상한이 «재생 4시간» 이 된다) 그건 네이티브 쪽 판이라 다음에. 지금 고침만으로 «저절로 재생» 은 없다.
-- ⚠️ 다른 «저절로 재생» 하나는 **설계다** — BGM 창 안에서(유튜브 자체 버튼) 멈추면 0.5초 안에 다시 튼다(`v.paused && !__bgmPaused → play()`). 유튜브가 스스로 멈추는 것(자동재생 차단·«계속 시청?»)을 되살리는 장치라, 앱의 ▐▐ 만이 «사람이 세운 것» 이다. 바꾸려면 결정이 필요하다.
-- 무대(§1~3 `makeStage`)에 `_plPlaying: true` 를 더했다 — 감시견이 이 값을 읽게 됐으므로. §5 는 실물 `_plPlayNow` 가 true 로 세워 그대로.
-- 패치본 **46 통과** / 원본 2 실패. 검사 파일 수 그대로 **77개**.
-- 기준선 기대값 **초록 76 · 빨강 0 · 원본없음 1** (77개).
-
-**개정 28 에서 한 것 (2026-09-20)**
-- `sim-account-switch.js` 에 **⑧ 절 추가** — 🚪 **§2 제보 1 «로그아웃이 안 된다» 최소판.** 검문(`_acctPreflight`)에 걸리면 같은 한 줄이 계속 떴고, 막히는 원인이 계속되면 영원히 못 나갔다 — 하필 로그아웃이 «로그인 문구가 계속 뜬다» 의 복구 수단이었다(`handoff-2026-09-18c.md` §1 · `d.md` §2 정정).
-- **고친 것 셋.** ① `_acctFlushToServer` 가 8초 상한에 걸렸는지 돌려준다. ② `_acctPreflight` 가 **첫 실패에서 끝내지 않고 전 항목을 이름·개수로 센다**(«캐릭터 2개 · 뽑은 파츠 1개 · 누적 시간 8분»), **null 과 0 을 가른다**(읽기 실패 = «확인하지 못했어요» · 서버에 없음 = «올리지 못했어요» — firebase-init 규약은 그대로, 읽는 쪽에서), `kind` 를 준다(offline · unknown · timeout · denied). ③ `_detachAccountLocal({ force })` — 검문에 걸려도 지운다. 강제여도 올리기는 한 번 더 해 보고, 기기 세션도 놓는다.
-- **부르는 쪽(계정 탭).** 사유별 문구(시안 A-2) · 첫 실패엔 [다시 시도] 뿐 · **두 번째 실패에서만** [그래도 로그아웃] 이 열리고 «이 컴퓨터에만 있는 것» 을 항목별로 적는다(시안 A-3) · 누르면 **바로 실행**(확인 한 번 더 없음 — 결정) · 확인 상자를 열 때마다 처음으로. 마크업에 `#acctLogoutForce`(처음엔 `display:none`) 한 줄.
-- ⚠️ **스텁 한 줄을 고쳐 기존 빨강이 사라졌다.** 3절 스텁이 개정 22 이전 이름(`FOCUS_LEVEL_CAP_HOURS`)만 정의하고 있어 `syncFocusTotalToServer` 가 `FOCUS_TOTAL_CAP_SEC` 에서 죽었다 — 개정 22 부터 이 검사는 실기기에서도 **59·1** 이었을 것이다(§1 표의 «빨강 0» 은 그동안 맞지 않았다). 스텁에 `FOCUS_TOTAL_CAP_SEC` 을 더했다. 검사 로직은 안 바꿨다.
-- 또 하나: `_detachAccountLocal()` → `(opt)` 로 바뀌어 정적 판정 정규식을 `\((opt)?\)` 로 넓혔고, 2절 env 에 `firebaseAPI` bare 이름·`_slotsFilledCount`·`releaseDeviceSession` 스텁·`fastTimeout` 옵션을 더했다. ⑤ 의 «서버를 안 부른다» 판정에서 `release` 는 제외(내 것일 때만 지우는 호출이라 무해 — 예전에도 불렸는데 스텁이 없어 조용히 실패했을 뿐).
-- 패치본 **76 통과 · 0 실패** / 원본(패치 전) **13 실패**. 검사 파일 수 그대로 **77개**.
-- 기준선(저장소 러너) 기대값 **초록 76 · 빨강 0 · 원본없음 1** (77개) — 이번엔 정말 빨강 0 이어야 한다.
-
-**개정 27 에서 한 것 (2026-09-20)**
-- `sim-friend-code-keep.js` **신설·등재** (§31) — 두 가지를 한 파일에 둔다. 둘 다 «계정 연동 뒤에 이 기기가 어떻게 되는가» 라서다.
-- 🔗 **제보 3-2 «친추코드가 계속 새로 발급된다».** `_healFriendCodeOwner` 의 마지막 갈래(소유자가 «내가 버린 uid 가 아니고 아직 활동 중»이면 로컬 코드를 지우고 새로 발급)가 원인이었다. 그 갈래로 떨어지는 대표 사례가 **같은 사람의 다른 PC** — 회사 PC 의 uid 는 어제도 접속했으니 «활동 중인 남» 으로 보였다. **[2026-09-20 결정] 자동 재발급을 하지 않는다.** 처음 발급된 코드가 유지된다. 소유권은 손대지 않는다(빼앗으면 두 기기가 매 부팅 서로 되찾는 핑퐁). 결정에 이름을 붙였다 — `FC_NEVER_REISSUE`(문서이지 스위치가 아니다). 사용자가 직접 바꾸는 UI 는 이미 없었고(개정 12 때 제거), 이제 **로컬 코드를 지우는 문장은 app.js 에 없다** — 지우는 자리는 로그아웃(`ACCOUNT_LOCAL_KEYS`)뿐.
-  ⚠️ 대가: 정말 남이 쓰는 코드를 들고 있는 드문 경우엔 그 코드로 온 친구 요청이 남에게 간다. uid 가 계정으로 바뀌는 회원가입에서 원인 자체가 사라진다 — 그때까지의 결정이다.
-- 📥 **제보 3-1 «연동했는데 캐릭터·파츠·곡이 하나도 안 따라온다».** `_applyTransferSnapshot` 첫 줄 `if(!r) return` 이 스냅샷(이름·라이선스·친추코드·집중초)이 없으면 **소지품 복원까지** 통째로 건너뛰었다. 스냅샷은 첫 결속·비밀번호 등록 때만 쓰이므로 그 이전 판에서 묶인 계정은 스냅샷이 없다. 부르는 쪽이 넷(로그인·연동·되찾기·부팅 게이트)이라 **함수 안에서** 갈랐다 — 스냅샷 부분만 `if(r)` 안으로, `_claimFriendCodeAfterTransfer` · `_restoreOwnedDataAfterTransfer` · `syncFocusTotalToServer('transfer')` 는 있든 없든 돈다.
-- 검사는 두 함수를 **떼어 와 실행한다.** 1절 `_healFriendCodeOwner` 다섯 갈래(내 것·주인 없음·버린 uid·오래 조용함·**활동 중인 남**) — 앞 넷은 예전 그대로고 마지막에서 코드가 남는다. 3절 `_applyTransferSnapshot` — 스냅샷 null 이어도 셋이 돌고 이름·라이선스·집중초는 안 건드린다 · 스냅샷 있으면 예전과 같다 · 집중초 max.
-- 패치본 **26 통과 · 0 실패** / 원본(패치 전) **16 통과 · 10 실패**. 검사 파일 수 **77개**.
-- 기준선(저장소 러너) 기대값 **초록 76 · 빨강 0 · 원본없음 1** (77개).
-
-**개정 26 에서 한 것 (2026-09-18)**
-- `sim-slot-sync.js` 에 **⑪ 절 신설** — 🖼️ **제보 3-7 (다) «동물 캐릭터 얼굴 텍스처가 밀려 보인다».** 원인은 `_roomFaceUrlToCanvas` 한 줄이었다: 캔버스는 늘 512(`CANVAS_SZ`)인데 그림은 **원래 크기 그대로 (0,0)** 에 그려졌다. 512 보다 크면 오른쪽·아래가 **잘리고**, 작으면 왼쪽 위 **구석에 몰린다.** 그 조각이 UV 전체에 펴 발려 «밀린» 모습이 된다.
-- 공유 코드로 들어온 텍스처는 `CODE_TEX_SIZE = 256` 이라 정확히 **1/4 구석**에 몰렸다. 사람 얼굴·감은눈은 512 라 멀쩡했던 것도 이것으로 갈린다 — 제보자가 보내준 `roomface_blink_*.png` 가 512 였던 것과 어긋나지 않는다.
-- ★ **방에서는 멀쩡하고 런처·커마에서만 깨진다**는 제보 사진이 결정적이었다. 방은 `animalBodyUrl` 을 텍스처로 직접 로드하고(app.js 28910 주석), 슬롯 되받기만 이 512 캔버스를 거친다.
-- **고친 자리 둘.** `_fetchImgDataUrl` 은 캔버스를 **아예 안 거친다** — 바이트를 그대로 옮긴다(`_fetchB64` 와 같은 방식, 재인코딩이 없어 화질도 안 깎인다). `_roomFaceUrlToCanvas` 는 캔버스를 **그림의 원래 크기**로 잡는다(크기를 못 읽으면 예전처럼 512).
-- ⚠️ 이미 잘린 채 저장된 캐릭터는 이 수정만으로 안 돌아온다 — **서버 원본은 온전하므로** 고친 판으로 한 번 다시 받아오면 복구된다.
-- ⑪ 절이 잰다: 되받기에 `_roomFaceUrlToCanvas` 가 안 쓰인다 · 256·1024 가 그 크기로 돌아온다 · 그림은 (0,0)에 원래 크기, 캔버스가 거기 맞춘다 · 크기를 못 읽으면 512 · 되받은 dataURL 이 **한 바이트도 안 변한다** · 되받으며 아무 데도 그리지 않는다 · **실패는 던진다**(빈 그림이 저장되면 안 된다).
-- ⚠️ 검사 스텁도 같이 바뀌었다 — `D()` 의 본문이 이제 **진짜 base64** 여야 한다(되받기가 디코드·인코드를 한 바퀴 돈다). 알파벳 밖 글자가 섞이면 왕복에서 값이 달라져 엉뚱한 판정이 깨진다.
-- 패치본 **99 통과 · 0 실패** / 원본(패치 전) **60 통과 · 18 실패**. 검사 파일 수는 그대로 **76개**(신설 없음).
-- 기준선(저장소 러너) 기대값 **초록 75 · 빨강 0 · 원본없음 1** (76개) — 개정 23~25 와 같다.
-
-**개정 25 에서 한 것 (2026-09-18)**
-- `sim-slot-sync.js` 에 **⑩ 절 신설** — 🔑 **제보 3-7 (나) «집에서 켜니 커마 그래픽이 깨져 있다».** `_quickHash` 는 **곧 파일 이름**이다(`roomface_{key}_{h}.png` · `pic_{h}` · GLB `{key}_{h}`). 그런데 dataURL 을 **7글자마다 한 번씩(1/7)** 만 보고 나머지 6/7 은 해시에 안 넣었다 — 표본이 같으면 다른 그림이 **같은 파일에 덮어써지고**, 캐시(`st[ck]`)가 같은 키라 재업로드도 안 돼 **영구적**이었다.
-- `_quickHash` 를 **전수 스캔**으로 바꿨다(djb2 + FNV-1a 두 누산기 = 64비트 + 길이, 접두어 `h2`). 5 MB base64 에서 32 ms — 업로드 직전 한 번뿐이라 체감되지 않는다. ⑩ 절이 「옛 해시로는 같던 두 그림」을 실제로 들고 와 새 해시가 가르는지 잰다.
-- ⚠️ **구분 기호를 쓰지 않는다.** `uploadRoomFace` 가 파일 이름에서 `[^a-zA-Z0-9_-]` 를 전부 지운다 — 옛 `{해시}.{길이}` 는 점이 지워진 채 올라가서(제보 자료의 `roomface_face_2irv4n63142.png` 가 그 모습), `ab.1234` 와 `ab1.234` 가 **같은 파일 이름**이 되는 길이 열려 있었다. 두 누산기를 36진수 **7자리 고정폭**으로 적어 경계를 자리로 정했다. ⑩ 절이 「정제기를 통과해도 값이 안 변한다 + 정제 뒤에도 두 그림의 이름이 다르다」를 잰다.
-- ⚠️ 접두어 `h2` 는 **옛 이름과 겹치지 않기 위한 것**이다. 겹치면 새 이름이 옛 충돌 파일을 그대로 물려받아 고친 것이 없어진다. 대신 **모두가 그림마다 한 번씩 다시 올린다**(Class A 1회) — 피할 수 없다. 옛 키로 URL 을 물려주는 «비용 0» 경로는 **일부러 안 만들었다**: 옛 해시가 같다는 것은 「그림이 같다」가 아니라서, 그 길로 가면 이 제보가 그대로 재현된다. ⑩ 절이 「업로더가 새 키 하나만 본다」를 박아 둔다.
-- ⚠️ 그 비용을 **두 번** 치르지 않게 `_roomFaceCacheLoad` 가 상한(60)을 넘을 때 **구형 항목부터** 버린다 — 전환기엔 한 그림이 두 칸을 차지해 상한에 금방 닿는데, 예전처럼 통째로 비우면 방금 올린 새 파일까지 잊고 전원이 또 올린다. ⑩ 절이 이 짝을 함께 잰다.
-- `uploadPartPic` 이 얼굴과 **같은 캐시 로더/세이버**를 쓴다. 예전엔 같은 저장 키(`tw.roomFaceUrls`)를 직접 읽고 넘치면 **방금 것 하나만 남기고 전부 버려서**, 파츠 그림 한 장이 얼굴 URL 을 통째로 날렸다.
-- ⚠️ 옛 이름으로 올라간 파일은 Storage 에 **그대로 남는다**(참조만 끊긴다). 지우는 것은 별건 — 아직 옛 URL 을 들고 있는 남의 기기·서버 슬롯이 있다.
-- 패치본 **90 통과 · 0 실패** / 원본(패치 전) **57 통과 · 12 실패**. 검사 파일 수는 그대로 **76개**(신설 없음).
-- 기준선(저장소 러너) 기대값 **초록 75 · 빨강 0 · 원본없음 1** (76개) — 개정 23·24 와 같다.
-
-**개정 24 에서 한 것 (2026-09-18)**
-- `sim-slot-sync.js` 에 **⑨ 절 신설** — 🛟 **제보 3-7 «집 PC 의 캐릭터 5개가 회사 PC 의 1개로 덮였다».** `_slotsAdoptFromServer` 는 병합이 아니라 **통째 교체**인데(`syncSlotsToServer` 주석: 「슬롯은 칸 단위로 합칠 수 없으므로」) 덮기 전에 **되돌릴 자리가 없었다** (`handoff-2026-09-18d.md` §3-7).
-- **덮기 직전 저장본을 한 벌** `deskFriends.slots.bak` 에 남긴다(+ `…bak.meta` 에 몇 칸→몇 칸·어느 계정·언제). 콘솔 출구 둘 — `slotsBackupInfo()` · `restoreSlotsBackup()`.
-- ⚠️ **요점은 «안 남기는 경우» 다.** 백업은 한 벌이라 아무 때나 갈아 끼우면 잃은 것을 덮는다 — ① 로컬이 비었으면 ② 바뀌는 게 없으면(같은 내용으로 pull 이 또 도는 길) ③ 이미 있는 백업이 더 많은 칸이면 **안 남긴다.** ⑨ 절이 이 셋을 각각 잰다.
-- ⚠️ 되돌리기는 **맞바꾸기**다(한 번 더 부르면 도로 돌아온다) + 되돌린 뒤 `_slotsTouch()` 로 시각을 찍는다. **안 찍으면 다음 동기화가 서버 것으로 또 덮어 30분 뒤에 사라진다** — 되돌리기가 반쪽이 되는 자리라 검사가 이 짝을 묶는다.
-- ⚠️ `SLOTS_BAK_KEY` 는 `ACCOUNT_LOCAL_KEYS` 에 **일부러 안 넣었다.** 그 목록의 규칙은 「다시 로그인하면 돌아오는 것만」인데 백업은 정의상 **서버에 없는 것**이라, 넣으면 로그아웃이 곧 삭제가 된다(목록 위 ⚠️ 가 금지하는 바로 그것). 남의 캐릭터를 주워 가는 길은 `restoreSlotsBackup` 의 **uid 대조**로 막는다 — ⑨ 절이 「목록에 없다 + 근거가 그 자리에 적혀 있다 + 다른 계정이면 거부」 셋을 함께 잰다. **빠뜨린 것으로 보고 넣지 말 것.**
-- ★ **화면 문구는 안 건드렸다.** «☁️ 다른 기기에서 저장한 캐릭터를 받아왔어요» 는 그대로고, 칸이 줄면 `console.warn` 만 남긴다. 문구 개정과 [되돌리기] 버튼은 제보 3-7 할 것 2 — **UI 가 새로 생기므로 시안을 받은 뒤**에 한다. ⑨ 절이 「이번 단계에서 토스트가 안 바뀌었다」를 박아 둔다(다음 사람이 시안 없이 손대면 빨강).
-- ⚠️ 백업이 실패해도(용량) **채택을 막지 않는다.** 백업 탓에 본문 쓰기가 막히면 백업을 물리고 한 번만 다시 적는다 — 백업이 「캐릭터가 안 따라온다」를 새로 만들면 안 된다.
-- 패치본 **76 통과 · 0 실패** / 원본(패치 전) **54 통과 · 1 실패**(⑨ 게이트만 빨강 — ①~⑧ 은 계속 읽힌다). 검사 파일 수는 그대로 **76개**(신설 없음).
-- 기준선(저장소 러너) 기대값 **초록 75 · 빨강 0 · 원본없음 1** (76개) — 개정 23 과 같다.
-
-**개정 23 에서 한 것 (2026-09-18)**
-- `sim-license-leak.js` 신설·등재 — 🪑 **제보 2 «라이선스 없는 친구에게 전용 책상이 보인다».** 게이트(`applyDeskCatalogRefToSeat` · `equipDeskItem`)가 그리기만 막고 저장·전파는 안 막아서, `charDef.deskCatalogId` 가 `serializeDefForNetwork` 를 타고 방으로 나가고 받는 쪽은 `seat.remote` 라 게이트 없이 그렸다 (`handoff-2026-09-18c.md` §2).
-- **지우지 않고 접어 둔다.** `deskCatalogId` → `deskLicenseHold` · `deskItems[id]` → `deskItemsLicenseHold[id]` 로 옮겨 적고 전송 payload 에서 뺀다. 라이선스가 켜지면 `restoreLicenseHeldAssets` 가 조정값까지 그대로 되돌린다. ⚠️ **접기와 되돌리기는 한 쌍**이다 — 한쪽만 가면 라이선스를 등록해도 책상이 안 돌아온다(2절이 그 짝을 묶는다).
-- 판정 재료는 카탈로그 레코드(`savedDesks`·`savedItems`)의 `licenseOnly` 뿐이라 **카탈로그가 도착하기 전에는 아무것도 안 한다.** 조회 실패를 「전용 아님」으로도 「전용」으로도 단정하지 않는 것은 `pruneUnownedGachaParts` 의 관례를 그대로 따른 것이다.
-- 입구 넷을 막았다 — 공유 코드 불러오기(저장 **전**) · 슬롯 복원 · 프리셋(`licenseOnly:false` 를 박던 자리) · 책상/아이템 카탈로그 도착. 아이템 장착 게이트는 `def.licenseOnly` 만 보던 것을 `savedItems` 레코드도 보게 고쳤다(캐릭터에 딸려온 사본이 `licenseOnly:false` 로 덮던 자리).
-- **A안 이전** — 라이선스 전용 책상을 **🎨 꾸미기 › 책상** 탭으로 옮겼다. 5단계에는 무료 책상만 남는다(⚠️ **관리자는 예외** — 등록·검수·순서 재배치 손잡이가 그 카드에만 있다). 꾸미기창은 열 때 통째로 라이선스 게이트라, **전용 책상만** 옮겨야 미보유자가 잃는 것이 없다 — 무료 책상까지 옮기면 미보유자가 책상을 아예 못 고르는 회귀가 된다.
-- ⚠️ 그 탭은 `PART_CATS` 에 **넣지 않았다**(`WD_DESK_TAB` 가상 탭). 같은 그룹의 «책상 위»(`deskitem`)는 `bone:'desk'` 표식만으로 파츠 배관을 그대로 타지만, 책상 **본체**는 `swapDeskVisual` 로 `seat.desk` 를 갈아 끼우는 다른 모델이다. 넣으면 파츠 등록 UI·카테고리 상한·`catEquippedIds`·`applyClothVisibility` 가 전부 가짜 카테고리를 센다.
-- 꾸미기창의 책상 변경은 `charDef` 에 **바로 쓴다** — `_commitWdDraftNow` 는 `equippedParts`·`partXfMemory` 만 커밋하므로 덮이지 않는다. 6절이 그 전제를 지킨다(커밋이 책상 필드를 건드리기 시작하면 빨강).
-- ⚠️ **위조 방어가 아니다.** 라이선스는 localStorage 에 있고 계정에 안 묶인다 — 이것은 «남은 저장값 청소» 이고, 서버 규칙으로 막는 일과 섞지 말 것(5절이 그 선을 본다).
-- ★ 알림 없음(2026-09-18 결정) — 못 쓰는 것을 원래대로 되돌리는 일이라 토스트를 띄우지 않는다. 대신 `console.warn` 을 남긴다. `pruneUnownedGachaParts` 가 토스트를 띄우는 것과 **일부러 다르다.**
-- 기준선(저장소 러너) 기대값 **초록 75 · 빨강 0 · 원본없음 1** (76개).
-
-**개정 22 에서 한 것 (2026-09-18)**
-- `sim-focus-cap.js` 신설·등재 — 🕒 **누적 상한과 레벨 상한을 갈랐다.** `FOCUS_LEVEL_CAP_HOURS`(999) 하나가 「레벨을 999 에서 접는 것」과 「누적 초를 999시간에서 멈추는 것」 두 몫을 하고 있어서 회차(★)의 재료가 안 쌓였다 (§30 · `handoff-level-tiers.md` §3-1-b).
-- 누적 상한을 **100회차(99,900시간 = 359,640,000초)** 로 열었다. 같은 값이 세 파일에 있다 — `app.js` · `firebase-init.js` `syncFocusTotal` · 규칙 파일 `users/$userId/focus`. ⚠️ **규칙을 게시해야 켜진다**(서버가 낮으면 잘리는 게 아니라 쓰기가 통째로 거부된다).
-- **레벨 표시는 999 에서 접힌 채 그대로 둔다.** 별(`lv-star`)을 붙이는 단계가 오기 전에 모듈로로 바꾸면 999 를 넘긴 사람이 별 없이 Lv.1 로 보인다. 4절이 그 짝을 묶는다(한쪽만 가면 빨강).
-- 기준선(저장소 러너) 기대값 **초록 74 · 빨강 0 · 원본없음 1** (75개).
-
-**개정 21 에서 한 것 (2026-09-18)**
-- `sim-mac-update.js` 신설·등재 — 🍎 맥은 서명·공증이 없어 `autoUpdater` 가 설치까지 못 간다. 맥에서 `checkForUpdates()` 를 아예 안 부르고, 릴리즈 최신 태그만 읽어 «받으러 가기» 안내(기존 `#updateReadyBanner` 재활용)로 간다 (§29 · `handoff-2026-09-18b.md` §2).
-- `main.js` 를 읽는 검사가 하나 늘었다(`sim-sysinput` · `sim-overlay-*` · `sim-keysof-twin` · `sim-ui-zoom` · `sim-admin-active` 와 나란히).
-- ★ 이 갈래는 **윈도우 한 바퀴로는 못 지킨다** — 맥 갈래가 통째로 사라져도 윈도우는 초록이다. 그래서 검사가 `process.platform` 을 갈아 끼워 **실행해서** 가른다(1절).
-- 기준선(저장소 러너) 기대값 **초록 73 · 빨강 0 · 원본없음 1** (74개). 실기기에서 `node checks\run.js` 로 확인할 것.
-
-**개정 20 에서 한 것 (2026-09-17)**
-- `sim-mhd-envsub.js` 신설·등재 — 마이홈 바탕화면 «환경 설정» 서브메뉴(글자 크기·브금)가 옆으로 흘러가던 사고. 펼침 칸 클래스 `.fly` 가 채팅 날리기 전역 `.fly`(flyAcross) 와 부딪혔다 → `mhd-fly` 로 바꿈 (§26).
-- `sim-font-hangul.js` 신설·등재 — 기본 테마·머리 위 말풍선의 한글 폰트가 바뀐 사고. Electron 31→44 로 한글 대체 폰트가 바뀌었다 → Tahoma 목록마다 Malgun Gothic 을 적었다 (§27).
-- `sim-chat-sfx.js` 신설·등재 — 대화창 설정 «알림음»(3종 · ▷ 미리듣기) · «글자 크기 ▶» 서브메뉴 (§28, handoff-2026-09-17b §3-2).
-- 기준선(저장소 러너) 기대값 **초록 72 · 빨강 0 · 원본없음 1** (73개). 실기기에서 `node checks\run.js` 로 확인할 것.
-
-**개정 19 에서 한 것 (2026-09-17)**
-- `sim-deco-parts.js` 신설·등재 — 설정 › 캐릭터 «꾸미기 파츠 표시» 켜짐/꺼짐(내 화면 전용, 책상 아이템 제외) (§25).
-- 기준선(저장소 러너) **초록 69 · 빨강 0 · 원본없음 1** (70개).
-
-**개정 18 에서 한 것 (2026-09-17)**
-- `sim-chat-fly.js` **고침(350 → 359줄).** 날리기에 회사원 모드 게이트를 넣었다(보내는 쪽 체크 숨김·fly 안 실음 · 보는 쪽 상대 날리기도 말풍선/라벨 · 켜는 순간 정리). 판정 4개 추가, 기존 판정 무변경.
-- `sim-device-session.js` 신설·등재 — 제보 3 «두 PC 다중 접속» 한 계정 한 기기(`users/{uid}/session`) (§24). 제보 ②(오프라인이 온라인으로)도 같은 뿌리.
-  규칙 파일(`firebase-database-rules.json`)에 `users/$userId/session` 블록을 넣었다 — **게시해야 켜진다.** 미게시면 쓰기가 거부돼 지금과 같다(더 나빠지지 않음). 검사 1절이 규칙 파일이 있으면 그 블록까지 본다.
-- 기준선 **초록 62 · 빨강 0 · 원본없음 7** (69개).
-
-**개정 17 에서 한 것 (2026-09-17)**
-- `sim-room-order.js` 신설·등재 — 제보 2 «가만히 있는데 누가 들어오면 쫓겨남»(memberId 를 서버 시계 보정본으로) ·
-  제보 4 «시크릿룸 방장 부여 안 됨»(관리자 발급 거울 대조 경고 + 옛 uid 발급 안내) (§23).
-- 기준선 **초록 61 · 빨강 0 · 원본없음 7** (68개).
-
-**개정 16 에서 한 것 (2026-09-17)**
-- `sim-admin-active.js` 신설·등재 — E 추가 제보 «관리자 권한 게임클라 앞에서 캐릭터는 포커싱인데 타이머가 안 쌓인다» (§22).
-  원인은 코드에서 확정(관리자 권한 창은 `path` 가 비어 `getActiveWindow` 가 null → 폴링 일찍 return → 누적 tick 정지).
-  `sysinput-win.js` 를 읽는 검사가 **2개**가 됐다(`sim-sysinput` · `sim-admin-active`).
-- `sim-ui-zoom.js` **고침(122 → 125줄).** 설정 › 화면표시 행이 시안대로 바뀌었다 — «전체 화면 크기 — 캐릭터와 창을 함께» → **«프로그램 크기»**,
-  «창 위치 초기화 — 안 보이는 창 되돌리기» → **«창 위치 초기화»**, `화면 −`/`화면 +` → `−`/`+` 28px 버튼, 버튼 전부 줄바꿈 금지(좁은 패널에서
-  세로로 깨지던 제보). 이름을 보던 판정 1개가 거짓 빨강이 되어 새 이름·정렬 판정 3개로 바꿨다. id·배선·app.js 무변경.
-- 기준선 **초록 60 · 빨강 0 · 원본없음 7** (67개).
-
-**개정 15 에서 한 것 (2026-09-17)**
-- `sim-wheel-kick.js` 신설·등재 — 제보 3-1 (C) 휠은 고착 회복 사다리를 안 탄다 (§21). 원인은 제보자 진단 로그에서 확정.
-- 기준선 **초록 59 · 빨강 0 · 원본없음 7** (66개).
-
-**개정 14 에서 한 것 (2026-09-16 · 3차)**
-- `sim-ui-zoom.js` 신설·등재 — 제보 3-2 (F-1) 전체 화면 크기(렌더러 줌) 한 통로 (§20).
-- 기준선 **초록 58 · 빨강 0 · 원본없음 7** (65개). `main.js` 를 읽는 검사가 하나 늘었다(`sim-sysinput` · `sim-overlay-*` · `sim-keysof-twin` 과 나란히).
-
-**개정 13 에서 한 것 (2026-09-16 · 3차)**
-- `sim-pk-fit.js` 신설·등재 — 제보 5 스티커사진 무대에서 파츠가 키 계산에 안 들어간다 (§19).
-  ★ 코드(`_pkVisibleBox(g, noParts)` · `_pkCloneChar` 배선)는 **받은 app.js 에 이미 들어 있었다** — 트리아지 문서의
-  «코드에 손댄 것은 B 하나» 보다 뒤에 고쳐진 판이다. 이번 세션은 검사만 신설했다(변이 검사로 이빨 확인: 되돌리면 8 빨강).
-- 기준선 **초록 57 · 빨강 0 · 원본없음 7** (64개).
-
-**개정 12 에서 한 것 (2026-09-16 · 2차)**
-- `sim-account-switch.js` 신설·등재 — 제보 4 같은 PC 계정 전환 시 소지품 정리 (§18).
-- `sim-google-login.js` **고침(474 → 479줄).** 로그아웃 판정 4개가 «본문에 `removeItem(키)` 가 있다» 였는데,
-  지움 목록이 `ACCOUNT_LOCAL_KEYS` 한 벌로 옮겨 가면서 거짓 빨강이 됐다. 목록에 있는지로 본다.
-  해시가 바뀐 것은 이 이유 하나다 — 나머지 판정은 한 글자도 안 건드렸다.
-- 기준선 **초록 56 · 빨강 0 · 원본없음 7** (63개).
-
-**개정 11 에서 한 것 (2026-09-16)**
-- `sim-room-channel.js` 신설·등재 — 제보 2 방 채널 표지 복구 (§17). 기준선 **초록 55 · 빨강 0 · 원본없음 7** (62개).
-
-**개정 10 에서 한 것 (2026-09-16)**
-- `sim-slot-sync.js` 신설·등재 — 제보 6-b 슬롯(캐릭터) 동기화 (§16).
-- 2026-09-16 세션 검사 5개(`sim-cfg-fit` · `sim-premium-desk` · `sim-item-rot` · `sim-child-theme` ·
-  `sim-focus-auth`)가 **파일은 있는데 §3 표에 없었다.** 러너가 `? 표에 없다` 를 찍어 「전부 일치」
-  줄이 안 나오던 상태 — 받은 판 그대로 해시를 적어 등재했다.
-- 기준선: **초록 54 · 빨강 0 · 원본없음 7** (61개).
-
-★ 개정 1 에서 "52개 + 2 = 54" 라고 적었던 것은 **세다 틀린 것이다.** 프로젝트 사본의
-`sim-*.js` 는 50개였고 여기에 `sim-sysinput.js` 가 더해져 51개다. 이 표가 정본 표시인 이상
-개수부터 맞아야 해서 남겨 둔다.
-⚠️ **지금 다시 54 가 된 것은 그 오기가 맞았다는 뜻이 아니다.** 개정 8 에서
-`sim-keysof-twin.js` 가 **새로 하나 늘어** 51 → 52 가 된 것이다. 우연히 같은 숫자다.
-
-**개정 8 에서 한 것 (2026-09-14)**
-- `sim-keysof-twin.js` 를 §3 에 등재했다. 그전까지 러너가 `? 표에 없다` 를 찍어
-  **「전부 일치」 줄이 안 나왔다** — 그 상태에서는 그 바퀴의 초록 전부가 근거가 아니다.
-- §13 이 시킨 **「도구」 칸**을 만들었다. 다만 **표가 아니라 코드블록이다** — 이유는 그 절에.
-- §13 「다음 세션」의 맥 관련 줄이 낡았다(맥 ⑤ 는 이미 초록). 같이 고쳤다.
-- **실기기 한 바퀴를 다시 재 §5 기준선을 갈았다 — `초록 53 · 빨강 0 · 원본없음 1`.**
-
----
+바뀐 내력은 `git log -- checks/` 로 본다(개정 번호는 두지 않는다 — PR 마다 같은 줄을 고쳐 늘 충돌이 났다).
+검사를 더하거나 고치면 §3 표의 해시만 같은 커밋에서 맞춘다(`node checks/run.js --hashes`).
 
 ## 0. 이 파일이 있는 이유
 
@@ -2536,340 +68,340 @@
 
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
-| **audit.py** | 932 | **6ac1a4733d08** ← **개정 386 검사 19 — 시야를 parts/ 전체 .js 로(손 목록 없음) · escHtml 본문은 safe-html.js 의 text · 검토 목록 +17** · **개정 220 검사 8 시야에 myhome-init.js** · **개정 217 검사 8 시야에 일곱 파일 · 검사 17 은 lv-tier.js 도 읽음** · **개정 216 검사 8 시야에 다섯 파일** · **개정 215 검사 8 시야에 여섯 파일** · **개정 214 검사 8 시야에 다섯 파일** · **개정 213 검사 8 시야에 네 파일** · **개정 212 검사 8 시야에 일곱 파일** · **개정 211 검사 8 시야에 sfx.js** · **개정 210 검사 8 시야에 win-stack.js** · **개정 209 검사 19 ③ — _mhLoadRT 는 rich-text.js 에서도 찾는다 · 검사 8 시야에 rich-text.js** · **개정 208 검사 8 시야에 chat-prefs.js** · **개정 207 검사 8 시야에 program-settings.js** · **개정 206 검사 8 시야에 dice-games.js** · **개정 205 검사 8 시야에 char-code.js** · **개정 204 검사 8 시야에 premium-assets.js** · **개정 203 검사 8 시야에 status-chip.js** · **개정 202 검사 8 시야에 room-sync.js** · **개정 201 검사 8 시야에 overhead.js** · **개정 200 검사 8 시야에 room-entry.js** · **개정 199 검사 2 — UI_HIT_SEL 은 desktop-run.js 에서도 찾는다 · 검사 8 시야에 desktop-run.js** · **개정 198 검사 8 시야에 settings-panel.js** · **개정 197 검사 8 시야에 wardrobe.js** · **개정 196 검사 8 시야에 account.js** · **개정 195 검사 8 시야에 license-gate.js** · **개정 194 검사 8 시야에 chat-ui.js** · **개정 193 검사 8 시야에 focus-level.js** · **개정 192 검사 8 시야에 part-paint.js** · **개정 191 검사 8 시야에 ride-bench.js** · **개정 190 검사 19 xxxMod.대문자상수 도 상수 · 검사 8 시야에 tricks.js** · **개정 189 검사 8 · 19 시야에 away-pic.js · myhome-ui.js** · **개정 188 검사 8 시야에 slot-sync.js** · **개정 186 검사 8 시야에 chars.js** · **개정 185 검사 8 · 19 시야에 my-info.js** · **개정 184 검사 8 시야에 report.js · admin-report.js** · **개정 181 검사 8 시야에 admin-users.js · admin-launcher.js · 검사 19 시야에 admin-users.js** · **개정 179 검사 8 · 19 시야에 admin-part-register.js** · **개정 178 검사 8 시야에 admin-license.js · admin-notice.js · admin-category.js · 검사 19 시야에 admin-license.js · admin-category.js** · **개정 177 검사 8 시야에 admin-console.js(🧹 콘솔 도구 — app.js 에서 parts/admin/ 으로 옮김)** · **개정 176 검사 8 · 19 시야에 admin-license-bulk.js(📄 엑셀 일괄 발급 · 🔒 시크릿룸 발급 — app.js 에서 parts/admin/ 으로 옮김 · 스테이징의 parts/admin/ 자리도 연다)** · **개정 173 검사 8 시야에 playlist.js(🎵 플레이리스트 — app.js 에서 옮김) · 검사 19 ④ 속성값 보간 시야에도 playlist.js** · **개정 171 검사 8 시야에 myhome-inbox.js(📩 수령함 · 💝 선물함 · 👥 친구 목록 — app.js 에서 옮김) · 검사 19 ④ 속성값 보간 시야에도 myhome-inbox.js** · **개정 167 검사 8 시야에 room-invite-ui.js(🙋 투게더룸 친구 초대 — app.js 에서 옮김)** · **개정 156 검사 9 friendCodes 통째 get 기준선 1 → 2(invite-revoke.js 전체 회수)** · **개정 140 검사 8 시야에 myhome-edit.js(🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 — app.js 에서 옮김)** · **개정 139 검사 8 시야에 gacha.js(🎰 파츠 가챠 — app.js 에서 옮김)** · **개정 136 검사 8 시야에 friend-manage.js(👥 친구 관리) · bug-board-ui.js(🐞 버그 제보 탭 — app.js 에서 옮김)** · **개정 135 검사 8 시야에 guestbook.js(📖 방명록 — app.js 에서 옮김)** · **개정 134 검사 8 시야에 purikura-ui.js(📷 스티커사진 창 — app.js 에서 옮김)** · **개정 133 검사 8 시야에 weekly-challenge.js(👑 달성표 — app.js 에서 옮김)** · **개정 131 검사 8 시야에 scheduler.js(📅 스케줄러 · 🔔 일정 알림 — app.js 에서 옮김)** · 2026-09-13 검사2 재설계 · 검사6 계량 (§4-⑤) · **개정 60 검사 9 기준선 reports 1** · **개정 71 검사 17 (e) 회차** · **2026-10-03 검사 9 기준선 roomStats 1** · **2026-10-03 검사 10 ES 모듈 문법 · firebase-init import 모듈도 시야에** · **2026-10-06 검사 9 기준선 roomAlive(전체 1 · 방 단위 2)** |
-| **smoke.js** | 687 | **ded5eeb12b00** ← **개정 386 PRELOAD 맨 먼저 safe-html.js(판정 무변경)** · **개정 381 PRELOAD inbox-sections.js(판정 무변경)** · **개정 379 label-measure.js 먼저 싣기(판정 무변경)** · **개정 377 PRELOAD 에 myhome-sticker-rules.js(관리 창보다 먼저)** · **개정 368 data-gateway.js 먼저 싣기(판정 무변경)** · **개정 366 upload-cache.js 먼저 싣기(판정 무변경)** · **개정 363 json-store.js 먼저 싣기(판정 무변경)** · **개정 361 source-switch.js 먼저 싣기** · **개정 352 PRELOAD body-measure.js** · **개정 347 desk-place.js 도 먼저 평가** · **개정 346 seat-eq-clamp.js 도 먼저 평가** · **개정 345 app.js 앞에 진짜로 싣는 목록에 net-ready.js** · **개정 342 seat-refit.js 를 먼저 싣는다** · **개정 336 PRELOAD seat-menu.js** · **개정 334 PRELOAD asset-cards.js · desk-setup.js** · **개정 333 PRELOAD desk-preset-store.js · desk-preset.js** · **개정 332 PRELOAD asset-import.js** · **개정 330 PRELOAD myhome-preset.js** · **개정 321 PRELOAD 에 click-through-policy.js** · **개정 312 app.js 앞에 진짜로 싣는 목록에 friends-api.js** · **개정 311 app.js 앞에 진짜로 싣는 목록에 friends-firebase.js · friends-port.js** · **개정 309 app.js 앞에 진짜로 싣는 목록에 friends-sub.js** · **개정 308 PRELOAD stamp.js** · **개정 307 PRELOAD paint-geom.js · paint-stroke.js** · **개정 305 PRELOAD creator-state.js** · **개정 303 ps1-dither.js 도 먼저 평가** · **개정 293 catalog-source.js 도 먼저 평가** · **개정 290 user-status-table.js · chip-popups.js 도 먼저 평가** · **개정 288 seat-panel.js 도 먼저 평가** · **개정 285 seat-model-load.js 도 먼저 평가** · **개정 284 char-measure.js · floor-snap-diag.js 도 먼저 평가** · **개정 283 ride-tuning.js 도 먼저 평가** · **개정 282 toast.js 도 먼저 평가** · **개정 281 ride-measure.js 도 먼저 평가** · **개정 280 PRELOAD creator-xform.js** · **개정 279 deco-parts-visibility.js 도 먼저 평가** · **개정 278 commission-import.js 먼저 싣기(판정 무변경)** · **개정 275 seat-equalize.js 도 먼저 평가** · **개정 274 desk-visual.js 도 먼저 평가** · **개정 273 creator-preview · creator-flow · creator-save 먼저 싣기(판정 무변경)** · **개정 272 app.js 앞에 진짜로 싣는 목록에 myhome-hooks.js** · **개정 271 PRELOAD light-tone.js** · **개정 270 desk-items.js 도 먼저 평가** · **개정 269 seat-layout.js 도 먼저 평가** · **개정 267 catalog-sync.js 도 먼저 평가** · **개정 266 ride-chain.js 도 먼저 평가** · **개정 265 glb-idb-cache.js · catalog-glb.js 도 먼저 평가** · **개정 264 PRELOAD seat-friend-req.js** · **개정 263 mat-tone.js 먼저 싣기(판정 무변경)** · **개정 261 part-scene.js · admin-thumbs.js 도 먼저 평가** · **개정 260 launcher-preview.js 먼저 싣기(판정 무변경)** · **개정 259 PRELOAD presence.js** · **개정 258 seat-camera.js 도 먼저 평가** · **개정 257 launcher-controls.js 먼저 싣기(판정 무변경)** · **개정 256 dot-render.js 도 먼저 평가** · **개정 251 app.js 앞에 진짜로 싣는 목록에 demoji-catalog.js** · **개정 248 app.js 앞에 진짜로 싣는 목록에 user-name.js** · **개정 247 app.js 앞에 진짜로 싣는 목록에 nav.js** · **개정 246 app.js 앞에 진짜로 싣는 목록에 account-state.js · myhome-state.js** · **개정 239 app.js 앞 파일을 진짜로 싣는다** · **개정 220 myhome-init.js 도 먼저 평가** · **개정 217 일곱 파일도 먼저 평가** · **개정 216 다섯 파일도 먼저 평가** · **개정 215 여섯 파일도 먼저 평가** · **개정 214 다섯 파일도 먼저 평가** · **개정 213 네 파일도 먼저 평가** · **개정 212 일곱 파일도 먼저 평가** · **개정 211 sfx.js 도 먼저 평가** · **개정 210 win-stack.js 도 먼저 평가** · **개정 209 rich-text.js 도 먼저 평가** · **개정 208 chat-prefs.js 도 먼저 평가** · **개정 207 program-settings.js 도 먼저 평가** · **개정 206 dice-games.js 도 먼저 평가** · **개정 205 char-code.js 도 먼저 평가** · **개정 204 premium-assets.js 도 먼저 평가** · **개정 203 status-chip.js 도 먼저 평가** · **개정 202 room-sync.js 도 먼저 평가** · **개정 201 overhead.js 도 먼저 평가** · **개정 200 room-entry.js 도 먼저 평가** · **개정 199 desktop-run.js 도 먼저 평가** · **개정 198 settings-panel.js 도 먼저 평가** · **개정 197 wardrobe.js 도 먼저 평가** · **개정 196 account.js 도 먼저 평가** · **개정 195 license-gate.js 도 먼저 평가** · **개정 194 chat-ui.js 도 먼저 평가** · **개정 193 focus-level.js 도 먼저 평가** · **개정 192 part-paint.js 도 먼저 평가** · **개정 191 ride-bench.js 도 먼저 평가** · **개정 190 tricks.js 도 먼저 평가** · **개정 189 away-pic.js · myhome-ui.js 도 먼저 평가** · **개정 188 slot-sync.js 도 먼저 평가** · **개정 186 chars.js 도 먼저 평가** · **개정 185 my-info.js 도 먼저 평가** · **개정 184 report.js · admin-report.js 도 먼저 평가** · **개정 183 admin-mode.js 도 먼저 평가** · **개정 182 admin-asset.js 도 먼저 평가** · **개정 181 admin-users.js · admin-launcher.js 도 먼저 평가** · **개정 179 admin-part-register.js 도 먼저 평가** · **개정 178 admin-license.js · admin-notice.js · admin-category.js 도 먼저 평가** · **개정 177 admin-console.js 도 먼저 평가(PRELOAD.push)** · **개정 176 admin-license-bulk.js 도 먼저 평가(PRELOAD.push) · parts/admin/ 자리도 찾는다** · **개정 173 playlist.js 도 먼저 평가(PRELOAD.push)** · **개정 171 myhome-inbox.js 도 먼저 평가(PRELOAD.push)** · **개정 169 chat-window.js 도 먼저 평가(PRELOAD.push)** · **개정 168 focus-log.js 도 먼저 평가(PRELOAD.push)** · **개정 167 room-invite-ui.js 도 먼저 평가(PRELOAD.push)** · **개정 140 myhome-edit.js 도 먼저 평가(PRELOAD.push)** · **개정 139 gacha.js 도 먼저 평가(PRELOAD.push)** · **개정 138 myhome-sticker.js 도 먼저 평가(PRELOAD.push)** · **개정 137 pomodoro.js 도 먼저 평가(PRELOAD.push)** · **개정 136 friend-manage.js 도 먼저 평가(PRELOAD.push)** · **개정 135 guestbook.js 도 먼저 평가(PRELOAD.push)** · **개정 134 purikura-ui.js 도 먼저 평가(PRELOAD.push)** · **개정 133 weekly-challenge.js 도 먼저 평가(PRELOAD.push)** · **개정 131 scheduler.js 도 먼저 평가(PRELOAD.push — 목록 줄은 sim-wd-ear 가 글자 그대로 봐서 그대로 둠)(app.js 가 원래 자리에서 createScheduler)** · **개정 85 html 이 앞에 싣는 귀 모듈 둘을 먼저 평가** · 2026-09-14 판정 줄 (§10) |
-| **sim-account-switch.js** | 401 | **93ce5e562b72** ← **개정 238 2절 되살림 · 순서 판정 기준 글** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 188 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 173 렌더러 쪽 한 벌 = app.js + playlist.js · 로그아웃 · 계정 이어받기 스텁을 plMod.st(상태 묶음) · plMod.blankSets · plMod.normalizeSets … 통로로(판정 무변경)** · **개정 139 가챠 flush · 검문 · 메모리 지우기 · 연동 pull 스텁을 gachaMod 통로로(gacha.js)** · **개정 133 달성표 flush · 메모리 지우기 스텁을 weeklyChal 통로로(weekly-challenge.js)** · 2026-09-16 신규 · 제보 4 계정 전환 소지품 정리 (§18) · 2026-09-20 ⑧ 로그아웃 출구 + 스텁 고침 (개정 28) · **2026-09-22 연동 해제 걷음 · 2절 상수 표에 슬롯 기록 키 넷(가려져 있던 2절 되살림) (개정 45)** · **개정 56 버린 uid 목록 걷음** |
-| **sim-admin-rules.js** | 373 | **4c5bda68baf6** ← **개정 382 봇 갈래 먼저(playlistIndex · bugBoard/list)** · **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 373 invites 코드 하나 쓰기 — 새 코드 또는 발급자 · 발급 시각 그대로(소진) · 관리자 예외** · **개정 362 bugBoard/list 읽기에 봇(사람은 예전 20줄 쿼리)** · **개정 282 되살린 글을 읽게** · **개정 183 5절 관리자 모드 진입은 admin-mode.js 를 본다 · 켜기는 setIsAdmin(true) 도(판정 무변경)** · **개정 180 playlistIndex · leaderboard 읽기에 봇(사람은 예전 쿼리 조건)** · **개정 175 봇 읽기에 config · adminLog(관리자 또는 봇 · 아래 칸 · 쓰기 없음)** · **개정 174 1절 봇(apiBots)이 accountSnap · friendCodes 목록도 읽기만 — 관리자 조건과 || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
-| **sim-char-foot.js** | 142 | **17f2aa70cc31** ← **개정 197 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-char-identity.js** | 188 | **9aa1d07d92b1** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-char-z.js** | 225 | **92fb9efdb2c1** ← **개정 197 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-cfg-fit.js** | 144 | **7d2963e0741d** ← 2026-09-16 (제보 1·2 런처 크기) · 개정 10 등재 |
-| **sim-chat-fly.js** | 360 | **b52fd913a6d7** ← **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 161 doLeaveRoom(opt) 인자 허용(정규식만)** · ← **2026-10-08 sendChat 서명에 tab(채팅 탭) 허용** · 2026-09-17 고침(350→359줄) · 회사원 모드 게이트 판정 4개 추가. 2026-09-16 신규 · 같은 날 5차 개정(띠·크기·체크줄·크기 3단·속도 px/s) (§15) |
-| **sim-bug-board.js** | 384 | **7edc054fab9a** ← **개정 382 봇 갈래를 걷고 사람 쿼리 확인** · **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 252 우편함 → 버그 글 열기는 가드 없이(가드 걷기 4단계 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 223 경로 parts/support/ 반영(판정 무변경)** · **개정 175 하루 상한은 deps.getDailyMax(원격 설정) · 못 받으면 5** · **개정 171 «우편함에서 누르면 그 글을 연다» 를 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **개정 159 내 글도 화면에서 한 쪽(BUG_PAGE)씩 · 쪽 단추 안 숨김** · ← **개정 158 상태 버튼 셋 · «그대로» 없음 · 기본 해결 안 됨** · ← **개정 157 §6 글쓴이 답글(rep 규칙 · addReply 실행 · 화면)** · ← **개정 146 규칙은 아직 이름 «익명» 을 요구하지 않음(옛 앱 비공개 제보 거부 막기)** · ← **개정 145 한 쪽 8개(BUG_PAGE · §4 7 · 7 · 8 · 8 · 8 · 7 여섯 쪽 · 딱 8개면 빈 2쪽) · 내 글은 따로 20개(BUG_MINE_MAX) · 비공개 글 목록 줄에 제목(규칙 title 공개 · 비공개 모두) · 이름은 «익명»(listEntry · 규칙 글쓴이 새 비공개 글 name === '익명' · 화면 whoName)** · ← **개정 132 §4 쪽 넘김(가짜 RTDB 글 45개 + 공지 2개 · 빠짐 · 겹침 없음 · 한 번에 20개까지) · §5 마이홈 창이 안 늘어난다(버그제보 페이지 440px 고정 · #bbRows 안 스크롤)** · **개정 95 새 글 ts · openTs === now(서버 시각) · 하루 상한 config/bugDailyMax(누구나 읽기 · 관리자 쓰기 · 1~100 정수 · 없으면 5) · 🛡 byAdmin 관리자만 · 제보 이름은 안 막음 · createPost 실행(serverTimestamp · 작성 수는 예전대로 앱이 +1 · 상한 설정값 · 관리자 byAdmin · 상한 없음) · UI 🛡 · 상한 읽기** · **2026-10-08 신규 · 🐞 버그제보 게시판 — 규칙(비공개 글 · 비공개 답변 읽기 = 본인/관리자 · 답변 쓰기 관리자만 · 목록 limitToLast ≤ 20 쿼리만 · 내 글은 내 uid 만 · 우편함 tag bug · 목록 title 은 공개 글만 · kakao open.kakao.com · 👍 +1 짝) · bug-board.js 실행(비공개 목록 줄에 제목 없음 · 입력 확인 · 분류 = 규칙 · 배지 수) · 연결(firebase-init · 우편함 열기 · 답변 알림 · 스크립트 순서 · 비공개 행 못 누름)** |
-| **sim-bug-no.js** | 159 | **afeda1efa43f** ← **2026-10-09 신규(개정 95) · 🐞 버그 제보 고정 번호 B-MMDD-n — functions/bug-no.js 실행(서울 날짜 · ts 이상하면 지금 · 카운터 +1 트랜잭션 · 이미 no 있으면 그만 · 지워진 글엔 안 붙임 · 지워도 번호 안 돌아옴 · 번호만 — 세기 · 지우기 없음 · 백필 계획 날짜별 ts 순 · 카운터 다음부터) · 백필 도구 미리 보기 기본 · index.js onValueCreated(/bugBoard/list/{id} · 다시 시도 안 함) · 규칙(no 모양 · 글쓴이 no 못 넣음 · seq 규칙 없음) · 앱 상세 번호는 관리자만** |
-| **sim-bug-cleanup.js** | 191 | **f7293434d85a** ← **개정 359 신설 · 해결된 버그 제보 한 달 뒤 삭제(bugCleanup) · 탈퇴 경로 같음** |
-| **sim-chat-history.js** | 244 | **73c10dfe62ee** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 247 다른 기기 밀림의 방 나가기는 통로로 · 통로의 방 나가기가 인자 없는 doLeaveRoom 인지 판정 1 추가** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 218 방 종류별 보관 일수(config/chatKeepDays) — 종류 읽기 순서 · 범위 · 시크릿룸 1일 · trim 은 서울 04시만 · 매시간 예약 · 규칙** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 166 채널마다 최근 300줄(CHAT_KEEP_MAX) — 화면 · 이 PC 저장 · 예전 저장 줄이기 · 서버 trimLog(표시 줄 남김 · 같은 ts 경계) · 앱 · 서버 같은 값** · **개정 161 신규 · 💬 대화 기록 — 순수 함수 · 가짜 저장소로 열기 · 지우기 표시 · 투게더룸 저장 안 함 · 채널 정리 · 나가기 조건 · 규칙 ts 색인 · 서버 3일 함수 · 처리방침** |
-| **sim-gamepad-activity.js** | 131 | **320f86854007** ← **개정 348 3절 — 게임이 앞일 때 main 이 XInput 직접 읽기(sysinput readPads · 같은 판정 · penActivity)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 151 신규 · 🎮 게임패드 활동 — gamepad-activity.js 실행(처음 본 패드 기준만 · 떨림 무시 · 스틱 · 버튼 · 트리거 · 뺐다 꽂기 · 빈 자리 · 던짐 · 타이머 하나) · app.js 배선(펜과 같은 처리) · html 순서 · OS 유휴 보정 꺼짐** |
-| **sim-mallang-hide.js** | 122 | **1250ce12a494** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 378 신설 · 말랑이 잠깐 숨기기 — mallang.js 실행(버튼 보임 · 가리기 · 움직임 멈춤 · 다시 보이기 · 닫기 / 집 옮기기에 되돌림 · 없으면 버튼 없음 · 남의 집) · 깨 보기 5 · 배선(제목줄 자리 · 끌기 제외)** |
-| **sim-seat-pin.js** | 52 | **049a1089195e** ← **개정 269 layoutSeats 배선은 seat-layout.js 의 layoutSeatRow 본문을 먼저 찾는다(판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 198 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 162 신규 · 🪑 방에서 내 자리 맨 오른쪽 고정 — 저장 · 고정 조건 · 0번으로 · 끌기 자리 · 배선 · 카메라 안 건드림** |
-| **sim-seat-label-drag.js** | 91 | **6a4daf86e439** ← **개정 351 canGrabSeat 한 줄 · 경험치 바 deps** · **개정 350 신설 · 신규 · 🏷️ 이름표 · 경험치 바 끌어 자리 바꾸기 — 판단(왼쪽 버튼 · 조준 · 날기 · 탄 중 · 벤치 · 시작 거절) · app.js 시작 함수 실행(같은 drag · label · 잡은 자리 · 포인터 잡기) · 배선(이름표 · 경험치 바 갈고리 · slot · 누르기만은 쓰다듬지 않음 · css · UI_HIT_SEL · html 순서)** |
-| **sim-friend-visit.js** | 115 | **c33a7fed1e41** ← **개정 313 누를 때 그 친구만 한 번 읽기** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 렌더러 쪽 한 벌 = app.js + myhome-inbox.js · 방 코드는 inboxMod.friendRoomTag(= myhome-inbox.js 의 _friendRoomTag)로** · **개정 165 신규 · 🏠 친구 방에 놀러 가기 — 판정 · 창(클릭 통과 · 문구 · 이스케이프 · 기본 포커스 취소 · 취소 · Esc · 놀러 가기 · 나가고 이동 · 같은 방 · 그 사이 나감 · 시크릿룸) · 배선(_friendRoomTag · 기존 문 · 줄 선택과 따로 · 앱 창 모양 · html 순서)** |
-| **sim-friends-sub.js** | 618 | **6664bb6aad56** ← **개정 384 새 친구 한 명 받기(2-3b절 · 깨 보기 +7)** · **개정 345 _waitForFirebaseAPI 는 net-ready.js 와 같이 굴림 · once 빼기 깨 보기는 net-ready.js 쪽** · **개정 344 checkFail 줄바꿈** · **개정 325 내 코드 없음 · 시작 전 판정 요청 0** · **개정 314 안내문 두 문장 사이 줄바꿈** · **개정 313 접속 상태는 목록이 열려 있는 동안만 · firebase-init 넷** · **개정 312 이름 · 사진 받기 · 목록 열기/닫기** · **개정 311 직접 읽기 0곳 — 예외 줄을 provider deps 로** · **개정 310 판정용 한 번 읽기(중복 조회 방지 · 늦은 읽기 안 덮음) · 재시도는 목록 열 때만(타이머 0개)** · **개정 309 신설 · 👥 친구 목록 구독 — 포기 없는 대기 · 구독이 await 보다 먼저 · 에러 콜백 · 자동 다시 걸기(동시 1개) · 불러오는 중 / 못 불러옴 / 받음 구분** |
-| **sim-friends-port.js** | 456 | **2dd8fdb877a0** ← **개정 390 목록 열면 1 + 2n(접속 상태 · 프로필) · app.js 친구 deps 여덟 줄** · **개정 384 readFriend(포트 · firebase · api cardOf · 배선 · 깨 보기 +6)** · **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 361 받는 곳은 source-switch** · **개정 313 상시 구독 수 · 옛 길 provider(카드 · 접속 상태)** · **개정 312 api provider · 요청 규칙 · 스위치 · 가짜 fetch** · **개정 311 신설 · 👥 친구 데이터 포트 · provider — 포트 → provider · 옛 길 · 배선 · 화면이 firebaseAPI 친구 함수를 직접 안 부름** |
-| **sim-friend-profile-live.js** | 241 | **3c3e4af0e29d** ← **개정 390 신설 · 친구 이름 · 레벨 실시간(목록이 열려 있는 동안 프로필 듣기 · 마이홈 구경 갱신)** |
-| **sim-second-instance.js** | 226 | **65e5433c9fed** ← **개정 338 응답 없음은 10초 이어질 때만 relaunch · 사건열** · **개정 277 신설 · 🔁 두 번째 실행 — 옛 창이 멀쩡하면 앞으로 · 없음 · 파괴 · 렌더러 죽음 · 응답 없음이면 relaunch + 정리 + exit(0) · 부팅 중 무시** |
+| **audit.py** | 932 | **6ac1a4733d08** |
+| **smoke.js** | 687 | **ded5eeb12b00** |
+| **sim-account-switch.js** | 401 | **93ce5e562b72** |
+| **sim-admin-rules.js** | 373 | **4c5bda68baf6** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
+| **sim-char-foot.js** | 142 | **17f2aa70cc31** |
+| **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
+| **sim-char-z.js** | 225 | **92fb9efdb2c1** |
+| **sim-cfg-fit.js** | 144 | **7d2963e0741d** |
+| **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
+| **sim-bug-board.js** | 384 | **7edc054fab9a** |
+| **sim-bug-no.js** | 159 | **afeda1efa43f** |
+| **sim-bug-cleanup.js** | 191 | **f7293434d85a** |
+| **sim-chat-history.js** | 244 | **73c10dfe62ee** |
+| **sim-gamepad-activity.js** | 131 | **320f86854007** |
+| **sim-mallang-hide.js** | 122 | **1250ce12a494** |
+| **sim-seat-pin.js** | 52 | **049a1089195e** |
+| **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
+| **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
+| **sim-friends-sub.js** | 618 | **6664bb6aad56** |
+| **sim-friends-port.js** | 456 | **2dd8fdb877a0** |
+| **sim-friend-profile-live.js** | 241 | **3c3e4af0e29d** |
+| **sim-second-instance.js** | 226 | **65e5433c9fed** |
 | **sim-wd-parts-persist.js** | 95 | **71c92bf7579e** ← **개정 342 장착 줄을 refitSeatAfterParts 안에서 찾는다(판정 무변경)** · **개정 244 열린 초안 주인은 꾸미기 relinkDraftSrc 를 onSeatRelinked 로 같이 돌림 · 걸려 있는지 판정 1 추가** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 155 신규 · 💾 꾸미기 · 가챠 파츠 재부팅 초기화 — _relinkSeatsToSlots 실행(같은 칸 · 비운 칸 · 남의 좌석 · 열린 초안) · 받는 두 곳 배선 · 저장이 파츠 받기보다 먼저 · 숨기기 전 closeWardrobe · 종료 때 저장**
-| **sim-name-guard.js** | 42 | **9c89831d5c23** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 207 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-09 신규(개정 95) · 🏷️ 운영진처럼 보이는 이름 — name-guard.js 실행(여섯 이름 정확히 · 앞뒤 공백 · 대소문자 무시 · 포함은 통과) · commitUserName 이 저장 전에 막음(이미 그 이름 · 관리자 예외) · html 순서 · 규칙 users/$userId/profile name(같은 목록 · 그대로면 · 관리자면 통과)** |
-| **sim-chat-tabs.js** | 139 | **cb2e61320c79** ← **개정 388 «기록도 지금 탭으로» — 보낸 탭을 sendTab 에 잡는 모양에 맞춤(판정 무변경 · 동작 판정은 sim-chat-read-on-send 3절)** · **개정 299 sendChat 를 떼어 돌릴 때 칸 길이 상수 줄을 같이(판정 무변경)** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 150 방마다 마지막 탭 기억(tw.chatTab.<방> · 재부팅 · 메타 전엔 안 지움 · 구독 옮김)** · ← **개정 119 빈 방 정리 — 탭 기록은 서버 함수가 걷는다(앱 퇴장은 안 지움)** · **2026-10-08 신규 · 💬 채팅 탭(채널) — chat-tabs.js 실행(목록 · [+] 방장 · 3개 · 이름 · 지워진 탭 → #일반 · 탭별 인원 · 경로 · `_chatTab` 밑줄 · 빈 자리 s1/s2) · ① 일반 외 탭 송신은 chatTab 칸(실행) ② 수신부가 내 탭과 비교 ③ [+] canAdd ④ 규칙(numChildren 없음 · s1/s2 자리 · _chatTab = chatLog 검증 · presence tab/chatTab) ⑤ 탭 줄 가로 스크롤 없음 · 줄임표 · 빈 방 정리 · 삭제 한 묶음 · 추가 트랜잭션** |
-| **sim-chat-layout.js** | 108 | **7b3248a01a4c** ← **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-10 신규(개정 116) · 💬 대화창 세로 배치 — 대화 칸 flex 기준 크기 0 · 세로 스크롤 · 최소 높이 · 창은 높이 고정 세로 flex · 창 직계 줄 중 overflow 숨김은 flex-shrink:0(탭 줄) · 입력칸 한 줄 · 맨 아래 따라가기 · 옛 CSS 를 넣으면 빨강 2건** |
-| **sim-fix-1008.js** | 412 | **94a402a85237** ← **개정 342 가짜 이름에 refitSeatAfterParts** · **개정 318 §9 보관함 이동은 당긴 번호(r.slot) 우선 · 없으면 객체로(10-16 제보 9)** · **개정 251 동물 도장은 animal.js 의 partPaintMod._stampWrapFill · _stampWrapCenter 부름으로 찾는다(옛 전역 이름 다리 걷기 — 판정 무변경)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 개정 155 꾸미기 원래 주인 저장 횟수 1→2(파츠 받기 전 · 뒤) · **개정 144 «적용 안 됨» 안내 — 끝까지 막히면 안내 창 한 번(흉내 셋) · 설정 화면 안내 칸** · **개정 142 · 143 §4 부팅 재시도 «풀릴 때까지»(gpu-info-update 마다 · 화면 뜬 뒤 1.5초 ~ 10분 · 상한 30 · 풀리면 멈춤 · 흉내 둘) · 시스템 탭으로 바로 열어도 적용 상태를 다시 읽음 · 초기화로 꺼진 실험 «다시 켤까요?» 한 번(대상 판정 · 물었음 저장 · 토글과 같은 길) (B-1010-21 · B-1011-1)** · ← **개정 140 §2 자동 저장 계정 대조는 myhome-edit.js 에서(`_myHomeLoaded()` · `_setMyHomeLoaded(false)` — 판정 무변경)** · **§13 꾸미기 초안 주인 대조 — 캐릭터 · 자리 교체 뒤 저장해도 원래 캐릭터에만(자리추가 좌석 · 슬롯만 · 못 찾음 실행) · 창 닫혀 있으면 초안만 버림** · **§1-B 그래픽카드 · GPU 기능 상태 · 시험 스위치 기록(부팅마다 한 번 · 창 로드 전 · CPU 합성은 켜지 않음 · 요약 실행)** · **§1-A 렌더러 사망 · 로드 실패 · 무응답 · 자식 프로세스 종료 기록 · 창 로드 전 감시 · 사망 시 1회만 자동 재로드(흉내)** · **§9 보관함 이동 연타 방지 · 캐릭터로 칸 다시 찾기 · 도는 동기화 기다림 · loadSlots 뒤 세대 재확인 · 실패 이유 기록** · **§5 일반 앱 첫 유령 재판정 0.4초(펜 앱 2초 · 간격 · 포기 한도 · _forwardFor 그대로) · 펜 앱 근처 150ms 재질문(찌르기만) · 로그 pen=** · **§3 도장 감아 칠하기 — 공 머리 흉내(턱 아래 채움 · UV 서로 다름 · 접힘 없음 · 위쪽은 안 감음) · 사람 · 거울 · 동물 연결 · EXTRA_MAX 2 유지** · **§2 마이홈 불러온 계정 코드 기록 · 저장 전 대조(다르면 거부 · 무효화)** · **§10 모니터 위치순 이름 · 지문 먼저 · id 는 크기 같을 때만 · 주 아님 대체 · 약한 대체는 저장 안 덮음(실행)** · **§7 잡기는 보이는 히트 먼저(숨은 몸은 버리지 않고 뒤로) · 흉내** · **§12 내 좌석 쓰다듬기 pokeSelf(0.5초 쓰로틀 · 자리추가 제외) · 에코 1.5초 무시(흉내)** · **§4 부팅 판정 blocked 면 GPU 준비 뒤 한 번 재시도 · 설정 화면 「적용 안 됨」(흉내)** · **§1 옛 빌드 설정 파일(settingsVer 없음 + 영상 겹침 실험 켜짐)만 통째로 기본값 · 백업 · 새 세대 저장 · 안내 한 번(실행)** · **2026-10-08 신규 · 🐞 버그 제보 묶음 1008 — §6 모델 교체 때 눈 감김 표시 초기화(GLB · 폴백 둘 다) · 프레임 루프 조건 · 흉내(옛 동작과 갈림)** |
-| **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** ← **개정 321 클릭 통과 정책 모듈을 같이 읽는다(판정 무변경)** · **개정 318 신설 · 🐞 10-16 제보 «중» 2건 — 보관함 이동(슬롯 객체가 바뀌어도 당긴 번호로) · 고착 회복 사다리 3단계는 우리 UI 위 클릭일 때만(onUI)** |
-| **sim-fix-1016.js** | 170 | **7724abcbddfe** ← **개정 383 §12 파츠 종류별 흉내 다섯** · **개정 358 §11 편집 중 마이홈 · 방명록 숨기기(#258 의도 되살림)** · **개정 355 §11 — 숨김 대신 창 쌓기 · 대화상자 층 판정** · **개정 354 앞뒤 값을 창 층 표로 풀어 읽는다(판정 무변경)** · **개정 352 §12 rig 째 갈래는 measureBodyBox(seat.rig) · 흉내에 진짜 body-measure.js(판정 무변경)** · **개정 336 ** · **개정 317 신설 · 🐞 10-16 제보 «하» 5건 — 알림콩 읽음 표시(ts 순) · 좌석 메뉴 + 단축키 · 상태 이모지 depthTest · 편집창 위 마이홈 · 날기 기준점(실제 three)** |
-| **sim-gl-recover.js** | 80 | **8c117fa521be** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **2026-10-08 신규 · 🧯 메인 캔버스 WebGL 연결 끊김(제보 #11 OBS) — gl-recover.js 실행(6초 기다림 · 안 돌아오면 다시 불러오기 1번 · 그 안에 복구면 안 함 · 두 번째부터 기록만 · 저장소 실패) · HTML 순서 · app.js 메인 캔버스에 붙임 · preload/main diagNote · main 3D 막힘 해제(ready 전)** |
-| **sim-chat-copy.js** | 86 | **0e24f604f42f** ← **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-08 신규 · 📋 대화창 드래그 · 복사 — chat-copy.js 실행(「이름: 내용」 · 시각 없음 · 이모티콘 마커 생략 · 이모티콘만 있는 줄 빼기 · 링크 원문) · 스크립트 순서 · .chat-messages 만 user-select:text · 칩/메뉴/토스트 #chatWindow 안 · 고르는 중 innerHTML 전 보류 · 원문 번호(data-i) · Ctrl/Cmd+C 직접 · 우클릭 메뉴 · 선택 풀리면/칩 누르면 그리고 맨 아래로** |
-| **sim-chat-delete-log.js** | 90 | **d987e49be2b8** ← **개정 387 신설 · 대화 기록 지움 남기기(함수 로그)** |
-| **sim-chat-log-persist.js** | 158 | **2504f89acf10** ← **개정 234 chatLog 지우는 곳 둘(빈 Firebase 방 · 닫힌 방 서버 방) — 둘 다 투게더룸만** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 154 시크릿룸은 _meta · _chatTab 지우기보다 먼저 빠진다** · ← **개정 153 서버 함수는 공용 투게더룸일 때 한 곳에서만 chatLog 를 지운다** · ← **개정 119 §2 _meta 는 서버 함수가 걷는다 · 퇴장은 roomIndex 줄에 비었음 표시 · 서버도 chatLog 는 안 지움** · 2026-09-13 고친 판 (§8) |
-| **sim-child-theme.js** | 104 | **365ddf210e7d** ← **개정 243 열린 창 다시 걸기는 theme-ui 가 onApplied 로 건 함수에서 봄(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 140 렌더러 쪽 한 벌 = app.js + guestbook.js + myhome-edit.js(👑 디자인 창 DS_HTML 이 모듈로 · 없으면 «못 찾음»)** · **개정 135 렌더러 쪽 한 벌 = app.js + guestbook.js(📖 방명록 창이 모듈로 · 없으면 «못 찾음»)** · 2026-09-16 (제보 5 자식 창 테마) · 개정 10 등재 |
-| **sim-chip-chat-ui.js** | 115 | **e60ef5c45121** ← **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 렌더러 쪽 한 벌 = app.js + chat-window.js(💬 대화창 배선 — 타이틀바 끌기 예외 · 판정 무변경)** |
-| **sim-clone-code-entry.js** | 216 | **0ebba5a3d126** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-dance-unlock-mail.js** | 201 | **0df73db8be6e** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-def-send.js** | 211 | **e16ae6963145** ← **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** ← **개정 353 body-measure.js 를 넘겨 돌림(_boxExcluding 은 char-measure.js · 판정 무변경)** · **개정 291 핀 상쇄를 동작 판정으로 · 겹친 글자 판정 셋 걷음** · **개정 284 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(측정이 char-measure.js 로 · 판정 무변경)** · **개정 280 기즈모 · 좌석 세팅 글은 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** |
-| **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** ← **개정 305 되살린 글에서 읽는다(판정 무변경)** |
-| **sim-desk-preset.js** | 251 | **3ed07bb98346** ← **개정 376 카탈로그 책상 id 만 저장 · 불러올 때 받기 · E-CHAR-08(제보 8)** · **개정 364 내놓는 이름 · E-CHAR-03 · deps 28** · **개정 363 진짜 json-store 를 넘김 · 만드는 줄 deps(판정 무변경)** · **개정 335 깨 보기를 상수 줄로 · PRESET_SLOTS(판정 무변경)** · **개정 333 신설 · 🗂 책상 · 좌석 세팅 프리셋(creator/desk-preset-store.js · desk-preset.js) — 저장 · 담기 · 적용 · 책상 모델 · 칸 화면 · 연결** |
-| **sim-json-store.js** | 209 | **05d6cff00a2f** ← **개정 376 만드는 줄 deps 가 늘어도 읽게(판정 무변경)** · **개정 365 망가진 저장분 막기 · E-CHAR-06 · 07 · 깨 보기** · **개정 364 4절 실패 알림 · 깨 보기** · **개정 363 신설 · localStorage JSON 칸 읽기 · 쓰기 한 곳(shared/json-store.js) — 경계 · 프리셋 두 벌 동작 · 배선** |
-| **sim-desk-setup.js** | 228 | **268fe68a88b2** ← **개정 334 신설 · 🪑 책상 세팅(creator/desk-setup.js) — 책상 · 아이템 카드 · 고르기 · 순서 · 갈고리 · 입구 전제 · 연결** |
+| **sim-name-guard.js** | 42 | **9c89831d5c23** |
+| **sim-chat-tabs.js** | 139 | **cb2e61320c79** |
+| **sim-chat-layout.js** | 108 | **7b3248a01a4c** |
+| **sim-fix-1008.js** | 412 | **94a402a85237** |
+| **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
+| **sim-fix-1016.js** | 170 | **7724abcbddfe** |
+| **sim-gl-recover.js** | 80 | **8c117fa521be** |
+| **sim-chat-copy.js** | 86 | **0e24f604f42f** |
+| **sim-chat-delete-log.js** | 90 | **d987e49be2b8** |
+| **sim-chat-log-persist.js** | 158 | **2504f89acf10** |
+| **sim-child-theme.js** | 104 | **365ddf210e7d** |
+| **sim-chip-chat-ui.js** | 115 | **e60ef5c45121** |
+| **sim-clone-code-entry.js** | 216 | **0ebba5a3d126** |
+| **sim-dance-unlock-mail.js** | 201 | **0df73db8be6e** |
+| **sim-def-send.js** | 211 | **e16ae6963145** |
+| **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** |
+| **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
+| **sim-desk-preset.js** | 251 | **3ed07bb98346** |
+| **sim-json-store.js** | 209 | **05d6cff00a2f** |
+| **sim-desk-setup.js** | 228 | **268fe68a88b2** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
-| **sim-face-loss.js** | 290 | **f64e54992b83** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-fly-click-through.js** | 131 | **d3a06f4b89f9** ← **개정 351 canGrabSeat 를 실제로 돌려 봄** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-10 신규(개정 117) · 🪑 날리기 중 클릭 통과 — 흐르는 글자(#flyLayer · .fly pointer-events:none · UI_HIT_SEL 에 없음 · #chatOverlay 밖 · 클래스 안 겹침) · 날아가는 몸을 _pointHitsInteractive 에서 뺌(_skipFlyingRigs 떼어 와 돌림 · 책상은 남음) · 잡기는 seat.fly 면 돌아감 · 옛 판정 줄이면 빨강** |
-| **sim-fly-egg.js** | 259 | **97f6fa1f3ffa** ← **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-fly-replay.js** | 161 | **b7faec9ac84f** ← **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-fly-roulette.js** | 150 | **9b47f5b90a01** ← **개정 238 무대에 _dailyPlayTake** · **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 58 신설 · 🔫 러시안룰렛** · **개정 58-b 4절 투게더룸 🎲 도 룰렛** · **개정 59 기록 문장 꼬리 없음** · **개정 63 투게더룸에서 숨김** · **개정 76 5절 🎟️ 하루 6번** |
-| **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** ← **개정 253 발급 창을 다시 열 때 일괄 창 숨기기는 가드 없이(가드 걷기 4단계 — 판정 무변경)** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 216 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 178 발급 창 열기 handler 는 admin-license.js 에서 · deps 줄에 adminLicense.이름 허용(38·0)** · **개정 176 1~3절은 admin-license-bulk.js 를 읽는다 · 4절 관리자 모듈 연결 신설(38·0)** · **개정 76 신설 · 📄 관리자 라이선스 엑셀(xlsx·csv) 일괄 발급** · **개정 82 1절 좁은 창이면 일괄 창만** |
-| **sim-room-meta-cleanup.js** | 272 | **5f7b5a253c3d** ← **개정 373 roomIndex 모르는 칸을 막아도 emptyAt 은 받는지** · **개정 234 방 서버 방(roomDir)이 살아 있으면 대화 남기기 · 닫히면(roomDir 삭제 트리거) 같은 규칙으로 걷기 · 지운 방 코드 로그** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 154 시크릿룸은 줄만 걷고 탭 · 탭 대화 · #일반 대화 유지(secretKept)** · ← **개정 153 투게더룸은 chatLog 까지 · 워킹 · 시크릿은 남김 · _meta 없으면 roomIndex 채널** · ← **개정 119 신규 · 🧹 빈 방 표지(_meta · _chatTab) 청소를 앱 퇴장에서 서버 함수로 — ① 퇴장은 _meta/openTs 걷기 · roomIndex 비었음 표시만(떼어 와 돌림) ② functions/room-stats.js 비었음 2분 뒤 · 멤버 재확인(roomAlive · shallow · hb · lastSeen 10분) · _meta 트랜잭션(재확인 뒤 선점 흉내) · 실패면 안 지움 · 표시 없는 조용한 방은 안 건드림 · 트리거 ③ 남은 _meta 빈 방 선점은 새로 · 시크릿룸 · 되살리기 · 방 서버 · 새 탭 빈 기록** |
-| **sim-room-stats.js** | 226 | **3ca0e9bad691** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 170 🛰 방 서버 줄(srv) — 세고 · 청소 안 함 · 낡으면 줄만 · inclServer 배선** · **개정 119 줄 생성 트리거 정규식 폭(비었음 표시 건너뛰기 한 줄)** · **2026-10-03 신규 · 📊 방 개수 서버 요약 — functions/room-stats.js 집계 · room-index.js channel·open 다시 싣기 · room-stats.js 신선도 · firebase-init 연결 · 규칙 읽기 전용 (모듈을 그대로 불러 가짜 DB)** |
-| **sim-room-alive.js** | 126 | **652075a7aedf** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 175 하트비트 켜기는 원격 설정 minRoomVer** · **개정 119 유령 청소 호출 줄 — roomAlive 트리를 빈 방 청소와 같이 한 번 읽음** · **2026-10-06 신규 · 💓 새 하트비트 — room-alive.js 판정(hb:2 · 버전 문턱 · 중복 세션 · roomIndex 한 명 · 입장 검사) · functions/room-stats.js 유령 청소(가짜 DB · 다시 찍으면 그만둠) · firebase-init 연결 · 규칙 roomAlive** |
-| **sim-daily-active.js** | 89 | **cde9ed578261** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 99 metrics 쓰기 규칙 없음 — improvements 만 빼고** · **2026-10-07 신규 · 📈 일일 접속 집계(DAU · 방문 수) — functions/daily-active.js 서울 날짜 경계 · 쓰기 묶음(고유 사용자 + 방문 수 증가) · 지우기 무시 · 틀린 코드 거절(가짜 DB) · index.js onValueWritten 연결 · 규칙 metrics 관리자만 읽기 · 앱은 안 씀** |
-| **sim-visit-ping.js** | 163 | **0dcfbf2bd263** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 99 metrics 쓰기 규칙 없음 — improvements 만 빼고** · **2026-10-07 신규 · 🌐 IP 기준 일일 방문자 — functions/visit-ping.js 접속 IP 고르기(x-forwarded-for 맨 앞 · ::ffff: 벗김) · HMAC 해시(날마다 · 비밀마다 다름 · 16자) · 쓰기 묶음(ip 해시 + pings 증가 · IP 원문 없음) · 비밀 없으면 안 씀(가짜 DB) · index.js onCall(비밀 · 인증 안 봄 · 늘 ok) · 앱 visit-ping.js(한 번 · 8초 뒤 · 실패 삼킴 · 다시 시도 없음) · firebase-init 연결 · CSP 함수 호스트** |
-| **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** ← **개정 99 6절 scripts/backfill-usage.js(빠진 날짜만 · 표본 없는 날 0 안 씀 · 미리 보기 기본 · --project 필수) · 규칙은 improvements 만 빼고** · **2026-10-07 신규 · 💰 사용량(비용) 기록 — functions/usage-snapshot.js 구간(어제 · 오늘 · 그제 자정부터 · 정시) · 하루 합계(합 · 최대 · 마지막 값 · 서울 날짜 경계 · 표본 없음 null) · 쓰기 묶음(무리별 at · 앱 버킷만 · 못 받은 무리는 안 씀 · null 칸 빼기) · 처리기(가짜 Monitoring · 다음 페이지 · 지표 하나 실패) · index.js onSchedule(매시간 · 인스턴스 1 · 재시도 없음) · 규칙 metrics 관리자만 읽기** |
-| **sim-daily-summary.js** | 115 | **5362f8640c27** ← **개정 99 metrics 쓰기 규칙 없음 — improvements 만 빼고** · **2026-10-07 신규 · 📈 날짜별 숫자 요약(metrics/summary) — 요약할 날(어제 · 자정 10분 여유) · dau · ipVisitors · visits · pings · wau · mau 계산 · 있으면 점 읽기 1번 · 없으면 한 번 씀(가짜 DB) · roomStats 1분 주기 연결(light 제외) · 실패해도 방 집계 그대로 · 규칙 metrics 아래** |
-| **sim-account-delete.js** | 477 | **da2b3f76cb63** ← **개정 359 탈퇴 때 그 사람 버그 제보 삭제** · **개정 356 웹 관리자 API 주소** · **개정 324 탈퇴 안내는 계정 탭 자리를 바꿔 보인다(네 줄)** · **개정 316 🗑️ 회원 탈퇴(deleteMyAccount) — 9절 서버(권한 · 본인 확인 두 방향 · 확인 글자 · 관리자 거절 · 범위가 관리자 삭제와 같음 · 작업 기록 account.selfDelete · 다시 부름) · 10절 앱 account-delete-net.js(순서: 예약 거두기 → 연결 끊기 → 호출 → 로그아웃 · 실패면 다시 잇기 · 기다림 한도) · 11절 연결 · 화면(고지 · 체크 + «탈퇴» 입력 · 취소 포커스)** · **개정 164 웹 관리자 CSP connect-src 에 관리자 API 주소** · **2026-10-08 라이선스 신청 기록도 삭제(friendCode · issuedKey 색인 조회 · 남의 신청 그대로 · 규칙 색인)** · **2026-10-07 신규 · 🗑️ 계정 삭제(adminDeleteAccount) — functions/account-delete.js 입력 모양(사용자 코드 · 친구 코드 · 뒤 4자리) · 겹치는 경로 빼기 · 미리 보기(지울 것 23곳 · 남길 것 · 큰 노드 통째 읽기 없음) · 로그인 계정 안전장치(다른 코드 대표 · 관리자 거절) · 호출 권한(로그인 · 익명 · 관리자) · 실행 순서(파일 → 로그인 계정 → DB 한 번) · 작업 기록 규칙 모양 · 다시 실행 · 버킷 없음(가짜 DB · 가짜 Storage) · index.js onCall 연결 · 웹 관리자 CSP 함수 호스트** |
-| **sim-password-reset.js** | 154 | **5c0d85ec06ed** ← **개정 371 신설 · 🔑 비밀번호 초기화(관리자)** |
-| **sim-part-equip.js** | 134 | **2bfa1e861e1b** ← **개정 99 metrics 쓰기 규칙 없음 — improvements 만 빼고** · **2026-10-08 백필이 REST 로 읽는 것에 맞춤(users/${id}/slots.json)** · **2026-10-07 신규 · 🧮 카탈로그 항목별 장착 사용자 수 — functions/part-equip.js def → id(파츠 셋 모양 · 책상 · 기본 책상 · 아이템 · 커스텀 제외) · 슬롯 여러 칸 1명 · 깨진 JSON 건너뜀 · 차이만 ±1 · 지우기 전부 -1(가짜 DB) · 백필 합계 · scripts/backfill-part-equip.js 미리 보기 기본 · index.js onValueWritten(/users/{userId}/slots · 다시 시도 안 함) · 규칙 metrics 관리자만 · 앱은 안 씀** |
-| **sim-room-server-net.js** | 839 | **e08524a72f92** ← **개정 340 realtime-link.js 를 같이 읽어 createLink 로 넘김(판정 무변경)** · **개정 253 해산 고리는 가드 없이(가드 걷기 4단계 — 판정 무변경)** · **개정 242 makeFirebaseProvider(hooks) — hooks 를 joinRoom 까지 넘기는지 판정 추가** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 172 CSP connect-src 방 서버 와일드카드** · **개정 119 7-1절 이어 붙으면 전체 상태(def 포함) 한 번 다시 · welcome 뒤 그 사이 바뀐 칸 · 끊긴 동안의 말 · 찌르기 들고 있다가(5개 · 15초 · 나가면 버림)** · **2026-10-08 💬 채팅 탭(서버 방) — 멤버 칸 tab · chatTab ↔ chat{tab} · 받은 말풍선을 chat / chatTab 자리로 · 방장 setMeta({tabs}) · app.js 탭 만들기 · 이름 바꾸기 · 지우기는 서버 방이면 방 서버 meta · Firebase 되살리기에 tabs** · **2026-10-08 0.10.3 방 서버 연결 · 주소는 문지기(room-server-gate.js)가 고름(url()) · 방 밖이면 새 주소로 다시 붙기 · 방 안이면 그 방 서버 그대로 · 못 붙은 주소만 1분 쉼 · 30초 넘게 안 돌아오면 unreachable → 같은 코드로 Firebase 되살리기(restoreRoomMeta · 코드 옮기기 없음 · 60초 승계 유예) · 주소록 따라가기는 peek 없이 join · CSP 운영 · dev 주소 + 로컬 8787 만** · **2026-10-06 신규 · 🛰 방 서버(웹소켓) provider — room-server-net.js 를 가짜 웹소켓 · 가짜 시계로 그대로 돌림 · hello/join/welcome · patch/def/chat 나누기(patch 는 평평하게) · state 1초 묶기 · exp 는 바뀔 때만 · 찌르기 all · resume 재연결 · resumeFailed 전체 입장 · auth/version/시간 초과 → Firebase 로 · 토큰 갱신 · stats/random/peek 답을 rid 로 짝짓기 · peek 으로 서버/Firebase 고르기 · firebase-init · app.js · CSP 연결 (기본 꺼짐)** |
+| **sim-face-loss.js** | 290 | **f64e54992b83** |
+| **sim-fly-click-through.js** | 131 | **d3a06f4b89f9** |
+| **sim-fly-egg.js** | 259 | **97f6fa1f3ffa** |
+| **sim-fly-replay.js** | 161 | **b7faec9ac84f** |
+| **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
+| **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
+| **sim-room-meta-cleanup.js** | 272 | **5f7b5a253c3d** |
+| **sim-room-stats.js** | 226 | **3ca0e9bad691** |
+| **sim-room-alive.js** | 126 | **652075a7aedf** |
+| **sim-daily-active.js** | 89 | **cde9ed578261** |
+| **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
+| **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |
+| **sim-daily-summary.js** | 115 | **5362f8640c27** |
+| **sim-account-delete.js** | 477 | **da2b3f76cb63** |
+| **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
+| **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
+| **sim-room-server-net.js** | 839 | **e08524a72f92** |
 | **sim-room-parity.js** | 112 | **cc77ba38d744** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
-| **sim-room-server-gate.js** | 298 | **2646f32ca2ab** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 361 방 서버 쓸지는 source-switch** · **개정 356 새 도메인 · 별칭** · **개정 294 규칙 timing 두 칸(roomStatsRefreshMs · statsLogMs) · frame(방 서버 프레임 상한)** · **개정 242 joinRoom 머리에 hooks 인자(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 175 가짜 설정(getConfig) · serverAddr · myServer 로 · 읽는 곳(roomDir 한 칸 · Firebase config 경로 없음) · config 읽기 관리자 · 봇 · 규칙 roomServer/timing** · **개정 172 주소 거르기 — 방 서버 묶음 wss · https://*.togetherworking.duckdns.org(새 이름 · 접미사 흉내 · 포트 · 경로 막음 · 운영↔dev 안 섞음) · 규칙 roomServer/registerIndex** · **개정 111 · 기본 서버 · 비율(default · defaultPercent · 사용자 코드 해시 칸 · 허용 목록이 먼저 · 들어가기 그대로) · 규칙 두 칸 · 개정 96 · 규칙 limits(누구나 읽기 · 정수 1~100000) · 개정 95 · 따라가기는 on 이면 늘(follow 칸 안 읽음) · 2026-10-08 신규 · 🛰 방 서버 문지기 — room-server-gate.js 를 가짜 DB 읽기로 그대로 돌림 · 주소 거르기(운영 앱은 운영 주소만 · 로컬은 dev 앱만) · 개발용 켜기 dev 만 · 만들기 = on + allow/{내 코드}(서버 이름) · 들어가기 = 주소록(roomDir) · 꺼짐 · 읽는 칸(칸 단위 · 목록 통째 없음 · 서버 표 5분 기억) · 규칙(config 칸 단위 공개 · 관리자 쓰기 · roomDir 앱 쓰기 막힘 · srv 색인 · minRoomVer 그대로) · firebase-init · app.js 한 곳(resolveRoomServer) · roomAlive 는 Firebase joinRoom 에만** |
-| **sim-room-live-def.js** | 150 | **1349d6997af1** ← **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-10 신규(개정 119) · 🎨 방에서 런처로 캐릭터를 고치고 돌아오면 방에도 — launchApp 이 Presence.myDef 와 견주어 updateDef(캐릭터 교체와 같은 길) · 그냥 왕복은 안 보냄 · 방 밖 안 보냄 · Firebase · 서버 provider 둘 다 · 옛 줄이면 빨강** |
-| **sim-app-version.js** | 308 | **62235f6b38d0** ← **개정 385 5절 presence 쓰기를 실제로 돌림(늦게 · 못 · 영영 안 와도 ver) · 1절 withVer 는 모르면 unknown** · **개정 319 규칙식을 돌릴 때 경로 변수에 정상 키를 넘김(키 형식 조건이 생김 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **2026-10-06 신규 · 🏷️ 앱 버전(ver)을 presence · 라이선스 요청 · accountSnap 에 — app-version.js 를 그대로 돌림 · presence 를 통째로 쓰는 자리 전부 ver · 늦게 오면 update · 규칙 셋(없어도 통과 · 문자열 20자) · 규칙 배포 전이면 accountSnap 은 ver 빼고 다시** |
-| **sim-app-version-gate.js** | 177 | **92374665c4d9** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 175 연결 — 원격 설정의 첫 답(minVersion.app · 대기 < 8초) · Firebase config/minAppVer 직접 읽기 없음** · **개정 87 신설 · 🚪 앱 최소 버전(config/minAppVer) — 숫자 비교 · 낮으면 막음 · 실패 · 오프라인 · 값 없음은 안 막음 · 단추(재시작 설치 · 맥 릴리스 · 받는 중 · 다시 시도) · 닫기 없는 화면 · 클릭 통과 목록 · firebase-init 연결 · 규칙** |
-| **sim-invite-account.js** | 80 | **a6c43e555063** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-03 신규 · 초대 계정 읽기 — 판정 = 예전 판정 · invite 먼저 · 폴백 · 런처 동작 그대로** |
-| **sim-invite-revoke.js** | 100 | **c6ce8535f35b** ← **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 181 3절 우클릭 두 번 게이트는 admin-users.js 에서(판정 무변경 · 19·0)** · **2026-10-12 신규 · 관리자 초대권 전체 회수 — 1장 이상만 0 · 빚은 그대로 · 트랜잭션 · 우클릭 두 번 게이트** |
-| **sim-room-invite-wait.js** | 44 | **6d9e289acbd7** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 167 room-invite-ui.js 를 읽게(🙋 방 초대 받기가 모듈로 · 판정 무변경)** · **개정 78 신설 · ⏳ 방 초대 팝업이 화면을 막지 않음 · 3분 뒤 자동 거절** |
-| **sim-focus-auth.js** | 91 | **ef2f4cad0aeb** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-16 (제보 6 포커스 auth) · 개정 10 등재 |
-| **sim-focus-sync.js** | 174 | **084cb3a11f49** ← **개정 242 가짜 firebaseAPI 에 chatHistory.bindChannel 한 줄(판정 무변경)** · **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 개정 38 준비 한 줄(uid 심기 · 판정 무변경) |
-| **sim-friend-manage.js** | 274 | **73c11c84c96b** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 250 «진짜 모듈을 만들었다» 는 빈 껍데기와 견주지 않고 진짜 함수가 있는지로(가드 걷기 3차-2 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 렌더러 쪽 한 벌에 myhome-inbox.js(renderGiftBox · 수령함 탭 선택이 모듈로 — 판정 무변경)** · **개정 136 렌더러 쪽 한 벌 = app.js + friend-manage.js(👥 친구 관리가 모듈로 · 없으면 «못 찾음») · 런타임은 friend-manage.js 먼저 평가 → friendManage 로 잼 · 팝업 호출부 · 선물함 클릭 조건을 friendManage.reqVisible() · friendManage.tab() 로** |
-| **sim-gift-star.js** | 127 | **09dec0581403** ← **개정 327 내 코드 없음 요청 0** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 171 선물함 그리기 · 확인창(_giftBoxPaint · _mhAsk)을 myhome-inbox.js 에서 본다(app.js + 그 파일 · 판정 무변경)** · **개정 136 «다른 서브탭이면 표시를 비운다» 를 friend-manage.js 에서 본다(renderFriendManage 가 모듈로)** · **2026-10-08 숫자 표시를 서브탭 줄(#mhGiftStat)로 · 「다음 삭제」 띠 걷음** · **2026-10-08 신규 · 🎁 선물함 ⭐ 즐겨찾기 · 직접 삭제 — mallang.js giftOrder(⭐ 최신순 → 나머지 최신순) · giftOverflow(⭐ 아닌 것 중 오래된 것부터 · 옛 방식이면 ⭐ 가 지워지는 것을 가름) · 정렬 마지막 칸 = 실제 삭제 칸 · starred 서버 저장(로컬 없음) · 규칙 starred 불리언 · ⭐ 클릭 전파 끊음 · 상한 20 · ⭐ 우클릭 막음 · 확인창 #myHomeWin 자식 · confirm() 없음** |
-| **sim-gacha-prune.js** | 166 | **d7bae5f811b6** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 139 gacha.js 를 app.js 앞에 먼저 평가 · 보유분 · 회수 · 동기화는 gachaMod 로(판정 무변경)** · 개정 38 준비 한 줄(uid 심기 · 판정 무변경) |
-| **sim-gacha-race.js** | 124 | **1f0427b99f71** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 139 gacha.js 를 app.js 앞에 먼저 평가(가챠 파츠 판정 · 회수가 진짜로 돈다 · 판정 무변경)** |
-| **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** ← **개정 321 옮긴 조건(pt.ig 정정 · 사다리 첫 게이트 · ⓖ 좌표 보류)을 click-through-policy.js 에서 보고 정책을 돌려 본다 · 9절 deps 에 정책(판정 무변경)** · **개정 315 9절 끄는 동안 penHitTest 원문 실행** · **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-click-through-policy.js** | 279 | **085f9b967aed** ← **개정 321 신설 · 클릭 통과 판단 규칙 한 곳 — 상수 · 렌더러/main 표 · 연결 · 같은 조건 재사용 금지** |
-| **sim-ghost-heal.js** | 88 | **918a9097dda9** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **2026-10-03 신규 · 방 «유령» 복구 — room-ghost-heal.js(복구 판단 · 가짜 DB) + firebase-init.js 연결** |
-| **sim-catalog-cache.js** | 382 | **e3da5be27ccb** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 361 받는 곳은 source-switch** · **개정 297 API 사본 먼저 받기 판정 · 연결** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **2026-10-06 신규 · 카탈로그 버전 확인(catalogMeta) + 로컬 캐시 — 쓰기 전부 버전 올림 · 규칙 · 캐시 판정 · 오프라인 캐시 먼저 · 깨진 캐시 · 켜져 있는 동안 바뀜 모아 받기** |
-| **sim-broadcast-cache.js** | 282 | **febd97c6e90e** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 220 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 171 5절 읽음 판정(_inboxMerged)을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **2026-10-06 신규 · 공용 공지 버전 확인(inboxBroadcastMeta) + 로컬 캐시 — 쓰기 셋 전부 버전 올림 · 규칙 · 최근 30개 + 고정 합치기 · 지운 공지 사라짐 · 버전 없음/거부/받기 실패면 통째 구독 · 오프라인 캐시 먼저 · 읽음은 기기에** |
-| **sim-friend-code-keep.js** | 218 | **1777c059463e** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-20 신규 · 제보 3-2 친추코드 유지 + 제보 3-1 스냅샷 없이도 소지품 복원 (§31 · 개정 27) · **개정 56 되찾기 갈래 걷음 · 계정에 코드 없을 때 (가)** |
-| **sim-google-login.js** | 654 | **1edd8b178357** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 374 ≤0.10.2 막기 — users 17칸 쓰기에 presence ver 조건 · presence · 가입 · 이전 · 기기 세션 · 박수 +1 은 그대로 · accountSnap 은 주인 식 뒤 && 만** · **개정 373 clap 은 박수(count)만 남이 · 그림 · 이모지는 주인만 · clap 통째 .write 없음** · **개정 304 §3-2 authSignInWithGoogle 을 떼어 돌림 — 막 생긴 계정 지움 · 원래 계정은 로그아웃만 (§3 fbSignOut 글자 판정 걷음)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경) · 계정 탭 잘라 보기는 다음 표지까지** · **개정 174 §8 accountSnap 모음 읽기 = 관리자 또는 관리자 서버 봇(apiBots) — 글자 그대로 대조** · **2026-10-06 §9 가짜 문맥에 _appVer 자리(setAccountSnapshot 이 버전을 기다린다 · 판정 무변경)** · **2026-10-04 accountSnap 모음 관리자 읽기(웹 관리자 사용자 목록)** · **2026-10-03 ⑦ closed 콜백 본문 안의 finish 로 판정** · **2026-10-03 users/invite 주인 또는 관리자** · 2026-09-16 고침 · 로그아웃 판정을 ACCOUNT_LOCAL_KEYS 기준으로 (개정 12) · **2026-09-22 계정 자리 [내 정보] · 이전/연동/해제·되찾기 걷음 · transferHash 지우기만 (개정 45)** · **개정 48 #lcMyInfo** · **개정 52 §7 통로 걷음** · **개정 54 §3 이메일 거울** · **개정 55 §8 transferData 지우기만 · accountSnap 규칙 · §9 스냅샷 자리** · **개정 56 ① 버린 uid 안 적음 · _setMyUserId** · **개정 57 §5 갈아타기 전 정리 순서 · 실패** |
-| **sim-invite-gate.js** | 136 | **e28cff183251** ← **개정 304 【5】 처음 본 구글 → «초대 코드를 넣어 주세요» · 코드 통과 뒤 구글 가입 이어짐 (옛 문구 글자 판정 걷음)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 172 꺼짐 분기는 `if(!inviteGateOn()){`(원격 설정 config/flags/inviteGate)** |
-| **sim-item-rot.js** | 86 | **63a46f67bf8c** ← **개정 280 기즈모 · 좌석 세팅 글은 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** · 2026-09-16 (제보 4 아이템 회전) · 개정 10 등재 |
-| **sim-key-input.js** | 71 | **3116fd7dd8fb** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 183 Ctrl+E(관리자 끄기)는 admin-mode.js 에서도 찾는다(판정 무변경)** · **개정 139 T 키는 gachaMod.toggleGachaInv(gacha.js)** · **개정 83 신설 · ⌨️ 글자 단축키 · 한글 조합 Enter (key-input.js)** |
-| **sim-keysof-twin.js** | 369 | **864c08b01c27** ← 2026-09-14 신규 (§14) · **개정 133 렌더러 쪽 한 벌 = app.js + weekly-challenge.js(_chalKeysOf 가 옮겨 감)** |
-| **sim-license-leak.js** | 288 | **73780a67f961** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-18 신규 · 제보 2 전용 자산 접어 두기 + 전파 차단 + 꾸미기창 이전 (개정 23) |
-| **sim-mh-sanitize.js** | 274 | **b840325c6768** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 209 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 178 §4 라이선스 요청 이름 씻기는 admin-license.js 에서 찾는다(판정 무변경)** · **개정 171 친구 목록 아바타 칸을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · 2026-09-14 판정 줄 (§10) |
-| **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** ← **개정 272 닫을 때 저장은 고리판 COMMIT 으로 찾는다(판정 무변경)** · **개정 252 말랑이 열기는 가드 없이 · 없으면 try 가 받는다(가드 걷기 4단계)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-myhome-load.js** | 106 | **e6eb15f88375** ← **개정 330 프리셋 함수에 myhome-preset.js 를 넘긴다(판정 무변경)** · **개정 213 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 140 프리셋 함수 · 상수는 myhome-edit.js 에서 · 쓰는 칸은 app.js + myhome-edit.js(`_myHomeData().X =` 도) — 판정 무변경** · **2026-10-10 신규(개정 118) · 👑 마이홈 불러오기가 저장한 칸을 빠짐없이 — _mhHomeFromServer 한 곳(내 홈 · 친구 홈) · `_myHomeData.X =` 로 쓰는 칸 전부 · 저장 → 불러오기 왕복 · 프리셋 이름 봄 · 2 · 겨울 · 옛 판(프리셋 칸 없음)이면 빨강** |
-| **sim-fix-0923.js** | 297 | **9f338dfa790b** ← **개정 352 measureBodyBox 꼴도 받음(판정 무변경)** · **개정 342 가짜 이름에 refitSeatAfterParts** · **개정 299 myAwaySz 처음 값 — 앞에 선언된 숫자 상수도 같은 뜻(판정 무변경)** · **개정 291 입구 ① · ② 를 동작 판정으로** · **개정 287 입구 ② 를 mergeCatalogList 모양으로** · **개정 238 가드 걷은 글 모양** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 134 4절 `_pkCloneChar` 는 purikura-ui.js 에서** · **2026-10-03 4절 clone·set 사이 색조 셰이더 허용** · **개정 65 신설 · 🩹 제보 다섯(가챠 모자 · 섬네일 · 배경색 · 눈 감기 · 말랑이)** · **개정 66 6절 🎫 라이선스 계정 이동** · **개정 68 7·8절 🗼 탑 룰렛 · 🖼️ 그림 150px** · **개정 72 9절 🗼 탑 위 그림 위치** · **개정 76 8절 그림 150 → 기본 80 · 10절 크기 60·80·100 선택 · 11절 그림 위 올라타기** |
-| **sim-noise.js** | 146 | **40568ea4018a** ← **개정 251 무대에 hiddenSeatsMod._seatHidden(옛 전역 이름 다리 걷기 — 판정 무변경)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 64 신설 · 🌙 백색소음** |
-| **sim-mobile-focus.js** | 217 | **ad1eb265355b** ← **개정 238 가드 걷은 글 모양** · **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 74 신설 · 📱 태블릿·폰 포커싱 연결** · **개정 133 달성표 자리는 weeklyChal.focusTick · setKeyPlatform 스텁** |
-| **sim-mac-0923.js** | 86 | **dffa6adc7170** ← **개정 380 runPixelRatio 인자가 늘어도 읽게(판정 무변경)** · **개정 345 _waitFirebaseApi 는 net-ready.js waitNetReady 와 같이 굴림** · **개정 242 가짜 방 줄이 makeFirebaseProvider(opts && opts.hooks)(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 1절 대화창 Enter 는 chat-window.js 에서(app.js + 그 파일 · 판정 무변경)** · **개정 95 5절 배율 상한이 frame-budget.js 로(mac · Windows 1.5)** · **개정 67 신설 · 🍎 Mac 제보 여섯** |
-| **sim-bookmark.js** | 185 | **e1348542421e** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 61 신설 · 📚 북마크 책장 · 미스테리au 걷어내기** · **개정 61-c 서랍 자리·테마** · **개정 61-d 서랍 자리 CSS** · **개정 61-e 안쪽 접기** · **개정 61-f 손질 7** · **개정 61-g 방향** · **개정 61-h 간격·호버** · **개정 61-h** · **개정 62 공개/구경** · **개정 62-b** · **개정 62-c** · **개정 63 mysRooms 내림** |
-| **sim-overlay-gap.js** | 343 | **0fc0435f4b6f** ← 2026-09-13 단계 자동 판정 (§4-②) |
-| **sim-overlay-layered.js** | 361 | **fdb1ca616576** ← **개정 207 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 144 재시도 상한 줄에 안내 창 호출 허용** · **개정 142 호출 자리 4곳(부팅 · 토글 · 부팅 재시도(상한 · 풀리면 멈춤) · 초기화 뒤 다시 켜기 1회)** · ← **2026-10-08 호출 자리 3곳(부팅 · 토글 · 부팅 재시도 1회 — 제보 #4)** · 2026-09-13 단계 자동 판정 (§4-②) |
-| **sim-part-color-entry.js** | 141 | **7a5beed8d5da** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 139 gacha.js 를 app.js 앞에 먼저 평가 · 보관함 열림은 #gachaInvOverlay display 로 · 선택 · 보유분은 gachaMod.state 로(판정 무변경)** · 2026-09-14 판정 줄 (§10) |
-| **sim-pk-fit.js** | 170 | **354391f1f290** ← **개정 134 렌더러 쪽 한 벌 = app.js + purikura-ui.js** · 2026-09-16 신규 · 제보 5 무대 파츠 키 (§19) |
-| **sim-pl-grab-pick.js** | 187 | **35923393acdd** ← **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 173 playlist.js 를 app.js 앞에 먼저 평가 · 들여다보기는 plMod(판정 무변경)** |
-| **sim-pl-loop.js** | 362 | **81c03fc00330** ← **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 173 렌더러 쪽 한 벌 = app.js + playlist.js(판정 무변경)** |
-| **sim-pl-next.js** | 171 | **9e7dea09b15f** ← **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 173 렌더러 쪽 한 벌 = app.js + playlist.js(판정 무변경)** |
-| **sim-pl-watchdog.js** | 412 | **4658ffafbd00** ← **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 173 렌더러 쪽 한 벌 = app.js + playlist.js(판정 무변경)** · 2026-09-20 ⏸ 세워 둔 동안은 안 넘긴다 (개정 29) |
-| **sim-premium-desk.js** | 96 | **9911af6ac156** ← **개정 334 책상 카드 자르는 기준을 색 칸 값 줄로(판정 무변경)** · **개정 246 «바뀌면 다시 그린다» 는 _setPremium 의 알림 · 게이트가 건 _refreshPremiumGatedUI 에서 봄(판정 무변경)** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-16 (제보 3 프리미엄 책상) · 개정 10 등재 |
-| **sim-presence.js** | 243 | **3f5b1eb57bdc** ← **개정 302 deps 20 · roomNet 으로만 입장 · 깨 보기 하나** · **개정 299 깨 보기를 상수 줄로(판정 무변경)** · **개정 259 신설 · 🛰 방 접속 상태(room/presence.js) — 부팅 상태 · payload · 채팅 · poke · 자동 자리비움 · 연결** |
-| **sim-light-tone.js** | 123 | **f4919d41228f** ← **개정 301 baseFlatOf 대체값은 FLAT_EMISSIVE · 깨 보기 하나** · **개정 300 baseFlatOf 판정 · 판단 다시 쓰지 않기 · 깨 보기 둘** · **개정 271 신설 · 💡 재질 톤(shared/light-tone.js) — FLAT_EMISSIVE 식 · 재질 함수 셋 · 연결** |
-| **sim-paint-geom.js** | 107 | **0c187cb7b3d7** ← **개정 335 깨 보기를 상수 줄로(판정 무변경)** · **개정 307 신설 · ✏️ 그리기 공용 기하(shared/paint-geom.js) — strokeSeg · mirrorUVOn 수식 · 연결** |
-| **sim-seat-friend-req.js** | 117 | **03159c787dc3** ← **개정 336 부르는 곳은 seat-menu.js 에서(판정 무변경)** · **개정 302 deps 6 · friendNet 으로만 보냄 · 깨 보기 하나** · **개정 264 신설 · 🙋 좌석 우클릭 친구 신청(myhome/seat-friend-req.js) — 두 번 눌러 보내기 · 앞단 검사 · 결과 문구 · 연결** |
-| **sim-seat-menu.js** | 167 | **d852cfc88b06** ← **개정 336 신설 · 🖱 좌석 우클릭 메뉴(room/seat-menu.js) — 남 · 나 · 때리기 · 닫기 · 입구 전제 · 이름표 갈고리 · 연결** |
-| **sim-publish-fields.js** | 208 | **f461e7690a5b** ← **개정 293 provider 를 부르는 자리를 배포 자리로** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 179 §1 app.js + admin-part-register.js · §2 모듈 먼저 평가 · adminPartReg 로 들여다봄(판정 무변경)** |
-| **sim-purikura-deco.js** | 962 | **339bee3e48a1** ← **개정 272 마이홈 BGM 창구는 고리판 BGM_PLAYING · BGM_SET_PLAYING 으로 찾는다(판정 무변경)** · **개정 238 officeMode 판정을 «부를 때마다 읽는다» 로** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 207 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 렌더러 쪽 한 벌에 chat-window.js(💬 대화창 배선 — 📷 버튼) · 회사원 모드 줄은 officeMode() 모양으로** · **개정 140 렌더러 쪽 한 벌에 myhome-edit.js(🏠 마이홈 BGM 창구 — 없어야 할 글을 찾는 검사가 헛돌지 않게 · 판정 무변경)** · **개정 134 렌더러 쪽 한 벌 = app.js + purikura-ui.js · 회사원 모드 · BGM 줄은 purikuraUi 통로 · officeMode() · _setPlPlaying 모양으로** · 2026-09-13 고친 판 (§4-③) |
+| **sim-room-server-gate.js** | 298 | **2646f32ca2ab** |
+| **sim-room-live-def.js** | 150 | **1349d6997af1** |
+| **sim-app-version.js** | 308 | **62235f6b38d0** |
+| **sim-app-version-gate.js** | 177 | **92374665c4d9** |
+| **sim-invite-account.js** | 80 | **a6c43e555063** |
+| **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
+| **sim-room-invite-wait.js** | 44 | **6d9e289acbd7** |
+| **sim-focus-auth.js** | 91 | **ef2f4cad0aeb** |
+| **sim-focus-sync.js** | 174 | **084cb3a11f49** |
+| **sim-friend-manage.js** | 274 | **73c11c84c96b** |
+| **sim-gift-star.js** | 127 | **09dec0581403** |
+| **sim-gacha-prune.js** | 166 | **d7bae5f811b6** |
+| **sim-gacha-race.js** | 124 | **1f0427b99f71** |
+| **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
+| **sim-click-through-policy.js** | 279 | **085f9b967aed** |
+| **sim-ghost-heal.js** | 88 | **918a9097dda9** |
+| **sim-catalog-cache.js** | 382 | **e3da5be27ccb** |
+| **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
+| **sim-friend-code-keep.js** | 218 | **1777c059463e** |
+| **sim-google-login.js** | 654 | **1edd8b178357** |
+| **sim-invite-gate.js** | 136 | **e28cff183251** |
+| **sim-item-rot.js** | 86 | **63a46f67bf8c** |
+| **sim-key-input.js** | 71 | **3116fd7dd8fb** |
+| **sim-keysof-twin.js** | 369 | **864c08b01c27** |
+| **sim-license-leak.js** | 288 | **73780a67f961** |
+| **sim-mh-sanitize.js** | 274 | **b840325c6768** |
+| **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** |
+| **sim-myhome-load.js** | 106 | **e6eb15f88375** |
+| **sim-fix-0923.js** | 297 | **9f338dfa790b** |
+| **sim-noise.js** | 146 | **40568ea4018a** |
+| **sim-mobile-focus.js** | 217 | **ad1eb265355b** |
+| **sim-mac-0923.js** | 86 | **dffa6adc7170** |
+| **sim-bookmark.js** | 185 | **e1348542421e** |
+| **sim-overlay-gap.js** | 343 | **0fc0435f4b6f** |
+| **sim-overlay-layered.js** | 361 | **fdb1ca616576** |
+| **sim-part-color-entry.js** | 141 | **7a5beed8d5da** |
+| **sim-pk-fit.js** | 170 | **354391f1f290** |
+| **sim-pl-grab-pick.js** | 187 | **35923393acdd** |
+| **sim-pl-loop.js** | 362 | **81c03fc00330** |
+| **sim-pl-next.js** | 171 | **9e7dea09b15f** |
+| **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
+| **sim-premium-desk.js** | 96 | **9911af6ac156** |
+| **sim-presence.js** | 243 | **3f5b1eb57bdc** |
+| **sim-light-tone.js** | 123 | **f4919d41228f** |
+| **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
+| **sim-seat-friend-req.js** | 117 | **89a8bcf81a45** |
+| **sim-seat-menu.js** | 167 | **d852cfc88b06** |
+| **sim-publish-fields.js** | 208 | **f461e7690a5b** |
+| **sim-purikura-deco.js** | 962 | **339bee3e48a1** |
 | sim-purikura-net.js | 361 | a4029a7ef053 |
-| **sim-purikura-rules.js** | 261 | **0f13cb4f0a37** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 373 방 하나 읽기는 누구나 · rooms 모음 통째 읽기는 관리자만** · **2026-10-03 방 통째 삭제 관리자만 · _photo 청소 분리 · userCount +1 만** |
-| **sim-purikura-stage.js** | 270 | **115ae51a42d4** ← **개정 354 #pkOverlay 시작 z 를 창 층 표로 풀어 읽는다(판정 무변경)** · **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 134 렌더러 쪽 한 벌 = app.js + purikura-ui.js · 'b' 조준은 purikuraUi.isOpen()** · 2026-09-13 고친 판 |
-| **sim-report-away.js** | 116 | **2e7056e83b60** ← **개정 352 measureBodyBox 꼴도 받음(판정 무변경)** · **개정 336 이름표 우클릭은 갈고리로(판정 무변경)** · **개정 223 경로 parts/support/ 반영(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 184 app.js + report.js + admin-report.js 를 이어 읽음 · 메뉴는 reportMod.openDialog(판정 무변경 · 45·0)** · **개정 60 신설 · 🫧 자리비움 그림 · 🚩 신고하기 · 이름표 우클릭** · **개정 61-c 프리미엄 게이트** |
-| **sim-ride-height.js** | 115 | **870e0eb2c0e7** ← **개정 352 body-measure.js 를 스텁 위에서 만들어 넘김(판정 무변경)** · **개정 284 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(측정이 char-measure.js 로 · 판정 무변경)** |
-| **sim-ride-part-top.js** | 101 | **0b4bf839278c** ← **개정 353 body-measure.js 를 넘겨 돌림** · **개정 191 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-room-channel.js** | 172 | **4538f02989a8** ← **개정 242 6절 해산 · 승계 알림을 window 고리 대신 _roomHooks 로 받음(판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **2026-10-10 개정 125 · 표지를 잃은 PLAY- 방을 접두어대로 투게더룸으로 되살림 · 투게더룸 방장은 보유자만 · 승계 · 해산은 그대로 · Firebase 방도 채널이 표지를 따라감 (5~7절)** · 2026-09-16 신규 · 제보 2 방 채널 표지 (§17) |
+| **sim-purikura-rules.js** | 261 | **0f13cb4f0a37** |
+| **sim-purikura-stage.js** | 270 | **115ae51a42d4** |
+| **sim-report-away.js** | 116 | **2e7056e83b60** |
+| **sim-ride-height.js** | 115 | **870e0eb2c0e7** |
+| **sim-ride-part-top.js** | 101 | **0b4bf839278c** |
+| **sim-room-channel.js** | 172 | **4538f02989a8** |
 | sim-room-clock.js | 135 | 421b90c3df47 |
-| **sim-seat-eq.js** | 101 | **abfda97458b5** ← **개정 298 중간 좌석이 실패할 때 4판정 — 오류 대비 좌석 단위** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-seat-hide.js** | 84 | **4e8d2348e282** ← **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 58 신설 · 🙈 워킹룸 캐릭터 숨기기** · **개정 60 신고 숨김** |
-| **sim-seat-opacity.js** | 247 | **9d9cf1cc71f5** ← 2026-09-14 app.js 본문 직접 사용 (§12) |
-| **sim-slot-fit.js** | 246 | **d28aa326a223** ← **개정 198 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-13 고친 판 (§8) |
-| **sim-slot-sync.js** | 477 | **b1e69f5f8390** ← **개정 367 상한 넘김 준비를 100 에 맞춤(판정 무변경)** · **개정 366 틀에 upload-cache.js(판정 무변경)** · **개정 244 무대에 «저장 뒤» 알림 자리(onSaved) · slotsReplaced · push 예약은 동기화가 건 알림에서 봄(판정 무변경)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-09-21 ① 섬네일 판정 둘 (개정 37)** · 2026-09-16 신규 · 제보 6-b 슬롯 동기화 (§16) · 2026-09-18 ⑨ 백업 (개정 24) · ⑩ 내용 해시 (개정 25) · ⑪ 되받기 (개정 26) · **2026-09-20 준비 3줄 seen (개정 30)** · **⑨ 문구 판정 (개정 31)** |
-| **sim-slot-conflict.js** | 256 | **d34d5155c360** ← **개정 366 틀에 upload-cache.js(판정 무변경)** · **개정 244 무대에 «저장 뒤» 알림 자리(onSaved) · slotsReplaced(판정 무변경)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-20 신규 · ⚖️ 충돌 감지 (§32) · **1-b ① · 대화상자 (개정 31)** |
-| **sim-slot-sync-ui.js** | 82 | **0dd847a0d6a5** ← **개정 386 줄어든 교체 문구를 TwSafeHtml.text 로 감싼 글에서 찾는다(판정 무변경)** · **개정 188 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-20 신규 · 🛟 3-7-2 연동 UI (§33) · **2026-09-22 구획 자리 C4 (개정 45)** |
-| **sim-chars-merge.js** | 137 | **db4dda0ead95** ← **개정 374 chars · charsMeta 쓰기는 slots 와 같은 문장 · 소유 식을 품으면(옛 앱 막기가 붙어도) 통과** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-20 신규 · 🧬 캐릭터 단위 병합 (§34) · **2026-09-21 «조율 블록 밖» 판정 (개정 34)** |
-| **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** ← **개정 244 saveSlots · 백업 되돌리기 · 옛 slots 동기화 배선을 «저장 뒤» · «되돌린 뒤» 알림과 보관함이 건 함수에서 봄(판정 무변경)** · **개정 238 가드 걷은 글 모양** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 개정 155 꺼낸 본문에 _relinkSeatsToSlots 빈 함수 · 2026-09-21 신규 · 🧬 이관 slots → chars (§35) · 5·6절 조율 (개정 34) · 7절 첫 채택 (개정 35) · 8절 평상시 동기화 (개정 36) · **9절 섬네일 (개정 37)** · **개정 48 스위치 켬 · 20 = 슬롯 밖** · **10절 휴지통 (개정 49 · 51 한꺼번에)** |
-| **sim-signup.js** | 1567 | **80588a7f5d5c** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 368 안전망만 잘라 오기(범용 통로 배선 건너뜀 · 판정 무변경)** · **개정 355 게이트보다 아래를 창 층 표로 풀어 견준다(판정 무변경)** · **개정 246 게이트 H 덩이 끝은 로그인 화면 즉시 실행 함수의 닫는 줄 · 랭킹 올리기는 «맞췄다» 알림에 건 _lbPush 에서 봄(판정 무변경)** · **개정 244 F 안내는 보관함 onBootLinked 에 계정이 건 함수에서 봄(판정 무변경)** · **개정 238 가드 걷은 글 모양** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 183 _sha256Hex 는 한 벌 — app.js + admin-mode.js 에서 센다(판정 무변경)** · **개정 180 랭킹 절 — _lbFetchRank 떼어 오기 · API 한 줄(받으면 100줄 안 읽음 · null 자리 비움 · undefined 면 100줄)** · **개정 173 [내 정보] 레벨 배지 줄은 plMod.fillLv(판정 무변경)** · **개정 172 스위치는 `existingSignupOn()`(원격 설정 config/flags/existingSignup) — 실행 줄도 함수로** · 2026-09-21 신규 · 🪪 회원가입 게이트 (§36) · 1~4절 첫 조각 (개정 38) · 5절 H (개정 39) · 6절 A (개정 40) · 7절 I (개정 41) · 8절 ⑥ (개정 42) · 9절 J·J2·K (개정 43) · **10절 C3·C2 (개정 44)** · **11절 [내 정보] (개정 45)** · **개정 46 배지·틀·책상 표제** · **개정 47 별개 창** · **개정 48 11절 새로** · **12절 휴지통 (개정 49)** · **13절 D2 (개정 51)** · **개정 55 11절 transferData 지우기만** · **개정 56 친구 코드 로그인 입력 코드** · **14절 «다름» · F (개정 57)** · **15절 별 색 · 12절 탭 순서 보관함 · 휴지통 · 계정 (개정 69)** · **15절 판정 둘 · 11절 배지 호출 (개정 70)** · **개정 71 15절 로그아웃 목록** · **16절 🏆 전체 랭킹 (개정 73)** |
-| **sim-sysinput.js** | 397 | **bdf06e31afdb** ← **개정 276 끝내는 길을 _exitNow() 로 모은 뒤에도 session-end 훅 내리기를 함수 몸통에서 찾는다** · **개정 198 등록 토스트는 공용 도우미로 되살린 글에서(판정 무변경)** · **개정 160 7절 셸 창을 건너뛰면 skipped 반환 · 렌더러 토스트** · ← **개정 152 7절 자동 등록은 셸 창을 건너뜀(_noteForeignWindow · lastRegistrableWindow)** · ← 이번에 고친 판 |
+| **sim-seat-eq.js** | 101 | **abfda97458b5** |
+| **sim-seat-hide.js** | 84 | **4e8d2348e282** |
+| **sim-seat-opacity.js** | 247 | **9d9cf1cc71f5** |
+| **sim-slot-fit.js** | 246 | **d28aa326a223** |
+| **sim-slot-sync.js** | 477 | **b1e69f5f8390** |
+| **sim-slot-conflict.js** | 256 | **d34d5155c360** |
+| **sim-slot-sync-ui.js** | 82 | **0dd847a0d6a5** |
+| **sim-chars-merge.js** | 137 | **db4dda0ead95** |
+| **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** |
+| **sim-signup.js** | 1567 | **80588a7f5d5c** |
+| **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
-| **sim-ui-zoom.js** | 130 | **4ddd42809f74** ← **개정 268 setZoomFactor 한 곳 판정을 메인 창 기준으로(자식 창 _lockChildZoom 의 setZoomFactor(1) 제외)** · **개정 198 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 80 하한 50 → 20%** · 2026-09-17 고침(122→125줄) · 행 이름 «프로그램 크기»·부연 문구 제거·−/+ 한 글자 버튼(시안 확정) — 옛 판정은 거짓 빨강. 2026-09-16 신규 · 제보 3-2 F-1 렌더러 줌 (§20) |
-| **sim-zoom-window.js** | 68 | **77ab3834d455** ← **개정 148 함수 상자에 _mhPad(마이홈 스티커 여백 — _modeSize 가 읽는다)** · ← **개정 80 신설 · 📐 프로그램 크기(줌)를 바꾸면 런처·생성기·마이홈 창도 같이 커진다 · 하한 20%** |
-| **sim-z-layers.js** | 168 | **75e6e7bd9f39** ← **개정 355 새 층 · 층 차례 · 창 쌓기 돌려 보기** · **개정 354 신설 · 🪟 창 층 표(:root --z-…) — 창마다 표의 이름만 · 값** |
-| **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** ← **개정 370 메인 창 F12 는 devtools-gate 가 맡는다** · **개정 268 신설 · ⌨️ 일렉트론 기본 메뉴 걷기 · 자식 창 줌 100% 고정 · mac 편집 역할 유지** |
-| **sim-ops-hot-config.js** | 162 | **bc2e1a9dbb34** ← **개정 294 신설 · ⚙️ 운영 원격 설정 규칙 — apiCors · apiCache · logLevel · roomServer/frame · timing 새 두 칸을 규칙 실행기로(관리자 쓰기 · 봇/공개 읽기 · 범위 · 모르는 칸)** |
-| **sim-animal-cast.js** | 65 | **0e1031329e06** ← **개정 251 _aCast 는 partPaintMod._picIntersect 를 부른다(옛 전역 이름 다리 걷기 — 판정 무변경)** · **개정 239 가드 걷은 글 모양 · 폴백 0** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 81 신설 · 🐾 동물 생성기 광선(붓·스포이드·도장·대칭)이 지금 자세의 얼굴을 맞힌다 · 대칭은 같은 부위만** |
-| **sim-human-ear.js** | 239 | **b2f21075bb26** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 87 5절 대칭 그리기(실제 귀 GLB) · 그림칸** · **개정 85 움직이는 중에 달아도 바인드 기준 · readAdj** · **개정 84 신설 · 🐾 사람 귀(꾸미기 › 머리 › 귀) — 자리 상수 · 대칭 복사 · 옮길 양 · 머리 따라 움직임** |
-| **sim-wd-ear.js** | 304 | **b3c29e73a6ed** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 188 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 149 3-e 저장 · 불러오기 — 귀 다섯 칸 왕복(있을 때만) · 서버 dataURL 빼기 · 생성기 승계 · 코드 내보내기** · ← **개정 92 3-d 귀 까닥임** · **개정 89 1절 왼쪽 · 오른쪽 상자** · **개정 88 3-c 탑승 높이** · **개정 87 그리기 대상 · 그림 저장 · 3-b 귀 그리기 배선** · **개정 86 원래 주인에게 저장** · **개정 85 신설 · 🐾 꾸미기 › 머리 › 귀 탭 · 조정할 귀 줄 · 기즈모 · 저장 · app.js 배선** |
-| **sim-uv-fill.js** | 102 | **f4cb774248be** ← **개정 239 싣는 순서 판정으로** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 108 3절 꾸미기 도구 줄 · G 페인트통 · Shift+클릭 지우기 · 여백 몫(fillMeshOwned)** · **개정 91 신설 · 🪣 꾸미기 그리기 채우기 — 누른 메쉬의 UV 자리만** |
-| **sim-paint-tools.js** | 296 | **e999a08d5185** ← **개정 238 가드 있어도 · 없어도** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 192 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 108 3-b 여백 몫(가운데 선까지) · 6절 양팔 · 잠금 · 빈 곳 알림(스포이드 절은 main 그대로라 걷음)** · **개정 108 신설 · 🖌 칠하기 도구 줄(붓 · 페인트통 · 지우개 하나만) · 생성기 페인트통은 누른 조각(UV 섬)만 · 꾸미기도 같은 줄** |
-| **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** ← **개정 305 되살린 글에서 읽는다(판정 무변경)** · **개정 273 옮긴 모듈까지 되살려 읽기 · gotoStep 머리 자르기 두 모양(판정 무변경)** · **개정 239 가드 걷은 글 모양** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 103 신설 · 🐾 동물 편집 순서 모양 → 책상 → 좌석 — 판정 표 · gotoStep 실행 · 배선 · 동물 생성기 위 «책상 세팅» · «좌석 세팅»** |
-| **sim-seat-slot.js** | 114 | **bf05469a5050** ← **개정 291 3절 가두기를 동작 판정으로** · **개정 275 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(평준화 깃발이 seat-equalize.js 로 · 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 93 신설 · 🪑 평준화 중 «책상 위» 파츠를 자기 좌석 자리 안으로** |
-| **sim-fix-1008b.js** | 47 | **a35227963110** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 201 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 방 코드 칸을 app.js + myhome-inbox.js 에서 본다(판정 무변경)** · **개정 165 방 코드 칸에 놀러 가기 go 표시 허용(정규식만)** · **개정 94 신설 · 🩹 친구창 방 코드 글꼴 · 경험치 바 길이 공통 · 화면 아래 이름표** |
-| **sim-frame-budget.js** | 186 | **6d7b7c2bd72e** ← **개정 380 화질 표 · 느림 감시 · 배선** · **개정 323 FPS_LAUNCHER === 30** · **개정 258 app.js 는 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(카메라가 seat-camera.js 로 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 95 신설 · 🔋 실행 화면 프레임 상한(60 · 30 · 20) · 해상도 배율 1.5 · 1분 진단 줄** |
-| **sim-design-site.js** | 61 | **5c8de512f913** ← **개정 100 신설 · 🎨 디자인 시스템 페이지 hosting/design/ 이 docs/design-system/ 에서 다시 만든 것과 같은지 · 토큰 · CSP · sandbox** |
-| **sim-unfocused-fps.js** | 177 | **8a40c76659ec** ← **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 95 다시 씀 · 🔋 최대 60 · 손 안 대면 30 · 비포커스 20 — app.js 째로 rAF 를 흘려 장 수를 센다** |
-| **sim-purikura-fish.js** | 169 | **90c65a1bc566** ← **개정 134 7절은 app.js + purikura-ui.js** · **개정 106 옛 규칙이면 fx 없이 다시 자리 잡기** · **개정 102 신설 · 🐟 스티커사진 필터 «어안» · 업데이트 안 한 참가자 안내 · 규칙 fish · fx** |
-| **sim-creator-flat-view.js** | 129 | **9104a76fb79a** ← **개정 273 옮긴 모듈까지 되살려 읽기(판정 무변경)** · **개정 271 조명 예산 상수는 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 115 5절 동물 생성기 배선(버튼 · 3 표정 · 4 감은눈만 · L 키 · 열고 닫을 때 끔 · emissive 0 + 앰비언트 1)** · **개정 105 신설 · 💡 표정 그리기 «원색 보기» — 조명 끄고 칠한 색 그대로** |
-| **sim-creator-xform.js** | 207 | **540025aaba06** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 305 glue 가 crState.이름 을 읽는다(판정 무변경)** · **개정 301 ↺ 색 되돌리기 판정** · **개정 300 deps 28(baseFlatOf)** · **개정 299 깨 보기를 상수 줄로 · 한 칸 깨 보기 추가(판정 무변경)** · **개정 280 신설 · 🧭 생성기 변형(creator/creator-xform.js) — 슬라이더 · 아이템 버튼 · 기즈모 · 드래그 끝 저장 · 연결** |
-| **sim-cr-stamp.js** | 210 | **aaa16fef5c4b** ← **개정 335 깨 보기를 상수 줄로(판정 무변경)** · **개정 308 신설 · 🖼 생성기 이미지 도장(creator/stamp.js) — 모드 · 불러오기 · 초기화 · 찍기(래스터) · 대칭 · 손잡이 · 입구 전제 · 연결** |
-| **sim-creator-state.js** | 105 | **4e0daf68f5c8** ← **개정 305 신설 · 🧍 생성기 상태(creator/creator-state.js) — 처음 값 58개 · get/set · 연결 · 맨 이름 참조 없음** |
-| **sim-paint-stroke.js** | 194 | **d25ac9eb8388** ← **개정 335 깨 보기를 상수 줄로(판정 무변경)** · **개정 307 신설 · 🖌 얼굴에 칠하기(creator/paint-stroke.js) — 획 · 쪼개기 · 가려짐 · 솔기 · 대칭 · 페인트통 · 스포이드 · 연결** |
-| **sim-creator-flow.js** | 196 | **24a3d06e5a4e** ← **개정 334 ** · **개정 273 신설 · 🧍 생성기 단계 · 닫기 모듈(creator-flow.js) 구조 · 단계별 화면** |
-| **sim-creator-save.js** | 226 | **2c8803488689** ← **개정 273 신설 · 🧍 생성기 완료 모듈(creator-save.js) 구조 · def · 저장 칸** |
-| **sim-commission-import.js** | 190 | **6c80a45a1abe** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 278 신설 · 🎨 커미션 코드 입력 모듈(commission-import.js) 구조 · 갈래 · 등록** |
-| **sim-creator-preview.js** | 202 | **4fe93b90fa71** ← **개정 273 신설 · 🧍 생성기 미리보기 모듈(creator-preview.js) 구조 · 조명 · 궤도 · 팔 각도 · 걷기** |
-| **sim-hover-poke.js** | 197 | **9fb43da458ac** ← **개정 321 6절 사다리 펜 앱 · 재판정 생존 · 150ms 를 정책 모듈(kickStep · PASS_DEBOUNCE_MS)에서 본다(판정 무변경)** · **개정 318 __mouseKick 인자에 onUI 가 붙어도 찾는다(판정 무변경)** · **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 110 신설 · 🖱 Windows 일반 앱 호버 감시 — 우리 UI 로 들어오는 순간 재판정(제보 #5)** |
+| **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
+| **sim-zoom-window.js** | 68 | **77ab3834d455** |
+| **sim-z-layers.js** | 168 | **75e6e7bd9f39** |
+| **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** |
+| **sim-ops-hot-config.js** | 162 | **bc2e1a9dbb34** |
+| **sim-animal-cast.js** | 65 | **0e1031329e06** |
+| **sim-human-ear.js** | 239 | **b2f21075bb26** |
+| **sim-wd-ear.js** | 304 | **b3c29e73a6ed** |
+| **sim-uv-fill.js** | 102 | **f4cb774248be** |
+| **sim-paint-tools.js** | 296 | **e999a08d5185** |
+| **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
+| **sim-seat-slot.js** | 114 | **bf05469a5050** |
+| **sim-fix-1008b.js** | 47 | **a35227963110** |
+| **sim-frame-budget.js** | 186 | **6d7b7c2bd72e** |
+| **sim-design-site.js** | 61 | **5c8de512f913** |
+| **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
+| **sim-purikura-fish.js** | 169 | **90c65a1bc566** |
+| **sim-creator-flat-view.js** | 129 | **9104a76fb79a** |
+| **sim-creator-xform.js** | 207 | **540025aaba06** |
+| **sim-cr-stamp.js** | 210 | **aaa16fef5c4b** |
+| **sim-creator-state.js** | 105 | **4e0daf68f5c8** |
+| **sim-paint-stroke.js** | 194 | **d25ac9eb8388** |
+| **sim-creator-flow.js** | 196 | **24a3d06e5a4e** |
+| **sim-creator-save.js** | 226 | **2c8803488689** |
+| **sim-commission-import.js** | 190 | **6c80a45a1abe** |
+| **sim-creator-preview.js** | 202 | **4fe93b90fa71** |
+| **sim-hover-poke.js** | 197 | **9fb43da458ac** |
 | sim-village-addr.js | 53 | f72ef601abbb |
-| **sim-wheel-kick.js** | 97 | **cdd5b36aa254** ← **개정 321 2절 휠 조건을 정책 모듈(clickMayKick)에서 본다 · 실행 환경에 정책(판정 무변경)** · **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-17 신규 · 제보 3-1 C 휠·사다리 (§21) |
-| **sim-admin-active.js** | 154 | **015bbc6e3888** ← 2026-09-17 신규 · E 추가 제보 관리자 권한 창 판정·훅 수신 진단 (§22) |
-| **sim-room-order.js** | 78 | **19449085aa33** ← **개정 242 joinRoom 머리에 hooks 인자(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 176 2절 시크릿룸 발급은 admin-license-bulk.js 를 읽는다(판정 무변경)** · 2026-09-17 신규 · 제보 2 입장순 서버 시계 · 제보 4 시크릿룸 옛 uid (§23) · **개정 56 3절 버린 uid 안내 걷음** |
-| **sim-device-session.js** | 126 | **d448dcf84a07** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 247 밀리면 방 나가기는 통로로 · 통로에 doLeaveRoom 이 걸렸는지 같이 봄** · **개정 196 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-17 신규 · 제보 3 한 계정 한 기기 (§24) |
-| **sim-deco-parts.js** | 67 | **c017ce7764fc** ← **개정 198 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-17 신규 · 꾸미기 파츠 표시 토글 (§25) |
-| **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** ← 2026-09-17 신규 · 마이홈 환경설정 서브메뉴 클래스 충돌 (§26) |
-| **sim-font-hangul.js** | 54 | **1e0479f9fce5** ← **개정 101 글꼴 토큰 var(--tw-font-…) 을 펼쳐 본다** · 2026-09-17 신규 · Tahoma 목록의 한글 폰트 (§27) |
-| **sim-app-size.js** | 127 | **1fcf39621d00** ← **개정 360 기준선 쓰기 — 새 상한이 더 크면 옛 상한 유지(통째 거절 대신) · 넘었으면 거절(판정 무변경)** · **개정 130 신설 · 📏 app.js · firebase-init.js 줄 상한(기준선 + 여유) · 새 구역 머리 막기 · 톱니(줄면 상한도 내림) · 판정 자체 가짜 글** |
-| **sim-asset-import.js** | 174 | **23c1ae52e3f9** ← **개정 332 신설 · 📥 코드로 추가하기(creator/asset-import.js) — 창 · 거르기 · 등록 · 구독 · 입구 전제 · 연결** |
-| **sim-asset-cards.js** | 151 | **4043cca67af1** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 334 신설 · 🃏 자산 카드(creator/asset-cards.js) — 카드 · 도트 썸네일 · 순서 손잡이 · 연결** |
-| **sim-scheduler.js** | 241 | **06af58798941** ← **개정 345 net-ready.js 를 먼저 싣는다** · **개정 328 내 코드 없음 구독 0** · **개정 254 [수령함 확인] 누르면 알림창이 닫힌다 · 본 날은 로컬 날짜(_localYMD — UTC 로 자르지 않음)** · **개정 250 빈 껍데기(SCHEDULER_OFF) 없이 만든다 — 안 실리면 그 줄에서 멈춘다(가드 걷기 3차-2)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 136 «원래 자리» 기준을 옛 🐞 버그 제보 탭 머리 → 그 자리의 👥 친구 관리 연결(TwFriendManage.createFriendManage)로(버그 제보 탭이 bug-board-ui.js 로 옮겨 감)** · **개정 131 신설 · 📅 스케줄러 · 🔔 일정 알림 모듈(scheduler.js) — 셈 · 만들 때 구독 · 타이머 · 뱃지 · 알림 목록 · 관람 모드 · app.js 배선 · html 순서 · 내장 전역 이름과 안 겹침** |
-| **sim-weekly-challenge.js** | 345 | **35279543c804** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 254 선지급은 서버 호출 한 번 · «밀렸던 뽑기» 토스트 없음(대기줄에 시도 시각을 적는다)** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 139 가챠 보너스 읽기는 gachaMod.bonus()(gacha.js)** · **개정 137 «원래 자리» 끝 기준을 옛 🍅 뽀모도로 머리 → 그 자리의 TwPomodoro.createPomodoro 연결로 · 뽀모 서랍이 부르는 weeklyChal.open(false) 는 pomodoro.js 에서(app.js 는 weeklyChal 을 deps 로)** · **개정 133 신설 · 👑 달성표 모듈(weekly-challenge.js) — 셈(ISO 주 · 6시 경계 · 보상 문구) · 만들 때(로컬 읽기 · 타이머 · 게이트) · 📋규칙 체크 · 선지급 · 정산 · 박제 · 🎯집중 · 🔁반복 · 로그아웃 지우기 · 동기화 · app.js 배선 · html 순서** |
-| **sim-purikura-ui.js** | 254 | **15e79e91654a** ← **개정 303 ps1-dither.js 도 싣는다(PS1 필터가 부를 때 읽음)** · **개정 272 무대에 진짜 고리판(마이홈 BGM 안 도는 판)** · **개정 252 무대에 마이홈 BGM 고리(부팅 때 늘 걸림 — 판정 무변경)** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 222 html 순서 — parts/purikura/ 자리도 받음(판정 무변경)** · **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 173 deps plPlaying · setPlPlaying 은 plMod.st.playing(playlist.js 상태 묶음 — 판정 무변경)** · **개정 169 5절 📷 버튼에서 purikuraUi.open() 부르는 곳을 chat-window.js 에서 찾는다** · **개정 134 신설 · 📷 스티커사진 창 모듈(purikura-ui.js) — 만들 때 배선(_pkWire) · 문(회사원 모드 · 세션 · 방 · 정원 · 촬영 중) · 가짜 THREE · DOM 위에서 열고 닫기(구독 · 방장 설정 · 무대 루프 · BGM 재우기/되살리기 · 세는 중 잠금) · 세션 콜백 · app.js 배선 · html 순서** |
-| **sim-guestbook.js** | 289 | **ad0203fe9bda** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 328 내 코드 없음 구독 0** · **개정 252 부르는 곳은 window 고리를 가드 없이 부른다(가드 걷기 4단계)** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 135 신설 · 📖 방명록 모듈(guestbook.js) — 만들 때 배선(버튼 · window 고리 일곱) · 새 글 배지(관람 중 숨김 · 다 읽음) · 창(테마 · 목록 · 내 글만 삭제 · 관람 · 외부인 안내 · 친구 목록이 오면 다시 칠함) · 쓰기 · 박수(보내는 중 · 하루 5번 · 되돌림) · 폭죽 한 글자 · app.js 배선 · html 순서** |
-| **sim-friend-manage-module.js** | 309 | **1a09c072d659** ← **개정 345 net-ready.js 를 먼저 싣는다** · **개정 310 판정용 목록을 못 읽으면 수락 안 보냄 · deps 11** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 223 경로 parts/support/ 반영(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 136 신설 · 👥 친구 관리 모듈(friend-manage.js) — 만들 때(아무것도 안 건드림) · 받은 요청(배지 · 단건 · 상한이면 남김) · 일괄(자리만큼 · 거절 확인) · 보낸 요청(죽은 미러 치움 · 이름 캐시 · 취소) · 팝업 · reqVisible · app.js 배선(deps · 빈 껍데기 · html 순서 · Tw 접두사) · 🐞 버그 제보 탭이 bug-board-ui.js 끝에(링크 · 관리자만 · 공지글 그대로)** |
-| **sim-pomodoro-module.js** | 228 | **cfb5680616ad** ← **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 214 오늘 기록 전시가 focus-share.js 로 간 것 반영(판정 무변경)** · **개정 211 알림음 풀이 sfx.js 로 간 것 반영(판정 무변경)** · **개정 137 신설 · 🍅 뽀모도로 모듈(pomodoro.js) — 만들 때(설정 · 진행 읽기 · 1초 tick · 버튼 · 고리) · 서랍(👑 달성표와 하나만) · 시작 · 일시정지 · 계속 · 멈춤 · 한 사이클(가짜 시계 · 긴 휴식) · 건너뛰기 · 자동 시작 꺼짐 · 재시작 이어짐 · app.js 배선(_focusShowConf 는 typeof 고리 · deps · 빈 껍데기 · html 순서 · Tw 접두사)** |
-| **sim-myhome-sticker.js** | 404 | **fa81a0910b31** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 377 2절 줄 모양(🔓 ✎ ⋯ · 메뉴 넷) · 5-2절 🔒 잠금 · ▲▼ 순서 실행 · 줄 찾기 도우미** · **개정 252 무대에 _mhFitWindow 고리(부팅 때 늘 걸림 — 판정 무변경)** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 148 7절 — 창 밖 스티커는 그대로 · 런처 창을 넘친 만큼 넓힘(_mhStickerOverhang · main _modeSize · _mhPadOf · 좌상단 보정 · preload)** · ← **개정 147 7절 런처에서 잘리지 않게 — 크기 · 회전도 창 안으로(바깥 상자 · 창보다 크면 size 줄임 · 핸들 둘 · 옛 스티커는 그릴 때만)** · ← **개정 140 «원래 자리» 끝 기준을 bindMyHomePage → TwMyHomeEdit.createMyHomeEdit 연결로 · renderMyHomeStickers 다시 대입 · [+ 스티커] · 새 스티커 붙이기는 myhome-edit.js 에서** · **개정 138 신설 · 🎨 마이홈 스티커 관리 창 모듈(myhome-sticker.js) — 만들 때(창 버튼 연결) · 관리 창(관람 중 막힘 · 목록 · 상한) · ◎ · ✎ · ✨ · 🔗 · × · 전부 화면 안으로 · 편집모드 · 드래그 · 회전 · 크기 · app.js 배선(deps 18 — 함수는 화살표 · let 은 읽는 / 쓰는 함수 · 빈 껍데기 · html 순서 · Tw 접두사)** |
-| **sim-gacha.js** | 411 | **f4292f794b39** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 244 isGachaPart 는 카탈로그가 정의하고 deps 로 받음 · 관리자 등록 · 삭제는 만든 뒤 setPartEditor 로(deps 40 → 38 · 두 판정 추가)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 179 부르는 곳에 admin-part-register.js 의 gachaMod() · deps 줄에 adminPartReg.이름(판정 무변경 · 94·0)** · **개정 139 신설 · 🎰 파츠 가챠 모듈(gacha.js) — 만들 때(보유분 · 보너스 · 시각 부트스트랩 · 4.2초 · 10분 · 창 연결 · window 고리 셋) · 셈(색상 해금 · 풀 · 남은 뽑기 + 👑 보너스) · 뽑기 · 서버 동기화(최신 승 · pull · 미래 ts · 읽기 실패 · 쓰기 거부 · 삼켜진 요청 · 회수) · 보관함(탭 · 카테고리 · 시즌 · 페이지 · 관리자 삭제) · 뽑기 창(연출 · 없음 · 실패) · app.js 배선(deps 40 — 함수는 화살표 · let 은 읽는 / 쓰는 함수 · 빈 껍데기 · html 순서 · Tw 접두사)** |
-| **sim-myhome-edit.js** | 568 | **7c30b84e57d2** ← **개정 386 배경 그림 기대값이 cssUrl 모양 url("…")(보이는 것 같음) · TwSafeHtml 싣기** · **개정 381 7절 우편함 왼쪽 메뉴 · 아래 버튼 줄도 카테고리 줄 색 · 목록 칸은 #mhInboxBody 한 곳(소식 목록 · 본문엔 안 깖)** · **개정 377 규칙 파일(myhome-sticker-rules.js)을 먼저 싣는다(판정 무변경)** · **개정 367 deps homeUploadCache(판정 무변경)** · **개정 331 8절 — 프리셋에 그림까지 · 불러오면 통째로 · 툴팁 · 칸별 그림 파일(B-1013-8)** · **개정 330 myhome-preset.js 도 싣는다(판정 무변경)** · **개정 272 고리판에 거는 여덟 · 닉네임 취소 · BGM 재생 표시를 고리판으로 · app.js 가 부르는 window 이름 셋** · **개정 250 방명록 자리는 만드는 줄로 찾는다 · 빈 껍데기 없음 · 만드는 줄에 가드 없음(가드 걷기 3차-2)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 207 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 173 deps 의 화살표 함수 모양에 점(.) 허용 — ytVideoId 는 plMod.ytVideoId(판정 무변경)** · **개정 140 신설 · 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 모듈(myhome-edit.js) — 만들 때(window 고리 열 · BGM 창 구독 · renderMyHomeStickers 감싸기 · 뒤에 선언된 USER_NAME_MAX 를 만들 때 안 읽음) · 자동저장(관람 · 불러오기 전 · 계정 바뀜 · 거부 이유) · 프로필 사진 · 글 서식 · 색 팝업 · 새 스티커 · 끌기 · 삭제 저장 · 닉네임 · 게시글 제목 · BGM · 배경 · 테마 · 디자인 스튜디오 · 프리셋 · app.js 배선(deps 34 — 함수는 화살표 · let 은 읽는 / 쓰는 함수 · 빈 껍데기 · html 순서 · Tw 접두사)** |
-| **sim-room-invite-ui.js** | 371 | **a1751a4aebda** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 345 net-ready.js 를 먼저 싣는다 · 부팅 줄은 TwNetReady.whenNetReady** · **개정 326 내 코드 없음 요청 0** · **개정 314 못 불러옴 안내 줄바꿈(pre-line)** · **개정 312 열림 · 닫힘 · 다시 그리기 · deps 13** · **개정 310 초대 목록을 열 때 다시 걸기 · deps 11** · **개정 309 친구 목록 불러오는 중 · 못 불러옴 안내(«친구 없음» 과 따로) · deps 10** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 200 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 deps friendInRoom 은 inboxMod.friendInRoom(myhome-inbox.js)** · **개정 167 신설 · 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기 모듈(room-invite-ui.js) — 만들 때 · 고르기 창 · 보내기 · 끌기 · 받기(10분 · 3분 · 수락 이동) · app.js 배선** |
-| **sim-focus-log.js** | 288 | **9cc9add827c7** ← **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 198 원래 자리 판정이 설정 패널 모듈 만드는 줄 바로 뒤도 받는다(72·0)** · **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 168 신설 · 🕒 포커스 기록 팝업 모듈(focus-log.js) — 만들 때 · 열기 · 닫기 · 누적 / 오늘 · 매초 갱신 · 미니미 · 가두기 · 끌기 · app.js 배선 · 일부러 깨 보기 17가지** |
-| **sim-chat-window.js** | 559 | **95901abb7f00** ← **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 238 가드 걷은 글 모양 · 깨 보기 글** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 190 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 신설 · 💬 대화창 배선 모듈(chat-window.js) — 만들 때 · 닫기 · 최소화 · ESC · Enter · 링크 · 끌기 · 크기 · 메뉴 · 알림음 · 투명도 · 날리기 · 잠금 · 기록 삭제 · 이모티콘 · 주사위 · 💣 · 📷 · app.js 배선 · 일부러 깨 보기 29가지** |
-| **sim-api-client.js** | 162 | **f93d00872b1a** ← **개정 356 새 API 주소 · CSP 두 묶음** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 175 신설 · 🌐 앱 공통 API 통로(api-client.js) — 주소(운영 · dev · tw.apiBaseUrl) · 봉투 · 실패 한 모양(unavailable · notReady · auth · request) · 시간 제한 · 쉬기(BACKOFF) · 캐시 · 같은 요청 하나 · window.TwApi · html 차례 · CSP** |
-| **sim-api-public-reads.js** | 196 | **f5a6835717fb** ← **개정 384 명함 날것 fetchUserCardApi(대체 길 없음)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 180 신설 · 🌐 공개 읽기 API 먼저(api-public-reads.js) — 파도타기 · 명함 · 사진 · 랭킹 · 방 개수(quick 만) · 랜덤 후보 · data:null = 없음 · 실패면 원래 Firebase 함수 · 배선** |
-| **sim-devtools-gate.js** | 87 | **0f94e5a4320f** ← **개정 370 신설 · 🔒 설치본 F12 막기 · 관리자 모드만** |
-| **sim-remote-config.js** | 442 | **d2124e84cfc0** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 356 CSP 두 도메인** · **개정 319 규칙식을 돌릴 때 경로 변수에 정상 키를 넘김(키 형식 조건이 생김 · 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 175 §1 · §2 새로 — 읽는 차례 API → Firebase config 칸 → 저장값 → 기본값 · API 성공이면 Firebase 안 읽음 · 최소 버전 저장값 안 씀 · 503 CONFIG_NOT_READY · 멈춤 · 1분 기억 · 허용 목록 API → Firebase allow · 서버 주소 · firebase-init 배선** · **개정 172 신설 · ⚙️ 원격 설정(remote-config.js) — 기본값 · 범위 · 타입 · 알림 · ready · 칸 넷 구독 · 규칙 식 실행(roomLimits · roomMaxPeople · flags · bugPostCount 100) · app.js 배선 · 화면 숫자 · 방 서버 길 빈 방 상한(되살리기 · 시크릿룸 · 만들기 · 있는 방 제외) · html · CSP** |
-| **sim-source-switch.js** | 177 | **9296d9c0d494** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 361 신설 · 기능별 받는 곳 고르기 한 곳(source-switch.js)** |
-| **sim-data-gateway.js** | 273 | **b1301dd1fb44** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 372 듣기 끊기면 다시 붙기** · **개정 369 규칙 config/dataRoutes 판정 · 깨 보기** · **개정 368 신설 · 🚪 범용 데이터 통로(data-gateway.js) — 표가 비면 그대로 · 서버 길 · 번역표** |
-| **sim-myhome-inbox.js** | 586 | **be3f20f3490d** ← **개정 386 깨 보기 «아바타 주소를 아무거나» 를 safeUrl 줄에서 · TwSafeHtml 싣기(판정 무변경)** · **개정 381 3절 우편함 개편 — 왼쪽 메뉴 · 📩 우편 카드 · 읽은 우편 지우기 · 📢 소식(종류 · 고정은 늘 위 · 본문 · 관리자 고정 · 지우기 확인) · 📘 도움말 · 처음 칸 · 배지는 안 읽은 수 합계 · 7절 html 칸 · 칸 나누기 규칙을 받는다 · 깨 보기 28 → 37** · **개정 327 내 코드 없음 요청 0** · **개정 314 못 불러옴 안내 줄바꿈(pre-line)** · **개정 309 친구 탭 불러오는 중 · 못 불러옴 안내 · 헤더 (-/상한) · deps 19 · 깨 보기 하나** · **개정 272 무대에 진짜 고리판(테마 다시 걸기)** · **개정 252 무대에 _mallangGiftOrder · _mhApplyTheme 고리(부팅 때 늘 걸림 — 판정 무변경)** · **개정 250 빈 껍데기 INBOX_OFF 없음 · 껍데기 판정 · 깨 보기 하나를 걷음(가드 걷기 3차-2)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 171 신설 · 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록 모듈(myhome-inbox.js) — 만들 때 · 수령함 셈 · 배지 · 그리기(필터 · 📌 · 읽음 · 🐞 · × · 고정) · 링크 · 키 복사 · 선물함(⭐ · 상한 · 확인창) · 친구 목록(정렬 · 검색 · 시크릿룸 · 🏠 · 삭제) · app.js 배선 · 일부러 깨 보기 28가지** |
-| **sim-playlist.js** | 542 | **4036c673a084** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 313 친구 고르기 — 열 때 접속 상태 한 번 · deps 21** · **개정 250 빈 껍데기 PLAYLIST_OFF 없음 · 껍데기 깨 보기 하나를 걷음(가드 걷기 3차-2)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 173 신설 · 🎵 상태칩 플레이리스트 모듈(playlist.js) — 만들 때(ESC 등록 · BGM 신호 셋 · 300ms 폴링 · 음량 한 번 · window 고리 셋 · 창 위치 초기화) · 프리셋 저장값(관문 · 옛 목록 이관 · 반복 옛 키 · 공개 «1» 만 · 프리셋 0 거울) · 목록(＋ 제목 자동 · 직접 · 중복 · 상한 · Delete · 프리셋 고르기 · 이름) · 재생(▶ · ▐▐ · ■ · ⏭ · ended · err · loop · 반복 · 셔플 · 프리셋 갈아타기 · 창 소유권) · 파도타기 · 담기 · 서버 사본(3초 · 지문 · 빈 목록 지움 · 🔒) · 감시견 · 상태 묶음 st · app.js 배선(deps 20 · 원래 자리 · 남긴 머리 · 빈 껍데기 · 부르는 곳 · html 순서 · Tw 접두사) · 일부러 깨 보기 30가지** |
-| **sim-ui-tokens.js** | 128 | **c4e31dbe90c9** ← **개정 176 parts/admin/*.js 도 본다(이름 admin/파일)** · **개정 101 신설 · 🧩 --tw-* 토큰 다리 · 직접 적은 글꼴 · 손 회색이 기준선(ui-tokens-baseline.json)보다 늘지 않는다** |
-| **sim-upload-cache.js** | 84 | **131a3db7c1b1** ← **개정 367 LRU · 합치기 · 동시 업로드 · 마이홈 · 섬네일 지문** · **개정 366 신설 · 🗂️ 업로드 캐시 상한 규칙(upload-cache.js) — trim 경계 · 연결 · 깨 보기** |
-| **sim-desk-item-origin.js** | 104 | **c994d7c5152e** ← **개정 280 기즈모 · 좌석 세팅 글은 되살린 글(sim-renderer-src)에서 읽는다(판정 무변경)** · **개정 273 옮긴 모듈까지 되살려 읽기(판정 무변경)** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 104 신설 · 🪑 생성기 책상 아이템 «⟲ 이동·회전 초기화» 가 이번 편집에서 처음 나타난 자리로(크기 그대로)** |
-| **sim-def-size.js** | 157 | **68d8b678409d** ← **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 202 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-10 신규(개정 123) · 📦 캐릭터 디자인(def) 용량 상한 500KB — 부분별 크기 큰 것부터 · 이름표 · 짧은 안내 한 줄 · 키우기/저장 판정(옛 캐릭터는 줄거나 같으면 통과) · 파일 하나 판정 · 실제 직렬화로 잼 · 생성기 · 코드로 추가 · 커미션 배선** |
-| **sim-todo-cli.js** | 145 | **cea6fc0dd36b** ← **2026-10-10 신규(개정 128) · 📋 터미널 할 일 도구 scripts/todo.js — start · done 값 · 규칙과 같은 모양 검사(rev + 1 · 만든 사람/시각 고정 · 서버 시각 · 모르는 칸) · 규칙 상수 대조 · find · list · brief · 종류 배지 · 관리자가 아니면 brief 조용히** |
-| **sim-folder-free.js** | 190 | **b48c8b4f9389** ← **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 110 2-b절 배치 중 Esc 는 배치만 끝냄 · 마이홈이 닫히면 배치 모드도 끝** · **개정 109 신설 · 📂 마이홈 바탕화면 «폴더 자유배치» — 북마크 · 말랑이 폴더를 끌어 놓기** |
-| **sim-chat-sfx.js** | 153 | **fbc9c8b4eac6** ← **개정 238 가드 걷은 글 모양** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 렌더러 쪽 한 벌 = app.js + chat-window.js(🔔 메뉴 연결 · 저장값 반영 — 판정 무변경)** · **2026-10-13 워킹룸은 조용(투게더룸에서만 울림)** · 2026-10-08 **울리는 자리 chat · chatTab 둘(채팅 탭 수신 분기 · 화면에 뜬 경우에만)** · 2026-09-17 신규 · 채팅 알림음 · 글자 크기 서브메뉴 (§28) |
-| **sim-mac-update.js** | 212 | **dda6802135c3** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 199 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-09-18 신규 · 맥은 autoUpdater 를 안 탄다 · 받으러 가기 안내 (§29) |
-| **sim-focus-cap.js** | 335 | **a290c42c1e85** ← **개정 375 규칙 글을 sim-rules-src.js 의 stripReadGate 로 읽음(옛 앱 읽기 막기 조건을 걷고 판정 · 판정 무변경)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 185 app.js(myInfoMod. 뗌) + 옮기기 전 모양으로 되돌린 my-info.js 를 읽음(판정 무변경)** · **개정 173 _plFillLv 를 playlist.js 에서 떼어 온다 · [내 정보] 배지 줄은 plMod.fillLv(판정 무변경)** · 2026-09-18 신규 · 누적 상한 100회차 · 레벨 상한과 분리 (§30) · **개정 70 4절 다시 씀(해금은 누적 · 표시는 이번 바퀴 + 별) · 5절 신설** · **개정 71 6절 색이 계정을 따라간다** |
-| **sim-focus-show.js** | 86 | **94e634cb488e** ← **개정 238 무대에 _mobileOn** · **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 59 신설 · 📊 오늘 기록 전시** · **개정 61-b 거울 고침** · **개정 61-d 1분 · 이모지 없음** · **개정 61-d 1분 · 이모지 없음** |
-| **sim-win-front.js** | 110 | **946f2d7cde7c** ← **개정 354 앞뒤 값을 창 층 표로 풀어 읽는다(판정 무변경)** · **개정 195 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** |
-| **sim-win-layers.js** | 203 | **cab1b61e089c** ← **개정 354 앞뒤 값을 창 층 표로 풀어 읽는다(판정 무변경)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 173 렌더러 쪽 한 벌 = app.js + playlist.js(판정 무변경)** |
+| **sim-wheel-kick.js** | 97 | **cdd5b36aa254** |
+| **sim-admin-active.js** | 154 | **015bbc6e3888** |
+| **sim-room-order.js** | 78 | **19449085aa33** |
+| **sim-device-session.js** | 126 | **d448dcf84a07** |
+| **sim-deco-parts.js** | 67 | **c017ce7764fc** |
+| **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** |
+| **sim-font-hangul.js** | 54 | **1e0479f9fce5** |
+| **sim-app-size.js** | 127 | **1fcf39621d00** |
+| **sim-asset-import.js** | 174 | **23c1ae52e3f9** |
+| **sim-asset-cards.js** | 151 | **4043cca67af1** |
+| **sim-scheduler.js** | 241 | **06af58798941** |
+| **sim-weekly-challenge.js** | 345 | **35279543c804** |
+| **sim-purikura-ui.js** | 254 | **15e79e91654a** |
+| **sim-guestbook.js** | 289 | **ad0203fe9bda** |
+| **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
+| **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
+| **sim-myhome-sticker.js** | 404 | **fa81a0910b31** |
+| **sim-gacha.js** | 411 | **f4292f794b39** |
+| **sim-myhome-edit.js** | 568 | **7c30b84e57d2** |
+| **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
+| **sim-focus-log.js** | 288 | **9cc9add827c7** |
+| **sim-chat-window.js** | 559 | **95901abb7f00** |
+| **sim-api-client.js** | 162 | **f93d00872b1a** |
+| **sim-api-public-reads.js** | 196 | **f5a6835717fb** |
+| **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
+| **sim-remote-config.js** | 442 | **d2124e84cfc0** |
+| **sim-source-switch.js** | 177 | **9296d9c0d494** |
+| **sim-data-gateway.js** | 273 | **b1301dd1fb44** |
+| **sim-myhome-inbox.js** | 586 | **be3f20f3490d** |
+| **sim-playlist.js** | 542 | **4036c673a084** |
+| **sim-ui-tokens.js** | 128 | **c4e31dbe90c9** |
+| **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
+| **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
+| **sim-def-size.js** | 157 | **68d8b678409d** |
+| **sim-todo-cli.js** | 145 | **cea6fc0dd36b** |
+| **sim-folder-free.js** | 190 | **b48c8b4f9389** |
+| **sim-chat-sfx.js** | 153 | **fbc9c8b4eac6** |
+| **sim-mac-update.js** | 212 | **dda6802135c3** |
+| **sim-focus-cap.js** | 335 | **a290c42c1e85** |
+| **sim-focus-show.js** | 86 | **94e634cb488e** |
+| **sim-win-front.js** | 110 | **946f2d7cde7c** |
+| **sim-win-layers.js** | 203 | **cab1b61e089c** |
 | sim-yard-enter.js | 59 | c323aea595a5 |
-| **sim-away-follow.js** | 145 | **6f3fd7fc7064** ← **개정 352 흉내에 measureBodyBox(판정 무변경)** · **개정 189 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · 2026-10-02 **개정 77 신설 · 🫧 자리비움 그림 — 머리 위 높이(맨 머리 측정) · 본인 자리(rig 원점 · group 로컬 역변환) · 💣 비행 매 프레임 따라가기 · 개정 76 탑 위 그림 쌓기** |
-| **sim-kb-blind.js** | 108 | **34c3cd78a410** ← 2026-10-02 **개정 77 신설 · ⌨️ 키 훅 미수신 진단 안내(main.js) — 부팅 5분 · 설명 안 되는 입력 60초 · 실행당 한 번 · 다시 보지 않기** |
-| **sim-mhd-hidefolders.js** | 135 | **69194c95439e** ← **개정 386 mhd-app 표식 id 를 esc 로 감싼 글에서 찾는다 · TwSafeHtml 싣기(판정 무변경)** · 2026-10-02 **개정 77 신설 · 📂 마이홈 환경설정 [배경화면 변경 ▶] · [폴더 숨기기](방문자도) · iconSrc 걸러내기** |
-| **sim-pomodoro.js** | 130 | **ef28b73a68d0** ← **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 211 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 137 뽀모 블록 · _pomo* 함수는 pomodoro.js 에서(🍅 뽀모가 모듈로 · 없으면 «못 찾음») · app.js 에는 뽀모 정의가 없다 — 로드 중 _focusShowConf 는 typeof 가드로 window 고리만** · **개정 133 _chalOpen 은 weekly-challenge.js 에서 · 뽀모 쪽은 weeklyChal.open(false)** · 2026-10-02 **개정 77 신설 · 🍅 포커스 기록 뽀모도로 서랍(A안) · 알림음 parts/pomodoro-alarm.mp3 · 포커스 기록 무간섭** |
-| **sim-admin-console.js** | 142 | **3e1dc419471c** ← **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 204 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 179 «deps 하나 빠짐» 은 콘솔 도구를 만드는 줄 안에서 지운다(같은 줄이 파츠 등록 deps 에도 생겨서)** · **개정 177 신설 · 🧹 관리자 콘솔 도구 모듈(admin/admin-console.js) — 만들 때 · 미리보기 / 실행 갈래 · 이관(읽는 함수) · app.js 연결 · 일부러 깨 보기 9가지** |
-| **sim-admin-license.js** | 198 | **5d02ff5ad25e** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 204 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 178 신설 · 🎟️ 관리자 3번 모듈 셋(admin-license · admin-notice · admin-category) — 만들 때 · 라이선스 · 공지 · 카테고리(읽는 함수) · app.js 연결 · 일부러 깨 보기 10가지** |
-| **sim-admin-part-register.js** | 151 | **36e35de15c37** ← **개정 342 deps fitModel → refitSeatAfterParts** · **개정 334 부르는 곳에 갈고리까지 — 14** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 244 만들 때 꾸미기 창에 등록 · 삭제를 건다(setAdminPartActions — deps 42 · 판정 1 추가) · 가챠 쪽은 setPartEditor** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 204 공용 도우미로 읽음 · 되살린 글에 꾸미기 본문이 있으면 wardrobe.js 는 따로 안 셈 · 꾸미기 깨 보기도 그 글에서(29·0)** · **개정 197 꾸미기 부르는 곳은 wardrobe.js 에서 · deps 는 키 · 넘기는 방식만 · 깨 보기 하나 더(29·0)** · **개정 192 «deps 하나 빠짐» 깨 보기를 파츠 등록 창 만드는 줄 안으로 좁힘(같은 줄이 part-paint 만드는 줄에도 생김 · 판정 무변경)** · **개정 179 신설 · 🛠️ 파츠 · 책상 · 아이템 등록 창 모듈(admin-part-register.js) — 만들 때 · 파츠 삭제 · 값은 읽는 함수로만 · app.js 연결 · 일부러 깨 보기 10가지** |
-| **sim-admin-users-launcher.js** | 160 | **e7b57f3e1e66** ← **개정 386 모듈이 부르는 TwSafeHtml(safe-html.js 진짜 파일)을 싣는다 · 가짜 그림 주소를 진짜 모양(data:image · https)으로(판정 무변경)** · **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 212 광고 배너 사용자 쪽이 ad-banner.js 로 간 것 반영(판정 무변경)** · **개정 195 초대 창은 license-gate.js 에서 · 통계 · 초대권 만드는 줄은 초대장 모듈 만드는 줄 바로 뒤(30·0)** · **개정 181 신설 · 🧰 관리자 5번 모듈 둘(admin-users · admin-launcher) — 통계 · 초대권 · 런처 도구(읽는 함수) · app.js 연결 · 일부러 깨 보기 9가지** |
-| **sim-admin-asset.js** | 129 | **6ecb2dc8ed96** ← **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 205 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 182 신설 · 📦 코드 굽는 창 셋 모듈(admin-asset.js) — 만들 때 · 📦 · 🎁 · 🔐 · app.js 연결 · 일부러 깨 보기 8가지** |
-| **sim-admin-mode.js** | 133 | **437afbc7bb20** ← **개정 250 빈 껍데기 없음 · 만드는 줄에 가드 없음(모듈이 안 실리면 그 줄에서 멈춘다 — 가드 걷기 3차-2)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 204 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 183 신설 · 🔐 관리자 모드 진입 모듈(admin-mode.js) — 만들 때 · 켜기(로그인 확인) · 끄기 · Ctrl·⌘ 진입 · app.js 연결 · 일부러 깨 보기 9가지** |
-| **sim-report.js** | 139 | **144912a9daf0** ← **개정 336 메뉴 글은 seat-menu.js 에서(판정 무변경)** · **개정 250 빈 껍데기 없음 — 신고 창 · 관리자 목록 모두 늘 만든다 · 만드는 줄 찾기 새 모양(가드 걷기 3차-2)** · **개정 223 경로 parts/support/ 반영(판정 무변경)** · **개정 212 숨김 Set 이 hidden-seats.js 로 간 것 반영(판정 무변경)** · **개정 184 신설 · 🚩 신고하기 모듈 둘(report.js · admin-report.js) — 신고 창 · 관리자 목록 · 팝업 칸 나눠 쓰기 · app.js 연결 · 일부러 깨 보기 8가지** |
-| **sim-my-info.js** | 98 | **654e796c28d9** ← **개정 345 net-ready.js 를 먼저 싣는다** · **개정 316 deps 에 _loginDoDeleteAccount** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 246 연동 안내 창(_charsLinkedMaybeShow)을 받고 다시 켜기는 account-state 에서 — deps · 내놓는 이름을 새 모양에(판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 195 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(_acctRelaunchAfterDetach 를 부르는 곳이 license-gate.js 로 옮겨 감 · 판정 무변경)** · **개정 189 틀 고침(가짜가 then 도 받음)** · **개정 188 틀 고침 — deps 는 키 · 넘기는 방식만** · **개정 186 deps 53줄을 새 글(charsMod.이름)로 · 틀 고침(키 자리 빼기 · 이 모듈 안에서 지우기)** · **개정 185 신설 · 🪪 [내 정보] 화면 모듈(my-info.js) 구조 — 만들 때 · 내놓는 이름 · 옮긴 선언 · deps 53 · 부르는 곳 · html · 일부러 깨 보기 6가지** |
-| **sim-renderer-src.js** | 225 | **aaccee516bfd** ← **개정 347 MODULES 에 desk-place.js** · **개정 346 MODULES 에 seat-eq-clamp.js** · **개정 342 MODULES 에 seat-refit.js** · **개정 336 MODULES seat-menu.js** · **개정 334 MODULES asset-cards.js · desk-setup.js** · **개정 333 MODULES desk-preset-store.js · desk-preset.js** · **개정 332 MODULES asset-import.js** · **개정 308 MODULES stamp.js** · **개정 307 MODULES paint-geom.js · paint-stroke.js** · **개정 305 MODULES creator-state.js · crState.이름 쓰는 함수 되살리기** · **개정 303 VALUE_MODULES(ps1-dither.js)를 맨 앞에 깔고 · 이름이 다른 값 deps 는 «const key = 딴이름;» 으로 되살림** · **개정 293 MODULES 에 catalog-source.js** · **개정 290 MODULES 에 user-status-table.js · chip-popups.js** · **개정 288 MODULES 에 seat-panel.js** · **개정 285 MODULES 에 seat-model-load.js** · **개정 284 MODULES 에 char-measure.js · floor-snap-diag.js** · **개정 283 MODULES 에 ride-tuning.js** · **개정 282 MODULES 에 toast.js** · **개정 281 MODULES 에 ride-measure.js** · **개정 280 MODULES creator-xform.js** · **개정 279 MODULES 에 deco-parts-visibility.js** · **개정 278 MODULES 에 commission-import.js(판정 무변경)** · **개정 275 MODULES 에 seat-equalize.js** · **개정 274 MODULES 에 desk-visual.js** · **개정 273 MODULES 에 생성기 모듈 셋(판정 무변경)** · **개정 272 같은 «const 이름 = Tw…;» 줄은 app.js 차례로 한 번만 펼친다** · **개정 271 MODULES light-tone.js** · **개정 270 MODULES 에 desk-items.js** · **개정 269 MODULES 에 seat-layout.js** · **개정 267 «X: ()=>window.Y,» 읽는 함수는 옮기기 전 글로 되살린다** · **개정 267 MODULES 에 catalog-sync.js** · **개정 265 MODULES 에 glb-idb-cache.js · catalog-glb.js** · **개정 264 MODULES seat-friend-req.js** · **개정 263 MODULES 에 mat-tone.js(판정 무변경)** · **개정 261 MODULES 에 part-scene.js · admin-thumbs.js** · **개정 260 MODULES 에 launcher-preview.js(판정 무변경)** · **개정 259 MODULES presence.js** · **개정 258 MODULES 에 seat-camera.js** · **개정 257 MODULES 에 launcher-controls.js(판정 무변경)** · **개정 256 MODULES 에 dot-render.js** · **개정 249 만드는 줄을 「const mod = TwX.createX({」(가드 걷은 모양)로도 찾는다** · **개정 248 MODULES 에 user-name.js · program-settings 표본은 openProgramSettings** · **개정 246 MODULES 에 account-state.js** · **개정 245 MODULES 에 myhome-state.js · visit 표본은 openFriendHomeView** · **개정 220 MODULES 에 myhome-init.js** · **개정 217 MODULES 에 일곱** · **개정 216 MODULES 에 다섯** · **개정 215 MODULES 에 여섯** · **개정 214 MODULES 에 다섯** · **개정 213 MODULES 에 넷** · **개정 212 MODULES 에 일곱** · **개정 211 MODULES 에 sfx.js** · **개정 210 MODULES 에 win-stack.js** · **개정 209 MODULES 에 rich-text.js** · **개정 208 MODULES 에 chat-prefs.js** · **개정 207 MODULES 에 program-settings.js** · **개정 206 MODULES 에 dice-games.js** · **개정 205 MODULES 에 char-code.js** · **개정 204 MODULES 에 premium-assets.js** · **개정 203 MODULES 에 status-chip.js** · **개정 202 MODULES 에 room-sync.js** · **개정 201 쓰는 함수 사슬(setX: (v)=>{ mod.setX(v); })도 되돌린다 · MODULES 에 overhead.js(36·0)** · **개정 200 MODULES 에 room-entry.js(34·0)** · **개정 199 MODULES 에 desktop-run.js(32·0)** · **개정 198 MODULES 에 settings-panel.js** · **개정 197 MODULES 에 wardrobe.js** · **개정 196 MODULES 에 account.js** · **개정 195 MODULES 에 license-gate.js** · **개정 194 MODULES 에 chat-ui.js** · **개정 193 MODULES 에 focus-level.js · 쓰는 함수 되돌리기를 괄호 짝 맞춤으로(20·0)** · **개정 192 MODULES 에 part-paint.js** · **개정 191 MODULES 에 ride-bench.js · «// 옛 전역 이름» 표지 줄(옛 전역 이름 잇기)은 되살리기 전에 지운다** · **개정 190 본문을 만드는 줄 자리에 끼움 · MODULES 에 tricks.js** · **개정 189 MODULES 에 away-pic.js · myhome-ui.js** · **개정 188 되살리기 보강 — 껍데기 벗기기 · 옛 차례 · 모듈끼리 mod. 떼기 · 쓰는 함수 · MODULES 에 slot-sync.js** · **개정 186 신설 · 🧩 검사용 공용 도우미 — 옮기기 전 app.js 글 되살리기(joinRenderer) · 자기검사** |
-| **sim-chars.js** | 94 | **f9cca0b353e7** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 244 deps _charsLinkedMaybeShow · renderCharSlots → onSaved · onBackupRestored · setCharsActiveCheck · slotsReplaced · 내놓는 이름 +1(onBootLinked — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 189 틀 고침(가짜가 then 도 받음)** · **개정 188 틀 고침 — deps 는 키 · 넘기는 방식만** · **개정 186 신설 · 🧬 캐릭터 보관함 모듈(chars.js) 구조 — 만들 때 · 내놓는 이름 25 · 옮긴 선언 · deps 29 · 부르는 곳 · html · 일부러 깨 보기 6가지** |
-| **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** ← **개정 366 deps glbUploadCache(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 244 deps charsMod · renderCharSlots → onSaved · slotsReplaced · 내놓는 이름 +2(onBackupRestored · setCharsActiveCheck — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 189 틀 고침(가짜가 then 도 받음)** · **개정 188 신설 · ☁️ 슬롯 기기 간 동기화 모듈(slot-sync.js) 구조 — 만들 때 · 내놓는 이름(쓰는 함수 포함) · 옮긴 선언 · deps 키 · 부르는 곳 · html · 일부러 깨 보기** |
-| **sim-away-pic.js** | 94 | **02105f2b9019** ← **개정 352 deps 에 measureBodyBox(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 189 신설 · 🫧 자리비움 그림 모듈(away-pic.js) 구조** |
-| **sim-myhome-ui.js** | 133 | **94879c1abf7b** ← **개정 312 친구 목록 열림 · 닫힘(syncFriendsOpen) · deps 29** · **개정 310 deps friendsForCheck · friendsRetry** · **개정 272 만들 때 가짜 고리판을 준다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps 에 twNav(창 열기 통로) — 마이홈 열기를 통로에 건다(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 189 신설 · 🏠 마이홈 창 버튼 연결 모듈(myhome-ui.js) 구조** |
-| **sim-tricks.js** | 94 | **53f1d40a59a5** ← **개정 352 deps 에 measureBodyBox(판정 무변경)** · **개정 317 deps 에 measureCharBox(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 243 내놓는 이름 −2(때리기 소리 상수는 sfx.js 로 · 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 190 신설 · 💃 깜짝쇼 · 🪄 때리기 모듈(tricks.js) 구조** |
-| **sim-ride-bench.js** | 94 | **e49e407682d8** ← **개정 353 deps measureBodyBox · isPartByRigOrName** · **개정 266 deps 목록에 _rideBottom(ride-chain.js 에서 받는다 · 판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 «부르는 곳이 옛 이름» 깨 보기는 app.js 에 남은 부르는 자리에서 고른다(첫 이름을 부르던 곳이 다른 모듈로 옮겨 갈 수 있어 · 판정 무변경)** · **개정 191 신설 · 🗼 올라타기 · 🪑 멀티좌석 책상 모듈(ride-bench.js) 구조** |
-| **sim-part-paint.js** | 94 | **ccaa45183979** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 192 신설 · 🖍️ 파츠에 직접 그리기 · 그림칸 모듈(part-paint.js) 구조** |
-| **sim-focus-level.js** | 119 | **d3aa3c4a33f5** ← **개정 326 내 코드 없음 요청 0** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 246 deps myInfoMod 뺌 · 내놓는 이름 +1(onTotalSynced — 판정 무변경)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 193 신설 · ⭐ 포커스 레벨 · 공유 · 태블릿 모듈(focus-level.js) 구조** |
-| **sim-chat-ui.js** | 95 | **defcaa744921** ← **개정 251 deps 에 demojiCatalog(기본 이모티콘 목록은 demoji-catalog.js — 판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps 에 twNav(창 열기 통로) — 마이홈 열기는 통로로(판정 무변경)** · **개정 236 내놓는 이름 DEMOJI_BY_CMD 추가** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 194 신설 · 💬 채팅 날리기 · 읽음 · 탭 · 복사 · 이모티콘 모듈(chat-ui.js) 구조** |
-| **sim-license-gate.js** | 120 | **7c79148a1d4b** ← **개정 326 내 코드 없음 요청 0** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 246 저장 키 · 초대 통과 · 프리미엄 · 다시 켜기 · 원격 설정 한 벌은 account-state 에서 받음 — deps · 내놓는 이름을 새 모양에(판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 195 신설 · 🎟️ 초대장 · 라이선스 모듈(license-gate.js) 구조** |
-| **sim-account.js** | 95 | **45959b36fe4e** ← **개정 316 내놓는 이름에 _loginDoDeleteAccount** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 246 신원 핵심(로그인 키 · getMyLoginEmail · 친구코드 모양 · 신원 놓음)은 account-state 에서 받음 · 연동 안내 창은 my-info 로 — deps · 내놓는 이름을 새 모양에(판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 197 «deps 하나 빠짐» 깨 보기는 만드는 줄의 마지막 deps 줄을 글 모양과 무관하게 뺀다(오른쪽이 다른 모듈 이름으로 바뀌어도 · 판정 무변경)** · **개정 196 신설 · 🔑 계정 모듈(account.js) 구조** |
-| **sim-wardrobe.js** | 95 | **ee1777e686b8** ← **개정 342 deps fitModel → refitSeatAfterParts** · **개정 301 deps LIGHT_PRESET 빠짐** · **개정 300 deps baseFlatOf 한 줄** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 244 귀 탭 · 책상 탭을 premium-assets.js 에서 받음 — deps +15 · adminPartReg · renderWdDeskSection · wdEar 빠짐 · 내놓는 이름 +3(relinkDraftSrc · setAdminPartActions · wdEar — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 197 신설 · 🎨 꾸미기 창 모듈(wardrobe.js) 구조** |
-| **sim-settings-panel.js** | 95 | **5753dcf76a9a** ← **개정 272 만들 때 가짜 고리판을 준다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 198 신설 · ⚙ 설정 패널 모듈(settings-panel.js) 구조** |
-| **sim-desktop-run.js** | 94 | **0a2ae4d1ff26** ← **개정 321 deps 23(clickPolicy)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 199 신설 · 🖥️ 데스크탑 실행 화면 모듈(desktop-run.js) 구조** |
-| **sim-room-entry.js** | 124 | **c7dac617f4af** ← **개정 345 net-ready.js 를 먼저 싣는다** · **개정 342 deps fitModel → refitSeatAfterParts** · **개정 329 내 코드 없음 요청 0** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps 에 twNav(창 열기 통로) — 방 나가기를 통로에 걸고 마이홈 열기는 통로로(판정 무변경)** · **개정 246 deps licenseGateMod → _rcStore(원격 설정 한 벌 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 221 방 서버 연결 — 열린 방은 폴백 대신 막기 · 끊김 알림 · 원격 연결 시간** · **개정 200 신설 · 🛰 방 서버 · 입장 · 방 개수 모듈(room-entry.js) 구조** |
-| **sim-overhead.js** | 102 | **a6716c264104** ← **개정 379 label-measure.js 먼저 싣기 · 내놓는 이름 셋(판정 무변경)** · **개정 350 내놓는 이름에 setLabelDrag · bindLabelDrag** · **개정 345 net-ready.js 를 먼저 싣는다** · **개정 336 deps 14 · 내놓는 이름 setSeatMenu(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 201 신설 · 💬 머리 위 말풍선 · 🏷️ 이름표 모듈(overhead.js) 구조** |
-| **sim-room-sync.js** | 99 | **6f7d27e6557e** ← **개정 366 deps faceUploadCache(판정 무변경)** · **개정 345 net-ready.js 를 먼저 싣는다** · **개정 259 deps _autoAwayResetClock 하나 늘어 12(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps roomEntryMod → twNav(자리비움 자동 퇴장은 통로로 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 202 신설 · 📦 방 def 전송 · poke · 자동 퇴장 · 감시견 모듈(room-sync.js) 구조** |
-| **sim-status-chip.js** | 102 | **ce8e2cb3e006** ← **개정 352 deps 에 measureBodyBox(판정 무변경)** · **개정 290 첫 그리기 줄의 userStatusTableMod.loadCustomStatusFromStorage 도 받는다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 240 만들 때 deps 되부름 0 · 부팅 줄은 만드는 줄 바로 뒤(deps 38 → 33)** · **개정 225 경로 parts/status/ 반영(판정 무변경)** · **개정 219 받는 이름에서 initMyHome 빠짐(판정 무변경)** · **개정 203 신설 · 📍 상태칩 자리 · 팝업 · 상태 이모지 모듈(status-chip.js) 구조** |
-| **sim-premium-assets.js** | 95 | **b79166874397** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 244 귀 탭 · 책상 탭을 wardrobe.js 로 — deps −16 · 내놓는 이름 renderWdDeskSection · wdEar 빠지고 isGachaPart(판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 204 신설 · 🎀 프리미엄 파츠 · 라이선스 책상 모듈(premium-assets.js) 구조** |
-| **sim-char-code.js** | 95 | **9bc8b1717f50** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 205 신설 · 📦 캐릭터 복제 코드 모듈(char-code.js) 구조** |
-| **sim-dice-games.js** | 95 | **1784b3741383** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 206 신설 · 🎲 주사위 · 하루 횟수 모듈(dice-games.js) 구조** |
-| **sim-program-settings.js** | 95 | **dc7c7e6044d4** ← **개정 380 deps 24(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 248 닉네임 저장을 user-name.js 로 — deps −7 · 내놓는 이름 −2 · «옛 이름으로 부름» 깨 보기는 app.js 에 부르는 곳이 없으면 한 줄을 넣어 본다(판정 무변경)** · **개정 247 deps 에 twNav(창 열기 통로) — 설정 창 열기 · 닫기를 통로에 건다(판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 207 신설 · 🏷️ 닉네임 저장 · ⚙️ 프로그램 설정 창 모듈(program-settings.js) 구조** |
-| **sim-chat-prefs.js** | 95 | **ec9c1369226f** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 208 신설 · 🗑 대화 기록 삭제 · 💬 채팅창 투명도 · 🔔 알림음 모듈(chat-prefs.js) 구조** |
-| **sim-chat-read-on-send.js** | 273 | **579f9feb2c0f** ← **개정 388 신설 · ✉️ 보내면 그 메시지까지 읽음 — 확인 뒤 저장 · 앞으로만 · 보낸 채널에만 · 다시 들어와 셀 때 0 · 구분선 그대로 · sendChatLog ts 한 칸** |
-| **sim-rich-text.js** | 95 | **e2857c0faa2d** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 209 신설 · 🛡️ 리치 텍스트 sanitize 모듈(rich-text.js) 구조** |
-| **sim-win-stack.js** | 96 | **e7f9bf9ab745** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 210 신설 · 🪟 창 겹침 모듈(win-stack.js) 구조** |
-| **sim-sfx.js** | 96 | **d24a22a1d75f** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 243 때리기 소리 상수를 tricks.js 에서 받아 deps 1(판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 211 신설 · 🔊 효과음 공장 모듈(sfx.js) 구조** |
-| **sim-face-heal.js** | 96 | **4423b53923fa** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 212 신설 · 🛡️ 얼굴 자동 복구 모듈(face-heal.js) 구조** |
-| **sim-slot-save.js** | 96 | **1c9716fbec27** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 244 deps −4(charsMod · slotSyncMod · premiumMod · wardrobeMod) · 내놓는 이름 +5(onSaved · onLoaded · onSeatRelinked · onSlotsReplaced · slotsReplaced — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 212 신설 · 💾 슬롯 저장 · 복원 모듈(slot-save.js) 구조** |
-| **sim-interaction-desk.js** | 96 | **632770d8d886** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 212 신설 · 🪑 상호작용 책상 · 💃 춤 목록 · 재주 상수 모듈(interaction-desk.js) 구조** |
-| **sim-ad-banner.js** | 96 | **69f9e0557056** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 212 신설 · 📢 광고 배너 · ⚙️ 게임 설정(사용자 쪽) 모듈(ad-banner.js) 구조** |
-| **sim-license-request.js** | 96 | **2fc254e81411** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps progSettingsMod → twNav(설정 창 닫기는 통로로 — 판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 212 신설 · 📨 라이선스 요청 모듈(license-request.js) 구조** |
-| **sim-fn-keys.js** | 95 | **ddaff9377359** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 212 신설 · ⌨️ 함수키 모듈(fn-keys.js) 구조** |
-| **sim-hidden-seats.js** | 96 | **178381fbe522** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 212 신설 · 🙈 워킹룸 숨기기 모듈(hidden-seats.js) 구조** |
-| **sim-theme-ui.js** | 96 | **ac544bbe99ae** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 243 deps onApplied · setThemeChildDocs 걷음(판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 213 신설 · 🎨 테마(자식 창 테마 · 고르기) 모듈(theme-ui.js) 구조** |
-| **sim-myhome-sticker-layout.js** | 96 | **b4bb313d0dbf** ← **개정 272 만들 때 가짜 고리판을 준다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 신설 · 🎨 마이홈 스티커 배치 모듈(myhome-sticker-layout.js) 구조** |
-| **sim-myhome-diag.js** | 95 | **26738cf17aa4** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 신설 · 🔍 마이홈 클릭 진단 모듈(myhome-diag.js) 구조** |
-| **sim-myhome-visit.js** | 96 | **d3c872803c16** ← **개정 390 deps 에 refreshFriendProfile(친구 이름 새로 받기)** · **개정 272 만들 때 가짜 고리판을 준다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 245 공용 상태를 myhome-state.js 로 — deps +9(읽는 함수 · 쓰는 함수) · 내놓는 이름 12 → 3(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 신설 · 🏠 마이홈 데이터 · 👀 친구 홈 구경 모듈(myhome-visit.js) 구조** |
-| **sim-code-crypto.js** | 96 | **65e908d410f1** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 214 신설 · 🔐 캐릭터 코드 암호화 모듈(code-crypto.js) 구조** |
-| **sim-commission.js** | 103 | **f2dfe500eb47** ← **개정 376 내놓는 이름에 catalogBacked(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 235 만들 때 되부름 · 부팅 등록 줄 판정 추가** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 214 신설 · 📦 커미션 · 💾 저장 에셋 모듈(commission.js) 구조** |
-| **sim-exp-bar.js** | 96 | **74b98b49f42f** ← **개정 351 deps 에 bindLabelDrag** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 214 신설 · ⭐ 경험치 바 모듈(exp-bar.js) 구조** |
-| **sim-focus-total.js** | 96 | **8cffe6294bd4** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 214 신설 · ⏱️ 포커스 누적 모듈(focus-total.js) 구조** |
-| **sim-focus-share.js** | 96 | **18932a701a4c** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 214 신설 · 📊 오늘 기록 전시 모듈(focus-share.js) 구조** |
-| **sim-demoji-palette.js** | 95 | **24cf9fe4f0b6** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 215 신설 · 😊 기본 이모티콘 팔레트 모듈(demoji-palette.js) 구조** |
-| **sim-chat-lock.js** | 96 | **b5b76292b3b8** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 215 신설 · 🔇 시크릿룸 채팅 잠금 모듈(chat-lock.js) 구조** |
-| **sim-roulette.js** | 96 | **a75ac3bfd7dd** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 215 신설 · 🔫 러시안룰렛 모듈(roulette.js) 구조** |
-| **sim-floaters.js** | 96 | **63212b22a6cd** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 215 신설 · 💞 이모지 떠오르기 모듈(floaters.js) 구조** |
-| **sim-add-friend.js** | 96 | **6f1a6fef415e** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 215 신설 · 👥 책상에서 친구 추가 모듈(add-friend.js) 구조** |
-| **sim-device-lost.js** | 96 | **627678a904e2** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps roomEntryMod → twNav(방 나가기는 통로로 — 판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 215 신설 · 🖥️ 밀려난 기기 처리 모듈(device-lost.js) 구조** |
-| **sim-myhome-page.js** | 126 | **b5ca916c06e5** ← **개정 327 내 코드 없음 요청 0** · **개정 272 만들 때 가짜 고리판을 준다(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 245 deps mhVisitMod → mhStateMod(마이홈 공용 상태 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 216 신설 · 🏠 마이홈 불러오기 · 그리기 모듈(myhome-page.js) 구조** |
-| **sim-myhome-preset.js** | 158 | **931f2c50a7b0** ← **개정 331 그림까지 담기 · 옛 칸 · 칸 번호 이름 · 제보 순서 · 옛 앱 호환(B-1013-8)** · **개정 330 신설 · 👑 디자인 프리셋 규칙(myhome-preset.js) — 순수 함수 입력 → 출력 · 경계값 · 연결 · 깨 보기** |
-| **sim-inbox-sections.js** | 126 | **10d2571d431b** ← **개정 381 신설 · 📩 우편함 칸 나누기 규칙(inbox-sections.js) — 우편 · 소식 · 고정은 늘 위 · 안 읽은 수 · 처음 칸 · 경계값 · 연결 · 깨 보기 11** |
-| **sim-myhome-sticker-rules.js** | 84 | **6a2cc53dd6a8** ← **개정 377 신설 · 🔒 스티커 잠금 · ▲▼ 순서 규칙 — 실행(잠금 · 풀기 · 옛 스티커 · z 순서 · 새 z · 옮기기 · 끝 · 다시 매김) · 깨 보기 6 · 배선(끌기 잠금 · 새 z · 그리기 순서 · html · smoke)** |
-| **sim-myhome-links.js** | 95 | **6d53e7c2d7fd** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 216 신설 · 🔗 마이홈 본문 링크 모듈(myhome-links.js) 구조** |
-| **sim-async-prompt.js** | 112 | **298066b0cef9** ← **개정 296 4절 — window.prompt 금지 · .dcc 비밀번호는 asyncPrompt** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 216 신설 · ✏️ 인앱 프롬프트 모듈(async-prompt.js) 구조** |
-| **sim-launcher-chrome.js** | 95 | **ed62fec910ad** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 228 경로 parts/launcher/ 반영(판정 무변경)** · **개정 216 신설 · 🪟 런처 타이틀바 · 팝업 흐림 모듈(launcher-chrome.js) 구조** |
-| **sim-launcher-controls.js** | 204 | **78202998b89b** ← **개정 257 신설 · 🎛️ 런처 컨트롤 모듈(launcher-controls.js) 구조 · 버튼 동작** |
-| **sim-launcher-preview.js** | 159 | **046bc6923a36** ← **개정 367 deps _quickHash(판정 무변경)** · **개정 353 deps measureBodyBox** · **개정 323 4절 신설 · 런처 부하(프레임 상한 30 · 깜빡임은 blink-timing · 후원 반짝임 steps) · deps FrameBudget · blinkTiming** · **개정 260 신설 · 🖼️ 런처 미리보기 모듈(launcher-preview.js) 구조 · 크기 맞춤** |
-| **sim-mat-tone.js** | 174 | **8055614c531b** ← **개정 263 신설 · 💡 재질 톤 모듈(mat-tone.js) 구조 · 재질 손질 입력 → 결과** |
-| **sim-outside-close.js** | 95 | **2e61ab5a3e9c** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 216 신설 · 🪟 팝업 바깥 클릭으로 닫기 모듈(outside-close.js) 구조** |
-| **sim-wardrobe-panel.js** | 95 | **1070574caf86** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 247 deps progSettingsMod → twNav(라이선스 탭 열기는 통로로 — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 217 신설 · 🎨 꾸미기 사이드 패널 모듈(wardrobe-panel.js) 구조** |
-| **sim-race-picker.js** | 99 | **eb713b5f131e** ← **개정 278 옛 이름 깨 보기는 app.js 에 부르는 자리가 있을 때만(판정 무변경)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 233 경로 parts/creator/ 반영(판정 무변경)** · **개정 217 신설 · 🐾 종족 선택창 모듈(race-picker.js) 구조** |
-| **sim-realtime-link.js** | 297 | **6a31878da83a** ← **개정 340 신설 · realtime 연결 공통부** |
-| **sim-lv-tier.js** | 96 | **13d70962e49c** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 226 경로 parts/focus/ 반영(판정 무변경)** · **개정 217 신설 · 🏅 레벨 티어 모듈(lv-tier.js) 구조** |
-| **sim-theme.js** | 96 | **1f4b87d7c9d7** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 243 deps 0 · 내놓는 이름 onApplied(판정 무변경)** · **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **개정 217 신설 · 🎨 디자인 테마 모듈(theme.js) 구조** |
-| **sim-license-ui.js** | 96 | **bc4bb234b208** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 217 신설 · 🔑 라이선스 등록 화면 모듈(license-ui.js) 구조** |
-| **sim-license-key.js** | 95 | **9b2c72d7fa60** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 248 deps progSettingsMod → twNav(설정 창 닫기는 통로로 — 판정 무변경)** · **개정 227 경로 parts/account/ 반영(판정 무변경)** · **개정 217 신설 · 🔑 라이선스 키 등록 · 해제 모듈(license-key.js) 구조** |
-| **sim-asset-code.js** | 96 | **1442b5b5b793** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 231 경로 parts/character/ 반영(판정 무변경)** · **개정 217 신설 · 🔐 에셋 코드 암호화 모듈(asset-code.js) 구조** |
-| **sim-myhome-init.js** | 132 | **08675e1a7c4f** ← **개정 337 코드 없음이면 친구 목록 «코드 없음» 시작(#320 되돌림)** · **개정 326 내 코드 없음 요청 0** · **개정 309 deps 25(friendsSub 값)** · **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 220 신설 · 🏠 마이홈 시작 모듈(myhome-init.js) 구조** |
-| **sim-parts-paths.js** | 84 | **2810fc3f9073** ← **개정 230 경로 parts/room/ 반영(판정 무변경)** · **개정 222 신설 · 📂 렌더러 경로가 실제 폴더 기준으로 맞는가(<script src> · 상대 import)** |
-| **sim-global-names.js** | 236 | **4da03342e299** ← **개정 259 날기 쿨다운 깨 보기는 그 글이 있는 파일에서(판정 무변경)** · **개정 249 모듈 이름 ↔ 전역 이름 짝을 가드 걷은 만드는 줄에서도 읽는다(판정 무변경)** · **개정 237 읽는 함수를 값처럼 typeof 비교 판정 추가** · **개정 236 신설 · 부르는 이름이 전역에 다 있는가(전역 이름 실종)** |
-| **sim-dep-cycles.js** | 237 | **6aa063b0b8b1** ← **개정 241 신설 · 렌더러 모듈 순환이 늘지 않는가(기준선 dep-cycles-baseline.json) · 만드는 도중 아직 없는 이름 읽기** |
-| **sim-domain-calls.js** | 157 | **8b9f85e7d696** ← **개정 349 신설 · 도메인끼리 직접 부르는 곳(인스턴스 · 전역 모듈 · 창 고리)이 기준선보다 늘지 않는가** |
-| **sim-room-state.js** | 58 | **ddcd7ec6a8ac** ← **개정 243 신설 · 🧭 방 공용 상태(room-state.js) — 처음 값 · 싣는 순서 · 바꾸는 파일** |
-| **sim-error-codes.js** | 109 | **c3b25d49f7c4** ← **개정 364 deps 로 받은 notifyError 로 부르는 곳도 셈(판정 그대로)** · **개정 341 신설 · ⚠️ 에러코드 표(error-codes.js) — 번호 모양 · notify · 부른 번호가 표에 · 표의 번호가 쓰임 · 싣는 순서 · 문서** |
-| **sim-myhome-state.js** | 90 | **9ac9ba6189aa** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 245 신설 · 🏠 마이홈 공용 상태(myhome-state.js) — 처음 값 · 이름 창구 · 싣는 순서 · 바꾸는 곳** |
-| **sim-account-state.js** | 94 | **d9d3c39a82ed** ← **개정 249 만드는 줄은 가드 없이(`const mod = TwX.createX({`) · 빈 껍데기 없음을 본다(가드 걷기 3차 — 판정 무변경)** · **개정 246 신설 · 🪪 계정 핵심 상태(account-state.js) — 값 · 프리미엄 알림 · 싣는 순서 · 거는 곳 · 바꾸는 곳** |
-| **sim-nav.js** | 85 | **c2cf2cc50405** ← **개정 332 ** · **개정 250 app.js 는 window.TwNav 를 그대로 받는다 · 빈 껍데기 없음(가드 걷기 3차-2)** · **개정 247 신설 · 🧭 창 열기 통로(nav.js) — 걸고 부르기 · 거는 곳 한 곳 · 아는 이름만 · 표 · 싣는 순서** |
-| **sim-net-ready.js** | 145 | **0a54ffa6283c** ← **개정 345 신설 · 🛰 네트워크 준비 기다리기 한 곳(net-ready.js) — 바로 · once · need · onNetReady · waitNetReady · 직접 귀 0곳 · 쓰는 파일 · 싣는 순서** |
-| **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** ← **개정 272 신설 · 🪝 마이홈 고리판 — 동작 · 이름마다 거는 곳 한 파일 · 부르는 곳 · 글자 이름 없음 · 싣는 순서 · 깨 보기 여섯** |
-| **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** ← **개정 251 신설 · 😊 기본 이모티콘 목록(demoji-catalog.js) — 33개 · 안 겹침 · 찾기 표 · 얼림 · 그림 파일 · 한 곳 · 받는 방식 · 싣는 순서** |
-| **sim-hook-guards.js** | 77 | **0e8ccbe59d09** ← **개정 272 표에서 고리판으로 옮긴 셋(_mhBgmPlaying · _mhBgmSetPlaying · _mhBgmRefresh)을 뺌** · **개정 253 표에 포커스 · 꾸미기 · 방 · 가챠 · 플레이리스트 · 관리자 고리 10개(36개)** · **개정 252 신설 · 🪝 부팅 때 늘 걸리는 window 고리 — 거는 곳 한 파일 · 부르는 곳 · 가드 없음(마이홈 26개)** |
-| **sim-typeof-guards.js** | 134 | **ca523048c634** ← **개정 306 예외 표에 cb(catalog-source.js — 입구 콜백 값 확인)** · **개정 272 예외 표에서 _mhCancelNameEdit 뺌(가드가 고리판 has 로)** · **개정 262 신설 · 🪝 «있으면 부르기» typeof 가드가 파일별 기준선(typeof-guards-baseline.json)보다 늘지 않는다 · 예외 표** |
-| **sim-user-name.js** | 92 | **74e9a7a6d03a** ← **개정 326 내 코드 없음 요청 0** · **개정 255 프로필 쓰기가 거부돼도 잡히지 않은 오류가 없다(.catch)** · **개정 249 만드는 줄을 가드 걷은 모양으로 찾는다(판정 무변경)** · **개정 248 신설 · 🏷️ 닉네임 저장(user-name.js) — 자르기 · 운영진 이름 · 갱신 · 연결**  |
-| **sim-part-scene.js** | 209 | **4d4fc633d0be** ← **개정 261 신설 · 🧊 파츠 GLB 파싱 캐시 · 썸네일 모듈 구조 + 동작** |
-| **sim-admin-thumbs.js** | 152 | **a364b1c70728** ← **개정 293 deps catalogSourceMod · 4절 진짜 provider** · **개정 261 신설 · 🖼️ 관리자 썸네일 다시 굽기 모듈 구조 + 동작** |
-| **sim-glb-idb-cache.js** | 172 | **fda2ba697435** ← **개정 265 신설 · 💾 GLB 영구 캐시(IndexedDB) 모듈 구조 + 동작** |
-| **sim-catalog-glb.js** | 165 | **17abfb9c9515** ← **개정 293 deps catalogSourceMod · 4절 진짜 provider** · **개정 265 신설 · 🔗 카탈로그 GLB 해결 모듈 구조 + 동작** |
-| **sim-catalog-sync.js** | 282 | **d94edeb793ac** ← **개정 345 net-ready.js 를 먼저 싣는다** · **개정 342 deps fitModel · layoutSeats → refitSeatAfterParts · 4절 진짜 seat-refit.js** · **개정 293 deps catalogSourceMod · 4절 진짜 provider** · **개정 289 mergeCatalogList 를 상수 줄과 같이 뽑음** · **개정 287 mergeCatalogList 순수 함수 판정 6줄** · **개정 267 신설 · 🔄 카탈로그 실시간 동기화 모듈 구조 + 동작** |
-| **sim-catalog-source.js** | 100 | **48a661048e45** ← **개정 345 net-ready.js 를 먼저 싣는다** · **개정 306 4절 입구 가드** · **개정 293 신설 · 🔌 카탈로그 데이터 provider 모양 · 연결 · 동작** |
-| **sim-desk-items.js** | 166 | **a1f0433d23a0** ← **개정 270 신설 · 🧸 책상 위 아이템 등록부 모듈 구조 + 동작** |
-| **sim-blink-timing.js** | 112 | **624e0321ea28** ← **개정 322 신설 · 👁 깜빡임 시간표(blink-timing.js) — 옛 글과 같은 결과 · 동작 · 주사율 무관 · 연결** |
-| **sim-desk-visual.js** | 214 | **2428c62e17b8** ← **개정 286 옮긴 이름 목록에서 지운 셋을 뺌** · **개정 274 신설 · 🪑 책상 모양 모듈 구조 + 동작** |
-| **sim-desk-place.js** | 187 | **2de2d6fa296b** ← **개정 347 신설 · 📐 책상 자리 · 크기 모듈 구조 + 동작** |
-| **sim-toast.js** | 174 | **25bd36f5c6a5** ← **개정 357 토스트 눌러 복사 판정 +9** · **개정 339 토스트 pre-line 판정 +1** · **개정 282 신설 · 🍞 토스트 · 저장 실패 문구 모듈 구조 + 동작** |
-| **sim-dot-render.js** | 223 | **ed34e53f22dd** ← **개정 303 deps ps1Dither — PS1 값은 shared/ps1-dither.js 에서** · **개정 292 켠 뒤 들어온 메쉬 · 가짜 표식 · 색조 덮어쓰기 · 캐시 키 · sweepIfOn(5절) — 도트 버그 수정** · **개정 258 깨 보기 «부르는 곳이 옛 이름» — app.js 에 부르는 자리가 없으면 옛 이름 부름을 끼워 본다(부르는 곳이 seat-camera.js 로)** · **개정 256 신설 · 🕹️ 도트 모드 머티리얼 모듈 구조 + 동작(가짜 씬)** |
-| **sim-ps1-dither.js** | 100 | **061d45e351ad** ← **개정 303 신설 · 🕹️ PS1 디더 규칙 한 곳 — 도트 셰이더 · 스티커사진 필터가 묶기 전과 같은지** |
-| **sim-seat-camera.js** | 151 | **779e4e952938** ← **개정 380 화질 · 낮춤을 넘기는 한 줄** · **개정 295 안 쓰는 _deskViewH · _deskCanvasH 지움 — deps · 정답값에서 뺌** · **개정 258 신설 · 🎥 좌석 줄 카메라 모듈 구조 + 동작(옮기기 전 값)** |
-| **sim-ride-chain.js** | 54 | **7c397b3ae322** ← **개정 266 신설 · 🗼 탑 바닥 찾기 동작 · 연결** |
-| **sim-seat-layout.js** | 172 | **6f339dcee0bc** ← **개정 269 신설 · 🪑 좌석 줄 배치 모듈 구조 + 동작(가짜 좌석 · 책상 폭)** |
-| **sim-seat-refit.js** | 182 | **d7e352d1115d** ← **개정 343 3절 파츠 떼기 · 깨 보기 +8** · **개정 342 신설 · 🪑 파츠 바뀐 뒤 좌석 다시 맞추기 한 벌(seat-refit.js) — 순서 · 거부 · 낡은 좌석 · 길마다 부르는지** |
-| **sim-seat-equalize.js** | 169 | **adf87881fdd8** ← **개정 275 신설 · 🪑 좌석 크기 평준화 모듈 구조 + 동작** |
-| **sim-seat-eq-clamp.js** | 159 | **7ee3787c0a8c** ← **개정 346 신설 · 🪑 평준화 가두기 모듈 구조 + 동작** |
-| **sim-deco-parts-visibility.js** | 131 | **d079351120a6** ← **개정 279 신설 · 🎁 꾸미기 파츠 표시 모듈 구조 + 동작** |
-| **sim-ride-measure.js** | 149 | **b99def6c1d62** ← **개정 281 신설 · 📏 올라타기 실측 모듈 구조 + 동작(실제 three)** |
-| **sim-ride-tuning.js** | 124 | **6889f9df66be** ← **개정 283 신설 · 🎛️ 올라타기 · 묘기 튜닝 값 모듈 구조 + 값 표** |
-| **sim-char-measure.js** | 167 | **c1ee503be3b6** ← **개정 352 deps 에 measureBodyBox · 4절은 body-measure.js 를 만들어 넘김(판정 무변경)** · **개정 284 신설 · 📐 캐릭터 실측 모듈 구조 + 동작(실제 three)** |
-| **sim-body-measure.js** | 653 | **67bf831c85c9** ← **개정 353 2차 묶음 대조 · 손으로 거르기 금지** · **개정 352 신설 · 📏 캐릭터 몸 박스 재기 한 규칙 · 옛 글과 같음 · 공통 함수 강제 · #258 날기 몸 경로 연결** |
-| **sim-floor-snap-diag.js** | 142 | **3aa611d6946d** ← **개정 352 발밑 깊이 글에 body-measure.js 의 measureBodyBox 를 넘김(판정 무변경)** · **개정 284 신설 · 🩺 바닥 맞춤 진단 모듈 구조 + 보고서** |
-| **sim-seat-model-load.js** | 194 | **7ff56380f12a** ← **개정 296 deps 에 asyncPrompt(.dcc 비밀번호)** · **개정 285 신설 · 📦 좌석 모델 싣기 모듈 구조 + 동작(실제 three)** |
-| **sim-seat-panel.js** | 163 | **2f9bad25ac96** ← **개정 288 신설 · 🎚️ 좌석 탭 · 상태 버튼 모듈 구조 + 동작(가짜 DOM)** |
-| **sim-user-status-table.js** | 125 | **8727d9f8adac** ← **개정 290 신설 · 🍚 상태 표 · 커스텀 상태 저장값 모듈 구조 + 동작** |
-| **sim-chip-popups.js** | 128 | **f9e9fcf20acd** ← **개정 290 신설 · 🗂️ 칩 팝업 닫기 모듈 구조 + 동작(가짜 DOM)** |
-| **sim-rules-keys.js** | 308 | **e497eeedc751** ← **개정 373 경로 변수 /users/$userId/mallang/imgs/$i(0~3)** · **개정 369 경로 변수 /config/dataRoutes/$i** · **개정 361 config/sources/$feature 변수(관리자만 씀)** · **개정 320 mobileLink 는 공백 낀 사용자 id(서버 함수가 옮김) · 3절 폰 연결 · 깨 보기 하나** · **개정 319 신설 · 🔐 서버 규칙 경로 키 형식 — 키 조건을 돌려 운영 모양 통과 · 사고 키 거절 · 표에 없는 변수 빨강 · 앱 id 와 같음** |
-| **sim-rules-src.js** | 58 | **5c21dbc77c60** ← **개정 375 신설 · 🚧 ≤0.10.2 앱 읽기 막기 — 앱이 읽는 .read 전부에 조건(읽는 사람 authUsers → 코드 → presence 켜짐 · ver 없음) · 관리자 · 봇 · 폰 연결 · 막힘은 제외 · presence 수동 오프라인(ver 없음) 거절 · 검사용 stripReadGate(조건을 걷어 옛 검사가 같은 뜻으로) · 깨 보기 1** |
-| **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** ← **개정 320 신설 · 📱 폰 연결 주소 공백 떼기 함수 — 가짜 DB 로 옮기기 · 지우기 · index.js 연결 · 규칙과 같은 모양** |
-| **sim-label-measure.js** | 234 | **ce652588740d** ← **개정 379 신설 · 📐 좌석 라벨이 매 프레임 강제 레이아웃을 내지 않는다(가짜 DOM 에서 세기)** |
-| **sim-safe-html.js** | 714 | **10f0857fa2df** ← **개정 386 신설 · 🛡️ 남이 쓸 수 있는 값이 친 그대로 보이고 HTML 로 안 읽히는가 — safe-html.js 실행(다섯 글자 왕복 · 진짜 이름 · safeUrl 거절/허용 · cssUrl · cssColor) · parts/ 전체 · html · main.js · preload.js 를 typescript 파서로 훑어 innerHTML · 주소 · CSS 자리의 잎까지 따라감(예외는 ALLOW 에 이유와 함께) · 집에서 만든 escape 없음 · main.js 새 창 처리기 실행 · 깨 보기**  |
+| **sim-away-follow.js** | 145 | **6f3fd7fc7064** |
+| **sim-kb-blind.js** | 108 | **34c3cd78a410** |
+| **sim-mhd-hidefolders.js** | 135 | **69194c95439e** |
+| **sim-pomodoro.js** | 130 | **ef28b73a68d0** |
+| **sim-admin-console.js** | 142 | **3e1dc419471c** |
+| **sim-admin-license.js** | 198 | **5d02ff5ad25e** |
+| **sim-admin-part-register.js** | 151 | **36e35de15c37** |
+| **sim-admin-users-launcher.js** | 160 | **e7b57f3e1e66** |
+| **sim-admin-asset.js** | 129 | **6ecb2dc8ed96** |
+| **sim-admin-mode.js** | 133 | **437afbc7bb20** |
+| **sim-report.js** | 139 | **144912a9daf0** |
+| **sim-my-info.js** | 98 | **654e796c28d9** |
+| **sim-renderer-src.js** | 225 | **aaccee516bfd** |
+| **sim-chars.js** | 94 | **f9cca0b353e7** |
+| **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** |
+| **sim-away-pic.js** | 94 | **02105f2b9019** |
+| **sim-myhome-ui.js** | 133 | **94879c1abf7b** |
+| **sim-tricks.js** | 94 | **53f1d40a59a5** |
+| **sim-ride-bench.js** | 94 | **e49e407682d8** |
+| **sim-part-paint.js** | 94 | **ccaa45183979** |
+| **sim-focus-level.js** | 119 | **d3aa3c4a33f5** |
+| **sim-chat-ui.js** | 95 | **defcaa744921** |
+| **sim-license-gate.js** | 120 | **7c79148a1d4b** |
+| **sim-account.js** | 95 | **45959b36fe4e** |
+| **sim-wardrobe.js** | 95 | **ee1777e686b8** |
+| **sim-settings-panel.js** | 95 | **5753dcf76a9a** |
+| **sim-desktop-run.js** | 94 | **0a2ae4d1ff26** |
+| **sim-room-entry.js** | 124 | **c7dac617f4af** |
+| **sim-overhead.js** | 102 | **a6716c264104** |
+| **sim-room-sync.js** | 99 | **6f7d27e6557e** |
+| **sim-status-chip.js** | 102 | **ce8e2cb3e006** |
+| **sim-premium-assets.js** | 95 | **b79166874397** |
+| **sim-char-code.js** | 95 | **9bc8b1717f50** |
+| **sim-dice-games.js** | 95 | **1784b3741383** |
+| **sim-program-settings.js** | 95 | **dc7c7e6044d4** |
+| **sim-chat-prefs.js** | 95 | **ec9c1369226f** |
+| **sim-chat-read-on-send.js** | 273 | **579f9feb2c0f** |
+| **sim-rich-text.js** | 95 | **e2857c0faa2d** |
+| **sim-win-stack.js** | 96 | **e7f9bf9ab745** |
+| **sim-sfx.js** | 96 | **d24a22a1d75f** |
+| **sim-face-heal.js** | 96 | **4423b53923fa** |
+| **sim-slot-save.js** | 96 | **1c9716fbec27** |
+| **sim-interaction-desk.js** | 96 | **632770d8d886** |
+| **sim-ad-banner.js** | 96 | **69f9e0557056** |
+| **sim-license-request.js** | 96 | **2fc254e81411** |
+| **sim-fn-keys.js** | 95 | **ddaff9377359** |
+| **sim-hidden-seats.js** | 96 | **178381fbe522** |
+| **sim-theme-ui.js** | 96 | **ac544bbe99ae** |
+| **sim-myhome-sticker-layout.js** | 96 | **b4bb313d0dbf** |
+| **sim-myhome-diag.js** | 95 | **26738cf17aa4** |
+| **sim-myhome-visit.js** | 96 | **d3c872803c16** |
+| **sim-code-crypto.js** | 96 | **65e908d410f1** |
+| **sim-commission.js** | 103 | **f2dfe500eb47** |
+| **sim-exp-bar.js** | 96 | **74b98b49f42f** |
+| **sim-focus-total.js** | 96 | **8cffe6294bd4** |
+| **sim-focus-share.js** | 96 | **18932a701a4c** |
+| **sim-demoji-palette.js** | 95 | **24cf9fe4f0b6** |
+| **sim-chat-lock.js** | 96 | **b5b76292b3b8** |
+| **sim-roulette.js** | 96 | **a75ac3bfd7dd** |
+| **sim-floaters.js** | 96 | **63212b22a6cd** |
+| **sim-add-friend.js** | 96 | **6f1a6fef415e** |
+| **sim-device-lost.js** | 96 | **627678a904e2** |
+| **sim-myhome-page.js** | 126 | **b5ca916c06e5** |
+| **sim-myhome-preset.js** | 158 | **931f2c50a7b0** |
+| **sim-inbox-sections.js** | 126 | **10d2571d431b** |
+| **sim-myhome-sticker-rules.js** | 84 | **6a2cc53dd6a8** |
+| **sim-myhome-links.js** | 95 | **6d53e7c2d7fd** |
+| **sim-async-prompt.js** | 112 | **298066b0cef9** |
+| **sim-launcher-chrome.js** | 95 | **ed62fec910ad** |
+| **sim-launcher-controls.js** | 204 | **78202998b89b** |
+| **sim-launcher-preview.js** | 159 | **046bc6923a36** |
+| **sim-mat-tone.js** | 174 | **8055614c531b** |
+| **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |
+| **sim-wardrobe-panel.js** | 95 | **1070574caf86** |
+| **sim-race-picker.js** | 99 | **eb713b5f131e** |
+| **sim-realtime-link.js** | 297 | **6a31878da83a** |
+| **sim-lv-tier.js** | 96 | **13d70962e49c** |
+| **sim-theme.js** | 96 | **1f4b87d7c9d7** |
+| **sim-license-ui.js** | 96 | **bc4bb234b208** |
+| **sim-license-key.js** | 95 | **9b2c72d7fa60** |
+| **sim-asset-code.js** | 96 | **1442b5b5b793** |
+| **sim-myhome-init.js** | 132 | **08675e1a7c4f** |
+| **sim-parts-paths.js** | 84 | **2810fc3f9073** |
+| **sim-global-names.js** | 236 | **4da03342e299** |
+| **sim-dep-cycles.js** | 237 | **6aa063b0b8b1** |
+| **sim-domain-calls.js** | 157 | **8b9f85e7d696** |
+| **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
+| **sim-error-codes.js** | 109 | **c3b25d49f7c4** |
+| **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
+| **sim-account-state.js** | 94 | **d9d3c39a82ed** |
+| **sim-nav.js** | 85 | **c2cf2cc50405** |
+| **sim-net-ready.js** | 145 | **0a54ffa6283c** |
+| **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** |
+| **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
+| **sim-hook-guards.js** | 77 | **0e8ccbe59d09** |
+| **sim-typeof-guards.js** | 134 | **ca523048c634** |
+| **sim-user-name.js** | 92 | **74e9a7a6d03a** |
+| **sim-part-scene.js** | 209 | **4d4fc633d0be** |
+| **sim-admin-thumbs.js** | 152 | **a364b1c70728** |
+| **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
+| **sim-catalog-glb.js** | 165 | **17abfb9c9515** |
+| **sim-catalog-sync.js** | 282 | **d94edeb793ac** |
+| **sim-catalog-source.js** | 100 | **48a661048e45** |
+| **sim-desk-items.js** | 166 | **a1f0433d23a0** |
+| **sim-blink-timing.js** | 112 | **624e0321ea28** |
+| **sim-desk-visual.js** | 214 | **2428c62e17b8** |
+| **sim-desk-place.js** | 187 | **2de2d6fa296b** |
+| **sim-toast.js** | 174 | **25bd36f5c6a5** |
+| **sim-dot-render.js** | 223 | **ed34e53f22dd** |
+| **sim-ps1-dither.js** | 100 | **061d45e351ad** |
+| **sim-seat-camera.js** | 151 | **779e4e952938** |
+| **sim-ride-chain.js** | 54 | **7c397b3ae322** |
+| **sim-seat-layout.js** | 172 | **6f339dcee0bc** |
+| **sim-seat-refit.js** | 182 | **d7e352d1115d** |
+| **sim-seat-equalize.js** | 169 | **adf87881fdd8** |
+| **sim-seat-eq-clamp.js** | 159 | **7ee3787c0a8c** |
+| **sim-deco-parts-visibility.js** | 131 | **d079351120a6** |
+| **sim-ride-measure.js** | 149 | **b99def6c1d62** |
+| **sim-ride-tuning.js** | 124 | **6889f9df66be** |
+| **sim-char-measure.js** | 167 | **c1ee503be3b6** |
+| **sim-body-measure.js** | 653 | **67bf831c85c9** |
+| **sim-floor-snap-diag.js** | 142 | **3aa611d6946d** |
+| **sim-seat-model-load.js** | 194 | **7ff56380f12a** |
+| **sim-seat-panel.js** | 163 | **2f9bad25ac96** |
+| **sim-user-status-table.js** | 125 | **8727d9f8adac** |
+| **sim-chip-popups.js** | 128 | **f9e9fcf20acd** |
+| **sim-rules-keys.js** | 308 | **e497eeedc751** |
+| **sim-rules-src.js** | 58 | **5c21dbc77c60** |
+| **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
+| **sim-label-measure.js** | 234 | **ce652588740d** |
+| **sim-safe-html.js** | 714 | **10f0857fa2df** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
