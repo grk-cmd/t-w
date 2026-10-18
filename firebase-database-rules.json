@@ -460,7 +460,10 @@
           ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
           "imgs": {
             "$i": {
-              ".validate": "$i.matches(/^[0-3]$/) && newData.isString() && newData.val().length <= 200000"
+              ".validate": "$i.matches(/^[0-3]$/) && ((newData.isString() && newData.val().length <= 200000) || newData.hasChild('url'))",
+              "url": { ".validate": "newData.isString() && newData.val().length <= 200000" },
+              "on": { ".validate": "newData.isBoolean()" },
+              "$other": { ".validate": false }
             }
           },
           "$other": { ".validate": false }
