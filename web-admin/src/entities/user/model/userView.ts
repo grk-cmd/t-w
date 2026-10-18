@@ -25,6 +25,8 @@ export interface UserStatsView {
   total: number;
   /** 계정의 버전별 수(기간 없음) — 큰 버전부터, 기록 없음은 맨 뒤. */
   versions: VersionCount[];
+  /** 최근 7일 안에 앱을 켠 사람의 버전별 수(presence 마지막 접속 기준). 서버가 안 주면(예전 방식 · 옛 서버) null. */
+  recent: VersionCount[] | null;
   /** 이 시각까지의 RTDB 변경은 반영됨(API 읽기 사본). 예전 방식이면 방금 받은 원본이라 null. */
   syncedAt: number | null;
   source: UserSource;
@@ -56,6 +58,7 @@ export interface ApiUserStats {
   total: number;
   accounts: number;
   versions: { ver: string | null; count: number }[];
+  recentVersions?: { ver: string | null; count: number }[];
   syncedAt: string | null;
   snapshotAt: string | null;
 }
@@ -102,6 +105,9 @@ export function statsFromApi(s: ApiUserStats): UserStatsView {
   return {
     total: s.total,
     versions: toVersionCounts(s.versions.map((v) => ({ ver: cleanVer(v.ver), count: v.count }))),
+    recent: s.recentVersions
+      ? toVersionCounts(s.recentVersions.map((v) => ({ ver: cleanVer(v.ver), count: v.count })))
+      : null,
     syncedAt: ms(s.syncedAt),
     source: { via: 'api' },
   };
@@ -131,6 +137,7 @@ export function statsFromRows(all: UserRow[], fallback: UserFallback): UserStats
   return {
     total: all.length,
     versions: versionCounts(all),
+    recent: null,
     syncedAt: null,
     source: { via: 'rtdb', fallback },
   };

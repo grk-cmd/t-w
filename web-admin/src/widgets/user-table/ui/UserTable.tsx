@@ -3,6 +3,7 @@ import {
   LICENSE_LABEL,
   realName,
   useUserName,
+  type LastSeenOrder,
   currentVer,
   useUserPresence,
   verLabel,
@@ -66,9 +67,12 @@ interface Props {
   selection: Selection;
   /** 이름을 누르면 그 사람 상세를 연다. */
   onOpen: (uid: string) => void;
+  /** 마지막 접속 순서. null 이면 이 칸으로 정렬하지 않는 목록(«키 중복» 은 키 순서). */
+  order: LastSeenOrder | null;
+  onToggleOrder: () => void;
 }
 
-export function UserTable({ rows, startIndex, selection, onOpen }: Props) {
+export function UserTable({ rows, startIndex, selection, onOpen, order, onToggleOrder }: Props) {
   return (
     <div className={styles.wrap}>
       <table className={styles.table}>
@@ -89,7 +93,20 @@ export function UserTable({ rows, startIndex, selection, onOpen }: Props) {
             <th>라이선스</th>
             <th>집중</th>
             <th>가입</th>
-            <th>마지막 접속</th>
+            <th aria-sort={order === null ? undefined : order === 'desc' ? 'descending' : 'ascending'}>
+              {order === null ? (
+                '마지막 접속'
+              ) : (
+                <button
+                  type="button"
+                  className={styles.sort}
+                  onClick={onToggleOrder}
+                  title="눌러서 순서 바꾸기"
+                >
+                  마지막 접속 {order === 'desc' ? '▼' : '▲'}
+                </button>
+              )}
+            </th>
             <th>버전</th>
             <th />
           </tr>

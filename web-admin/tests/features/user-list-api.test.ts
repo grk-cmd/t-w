@@ -127,6 +127,17 @@ describe('사용자 목록 — API 로 읽기', () => {
     });
   });
 
+  it('마지막 접속 오래된 순만 sort 로 보낸다 · «키 중복» 은 서버의 키 순서 그대로', () => {
+    expect(queryParams({ ...ALL, order: 'asc' }).sort).toBe('lastSeen,asc');
+    expect(queryParams({ ...ALL, order: 'desc' }).sort).toBeUndefined();
+    expect(queryParams({ ...ALL, filter: 'dup-license', order: 'asc' }).sort).toBeUndefined();
+  });
+
+  it('예전 방식도 오래된 순이면 최근 순을 뒤집는다', () => {
+    const desc = queryUsers(ROWS, ALL).map((r) => r.userCode);
+    expect(queryUsers(ROWS, { ...ALL, order: 'asc' }).map((r) => r.userCode)).toEqual([...desc].reverse());
+  });
+
   it('같은 조건이면 API 와 예전 방식(통째 → 화면에서 거름)이 같은 줄 · 같은 개수', async () => {
     const queries: UserQuery[] = [
       ALL,
@@ -186,7 +197,24 @@ describe('사용자 목록 — API 로 읽기', () => {
         syncedAt: null,
         snapshotAt: null,
       }),
-    ).toMatchObject({ syncedAt: null, versions: [], source: { via: 'api' } });
+    ).toMatchObject({ syncedAt: null, versions: [], recent: null, source: { via: 'api' } });
+    // 최근 7일 줄은 따로 — 몫도 그 줄 안에서
+    expect(
+      statsFromApi({
+        total: 0,
+        accounts: 0,
+        versions: [{ ver: '0.11.3', count: 9 }],
+        recentVersions: [
+          { ver: '0.11.3', count: 3 },
+          { ver: null, count: 1 },
+        ],
+        syncedAt: null,
+        snapshotAt: null,
+      }).recent?.map((v) => [v.ver, v.count, v.share]),
+    ).toEqual([
+      ['0.11.3', 3, 0.75],
+      [null, 1, 0.25],
+    ]);
   });
 
   it('조건에 맞는 사람 전부 — 500명씩 쪽을 넘겨 순서대로 모은다', async () => {

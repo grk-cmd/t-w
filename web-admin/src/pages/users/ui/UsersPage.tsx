@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { userSourceNote, type UserQuery, type UserRow } from '@/entities/user';
+import { userSourceNote, type LastSeenOrder, type UserQuery, type UserRow } from '@/entities/user';
 import { DeleteAccountButton } from '@/features/user/delete-account';
 import {
   CreateInviteCodesButton,
@@ -44,8 +44,12 @@ export function UsersPage() {
   const [filter, setFilter] = useState<UserFilter>('all');
   const [search, setSearch] = useState<UserSearch>(NO_SEARCH);
   const [ver, setVer] = useState<VerFilter>(undefined);
+  const [order, setOrder] = useState<LastSeenOrder>('desc');
   const [openUid, setOpenUid] = useState<string | null>(null);
-  const query: UserQuery = useMemo(() => ({ filter, q: search.text, ver }), [filter, search.text, ver]);
+  const query: UserQuery = useMemo(
+    () => ({ filter, q: search.text, ver, order }),
+    [filter, search.text, ver, order],
+  );
 
   const periodOn = hasPeriod(search.period);
   const stats = useUserStats();
@@ -103,6 +107,10 @@ export function UsersPage() {
     setVer(next);
     firstPage();
   };
+  const toggleOrder = () => {
+    setOrder((o) => (o === 'desc' ? 'asc' : 'desc'));
+    firstPage();
+  };
   // 지운 사람은 목록에서 빠져야 한다 — 상세 창을 닫고 다시 읽는다.
   const afterDelete = () => {
     setOpenUid(null);
@@ -136,7 +144,11 @@ export function UsersPage() {
           새로고침
         </button>
       </div>
-      {stats.data && <VersionSummary counts={stats.data.versions} value={ver} onChange={changeVer} />}
+      {stats.data && (
+        <VersionSummary counts={stats.data.versions} filter={{ value: ver, onChange: changeVer }} />
+      )}
+      {/* 최근 7일은 보기만 — 누르는 칩(위)과 기준이 달라 섞이면 헷갈린다 */}
+      {stats.data?.recent && <VersionSummary counts={stats.data.recent} title="최근 7일 접속 · 버전별" />}
       <UserFilterBar filter={filter} search={search} onFilterChange={changeFilter} onSearch={changeSearch} />
       {error && <p className="msg err">{errorMessage(error, '사용자 목록을 불러오지 못했어요')}</p>}
       {!error && !loaded && <p className="soft">불러오는 중…</p>}
@@ -146,7 +158,14 @@ export function UsersPage() {
             <GrantInvitesSelectedButton uids={selection.selected} onDone={selection.clear} />
             <RevokeInvitesSelectedButton uids={selection.selected} onDone={selection.clear} />
           </SelectionBar>
-          <UserTable rows={items} startIndex={paging.start} selection={selection} onOpen={setOpenUid} />
+          <UserTable
+            rows={items}
+            startIndex={paging.start}
+            selection={selection}
+            onOpen={setOpenUid}
+            order={filter === 'dup-license' ? null : order}
+            onToggleOrder={toggleOrder}
+          />
           <UserDetail
             row={openRow}
             onOpen={setOpenUid}

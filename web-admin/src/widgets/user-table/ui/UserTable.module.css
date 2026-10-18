@@ -56,3 +56,14 @@
 .open:hover {
   color: var(--accent);
 }
+
+/* 머리 칸 정렬 버튼 — 머리 글자처럼 보이게. */
+.sort {
+  padding: 0;
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}

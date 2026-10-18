@@ -35,6 +35,8 @@ export function queryParams(query: UserQuery): ApiParams {
     filter: query.filter === 'all' ? undefined : query.filter,
     // null = 버전 기록 없는 계정 — 서버는 «none» 으로 받는다
     ver: query.ver === undefined ? undefined : (query.ver ?? 'none'),
+    // 기본(최근부터)은 보내지 않는다 — «키 중복» 은 서버가 키 순서로 정한다
+    sort: query.order === 'asc' && query.filter !== 'dup-license' ? 'lastSeen,asc' : undefined,
   };
 }
 
