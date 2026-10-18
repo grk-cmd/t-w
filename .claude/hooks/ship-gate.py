@@ -13,6 +13,8 @@
 """
 import json, os, re, shlex, subprocess, sys
 
+sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를 만들어 작업 트리를 더럽히지 않게
+
 REPO = 'grk-cmd/t-w'
 PROTECTED = re.compile(r'^(main|release/.+)$')
 FROM_MAIN = ('hotfix/', 'harness/')
@@ -78,34 +80,59 @@ def check_merge(toks):
              f'둘 다 통과해야 머지할 수 있다. 커밋을 더 올렸으면 다시 돌린다.')
 
 
-def check_self_approve(cmd, cwd):
-    if not re.search(r'\bgh\b', cmd):
-        return
-    if re.search(r'\bgh\s+pr\s+review\b', cmd) and re.search(r'(^|\s)(--approve|-a)(\s|$)', cmd):
-        deny('승인(Approve)은 승인자가 GitHub 화면에서 직접 한다 — 세션이 남기지 않는다.')
-    if re.search(r'/reviews\b', cmd) and re.search(r'APPROVE', cmd):
-        deny('승인(Approve)은 승인자가 GitHub 화면에서 직접 한다 — 세션이 남기지 않는다.')
-    if not re.search(r'/comments\b|\bgh\s+(pr|issue)\s+comment\b', cmd):
-        return
-    texts = [cmd]
-    try:
-        toks = shlex.split(cmd)
-    except ValueError:
-        toks = cmd.split()
-    for j, t in enumerate(toks):   # 인자 값만 따로 — 한 줄로 쓴 본문은 명령 글에서는 «한 줄 전체» 가 아니다
-        if '=' in t:
-            texts.append(t.split('=', 1)[1])
-        if t in ('--body', '-b') and j + 1 < len(toks):
-            texts.append(toks[j + 1])
-    for m in re.finditer(r'(?:body=@|--body-file[ =]|-F\s*\S*=@)(\S+)', cmd):
-        path = os.path.join(cwd, os.path.expanduser(m.group(1).strip('\'"')))
+LOOSE_APPROVE = re.compile(r'승인[\s\u3000]+[0-9a-f]{7,40}\b')   # 명령 글 · 파일 어디든 — 표준입력 · $(…) 로 들어오는 본문까지
+WRITE_FLAGS = ('-f', '-F', '--field', '--raw-field', '--input')
+
+
+def _files_in(cmd, cwd):
+    """명령에 나온 파일(@파일 · -F/--body-file/--input 파일 · $(cat 파일) · < 파일)을 읽는다 — 본문이 파일로 들어오는 길."""
+    out = []
+    for raw in re.findall(r'[^\s\'"`()<>|;&=]+', cmd):
+        path = os.path.join(cwd, os.path.expanduser(raw.lstrip('@')))
+        if raw in ('-', '@-') or not os.path.isfile(path) or os.path.getsize(path) > 1_000_000:
+            continue
         try:
-            texts.append(open(path, encoding='utf-8').read())
+            text = open(path, encoding='utf-8', errors='replace').read()
         except OSError:
+            continue
+        out.append(text)
+        try:   # --input 파일.json 은 한글을 \\uXXXX 로 적는다
+            out.append(json.dumps(json.loads(text), ensure_ascii=False))
+        except ValueError:
             pass
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import risk
-    if any(risk.APPROVE_LINE.search(t) for t in texts):
+    return out
+
+
+def _no_backticks(text):
+    return re.sub(r'`[^`\n]*`', '', text)   # 승인 요청 본문은 붙여 넣을 한 줄을 백틱으로 감싼다
+
+
+def check_self_approve(cmd, cwd):
+    """세션이 승인(Approve 리뷰 · «승인 <커밋>» 코멘트)을 남기는 명령을 막는다. 읽기는 막지 않는다.
+    실수 막기다 — 본문을 실행할 때 조립하거나(printf 형식 · 변수) gh 밖(curl · 스크립트)으로 부르면 못 본다.
+    세션도 승인자 계정이라 GitHub 에서도 사람과 가를 수 없다."""
+    is_comment = False
+    for toks in segments(cmd):
+        if toks[0] != 'gh':
+            continue
+        if toks[1:3] == ['pr', 'review'] and any(t in ('--approve', '-a') or t.startswith('--approve=') for t in toks[3:]):
+            deny('승인(Approve)은 승인자가 GitHub 화면에서 직접 한다 — 세션이 남기지 않는다.')
+        if toks[1:3] in (['pr', 'comment'], ['issue', 'comment']):
+            is_comment = True
+        if toks[1:2] != ['api']:
+            continue
+        joined = ' '.join(toks)
+        writes = any(t in WRITE_FLAGS or t.startswith(('--field=', '--raw-field=', '--input=')) for t in toks) or \
+            re.search(r'(-X|--method)[ =]?(POST|PUT|PATCH)', joined)
+        if not writes:
+            continue
+        if (re.search(r'/reviews\b', joined) or re.search(r'(add|submit)PullRequestReview', joined)) and re.search(r'APPROVE', joined, re.I):
+            deny('승인(Approve)은 승인자가 GitHub 화면에서 직접 한다 — 세션이 남기지 않는다.')
+        if re.search(r'/comments\b|\b(addComment|updateIssueComment)\b', joined):
+            is_comment = True
+    if not is_comment:
+        return
+    if any(LOOSE_APPROVE.search(_no_backticks(t)) for t in [cmd] + _files_in(cmd, cwd)):
         deny('«승인 <커밋>» 코멘트는 승인자가 GitHub 화면에서 직접 단다 — 세션이 남기지 않는다(승인 요청 본문에는 이 한 줄을 `코드` 로 감싸 적는다).')
 
 

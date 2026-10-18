@@ -83,8 +83,11 @@ def owner_approved(pr, head_sha):
         return False
     reviews = [r for r in _rows(api(f'repos/{REPO}/pulls/{pr}/reviews?per_page=100'))
                if (r.get('user') or {}).get('login') == OWNER and r.get('state') in ('APPROVED', 'CHANGES_REQUESTED', 'DISMISSED')]
-    if reviews and reviews[-1].get('commit_id') == head_sha:
-        return reviews[-1]['state'] == 'APPROVED'   # 그 커밋에 Request changes 를 했으면 코멘트로 덮지 않는다
+    last = reviews[-1] if reviews else {}
+    if last.get('commit_id') == head_sha and last.get('state') == 'APPROVED':
+        return True
+    if last.get('commit_id') == head_sha and last.get('state') == 'CHANGES_REQUESTED':
+        return False   # 그 커밋에 Request changes 를 했으면 코멘트로 덮지 않는다
     comments = _rows(api(f'repos/{REPO}/issues/{pr}/comments?per_page=100'))
     return any((c.get('user') or {}).get('login') == OWNER and comment_approves(c.get('body'), head_sha) for c in comments)
 
