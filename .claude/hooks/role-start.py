@@ -9,7 +9,7 @@
 git 과 `gh api`(REST)만 쓴다 — 웹 세션은 `gh pr` 이 막혀 있고 이 PC 전용 도구(Orca · 브랜치 장부)는 거기 없다.
 무엇이 실패해도 세션은 열린다(요약 자리에 «못 불러옴» 만).
 """
-import json, os, re, subprocess, sys, unicodedata
+import json, os, re, subprocess, sys, time, unicodedata
 
 REPO = 'grk-cmd/t-w'
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +25,8 @@ CUT = 60            # 제목 · 내용 자르는 길이
 FROM_MAIN_MERGE = re.compile(r"^Merge (pull request #\d+ from [\w.-]+/main|branch 'main'|remote-tracking branch 'origin/main')")
 GIT_TIMEOUT = 10
 FETCH_TIMEOUT = 15
+# settings.json 의 hook 상한(40초)보다 짧게 — 상한에 끊기면 «못 불러옴» 줄도 없이 판 질문이 통째로 빠진다
+BUDGET = 30
 
 
 # ── 순수 계산 ──────────────────────────────────────────────
@@ -35,7 +37,7 @@ def role_text(title, roles):
     title = unicodedata.normalize('NFC', (title or '').strip())
     if not title or title == COMMON[:-3] or title not in roles:
         return None
-    return roles.get(COMMON[:-3], '').rstrip() + '\n\n' + roles[title].rstrip()
+    return '\n\n'.join(t for t in (roles.get(COMMON[:-3], '').rstrip(), roles[title].rstrip()) if t)
 
 
 def needs_pick(role, branch, source):
@@ -160,31 +162,45 @@ def sh(args, cwd, timeout=GIT_TIMEOUT):
     return p.stdout
 
 
-def gather(cwd):
+def gather(cwd, budget=BUDGET):
+    end = time.monotonic() + budget
+
+    def run(args, timeout=GIT_TIMEOUT):
+        left = end - time.monotonic()
+        if left < 1:
+            raise TimeoutError(f'시간 예산 {budget}초를 넘음')
+        return sh(args, cwd, min(timeout, left))
+
     facts = {'notes': [], 'releases': {}, 'prs': None, 'status': None, 'overlaps': []}
     try:
-        sh(['git', 'fetch', '-q', 'origin'], cwd, FETCH_TIMEOUT)
+        # --prune: 원격에서 지운 판 브랜치가 이 PC 사본에 남아 계속 «열린 판» 으로 보이지 않게
+        run(['git', 'fetch', '-q', '--prune', 'origin'], FETCH_TIMEOUT)
     except Exception as e:
         facts['notes'].append(f'git fetch 실패 — 이 PC 에 받아 둔 origin 기준이다({cut(str(e), 60)})')
-    refs = sh(['git', 'for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin/release/'], cwd).split()
+    refs = run(['git', 'for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin/release/']).split()
     files = {}
     for ref in refs:
         name = ref[len('origin/release/'):]
         span = f'origin/main..{ref}'
-        ahead = int(sh(['git', 'rev-list', '--count', '--no-merges', span], cwd).strip() or 0)
-        subjects = [s for s in sh(['git', 'log', '--first-parent', f'-{RECENT * 2}', '--format=%s', span], cwd).splitlines()
-                    if not FROM_MAIN_MERGE.search(s)][:RECENT]
+        try:
+            ahead = int(run(['git', 'rev-list', '--count', '--no-merges', span]).strip() or 0)
+            subjects = [s for s in run(['git', 'log', '--first-parent', f'-{RECENT * 2}', '--format=%s', span]).splitlines()
+                        if not FROM_MAIN_MERGE.search(s)][:RECENT]
+            changed = run(['git', 'diff', '--name-only', f'origin/main...{ref}']).split()
+        except Exception as e:
+            facts['notes'].append(f'release/{name} 부터 판을 못 읽음({cut(str(e), 60)})')
+            break
         facts['releases'][name] = {'ahead': ahead, 'subjects': subjects}
-        files[name] = sh(['git', 'diff', '--name-only', f'origin/main...{ref}'], cwd).split()
+        files[name] = changed
     facts['overlaps'] = overlaps(files)
     try:
-        raw = sh(['gh', 'api', f'repos/{REPO}/pulls?state=open&per_page=100', '--jq',
-                  '[.[] | {number, title, head: .head.ref, base: .base.ref}]'], cwd)
+        raw = run(['gh', 'api', f'repos/{REPO}/pulls?state=open&per_page=100', '--jq',
+                   '[.[] | {number, title, head: .head.ref, base: .base.ref}]'])
         facts['prs'] = json.loads(raw or '[]')
     except Exception as e:
         facts['notes'].append(f'열린 PR 을 못 읽음 — gh api 실패({cut(str(e), 60)})')
     try:
-        facts['status'] = parse_status(sh(['git', 'show', f'origin/main:{STATUS_FILE}'], cwd))
+        facts['status'] = parse_status(run(['git', 'show', f'origin/main:{STATUS_FILE}']))
     except Exception as e:
         facts['notes'].append(f'현황판을 못 읽음({cut(str(e), 60)})')
     return facts

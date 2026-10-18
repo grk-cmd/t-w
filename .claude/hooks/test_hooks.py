@@ -174,6 +174,7 @@ role_cases = [
     ('None 이름', rs.role_text(None, ROLES), None),
     ('모르는 이름', rs.role_text('아무개', ROLES), None),
     ('공통 파일 이름은 역할 아님', rs.role_text('_공통', ROLES), None),
+    ('공통 파일이 없으면 역할 글만', rs.role_text('서버담당', {'서버담당': '서버글'}), '서버글'),
     ('판 묻기: main 새 세션', rs.needs_pick('서버담당', 'main', 'startup'), True),
     ('판 묻기: 이름 없는 세션도', rs.needs_pick(None, 'main', 'startup'), True),
     ('판 묻기: /clear', rs.needs_pick(None, 'release/0.12.0', 'clear'), True),
@@ -224,6 +225,33 @@ t = rs.render({'notes': [], 'releases': {}, 'prs': [], 'status': []})
 has('요약: 판 없음', t, '열린 판 브랜치(`release/*`)가 없다', absent=('판끼리',))
 t = rs.render(dict(FACTS, releases={'0.12.0': FACTS['releases']['0.12.0']}, overlaps=[]))
 has('요약: 판 하나면 겹침 칸 없음', t, '### release/0.12.0', absent=('판끼리 겹치는',))
+
+# 시간 예산 — 명령 하나에 5초씩 걸리는 셈으로 시계를 돌려, 예산을 넘으면 거기서 멈추고 «못 읽음» 을 남기는가
+class FakeTime:
+    now = 0.0
+    @classmethod
+    def monotonic(cls):
+        return cls.now
+calls = []
+def slow_sh(args, cwd, timeout=10):
+    calls.append((args[1], timeout))
+    FakeTime.now += 5
+    if args[1] == 'for-each-ref':
+        return 'origin/release/0.12.0\norigin/release/0.13.0\n'
+    return '1\n' if args[1] == 'rev-list' else ''
+real_time, real_sh = rs.time, rs.sh
+rs.time, rs.sh = FakeTime, slow_sh
+try:
+    f = rs.gather(CWD, budget=12)
+finally:
+    rs.time, rs.sh = real_time, real_sh
+notes = ' '.join(f['notes'])
+has('예산: 넘으면 판 읽기를 멈추고 남은 것은 «못 읽음»', notes, 'release/0.12.0 부터 판을 못 읽음', '시간 예산 12초', '열린 PR 을 못 읽음', '현황판을 못 읽음')
+if f['releases'] == {} and f['prs'] is None and [c for c, _ in calls] == ['fetch', 'for-each-ref', 'rev-list'] and [t for _, t in calls] == [12, 7, 2]:
+    ok += 1
+else:
+    bad += 1
+    print(f'  ✗ 시작 hook: 예산 — 반쯤 읽은 판을 넣었거나 명령을 더 돌림 {f["releases"]} {calls}')
 
 # 실제로 실행 — git 저장소가 아닌 곳 · 깨진 입력에도 세션을 막지 않는가(종료 0 · JSON 한 줄)
 RS = os.path.join(HERE, 'role-start.py')
