@@ -34,6 +34,7 @@ const _mhViewingDisplayName = deps._mhViewingDisplayName;
 const setMyHomeData = deps.setMyHomeData;   // 쓰는 함수
 const setMhViewingUserId = deps.setMhViewingUserId;   // 쓰는 함수
 const setMhViewingName = deps.setMhViewingName;   // 쓰는 함수
+const refreshFriendProfile = deps.refreshFriendProfile;   // (fid) → Promise<bool> — 친구면 이름 · 레벨을 새로 읽어 목록에 얹는다(friends-sub.js)
 let _mhMyDataBackup = null;
 async function openFriendHomeView(friendId, nameHint){
   if(!friendId || friendId===getMyUserId()) return;
@@ -69,19 +70,27 @@ async function openFriendHomeView(friendId, nameHint){
     overlay.querySelectorAll('.mh-page').forEach(p=>p.classList.toggle('on', p.id==='mhPageHome'));
     _mhApplyVisitUI();
     renderMyHomePage();
-    /* 🏷️ 이름을 아직 모르면(친구도 아니고 힌트도 없음) 프로필에서 한 번 읽어 온다.
-       · getUserNameById 는 users/{uid}/profile 을 읽는데 그 경로의 .read 는 원래 열려 있어서
-         규칙 파일은 손댈 게 없다. 이름 한 줄이라 비용도 무시할 수준.
-       · 여기 있으니 파도타기뿐 아니라 앞으로 생길 다른 진입 경로도 자동으로 덮인다.
+    /* 🏷️ 이름은 받아 둔 것(목록 · 힌트)으로 먼저 그리고, 새로 받은 값이 다르면 바꾼다.
+       · 친구면 그 친구 프로필만 한 번 새로 읽는다(friends-sub refreshProfile — 목록이 열려 있으면 이미 듣고 있어 읽지 않는다).
+         목록은 이름을 실시간으로 듣는 게 «열려 있는 동안» 뿐이라, 닫힌 채 들어오면 목록의 이름이 옛것일 수 있다.
+       · 친구가 아니고 이름도 모르면(힌트 없음) 프로필에서 이름 한 줄(getUserNameById — users/{uid}/profile · .read 는 원래 열려 있다).
        ⚠️ 조회가 끝나기 전에 다른 홈으로 넘어갔거나 관람을 닫았으면 결과를 버린다 —
           안 그러면 방금 나온 사람의 이름이 다음 화면에 뒤늦게 찍힌다. */
-    if(!_mhViewingName() && !(_myHomeFriends()[friendId] && _myHomeFriends()[friendId].name) && firebaseAPI.getUserNameById){
-      Promise.resolve(firebaseAPI.getUserNameById(friendId)).then(n=>{
-        if(_mhViewingUserId() !== friendId || !n) return;
-        setMhViewingName(String(n));
-        _mhApplyVisitUI(); renderMyHomePage();
-      }).catch(()=>{});
-    }
+    const shownName = _mhViewingDisplayName();
+    Promise.resolve(refreshFriendProfile ? refreshFriendProfile(friendId) : false).catch(()=>false).then(fresh=>{
+      if(_mhViewingUserId() !== friendId) return;
+      if(fresh){
+        if(_mhViewingDisplayName() !== shownName){ _mhApplyVisitUI(); renderMyHomePage(); }
+        return;
+      }
+      if(!_mhViewingName() && !(_myHomeFriends()[friendId] && _myHomeFriends()[friendId].name) && firebaseAPI.getUserNameById){
+        Promise.resolve(firebaseAPI.getUserNameById(friendId)).then(n=>{
+          if(_mhViewingUserId() !== friendId || !n) return;
+          setMhViewingName(String(n));
+          _mhApplyVisitUI(); renderMyHomePage();
+        }).catch(()=>{});
+      }
+    });
     window._mhReSubscribeGuestbook();
     window._mhGbRefreshBadge();   // 관람 모드 → 자기 방명록 뱃지 숨김
     // 👀 스케줄러도 친구 것으로 — 달력(공개 일정만) + D-day(공개만) 구독 전환
