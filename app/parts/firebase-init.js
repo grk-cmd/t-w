@@ -315,7 +315,7 @@
     const _secret = typeof code === 'string' && code.indexOf('SCRT-') === 0;
     _presenceRoom = (_secret ? null : (code || null));
     _presenceInRoom = !!code;
-    if(_myPresenceRef && _presenceOnline) update(_myPresenceRef, { room: _presenceRoom, inRoom: _presenceInRoom, lastSeen: Date.now() });
+    if(_myPresenceRef && _presenceOnline) update(_myPresenceRef, _appVer.withVer({ room: _presenceRoom, inRoom: _presenceInRoom, lastSeen: Date.now() }));
   }
 
   // ★ Firebase 사용량 절감: 카탈로그 GLB(수백KB~1MB)를 Realtime Database 대신 Storage에 저장.
@@ -422,6 +422,8 @@
   });
   const _roomStats = createRoomStats({ db, ref, get, onValue, now: () => _svNow() });
   /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
+     ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
+       옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
      버전보다 presence 가 먼저 쓰였으면 받은 뒤 ver 만 update 하고 onDisconnect 도 ver 를 실어 다시 건다. */
   const _appVer = createAppVersion({
     getVersion: () => (window.companion && window.companion.getAppVersion) ? window.companion.getAppVersion() : null,
@@ -1347,7 +1349,9 @@
       /* 🚧 presence 도 소유권이 걸린 가지다 — 세션 복원 전에 쓰면 조용히 거부되고,
          그 기기는 친구 목록에서 영영 오프라인으로 보인다(재접속 복구가 돌기 전까지).
          ⚠️ .info/connected 쪽은 감싸지 않는다. 그건 이미 부팅이 한참 지난 뒤의 경로다. */
-      _whenAuthReady().then(_armPresence);
+      /* 처음 쓰기는 버전을 받은 뒤 — 'unknown' 으로 먼저 쓰고 메우는 쓰기 두 번을 줄인다(IPC 라 보통 로그인보다 빠르다).
+         ready 는 못 받아도 null 로 끝나고(거부 없음), 그 전에 .info/connected 가 먼저 오면 그쪽이 'unknown' 으로 쓴다. */
+      _whenAuthReady().then(() => _appVer.ready).then(_armPresence);
       /* 🔌 재접속 복구 — **이게 없으면 한 번 끊긴 사람은 영영 오프라인이다.**
          [기전] 화면 잠금·절전·와이파이 전환으로 소켓이 끊기면 서버가 위 onDisconnect 를 실행해
            presence.online 을 false 로 만든다. 여기까지는 의도된 동작이다.
@@ -1380,7 +1384,7 @@
       try{
         setInterval(()=>{
           if(!_myPresenceRef) return;
-          try{ update(_myPresenceRef, { lastSeen: Date.now() }); }catch(_){}
+          try{ update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() })); }catch(_){}
         }, 6 * 60 * 60 * 1000);
       }catch(_){}
     },
