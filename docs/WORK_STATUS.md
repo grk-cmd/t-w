@@ -26,6 +26,7 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
+| 친구 이름 실시간 복구 | 친구 실시간 세션 | 포트 개편 뒤 친구가 이름을 바꿔도 목록 · 마이홈 구경에 안 바뀌던 회귀 — 목록이 열려 있는 동안 친구 프로필(users/{fid}/profile)도 듣기 · 마이홈 구경 이름 갱신 · 0.11.4 | `app/parts/friends/`(port · firebase · api · README) · `app/parts/myhome/friends-sub.js` · `app/parts/myhome/myhome-visit.js` · `checks/sim-friends-*.js` · `checks/CHECKS.md` | — |
 | 채팅 보내면 읽음 갱신 | 채팅 읽음 세션 | 투게더룸에서 보내고 바로 나갔다 들어오면 내 메시지가 «안 읽음 1» — 보낸 메시지가 서버에 들어가 진짜 시각이 정해지면 그 메시지까지를 그 채널 읽음으로 저장(앞으로만) | `app/parts/chat/chat-ui.js` · `app/parts/firebase-init.js`(sendChatLog 안 — 쓴 줄 id · 서버 시각 돌려주기만) · `checks/sim-chat-read-on-send.js`(새) · `checks/CHECKS.md` | — |
 | 안내 문구 셋 고침 | grk 튜토리얼 세션(claude/vibrant-hypatia-gotvcy) | 튜토리얼 대조에서 나온 틀린 안내 — 💣 버튼 설명(실제는 남을 날림) · 좌석 친구 신청 안내(우클릭 → 메뉴 다시 고르기) · 🎯 집중 달성표 힌트(자정 → 오전 6시) · 0.11.4 뒤 합침 | `desk-companion-prototype.html`(#chatBombBtn title · #chalFocusHint 두 줄) · `myhome/seat-friend-req.js` · `checks/sim-seat-friend-req.js` · `checks/CHECKS.md` | — |
 | ~~#377 친구 명함(켠 뒤 새 친구 이름 · 사진)~~ 머지(개정 384) | 검증 담당 | #377 브랜치에 main 합침(force 없음) | `checks/CHECKS.md` | #377 |
