@@ -1,6 +1,7 @@
-# ═══ 🧪 deploy-dev — main 에 규칙이 바뀌어 올라오면 dev 프로젝트에 자동 반영 ═══════════════
+# ═══ 🧪 deploy-dev — 판 브랜치에 규칙이 바뀌어 올라오면 dev 프로젝트에 자동 반영 ═══════════════
 # [2026-10-03] dev 와 운영 배포를 나눈다.
-#   dev  : main push (규칙 파일이 바뀐 커밋만) → together-working-dev  — 승인 없음
+#   dev  : 판 브랜치(release/*) push (규칙 파일이 바뀐 커밋만) → together-working-dev  — 승인 없음
+#          판 브랜치가 둘 열려 있으면 마지막에 push 된 쪽 규칙이 dev 에 남는다(10-19 판 브랜치로 바꿈)
 #   운영 : 버전 태그(v*) push → release.yml 의 «규칙(운영)» 잡           — production 환경 승인 필요
 # 🔐 인증은 Workload Identity Federation(키 파일 없음). GCP 쪽 조건이 «이 저장소 + dev/production 환경» 일 때만
 #   토큰을 준다. vars.GCP_WIF_PROVIDER / vars.GCP_SA_EMAIL 이 비어 있으면(설정 전) 이 잡은 건너뛴다.
@@ -9,7 +10,7 @@ name: deploy-dev
 
 on:
   push:
-    branches: [main]
+    branches: ['release/**']
     paths: ['firebase-database-rules.json']
   workflow_dispatch:
 
