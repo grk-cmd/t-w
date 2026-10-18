@@ -50,6 +50,7 @@ cases=[
  # 막으면 안 되는 것
  ('백틱 승인 요청', f'gh api {R}/issues/395/comments -f body="@mihioon 승인 요청 — 위험도 높음\n다음 한 줄: `{A}`"', False),
  ('백틱 요청 파일', 'gh pr comment 395 --body-file req.md', False),
+ ('백틱 요청 heredoc(/ship 모양)', f"gh api {R}/issues/395/comments -F body=@- <<'EOF'\n@mihioon 승인 요청 — 위험도 높음\n다음 한 줄: `{A}`\nEOF", False),
  ('보통 코멘트', 'gh pr comment 395 -b "확인했습니다"', False),
  ('Request changes', 'gh pr review 395 --request-changes -b "고칠 것"', False),
  ('pr review --comment', 'gh pr review 395 --comment -b "메모"', False),
@@ -125,6 +126,28 @@ if risk.owner_approved(395, '') is False and risk.owner_approved(395, None) is F
 else:
     bad += 1
     print('  ✗ 판정 머리 커밋 없음')
+
+# 머지 가드 — 위험도 · 승인을 못 읽으면(GitHub API 실패) 막는가
+import importlib.util, io, contextlib
+spec = importlib.util.spec_from_file_location('ship_gate', G)
+gate = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(gate)
+gate.gate_ok = lambda pr: (True, '')
+gate.run = lambda *a, **k: S
+def boom(pr):
+    raise RuntimeError('gh api 실패(시험)')
+risk.assess = boom
+buf = io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf):
+        gate.check_merge(['gh', 'pr', 'merge', '395'])
+except SystemExit:
+    pass
+if '"deny"' in buf.getvalue():
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ 머지 가드: API 실패인데 막지 않음')
 
 print(f'{"✓" if not bad else "✗"} 통과 {ok} · 실패 {bad}')
 sys.exit(1 if bad else 0)

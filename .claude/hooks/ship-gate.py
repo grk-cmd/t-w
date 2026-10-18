@@ -69,9 +69,13 @@ def check_merge(toks):
     if ok:
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import risk
-        r = risk.assess(pr)
-        sha = run('gh', 'api', f'repos/{REPO}/pulls/{pr}', '--jq', '.head.sha')
-        if r['high'] and not risk.owner_approved(pr, sha):
+        try:   # 위험도 · 승인을 못 읽으면 막는다 — 맨 아래 «가드 오류면 통과» 로 새면 승인 없이 머지된다
+            r = risk.assess(pr)
+            sha = run('gh', 'api', f'repos/{REPO}/pulls/{pr}', '--jq', '.head.sha')
+            approved = not r['high'] or risk.owner_approved(pr, sha)
+        except Exception as e:
+            deny(f'#{pr} 위험도 · 승인을 읽지 못해 머지를 막았다({str(e)[:120]}) — 잠시 뒤 다시.')
+        if not approved:
             deny(f'#{pr} 은 위험도 높음({"; ".join(r["reasons"][:4])}) — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 하거나 «승인 {(sha or "")[:7]}» 코멘트를 달아야 머지한다. '
                  f'`/ship` 이 PR 에 설계 요약을 남기고 «승인 대기» 로 멈춘다.')
         return
