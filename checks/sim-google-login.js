@@ -471,7 +471,10 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
         const AS_READ = "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)";
         chk(R.accountSnap && R.accountSnap['.read'] === AS_READ && R.accountSnap['.write'] === undefined,
             'accountSnap 모음은 관리자(와 관리자 서버 봇)만 읽고, 모음째 쓰기는 없다');
-        chk(AS['.read'] === OWN_ONLY && AS['.write'] === OWN_ONLY, 'accountSnap/{코드} 는 결속된 주인만 읽고 쓴다 (미결속 갈래 없음)');
+        /* 쓰기 뒤에 ≤0.10.2 막기(presence ver · 개정 374)가 && 로만 붙는다 — 갈래(||)가 늘면 안 된다 */
+        const asW = String(AS['.write'] || '');
+        chk(AS['.read'] === OWN_ONLY && (asW === OWN_ONLY || (asW.indexOf(OWN_ONLY + " && (root.child('users/'+$userId+'/presence/ver').exists()") === 0)),
+            'accountSnap/{코드} 는 결속된 주인만 읽고 쓴다 (미결속 갈래 없음)');
         chk(AS.license && /length <= 40/.test(AS.license['.validate']) && AS.friendCode && /length <= 12/.test(AS.friendCode['.validate'])
             && AS.name && /length <= 40/.test(AS.name['.validate']) && AS.focusTotalSec && /359640000/.test(AS.focusTotalSec['.validate'])
             && AS.$other && AS.$other['.validate'] === false && /hasChildren\(\['ts'\]\)/.test(AS['.validate']),
@@ -481,6 +484,16 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
       ['profile','home','presence','friendCode','playlist','gacha',
        'chal','emojis','schedule','ddays','focus','secretRoom','advBg','mallang']
         .forEach(k => chk(!!U[k] && OWN.test(String(U[k]['.write'])), 'users/' + k + ' 은 주인만 쓴다'));
+      /* 🚧 ≤0.10.2 막기(개정 374) — presence 가 켜짐인데 ver 가 없으면(옛 앱이 켜져 있음) 자기 칸 쓰기를 막는다.
+         presence 는 표지라 막지 않는다 · 가입 · 이전 길(friendCode · invite · transfer*)과 기기 세션도 막지 않는다. */
+      {
+        const GATE = "(root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)";
+        const gated = ['profile','home','focus','playlist','gacha','chal','emojis','schedule','ddays','advBg','mallang','slots','slotsPrev','chars','charsMeta','awayImg','awaySz'];
+        chk(gated.every(k => String((U[k] || {})['.write']).indexOf(GATE) >= 0), 'users/' + gated.length + '칸 쓰기에 옛 앱 막기가 붙었다');
+        chk(['presence','friendCode','invite','transferHash','transferData','session'].every(k => String((U[k] || {})['.write']).indexOf('presence/ver') < 0),
+            '  presence(표지) · 가입 · 이전 · 기기 세션 길은 막지 않는다');
+        chk(String(((U.clap || {}).count || {})['.write']) === 'true', '  박수 +1 은 쓰는 사람을 몰라 그대로 누구나');
+      }
       /* 이쪽은 **열려 있어야 한다.** 잠그면 친구 수락·방명록·박수·선물이 조용히 전부 죽는다
          (전부 남의 users 노드에 쓰는 기능이다 — acceptFriendRequest, writeGuestbook,
           clapOnce, sendMallangGift, 일정 알림). */

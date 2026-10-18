@@ -39,6 +39,8 @@ const TS = { '.sv': 'timestamp' };
 const OWNER = '!owner';
 const ADMIN_A = 'adminA';
 const MEMBER2 = 'mabc67890';
+const OLD_U = 'uoldver00001';   // ≤0.10.2 앱을 켠 사람(로그인에 안 묶임)
+const NEW_U = 'unewacct0001';   // 0.11 로 새로 가입하는 사람
 const URL_S = 'https://firebasestorage.googleapis.com/v0/b/x/o/users%2Fu%2Fa.png?alt=media&token=abc';
 const FUTURE = Date.now() + 10 * 60 * 1000;
 const DEF = { v: 2, skin: '#ffddcc', faceUrl: URL_S, blinkUrl: URL_S, equippedParts: [{ id: 'p1', xf: { s: 1, y: 0.1 } }], scale: 1, animal: false };
@@ -184,6 +186,50 @@ const LIMIT_CASES = [
   ['포커스 — 모르는 칸', 'PUT', `users/${GOOD_U}/focus`, { totalSec: 1, junk: 1 }, false],
   ['프로필 — 통째(레벨 · 회차 · 별 색)', 'PUT', `users/${GOOD_U}/profile`, { name: '민수', updatedAt: 1, level: 120, cyc: 1, clv: 3, starC: '#ff00aa' }, true],
   ['프로필 — 모르는 칸', 'PUT', `users/${GOOD_U}/profile`, { name: '민수', junk: 1 }, false],
+
+  /* 🚧 ≤0.10.2 막기 — 0.11.0 부터 presence 에 ver 를 싣는다. «presence 가 켜짐(online:true)인데 ver 가 없다» = 지금 ≤0.10.2 앱이 켜져 있다.
+     그동안 그 사람 코드의 자기 칸 쓰기 · 남에게 보내는 쓰기를 막는다. presence 자체는 막지 않는다(그게 표지다). */
+  ['옛 앱 — 0.10.2 모양 presence 켜기(ver 없음)는 받는다(표지)', 'PUT', `users/${OLD_U}/presence`, { online: true, lastSeen: 1, room: null, inRoom: false }, true],
+  ['옛 앱 — 프로필', 'PUT', `users/${OLD_U}/profile`, { name: '옛앱', updatedAt: 1, level: 3 }, false],
+  ['옛 앱 — 슬롯', 'PUT', `users/${OLD_U}/slots`, { ts: 1, v: 1, s: { 0: '{}' } }, false],
+  ['옛 앱 — 포커스', 'PUT', `users/${OLD_U}/focus/totalSec`, 10, false],
+  ['옛 앱 — 마이홈', 'PUT', `users/${OLD_U}/home`, { bio: 'a' }, false],
+  ['옛 앱 — 랭킹', 'PUT', `leaderboard/${OLD_U}`, { sec: 1, ts: TS }, false],
+  ['옛 앱 — 파도타기 색인', 'PUT', `playlistIndex/${OLD_U}`, { name: 'a', n: 1, ts: 1 }, false],
+  ['옛 앱 — 말랑이', 'PUT', `users/${OLD_U}/mallang`, { imgs: [URL_S] }, false],
+  ['옛 앱 — 박수 그림', 'PATCH', `users/${OLD_U}/clap`, { img: URL_S }, false],
+  ['옛 앱 — 내 우편함 쓰기', 'PUT', `inbox/${OLD_U}/m1old`, { tag: 'notice', title: 'a', ts: 1, read: true }, false],
+  ['옛 앱 — 관리자가 그 사람 우편함에 보내기는 그대로', 'PUT', `inbox/${OLD_U}/m2old`, { tag: 'reward', title: '보상', ts: 1, read: false }, true, ADMIN_A],
+  ['옛 앱 — 친구 요청 보내기', 'PATCH', '', { [`friendRequests/${GOOD_U2}/${OLD_U}`]: { name: '옛앱', ts: 1 }, [`sentFriendRequests/${OLD_U}/${GOOD_U2}`]: { ts: 1 } }, false],
+  ['옛 앱 — 방 초대 보내기', 'PUT', `roomInvites/${GOOD_U2}/${OLD_U}`, { roomCode: ROOM, fromName: '옛앱', ts: 1 }, false],
+  ['옛 앱 — 내 방명록에 글', 'PUT', `users/${OLD_U}/guestbook/g1old`, { name: '옛앱', text: 'a', ts: 1, uid: OLD_U }, false],
+  ['옛 앱 — 선물 보내기', 'PUT', `users/${GOOD_U2}/mallangGifts/-Nold1`, { imgUrl: URL_S, fromName: '옛앱', fromId: OLD_U, ts: 1 }, false],
+  ['옛 앱 — 일정 알림 보내기', 'PUT', `users/${GOOD_U2}/schedNotices/n1old`, { fromId: OLD_U, fromName: '옛앱', text: 'a', date: '2026-10-18', ts: 1 }, false],
+  ['준비: 옛 앱이 전에 보낸 친구 요청(규칙 건너뜀)', 'PUT', `friendRequests/${GOOD_U2}/${OLD_U}`, { name: '옛앱', ts: 1 }, true, OWNER],
+  ['옛 앱 요청 — 받은 사람(새 앱)이 지우기는 된다', 'DELETE', `friendRequests/${GOOD_U2}/${OLD_U}`, null, true],
+  ['옛 앱 — 박수 +1 은 누구나라 그대로(쓰는 사람을 모름)', 'PUT', `users/${OLD_U}/clap/count`, 1, true],
+  ['옛 앱이 꺼짐(onDisconnect — online:false · ver 없음)', 'PUT', `users/${OLD_U}/presence`, { online: false, lastSeen: 2 }, true],
+  ['옛 앱이 꺼진 뒤 — 막힘 풀림(새 앱 첫 부팅의 presence 전 쓰기가 안 깨지는 까닭)', 'PUT', `users/${OLD_U}/profile`, { name: '옛앱', updatedAt: 2 }, true],
+  ['새 앱으로 올림 — presence 에 ver', 'PUT', `users/${OLD_U}/presence`, { online: true, lastSeen: 3, room: null, inRoom: false, ver: '0.11.3' }, true],
+  ['새 앱 — 프로필', 'PUT', `users/${OLD_U}/profile`, { name: '새앱', updatedAt: 3 }, true],
+  ['새 앱 — 친구 요청', 'PATCH', '', { [`friendRequests/${GOOD_U2}/${OLD_U}`]: { name: '새앱', ts: 1 }, [`sentFriendRequests/${OLD_U}/${GOOD_U2}`]: { ts: 1 } }, true],
+  ['새 앱 — ver 를 늦게 받은 판(presence 먼저 · ver 는 update)', 'PUT', `users/${OLD_U}/presence`, { online: true, lastSeen: 4, room: null, inRoom: false }, true],
+  ['  ↳ ver update', 'PATCH', `users/${OLD_U}/presence`, { ver: '0.11.3' }, true],
+  ['  ↳ 그 뒤 쓰기는 된다', 'PUT', `users/${OLD_U}/focus/totalSec`, 20, true],
+
+  /* 새 계정 · 새 PC — 0.11 부팅 순서 그대로(presence 보다 먼저 쓰는 것 포함) 끝까지 */
+  ['새 계정 ① 코드를 로그인에 묶기', 'PUT', `userAuth/${NEW_U}`, 'authN', true, 'authN'],
+  ['새 계정 ② 친구 코드 선점', 'PUT', 'friendCodes/COZY-NW12', { userId: NEW_U }, true, 'authN'],
+  ['새 계정 ③ 초대권 칸', 'PUT', `users/${NEW_U}/invite`, { invitesLeft: 0, invitedBy: null, joinedAt: 1 }, true, 'authN'],
+  ['새 계정 ④ 계정 요약(presence 전)', 'PUT', `accountSnap/${NEW_U}`, { ts: 1, name: '새사람', friendCode: 'COZY-NW12', ver: '0.11.3' }, true, 'authN'],
+  ['새 계정 ⑤ 계정에 코드 기록', 'PUT', `users/${NEW_U}/friendCode`, 'COZY-NW12', true, 'authN'],
+  ['새 계정 ⑥ 슬롯 올리기(presence 전)', 'PUT', `users/${NEW_U}/slots`, { ts: 1, v: 1, s: { 0: '{}' } }, true, 'authN'],
+  ['새 계정 ⑦ 북마크(presence 전)', 'PUT', `bookmarks/${NEW_U}`, { order: '', ts: 1 }, true, 'authN'],
+  ['새 계정 ⑧ presence(ver)', 'PUT', `users/${NEW_U}/presence`, { online: true, lastSeen: 1, room: null, inRoom: false, ver: '0.11.3' }, true, 'authN'],
+  ['새 계정 ⑨ 프로필', 'PUT', `users/${NEW_U}/profile`, { name: '새사람', updatedAt: 1, level: 1 }, true, 'authN'],
+  ['새 계정 ⑩ 기기 세션', 'PUT', `users/${NEW_U}/session`, { id: 'd1', at: 1 }, true, 'authN'],
+  ['새 계정 ⑪ 포커스 · 랭킹 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`leaderboard/${NEW_U}`]: { sec: 5, ts: TS }, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
+  ['새 계정 ⑫ 신고(쓰는 사람 = 나)', 'PUT', `reports/${GOOD_U2}/${NEW_U}`, { kind: 'etc', nick: 'a', code4: 'AB12', ts: 1 }, true, 'authN'],
 ];
 
 /* [이름, 방법, 경로(인코딩 전), 본문, 기대(true = 통과), 사용자 토큰?] — 경로 조각은 그대로 넣는다(공백 · null 도) */
