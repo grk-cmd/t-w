@@ -10,7 +10,7 @@
 - 커밋 형식: `타입(스코프): 무엇을 — 부연` + 빈 줄 + `- 파일: 내용` 목록. 타입: `feat` `fix` `security` `refactor` `perf` `test` `docs` `ci` `build` `chore`. 자세한 건 `docs/GIT_CONVENTION.md`.
 - 버그 제보를 고친 커밋 · PR 은 제목 끝에 `(B-MMDD-n)` 을 붙이고(여러 건이면 `(B-1009-1 · B-1009-3)`), 본문 «무엇을» 줄 앞에도 같은 번호를 적는다. 번호는 웹 관리자 🐞 제보에 보이는 고정 번호(«(임시)» 표시가 붙은 번호는 쓰지 않는다).
 - 한 커밋에 한 의도. `checks/` 를 바꿨으면 `checks/CHECKS.md` §3 해시를 **같은 커밋**에서 갱신한다. CHECKS.md 에 개정 번호 · «개정 n 에서 한 것» 기록은 적지 않는다(내력은 `git log` — PR 마다 같은 줄을 고쳐 늘 충돌이 났다), 커밋 제목에도 `(CHECKS 개정 N)` 을 붙이지 않는다.
-- 검사 전체는 **CI 가 돈다**. 로컬에선 내가 고친 `sim-*.js` 만 돌리고(`node checks/run.js <이름>`), PR 올리기 전 · 머지 때 `npm run check` 전체를 다시 돌리지 않는다. **작업을 끝내면 `/ship`** — PR 을 올리고 컨펌자(`tw-confirmer` · 컨벤션 · 설계 · 비효율) · 검증자(`tw-verifier` · 로직 · 검사)를 깨끗한 맥락으로 돌려 둘 다 통과하고 CI 가 초록이면 판 브랜치에 머지한다. 가드(`.claude/hooks/ship-gate.py`)가 통과 기록 없는 머지 · 보호 브랜치 직접 push · 판 브랜치 밖 브랜치 따기를 막는다(터미널 · 웹 세션 같음).
+- 검사 전체는 **CI 가 돈다**. 로컬에선 내가 고친 `sim-*.js` 만 돌리고(`node checks/run.js <이름>`), PR 올리기 전 · 머지 때 `npm run check` 전체를 다시 돌리지 않는다. **작업을 끝내면 `/ship`** — PR 을 올리고 컨펌자(`tw-confirmer` · 컨벤션 · 설계 · 비효율) · 검증자(`tw-verifier` · 로직 · 검사)를 깨끗한 맥락으로 돌려 둘 다 통과하고 CI 가 초록이면 판 브랜치에 머지한다. 위험도가 높은 PR(데이터 경로 · 규칙 · 서버 · 빌드 — `.claude/hooks/risk.py` 가 diff 로 판정)은 승인자 mihioon 이 GitHub 에서 Approve 한 뒤에 머지된다. 가드(`.claude/hooks/ship-gate.py`)가 통과 기록 없는 머지 · 보호 브랜치 직접 push · 판 브랜치 밖 브랜치 따기를 막는다(터미널 · 웹 세션 같음).
 - 커밋·push 전에 무엇을 올리는지 한 줄로 알리고 진행한다. **force push 는 하지 않는다.**
 - **PR**: 한 PR = 한 의도(버그 수정 묶음과 새 기능은 나눈다). 제목은 커밋 제목 형식(이모지 없음), 본문은 `.github/pull_request_template.md` 틀 그대로 — «무엇을» 은 커밋과 1:1. 자세한 건 `docs/GIT_CONVENTION.md` 3장.
 - 절대 커밋하지 않는 것: `oauth-config.js`(OAuth 시크릿), `.env*`, `.idea/`, `*.iml`, `dist/`.
