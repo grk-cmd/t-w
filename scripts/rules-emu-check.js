@@ -267,6 +267,20 @@ const LIMIT_CASES = [
   ['새 앱 — presence(ver) 뒤 읽기', 'GET', 'catalog/parts', null, true, 'authNew2'],
 ];
 
+/* 🤖 서버 봇(apiBots)의 통째 읽기 — API 읽기 사본이 노드 전체를 듣는다(조건 없음). «최근 N개» 조건이 봇 갈래보다 앞이면
+   조건이 비어 규칙 계산이 먼저 실패해 봇까지 401 이 났다(10-18 Grafana 경고) — 봇 갈래를 앞에 둔다. */
+const BOT = 'botApi';
+const BOT_CASES = [
+  ['준비: 서버 봇 등록(apiBots/botApi)', 'PUT', `apiBots/${BOT}`, true, true, OWNER],
+  ['준비: 제보 한 줄', 'PUT', 'bugBoard/list/b1', { ts: 1, name: '익명' }, true, OWNER],
+  ['준비: 파도타기 한 줄', 'PUT', `playlistIndex/${GOOD_U}`, { ts: 1 }, true, OWNER],
+  ['서버 봇 — 제보 목록 통째 읽기', 'GET', 'bugBoard/list', null, true, BOT],
+  ['서버 봇 — 파도타기 목록 통째 읽기', 'GET', 'playlistIndex', null, true, BOT],
+  ['봇 아닌 사람 — 제보 목록 통째 읽기는 막힘', 'GET', 'bugBoard/list', null, false, 'authNew2'],
+  ['봇 아닌 사람 — 파도타기 목록 통째 읽기는 막힘', 'GET', 'playlistIndex', null, false, 'authNew2'],
+  ['봇 아닌 사람 — 제보 최근 20개(ts 순)는 읽힘', 'GET', 'bugBoard/list?orderBy=%22ts%22&limitToLast=20', null, true, 'authNew2'],
+];
+
 /* [이름, 방법, 경로(인코딩 전), 본문, 기대(true = 통과), 사용자 토큰?] — 경로 조각은 그대로 넣는다(공백 · null 도) */
 const CASES = [
   ['준비: 폰 연결 키', 'PUT', `mobileKeys/${GOOD_U}`, KEY, true],
@@ -328,6 +342,7 @@ const CASES = [
   ['여러 칸 한 번에 — 전부 정상', 'PATCH', '', { [`users/${GOOD_U}/focus`]: { totalSec: 1 }, [`users/${GOOD_U2}/focus`]: { totalSec: 1 } }, true],
   ['지우기는 형식과 상관없음(잘못 들어간 것을 치울 수 있게)', 'DELETE', 'users/null/profile', null, true],
   ...LIMIT_CASES,
+  ...BOT_CASES,
 ];
 
 async function inner(){

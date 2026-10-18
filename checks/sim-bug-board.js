@@ -55,7 +55,9 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 {
   const lr = S(at('bugBoard/list')['.read']);
   const m = lr.match(/query\.limitToLast <= (\d+)/);
-  chk(!!m && +m[1] <= 20 && /^query\.limitToLast <= \d+ && \(/.test(lr), '③ 목록 읽기는 limitToLast ≤ 20 쿼리만 (' + (m ? m[1] : '없음') + ')');
+  // 앞의 서버 봇 갈래(apiBots — API 읽기 사본)를 걷고 본다: 사람은 limitToLast ≤ 20 쿼리만
+  const human = lr.replace("(auth != null && root.child('apiBots').child(auth.uid).val() === true) || (", '');
+  chk(!!m && +m[1] <= 20 && /^query\.limitToLast <= \d+ && \(/.test(human), '③ 목록 읽기는 limitToLast ≤ 20 쿼리만 (' + (m ? m[1] : '없음') + ')');
   chk(/query\.orderByChild == 'authUid' && auth != null && query\.equalTo == auth\.uid/.test(lr), '  「내 글」 은 내 uid 로만 모아 볼 수 있다');
   const idx = at('bugBoard/list')['.indexOn'] || [];
   chk(['ts', 'openTs', 'nts', 'authUid'].every(k => idx.includes(k)), '  쓰는 정렬 넷에 색인이 있다');
