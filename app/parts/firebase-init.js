@@ -3046,7 +3046,9 @@
          그 동작 때문에 다 같이 앱을 껐다 켜면 기록이 통째로 없어졌다. 지금은 방이 비어도
          chatLog 만 남는다(KEEP_CHAT_LOG_ON_EMPTY 주석 참고). 지우는 건 관리자 청소뿐이다.
        한 방에 최대 100개만 화면에 유지(limitToLast — 저장은 그보다 많이 쌓일 수 있다). */
-    async sendChatLog(room, msg, tabId){
+    /* opts.wantTs — 서버가 받은 뒤 그 줄의 진짜 시각(ts 한 칸)만 읽어 { id, ts } 로 돌려준다.
+       보낸 사람의 «여기까지 읽음» 을 맞추는 데 쓴다(chat-ui.js _chatMarkSentRead). 다른 호출은 안 읽는다. */
+    async sendChatLog(room, msg, tabId, opts){
       try{
         const logRef = ref(db, _chatLogPath(room, tabId));
         // 상한은 CHAT_TEXT_MAX 한 곳에서 온다 — 아래 slice 와 규칙 파일이 같은 숫자를 봐야 한다.
@@ -3057,14 +3059,20 @@
            ★ 그래도 잘릴 때를 대비해 꼬리에 남은 **열린 마커 조각은 통째로 버린다.** */
         let _t = String(msg.text||'').slice(0, CHAT_TEXT_MAX);
         _t = _t.replace(/\[(?:emoji|demoji)(?::[^\]]*)?$/, '');
-        await push(logRef, {
+        const newRef = push(logRef, {
           uid: msg.uid || null,
           name: (msg.name!=null ? String(msg.name).slice(0,20) : '?'),
           text: _t,
           ts: serverTimestamp(),
           ...(msg.sys ? { sys: String(msg.sys).slice(0, 10) } : {})   // 💬 방장 지우기 표시(chat-history.js CLEAR_SYS)
         });
-        return { ok:true };
+        await newRef;
+        /* 쓰기가 끝난 뒤의 ts 는 서버가 정한 값이다(내 PC 가 어림한 임시 값이 아니다). 못 읽어도 보내기는 성공이다. */
+        let ts = null;
+        if(opts && opts.wantTs){
+          try{ const s = await get(ref(db, _chatLogPath(room, tabId) + '/' + newRef.key + '/ts')); ts = s.val(); }catch(_){}
+        }
+        return { ok:true, id: newRef.key, ts };
       }catch(e){
         /* ⚠️ 예전엔 `catch(_){}` 로 통째로 삼켰다. 그래서 규칙에 걸려 **서버가 거부한 줄**도
            보낸 사람에게는 아무 표시가 없었다 — RTDB 는 낙관적 반영이라 내 화면에는 한 번

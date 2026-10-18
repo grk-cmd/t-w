@@ -13,7 +13,7 @@
 2. 겹치지 않으면 «진행 중» 표에 한 줄을 더한다 — 묶음 이름 · **담당(사람 또는 세션 이름)** · 내용 · 건드리는 파일 · 제보 번호(있으면).
 3. **이 파일 하나만은 PR 없이 main 에 바로 커밋 · push 한다**(`docs(status): <묶음> 시작 — <담당>`). 다른 파일을 같은 커밋에 섞지 않는다 · force push 금지 · push 가 거절되면 `git pull --rebase` 뒤 다시.
 4. PR 을 올리면 그 줄에 PR 번호를, 머지되면 줄을 «머지 완료» 로 옮긴다(이것도 main 에 바로).
-- 웹 관리자 📋 할 일(`adminTodos`)은 계속 써도 되지만, «지금 누가 어느 파일을 만지는가» 는 이 파일이 정본이다.
+- 웹 관리자 📋 할 일(`adminTodos`)에는 버그 제보와 관련된 일만 적는다. 기능 · 계획 · «지금 누가 어느 파일을 만지는가» 는 이 파일이 정본이다.
 
 ## 규칙
 - **자기 작업은 누구든 직접 합칠 수 있다 — 이 차례대로만.** ① 합치기 직전 `git pull`(main 최신) ② `checks/CHECKS.md` 개정 번호를 «main 다음 번호» 로 다시 매기고 §3 해시 ③ `npm run check` 빨강 0 ④ push 뒤 자동 검사 초록 ⑤ 합치고 이 표에 머지 표시. 둘이 같은 번호를 잡으면 나중 쪽이 «충돌» 로 막히니, 그쪽이 다시 매겨 올리면 된다.
@@ -26,9 +26,11 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
-| 친구 이름 실시간 복구 | 친구 실시간 세션 | 포트 개편 뒤 친구가 이름을 바꿔도 목록 · 마이홈 구경에 안 바뀌던 회귀 — 목록이 열려 있는 동안 친구 프로필(users/{fid}/profile)도 듣기 · 마이홈 구경 이름 갱신 · 0.11.4 | `app/parts/friends/`(port · firebase · api · README) · `app/parts/myhome/friends-sub.js` · `app/parts/myhome/myhome-visit.js` · `checks/sim-friends-*.js` · `checks/CHECKS.md` | — |
-| 채팅 보내면 읽음 갱신 | 채팅 읽음 세션 | 투게더룸에서 보내고 바로 나갔다 들어오면 내 메시지가 «안 읽음 1» — 보낸 메시지가 서버에 들어가 진짜 시각이 정해지면 그 메시지까지를 그 채널 읽음으로 저장(앞으로만) | `app/parts/chat/chat-ui.js` · `app/parts/firebase-init.js`(sendChatLog 안 — 쓴 줄 id · 서버 시각 돌려주기만) · `checks/sim-chat-read-on-send.js`(새) · `checks/CHECKS.md` | — |
-| 안내 문구 셋 고침 | grk 튜토리얼 세션(claude/vibrant-hypatia-gotvcy) | 튜토리얼 대조에서 나온 틀린 안내 — 💣 버튼 설명(실제는 남을 날림) · 좌석 친구 신청 안내(우클릭 → 메뉴 다시 고르기) · 🎯 집중 달성표 힌트(자정 → 오전 6시) · 0.11.4 뒤 합침 | `desk-companion-prototype.html`(#chatBombBtn title · #chalFocusHint 두 줄) · `myhome/seat-friend-req.js` · `checks/sim-seat-friend-req.js` · `checks/CHECKS.md` | — |
+| ~~할 일은 버그 제보만~~ 머지 #387 | 할 일 관리 세션 | 할 일(adminTodos)에는 버그 제보 관련만 적고 기능 · 계획은 현황판 · PR 로 — 문서만 | `CLAUDE.md`(작업 전 할 일 확인) · `.claude/skills/todo/SKILL.md` · `docs/GIT_CONVENTION.md` · `.github/pull_request_template.md` · `docs/WORK_STATUS.md`(16줄) | #387 |
+| 대화 기록 지움 남기기 | w2 세션 | 서버 대화(rooms/{방}/chatLog · _chatTab/{탭})가 통째로 지워지면 누가(authType · authId) · 몇 줄 · 표시 줄 유무를 함수 로그에 남긴다 — PLAY-BFBT 70줄이 서버 함수 기록 없이 사라진 원인 찾기(10-19 사용자) · 앱 안 바뀜 · 함수 배포만 | `functions/chat-delete-log.js`(새) · `functions/index.js`(export) · `checks/sim-chat-delete-log.js`(새) · `checks/CHECKS.md` | — |
+| 친구 이름 실시간 복구 | 친구 실시간 세션 | 포트 개편 뒤 친구가 이름을 바꿔도 목록 · 마이홈 구경에 안 바뀌던 회귀 — 목록이 열려 있는 동안 친구 프로필(users/{fid}/profile)도 듣기 · 마이홈 구경 이름 갱신 · 0.11.4 | `app/parts/friends/`(port · firebase · api · README) · `app/parts/myhome/friends-sub.js` · `app/parts/myhome/myhome-visit.js` · `checks/sim-friends-*.js` · `checks/CHECKS.md` | #386 |
+| 채팅 보내면 읽음 갱신 | 채팅 읽음 세션 | 투게더룸에서 보내고 바로 나갔다 들어오면 내 메시지가 «안 읽음 1» — 보낸 메시지가 서버에 들어가 진짜 시각이 정해지면 그 메시지까지를 그 채널 읽음으로 저장(앞으로만) | `app/parts/chat/chat-ui.js` · `app/parts/firebase-init.js`(sendChatLog 안 — 쓴 줄 id · 서버 시각 돌려주기만) · `checks/sim-chat-read-on-send.js`(새) · `checks/sim-chat-tabs.js` · `checks/CHECKS.md`(개정 387) | #384 |
+| 안내 문구 셋 고침 | grk 튜토리얼 세션(claude/vibrant-hypatia-gotvcy) | 튜토리얼 대조에서 나온 틀린 안내 — 💣 버튼 설명(실제는 남을 날림) · 좌석 친구 신청 안내(우클릭 → 메뉴 다시 고르기) · 🎯 집중 달성표 힌트(자정 → 오전 6시) · 0.11.4 뒤 합침 | `desk-companion-prototype.html`(#chatBombBtn title · #chalFocusHint 두 줄) · `myhome/seat-friend-req.js` · `checks/sim-seat-friend-req.js` · `checks/CHECKS.md`(개정 387) | #388 |
 | ~~#377 친구 명함(켠 뒤 새 친구 이름 · 사진)~~ 머지(개정 384) | 검증 담당 | #377 브랜치에 main 합침(force 없음) | `checks/CHECKS.md` | #377 |
 | 접속 상태 첫 쓰기에 앱 버전 먼저 — 버전 대답 전에 presence 가 «ver 없음» 으로 적혀 잠깐 옛 앱(0.10.2) 막기에 걸리던 틈 | 다른 세션(`../tw-presence-ver` · fix/presence-ver-first) 진행 · 검증 담당은 머지만 | presence 를 쓰기 전에 앱 버전 대답(_appVer.ready)을 기다린다 · 0.12.0 | `app/parts/firebase-init.js`(presence 쓰기) · `checks/` 검사 | — |
 | ~~#366 규칙 제한 전수 훑기~~ 끝 — 앱 쓰기 거절 더 없음 · 서버 웹박수 봇 쓰기만 거절(통로가 Firebase 로 넘어가 사용자 영향 없음) | 검증 담당 | 3251aa9^1 ↔ main 규칙 차이 경로 × 앱 · 함수 · 웹 관리자 · 서버가 쓰는 값 대조, 에뮬레이터로 실제 모양 시험 | 없음(조사) | — |
