@@ -2768,6 +2768,8 @@ const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
   getCard: (...a)=>firebaseAPI.getFriendCard(...a),
   watchPresence: (...a)=>firebaseAPI.watchFriendPresence(...a),
   getPresence: (...a)=>firebaseAPI.getFriendPresence(...a),
+  watchProfile: (...a)=>firebaseAPI.watchFriendProfile(...a),   // 친구 한 명 프로필 구독 — 목록이 열려 있는 동안만
+  getProfile: (...a)=>firebaseAPI.getFriendProfile(...a),       // 같은 칸 한 번 — 마이홈 구경
   setTimer: (fn, ms)=>setTimeout(fn, ms),
   clearTimer: (id)=>clearTimeout(id),
   now: ()=>Date.now(),
@@ -2792,6 +2794,8 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   readFriend: (...a)=>friendsPortMod.readFriend(...a),
   watchPresence: (...a)=>friendsPortMod.watchPresence(...a),
   readPresence: (...a)=>friendsPortMod.readPresence(...a),
+  watchProfile: (...a)=>friendsPortMod.watchProfile(...a),
+  readProfile: (...a)=>friendsPortMod.readProfile(...a),
   current: ()=>_myHomeFriends,
   setFriends: (v)=>{ _myHomeFriends = v; },
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -2984,6 +2988,7 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   setMyHomeData: (v)=>{ mhStateMod.setMyHomeData(v); },
   setMhViewingUserId: (v)=>{ mhStateMod.setMhViewingUserId(v); },
   setMhViewingName: (v)=>{ mhStateMod.setMhViewingName(v); },
+  refreshFriendProfile: (...a)=>friendsSubMod.refreshProfile(...a),   // 👥 친구면 이름 · 레벨을 새로(목록이 닫혀 있어도)
 });
 
 /* ═══ 🔬 __mhClickDiag() — "보이는데 안 눌린다"를 한 줄로 가르는 진단 ═══════════

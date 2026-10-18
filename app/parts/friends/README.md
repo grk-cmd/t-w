@@ -4,8 +4,8 @@
 화면 · 도메인은 Firebase · API 를 모른다. provider 를 갈아 끼우면 위층은 그대로다.
 
 ## friends-port.js — 친구 데이터 포트
-- 책임: 친구 목록 받기(`listFriends`) · 목록(추가 · 삭제) 듣기(`watchList`) · 접속 상태 듣기(`watchPresence`) 를 provider 로 잇는다.
-  목록 받기 · 친구 한 명 받기(`readFriend`)는 **api 먼저 → 못 받으면 옛 길(firebase)**. 듣기 둘은 아직 옛 길(ws 는 다음 단계 — `LIVE_SOURCE` 자리).
+- 책임: 친구 목록 받기(`listFriends`) · 목록(추가 · 삭제) 듣기(`watchList`) · 접속 상태 듣기(`watchPresence`) · 프로필 듣기(`watchProfile`) 를 provider 로 잇는다.
+  목록 받기 · 친구 한 명 받기(`readFriend`)는 **api 먼저 → 못 받으면 옛 길(firebase)**. 듣기 셋 · 프로필 새로 읽기(`readProfile`)는 아직 옛 길(ws 는 다음 단계 — `LIVE_SOURCE` 자리).
 - 고르기: 받는 곳은 `shared/source-switch.js`(기능 `'friends'`)가 고르고 넘어가기도 그 `serverFirst` 한 벌이다. 스위치는 원격 설정 `sources.friends`(웹 관리자 «🎚️ 기능 스위치» · 쓰기 원본 Firebase `config/sources/friends`), 칸이 없으면 옛 `flags.friendsApi`(기본 켜짐). api provider 가 없으면 실패가 아니라 바로 옛 길.
   끄면 api 를 부르지도 않고 옛 길만. 비율 · 단계 켜기는 없다.
 - 만드는 법(app.js):
@@ -24,6 +24,8 @@
   - `watchList(myId, onChange, onError)` → 해제 함수 — onChange({ 친구id: { addedAt, … } }).
   - `watchPresence(myId, ids, onChange)` → 해제 함수 — onChange({ 친구id: { online, lastSeen, room, inRoom } }). 목록이 열려 있는 동안만 건다(friends-sub.js).
   - `readPresence(fid)` → Promise<접속 상태> — 목록이 닫혀 있을 때 그 친구만 한 번(놀러 가기 · 파도타기 친구 고르기).
+  - `watchProfile(myId, ids, onChange)` → 해제 함수 — onChange({ 친구id: { name, level, cyc, clv, starC } }). 접속 상태와 같은 조건 · 같은 수명(목록이 열려 있는 동안 · friends-sub.js).
+  - `readProfile(fid)` → Promise<프로필> — 한 번 새로 읽기(10분 기억 안 씀). 목록이 닫혀 있을 때 그 친구 마이홈 구경(friends-sub `refreshProfile`).
   - `lastSource()` → `'api'` · `'firebase'` · null — 마지막 목록 받기가 어디서 왔나(진단).
   - 친구 하나의 모양: `{ addedAt, name, level, cyc, clv, starC, bio, avatar, online, lastSeen, room, inRoom }` — 없는 칸은 그 provider 가 모르는 값.
 - 쓰는 예: friends-sub.js deps — `subscribe: (...a)=>friendsPortMod.watchList(...a)` · `fetchOnce: (id)=>friendsPortMod.listFriends(id, { idsOnly:true })` · `readFriend: (...a)=>friendsPortMod.readFriend(...a)`.
@@ -32,8 +34,9 @@
 
 ## friends-firebase.js — 옛 길 provider(Firebase · 나중에 걷음)
 - 책임: firebase-init.js 의 친구 함수를 포트 모양으로 바꾼다. firebaseAPI 를 직접 부르지 않고 app.js 가 deps 로 잇는다.
-  **상시 구독은 목록(users/{나}/friends) 하나뿐** — 이름 · 사진은 목록을 열 때 한 번(`getFriendCard` · 10분 안이면 다시 안 읽음),
-  접속 상태는 목록이 열려 있는 동안만 친구별로(`watchFriendPresence`). 예전 친구별 4개 상시 구독(subscribeMyFriends)은 없앴다.
+  **상시 구독은 목록(users/{나}/friends) 하나뿐** — 소개 · 사진은 목록을 열 때 한 번(`getFriendCard` · 10분 안이면 다시 안 읽음),
+  접속 상태 · 프로필(이름 · 레벨 · 회차)은 목록이 열려 있는 동안만 친구별로(`watchFriendPresence` · `watchFriendProfile`). 예전 친구별 4개 상시 구독(subscribeMyFriends)은 없앴다.
+  프로필은 규칙상 작은 칸 여섯뿐(name ≤20자 · level · cyc · clv · starC · updatedAt — 그 밖은 `.validate: false`)이라 통째로 듣는다. 들은 값은 카드 기억에도 얹는다(다시 열 때 옛 이름이 안 돌아오게).
 - 만드는 법(app.js):
   ```js
   const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
@@ -42,15 +45,17 @@
     getCard: (...a)=>firebaseAPI.getFriendCard(...a),            // 프로필 · 소개 · 사진 세 칸 한 번
     watchPresence: (...a)=>firebaseAPI.watchFriendPresence(...a),// 친구 한 명 presence 구독
     getPresence: (...a)=>firebaseAPI.getFriendPresence(...a),    // 친구 한 명 presence 한 번
+    watchProfile: (...a)=>firebaseAPI.watchFriendProfile(...a),  // 친구 한 명 profile 구독(목록이 열려 있는 동안)
+    getProfile: (...a)=>firebaseAPI.getFriendProfile(...a),      // 친구 한 명 profile 한 번(마이홈 구경)
     setTimer: (fn, ms)=>setTimeout(fn, ms), clearTimer: (id)=>clearTimeout(id), now: ()=>Date.now(),
   });
   ```
 - `readFriend(fid)` — 친구 한 명 카드(`getFriendCard`). 목록 받기와 같은 10분 기억을 쓴다 · 못 읽으면 지난 카드 · 없으면 null.
-- 순수: `cardOf(raw)`(이름 · 레벨 · 회차 · 소개 · 사진) · `presenceOf(raw)`(온라인 · 마지막 · 방 코드 · 방에 있음) · 상수 `PRESENCE_BATCH_MS`(50) · `CARD_KEEP_MS`(10분).
+- 순수: `cardOf(raw)`(이름 · 레벨 · 회차 · 소개 · 사진) · `profileOf(raw)`(이름 · 레벨 · 회차 — cardOf 와 같은 거르기) · `presenceOf(raw)`(온라인 · 마지막 · 방 코드 · 방에 있음) · 상수 `PRESENCE_BATCH_MS`(50) · `CARD_KEEP_MS`(10분).
 - 함정:
   - 접속 상태 콜백은 친구 수만큼 한꺼번에 온다 — 50ms 창에 한 번만 넘긴다(스로틀 · 뒷날). 디바운스로 바꾸면 계속 오는 동안 영영 안 그린다.
   - «방에 있음»(inRoom)은 코드(room)와 다른 칸이다 — 시크릿룸은 코드를 안 올린다. room 으로 판정하지 말 것.
-  - 검사: `checks/sim-friends-port.js`(2-1절이 친구 n명 → 평소 1개 · 목록 열면 1 + n 을 센다).
+  - 검사: `checks/sim-friends-port.js`(2-1절이 친구 n명 → 평소 1개 · 목록 열면 1 + 2n 을 센다) · `checks/sim-friend-profile-live.js`(이름이 바뀌면 목록 · 마이홈 구경 값이 바뀌는지).
 
 ## friends-api.js — api provider(GET /v1/me/friends · 친구 한 명 명함 · t-w-server)
 - 책임: 내 친구 목록(이름 · 레벨 · 소개 · 사진 · 서로 친구)을 서버에서 한 번 받는다. 실패하면 던진다 — 포트가 옛 길로 넘긴다.

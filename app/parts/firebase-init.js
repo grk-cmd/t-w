@@ -1942,7 +1942,7 @@
       return snap.val() || {};
     },
     /* 내 친구 목록 실시간 구독 — users/{나}/friends 하나만({친구id:{addedAt}}). 실시간은 추가 · 삭제뿐이다:
-       이름 · 레벨 · 소개 · 사진은 목록을 열 때 한 번(getFriendCard · 서버 먼저 — friends/friends-port.js), 접속 상태는 목록이 열려 있는 동안만(watchFriendPresence).
+       이름 · 레벨 · 소개 · 사진은 목록을 열 때 한 번(getFriendCard · 서버 먼저 — friends/friends-port.js), 접속 상태 · 프로필은 목록이 열려 있는 동안만(watchFriendPresence · watchFriendProfile).
        onError(err) — 거부 · 끊기면 한 번(다시 걸기는 부르는 쪽 · friends-sub.js). @return 해제 함수. ⚠️ 동시에 하나만 — 새로 걸면 앞의 것을 먼저 푼다. */
     watchMyFriendList(myId, onChange, onError){
       if(_myFriendsOff) _myFriendsOff();
@@ -1977,6 +1977,13 @@
       const off = onValue(presRef, snap=>onChange(snap.val()));
       return ()=>{ try{ off(); }catch(_){} };
     },
+    /* 친구 한 명의 프로필(이름 · 레벨 · 회차) 구독 → onChange(날것) · 접속 상태와 같이 목록이 열려 있는 동안만(friends-sub.js). @return 해제 함수
+       💰 규칙상 작은 칸 여섯뿐(name ≤20자 · level · cyc · clv · starC · updatedAt)이고 쓰기는 켤 때 · 이름 · 레벨이 바뀔 때만이다. */
+    watchFriendProfile(fid, onChange){
+      const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val()));
+      return ()=>{ try{ off(); }catch(_){} };
+    },
+    async getFriendProfile(fid){ return (await get(ref(db, `users/${fid}/profile`))).val(); },   // 한 번 — 목록이 닫혀 있을 때 마이홈 구경
     /* 친구 한 명의 접속 상태 한 번 읽기 — 목록이 닫혀 있을 때 필요한 곳(놀러 가기 · 파도타기 친구 고르기)만 */
     async getFriendPresence(fid){
       return (await get(ref(db, `users/${fid}/presence`))).val();

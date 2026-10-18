@@ -47,6 +47,8 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
     readFriend: (...a)=>friendsPortMod.readFriend(...a),              // 새로 생긴 친구 한 명(서버 먼저) — 늘어난 id 만
     watchPresence: (...a)=>friendsPortMod.watchPresence(...a),        // 접속 상태 — 목록이 열려 있는 동안만
     readPresence: (...a)=>friendsPortMod.readPresence(...a),          // 접속 상태 한 번 — 그 친구만
+    watchProfile: (...a)=>friendsPortMod.watchProfile(...a),          // 이름 · 레벨 · 회차 — 접속 상태와 같이 목록이 열려 있는 동안만
+    readProfile: (...a)=>friendsPortMod.readProfile(...a),            // 그 친구 프로필 한 번 새로 — 마이홈 구경
     current: ()=>_myHomeFriends,
     setFriends: (v)=>{ _myHomeFriends = v; },
     getMyUserId: (...a)=>getMyUserId(...a),
@@ -59,7 +61,8 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
 - 내보내는 것: `start(myId, onFriends, onStatus)`(myhome-init.js 가 부팅 때 한 번) · `stop()` · `status()`(`idle` · `loading` · `error` · `ready`) · `notice()`(문구 또는 null) ·
   `retryIfFailed()`(못 불러왔을 때만 다시 건다 — 목록을 여는 곳이 부른다) · `friendsForCheck()` → Promise<목록 | null> ·
   `open(key, onUpdate)`(목록이 보이기 시작 — 다시 걸기 · 이름 · 사진 다시 받기 · 접속 상태 듣기 · 열려 있는 동안 바뀌면 onUpdate) · `close(key)`(마지막 목록이 닫히면 접속 상태 구독을 푼다) ·
-  `refreshPresence(ids)` → Promise(듣고 있지 않은 친구만 접속 상태 한 번 읽기).
+  `refreshPresence(ids)` → Promise(듣고 있지 않은 친구만 접속 상태 한 번 읽기) ·
+  `refreshProfile(fid)` → Promise<bool>(친구면 이름 · 레벨을 새로 — 듣는 중이면 읽지 않고 true · 친구 아니면 false. myhome-visit.js 가 친구 홈을 열 때).
   순수(`TwFriendsSub` 위): `noticeFor(status)` · `friendOf(entry, card, pres)` · `mergeFriends(ids, details, presence)` · `NOTICE` · `STATUS` · `SUB_WAIT_MS`.
 - 쓰는 예:
   - 목록을 그리는 쪽: deps 로 `friendsNotice: (...a)=>friendsSubMod.notice(...a)` — 값이 있으면 그 문구만 그리고 끝낸다(myhome-inbox.js · room-invite-ui.js).
@@ -71,7 +74,8 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
 - 함정:
   - 구독이 연결 시도 중이면 판정은 따로 읽지 않고 `SUB_WAIT_MS` 까지 기다린다(같은 경로를 두 번 읽지 않게). 진행 중인 판정은 하나 — 부르는 곳 모두가 같은 Promise 를 기다린다.
   - 한 번 읽은 값은 그 판정에만 쓴다(받음으로 치지 않음). 그 사이 구독 값이 왔으면 구독 값이 이긴다.
-  - 이름 · 레벨 · 소개 · 사진은 실시간이 아니다(켤 때 한 번 + 목록 열 때). 누가 친구인지(추가 · 삭제)만 구독이 실시간으로 준다.
+  - 소개 · 사진은 실시간이 아니다(켤 때 한 번 + 목록 열 때). 이름 · 레벨 · 회차(프로필)는 목록이 열려 있는 동안 접속 상태와 같이 듣는다 —
+    들은 값은 늦게 끝난 목록 받기보다 이긴다. 누가 친구인지(추가 · 삭제)는 늘 구독이 실시간으로 준다.
     켠 뒤 새로 생긴 친구(구독 값에 늘어난 id)는 그 친구만 `readFriend` 로 한 번 받는다 — 목록 전체를 다시 받지 않는다. 실행마다 친구당 한 번 ·
     실패 · 없음이면 자리표시('...') 그대로(타이머 재시도 없음 — 다음 목록 받기가 채운다). 첫 구독 값은 새 친구로 치지 않는다(첫 받기가 실패했을 때 n명을 한 명씩 묻지 않게).
     다시 받은 목록에 없는 지금 친구(서버 사본이 늦음)는 알던 이름을 남긴다.
@@ -79,7 +83,7 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
     닫힌 채로 접속 상태가 필요한 곳은 `refreshPresence([그 친구])` 를 먼저 부른다(friend-visit.js 놀러 가기 · playlist.js 파도타기 친구 고르기).
     받은 뒤라도 첫 이름 받기 동안은 `notice()` 가 «불러오는 중» 이다(이름 없는 '...' 목록을 잠깐 보이지 않게).
   - `_myHomeFriends` 는 못 받은 동안에도 `{}` 다 — 다른 곳(방명록 게이트 · 스케줄러 · 파도타기)은 예전처럼 «없음» 으로 동작한다. 받았는지는 `status()` 로만 안다.
-  - 친구 목록 · 접속 상태를 직접 또 걸지 않는다(포트 · 이 모듈 한 곳 — 겹치면 비용이 곱이 된다). 검사: `checks/sim-friends-sub.js` · `checks/sim-friends-port.js`.
+  - 친구 목록 · 접속 상태 · 프로필을 직접 또 걸지 않는다(포트 · 이 모듈 한 곳 — 겹치면 비용이 곱이 된다). 검사: `checks/sim-friends-sub.js` · `checks/sim-friends-port.js` · `checks/sim-friend-profile-live.js`.
 - 내 코드(myId)가 없으면(로그인 전 — `getMyUserId()` 가 null) `start` 입구에서 바로 돌아간다 — 구독 · 읽기 · 다시 걸기 없이 «친구 없음»(`ready` · 빈 목록) · 화면은 main 과 같은 «아직 친구가 없어요». 코드가 생기면 마이홈 시작이 그때 건다.
 
 ## `inbox-sections.js` — 📩 우편함 칸 나누기 규칙

@@ -2,7 +2,7 @@
    [왜] 친구 정보를 Firebase 구독에서 서버(API)로 옮긴다. 도메인(friends-sub.js) · 화면은 포트 하나만 부르고,
      어디서 받을지는 provider(firebase = 옛 길 · api · ws 자리)가 맡는다.
    ・1절: 포트 — 세 함수가 provider 로 · 목록 받기 · 친구 한 명 받기(readFriend)는 api 먼저 → 못 받으면 옛 길 · 끄는 스위치(flags.friendsApi) 끄면 옛 길만
-   ・2절: firebase provider(옛 길) — 목록 한 번 읽기 · 목록 구독 · 접속 상태
+   ・2절: firebase provider(옛 길) — 목록 한 번 읽기 · 목록 구독 · 접속 상태(2-1절: 목록을 열면 1 + 2n — 접속 상태 · 프로필 · 개정 10-19 친구 이름 실시간 복구)
    ・2-2절: api provider — 응답 모양 · 요청 규칙(5초 · 서버 문제면 1초 · 3초 뒤 두 번 더 · 401 · 400 은 바로) · 가짜 fetch 로 토큰 · X-User-Code 헤더 ·
          친구 한 명 명함(cardOf · readFriend — data:null 은 null · 모양 틀림 · 실패는 던짐 · 다시 안 물음)
    ・2-3절: 끄는 스위치 — 원격 설정 flags.friendsApi(기본 켜짐) · 규칙(누구나 읽기 · 불리언)
@@ -35,7 +35,7 @@ const SRC0 = {
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 /* 화면 · 도메인 파일(스테이징 평면의 .js) — firebase-init.js · app.js(연결) 밖에서는 친구 데이터 firebaseAPI 함수를 안 부른다 */
-const FRIEND_FB_FNS = ['subscribeMyFriends', 'getMyFriendList', 'watchMyFriendList', 'getFriendCard', 'watchFriendPresence', 'getFriendPresence', 'apiGetAuthed'];
+const FRIEND_FB_FNS = ['subscribeMyFriends', 'getMyFriendList', 'watchMyFriendList', 'getFriendCard', 'watchFriendPresence', 'getFriendPresence', 'watchFriendProfile', 'getFriendProfile', 'apiGetAuthed'];
 const ALL_JS = fs.readdirSync('.').filter(f => f.endsWith('.js') && !/^sim-|^smoke\.js$|^run\.js$/.test(f)).map(f => [f, read(f) || '']);
 
 const load = (src, name) => { const win = {}; new Function('window', 'module', 'console', src)(win, undefined, { warn(){}, log(){} }); return win[name]; };
@@ -198,11 +198,13 @@ async function judge(S){
       const api = new Function('ref', 'onValue', 'get', 'db', 'console', 'let _myFriendsOff = null;\nconst api = {\n' + S.FI.slice(g0, g1 + 7) + '\n' + S.FI.slice(i0, i2 + 6) + '\n};\nreturn api;')(ref, onValue, get, {}, { warn(){}, log(){} });
       const timers = [];
       const fbp = F.createFriendsFirebase({ getList: (...a) => api.getMyFriendList(...a), watchList: (...a) => api.watchMyFriendList(...a), getCard: (...a) => api.getFriendCard(...a),
-        watchPresence: (...a) => api.watchFriendPresence(...a), getPresence: (...a) => api.getFriendPresence(...a), setTimer: (fn) => { timers.push(fn); return timers.length; }, clearTimer: () => {}, now: () => 0 });
+        watchPresence: (...a) => api.watchFriendPresence(...a), getPresence: (...a) => api.getFriendPresence(...a),
+        watchProfile: (...a) => api.watchFriendProfile(...a), getProfile: (...a) => api.getFriendProfile(...a), setTimer: (fn) => { timers.push(fn); return timers.length; }, clearTimer: () => {}, now: () => 0 });
       const port = P.createFriendsPort({ firebase: fbp, api: null, source: () => 'server', serverFirst: SW.serverFirst, warn(){} });
       let cur = {};
       const sub = FS.createFriendsSub({ subscribe: (...a) => port.watchList(...a), fetchOnce: (id) => port.listFriends(id, { idsOnly: true }), listFriends: (...a) => port.listFriends(...a),
-        watchPresence: (...a) => port.watchPresence(...a), readPresence: (...a) => port.readPresence(...a), current: () => cur, setFriends: (v) => { cur = v; }, getMyUserId: () => 'ME',
+        watchPresence: (...a) => port.watchPresence(...a), readPresence: (...a) => port.readPresence(...a),
+        watchProfile: (...a) => port.watchProfile(...a), readProfile: (...a) => port.readProfile(...a), current: () => cur, setFriends: (v) => { cur = v; }, getMyUserId: () => 'ME',
         toast(){}, setTimer: (fn) => 0, clearTimer(){}, onUnload(){} });
       const on = () => live.filter(l => l.on).length;
       sub.start('ME', (f) => { cur = f; }, () => {});
@@ -210,9 +212,9 @@ async function judge(S){
       await flush(); await flush();
       chk(on() === 1 && Object.keys(cur).length === N && cur.f3.name === 'users/f3/profile', '★ 친구 ' + N + '명 — 평소 상시 구독 1개(전에는 1 + 4 × ' + N + ' = ' + (1 + 4 * N) + '개) · 이름은 한 번 읽어 얹음 (지금 ' + on() + ')');
       sub.open('myhome', () => {});
-      chk(on() === 1 + N, '★ 친구 탭을 열면 1 + ' + N + '개 (지금 ' + on() + ')');
+      chk(on() === 1 + 2 * N, '★ 친구 탭을 열면 1 + 2 × ' + N + '개 — 접속 상태 · 프로필(이름 · 레벨) (지금 ' + on() + ')');
       sub.open('invite', () => {});
-      chk(on() === 1 + N, '  초대 목록까지 열어도 1 + ' + N + '개(겹쳐 걸지 않음)');
+      chk(on() === 1 + 2 * N, '  초대 목록까지 열어도 1 + 2 × ' + N + '개(겹쳐 걸지 않음)');
       sub.close('myhome'); sub.close('invite');
       chk(on() === 1, '★ 닫으면 다시 1개 (지금 ' + on() + ')');
       sub.stop();
@@ -384,8 +386,8 @@ async function judge(S){
     const bad = ALL_JS.filter(([f, src]) => f !== 'firebase-init.js' && f !== 'app.js'
       && FRIEND_FB_FNS.some(n => new RegExp('firebaseAPI\\s*\\.\\s*' + n + '\\b').test(strip(src))));
     chk(!bad.length, '화면 · 도메인 파일이 친구 데이터 firebaseAPI 함수(' + FRIEND_FB_FNS.join(' · ') + ')를 직접 안 부른다' + (bad.length ? ' — ' + bad.map(b => b[0]).join(' · ') : ''));
-    const appCalls = (a.match(/firebaseAPI\.(subscribeMyFriends|getMyFriendList|watchMyFriendList|getFriendCard|watchFriendPresence|getFriendPresence|apiGetAuthed)\(/g) || []).length;
-    chk(appCalls === 6, '  ↳ app.js 도 provider deps 여섯 줄에서만 (' + appCalls + ')');
+    const appCalls = (a.match(/firebaseAPI\.(subscribeMyFriends|getMyFriendList|watchMyFriendList|getFriendCard|watchFriendPresence|getFriendPresence|watchFriendProfile|getFriendProfile|apiGetAuthed)\(/g) || []).length;
+    chk(appCalls === 8, '  ↳ app.js 도 provider deps 여덟 줄에서만 (' + appCalls + ')');
     chk(!/subscribeMyFriends/.test(strip(S.FI)) && !/subscribeMyFriends/.test(a), '  ↳ 친구별 4개 구독(subscribeMyFriends)은 어디에도 없다');
   }
 }
