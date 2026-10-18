@@ -5,7 +5,7 @@
 ## 왜
 
 ## 확인한 것
-- [ ] `npm run check` — 빨강 0 · 정본 일치
+- [ ] 고친 검사 통과 · CI 초록(검사 전체는 CI 가 돈다)
 - [ ] 실기기 확인 (Windows / mac) — 해당 시
 - [ ] 규칙 변경이면 `docs/GIT_CONVENTION.md` 4장 절차대로 했는가
 
