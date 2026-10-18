@@ -26,6 +26,7 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
+| 안내 문구 셋 고침 | grk 튜토리얼 세션(claude/vibrant-hypatia-gotvcy) | 튜토리얼 대조에서 나온 틀린 안내 — 💣 버튼 설명(실제는 남을 날림) · 좌석 친구 신청 안내(우클릭 → 메뉴 다시 고르기) · 🎯 집중 달성표 힌트(자정 → 오전 6시) · 0.11.4 뒤 합침 | `desk-companion-prototype.html`(#chatBombBtn title · #chalFocusHint 두 줄) · `myhome/seat-friend-req.js` · `checks/sim-seat-friend-req.js` · `checks/CHECKS.md` | — |
 | ~~#377 친구 명함(켠 뒤 새 친구 이름 · 사진)~~ 머지(개정 384) | 검증 담당 | #377 브랜치에 main 합침(force 없음) | `checks/CHECKS.md` | #377 |
 | 접속 상태 첫 쓰기에 앱 버전 먼저 — 버전 대답 전에 presence 가 «ver 없음» 으로 적혀 잠깐 옛 앱(0.10.2) 막기에 걸리던 틈 | 다른 세션(`../tw-presence-ver` · fix/presence-ver-first) 진행 · 검증 담당은 머지만 | presence 를 쓰기 전에 앱 버전 대답(_appVer.ready)을 기다린다 · 0.12.0 | `app/parts/firebase-init.js`(presence 쓰기) · `checks/` 검사 | — |
 | ~~#366 규칙 제한 전수 훑기~~ 끝 — 앱 쓰기 거절 더 없음 · 서버 웹박수 봇 쓰기만 거절(통로가 Firebase 로 넘어가 사용자 영향 없음) | 검증 담당 | 3251aa9^1 ↔ main 규칙 차이 경로 × 앱 · 함수 · 웹 관리자 · 서버가 쓰는 값 대조, 에뮬레이터로 실제 모양 시험 | 없음(조사) | — |
