@@ -92,11 +92,10 @@ function updateSeatExpBar(seat, level, cells, star){
   const barH = EXP_BAR_H + EXP_BAR_CHROME;
   /* 화면 아래에 두면 바 **밑에 붙는 이름표**까지 화면 안에 들어와야 한다. 예전엔 바만 화면 안으로 눌러서,
      발밑 높이가 사람마다(키 · 화면 앵글) 조금씩 다른 만큼 어떤 사람은 이름이 잘렸다(제보).
-     이름표 높이는 마지막으로 잰 값을 쓴다(_npH) — 이 프레임엔 이름표가 바 다음에 자리를 잡는다. */
+     이름표 높이는 기억해 둔 값(overheadMod.nameplateHeight)을 쓴다 — 매 프레임 재면 강제 레이아웃이 난다. */
   let below = 0;
   if(overheadMod.NAMEPLATE_BELOW_EXPBAR && seat.namePlateEl && seat.namePlateEl.style.display !== 'none'){
-    const h = seat.namePlateEl.offsetHeight || seat._npH || 0;
-    if(h) seat._npH = h;
+    const h = overheadMod.nameplateHeight(seat);
     below = h ? h + 4 : 0;   // 4 = setSeatNamePlate 가 바 아래에 두는 간격
   }
   top = Math.max(2, Math.min(innerHeight - barH - below - 2, Math.round(top)));
@@ -104,6 +103,8 @@ function updateSeatExpBar(seat, level, cells, star){
   el.style.top   = top + 'px';
   el.style.width = w + 'px';
   el.style.display = 'block';
+  /* 이름표 · 말풍선이 사각형을 다시 재지 않고 읽는 아래변 — 높이는 기억해 둔 실측(CSS 가 바뀌어도 따라간다), 못 쟀으면 barH */
+  { const bs = overheadMod.labelSize(el, el.className); el._bottom = top + ((bs && bs.h) || barH); }
   /* 티어 + 표식 클래스(lvx·lvglow)를 한 문자열로 받아 통째로 갈아끼운다.
      ⚠️ className 통째 대입이라 여기서 안 만든 클래스는 지워진다. 회차 색 바(.starbar)를
        붙일 때는 이 문자열에 같이 실을 것 — 밖에서 classList.add 로 얹으면 다음 프레임에 날아간다. */

@@ -425,6 +425,8 @@ PRELOAD.push('click-through-policy.js');
 PRELOAD.push('desktop-run.js');
 /* room-entry.js — 🛰 방 서버 · 입장 · 방 개수(앱 FSD 33번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomEntry 를 같이 굴린다. */
 PRELOAD.push('room-entry.js');
+/* label-measure.js — 📐 라벨 잰 값 기억. overhead.js 가 만들 때 부르므로 그보다 먼저. */
+PRELOAD.push('label-measure.js');
 /* overhead.js — 💬 머리 위 말풍선 · 🏷️ 이름표(앱 FSD 34번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createOverhead 를 같이 굴린다. */
 PRELOAD.push('overhead.js');
 /* room-sync.js — 📦 방 def 전송 · poke · 자동 퇴장 · 감시견(앱 FSD 35번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomSync 를 같이 굴린다. */
