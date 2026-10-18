@@ -1,7 +1,11 @@
 # 검사 파일 정본 표 — 핸드오프 3-① 대응
 
-작성: 2026-09-12 · 개정 386 (🛡️ 화면에 넣는 값 — 공용 safe-html.js 한 곳 · 전부 훑는 검사)
-대상: `sim-*.js` 329개 + `smoke.js` + `audit.py` = **331개** (개정 386 기준 — 폴더를 센 값)
+작성: 2026-09-12 · 개정 387 (대화 기록 지움 남기기(함수 로그 — 누가 · 몇 줄))
+대상: `sim-*.js` 330개 + `smoke.js` + `audit.py` = **332개** (개정 387 기준 — 폴더를 센 값)
+
+**개정 387 에서 한 것 (2026-10-19 · 대화 기록 지움 남기기 — 함수만)**
+- 함수: `functions/chat-delete-log.js`(새 · summarizeDeleted) · `functions/index.js` chatLogDeleted · chatTabDeleted — rooms/{방}/chatLog · _chatTab/{탭} 이 통째로 지워지면 `[chatDeleted]` 로그 한 줄(방 · 탭 · 줄 수 · 보낸 사람 수 · 첫 · 마지막 시각 · 방장 지우기 표시 줄 유무 · authType · authId · 글은 안 실음). 지우기는 막지 않음. 원인: 10-19 PLAY-BFBT 70줄이 서버 함수 기록 없이 사라짐.
+- 검사: `sim-chat-delete-log.js` 신설 11 — 요약 · index.js 를 firebase 패키지 가짜로 실제 로드해 두 트리거 처리기를 돌림(경로 · 로그 한 줄) · 표시 줄 · #일반 값이 앱과 같음. 변이: 로그 빼기 → 2 빨강 · authId 빼기 → 2 · 경로 틀림 → 1.
 
 **개정 386 에서 한 것 (2026-10-18 · 🛡️ 보이는 걸 제대로 보이게 — 공용 safe-html.js · 사용자 결정)**
 - 앱: 새 `shared/safe-html.js`(`window.TwSafeHtml` — text · attr · safeUrl · cssUrl · cssColor). 남이 쓸 수 있는 값은 친 그대로 보이고(«초마 <뚱쟁이>» · «병준이<3» · «>_<» 를 지우거나 거절하지 않음) HTML 로는 안 읽힌다. app.js `escHtml` · `_chatEsc` · 파일 안 `esc`(mallang · myhome-desktop — 따옴표 ' 를 안 막던 것) · 엑셀 XML 칸은 별칭. 날값이 들어가던 자리: 스티커사진 자리 이름 · 말랑이 그림(요소로 · safeUrl) · 설정 포커싱 앱 이름 · 모험 파티 색 · 좌표 · 얼굴 · 유품 그림 · 마이홈 테마 · 배경(cssUrl · cssColor) · 친구 사진 · 광고 배너 링크 등 — 정상 값은 보이는 것 같음, 허용 안 된 주소 · 색은 안 그림. 말랑이 선물 토스트가 이름을 &lt; 로 보이던 것 고침.
@@ -2553,6 +2557,7 @@
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** ← **개정 383 §12 파츠 종류별 흉내 다섯** · **개정 358 §11 편집 중 마이홈 · 방명록 숨기기(#258 의도 되살림)** · **개정 355 §11 — 숨김 대신 창 쌓기 · 대화상자 층 판정** · **개정 354 앞뒤 값을 창 층 표로 풀어 읽는다(판정 무변경)** · **개정 352 §12 rig 째 갈래는 measureBodyBox(seat.rig) · 흉내에 진짜 body-measure.js(판정 무변경)** · **개정 336 ** · **개정 317 신설 · 🐞 10-16 제보 «하» 5건 — 알림콩 읽음 표시(ts 순) · 좌석 메뉴 + 단축키 · 상태 이모지 depthTest · 편집창 위 마이홈 · 날기 기준점(실제 three)** |
 | **sim-gl-recover.js** | 80 | **8c117fa521be** ← **개정 232 경로 parts/shared/ 반영(판정 무변경)** · **2026-10-08 신규 · 🧯 메인 캔버스 WebGL 연결 끊김(제보 #11 OBS) — gl-recover.js 실행(6초 기다림 · 안 돌아오면 다시 불러오기 1번 · 그 안에 복구면 안 함 · 두 번째부터 기록만 · 저장소 실패) · HTML 순서 · app.js 메인 캔버스에 붙임 · preload/main diagNote · main 3D 막힘 해제(ready 전)** |
 | **sim-chat-copy.js** | 86 | **0e24f604f42f** ← **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **2026-10-08 신규 · 📋 대화창 드래그 · 복사 — chat-copy.js 실행(「이름: 내용」 · 시각 없음 · 이모티콘 마커 생략 · 이모티콘만 있는 줄 빼기 · 링크 원문) · 스크립트 순서 · .chat-messages 만 user-select:text · 칩/메뉴/토스트 #chatWindow 안 · 고르는 중 innerHTML 전 보류 · 원문 번호(data-i) · Ctrl/Cmd+C 직접 · 우클릭 메뉴 · 선택 풀리면/칩 누르면 그리고 맨 아래로** |
+| **sim-chat-delete-log.js** | 90 | **d987e49be2b8** ← **개정 387 신설 · 대화 기록 지움 남기기(함수 로그)** |
 | **sim-chat-log-persist.js** | 158 | **2504f89acf10** ← **개정 234 chatLog 지우는 곳 둘(빈 Firebase 방 · 닫힌 방 서버 방) — 둘 다 투게더룸만** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 154 시크릿룸은 _meta · _chatTab 지우기보다 먼저 빠진다** · ← **개정 153 서버 함수는 공용 투게더룸일 때 한 곳에서만 chatLog 를 지운다** · ← **개정 119 §2 _meta 는 서버 함수가 걷는다 · 퇴장은 roomIndex 줄에 비었음 표시 · 서버도 chatLog 는 안 지움** · 2026-09-13 고친 판 (§8) |
 | **sim-child-theme.js** | 104 | **365ddf210e7d** ← **개정 243 열린 창 다시 걸기는 theme-ui 가 onApplied 로 건 함수에서 봄(판정 무변경)** · **개정 229 경로 parts/myhome/ 반영(판정 무변경)** · **개정 213 렌더러 쪽 한 벌로 읽기(판정 무변경)** · **개정 140 렌더러 쪽 한 벌 = app.js + guestbook.js + myhome-edit.js(👑 디자인 창 DS_HTML 이 모듈로 · 없으면 «못 찾음»)** · **개정 135 렌더러 쪽 한 벌 = app.js + guestbook.js(📖 방명록 창이 모듈로 · 없으면 «못 찾음»)** · 2026-09-16 (제보 5 자식 창 테마) · 개정 10 등재 |
 | **sim-chip-chat-ui.js** | 115 | **e60ef5c45121** ← **개정 224 경로 parts/chat/ 반영(판정 무변경)** · **개정 194 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 169 렌더러 쪽 한 벌 = app.js + chat-window.js(💬 대화창 배선 — 타이틀바 끌기 예외 · 판정 무변경)** |

@@ -15,6 +15,7 @@
    deleteMyAccount — 회원 탈퇴(호출형 · 로그인한 본인). 앱 [내 정보 › 계정 › 회원 탈퇴]가 부른다. 로직은 account-delete.js.
    adminResetPassword — 비밀번호 초기화(호출형 · 관리자만). 웹 관리자 사용자 상세가 부른다 — 무작위 임시 비밀번호 · 다른 PC 로그인 끊기 · 작업 기록. 로직은 password-reset.js.
    mobileLinkTrim — 폰 연결 주소에 낀 공백 떼기. mobileLink/{코드}/state 쓰기마다 코드에 공백이 있으면 정상 칸으로 옮긴다. 로직은 mobile-link-trim.js.
+   chatLogDeleted · chatTabDeleted — 대화 기록(chatLog · _chatTab/{탭})이 통째로 지워지면 누가(authType · authId) · 몇 줄 · 표시 줄 유무를 로그에 남긴다(지우기는 막지 않음 · 글은 안 남김). 로직은 chat-delete-log.js.
 
    changePassword (호출형 · onCall)
      · 로그인 필수 — request.auth 가 없으면 unauthenticated. 익명 세션도 거절.
@@ -255,6 +256,16 @@ exports.roomDirOnClose = onValueDeleted({ ref: '/roomDir/{room}', timeoutSeconds
     const r = await require('./room-stats').onServerRoomClosed(getDatabase(), code, event.data && event.data.val());
     if (r !== 'secret') console.log('[roomDirOnClose]', code, r);
   });
+
+// 대화 기록이 통째로 지워지면 누가 지웠는지 남긴다 — 규칙상 누구나 지울 수 있어서 사라진 원인을 찾으려고(chat-delete-log.js).
+function logChatDeleted(event, tab){
+  const r = require('./chat-delete-log').summarizeDeleted(event.params.room, tab, event.data && event.data.val(), event.authType, event.authId);
+  console.log('[chatDeleted]', JSON.stringify(r));
+}
+exports.chatLogDeleted = onValueDeleted({ ref: '/rooms/{room}/chatLog', timeoutSeconds: 30, maxInstances: 2, retry: false },
+  async (event) => { logChatDeleted(event, null); });
+exports.chatTabDeleted = onValueDeleted({ ref: '/rooms/{room}/_chatTab/{tab}', timeoutSeconds: 30, maxInstances: 2, retry: false },
+  async (event) => { logChatDeleted(event, event.params.tab); });
 
 // 앱이 부팅마다 accountSnap/{코드} 를 쓴다 — 그 쓰기를 그날의 접속으로 센다(daily-active.js). 지우기는 세지 않는다.
 exports.dailyActive = onValueWritten({ ref: '/accountSnap/{userId}', timeoutSeconds: 60, maxInstances: 5 },
