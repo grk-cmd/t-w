@@ -64,7 +64,8 @@ chk(/s\._lastChatTabTs = \(friends\[id\]\.chatTab && friends\[id\]\.chatTab\.ts\
 chk(/const _onGeneral = _chatMyTabId\(\) === 'general';\s*if\(!_onGeneral && !_demojiOnly\)/.test(APP), '#일반 말풍선은 #일반에 있는 사람에게만 (기본 이모티콘 단독은 그대로)');
 chk(/danceStyle:_myDanceStyle\(\), tab:_chatTabOut\(\), flyCool:/.test(APP) && /function _chatTabOut\(\)\{ const t = _chatMyTabId\(\); return t === 'general' \? null : t; \}/.test(APP), '내 탭을 presence 에 싣는다 (#일반이면 칸을 지움)');
 chk(/sendMyChat\(bubbleText, _fly, _fly \? _chatFlyColor : '', _chatFlySize, _chatMyTabId\(\)\)/.test(APP), '대화창에서 친 글은 지금 탭으로');
-chk(/sendChatLog\(room, \{ uid:getMyUserId\(\), name:getDisplayName\(\), text:outText \}, _chatMyTabId\(\)\)/.test(APP), '  기록도 지금 탭으로');
+// 보낸 탭을 한 번 잡아 기록 · 읽음(_chatMarkSentRead)이 같이 쓴다 — 실제로 돌려 보는 판정은 sim-chat-read-on-send.js 3절
+chk(/const sendTab = _chatMyTabId\(\);[\s\S]{0,200}sendChatLog\(room, \{ uid:getMyUserId\(\), name:getDisplayName\(\), text:outText \}, sendTab, /.test(APP), '  기록도 지금 탭으로');
 chk(/function _chatMyTabId\(\)\{\s*if\(window\._activeChannel !== 2\) return 'general';/.test(APP), '워킹룸에는 탭이 없다 (언제나 #일반)');
 
 say('§3 화면');
