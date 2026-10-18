@@ -3,6 +3,7 @@ import { inviterKind, useIssuedInvites, useUserInvite } from '@/entities/invite'
 import { REPORT_ADMIN_MIN, useUserReportCount } from '@/entities/report';
 import { formatDay, secretRoomState, useUserSecretRoom } from '@/entities/secret-room';
 import {
+  currentVer,
   isBadLicense,
   LICENSE_LABEL,
   realName,
@@ -10,6 +11,7 @@ import {
   useUserFocusSec,
   useUserName,
   useUserPresence,
+  verLabel,
   type UserRow,
 } from '@/entities/user';
 import { DeleteAccountButton } from '@/features/user/delete-account';
@@ -130,9 +132,16 @@ function Presence({ uid }: { uid: string }) {
   );
 }
 
-function PresenceVer({ uid }: { uid: string }) {
-  const q = useUserPresence(uid);
-  return <Loaded q={q}>{(p) => p?.ver ?? <span className="soft">기록 없음</span>}</Loaded>;
+function PresenceVer({ row }: { row: UserRow }) {
+  const q = useUserPresence(row.userCode);
+  return (
+    <Loaded q={q}>
+      {(p) => {
+        const v = currentVer(p, row);
+        return v.ver ?? <span className="soft">{verLabel(v)}</span>;
+      }}
+    </Loaded>
+  );
 }
 
 function SecretRoom({ uid }: { uid: string }) {
@@ -252,8 +261,7 @@ function Body({ row, onOpen, onDeleted }: Omit<Props, 'onClose' | 'row'> & { row
           <Presence uid={uid} />
         </Field>
         <Field label="앱 버전">
-          {/* 목록은 계정 요약 값, 여기는 presence 값 — 계정이 없어도 0.11.0 부터는 보인다. */}
-          <PresenceVer uid={uid} />
+          <PresenceVer row={row} />
         </Field>
         <Field label="집중">
           {/* 계정 요약 값은 앱이 올린 때의 값이라, 기기끼리 합친 정본(focus/totalSec)을 따로 읽는다. */}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useRoomServerConfig } from '@/entities/room-server';
 import {
+  currentVer,
   isBadLicense,
   LICENSE_LABEL,
   useUserLicense,
@@ -43,10 +44,7 @@ function AllowRow({
   const block =
     presence.isPending || summary === null
       ? null
-      : appVerBlock({
-          ver: presence.data?.ver ?? summary?.ver ?? null,
-          hasAccount: summary?.hasAccount ?? false,
-        });
+      : appVerBlock(currentVer(presence.data ?? null, summary ?? { ver: null, hasAccount: false }));
   return (
     <div className="row">
       <span className="grow">{name.data ?? (name.isPending ? '…' : '이름 없음')}</span>
@@ -66,7 +64,7 @@ function AllowRow({
 }
 
 // 현재 서버로 지정된 사용자 — config/roomServer/allow 를 그대로. 찾아서 지정하기는 아래 사용자 목록에서.
-// summaryOf: 계정 요약(사용자 목록과 같은 캐시)에서 그 사람 버전 — presence 에 버전이 없을 때 «0.10.2 이하» 를 가리는 데 쓴다.
+// summaryOf: 계정 요약(사용자 목록과 같은 캐시)에서 그 사람 버전 — presence 를 못 받았을 때만 본다.
 // null 이면 요약을 받는 중(경고를 잠깐 미룬다), 없으면 presence 만 본다.
 export function AllowCard({
   summaryOf,

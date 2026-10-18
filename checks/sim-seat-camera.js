@@ -20,11 +20,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = [];
 const VAL_DEPS = ["BASE_PXW","DOT_RENDER_SCALE","camera","canvas","renderer"];
-const GET_DEPS = ["_cachedRowCenter","_cachedRowSpan","deskPanX","deskPanY","dotRenderEnabled","dotRenderMod","focusCharScale","sizeFactor"];
+const GET_DEPS = ["_cachedRowCenter","_cachedRowSpan","deskPanX","deskPanY","dotRenderEnabled","dotRenderMod","focusCharScale","sizeFactor","renderQuality","runLowered"];
 const SET_DEPS = [];
 const EXPORTS = ["applyCameraAndCanvas","updateCameraOnly"];
 const MOVED = ["updateCameraOnly","applyCameraAndCanvas"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  BASE_PXW: BASE_PXW,","  DOT_RENDER_SCALE: DOT_RENDER_SCALE,","  _cachedRowCenter: ()=>_cachedRowCenter,","  _cachedRowSpan: ()=>_cachedRowSpan,","  camera: camera,","  canvas: canvas,","  deskPanX: ()=>deskPanX,","  deskPanY: ()=>deskPanY,","  dotRenderEnabled: ()=>dotRenderEnabled,","  dotRenderMod: ()=>dotRenderMod,","  focusCharScale: ()=>focusCharScale,","  renderer: renderer,","  sizeFactor: ()=>sizeFactor,"];
+const GLUE = ["  BASE_PXW: BASE_PXW,","  DOT_RENDER_SCALE: DOT_RENDER_SCALE,","  _cachedRowCenter: ()=>_cachedRowCenter,","  _cachedRowSpan: ()=>_cachedRowSpan,","  camera: camera,","  canvas: canvas,","  deskPanX: ()=>deskPanX,","  deskPanY: ()=>deskPanY,","  dotRenderEnabled: ()=>dotRenderEnabled,","  dotRenderMod: ()=>dotRenderMod,","  focusCharScale: ()=>focusCharScale,","  renderer: renderer,","  sizeFactor: ()=>sizeFactor,","  renderQuality: ()=>_renderQuality,","  runLowered: ()=>_runLowered,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -108,16 +108,16 @@ say('── 4. 동작 — 카메라 거리 · 각도 · 화면 밀기 · 캔버�
     const canvas = { style: {} };
     const cls = new Set(o.run ? ['desktop', 'runmode'] : []);
     const document_ = { body: { classList: { contains: (c) => cls.has(c) } } };
-    const FB = { runPixelRatio: (dpr, dot) => dot ? 1 : Math.min(dpr, 1.5) };
+    const FB = { runPixelRatio: (dpr, dot, q, low) => (dot || q === 'light' || (q === 'auto' && low)) ? 1 : Math.min(dpr, 1.5) };   // frame-budget.js 의 표(그쪽 검사가 본다)
     const dotRenderMod = { applyDotTextureFilter: (on) => log.push(['dotTex', on]), applyPS1Shader: (on) => log.push(['ps1', on]) };
     const V = { BASE_PXW: 190, DOT_RENDER_SCALE: 0.45, camera, canvas, renderer, _cachedRowCenter: o.rowCenter, _cachedRowSpan: o.rowSpan,
-      deskPanX: o.panX || 0, deskPanY: o.panY || 0, dotRenderEnabled: !!o.dot, dotRenderMod, focusCharScale: o.focusCharScale || 1, sizeFactor: o.sizeFactor || 1 };
+      deskPanX: o.panX || 0, deskPanY: o.panY || 0, dotRenderEnabled: !!o.dot, dotRenderMod, focusCharScale: o.focusCharScale || 1, sizeFactor: o.sizeFactor || 1, renderQuality: o.q || 'sharp', runLowered: !!o.low };
     const G = { THREE: { Vector3: V3 }, document: document_, innerWidth: o.iw, innerHeight: o.ih, devicePixelRatio: o.dpr || 2, FrameBudget: FB };
     let api;
     if(typeof MOD === 'string' && MOD){
       const deps = {};
       for(const k of ['BASE_PXW', 'DOT_RENDER_SCALE', 'camera', 'canvas', 'renderer']) deps[k] = V[k];
-      for(const k of ['_cachedRowCenter', '_cachedRowSpan', 'deskPanX', 'deskPanY', 'dotRenderEnabled', 'dotRenderMod', 'focusCharScale', 'sizeFactor']) deps[k] = () => V[k];
+      for(const k of ['_cachedRowCenter', '_cachedRowSpan', 'deskPanX', 'deskPanY', 'dotRenderEnabled', 'dotRenderMod', 'focusCharScale', 'sizeFactor', 'renderQuality', 'runLowered']) deps[k] = () => V[k];
       const win = {};
       new Function('window', 'module', ...Object.keys(G), MOD)(win, undefined, ...Object.values(G));
       api = win.TwSeatCamera.createSeatCamera(deps);
@@ -135,6 +135,11 @@ say('── 4. 동작 — 카메라 거리 · 각도 · 화면 밀기 · 캔버�
   for(const [name, o, want] of CASES){
     const got = runCam(o, false);
     chk(J(got) === J(want), name + (J(got) === J(want) ? '' : ' — ' + J(got).slice(0, 300)));
+  }
+  {
+    const pr = (q, low) => (runCam(Object.assign({}, CASES[1][1], { q, low }), false).log.find(l => l[0] === 'pr') || [])[1];
+    chk(pr('sharp', true) === 1.5 && pr('auto', false) === 1.5 && pr('auto', true) === 1 && pr('light', false) === 1,
+      '★ 실행 화면 배율에 화질 · 낮춤을 넘긴다 — 선명하게 1.5 · 자동은 낮춘 뒤 1 · 가볍게 1');
   }
   const o0 = CASES[0][1], o1 = CASES[1][1];
   chk(J(runCam(o0, true)) === J(runCam(o0, false)) && J(runCam(o1, true)) === J(runCam(o1, false)), 'updateCameraOnly 는 캐시된 줄 가운데 · 폭으로 같은 값을 낸다');

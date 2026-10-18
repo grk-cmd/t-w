@@ -19,7 +19,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 /* myhome-edit.js — 마이홈 페이지 편집 묶음(앱 FSD 7-2). renderMyHomeStickers 를 감싸 다시 대입하고 [+ 스티커] · 새 스티커 붙이기가 여기서 부른다. */
-const need = ['myhome-sticker.js', 'app.js', 'desk-companion-prototype.html', 'myhome-edit.js'];
+const need = ['myhome-sticker.js', 'app.js', 'desk-companion-prototype.html', 'myhome-edit.js', 'myhome-sticker-rules.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['myhome-sticker.js'], EDIT = SRC['myhome-edit.js'];
@@ -75,6 +75,7 @@ function mkEnv(opt){
   ctx.focus = () => { env.focus++; };
   ctx._mhFitWindow = () => { env.fit = (env.fit || 0) + 1; };   // 런처 창 넓히기 고리(myhome-sticker-layout.js 가 부팅 때 건다)
   vm.createContext(ctx);
+  vm.runInContext(SRC['myhome-sticker-rules.js'], ctx, { filename: 'myhome-sticker-rules.js' });   // 🔒 잠금 · 순서 규칙 — 만들 때 받는다
   vm.runInContext(MOD, ctx, { filename: 'myhome-sticker.js' });
   env.ctx = ctx; env.els = els;
   const out = (s) => (s.x || 0) < 0 || (s.y || 0) < 0 || (s.x || 0) > env.W - 10 || (s.y || 0) > env.H - 10;
@@ -96,8 +97,12 @@ function mkEnv(opt){
     setMhStickerDragDist: (v) => { env.dragDist = v; },
     stickerMax: 5, stickerBase: 40, stickerRotSnap: 3,
   });
-  env.row = (i) => els.stMgrList.children[i];
-  env.btn = (i, txt) => env.row(i).children.find(c => c.className === 'st-mgr-btns').children.find(b => b.textContent === txt);
+  env.row = (i) => els.stMgrList.children[els.stMgrList.children.length - 1 - i];   // 목록은 앞(나중) → 뒤 — i 는 붙인 차례(z 없을 때)
+  const walk = (el) => [el].concat(...el.children.map(walk));
+  env.walk = walk;
+  env.part = (r, cls) => r.children.find(c => c.className === cls);
+  /* 줄의 버튼 — 🔒 ✎ ⋯ 는 줄에, ◎ ✨ 🔗 × 는 ⋯ 메뉴 안(글자가 붙는다) — 앞 글자로 찾는다 */
+  env.btn = (i, txt) => walk(env.part(env.row(i), 'st-mgr-btns')).find(b => b.tagName === 'BUTTON' && b.textContent.split(' ')[0] === txt);
   env.runTimers = () => { const t = env.timers.splice(0); t.forEach(fn => fn()); };
   return env;
 }
@@ -126,16 +131,25 @@ await sec('── 2. 관리 창 — 열기 · 목록 · 닫기', () => {
   e.viewing = null; M.open();
   chk(E.mhStickerMgrOverlay.classList.contains('on') && E.stMgrList.children.length === 1, '내 홈이면 열리고 목록 한 줄');
   const r = e.row(0);
-  chk(r.className === 'st-mgr-row' && r.children[0].children[0].src === 'data:a', '  줄 — 그림 섬네일');
-  const meta = r.children[1];
+  chk(r.className === 'st-mgr-row' && e.part(r, 'st-mgr-th').children[0].src === 'data:a', '  줄 — 그림 섬네일');
+  const meta = e.part(r, 'st-mgr-meta');
   chk(meta.children[0].innerHTML === '위치 10, 20 · 크기 150%' && meta.children[1].textContent === '🔗 https://x.y' && meta.children[1].title === 'https://x.y', '  위치 · 크기 · 링크');
   chk(E.stMgrCount.textContent === '1 / 5' && E.stMgrAdd.disabled === false && E.stMgrBringAll.disabled === true, '  개수 1 / 5 · [＋] 됨 · [전부 화면 안으로] 꺼짐(밖에 있는 것 없음)');
-  chk(['◎', '✎', '✨', '🔗', '×'].every(t => !!e.btn(0, t)), '  버튼 다섯 — ◎ ✎ ✨ 🔗 ×');
+  const main = e.part(r, 'st-mgr-btns').children;
+  chk(main.length === 3 && main[0].textContent === '🔓' && main[1].textContent === '✎' && main[2].className === 'st-mgr-more', '  줄에는 셋만 — 🔓 잠금 · ✎ 편집 · ⋯ 더보기');
+  const menu = e.part(main[2], 'st-mgr-menu'), moreBtn = main[2].children[0];
+  chk(menu.children.map(b => b.textContent).join('|') === '◎ 보이는 자리로|✨ 움직임|🔗 링크 바꾸기|× 삭제' && menu.children[3].classList.contains('danger'), '  ⋯ 메뉴 — 글자 붙은 넷(◎ ✨ 🔗 ×) · 삭제는 빨강');
+  moreBtn.click(); const opened = menu.classList.contains('on'); moreBtn.click();
+  chk(opened && !menu.classList.contains('on') && menu.style.top === '142px' && menu.style.left === '140px', '  ⋯ — 누르면 펼치고(버튼 바로 아래) 다시 누르면 접는다');
+  moreBtn.click(); r.fire('mouseleave', {});
+  chk(!menu.classList.contains('on'), '  줄 밖으로 나가면 접는다');
+  moreBtn.click(); e.btn(0, '✨').click();
+  chk(!menu.classList.contains('on'), '  메뉴에서 고르면 접는다');
   e.data.stickers = { a: { emoji: '🐱', x: -50, y: 5 }, b: {}, c: {}, d: {}, e: {} };
   M.render();
   chk(E.stMgrCount.textContent === '5 / 5' && E.stMgrAdd.disabled === true && E.stMgrBringAll.disabled === false, '다섯 개 — [＋] 꺼짐 · 밖에 하나 → [전부 화면 안으로] 켜짐');
-  chk(e.row(0).children[0].textContent === '🐱' && /화면 밖/.test(e.row(0).children[1].children[0].innerHTML) && e.row(1).children[0].textContent === '⭐', '  이모지 · «화면 밖» 표시 · 그림도 이모지도 없으면 ⭐');
-  chk(e.row(1).children[1].children[1].textContent === '링크 없음', '  링크 없으면 «링크 없음»');
+  chk(e.part(e.row(0), 'st-mgr-th').textContent === '🐱' && /화면 밖/.test(e.part(e.row(0), 'st-mgr-meta').children[0].innerHTML) && e.part(e.row(1), 'st-mgr-th').textContent === '⭐', '  이모지 · «화면 밖» 표시 · 그림도 이모지도 없으면 ⭐');
+  chk(e.part(e.row(1), 'st-mgr-meta').children[1].textContent === '링크 없음', '  링크 없으면 «링크 없음»');
   e.data.stickers = {}; M.render();
   chk(E.stMgrList.children.length === 1 && E.stMgrList.children[0].className === 'st-mgr-empty', '비면 안내 한 줄');
   E.stMgrClose.onclick();
@@ -241,6 +255,40 @@ await sec('── 5. 편집모드 · 드래그 · 회전 · 크기', () => {
   delete e.data.stickers.a;
   let ok = true; try{ h.fire('pointerdown', {}); h.fire('pointermove', { clientX: 5, clientY: 5 }); rot.fire('pointerdown', {}); el.fire('pointerdown', { target: el }); }catch(_){ ok = false; }
   chk(ok, '지워진 스티커의 핸들은 조용히 넘어간다');
+});
+
+await sec('── 5-2. 🔒 잠금 · ▲▼ 순서 (관리 창 · 편집모드 · 핸들)', () => {
+  const e = mkEnv({ stickers: { a: { x: 10, y: 10 }, b: { x: 900, y: 10 }, c: { x: 20, y: 20 } } });
+  const M = e.mk(); const E = e.els;
+  M.open();
+  const ordOf = (i) => e.part(e.row(i), 'st-mgr-ord').children;
+  chk(E.stMgrList.children[0] === e.row(2) && e.row(2).children[0].className === 'st-mgr-ord' && ordOf(2)[0].disabled === true && ordOf(0)[1].disabled === true && ordOf(1)[0].disabled === false, '목록은 앞(나중) → 뒤 · 맨 앞 ▲ · 맨 뒤 ▼ 꺼짐');
+  const c0 = e.commits; ordOf(0)[0].click();   // a 를 한 칸 앞으로
+  chk(e.data.stickers.a.z === 1 && e.data.stickers.b.z === 0 && e.data.stickers.c.z === 2 && e.commits === c0 + 1 && e.renders >= 1, '★ ▲ — 한 칸 앞(z 다시 매김 b0 · a1 · c2) · 다시 그림 · 저장');
+  e.btn(1, '🔓').click();   // 지금 차례 1 = a(z1) — 목록 아래에서 두 번째
+  const lockedId = Object.keys(e.data.stickers).find(k => e.data.stickers[k].locked);
+  chk(lockedId === 'a' && e.data.stickers.a.locked === true, '★ 🔓 — 잠근다(locked: true)');
+  const lr = E.stMgrList.children.find(r => /locked/.test(r.className));
+  const lbtn = (t) => e.walk(e.part(lr, 'st-mgr-btns')).find(b => b.tagName === 'BUTTON' && b.textContent.split(' ')[0] === t);
+  chk(!!lr && lbtn('🔒') && lbtn('🔒').classList.contains('on') && lbtn('◎').disabled === true && lbtn('✎').disabled === true && lbtn('🔗') && !lbtn('🔗').disabled && !lbtn('×').disabled, '  잠긴 줄 — 🔒 켜짐 · ◎ ✎ 꺼짐 · 🔗 × 는 된다');
+  const ax = e.data.stickers.a.x; M.bringIn('a');
+  chk(e.data.stickers.a.x === ax, '  ◎(bringIn) 도 잠긴 것은 안 옮긴다');
+  e.data.stickers.a.x = -500; const nb = e.toasts.length; E.stMgrBringAll.onclick();
+  chk(e.data.stickers.a.x === -500 && e.data.stickers.b.x === 560, '  전부 화면 안으로 — 잠긴 것은 그대로 · 나머지만');
+  e.data.stickers.a.x = 10;
+  const t0 = e.toasts.length; M.editStart('a');
+  chk(e.editSid !== 'a' && e.toasts.length === t0 + 1 && /잠긴 스티커/.test(e.toasts[t0]), '★ 잠긴 스티커는 편집모드에 안 들어간다 · 안내');
+  const el = mkEl(); el.classList.add('editing'); M.bindDrag(el, 'a');
+  el.fire('pointerdown', { clientX: 0, clientY: 0, target: el }); el.fire('pointermove', { clientX: 50, clientY: 50 });
+  chk(!el._cap && e.data.stickers.a.x === 10, '  편집 표시가 남아 있어도 끌기 · 회전 · 크기 핸들이 안 잡는다');
+  const p2 = mkEl(); const h = mkEl(); p2.appendChild(h); M.bindResize(h, 'a'); h.fire('pointerdown', { clientX: 0, clientY: 0 }); h.fire('pointermove', { clientX: 40, clientY: 40 });
+  const p3 = mkEl(); const r = mkEl(); p3.appendChild(r); M.bindRotate(r, 'a', mkEl()); r.fire('pointerdown', { clientX: 120, clientY: 80 }); r.fire('pointermove', { clientX: 160, clientY: 120 });
+  chk(!e.data.stickers.a.size && !e.data.stickers.a.rot, '  크기 · 회전 그대로');
+  e.editSid = 'c'; M.open();
+  e.btn(2, '🔓').click();
+  chk(e.data.stickers.c.locked === true && e.editSid === null, '  편집 중인 스티커를 잠그면 편집이 끝난다');
+  e.btn(2, '🔒').click();
+  chk(!('locked' in e.data.stickers.c), '  🔒 — 풀면 칸을 지운다(옛 데이터 모양)');
 });
 
 await sec('── 6. app.js 배선', () => {

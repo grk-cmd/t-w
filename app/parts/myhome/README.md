@@ -130,3 +130,22 @@ const next = mhPreset.apply(_myHomeData(), p, keys); _myHomeData().theme = next.
 그 전에 올린 `design_bg.jpg` 같은 옛 파일을 가리키는 칸은 그대로 둔다. `data:` 그림(옛 base64)은 칸에 담지 않는다 — 칸마다 복사되면 홈 노드가 몇 배로 커진다.
 옛 앱의 씻기는 `bg.img` · `img` 표시를 버린다 — 옛 앱이 새 저장본을 읽으면 그 칸은 «색만» 칸으로 보인다(깨지지 않는다).
 검사: `checks/sim-myhome-preset.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
+
+## `myhome-sticker-rules.js` — 🔒 스티커 잠금 · 그리는 순서
+
+**책임** — 마이홈 스티커의 잠금 판단과 그리는 순서(뒤 → 앞) 한 벌. 순수 함수만 — DOM · firebase 를 모른다(받은 스티커 묶음의 `z` · `locked` 칸만 고친다).
+
+**만드는 법** — 만들지 않는다(받는 것 없음). `myhome-sticker.js` · `myhome-edit.js` · app.js 보다 먼저 싣고 아래층으로 받는다:
+
+```js
+const stRules = TwMyHomeStickerRules;          // myhome-sticker.js(관리 창 · 편집 모드)
+const mhStickerRules = TwMyHomeStickerRules;   // myhome-edit.js(스티커 끌기 · 새 스티커)
+TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
+```
+
+**내놓는 것** — `isLocked(s)` · `setLocked(s, on)`(풀면 칸을 지운다) · `orderedIds(stickers)` → 뒤 → 앞 id 배열 · `nextZ(stickers)` → 새 스티커 z · `move(stickers, sid, ±1)` → 옮겼으면 true(모두에게 0,1,2… 를 다시 매긴다).
+
+**함정** — 순서를 키 이름으로 바꾸지 말 것: Realtime DB 는 키를 사전순으로 돌려준다. `z` 없는 옛 스티커는 키 순서대로 새 스티커들보다 뒤.
+잠금은 자리 · 크기 · 회전만 — 끌기(`myhome-edit.js`) · 편집 모드 · ◎ · 전부 화면 안으로가 본다. 지우기 · 링크 · 움직임 · 순서는 잠겨도 된다.
+옛 앱은 `z` · `locked` 를 모른다 — 만든 차례로 그리고 잠금 없이 움직인다(칸은 지우지 않고 남긴다).
+검사: `checks/sim-myhome-sticker-rules.js`.

@@ -3,6 +3,7 @@ import {
   LICENSE_LABEL,
   realName,
   useUserName,
+  currentVer,
   useUserPresence,
   verLabel,
   type UserRow,
@@ -28,6 +29,14 @@ function LastSeenCell({ uid }: { uid: string }) {
   if (p.error) return <span className="soft">읽지 못함</span>;
   if (p.data?.online) return <span className={styles.online}>접속 중</span>;
   return <span className="soft">{p.data?.lastSeen ? formatDate(p.data.lastSeen) : '—'}</span>;
+}
+
+// 버전 — 마지막 접속 칸과 같은 presence(캐시 한 벌)를 본다. 계정 요약의 버전은 옛 값이 남을 수 있다.
+function VerCell({ row }: { row: UserRow }) {
+  const p = useUserPresence(row.userCode);
+  if (p.isLoading) return <span className="soft">…</span>;
+  const v = currentVer(p.data ?? null, row);
+  return <span className={v.ver ? undefined : 'soft'}>{verLabel(v)}</span>;
 }
 
 // 가입 — 초대장 제도의 기록. 초대한 사람이 없으면 제도 전부터 쓰던 «기존»(처음 5장), 있으면 «초대»(0장으로 시작).
@@ -136,7 +145,9 @@ export function UserTable({ rows, startIndex, selection, onOpen }: Props) {
               <td>
                 <LastSeenCell uid={row.userCode} />
               </td>
-              <td className={row.ver ? undefined : 'soft'}>{verLabel(row)}</td>
+              <td>
+                <VerCell row={row} />
+              </td>
               <td>
                 <GrantInvitesButton uid={row.userCode} who={row.name ?? row.friendCode ?? row.userCode} />
               </td>

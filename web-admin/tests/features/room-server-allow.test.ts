@@ -43,7 +43,7 @@ describe('사용자별 서버 드롭다운', () => {
   });
 
   it('앱 버전 → 막는 이유(0.11.0 이상 · 같은 버전의 베타는 통과)', () => {
-    const ok = (ver: string) => appVerBlock({ ver, hasAccount: true });
+    const ok = (ver: string) => appVerBlock({ ver, old: false });
     expect(ok('0.11.0')).toBeNull();
     expect(ok('0.11.0-beta.2')).toBeNull();
     expect(ok('0.11.1')).toBeNull();
@@ -53,9 +53,9 @@ describe('사용자별 서버 드롭다운', () => {
     expect(ok('0.10.2')).toBe('앱 업데이트 필요 (현재 0.10.2)');
     expect(ok('0.10.2-beta.9')).toBe('앱 업데이트 필요 (현재 0.10.2-beta.9)');
     expect(ok('0.9.99')).toBe('앱 업데이트 필요 (현재 0.9.99)');
-    // 계정 요약은 있는데 버전이 없다 = 버전을 안 올리던 옛 앱 · 계정도 없으면 모름
-    expect(appVerBlock({ ver: null, hasAccount: true })).toBe('앱 업데이트 필요 (현재 0.10.2 이하)');
-    expect(appVerBlock({ ver: null, hasAccount: false })).toBe('버전 모름');
+    // 버전을 안 남기는 옛 앱 · 모름
+    expect(appVerBlock({ ver: null, old: true })).toBe('앱 업데이트 필요 (현재 0.10.2 이하)');
+    expect(appVerBlock({ ver: null, old: false })).toBe('버전 모름');
   });
 
   it('고른 값 → 할 일: 서버 = 쓰기 · Firebase(기본) = 지우기 · 같으면 없음', () => {

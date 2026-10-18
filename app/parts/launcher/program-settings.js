@@ -6,6 +6,7 @@
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 12개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 🏷️ 닉네임 저장(USER_NAME_MAX · commitUserName)은 account/user-name.js 로 옮겼다(모듈 순환 끊기 7) — 마이홈 편집 · 내 정보가 설정 창을 바라보지 않게.
+   ★ 🎚️ 실행 화면 화질(모니터 탭)은 고르기만 여기서 — 상태는 app.js(_renderQuality · 렌더러를 만들 때 읽는다), 규칙은 shared/frame-budget.js.
    ★ 밖에서 부르는 이름: closeProgramSettings · openProgramSettings — app.js 는 progSettingsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwProgramSettings — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
@@ -33,6 +34,10 @@ const tricksMod = deps.tricksMod;
 const setFigureMode = deps.setFigureMode;   // 쓰는 함수
 const setFocusGateSleep = deps.setFocusGateSleep;   // 쓰는 함수
 const setOfficeMode = deps.setOfficeMode;   // 쓰는 함수
+const renderQuality = deps.renderQuality;   // 읽는 함수 — 실행 화면 화질(FrameBudget.QUALITY)
+const setRenderQuality = deps.setRenderQuality;   // 쓰는 함수
+const renderAntialias = deps.renderAntialias;   // 값 — 이번 실행의 렌더러가 테두리 다듬기를 켜고 만들어졌는가
+const applyRunPixelRatio = deps.applyRunPixelRatio;   // 실행 화면 배율을 지금 화질로 다시 맞춘다
 
 /* --- 프로그램 설정(⚙️) — 라이선스 등록 UI가 이 모달의 "라이선스" 탭 안으로 들어옴, + "모니터" 탭 추가 ---
    모니터 선택은 run 모드의 focusSettingsPanel(renderMonitors)과 동일한 방식: companion.getDisplays()로
@@ -84,10 +89,34 @@ function setProgSettingsTab(tab){   // tab: 'license' | 'display' | 'system'
   });
 }
 if(document.getElementById('progTabBtnLicense')) document.getElementById('progTabBtnLicense').onclick=()=>setProgSettingsTab('license');
-if(document.getElementById('progTabBtnDisplay')) document.getElementById('progTabBtnDisplay').onclick=()=>{ setProgSettingsTab('display'); renderProgMonitors(); refreshThemeUI(); };
+if(document.getElementById('progTabBtnDisplay')) document.getElementById('progTabBtnDisplay').onclick=()=>{ setProgSettingsTab('display'); renderProgMonitors(); refreshThemeUI(); refreshRenderQualityUI(); };
 // 🎨 테마·색상 칩 바인딩은 여기서 하면 안 된다 — bindThemeUI()가 THEME_COLORS(const, 파일 아래쪽)를 읽어서
 //    TDZ 에러로 app.js 전체 실행이 여기서 멈춘다. 선언 바로 뒤(applyTheme 옆)에서 부른다.
 if(document.getElementById('progTabBtnSystem'))  document.getElementById('progTabBtnSystem').onclick =()=>{ setProgSettingsTab('system'); refreshAutoLaunchUI(); refreshFigureModeUI(); refreshOfficeModeUI(); refreshLabVideoUI(); refreshAppVersionUI(); };
+
+/* --- 🎚️ 실행 화면 화질(모니터 탭) — 고르면 이 PC 에 저장 · 배율은 바로, 테두리 다듬기는 다시 켜야 --- */
+const RENDER_QUALITY_HINT = {
+  sharp: '지금처럼 선명하게 그려요.',
+  auto: '화면이 계속 버벅이면 알아서 해상도를 낮춰요. 앱을 다시 켜면 선명하게 다시 시작해요.',
+  light: '해상도를 낮추고 테두리 다듬기를 꺼서 가장 가벼워요.',
+};
+const RENDER_QUALITY_RESTART = ' 테두리 다듬기는 앱을 다시 켜면 바뀌어요.';
+function refreshRenderQualityUI(){
+  const q = renderQuality();
+  document.querySelectorAll('#progQualityRow [data-q]').forEach(b=>b.classList.toggle('current', b.dataset.q === q));
+  const hint = document.getElementById('progQualityHint'); if(!hint) return;
+  hint.textContent = RENDER_QUALITY_HINT[q] + (FrameBudget.antialiasFor(q) !== renderAntialias ? RENDER_QUALITY_RESTART : '');
+}
+document.querySelectorAll('#progQualityRow [data-q]').forEach(b=>{
+  b.onclick = ()=>{
+    const q = FrameBudget.qualityFrom(b.dataset.q);
+    if(q === renderQuality()) return;
+    setRenderQuality(q);
+    _lsSet(FrameBudget.QUALITY_KEY, q);   // 실패하면 여기서 알려준다
+    applyRunPixelRatio();
+    refreshRenderQualityUI();
+  };
+});
 
 /* --- 자동 시작(로그인 시 실행) 토글 --- */
 async function refreshAutoLaunchUI(){

@@ -343,6 +343,8 @@ PRELOAD.push('friend-manage.js');
 /* pomodoro.js — 🍅 뽀모도로(앱 FSD 6번). 같은 까닭 — 만들 때 하는 일(tw.pomo 읽기 · 버튼 연결 · 1초 tick · window._pomoShowText 고리)을 같이 굴린다. */
 PRELOAD.push('pomodoro.js');
 /* myhome-sticker.js — 🎨 마이홈 스티커 관리 창 · 편집모드 · 드래그 · 회전 · 크기(앱 FSD 7번). 같은 까닭 — 만들 때 하는 일(#stMgrClose · #stMgrBringAll 연결)을 같이 굴린다. */
+/* myhome-sticker-rules.js — 🔒 스티커 잠금 · 순서 규칙(순수 함수). 관리 창 · 편집 묶음이 만들 때 TwMyHomeStickerRules 를 받으므로 먼저. */
+PRELOAD.push('myhome-sticker-rules.js');
 PRELOAD.push('myhome-sticker.js');
 /* gacha.js — 🎰 파츠 가챠 코어 · 파츠 보관함(T) · 뽑기 창(앱 FSD 8번). 같은 까닭 — 만들 때 하는 일(보유분 · 보너스 읽기 · 부팅 동기화 4.2초 · 10분 tick · 창 버튼 · ESC · 바깥 클릭 연결)을 같이 굴린다. */
 PRELOAD.push('gacha.js');
@@ -425,6 +427,8 @@ PRELOAD.push('click-through-policy.js');
 PRELOAD.push('desktop-run.js');
 /* room-entry.js — 🛰 방 서버 · 입장 · 방 개수(앱 FSD 33번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomEntry 를 같이 굴린다. */
 PRELOAD.push('room-entry.js');
+/* label-measure.js — 📐 라벨 잰 값 기억. overhead.js 가 만들 때 부르므로 그보다 먼저. */
+PRELOAD.push('label-measure.js');
 /* overhead.js — 💬 머리 위 말풍선 · 🏷️ 이름표(앱 FSD 34번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createOverhead 를 같이 굴린다. */
 PRELOAD.push('overhead.js');
 /* room-sync.js — 📦 방 def 전송 · poke · 자동 퇴장 · 감시견(앱 FSD 35번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomSync 를 같이 굴린다. */

@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { ROOM_SERVER_MIN_APP_VER, useRoomServerConfig } from '@/entities/room-server';
 import {
   isBadLicense,
+  currentVer,
   LICENSE_LABEL,
-  OLD_VER_LABEL,
   realName,
   useUserName,
   useUserPresence,
+  verLabel,
   type UserRow,
 } from '@/entities/user';
 import { appVerBlock, ServerSelect } from '@/features/room-server/manage-allow';
@@ -53,10 +54,10 @@ function UserLine({
 }) {
   const name = useRowName(row);
   const who = `${name ?? '이름 없음'}(${row.friendCode ?? row.userCode})`;
-  // 앱 버전 — 마지막 접속과 같은 presence 한 번(따로 안 읽음). presence 에 없으면 계정 요약 값.
+  // 앱 버전 — 마지막 접속과 같은 presence 한 번(따로 안 읽음).
   const presence = useUserPresence(row.userCode);
-  const ver = presence.data?.ver ?? row.ver;
-  const block = presence.isLoading ? null : appVerBlock({ ver, hasAccount: row.hasAccount });
+  const ver = currentVer(presence.data ?? null, row);
+  const block = presence.isLoading ? null : appVerBlock(ver);
   return (
     <tr>
       <td>{name ?? <span className="soft">이름 없음</span>}</td>
@@ -72,7 +73,7 @@ function UserLine({
         <LastSeen p={presence} />
       </td>
       <td>
-        <small className={block ? 'warn' : undefined}>{ver ?? (row.hasAccount ? OLD_VER_LABEL : '—')}</small>
+        <small className={block ? 'warn' : undefined}>{presence.isLoading ? '…' : verLabel(ver)}</small>
       </td>
       <td>
         <ServerSelect
