@@ -26,6 +26,7 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
+| 할 일은 버그 제보만 | 할 일 관리 세션 | 할 일(adminTodos)에는 버그 제보 관련만 적고 기능 · 계획은 현황판 · PR 로 — 문서만 | `CLAUDE.md`(작업 전 할 일 확인) · `.claude/skills/todo/SKILL.md` · `docs/GIT_CONVENTION.md` · `.github/pull_request_template.md` · `docs/WORK_STATUS.md`(16줄) | — |
 | 대화 기록 지움 남기기 | w2 세션 | 서버 대화(rooms/{방}/chatLog · _chatTab/{탭})가 통째로 지워지면 누가(authType · authId) · 몇 줄 · 표시 줄 유무를 함수 로그에 남긴다 — PLAY-BFBT 70줄이 서버 함수 기록 없이 사라진 원인 찾기(10-19 사용자) · 앱 안 바뀜 · 함수 배포만 | `functions/chat-delete-log.js`(새) · `functions/index.js`(export) · `checks/sim-chat-delete-log.js`(새) · `checks/CHECKS.md` | — |
 | 친구 이름 실시간 복구 | 친구 실시간 세션 | 포트 개편 뒤 친구가 이름을 바꿔도 목록 · 마이홈 구경에 안 바뀌던 회귀 — 목록이 열려 있는 동안 친구 프로필(users/{fid}/profile)도 듣기 · 마이홈 구경 이름 갱신 · 0.11.4 | `app/parts/friends/`(port · firebase · api · README) · `app/parts/myhome/friends-sub.js` · `app/parts/myhome/myhome-visit.js` · `checks/sim-friends-*.js` · `checks/CHECKS.md` | #386 |
 | 채팅 보내면 읽음 갱신 | 채팅 읽음 세션 | 투게더룸에서 보내고 바로 나갔다 들어오면 내 메시지가 «안 읽음 1» — 보낸 메시지가 서버에 들어가 진짜 시각이 정해지면 그 메시지까지를 그 채널 읽음으로 저장(앞으로만) | `app/parts/chat/chat-ui.js` · `app/parts/firebase-init.js`(sendChatLog 안 — 쓴 줄 id · 서버 시각 돌려주기만) · `checks/sim-chat-read-on-send.js`(새) · `checks/sim-chat-tabs.js` · `checks/CHECKS.md`(개정 387) | #384 |
