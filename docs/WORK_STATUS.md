@@ -29,6 +29,8 @@
 ## 진행 중 — 검토중 · 작업중 · 작업완료
 | 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|---|---|---|
+| 작업중 | 하네스 | 오케스트레이터 | main | harness/role-sessions | 역할 세션(서버 · 보안 · 투두 · 질문) — 이름으로 열면 시작 hook 이 역할 지침을 붙임 · 켤 때 열린 판 한 장 요약 + «어느 버전?» · /roles 스킬 | .claude/roles/* · .claude/hooks/(새 시작 hook · 시험) · .claude/settings.json · .claude/skills/roles/ | |
+| 작업중 | 하네스 | 오케스트레이터 | main | harness/status-done-action | PR 머지되면 현황판 줄을 «작업완료(판) · #PR · 날짜» 로 바꾸는 GitHub Actions | .github/workflows/(새 파일) · scripts/(새 순수 함수) · checks/(새 sim) · docs/RELEASE.md | |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
