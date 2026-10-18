@@ -26,6 +26,7 @@
 ## 진행 중 — 검증 · PR 올리는 중
 | 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|
+| API 봇 통째 읽기 401 고침 | w2 세션 | playlistIndex · bugBoard/list 읽기 규칙에서 봇 조건을 맨 앞으로 — 질의 없이 읽으면 `query.limitToLast <= N` 이 오류로 식 전체가 거절돼 API 구독이 401(에뮬레이터 확인 · 10-18 사용자) · 사람 판정은 그대로 | `firebase-database-rules.json`(두 줄) · `scripts/rules-emu-check.js` · `checks/`(규칙 글 보는 검사) · `checks/CHECKS.md` | — |
 | ~~웹 관리자 방 상한 잠금 풀기~~ 머지 #373(Hosting 배포 필요) | w2 세션 | 전체 방 상한(config/roomLimits)만 편집 잠금을 푼다 — 실제 투게더룸 454개로 300 을 넘어 값을 맞추려고(사용자 10-18). 정원 · 가입 스위치 · 방 서버 장부 등록은 0.11.4 퍼질 때까지 그대로 잠금 · 앱 코드 안 만짐(Hosting 만) | `web-admin/src/shared/config/remoteConfig.ts` · `web-admin/src/shared/config/index.ts` · `web-admin/src/features/settings/edit-room-config/ui/RoomConfigCard.tsx` | #373 |
 | ~~grk PR #361~#365 · #367 → 0.11.4~~ 머지 #368 · #361 · #362 · #363 · #364 · #365 | 검증 담당 위임 | 사용자 10-18 결정(기능 멈춤 예외). #367 → #368(개정 376) · 나머지는 grk PR 브랜치에 main 을 합쳐 그 PR 을 머지 — #361 개정 377 · #362 378 · #363 379 · #364 380 · #365 381 | 각 PR 의 파일(app.js · myhome · room · launcher · creator · CHECKS.md 등) | #368 · #361~#365 |
 | ~~통로 듣기 다시 붙기~~ 머지 #360 | 검증 세션 | 서버 듣기가 값을 받은 뒤 끊기면(서버 배포 · 재시작) 조용히 멈추던 것 → 잠깐 뒤 다시 붙고, 못 붙으면 Firebase 로 | `shared/data-gateway.js` · `checks/sim-data-gateway.js` · `CHECKS.md` | — |
