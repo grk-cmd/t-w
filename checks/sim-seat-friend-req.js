@@ -40,7 +40,7 @@ async function behave(src) {
   if (!w) return r;
   const seat = { friendName: '민지' };
   w.out._friendReqAsk('u2', seat); await flush();
-  t(w.log.sends.length === 0 && /^민지님은 아직 친구가 아니에요 — 한 번 더 우클릭하면/.test(lastT(w)) && w.timers[0] && w.timers[0].ms === 5000, '첫 번째 — 안내만 · 5초 시계');
+  t(w.log.sends.length === 0 && /^민지님은 아직 친구가 아니에요 — 5초 안에 우클릭 › «👤 친구 신청»을 한 번 더 누르면 보내요$/.test(lastT(w)) && w.timers[0] && w.timers[0].ms === 5000, '첫 번째 — 안내만 · 5초 시계');
   w.out._friendReqAsk('u2', seat); await flush();
   t(w.log.sends.length === 1 && JSON.stringify(w.log.sends[0]) === JSON.stringify(['me', 'u2', '나닉', '민지', null]) && lastT(w) === '민지님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요',
     '같은 사람 두 번째 — (나, 상대, 내 이름, 상대 이름, null) 로 보내고 알린다');
