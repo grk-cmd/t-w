@@ -10,7 +10,12 @@ G = os.path.join(HERE, 'ship-gate.py')
 A = '승인 0c4b3e9'
 R = 'repos/grk-cmd/t-w'
 CWD = tempfile.mkdtemp()
-for name, body in (('appr.md', A + '\n'), ('appr.json', json.dumps({'body': A})), ('req.md', '승인 요청 — 붙여 넣기: `' + A + '`\n')):
+os.makedirs(os.path.join(CWD, 'sub'))
+for name, body in (('appr.md', A + '\n'), ('appr.json', json.dumps({'body': A})), ('req.md', '승인 요청 — 붙여 넣기: `' + A + '`\n'),
+                   ('rev.json', json.dumps({'event': 'APPROVE'})), ('ev.txt', 'APPROVE\n'),
+                   ('q.graphql', 'mutation{addComment(input:{subjectId:"X",body:"' + A + '"}){clientMutationId}}'),
+                   ('q2.graphql', 'mutation{addPullRequestReview(input:{pullRequestId:"X",event:APPROVE}){clientMutationId}}'),
+                   ('sub/appr.md', A + '\n')):
     open(os.path.join(CWD, name), 'w', encoding='utf-8').write(body)
 
 cases=[
@@ -55,6 +60,25 @@ cases=[
  ('review 뒤 ls -a', 'gh pr review 395 --comment -b x && ls -a', False),
  ('상태값 올리기', f'gh api {R}/statuses/0c4b3e9 -f state=pending -f context=tw/owner', False),
  ('gh 없는 git log', 'git log --oneline -3', False),
+ # gh 앞에 붙는 것 · 묶은 플래그 · 파일 · 표준입력 · cd
+ ('-R 앞 review approve', 'gh -R grk-cmd/t-w pr review 395 --approve', True),
+ ('--repo 앞 comment', f'gh --repo grk-cmd/t-w pr comment 395 -b "{A}"', True),
+ ('env 앞', 'GH_TOKEN=x gh pr review 395 --approve', True),
+ ('command gh', 'command gh pr review 395 --approve', True),
+ ('절대경로 gh', '/opt/homebrew/bin/gh pr review 395 --approve', True),
+ ('-ab 묶음', 'gh pr review 395 -ab ok', True),
+ ('reviews --input 파일', f'gh api {R}/pulls/395/reviews --input rev.json', True),
+ ('reviews --input 표준입력', f"echo '{{\"event\":\"APPROVE\"}}' | gh api {R}/pulls/395/reviews --input -", True),
+ ('reviews -F event=@파일', f'gh api {R}/pulls/395/reviews -F event=@ev.txt', True),
+ ('graphql query 파일 addComment', 'gh api graphql -F query=@q.graphql', True),
+ ('graphql query 파일 review', 'gh api graphql -F query=@q2.graphql', True),
+ ('cd 뒤 상대 파일', 'cd sub && gh pr comment 395 --body-file appr.md', True),
+ ('-R 앞 merge(상태값 없음)', 'gh -R grk-cmd/t-w pr merge 395', True),
+ # 못 막는 것(알려진 한계): bash -c 'gh pr review 395 --approve'
+ ('GET 코멘트 + grep', f'gh api -X GET {R}/issues/395/comments -f per_page=100 | grep "{A}"', False),
+ ('코멘트 + 다른 조각 git commit', f'gh pr comment 395 -b "확인" && git commit -m "{A} 반영"', False),
+ ('review -b 값이 -a', 'gh pr review 395 --comment -b -a', False),
+ ('pr view comments 읽기', f'gh pr view 395 --comments | grep "{A}"', False),
 ]
 
 ok = bad = 0

@@ -84,20 +84,42 @@ LOOSE_APPROVE = re.compile(r'승인[\s\u3000]+[0-9a-f]{7,40}\b')   # 명령 글 
 WRITE_FLAGS = ('-f', '-F', '--field', '--raw-field', '--input')
 
 
-def _files_in(cmd, cwd):
-    """명령에 나온 파일(@파일 · -F/--body-file/--input 파일 · $(cat 파일) · < 파일)을 읽는다 — 본문이 파일로 들어오는 길."""
+def gh_norm(toks):
+    """gh 명령이면 [`gh`, 하위 명령…] 으로 — 앞의 `VAR=값` · env · command, gh 경로, -R/--repo 를 뗀다. 아니면 None."""
+    i = 0
+    while i < len(toks) and (re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', toks[i]) or toks[i] in ('env', 'command')):
+        i += 1
+    if i >= len(toks) or os.path.basename(toks[i]) != 'gh':
+        return None
+    out, rest = ['gh'], toks[i + 1:]
+    j = 0
+    while j < len(rest):
+        t = rest[j]
+        if t in ('-R', '--repo'):
+            j += 2
+            continue
+        if t.startswith('--repo='):
+            j += 1
+            continue
+        out.append(t)
+        j += 1
+    return out
+
+
+def _files_in(text, cwd):
+    """글에 나온 파일(@파일 · -F/--body-file/--input 파일 · $(cat 파일) · < 파일)을 읽는다 — 본문이 파일로 들어오는 길."""
     out = []
-    for raw in re.findall(r'[^\s\'"`()<>|;&=]+', cmd):
+    for raw in re.findall(r'[^\s\'"`()<>|;&=]+', text):
         path = os.path.join(cwd, os.path.expanduser(raw.lstrip('@')))
         if raw in ('-', '@-') or not os.path.isfile(path) or os.path.getsize(path) > 1_000_000:
             continue
         try:
-            text = open(path, encoding='utf-8', errors='replace').read()
+            body = open(path, encoding='utf-8', errors='replace').read()
         except OSError:
             continue
-        out.append(text)
+        out.append(body)
         try:   # --input 파일.json 은 한글을 \\uXXXX 로 적는다
-            out.append(json.dumps(json.loads(text), ensure_ascii=False))
+            out.append(json.dumps(json.loads(body), ensure_ascii=False))
         except ValueError:
             pass
     return out
@@ -107,33 +129,63 @@ def _no_backticks(text):
     return re.sub(r'`[^`\n]*`', '', text)   # 승인 요청 본문은 붙여 넣을 한 줄을 백틱으로 감싼다
 
 
+def _review_approves(args):
+    """gh pr review 의 인자에 승인이 있는가 — --approve · 묶은 짧은 플래그(-ab ok). 값을 받는 플래그 뒤 글자 · 값은 뺀다."""
+    j = 0
+    while j < len(args):
+        t = args[j]
+        if t in ('-b', '--body', '-F', '--body-file'):
+            j += 2
+            continue
+        if t == '--approve' or t.startswith('--approve='):
+            return True
+        if t.startswith('-') and not t.startswith('--'):
+            for ch in t[1:]:
+                if ch == 'a':
+                    return True
+                if ch in 'bF':   # 그 뒤는 값
+                    break
+        j += 1
+    return False
+
+
+STDIN_BODY = re.compile(r'(--body-file|--input)[ =]-(\s|$)|=@-(\s|$)')
+
+
 def check_self_approve(cmd, cwd):
     """세션이 승인(Approve 리뷰 · «승인 <커밋>» 코멘트)을 남기는 명령을 막는다. 읽기는 막지 않는다.
-    실수 막기다 — 본문을 실행할 때 조립하거나(printf 형식 · 변수) gh 밖(curl · 스크립트)으로 부르면 못 본다.
+    실수 막기다 — 본문을 실행할 때 조립하거나(printf 형식 · 변수) bash -c · gh 밖(curl · 스크립트)으로 부르면 못 본다.
     세션도 승인자 계정이라 GitHub 에서도 사람과 가를 수 없다."""
-    is_comment = False
-    for toks in segments(cmd):
-        if toks[0] != 'gh':
-            continue
-        if toks[1:3] == ['pr', 'review'] and any(t in ('--approve', '-a') or t.startswith('--approve=') for t in toks[3:]):
-            deny('승인(Approve)은 승인자가 GitHub 화면에서 직접 한다 — 세션이 남기지 않는다.')
-        if toks[1:3] in (['pr', 'comment'], ['issue', 'comment']):
-            is_comment = True
-        if toks[1:2] != ['api']:
-            continue
-        joined = ' '.join(toks)
-        writes = any(t in WRITE_FLAGS or t.startswith(('--field=', '--raw-field=', '--input=')) for t in toks) or \
-            re.search(r'(-X|--method)[ =]?(POST|PUT|PATCH)', joined)
-        if not writes:
-            continue
-        if (re.search(r'/reviews\b', joined) or re.search(r'(add|submit)PullRequestReview', joined)) and re.search(r'APPROVE', joined, re.I):
-            deny('승인(Approve)은 승인자가 GitHub 화면에서 직접 한다 — 세션이 남기지 않는다.')
-        if re.search(r'/comments\b|\b(addComment|updateIssueComment)\b', joined):
-            is_comment = True
-    if not is_comment:
-        return
-    if any(LOOSE_APPROVE.search(_no_backticks(t)) for t in [cmd] + _files_in(cmd, cwd)):
-        deny('«승인 <커밋>» 코멘트는 승인자가 GitHub 화면에서 직접 단다 — 세션이 남기지 않는다(승인 요청 본문에는 이 한 줄을 `코드` 로 감싸 적는다).')
+    for pipeline in re.split(r'&&|\|\||;|\n', cmd):
+        for part in pipeline.split('|'):
+            try:
+                toks = shlex.split(part)
+            except ValueError:
+                toks = part.split()
+            if toks and toks[0] == 'cd' and len(toks) > 1:
+                cwd = os.path.join(cwd, os.path.expanduser(toks[1]))
+                continue
+            g = gh_norm(toks) if toks else None
+            if not g:
+                continue
+            # 이 조각 · 그 파이프라인(echo … |) · 표준입력 본문이면 명령 전체(heredoc) · 나온 파일
+            texts = [part, pipeline] + ([cmd] if STDIN_BODY.search(part) else []) + _files_in(part, cwd)
+            if g[1:3] == ['pr', 'review'] and _review_approves(g[3:]):
+                deny('승인(Approve)은 승인자가 GitHub 화면에서 직접 한다 — 세션이 남기지 않는다.')
+            comment = g[1:3] in (['pr', 'comment'], ['issue', 'comment'])
+            if g[1:2] == ['api']:
+                joined = ' '.join(g)
+                reads = re.search(r'(-X|--method)[ =]?GET\b', joined)
+                writes = not reads and (any(t in WRITE_FLAGS or t.startswith(('--field=', '--raw-field=', '--input=')) for t in g)
+                                        or re.search(r'(-X|--method)[ =]?(POST|PUT|PATCH)', joined))
+                if not writes:
+                    continue
+                every = ' '.join(texts)
+                if (re.search(r'/reviews\b', joined) or re.search(r'(add|submit)PullRequestReview', every)) and re.search(r'APPROVE', every, re.I):
+                    deny('승인(Approve)은 승인자가 GitHub 화면에서 직접 한다 — 세션이 남기지 않는다.')
+                comment = bool(re.search(r'/comments\b', joined) or re.search(r'\b(addComment|updateIssueComment)\b', every))
+            if comment and any(LOOSE_APPROVE.search(_no_backticks(t)) for t in texts):
+                deny('«승인 <커밋>» 코멘트는 승인자가 GitHub 화면에서 직접 단다 — 세션이 남기지 않는다(승인 요청 본문에는 이 한 줄을 `코드` 로 감싸 적는다).')
 
 
 def check_push(cwd, sub):
@@ -169,9 +221,9 @@ def main():
         if toks[0] == 'cd' and len(toks) > 1:
             cwd = os.path.join(cwd, os.path.expanduser(toks[1]))
             continue
-        if toks[0] == 'gh' and (toks[1:3] == ['pr', 'merge'] or
-                                (toks[1:2] == ['api'] and re.search(r'/pulls/\d+/merge', ' '.join(toks)))):
-            check_merge(toks)
+        g = gh_norm(toks)
+        if g and (g[1:3] == ['pr', 'merge'] or (g[1:2] == ['api'] and re.search(r'/pulls/\d+/merge', ' '.join(g)))):
+            check_merge(g)
             continue
         if toks[0] != 'git':
             continue

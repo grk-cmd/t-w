@@ -43,7 +43,7 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 - `python3 .claude/hooks/risk.py <번호>` → `high` 면:
   - 승인자의 리뷰를 읽는다: `gh api $R/pulls/<번호>/reviews` · `gh api $R/pulls/<번호>/comments` · `gh api $R/issues/<번호>/comments` 에서 user.login = `mihioon` 인 것.
   - **CHANGES_REQUESTED 이거나 고칠 것을 적은 코멘트**가 머리 커밋 뒤에 있으면 → 고치고(3 처럼) → 고친 지적마다 `/lesson` → push → 2 부터.
-  - 머리 커밋에 **APPROVED** 가 있거나, `mihioon` 코멘트에 한 줄 «승인 <머리 커밋 앞 7자리>» 가 있으면 → 5 로(이 PC 세션이 올린 PR 은 작성자가 mihioon 이라 GitHub Approve 가 안 된다 — 코멘트로 받는다). 이 한 줄은 세션이 쓰지 않는다(가드가 막는다).
+  - 머리 커밋에 **APPROVED** 가 있거나, `mihioon` 코멘트에 한 줄 «승인 <머리 커밋 앞 7자리>» 가 있으면 → 5 로(이 PC 세션이 올린 PR 은 작성자가 mihioon 이라 GitHub Approve 가 안 된다 — 코멘트로 받는다). 이 한 줄은 세션이 쓰지 않는다(가드가 막는다). 승인자가 그 머리 커밋에 Request changes 를 달았으면 코멘트로는 풀리지 않는다 — 고쳐서 새 커밋을 올리고 다시 승인받는다(남이 올린 PR 은 Approve 로).
   - 아직 없으면 → 승인 요청을 남기고 **멈춘다**:
     ```
     gh api $R/statuses/$SHA -f state=pending -f context=tw/owner -f description='mihioon 승인 대기'
