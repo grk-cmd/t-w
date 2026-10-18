@@ -161,7 +161,6 @@ describe('사용자 목록 — API 로 읽기', () => {
     const { api } = fakeApi(() => ({
       total: 6500,
       accounts: 4000,
-      activeSince: '2026-10-06T00:00:00Z',
       versions: [
         { ver: null, count: 1 },
         { ver: '0.10.3', count: 1 },
@@ -170,7 +169,7 @@ describe('사용자 목록 — API 로 읽기', () => {
       syncedAt: '2026-10-13T01:02:03Z',
       snapshotAt: '2026-10-13T01:00:00Z',
     }));
-    const stats = await fetchUserStats(api, loadAllSpy(), 0);
+    const stats = await fetchUserStats(api, loadAllSpy());
 
     expect(stats.total).toBe(6500);
     expect(stats.versions.map((v) => [v.ver, v.count, v.share])).toEqual([
@@ -183,7 +182,6 @@ describe('사용자 목록 — API 로 읽기', () => {
       statsFromApi({
         total: 0,
         accounts: 0,
-        activeSince: '2026-10-06T00:00:00Z',
         versions: [],
         syncedAt: null,
         snapshotAt: null,
@@ -255,7 +253,7 @@ describe('사용자 목록 — 예전 방식으로 넘어가기', () => {
       via: 'rtdb',
       fallback: 'unavailable',
     });
-    const stats = await fetchUserStats(api, loadAll, 100);
+    const stats = await fetchUserStats(api, loadAll);
     expect(stats).toMatchObject({ total: ROWS.length, syncedAt: null, source: { via: 'rtdb' } });
     expect((await fetchAllUsers(api, loadAll, ALL)).rows).toEqual(ROWS);
     expect([...(await fetchUsersByCode(api, loadAll, ['u2'])).keys()]).toEqual(['u2']);
@@ -271,7 +269,7 @@ describe('사용자 목록 — 예전 방식으로 넘어가기', () => {
       new ApiError('request', 400, 'INVALID_REQUEST', ''),
     ]) {
       await expect(fetchUserPage(failing(e), loadAll, ALL, 1, 20)).rejects.toBe(e);
-      await expect(fetchUserStats(failing(e), loadAll, 0)).rejects.toBe(e);
+      await expect(fetchUserStats(failing(e), loadAll)).rejects.toBe(e);
     }
     expect(loadAll).not.toHaveBeenCalled();
   });

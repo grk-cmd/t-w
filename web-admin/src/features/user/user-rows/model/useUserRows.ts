@@ -63,7 +63,7 @@ export function useUserStats() {
   const loadAll = useLoadAll();
   return useQuery({
     queryKey: [...USERS_KEY, 'stats'],
-    queryFn: () => fetchUserStats(api, loadAll, Date.now()),
+    queryFn: () => fetchUserStats(api, loadAll),
   });
 }
 

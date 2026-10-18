@@ -1,7 +1,7 @@
 import type { ApiFallback } from '@/shared/api';
 import { queryUsers, type UserQuery } from './userQuery';
 import type { UserLicense, UserRow } from './userRow';
-import { ACTIVE_DAYS, cleanVer, toVersionCounts, versionCounts, type VersionCount } from './version';
+import { cleanVer, toVersionCounts, versionCounts, type VersionCount } from './version';
 
 // 화면이 쓰는 모양 — API(읽기 사본)로 받든 예전 방식(RTDB 통째)으로 받든 같은 모양으로 맞춘다.
 
@@ -23,7 +23,7 @@ export interface UserPageView {
 export interface UserStatsView {
   /** 목록 전체 사람 수(계정 없는 사람 포함). */
   total: number;
-  /** 최근 ACTIVE_DAYS 일 안에 앱을 켠 계정의 버전별 수 — 큰 버전부터, 기록 없음은 맨 뒤. */
+  /** 계정의 버전별 수(기간 없음) — 큰 버전부터, 기록 없음은 맨 뒤. */
   versions: VersionCount[];
   /** 이 시각까지의 RTDB 변경은 반영됨(API 읽기 사본). 예전 방식이면 방금 받은 원본이라 null. */
   syncedAt: number | null;
@@ -55,7 +55,6 @@ export interface ApiUserPage {
 export interface ApiUserStats {
   total: number;
   accounts: number;
-  activeSince: string;
   versions: { ver: string | null; count: number }[];
   syncedAt: string | null;
   snapshotAt: string | null;
@@ -128,10 +127,10 @@ export function pageFromRows(
   };
 }
 
-export function statsFromRows(all: UserRow[], now: number, fallback: UserFallback): UserStatsView {
+export function statsFromRows(all: UserRow[], fallback: UserFallback): UserStatsView {
   return {
     total: all.length,
-    versions: versionCounts(all, now, ACTIVE_DAYS),
+    versions: versionCounts(all),
     syncedAt: null,
     source: { via: 'rtdb', fallback },
   };

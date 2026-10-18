@@ -52,11 +52,11 @@ export function fetchUserPage(
   );
 }
 
-export function fetchUserStats(api: Api | null, loadAll: LoadAllRows, now: number): Promise<UserStatsView> {
+export function fetchUserStats(api: Api | null, loadAll: LoadAllRows): Promise<UserStatsView> {
   return viaApiOr(
     api,
     async (a) => statsFromApi(await a.get<ApiUserStats>(`${USERS_PATH}/stats`)),
-    async (fallback) => statsFromRows(await loadAll(), now, fallback),
+    async (fallback) => statsFromRows(await loadAll(), fallback),
   );
 }
 
