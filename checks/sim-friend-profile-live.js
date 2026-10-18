@@ -218,7 +218,7 @@ const BREAKS = [
   ['FBP', "  function watchProfile(myId, ids, onChange){ return _watchEach(ids, watchProfileOne, _keepProfile, onChange); }", "  function watchProfile(myId, ids, onChange){ return _watchEach(ids, (fid, cb)=>{ watchProfileOne(fid, cb); return ()=>{}; }, _keepProfile, onChange); }", '프로필 구독 해제 함수를 버림'],
   ['FBP', "  async function readProfile(fid){ return _keepProfile(fid, await getProfile(fid)); }", "  async function readProfile(fid){ return readFriend(fid); }", '새로 읽기가 10분 기억을 씀'],
   ['PORT', "  function watchProfile(myId, ids, onChange){ return firebase.watchProfile(myId, ids, onChange); }", "  function watchProfile(myId, ids, onChange){ firebase.watchProfile(myId, ids, onChange); }", '포트가 해제 함수를 안 돌려줌'],
-  ['FI', "      const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val()));", "      const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val()));\n      onValue(ref(db, `users/${fid}/home/avatar`), ()=>{});", '사진까지 구독'],
+  ['FI', "const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val()));", "const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val())); onValue(ref(db, `users/${fid}/home/avatar`), ()=>{});", '사진까지 구독'],
   ['MV', "    Promise.resolve(refreshFriendProfile ? refreshFriendProfile(friendId) : false)", "    Promise.resolve(false)", '마이홈 구경이 새 이름을 안 받음'],
   ['MV', "        if(_mhViewingDisplayName() !== shownName){ _mhApplyVisitUI(); renderMyHomePage(); }", "", '새 이름이 와도 다시 안 그림'],
 ];

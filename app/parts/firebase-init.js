@@ -1965,8 +1965,7 @@
       if(_dead && _listOff){ try{ _listOff(); }catch(_){} }   // onValue 가 돌아오기 전에 실패가 왔으면 지금 푼다
       return teardown;
     },
-    /* 친구 한 명의 이름 · 레벨 · 회차 · 소개 · 사진 한 번 읽기 → 날것 { profile, bio, avatar }(거르기는 friends/friends-firebase.js cardOf).
-       💰 home 통째가 아니라 bio · avatar 두 칸만(예전 구독과 같은 경로 — 게시글 · 테마 · 스티커는 안 받는다). */
+    /* 친구 한 명의 이름 · 레벨 · 소개 · 사진 한 번 읽기 → 날것 { profile, bio, avatar }(거르기는 friends-firebase.js cardOf) · 💰 home 통째가 아니라 bio · avatar 두 칸만 */
     async getFriendCard(fid){
       const [p, b, a] = await Promise.all([`users/${fid}/profile`, `users/${fid}/home/bio`, `users/${fid}/home/avatar`].map(path => get(ref(db, path))));
       return { profile: p.val(), bio: b.val(), avatar: a.val() };
@@ -1977,17 +1976,12 @@
       const off = onValue(presRef, snap=>onChange(snap.val()));
       return ()=>{ try{ off(); }catch(_){} };
     },
-    /* 친구 한 명의 프로필(이름 · 레벨 · 회차) 구독 → onChange(날것) · 접속 상태와 같이 목록이 열려 있는 동안만(friends-sub.js). @return 해제 함수
+    /* 친구 한 명의 프로필(이름 · 레벨 · 회차) — 구독은 접속 상태와 같이 목록이 열려 있는 동안만(friends-sub.js · @return 해제 함수), 한 번 읽기는 목록이 닫혀 있을 때 마이홈 구경.
        💰 규칙상 작은 칸 여섯뿐(name ≤20자 · level · cyc · clv · starC · updatedAt)이고 쓰기는 켤 때 · 이름 · 레벨이 바뀔 때만이다. */
-    watchFriendProfile(fid, onChange){
-      const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val()));
-      return ()=>{ try{ off(); }catch(_){} };
-    },
-    async getFriendProfile(fid){ return (await get(ref(db, `users/${fid}/profile`))).val(); },   // 한 번 — 목록이 닫혀 있을 때 마이홈 구경
+    watchFriendProfile(fid, onChange){ const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val())); return ()=>{ try{ off(); }catch(_){} }; },
+    async getFriendProfile(fid){ return (await get(ref(db, `users/${fid}/profile`))).val(); },
     /* 친구 한 명의 접속 상태 한 번 읽기 — 목록이 닫혀 있을 때 필요한 곳(놀러 가기 · 파도타기 친구 고르기)만 */
-    async getFriendPresence(fid){
-      return (await get(ref(db, `users/${fid}/presence`))).val();
-    },
+    async getFriendPresence(fid){ return (await get(ref(db, `users/${fid}/presence`))).val(); },
     // ===== 마이홈 페이지(프로필사진/소개글/게시글/스티커) =====
     async getMyHome(userId){
       const snap = await get(ref(db, `users/${userId}/home`));
