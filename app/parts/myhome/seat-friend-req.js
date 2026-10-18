@@ -15,18 +15,18 @@ const friendNet = deps.friendNet;   // 읽는 함수 — 데이터 provider(send
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
 const toast = deps.toast;
-/* 🙋 친구가 아닌 상대 우클릭 → 친구 신청 — 확인창 대신 **2단계 확인**(한 번 더 우클릭하면 보낸다).
+/* 🙋 친구가 아닌 상대 우클릭 → 친구 신청 — 확인창 대신 **2단계 확인**(5초 안에 메뉴에서 한 번 더 고르면 보낸다).
    [왜] 실행 화면은 투명 전체화면 오버레이라 native 확인 다이얼로그를 못 쓰고, 새 fixed 오버레이는 audit 검사 여럿에 항목이 는다.
    ⚠️ 부르는 쪽(app.js contextmenu)의 회사원 모드 차단보다 뒤에서 불려야 한다 — 그 모드는 토스트도 없어야 한다. */
 let _friendReqArmed = null, _friendReqTimer = null;
-const FRIEND_REQ_ARM_MS = 5000;   // 이 시간 안에 한 번 더 우클릭하면 전송
+const FRIEND_REQ_ARM_MS = 5000;   // 이 시간 안에 메뉴에서 한 번 더 고르면 전송
 function _friendReqAsk(uid, seat){
   const name = (seat && seat.friendName) || '이 사람';
   if(_friendReqArmed !== uid){
     _friendReqArmed = uid;
     clearTimeout(_friendReqTimer);
     _friendReqTimer = setTimeout(()=>{ _friendReqArmed = null; }, FRIEND_REQ_ARM_MS);
-    toast(name + '님은 아직 친구가 아니에요 — 한 번 더 우클릭하면 친구 신청을 보내요');
+    toast(name + '님은 아직 친구가 아니에요 — ' + (FRIEND_REQ_ARM_MS/1000) + '초 안에 우클릭 › «👤 친구 신청»을 한 번 더 누르면 보내요');
     return;
   }
   clearTimeout(_friendReqTimer); _friendReqArmed = null;
