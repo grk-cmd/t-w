@@ -2,7 +2,7 @@
    실행:  node sim-fix-1016.js   (저장소 루트에서 · 러너는 app/ 을 펼친 자리에서)
    제보마다 절 하나 — «고친 자리가 그대로 있는가» 와, 할 수 있는 건 «옛 모양이면 증상이 나고 새 모양이면 안 나는가» 를 흉내로 본다.
    (§1 도트 렌더 색은 main 이 먼저 같은 방식으로 고쳐 그쪽 검사가 지킨다 — 이 파일에서 뺐다)   §2 알림콩 — 새 글 없이 뜨고 안 꺼짐   §6 좌석 메뉴 + T — 가챠 창이 저장 · 닫힘
-   §10 상태 이모지가 동물 뒤로   §11 캐릭터 편집 위로 마이홈 패널   §12 날기 — 꾸미기 착용 시 보이지 않는 천장 */
+   §10 상태 이모지가 동물 뒤로   §11 캐릭터 편집 위로 마이홈 패널   §12 날기 — 꾸미기 착용 시 보이지 않는 천장(파츠 종류마다 — 겹쳐 입기 · 원피스 · 리깅 · 표식) */
 'use strict';
 const fs = require('fs');
 const say = console.log;
@@ -134,6 +134,34 @@ say('§12 날기 — 기준점 높이는 몸만 잰다');
     const empty = { rig: new THREE.Group(), gltfRoot: new THREE.Group(), charDef: {} };
     const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1)); m.position.y = 0.5; empty.rig.add(m);
     chk(Math.abs(probe(empty) - 0.5) < 0.01, '몸 상자가 비면 rig 째로 잰다(예전 동작)');
+    /* 파츠가 바뀌어도 다시 안 나게 — 카탈로그에 있는 종류마다 흉내(10-17 실제 앱 dev 에서 파츠 79개를 하나씩 입혀 몸 가운데 차이 0 확인 · 이 절은 그 규칙을 지킨다).
+       마녀모자 = 겹쳐 입는 키 큰 모자(__partWrap_<분류>_i<n>) · 유령옷 = 몸을 가리는 원피스(상의 · 하의를 숨김) · 리깅 파츠 = 몸 안에 붙는 스킨드 메시(_origBind · 스키닝 전 박스가 몇 배) */
+    const dress = (seat, o) => {
+      const body = seat.gltfRoot, torso = body.children[0];
+      if (o.hideBody) torso.visible = false;                                       // 원피스가 몸을 가림 — 숨은 몸도 센다(옷마다 기준점이 달라지지 않게)
+      if (o.stacked) for (let i = 0; i < 2; i++) {
+        const w = new THREE.Group(); w.name = '__partWrap_hat_i' + i; body.add(w);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 2.5, 0.3)); m.position.y = 2.8 + i; w.add(m);
+      }
+      if (o.rigged) {
+        const sk = new THREE.Mesh(new THREE.BoxGeometry(2, 9, 2)); sk.position.y = 4; sk.userData._origBind = true; body.add(sk);
+      }
+      if (o.flagged) {
+        const w = new THREE.Group(); w.userData.__twPartWrap = true; body.add(w);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(0.3, 4, 0.3)); m.position.y = 3; w.add(m);
+      }
+      return seat;
+    };
+    const cases = [['겹쳐 입은 키 큰 모자 둘(마녀모자처럼 · __partWrap_hat_i0 · _i1)', { stacked: true }],
+      ['몸을 가리는 원피스(유령옷처럼 — 몸 메시 숨김)', { hideBody: true, rigged: true }],
+      ['리깅 파츠(스킨드 메시 · 스키닝 전 박스가 몸의 여섯 배)', { rigged: true }],
+      ['__twPartWrap 표식만 있는 wrapper', { flagged: true }],
+      ['전부 한꺼번에', { stacked: true, hideBody: true, rigged: true, flagged: true }]];
+    for (const [nm, o] of cases) {
+      const s = dress(mkSeat(false), o), v = probe(s);
+      const whole = (() => { s.rig.updateMatrixWorld(true); const b = new THREE.Box3().setFromObject(s.rig); return (b.min.y + b.max.y) / 2; })();
+      chk(Math.abs(v - plain) < 0.01 && whole > plain + 0.3, '★ ' + nm + ' — 기준점 몸 가운데 그대로(' + v.toFixed(3) + ') · rig 째면 ' + whole.toFixed(2));
+    }
   }
 }
 
