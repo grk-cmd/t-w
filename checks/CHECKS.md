@@ -121,7 +121,7 @@
 | **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
 | **sim-room-meta-cleanup.js** | 272 | **fbdbd2710e9f** |
 | **sim-room-stats.js** | 226 | **3ca0e9bad691** |
-| **sim-room-alive.js** | 142 | **87cc586033a4** |
+| **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |

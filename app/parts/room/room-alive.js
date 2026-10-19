@@ -63,3 +63,8 @@ export function isProbeAlive(lastSeen, aliveAt, now, staleMs){
   if(typeof aliveAt === 'number' && (now - aliveAt) < ROOM_ALIVE_STALE_MS) return true;
   return false;
 }
+
+// 멤버 노드 통째로 받은 길(입장 검사 대체 경로 — shallow 가 실패했을 때)의 판정 — roomAlive 를 안 읽으니 hb:2 는 노드가 있으면 산 것, 그 밖은 isProbeAlive.
+export function isNodeAlive(m, now, staleMs){
+  return !!m && (m.hb === ROOM_ALIVE_HB || isProbeAlive(m.lastSeen, undefined, now, staleMs));
+}
