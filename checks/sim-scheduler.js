@@ -157,7 +157,7 @@ sec('── 3. 🔔 뱃지 · 알림 목록', () => {
   chk(txt.includes('병원') && txt.includes('만난 날 100일째 되는 날!') && txt.includes('같이 점심') && txt.includes('친구A 님이 태그함'),
       '  목록 — 오늘 일정 · 100일째 기념일 · 친구 태그 (일정이 «뜬다»)');
   chk(!txt.includes('조용'), '  알림을 끈 기념일은 안 뜬다');
-  chk(txt.includes('수령함 확인') && txt.includes('NEW 1'), '  아래 [📪 수령함 확인] · 안 읽은 수');
+  chk(txt.includes('알림함 확인') && txt.includes('NEW 1'), '  아래 [📪 알림함 확인] · 안 읽은 수');
   chk(Number(E.ls.get('tw.bellSeenTs')) >= now, '  열면 읽음 시각을 tw.bellSeenTs 에 적는다');
   /* 본 날(seenDay)도 오늘과 같은 로컬 날짜로 센다 — 예전엔 UTC(toISOString)라 한국 0~9시에 기념일을 다시 셌다 */
   chk(badge.textContent === '1', '  열고 나면 본 것은 빠지고 수령함 1 만 남는다(기념일은 오늘 본 것으로 — 시간대와 상관없이)');
@@ -167,7 +167,7 @@ sec('── 3. 🔔 뱃지 · 알림 목록', () => {
   E.el('myBellBtn').fire('click');
   const inboxBtn = list.children.find(c => c.className === 'bell-inbox-btn');
   try{ inboxBtn.onclick(); }catch(_){}
-  chk(!!inboxBtn && E.el('bellWin').style.display === 'none' && !E.S.isBellOpen(), '[📪 수령함 확인] → 알림창이 닫힌다(예전엔 typeof closeBell 이 늘 거짓이라 안 닫혔다)');
+  chk(!!inboxBtn && E.el('bellWin').style.display === 'none' && !E.S.isBellOpen(), '[📪 알림함 확인] → 알림창이 닫힌다(예전엔 typeof closeBell 이 늘 거짓이라 안 닫혔다)');
   const E2 = mkEnv();
   E2.S.renderBellList();
   chk(E2.el('bellList').textContent.includes('오늘 예정된 일정이 없어요'), '아무것도 없으면 «오늘 예정된 일정이 없어요»');

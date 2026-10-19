@@ -1064,11 +1064,11 @@ function renderBellList(){
     list.appendChild(e);
   }
 
-  // 📩 수령함 확인 버튼 — 일정 아래 구분선 + [수령함 확인] (안 읽은 게 있으면 NEW 뱃지)
+  // 📩 알림함 확인 버튼 — 일정 아래 구분선 + [알림함 확인] (안 읽은 게 있으면 NEW 뱃지)
   const inboxNew = _inboxUnreadCount();
   const hr = document.createElement('div'); hr.className = 'bell-inbox-sep'; list.appendChild(hr);
   const btn = document.createElement('div'); btn.className = 'bell-inbox-btn';
-  btn.innerHTML = '📪 수령함 확인' + (inboxNew > 0 ? ' <span class="bell-inbox-new">NEW '+Number(inboxNew)+'</span>' : '');
+  btn.innerHTML = '📪 알림함 확인' + (inboxNew > 0 ? ' <span class="bell-inbox-new">NEW '+Number(inboxNew)+'</span>' : '');
   btn.onclick = ()=>{
     window._closeBellWin();   // closeBell 은 창을 만드는 함수 안의 이름이라 여기서는 안 보인다 — 그 함수가 거는 고리로 닫는다
     // 마이홈 열고 → 우편함 탭(수령함)으로 이동
