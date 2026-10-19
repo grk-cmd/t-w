@@ -85,7 +85,7 @@ cases=[
 ok = bad = 0
 for name, cmd, want in cases:
     p = subprocess.run([sys.executable, '-B', G], input=json.dumps({'tool_input': {'command': cmd}, 'cwd': CWD}),
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding='utf-8', errors='replace')
     denied = '"deny"' in p.stdout
     if denied == want and not p.stderr:
         ok += 1
@@ -126,6 +126,25 @@ if risk.owner_approved(395, '') is False and risk.owner_approved(395, None) is F
 else:
     bad += 1
     print('  ✗ 판정 머리 커밋 없음')
+
+# 위험도 판정 — 새 파일이라는 것만으로는 높지 않다(새 파일의 줄도 데이터 검사를 거친다)
+_api = risk.api
+assess_cases = [
+    ('새 UI 모듈', [{'filename': 'app/parts/shared/drag-scroll.js', 'status': 'added', 'changes': 3, 'patch': "+function onDown(e){\n+  el.classList.add('dragging');\n+}"}], False),
+    ('새 모듈에 데이터 호출', [{'filename': 'app/parts/inbox/inbox-x.js', 'status': 'added', 'changes': 1, 'patch': '+  firebaseAPI.markAllInboxRead(uid);'}], True),
+    ('새 모듈에 서버 호출', [{'filename': 'app/parts/x/net.js', 'status': 'added', 'changes': 1, 'patch': '+  const r = await fetch(url);'}], True),
+    ('새 모듈 diff 못 읽음', [{'filename': 'app/parts/x/big.js', 'status': 'added', 'changes': 9000, 'patch': None}], True),
+    ('기존 화면 파일 · 문구만', [{'filename': 'app/parts/myhome/inbox-ui.js', 'status': 'modified', 'changes': 1, 'patch': "+  btn.textContent = '전체 읽음';"}], False),
+]
+for name, files, want in assess_cases:
+    risk.api = lambda p, f=files: [f]
+    got = risk.assess(1)['high']
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 위험도 {name}: {got}(기대 {want})')
+risk.api = _api
 
 # 머지 가드 — 위험도 · 승인을 못 읽으면(GitHub API 실패) 막는가
 import importlib.util, io, contextlib
