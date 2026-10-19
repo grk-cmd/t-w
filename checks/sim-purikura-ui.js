@@ -18,7 +18,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['purikura-ui.js', 'purikura-net.js', 'ps1-dither.js', 'app.js', 'desk-companion-prototype.html', 'chat-window.js', 'myhome-hooks.js'];
+const need = ['purikura-ui.js', 'purikura-net.js', 'ps1-dither.js', 'app.js', 'desk-companion-prototype.html', 'chat-window.js', 'myhome-hooks.js', 'pk-bgm.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['purikura-ui.js'], NET = SRC['purikura-net.js'];
@@ -69,7 +69,7 @@ function mkEnv(opt){
   opt = opt || {};
   const env = { toasts: [], warns: [], esc: [], winL: {}, raf: [], subs: [], unsubs: 0, watch: 0, unwatch: 0,
     closed: 0, configs: [], pause: 0, resume: 0, plPlaying: !!opt.plPlaying, plRender: 0, office: !!opt.office,
-    room: opt.room === undefined ? 'ROOM1' : opt.room, audio: [], fbWrites: [] };
+    room: opt.room === undefined ? 'ROOM1' : opt.room, audio: [], fbWrites: [], ls: Object.assign({}, opt.ls || {}), lsSets: [] };
   const els = {};
   const getEl = id => (opt.noDom ? null : (els[id] || (els[id] = mkEl('div', id))));
   const sess = opt.noSession ? null : Object.assign(new Proxy({}, { get: (t, k) => (k in t ? t[k] : (typeof k === 'symbol' || k === 'then') ? undefined : (() => Promise.resolve(true))) }), {
@@ -91,6 +91,7 @@ function mkEnv(opt){
     performance: { now: () => 1000 }, devicePixelRatio: 1, innerWidth: 1280, innerHeight: 800,
     Audio: FakeAudio, Image: class { constructor(){ this.onload = null; } }, URL: { createObjectURL: () => 'blob:x', revokeObjectURL(){} },
     confirm: () => true, THREE: U(),
+    localStorage: { getItem: (k) => (k in env.ls ? env.ls[k] : null) },
     companion: { pauseBgm(){ env.pause++; }, resumeBgm(){ env.resume++; } },
     firebaseAPI: {
       pkOnValue: (path, cb) => { env.subs.push(path); return () => { env.unsubs++; }; },
@@ -107,6 +108,7 @@ function mkEnv(opt){
   vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });
   /* 🎵 마이홈 BGM 고리(myhome-edit.js 가 부팅 때 고리판에 건다) — 여기선 마이홈 BGM 이 안 도는 판 */
   ctx.TwMyHomeHooks.on(ctx.TwMyHomeHooks.HOOK.BGM_PLAYING, () => false); ctx.TwMyHomeHooks.on(ctx.TwMyHomeHooks.HOOK.BGM_SET_PLAYING, () => {});
+  vm.runInContext(SRC['pk-bgm.js'], ctx, { filename: 'pk-bgm.js' });   // 🎵 창 BGM(재생 · 끄기 기억) — purikura-ui.js 가 만들 때 부른다
   vm.runInContext(MOD, ctx, { filename: 'purikura-ui.js' });
   env.ctx = ctx; env.els = els;
   env.mk = () => ctx.TwPurikuraUi.createPurikuraUi({
@@ -120,6 +122,7 @@ function mkEnv(opt){
     plPlaying: () => env.plPlaying,
     setPlPlaying: v => { env.plPlaying = v; },
     officeMode: () => env.office,
+    lsSet: (k, v) => { env.lsSets.push([k, v]); env.ls[k] = String(v); return true; },
     presence: () => (env.room == null ? undefined : { roomCode: () => env.room }),
     mkFrontFill: () => U(), findMySeat: () => null, setFaceMap(){}, animateRig(){}, targetFor: () => U(),
     setBone(){}, hueOBC(){}, trickArmBase: () => 0, trickArmSpread: () => 0, trickLegPose: () => ({ legL: { x: 0, z: 0 }, legR: { x: 0, z: 0 } }),
@@ -199,6 +202,26 @@ await sec('── 3. 열고 닫기 — 가짜 THREE · DOM 위에서', async () 
   chk(e.resume === 1, '그 사이에 직접 다시 틀었으면 resume 을 또 안 부른다(두 소리가 겹친다)');
 });
 
+await sec('── 3-2. 제목줄 «음악 끄기 / 음악 켜기»', async () => {
+  const e = mkEnv(); const ui = e.mk();
+  const btn = e.els.pkBgmBtn;
+  chk(typeof btn.onclick === 'function', '제목줄 버튼을 건다(#pkBgmBtn)');
+  await ui.open();
+  chk(e.audio[0] && e.audio[0].paused === false && btn.textContent === '음악 끄기' && !btn.classList.contains('off'), '처음엔 음악이 나고 버튼은 «음악 끄기»');
+  let stopped = 0; btn.onclick({ stopPropagation(){ stopped++; } });
+  chk(e.audio[0].paused === true && btn.textContent === '음악 켜기' && btn.classList.contains('off') && stopped === 1, '★ 누르면 바로 멈추고 «음악 켜기»(노란 글) · 창 끌기로 안 번진다');
+  chk(e.lsSets.length === 1 && e.lsSets[0][0] === 'tw.pkBgmMuted' && e.lsSets[0][1] === '1', '★ 끈 상태를 이 PC 에 기억한다(_lsSet — 실패 알림은 그쪽)');
+  ui.close(false);
+  await ui.open();
+  chk(e.audio[0].paused === true && btn.textContent === '음악 켜기', '★ 꺼 두고 다시 열면 소리 없이 «음악 켜기» 로 연다');
+  btn.onclick({ stopPropagation(){} });
+  chk(e.audio[0].paused === false && btn.textContent === '음악 끄기' && e.lsSets[1][1] === '0', '다시 누르면 켜지고 기억도 풀린다');
+  ui.close(false);
+  chk(e.audio[0].paused === true, '닫으면 멈춘다');
+  const e2 = mkEnv({ ls: { 'tw.pkBgmMuted': '1' } }); const ui2 = e2.mk(); await ui2.open();
+  chk(e2.audio.length === 0 && e2.els.pkBgmBtn.textContent === '음악 켜기' && e2.pause === 0, '★ 지난번에 꺼 둔 PC — 처음 열 때부터 소리 없음(파일도 안 만든다)');
+});
+
 await sec('── 4. 세션 콜백 — 창이 닫혀 있어도 안 터진다', () => {
   const e = mkEnv(); const ui = e.mk();
   ui.onPeers({ 1: { x: 1 } });
@@ -230,8 +253,8 @@ await sec('── 5. app.js 배선', () => {
   chk(!/\bPURIKURA_UI_OFF\b/.test(APP), '빈 껍데기 PURIKURA_UI_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const call = (APP.match(/TwPurikuraUi\.createPurikuraUi\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 31 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ (_\w+|plMod\.st\.\w+) = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),
-    'deps 31개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만 (' + deps.length + ')');
+  chk(deps.length === 32 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ (_\w+|plMod\.st\.\w+) = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),
+    'deps 32개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만 (' + deps.length + ')');
   chk(/plPlaying: \(\)=>plMod\.st\.playing,/.test(call) && /setPlPlaying: v=>\{ plMod\.st\.playing = v; \},/.test(call) && /officeMode: \(\)=>officeMode,/.test(call),
     '다시 대입되는 let(officeMode · _plPlaying — playlist.js 상태 묶음 plMod.st.playing)은 읽는 함수로 · 쓰기는 setPlPlaying');
   chk(['presence: ()=>Presence', 'spineAxis: ()=>SPINE_AXIS', 'headAxis: ()=>HEAD_AXIS', 'handRest: ()=>HAND_REST', 'shakeArmDroop: ()=>SHAKE_ARM_DROOP'].every(s => call.indexOf(s) >= 0)

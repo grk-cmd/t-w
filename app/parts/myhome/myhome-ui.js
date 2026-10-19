@@ -30,6 +30,7 @@ const friendsOpen = deps.friendsOpen;     // 👥 친구 목록이 보이기 시
 const friendsClose = deps.friendsClose;   // 👥 친구 목록이 안 보이게 됨
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
+const helpTab = deps.helpTab;   // 📘 도움말 탭(help-tab.js) — 탭에 들어올 때 enter
 const inboxMod = deps.inboxMod;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const loadMyHomePage = deps.loadMyHomePage;
@@ -250,6 +251,7 @@ function syncFriendsOpen(){
       // 📩 우편함 탭에 들어올 때 수령함을 그림 — 예전엔 친구 탭 옆에 늘 떠 있어서
       //   renderMhChat 이 대신 그려주고 있었다. 이제 자기 탭이 생겼으니 여기서 그린다.
       if(tab.dataset.tab==='mail'){ inboxMod.inboxEnter(); inboxMod.renderInbox(); }   // 안 읽은 우편이 있으면 우편, 없으면 소식부터
+      if(tab.dataset.tab==='help') helpTab.enter();   // 📘 처음이면 틀을 열고, 테마가 바뀌었거나 못 불러왔으면 다시 연다
       // 👥 친구 탭에 들어올 때 오른쪽 '친구 관리' 칸을 그림 (받은 요청 / 선물함)
       if(tab.dataset.tab==='friend') friendManage.renderFriendManage();
       // 👥 친구 목록을 못 불러왔으면 탭을 열 때 다시 건다(다시 시도는 목록을 열 때만)
@@ -413,15 +415,19 @@ function syncFriendsOpen(){
   if(fmAcc) fmAcc.addEventListener('click', ()=>{ friendManage.bulkAccept(); });
   const fmRej = document.getElementById('mhFmRejectSel');
   if(fmRej) fmRej.addEventListener('click', ()=>{ friendManage.bulkReject(); });
-  const readAllBtn = document.getElementById('mhInboxReadAllBtn');
-  if(readAllBtn) readAllBtn.addEventListener('click', async ()=>{
+  /* 📩 우편 · 소식 목록 — 스크롤바를 숨겨서 마우스로 끌어 움직인다(휠은 그대로).
+     펼친 우편 본문 · 링크 위에서는 끌기를 시작하지 않는다 — 글자를 끌어 골라 복사할 수 있게. */
+  const INBOX_DRAG_SKIP = '.mh-ibx-body, a';
+  ['mhInboxList', 'mhNewsList'].forEach(id=>TwDragScroll.attachDragScroll(document.getElementById(id), { skip: INBOX_DRAG_SKIP }));
+  /* 전체 읽음 — 우편 · 소식 칸 아래에 하나씩(둘 다 우편 · 소식을 한꺼번에 읽음으로) */
+  document.querySelectorAll('#mhPageMail .mh-ibx-readall').forEach(btn=>btn.addEventListener('click', async ()=>{
     inboxMod.inboxBcMarkAllRead();   // 공용 공지도 로컬 읽음 처리
     mhScheduler.refreshBellBadge();
     if(typeof inboxMod.renderInbox==='function') inboxMod.renderInbox();
     if(!window.firebaseAPI || !firebaseAPI.markAllInboxRead){ toast('모두 읽음 처리했어요'); return; }
     try{ await firebaseAPI.markAllInboxRead(getMyUserId()); toast('모두 읽음 처리했어요'); }
     catch(e){ toast('처리에 실패했어요'); }
-  });
+  }));
 
   // 관리자 작성 모달 — .admin-only 클래스로 숨김/표시가 자동 관리됨
   const composeBtn    = document.getElementById('mhInboxComposeBtn');

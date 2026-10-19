@@ -1,7 +1,7 @@
 /* outside-close.js — 🪟 팝업 바깥 클릭으로 닫기
    app.js «🪟 팝업 바깥 클릭으로 닫기» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 47번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 0줄 —
+   동작은 옮기기 전과 같다(뒤에 더한 예외: 📄 오픈소스 라이선스 창 — 아래 programSettingsOverlay 줄).
+   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 옮길 때 바뀐 줄은 0줄 —
      바꾼 이름 없음.
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 0개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
@@ -46,6 +46,9 @@ document.addEventListener('click', e=>{
       /* 📄 [2026-10-02] 라이선스 발급 창 옆의 «엑셀로 일괄 발급» 창(#licenseXlsxWin)은 같은 오버레이의 **두 번째 자식**이라
          위 box(첫 자식) 기준으로는 바깥으로 읽힌다 — 그 창 안 클릭이 발급 창을 통째로 닫지 않게 뺀다. */
       if(overlayId==='licenseGenOverlay' && e.target && e.target.closest && e.target.closest('#licenseXlsxWin')) return;
+      /* 📄 오픈소스 라이선스 창(#ossLicensesOverlay — launcher/oss-licenses.js)은 프로그램 설정에서 열리지만 body 에 따로 붙은 오버레이라
+         설정 상자 바깥으로 읽힌다 — 그 창 안 클릭이 아래 설정 창을 닫지 않게 뺀다. */
+      if(overlayId==='programSettingsOverlay' && e.target && e.target.closest && e.target.closest('#ossLicensesOverlay')) return;
       const btn=document.getElementById(closeBtnId); if(btn) btn.click();
     }
   });

@@ -923,6 +923,7 @@ _bindDonate(document.getElementById('lcDonateBtn'));   // 런처 (예전 [공사
 _bindDonate(document.getElementById('progIconCredit')); // 설정 → 시스템 → 프로그램 정보 (아이콘 출처 @Miraclelife_CM)
 _bindDonate(document.getElementById('progPrivacyLink')); // 설정 → 시스템 → 프로그램 정보 (개인정보 처리방침)
 _bindDonate(document.getElementById('miPrivacyLink'));   // 내 정보 맨 아래 (개인정보 처리방침 — 같은 주소)
+_bindDonate(document.getElementById('gatePrivacyLink')); // 첫 화면(초대 게이트) 맨 아래 (개인정보 처리방침 — 같은 주소)
 
 /* --- 런처의 "🏠 마이홈" 버튼 (예전엔 이름 설정 버튼이었음) --- */
 document.getElementById('lcNameBtn').onclick=()=>{

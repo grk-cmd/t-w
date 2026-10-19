@@ -9,7 +9,7 @@
    myhome-inbox.js · app.js 보다 먼저 싣는 classic script. */
 (function(){
 
-const SECS = Object.freeze(['mail', 'news', 'help']);       // 왼쪽 세로 메뉴 — 📩 우편 · 📢 소식 · 📘 도움말
+const SECS = Object.freeze(['mail', 'news']);               // 왼쪽 세로 메뉴 — 📩 우편 · 📢 소식(📘 도움말은 따로 탭 — help-tab.js)
 const CATS = Object.freeze(['all', 'notice', 'update']);    // 소식 목록 위 종류 고르기
 
 /* 태그 한 벌 — 모르는 값은 공지 */

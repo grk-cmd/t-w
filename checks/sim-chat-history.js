@@ -15,7 +15,7 @@ const path = require('path');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
-const find = (...c) => { for (const f of c) for (const d of ['', 'parts/', 'app/parts/', 'app/', 'hosting/']) if (fs.existsSync(d + f)) return d + f; return null; };
+const find = (...c) => { for (const f of c) for (const d of ['', 'parts/', 'app/parts/', 'app/', 'hosting/', 'hosting/help/']) if (fs.existsSync(d + f)) return d + f; return null; };
 const read = (...c) => { const f = find(...c); return f ? fs.readFileSync(f, 'utf8') : null; };
 const MOD = read('chat-history.js'), FI = read('firebase-init.js'), APP = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html');
 const RULES_SRC = stripReadGate(read('firebase-database-rules.json')), FX = read('functions/index.js'), PRIV = read('privacy.html');

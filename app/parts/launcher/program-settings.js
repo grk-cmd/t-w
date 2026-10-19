@@ -281,16 +281,19 @@ if(document.getElementById('progLabVideoToggle')){
   };
 }
 
-/* ℹ️ 프로그램 버전 표시 — 시스템 탭 맨 아래.
+/* ℹ️ 프로그램 버전 표시 — 시스템 탭 맨 아래 · 첫 화면(초대 게이트) 맨 아래. data-app-version 칸을 모두 같은 글로 채운다.
    companion.getAppVersion()은 main의 app.getVersion() = package.json의 version이라
    빌드된 exe와 항상 일치한다(하드코딩하면 릴리스 때마다 어긋난다).
-   브라우저 미리보기처럼 companion이 없는 환경에선 조용히 '-'로 둔다. */
+   브라우저 미리보기처럼 companion이 없는 환경에선 조용히 '-'로 둔다.
+   첫 화면은 로그인 전이라 설정 창을 못 연다 — 모듈을 만들 때 한 번 채운다(게이트는 네트워크 준비 뒤에 뜬다). */
+const APP_VERSION_SEL = '[data-app-version]';
 function refreshAppVersionUI(){
-  const el=document.getElementById('progVersionText'); if(!el) return;
-  if(!(window.companion && companion.getAppVersion)){ el.textContent='-'; return; }
+  const els=[...document.querySelectorAll(APP_VERSION_SEL)]; if(!els.length) return;
+  const put=(t)=>{ for(const el of els) el.textContent=t; };
+  if(!(window.companion && companion.getAppVersion)){ put('-'); return; }
   companion.getAppVersion()
-    .then(v=>{ el.textContent = v ? ('v'+v) : '-'; })
-    .catch(()=>{ el.textContent='-'; });
+    .then(v=>{ put(v ? ('v'+v) : '-'); })
+    .catch(()=>{ put('-'); });
 }
 
 /* 프로그램 설정 모달 열기/닫기 — 꾸미기 프리미엄 게이트(라이선스 탭으로 직행)에서도 재사용 */
@@ -311,6 +314,7 @@ document.getElementById('progSettingsCloseBtn').onclick=()=>closeProgramSettings
 
 twNav.on(twNav.NAV.PROGRAM_SETTINGS, openProgramSettings);   // 🧭 꾸미기 · 라이선스 요청이 이 통로로 연다 · 닫는다
 twNav.on(twNav.NAV.PROGRAM_SETTINGS_CLOSE, closeProgramSettings);
+refreshAppVersionUI();
 return {
   closeProgramSettings,
   openProgramSettings,

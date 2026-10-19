@@ -329,7 +329,7 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     const idx = rr && [].concat(rr['.indexOn'] || []);
     chk(!!idx && idx.includes('friendCode') && idx.includes('issuedKey'), '규칙: licenseRequests 에 friendCode · issuedKey 색인 — 없으면 Admin SDK 가 신청 목록을 통째로 받아 거른다');
     let csp = '';
-    try{ csp = (JSON.parse(FB).hosting.headers.find((h) => h.source === '/admin/**').headers.find((h) => h.key === 'Content-Security-Policy') || {}).value || ''; }catch(_){}
+    try{ const hs = [].concat(JSON.parse(FB).hosting); csp = ((hs.find((x) => x.target === 'main') || hs[0]).headers.find((h) => h.source === '/admin/**').headers.find((h) => h.key === 'Content-Security-Policy') || {}).value || ''; }catch(_){}
     chk(/connect-src[^;]*https:\/\/\*\.cloudfunctions\.net/.test(csp), '웹 관리자 CSP connect-src 에 호출형 함수 주소(*.cloudfunctions.net)');
     /* 관리자 API(읽기 DB) — 웹 관리자가 부르는 주소(shared/api PROD_API_BASE_URL)가 CSP 에 없으면 브라우저가 막아 늘 RTDB 통째 읽기로 폴백한다(2026-10-13 실제로 그랬다). */
     const apiBase = 'https://api.together-working.com';   // web-admin/src/shared/api/api.ts PROD_API_BASE_URL 와 같아야 한다

@@ -6,7 +6,7 @@
            app.js 가 다시 대입한 수령함을 부를 때마다 읽는다
    ・3절: 우편함 그리기 — 왼쪽 메뉴(칸 · 안 읽은 수) · 📩 우편 카드(모두에게 보낸 우편도 · 최신순 · 펼치면 읽음 — 개인 = 서버 · 공지 = 로컬 ·
            🐞 답변은 버그제보 글로 · × 삭제 · 📌 단추는 관리자 + 공지만 · 읽은 우편 지우기) · 📢 소식(종류 · 고정은 늘 위 · 고르면 본문 · 읽음 ·
-           관리자 고정 · 지우기 확인) · 📘 도움말(준비 중) · 처음 칸 · 옛 필터 값은 '전체' 로
+           관리자 고정 · 지우기 확인) · 처음 칸(📘 도움말은 따로 탭 — 옛 «help» 칸 값은 우편으로) · 옛 필터 값은 '전체' 로
    ・4절: 링크 — 이스케이프 먼저 · 주소 · 끝 문장부호 · 라이선스 키 · 위임은 한 번만 · 누르면 외부 브라우저 · 키 복사
    ・5절: 선물함 — 불러오는 중 → 격자 30칸 · 「⭐ n/20 · 보관 m/30」 · ⭐ 토글 저장 · 상한 · 다시 불러오기 · ⭐ 우클릭 막힘 · 삭제 확인창(#myHomeWin 안)
    ・6절: 친구 목록 — (n/상한) · 비었을 때 · 온라인 / 오프라인 이름순 · 검색(전체 수 그대로 · 찾음 · 없음) · 강조 이스케이프 ·
@@ -158,10 +158,10 @@ async function behave(src){
   {
     const e = E(); const m = e.mk();
     const body = e.reg('mhInboxBody');
-    const ids3 = ['mhInboxList', 'mhInboxCount', 'mhInboxTitle', 'mhInboxFootInfo', 'mhNewsList', 'mhNewsView', 'mhInboxPane-mail', 'mhInboxPane-news', 'mhInboxPane-help', 'myHomeWin'];
+    const ids3 = ['mhInboxList', 'mhNewsList', 'mhNewsView', 'mhInboxPane-mail', 'mhInboxPane-news', 'myHomeWin'];
     const R = {}; ids3.forEach(id => { R[id] = e.reg(id); });
-    const list = R.mhInboxList, cnt = R.mhInboxCount, nList = R.mhNewsList, view = R.mhNewsView;
-    const rail = ['mail', 'news', 'help'].map(sec => { const b = mkEl('button', e); b.dataset.sec = sec; if(sec !== 'help'){ const n = mkEl('span', e); n.className = 'mh-ibx-secn'; b.appendChild(n); } return b; });
+    const list = R.mhInboxList, nList = R.mhNewsList, view = R.mhNewsView;
+    const rail = ['mail', 'news'].map(sec => { const b = mkEl('button', e); b.dataset.sec = sec; const n = mkEl('span', e); n.className = 'mh-ibx-secn'; b.appendChild(n); return b; });
     const tabs = ['all', 'notice', 'update'].map(t => { const x = mkEl('span', e); x.dataset.tag = t; return x; });
     e.qa = { '#mhInboxRail .mh-ibx-sec': rail, '#mhInboxTabs .mh-ibx-tab': tabs };
     e.myInbox = {
@@ -178,14 +178,13 @@ async function behave(src){
     const titles = () => list.children.map((c, i) => part(i, 'mh-ibx-title').textContent);
     m.setInboxSec('mail'); m.setInboxFilter('gift'); m.renderInbox();
     chk(m.state().inboxFilter === 'all', "옛 필터 값('gift')은 '전체' 로 되돌린다(목록이 통째로 비지 않게)");
-    chk(R['mhInboxPane-mail'].classList.contains('on') && !R['mhInboxPane-news'].classList.contains('on') && !R['mhInboxPane-help'].classList.contains('on') && R.mhInboxTitle.textContent === '📩 우편',
-      '왼쪽 메뉴 — 고른 칸만 보이고 머리줄 제목이 바뀐다');
+    chk(R['mhInboxPane-mail'].classList.contains('on') && !R['mhInboxPane-news'].classList.contains('on'),
+      '왼쪽 메뉴 — 고른 칸만 보인다');
     chk(rail[0].classList.contains('on') && !rail[1].classList.contains('on') && rail[0].children[0].textContent === '3' && rail[1].children[0].textContent === '2' && rail[1].children[0].style.display === '',
       '  메뉴마다 안 읽은 수 — 우편 3 · 소식 2(소식 중 읽은 것은 빼고)');
     chk(titles().join('|') === '모두에게 보상|보상|답변|옛 알림|모르는 태그', '📩 우편 — 나한테 온 것 + 모두에게 보낸 우편(공지 · 업데이트는 빠짐) · 최신순');
-    chk(cnt.textContent === '(안 읽음 3)' && R.mhInboxFootInfo.textContent === '우편 5통', '  머리줄 안 읽음 수는 이 칸 것 · 아래 줄 «우편 n통»');
     chk(card(0).className === 'mh-ibx-card unread' && card(1).className === 'mh-ibx-card read', '  카드 클래스 — 안 읽음 · 읽음');
-    chk(part(0, 'mh-ibx-ic').textContent === '🎁' && part(2, 'mh-ibx-ic').textContent === '🐞' && part(4, 'mh-ibx-ic').textContent === '📢'
+    chk(part(0, 'mh-ibx-ic').textContent === '🎁' && part(2, 'mh-ibx-ic').textContent === '🛠️' && part(4, 'mh-ibx-ic').textContent === '📢'
       && /^우편 · /.test(part(1, 'mh-ibx-sub').textContent) && /^버그제보 답변 · /.test(part(2, 'mh-ibx-sub').textContent) && /^공지 · /.test(part(4, 'mh-ibx-sub').textContent),
       '  아이콘 · 종류 글자 — 모르는 태그는 공지로');
     chk(part(2, 'mh-ibx-go').textContent === '가기' && part(3, 'mh-ibx-go').textContent === '보기', '  버튼 — 🐞 답변은 «가기» · 나머지는 «보기»');
@@ -237,7 +236,7 @@ async function behave(src){
     mU.inboxClearRead();
     chk(eU.byId.myHomeWin.children.length === 0 && eU.calls.length === 0, '  내 코드가 없으면 아무것도 안 한다');
     e.bc = {}; m.setInboxSec('mail'); m.renderInbox();
-    chk(list.innerHTML === '<div class="mh-ibx-empty">받은 우편이 없어요</div>' && cnt.textContent === '' && R.mhInboxFootInfo.textContent === '', '비었을 때 안내 · 안 읽음 표시 없음');
+    chk(list.innerHTML === '<div class="mh-ibx-empty">받은 우편이 없어요</div>' , '비었을 때 안내');
     const e2 = E(); const m2 = e2.mk(); m2.renderInbox();
     chk(e2.domCalls === 1, '우편함 칸이 없으면 아무것도 안 한다');
 
@@ -248,7 +247,7 @@ async function behave(src){
     e.store.set('tw.inboxBcRead', JSON.stringify(['u']));
     const nTitles = () => nList.children.map(it => it.children[0].children[2].textContent);
     m.setInboxSec('news'); m.setInboxFilter('all'); m.renderInbox();
-    chk(R['mhInboxPane-news'].classList.contains('on') && R.mhInboxTitle.textContent === '📢 소식' && cnt.textContent === '(안 읽음 2)', '소식 칸 — 제목 · 안 읽음 수(소식 것만)');
+    chk(R['mhInboxPane-news'].classList.contains('on'), '소식 칸이 보인다');
     chk(nTitles().join('|') === '고정 판|새 공지|지난 판', '  모두에게 보낸 공지 · 업데이트만 · 📌 먼저 · 최신순(우편은 빠짐)');
     chk(tabs[0].classList.contains('on') && tabs[1].classList.contains('new') && tabs[2].classList.contains('new') && !tabs[0].classList.contains('new'), '  종류 줄 — 고른 것 on · 새 글 있는 종류에 빨간 점');
     chk(/mh-news-item unread pinned/.test(nList.children[0].className) && nList.children[0].children[0].children[0].textContent === '📌' && /mh-news-item read/.test(nList.children[2].className),
@@ -282,9 +281,9 @@ async function behave(src){
     e.bc = {}; m.renderInbox();
     chk(nList.innerHTML === '<div class="mh-ibx-empty">소식이 없어요</div>' && view.innerHTML === '', '소식이 없으면 안내 · 본문 칸 비움');
 
-    say('── 3-3. 📘 도움말 · 처음 칸');
+    say('── 3-3. 처음 칸');
     m.setInboxSec('help'); m.renderInbox();
-    chk(R['mhInboxPane-help'].classList.contains('on') && !R['mhInboxPane-news'].classList.contains('on') && R.mhInboxTitle.textContent === '📘 도움말' && cnt.textContent === '', '도움말 칸 — 준비 중 칸만 보인다');
+    chk(m.state().inboxSec === 'mail' && R['mhInboxPane-mail'].classList.contains('on'), '옛 «help» 칸 값(도움말은 따로 탭으로 나감)은 우편으로');
     m.setInboxSec('zzz'); m.renderInbox();
     chk(m.state().inboxSec === 'mail', '  모르는 칸 이름은 우편으로');
     e.myInbox = { a: { tag: 'reward', ts: 1 } }; e.bc = { q: { tag: 'notice', ts: 2 } }; e.store.set('tw.inboxBcRead', '[]');
@@ -502,10 +501,15 @@ function wiring(MI, APP, HTML){
   chk(iS > 0 && iS < iM, '  html — 칸 나누기 규칙(inbox-sections.js)을 myhome-inbox.js 보다 먼저');
   chk(/const inboxSec = TwInboxSections;/.test(MI) && !/sectionOf\(m\)\s*\{|_src === 'broadcast' && \(t/.test(MI), '  수령함 모듈은 칸 나누기 규칙을 받아 부른다(판단을 다시 쓰지 않는다)');
   const PG = (HTML.match(/<div id="mhPageMail"[\s\S]*?<!-- 관리자: 브로드캐스트 작성 모달 -->/) || [''])[0];
-  const want2 = ['id="mhInboxRail"', 'data-sec="mail"', 'data-sec="news"', 'data-sec="help"', 'id="mhInboxBody"', 'id="mhInboxPane-mail"', 'id="mhInboxPane-news"', 'id="mhInboxPane-help"',
-    'id="mhInboxList"', 'id="mhInboxFoot"', 'id="mhInboxClearRead"', 'id="mhInboxTabs"', 'id="mhNewsList"', 'id="mhNewsView"', 'id="mhInboxTitle"', 'id="mhInboxCount"', '도움말은 준비 중이에요'];
+  const want2 = ['id="mhInboxRail"', 'data-sec="mail"', 'data-sec="news"', 'id="mhInboxBody"', 'id="mhInboxPane-mail"', 'id="mhInboxPane-news"',
+    'id="mhInboxList"', 'id="mhInboxFoot"', 'id="mhInboxClearRead"', 'id="mhInboxTabs"', 'id="mhNewsList"', 'id="mhNewsView"', 'id="mhNewsFoot" class="mh-ibx-foot"', 'class="admin-only mh-ibx-compose"'];
   const lost2 = want2.filter(w => PG.indexOf(w) < 0);
-  chk(!lost2.length && !/data-tag="reward"/.test(PG), 'html — 왼쪽 메뉴 세 칸 · 칸 셋 · 소식 종류(공지 · 업데이트만) · 도움말 준비 중' + (lost2.length ? ' (없음 ' + lost2.join(' · ') + ')' : ''));
+  const foots = PG.match(/<div id="(mhInboxFoot|mhNewsFoot)" class="mh-ibx-foot">[\s\S]*?<\/div>/g) || [];
+  const rail = (PG.match(/<div id="mhInboxRail">[\s\S]*?<\/div>\s*<div id="mhInboxInline">/) || [''])[0];
+  chk(foots.length === 2 && foots.every(f => /class="mh-ibx-readall"[^>]*>전체 읽음</.test(f)) && /id="mhInboxClearRead"/.test(foots[0]) && !/mh-ibx-readall/.test(rail) && (PG.match(/mh-ibx-readall/g) || []).length === 2 && !/mhInboxFootInfo/.test(PG + MI),
+    '★ html — «전체 읽음» 은 우편 · 소식 목록 아래 버튼 줄에 하나씩(왼쪽 메뉴엔 없음) · «읽은 우편 지우기» 는 우편 칸 아래 · «우편 n통» 줄은 없다(안 읽음 수는 왼쪽 메뉴 숫자로)');
+  chk(/document\.querySelectorAll\('#mhPageMail \.mh-ibx-readall'\)\.forEach\(btn=>btn\.addEventListener\('click'/.test(APP), '  두 «전체 읽음» 모두에 같은 처리기를 건다(myhome-ui.js)');
+  chk(!lost2.length && !/data-tag="reward"/.test(PG) && !/data-sec="help"|mhInboxPane-help/.test(PG), 'html — 왼쪽 메뉴 두 칸 · 칸 둘 · 소식 종류(공지 · 업데이트만) · 도움말 칸은 없다(따로 탭)' + (lost2.length ? ' (없음 ' + lost2.join(' · ') + ')' : ''));
   chk(/TwMyHomeInbox/.test(MI) && !/window\.(MyHomeInbox|Inbox)\s*=/.test(MI), '전역 이름은 Tw 접두사 — 크로미움 내장 전역과 겹치지 않게');
 }
 

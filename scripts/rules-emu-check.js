@@ -298,6 +298,11 @@ const BOT_CASES = [
   ['봇 아닌 사람 — 제보 목록 통째 읽기는 막힘', 'GET', 'bugBoard/list', null, false, 'authNew2'],
   ['봇 아닌 사람 — 파도타기 목록 통째 읽기는 막힘', 'GET', 'playlistIndex', null, false, 'authNew2'],
   ['봇 아닌 사람 — 제보 최근 20개(ts 순)는 읽힘', 'GET', 'bugBoard/list?orderBy=%22ts%22&limitToLast=20', null, true, 'authNew2'],
+  ['준비: 로그인 연결 한 줄', 'PUT', `userAuth/${GOOD_U}`, 'authA', true, OWNER],
+  ['서버 봇 — 로그인 연결표(userAuth) 통째 읽기', 'GET', 'userAuth', null, true, BOT],
+  ['봇 아닌 사람 — 로그인 연결표 통째 읽기는 막힘', 'GET', 'userAuth', null, false, 'authNew2'],
+  ['로그인 없음 — 로그인 연결표 통째 읽기는 막힘', 'GET', 'userAuth', null, false],
+  ['봇 아닌 사람 — 연결 한 칸은 그대로 읽힘', 'GET', `userAuth/${GOOD_U}`, null, true, 'authNew2'],
 ];
 
 /* [이름, 방법, 경로(인코딩 전), 본문, 기대(true = 통과), 사용자 토큰?] — 경로 조각은 그대로 넣는다(공백 · null 도) */

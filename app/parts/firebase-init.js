@@ -38,7 +38,7 @@
   import { createRoomIndex } from "./room/room-index.js";
   import { recoverChannelFor } from "./room/room-channel.js";
   import { createRoomStats } from "./room/room-stats.js";
-  import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive } from "./room/room-alive.js";
+  import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteAccount } from "./account/invite-account.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
   import { createAppVersion } from "./shared/app-version.js";
@@ -2225,7 +2225,7 @@
                 get(ref(db, `roomAlive/${room}`)).then(s => s.val() || {}).catch(() => ({})),   // 💓 새 하트비트 도장(방당 한 번)
               ]);
               let count = 0;
-              // 원래 규칙 그대로: lastSeen이 최근이면 카운트, lastSeen이 아예 없으면(옛 데이터) 카운트. 새 방식은 도장이 최근이면.
+              // 산 사람 판정은 isProbeAlive 한 곳(room-alive.js) — lastSeen 이나 도장이 최근이면 · 둘 다 없는 칸은 찌꺼기.
               ids.forEach((id, i) => { if(isProbeAlive(seens[i], alive[id], now, STALE_MS)) count++; });
               return count;
             }
@@ -2238,10 +2238,7 @@
       let count = 0;
       for(const id in all){
         if(id.charAt(0) === '_' || id === 'chatLog') continue;   // ★ _meta·chatLog 등은 멤버가 아니므로 인원 계산에서 제외
-        const m = all[id];
-        if(m && m.hb === ROOM_ALIVE_HB) count++;   // 💓 새 하트비트 — 노드가 있으면 산 것(유령은 서버가 지운다)
-        else if(m && m.lastSeen && (now - m.lastSeen) < STALE_MS) count++;
-        else if(m && !m.lastSeen) count++;
+        if(isNodeAlive(all[id], now, STALE_MS)) count++;   // 위 길과 같은 판정(room-alive.js)
       }
       return count;
     },
@@ -2251,7 +2248,7 @@
             checkRoomCapacity 가 돌려주는 숫자 하나로는 그 한 명을 가려낼 수 없다.
        💰 checkRoomCapacity 와 같은 shallow 방식이고, 멤버당 userId 를 하나 더 읽는다(~40바이트).
           8명 방이면 입장 1회에 320바이트 — 방 전체(아바타 포함 수백 KB)를 받는 것과 자릿수가 다르다.
-       ⚠️ 생존 판정(STALE_MS·lastSeen 없으면 통과)은 checkRoomCapacity 와 **글자 그대로 같아야** 한다.
+       ⚠️ 생존 판정은 checkRoomCapacity 와 같은 isProbeAlive(room-alive.js) 하나를 부른다.
           갈라지면 사전 검사와 재확인이 서로 다른 방을 보게 된다.
        ⚠️ 실패하면 null. 부르는 쪽은 기존 정원 검사와 같은 태도로 '막지 않고 진행'한다
           (전체 조회 폴백을 두지 않는다 — 그게 바로 피하려던 비용이다). */

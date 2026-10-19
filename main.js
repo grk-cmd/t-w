@@ -90,6 +90,7 @@ const HoverPoke = require('./hover-poke');
 /* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
+const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
 const GamepadActivity = require('./app/parts/focus/gamepad-activity');
 /* 호출부 17곳의 이름·형태를 그대로 두기 위한 이음매 — 본문은 모듈에 있다.
@@ -2090,6 +2091,7 @@ function createWindow() {
   mainWindow.webContents.on('will-frame-navigate', (e) => {
     const u = e.url || '';
     if(u.startsWith('file://')) return;
+    if(e.isMainFrame === false && HelpSite.isHelpUrl(u)) return;   // 📘 도움말 탭 틀(sandbox · CSP frame-src 와 같은 사이트)만
     e.preventDefault();
   });
 

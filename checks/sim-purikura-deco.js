@@ -364,8 +364,8 @@ say('· §6 실기기에서 잡은 것 — 창 옮기기 · 프레임 미리보�
      빠져 있던 것은 드래그뿐이다. */
   chk(/function _pkBindWinDrag\(\)/.test(SRC) && /_pkBindWinDrag\(\);/.test(SRC),
       '★ 타이틀바를 잡아 창을 옮길 수 있다');
-  chk(/e\.target\.closest\('#pkCloseBtn'\)\) return;/.test(SRC),
-      '★ 닫기 버튼은 드래그를 시작하지 않는다 (안 빼면 누를 때마다 창이 끌린다)');
+  chk(/e\.target\.closest\('#pkCloseBtn, #pkBgmBtn'\)\) return;/.test(SRC),
+      '★ 닫기 · 음악 버튼은 드래그를 시작하지 않는다 (안 빼면 누를 때마다 창이 끌린다)');
   chk(/function _pkClampWin\(\)/.test(SRC) &&
       /addEventListener\('resize', \(\)=>\{ if\(PK\.open\) _pkClampWin\(\)/.test(SRC),
       '★ 화면 밖으로 나간 창을 데려온다 (창 크기가 바뀌면 «창이 사라졌다»가 된다)');
@@ -923,18 +923,10 @@ say('· §14 BGM — 창이 열려 있는 동안만, 그리고 소리가 겹치�
 {
   chk(/const PK_BGM_SRC = \['parts\/purikura-bgm\.mp3', 'purikura-bgm\.mp3'\]/.test(SRC),
       '★ 경로 폴백이 있다 (parts/ 가 없는 배치에서도 돈다 — 때리기·클릭 소리와 같은 관례)');
-  const el = /function _pkBgmEl\(\)\{[\s\S]*?\n\}/.exec(SRC);
-  chk(!!el && /a\.loop = true/.test(el[0]),
-      '★ 배경음이라 loop 이다 (효과음 풀 _mkSndPool 을 쓰지 않는다 — 겹쳐 날 일이 없다)');
-  chk(!!el && /_pkBgmIdx \+ 1 < PK_BGM_SRC\.length/.test(el[0]),
-      '파일을 못 찾으면 다음 후보로 갈아탄다');
-  chk(!!el && /console\.warn/.test(el[0]),
-      '★ 다 떨어지면 알린다 (조용히 삼키면 «소리가 안 난다»의 원인을 다음에 또 못 찾는다)');
-  const st = /function _pkBgmStart\(\)\{[\s\S]*?\n\}/.exec(SRC);
-  chk(!!st && /officeMode\(\)\) return;/.test(st[0]),
-      '★ 회사원 모드에서는 소리를 안 낸다 (소리 내는 자리는 예외 없이 이 게이트를 지난다)');
-  chk(!!st && /pr\.catch/.test(st[0]),
-      '자동재생이 막히면 콘솔에 남긴다');
+  /* 재생 몸통(loop · 경로 폴백 · 다 떨어지면 경고 · 회사원 모드 무음 · 자동재생 경고 · 끄기 기억)은 purikura/pk-bgm.js —
+     sim-pk-bgm.js 가 실제로 불러 보고 깨 본다. 여기서는 이 창이 그 모듈을 쓰는지만 본다. */
+  chk(/const pkBgm = TwPkBgm\.createPkBgm\(\{[\s\S]*?srcs: PK_BGM_SRC, volume: PK_BGM_VOL,/.test(SRC) && !/function _pkBgmStart\(|function _pkBgmEl\(/.test(SRC),
+      '★ 창 BGM 은 pk-bgm.js 하나로 (옛 재생 함수가 두 벌로 남지 않는다)');
 
   /* 유튜브 BGM(마이홈·플레이리스트)은 창 하나를 공유한다 — 재우는 것은 한 번이면 된다. */
   const hush = /function _pkHushOthers\(\)\{[\s\S]*?\n\}/.exec(SRC);
@@ -947,9 +939,9 @@ say('· §14 BGM — 창이 열려 있는 동안만, 그리고 소리가 겹치�
   const un = /function _pkUnhushOthers\(\)\{[\s\S]*?\n\}/.exec(SRC);
   chk(!!un && /if\(plNow \|\| homeNow\) return;/.test(un[0]),
       '★ 그 사이에 직접 다시 튼 경우에는 안 건드린다 (또 resume 하면 두 소리가 겹친다)');
-  chk(/_pkHushOthers\(\); _pkBgmStart\(\);/.test(SRC) && /_pkBgmStop\(\); _pkUnhushOthers\(\);/.test(SRC),
+  chk(/_pkHushOthers\(\); pkBgm\.start\(\);/.test(SRC) && /pkBgm\.stop\(\); _pkUnhushOthers\(\);/.test(SRC),
       '★ 열 때 «재우고 켜기», 닫을 때 «끄고 깨우기» 순서다');
-  chk(/function closePurikura[\s\S]{0,900}_pkBgmStop\(\)/.test(SRC),
+  chk(/function closePurikura[\s\S]{0,900}pkBgm\.stop\(\)/.test(SRC),
       '★ 창이 닫히는 모든 길에서 소리가 멎는다 (⎋·✕·회사원 모드 전부 closePurikura 를 지난다)');
   chk(/mhHooks\.on\(mhHooks\.HOOK\.BGM_PLAYING, function/.test(SRC) && /mhHooks\.on\(mhHooks\.HOOK\.BGM_SET_PLAYING, function/.test(SRC),
       '마이홈이 «지금 나는 중인가»를 알려주는 창구를 열어 뒀다');

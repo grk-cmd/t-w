@@ -23,7 +23,7 @@ const read = (...fs_) => { for(const f of fs_){ try{ return fs.readFileSync(f, '
 const SRC = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html'), FBI = read('firebase-init.js'), RULES = read('firebase-database-rules.json');
 if(!SRC || !HTML || !FBI || !RULES){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html · firebase-init.js · firebase-database-rules.json'); process.exit(2); }
 const QRLIB = read('vendor/qrcode.js', path.join('app', 'vendor', 'qrcode.js'), path.join('..', 'app', 'vendor', 'qrcode.js'));
-const HOST  = read('hosting/link.html', path.join('..', 'hosting', 'link.html'));
+const HOST  = read('hosting/help/link.html', path.join('..', 'hosting', 'help', 'link.html'));
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(SRC);
 const HTMLC = HTML.replace(/<!--[\s\S]*?-->/g, ' ');
@@ -198,19 +198,21 @@ say('── 6. 화면');
   chk(!/<script[^>]+src="https?:[^"]*qr/i.test(HTMLC), '  CDN 이 아니다(CSP)');
   const newCls = [...HTML.matchAll(/class="([^"]*(?:fs-mob|mob-)[^"]*)"/g)].map(m => m[1]).join(' ');
   chk(!!newCls && !/\bfly\b/.test(newCls), '새 클래스에 fly 없음');
-  chk(/'https:\/\/together-working\.web\.app\/link#u='/.test(CODE) && !/link\?[uk]=/.test(CODE), 'QR 주소 — 키는 # 뒤(서버 로그에 안 남는다)');
+  chk(/'https:\/\/help\.together-working\.com\/link#u='/.test(CODE) && !/link\?[uk]=/.test(CODE), 'QR 주소 — 키는 # 뒤(서버 로그에 안 남는다)');
   if(QRLIB){
     const ctx = { window: {} }; vm.createContext(ctx); vm.runInContext(QRLIB, ctx);
-    const q = ctx.window.TWQR && ctx.window.TWQR.make('https://together-working.web.app/link#u=umfk2x3ab9c8d7e6f&k=ABCDEFGHJKLMNPQRSTUVWX23', 'M');
+    const q = ctx.window.TWQR && ctx.window.TWQR.make('https://help.together-working.com/link#u=umfk2x3ab9c8d7e6f&k=ABCDEFGHJKLMNPQRSTUVWX23', 'M');
     const finder = q && [0, 6].every(r => [0, 6].every(c => q.dark(r, c))) && q.dark(0, q.n - 1) && q.dark(q.n - 1, 0) && !q.dark(7, 7);
-    chk(!!q && q.n === 37 && finder, 'QR 인코더가 돈다 — 37칸 · 세 모서리 파인더 (' + (q && q.n) + ')');
+    // 칸 수는 주소 길이로 정해진다(help.together-working.com 주소 = 41칸) — 화면 캔버스(132px)에서 한 칸이 3px 아래면 폰이 못 읽는다
+    const QR_CANVAS_PX = 132, QR_MIN_CELL_PX = 3;
+    chk(!!q && finder && Math.floor(QR_CANVAS_PX / q.n) >= QR_MIN_CELL_PX && /id="mobLinkQr" width="132"/.test(HTML), 'QR 인코더가 돈다 — 세 모서리 파인더 · 캔버스 132px 에서 한 칸 3px 이상 (' + (q && q.n) + '칸)');
     chk(/MIT/.test(QRLIB.slice(0, 1200)), '  MIT 표기 남음');
   } else say('  · vendor/qrcode.js 를 못 찾음 — QR 인코더 판정 건너뜀');
   if(HOST){
     chk(/location\.hash/.test(HOST) && !/location\.search/.test(HOST), '안내 페이지 — # 뒤에서 읽는다');
     chk(/'\.sv': 'timestamp'/.test(HOST) && /method:'PUT'/.test(HOST) && /\/mobileLink\/' \+ U \+ '\/state\.json'/.test(HOST), '  REST PUT · 서버 시각');
     chk(/신호 보내 보기/.test(HOST) && /✓ PC에 신호가 갔어요/.test(HOST) && /iPhone·iPad/.test(HOST) && /갤럭시/.test(HOST), '  시안 ④ 문구(탭 · 테스트 · 결과)');
-  } else say('  · hosting/link.html 을 못 찾음 — 안내 페이지 판정 건너뜀');
+  } else say('  · hosting/help/link.html 을 못 찾음 — 안내 페이지 판정 건너뜀');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

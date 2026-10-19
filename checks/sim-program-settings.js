@@ -4,6 +4,8 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(USER_NAME_MAX · closeProgramSettings · commitUserName · openProgramSettings)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 26줄 그대로 · 부르는 곳은 progSettingsMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・4절: 버전 표시 — 만들 때 data-app-version 칸(설정 › 프로그램 정보 · 첫 화면 맨 아래)을 모두 «v버전» 으로 · 못 받으면 «-» ·
+     첫 화면 맨 아래 개인정보 처리방침 링크 — 주소가 다른 두 링크와 같고 room-entry.js 가 시스템 브라우저로 연다(깨 보기 포함)
    [실행] app.js · desk-companion-prototype.html · program-settings.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -91,5 +93,56 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
-process.exit(fail ? 1 : 0);
+/* 4절 — 버전 칸 채우기(실제로 만들어 본다) */
+say('── 4. 버전 표시 · 첫 화면 링크');
+function buildWith(src, comp){
+  const any = anything();
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  const els = [{ textContent: '확인 중…' }, { textContent: '…' }];
+  const doc = new Proxy({}, { get: (t, k) => k === 'querySelectorAll' ? (sel) => (sel === '[data-app-version]' ? els : []) : any });
+  const win = { companion: comp };
+  new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
+    src + '\nreturn window.TwProgramSettings;')(win, doc, any, any, any, comp, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined).createProgramSettings(deps);
+  return els;
+}
+const tick = () => new Promise(r => setImmediate(r));
+async function versionCases(src){
+  const ok = buildWith(src, { getAppVersion: () => Promise.resolve('0.12.0') });
+  const none = buildWith(src, undefined);
+  const bad = buildWith(src, { getAppVersion: () => Promise.reject(new Error('ipc')) });
+  const empty = buildWith(src, { getAppVersion: () => Promise.resolve('') });
+  await tick(); await tick();
+  return { ok: ok.map(e => e.textContent), none: none.map(e => e.textContent), bad: bad.map(e => e.textContent), empty: empty.map(e => e.textContent) };
+}
+const ROOM_ENTRY = ["room-entry.js","parts/room/room-entry.js","app/parts/room/room-entry.js"].map(read).find(Boolean);
+function linkJudge(html, roomEntry){
+  const r = [];
+  const hrefOf = (id) => (html.match(new RegExp('<a id="' + id + '" href="([^"]+)"')) || [])[1];
+  const gate = hrefOf('gatePrivacyLink'), prog = hrefOf('progPrivacyLink'), mi = hrefOf('miPrivacyLink');
+  r.push([!!gate && gate === prog && gate === mi && /^https:\/\/help\.together-working\.com\//.test(gate), '첫 화면 링크 주소 = 설정 · 내 정보 링크 주소(우리 도메인)']);
+  const ov = html.indexOf('<div id="inviteGateOverlay"'), foot = html.indexOf('id="inviteGateFoot"'), next = html.indexOf('<div id="signupDoneOverlay"');
+  const footBlk = foot > 0 ? html.slice(foot, html.indexOf('</div>', foot)) : '';
+  r.push([ov > 0 && foot > ov && (next < 0 || foot < next) && /data-app-version/.test(footBlk) && /id="gatePrivacyLink"/.test(footBlk), '첫 화면(초대 게이트 오버레이) 맨 아래 줄에 버전 칸 · 링크']);
+  r.push([!!roomEntry && /_bindDonate\(document\.getElementById\('gatePrivacyLink'\)\)/.test(strip(roomEntry)), 'room-entry.js 가 첫 화면 링크를 시스템 브라우저로 연다(_bindDonate)']);
+  return r;
+}
+(async () => {
+  const v = await versionCases(MOD);
+  chk(v.ok.every(t => t === 'v0.12.0'), '버전 칸 둘 다 «v0.12.0» — 만들 때 한 번 채운다 (' + v.ok.join(' · ') + ')');
+  chk(v.none.every(t => t === '-') && v.bad.every(t => t === '-') && v.empty.every(t => t === '-'), 'companion 없음 · 실패 · 빈 값이면 «-»');
+  const v2 = await versionCases(MOD.replace(/\nrefreshAppVersionUI\(\);\nreturn \{/, '\nreturn {'));
+  chk(!v2.ok.every(t => t === 'v0.12.0'), '깨 보기 — 만들 때 안 부르면 빨강(첫 화면은 설정 창을 못 연다)');
+  linkJudge(HTML, ROOM_ENTRY).forEach(([ok, msg]) => chk(ok, msg));
+  const lb = [
+    ['첫 화면 링크 주소가 다름', HTML.replace('<a id="gatePrivacyLink" href="https://help.together-working.com/privacy"', '<a id="gatePrivacyLink" href="https://example.com/privacy"'), ROOM_ENTRY],
+    ['첫 화면 줄 빠짐', HTML.replace('id="inviteGateFoot"', 'id="x"'), ROOM_ENTRY],
+    ['링크 안 엶', HTML, (ROOM_ENTRY || '').replace("_bindDonate(document.getElementById('gatePrivacyLink'));", '')],
+  ];
+  for(const [name, h, re] of lb){ const changed = h !== HTML || re !== ROOM_ENTRY; chk(changed && linkJudge(h, re).some(([ok]) => !ok), '깨 보기 — ' + name + (changed ? '' : ' — 바꿀 글을 못 찾음')); }
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+})();

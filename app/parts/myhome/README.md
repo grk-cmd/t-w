@@ -88,7 +88,7 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
 
 ## `inbox-sections.js` — 📩 우편함 칸 나누기 규칙
 
-**책임** — 우편함 탭 안 왼쪽 세로 메뉴(📩 우편 · 📢 소식 · 📘 도움말)의 판단 한 벌: 어느 우편이 어느 칸에 드는지 · 칸마다 순서 · 안 읽은 수 · 탭에 들어올 때 처음 보일 칸.
+**책임** — 알림함(옛 우편함) 탭 안 왼쪽 세로 메뉴(📩 우편 · 📢 소식)의 판단 한 벌: 어느 우편이 어느 칸에 드는지 · 칸마다 순서 · 안 읽은 수 · 탭에 들어올 때 처음 보일 칸.
 소식 = 모두에게 보낸(broadcast) 공지 · 업데이트(태그 없음 · 모르는 태그는 공지로). 우편 = 나머지 전부 — 개인 우편 · 🐞 답변 · 모두에게 보낸 «📩 우편»(이벤트 보상 — 사용자 결정).
 순수 함수만 — DOM · firebase · localStorage 를 모르고, 받은 값을 고치지 않는다.
 
@@ -98,16 +98,37 @@ mk('👤 친구 신청', ()=>seatFriendReqMod._friendReqAsk(uid, seat));   // �
 const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHomeHooks 와 같은 모양)
 ```
 
-**내놓는 것** — `SECS`(['mail','news','help']) · `CATS`(['all','notice','update']) · `tagOf(m)` · `sectionOf(m)` → 'mail' | 'news' ·
+**내놓는 것** — `SECS`(['mail','news'] — 📘 도움말은 따로 탭 `help-tab.js` · 옛 'help' 값은 `normSec` 이 'mail' 로) · `CATS`(['all','notice','update']) · `tagOf(m)` · `sectionOf(m)` → 'mail' | 'news' ·
 `normSec(s)` · `normCat(c)`(옛 필터 값 'reward' · 'gift' → 'all') · `mailIds(merged)` · `newsIds(merged, cat)`(📌 고정은 종류와 상관없이 맨 위) ·
 `unread(merged)` → `{ mail, news, notice, update, total }` · `firstSec(merged)`(안 읽은 우편이 있으면 'mail', 없으면 'news').
 `merged` 는 `myhome-inbox.js` 의 `_inboxMerged()` 모양(개인 `_src:'personal'` + 공용 `_src:'broadcast'` · 공용 읽음은 이 PC 집합).
 
-**확장할 때 고칠 자리** — 칸을 늘리면 `SECS` · html `#mhInboxRail` 버튼 · `#mhInboxPane-이름` 칸 · `myhome-inbox.js` 의 칸 제목 표(`_INBOX_SEC_TITLE`). 새 태그는 `tagOf` · `sectionOf`.
+**확장할 때 고칠 자리** — 칸을 늘리면 `SECS` · html `#mhInboxRail` 버튼 · `#mhInboxPane-이름` 칸. 새 태그는 `tagOf` · `sectionOf`.
 
 **함정** — 서버 태그 키는 그대로다(`reward` 를 바꾸면 이미 보낸 우편이 전부 공지로 떨어진다). 보이는 글자만 `myhome-inbox.js` 표에서 바꾼다.
 우편함 탭 배지 · 🔔 벨 수는 `unread().total` 과 같아야 한다 — 따로 세지 말 것.
 검사: `checks/sim-inbox-sections.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
+
+## `help-tab.js` — 📘 마이홈 «도움말» 탭
+
+**책임** — 마이홈 «도움말» 탭 한 칸: 왼쪽 목차(묶음 접고 펴기) · 오른쪽 도움말 웹 페이지 틀(도움말 전용 Hosting 사이트 `help.together-working.com` · `?embed=1`) · 못 불러옴.
+사용법 글은 앱을 다시 내지 않고 고치려고 웹 페이지(`hosting/help/`)에 둔다. 목차는 앱에 박지 않고, 페이지(`hosting/help/embed.js`)가
+`postMessage({ type:'tw-help', v:1, page, toc })` 로 보내 오면 그것으로 그린다 — 페이지 안 «이전 · 다음» 으로 옮겨도 왼쪽 표시가 따라간다.
+
+**만드는 법** — app.js 가 마이홈 창(`createMyHomeUi`) 바로 앞에서 만들고 deps `helpTab` 으로 넘긴다. 테마를 바꾸면 `themeMod.onApplied` 로 `themeChanged`:
+
+```js
+const helpTabMod = TwHelpTab.createHelpTab({ getTheme: ()=>themeMod.getTheme() });   // getTheme 은 탭에 들어올 때 읽는다
+```
+
+**내놓는 것** — `enter()`(탭에 들어올 때 — 처음 · 테마가 바뀜 · 못 불러옴이면 연다) · `themeChanged()`(연 틀만 새 테마로) · `state()`(검사용).
+
+**함정** — 틀 안 HTTP 실패는 밖에서 안 보인다 → 연 뒤 `LOAD_MS` 안에 알림이 없으면 «못 불러옴»(오류 `E-MH-01`) · [다시 시도].
+알림은 `e.source` 가 이 틀이고 출처 · 모양이 맞을 때만(`shared/help-site.js` readMessage) · 목차 글은 textContent 로만.
+틀은 sandbox `allow-scripts allow-same-origin`(같은 사이트 `toc.json` 받기 · 출처 확인에 필요) — 앱 문서(file://)와 출처가 달라 앱 쪽엔 손대지 못한다.
+틀이 옮겨 갈 수 있는 주소는 main.js `will-frame-navigate` 가 같은 `help-site.js` 로 본다 · 앱 CSP `frame-src` 도 그 사이트 하나 — 사이트 주소를 바꾸면 셋을 같이.
+도움말 페이지는 Hosting 배포가 따로다(`firebase deploy --only hosting`) — 앱보다 먼저 올라가 있어야 탭이 빈 칸이 안 된다.
+검사: `checks/sim-help-tab.js`(가짜 화면에서 돌림 · 깨 보기) · 페이지 쪽은 `checks/sim-help-pages.js`.
 
 ## `myhome-preset.js` — 👑 디자인 프리셋 규칙
 
