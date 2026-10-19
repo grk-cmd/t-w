@@ -29,6 +29,7 @@
 ## 진행 중 — 검토중 · 작업중 · 작업완료
 | 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|---|---|---|
+| 작업중 | 우편함 소식 칸 정리 | 계정 세션 | 0.12.0 | feat/inbox-tidy | 우편함 오른쪽 위 짙은 머리 띠(«소식 · 작성 · 전체 읽음») 걷기 → «전체 읽음» 은 왼쪽 우편 · 소식 · 도움말 메뉴 아래 · «작성» 은 전체 · 공지 · 업데이트 탭 옆 · 공지 / 업데이트 꼬리표 색 다르게 · 목록 스크롤바 숨기고 마우스로 끌기 · 휠로 움직이기 | `myhome/myhome-inbox.js` · `desk-companion-prototype.html`(우편함 칸 · css) · 검사 | — |
 | 작업중 | 스티커사진 음악 켜고 끄기 | 계정 세션 | 0.12.0 | feat/purikura-bgm-toggle | 스티커사진 창 제목줄 남은 횟수 왼쪽에 «음악 끄기 / 음악 켜기»(마이홈 말랑이 숨기기와 같은 글자 버튼 · 시안 A) — 끈 상태는 이 PC 에 기억 · 다른 BGM 재우기 · 되살리기는 그대로 | `purikura/purikura-ui.js` · `desk-companion-prototype.html`(제목줄 span 하나) · 검사 | #398 |
 | 작업중 | 하네스 | 오케스트레이터 | main | harness/role-sessions | 역할 세션(서버 · 보안 · 투두 · 질문) — 이름으로 열면 시작 hook 이 역할 지침을 붙임 · 켤 때 열린 판 한 장 요약 + «어느 버전?» · /roles 스킬 | .claude/roles/* · .claude/hooks/(새 시작 hook · 시험) · .claude/settings.json · .claude/skills/roles/ | |
 | 작업중 | 하네스 | 오케스트레이터 | main | harness/status-done-action | PR 머지되면 현황판 줄을 «작업완료(판) · #PR · 날짜» 로 바꾸는 GitHub Actions | .github/workflows/(새 파일) · scripts/(새 순수 함수) · checks/(새 sim) · docs/RELEASE.md | |
