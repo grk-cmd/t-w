@@ -20,7 +20,7 @@ const SRC = need('functions/bug-cleanup.js');
 const FX = need('functions/index.js');
 const AD = need('functions/account-delete.js');
 const RULES = need('firebase-database-rules.json');
-const PRIVACY = needAny('hosting/privacy.html', '../hosting/privacy.html');
+const PRIVACY = needAny('hosting/help/privacy.html', '../hosting/help/privacy.html');
 const WA_BUG = read('web-admin/src/entities/bug-board/model/bugBoard.ts');   // 러너는 web-admin 을 빼므로 있을 때만
 const WA_AUDIT = read('web-admin/src/shared/api/audit.ts');
 
