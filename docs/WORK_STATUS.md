@@ -29,6 +29,7 @@
 ## 진행 중 — 검토중 · 작업중 · 작업완료
 | 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|---|---|---|
+| 작업중 | 📘 도움말 사이트 | 오케스트레이터 | 0.12.0 | chore/drop-design-page | 디자인 시스템 웹 페이지(/design/) 걷기 — 원본 docs/design-system 은 남김 · 빌드는 도움말 토큰(hosting/help/tokens.css)만 · #408 위에 쌓음(사용자 10-20) | `hosting/design/`(지움) · `scripts/build-design-site.js` → `build-design-tokens.js` · `checks/sim-design-site.js` → `sim-design-tokens.js` · `package.json`(script 한 줄) · 문서 | |
 | 작업중 | 📘 도움말 사이트 | 오케스트레이터 | 0.12.0 | feat/help-site-privacy-link | 개인정보 처리방침 · 폰 연결 안내를 도움말 사이트(help.together-working.com)로 옮김 — 앱 링크 세 곳 새 주소 · 옛 web.app/privacy · /link 는 새 주소로 넘김(옛 앱) · #406 위에 쌓음(사용자 10-20) | `hosting/privacy.html` · `hosting/link.html` → `hosting/help/` · `firebase.json`(redirects) · `desk-companion-prototype.html`(링크 두 곳) · `focus/focus-level.js` · 검사 | |
 | 작업중 | 하네스 | 오케스트레이터 | main | harness/new-site-confirm | 앱에 바깥 주소를 새로 박는 일은 사람 확인 — CSP 가 바뀌거나 Firebase 기본 주소(*.web.app · *.firebaseapp.com)가 새로 들어오면 위험도 높음 · 컨펌자 점검표 · 작업 규칙 «새 사이트는 우리 도메인»(사용자 10-20) | .claude/hooks/risk.py · .claude/hooks/test_hooks.py · .claude/review-lessons.md · CLAUDE.md | |
 | 작업중 | 하네스 | 오케스트레이터 | main | harness/approve-carry | 승인 손 줄이기 — 승인 뒤 판 브랜치만 합친 커밋은 앞 판정 · 승인을 이어 받음(PR 자체 변경이 같을 때만 · 가드가 확인) · 승인 · CI 를 세션이 지켜보다 머지(`risk.py --wait`) · «/ship 을 다시» 문구 걷기(사용자 10-20) | .claude/hooks/risk.py · .claude/hooks/ship-gate.py · .claude/hooks/test_hooks.py · .claude/skills/ship/SKILL.md · scripts/approve.js || #405 |
