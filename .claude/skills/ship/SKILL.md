@@ -1,6 +1,6 @@
 ---
 name: ship
-description: 작업 끝내기 — PR 을 올리고 컨펌자(tw-confirmer) · 검증자(tw-verifier)를 깨끗한 맥락으로 돌려, 둘 다 통과하고 CI 가 초록이면 판 브랜치에 머지한다(위험도 높은 PR 은 승인자 mihioon 의 Approve 뒤에). 걸리면 스스로 고쳐 다시 돈다. 터미널 · 클라우드(웹) 세션 모두에서. 작업(커밋)을 마쳤을 때 · «올려 줘» · «머지해 줘» 에 쓴다.
+description: 작업 끝내기 — PR 을 올리고 컨펌자(tw-confirmer) · 검증자(tw-verifier)를 깨끗한 맥락으로 돌려, 둘 다 통과하고 CI 가 초록이면 판 브랜치에 머지한다(가드 파일 — ship-gate.py · risk.py · settings.json — 을 바꾸는 PR 만 승인자 mihioon 의 승인 뒤에). 걸리면 스스로 고쳐 다시 돈다. 터미널 · 클라우드(웹) 세션 모두에서. 작업(커밋)을 마쳤을 때 · «올려 줘» · «머지해 줘» 에 쓴다.
 ---
 
 # /ship — PR · 컨펌 · 검증 · 머지
@@ -43,7 +43,6 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 
 ## 4-1. 가드 파일을 바꾸는 PR 이면 승인 대기
 - PR 이 `.claude/hooks/ship-gate.py` · `.claude/hooks/risk.py` · `.claude/settings.json` 을 바꾸지(지우기 · 이름 바꾸기 포함) 않으면 이 절을 건너뛰고 5 로.
-- 판 브랜치를 main 에 합치는 PR(릴리스)이면 승인 요청 본문에 `python3 .claude/hooks/risk.py --release <판>` 출력을 붙인다 — 승인자가 그 판의 위험도 높았던 PR 을 여기서 한 번에 본다.
 - 가드 파일을 바꾸는 PR 이면:
   - 승인자의 리뷰를 읽는다: `gh api $R/pulls/<번호>/reviews` · `gh api $R/pulls/<번호>/comments` · `gh api $R/issues/<번호>/comments` 에서 user.login = `mihioon` 인 것.
   - **CHANGES_REQUESTED 이거나 고칠 것을 적은 코멘트**가 머리 커밋 뒤에 있으면 → 고치고(3 처럼) → 고친 지적마다 `/lesson` → push → 2 부터.
@@ -59,7 +58,6 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
     본문: «@mihioon 승인 요청 — 가드 파일을 바꿈: <바뀐 가드 파일>» + 컨펌자의 «설계 요약» + 검증자 «돌린 것» + «터미널에서 `! node scripts/approve.js <번호>` 를 돌리거나(지금 머리 커밋으로 승인 코멘트를 단다 · 여러 PR 은 번호를 이어서), Approve 하거나, 이 한 줄을 코멘트로 달면 세션이 머지합니다: `승인 <머리 커밋 앞 7자리>` · 고칠 것은 Request changes 나 코멘트로»(한 줄은 백틱으로 감싸 그 코멘트 자체가 승인으로 읽히지 않게). 승인 명령은 세션이 돌리지 않는다(가드가 막는다).
     그리고 `python3 .claude/hooks/risk.py --wait <번호>` 를 **뒤에서**(Bash `run_in_background`) 돌린다 — 승인이 달리고 CI 가 끝나면 한 줄로 알린다(0 = 머지할 차례 · 1 = CI 빨강 · 닫힘 · 1시간 넘김). 알림이 오면 위 리뷰 · 코멘트 읽기(고칠 것이 달렸는가)를 한 번 더 거쳐 5 로 이어 간다 — 기계는 Request changes 만 보고 글 코멘트의 «고칠 것» 은 못 본다.
     사용자에게는 «승인 명령 한 줄 — 달리면 세션이 머지» 만 말한다. 승인 기다리는 PR 이 여럿이면 번호를 이은 명령 한 줄로 한 번에 묻는다. `/ship` 을 다시 치라고 하지 않는다.
-- 낮으면 → 5 로.
 
 ## 5. CI → 머지
 - CI 확인: `gh api $R/commits/$SHA/check-runs --jq '[.check_runs[] | {name, status, conclusion}]'` — 모두 completed · success(또는 skipped)일 때까지 기다린다(`risk.py --wait <번호>` 를 뒤에서 돌리면 끝날 때 알린다 · 기다리기와 머지를 한 명령으로 잇지 않는다). 빨강이면 3 으로.

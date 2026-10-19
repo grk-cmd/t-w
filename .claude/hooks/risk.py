@@ -2,7 +2,7 @@
 """PR 위험도 판정 — 세션의 판단이 아니라 diff 로 기계적으로 정한다. /ship 과 가드(ship-gate.py)가 같이 쓴다.
 
 높음 = 데이터 경로 · 권한 · 서버 · 빌드에 닿는 변경 — 머지 전 승인은 받지 않는다(앱 · 규칙 · 함수 · Hosting 은 사람이 내보낸다 ·
-승인자는 내보내기 전 `--release` 한 장으로 본다). 머지 전 승인자(OWNER) 승인은 **가드 파일(GUARD_FILES)을 바꾸는 PR 만** —
+승인자는 내보내기 전 `--release` 한 장으로 본다). 머지 전 승인자(OWNER) 승인은 **가드 자리(is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 지침 · /ship 안내서)를 바꾸는 PR 만** —
 가드가 «컨펌 · 검증 없이 머지 못 함» 을 지키는 마지막 자리라, 세션이 가드를 스스로 풀지 못하게. 승인은 GitHub Approve, 또는 PR 코멘트 한 줄 «승인 <머리 커밋 앞 7자리 이상>»(GitHub 은 작성자가 자기 PR 을 Approve 못 하는데
 이 PC 세션들은 OWNER 계정으로 PR 을 올린다). 커밋 번호를 받는 까닭: 시각으로 가리면 승인 뒤 옛 날짜 커밋을 올려도 통과한다.
 낮음 = 문구 · 화면 배치 · 스타일 · 데이터 경로가 그대로인 수정 · 문서 — 컨펌자 · 검증자 통과로 머지.
@@ -25,8 +25,14 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 
 REPO = 'grk-cmd/t-w'
 OWNER = 'mihioon'
-# 이 파일을 바꾸는(지우기 · 이름 바꾸기 포함) PR 만 머지 전 승인 — 가드 자신 · 위험도 판정 · 가드를 켜 두는 훅 설정
-GUARD_FILES = ('.claude/hooks/ship-gate.py', '.claude/hooks/risk.py', '.claude/settings.json')
+# 이 자리를 바꾸는(새로 더하기 · 지우기 · 이름 바꾸기 포함) PR 만 머지 전 승인 — 세션이 가드 · 판정을 스스로 풀지 못하게.
+#   훅 폴더 전부(가드 옆에 표준 모듈과 같은 이름을 두면 가드가 그걸 불러 죽는다) · 훅 설정 전부(settings.local.json 의 «훅 끄기» 포함) ·
+#   훅이 돌리는 스크립트 · 컨펌자 · 검증자 지침 · /ship 안내서. 시험 파일만 뺀다.
+GUARD_PREFIXES = ('.claude/hooks/', '.claude/agents/', '.claude/skills/ship/')
+GUARD_FILES = ('scripts/todo.js',)   # settings.json SessionStart 훅이 돌린다
+GUARD_SETTINGS = re.compile(r'^\.claude/settings[^/]*\.json$')
+GUARD_SKIP = ('.claude/hooks/test_hooks.py',)
+GUARD_LABEL = '.claude/hooks/ · .claude/settings*.json · .claude/agents/ · .claude/skills/ship/ · scripts/todo.js'
 # 한 줄 전체가 «승인 <sha 앞자리>» 일 때만 — 승인 요청 코멘트(«승인 요청 — …»)와 섞이지 않게
 APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
 # 판 브랜치를 합치면 검사 해시 줄(CHECKS.md §3)의 줄 수 · 해시가 다시 계산돼 바뀐다 — 그 둘만 지우고 파일 이름은 남겨 견준다
@@ -142,9 +148,6 @@ def same_change(pr, old_sha, new_sha):
     if old_sha == new_sha:
         return True
     key = (str(pr), old_sha, new_sha)
-    t = tree_of(old_sha) if key not in _same else None
-    if t and t == tree_of(new_sha):
-        _same[key] = True   # 파일 내용이 한 글자도 같다(판 브랜치를 합쳤는데 이미 base 가 그 변경을 품었을 때 — 앞 PR 이 squash 로 머지된 뒤)
     if key not in _same:
         base = get(f'repos/{REPO}/pulls/{pr}')['base']['ref']
         a = own_change(base, old_sha)
@@ -152,14 +155,19 @@ def same_change(pr, old_sha, new_sha):
     return _same[key]
 
 
-def tree_of(sha):
-    return ((get(f'repos/{REPO}/commits/{sha}').get('commit') or {}).get('tree') or {}).get('sha')
+def is_guard(path):
+    if not path or path in GUARD_SKIP:
+        return False
+    return path.startswith(GUARD_PREFIXES) or path in GUARD_FILES or bool(GUARD_SETTINGS.match(path))
 
 
 def needs_owner(pr):
-    """머지 전 승인이 필요한 PR 인가 — 가드 파일을 바꿀 때만(base 와 상관없이 · 이름을 바꿔 옮겨도)."""
-    files = [f for page in api(f'repos/{REPO}/pulls/{pr}/files?per_page=100') for f in (page if isinstance(page, list) else [page])]
-    return any(f.get('filename') in GUARD_FILES or f.get('previous_filename') in GUARD_FILES for f in files if isinstance(f, dict))
+    """머지 전 승인이 필요한 PR 인가 — 가드 자리를 바꿀 때만(base 와 상관없이 · 옮겨도).
+    파일 목록이 다 안 왔으면(API 는 3000개에서 끊긴다) 못 본 것이라 승인을 받는다."""
+    files = [f for page in api(f'repos/{REPO}/pulls/{pr}/files?per_page=100') for f in (page if isinstance(page, list) else [page]) if isinstance(f, dict)]
+    if len(files) < int(get(f'repos/{REPO}/pulls/{pr}').get('changed_files') or 0):
+        return True
+    return any(is_guard(f.get('filename')) or is_guard(f.get('previous_filename')) for f in files)
 
 
 def release_summary(branch):

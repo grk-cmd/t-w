@@ -253,7 +253,13 @@ for name, fl, base, want in (
         ('훅 설정(settings.json)을 바꿈', [{'filename': '.claude/settings.json', 'status': 'modified'}], 'main', True),
         ('가드를 지움', [{'filename': '.claude/hooks/ship-gate.py', 'status': 'removed'}], 'main', True),
         ('가드를 다른 이름으로 옮김', [{'filename': '.claude/hooks/x.py', 'previous_filename': '.claude/hooks/ship-gate.py', 'status': 'renamed'}], 'main', True),
-        ('다른 하네스 파일만(안내서 · 시험)', [{'filename': '.claude/skills/ship/SKILL.md'}, {'filename': '.claude/hooks/test_hooks.py'}], 'main', False),
+        ('훅 폴더에 새 파일(표준 모듈 이름으로 가리기)', [{'filename': '.claude/hooks/shlex.py', 'status': 'added'}], 'main', True),
+        ('settings.local.json 을 올림(훅 끄기)', [{'filename': '.claude/settings.local.json', 'status': 'added'}], 'release/0.12.0', True),
+        ('세션 시작 훅 스크립트', [{'filename': '.claude/hooks/session-start.sh'}], 'main', True),
+        ('훅이 돌리는 scripts/todo.js', [{'filename': 'scripts/todo.js'}], 'release/0.12.0', True),
+        ('컨펌자 지침', [{'filename': '.claude/agents/tw-confirmer.md'}], 'main', True),
+        ('/ship 안내서', [{'filename': '.claude/skills/ship/SKILL.md'}], 'main', True),
+        ('시험 파일 · 다른 스킬 · 역할 문서만', [{'filename': '.claude/hooks/test_hooks.py'}, {'filename': '.claude/skills/todo/SKILL.md'}, {'filename': '.claude/roles/_공통.md'}], 'main', False),
         ('앱 · 규칙 · main.js — 높음이어도', [{'filename': 'firebase-database-rules.json'}, {'filename': 'main.js'}], 'release/0.12.0', False)):
     fake(base=base, files=fl)
     got = risk.needs_owner(395)
@@ -262,6 +268,15 @@ for name, fl, base, want in (
     else:
         bad += 1
         print(f'  ✗ 승인 범위 {name}: {got}')
+fake(files=[{'filename': 'a.js'}])
+real_get2 = risk.get
+risk.get = lambda p, g=real_get2: dict(g(p), changed_files=3001) if p.endswith('/pulls/395') else g(p)
+if risk.needs_owner(395) is True:
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ 승인 범위 파일 목록이 잘림(3000개) → 승인')
+risk.get = real_get2
 real_gate_ok = gate.gate_ok
 def gate_case(name, fl, approved_comment, want_deny):
     global ok, bad
@@ -287,22 +302,6 @@ gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'f
 gate_case('가드 파일 바꿈 · 승인 없음 → 막음', GUARD, False, True)
 gate_case('가드 파일 바꿈 · 승인 → 통과', GUARD, True, False)
 gate.gate_ok = real_gate_ok
-
-# 파일 내용(트리)이 같으면 이어 받는다 — 앞 PR 이 squash 로 들어가 판 브랜치를 합친 뒤 diff 모양은 달라도 내용은 같을 때
-fake(cmp={O: files('new'), H: files('other')})
-real_get = risk.get
-risk.get = lambda p, g=real_get: {'commit': {'tree': {'sha': 'T1'}}} if '/commits/' in p and '/check-runs' not in p else g(p)
-risk._same.clear()
-t1 = risk.same_change(395, O, H)
-risk.get = lambda p, g=real_get: {'commit': {'tree': {'sha': 'T1' if O in p else 'T2'}}} if '/commits/' in p and '/check-runs' not in p else g(p)
-risk._same.clear()
-t2 = risk.same_change(395, O, H)
-risk.get = real_get; risk._same.clear()
-if t1 is True and t2 is False:
-    ok += 1
-else:
-    bad += 1
-    print(f'  ✗ 트리 같음 이어 받기: 같음 {t1} · 다름 {t2}')
 
 # 릴리스 직전 한 장 — 판에 머지된 PR 중 높음만
 PULLS = [{'number': 1, 'title': '높은 것', 'merged_at': '2026-10-20T01:00:00Z'}, {'number': 2, 'title': '낮은 것', 'merged_at': '2026-10-20T02:00:00Z'},
@@ -581,7 +580,8 @@ if CPL:
     merge = json.dumps({'tool_input': {'command': 'gh pr merge 403'}, 'cwd': CWD})
     for name, args, stdin, extra, check in (
             ('위험도 판정', [RK, '403'], '', {}, lambda o: json.loads(o)['high'] is True),
-            ('머지 가드 — 승인 없음 → 막음', [G], merge, {}, lambda o: '"deny"' in o and '가드 파일' in o and '읽지 못해' not in o),
+            ('머지 가드 — 승인 없음 → 막음', [G], merge, {}, lambda o: '"deny"' in o and '가드 자리' in o and '읽지 못해' not in o),
+            ('머지 가드 — 격리 모드(python3 -I · settings.json 과 같음)에서도 risk 를 불러 막음', ['-I', G], merge, {}, lambda o: '"deny"' in o and '가드 자리' in o),
             ('머지 가드 — 승인 코멘트 → 통과', [G], merge, {'FAKE_BODY': '승인 0c4b3e9'}, lambda o: o.strip() == '')):
         p = subprocess.run([sys.executable, '-B'] + args, input=stdin.encode('utf-8'), capture_output=True, env=dict(env, **extra), timeout=30)
         out, err = p.stdout.decode('utf-8', 'replace'), p.stderr.decode('utf-8', 'replace')
