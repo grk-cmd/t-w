@@ -4,6 +4,7 @@
 1. 머지 — `gh pr merge` · `gh api …/pulls/N/merge`: 그 PR 머리 커밋에 상태값 `tw/confirm`(컨펌자) · `tw/verify`(검증자)가
    둘 다 success 가 아니면 막는다. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
    위험도가 높은 PR(risk.py — 데이터 경로 · 규칙 · 서버 · 빌드)은 승인자(mihioon)가 그 머리 커밋을 Approve 해야 한다.
+   판정 · 승인 뒤 판 브랜치를 합치기만 한 머리(PR 자체 변경이 같음 — risk.same_change)는 앞 커밋의 것을 이어 받는다.
 2. 보호 브랜치에 직접 push — `main` · `release/*`. 예외: main 에 `docs/WORK_STATUS.md` 만 바꾼 push.
 2-1. 승인을 세션이 대신 남기기 — Approve 리뷰 · «승인 <커밋>» 코멘트. 세션도 승인자 계정으로 GitHub 를 쓰니
    이걸 막지 않으면 승인이 사람 확인이 아니게 된다(사람은 GitHub 화면에서 단다).
@@ -12,6 +13,13 @@
 가드가 스스로 깨지면 막지 않고 알린다.
 """
 import json, os, re, shlex, subprocess, sys
+
+# Windows 는 표준 입출력이 지역 인코딩(cp949)이라 «·» 같은 글자를 쓰다 죽는다 — hook 입출력은 UTF-8 로 고정
+for _s in (sys.stdin, sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 
 sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를 만들어 작업 트리를 더럽히지 않게
 
@@ -22,7 +30,7 @@ GATES = ('tw/confirm', 'tw/verify')
 
 
 def run(*args, cwd=None):
-    p = subprocess.run(list(args), cwd=cwd, capture_output=True, text=True)
+    p = subprocess.run(list(args), cwd=cwd, capture_output=True, text=True, encoding='utf-8', errors='replace')
     return p.stdout.strip() if p.returncode == 0 else None
 
 
@@ -42,14 +50,24 @@ def segments(cmd):
             yield toks
 
 
+def gate_missing(sha):
+    raw = run('gh', 'api', f'repos/{REPO}/commits/{sha}/status', '--jq',
+              '[.statuses[] | {context, state}]')
+    states = {s['context']: s['state'] for s in json.loads(raw or '[]')[::-1]}  # 같은 context 는 최신이 앞
+    return [g for g in GATES if states.get(g) != 'success']
+
+
 def gate_ok(pr):
     sha = run('gh', 'api', f'repos/{REPO}/pulls/{pr}', '--jq', '.head.sha')
     if not sha:
         return False, 'PR 머리 커밋을 못 읽음'
-    raw = run('gh', 'api', f'repos/{REPO}/commits/{sha}/status', '--jq',
-              '[.statuses[] | {context, state}]')
-    states = {s['context']: s['state'] for s in json.loads(raw or '[]')[::-1]}  # 같은 context 는 최신이 앞
-    missing = [g for g in GATES if states.get(g) != 'success']
+    missing = gate_missing(sha)
+    if missing:
+        # 판 브랜치만 합친 머리 — 두 판정을 받은 가장 최근 커밋과 PR 자체 변경이 같으면 이어 받는다
+        import risk
+        passed = next((c for c in reversed(risk.pr_commits(pr)) if c != sha and not gate_missing(c)), None)
+        if passed and risk.same_change(pr, passed, sha):
+            return True, ''
     return not missing, ', '.join(missing)
 
 
@@ -65,9 +83,12 @@ def check_merge(toks):
         pr = m and m.group(1)
     if not pr:
         deny('머지할 PR 번호를 알 수 없다 — `/ship` 으로 머지한다.')
-    ok, missing = gate_ok(pr)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    try:   # 이어 받기를 읽다 API 가 실패하면 판정 없음으로 — 맨 아래 «가드 오류면 통과» 로 새지 않게
+        ok, missing = gate_ok(pr)
+    except Exception as e:
+        deny(f'#{pr} 컨펌 · 검증 기록을 읽지 못해 머지를 막았다({str(e)[:120]}) — 잠시 뒤 다시.')
     if ok:
-        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         import risk
         try:   # 위험도 · 승인을 못 읽으면 막는다 — 맨 아래 «가드 오류면 통과» 로 새면 승인 없이 머지된다
             r = risk.assess(pr)
@@ -77,11 +98,11 @@ def check_merge(toks):
             deny(f'#{pr} 위험도 · 승인을 읽지 못해 머지를 막았다({str(e)[:120]}) — 잠시 뒤 다시.')
         if not approved:
             deny(f'#{pr} 은 위험도 높음({"; ".join(r["reasons"][:4])}) — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 하거나 «승인 {(sha or "")[:7]}» 코멘트를 달아야 머지한다. '
-                 f'`/ship` 이 PR 에 설계 요약을 남기고 «승인 대기» 로 멈춘다.')
+                 f'`/ship` 이 PR 에 설계 요약을 남기고 승인을 기다린다(risk.py --wait).')
         return
     if not ok:
         deny(f'#{pr} 머리 커밋에 컨펌 · 검증 통과 기록이 없다({missing}). `/ship` 으로 컨펌자(tw-confirmer) · 검증자(tw-verifier)를 돌려 '
-             f'둘 다 통과해야 머지할 수 있다. 커밋을 더 올렸으면 다시 돌린다.')
+             f'둘 다 통과해야 머지할 수 있다. 커밋을 더 올렸으면 다시 돌린다(판 브랜치만 합친 커밋은 앞 판정을 이어 받는다).')
 
 
 LOOSE_APPROVE = re.compile(r'승인[\s\u3000]+[0-9a-f]{7,40}\b')   # 명령 글 · 파일 어디든 — 표준입력 · $(…) 로 들어오는 본문까지
@@ -153,6 +174,32 @@ def _review_approves(args):
     return False
 
 
+APPROVE_WRAP = ('env', 'command', 'exec', 'time', 'nohup', 'sudo', 'nice', '!', 'xargs', 'npx')
+NODE_VALUE_FLAGS = ('-r', '--require', '--import', '--loader', '--experimental-loader', '-e', '--eval', '-p', '--print')
+
+
+def _is_approve(t):
+    t = t.replace('\\', '/')
+    return os.path.basename(t) == 'approve.js' or t == 'approve' or t.endswith('scripts/approve')
+
+
+def _runs_approve(toks):
+    """승인 명령(scripts/approve.js)을 실행하는가 — `node …/approve(.js)` · `./scripts/approve.js` · 앞에 time · nohup · ( 등.
+    읽기(cat · grep · git)와 문법 검사(node --check)는 막지 않는다. bash -c · node -e 안쪽은 못 본다(실수 막기)."""
+    toks = [t.lstrip('(') for t in toks]
+    i = 0
+    while i < len(toks) and (not toks[i] or re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', toks[i]) or toks[i] in APPROVE_WRAP
+                             or (toks[i].startswith('-') and i and toks[i - 1] in APPROVE_WRAP)):
+        i += 1
+    if i < len(toks) and os.path.basename(toks[i]) in ('node', 'nodejs', 'bun', 'deno'):
+        i += 1
+        while i < len(toks) and toks[i].startswith('-'):
+            if toks[i] in ('--check', '-c'):
+                return False
+            i += 2 if toks[i] in NODE_VALUE_FLAGS else 1
+    return i < len(toks) and _is_approve(toks[i])
+
+
 STDIN_BODY = re.compile(r'(--body-file|--input)[ =]-(\s|$)|=@-(\s|$)')
 
 
@@ -169,6 +216,8 @@ def check_self_approve(cmd, cwd):
             if toks and toks[0] == 'cd' and len(toks) > 1:
                 cwd = os.path.join(cwd, os.path.expanduser(toks[1]))
                 continue
+            if toks and _runs_approve(toks):
+                deny('승인 명령(scripts/approve.js)은 승인자가 터미널에서 직접(`! node scripts/approve.js <번호>`) 돌린다 — 세션이 돌리지 않는다.')
             g = gh_norm(toks) if toks else None
             if not g:
                 continue

@@ -28,10 +28,14 @@ if(require.main === module){
 
   /* 읽기 규칙을 전부 모은다 */
   const reads = (text) => { const out = []; (function w(n, p){ for(const k in n){ if(k === '.read') out.push([p, n[k]]); else if(n[k] && typeof n[k] === 'object' && !Array.isArray(n[k])) w(n[k], p + '/' + k); } })(JSON.parse(text).rules, ''); return out; };
-  /* 조건 없이 둔 읽기 — 관리자 · 봇 전용, 폰 연결(링크 키로 지킨다), 아예 막힘 */
+  /* 조건 없이 둔 읽기 — 관리자 · 봇 전용, 폰 연결(링크 키로 지킨다), 아예 막힘, 로그인 때 내 authUsers 한 칸.
+     내 authUsers 에 조건을 붙이면 presence 가 «켜짐 · ver 없음» 으로 남은 사람은 로그인(구글 · 친구 코드)이 늘 실패해
+     새 앱이 presence 를 고쳐 쓸 기회가 없다 — 칸에는 내 userCode 하나뿐이고 옛 앱은 그다음 읽기에서 막힌다. */
+  const SELF_AUTH_READ = 'auth != null && auth.uid === $authUid';
   const ADMIN_ONLY = /^(\(?auth != null && )?root\.child\('admins'\)\.child\(auth\.uid\)\.val\(\) === true\)?( \|\| \(auth != null && root\.child\('apiBots'\)\.child\(auth\.uid\)\.val\(\) === true\))?$/;
   const exempt = ([p, v]) => v === false || /^\/mobileLink\//.test(p) || /^\/mobileKeys\//.test(p) || ADMIN_ONLY.test(String(v))
-    || String(v) === "(auth != null && root.child('apiBots').child(auth.uid).val() === true)";
+    || String(v) === "(auth != null && root.child('apiBots').child(auth.uid).val() === true)"
+    || (p === '/authUsers/$authUid' && String(v) === SELF_AUTH_READ);
   const judge = (text) => {
     const all = reads(text);
     const open = all.filter(r => !exempt(r) && String(r[1]).indexOf(READ_GATE) < 0);
@@ -42,6 +46,8 @@ if(require.main === module){
   chk(J.open.length === 0, `★ 앱이 읽는 .read 에는 전부 옛 앱 막기 조건이 붙었다 (붙음 ${J.gated.length} · 관리자 · 봇 · 폰 연결 · 막힘 ${J.all.length - J.gated.length})` + (J.open.length ? ' — 빠짐: ' + J.open.map(r => r[0]).join(', ') : ''));
   chk(!/"\.read": true/.test(RAW), '  ↳ 조건 없는 «.read: true» 가 남지 않았다');
   chk(reads(RAW).filter(([p]) => /^\/mobileLink\//.test(p)).every(([, v]) => String(v).indexOf(READ_GATE) < 0), '  ↳ 폰 연결(mobileLink)은 안 막는다 — 로그인 없는 링크 페이지가 읽는다');
+  const au = ((JSON.parse(RAW).rules.authUsers || {}).$authUid || {})['.read'];
+  chk(au === SELF_AUTH_READ, '★ 로그인 때 내 authUsers 읽기는 막기 조건 없이 나만 — presence 가 남은 사람도 로그인해 presence 를 고쳐 쓴다');
   const S = stripReadGate(RAW);
   let ok = true; try{ JSON.parse(S); }catch(_){ ok = false; }
   chk(ok && S.indexOf(READ_GATE) < 0, '걷은 글은 JSON 이고 조건이 한 군데도 안 남는다(붙인 자리는 «"조건"» 아니면 « && 조건» 뿐)');
@@ -53,6 +59,9 @@ if(require.main === module){
   /* 깨 보기 — 조건 하나를 true 로 되돌리면 잡는가 */
   const broken = RAW.replace('"' + READ_GATE + '"', 'true');
   chk(broken !== RAW && judge(broken).open.length === 1, '깨 보기 — 조건 하나를 빼면 «빠짐» 으로 잡는다');
+  /* 깨 보기 — 내 authUsers 를 남도 읽게 넓히면 «빠짐» 으로 잡는가 */
+  const auOpen = RAW.replace('"' + SELF_AUTH_READ + '"', '"auth != null"');
+  chk(auOpen !== RAW && judge(auOpen).open.some(r => r[0] === '/authUsers/$authUid'), '깨 보기 — 내 authUsers 를 «로그인만 하면 누구나» 로 넓히면 잡는다');
   console.log(fail ? `✗ 실패 ${fail}건` : '✓ 전부 통과');
   process.exit(fail ? 1 : 0);
 }

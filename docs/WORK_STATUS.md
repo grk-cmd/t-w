@@ -1,7 +1,6 @@
 # 작업 현황판 — 누가 무엇을 만지는 중인가
 
-여럿이 같은 파일을 동시에 고치다 충돌이 나지 않게 하려고 둔다. **작업을 시작하기 전에 «건드리는 파일» 칸을 보고, 내 파일이 겹치면 그 줄 담당과 먼저 맞춘다.**
-머지 담당(검증 세션)이 PR 을 올리거나 머지할 때마다 고친다. 기준: 2026-10-19.
+여럿이 같은 일 · 같은 파일을 동시에 고치지 않게 하려고 둔다. **누구든(사람 · 세션 · 웹 세션) 작업을 시작하기 전에 이 파일부터 본다.** 기준: 2026-10-19.
 
 ## 0.11.4 기능 멈춤 (10-17 사용자)
 - **0.11.4 에 넣을 기능은 여기까지.** 이제부터 만드는 기능 · 옮기기는 요청(PR)까지만 올리고, 0.11.4 릴리스 뒤에 하나씩 합친다.
@@ -9,23 +8,46 @@
 - 서버로 옮기기(앱은 API 하고만 · Firebase 는 저장소 포트 뒤 · 인증은 Firebase Auth)는 설계 문서(서버 저장소 docs/notes) 차례대로 0.11.4 뒤부터.
 
 ## 작업 시작 절차 — 누구든 코드를 만지기 전에 이것부터
-1. `git pull` 로 이 파일을 받아 «진행 중» 표를 본다. 내가 고칠 파일이 다른 줄의 «건드리는 파일» 과 겹치면 **시작하지 말고** 그 담당과 먼저 맞춘다.
-2. 겹치지 않으면 «진행 중» 표에 한 줄을 더한다 — 묶음 이름 · **담당(사람 또는 세션 이름)** · 내용 · 건드리는 파일 · 제보 번호(있으면).
-3. **이 파일 하나만은 PR 없이 main 에 바로 커밋 · push 한다**(`docs(status): <묶음> 시작 — <담당>`). 다른 파일을 같은 커밋에 섞지 않는다 · force push 금지 · push 가 거절되면 `git pull --rebase` 뒤 다시.
-4. PR 을 올리면 그 줄에 PR 번호를, 머지되면 줄을 «머지 완료» 로 옮긴다(이것도 main 에 바로).
-- 웹 관리자 📋 할 일(`adminTodos`)에는 버그 제보와 관련된 일만 적는다. 기능 · 계획 · «지금 누가 어느 파일을 만지는가» 는 이 파일이 정본이다.
+1. **최신을 받아 본다** — `git fetch origin && git show origin/main:docs/WORK_STATUS.md`(어느 판 브랜치에서 일하든 이 파일은 main 것이 정본).
+2. **같은 일 · 같은 파일 줄이 있으면 상태대로**:
+   - **검토중** → 시작하지 말고 사용자에게 «제가 할까요, ○○(그 줄 담당)이 할까요?» 를 묻는다.
+   - **작업중** · **작업완료** → 하지 않는다(필요하면 그 줄 담당 · PR 을 알려 준다).
+3. **없으면 줄을 먼저 쓰고 커밋 · push 한 뒤 착수한다** — 보기만 해도 «검토중», 고치기 시작하면 «작업중». 칸: 상태 · 묶음 · 담당 · 판 · **브랜치** · 내용 · 건드리는 파일 · PR.
+   - **브랜치 칸은 꼭** — 머지되면 GitHub Actions 가 이 칸으로 줄을 찾아 «작업완료» 로 바꾼다. 브랜치를 아직 안 땄으면 딸 이름을 적는다.
+4. **이 파일 하나만 따로 main 에 바로 커밋 · push**(`docs(status): <묶음> <상태> — <담당>`). 다른 파일을 섞지 않는다 · force push 금지. push 가 거절되면 `git pull --rebase` 뒤 다시 보고 — 그새 남이 같은 일을 잡았으면 멈춘다.
+5. PR 을 올리면 그 줄 PR 칸에 번호. **머지되면 «작업완료(판) · #PR · 날짜» 로 바뀌는 건 GitHub Actions 가 한다**(/ship · GitHub 버튼 · 웹 세션 어느 길로 머지해도). 작업완료 줄은 그 판을 낼 때 한꺼번에 걷는다.
+- 웹 관리자 📋 할 일(`adminTodos`)에는 버그 제보와 관련된 일만 적는다. 기능 · 계획 · «지금 누가 무엇을 하나» 는 이 파일이 정본이다.
 
 ## 규칙
-- **자기 작업은 누구든 직접 합칠 수 있다 — 이 차례대로만.** ① 충돌이 있으면 main 을 합치고(검사를 고쳤으면 §3 해시만) push ② 자동 검사(CI) 초록 ③ 합치고 이 표에 머지 표시. 로컬에서 검사 전체를 다시 돌리지 않는다(고친 검사만).
-- 작업자 대기열(`docs/local/carve-handoff/QUEUE.md`) · 남의 요청은 검증 세션이 합친다.
+- **판은 사용자가 고른다** — 작업 전에 «어느 버전에 릴리스될 작업인가» 를 묻고 그 판 `release/X.Y.Z` 에서 딴다(지금 열린 판: release/0.12.0). 긴급 수정만 `hotfix/*`, 하네스만 `harness/*` 를 main 에서.
+- **머지는 `/ship`** — 컨펌자 · 검증자 통과 → CI → 머지. 위험도 높은 PR 은 사용자 승인(코멘트 한 줄 `승인 <커밋>` 또는 Approve) 뒤에. 로컬에서 검사 전체를 다시 돌리지 않는다(고친 검사만 · 전체는 CI).
 - `checks/CHECKS.md` 에 개정 번호 · 기록은 적지 않는다(10-19 없앰 — 내력은 git). §3 해시만 맞춘다.
 - **클릭 통과(setIgnoreMouseEvents)를 정하는 조건은 `app/parts/launcher/click-through-policy.js` 한 곳에만 쓴다.** 다른 파일에 조건을 쓰면 `sim-click-through-policy.js` 가 빨강이다(#315 머지부터).
 - **담당 이름은 남과 겹치지 않게** 쓴다(예: «검증-도우미1» · «계정 세션» · 사람 이름). 같은 이름이 둘이면 누가 누군지 못 가린다.
 - 버그 제보를 고친 PR 은 제목 끝에 `(B-MMDD-n)` 을 붙이고, 아래 «제보 → 수정» 표에 한 줄 더한다.
 
-## 진행 중 — 검증 · PR 올리는 중
-| 묶음 | 담당 | 내용 | 건드리는 파일 | PR |
-|---|---|---|---|---|
+## 진행 중 — 검토중 · 작업중 · 작업완료
+| 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
+|---|---|---|---|---|---|---|---|
+| 작업중 | 하네스 | 오케스트레이터 | main | harness/approve-at-release | 승인은 main 으로 가는 PR(하네스 · 긴급 수정)만 · 판 브랜치 PR 은 컨펌 · 검증 · CI 로 머지 · 릴리스 직전 «위험도 높았던 PR» 한 장 요약(risk.py --release) · 파일 내용이 같으면 판정 이어받기 · #407 위에 쌓음(사용자 10-20 «a») | .claude/hooks/risk.py · .claude/hooks/ship-gate.py · .claude/hooks/test_hooks.py · .claude/skills/ship/SKILL.md · CLAUDE.md · docs/RELEASE.md · docs/WORK_STATUS.md(규칙 줄) | |
+| 작업중 | 📘 도움말 사이트 | 오케스트레이터 | 0.12.0 | chore/drop-design-page | 디자인 시스템 웹 페이지(/design/) 걷기 — 원본 docs/design-system 은 남김 · 빌드는 도움말 토큰(hosting/help/tokens.css)만 · #408 위에 쌓음(사용자 10-20) | `hosting/design/`(지움) · `scripts/build-design-site.js` → `build-design-tokens.js` · `checks/sim-design-site.js` → `sim-design-tokens.js` · `package.json`(script 한 줄) · 문서 | |
+| 작업중 | 📘 도움말 사이트 | 오케스트레이터 | 0.12.0 | feat/help-site-privacy-link | 개인정보 처리방침 · 폰 연결 안내를 도움말 사이트(help.together-working.com)로 옮김 — 앱 링크 세 곳 새 주소 · 옛 web.app/privacy · /link 는 새 주소로 넘김(옛 앱) · #406 위에 쌓음(사용자 10-20) | `hosting/privacy.html` · `hosting/link.html` → `hosting/help/` · `firebase.json`(redirects) · `desk-companion-prototype.html`(링크 두 곳) · `focus/focus-level.js` · 검사 | |
+| 작업완료(main) | 하네스 | 오케스트레이터 | main | harness/new-site-confirm | 앱에 바깥 주소를 새로 박는 일은 사람 확인 — CSP 가 바뀌거나 Firebase 기본 주소(*.web.app · *.firebaseapp.com)가 새로 들어오면 위험도 높음 · 컨펌자 점검표 · 작업 규칙 «새 사이트는 우리 도메인»(사용자 10-20) | .claude/hooks/risk.py · .claude/hooks/test_hooks.py · .claude/review-lessons.md · CLAUDE.md | #407 · 2026-10-20 |
+| 작업중 | 하네스 | 오케스트레이터 | main | harness/approve-carry | 승인 손 줄이기 — 승인 뒤 판 브랜치만 합친 커밋은 앞 판정 · 승인을 이어 받음(PR 자체 변경이 같을 때만 · 가드가 확인) · 승인 · CI 를 세션이 지켜보다 머지(`risk.py --wait`) · «/ship 을 다시» 문구 걷기(사용자 10-20) | .claude/hooks/risk.py · .claude/hooks/ship-gate.py · .claude/hooks/test_hooks.py · .claude/skills/ship/SKILL.md · scripts/approve.js || #405 |
+| 작업중 | 📘 도움말 탭 | grk 튜토리얼 세션 | 0.12.0 | claude/vibrant-hypatia-gotvcy | 튜토리얼(1~7편)을 웹 페이지(Hosting `/help`)로 올리고 마이홈에 **«도움말» 탭을 새로** 만들어 끼워 보여 준다 — 왼쪽 목차(묶음 접고 펴기) · 오른쪽 틀(sandbox · CSP frame-src 는 우리 Hosting 한 곳 · main.js 틀 이동은 도움말 주소만). 알림함의 📘 도움말 칸은 뺀다 | `hosting/help/` · `desk-companion-prototype.html`(도움말 탭 · CSP frame-src · 알림함 도움말 칸 빼기) · `main.js`(will-frame-navigate) · `shared/help-site.js`(새) · `myhome/help-tab.js`(새) · `myhome/myhome-ui.js` · `myhome/inbox-sections.js` · `myhome/myhome-inbox.js` · `shared/error-codes.js` · `app.js` · 검사 | |
+| 작업중 | 📩 우편함 → 알림함 이름 | grk 튜토리얼 세션 | 0.12.0 | claude/rename-inbox-alim | 마이홈 탭 «우편함» → «알림함» · 벨 창 «📪 알림함 확인» · 디자인 스튜디오 항목 이름 · 버그 제보 안내(관리자 문구 · 내부 이름은 그대로) | `desk-companion-prototype.html`(탭 이름) · `myhome/scheduler.js` · `myhome/myhome-edit.js` · `support/bug-board-ui.js` · `checks/sim-scheduler.js` | #404 |
+| 작업중 | 우편함 소식 칸 정리 | 계정 세션(머지는 검증 세션) | 0.12.0 | feat/inbox-tidy | 우편함 오른쪽 위 짙은 머리 띠(«소식 · 작성 · 전체 읽음») 걷기 → «전체 읽음» · «읽은 우편 지우기» 는 목록 아래 버튼만(띠 없음) · «작성» 은 전체 · 공지 · 업데이트 탭 옆 · 공지 / 업데이트 꼬리표 색 다르게 · 목록 스크롤바 숨기고 마우스로 끌기 · 휠로 움직이기 · 우편 아이콘 상자 걷기 · 버그제보 답변 🛠️ | `myhome/myhome-inbox.js` · `desk-companion-prototype.html`(우편함 칸 · css) · 검사 | #399 |
+| 작업중 | 스티커사진 음악 켜고 끄기 | 계정 세션 | 0.12.0 | feat/purikura-bgm-toggle | 스티커사진 창 제목줄 남은 횟수 왼쪽에 «음악 끄기 / 음악 켜기»(마이홈 말랑이 숨기기와 같은 글자 버튼 · 시안 A) — 끈 상태는 이 PC 에 기억 · 다른 BGM 재우기 · 되살리기는 그대로 | `purikura/purikura-ui.js` · `desk-companion-prototype.html`(제목줄 span 하나) · 검사 | #398 |
+| 작업완료(main) | 하네스 | 오케스트레이터 | main | harness/role-sessions | 역할 세션(서버 · 보안 · 투두 · 질문) — 이름으로 열면 시작 hook 이 역할 지침을 붙임 · 켤 때 열린 판 한 장 요약 + «어느 버전?» · /roles 스킬 | .claude/roles/* · .claude/hooks/(새 시작 hook · 시험) · .claude/settings.json · .claude/skills/roles/ | #396 · 2026-10-19 |
+| 작업완료(main) | 하네스 | 오케스트레이터 | main | harness/status-done-action | PR 머지되면 현황판 줄을 «작업완료(판) · #PR · 날짜» 로 바꾸는 GitHub Actions | .github/workflows/(새 파일) · scripts/(새 순수 함수) · checks/(새 sim) · docs/RELEASE.md | #397 · 2026-10-19 |
+| 검토중 | 제보 B-1019-3 | 미지정 | 미정 | fix/skin-blank | 캐릭터 피부가 투명해져 뒤가 비침 — 원인 · 고칠 방향은 PR 에 | app/parts/app.js(newCanvas) · app/parts/character/face-heal.js | |
+| 검토중 | 제보(번호 미정) 동물 얼굴 · 올라타기 | 미지정 | 미정 | fix/animal-fallback-stuck | 동물 캐릭터 얼굴이 안 보이고 올라타기가 안 됨 — 원인 · 고칠 방향은 PR 에 | app/parts/character/animal.js · app/parts/app.js · app/parts/room/ride-bench.js | |
+| 검토중 | 보안 점검 | 보안 점검 세션 | 미정 | — | 보안 점검(읽기만) — 고칠 것은 묶음별로 새 줄 | 없음 | |
+| 작업완료(main) | 하네스 | 오케스트레이터(보안 점검 세션 #400 에서 이어받음) | main | harness/hook-utf8 | Windows(cp949)에서 risk.py · ship-gate.py 가 한글 출력으로 죽던 것만 고침 — «새 모듈» 규칙 빼기(#400)는 닫음(사용자 10-19) | .claude/hooks/risk.py · .claude/hooks/ship-gate.py · .claude/hooks/role-start.py · .claude/hooks/test_hooks.py | #403 · 2026-10-19 |
+| 작업완료(main) | 규칙 hotfix 로그인 읽기 | 오케스트레이터 | main(hotfix) | hotfix/authusers-self-read | 옛 앱 차단(presence 켜짐 · ver 없음)이 로그인 때 자기 authUsers 한 칸 읽기까지 막아, presence 가 남은 사람은 구글 · 친구 코드 로그인이 영영 실패하던 것 — 자기 authUsers 읽기만 차단에서 뺀다 | firebase-database-rules.json(authUsers) · checks/sim-rules-src.js · scripts/rules-emu-check.js | #401 · 2026-10-19 |
+| 작업완료(main) | 하네스 | 오케스트레이터 | main | harness/approve-cmd | 승인 명령 — 터미널에서 `! scripts/approve.sh <PR 번호…>` 한 줄로 그 PR 머리 커밋에 «승인» 코멘트 · 세션이 이 명령을 돌리면 가드가 막음 · 승인 요청 코멘트에 이 명령을 적음 | scripts/approve.sh(새) · .claude/hooks/ship-gate.py · .claude/hooks/test_hooks.py(#396 · #400 과 같은 파일) · .claude/skills/ship/SKILL.md(#400 과 같은 파일) | #402 · 2026-10-19 |
+| 작업중 | 규칙 userAuth 봇 읽기 | 서버 hotfix 세션(togetherworking-6b) | 0.12.0 | rules/userauth-bot-read | `userAuth` 노드에 apiBots 읽기 한 줄 — 서버가 신원 연결표를 구독해 PG 사본으로(서버 설계 AUTH_IDENTITY_SPLIT ① · 앱 동작 무변경) | firebase-database-rules.json(userAuth) · checks/sim-rules-src.js(필요하면) · checks/CHECKS.md §3 | |
+| 검토중 | 앱 버전 보이기 | 미지정 | 0.12.0 | feat/version-visible | 로그인이 안 돼도 앱 버전이 보이게 — 로그인 · 가입 화면에 버전 · 계정 요약 ver 를 모르면 unknown · 웹 관리자 버전 칸이 접속 정보 ver 도 봄 | app/parts/firebase-init.js(setAccountSnapshot) · 로그인 화면 · web-admin/src/entities/user/model/version.ts | |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
