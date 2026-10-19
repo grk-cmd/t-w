@@ -136,18 +136,24 @@ assess_cases = [
     ('새 모듈이 provider 로 부름', [{'filename': 'app/parts/x/desk-y.js', 'status': 'added', 'changes': 1, 'patch': '+  await catalogNet().unpublishDesk(id);'}], True),
     ('deps 로 firebaseAPI 넘기는 배선', [{'filename': 'app/parts/app.js', 'status': 'modified', 'changes': 1, 'patch': '+const yMod = TwY.createY({ saveMyHome: firebaseAPI.saveMyHome, catalogNet: ()=>window.firebaseAPI });'}], True),
     ('새 모듈 저장 키 상수', [{'filename': 'app/parts/x/pref.js', 'status': 'added', 'changes': 1, 'patch': '+  localStorage.setItem(PREF_KEY, v);'}], True),
+    ('저장 도우미 _lsSet', [{'filename': 'app/parts/purikura/purikura-ui.js', 'status': 'modified', 'changes': 1, 'patch': '+  save: (k, v)=>_lsSet(k, v), storage: localStorage,'}], True),
+    ('provider 를 꺼내 둔 net', [{'filename': 'app/parts/room/seat-friend-req.js', 'status': 'modified', 'changes': 2, 'patch': '+  const net = friendNet();\n+  await net.sendFriendRequest(a, b);'}], True),
+    ('provider ?. 호출', [{'filename': 'app/parts/room/room-entry.js', 'status': 'modified', 'changes': 1, 'patch': '+  roomNet()?.leave(code);'}], True),
+    ('주석 · README 의 firebaseAPI 언급', [{'filename': 'app/parts/room/x.js', 'status': 'added', 'changes': 2, 'patch': '+/* 도메인은 firebaseAPI 를 직접 부르지 않는다 */\n+  // firebaseAPI 대신 deps'}, {'filename': 'app/parts/room/README.md', 'status': 'modified', 'changes': 1, 'patch': '+- 서버는 `firebaseAPI.x` 를 거친다'}], False),
     ('새 모듈 diff 못 읽음', [{'filename': 'app/parts/x/big.js', 'status': 'added', 'changes': 9000, 'patch': None}], True),
     ('기존 화면 파일 · 문구만', [{'filename': 'app/parts/myhome/inbox-ui.js', 'status': 'modified', 'changes': 1, 'patch': "+  btn.textContent = '전체 읽음';"}], False),
 ]
-for name, files, want in assess_cases:
-    risk.api = lambda p, f=files: [f]
-    got = risk.assess(1)['high']
-    if got == want:
-        ok += 1
-    else:
-        bad += 1
-        print(f'  ✗ 위험도 {name}: {got}(기대 {want})')
-risk.api = _api
+try:
+    for name, files, want in assess_cases:
+        risk.api = lambda p, f=files: [f]
+        got = risk.assess(1)['high']
+        if got == want:
+            ok += 1
+        else:
+            bad += 1
+            print(f'  ✗ 위험도 {name}: {got}(기대 {want})')
+finally:
+    risk.api = _api
 
 # 머지 가드 — 위험도 · 승인을 못 읽으면(GitHub API 실패) 막는가
 import importlib.util, io, contextlib

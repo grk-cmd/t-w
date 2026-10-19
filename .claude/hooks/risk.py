@@ -40,9 +40,11 @@ RISKY_LINES = [
     (re.compile(r'\b(get|set|update|push|remove)\s*\(\s*(ref|child|query)\s*\('), 'Firebase 읽기 · 쓰기'),
     # 부르지 않고 deps 로 넘기는 배선(`saveX: firebaseAPI.saveX` · `()=>window.firebaseAPI`)도 데이터 통로를 새로 연다
     (re.compile(r'\bfirebaseAPI\b'), 'firebaseAPI 호출 · 배선'),
-    (re.compile(r'\b\w+Net\(\)\.\w+\s*\('), 'provider 호출'),
+    # provider 를 꺼내는 줄 자체(`friendNet()` · `roomNet()?.x(`)와 꺼내 둔 것을 부르는 줄(`net.x(`)
+    (re.compile(r'\b\w+Net\(\)|\bnet\.\w+\s*\('), 'provider 호출'),
     (re.compile(r'\bfetch\s*\(|\bapiClient\b|\bnew WebSocket\b|realtime-link'), '서버 호출'),
-    (re.compile(r'localStorage\.(setItem|removeItem)\s*\('), '저장 키'),   # 키를 상수로 넘겨도
+    # 키를 상수로 넘겨도 · 도우미(_lsSet)로 · deps 로 넘기는 배선(`storage: localStorage`)
+    (re.compile(r'(local|session)Storage\.(setItem|removeItem)\s*\(|localStorage\[[^\]]+\]\s*=|\b_lsSet\s*\(|\bstorage\s*:\s*localStorage\b'), '저장 키'),
 ]
 
 
@@ -63,10 +65,12 @@ def assess(pr):
         for rx, why in RISKY_FILES:
             if rx.search(name):
                 reasons.add(f'{why}: {name}')
-        if name.startswith(('checks/', 'web-admin/tests/', 'docs/')):  # 검사 · 문서의 가짜 호출은 데이터 경로가 아니다
+        if name.startswith(('checks/', 'web-admin/tests/', 'docs/')) or name.endswith('.md'):  # 검사 · 문서의 가짜 호출 · 언급은 데이터 경로가 아니다
             continue
         for line in (f.get('patch') or '').splitlines():
             if not line.startswith('+') or line.startswith('+++'):
+                continue
+            if line[1:].lstrip().startswith(('//', '/*', '*')):   # 주석 줄(«firebaseAPI 를 직접 부르지 않는다» 같은 언급)
                 continue
             for rx, why in RISKY_LINES:
                 if rx.search(line):
