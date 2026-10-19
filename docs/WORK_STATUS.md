@@ -29,6 +29,7 @@
 ## 진행 중 — 검토중 · 작업중 · 작업완료
 | 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|---|---|---|
+| 검토중 | 📘 도움말 칸 튜토리얼 | grk 튜토리얼 세션 | 0.12.0 | feat/help-tutorial(딸 이름) | 튜토리얼(투비 글을 지금 앱에 맞게 고친 1~7편)을 웹 페이지(Hosting `/help`)로 올리고, 마이홈 › 우편함 › 📘 도움말 칸 안에 그 페이지를 끼워 보여 준다(앱 업데이트 없이 내용 수정) — CSP frame-src 를 우리 Hosting 한 곳만 열고 iframe 은 sandbox. **#399(우편함 소식 칸 정리) 머지 뒤 착수** | `hosting/help/`(새) · `desk-companion-prototype.html`(도움말 칸 · CSP frame-src) · `main.js`(하위 프레임 이동 막기 — 필요하면) · 새 모듈 · 검사 | |
 | 작업중 | 우편함 소식 칸 정리 | 계정 세션(머지는 검증 세션) | 0.12.0 | feat/inbox-tidy | 우편함 오른쪽 위 짙은 머리 띠(«소식 · 작성 · 전체 읽음») 걷기 → «전체 읽음» · «읽은 우편 지우기» 는 목록 아래 버튼만(띠 없음) · «작성» 은 전체 · 공지 · 업데이트 탭 옆 · 공지 / 업데이트 꼬리표 색 다르게 · 목록 스크롤바 숨기고 마우스로 끌기 · 휠로 움직이기 · 우편 아이콘 상자 걷기 · 버그제보 답변 🛠️ | `myhome/myhome-inbox.js` · `desk-companion-prototype.html`(우편함 칸 · css) · 검사 | #399 |
 | 작업중 | 스티커사진 음악 켜고 끄기 | 계정 세션 | 0.12.0 | feat/purikura-bgm-toggle | 스티커사진 창 제목줄 남은 횟수 왼쪽에 «음악 끄기 / 음악 켜기»(마이홈 말랑이 숨기기와 같은 글자 버튼 · 시안 A) — 끈 상태는 이 PC 에 기억 · 다른 BGM 재우기 · 되살리기는 그대로 | `purikura/purikura-ui.js` · `desk-companion-prototype.html`(제목줄 span 하나) · 검사 | #398 |
 | 작업중 | 하네스 | 오케스트레이터 | main | harness/role-sessions | 역할 세션(서버 · 보안 · 투두 · 질문) — 이름으로 열면 시작 hook 이 역할 지침을 붙임 · 켤 때 열린 판 한 장 요약 + «어느 버전?» · /roles 스킬 | .claude/roles/* · .claude/hooks/(새 시작 hook · 시험) · .claude/settings.json · .claude/skills/roles/ | |
