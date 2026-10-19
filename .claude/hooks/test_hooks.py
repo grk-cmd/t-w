@@ -176,8 +176,9 @@ def files(code, row='aaaaaaaaaaaa', extra=()):
     return [{'filename': 'app/a.js', 'status': 'modified', 'patch': f'@@ -1,3 +1,3 @@\n ctx\n-old\n+{code}'},
             {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW(row)}'}, *extra]
 CMP = {O: files('new'), H: files('new', row='bbbbbbbbbbbb'), H2: files('new2')}
-def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open', base='main'):
-    risk.api = lambda p: [list(reviews)] if '/reviews' in p else [list(comments)] if '/comments' in p else [[{'sha': c} for c in commits]] if '/commits' in p else [[]]
+GUARD = [{'filename': '.claude/hooks/ship-gate.py', 'status': 'modified'}]   # 가드 파일을 바꾸는 PR 모양 — 승인이 필요하다
+def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open', base='main', files=GUARD):
+    risk.api = lambda p: [list(reviews)] if '/reviews' in p else [list(comments)] if '/comments' in p else [list(files)] if '/files' in p else [[{'sha': c} for c in commits]] if '/commits' in p else [[]]
     def get(p):
         if '/compare/' in p:
             return {'files': cmp[p.rsplit('...', 1)[1]]}
@@ -244,10 +245,17 @@ for name, head, passed_on, want in (('합치기만 · 앞 커밋 통과', H, O, 
         bad += 1
         print(f'  ✗ 가드 판정 이어 받기 {name}: {got}(기대 {want})')
 
-# 승인은 main 으로 가는 PR 만 — 판 브랜치 PR 은 높음이어도 승인 없이(컨펌 · 검증 · CI 로) 머지 길
-for name, base, want in (('판 브랜치 PR 은 승인 안 받음', 'release/0.12.0', False), ('main(하네스 · 긴급) PR 은 승인 받음', 'main', True),
-                        ('쌓아 올린 작업 브랜치로 가는 PR 도 승인', 'feat/x', True), ('release 로 시작만 비슷한 이름은 승인', 'releases-old', True)):
-    fake(base=base)
+# 머지 가드 — 승인 여부는 바뀐 파일(가드 파일)이 정한다
+# 승인은 가드 파일을 바꾸는 PR 만 — base 와 상관없이 · 지우기 · 이름 바꾸기도
+for name, fl, base, want in (
+        ('가드(ship-gate.py)를 바꿈', GUARD, 'release/0.12.0', True),
+        ('위험도 판정(risk.py)을 바꿈 · main', [{'filename': '.claude/hooks/risk.py', 'status': 'modified'}], 'main', True),
+        ('훅 설정(settings.json)을 바꿈', [{'filename': '.claude/settings.json', 'status': 'modified'}], 'main', True),
+        ('가드를 지움', [{'filename': '.claude/hooks/ship-gate.py', 'status': 'removed'}], 'main', True),
+        ('가드를 다른 이름으로 옮김', [{'filename': '.claude/hooks/x.py', 'previous_filename': '.claude/hooks/ship-gate.py', 'status': 'renamed'}], 'main', True),
+        ('다른 하네스 파일만(안내서 · 시험)', [{'filename': '.claude/skills/ship/SKILL.md'}, {'filename': '.claude/hooks/test_hooks.py'}], 'main', False),
+        ('앱 · 규칙 · main.js — 높음이어도', [{'filename': 'firebase-database-rules.json'}, {'filename': 'main.js'}], 'release/0.12.0', False)):
+    fake(base=base, files=fl)
     got = risk.needs_owner(395)
     if got == want:
         ok += 1
@@ -255,9 +263,9 @@ for name, base, want in (('판 브랜치 PR 은 승인 안 받음', 'release/0.1
         bad += 1
         print(f'  ✗ 승인 범위 {name}: {got}')
 real_gate_ok = gate.gate_ok
-def gate_case(name, base, approved_comment, want_deny):
+def gate_case(name, fl, approved_comment, want_deny):
     global ok, bad
-    fake(commits=(O, H), base=base, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved_comment else [])
+    fake(commits=(O, H), files=fl, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved_comment else [])
     real_assess = risk.assess
     risk.assess = lambda pr: {'high': True, 'reasons': ['시험']}
     gate.gate_ok = lambda pr: (True, '')
@@ -275,9 +283,9 @@ def gate_case(name, base, approved_comment, want_deny):
     else:
         bad += 1
         print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}')
-gate_case('판 브랜치 · 높음 · 승인 없음 → 통과', 'release/0.12.0', False, False)
-gate_case('main · 높음 · 승인 없음 → 막음', 'main', False, True)
-gate_case('main · 높음 · 승인 → 통과', 'main', True, False)
+gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase-database-rules.json'}], False, False)
+gate_case('가드 파일 바꿈 · 승인 없음 → 막음', GUARD, False, True)
+gate_case('가드 파일 바꿈 · 승인 → 통과', GUARD, True, False)
 gate.gate_ok = real_gate_ok
 
 # 파일 내용(트리)이 같으면 이어 받는다 — 앞 PR 이 squash 로 들어가 판 브랜치를 합친 뒤 diff 모양은 달라도 내용은 같을 때
@@ -330,7 +338,7 @@ else:
 
 # 기다리기(risk.py --wait) — 승인 · CI 를 세션이 지켜보다 알린다
 naps = []
-def waiting(name, want_code, want_word, high=True, steps=(), **kw):   # high 가 함수면 그때 머리 커밋으로 정한다
+def waiting(name, want_code, want_word, high=True, steps=(), **kw):   # high = 승인이 필요한가(가드 파일) · 함수면 그때 머리 커밋으로 정한다
     seq = list(steps)
     def nap(_):
         naps.append(1)
@@ -338,8 +346,10 @@ def waiting(name, want_code, want_word, high=True, steps=(), **kw):   # high 가
             fake(**seq.pop(0))
     fake(**kw)
     risk._same.clear()
-    risk.assess = lambda pr: {'high': high(risk.get('pulls')['head']['sha']) if callable(high) else high, 'reasons': []}
+    real_needs = risk.needs_owner
+    risk.needs_owner = lambda pr: high(risk.get('pulls')['head']['sha']) if callable(high) else high
     code, msg = risk.wait(395, limit=60, every=15, sleep=nap)
+    risk.needs_owner = real_needs
     global ok, bad
     if code == want_code and want_word in msg:
         ok += 1
@@ -350,14 +360,13 @@ APPR = [{'user': U, 'body': '승인 ' + H[:7]}]
 waiting('승인 · CI 초록', 0, '머지할 차례', commits=(O, H), comments=APPR)
 waiting('승인이 나중에 달림', 0, '머지할 차례', commits=(O, H), steps=[dict(commits=(O, H)), dict(commits=(O, H), comments=APPR)])
 waiting('승인 없음 — 시간 끝', 1, '끝나지 않음', commits=(O, H))
-waiting('판 브랜치 PR 은 높음이어도 승인 없이 CI 만', 0, '머지할 차례', commits=(O, H), base='release/0.12.0')
-waiting('낮음은 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
+waiting('가드 파일을 안 바꾸면 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
 waiting('CI 도는 중 — 끝나면', 0, '머지할 차례', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'in_progress'}],
         steps=[dict(commits=(O, H), comments=APPR)])
 waiting('CI 빨강', 1, 'CI 빨강: npm run check', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'completed', 'conclusion': 'failure'}])
 waiting('PR 이 닫힘', 1, '열려 있지 않다', commits=(O, H), state='closed')
 waiting('CI 아직 하나도 없음', 1, '끝나지 않음', commits=(O, H), comments=APPR, runs=[])
-waiting('새 커밋이 오르면 위험도 다시(낮음 → 높음)', 1, '끝나지 않음', high=lambda sha: sha == H, commits=(O, O), runs=[{'name': 'c', 'status': 'in_progress'}],
+waiting('새 커밋이 오르면 다시 본다(가드 파일을 바꾸는 커밋이 더해짐)', 1, '끝나지 않음', high=lambda sha: sha == H, commits=(O, O), runs=[{'name': 'c', 'status': 'in_progress'}],
         steps=[dict(commits=(O, H))])
 def flaky(name, want_code, want_word, fails):
     n = [0]
@@ -389,6 +398,8 @@ gate.run = lambda *a, **k: S
 def boom(pr):
     raise RuntimeError('gh api 실패(시험)')
 risk.assess = boom
+real_api = risk.api
+risk.api = lambda p: boom(p)   # 바뀐 파일 목록을 못 읽음
 buf = io.StringIO()
 try:
     with contextlib.redirect_stdout(buf):
@@ -545,7 +556,7 @@ w = lambda s: sys.stdout.buffer.write(s.encode('utf-8'))
 if 'state=open' in a:
     out = [{'number': 7, 'title': '한글 제목 «PR» — 끝', 'head': 'feat/x', 'base': 'release/9.9.9'}]
 elif '/files' in a:
-    out = [{'filename': 'firebase-database-rules.json', 'status': 'modified', 'changes': 1, 'patch': '+  "한글 «주석» — 끝": 1'}]
+    out = [{'filename': '.claude/hooks/ship-gate.py', 'status': 'modified', 'changes': 1, 'patch': '+# 한글 «주석» — 끝'}]   # 가드 파일 — 승인이 필요한 PR
 elif '/reviews' in a:
     out = []
 elif '/comments' in a:
@@ -555,7 +566,7 @@ elif a.endswith('.head.sha'):
 elif '/status' in a:
     w(json.dumps([{'context': 'tw/confirm', 'state': 'success'}, {'context': 'tw/verify', 'state': 'success'}])); sys.exit(0)
 elif a.rstrip().endswith('/pulls/403'):
-    out = {'base': {'ref': 'main'}, 'head': {'sha': '0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, 'state': 'open'}   # 승인은 main 으로 가는 PR 만 — 하네스 PR 모양
+    out = {'base': {'ref': 'main'}, 'head': {'sha': '0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, 'state': 'open'}
 else:
     out = {}
 w(json.dumps(out, ensure_ascii=False))
@@ -570,7 +581,7 @@ if CPL:
     merge = json.dumps({'tool_input': {'command': 'gh pr merge 403'}, 'cwd': CWD})
     for name, args, stdin, extra, check in (
             ('위험도 판정', [RK, '403'], '', {}, lambda o: json.loads(o)['high'] is True),
-            ('머지 가드 — 승인 없음 → 막음', [G], merge, {}, lambda o: '"deny"' in o and '위험도 높음' in o and '읽지 못해' not in o),
+            ('머지 가드 — 승인 없음 → 막음', [G], merge, {}, lambda o: '"deny"' in o and '가드 파일' in o and '읽지 못해' not in o),
             ('머지 가드 — 승인 코멘트 → 통과', [G], merge, {'FAKE_BODY': '승인 0c4b3e9'}, lambda o: o.strip() == '')):
         p = subprocess.run([sys.executable, '-B'] + args, input=stdin.encode('utf-8'), capture_output=True, env=dict(env, **extra), timeout=30)
         out, err = p.stdout.decode('utf-8', 'replace'), p.stderr.decode('utf-8', 'replace')

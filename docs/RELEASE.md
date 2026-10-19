@@ -7,7 +7,7 @@
 
 ## 한눈에 보기
 
-**0. 내보내기 전 한 장 보기**: `python3 .claude/hooks/risk.py --release release/X.Y.Z` — 그 판에 머지된 PR 중 위험도 높았던 것(규칙 · 데이터 경로 · 서버 · 빌드 · main.js · 새 모듈 …)과 이유. 판 브랜치 PR 은 머지 때 승인을 받지 않으니, 승인자가 여기서 한 번 보고 내보낸다(이상하면 그 PR 을 열어 보고 고친 뒤에). 판 브랜치를 main 에 합치는 PR 은 base 가 main 이라 승인을 받는데, `/ship` 이 그 승인 요청에 이 출력을 붙인다.
+**0. 내보내기 전 한 장 보기**: `python3 .claude/hooks/risk.py --release release/X.Y.Z` — 그 판에 머지된 PR 중 위험도 높았던 것(규칙 · 데이터 경로 · 서버 · 빌드 · main.js · 새 모듈 …)과 이유. PR 은 머지 때 승인을 받지 않으니(가드 파일을 바꾸는 하네스 PR 만 받는다), 승인자가 여기서 한 번 보고 내보낸다(이상하면 그 PR 을 열어 보고 고친 뒤에).
 
 
 **버튼으로 (추천)**: GitHub → **Actions** → 왼쪽 **release-start** → **Run workflow** → 버전 종류(`patch` · `minor` · `beta`)와 공개 방식 고르기 → **Run workflow**.
