@@ -51,6 +51,9 @@ RISKY_LINES = [
     (re.compile(r'firebaseAPI\.\w+\s*\('), 'firebaseAPI 호출'),
     (re.compile(r'\bfetch\s*\(|\bapiClient\b|\bnew WebSocket\b|realtime-link'), '서버 호출'),
     (re.compile(r"localStorage\.(setItem|removeItem)\s*\(\s*['\"]tw\."), '저장 키'),
+    # 앱이 바깥 주소를 새로 박으면 바꿀 때 앱을 다시 내야 한다 — 사람이 보고, 새 사이트는 우리 도메인(*.together-working.com)으로
+    (re.compile(r'Content-Security-Policy'), '앱 보안 설정(CSP)'),
+    (re.compile(r'\b[a-z0-9-]+\.(web\.app|firebaseapp\.com)\b', re.I), 'Firebase 기본 주소(우리 도메인 대신)'),
 ]
 
 
