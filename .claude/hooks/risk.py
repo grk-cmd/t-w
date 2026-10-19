@@ -25,10 +25,13 @@ REPO = 'grk-cmd/t-w'
 OWNER = 'mihioon'
 # 한 줄 전체가 «승인 <sha 앞자리>» 일 때만 — 승인 요청 코멘트(«승인 요청 — …»)와 섞이지 않게
 APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
-# 판 브랜치를 합치면 검사 해시 줄(CHECKS.md §3)이 다시 계산돼 바뀐다 — 그 줄은 «PR 자체 변경» 비교에서 뺀다(맞는지는 CI 정본 대조가 본다)
-CHECKS_ROW = re.compile(r'^[+-]\| \*\*[^*|]+\*\* \| \d+ \| \*\*[0-9a-f]{12}\*\* \|$')
+# 판 브랜치를 합치면 검사 해시 줄(CHECKS.md §3)의 줄 수 · 해시가 다시 계산돼 바뀐다 — 그 둘만 지우고 파일 이름은 남겨 견준다
+# (줄을 더하거나 지우면 그대로 다르게 잡힌다 · 해시가 맞는지는 CI 정본 대조가 본다)
+CHECKS_FILE = 'checks/CHECKS.md'
+CHECKS_ROW = re.compile(r'^([ +-]\| \*\*[^*|]+\*\* \|) \d+ \| \*\*[0-9a-f]{12}\*\* \|$')
+HUNK_HEAD = re.compile(r'^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@')
 COMPARE_MAX = 300   # compare API 가 주는 파일 상한 — 다 차면 못 다 본 것이라 같다고 하지 않는다
-WAIT_SEC, WAIT_EVERY = 3600, 15
+WAIT_SEC, WAIT_EVERY = 3600, 30
 
 # 이 파일을 바꾸면 늘 높음
 RISKY_FILES = [
@@ -100,8 +103,20 @@ def comment_approves(body, head_sha):
     return any(head_sha.startswith(m.group(1)) for m in APPROVE_LINE.finditer(body or ''))
 
 
+def _hunks(name, patch):
+    """diff 덩어리를 줄 번호만 빼고 그대로 — 앞뒤 글(' ' 줄) · 덩어리 경계가 남아, 같은 줄을 다른 자리에 넣으면 다르게 잡힌다."""
+    out = []
+    for l in patch.splitlines():
+        if l.startswith('@@'):
+            l = HUNK_HEAD.sub('@@', l)
+        elif name == CHECKS_FILE:
+            l = CHECKS_ROW.sub(r'\1', l)
+        out.append(l)
+    return tuple(out)
+
+
 def own_change(base, sha):
-    """그 커밋이 base 에서 갈라진 뒤 PR 이 바꾼 것 — 파일마다 더하고 뺀 줄(위치 · 앞뒤 글은 뺌). 못 다 보면 None."""
+    """그 커밋이 base 에서 갈라진 뒤 PR 이 바꾼 것 — 파일마다 diff 덩어리(줄 번호만 뺌). 못 다 보면 None."""
     files = get(f'repos/{REPO}/compare/{base}...{sha}').get('files') or []
     if len(files) >= COMPARE_MAX:
         return None
@@ -111,10 +126,11 @@ def own_change(base, sha):
         if patch is None:   # 그림 · 너무 큰 diff — 내용 대신 파일 판(blob)으로
             out[name] = (f.get('status'), f.get('previous_filename'), 'blob', f.get('sha'))
             continue
-        lines = tuple(l for l in patch.splitlines() if l[:1] in '+-' and not CHECKS_ROW.match(l))
-        if lines or f.get('status') != 'modified':
-            out[name] = (f.get('status'), f.get('previous_filename'), lines)
-    return out
+        out[name] = (f.get('status'), f.get('previous_filename'), _hunks(name, patch))
+    return out or None   # 바꾼 것이 하나도 안 보이면 견줄 것이 없다 — 같다고 하지 않는다
+
+
+_same = {}   # (pr, 옛, 새) → 답 — 기다리는 동안 같은 compare 를 되풀이해 묻지 않게
 
 
 def same_change(pr, old_sha, new_sha):
@@ -124,9 +140,12 @@ def same_change(pr, old_sha, new_sha):
         return False
     if old_sha == new_sha:
         return True
-    base = get(f'repos/{REPO}/pulls/{pr}')['base']['ref']
-    a = own_change(base, old_sha)
-    return a is not None and a == own_change(base, new_sha)
+    key = (str(pr), old_sha, new_sha)
+    if key not in _same:
+        base = get(f'repos/{REPO}/pulls/{pr}')['base']['ref']
+        a = own_change(base, old_sha)
+        _same[key] = a is not None and a == own_change(base, new_sha)
+    return _same[key]
 
 
 def pr_commits(pr):
@@ -166,18 +185,24 @@ def checks_done(sha):
 
 def wait(pr, limit=WAIT_SEC, every=WAIT_EVERY, sleep=time.sleep):
     """승인(낮음이면 건너뜀)과 CI 끝을 기다린다 — 사용자가 /ship 을 다시 치지 않게 세션이 뒤에서 돌린다."""
-    high = assess(pr)['high']
+    seen, high, err = None, True, ''
     for _ in range(max(1, int(limit // every))):
-        pull = get(f'repos/{REPO}/pulls/{pr}')
-        sha = pull['head']['sha']
-        if pull.get('state') != 'open':
-            return 1, f'#{pr} 이 열려 있지 않다({pull.get("state")})'
-        if not high or owner_approved(pr, sha):
-            done, red = checks_done(sha)
-            if done:
-                return (1, f'#{pr} CI 빨강: {", ".join(red)} ({sha[:7]})') if red else (0, f'#{pr} 승인 · CI 초록 — 머지할 차례 ({sha[:7]})')
+        try:
+            pull = get(f'repos/{REPO}/pulls/{pr}')
+            sha = pull['head']['sha']
+            if pull.get('state') != 'open':
+                return 1, f'#{pr} 이 열려 있지 않다({pull.get("state")})'
+            if sha != seen:   # 새 커밋이 올라오면 위험도도 다시
+                seen, high = sha, assess(pr)['high']
+            if not high or owner_approved(pr, sha):
+                done, red = checks_done(sha)
+                if done:
+                    return (1, f'#{pr} CI 빨강: {", ".join(red)} ({sha[:7]})') if red else (0, f'#{pr} 승인 · CI 초록 — 머지할 차례 ({sha[:7]})')
+            err = ''
+        except (RuntimeError, KeyError, ValueError) as e:   # 한 번 읽기 실패는 다음 바퀴에 다시
+            err = f' · 마지막 읽기 실패: {str(e)[:80]}'
         sleep(every)
-    return 1, f'#{pr} {limit // 60}분 동안 승인 · CI 가 끝나지 않음'
+    return 1, f'#{pr} {limit // 60}분 동안 승인 · CI 가 끝나지 않음{err}'
 
 
 if __name__ == '__main__':

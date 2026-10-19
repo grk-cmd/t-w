@@ -173,8 +173,20 @@ carry = [
     ('해시 줄 말고 CHECKS.md 글이 달라짐', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}], cmp={O: files('new'), H: files('new', extra=[{'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': '+| **sim-x.js** | 9 | 손 |'}])}), H, False),
     ('합치며 파일 하나가 더 바뀜', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}], cmp={O: files('new'), H: files('new', extra=[{'filename': 'b.js', 'status': 'modified', 'patch': '+y'}])}), H, False),
 ]
+MOVED = [{'filename': 'app/a.js', 'status': 'modified', 'patch': '@@ -9,3 +9,3 @@ function deleteAll\n ctx2\n-old\n+new'}, files('new')[1]]
+ROWDEL = files('new')[:1] + [{'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW("aaaaaaaaaaaa")}\n-| **sim-z.js** | 9 | **abcdefabcdef** |'}]
+A7 = dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}])
+carry += [
+    ('같은 줄을 다른 자리(다른 함수)에', dict(A7, cmp={O: files('new'), H: MOVED}), H, False),
+    ('줄 번호만 달라짐(판 브랜치가 위에 줄을 더함)', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('-1,3 +1,3', '-41,3 +41,3')), files('new')[1]]}), H, True),
+    ('CHECKS.md 의 다른 해시 줄을 지움', dict(A7, cmp={O: files('new'), H: ROWDEL}), H, False),
+    ('다른 파일의 해시 줄 모양 줄은 빼지 않음', dict(A7, cmp={O: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('aaaaaaaaaaaa')}], H: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('bbbbbbbbbbbb')}]}), H, False),
+    ('두 커밋 다 바꾼 것 없음', dict(A7, cmp={O: [], H: []}), H, False),
+]
+risk._same.clear()
 for name, kw, head, want in carry:
     kw = dict(kw)
+    risk._same.clear()
     fake(commits=kw.pop('commits', (O, head)), **kw)
     got = risk.owner_approved(395, head)
     if got == want:
@@ -193,6 +205,7 @@ GOOD = json.dumps([{'context': 'tw/confirm', 'state': 'success'}, {'context': 't
 for name, head, passed_on, want in (('합치기만 · 앞 커밋 통과', H, O, True), ('합치며 달라짐 · 앞 커밋 통과', H2, O, False),
                                     ('아무 커밋도 통과 없음', H, None, False), ('머리가 통과', H, H, True)):
     fake(commits=(O, head))
+    risk._same.clear()
     gate.run = lambda *a, h=head, ps=passed_on, **k: h if a[-1] == '.head.sha' else (GOOD if ps and f'/commits/{ps}/' in a[2] else '[]')
     got = gate.gate_ok(395)[0]
     if got == want:
@@ -201,16 +214,35 @@ for name, head, passed_on, want in (('합치기만 · 앞 커밋 통과', H, O, 
         bad += 1
         print(f'  ✗ 가드 판정 이어 받기 {name}: {got}(기대 {want})')
 
+# 가드 — 이어 받기를 읽다 API 가 실패하면 막는다(맨 아래 «가드 오류면 통과» 로 새지 않게)
+fake(commits=(O, H))
+gate.run = lambda *a, **k: H if a[-1] == '.head.sha' else '[]'
+def boom2(*a, **k):
+    raise RuntimeError('gh api 실패(시험)')
+risk.api, risk.get = boom2, boom2
+buf = io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf):
+        gate.check_merge(['gh', 'pr', 'merge', '395'])
+except SystemExit:
+    pass
+if '"deny"' in buf.getvalue() and '읽지 못해' in buf.getvalue():
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ 가드 이어 받기: API 실패인데 막지 않음')
+
 # 기다리기(risk.py --wait) — 승인 · CI 를 세션이 지켜보다 알린다
 naps = []
-def waiting(name, want_code, want_word, high=True, steps=(), **kw):
+def waiting(name, want_code, want_word, high=True, steps=(), **kw):   # high 가 함수면 그때 머리 커밋으로 정한다
     seq = list(steps)
     def nap(_):
         naps.append(1)
         if seq:
             fake(**seq.pop(0))
     fake(**kw)
-    risk.assess = lambda pr: {'high': high, 'reasons': []}
+    risk._same.clear()
+    risk.assess = lambda pr: {'high': high(risk.get('pulls')['head']['sha']) if callable(high) else high, 'reasons': []}
     code, msg = risk.wait(395, limit=60, every=15, sleep=nap)
     global ok, bad
     if code == want_code and want_word in msg:
@@ -228,6 +260,27 @@ waiting('CI 도는 중 — 끝나면', 0, '머지할 차례', commits=(O, H), co
 waiting('CI 빨강', 1, 'CI 빨강: npm run check', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'completed', 'conclusion': 'failure'}])
 waiting('PR 이 닫힘', 1, '열려 있지 않다', commits=(O, H), state='closed')
 waiting('CI 아직 하나도 없음', 1, '끝나지 않음', commits=(O, H), comments=APPR, runs=[])
+waiting('새 커밋이 오르면 위험도 다시(낮음 → 높음)', 1, '끝나지 않음', high=lambda sha: sha == H, commits=(O, O), runs=[{'name': 'c', 'status': 'in_progress'}],
+        steps=[dict(commits=(O, H))])
+def flaky(name, want_code, want_word, fails):
+    n = [0]
+    real_get = risk.get
+    def get(p):
+        if n[0] < fails:
+            n[0] += 1
+            raise RuntimeError('gh api 순간 실패(시험)')
+        return real_get(p)
+    risk.get = get
+    risk.assess = lambda pr: {'high': True, 'reasons': []}
+    code, msg = risk.wait(395, limit=60, every=15, sleep=lambda _: None)
+    global ok, bad
+    if code == want_code and want_word in msg:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 기다리기 {name}: {code} {msg}')
+fake(commits=(O, H), comments=APPR); flaky('한 번 읽기 실패는 넘기고 다음 바퀴', 0, '머지할 차례', 1)
+fake(commits=(O, H), comments=APPR); flaky('계속 실패면 끝에 알림', 1, '읽기 실패', 99)
 
 # 머지 가드 — 위험도 · 승인을 못 읽으면(GitHub API 실패) 막는가
 import importlib.util, io, contextlib
