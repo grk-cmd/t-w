@@ -34,3 +34,20 @@ th{background:var(--bg-face-2)}
 .pn .toc{color:var(--ink-soft)}
 .pn .next{text-align:right}
 @media (max-width:480px){ main{padding:var(--space-6) var(--space-5) 48px} .pn{flex-wrap:wrap} }
+/* 앱 우편함 📘 도움말 칸 안(?embed=1) — 바탕은 우편함 것이 비치게 비우고, 글자 · 여백은 우편함(11~12px) 가까이.
+   위 띠는 우편함 왼쪽 메뉴가 이미 있어 옅은 «목차» 줄로만.
+   선 · 카드 · 번호는 글자색을 옅게 섞은 무채색 — 앱 색 고르기(c1~c5)가 무엇이든 우편함 칸과 따로 놀지 않게 */
+[data-embed]{--line:color-mix(in srgb,var(--ink) 14%,transparent);--line-strong:color-mix(in srgb,var(--ink) 24%,transparent);
+  --bg-face-2:color-mix(in srgb,var(--ink) 4%,transparent);--bg-select:color-mix(in srgb,var(--ink) 7%,transparent);--ink-accent:var(--ink)}
+[data-embed] body{background:transparent;font-size:13px;line-height:1.7}
+[data-embed] .bar{position:static;background:none;border-bottom:1px solid var(--line);padding:var(--space-3) var(--space-5)}
+[data-embed] .bar a{color:var(--ink-soft);font-size:12px}
+[data-embed] main{max-width:none;padding:var(--space-5) var(--space-6) 40px}
+[data-embed] h1{font-size:16px;margin-bottom:var(--space-5)}
+[data-embed] h2{font-size:14px;margin-top:var(--space-7)}
+[data-embed] h3{font-size:13px;margin-top:var(--space-6)}
+[data-embed] figure{margin:var(--space-5) 0}
+[data-embed] figcaption,[data-embed] .foot{font-size:11.5px}
+[data-embed] .note,[data-embed] table{font-size:12px}
+[data-embed] .path{font-size:12px}
+[data-embed] .pn{margin-top:var(--space-7);font-size:12px}

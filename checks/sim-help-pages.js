@@ -2,7 +2,8 @@
    앱 📘 도움말 칸이 이 페이지를 그대로 보여 주므로, 링크 하나 · 그림 하나가 비어도 사용자가 빈 칸을 본다.
    ・1절: 목차 · 편마다 — /help/ 링크가 가리키는 편 · 그림 파일이 실제로 있다 · 이전 / 다음이 목차 순서와 같다
    ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /help/theme.js 하나 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다
-   ・3절: theme.js — 앱 테마(default · bubble)를 토큰 테마(classic · light)로 바꿔 걸고, 모르는 값 · 없음은 앱 기본(classic)
+   ・3절: theme.js — 앱 테마(default · bubble)를 토큰 테마(classic · light)로 바꿔 걸고, 모르는 값 · 없음은 앱 기본(classic) ·
+          ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다
    ・4절: 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -64,14 +65,28 @@ chk(errs.length === 0, '도움말 페이지 ' + Object.keys(real.pages).length +
 
 say('── 3. theme.js');
 const THEME = fs.readFileSync(path.join(DIR, 'theme.js'), 'utf8');
-const theme = (src, search) => {
-  let set = null;
-  const doc = { documentElement: { setAttribute: (k, v) => { if (k === 'data-theme') set = v; } } };
+/* theme.js 를 가짜 문서에서 돌린다 — 건 테마 · 칸 안 표시 · 문서가 다 읽힌 뒤 /help/ 링크 주소를 돌려준다 */
+const run = (src, search, hrefs = ['/help/3', '/help/']) => {
+  const attrs = {}, onReady = [];
+  const links = hrefs.map(h => ({ h, getAttribute: function(){ return this.h; }, setAttribute: function(k, v){ this.h = v; } }));
+  const doc = {
+    documentElement: { setAttribute: (k, v) => { attrs[k] = v; } },
+    addEventListener: (ev, fn) => { if (ev === 'DOMContentLoaded') onReady.push(fn); },
+    querySelectorAll: () => links,
+  };
   new Function('document', 'location', 'URLSearchParams', src)(doc, { search }, URLSearchParams);
-  return set;
+  onReady.forEach(fn => fn());
+  return { theme: attrs['data-theme'], embed: 'data-embed' in attrs, links: links.map(l => l.h) };
 };
+const theme = (src, search) => run(src, search).theme;
 chk(theme(THEME, '?theme=default') === 'classic' && theme(THEME, '?theme=bubble') === 'light', '앱 테마를 따른다 — 기본 → classic · 버블 → light');
 chk(theme(THEME, '?theme=dark') === 'classic' && theme(THEME, '?theme=constructor') === 'classic' && theme(THEME, '') === 'classic', '  모르는 값 · 없음 · 앱에 없는 dark — 앱 기본(classic)');
+const emb = run(THEME, '?theme=bubble&embed=1');
+chk(emb.embed && !run(THEME, '?theme=bubble').embed && !run(THEME, '?embed=yes').embed, '?embed=1 일 때만 우편함 칸 모양(data-embed)');
+chk(emb.links.join() === '/help/3?theme=bubble&embed=1,/help/?theme=bubble&embed=1', '  편을 옮겨도 테마 · 칸 모양이 이어진다(/help/ 링크에 붙임)');
+chk(run(THEME, '').links.join() === '/help/3,/help/' && run(THEME, '?theme=evil').links.join() === '/help/3,/help/', '  웹에서 그냥 열면 링크를 건드리지 않는다(모르는 테마도 안 실어 나름)');
+const HCSS = fs.readFileSync(path.join(DIR, 'help.css'), 'utf8');
+chk(/\[data-embed\] body\{background:transparent/.test(HCSS), '  우편함 칸 안에서는 바탕을 비운다(우편함 · 디자인 스튜디오 바탕이 비침)');
 
 say('── 4. 깨 보기 — 하나라도 못 잡으면 빨강');
 const clone = () => ({ pages: Object.assign({}, real.pages), files: new Set(real.files), fontCss: real.fontCss });
@@ -86,8 +101,10 @@ const breaks = [
   ['박아 넣은 그림', (w) => { w.pages['4.html'] += '<img src="data:image/png;base64,AA">'; }],
 ];
 for (const [name, f] of breaks){ const w = clone(); f(w); chk(judge(w).length > 0, name); }
-const T2 = THEME.replace("MAP.hasOwnProperty(t) ? MAP[t] : 'classic'", "MAP[t] || t || 'classic'");
+const T2 = THEME.replace("theme ? MAP[theme] : 'classic'", "MAP[t] || t || 'classic'");
 chk(theme(T2, '?theme=dark') !== 'classic', '  theme.js 가 모르는 값을 그대로 씀');
+const T3 = THEME.replace("if(embed) carry.push('embed=1');", '');
+chk(run(T3, '?theme=bubble&embed=1').links[0] !== '/help/3?theme=bubble&embed=1', '  편을 옮기면 칸 모양이 풀림');
 say('');
 say(fail ? ('✗ ' + fail + '건 어긋남 · 통과 ' + pass) : ('✅ 전부 통과 ' + pass + ' — 도움말 페이지는 빈 칸 없이 이어진다'));
 process.exit(fail ? 1 : 0);
