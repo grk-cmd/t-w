@@ -153,6 +153,18 @@ def _review_approves(args):
     return False
 
 
+def _runs_approve(toks):
+    """승인 명령(scripts/approve.js)을 실행하는가 — `node …/approve.js` · `./scripts/approve.js`. 읽기(cat · grep)는 막지 않는다."""
+    i = 0
+    while i < len(toks) and (re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', toks[i]) or toks[i] in ('env', 'command', 'exec')):
+        i += 1
+    if i < len(toks) and os.path.basename(toks[i]) in ('node', 'nodejs', 'bun', 'deno'):
+        i += 1
+        while i < len(toks) and toks[i].startswith('-'):
+            i += 1
+    return i < len(toks) and os.path.basename(toks[i]) == 'approve.js'
+
+
 STDIN_BODY = re.compile(r'(--body-file|--input)[ =]-(\s|$)|=@-(\s|$)')
 
 
@@ -169,6 +181,8 @@ def check_self_approve(cmd, cwd):
             if toks and toks[0] == 'cd' and len(toks) > 1:
                 cwd = os.path.join(cwd, os.path.expanduser(toks[1]))
                 continue
+            if toks and _runs_approve(toks):
+                deny('승인 명령(scripts/approve.js)은 승인자가 터미널에서 직접(`! node scripts/approve.js <번호>`) 돌린다 — 세션이 돌리지 않는다.')
             g = gh_norm(toks) if toks else None
             if not g:
                 continue
