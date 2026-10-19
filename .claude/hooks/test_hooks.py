@@ -164,6 +164,8 @@ risky('firebaseapp.com 주소', [P('app/parts/x.js', "fetch2('https://together-w
 risky('우리 도메인 주소는 높음 아님', [P('app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://help.together-working.com';")], False)
 risky('글자만 바뀜', [P('app/parts/myhome/scheduler.js', "btn.textContent = '📪 알림함 확인';")], False)
 risky('검사 · 문서의 web.app 은 빼기', [P('checks/sim-x.js', "!S.isHelpUrl('https://together-working.web.app/help/')"), P('docs/RELEASE.md', 'https://together-working.web.app/admin/')], False)
+risky('CSP 소문자(http-equiv 는 대소문자 안 가림)', [P('app/x.html', '<meta http-equiv="content-security-policy" content="frame-src *">')], True, 'CSP')
+risky('정규식 안에 쓴 web.app 주소', [P('app/parts/x.js', r"const RE = /^https:\/\/together-working\.web\.app\//;")], True, 'Firebase 기본 주소')
 risky('지운 줄은 안 봄', [{'filename': 'app/a.js', 'status': 'modified', 'patch': "@@ -1 +1 @@\n-const U = 'https://together-working.web.app';"}], False)
 risk.api = real_api
 
