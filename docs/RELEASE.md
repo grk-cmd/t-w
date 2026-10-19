@@ -7,6 +7,9 @@
 
 ## 한눈에 보기
 
+**0. 내보내기 전 한 장 보기**: `python3 .claude/hooks/risk.py --release release/X.Y.Z` — 그 판에 머지된 PR 중 위험도 높았던 것(규칙 · 데이터 경로 · 서버 · 빌드 · main.js · 새 모듈 …)과 이유. 판 브랜치 PR 은 머지 때 승인을 받지 않으니, 승인자가 여기서 한 번 보고 내보낸다(이상하면 그 PR 을 열어 보고 고친 뒤에).
+
+
 **버튼으로 (추천)**: GitHub → **Actions** → 왼쪽 **release-start** → **Run workflow** → 버전 종류(`patch` · `minor` · `beta`)와 공개 방식 고르기 → **Run workflow**.
 검사 · 버전 올리기 · 태그 · 빌드 · 설치 파일 검사 · **공개까지 자동**입니다. 10분쯤 뒤 Releases 에 올라옵니다(아래 5번).
 

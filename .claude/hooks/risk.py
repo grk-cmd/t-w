@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """PR 위험도 판정 — 세션의 판단이 아니라 diff 로 기계적으로 정한다. /ship 과 가드(ship-gate.py)가 같이 쓴다.
 
-높음 = 데이터 경로 · 권한 · 서버 · 빌드에 닿는 변경. 높으면 머지 전에 승인자(OWNER)의 승인이 있어야 한다 —
-GitHub Approve, 또는 PR 코멘트 한 줄 «승인 <머리 커밋 앞 7자리 이상>»(GitHub 은 작성자가 자기 PR 을 Approve 못 하는데
+높음 = 데이터 경로 · 권한 · 서버 · 빌드에 닿는 변경. 머지 전 승인자(OWNER) 승인은 **main 으로 가는 PR(하네스 · 긴급 수정)만** —
+머지되는 순간 모든 세션 · 사용자에게 닿는 곳이라서다. 판 브랜치(release/*) PR 은 머지돼도 아무에게 안 나간다(앱 · 규칙 · 함수 · Hosting 은
+사람이 내보낸다) — 높음이어도 컨펌 · 검증 · CI 로 머지하고, 승인자는 릴리스 직전 `--release` 한 장으로 본다. 승인은 GitHub Approve, 또는 PR 코멘트 한 줄 «승인 <머리 커밋 앞 7자리 이상>»(GitHub 은 작성자가 자기 PR 을 Approve 못 하는데
 이 PC 세션들은 OWNER 계정으로 PR 을 올린다). 커밋 번호를 받는 까닭: 시각으로 가리면 승인 뒤 옛 날짜 커밋을 올려도 통과한다.
 낮음 = 문구 · 화면 배치 · 스타일 · 데이터 경로가 그대로인 수정 · 문서 — 컨펌자 · 검증자 통과로 머지.
 
@@ -10,6 +11,7 @@ GitHub Approve, 또는 PR 코멘트 한 줄 «승인 <머리 커밋 앞 7자리 
 
   python3 .claude/hooks/risk.py <PR 번호>              → {"high": bool, "reasons": [...]} (gh api REST 만 씀 — 웹 세션에서도 된다)
   python3 .claude/hooks/risk.py --same <PR> <옛 커밋>   → 지금 머리가 그 커밋과 PR 자체 변경이 같은가(true/false)
+  python3 .claude/hooks/risk.py --release <판 브랜치>   → 그 판에 머지된 PR 중 위험도 높았던 것 · 이유 한 장(릴리스 직전 승인자가 본다)
   python3 .claude/hooks/risk.py --wait <PR>             → 승인(낮음이면 바로) · CI 가 끝날 때까지 기다렸다가 한 줄로 알린다(/ship 이 뒤에서 돌림)
 """
 import json, re, subprocess, sys, time
@@ -23,6 +25,7 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 
 REPO = 'grk-cmd/t-w'
 OWNER = 'mihioon'
+OWNER_BASES = ('main',)   # 머지 전 승인이 필요한 base — 머지되는 순간 닿는 곳(하네스 · 긴급 수정)
 # 한 줄 전체가 «승인 <sha 앞자리>» 일 때만 — 승인 요청 코멘트(«승인 요청 — …»)와 섞이지 않게
 APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
 # 판 브랜치를 합치면 검사 해시 줄(CHECKS.md §3)의 줄 수 · 해시가 다시 계산돼 바뀐다 — 그 둘만 지우고 파일 이름은 남겨 견준다
@@ -52,8 +55,8 @@ RISKY_LINES = [
     (re.compile(r'\bfetch\s*\(|\bapiClient\b|\bnew WebSocket\b|realtime-link'), '서버 호출'),
     (re.compile(r"localStorage\.(setItem|removeItem)\s*\(\s*['\"]tw\."), '저장 키'),
     # 앱이 바깥 주소를 새로 박으면 바꿀 때 앱을 다시 내야 한다 — 사람이 보고, 새 사이트는 우리 도메인(*.together-working.com)으로
-    (re.compile(r'Content-Security-Policy'), '앱 보안 설정(CSP)'),
-    (re.compile(r'\b[a-z0-9-]+\.(web\.app|firebaseapp\.com)\b', re.I), 'Firebase 기본 주소(우리 도메인 대신)'),
+    (re.compile(r'Content-Security-Policy', re.I), '앱 보안 설정(CSP)'),   # http-equiv 는 대소문자를 가리지 않는다
+    (re.compile(r'[a-z0-9-]+\\?\.(?:web\\?\.app|firebaseapp\\?\.com)\b', re.I), 'Firebase 기본 주소(우리 도메인 대신)'),   # 정규식 안의 \. 도
 ]
 
 
@@ -138,11 +141,34 @@ def same_change(pr, old_sha, new_sha):
     if old_sha == new_sha:
         return True
     key = (str(pr), old_sha, new_sha)
+    t = tree_of(old_sha) if key not in _same else None
+    if t and t == tree_of(new_sha):
+        _same[key] = True   # 파일 내용이 한 글자도 같다(판 브랜치를 합쳤는데 이미 base 가 그 변경을 품었을 때 — 앞 PR 이 squash 로 머지된 뒤)
     if key not in _same:
         base = get(f'repos/{REPO}/pulls/{pr}')['base']['ref']
         a = own_change(base, old_sha)
         _same[key] = a is not None and a == own_change(base, new_sha)
     return _same[key]
+
+
+def tree_of(sha):
+    return ((get(f'repos/{REPO}/commits/{sha}').get('commit') or {}).get('tree') or {}).get('sha')
+
+
+def needs_owner(pr):
+    """머지 전 승인이 필요한 PR 인가 — base 가 main(하네스 · 긴급 수정)일 때만."""
+    return get(f'repos/{REPO}/pulls/{pr}')['base']['ref'] in OWNER_BASES
+
+
+def release_summary(branch):
+    """그 판 브랜치에 머지된 PR 중 위험도 높았던 것 — 승인자가 릴리스 직전에 한 번 본다."""
+    pulls = [p for p in _rows(api(f'repos/{REPO}/pulls?state=closed&base={branch}&per_page=100')) if isinstance(p, dict) and p.get('merged_at')]
+    rows = []
+    for p in sorted(pulls, key=lambda x: x['merged_at']):
+        r = assess(p['number'])
+        if r['high']:
+            rows.append((p['number'], p['title'], r['reasons']))
+    return len(pulls), rows
 
 
 def pr_commits(pr):
@@ -189,8 +215,8 @@ def wait(pr, limit=WAIT_SEC, every=WAIT_EVERY, sleep=time.sleep):
             sha = pull['head']['sha']
             if pull.get('state') != 'open':
                 return 1, f'#{pr} 이 열려 있지 않다({pull.get("state")})'
-            if sha != seen:   # 새 커밋이 올라오면 위험도도 다시
-                seen, high = sha, assess(pr)['high']
+            if sha != seen:   # 새 커밋이 올라오면 위험도도 다시 · 승인은 main 으로 가는 PR 만
+                seen, high = sha, assess(pr)['high'] and needs_owner(pr)
             if not high or owner_approved(pr, sha):
                 done, red = checks_done(sha)
                 if done:
@@ -206,6 +232,13 @@ if __name__ == '__main__':
     a = sys.argv[1:]
     if a[:1] == ['--same'] and len(a) == 3:
         print(json.dumps(same_change(a[1], get(f'repos/{REPO}/commits/{a[2]}')['sha'], get(f'repos/{REPO}/pulls/{a[1]}')['head']['sha'])))
+    elif a[:1] == ['--release'] and len(a) == 2:
+        total, rows = release_summary(a[1])
+        print(f'{a[1]} 에 머지된 PR {total}개 중 위험도 높음 {len(rows)}개')
+        for n, title, reasons in rows:
+            print(f'- #{n} {title}')
+            for why in reasons[:6]:
+                print(f'    · {why}')
     elif a[:1] == ['--wait'] and len(a) == 2:
         code, msg = wait(a[1])
         print(msg)

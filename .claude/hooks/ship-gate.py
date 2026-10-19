@@ -93,7 +93,7 @@ def check_merge(toks):
         try:   # 위험도 · 승인을 못 읽으면 막는다 — 맨 아래 «가드 오류면 통과» 로 새면 승인 없이 머지된다
             r = risk.assess(pr)
             sha = run('gh', 'api', f'repos/{REPO}/pulls/{pr}', '--jq', '.head.sha')
-            approved = not r['high'] or risk.owner_approved(pr, sha)
+            approved = not r['high'] or not risk.needs_owner(pr) or risk.owner_approved(pr, sha)   # 승인은 main 으로 가는 PR 만
         except Exception as e:
             deny(f'#{pr} 위험도 · 승인을 읽지 못해 머지를 막았다({str(e)[:120]}) — 잠시 뒤 다시.')
         if not approved:

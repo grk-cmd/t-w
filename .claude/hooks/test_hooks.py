@@ -164,6 +164,8 @@ risky('firebaseapp.com 주소', [P('app/parts/x.js', "fetch2('https://together-w
 risky('우리 도메인 주소는 높음 아님', [P('app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://help.together-working.com';")], False)
 risky('글자만 바뀜', [P('app/parts/myhome/scheduler.js', "btn.textContent = '📪 알림함 확인';")], False)
 risky('검사 · 문서의 web.app 은 빼기', [P('checks/sim-x.js', "!S.isHelpUrl('https://together-working.web.app/help/')"), P('docs/RELEASE.md', 'https://together-working.web.app/admin/')], False)
+risky('CSP 소문자(http-equiv 는 대소문자 안 가림)', [P('app/x.html', '<meta http-equiv="content-security-policy" content="frame-src *">')], True, 'CSP')
+risky('정규식 안에 쓴 web.app 주소', [P('app/parts/x.js', r"const RE = /^https:\/\/together-working\.web\.app\//;")], True, 'Firebase 기본 주소')
 risky('지운 줄은 안 봄', [{'filename': 'app/a.js', 'status': 'modified', 'patch': "@@ -1 +1 @@\n-const U = 'https://together-working.web.app';"}], False)
 risk.api = real_api
 
@@ -174,14 +176,14 @@ def files(code, row='aaaaaaaaaaaa', extra=()):
     return [{'filename': 'app/a.js', 'status': 'modified', 'patch': f'@@ -1,3 +1,3 @@\n ctx\n-old\n+{code}'},
             {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW(row)}'}, *extra]
 CMP = {O: files('new'), H: files('new', row='bbbbbbbbbbbb'), H2: files('new2')}
-def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open'):
+def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open', base='main'):
     risk.api = lambda p: [list(reviews)] if '/reviews' in p else [list(comments)] if '/comments' in p else [[{'sha': c} for c in commits]] if '/commits' in p else [[]]
     def get(p):
         if '/compare/' in p:
             return {'files': cmp[p.rsplit('...', 1)[1]]}
         if '/check-runs' in p:
             return {'check_runs': runs if runs is not None else [{'name': 'npm run check', 'status': 'completed', 'conclusion': 'success'}]}
-        return {'base': {'ref': 'release/0.12.0'}, 'head': {'sha': commits[-1]}, 'state': state}
+        return {'base': {'ref': base}, 'head': {'sha': commits[-1]}, 'state': state}
     risk.get = get
 carry = [
     ('합치기만 · 옛 커밋 코멘트 승인', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}]), H, True),
@@ -242,6 +244,71 @@ for name, head, passed_on, want in (('합치기만 · 앞 커밋 통과', H, O, 
         bad += 1
         print(f'  ✗ 가드 판정 이어 받기 {name}: {got}(기대 {want})')
 
+# 승인은 main 으로 가는 PR 만 — 판 브랜치 PR 은 높음이어도 승인 없이(컨펌 · 검증 · CI 로) 머지 길
+for name, base, want in (('판 브랜치 PR 은 승인 안 받음', 'release/0.12.0', False), ('main(하네스 · 긴급) PR 은 승인 받음', 'main', True)):
+    fake(base=base)
+    got = risk.needs_owner(395)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 승인 범위 {name}: {got}')
+real_gate_ok = gate.gate_ok
+def gate_case(name, base, approved_comment, want_deny):
+    global ok, bad
+    fake(commits=(O, H), base=base, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved_comment else [])
+    real_assess = risk.assess
+    risk.assess = lambda pr: {'high': True, 'reasons': ['시험']}
+    gate.gate_ok = lambda pr: (True, '')
+    gate.run = lambda *a, **k: H
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            gate.check_merge(['gh', 'pr', 'merge', '395'])
+    except SystemExit:
+        pass
+    risk.assess = real_assess
+    denied = '"deny"' in buf.getvalue()
+    if denied == want_deny:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}')
+gate_case('판 브랜치 · 높음 · 승인 없음 → 통과', 'release/0.12.0', False, False)
+gate_case('main · 높음 · 승인 없음 → 막음', 'main', False, True)
+gate_case('main · 높음 · 승인 → 통과', 'main', True, False)
+gate.gate_ok = real_gate_ok
+
+# 파일 내용(트리)이 같으면 이어 받는다 — 앞 PR 이 squash 로 들어가 판 브랜치를 합친 뒤 diff 모양은 달라도 내용은 같을 때
+fake(cmp={O: files('new'), H: files('other')})
+real_get = risk.get
+risk.get = lambda p, g=real_get: {'commit': {'tree': {'sha': 'T1'}}} if '/commits/' in p and '/check-runs' not in p else g(p)
+risk._same.clear()
+t1 = risk.same_change(395, O, H)
+risk.get = lambda p, g=real_get: {'commit': {'tree': {'sha': 'T1' if O in p else 'T2'}}} if '/commits/' in p and '/check-runs' not in p else g(p)
+risk._same.clear()
+t2 = risk.same_change(395, O, H)
+risk.get = real_get; risk._same.clear()
+if t1 is True and t2 is False:
+    ok += 1
+else:
+    bad += 1
+    print(f'  ✗ 트리 같음 이어 받기: 같음 {t1} · 다름 {t2}')
+
+# 릴리스 직전 한 장 — 판에 머지된 PR 중 높음만
+PULLS = [{'number': 1, 'title': '높은 것', 'merged_at': '2026-10-20T01:00:00Z'}, {'number': 2, 'title': '낮은 것', 'merged_at': '2026-10-20T02:00:00Z'},
+         {'number': 3, 'title': '닫기만', 'merged_at': None}]
+risk.api = lambda p: [PULLS] if 'state=closed' in p else [[]]
+real_assess = risk.assess
+risk.assess = lambda n: {'high': n == 1, 'reasons': ['규칙'] if n == 1 else []}
+total, rows = risk.release_summary('release/0.12.0')
+risk.assess = real_assess
+if total == 2 and [r[0] for r in rows] == [1]:
+    ok += 1
+else:
+    bad += 1
+    print(f'  ✗ 릴리스 요약: {total} {rows}')
+
 # 가드 — 이어 받기를 읽다 API 가 실패하면 막는다(맨 아래 «가드 오류면 통과» 로 새지 않게)
 fake(commits=(O, H))
 gate.run = lambda *a, **k: H if a[-1] == '.head.sha' else '[]'
@@ -282,6 +349,7 @@ APPR = [{'user': U, 'body': '승인 ' + H[:7]}]
 waiting('승인 · CI 초록', 0, '머지할 차례', commits=(O, H), comments=APPR)
 waiting('승인이 나중에 달림', 0, '머지할 차례', commits=(O, H), steps=[dict(commits=(O, H)), dict(commits=(O, H), comments=APPR)])
 waiting('승인 없음 — 시간 끝', 1, '끝나지 않음', commits=(O, H))
+waiting('판 브랜치 PR 은 높음이어도 승인 없이 CI 만', 0, '머지할 차례', commits=(O, H), base='release/0.12.0')
 waiting('낮음은 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
 waiting('CI 도는 중 — 끝나면', 0, '머지할 차례', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'in_progress'}],
         steps=[dict(commits=(O, H), comments=APPR)])
@@ -485,6 +553,8 @@ elif a.endswith('.head.sha'):
     w('0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n'); sys.exit(0)
 elif '/status' in a:
     w(json.dumps([{'context': 'tw/confirm', 'state': 'success'}, {'context': 'tw/verify', 'state': 'success'}])); sys.exit(0)
+elif a.rstrip().endswith('/pulls/403'):
+    out = {'base': {'ref': 'main'}, 'head': {'sha': '0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, 'state': 'open'}   # 승인은 main 으로 가는 PR 만 — 하네스 PR 모양
 else:
     out = {}
 w(json.dumps(out, ensure_ascii=False))

@@ -7,7 +7,7 @@ description: 작업 끝내기 — PR 을 올리고 컨펌자(tw-confirmer) · �
 
 머지 담당 세션이 따로 없다. 이 흐름이 그 일을 한다 — 컨펌자 · 검증자 판정을 머리 커밋의 상태값(`tw/confirm` · `tw/verify`)으로 남기고,
 가드(`.claude/hooks/ship-gate.py`)는 그 둘이 success 가 아니면 머지를 막는다.
-**위험도**(`python3 .claude/hooks/risk.py <PR>` — diff 로 기계 판정: 데이터 경로 · 규칙 · 서버 · 빌드 · 새 모듈)가 높으면 승인자 **mihioon** 이 머리 커밋을 GitHub 에서 Approve 해야 머지된다(가드가 확인). 낮으면 승인 없이 머지.
+**위험도**(`python3 .claude/hooks/risk.py <PR>` — diff 로 기계 판정: 데이터 경로 · 규칙 · 서버 · 빌드 · 새 모듈)가 높고 **base 가 main(하네스 · 긴급 수정)이면** 승인자 **mihioon** 의 승인 뒤에 머지된다(가드가 확인). 판 브랜치(release/*) PR 은 높음이어도 승인 없이 컨펌 · 검증 · CI 로 머지한다 — 승인자는 릴리스 직전 `risk.py --release <판>` 한 장으로 본다.
 **사용자가 `/ship` 을 다시 치게 하지 않는다** — 사용자 몫은 승인 명령 한 줄뿐이고, 승인 · CI 는 세션이 뒤에서 기다렸다가(`risk.py --wait`) 머지까지 이어 간다. 승인 · 판정 뒤 판 브랜치를 합치기만 한 머리는 앞 커밋의 승인 · 판정을 이어 받는다(가드가 «PR 자체 변경이 같은가» 를 본다 — 다시 묻지 않는다).
 
 **클라우드 세션에서는 `gh pr …` 이 막혀 있다(GraphQL). 모든 GitHub 일은 `gh api`(REST)로 한다.** 아래 `R=repos/grk-cmd/t-w`.
@@ -41,8 +41,9 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 ```
 판정을 꾸며 올리지 않는다 — 이 두 줄은 실제 «통과» 답을 받았을 때만 쓴다.
 
-## 4-1. 위험도 — 높으면 승인 대기
-- `python3 .claude/hooks/risk.py <번호>` → `high` 면:
+## 4-1. 위험도 — main 으로 가는 PR 이 높으면 승인 대기
+- base 가 판 브랜치(release/*)면 이 절을 건너뛰고 5 로(승인은 릴리스 직전 한 번).
+- base 가 main 이고 `python3 .claude/hooks/risk.py <번호>` → `high` 면:
   - 승인자의 리뷰를 읽는다: `gh api $R/pulls/<번호>/reviews` · `gh api $R/pulls/<번호>/comments` · `gh api $R/issues/<번호>/comments` 에서 user.login = `mihioon` 인 것.
   - **CHANGES_REQUESTED 이거나 고칠 것을 적은 코멘트**가 머리 커밋 뒤에 있으면 → 고치고(3 처럼) → 고친 지적마다 `/lesson` → push → 2 부터.
   - 머리 커밋에 **APPROVED** 가 있거나, `mihioon` 코멘트에 한 줄 «승인 <머리 커밋 앞 7자리>» 가 있으면 → 5 로(이 PC 세션이 올린 PR 은 작성자가 mihioon 이라 GitHub Approve 가 안 된다 — 코멘트로 받는다). 이 한 줄은 세션이 쓰지 않는다(가드가 막는다). 승인자가 그 머리 커밋에 Request changes 를 달았으면 코멘트로는 풀리지 않는다 — 고쳐서 새 커밋을 올리고 다시 승인받는다(남이 올린 PR 은 Approve 로).
