@@ -685,16 +685,15 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     // 친구 페이지
     _mhBg(document.getElementById('mhFriendLeft'), t.fList, t.fListImg);
     /* 👥 친구 관리 · 📩 우편함은 **CSS 에서 이미 한 규칙을 공유한다**
-         (#mhInboxTop,#mhFmTop / #mhInboxTabs,#mhFmTabs — 그쪽 주석 참고). 목록 칸은 우편함 쪽이 #mhInboxBody(우편 · 소식 · 도움말을 감싼 칸).
+         (#mhInboxTabs,#mhFmTabs — 그쪽 주석 참고 · 우편함은 머리 띠가 없다). 목록 칸은 우편함 쪽이 #mhInboxBody(우편 · 소식 · 도움말을 감싼 칸).
        그래서 테마도 같은 토큰을 쓴다. 새 키를 만들면 **CSS 는 같은데 색만 갈라지는** 상태가 되고,
        나란히 서던 두 칸이 테마를 켠 순간 서로 다른 창처럼 보인다.
        [경위] 친구 관리는 뒤에 생긴 칸이라 여기 이름 나열에서 빠져 있었다 — 테마를 칠해도 그 칸만
          흰 채로 남았다(제보). 이 코드베이스에서 "선택자를 하나씩 나열하다 빠뜨림"은 반복된
          실패 양상이고(검사 12·14·15 가 전부 그래서 생겼다), 그래서 검사 21 이 이 짝을 지킨다.
        ⚠️ 짝 중 하나만 적지 말 것. CSS 에서 함께 묶은 것은 여기서도 함께 적는다. */
-    // 친구·친구 관리·우편함 상단 헤더 (공통) + 카테고리 줄
+    // 친구 · 친구 관리 상단 헤더(공통 — 우편함은 머리 띠가 없다) + 카테고리 줄
     const fHeadEls = [document.getElementById('mhFriendHead'),
-                      document.getElementById('mhInboxTop'),
                       document.getElementById('mhFmTop')];
     fHeadEls.forEach(el=>{ if(el){ el.style.background = TwSafeHtml.cssColor(t.fHead); el.style.color = t.fHeadText || ''; } });
     // 우편함 왼쪽 세로 메뉴 · 우편 칸 아래 버튼 줄도 «카테고리 줄» 과 같은 색 — 새 항목을 만들지 않는다(이미 꾸민 디자인이 그대로 따라오게)

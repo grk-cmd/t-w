@@ -262,3 +262,11 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 프로퍼티(`textContent` · `title` · `value` · 토스트)에 넣는 값은 씻지 않는다 — `&lt;` 가 글자로 보인다. 주소만은 프로퍼티라도 `safeUrl`.
   - 앱 안 그림의 **상대 경로**(`emoji/…` · `assets/…`)는 `safeUrl` 이 막는다 — 그런 고정 경로는 감싸지 않는다(검사는 앞 글자가 주소를 정한 길 조각을 통과시킨다).
   - **다른 escape 를 새로 만들지 않는다.** `checks/sim-safe-html.js` 가 parts/ 전체 · html `<script>` · main.js · preload.js 를 typescript 파서로 읽어 innerHTML · outerHTML · insertAdjacentHTML · `.src` · `.href` · `style.background*` · `url(` 에 들어가는 값을 끝까지 따라가고, 씻지 않은 잎 · 집에서 만든 escape 가 있으면 빨강. 예외는 그 파일 `ALLOW` 에 이유와 함께만.
+
+## `drag-scroll.js` — 🖱 목록을 마우스로 끌어 움직이기
+
+- **책임**: 스크롤바를 숨긴 목록을 왼쪽 버튼으로 끌어 위아래로 움직인다(휠은 브라우저가 그대로). 도메인을 모르는 DOM 도우미.
+- **쓰는 법**: `TwDragScroll.attachDragScroll(el)` — 한 요소에 한 번(두 번 불러도 한 번만 건다 · 요소가 없으면 넘어간다). 스크롤바 숨김은 css(`scrollbar-width:none` · `::-webkit-scrollbar{display:none}`)로 따로, 끄는 중엔 `.dragging` 이 붙는다(커서 · 글 선택 막기).
+- **지금 쓰는 곳**: 📩 우편함 우편 · 소식 목록(`myhome-ui.js` — `#mhInboxList` · `#mhNewsList`).
+- **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
+- 검사: `checks/sim-drag-scroll.js`.

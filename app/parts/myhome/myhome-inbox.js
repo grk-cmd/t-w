@@ -557,7 +557,6 @@ function _inboxBodyEl(cls, m){
   _bindExtLinks(body);
   return body;
 }
-const _INBOX_SEC_TITLE = { mail:'📩 우편', news:'📢 소식', help:'📘 도움말' };
 const _INBOX_ICON = { reward:'🎁', bug:'🐞', update:'🆕', notice:'📢' };
 const _INBOX_CAT_NAME = { notice:'공지', update:'업데이트', reward:'우편', bug:'버그제보 답변' };
 
@@ -581,11 +580,6 @@ function renderInbox(){
     const pane = document.getElementById('mhInboxPane-' + sec);
     if(pane) pane.classList.toggle('on', sec === _inboxSec);
   });
-  const titleEl = document.getElementById('mhInboxTitle');
-  if(titleEl) titleEl.textContent = _INBOX_SEC_TITLE[_inboxSec];
-  const cntEl = document.getElementById('mhInboxCount');
-  const secN = un[_inboxSec] || 0;
-  if(cntEl) cntEl.textContent = secN > 0 ? `(안 읽음 ${secN})` : '';
 
   if(_inboxSec === 'mail') _renderInboxMail(merged);
   else if(_inboxSec === 'news') _renderInboxNews(merged, un);

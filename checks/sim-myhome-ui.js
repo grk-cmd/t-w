@@ -44,8 +44,8 @@ function build(src, o){
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
-  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'module', 'TwMyHomeHooks',   // 🪝 마이홈 고리판(myhome-hooks.js) — 만들 때 거는 줄이 던지지 않게 가짜로
-    src + '\nreturn window.TwMyHomeUi;')(win, o.doc ? o.doc(any) : any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, undefined, any);
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'module', 'TwMyHomeHooks', 'TwDragScroll',   // 🪝 마이홈 고리판(myhome-hooks.js) — 만들 때 거는 줄이 던지지 않게 가짜로
+    src + '\nreturn window.TwMyHomeUi;')(win, o.doc ? o.doc(any) : any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, undefined, any, any);
   return api.createMyHomeUi(deps);
 }
 

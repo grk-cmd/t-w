@@ -413,6 +413,8 @@ function syncFriendsOpen(){
   if(fmAcc) fmAcc.addEventListener('click', ()=>{ friendManage.bulkAccept(); });
   const fmRej = document.getElementById('mhFmRejectSel');
   if(fmRej) fmRej.addEventListener('click', ()=>{ friendManage.bulkReject(); });
+  /* 📩 우편 · 소식 목록 — 스크롤바를 숨겨서 마우스로 끌어 움직인다(휠은 그대로) */
+  ['mhInboxList', 'mhNewsList'].forEach(id=>TwDragScroll.attachDragScroll(document.getElementById(id)));
   const readAllBtn = document.getElementById('mhInboxReadAllBtn');
   if(readAllBtn) readAllBtn.addEventListener('click', async ()=>{
     inboxMod.inboxBcMarkAllRead();   // 공용 공지도 로컬 읽음 처리
