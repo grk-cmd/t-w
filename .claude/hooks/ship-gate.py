@@ -153,16 +153,30 @@ def _review_approves(args):
     return False
 
 
+APPROVE_WRAP = ('env', 'command', 'exec', 'time', 'nohup', 'sudo', 'nice', '!', 'xargs', 'npx')
+NODE_VALUE_FLAGS = ('-r', '--require', '--import', '--loader', '--experimental-loader', '-e', '--eval', '-p', '--print')
+
+
+def _is_approve(t):
+    t = t.replace('\\', '/')
+    return os.path.basename(t) == 'approve.js' or t == 'approve' or t.endswith('scripts/approve')
+
+
 def _runs_approve(toks):
-    """승인 명령(scripts/approve.js)을 실행하는가 — `node …/approve.js` · `./scripts/approve.js`. 읽기(cat · grep)는 막지 않는다."""
+    """승인 명령(scripts/approve.js)을 실행하는가 — `node …/approve(.js)` · `./scripts/approve.js` · 앞에 time · nohup · ( 등.
+    읽기(cat · grep · git)와 문법 검사(node --check)는 막지 않는다. bash -c · node -e 안쪽은 못 본다(실수 막기)."""
+    toks = [t.lstrip('(') for t in toks]
     i = 0
-    while i < len(toks) and (re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', toks[i]) or toks[i] in ('env', 'command', 'exec')):
+    while i < len(toks) and (not toks[i] or re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', toks[i]) or toks[i] in APPROVE_WRAP
+                             or (toks[i].startswith('-') and i and toks[i - 1] in APPROVE_WRAP)):
         i += 1
     if i < len(toks) and os.path.basename(toks[i]) in ('node', 'nodejs', 'bun', 'deno'):
         i += 1
         while i < len(toks) and toks[i].startswith('-'):
-            i += 1
-    return i < len(toks) and os.path.basename(toks[i]) == 'approve.js'
+            if toks[i] in ('--check', '-c'):
+                return False
+            i += 2 if toks[i] in NODE_VALUE_FLAGS else 1
+    return i < len(toks) and _is_approve(toks[i])
 
 
 STDIN_BODY = re.compile(r'(--body-file|--input)[ =]-(\s|$)|=@-(\s|$)')

@@ -24,7 +24,7 @@ if(me !== OWNER){
   process.exit(1);
 }
 
-let fail = 0;
+let fail = 0, done = 0;
 for(const n of nums){
   try{
     const pr = JSON.parse(gh(['api', `repos/${REPO}/pulls/${n}`]));
@@ -32,10 +32,11 @@ for(const n of nums){
     const sha7 = pr.head.sha.slice(0, 7);
     gh(['api', `repos/${REPO}/issues/${n}/comments`, '-f', `body=승인 ${sha7}`]);
     console.log(`#${n} 승인 ${sha7} — ${pr.title}`);
+    done++;
   }catch(e){
     fail++;
     console.error(`#${n} 승인하지 못했어요 — ${String((e && e.stderr) || e).trim().slice(0, 200)}`);
   }
 }
-if(!fail) console.log('끝 — 세션에서 /ship 을 다시 돌리면 머지해요');
+if(!fail) console.log(done ? `끝 — ${done}건 달았어요 · 세션에서 /ship 을 다시 돌리면 머지해요` : '달린 승인 0건 — 열린 PR 이 없어요');
 process.exit(fail ? 1 : 0);
