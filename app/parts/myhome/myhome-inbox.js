@@ -23,7 +23,7 @@
    ⚠️ firebaseAPI · companion · document · window · navigator · confirm · localStorage · queueMicrotask 는 예전처럼 전역 이름으로 쓴다
      (이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwMyHomeInbox — 크로미움 내장 전역과 겹치는 이름(Scheduler 같은)을 쓰면 typeof 가드가 늘 통과한다(#103).
-   ★ 우편함 탭은 왼쪽 세로 메뉴 📩 우편(카드) · 📢 소식(종류 고르기 · 제목 목록 · 오른쪽 본문) · 📘 도움말(준비 중) 세 칸이다.
+   ★ 우편함 탭은 왼쪽 세로 메뉴 📩 우편(카드) · 📢 소식(종류 고르기 · 제목 목록 · 오른쪽 본문) 두 칸이다(📘 도움말은 따로 탭 — help-tab.js).
      어느 우편이 어느 칸에 드는지 · 순서 · 안 읽은 수 · 처음 보일 칸은 inbox-sections.js 한 곳에서 정한다(여기서 다시 쓰지 않는다).
    검사: checks/sim-myhome-inbox.js — 수령함 합치기 · 안 읽은 수 · 배지 · 공용 공지 읽음 · 칸(우편 카드 · 소식 목록 · 본문 · 고정 · 펼침 · 읽음 · 삭제 · 📌) ·
          링크 · 키 복사 · 선물함(격자 · ⭐ · 다시 불러오기 · 삭제 확인) · 친구 목록(정렬 · 검색 · 방 표시 · 선택 · 삭제) · app.js 배선 · html 순서. */
@@ -89,7 +89,7 @@ function _refreshFriendTabBadge(){
     badge.style.display='none';
   }
 }
-let _inboxSec = 'mail';         // 왼쪽 세로 메뉴: 'mail' | 'news' | 'help' — 탭에 들어올 때 inboxEnter 가 고른다
+let _inboxSec = 'mail';         // 왼쪽 세로 메뉴: 'mail' | 'news' — 탭에 들어올 때 inboxEnter 가 고른다
 let _inboxFilter = 'all';       // 📢 소식 종류: 'all' | 'notice' | 'update'
 let _inboxOpenId = null;        // 📩 우편 칸에서 펼친 카드 id
 let _newsOpenId = null;         // 📢 소식 칸에서 고른 글 id
@@ -560,7 +560,7 @@ function _inboxBodyEl(cls, m){
 const _INBOX_ICON = { reward:'🎁', bug:'🛠️', update:'🆕', notice:'📢' };
 const _INBOX_CAT_NAME = { notice:'공지', update:'업데이트', reward:'우편', bug:'버그제보 답변' };
 
-/* 📩 우편함 — 왼쪽 세로 메뉴(📩 우편 · 📢 소식 · 📘 도움말)와 고른 칸을 그린다. 칸 나누기 · 순서 · 안 읽은 수는 inbox-sections.js. */
+/* 📩 우편함 — 왼쪽 세로 메뉴(📩 우편 · 📢 소식)와 고른 칸을 그린다. 칸 나누기 · 순서 · 안 읽은 수는 inbox-sections.js. */
 function renderInbox(){
   const bodyEl = document.getElementById('mhInboxBody');
   if(!bodyEl) return;
@@ -720,7 +720,7 @@ return {
   friendInRoom: _friendInRoom,                     // 🏠 친구가 방에 있는가 — 방 초대 고르기 창
   renderInbox,                                     // 📩 우편함 그리기 — 수령함 · 공지 구독 · 우편함 탭 · 왼쪽 메뉴 · 종류 · 모두 읽음
   inboxEnter: _inboxEnter,                         // 📩 우편함 탭에 들어올 때 처음 보일 칸 고르기 — 마이홈 탭 바꾸기
-  setInboxSec: (v)=>{ _inboxSec = v; },            // 📩 왼쪽 세로 메뉴 — 우편 · 소식 · 도움말
+  setInboxSec: (v)=>{ _inboxSec = v; },            // 📩 왼쪽 세로 메뉴 — 우편 · 소식
   setInboxFilter: (v)=>{ _inboxFilter = v; },      // 📢 소식 종류 — 소식 목록 위 줄
   setInboxOpenId: (v)=>{ _inboxOpenId = v; },      // 📩 펼친 우편 — 칸 · 종류 바꾸면 비운다
   inboxClearRead: _inboxClearRead,                 // 🗑 읽은 우편 지우기 — 우편 칸 아래 버튼

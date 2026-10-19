@@ -34,9 +34,9 @@ th{background:var(--bg-face-2)}
 .pn .toc{color:var(--ink-soft)}
 .pn .next{text-align:right}
 @media (max-width:480px){ main{padding:var(--space-6) var(--space-5) 48px} .pn{flex-wrap:wrap} }
-/* 앱 우편함 📘 도움말 칸 안(?embed=1) — 바탕은 우편함 것이 비치게 비우고, 글자 · 여백은 우편함(11~12px) 가까이.
+/* 앱 마이홈 📘 도움말 탭 안(?embed=1) — 바탕은 앱 칸 것이 비치게 비우고, 글자 · 여백은 마이홈 칸(11~12px) 가까이.
    위 띠는 앱 왼쪽 메뉴(목차)와 겹쳐 숨긴다 — 편 옮기기는 왼쪽 메뉴 · 아래 «이전 · 다음».
-   선 · 카드 · 번호는 글자색을 옅게 섞은 무채색 — 앱 색 고르기(c1~c5)가 무엇이든 우편함 칸과 따로 놀지 않게 */
+   선 · 카드 · 번호는 글자색을 옅게 섞은 무채색 — 앱 색 고르기(c1~c5)가 무엇이든 마이홈 칸과 따로 놀지 않게 */
 [data-embed]{--line:color-mix(in srgb,var(--ink) 14%,transparent);--line-strong:color-mix(in srgb,var(--ink) 24%,transparent);
   --bg-face-2:color-mix(in srgb,var(--ink) 4%,transparent);--bg-select:color-mix(in srgb,var(--ink) 7%,transparent);--ink-accent:var(--ink)}
 [data-embed] body{background:transparent;font-size:13px;line-height:1.7}

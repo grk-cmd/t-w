@@ -30,6 +30,7 @@ const friendsOpen = deps.friendsOpen;     // 👥 친구 목록이 보이기 시
 const friendsClose = deps.friendsClose;   // 👥 친구 목록이 안 보이게 됨
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
+const helpTab = deps.helpTab;   // 📘 도움말 탭(help-tab.js) — 탭에 들어올 때 enter
 const inboxMod = deps.inboxMod;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const loadMyHomePage = deps.loadMyHomePage;
@@ -250,6 +251,7 @@ function syncFriendsOpen(){
       // 📩 우편함 탭에 들어올 때 수령함을 그림 — 예전엔 친구 탭 옆에 늘 떠 있어서
       //   renderMhChat 이 대신 그려주고 있었다. 이제 자기 탭이 생겼으니 여기서 그린다.
       if(tab.dataset.tab==='mail'){ inboxMod.inboxEnter(); inboxMod.renderInbox(); }   // 안 읽은 우편이 있으면 우편, 없으면 소식부터
+      if(tab.dataset.tab==='help') helpTab.enter();   // 📘 처음이면 틀을 열고, 테마가 바뀌었거나 못 불러왔으면 다시 연다
       // 👥 친구 탭에 들어올 때 오른쪽 '친구 관리' 칸을 그림 (받은 요청 / 선물함)
       if(tab.dataset.tab==='friend') friendManage.renderFriendManage();
       // 👥 친구 목록을 못 불러왔으면 탭을 열 때 다시 건다(다시 시도는 목록을 열 때만)

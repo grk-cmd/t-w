@@ -2923,6 +2923,8 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
 /* ═══ 🏠 마이홈 창 버튼 연결(bindMyHomeUI) ═══ */
 /* 본문은 myhome-ui.js 로 옮겼다(앱 FSD 22번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+/* 📘 도움말 탭 — 테마는 탭에 들어올 때 읽는다(themeMod 는 아래에서 만든다) · 테마를 바꾸면 아래 onApplied 로 다시 연다 */
+const helpTabMod = TwHelpTab.createHelpTab({ getTheme: ()=>themeMod.getTheme() });
 const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   FRIEND_MAX: FRIEND_MAX,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
@@ -2942,6 +2944,7 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   friendsClose: (...a)=>friendsSubMod.close(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  helpTab: helpTabMod,
   inboxMod: inboxMod,
   isAdmin: ()=>isAdmin,
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
@@ -9406,6 +9409,7 @@ const themeUiMod = TwThemeUi.createThemeUi({
 /* ★ 최상위 호출은 반드시 위 const 선언들 '뒤'에 둔다.
    앞에서 부르면 THEME_COLORS가 아직 TDZ라 ReferenceError가 나고, 최상위에서 터지므로
    app.js 전체가 그 줄에서 멈춘다 = 프로그램이 아예 안 켜진다. (실제로 한 번 그렇게 만들었다) */
+themeMod.onApplied(()=>helpTabMod.themeChanged());   // 📘 연 도움말 틀도 새 테마로
 themeMod.applyTheme();      // 파싱 즉시 1회 — 늦게 부르면 기본 테마가 한 프레임 번쩍인다
 themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소가 없으면 조용히 넘어감)
 
