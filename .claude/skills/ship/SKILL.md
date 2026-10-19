@@ -7,7 +7,7 @@ description: 작업 끝내기 — PR 을 올리고 컨펌자(tw-confirmer) · �
 
 머지 담당 세션이 따로 없다. 이 흐름이 그 일을 한다 — 컨펌자 · 검증자 판정을 머리 커밋의 상태값(`tw/confirm` · `tw/verify`)으로 남기고,
 가드(`.claude/hooks/ship-gate.py`)는 그 둘이 success 가 아니면 머지를 막는다.
-**위험도**(`python3 .claude/hooks/risk.py <PR>` — diff 로 기계 판정: 데이터 경로 · 규칙 · 서버 · 빌드 · 새 모듈)가 높으면 승인자 **mihioon** 이 머리 커밋을 GitHub 에서 Approve 해야 머지된다(가드가 확인). 낮으면 승인 없이 머지.
+**위험도**(`python3 .claude/hooks/risk.py <PR>` — diff 로 기계 판정: 데이터 경로 · 규칙 · 서버 · 빌드 · 하네스)가 높으면 승인자 **mihioon** 이 머리 커밋을 GitHub 에서 Approve 해야 머지된다(가드가 확인). 낮으면 승인 없이 머지.
 
 **클라우드 세션에서는 `gh pr …` 이 막혀 있다(GraphQL). 모든 GitHub 일은 `gh api`(REST)로 한다.** 아래 `R=repos/grk-cmd/t-w`.
 
