@@ -8,7 +8,7 @@
 (function(){
 'use strict';
 
-const HELP_ORIGIN = 'https://together-working.web.app';
+const HELP_ORIGIN = 'https://help.together-working.com';   // 우리 도메인 — 페이지를 다른 곳으로 옮겨도 앱을 다시 내지 않게(지금은 Firebase Hosting 맞춤 도메인)
 const HELP_PATH = '/help/';
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,15}$/;               // 'index' · '3' · '4-1'
 const isSlug = (s) => typeof s === 'string' && SLUG_RE.test(s);
