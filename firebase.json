@@ -20,7 +20,7 @@
     "target": "main",
     "public": "hosting",
     "predeploy": ["npm --prefix web-admin ci", "npm --prefix web-admin run build"],
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "help/**"],
+    "ignore": ["firebase.json", "README.md", "**/.*", "**/node_modules/**", "help/**"],
     "cleanUrls": true,
     "redirects": [
       { "source": "/privacy", "destination": "https://help.together-working.com/privacy", "type": 301 },
