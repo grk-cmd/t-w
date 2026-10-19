@@ -29,7 +29,6 @@ APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
 # (줄을 더하거나 지우면 그대로 다르게 잡힌다 · 해시가 맞는지는 CI 정본 대조가 본다)
 CHECKS_FILE = 'checks/CHECKS.md'
 CHECKS_ROW = re.compile(r'^([ +-]\| \*\*[^*|]+\*\* \|) \d+ \| \*\*[0-9a-f]{12}\*\* \|$')
-HUNK_HEAD = re.compile(r'^@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@')
 COMPARE_MAX = 300   # compare API 가 주는 파일 상한 — 다 차면 못 다 본 것이라 같다고 하지 않는다
 WAIT_SEC, WAIT_EVERY = 3600, 30
 
@@ -104,19 +103,15 @@ def comment_approves(body, head_sha):
 
 
 def _hunks(name, patch):
-    """diff 덩어리를 줄 번호만 빼고 그대로 — 앞뒤 글(' ' 줄) · 덩어리 경계가 남아, 같은 줄을 다른 자리에 넣으면 다르게 잡힌다."""
-    out = []
-    for l in patch.splitlines():
-        if l.startswith('@@'):
-            l = HUNK_HEAD.sub('@@', l)
-        elif name == CHECKS_FILE:
-            l = CHECKS_ROW.sub(r'\1', l)
-        out.append(l)
-    return tuple(out)
+    """diff 덩어리를 줄 번호까지 그대로 — 자리가 고정돼, 생김새가 같은 다른 묶음(규칙 JSON 등)에 넣으면 다르게 잡힌다.
+    판 브랜치가 같은 파일 위쪽을 고쳐 번호가 밀리면 다르다고 나온다(다시 판정 · 승인 — 안전한 쪽)."""
+    if name != CHECKS_FILE:
+        return tuple(patch.splitlines())
+    return tuple(CHECKS_ROW.sub(r'\1', l) for l in patch.splitlines())
 
 
 def own_change(base, sha):
-    """그 커밋이 base 에서 갈라진 뒤 PR 이 바꾼 것 — 파일마다 diff 덩어리(줄 번호만 뺌). 못 다 보면 None."""
+    """그 커밋이 base 에서 갈라진 뒤 PR 이 바꾼 것 — 파일마다 diff 덩어리(줄 번호 그대로). 못 다 보면 None."""
     files = get(f'repos/{REPO}/compare/{base}...{sha}').get('files') or []
     if len(files) >= COMPARE_MAX:
         return None

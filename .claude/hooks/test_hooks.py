@@ -178,7 +178,7 @@ ROWDEL = files('new')[:1] + [{'filename': 'checks/CHECKS.md', 'status': 'modifie
 A7 = dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}])
 carry += [
     ('같은 줄을 다른 자리(다른 함수)에', dict(A7, cmp={O: files('new'), H: MOVED}), H, False),
-    ('줄 번호만 달라짐(판 브랜치가 위에 줄을 더함)', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('-1,3 +1,3', '-41,3 +41,3')), files('new')[1]]}), H, True),
+    ('줄 번호가 달라짐(같은 글 · 같은 앞뒤 · 다른 자리 — 판 브랜치가 위를 고쳤어도 다시)', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('-1,3 +1,3', '-41,3 +41,3')), files('new')[1]]}), H, False),
     ('CHECKS.md 의 다른 해시 줄을 지움', dict(A7, cmp={O: files('new'), H: ROWDEL}), H, False),
     ('다른 파일의 해시 줄 모양 줄은 빼지 않음', dict(A7, cmp={O: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('aaaaaaaaaaaa')}], H: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('bbbbbbbbbbbb')}]}), H, False),
     ('두 커밋 다 바꾼 것 없음', dict(A7, cmp={O: [], H: []}), H, False),
