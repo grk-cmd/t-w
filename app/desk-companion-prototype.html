@@ -6404,6 +6404,15 @@
       </div>
     </div>
   </div>
+  <!-- 첫 화면 맨 아래 — 로그인 전에도 버전과 개인정보 처리방침을 볼 수 있게(두 카드 공통이라 카드 밖).
+       버전은 program-settings.js 가 data-app-version 칸을 채운다 · 링크는 room-entry.js 가 시스템 브라우저로 연다(주소는 다른 두 링크와 같다). -->
+  <div id="inviteGateFoot" style="position:absolute;left:0;right:0;bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px;
+    font-size:11px;color:var(--win-title-ink);font-family:var(--tw-font-ui);">
+    <span data-app-version>…</span><span aria-hidden="true">·</span>
+    <a id="gatePrivacyLink" href="https://help.together-working.com/privacy"
+      title="개인정보 처리방침을 브라우저로 열어요"
+      style="display:inline-flex;align-items:center;min-height:24px;color:inherit;text-decoration:underline;cursor:pointer;">개인정보 처리방침</a>
+  </div>
   <!-- ✍️ A · 계정 만들기 — 초대 코드로 막 들어온 새 사람만(같은 오버레이 안 두 번째 카드). [설계 §3 · §7-A · 시안 확정]
        새 친구 코드는 **고정 표시**(선점은 [가입하기] 때) · 아이디 입력 칸 없음 · 비밀번호·확인만 · 또는 구글로 가입.
        가입이 끝나면 #signupDoneOverlay(J · J2)로 넘어간다. -->
@@ -7177,7 +7186,7 @@
              버전 문자열은 package.json 하나가 원본이고, main.js가 app.getVersion()으로 돌려준다. -->
         <div class="fs-label" style="margin-top:14px;border-top:1px solid var(--win-lo-2);padding-top:12px;">프로그램 정보</div>
         <p style="margin:0;font-size:10.5px;color:var(--ink-soft);line-height:1.6;">
-          Together Working <b id="progVersionText" style="color:var(--ink);font-size:11.5px;">확인 중…</b>
+          Together Working <b id="progVersionText" data-app-version style="color:var(--ink);font-size:11.5px;">확인 중…</b>
         </p>
         <!-- 🩺 진단 기록 폴더 열기 — 제보를 받을 때 "이 경로의 파일을 보내주세요" 대신 버튼 하나로 끝내려는 것.
              버전 바로 아래가 자리다. 제보할 때 쓰는 것 둘(버전·기록)이 한 칸에 모인다. -->
