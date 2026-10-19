@@ -6,7 +6,7 @@ Firebase Hosting 사이트 여럿을 한 저장소에서 올린다. 사이트마
 ## 지금 있는 사이트
 | target | Firebase 사이트 | 주소 | 폴더 | 들어 있는 것 | 누가 보나 |
 |---|---|---|---|---|---|
-| `main` | `together-working` | `together-working.web.app` | `hosting/`(`help/` 는 빼고 올림) | `/admin/` 웹 관리자(`web-admin` 빌드 — 커밋 안 함) · `/design/` | 관리자 · 내부 |
+| `main` | `together-working` | `together-working.web.app` | `hosting/`(`help/` 는 빼고 올림) | `/admin/` 웹 관리자(`web-admin` 빌드 — 커밋 안 함) | 관리자 |
 | `help` | `together-working-help` | **`help.together-working.com`** | `hosting/help/` | 튜토리얼(`/` 목차 · `/1` …) · `/privacy` 개인정보 처리방침 · `/link` 폰 연결 안내 | 사용자 |
 
 - 옛 앱이 여는 `together-working.web.app/privacy` · `/link` 는 `main` 의 `redirects` 가 `help.together-working.com` 으로 넘긴다(`#` 뒤 연결 정보는 브라우저가 그대로 들고 간다). 옛 앱이 다 사라질 때까지 지우지 않는다.

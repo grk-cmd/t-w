@@ -214,7 +214,7 @@
 | **sim-seat-slot.js** | 114 | **bf05469a5050** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
 | **sim-frame-budget.js** | 186 | **6d7b7c2bd72e** |
-| **sim-design-site.js** | 61 | **5c8de512f913** |
+| **sim-design-tokens.js** | 39 | **f9371a6fe998** |
 | **sim-help-pages.js** | 154 | **979379aa40cc** |
 | **sim-help-tab.js** | 200 | **1877f429bfdc** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
