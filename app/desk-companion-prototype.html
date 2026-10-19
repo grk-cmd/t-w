@@ -938,6 +938,10 @@
     padding:4px 5px;display:flex;align-items:center;gap:6px;font-size:12px;flex:none;}
   .pk-title{flex:none;}
   .pk-quota{margin-left:auto;font-weight:normal;font-family:var(--win-font-num);font-size:11px;opacity:.92;}
+  /* 🎵 음악 끄기 / 켜기 — 마이홈 «말랑이 숨기기» 와 같은 글자 버튼. 남은 횟수 왼쪽에 서므로 auto 여백을 이쪽이 가진다. */
+  .pk-bgm{margin-left:auto;font-weight:normal;font-size:10.5px;text-decoration:underline;cursor:pointer;opacity:.92;}
+  .pk-bgm.off{color:var(--pk-bgm-off, #ffd54a);opacity:1;}
+  .pk-bgm + .pk-quota{margin-left:6px;}
   .pk-body{padding:11px;overflow-y:auto;}
   .pk-h{margin:0 0 6px;font-size:12px;font-weight:bold;}
   .pk-h .pk-sub{font-weight:normal;color:var(--ink-soft);}
@@ -2962,7 +2966,7 @@
   /* 목업(1136px폭) 실측을 실제 콘텐츠 폭(704px)으로 환산: 목록 32% ≈226px, 대화 53%(flex), 레일 15% ≈104px */
   #mhFriendLeft{width:238px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;
     background:#fff;border-right:1px solid #ccc;}
-  /* A안: 수령함 헤더(#mhInboxTop)와 동일한 높이·톤 — 좌우 첫 줄 정렬 */
+  /* A안: 친구 관리 헤더(#mhFmTop)와 동일한 높이·톤 — 좌우 첫 줄 정렬 */
   #mhFriendHead{display:flex;align-items:center;padding:8px 12px;flex-shrink:0;
     background:#787878;color:#fff;font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;}
   #mhFriendHeadCount{font-weight:normal;font-size:11px;color:#dfe6ff;margin-left:4px;}
@@ -3462,11 +3466,8 @@
   /* 👥 친구 관리 패널도 수령함과 **같은 규칙을 물려받는다** — 폭이 다를 뿐 같은 자리에 오는 칸이라,
      따로 쓰면 반드시 어긋난다(헤더 높이가 왼쪽 친구 헤더와 한 선이 되는 것도 이 규칙이 맞춰준다). */
   #mhInboxInline, #mhFriendManage{flex:1;min-width:0;display:flex;flex-direction:column;background:#fff;}
-  #mhInboxTop, #mhFmTop{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;flex-shrink:0;
+  #mhFmTop{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;flex-shrink:0;
     background:#787878;color:#fff;font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;}
-  #mhInboxCount{font-weight:normal;font-size:11px;color:#dfe6ff;margin-left:4px;}
-  #mhInboxTop span[id$="Btn"]{cursor:pointer;font-size:10.5px;font-weight:normal;opacity:.9;text-decoration:underline;}
-  #mhInboxTop span[id$="Btn"]:hover{opacity:1;}
 
   /* 태그 필터 탭 */
   #mhInboxTabs, #mhFmTabs{display:flex;gap:2px;padding:6px 8px 4px;background:var(--win-face-2);border-bottom:1px solid #ccc;flex-shrink:0;}
@@ -3479,6 +3480,11 @@
 
   /* 메시지 목록 */
   #mhInboxList, #mhFmList{flex:1;overflow-y:auto;min-height:0;padding:6px 8px;}
+  /* 📩 우편함 목록은 스크롤바를 숨기고 휠 · 마우스 끌기(shared/drag-scroll.js)로 움직인다 */
+  #mhInboxList, #mhNewsList{scrollbar-width:none;}
+  #mhInboxList::-webkit-scrollbar, #mhNewsList::-webkit-scrollbar{display:none;}
+  #mhInboxList.dragging, #mhNewsList.dragging{cursor:grabbing;user-select:none;}
+  #mhInboxList .mh-ibx-body{cursor:text;}   /* 본문은 끌기 대신 글자 고르기 */
   /* 👋 일괄 처리 바 — 요청이 하나도 없으면 JS 가 .on 을 떼서 통째로 숨긴다 */
   #mhFmBar{display:none;align-items:center;gap:6px;padding:6px 8px;background:#fdf8ec;
     border-bottom:1px solid #e0d5bd;flex-shrink:0;}
@@ -3496,6 +3502,9 @@
     padding:8px 10px;font-family:var(--tw-font-legacy);font-size:12px;color:var(--ink-soft);cursor:pointer;}
   .mh-ibx-sec:hover{color:var(--win-select);}
   .mh-ibx-sec.on{background:#fff;color:var(--ink);font-weight:bold;box-shadow:inset 3px 0 0 var(--win-select);}
+  /* 작성(관리자) — 소식 탭 줄 오른쪽 글자 버튼(밑줄 · 작게) */
+  .mh-ibx-compose:hover{color:var(--win-select);}
+  .mh-ibx-compose{margin-left:auto;align-self:center;font-size:10.5px;color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
   .mh-ibx-secn{margin-left:auto;min-width:14px;padding:0 4px;box-sizing:border-box;font-size:10px;line-height:15px;font-weight:normal;
     text-align:center;color:#fff;background:#c0504d;border-radius:8px;}
   .mh-ibx-rail-sep{border-top:1px solid var(--mh-ibx-line);margin:4px 8px;}
@@ -3505,10 +3514,9 @@
   #mhInboxPane-mail.on{display:flex;flex-direction:column;}
   #mhInboxPane-news.on{display:flex;}
   #mhInboxPane-help.on{display:block;overflow-y:auto;}
-  #mhInboxFoot{display:flex;align-items:center;gap:8px;padding:6px 10px;flex-shrink:0;
-    background:var(--win-face-2);border-top:1px solid var(--mh-ibx-line);}
-  #mhInboxFootInfo{flex:1;font-size:11px;color:var(--ink-soft);}
-  #mhInboxFoot button{font-family:var(--tw-font-legacy);font-size:11px;padding:4px 12px;cursor:pointer;color:var(--ink);
+  /* 우편 · 소식 목록 아래 버튼 줄 — 띠 없이 버튼만 오른쪽에 */
+  .mh-ibx-foot{display:flex;justify-content:flex-end;align-items:center;gap:6px;padding:6px 10px 8px;flex-shrink:0;}
+  .mh-ibx-foot button{white-space:nowrap;font-family:var(--tw-font-legacy);font-size:11px;padding:4px 12px;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   /* 📩 우편 카드 */
@@ -3520,8 +3528,7 @@
   .mh-ibx-card.open{background:#fff;border-color:var(--tw-ink-soft);}
   .mh-ibx-card.open .mh-ibx-crow{opacity:1;}
   .mh-ibx-crow{display:flex;align-items:center;gap:10px;}
-  .mh-ibx-ic{width:34px;height:34px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;
-    background:var(--win-face);border:2px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  .mh-ibx-ic{width:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;}
   .mh-ibx-cmain{flex:1;min-width:0;}
   .mh-ibx-title{font-size:12px;font-weight:bold;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .mh-ibx-sub{font-size:10px;color:var(--tw-ink-soft);margin-top:2px;}
@@ -3556,6 +3563,9 @@
   .mh-news-dot{width:6px;height:6px;flex-shrink:0;border-radius:50%;}
   .mh-news-item.unread .mh-news-dot{background:#c0504d;}
   .mh-news-cat{flex-shrink:0;font-size:10px;color:var(--tw-ink-soft);border:1px solid var(--mh-ibx-line);padding:0 3px;line-height:14px;}
+  /* 공지 · 업데이트 꼬리표 — 본문 머리 그림(.mh-news-banner)과 같은 파랑 · 초록 */
+  .mh-news-cat.notice{color:#3e5aa8;border-color:#9fb1de;background:#eef2fb;}
+  .mh-news-cat.update{color:#2f7a45;border-color:#9bcca8;background:#eaf6ee;}
   .mh-news-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tw-ink-soft);}
   .mh-news-item.unread .mh-news-title{color:var(--ink);font-weight:bold;}
   .mh-news-date{font-size:10px;color:var(--tw-ink-soft);margin:2px 0 0 10px;}
@@ -5620,19 +5630,12 @@
         <button class="mh-ibx-sec"    data-sec="help" type="button">📘 도움말</button>
       </div>
       <div id="mhInboxInline">
-        <div id="mhInboxTop">
-          <span><span id="mhInboxTitle">📩 우편</span> <span id="mhInboxCount"></span></span>
-          <span style="display:flex;gap:10px;align-items:center;">
-            <span id="mhInboxComposeBtn" class="admin-only" title="전체 유저에게 공지·업데이트·우편 보내기">✎ 작성</span>
-            <span id="mhInboxReadAllBtn" title="우편 · 소식 모두 읽음 처리">전체 읽음</span>
-          </span>
-        </div>
         <!-- 디자인 스튜디오 «목록 칸» 은 이 칸 하나에 칠한다 — 소식의 목록 · 본문에 따로 깔면 그림이 둘로 잘린다 -->
         <div id="mhInboxBody">
           <div id="mhInboxPane-mail" class="mh-ibx-pane on">
             <div id="mhInboxList"></div>
-            <div id="mhInboxFoot">
-              <span id="mhInboxFootInfo"></span>
+            <div id="mhInboxFoot" class="mh-ibx-foot">
+              <button class="mh-ibx-readall" type="button" title="우편 · 소식 모두 읽음 처리">전체 읽음</button>
               <button id="mhInboxClearRead" type="button">읽은 우편 지우기</button>
             </div>
           </div>
@@ -5643,8 +5646,12 @@
                 <button class="mh-ibx-tab on" data-tag="all"    type="button">전체</button>
                 <button class="mh-ibx-tab"    data-tag="notice" type="button">공지</button>
                 <button class="mh-ibx-tab"    data-tag="update" type="button">업데이트</button>
+                <span id="mhInboxComposeBtn" class="admin-only mh-ibx-compose" title="전체 유저에게 공지·업데이트·우편 보내기">✎ 작성</span>
               </div>
               <div id="mhNewsList"></div>
+              <div id="mhNewsFoot" class="mh-ibx-foot">
+                <button class="mh-ibx-readall" type="button" title="우편 · 소식 모두 읽음 처리">전체 읽음</button>
+              </div>
             </div>
             <div id="mhNewsView"></div>
           </div>
@@ -7824,6 +7831,7 @@
   <div id="pkWin">
     <div class="pk-tbar">
       <span class="pk-title"><span style="font-size:13px;">📷</span> 스티커사진</span>
+      <span class="pk-bgm" id="pkBgmBtn" title="스티커사진 창 배경음악 — 끄면 이 PC 에 기억해요">음악 끄기</span>
       <span class="pk-quota" id="pkQuota"></span>
       <button class="win98titlebtn" id="pkCloseBtn" title="닫기">&times;</button>
     </div>
@@ -8232,6 +8240,7 @@
 <script src="parts/shared/win-stack.js"></script>   <!-- 🪟 창 겹침 · ESC 스택 — 창 자리 되돌리기 목록(__winPosResetters)을 거는 모듈(스케줄러 · 플레이리스트 · 가챠 · 설정)보다 먼저 · app.js 보다 먼저(app.js 가 원래 자리에서 TwWinStack.createWinStack 로 만든다) -->
 <script src="parts/myhome/scheduler.js"></script>   <!-- 📅 스케줄러 · 🔔 일정 알림 — app.js 보다 먼저(app.js 가 원래 자리에서 MhScheduler.createScheduler 로 만든다) -->
 <script src="parts/focus/weekly-challenge.js"></script>   <!-- 👑 달성표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWeeklyChallenge.createWeeklyChallenge 로 만든다) -->
+<script src="parts/purikura/pk-bgm.js"></script>   <!-- 🎵 스티커사진 창 BGM(재생 · 멈춤 · 끄기 기억) — purikura-ui.js 보다 먼저(만들 때 TwPkBgm 을 부른다) -->
 <script src="parts/purikura/purikura-ui.js"></script>   <!-- 📷 스티커사진 창(화면 쪽) — purikura-net.js 뒤 · app.js 보다 먼저(app.js 가 원래 자리에서 TwPurikuraUi.createPurikuraUi 로 만든다) -->
 <script src="parts/myhome/guestbook.js"></script>   <!-- 📖 방명록(새 글 배지 · 독립 팝업 창) — app.js 보다 먼저(app.js 가 원래 자리에서 TwGuestbook.createGuestbook 으로 만든다) -->
 <script src="parts/myhome/friend-manage.js"></script>   <!-- 👥 친구 관리(받은 요청 · 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFriendManage.createFriendManage 로 만든다) -->
@@ -8245,6 +8254,7 @@
 <script src="parts/focus/focus-log.js"></script>   <!-- 🕒 포커스 기록 팝업(현재 / 누적 · 오늘 기록 · 미니미 · 끌기) — app.js 보다 먼저(app.js 가 원래 자리에서 TwFocusLog.createFocusLog 로 만든다) -->
 <script src="parts/chat/chat-window.js"></script>   <!-- 💬 대화창 배선(닫기 · 최소화 · 끌기 · 크기 · 메뉴 · 버튼 · 입력 · 이모티콘) — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatWindow.createChatWindow 로 만든다) -->
 <script src="parts/myhome/inbox-sections.js"></script>   <!-- 📩 우편함 칸 나누기 규칙(우편 · 소식 · 순서 · 안 읽은 수 — 순수 함수) — myhome-inbox.js · app.js 보다 먼저 -->
+<script src="parts/shared/drag-scroll.js"></script>   <!-- 🖱 목록 끌어 움직이기 — myhome-inbox.js 보다 먼저 -->
 <script src="parts/myhome/myhome-inbox.js"></script>   <!-- 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(Ctrl+F 검색) — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeInbox.createMyHomeInbox 로 만든다) -->
 <script src="parts/status/playlist.js"></script>   <!-- 🎵 상태칩 플레이리스트(프리셋 · 화면 · 고르기 · 파도타기 · 재생 감시견 · 재생 제어) — app.js 보다 먼저(app.js 가 원래 자리에서 TwPlaylist.createPlaylist 로 만든다) -->
 <script src="parts/admin/admin-license-bulk.js"></script>   <!-- 🛠️ 관리자: 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급 — 관리자 코드는 parts/admin/ 에 모은다 · app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminLicenseBulk.createAdminLicenseBulk 로 만든다) -->

@@ -317,7 +317,7 @@ function renderMhChat(){ renderInbox(); renderMhProfileRail(); }
    전부 [공지]로 떨어진다(폴백이 notice 다). 보이는 글자만 [보상] → [우편] 으로 바꿨다.
    [왜] 보상 말고도 시스템이 개인에게 보내는 우편(제재 안내 등)이 이 태그로 온다. */
 function _inboxTagLabel(tag){
-  return tag==='update' ? '🆕 업데이트' : tag==='reward' ? '📩 우편' : tag==='bug' ? '🐞 버그제보' : '📢 공지';
+  return tag==='update' ? '🆕 업데이트' : tag==='reward' ? '📩 우편' : tag==='bug' ? '🛠️ 버그제보' : '📢 공지';
 }
 function _inboxTimeStr(ts){
   if(!ts) return '';
@@ -557,8 +557,7 @@ function _inboxBodyEl(cls, m){
   _bindExtLinks(body);
   return body;
 }
-const _INBOX_SEC_TITLE = { mail:'📩 우편', news:'📢 소식', help:'📘 도움말' };
-const _INBOX_ICON = { reward:'🎁', bug:'🐞', update:'🆕', notice:'📢' };
+const _INBOX_ICON = { reward:'🎁', bug:'🛠️', update:'🆕', notice:'📢' };
 const _INBOX_CAT_NAME = { notice:'공지', update:'업데이트', reward:'우편', bug:'버그제보 답변' };
 
 /* 📩 우편함 — 왼쪽 세로 메뉴(📩 우편 · 📢 소식 · 📘 도움말)와 고른 칸을 그린다. 칸 나누기 · 순서 · 안 읽은 수는 inbox-sections.js. */
@@ -581,23 +580,16 @@ function renderInbox(){
     const pane = document.getElementById('mhInboxPane-' + sec);
     if(pane) pane.classList.toggle('on', sec === _inboxSec);
   });
-  const titleEl = document.getElementById('mhInboxTitle');
-  if(titleEl) titleEl.textContent = _INBOX_SEC_TITLE[_inboxSec];
-  const cntEl = document.getElementById('mhInboxCount');
-  const secN = un[_inboxSec] || 0;
-  if(cntEl) cntEl.textContent = secN > 0 ? `(안 읽음 ${secN})` : '';
 
   if(_inboxSec === 'mail') _renderInboxMail(merged);
   else if(_inboxSec === 'news') _renderInboxNews(merged, un);
 }
 
-/* 📩 우편 칸 — 카드(아이콘 · 제목 · 종류 · 시각 · 보기). 누르면 본문을 펼치고 읽음. 🐞 답변은 버그제보 글로 간다. */
+/* 📩 우편 칸 — 카드(아이콘 · 제목 · 종류 · 시각 · 보기). 누르면 본문을 펼치고 읽음. 🛠️ 답변은 버그제보 글로 간다. */
 function _renderInboxMail(merged){
   const listEl = document.getElementById('mhInboxList');
   if(!listEl) return;
   const ids = inboxSec.mailIds(merged);
-  const info = document.getElementById('mhInboxFootInfo');
-  if(info) info.textContent = ids.length ? `우편 ${ids.length}통` : '';
   if(!ids.length){
     listEl.innerHTML = '<div class="mh-ibx-empty">받은 우편이 없어요</div>';
     return;
@@ -629,7 +621,7 @@ function _renderInboxMail(merged){
     card.onclick = ()=>{
       _inboxOpenId = isOpen ? null : id;
       if(_inboxOpenId === id) _inboxMarkRead(id, m);   // 펼치는 순간 읽음
-      // 🐞 답변 알림 — 펼치는 대신 버그제보 탭의 그 글로 간다(bug-board-ui.js)
+      // 🛠️ 답변 알림 — 펼치는 대신 버그제보 탭의 그 글로 간다(bug-board-ui.js)
       if(m.tag === 'bug' && m.bugId){
         _inboxOpenId = null; window._bugBoardOpen(m.bugId); return;
       }

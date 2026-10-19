@@ -103,7 +103,7 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 `unread(merged)` → `{ mail, news, notice, update, total }` · `firstSec(merged)`(안 읽은 우편이 있으면 'mail', 없으면 'news').
 `merged` 는 `myhome-inbox.js` 의 `_inboxMerged()` 모양(개인 `_src:'personal'` + 공용 `_src:'broadcast'` · 공용 읽음은 이 PC 집합).
 
-**확장할 때 고칠 자리** — 칸을 늘리면 `SECS` · html `#mhInboxRail` 버튼 · `#mhInboxPane-이름` 칸 · `myhome-inbox.js` 의 칸 제목 표(`_INBOX_SEC_TITLE`). 새 태그는 `tagOf` · `sectionOf`.
+**확장할 때 고칠 자리** — 칸을 늘리면 `SECS` · html `#mhInboxRail` 버튼 · `#mhInboxPane-이름` 칸. 새 태그는 `tagOf` · `sectionOf`.
 
 **함정** — 서버 태그 키는 그대로다(`reward` 를 바꾸면 이미 보낸 우편이 전부 공지로 떨어진다). 보이는 글자만 `myhome-inbox.js` 표에서 바꾼다.
 우편함 탭 배지 · 🔔 벨 수는 `unread().total` 과 같아야 한다 — 따로 세지 말 것.
