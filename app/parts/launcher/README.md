@@ -65,3 +65,10 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   사다리는 펜 앱 · 다른 모니터 · 휠에서 돌지 않는다 — 3단계(받아 보기)가 남의 창 포커스를 뺏는 유일한 자리다. 통과를 임의로 «받기» 로 푸는 규칙은 넣지 않는다(예전 워치독 사고).
 - **검사**: `checks/sim-click-through-policy.js` — 모양 · 상수 값 · 렌더러/main 표(상황 → 결정, 경계값) · 네 길 연결 · 같은 조건 재사용 금지(+깨 보기).
   동작 판정은 원래 검사들(`sim-ghost-cache-sync` · `sim-wheel-kick` · `sim-hover-poke` 등)도 그대로 본다.
+
+## oss-licenses.js — 📄 오픈소스 라이선스 창
+- 책임: «개인정보 처리방침» 옆 링크 둘(⚙️ 설정 › 시스템 › 프로그램 정보 `#progOssLink` · 내 정보 맨 아래 `#miOssLink`)을 누르면 고정 크기 창(`OSS_WIN` 440×460 · 화면이 작으면 92vw / 80vh 안으로)에 안내 글을 보인다. 글은 창 안에서만 스크롤.
+- deps: `document` · `window` · `links`(a 요소 목록 — 없는 것은 건너뜀) · `load`(검사용 — 기본은 `app/licenses/oss-notices.js` 를 처음 열 때 싣기).
+- 내놓는 것: `open` · `close` · `isOpen` — 밖에서 부르는 곳 없음(app.js 가 프로그램 설정 바로 뒤에서 만들기만).
+- 글 만들기: `npm ci` 뒤 `node scripts/third-party-notices.js` → `app/licenses/oss-notices.js`(손으로 고치지 않는다). 의존성을 바꾼 PR 에서 다시 돌린다 — `sim-oss-licenses.js` 가 목록이 `package-lock.json` 운영 패키지 + `VENDOR` 와 다르면 빨강.
+- 함정: 글은 `textContent` 로만(원문에 `< >`). npm 밖에서 넣은 것(app/vendor · 아이콘 · Electron)은 스크립트의 `VENDOR` 에 손으로 더한다 — 새 vendor 파일을 넣으면 여기도.

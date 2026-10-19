@@ -454,6 +454,8 @@ PRELOAD.push('dice-games.js');
 PRELOAD.push('user-name.js');
 /* program-settings.js — ⚙️ 프로그램 설정 창(앱 FSD 40번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createProgramSettings 를 같이 굴린다. */
 PRELOAD.push('program-settings.js');
+/* oss-licenses.js — 📄 오픈소스 라이선스 창. 만들 때 링크 둘에 클릭을 건다 — app.js 가 부르는 createOssLicenses 를 같이 굴린다. */
+PRELOAD.push('oss-licenses.js');
 /* chat-prefs.js — 💬 채팅 투명도 · 알림음 · 기록 삭제(앱 FSD 41번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatPrefs 를 같이 굴린다. */
 PRELOAD.push('chat-prefs.js');
 /* rich-text.js — 🛡️ 리치 텍스트 sanitize(앱 FSD 42번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRichText 를 같이 굴린다. */

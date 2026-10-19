@@ -7537,6 +7537,7 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   renderAntialias: _renderAA,
   applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),
 });
+TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementById('progOssLink'), document.getElementById('miOssLink')] });
 
 /* ═══════════════════ 🔑 구글 로그인 (계정) ═══════════════════
    [무엇을 만든 것인가] "다른 컴퓨터에서 구글로 로그인하면 내 계정 그대로" 한 줄.
