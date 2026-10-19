@@ -1,4 +1,4 @@
-/* help-site.js — 📘 도움말 웹 페이지(Hosting /help) 규칙 한 벌: 주소 · 들일 수 있는 주소 · 페이지가 보낸 알림 읽기 (검사 sim-help-tab.js)
+/* help-site.js — 📘 도움말 웹 페이지(도움말 전용 Hosting 사이트 · help.together-working.com) 규칙 한 벌: 주소 · 들일 수 있는 주소 · 페이지가 보낸 알림 읽기 (검사 sim-help-tab.js)
    [왜] 도움말 탭(myhome/help-tab.js)이 여는 주소와, main.js 가 안쪽 틀(iframe) 이동을 허락하는 주소가 갈라지면
      틀이 빈 칸이 되거나 엉뚱한 곳이 열린다. 그래서 두 프로세스가 이 파일 하나를 같이 쓴다
      (main.js 는 require · 렌더러는 window.TwHelpSite — click-through-policy.js 와 같은 모양).
@@ -9,7 +9,7 @@
 'use strict';
 
 const HELP_ORIGIN = 'https://help.together-working.com';   // 우리 도메인 — 페이지를 다른 곳으로 옮겨도 앱을 다시 내지 않게(지금은 Firebase Hosting 맞춤 도메인)
-const HELP_PATH = '/help/';
+const HELP_PATH = '/';   // 도움말 전용 Hosting 사이트(together-working-help) — 맨 위가 목차
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,15}$/;               // 'index' · '3' · '4-1'
 const isSlug = (s) => typeof s === 'string' && SLUG_RE.test(s);
 const THEMES = Object.freeze(['default', 'bubble']);        // 앱 테마 이름(shared/theme.js getTheme)
@@ -22,7 +22,7 @@ function pageUrl(page, theme){
   const t = THEMES.indexOf(theme) >= 0 ? theme : 'default';
   return HELP_ORIGIN + HELP_PATH + (p === 'index' ? '' : p) + '?theme=' + t + '&embed=1';
 }
-/* 안쪽 틀이 옮겨 가도 되는 주소인가 — 우리 Hosting 의 /help/ 아래만 */
+/* 안쪽 틀이 옮겨 가도 되는 주소인가 — 도움말 전용 사이트(HELP_ORIGIN)만 */
 function isHelpUrl(u){
   let x;
   try{ x = new URL(String(u)); }catch(_){ return false; }

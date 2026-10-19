@@ -126,7 +126,7 @@
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |
 | **sim-daily-summary.js** | 115 | **5362f8640c27** |
-| **sim-account-delete.js** | 477 | **da2b3f76cb63** |
+| **sim-account-delete.js** | 477 | **15ca3fb1d26e** |
 | **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-server-net.js** | 839 | **e08524a72f92** |
@@ -215,8 +215,8 @@
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
 | **sim-frame-budget.js** | 186 | **6d7b7c2bd72e** |
 | **sim-design-site.js** | 61 | **5c8de512f913** |
-| **sim-help-pages.js** | 151 | **3b03c1369483** |
-| **sim-help-tab.js** | 200 | **f95942785f75** |
+| **sim-help-pages.js** | 151 | **9210d0261831** |
+| **sim-help-tab.js** | 200 | **1877f429bfdc** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** |
 | **sim-creator-flat-view.js** | 129 | **9104a76fb79a** |

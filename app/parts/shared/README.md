@@ -277,8 +277,8 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 **책임** — 도움말 탭(`myhome/help-tab.js`)이 여는 주소와, main.js 가 안쪽 틀 이동을 허락하는 주소를 한 벌로. 두 프로세스가 같이 쓴다
 (main.js 는 `require` · 렌더러는 `window.TwHelpSite` — `launcher/click-through-policy.js` 와 같은 모양). 순수 함수만.
 
-**내놓는 것** — `HELP_ORIGIN`(https://help.together-working.com — Hosting 맞춤 도메인) · `HELP_PATH`('/help/') · `THEMES`(앱 테마 'default' · 'bubble') ·
-`pageUrl(page, theme)`(모르는 편은 목차 · 모르는 테마는 기본 · 늘 `embed=1`) · `isHelpUrl(u)`(그 사이트 /help/ 아래만) ·
+**내놓는 것** — `HELP_ORIGIN`(https://help.together-working.com — Hosting 맞춤 도메인) · `HELP_PATH`('/' — 도움말 전용 사이트라 맨 위가 목차) · `THEMES`(앱 테마 'default' · 'bubble') ·
+`pageUrl(page, theme)`(모르는 편은 목차 · 모르는 테마는 기본 · 늘 `embed=1`) · `isHelpUrl(u)`(그 사이트만 — https · 출처가 같을 때) ·
 `readToc(toc)`(모양이 어긋나면 null) · `readMessage(origin, data)`(우리 출처 · `tw-help` v1 · 편 이름이 맞으면 `{ page, toc }`, 아니면 null).
 
 **함정** — 페이지가 보내는 모양은 `hosting/help/embed.js` 와 짝이다 — 한쪽만 바꾸면 목차가 안 뜬다(`sim-help-tab` 이 embed.js 를 돌려 이 함수로 읽어 본다).

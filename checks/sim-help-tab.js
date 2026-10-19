@@ -27,10 +27,10 @@ const TOC = JSON.parse(SRC['hosting/help/toc.json']);
 /* ── 1. help-site ── */
 function siteChecks(S){
   const r = {};
-  r.url = S.pageUrl('3', 'bubble') === ORIGIN + '/help/3?theme=bubble&embed=1' && S.pageUrl('index', 'default') === ORIGIN + '/help/?theme=default&embed=1'
-    && S.pageUrl('../x', 'bubble') === ORIGIN + '/help/?theme=bubble&embed=1' && S.pageUrl('4-1', 'dark') === ORIGIN + '/help/4-1?theme=default&embed=1'
-    && S.pageUrl(undefined, undefined) === ORIGIN + '/help/?theme=default&embed=1' && S.pageUrl(3, 'bubble') === ORIGIN + '/help/?theme=bubble&embed=1';
-  r.isHelp = S.isHelpUrl(ORIGIN + '/help/3?embed=1') && S.isHelpUrl(ORIGIN + '/help/') && !S.isHelpUrl(ORIGIN + '/admin/') && !S.isHelpUrl('https://evil.example/help/')
+  r.url = S.pageUrl('3', 'bubble') === ORIGIN + '/3?theme=bubble&embed=1' && S.pageUrl('index', 'default') === ORIGIN + '/?theme=default&embed=1'
+    && S.pageUrl('../x', 'bubble') === ORIGIN + '/?theme=bubble&embed=1' && S.pageUrl('4-1', 'dark') === ORIGIN + '/4-1?theme=default&embed=1'
+    && S.pageUrl(undefined, undefined) === ORIGIN + '/?theme=default&embed=1' && S.pageUrl(3, 'bubble') === ORIGIN + '/?theme=bubble&embed=1';
+  r.isHelp = S.isHelpUrl(ORIGIN + '/3?embed=1') && S.isHelpUrl(ORIGIN + '/') && !S.isHelpUrl('https://evil.example/help/')
     && !S.isHelpUrl('https://help.together-working.com.evil.example/help/') && !S.isHelpUrl('http://help.together-working.com/help/') && !S.isHelpUrl('https://together-working.web.app/help/') && !S.isHelpUrl('') && !S.isHelpUrl('file:///x');
   const good = { type: 'tw-help', v: 1, page: '3', toc: TOC };
   const m = S.readMessage(ORIGIN, good);
@@ -47,7 +47,7 @@ say('── 1. help-site — 주소 · 들일 주소 · 알림 읽기');
 const SITE = loadSite(SRC['app/parts/shared/help-site.js']);
 const s1 = siteChecks(SITE);
 chk(s1.url, '여는 주소 — 편 · 앱 테마 · 칸 안 표시(모르는 편은 목차 · 모르는 테마는 기본)');
-chk(s1.isHelp, '틀이 옮겨 갈 수 있는 주소 — 우리 Hosting 의 /help/ 아래만(http · 다른 사이트 · 비슷한 이름 · /admin 은 아님)');
+chk(s1.isHelp, '틀이 옮겨 갈 수 있는 주소 — 도움말 사이트(help.together-working.com)만(http · 다른 사이트 · 비슷한 이름 · 옛 web.app 은 아님)');
 chk(s1.read, '우리 페이지 알림 — 지금 편 · 목차를 읽는다');
 chk(s1.drop, '  남의 출처 · 모르는 종류 · 판 · 이상한 편 이름은 버린다');
 chk(s1.tocBad, '  목차 모양이 어긋나면 편은 읽고 목차는 null(빈 묶음 · 빈 이름 · 경로 · index · 긴 글 · 너무 많음)');
@@ -98,7 +98,7 @@ function tabChecks(tabSrc, siteSrc){
   r.lazy = !e.frame() && e.timers.length === 0;
   t.enter();
   const f = e.frame();
-  r.open = !!f && f.src === ORIGIN + '/help/?theme=bubble&embed=1' && f.attrs.sandbox === 'allow-scripts allow-same-origin' && f.attrs.referrerpolicy === 'no-referrer'
+  r.open = !!f && f.src === ORIGIN + '/?theme=bubble&embed=1' && f.attrs.sandbox === 'allow-scripts allow-same-origin' && f.attrs.referrerpolicy === 'no-referrer'
     && railText(e).length === 0 && !e.els.mhHelpFail.classList.contains('on');
   e.post({ type: 'tw-help', v: 1, page: '3', toc: TOC });
   const rt = railText(e);
@@ -111,7 +111,7 @@ function tabChecks(tabSrc, siteSrc){
   e.els.mhHelpRail.children[1].click();
   const ep = e.els.mhHelpRail.children.find(c => c.title === '2-1. ' + TOC[1].pages[1].title);
   ep.click();
-  r.go = f.src === ORIGIN + '/help/2-1?theme=bubble&embed=1' && t.state().page === '2-1' && e.frame() === f;
+  r.go = f.src === ORIGIN + '/2-1?theme=bubble&embed=1' && t.state().page === '2-1' && e.frame() === f;
   e.post({ type: 'tw-help', v: 1, page: '4-1', toc: TOC }, ORIGIN, { name: 'other' });
   e.post({ type: 'tw-help', v: 1, page: '4-1', toc: TOC }, 'https://evil.example');
   r.ignore = t.state().page === '2-1';
@@ -127,14 +127,14 @@ function tabChecks(tabSrc, siteSrc){
   t2.enter(); e2.fire();
   r.fail = e2.els.mhHelpFail.classList.contains('on') && e2.notified.join() === 'E-MH-01' && t2.state().failed && e2.frame().style.visibility === 'hidden';
   e2.els.mhHelpRetry.click();
-  r.retry = !e2.els.mhHelpFail.classList.contains('on') && e2.timers.filter(x => x.on).length === 1 && e2.frame().src === ORIGIN + '/help/?theme=default&embed=1';
+  r.retry = !e2.els.mhHelpFail.classList.contains('on') && e2.timers.filter(x => x.on).length === 1 && e2.frame().src === ORIGIN + '/?theme=default&embed=1';
   e2.post({ type: 'tw-help', v: 1, page: 'index', toc: 'broken' });
   r.tocFail = railText(e2).join() === '목차를 불러오지 못했어요' && !e2.els.mhHelpFail.classList.contains('on');
   const loads = () => e2.timers.length;
   const n0 = loads(); t2.enter();
   r.noReload = loads() === n0;
   e2.theme = 'bubble'; t2.themeChanged();
-  r.theme = e2.frame().src === ORIGIN + '/help/?theme=bubble&embed=1' && loads() === n0 + 1;
+  r.theme = e2.frame().src === ORIGIN + '/?theme=bubble&embed=1' && loads() === n0 + 1;
   const e3 = mkEnv('default'); const t3 = loadTab(tabSrc, siteSrc, e3);
   t3.themeChanged();
   r.themeLazy = !e3.frame();
@@ -174,7 +174,7 @@ chk(PG.length > 0 && !/data-sec="help"|mhInboxPane-help/.test(PG), '  알림함�
 /* embed.js 가 실제로 보내는 것을 help-site 가 그대로 읽는가 — 두 쪽 모양이 갈라지면 목차가 안 뜬다 */
 const sent = [];
 const ewin = {}; ewin.parent = { postMessage: (m) => sent.push(m) };
-new Function('window', 'document', 'location', 'fetch', EMBED)(ewin, { documentElement: { hasAttribute: () => true } }, { pathname: '/help/4-1' },
+new Function('window', 'document', 'location', 'fetch', EMBED)(ewin, { documentElement: { hasAttribute: () => true } }, { pathname: '/4-1' },
   async () => ({ ok: true, json: async () => TOC }));
 (async () => {
   await new Promise(r => setTimeout(r, 0)); await new Promise(r => setTimeout(r, 0));

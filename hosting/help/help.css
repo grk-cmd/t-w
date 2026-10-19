@@ -1,4 +1,4 @@
-/* 투게더워킹 도움말 — 색 · 글꼴은 /design/tokens.css(디자인 시스템) 것만 쓴다 */
+/* 투게더워킹 도움말 — 색 · 글꼴은 /tokens.css(디자인 시스템 토큰 — npm run design:build 가 만든다) 것만 쓴다 */
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:var(--bg-face);color:var(--ink);font-family:'Nanum Gothic','NanumGothic','나눔고딕','Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:15px;line-height:1.75}

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* ═══ scripts/build-design-site.js — 디자인 시스템 문서(docs/design-system/project)를 정적 페이지로 ═══
    만드는 것: hosting/design/index.html · tokens.css · bundle.css (Firebase Hosting 의 /design/).
+   hosting/help/tokens.css 도 같은 토큰으로 — 도움말은 따로 떨어진 Hosting 사이트(help.together-working.com)라 /design/ 을 못 부른다.
    새 의존성 없이 node 만 쓴다. 같은 입력이면 늘 같은 출력이 나와야 한다(sim-design-site.js 가 비교한다) —
    시각 · 난수 같은 것을 넣지 않는다.
 
@@ -16,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 
 const OUT_DIR = 'hosting/design';
+const HELP_TOKENS = 'hosting/help/tokens.css';
 const SRC_DIR = 'docs/design-system/project';
 const THEMES = [
   { id: 'light', label: '낮' },
@@ -399,6 +401,7 @@ ${sections.map((s) => win(s.id, s.title, `<div class="md">${s.html}</div>`)).joi
   return {
     [`${OUT_DIR}/index.html`]: html,
     [`${OUT_DIR}/tokens.css`]: tokens,
+    [HELP_TOKENS]: tokens,
     [`${OUT_DIR}/bundle.css`]: bundle,
   };
 }
