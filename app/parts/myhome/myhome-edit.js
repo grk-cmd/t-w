@@ -696,9 +696,9 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     const fHeadEls = [document.getElementById('mhFriendHead'),
                       document.getElementById('mhFmTop')];
     fHeadEls.forEach(el=>{ if(el){ el.style.background = TwSafeHtml.cssColor(t.fHead); el.style.color = t.fHeadText || ''; } });
-    // 우편함 왼쪽 세로 메뉴 · 우편 칸 아래 버튼 줄도 «카테고리 줄» 과 같은 색 — 새 항목을 만들지 않는다(이미 꾸민 디자인이 그대로 따라오게)
+    // 우편함 왼쪽 세로 메뉴도 «카테고리 줄» 과 같은 색 — 새 항목을 만들지 않는다(이미 꾸민 디자인이 그대로 따라오게). 아래 버튼 줄은 띠가 없어 칠하지 않는다
     [document.getElementById('mhInboxTabs'), document.getElementById('mhFmTabs'),
-     document.getElementById('mhInboxRail'), document.getElementById('mhInboxFoot')]
+     document.getElementById('mhInboxRail')]
       .forEach(el=>{ if(el) el.style.background = TwSafeHtml.cssColor(t.fTabsBg); });
     // 📅 스케줄러 — 달력 / 우측(기념일·D-day) 영역
     _mhBg(document.getElementById('mhSchedCal'), t.schedCal, t.schedCalImg);

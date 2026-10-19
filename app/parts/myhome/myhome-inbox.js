@@ -590,8 +590,6 @@ function _renderInboxMail(merged){
   const listEl = document.getElementById('mhInboxList');
   if(!listEl) return;
   const ids = inboxSec.mailIds(merged);
-  const info = document.getElementById('mhInboxFootInfo');
-  if(info) info.textContent = ids.length ? `우편 ${ids.length}통` : '';
   if(!ids.length){
     listEl.innerHTML = '<div class="mh-ibx-empty">받은 우편이 없어요</div>';
     return;
