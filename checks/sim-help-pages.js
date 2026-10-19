@@ -1,8 +1,8 @@
 /* sim-help-pages.js — 📘 도움말 웹 페이지(hosting/help/)가 깨지지 않았는가
    앱 📘 도움말 칸이 이 페이지를 그대로 보여 주므로, 링크 하나 · 그림 하나가 비어도 사용자가 빈 칸을 본다.
    ・1절: 목차 · 편마다 — /help/ 링크가 가리키는 편 · 그림 파일이 실제로 있다 · 이전 / 다음이 목차 순서와 같다
-   ・2절: 바깥 것 — 스크립트는 /help/theme.js 하나 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다
-   ・3절: theme.js — ?theme= 를 따르고, 모르는 값이면 기기 밝음 · 어두움
+   ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /help/theme.js 하나 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다
+   ・3절: theme.js — 앱 테마(default · bubble)를 토큰 테마(classic · light)로 바꿔 걸고, 모르는 값 · 없음은 앱 기본(classic)
    ・4절: 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -21,11 +21,12 @@ function load(){
   const files = new Set();
   const walk = (d, rel) => { for (const f of fs.readdirSync(d)){ const p = path.join(d, f); fs.statSync(p).isDirectory() ? walk(p, rel + f + '/') : files.add(rel + f); } };
   walk(DIR, '');
-  return { pages, files };
+  const fontCss = fs.readFileSync(path.join(DIR, 'fonts', 'nanum-gothic.css'), 'utf8');
+  return { pages, files, fontCss };
 }
 
 /* 판정 — 오류 글 목록을 돌려준다(빈 목록이면 통과) */
-function judge({ pages, files }){
+function judge({ pages, files, fontCss }){
   const errs = [];
   const idx = pages['index.html'] || '';
   const order = [...idx.matchAll(/<li><a href="\/help\/([\w-]+)">/g)].map(m => m[1]);
@@ -41,7 +42,11 @@ function judge({ pages, files }){
     if (scripts.some(a => !/^\s*src="\/help\/theme\.js"\s*$/.test(a))) errs.push(f + ' — /help/theme.js 말고 다른 스크립트가 있다');
     if (/data:image|원본 그림|점선 테두리|\[원본/.test(s)) errs.push(f + ' — 시안용 글 · 박아 넣은 그림이 남았다');
     if (!/<link rel="stylesheet" href="\/design\/tokens\.css">/.test(s)) errs.push(f + ' — 디자인 토큰을 안 싣는다');
+    if (!/<link rel="stylesheet" href="\/help\/fonts\/nanum-gothic\.css">/.test(s)) errs.push(f + ' — 나눔고딕을 안 싣는다');
   }
+  const fontUrls = [...fontCss.matchAll(/url\(([^)]+)\)/g)].map(m => m[1]);
+  if (fontUrls.length < 100) errs.push('나눔고딕 글꼴 파일 목록이 너무 적다(' + fontUrls.length + ')');
+  for (const u of fontUrls) if (!u.startsWith('/help/fonts/') || !files.has(u.slice('/help/'.length))) errs.push('글꼴 ' + u + ' 가 없다');
   order.forEach((slug, i) => {
     const s = pages[slug + '.html'] || '';
     const prev = (s.match(/<a class="prev" href="\/help\/([\w-]+)"/) || [])[1] || null;
@@ -59,30 +64,30 @@ chk(errs.length === 0, '도움말 페이지 ' + Object.keys(real.pages).length +
 
 say('── 3. theme.js');
 const THEME = fs.readFileSync(path.join(DIR, 'theme.js'), 'utf8');
-const theme = (src, search, dark) => {
+const theme = (src, search) => {
   let set = null;
   const doc = { documentElement: { setAttribute: (k, v) => { if (k === 'data-theme') set = v; } } };
-  new Function('window', 'document', 'location', 'matchMedia', 'URLSearchParams', src)(
-    { matchMedia: () => ({ matches: dark }) }, doc, { search }, () => ({ matches: dark }), URLSearchParams);
+  new Function('document', 'location', 'URLSearchParams', src)(doc, { search }, URLSearchParams);
   return set;
 };
-chk(theme(THEME, '?theme=classic', true) === 'classic' && theme(THEME, '?theme=light', true) === 'light', '?theme= 를 따른다(앱 테마를 실어 연다)');
-chk(theme(THEME, '?theme=evil', true) === 'dark' && theme(THEME, '', false) === 'light', '  모르는 값 · 없음 — 기기 밝음 · 어두움');
+chk(theme(THEME, '?theme=default') === 'classic' && theme(THEME, '?theme=bubble') === 'light', '앱 테마를 따른다 — 기본 → classic · 버블 → light');
+chk(theme(THEME, '?theme=dark') === 'classic' && theme(THEME, '?theme=constructor') === 'classic' && theme(THEME, '') === 'classic', '  모르는 값 · 없음 · 앱에 없는 dark — 앱 기본(classic)');
 
 say('── 4. 깨 보기 — 하나라도 못 잡으면 빨강');
-const clone = () => ({ pages: Object.assign({}, real.pages), files: new Set(real.files) });
+const clone = () => ({ pages: Object.assign({}, real.pages), files: new Set(real.files), fontCss: real.fontCss });
 const breaks = [
   ['그림 파일 하나가 빠짐', (w) => { const f = [...w.files].find(x => x.startsWith('img/')); w.files.delete(f); }],
   ['편 하나가 빠짐', (w) => { delete w.pages['3.html']; }],
   ['다음 글이 엉뚱한 편', (w) => { w.pages['2.html'] = w.pages['2.html'].replace(/<a class="next" href="\/help\/[\w-]+"/, '<a class="next" href="/help/7"'); }],
   ['바깥 스크립트가 끼어듦', (w) => { w.pages['1.html'] = w.pages['1.html'].replace('</head>', '<script src="https://x.example/a.js"></script></head>'); }],
   ['시안 글이 남음', (w) => { w.pages['5.html'] += '<figcaption>원본 그림 3</figcaption>'; }],
+  ['글꼴 파일 하나가 빠짐', (w) => { const f = [...w.files].find(x => x.startsWith('fonts/') && x.endsWith('.woff2')); w.files.delete(f); }],
+  ['글꼴을 안 싣는 편', (w) => { w.pages['6.html'] = w.pages['6.html'].replace('<link rel="stylesheet" href="/help/fonts/nanum-gothic.css">', ''); }],
   ['박아 넣은 그림', (w) => { w.pages['4.html'] += '<img src="data:image/png;base64,AA">'; }],
 ];
 for (const [name, f] of breaks){ const w = clone(); f(w); chk(judge(w).length > 0, name); }
-const T2 = THEME.replace("t !== 'light' && t !== 'dark' && t !== 'classic'", 'false');
-chk(theme(T2, '?theme=evil', true) !== 'dark', '  theme.js 가 모르는 값을 그대로 씀');
-
+const T2 = THEME.replace("MAP.hasOwnProperty(t) ? MAP[t] : 'classic'", "MAP[t] || t || 'classic'");
+chk(theme(T2, '?theme=dark') !== 'classic', '  theme.js 가 모르는 값을 그대로 씀');
 say('');
 say(fail ? ('✗ ' + fail + '건 어긋남 · 통과 ' + pass) : ('✅ 전부 통과 ' + pass + ' — 도움말 페이지는 빈 칸 없이 이어진다'));
 process.exit(fail ? 1 : 0);

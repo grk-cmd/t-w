@@ -1,7 +1,7 @@
 /* 투게더워킹 도움말 — 색 · 글꼴은 /design/tokens.css(디자인 시스템) 것만 쓴다 */
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg-face);color:var(--ink);font-family:var(--font-ui);font-size:15px;line-height:1.75}
+body{background:var(--bg-face);color:var(--ink);font-family:'Nanum Gothic','NanumGothic','나눔고딕','Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:15px;line-height:1.75}
 a{color:var(--ink-accent)}
 .bar{position:sticky;top:0;z-index:1;padding:var(--space-3) var(--space-5);
   background:linear-gradient(90deg,var(--title-a),var(--title-b));border-bottom:1px solid var(--line-strong)}
