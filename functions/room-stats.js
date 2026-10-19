@@ -180,7 +180,7 @@ async function roomOccupied(stamps, keys, member, now){
     const m = await member(id);
     if (m.hb === ROOM_ALIVE_HB) return true;   // 새 방식은 노드가 있으면 산 것(유령은 sweepRoomAlive 가 먼저 지운다)
     const seen = Number(m.lastSeen);
-    if (m.lastSeen == null || !Number.isFinite(seen) || now - seen < MEMBER_GONE_MS) return true;   // lastSeen 없음도 산 것(입장 검사와 같다)
+    if (m.lastSeen != null && Number.isFinite(seen) && now - seen < MEMBER_GONE_MS) return true;   // lastSeen 없는 칸은 찌꺼기(앱 room-alive.js isProbeAlive 와 같다)
   }
   return false;
 }

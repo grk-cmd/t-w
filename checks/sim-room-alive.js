@@ -17,7 +17,7 @@ need('functions/room-stats.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const CODE = strip(FI);
 const unexport = (src) => src.replace(/^export (function|const) /mg, '$1 ');
-const A = new Function(unexport(RA) + '\nreturn { ROOM_ALIVE_MIN_VER, ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, verAtLeast, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive };')();
+const A = new Function(unexport(RA) + '\nreturn { ROOM_ALIVE_MIN_VER, ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, verAtLeast, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive };')();
 
 (async () => {
   say('── 1. room-alive.js 판정');
@@ -36,9 +36,11 @@ const A = new Function(unexport(RA) + '\nreturn { ROOM_ALIVE_MIN_VER, ROOM_ALIVE
     chk(A.isIndexToucher('m1', { m2: {}, m3: {} }) && !A.isIndexToucher('m2', { m1: {}, m3: {} }), '  ↳ 가장 먼저 온 사람(memberId 최소) 한 명만');
     chk(A.isIndexToucher('m1', {}), '  ↳ 혼자면 찍는다');
     const P = 5 * 60 * 1000;
-    chk(A.isProbeAlive(null, undefined, now, P), '입장 검사 — lastSeen 도 도장도 없으면 예전처럼 센다');
+    chk(!A.isProbeAlive(null, undefined, now, P) && !A.isProbeAlive(undefined, undefined, now, P), '★ 입장 검사 — lastSeen 도 도장도 없는 칸은 찌꺼기(사람으로 안 센다 — Firebase 방에 붙잡히지 않게)');
     chk(A.isProbeAlive(now - 1000, undefined, now, P) && !A.isProbeAlive(now - 6 * 60e3, undefined, now, P), '  ↳ 옛 방식: lastSeen 5분');
     chk(A.isProbeAlive(now - 3600e3, now - 30e3, now, P), '  ↳ 새 방식: lastSeen 이 낡아도 도장이 최근이면 산 것');
+    chk(!A.isNodeAlive({ name: 'x' }, now, P) && !A.isNodeAlive(null, now, P) && A.isNodeAlive({ hb: 2 }, now, P) && A.isNodeAlive({ lastSeen: now - 1000 }, now, P) && !A.isNodeAlive({ lastSeen: now - 6 * 60e3 }, now, P),
+      '★ 대체 경로(멤버 노드 통째) — 찌꺼기 · 없음은 0 · hb:2 · 방금 lastSeen 은 산 것 · 낡은 lastSeen 은 아님');
     chk(!A.isProbeAlive(now - 3600e3, now - 200e3, now, P), '  ↳ 도장도 ' + (A.ROOM_ALIVE_STALE_MS / 1000) + '초 넘으면 유령');
   }
 
@@ -46,6 +48,22 @@ const A = new Function(unexport(RA) + '\nreturn { ROOM_ALIVE_MIN_VER, ROOM_ALIVE
   {
     const f = require(path.resolve('functions/room-stats.js'));
     chk(f.ROOM_ALIVE_STALE_MS === A.ROOM_ALIVE_STALE_MS && f.ROOM_ALIVE_HB === A.ROOM_ALIVE_HB, '청소 기준 · 표시 값이 앱(room-alive.js)과 같다');
+    {
+      /* 같은 판단 두 벌 — 앱 입장 검사(isProbeAlive)와 서버 빈 방 판정(roomOccupied)이 같은 칸에 같은 답을 내는가.
+         functions/ 는 따로 배포돼 앱 파일을 못 불러서 두 벌이다 — 한쪽만 바꾸면 여기서 빨강. 문턱(5분 · 10분)이 다른 경계는 빼고 본다. */
+      const n = 1e9, P = 5 * 60 * 1000;
+      const cases = [['시각 · 도장 없음(찌꺼기)', {}, null], ['방금 lastSeen', { lastSeen: n - 1000 }, null], ['한참 전 lastSeen', { lastSeen: n - 3600e3 }, null],
+                     ['최근 도장', {}, n - 30e3], ['낡은 도장', {}, n - f.ROOM_ALIVE_STALE_MS - 5e3], ['숫자 아닌 lastSeen', { lastSeen: 'x' }, null]];
+      const occ = async (m, at) => f.roomOccupied(at == null ? {} : { m1: at }, { m1: true }, async () => m, n);
+      let same = true, why = [];
+      for (const [name, m, at] of cases){
+        const app = A.isProbeAlive(m.lastSeen == null ? null : (Number.isFinite(Number(m.lastSeen)) ? Number(m.lastSeen) : NaN), at == null ? undefined : at, n, P);
+        const srv = await occ(m, at);
+        if (app !== srv){ same = false; why.push(name + ' 앱 ' + app + ' · 서버 ' + srv); }
+      }
+      chk(same, '★ 앱 입장 검사 · 서버 빈 방 판정이 같은 칸에 같은 답(찌꺼기 · 방금 · 한참 전 · 도장 최근 · 낡음 · 숫자 아님)' + (why.length ? ' — 다름: ' + why.join(' / ') : ''));
+      chk(!(await occ({}, null)), '★ 서버 — 시각 없는 찌꺼기 칸만 남은 방은 빈 방(정리 대상)');
+    }
     const now = 1e9, S = f.ROOM_ALIVE_STALE_MS;
     const tree = { R1: { mOld: now - S - 1, mNew: now - 1000, mBad: 'x' }, R2: { mOrphan: now - S - 5 } };
     const picked = f.staleAliveFrom(tree, now).map(x => x.room + '/' + x.mid).sort();
@@ -106,8 +124,8 @@ const A = new Function(unexport(RA) + '\nreturn { ROOM_ALIVE_MIN_VER, ROOM_ALIVE
     chk(/if\(!_raw\[memberId\]\) _healMyMemberNode\('snapshot'\);/.test(CODE), '스냅샷에서 내 노드가 사라지면 복구 — 새 방식은 쓰기 거부 신호가 없다');
     chk(/if\(_aliveV2 && _myAliveRef\)\{ set\(_myAliveRef, serverTimestamp\(\)\)\.catch\(\(\)=>\{\}\); onDisconnect\(_myAliveRef\)\.remove\(\); \}/.test(CODE), '재접속 때 도장 · onDisconnect 를 다시 건다');
     chk(/if\(_myAliveRef\)\{[\s\S]{0,200}onDisconnect\(aref\)\.cancel\(\)[\s\S]{0,80}remove\(aref\)/.test(CODE), '나갈 때 도장도 지운다');
-    chk((CODE.match(/isProbeAlive\(/g) || []).length === 2 && (CODE.match(/get\(ref\(db, `roomAlive\/\$\{room\}`\)\)/g) || []).length === 2, '입장 검사 둘(정원 · 시크릿룸)이 그 방 도장을 한 번씩 본다');
-    chk(/m\.hb === ROOM_ALIVE_HB\) count\+\+/.test(CODE), '  ↳ 정원 검사 폴백(방 전체 읽기)도 hb:2 를 센다');
+    chk((CODE.match(/isProbeAlive\(/g) || []).length === 2 && (CODE.match(/isNodeAlive\(/g) || []).length === 1 && !/!m\.lastSeen\) count\+\+/.test(CODE) && (CODE.match(/get\(ref\(db, `roomAlive\/\$\{room\}`\)\)/g) || []).length === 2, '입장 검사 둘(정원 · 시크릿룸)이 그 방 도장을 한 번씩 본다');
+    chk(/if\(isNodeAlive\(all\[id\], now, STALE_MS\)\) count\+\+/.test(CODE), '  ↳ 정원 검사 대체 경로(방 전체 읽기)는 isNodeAlive 를 부른다(판정은 위 1절에서 실제로 돌려 본다)');
     chk(/aliveTree\[code\] && aliveTree\[code\]\[k\][\s\S]{0,160}ROOM_ALIVE_STALE_MS/.test(CODE), '관리자 유령 방 청소가 도장을 본다 — hb:2 방을 유령으로 지우지 않게');
   }
 
