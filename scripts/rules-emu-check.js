@@ -41,7 +41,7 @@ const ADMIN_A = 'adminA';
 const MEMBER2 = 'mabc67890';
 const OLD_U = 'uoldver00001';   // ≤0.10.2 앱을 켠 사람(로그인에 안 묶임)
 const NEW_U = 'unewacct0001';   // 0.11 로 새로 가입하는 사람
-const OLD2_U = 'uoldver00002', NEW2_U = 'unewacct0002', UP_U = 'uupgrade0001', LIS_U = 'ulisten00001';   // 읽기 막기 시험용
+const OLD2_U = 'uoldver00002', NEW2_U = 'unewacct0002', UP_U = 'uupgrade0001', LIS_U = 'ulisten00001', STUCK_U = 'ustuckpres01';   // 읽기 막기 시험용
 const URL_S = 'https://firebasestorage.googleapis.com/v0/b/x/o/users%2Fu%2Fa.png?alt=media&token=abc';
 const FUTURE = Date.now() + 10 * 60 * 1000;
 const DEF = { v: 2, skin: '#ffddcc', faceUrl: URL_S, blinkUrl: URL_S, equippedParts: [{ id: 'p1', xf: { s: 1, y: 0.1 } }], scale: 1, animal: false };
@@ -259,7 +259,11 @@ const LIMIT_CASES = [
   ['옛 앱 — 공지 · 업데이트 공지', 'GET', 'announce/current', null, false, 'authOld'],
   ['옛 앱 — 업데이트 공지', 'GET', 'updateNotice/current', null, false, 'authOld'],
   ['옛 앱 — 친구 사용자 칸', 'GET', `users/${GOOD_U2}`, null, false, 'authOld'],
-  ['옛 앱 — 내 authUsers(로그인 확인)', 'GET', 'authUsers/authOld', null, false, 'authOld'],
+  /* 내 authUsers 한 칸은 막지 않는다 — 막으면 presence 가 «켜짐 · ver 없음» 으로 남은 사람은 새 앱으로도 로그인을 못 해 presence 를 고쳐 쓸 수 없다.
+     칸에는 내 userCode 하나뿐이고 옛 앱은 바로 다음 읽기에서 막힌다. */
+  ['옛 앱 — 내 authUsers(로그인 확인)는 읽힌다', 'GET', 'authUsers/authOld', null, true, 'authOld'],
+  ['  ↳ 남의 authUsers 는 여전히 막힘', 'GET', 'authUsers/authNew2', null, false, 'authOld'],
+  ['  ↳ 그다음 친구 사용자 칸은 막힘', 'GET', `users/${GOOD_U2}`, null, false, 'authOld'],
   ['옛 앱 — 방 하나', 'GET', `rooms/${ROOM}`, null, false, 'authOld'],
   ['옛 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, false, 'authOld'],
   ['새 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, true, 'authNew2'],
@@ -274,6 +278,12 @@ const LIMIT_CASES = [
   ['  ↳ 꺼진 뒤 다음 부팅의 presence 전 읽기는 열린다(규칙만으로 못 닫음)', 'GET', 'catalog/parts', null, true, 'authOld'],
   ['새 앱 — 수동 오프라인(ver 실림)', 'PUT', `users/${NEW2_U}/presence`, { online: false, lastSeen: 1, room: null, inRoom: false, ver: '0.11.3' }, true],
   ['새 앱 — presence(ver) 뒤 읽기', 'GET', 'catalog/parts', null, true, 'authNew2'],
+  /* presence 가 «켜짐 · ver 없음» 으로 남은 채 다시 깐 PC 에서 새 앱으로 로그인 — 내 authUsers 로 코드를 찾고, presence(ver) 를 쓰면 풀린다 */
+  ['준비: 남은 presence(켜짐 · ver 없음) · 로그인 이음(authStuck → STUCK)', 'PATCH', '', { 'authUsers/authStuck': { userCode: STUCK_U, ts: 1 }, [`userAuth/${STUCK_U}`]: 'authStuck', [`users/${STUCK_U}/presence`]: { online: true, lastSeen: 1, room: null, inRoom: false } }, true, OWNER],
+  ['남은 presence — 로그인 때 내 authUsers 읽기', 'GET', 'authUsers/authStuck', null, true, 'authStuck'],
+  ['  ↳ presence 를 고치기 전 다른 읽기는 막힘', 'GET', 'catalog/parts', null, false, 'authStuck'],
+  ['  ↳ 새 앱이 presence(ver) 를 씀', 'PUT', `users/${STUCK_U}/presence`, { online: true, lastSeen: 2, room: null, inRoom: false, ver: '0.11.3' }, true, 'authStuck'],
+  ['  ↳ 그 뒤 읽기는 열림', 'GET', 'catalog/parts', null, true, 'authStuck'],
 ];
 
 /* 🤖 서버 봇(apiBots)의 통째 읽기 — API 읽기 사본이 노드 전체를 듣는다(조건 없음). «최근 N개» 조건이 봇 갈래보다 앞이면

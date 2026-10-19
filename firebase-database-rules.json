@@ -373,7 +373,7 @@
     },
     "authUsers": {
       "$authUid": {
-        ".read": "auth != null && auth.uid === $authUid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".read": "auth != null && auth.uid === $authUid",
         ".write": "auth != null && auth.uid === $authUid",
         ".validate": "newData.hasChildren(['userCode'])",
         "userCode": {
