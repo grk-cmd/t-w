@@ -30,6 +30,7 @@ const _plPlaying = deps.plPlaying;             // 🎵 플레이리스트 재생
 const _setPlPlaying = deps.setPlPlaying;
 const mhHooks = TwMyHomeHooks;                 // 🪝 마이홈 고리판(myhome-hooks.js) — 마이홈 BGM 재생 중 · 표시는 편집 묶음이 건다
 const officeMode = deps.officeMode;            // 🏢 회사원 모드 — app.js 의 officeMode(다시 대입되는 let)
+const _lsSet = deps.lsSet;                     // 설정 저장(실패하면 그쪽이 한 번 알린다) — 음악 끄기 기억
 const Presence = deps.presence;                // 방 접속 — app.js 에서 이 모듈보다 뒤에 선언되는 const
 const _mkFrontFill = deps.mkFrontFill;
 const findMySeat = deps.findMySeat;
@@ -123,51 +124,28 @@ const PK_JUMP_V0  = 10.47;    // 점프 초속(월드단위/초) — 높이 1.40
    ⚠️ 이 값은 «모델의 기본 각»에 딸린 값이다. 캐릭터 리그의 기본 각을 바꾸면 여기도 같이 봐야 한다.
      맞지 않는 캐릭터가 있으면 Q·E 로 돌려 쓰면 된다 — 그래서 손잡이를 함께 붙였다. */
 const PK_BODY_YAW = 0.28;     // 정면을 보게 되돌리는 기준 각(라디안)
-/* 🎵 촬영 창 BGM.
-   ⚠️ 경로는 «있는 곳 먼저» 순서다 — 때리기·클릭 소리와 같은 관례(parts/ 가 없는 배치에서도 돈다).
-   ⚠️ 이 소리는 **효과음이 아니라 배경음**이라 풀(_mkSndPool)을 쓰지 않는다. 겹쳐 날 일이 없고,
-     대신 loop 이 필요하다. 인스턴스 하나를 만들어 두고 창을 열 때마다 되감아 쓴다. */
+/* 🎵 촬영 창 BGM — 재생 · 멈춤 · 끄기 기억은 pk-bgm.js. 경로는 «있는 곳 먼저»(때리기 · 클릭 소리와 같은 관례). */
 const PK_BGM_SRC = ['parts/purikura-bgm.mp3', 'purikura-bgm.mp3'];
 const PK_BGM_VOL = 0.32;      // 유튜브 BGM 보다 조금 낮게 — 셔터 카운트다운을 덮으면 안 된다
 const PK_TURN_SPD = 2.0;      // Q·E 로 도는 속도(라디안/초) — 한 바퀴에 약 3.1초
 
 /* 🎵 BGM — 창이 열려 있는 동안만.
    ★ 유튜브 BGM(마이홈·플레이리스트)은 **창 하나를 공유**한다(bgmMode). 그래서 재우는 것은
-     `companion.pauseBgm()` **한 번**이면 되고, 대신 «누가 나고 있었는지»를 기억해 뒀다가
-     닫을 때 그쪽만 되살린다.
-   ⚠️ 되살릴 때 «그 사이에 사용자가 직접 다시 튼 경우»를 확인한다. 그때 또 resume 을 부르면
-     두 소리가 겹친다.
-   ⚠️ 회사원 모드에서는 아무 소리도 내지 않는다 — 📷 자체가 그 모드에서 안 열리지만,
-     소리를 내는 자리는 예외 없이 이 게이트를 지난다는 관례를 여기서도 지킨다(사양 9번). */
-let _pkBgmAudio = null, _pkBgmIdx = 0;
-function _pkBgmEl(){
-  if(_pkBgmAudio) return _pkBgmAudio;
-  if(typeof Audio === 'undefined') return null;
-  try{
-    const a = new Audio(PK_BGM_SRC[_pkBgmIdx]);
-    a.loop = true; a.preload = 'auto'; a.volume = PK_BGM_VOL;
-    a.addEventListener('error', ()=>{
-      /* 경로 폴백 — 다음 후보로 갈아탄다. 다 떨어지면 그냥 소리가 없는 것으로 둔다(창은 그대로 쓴다). */
-      if(_pkBgmIdx + 1 < PK_BGM_SRC.length){ _pkBgmIdx++; _pkBgmAudio = null; }
-      else console.warn('[스티커사진] BGM 파일을 못 찾았어요 —', PK_BGM_SRC.join(' / '));
-    });
-    try{ a.load(); }catch(_){}
-    _pkBgmAudio = a;
-  }catch(_){ _pkBgmAudio = null; }
-  return _pkBgmAudio;
-}
-function _pkBgmStart(){
-  if(officeMode()) return;
-  const a = _pkBgmEl(); if(!a) return;
-  try{ a.currentTime = 0; }catch(_){}
-  a.volume = PK_BGM_VOL;
-  const pr = a.play();
-  /* 자동재생 잠금에 걸리면 조용히 삼키지 않는다 — 삼키면 «소리가 안 난다»의 원인을 다음에 또 못 찾는다. */
-  if(pr && pr.catch) pr.catch(e=>console.warn('[스티커사진] BGM 재생이 막혔어요', e && e.name));
-}
-function _pkBgmStop(){
-  const a = _pkBgmAudio; if(!a) return;
-  try{ a.pause(); a.currentTime = 0; }catch(_){}
+     `companion.pauseBgm()` **한 번**이면 되고, 대신 «누가 나고 있었는지»를 기억해 뒀다가 닫을 때 그쪽만 되살린다.
+   ⚠️ 되살릴 때 «그 사이에 사용자가 직접 다시 튼 경우»를 확인한다. 그때 또 resume 을 부르면 두 소리가 겹친다. */
+const pkBgm = TwPkBgm.createPkBgm({
+  Audio: (typeof Audio === 'undefined') ? null : Audio,
+  srcs: PK_BGM_SRC, volume: PK_BGM_VOL,
+  storage: localStorage,
+  save: (k, v)=>_lsSet(k, v),
+  officeMode: ()=>officeMode(),
+  warn: (...a)=>console.warn(...a),
+});
+/* 제목줄 «음악 끄기 / 음악 켜기» — 꺼 두면 노란 글(.off) */
+function _pkBgmBtnSync(){
+  const b = _pkEl('pkBgmBtn'); if(!b) return;
+  b.textContent = pkBgm.label();
+  b.classList.toggle('off', pkBgm.isMuted());
 }
 /* 남의 BGM 재우기 / 깨우기 */
 function _pkHushOthers(){
@@ -261,7 +239,7 @@ async function openPurikura(){
   const ov = _pkEl('pkOverlay'); ov.classList.add('on'); ov.classList.remove('shooting');
   ov.classList.remove('deco');
   _pkApplyWinPos();                      // 지난번에 끌어다 둔 자리로 (없으면 가운데)
-  _pkHushOthers(); _pkBgmStart();        // 듣던 것을 재우고 이 창의 BGM 을 건다
+  _pkHushOthers(); pkBgm.start(); _pkBgmBtnSync();   // 듣던 것을 재우고 이 창의 BGM 을 건다(꺼 뒀으면 소리 없이)
   bringWinToFront('pkOverlay');
   _pkSetQuota(q);
 
@@ -329,7 +307,7 @@ function closePurikura(force){
     return false;
   }
   _pkCloseDeco();
-  _pkBgmStop(); _pkUnhushOthers();       // 내 소리를 끄고, 재웠던 쪽만 되살린다
+  pkBgm.stop(); _pkUnhushOthers();       // 내 소리를 끄고, 재웠던 쪽만 되살린다
   PK.open = false;
   cancelAnimationFrame(PK.raf); PK.raf = 0;
   clearInterval(PK.timer); PK.timer = 0;
@@ -2617,7 +2595,7 @@ function _pkBindWinDrag(){
   bar.addEventListener('pointerdown', e=>{
     /* 닫기 버튼은 드래그 시작 안 함 — 타이틀바가 손잡이라 빼주지 않으면 누를 때마다 창이 끌린다
        (#chatCloseBtn·#gachaInvHead 와 같은 관례). */
-    if(e.target.closest && e.target.closest('#pkCloseBtn')) return;
+    if(e.target.closest && e.target.closest('#pkCloseBtn, #pkBgmBtn')) return;
     dragging = true;
     const r = win.getBoundingClientRect();
     offX = e.clientX - r.left; offY = e.clientY - r.top;
@@ -2645,6 +2623,7 @@ function _pkBindWinDrag(){
   const ov = _pkEl('pkOverlay'); if(!ov) return;
   _pkBindWinDrag();
   const cb = _pkEl('pkCloseBtn'); if(cb) cb.onclick = e=>{ e.stopPropagation(); closePurikura(false); };
+  const bb = _pkEl('pkBgmBtn'); if(bb) bb.onclick = e=>{ e.stopPropagation(); pkBgm.toggle(); _pkBgmBtnSync(); };
   const lb = _pkEl('pkLeaveBtn'); if(lb) lb.onclick = e=>{ e.stopPropagation(); closePurikura(false); };
   const sb = _pkEl('pkStartBtn'); if(sb) sb.onclick = e=>{ e.stopPropagation(); _pkStart(); };
   const ko = _pkEl('pkKoBlack');
