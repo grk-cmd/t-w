@@ -123,9 +123,8 @@ def own_change(base, sha):
     out = {}
     for f in files:
         name, patch = f['filename'], f.get('patch')
-        if patch is None:   # 그림 · 너무 큰 diff — 내용 대신 파일 판(blob)으로
-            out[name] = (f.get('status'), f.get('previous_filename'), 'blob', f.get('sha'))
-            continue
+        if patch is None:   # 그림 · 너무 큰 diff — 머리 판만으로는 판 브랜치 쪽 변경을 되돌렸는지 못 본다
+            return None
         out[name] = (f.get('status'), f.get('previous_filename'), _hunks(name, patch))
     return out or None   # 바꾼 것이 하나도 안 보이면 견줄 것이 없다 — 같다고 하지 않는다
 

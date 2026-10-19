@@ -182,7 +182,13 @@ carry += [
     ('CHECKS.md 의 다른 해시 줄을 지움', dict(A7, cmp={O: files('new'), H: ROWDEL}), H, False),
     ('다른 파일의 해시 줄 모양 줄은 빼지 않음', dict(A7, cmp={O: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('aaaaaaaaaaaa')}], H: [{'filename': 'b.md', 'status': 'modified', 'patch': '@@ -1 +1 @@\n+' + ROW('bbbbbbbbbbbb')}]}), H, False),
     ('두 커밋 다 바꾼 것 없음', dict(A7, cmp={O: [], H: []}), H, False),
+    ('patch 없는 파일(머리 판이 같아도 못 봄)', dict(A7, cmp={O: files('new', extra=[{'filename': 'big.js', 'status': 'modified', 'patch': None, 'sha': 'bX'}]),
+                                                    H: files('new', extra=[{'filename': 'big.js', 'status': 'modified', 'patch': None, 'sha': 'bX'}])}), H, False),
+    ('앞뒤 글은 같고 @@ 꼬리(함수)만 다름', dict(A7, cmp={O: files('new'), H: [dict(files('new')[0], patch=files('new')[0]['patch'].replace('@@ -1,3 +1,3 @@', '@@ -1,3 +1,3 @@ function deleteAll')), files('new')[1]]}), H, False),
 ]
+B = 'e5' * 20   # 승인이 두 번 — O 승인 → B 코드 고침 · 승인 → H 는 B 에 합치기만: 가장 최근 승인(B)과 견준다
+carry += [('승인 두 번 · 최근 승인과 견줌', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}, {'user': U, 'body': '승인 ' + B[:7]}], commits=(O, B, H),
+                                           cmp={O: files('old'), B: files('new'), H: files('new', row='bbbbbbbbbbbb')}), H, True)]
 risk._same.clear()
 for name, kw, head, want in carry:
     kw = dict(kw)
