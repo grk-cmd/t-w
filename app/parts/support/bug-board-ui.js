@@ -171,7 +171,7 @@
       '<span class="bb-sp"></span><button class="bb-btn" type="button" data-act="answer">답변 등록</button></div>' +
       (prvOnly ? '<div class="bb-hint">비공개 글이라 답변도 비공개로만 달려요.</div>' : '') +
       '<div class="bb-kk" id="bbAKk">💬 답변 아래에 오픈카톡 버튼이 붙어요 · 링크 <input id="bbAKakao" type="text" maxlength="300"><span class="bb-kk-x" data-act="kakaoX" title="취소">✕</span></div>' +
-      '<div class="bb-err" id="bbAErr"></div><div class="bb-hint">등록하면 글쓴이 우편함에 알림이 가요.</div></div>';
+      '<div class="bb-err" id="bbAErr"></div><div class="bb-hint">등록하면 글쓴이 알림함에 알림이 가요.</div></div>';
   }
   /* 글쓴이 답글 칸 — 상태는 늘 하나를 고른다(기본 «해결 안 됨» — 답글을 다는 건 대개 아직 안 고쳐져서다).
      «그대로» 버튼은 해결 안 됨과 같은 뜻으로 읽혀 뺐다. 고른 버튼은 눌린 모양(.on). */

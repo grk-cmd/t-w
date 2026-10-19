@@ -802,9 +802,9 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     ],
     friend: [
       {group:'상단 헤더'},
-      {key:'fHead',    label:'헤더 배경 (친구·관리·우편함 공통)'},
+      {key:'fHead',    label:'헤더 배경 (친구·관리·알림함 공통)'},
       {key:'fHeadText',label:'헤더 글씨색'},
-      {key:'fTabsBg',  label:'카테고리 줄 배경 (우편함 왼쪽 메뉴 포함)'},
+      {key:'fTabsBg',  label:'카테고리 줄 배경 (알림함 왼쪽 메뉴 포함)'},
       {group:'친구 목록'},
       {key:'fList',    label:'목록 배경',      img:true},
       {key:'fListText',label:'친구 이름 글씨색'},
@@ -813,7 +813,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
          예전 라벨('수령함 배경')은 수령함이 우편함 탭으로 나가고 그 자리를 친구 관리가 쓰게 된
          뒤로 어디를 가리키는지 알 수 없는 말이 됐다.
          ⚠️ 키 이름(fChat)은 **바꾸지 않는다.** 이미 저장된 테마가 그 이름으로 들어 있다. */
-      {group:'오른쪽 칸 (친구 관리 · 우편함)'},
+      {group:'오른쪽 칸 (친구 관리 · 알림함)'},
       {key:'fChat',    label:'목록 칸 배경',    img:true},
       {key:'fChatText',label:'목록 칸 글씨색'},
     ],
