@@ -21,7 +21,7 @@ firebase deploy --only hosting:main --project together-working     # 관리자 �
 배포는 그 사이트 **폴더 전체**를 올린다 — 올리는 폴더의 다른 파일도 그 판으로 바뀐다. 운영 배포는 사람이 직접 한다.
 
 ## 새 사이트 만들기 (예: 메인 소개 페이지)
-사용자가 보는 새 페이지는 **우리 도메인**(`*.together-working.com`)으로 낸다 — `*.web.app` 을 앱 · 링크에 박지 않는다(CLAUDE.md). 메인 소개 페이지라면 `together-working.com`(맨 앞 이름) 자리다.
+사용자가 보는 새 페이지는 **우리 도메인**(`*.together-working.com`)으로 낸다 — `*.web.app` 같은 기본 주소를 앱 · 링크에 박지 않는다(앱에 박힌 주소는 바꾸려면 앱을 다시 내야 한다). 메인 소개 페이지라면 `together-working.com`(맨 앞 이름) 자리다.
 
 1. **사이트 만들기**: `firebase hosting:sites:create <사이트 이름> --project together-working` (예: `together-working-home`)
 2. **폴더 · 설정**
