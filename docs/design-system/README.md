@@ -20,7 +20,7 @@ UI 를 고치거나 새로 만들 때는 이 폴더를 먼저 본다.
 
 1. `project/` 안의 파일을 고친다(토큰은 `tokens.json`, 부품 모양은 `components/bundle.css`, 지침은 각 `README.md`).
 2. 토큰(`tokens.json`)을 고쳤으면 `npm run design:build` — `scripts/build-design-tokens.js` 가 도움말 사이트 토큰(`hosting/help/tokens.css`)을 다시 만든다.
-   손으로 고치지 않는다. `npm run check` 의 `sim-design-tokens.js` 가 둘이 어긋나면 빨강을 낸다. (웹 페이지 `/design/` 은 10-20 걷었다.)
+   손으로 고치지 않는다. `npm run check` 의 `sim-design-tokens.js` 가 둘이 어긋나면 빨강을 낸다. (웹 페이지는 없다 — 이 폴더는 규칙 문서로만 쓴다.)
 3. 웹에 올리기(관리자만): `firebase deploy --only hosting --project together-working`.
    Hosting 배포는 `hosting/` 전체(웹 관리자 `/admin` 포함)를 함께 올린다 — `firebase.json` predeploy 가 웹 관리자를 다시 빌드한다.
 
