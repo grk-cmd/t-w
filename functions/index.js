@@ -247,13 +247,13 @@ exports.roomStatsOnClose = onValueDeleted({ ref: '/roomIndex/{room}', timeoutSec
     await require('./room-stats').runRoomStats(getDatabase(), Date.now(), { drop: false });
   });
 
-// 방 서버 방이 닫히면(roomDir 칸 삭제) 그 방이 Firebase 에 남긴 대화를 빈 방 규칙대로 걷는다 — room-stats.js onServerRoomClosed.
+// 방 서버 방이 닫히면(roomDir 칸 삭제) 그 방이 Firebase 에 남긴 대화를 빈 방 규칙대로 걷는다(투게더 #일반은 1시간 뒤) — room-stats.js onServerRoomClosed.
 // 방에 사람이 있는 동안은 칸이 있어 정리(sweepEmptyRooms)가 대화를 건드리지 않는다. 방 서버 재시작은 칸을 지우지 않는다.
 exports.roomDirOnClose = onValueDeleted({ ref: '/roomDir/{room}', timeoutSeconds: 60, maxInstances: 2, retry: false },
   async (event) => {
     const { getDatabase } = require('firebase-admin/database');   // 배포 때 로딩 시간 제한 때문에 여기서 require
     const code = event.params.room;
-    const r = await require('./room-stats').onServerRoomClosed(getDatabase(), code, event.data && event.data.val());
+    const r = await require('./room-stats').onServerRoomClosed(getDatabase(), code, event.data && event.data.val(), Date.now());
     if (r !== 'secret') console.log('[roomDirOnClose]', code, r);
   });
 

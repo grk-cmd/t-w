@@ -93,8 +93,10 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
           if(o.failGet && o.failGet(p)) throw new Error('get ' + p);
           if(p === 'roomIndex'){ const out = {}; for(const k in srv) if(k.startsWith('roomIndex/')) out[k.slice(10)] = srv[k]; return { val: () => out }; }
           if(p === 'roomAlive') return { val: () => (o.alive || null) };
+          if(p === 'chatPurge'){ const out = {}; for(const k in srv) if(k.startsWith('chatPurge/')) out[k.slice(10)] = srv[k]; return { val: () => (Object.keys(out).length ? out : null) }; }
           return { val: () => val(p) };
         },
+        set: async (v) => { L.ops.push(['set', p, v]); srv[p] = v; },
         remove: async () => { L.ops.push(['remove', p]); for(const k of Object.keys(srv)) if(k === p || k.startsWith(p + '/')) delete srv[k]; },
         transaction: async (fn) => {
           if(p === 'roomStats') return { committed: true };
@@ -129,13 +131,13 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     let r = await run(room('P1'));
     chk(!('rooms/P1/_meta' in r.srv) && !Object.keys(r.srv).some(k => k.startsWith('rooms/P1/_chatTab')) && !('roomIndex/P1' in r.srv),
       '빈 채로 2분 넘은 방 — _meta · _chatTab · 줄을 걷는다');
-    chk(!('rooms/P1/chatLog/k1' in r.srv), '★ 투게더룸(공용 · 대여룸)은 #일반 대화(chatLog)까지 지운다 — 다음 사람에게 개인 기록이 안 남게');
+    chk('rooms/P1/chatLog/k1' in r.srv && r.srv['chatPurge/P1'] === now, '★ 투게더룸(공용 · 대여룸)은 #일반 대화(chatLog)를 바로 안 지우고 지울 시각을 적는다 (chatPurge — 1시간 뒤)');
     r = await run(room('PW', { 'roomIndex/PW': { lastSeen: 0, emptyAt: now - 3 * MIN, channel: 'workingroom' }, 'rooms/PW/_meta': { channel: 'workingroom', host: 'uA', ts: now - 30 * MIN, openTs: now - 30 * MIN } }));
     chk(!('rooms/PW/_meta' in r.srv) && 'rooms/PW/chatLog/k1' in r.srv, '  ↳ 워킹룸은 chatLog 를 남긴다 (KEEP_CHAT_LOG_ON_EMPTY)');
     r = await run(room('SCRT-AB', {}));
     chk('rooms/SCRT-AB/chatLog/k1' in r.srv, '  ↳ 시크릿룸(SCRT-)은 채널이 투게더여도 chatLog 를 남긴다 (비어도 유지되는 방)');
     r = await run(room('PT', { 'rooms/PT/_meta': null }));
-    chk(!('rooms/PT/chatLog/k1' in r.srv), '  ↳ _meta 가 이미 없어도 roomIndex 줄의 채널(투게더)로 알아본다');
+    chk(r.srv['chatPurge/PT'] === now, '  ↳ _meta 가 이미 없어도 roomIndex 줄의 채널(투게더)로 알아본다');
     r = await run(room('P1'));
     chk(r.sum.emptied && r.sum.emptied.cleared === 1, '  ↳ 요약에 남는다 (emptied.cleared 1)');
     chk(r.L.reads.filter(p => p === 'roomAlive').length === 1, '  ↳ roomAlive 트리는 한 번만 읽는다 (유령 청소와 같이 쓴다)');
@@ -148,12 +150,40 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     r = await run(room('PL'));
     chk(JSON.stringify(r.sum.emptied.codes) === '["PL"]', '  ↳ 대화까지 지운 방 코드는 요약(로그)에 남는다 (codes)');
     // 방 서버 방이 닫힘(roomDir 삭제 트리거) — 같은 규칙으로 대화를 걷는다
-    const closed = async (code, srv, prev) => { const m = mkDb(srv); const out = await f.onServerRoomClosed(m.db, code, prev); return { out, srv: m.L.srv }; };
+    const closed = async (code, srv, prev) => { const m = mkDb(srv); const out = await f.onServerRoomClosed(m.db, code, prev, now); return { out, srv: m.L.srv }; };
     const chatOf = (code) => ({ ['rooms/' + code + '/chatLog/k1']: { text: 'hi', ts: 1 }, ['rooms/' + code + '/_chatTab/s1/k1']: { text: 'hi', ts: 1 } });
     let c = await closed('PX', chatOf('PX'), { srv: 'realtime-1', meta: { channel: 'togetherroom' } });
-    chk(c.out === 'cleared' && !('rooms/PX/chatLog/k1' in c.srv) && !('rooms/PX/_chatTab/s1/k1' in c.srv), '🛰 방 서버 투게더룸이 닫히면 #일반 · 탭 대화를 지운다 (나가면 정리)');
+    chk(c.out === 'cleared' && 'rooms/PX/chatLog/k1' in c.srv && c.srv['chatPurge/PX'] === now && !('rooms/PX/_chatTab/s1/k1' in c.srv), '🛰 방 서버 투게더룸이 닫히면 탭 대화는 지우고 #일반은 지울 시각을 적는다 (1시간 뒤)');
     c = await closed('PY', chatOf('PY'), { srv: 'realtime-1', meta: { channel: 'workingroom' } });
-    chk('rooms/PY/chatLog/k1' in c.srv && !('rooms/PY/_chatTab/s1/k1' in c.srv), '  ↳ 워킹룸은 #일반을 남기고 탭 대화만 (Firebase 빈 방과 같다)');
+    chk('rooms/PY/chatLog/k1' in c.srv && !('chatPurge/PY' in c.srv) && !('rooms/PY/_chatTab/s1/k1' in c.srv), '  ↳ 워킹룸은 #일반을 남기고(예약도 없음) 탭 대화만 (Firebase 빈 방과 같다)');
+    chk(/onServerRoomClosed\(getDatabase\(\), code, event\.data && event\.data\.val\(\), Date\.now\(\)\)/.test(FX), '  ↳ 트리거가 지금 시각을 넘긴다 (예약 시각)');
+    // ⏳ 1분 주기 — 예약이 1시간 지난 방만 #일반을 지운다
+    {
+      const H = f.CHAT_KEEP_EMPTY_MS;
+      const sweep = async (srv) => { const m = mkDb(srv); const out = await f.sweepChatPurge(m.db, now); return { out, srv: m.L.srv }; };
+      let w = await sweep(Object.assign(chatOf('Q1'), { 'chatPurge/Q1': now - H - 1000 }));
+      chk(!('rooms/Q1/chatLog/k1' in w.srv) && !('chatPurge/Q1' in w.srv) && w.out.purged === 1, '⏳ 비고 1시간 지난 투게더룸 — #일반을 지우고 예약도 걷는다');
+      w = await sweep(Object.assign(chatOf('Q2'), { 'chatPurge/Q2': now - H + 60 * 1000 }));
+      chk('rooms/Q2/chatLog/k1' in w.srv && w.srv['chatPurge/Q2'] === now - H + 60 * 1000 && w.out.waiting === 1, '  ↳ 1시간 안 됐으면 둔다 (59분 — 대화 · 예약 그대로)');
+      w = await sweep(Object.assign(chatOf('Q3'), { 'chatPurge/Q3': now - H - 1000, 'rooms/Q3/_meta': { channel: 'togetherroom', ts: now } }));
+      chk('rooms/Q3/chatLog/k1' in w.srv && !('chatPurge/Q3' in w.srv) && w.out.reopened === 1, '★ 그새 다시 열린 방(Firebase _meta)은 대화를 남기고 예약만 걷는다');
+      w = await sweep(Object.assign(chatOf('Q4'), { 'chatPurge/Q4': now - H - 1000, 'roomDir/Q4': { srv: 'realtime-1', ts: now } }));
+      chk('rooms/Q4/chatLog/k1' in w.srv && !('chatPurge/Q4' in w.srv), '  ↳ 방 서버 방으로 다시 열렸어도 남긴다');
+      w = await sweep(chatOf('Q5'));
+      chk('rooms/Q5/chatLog/k1' in w.srv && w.out.purged === 0 && w.out.waiting === 0, '  ↳ 예약이 없으면 아무것도 안 지운다');
+      const many = {}; for(let i = 0; i < f.CHAT_PURGE_MAX + 5; i++) many['chatPurge/M' + i] = now - H - 1000;
+      w = await sweep(many);
+      chk(w.out.purged === f.CHAT_PURGE_MAX && Object.keys(w.srv).filter(k => k.startsWith('chatPurge/')).length === 5, '  ↳ 한 번에 CHAT_PURGE_MAX 개만 (나머지는 다음 주기)');
+      // 깨 보기 — 1시간 대신 0 이면 59분짜리도 지워진다
+      const m = mkDb(Object.assign(chatOf('Q6'), { 'chatPurge/Q6': now - H + 60 * 1000 }));
+      const saved = f.CHAT_KEEP_EMPTY_MS; let broke = false;
+      try{ const src = need('functions/room-stats.js').replace(/const CHAT_KEEP_EMPTY_MS = [^;]+;/, 'const CHAT_KEEP_EMPTY_MS = 0;');
+           const M = { exports: {} }; new Function('module', 'exports', 'require', src)(M, M.exports, require);
+           await M.exports.sweepChatPurge(m.db, now); broke = !('rooms/Q6/chatLog/k1' in m.L.srv); }catch(e){ broke = false; }
+      chk(saved === 60 * 60 * 1000 && broke, '  ↳ 깨 보기: 보관 시간을 0 으로 바꾸면 59분짜리도 지워진다 (검사가 시간을 실제로 본다)');
+      r = await run(Object.assign(room('P9'), { 'chatPurge/OLD9': now - H - 1000, 'rooms/OLD9/chatLog/k1': { text: 'x', ts: 1 } }));
+      chk(!('rooms/OLD9/chatLog/k1' in r.srv) && r.sum.chatPurge && r.sum.chatPurge.purged === 1, '  ↳ 1분 주기(runRoomStats)가 부른다 · 요약에 chatPurge');
+    }
     c = await closed('SCRT-PZ', chatOf('SCRT-PZ'), { srv: 'realtime-1', meta: { channel: 'togetherroom', secret: true } });
     chk(c.out === 'secret' && 'rooms/SCRT-PZ/chatLog/k1' in c.srv && 'rooms/SCRT-PZ/_chatTab/s1/k1' in c.srv, '  ↳ 시크릿룸은 다 남긴다');
     c = await closed('PR', Object.assign(chatOf('PR'), { 'roomDir/PR': { srv: 'realtime-2', ts: now, meta: { channel: 'togetherroom' } } }), { srv: 'realtime-1', meta: { channel: 'togetherroom' } });

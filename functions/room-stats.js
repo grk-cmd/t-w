@@ -23,6 +23,9 @@
  *      빈 방에 들어오는 길(빈 방 선점 · 만들기 · 시크릿룸 · 되살리기)은 전부 `_meta.ts` 를 먼저 쓴다.
  *   그 뒤 `_chatTab` 과 줄을 지운다. chatLog 는 남긴다(앱 KEEP_CHAT_LOG_ON_EMPTY) — **투게더룸만 빼고**:
  *   투게더룸은 누구나 들어오는 공용 방이라 방장까지 다 나가 비면 #일반 대화(chatLog)까지 지운다(2026-10-11 결정).
+ *   ⏳ 다만 바로 지우지 않고 CHAT_KEEP_EMPTY_MS(1시간) 뒤에 — 다 같이 잠깐 나갔다 오면(재접속 · 앱 다시 켜기) 대화가 남게.
+ *   비는 순간 chatPurge/{코드} = 그 시각 을 적고, 1분 주기(sweepChatPurge)가 1시간 지난 칸을 본다: 그새 다시 열렸으면
+ *   (Firebase `_meta` · 방 서버 roomDir) 칸만 걷고 대화는 남긴다 — 그 방이 다시 비면 새 시각이 적힌다.
  *   워킹룸 · 시크릿룸(SCRT-)은 예전처럼 남긴다. 채널은 지우는 `_meta` 트랜잭션이 본 값, 없으면 roomIndex 줄의 값.
  *   🔒 시크릿룸은 비어도 방이 유지된다(2026-10-11 결정) — `_meta`(채팅 탭 목록 · 방장) · `_chatTab` · chatLog 를 모두 남기고
  *   비었음 줄만 걷는다. 다시 들어올 때 앱은 `_meta` 를 update 로 고쳐 쓰므로(setRoomChannel) 탭 목록이 그대로 이어진다.
@@ -57,6 +60,9 @@ const EMPTY_GRACE_MS = 2 * 60 * 1000;        // 비었음 표시 뒤 이만큼 �
 const MEMBER_GONE_MS = 10 * 60 * 1000;       // 옛 방식(lastSeen) 멤버를 «없다» 로 볼 문턱 — 입장 검사(5분)보다 넉넉하게
 const EMPTY_SWEEP_MAX = 50;                  // 한 번에 이만큼만(방마다 shallow 1 · 트랜잭션 2)
 const CODES_LOG_MAX = 20;                    // 로그에 남길 방 코드 수
+const CHAT_KEEP_EMPTY_MS = 60 * 60 * 1000;   // 빈 투게더룸 #일반 대화를 지우기까지(사용자 10-20 «1시간»)
+const CHAT_PURGE_PATH = 'chatPurge';         // {코드: 빈 시각} — 서버만 읽고 쓴다(규칙 맨 위 거절 · admin 만)
+const CHAT_PURGE_MAX = 50;                   // 한 번에 이만큼만(칸마다 읽기 2 · 지우기 2)
 
 // 줄이 조용해진 때 — 하트비트(lastSeen)와 비었음 표시(emptyAt) 중 늦은 쪽. 비었음 표시는 lastSeen 을 0 으로 쓴다.
 function quietSince(e){
@@ -267,7 +273,7 @@ async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
         done.add(code); serverKept++; continue;
       }
       if (keys && keys._chatTab) await db.ref('rooms/' + code + '/_chatTab').remove();
-      if (keys && keys.chatLog && await isPublicTogether(db, code, metaChannel)) await db.ref('rooms/' + code + '/chatLog').remove();
+      if (keys && keys.chatLog && await isPublicTogether(db, code, metaChannel)) await markChatPurge(db, code, now);
       await dropEmptyRow(db, code, now);
       done.add(code); cleared++;
       if (codesOut.length < CODES_LOG_MAX) codesOut.push(code);
@@ -279,14 +285,34 @@ async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
 /* 🛰 방 서버 방이 닫혔다(roomDir/{코드} 삭제 트리거 · prev = 지워진 칸) — 빈 Firebase 방과 같은 규칙으로 대화를 걷는다.
    같은 코드의 Firebase 방이 열려 있거나(_meta) 그새 방 서버 방이 다시 열렸으면 그만둔다 — 그 방이 쓰는 대화다.
    Firebase 방이 비면 sweepEmptyRooms 가 같은 규칙으로 걷는다(그땐 roomDir 이 없으니 대화도). */
-async function onServerRoomClosed(db, code, prev){
+async function onServerRoomClosed(db, code, prev, now){
   const meta = (prev && prev.meta) || {};
   if (String(code).indexOf(SECRET_ROOM_PREFIX) === 0 || meta.secret === true) return 'secret';
   if (await serverRoomLive(db, code)) return 'reopened';
   if ((await db.ref('rooms/' + code + '/_meta/channel').get()).val() != null) return 'firebase';
   await db.ref('rooms/' + code + '/_chatTab').remove();
-  if (meta.channel === CHANNEL.TOGETHER) await db.ref('rooms/' + code + '/chatLog').remove();
+  if (meta.channel === CHANNEL.TOGETHER) await markChatPurge(db, code, now);
   return 'cleared';
+}
+
+/* ⏳ 빈 투게더룸 대화 지우기 예약(맨 위 ⏳) — 지금 비었다는 시각만 적는다. 다시 비면 새 시각으로 덮는다. */
+function markChatPurge(db, code, now){
+  return db.ref(CHAT_PURGE_PATH + '/' + code).set(now);
+}
+/* 예약이 CHAT_KEEP_EMPTY_MS 지난 방의 chatLog 를 지운다. 그새 다시 열린 방(Firebase _meta · 방 서버)은 예약만 걷는다. */
+async function sweepChatPurge(db, now){
+  const marks = (await db.ref(CHAT_PURGE_PATH).get()).val() || {};
+  const due = Object.keys(marks).filter(code => !(now - Number(marks[code]) < CHAT_KEEP_EMPTY_MS)).slice(0, CHAT_PURGE_MAX);
+  let purged = 0, reopened = 0, failed = 0;
+  for (const code of due){
+    try{
+      const inUse = (await db.ref('rooms/' + code + '/_meta/channel').get()).val() != null || await serverRoomLive(db, code);
+      if (!inUse){ await db.ref('rooms/' + code + '/chatLog').remove(); purged++; } else reopened++;
+      // 지우는 사이 다시 비어 새 시각이 적혔으면 남긴다
+      await db.ref(CHAT_PURGE_PATH + '/' + code).transaction(cur => (cur === null || Number(cur) === Number(marks[code])) ? null : undefined, undefined, false);
+    }catch(e){ failed++; }
+  }
+  return { waiting: Object.keys(marks).length - due.length, purged, reopened, failed };
 }
 
 // opts.drop === false 면 세기만 한다(열림 · 닫힘 트리거). 낡은 줄 지우기 · channel 채우기는 주기 실행만.
@@ -310,6 +336,8 @@ async function runRoomStats(db, now, opts){
       catch(e){ emptied.failed++; }
     }
   }
+  let chatPurge = { waiting: 0, purged: 0, reopened: 0, failed: 0 };
+  if (!light){ try{ chatPurge = await sweepChatPurge(db, now); }catch(e){ chatPurge.failed++; } }
   const drop = light ? [] : dropAll.filter(code => !emptied.done.has(code));
   let dropped = 0, kept = 0, failed = 0;
   const cutoff = now - ROOM_INDEX_DROP_MS;
@@ -338,11 +366,11 @@ async function runRoomStats(db, now, opts){
                 server: stats.server.workingroom + stats.server.togetherroom,
                 rows: Object.keys(idx).length, dropped, kept, failed, repaired, alive,
                 emptied: { cleared: emptied.cleared, busy: emptied.busy, kept: emptied.kept, failed: emptied.failed, secretKept: emptied.secretKept,
-                           serverKept: emptied.serverKept, codes: emptied.codes } };
-  if (dropped || failed || repaired || alive.ghosts || alive.failed || emptied.cleared || emptied.failed || emptied.serverKept) console.log('[roomStats]', JSON.stringify(sum));
+                           serverKept: emptied.serverKept, codes: emptied.codes }, chatPurge };
+  if (dropped || failed || repaired || alive.ghosts || alive.failed || emptied.cleared || emptied.failed || emptied.serverKept || chatPurge.purged || chatPurge.failed) console.log('[roomStats]', JSON.stringify(sum));
   return sum;
 }
 
-module.exports = { roomStatsFrom, runRoomStats, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, serverRoomLive, onServerRoomClosed, isEmptyMark, quietSince, isServerRow,
+module.exports = { roomStatsFrom, runRoomStats, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, serverRoomLive, onServerRoomClosed, markChatPurge, sweepChatPurge, isEmptyMark, quietSince, isServerRow,
   ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_DROP_MAX, ROOM_REPAIR_MAX, ROOM_ALIVE_STALE_MS, ROOM_ALIVE_HB,
-  EMPTY_GRACE_MS, MEMBER_GONE_MS, EMPTY_SWEEP_MAX };
+  EMPTY_GRACE_MS, MEMBER_GONE_MS, EMPTY_SWEEP_MAX, CHAT_KEEP_EMPTY_MS, CHAT_PURGE_PATH, CHAT_PURGE_MAX };
