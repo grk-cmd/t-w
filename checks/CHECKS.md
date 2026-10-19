@@ -119,9 +119,9 @@
 | **sim-fly-replay.js** | 161 | **b7faec9ac84f** |
 | **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
 | **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
-| **sim-room-meta-cleanup.js** | 272 | **5f7b5a253c3d** |
+| **sim-room-meta-cleanup.js** | 272 | **fbdbd2710e9f** |
 | **sim-room-stats.js** | 226 | **3ca0e9bad691** |
-| **sim-room-alive.js** | 126 | **652075a7aedf** |
+| **sim-room-alive.js** | 142 | **87cc586033a4** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |

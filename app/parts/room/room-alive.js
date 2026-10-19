@@ -54,9 +54,11 @@ export function isIndexToucher(myId, friends){
 }
 
 // 입장 검사 · 관리자 청소용 — 멤버 id 하나가 살아 있나. lastSeen(옛 방식) 또는 roomAlive 도장(새 방식) 중 하나라도 최근이면 산 것.
-// lastSeen 이 아예 없는 항목은 예전 규칙대로 산 것으로 센다(checkRoomCapacity 와 같다).
+// ⚠️ 둘 다 없는 칸은 찌꺼기다(나간 뒤 늦게 쓴 하위 칸 하나가 노드를 되살린 것 — 지금 앱은 입장 때 꼭 적는다 · minRoomVer 0.11.3).
+//   산 것으로 세면 그 방은 늘 «사람 있음» 이라 Firebase 방에 붙잡히고 정원도 잘못 찬다.
+//   서버 빈 방 판정 functions/room-stats.js roomOccupied 와 같은 규칙 — 한쪽만 바꾸면 sim-room-alive 가 빨강.
 export function isProbeAlive(lastSeen, aliveAt, now, staleMs){
-  if(lastSeen == null && aliveAt == null) return true;
+  if(lastSeen == null && aliveAt == null) return false;
   if(lastSeen != null && (now - lastSeen) < staleMs) return true;
   if(typeof aliveAt === 'number' && (now - aliveAt) < ROOM_ALIVE_STALE_MS) return true;
   return false;

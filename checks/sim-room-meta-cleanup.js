@@ -175,7 +175,7 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     r = await run(room('P5', { 'rooms/P5/m1/lastSeen': now - 20 * MIN }));
     chk(!('rooms/P5/_meta' in r.srv), '  ↳ 20분 넘게 조용한 옛 노드(유령)는 없는 것으로 — 걷는다');
     r = await run(room('P6', { 'rooms/P6/m1/name': 'x' }));
-    chk('rooms/P6/_meta' in r.srv, '  ↳ lastSeen 이 아예 없는 노드는 있는 것으로 (입장 검사와 같다)');
+    chk(!('rooms/P6/_meta' in r.srv), '  ↳ ★ lastSeen 도 도장도 없는 노드(찌꺼기)는 없는 것으로 — 걷는다(입장 검사 isProbeAlive 와 같다)');
     r = await run(room('P7'), { alive: { P7: { mz1: now - 10 * 1000 } } });
     chk('rooms/P7/_meta' in r.srv, 'roomAlive 도장이 신선하면 있는 것으로 (멤버 키를 읽기 전에)');
     r = await run(room('P8'), { alive: { P8: { mz1: now - 10 * MIN } } });
