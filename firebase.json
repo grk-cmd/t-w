@@ -22,6 +22,12 @@
     "predeploy": ["npm --prefix web-admin ci", "npm --prefix web-admin run build"],
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "help/**"],
     "cleanUrls": true,
+    "redirects": [
+      { "source": "/privacy", "destination": "https://help.together-working.com/privacy", "type": 301 },
+      { "source": "/privacy.html", "destination": "https://help.together-working.com/privacy", "type": 301 },
+      { "source": "/link", "destination": "https://help.together-working.com/link", "type": 301 },
+      { "source": "/link.html", "destination": "https://help.together-working.com/link", "type": 301 }
+    ],
     "headers": [
       {
         "source": "**",

@@ -79,7 +79,7 @@
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 384 | **7edc054fab9a** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
-| **sim-bug-cleanup.js** | 191 | **f7293434d85a** |
+| **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-chat-history.js** | 244 | **73c10dfe62ee** |
 | **sim-gamepad-activity.js** | 131 | **320f86854007** |
 | **sim-mallang-hide.js** | 122 | **1250ce12a494** |
@@ -161,7 +161,7 @@
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
 | **sim-fix-0923.js** | 297 | **9f338dfa790b** |
 | **sim-noise.js** | 146 | **40568ea4018a** |
-| **sim-mobile-focus.js** | 217 | **ad1eb265355b** |
+| **sim-mobile-focus.js** | 219 | **c7a03a78f5b0** |
 | **sim-mac-0923.js** | 86 | **dffa6adc7170** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
 | **sim-overlay-gap.js** | 343 | **0fc0435f4b6f** |
@@ -215,7 +215,7 @@
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
 | **sim-frame-budget.js** | 186 | **6d7b7c2bd72e** |
 | **sim-design-site.js** | 61 | **5c8de512f913** |
-| **sim-help-pages.js** | 151 | **9210d0261831** |
+| **sim-help-pages.js** | 154 | **979379aa40cc** |
 | **sim-help-tab.js** | 200 | **1877f429bfdc** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** |

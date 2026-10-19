@@ -17,9 +17,12 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { if (ok){ pass++; say('  ✓ ' + msg); } else { fail++; say('  ✗ ' + msg); } };
 if (!fs.existsSync(path.join(DIR, 'index.html'))){ say('  ? 원본 못 찾음 — hosting/help/index.html'); process.exit(2); }
 
+// 같은 사이트에 있지만 튜토리얼이 아닌 페이지 — 목차 · 이전/다음 · 칸 안 모양 규칙 밖(처리방침은 sim-bug-cleanup · sim-chat-history, 폰 연결은 sim-mobile-focus 가 본다)
+const OTHER_PAGES = ['privacy.html', 'link.html'];
+
 function load(){
   const pages = {};
-  for (const f of fs.readdirSync(DIR)) if (f.endsWith('.html')) pages[f] = fs.readFileSync(path.join(DIR, f), 'utf8');
+  for (const f of fs.readdirSync(DIR)) if (f.endsWith('.html') && !OTHER_PAGES.includes(f)) pages[f] = fs.readFileSync(path.join(DIR, f), 'utf8');
   const files = new Set();
   const walk = (d, rel) => { for (const f of fs.readdirSync(d)){ const p = path.join(d, f); fs.statSync(p).isDirectory() ? walk(p, rel + f + '/') : files.add(rel + f); } };
   walk(DIR, '');

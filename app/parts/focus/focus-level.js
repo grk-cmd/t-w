@@ -467,7 +467,7 @@ function _mobileNewKey(){
 }
 function _mobileLinkUrl(uid, key){
   // ★ 키는 # 뒤 — 호스팅 서버 로그에 안 남는다(§4-⑤)
-  return 'https://together-working.web.app/link#u=' + encodeURIComponent(uid) + '&k=' + encodeURIComponent(key);
+  return 'https://help.together-working.com/link#u=' + encodeURIComponent(uid) + '&k=' + encodeURIComponent(key);
 }
 /* 서버 state → 전역. 이 PC 의 키로 쓴 것만 믿는다(키를 새로 만든 뒤 예전 값이 늦게 와도 무시). */
 function _mobileApplyState(v){
