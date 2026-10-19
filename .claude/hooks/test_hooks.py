@@ -127,12 +127,15 @@ else:
     bad += 1
     print('  ✗ 판정 머리 커밋 없음')
 
-# 위험도 판정 — 새 파일이라는 것만으로는 높지 않다(새 파일의 줄도 데이터 검사를 거친다)
+# 위험도 판정 — 새 파일이라는 것만으로는 높지 않다(새 파일의 줄도 데이터 검사를 거친다 · deps 로 넘기는 provider · 저장 키 상수도 잡는다)
 _api = risk.api
 assess_cases = [
     ('새 UI 모듈', [{'filename': 'app/parts/shared/drag-scroll.js', 'status': 'added', 'changes': 3, 'patch': "+function onDown(e){\n+  el.classList.add('dragging');\n+}"}], False),
     ('새 모듈에 데이터 호출', [{'filename': 'app/parts/inbox/inbox-x.js', 'status': 'added', 'changes': 1, 'patch': '+  firebaseAPI.markAllInboxRead(uid);'}], True),
     ('새 모듈에 서버 호출', [{'filename': 'app/parts/x/net.js', 'status': 'added', 'changes': 1, 'patch': '+  const r = await fetch(url);'}], True),
+    ('새 모듈이 provider 로 부름', [{'filename': 'app/parts/x/desk-y.js', 'status': 'added', 'changes': 1, 'patch': '+  await catalogNet().unpublishDesk(id);'}], True),
+    ('deps 로 firebaseAPI 넘기는 배선', [{'filename': 'app/parts/app.js', 'status': 'modified', 'changes': 1, 'patch': '+const yMod = TwY.createY({ saveMyHome: firebaseAPI.saveMyHome, catalogNet: ()=>window.firebaseAPI });'}], True),
+    ('새 모듈 저장 키 상수', [{'filename': 'app/parts/x/pref.js', 'status': 'added', 'changes': 1, 'patch': '+  localStorage.setItem(PREF_KEY, v);'}], True),
     ('새 모듈 diff 못 읽음', [{'filename': 'app/parts/x/big.js', 'status': 'added', 'changes': 9000, 'patch': None}], True),
     ('기존 화면 파일 · 문구만', [{'filename': 'app/parts/myhome/inbox-ui.js', 'status': 'modified', 'changes': 1, 'patch': "+  btn.textContent = '전체 읽음';"}], False),
 ]

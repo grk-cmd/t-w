@@ -38,9 +38,11 @@ RISKY_FILES = [
 RISKY_LINES = [
     (re.compile(r'\b(onValue|onChildAdded|onChildChanged|onChildRemoved|runTransaction|onDisconnect)\s*\('), 'Firebase 구독 · 트랜잭션'),
     (re.compile(r'\b(get|set|update|push|remove)\s*\(\s*(ref|child|query)\s*\('), 'Firebase 읽기 · 쓰기'),
-    (re.compile(r'firebaseAPI\.\w+\s*\('), 'firebaseAPI 호출'),
+    # 부르지 않고 deps 로 넘기는 배선(`saveX: firebaseAPI.saveX` · `()=>window.firebaseAPI`)도 데이터 통로를 새로 연다
+    (re.compile(r'\bfirebaseAPI\b'), 'firebaseAPI 호출 · 배선'),
+    (re.compile(r'\b\w+Net\(\)\.\w+\s*\('), 'provider 호출'),
     (re.compile(r'\bfetch\s*\(|\bapiClient\b|\bnew WebSocket\b|realtime-link'), '서버 호출'),
-    (re.compile(r"localStorage\.(setItem|removeItem)\s*\(\s*['\"]tw\."), '저장 키'),
+    (re.compile(r'localStorage\.(setItem|removeItem)\s*\('), '저장 키'),   # 키를 상수로 넘겨도
 ]
 
 
