@@ -1,5 +1,5 @@
 /* drag-scroll.js — 🖱 목록을 마우스로 끌어 위아래로 움직이기(스크롤바를 숨긴 목록용 — 휠은 브라우저가 그대로 한다)
-   ・내놓는 것: attachDragScroll(el) — 한 요소에 한 번만 건다 · DRAG_PX
+   ・내놓는 것: attachDragScroll(el, opts) — 한 요소에 한 번만 건다 · opts.skip(선택자 — 여기서 누르면 끌기를 시작하지 않는다 · 글자 고르기 · 링크) · DRAG_PX
    ⚠️ DRAG_PX 보다 적게 움직이면 끌기가 아니라 누르기다 — 항목 열기(click)를 그대로 둔다. 끈 뒤 손을 뗄 때 나는 click 은 막는다(끌다가 엉뚱한 글이 열리지 않게).
    ⚠️ 왼쪽 버튼만 — 우클릭 메뉴는 건드리지 않는다. 순수 DOM 도우미라 도메인을 모른다(shared).
    검사: checks/sim-drag-scroll.js */
@@ -7,14 +7,16 @@
 
 const DRAG_PX = 5;
 
-function attachDragScroll(el){
+function attachDragScroll(el, opts){
   if(!el || el._dragScroll) return;
   el._dragScroll = true;
+  const skip = (opts && opts.skip) || '';
   let start = null, moved = false;
   el.addEventListener('pointerdown', e=>{
     if(e.button !== 0) return;
-    start = { y: e.clientY, top: el.scrollTop, id: e.pointerId };
     moved = false;
+    if(skip && e.target.closest(skip)){ start = null; return; }   // 본문 글자 고르기 · 링크 끌어 놓기는 브라우저 몫
+    start = { y: e.clientY, top: el.scrollTop, id: e.pointerId };
   });
   el.addEventListener('pointermove', e=>{
     if(!start) return;

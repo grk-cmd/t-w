@@ -20,7 +20,7 @@ function mkEl(){
     classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c) },
     addEventListener(t, f, cap){ (L[t] = L[t] || []).push({ f, cap: !!cap }); },
     setPointerCapture(id){ el.captured = id; },
-    fire(t, o = {}){ const e = Object.assign({ prevented: 0, stopped: 0, preventDefault(){ e.prevented++; }, stopPropagation(){ e.stopped++; } }, o); (L[t] || []).forEach((h) => h.f(e)); return e; },
+    fire(t, o = {}){ const e = Object.assign({ target: { closest: () => null }, prevented: 0, stopped: 0, preventDefault(){ e.prevented++; }, stopPropagation(){ e.stopped++; } }, o); (L[t] || []).forEach((h) => h.f(e)); return e; },
     count: (t) => (L[t] || []).length };
   return el;
 }
@@ -29,6 +29,16 @@ function behave(src){
   const r = []; const t = (ok, m) => r.push([!!ok, m]);
   const D = load(src);
   t(D && typeof D.attachDragScroll === 'function' && D.DRAG_PX === 5, '싣기만 하면 window.TwDragScroll · 문턱 5px');
+  {
+    /* 펼친 본문 · 링크 — 거기서 누르면 끌기를 시작하지 않는다(글자 고르기 · 링크 끌어 놓기) */
+    const sk = mkEl(); D.attachDragScroll(sk, { skip: '.body, a' });
+    const inBody = { closest: (sel) => (sel === '.body, a' ? {} : null) };
+    sk.fire('pointerdown', { button: 0, clientY: 200, pointerId: 1, target: inBody }); sk.fire('pointermove', { clientY: 100 }); sk.fire('pointerup', {});
+    const c1 = sk.fire('click');
+    t(sk.scrollTop === 100 && !sk.classList.contains('dragging') && c1.stopped === 0, '★ 본문 · 링크(skip)에서 누르면 끌지 않는다 — 목록은 그대로 · 글자 고르기 · 클릭 그대로');
+    sk.fire('pointerdown', { button: 0, clientY: 200, pointerId: 2 }); sk.fire('pointermove', { clientY: 150 });
+    t(sk.scrollTop === 150, '  같은 목록의 다른 곳(카드 머리 · 빈 곳)에서는 끈다');
+  }
   let el = mkEl(); D.attachDragScroll(el); D.attachDragScroll(el);
   t(el.count('pointerdown') === 1 && el.count('click') === 1, '같은 요소에 두 번 걸어도 한 번만');
   t((() => { try { D.attachDragScroll(null); return true; } catch (_) { return false; } })(), '  요소가 없으면 조용히 넘어간다(목록 칸이 없는 화면)');
@@ -63,7 +73,8 @@ say('── 2. 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['문턱 없음(누르기도 끌기로)', (s) => s.replace('if(Math.abs(dy) < DRAG_PX) return;', '')],
   ['끈 뒤 클릭을 안 막음', (s) => s.replace('e.preventDefault(); e.stopPropagation();', '')],
-  ['누를 때 끌기 표시를 안 지움', (s) => s.replace('    moved = false;\n  });', '  });')],
+  ['누를 때 끌기 표시를 안 지움', (s) => s.replace("    if(e.button !== 0) return;\n    moved = false;\n", "    if(e.button !== 0) return;\n")],
+  ['본문 · 링크에서도 끌기 시작', (s) => s.replace("if(skip && e.target.closest(skip)){ start = null; return; }", '')],
   ['오른쪽 버튼도 끈다', (s) => s.replace('if(e.button !== 0) return;', '')],
   ['반대 방향으로 움직임', (s) => s.replace('el.scrollTop = start.top - dy;', 'el.scrollTop = start.top + dy;')],
 ];
@@ -75,7 +86,7 @@ for (const [name, f] of breaks) {
 say('── 3. 배선');
 const iD = HTML.indexOf('<script src="parts/shared/drag-scroll.js">'), iU = HTML.indexOf('<script src="parts/myhome/myhome-ui.js">');
 chk(iD > 0 && iD < iU, 'html — drag-scroll.js 를 myhome-ui.js 보다 먼저');
-chk(/\['mhInboxList', 'mhNewsList'\]\.forEach\(id=>TwDragScroll\.attachDragScroll\(document\.getElementById\(id\)\)\);/.test(UI), '★ 우편 · 소식 목록 둘 다에 건다');
+chk(/\['mhInboxList', 'mhNewsList'\]\.forEach\(id=>TwDragScroll\.attachDragScroll\(document\.getElementById\(id\), \{ skip: INBOX_DRAG_SKIP \}\)\);/.test(UI) && /const INBOX_DRAG_SKIP = '\.mh-ibx-body, a';/.test(UI), '★ 우편 · 소식 목록 둘 다에 건다 · 펼친 본문(.mh-ibx-body) · 링크(a)는 뺀다');
 chk(/#mhInboxList, #mhNewsList\{scrollbar-width:none;\}/.test(HTML) && /#mhInboxList::-webkit-scrollbar, #mhNewsList::-webkit-scrollbar\{display:none;\}/.test(HTML), '★ 두 목록 모두 스크롤바를 숨긴다(휠은 그대로)');
 const sD = SMOKE.indexOf("PRELOAD.push('drag-scroll.js');"), sU = SMOKE.indexOf("PRELOAD.push('myhome-ui.js');");
 chk(sD > 0 && sD < sU, 'smoke PRELOAD — drag-scroll.js 를 myhome-ui.js 보다 먼저');

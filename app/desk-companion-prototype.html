@@ -3480,6 +3480,7 @@
   #mhInboxList, #mhNewsList{scrollbar-width:none;}
   #mhInboxList::-webkit-scrollbar, #mhNewsList::-webkit-scrollbar{display:none;}
   #mhInboxList.dragging, #mhNewsList.dragging{cursor:grabbing;user-select:none;}
+  #mhInboxList .mh-ibx-body{cursor:text;}   /* 본문은 끌기 대신 글자 고르기 */
   /* 👋 일괄 처리 바 — 요청이 하나도 없으면 JS 가 .on 을 떼서 통째로 숨긴다 */
   #mhFmBar{display:none;align-items:center;gap:6px;padding:6px 8px;background:#fdf8ec;
     border-bottom:1px solid #e0d5bd;flex-shrink:0;}

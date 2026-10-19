@@ -413,8 +413,10 @@ function syncFriendsOpen(){
   if(fmAcc) fmAcc.addEventListener('click', ()=>{ friendManage.bulkAccept(); });
   const fmRej = document.getElementById('mhFmRejectSel');
   if(fmRej) fmRej.addEventListener('click', ()=>{ friendManage.bulkReject(); });
-  /* 📩 우편 · 소식 목록 — 스크롤바를 숨겨서 마우스로 끌어 움직인다(휠은 그대로) */
-  ['mhInboxList', 'mhNewsList'].forEach(id=>TwDragScroll.attachDragScroll(document.getElementById(id)));
+  /* 📩 우편 · 소식 목록 — 스크롤바를 숨겨서 마우스로 끌어 움직인다(휠은 그대로).
+     펼친 우편 본문 · 링크 위에서는 끌기를 시작하지 않는다 — 글자를 끌어 골라 복사할 수 있게. */
+  const INBOX_DRAG_SKIP = '.mh-ibx-body, a';
+  ['mhInboxList', 'mhNewsList'].forEach(id=>TwDragScroll.attachDragScroll(document.getElementById(id), { skip: INBOX_DRAG_SKIP }));
   const readAllBtn = document.getElementById('mhInboxReadAllBtn');
   if(readAllBtn) readAllBtn.addEventListener('click', async ()=>{
     inboxMod.inboxBcMarkAllRead();   // 공용 공지도 로컬 읽음 처리
