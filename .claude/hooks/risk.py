@@ -6,9 +6,13 @@ GitHub Approve, 또는 PR 코멘트 한 줄 «승인 <머리 커밋 앞 7자리 
 이 PC 세션들은 OWNER 계정으로 PR 을 올린다). 커밋 번호를 받는 까닭: 시각으로 가리면 승인 뒤 옛 날짜 커밋을 올려도 통과한다.
 낮음 = 문구 · 화면 배치 · 스타일 · 데이터 경로가 그대로인 수정 · 문서 — 컨펌자 · 검증자 통과로 머지.
 
-  python3 .claude/hooks/risk.py <PR 번호>     → {"high": bool, "reasons": [...]} (gh api REST 만 씀 — 웹 세션에서도 된다)
+승인 · 판정은 커밋에 걸지만, 그 뒤 판 브랜치를 합치기만 한 머리(PR 자체 변경이 그대로)는 앞 커밋의 승인 · 판정을 이어 받는다(same_change).
+
+  python3 .claude/hooks/risk.py <PR 번호>              → {"high": bool, "reasons": [...]} (gh api REST 만 씀 — 웹 세션에서도 된다)
+  python3 .claude/hooks/risk.py --same <PR> <옛 커밋>   → 지금 머리가 그 커밋과 PR 자체 변경이 같은가(true/false)
+  python3 .claude/hooks/risk.py --wait <PR>             → 승인(낮음이면 바로) · CI 가 끝날 때까지 기다렸다가 한 줄로 알린다(/ship 이 뒤에서 돌림)
 """
-import json, re, subprocess, sys
+import json, re, subprocess, sys, time
 
 # Windows 는 표준 입출력이 지역 인코딩(cp949)이라 «·» 같은 글자를 쓰다 죽는다 — hook 입출력은 UTF-8 로 고정
 for _s in (sys.stdin, sys.stdout, sys.stderr):
@@ -21,6 +25,12 @@ REPO = 'grk-cmd/t-w'
 OWNER = 'mihioon'
 # 한 줄 전체가 «승인 <sha 앞자리>» 일 때만 — 승인 요청 코멘트(«승인 요청 — …»)와 섞이지 않게
 APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
+# 판 브랜치를 합치면 검사 해시 줄(CHECKS.md §3)의 줄 수 · 해시가 다시 계산돼 바뀐다 — 그 둘만 지우고 파일 이름은 남겨 견준다
+# (줄을 더하거나 지우면 그대로 다르게 잡힌다 · 해시가 맞는지는 CI 정본 대조가 본다)
+CHECKS_FILE = 'checks/CHECKS.md'
+CHECKS_ROW = re.compile(r'^([ +-]\| \*\*[^*|]+\*\* \|) \d+ \| \*\*[0-9a-f]{12}\*\* \|$')
+COMPARE_MAX = 300   # compare API 가 주는 파일 상한 — 다 차면 못 다 본 것이라 같다고 하지 않는다
+WAIT_SEC, WAIT_EVERY = 3600, 30
 
 # 이 파일을 바꾸면 늘 높음
 RISKY_FILES = [
@@ -50,6 +60,14 @@ def api(path):
         raise RuntimeError(f'gh api {path}: {p.stderr.strip()[:200]}')
     # --paginate 는 배열을 이어 붙여 내보낸다
     return json.loads('[' + p.stdout.replace('][', '],[') + ']') if p.stdout.lstrip().startswith('[') else json.loads(p.stdout)
+
+
+def get(path):
+    """한 쪽만 — compare 처럼 객체를 주는 길은 --paginate 로 이어 붙이면 JSON 이 깨진다."""
+    p = subprocess.run(['gh', 'api', path], capture_output=True, text=True, encoding='utf-8', errors='replace')
+    if p.returncode:
+        raise RuntimeError(f'gh api {path}: {p.stderr.strip()[:200]}')
+    return json.loads(p.stdout)
 
 
 def assess(pr):
@@ -84,8 +102,53 @@ def comment_approves(body, head_sha):
     return any(head_sha.startswith(m.group(1)) for m in APPROVE_LINE.finditer(body or ''))
 
 
+def _hunks(name, patch):
+    """diff 덩어리를 줄 번호까지 그대로 — 자리가 고정돼, 생김새가 같은 다른 묶음(규칙 JSON 등)에 넣으면 다르게 잡힌다.
+    판 브랜치가 같은 파일 위쪽을 고쳐 번호가 밀리면 다르다고 나온다(다시 판정 · 승인 — 안전한 쪽)."""
+    if name != CHECKS_FILE:
+        return tuple(patch.splitlines())
+    return tuple(CHECKS_ROW.sub(r'\1', l) for l in patch.splitlines())
+
+
+def own_change(base, sha):
+    """그 커밋이 base 에서 갈라진 뒤 PR 이 바꾼 것 — 파일마다 diff 덩어리(줄 번호 그대로). 못 다 보면 None."""
+    files = get(f'repos/{REPO}/compare/{base}...{sha}').get('files') or []
+    if len(files) >= COMPARE_MAX:
+        return None
+    out = {}
+    for f in files:
+        name, patch = f['filename'], f.get('patch')
+        if patch is None:   # 그림 · 너무 큰 diff — 머리 판만으로는 판 브랜치 쪽 변경을 되돌렸는지 못 본다
+            return None
+        out[name] = (f.get('status'), f.get('previous_filename'), _hunks(name, patch))
+    return out or None   # 바꾼 것이 하나도 안 보이면 견줄 것이 없다 — 같다고 하지 않는다
+
+
+_same = {}   # (pr, 옛, 새) → 답 — 기다리는 동안 같은 compare 를 되풀이해 묻지 않게
+
+
+def same_change(pr, old_sha, new_sha):
+    """new 가 old 위에 판 브랜치를 합치기만 했는가 — 두 커밋의 PR 자체 변경이 같으면 true.
+    합치며 충돌을 손으로 풀어 코드가 달라졌으면 false(다시 판정 · 승인)."""
+    if not old_sha or not new_sha:
+        return False
+    if old_sha == new_sha:
+        return True
+    key = (str(pr), old_sha, new_sha)
+    if key not in _same:
+        base = get(f'repos/{REPO}/pulls/{pr}')['base']['ref']
+        a = own_change(base, old_sha)
+        _same[key] = a is not None and a == own_change(base, new_sha)
+    return _same[key]
+
+
+def pr_commits(pr):
+    return [c['sha'] for c in _rows(api(f'repos/{REPO}/pulls/{pr}/commits?per_page=100')) if isinstance(c, dict) and c.get('sha')]
+
+
 def owner_approved(pr, head_sha):
-    """승인자가 지금 머리 커밋을 승인했는가 — 마지막 리뷰가 그 커밋의 APPROVED 이거나, «승인 <그 커밋>» 코멘트가 있다."""
+    """승인자가 지금 머리 커밋을 승인했는가 — 마지막 리뷰가 그 커밋의 APPROVED 이거나, «승인 <그 커밋>» 코멘트가 있다.
+    없으면 PR 의 옛 커밋에 걸린 승인 중 지금 머리와 PR 자체 변경이 같은 것(판 브랜치만 합침)을 이어 받는다."""
     if not head_sha:
         return False
     reviews = [r for r in _rows(api(f'repos/{REPO}/pulls/{pr}/reviews?per_page=100'))
@@ -95,9 +158,54 @@ def owner_approved(pr, head_sha):
         return True
     if last.get('commit_id') == head_sha and last.get('state') == 'CHANGES_REQUESTED':
         return False   # 그 커밋에 Request changes 를 했으면 코멘트로 덮지 않는다
-    comments = _rows(api(f'repos/{REPO}/issues/{pr}/comments?per_page=100'))
-    return any((c.get('user') or {}).get('login') == OWNER and comment_approves(c.get('body'), head_sha) for c in comments)
+    comments = [c for c in _rows(api(f'repos/{REPO}/issues/{pr}/comments?per_page=100')) if (c.get('user') or {}).get('login') == OWNER]
+    if any(comment_approves(c.get('body'), head_sha) for c in comments):
+        return True
+    if last.get('state') == 'CHANGES_REQUESTED':
+        return False   # 마지막 리뷰가 Request changes 면 옛 승인을 이어 받지 않는다
+    marks = [r['commit_id'] for r in reviews if r.get('state') == 'APPROVED' and r.get('commit_id')]
+    marks += [m.group(1) for c in comments for m in APPROVE_LINE.finditer(c.get('body') or '')]
+    olds = [s for s in reversed(pr_commits(pr)) if s != head_sha and any(s.startswith(m) for m in marks)]
+    return bool(olds) and same_change(pr, olds[0], head_sha)   # 가장 최근에 승인된 커밋 하나만 견준다
+
+
+def checks_done(sha):
+    """CI 가 다 끝났으면 (True, 빨강 이름 목록), 아직이면 (False, [])."""
+    runs = get(f'repos/{REPO}/commits/{sha}/check-runs?per_page=100').get('check_runs') or []
+    if not runs or any(r.get('status') != 'completed' for r in runs):
+        return False, []
+    return True, [r['name'] for r in runs if r.get('conclusion') not in ('success', 'skipped', 'neutral')]
+
+
+def wait(pr, limit=WAIT_SEC, every=WAIT_EVERY, sleep=time.sleep):
+    """승인(낮음이면 건너뜀)과 CI 끝을 기다린다 — 사용자가 /ship 을 다시 치지 않게 세션이 뒤에서 돌린다."""
+    seen, high, err = None, True, ''
+    for _ in range(max(1, int(limit // every))):
+        try:
+            pull = get(f'repos/{REPO}/pulls/{pr}')
+            sha = pull['head']['sha']
+            if pull.get('state') != 'open':
+                return 1, f'#{pr} 이 열려 있지 않다({pull.get("state")})'
+            if sha != seen:   # 새 커밋이 올라오면 위험도도 다시
+                seen, high = sha, assess(pr)['high']
+            if not high or owner_approved(pr, sha):
+                done, red = checks_done(sha)
+                if done:
+                    return (1, f'#{pr} CI 빨강: {", ".join(red)} ({sha[:7]})') if red else (0, f'#{pr} 승인 · CI 초록 — 머지할 차례 ({sha[:7]})')
+            err = ''
+        except (RuntimeError, KeyError, ValueError) as e:   # 한 번 읽기 실패는 다음 바퀴에 다시
+            err = f' · 마지막 읽기 실패: {str(e)[:80]}'
+        sleep(every)
+    return 1, f'#{pr} {limit // 60}분 동안 승인 · CI 가 끝나지 않음{err}'
 
 
 if __name__ == '__main__':
-    print(json.dumps(assess(sys.argv[1]), ensure_ascii=False, indent=1))
+    a = sys.argv[1:]
+    if a[:1] == ['--same'] and len(a) == 3:
+        print(json.dumps(same_change(a[1], get(f'repos/{REPO}/commits/{a[2]}')['sha'], get(f'repos/{REPO}/pulls/{a[1]}')['head']['sha'])))
+    elif a[:1] == ['--wait'] and len(a) == 2:
+        code, msg = wait(a[1])
+        print(msg)
+        sys.exit(code)
+    else:
+        print(json.dumps(assess(a[0]), ensure_ascii=False, indent=1))

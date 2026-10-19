@@ -38,5 +38,5 @@ for(const n of nums){
     console.error(`#${n} 승인하지 못했어요 — ${String((e && e.stderr) || e).trim().slice(0, 200)}`);
   }
 }
-if(!fail) console.log(done ? `끝 — ${done}건 달았어요 · 세션에서 /ship 을 다시 돌리면 머지해요` : '달린 승인 0건 — 열린 PR 이 없어요');
+if(!fail) console.log(done ? `끝 — ${done}건 달았어요 · 세션이 승인을 보고 머지해요(따로 칠 것 없음)` : '달린 승인 0건 — 열린 PR 이 없어요');
 process.exit(fail ? 1 : 0);
