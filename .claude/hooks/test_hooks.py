@@ -176,14 +176,15 @@ def files(code, row='aaaaaaaaaaaa', extra=()):
     return [{'filename': 'app/a.js', 'status': 'modified', 'patch': f'@@ -1,3 +1,3 @@\n ctx\n-old\n+{code}'},
             {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW(row)}'}, *extra]
 CMP = {O: files('new'), H: files('new', row='bbbbbbbbbbbb'), H2: files('new2')}
-def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open'):
-    risk.api = lambda p: [list(reviews)] if '/reviews' in p else [list(comments)] if '/comments' in p else [[{'sha': c} for c in commits]] if '/commits' in p else [[]]
+GUARD = [{'filename': '.claude/hooks/ship-gate.py', 'status': 'modified'}]   # 가드 파일을 바꾸는 PR 모양 — 승인이 필요하다
+def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open', base='main', files=GUARD):
+    risk.api = lambda p: [list(reviews)] if '/reviews' in p else [list(comments)] if '/comments' in p else [list(files)] if '/files' in p else [[{'sha': c} for c in commits]] if '/commits' in p else [[]]
     def get(p):
         if '/compare/' in p:
             return {'files': cmp[p.rsplit('...', 1)[1]]}
         if '/check-runs' in p:
             return {'check_runs': runs if runs is not None else [{'name': 'npm run check', 'status': 'completed', 'conclusion': 'success'}]}
-        return {'base': {'ref': 'release/0.12.0'}, 'head': {'sha': commits[-1]}, 'state': state}
+        return {'base': {'ref': base}, 'head': {'sha': commits[-1]}, 'state': state}
     risk.get = get
 carry = [
     ('합치기만 · 옛 커밋 코멘트 승인', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}]), H, True),
@@ -244,6 +245,91 @@ for name, head, passed_on, want in (('합치기만 · 앞 커밋 통과', H, O, 
         bad += 1
         print(f'  ✗ 가드 판정 이어 받기 {name}: {got}(기대 {want})')
 
+# 머지 가드 — 승인 여부는 바뀐 파일(가드 파일)이 정한다
+# 승인은 가드 파일을 바꾸는 PR 만 — base 와 상관없이 · 지우기 · 이름 바꾸기도
+for name, fl, base, want in (
+        ('가드(ship-gate.py)를 바꿈', GUARD, 'release/0.12.0', True),
+        ('위험도 판정(risk.py)을 바꿈 · main', [{'filename': '.claude/hooks/risk.py', 'status': 'modified'}], 'main', True),
+        ('훅 설정(settings.json)을 바꿈', [{'filename': '.claude/settings.json', 'status': 'modified'}], 'main', True),
+        ('가드를 지움', [{'filename': '.claude/hooks/ship-gate.py', 'status': 'removed'}], 'main', True),
+        ('가드를 가드 밖 이름으로 옮김', [{'filename': 'old/ship-gate.py', 'previous_filename': '.claude/hooks/ship-gate.py', 'status': 'renamed'}], 'main', True),
+        ('승인 명령 scripts/approve.js', [{'filename': 'scripts/approve.js'}], 'release/0.12.0', True),
+        ('훅 폴더에 새 파일(표준 모듈 이름으로 가리기)', [{'filename': '.claude/hooks/shlex.py', 'status': 'added'}], 'main', True),
+        ('settings.local.json 을 올림(훅 끄기)', [{'filename': '.claude/settings.local.json', 'status': 'added'}], 'release/0.12.0', True),
+        ('세션 시작 훅 스크립트', [{'filename': '.claude/hooks/session-start.sh'}], 'main', True),
+        ('훅이 돌리는 scripts/todo.js', [{'filename': 'scripts/todo.js'}], 'release/0.12.0', True),
+        ('컨펌자 지침', [{'filename': '.claude/agents/tw-confirmer.md'}], 'main', True),
+        ('/ship 안내서', [{'filename': '.claude/skills/ship/SKILL.md'}], 'main', True),
+        ('시험 파일 · 다른 스킬 · 역할 문서만', [{'filename': '.claude/hooks/test_hooks.py'}, {'filename': '.claude/skills/todo/SKILL.md'}, {'filename': '.claude/roles/_공통.md'}], 'main', False),
+        ('앱 · 규칙 · main.js — 높음이어도', [{'filename': 'firebase-database-rules.json'}, {'filename': 'main.js'}], 'release/0.12.0', False)):
+    fake(base=base, files=fl)
+    got = risk.needs_owner(395)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 승인 범위 {name}: {got}')
+fake(files=[{'filename': 'a.js'}])
+real_get2 = risk.get
+risk.get = lambda p, g=real_get2: dict(g(p), changed_files=3001) if p.endswith('/pulls/395') else g(p)
+if risk.needs_owner(395) is True:
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ 승인 범위 파일 목록이 잘림(3000개) → 승인')
+risk.get = real_get2
+SET = json.load(open(os.path.join(HERE, '..', 'settings.json'), encoding='utf-8'))
+PY_HOOKS = [h['command'] for ev in SET.get('hooks', {}).values() for blk in ev for h in blk.get('hooks', []) if 'python3' in h.get('command', '')]
+if PY_HOOKS and all(' -I' in c for c in PY_HOOKS):
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ settings.json 의 파이썬 훅이 모두 python3 -I(격리)가 아니다:', [c for c in PY_HOOKS if ' -I' not in c])
+if 'npm install' in open(os.path.join(HERE, 'session-start.sh'), encoding='utf-8').read() and '--ignore-scripts' in open(os.path.join(HERE, 'session-start.sh'), encoding='utf-8').read():
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ 세션 시작 훅의 npm install 이 --ignore-scripts 가 아니다')
+real_gate_ok = gate.gate_ok
+def gate_case(name, fl, approved_comment, want_deny):
+    global ok, bad
+    fake(commits=(O, H), files=fl, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved_comment else [])
+    real_assess = risk.assess
+    risk.assess = lambda pr: {'high': True, 'reasons': ['시험']}
+    gate.gate_ok = lambda pr: (True, '')
+    gate.run = lambda *a, **k: H
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            gate.check_merge(['gh', 'pr', 'merge', '395'])
+    except SystemExit:
+        pass
+    risk.assess = real_assess
+    denied = '"deny"' in buf.getvalue()
+    if denied == want_deny:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}')
+gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase-database-rules.json'}], False, False)
+gate_case('가드 파일 바꿈 · 승인 없음 → 막음', GUARD, False, True)
+gate_case('가드 파일 바꿈 · 승인 → 통과', GUARD, True, False)
+gate.gate_ok = real_gate_ok
+
+# 릴리스 직전 한 장 — 판에 머지된 PR 중 높음만
+PULLS = [{'number': 1, 'title': '높은 것', 'merged_at': '2026-10-20T01:00:00Z'}, {'number': 2, 'title': '낮은 것', 'merged_at': '2026-10-20T02:00:00Z'},
+         {'number': 3, 'title': '닫기만', 'merged_at': None}]
+risk.api = lambda p: [PULLS] if 'state=closed' in p else [[]]
+real_assess = risk.assess
+risk.assess = lambda n: {'high': n == 1, 'reasons': ['규칙'] if n == 1 else []}
+total, rows = risk.release_summary('release/0.12.0')
+risk.assess = real_assess
+if total == 2 and [r[0] for r in rows] == [1]:
+    ok += 1
+else:
+    bad += 1
+    print(f'  ✗ 릴리스 요약: {total} {rows}')
+
 # 가드 — 이어 받기를 읽다 API 가 실패하면 막는다(맨 아래 «가드 오류면 통과» 로 새지 않게)
 fake(commits=(O, H))
 gate.run = lambda *a, **k: H if a[-1] == '.head.sha' else '[]'
@@ -264,7 +350,7 @@ else:
 
 # 기다리기(risk.py --wait) — 승인 · CI 를 세션이 지켜보다 알린다
 naps = []
-def waiting(name, want_code, want_word, high=True, steps=(), **kw):   # high 가 함수면 그때 머리 커밋으로 정한다
+def waiting(name, want_code, want_word, high=True, steps=(), **kw):   # high = 승인이 필요한가(가드 파일) · 함수면 그때 머리 커밋으로 정한다
     seq = list(steps)
     def nap(_):
         naps.append(1)
@@ -272,8 +358,10 @@ def waiting(name, want_code, want_word, high=True, steps=(), **kw):   # high 가
             fake(**seq.pop(0))
     fake(**kw)
     risk._same.clear()
-    risk.assess = lambda pr: {'high': high(risk.get('pulls')['head']['sha']) if callable(high) else high, 'reasons': []}
+    real_needs = risk.needs_owner
+    risk.needs_owner = lambda pr: high(risk.get('pulls')['head']['sha']) if callable(high) else high
     code, msg = risk.wait(395, limit=60, every=15, sleep=nap)
+    risk.needs_owner = real_needs
     global ok, bad
     if code == want_code and want_word in msg:
         ok += 1
@@ -284,13 +372,13 @@ APPR = [{'user': U, 'body': '승인 ' + H[:7]}]
 waiting('승인 · CI 초록', 0, '머지할 차례', commits=(O, H), comments=APPR)
 waiting('승인이 나중에 달림', 0, '머지할 차례', commits=(O, H), steps=[dict(commits=(O, H)), dict(commits=(O, H), comments=APPR)])
 waiting('승인 없음 — 시간 끝', 1, '끝나지 않음', commits=(O, H))
-waiting('낮음은 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
+waiting('가드 파일을 안 바꾸면 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
 waiting('CI 도는 중 — 끝나면', 0, '머지할 차례', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'in_progress'}],
         steps=[dict(commits=(O, H), comments=APPR)])
 waiting('CI 빨강', 1, 'CI 빨강: npm run check', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'completed', 'conclusion': 'failure'}])
 waiting('PR 이 닫힘', 1, '열려 있지 않다', commits=(O, H), state='closed')
 waiting('CI 아직 하나도 없음', 1, '끝나지 않음', commits=(O, H), comments=APPR, runs=[])
-waiting('새 커밋이 오르면 위험도 다시(낮음 → 높음)', 1, '끝나지 않음', high=lambda sha: sha == H, commits=(O, O), runs=[{'name': 'c', 'status': 'in_progress'}],
+waiting('새 커밋이 오르면 다시 본다(가드 파일을 바꾸는 커밋이 더해짐)', 1, '끝나지 않음', high=lambda sha: sha == H, commits=(O, O), runs=[{'name': 'c', 'status': 'in_progress'}],
         steps=[dict(commits=(O, H))])
 def flaky(name, want_code, want_word, fails):
     n = [0]
@@ -322,6 +410,8 @@ gate.run = lambda *a, **k: S
 def boom(pr):
     raise RuntimeError('gh api 실패(시험)')
 risk.assess = boom
+real_api = risk.api
+risk.api = lambda p: boom(p)   # 바뀐 파일 목록을 못 읽음
 buf = io.StringIO()
 try:
     with contextlib.redirect_stdout(buf):
@@ -478,7 +568,7 @@ w = lambda s: sys.stdout.buffer.write(s.encode('utf-8'))
 if 'state=open' in a:
     out = [{'number': 7, 'title': '한글 제목 «PR» — 끝', 'head': 'feat/x', 'base': 'release/9.9.9'}]
 elif '/files' in a:
-    out = [{'filename': 'firebase-database-rules.json', 'status': 'modified', 'changes': 1, 'patch': '+  "한글 «주석» — 끝": 1'}]
+    out = [{'filename': '.claude/hooks/ship-gate.py', 'status': 'modified', 'changes': 1, 'patch': '+# 한글 «주석» — 끝'}]   # 가드 파일 — 승인이 필요한 PR
 elif '/reviews' in a:
     out = []
 elif '/comments' in a:
@@ -487,6 +577,8 @@ elif a.endswith('.head.sha'):
     w('0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n'); sys.exit(0)
 elif '/status' in a:
     w(json.dumps([{'context': 'tw/confirm', 'state': 'success'}, {'context': 'tw/verify', 'state': 'success'}])); sys.exit(0)
+elif a.rstrip().endswith('/pulls/403'):
+    out = {'base': {'ref': 'main'}, 'head': {'sha': '0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, 'state': 'open'}
 else:
     out = {}
 w(json.dumps(out, ensure_ascii=False))
@@ -501,7 +593,8 @@ if CPL:
     merge = json.dumps({'tool_input': {'command': 'gh pr merge 403'}, 'cwd': CWD})
     for name, args, stdin, extra, check in (
             ('위험도 판정', [RK, '403'], '', {}, lambda o: json.loads(o)['high'] is True),
-            ('머지 가드 — 승인 없음 → 막음', [G], merge, {}, lambda o: '"deny"' in o and '위험도 높음' in o and '읽지 못해' not in o),
+            ('머지 가드 — 승인 없음 → 막음', [G], merge, {}, lambda o: '"deny"' in o and '가드 자리' in o and '읽지 못해' not in o),
+            ('머지 가드 — 격리 모드(python3 -I · settings.json 과 같음)에서도 risk 를 불러 막음', ['-I', G], merge, {}, lambda o: '"deny"' in o and '가드 자리' in o),
             ('머지 가드 — 승인 코멘트 → 통과', [G], merge, {'FAKE_BODY': '승인 0c4b3e9'}, lambda o: o.strip() == '')):
         p = subprocess.run([sys.executable, '-B'] + args, input=stdin.encode('utf-8'), capture_output=True, env=dict(env, **extra), timeout=30)
         out, err = p.stdout.decode('utf-8', 'replace'), p.stderr.decode('utf-8', 'replace')
@@ -514,6 +607,21 @@ if CPL:
         else:
             bad += 1
             print(f'  ✗ cp949 로캘 {name}: 종료 {p.returncode} · {out[:160]!r} {err[-200:]!r}')
+    # 훅 폴더 사본에 표준 모듈 이름 가짜(json.py · shlex.py — 불리면 바로 끝냄)를 심는다 — -I 면 가려지지 않아 그대로 막고, -I 가 없으면 가짜가 불려 가드가 죽는다
+    import shutil
+    SHD = tempfile.mkdtemp()
+    for fn in ('ship-gate.py', 'risk.py'):
+        shutil.copy(os.path.join(HERE, fn), SHD)
+    for fn in ('json.py', 'shlex.py'):
+        open(os.path.join(SHD, fn), 'w').write('raise SystemExit(0)\n')
+    for name, flags, want_deny in (('가짜 모듈을 심어도 -I 면 막음', ['-I'], True), ('  ↳ -I 없으면 가짜가 불려 가드가 죽음(이 시험이 -I 를 지킨다)', [], False)):
+        p = subprocess.run([sys.executable, '-B'] + flags + [os.path.join(SHD, 'ship-gate.py')], input=merge.encode('utf-8'), capture_output=True, env=env, timeout=30)
+        denied = '"deny"' in p.stdout.decode('utf-8', 'replace')
+        if denied == want_deny:
+            ok += 1
+        else:
+            bad += 1
+            print(f'  ✗ 가드 사본 {name}: {"막음" if denied else "안 막음"}')
     # 한글이 든 저장소(bare origin 에 main · release/9.9.9)를 만들어 그 로캘에서 gather — 해독이 깨지면 현황판 · 판 · PR 이 «못 읽음» 으로 빠진다
     ORIG, REPO_DIR = tempfile.mkdtemp(), tempfile.mkdtemp()
     g = lambda *a, cwd=REPO_DIR: subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], cwd=cwd, capture_output=True, check=True)
