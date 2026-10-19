@@ -134,7 +134,7 @@
 | `app/parts/room-*.js` · `invite-account.js` | 도메인 모듈 — `createXxx(deps)` 로 필요한 함수 · 상태를 받는다(Firebase 직접 import 없음). `firebase-init.js` 는 연결만 |
 | `firebase-database-rules.json` | **Realtime Database 보안 규칙 — 서버 쪽 검증의 전부** |
 | `functions/` | Cloud Functions (비밀번호 변경, 휴지통 청소, 방 개수 집계 `room-stats.js`, 일일 접속 집계 `daily-active.js`, IP 기준 방문자 `visit-ping.js`, 날짜별 요약 `daily-summary.js`, 사용량(비용) 기록 `usage-snapshot.js`, 카탈로그 항목별 장착 사용자 수 `part-equip.js` · 처음 숫자는 `scripts/backfill-part-equip.js`, 버그 제보 고정 번호 `bug-no.js` · 옛 글 번호는 `scripts/backfill-bug-no.js`, 대화 3일 보관 `chat-expire.js`, 폰 연결 주소에 낀 공백 떼기 `mobile-link-trim.js`). **자동 배포 대상이 아니다** |
-| `hosting/` | Firebase Hosting 사이트 둘 — `main`(`together-working.web.app` · `hosting/admin/` 은 `web-admin` 빌드 결과(커밋 안 함) · `/design/`) · `help`(**`help.together-working.com`** · `hosting/help/` — 튜토리얼 · 개인정보 처리방침 · 폰 연결 안내). 사이트 표 · 배포 · 새 사이트(메인 페이지) 만드는 법 · DNS 는 `hosting/README.md` |
+| `hosting/` | Firebase Hosting 사이트 둘 — `main`(`together-working.web.app` · `hosting/admin/` 은 `web-admin` 빌드 결과(커밋 안 함)) · `help`(**`help.together-working.com`** · `hosting/help/` — 튜토리얼 · 개인정보 처리방침 · 폰 연결 안내). 사이트 표 · 배포 · 새 사이트(메인 페이지) 만드는 법 · DNS 는 `hosting/README.md` |
 | `web-admin/` | 웹 관리자 페이지 (Vite + React + TS + TanStack Query) — `/admin` 으로 배포. **FSD** 구조(`app` → `pages` → `widgets` → `features` → `entities` → `shared`, 위층만 아래층을 부름 · Steiger 가 검사). 테스트는 `tests/` |
 | `checks/` | 자체 검사 (`sim-*.js` · `audit.py` · `run.js` 러너 · `CHECKS.md` 정본 표). app.js 에서 모듈로 옮긴 코드를 app.js 글에서 찾던 검사는 `sim-renderer-src.js` 의 `joinRenderer` 로 «옮기기 전 글» 을 되살려 읽는다 |
 | `.github/workflows/` | `checks.yml`(push·PR 마다 검사) · `deploy-dev.yml`(규칙 → dev) · `release-start.yml`(버튼 → 검사 · 버전 태그 · release 실행) · `release.yml`(버전 태그 → 빌드 · 검사 · 자동 공개) · `min-room-ver.yml` · `mac-probe.yml`(맥 빌드, 수동) |
@@ -155,7 +155,7 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 ## 코드 컨벤션
 - 앱(Electron)은 지금 순수 JS, 번들러 없음 — **방향은 TypeScript**(React 는 안 씀). 새 코드는 `docs/TYPESCRIPT.md` «지금부터 지킬 것»(`deps` JSDoc · 문자열로 만든 전역 이름 금지 · `typeof` 가드로 조용히 넘어가기 금지 · 한 변수 한 모양)을 따른다. **`web-admin/` 은 이미 TS** — Vite + React + TS(strict), Prettier(`npm --prefix web-admin run format`), 조각 전용 스타일은 옆에 `*.module.css`. 여러 경로를 함께 쓰는 쓰기는 `db.commit` 한 묶음으로. `const` 위주, 2칸 들여쓰기, 작은따옴표, 세미콜론. 앱 쪽은 `if(`, `functions/` 는 `if (`.
 - 새 로직은 `firebase-init.js` · `app.js` 에 쌓지 말고 도메인 모듈 파일로 만든다(위 구조 표). 모듈마다 검사(`sim-*.js`)를 붙인다. 두 파일은 줄 상한 · 새 구역 머리를 `sim-app-size` 가 막는다 — 옮겨서 줄었으면 같은 PR 에서 `node checks/sim-app-size.js --write-baseline`(지도 `docs/APP_FSD_MAP.md`).
-- UI 를 고치거나 새로 만들 때는 `docs/design-system/` (원칙 · 토큰 · 부품 지침)을 따른다. 그 폴더를 고쳤으면 `npm run design:build` 로 `hosting/design/` 도 다시 만든다.
+- UI 를 고치거나 새로 만들 때는 `docs/design-system/` (원칙 · 토큰 · 부품 지침)을 따른다. 그 폴더의 토큰(`tokens.json`)을 고쳤으면 `npm run design:build` 로 도움말 사이트 토큰(`hosting/help/tokens.css`)도 다시 만든다.
 - 주석은 한국어로, **코드만 봐서는 모를 이유**만 짧게. 변경 이력 · 날짜 · 실측치는 커밋 메시지와 PR 에 적고, 이모지 꼬리표는 쓰지 않는다. 할 일은 `TODO:`.
   - 옛 코드엔 이 규칙 전에 쓴 **이야기형 주석**(제보 사연 · «개정 n 에서» · 날짜 · 실측치 · 코드를 말로 다시 쓴 줄)이 많다. 한 번에 걷는 PR 은 만들지 않고, **손대는 구역만 같은 PR 에서** 줄인다 — «왜 · 다시 넣지 말 것 · ⚠️ 함정» 은 1~3줄로 남기고, 나머지는 걷는다(사연은 커밋에 이미 있다). 동작 코드는 건드리지 않는다.
 - **빨리 만드는 길보다 좋은 설계 · 안전한 설계를 먼저 고른다**(기능이 크고 사용자가 많다 — 10-17 사용자). 선택지를 낼 때 «빠름» 을 추천 까닭으로 쓰지 않는다.
@@ -203,5 +203,5 @@ npm --prefix web-admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에�
 - `docs/GIT_CONVENTION.md` 커밋·브랜치·릴리스 규칙
 - `docs/TYPESCRIPT.md` 앱 TS 방향 · 단계 · 지금부터 지킬 것
 - `docs/GUIDE_NON_DEVELOPER.md` 비개발자용 VS Code · Claude Code · git 안내
-- `docs/design-system/` 디자인 시스템(원칙 · 토큰 · 부품) — 웹으로는 https://together-working.web.app/design/
+- `docs/design-system/` 디자인 시스템(원칙 · 토큰 · 부품)
 - `handoff-*.md` 세션 인수인계 기록 (설계 배경)

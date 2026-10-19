@@ -3,7 +3,6 @@
 앱(Electron) · 웹 관리자 · 안내 페이지의 화면을 만들 때 따르는 **원칙 · 토큰 · 부품 지침**이다.
 UI 를 고치거나 새로 만들 때는 이 폴더를 먼저 본다.
 
-- 웹으로 보기: https://together-working.web.app/design/ (낮 · 밤 · 클래식 테마를 바꿔 가며 볼 수 있다)
 - 처음 만든 곳: Claude 디자인 시스템 아티팩트(https://claude.ai/artifact/AQ3gQsjpsNi8Mo21xwvgmB · 2026-10-09 판). 지금은 **이 폴더가 정본**이다.
 
 ## 무엇이 어디에
@@ -20,8 +19,8 @@ UI 를 고치거나 새로 만들 때는 이 폴더를 먼저 본다.
 ## 고치는 법
 
 1. `project/` 안의 파일을 고친다(토큰은 `tokens.json`, 부품 모양은 `components/bundle.css`, 지침은 각 `README.md`).
-2. `npm run design:build` — `scripts/build-design-site.js` 가 `hosting/design/`(index.html · tokens.css · bundle.css)을 다시 만든다.
-   `hosting/design/` 은 손으로 고치지 않는다. `npm run check` 의 `sim-design-site.js` 가 둘이 어긋나면 빨강을 낸다.
+2. 토큰(`tokens.json`)을 고쳤으면 `npm run design:build` — `scripts/build-design-tokens.js` 가 도움말 사이트 토큰(`hosting/help/tokens.css`)을 다시 만든다.
+   손으로 고치지 않는다. `npm run check` 의 `sim-design-tokens.js` 가 둘이 어긋나면 빨강을 낸다. (웹 페이지는 없다 — 이 폴더는 규칙 문서로만 쓴다.)
 3. 웹에 올리기(관리자만): `firebase deploy --only hosting --project together-working`.
    Hosting 배포는 `hosting/` 전체(웹 관리자 `/admin` 포함)를 함께 올린다 — `firebase.json` predeploy 가 웹 관리자를 다시 빌드한다.
 
