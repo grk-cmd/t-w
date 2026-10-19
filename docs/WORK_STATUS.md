@@ -38,6 +38,7 @@
 | 검토중 | 제보(번호 미정) 동물 얼굴 · 올라타기 | 미지정 | 미정 | fix/animal-fallback-stuck | 동물 캐릭터 얼굴이 안 보이고 올라타기가 안 됨 — 원인 · 고칠 방향은 PR 에 | app/parts/character/animal.js · app/parts/app.js · app/parts/room/ride-bench.js | |
 | 검토중 | 보안 점검 | 보안 점검 세션 | 미정 | — | 보안 점검(읽기만) — 고칠 것은 묶음별로 새 줄 | 없음 | |
 | 작업중 | 하네스 | 보안 점검 세션 | main | harness/risk-new-module | 위험도 판정에서 «새 모듈» 규칙 빼기(새 파일 줄도 데이터 검사를 이미 거침) · Windows(cp949)에서 risk.py 가 한글로 죽던 것 | .claude/hooks/risk.py · .claude/hooks/test_hooks.py(#396 과 같은 파일 — 합칠 때 확인) | |
+| 작업중 | 규칙 hotfix 로그인 읽기 | 오케스트레이터 | main(hotfix) | hotfix/authusers-self-read | 옛 앱 차단(presence 켜짐 · ver 없음)이 로그인 때 자기 authUsers 한 칸 읽기까지 막아, presence 가 남은 사람은 구글 · 친구 코드 로그인이 영영 실패하던 것 — 자기 authUsers 읽기만 차단에서 뺀다 | firebase-database-rules.json(authUsers) · scripts/rules-emu-check.js | |
 | 검토중 | 앱 버전 보이기 | 미지정 | 0.12.0 | feat/version-visible | 로그인이 안 돼도 앱 버전이 보이게 — 로그인 · 가입 화면에 버전 · 계정 요약 ver 를 모르면 unknown · 웹 관리자 버전 칸이 접속 정보 ver 도 봄 | app/parts/firebase-init.js(setAccountSnapshot) · 로그인 화면 · web-admin/src/entities/user/model/version.ts | |
 
 ## 대기 — 앞 줄이 머지돼야 올림
