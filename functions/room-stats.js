@@ -305,11 +305,16 @@ async function sweepChatPurge(db, now){
   const due = Object.keys(marks).filter(code => !(now - Number(marks[code]) < CHAT_KEEP_EMPTY_MS)).slice(0, CHAT_PURGE_MAX);
   let purged = 0, reopened = 0, failed = 0;
   for (const code of due){
+    const mark = marks[code];
+    const ref = db.ref(CHAT_PURGE_PATH + '/' + code);
     try{
+      if (typeof mark !== 'number'){ await ref.remove(); failed++; continue; }   // 망가진 예약 — 대화는 두고 예약만
       const inUse = (await db.ref('rooms/' + code + '/_meta/channel').get()).val() != null || await serverRoomLive(db, code);
+      // 맨 앞에서 읽은 뒤 다시 열렸다 다시 비었으면 새 예약이다 — 그 방의 새 대화를 지우지 않는다
+      if (!inUse && (await ref.get()).val() !== mark) continue;
       if (!inUse){ await db.ref('rooms/' + code + '/chatLog').remove(); purged++; } else reopened++;
       // 지우는 사이 다시 비어 새 시각이 적혔으면 남긴다
-      await db.ref(CHAT_PURGE_PATH + '/' + code).transaction(cur => (cur === null || Number(cur) === Number(marks[code])) ? null : undefined, undefined, false);
+      await ref.transaction(cur => (cur === null || cur === mark) ? null : undefined, undefined, false);
     }catch(e){ failed++; }
   }
   return { waiting: Object.keys(marks).length - due.length, purged, reopened, failed };

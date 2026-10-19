@@ -160,7 +160,7 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     // ⏳ 1분 주기 — 예약이 1시간 지난 방만 #일반을 지운다
     {
       const H = f.CHAT_KEEP_EMPTY_MS;
-      const sweep = async (srv) => { const m = mkDb(srv); const out = await f.sweepChatPurge(m.db, now); return { out, srv: m.L.srv }; };
+      const sweep = async (srv, o) => { const m = mkDb(srv, o); const out = await f.sweepChatPurge(m.db, now); return { out, srv: m.L.srv }; };
       let w = await sweep(Object.assign(chatOf('Q1'), { 'chatPurge/Q1': now - H - 1000 }));
       chk(!('rooms/Q1/chatLog/k1' in w.srv) && !('chatPurge/Q1' in w.srv) && w.out.purged === 1, '⏳ 비고 1시간 지난 투게더룸 — #일반을 지우고 예약도 걷는다');
       w = await sweep(Object.assign(chatOf('Q2'), { 'chatPurge/Q2': now - H + 60 * 1000 }));
@@ -169,6 +169,24 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
       chk('rooms/Q3/chatLog/k1' in w.srv && !('chatPurge/Q3' in w.srv) && w.out.reopened === 1, '★ 그새 다시 열린 방(Firebase _meta)은 대화를 남기고 예약만 걷는다');
       w = await sweep(Object.assign(chatOf('Q4'), { 'chatPurge/Q4': now - H - 1000, 'roomDir/Q4': { srv: 'realtime-1', ts: now } }));
       chk('rooms/Q4/chatLog/k1' in w.srv && !('chatPurge/Q4' in w.srv), '  ↳ 방 서버 방으로 다시 열렸어도 남긴다');
+      // 지우는 사이(예약 걷기 직전) 다시 비어 새 시각이 적힘 — 새 예약은 남아야 다음 1시간 뒤에 그 대화도 지운다
+      const raceAt = (code) => ({ beforeTx: (p, srv) => { if(p === 'chatPurge/' + code) srv[p] = now; } });
+      w = await sweep(Object.assign(chatOf('Q7'), { 'chatPurge/Q7': now - H - 1000 }), raceAt('Q7'));
+      chk(!('rooms/Q7/chatLog/k1' in w.srv) && w.srv['chatPurge/Q7'] === now, '★ 지우는 사이 다시 비어 새 시각이 적혔으면 새 예약은 남긴다 (트랜잭션)');
+      // 맨 앞에서 읽은 뒤 다시 열렸다 다시 비었음 — 지우기 직전 예약이 바뀌었으면 그 방 대화를 지우지 않는다
+      const srv8 = Object.assign(chatOf('Q8'), { 'chatPurge/Q8': now - H - 1000 });
+      w = await sweep(srv8, { failGet: (p) => { if(p === 'rooms/Q8/_meta/channel') srv8['chatPurge/Q8'] = now; return false; } });
+      chk('rooms/Q8/chatLog/k1' in w.srv && w.srv['chatPurge/Q8'] === now, '  ↳ 맨 앞에서 읽은 뒤 예약이 새로 적혔으면 그 방 대화는 이번에 안 지운다');
+      w = await sweep(Object.assign(chatOf('Q9'), { 'chatPurge/Q9': 'abc' }));
+      chk('rooms/Q9/chatLog/k1' in w.srv && !('chatPurge/Q9' in w.srv), '  ↳ 숫자가 아닌 예약은 대화를 두고 예약만 걷는다 (1분마다 다시 지우지 않게)');
+      // 깨 보기 — 예약 걷기를 그냥 지우기로 바꾸면 새 예약이 사라진다
+      {
+        const src = need('functions/room-stats.js').replace(/await ref\.transaction\(cur => \(cur === null \|\| cur === mark\) \? null : undefined, undefined, false\);/, 'await ref.remove();');
+        const M = { exports: {} }; new Function('module', 'exports', 'require', src)(M, M.exports, require);
+        const m = mkDb(Object.assign(chatOf('QB'), { 'chatPurge/QB': now - H - 1000 }), raceAt('QB'));
+        let lost = false; try{ await M.exports.sweepChatPurge(m.db, now); lost = !('chatPurge/QB' in m.L.srv); }catch(e){ lost = false; }
+        chk(src !== need('functions/room-stats.js') && lost, '  ↳ 깨 보기: 예약 걷기를 그냥 지우기로 바꾸면 새 예약이 사라진다 (위 ★ 가 빨강이 된다)');
+      }
       w = await sweep(chatOf('Q5'));
       chk('rooms/Q5/chatLog/k1' in w.srv && w.out.purged === 0 && w.out.waiting === 0, '  ↳ 예약이 없으면 아무것도 안 지운다');
       const many = {}; for(let i = 0; i < f.CHAT_PURGE_MAX + 5; i++) many['chatPurge/M' + i] = now - H - 1000;
