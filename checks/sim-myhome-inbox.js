@@ -185,7 +185,7 @@ async function behave(src){
     chk(titles().join('|') === '모두에게 보상|보상|답변|옛 알림|모르는 태그', '📩 우편 — 나한테 온 것 + 모두에게 보낸 우편(공지 · 업데이트는 빠짐) · 최신순');
     chk(R.mhInboxFootInfo.textContent === '우편 5통', '  아래 줄 «우편 n통»(안 읽음 수는 왼쪽 메뉴 숫자로)');
     chk(card(0).className === 'mh-ibx-card unread' && card(1).className === 'mh-ibx-card read', '  카드 클래스 — 안 읽음 · 읽음');
-    chk(part(0, 'mh-ibx-ic').textContent === '🎁' && part(2, 'mh-ibx-ic').textContent === '🐞' && part(4, 'mh-ibx-ic').textContent === '📢'
+    chk(part(0, 'mh-ibx-ic').textContent === '🎁' && part(2, 'mh-ibx-ic').textContent === '🛠️' && part(4, 'mh-ibx-ic').textContent === '📢'
       && /^우편 · /.test(part(1, 'mh-ibx-sub').textContent) && /^버그제보 답변 · /.test(part(2, 'mh-ibx-sub').textContent) && /^공지 · /.test(part(4, 'mh-ibx-sub').textContent),
       '  아이콘 · 종류 글자 — 모르는 태그는 공지로');
     chk(part(2, 'mh-ibx-go').textContent === '가기' && part(3, 'mh-ibx-go').textContent === '보기', '  버튼 — 🐞 답변은 «가기» · 나머지는 «보기»');
