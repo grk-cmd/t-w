@@ -252,7 +252,8 @@ for name, fl, base, want in (
         ('위험도 판정(risk.py)을 바꿈 · main', [{'filename': '.claude/hooks/risk.py', 'status': 'modified'}], 'main', True),
         ('훅 설정(settings.json)을 바꿈', [{'filename': '.claude/settings.json', 'status': 'modified'}], 'main', True),
         ('가드를 지움', [{'filename': '.claude/hooks/ship-gate.py', 'status': 'removed'}], 'main', True),
-        ('가드를 다른 이름으로 옮김', [{'filename': '.claude/hooks/x.py', 'previous_filename': '.claude/hooks/ship-gate.py', 'status': 'renamed'}], 'main', True),
+        ('가드를 가드 밖 이름으로 옮김', [{'filename': 'old/ship-gate.py', 'previous_filename': '.claude/hooks/ship-gate.py', 'status': 'renamed'}], 'main', True),
+        ('승인 명령 scripts/approve.js', [{'filename': 'scripts/approve.js'}], 'release/0.12.0', True),
         ('훅 폴더에 새 파일(표준 모듈 이름으로 가리기)', [{'filename': '.claude/hooks/shlex.py', 'status': 'added'}], 'main', True),
         ('settings.local.json 을 올림(훅 끄기)', [{'filename': '.claude/settings.local.json', 'status': 'added'}], 'release/0.12.0', True),
         ('세션 시작 훅 스크립트', [{'filename': '.claude/hooks/session-start.sh'}], 'main', True),
@@ -277,6 +278,18 @@ else:
     bad += 1
     print('  ✗ 승인 범위 파일 목록이 잘림(3000개) → 승인')
 risk.get = real_get2
+SET = json.load(open(os.path.join(HERE, '..', 'settings.json'), encoding='utf-8'))
+PY_HOOKS = [h['command'] for ev in SET.get('hooks', {}).values() for blk in ev for h in blk.get('hooks', []) if 'python3' in h.get('command', '')]
+if PY_HOOKS and all(' -I' in c for c in PY_HOOKS):
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ settings.json 의 파이썬 훅이 모두 python3 -I(격리)가 아니다:', [c for c in PY_HOOKS if ' -I' not in c])
+if 'npm install' in open(os.path.join(HERE, 'session-start.sh'), encoding='utf-8').read() and '--ignore-scripts' in open(os.path.join(HERE, 'session-start.sh'), encoding='utf-8').read():
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ 세션 시작 훅의 npm install 이 --ignore-scripts 가 아니다')
 real_gate_ok = gate.gate_ok
 def gate_case(name, fl, approved_comment, want_deny):
     global ok, bad
@@ -594,6 +607,21 @@ if CPL:
         else:
             bad += 1
             print(f'  ✗ cp949 로캘 {name}: 종료 {p.returncode} · {out[:160]!r} {err[-200:]!r}')
+    # 훅 폴더 사본에 표준 모듈 이름 가짜(json.py · shlex.py — 불리면 바로 끝냄)를 심는다 — -I 면 가려지지 않아 그대로 막고, -I 가 없으면 가짜가 불려 가드가 죽는다
+    import shutil
+    SHD = tempfile.mkdtemp()
+    for fn in ('ship-gate.py', 'risk.py'):
+        shutil.copy(os.path.join(HERE, fn), SHD)
+    for fn in ('json.py', 'shlex.py'):
+        open(os.path.join(SHD, fn), 'w').write('raise SystemExit(0)\n')
+    for name, flags, want_deny in (('가짜 모듈을 심어도 -I 면 막음', ['-I'], True), ('  ↳ -I 없으면 가짜가 불려 가드가 죽음(이 시험이 -I 를 지킨다)', [], False)):
+        p = subprocess.run([sys.executable, '-B'] + flags + [os.path.join(SHD, 'ship-gate.py')], input=merge.encode('utf-8'), capture_output=True, env=env, timeout=30)
+        denied = '"deny"' in p.stdout.decode('utf-8', 'replace')
+        if denied == want_deny:
+            ok += 1
+        else:
+            bad += 1
+            print(f'  ✗ 가드 사본 {name}: {"막음" if denied else "안 막음"}')
     # 한글이 든 저장소(bare origin 에 main · release/9.9.9)를 만들어 그 로캘에서 gather — 해독이 깨지면 현황판 · 판 · PR 이 «못 읽음» 으로 빠진다
     ORIG, REPO_DIR = tempfile.mkdtemp(), tempfile.mkdtemp()
     g = lambda *a, cwd=REPO_DIR: subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], cwd=cwd, capture_output=True, check=True)

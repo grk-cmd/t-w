@@ -93,7 +93,7 @@ def check_merge(toks):
         import risk
         try:   # 바뀐 파일 · 승인을 못 읽으면 막는다 — 맨 아래 «가드 오류면 통과» 로 새면 승인 없이 머지된다
             sha = run('gh', 'api', f'repos/{REPO}/pulls/{pr}', '--jq', '.head.sha')
-            approved = not risk.needs_owner(pr) or risk.owner_approved(pr, sha)   # 승인은 가드 파일을 바꾸는 PR 만
+            approved = not risk.needs_owner(pr) or risk.owner_approved(pr, sha)   # 승인은 가드 자리를 바꾸는 PR 만
         except Exception as e:
             deny(f'#{pr} 바뀐 파일 · 승인을 읽지 못해 머지를 막았다({str(e)[:120]}) — 잠시 뒤 다시.')
         if not approved:

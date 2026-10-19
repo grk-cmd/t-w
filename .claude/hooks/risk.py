@@ -11,6 +11,7 @@
 
   python3 .claude/hooks/risk.py <PR 번호>              → {"high": bool, "reasons": [...]} (gh api REST 만 씀 — 웹 세션에서도 된다)
   python3 .claude/hooks/risk.py --same <PR> <옛 커밋>   → 지금 머리가 그 커밋과 PR 자체 변경이 같은가(true/false)
+  python3 .claude/hooks/risk.py --owner <PR>          → 머지 전 승인이 필요한 PR 인가(true/false — 가드 자리를 바꿀 때만)
   python3 .claude/hooks/risk.py --release <판 브랜치>   → 그 판에 머지된 PR 중 위험도 높았던 것 · 이유 한 장(릴리스 직전 승인자가 본다)
   python3 .claude/hooks/risk.py --wait <PR>             → 승인(낮음이면 바로) · CI 가 끝날 때까지 기다렸다가 한 줄로 알린다(/ship 이 뒤에서 돌림)
 """
@@ -29,10 +30,10 @@ OWNER = 'mihioon'
 #   훅 폴더 전부(가드 옆에 표준 모듈과 같은 이름을 두면 가드가 그걸 불러 죽는다) · 훅 설정 전부(settings.local.json 의 «훅 끄기» 포함) ·
 #   훅이 돌리는 스크립트 · 컨펌자 · 검증자 지침 · /ship 안내서. 시험 파일만 뺀다.
 GUARD_PREFIXES = ('.claude/hooks/', '.claude/agents/', '.claude/skills/ship/')
-GUARD_FILES = ('scripts/todo.js',)   # settings.json SessionStart 훅이 돌린다
+GUARD_FILES = ('scripts/todo.js', 'scripts/approve.js')   # 세션 시작 훅이 돌림 · 승인 코멘트를 다는 명령(바꾸면 다른 PR 에 몰래 승인을 달 수 있다)
 GUARD_SETTINGS = re.compile(r'^\.claude/settings[^/]*\.json$')
 GUARD_SKIP = ('.claude/hooks/test_hooks.py',)
-GUARD_LABEL = '.claude/hooks/ · .claude/settings*.json · .claude/agents/ · .claude/skills/ship/ · scripts/todo.js'
+GUARD_LABEL = '.claude/hooks/ · .claude/settings*.json · .claude/agents/ · .claude/skills/ship/ · scripts/todo.js · scripts/approve.js'
 # 한 줄 전체가 «승인 <sha 앞자리>» 일 때만 — 승인 요청 코멘트(«승인 요청 — …»)와 섞이지 않게
 APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
 # 판 브랜치를 합치면 검사 해시 줄(CHECKS.md §3)의 줄 수 · 해시가 다시 계산돼 바뀐다 — 그 둘만 지우고 파일 이름은 남겨 견준다
@@ -218,7 +219,7 @@ def checks_done(sha):
 
 def wait(pr, limit=WAIT_SEC, every=WAIT_EVERY, sleep=time.sleep):
     """승인(낮음이면 건너뜀)과 CI 끝을 기다린다 — 사용자가 /ship 을 다시 치지 않게 세션이 뒤에서 돌린다."""
-    seen, high, err = None, True, ''
+    seen, need, err = None, True, ''
     for _ in range(max(1, int(limit // every))):
         try:
             pull = get(f'repos/{REPO}/pulls/{pr}')
@@ -226,8 +227,8 @@ def wait(pr, limit=WAIT_SEC, every=WAIT_EVERY, sleep=time.sleep):
             if pull.get('state') != 'open':
                 return 1, f'#{pr} 이 열려 있지 않다({pull.get("state")})'
             if sha != seen:   # 새 커밋이 올라오면 다시 본다
-                seen, high = sha, needs_owner(pr)   # 승인은 가드 파일을 바꾸는 PR 만
-            if not high or owner_approved(pr, sha):
+                seen, need = sha, needs_owner(pr)   # 승인은 가드 자리를 바꾸는 PR 만
+            if not need or owner_approved(pr, sha):
                 done, red = checks_done(sha)
                 if done:
                     return (1, f'#{pr} CI 빨강: {", ".join(red)} ({sha[:7]})') if red else (0, f'#{pr} 승인 · CI 초록 — 머지할 차례 ({sha[:7]})')
@@ -242,6 +243,8 @@ if __name__ == '__main__':
     a = sys.argv[1:]
     if a[:1] == ['--same'] and len(a) == 3:
         print(json.dumps(same_change(a[1], get(f'repos/{REPO}/commits/{a[2]}')['sha'], get(f'repos/{REPO}/pulls/{a[1]}')['head']['sha'])))
+    elif a[:1] == ['--owner'] and len(a) == 2:
+        print(json.dumps(needs_owner(a[1])))
     elif a[:1] == ['--release'] and len(a) == 2:
         total, rows = release_summary(a[1])
         print(f'{a[1]} 에 머지된 PR {total}개 중 위험도 높음 {len(rows)}개')
