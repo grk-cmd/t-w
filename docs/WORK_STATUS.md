@@ -20,7 +20,7 @@
 
 ## 규칙
 - **판은 사용자가 고른다** — 작업 전에 «어느 버전에 릴리스될 작업인가» 를 묻고 그 판 `release/X.Y.Z` 에서 딴다(지금 열린 판: release/0.12.0). 긴급 수정만 `hotfix/*`, 하네스만 `harness/*` 를 main 에서.
-- **머지는 `/ship`** — 컨펌자 · 검증자 통과 → CI → 머지. 위험도 높은 PR 은 사용자 승인(코멘트 한 줄 `승인 <커밋>` 또는 Approve) 뒤에. 로컬에서 검사 전체를 다시 돌리지 않는다(고친 검사만 · 전체는 CI).
+- **머지는 `/ship`** — 컨펌자 · 검증자 통과 → CI → 머지. 승인은 가드 자리를 바꾸는 PR 만(`risk.py --owner <PR>`) — 그 밖은 위험도가 높아도 자동. 로컬에서 검사 전체를 다시 돌리지 않는다(고친 검사만 · 전체는 CI).
 - `checks/CHECKS.md` 에 개정 번호 · 기록은 적지 않는다(10-19 없앰 — 내력은 git). §3 해시만 맞춘다.
 - **클릭 통과(setIgnoreMouseEvents)를 정하는 조건은 `app/parts/launcher/click-through-policy.js` 한 곳에만 쓴다.** 다른 파일에 조건을 쓰면 `sim-click-through-policy.js` 가 빨강이다(#315 머지부터).
 - **담당 이름은 남과 겹치지 않게** 쓴다(예: «검증-도우미1» · «계정 세션» · 사람 이름). 같은 이름이 둘이면 누가 누군지 못 가린다.
@@ -29,7 +29,8 @@
 ## 진행 중 — 검토중 · 작업중 · 작업완료
 | 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|---|---|---|
-| 작업중 | 하네스 | 오케스트레이터 | main | harness/approve-at-release | 승인은 main 으로 가는 PR(하네스 · 긴급 수정)만 · 판 브랜치 PR 은 컨펌 · 검증 · CI 로 머지 · 릴리스 직전 «위험도 높았던 PR» 한 장 요약(risk.py --release) · 파일 내용이 같으면 판정 이어받기 · #407 위에 쌓음(사용자 10-20 «a») | .claude/hooks/risk.py · .claude/hooks/ship-gate.py · .claude/hooks/test_hooks.py · .claude/skills/ship/SKILL.md · CLAUDE.md · docs/RELEASE.md · docs/WORK_STATUS.md(규칙 줄) | |
+| 작업완료(0.12.0) | 방 | 오케스트레이터 | 0.12.0 | fix/room-ghost-member | 시각(lastSeen) · 하트비트 도장 둘 다 없는 멤버를 «있는 사람» 으로 세던 것 — 앱 입장 검사(Firebase 방에 붙잡힘) · 서버 빈 방 판정(영영 안 정리됨) 둘 다 찌꺼기로(사용자 10-20) | `app/parts/room/room-alive.js` · `functions/room-stats.js` · `checks/sim-room-alive.js` · 함수 검사 | #414 · 2026-10-20 |
+| 작업완료(main) | 하네스 | 오케스트레이터 | main | harness/approve-at-release | 승인은 main 으로 가는 PR(하네스 · 긴급 수정)만 · 판 브랜치 PR 은 컨펌 · 검증 · CI 로 머지 · 릴리스 직전 «위험도 높았던 PR» 한 장 요약(risk.py --release) · 파일 내용이 같으면 판정 이어받기 · #407 위에 쌓음(사용자 10-20 «a») | .claude/hooks/risk.py · .claude/hooks/ship-gate.py · .claude/hooks/test_hooks.py · .claude/skills/ship/SKILL.md · CLAUDE.md · docs/RELEASE.md · docs/WORK_STATUS.md(규칙 줄) | #410 · 2026-10-20 |
 | 작업중 | 📘 도움말 사이트 | 오케스트레이터 | 0.12.0 | chore/drop-design-page | 디자인 시스템 웹 페이지(/design/) 걷기 — 원본 docs/design-system 은 남김 · 빌드는 도움말 토큰(hosting/help/tokens.css)만 · #408 위에 쌓음(사용자 10-20) | `hosting/design/`(지움) · `scripts/build-design-site.js` → `build-design-tokens.js` · `checks/sim-design-site.js` → `sim-design-tokens.js` · `package.json`(script 한 줄) · 문서 | |
 | 작업중 | 📘 도움말 사이트 | 오케스트레이터 | 0.12.0 | feat/help-site-privacy-link | 개인정보 처리방침 · 폰 연결 안내를 도움말 사이트(help.together-working.com)로 옮김 — 앱 링크 세 곳 새 주소 · 옛 web.app/privacy · /link 는 새 주소로 넘김(옛 앱) · #406 위에 쌓음(사용자 10-20) | `hosting/privacy.html` · `hosting/link.html` → `hosting/help/` · `firebase.json`(redirects) · `desk-companion-prototype.html`(링크 두 곳) · `focus/focus-level.js` · 검사 | |
 | 작업완료(main) | 하네스 | 오케스트레이터 | main | harness/new-site-confirm | 앱에 바깥 주소를 새로 박는 일은 사람 확인 — CSP 가 바뀌거나 Firebase 기본 주소(*.web.app · *.firebaseapp.com)가 새로 들어오면 위험도 높음 · 컨펌자 점검표 · 작업 규칙 «새 사이트는 우리 도메인»(사용자 10-20) | .claude/hooks/risk.py · .claude/hooks/test_hooks.py · .claude/review-lessons.md · CLAUDE.md | #407 · 2026-10-20 |
@@ -46,7 +47,9 @@
 | 작업완료(main) | 하네스 | 오케스트레이터(보안 점검 세션 #400 에서 이어받음) | main | harness/hook-utf8 | Windows(cp949)에서 risk.py · ship-gate.py 가 한글 출력으로 죽던 것만 고침 — «새 모듈» 규칙 빼기(#400)는 닫음(사용자 10-19) | .claude/hooks/risk.py · .claude/hooks/ship-gate.py · .claude/hooks/role-start.py · .claude/hooks/test_hooks.py | #403 · 2026-10-19 |
 | 작업완료(main) | 규칙 hotfix 로그인 읽기 | 오케스트레이터 | main(hotfix) | hotfix/authusers-self-read | 옛 앱 차단(presence 켜짐 · ver 없음)이 로그인 때 자기 authUsers 한 칸 읽기까지 막아, presence 가 남은 사람은 구글 · 친구 코드 로그인이 영영 실패하던 것 — 자기 authUsers 읽기만 차단에서 뺀다 | firebase-database-rules.json(authUsers) · checks/sim-rules-src.js · scripts/rules-emu-check.js | #401 · 2026-10-19 |
 | 작업완료(main) | 하네스 | 오케스트레이터 | main | harness/approve-cmd | 승인 명령 — 터미널에서 `! scripts/approve.sh <PR 번호…>` 한 줄로 그 PR 머리 커밋에 «승인» 코멘트 · 세션이 이 명령을 돌리면 가드가 막음 · 승인 요청 코멘트에 이 명령을 적음 | scripts/approve.sh(새) · .claude/hooks/ship-gate.py · .claude/hooks/test_hooks.py(#396 · #400 과 같은 파일) · .claude/skills/ship/SKILL.md(#400 과 같은 파일) | #402 · 2026-10-19 |
-| 작업중 | 규칙 userAuth 봇 읽기 | 서버 hotfix 세션(togetherworking-6b) | 0.12.0 | rules/userauth-bot-read | `userAuth` 노드에 apiBots 읽기 한 줄 — 서버가 신원 연결표를 구독해 PG 사본으로(서버 설계 AUTH_IDENTITY_SPLIT ① · 앱 동작 무변경) | firebase-database-rules.json(userAuth) · checks/sim-rules-src.js(필요하면) · checks/CHECKS.md §3 | |
+| 작업완료(0.12.0) | 규칙 userAuth 봇 읽기 | 서버 hotfix 세션(togetherworking-6b) | 0.12.0 | rules/userauth-bot-read | `userAuth` 노드에 apiBots 읽기 한 줄 — 서버가 신원 연결표를 구독해 PG 사본으로(서버 설계 AUTH_IDENTITY_SPLIT ① · 앱 동작 무변경) | firebase-database-rules.json(userAuth) · checks/sim-rules-src.js(필요하면) · checks/CHECKS.md §3 | #411 · #412 · 2026-10-20 |
+| 작업완료(0.12.0) | 오픈소스 라이선스 창 | 서버 hotfix 세션(togetherworking-6b) | 0.12.0 | feat/oss-licenses | «개인정보 처리방침» 옆 «오픈소스 라이선스» 링크(설정 › 시스템 · 내 정보) → 고정 크기 창 · 안쪽 스크롤 · 목록은 스크립트가 lock 에서 만든다(사용자 10-20) | app/parts/launcher/oss-licenses.js(새) · app/licenses/oss-notices.js(새 · 만든 파일) · scripts/third-party-notices.js(새) · desk-companion-prototype.html(링크 둘 · script 한 줄) · app.js(한 줄) · checks/smoke.js · checks/sim-oss-licenses.js | #413 · 2026-10-20 |
+| 작업중 | 앱 가볍게(의존성 정리) | 서버 hotfix 세션(togetherworking-6b) | 0.12.0 | chore/slim-deps | 앱에서 안 쓰는 npm `firebase`(설치본 node_modules 162MB 중 140MB — 앱은 CDN 10.12.2 를 씀) 빼기 · 라이선스 목록 다시 만들기 · 그 밖에 설치본에 쓸데없이 들어가는 것 줄이기(사용자 10-20 «앱 가볍게 최대한») | `package.json`(dependencies · build.files — chore/drop-design-page 의 script 줄과 다른 줄) · `package-lock.json` · `scripts/third-party-notices.js` · `app/licenses/oss-notices.js` · 검사 | |
 | 검토중 | 앱 버전 보이기 | 미지정 | 0.12.0 | feat/version-visible | 로그인이 안 돼도 앱 버전이 보이게 — 로그인 · 가입 화면에 버전 · 계정 요약 ver 를 모르면 unknown · 웹 관리자 버전 칸이 접속 정보 ver 도 봄 | app/parts/firebase-init.js(setAccountSnapshot) · 로그인 화면 · web-admin/src/entities/user/model/version.ts | |
 
 ## 대기 — 앞 줄이 머지돼야 올림

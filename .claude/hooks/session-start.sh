@@ -9,4 +9,5 @@ fi
 
 cd "$CLAUDE_PROJECT_DIR"
 # npm ci 가 아니라 install — 세션이 끝난 뒤 캐시된 node_modules 를 다시 쓸 수 있다.
-npm install --no-audit --no-fund
+# --ignore-scripts — 의존성 · postinstall 스크립트가 세션 시작 때 돌지 않게(가드 밖 코드로 훅을 끄는 길을 막는다 · 검사엔 필요 없다)
+npm install --no-audit --no-fund --ignore-scripts
