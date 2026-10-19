@@ -6357,9 +6357,9 @@
      ★ 세 버튼 같은 크기(전부 lc-btn · ghost 아님). 계정이 있으면 **초대 코드 없이** 들어온다.
      ★ 옛 «유저 코드(u…) + 이전 비밀번호 = 계정 이전» 줄은 걷었다 — 친구 코드 로그인이 그 자리다(설계 §9 결정 9).
      원격 설정 config/flags/inviteGate 가 false면 아예 뜨지 않음. 불투명 배경으로 뒤를 완전히 가림. -->
-<div id="inviteGateOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-invite);display:none;align-items:center;justify-content:center;
+<div id="inviteGateOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-invite);display:none;flex-direction:column;align-items:center;justify-content:flex-start;overflow-y:auto;
   background:#3a6ea5;">
-  <div id="inviteGateCard" style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+  <div id="inviteGateCard" style="flex:none;margin:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
@@ -6404,19 +6404,10 @@
       </div>
     </div>
   </div>
-  <!-- 첫 화면 맨 아래 — 로그인 전에도 버전과 개인정보 처리방침을 볼 수 있게(두 카드 공통이라 카드 밖).
-       버전은 program-settings.js 가 data-app-version 칸을 채운다 · 링크는 room-entry.js 가 시스템 브라우저로 연다(주소는 다른 두 링크와 같다). -->
-  <div id="inviteGateFoot" style="position:absolute;left:0;right:0;bottom:12px;display:flex;align-items:center;justify-content:center;gap:6px;
-    font-size:11px;color:var(--win-title-ink);font-family:var(--tw-font-ui);">
-    <span data-app-version>…</span><span aria-hidden="true">·</span>
-    <a id="gatePrivacyLink" href="https://help.together-working.com/privacy"
-      title="개인정보 처리방침을 브라우저로 열어요"
-      style="display:inline-flex;align-items:center;min-height:24px;color:inherit;text-decoration:underline;cursor:pointer;">개인정보 처리방침</a>
-  </div>
   <!-- ✍️ A · 계정 만들기 — 초대 코드로 막 들어온 새 사람만(같은 오버레이 안 두 번째 카드). [설계 §3 · §7-A · 시안 확정]
        새 친구 코드는 **고정 표시**(선점은 [가입하기] 때) · 아이디 입력 칸 없음 · 비밀번호·확인만 · 또는 구글로 가입.
        가입이 끝나면 #signupDoneOverlay(J · J2)로 넘어간다. -->
-  <div id="signupCard" style="display:none;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+  <div id="signupCard" style="display:none;flex:none;margin:auto;background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
@@ -6456,6 +6447,17 @@
         이메일은 받지 않아요. 비밀번호를 잊으면 <b>로그인돼 있는 PC</b>의 [내 정보 › 계정]에서 바꿀 수 있어요.
       </div>
     </div>
+  </div>
+  <!-- 첫 화면 맨 아래 — 로그인 전에도 버전과 개인정보 처리방침을 볼 수 있게(두 카드 공통이라 카드 밖 · 카드 다음).
+       오버레이는 세로 흐름 — 카드는 남는 높이에서 가운데(margin:auto), 창이 낮으면 이 줄이 카드 밑으로 밀리고 오버레이가 스크롤한다(겹치지 않게).
+       글자는 흰색 고정 — 바탕(#3a6ea5)이 테마와 상관없이 고정이라 테마 토큰을 쓰면 버블 테마에서 안 읽힌다(카드 제목과 같은 까닭).
+       버전은 program-settings.js 가 data-app-version 칸을 채운다 · 링크는 room-entry.js 가 시스템 브라우저로 연다(주소는 다른 두 링크와 같다). -->
+  <div id="inviteGateFoot" style="flex:none;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 0 12px;
+    font-size:11px;color:#fff;font-family:var(--tw-font-ui);">
+    <span data-app-version>…</span><span aria-hidden="true">·</span>
+    <a id="gatePrivacyLink" href="https://help.together-working.com/privacy"
+      title="개인정보 처리방침을 브라우저로 열어요"
+      style="display:inline-flex;align-items:center;min-height:24px;color:inherit;text-decoration:underline;cursor:pointer;">개인정보 처리방침</a>
   </div>
 </div>
 
