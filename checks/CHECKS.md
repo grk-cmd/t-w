@@ -347,7 +347,7 @@
 | **sim-launcher-controls.js** | 204 | **78202998b89b** |
 | **sim-launcher-preview.js** | 159 | **046bc6923a36** |
 | **sim-mat-tone.js** | 174 | **8055614c531b** |
-| **sim-oss-licenses.js** | 168 | **5b02705f52c9** |
+| **sim-oss-licenses.js** | 176 | **4b8e6195aaab** |
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |
 | **sim-wardrobe-panel.js** | 95 | **1070574caf86** |
 | **sim-race-picker.js** | 99 | **eb713b5f131e** |
