@@ -145,6 +145,90 @@ else:
     bad += 1
     print('  ✗ 판정 머리 커밋 없음')
 
+# 판 브랜치만 합친 머리 — 앞 커밋의 승인 · 판정을 이어 받는가(PR 자체 변경이 같을 때만)
+O, H, H2 = 'a1' * 20, 'b2' * 20, 'c3' * 20   # O 승인된 커밋 · H 판 브랜치만 합친 머리 · H2 합치며 코드가 달라진 머리
+ROW = lambda h: f'| **smoke.js** | 691 | **{h}** |'
+def files(code, row='aaaaaaaaaaaa', extra=()):
+    return [{'filename': 'app/a.js', 'status': 'modified', 'patch': f'@@ -1,3 +1,3 @@\n ctx\n-old\n+{code}'},
+            {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW(row)}'}, *extra]
+CMP = {O: files('new'), H: files('new', row='bbbbbbbbbbbb'), H2: files('new2')}
+def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open'):
+    risk.api = lambda p: [list(reviews)] if '/reviews' in p else [list(comments)] if '/comments' in p else [[{'sha': c} for c in commits]] if '/commits' in p else [[]]
+    def get(p):
+        if '/compare/' in p:
+            return {'files': cmp[p.rsplit('...', 1)[1]]}
+        if '/check-runs' in p:
+            return {'check_runs': runs if runs is not None else [{'name': 'npm run check', 'status': 'completed', 'conclusion': 'success'}]}
+        return {'base': {'ref': 'release/0.12.0'}, 'head': {'sha': commits[-1]}, 'state': state}
+    risk.get = get
+carry = [
+    ('합치기만 · 옛 커밋 코멘트 승인', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}]), H, True),
+    ('합치기만 · 옛 커밋 리뷰 승인', dict(reviews=[{'user': U, 'state': 'APPROVED', 'commit_id': O}]), H, True),
+    ('합치며 코드가 달라짐', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}], commits=(O, H2)), H2, False),
+    ('승인 없음', dict(), H, False),
+    ('남이 단 옛 승인', dict(comments=[{'user': X, 'body': '승인 ' + O[:7]}]), H, False),
+    ('PR 에 없는 커밋 승인', dict(comments=[{'user': U, 'body': '승인 ' + 'd4' * 3 + 'd'}]), H, False),
+    ('옛 승인 뒤 Request changes', dict(reviews=[{'user': U, 'state': 'CHANGES_REQUESTED', 'commit_id': O}], comments=[{'user': U, 'body': '승인 ' + O[:7]}]), H, False),
+    ('compare 파일 300개(못 다 봄)', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}], cmp={O: [{'filename': f'f{i}', 'status': 'added', 'patch': '+x'} for i in range(300)], H: [{'filename': f'f{i}', 'status': 'added', 'patch': '+x'} for i in range(300)]}), H, False),
+    ('해시 줄 말고 CHECKS.md 글이 달라짐', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}], cmp={O: files('new'), H: files('new', extra=[{'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': '+| **sim-x.js** | 9 | 손 |'}])}), H, False),
+    ('합치며 파일 하나가 더 바뀜', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}], cmp={O: files('new'), H: files('new', extra=[{'filename': 'b.js', 'status': 'modified', 'patch': '+y'}])}), H, False),
+]
+for name, kw, head, want in carry:
+    kw = dict(kw)
+    fake(commits=kw.pop('commits', (O, head)), **kw)
+    got = risk.owner_approved(395, head)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 이어 받기 {name}: {got}(기대 {want})')
+
+# 가드 판정 이어 받기 — 머리에 tw/confirm · tw/verify 가 없어도 앞 커밋에 있고 PR 자체 변경이 같으면 머지 길을 연다
+import importlib.util, io, contextlib
+spec = importlib.util.spec_from_file_location('ship_gate', G)
+gate = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(gate)
+sys.modules['risk'] = risk
+GOOD = json.dumps([{'context': 'tw/confirm', 'state': 'success'}, {'context': 'tw/verify', 'state': 'success'}])
+for name, head, passed_on, want in (('합치기만 · 앞 커밋 통과', H, O, True), ('합치며 달라짐 · 앞 커밋 통과', H2, O, False),
+                                    ('아무 커밋도 통과 없음', H, None, False), ('머리가 통과', H, H, True)):
+    fake(commits=(O, head))
+    gate.run = lambda *a, h=head, ps=passed_on, **k: h if a[-1] == '.head.sha' else (GOOD if ps and f'/commits/{ps}/' in a[2] else '[]')
+    got = gate.gate_ok(395)[0]
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 가드 판정 이어 받기 {name}: {got}(기대 {want})')
+
+# 기다리기(risk.py --wait) — 승인 · CI 를 세션이 지켜보다 알린다
+naps = []
+def waiting(name, want_code, want_word, high=True, steps=(), **kw):
+    seq = list(steps)
+    def nap(_):
+        naps.append(1)
+        if seq:
+            fake(**seq.pop(0))
+    fake(**kw)
+    risk.assess = lambda pr: {'high': high, 'reasons': []}
+    code, msg = risk.wait(395, limit=60, every=15, sleep=nap)
+    global ok, bad
+    if code == want_code and want_word in msg:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 기다리기 {name}: {code} {msg}')
+APPR = [{'user': U, 'body': '승인 ' + H[:7]}]
+waiting('승인 · CI 초록', 0, '머지할 차례', commits=(O, H), comments=APPR)
+waiting('승인이 나중에 달림', 0, '머지할 차례', commits=(O, H), steps=[dict(commits=(O, H)), dict(commits=(O, H), comments=APPR)])
+waiting('승인 없음 — 시간 끝', 1, '끝나지 않음', commits=(O, H))
+waiting('낮음은 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
+waiting('CI 도는 중 — 끝나면', 0, '머지할 차례', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'in_progress'}],
+        steps=[dict(commits=(O, H), comments=APPR)])
+waiting('CI 빨강', 1, 'CI 빨강: npm run check', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'completed', 'conclusion': 'failure'}])
+waiting('PR 이 닫힘', 1, '열려 있지 않다', commits=(O, H), state='closed')
+waiting('CI 아직 하나도 없음', 1, '끝나지 않음', commits=(O, H), comments=APPR, runs=[])
+
 # 머지 가드 — 위험도 · 승인을 못 읽으면(GitHub API 실패) 막는가
 import importlib.util, io, contextlib
 spec = importlib.util.spec_from_file_location('ship_gate', G)
