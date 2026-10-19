@@ -29,6 +29,7 @@
 ## 진행 중 — 검토중 · 작업중 · 작업완료
 | 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|---|---|---|
+| 작업중 | 스티커사진 음악 켜고 끄기 | 계정 세션 | 0.12.0 | feat/purikura-bgm-toggle | 스티커사진 창 제목줄 남은 횟수 왼쪽에 «음악 끄기 / 음악 켜기»(마이홈 말랑이 숨기기와 같은 글자 버튼 · 시안 A) — 끈 상태는 이 PC 에 기억 · 다른 BGM 재우기 · 되살리기는 그대로 | `purikura/purikura-ui.js` · `desk-companion-prototype.html`(제목줄 span 하나) · 검사 | — |
 | 작업중 | 하네스 | 오케스트레이터 | main | harness/role-sessions | 역할 세션(서버 · 보안 · 투두 · 질문) — 이름으로 열면 시작 hook 이 역할 지침을 붙임 · 켤 때 열린 판 한 장 요약 + «어느 버전?» · /roles 스킬 | .claude/roles/* · .claude/hooks/(새 시작 hook · 시험) · .claude/settings.json · .claude/skills/roles/ | |
 | 작업중 | 하네스 | 오케스트레이터 | main | harness/status-done-action | PR 머지되면 현황판 줄을 «작업완료(판) · #PR · 날짜» 로 바꾸는 GitHub Actions | .github/workflows/(새 파일) · scripts/(새 순수 함수) · checks/(새 sim) · docs/RELEASE.md | |
 | 검토중 | 제보 B-1019-3 | 미지정 | 미정 | fix/skin-blank-B-1019-3(딸 이름) | 캐릭터 피부가 투명해져 뒤가 비침(v0.11.3 · Win) — 원인(추정): GPU 리셋 때 2D 캔버스인 피부 바탕(skinCanvases)이 비고, 얼굴 복구 감시는 합성 텍스처가 «전부 투명» 일 때만 잡아 눈·입 선이 남은 «피부만 빈» 경우를 놓침(_repairSkinCanvases 는 다른 고장이 잡힐 때만 덤으로 돎). 0.11.3 · 서버 이관과 무관, 처음부터 있던 빈틈. 고칠 방향: newCanvas 에 getContext('2d',{willReadFrequently:true}) 로 CPU 에 두기 + 4초 점검마다 피부 캔버스 따로 검사 → 채우고 좌석 텍스처 다시 그리기 | app/parts/app.js(newCanvas) · app/parts/character/face-heal.js | |
