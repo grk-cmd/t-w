@@ -145,6 +145,30 @@ else:
     bad += 1
     print('  ✗ 판정 머리 커밋 없음')
 
+# 위험도 — 앱에 바깥 주소를 새로 박으면 높음(CSP · Firebase 기본 주소)
+real_api = risk.api
+def risky(name, files, want_high, want_word=''):
+    global ok, bad
+    risk.api = lambda p, f=files: [f]
+    r = risk.assess(395)
+    good = r['high'] == want_high and (not want_word or any(want_word in x for x in r['reasons']))
+    if good:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 위험도 {name}: {r}')
+P = lambda name, *added: {'filename': name, 'status': 'modified', 'patch': '@@ -1 +1 @@\n' + '\n'.join('+' + a for a in added)}
+risky('CSP 줄이 바뀜', [P('app/desk-companion-prototype.html', '<meta http-equiv="Content-Security-Policy" content="frame-src https://help.together-working.com;">')], True, 'CSP')
+risky('web.app 주소를 새로 박음', [P('app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://together-working.web.app';")], True, 'Firebase 기본 주소')
+risky('firebaseapp.com 주소', [P('app/parts/x.js', "fetch2('https://together-working.firebaseapp.com/a')")], True, 'Firebase 기본 주소')
+risky('우리 도메인 주소는 높음 아님', [P('app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://help.together-working.com';")], False)
+risky('글자만 바뀜', [P('app/parts/myhome/scheduler.js', "btn.textContent = '📪 알림함 확인';")], False)
+risky('검사 · 문서의 web.app 은 빼기', [P('checks/sim-x.js', "!S.isHelpUrl('https://together-working.web.app/help/')"), P('docs/RELEASE.md', 'https://together-working.web.app/admin/')], False)
+risky('CSP 소문자(http-equiv 는 대소문자 안 가림)', [P('app/x.html', '<meta http-equiv="content-security-policy" content="frame-src *">')], True, 'CSP')
+risky('정규식 안에 쓴 web.app 주소', [P('app/parts/x.js', r"const RE = /^https:\/\/together-working\.web\.app\//;")], True, 'Firebase 기본 주소')
+risky('지운 줄은 안 봄', [{'filename': 'app/a.js', 'status': 'modified', 'patch': "@@ -1 +1 @@\n-const U = 'https://together-working.web.app';"}], False)
+risk.api = real_api
+
 # 판 브랜치만 합친 머리 — 앞 커밋의 승인 · 판정을 이어 받는가(PR 자체 변경이 같을 때만)
 O, H, H2 = 'a1' * 20, 'b2' * 20, 'c3' * 20   # O 승인된 커밋 · H 판 브랜치만 합친 머리 · H2 합치며 코드가 달라진 머리
 ROW = lambda h: f'| **smoke.js** | 691 | **{h}** |'
