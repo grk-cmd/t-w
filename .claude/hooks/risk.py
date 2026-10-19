@@ -25,7 +25,7 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 
 REPO = 'grk-cmd/t-w'
 OWNER = 'mihioon'
-OWNER_BASES = ('main',)   # 머지 전 승인이 필요한 base — 머지되는 순간 닿는 곳(하네스 · 긴급 수정)
+EXEMPT_PREFIX = 'release/'   # 머지 전 승인을 건너뛰는 base — 판 브랜치는 머지돼도 아무에게 안 나간다(그 밖 · main 은 승인)
 # 한 줄 전체가 «승인 <sha 앞자리>» 일 때만 — 승인 요청 코멘트(«승인 요청 — …»)와 섞이지 않게
 APPROVE_LINE = re.compile(r'^\s*승인\s+([0-9a-f]{7,40})\s*$', re.M)
 # 판 브랜치를 합치면 검사 해시 줄(CHECKS.md §3)의 줄 수 · 해시가 다시 계산돼 바뀐다 — 그 둘만 지우고 파일 이름은 남겨 견준다
@@ -156,8 +156,8 @@ def tree_of(sha):
 
 
 def needs_owner(pr):
-    """머지 전 승인이 필요한 PR 인가 — base 가 main(하네스 · 긴급 수정)일 때만."""
-    return get(f'repos/{REPO}/pulls/{pr}')['base']['ref'] in OWNER_BASES
+    """머지 전 승인이 필요한 PR 인가 — 판 브랜치(release/*)로 가는 것만 빼고(main · 쌓아 올린 작업 브랜치 등은 승인)."""
+    return not get(f'repos/{REPO}/pulls/{pr}')['base']['ref'].startswith(EXEMPT_PREFIX)
 
 
 def release_summary(branch):

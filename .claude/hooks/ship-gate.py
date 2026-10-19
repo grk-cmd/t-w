@@ -3,7 +3,8 @@
 
 1. 머지 — `gh pr merge` · `gh api …/pulls/N/merge`: 그 PR 머리 커밋에 상태값 `tw/confirm`(컨펌자) · `tw/verify`(검증자)가
    둘 다 success 가 아니면 막는다. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
-   위험도가 높은 PR(risk.py — 데이터 경로 · 규칙 · 서버 · 빌드)은 승인자(mihioon)가 그 머리 커밋을 Approve 해야 한다.
+   위험도가 높은 PR(risk.py — 데이터 경로 · 규칙 · 서버 · 빌드)은 승인자(mihioon)가 그 머리 커밋을 Approve 해야 한다 —
+   판 브랜치(release/*)로 가는 PR 만 빼고(머지돼도 안 나간다 · 승인자는 릴리스 직전 risk.py --release 로 본다).
    판정 · 승인 뒤 판 브랜치를 합치기만 한 머리(PR 자체 변경이 같음 — risk.same_change)는 앞 커밋의 것을 이어 받는다.
 2. 보호 브랜치에 직접 push — `main` · `release/*`. 예외: main 에 `docs/WORK_STATUS.md` 만 바꾼 push.
 2-1. 승인을 세션이 대신 남기기 — Approve 리뷰 · «승인 <커밋>» 코멘트. 세션도 승인자 계정으로 GitHub 를 쓰니

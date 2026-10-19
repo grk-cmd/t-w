@@ -43,6 +43,7 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 
 ## 4-1. 위험도 — main 으로 가는 PR 이 높으면 승인 대기
 - base 가 판 브랜치(release/*)면 이 절을 건너뛰고 5 로(승인은 릴리스 직전 한 번).
+- 판 브랜치를 main 에 합치는 PR(릴리스)이면 승인 요청 본문에 `python3 .claude/hooks/risk.py --release <판>` 출력을 붙인다 — 승인자가 그 판의 위험도 높았던 PR 을 여기서 한 번에 본다.
 - base 가 main 이고 `python3 .claude/hooks/risk.py <번호>` → `high` 면:
   - 승인자의 리뷰를 읽는다: `gh api $R/pulls/<번호>/reviews` · `gh api $R/pulls/<번호>/comments` · `gh api $R/issues/<번호>/comments` 에서 user.login = `mihioon` 인 것.
   - **CHANGES_REQUESTED 이거나 고칠 것을 적은 코멘트**가 머리 커밋 뒤에 있으면 → 고치고(3 처럼) → 고친 지적마다 `/lesson` → push → 2 부터.

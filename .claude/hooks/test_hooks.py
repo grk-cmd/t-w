@@ -245,7 +245,8 @@ for name, head, passed_on, want in (('합치기만 · 앞 커밋 통과', H, O, 
         print(f'  ✗ 가드 판정 이어 받기 {name}: {got}(기대 {want})')
 
 # 승인은 main 으로 가는 PR 만 — 판 브랜치 PR 은 높음이어도 승인 없이(컨펌 · 검증 · CI 로) 머지 길
-for name, base, want in (('판 브랜치 PR 은 승인 안 받음', 'release/0.12.0', False), ('main(하네스 · 긴급) PR 은 승인 받음', 'main', True)):
+for name, base, want in (('판 브랜치 PR 은 승인 안 받음', 'release/0.12.0', False), ('main(하네스 · 긴급) PR 은 승인 받음', 'main', True),
+                        ('쌓아 올린 작업 브랜치로 가는 PR 도 승인', 'feat/x', True), ('release 로 시작만 비슷한 이름은 승인', 'releases-old', True)):
     fake(base=base)
     got = risk.needs_owner(395)
     if got == want:
