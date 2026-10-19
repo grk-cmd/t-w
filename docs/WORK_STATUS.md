@@ -29,7 +29,7 @@
 ## 진행 중 — 검토중 · 작업중 · 작업완료
 | 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|---|---|---|
-| 작업중 | 방 | 오케스트레이터 | 0.12.0 | fix/together-chat-keep-1h | 빈 투게더룸 #일반 대화(chatLog)를 바로 지우지 않고 1시간 뒤에 지움 — 그새 다시 열리면 남김(빈 Firebase 방 · 방 서버 방 닫힘 둘 다 · 사용자 10-20 «1시간») | `functions/room-stats.js` · `functions/index.js`(주석) · `checks/sim-room-meta-cleanup.js` · CHECKS.md | |
+| 작업완료(0.12.0) | 방 | 오케스트레이터 | 0.12.0 | fix/together-chat-keep-1h | 빈 투게더룸 #일반 대화(chatLog)를 바로 지우지 않고 1시간 뒤에 지움 — 그새 다시 열리면 남김(빈 Firebase 방 · 방 서버 방 닫힘 둘 다 · 사용자 10-20 «1시간») | `functions/room-stats.js` · `functions/index.js`(주석) · `checks/sim-room-meta-cleanup.js` · CHECKS.md | #419 · 2026-10-20 |
 | 작업완료(0.12.0) | 방 | 오케스트레이터 | 0.12.0 | fix/room-ghost-member | 시각(lastSeen) · 하트비트 도장 둘 다 없는 멤버를 «있는 사람» 으로 세던 것 — 앱 입장 검사(Firebase 방에 붙잡힘) · 서버 빈 방 판정(영영 안 정리됨) 둘 다 찌꺼기로(사용자 10-20) | `app/parts/room/room-alive.js` · `functions/room-stats.js` · `checks/sim-room-alive.js` · 함수 검사 | #414 · 2026-10-20 |
 | 작업완료(main) | 하네스 | 오케스트레이터 | main | harness/approve-at-release | 승인은 main 으로 가는 PR(하네스 · 긴급 수정)만 · 판 브랜치 PR 은 컨펌 · 검증 · CI 로 머지 · 릴리스 직전 «위험도 높았던 PR» 한 장 요약(risk.py --release) · 파일 내용이 같으면 판정 이어받기 · #407 위에 쌓음(사용자 10-20 «a») | .claude/hooks/risk.py · .claude/hooks/ship-gate.py · .claude/hooks/test_hooks.py · .claude/skills/ship/SKILL.md · CLAUDE.md · docs/RELEASE.md · docs/WORK_STATUS.md(규칙 줄) | #410 · 2026-10-20 |
 | 작업중 | 📘 도움말 사이트 | 오케스트레이터 | 0.12.0 | chore/drop-design-page | 디자인 시스템 웹 페이지(/design/) 걷기 — 원본 docs/design-system 은 남김 · 빌드는 도움말 토큰(hosting/help/tokens.css)만 · #408 위에 쌓음(사용자 10-20) | `hosting/design/`(지움) · `scripts/build-design-site.js` → `build-design-tokens.js` · `checks/sim-design-site.js` → `sim-design-tokens.js` · `package.json`(script 한 줄) · 문서 | |
