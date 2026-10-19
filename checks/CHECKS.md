@@ -100,7 +100,7 @@
 | **sim-gl-recover.js** | 80 | **8c117fa521be** |
 | **sim-chat-copy.js** | 86 | **0e24f604f42f** |
 | **sim-chat-delete-log.js** | 90 | **d987e49be2b8** |
-| **sim-chat-log-persist.js** | 158 | **2504f89acf10** |
+| **sim-chat-log-persist.js** | 160 | **886c6f8cad51** |
 | **sim-child-theme.js** | 104 | **365ddf210e7d** |
 | **sim-chip-chat-ui.js** | 115 | **e60ef5c45121** |
 | **sim-clone-code-entry.js** | 216 | **0ebba5a3d126** |
@@ -119,7 +119,7 @@
 | **sim-fly-replay.js** | 161 | **b7faec9ac84f** |
 | **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
 | **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
-| **sim-room-meta-cleanup.js** | 272 | **fbdbd2710e9f** |
+| **sim-room-meta-cleanup.js** | 320 | **90868b878de9** |
 | **sim-room-stats.js** | 226 | **3ca0e9bad691** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
