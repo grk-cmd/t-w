@@ -10,6 +10,13 @@ GitHub Approve, 또는 PR 코멘트 한 줄 «승인 <머리 커밋 앞 7자리 
 """
 import json, re, subprocess, sys
 
+# Windows 는 표준 입출력이 지역 인코딩(cp949)이라 «·» 같은 글자를 쓰다 죽는다 — hook 입출력은 UTF-8 로 고정
+for _s in (sys.stdin, sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 REPO = 'grk-cmd/t-w'
 OWNER = 'mihioon'
 # 한 줄 전체가 «승인 <sha 앞자리>» 일 때만 — 승인 요청 코멘트(«승인 요청 — …»)와 섞이지 않게
@@ -38,7 +45,7 @@ RISKY_LINES = [
 
 
 def api(path):
-    p = subprocess.run(['gh', 'api', '--paginate', path], capture_output=True, text=True)
+    p = subprocess.run(['gh', 'api', '--paginate', path], capture_output=True, text=True, encoding='utf-8', errors='replace')
     if p.returncode:
         raise RuntimeError(f'gh api {path}: {p.stderr.strip()[:200]}')
     # --paginate 는 배열을 이어 붙여 내보낸다

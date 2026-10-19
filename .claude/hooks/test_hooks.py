@@ -288,5 +288,18 @@ for name, stdin, want in (
         bad += 1
         print(f'  ✗ 시작 hook: {name} — 종료 {p.returncode} · {p.stdout[:120]!r} {p.stderr[:120]!r}')
 
+# Windows(cp949) 흉내 — 표준 입출력이 지역 인코딩이어도 «» · 한글을 읽고 쓰다 죽지 않는가(hook 이 죽으면 가드 · 판 요약이 조용히 빠진다)
+CP = dict(os.environ, PYTHONIOENCODING='cp949')
+for name, script, stdin, want in (
+        ('가드 거절 문구(«»)', G, json.dumps({'tool_input': {'command': 'gh pr review 395 --approve'}, 'cwd': CWD}), '"deny"'),
+        ('시작 hook 역할 지침', RS, json.dumps({'session_title': '질문', 'source': 'startup', 'cwd': CWD}), '너는 질문 담당이다')):
+    p = subprocess.run([sys.executable, '-B', script], input=stdin.encode('utf-8'), capture_output=True, env=CP, timeout=30)
+    out, err = p.stdout.decode('utf-8', 'replace'), p.stderr.decode('utf-8', 'replace')
+    if p.returncode == 0 and not err and want in json.dumps(json.loads(out or 'null'), ensure_ascii=False):
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ cp949 {name}: 종료 {p.returncode} · {out[:120]!r} {err[-200:]!r}')
+
 print(f'{"✓" if not bad else "✗"} 통과 {ok} · 실패 {bad}')
 sys.exit(1 if bad else 0)

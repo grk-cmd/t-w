@@ -11,6 +11,13 @@ git 과 `gh api`(REST)만 쓴다 — 웹 세션은 `gh pr` 이 막혀 있고 이
 """
 import json, os, re, subprocess, sys, time, unicodedata
 
+# Windows 는 표준 입출력이 지역 인코딩(cp949)이라 «·» 같은 글자를 쓰다 죽는다 — hook 입출력은 UTF-8 로 고정
+for _s in (sys.stdin, sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 REPO = 'grk-cmd/t-w'
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROLES_DIR = os.path.join(os.path.dirname(HERE), 'roles')
@@ -156,7 +163,7 @@ def build(title, source, branch, roles, gather_fn):
 # ── git · gh 로 사실 모으기 ────────────────────────────────
 
 def sh(args, cwd, timeout=GIT_TIMEOUT):
-    p = subprocess.run(args, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+    p = subprocess.run(args, cwd=cwd, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=timeout)
     if p.returncode != 0:
         raise RuntimeError(f'{" ".join(args[:3])} 실패: {cut(p.stderr, 80)}')
     return p.stdout
