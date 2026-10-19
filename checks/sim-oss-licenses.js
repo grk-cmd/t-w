@@ -102,6 +102,8 @@ chk(new RegExp('\\.oss-box\\{[^}]*overflow:hidden;width:440px;height:460px;max-w
 chk(/\.oss-list\{flex:1 1 auto;min-height:0;[^}]*overflow-y:auto;overflow-x:hidden/.test(CSS), '3절 목록은 창 안에서만 세로 스크롤 · 가로로 안 늘어남');
 chk(/\.oss-raw\{[^}]*max-height:150px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere/.test(CSS) && /\.oss-name\{[^}]*text-overflow:ellipsis;white-space:nowrap/.test(CSS) && /\.oss-chip\{[^}]*max-width:150px;overflow:hidden;text-overflow:ellipsis/.test(CSS), '3절 펼친 원문은 높이 상한 + 자기 스크롤 · 긴 이름 · 칩은 말줄임');
 chk(!/font-size:(9|\d+\.\d)px/.test(CSS), '3절 글자 크기는 디자인 시스템 단계만(9px 이하 · 반 픽셀 없음)');
+chk(/\.oss-title\{[^}]*background:var\(--win-title-grad\);color:var\(--win-title-ink\)/.test(CSS) && !/#fff|rgba\(|linear-gradient|--tw-font-legacy/.test(CSS), '3절 색 · 글꼴 · 그림자는 테마 토큰(타이틀 grad · ink · bg-field · win-drop · font-ui) — 박은 값 없음');
+chk(/\.oss-top\{[^}]*min-height:24px/.test(CSS) && /\.oss-name\{[^}]*min-height:24px/.test(CSS) && /\.oss-more\{[^}]*min-height:24px;min-width:44px/.test(CSS), '3절 누르는 자리는 24px 이상(size-hit)');
 mod.open();
 chk(doc.body.children.length === 1 && loads === 1, '3절 다시 열어도 창 · 싣기는 하나');
 resolveLoad({ items: [
@@ -149,7 +151,6 @@ resolveLoad({ items: [
     const outsideEl = node('desk', null);
     const byId = { programSettingsOverlay: settings, progSettingsCloseBtn: { click(){ closed++; } } };
     const fakeDoc = { addEventListener: (t, f) => handlers.push(f), getElementById: (id) => byId[id] || null };
-    new Function('document', 'window', 'module', src)(fakeDoc, {}, { exports: {} });
     const { createOutsideClose } = (() => { const m = { exports: {} }; new Function('document', 'window', 'module', src)(fakeDoc, {}, m); return m.exports; })();
     handlers.length = 0;
     createOutsideClose({});

@@ -17,20 +17,20 @@ const STYLE_ID = 'ossLicensesStyle';
 const OSS_WIN = { width: 440, height: 460, maxW: '92vw', maxH: '80vh' };
 
 const CSS = [
-  '#' + OV_ID + ' .oss-box{pointer-events:auto;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;width:' + OSS_WIN.width + 'px;height:' + OSS_WIN.height + 'px;max-width:' + OSS_WIN.maxW + ';max-height:' + OSS_WIN.maxH + ';background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);}',
-  '#' + OV_ID + ' .oss-title{flex:none;background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;}',
+  '#' + OV_ID + ' .oss-box{pointer-events:auto;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;width:' + OSS_WIN.width + 'px;height:' + OSS_WIN.height + 'px;max-width:' + OSS_WIN.maxW + ';max-height:' + OSS_WIN.maxH + ';background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), var(--win-drop);font-family:var(--tw-font-ui);}',
+  '#' + OV_ID + ' .oss-title{flex:none;background:var(--win-title-grad);color:var(--win-title-ink);padding:5px 8px;font-size:12px;font-weight:bold;}',
   '#' + OV_ID + ' .oss-cap{flex:none;margin:8px 12px 6px;font-size:11px;color:var(--ink-soft);line-height:1.5;}',
-  '#' + OV_ID + ' .oss-list{flex:1 1 auto;min-height:0;margin:0 12px;overflow-y:auto;overflow-x:hidden;background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);}',
+  '#' + OV_ID + ' .oss-list{flex:1 1 auto;min-height:0;margin:0 12px;overflow-y:auto;overflow-x:hidden;background:var(--tw-bg-field);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);}',
   '#' + OV_ID + ' .oss-row{padding:6px 8px;border-bottom:1px solid var(--win-face-2);}',
-  '#' + OV_ID + ' .oss-top{display:flex;align-items:center;gap:6px;min-width:0;}',
-  '#' + OV_ID + ' .oss-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:none;border:none;padding:0;font:inherit;font-size:12px;font-weight:bold;color:var(--win-select);text-decoration:underline;cursor:pointer;text-align:left;}',
+  '#' + OV_ID + ' .oss-top{display:flex;align-items:center;gap:6px;min-width:0;min-height:24px;}',
+  '#' + OV_ID + ' .oss-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-height:24px;background:none;border:none;padding:0;font:inherit;font-size:12px;font-weight:bold;color:var(--win-select);text-decoration:underline;cursor:pointer;text-align:left;}',
   '#' + OV_ID + ' .oss-name:disabled{color:var(--ink);text-decoration:none;cursor:default;}',
   '#' + OV_ID + ' .oss-ver{flex:none;font-size:10px;color:var(--ink-soft);font-family:var(--win-font-num);}',
   '#' + OV_ID + ' .oss-sp{flex:1 1 auto;}',
   '#' + OV_ID + ' .oss-chip{flex:none;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;line-height:16px;padding:0 6px;border:1px solid currentColor;color:var(--ink-soft);background:var(--win-face-2);}',
-  '#' + OV_ID + ' .oss-more{flex:none;background:none;border:none;padding:0 2px;font:inherit;font-size:11px;color:var(--ink-soft);cursor:pointer;}',
+  '#' + OV_ID + ' .oss-more{flex:none;min-height:24px;min-width:44px;background:none;border:none;padding:0 4px;font:inherit;font-size:11px;color:var(--ink-soft);cursor:pointer;}',
   '#' + OV_ID + ' .oss-note{margin-top:2px;font-size:10px;color:var(--ink-soft);line-height:1.5;overflow-wrap:anywhere;}',
-  '#' + OV_ID + ' .oss-raw{margin:6px 0 0;max-height:150px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:10px;line-height:1.5;padding:6px 8px;background:var(--win-face-2);color:var(--ink);font-family:var(--tw-font-legacy);}',
+  '#' + OV_ID + ' .oss-raw{margin:6px 0 0;max-height:150px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:10px;line-height:1.5;padding:6px 8px;background:var(--win-face-2);color:var(--ink);font-family:var(--tw-font-ui);}',
   '#' + OV_ID + ' .oss-msg{padding:16px 12px;font-size:12px;color:var(--ink-soft);text-align:center;}',
   '#' + OV_ID + ' .oss-foot{flex:none;display:flex;justify-content:flex-end;padding:8px 12px 12px;}',
 ].join('\n');
