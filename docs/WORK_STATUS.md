@@ -34,9 +34,9 @@
 | 작업중 | 스티커사진 음악 켜고 끄기 | 계정 세션 | 0.12.0 | feat/purikura-bgm-toggle | 스티커사진 창 제목줄 남은 횟수 왼쪽에 «음악 끄기 / 음악 켜기»(마이홈 말랑이 숨기기와 같은 글자 버튼 · 시안 A) — 끈 상태는 이 PC 에 기억 · 다른 BGM 재우기 · 되살리기는 그대로 | `purikura/purikura-ui.js` · `desk-companion-prototype.html`(제목줄 span 하나) · 검사 | #398 |
 | 작업중 | 하네스 | 오케스트레이터 | main | harness/role-sessions | 역할 세션(서버 · 보안 · 투두 · 질문) — 이름으로 열면 시작 hook 이 역할 지침을 붙임 · 켤 때 열린 판 한 장 요약 + «어느 버전?» · /roles 스킬 | .claude/roles/* · .claude/hooks/(새 시작 hook · 시험) · .claude/settings.json · .claude/skills/roles/ | |
 | 작업중 | 하네스 | 오케스트레이터 | main | harness/status-done-action | PR 머지되면 현황판 줄을 «작업완료(판) · #PR · 날짜» 로 바꾸는 GitHub Actions | .github/workflows/(새 파일) · scripts/(새 순수 함수) · checks/(새 sim) · docs/RELEASE.md | |
-| 검토중 | 제보 B-1019-3 | 미지정 | 미정 | fix/skin-blank-B-1019-3(딸 이름) | 캐릭터 피부가 투명해져 뒤가 비침(v0.11.3 · Win) — 원인(추정): GPU 리셋 때 2D 캔버스인 피부 바탕(skinCanvases)이 비고, 얼굴 복구 감시는 합성 텍스처가 «전부 투명» 일 때만 잡아 눈·입 선이 남은 «피부만 빈» 경우를 놓침(_repairSkinCanvases 는 다른 고장이 잡힐 때만 덤으로 돎). 0.11.3 · 서버 이관과 무관, 처음부터 있던 빈틈. 고칠 방향: newCanvas 에 getContext('2d',{willReadFrequently:true}) 로 CPU 에 두기 + 4초 점검마다 피부 캔버스 따로 검사 → 채우고 좌석 텍스처 다시 그리기 | app/parts/app.js(newCanvas) · app/parts/character/face-heal.js | |
-| 검토중 | 제보(번호 미정) 동물 얼굴 · 올라타기 | 미지정 | 미정 | fix/animal-fallback-stuck(딸 이름) | 동물 캐릭터가 아이템만 보이고 얼굴이 안 보이며 옆 사람 머리에 올라가기 불가(v0.11.3 · Win) — 원인(추정): 동물 모델 준비(animal-glb 파싱) · 다시 만들기(rebuildAnimalSeats) 실패 시 다시 시도가 없어 사람 모델로 대신 선 채 갇힘 → 사람 머리에 동물 얼굴 그림(투명 바탕) · _animalBuilt === false 라 올라타기 막힘. 0.11.3 에서 동물 코드 변경 없음. 제보자 확인: 사람 모양이었는지 · «동물 모습을 준비하는 중» 안내 · 콘솔 «[동물] buildAnimalBase 폴백 / 좌석용 base 파싱 실패 / 좌석 재빌드 실패». 고칠 방향: 실패 시 다시 시도 · 대신 서 있는 동안 동물 얼굴 그림 안 입히기 | app/parts/character/animal.js · app/parts/app.js(rebuildAnimalSeats · applyCharToSeat) · app/parts/room/ride-bench.js | |
-| 검토중 | 보안 점검 | 보안 점검 세션 | 미정 | —(읽기만 · 고칠 것은 따로 줄) | 보안 40항목(인젝션 · XSS · 권한 · 비밀 · 인증 · 헤더 · 의존성 · Actions 등) 기준 저장소 점검 — 코드 · 설정만 읽고 운영 DB · 서버는 안 건드림. 결과는 고칠 묶음별로 새 줄 | 없음(읽기만) | |
+| 검토중 | 제보 B-1019-3 | 미지정 | 미정 | fix/skin-blank | 캐릭터 피부가 투명해져 뒤가 비침 — 원인 · 고칠 방향은 PR 에 | app/parts/app.js(newCanvas) · app/parts/character/face-heal.js | |
+| 검토중 | 제보(번호 미정) 동물 얼굴 · 올라타기 | 미지정 | 미정 | fix/animal-fallback-stuck | 동물 캐릭터 얼굴이 안 보이고 올라타기가 안 됨 — 원인 · 고칠 방향은 PR 에 | app/parts/character/animal.js · app/parts/app.js · app/parts/room/ride-bench.js | |
+| 검토중 | 보안 점검 | 보안 점검 세션 | 미정 | — | 보안 점검(읽기만) — 고칠 것은 묶음별로 새 줄 | 없음 | |
 
 ## 대기 — 앞 줄이 머지돼야 올림
 | 줄 | 내용 | 기다리는 것 |
