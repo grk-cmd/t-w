@@ -216,7 +216,7 @@
 | **sim-frame-budget.js** | 186 | **6d7b7c2bd72e** |
 | **sim-design-site.js** | 61 | **5c8de512f913** |
 | **sim-help-pages.js** | 151 | **3b03c1369483** |
-| **sim-help-tab.js** | 200 | **b2e278b8df67** |
+| **sim-help-tab.js** | 200 | **f95942785f75** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** |
 | **sim-creator-flat-view.js** | 129 | **9104a76fb79a** |

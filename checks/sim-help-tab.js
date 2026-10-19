@@ -21,7 +21,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { if(ok){ pass++; say('  ✓ ' + msg); } else { fail++; say('  ✗ ' + msg); } };
 
 const loadSite = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwHelpSite; };
-const ORIGIN = 'https://together-working.web.app';
+const ORIGIN = 'https://help.together-working.com';
 const TOC = JSON.parse(SRC['hosting/help/toc.json']);
 
 /* ── 1. help-site ── */
@@ -31,7 +31,7 @@ function siteChecks(S){
     && S.pageUrl('../x', 'bubble') === ORIGIN + '/help/?theme=bubble&embed=1' && S.pageUrl('4-1', 'dark') === ORIGIN + '/help/4-1?theme=default&embed=1'
     && S.pageUrl(undefined, undefined) === ORIGIN + '/help/?theme=default&embed=1' && S.pageUrl(3, 'bubble') === ORIGIN + '/help/?theme=bubble&embed=1';
   r.isHelp = S.isHelpUrl(ORIGIN + '/help/3?embed=1') && S.isHelpUrl(ORIGIN + '/help/') && !S.isHelpUrl(ORIGIN + '/admin/') && !S.isHelpUrl('https://evil.example/help/')
-    && !S.isHelpUrl('https://together-working.web.app.evil.example/help/') && !S.isHelpUrl('http://together-working.web.app/help/') && !S.isHelpUrl('') && !S.isHelpUrl('file:///x');
+    && !S.isHelpUrl('https://help.together-working.com.evil.example/help/') && !S.isHelpUrl('http://help.together-working.com/help/') && !S.isHelpUrl('https://together-working.web.app/help/') && !S.isHelpUrl('') && !S.isHelpUrl('file:///x');
   const good = { type: 'tw-help', v: 1, page: '3', toc: TOC };
   const m = S.readMessage(ORIGIN, good);
   r.read = !!m && m.page === '3' && JSON.stringify(m.toc) === JSON.stringify(TOC);
@@ -186,7 +186,7 @@ new Function('window', 'document', 'location', 'fetch', EMBED)(ewin, { documentE
   const SS = SRC['app/parts/shared/help-site.js'];
   const brk = (name, ok) => chk(ok, name);
   brk('help-site 가 출처를 안 보면', !siteChecks(loadSite(SS.replace("if(origin !== HELP_ORIGIN) return null;", ''))).drop);
-  brk('help-site 가 http · 비슷한 이름도 들이면', !siteChecks(loadSite(SS.replace('return x.origin === HELP_ORIGIN && x.pathname.startsWith(HELP_PATH);', "return x.hostname.startsWith('together-working.web.app');"))).isHelp);
+  brk('help-site 가 http · 비슷한 이름도 들이면', !siteChecks(loadSite(SS.replace('return x.origin === HELP_ORIGIN && x.pathname.startsWith(HELP_PATH);', "return x.hostname.startsWith('help.together-working.com');"))).isHelp);
   brk('help-site 가 편 이름을 안 걸러 경로가 섞이면', !siteChecks(loadSite(SS.replace("const p = isSlug(page) ? page : 'index';", 'const p = String(page);'))).url);
   brk('help-tab 이 다른 틀 알림도 받으면', !tabChecks(TAB.replace('if(!_frame || e.source !== _frame.contentWindow) return;', 'if(!_frame) return;'), SS).ignore);
   brk('help-tab 이 시간 재기를 안 하면(빈 틀이 그대로)', !tabChecks(TAB.replace(/_timer = setTimeout\(\(\)=>\{[\s\S]*?\}, LOAD_MS\);/, ''), SS).fail);
