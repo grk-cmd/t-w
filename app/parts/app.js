@@ -3437,6 +3437,7 @@ const purikuraUi = TwPurikuraUi.createPurikuraUi({
   plPlaying: ()=>plMod.st.playing,
   setPlPlaying: v=>{ plMod.st.playing = v; },
   officeMode: ()=>officeMode,
+  lsSet: (...a)=>_lsSet(...a),
   presence: ()=>Presence,
   mkFrontFill: (...a)=>_mkFrontFill(...a),
   findMySeat: (...a)=>findMySeat(...a),
