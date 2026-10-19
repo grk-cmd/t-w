@@ -103,7 +103,7 @@ cases=[
 ok = bad = 0
 for name, cmd, want in cases:
     p = subprocess.run([sys.executable, '-B', G], input=json.dumps({'tool_input': {'command': cmd}, 'cwd': CWD}),
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding='utf-8', errors='replace')
     denied = '"deny"' in p.stdout
     if denied == want and not p.stderr:
         ok += 1
@@ -277,7 +277,7 @@ for name, stdin, want in (
         ('실행: 역할 이름 · 저장소 아님', json.dumps({'session_title': '질문', 'source': 'startup', 'cwd': CWD}), '너는 질문 담당이다'),
         ('실행: 이름 없음 · 저장소 아님 → 판 질문', json.dumps({'source': 'startup', 'cwd': CWD}), '판을 못 읽음'),
         ('실행: 깨진 입력 → 오류 안내만', '{깨짐', '세션 시작 hook 오류')):
-    p = subprocess.run([sys.executable, '-B', RS], input=stdin, capture_output=True, text=True, timeout=30)
+    p = subprocess.run([sys.executable, '-B', RS], input=stdin, capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=30)
     try:
         body = json.dumps(json.loads(p.stdout), ensure_ascii=False)
     except ValueError:
@@ -300,6 +300,53 @@ for name, script, stdin, want in (
     else:
         bad += 1
         print(f'  ✗ cp949 {name}: 종료 {p.returncode} · {out[:120]!r} {err[-200:]!r}')
+
+# 실제 cp949 로캘 — 표준 입출력에 더해 gh 출력 해독도 로캘을 따른다. 한글 · «» · — 를 UTF-8 로 내보내는 가짜 gh 를 PATH 앞에.
+# 해독이 깨지면 위험도를 못 읽어 승인된 PR 도 막히거나, «가드 오류 — 막지 않았다» 로 새서 승인 없이 머지된다.
+FAKE = tempfile.mkdtemp()
+open(os.path.join(FAKE, 'gh'), 'w', encoding='utf-8').write('''#!/usr/bin/env python3
+import sys, json, os
+a = ' '.join(sys.argv[1:])
+w = lambda s: sys.stdout.buffer.write(s.encode('utf-8'))
+if '/files' in a:
+    out = [{'filename': 'firebase-database-rules.json', 'status': 'modified', 'changes': 1, 'patch': '+  "한글 «주석» — 끝": 1'}]
+elif '/reviews' in a:
+    out = []
+elif '/comments' in a:
+    out = [{'user': {'login': 'mihioon'}, 'body': os.environ.get('FAKE_BODY', '승인 요청 — «대기»')}]
+elif a.endswith('.head.sha'):
+    w('0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n'); sys.exit(0)
+elif '/status' in a:
+    w(json.dumps([{'context': 'tw/confirm', 'state': 'success'}, {'context': 'tw/verify', 'state': 'success'}])); sys.exit(0)
+else:
+    out = {}
+w(json.dumps(out, ensure_ascii=False))
+''')
+os.chmod(os.path.join(FAKE, 'gh'), 0o755)
+LOC = subprocess.run(['locale', '-a'], capture_output=True, text=True).stdout.split() if os.name != 'nt' else []
+CPL = next((l for l in LOC if l.lower() in ('ko_kr.cp949', 'ko_kr.euckr', 'ko_kr.euc-kr')), None)
+if CPL:
+    env = dict(os.environ, LC_ALL=CPL, LANG=CPL, PATH=FAKE + os.pathsep + os.environ['PATH'])
+    env.pop('PYTHONIOENCODING', None); env.pop('PYTHONUTF8', None)
+    RK = os.path.join(HERE, 'risk.py')
+    merge = json.dumps({'tool_input': {'command': 'gh pr merge 403'}, 'cwd': CWD})
+    for name, args, stdin, extra, check in (
+            ('위험도 판정', [RK, '403'], '', {}, lambda o: json.loads(o)['high'] is True),
+            ('머지 가드 — 승인 없음 → 막음', [G], merge, {}, lambda o: '"deny"' in o),
+            ('머지 가드 — 승인 코멘트 → 통과', [G], merge, {'FAKE_BODY': '승인 0c4b3e9'}, lambda o: o.strip() == '')):
+        p = subprocess.run([sys.executable, '-B'] + args, input=stdin.encode('utf-8'), capture_output=True, env=dict(env, **extra), timeout=30)
+        out, err = p.stdout.decode('utf-8', 'replace'), p.stderr.decode('utf-8', 'replace')
+        try:
+            good = p.returncode == 0 and not err and check(out)
+        except ValueError:
+            good = False
+        if good:
+            ok += 1
+        else:
+            bad += 1
+            print(f'  ✗ cp949 로캘 {name}: 종료 {p.returncode} · {out[:160]!r} {err[-200:]!r}')
+else:
+    print('  - cp949 로캘이 없어 «gh 출력 해독» 시험 3칸은 건너뜀(맥: ko_KR.CP949)')
 
 print(f'{"✓" if not bad else "✗"} 통과 {ok} · 실패 {bad}')
 sys.exit(1 if bad else 0)
