@@ -13,6 +13,13 @@
 """
 import json, os, re, shlex, subprocess, sys
 
+# Windows 는 표준 입출력이 지역 인코딩(cp949)이라 «·» 같은 글자를 쓰다 죽는다 — hook 입출력은 UTF-8 로 고정
+for _s in (sys.stdin, sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
 sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를 만들어 작업 트리를 더럽히지 않게
 
 REPO = 'grk-cmd/t-w'
@@ -22,7 +29,7 @@ GATES = ('tw/confirm', 'tw/verify')
 
 
 def run(*args, cwd=None):
-    p = subprocess.run(list(args), cwd=cwd, capture_output=True, text=True)
+    p = subprocess.run(list(args), cwd=cwd, capture_output=True, text=True, encoding='utf-8', errors='replace')
     return p.stdout.strip() if p.returncode == 0 else None
 
 
