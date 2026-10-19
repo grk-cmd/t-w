@@ -37,14 +37,14 @@ function judge(mod){
   try {
     const win = load(mod), S = win.TwInboxSections;
     r.only = Object.keys(win).join() === 'TwInboxSections';
-    r.consts = J(S.SECS) === J(['mail', 'news', 'help']) && J(S.CATS) === J(['all', 'notice', 'update']) && Object.isFrozen(S.SECS) && Object.isFrozen(S.CATS);
+    r.consts = J(S.SECS) === J(['mail', 'news']) && J(S.CATS) === J(['all', 'notice', 'update']) && Object.isFrozen(S.SECS) && Object.isFrozen(S.CATS);
     r.tagOf = S.tagOf({ tag: 'update' }) === 'update' && S.tagOf({ tag: 'reward' }) === 'reward' && S.tagOf({ tag: 'bug' }) === 'bug'
       && S.tagOf({ tag: 'notice' }) === 'notice' && S.tagOf({ tag: 'weird' }) === 'notice' && S.tagOf({}) === 'notice' && S.tagOf(null) === 'notice';
     r.sectionOf = S.sectionOf({ _src: 'broadcast', tag: 'notice' }) === 'news' && S.sectionOf({ _src: 'broadcast', tag: 'update' }) === 'news'
       && S.sectionOf({ _src: 'broadcast' }) === 'news' && S.sectionOf({ _src: 'broadcast', tag: 'weird' }) === 'news'
       && S.sectionOf({ _src: 'broadcast', tag: 'reward' }) === 'mail' && S.sectionOf({ _src: 'broadcast', tag: 'bug' }) === 'mail'
       && S.sectionOf({ _src: 'personal', tag: 'notice' }) === 'mail' && S.sectionOf({ _src: 'personal', tag: 'update' }) === 'mail' && S.sectionOf({ tag: 'update' }) === 'mail' && S.sectionOf(null) === 'mail';
-    r.norm = S.normSec('news') === 'news' && S.normSec('help') === 'help' && S.normSec('x') === 'mail' && S.normSec(undefined) === 'mail'
+    r.norm = S.normSec('news') === 'news' && S.normSec('help') === 'mail' && S.normSec('x') === 'mail' && S.normSec(undefined) === 'mail'
       && S.normCat('update') === 'update' && S.normCat('reward') === 'all' && S.normCat('gift') === 'all' && S.normCat(null) === 'all';
     const M = MERGED(), before = J(M);
     r.mail = J(S.mailIds(M)) === J(['p2', 'b4', 'p1', 'p3', 'p4']);

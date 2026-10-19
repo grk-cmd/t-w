@@ -27,7 +27,8 @@
      · gstatic: firebase SDK 10.12.2 를 ESM import 로 받는다(app/database/storage).
      · style-src 'unsafe-inline' 은 **남긴다**: style="…" 속성이 554개다. script 쪽과 위험도가 다르다.
      · connect-src www.youtube.com: app.js 의 oembed(제목 조회). 빼면 플레이리스트 제목이 조용히 죽는다.
-     · frame-src 'none': iframe 이 전 파일 0개. 유튜브는 main.js 의 BrowserView 라 CSP 대상이 아니다.
+     · frame-src: 📘 도움말 탭의 틀(myhome/help-tab.js) 하나 — 우리 도메인(help.together-working.com — Hosting 맞춤 도메인)만. 틀은 sandbox 이고
+       옮겨 갈 수 있는 주소는 main.js will-frame-navigate 가 shared/help-site.js 로 본다. 유튜브는 main.js 의 BrowserView 라 CSP 대상이 아니다.
      · worker-src/form-action/object-src: Worker·form·object 전부 0개라 닫아 둔다.
 
      [알고 있는 변화 — 고장이 아니다]
@@ -68,10 +69,10 @@
        로컬은 포트 하나(8787)만 연다 — 모든 포트(*)를 열면 내 PC 의 다른 웹소켓(브라우저 디버그 포트 등)에도 닿을 수 있다.
        ⚠️ 서버 주소를 바꾸면 두 줄 모두와 room-server-gate.js ROOM_SERVER_URL_RE · api-client.js API_BASE_RE 를 같이 바꾼다. -->
 <!-- ▼▼ 1단계 (지금 활성) — script-src 에 'unsafe-inline' 있음 ▼▼ -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://*.together-working.com https://*.together-working.com wss://*.togetherworking.duckdns.org https://*.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: 'unsafe-inline' https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://*.together-working.com https://*.together-working.com wss://*.togetherworking.duckdns.org https://*.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src https://help.together-working.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 
 <!-- ▼▼ 2단계 — 위 줄을 주석 처리하고 이 줄의 주석을 벗기면 'unsafe-inline' 만 빠진다 ▼▼
-<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://*.together-working.com https://*.together-working.com wss://*.togetherworking.duckdns.org https://*.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file: https://www.gstatic.com https://*.firebasedatabase.app https://*.firebaseio.com; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https: http:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' data: blob: https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://asia-southeast1-together-working.cloudfunctions.net https://*.appspot.com https://www.gstatic.com https://www.youtube.com wss://*.together-working.com https://*.together-working.com wss://*.togetherworking.duckdns.org https://*.togetherworking.duckdns.org ws://127.0.0.1:8787 ws://localhost:8787; worker-src 'self' blob:; frame-src https://help.together-working.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Desk Companion — 멀티 좌석 프로토타입</title>
@@ -3282,6 +3283,29 @@
        위아래로 화면 끝까지 늘어났다. 옛 공지 상자(#mhBugNotice)에 있던 높이 상한이 게시판으로 바뀔 때(#43) 같이 빠졌다.
      상세 · 글쓰기는 길면 페이지(#mhPageBugreport)가 스크롤한다. */
   #mhPageBugreport{padding:12px 16px;overflow-y:auto;height:440px;}
+  /* 📘 도움말 탭 — 왼쪽 목차(알림함 왼쪽 메뉴와 같은 모양 · 제목이 길어 150px) · 오른쪽 틀. 틀 안 페이지는 바탕을 비워 이 흰 칸이 비친다 */
+  #mhPageHelp.on{display:flex;height:440px;}
+  #mhHelpRail{width:150px;flex-shrink:0;display:flex;flex-direction:column;gap:1px;padding:6px 0;overflow-y:auto;scrollbar-width:none;
+    background:var(--win-face-2);border-right:1px solid color-mix(in srgb, var(--tw-line) 55%, transparent);}
+  #mhHelpRail::-webkit-scrollbar{display:none;}
+  .mh-help-grp,.mh-help-ep{background:none;border:none;text-align:left;cursor:pointer;font-family:var(--tw-font-legacy);color:var(--ink-soft);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;}
+  .mh-help-grp{padding:6px 10px;font-size:11.5px;}
+  .mh-help-grp.open{color:var(--ink);font-weight:bold;}
+  .mh-help-ep{padding:4px 8px 4px 22px;font-size:11px;}
+  .mh-help-ep b{font-weight:normal;opacity:.7;margin-right:4px;}
+  .mh-help-ep.on{color:var(--ink);font-weight:bold;background:#fff;box-shadow:inset 3px 0 0 var(--win-select);}
+  .mh-help-grp:hover,.mh-help-ep:hover{color:var(--win-select);}
+  .mh-help-note{padding:8px 10px;font-size:10.5px;color:var(--tw-ink-soft);}
+  #mhHelpView{flex:1;min-width:0;position:relative;}
+  #mhHelpFrame{display:block;width:100%;height:100%;border:0;background:transparent;}
+  .mh-help-fail{display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    font-size:12px;color:var(--ink);text-align:center;}
+  .mh-help-fail.on{display:flex;}
+  .mh-help-fail small{font-size:10.5px;color:var(--tw-ink-soft);}
+  .mh-help-fail button{margin-top:6px;font-family:var(--tw-font-legacy);font-size:11px;padding:4px 12px;cursor:pointer;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   #mhPageScheduler{position:relative;}
   #bbBoard{max-width:640px;margin:0 auto;font-size:11.5px;color:var(--ink);height:100%;}
   #bbListView{display:flex;flex-direction:column;height:100%;}
@@ -3507,13 +3531,11 @@
   .mh-ibx-compose{margin-left:auto;align-self:center;font-size:10.5px;color:var(--ink-soft);text-decoration:underline;cursor:pointer;}
   .mh-ibx-secn{margin-left:auto;min-width:14px;padding:0 4px;box-sizing:border-box;font-size:10px;line-height:15px;font-weight:normal;
     text-align:center;color:#fff;background:#c0504d;border-radius:8px;}
-  .mh-ibx-rail-sep{border-top:1px solid var(--mh-ibx-line);margin:4px 8px;}
   /* 칸 — 디자인 스튜디오 «목록 칸»(fChat)은 #mhInboxBody 한 곳에 칠한다(안쪽 칸은 투명) */
   #mhInboxBody{flex:1;min-height:0;display:flex;}
   .mh-ibx-pane{display:none;flex:1;min-width:0;min-height:0;}
   #mhInboxPane-mail.on{display:flex;flex-direction:column;}
   #mhInboxPane-news.on{display:flex;}
-  #mhInboxPane-help.on{display:block;overflow-y:auto;}
   /* 우편 · 소식 목록 아래 버튼 줄 — 띠 없이 버튼만 오른쪽에 */
   .mh-ibx-foot{display:flex;justify-content:flex-end;align-items:center;gap:6px;padding:6px 10px 8px;flex-shrink:0;}
   .mh-ibx-foot button{white-space:nowrap;font-family:var(--tw-font-legacy);font-size:11px;padding:4px 12px;cursor:pointer;color:var(--ink);
@@ -5512,6 +5534,7 @@
       <div class="mh-tab" data-tab="scheduler">스케줄러</div>
       <div class="mh-tab" data-tab="mail">알림함</div>
       <div class="mh-tab" data-tab="bugreport">버그제보</div>
+      <div class="mh-tab" data-tab="help">도움말</div>
     </div>
     <div id="mhPageHome" class="mh-page on">
       <div id="mhHomeLeft">
@@ -5620,14 +5643,12 @@
       </div>
 
     </div>
-    <!-- 📩 우편함 — 왼쪽 세로 메뉴로 📩 우편(나한테 온 것) · 📢 소식(모두에게 보낸 공지 · 업데이트) · 📘 도움말을 고른다. -->
+    <!-- 📩 알림함 — 왼쪽 세로 메뉴로 📩 우편(나한테 온 것) · 📢 소식(모두에게 보낸 공지 · 업데이트)을 고른다(📘 도움말은 따로 탭). -->
     <div id="mhPageMail" class="mh-page">
       <!-- 📩 왼쪽 세로 메뉴 — 탭을 늘리지 않고 우편함 안에서 칸을 고른다(칸 나누기 규칙은 inbox-sections.js) -->
       <div id="mhInboxRail">
         <button class="mh-ibx-sec on" data-sec="mail" type="button">📩 우편<span class="mh-ibx-secn"></span></button>
         <button class="mh-ibx-sec"    data-sec="news" type="button">📢 소식<span class="mh-ibx-secn"></span></button>
-        <div class="mh-ibx-rail-sep"></div>
-        <button class="mh-ibx-sec"    data-sec="help" type="button">📘 도움말</button>
       </div>
       <div id="mhInboxInline">
         <!-- 디자인 스튜디오 «목록 칸» 은 이 칸 하나에 칠한다 — 소식의 목록 · 본문에 따로 깔면 그림이 둘로 잘린다 -->
@@ -5654,9 +5675,6 @@
               </div>
             </div>
             <div id="mhNewsView"></div>
-          </div>
-          <div id="mhInboxPane-help" class="mh-ibx-pane">
-            <div class="mh-ibx-empty">📘 도움말은 준비 중이에요<br><small>앱 사용법을 여기서 볼 수 있게 할 예정이에요</small></div>
           </div>
         </div>
       </div>
@@ -5843,6 +5861,17 @@
             <button id="bbWCancel" class="bb-btn" type="button">취소</button>
             <button id="bbWSubmit" class="bb-btn" type="button">등록</button>
           </div>
+        </div>
+      </div>
+    </div>
+    <!-- 📘 도움말 — 왼쪽 목차(묶음 접고 펴기) · 오른쪽 도움말 웹 페이지 틀(myhome/help-tab.js 가 틀을 만들고 목차를 그린다) -->
+    <div id="mhPageHelp" class="mh-page">
+      <div id="mhHelpRail"></div>
+      <div id="mhHelpView">
+        <div id="mhHelpFail" class="mh-help-fail">
+          <div>📘 도움말을 불러오지 못했어요</div>
+          <small>인터넷 연결을 확인하고 다시 시도해 주세요 · 오류 E-MH-01</small>
+          <button id="mhHelpRetry" type="button">다시 시도</button>
         </div>
       </div>
     </div>
@@ -8273,6 +8302,8 @@
 <script src="parts/character/chars.js"></script>   <!-- 🧬 캐릭터 보관함(chars) — 병합 · 이관 · 조율 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChars.createChars 로 만든다) -->
 <script src="parts/character/slot-sync.js"></script>   <!-- ☁️ 슬롯 기기 간 동기화 · 연동 UI — app.js 보다 먼저(app.js 가 원래 자리에서 TwSlotSync.createSlotSync 로 만든다) -->
 <script src="parts/room/away-pic.js"></script>   <!-- 🫧 자리비움 그림 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAwayPic.createAwayPic 로 만든다) -->
+<script src="parts/shared/help-site.js"></script>   <!-- 📘 도움말 주소 · 알림 읽기 규칙(순수 — main.js 와 같이 씀) — help-tab.js 보다 먼저 -->
+<script src="parts/myhome/help-tab.js"></script>   <!-- 📘 도움말 탭(목차 · 틀 · 못 불러옴) — app.js 보다 먼저(app.js 가 TwHelpTab.createHelpTab 으로 만든다) -->
 <script src="parts/myhome/myhome-ui.js"></script>   <!-- 🏠 마이홈 창 버튼 연결 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeUi.createMyHomeUi 로 만든다) -->
 <script src="parts/room/tricks.js"></script>   <!-- 💃 깜짝쇼 · 🪄 때리기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwTricks.createTricks 로 만든다) -->
 <script src="parts/room/ride-chain.js"></script>   <!-- 🗼 탑 바닥 찾기(순수) — app.js 보다 먼저(app.js 가 올라타기 구역에서 TwRideChain.createRideChain 로 만든다) -->

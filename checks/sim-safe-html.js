@@ -47,6 +47,7 @@ allow('myhome-desktop.js', '⚠️ 남은 구멍 — 파티 방장이 보낸 진
 allow('weekly-challenge.js', '👑 달성표 주기 표(상수 — 요일 이름 · 주기 이름 · 기준 수) · 팝업 버튼(부르는 곳 글자) · 시간 글(formatHMS 숫자) · 보상 안내(_chalRewardLine 고정 글)', [
   '_chalCurPh().name', 'b.a', 'b.t', 'd', 'formatHMS(goal)', 'formatHMS(t.sec || 0)', 'line.t', 'ph.label', 'ph.label[0]', 'ph.label[i]', 'ph.label[idx]', 'ph.name', 'ph.need1']);
 allow('fx-preview.html', '개발용 효과 미리보기 페이지 — 고정 표(FX_KINDS) · 이 페이지 슬라이더 값만', ['k', 'S.anchor', 'S.every', 'S.kind', 'S.mode', 'S.seats', 't.lab']);
+allow('help-tab.js', '📘 도움말 틀 주소 — help-site.js pageUrl 이 고정 출처(HELP_ORIGIN) + 편 이름 정규식(SLUG_RE)으로 거른 값 + 앱 테마 표로만 만든다(페이지 알림의 편 이름도 readMessage 가 같은 정규식으로 거른다)', ['helpSite.pageUrl(page, _theme)']);
 allow('purikura-ui.js', '📷 판 모양 고정 표(세로형 · 가로형 · 컷 수 — purikura-net.js 숫자)', ['g.cols', 'g.rows', 'hint', 'label', 'n']);
 allow('purikura-ui.js', '이 기기 카메라로 찍은 사진(canvas data:)', ['d']);
 allow('chat-ui.js', '다른 파일의 씻은 마크업 도우미 — overhead.js _officeDemojiHtml(씻은 글에서 아는 이모티콘만 그림) · 주사위 SVG(숫자) · _chatLinkify(씻은 글에서 주소만 a)', ['_officeDemojiHtml(html)', '_diceSvg(parseInt(n,10),26)', '_chatLinkify(t)']);

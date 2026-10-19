@@ -366,6 +366,9 @@ PRELOAD.push('drag-scroll.js');
 /* inbox-sections.js — 📩 우편함 칸 나누기 규칙(순수 함수). 수령함 모듈이 만들 때 TwInboxSections 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('inbox-sections.js');
 PRELOAD.push('myhome-inbox.js');
+/* help-site.js · help-tab.js — 📘 도움말 탭. app.js 가 만들 때 TwHelpTab 을 부르고, 그 모듈이 TwHelpSite 를 받으므로 진짜가 먼저 있게. */
+PRELOAD.push('help-site.js');
+PRELOAD.push('help-tab.js');
 /* playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 같은 까닭 — 만들 때 하는 일(🪟 창 위치 초기화 등록 · 저장값 읽기 · 버튼 · ESC · 끌기 연결 · 미니미 ·
    300ms 폴링 · BGM 신호 구독 · 음량 한 번 · window 고리)과 app.js 가 원래 자리에서 부르는 createPlaylist 를 같이 굴린다. */
 PRELOAD.push('playlist.js');

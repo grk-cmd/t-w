@@ -271,3 +271,15 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **빼는 곳**: `attachDragScroll(el, { skip: '선택자' })` — 거기서 누르면 끌기를 시작하지 않는다(우편함은 펼친 본문 `.mh-ibx-body` · 링크 `a` — 글자를 끌어 골라 복사할 수 있게).
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
+
+## `help-site.js` — 📘 도움말 웹 페이지 규칙(주소 · 들일 주소 · 알림 읽기)
+
+**책임** — 도움말 탭(`myhome/help-tab.js`)이 여는 주소와, main.js 가 안쪽 틀 이동을 허락하는 주소를 한 벌로. 두 프로세스가 같이 쓴다
+(main.js 는 `require` · 렌더러는 `window.TwHelpSite` — `launcher/click-through-policy.js` 와 같은 모양). 순수 함수만.
+
+**내놓는 것** — `HELP_ORIGIN`(https://help.together-working.com — Hosting 맞춤 도메인) · `HELP_PATH`('/' — 도움말 전용 사이트라 맨 위가 목차) · `THEMES`(앱 테마 'default' · 'bubble') ·
+`pageUrl(page, theme)`(모르는 편은 목차 · 모르는 테마는 기본 · 늘 `embed=1`) · `isHelpUrl(u)`(그 사이트만 — https · 출처가 같을 때) ·
+`readToc(toc)`(모양이 어긋나면 null) · `readMessage(origin, data)`(우리 출처 · `tw-help` v1 · 편 이름이 맞으면 `{ page, toc }`, 아니면 null).
+
+**함정** — 페이지가 보내는 모양은 `hosting/help/embed.js` 와 짝이다 — 한쪽만 바꾸면 목차가 안 뜬다(`sim-help-tab` 이 embed.js 를 돌려 이 함수로 읽어 본다).
+사이트 주소를 바꾸면 앱 CSP `frame-src` 도 같이. 검사: `checks/sim-help-tab.js`.

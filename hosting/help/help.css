@@ -1,0 +1,52 @@
+/* 투게더워킹 도움말 — 색 · 글꼴은 /tokens.css(디자인 시스템 토큰 — npm run design:build 가 만든다) 것만 쓴다 */
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg-face);color:var(--ink);font-family:'Nanum Gothic','NanumGothic','나눔고딕','Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:15px;line-height:1.75}
+a{color:var(--ink-accent)}
+.bar{position:sticky;top:0;z-index:1;padding:var(--space-3) var(--space-5);
+  background:linear-gradient(90deg,var(--title-a),var(--title-b));border-bottom:1px solid var(--line-strong)}
+.bar a{color:var(--title-ink);font-weight:bold;text-decoration:none;font-size:13px}
+main{max-width:680px;margin:0 auto;padding:var(--space-7) var(--space-6) 64px}
+h1{font-size:22px;margin:0 0 var(--space-6);line-height:1.4}
+h2{font-size:18px;margin:36px 0 var(--space-3);padding-top:var(--space-5);border-top:1px solid var(--line)}
+h3{font-size:15.5px;margin:var(--space-7) 0 var(--space-2)}
+p{margin:var(--space-3) 0}
+ul,ol{padding-left:22px;margin:var(--space-3) 0}
+figure{margin:var(--space-6) 0;text-align:center}
+figure img{max-width:100%;height:auto;border:1px solid var(--line);background:var(--bg-field)}
+figure.narrow img{max-width:min(100%,360px)}
+figcaption{font-size:13px;color:var(--ink-soft);margin-top:var(--space-2)}
+.note{background:var(--bg-select);border:1px solid var(--line-strong);padding:var(--space-4) var(--space-5);margin:var(--space-5) 0;font-size:14px}
+.path{display:inline-block;background:var(--bg-face-2);border:1px solid var(--line);padding:0 var(--space-3);font-size:13.5px}
+table{border-collapse:collapse;font-size:14px;margin:var(--space-4) 0;width:100%}
+td,th{border:1px solid var(--line);padding:var(--space-2) var(--space-4);text-align:left;vertical-align:top}
+th{background:var(--bg-face-2)}
+.keep{display:none}
+.lead{color:var(--ink-soft)}
+.toc{list-style:none;padding:0;margin:var(--space-3) 0 0;display:grid;gap:var(--space-2)}
+.toc a{display:flex;gap:var(--space-4);align-items:baseline;padding:var(--space-4) var(--space-5);text-decoration:none;color:var(--ink);
+  background:var(--bg-face-2);border:1px solid var(--line)}
+.toc a:hover{border-color:var(--line-strong);background:var(--bg-select)}
+.toc .no{min-width:2.4em;font-family:var(--font-num);color:var(--ink-accent);font-weight:bold}
+.foot{margin-top:36px;font-size:13px;color:var(--ink-soft)}
+.pn{display:flex;justify-content:space-between;gap:var(--space-4);margin-top:48px;padding-top:var(--space-5);border-top:1px solid var(--line);font-size:13.5px}
+.pn a{text-decoration:none}
+.pn .toc{color:var(--ink-soft)}
+.pn .next{text-align:right}
+@media (max-width:480px){ main{padding:var(--space-6) var(--space-5) 48px} .pn{flex-wrap:wrap} }
+/* 앱 마이홈 📘 도움말 탭 안(?embed=1) — 바탕은 앱 칸 것이 비치게 비우고, 글자 · 여백은 마이홈 칸(11~12px) 가까이.
+   위 띠는 앱 왼쪽 메뉴(목차)와 겹쳐 숨긴다 — 편 옮기기는 왼쪽 메뉴 · 아래 «이전 · 다음».
+   선 · 카드 · 번호는 글자색을 옅게 섞은 무채색 — 앱 색 고르기(c1~c5)가 무엇이든 마이홈 칸과 따로 놀지 않게 */
+[data-embed]{--line:color-mix(in srgb,var(--ink) 14%,transparent);--line-strong:color-mix(in srgb,var(--ink) 24%,transparent);
+  --bg-face-2:color-mix(in srgb,var(--ink) 4%,transparent);--bg-select:color-mix(in srgb,var(--ink) 7%,transparent);--ink-accent:var(--ink)}
+[data-embed] body{background:transparent;font-size:13px;line-height:1.7}
+[data-embed] .bar{display:none}
+[data-embed] main{max-width:none;padding:var(--space-5) var(--space-6) 40px}
+[data-embed] h1{font-size:16px;margin-bottom:var(--space-5)}
+[data-embed] h2{font-size:14px;margin-top:var(--space-7)}
+[data-embed] h3{font-size:13px;margin-top:var(--space-6)}
+[data-embed] figure{margin:var(--space-5) 0}
+[data-embed] figcaption,[data-embed] .foot{font-size:11.5px}
+[data-embed] .note,[data-embed] table{font-size:12px}
+[data-embed] .path{font-size:12px}
+[data-embed] .pn{margin-top:var(--space-7);font-size:12px}
