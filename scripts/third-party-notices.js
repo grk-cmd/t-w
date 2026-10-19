@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /* 📄 오픈소스 라이선스 안내 만들기 — 앱 «오픈소스 라이선스» 창이 보여 주는 목록(app/licenses/oss-notices.js · window.TwOssNotices).
-   항목은 사람이 아는 단위 — VENDOR + 앱이 직접 쓰는 npm 패키지. 그 아래로 딸려 오는 패키지(@firebase/* 등)는 그 항목 안에 접고 원문만 같이 싣는다.
+   항목은 사람이 아는 단위 — VENDOR + 앱이 직접 쓰는 npm 패키지. 그 아래로 딸려 오는 패키지는 그 항목 안에 접고 원문만 같이 싣는다.
    목록은 package-lock.json 의 운영 패키지(dev · optional 뺌 — optional 은 koffi 의 플랫폼별 빌드로, 본체 koffi 가 같은 라이선스로 덮는다)
-   + 아래 VENDOR(npm 밖으로 앱에 넣은 것 · 설치 파일에 같이 묶이는 Electron).
-   라이선스 원문은 설치된 node_modules 의 LICENSE 파일에서 — 파일이 없는 패키지(firebase 등)는 scripts/oss-licenses/<SPDX>.txt 표준 원문.
+   + 아래 VENDOR(npm 밖으로 앱에 넣은 것 · 설치 파일에 같이 묶이는 Electron · 앱이 실행 중에 CDN 에서 받는 Firebase JS SDK).
+   라이선스 원문은 설치된 node_modules 의 LICENSE 파일에서 — 파일이 없는 것은 scripts/oss-licenses/<SPDX>.txt 표준 원문.
    실행: npm ci 뒤 `node scripts/third-party-notices.js` — 의존성을 바꾼 PR 에서 다시 돌린다(checks/sim-oss-licenses.js 가 목록이 lock 과 같은지 본다). */
 'use strict';
 const fs = require('fs');
@@ -16,6 +16,8 @@ const STD_DIR = path.join(__dirname, 'oss-licenses');
 /* npm 밖에서 앱에 들어간 것 — 원문(text)이 없으면 SPDX 표준 원문을 쓴다 */
 const MIT = (holder) => `MIT License\n\nCopyright (c) ${holder}\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the "Software"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n`;
 const VENDOR = [
+  { name: 'Firebase JS SDK', url: 'https://firebase.google.com', version: (lock, io) => cdnFirebaseVersion(io.readFile), license: 'Apache-2.0', copyright: 'Copyright 2017 Google LLC',
+    note: '실행 중에 CDN(gstatic)에서 받는다 — 설치 파일에는 없음' },
   { name: 'Electron', url: 'https://www.electronjs.org', version: (lock) => lockVersion(lock, 'electron'), license: 'MIT', file: 'node_modules/electron/LICENSE',
     note: 'Chromium 등 구성 요소의 라이선스는 설치 폴더의 LICENSES.chromium.html' },
   { name: 'three.js', url: 'https://threejs.org', version: '', note: 'GLTFLoader · DRACOLoader · SkeletonUtils · TransformControls 포함', license: 'MIT', text: MIT('2010-2021 Three.js Authors') },
@@ -28,6 +30,14 @@ const VENDOR = [
 ];
 
 function lockVersion(lock, name){ const p = lock.packages['node_modules/' + name]; return p ? p.version : '?'; }
+/* 앱이 import 하는 gstatic 주소의 판 — npm 에는 없어서 firebase-init.js 에서 읽는다 */
+const FIREBASE_INIT = 'app/parts/firebase-init.js';
+function cdnFirebaseVersion(readFile){
+  try{
+    const m = readFile(path.join(ROOT, FIREBASE_INIT)).match(/gstatic\.com\/firebasejs\/(\d+\.\d+\.\d+)\//);
+    return m ? m[1] : '?';
+  }catch(_){ return '?'; }
+}
 
 /* lock 의 운영 패키지 — [{ name, version, license, dir }] 이름 순 */
 function lockPackages(lock){
@@ -85,9 +95,6 @@ function groupByDirect(lock){
   return groups.filter(g => g.members.length);
 }
 
-/* 보이는 이름 — 사람이 아는 이름으로(나머지는 npm 이름 그대로) */
-const LABEL = { firebase: 'Firebase JS SDK' };
-
 function urlOf(dir, readFile){
   try{
     const j = JSON.parse(readFile(path.join(dir, 'package.json')));
@@ -117,7 +124,7 @@ function build(lock, io){
   };
   const items = [];
   for(const v of VENDOR){
-    const version = typeof v.version === 'function' ? v.version(lock) : v.version;
+    const version = typeof v.version === 'function' ? v.version(lock, io) : v.version;
     let text = v.text || (v.file ? (() => { try{ return io.readFile(path.join(ROOT, v.file)).trim(); }catch(_){ return null; } })() : null);
     if(!text) text = ((v.copyright ? v.copyright + '\n\n' : '') + (io.std(v.license) || '')).trim();
     items.push({ name: v.name, version, license: v.license, url: v.url || '', note: v.note || '', members: [], raw: raw([[v.name, text]]) });
@@ -127,7 +134,7 @@ function build(lock, io){
     const licenses = [...new Set(g.members.map(m => m.license))];
     const subs = g.members.length - 1;
     items.push({
-      name: LABEL[g.direct] || g.direct, version: head.version,
+      name: g.direct, version: head.version,
       license: head.license + (licenses.length > 1 ? ' 외 ' + (licenses.length - 1) : ''),
       licenses,
       url: urlOf(path.join(ROOT, head.dir), io.readFile),
@@ -150,7 +157,7 @@ const realIo = {
   std: (spdx) => { try{ return fs.readFileSync(path.join(STD_DIR, spdx + '.txt'), 'utf8').trim(); }catch(_){ return null; } },
 };
 
-module.exports = { VENDOR, lockPackages, groupByDirect, resolveDep, build, render, OUT };
+module.exports = { VENDOR, FIREBASE_INIT, cdnFirebaseVersion, lockPackages, groupByDirect, resolveDep, build, render, OUT };
 
 if(require.main === module){
   const lock = JSON.parse(fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8'));

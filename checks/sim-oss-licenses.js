@@ -1,6 +1,6 @@
 /* sim-oss-licenses.js — 📄 오픈소스 라이선스 안내(scripts/third-party-notices.js · app/licenses/oss-notices.js · app/parts/launcher/oss-licenses.js)
-   1절: 만든 목록이 package-lock.json 의 운영 패키지 + VENDOR 를 빠짐없이 덮는다 — 의존성을 바꾸고 다시 안 만들면 빨강(깨 보기 포함).
-   2절: 만드는 함수 — 직접 쓰는 패키지마다 한 줄 · 하위 패키지는 그 줄 안으로 · 같은 원문은 한 번 · 원문 없는 MIT 는 저자로 · 링크.
+   1절: 만든 목록이 package-lock.json 의 운영 패키지 + VENDOR 를 빠짐없이 덮는다 — 의존성 · CDN Firebase 판을 바꾸고 다시 안 만들면 빨강(깨 보기 포함).
+   2절: 만드는 함수 — 직접 쓰는 패키지마다 한 줄 · 하위 패키지는 그 줄 안으로 · 같은 원문은 한 번 · 원문 없는 MIT 는 저자로 · 링크 · CDN Firebase 판 읽기.
    3절: 창 — 고정 크기 · 목록과 원문은 안쪽 스크롤 · 이름은 textContent · 링크는 openUrl · 원문 펼치기 · 못 실음 · 닫기 · ESC 스택.
    4절: 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않는다(shared/outside-close.js 예외 · 깨 보기). */
 'use strict';
@@ -12,10 +12,11 @@ const find = (...rel) => [path.join(ROOT, ...rel), path.join(__dirname, rel[rel.
 let fail = 0;
 const chk = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); if(!c) fail++; };
 
-const GEN = find('scripts', 'third-party-notices.js'), LOCK = find('package-lock.json'), NOTICES = find('app', 'licenses', 'oss-notices.js'), UI = find('app', 'parts', 'launcher', 'oss-licenses.js');
-if(!GEN || !LOCK || !NOTICES || !UI){ console.log('  ? 원본 못 찾음 — ' + [!GEN && 'third-party-notices.js', !LOCK && 'package-lock.json', !NOTICES && 'oss-notices.js', !UI && 'oss-licenses.js'].filter(Boolean).join(' · ')); process.exit(2); }
+const GEN = find('scripts', 'third-party-notices.js'), LOCK = find('package-lock.json'), NOTICES = find('app', 'licenses', 'oss-notices.js'), UI = find('app', 'parts', 'launcher', 'oss-licenses.js'), FB_INIT = find('app', 'parts', 'firebase-init.js');
+if(!GEN || !LOCK || !NOTICES || !UI || !FB_INIT){ console.log('  ? 원본 못 찾음 — ' + [!GEN && 'third-party-notices.js', !LOCK && 'package-lock.json', !NOTICES && 'oss-notices.js', !UI && 'oss-licenses.js', !FB_INIT && 'firebase-init.js'].filter(Boolean).join(' · ')); process.exit(2); }
 const gen = require(path.resolve(GEN));
 const lock = JSON.parse(fs.readFileSync(LOCK, 'utf8'));
+const fbInitSrc = fs.readFileSync(FB_INIT, 'utf8');
 
 /* 1절 — 목록이 lock 을 덮는가 */
 const covered = (data) => {
@@ -23,9 +24,11 @@ const covered = (data) => {
   for(const it of data.items){ s.add(it.name + (it.version ? ' ' + it.version : '')); for(const m of it.members) s.add(m); }
   return s;
 };
-function expected(lk){
+/* VENDOR 판 — firebase-init.js 는 펼친 자리에서 읽는다(생성기는 저장소 자리로 찾음) */
+function expected(lk, fbSrc = fbInitSrc){
+  const io = { readFile: (f) => f.endsWith(gen.FIREBASE_INIT) ? fbSrc : fs.readFileSync(f, 'utf8') };
   const s = new Set();
-  for(const v of gen.VENDOR){ const ver = typeof v.version === 'function' ? v.version(lk) : v.version; s.add(v.name + (ver ? ' ' + ver : '')); }
+  for(const v of gen.VENDOR){ const ver = typeof v.version === 'function' ? v.version(lk, io) : v.version; s.add(v.name + (ver ? ' ' + ver : '')); }
   for(const p of gen.lockPackages(lk)) s.add(p.name + ' ' + p.version);
   return s;
 }
@@ -39,6 +42,7 @@ chk(missing.length === 0, `1절 lock 운영 패키지 + VENDOR 를 빠짐없이 
 const lock2 = JSON.parse(JSON.stringify(lock));
 lock2.packages['node_modules/zz-new-dep'] = { version: '1.0.0', license: 'MIT' };
 chk([...expected(lock2)].some(x => !have.has(x)), '1절 깨 보기 — lock 에 새 운영 패키지가 생기면 빨강');
+chk([...expected(lock, fbInitSrc.replace(/firebasejs\/\d+\.\d+\.\d+\//g, 'firebasejs/99.0.0/'))].some(x => !have.has(x)), '1절 깨 보기 — firebase-init.js 의 CDN 판이 바뀌면 빨강');
 const direct = Object.keys((lock.packages[''] || {}).dependencies || {});
 chk(data.items.length === gen.VENDOR.length + direct.length, `1절 줄 수 = VENDOR ${gen.VENDOR.length} + 직접 쓰는 패키지 ${direct.length}(하위 패키지는 줄로 안 늘어난다)`);
 chk(data.items.every(it => typeof it.raw === 'string' && it.raw.length > 0), '1절 줄마다 원문이 있다');
@@ -71,6 +75,10 @@ chk(top && top.url === 'https://github.com/x/top', '2절 링크는 homepage · �
 chk(solo && solo.url === '' && /Copyright \(c\) Solo Author/.test(solo.raw), '2절 https 가 아닌 주소는 버림 · 원문 없는 MIT 는 저자로');
 chk(!out.items.some(x => x.name === 'devonly') && out.items.some(x => x.name === 'Electron' && x.version === '9.9.9' && /ELECTRON TEXT/.test(x.raw)), '2절 dev 는 빼고 · Electron 은 VENDOR 로');
 chk(out.items.some(x => /APACHE TEXT/.test(x.raw)), '2절 원문 없는 Apache-2.0 VENDOR 는 표준 원문(scripts/oss-licenses)');
+const fbVer = (src) => gen.cdnFirebaseVersion(() => { if(src == null) throw new Error('없음'); return src; });
+chk(fbVer('import x from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";') === '10.12.2' && fbVer('') === '?' && fbVer(null) === '?',
+  '2절 CDN Firebase 판은 firebase-init.js 의 gstatic 주소에서 · 없거나 못 읽으면 «?»');
+chk(out.items.some(x => x.name === 'Firebase JS SDK' && x.version === '?'), '2절 Firebase JS SDK 는 VENDOR 줄(npm 패키지 아님)');
 
 /* 3절 — 창(가짜 DOM) */
 const { createOssLicenses, OSS_WIN, CSS } = require(path.resolve(UI));
