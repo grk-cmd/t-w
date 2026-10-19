@@ -20,7 +20,7 @@ function mkEl(){
     classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c) },
     addEventListener(t, f, cap){ (L[t] = L[t] || []).push({ f, cap: !!cap }); },
     setPointerCapture(id){ el.captured = id; },
-    fire(t, o = {}){ const e = Object.assign({ target: { closest: () => null }, prevented: 0, stopped: 0, preventDefault(){ e.prevented++; }, stopPropagation(){ e.stopped++; } }, o); (L[t] || []).forEach((h) => h.f(e)); return e; },
+    fire(t, o = {}){ const e = Object.assign({ target: { closest: () => null }, buttons: 1, prevented: 0, stopped: 0, preventDefault(){ e.prevented++; }, stopPropagation(){ e.stopped++; } }, o); (L[t] || []).forEach((h) => h.f(e)); return e; },
     count: (t) => (L[t] || []).length };
   return el;
 }
@@ -64,6 +64,13 @@ function behave(src){
   el.fire('pointerdown', { button: 0, clientY: 50, pointerId: 11 }); el.fire('pointermove', { clientY: 30 }); el.fire('pointercancel', {});
   el.fire('pointermove', { clientY: 0 });
   t(!el.classList.contains('dragging') && el.scrollTop === 180, '  취소되면 끌기를 끝낸다(뒤 움직임은 안 따라간다)');
+  {
+    /* 문턱 안에서 목록 밖으로 나가 손을 떼면 pointerup 이 안 온다 — 그 뒤 버튼 없이 올린 마우스는 따라가지 않는다 */
+    const lo = mkEl(); D.attachDragScroll(lo);
+    lo.fire('pointerdown', { button: 0, clientY: 200, pointerId: 20 }); lo.fire('pointermove', { clientY: 203 });
+    lo.fire('pointermove', { clientY: 150, buttons: 0 }); lo.fire('pointermove', { clientY: 100, buttons: 0 });
+    t(lo.scrollTop === 100 && !lo.classList.contains('dragging'), '★ 손을 뗀 뒤(버튼 없음) 마우스만 올리면 따라 움직이지 않는다 · 끄는 중 표시 없음');
+  }
   return r;
 }
 
@@ -76,6 +83,7 @@ const breaks = [
   ['누를 때 끌기 표시를 안 지움', (s) => s.replace("    if(e.button !== 0) return;\n    moved = false;\n", "    if(e.button !== 0) return;\n")],
   ['본문 · 링크에서도 끌기 시작', (s) => s.replace("if(skip && e.target.closest(skip)){ start = null; return; }", '')],
   ['오른쪽 버튼도 끈다', (s) => s.replace('if(e.button !== 0) return;', '')],
+  ['손을 뗀 뒤에도 따라 움직임', (s) => s.replace("if(!(e.buttons & 1)){ end(); return; }", '')],
   ['반대 방향으로 움직임', (s) => s.replace('el.scrollTop = start.top - dy;', 'el.scrollTop = start.top + dy;')],
 ];
 for (const [name, f] of breaks) {

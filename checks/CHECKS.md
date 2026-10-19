@@ -256,7 +256,7 @@
 | **sim-remote-config.js** | 442 | **d2124e84cfc0** |
 | **sim-source-switch.js** | 177 | **9296d9c0d494** |
 | **sim-data-gateway.js** | 273 | **b1301dd1fb44** |
-| **sim-drag-scroll.js** | 95 | **8b5fcb95f2a2** |
+| **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 590 | **7725ea43837e** |
 | **sim-playlist.js** | 542 | **4036c673a084** |
 | **sim-ui-tokens.js** | 128 | **c4e31dbe90c9** |

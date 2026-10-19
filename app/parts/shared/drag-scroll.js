@@ -20,6 +20,7 @@ function attachDragScroll(el, opts){
   });
   el.addEventListener('pointermove', e=>{
     if(!start) return;
+    if(!(e.buttons & 1)){ end(); return; }   // 문턱 안에서 목록 밖으로 나가 떼면 pointerup 이 안 온다 — 버튼 없는 움직임은 따라가지 않는다
     const dy = e.clientY - start.y;
     if(!moved){
       if(Math.abs(dy) < DRAG_PX) return;
