@@ -46,6 +46,9 @@ document.addEventListener('click', e=>{
       /* 📄 [2026-10-02] 라이선스 발급 창 옆의 «엑셀로 일괄 발급» 창(#licenseXlsxWin)은 같은 오버레이의 **두 번째 자식**이라
          위 box(첫 자식) 기준으로는 바깥으로 읽힌다 — 그 창 안 클릭이 발급 창을 통째로 닫지 않게 뺀다. */
       if(overlayId==='licenseGenOverlay' && e.target && e.target.closest && e.target.closest('#licenseXlsxWin')) return;
+      /* 📄 오픈소스 라이선스 창(#ossLicensesOverlay — launcher/oss-licenses.js)은 프로그램 설정에서 열리지만 body 에 따로 붙은 오버레이라
+         설정 상자 바깥으로 읽힌다 — 그 창 안 클릭이 아래 설정 창을 닫지 않게 뺀다. */
+      if(overlayId==='programSettingsOverlay' && e.target && e.target.closest && e.target.closest('#ossLicensesOverlay')) return;
       const btn=document.getElementById(closeBtnId); if(btn) btn.click();
     }
   });
