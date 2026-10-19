@@ -11,6 +11,11 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR/scripts/todo.js\" brief 2>/dev/null || true",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "python3 -B \"$CLAUDE_PROJECT_DIR/.claude/hooks/role-start.py\"",
+            "timeout": 40
           }
         ]
       }
