@@ -179,7 +179,7 @@
 | **sim-seat-friend-req.js** | 117 | **89a8bcf81a45** |
 | **sim-seat-menu.js** | 167 | **d852cfc88b06** |
 | **sim-publish-fields.js** | 208 | **f461e7690a5b** |
-| **sim-purikura-deco.js** | 962 | **339bee3e48a1** |
+| **sim-purikura-deco.js** | 954 | **25b07f4973c8** |
 | sim-purikura-net.js | 361 | a4029a7ef053 |
 | **sim-purikura-rules.js** | 261 | **0f13cb4f0a37** |
 | **sim-purikura-stage.js** | 270 | **115ae51a42d4** |
