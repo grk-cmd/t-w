@@ -43,8 +43,8 @@ RISKY_LINES = [
     # provider 를 꺼내는 줄 자체(`friendNet()` · `roomNet()?.x(`)와 꺼내 둔 것을 부르는 줄(`net.x(`)
     (re.compile(r'\b\w+Net\(\)|\bnet\.\w+\s*\('), 'provider 호출'),
     (re.compile(r'\bfetch\s*\(|\bapiClient\b|\bnew WebSocket\b|realtime-link'), '서버 호출'),
-    # 키를 상수로 넘겨도 · 도우미(_lsSet)로 · deps 로 넘기는 배선(`storage: localStorage`)
-    (re.compile(r'(local|session)Storage\.(setItem|removeItem)\s*\(|localStorage\[[^\]]+\]\s*=|\b_lsSet\s*\(|\bstorage\s*:\s*localStorage\b'), '저장 키'),
+    # 키를 상수로 넘겨도 · 받은 이름으로(`storage().setItem(` · `ls.setItem(`) · 도우미(_lsSet) · 저장소를 넘기는 배선 — 이 저장소에서 setItem 은 Storage 뿐
+    (re.compile(r'\.(setItem|removeItem)\s*\(|localStorage\[[^\]]+\]\s*=|\b_lsSet\s*\(|[:=(,]\s*(\(\)\s*=>\s*)?(window\.)?(local|session)Storage\b|\bindexedDB\.open\s*\('), '저장 키'),
 ]
 
 
@@ -54,6 +54,32 @@ def api(path):
         raise RuntimeError(f'gh api {path}: {p.stderr.strip()[:200]}')
     # --paginate 는 배열을 이어 붙여 내보낸다
     return json.loads('[' + p.stdout.replace('][', '],[') + ']') if p.stdout.lstrip().startswith('[') else json.loads(p.stdout)
+
+
+def _added_code(patch):
+    """더한 줄마다 주석을 지운 코드 — «firebaseAPI 를 직접 부르지 않는다» 같은 언급은 빼고, 주석 뒤에 붙은 코드 · `* 곱셈` 이어 쓰기는 본다.
+    블록 주석 안인지는 patch 의 문맥 줄까지 따라가며 정한다. hunk 첫머리처럼 모를 때 `*` 로 시작하는 줄은 주석으로 본다."""
+    out, inside = [], None   # None = 모름(hunk 첫머리)
+    for line in patch.splitlines():
+        if line.startswith('@@'):
+            inside = None
+            continue
+        if line.startswith(('-', '+++', '\\')):
+            continue
+        body = line[1:]
+        if inside or (inside is None and body.lstrip().startswith('*') and not body.lstrip().startswith('*/')):
+            if '*/' not in body:
+                inside = True
+                continue
+            body = body.split('*/', 1)[1]
+        body = re.sub(r'/\*.*?\*/', ' ', body)
+        inside = '/*' in body
+        if inside:
+            body = body.split('/*', 1)[0]
+        body = re.sub(r'(?<![:\'"])//.*$', '', body)   # 주소(https://) · 문자열 속 // 는 남긴다
+        if line.startswith('+'):
+            out.append(body)
+    return out
 
 
 def assess(pr):
@@ -67,13 +93,9 @@ def assess(pr):
                 reasons.add(f'{why}: {name}')
         if name.startswith(('checks/', 'web-admin/tests/', 'docs/')) or name.endswith('.md'):  # 검사 · 문서의 가짜 호출 · 언급은 데이터 경로가 아니다
             continue
-        for line in (f.get('patch') or '').splitlines():
-            if not line.startswith('+') or line.startswith('+++'):
-                continue
-            if line[1:].lstrip().startswith(('//', '/*', '*')):   # 주석 줄(«firebaseAPI 를 직접 부르지 않는다» 같은 언급)
-                continue
+        for code in _added_code(f.get('patch') or ''):
             for rx, why in RISKY_LINES:
-                if rx.search(line):
+                if rx.search(code):
                     reasons.add(f'{why}: {name}')
         if f.get('patch') is None and f.get('changes', 0) > 0 and not name.endswith(('.png', '.jpg', '.glb', '.svg')):
             reasons.add(f'diff 가 너무 커서 못 읽음: {name}')
