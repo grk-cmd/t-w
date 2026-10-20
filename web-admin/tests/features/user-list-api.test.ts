@@ -198,6 +198,27 @@ describe('사용자 목록 — API 로 읽기', () => {
         snapshotAt: null,
       }),
     ).toMatchObject({ syncedAt: null, versions: [], recent: null, source: { via: 'api' } });
+    // presence ver «unknown»(버전을 못 받은 새 앱)은 칩에서 뺀다 — «0.10.2 이하»(null)에 섞이지 않게
+    expect(
+      statsFromApi({
+        total: 0,
+        accounts: 0,
+        versions: [
+          { ver: '0.11.3', count: 3 },
+          { ver: 'unknown', count: 5 },
+          { ver: null, count: 1 },
+        ],
+        recentVersions: [{ ver: 'unknown', count: 2 }],
+        syncedAt: null,
+        snapshotAt: null,
+      }),
+    ).toMatchObject({
+      versions: [
+        { ver: '0.11.3', count: 3, share: 0.75 },
+        { ver: null, count: 1, share: 0.25 },
+      ],
+      recent: [],
+    });
     // 최근 7일 줄은 따로 — 몫도 그 줄 안에서
     expect(
       statsFromApi({

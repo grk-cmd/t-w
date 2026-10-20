@@ -8,16 +8,38 @@ describe('마지막 접속', () => {
       'users/u1/presence': { online: true, lastSeen: 5, room: 'WORK-AAAA', ver: '0.10.3' },
       'users/u2/presence': { online: 'yes', lastSeen: '어제', ver: 103 },
       'users/u4/presence': { online: false, lastSeen: 7, room: 'WORK-OLD1' },
+      'users/u5/presence': { online: true, lastSeen: 9, ver: 'unknown' },
     });
     expect(await getUserPresence(db, 'u1')).toEqual({
       online: true,
       lastSeen: 5,
       room: 'WORK-AAAA',
       ver: '0.10.3',
+      verUnknown: false,
     });
-    expect(await getUserPresence(db, 'u2')).toEqual({ online: false, lastSeen: null, room: null, ver: null });
+    expect(await getUserPresence(db, 'u2')).toEqual({
+      online: false,
+      lastSeen: null,
+      room: null,
+      ver: null,
+      verUnknown: false,
+    });
     // 접속이 끊긴 사람의 room 은 지워지지 않고 남은 값일 수 있어 버린다. 옛 앱은 ver 가 없다.
-    expect(await getUserPresence(db, 'u4')).toEqual({ online: false, lastSeen: 7, room: null, ver: null });
+    expect(await getUserPresence(db, 'u4')).toEqual({
+      online: false,
+      lastSeen: 7,
+      room: null,
+      ver: null,
+      verUnknown: false,
+    });
+    // 버전을 못 받은 채 쓴 새 앱 — 버전은 없지만 옛 앱도 아니다
+    expect(await getUserPresence(db, 'u5')).toEqual({
+      online: true,
+      lastSeen: 9,
+      room: null,
+      ver: null,
+      verUnknown: true,
+    });
     expect(await getUserPresence(db, 'u3')).toBeNull();
   });
 });

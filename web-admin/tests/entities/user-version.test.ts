@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildUserRows,
+  cleanVer,
   compareVerDesc,
   currentVer,
   matchesVer,
@@ -43,12 +44,28 @@ describe('사용자 버전', () => {
   it('presence 가 있으면 그것만 — 계정 요약에 남은 옛 값은 안 본다', () => {
     const by = (id: string) => rows.find((r) => r.userCode === id)!;
     // 요약은 비었는데(로그인 기기가 다시 안 올림) 지금 앱은 0.11.3
-    expect(currentVer({ ver: '0.11.3' }, by('d'))).toEqual({ ver: '0.11.3', old: false });
+    expect(currentVer({ ver: '0.11.3', verUnknown: false }, by('d'))).toEqual({ ver: '0.11.3', old: false });
     // 요약엔 0.10.3 이 남았는데 지금 켠 앱은 버전을 안 남기는 옛 앱
-    expect(currentVer({ ver: null }, by('a'))).toEqual({ ver: null, old: true });
+    expect(currentVer({ ver: null, verUnknown: false }, by('a'))).toEqual({ ver: null, old: true });
     // 계정이 없어도 presence 로 안다
-    expect(verLabel(currentVer({ ver: '0.11.0' }, by('z')))).toBe('0.11.0');
-    expect(verLabel(currentVer({ ver: null }, by('z')))).toBe(OLD_VER_LABEL);
+    expect(verLabel(currentVer({ ver: '0.11.0', verUnknown: false }, by('z')))).toBe('0.11.0');
+    expect(verLabel(currentVer({ ver: null, verUnknown: false }, by('z')))).toBe(OLD_VER_LABEL);
+  });
+
+  it('presence 버전이 «모름» 이면 옛 앱이 아니다 — 계정 요약에 버전이 있으면 그것, 없으면 —', () => {
+    const by = (id: string) => rows.find((r) => r.userCode === id)!;
+    const unknown = { ver: null, verUnknown: true };
+    expect(currentVer(unknown, by('a'))).toEqual({ ver: '0.10.3', old: false });
+    expect(verLabel(currentVer(unknown, by('d')))).toBe('—');
+    expect(verLabel(currentVer(unknown, by('z')))).toBe('—');
+  });
+
+  it('«unknown» 은 버전 문자열로 받지 않는다', () => {
+    expect(cleanVer('unknown')).toBeNull();
+    expect(cleanVer('0.11.3')).toBe('0.11.3');
+    expect(cleanVer('')).toBeNull();
+    expect(cleanVer('x'.repeat(20))).toBe('x'.repeat(20));
+    expect(cleanVer('x'.repeat(21))).toBeNull();
   });
 
   it('버전 비교 — 숫자 자리로, 정식판이 베타보다 크다', () => {

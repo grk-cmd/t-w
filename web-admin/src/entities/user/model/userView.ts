@@ -1,7 +1,7 @@
 import type { ApiFallback } from '@/shared/api';
 import { queryUsers, type UserQuery } from './userQuery';
 import type { UserLicense, UserRow } from './userRow';
-import { cleanVer, toVersionCounts, versionCounts, type VersionCount } from './version';
+import { APP_VER_UNKNOWN, cleanVer, toVersionCounts, versionCounts, type VersionCount } from './version';
 
 // 화면이 쓰는 모양 — API(읽기 사본)로 받든 예전 방식(RTDB 통째)으로 받든 같은 모양으로 맞춘다.
 
@@ -101,13 +101,18 @@ export function pageFromApi(p: ApiUserPage): UserPageView {
   };
 }
 
+// 서버는 presence 의 ver 를 그대로 센다 — «모름» 은 버전도 옛 앱(null)도 아니라 칩에서 뺀다.
+// cleanVer 로 null 이 되게 두면 «0.10.2 이하» 칩에 섞이고 같은 null 칩이 둘 생긴다.
+const apiVerCounts = (list: readonly { ver: string | null; count: number }[]) =>
+  toVersionCounts(
+    list.filter((v) => v.ver !== APP_VER_UNKNOWN).map((v) => ({ ver: cleanVer(v.ver), count: v.count })),
+  );
+
 export function statsFromApi(s: ApiUserStats): UserStatsView {
   return {
     total: s.total,
-    versions: toVersionCounts(s.versions.map((v) => ({ ver: cleanVer(v.ver), count: v.count }))),
-    recent: s.recentVersions
-      ? toVersionCounts(s.recentVersions.map((v) => ({ ver: cleanVer(v.ver), count: v.count })))
-      : null,
+    versions: apiVerCounts(s.versions),
+    recent: s.recentVersions ? apiVerCounts(s.recentVersions) : null,
     syncedAt: ms(s.syncedAt),
     source: { via: 'api' },
   };
