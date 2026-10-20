@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import rulesText from '../../../firebase-database-rules.json?raw';
+import rulesText from '../../../../firebase/firebase-database-rules.json?raw';
 import { AUDIT_ACTIONS, auditAfter, auditEntry, countTarget, maskKey, withAudit } from '@/shared/api';
 import { ADMIN_UID, auditsOf, fakeDb, NOW } from './fakeDb';
 

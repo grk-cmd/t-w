@@ -80,6 +80,7 @@
 | **sim-bug-board.js** | 384 | **7edc054fab9a** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
+| **sim-bump-version.js** | 108 | **9c635d7b9caa** |
 | **sim-chat-history.js** | 244 | **530050435065** |
 | **sim-gamepad-activity.js** | 131 | **320f86854007** |
 | **sim-mallang-hide.js** | 122 | **1250ce12a494** |
@@ -428,7 +429,7 @@
 해시만 여기 적는다. 검사 개수(54)에는 안 넣는다.
 
 ```
-run.js                         543줄   660499baebc6   ← 2026-10-14 flattenApp — app/ 하위 폴더 .js 도 평면에 · vendor 뺌 (개정 187) · 2026-10-04 SKIP 에 .claude (워크트리 사본) · web-admin (자체 vitest) · 2026-09-22 SKIP 에 functions (개정 44)
+run.js                         574줄   0ae13133bfc8   ← apps/desktop · firebase 로 옮긴 원본을 옛 평면 모양으로 되살려 스테이징
 tools/trapscan.js              267줄   71a7d91b4979
 tools/mac-bundleid-probe.js    415줄   cb30d59cf85a   ← 2026-09-30 6절에 `.app` 폴더 경로 · 옛 규칙 (개정 75)
 CHECKS.md           (이 파일 · 자기 해시는 안 적는다)

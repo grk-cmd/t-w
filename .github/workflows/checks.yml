@@ -50,14 +50,14 @@ jobs:
           # 워크플로 · 저장소 설정이 바뀌면 전부
           grep -qE '^\.github/' <<< "$files" && all '.github 바뀜'
           # 웹 관리자 — 자기 폴더 · 규칙 파일(테스트가 읽는다)
-          if grep -qE '^(web-admin/|firebase-database-rules\.json$)' <<< "$files"; then echo admin=true >> "$GITHUB_OUTPUT"; else echo admin=false >> "$GITHUB_OUTPUT"; fi
+          if grep -qE '^(apps/admin/|firebase/firebase-database-rules\.json$)' <<< "$files"; then echo admin=true >> "$GITHUB_OUTPUT"; else echo admin=false >> "$GITHUB_OUTPUT"; fi
           # 앱 검사 — 아래 «건너뛰어도 되는 파일» 만 바뀌었으면 false.
-          #   web-admin/ (run.js 가 스테이징에서 뺀다) · 문서(.md) 중 검사가 읽지 않는 것.
+          #   apps/admin/ (run.js 가 스테이징에서 뺀다) · 문서(.md) 중 검사가 읽지 않는 것.
           #   검사가 읽는 문서: checks/ 안(CHECKS.md 정본) · docs/design-system/ · 검사 코드에 따옴표로 이름이 나오는 것(예: 'docs/ERROR_CODES.md')
           app=false
           while IFS= read -r f; do
             [ -z "$f" ] && continue
-            case "$f" in web-admin/*) continue ;; esac
+            case "$f" in apps/admin/*) continue ;; esac
             if [[ $f == *.md && $f != checks/* && $f != docs/design-system/* ]]; then
               b=$(basename "$f")
               if ! grep -qsF -e "'$f'" -e "\"$f\"" -e "'$b'" -e "\"$b\"" checks/*.js checks/*.py; then continue; fi
@@ -103,7 +103,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: web-admin
+        working-directory: apps/admin
     steps:
       - uses: actions/checkout@v5
 
@@ -111,7 +111,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: web-admin/package-lock.json
+          cache-dependency-path: apps/admin/package-lock.json
 
       - run: npm ci
       - run: npm run lint          # oxlint + steiger(FSD 층 규칙)

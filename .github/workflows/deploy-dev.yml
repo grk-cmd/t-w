@@ -11,7 +11,7 @@ name: deploy-dev
 on:
   push:
     branches: ['release/**']
-    paths: ['firebase-database-rules.json']
+    paths: ['firebase/firebase-database-rules.json']
   workflow_dispatch:
 
 permissions:
@@ -40,6 +40,7 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
           service_account: ${{ vars.GCP_SA_EMAIL }}
       - name: 규칙 문법 확인
-        run: node -e "JSON.parse(require('fs').readFileSync('firebase-database-rules.json','utf8'))"
+        run: node -e "JSON.parse(require('fs').readFileSync('firebase/firebase-database-rules.json','utf8'))"
       - name: firebase deploy --only database (dev)
+        working-directory: firebase   # firebase.json · 규칙이 있는 폴더(#431)
         run: npx --yes firebase-tools@15.32.1 deploy --only database --project together-working-dev --non-interactive

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import rulesText from '../../../firebase-database-rules.json?raw';
+import rulesText from '../../../../firebase/firebase-database-rules.json?raw';
 import {
   compareVersion,
   getMinVersion,

@@ -9,7 +9,7 @@ oauth-config.js
 # build.files 로만 설치본에 싣는다 — 저장소에는 올리지 않는다.
 # ⚠️ app/firebase-config.js(옛 자리)는 **이미 히스토리에 있다.** 이 줄은 앞으로를 막을 뿐
 #   과거 커밋을 지우지 못한다. 서비스 계정 키가 들어 있었다면 콘솔에서 폐기할 것.
-app/parts/firebase-config.js
+apps/desktop/app/parts/firebase-config.js
 
 # ═══ 3D 원본 에셋 ══════════════════════════════════════════════════════════
 # glb·fbx·blend·max 원본 230여 개. 앱이 쓰는 것은 app/ 아래로 따로 들어간다.
@@ -25,8 +25,8 @@ checks.zip
 .firebase/
 
 # ═══ 웹 관리자 빌드 결과 · 작업 도구 ═══════════════════════════════════════
-# hosting/admin/ 은 web-admin 을 빌드한 결과물이다. 배포 때 firebase.json predeploy 가 다시 만든다.
-hosting/admin/
+# firebase/hosting/admin/ 은 apps/admin(웹 관리자)을 빌드한 결과물이다. 배포 때 firebase.json predeploy 가 다시 만든다.
+firebase/hosting/admin/
 # Claude Code 워크트리(작업 폴더 사본) — .claude/settings.json · hooks 는 저장소에 둔다(main)
 .claude/worktrees/
 # 할 일 도구(scripts/todo.js)가 기억하는 «내 관리자 uid · 이름» — 사람마다 다르다

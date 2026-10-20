@@ -62,7 +62,7 @@ jobs:
       - id: v
         name: 태그 = package.json 버전
         run: |
-          PKG=$(node -p "require('./package.json').version")
+          PKG=$(node -p "require('./apps/desktop/package.json').version")
           echo "태그: $TAG · package.json: $PKG"
           if [ "v$PKG" != "$TAG" ]; then
             echo "::error::태그($TAG)와 package.json 버전(v$PKG)이 다르다 — npm version 으로 올리고 커밋한 뒤 태그를 달 것"
@@ -96,6 +96,10 @@ jobs:
     runs-on: windows-2022
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: false
+    # 앱은 apps/desktop(#431) — npm · electron-builder · dist/ 는 그 폴더 기준. upload-artifact 의 path 는 저장소 기준이라 따로 적는다.
+    defaults:
+      run:
+        working-directory: apps/desktop
     steps:
       - uses: actions/checkout@v4
         with:
@@ -106,7 +110,7 @@ jobs:
           # 내려받은 패키지(~/.npm)만 저장해 둔다 — node_modules 는 매번 새로 깔리므로
           # node-window-manager 컴파일 · postinstall 패치(scripts/patch-nwm.js)는 그대로 돈다.
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
       - name: oauth-config.js 만들기
         shell: bash
@@ -125,7 +129,7 @@ jobs:
           npx --yes @electron/asar@3.2.17 list dist/win-unpacked/resources/app.asar | grep -E "oauth-config.js|firebase-config.js" \
             || { echo "::error::설정 파일이 asar 에 없다"; exit 1; }
           # 🧪 Firebase 환경 표시 — 테스트(프리릴리스) · 정식 모두 운영(prod). dev 는 내 PC 의 npm run start:dev 에서만
-          ( cd "$RUNNER_TEMP" && npx --yes @electron/asar@3.2.17 extract-file "$GITHUB_WORKSPACE/dist/win-unpacked/resources/app.asar" package.json \
+          ( cd "$RUNNER_TEMP" && npx --yes @electron/asar@3.2.17 extract-file "$GITHUB_WORKSPACE/apps/desktop/dist/win-unpacked/resources/app.asar" package.json \
             && node -e "const e=require('./package.json').twFirebase||'prod'; const want='prod'; console.log('Firebase 환경:',e,'(기대',want+')'); process.exit(e===want?0:1)" "${{ needs.verify.outputs.prerelease }}" ) \
             || { echo "::error::설치본의 Firebase 환경 표시가 기대와 다르다"; exit 1; }
       - name: 업데이트 정보(yml)가 exe 와 맞는가
@@ -158,12 +162,12 @@ jobs:
         with:
           name: win
           path: |
-            dist/*.exe
-            dist/*.exe.blockmap
-            dist/latest.yml
-            dist/beta.yml
-            dist/alpha.yml
-            dist/rc.yml
+            apps/desktop/dist/*.exe
+            apps/desktop/dist/*.exe.blockmap
+            apps/desktop/dist/latest.yml
+            apps/desktop/dist/beta.yml
+            apps/desktop/dist/alpha.yml
+            apps/desktop/dist/rc.yml
           if-no-files-found: error
           retention-days: 3
 
@@ -178,6 +182,9 @@ jobs:
         arch: [arm64, x64]
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: false
+    defaults:
+      run:
+        working-directory: apps/desktop
     steps:
       - uses: actions/checkout@v4
         with:
@@ -188,7 +195,7 @@ jobs:
           # 내려받은 패키지(~/.npm)만 저장해 둔다 — node_modules 는 매번 새로 깔리므로
           # node-window-manager 컴파일 · postinstall 패치(scripts/patch-nwm.js)는 그대로 돈다.
           cache: npm
-          cache-dependency-path: package-lock.json
+          cache-dependency-path: apps/desktop/package-lock.json
       - run: npm ci
       - name: oauth-config.js 만들기
         env:
@@ -207,7 +214,7 @@ jobs:
           npx --yes @electron/asar@3.2.17 list "$APP/Contents/Resources/app.asar" | grep -E "oauth-config.js|firebase-config.js" \
             || { echo "::error::설정 파일이 asar 에 없다"; exit 1; }
           # 🧪 Firebase 환경 표시 — 테스트(프리릴리스) · 정식 모두 운영(prod). dev 는 내 PC 의 npm run start:dev 에서만
-          ( cd "$RUNNER_TEMP" && npx --yes @electron/asar@3.2.17 extract-file "$GITHUB_WORKSPACE/$APP/Contents/Resources/app.asar" package.json \
+          ( cd "$RUNNER_TEMP" && npx --yes @electron/asar@3.2.17 extract-file "$GITHUB_WORKSPACE/apps/desktop/$APP/Contents/Resources/app.asar" package.json \
             && node -e "const e=require('./package.json').twFirebase||'prod'; const want='prod'; console.log('Firebase 환경:',e,'(기대',want+')'); process.exit(e===want?0:1)" "${{ needs.verify.outputs.prerelease }}" ) \
             || { echo "::error::설치본의 Firebase 환경 표시가 기대와 다르다"; exit 1; }
       - name: dmg 가 열리는가 · 버전 · arch · 켜지는가
@@ -247,7 +254,7 @@ jobs:
           name: mac-${{ matrix.arch }}
           # package.json 의 mac.target 이 arch 를 둘 다 적고 있어서 --arm64 를 줘도 dmg 가 둘 다 나온다.
           # 둘 다 올리면 같은 이름 파일이 merge-multiple 로 동시에 풀리며 섞여 dmg 가 깨진다 — 자기 arch 것만 올린다.
-          path: dist/*-${{ matrix.arch }}.dmg
+          path: apps/desktop/dist/*-${{ matrix.arch }}.dmg
           if-no-files-found: error
           retention-days: 3
 

@@ -42,7 +42,7 @@ export default defineConfig({
   },
   plugins: [react(), devFirebaseConfig()],
   build: {
-    outDir: '../hosting/admin',
+    outDir: '../../firebase/hosting/admin',
     emptyOutDir: true,
   },
   test: {
