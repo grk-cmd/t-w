@@ -104,7 +104,8 @@ const fFlush = grabFn(SRC, '_acctFlushToServer', 'async function ');
 const fPre = grabFn(SRC, '_acctPreflight', 'async function ');
 const fWipe = /let _acctDetached = false;/.test(SRC) ? ('let _acctDetached = false;\n' + (grabFn(SRC, '_wipeAccountLocal') || '')) : null;
 const fDet = grabFn(SRC, '_detachAccountLocal', 'async function ');
-const tmo = (SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0];
+const tmo = [(SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0], (SRC.match(/const PRESENCE_OFF_WAIT_MS = \d+;/) || [])[0], grabFn(SRC, '_presenceOff')].every(Boolean)
+  ? [(SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0], (SRC.match(/const PRESENCE_OFF_WAIT_MS = \d+;/) || [])[0], grabFn(SRC, '_presenceOff')].join('\n') : null;
 if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
   huh('본문을 못 떼어 옴 — list:' + !!fList + ' flush:' + !!fFlush + ' pre:' + !!fPre + ' wipe:' + !!fWipe + ' det:' + !!fDet);
 }else{
@@ -125,6 +126,8 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       loadSlotsTs: async () => { env.calls.push('slotsTs'); return env.slotsTs; },
       loadGachaOwned: async () => { env.calls.push('gacha'); return env.srvGacha; },
       releaseDeviceSession: async () => { env.calls.push('release'); },
+      setMyPresenceState: (uid, on) => { env.calls.push('presence:' + uid + ':' + on); return env.presenceHang ? new Promise(() => {}) : Promise.resolve(); },
+      deviceSessionLost: () => !!env.lost,
     } : null;
     const window = { firebaseAPI };
     const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' + [
@@ -148,7 +151,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       /* 🎵 플레이리스트는 playlist.js 모듈(앱 FSD 16번) — app.js 는 plMod.st(상태 묶음) · plMod.blankSets 로 쓴다. 메모리 칸은 위 let 이 대신한다 */
       "const plMod={ blankSets:()=>[{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}], st:" + PL_ST_MEM + " };",
     ].join('\n');
-    const body = [tmo, fList, fPref, fFlush, fPre, fWipe, fDet].join('\n');
+    const body = [tmo, fList, fPref, fFlush, fPre, fWipe, env.det || fDet].join('\n');
     const f = new Function('env', 'localStorage', 'window', decl + '\n' + body +
       "\nreturn { detach:_detachAccountLocal, wipe:_wipeAccountLocal, keys:ACCOUNT_LOCAL_KEYS, mem:()=>({ total:_focusTotalSec, gacha:gachaOwned, gts:_gachaTs, bonus:_gachaBonus, chalDirty:_chalDirty, chalTs:chalRec.ts, slotsTs:_slotsTs, extra:extraSeatSlots, sets:_plSets, sig:_plPubSig, detached:_acctDetached }) };");
     env.m = f(env, localStorage, window);
@@ -238,6 +241,26 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     e = mkEnv({ apiOn: false }); fillA(e);
     r = await e.m.detach();
     chk(r && r.ok === false && /네트워크/.test(r.reason || ''), '  firebaseAPI 가 없으면 막는다 (' + (r && r.reason) + ')');
+
+    /* ⑥-2 presence «꺼짐» — signOut 뒤에는 onDisconnect 가 돌지 않아 로그아웃한 사람이 접속중으로 남던 것 */
+    say('· ⑥-2 로그아웃 전에 presence «꺼짐»');
+    e = mkEnv(); fillA(e);
+    await e.m.detach();
+    const iP = e.calls.indexOf('presence:uA:false'), iR = e.calls.indexOf('release');
+    chk(iP >= 0 && iR > iP && e.calls.indexOf('slotsTs') < iP, '★ 검문을 지난 뒤 · 기기 세션 놓기 전에 presence 를 «꺼짐» 으로 쓴다(로그인이 남아 있을 때)');
+    e = mkEnv({ slotsTs: 0 }); fillA(e);
+    await e.m.detach();
+    chk(!e.calls.some(c => c.startsWith('presence:')), '  막힌 로그아웃은 presence 를 안 건드린다');
+    e = mkEnv({ lost: true }); fillA(e);
+    await e.m.detach();
+    chk(!e.calls.some(c => c.startsWith('presence:')), '★ 다른 기기에 밀려난 기기는 안 쓴다 — 그 칸은 이긴 쪽 것');
+    e = mkEnv({ presenceHang: true, fastTimeout: true }); fillA(e);
+    r = await e.m.detach();
+    chk(r && r.ok === true && e.calls.includes('release'), '  쓰기가 끝나지 않아도(오프라인) 기다림 상한 뒤 로그아웃은 이어진다');
+    const noOff = fDet.replace('if(uid) await _presenceOff(uid);', '');
+    e = mkEnv({ det: noOff }); fillA(e);
+    await e.m.detach();
+    chk(noOff !== fDet && !e.calls.includes('presence:uA:false'), '  깨 보기 — «꺼짐» 쓰기를 빼면 위 ★ 가 빨강(그 판정이 이 줄을 본다)');
 
     /* ⑦ 대기 중인 슬롯 debounce push 를 먼저 흘린다 */
     e = mkEnv({ pushTimer: 42 }); fillA(e);

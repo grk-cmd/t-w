@@ -422,6 +422,16 @@ function _wipeAccountLocal(){
 
 /* 신원 놓기 한 벌 — 올리고 → 검문 → 지운다. 로그아웃·연동 해제가 같이 쓴다.
    @return { ok:true } | { ok:false, reason } — false 면 **아무것도 안 지웠다.** 부르는 쪽이 이유를 보여준다. */
+/* 로그인이 남아 있을 때 presence 를 «꺼짐» 으로 — signOut 뒤에는 onDisconnect(꺼짐)가 돌지 않아(그 칸은 이 계정 로그인만 쓴다)
+   친구에게 접속중으로 남는다. 밀려난 기기는 쓰지 않는다 — 그 칸은 이긴 쪽 것이다. */
+const PRESENCE_OFF_WAIT_MS = 3000;   // 오프라인이면 쓰기가 안 끝난다 — 로그아웃을 이만큼만 붙잡는다
+function _presenceOff(uid){
+  const api = window.firebaseAPI;
+  if(!api || !api.setMyPresenceState || (api.deviceSessionLost && api.deviceSessionLost())) return Promise.resolve();
+  let p = null;
+  try{ p = api.setMyPresenceState(uid, false); }catch(_){}
+  return Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, PRESENCE_OFF_WAIT_MS))]);
+}
 async function _detachAccountLocal(opt){
   /* 🚪 [2026-09-20 · §2] force — 검문에 걸려도 지운다. **두 번째 누름에서만** 열리는 갈래다(부르는 쪽 참고).
      출구가 없으면 막히는 원인이 계속되는 한 영원히 못 나가는데, 하필 로그아웃이 «로그인 문구가 계속 뜬다» 의
@@ -434,6 +444,7 @@ async function _detachAccountLocal(opt){
     if(!pf.ok && !force) return pf;
     if(!pf.ok) console.warn('[계정] 검문에 걸렸지만 강제 로그아웃 — 이 기기에만 있던 것: ' + (pf.items || []).map(i => i.label).join(' · '));
   }
+  if(uid) await _presenceOff(uid);
   _wipeAccountLocal();
   /* 🖥️ 기기 세션을 놓는다 — 내 것일 때만 지운다. authSignOut 은 이 뒤(_loginDoLogout)라 아직 쓸 수 있다. */
   try{ if(window.firebaseAPI && firebaseAPI.releaseDeviceSession) await firebaseAPI.releaseDeviceSession(); }catch(_){}
