@@ -1,6 +1,6 @@
 # ═══ 🚀 release — 버전 태그(v*) push 로 Windows · Mac 빌드 → GitHub Releases 초안 ═══════════
 # [2026-10-03] 릴리스 순서 «① 규칙 → ② 최신화 → ③ 빌드» 중 ③ 을 자동화한다.
-#   ② 최신화(사람):  npm version patch -m "chore: %s"  →  git push --follow-tags
+#   ② 최신화(사람):  npm run version:bump -- patch  →  git push --follow-tags
 #   ③ 빌드(여기):    태그 push 가 트리거 → exe · dmg ×2 · latest.yml 을 **한 초안**에 올린다
 #   ④ 검사 → 공개:   빌드마다 «열리는가 · 버전 · arch · 켜지는가», 초안은 «올라간 파일 = 원본» 을 본다.
 #                    전부 통과해야 공개(Publish)한다. 하나라도 빨강이면 초안으로 남고 사용자에게 가지 않는다.
@@ -13,7 +13,7 @@
 # ① 규칙: 워크플로는 규칙을 다루지 않는다 — 운영 규칙 배포는 사람이 태그 전에 직접 한다(firebase deploy --only database).
 #   dev 는 main push 때 deploy-dev.yml 이 반영한다. Functions 도 직접 배포.
 # 🔐 oauth-config.js(시크릿)는 npm ci **뒤에** 만든다 — 의존성 설치 스크립트가 시크릿 파일을 읽을 틈을 주지 않는다.
-# 🧪 테스트 빌드: 태그에 '-' 가 붙으면(예: v0.10.2-beta.0 ← npm version prerelease --preid=beta) 프리릴리스로 본다.
+# 🧪 테스트 빌드: 태그에 '-' 가 붙으면(예: v0.10.2-beta.0 ← npm run version:bump -- prerelease --preid=beta) 프리릴리스로 본다.
 #   · 정식과 같이 **운영 Firebase 에 붙는다**(10-17 사용자 결정 — 실제 데이터로 시험). dev Firebase 는 내 PC 의 `npm run start:dev` 에서만.
 #     (main.js FIREBASE_ENV 가 설치본에서 package.json twFirebase 만 본다 — 설치본에는 넣지 않는다)
 #   · 운영 규칙 배포는 하지 않는다 · Releases 에 Pre-release 로 올린다(사용자 앱은 자동 업데이트로 받지 않는다)
@@ -65,7 +65,7 @@ jobs:
           PKG=$(node -p "require('./apps/desktop/package.json').version")
           echo "태그: $TAG · package.json: $PKG"
           if [ "v$PKG" != "$TAG" ]; then
-            echo "::error::태그($TAG)와 package.json 버전(v$PKG)이 다르다 — npm version 으로 올리고 커밋한 뒤 태그를 달 것"
+            echo "::error::태그($TAG)와 apps/desktop/package.json 버전(v$PKG)이 다르다 — npm run version:bump 으로 올릴 것(버전 커밋 · 태그를 같이 만든다)"
             exit 1
           fi
           echo "version=$PKG" >> "$GITHUB_OUTPUT"

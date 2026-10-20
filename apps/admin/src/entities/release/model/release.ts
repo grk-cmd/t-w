@@ -1,5 +1,5 @@
-// 루트 package.json 의 build.publish(github owner/repo) 와 같은 값 — 앱이 이 저장소에서 업데이트를 받는다.
-// web-admin 은 루트 파일을 import 하지 않으므로 여기 한 곳에 옮겨 적는다. 저장소를 옮기면 같이 고친다.
+// apps/desktop/package.json 의 build.publish(github owner/repo) 와 같은 값 — 앱이 이 저장소에서 업데이트를 받는다.
+// 웹 관리자는 앱 파일을 import 하지 않으므로 여기 한 곳에 옮겨 적는다. 저장소를 옮기면 같이 고친다.
 export const RELEASE_REPO = 'grk-cmd/t-w';
 export const RELEASES_URL = `https://api.github.com/repos/${RELEASE_REPO}/releases`;
 export const RELEASES_SHOWN = 5;
