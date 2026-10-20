@@ -39,6 +39,6 @@ python3 .claude/hooks/role-start.py --board
 - **main · release/* 에는 직접 push 하지 않는다**(예외 없음 — 가드가 막는다).
 - **머지는 `/ship`** — 컨펌자 · 검증자 통과 → CI → 머지. 승인은 가드 자리를 바꾸는 PR 만(`risk.py --owner <PR>`). 로컬에서 검사 전체를 다시 돌리지 않는다(고친 검사만 · 전체는 CI).
 - `checks/CHECKS.md` 에 개정 번호 · 기록은 적지 않는다(내력은 git). §3 해시만 맞춘다.
-- **클릭 통과(setIgnoreMouseEvents)를 정하는 조건은 `app/parts/launcher/click-through-policy.js` 한 곳에만 쓴다.** 다른 파일에 쓰면 `sim-click-through-policy.js` 가 빨강이다.
+- **클릭 통과(setIgnoreMouseEvents)를 정하는 조건은 `apps/desktop/app/parts/launcher/click-through-policy.js` 한 곳에만 쓴다.** 다른 파일에 쓰면 `sim-click-through-policy.js` 가 빨강이다.
 - **담당 이름은 남과 겹치지 않게** 쓴다(예: «검증-도우미1» · «계정 세션» · 사람 이름). 모든 세션이 같은 GitHub 계정이라 PR 작성자로는 누가 누군지 못 가린다.
 - 버그 제보를 고친 PR 은 제목 끝에 `(B-MMDD-n)` 을 붙인다 — 제보 → 수정 짝은 PR 제목으로 찾는다.
