@@ -22,6 +22,10 @@ const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 SRC['app.js'] = _joinRenderer(SRC['app.js']);   // 앱 FSD 로 옮긴 모듈(🖍️ 파츠 그림 등)을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const win = { addEventListener(){} };
+/* uv-fill.js 는 캐릭터 코어(TwCharCore.uvFill)에 잇는 한 줄이다 — html 처럼 코어 빌드 사본을 먼저 싣는다 */
+const CORE = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js'].map(f => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return null; } }).find(Boolean);
+if (!CORE) { say('  ? 원본 못 찾음 — vendor/char-core/char-core.iife.js'); process.exit(2); }
+global.TwCharCore = new Function(CORE + '\n;return TwCharCore;')();
 ['uv-fill.js', 'paint-tools.js', 'animal-glb.js', 'base-glb.js'].forEach(f => new Function('window', 'module', SRC[f])(win, undefined));
 const hotkeyLetter = new Function('window', SRC['key-input.js'] + '\nreturn hotkeyLetter;')(win);
 const U = win.UvFill, P = win.PaintTools;
