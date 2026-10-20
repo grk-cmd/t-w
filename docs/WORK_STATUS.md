@@ -29,6 +29,7 @@
 ## 진행 중 — 검토중 · 작업중 · 작업완료
 | 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|---|---|---|
+| 작업중 | 메인 홈페이지 프로토타입 | grk 홈페이지 시안 세션 | 0.12.0 | claude/epic-volta-ar2dq9 | together-working.com 메인 페이지 레이아웃 프로토타입(개발자 공유용 · 배포 안 함) — 히어로 · 소식 창 · 캐릭터 만들기(레이어 · 조정 · 대칭 · 내 그림) · 커스텀 라이브러리(익명 올리기 설정창) · 소개 · 내려받기 · 언어 바꾸기(사용자 10-20) | `docs/prototypes/main-site/`(새 폴더) | |
 | 작업완료(0.12.0) | 규칙 옛 앱 방 막기 | 서버 hotfix 세션(togetherworking-6b) | 0.12.0 | rules/old-app-room-block | 0.10.2 이하가 방을 여는 것 막기 — ① `config/minRoomVer` 읽기를 옛 앱 막기에서 빼서 옛 앱이 최소 버전을 읽고 스스로 멈추게(읽기 거부 → «조회 실패는 통과» 로 문이 열리던 것) ② 방 멤버 칸을 처음 만들 때 그 사람 presence 가 «접속중 · ver 없음» 이면 거절(사용자 10-20) | `firebase-database-rules.json`(config/minRoomVer · rooms/$room/$memberId) · `scripts/rules-emu-check.js` · `checks/sim-rules-src.js` · CHECKS.md | #423 · 2026-10-20 |
 | 작업완료(0.12.0) | 밀려난 뒤 «여기서 계속» | 서버 hotfix 세션(togetherworking-6b) | 0.12.0 | fix/device-continue-relaunch | 같은 계정으로 0.10.2 가 켜지면 옛 앱 읽기 막기가 0.11 앱 구독(친구 · 카탈로그 · 알림)까지 끊는다 — «여기서 계속» 이 앱을 다시 켜게(끊긴 구독 전부 새로) · 다시 켜기 못 하는 판은 지금처럼(사용자 10-20) | `app/parts/account/device-lost.js` · `app/parts/app.js`(deps 한 줄) · `checks/sim-device-lost.js` · CHECKS.md | #424 · 2026-10-20 |
 | 작업완료(0.12.0) | 카탈로그 통째 구독 실패 | 서버 hotfix 세션(togetherworking-6b) | 0.12.0 | fix/catalog-full-sub-error | 버전 구독이 거부돼 통째 구독으로 넘어갈 때 그것도 거부되면 아무 기록 없이 끊김 — 실패 처리 · 경고(사용자 10-20) | `app/parts/character/catalog-cache.js` · `checks/sim-catalog-cache.js` · CHECKS.md | #426 · 2026-10-20 |
