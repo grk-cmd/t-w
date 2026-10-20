@@ -111,6 +111,29 @@ for name, cmd, want in cases:
         bad += 1
         print(f'  ✗ 가드 {name}: {"막음" if denied else "통과"}(기대 {"막음" if want else "통과"}) {p.stderr[-200:]}')
 
+# 보호 브랜치 직접 push — 예외 없음(옛 «현황판 파일만 main» 예외는 걷었다). origin 이 이 저장소인 폴더에서만 보므로 가짜 저장소를 만든다.
+# 지금 main 에 docs/WORK_STATUS.md 만 바꾼 커밋이 얹혀 있다 — 옛 예외가 되살아나면 «main 에 직접 push» 가 통과로 바뀐다.
+PUSH_CWD, PUSH_ORIG = tempfile.mkdtemp(), tempfile.mkdtemp()
+pg = lambda *a: subprocess.run(['git', '-C', PUSH_CWD, '-c', 'user.name=t', '-c', 'user.email=t@t', *a], capture_output=True, check=True)
+subprocess.run(['git', 'init', '-q', '--bare', PUSH_ORIG], check=True)
+subprocess.run(['git', 'init', '-q', '-b', 'main', PUSH_CWD], check=True)
+pg('commit', '-q', '--allow-empty', '-m', 'a'); pg('remote', 'add', 'origin', PUSH_ORIG); pg('push', '-q', 'origin', 'main')
+os.makedirs(os.path.join(PUSH_CWD, 'docs')); open(os.path.join(PUSH_CWD, 'docs', 'WORK_STATUS.md'), 'w').write('x\n')
+pg('add', '.'); pg('commit', '-q', '-m', 'docs(status): 한 줄')
+pg('remote', 'set-url', 'origin', 'https://github.com/grk-cmd/t-w.git')   # origin/main 은 받아 둔 그대로 · 가드가 이 저장소로 알아보게
+for name, cmd, want in (('main 에 직접 push', 'git push origin main', True),
+                        ('HEAD:main push', 'git push -q origin HEAD:main', True),
+                        ('판 브랜치 직접 push', 'git push origin release/0.12.0', True),
+                        ('작업 브랜치 push', 'git push -u origin fix/a', False),
+                        ('현황 파일만 바꾼 main push 도 막음', 'git push', True)):
+    p = subprocess.run([sys.executable, '-B', G], input=json.dumps({'tool_input': {'command': cmd}, 'cwd': PUSH_CWD}),
+                       capture_output=True, text=True, encoding='utf-8', errors='replace')
+    if ('"deny"' in p.stdout) == want and not p.stderr:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 가드 push {name}: {p.stdout[:120]!r} {p.stderr[-200:]}')
+
 sys.path.insert(0, HERE)
 import risk
 S = '0c4b3e93f26e8b8a0ff99717d88af4a520a9d9ec'
@@ -430,16 +453,14 @@ rs = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rs)
 ROLES = {'_공통': '공통글', '서버담당': '서버글', '질문': '질문글'}
 FACTS = {'notes': [], 'releases': {'0.12.0': {'ahead': 2, 'subjects': ['feat: 가']}, '0.13.0': {'ahead': 1, 'subjects': ['fix: 나']}},
-         'prs': [{'number': 7, 'title': '판 PR', 'head': 'fix/a', 'base': 'release/0.12.0'},
-                 {'number': 8, 'title': '하네스 PR', 'head': 'harness/b', 'base': 'main'}],
-         'status': [{'상태': '작업중', '담당': 'grk', '판': '0.12.0', '브랜치': 'fix/a', '내용': '고침'},
-                    {'상태': '작업완료(0.13.0)', '담당': '나', '판': '0.13.0', '브랜치': 'fix/c', '내용': '끝'},
-                    {'상태': '검토중', '담당': '오케', '판': 'main', '브랜치': 'harness/b', '내용': '하네스'}],
+         'prs': [{'number': 7, 'title': '판 PR', 'head': 'fix/a', 'base': 'release/0.12.0', 'draft': True, 'owner': 'grk', 'files': ['app/a.js', 'checks/']},
+                 {'number': 8, 'title': '하네스 PR', 'head': 'harness/b', 'base': 'main', 'draft': False, 'owner': '', 'files': ['checks/sim-x.js']}],
+         'issues': [{'number': 12, 'title': '피부가 투명해짐'}],
          'overlaps': [('0.12.0', '0.13.0', ['app/parts/app.js'])]}
 def boom_gather():
     raise RuntimeError('fetch 실패(시험)')
-STATUS_MD = ('# 현황판\n\n## 진행 중\n\n| 상태 | 판 | 브랜치 |\n|---|---|---|\n| 작업중 | 0.12.0 | fix/a |\n'
-             '| 칸이 | 모자람 |\n| 검토중 | main | harness/b |\n\n## 끝난 것\n\n| 상태 | 판 | 브랜치 |\n|---|---|---|\n| x | y | z |\n')
+BODY = ('할 일: 없음\n담당: 서버 세션 <!-- 이름 -->\n\n## 무엇을\n- `app/b.js` 는 여기 말고\n\n## 건드리는 파일\n<!-- 예) `app/x.js` -->\n'
+        '- `app/a.js` · `app/parts/room/`\n- docs/README.md\n- `app/a.js`\n\n## 왜\n- `app/c.js`\n')
 role_cases = [
     # (이름, 실제 값, 기대 값)
     ('역할 이름 → 공통 + 역할', rs.role_text('서버담당', ROLES), '공통글\n\n서버글'),
@@ -458,13 +479,20 @@ role_cases = [
     ('판 안 물음: 질문 세션', rs.needs_pick('질문', 'main', 'startup'), False),
     ('판 안 물음: resume', rs.needs_pick('서버담당', 'main', 'resume'), False),
     ('판 안 물음: compact', rs.needs_pick(None, 'main', 'compact'), False),
-    ('판 이름: release/', rs.rel_name('release/0.12.0'), '0.12.0'),
-    ('판 이름: 작업완료(…)', rs.rel_name('작업완료(0.13.0)'), '0.13.0'),
-    ('판 이름: main', rs.rel_name(' main '), 'main'),
-    ('판 이름: 빈 값', rs.rel_name(None), ''),
-    ('현황판: 진행 중 표만 · 칸 모자란 줄 버림', [r['브랜치'] for r in rs.parse_status(STATUS_MD)], ['fix/a', 'harness/b']),
-    ('현황판: 머리 없음', rs.parse_status('# 다른 글\n| a |\n'), []),
-    ('현황판: 빈 글', rs.parse_status(None), []),
+    ('diff 이름: -z 로 나눔 · 한글 · 공백 경로 그대로', rs.names('a.js\0앱/한 글.md\0'), ['a.js', '앱/한 글.md']),
+    ('diff 이름: 빈 출력', rs.names(''), []),
+    ('건드리는 파일: 그 칸만 · 백틱 · 목록 글 · 주석 빼고 · 중복 한 번', rs.declared_files(BODY), ['app/a.js', 'app/parts/room/', 'docs/README.md']),
+    ('건드리는 파일: 칸 없음', rs.declared_files('## 무엇을\n- `a.js`\n'), []),
+    ('건드리는 파일: 빈 본문', rs.declared_files(None), []),
+    ('건드리는 파일: «없음» · 줄긋기는 파일 아님', rs.declared_files('## 건드리는 파일\n- 없음\n- ---\n- 해당 없음\n- `a.js`\n'), ['a.js']),
+    ('건드리는 파일: 주석만 남은 틀', rs.declared_files('## 건드리는 파일\n<!-- 예) `app/x.js` -->\n\n## 왜\n'), []),
+    ('담당: 주석 빼고', rs.owner(BODY), '서버 세션'),
+    ('담당: 틀 그대로(주석뿐)', rs.owner('담당: <!-- 세션 이름 -->\n'), ''),
+    ('담당: 줄 없음', rs.owner(None), ''),
+    ('PR 겹침: 같은 파일 · 폴더 아래', rs.pr_overlaps([{'number': 1, 'files': ['a.js', 'app/room/']}, {'number': 2, 'files': ['a.js', 'app/room/x.js']}, {'number': 3, 'files': ['b.js']}]),
+     [(1, 2, ['a.js', 'app/room/', 'app/room/x.js'])]),
+    ('PR 겹침: 이름이 앞만 같은 파일은 아님', rs.pr_overlaps([{'number': 1, 'files': ['app/a.js']}, {'number': 2, 'files': ['app/a.jsx']}]), []),
+    ('PR 겹침: 파일 없는 PR', rs.pr_overlaps([{'number': 1}, {'number': 2, 'files': ['a']}]), []),
     ('겹침: 같은 파일만', rs.overlaps({'0.12.0': ['a', 'b'], '0.13.0': ['b', 'c'], '0.14.0': ['d']}), [('0.12.0', '0.13.0', ['b'])]),
     ('겹침: 판 하나', rs.overlaps({'0.12.0': ['a']}), []),
     ('자르기: 상한 그대로', rs.cut('가' * 60), '가' * 60),
@@ -492,11 +520,16 @@ def has(name, text, *parts, absent=()):
 t = rs.build('서버담당', 'startup', 'main', ROLES, boom_gather)
 has('모으기 실패 → 못 불러옴 + 판 질문', t, '서버글', '요약을 못 불러옴', 'fetch 실패(시험)', '어느 버전에 나갈 작업')
 t = rs.render(FACTS)
-has('요약: 판마다 PR · 현황판 · 겹침', t, '### release/0.12.0', '### release/0.13.0', '열린 PR #7', '현황판: 작업중 · grk · fix/a',
-    '현황판: 작업완료(0.13.0)', '열린 PR 없음', '### 판 밖', '열린 PR #8 → main', '현황판: 검토중 · 오케', 'release/0.12.0 ↔ release/0.13.0: app/parts/app.js')
+has('요약: 판마다 PR · 검토중 이슈 · 겹침', t, '### release/0.12.0', '### release/0.13.0', '열린 PR #7 [초안] 판 PR (fix/a · 담당 grk · 파일 2개)',
+    '열린 PR 없음', '### 판 밖', '열린 PR #8 → main 하네스 PR (harness/b · 파일 1개)', '- #12 피부가 투명해짐', '#7 ↔ #8: checks/, checks/sim-x.js',
+    'release/0.12.0 ↔ release/0.13.0: app/parts/app.js', absent=('#8 → main [초안]', '담당  ·'))
+t = rs.render(dict(FACTS, issues=None))
+has('요약: 이슈 못 읽음 ≠ 없음', t, '### 검토중', '- 못 읽음', absent=('#12',))
+t = rs.render(dict(FACTS, issues=[]))
+has('요약: 검토중 이슈 없음', t, '### 검토중', '- 없음')
 t = rs.render(dict(FACTS, prs=None, notes=['열린 PR 을 못 읽음']))
-has('요약: PR 못 읽음 ≠ 열린 PR 없음', t, '⚠️ 열린 PR 을 못 읽음', absent=('열린 PR 없음', '열린 PR #'))
-t = rs.render({'notes': [], 'releases': {}, 'prs': [], 'status': []})
+has('요약: PR 못 읽음 ≠ 열린 PR 없음', t, '⚠️ 열린 PR 을 못 읽음', absent=('열린 PR 없음', '열린 PR #', 'PR 끼리 겹치는'))
+t = rs.render({'notes': [], 'releases': {}, 'prs': [], 'issues': []})
 has('요약: 판 없음', t, '열린 판 브랜치(`release/*`)가 없다', absent=('판끼리',))
 t = rs.render(dict(FACTS, releases={'0.12.0': FACTS['releases']['0.12.0']}, overlaps=[]))
 has('요약: 판 하나면 겹침 칸 없음', t, '### release/0.12.0', absent=('판끼리 겹치는',))
@@ -521,7 +554,7 @@ try:
 finally:
     rs.time, rs.sh = real_time, real_sh
 notes = ' '.join(f['notes'])
-has('예산: 넘으면 판 읽기를 멈추고 남은 것은 «못 읽음»', notes, 'release/0.12.0 부터 판을 못 읽음', '시간 예산 12초', '열린 PR 을 못 읽음', '현황판을 못 읽음')
+has('예산: 넘으면 판 읽기를 멈추고 남은 것은 «못 읽음»', notes, 'release/0.12.0 부터 판을 못 읽음', '시간 예산 12초', '열린 PR 을 못 읽음', '검토중 이슈를 못 읽음')
 if f['releases'] == {} and f['prs'] is None and [c for c, _ in calls] == ['fetch', 'for-each-ref', 'rev-list'] and [t for _, t in calls] == [12, 7, 2]:
     ok += 1
 else:
@@ -565,8 +598,11 @@ open(os.path.join(FAKE, 'gh'), 'w', encoding='utf-8').write('''#!/usr/bin/env py
 import sys, json, os
 a = ' '.join(sys.argv[1:])
 w = lambda s: sys.stdout.buffer.write(s.encode('utf-8'))
-if 'state=open' in a:
-    out = [{'number': 7, 'title': '한글 제목 «PR» — 끝', 'head': 'feat/x', 'base': 'release/9.9.9'}]
+if 'labels=' in a:   # 검토중 이슈 목록(코멘트 읽기 …/issues/N/comments 와 가르기)
+    out = [{'number': 12, 'title': '검토 «한글» — 이슈'}]
+elif 'state=open' in a:
+    out = [{'number': 7, 'title': '한글 제목 «PR» — 끝', 'head': 'feat/x', 'base': 'release/9.9.9', 'draft': False, 'same': True, 'body': '## 건드리는 파일\\n- `앱/한글 «파일».js`\\n'},
+           {'number': 9, 'title': '지운 브랜치', 'head': 'gone/x', 'base': 'release/9.9.9', 'draft': False, 'same': True, 'body': '## 건드리는 파일\\n- `b.js`\\n'}]
 elif '/files' in a:
     out = [{'filename': '.claude/hooks/ship-gate.py', 'status': 'modified', 'changes': 1, 'patch': '+# 한글 «주석» — 끝'}]   # 가드 파일 — 승인이 필요한 PR
 elif '/reviews' in a:
@@ -622,25 +658,28 @@ if CPL:
         else:
             bad += 1
             print(f'  ✗ 가드 사본 {name}: {"막음" if denied else "안 막음"}')
-    # 한글이 든 저장소(bare origin 에 main · release/9.9.9)를 만들어 그 로캘에서 gather — 해독이 깨지면 현황판 · 판 · PR 이 «못 읽음» 으로 빠진다
+    # 한글이 든 저장소(bare origin 에 main · release/9.9.9)를 만들어 그 로캘에서 gather — 해독이 깨지면 판 · PR · 이슈가 «못 읽음» 으로 빠진다
     ORIG, REPO_DIR = tempfile.mkdtemp(), tempfile.mkdtemp()
     g = lambda *a, cwd=REPO_DIR: subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], cwd=cwd, capture_output=True, check=True)
     g('init', '-q', '--bare', cwd=ORIG)
     g('init', '-q', '-b', 'main')
-    os.makedirs(os.path.join(REPO_DIR, 'docs'))
-    open(os.path.join(REPO_DIR, 'docs', 'WORK_STATUS.md'), 'w', encoding='utf-8').write(
-        '## 진행 중 — 검토중\n| 상태 | 묶음 | 브랜치 | 내용 |\n|---|---|---|---|\n| 작업중 | 우편함 «소식» | feat/x | 한글 — 내용 |\n')
-    g('add', '.'); g('commit', '-q', '-m', 'docs: 현황판 «처음» — 시작')
+    g('commit', '-q', '--allow-empty', '-m', 'docs: «처음» — 시작')
     g('remote', 'add', 'origin', ORIG); g('push', '-q', 'origin', 'main')
     g('checkout', '-q', '-b', 'release/9.9.9'); g('commit', '-q', '--allow-empty', '-m', 'feat: 판에 들어간 «일» — 한글')
-    g('push', '-q', 'origin', 'release/9.9.9'); g('checkout', '-q', 'main')
+    g('push', '-q', 'origin', 'release/9.9.9')
+    # PR #7 머리 — 판에서 따서 한글 · 공백 든 파일 하나를 바꿈(실제 diff 몫). #9 머리(gone/x)는 원격에 없다(diff 못 읽음).
+    g('checkout', '-q', '-b', 'feat/x'); os.makedirs(os.path.join(REPO_DIR, '문서'))
+    open(os.path.join(REPO_DIR, '문서', '바뀐 «글».md'), 'w', encoding='utf-8').write('x\n')
+    g('add', '.'); g('commit', '-q', '-m', 'feat: 글'); g('push', '-q', 'origin', 'feat/x'); g('checkout', '-q', 'main')
     probe = ("import importlib.util, json, sys; sp = importlib.util.spec_from_file_location('rs', sys.argv[1]); m = importlib.util.module_from_spec(sp); "
              "sp.loader.exec_module(m); print(json.dumps(m.gather(sys.argv[2]), ensure_ascii=False))")
     p = subprocess.run([sys.executable, '-B', '-c', probe, RS, REPO_DIR], capture_output=True, env=env, timeout=60)
     out, err = p.stdout.decode('utf-8', 'replace'), p.stderr.decode('utf-8', 'replace')
     try:
         f = json.loads(out)
-        good = (p.returncode == 0 and f['notes'] == [] and f['status'] and '한글 — 내용' in json.dumps(f['status'], ensure_ascii=False)
+        good = (p.returncode == 0 and f['notes'] == ['#9 실제 diff 를 못 읽음 — 본문에 적은 파일만으로 겹침을 봄']
+                and f['issues'] == [{'number': 12, 'title': '검토 «한글» — 이슈'}]
+                and f['prs'][0]['files'] == ['앱/한글 «파일».js', '문서/바뀐 «글».md'] and f['prs'][1]['files'] == ['b.js']
                 and f['releases'].get('9.9.9', {}).get('subjects') == ['feat: 판에 들어간 «일» — 한글'] and f['prs'][0]['title'] == '한글 제목 «PR» — 끝')
     except (ValueError, KeyError, IndexError, TypeError):
         good = False
