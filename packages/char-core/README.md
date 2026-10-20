@@ -5,6 +5,7 @@
 | 옮겨 온 것 | 파일 | 앱에서 부르는 곳 |
 |---|---|---|
 | 복제 코드 DCC1(암호 · 칸 싣기 · 되살리기 · base64 · 열쇠 만들기) | `src/clone-code.ts` | `apps/desktop/app/parts/character/code-crypto.js`(그림 다루기 · 커미션 이름은 앱 몫) |
+| 🪣 UV 채우기(메쉬 · 섬 · 여백 몫) | `src/uv-fill.ts` → `TwCharCore.uvFill` | 전역 이름 `UvFill` 그대로(`apps/desktop/app/parts/creator/uv-fill.js` 가 코어에 잇는다) |
 
 ## 책임
 - 들어오는 것: 캐릭터 정의(def) 정리 · 몸 모델 · def → 3D 캐릭터 한 덩어리 · 얼굴 · 피부 합성 · 귀 · 동물 · 파츠 붙이기 · 색조 · 복제 코드 DCC1(#430 3.1).

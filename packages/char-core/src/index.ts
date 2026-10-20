@@ -21,6 +21,8 @@ export {
   decodeCloneCode,
 } from './clone-code';
 export type { CloneDefIn, CloneDefOut, DataUrlSource, EncodeOptions } from './clone-code';
+export * as uvFill from './uv-fill';
+export type { GeometryLike, UvPoint, FillOptions, Tri, Ctx2DLike, CanvasLayout } from './uv-fill';
 
 /** 코어가 three 에서 기대는 몫 — 옮기는 단계마다 쓰는 것만 늘린다. */
 export interface ThreeLike {

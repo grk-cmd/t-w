@@ -35,7 +35,8 @@ var TwCharCore = (() => {
     deriveKey: () => deriveKey,
     encodeCloneCode: () => encodeCloneCode,
     encryptPayload: () => encryptPayload,
-    unb64: () => unb64
+    unb64: () => unb64,
+    uvFill: () => uv_fill_exports
   });
 
   // src/clone-code.ts
@@ -158,6 +159,306 @@ var TwCharCore = (() => {
   }
   async function decodeCloneCode(code, pass) {
     return defFromPayload(await decryptPayload(code, pass));
+  }
+
+  // src/uv-fill.ts
+  var uv_fill_exports = {};
+  __export(uv_fill_exports, {
+    FILL_PAD_PX: () => FILL_PAD_PX,
+    LAYOUT_CACHE_MAX: () => LAYOUT_CACHE_MAX,
+    canvasLayout: () => canvasLayout,
+    fillIsland: () => fillIsland,
+    fillIslandOwned: () => fillIslandOwned,
+    fillMesh: () => fillMesh,
+    fillMeshOwned: () => fillMeshOwned,
+    fillTriangles: () => fillTriangles,
+    islandIds: () => islandIds,
+    islandIndex: () => islandIndex,
+    islandTriangles: () => islandTriangles,
+    paintOwned: () => paintOwned,
+    triangleAtUv: () => triangleAtUv,
+    uvTriangles: () => uvTriangles
+  });
+  var FILL_PAD_PX = 1.5;
+  function uvTriangles(geometry, size) {
+    const g = geometry, a = g && g.attributes, uv = a && a.uv;
+    if (!g || !uv || !uv.count) return [];
+    const idx = g.index;
+    const n = idx ? idx.count : uv.count;
+    const get = (i) => idx ? idx.getX(i) : i;
+    const out = [];
+    for (let t = 0; t + 2 < n; t += 3) {
+      const i0 = get(t), i1 = get(t + 1), i2 = get(t + 2);
+      const tri = [uv.getX(i0) * size, uv.getY(i0) * size, uv.getX(i1) * size, uv.getY(i1) * size, uv.getX(i2) * size, uv.getY(i2) * size];
+      if (tri.every((v) => isFinite(v))) out.push(tri);
+    }
+    return out;
+  }
+  function fillMesh(ctx, geometry, size, opts) {
+    return fillTriangles(ctx, uvTriangles(geometry, size), opts);
+  }
+  function fillTriangles(ctx, tris, opts) {
+    const o = opts || {};
+    if (!tris || !tris.length) return 0;
+    ctx.save();
+    ctx.globalCompositeOperation = o.erase ? "destination-out" : "source-over";
+    ctx.fillStyle = o.color || "#000000";
+    ctx.strokeStyle = o.color || "#000000";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = ((o.pad != null ? o.pad : FILL_PAD_PX) + (o.erase ? 1 : 0)) * 2;
+    ctx.beginPath();
+    tris.forEach((t) => {
+      ctx.moveTo(t[0], t[1]);
+      ctx.lineTo(t[2], t[3]);
+      ctx.lineTo(t[4], t[5]);
+      ctx.closePath();
+    });
+    ctx.fill();
+    if (ctx.lineWidth > 0) ctx.stroke();
+    ctx.restore();
+    return tris.length;
+  }
+  var UV_KEY_Q = 1e5;
+  var islandCache = typeof WeakMap !== "undefined" ? /* @__PURE__ */ new WeakMap() : null;
+  function triCount(g) {
+    const uv = g && g.attributes && g.attributes.uv;
+    if (!g || !uv || !uv.count) return 0;
+    return Math.floor((g.index ? g.index.count : uv.count) / 3);
+  }
+  var vIdx = (g, i) => g.index ? g.index.getX(i) : i;
+  function islandIds(geometry) {
+    const g = geometry, n = triCount(g);
+    if (!g || !n) return null;
+    const hit = islandCache && islandCache.get(g);
+    if (hit) return hit;
+    const uv = g.attributes.uv, vc = uv.count;
+    const par = new Int32Array(vc);
+    for (let i = 0; i < vc; i++) par[i] = i;
+    const find = (x) => {
+      while (par[x] !== x) {
+        par[x] = par[par[x]];
+        x = par[x];
+      }
+      return x;
+    };
+    const join = (a, b) => {
+      a = find(a);
+      b = find(b);
+      if (a !== b) par[b] = a;
+    };
+    const seen = /* @__PURE__ */ new Map();
+    for (let i = 0; i < vc; i++) {
+      const u = uv.getX(i), v = uv.getY(i);
+      if (!isFinite(u) || !isFinite(v)) continue;
+      const k = Math.round(u * UV_KEY_Q) + "," + Math.round(v * UV_KEY_Q);
+      const s = seen.get(k);
+      if (s !== void 0) join(s, i);
+      else seen.set(k, i);
+    }
+    for (let t = 0; t < n; t++) {
+      const a = vIdx(g, t * 3);
+      join(a, vIdx(g, t * 3 + 1));
+      join(a, vIdx(g, t * 3 + 2));
+    }
+    const out = new Int32Array(n);
+    for (let t = 0; t < n; t++) out[t] = find(vIdx(g, t * 3));
+    if (islandCache) islandCache.set(g, out);
+    return out;
+  }
+  function triangleAtUv(geometry, u, v) {
+    const g = geometry, n = triCount(g);
+    if (!g || !n || !isFinite(u) || !isFinite(v)) return -1;
+    const uv = g.attributes.uv, E = 1e-6;
+    for (let t = 0; t < n; t++) {
+      const i0 = vIdx(g, t * 3), i1 = vIdx(g, t * 3 + 1), i2 = vIdx(g, t * 3 + 2);
+      const ax = uv.getX(i0), ay = uv.getY(i0), bx = uv.getX(i1), by = uv.getY(i1), cx = uv.getX(i2), cy = uv.getY(i2);
+      const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+      if (!(Math.abs(d) > 1e-12)) continue;
+      const l1 = ((by - cy) * (u - cx) + (cx - bx) * (v - cy)) / d;
+      const l2 = ((cy - ay) * (u - cx) + (ax - cx) * (v - cy)) / d;
+      if (l1 >= -E && l2 >= -E && 1 - l1 - l2 >= -E) return t;
+    }
+    return -1;
+  }
+  function pickFace(ids, geometry, faceIndex, uv) {
+    let f = typeof faceIndex === "number" && faceIndex >= 0 && faceIndex < ids.length ? faceIndex | 0 : -1;
+    if (f < 0 && uv) f = triangleAtUv(geometry, uv.x, uv.y);
+    return f;
+  }
+  function islandTriangles(geometry, size, faceIndex, uv) {
+    const ids = islandIds(geometry);
+    if (!ids) return [];
+    const f = pickFace(ids, geometry, faceIndex, uv);
+    if (f < 0) return [];
+    const id = ids[f], g = geometry, a = g.attributes.uv, out = [];
+    let area = 0;
+    for (let t = 0; t < ids.length; t++) {
+      if (ids[t] !== id) continue;
+      const i0 = vIdx(g, t * 3), i1 = vIdx(g, t * 3 + 1), i2 = vIdx(g, t * 3 + 2);
+      const tri = [a.getX(i0) * size, a.getY(i0) * size, a.getX(i1) * size, a.getY(i1) * size, a.getX(i2) * size, a.getY(i2) * size];
+      if (!tri.every((v) => isFinite(v))) continue;
+      area += triArea(tri);
+      out.push(tri);
+    }
+    return area > 0.5 ? out : [];
+  }
+  var triArea = (t) => Math.abs((t[2] - t[0]) * (t[5] - t[1]) - (t[4] - t[0]) * (t[3] - t[1])) / 2;
+  function fillIsland(ctx, geometry, size, faceIndex, uv, opts) {
+    return fillTriangles(ctx, islandTriangles(geometry, size, faceIndex, uv), opts);
+  }
+  var geoSeq = 0;
+  var geoIds = typeof WeakMap !== "undefined" ? /* @__PURE__ */ new WeakMap() : null;
+  var gid = (g) => {
+    if (!geoIds) return 0;
+    let v = geoIds.get(g);
+    if (!v) {
+      v = ++geoSeq;
+      geoIds.set(g, v);
+    }
+    return v;
+  };
+  var LAYOUT_CACHE_MAX = 6;
+  var layouts = /* @__PURE__ */ new Map();
+  function raster(tris, size, lab, val) {
+    let hit = 0;
+    for (const t of tris) {
+      const [x0, y0, x1, y1, x2, y2] = t;
+      const d = (y1 - y2) * (x0 - x2) + (x2 - x1) * (y0 - y2);
+      if (!(Math.abs(d) > 1e-9)) continue;
+      const minX = Math.max(0, Math.floor(Math.min(x0, x1, x2))), maxX = Math.min(size - 1, Math.ceil(Math.max(x0, x1, x2)));
+      const minY = Math.max(0, Math.floor(Math.min(y0, y1, y2))), maxY = Math.min(size - 1, Math.ceil(Math.max(y0, y1, y2)));
+      for (let y = minY; y <= maxY; y++) {
+        const py = y + 0.5;
+        for (let x = minX; x <= maxX; x++) {
+          const px = x + 0.5;
+          const l1 = ((y1 - y2) * (px - x2) + (x2 - x1) * (py - y2)) / d;
+          const l2 = ((y2 - y0) * (px - x2) + (x0 - x2) * (py - y2)) / d;
+          if (l1 >= 0 && l2 >= 0 && 1 - l1 - l2 >= 0) {
+            const k = y * size + x;
+            if (!lab[k]) {
+              lab[k] = val;
+              hit++;
+            }
+          }
+        }
+      }
+    }
+    return hit;
+  }
+  function canvasLayout(size, geos) {
+    const list = [];
+    (geos || []).forEach((g) => {
+      if (g && list.indexOf(g) < 0 && triCount(g)) list.push(g);
+    });
+    const key = size + "|" + list.map(gid).join(",");
+    const cached = layouts.get(key);
+    if (cached) {
+      layouts.delete(key);
+      layouts.set(key, cached);
+      return cached;
+    }
+    const islands = [], index = /* @__PURE__ */ new Map();
+    list.forEach((g) => {
+      const ids = islandIds(g), a = g.attributes.uv, by = /* @__PURE__ */ new Map();
+      for (let t = 0; t < ids.length; t++) {
+        const i0 = vIdx(g, t * 3), i1 = vIdx(g, t * 3 + 1), i2 = vIdx(g, t * 3 + 2);
+        const tri = [a.getX(i0) * size, a.getY(i0) * size, a.getX(i1) * size, a.getY(i1) * size, a.getX(i2) * size, a.getY(i2) * size];
+        if (!tri.every((v) => isFinite(v))) continue;
+        const id = ids[t];
+        let arr = by.get(id);
+        if (!arr) by.set(id, arr = []);
+        arr.push(tri);
+      }
+      by.forEach((tris, root) => {
+        index.set(gid(g) + ":" + root, islands.length);
+        islands.push({ geo: g, root, tris });
+      });
+    });
+    const n = size * size, owner = new Int16Array(n), q = new Int32Array(n);
+    let qt = 0;
+    islands.forEach((isl, i) => {
+      let area = 0;
+      isl.tris.forEach((t) => {
+        area += triArea(t);
+      });
+      isl.area = area;
+      if (area <= 0.5 || !raster(isl.tris, size, owner, i + 1)) {
+        for (const t of isl.tris)
+          for (let v = 0; v < 6; v += 2) {
+            const x = Math.max(0, Math.min(size - 1, Math.floor(t[v]))), y = Math.max(0, Math.min(size - 1, Math.floor(t[v + 1]))), k = y * size + x;
+            if (!owner[k]) owner[k] = i + 1;
+          }
+      }
+    });
+    for (let k = 0; k < n; k++) if (owner[k]) q[qt++] = k;
+    for (let qh = 0; qh < qt; qh++) {
+      const k = q[qh], x = k % size, y = k / size | 0, L = owner[k];
+      for (let dy = -1; dy <= 1; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= size) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx;
+          if (!dx && !dy || xx < 0 || xx >= size) continue;
+          const kk = yy * size + xx;
+          if (owner[kk]) continue;
+          owner[kk] = L;
+          q[qt++] = kk;
+        }
+      }
+    }
+    const layout = { size, islands, index, owner };
+    layouts.set(key, layout);
+    while (layouts.size > LAYOUT_CACHE_MAX) layouts.delete(layouts.keys().next().value);
+    return layout;
+  }
+  function islandIndex(layout, geometry, faceIndex, uv) {
+    const ids = islandIds(geometry);
+    if (!ids) return -1;
+    const f = pickFace(ids, geometry, faceIndex, uv);
+    if (f < 0) return -1;
+    const i = layout.index.get(gid(geometry) + ":" + ids[f]);
+    return i == null || !(layout.islands[i].area > 0.5) ? -1 : i;
+  }
+  function rgb(c) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(c || "").trim());
+    const v = m ? parseInt(m[1], 16) : 0;
+    return [v >> 16 & 255, v >> 8 & 255, v & 255];
+  }
+  function paintOwned(ctx, layout, picks, opts) {
+    const o = opts || {}, c3 = rgb(o.color), size = layout.size, own = layout.owner, want = new Uint8Array(layout.islands.length + 1);
+    picks.forEach((i) => {
+      if (i >= 0) want[i + 1] = 1;
+    });
+    const img = ctx.getImageData(0, 0, size, size), d = img.data;
+    let c = 0;
+    for (let k = 0; k < own.length; k++) {
+      if (!want[own[k]]) continue;
+      const i = k * 4;
+      c++;
+      if (o.erase) {
+        d[i] = d[i + 1] = d[i + 2] = d[i + 3] = 0;
+      } else {
+        d[i] = c3[0];
+        d[i + 1] = c3[1];
+        d[i + 2] = c3[2];
+        d[i + 3] = 255;
+      }
+    }
+    if (c) ctx.putImageData(img, 0, 0);
+    return c;
+  }
+  function fillIslandOwned(ctx, size, geometry, faceIndex, uv, peers, opts) {
+    const L = canvasLayout(size, [geometry].concat(peers || []));
+    const i = islandIndex(L, geometry, faceIndex, uv);
+    return i < 0 ? 0 : paintOwned(ctx, L, [i], opts);
+  }
+  function fillMeshOwned(ctx, size, geometry, peers, opts) {
+    const L = canvasLayout(size, [geometry].concat(peers || []));
+    const picks = [];
+    L.islands.forEach((isl, i) => {
+      if (isl.geo === geometry && isl.area > 0.5) picks.push(i);
+    });
+    return picks.length ? paintOwned(ctx, L, picks, opts) : 0;
   }
 
   // src/index.ts
