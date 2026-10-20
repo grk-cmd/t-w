@@ -403,7 +403,7 @@
 | **sim-user-status-table.js** | 125 | **8727d9f8adac** |
 | **sim-chip-popups.js** | 128 | **f9e9fcf20acd** |
 | **sim-rules-keys.js** | 308 | **e497eeedc751** |
-| **sim-rules-src.js** | 67 | **245f5513df0f** |
+| **sim-rules-src.js** | 78 | **9aa8c39c0d69** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 234 | **ce652588740d** |
 | **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
