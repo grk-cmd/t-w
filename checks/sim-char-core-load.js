@@ -69,7 +69,7 @@ chk(R.beforeApp, 'app.js 보다 먼저 싣는다');
 say('── 3절 · 일부러 깨 보기');
 const MUT = [
   ['판 확인을 뺌', 'core', /if \(THREE\.REVISION !== THREE_REVISION\) \{/, 'if (false) {'],
-  ['three 없음을 통과', 'core', /if \(!THREE\) throw/, 'if (false) throw'],
+  ['three 없음을 통과', 'core', /(deps\?\.THREE;\s*)if \(!THREE\) throw/, '$1if (false) throw'],
   ['전역 이름이 다름', 'core', /var TwCharCore = /, 'var TwCore = '],
   ['판 머리가 어긋남', 'core', /@tw\/char-core \d+\.\d+\.\d+/, '@tw/char-core 9.9.9'],
   ['app.js 뒤에 실음', 'html', /<script src="vendor\/char-core\/char-core\.iife\.js"><\/script>[^\n]*\n/, ''],

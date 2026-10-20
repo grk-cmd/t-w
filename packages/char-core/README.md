@@ -6,6 +6,7 @@
 |---|---|---|
 | 복제 코드 DCC1(암호 · 칸 싣기 · 되살리기 · base64 · 열쇠 만들기) | `src/clone-code.ts` | `apps/desktop/app/parts/character/code-crypto.js`(그림 다루기 · 커미션 이름은 앱 몫) |
 | 🪣 UV 채우기(메쉬 · 섬 · 여백 몫) | `src/uv-fill.ts` → `TwCharCore.uvFill` | 전역 이름 `UvFill` 그대로(`apps/desktop/app/parts/creator/uv-fill.js` 가 코어에 잇는다) |
+| 🧍 사람 몸(기본 몸 불러오기 · 복제 · 크기 맞추기 · 조립 · 대신 몸) | `src/body.ts` → `TwCharCore.createBody` | `app.js` 의 `bodyCore` — 몸 모델 바이트 · 재질 톤 · 귀 · 커미션 배율은 앱이 넘긴다(`defToBase` · `instantiateBase` · `normalizeModel` 이름 그대로) |
 
 ## 책임
 - 들어오는 것: 캐릭터 정의(def) 정리 · 몸 모델 · def → 3D 캐릭터 한 덩어리 · 얼굴 · 피부 합성 · 귀 · 동물 · 파츠 붙이기 · 색조 · 복제 코드 DCC1(#430 3.1).
@@ -18,7 +19,7 @@
 ## 빌드 두 벌
 ```bash
 npm -w @tw/char-core run build      # 루트에서 — dist/ · 앱 사본까지
-npm -w @tw/char-core test           # vitest(가짜 THREE · 가짜 캔버스 — tests/fake-*.ts)
+npm -w @tw/char-core test           # vitest — 몸은 진짜 three r128 + 앱에 든 기본 몸 GLB, 나머지는 가짜 THREE · 가짜 캔버스
 npm -w @tw/char-core run typecheck
 ```
 - 앱용 classic script `dist/char-core.iife.js` → `window.TwCharCore`. 앱은 번들러가 없어 **빌드가 같은 파일을 `apps/desktop/app/vendor/char-core/char-core.iife.js` 에 복사**하고, html 이 three 다음 · app.js 앞에서 싣는다(`checks/sim-char-core-load.js` · `checks/smoke.js` PRELOAD).
