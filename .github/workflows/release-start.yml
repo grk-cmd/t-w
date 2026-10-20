@@ -1,5 +1,5 @@
 # ═══ ▶️ release-start — Actions 탭의 [Run workflow] 버튼 하나로 릴리스 시작 ═══════════════════
-# 사람이 하던 «git pull → npm run check → npm version … → git push --follow-tags» 를 대신한다.
+# 사람이 하던 «git pull → npm run check → npm run version:bump … → git push --follow-tags» 를 대신한다.
 #   ① 최신 main 받기 → ② 검사(빨강이면 멈춤) → ③ 버전 올림 커밋 + 태그 push(베타는 태그만) → ④ release.yml 을 그 태그로 실행
 #   그 뒤(Windows · Mac 빌드 · 설치 파일 검사 · 공개)는 release.yml 이 한다. «초안으로 대기» 를 고르면 공개만 사람이 누른다.
 # ★ ② 는 main 의 그 커밋에 checks.yml 이 이미 초록으로 끝났으면 건너뛴다 — 같은 커밋 · 같은 검사라 결과가 같다.

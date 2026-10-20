@@ -51,7 +51,7 @@ const MANIFEST = path.join(CHECKS, 'CHECKS.md');
      검사가 읽는 원본(렌더러·main)이 그 안에 없으니 빼도 판정은 그대로다. */
 /* '.claude' — Claude Code 워크트리(.claude/worktrees/*)가 저장소 사본을 통째로 품고 있어서,
    깊은 원본 찾기(findDeep)가 app.js 를 두 곳에서 찾고 고르지 못해 «원본 없음» 이 된다.
-   'web-admin' — 웹 관리자(Vite)는 자기 테스트(vitest)로 검사한다. node_modules 를 품고 있어 복사만 무겁다. */
+   'web-admin' — 옛 자리(지금은 apps/admin). 옮기기 전에 받아 둔 PC 에 남은 폴더(node_modules)를 복사하지 않게. */
 /* 'apps' · 'packages' · 'firebase' — 루트를 펼칠 때는 빼고, 아래 stage() 가 옛 모양 자리로 따로 펼친다
    (apps/ · firebase/functions 는 node_modules 를 품고 있어 통째로 복사하면 무겁다). */
 const SKIP = new Set([
