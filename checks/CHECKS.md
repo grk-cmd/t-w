@@ -150,7 +150,7 @@
 | **sim-catalog-cache.js** | 382 | **e3da5be27ccb** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
 | **sim-friend-code-keep.js** | 218 | **1777c059463e** |
-| **sim-google-login.js** | 654 | **1edd8b178357** |
+| **sim-google-login.js** | 656 | **99e6d39cc736** |
 | **sim-invite-gate.js** | 136 | **e28cff183251** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |

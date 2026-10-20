@@ -258,6 +258,8 @@ const order = [];
 
 globalThis.window.companion = { signInWithGoogle: async () => ({ ok:true, idToken:'ID.TOKEN' }) };
 globalThis.window.firebaseAPI = {
+  deviceSessionLost: () => false,                       // 늘 있는 둘 — 로그아웃이 presence «꺼짐» 을 쓸 때 부른다
+  setMyPresenceState: async (id, on) => { order.push('presence:' + id + ':' + on); },
   async authSignInWithGoogle(tok, userCode){
     order.push('auth:' + tok + ':' + userCode);
     return { ok:true, uid:'AUTHUID', email:'hoya@gmail.com', userCode:'uOTHERACCOUNT9', bound:false };
