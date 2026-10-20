@@ -29,6 +29,7 @@
 ## 진행 중 — 검토중 · 작업중 · 작업완료
 | 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|---|---|---|
+| 작업중 | 규칙 옛 앱 방 막기 | 서버 hotfix 세션(togetherworking-6b) | 0.12.0 | rules/old-app-room-block | 0.10.2 이하가 방을 여는 것 막기 — ① `config/minRoomVer` 읽기를 옛 앱 막기에서 빼서 옛 앱이 최소 버전을 읽고 스스로 멈추게(읽기 거부 → «조회 실패는 통과» 로 문이 열리던 것) ② 방 멤버 칸을 처음 만들 때 그 사람 presence 가 «접속중 · ver 없음» 이면 거절(사용자 10-20) | `firebase-database-rules.json`(config/minRoomVer · rooms/$room/$memberId) · `scripts/rules-emu-check.js` · `checks/sim-rules-src.js` · CHECKS.md | |
 | 작업중 | 하네스 | 서버 hotfix 세션(togetherworking-6b) | main | harness/status-via-prs | 현황판을 main 커밋 대신 GitHub 로 — 작업중 = 초안 PR · 검토중 = 이슈 라벨 · 작업완료 = 머지 · 보기는 스크립트 + 시작 hook(main 의 docs(status) 커밋 주 180개 → 0 · 사용자 10-20 «A») | docs/WORK_STATUS.md · .github/workflows/work-status-done.yml · scripts/(현황 보기) · .claude/hooks/(시작 hook) · CLAUDE.md · docs/GIT_CONVENTION.md | |
 | 작업완료(0.12.0) | 방 | 오케스트레이터 | 0.12.0 | fix/together-chat-keep-1h | 빈 투게더룸 #일반 대화(chatLog)를 바로 지우지 않고 1시간 뒤에 지움 — 그새 다시 열리면 남김(빈 Firebase 방 · 방 서버 방 닫힘 둘 다 · 사용자 10-20 «1시간») | `functions/room-stats.js` · `functions/index.js`(주석) · `checks/sim-room-meta-cleanup.js` · CHECKS.md | #419 · 2026-10-20 |
 | 작업완료(0.12.0) | 방 | 오케스트레이터 | 0.12.0 | fix/room-ghost-member | 시각(lastSeen) · 하트비트 도장 둘 다 없는 멤버를 «있는 사람» 으로 세던 것 — 앱 입장 검사(Firebase 방에 붙잡힘) · 서버 빈 방 판정(영영 안 정리됨) 둘 다 찌꺼기로(사용자 10-20) | `app/parts/room/room-alive.js` · `functions/room-stats.js` · `checks/sim-room-alive.js` · 함수 검사 | #414 · 2026-10-20 |
