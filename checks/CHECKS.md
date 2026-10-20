@@ -147,7 +147,7 @@
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
 | **sim-click-through-policy.js** | 279 | **085f9b967aed** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |
-| **sim-catalog-cache.js** | 382 | **e3da5be27ccb** |
+| **sim-catalog-cache.js** | 391 | **79b8e26cd2d6** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
 | **sim-friend-code-keep.js** | 218 | **1777c059463e** |
 | **sim-google-login.js** | 654 | **1edd8b178357** |
