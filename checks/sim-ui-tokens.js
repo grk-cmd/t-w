@@ -18,10 +18,10 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 
 /* 러너 스테이징(평평한 폴더 + parts/)과 저장소 루트(app/ · app/parts/) 둘 다에서 돈다 */
-const DIRS = ['.', 'parts', 'app', path.join('app', 'parts')];
+const DIRS = ['.', 'parts', 'app', path.join('app', 'parts'), path.join('apps', 'desktop', 'app'), path.join('apps', 'desktop', 'app', 'parts')];   // 뒤 둘은 저장소 루트에서 돌릴 때(#431 뒤 앱 자리)
 const find = (f) => { for(const d of DIRS){ const p = path.join(d, f); if(fs.existsSync(p)) return p; } return null; };
 const htmlPath = find('desk-companion-prototype.html');
-const partsDir = ['parts', path.join('app', 'parts')].find(d => fs.existsSync(path.join(d, 'app.js')));
+const partsDir = ['parts', path.join('app', 'parts'), path.join('apps', 'desktop', 'app', 'parts')].find(d => fs.existsSync(path.join(d, 'app.js')));
 if(!htmlPath || !partsDir){ say('  ? 원본 없음 — ' + (!htmlPath ? 'desk-companion-prototype.html ' : '') + (!partsDir ? 'parts/app.js' : '')); process.exit(2); }
 const BASE_FILE = path.join(__dirname, 'ui-tokens-baseline.json');
 
