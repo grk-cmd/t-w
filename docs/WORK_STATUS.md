@@ -29,6 +29,7 @@
 ## 진행 중 — 검토중 · 작업중 · 작업완료
 | 상태 | 묶음 | 담당 | 판 | 브랜치 | 내용 | 건드리는 파일 | PR |
 |---|---|---|---|---|---|---|---|
+| 작업중 | 웹 관리자 방 목록 | 오케스트레이터 | 0.12.0 | fix/admin-orphan-label | «👻 고아» 표시 정리 — 빈 고아 방은 따로 표시하지 않고 청소 대상 수에만 · 사람이 있는 고아 방만 «⚠️ 목록에 없음(랜덤 · 개수에 안 잡힘)»(사용자 10-21) | `web-admin/src/widgets/room-list/` · `web-admin/src/entities/room/` · 테스트 | |
 | 작업중 | char-core 1 폴더 구조(#431) | grk 홈페이지 시안 세션 | 0.13.0 | refactor/monorepo-layout | 저장소를 apps/desktop · apps/admin · apps/web · packages/ · firebase/ 로 옮기기만(동작 무변경) · npm workspaces — 에픽 #430(사용자 10-20 «0.13.0 맨 앞 · 원래 안») | 거의 전부(경로) — 앱 루트 · web-admin/ · functions/ · hosting/ · 규칙 · firebase.json · package.json · .github/workflows · checks/ · CLAUDE.md · docs · .claude(가드 자리 — 승인) | |
 | 작업완료(0.12.0) | 메인 홈페이지 프로토타입 | grk 홈페이지 시안 세션 | 0.12.0 | claude/epic-volta-ar2dq9 | together-working.com 메인 페이지 레이아웃 프로토타입(개발자 공유용 · 배포 안 함) — 히어로 · 소식 창 · 캐릭터 만들기(레이어 · 조정 · 대칭 · 내 그림) · 커스텀 라이브러리(익명 올리기 설정창) · 소개 · 내려받기 · 언어 바꾸기(사용자 10-20) | `docs/prototypes/main-site/`(새 폴더) | #428 · 2026-10-20 |
 | 작업완료(0.12.0) | 규칙 옛 앱 방 막기 | 서버 hotfix 세션(togetherworking-6b) | 0.12.0 | rules/old-app-room-block | 0.10.2 이하가 방을 여는 것 막기 — ① `config/minRoomVer` 읽기를 옛 앱 막기에서 빼서 옛 앱이 최소 버전을 읽고 스스로 멈추게(읽기 거부 → «조회 실패는 통과» 로 문이 열리던 것) ② 방 멤버 칸을 처음 만들 때 그 사람 presence 가 «접속중 · ver 없음» 이면 거절(사용자 10-20) | `firebase-database-rules.json`(config/minRoomVer · rooms/$room/$memberId) · `scripts/rules-emu-check.js` · `checks/sim-rules-src.js` · CHECKS.md | #423 · 2026-10-20 |
