@@ -19,7 +19,7 @@ description: 작업 끝내기 — PR 을 올리고 컨펌자(tw-confirmer) · �
 
 ## 1. PR
 - `git push -u origin <브랜치>`(force 금지).
-- 열린 PR 찾기: `gh api "$R/pulls?head=grk-cmd:<브랜치>&state=open" --jq '.[0].number'`.
+- 열린 PR 찾기: `gh api "$R/pulls?head=grk-cmd:<브랜치>&state=open" --jq '.[0].number'` — 착수 때 연 PR(빈 커밋 · «작업중» 표시)이 보통 이미 있다. 있으면 본문을 틀대로 채워 고친다(`gh api -X PATCH $R/pulls/<번호> -F body=@본문파일` · «건드리는 파일» 은 실제 바꾼 파일로).
 - 없으면 만든다: `gh api $R/pulls -f title='<커밋 제목 형식>' -f head='<브랜치>' -f base='<base>' -f body="$(cat 본문파일)"` — 본문은 `.github/pull_request_template.md` 틀 그대로.
 
 ## 2. 컨펌 · 검증 (깨끗한 맥락 두 에이전트를 **한 번에 함께** 부른다)
