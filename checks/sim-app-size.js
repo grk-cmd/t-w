@@ -20,7 +20,7 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 
-const DIRS = ['.', 'parts', 'app', path.join('app', 'parts')];
+const DIRS = ['.', 'parts', 'app', path.join('app', 'parts'), path.join('apps', 'desktop', 'app', 'parts')];   // 마지막은 저장소 루트에서 --write-baseline 할 때(#431 뒤 앱 자리)
 const find = (f) => { for(const d of DIRS){ const p = path.join(d, f); if(fs.existsSync(p)) return p; } return null; };
 const BASE_FILE = path.join(__dirname, 'app-size-baseline.json');
 const RULE = '새 로직은 app/parts/<도메인>.js 모듈로 (CLAUDE.md 구조 표)';

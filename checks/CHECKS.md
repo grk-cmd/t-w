@@ -243,7 +243,7 @@
 | **sim-deco-parts.js** | 67 | **c017ce7764fc** |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** |
 | **sim-font-hangul.js** | 54 | **1e0479f9fce5** |
-| **sim-app-size.js** | 127 | **1fcf39621d00** |
+| **sim-app-size.js** | 127 | **f4d91c399857** |
 | **sim-asset-import.js** | 174 | **23c1ae52e3f9** |
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
 | **sim-scheduler.js** | 241 | **4b341e0cc402** |
