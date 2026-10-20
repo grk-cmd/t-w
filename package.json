@@ -19,5 +19,8 @@
     "pack": "npm --prefix apps/desktop run pack",
     "dist": "npm --prefix apps/desktop run dist"
   },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  },
   "license": "UNLICENSED"
 }
