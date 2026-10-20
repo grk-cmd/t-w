@@ -13,6 +13,7 @@ Firebase Hosting 사이트 여럿을 한 저장소에서 올린다. 사이트마
 - 도움말 페이지의 색은 디자인 시스템 토큰 — `npm run design:build` 가 `firebase/hosting/help/tokens.css` 를 만든다(손으로 고치지 않는다).
 
 ## 배포
+`firebase/` 폴더에서 친다(`firebase.json` 이 거기 있다).
 ```bash
 firebase deploy --only hosting --project together-working          # 사이트 전부
 firebase deploy --only hosting:help --project together-working     # 도움말 사이트만(웹 관리자 빌드 없음 · 빠름)
@@ -26,7 +27,7 @@ firebase deploy --only hosting:main --project together-working     # 관리자 �
 1. **사이트 만들기**: `firebase hosting:sites:create <사이트 이름> --project together-working` (예: `together-working-home`)
 2. **폴더 · 설정**
    - `firebase/hosting/<폴더>/` 에 `index.html` 부터. 혼자 서는 정적 페이지 — Firebase SDK 로 DB 를 읽지 않는다(RTDB 요금은 내려받은 바이트).
-   - `firebase/firebase.json` 의 `hosting[]` 에 칸 하나: `{ "target": "<이름>", "public": "firebase/hosting/<폴더>", "ignore": ["**/.*", "**/node_modules/**"], "cleanUrls": true, "headers": [...] }` — 머리는 `help` 칸을 본뜬다(`Referrer-Policy: no-referrer` · `Cache-Control: no-cache`).
+   - `firebase/firebase.json` 의 `hosting[]` 에 칸 하나: `{ "target": "<이름>", "public": "hosting/<폴더>", "ignore": ["**/.*", "**/node_modules/**"], "cleanUrls": true, "headers": [...] }` — `public` 은 `firebase/` 기준 경로다. 머리는 `help` 칸을 본뜬다(`Referrer-Policy: no-referrer` · `Cache-Control: no-cache`).
    - `main` 칸의 `ignore` 에 `<폴더>/**` 를 더한다(관리자 사이트에 같이 안 올라가게).
    - `firebase/.firebaserc` 의 `targets.together-working.hosting` 에 `"<이름>": ["<사이트 이름>"]`.
    - 처리방침 링크는 `https://help.together-working.com/privacy`.
