@@ -651,6 +651,8 @@ PRELOAD.push('seat-eq-clamp.js');
 PRELOAD.push('desk-place.js');
 /* body-measure.js — 캐릭터 몸 박스 재기 한 규칙. app.js 가 맨 앞(SETUP)에서 createBodyMeasure 로 만든다. */
 PRELOAD.push('body-measure.js');
+/* char-core.iife.js — 🧬 캐릭터 코어(window.TwCharCore · packages/char-core 빌드 사본). html 이 three 다음 · app.js 보다 먼저 싣는다 — 지금은 싣기만. */
+PRELOAD.push(path.join('vendor', 'char-core', 'char-core.iife.js'));
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
