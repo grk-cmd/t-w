@@ -484,6 +484,7 @@ role_cases = [
     ('건드리는 파일: 그 칸만 · 백틱 · 목록 글 · 주석 빼고 · 중복 한 번', rs.declared_files(BODY), ['app/a.js', 'app/parts/room/', 'docs/README.md']),
     ('건드리는 파일: 칸 없음', rs.declared_files('## 무엇을\n- `a.js`\n'), []),
     ('건드리는 파일: 빈 본문', rs.declared_files(None), []),
+    ('건드리는 파일: «없음» · 줄긋기는 파일 아님', rs.declared_files('## 건드리는 파일\n- 없음\n- ---\n- 해당 없음\n- `a.js`\n'), ['a.js']),
     ('건드리는 파일: 주석만 남은 틀', rs.declared_files('## 건드리는 파일\n<!-- 예) `app/x.js` -->\n\n## 왜\n'), []),
     ('담당: 주석 빼고', rs.owner(BODY), '서버 세션'),
     ('담당: 틀 그대로(주석뿐)', rs.owner('담당: <!-- 세션 이름 -->\n'), ''),

@@ -29,6 +29,7 @@ PICK_SOURCES = ('startup', 'clear')
 REVIEW_LABEL = 'status:검토중'   # 검토중 이슈 라벨
 FILES_HEAD = '## 건드리는 파일'   # PR 본문(.github/pull_request_template.md)에서 겹침을 볼 칸
 OWNER_LINE = re.compile(r'^담당:[ \t]*(.*)$', re.M)
+NO_FILES = ('없음', '해당 없음')   # «건드리는 파일» 칸에 파일 대신 쓰는 말
 OVERLAP_SHOW = 10   # 겹침 한 줄에 보일 파일 수
 RECENT = 8          # 판마다 보여 줄 «들어간 것» 수
 CUT = 60            # 제목 · 내용 자르는 길이
@@ -76,7 +77,8 @@ def declared_files(body):
             out.extend(t.strip() for t in ticks)
         elif s.startswith(('-', '*')) and s[1:].strip():
             out.append(s[1:].strip())
-    return list(dict.fromkeys(t for t in out if t))
+    # «없음» · «---» 같은 줄은 파일이 아니다 — 가짜 겹침이 되지 않게
+    return list(dict.fromkeys(t for t in out if t not in NO_FILES and re.search(r'\w', t)))
 
 
 def owner(body):
