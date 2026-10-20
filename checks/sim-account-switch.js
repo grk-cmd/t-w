@@ -219,15 +219,16 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       "let chalRec={ts:0}, _chalDirty=false; const _chalBlank=()=>({ts:0}); let _slotsTs=0, extraSeatSlots=[];\n" +
       "let _plSets=[], _plCur=0, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null; const plMod={ blankSets:()=>[], st:" + PL_ST_MEM + " };\n" +
       [tmo, fList, fPref, fFlush, fPre, fWipe, fDet].join('\n') + "\nreturn _detachAccountLocal;");
+    const FB_MIN = { deviceSessionLost: () => false, setMyPresenceState: () => Promise.resolve() };   // 늘 있는 둘 — 검문 뒤 presence «꺼짐» 이 부른다
     const lsOf = env => ({ getItem:k=>env.ls.has(k)?env.ls.get(k):null, setItem:(k,v)=>env.ls.set(k,String(v)), removeItem:k=>env.ls.delete(k), key:i=>Array.from(env.ls.keys())[i]||null, get length(){ return env.ls.size; } });
     let env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), total: 7200, mark: 3600, hasMark: true };
-    r = await g(env4, lsOf(env4), { firebaseAPI: {} })();
+    r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
     chk(r && r.ok === false && /누적 시간/.test(r.reason || ''), '★ 마크가 2분 넘게 뒤처지면 막는다 (' + (r && r.reason) + ')');
     env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), total: 7200, mark: 0, hasMark: false };
-    r = await g(env4, lsOf(env4), { firebaseAPI: {} })();
+    r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
     chk(r && r.ok === false, '  마크가 아예 없는데 누적이 있으면 막는다 (서버와 한 번도 안 맞춰봄)');
     env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), total: 7200, mark: 7150, hasMark: true };
-    r = await g(env4, lsOf(env4), { firebaseAPI: {} })();
+    r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
     chk(r && r.ok === true, '  50초 차이는 통과 (왕복 사이에 쌓인 폭)');
 
     /* ⑤ uid 가 없는 기기 — 검문 없이 그냥 지운다 */
@@ -257,6 +258,9 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     e = mkEnv({ presenceHang: true, fastTimeout: true }); fillA(e);
     r = await e.m.detach();
     chk(r && r.ok === true && e.calls.includes('release'), '  쓰기가 끝나지 않아도(오프라인) 기다림 상한 뒤 로그아웃은 이어진다');
+    e = mkEnv({ apiOn: false }); fillA(e);
+    r = await e.m.detach({ force: true });
+    chk(r && r.ok === true && e.LS.getItem(K.MY_USER_ID_KEY) === null, '  firebaseAPI 가 없는 강제 로그아웃도 «꺼짐» 쓰기에서 던지지 않고 지운다');
     const noOff = fDet.replace('if(uid) await _presenceOff(uid);', '');
     e = mkEnv({ det: noOff }); fillA(e);
     await e.m.detach();

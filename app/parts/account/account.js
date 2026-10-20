@@ -420,18 +420,19 @@ function _wipeAccountLocal(){
      다음 부팅의 initLicense 가 빈 키를 보고 기본으로 시작한다. */
 }
 
-/* 신원 놓기 한 벌 — 올리고 → 검문 → 지운다. 로그아웃·연동 해제가 같이 쓴다.
-   @return { ok:true } | { ok:false, reason } — false 면 **아무것도 안 지웠다.** 부르는 쪽이 이유를 보여준다. */
 /* 로그인이 남아 있을 때 presence 를 «꺼짐» 으로 — signOut 뒤에는 onDisconnect(꺼짐)가 돌지 않아(그 칸은 이 계정 로그인만 쓴다)
-   친구에게 접속중으로 남는다. 밀려난 기기는 쓰지 않는다 — 그 칸은 이긴 쪽 것이다. */
+   친구에게 접속중으로 남는다. 밀려난 기기는 쓰지 않는다 — 그 칸은 이긴 쪽 것이다.
+   firebaseAPI 가 없을 수 있다 — 강제 로그아웃은 검문(«네트워크 없음»)에 걸려도 여기까지 온다. */
 const PRESENCE_OFF_WAIT_MS = 3000;   // 오프라인이면 쓰기가 안 끝난다 — 로그아웃을 이만큼만 붙잡는다
 function _presenceOff(uid){
   const api = window.firebaseAPI;
-  if(!api || !api.setMyPresenceState || (api.deviceSessionLost && api.deviceSessionLost())) return Promise.resolve();
+  if(!api || api.deviceSessionLost()) return Promise.resolve();
   let p = null;
   try{ p = api.setMyPresenceState(uid, false); }catch(_){}
   return Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, PRESENCE_OFF_WAIT_MS))]);
 }
+/* 신원 놓기 한 벌 — 올리고 → 검문 → 지운다. 로그아웃·연동 해제가 같이 쓴다.
+   @return { ok:true } | { ok:false, reason } — false 면 **아무것도 안 지웠다.** 부르는 쪽이 이유를 보여준다. */
 async function _detachAccountLocal(opt){
   /* 🚪 [2026-09-20 · §2] force — 검문에 걸려도 지운다. **두 번째 누름에서만** 열리는 갈래다(부르는 쪽 참고).
      출구가 없으면 막히는 원인이 계속되는 한 영원히 못 나가는데, 하필 로그아웃이 «로그인 문구가 계속 뜬다» 의
