@@ -52,10 +52,76 @@ export function isRoomAlive(entry: RoomIndexEntry | null | undefined, now: numbe
 // 앱 _isMemberKey 와 같다 — `_meta` · `_photo` 같은 밑줄 키와 chatLog 는 사람이 아니다.
 export const isMemberKey = (key: string) => !key.startsWith('_') && key !== 'chatLog';
 
+/** 방에 들어간 사람 한 명 — 사용자 코드(없을 수 있음) · 방에 보낸 이름(앱이 20자로 자른다). */
+export interface RoomPerson {
+  userId: string | null;
+  name: string;
+}
+
 /** rooms/{방} 을 키만 받아 본 결과. lastSeen 은 roomIndex 에 없는 방만 멤버 신호에서 직접 읽는다. */
 export interface RoomProbe {
   members: number;
   lastSeen: number | null;
+  /** 멤버마다 name · userId 두 칸 — 사람으로 찾기용. 못 읽었으면 없음. */
+  people?: RoomPerson[];
+}
+
+/** 멤버 칸에서 읽은 name · userId 를 사람 하나로 — 모양이 틀린 칸은 빈 이름 · null. */
+export function toRoomPerson(name: unknown, userId: unknown): RoomPerson {
+  return {
+    userId: typeof userId === 'string' && userId ? userId : null,
+    name: typeof name === 'string' ? name : '',
+  };
+}
+
+/**
+ * 방 서버(t-w-server)에 지금 열린 방 — API `GET /v1/admin/rooms/live`(관리자만).
+ * 시크릿룸도 들어 있다(roomIndex 에는 안 적힌다 — 모든 앱이 읽는 공용 장부라 코드가 드러난다).
+ */
+export interface LiveRoom {
+  code: string;
+  channel: Channel;
+  secret: boolean;
+  open: boolean;
+  host: string | null;
+  members: RoomPerson[];
+}
+
+export interface LiveRooms {
+  at: number;
+  rooms: LiveRoom[];
+}
+
+export const LIVE_ROOMS_PATH = '/v1/admin/rooms/live';
+/** 방 서버 방 줄의 «서버 이름» 자리 — 응답에는 서버 이름이 없다(roomIndex srv 줄이 있으면 그 이름을 쓴다). */
+export const LIVE_SERVER_LABEL = '방 서버';
+
+/** API 응답 모양 검사 — 틀리면 null(화면은 «방 서버 목록 못 받음»). 줄 하나가 틀리면 그 줄만 버린다. */
+export function parseLiveRooms(v: unknown): LiveRooms | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as { at?: unknown; rooms?: unknown };
+  if (typeof o.at !== 'number' || !Array.isArray(o.rooms)) return null;
+  const rooms: LiveRoom[] = [];
+  for (const r of o.rooms as unknown[]) {
+    if (!r || typeof r !== 'object') continue;
+    const x = r as Record<string, unknown>;
+    if (typeof x.code !== 'string' || !x.code) continue;
+    if (x.channel !== 'workingroom' && x.channel !== 'togetherroom') continue;
+    const members = Array.isArray(x.members)
+      ? (x.members as unknown[])
+          .filter((m): m is Record<string, unknown> => !!m && typeof m === 'object')
+          .map((m) => toRoomPerson(m.name, m.userId))
+      : [];
+    rooms.push({
+      code: x.code,
+      channel: x.channel,
+      secret: x.secret === true,
+      open: x.open === true,
+      host: typeof x.host === 'string' && x.host ? x.host : null,
+      members,
+    });
+  }
+  return { at: o.at, rooms };
 }
 
 /** rooms 에는 있는데 roomIndex 에 줄이 없는 방 — 시크릿룸은 원래 roomIndex 에 안 적히므로 빼고. */
@@ -114,11 +180,19 @@ export interface RoomRow {
   secret: boolean;
   /** 방 서버 이름 — 방 서버 방이면. 인원은 방 서버에 있어 Firebase 로는 모른다. */
   server: string | null;
-  /** rooms/{방} 의 멤버 키 수 — 아직 못 셌으면 null. */
+  /** rooms/{방} 의 멤버 키 수 · 방 서버 방이면 방 서버가 센 수 — 아직 못 셌으면 null. */
   members: number | null;
+  /** 들어간 사람 — 아직 못 읽었으면 null. */
+  people: RoomPerson[] | null;
 }
 
 // 시크릿룸은 맨 아래, 나머지는 살아 있는 방이 위 · 그 안에서는 최근 신호 순.
+const byRoomOrder = (a: RoomRow, b: RoomRow) =>
+  Number(a.secret) - Number(b.secret) ||
+  Number(b.alive) - Number(a.alive) ||
+  (b.lastSeen ?? 0) - (a.lastSeen ?? 0) ||
+  a.code.localeCompare(b.code);
+
 export function roomRows(
   index: Record<string, RoomIndexEntry | null>,
   now: number,
@@ -126,6 +200,7 @@ export function roomRows(
 ): RoomRow[] {
   const probes = rooms.probes ?? {};
   const members = (code: string) => probes[code]?.members ?? null;
+  const people = (code: string) => probes[code]?.people ?? null;
   const indexed: RoomRow[] = Object.entries(index).map(([code, e]) => {
     const seen = Number(e?.lastSeen);
     const server = serverOf(e);
@@ -139,6 +214,7 @@ export function roomRows(
       secret: isSecretRoom(code),
       server,
       members: server ? null : members(code),
+      people: server ? null : people(code),
     };
   });
   const rest: RoomRow[] = (rooms.codes ?? [])
@@ -153,14 +229,55 @@ export function roomRows(
       secret: isSecretRoom(code),
       server: null,
       members: members(code),
+      people: people(code),
     }));
-  return [...indexed, ...rest].sort(
-    (a, b) =>
-      Number(a.secret) - Number(b.secret) ||
-      Number(b.alive) - Number(a.alive) ||
-      (b.lastSeen ?? 0) - (a.lastSeen ?? 0) ||
-      a.code.localeCompare(b.code),
-  );
+  return [...indexed, ...rest].sort(byRoomOrder);
+}
+
+/**
+ * 방 서버 목록을 합친다 — roomIndex 에 srv 줄이 있는 방은 인원 · 사람 · 시크릿 여부를 채우고,
+ * 줄이 없는 방(시크릿룸)은 새 줄로 더한다. 방 서버가 지금 연 방이라 살아 있다(신호 시각 = 받은 시각).
+ */
+export function mergeLiveRooms(rows: readonly RoomRow[], live: LiveRooms | null): RoomRow[] {
+  if (!live) return [...rows];
+  const byCode = new Map(live.rooms.map((r) => [r.code, r]));
+  const merged = rows.map((row) => {
+    const l = byCode.get(row.code);
+    // 방 서버 줄(srv)에만 채운다 — 같은 코드의 Firebase 방(0.11.3 이 끊긴 뒤 옮겨 간 방 등)은 그대로 두고 방 서버 방을 따로 더한다(그쪽은 닫을 수 있어야 한다).
+    if (!l || !row.server) return row;
+    byCode.delete(row.code);
+    return {
+      ...row,
+      channel: l.channel,
+      open: l.open,
+      secret: row.secret || l.secret,
+      alive: true,
+      server: row.server ?? LIVE_SERVER_LABEL,
+      members: l.members.length,
+      people: l.members,
+    };
+  });
+  const added: RoomRow[] = [...byCode.values()].map((l) => ({
+    code: l.code,
+    kind: l.secret ? 'secret' : 'server',
+    channel: l.channel,
+    open: l.open,
+    lastSeen: live.at,
+    alive: true,
+    secret: l.secret,
+    server: LIVE_SERVER_LABEL,
+    members: l.members.length,
+    people: l.members,
+  }));
+  return [...merged, ...added].sort(byRoomOrder);
+}
+
+/** 방 코드 · 들어간 사람 이름 · 사용자 코드로 찾기(대소문자 무시 · 포함). 빈 검색은 전부. */
+export function filterRooms(rows: readonly RoomRow[], query: string): RoomRow[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [...rows];
+  const has = (v: string | null) => !!v && v.toLowerCase().includes(q);
+  return rows.filter((r) => has(r.code) || (r.people ?? []).some((p) => has(p.name) || has(p.userId)));
 }
 
 export interface RoomStatsSummary {

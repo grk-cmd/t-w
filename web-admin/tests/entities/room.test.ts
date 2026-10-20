@@ -3,12 +3,17 @@ import {
   allRoomCodes,
   closeRooms,
   closeRoomsWrite,
+  filterRooms,
   formatAgo,
+  getLiveRooms,
   ghostCodes,
   isMemberKey,
   isRoomAlive,
+  LIVE_SERVER_LABEL,
+  mergeLiveRooms,
   normalizeRoomCode,
   orphanCodes,
+  parseLiveRooms,
   probeRoom,
   probeRooms,
   ROOM_LIVE_MS,
@@ -167,23 +172,48 @@ describe('rooms 키만 보고 — 고아 · 시크릿룸 · 인원', () => {
     ]);
   });
 
-  it('방 살펴보기 — 키만 받아 멤버를 세고, 요청한 방만 멤버 lastSeen 을 읽는다', async () => {
+  it('방 살펴보기 — 키만 받아 멤버를 세고 · 멤버마다 name · userId 두 칸 · 요청한 방만 lastSeen 을 읽는다', async () => {
     const { db } = fakeDb({
       'rooms/WORK-A': { _meta: true, chatLog: true, u1: true, u2: true },
       'rooms/WORK-A/u1/lastSeen': NOW - 50_000,
       'rooms/WORK-A/u2/lastSeen': NOW - 3_000,
+      'rooms/WORK-A/u1/name': '민수',
+      'rooms/WORK-A/u1/userId': 'uMINSU0001',
+      'rooms/WORK-A/u2/name': 42,
       'rooms/WORK-B': { _meta: true },
     });
     const read: string[] = [];
     const get = db.get;
     db.get = (path) => (read.push(path), get(path));
-    expect(await probeRoom(db, 'WORK-A', false)).toEqual({ members: 2, lastSeen: null });
-    expect(read).toEqual([]);
-    expect(await probeRoom(db, 'WORK-A', true)).toEqual({ members: 2, lastSeen: NOW - 3_000 });
+    const people = [
+      { userId: 'uMINSU0001', name: '민수' },
+      { userId: null, name: '' }, // 모양이 틀린 칸은 빈 이름 · null
+    ];
+    expect(await probeRoom(db, 'WORK-A', false)).toEqual({ members: 2, lastSeen: null, people });
+    expect(read.sort()).toEqual([
+      'rooms/WORK-A/u1/name',
+      'rooms/WORK-A/u1/userId',
+      'rooms/WORK-A/u2/name',
+      'rooms/WORK-A/u2/userId',
+    ]); // def · 얼굴 같은 큰 칸 · lastSeen 은 안 읽는다
+    expect(await probeRoom(db, 'WORK-A', true)).toEqual({ members: 2, lastSeen: NOW - 3_000, people });
     expect(await probeRooms(db, ['WORK-A', 'WORK-B'], new Set())).toEqual({
-      'WORK-A': { members: 2, lastSeen: null },
-      'WORK-B': { members: 0, lastSeen: null },
+      'WORK-A': { members: 2, lastSeen: null, people },
+      'WORK-B': { members: 0, lastSeen: null, people: [] },
     });
+  });
+
+  it('사람 칸을 끄면(유령 방 청소) name · userId 를 읽지 않는다', async () => {
+    const { db } = fakeDb({
+      'rooms/WORK-D': { _meta: true, m1: true },
+      'rooms/WORK-D/m1/lastSeen': NOW - 1_000,
+      'rooms/WORK-D/m1/name': '민수',
+    });
+    const read: string[] = [];
+    const get = db.get;
+    db.get = (path) => (read.push(path), get(path));
+    expect(await probeRoom(db, 'WORK-D', true, false)).toEqual({ members: 1, lastSeen: NOW - 1_000 });
+    expect(read.some((p) => p.endsWith('/name') || p.endsWith('/userId'))).toBe(false);
   });
 
   it('새 하트비트 멤버 — lastSeen 이 입장 때 값이어도 roomAlive 도장이 최근이면 그 신호를 쓴다', async () => {
@@ -193,7 +223,7 @@ describe('rooms 키만 보고 — 고아 · 시크릿룸 · 인원', () => {
       'roomAlive/WORK-C': { m1: NOW - 20_000 },
     });
     const probe = await probeRoom(db, 'WORK-C', true);
-    expect(probe).toEqual({ members: 1, lastSeen: NOW - 20_000 });
+    expect(probe).toMatchObject({ members: 1, lastSeen: NOW - 20_000 });
     expect(ghostCodes({}, NOW, { codes: ['WORK-C'], probes: { 'WORK-C': probe } })).toEqual([]);
   });
 });
@@ -241,5 +271,114 @@ describe('방 서버 줄 — roomIndex 에 srv 가 있는 줄', () => {
       )?.server,
     ).toEqual({ workingroom: 2, togetherroom: 1 });
     expect(roomStatsSummary({ workingroom: 5, togetherroom: 3, at: NOW }, NOW)?.server).toBeNull();
+  });
+});
+
+describe('방 서버 목록 — 시크릿룸 · 사람 합치기 · 찾기', () => {
+  const live = {
+    at: NOW - 2_000,
+    rooms: [
+      {
+        code: 'WORK-SRV1',
+        channel: 'workingroom',
+        secret: false,
+        open: true,
+        host: 'uHOST',
+        members: [{ userId: 'uA', name: '가영' }],
+      },
+      {
+        code: 'SCRT-Q1W2',
+        channel: 'togetherroom',
+        secret: true,
+        open: false,
+        host: null,
+        members: [
+          { userId: 'uB', name: 'Bori' },
+          { userId: null, name: '익명' },
+        ],
+      },
+    ],
+  };
+
+  it('응답 모양 검사 — 틀린 줄만 버리고, 전체가 틀리면 null', () => {
+    const p = parseLiveRooms({
+      ...live,
+      rooms: [...live.rooms, { code: '', channel: 'workingroom' }, { code: 'X', channel: 'bad' }, null],
+    });
+    expect(p?.rooms.map((r) => r.code)).toEqual(['WORK-SRV1', 'SCRT-Q1W2']);
+    expect(p?.rooms[1]).toMatchObject({
+      secret: true,
+      host: null,
+      members: [
+        { userId: 'uB', name: 'Bori' },
+        { userId: null, name: '익명' },
+      ],
+    });
+    expect(parseLiveRooms({ at: 'x', rooms: [] })).toBeNull();
+    expect(parseLiveRooms({ at: 1 })).toBeNull();
+    expect(parseLiveRooms(null)).toBeNull();
+    expect(parseLiveRooms({ at: 1, rooms: [{ code: 'WORK-A', channel: 'workingroom' }] })?.rooms[0]).toEqual({
+      code: 'WORK-A',
+      channel: 'workingroom',
+      secret: false,
+      open: false,
+      host: null,
+      members: [],
+    });
+  });
+
+  it('합치기 — srv 줄은 인원 · 사람을 채우고, roomIndex 에 없는 시크릿룸은 새 줄(맨 아래)', () => {
+    const base = roomRows(
+      { 'WORK-SRV1': { lastSeen: NOW - 5_000, srv: 'realtime-1' }, 'WORK-FB01': { lastSeen: NOW - 1_000 } },
+      NOW,
+      {
+        codes: ['WORK-FB01'],
+        probes: { 'WORK-FB01': { members: 1, lastSeen: null, people: [{ userId: 'uC', name: '철수' }] } },
+      },
+    );
+    const rows = mergeLiveRooms(base, parseLiveRooms(live));
+    expect(rows.map((r) => [r.code, r.kind, r.secret, r.server, r.members])).toEqual([
+      ['WORK-FB01', 'indexed', false, null, 1],
+      ['WORK-SRV1', 'server', false, 'realtime-1', 1],
+      ['SCRT-Q1W2', 'secret', true, LIVE_SERVER_LABEL, 2],
+    ]);
+    expect(rows[2]).toMatchObject({ channel: 'togetherroom', alive: true, lastSeen: NOW - 2_000 });
+    expect(rows[1].people).toEqual([{ userId: 'uA', name: '가영' }]);
+    expect(mergeLiveRooms(base, null)).toEqual(base); // 못 받으면 Firebase 방만 그대로
+  });
+
+  it('같은 코드가 Firebase 방(srv 없음)에도 있으면 덮지 않고 방 서버 방을 따로 — Firebase 쪽은 닫을 수 있다', () => {
+    const base = roomRows({}, NOW, {
+      codes: ['SCRT-Q1W2'],
+      probes: { 'SCRT-Q1W2': { members: 1, lastSeen: null, people: [{ userId: 'uOld', name: '옛앱' }] } },
+    });
+    const rows = mergeLiveRooms(base, parseLiveRooms(live)).filter((r) => r.code === 'SCRT-Q1W2');
+    // 살아 있는 방 서버 방이 위(정렬 규칙) · Firebase 쪽은 server 가 null 이라 고르기 · 종료가 된다
+    expect(rows.map((r) => [r.server, r.members, r.people?.[0]?.name])).toEqual([
+      [LIVE_SERVER_LABEL, 2, 'Bori'],
+      [null, 1, '옛앱'],
+    ]);
+  });
+
+  it('찾기 — 방 코드 · 사람 이름 · 사용자 코드, 대소문자 무시 · 빈 검색은 전부', () => {
+    const rows = mergeLiveRooms(roomRows({}, NOW), parseLiveRooms(live));
+    const codes = (q: string) => filterRooms(rows, q).map((r) => r.code);
+    expect(codes('')).toEqual(['WORK-SRV1', 'SCRT-Q1W2']);
+    expect(codes('  ')).toEqual(['WORK-SRV1', 'SCRT-Q1W2']);
+    expect(codes('scrt')).toEqual(['SCRT-Q1W2']);
+    expect(codes('bori')).toEqual(['SCRT-Q1W2']);
+    expect(codes('가영')).toEqual(['WORK-SRV1']);
+    expect(codes('ub')).toEqual(['SCRT-Q1W2']);
+    expect(codes('없는사람')).toEqual([]);
+    expect(filterRooms(roomRows({ 'WORK-X': { lastSeen: NOW } }, NOW), 'work-x').map((r) => r.code)).toEqual([
+      'WORK-X',
+    ]); // 사람을 아직 못 읽은 줄도 코드로는 찾는다
+  });
+
+  it('API 가 없는 환경(dev)은 null · 모양이 틀리면 던진다', async () => {
+    expect(await getLiveRooms(null)).toBeNull();
+    const api = (data: unknown) => ({ get: async () => data as never });
+    expect((await getLiveRooms(api(live)))?.rooms.length).toBe(2);
+    await expect(getLiveRooms(api({ nope: 1 }))).rejects.toThrow('모양');
   });
 });
