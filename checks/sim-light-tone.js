@@ -2,7 +2,7 @@
    실행:  node sim-light-tone.js   (러너 스테이징 또는 저장소 루트에서)
    ★ 왜 이 검사가 있는가 — 화면 밝기는 «TONE_FRONT_TOTAL 하나에서 플랫 몫을 계산해 모든 재질이 같은 규칙으로 받는다» 에 걸려 있다.
      app.js 에서 모듈로 옮겼으니(C 구역 떼기 w4) 계산식 · 경계(0 아래로 안 내려감) · 재질마다 emissive · baseFlat 을 입력 → 출력으로 고정한다.
-   ・1절: 만들 때 · 상수 — 내놓는 이름 여섯 · LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE 식(조명 상수가 크면 0)
+   ・1절: 만들 때 · 상수 — 내놓는 이름 여덟 · LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE 식(조명 상수가 크면 0)
    ・2절: _applyPartMatTone — 텍스처 / 색 없음 / null · 3절: _applyItemMatTone — 텍스처 · solid · emissiveIntensity
    ・4절: _setDeskMatColor — 색 · baseFlat 처음 심기 / 지키기 · 색 없는 재질
    ・5절: app.js 연결 · 6절: 일부러 깨 보기(코어 빌드 사본을 깨 보는 것 포함 — 파츠 톤 · baseFlatOf 는 코어 tone.ts) */

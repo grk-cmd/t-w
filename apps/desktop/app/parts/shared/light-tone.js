@@ -1,6 +1,6 @@
 /* light-tone.js — 💡 재질 톤: 화면 밝기 예산(TONE_FRONT_TOTAL)에서 플랫 조명 몫을 계산하고, 파츠 · 아이템 · 책상 재질에 emissive 를 얹는 단 한 곳
    app.js «👻 …» 덩어리 끝의 조명 프리셋 · 재질 톤 조각을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다(바뀐 줄 0 · 주석만 줄임).
-   ・책임: 상수 LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE(파생) · PART_TEX_FLAT · ITEM_SOLID_FLAT 와 재질 함수 셋.
+   ・책임: 상수 LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE(파생) · ITEM_SOLID_FLAT 와 재질 함수 셋(파츠 톤은 코어를 부른다).
    ・받는 deps 4 — 값 _MAIN_LIGHT_INT · _FILL_LIGHT_MUL(app.js 조명 상수 — FLAT_EMISSIVE 계산) · 함수 _fixGlbMatLighting(metalness 1 재질 눕히기) · charCore(TwCharCore).
    ・캐릭터 · 파츠 재질 톤(파츠 톤 · baseFlat · 얼굴 맵 · 몸 평탄 조명 · 색조 셰이더)은 캐릭터 코어(createTone · #437) — 여기서 FLAT_EMISSIVE 로 만들어 toneCore 로 내놓는다.
      책상 · 아이템 재질 톤은 여기 그대로(앱 몫).

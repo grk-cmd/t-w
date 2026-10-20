@@ -30,19 +30,19 @@
 ## mat-tone.js — 💡 재질 톤
 
 - **책임**: 캐릭터 재질 두 가지 손질 — 얼굴 텍스처 갈아끼우기(`setFaceMap` · 🐾 동물 귀 함께) · 생성기와 같은 평탄 조명(`applyLightPresetToInstance` — 텍스처 색을 emissive 로 평탄화).
-  DOM · 씬 없이 재질 객체만 만진다.
-- **만드는 법**: `TwMatTone.createMatTone({ FLAT_EMISSIVE })` — 평탄 조명 배율(값) 하나만 받는다.
+  사람 몫(얼굴 맵 · 평탄 조명)은 캐릭터 코어 `tone.ts` 를 부르고, 🐾 동물 귀 깜빡임만 여기에 있다(웹은 사람만이라 동물은 앱 몫). DOM · 씬 없이 재질 객체만 만진다.
+- **만드는 법**: `TwMatTone.createMatTone({ tone: lightToneMod.toneCore })` — 코어 재질 톤(light-tone.js 가 만든 것) 하나만 받는다.
 - **내놓는 것**:
   ```js
   matToneMod.setFaceMap(seat.faceMat, seat.blinkTex);      // 깜빡임 · 졸기 · 런처 · 복제 무대 — 귀도 같이 감긴다
   matToneMod.applyLightPresetToInstance(inst);             // 좌석 · 런처 · 종족 선택창 · 생성기가 새 모델을 올린 직후
   ```
   다른 모듈은 deps 로 받는다(`setFaceMap: (...a)=>matToneMod.setFaceMap(...a)`).
-- **확장할 때**: 이름으로 갈리는 재질이 늘면(예: 새 기본 메쉬) `applyLightPresetToInstance` 의 face/up/lo/hat 줄과 같은 모양으로 더하고, 나머지는 `inst.litMats` 가 받는다.
+- **확장할 때**: 이름으로 갈리는 재질이 늘면(예: 새 기본 메쉬) 코어 `packages/char-core/src/tone.ts` 의 `applyLightPresetToInstance` face/up/lo/hat 줄과 같은 모양으로 더하고, 나머지는 `inst.litMats` 가 받는다.
   동물 귀 말고도 얼굴과 함께 갈아야 하는 재질이 생기면 `userData` 등록표를 늘린다(호출부에 넣지 않는다).
 - **함정**: 깜빡임 스왑은 전부 `setFaceMap` 을 지나야 한다 — 호출부에서 `mat.map` 을 직접 갈면 귀만 뜬 채 남는다.
   텍스처 없는 메쉬도 평탄화해야 한다(건너뛰면 같은 흰색이 회색으로 보인다).
-- **검사**: `checks/sim-mat-tone.js` — 모듈 모양 · 연결 · 깨 보기 + 가짜 재질로 입력 → 결과(맵 · emissiveMap 동기화 · 귀 감김/뜸 · 같은 그림이면 안 감 · 빠진 재질 건너뛰기 · 평탄화 배율 · 텍스처 없는 메쉬 · 색 없는 재질 · FLAT_EMISSIVE 0).
+- **검사**: `checks/sim-mat-tone.js` — 코어 빌드 사본으로 만든 진짜 톤으로 돈다 · 모듈 모양 · 연결 · 깨 보기 + 가짜 재질로 입력 → 결과(맵 · emissiveMap 동기화 · 귀 감김/뜸 · 같은 그림이면 안 감 · 빠진 재질 건너뛰기 · 평탄화 배율 · 텍스처 없는 메쉬 · 색 없는 재질 · FLAT_EMISSIVE 0).
 
 
 ## catalog-source.js — 🔌 카탈로그 데이터 provider(서버 이관)
