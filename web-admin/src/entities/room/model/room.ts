@@ -75,7 +75,7 @@ export function toRoomPerson(name: unknown, userId: unknown): RoomPerson {
 }
 
 /**
- * 방 서버(t-w-server)에 지금 열린 방 — API `GET /v1/admin/rooms/live`(방 서버 `/internal/rooms` 를 그대로).
+ * 방 서버(t-w-server)에 지금 열린 방 — API `GET /v1/admin/rooms/live`(관리자만).
  * 시크릿룸도 들어 있다(roomIndex 에는 안 적힌다 — 모든 앱이 읽는 공용 장부라 코드가 드러난다).
  */
 export interface LiveRoom {
@@ -243,7 +243,8 @@ export function mergeLiveRooms(rows: readonly RoomRow[], live: LiveRooms | null)
   const byCode = new Map(live.rooms.map((r) => [r.code, r]));
   const merged = rows.map((row) => {
     const l = byCode.get(row.code);
-    if (!l) return row;
+    // 방 서버 줄(srv)에만 채운다 — 같은 코드의 Firebase 방(0.11.3 이 끊긴 뒤 옮겨 간 방 등)은 그대로 두고 방 서버 방을 따로 더한다(그쪽은 닫을 수 있어야 한다).
+    if (!l || !row.server) return row;
     byCode.delete(row.code);
     return {
       ...row,

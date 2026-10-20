@@ -203,6 +203,19 @@ describe('rooms 키만 보고 — 고아 · 시크릿룸 · 인원', () => {
     });
   });
 
+  it('사람 칸을 끄면(유령 방 청소) name · userId 를 읽지 않는다', async () => {
+    const { db } = fakeDb({
+      'rooms/WORK-D': { _meta: true, m1: true },
+      'rooms/WORK-D/m1/lastSeen': NOW - 1_000,
+      'rooms/WORK-D/m1/name': '민수',
+    });
+    const read: string[] = [];
+    const get = db.get;
+    db.get = (path) => (read.push(path), get(path));
+    expect(await probeRoom(db, 'WORK-D', true, false)).toEqual({ members: 1, lastSeen: NOW - 1_000 });
+    expect(read.some((p) => p.endsWith('/name') || p.endsWith('/userId'))).toBe(false);
+  });
+
   it('새 하트비트 멤버 — lastSeen 이 입장 때 값이어도 roomAlive 도장이 최근이면 그 신호를 쓴다', async () => {
     const { db } = fakeDb({
       'rooms/WORK-C': { _meta: true, m1: true },
@@ -332,6 +345,19 @@ describe('방 서버 목록 — 시크릿룸 · 사람 합치기 · 찾기', () 
     expect(rows[2]).toMatchObject({ channel: 'togetherroom', alive: true, lastSeen: NOW - 2_000 });
     expect(rows[1].people).toEqual([{ userId: 'uA', name: '가영' }]);
     expect(mergeLiveRooms(base, null)).toEqual(base); // 못 받으면 Firebase 방만 그대로
+  });
+
+  it('같은 코드가 Firebase 방(srv 없음)에도 있으면 덮지 않고 방 서버 방을 따로 — Firebase 쪽은 닫을 수 있다', () => {
+    const base = roomRows({}, NOW, {
+      codes: ['SCRT-Q1W2'],
+      probes: { 'SCRT-Q1W2': { members: 1, lastSeen: null, people: [{ userId: 'uOld', name: '옛앱' }] } },
+    });
+    const rows = mergeLiveRooms(base, parseLiveRooms(live)).filter((r) => r.code === 'SCRT-Q1W2');
+    // 살아 있는 방 서버 방이 위(정렬 규칙) · Firebase 쪽은 server 가 null 이라 고르기 · 종료가 된다
+    expect(rows.map((r) => [r.server, r.members, r.people?.[0]?.name])).toEqual([
+      [LIVE_SERVER_LABEL, 2, 'Bori'],
+      [null, 1, '옛앱'],
+    ]);
   });
 
   it('찾기 — 방 코드 · 사람 이름 · 사용자 코드, 대소문자 무시 · 빈 검색은 전부', () => {

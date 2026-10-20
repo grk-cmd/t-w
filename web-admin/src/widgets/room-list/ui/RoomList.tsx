@@ -182,7 +182,7 @@ export function RoomList() {
               )}
               {paging.items.map((row) => (
                 <tr
-                  key={row.code}
+                  key={row.server ? `${row.code}@srv` : row.code}
                   className={row.alive || row.secret || row.server ? undefined : styles.ghost}
                 >
                   <td>

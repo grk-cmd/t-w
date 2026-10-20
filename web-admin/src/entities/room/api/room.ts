@@ -47,14 +47,19 @@ export function useRoomCodes() {
  * roomIndex 에 줄이 없는 방이 살아 있는지 볼 때만(앱 getRoomCounts 의 프로브와 같은 방식).
  * 새 하트비트(앱 room-alive.js) 멤버는 lastSeen 이 입장 때 값에 머물고 30초 도장을 roomAlive/{방} 에 찍으므로 그것도 본다.
  */
-export async function probeRoom(db: Db, code: string, withSeen: boolean): Promise<RoomProbe> {
+export async function probeRoom(
+  db: Db,
+  code: string,
+  withSeen: boolean,
+  withPeople = true,
+): Promise<RoomProbe> {
   const ids = (await db.shallowKeys(`rooms/${code}`)).filter(isMemberKey);
-  if (!ids.length) return { members: 0, lastSeen: null, people: [] };
+  if (!ids.length) return { members: 0, lastSeen: null, ...(withPeople ? { people: [] } : {}) };
   const [people, seen] = await Promise.all([
-    readPeople(db, code, ids),
+    withPeople ? readPeople(db, code, ids) : null,
     withSeen ? readSeen(db, code, ids) : null,
   ]);
-  return { members: ids.length, lastSeen: seen, people };
+  return { members: ids.length, lastSeen: seen, ...(people ? { people } : {}) };
 }
 
 /** 사람으로 찾기용 — 멤버마다 name · userId 두 칸만(def · 얼굴 같은 큰 칸은 안 받는다). */
