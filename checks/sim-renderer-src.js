@@ -167,6 +167,8 @@ function joinRenderer(app){
     const getters = [...glue.matchAll(/^  ([\w$]+): \(\)=>(?:[\w$]+\.)?([\w$]+)(?:\(\))?,$/gm)].map(x => x[1]);   // 키 = 모듈 안 이름(오른쪽이 다른 모듈의 읽는 함수여도)
     /* 데이터 provider 고르기 한 줄(«roomNet: ()=>window.firebaseAPI,»)은 키가 아니라 오른쪽 글로 되살린다 — 옮기기 전 글은 window.firebaseAPI 를 직접 봤다 */
     const winGet = {}; for(const x of glue.matchAll(/^  ([\w$]+): \(\)=>(window\.[\w$]+),$/gm)) winGet[x[1]] = x[2];
+    /* 캐릭터 코어 몸 상태 읽기(«BASE_SCENE: ()=>bodyCore.baseScene(),»)도 오른쪽 글로 — 옮기기 전 let 은 이제 코어 안에 있다 */
+    for(const x of glue.matchAll(/^  ([\w$]+): \(\)=>(bodyCore\.[\w$]+\(\)),$/gm)) winGet[x[1]] = x[2];
     const setters = [...glue.matchAll(/^  ([\w$]+): \(v\)=>\{ (?:crState\.)?([\w$]+) = v; \},$/gm)].map(x => [x[1], x[2]]);   // 생성기 상태는 crState.이름 에 대입한다(creator-state.js)
     for(const x of txt.matchAll(/^  ([\w$]+): \(\)=>([\w$]+),/gm)) retGet.push([m.mod, x[1]]);
     for(const x of txt.matchAll(/^  ([\w$]+): \(v\)=>\{ ([\w$]+) = v; \},/gm)) retSet.push([m.mod, x[1], x[2]]);
