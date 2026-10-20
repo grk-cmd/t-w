@@ -5562,55 +5562,24 @@ const crState = TwCreatorState.createCreatorState({
   DESK_SCALE_DEFAULT: DESK_SCALE_DEFAULT,
 });
 let curSlot=_loadCurSlot();
-const CANVAS_SZ=512;
-const FACE_SYM_SUM=0.36;                 // 얼굴 UV 좌우 대칭축(u0≈0.18) → 미러 u' = 0.36 - u
+/* 🙂 얼굴 · 피부 그림판(512 캔버스 · 대칭축 · 피부 5종 · 피부 위에 그림 얹기 · «완전히 비었나» 판정)은 캐릭터 코어(packages/char-core/src/face.ts · #434).
+   ⚠️ «비었나» 의 true 에는 저장을 막는 힘이 있다 — 판정할 수 없으면 false(코어 주석 · sim-face-loss). 피부 그림 불러오기(loadSkins)는 앱 몫 —
+   불러온 그림은 skinCanvases 같은 칸에 넣는다(얼굴 자동 복구도 같은 배열). */
+const faceCore = TwCharCore.createFace({
+  makeCanvas: ()=>document.createElement('canvas'),
+  isDrawable: (v)=>v instanceof HTMLCanvasElement || v instanceof HTMLImageElement,
+});
+const CANVAS_SZ=faceCore.CANVAS_SZ;
+const FACE_SYM_SUM=faceCore.FACE_SYM_SUM;
 const SYM_PX=FACE_SYM_SUM*CANVAS_SZ;     // 픽셀 기준 미러 합
-function newCanvas(){const c=document.createElement('canvas');c.width=c.height=CANVAS_SZ;return c;}
-/* 🛡️ [얼굴 영구 소실 방어 · 판정] 그림 레이어가 **완전히 비었는지** 싸게 본다.
-   [경위] 제보 — 아무것도 안 건드렸는데 실행 중에 얼굴이 사라지고, 꺼다 켜도 그대로였다.
-     def.face 는 살아 있는 캔버스라 loadSlots 의 _imgBroken 표식이 붙지 않고,
-     _slotImgToDataUrl 은 «캔버스냐»만 보지 «비었냐»는 안 봤다. 그래서 런타임에 내용이 날아간
-     캔버스가 두 검사를 다 통과해 **빈 PNG 로 굳어 원본을 덮었다.** 그게 영구 소실의 마지막 구멍이다.
-   ★ 512² 를 통째로 getImageData 하면 1MB 를 읽는다 — saveSlots 는 슬라이더를 끄는 동안
-     계속 불린다. 32² 로 줄여 그린 뒤 알파만 훑는다(1/256 비용).
-     축소는 «평균»이라 1px 선 하나도 알파가 0 이 되지 않는다 — 얇은 그림을 비었다고 오판하지 않는다.
-   ★ 판정할 수 없으면(캔버스가 아님·오염된 캔버스 등) **false** 를 돌려준다.
-     이 함수의 true 에는 저장을 막는 힘이 있으므로, «모르겠으면 비지 않았다» 쪽이 안전하다. */
-const _BLANK_PROBE_SZ=32;
-let _blankProbeCv=null;
-function _isBlankDraw(cv){
-  try{
-    if(!cv || typeof cv.getContext!=='function' || !cv.width || !cv.height) return false;
-    if(!_blankProbeCv){ _blankProbeCv=document.createElement('canvas'); _blankProbeCv.width=_blankProbeCv.height=_BLANK_PROBE_SZ; }
-    const x=_blankProbeCv.getContext('2d',{willReadFrequently:true});
-    x.clearRect(0,0,_BLANK_PROBE_SZ,_BLANK_PROBE_SZ);
-    x.drawImage(cv,0,0,_BLANK_PROBE_SZ,_BLANK_PROBE_SZ);
-    const d=x.getImageData(0,0,_BLANK_PROBE_SZ,_BLANK_PROBE_SZ).data;
-    for(let i=3;i<d.length;i+=4) if(d[i]!==0) return false;
-    return true;
-  }catch(_){ return false; }
-}
-function snapCanvas(src){const c=newCanvas();c.getContext('2d').drawImage(src,0,0);return c;}
-/* 피부색 5종 — skin[0]은 face1.png(기본), 1~4는 skin-data.js의 window.SKIN_PNGS PNG 텍스처. 로드는 loadSkins()에서 */
-const SKIN_COLORS=['#FFE0BD','#F1C898','#E0AC69','#C68642','#8D5524'];
-const skinCanvases=SKIN_COLORS.map(c=>{const cv=newCanvas();const x=cv.getContext('2d');x.fillStyle=c;x.fillRect(0,0,CANVAS_SZ,CANVAS_SZ);return cv;});
-function skinCanvasFor(i){return skinCanvases[i]||skinCanvases[0];}
-function skinColorFor(i){return SKIN_COLORS[i]||SKIN_COLORS[0];}
-/* 베이스 피부 텍스처 위에 그림 레이어를 얹어 한 장으로 합성(지워도 피부는 남음) */
-/* ⚠️ 아래 okType 가드는 **크래시 방지지 수정이 아니다.** 그림 레이어가 없으면 피부만 칠하고
-   넘어가므로 화면에는 "얼굴이 지워지고 피부색만 남은" 상태가 나온다 — 제보로 들어온 그 증상이
-   바로 이 줄의 결과다. 그래서 조용히 넘어가지 않고 한 번은 콘솔에 남긴다(같은 세션에서 도배되지
-   않게 1회). 진짜 고칠 곳은 여기가 아니라 def.face 가 비는 경로(loadSlots / deserializeDefFromNetwork)다. */
-let _faceSkipWarned = false;
-function compositeFace(skinIdx,drawCv){const cv=newCanvas();const x=cv.getContext('2d');x.drawImage(skinCanvasFor(skinIdx),0,0);
-  const okType = drawCv instanceof HTMLCanvasElement || drawCv instanceof HTMLImageElement;
-  if(okType) x.drawImage(drawCv,0,0);   // 문자열(dataURL 복원 실패 등) 등 잘못된 값이면 건너뜀 — 스킨만이라도 정상 표시(크래시 방지)
-  else if(!_faceSkipWarned){
-    _faceSkipWarned = true;
-    console.warn('[얼굴] 그림 레이어가 캔버스/이미지가 아니라 건너뜁니다 — 피부색만 보입니다. 받은 값:',
-      Object.prototype.toString.call(drawCv), drawCv);
-  }
-  return cv;}
+function newCanvas(){ return faceCore.newCanvas(); }
+function _isBlankDraw(cv){ return faceCore.isBlankDraw(cv); }
+function snapCanvas(src){ return faceCore.snapCanvas(src); }
+const SKIN_COLORS=faceCore.SKIN_COLORS;
+const skinCanvases=faceCore.skinCanvases;
+function skinCanvasFor(i){ return faceCore.skinCanvasFor(i); }
+function skinColorFor(i){ return faceCore.skinColorFor(i); }
+function compositeFace(skinIdx,drawCv){ return faceCore.compositeFace(skinIdx,drawCv); }
 function charDef(skin,face,blink,top,bot){return {type:'creator',skin,face,blink,top,bot};}
 
 /* --- base body builder (내장 스탠드인. 실제 제품에선 리깅된 베이스 GLB로 교체) --- */

@@ -23,14 +23,18 @@ var TwCharCore = (() => {
   var index_exports = {};
   __export(index_exports, {
     BASE_HEIGHT: () => BASE_HEIGHT,
+    CANVAS_SZ: () => CANVAS_SZ,
     CLONE_CODE_PREFIX: () => CLONE_CODE_PREFIX,
     CLONE_TEX_SIZE: () => CLONE_TEX_SIZE,
+    FACE_SYM_SUM: () => FACE_SYM_SUM,
+    SKIN_COLORS: () => SKIN_COLORS,
     THREE_REVISION: () => THREE_REVISION,
     VERSION: () => VERSION,
     b64: () => b64,
     clonePayload: () => clonePayload,
     createBody: () => createBody,
     createCharCore: () => createCharCore,
+    createFace: () => createFace,
     decodeCloneCode: () => decodeCloneCode,
     decryptPayload: () => decryptPayload,
     defFromPayload: () => defFromPayload,
@@ -680,6 +684,67 @@ var TwCharCore = (() => {
       baseMeshMinY: () => meshMinY,
       baseMeshHeight: () => meshHeight
     };
+  }
+
+  // src/face.ts
+  var CANVAS_SZ = 512;
+  var FACE_SYM_SUM = 0.36;
+  var SKIN_COLORS = ["#FFE0BD", "#F1C898", "#E0AC69", "#C68642", "#8D5524"];
+  var BLANK_PROBE_SZ = 32;
+  function createFace(deps) {
+    if (!deps || typeof deps.makeCanvas !== "function") throw new Error("char-core: deps.makeCanvas 가 필요하다");
+    const warn = deps.warn || ((...a) => console.warn(...a));
+    function newCanvas() {
+      const c = deps.makeCanvas();
+      c.width = c.height = CANVAS_SZ;
+      return c;
+    }
+    let probe = null;
+    function isBlankDraw(cv) {
+      try {
+        const c = cv;
+        if (!c || typeof c.getContext !== "function" || !c.width || !c.height) return false;
+        if (!probe) {
+          probe = deps.makeCanvas();
+          probe.width = probe.height = BLANK_PROBE_SZ;
+        }
+        const x = probe.getContext("2d", { willReadFrequently: true });
+        x.clearRect(0, 0, BLANK_PROBE_SZ, BLANK_PROBE_SZ);
+        x.drawImage(c, 0, 0, BLANK_PROBE_SZ, BLANK_PROBE_SZ);
+        const d = x.getImageData(0, 0, BLANK_PROBE_SZ, BLANK_PROBE_SZ).data;
+        for (let i = 3; i < d.length; i += 4) if (d[i] !== 0) return false;
+        return true;
+      } catch (_) {
+        return false;
+      }
+    }
+    function snapCanvas(src) {
+      const c = newCanvas();
+      c.getContext("2d").drawImage(src, 0, 0);
+      return c;
+    }
+    const skinCanvases = SKIN_COLORS.map((col) => {
+      const cv = newCanvas();
+      const x = cv.getContext("2d");
+      x.fillStyle = col;
+      x.fillRect(0, 0, CANVAS_SZ, CANVAS_SZ);
+      return cv;
+    });
+    const skinCanvasFor = (i) => skinCanvases[i] || skinCanvases[0];
+    const skinColorFor = (i) => SKIN_COLORS[i] || SKIN_COLORS[0];
+    let skipWarned = false;
+    function compositeFace(skinIdx, drawCv) {
+      const cv = newCanvas();
+      const x = cv.getContext("2d");
+      x.drawImage(skinCanvasFor(skinIdx), 0, 0);
+      if (deps.isDrawable(drawCv)) x.drawImage(drawCv, 0, 0);
+      else if (!skipWarned) {
+        skipWarned = true;
+        warn("[얼굴] 그림 레이어가 캔버스/이미지가 아니라 건너뜁니다 — 피부색만 보입니다. 받은 값:", Object.prototype.toString.call(drawCv), drawCv);
+      }
+      return cv;
+    }
+    return { CANVAS_SZ, FACE_SYM_SUM, SKIN_COLORS, newCanvas, isBlankDraw, snapCanvas, skinCanvases, skinCanvasFor, skinColorFor, compositeFace };
   }
 
   // src/index.ts

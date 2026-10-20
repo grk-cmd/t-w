@@ -23,6 +23,8 @@ export {
 export type { CloneDefIn, CloneDefOut, DataUrlSource, EncodeOptions } from './clone-code';
 export * as uvFill from './uv-fill';
 export { createBody, BASE_HEIGHT } from './body';
+export { createFace, CANVAS_SZ, FACE_SYM_SUM, SKIN_COLORS } from './face';
+export type { Face, FaceDeps, CanvasLike } from './face';
 export type { Body, BodyDeps, BaseInstance, AssembleOptions, GltfParser } from './body';
 export type { GeometryLike, UvPoint, FillOptions, Tri, Ctx2DLike, CanvasLayout } from './uv-fill';
 
