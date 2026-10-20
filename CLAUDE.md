@@ -138,7 +138,7 @@
 | `firebase/functions/` | Cloud Functions (비밀번호 변경, 휴지통 청소, 방 개수 집계 `room-stats.js`, 일일 접속 집계 `daily-active.js`, IP 기준 방문자 `visit-ping.js`, 날짜별 요약 `daily-summary.js`, 사용량(비용) 기록 `usage-snapshot.js`, 카탈로그 항목별 장착 사용자 수 `part-equip.js` · 처음 숫자는 `firebase/scripts/backfill-part-equip.js`, 버그 제보 고정 번호 `bug-no.js` · 옛 글 번호는 `firebase/scripts/backfill-bug-no.js`, 대화 3일 보관 `chat-expire.js`, 폰 연결 주소에 낀 공백 떼기 `mobile-link-trim.js`). **자동 배포 대상이 아니다** |
 | `firebase/hosting/` | Firebase Hosting 사이트 둘 — `main`(`together-working.web.app` · `firebase/hosting/admin/` 은 `apps/admin` 빌드 결과(커밋 안 함)) · `help`(**`help.together-working.com`** · `firebase/hosting/help/` — 튜토리얼 · 개인정보 처리방침 · 폰 연결 안내). 사이트 표 · 배포 · 새 사이트(메인 페이지) 만드는 법 · DNS 는 `firebase/hosting/README.md` |
 | `apps/admin/` | 웹 관리자 페이지 (Vite + React + TS + TanStack Query) — `/admin` 으로 배포. **FSD** 구조(`app` → `pages` → `widgets` → `features` → `entities` → `shared`, 위층만 아래층을 부름 · Steiger 가 검사). 테스트는 `tests/` |
-| `checks/` | 자체 검사 (`sim-*.js` · `audit.py` · `run.js` 러너 · `CHECKS.md` 정본 표). app.js 에서 모듈로 옮긴 코드를 app.js 글에서 찾던 검사는 `sim-renderer-src.js` 의 `joinRenderer` 로 «옮기기 전 글» 을 되살려 읽는다 |
+| `checks/` | 자체 검사 (`sim-*.js` · `audit.py` · `run.js` 러너 · `CHECKS.md` 정본 표). app.js 에서 모듈로 옮긴 코드를 app.js 글에서 찾던 검사는 `sim-renderer-src.js` 의 `joinRenderer` 로 «옮기기 전 글» 을 되살려 읽는다. 러너가 옮기기 전 평면 모양을 임시 폴더에 다시 조립해서 돌리므로 검사는 `node checks/run.js <이름>` 으로만 돌리고, 새 검사도 옛 평면 경로(`app.js` · `functions/` · `hosting/`)로 읽는다(`CHECKS.md` §2) |
 | `.github/workflows/` | `checks.yml`(push·PR 마다 검사) · `deploy-dev.yml`(규칙 → dev) · `release-start.yml`(버튼 → 검사 · 버전 태그 · release 실행) · `release.yml`(버전 태그 → 빌드 · 검사 · 자동 공개) · `min-room-ver.yml` · `mac-probe.yml`(맥 빌드, 수동) |
 
 ## 명령
