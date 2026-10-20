@@ -223,7 +223,9 @@ export function createCatalogSync(deps){
       deliveredVer = undefined;
       warn(tag + ' 버전 없이 통째 구독 —', kind, '(' + why + ')');
       try{
-        fullUnsub = onValue(catalogRef(kind), snap => emit(snap.val() || {})) || (() => {});
+        /* 통째 구독도 거부될 수 있다(같은 계정의 옛 앱이 켜져 읽기 막기에 걸림) — 조용히 죽지 않게 남기고, 다음 판정이 다시 걸 수 있게 비운다 */
+        fullUnsub = onValue(catalogRef(kind), snap => emit(snap.val() || {}),
+          err => { if(stopped) return; fullUnsub = null; warn(tag + ' 통째 구독 거부 —', kind, (err && (err.code || err.message)) || '?'); }) || (() => {});
       }catch(e){ warn(tag + ' 통째 구독 실패', kind, e); }
     };
     const stopFull = () => { if(fullUnsub){ try{ fullUnsub(); }catch(_){} fullUnsub = null; } };
