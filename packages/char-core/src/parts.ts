@@ -1,13 +1,17 @@
 /* 🎀 파츠 붙이기의 캐릭터 몫 — 파츠 GLB 장면을 캐릭터에 붙일 한 벌로 만든다(복제 · 재질 · _col 색 묶음 · _pic 그림칸 ·
    리깅 판정 · 캐릭터 본에 다시 묶기 · 가운데 맞춘 wrapper · 저작 오프셋).
    좌석 몫(장착 차례 · 겹치는 옷 벗기기 · 귀 까닥임 등록 · 애니메이션 · 진단 로그 · 좌석에 저장)은 앱이 한다.
-   재질 톤 · 그림칸 규칙은 아직 앱 모듈이라 주입받는다(색조 #437 에서 코어로). */
+   재질 톤 · 색조는 코어 tone 을 받아 쓰고, 그림칸 규칙은 앱 모듈이라 주입받는다. */
+
+import type { Tone } from './tone';
 
 type Three = any;
 type Obj = any;
 
 export interface PartsDeps {
   THREE: Three;
+  /** 색 바꾸기(평탄 배율 · 텍스처 파츠 색조) */
+  tone: Tone;
   /** 파츠 재질 톤(조명 평탄화) — 썸네일과 같은 함수 */
   applyPartMatTone(m: Obj): void;
   /** 투명 재질의 알파 출력을 불투명으로 — 그리는 차례가 바뀌어도 같게 */
@@ -37,11 +41,28 @@ export interface RigOptions {
   rigFamilyMatches: boolean;
 }
 
+/** 파츠 한 벌의 위치 · 회전 · 크기 · 색 — 저장 칸 그대로 */
+export interface PartXf {
+  scale: number;
+  pos: number[];
+  rot: number[];
+  color?: Record<string, string>;
+  colorHSV?: Record<string, { h?: number; s?: number | null; v?: number | null }>;
+  pic?: unknown;
+}
+export interface XfOptions {
+  defaultXf(): PartXf;
+  defaultOffsets: DefaultOffsets;
+  /** 그림칸이 있는 wrapper 면 저장된 그림을 얹는다(그림 올리기는 부르는 쪽 몫) */
+  applyPic?(wrapper: Obj, pic: unknown): void;
+}
+
 const COL_RE = /_col(\d*)/i;
 
 export function createParts(deps: PartsDeps) {
   const { THREE } = deps;
   if (!THREE) throw new Error('char-core: deps.THREE 가 필요하다');
+  if (!deps.tone) throw new Error('char-core: deps.tone 이 필요하다');
   const log = deps.log || ((m: string) => console.log(m));
   const warn = deps.warn || ((m: string, e?: unknown) => console.warn(m, e));
   const cloneScene = (scene: Obj) => (THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(scene) : scene.clone(true));
@@ -302,7 +323,67 @@ export function createParts(deps: PartsDeps) {
     return { wrapper, obj, colorGroups };
   }
 
+  /** wrapper 하나에 xf 를 건다(붙일 때 · 슬라이더 · 기즈모).
+      리깅 파츠는 bindMatrix 에 굽고(본이 자리를 정한다), 아니면 기준점 − 저작 오프셋 + 카테고리 상수 + xf.
+      wrapper.userData.animalHeadDy 는 부르는 쪽이 정한 세로 보정(없으면 0). */
+  function applyXfToWrapper(wrp: Obj, xf: PartXf | null | undefined, cat: string, o: XfOptions): void {
+    if (!wrp || !wrp.userData || !wrp.userData.baseCenter) return;
+    if (!xf) xf = o.defaultXf();
+    const ahdy = +wrp.userData.animalHeadDy || 0;
+    const rot = xf.rot as [number, number, number], pos = xf.pos as [number, number, number];
+    if (wrp.userData.rigged) {
+      const bc = wrp.userData.rigBindCenter || new THREE.Vector3();
+      const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rot[0], rot[1], rot[2]));
+      const M = new THREE.Matrix4().compose(
+        new THREE.Vector3(bc.x + pos[0], bc.y + pos[1] + ahdy, bc.z + pos[2]),
+        q,
+        new THREE.Vector3(xf.scale, xf.scale, xf.scale),
+      ).multiply(new THREE.Matrix4().makeTranslation(-bc.x, -bc.y, -bc.z));
+      (wrp.userData.rigSkinnedMeshes || []).forEach((sm: Obj) => {
+        if (sm.userData._origBind) sm.bindMatrix.copy(M).multiply(sm.userData._origBind);
+      });
+      const c = wrp.userData.baseCenter || new THREE.Vector3();
+      wrp.position.set(c.x + pos[0], c.y + pos[1] + ahdy, c.z + pos[2]); // 기즈모도 같이 따라오게
+      wrp.rotation.set(rot[0], rot[1], rot[2]);
+      wrp.scale.setScalar(xf.scale);
+    } else {
+      const c = wrp.userData.baseCenter;
+      wrp.position.copy(c);
+      const ao = wrp.userData.authorOff || null;
+      if (ao) wrp.position.sub(ao);
+      const dOff = o.defaultOffsets[cat];
+      if (dOff) { wrp.position.x += dOff.x; wrp.position.y += dOff.y; wrp.position.z += dOff.z; }
+      /* 예전에 «떠 있는 걸 눌러 맞춰 둔» xf.pos 는 이중 보정이라 되돌린다.
+         ⚠️ 판정은 wrapper 마다 한 번만(캐시) — 끌 때마다 다시 판정하면 드래그 도중 뒤집혀 파츠가 크게 튄다.
+         기즈모가 값을 새로 쓸 때만 부르는 쪽이 false 로 내린다. */
+      if (wrp.userData._aoLegacy === undefined) wrp.userData._aoLegacy = !!(ao && isLegacyAuthorCompensation(pos, ao));
+      const legacy = wrp.userData._aoLegacy;
+      wrp.position.x += pos[0] + (legacy ? ao.x : 0);
+      wrp.position.y += pos[1] + (legacy ? ao.y : 0) + ahdy;
+      wrp.position.z += pos[2] + (legacy ? ao.z : 0);
+      wrp.rotation.set(rot[0], rot[1], rot[2]);
+      wrp.scale.setScalar(xf.scale);
+    }
+    wrp.updateMatrix();
+    wrp.updateMatrixWorld(true);
+    // 색 묶음(인스턴스마다 독립) — 텍스처 메쉬는 덮어쓰지 않고 색조만, 단색은 색 + 같은 평탄 배율의 emissive
+    if (xf.color && wrp.userData.colorGroups) {
+      for (const key in wrp.userData.colorGroups) {
+        const c = xf.color[key];
+        if (c) wrp.userData.colorGroups[key].forEach((m: Obj) => {
+          if (!m.material) return;
+          if (deps.tone.isHueTintMesh(m)) { deps.tone.applyHueTint(m, c, xf!.colorHSV && xf!.colorHSV[key]); m.material.needsUpdate = true; return; }
+          if (m.material.color) m.material.color.set(c);
+          if (m.material.emissive) m.material.emissive.set(c).multiplyScalar(deps.tone.baseFlatOf(m.material));
+          m.material.needsUpdate = true;
+        });
+      }
+    }
+    if (o.applyPic) o.applyPic(wrp, xf.pic);
+  }
+
   return {
+    applyXfToWrapper,
     prepareScene,
     collectCharBones,
     hasSkinnedChar,
