@@ -5,6 +5,8 @@
    요약(compact) · 이어 열기(resume) 때도 다시 붙인다 — 요약되면 처음 지침이 사라지기 때문이다. 모르는 이름이면 붙이지 않는다.
 2. 판 고르기 — 새로 연 세션(startup · clear)이 작업 브랜치 위가 아니면(main · release/* · 떨어진 HEAD) 열린 판 전부의 한 장 요약을 주고
    «어느 버전에 나갈 작업인가요?» 를 묻게 한다. 판은 사람이 고른다. 질문 세션은 묻지 않는다.
+   이 요약이 현황판이다 — 작업중 = 열린 PR(본문 «건드리는 파일» + 실제 diff) · 검토중 = 라벨 붙은 이슈 · 작업완료 = 머지.
+   main 에 현황판 커밋을 쌓지 않으려고 파일 대신 GitHub 를 읽는다. 아무 때나 보기: `python3 .claude/hooks/role-start.py --board`.
 
 git 과 `gh api`(REST)만 쓴다 — 웹 세션은 `gh pr` 이 막혀 있고 이 PC 전용 도구(Orca · 브랜치 장부)는 거기 없다.
 무엇이 실패해도 세션은 열린다(요약 자리에 «못 불러옴» 만).
@@ -24,8 +26,11 @@ ROLES_DIR = os.path.join(os.path.dirname(HERE), 'roles')
 COMMON = '_공통.md'
 NO_PICK_ROLES = ('질문',)
 PICK_SOURCES = ('startup', 'clear')
-STATUS_FILE = 'docs/WORK_STATUS.md'
-STATUS_HEAD = '## 진행 중'
+REVIEW_LABEL = 'status:검토중'   # 검토중 이슈 라벨
+FILES_HEAD = '## 건드리는 파일'   # PR 본문(.github/pull_request_template.md)에서 겹침을 볼 칸
+OWNER_LINE = re.compile(r'^담당:[ \t]*(.*)$', re.M)
+NO_FILES = ('없음', '해당 없음')   # «건드리는 파일» 칸에 파일 대신 쓰는 말
+OVERLAP_SHOW = 10   # 겹침 한 줄에 보일 파일 수
 RECENT = 8          # 판마다 보여 줄 «들어간 것» 수
 CUT = 60            # 제목 · 내용 자르는 길이
 # main 을 판에 합친 커밋 — 판에 «들어간 일» 이 아니다
@@ -54,34 +59,45 @@ def needs_pick(role, branch, source):
     return branch in ('', 'main') or branch.startswith('release/')
 
 
-def rel_name(s):
-    """«0.12.0» · «release/0.12.0» · «작업완료(0.12.0)» 안의 판 → «0.12.0». 판이 없으면 그대로(main 등)."""
-    m = re.search(r'\d+\.\d+\.\d+', s or '')
-    return m.group(0) if m else (s or '').strip()
-
-
-def parse_status(md):
-    """현황판 «진행 중» 머리 아래 첫 표 → [{칸 이름: 값}]. 칸 수가 머리와 다른 줄은 버린다."""
-    lines = (md or '').splitlines()
+def declared_files(body):
+    """PR 본문 «건드리는 파일» 칸 → [경로]. `백틱` 안을 경로로 읽고, 없으면 목록 줄 글 그대로. 주석(<!-- -->)은 뺀다."""
+    text = re.sub(r'<!--.*?-->', '', body or '', flags=re.S)
+    lines = text.splitlines()
     try:
-        i = next(k for k, l in enumerate(lines) if l.strip().startswith(STATUS_HEAD))
+        i = next(k for k, l in enumerate(lines) if l.strip().startswith(FILES_HEAD))
     except StopIteration:
         return []
-    rows, head = [], None
+    out = []
     for l in lines[i + 1:]:
         s = l.strip()
-        if not s.startswith('|'):
-            if head is not None or s.startswith('#'):
-                break
-            continue
-        cells = [c.strip() for c in s.strip('|').split('|')]
-        if head is None:
-            head = cells
-        elif set(''.join(cells)) <= set('-: '):
-            continue
-        elif len(cells) == len(head):
-            rows.append(dict(zip(head, cells)))
-    return rows
+        if s.startswith('#'):
+            break
+        ticks = re.findall(r'`([^`]+)`', s)
+        if ticks:
+            out.extend(t.strip() for t in ticks)
+        elif s.startswith(('-', '*')) and s[1:].strip():
+            out.append(s[1:].strip())
+    # «없음» · «---» 같은 줄은 파일이 아니다 — 가짜 겹침이 되지 않게
+    return list(dict.fromkeys(t for t in out if t not in NO_FILES and re.search(r'\w', t)))
+
+
+def owner(body):
+    """PR 본문 «담당:» 줄 → 이름(주석 · 빈 값이면 '')."""
+    m = OWNER_LINE.search(re.sub(r'<!--.*?-->', '', body or '', flags=re.S))
+    return m.group(1).strip() if m else ''
+
+
+def pr_overlaps(prs):
+    """열린 PR 끼리 같이 건드리는 파일 — [{number, files}] → [(#a, #b, [파일])]. 폴더(끝이 /)는 그 아래 파일과도 겹친다."""
+    def hit(f, g):
+        return f == g or (f.endswith('/') and g.startswith(f)) or (g.endswith('/') and f.startswith(g))
+    out = []
+    for i, a in enumerate(prs):
+        for b in prs[i + 1:]:
+            both = sorted({x for f in a.get('files', []) for g in b.get('files', []) if hit(f, g) for x in (f, g)})
+            if both:
+                out.append((a['number'], b['number'], both))
+    return out
 
 
 def overlaps(files_by_rel):
@@ -101,14 +117,22 @@ def cut(s, n=CUT):
     return s if len(s) <= n else s[:n - 1] + '…'
 
 
+def pr_line(p, with_base=False):
+    tag = '[초안] ' if p.get('draft') else ''
+    to = f' → {p["base"]}' if with_base else ''
+    who = f' · 담당 {cut(p["owner"], 30)}' if p.get('owner') else ''
+    n = len(p.get('files', []))
+    return f'- 열린 PR #{p["number"]}{to} {tag}{cut(p["title"])} ({p["head"]}{who} · 파일 {n}개)'
+
+
 def render(facts):
-    """모은 사실 → 한 장 요약(마크다운). facts 모양은 gather() 참고."""
-    out = ['## 열린 판 한 장 요약']
+    """모은 사실 → 한 장 요약(마크다운). facts 모양은 gather() 참고. 못 읽음(None)과 없음([])을 다르게 그린다."""
+    out = ['## 열린 판 한 장 요약(현황판)']
     for note in facts.get('notes', []):
         out.append(f'- ⚠️ {note}')
     rels = facts.get('releases', {})
     prs = facts.get('prs')
-    rows = facts.get('status')
+    issues = facts.get('issues')
     if not rels:
         out.append('- 열린 판 브랜치(`release/*`)가 없다 — 판 브랜치는 사용자가 연다.')
     for name in sorted(rels):
@@ -117,22 +141,30 @@ def render(facts):
         out.extend(f'- 들어간 것: {cut(s)}' for s in r['subjects'][:RECENT])
         if prs is not None:
             mine = [p for p in prs if p['base'] == f'release/{name}']
-            out.extend(f'- 열린 PR #{p["number"]} {cut(p["title"])} ({p["head"]})' for p in mine)
+            out.extend(pr_line(p) for p in mine)
             if not mine:
                 out.append('- 열린 PR 없음')
-        if rows is not None:
-            mine = [w for w in rows if rel_name(w.get('판', '')) == name or rel_name(w.get('상태', '')) == name]
-            out.extend(f'- 현황판: {w.get("상태", "")} · {w.get("담당", "")} · {w.get("브랜치", "")} · {cut(w.get("내용", ""), 40)}' for w in mine)
     others_pr = [p for p in (prs or []) if not p['base'].startswith('release/')]
-    others_row = [w for w in (rows or []) if rel_name(w.get('판', '')) not in rels and rel_name(w.get('상태', '')) not in rels]
-    if others_pr or others_row:
+    if others_pr:
         out.append('\n### 판 밖(main · hotfix · harness)')
-        out.extend(f'- 열린 PR #{p["number"]} → {p["base"]} {cut(p["title"])} ({p["head"]})' for p in others_pr)
-        out.extend(f'- 현황판: {w.get("상태", "")} · {w.get("담당", "")} · {w.get("브랜치", "")} · {cut(w.get("내용", ""), 40)}' for w in others_row)
+        out.extend(pr_line(p, True) for p in others_pr)
+    out.append(f'\n### 검토중(이슈 · 라벨 `{REVIEW_LABEL}`)')
+    if issues is None:
+        out.append('- 못 읽음')
+    else:
+        out.extend(f'- #{i["number"]} {cut(i["title"])}' for i in issues)
+        if not issues:
+            out.append('- 없음')
+    if prs is not None:
+        out.append('\n### 열린 PR 끼리 겹치는 파일')
+        po = pr_overlaps(prs)
+        out.extend(f'- #{a} ↔ #{b}: {", ".join(f[:OVERLAP_SHOW])}{" 외" if len(f) > OVERLAP_SHOW else ""}' for a, b, f in po)
+        if not po:
+            out.append('- 없음')
     ov = facts.get('overlaps', [])
     if len(rels) > 1:
         out.append('\n### 판끼리 겹치는 파일')
-        out.extend(f'- release/{a} ↔ release/{b}: {", ".join(f[:10])}{" 외" if len(f) > 10 else ""}' for a, b, f in ov)
+        out.extend(f'- release/{a} ↔ release/{b}: {", ".join(f[:OVERLAP_SHOW])}{" 외" if len(f) > OVERLAP_SHOW else ""}' for a, b, f in ov)
         if not ov:
             out.append('- 없음')
     return '\n'.join(out)
@@ -140,8 +172,8 @@ def render(facts):
 
 PICK_ASK = ('이 세션은 아직 작업 브랜치 위가 아니다. 사용자의 첫 메시지에 답할 때 맨 앞에 위 «열린 판 한 장 요약» 을 보여 주고 '
             '«이 작업은 어느 버전에 나갈 작업인가요?» 를 묻는다(사용자가 판을 이미 말했으면 묻지 않는다). '
-            '판은 사람이 고른다 — 세션이 판을 정하거나 판끼리 합치지 않는다(합치기는 시킬 때만). 같은 일이 현황판에 «검토중» 이면 '
-            '«제가 할까요, ○○이 할까요?» 를 묻는다.')
+            '판은 사람이 고른다 — 세션이 판을 정하거나 판끼리 합치지 않는다(합치기는 시킬 때만). 같은 일이 «검토중» 이슈에 있으면 '
+            '«제가 할까요, ○○이 할까요?» 를 묻고, 열린 PR 과 파일이 겹치면 시작 전에 그 PR 담당과 맞춘다.')
 
 
 def build(title, source, branch, roles, gather_fn):
@@ -155,7 +187,7 @@ def build(title, source, branch, roles, gather_fn):
         try:
             parts.append(render(gather_fn()))
         except Exception as e:
-            parts.append(f'## 열린 판 한 장 요약\n- ⚠️ 요약을 못 불러옴({cut(str(e), 120)}) — `git fetch origin` 뒤 `git branch -r` · 현황판으로 직접 본다.')
+            parts.append(f'## 열린 판 한 장 요약\n- ⚠️ 요약을 못 불러옴({cut(str(e), 120)}) — `git fetch origin` 뒤 `git branch -r` · 열린 PR · `status:검토중` 이슈로 직접 본다.')
         parts.append(PICK_ASK)
     return '\n\n'.join(parts) if parts else None
 
@@ -169,6 +201,11 @@ def sh(args, cwd, timeout=GIT_TIMEOUT):
     return p.stdout
 
 
+def names(out):
+    """`git diff --name-only -z` 출력 → [경로]. 한글 · 공백 경로가 따옴표 · 쪼개짐 없이 본문에 적은 이름과 맞게."""
+    return [n for n in (out or '').split('\0') if n.strip()]
+
+
 def gather(cwd, budget=BUDGET):
     end = time.monotonic() + budget
 
@@ -178,7 +215,7 @@ def gather(cwd, budget=BUDGET):
             raise TimeoutError(f'시간 예산 {budget}초를 넘음')
         return sh(args, cwd, min(timeout, left))
 
-    facts = {'notes': [], 'releases': {}, 'prs': None, 'status': None, 'overlaps': []}
+    facts = {'notes': [], 'releases': {}, 'prs': None, 'issues': None, 'overlaps': []}
     try:
         # --prune: 원격에서 지운 판 브랜치가 이 PC 사본에 남아 계속 «열린 판» 으로 보이지 않게
         run(['git', 'fetch', '-q', '--prune', 'origin'], FETCH_TIMEOUT)
@@ -193,7 +230,7 @@ def gather(cwd, budget=BUDGET):
             ahead = int(run(['git', 'rev-list', '--count', '--no-merges', span]).strip() or 0)
             subjects = [s for s in run(['git', 'log', '--first-parent', f'-{RECENT * 2}', '--format=%s', span]).splitlines()
                         if not FROM_MAIN_MERGE.search(s)][:RECENT]
-            changed = run(['git', 'diff', '--name-only', f'origin/main...{ref}']).split()
+            changed = names(run(['git', 'diff', '--name-only', '-z', f'origin/main...{ref}']))
         except Exception as e:
             facts['notes'].append(f'release/{name} 부터 판을 못 읽음({cut(str(e), 60)})')
             break
@@ -202,14 +239,33 @@ def gather(cwd, budget=BUDGET):
     facts['overlaps'] = overlaps(files)
     try:
         raw = run(['gh', 'api', f'repos/{REPO}/pulls?state=open&per_page=100', '--jq',
-                   '[.[] | {number, title, head: .head.ref, base: .base.ref}]'])
-        facts['prs'] = json.loads(raw or '[]')
+                   f'[.[] | {{number, title, draft, body, head: .head.ref, base: .base.ref, same: (.head.repo.full_name == "{REPO}")}}]'])
+        prs = json.loads(raw or '[]')
     except Exception as e:
+        prs = None
         facts['notes'].append(f'열린 PR 을 못 읽음 — gh api 실패({cut(str(e), 60)})')
+    unread = []
+    for p in prs or []:
+        # 실제로 바꾼 파일은 받아 둔 브랜치로 — PR 마다 API 를 부르지 않는다. 남의 포크는 적어 둔 파일만.
+        changed = []
+        if p.pop('same', False):
+            try:
+                changed = names(run(['git', 'diff', '--name-only', '-z', f'origin/{p["base"]}...origin/{p["head"]}']))
+            except Exception:
+                unread.append(f'#{p["number"]}')
+        body = p.pop('body', None)
+        p['owner'] = owner(body)
+        p['files'] = list(dict.fromkeys(declared_files(body) + changed))
+    facts['prs'] = prs
+    if unread:
+        # 못 읽은 diff 를 «겹침 없음» 으로 그리지 않게 — 적어 둔 파일만으로 본 것임을 남긴다
+        facts['notes'].append(f'{" · ".join(unread)} 실제 diff 를 못 읽음 — 본문에 적은 파일만으로 겹침을 봄')
     try:
-        facts['status'] = parse_status(run(['git', 'show', f'origin/main:{STATUS_FILE}']))
+        raw = run(['gh', 'api', '-X', 'GET', f'repos/{REPO}/issues', '-f', 'state=open', '-f', f'labels={REVIEW_LABEL}', '-f', 'per_page=100',
+                   '--jq', '[.[] | select(.pull_request == null) | {number, title}]'])
+        facts['issues'] = json.loads(raw or '[]')
     except Exception as e:
-        facts['notes'].append(f'현황판을 못 읽음({cut(str(e), 60)})')
+        facts['notes'].append(f'검토중 이슈를 못 읽음 — gh api 실패({cut(str(e), 60)})')
     return facts
 
 
@@ -221,7 +277,14 @@ def load_roles():
     return out
 
 
+def board():
+    """`--board` — 지금 폴더 기준 한 장 요약을 터미널에 찍는다(hook 이 아닌 사람 · 세션이 아무 때나)."""
+    print(render(gather(os.getcwd())))
+
+
 def main():
+    if sys.argv[1:] == ['--board']:
+        return board()
     data = json.load(sys.stdin)
     cwd = data.get('cwd') or os.getcwd()
     try:
