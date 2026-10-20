@@ -19,6 +19,7 @@ import {
   ROOM_LIVE_MS,
   ROOM_TOTAL_LIMITS,
   roomRows,
+  roomStateOf,
   roomStatsSummary,
   serverOf,
 } from '@/entities/room';
@@ -380,5 +381,55 @@ describe('방 서버 목록 — 시크릿룸 · 사람 합치기 · 찾기', () 
     const api = (data: unknown) => ({ get: async () => data as never });
     expect((await getLiveRooms(api(live)))?.rooms.length).toBe(2);
     await expect(getLiveRooms(api({ nope: 1 }))).rejects.toThrow('모양');
+  });
+});
+
+describe('상태 칸 — 사람이 있는 고아만 «목록에 없음»', () => {
+  const index = {
+    'WORK-LIVE': { lastSeen: NOW - 1_000 },
+    'WORK-DEAD': { lastSeen: NOW - 200_000 },
+    'WORK-SRVA': { lastSeen: NOW - 1_000, srv: 'realtime-1' },
+    'WORK-SRVD': { lastSeen: NOW - 200_000, srv: 'realtime-1' },
+  };
+  const codes = ['WORK-LIVE', 'WORK-DEAD', 'WORK-ORPH', 'WORK-OLDC', 'SCRT-AB12'];
+  const probes = {
+    'WORK-LIVE': { members: 2, lastSeen: null },
+    'WORK-DEAD': { members: 0, lastSeen: null },
+    'WORK-ORPH': { members: 0, lastSeen: null },
+    'WORK-OLDC': { members: 1, lastSeen: NOW - 5_000 },
+    'SCRT-AB12': { members: 3, lastSeen: null },
+  };
+  const states = () =>
+    Object.fromEntries(roomRows(index, NOW, { codes, probes }).map((r) => [r.code, roomStateOf(r)]));
+
+  it('빈 고아는 유령과 같고, 사람이 있는 고아만 따로', () => {
+    expect(states()).toEqual({
+      'WORK-LIVE': 'alive',
+      'WORK-OLDC': 'unlisted',
+      'WORK-DEAD': 'ghost',
+      'WORK-ORPH': 'ghost',
+      'WORK-SRVA': 'server',
+      'WORK-SRVD': 'serverLost',
+      'SCRT-AB12': 'secret',
+    });
+  });
+
+  it('경계 — 고아 신호가 90초 안이면 목록에 없음, 넘으면 유령', () => {
+    const at = (lastSeen: number) =>
+      roomStateOf(
+        roomRows({}, NOW, { codes: ['WORK-EDGE'], probes: { 'WORK-EDGE': { members: 1, lastSeen } } })[0],
+      );
+    expect(at(NOW - ROOM_LIVE_MS + 1)).toBe('unlisted');
+    expect(at(NOW - ROOM_LIVE_MS - 1)).toBe('ghost');
+  });
+
+  it('방 서버 시크릿룸은 시크릿 · 방 서버 둘 다', () => {
+    const rows = mergeLiveRooms(roomRows({}, NOW), {
+      at: NOW,
+      rooms: [
+        { code: 'SCRT-ZZ99', channel: 'togetherroom', secret: true, open: false, host: null, members: [] },
+      ],
+    });
+    expect(rows.map(roomStateOf)).toEqual(['secretServer']);
   });
 });

@@ -280,6 +280,19 @@ export function filterRooms(rows: readonly RoomRow[], query: string): RoomRow[] 
   return rows.filter((r) => has(r.code) || (r.people ?? []).some((p) => has(p.name) || has(p.userId)));
 }
 
+/**
+ * 상태 칸 — unlisted: 사람이 있는데 roomIndex 에 줄이 없는 방(방 개수 · 랜덤 입장에 안 잡힘).
+ * 빈 고아 방은 유령과 같이 청소 대상이라 따로 나누지 않는다.
+ */
+export type RoomState = 'secretServer' | 'secret' | 'server' | 'serverLost' | 'alive' | 'unlisted' | 'ghost';
+
+export function roomStateOf(row: RoomRow): RoomState {
+  if (row.secret) return row.server ? 'secretServer' : 'secret';
+  if (row.server) return row.alive ? 'server' : 'serverLost';
+  if (!row.alive) return 'ghost';
+  return row.kind === 'orphan' ? 'unlisted' : 'alive';
+}
+
 export interface RoomStatsSummary {
   total: number;
   workingroom: number;

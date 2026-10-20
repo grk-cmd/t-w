@@ -5,6 +5,7 @@ import {
   formatAgo,
   mergeLiveRooms,
   roomRows,
+  roomStateOf,
   roomStatsSummary,
   useLiveRooms,
   useRefreshRooms,
@@ -33,27 +34,36 @@ function People({ row, pending }: { row: RoomRow; pending: boolean }) {
   return <span title={all}>{more > 0 ? `${shown} 외 ${more}명` : shown}</span>;
 }
 
-function RoomState({ row }: { row: RoomRow }) {
-  if (row.secret && row.server)
-    return <span title="방 서버에 열린 시크릿룸 — roomIndex 에는 안 적힌다">🔒 시크릿룸 · 🛰 방 서버</span>;
-  if (row.secret)
-    return <span title="roomIndex 에 안 적혀 신호를 모름 · 유령 방 청소 대상 아님">🔒 시크릿룸</span>;
-  if (row.server)
-    return row.alive ? (
-      <span title={`방 서버(${row.server})에 열린 방 — Firebase 에 멤버가 없어도 정상`}>🛰 방 서버</span>
-    ) : (
-      <span className="warn" title="방 서버 신호가 90초 넘게 끊김 — 함수가 10분 뒤 줄을 걷는다">
-        🛰 방 서버 · 신호 끊김
-      </span>
-    );
-  if (row.alive) return <>🟢 살아 있음</>;
-  if (row.kind === 'orphan')
-    return (
-      <span className="warn" title="rooms 에만 있고 roomIndex 에 줄이 없음">
-        👻 고아
-      </span>
-    );
-  return <span className="warn">👻 유령</span>;
+function RoomStateCell({ row }: { row: RoomRow }) {
+  switch (roomStateOf(row)) {
+    case 'secretServer':
+      return <span title="방 서버에 열린 시크릿룸 — roomIndex 에는 안 적힌다">🔒 시크릿룸 · 🛰 방 서버</span>;
+    case 'secret':
+      return <span title="roomIndex 에 안 적혀 신호를 모름 · 유령 방 청소 대상 아님">🔒 시크릿룸</span>;
+    case 'server':
+      return (
+        <span title={`방 서버(${row.server})에 열린 방 — Firebase 에 멤버가 없어도 정상`}>🛰 방 서버</span>
+      );
+    case 'serverLost':
+      return (
+        <span className="warn" title="방 서버 신호가 90초 넘게 끊김 — 함수가 10분 뒤 줄을 걷는다">
+          🛰 방 서버 · 신호 끊김
+        </span>
+      );
+    case 'alive':
+      return <>🟢 살아 있음</>;
+    case 'unlisted':
+      return (
+        <span
+          className="warn"
+          title="사람이 있는데 roomIndex 에 줄이 없음 — 방 개수 · 랜덤 입장에 안 잡힌다(주로 옛 앱)"
+        >
+          ⚠️ 목록에 없음
+        </span>
+      );
+    case 'ghost':
+      return <span className="warn">👻 유령</span>;
+  }
 }
 
 export function RoomList() {
@@ -217,7 +227,7 @@ export function RoomList() {
                     {row.lastSeen !== null && now !== null ? formatAgo(now - row.lastSeen) : '—'}
                   </td>
                   <td>
-                    <RoomState row={row} />
+                    <RoomStateCell row={row} />
                   </td>
                   <td>
                     {row.server ? (
