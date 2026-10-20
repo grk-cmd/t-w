@@ -35,6 +35,7 @@ export {
   ROOM_TOTAL_LIMITS,
   roomChannel,
   roomRows,
+  roomStateOf,
   roomStatsSummary,
   SECRET_ROOM_PREFIX,
   serverOf,
@@ -47,6 +48,7 @@ export {
   type RoomPerson,
   type RoomProbe,
   type RoomRow,
+  type RoomState,
   type RoomStats,
   type RoomStatsSummary,
 } from './model/room';
