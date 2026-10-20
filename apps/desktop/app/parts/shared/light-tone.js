@@ -1,8 +1,10 @@
 /* light-tone.js — 💡 재질 톤: 화면 밝기 예산(TONE_FRONT_TOTAL)에서 플랫 조명 몫을 계산하고, 파츠 · 아이템 · 책상 재질에 emissive 를 얹는 단 한 곳
    app.js «👻 …» 덩어리 끝의 조명 프리셋 · 재질 톤 조각을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다(바뀐 줄 0 · 주석만 줄임).
    ・책임: 상수 LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE(파생) · PART_TEX_FLAT · ITEM_SOLID_FLAT 와 재질 함수 셋.
-   ・받는 deps 3 — 값 _MAIN_LIGHT_INT · _FILL_LIGHT_MUL(app.js 조명 상수 — FLAT_EMISSIVE 계산) · 함수 _fixGlbMatLighting(metalness 1 재질 눕히기).
-   ・내놓는 것: LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE · _applyPartMatTone(m) · _applyItemMatTone(m) · _setDeskMatColor(m, color) — app.js 는 lightToneMod.이름.
+   ・받는 deps 4 — 값 _MAIN_LIGHT_INT · _FILL_LIGHT_MUL(app.js 조명 상수 — FLAT_EMISSIVE 계산) · 함수 _fixGlbMatLighting(metalness 1 재질 눕히기) · charCore(TwCharCore).
+   ・캐릭터 · 파츠 재질 톤(파츠 톤 · baseFlat · 얼굴 맵 · 몸 평탄 조명 · 색조 셰이더)은 캐릭터 코어(createTone · #437) — 여기서 FLAT_EMISSIVE 로 만들어 toneCore 로 내놓는다.
+     책상 · 아이템 재질 톤은 여기 그대로(앱 몫).
+   ・내놓는 것: LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE · toneCore · baseFlatOf · _applyPartMatTone(m) · _applyItemMatTone(m) · _setDeskMatColor(m, color) — app.js 는 lightToneMod.이름.
      animal.js 가 전역 LIGHT_PRESET 을 읽어 app.js 에 «옛 전역 이름» 한 줄이 있다.
    ⚠️ THREE 는 전역 이름 그대로. 전역 이름은 TwLightTone(Tw 접두사 #103). shared — 도메인을 모른다.
    검사: checks/sim-light-tone.js */
@@ -12,6 +14,7 @@ function createLightTone(deps){
 const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
 const _MAIN_LIGHT_INT = deps._MAIN_LIGHT_INT;
 const _fixGlbMatLighting = deps._fixGlbMatLighting;
+const charCore = deps.charCore;
 /* 전역 조명 프리셋 (생성기·메인·기타 미리보기 통일). 더 이상 UI 슬라이더 없음 — 코드 한 곳에서 관리
    ⚠️ e 를 바꾸면 파일 위쪽 _MAIN_LIGHT_INT(=b×e) 도 같이 바꿀 것. 저기는 이 상수보다 먼저 필요해서
       숫자를 직접 적어 두었다 — 한쪽만 고치면 생성기와 실행 화면의 밝기가 갈라진다. */
@@ -24,24 +27,13 @@ const LIGHT_PRESET = {b:1.2, h:0.09, e:0.46};
 const TONE_FRONT_TOTAL = 1.05;
 const FLAT_EMISSIVE = Math.max(0,
   TONE_FRONT_TOTAL - (0.95 * _MAIN_LIGHT_INT) - (_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));
-/* 💡 텍스처(map)가 있는 파츠 메쉬의 flat 몫 — FLAT_EMISSIVE 를 따라간다(따로 두면 파츠만 제일 하얗게 뜬다).
-   ⚠️ 텍스처가 없는 메쉬는 무관하다(예전 그대로 · 통일하지 말 것). 파츠만 톤을 달리할 일이 생기면 이 줄에 숫자를 넣는다. */
-const PART_TEX_FLAT = FLAT_EMISSIVE;
+/* 캐릭터 · 파츠 재질 톤 — 같은 예산(FLAT_EMISSIVE)으로 코어가 칠한다(파츠 톤을 바꿀 일이 있으면 코어 tone.ts 한 곳). */
+const toneCore = charCore.createTone({ THREE, flatEmissive: FLAT_EMISSIVE, fixMatLighting: _fixGlbMatLighting });
 /* 💡 텍스처가 없는(solid) 아이템 · 책상 메쉬의 flat 몫 — 파츠와 같은 규칙(0 이면 같은 GLB · 같은 색이 아이템만 칙칙하다).
    ⚠️ 아이템만 톤을 달리할 일이 생기면 여기에 숫자를 — _applyItemMatTone 본문에 흩뿌리지 말 것. */
 const ITEM_SOLID_FLAT = FLAT_EMISSIVE;
-/* 💡 파츠 머티리얼에 '플랫 조명'을 얹는 단 하나의 자리(장착 · 다중 파츠 · 등록 썸네일이 같이 쓴다).
-   ⚠️ 파츠 톤을 바꿀 일이 있으면 여기만 — 흩어 두면 썸네일만 어두워지는 식으로 또 갈라진다. */
-function _applyPartMatTone(m){
-  if(!m) return;
-  _fixGlbMatLighting(m);   // ★ 조명을 못 받는 재질(metalness=1)이면 emissive 를 아무리 맞춰도 톤이 안 맞는다
-  if(m.map) m.emissiveMap = m.map;
-  const flat = m.map ? PART_TEX_FLAT : FLAT_EMISSIVE;
-  if(m.emissive) m.emissive.copy(m.color || new THREE.Color(0xffffff)).multiplyScalar(flat);
-  m.userData = m.userData || {};
-  m.userData.baseFlat = flat;   // ★ 나중에 _col 색상 바꿀 때 같은 배율로 다시 계산하기 위해 기억
-  m.needsUpdate = true;
-}
+/* 💡 파츠 머티리얼에 '플랫 조명'을 얹는 단 하나의 자리(장착 · 다중 파츠 · 등록 썸네일) — 코어 */
+function _applyPartMatTone(m){ toneCore.applyPartMatTone(m); }
 /* 💡 아이템 · 책상(가구류) 머티리얼 톤 — GLB 가 담아 온 emissive 를 **덮어써서** 캐릭터 · 파츠와 같은 기준으로 맞춘다
    (그대로 두면 흰 텍스처가 순백 실루엣이 되거나, 플랫 조명을 못 받아 아이템만 어둡다). solid 메쉬는 ITEM_SOLID_FLAT.
    ⚠️ 가구류 톤은 앞으로 여기만 고칠 것. */
@@ -85,13 +77,11 @@ function _setDeskMatColor(m, color){
   m.needsUpdate = true;
 }
 
-/* 재질의 플랫 조명 배율 — 재질 톤이 심어 둔 baseFlat, 없으면 공용 기준 FLAT_EMISSIVE. 색을 다시 칠하는 곳(아이템 · 꾸미기 · 생성기)은 모두 이 함수로 읽는다 —
-   같은 판단을 곳마다 다시 쓰면 대체값이 곳마다 갈라진다(예전엔 0.4 · 0.54 로 갈렸다). 0 도 심은 값이다(없음이 아님). */
-function baseFlatOf(mat){
-  return (mat && mat.userData && mat.userData.baseFlat!=null) ? mat.userData.baseFlat : FLAT_EMISSIVE;
-}
+/* 재질의 플랫 조명 배율 — 심어 둔 baseFlat(0 도 심은 값), 없으면 FLAT_EMISSIVE. 색을 다시 칠하는 곳은 모두 이 함수로 읽는다 — 코어 */
+function baseFlatOf(mat){ return toneCore.baseFlatOf(mat); }
 
 return {
+  toneCore,
   FLAT_EMISSIVE,
   LIGHT_PRESET,
   TONE_FRONT_TOTAL,

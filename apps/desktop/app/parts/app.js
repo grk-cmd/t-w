@@ -279,16 +279,6 @@ const bodyCore = TwCharCore.createBody({
   setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
   applyLightPreset: (...a)=>matToneMod.applyLightPresetToInstance(...a),
 });
-/* 🎀 파츠를 캐릭터에 붙일 한 벌로 만들기(복제 · 재질 · _col · _pic · 리깅 판정 · 다시 묶기 · wrapper · 저작 오프셋)는 캐릭터 코어(src/parts.ts · #436).
-   좌석 몫(장착 차례 · 옷 겹침 · 귀 까닥임 · 애니메이션 · 진단)은 equipPartOnSeat 에 남는다. */
-const partsCore = TwCharCore.createParts({
-  THREE,
-  applyPartMatTone: (m)=>lightToneMod._applyPartMatTone(m),
-  forceOpaqueAlphaOutput: (m)=>partSceneMod._forceOpaqueAlphaOutput(m),
-  meshIsPic: (o)=>partPaintMod.meshIsPic(o),
-  picRepairUV: (o)=>partPaintMod._picRepairUV(o),
-  uvLooksBroken: (o)=>partPaintMod.g_uvLooksBroken(o),
-});
 
 /* ===== 🐾 사람 귀 (꾸미기 › 머리 › 귀) — human-ear.js. 귀 GLB 파싱은 animal.js 캐시를 같이 쓴다.
    animal.js 는 이 파일보다 늦게 로드되므로 파서는 부를 때 찾는다. */
@@ -3532,106 +3522,14 @@ const chatWindowMod = TwChatWindow.createChatWindow({
        따라가고(흑백 텍스처에도 색이 입혀진다), 왼쪽은 원본 채도를 곱해서 낮춘다(끝 = 회색).
      ・emissiveMap이 map과 같은 텍스처를 쓰므로 emissive 쪽에도 같은 변환을 넣어야 색이 어긋나지 않는다.
    ※ 셰이더 주입이라 렌더 결과는 실제 실행에서 눈으로 확인 필요. */
-const _HUE_GLSL = `
-vec3 twRgb2Hsv(vec3 c){
-  vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
-  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
-  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
-  float d = q.x - min(q.w, q.y);
-  float e = 1.0e-10;
-  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
-}
-vec3 twHsv2Rgb(vec3 c){
-  vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
-  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
-  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
-}
-vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
-  vec3 hsv = twRgb2Hsv(rgb);
-  hsv.x = hue;
-  /* 채도는 양쪽으로 간다. sat = 0 이 중립(원본 채도 그대로, 예전 동작과 동일).
-     ・양수(0~1): max(원본, sat*0.9) — 진한 쪽을 따라간다. 흑백 텍스처에 색을 입히는 길.
-     ・음수(-1~0): 원본에 (1+sat) 을 곱해 내린다. sat=-1 이면 채도 0 = 완전 회색.
-     ⚠️ 음수 쪽을 max() 로 처리하면 절대 안 내려간다 — 슬라이더를 왼쪽 끝까지 밀어도
-        회색이 안 되던 원인이 그것이었다(원본 채도가 늘 이겨서). */
-  hsv.y = (sat >= 0.0) ? max(hsv.y, sat * 0.9) : hsv.y * (1.0 + sat);
-  hsv.y = clamp(hsv.y, 0.0, 1.0);
-  /* 밝기는 '덮어쓰기'가 아니라 '배율'이다 — 픽셀마다 다른 원본 명암(hsv.z)에 곱해야
-     무늬와 그림자가 살아 있는 채로 전체가 밝아지거나 어두워진다.
-     val=1.0 이 중립(예전 동작과 완전히 동일). */
-  hsv.z = clamp(hsv.z * val, 0.0, 1.0);
-  return twHsv2Rgb(hsv);
-}
-`;
-function _rgbHexToHsv(hex){
-  const c = new THREE.Color(hex);
-  const hsl = {}; c.getHSL(hsl);
-  // getHSL은 HSL이라 HSV의 S/V로 환산
-  const v = hsl.l + hsl.s * Math.min(hsl.l, 1 - hsl.l);
-  const s = (v === 0) ? 0 : 2 * (1 - hsl.l / v);
-  return { h: hsl.h, s: Math.min(1, Math.max(0, s)), v };
-}
-/* 이 메쉬를 색조 모드로 쓸 수 있는가 = _col이면서 텍스처가 있는가 */
-function isHueTintMesh(mesh){
-  return !!(mesh && mesh.material && mesh.material.map);
-}
-function _ensureHueUniforms(mat){
-  if(mat.userData && mat.userData._hueU) return mat.userData._hueU;
-  mat.userData = mat.userData || {};
-  const u = { uHue:{value:0}, uSat:{value:0}, uVal:{value:1}, uOn:{value:0} };
-  mat.userData._hueU = u;
-  mat.onBeforeCompile = _hueOBC(u);
-  mat.needsUpdate = true;
-  return u;
-}
-/* 🎨 색조 셰이더 주입 함수 — u(유니폼 묶음)를 클로저로 잡는다.
-   ★ [2026-10-02 제보 #8] _ensureHueUniforms 에서 떼어 냈다. 스티커사진 무대(_pkCloneChar)가 재질을
-     m.clone() 하면 THREE r128 의 Material.copy 는 onBeforeCompile 을 **복사하지 않는다**(userData 는
-     JSON 값만 복사). 그래서 사본은 원본 텍스처색으로 그려졌다 — 텍스처 파츠(노비 모자·목도리)만
-     염색이 빠지고 단색 파츠는 멀쩡했던 이유다. 사본에 같은 주입을 다시 걸려면 이 함수가 따로 있어야 한다. */
-function _hueOBC(u){
-  return (shader)=>{
-    // ★ 같은 객체 참조를 넘겨야 이후 .value 변경이 렌더에 반영된다.
-    shader.uniforms.uHue = u.uHue; shader.uniforms.uSat = u.uSat; shader.uniforms.uVal = u.uVal; shader.uniforms.uOn = u.uOn;
-    shader.fragmentShader = 'uniform float uHue;\nuniform float uSat;\nuniform float uVal;\nuniform float uOn;\n'
-      + _HUE_GLSL + shader.fragmentShader;
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <map_fragment>',
-      '#include <map_fragment>\n  if(uOn > 0.5){ diffuseColor.rgb = twHueShift(diffuseColor.rgb, uHue, uSat, uVal); }'
-    );
-    // emissiveMap도 같은 텍스처라 함께 돌려야 색이 어긋나지 않음
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <emissivemap_fragment>',
-      '#include <emissivemap_fragment>\n  if(uOn > 0.5){ totalEmissiveRadiance = twHueShift(totalEmissiveRadiance, uHue, uSat, uVal); }'
-    );
-  };
-}
-/* hex=null이면 색조 해제(원본 텍스처 그대로).
-   hsvOpt = {h(0~1), s(0~1), v(배율, 1=중립)} 가 있으면 그쪽이 우선이다.
-   ⚠️ **없을 때 v 를 hex 에서 뽑아 쓰면 안 된다.** 예전에 저장된 색조 값은 밝기를 무시하던 시절에
-      고른 것이라(팔레트에서 고른 색은 대부분 V<1), 지금 와서 hex 의 V 를 배율로 쓰면 이미 저장된
-      파츠가 일제히 어두워진다. 그래서 hex 만 있는 옛 데이터는 v=1(중립)로 고정한다. */
-function applyHueTint(mesh, hex, hsvOpt){
-  if(!mesh || !mesh.material || !mesh.material.map) return false;
-  const u = _ensureHueUniforms(mesh.material);
-  if(!hex && !hsvOpt){ u.uOn.value = 0; return true; }
-  if(hsvOpt){
-    u.uHue.value = hsvOpt.h || 0;
-    u.uSat.value = (hsvOpt.s == null) ? 0 : hsvOpt.s;
-    u.uVal.value = (hsvOpt.v == null) ? 1 : hsvOpt.v;
-  }else{
-    const hsv = _rgbHexToHsv(hex);
-    u.uHue.value = hsv.h; u.uSat.value = hsv.s; u.uVal.value = 1;
-  }
-  u.uOn.value = 1;
-  return true;
-}
-/* 슬라이더 값 → 스와치·플랫 메쉬용 hex. 저장은 colorHSV 가 진짜 값이고 hex 는 표시용 사본이다. */
-function _hsvToHex(h, sv, v){
-  const c = new THREE.Color();
-  c.setHSL(h, Math.max(0, Math.min(1, sv)), Math.max(0, Math.min(1, 0.5 * (v==null?1:v))));
-  return '#' + c.getHexString();
-}
+/* 본문(셰이더 · HSV 환산 · 색조 걸기)은 캐릭터 코어(src/tone.ts · #437) — 옛 이름은 그대로 둔다(꾸미기 · 도트 · 스티커사진이 부른다).
+   ⚠️ r128 Material.copy 는 onBeforeCompile 을 복사하지 않는다 — 재질을 복제한 쪽은 _hueOBC 로 다시 건다. */
+function _rgbHexToHsv(hex){ return lightToneMod.toneCore.rgbHexToHsv(hex); }
+function isHueTintMesh(mesh){ return lightToneMod.toneCore.isHueTintMesh(mesh); }
+function _ensureHueUniforms(mat){ return lightToneMod.toneCore.ensureHueUniforms(mat); }
+function _hueOBC(u){ return lightToneMod.toneCore.hueOBC(u); }
+function applyHueTint(mesh, hex, hsvOpt){ return lightToneMod.toneCore.applyHueTint(mesh, hex, hsvOpt); }
+function _hsvToHex(h, sv, v){ return lightToneMod.toneCore.hsvToHex(h, sv, v); }
 
 /* ═══ 🖍️ 파츠 그림칸(_pic) · UV 구제 · 그림 올리기 ═══ */
 /* (앱 FSD 21번) 이 자리의 본문도 part-paint.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -4980,76 +4878,9 @@ function _isLegacyAuthorCompensation(pos, ao){ return partsCore.isLegacyAuthorCo
 // wrapper 하나에 xf(위치/회전/스케일/색상)를 적용하는 공통 로직.
 //   기존 applyPartXf(카테고리 단위)와 stackable 파츠 개별 wrapper 양쪽에서 재사용.
 function _applyXfToWrapper(wrp, xf, cat){
-  if(!wrp || !wrp.userData || !wrp.userData.baseCenter) return;
-  if(!xf) xf = premiumMod.defaultPartXf();
-  // 🐾 동물 머리 보정 — 부착 시 계산해 둔 세로 보정량(_computeAnimalHeadDy). 동물이 아니면 0이라 무영향.
-  //    리깅/비리깅 둘 다 같은 값을 쓴다 — 두 리그가 같은 단위(x·z 동일)라서 보정량도 그대로 통한다.
-  const _ahdy = (+wrp.userData.animalHeadDy || 0);
-  if(wrp.userData.rigged){
-    const bc = wrp.userData.rigBindCenter || new THREE.Vector3();
-    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(xf.rot[0], xf.rot[1], xf.rot[2]));
-    const M = new THREE.Matrix4().compose(
-      new THREE.Vector3(bc.x + xf.pos[0], bc.y + xf.pos[1] + _ahdy, bc.z + xf.pos[2]),
-      q,
-      new THREE.Vector3(xf.scale, xf.scale, xf.scale)
-    ).multiply(new THREE.Matrix4().makeTranslation(-bc.x, -bc.y, -bc.z));
-    (wrp.userData.rigSkinnedMeshes||[]).forEach(sm=>{
-      if(sm.userData._origBind) sm.bindMatrix.copy(M).multiply(sm.userData._origBind);
-    });
-    const c = wrp.userData.baseCenter || new THREE.Vector3();
-    wrp.position.set(c.x + xf.pos[0], c.y + xf.pos[1] + _ahdy, c.z + xf.pos[2]);   // 기즈모도 같이 따라오게
-    wrp.rotation.set(xf.rot[0], xf.rot[1], xf.rot[2]);
-    wrp.scale.setScalar(xf.scale);
-  } else {
-    const c = wrp.userData.baseCenter;
-    wrp.position.copy(c);
-    // 🎩 저작 오프셋 상쇄 — "캐릭터에 씌운 채 export된 파츠"에만 값이 들어있다(_computePartAuthorOffset).
-    //    원점 기준으로 저작된 기존 파츠는 null이라 이 줄이 아무 일도 하지 않는다.
-    const ao = wrp.userData.authorOff || null;
-    if(ao) wrp.position.sub(ao);
-    const dOff = PART_DEFAULT_OFFSET[cat];
-    if(dOff){ wrp.position.x += dOff.x; wrp.position.y += dOff.y; wrp.position.z += dOff.z; }
-    // 예전에 유저가 "떠 있는 걸 기즈모로 눌러 맞춰둔" xf.pos는 이제 이중 보정이 되므로 되돌린다.
-    //   → 그 유저에게는 보이던 위치가 그대로 유지되고, 기즈모를 한 번 만지면 깨끗한 값으로 이관된다.
-    /* ⚠️ 판정은 이 wrapper 에 대해 **딱 한 번만** 한다(캐시).
-       [경위] 예전엔 apply 가 돌 때마다 지금의 xf.pos 로 다시 판정했다. 그런데 기즈모로 끄는 값이
-         바로 그 xf.pos 라, ao 의 반대 방향으로 끌다 보면 드래그 도중에 판정이 false→true 로 뒤집힌다.
-         뒤집히는 순간 +ao 가 한꺼번에 더해져 파츠가 저작 오프셋(대개 캐릭터 키 수준)만큼 튀어
-         멀리 날아간다 — "기즈모를 움직이다 갑자기 크게 튄다"는 제보가 이것이다.
-         동물에서 특히 잘 났다: 리그가 40% 라 같은 마우스 이동이 로컬 좌표로는 2.5배로 들어가
-         임계(|ao|의 0.5배)를 훨씬 쉽게 넘는다.
-       ★ 부착 시점의 저장값으로 한 번 정하고, 그 뒤에는 기즈모가 값을 새로 쓸 때만 false 로 내린다
-         (syncWdGizmoToXf 참고). 그래야 apply↔sync 가 서로 정확한 역함수로 남는다. */
-    if(wrp.userData._aoLegacy === undefined)
-      wrp.userData._aoLegacy = !!(ao && _isLegacyAuthorCompensation(xf.pos, ao));
-    const legacy = wrp.userData._aoLegacy;
-    wrp.position.x += xf.pos[0] + (legacy ? ao.x : 0);
-    wrp.position.y += xf.pos[1] + (legacy ? ao.y : 0) + _ahdy;
-    wrp.position.z += xf.pos[2] + (legacy ? ao.z : 0);
-    wrp.rotation.set(xf.rot[0], xf.rot[1], xf.rot[2]);
-    wrp.scale.setScalar(xf.scale);
-  }
-  wrp.updateMatrix(); wrp.updateMatrixWorld(true);
-  // 색상 그룹 (인스턴스마다 독립)
-  if(xf.color && wrp.userData.colorGroups){
-    for(const key in wrp.userData.colorGroups){
-      const c = xf.color[key];
-      if(c) wrp.userData.colorGroups[key].forEach(m=>{
-        if(!m.material) return;
-        // 🎨 텍스처가 있는 _col 메쉬는 색을 덮어쓰지 않고 색조(Hue)만 회전 — 무늬·명암 보존
-        if(isHueTintMesh(m)){ applyHueTint(m, c, xf.colorHSV && xf.colorHSV[key]); m.material.needsUpdate=true; return; }
-        if(m.material.color) m.material.color.set(c);
-        if(m.material.emissive){
-          const baseFlat = lightToneMod.baseFlatOf(m.material);
-          m.material.emissive.set(c).multiplyScalar(baseFlat);
-        }
-        m.material.needsUpdate=true;
-      });
-    }
-  }
-  /* 🖍️ 그림칸 — 저장된 그림(URL)을 이 파츠에 얹는다. 색과 같은 자리에 사는 인스턴스 값이라
-     내 파츠든 친구 파츠든 같은 길로 들어온다(equippedParts 가 바뀌면 상대 화면도 재장착된다). */
-  if(partPaintMod.wrapperHasPic(wrp)) partPaintMod.applyPartPic(wrp, xf.pic);
+  partsCore.applyXfToWrapper(wrp, xf, cat, { defaultXf:()=>premiumMod.defaultPartXf(), defaultOffsets:PART_DEFAULT_OFFSET,
+    /* 🖍️ 그림칸 — 저장된 그림(URL)을 얹는다. 색과 같은 자리의 인스턴스 값이라 내 파츠든 친구 파츠든 같은 길로 들어온다. */
+    applyPic:(w, pic)=>{ if(partPaintMod.wrapperHasPic(w)) partPaintMod.applyPartPic(w, pic); } });
 }
 
 /* 파츠 wrapper들에 저장된 xf를 반영.
@@ -5981,8 +5812,20 @@ const lightToneMod = TwLightTone.createLightTone({
   _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
   _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
   _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),
+  charCore: TwCharCore,
 });
 const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
+/* 🎀 파츠를 캐릭터에 붙일 한 벌로 만들기(복제 · 재질 · _col · _pic · 리깅 판정 · 다시 묶기 · wrapper · 저작 오프셋)는 캐릭터 코어(src/parts.ts · #436).
+   좌석 몫(장착 차례 · 옷 겹침 · 귀 까닥임 · 애니메이션 · 진단)은 equipPartOnSeat 에 남는다. */
+const partsCore = TwCharCore.createParts({
+  THREE,
+  tone: lightToneMod.toneCore,
+  applyPartMatTone: (m)=>lightToneMod._applyPartMatTone(m),
+  forceOpaqueAlphaOutput: (m)=>partSceneMod._forceOpaqueAlphaOutput(m),
+  meshIsPic: (o)=>partPaintMod.meshIsPic(o),
+  picRepairUV: (o)=>partPaintMod._picRepairUV(o),
+  uvLooksBroken: (o)=>partPaintMod.g_uvLooksBroken(o),
+});
 
 /* ===== 관리자 모드 =====
    진입: Ctrl(Mac 은 ⌘) 누른 채로 후원 · 캐릭터 생성 · 꾸미기 · 광고배너 중 하나를 한 번 클릭 → 비밀번호 창(bindAdminTrigger)
@@ -6133,7 +5976,7 @@ const adminMode = TwAdminMode.createAdminMode({
 /* 본문(setFaceMap · applyLightPresetToInstance)은 character/mat-tone.js 로 옮겼다(C 구역 떼기 · w3).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const matToneMod = TwMatTone.createMatTone({
-  FLAT_EMISSIVE: lightToneMod.FLAT_EMISSIVE,
+  tone: lightToneMod.toneCore,
 });
 /* 🧍 생성기 상태 — 생성기 묶음 전체(그리기 · 책상 · 기즈모 · animal.js)가 같이 읽고 쓴다. 모듈(creator-preview · creator-flow · creator-save)은 읽는 · 쓰는 함수로 받는다. */
 let creatorOpen=false;
