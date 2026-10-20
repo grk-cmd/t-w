@@ -71,6 +71,10 @@ jobs:
           echo "version=$PKG" >> "$GITHUB_OUTPUT"
           case "$PKG" in *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT"; echo "🧪 테스트 빌드 (운영 Firebase · Pre-release)";;
                          *)   echo "prerelease=false" >> "$GITHUB_OUTPUT";; esac
+      - name: 정식이면 공지 글이 있는가
+        if: steps.v.outputs.prerelease == 'false'
+        # 빌드(20분 남짓)를 돌리기 전에 멈춘다 — 공지 글은 Releases 본문이 된다(publish-draft)
+        run: node scripts/release-notes.js check "${{ steps.v.outputs.version }}"
       - name: 마지막 공개 릴리스보다 높은가
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -264,6 +268,14 @@ jobs:
       VERSION: ${{ needs.verify.outputs.version }}
       PRERELEASE: ${{ needs.verify.outputs.prerelease }}
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          path: src
+          sparse-checkout: |
+            docs/release-notes
+            scripts/release-notes.js
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v4
         with:
           path: out
@@ -304,7 +316,10 @@ jobs:
               gh release create "$TAG" -R "$REPO" --draft --prerelease --verify-tag --title "$VERSION (테스트)" \
                 --notes "🧪 테스트 빌드 — **운영 Firebase** 에 접속합니다(실제 데이터). Pre-release 라 일반 사용자 앱은 자동 업데이트로 받지 않습니다 — 받을 사람만 이 페이지에서 내려받아 설치하세요. (커밋 ${GITHUB_SHA::7})" *
             else
-              gh release create "$TAG" -R "$REPO" --draft --verify-tag --title "$VERSION" --generate-notes *
+              # 본문 = 사람이 쓴 공지 글(docs/release-notes/<버전>.md) + 그 아래 접은 PR 목록(GitHub 가 만든 것)
+              gh api "repos/$REPO/releases/generate-notes" -f tag_name="$TAG" --jq .body > ../gen-notes.md
+              (cd ../src && node scripts/release-notes.js compose "$VERSION" ../gen-notes.md) > ../release-body.md
+              gh release create "$TAG" -R "$REPO" --draft --verify-tag --title "$VERSION" --notes-file ../release-body.md *
             fi
           fi
           gh release view "$TAG" -R "$REPO" --json assets -q '.assets[].name'
