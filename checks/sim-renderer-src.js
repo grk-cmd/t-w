@@ -197,7 +197,9 @@ function joinRenderer(app){
   if(tail.length) all += '\n' + tail.join('\n');
   /* 값만 내놓는 공용 모듈(만드는 줄이 없다)은 맨 앞에 전역 이름으로 깐다 — 되살린 본문이 그 이름을 읽는다 */
   const pre = VALUE_MODULES.map(v => { const t = readPart(v.file); return t ? 'var ' + v.glob + ' = (function(){ var module = { exports: {} }, window; ' + t + '\n; return module.exports; })();\n' : ''; }).join('');
-  all = pre + all;
+  /* 캐릭터 코어 빌드 사본 — html 이 app.js 앞에 싣는 라이브러리라(var TwCharCore) 그대로 맨 앞에 깐다. 되살린 본문이 TwCharCore 를 읽는다. */
+  const core = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js'].map(p => { try{ return fs.readFileSync(p, 'utf8'); }catch(_){ return ''; } }).find(Boolean) || '';
+  all = (core ? core + '\n' : '') + pre + all;
   for(const [mod, n] of retGet) all = all.replace(new RegExp('\\b' + esc(mod) + '\\.' + esc(n) + '\\(\\)', 'g'), n);
   for(const [mod, set, name] of retSet) all = replaceCalls(all, mod + '.' + set, (arg) => name + ' = ' + arg);
   for(const m of MODULES) all = all.replace(new RegExp('\\b' + esc(m.mod) + '\\.', 'g'), '');

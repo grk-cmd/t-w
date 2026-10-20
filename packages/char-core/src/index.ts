@@ -7,6 +7,21 @@ export const THREE_REVISION = '128';
 
 export const VERSION: string = __CHAR_CORE_VERSION__;
 
+export {
+  CLONE_CODE_PREFIX,
+  CLONE_TEX_SIZE,
+  b64,
+  unb64,
+  deriveKey,
+  clonePayload,
+  encryptPayload,
+  decryptPayload,
+  defFromPayload,
+  encodeCloneCode,
+  decodeCloneCode,
+} from './clone-code';
+export type { CloneDefIn, CloneDefOut, DataUrlSource, EncodeOptions } from './clone-code';
+
 /** 코어가 three 에서 기대는 몫 — 옮기는 단계마다 쓰는 것만 늘린다. */
 export interface ThreeLike {
   readonly REVISION: string;
