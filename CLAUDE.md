@@ -131,6 +131,7 @@
 | `apps/desktop/app/parts/room/room-state.js` | 🧭 방 공용 상태 — `window._activeChannel`(1 워킹룸 · 2 투게더룸) · `window._roomMetaCache`(방 meta 사본)의 처음 값. 여러 모듈이 읽는 값이라 맨 아래 한 곳에 두고 읽는 모듈 · app.js 보다 먼저 싣는다. 바꾸는 곳은 room-entry · chat-prefs · chat-ui 뿐(`sim-room-state.js`) |
 | `apps/desktop/app/parts/chat/demoji-catalog.js` | 😊 기본 이모티콘 목록(33개 · 그림 `apps/desktop/app/emoji/default/`) — 채팅 · 머리 위 말풍선 · 마이홈 바탕화면이 같이 읽는 바꿀 수 없는 표(`window.TwDemojiCatalog`). 채팅 모듈에 두면 순환이 돼서 맨 아래에 둔다 · 읽는 파일 · app.js 보다 먼저 싣는다(`sim-demoji-catalog.js`) |
 | `apps/desktop/app/parts/room/friend-visit.js` | 🏠 마이홈 친구 목록의 방 코드를 누르면 «○○ 님이 있는 룸에 놀러 갈까요?» 창 → 그 방으로 이동. classic script(`window.TwFriendVisit`)를 app.js 앞에 싣고 app.js 는 `createFriendVisit(deps)` · 코드 칸에서 `friendVisit.ask(fid)` 만 |
+| `packages/char-core/` | 🧬 캐릭터 3D 코어 `@tw/char-core`(TS · 자기 판 · 에픽 #430) — 앱 · 웹이 같은 한 벌. 빌드 두 벌: 앱용 classic script(`window.TwCharCore` — 빌드가 `apps/desktop/app/vendor/char-core/` 에 사본을 두고 html 이 three 다음 · app.js 앞에 싣는다) · 웹용 ESM + 타입. three 는 주입(r128). 코어를 고치면 빌드해서 사본까지 같은 커밋에 — CI 가 다시 빌드해 견준다. 안내 `packages/char-core/README.md` · `sim-char-core-load.js` |
 | `apps/desktop/app/parts/firebase-init.js` | Firebase SDK 초기화 + `window.firebaseAPI` (DB 경로는 여기서 찾는다) |
 | `apps/desktop/app/parts/chat/chat-history.js` | 💬 대화 기록(entities) — 서버 3일 · 워킹룸/시크릿룸은 이 PC(IndexedDB)에 저장 · 저장분 뒤만 ts 커서로 이어 받기 · 방장 지우기 표시 줄. `firebase-init.js` 가 `firebaseAPI.chatHistory` 로 연결, app.js 는 부르기만. 서버 정리는 `firebase/functions/chat-expire.js` |
 | `apps/desktop/app/parts/room-*.js` · `invite-account.js` | 도메인 모듈 — `createXxx(deps)` 로 필요한 함수 · 상태를 받는다(Firebase 직접 import 없음). `firebase-init.js` 는 연결만 |
@@ -152,6 +153,10 @@ npm run check        # 검사 전체 — 마지막 줄 «빨강 0» 이면 통�
 npm run admin:dev    # 로컬 개발 서버 (dev DB · firebase login 필요) → http://localhost:5173/admin/
 npm run admin:test   # vitest
 npm --prefix apps/admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에서도 돈다
+
+# 캐릭터 코어(packages/char-core)
+npm -w @tw/char-core test          # vitest
+npm -w @tw/char-core run build     # dist/ + 앱 사본(apps/desktop/app/vendor/char-core/)
 ```
 
 ## 코드 컨벤션

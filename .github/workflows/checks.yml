@@ -31,6 +31,7 @@ jobs:
     outputs:
       app: ${{ steps.f.outputs.app }}
       admin: ${{ steps.f.outputs.admin }}
+      core: ${{ steps.f.outputs.core }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,7 +42,7 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
-          all(){ { echo app=true; echo admin=true; } >> "$GITHUB_OUTPUT"; echo "$1 — 전부 돈다"; exit 0; }
+          all(){ { echo app=true; echo admin=true; echo core=true; } >> "$GITHUB_OUTPUT"; echo "$1 — 전부 돈다"; exit 0; }
           # 수동 실행 · 비교 대상 없음(첫 push · 강제 push 로 사라진 커밋)은 전부
           [ "$EVENT" = workflow_dispatch ] && all '수동 실행'
           { [ -z "$BASE" ] || [ "$BASE" = 0000000000000000000000000000000000000000 ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; } && all '비교할 커밋 없음'
@@ -51,6 +52,8 @@ jobs:
           grep -qE '^\.github/' <<< "$files" && all '.github 바뀜'
           # 웹 관리자 — 자기 폴더 · 규칙 파일(테스트가 읽는다)
           if grep -qE '^(apps/admin/|firebase/firebase-database-rules\.json$)' <<< "$files"; then echo admin=true >> "$GITHUB_OUTPUT"; else echo admin=false >> "$GITHUB_OUTPUT"; fi
+          # 캐릭터 코어 — 자기 폴더 · 앱에 둔 빌드 사본 · 루트 의존성(lock)
+          if grep -qE '^(packages/char-core/|apps/desktop/app/vendor/char-core/|package(-lock)?\.json$)' <<< "$files"; then echo core=true >> "$GITHUB_OUTPUT"; else echo core=false >> "$GITHUB_OUTPUT"; fi
           # 앱 검사 — 아래 «건너뛰어도 되는 파일» 만 바뀌었으면 false.
           #   apps/admin/ (run.js 가 스테이징에서 뺀다) · 문서(.md) 중 검사가 읽지 않는 것.
           #   검사가 읽는 문서: checks/ 안(CHECKS.md 정본) · docs/design-system/ · 검사 코드에 따옴표로 이름이 나오는 것(예: 'docs/ERROR_CODES.md')
@@ -118,3 +121,33 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build         # tsc(strict) 포함
+
+  char-core:
+    name: 캐릭터 코어 시험 · 빌드
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # 루트 postinstall(앱 의존성 · 네이티브 모듈)은 코어와 상관없다 — 스크립트 없이 깐다
+      - run: npm ci --ignore-scripts
+      - run: npm -w @tw/char-core run typecheck
+      - run: npm -w @tw/char-core test
+      - run: npm -w @tw/char-core run build
+      # 앱이 싣는 사본(apps/desktop/app/vendor/char-core/)이 방금 빌드와 같아야 한다 — 다르면 코어를 고치고 빌드를 안 돌린 것
+      - name: 앱 사본이 빌드와 같은가
+        run: |
+          d=$(git status --porcelain -- apps/desktop/app/vendor/char-core)
+          if [ -n "$d" ]; then
+            echo "$d"; git --no-pager diff -- apps/desktop/app/vendor/char-core | head -40
+            echo "::error::앱 사본이 빌드와 다르다 — packages/char-core 에서 npm run build 후 사본까지 커밋"
+            exit 1
+          fi
