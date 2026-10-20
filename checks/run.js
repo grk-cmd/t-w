@@ -38,6 +38,11 @@ const { spawnSync } = require('child_process');
 
 const CHECKS = __dirname;
 const ROOT = path.resolve(__dirname, '..');
+/* 저장소 구조(#431): 앱은 apps/desktop · 웹 관리자는 apps/admin · Firebase(규칙 · 함수 · Hosting)는 firebase/.
+   검사는 옮기기 전 모양(루트 = 앱 · functions/ · hosting/ · 규칙 파일 · scripts/)을 알고 있으므로,
+   스테이징이 그 모양을 다시 조립한다 — 검사 파일은 경로를 고치지 않는다. */
+const DESKTOP = path.join(ROOT, 'apps', 'desktop');
+const FIREBASE = path.join(ROOT, 'firebase');
 const MANIFEST = path.join(CHECKS, 'CHECKS.md');
 
 /* 스테이징에 올리지 않는 것. `checks` 자신은 따로 복사하므로 여기서 뺀다. */
@@ -46,10 +51,13 @@ const MANIFEST = path.join(CHECKS, 'CHECKS.md');
      검사가 읽는 원본(렌더러·main)이 그 안에 없으니 빼도 판정은 그대로다. */
 /* '.claude' — Claude Code 워크트리(.claude/worktrees/*)가 저장소 사본을 통째로 품고 있어서,
    깊은 원본 찾기(findDeep)가 app.js 를 두 곳에서 찾고 고르지 못해 «원본 없음» 이 된다.
-   'web-admin' — 웹 관리자(Vite)는 자기 테스트(vitest)로 검사한다. node_modules 를 품고 있어 복사만 무겁다. */
+   'web-admin' — 옛 자리(지금은 apps/admin). 옮기기 전에 받아 둔 PC 에 남은 폴더(node_modules)를 복사하지 않게. */
+/* 'apps' · 'packages' · 'firebase' — 루트를 펼칠 때는 빼고, 아래 stage() 가 옛 모양 자리로 따로 펼친다
+   (apps/ · firebase/functions 는 node_modules 를 품고 있어 통째로 복사하면 무겁다). */
 const SKIP = new Set([
   'node_modules', '.git', '.github', 'dist', 'out', 'release',
   'checks', 'build', '디자인', '.vscode', '.idea', 'functions', '.claude', 'web-admin',
+  'apps', 'packages', 'firebase',
 ]);
 
 /* 검사들이 실제로 읽는 원본 — 없으면 그 검사가 통째로 헛돈다.
@@ -121,15 +129,21 @@ function verify(files){
 }
 
 /* ── 스테이징 ──────────────────────────────────────────────────────────────
-   루트를 펼치고, 그다음 `app/` 을 같은 층에 펼친다. 이름이 겹치면 **루트가 이긴다**
-   (`main.js` 는 루트 것이 진짜다). 마지막에 검사를 같이 넣어 __dirname 을 맞춘다. */
+   앱 폴더(apps/desktop)를 펼치고, 저장소 루트 · `app/` 을 같은 층에 펼친다. 이름이 겹치면 **앞에 펼친 것이 이긴다**
+   (`main.js` · `package.json` 은 앱 것이 진짜다). 마지막에 검사를 같이 넣어 __dirname 을 맞춘다.
+   ★ 폴더 이름이 겹치면(`scripts/` — 앱 · 루트 · firebase 셋에 있다) 합친다. 안에서 파일 이름이 겹치면 먼저 것이 이긴다. */
 function mirror(from, into, staged){
   if (!fs.existsSync(from)) return;
   for (const name of fs.readdirSync(from)){
-    if (SKIP.has(name) || staged.has(name)) continue;
+    if (SKIP.has(name)) continue;
     const src = path.join(from, name);
     const st = fs.statSync(src);
-    if (st.isDirectory() && name === 'app' && from === ROOT) continue;  // 아래에서 내용을 펼친다
+    if (st.isDirectory() && name === 'app' && from === DESKTOP) continue;  // 아래에서 내용을 펼친다
+    if (staged.has(name)){
+      const dst = path.join(into, name);
+      if (st.isDirectory() && fs.statSync(dst).isDirectory()) fs.cpSync(src, dst, { recursive: true, force: false });
+      continue;
+    }
     fs.cpSync(src, path.join(into, name), { recursive: true });
     staged.add(name);
   }
@@ -142,7 +156,7 @@ function mirror(from, into, staged){
    ★ app/ 바로 밑(한 층)은 mirror 가 이미 폴더째 펼친다 — 여기서는 그 아래 폴더 안의 .js 만 이름으로 올린다. vendor/ 는 뺀다(외부 라이브러리).
    ★ 이름이 이미 있으면(루트가 이긴다 · 먼저 본 것) 덮지 않고 알린다 — 폴더가 달라도 파일 이름은 겹치면 안 된다(CLAUDE.md). */
 function flattenApp(dir, staged){
-  const APP = path.join(ROOT, 'app');
+  const APP = path.join(DESKTOP, 'app');
   if (!fs.existsSync(APP)) return;
   const walk = (d, depth) => {
     if (depth > 4) return;
@@ -164,11 +178,23 @@ const flatDup = [];
 function stage(){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-checks-'));
   const staged = new Set();
+  mirror(DESKTOP, dir, staged);
   mirror(ROOT, dir, staged);
-  mirror(path.join(ROOT, 'app'), dir, staged);
+  mirror(path.join(DESKTOP, 'app'), dir, staged);
   flattenApp(dir, staged);
+  /* Firebase — 규칙 · firebase.json · hosting/ · scripts/ 는 옛 자리(루트)로, 새 자리(firebase/)에도 한 벌.
+     새 자리는 저장소 루트 기준 경로를 쓰는 도구(scripts/build-design-tokens.js 의 firebase/hosting/help)를 위한 것이다. */
+  mirror(FIREBASE, dir, staged);
+  if (fs.existsSync(FIREBASE)){
+    const fbCopy = path.join(dir, 'firebase');
+    fs.mkdirSync(fbCopy, { recursive: true });
+    for (const name of fs.readdirSync(FIREBASE)){
+      if (SKIP.has(name)) continue;
+      fs.cpSync(path.join(FIREBASE, name), path.join(fbCopy, name), { recursive: true });
+    }
+  }
   // functions/ 는 node_modules 때문에 SKIP 이라, 맨 위 .js 만 스테이징의 functions/ 로 따로 복사한다.
-  const FN = path.join(ROOT, 'functions');
+  const FN = path.join(FIREBASE, 'functions');
   if (fs.existsSync(FN)){
     fs.mkdirSync(path.join(dir, 'functions'), { recursive: true });
     for (const e of fs.readdirSync(FN, { withFileTypes: true }))
@@ -189,11 +215,16 @@ function stage(){
    (`app/js/app.js` 같은) 하위 폴더째로 올라가 평면에는 안 보인다 — 검사는 "없다" 고 한다.
    ⚠️ 폴더 구조를 여기서 가정하지 않는다. **없다고 확인된 것만** 찾아서 올린다.
      둘 이상 나오면 고르지 않고 알려만 준다 — 어느 쪽이 진짜인지는 이 파일이 판단할 일이 아니다. */
+/* 깊은 찾기는 옮긴 자리(apps/ · firebase/ · packages/)도 들어간다 — 루트를 펼칠 때만 빼는 이름이다.
+   웹 관리자(apps/admin)는 뺀다: 자기 시험이 있고 index.html 같은 같은 이름을 품어 «두 곳» 으로 고르지 못하게 된다. */
+const DEEP_OK = new Set(['apps', 'packages', 'firebase']);
+const DEEP_SKIP_PATHS = new Set([path.join(ROOT, 'apps', 'admin')]);
 function findDeep(dir, name, out, depth){
   if (depth > 6) return out;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })){
-    if (SKIP.has(e.name)) continue;
+    if (SKIP.has(e.name) && !DEEP_OK.has(e.name)) continue;
     const p = path.join(dir, e.name);
+    if (DEEP_SKIP_PATHS.has(p)) continue;
     if (e.isDirectory()) findDeep(p, name, out, depth + 1);
     else if (e.name === name) out.push(p);
   }

@@ -1,9 +1,9 @@
-# 앱 도메인 지도 — `app/parts/`
+# 앱 도메인 지도 — `apps/desktop/app/parts/`
 
 앱(Electron 렌더러) 코드를 **도메인**(무슨 기능 묶음인가)으로 나눈 지도다. 어디에 무엇이 있는지 찾을 때, 그리고 폴더를 나눌 때 기준으로 쓴다.
 
 - 앱 구조 정리 순서: ① FSD 옮기기(끝 — `docs/APP_FSD_MAP.md`) → **② 도메인 지도(이 문서)** → ③ 도메인 폴더로 나누기 → ④ 컨벤션 → ⑤ 설정 · 비즈니스 로직은 서버 · 관리자로.
-- 지금(2026-10-14)은 모든 파일이 `app/parts/` 한 층(관리자만 `app/parts/admin/`)에 있다. 아래 «폴더» 칸은 ③에서 옮길 자리다.
+- 지금(2026-10-14)은 모든 파일이 `apps/desktop/app/parts/` 한 층(관리자만 `apps/desktop/app/parts/admin/`)에 있다. 아래 «폴더» 칸은 ③에서 옮길 자리다.
 - 줄 수는 2026-10-14 main 기준(대략). 「서버」 칸: `fb` = `firebaseAPI.*` 를 직접 부르는 수, `api` = 자체 서버 API(t-w-server) 통로, `ws` = 방 서버 웹소켓.
 
 ## 0. 한눈에
@@ -27,7 +27,7 @@
 | `admin/` | 🛠️ 관리자(이미 폴더) | 11 | 2,600 |
 | `shared/` ✅ | 🧰 공용 도구 · 공용 통로 — 창 겹침 · 프롬프트 · 효과음 · 테마 · API · 원격 설정 | 16 | 1,800 |
 
-## 1. 🚀 입구 · 3D 핵심 — 폴더를 만들지 않고 `app/parts/` 에 둔다
+## 1. 🚀 입구 · 3D 핵심 — 폴더를 만들지 않고 `apps/desktop/app/parts/` 에 둔다
 
 | 파일 | 하는 일 | 줄 | 서버 |
 |---|---|---:|---|
@@ -81,7 +81,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `myhome-links.js` · `myhome-diag.js` | 본문 링크 · 클릭 진단(콘솔) | — |
 | `broadcast-cache.js` (ES) | 공용 공지(inboxBroadcast) 버전 확인 + 로컬 캐시 | (firebase-init 이 연결) |
 
-### 4-1. 👥 `friends/` — 친구 데이터 포트 · provider (서버 이관 — 사용법은 `app/parts/friends/README.md`)
+### 4-1. 👥 `friends/` — 친구 데이터 포트 · provider (서버 이관 — 사용법은 `apps/desktop/app/parts/friends/README.md`)
 
 | 파일 | 하는 일 | 서버 |
 |---|---|---|
@@ -181,9 +181,9 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 
 ## 15. ③ 폴더로 나눌 때 — 같이 고칠 곳과 함정
 
-- **HTML `<script src>`**(`app/desk-companion-prototype.html`): 경로만 바꾸고 **싣는 순서는 그대로**(classic script 는 순서가 곧 의존).
+- **HTML `<script src>`**(`apps/desktop/app/desk-companion-prototype.html`): 경로만 바꾸고 **싣는 순서는 그대로**(classic script 는 순서가 곧 의존).
 - **ES 모듈 import**: `firebase-init.js` 머리의 `import … from "./room-index.js"` 등 18줄, 그리고 모듈끼리(`broadcast-cache.js → catalog-cache.js` · `room-index.js → room-channel.js`). 폴더가 달라지면 `"./room/room-index.js"` · `"../room/…"` 로.
-- **⚠️ 검사가 못 잡는 자리**(→ `sim-parts-paths.js` 로 막음 · 폴더 1번): 검사 러너(`checks/run.js`)는 `app/parts/` 아래를 **평평하게 펴서** 돌린다. 그래서 실제 앱에서 `<script src>` · import 경로가 틀려도 검사는 초록이다. → 첫 폴더 PR 에서 «실제 폴더 기준으로 `<script src>` · 상대 import 가 다 있는 파일을 가리키는가» 를 보는 검사를 먼저 넣는다.
+- **⚠️ 검사가 못 잡는 자리**(→ `sim-parts-paths.js` 로 막음 · 폴더 1번): 검사 러너(`checks/run.js`)는 `apps/desktop/app/parts/` 아래를 **평평하게 펴서** 돌린다. 그래서 실제 앱에서 `<script src>` · import 경로가 틀려도 검사는 초록이다. → 첫 폴더 PR 에서 «실제 폴더 기준으로 `<script src>` · 상대 import 가 다 있는 파일을 가리키는가» 를 보는 검사를 먼저 넣는다.
 - **파일 이름은 폴더가 달라도 겹치면 안 된다** — 러너가 이름으로 찾는다(겹치면 `flatDup` 로 알린다).
 - **소리 · 그림 파일**(`parts/click.mp3` 등)은 옮기지 않는다 — 코드 안 경로(`'parts/click.mp3'`)가 그대로 맞게.
 - **CLAUDE.md 구조 표**의 경로, `checks/CHECKS.md` 메모의 경로, `audit.py` 검사 8 목록은 이름만 보므로 그대로.

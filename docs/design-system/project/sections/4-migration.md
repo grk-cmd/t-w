@@ -59,7 +59,7 @@
 
 ## 웹 관리자와 다른 점
 
-- 관리자(`web-admin/src/app/styles/global.css`)는 따뜻한 회백(`--bg #f4f1ec`) + 파랑 강조(`--accent #2f5d8a`) + 시스템 글꼴 14px 로, 앱과 **다른 브랜드처럼 보인다.**
+- 관리자(`apps/admin/src/app/styles/global.css`)는 따뜻한 회백(`--bg #f4f1ec`) + 파랑 강조(`--accent #2f5d8a`) + 시스템 글꼴 14px 로, 앱과 **다른 브랜드처럼 보인다.**
 - 맞추는 정도: 관리자는 «약» 레트로 — 색 토큰 이름을 이 시스템과 같게(`--ink` · `--ink-soft` · `--line` · `--ink-danger` · `--ink-ok` · `--ink-accent`), 카드 머리에만 `title-a → title-b` 얇은 띠. 글자 크기는 관리자 14px 그대로(작업 화면이라 앱보다 크게 읽는다).
 - 관리자는 이미 `prefers-color-scheme` 밤 테마가 있다 — 앱 `dark` 값을 관리자 밤 값과 같은 뼈대로 만들었다.
 - 관리자 상태 칩(`StatusChip.module.css`)은 이 시스템 `Chip` 과 모양이 같다 — 넷의 색 이름만 맞춘다.
@@ -69,10 +69,10 @@
 각 단계는 PR 하나 · 화면 차이 확인 후 다음으로. `checks/` 에 검사를 붙인다.
 
 1. **토큰 다리 놓기** (화면 변화 0) — `:root` 에 `--tw-*` 를 옛 변수에 연결해 선언하고, `html[data-theme="bubble"]` · 클래식 블록에 같은 이름을 둔다. 하드코딩 Tahoma 121곳을 `var(--tw-font-ui)` 로(버블에서 돋움이 비로소 먹는다 — 유일한 «보이는» 변화). `audit.py` 에 «새 규칙은 `#999` 같은 손 회색 · 직접 font-family 금지» 검사를 더한다.
-2. **확인창 · 토스트 · 버튼** — `ConfirmDialog` 를 도메인 모듈(`app/parts/ui-dialog.js`, `createDialog(deps)`)로 만들고 `confirm()` 17곳을 바꾼다. 버튼 계열을 `.tw-btn` 으로 묶어 버블 테마의 «광택 목록» · «radius 목록» 나열을 지운다. `ink-soft` 대비 수정이 여기서 들어간다.
+2. **확인창 · 토스트 · 버튼** — `ConfirmDialog` 를 도메인 모듈(`apps/desktop/app/parts/ui-dialog.js`, `createDialog(deps)`)로 만들고 `confirm()` 17곳을 바꾼다. 버튼 계열을 `.tw-btn` 으로 묶어 버블 테마의 «광택 목록» · «radius 목록» 나열을 지운다. `ink-soft` 대비 수정이 여기서 들어간다.
 3. **창틀 · 탭 통일** — 인라인 타이틀바 그라데이션 49곳 · 탭 9종을 `.tw-titlebar` · `.tw-tab` 으로. 버블 테마의 창 · 타이틀바 ID 나열 블록이 사라진다 — 새 창이 테마를 빠뜨리는 사고가 구조적으로 없어진다.
 4. **글자 크기 정리** — 25가지를 7단계로. 반 픽셀(10.5 · 11.5)부터 가장 가까운 단계로. 설정창 탭을 5개 이하로 묶는다.
 5. **그리기 도구 세그먼트 · 크기 조절 손잡이** — `_wdPic.tool` 하나로 상태를 합치고 `.tw-seg`, 창 리사이즈를 `.tw-grip` 으로.
 6. **밤 테마** — 설정 › 화면 › 모양에 «버블 · 밤» 추가(시스템 따라가기 기본). 1~3단계가 끝나야 손 회색 · `#fff` 가 남지 않아 밤이 깨지지 않는다.
-7. **하두리 장식** — 도트 서체(갈무리, OFL) 파일을 `app/assets/fonts/` 에 넣고(CSP `font-src 'self' file:` 안), 마이홈 · 스티커 사진 · 뽑기 결과에 `Sticker` 틀 · `sticker-*` 를 입힌다.
+7. **하두리 장식** — 도트 서체(갈무리, OFL) 파일을 `apps/desktop/app/assets/fonts/` 에 넣고(CSP `font-src 'self' file:` 안), 마이홈 · 스티커 사진 · 뽑기 결과에 `Sticker` 틀 · `sticker-*` 를 입힌다.
 8. **웹 관리자 맞추기** — 색 이름 통일, 카드 머리 띠.

@@ -1,109 +1,26 @@
 {
-  "name": "together-working",
-  "version": "0.11.3",
-  "description": "책상 위에 사는 데스크톱 컴패니언",
-  "main": "main.js",
+  "name": "together-working-repo",
+  "private": true,
+  "description": "투게더워킹 저장소 — 앱(apps/desktop) · 웹 관리자(apps/admin) · 메인 홈페이지(apps/web) · 캐릭터 코어(packages/) · Firebase(firebase/)",
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
   "scripts": {
-    "postinstall": "node scripts/patch-nwm.js",
-    "start": "electron .",
-    "start:dev": "electron . --tw-firebase=dev",
+    "postinstall": "npm --prefix apps/desktop install",
+    "start": "npm --prefix apps/desktop start",
+    "start:dev": "npm --prefix apps/desktop run start:dev",
     "check": "node checks/run.js",
-    "admin:dev": "npm --prefix web-admin run dev",
-    "admin:test": "npm --prefix web-admin test",
-    "admin:build": "npm --prefix web-admin run build",
+    "admin:dev": "npm --prefix apps/admin run dev",
+    "admin:test": "npm --prefix apps/admin test",
+    "admin:build": "npm --prefix apps/admin run build",
     "design:build": "node scripts/build-design-tokens.js",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "release": "electron-builder --publish always"
+    "version:bump": "node scripts/bump-version.js",
+    "pack": "npm --prefix apps/desktop run pack",
+    "dist": "npm --prefix apps/desktop run dist"
   },
-  "author": "",
-  "license": "UNLICENSED",
   "devDependencies": {
-    "electron": "^44.0.0",
-    "electron-builder": "^24.13.3"
+    "typescript": "5.9.3"
   },
-  "dependencies": {
-    "electron-updater": "^6.1.7",
-    "koffi": "^3.3.3",
-    "node-window-manager": "^2.2.4",
-    "uiohook-napi": "^1.5.2"
-  },
-  "build": {
-    "appId": "com.togetherworking.app",
-    "productName": "Together Working",
-    "asar": true,
-    "files": [
-      "main.js",
-      "preload.js",
-      "overlay-win.js",
-      "overlay-mac.js",
-      "sysinput-win.js",
-      "sysinput-mac.js",
-      "hover-poke.js",
-      "devtools-gate.js",
-      "oauth-config.js",
-      "app/**/*"
-    ],
-    "asarUnpack": [
-      "node_modules/uiohook-napi/**/*",
-      "node_modules/node-window-manager/**/*",
-      "node_modules/koffi/**/*",
-      "node_modules/@koromix/**/*",
-      "**/*.node"
-    ],
-    "directories": {
-      "output": "dist",
-      "buildResources": "build"
-    },
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "grk-cmd",
-        "repo": "t-w"
-      }
-    ],
-    "mac": {
-      "icon": "build/icon.icns",
-      "category": "public.app-category.productivity",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "arm64",
-            "x64"
-          ]
-        }
-      ],
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist",
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "win": {
-      "icon": "build/icon.ico",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "artifactName": "${productName}-Setup-${version}.exe"
-    }
-  }
+  "license": "UNLICENSED"
 }

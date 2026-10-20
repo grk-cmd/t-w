@@ -16,7 +16,7 @@
 - 목록 · 폼 중심 화면은 웹 관리자(React)에 둔다. 앱에 그런 화면이 크게 새로 생기면 그때 그 부분만 다시 따진다.
 
 ## 단계 (0.11.4 뒤 시작)
-1. **빌드는 그대로, 검사만** — `.js` 는 그대로 두고 CI 에 `tsc --noEmit --allowJs --checkJs` 를 더한다. 선언 파일 하나(`app/types/globals.d.ts`)에 `window.TwXxx` · `window.companion`(preload) · 공용 전역을 적는다.
+1. **빌드는 그대로, 검사만** — `.js` 는 그대로 두고 CI 에 `tsc --noEmit --allowJs --checkJs` 를 더한다. 선언 파일 하나(`apps/desktop/app/types/globals.d.ts`)에 `window.TwXxx` · `window.companion`(preload) · 공용 전역을 적는다.
 2. **파일마다 켜기** — 새 모듈 · 떼어 낸 모듈부터 맨 위에 `// @ts-check`. `createXxx(deps)` 의 `deps` 모양은 JSDoc 으로. app.js 는 마지막.
 3. **손 검사 걷기** — tsc 가 대신하는 만큼 `sim-global-names` · `sim-typeof-guards` 같은 이름 검사를 줄인다(걷기 전에 같은 고장을 tsc 가 빨강으로 잡는지 일부러 깨 보고 확인).
 4. **`.ts` 파일과 빌드** — 서버 API 타입을 같이 쓰는 등 필요가 생기면 빌드 단계(esbuild 또는 tsc)를 넣고 `.ts` 로 바꾼다. 1~3 을 해 두면 이름 바꾸기에 가깝다. 이때 CSP · Electron 패키징 · 원본을 읽는 검사들의 경로를 같이 본다.

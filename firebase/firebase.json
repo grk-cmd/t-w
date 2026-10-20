@@ -19,7 +19,7 @@
   "hosting": [{
     "target": "main",
     "public": "hosting",
-    "predeploy": ["npm --prefix web-admin ci", "npm --prefix web-admin run build"],
+    "predeploy": ["npm --prefix ../apps/admin ci", "npm --prefix ../apps/admin run build"],
     "ignore": ["firebase.json", "README.md", "**/.*", "**/node_modules/**", "help/**"],
     "cleanUrls": true,
     "redirects": [

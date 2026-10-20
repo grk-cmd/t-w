@@ -59,6 +59,10 @@ jobs:
         arch: [arm64, x64]
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: false
+    # 앱은 apps/desktop(#431) — npm · electron-builder · dist/ 는 그 폴더 기준. upload-artifact 의 path 는 저장소 기준이라 따로 적는다.
+    defaults:
+      run:
+        working-directory: apps/desktop
 
     steps:
       - uses: actions/checkout@v4
@@ -144,8 +148,8 @@ jobs:
         with:
           name: mac-${{ matrix.arch }}
           path: |
-            dist/*.dmg
-            dist/*.zip
+            apps/desktop/dist/*.dmg
+            apps/desktop/dist/*.zip
           if-no-files-found: warn
 
   # ═══ 🏷️ keycheck — mac 판정 키(번들 id)가 진짜 맥에서 서는가 ═══════════════
@@ -180,4 +184,4 @@ jobs:
           node -v
 
       - name: 판정 키 검증  ★ handoff-mac-runtime.md §7-①
-        run: node checks/tools/mac-bundleid-probe.js
+        run: node checks/tools/mac-bundleid-probe.js apps/desktop   # 앱 폴더(#431) — 첫 인자가 원본 자리

@@ -1,0 +1,104 @@
+{
+  "name": "together-working",
+  "version": "0.11.3",
+  "description": "책상 위에 사는 데스크톱 컴패니언",
+  "main": "main.js",
+  "scripts": {
+    "postinstall": "node scripts/patch-nwm.js",
+    "start": "electron .",
+    "start:dev": "electron . --tw-firebase=dev",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "release": "electron-builder --publish always"
+  },
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "electron": "^44.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.7",
+    "koffi": "^3.3.3",
+    "node-window-manager": "^2.2.4",
+    "uiohook-napi": "^1.5.2"
+  },
+  "build": {
+    "appId": "com.togetherworking.app",
+    "productName": "Together Working",
+    "asar": true,
+    "files": [
+      "main.js",
+      "preload.js",
+      "overlay-win.js",
+      "overlay-mac.js",
+      "sysinput-win.js",
+      "sysinput-mac.js",
+      "hover-poke.js",
+      "devtools-gate.js",
+      "oauth-config.js",
+      "app/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/uiohook-napi/**/*",
+      "node_modules/node-window-manager/**/*",
+      "node_modules/koffi/**/*",
+      "node_modules/@koromix/**/*",
+      "**/*.node"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "grk-cmd",
+        "repo": "t-w"
+      }
+    ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "${productName}-Setup-${version}.exe"
+    }
+  }
+}

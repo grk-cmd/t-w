@@ -1,5 +1,5 @@
 # ═══ ▶️ release-start — Actions 탭의 [Run workflow] 버튼 하나로 릴리스 시작 ═══════════════════
-# 사람이 하던 «git pull → npm run check → npm version … → git push --follow-tags» 를 대신한다.
+# 사람이 하던 «git pull → npm run check → npm run version:bump … → git push --follow-tags» 를 대신한다.
 #   ① 최신 main 받기 → ② 검사(빨강이면 멈춤) → ③ 버전 올림 커밋 + 태그 push(베타는 태그만) → ④ release.yml 을 그 태그로 실행
 #   그 뒤(Windows · Mac 빌드 · 설치 파일 검사 · 공개)는 release.yml 이 한다. «초안으로 대기» 를 고르면 공개만 사람이 누른다.
 # ★ ② 는 main 의 그 커밋에 checks.yml 이 이미 초록으로 끝났으면 건너뛴다 — 같은 커밋 · 같은 검사라 결과가 같다.
@@ -97,24 +97,25 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # 앱 버전은 apps/desktop/package.json(#431) — 숫자 · «chore: <버전>» 커밋 · 주석 태그는 scripts/bump-version.js 한 곳에서(사람 손도 같은 도구).
           case "$KIND" in
             patch|minor)
               # 정식: main 에 버전 커밋 + 태그. 지금이 베타 번호면(옛 방식) 꼬리만 뗀다 — 0.10.2-beta.1 → 0.10.2.
-              npm version "$KIND" -m "chore: %s"
-              TAG="v$(node -p "require('./package.json').version")"
+              node scripts/bump-version.js "$KIND"
+              TAG="v$(node -p "require('./apps/desktop/package.json').version")"
               git push origin HEAD:main --follow-tags
               ;;
             beta)
               # 베타: main 에는 올리지 않고 태그만 — 버전 커밋은 태그에만 매달린다(main 기록 · 버전은 정식 번호 그대로).
               # 번호는 «다음 정식 번호 -beta.N», N 은 이미 있는 베타 태그 다음. main 이 0.10.2 면 0.10.3-beta.0 → .1 → …
-              CUR=$(node -p "require('./package.json').version")
+              CUR=$(node -p "require('./apps/desktop/package.json').version")
               case "$CUR" in
                 *-*) BASE="${CUR%%-*}" ;;
                 *)   BASE=$(node -p "const [a,b,c]=process.argv[1].split('.').map(Number); [a,b,c+1].join('.')" "$CUR") ;;
               esac
               LAST=$(git tag -l "v$BASE-beta.*" | sed -E 's/.*-beta\.([0-9]+)$/\1/' | sort -n | tail -n 1)
               N=$(( ${LAST:--1} + 1 ))
-              npm version "$BASE-beta.$N" -m "chore: %s"
+              node scripts/bump-version.js "$BASE-beta.$N"
               TAG="v$BASE-beta.$N"
               git push origin "$TAG"
               ;;

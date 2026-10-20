@@ -13,7 +13,7 @@ model: opus
 - `git diff origin/<base>...HEAD` 로 바뀐 곳을 읽는다.
 
 ## 보는 것
-1. **돌려 보기**: 바뀐 곳에 해당하는 검사만 — `node checks/run.js <sim 이름>`(바뀐 모듈의 sim · 고친 sim), 웹 관리자를 바꿨으면 `npm --prefix web-admin run lint` · `npm run admin:test`, functions 면 그 검사. 전체 `npm run check` 는 CI 가 돈다. 실패면 그 출력이 곧 «고칠 것».
+1. **돌려 보기**: 바뀐 곳에 해당하는 검사만 — `node checks/run.js <sim 이름>`(바뀐 모듈의 sim · 고친 sim), 웹 관리자를 바꿨으면 `npm --prefix apps/admin run lint` · `npm run admin:test`, functions 면 그 검사. 전체 `npm run check` 는 CI 가 돈다. 실패면 그 출력이 곧 «고칠 것».
 2. **로직**: 의도한 경우마다 코드가 실제로 그렇게 가는지 따라간다 — 로그인 안 함 · 익명 · 계정 전환 · 오프라인 · 서버 503(→ Firebase 로 넘어가는가) · 빈 목록과 «못 불러옴» 구분 · 구독 해제 · 창을 닫았다 다시 열 때 · 옛 앱과 섞여 쓸 때 · 상한 · 0.
 3. **검사가 지키는가**: sim 이 함수를 실제로 불러 입력 → 출력 · 경계값 · «깨 보기» 를 보나. 핵심 경로에 검사가 없거나 글자 찾기 정규식 판정이면 걸린다(무엇을 시험할지 적는다).
 4. **계약**: Firebase 규칙을 바꿨으면 앱 · functions · 웹 관리자가 실제로 쓰는 payload 모양으로 통과 · 거절을 확인(규칙 검사 sim · 에뮬레이터). 서버 API 를 부르면 경로 · 본문 · 오류 코드가 맞는가(서버 저장소를 볼 수 없으면 PR 본문 «서버 작업 필요» 칸과 대조).

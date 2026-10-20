@@ -115,7 +115,7 @@
 $ pwd
 /Users/hong/Documents/t-w
 $ ls
-README.md   app   checks   docs   main.js   package.json ...
+README.md   app   checks   docs   apps/desktop/main.js   package.json ...
 ```
 
 ### 2.3 터미널 사용 팁
@@ -442,7 +442,7 @@ VS Code에서는 이렇게 보입니다.
 앱 버전 올림은 보통 개발자가 하지만, 맡게 되면 터미널에서 이 순서만 씁니다. `main` 에서 바로 합니다.
 
 ```bash
-npm version patch -m "chore: %s"
+npm run version:bump -- patch
 git push --follow-tags
 ```
 

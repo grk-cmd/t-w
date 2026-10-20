@@ -7,7 +7,7 @@
 
 ## 한눈에 보기
 
-**0. 내보내기 전 한 장 보기**: `python3 .claude/hooks/risk.py --release release/X.Y.Z` — 그 판에 머지된 PR 중 위험도 높았던 것(규칙 · 데이터 경로 · 서버 · 빌드 · main.js · 새 모듈 …)과 이유. PR 은 머지 때 승인을 받지 않으니(가드 자리를 바꾸는 하네스 PR 만 받는다), 승인자가 여기서 한 번 보고 내보낸다(이상하면 그 PR 을 열어 보고 고친 뒤에).
+**0. 내보내기 전 한 장 보기**: `python3 .claude/hooks/risk.py --release release/X.Y.Z` — 그 판에 머지된 PR 중 위험도 높았던 것(규칙 · 데이터 경로 · 서버 · 빌드 · apps/desktop/main.js · 새 모듈 …)과 이유. PR 은 머지 때 승인을 받지 않으니(가드 자리를 바꾸는 하네스 PR 만 받는다), 승인자가 여기서 한 번 보고 내보낸다(이상하면 그 PR 을 열어 보고 고친 뒤에).
 
 **버튼으로 (추천)**: GitHub → **Actions** → 왼쪽 **release-start** → **Run workflow** → 버전 종류(`patch` · `minor` · `beta`)와 공개 방식 고르기 → **Run workflow**.
 검사 · 버전 올리기 · 태그 · 빌드 · 설치 파일 검사 · **공개까지 자동**입니다. 10분쯤 뒤 Releases 에 올라옵니다(아래 5번).
@@ -24,7 +24,7 @@
 ```bash
 git pull --rebase                  # 1. 최신 받기
 npm run check                      # 2. 검사 (마지막 줄 «빨강 0» 확인)
-npm version patch -m "chore: %s"   # 3. 버전 올리기 (숫자 수정 + 커밋 + 태그)
+npm run version:bump -- patch   # 3. 버전 올리기 (숫자 수정 + 커밋 + 태그)
 git push --follow-tags             # 4. 올리기 → 자동 빌드 시작
 ```
 5. 10~15분 뒤 검사를 모두 통과하면 GitHub **Releases**에 **자동으로 공개**됩니다. 하나라도 빨강이면 초안으로 남고 사용자에게 가지 않습니다.
@@ -41,21 +41,21 @@ git push --follow-tags             # 4. 올리기 → 자동 빌드 시작
 
 | 명령 | 결과 | 언제 고르나 |
 |---|---|---|
-| `npm version patch -m "chore: %s"` | **0.10.2** | 버그 수정, 작은 개선, 비용 최적화 |
-| `npm version minor -m "chore: %s"` | **0.11.0** | 새 기능 추가 |
-| `npm version major -m "chore: %s"` | **1.0.0** | 큰 변경, 옛 버전과 데이터·규칙 호환이 깨질 때 |
-| `npm version 0.12.0 -m "chore: %s"` | **0.12.0** | 원하는 번호를 직접 지정 |
+| `npm run version:bump -- patch` | **0.10.2** | 버그 수정, 작은 개선, 비용 최적화 |
+| `npm run version:bump -- minor` | **0.11.0** | 새 기능 추가 |
+| `npm run version:bump -- major` | **1.0.0** | 큰 변경, 옛 버전과 데이터·규칙 호환이 깨질 때 |
+| `npm run version:bump -- 0.12.0` | **0.12.0** | 원하는 번호를 직접 지정 |
 
 - 애매하면 **`patch`**를 고르면 됩니다.
 - `-m "chore: %s"`는 커밋 메시지 형식입니다. `%s`가 버전 번호로 바뀌어 `chore: 0.10.2`가 됩니다.
 
 ---
 
-## 2. `npm version`이 하는 일
+## 2. `npm run version:bump`이 하는 일
 
 명령 한 줄이 아래를 **한 번에** 합니다.
 
-1. `package.json`과 `package-lock.json`의 `version`을 새 번호로 고칩니다.
+1. 앱의 `apps/desktop/package.json`과 `package-lock.json`의 `version`을 새 번호로 고칩니다.
 2. 그 두 파일로 **커밋**을 만듭니다: `chore: 0.10.2`
 3. 그 커밋에 **태그**를 붙입니다: `v0.10.2`
 
@@ -87,7 +87,7 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 
 | 단계 | 내용 | 실패하면 |
 |---|---|---|
-| 버전 확인 | 태그와 `package.json` 버전이 같은가 | `npm version`을 안 쓰고 태그만 달았을 때 |
+| 버전 확인 | 태그와 `apps/desktop/package.json` 버전이 같은가 | `npm run version:bump`을 안 쓰고 태그만 달았을 때 |
 | | 마지막 공개 릴리스보다 **높은가** (같아도 막음) | 이미 나간 번호를 또 쓰려 할 때 |
 | Windows 빌드 | exe, `.blockmap`, `latest.yml` | |
 | Mac 빌드 | dmg × 2 (arm64, x64) | |
@@ -130,7 +130,7 @@ GitHub → **Actions** → **release**에서 진행 상황을 볼 수 있습니�
 정식 배포 전에 내부에서 먼저 써 볼 때 씁니다. 버전에 `-beta.N` 꼬리를 붙이면 됩니다.
 
 ```bash
-npm version prerelease --preid=beta -m "chore: %s"   # 0.10.1 → 0.10.2-beta.0 (다시 하면 -beta.1, -beta.2 …)
+npm run version:bump -- prerelease --preid=beta   # 0.10.1 → 0.10.2-beta.0 (다시 하면 -beta.1, -beta.2 …)
 git push --follow-tags
 ```
 
@@ -144,7 +144,7 @@ git push --follow-tags
 
 - 테스트 빌드도 **운영 데이터를 씁니다**(10-17 바뀜). 시험하는 동작이 실제 사용자 데이터에 남으니, 큰 변경은 미리 설정(`config/`) 백업을 받아 두세요. dev Firebase 는 아래 «내 PC에서 dev로 실행» 에서만 씁니다.
 - **내 PC에서 dev로 실행**: `npm run start:dev` (설치본에는 영향 없음)
-- 테스트가 끝나면 `npm version patch`로 정식 버전을 냅니다(`0.10.2-beta.N` → `0.10.2`).
+- 테스트가 끝나면 `npm run version:bump -- patch`로 정식 버전을 냅니다(`0.10.2-beta.N` → `0.10.2`).
 - dev 서버에서 **안 되는 기능**: 비밀번호 변경(Cloud Functions 없음), 폰 연결 QR(운영 호스팅 주소 고정). 구글 로그인은 dev 콘솔에서 허용 설정을 해야 됩니다.
 - dev DB는 운영과 **데이터가 분리**돼 있습니다. 계정도 따로 가입해야 하고, 카탈로그(파츠·책상·아이템)는 운영에서 복사해 둬야 보입니다.
 
@@ -154,7 +154,7 @@ git push --follow-tags
 
 | 상황 | 해결 |
 |---|---|
-| `npm version`이 `Git working directory not clean`으로 거부 | `git status`로 확인 → 커밋하거나 정리한 뒤 다시 실행 |
+| `npm run version:bump`이 `Git working directory not clean`으로 거부 | `git status`로 확인 → 커밋하거나 정리한 뒤 다시 실행 |
 | push가 `rejected` | 원격에 새 커밋이 있음 → `git pull --rebase` → `git push --follow-tags` |
 | 빌드가 중간에 실패 | 원인을 고친 뒤 Actions → release → **Run workflow** → 태그(예: `v0.10.2`) 입력해서 다시 빌드 |
 | 태그를 잘못 만들었다 (push 전) | `git tag -d v0.10.2` 후 `git reset --hard HEAD~1`로 버전 커밋 취소 |
@@ -165,6 +165,6 @@ git push --follow-tags
 
 ## 7. 하지 않는 것
 
-- **`package.json`의 `version`을 손으로 고치지 않습니다.** 항상 `npm version`을 씁니다.
+- **`apps/desktop/package.json`의 `version`을 손으로 고치지 않습니다.** 항상 `npm run version:bump`을 씁니다(`scripts/bump-version.js`).
 - **개발자 PC에서 `npm run release`를 쓰지 않습니다.** 같은 버전 초안에 파일이 섞이고 버전이 어긋날 수 있습니다. 빌드는 `release.yml`이 합니다.
 - 공개된 릴리스의 파일을 바꾸거나 태그를 옮기지 않습니다.

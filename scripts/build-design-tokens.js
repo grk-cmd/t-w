@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* ═══ scripts/build-design-tokens.js — 디자인 시스템 토큰(docs/design-system/project/tokens.json)을 css 로 ═══
-   만드는 것: hosting/help/tokens.css — 도움말 사이트(help.together-working.com) 페이지가 싣는 색 · 간격.
+   만드는 것: firebase/hosting/help/tokens.css — 도움말 사이트(help.together-working.com) 페이지가 싣는 색 · 간격.
    ⚠️ 디자인 시스템 웹 페이지는 만들지 않는다 — hosting/ 아래에 두면 관리자 사이트(main)로 배포된다. 원본 docs/design-system/ 은 화면 규칙 문서로만 쓴다.
    같은 입력이면 늘 같은 출력 — 시각 · 난수를 넣지 않는다(sim-design-tokens.js 가 커밋된 파일과 비교한다).
 
@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const OUT = 'hosting/help/tokens.css';
+const OUT = 'firebase/hosting/help/tokens.css';
 const SRC = 'docs/design-system/project/tokens.json';
 const THEMES = [
   { id: 'light', label: '낮' },

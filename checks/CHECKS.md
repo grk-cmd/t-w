@@ -52,7 +52,12 @@
 그리고 둘 다 **평평한 폴더**를 가정한다. `sim-overlay-gap.js:254` 는 `__dirname/app.js`,
 `sim-pl-loop.js:31` 은 `app.js` · `main.js` · `preload.js` 를 한 폴더에서 찾는다.
 `sim-sysinput.js` 도 `HERE = __dirname` 으로 `main.js` · `sysinput-win.js` 를 나란히 찾는다.
-지금 저장소는 `main.js` 가 루트, 렌더러가 `app/` 아래다 — **맞지 않는다.**
+저장소는 그 모양이 아니다(앱 `apps/desktop/` · 렌더러 `apps/desktop/app/` · 규칙 · 함수 · Hosting `firebase/`) — **맞지 않는다.**
+
+⇒ 그래서 러너(`run.js`)가 임시 폴더에 **옮기기 전 평면 모양**(루트 = 앱 · `app.js` 같은 층 · `functions/` · `hosting/` · 규칙 파일)을 다시 조립해서 돌린다. 지킬 것:
+- 검사는 `node checks/run.js <이름>` 으로만 돌린다. 저장소에서 `node checks/sim-x.js` 를 바로 치면 원본을 못 찾는다.
+- 새 검사도 **옛 평면 경로**로 원본을 읽는다(`app.js` · `main.js` · `functions/x.js` · `hosting/help/x`). `apps/desktop/…` · `firebase/…` 로 읽으면 스테이징에 그 자리가 없어 «원본 없음» 이다.
+- typescript 파서를 쓰는 검사는 루트 `node_modules` 의 typescript 를 쓴다(루트 `package.json` devDependencies).
 
 ⇒ `checks/` 하위로 그냥 넣으면 `__dirname` 쪽 10개가 원본을 못 찾는다. 루트에 쏟으면
 53개가 루트에 깔리고 `app.js` 는 여전히 `app/` 에 있다. **파일을 옮기는 것만으로는 안 된다.**
@@ -80,6 +85,7 @@
 | **sim-bug-board.js** | 384 | **7edc054fab9a** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
+| **sim-bump-version.js** | 108 | **9c635d7b9caa** |
 | **sim-chat-history.js** | 244 | **530050435065** |
 | **sim-gamepad-activity.js** | 131 | **320f86854007** |
 | **sim-mallang-hide.js** | 122 | **1250ce12a494** |
@@ -428,7 +434,7 @@
 해시만 여기 적는다. 검사 개수(54)에는 안 넣는다.
 
 ```
-run.js                         543줄   660499baebc6   ← 2026-10-14 flattenApp — app/ 하위 폴더 .js 도 평면에 · vendor 뺌 (개정 187) · 2026-10-04 SKIP 에 .claude (워크트리 사본) · web-admin (자체 vitest) · 2026-09-22 SKIP 에 functions (개정 44)
+run.js                         574줄   336f6f5e1b55   ← apps/desktop · firebase 로 옮긴 원본을 옛 평면 모양으로 되살려 스테이징
 tools/trapscan.js              267줄   71a7d91b4979
 tools/mac-bundleid-probe.js    415줄   cb30d59cf85a   ← 2026-09-30 6절에 `.app` 폴더 경로 · 옛 규칙 (개정 75)
 CHECKS.md           (이 파일 · 자기 해시는 안 적는다)

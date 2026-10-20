@@ -45,15 +45,15 @@ WAIT_SEC, WAIT_EVERY = 3600, 30
 
 # 이 파일을 바꾸면 늘 높음
 RISKY_FILES = [
-    (re.compile(r'^firebase-database-rules\.json$|^storage\.rules$|^firebase\.json$'), 'Firebase 규칙 · 설정'),
-    (re.compile(r'^app/parts/firebase-init\.js$'), 'firebase-init.js(DB 경로)'),
-    (re.compile(r'^app/parts/shared/(data-gateway|api-client|source-switch|remote-config)\.js$'), '서버 · 데이터 통로'),
-    (re.compile(r'^functions/'), 'Cloud Functions'),
-    (re.compile(r'^(main|preload)\.js$|^overlay-|^sysinput-'), 'Electron 메인 · IPC · 플랫폼'),
-    (re.compile(r'^package(-lock)?\.json$|^web-admin/package(-lock)?\.json$'), '의존성 · 빌드 설정'),
+    (re.compile(r'^firebase/(firebase-database-rules\.json|storage\.rules|firebase\.json|\.firebaserc)$'), 'Firebase 규칙 · 설정'),
+    (re.compile(r'^apps/desktop/app/parts/firebase-init\.js$'), 'firebase-init.js(DB 경로)'),
+    (re.compile(r'^apps/desktop/app/parts/shared/(data-gateway|api-client|source-switch|remote-config)\.js$'), '서버 · 데이터 통로'),
+    (re.compile(r'^firebase/functions/'), 'Cloud Functions'),
+    (re.compile(r'^apps/desktop/((main|preload)\.js$|overlay-|sysinput-)'), 'Electron 메인 · IPC · 플랫폼'),
+    (re.compile(r'^((apps/[^/]+|packages/[^/]+)/)?package(-lock)?\.json$'), '의존성 · 빌드 설정'),
     (re.compile(r'^\.github/workflows/'), 'CI · 릴리스 워크플로'),
     (re.compile(r'^\.claude/'), '하네스 자체'),
-    (re.compile(r'^web-admin/src/.*(firebase|db|api)', re.I), '웹 관리자 데이터 접근'),
+    (re.compile(r'^apps/admin/src/.*(firebase|db|api)', re.I), '웹 관리자 데이터 접근'),
 ]
 # 더한 줄에 이것이 있으면 높음(데이터 경로가 새로 생기거나 바뀜)
 RISKY_LINES = [
@@ -93,9 +93,9 @@ def assess(pr):
         for rx, why in RISKY_FILES:
             if rx.search(name):
                 reasons.add(f'{why}: {name}')
-        if f.get('status') == 'added' and name.startswith('app/parts/') and name.endswith('.js'):
+        if f.get('status') == 'added' and name.startswith('apps/desktop/app/parts/') and name.endswith('.js'):
             reasons.add(f'새 모듈: {name}')
-        if name.startswith(('checks/', 'web-admin/tests/', 'docs/')):  # 검사 · 문서의 가짜 호출은 데이터 경로가 아니다
+        if name.startswith(('checks/', 'apps/admin/tests/', 'docs/')):  # 검사 · 문서의 가짜 호출은 데이터 경로가 아니다
             continue
         for line in (f.get('patch') or '').splitlines():
             if not line.startswith('+') or line.startswith('+++'):
