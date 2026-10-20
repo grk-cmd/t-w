@@ -8117,6 +8117,7 @@ const faceHealMod = TwFaceHeal.createFaceHeal({
 /* 본문은 code-crypto.js 로 옮겼다(앱 FSD 45번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const codeCryptoMod = TwCodeCrypto.createCodeCrypto({
+  charCore: TwCharCore,
   charDef: (...a)=>charDef(...a),
   loadImg: (...a)=>loadImg(...a),
   newCanvas: (...a)=>newCanvas(...a),

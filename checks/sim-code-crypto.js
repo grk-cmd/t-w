@@ -4,6 +4,8 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_b64 · _deriveKey · _unb64 · decryptCode · encryptCode)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 3줄 그대로 · 부르는 곳은 codeCryptoMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・4절: 진짜 코어(vendor/char-core 빌드 사본)로 만들고 되살려 본다 — 그림 주소 → 캔버스 · 커미션 이름 · 동물 그림만 줄이기 · format 오류
+     (DCC1 칸 · 옛 코드 읽기 호환은 코어 시험 packages/char-core/tests/clone-code.test.ts 가 옛 앱 표본으로 본다)
    [실행] app.js · desk-companion-prototype.html · code-crypto.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -18,12 +20,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — code-crypto.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["charDef","loadImg","newCanvas"];
-const VAL_DEPS = [];
+const VAL_DEPS = ["charCore"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["_b64","_deriveKey","_unb64","decryptCode","encryptCode"];
 const MOVED = ["_b64","_unb64","_deriveKey","CODE_TEX_SIZE","_shrinkDataUrl","encryptCode","decryptCode"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  charDef: (...a)=>charDef(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),"];
+const GLUE = ["  charCore: TwCharCore,","  charDef: (...a)=>charDef(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -92,5 +94,48 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
-process.exit(fail ? 1 : 0);
+
+say('── 4. 진짜 코어로 만들고 되살린다');
+const CORE = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js', 'apps/desktop/app/vendor/char-core/char-core.iife.js'].map(read).find(Boolean);
+if(!CORE){ say('  ? 원본 못 찾음 — vendor/char-core/char-core.iife.js'); process.exit(2); }
+async function live(mod){
+  const g = {}; new Function('self', CORE + '\n;self.TwCharCore = TwCharCore;')(g);
+  const win = {};
+  new Function('window', 'document', 'module', mod)(win, { createElement: () => { throw new Error('줄이기 실패 시험'); } }, undefined);
+  const shrunk = [];
+  const loadImg = async (u) => { shrunk.push(u); return { src: u }; };
+  const newCanvas = () => { const c = { drawn: null }; c.getContext = () => ({ drawImage: (im) => { c.drawn = im.src; } }); return c; };
+  const m = win.TwCodeCrypto.createCodeCrypto({ charCore: g.TwCharCore, charDef: (skin, face, blink, top, bot) => ({ type: 'creator', skin, face, blink, top, bot }), loadImg, newCanvas });
+  const cv = (u) => ({ toDataURL: () => u });
+  const r = {};
+  const human = await m.decryptCode(await m.encryptCode({ skin: 2, face: cv('data:F'), blink: cv('data:B'), top: 't', bot: 'b', deskGlb: 'G', isCommission: true, commName: '' }, 'pw'), 'pw');
+  r.canvas = human.face.drawn === 'data:F' && human.blink.drawn === 'data:B' && human.skin === 2 && human.type === 'creator';
+  r.comm = human.isCommission === true && human.commName === '커미션' && human.deskGlb === 'G';
+  shrunk.length = 0;
+  await m.encryptCode({ face: cv('data:F'), blink: cv('data:B'), animal: true, animalBody: 'data:A', animalEarPaintL: 'https://u' }, 'pw');
+  r.shrink = shrunk.length === 1 && shrunk[0] === 'data:A';      // dataURL 동물 그림만 줄이러 간다 · 얼굴 · 깜빡임 · 주소는 안 간다
+  try{ await m.decryptCode('DCK1.desk.AAAA', 'pw'); r.format = false; }catch(e){ r.format = e.message === 'format'; }
+  r.helpers = m._unb64(m._b64(new Uint8Array([0, 255, 7]).buffer)).join() === '0,255,7';
+  return r;
+}
+const okLive = (r) => r.canvas && r.comm && r.shrink && r.format && r.helpers;
+(async () => {
+  let r; try{ r = await live(MOD); }catch(e){ r = { err: e }; }
+  if(r.err) say('  · 던진 것: ' + String(r.err && r.err.message || r.err).slice(0, 120));
+  chk(r.canvas, '되살린 얼굴 · 깜빡임은 코드에 실린 그림을 그린 캔버스다');
+  chk(r.comm, '커미션 이름이 비면 «커미션» · 책상 칸은 그대로 돌아온다');
+  chk(r.shrink, '동물 그림 중 dataURL 만 줄이러 간다(얼굴 · 깜빡임 · 주소는 안 줄인다)');
+  chk(r.format, 'DCC1 이 아니면 format 오류(char-code.js 가 이 글로 안내를 가른다)');
+  chk(r.helpers, '_b64 · _unb64 가 바이트를 그대로 오간다(DCK1 · 커미션 코드가 쓴다)');
+  for(const [name, f] of [
+    ['커미션 이름 채우기 빠짐', m => m.replace("if(_d.isCommission && !_d.commName) _d.commName='커미션';", '')],
+    ['줄이기를 안 넘김', m => m.replace('{ shrinkDataUrl: _shrinkDataUrl }', '{ shrinkDataUrl: async (u)=>u||null }')],
+    ['얼굴을 주소 그대로 둠', m => m.replace('Object.assign(charDef(skin,fc,bc,top,bot),rest)', 'Object.assign(charDef(skin,_f,_b,top,bot),rest)')],
+  ]){
+    const m2 = f(MOD);
+    let r2; try{ r2 = await live(m2); }catch(_){ r2 = {}; }
+    chk(m2 !== MOD && !okLive(r2), name + ' → 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  }
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+})();

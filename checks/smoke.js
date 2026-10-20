@@ -294,7 +294,8 @@ g.scrollTo = () => {}; g.getSelection = () => ({ toString: () => '', removeAllRa
   if (!htmlPath) return;
   const html = fs.readFileSync(htmlPath, 'utf8').replace(/<!--[\s\S]*?-->/g, '');
   /* app.js **보다 먼저** 실리는 파일만 — 진짜 앱에서도 app.js 를 싣는 순간 뒤 파일의 이름은 아직 없다 */
-  const all = [...html.matchAll(/<script\b([^>]*)\bsrc="parts\/([^"]+\.js)"/g)].filter(m => !/type="module"/.test(m[1])).map(m => m[2]);
+  /* vendor/char-core/ 는 우리 코어 빌드 사본이라 같이 싣는다(three 같은 바깥 라이브러리는 스텁이 맡는다) */
+  const all = [...html.matchAll(/<script\b([^>]*)\bsrc="(?:parts\/([^"]+\.js)|(vendor\/char-core\/[^"]+\.js))"/g)].filter(m => !/type="module"/.test(m[1])).map(m => m[2] || m[3]);
   const iApp = all.findIndex(s => /(^|\/)app\.js$/.test(s));
   const srcs = all.slice(0, iApp < 0 ? 0 : iApp);
   /* app.js 가 아직 «typeof 이름 === 'undefined' 면 빈 껍데기» 로 받는 모듈은 싣지 않는다 — 실으면 검사마다 따로 다루던 그 갈래가 바뀐다 */
@@ -651,8 +652,6 @@ PRELOAD.push('seat-eq-clamp.js');
 PRELOAD.push('desk-place.js');
 /* body-measure.js — 캐릭터 몸 박스 재기 한 규칙. app.js 가 맨 앞(SETUP)에서 createBodyMeasure 로 만든다. */
 PRELOAD.push('body-measure.js');
-/* char-core.iife.js — 🧬 캐릭터 코어(window.TwCharCore · packages/char-core 빌드 사본). html 이 three 다음 · app.js 보다 먼저 싣는다 — 지금은 싣기만. */
-PRELOAD.push(path.join('vendor', 'char-core', 'char-core.iife.js'));
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

@@ -289,8 +289,17 @@ say('── 3-e. 저장 · 불러오기 — 껐다 켜도 귀가 남는다 (제�
     '  서버로 올릴 때 dataURL 귀 그림은 뺀다(칸 상한 150KB · 방 전송과 같은 규칙)');
   chk(/\['earL','earR','earAdj','earPicL','earPicR'\]\.forEach\(k=>\{ if\(currentCreatorDef\[k\]!=null\) def\[k\]=currentCreatorDef\[k\]; \}\);/.test(APP),
     '  생성기 [완료] 가 귀를 이어받는다(꾸미기 파츠와 같은 이유)');
-  chk(/earL:def\.earL\|\|null,earR:def\.earR\|\|null,earAdj:def\.earAdj\|\|null,/.test(APP) && /if\(!o\.animal\)\{ if\(o\.earL\)_d\.earL=o\.earL;/.test(APP),
-    '  캐릭터 코드 내보내기 · 가져오기에도 귀');
+  /* 캐릭터 코드(DCC1)의 칸 싣기 · 되살리기는 캐릭터 코어로 옮겼다(#433) — 빌드 사본을 돌려 본다. 내보내기 쪽 귀 칸은 코어 시험(clone-code.test.ts)이 본다. */
+  const CORE = ['vendor/char-core/char-core.iife.js', 'app/vendor/char-core/char-core.iife.js'].map(read).find(Boolean);
+  let earBack = false;
+  if(CORE){
+    const g = {}; new Function('self', CORE + '\n;self.C = TwCharCore;')(g);
+    const ears = { earL: 'cat', earR: 'fox', earAdj: { L: { s: 1.2 } }, earPicL: 'https://fb/l.png', earPicR: 'https://fb/r.png' };
+    const human = g.C.defFromPayload(Object.assign({ t: 'creator', skin: 1, face: 'F', blink: 'B' }, ears));
+    const animal = g.C.defFromPayload(Object.assign({ t: 'creator', face: 'F', blink: 'B', animal: true }, ears));
+    earBack = Object.keys(ears).every(k => JSON.stringify(human[k]) === JSON.stringify(ears[k])) && !Object.keys(ears).some(k => k in animal);
+  }
+  chk(earBack, '  캐릭터 코드 가져오기에도 귀(동물이면 사람 귀 칸은 안 되살린다 — 코어 빌드 사본으로 돌려 봄)');
 }
 
 say('── 4. html · smoke');
