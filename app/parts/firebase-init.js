@@ -4305,15 +4305,16 @@
         _sessionRef = ref(db, `users/${userId}/session`);
         try{ await set(_sessionRef, { id: myId, at: serverTimestamp() }); }
         catch(e){ console.warn('[세션] 기기 세션 기록 실패(규칙 미배포?) — 다중 접속 차단 없이 계속', e); _sessionRef = null; return false; }
-        _sessionUnsub = onValue(_sessionRef, snap => {
-          const v = snap.val();
-          if(!v || !v.id || v.id === _sessionId || _sessionLost) return;
+        const lose = (v) => {
+          if(_sessionLost) return;
           _sessionLost = true;
           /* presence 를 놓는다 — 내 onDisconnect 가 남아 있으면 내가 꺼질 때 이긴 쪽을 오프라인으로 만든다. */
           try{ if(_myPresenceRef) onDisconnect(_myPresenceRef).cancel(); }catch(_){}
           _myPresenceRef = null;
           try{ if(typeof onLost === 'function') onLost(v); }catch(_){}
-        });
+        };
+        /* 읽기 거부로 끊김도 밀림 — 같은 계정의 ≤0.10.2 는 presence(ver 없음)를 session 보다 먼저 써서 규칙(옛 앱 읽기 막기)이 이 구독부터 끊는다 */
+        _sessionUnsub = onValue(_sessionRef, snap => { const v = snap.val(); if(v && v.id && v.id !== _sessionId) lose(v); }, () => lose(null));
         return true;
       });
     },

@@ -233,7 +233,7 @@
 | **sim-wheel-kick.js** | 97 | **cdd5b36aa254** |
 | **sim-admin-active.js** | 154 | **015bbc6e3888** |
 | **sim-room-order.js** | 78 | **19449085aa33** |
-| **sim-device-session.js** | 126 | **d448dcf84a07** |
+| **sim-device-session.js** | 144 | **7aaccb53926a** |
 | **sim-deco-parts.js** | 67 | **c017ce7764fc** |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** |
 | **sim-font-hangul.js** | 54 | **1e0479f9fce5** |
@@ -336,7 +336,7 @@
 | **sim-roulette.js** | 96 | **a75ac3bfd7dd** |
 | **sim-floaters.js** | 96 | **63212b22a6cd** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |
-| **sim-device-lost.js** | 96 | **627678a904e2** |
+| **sim-device-lost.js** | 151 | **ddc82c19c666** |
 | **sim-myhome-page.js** | 126 | **b5ca916c06e5** |
 | **sim-myhome-preset.js** | 158 | **931f2c50a7b0** |
 | **sim-inbox-sections.js** | 126 | **1a78a79c79f8** |

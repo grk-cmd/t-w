@@ -80,6 +80,24 @@ say('── 1. firebase-init.js — claim / lost / release 를 실제로 돌린�
   await api.releaseDeviceSession();
   chk(env.txn.length === 1 && env.txn[0][0] === null && env.txn[0][1] === undefined, '★ ④ release: 내 id 면 삭제(null) · 남의 id 면 손 안 댐(undefined=중단)');
   chk(api._peek()._sessionId === null && api._peek()._sessionRef === null, '  release 뒤 상태 초기화');
+  /* ⑤ 구독이 읽기 거부로 끊김 = 밀림 — 같은 계정의 ≤0.10.2 는 presence(ver 없음)를 먼저 쓰고 session 을 쓴다.
+     presence 가 바뀌는 순간 규칙이 이 기기의 구독을 다 끊어 «남의 id» 는 오지 않는다. 깨 보기: 거부 콜백을 빼면 빨강. */
+  const byCancel = async (claimSrc) => {
+    const e = { lostCalls: [], cancels: 0, errs: {} };
+    const a = new Function('e',
+      "let _sessionRef=null,_sessionId=null,_sessionUnsub=null,_sessionLost=false; let _myPresenceRef={p:1};\n" +
+      "const auth={ currentUser:{ uid:'auth1' } }; const _whenAuthReady=()=>Promise.resolve(); const db={}; const ref=(d,p)=>({path:p});\n" +
+      "const serverTimestamp=()=>'ST'; const _svNow=()=>1; const set=async()=>{}; const onValue=(r,cb,err)=>{ e.errs[r.path]=err; return ()=>{}; };\n" +
+      "const onDisconnect=()=>({ cancel(){ e.cancels++; } }); const runTransaction=async()=>{}; const console={warn:()=>{}};\n" +
+      "const o={ " + claimSrc + " }; o._peek=()=>({_sessionLost,_myPresenceRef}); return o;")(e);
+    await a.claimDeviceSession('uA', (v) => e.lostCalls.push(v));
+    const err = e.errs['users/uA/session'];
+    if(typeof err === 'function'){ err(new Error('permission_denied')); err(new Error('permission_denied')); }
+    return e.lostCalls.length === 1 && e.lostCalls[0] === null && e.cancels === 1 && a._peek()._myPresenceRef === null && a._peek()._sessionLost === true;
+  };
+  chk(await byCancel(claim), '★ ⑤ 구독이 읽기 거부로 끊기면 밀려난 것과 같이 — onLost 한 번 · presence onDisconnect 거둠');
+  const noErr = claim.replace(', () => lose(null));', ');');
+  chk(noErr !== claim && !(await byCancel(noErr)), '  깨 보기 — 거부 콜백을 빼면 빨강');
   /* 쓰기 거부(규칙 미배포) */
   const env2 = { sets: [], listeners: {}, cancels: 0, lostCalls: [], user: { uid: 'a' }, txn: [] };
   const api2 = new Function('env', "let _sessionRef=null,_sessionId=null,_sessionUnsub=null,_sessionLost=false; let _myPresenceRef={};\n" +
@@ -100,8 +118,8 @@ say('── 2. app.js — 배선');
   const f = code.slice(code.indexOf('function _onDeviceSessionLost('), code.indexOf('function _deviceSessionContinueHere('));
   chk(/window\._deviceSessionLost = true/.test(f) && /twNav\.go\(twNav\.NAV\.LEAVE_ROOM\)/.test(f) && /^twNav\.on\(twNav\.NAV\.LEAVE_ROOM, doLeaveRoom\);/m.test(SRC) && /deviceSessionOverlay/.test(f) && /display = 'flex'/.test(f), '  밀리면: 표식 · 방 나가기 · 화면');
   chk(!/_loginDoLogout|_detachAccountLocal|_wipeAccountLocal|authSignOut/.test(f), '★ 밀려도 로그아웃·지움은 안 부른다(원격 신호로 검문이 돌면 안 된다)');
+  /* 계속 쓰기(다시 켜기 · 못 하면 재claim · presence)는 sim-device-lost 4절이 실제로 눌러 본다 */
   const g = code.slice(code.indexOf('function _deviceSessionContinueHere('), code.indexOf('let _ownerWriteWarned'));
-  chk(/window\._deviceSessionLost = false/.test(g) && /claimDeviceSession\(myId, _onDeviceSessionLost\)/.test(g) && /setMyPresenceOnline\(myId\)/.test(g), '  계속 쓰기: 표식 해제 · 재claim · presence 재등록');
   chk(/deviceSessionContinue/.test(g) && /deviceSessionQuit/.test(g) && /companion\.quitApp\(\)/.test(g), '  버튼 둘 배선(계속 쓰기 · 앱 닫기)');
   const sr = code.slice(code.indexOf('async function startRoom(code){'), code.indexOf('async function startRoom(code){') + 300);
   chk(/if\(window\._deviceSessionLost\)\{ toast\(/.test(sr) && sr.indexOf('_deviceSessionLost') < sr.indexOf('_ensureRoomVersionOk'), '★ startRoom 첫 줄에서 막는다(생성·참여·초대수락·시크릿룸 공통 길목)');

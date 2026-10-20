@@ -2756,6 +2756,7 @@ function _waitForFirebaseAPI(cb){
 const deviceLostMod = TwDeviceLost.createDeviceLost({
   getMyUserId: (...a)=>getMyUserId(...a),
   twNav: twNav,
+  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
 });
 
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
