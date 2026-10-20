@@ -158,15 +158,22 @@ def risky(name, files, want_high, want_word=''):
         bad += 1
         print(f'  ✗ 위험도 {name}: {r}')
 P = lambda name, *added: {'filename': name, 'status': 'modified', 'patch': '@@ -1 +1 @@\n' + '\n'.join('+' + a for a in added)}
-risky('CSP 줄이 바뀜', [P('app/desk-companion-prototype.html', '<meta http-equiv="Content-Security-Policy" content="frame-src https://help.together-working.com;">')], True, 'CSP')
-risky('web.app 주소를 새로 박음', [P('app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://together-working.web.app';")], True, 'Firebase 기본 주소')
-risky('firebaseapp.com 주소', [P('app/parts/x.js', "fetch2('https://together-working.firebaseapp.com/a')")], True, 'Firebase 기본 주소')
-risky('우리 도메인 주소는 높음 아님', [P('app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://help.together-working.com';")], False)
-risky('글자만 바뀜', [P('app/parts/myhome/scheduler.js', "btn.textContent = '📪 알림함 확인';")], False)
+risky('CSP 줄이 바뀜', [P('apps/desktop/app/desk-companion-prototype.html', '<meta http-equiv="Content-Security-Policy" content="frame-src https://help.together-working.com;">')], True, 'CSP')
+risky('web.app 주소를 새로 박음', [P('apps/desktop/app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://together-working.web.app';")], True, 'Firebase 기본 주소')
+risky('firebaseapp.com 주소', [P('apps/desktop/app/parts/x.js', "fetch2('https://together-working.firebaseapp.com/a')")], True, 'Firebase 기본 주소')
+risky('우리 도메인 주소는 높음 아님', [P('apps/desktop/app/parts/shared/help-site.js', "const HELP_ORIGIN = 'https://help.together-working.com';")], False)
+risky('글자만 바뀜', [P('apps/desktop/app/parts/myhome/scheduler.js', "btn.textContent = '📪 알림함 확인';")], False)
 risky('검사 · 문서의 web.app 은 빼기', [P('checks/sim-x.js', "!S.isHelpUrl('https://together-working.web.app/help/')"), P('docs/RELEASE.md', 'https://together-working.web.app/admin/')], False)
-risky('CSP 소문자(http-equiv 는 대소문자 안 가림)', [P('app/x.html', '<meta http-equiv="content-security-policy" content="frame-src *">')], True, 'CSP')
-risky('정규식 안에 쓴 web.app 주소', [P('app/parts/x.js', r"const RE = /^https:\/\/together-working\.web\.app\//;")], True, 'Firebase 기본 주소')
-risky('지운 줄은 안 봄', [{'filename': 'app/a.js', 'status': 'modified', 'patch': "@@ -1 +1 @@\n-const U = 'https://together-working.web.app';"}], False)
+risky('CSP 소문자(http-equiv 는 대소문자 안 가림)', [P('apps/desktop/app/x.html', '<meta http-equiv="content-security-policy" content="frame-src *">')], True, 'CSP')
+risky('정규식 안에 쓴 web.app 주소', [P('apps/desktop/app/parts/x.js', r"const RE = /^https:\/\/together-working\.web\.app\//;")], True, 'Firebase 기본 주소')
+risky('지운 줄은 안 봄', [{'filename': 'apps/desktop/app/a.js', 'status': 'modified', 'patch': "@@ -1 +1 @@\n-const U = 'https://together-working.web.app';"}], False)
+# 저장소 구조(#431) — 옮긴 자리의 고위험 파일이 그대로 높음으로 잡히는가
+risky('규칙 파일(firebase/)', [P('firebase/firebase-database-rules.json', '{}')], True, 'Firebase 규칙')
+risky('함수(firebase/functions/)', [P('firebase/functions/index.js', 'x')], True, 'Cloud Functions')
+risky('앱 메인(apps/desktop/)', [P('apps/desktop/main.js', 'x')], True, 'Electron 메인')
+risky('앱 의존성(apps/desktop/package.json)', [P('apps/desktop/package.json', 'x')], True, '의존성')
+risky('루트 의존성(package.json)', [P('package.json', 'x')], True, '의존성')
+risky('새 모듈(apps/desktop/app/parts/)', [{'filename': 'apps/desktop/app/parts/x/new.js', 'status': 'added', 'patch': '@@ -0,0 +1 @@\n+x'}], True, '새 모듈')
 risk.api = real_api
 
 # 판 브랜치만 합친 머리 — 앞 커밋의 승인 · 판정을 이어 받는가(PR 자체 변경이 같을 때만)
@@ -261,7 +268,7 @@ for name, fl, base, want in (
         ('컨펌자 지침', [{'filename': '.claude/agents/tw-confirmer.md'}], 'main', True),
         ('/ship 안내서', [{'filename': '.claude/skills/ship/SKILL.md'}], 'main', True),
         ('시험 파일 · 다른 스킬 · 역할 문서만', [{'filename': '.claude/hooks/test_hooks.py'}, {'filename': '.claude/skills/todo/SKILL.md'}, {'filename': '.claude/roles/_공통.md'}], 'main', False),
-        ('앱 · 규칙 · main.js — 높음이어도', [{'filename': 'firebase-database-rules.json'}, {'filename': 'main.js'}], 'release/0.12.0', False)):
+        ('앱 · 규칙 · main.js — 높음이어도', [{'filename': 'firebase/firebase-database-rules.json'}, {'filename': 'apps/desktop/main.js'}], 'release/0.12.0', False)):
     fake(base=base, files=fl)
     got = risk.needs_owner(395)
     if got == want:
@@ -311,7 +318,7 @@ def gate_case(name, fl, approved_comment, want_deny):
     else:
         bad += 1
         print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}')
-gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase-database-rules.json'}], False, False)
+gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase/firebase-database-rules.json'}], False, False)
 gate_case('가드 파일 바꿈 · 승인 없음 → 막음', GUARD, False, True)
 gate_case('가드 파일 바꿈 · 승인 → 통과', GUARD, True, False)
 gate.gate_ok = real_gate_ok
@@ -435,7 +442,7 @@ FACTS = {'notes': [], 'releases': {'0.12.0': {'ahead': 2, 'subjects': ['feat: �
          'status': [{'상태': '작업중', '담당': 'grk', '판': '0.12.0', '브랜치': 'fix/a', '내용': '고침'},
                     {'상태': '작업완료(0.13.0)', '담당': '나', '판': '0.13.0', '브랜치': 'fix/c', '내용': '끝'},
                     {'상태': '검토중', '담당': '오케', '판': 'main', '브랜치': 'harness/b', '내용': '하네스'}],
-         'overlaps': [('0.12.0', '0.13.0', ['app/parts/app.js'])]}
+         'overlaps': [('0.12.0', '0.13.0', ['apps/desktop/app/parts/app.js'])]}
 def boom_gather():
     raise RuntimeError('fetch 실패(시험)')
 STATUS_MD = ('# 현황판\n\n## 진행 중\n\n| 상태 | 판 | 브랜치 |\n|---|---|---|\n| 작업중 | 0.12.0 | fix/a |\n'
@@ -493,7 +500,7 @@ t = rs.build('서버담당', 'startup', 'main', ROLES, boom_gather)
 has('모으기 실패 → 못 불러옴 + 판 질문', t, '서버글', '요약을 못 불러옴', 'fetch 실패(시험)', '어느 버전에 나갈 작업')
 t = rs.render(FACTS)
 has('요약: 판마다 PR · 현황판 · 겹침', t, '### release/0.12.0', '### release/0.13.0', '열린 PR #7', '현황판: 작업중 · grk · fix/a',
-    '현황판: 작업완료(0.13.0)', '열린 PR 없음', '### 판 밖', '열린 PR #8 → main', '현황판: 검토중 · 오케', 'release/0.12.0 ↔ release/0.13.0: app/parts/app.js')
+    '현황판: 작업완료(0.13.0)', '열린 PR 없음', '### 판 밖', '열린 PR #8 → main', '현황판: 검토중 · 오케', 'release/0.12.0 ↔ release/0.13.0: apps/desktop/app/parts/app.js')
 t = rs.render(dict(FACTS, prs=None, notes=['열린 PR 을 못 읽음']))
 has('요약: PR 못 읽음 ≠ 열린 PR 없음', t, '⚠️ 열린 PR 을 못 읽음', absent=('열린 PR 없음', '열린 PR #'))
 t = rs.render({'notes': [], 'releases': {}, 'prs': [], 'status': []})

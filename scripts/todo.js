@@ -14,7 +14,7 @@
    권한: `gcloud auth login` 한 관리자 Google 계정의 토큰(`gcloud auth print-access-token`)으로 REST 를 부른다.
    이 길은 보안 규칙을 거치지 않는다 — 그래서 규칙 adminTodos/$id 가 하던 검사(모양 · rev + 1 · 만든 사람/시각 고정 ·
    서버 시각)를 이 파일이 똑같이 하고, 덮어쓰기는 ETag(if-match)로 «읽은 값 그대로일 때만» 쓴다.
-   모양은 web-admin/src/entities/admin/todo/model/adminTodo.ts 와 같아야 한다. */
+   모양은 apps/admin/src/entities/admin/todo/model/adminTodo.ts 와 같아야 한다. */
 'use strict';
 const fs = require('fs'), path = require('path');
 const { execFileSync } = require('child_process');

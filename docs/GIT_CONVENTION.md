@@ -45,12 +45,12 @@ Refs: <이슈·핸드오프 문서>        ← 선택
 
 | 스코프 | 범위 |
 |---|---|
-| `main` | `main.js`, `preload.js` (메인 프로세스, IPC) |
-| `app` | `app/parts/app.js`, HTML (렌더러) |
+| `main` | `apps/desktop/main.js`, `apps/desktop/preload.js` (메인 프로세스, IPC) |
+| `app` | `apps/desktop/app/parts/app.js`, HTML (렌더러) |
 | `firebase` | `firebase-init.js` (SDK 다리) |
-| `rules` | `firebase-database-rules.json` |
-| `functions` | `functions/` |
-| `hosting` | `hosting/` |
+| `rules` | `firebase/firebase-database-rules.json` |
+| `functions` | `firebase/functions/` |
+| `hosting` | `firebase/hosting/` |
 | `win` / `mac` | 플랫폼 모듈 (`*-win.js`, `*-mac.js`) |
 | `checks` | `checks/` 러너, 도구 |
 | `probe` | `.github/workflows/mac-probe.yml` |
@@ -66,11 +66,11 @@ Refs: <이슈·핸드오프 문서>        ← 선택
 ```
 security(rules): 관리자 기능 때문에 열어 둔 쓰기 5곳 잠금
 
-- firebase-database-rules.json: friendCodes 목록 읽기 → 관리자만
-- firebase-database-rules.json: users/invite · inbox 쓰기 → 주인 또는 관리자
-- firebase-database-rules.json: rooms/$room 통째 삭제 → 관리자만, _photo 청소는 분리
-- firebase-database-rules.json: stats/userCount → +1 만 (임의 값은 관리자)
-- firebase-database-rules.json: licenseRequests → 새 신청만 (승인·거절은 관리자)
+- firebase/firebase-database-rules.json: friendCodes 목록 읽기 → 관리자만
+- firebase/firebase-database-rules.json: users/invite · inbox 쓰기 → 주인 또는 관리자
+- firebase/firebase-database-rules.json: rooms/$room 통째 삭제 → 관리자만, _photo 청소는 분리
+- firebase/firebase-database-rules.json: stats/userCount → +1 만 (임의 값은 관리자)
+- firebase/firebase-database-rules.json: licenseRequests → 새 신청만 (승인·거절은 관리자)
 - checks: sim-admin-rules · sim-google-login · sim-purikura-rules 기대값 갱신, CHECKS.md 해시
 ```
 
@@ -121,7 +121,7 @@ release/0.12.1    ●──●──●── …           ← 다음 판. 앞 
   - **«무엇을»** 은 커밋과 1:1 로 맞춘다 — 커밋에 있는 변경은 빠짐없이, 없는 건 적지 않는다.
   - **버그 제보를 고친 커밋 · PR 은 제목 끝에 `(B-MMDD-n)` 을 붙이고**(여러 건이면 `(B-1009-1 · B-1009-3)`), 본문 «무엇을» 줄 앞에도 같은 번호를 적는다.
     번호는 웹 관리자 🐞 제보에 보이는 **고정 번호**다(서버 함수가 붙이고, 글을 지워도 바뀌거나 다시 쓰이지 않는다). «(임시)» 가 붙은 번호는 아직 고정되지 않은 것이니 쓰지 않는다.
-    예) `fix(app): 채팅 탭 이름 잘림 — 줄임표 (B-1009-1 · B-1009-3)` / 본문 `- B-1009-1 app/parts/chat-tabs.js: …`
+    예) `fix(app): 채팅 탭 이름 잘림 — 줄임표 (B-1009-1 · B-1009-3)` / 본문 `- B-1009-1 apps/desktop/app/parts/chat-tabs.js: …`
   - 예전 방식의 제보 번호(`(#번호)`)를 쓴 옛 커밋은 그대로 둔다 — 그 번호도 커밋 제목의 `(#번호)` 와 본문이 같은 번호를 쓴다.
   - 사용자 입장에서 무엇이 달라지는지 먼저, 코드 설명은 그다음.
   - **맨 위 `할 일:` 줄**에 이 작업의 할 일 id 를 적는다(`node scripts/todo.js start` 로 받은 것 · CLAUDE.md «작업 전 할 일 확인»). 머지되면 `done <id> --release <버전>`. 할 일은 버그 제보 관련만 등록하므로 그 밖의 PR 은 «없음».
@@ -142,7 +142,7 @@ release/0.12.1    ●──●──●── …           ← 다음 판. 앞 
 ## 배포 영향
 - 앱 릴리스 필요: 예 / 아니오
 - 규칙·Functions 배포 필요: 예 / 아니오 (예면 순서 적기)
-## 서버(AWS) 이관 — 규칙(`firebase-database-rules.json`)을 바꿨으면 필수
+## 서버(AWS) 이관 — 규칙(`firebase/firebase-database-rules.json`)을 바꿨으면 필수
 - 바뀐 경로: 예) `rooms/$room/_meta/tabs`, `users/$id/bugSeen`
 - 무엇이 바뀌었나: 새 칸 · 모양(형식 · 길이) · 누가 읽고 쓰나(권한) · 지우기
 - 앱에서 쓰는 곳: 파일 · 함수
@@ -171,7 +171,7 @@ release/0.12.1    ●──●──●── …           ← 다음 판. 앞 
 규칙과 Functions는 **앱 업데이트 없이 즉시 모든 사용자에게 적용**됩니다. 그래서 앱 코드보다 엄격하게 다룹니다.
 
 1. `rules` 또는 `security/rules-*` 브랜치에서 수정합니다.
-2. 수정한 경로를 **앱에서 누가 쓰는지 전부 확인**합니다(`grep`으로 `firebase-init.js`, `app.js`, `purikura-net.js`, `functions/`).
+2. 수정한 경로를 **앱에서 누가 쓰는지 전부 확인**합니다(`grep`으로 `firebase-init.js`, `app.js`, `purikura-net.js`, `firebase/functions/`).
    - 상위 경로의 `.write`가 하위 노드 삭제를 대신 받아 주는 경우가 있습니다. 예: `rooms/$room` → `_photo`.
    - 구독(`onValue`)이 권한 거부를 받으면 **재시도 없이 끊깁니다.** 읽기 권한을 좁힐 때는 앱이 로그인 복원 뒤에 구독하는지 확인합니다.
 3. `npm run check`로 확인합니다. 규칙 기대값을 고정한 검사가 있으면 함께 고치고 `CHECKS.md` 해시를 갱신합니다.
@@ -190,7 +190,7 @@ Firebase 에서 하던 일을 자체 서버(AWS — 방 서버 · 이후 API 서
 
 - **기능을 만들거나 고치다가 규칙이 바뀌면**, PR 본문의 «서버(AWS) 이관» 칸에 바뀐 경로 · 칸 · 권한 · 앱에서 쓰는 곳을 적습니다.
   서버 저장소는 비공개라 협업자는 고치지 않아도 됩니다 — **관리자가 이 안내를 보고 서버에 옮깁니다.**
-- 특히 **방에 오가는 칸**(`rooms/*` 의 멤버 payload · `_meta` · 채팅)은 방 서버 규약(`PROTOCOL.md`)과 앱의 서버 허용 목록(`app/parts/room-server-net.js` 의 `MEMBER_FIELDS` 등)에도 있어야 서버 방에서 동작합니다.
+- 특히 **방에 오가는 칸**(`rooms/*` 의 멤버 payload · `_meta` · 채팅)은 방 서버 규약(`PROTOCOL.md`)과 앱의 서버 허용 목록(`apps/desktop/app/parts/room-server-net.js` 의 `MEMBER_FIELDS` 등)에도 있어야 서버 방에서 동작합니다.
   없으면 서버 방에서는 그 칸만 빠집니다(깨지지는 않음).
 - 관리자: 서버 PR(규약 · 허용 목록) → **서버 먼저 배포** → 앱 릴리스 순서로 반영합니다.
 
@@ -222,7 +222,7 @@ Firebase 에서 하던 일을 자체 서버(AWS — 방 서버 · 이후 API 서
 
   **② 최신화**
   1. `git pull --rebase` → `npm run check` (빨강 0)
-  2. `npm version patch -m "chore: %s"`: `package.json` 버전 수정, 커밋, 태그 `vX.Y.Z`를 한 번에 합니다.
+  2. `npm run version:bump -- patch`: 앱 버전(`apps/desktop/package.json`) 수정, 커밋, 태그 `vX.Y.Z`를 한 번에 합니다(`scripts/bump-version.js`).
   3. `git push --follow-tags`
      **버전은 반드시 커밋하고 push한 뒤에** 빌드로 갑니다. 로컬에서만 올리면 맥 dmg가 옛 버전 번호로 빌드됩니다.
 
@@ -242,4 +242,4 @@ Firebase 에서 하던 일을 자체 서버(AWS — 방 서버 · 이후 API 서
 | `.env*`, `*.pem`, `*service-account*.json` | 비밀값 | `.gitignore` |
 | `디자인/` (3D 원본 에셋) | 용량 | `.gitignore` |
 
-> `app/parts/firebase-config.js`는 `.gitignore`에 있지만 **이미 추적 중**이고, 빌드에 필요해 일부러 넣은 것입니다(커밋 `929f836`). 공개용 웹 설정이라 그대로 둡니다. 혼동을 줄이려면 `.gitignore`에서 그 줄을 지우는 게 맞습니다.
+> `apps/desktop/app/parts/firebase-config.js`는 `.gitignore`에 있지만 **이미 추적 중**이고, 빌드에 필요해 일부러 넣은 것입니다(커밋 `929f836`). 공개용 웹 설정이라 그대로 둡니다. 혼동을 줄이려면 `.gitignore`에서 그 줄을 지우는 게 맞습니다.

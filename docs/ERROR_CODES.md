@@ -3,7 +3,7 @@
 앱에서 무언가 실패하면 토스트 끝에 `오류 E-FR-01` 같은 번호가 붙습니다.
 제보할 때 이 번호를 같이 알려 주면 어디서 났는지 바로 찾을 수 있어요.
 
-- 정본: `app/parts/shared/error-codes.js` 의 `CODES` 표 — 이 문서는 사람이 읽기 좋게 옮긴 것이다.
+- 정본: `apps/desktop/app/parts/shared/error-codes.js` 의 `CODES` 표 — 이 문서는 사람이 읽기 좋게 옮긴 것이다.
 - 검사: `checks/sim-error-codes.js` — 표 모양 · 부르는 곳 · 이 문서에 번호가 다 있는지를 본다.
 
 ## 규칙
