@@ -29,7 +29,7 @@ python3 .claude/hooks/role-start.py --board
    gh api repos/grk-cmd/t-w/pulls -f title='<커밋 제목 형식>' -f head='<브랜치>' -f base='release/X.Y.Z' -F body=@본문.md
    ```
    - 초안(draft)으로 열지 않는다 — 웹 세션은 초안을 풀 수 없다(GraphQL 이 막혀 있음). 머지는 컨펌 · 검증 상태값이 있어야 되니 미리 열어도 잘못 머지되지 않는다.
-   - 보기만 할 일(원인 조사 · 점검)은 PR 대신 이슈를 열고 라벨 `status:검토중` 을 붙인다(본문 첫 줄 «담당: 이름»). 고치기 시작하면 PR 을 열고 본문에 이슈 번호를 적는다(`#12`). 머지되면 이슈를 닫는다.
+   - 보기만 할 일(원인 조사 · 점검)은 PR 대신 이슈를 열고 라벨 `status:검토중` 을 붙인다(`gh api repos/grk-cmd/t-w/issues -f title='<무엇을 보나>' -f body='담당: <이름>' -f 'labels[]=status:검토중'`)(본문 첫 줄 «담당: 이름»). 고치기 시작하면 PR 을 열고 본문에 이슈 번호를 적는다(`#12`). 머지되면 이슈를 닫는다.
 4. 머지는 `/ship`. 끝나면 아무것도 적지 않는다.
 
 - 웹 관리자 📋 할 일(`adminTodos`)에는 버그 제보와 관련된 일만 적는다. 기능 · 계획 · «지금 누가 무엇을 하나» 는 PR · 이슈가 정본이다.

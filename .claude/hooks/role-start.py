@@ -58,12 +58,6 @@ def needs_pick(role, branch, source):
     return branch in ('', 'main') or branch.startswith('release/')
 
 
-def rel_name(s):
-    """«0.12.0» · «release/0.12.0» · «작업완료(0.12.0)» 안의 판 → «0.12.0». 판이 없으면 그대로(main 등)."""
-    m = re.search(r'\d+\.\d+\.\d+', s or '')
-    return m.group(0) if m else (s or '').strip()
-
-
 def declared_files(body):
     """PR 본문 «건드리는 파일» 칸 → [경로]. `백틱` 안을 경로로 읽고, 없으면 목록 줄 글 그대로. 주석(<!-- -->)은 뺀다."""
     text = re.sub(r'<!--.*?-->', '', body or '', flags=re.S)
@@ -205,6 +199,11 @@ def sh(args, cwd, timeout=GIT_TIMEOUT):
     return p.stdout
 
 
+def names(out):
+    """`git diff --name-only -z` 출력 → [경로]. 한글 · 공백 경로가 따옴표 · 쪼개짐 없이 본문에 적은 이름과 맞게."""
+    return [n for n in (out or '').split('\0') if n.strip()]
+
+
 def gather(cwd, budget=BUDGET):
     end = time.monotonic() + budget
 
@@ -229,7 +228,7 @@ def gather(cwd, budget=BUDGET):
             ahead = int(run(['git', 'rev-list', '--count', '--no-merges', span]).strip() or 0)
             subjects = [s for s in run(['git', 'log', '--first-parent', f'-{RECENT * 2}', '--format=%s', span]).splitlines()
                         if not FROM_MAIN_MERGE.search(s)][:RECENT]
-            changed = run(['git', 'diff', '--name-only', f'origin/main...{ref}']).split()
+            changed = names(run(['git', 'diff', '--name-only', '-z', f'origin/main...{ref}']))
         except Exception as e:
             facts['notes'].append(f'release/{name} 부터 판을 못 읽음({cut(str(e), 60)})')
             break
@@ -243,18 +242,22 @@ def gather(cwd, budget=BUDGET):
     except Exception as e:
         prs = None
         facts['notes'].append(f'열린 PR 을 못 읽음 — gh api 실패({cut(str(e), 60)})')
+    unread = []
     for p in prs or []:
-        # 실제로 바꾼 파일은 받아 둔 브랜치로 — PR 마다 API 를 부르지 않는다. 남의 포크 · 못 받은 브랜치는 적어 둔 파일만.
+        # 실제로 바꾼 파일은 받아 둔 브랜치로 — PR 마다 API 를 부르지 않는다. 남의 포크는 적어 둔 파일만.
         changed = []
         if p.pop('same', False):
             try:
-                changed = run(['git', 'diff', '--name-only', f'origin/{p["base"]}...origin/{p["head"]}']).split()
+                changed = names(run(['git', 'diff', '--name-only', '-z', f'origin/{p["base"]}...origin/{p["head"]}']))
             except Exception:
-                pass
+                unread.append(f'#{p["number"]}')
         body = p.pop('body', None)
         p['owner'] = owner(body)
         p['files'] = list(dict.fromkeys(declared_files(body) + changed))
     facts['prs'] = prs
+    if unread:
+        # 못 읽은 diff 를 «겹침 없음» 으로 그리지 않게 — 적어 둔 파일만으로 본 것임을 남긴다
+        facts['notes'].append(f'{" · ".join(unread)} 실제 diff 를 못 읽음 — 본문에 적은 파일만으로 겹침을 봄')
     try:
         raw = run(['gh', 'api', '-X', 'GET', f'repos/{REPO}/issues', '-f', 'state=open', '-f', f'labels={REVIEW_LABEL}', '-f', 'per_page=100',
                    '--jq', '[.[] | select(.pull_request == null) | {number, title}]'])

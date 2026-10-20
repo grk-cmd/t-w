@@ -112,13 +112,20 @@ for name, cmd, want in cases:
         print(f'  ✗ 가드 {name}: {"막음" if denied else "통과"}(기대 {"막음" if want else "통과"}) {p.stderr[-200:]}')
 
 # 보호 브랜치 직접 push — 예외 없음(옛 «현황판 파일만 main» 예외는 걷었다). origin 이 이 저장소인 폴더에서만 보므로 가짜 저장소를 만든다.
-PUSH_CWD = tempfile.mkdtemp()
-subprocess.run(['git', 'init', '-q', '-b', 'fix/a', PUSH_CWD], check=True)
-subprocess.run(['git', '-C', PUSH_CWD, 'remote', 'add', 'origin', 'https://github.com/grk-cmd/t-w.git'], check=True)
+# 지금 main 에 docs/WORK_STATUS.md 만 바꾼 커밋이 얹혀 있다 — 옛 예외가 되살아나면 «main 에 직접 push» 가 통과로 바뀐다.
+PUSH_CWD, PUSH_ORIG = tempfile.mkdtemp(), tempfile.mkdtemp()
+pg = lambda *a: subprocess.run(['git', '-C', PUSH_CWD, '-c', 'user.name=t', '-c', 'user.email=t@t', *a], capture_output=True, check=True)
+subprocess.run(['git', 'init', '-q', '--bare', PUSH_ORIG], check=True)
+subprocess.run(['git', 'init', '-q', '-b', 'main', PUSH_CWD], check=True)
+pg('commit', '-q', '--allow-empty', '-m', 'a'); pg('remote', 'add', 'origin', PUSH_ORIG); pg('push', '-q', 'origin', 'main')
+os.makedirs(os.path.join(PUSH_CWD, 'docs')); open(os.path.join(PUSH_CWD, 'docs', 'WORK_STATUS.md'), 'w').write('x\n')
+pg('add', '.'); pg('commit', '-q', '-m', 'docs(status): 한 줄')
+pg('remote', 'set-url', 'origin', 'https://github.com/grk-cmd/t-w.git')   # origin/main 은 받아 둔 그대로 · 가드가 이 저장소로 알아보게
 for name, cmd, want in (('main 에 직접 push', 'git push origin main', True),
                         ('HEAD:main push', 'git push -q origin HEAD:main', True),
                         ('판 브랜치 직접 push', 'git push origin release/0.12.0', True),
-                        ('작업 브랜치 push', 'git push -u origin fix/a', False)):
+                        ('작업 브랜치 push', 'git push -u origin fix/a', False),
+                        ('현황 파일만 바꾼 main push 도 막음', 'git push', True)):
     p = subprocess.run([sys.executable, '-B', G], input=json.dumps({'tool_input': {'command': cmd}, 'cwd': PUSH_CWD}),
                        capture_output=True, text=True, encoding='utf-8', errors='replace')
     if ('"deny"' in p.stdout) == want and not p.stderr:
@@ -472,10 +479,8 @@ role_cases = [
     ('판 안 물음: 질문 세션', rs.needs_pick('질문', 'main', 'startup'), False),
     ('판 안 물음: resume', rs.needs_pick('서버담당', 'main', 'resume'), False),
     ('판 안 물음: compact', rs.needs_pick(None, 'main', 'compact'), False),
-    ('판 이름: release/', rs.rel_name('release/0.12.0'), '0.12.0'),
-    ('판 이름: 작업완료(…)', rs.rel_name('작업완료(0.13.0)'), '0.13.0'),
-    ('판 이름: main', rs.rel_name(' main '), 'main'),
-    ('판 이름: 빈 값', rs.rel_name(None), ''),
+    ('diff 이름: -z 로 나눔 · 한글 · 공백 경로 그대로', rs.names('a.js\0앱/한 글.md\0'), ['a.js', '앱/한 글.md']),
+    ('diff 이름: 빈 출력', rs.names(''), []),
     ('건드리는 파일: 그 칸만 · 백틱 · 목록 글 · 주석 빼고 · 중복 한 번', rs.declared_files(BODY), ['app/a.js', 'app/parts/room/', 'docs/README.md']),
     ('건드리는 파일: 칸 없음', rs.declared_files('## 무엇을\n- `a.js`\n'), []),
     ('건드리는 파일: 빈 본문', rs.declared_files(None), []),
@@ -595,7 +600,8 @@ w = lambda s: sys.stdout.buffer.write(s.encode('utf-8'))
 if 'labels=' in a:   # 검토중 이슈 목록(코멘트 읽기 …/issues/N/comments 와 가르기)
     out = [{'number': 12, 'title': '검토 «한글» — 이슈'}]
 elif 'state=open' in a:
-    out = [{'number': 7, 'title': '한글 제목 «PR» — 끝', 'head': 'feat/x', 'base': 'release/9.9.9', 'draft': False, 'same': False, 'body': '## 건드리는 파일\\n- `앱/한글 «파일».js`\\n'}]
+    out = [{'number': 7, 'title': '한글 제목 «PR» — 끝', 'head': 'feat/x', 'base': 'release/9.9.9', 'draft': False, 'same': True, 'body': '## 건드리는 파일\\n- `앱/한글 «파일».js`\\n'},
+           {'number': 9, 'title': '지운 브랜치', 'head': 'gone/x', 'base': 'release/9.9.9', 'draft': False, 'same': True, 'body': '## 건드리는 파일\\n- `b.js`\\n'}]
 elif '/files' in a:
     out = [{'filename': '.claude/hooks/ship-gate.py', 'status': 'modified', 'changes': 1, 'patch': '+# 한글 «주석» — 끝'}]   # 가드 파일 — 승인이 필요한 PR
 elif '/reviews' in a:
@@ -659,15 +665,20 @@ if CPL:
     g('commit', '-q', '--allow-empty', '-m', 'docs: «처음» — 시작')
     g('remote', 'add', 'origin', ORIG); g('push', '-q', 'origin', 'main')
     g('checkout', '-q', '-b', 'release/9.9.9'); g('commit', '-q', '--allow-empty', '-m', 'feat: 판에 들어간 «일» — 한글')
-    g('push', '-q', 'origin', 'release/9.9.9'); g('checkout', '-q', 'main')
+    g('push', '-q', 'origin', 'release/9.9.9')
+    # PR #7 머리 — 판에서 따서 한글 · 공백 든 파일 하나를 바꿈(실제 diff 몫). #9 머리(gone/x)는 원격에 없다(diff 못 읽음).
+    g('checkout', '-q', '-b', 'feat/x'); os.makedirs(os.path.join(REPO_DIR, '문서'))
+    open(os.path.join(REPO_DIR, '문서', '바뀐 «글».md'), 'w', encoding='utf-8').write('x\n')
+    g('add', '.'); g('commit', '-q', '-m', 'feat: 글'); g('push', '-q', 'origin', 'feat/x'); g('checkout', '-q', 'main')
     probe = ("import importlib.util, json, sys; sp = importlib.util.spec_from_file_location('rs', sys.argv[1]); m = importlib.util.module_from_spec(sp); "
              "sp.loader.exec_module(m); print(json.dumps(m.gather(sys.argv[2]), ensure_ascii=False))")
     p = subprocess.run([sys.executable, '-B', '-c', probe, RS, REPO_DIR], capture_output=True, env=env, timeout=60)
     out, err = p.stdout.decode('utf-8', 'replace'), p.stderr.decode('utf-8', 'replace')
     try:
         f = json.loads(out)
-        good = (p.returncode == 0 and f['notes'] == [] and f['issues'] == [{'number': 12, 'title': '검토 «한글» — 이슈'}]
-                and f['prs'][0]['files'] == ['앱/한글 «파일».js']
+        good = (p.returncode == 0 and f['notes'] == ['#9 실제 diff 를 못 읽음 — 본문에 적은 파일만으로 겹침을 봄']
+                and f['issues'] == [{'number': 12, 'title': '검토 «한글» — 이슈'}]
+                and f['prs'][0]['files'] == ['앱/한글 «파일».js', '문서/바뀐 «글».md'] and f['prs'][1]['files'] == ['b.js']
                 and f['releases'].get('9.9.9', {}).get('subjects') == ['feat: 판에 들어간 «일» — 한글'] and f['prs'][0]['title'] == '한글 제목 «PR» — 끝')
     except (ValueError, KeyError, IndexError, TypeError):
         good = False
