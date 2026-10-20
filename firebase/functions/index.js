@@ -304,7 +304,7 @@ exports.bugCleanup = onSchedule({ schedule: '40 4 * * *', timeZone: 'Asia/Seoul'
     console.log('[bugCleanup]', JSON.stringify(r));
   });
 
-// 슬롯(캐릭터 5칸)이 바뀔 때마다 장착한 카탈로그 id 집합의 차이만 센다(part-equip.js). 처음 숫자는 scripts/backfill-part-equip.js 로 채운다.
+// 슬롯(캐릭터 5칸)이 바뀔 때마다 장착한 카탈로그 id 집합의 차이만 센다(part-equip.js). 처음 숫자는 firebase/scripts/backfill-part-equip.js 로 채운다.
 // 다시 시도하지 않는다 — 같은 이벤트를 두 번 더하면 숫자가 어긋난다. 어긋남은 백필을 다시 돌려 맞춘다.
 exports.partEquipCount = onValueWritten({ ref: '/users/{userId}/slots', timeoutSeconds: 60, maxInstances: 5, retry: false },
   async (event) => {
