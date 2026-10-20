@@ -3,7 +3,7 @@ import * as THREE_NS from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { createBody, createParts } from '../src/index';
+import { createBody, createParts, createTone } from '../src/index';
 
 /* 진짜 three r128 + 앱의 기본 몸 GLB. 앱은 classic script 라 SkeletonUtils 가 THREE 에 붙어 있다 — 같은 모양. */
 const THREE = { ...THREE_NS, SkeletonUtils };
@@ -13,8 +13,10 @@ const baseGlb = (): ArrayBuffer => {
   return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength);
 };
 const calls: string[] = [];
+const tone = createTone({ THREE, flatEmissive: 0.3, fixMatLighting() {} });
 const parts = createParts({
   THREE,
+  tone,
   applyPartMatTone: (m) => { calls.push('tone:' + m.name); m.metalness = 0.1; },
   forceOpaqueAlphaOutput: (m) => calls.push('opaque:' + m.name),
   meshIsPic: (o) => /_pic/i.test(o.name),
@@ -178,7 +180,76 @@ describe('리깅 기준점 · 다중 파츠', () => {
     expect(calls.filter((x) => x.startsWith('tone:'))).toHaveLength(2);
     expect(r.wrapper.userData.baseCenter.y).toBeCloseTo(0.5);
   });
-  it('THREE 가 없으면 만들 때 거절', () => {
+  it('THREE · tone 이 없으면 만들 때 거절', () => {
     expect(() => createParts({} as never)).toThrow(/THREE/);
+    expect(() => createParts({ THREE } as never)).toThrow(/tone/);
+  });
+});
+
+describe('applyXfToWrapper', () => {
+  const xf0 = () => ({ scale: 1, pos: [0, 0, 0], rot: [0, 0, 0], color: {} });
+  const opts = (pics: unknown[] = []) => ({ defaultXf: xf0, defaultOffsets: { hat: { x: 0, y: 0, z: -0.5 } }, applyPic: (_w: unknown, p: unknown) => pics.push(p) });
+  const rigid = (ao: unknown = null) => {
+    const g = new THREE.Group(); const m = mesh('brim_col', 'b'); g.add(m);
+    const pr = parts.prepareScene(g, 'hat');
+    const w = parts.wrapPart(pr.obj, 'hat', false).wrapper;
+    w.userData.baseCenter = new THREE.Vector3(1, 2, 3);
+    w.userData.authorOff = ao; w.userData.colorGroups = pr.colorGroups;
+    return w;
+  };
+  it('비리깅 — 기준점 − 저작 오프셋 + 카테고리 상수 + xf · 세로 보정 · 회전 · 크기 · 그림칸', () => {
+    const pics: unknown[] = [];
+    const w = rigid(new THREE.Vector3(0, 1, 0));
+    w.userData.animalHeadDy = 0.25;
+    parts.applyXfToWrapper(w, { scale: 2, pos: [0.1, 0.2, 0.3], rot: [0.1, 0, 0], color: {}, pic: 'P' }, 'hat', opts(pics));
+    expect([w.position.x, w.position.y, w.position.z].map((v) => +v.toFixed(6))).toEqual([1.1, 1.45, 2.8]);
+    expect(w.scale.x).toBe(2);
+    expect(w.rotation.x).toBeCloseTo(0.1);
+    expect(pics).toEqual(['P']);
+  });
+  it('옛 «되밀어 둔» xf.pos 는 오프셋을 되돌리고 · 판정은 wrapper 마다 한 번', () => {
+    const w = rigid(new THREE.Vector3(0, 1, 0));
+    parts.applyXfToWrapper(w, { scale: 1, pos: [0, -0.9, 0], rot: [0, 0, 0] }, 'cape', opts());
+    expect(w.userData._aoLegacy).toBe(true);
+    expect(+w.position.y.toFixed(6)).toBe(1.1); // 2 − 1 + (−0.9) + 1
+    parts.applyXfToWrapper(w, { scale: 1, pos: [0, 0.5, 0], rot: [0, 0, 0] }, 'cape', opts());
+    expect(w.userData._aoLegacy).toBe(true); // 다시 판정하지 않는다
+  });
+  it('xf 가 없으면 기본값 · 기준점이 없으면 아무것도 안 한다', () => {
+    const w = rigid();
+    parts.applyXfToWrapper(w, null, 'top', opts());
+    expect([w.position.x, w.position.y, w.position.z]).toEqual([1, 2, 3]);
+    const bare = new THREE.Group();
+    parts.applyXfToWrapper(bare, xf0(), 'top', opts());
+    expect(bare.position.length()).toBe(0);
+  });
+  it('색 — 단색은 색 + 같은 평탄 배율 emissive · 텍스처는 색조만', () => {
+    const w = rigid();
+    const m = w.userData.colorGroups.col1[0];
+    parts.applyXfToWrapper(w, { scale: 1, pos: [0, 0, 0], rot: [0, 0, 0], color: { col1: '#ff0000' } }, 'top', opts());
+    expect(m.material.color.getHexString()).toBe('ff0000');
+    expect(m.material.emissive.r).toBeCloseTo(0.3);
+    m.material.map = new THREE.Texture();
+    m.material.color.set('#ffffff');
+    parts.applyXfToWrapper(w, { scale: 1, pos: [0, 0, 0], rot: [0, 0, 0], color: { col1: '#00ff00' }, colorHSV: { col1: { h: 0.3, s: 0.5, v: 0.8 } } }, 'top', opts());
+    expect(m.material.color.getHexString()).toBe('ffffff');
+    expect([m.material.userData._hueU.uHue.value, m.material.userData._hueU.uSat.value, m.material.userData._hueU.uVal.value, m.material.userData._hueU.uOn.value]).toEqual([0.3, 0.5, 0.8, 1]);
+  });
+  it('리깅 — bindMatrix 에 피봇 기준으로 굽는다', () => {
+    const inst = body.instantiateBase()!;
+    const charBones = parts.collectCharBones(inst.root);
+    const ps = SkeletonUtils.clone(body.baseScene());
+    const sms = parts.skinnedMeshesOf(ps);
+    const rb = parts.rebindRigged(sms, charBones);
+    const w = parts.wrapPart(ps, 'top', true).wrapper;
+    Object.assign(w.userData, { rigged: true, rigBindCenter: rb.bindCenter, rigSkinnedMeshes: sms });
+    const before = sms[0].bindMatrix.clone();
+    parts.applyXfToWrapper(w, { scale: 1, pos: [0, 0, 0], rot: [0, 0, 0] }, 'top', opts());
+    expect(sms[0].bindMatrix.equals(sms[0].userData._origBind)).toBe(true);
+    parts.applyXfToWrapper(w, { scale: 1.5, pos: [0, 0.1, 0], rot: [0, 0, 0] }, 'top', opts());
+    expect(sms[0].bindMatrix.equals(before)).toBe(false);
+    const p = new THREE.Vector3().copy(rb.bindCenter).applyMatrix4(new THREE.Matrix4().copy(sms[0].bindMatrix).multiply(new THREE.Matrix4().copy(sms[0].userData._origBind).invert()));
+    expect(p.y).toBeCloseTo(rb.bindCenter.y + 0.1, 6); // 피봇은 그 자리에서 크기만 — 옮긴 만큼만 움직인다
+    expect(w.position.y).toBeCloseTo(w.userData.baseCenter.y + 0.1, 6);
   });
 });

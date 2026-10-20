@@ -27,6 +27,7 @@ var TwCharCore = (() => {
     CLONE_CODE_PREFIX: () => CLONE_CODE_PREFIX,
     CLONE_TEX_SIZE: () => CLONE_TEX_SIZE,
     FACE_SYM_SUM: () => FACE_SYM_SUM,
+    HUE_GLSL: () => HUE_GLSL,
     SKIN_COLORS: () => SKIN_COLORS,
     THREE_REVISION: () => THREE_REVISION,
     VERSION: () => VERSION,
@@ -36,6 +37,7 @@ var TwCharCore = (() => {
     createCharCore: () => createCharCore,
     createFace: () => createFace,
     createParts: () => createParts,
+    createTone: () => createTone,
     decodeCloneCode: () => decodeCloneCode,
     decryptPayload: () => decryptPayload,
     defFromPayload: () => defFromPayload,
@@ -748,11 +750,172 @@ var TwCharCore = (() => {
     return { CANVAS_SZ, FACE_SYM_SUM, SKIN_COLORS, newCanvas, isBlankDraw, snapCanvas, skinCanvases, skinCanvasFor, skinColorFor, compositeFace };
   }
 
+  // src/tone.ts
+  var HUE_GLSL = `
+vec3 twRgb2Hsv(vec3 c){
+  vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+  vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+  vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+  float d = q.x - min(q.w, q.y);
+  float e = 1.0e-10;
+  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+vec3 twHsv2Rgb(vec3 c){
+  vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+  vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+  return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
+  vec3 hsv = twRgb2Hsv(rgb);
+  hsv.x = hue;
+  /* 채도는 0 이 중립. 양수는 진한 쪽을 따라가고(흑백 텍스처에 색), 음수는 원본에 (1+sat) 을 곱해 내린다(-1 = 회색).
+     ⚠️ 음수 쪽을 max() 로 하면 절대 안 내려간다. */
+  hsv.y = (sat >= 0.0) ? max(hsv.y, sat * 0.9) : hsv.y * (1.0 + sat);
+  hsv.y = clamp(hsv.y, 0.0, 1.0);
+  /* 밝기는 덮어쓰기가 아니라 배율 — 픽셀마다 다른 명암에 곱해야 무늬가 산다. val=1.0 이 중립. */
+  hsv.z = clamp(hsv.z * val, 0.0, 1.0);
+  return twHsv2Rgb(hsv);
+}
+`;
+  function createTone(deps) {
+    const { THREE } = deps;
+    if (!THREE) throw new Error("char-core: deps.THREE 가 필요하다");
+    if (typeof deps.flatEmissive !== "number" || !isFinite(deps.flatEmissive)) throw new Error("char-core: deps.flatEmissive 가 필요하다");
+    const FLAT = deps.flatEmissive;
+    const PART_TEX_FLAT = FLAT;
+    function setFaceMap(mat, tex) {
+      if (!mat || !tex) return;
+      mat.map = tex;
+      mat.emissiveMap = tex;
+      mat.needsUpdate = true;
+    }
+    function applyLightPresetToInstance(inst) {
+      if (!inst) return;
+      const flat = FLAT;
+      if (inst.faceMat) {
+        inst.faceMat.emissiveMap = inst.faceMat.map;
+        inst.faceMat.emissive.setScalar(flat);
+        inst.faceMat.needsUpdate = true;
+      }
+      for (const k of ["upMat", "loMat", "hatMat"]) {
+        const m = inst[k];
+        if (!m) continue;
+        if (m.map && m.emissiveMap !== m.map) {
+          m.emissiveMap = m.map;
+          m.needsUpdate = true;
+        }
+        m.emissive.copy(m.color).multiplyScalar(flat);
+      }
+      if (inst.litMats) {
+        inst.litMats.forEach((m) => {
+          if (m === inst.faceMat || m === inst.upMat || m === inst.loMat) return;
+          if (!m || !m.emissive) return;
+          if (m.map && m.emissiveMap !== m.map) {
+            m.emissiveMap = m.map;
+            m.needsUpdate = true;
+          }
+          if (m.color) m.emissive.copy(m.color).multiplyScalar(flat);
+          else m.emissive.setScalar(flat);
+          m.needsUpdate = true;
+        });
+      }
+    }
+    function applyPartMatTone(m) {
+      if (!m) return;
+      deps.fixMatLighting(m);
+      if (m.map) m.emissiveMap = m.map;
+      const flat = m.map ? PART_TEX_FLAT : FLAT;
+      if (m.emissive) m.emissive.copy(m.color || new THREE.Color(16777215)).multiplyScalar(flat);
+      m.userData = m.userData || {};
+      m.userData.baseFlat = flat;
+      m.needsUpdate = true;
+    }
+    function baseFlatOf(mat) {
+      return mat && mat.userData && mat.userData.baseFlat != null ? mat.userData.baseFlat : FLAT;
+    }
+    function rgbHexToHsv(hex) {
+      const c = new THREE.Color(hex);
+      const hsl = { h: 0, s: 0, l: 0 };
+      c.getHSL(hsl);
+      const v = hsl.l + hsl.s * Math.min(hsl.l, 1 - hsl.l);
+      const s = v === 0 ? 0 : 2 * (1 - hsl.l / v);
+      return { h: hsl.h, s: Math.min(1, Math.max(0, s)), v };
+    }
+    function hsvToHex(h, sv, v) {
+      const c = new THREE.Color();
+      c.setHSL(h, Math.max(0, Math.min(1, sv)), Math.max(0, Math.min(1, 0.5 * (v == null ? 1 : v))));
+      return "#" + c.getHexString();
+    }
+    function isHueTintMesh(mesh) {
+      return !!(mesh && mesh.material && mesh.material.map);
+    }
+    function hueOBC(u) {
+      return (shader) => {
+        shader.uniforms.uHue = u.uHue;
+        shader.uniforms.uSat = u.uSat;
+        shader.uniforms.uVal = u.uVal;
+        shader.uniforms.uOn = u.uOn;
+        shader.fragmentShader = "uniform float uHue;\nuniform float uSat;\nuniform float uVal;\nuniform float uOn;\n" + HUE_GLSL + shader.fragmentShader;
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "#include <map_fragment>",
+          "#include <map_fragment>\n  if(uOn > 0.5){ diffuseColor.rgb = twHueShift(diffuseColor.rgb, uHue, uSat, uVal); }"
+        );
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "#include <emissivemap_fragment>",
+          "#include <emissivemap_fragment>\n  if(uOn > 0.5){ totalEmissiveRadiance = twHueShift(totalEmissiveRadiance, uHue, uSat, uVal); }"
+        );
+      };
+    }
+    function ensureHueUniforms(mat) {
+      if (mat.userData && mat.userData._hueU) return mat.userData._hueU;
+      mat.userData = mat.userData || {};
+      const u = { uHue: { value: 0 }, uSat: { value: 0 }, uVal: { value: 1 }, uOn: { value: 0 } };
+      mat.userData._hueU = u;
+      mat.onBeforeCompile = hueOBC(u);
+      mat.needsUpdate = true;
+      return u;
+    }
+    function applyHueTint(mesh, hex, hsvOpt) {
+      if (!mesh || !mesh.material || !mesh.material.map) return false;
+      const u = ensureHueUniforms(mesh.material);
+      if (!hex && !hsvOpt) {
+        u.uOn.value = 0;
+        return true;
+      }
+      if (hsvOpt) {
+        u.uHue.value = hsvOpt.h || 0;
+        u.uSat.value = hsvOpt.s == null ? 0 : hsvOpt.s;
+        u.uVal.value = hsvOpt.v == null ? 1 : hsvOpt.v;
+      } else {
+        const hsv = rgbHexToHsv(hex);
+        u.uHue.value = hsv.h;
+        u.uSat.value = hsv.s;
+        u.uVal.value = 1;
+      }
+      u.uOn.value = 1;
+      return true;
+    }
+    return {
+      FLAT_EMISSIVE: FLAT,
+      setFaceMap,
+      applyLightPresetToInstance,
+      applyPartMatTone,
+      baseFlatOf,
+      rgbHexToHsv,
+      hsvToHex,
+      isHueTintMesh,
+      hueOBC,
+      ensureHueUniforms,
+      applyHueTint
+    };
+  }
+
   // src/parts.ts
   var COL_RE = /_col(\d*)/i;
   function createParts(deps) {
     const { THREE } = deps;
     if (!THREE) throw new Error("char-core: deps.THREE 가 필요하다");
+    if (!deps.tone) throw new Error("char-core: deps.tone 이 필요하다");
     const log = deps.log || ((m) => console.log(m));
     const warn = deps.warn || ((m, e) => console.warn(m, e));
     const cloneScene = (scene) => THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(scene) : scene.clone(true);
@@ -1001,7 +1164,67 @@ var TwCharCore = (() => {
       wrapper.userData.baseCenter = center.clone();
       return { wrapper, obj, colorGroups };
     }
+    function applyXfToWrapper(wrp, xf, cat, o) {
+      if (!wrp || !wrp.userData || !wrp.userData.baseCenter) return;
+      if (!xf) xf = o.defaultXf();
+      const ahdy = +wrp.userData.animalHeadDy || 0;
+      const rot = xf.rot, pos = xf.pos;
+      if (wrp.userData.rigged) {
+        const bc = wrp.userData.rigBindCenter || new THREE.Vector3();
+        const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(rot[0], rot[1], rot[2]));
+        const M = new THREE.Matrix4().compose(
+          new THREE.Vector3(bc.x + pos[0], bc.y + pos[1] + ahdy, bc.z + pos[2]),
+          q,
+          new THREE.Vector3(xf.scale, xf.scale, xf.scale)
+        ).multiply(new THREE.Matrix4().makeTranslation(-bc.x, -bc.y, -bc.z));
+        (wrp.userData.rigSkinnedMeshes || []).forEach((sm) => {
+          if (sm.userData._origBind) sm.bindMatrix.copy(M).multiply(sm.userData._origBind);
+        });
+        const c = wrp.userData.baseCenter || new THREE.Vector3();
+        wrp.position.set(c.x + pos[0], c.y + pos[1] + ahdy, c.z + pos[2]);
+        wrp.rotation.set(rot[0], rot[1], rot[2]);
+        wrp.scale.setScalar(xf.scale);
+      } else {
+        const c = wrp.userData.baseCenter;
+        wrp.position.copy(c);
+        const ao = wrp.userData.authorOff || null;
+        if (ao) wrp.position.sub(ao);
+        const dOff = o.defaultOffsets[cat];
+        if (dOff) {
+          wrp.position.x += dOff.x;
+          wrp.position.y += dOff.y;
+          wrp.position.z += dOff.z;
+        }
+        if (wrp.userData._aoLegacy === void 0) wrp.userData._aoLegacy = !!(ao && isLegacyAuthorCompensation(pos, ao));
+        const legacy = wrp.userData._aoLegacy;
+        wrp.position.x += pos[0] + (legacy ? ao.x : 0);
+        wrp.position.y += pos[1] + (legacy ? ao.y : 0) + ahdy;
+        wrp.position.z += pos[2] + (legacy ? ao.z : 0);
+        wrp.rotation.set(rot[0], rot[1], rot[2]);
+        wrp.scale.setScalar(xf.scale);
+      }
+      wrp.updateMatrix();
+      wrp.updateMatrixWorld(true);
+      if (xf.color && wrp.userData.colorGroups) {
+        for (const key in wrp.userData.colorGroups) {
+          const c = xf.color[key];
+          if (c) wrp.userData.colorGroups[key].forEach((m) => {
+            if (!m.material) return;
+            if (deps.tone.isHueTintMesh(m)) {
+              deps.tone.applyHueTint(m, c, xf.colorHSV && xf.colorHSV[key]);
+              m.material.needsUpdate = true;
+              return;
+            }
+            if (m.material.color) m.material.color.set(c);
+            if (m.material.emissive) m.material.emissive.set(c).multiplyScalar(deps.tone.baseFlatOf(m.material));
+            m.material.needsUpdate = true;
+          });
+        }
+      }
+      if (o.applyPic) o.applyPic(wrp, xf.pic);
+    }
     return {
+      applyXfToWrapper,
       prepareScene,
       collectCharBones,
       hasSkinnedChar,

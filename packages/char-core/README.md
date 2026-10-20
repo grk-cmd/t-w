@@ -9,6 +9,7 @@
 | 🧍 사람 몸(기본 몸 불러오기 · 복제 · 크기 맞추기 · 조립 · 대신 몸) | `src/body.ts` → `TwCharCore.createBody` | `app.js` 의 `bodyCore` — 몸 모델 바이트 · 재질 톤 · 귀 · 커미션 배율은 앱이 넘긴다(`defToBase` · `instantiateBase` · `normalizeModel` 이름 그대로) |
 | 🙂 얼굴 · 피부 그림판(512 캔버스 · 대칭축 · 피부 5종 · 피부 위에 그림 얹기 · «완전히 비었나») | `src/face.ts` → `TwCharCore.createFace` | `app.js` 의 `faceCore` — 이름(`compositeFace` · `newCanvas` · `_isBlankDraw` · `skinCanvases` …) 그대로. 피부 그림 불러오기(`loadSkins`)는 앱 몫 |
 | 🎀 파츠를 캐릭터에 붙일 한 벌로(복제 · 재질 · `_col` · `_pic` · 리깅 판정 · 다시 묶기 · wrapper · 저작 오프셋 · 다중 인스턴스) | `src/parts.ts` → `TwCharCore.createParts` | `app.js` 의 `partsCore` — 장착 차례 · 옷 겹침 · 귀 · 애니메이션 · 책상 파츠 · 좌석 저장은 `equipPartOnSeat` 에 남는다(코어는 책상 · 좌석을 모른다) |
+| 💡 재질 톤(얼굴 맵 · 몸 평탄 조명 · 파츠 톤 · baseFlat · 텍스처 파츠 색조 셰이더) · 파츠 xf 적용 | `src/tone.ts` → `TwCharCore.createTone` · `src/parts.ts` `applyXfToWrapper` | `shared/light-tone.js` 가 화면 밝기 예산(FLAT_EMISSIVE)으로 만들어 `toneCore` 로 내놓는다(책상 · 아이템 톤은 앱). `mat-tone.js` 는 🐾 동물 귀 깜빡임만 더한다 |
 
 ## 책임
 - 들어오는 것: 캐릭터 정의(def) 정리 · 몸 모델 · def → 3D 캐릭터 한 덩어리 · 얼굴 · 피부 합성 · 귀 · 동물 · 파츠 붙이기 · 색조 · 복제 코드 DCC1(#430 3.1).
@@ -33,6 +34,7 @@ npm -w @tw/char-core run typecheck
 - DCC1 은 읽기 호환을 늘 지킨다 — 옛 코드를 새 코어가 읽는다.
 
 ## 함정
+- 경계 검사(`tests/boundary.test.ts`): 앱이 싣는 빌드 사본을 `window` · 저장소 · `firebaseAPI` · `companion` · 네트워크가 덫인 전역 위에서 돌린다 — 코어가 그중 하나라도 건드리면 빨강. 유료 자산 모듈 이름(가챠 · DCK1 · 라이선스 전용 · 에셋 코드 …)이 번들에 들어가도 빨강.
 - DCC1 읽기 호환 표본 `tests/fixtures/dcc1-*.json` 은 코어로 옮기기 전 앱이 만든 코드 · 되살린 def 다. 표본을 고쳐 시험을 맞추지 않는다 — 새 모양은 표본을 더한다.
 - `npm install` 은 루트에서 한다(workspace). 이 폴더에서 따로 깔면 lock 이 갈라진다.
 - `__CHAR_CORE_VERSION__` 은 빌드(`build.mjs`)와 시험(`vitest.config.ts`)이 package.json 판으로 바꿔 넣는다.
