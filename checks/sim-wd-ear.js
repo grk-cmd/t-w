@@ -207,7 +207,7 @@ chk(offOk, '빈 껍데기(WD_EAR_OFF)가 app.js 가 부르는 함수를 다 갖�
 chk(/const wdEar = \(typeof WdEar === 'undefined' \|\| !humanEar\) \? WD_EAR_OFF : WdEar\.createWdEar/.test(A), 'wd-ear.js 가 없으면 빈 껍데기');
 const att = grab(A, '_attachHumanEars');
 chk(/def && def\.animal\)\) return;/.test(att) && /humanEar\.ensureHolder\(root\);[\s\S]*humanEar\.attachFromDef\(root, def,/.test(att), '_attachHumanEars — 동물 제외 · holder 먼저 · def 대로');
-chk(/normalizeModel\(inst\.root, 1\.4, def\.isCommission\);\s*_attachHumanEars\(inst\.root, def\);/.test(A), 'defToBase — 정규화 직후 귀(미리보기 · 런처 미리보기)');
+chk(/onRoot:\(root\)=>_attachHumanEars\(root, def\)/.test(A), 'defToBase — 정규화 직후 귀(미리보기 · 런처 미리보기) — 코어 assemble 의 onRoot(크기 맞춘 뒤 · 감싸기 전에 부른다 — 코어 시험 body.test.ts)');
 chk(/if\(!inst\._animal\) _attachHumanEars\(inst\.root, def\);\s*setupSeatModel\(seat, inst\.root,/.test(A), '좌석 — setupSeatModel(애니메이션) 직전, 바인드 자세에서');
 chk(/humanEar\.findWrap|createWdEar/.test(A) && /color:'#ffffff'/.test(grab(A, '_humanEarMat')), '귀 재질은 흰색으로 시작');
 chk(/wdEar\.copyIntoDraft\(wdDraftDef, def\);/.test(grab(A, 'ensureWdDraft')), '초안 — 귀 조정값 깊은 복사');
@@ -261,7 +261,7 @@ say('── 3-d. app.js 배선 — 귀 까닥임');
 const sr = grab(A, '_syncHumanEarRig');
 chk(/seat\.modelRoot\.traverse\(o=>\{ if\(o\.userData && o\.userData\.humanEar\) live\.push\(o\); \}\)/.test(sr) && /live\.forEach\(w=>_registerAnimalEarOn\(seat, w\)\);/.test(sr), '붙은 사람 귀를 동물 귀와 같은 등록(_registerAnimalEarOn)으로 seat.bones.ear 에');
 chk(/o\.userData\.humanEar && live\.indexOf\(o\) < 0/.test(sr) && /seat\.bones\.ear\.splice\(i, 1\); seat\.boneRest\.ear\.splice\(i, 1\); seat\.earTimers = null;/.test(sr), '떨어진 옛 사람 귀는 목록 · 쉼 자세 · 타이머에서 같이 걷는다(바꾸거나 뺐을 때)');
-chk(/else _syncHumanEarRig\(seat\);/.test(A) && A.indexOf('else _syncHumanEarRig(seat);') > A.indexOf("setupSeatModel(seat, inst.root, BASE_ANIMS"), '좌석 — setupSeatModel 이 seat.bones 를 새로 만든 뒤에 올린다');
+chk(/else _syncHumanEarRig\(seat\);/.test(A) && A.indexOf('else _syncHumanEarRig(seat);') > A.indexOf("setupSeatModel(seat, inst.root, bodyCore.baseAnims()"), '좌석 — setupSeatModel 이 seat.bones 를 새로 만든 뒤에 올린다');
 chk(/try\{ const _s = seats\.find\(x=>x\.modelRoot === root\); if\(_s\) _syncHumanEarRig\(_s\); \}catch/.test(grab(A, '_attachHumanEars')), '다시 붙일 때(저장) · 귀를 뺐을 때도 목록을 맞춘다');
 
 const cam = grab(A, 'updateWdCam');
