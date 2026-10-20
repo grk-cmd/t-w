@@ -6,7 +6,7 @@
    가드 자리(risk.is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 컨펌자 · 검증자 지침 · /ship 안내서)를 바꾸는 PR 은 승인자(mihioon)가 그 머리 커밋을 승인해야 한다
    (세션이 가드를 스스로 풀지 못하게). 나머지는 위험도가 높아도 승인 없이 — 승인자는 내보내기 전 risk.py --release 한 장으로 본다.
    판정 · 승인 뒤 판 브랜치를 합치기만 한 머리(PR 자체 변경이 같음 — risk.same_change)는 앞 커밋의 것을 이어 받는다.
-2. 보호 브랜치에 직접 push — `main` · `release/*`. 예외: main 에 `docs/WORK_STATUS.md` 만 바꾼 push.
+2. 보호 브랜치에 직접 push — `main` · `release/*`. 예외 없음(현황판은 파일이 아니라 열린 PR · 이슈 — role-start.py).
 2-1. 승인을 세션이 대신 남기기 — Approve 리뷰 · «승인 <커밋>» 코멘트. 세션도 승인자 계정으로 GitHub 를 쓰니
    이걸 막지 않으면 승인이 사람 확인이 아니게 된다(사람은 GitHub 화면에서 단다).
 3. 판 브랜치 밖에서 새 브랜치 따기 — 작업 전에 «어느 버전에 릴리스될 작업인가» 를 묻고 `release/X.Y.Z` 에서.
@@ -249,10 +249,6 @@ def check_push(cwd, sub):
         dst = cur if dst in ('', 'HEAD') else dst
         if not PROTECTED.match(dst):
             continue
-        if dst == 'main':
-            changed = (run('git', 'diff', '--name-only', 'origin/main...HEAD', cwd=cwd) or '').split()
-            if changed and set(changed) <= {'docs/WORK_STATUS.md'}:
-                continue
         deny(f'{dst} 에 직접 push 하지 않는다. 작업 브랜치에 push 하고 `/ship` 으로 PR · 컨펌 · 검증 · 머지까지.')
 
 
