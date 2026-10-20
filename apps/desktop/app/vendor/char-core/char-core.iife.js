@@ -35,6 +35,7 @@ var TwCharCore = (() => {
     createBody: () => createBody,
     createCharCore: () => createCharCore,
     createFace: () => createFace,
+    createParts: () => createParts,
     decodeCloneCode: () => decodeCloneCode,
     decryptPayload: () => decryptPayload,
     defFromPayload: () => defFromPayload,
@@ -745,6 +746,275 @@ var TwCharCore = (() => {
       return cv;
     }
     return { CANVAS_SZ, FACE_SYM_SUM, SKIN_COLORS, newCanvas, isBlankDraw, snapCanvas, skinCanvases, skinCanvasFor, skinColorFor, compositeFace };
+  }
+
+  // src/parts.ts
+  var COL_RE = /_col(\d*)/i;
+  function createParts(deps) {
+    const { THREE } = deps;
+    if (!THREE) throw new Error("char-core: deps.THREE 가 필요하다");
+    const log = deps.log || ((m) => console.log(m));
+    const warn = deps.warn || ((m, e) => console.warn(m, e));
+    const cloneScene = (scene) => THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(scene) : scene.clone(true);
+    function prepMaterial(o) {
+      o.castShadow = true;
+      o.frustumCulled = false;
+      const m = o.material && o.material.clone ? o.material.clone() : o.material;
+      o.material = m;
+      if (m) {
+        deps.applyPartMatTone(m);
+        if (m.transparent) {
+          o.renderOrder = 10;
+          deps.forceOpaqueAlphaOutput(m);
+        }
+      }
+      return m;
+    }
+    function addColorGroup(groups, o, m, meshNameFirst) {
+      const colMatch = (meshNameFirst ? o.name.match(COL_RE) : o.name && o.name.match(COL_RE)) || m && m.name && m.name.match(COL_RE);
+      if (!colMatch) return;
+      const key = "col" + (colMatch[1] || "1");
+      if (m && m.color) o.userData.origColor = m.color.getHexString();
+      (groups[key] = groups[key] || []).push(o);
+    }
+    function prepareScene(scene, cat, hooks = {}) {
+      const obj = cloneScene(scene);
+      const colorGroups = {};
+      const picMeshes = [];
+      obj.traverse((o) => {
+        if (!o.isMesh) return;
+        const m = prepMaterial(o);
+        if (deps.meshIsPic(o)) {
+          if (deps.picRepairUV(o) && hooks.onPicUvRepaired) hooks.onPicUvRepaired(o);
+          picMeshes.push(o);
+          return;
+        }
+        if (m && m.map && deps.uvLooksBroken(o) && hooks.onUvBroken) hooks.onUvBroken(o);
+        addColorGroup(colorGroups, o, m, true);
+      });
+      obj.name = "__part_" + cat;
+      obj.traverse((o) => {
+        if (o.isBone) {
+          o.userData = o.userData || {};
+          o.userData._partAdopted = true;
+        }
+      });
+      return { obj, colorGroups, picMeshes };
+    }
+    function collectCharBones(charRoot, into = {}) {
+      for (const k in into) delete into[k];
+      if (charRoot) charRoot.traverse((o) => {
+        if (o.isBone && !(o.userData && o.userData._partAdopted) && !into[o.name]) into[o.name] = o;
+      });
+      return into;
+    }
+    function hasSkinnedChar(charRoot) {
+      let has = false;
+      if (charRoot) charRoot.traverse((o) => {
+        if (o.isSkinnedMesh && !String(o.name || "").startsWith("__part")) has = true;
+      });
+      return has;
+    }
+    function skinnedMeshesOf(obj) {
+      const out = [];
+      obj.traverse((o) => {
+        if (o.isSkinnedMesh) out.push(o);
+      });
+      return out;
+    }
+    function isRiggedPart(skinnedMeshes, charBones, o) {
+      return !o.standalone && skinnedMeshes.length > 0 && skinnedMeshes.some((sm) => {
+        if (!sm.skeleton) return false;
+        const total = sm.skeleton.bones.length;
+        const matched = sm.skeleton.bones.filter((b) => !!charBones[b.name]).length;
+        if (total === 0) return false;
+        if (matched === total && o.rigFamilyMatches) return true;
+        return matched >= Math.max(2, Math.ceil(total / 2));
+      });
+    }
+    function rebindRigged(skinnedMeshes, charBones) {
+      const bindCenter = new THREE.Vector3();
+      let bcCount = 0;
+      const adoptedBones = [];
+      skinnedMeshes.forEach((sm) => {
+        sm.userData._origBind = sm.bindMatrix.clone();
+        if (sm.geometry) {
+          sm.geometry.computeBoundingBox();
+          const c0 = sm.geometry.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(sm.userData._origBind);
+          bindCenter.add(c0);
+          bcCount++;
+        }
+        const src = sm.skeleton;
+        const mapped = src.bones.map((b) => {
+          if (charBones[b.name]) return charBones[b.name];
+          let host = null, p = b.parent;
+          while (p) {
+            if (p.isBone && charBones[p.name]) {
+              host = charBones[p.name];
+              break;
+            }
+            p = p.parent;
+          }
+          (host || charBones["spine"] || Object.values(charBones)[0])?.add(b);
+          b.userData._partAdopted = true;
+          adoptedBones.push(b);
+          return b;
+        });
+        sm.bind(new THREE.Skeleton(mapped, src.boneInverses.map((m4) => m4.clone())), sm.bindMatrix);
+        sm.frustumCulled = false;
+      });
+      if (bcCount) bindCenter.multiplyScalar(1 / bcCount);
+      return { bindCenter, adoptedBones };
+    }
+    function wrapPart(obj, cat, isRigged) {
+      const bb = new THREE.Box3().setFromObject(obj);
+      const center = isRigged ? new THREE.Vector3() : bb.getCenter(new THREE.Vector3());
+      if (!isRigged) obj.position.sub(center);
+      const wrapper = new THREE.Group();
+      wrapper.name = "__partWrap_" + cat;
+      wrapper.add(obj);
+      wrapper.userData.baseCenter = center.clone();
+      return { wrapper, bb, center };
+    }
+    function charBoneBindInverses(modelRoot) {
+      const out = {};
+      if (!modelRoot) return out;
+      modelRoot.traverse((o) => {
+        if (!o.isSkinnedMesh || !o.skeleton) return;
+        if (String(o.name || "").indexOf("__part") === 0) return;
+        if (o.userData && o.userData._origBind) return;
+        let p = o, isPart = false;
+        while (p && p !== modelRoot) {
+          if (typeof p.name === "string" && p.name.indexOf("__partWrap_") === 0) {
+            isPart = true;
+            break;
+          }
+          p = p.parent;
+        }
+        if (isPart) return;
+        const sk = o.skeleton;
+        (sk.bones || []).forEach((b, i) => {
+          if (!b || !b.name || out[b.name]) return;
+          const inv = sk.boneInverses && sk.boneInverses[i];
+          if (inv) out[b.name] = inv;
+        });
+      });
+      return out;
+    }
+    function isLegacyAuthorCompensation(pos, ao) {
+      if (!ao || !pos) return false;
+      const L2 = ao.lengthSq();
+      if (!(L2 > 1e-6)) return false;
+      const dot = (+pos[0] || 0) * ao.x + (+pos[1] || 0) * ao.y + (+pos[2] || 0) * ao.z;
+      return -dot / L2 >= 0.5;
+    }
+    function computeAuthorOffset(bb, center, bone, modelRoot, cat, charBones, defaultOffsets) {
+      try {
+        if (!bb || bb.isEmpty() || !center || !bone || !modelRoot) return null;
+        const size = bb.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        if (!(maxDim > 1e-6)) return null;
+        modelRoot.updateMatrixWorld(true);
+        const bp = new THREE.Vector3();
+        const binds = charBoneBindInverses(modelRoot);
+        const m4 = new THREE.Matrix4();
+        const bonePos = (nm, cb) => {
+          const inv = binds[nm];
+          if (inv) return bp.setFromMatrixPosition(m4.copy(inv).invert());
+          cb.getWorldPosition(bp);
+          modelRoot.worldToLocal(bp);
+          return bp;
+        };
+        let dNear = Infinity, nearName = "", boneSpread = 0;
+        for (const nm in charBones || {}) {
+          const cb = charBones[nm];
+          if (!cb) continue;
+          bonePos(nm, cb);
+          const bl = bp.length();
+          if (bl > boneSpread) boneSpread = bl;
+          const dd = center.distanceTo(bp);
+          if (dd < dNear) {
+            dNear = dd;
+            nearName = nm;
+          }
+        }
+        if (!isFinite(dNear)) return null;
+        const dOrigin = center.length();
+        const ok = boneSpread > maxDim * 0.5 && dOrigin > maxDim * 0.5 && dNear < dOrigin * 0.5;
+        if (!ok) {
+          if (dOrigin > maxDim * 0.5) log("[파츠 저작오프셋] " + cat + " — 보정 안 함(원점 기준 저작으로 판정). 최근접본 " + (nearName || "?") + "까지 " + dNear.toFixed(3) + " / 원점거리 " + dOrigin.toFixed(3) + " (임계 " + (dOrigin * 0.5).toFixed(3) + ") / 본 퍼짐 " + boneSpread.toFixed(3) + " / 파츠크기 " + maxDim.toFixed(3));
+          return null;
+        }
+        const boneLocal = bone.getWorldPosition(new THREE.Vector3());
+        modelRoot.worldToLocal(boneLocal);
+        const bindInv = binds[bone.name];
+        let want;
+        if (bindInv) want = center.clone().applyMatrix4(bindInv);
+        else {
+          want = modelRoot.localToWorld(center.clone());
+          bone.worldToLocal(want);
+        }
+        const off = center.clone().sub(want);
+        if (!isFinite(off.x) || !isFinite(off.y) || !isFinite(off.z)) return null;
+        const dOff = defaultOffsets[cat];
+        if (dOff && isLegacyAuthorCompensation([dOff.x, dOff.y, dOff.z], off)) {
+          log("[파츠 저작오프셋] " + cat + " — PART_DEFAULT_OFFSET(" + dOff.x + ", " + dOff.y + ", " + dOff.z + ")이 이미 같은 양을 눌러 맞춰둔 카테고리라 보정 생략(이중 보정 방지). 계산된 상쇄량은 (" + off.x.toFixed(3) + ", " + off.y.toFixed(3) + ", " + off.z.toFixed(3) + ")");
+          return null;
+        }
+        log("[파츠 저작오프셋] " + cat + " — 캐릭터에 씌운 채 저작된 파츠로 판정, 상쇄 적용 (" + off.x.toFixed(3) + ", " + off.y.toFixed(3) + ", " + off.z.toFixed(3) + ") | 파츠중심 (" + center.x.toFixed(3) + ", " + center.y.toFixed(3) + ", " + center.z.toFixed(3) + ") / 부착본 " + (bone.name || "?") + " (" + boneLocal.x.toFixed(3) + ", " + boneLocal.y.toFixed(3) + ", " + boneLocal.z.toFixed(3) + ") / 최근접본 " + (nearName || "?") + "까지 " + dNear.toFixed(3) + " < 원점거리 " + dOrigin.toFixed(3) + "×0.5 / 파츠크기 " + maxDim.toFixed(3));
+        return off;
+      } catch (e) {
+        warn("[파츠 저작오프셋] 계산 실패 — 보정 생략", e);
+        return null;
+      }
+    }
+    function riggedBaseCenter(wrapper, skinnedMeshes, charRoot) {
+      wrapper.updateMatrixWorld(true);
+      const skinBB = new THREE.Box3();
+      skinnedMeshes.forEach((sm) => {
+        sm.updateMatrixWorld(true);
+        const bb = new THREE.Box3().setFromObject(sm);
+        if (bb.isEmpty()) return;
+        if (skinBB.isEmpty()) skinBB.copy(bb);
+        else skinBB.union(bb);
+      });
+      if (skinBB.isEmpty()) return null;
+      const local = skinBB.getCenter(new THREE.Vector3()).clone();
+      charRoot.worldToLocal(local);
+      return local;
+    }
+    function prepareExtra(scene, cat, i) {
+      const obj = cloneScene(scene);
+      const colorGroups = {};
+      obj.traverse((o) => {
+        if (!o.isMesh) return;
+        const m = prepMaterial(o);
+        addColorGroup(colorGroups, o, m, false);
+      });
+      obj.name = "__part_" + cat + "_i" + i;
+      const bb = new THREE.Box3().setFromObject(obj);
+      const center = bb.getCenter(new THREE.Vector3());
+      obj.position.sub(center);
+      const wrapper = new THREE.Group();
+      wrapper.name = "__partWrap_" + cat + "_i" + i;
+      wrapper.add(obj);
+      wrapper.userData.baseCenter = center.clone();
+      return { wrapper, obj, colorGroups };
+    }
+    return {
+      prepareScene,
+      collectCharBones,
+      hasSkinnedChar,
+      skinnedMeshesOf,
+      isRiggedPart,
+      rebindRigged,
+      wrapPart,
+      charBoneBindInverses,
+      isLegacyAuthorCompensation,
+      computeAuthorOffset,
+      riggedBaseCenter,
+      prepareExtra
+    };
   }
 
   // src/index.ts

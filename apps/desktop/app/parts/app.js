@@ -279,6 +279,16 @@ const bodyCore = TwCharCore.createBody({
   setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
   applyLightPreset: (...a)=>matToneMod.applyLightPresetToInstance(...a),
 });
+/* 🎀 파츠를 캐릭터에 붙일 한 벌로 만들기(복제 · 재질 · _col · _pic · 리깅 판정 · 다시 묶기 · wrapper · 저작 오프셋)는 캐릭터 코어(src/parts.ts · #436).
+   좌석 몫(장착 차례 · 옷 겹침 · 귀 까닥임 · 애니메이션 · 진단)은 equipPartOnSeat 에 남는다. */
+const partsCore = TwCharCore.createParts({
+  THREE,
+  applyPartMatTone: (m)=>lightToneMod._applyPartMatTone(m),
+  forceOpaqueAlphaOutput: (m)=>partSceneMod._forceOpaqueAlphaOutput(m),
+  meshIsPic: (o)=>partPaintMod.meshIsPic(o),
+  picRepairUV: (o)=>partPaintMod._picRepairUV(o),
+  uvLooksBroken: (o)=>partPaintMod.g_uvLooksBroken(o),
+});
 
 /* ===== 🐾 사람 귀 (꾸미기 › 머리 › 귀) — human-ear.js. 귀 GLB 파싱은 animal.js 캐시를 같이 쓴다.
    animal.js 는 이 파일보다 늦게 로드되므로 파서는 부를 때 찾는다. */
@@ -4311,55 +4321,16 @@ async function equipPartOnSeat(seat, cat, rec, opts){
     const {scene, animations} = await partSceneMod.getPartScene(rec);
     // ★ 파싱 대기 중에 같은 카테고리에 새 장착이 시작됐다면 이건 낡은 호출 — 부착하지 않고 중단.
     if(seat._equipSeq[seqKey] !== mySeq) return;
-    const obj = THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(scene) : scene.clone(true);
-    const colorGroups = {};   // ★ "_col" 뒤에 붙은 번호별로 그룹 — _col/_col1은 "col1", _col2는 "col2" 로 묶여서 각각 독립적으로 색상 변경 가능
-    const picMeshes = [];     // 🖍️ "_pic" 메쉬 — 유저가 직접 그리는 면(그림칸은 파츠당 하나, 층은 _picSetup 이 만든다)
-    obj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false;
-      const m = o.material&&o.material.clone? o.material.clone() : o.material; o.material=m;
-      if(m){ lightToneMod._applyPartMatTone(m);   // 💡 톤은 한 함수에서만 정한다(썸네일도 같은 함수를 쓴다)
-        // ★ 투명 재질(블렌더에서 alpha 낮춰서 내보낸 파츠)은 씬에 추가되는 "순서"에 따라 그려지는 순서가
-        //   달라질 수 있는데, 캐릭터 자동 복원(앱 재시작 등) 시에는 다른 요소들보다 먼저/늦게 추가되면서
-        //   순서가 꼬여 투명도가 제대로 안 보이는 경우가 있었음(꺼짐→켬으로 다시 추가하면 정상화되던 원인).
-        //   투명 메쉬에 renderOrder를 명시적으로 부여해서, 추가되는 시점/순서와 무관하게 항상 일관되게 그려지게 함.
-        if(m.transparent){ o.renderOrder = 10; partSceneMod._forceOpaqueAlphaOutput(m); }
-      }
-      /* 🖍️ "_pic" 표시 = 유저가 직접 그릴 수 있는 면. 인식 규칙은 _col 과 같다.
-         ⚠️ _pic 은 **_col 대상에서 뺀다** — 한 메쉬에 둘을 걸면 색(곱셈)이 그림 위에 겹쳐서
-           고른 색과 찍히는 색이 어긋난다. 그리는 면은 그림이 색을 정한다. */
-      if(partPaintMod.meshIsPic(o)){
-        /* 🧭 진짜 UV 가 두 번째 칸에 있는 파츠를 구제한다(위 _picRepairUV 주석 참고).
-           조용히 넘어가면 "그렸는데 파츠 전체가 옅게 물든다"로만 보여서 원인을 찾을 수가 없다. */
-        if(partPaintMod._picRepairUV(o)) _equipWarnOnce('uv2:'+cat+':'+(rec&&rec.id),
-          '[파츠] UV 가 두 번째 칸에 있어 첫 칸으로 옮겼습니다 — cat=' + cat + ' mesh=' + (o.name||'이름없음')
-          + ' / 블렌더에서 비어 있는 첫 UV 맵을 지우고 다시 내보내는 것이 정식 수정입니다.');
-        picMeshes.push(o);
-        return;
-      }
-      /* 그림칸이 아니어도 같은 저작 실수는 텍스처를 텍셀 하나로 뭉갠다. 여기서는 **고치지 않고**
-         알리기만 한다 — 이미 배포된 파츠의 겉모습을 말없이 바꾸지 않기 위해서다. */
-      if(m && m.map && partPaintMod.g_uvLooksBroken(o)) _equipWarnOnce('uv2warn:'+cat+':'+(rec&&rec.id),
+    /* 복제 · 재질 톤 · _col 색 묶음 · _pic 그림칸(UV 구제) · 이 파츠 본에 _partAdopted 표식 — 코어.
+       ⚠️ 표식은 뒤에 붙는 파츠가 이 본을 캐릭터 본으로 오인해 리바인드하지 않게 하는 것(비리깅 파츠의 ear 본 등). */
+    const { obj, colorGroups, picMeshes } = partsCore.prepareScene(scene, cat, {
+      onPicUvRepaired: (o)=>_equipWarnOnce('uv2:'+cat+':'+(rec&&rec.id),
+        '[파츠] UV 가 두 번째 칸에 있어 첫 칸으로 옮겼습니다 — cat=' + cat + ' mesh=' + (o.name||'이름없음')
+        + ' / 블렌더에서 비어 있는 첫 UV 맵을 지우고 다시 내보내는 것이 정식 수정입니다.'),
+      onUvBroken: (o)=>_equipWarnOnce('uv2warn:'+cat+':'+(rec&&rec.id),
         '[파츠] 텍스처가 있는데 첫 UV 칸이 비었습니다 — cat=' + cat + ' mesh=' + (o.name||'이름없음')
-        + ' / 파츠가 단색으로 보인다면 이게 원인입니다(블렌더 UV 맵 순서).');
-      // ★ "_col" 표시는 메쉬(오브젝트) 이름, 머터리얼 이름 둘 중 어디에 붙어있어도 인식 — 메쉬 이름 먼저 확인하고, 없으면 머터리얼 이름도 확인.
-      const colMatch = o.name.match(/_col(\d*)/i) || (m && m.name && m.name.match(/_col(\d*)/i));
-      if(colMatch){
-        const key = 'col'+(colMatch[1]||'1');   // "_col"(번호 없음)은 "_col1"과 같은 그룹으로 취급
-        if(m && m.color) o.userData.origColor = m.color.getHexString();
-        (colorGroups[key] = colorGroups[key]||[]).push(o);
-      }
-    }});
-    obj.name = '__part_'+cat;
-    // ★ 파츠 GLB 안에 이름이 "ear_L"/"earL"/"ear_R"/"earR"인 오브젝트가 있으면, 캐릭터 본연의 귀와
-    //   똑같이 기존 "귀 까닥임" 애니메이션 시스템(seat.bones.ear / frame()의 EAR_FLICK 로직)에 등록해서
-    //   같이 움직이게 함. 해제 시(unequipPartFromSeat)에는 다시 이 배열에서 빼줘야 함.
-    // ★ 파츠 리깅 랜덤 위치 뒤틀림 버그 수정:
-    //   비리깅 파츠가 먼저 착용되어 있고, 그 파츠 안에 ear_L/ear_R 같은 이름의 Bone이 있으면,
-    //   이후 리깅 파츠 착용 시 line 4812의 charBones traverse가 그 본을 캐릭터 본으로 오인해서 수집 →
-    //   리깅 파츠의 SkinnedMesh가 비리깅 파츠의 본에 rebind됨 →
-    //   비리깅 파츠 제거 시 리깅 파츠 위치가 뒤틀림.
-    //   대책: 이 파츠 안의 모든 Bone에 _partAdopted 플래그를 미리 찍어 후속 charBones 수집에서 확실히 제외.
-    //   (기존엔 리깅 파츠가 입양시킨 본만 표시했음)
-    obj.traverse(o=>{ if(o.isBone){ o.userData = o.userData||{}; o.userData._partAdopted = true; } });
+        + ' / 파츠가 단색으로 보인다면 이게 원인입니다(블렌더 UV 맵 순서).'),
+    });
     /* ★ 여기서 모으는 것은 **이 파츠 자신의** 귀 본이다(캐릭터 본이 아니다).
        ⚠️ 예전에는 standalone(🧷 단독 부착) 파츠를 통째로 건너뛰었는데, 그건 과잉 방어였다.
          🧷 의 약속은 "캐릭터의 같은 이름 본에 **자동 연결**하지 않는다"이고, 그 약속을 지키는 것은
@@ -4391,10 +4362,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
     const modelRoot = seat.modelRoot || seat.root || charRoot;
     // ★ 다른 파츠가 입양시킨 본(_partAdopted)은 캐릭터 고유 본이 아니므로 제외 — 안 그러면 나중에 장착한
     //   파츠(예: 동물귀)가 먼저 장착된 옷(cape)의 ear 본에 리바인드돼서 옷의 본을 따라가는 버그가 생김.
-    const _collectCharBones = ()=>{
-      for(const k in charBones) delete charBones[k];
-      if(charRoot) charRoot.traverse(o=>{ if(o.isBone && !(o.userData&&o.userData._partAdopted) && !charBones[o.name]) charBones[o.name]=o; });
-    };
+    const _collectCharBones = ()=>partsCore.collectCharBones(charRoot, charBones);
     _collectCharBones();
     // ★ 원격 좌석 초기화 레이스 방어 —
     //   상대 화면은 "캐릭터 GLB 로드 → 파츠 장착"이 연달아 일어나서, 스켈레톤이 완성되기 전에
@@ -4402,8 +4370,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
     //   좌표 체계가 달라짐(= 상대 화면에서만 귀 파츠가 어긋나는 증상).
     //   캐릭터가 스킨드 메시를 쓰는데(=본이 있어야 정상) 본이 아직 안 보이면 잠시 기다렸다 재수집.
     {
-      let _hasSkinnedChar = false;
-      if(charRoot) charRoot.traverse(o=>{ if(o.isSkinnedMesh && !String(o.name||'').startsWith('__part')) _hasSkinnedChar = true; });
+      const _hasSkinnedChar = partsCore.hasSkinnedChar(charRoot);
       let _waited = 0;
       while(_hasSkinnedChar && Object.keys(charBones).length < 2 && _waited < 3000){
         await new Promise(r=>setTimeout(r, 150)); _waited += 150;
@@ -4411,8 +4378,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
         _collectCharBones();
       }
     }
-    const skinnedMeshes = [];
-    obj.traverse(o=>{ if(o.isSkinnedMesh) skinnedMeshes.push(o); });
+    const skinnedMeshes = partsCore.skinnedMeshesOf(obj);
     // "리깅 파츠" 판정: SkinnedMesh가 있고 조인트의 **과반수 이상**이 캐릭터 본과 이름 일치.
     //  → 실수로 armature와 함께 export된 리지드 파츠(1~2개만 우연히 이름 겹치는 경우)를 리깅으로
     //    오탐지해서 기즈모가 사라지는 버그를 방지(요청사항 B).
@@ -4428,20 +4394,9 @@ async function equipPartOnSeat(seat, cat, rec, opts){
        charRoot 에 붙는데, 그러면 '캐릭터를 안 따라온다'는 이 카테고리의 존재 이유가 사라진다.
        (등록창의 🧷 단독 부착을 강제로 켠 것과 같은 상태다) */
     const _deskPart = premiumMod.isDeskPartCat(info);
-    const isRigged = !_deskPart && !rec.standalone && skinnedMeshes.length>0 && skinnedMeshes.some(sm=>{
-      if(!sm.skeleton) return false;
-      const total = sm.skeleton.bones.length;
-      const matched = sm.skeleton.bones.filter(b=> !!charBones[b.name]).length;
-      if(total===0) return false;
-      // ★ 버그 수정(head bone 하나짜리 모자가 머리 아래로 내려가던 문제):
-      //   본이 1~2개뿐인 파츠(예: head 하나에만 스키닝한 모자)는 total=1, matched=1인데
-      //   아래 max(2, ...) 문턱을 못 넘어 리지드 파츠로 떨어졌다. 리지드 경로는 Box3(바인드포즈 기준)로
-      //   중심을 잡아 head 본에 붙이는데, 스킨드 메시의 실제 렌더 위치는 본이 결정하므로 위치가 어긋난다.
-      //   "본이 전부 캐릭터와 일치"하면 개수와 무관하게 리깅으로 인정한다 — 단 같은 리그 계열일 때만.
-      if(matched === total && _rigFamilyMatches) return true;
-      return matched >= Math.max(2, Math.ceil(total/2));
-    });
-    const adoptedBones = [];   // 캐릭터에 없어서 캐릭터 본 밑으로 입양시킨 파츠 본들(해제 시 제거용)
+    // 본이 전부 일치하면 개수와 무관하게 리깅(head 하나짜리 모자) — 같은 리그 계열일 때만(코어 isRiggedPart)
+    const isRigged = partsCore.isRiggedPart(skinnedMeshes, charBones, { standalone:_deskPart || !!rec.standalone, rigFamilyMatches:_rigFamilyMatches });   // 책상 파츠는 캐릭터를 따라오면 안 되므로 단독 부착처럼
+    let adoptedBones = [];   // 캐릭터에 없어서 캐릭터 본 밑으로 입양시킨 파츠 본들(해제 시 제거용)
     // ── 🐰 귀 파츠 기능과 분리 ──
     //   리깅(옷) 파츠: 캐릭터 스켈레톤에 리바인드되므로 캐릭터의 진짜 귀 본이 움직임을 담당한다.
     //     파츠 안의 ear_L/ear_R 본을 귀 까닥임 목록에 넣으면 안 됨(리바인드 후 쓰이지도 않는 본이라
@@ -4474,30 +4429,10 @@ async function equipPartOnSeat(seat, cat, rec, opts){
       }
     }
     if(isRigged){
-      const bindCenter = new THREE.Vector3(); let bcCount=0;   // 리그(바인드) 공간에서의 스킨 중심 — xf 피봇용
-      skinnedMeshes.forEach(sm=>{
-        sm.userData._origBind = sm.bindMatrix.clone();   // ★ xf를 bindMatrix에 굽기 위해 원본 바인드 보존
-        if(sm.geometry){
-          sm.geometry.computeBoundingBox();
-          const c0 = sm.geometry.boundingBox.getCenter(new THREE.Vector3()).applyMatrix4(sm.userData._origBind);
-          bindCenter.add(c0); bcCount++;
-        }
-        const src = sm.skeleton;
-        const mapped = src.bones.map(b=>{
-          if(charBones[b.name]) return charBones[b.name];
-          // 캐릭터에 없는 본(예: 기본 캐릭터에 없는 ear_L) — 부모 이름이 캐릭터에 있으면 그 밑으로 입양,
-          // 그럼 부모 본을 따라 움직임(귀 본은 head 밑으로 들어가 머리를 따라감).
-          let host = null, p = b.parent;
-          while(p){ if(p.isBone && charBones[p.name]){ host = charBones[p.name]; break; } p = p.parent; }
-          (host || charBones['spine'] || Object.values(charBones)[0])?.add(b);
-          b.userData._partAdopted = true;   // ★ 다른 파츠의 본 수집에서 제외 표식 — 파츠끼리 본이 섞이는 것 방지
-          adoptedBones.push(b);
-          return b;
-        });
-        sm.bind(new THREE.Skeleton(mapped, src.boneInverses.map(m4=>m4.clone())), sm.bindMatrix);
-        sm.frustumCulled = false;
-      });
-      if(bcCount) bindCenter.multiplyScalar(1/bcCount);
+      // 캐릭터 본으로 다시 묶고(없는 본은 조상 본 밑으로 입양) 바인드 공간 스킨 중심(xf 피봇)을 잰다 — 코어
+      const _rb = partsCore.rebindRigged(skinnedMeshes, charBones);
+      const bindCenter = _rb.bindCenter;
+      adoptedBones = _rb.adoptedBones;
       // wrapper에 기록 — applyPartXf가 이 피봇 기준으로 bindMatrix 오프셋을 합성
       // (wrapper.userData는 아래 wrapper 생성 후 세팅되므로 임시 보관)
       obj.userData._rigBindCenter = bindCenter;
@@ -4508,12 +4443,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
     }
     // 메시 중심을 피봇으로 만들기 위해 wrapper 그룹에 감싸기 (회전·스케일이 중심 기준)
     //  — 리깅 파츠는 본이 위치를 결정하므로 재중심화하지 않고 원본 좌표 그대로 둠
-    const bb = new THREE.Box3().setFromObject(obj);
-    const center = isRigged ? new THREE.Vector3() : bb.getCenter(new THREE.Vector3());
-    if(!isRigged) obj.position.sub(center);
-    const wrapper = new THREE.Group(); wrapper.name='__partWrap_'+cat;
-    wrapper.add(obj);
-    wrapper.userData.baseCenter = center.clone();   // applyPartXf에서 사용
+    const { wrapper, bb, center } = partsCore.wrapPart(obj, cat, isRigged);   // baseCenter 는 applyPartXf 가 쓴다
     /* 🎩 저작 오프셋 — "캐릭터에 씌운 채 저작된 파츠"가 머리 위로 공중부양하던 문제(핸드오프 3장 0번)
        보정량. 원점 기준 저작 파츠·리깅 파츠는 null 이라 기존 동작 그대로다.
        판정 근거는 콘솔 [파츠 저작오프셋] 참고. **캐릭터 본에 붙는 파츠 전용**이다.
@@ -4623,21 +4553,8 @@ async function equipPartOnSeat(seat, cat, rec, opts){
       //   해서 wrapper를 그 위치로 옮김 — 그러면 기즈모가 정확히 옷 위에 붙고, 이후 유저의 드래그
       //   오프셋도 그 자리에서부터 계산됨.
       // (스킨드메시의 월드 바운딩박스 = 스켈레톤 자세를 반영한 실제 화면상 크기/위치)
-      wrapper.updateMatrixWorld(true);
-      const skinBB = new THREE.Box3();
-      skinnedMeshes.forEach(sm=>{
-        sm.updateMatrixWorld(true);
-        const bb=new THREE.Box3().setFromObject(sm);
-        if(bb.isEmpty()) return;
-        if(skinBB.isEmpty()) skinBB.copy(bb); else skinBB.union(bb);
-      });
-      if(!skinBB.isEmpty()){
-        const worldCenter = skinBB.getCenter(new THREE.Vector3());
-        // 부모(charRoot) 로컬 좌표로 환산 — worldToLocal은 파괴적이라 새 벡터로
-        const local = worldCenter.clone();
-        charRoot.worldToLocal(local);
-        wrapper.userData.baseCenter = local;   // applyPartXf가 이 위에 xf를 얹음
-      }
+      const _rc = partsCore.riggedBaseCenter(wrapper, skinnedMeshes, charRoot);
+      if(_rc) wrapper.userData.baseCenter = _rc;   // applyPartXf가 이 위에 xf를 얹음
     } else {
       bone.add(wrapper);
     }
@@ -4685,28 +4602,8 @@ async function equipPartOnSeat(seat, cat, rec, opts){
       if(extraCount > 0){
         wrapper.userData.multiExtras = [];   // 추가 wrapper들만 여기에 (main은 seat.equippedPartObjs[cat])
         for(let i=1; i<=extraCount; i++){
-          const extraObj = THREE.SkeletonUtils ? THREE.SkeletonUtils.clone(scene) : scene.clone(true);
-          const extraColorGroups = {};   // 런처9: 각 인스턴스의 _col 그룹은 독립 — 별도 mesh 참조
-          extraObj.traverse(o=>{ if(o.isMesh){ o.castShadow=true; o.frustumCulled=false;
-            const m = o.material&&o.material.clone? o.material.clone() : o.material; o.material=m;
-            if(m){ lightToneMod._applyPartMatTone(m);   // 본체 인스턴스와 같은 함수
-              if(m.transparent){ o.renderOrder = 10; partSceneMod._forceOpaqueAlphaOutput(m); }
-            }
-            // 런처9: 원본과 동일한 _col 네이밍 규칙으로 이 인스턴스만의 컬러 그룹 수집
-            const colMatch = (o.name && o.name.match(/_col(\d*)/i)) || (m && m.name && m.name.match(/_col(\d*)/i));
-            if(colMatch){
-              const key = 'col'+(colMatch[1]||'1');
-              if(m && m.color) o.userData.origColor = m.color.getHexString();
-              (extraColorGroups[key] = extraColorGroups[key]||[]).push(o);
-            }
-          }});
-          extraObj.name = '__part_'+cat+'_i'+i;
-          const extraBB = new THREE.Box3().setFromObject(extraObj);
-          const extraCenter = extraBB.getCenter(new THREE.Vector3());
-          extraObj.position.sub(extraCenter);
-          const extraWrap = new THREE.Group(); extraWrap.name='__partWrap_'+cat+'_i'+i;
-          extraWrap.add(extraObj);
-          extraWrap.userData.baseCenter = extraCenter.clone();
+          // 같은 GLB 복제 · 재질 · 이 인스턴스만의 _col 묶음 · 가운데 맞춘 wrapper — 코어
+          const { wrapper:extraWrap, obj:extraObj, colorGroups:extraColorGroups } = partsCore.prepareExtra(scene, cat, i);
           // 🎩 같은 GLB의 clone이라 extraCenter === center. 메인 wrapper가 계산해둔 상쇄량을 그대로 쓴다
           //    (다시 계산하면 본 자세가 그새 바뀌어 인스턴스끼리 미세하게 어긋날 수 있다).
           extraWrap.userData.authorOff = wrapper.userData.authorOff ? wrapper.userData.authorOff.clone() : null;
@@ -4945,98 +4842,9 @@ function _diagRiggedPartAlignment(cat, skinnedMeshes, charRoot){
         모델 좌표의 점에 곱하면 곧바로 그 본의 바인드 로컬 좌표가 된다.
         wrapper는 본의 자식이므로, 바인드 기준으로 앉혀두면 이후 본이 어떻게 움직여도 함께 따라간다.
    ※ 파츠 자신의 스킨드메시는 제외한다 — 그건 캐릭터 리그가 아니라 파츠 리그다. */
-function _charBoneBindInverses(modelRoot){
-  const out = {};
-  if(!modelRoot) return out;
-  modelRoot.traverse(o=>{
-    if(!o.isSkinnedMesh || !o.skeleton) return;
-    if(String(o.name||'').indexOf('__part') === 0) return;
-    if(o.userData && o.userData._origBind) return;            // 리깅 파츠의 스킨드메시
-    let p = o, isPart = false;
-    while(p && p !== modelRoot){
-      if(typeof p.name === 'string' && p.name.indexOf('__partWrap_') === 0){ isPart = true; break; }
-      p = p.parent;
-    }
-    if(isPart) return;
-    const sk = o.skeleton;
-    (sk.bones || []).forEach((b, i)=>{
-      if(!b || !b.name || out[b.name]) return;
-      const inv = sk.boneInverses && sk.boneInverses[i];
-      if(inv) out[b.name] = inv;
-    });
-  });
-  return out;
-}
+function _charBoneBindInverses(modelRoot){ return partsCore.charBoneBindInverses(modelRoot); }
 function _computePartAuthorOffset(bb, center, bone, modelRoot, cat, charBones){
-  try{
-    if(!bb || bb.isEmpty() || !center || !bone || !modelRoot) return null;
-    const size = bb.getSize(new THREE.Vector3());
-    const maxDim = Math.max(size.x, size.y, size.z);
-    if(!(maxDim > 1e-6)) return null;
-    modelRoot.updateMatrixWorld(true);
-    // 캐릭터 본들을 모델 좌표계로 환산해서 (a) 가장 가까운 본까지의 거리 (b) 본들의 최대 원점거리 를 구한다.
-    const _bp = new THREE.Vector3();
-    const _binds = _charBoneBindInverses(modelRoot);   // 바인드 자세 — 애니메이션 무관
-    const _m4 = new THREE.Matrix4();
-    // 본 위치도 바인드 기준으로 잰다. 지금 자세로 재면 실행 화면에서만 판정이 흔들린다.
-    const _bonePos = (nm, cb)=>{
-      const inv = _binds[nm];
-      if(inv) return _bp.setFromMatrixPosition(_m4.copy(inv).invert());
-      cb.getWorldPosition(_bp); modelRoot.worldToLocal(_bp); return _bp;   // 스키닝 없는 캐릭터 폴백
-    };
-    let dNear = Infinity, nearName = '', boneSpread = 0;
-    for(const nm in (charBones||{})){
-      const cb = charBones[nm]; if(!cb) continue;
-      _bonePos(nm, cb);
-      const bl = _bp.length(); if(bl > boneSpread) boneSpread = bl;
-      const dd = center.distanceTo(_bp);
-      if(dd < dNear){ dNear = dd; nearName = nm; }
-    }
-    if(!isFinite(dNear)) return null;          // 본을 하나도 못 찾음 — 판단 불가라 손대지 않음
-    const dOrigin = center.length();           // 파츠 중심 ↔ 모델 원점
-    const ok = (boneSpread > maxDim*0.5) && (dOrigin > maxDim*0.5) && (dNear < dOrigin*0.5);
-    // 1-5 대응: 판정에 쓰인 항을 전부 남긴다 — 안 고쳐졌을 때 어느 조건에서 떨어졌는지 바로 보이게.
-    //   (원점 근처 파츠는 정상 경로라 로그를 남기지 않는다 — 콘솔 소음 방지)
-    if(!ok){
-      if(dOrigin > maxDim*0.5) console.log('[파츠 저작오프셋] '+cat+' — 보정 안 함(원점 기준 저작으로 판정). '
-        +'최근접본 '+(nearName||'?')+'까지 '+dNear.toFixed(3)+' / 원점거리 '+dOrigin.toFixed(3)
-        +' (임계 '+(dOrigin*0.5).toFixed(3)+') / 본 퍼짐 '+boneSpread.toFixed(3)+' / 파츠크기 '+maxDim.toFixed(3));
-      return null;
-    }
-    const boneLocal = bone.getWorldPosition(new THREE.Vector3());
-    modelRoot.worldToLocal(boneLocal);          // 부착 본이 모델 좌표계 어디에 있는지 (로그용)
-    /* 🎯 저작 위치 → 부착 본 로컬. **바인드 자세**로 환산한다(위 _charBoneBindInverses 주석 참고).
-       예전엔 modelRoot.localToWorld + bone.worldToLocal, 즉 '지금 자세'를 썼다. 미리보기는 정지라
-       맞아떨어졌지만 실행 화면은 숨쉬기·고개짓 클립이 돌아 head/spine이 기울어져 있어서, 그 기울기가
-       오프셋에 그대로 굳어 모자가 얼굴 밑으로 내려갔다. boneInverse는 자세와 무관하다. */
-    const _bindInv = _binds[bone.name];
-    let want;
-    if(_bindInv){
-      want = center.clone().applyMatrix4(_bindInv);
-    }else{
-      want = modelRoot.localToWorld(center.clone());   // 스키닝 없는 캐릭터 폴백(기존 경로)
-      bone.worldToLocal(want);
-    }
-    const off = center.clone().sub(want);                 // wrapper 위치에서 빼야 할 양
-    if(!isFinite(off.x) || !isFinite(off.y) || !isFinite(off.z)) return null;
-    // ★ 1-3 대응 — mask/glasses의 PART_DEFAULT_OFFSET(y:-1.95)처럼 "떠 있는 걸 눈으로 눌러 맞춰둔"
-    //   카테고리 상수가 이미 있으면, 여기서 또 상쇄하면 이중 보정이 되어 파츠가 땅으로 꺼진다.
-    //   그런 카테고리는 손대지 않고 기존 동작을 그대로 유지한다(모자 y:0 / 날개·손 0 은 해당 없음 → 보정됨).
-    const dOff = PART_DEFAULT_OFFSET[cat];
-    if(dOff && _isLegacyAuthorCompensation([dOff.x, dOff.y, dOff.z], off)){
-      console.log('[파츠 저작오프셋] '+cat+' — PART_DEFAULT_OFFSET('+dOff.x+', '+dOff.y+', '+dOff.z+')이 이미 '
-        +'같은 양을 눌러 맞춰둔 카테고리라 보정 생략(이중 보정 방지). 계산된 상쇄량은 '
-        +'('+off.x.toFixed(3)+', '+off.y.toFixed(3)+', '+off.z.toFixed(3)+')');
-      return null;
-    }
-    console.log('[파츠 저작오프셋] '+cat+' — 캐릭터에 씌운 채 저작된 파츠로 판정, 상쇄 적용 '
-      +'('+off.x.toFixed(3)+', '+off.y.toFixed(3)+', '+off.z.toFixed(3)+') | '
-      +'파츠중심 ('+center.x.toFixed(3)+', '+center.y.toFixed(3)+', '+center.z.toFixed(3)+') / '
-      +'부착본 '+(bone.name||'?')+' ('+boneLocal.x.toFixed(3)+', '+boneLocal.y.toFixed(3)+', '+boneLocal.z.toFixed(3)+') / '
-      +'최근접본 '+(nearName||'?')+'까지 '+dNear.toFixed(3)+' < 원점거리 '+dOrigin.toFixed(3)+'×0.5 '
-      +'/ 파츠크기 '+maxDim.toFixed(3));
-    return off;
-  }catch(e){ console.warn('[파츠 저작오프셋] 계산 실패 — 보정 생략', e); return null; }
+  return partsCore.computeAuthorOffset(bb, center, bone, modelRoot, cat, charBones, PART_DEFAULT_OFFSET);
 }
 /* 🩺 머리 계열 파츠 실측 — "동물에 모자를 씌우면 자리가 틀리다"의 원인을 숫자로 확정하기 위한 진단.
 
@@ -5167,12 +4975,7 @@ function _computeAnimalHeadDy(seat, info, cat, bone, modelRoot, isRigged, author
        - 안 눌러둔 유저: 그대로 제자리로 내려옴
    ★ 임계 0.5는 "정상적인 미세조정"과 구분하기 위한 값. 저작 오프셋은 보통 캐릭터 키 수준(≈1.4)이라
      그 0.5배(≈0.7)를 반대 방향으로 미는 조정은 손보정 말고는 나오기 어렵다. */
-function _isLegacyAuthorCompensation(pos, ao){
-  if(!ao || !pos) return false;
-  const L2 = ao.lengthSq(); if(!(L2 > 1e-6)) return false;
-  const dot = (+pos[0]||0)*ao.x + (+pos[1]||0)*ao.y + (+pos[2]||0)*ao.z;
-  return (-dot / L2) >= 0.5;
-}
+function _isLegacyAuthorCompensation(pos, ao){ return partsCore.isLegacyAuthorCompensation(pos, ao); }
 /* wrapper에 카테고리 기본 오프셋 + 캐릭터별 xf 적용 (부착 시·슬라이더 변경 시 호출) */
 // wrapper 하나에 xf(위치/회전/스케일/색상)를 적용하는 공통 로직.
 //   기존 applyPartXf(카테고리 단위)와 stackable 파츠 개별 wrapper 양쪽에서 재사용.
