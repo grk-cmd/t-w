@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>투게더워킹 — 메인 페이지 프로토타입</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 일본어 제목: 갈무리에 가나가 없어 같은 도트 느낌의 DotGothic16 으로 잇는다 -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top"><img alt="" src="../../../app/assets/icon/tw-mini.png">투게더워킹</a>
+    <nav class="nav" aria-label="메인 메뉴">
+      <a href="#maker">캐릭터 만들기</a>
+      <a href="#library">라이브러리</a>
+      <a href="#about">소개</a>
+      <a href="https://help.together-working.com/" target="_blank" rel="noopener">도움말</a>
+    </nav>
+    <div class="right">
+      <div class="lang">
+        <button class="btn" type="button" id="langBtn" aria-haspopup="listbox" aria-expanded="false" aria-label="언어 바꾸기"><span id="langCur" data-notr>한국어</span></button>
+        <ul class="lang-menu" id="langMenu" role="listbox" aria-label="언어" data-notr hidden>
+          <li role="option" tabindex="-1" data-lang="ko" aria-selected="true">한국어</li>
+          <li role="option" tabindex="-1" data-lang="en" aria-selected="false">English</li>
+          <li role="option" tabindex="-1" data-lang="ja" aria-selected="false">日本語</li>
+        </ul>
+      </div>
+      <button class="btn" type="button" data-dlg="login">로그인</button>
+      <a class="btn default" href="#download">다운로드</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div class="hero-copy">
+        <div class="hero-top">
+          <img class="logo" src="../../../build/icon.iconset/icon_256x256.png" alt="투게더워킹" width="256" height="256">
+          <button class="land" type="button" data-dlg="land" aria-label="투게더랜드 (잠겨 있음)">
+            <span class="land-ic"><svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><rect x="1" y="12" width="14" height="3" fill="#3A7BD5"/><rect x="0" y="13" width="16" height="1" fill="#5B95E0"/><rect x="3" y="10" width="10" height="2" fill="#E8C77A"/><rect x="4" y="8" width="8" height="2" fill="#5DBB63"/><rect x="5" y="3" width="6" height="1" fill="#7A5AA6"/><rect x="6" y="4" width="4" height="4" fill="#FF9BB3"/><rect x="7" y="6" width="2" height="2" fill="#6B3F57"/><rect x="10" y="0" width="1" height="4" fill="#3A3A3A"/><rect x="11" y="0" width="3" height="2" fill="#FFD84D"/></svg><span class="lock" aria-hidden="true">🔒</span></span>
+            <span class="land-name">투게더랜드</span>
+          </button>
+        </div>
+        <div>
+          <p class="eyebrow">Windows · macOS 데스크톱 컴패니언</p>
+          <h1 id="hero-title">혼자서도 외롭지 않게,<br><em>투게더워킹!</em></h1>
+          <p class="lead">내가 만든 캐릭터와 함께 작업해요.<br>집중한 시간만큼 레벨이 오르고, 새로운 보상이 열려요.</p>
+          <div class="cta">
+            <button class="btn big default" type="button" data-dl="win"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="#F25022" d="M1 1h6.5v6.5H1z"/><path fill="#7FBA00" d="M8.5 1H15v6.5H8.5z"/><path fill="#00A4EF" d="M1 8.5h6.5V15H1z"/><path fill="#FFB900" d="M8.5 8.5H15V15H8.5z"/></svg>Windows</button>
+            <button class="btn big" type="button" data-dl="mac">macOS</button>
+            <a class="btn big" href="#maker">캐릭터 만들어 보기 →</a>
+          </div>
+          <p class="ver">최신 버전 v0.11.3 · 초대 코드가 있어야 가입할 수 있어요</p>
+        </div>
+      </div>
+      <div class="scene">
+        <div class="win news-mini" id="news" aria-labelledby="news-title">
+          <div class="bar"><span id="news-title">📰 소식 · 업데이트</span><span class="ctl" aria-hidden="true"><i>_</i><i>□</i><i class="x">×</i></span></div>
+          <div class="nb">
+            <div class="news-tabs" role="tablist" aria-label="소식 거르기">
+              <button class="btn" type="button" role="tab" aria-selected="true" data-nk="all">전체</button>
+              <button class="btn" type="button" role="tab" aria-selected="false" data-nk="notice">공지</button>
+              <button class="btn" type="button" role="tab" aria-selected="false" data-nk="update">업데이트</button>
+              <a href="#news">전체 보기 ›</a>
+            </div>
+            <ul class="field news-list" id="newsList" data-notr>
+              <li data-k="update" class="pin"><span class="kind k-up">v0.11.3</span><span class="t"><span class="new">NEW</span> 알림함이 우편 · 소식 두 칸으로 나뉘었어요</span><time datetime="2026-10-15">10.15</time></li>
+              <li data-k="notice"><span class="kind k-no">공지</span><span class="t">서버 이전 작업 동안 초대장 발급을 잠시 멈춰요</span><time datetime="2026-10-09">10.09</time></li>
+              <li data-k="update"><span class="kind k-up">v0.11.2</span><span class="t">도움말을 마이홈 안에서 볼 수 있어요</span><time datetime="2026-10-02">10.02</time></li>
+              <li data-k="notice"><span class="kind k-no">공지</span><span class="t">웹에서 캐릭터 만들기를 준비하고 있어요</span><time datetime="2026-09-28">09.28</time></li>
+            </ul>
+          </div>
+        </div>
+        <div class="pals" id="heroPals"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="maker" aria-labelledby="maker-title">
+    <div class="sec-head">
+      <h2 id="maker-title">캐릭터 만들기</h2>
+      <p>얼굴 레이어를 골라 쌓고 자리 · 크기를 맞추면 기본 · 감은눈 얼굴이 함께 만들어져요. 로그인 없이 해 볼 수 있어요.</p>
+    </div>
+    <div class="win maker">
+      <div class="bar">🎨 캐릭터 만들기<span class="ctl" aria-hidden="true"><i>_</i><i>□</i><i class="x">×</i></span></div>
+      <div class="body">
+        <div class="stage">
+          <div class="view field">
+            <span class="tag">미리보기 · 실제는 3D</span>
+            <div class="turn" role="group" aria-label="표정 보기">
+              <button class="btn" type="button" data-expr="open" aria-pressed="true">기본</button>
+              <button class="btn" type="button" data-expr="closed" aria-pressed="false">감은눈</button>
+            </div>
+            <svg id="preview" viewBox="0 0 240 270" aria-label="만든 캐릭터 미리보기"></svg>
+          </div>
+          <div class="tools">
+            <button class="btn" type="button" id="rand">🎲 랜덤</button>
+            <button class="btn" type="button" id="undo">↶ 되돌리기</button>
+            <button class="btn" type="button" id="reset">처음부터</button>
+            <label class="btn" for="imgFile" style="cursor:pointer">🖼 내 그림 불러오기</label>
+          </div>
+          <div class="tex">
+            <figure><div class="field"><svg id="texOpen" viewBox="0 0 200 200" aria-label="기본 얼굴 텍스처"></svg></div><figcaption>기본 · 손을 끌어 옮겨요 (Shift: 가로 · 세로만)</figcaption></figure>
+            <figure><div class="field"><svg id="texClosed" viewBox="0 0 200 200" aria-label="감은눈 얼굴 텍스처"></svg></div><figcaption>감은눈</figcaption></figure>
+          </div>
+        </div>
+
+        <div class="picker">
+          <div>
+            <div class="tabs" role="tablist" id="tabs"></div>
+            <div class="panel" role="tabpanel" id="panel">
+              <p class="group-l" id="itemsLabel">모양</p>
+              <div class="items" id="items"></div>
+              <p class="group-l" id="swLabel">색</p>
+              <div class="swatches" id="swatches"></div>
+              <div class="adj" id="adjBox">
+                <div class="adj-head">
+                  <p class="group-l">위치 · 크기 조정</p>
+                  <button class="btn" type="button" id="symBtn" aria-pressed="true">⇔ 대칭</button>
+                  <div class="seg" id="sideSeg" role="group" aria-label="고칠 쪽"><button class="btn" type="button" data-side="L">왼쪽</button><button class="btn" type="button" data-side="R">오른쪽</button></div>
+                  <button class="btn" type="button" id="adjReset">초기화</button>
+                </div>
+                <div class="sl"><label for="adjX">좌우</label><input id="adjX" type="range" min="-40" max="40" step="1"><output id="outX"></output></div>
+                <div class="sl"><label for="adjY">위아래</label><input id="adjY" type="range" min="-40" max="40" step="1"><output id="outY"></output></div>
+                <div class="sl"><label for="adjS">크기</label><input id="adjS" type="range" min="50" max="180" step="1"><output id="outS"></output></div>
+                <div class="sl" id="rowR"><label for="adjR">회전</label><input id="adjR" type="range" min="-45" max="45" step="1"><output id="outR"></output></div>
+              </div>
+              <div class="imgbox" id="imgBox" hidden>
+                <p class="group-l">256×256 그림을 얼굴 텍스처에 붙여요. 투명 배경 PNG 면 아래 얼굴이 비쳐 보여요.</p>
+                <div class="row"><label class="btn" for="imgFile">📂 그림 불러오기</label><input id="imgFile" type="file" accept="image/png,image/jpeg,image/webp" class="vh"><button class="btn" type="button" id="imgClear">지우기</button></div>
+                <p class="imginfo" id="imgInfo"></p>
+                <div id="imgOpts">
+                  <fieldset><legend>쌓는 자리</legend><label><input type="radio" name="imgPos" value="under"> 눈코입 아래 (피부 위)</label><label><input type="radio" name="imgPos" value="top"> 맨 위</label></fieldset>
+                  <fieldset><legend>붙일 텍스처</legend><label><input type="radio" name="imgOn" value="both"> 둘 다</label><label><input type="radio" name="imgOn" value="open"> 기본만</label><label><input type="radio" name="imgOn" value="closed"> 감은눈만</label></fieldset>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <p class="group-l">얼굴 레이어 (위가 앞)</p>
+            <div class="field layers" id="layers"></div>
+          </div>
+          <div class="export">
+            <button class="btn default" type="button" data-dlg="export"><b>앱으로 가져가기</b><small>코드 복사 · 파일 받기</small></button>
+            <button class="btn" type="button" data-dlg="upload"><b>라이브러리에 올리기</b><small>로그인 필요</small></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="library" aria-labelledby="lib-title">
+    <div class="sec-head">
+      <h2 id="lib-title">커스텀 라이브러리</h2>
+      <p>다른 사람이 만든 캐릭터를 골라 앱으로 가져가거나, 그걸로 시작해서 고쳐요.</p>
+    </div>
+    <div class="win">
+      <div class="bar">📁 라이브러리<span class="ctl" aria-hidden="true"><i>_</i><i>□</i><i class="x">×</i></span></div>
+      <div class="body">
+        <div class="lib-tools">
+          <div class="field">🔍 이름 · 태그로 찾기</div>
+          <button class="btn" type="button" aria-pressed="true">인기</button>
+          <button class="btn" type="button" aria-pressed="false">최신</button>
+          <button class="btn" type="button" aria-pressed="false">많이 가져간</button>
+        </div>
+        <div class="lib" id="lib"></div>
+        <p class="sample">카드를 누르면 그 캐릭터로 위 만들기 창이 바뀌어요. 이름 · 숫자는 시안용 예시예요.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="about" aria-labelledby="about-title">
+    <div class="sec-head">
+      <h2 id="about-title">책상 위에서 하는 일</h2>
+      <p>다른 프로그램 위에 켜 두어도 방해되지 않게 작고 조용하게.</p>
+    </div>
+    <div class="win feat">
+      <div class="bar">ℹ️ 소개</div>
+      <div class="body">
+        <div class="feat-list field" role="tablist" id="featList"></div>
+        <div class="feat-show">
+          <div class="field" id="featShot" role="img" aria-label="내가 만든 캐릭터로 보여 주는 장면"></div>
+          <p class="feat-note">위에서 만든 캐릭터가 나와요. 실제 페이지에선 이 자리에 GIF 를 넣어도 돼요.</p>
+          <h3 id="featTitle"></h3>
+          <p id="featText"></p>
+          <ul class="keys" id="featKeys" hidden>
+            <li><kbd>클릭</kbd> 쓰다듬기 — 하트가 뿅뿅</li>
+            <li><kbd>끌고 흔들기</kbd> 거칠게 흔들면 어지러워해요</li>
+            <li><kbd>끈 채로 우클릭</kbd> 그 자세로 고정 · 마우스를 쳐다봐요 · 다시 끌면 풀려요</li>
+            <li><kbd>B</kbd> 👑 때리기 — 뿅망치로 콩 <button class="btn" type="button" id="bonkBtn">🔨 때리기</button></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section wrap" aria-labelledby="shots-title">
+    <div class="sec-head"><h2 id="shots-title">스크린샷</h2><p>실제 화면</p></div>
+    <div class="shots">
+      <div class="field">스크린샷 1</div><div class="field">스크린샷 2</div><div class="field">스크린샷 3</div><div class="field">스크린샷 4</div>
+    </div>
+  </section>
+
+  <section class="section wrap" id="download" aria-labelledby="dl-title">
+    <div class="sec-head"><h2 id="dl-title">내려받기</h2><p>마음에 들었다면 지금 책상에 데려가요.</p></div>
+    <div class="end">
+      <div class="win">
+        <div class="bar">💾 설치</div>
+        <div class="body">
+          <div class="row">
+            <button class="btn big default" type="button" data-dl="win"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="#F25022" d="M1 1h6.5v6.5H1z"/><path fill="#7FBA00" d="M8.5 1H15v6.5H8.5z"/><path fill="#00A4EF" d="M1 8.5h6.5V15H1z"/><path fill="#FFB900" d="M8.5 8.5H15V15H8.5z"/></svg>Windows 내려받기</button>
+            <button class="btn big" type="button" data-dl="mac">macOS 내려받기</button>
+          </div>
+          <dl class="spec">
+            <dt>운영체제</dt><dd>Windows 10 이상 · macOS</dd>
+            <dt>최신 버전</dt><dd>v0.11.3</dd>
+            <dt>가입</dt><dd>초대 코드 필요 · 지금은 새 초대장 발급을 잠시 멈췄어요</dd>
+          </dl>
+        </div>
+      </div>
+      <div class="win">
+        <div class="bar">💬 같이 이야기해요</div>
+        <div class="body">
+          <p style="margin:0;color:var(--ink-soft);font-size:14px">버그 제보 · 질문 · 새 소식은 여기에서.</p>
+          <div class="row">
+            <a class="btn" href="#download">오픈카톡</a>
+            <a class="btn" href="https://help.together-working.com/" target="_blank" rel="noopener">도움말</a>
+            <a class="btn" href="#download">후원하기</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span>© Together Working</span>
+    <a href="https://help.together-working.com/privacy" target="_blank" rel="noopener">개인정보 처리방침</a>
+    <a href="https://help.together-working.com/" target="_blank" rel="noopener">도움말</a>
+  </div>
+</footer>
+
+<div class="dlg-back" id="dlg" hidden>
+  <div class="win dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+    <div class="bar"><span id="dlgTitle"></span><span class="ctl"><i class="x" id="dlgX" role="button" tabindex="0" aria-label="닫기">×</i></span></div>
+    <div class="body" id="dlgBody"></div>
+  </div>
+</div>
+<script src="main.js"></script>
+</body>
+</html>
