@@ -14,6 +14,7 @@
 function createDeviceLost(deps){
 const getMyUserId = deps.getMyUserId;
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 방 나가기
+const _acctRelaunchAfterDetach = deps._acctRelaunchAfterDetach;   // 앱 다시 켜기(account-state.js) — 못 하면 onFallback 을 부르고 false
 window._deviceSessionLost = false;
 function _onDeviceSessionLost(){
   if(window._deviceSessionLost) return;
@@ -22,16 +23,33 @@ function _onDeviceSessionLost(){
   const ov = document.getElementById('deviceSessionOverlay');
   if(ov) ov.style.display = 'flex';
 }
-function _deviceSessionContinueHere(){
+/* 이어 쓰기 = 내 presence(ver 실림) · 기기 세션을 다시 쓴 뒤 앱을 다시 켠다.
+   밀어낸 쪽이 같은 계정의 ≤0.10.2 면 presence 가 «켜짐 · ver 없음» 이 되는 순간 규칙(옛 앱 읽기 막기)이 이 앱의
+   구독(친구 · 카탈로그 · 알림 …)을 다 끊고, 끊긴 구독은 다시 걸리지 않는다 — 다시 켜야 산다.
+   ⚠️ 다시 켜기 전에 presence(ver)부터 — «ver 없음» 인 채로 켜면 부팅 구독이 또 막힌다.
+   다시 켜기를 못 하는 판이면 여기서 화면만 닫는다(예전과 같다). */
+let _continuing = false;
+let _continueLabel = '';   // 다시 켜는 동안 바꾼 버튼 글 — 다시 켜기를 못 해 여기서 이어 가면 되돌린다
+function _continueInPlace(){
+  const b1 = document.getElementById('deviceSessionContinue');
+  if(b1){ b1.disabled = false; b1.textContent = _continueLabel; }
+  _continuing = false;
   const ov = document.getElementById('deviceSessionOverlay');
   if(ov) ov.style.display = 'none';
   window._deviceSessionLost = false;
+}
+async function _deviceSessionContinueHere(){
+  if(_continuing) return;   // 이미 누름
+  _continuing = true;
+  const b1 = document.getElementById('deviceSessionContinue');
+  if(b1){ _continueLabel = b1.textContent; b1.disabled = true; b1.textContent = '다시 시작하는 중…'; }
   const myId = getMyUserId();
   try{
-    if(window.firebaseAPI && firebaseAPI.claimDeviceSession) firebaseAPI.claimDeviceSession(myId, _onDeviceSessionLost);
     /* presence 재등록 — 밀릴 때 _myPresenceRef 를 놓았으므로 setMyPresenceOnline 의 «중복 등록 방지» 를 지나 다시 건다. */
     if(window.firebaseAPI && firebaseAPI.setMyPresenceOnline) firebaseAPI.setMyPresenceOnline(myId);
+    if(window.firebaseAPI && firebaseAPI.claimDeviceSession) await firebaseAPI.claimDeviceSession(myId, _onDeviceSessionLost);
   }catch(_){}
+  _acctRelaunchAfterDetach(_continueInPlace);
 }
 {
   const b1 = document.getElementById('deviceSessionContinue');
