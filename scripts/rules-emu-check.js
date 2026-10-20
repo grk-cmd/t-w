@@ -255,7 +255,18 @@ const LIMIT_CASES = [
   ['옛 앱 — presence 켜기(ver 없음)', 'PUT', `users/${OLD2_U}/presence`, { online: true, lastSeen: 1, room: null, inRoom: false }, true],
   ['옛 앱 — 카탈로그 읽기', 'GET', 'catalog/parts', null, false, 'authOld'],
   ['옛 앱 — 카탈로그 버전', 'GET', 'catalogMeta', null, false, 'authOld'],
-  ['옛 앱 — 원격 설정(minRoomVer)', 'GET', 'config/minRoomVer', null, false, 'authOld'],
+  /* 방 입장 최소 버전은 옛 앱도 읽는다 — 0.10.2 는 못 읽으면 «조회 실패는 통과» 로 방에 들어간다. 읽으면 스스로 멈춘다. */
+  ['옛 앱 — 방 입장 최소 버전(minRoomVer)은 읽힌다', 'GET', 'config/minRoomVer', null, true, 'authOld'],
+  ['  ↳ 다른 원격 설정은 막힘', 'GET', 'config/minAppVer', null, false, 'authOld'],
+  /* 방 멤버 칸을 새로 만들 때 — 그 사람(userId) presence 가 «켜짐 · ver 없음»(≤0.10.2 가 켜져 있음)이면 거절.
+     0.10.2 와 0.11 은 멤버 칸 모양이 같아 칸으로는 못 가른다. 이미 있는 칸 고치기 · 지우기 · userId 없는 칸은 그대로. */
+  ['옛 앱 — 방 멤버 칸 새로 만들기(입장)', 'PUT', `rooms/${ROOM}/mold000001`, { ...JOIN, userId: OLD2_U }, false],
+  ['준비: 새 앱 presence(켜짐 · ver 있음)', 'PUT', `users/${NEW2_U}/presence`, { online: true, lastSeen: 1, ver: '0.11.3', room: null, inRoom: false }, true, OWNER],
+  ['새 앱 — 방 멤버 칸 새로 만들기(입장)', 'PUT', `rooms/${ROOM}/mnew000001`, { ...JOIN, userId: NEW2_U }, true],
+  ['새 앱 — presence 꺼짐(ver 없음)이 남은 사람의 입장', 'PUT', `rooms/${ROOM}/mupg000001`, { ...JOIN, userId: UP_U }, true],
+  ['준비: 옛 앱이 켜지기 전에 만든 멤버 칸(규칙 건너뜀)', 'PUT', `rooms/${ROOM}/mold000002`, { ...JOIN, userId: OLD2_U }, true, OWNER],
+  ['  ↳ 이미 있는 칸 고치기는 된다(상태 update)', 'PATCH', `rooms/${ROOM}/mold000002`, { state: 'idle', lastSeen: TS }, true],
+  ['  ↳ 지우기(나가기)도 된다', 'DELETE', `rooms/${ROOM}/mold000002`, null, true],
   ['옛 앱 — 공지 · 업데이트 공지', 'GET', 'announce/current', null, false, 'authOld'],
   ['옛 앱 — 업데이트 공지', 'GET', 'updateNotice/current', null, false, 'authOld'],
   ['옛 앱 — 친구 사용자 칸', 'GET', `users/${GOOD_U2}`, null, false, 'authOld'],
