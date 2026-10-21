@@ -109,14 +109,24 @@ function leaveSignals(src){
   deps.twNav = { NAV: { ROOM_LOBBY: 'roomLobby', LEAVE_ROOM: 'leaveRoom' }, on: () => {}, go: (n) => { went.push(n); } };
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  // 갈아타기 중 깃발을 시험에서만 바꾸려고 내놓는 이름에 하나 더한다(모듈 원본은 그대로)
+  const src2 = src.replace('return {\n  doCreateRoomInChannel,', 'return {\n  __setHop: (v)=>{ _hoppingRoom = v; },\n  doCreateRoomInChannel,');
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
-    NET_PRE + src + '\nreturn window.TwRoomEntry;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+    NET_PRE + src2 + '\nreturn window.TwRoomEntry;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
   const m = api.createRoomEntry(deps);
-  const seq = [];
-  for(const v of [false, true, true, false, false]){ inRoom = v; m.refreshInviteUI(); seq.push(went.filter(n => n === 'roomLobby').length); }
-  return seq.join();
+  const n = () => went.filter(x => x === 'roomLobby').length;
+  const step = (room, hop) => { inRoom = room; if(hop !== undefined) m.__setHop(hop); m.refreshInviteUI(); return n(); };
+  const plain = [step(false), step(true), step(true), step(false), step(false)].join();
+  // 갈아타기 성공: 안 → (갈아타는 중 밖) → 새 방 안 → finally(안) — 알림 없음
+  went.length = 0; step(true, false);
+  const hopOk = [step(false, true), step(true, true), step(true, false)].join();
+  // 갈아타기 실패: 안 → (갈아타는 중 밖) → finally(밖) — 그때 한 번
+  went.length = 0; step(true, false);
+  const hopFail = [step(false, true), step(false, false)].join();
+  return plain + '|' + hopOk + '|' + hopFail;
 }
-const judgeLeave = (src) => { try{ return leaveSignals(src) === '0,0,0,1,1'; }catch(_){ return false; } };
+const judgeLeave = (src) => { try{ return leaveSignals(src).split('|')[0] === '0,0,0,1,1'; }catch(_){ return false; } };
+const judgeHop = (src) => { try{ const r = leaveSignals(src).split('|'); return r[1] === '0,0,0' && r[2] === '0,1'; }catch(_){ return false; } };
 const judgeSecret = (src) => { const r = callsWith(src, 'ME'); return !r.calls.includes('getMySecretRoom') && !r.calls.includes('getSecretRoomPub') && r.asked === 1; };
 
 const rows = judgeAll(MOD, SRC, HTML);
@@ -124,12 +134,15 @@ rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i =
 say('── 2-2. 내 시크릿룸 — 판정 한 곳');
 chk(judgeSecret(MOD), 'F1 시크릿룸 칸은 provider 의 mySecretRoom 에 한 번 묻는다 · firebaseAPI 를 직접 읽지 않는다');
 chk(judgeLeave(MOD), '★ 방 안 → 밖으로 바뀐 순간에만 로비에 알린다(NAV.ROOM_LOBBY) — 처음 · 계속 밖 · 계속 안은 안 알림');
+chk(judgeHop(MOD), '★ 방 갈아타기 — 새 방에 들어가면 알림 0 · 실패해 밖에 남으면 그때 한 번');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace('Promise.resolve(mySecretRoom()).then(', "firebaseAPI.getMySecretRoom(getMyUserId()); Promise.resolve(mySecretRoom()).then(");
   chk(m2 !== MOD && !judgeSecret(m2), '방 창이 시크릿룸을 따로 읽으면 — 판정 한 곳이 빨강');
-  const m3 = MOD.replace('const left = _wasInRoom && !on;', 'const left = !on;');
+  const m3 = MOD.replace('const left = !_hoppingRoom && _wasInRoom && !on;', 'const left = !on;');
   chk(m3 !== MOD && !judgeLeave(m3), '나온 순간이 아니라 밖일 때마다 알리면 — 로비 알림 판정이 빨강');
+  const m4 = MOD.replace('const left = !_hoppingRoom && _wasInRoom && !on;', 'const left = _wasInRoom && !on;').replace('if(!_hoppingRoom) _wasInRoom = on;', '_wasInRoom = on;');
+  chk(m4 !== MOD && !judgeHop(m4), '갈아타는 중을 안 거르면 — 갈아타기 판정이 빨강');
 }
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/room-entry.js"></script>', '')],

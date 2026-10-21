@@ -592,10 +592,12 @@ function _refreshSecretRoomUI(){
     if(s && inp && !inp.value) inp.value=s.code.replace(/^SCRT-/,'');
   }).catch(()=>{});
 }
+let _hoppingRoom = false;   // 🎲 방 갈아타기 중(아래 doHopRandomRoom) — refreshInviteUI 도 읽어서 여기 둔다
 let _wasInRoom = false;   // 방 안 → 밖으로 바뀐 순간을 잡는다(모달이 열린 채 나가면 로비가 다시 읽어야 한다)
 function refreshInviteUI(){ const on=Presence.active();
-  const left = _wasInRoom && !on;
-  _wasInRoom = on;
+  // 갈아타는 동안(나갔다 바로 들어감)은 «나온 순간» 이 아니다 — 끝에 finally 가 다시 부를 때 판정한다(실패해 밖에 남으면 그때 알림)
+  const left = !_hoppingRoom && _wasInRoom && !on;
+  if(!_hoppingRoom) _wasInRoom = on;
   _refreshSecretRoomUI();
   document.getElementById('inviteIdle').style.display=on?'none':'';
   document.getElementById('inviteActive').style.display=on?'':'none';
@@ -988,8 +990,7 @@ async function doJoinRandomRoom(){
    ★ 후보를 먼저 확정한 뒤에 나간다 — 나가고 나서 찾으면 옮길 곳이 없을 때 그냥 혼자 남는다.
      (그래도 나간 뒤 입장이 실패할 창은 남는다. 그 경우는 아래에서 안내하고 끝낸다)
    ★ 지금 방은 후보에서 뺀다 — 안 그러면 "옮겼는데 그대로"가 된다(제자리 재입장).
-   ⚠️ 연타 방지 — 나가기·입장이 각각 await 라, 두 번 누르면 두 방에 반쯤 걸친 상태가 된다. */
-let _hoppingRoom = false;
+   ⚠️ 연타 방지 — 나가기·입장이 각각 await 라, 두 번 누르면 두 방에 반쯤 걸친 상태가 된다(_hoppingRoom 은 refreshInviteUI 위에 선언). */
 function _setHopBusy(busy){
   ['inviteHopRandom','fsInviteHopRandom'].forEach(id=>{
     const b=document.getElementById(id); if(!b) return;

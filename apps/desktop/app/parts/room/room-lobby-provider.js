@@ -45,7 +45,7 @@ async function mySecretRoom(){
   if(!owned || owned.uid !== uid){
     const p = readOwned(uid);
     owned = { uid, p };
-    p.catch(() => { if(owned && owned.p === p) owned = null; });   // 못 읽었으면 다음에 다시
+    p.catch(() => { if(owned && owned.p === p) owned = null; });   // 던졌으면(firebaseAPI 가 아직 없음 등) 다음에 다시 — api 가 실패를 null 로 돌려주면 그 null 은 세션 동안 기억된다(옛 F1 칸과 같다)
   }
   const o = await owned.p;
   if(!o) return null;
