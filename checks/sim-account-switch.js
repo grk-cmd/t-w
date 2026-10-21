@@ -133,7 +133,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' + [
       "const syncFocusTotalToServer=async(r)=>{ env.calls.push('flush:focus:'+r); env.mark = env.total; env.hasMark = true; };",
       /* 🎰 가챠는 gacha.js 모듈(앱 FSD 8번) — app.js 는 gachaMod.syncGachaToServer · owned · resetMemory 로 부른다. 메모리 칸은 아래 let 이 대신한다 */
-      "const gachaMod={ syncGachaToServer:async(r)=>{ env.calls.push('flush:gacha:'+r); }, owned:()=>gachaOwned, resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; } };",
+      "const gachaMod={ syncGachaToServer:async(r)=>{ env.calls.push('flush:gacha:'+r); }, owned:()=>gachaOwned, unsynced:(srv)=>{ let n=0; for(const k in gachaOwned) n+=Math.max(0,(gachaOwned[k]|0)-((srv||{})[k]|0)); return n; }, resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; } };",
       /* 👑 달성표는 weekly-challenge.js 모듈 — app.js 는 weeklyChal.syncChalToServer · resetMemory 로 부른다. 메모리 칸은 여기 let 이 대신한다 */
       "const weeklyChal={ syncChalToServer:async(r)=>{ env.calls.push('flush:chal:'+r); }, resetMemory(){ env.calls.push('chal:reset'); chalRec = _chalBlank(); _chalDirty = false; } };",
       "const syncSlotsToServer=async(r)=>{ env.calls.push('flush:slots:'+r); };",
@@ -212,7 +212,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
        여기선 **마크를 안 옮기는 flush**(쓰기가 거부된 기기)로 바꿔 끼운다. */
     const g = new Function('env', 'localStorage', 'window',
       Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' +
-      "const syncFocusTotalToServer=async()=>{}; const gachaMod={ syncGachaToServer:async()=>{}, owned:()=>gachaOwned, resetMemory(){} }; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const syncSlotsToServer=async()=>{};\n" +
+      "const syncFocusTotalToServer=async()=>{}; const gachaMod={ syncGachaToServer:async()=>{}, owned:()=>gachaOwned, unsynced:(srv)=>{ let n=0; for(const k in gachaOwned) n+=Math.max(0,(gachaOwned[k]|0)-((srv||{})[k]|0)); return n; }, resetMemory(){} }; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const syncSlotsToServer=async()=>{};\n" +
       "let _slotsPushTimer=null; const clearTimeout=()=>{}; const setTimeout=()=>0; const _slotsHasLocal=()=>false;\n" +
       "let gachaOwned={}; let _gachaTs=0; let _gachaBonus=0; let _focusTotalSec=env.total, _focusTodaySec=0;\n" +
       "const _hasFocusSyncedMark=()=>env.hasMark; const _getFocusSyncedMark=()=>env.mark;\n" +
@@ -285,6 +285,14 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(r && r.items && r.items.length === 2, '★ 첫 실패에서 끝내지 않고 **전 항목**을 센다 (' + (r && r.items ? r.items.length : 0) + '개)');
     chk(r && r.items && r.items[0].label === '캐릭터 2개' && /뽑은 파츠 1개/.test(r.items[1].label), '  항목에 **이름과 개수**가 있다 — «이 컴퓨터에만 있는 것: 캐릭터 2개 · 뽑은 파츠 1개» (' + (r && r.items ? r.items.map(i => i.label).join(' · ') : '') + ')');
     chk(e.LS.getItem(K.MY_USER_ID_KEY) === 'uA', '  여전히 아무것도 안 지웠다');
+    /* B-1021-13 — 서버에 보유분이 «있어도» 이 PC 뽑기가 다 올라가지 않았으면 막는다(예전엔 «하나라도 있나» 만 봐서 지웠다) */
+    e = mkEnv({ gacha: { p1: 2, p9: 1 }, srvGacha: { owned: { p1: 1 }, ts: 5 } }); fillA(e);
+    r = await e.m.detach();
+    chk(r && r.ok === false && r.items && r.items.length === 1 && /뽑은 파츠/.test(r.items[0].label) && r.kind === 'denied' && e.LS.getItem(K.MY_USER_ID_KEY) === 'uA',
+        '★ 서버에 일부만 있으면(p1 1/2 · p9 없음) 막는다 — 서버에 못 올라간 뽑기를 로그아웃이 지우지 않게');
+    e = mkEnv({ gacha: { p1: 1 }, srvGacha: { owned: { p1: 3 }, ts: 5 } }); fillA(e);
+    r = await e.m.detach();
+    chk(r && r.ok === true, '  서버가 더 많으면(다른 PC 에서 뽑음) 통과');
     e = mkEnv({ slotsTs: 0, fastTimeout: true }); fillA(e);
     r = await e.m.detach();
     chk(r && r.kind === 'timeout' && r.timedOut === true, '★ 8초 상한에 걸린 뒤의 «없다» 는 timeout — «아직 올리는 중» 이라고 말할 재료');

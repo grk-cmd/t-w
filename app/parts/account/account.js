@@ -368,12 +368,13 @@ async function _acctPreflight(uid, opt){
       else if(!(typeof ts === 'number' && ts > 0)) push(lblSlots, '캐릭터를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
     }
   }catch(_){ push(lblSlots, '캐릭터 저장 상태를 확인하지 못했어요', 'unknown'); }
-  /* 🎰 가챠 — 로컬 보유분이 있으면 서버에도 보유분이 있어야 한다. */
+  /* 🎰 가챠 — 이 PC 의 뽑기가 서버에 다 있어야 한다(파츠마다 개수까지). «서버에 하나라도 있나» 만 보면
+     서버에 못 올라간 뽑기가 있어도 통과해서 로그아웃이 지웠다(B-1021-13). */
   try{
     if(nGacha && api.loadGachaOwned){
       const srv = await api.loadGachaOwned(uid);
       if(srv === null || srv === undefined) push(lblGacha, '파츠 저장 상태를 확인하지 못했어요', 'unknown');
-      else if(!Object.keys(srv.owned || {}).length) push(lblGacha, '뽑은 파츠를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
+      else if(gachaMod().unsynced(srv.owned) > 0) push(lblGacha, '뽑은 파츠를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
     }
   }catch(_){ push(lblGacha, '파츠 저장 상태를 확인하지 못했어요', 'unknown'); }
   /* 🕒 누적 시간 — 마크가 로컬 누적을 따라잡았어야 한다(2분은 왕복 사이에 쌓이는 폭). */
