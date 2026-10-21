@@ -3,7 +3,7 @@ import * as THREE_NS from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { affineFor, createBody, frontMap, paintFront, type FrontCtxLike, type FrontMap } from '../src/index';
+import { FRONT_PAD_PX, affineFor, createBody, frontMap, padTriangle, paintFront, type FrontCtxLike, type FrontMap } from '../src/index';
 
 /* 진짜 three r128 + 앱에 든 진짜 기본 몸 GLB — 얼굴 메쉬의 정면 조각이 앞모습 판과 UV 사이를 제대로 잇는지 본다. */
 const THREE = { ...THREE_NS, SkeletonUtils };
@@ -145,19 +145,34 @@ describe('frontMap — 앱 기본 몸', () => {
 describe('paintFront', () => {
   function recorder() {
     const log: string[] = [];
+    /** 조각마다 자른 경로의 점들 */
+    const paths: number[][] = [];
     const ctx: FrontCtxLike = {
       save: () => log.push('save'),
       restore: () => log.push('restore'),
       beginPath: () => log.push('begin'),
-      moveTo: () => {},
-      lineTo: () => {},
+      moveTo: (x, y) => paths.push([x, y]),
+      lineTo: (x, y) => paths[paths.length - 1]!.push(x, y),
       closePath: () => {},
       clip: () => log.push('clip'),
       setTransform: (...m) => log.push('tf:' + m.map((v) => v.toFixed(3)).join(',')),
       drawImage: (_i, x, y, w, h) => log.push(`draw:${x},${y},${w},${h}`),
     };
-    return { ctx, log };
+    return { ctx, log, paths };
   }
+
+  it('조각은 padTriangle 로 민 삼각형으로 자른다(딱 맞게 자르지 않는다)', () => {
+    const { ctx, paths } = recorder();
+    const tris = map.tris.slice(0, 5);
+    paintFront(ctx, { frame: map.frame, tris }, {}, 512, 512);
+    expect(paths.length).toBe(tris.length);
+    tris.forEach((t, i) => {
+      const d = t.dst.map((v) => v * 512);
+      const want = padTriangle(d, FRONT_PAD_PX);
+      paths[i]!.forEach((v, k) => expect(v).toBeCloseTo(want[k]!, 9));
+      expect(paths[i]).not.toEqual(d);
+    });
+  });
 
   it('조각마다 잘라서 한 번씩 그린다 · save/restore 짝이 맞는다', () => {
     const { ctx, log } = recorder();
@@ -186,5 +201,60 @@ describe('paintFront', () => {
     expect(paintFront(ctx, map, {}, 0, 512)).toBe(0);
     expect(paintFront(ctx, map, {}, 512, 0)).toBe(0);
     expect(log).toEqual([]);
+  });
+});
+
+/* 모서리마다 바깥으로 민 거리 — 꼭짓점이 상한(MITER_MAX)에 잘리지 않은 모서리는 정확히 px */
+function edgeOffsets(t: number[], p: number[]) {
+  const out: number[] = [];
+  for (let e = 0; e < 3; e++) {
+    const a = e * 2, b = ((e + 1) % 3) * 2;
+    const ex = t[b]! - t[a]!, ey = t[b + 1]! - t[a + 1]!, L = Math.hypot(ex, ey);
+    const dist = (x: number, y: number) => Math.abs((x - t[a]!) * ey - (y - t[a + 1]!) * ex) / L;
+    out.push(Math.min(dist(p[a]!, p[a + 1]!), dist(p[b]!, p[b + 1]!)));
+  }
+  return out;
+}
+
+describe('padTriangle — 모서리마다 바깥으로 민다', () => {
+  it('정삼각형은 세 모서리 모두 정확히 px 만큼(돌림 방향과 상관없이)', () => {
+    const t = [0, 0, 100, 0, 50, 86.6025403784];
+    for (const tri of [t, [t[0]!, t[1]!, t[4]!, t[5]!, t[2]!, t[3]!]]) {
+      const offs = edgeOffsets(tri, padTriangle(tri, 1.5));
+      for (const o of offs) expect(o).toBeCloseTo(1.5, 6);
+    }
+  });
+
+  it('돌림 방향(시계 · 반시계)과 상관없이 바깥으로 — 원래 꼭짓점이 밀린 삼각형의 모서리마다 px 만큼 안쪽', () => {
+    const ccw = [10, 10, 60, 12, 30, 40];
+    const cw = [ccw[0]!, ccw[1]!, ccw[4]!, ccw[5]!, ccw[2]!, ccw[3]!];
+    for (const t of [ccw, cw]) {
+      const p = padTriangle(t, 1);
+      const area2 = (p[2]! - p[0]!) * (p[5]! - p[1]!) - (p[4]! - p[0]!) * (p[3]! - p[1]!);
+      const s = Math.sign(area2);
+      // 밀린 삼각형의 모서리마다, 원래 삼각형의 맞은 모서리 두 끝이 안쪽으로 1 이상 떨어져 있다
+      for (let e = 0; e < 3; e++) {
+        const a = e * 2, b = ((e + 1) % 3) * 2;
+        const ex = p[b]! - p[a]!, ey = p[b + 1]! - p[a + 1]!, L = Math.hypot(ex, ey);
+        const inside = (x: number, y: number) => (s * (ex * (y - p[a + 1]!) - ey * (x - p[a]!))) / L;
+        expect(inside(t[a]!, t[a + 1]!)).toBeGreaterThanOrEqual(1 - 1e-9);
+        expect(inside(t[b]!, t[b + 1]!)).toBeGreaterThanOrEqual(1 - 1e-9);
+      }
+    }
+  });
+
+  it('진짜 얼굴 메쉬(512 텍스처) — 가는 조각도 모서리마다 FRONT_PAD_PX 만큼 밀린다(가운데에서 키우던 옛 방식은 0.19)', () => {
+    let min = Infinity;
+    for (const tr of map.tris) {
+      const d = tr.dst.map((v) => v * 512);
+      for (const o of edgeOffsets(d, padTriangle(d, FRONT_PAD_PX))) min = Math.min(min, o);
+    }
+    expect(FRONT_PAD_PX).toBeGreaterThanOrEqual(1);
+    expect(min).toBeGreaterThanOrEqual(FRONT_PAD_PX - 1e-6);
+  });
+
+  it('넓이 0 · px 0 이면 그대로', () => {
+    expect(padTriangle([0, 0, 1, 1, 2, 2], 1)).toEqual([0, 0, 1, 1, 2, 2]);
+    expect(padTriangle([0, 0, 5, 0, 0, 5], 0)).toEqual([0, 0, 5, 0, 0, 5]);
   });
 });

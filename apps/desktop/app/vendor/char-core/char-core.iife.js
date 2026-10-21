@@ -1,4 +1,4 @@
-/* @tw/char-core 0.4.1 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
+/* @tw/char-core 0.4.2 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
 "use strict";
 var TwCharCore = (() => {
   var __defProp = Object.defineProperty;
@@ -56,6 +56,7 @@ var TwCharCore = (() => {
     fixMatLighting: () => fixMatLighting,
     flatEmissive: () => flatEmissive,
     frontMap: () => frontMap,
+    padTriangle: () => padTriangle,
     paintFront: () => paintFront,
     unb64: () => unb64,
     uvFill: () => uv_fill_exports
@@ -1047,14 +1048,25 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
     const d = ((v2 - v0) * (x1 - x0) - (v1 - v0) * (x2 - x0)) / det;
     return [a, b, c, d, u0 - a * x0 - c * y0, v0 - b * x0 - d * y0];
   }
-  var FRONT_PAD_PX = 0.8;
-  function padded(t, px) {
-    const cx = (t[0] + t[2] + t[4]) / 3;
-    const cy = (t[1] + t[3] + t[5]) / 3;
+  var FRONT_PAD_PX = 1;
+  var MITER_MAX = 4;
+  function padTriangle(t, px) {
+    const P = [0, 2, 4].map((i) => [t[i], t[i + 1]]);
+    const area2 = (P[1][0] - P[0][0]) * (P[2][1] - P[0][1]) - (P[2][0] - P[0][0]) * (P[1][1] - P[0][1]);
+    if (!(Math.abs(area2) > 1e-12) || !(px > 0)) return t.slice(0, 6);
+    const sign = area2 > 0 ? 1 : -1;
+    const normal = (i) => {
+      const a = P[i], b = P[(i + 1) % 3];
+      const ex = b[0] - a[0], ey = b[1] - a[1], l = Math.hypot(ex, ey) || 1;
+      return [ey / l * sign, -ex / l * sign];
+    };
     const out = [];
-    for (let i = 0; i < 6; i += 2) {
-      const dx = t[i] - cx, dy = t[i + 1] - cy, l = Math.hypot(dx, dy) || 1;
-      out.push(t[i] + dx / l * px, t[i + 1] + dy / l * px);
+    for (let i = 0; i < 3; i++) {
+      const n1 = normal((i + 2) % 3), n2 = normal(i);
+      const bx = n1[0] + n2[0], by = n1[1] + n2[1], bl = Math.hypot(bx, by);
+      const len = bl > 1e-6 ? Math.min(2 * px / bl, px * MITER_MAX) : px * MITER_MAX;
+      const ux = bl > 1e-6 ? bx / bl : n2[0], uy = bl > 1e-6 ? by / bl : n2[1];
+      out.push(P[i][0] + ux * len, P[i][1] + uy * len);
     }
     return out;
   }
@@ -1066,7 +1078,7 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
       const d = t.dst.map((v) => v * texSize);
       const m = affineFor(s, d);
       if (!m) continue;
-      const clip = padded(d, FRONT_PAD_PX);
+      const clip = padTriangle(d, FRONT_PAD_PX);
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(clip[0], clip[1]);
@@ -1414,7 +1426,7 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
 
   // src/index.ts
   var THREE_REVISION = "128";
-  var VERSION = "0.4.1";
+  var VERSION = "0.4.2";
   function createCharCore(deps) {
     const THREE = deps?.THREE;
     if (!THREE) throw new Error("char-core: deps.THREE 가 필요하다");
