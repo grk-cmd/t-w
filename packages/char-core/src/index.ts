@@ -26,6 +26,8 @@ export { createBody, BASE_HEIGHT } from './body';
 export { createFace, CANVAS_SZ, FACE_SYM_SUM, SKIN_COLORS } from './face';
 export { createTone, HUE_GLSL } from './tone';
 export type { Tone, ToneDeps, HueUniforms, Hsv } from './tone';
+export { frontMap, paintFront, affineFor, FRONT_PAD_PX } from './front-paint';
+export type { FrontMap, FrontTri, FrontFrame, FrontOptions, FrontCtxLike, FrontGeometryLike } from './front-paint';
 export { createParts } from './parts';
 export type { Parts, PartsDeps, PrepareHooks, RigOptions, DefaultOffsets, PartXf, XfOptions } from './parts';
 export type { Face, FaceDeps, CanvasLike } from './face';
