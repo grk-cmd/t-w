@@ -101,6 +101,11 @@ export interface Messages {
   heroCtaDownload: string;
   heroCtaMaker: string;
   heroNote: string;
+  landName: string;
+  landAria: string;
+  landLocked: string;
+  landSound: string;
+  landOk: string;
   makerTitle: string;
   makerLead: string;
   makerWinTitle: string;
@@ -146,6 +151,11 @@ export const ko: Messages = {
   heroCtaDownload: '내려받기 ↓',
   heroCtaMaker: '캐릭터 만들어 보기 →',
   heroNote: '초대 코드가 있어야 가입할 수 있어요',
+  landName: '투게더랜드',
+  landAria: '투게더랜드 (잠겨 있음)',
+  landLocked: '이 문은 아직 잠겨 있어요.',
+  landSound: '어딘가에서 새로운 땅을 짓는 소리가 들려요…',
+  landOk: '확인',
   makerTitle: '캐릭터 만들기',
   makerLead:
     '얼굴 레이어를 골라 쌓고 옷 색을 고르면 기본 · 감은눈 얼굴이 함께 만들어져요. 로그인 없이 해 볼 수 있어요.',
@@ -304,6 +314,11 @@ export const en: Messages = {
   heroCtaDownload: 'Download ↓',
   heroCtaMaker: 'Make a character →',
   heroNote: 'An invite code is required to sign up',
+  landName: 'Together Land',
+  landAria: 'Together Land (locked)',
+  landLocked: 'This door is still locked.',
+  landSound: 'You can hear something new being built somewhere…',
+  landOk: 'OK',
   makerTitle: 'Character Maker',
   makerLead:
     'Stack face layers and pick clothing colors — the default and eyes-closed faces are made together. No login needed.',
@@ -465,6 +480,11 @@ export const ja: Messages = {
   heroCtaDownload: 'ダウンロード ↓',
   heroCtaMaker: 'キャラを作ってみる →',
   heroNote: '登録には招待コードが必要です',
+  landName: 'トゥゲザーランド',
+  landAria: 'トゥゲザーランド(ロック中)',
+  landLocked: 'この扉はまだ閉ざされています。',
+  landSound: 'どこかで新しい土地をつくる音が聞こえる…',
+  landOk: 'OK',
   makerTitle: 'キャラクターメーカー',
   makerLead:
     '顔のレイヤーを重ねて服の色を選ぶと、通常と目閉じの顔が一緒に作られます。ログインなしで試せます。',

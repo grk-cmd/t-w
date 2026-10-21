@@ -20,6 +20,8 @@ describe('미리 그린 페이지', () => {
       expect(html).toContain(`<html lang="${lang}"`);
       expect(html).toContain(`<title>${m.metaTitle}</title>`);
       expect(html).toContain(m.heroTitleB);
+      expect(html).toContain(`aria-label="${m.landAria}"`); // 투게더랜드 잠긴 아이콘 — 경고창은 누를 때만
+      expect(html).not.toContain(m.landLocked);
       expect(html).toContain(`<link rel="canonical" href="${SITE_ORIGIN}${pathFor(lang)}"/>`);
       expect(html).not.toMatch(/%TW_LANG%|<!--tw-head-->|<!--tw-body-->/);
     }
