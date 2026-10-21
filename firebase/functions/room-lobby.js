@@ -88,8 +88,10 @@ function lobbyFrom(metas, tree, banned, now){
 
 async function buildRoomLobby(db, idx, tree, now){
   const codes = lobbyCandidates(idx, now);
-  let banned = [];
-  try{ banned = cleanBannedList((await db.ref(BANNED_PATH).get()).val()); }catch(_){}
+  // 금칙어를 못 읽은 회차는 쓰지 않는다 — «목록 없음» 으로 보면 걸린 제목이 그대로 나간다(옛 사본이 남고 앱은 at 으로 낡음을 본다)
+  let banned;
+  try{ banned = cleanBannedList((await db.ref(BANNED_PATH).get()).val()); }
+  catch(_){ return { candidates: codes.length, working: 0, together: 0, failed: 0, bannedFailed: true }; }
   const metas = {};
   let failed = 0;
   for (let i = 0; i < codes.length; i += LOBBY_READ_BATCH){

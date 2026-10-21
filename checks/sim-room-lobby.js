@@ -134,6 +134,12 @@ function fakeDb(init){
     chk(s3.working === 45 && peak > 1 && peak <= RL.LOBBY_READ_BATCH, '★ _meta 는 LOBBY_READ_BATCH 씩 동시에 읽는다(하나씩 기다리지 않음 · 한꺼번에 다 쏘지도 않음)');
     const db2 = fakeDb({ rooms: { 'WORK-AA11': { _meta: { channel: 'workingroom', open: true, title: '나쁜말' } } } });
     await RL.buildRoomLobby(db2, { 'WORK-AA11': { lastSeen: now, open: true } }, { 'WORK-AA11': { m1: now } }, now);
+    const db4 = fakeDb({ roomLobby: { workingroom: { at: 1, rooms: { 'WORK-OLD1': { t: '옛 사본' } } } }, rooms: { 'WORK-AA11': { _meta: { channel: 'workingroom', open: true, title: '나쁜말' } } } });
+    const realRef4 = db4.ref;
+    db4.ref = (p) => p === 'config/bannedWords' ? { ...realRef4(p), get: async () => { throw new Error('denied'); } } : realRef4(p);
+    const s4 = await RL.buildRoomLobby(db4, { 'WORK-AA11': { lastSeen: now, open: true } }, { 'WORK-AA11': { m1: now } }, now);
+    chk(s4.bannedFailed === true && db4.data.roomLobby.workingroom.rooms['WORK-OLD1'] && !db4.data.roomLobby.workingroom.rooms['WORK-AA11'],
+      '★ 금칙어를 못 읽은 회차는 쓰지 않는다(«목록 없음» 과 다름) — 옛 사본이 남는다');
     chk(db2.data.roomLobby.workingroom.rooms['WORK-AA11'].t === '나쁜말', '  금칙어 목록이 없으면(처음) 거르지 않는다 — 판정은 목록에 있는 말만');
   }
 

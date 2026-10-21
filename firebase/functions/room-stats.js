@@ -341,7 +341,7 @@ async function runRoomStats(db, now, opts){
       try{ emptied = await sweepEmptyRooms(db, empty, tree, now, (opts && opts.shallow) || adminShallow(db)); }
       catch(e){ emptied.failed++; }
     }
-    // 🧾 방 목록 로비 사본(room-lobby.js) — 같은 트리로 센다. 못 읽었으면 쉰다(옛 사본이 남고 앱은 at 으로 낡음을 본다).
+    // 방 목록 로비 사본(room-lobby.js) — 같은 트리로 센다. 못 읽었으면 쉰다(옛 사본이 남고 앱은 at 으로 낡음을 본다).
     if (tree){ try{ lobby = await require('./room-lobby').buildRoomLobby(db, idx, tree, now); }catch(e){ lobby.failed++; } }
   }
   let chatPurge = { waiting: 0, purged: 0, reopened: 0, failed: 0 };
@@ -375,7 +375,7 @@ async function runRoomStats(db, now, opts){
                 rows: Object.keys(idx).length, dropped, kept, failed, repaired, alive,
                 emptied: { cleared: emptied.cleared, busy: emptied.busy, kept: emptied.kept, failed: emptied.failed, secretKept: emptied.secretKept,
                            serverKept: emptied.serverKept, codes: emptied.codes }, chatPurge, lobby };
-  if (dropped || failed || repaired || alive.ghosts || alive.failed || emptied.cleared || emptied.failed || emptied.serverKept || chatPurge.purged || chatPurge.failed || lobby.failed) console.log('[roomStats]', JSON.stringify(sum));
+  if (dropped || failed || repaired || alive.ghosts || alive.failed || emptied.cleared || emptied.failed || emptied.serverKept || chatPurge.purged || chatPurge.failed || lobby.failed || lobby.bannedFailed) console.log('[roomStats]', JSON.stringify(sum));
   return sum;
 }
 
